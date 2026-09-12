@@ -149,6 +149,7 @@ test.describe('커맨드 SSE 복원력 (RECONNECT_STORM_SRS FR-RCS-6)', () => {
       es.onopen();
     });
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    // **예외 (`TEST-16`)**: 구독이 **늘지 않음**을 잰다.
     await page.waitForTimeout(200);
     expect(await esCount(page)).toBe(1);
   });

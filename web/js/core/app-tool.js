@@ -457,7 +457,7 @@ Object.assign(App.prototype, {
     if(!this._restoreLive('background',t)) return;
     this._bg=Array.isArray(r.data.background)?r.data.background:[];
     this._restoreEnd('background',t);
-    this._updateStatusBar();
+    this.updateStatusBar();
     if(this._bgModalOpen) this._bgModalRender();
   },
 
@@ -476,11 +476,11 @@ Object.assign(App.prototype, {
       // 터미널 탭을 pane 에 직접 넣으므로(`_restoreTool`) 그 게이트가 여기에도
       // 있어야 한다 — 없으면 Editor 창에 터미널 탭이 생기고, 일반 창만 걷는
       // `_migrateEditorTabs` 가 그것을 영원히 지나친다. Git 창도 같은 구멍이다.
-      const a=this._aw();
-      const cur=this._isEditorWin(a)||this._isGitWin(a)?null:a;
+      const a=this.aw();
+      const cur=this.isEditorWin(a)||this.isGitWin(a)?null:a;
       const pn=(this.focused&&cur&&cur.layout?findPane(cur.layout,this.focused):null)
         ||(cur&&cur.layout?firstPane(cur.layout):null)
-        ||this._plainWindows().map(s=>firstPane(s.layout)).find(Boolean)
+        ||this.plainWindows().map(s=>firstPane(s.layout)).find(Boolean)
         ||null;
       if(pn) return pn;
       // 창이 하나도 없는 것은 delWindow 가 _mkWindow 를 끝내기 전의 과도
@@ -497,14 +497,32 @@ Object.assign(App.prototype, {
     // FR-BGR-5: 대상을 먼저 확정한다. 백그라운드 해제를 앞세우면 대상이 없을 때
     // 도구가 목록에도 탭에도 없는 — 어디서도 닿을 수 없는 상태가 된다.
     const pn=await this._restorePane(opts);
-    if(!pn){console.warn('[bg] 복귀할 분할 칸 없음',opts.paneId||this.focused);return}
-    if(!await this._setToolBackground(toolId,false)) return;
-    if(!this.tools.has(toolId)) this._mkTool(toolId,DEFAULT_TOOL_NAME);
+    /**
+     * FUI-21: **실패를 화면이 말한다.**
+     *
+     * 이 함수는 백그라운드 모달의 행 클릭에서 불리고, 그 모달은 **이미 닫혀
+     * 있다** (`_bgModalToggle(false)` 가 먼저 돈다). 그래서 `console.warn` 은
+     * 사용자에게 아무것도 아니었다 — 화면에서 보면 "눌렀는데 아무 일도 없음"
+     * 이고, 그 상태에서 할 수 있는 것은 같은 것을 다시 누르는 일뿐이다.
+     *
+     * 도구는 두 갈래 모두에서 **백그라운드 목록에 그대로 남는다** (FR-BGR-5 가
+     * 대상 확정을 앞세운 이유) — 안내가 그 사실을 함께 말한다.
+     */
+    if(!pn){
+      console.warn('[bg] 복귀할 분할 칸 없음',opts.paneId||this.focused);
+      Toast.show(BG_RESTORE_NO_PANE,'err');
+      return;
+    }
+    if(!await this._setToolBackground(toolId,false)){
+      Toast.show(BG_RESTORE_FAIL,'err');
+      return;
+    }
+    if(!this.tools.has(toolId)) this.mkTool(toolId,DEFAULT_TOOL_NAME);
     const t=newEntityId();
     pn.tabs.push({id:t,name:'Shell',type:'terminal',toolId});
     this.paneTabSet(pn,t);
     this.render();
-    this._save();
+    this.save();
     this._bgRefresh();
   },
 
@@ -531,11 +549,11 @@ Object.assign(App.prototype, {
       throw new Error(r.text.trim()||'create pane failed');
     }
     const {id,name}=r.data;
-    return this._mkTool(id,name);
+    return this.mkTool(id,name);
   },
 
   async _focusedCwd(){
-    const p=this._focusedTerminal();
+    const p=this.focusedTerminal();
     if(!p) return null;
     const r=await apiGet('/api/cwd',{query:{tool:p.id}});
     return (r.data&&r.data.cwd)||null;
@@ -546,7 +564,7 @@ Object.assign(App.prototype, {
   // FR-WSL-22: 도구를 지우는 경로는 **모든 슬롯의 인스턴스**를 파괴한다. 슬롯 1 의
   // 인스턴스가 남으면 이미 죽은 PTY 로 재연결을 시도한다.
   _killToolInstances(pid){
-    for(const k of [pid,this._slotKey(pid,1)]){
+    for(const k of [pid,this.slotKey(pid,1)]){
       const p=this.tools.get(k);
       if(p){try{p.destroy()}catch{}; this.tools.delete(k)}
     }
@@ -563,14 +581,14 @@ Object.assign(App.prototype, {
     apiDel(`/api/tools/${pid}`);
   },
 
-  _aw(){return this.ws.windows.find(s=>s.id===this.ws.activeWindow)||null},
+  aw(){return this.ws.windows.find(s=>s.id===this.ws.activeWindow)||null},
 
   // _isToolInActiveWindow reports whether a pane (by id) is present in the
   // currently active window's layout. Used to route focus commands only to
   // the window that is actually viewing the source pane (multi-window).
   _isToolInActiveWindow(toolId){
     if(!toolId) return false;
-    const s=this._aw();
+    const s=this.aw();
     if(!s||!s.layout) return false;
     let found=false;
     const walk=n=>{
@@ -589,12 +607,12 @@ Object.assign(App.prototype, {
    * 탭의 규칙(FR-TAN-15)이 적용되고, 없으면 파생 이름이 답한다.
    */
   _toolName(toolId,fallback){
-    const loc=this._findToolLocation(toolId);
-    return toolDisplayName(toolId,this._fgNames,loc&&loc.tab,fallback);
+    const loc=this.findToolLocation(toolId);
+    return toolDisplayName(toolId,this.fgNames,loc&&loc.tab,fallback);
   },
 
   // 모든 창 layout 트리를 walk 해 toolId 를 가진 tab 위치 반환 (FR-PAN-16)
-  _findToolLocation(toolId){
+  findToolLocation(toolId){
     if(!toolId) return null;
     const walk=(node,win)=>{
       if(!node) return null;

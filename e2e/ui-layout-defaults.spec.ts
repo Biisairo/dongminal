@@ -122,12 +122,15 @@ async function collect(page: Page): Promise<Record<string, Row>> {
 
   const repo = copyFx('with-remote', 'lay');
   await fxOpenGit(page, repo);
-  // `changes` 는 본문 탭이 아니라 **사이드**다 — `openGit` 이 `_edSetSide` 로
+  // `changes` 는 본문 탭이 아니라 **사이드**다 — `openGit` 이 `edSetSide` 로
   // 세운다. 그래서 탭 목록(GIT_BODY_VIEWS)에 없고, 여기서 따로 뜬다.
   merge(await snap(page, 'git:changes'));
   for (const v of GIT_BODY_VIEWS) {
     await clickGitView(page, v);
-    await page.waitForTimeout(350);
+    // 그 뷰가 **선 뒤에** 스냅샷을 찍는다 — 아직 앞 뷰가 그려져 있으면 같은
+    // 표면을 두 번 찍고 새 표면은 한 번도 찍지 않는다.
+    await expect(page.locator(`#area .pn-body .git-view.git-${v}`))
+      .toHaveClass(/vis/, { timeout: 10000 });
     merge(await snap(page, 'git:' + v));
   }
 
@@ -356,6 +359,9 @@ test('V-LAY-22 (FR-LAY-1b): 모바일에서 hidden 이 .mobile-only 를 이긴�
     await waitForInit(page, { mode: 'mobile', viewport: { width: 390, height: 640 } });
     const repo = copyFx('with-remote', 'lay5');
     await fxOpenGit(page, repo).catch(() => {});
+    // **예외 (`TEST-16`)**: 위 열기가 실패해도 이어 가는 검사다 (`.catch`) —
+    // 그러므로 기다릴 신호를 전제할 수 없다. 아래가 재는 것은 **보이지 않아야
+    // 할 버튼**이므로 시간을 주는 쪽이 안전하다.
     await page.waitForTimeout(600);
 
     // FR-EDT-54: Editor·Git 창에는 새 탭 버튼의 대상이 없다. 종전에는

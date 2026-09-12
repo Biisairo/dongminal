@@ -84,7 +84,7 @@ async function openSubmodules(page: Page, repo: string) {
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate((views: readonly string[]) => {
     const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
+    a.testing.edSetSide(a.testing.aw(), 'changes');
     for (const v of views) a.gitPanel.openView(v);
   }, GIT_BODY_VIEWS);
   // FR-SUB-6: 고정 탭이 하나 늘었다.
@@ -145,7 +145,7 @@ test.describe('묶음 D — Submodules 탭', () => {
     await r.locator('.git-sub-act[data-act="open"]').click();
     await expect.poll(() => page.evaluate(() => {
       const a = (window as any).app;
-      return a._isEditorWin(a._aw()) ? a._edRootOf(a._aw()) : null;
+      return a.testing.isEditorWin(a.testing.aw()) ? a.testing.edRootOf(a.testing.aw()) : null;
     }), { timeout: 15000 }).toBe(j(repo, 'vendor', 'alpha'));
   });
 
@@ -239,7 +239,7 @@ test.describe('묶음 D — Submodules 탭', () => {
       await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
       await page.evaluate((views: readonly string[]) => {
         const a = (window as any).app;
-        a._edSetSide(a._aw(), 'changes');
+        a.testing.edSetSide(a.testing.aw(), 'changes');
         for (const v of views) a.gitPanel.openView(v);
       }, GIT_BODY_VIEWS);
 

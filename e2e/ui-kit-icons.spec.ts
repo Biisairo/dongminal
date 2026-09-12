@@ -108,3 +108,36 @@ test.describe('묶음 UIK — 아이콘이 버튼을 채운다 (V-1)', () => {
     expect(nameless, '이름 없는 아이콘 버튼: ' + JSON.stringify(nameless)).toEqual([]);
   });
 });
+
+
+/**
+ * 묶음 GAP — **아이콘과 글자 사이는 키트의 값이다** (FR-GAP-1·2·3).
+ *
+ * `TEST-7` 로 `ux-batch8` 에서 옮겨 왔다 — 아이콘의 생김새를 재는 이 파일과 같은
+ * 주제다. 접수된 결함은 `display:inline` 이라 `gap` 이 아예 걸리지 않던 것이었다.
+ */
+test('V-GAP-1: 아이콘과 글자 사이가 키트의 간격이다', async ({ page }) => {
+  await waitForInit(page);
+  const got = await page.evaluate(() => {
+    const px = (v: string) => parseFloat(v) || 0;
+    const token = px(getComputedStyle(document.documentElement).getPropertyValue('--ui-gap'));
+    const box = document.querySelector('#add-sandbox-window') as HTMLElement;
+    const ctl = document.querySelector('.slot-ctl') as HTMLElement;
+    return {
+      token,
+      boxGap: px(getComputedStyle(box).columnGap),
+      boxDisplay: getComputedStyle(box).display,
+      ctlGap: px(getComputedStyle(ctl).columnGap),
+      // 간격이 **실제로** 벌어졌는가 — 아이콘의 오른쪽 변과 글자의 시작 사이.
+      boxIconRight: (box.querySelector('svg') as SVGElement).getBoundingClientRect().right,
+      boxRight: box.getBoundingClientRect().right,
+    };
+  });
+  expect(got.token, '--ui-gap 토큰이 없다').toBeGreaterThan(0);
+  // FR-GAP-3: 값을 px 로 적지 않는다 — 토큰과 같아야 한다.
+  expect(got.boxGap).toBe(got.token);
+  expect(got.ctlGap).toBe(got.token);
+  // inline 이면 gap 이 걸리지 않는다 — 그것이 접수된 결함이었다.
+  expect(got.boxDisplay).toContain('flex');
+  expect(got.boxRight - got.boxIconRight).toBeGreaterThan(got.token);
+});

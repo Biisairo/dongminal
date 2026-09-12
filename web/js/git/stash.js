@@ -27,6 +27,8 @@ class GitStash {
     this._filter='';    // 메시지·기준 브랜치 필터 (FR-GIT-272)
     this._err=null;
     this._loading=false;
+    // FR-GRF-22: 이 리포의 목록을 받아 본 적이 있는가 (branches.js 와 같은 규약).
+    this._loadedFor=null;
     this._note=null;   // {kind,msg} — pop 잔류·실패 안내
     this._sel=null;    // 선택된 stash 인덱스 (FR-GIT-169)
     this._files=null;
@@ -94,6 +96,8 @@ class GitStash {
   paint(){
     if(!this._el) return;
     if(this.panel.repo!==this._repo) this._adopt();
+    // FR-GRF-23: 빈 목록이 굳지 않는다 (branches.js 의 같은 자리와 한 쌍).
+    else if(this._repo&&!this._loading&&this._loadedFor!==this._repo) this._load();
     if(!this._el) return;
     this._paintBar();
     this._paintNote();
@@ -158,26 +162,47 @@ class GitStash {
   }
 
 
+  /**
+   * GIT_REFRESH_LIFECYCLE_SRS FR-GRF-17·20 (`GP-9`): **목록을 비우지 않는다.**
+   *
+   *   이전 동작: `box.innerHTML=''` 후 전부 다시 만들었다
+   *   새  동작: `reconcileList` 를 지난다
+   *   이유:     이 뷰는 **바깥 계기로** 다시 그려진다 — 관측 회차마다
+   *             `_reloadViews`(panel-poll.js:157)가 `reload()` 를 부른다.
+   *             전면 교체는 hover·선택·글자 선택·우클릭 앵커를 그때마다
+   *             끊었다 (FR-RPT-1~7 이 금하는 그것이다)
+   *
+   * 안내문도 같은 목록의 한 항목이다 (FR-GRF-20).
+   */
   _paintList(){
     const box=this._el.querySelector('.git-stash-list');
-    box.innerHTML='';
-    if(this._err){
-      const d=document.createElement('div'); d.className='git-stash-empty';
-      d.textContent=this._err;
-      box.appendChild(d);
-      return;
-    }
-    const list=this.visible();
-    if(!list.length){
-      const d=document.createElement('div'); d.className='git-stash-empty';
+    const list=this._err?[]:this.visible();
+    let note=null;
+    if(this._err) note=this._err;
+    else if(!list.length){
       // 목록이 있는데 안 보이는 것과 stash 자체가 없는 것은 다른 사실이다 —
       // 뭉개면 사용자는 자기 stash 가 사라진 것으로 읽는다.
-      d.textContent=this._loading?GIT_LOADING_HINT
+      note=this._loading?GIT_LOADING_HINT
         :(this._list.length?GIT_STASH_FILTER_NONE:GIT_STASH_EMPTY);
-      box.appendChild(d);
-      return;
     }
-    for(const s of list) box.appendChild(this._rowEl(s));
+    const items=note===null?list.map(x=>({row:x})):[{note}];
+    reconcileList(box,items,{
+      key:it=>it.note!==undefined?'__note':('s:'+it.row.index),
+      sig:it=>it.note!==undefined?('n:'+it.note):this._rowSig(it.row),
+      build:it=>{
+        if(it.note!==undefined){
+          const d=document.createElement('div'); d.className='git-stash-empty';
+          d.textContent=it.note;
+          return d;
+        }
+        return this._rowEl(it.row);
+      },
+    });
+  }
+
+  // 행의 보이는 값 전부 (FR-RPT-2 · FR-GRF-19).
+  _rowSig(s){
+    return [s.index,s.message||'',s.base||'',s.atUnixMs||0,this._sel===s.index?1:0].join('\u0000');
   }
 
   /**
@@ -222,20 +247,26 @@ class GitStash {
     this._paintPreview();
   }
 
+  // FR-GRF-17: 미리보기 목록도 같은 규약이다. 머리글은 값 하나라 그대로 되쓴다.
   _paintPreview(){
     const el=this._el.querySelector('.git-stash-preview');
     const head=el.querySelector('.git-stash-preview-head');
     const box=el.querySelector('.git-stash-files');
-    box.innerHTML='';
-    if(this._sel==null){
-      head.textContent=GIT_STASH_PICK;
-      return;
+    const sel=this._sel;
+    let files=[];
+    if(sel==null) head.textContent=GIT_STASH_PICK;
+    else if(this._filesErr) head.textContent=this._filesErr;
+    else if(!this._files) head.textContent=GIT_LOADING_HINT;
+    else{
+      head.textContent=this._files.length
+        ?GIT_STASH_FILES+' ('+this._files.length+')':GIT_STASH_NO_FILES;
+      files=this._files;
     }
-    if(this._filesErr){head.textContent=this._filesErr;return}
-    if(!this._files){head.textContent=GIT_LOADING_HINT;return}
-    head.textContent=this._files.length
-      ?GIT_STASH_FILES+' ('+this._files.length+')':GIT_STASH_NO_FILES;
-    for(const f of this._files) box.appendChild(this._fileEl(this._sel,f));
+    reconcileList(box,files,{
+      key:f=>f.path,
+      sig:f=>[f.status,f.path,f.origPath||'',sel].join('\u0000'),
+      build:f=>this._fileEl(sel,f),
+    });
   }
 
   _fileEl(index,f){
@@ -265,11 +296,16 @@ class GitStash {
   async _load(){
     const repo=this._repo; if(!repo) return;
     const tok=this.panel.token();
+    // FR-GRF-31: 앞선 조회를 끊는다 (branches.js 의 같은 자리와 한 쌍).
+    const t=gitLoadTicket(this);
     this._loading=true;
     const res=await gitFetch('/api/git/stash',{repo},
-      {stale:()=>this.panel.isStale(tok),echo:{repo}});
-    if(res.stale) return;
+      {stale:()=>this.panel.isStale(tok),echo:{repo},signal:t.signal});
+    if(gitLoadTaken(this,t)) return;
+    // FR-GRF-24: 낡은 응답이 잠금을 쥔 채 나가지 않는다.
     this._loading=false;
+    if(res.stale) return;
+    this._loadedFor=repo;
     if(!res.ok){
       this._err=GIT_STASH_LOAD_FAIL;
       if(this._el) this.paint();

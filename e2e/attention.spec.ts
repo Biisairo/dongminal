@@ -59,6 +59,7 @@ test.describe('Pane attention', () => {
 
     // The alarm must PERSIST until the user attends — it must not auto-clear
     // (regression guard: raw terminal input/echo must not dismiss it).
+    // **예외 (`TEST-16`)**: 알람이 **저절로 사라지지 않음**을 잰다.
     await page.waitForTimeout(500);
     await expect(firstTab).toHaveClass(/attn/);
     await expect(badge).toBeVisible();
@@ -108,6 +109,7 @@ test.describe('Pane attention', () => {
 
     // V-ATA-1: 포커스를 다시 주장해도(창 focus 이벤트) 알람은 남는다.
     await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    // **예외 (`TEST-16`)**: 포커스를 주장해도 알람이 **사라지지 않음**을 잰다.
     await page.waitForTimeout(300);
     await expect(pane).toHaveClass(/attn/);
 
@@ -134,7 +136,7 @@ test.describe('Pane attention', () => {
     await page.evaluate(() => {
       const app = (window as any).app;
       (window as any).__beeps = 0;
-      app._attnBeep = () => { (window as any).__beeps++; };
+      app.testing.attnBeep = () => { (window as any).__beeps++; };
       (window as any).__notifs = [];
       const Spy: any = function (this: any, title: string) {
         (window as any).__notifs.push(title);
@@ -211,7 +213,7 @@ test.describe('Pane attention', () => {
 
     const cleared = await page.evaluate(async () => {
       const app = (window as any).app;
-      app._attn.clear();
+      app.testing.attn.clear();
       const real = window.fetch;
       // 복원 응답을 붙잡아 둔다 — 그 사이에 새 알람이 도착하는 상황이다.
       let release: () => void;
@@ -224,12 +226,12 @@ test.describe('Pane attention', () => {
         return real(u, o);
       };
 
-      app._attnRestore();                          // 요청 출발 (후보 = 빈 집합)
-      app._onToolAttention({ toolId: 'late', reason: 'done' }); // SSE 로 새 알람
+      app.testing.attnRestore();                          // 요청 출발 (후보 = 빈 집합)
+      app.testing.onToolAttention({ toolId: 'late', reason: 'done' }); // SSE 로 새 알람
       release!();
       await new Promise(r => setTimeout(r, 100));  // 응답 처리 완료 대기
       (window as any).fetch = real;
-      return !app._attn.has('late');
+      return !app.testing.attn.has('late');
     });
 
     expect(cleared, '복원 응답이 그 사이 도착한 알람을 지웠다').toBe(false);

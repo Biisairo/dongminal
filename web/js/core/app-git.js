@@ -21,7 +21,7 @@ Object.assign(App.prototype, {
    * (FR-RTU-62), 화면에 있는 저장소만큼만 폴링이 돈다 — 종전에도 활성 저장소
    * 하나가 폴링의 대상이었다.
    */
-  _gitObs(root){
+  gitObs(root){
     if(!this._gitObservers) this._gitObservers=new Map();
     const key=root||'';
     let o=this._gitObservers.get(key);
@@ -45,12 +45,12 @@ Object.assign(App.prototype, {
    * 아니라 **볼 사람이 없는 것**이 문제다 — 사이드가 Explorer 이고 본문에 git
    * 뷰 탭도 없으면 그 저장소의 관측을 쓰는 화면이 하나도 없다.
    *
-   * 첫 관측은 **패널을 만드는 자리**(`_gitPanel`)가 맡는다. 그 자리는 사이드가
+   * 첫 관측은 **패널을 만드는 자리**(`gitPanelAt`)가 맡는다. 그 자리는 사이드가
    * Changes 로 돌아갔거나 git 뷰 탭이 마운트될 때 렌더가 지나므로, 관측은 그
    * 표면이 실제로 화면에 설 때 시작된다 (FR-RTU-62).
    */
   _gitRescheduleAll(){
-    if(this._gitPanels) for(const p of this._gitPanels.values()) p._reschedule();
+    if(this.gitPanels) for(const p of this.gitPanels.values()) p._reschedule();
   },
 
   /**
@@ -64,12 +64,12 @@ Object.assign(App.prototype, {
    * 렌더마다 불려도 좋도록 두 겹으로 싸 둔다: 여기의 시간 문턱과, 패널 쪽의
    * 나이 판정(`_watchdog`)이다. 정상 상태에서 이 경로가 내는 요청은 0 이다.
    */
-  _gitWatchdogAll(){
-    if(!this._gitPanels||!this._gitPanels.size) return;
+  gitWatchdogAll(){
+    if(!this.gitPanels||!this.gitPanels.size) return;
     const now=Date.now();
     if(this._gitWdAt&&now-this._gitWdAt<GIT_WATCHDOG_CHECK_MS) return;
     this._gitWdAt=now;
-    for(const p of this._gitPanels.values()) p._watchdog();
+    for(const p of this.gitPanels.values()) p._watchdog();
   },
 
   /**
@@ -79,8 +79,8 @@ Object.assign(App.prototype, {
    * 칸마다 서므로 활성인 하나만 알리면 나머지는 낡은 값을 그린 채 남는다.
    */
   _gitNotifyPinsAll(){
-    if(!this._gitPanels) return;
-    for(const p of this._gitPanels.values()) if(p.notifyPins) p.notifyPins();
+    if(!this.gitPanels) return;
+    for(const p of this.gitPanels.values()) if(p.notifyPins) p.notifyPins();
   },
 
   // 패널이 하나도 남지 않은 관측기는 거둔다 — 타이머를 든 채 남으면 사라진 창의
@@ -96,7 +96,7 @@ Object.assign(App.prototype, {
 
   /**
    * FR-SVS-40·42 + REPO_TAB_UNIFY_SRS FR-RTU-60: Git 의 **시선**은 (루트, 칸)마다
-   * 하나다. 키가 `_slotKey` 를 지나므로 칸 0 의 키는 접미사가 없다 (FR-WSL-75).
+   * 하나다. 키가 `slotKey` 를 지나므로 칸 0 의 키는 접미사가 없다 (FR-WSL-75).
    *
    * 종전 키는 칸 번호뿐이었고 근거가 "Git 창은 워크스페이스에 하나" 였다
    * (FR-GIT-26). 창이 경로마다 생기면 그 전제가 깨진다 — 두 Repo 창이 같은
@@ -105,16 +105,16 @@ Object.assign(App.prototype, {
    * `root` 가 빈 문자열이면 **옛 Git 창**의 패널이다. 마이그레이션(FR-RTU-70)
    * 전까지 두 표면이 공존하므로 그 자리를 남겨 둔다.
    */
-  _gitPanel(root,slot){
-    if(!this._gitPanels) this._gitPanels=new Map();
+  gitPanelAt(root,slot){
+    if(!this.gitPanels) this.gitPanels=new Map();
     const key=this._gitPanelKey(root,slot);
-    let p=this._gitPanels.get(key);
+    let p=this.gitPanels.get(key);
     if(!p){
       // FR-RTU-24: Repo 창의 패널이 볼 저장소는 **그 창의 루트에서 나온다** —
       // `repo` getter 가 그것을 주므로 여기서 따로 정하지 않는다. 옛 Git
       // 창(root='')은 사용자가 사이드바에서 고른 리포를 따른다.
       p=new GitPanel(this,root||'');
-      this._gitPanels.set(key,p);
+      this.gitPanels.set(key,p);
       // FR-GIT-22: 새 패널의 **첫 관측**이다. 맵에 먼저 넣는 이유는 `collect` 가
       // 다시 이 함수를 지날 수 있기 때문이다.
       //
@@ -135,8 +135,8 @@ Object.assign(App.prototype, {
    * 패널의 필드에 남으므로 다시 열면 그대로다 (FR-RTU-34).
    */
   _gitDropView(root,view){
-    if(!view||!this._gitPanels) return;
-    for(const [key,p] of this._gitPanels){
+    if(!view||!this.gitPanels) return;
+    for(const [key,p] of this.gitPanels){
       if(this._gitPanelRoot(key)!==(root||'')) continue;
       if(p.dropView) p.dropView(view);
     }
@@ -154,8 +154,8 @@ Object.assign(App.prototype, {
    * 동기화가 어긋난 순간 확인이 조용히 빠진다.
    */
   _gitViewDirty(root,view){
-    if(!view||!this._gitPanels) return false;
-    for(const [key,p] of this._gitPanels){
+    if(!view||!this.gitPanels) return false;
+    for(const [key,p] of this.gitPanels){
       if(this._gitPanelRoot(key)!==(root||'')) continue;
       if(p.viewDirty&&p.viewDirty(view)) return true;
     }
@@ -167,9 +167,9 @@ Object.assign(App.prototype, {
    * 호출자는 그때 닫기를 멈춘다. 저장한 줄 알고 닫으면 그것이 곧 손실이다.
    */
   async _gitViewSave(root,view){
-    if(!view||!this._gitPanels) return true;
+    if(!view||!this.gitPanels) return true;
     let ok=true;
-    for(const [key,p] of this._gitPanels){
+    for(const [key,p] of this.gitPanels){
       if(this._gitPanelRoot(key)!==(root||'')) continue;
       if(p.viewSave&&!await p.viewSave(view)) ok=false;
     }
@@ -187,20 +187,20 @@ Object.assign(App.prototype, {
    * 탭은 **있는지**만 본다. 활성인지까지 따지면 사용자가 Diff 와 History 를
    * 오갈 때마다 관측이 멎었다 살아나고, 돌아온 탭이 낡은 내용을 먼저 보인다.
    */
-  _gitSurfaceOn(w){
+  gitSurfaceOn(w){
     if(!w) return false;
-    if(this._edSideOf(w)===REPO_SIDE_CHANGES) return true;
+    if(this.edSideOf(w)===REPO_SIDE_CHANGES) return true;
     if(!w.layout) return false;
-    for(const pn of this._flattenPanes(w.layout))
+    for(const pn of this.flattenPanes(w.layout))
       if((pn.tabs||[]).some(t=>t&&t.type===TAB_TYPE_GIT)) return true;
     return false;
   },
 
   // 키의 조립은 여기 하나다 — 회수(`_gitPanelReap`)가 같은 규칙으로 되풀어야
   // 하고, 두 벌이 되면 한쪽만 고쳐진다.
-  _gitPanelKey(root,slot){ return this._slotKey('git:'+(root||''),slot||0) },
+  _gitPanelKey(root,slot){ return this.slotKey('git:'+(root||''),slot||0) },
   _gitPanelRoot(key){
-    const base=this._slotBase(key);
+    const base=this.slotBase(key);
     return base.startsWith('git:')?base.slice(4):'';
   },
 
@@ -212,15 +212,15 @@ Object.assign(App.prototype, {
    * (FR-EDT-42) — 창이 없는 패널은 볼 사람이 없다.
    */
   _gitPanelReap(){
-    if(!this._gitPanels||!this._gitPanels.size) return;
+    if(!this.gitPanels||!this.gitPanels.size) return;
     const n=this.slotCount();
     // 살아 있는 루트: Repo 창들의 루트 + 옛 Git 창의 자리('').
     const live=new Set(['']);
-    for(const s of this.ws.windows) if(this._isEditorWin(s)) live.add(this._edRootOf(s));
-    for(const [key,p] of this._gitPanels){
+    for(const s of this.ws.windows) if(this.isEditorWin(s)) live.add(this.edRootOf(s));
+    for(const [key,p] of this.gitPanels){
       if(this._slotOf(key)<n&&live.has(this._gitPanelRoot(key))) continue;
       p.destroy();
-      this._gitPanels.delete(key);
+      this.gitPanels.delete(key);
     }
     // 패널이 사라지면 그 관측기도 볼 사람이 없다.
     this._gitObsReap();
@@ -234,19 +234,19 @@ Object.assign(App.prototype, {
    * 상태바와 사이드바가 딛을 패널이 있어야 하고, 그 자리는 종전과 같다.
    */
   _gitRootOfActive(){
-    const w=this._aw();
-    return this._isEditorWin(w)?this._edRootOf(w):'';
+    const w=this.aw();
+    return this.isEditorWin(w)?this.edRootOf(w):'';
   },
 
-  // _gitWindow 는 워크스페이스의 Git 창이다. 없으면 null (FR-GIT-26).
-  _gitWindow(){return this.ws.windows.find(s=>s&&s.type===WINDOW_TYPE_GIT)||null},
+  // gitWindow 는 워크스페이스의 Git 창이다. 없으면 null (FR-GIT-26).
+  gitWindow(){return this.ws.windows.find(s=>s&&s.type===WINDOW_TYPE_GIT)||null},
 
   // FR-GIT-179·182: Git 창은 닫힌 창이고 창 목록·순환의 대상이 아니다. 판정은
   // 이 두 곳에만 둔다 — 조건이 흩어지면 한 곳이 빠져도 조용히 지나간다.
-  _isGitWin(s){return !!(s&&s.type===WINDOW_TYPE_GIT)},
+  isGitWin(s){return !!(s&&s.type===WINDOW_TYPE_GIT)},
   // EDITOR_TAB_SRS FR-EDT-45: Editor 창도 같은 근거로 창 목록·창 순회의 대상이
   // 아니다 — 진입점은 Editor 탭의 행뿐이다. 판정을 여기 하나에 모은다.
-  _plainWindows(){return this.ws.windows.filter(s=>!this._isGitWin(s)&&!this._isEditorWin(s))},
+  plainWindows(){return this.ws.windows.filter(s=>!this.isGitWin(s)&&!this.isEditorWin(s))},
 
   /**
    * FR-GIT-183a → FR-SBT-23·24: Git 창을 떠날 때 가는 창.
@@ -265,15 +265,15 @@ Object.assign(App.prototype, {
    * 저장소 하나에 창 하나라 그 창 자체가 재조정으로 사라진다 — 그 처리는
    * `_edAfterChange` 가 목록이 바뀌는 모든 경로에서 이미 한다.
    *
-   * 자리를 남겨 두는 이유는 호출자(`_gitUnpin`)가 하나 있기 때문이다. 지우면서
+   * 자리를 남겨 두는 이유는 호출자(`gitUnpin`)가 하나 있기 때문이다. 지우면서
    * 그쪽 배선까지 건드리면 이 마일스톤의 범위를 넘는다.
    */
   _gitLeaveIfRemoved(){},
 
   // Windows 탭이 돌아갈 자리이기도 하다 (FR-SBT-23·36) — Git 창이 사라져도
   // 그 계산은 남는다.
-  _gitBackTarget(){
-    const plain=this._plainWindows();
+  gitBackTarget(){
+    const plain=this.plainWindows();
     return plain.find(s=>s.id===this._lastPlainWindow)||plain[0]||null;
   },
 
@@ -291,7 +291,7 @@ Object.assign(App.prototype, {
       ws.push(w);
       return w;
     });
-    if(n) this._save();
+    if(n) this.save();
   },
 
   /**
@@ -306,8 +306,8 @@ Object.assign(App.prototype, {
    */
   async openGitWindow(repo){
     if(!repo) return null;
-    if(!this._edWindowFor(repo)) await this._edMutate('/add',{path:repo});
-    const win=this._edWindowFor(repo);
+    if(!this.edWindowFor(repo)) await this.edMutate('/add',{path:repo});
+    const win=this.edWindowFor(repo);
     if(!win) return null;
     this.switchWindow(win.id);
     return win.id;
@@ -351,7 +351,7 @@ Object.assign(App.prototype, {
      * 이르게 잡는 것은 여전히 렌더다. 모자랐던 것은 렌더가 **주기적이지 않다**는
      * 것이다: 사용자 조작과 `workspace_changed` 로만 돈다.
      *
-     * `when` 은 주지 않는다 — 판정은 `_gitWatchdogAll` 자신이 하고(문턱 → 나이),
+     * `when` 은 주지 않는다 — 판정은 `gitWatchdogAll` 자신이 하고(문턱 → 나이),
      * 그것을 스케줄러로 옮기면 같은 판단이 두 곳에 선다 (FR-SCH-4).
      *
      * `whenHidden:'pause'` 인 것은 git status job(`'run'`)과 근거가 다르다. 그쪽은
@@ -362,7 +362,7 @@ Object.assign(App.prototype, {
     this.timers.every({
       id:'git.watchdog', owner:'git:lifecycle', whenHidden:'pause',
       every:()=>GIT_WATCHDOG_CHECK_MS,
-      run:()=>this._gitWatchdogAll(),
+      run:()=>this.gitWatchdogAll(),
     });
   },
 
@@ -381,12 +381,12 @@ Object.assign(App.prototype, {
    */
   _gitLifecycle(kind){
     this._gitRescheduleAll();
-    if(kind) this._gitSignal(kind);
+    if(kind) this.gitSignal(kind);
   },
 
-  // _gitSignal 은 즉시 신호의 단일 진입점이다 (FR-GIT-18). 어디서 왔는지는 라벨로만
+  // gitSignal 은 즉시 신호의 단일 진입점이다 (FR-GIT-18). 어디서 왔는지는 라벨로만
   // 남기고 처리는 GitPanel 이 한다 — 디바운스와 게이팅이 한 곳에 있어야 한다.
-  _gitSignal(kind){ if(this.gitPanel) this.gitPanel.signal(kind) },
+  gitSignal(kind){ if(this.gitPanel) this.gitPanel.signal(kind) },
 
   /**
    * FR-GIT-41·185 의 Open File. addTab 의 editor 분기를 그대로 쓴다 — 이미 열려
@@ -396,12 +396,12 @@ Object.assign(App.prototype, {
    * 없으면 만든다 (O15). 연 뒤 그 창을 활성화한다 — 열었는데 보이지 않으면
    * 사용자는 실패로 읽는다.
    */
-  async _gitOpenFile(filePath){
+  async gitOpenFile(filePath){
     if(!filePath) return;
     // FR-EDT-94·97: 편집기 탭은 일반 창에 열리지 않는다. 대상 창은 **활성 리포
     // 경로에 연결된 Editor** 다 — 파일 경로로 고르지 않는다. 연동(FR-EDT-31)으로
     // 핀이 걸린 리포에는 그 Editor 가 늘 있다.
-    if(this._edOn()){ await this._edOpenFile(filePath,{anchor:this._gitActiveRepo()}); return }
+    if(this.edOn()){ await this.edOpenFile(filePath,{anchor:this._gitActiveRepo()}); return }
     const w=await this._gitPlainTarget(); if(!w) return;
     const rid=this._gitPaneOf(w);
     if(rid) await this.addTab(rid,'editor',{filePath,windowId:w.id});
@@ -415,13 +415,13 @@ Object.assign(App.prototype, {
    * 탭 이름에 그것이 HEAD 의 것임을 적는다 — 워킹 트리의 파일과 구분되지 않으면
    * 사용자가 그 자리에서 편집한 것이 저장소에 반영된다고 오해한다.
    */
-  async _gitOpenFileHead(openPath,relPath){
+  async gitOpenFileHead(openPath,relPath){
     if(!openPath) return;
     const name=pathBase(relPath||openPath)+GIT_HEAD_TAB_SUFFIX;
     // FR-EDT-94·98: Open File 과 같은 규약이다 — **리포로 고른다.** 서버는 HEAD 의
     // 내용을 저장소 밖에 놓으므로 파일로 고르면 언제나 폴백으로 떨어진다. 그 임시
     // 파일이 탐색기 루트 밖인 것은 정상이다 (FR-EDT-99).
-    if(this._edOn()){ await this._edOpenFile(openPath,{name,anchor:this._gitActiveRepo()}); return }
+    if(this.edOn()){ await this.edOpenFile(openPath,{name,anchor:this._gitActiveRepo()}); return }
     const w=await this._gitPlainTarget(); if(!w) return;
     const rid=this._gitPaneOf(w);
     if(rid) await this.addTab(rid,'editor',{filePath:openPath,name,windowId:w.id});
@@ -431,7 +431,7 @@ Object.assign(App.prototype, {
    * FR-GIT-244: worktree 에서 터미널 탭을 연다. Open File 과 **같은 대상 창**을
    * 쓴다 — Git 창에는 열지 않는다 (FR-GIT-179).
    */
-  async _gitOpenTerminal(cwd){
+  async gitOpenTerminal(cwd){
     if(!cwd) return;
     const w=await this._gitPlainTarget(); if(!w) return;
     const rid=this._gitPaneOf(w);
@@ -445,7 +445,7 @@ Object.assign(App.prototype, {
    * Open File 과 터미널 열기가 이 한 자리를 쓴다 — 두 벌로 두면 한쪽만 고쳐진다.
    */
   async _gitPlainTarget(){
-    const plain=this._plainWindows();
+    const plain=this.plainWindows();
     let w=plain.find(s=>s.id===this._lastPlainWindow)||plain[0];
     if(!w) w=await this._mkWindow();
     if(!w||!w.layout) return null;
@@ -463,9 +463,9 @@ Object.assign(App.prototype, {
    * 두 목록이 같은 집합이므로(§2.1) 경로로 짝지으면 된다. 저장소가 아닌 행에는
    * 배지가 없다 — `gitPinnedEntries` 가 그때 `badge:null` 을 싣는다.
    */
-  _gitBadgeFor(path){
+  gitBadgeFor(path){
     if(!path) return null;
-    const hit=this._gitPinEntry(path);
+    const hit=this.gitPinEntry(path);
     return (hit&&hit.badge)||null;
   },
 
@@ -477,9 +477,9 @@ Object.assign(App.prototype, {
    * 목록의 행이 이 값을 읽고 있었고, 두 탭을 합칠 때 그 절반이 빠졌다 (실측:
    * V-RMS-11 이 행의 title 에서 사유를 찾지 못했다).
    */
-  _gitPinEntry(path){
+  gitPinEntry(path){
     if(!path) return null;
-    const pinned=((this._gitRepos||{}).pinned)||[];
+    const pinned=((this.gitRepos||{}).pinned)||[];
     return pinned.find(e=>e&&e.path===path)||null;
   },
 
@@ -491,7 +491,7 @@ Object.assign(App.prototype, {
   // 위해 요청을 살 이유가 없다 (_startStatsPoll 의 선례, FR-STAT-17).
   _startGitReposPoll(){
     if(this._gitReposPoll) this._gitReposPoll.stop();
-    this._gitReposPoll=visiblePoll(()=>gitReposInterval,()=>this._gitReposRefresh(),{immediate:true});
+    this._gitReposPoll=visiblePoll(()=>gitReposInterval,()=>this.gitReposRefresh(),{immediate:true});
   },
 
   /**
@@ -504,7 +504,7 @@ Object.assign(App.prototype, {
    * 그것이었다 (D-FLW-6, 옛 FR-GIT-210).
    */
   _gitTermToolId(){
-    const p=this._focusedTerminal();
+    const p=this.focusedTerminal();
     if(p){this._lastTermTool=p.id; return p.id}
     // 포커스가 터미널이 아니면(Git·Editor 창) **워크스페이스를 다시 읽는다.**
     //
@@ -528,9 +528,9 @@ Object.assign(App.prototype, {
   // 일반 창의 활성 탭 중 터미널인 것. 여러 개면 마지막으로 쓴 창을 먼저 본다 —
   // 그것이 사용자가 방금 떠나온 자리다.
   _anyTermToolId(){
-    // 판정은 `_plainWindows` 하나다 — Git 창만 걸러 두면 Editor 창의 탭이
+    // 판정은 `plainWindows` 하나다 — Git 창만 걸러 두면 Editor 창의 탭이
     // 후보가 되는데, 거기에는 터미널 탭이 애초에 없다 (FR-EDT-54).
-    const wins=this._plainWindows();
+    const wins=this.plainWindows();
     const order=wins.slice().sort((a,b)=>
       (b.id===this._lastPlainWindow?1:0)-(a.id===this._lastPlainWindow?1:0));
     for(const w of order){
@@ -557,7 +557,7 @@ Object.assign(App.prototype, {
     // REPO_TAB_UNIFY_SRS FR-RTU-1·6: 탭 id 는 `repo` 다. 옛 `'git'` 문자열이
     // 그대로 남아 있어 **배지가 영영 서지 않았다** — 관측을 부르는 조건이 늘
     // 거짓이었다 (실측: V-GOB-1).
-    return this._sbTab===REPO_TAB_ID;
+    return this.sbTab===REPO_TAB_ID;
   },
 
   /**
@@ -578,6 +578,21 @@ Object.assign(App.prototype, {
   _onGitChanged(a){
     const repo=a&&a.repo;
     if(!repo||!this._gitObservers) return;
+    /**
+     * GIT_REFRESH_LIFECYCLE_SRS FR-GRF-28 (`GP-12`): **숨어 있으면 받지 않는다.**
+     *
+     *   이전 동작: 방송은 모든 클라이언트에 가고, 숨은 탭의 관측기도 그대로
+     *             `collect()` 했다. 부수효과로 **숨은 탭이 낸 status 가 서버의
+     *             임대를 계속 살려** 그 저장소의 1초 감시가 멎지 않았다
+     *   새  동작: `document.hidden` 이면 아무것도 하지 않는다
+     *   이유:     `GIT_LIVE_TRIGGERS_SRS` FR-GLW-3 이 "숨으면 전 패널이 조건을
+     *             다시 보고 폴링을 걷는다" 를 이미 정했고 `_gitLifecycle` 이
+     *             그것을 한다 — 방송 경로만 그 가드 **밖**에 있었다
+     *
+     * 놓친 변화는 복귀에서 갚는다 (D-GRF-7): 가시성 복귀가 `signal()` 을 내고
+     * 그것이 수집으로 간다. 버리는 것이 아니라 미루는 것이다.
+     */
+    if(typeof document!=='undefined'&&document.hidden) return;
     // 관측기는 **저장소마다** 하나다 (FR-GIT-26·29). 방송이 가리키는 저장소를
     // 보고 있는 관측기만 움직인다 — 남의 저장소 이벤트로 이 창이 요청을 내면
     // 종전에 없던 요청이 생긴다.
@@ -599,6 +614,9 @@ Object.assign(App.prototype, {
       // 이미 본 값이면 받지 않는다 (FR-GPO-22). 재연결 직후 서버가 현재 값을
       // 다시 알릴 수 있고, 그때 방금 받은 화면을 또 받을 이유가 없다.
       if(a.mark&&o._gitMark===a.mark) continue;
+      // FR-GRF-29: 보고 있는 표면이 있는 관측기만 움직인다. 없으면 이 방송이
+      // 만드는 요청은 아무도 읽지 않는 값을 위한 것이다 (NFR-RTU-1 과 같은 근거).
+      if(!o.pollOkAny()) continue;
       o._gitMark=a.mark||'';
       p.collect();
     }
@@ -617,9 +635,9 @@ Object.assign(App.prototype, {
     }
   },
 
-  // _gitReposRefresh 는 GIT 섹션의 목록을 갱신한다. 실패하면 이전 목록을 유지한다 —
+  // gitReposRefresh 는 GIT 섹션의 목록을 갱신한다. 실패하면 이전 목록을 유지한다 —
   // 네트워크가 한 번 튀었다고 섹션이 비면 안 된다.
-  async _gitReposRefresh(){
+  async gitReposRefresh(){
     // UX_REVISION_SRS FR-GRR-1: **낡은 응답이 새 목록을 덮지 않는다.**
     //
     // 이 함수는 3초 폴링과 핀/해제 직후 양쪽에서 불린다. 핀이 쌓여 응답이 느려지면
@@ -640,7 +658,7 @@ Object.assign(App.prototype, {
       this._gitOff=true;this.renderer._rGitSection();this.renderer._rSbTabs();return;
     }
     if(!res.ok) return;
-    this._gitOff=false;this._gitRepos=res.data;
+    this._gitOff=false;this.gitRepos=res.data;
     // 전체 render() 를 부르지 않는다 — 터미널 재부착 비용이 크다.
     this.renderer._rGitSection();
     // FR-SBT-8·12: 탭의 표시 여부(`_gitOff`)와 배지(변경 있는 핀 수)가 이 값에서
@@ -715,8 +733,8 @@ Object.assign(App.prototype, {
    * 아니므로 성공으로 답하되, 목록이 늘지 않은 이유를 알린다.
    */
   async _gitAddRepoRun(path){
-    const before=((this._gitRepos||{}).pinned||[]).length;
-    const d=await this._gitPin(path);
+    const before=((this.gitRepos||{}).pinned||[]).length;
+    const d=await this.gitPin(path);
     if(!d||!d.ok) return {ok:false,reason:(d&&d.reason)||GIT_ADD_REPO_FAIL};
     if(d.pinned&&d.pinned.length===before) return {ok:false,reason:GIT_ADD_REPO_DUP};
     return {ok:true};
@@ -747,7 +765,7 @@ Object.assign(App.prototype, {
     const d=res.data;
     if(!res.ok){
       // FR-BLP-12: 서버가 아는 순서를 다시 받아 화면을 맞춘다.
-      await this._gitReposRefresh();
+      await this.gitReposRefresh();
       return;
     }
     this._gitPinsApply(d.pinned);
@@ -760,7 +778,7 @@ Object.assign(App.prototype, {
   // 서버가 준 경로 순서로 목록을 맞춘다. 목록에만 있는 항목(방금 도착한 핀)은
   // 뒤에 남긴다 — 서버가 모르는 것을 버리지 않는다.
   _gitPinsSort(order){
-    const arr=(this._gitRepos||{}).pinned;
+    const arr=(this.gitRepos||{}).pinned;
     if(!Array.isArray(arr)||!Array.isArray(order)) return;
     const at=new Map(order.map((p,i)=>[p,i]));
     arr.sort((a,b)=>{
@@ -770,7 +788,7 @@ Object.assign(App.prototype, {
     });
   },
 
-  // _gitPin 은 경로를 검증해 핀한다. 저장소가 아니면 사유를 보인다 (FR-GIT-12) —
+  // gitPin 은 경로를 검증해 핀한다. 저장소가 아니면 사유를 보인다 (FR-GIT-12) —
   // 조용히 실패하지 않는다.
   //
   // FR-GIT-249: `quiet` 는 **자기 안내 자리를 가진 호출자**의 것이다 (Worktrees 탭).
@@ -781,18 +799,18 @@ Object.assign(App.prototype, {
    * 자리는 호출자마다 다르다 (`+ Add` 는 다이얼로그, Worktrees 는 그 탭의 안내 줄).
    * 같은 사실을 두 번 알리면 사용자는 두 가지 일이 일어난 줄로 읽는다.
    */
-  async _gitPin(path){
+  async gitPin(path){
     if(!path) return {ok:false,reason:GIT_PIN_FAIL_LABEL};
     const res=await gitPost('/api/git/repos/pin',{path});
     const d=res.data;
     if(!res.ok) return {ok:false,reason:(d&&d.message)||GIT_PIN_FAIL_LABEL};
     this._gitPinsApply(d.pinned);
     this._edApplyLinked(d);
-    await this._gitReposRefresh();
+    await this.gitReposRefresh();
     return {ok:true,pinned:d.pinned||[]};
   },
 
-  async _gitUnpin(path){
+  async gitUnpin(path){
     if(!path) return false;
     const res=await gitPost('/api/git/repos/unpin',{path});
     const d=res.data;
@@ -800,12 +818,12 @@ Object.assign(App.prototype, {
     this._gitPinsApply(d.pinned);
     this._edApplyLinked(d);
     this._gitLeaveIfRemoved(path);
-    await this._gitReposRefresh();
+    await this.gitReposRefresh();
     return true;
   },
 
   // 핀은 workspace.json 최상위 git.pinned 에 산다 (O1). 서버가 고친 값을 로컬
-  // 사본에도 반영해 둔다 — 다음 _save() 의 PUT 이 방금 만든 핀을 지우지 않게.
+  // 사본에도 반영해 둔다 — 다음 save() 의 PUT 이 방금 만든 핀을 지우지 않게.
   _gitPinsApply(pinned){
     if(!Array.isArray(pinned)) return;
     if(!this.ws.git) this.ws.git={};
@@ -857,6 +875,6 @@ Object.defineProperty(App.prototype,'gitPanel',{
    * 사이드바 배지가 창을 보지 않을 때도 이 값을 딛는다 (panel-poll 의 signal
    * 주석과 같은 근거).
    */
-  get(){ return this._gitPanel(this._gitRootOfActive(),this._slotFocused()) },
+  get(){ return this.gitPanelAt(this._gitRootOfActive(),this.slotFocused()) },
   configurable:true,
 });

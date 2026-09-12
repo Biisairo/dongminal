@@ -89,7 +89,7 @@ async function openBranches(page: Page, repo: string) {
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate(() => {
     const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
+    a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
@@ -106,7 +106,7 @@ async function openChanges(page: Page, repo: string) {
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate(() => {
     const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
+    a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });

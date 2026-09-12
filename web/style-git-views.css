@@ -957,7 +957,16 @@ select:focus{border-color:var(--accent);outline:none}
 /* UX_REVISION_SRS FR-DEL-1~6: 삭제 목표. 백그라운드 모달의 종료(FR-BGK-1~10)와
    **같은 규약이므로 같은 모양**이다 — 두 모달에서 파괴적 동작이 다르게 생기면
    사용자가 매번 다시 읽는다. */
-.runs-box .runs-del,.runs-box .runs-confirm,.runs-box .runs-deleting{margin-left:auto;flex-shrink:0}
+/* FUI-04: `종료` 는 삭제 **왼쪽**에 선다 — 오른쪽 끝은 파괴적인 것의 자리다
+   (`runs-yes` 가 오른쪽 끝인 것과 같은 규약). `margin-left:auto` 는 그 묶음의
+   맨 앞 요소 하나에만 걸어야 둘이 붙어 선다. */
+.runs-box .runs-close,.runs-box .runs-confirm,.runs-box .runs-deleting{margin-left:auto;flex-shrink:0}
+.runs-box .runs-row:not(:has(.runs-close)) .runs-del{margin-left:auto}
+.runs-box .runs-del{flex-shrink:0}
+.runs-box .runs-close{padding:2px 8px;color:var(--text-muted);border-color:var(--border)}
+/* 종료는 파괴적이 **아니다** — 기록이 남는다. 그래서 위험색을 쓰지 않는다:
+   색이 같으면 두 버튼이 같은 일을 한다고 읽힌다. */
+.runs-box .runs-close:hover{color:var(--accent);border-color:var(--accent)}
 .runs-box .runs-del{padding:2px 8px;color:var(--text-muted);border-color:var(--border)}
 .runs-box .runs-del:hover{color:var(--danger);border-color:var(--danger);background:rgba(247,118,142,.12)}
 .runs-box .runs-confirm{display:inline-flex;gap:6px;align-items:center}
@@ -969,7 +978,7 @@ select:focus{border-color:var(--accent);outline:none}
 .runs-box .runs-err-inline{color:var(--danger);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 터치. hover 없이 닿아야 하므로 히트 영역만 키운다 (.bg-row 와 같은 44px 규약). */
 body.mobile .runs-box .runs-row{min-height:44px}
-body.mobile .runs-box .runs-del{min-height:44px;padding:0 12px}
+body.mobile .runs-box .runs-del,body.mobile .runs-box .runs-close{min-height:44px;padding:0 12px}
 
 /* FR-RVZ-6: 네 번째 탭 타입의 본문. .file-editor 와 같은 층위이므로 표시 규약도
    같다 — pane body 에 붙은 뒤 `.vis` 가 붙는다. */
@@ -1066,7 +1075,16 @@ body.mobile .runs-box .runs-del{min-height:44px;padding:0 12px}
 .run-view .run-card-ctx{white-space:nowrap;color:var(--text-muted)}
 .run-view .run-card-ctx.lv-warn{color:var(--attn)}
 .run-view .run-card-ctx.lv-critical{color:var(--danger)}
+/* FUI-04: 멤버 카드의 `분리`. 카드는 가로 한 줄이므로 버튼도 그 줄의 끝이다 —
+   `margin-left:auto` 가 카드 폭이 어떻든 오른쪽 끝에 붙인다. 실패 안내는 그
+   뒤에 남는다 (FR-DEL-6 과 같은 규약: 사유는 그 자리에 있다). */
+.run-view .run-card-detach{margin-left:auto;flex-shrink:0;padding:2px 8px;
+  color:var(--text-muted);border-color:var(--border)}
+.run-view .run-card-detach:hover{color:var(--accent);border-color:var(--accent)}
+.run-view .run-card-err{color:var(--danger);white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
 body.mobile .run-view .run-card{min-height:44px}
+body.mobile .run-view .run-card-detach{min-height:44px;padding:0 12px}
 
 /* FR-RVZ-10: 타임라인. */
 .run-view .run-timeline{padding:8px 14px 16px;font-size:11px}

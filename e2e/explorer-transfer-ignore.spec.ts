@@ -4,8 +4,17 @@ import * as path from 'path';
 
 import { APIRequestContext, Locator, Page } from '@playwright/test';
 
-import { test, expect, openRowMenu, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
+import {
+  test, expect, openRowMenu, rmTree, switchToEditorRoot, openExplorerSide, gotoWithEditors, openExplorerAt,
+} from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
+
+/**
+ * **고정 대기의 예외 (`TEST-16`).** 남아 있는 `waitForTimeout` 은 전부 **일어나지
+ * 않는 것**을 잰다 — 굳힌 뒤 다시 묻지 않는다 · 남의 창의 복사에는 복사창이 서지
+ * 않는다 · 상한을 넘는 내용은 무시된다. 기다릴 신호가 없으므로 시간을 주고 그래도
+ * 그대로인지 보는 것이 검사 자체다. 펼침을 기다리던 대기는 걷었다(트위스티).
+ */
 
 // EXPLORER_TRANSFER_IGNORE_SRS §5 — V-ETR-6~8·21~27·29~31·33~38.
 //
@@ -75,14 +84,8 @@ async function addEditor(request: APIRequestContext, p: string) {
 
 async function enter(page: Page, request: APIRequestContext, root: string) {
   await addEditor(request, root);
-  await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-  await page.waitForFunction(
-    () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
-    undefined, { timeout: 15000 });
-  await switchToEditorRoot(page, root);
-  await openExplorerSide(page);
+  await gotoWithEditors(page);
+  await openExplorerAt(page, root);
   await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
 }
 
@@ -100,8 +103,12 @@ async function ctx(page: Page, p: string, id: string) {
 
 async function open(page: Page, ...paths: string[]) {
   for (const p of paths) {
-    await row(page, p).click();
-    await page.waitForTimeout(150);
+    const r = row(page, p);
+    await r.click();
+    // 펼침이 화면에 선 뒤 다음 겹으로 간다 — 고정 대기로는 아직 닫힌 행을
+    // 다음 경로의 부모로 삼게 된다. 표식은 트위스티다 (`EDITOR_TREE_TW_OPEN`);
+    // 읽는 중이면 `·` 이므로 그 사이도 여기서 걸러진다.
+    await expect(r.locator('.ed-tw')).toHaveText('▾', { timeout: 10000 });
   }
 }
 
@@ -400,7 +407,7 @@ test.describe('묶음 F — OSC 52 (FR-ETR-37~43)', () => {
   async function feedOsc52(page: Page, payload: string) {
     await page.evaluate((p) => {
       const a = (window as any).app;
-      const pane = a._focusedTerminal();
+      const pane = a.testing.focusedTerminal();
       if (!pane || !pane.term) throw new Error('터미널이 없다');
       pane.term.write('\x1b]52;c;' + p + '\x07');
     }, payload);
@@ -415,7 +422,9 @@ test.describe('묶음 F — OSC 52 (FR-ETR-37~43)', () => {
     await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 
     await feedOsc52(page, b64('hello-osc52'));
-    await page.waitForTimeout(300);
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()), { timeout: 10000 })
+      .toBe('hello-osc52');
 
     const got = await page.evaluate(() => navigator.clipboard.readText());
     expect(got).toBe('hello-osc52');
@@ -429,7 +438,9 @@ test.describe('묶음 F — OSC 52 (FR-ETR-37~43)', () => {
     await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 
     await feedOsc52(page, b64('한글 복사 내용'));
-    await page.waitForTimeout(300);
+    await expect
+      .poll(() => page.evaluate(() => navigator.clipboard.readText()), { timeout: 10000 })
+      .toBe('한글 복사 내용');
 
     // `atob` 의 결과를 그대로 쓰면 여기서 깨진다.
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('한글 복사 내용');

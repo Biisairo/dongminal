@@ -41,7 +41,7 @@ async function mkroot(request: any, page: Page, name: string, files: Record<stri
 }
 
 async function openFile(page: Page, saved: string, rel: string) {
-  await page.evaluate((p: string) => (window as any).app._edOpenFile(p, { pin: true }),
+  await page.evaluate((p: string) => (window as any).app.testing.edOpenFile(p, { pin: true }),
     saved + '/' + rel);
   await page.waitForFunction((n: string) => {
     const eds = [...(window as any).app.fileEditors.values()];
@@ -52,7 +52,7 @@ async function openFile(page: Page, saved: string, rel: string) {
 // 이미 열린 파일을 **다시 여는** 것이 지금 있는 갱신 경로다 (SRS §2.2,
 // `app-layout.js:480` → `editor.refresh()`). 가짜 호출이 아니라 이 길로 잰다.
 async function reopen(page: Page, saved: string, rel: string) {
-  await page.evaluate((p: string) => (window as any).app._edOpenFile(p, { pin: true }),
+  await page.evaluate((p: string) => (window as any).app.testing.edOpenFile(p, { pin: true }),
     saved + '/' + rel);
 }
 
@@ -104,7 +104,8 @@ test('V-EXC-2: 내용이 같으면 setValue 하지 않는다 — 커서가 그 �
       v._editor.setPosition({ lineNumber: 3, column: 2 });
     });
     await reopen(page, saved, 'b.txt');
-    // 다시 읽어 같은 내용을 넣었다면 커서가 1,1 로 돌아간다 (FR-LSP-26b).
+    // **예외 (`TEST-16`): 커서가 되돌아가지 **않음**을 잰다.** 다시 읽어 같은
+    // 내용을 넣었다면 1,1 로 돌아간다 (FR-LSP-26b) — 기다릴 신호가 없다.
     await page.waitForTimeout(1000);
     const pos = await page.evaluate(() => {
       const v: any = [...(window as any).app.fileEditors.values()].find((e: any) => e.name === 'b.txt');
@@ -128,6 +129,7 @@ test('V-EXC-3: dirty 인 편집기는 refresh() 로 덮이지 않는다', async 
   page.on('request', (r) => { if (r.url().includes('/api/file/read')) reads++ });
 
   await reopen(page, saved, 'c.txt');
+  // **예외 (`TEST-16`)**: 편집본이 디스크 것으로 **덮이지 않음**을 잰다.
   await page.waitForTimeout(1500);
 
   expect(await valueOf(page, 'c.txt'), '편집본이 디스크 것으로 덮였다').toBe('my edit\n');
@@ -200,7 +202,7 @@ test('V-EXC-12: 경합으로 저장이 막히면 "저장 후 닫기" 가 탭을 
     writeFileSync(join(root, 'f.txt'), 'theirs\n');
 
     const loc = await page.evaluate((p: string) => {
-      const t = (window as any).app._findEditorTab(p);
+      const t = (window as any).app.testing.findEditorTab(p);
       return t ? { pane: t.pane.id, tab: t.tab.id, win: t.win.id } : null;
     }, saved + '/f.txt');
     expect(loc).not.toBeNull();
@@ -218,7 +220,7 @@ test('V-EXC-12: 경합으로 저장이 막히면 "저장 후 닫기" 가 탭을 
     await page.evaluate(() => (window as any).__close);
 
     // FR-EXC-13: 저장한 줄 알고 닫는 것이 곧 손실이다.
-    const still = await page.evaluate((p: string) => !!(window as any).app._findEditorTab(p),
+    const still = await page.evaluate((p: string) => !!(window as any).app.testing.findEditorTab(p),
       saved + '/f.txt');
     expect(still, '저장이 막혔는데 탭이 닫혔다 — 편집을 잃었다').toBe(true);
     expect(await valueOf(page, 'f.txt')).toBe('mine\n');
@@ -258,7 +260,8 @@ test('V-EXC-13 (FR-EXC-14): 저장 왕복 중에 친 내용은 dirty 로 남는�
       return v.save();
     });
 
-    // 요청이 날아간 뒤에 친다 — 이 글자는 위 요청에 담기지 않았다.
+    // **예외 (`TEST-16`): 경합을 만드는 대기다.** 요청이 날아간 뒤에 친다 —
+    // 이 글자는 위 요청에 담기지 않았다.
     await page.waitForTimeout(150);
     await page.evaluate(() => {
       const v: any = [...(window as any).app.fileEditors.values()].find((e: any) => e.name === 'a.txt');

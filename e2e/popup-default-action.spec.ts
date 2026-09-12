@@ -218,7 +218,7 @@ async function openEdConfirm(page: Page) {
   await page.evaluate(() => {
     const w = window as any;
     w.__res = undefined;
-    w.app._edConfirm(['정말 지웁니다'], '삭제').then((v: boolean) => { w.__res = v });
+    w.app.testing.edConfirm(['정말 지웁니다'], '삭제').then((v: boolean) => { w.__res = v });
   });
   await expect(page.locator('.ed-confirm .confirm-btns button').first())
     .toBeVisible({ timeout: 10000 });
@@ -250,7 +250,7 @@ async function openClose(page: Page, opts: Record<string, unknown>) {
   await page.evaluate((o) => {
     const w = window as any;
     w.__res = undefined;
-    w.app._confirmClose('테스트', o).then((v: unknown) => { w.__res = v });
+    w.app.testing.confirmClose('테스트', o).then((v: unknown) => { w.__res = v });
   }, opts);
   await page.waitForSelector('.confirm-overlay .confirm-btns button');
 }

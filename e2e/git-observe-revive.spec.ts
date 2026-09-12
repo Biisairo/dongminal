@@ -1,8 +1,9 @@
+import { writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, openGit, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, waitForInit, openGit, gitFixture, cleanGitFixture, nextFrames } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 // GIT_OBSERVE_REVIVE_SRS — 멈춘 관측이 **실제로** 되살아나는가.
@@ -41,7 +42,7 @@ async function settled(page: Page) {
 async function staleButPolling(page: Page) {
   await page.evaluate(`(() => {${PANEL}
     p._lastObsAt = Date.now() - 5 * 60 * 1000;
-    window.app._gitWdAt = 0;
+    window.app.testing.gitWdAt = 0;
   })()`);
   expect((await panelState(page)).pollOn, '폴링이 켜져 있어야 이 검사가 성립한다').toBe(true);
 }
@@ -63,7 +64,10 @@ test.describe('GIT_OBSERVE_REVIVE — 되살리기는 수집까지 간다', () =
 
     await page.evaluate('window.app.render()');
 
-    await expect.poll(() => box.n, { timeout: 10000 }).toBeGreaterThan(0);
+    // 상한은 부하의 몫이다 — 재는 것은 "그 회차가 수집으로 가는가" 이지 "몇 초에
+    // 가는가" 가 아니다. git 스펙이 한 샤드에 몰리는 전량에서 10초가 한 번
+    // 모자랐다 (`fixtures.ts` 의 첫 관측 상한과 같은 근거).
+    await expect.poll(() => box.n, { timeout: 20000 }).toBeGreaterThan(0);
     await expect
       .poll(async () => (await panelState(page)).lastObsAt, { timeout: 15000 })
       .toBeGreaterThan(before);
@@ -81,6 +85,7 @@ test.describe('GIT_OBSERVE_REVIVE — 되살리기는 수집까지 간다', () =
 
     for (let i = 0; i < 4; i++) {
       await page.evaluate('window.app.render()');
+      // **예외 (`TEST-16`)**: 워치독의 문턱을 **넘기려고** 두는 간격이다.
       await page.waitForTimeout(1300);   // GIT_WATCHDOG_CHECK_MS(1s) 를 넘긴다
     }
     await page.unroute('**/api/git/status*');
@@ -94,8 +99,9 @@ test.describe('GIT_OBSERVE_REVIVE — 되살리기는 수집까지 간다', () =
     const box = countStatus(page);
     for (let i = 0; i < 10; i++) {
       await page.evaluate('window.app.render()');
-      await page.waitForTimeout(60);
+      await nextFrames(page);
     }
+    // **예외 (`TEST-16`)**: 요청이 **나가지 않음**을 잰다.
     await page.waitForTimeout(500);
     expect(box.n, 'render 만으로 status 요청이 나갔다').toBe(0);
   });
@@ -122,7 +128,7 @@ test.describe('GIT_OBSERVE_REVIVE — 폴링 여부는 관측기가 정한다', 
    */
   async function secondPanel(page: Page) {
     return await page.evaluate(`(() => {${PANEL}
-      const p2 = window.app._gitPanel(p.root, 1);
+      const p2 = window.app.testing.gitPanelAt(p.root, 1);
       return p2 !== p && p2.obs === p.obs;
     })()`);
   }
@@ -141,7 +147,7 @@ test.describe('GIT_OBSERVE_REVIVE — 폴링 여부는 관측기가 정한다', 
      * 사건이다. 호출과 판독 사이에 그 신호가 끼면 이 검사가 남의 동작을 잰다.
      */
     const on = await page.evaluate(`(() => {${PANEL}
-      const p2 = window.app._gitPanel(p.root, 1);
+      const p2 = window.app.testing.gitPanelAt(p.root, 1);
       p2._pollOk = () => false;     // 이 칸의 표면만 사라졌다
       p2._reschedule();
       return !!p._pollOn;
@@ -156,7 +162,7 @@ test.describe('GIT_OBSERVE_REVIVE — 폴링 여부는 관측기가 정한다', 
     expect(await secondPanel(page)).toBe(true);
 
     await page.evaluate(`(() => {${PANEL}
-      const p2 = window.app._gitPanel(p.root, 1);
+      const p2 = window.app.testing.gitPanelAt(p.root, 1);
       p._pollOk = () => false;
       p2._pollOk = () => false;
       p2._reschedule();
@@ -186,13 +192,111 @@ test.describe('GIT_OBSERVE_REVIVE — 폴링 여부는 관측기가 정한다', 
       p._stop();
       p._lastObsAt = Date.now() - 5 * 60 * 1000;
       p._pollOk = () => false;
-      window.app._gitWdAt = 0;
+      window.app.testing.gitWdAt = 0;
       return p._watchdog();
     })()`);
 
     expect(woke, '보이지 않는 표면을 깨웠다').toBe(false);
     expect((await panelState(page)).pollOn).toBe(false);
+    // **예외 (`TEST-16`)**: 요청이 **나가지 않음**을 잰다.
     await page.waitForTimeout(500);
     expect(box.n, '깨우지 않았는데 요청이 나갔다').toBe(0);
+  });
+});
+
+
+/**
+ * 묶음 GLR — **멈춘 관측은 스스로 되살아난다** (FR-GLR-1~4).
+ *
+ * `TEST-7` 로 `ux-batch9` 의 묶음 B 에서 옮겨 왔다. 여기 있는 이유는 주제가
+ * 같기 때문이다 — 이 파일의 `GIT_OBSERVE_REVIVE` 가 되살리기의 **몸통**을 재고,
+ * 아래는 그것이 **불리는 계기**(그리기 한 번)를 잰다. 단정은 그대로다.
+ */
+// ── 묶음 B — 멈춘 관측은 스스로 되살아난다 ──────────────
+
+test.describe('묶음 B — 자동 갱신은 스스로 되살아난다', () => {
+  // TC-GLR-1: 종전에는 폴링이 한 번 멎으면 밖에서 알려 주기 전까지 영영 멎어
+  // 있었고, 그 사이 서버의 관심 표명도 만료돼 방송까지 함께 끊겼다 (SRS §2.3·2.4).
+  test('TC-GLR-1: 폴링이 멎어 있으면 그리기 한 번에 되살아난다', async ({ page }) => {
+    await waitForInit(page, { clearLocalStorage: true });
+    await openGit(page, gfx('basic'));
+    await expect.poll(async () => (await panelState(page)).lastObsAt, { timeout: 15000 })
+      .toBeGreaterThan(0);
+
+    // 계기가 새어 폴링이 멎은 상태를 만든다 — 관측도 낡혀 둔다.
+    // 워치독의 검사 문턱(GIT_WATCHDOG_CHECK_MS)을 연다 — 방금 그린 직후라 그
+    // 문턱이 닫혀 있고, 이 검사가 재려는 것은 문턱이 아니라 되살리기다.
+    await page.evaluate(`(() => {${PANEL} p._stop(); p._lastObsAt = Date.now() - 5 * 60 * 1000; window.app.testing.gitWdAt = 0 })()`);
+    expect((await panelState(page)).pollOn).toBe(false);
+
+    // 워치독의 계기는 이미 도는 것에 얹혀 있다 (D-4).
+    await page.evaluate('window.app.render()');
+    await expect.poll(async () => (await panelState(page)).pollOn, { timeout: 10000 }).toBe(true);
+    // 되살아난 뒤에는 관측이 실제로 갱신된다.
+    await expect
+      .poll(async () => Date.now() - (await panelState(page)).lastObsAt, { timeout: 15000 })
+      .toBeLessThan(60000);
+  });
+
+  // TC-GLR-2: 되살아난 뒤에는 창 밖의 변화가 새로고침 없이 들어온다.
+  test('TC-GLR-2: 되살아난 뒤 창 밖에서 만든 변경이 새로고침 없이 들어온다', async ({ page }) => {
+    await waitForInit(page, { clearLocalStorage: true });
+    await openGit(page, gfx('basic'));
+    await expect.poll(async () => (await panelState(page)).lastObsAt, { timeout: 15000 })
+      .toBeGreaterThan(0);
+
+    await page.evaluate(`(() => {${PANEL} p._stop(); p._lastObsAt = Date.now() - 5 * 60 * 1000; window.app.testing.gitWdAt = 0 })()`);
+    await page.evaluate('window.app.render()');
+    await expect.poll(async () => (await panelState(page)).pollOn, { timeout: 10000 }).toBe(true);
+
+    writeFileSync(join(gfx('basic'), 'watchdog-made.txt'), 'x\n');
+    await expect
+      // 목록의 키 이름을 박지 않는다 — 재려는 것은 "그 변경이 관측에 들어왔는가"
+      // 하나이고, 응답의 모양은 이 검사의 관심 밖이다.
+      .poll(() => page.evaluate(`(() => {${PANEL}
+        return JSON.stringify(p._status || {}).includes('watchdog-made');
+      })()`), { timeout: 20000 })
+      .toBe(true);
+  });
+
+  // TC-GLR-3: 아무도 보지 않는 저장소를 깨우지 않는다 (FR-GLR-3).
+  test('TC-GLR-3: 표면이 보이지 않으면 워치독이 깨우지 않는다', async ({ page }) => {
+    await waitForInit(page, { clearLocalStorage: true });
+    await openGit(page, gfx('basic'));
+    await expect.poll(async () => (await panelState(page)).lastObsAt, { timeout: 15000 })
+      .toBeGreaterThan(0);
+
+    // 표면 판정을 거짓으로 만든 채 멈춘다.
+    const woke = await page.evaluate(`(() => {${PANEL}
+      p._stop();
+      p._lastObsAt = Date.now() - 5 * 60 * 1000;
+      const orig = p._pollOk.bind(p);
+      p._pollOk = () => false;
+      window.app.testing.gitWdAt = 0;
+      const r = p._watchdog();
+      p._pollOk = orig;
+      return r;
+    })()`);
+    expect(woke, '보이지 않는 표면을 깨웠다').toBe(false);
+    expect((await panelState(page)).pollOn).toBe(false);
+  });
+
+  // TC-GLR-4: 정상 상태에서는 요청이 늘지 않는다 (FR-GLR-7).
+  test('TC-GLR-4: 정상 폴링 중 워치독은 요청을 더하지 않는다', async ({ page }) => {
+    await waitForInit(page, { clearLocalStorage: true });
+    await openGit(page, gfx('basic'));
+    await expect.poll(async () => (await panelState(page)).lastObsAt, { timeout: 15000 })
+      .toBeGreaterThan(0);
+
+    let n = 0;
+    page.on('request', (r) => { if (r.url().includes('/api/git/status')) n++ });
+    // 그리기를 여러 번 낸다 — 워치독의 계기가 그것이다.
+    for (let i = 0; i < 10; i++) {
+      await page.evaluate('window.app.render()');
+      await nextFrames(page);
+    }
+    // **예외 (`TEST-16`)**: 요청이 **나가지 않음**을 잰다.
+    await page.waitForTimeout(500);
+    expect(n, 'render 만으로 status 요청이 나갔다').toBe(0);
   });
 });

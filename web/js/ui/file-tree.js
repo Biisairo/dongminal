@@ -30,12 +30,12 @@ class FileTree {
   constructor(app,win){
     this.app=app;
     this.winId=win.id;
-    this.root=app._edRootOf(win);
+    this.root=app.edRootOf(win);
 
     // FR-SVS-20·21: 관측은 루트마다 하나이고 이 뷰는 그것을 **빌려 본다**.
     // 아래 접근자들이 `this._kids` 같은 이름을 그대로 store 로 잇는다 — 뷰의
     // 본문이 관측의 자리를 알 필요가 없다.
-    this.store=app._edStore(this.root);
+    this.store=app.edStore(this.root);
     this.store.attach(this);
 
     // 펼침·선택은 **보는 자리의 것**이다 — 워크스페이스에 저장하지 않고
@@ -163,14 +163,14 @@ class FileTree {
    * (`app-editor.js:535` 가 바뀌면 버린다) 머리를 만들 때 물어도 된다.
    */
   _noDirs(){
-    const notes=this.app._edNotes();
+    const notes=this.app.edNotes();
     return !!notes&&this.root===notes;
   }
 
   _head(){
     const h=document.createElement('div'); h.className='ed-head';
     const n=document.createElement('span'); n.className='ed-head-name';
-    n.textContent=this.app._edName(this.root); n.title=this.root;
+    n.textContent=this.app.edName(this.root); n.title=this.root;
     h.appendChild(n);
     // FR-EDT-80: 상단 버튼 셋 — 새 파일 · 새 폴더 · 새로고침. 만드는 자리는
     // 선택이 정한다 (FR-EDT-81) — 버튼은 그 규칙을 다시 적지 않는다.

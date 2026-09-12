@@ -170,7 +170,7 @@ test.describe('묶음 P — 선택창은 언제나 뜬다', () => {
     await expect(dialog(page)).toBeVisible({ timeout: 10000 });
     await page.keyboard.press('Escape');
     await expect(dialog(page)).toHaveCount(0);
-    // 잠시 두어도 창이 늘지 않는다 — 취소는 취소다.
+    // **예외 (`TEST-16`)**: 잠시 두어도 창이 **늘지 않음**을 잰다 — 취소는 취소다.
     await page.waitForTimeout(500);
     expect(await page.locator('#windows .si').count()).toBe(before);
   });

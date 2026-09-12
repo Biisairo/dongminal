@@ -22,16 +22,18 @@ class App {
     });
     this.ws={schemaVersion:2,windows:[],activeWindow:null};
     this.wsETag=null;
-    // FR-WSC-12: **원격이 본 적 있는 창의 id.** 409 채택이 무엇을 지워도 되는지의
+    // FR-WSC-12: **원격이 본 적 있는 창의 id.** 채택이 무엇을 지워도 되는지의
     // 유일한 근거다 (D-6) — 여기 없으면서 원격에도 없는 창은 원격이 한 번도 본
     // 적 없는 창이며, 원격이 지웠을 리 없다.
     this._wsSavedIds=new Set();
+    // FR-OPL-2: 같은 판정의 탭 짝. 둘은 `_wsMarkSaved` 가 함께 적는다.
+    this._wsSavedTabs=new Set();
     this.focused=null;
     this._attn=new Map(); // toolId → {reason} 주의 상태 집합 (FR-PAN-9/16)
     this._attnNotifs={}; // toolId → Notification (재팝업 위해 직전 알림 보관)
     this._activity=new Map(); // toolId → {state,tool,detail} 활동 상태 (AGENT_ACTIVITY_PANEL_SRS)
-    this._kb=false;
-    this._windowFocused=typeof document!=='undefined'&&document.hasFocus?document.hasFocus():true;
+    this.kb=false;
+    this.windowFocused=typeof document!=='undefined'&&document.hasFocus?document.hasFocus():true;
     this._windowFocusOwner={}; // { windowId: clientId } — per-window focus ownership
     // WINDOW_SLOTS_SRS FR-WSL-2: 슬롯은 클라이언트의 것이다 — workspace 에
     // 새지 않는다. null 이면 단일 슬롯 모드이고 그때의 DOM 은 슬롯 도입 전과
@@ -39,25 +41,25 @@ class App {
     this._slots=null;
     this._slotIds=[];          // 칸별 clientId. [0] 은 this.clientId 를 쓴다 (FR-WSL-10)
     this._slotSse=[];          // 칸 1.. 의 소유권을 살려 두는 구독들 (FR-WSL-11)
-    this._drag=null;
+    this.drag=null;
     this._stats={};this._latency=null;
-    this._mPaneIdx=0; // mobile current pane index (volatile)
-    this._drawerOpen=false;
+    this.mPaneIdx=0; // mobile current pane index (volatile)
+    this.drawerOpen=false;
     this._bg=[]; // 백그라운드 도구 목록 (FR-BG-6)
     this._bgModalOpen=false;
     this._bgModalKey=null; // 모달 Esc 핸들러 (열려 있을 때만 부착)
-    this._modKbd=null; // {ctrl:bool|'lock', alt:bool|'lock'}
-    this._gitRepos=null; // GIT 섹션 목록 {follow,pinned} (FR-GIT-13)
+    this.modKbd=null; // {ctrl:bool|'lock', alt:bool|'lock'}
+    this.gitRepos=null; // GIT 섹션 목록 {follow,pinned} (FR-GIT-13)
     this._lastPlainWindow=null; // Open File 이 돌아갈 일반 창 (FR-GIT-185, O15)
     this._lastTermTool=null;    // follow 가 딛는 마지막 터미널 (FR-GIT-210)
     this._gitOff=false; // git 표면이 503 이면 섹션 전체를 숨긴다
     // Editor 탭 (EDITOR_TAB_SRS 묶음 T·E). 목록의 권위는 서버다 (FR-EDT-20).
-    this._editors=null; // {home,list[]} — 첫 응답 전에는 null (FR-EDT-29)
+    this.editors=null; // {home,list[]} — 첫 응답 전에는 null (FR-EDT-29)
     this._edOff=false;  // /api/editors 가 실패하면 탭 자체를 숨긴다 (FR-EDT-120)
     this._lastEditorWindow=null; // Editor 탭이 돌아갈 창 (FR-EDT-7)
     // 사이드바 탭 (GIT_SIDEBAR_TABS_SRS §3.9.2). 활성 탭은 클라이언트의 것이다 (D-1).
-    this._sbTab=SidebarTabs.restore();
-    this._sbBusy=false; // FR-SBT-14 ↔ 22 의 재진입 가드
+    this.sbTab=SidebarTabs.restore();
+    this.sbBusy=false; // FR-SBT-14 ↔ 22 의 재진입 가드
     this.renderer=new Renderer(this);
     this.inputBinding=new InputBinding(this);
   }
@@ -90,12 +92,12 @@ class App {
   }
 
   // Flatten split tree → array of pane nodes (in-order: L→R, T→B)
-  _flattenPanes(node, out){
+  flattenPanes(node, out){
     out = out || [];
     if(!node) return out;
     if(node.type==='pane') out.push(node);
     else if(node.type==='split' && node.children){
-      for(const c of node.children) this._flattenPanes(c, out);
+      for(const c of node.children) this.flattenPanes(c, out);
     }
     return out;
   }
@@ -148,14 +150,14 @@ class App {
       const sp=st.tools||[];
       const sv=st.workspace;
       const ok=new Set(sp.map(p=>p.id));
-      for(const p of sp){const pane=this._mkTool(p.id,p.name);pane._reconnecting=true;pane.el.style.opacity='0'}
+      for(const p of sp){const pane=this.mkTool(p.id,p.name);pane._reconnecting=true;pane.el.style.opacity='0'}
       await edReady;
       // **창이 없어도 서버가 소유한 키는 채택한다.**
       //
       // 아래 분기는 `sv.windows.length` 가 0 이면 서버 스냅샷을 통째로 버린다.
       // 그런데 `git.pinned`·`editors.list` 는 **창과 무관하게 서버가 권위**이고
       // (FR-EDT-20, FR-GIT-31), 창이 아직 없는 워크스페이스에도 들어 있다.
-      // 버린 채로 `_mkWindow()`·재조정이 `_save()` 를 부르면 그 PUT 이 두 키를
+      // 버린 채로 `_mkWindow()`·재조정이 `save()` 를 부르면 그 PUT 이 두 키를
       // **지운다** — 핀을 걸어 둔 채 브라우저를 처음 열면 핀이 사라졌다(실측).
       if(sv){
         if(sv.git) this.ws.git=sv.git;
@@ -166,7 +168,7 @@ class App {
         this._wsMarkSaved(sv.windows);
       }
       // REPO_SIDE_WIDTH_SRS FR-RSW-5: 마이그레이션이 무언가 옮겼는지. 저장은 아래
-      // 재조정의 `_save()` 와 겹치므로 여기서는 표시만 든다.
+      // 재조정의 `save()` 와 겹치므로 여기서는 표시만 든다.
       let sideWidthMoved=false;
       if(sv&&sv.windows&&sv.windows.length){
         this.ws=sv;
@@ -176,7 +178,7 @@ class App {
         if('mobileBreakpoint' in this.ws) delete this.ws.mobileBreakpoint;
         sideWidthMoved=this._edMigrateSideWidth();
         if(this.ws.sidebarWidth){
-          const w=Math.max(100,Math.min(400,this.ws.sidebarWidth));
+          const w=clampSidebarWidth(this.ws.sidebarWidth);
           document.documentElement.style.setProperty('--sb-w',w+'px');
           try{localStorage.setItem('sidebarWidth',w)}catch{}
         }
@@ -188,7 +190,7 @@ class App {
         // FR-EDT-49 / D-13: **layout 이 없는 Editor 창은 지워지지 않는다.**
         // 갓 만든 Editor 창은 pane 이 없고(FR-EDT-55) 그것이 정상이다 — 이
         // 예외가 없으면 다음 `workspace_changed` 한 번에 사라진다 (§2.4).
-        this.ws.windows=this.ws.windows.filter(s=>s&&(s.layout||this._isEditorWin(s)));
+        this.ws.windows=this.ws.windows.filter(s=>s&&(s.layout||this.isEditorWin(s)));
         // FR-GIT-186: 개정 이전에 Git 창 안에 들어간 탭을 일반 창으로 옮긴다.
         this._migrateGitWindow();
         // FR-EDT-103·104 / D-19: 일반 창에 남은 편집기 탭을 걷어낸다. `clean()`
@@ -197,24 +199,24 @@ class App {
         if(this._migrateEditorTabs()){
           // FR-EDT-105: 탭이 0이 된 pane 은 붕괴하고, layout 이 빈 **일반** 창은
           // 사라진다. Editor 창은 위 필터와 같은 예외로 남는다.
-          this.ws.windows=this.ws.windows.filter(s=>s&&(s.layout||this._isEditorWin(s)));
-          this._save();
+          this.ws.windows=this.ws.windows.filter(s=>s&&(s.layout||this.isEditorWin(s)));
+          this.save();
         }
         // FR-EDT-45 (FR-CLS-1 과 같은 근거): 활성 창의 폴백은 Editor 창이 아니다.
-        // `_save()` 가 activeWindow 를 싣지 않으므로 다른 브라우저가 만든
+        // `save()` 가 activeWindow 를 싣지 않으므로 다른 브라우저가 만든
         // 워크스페이스를 처음 읽을 때 이 자리가 늘 도는데, 배열의 첫 자리를
         // 그대로 쓰면 아무 조작도 하지 않은 사용자가 편집기 화면에 떨어진다.
         if(!this.ws.windows.find(s=>s.id===this.ws.activeWindow))
-          this.ws.activeWindow=(this.ws.windows.find(s=>!this._isEditorWin(s))||this.ws.windows[0])?.id||null;
+          this.ws.activeWindow=(this.ws.windows.find(s=>!this.isEditorWin(s))||this.ws.windows[0])?.id||null;
       }
       // 일반 창 하나는 늘 있어야 한다 — Editor 창만 남기고 사용자를 그 안에
       // 가두지 않는다 (FR-CLS-2 와 같은 근거). **재조정보다 먼저** 한다: 창
       // 목록의 순서가 곧 사이드바의 순서이고, 사용자가 만든 적 없는 Editor 창이
       // 그 앞자리를 차지할 이유가 없다.
-      if(!this._plainWindows().length) await this._mkWindow();
+      if(!this.plainWindows().length) await this._mkWindow();
       // FR-EDT-42·43: 재조정이 도는 첫 번째 자리. 워크스페이스가 비어 있어도
       // root 에디터 창은 있어야 한다 (FR-EDT-13).
-      if(this._edReconcile()||sideWidthMoved) this._save();
+      if(this._edReconcile()||sideWidthMoved) this.save();
     }catch(e){
       console.error('[App] init error:',e);
       // FR-SFD-22: 여기서 세우는 창은 **화면을 위한 것**이다. 이 판이 디스크로
@@ -242,7 +244,7 @@ class App {
          */
         let root=null;
         try{root=sessionStorage.getItem(ACTIVE_EDITOR_ROOT_KEY)}catch{}
-        const w=root?this._edWindowFor(root):null;
+        const w=root?this.edWindowFor(root):null;
         if(w) this.ws.activeWindow=w.id;
       }
       // FR-RLC-8: 사이드바 탭이 돌아갈 창의 기억도 같은 성질이다 — 같은 블록에서
@@ -263,8 +265,8 @@ class App {
     // 비운다.
     this._slotsRestore();
     this._pruneAgentOrder();
-    const a=this._aw();
-    if(a&&a.layout){const saved=a.focusedPane;const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);if(f)this._setFocus(f.id, a)}
+    const a=this.aw();
+    if(a&&a.layout){const saved=a.focusedPane;const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);if(f)this.setFocusState(f.id, a)}
     this.render();
     this._bind();
     this._subscribeCommands();
@@ -276,7 +278,7 @@ class App {
         this._focusWindow(sid);
       }
     }
-    this._applyFocusOverlay();
+    this.applyFocusOverlay();
     this._initGitSection();
     this._initEditorSection();
     // FR-SRL-8·9: 내부 새로고침의 진입점 둘. 배선은 `_subscribeCommands` **뒤**
@@ -295,26 +297,26 @@ class App {
   // FR-WSL-20: 슬롯을 명시하지 않으면 슬롯 0 이다 — 단일 슬롯 모드의 호출부가
   // 한 글자도 바뀌지 않아야 한다. 같은 도구를 두 슬롯에 그리면 인스턴스가 둘이고
   // WebSocket 도 둘이다 (§7 R-1, 회수는 _slotReap).
-  _mkTool(id,name,slot){
-    const key=this._slotKey(id,slot||0);
+  mkTool(id,name,slot){
+    const key=this.slotKey(id,slot||0);
     if(this.tools.has(key)) return this.tools.get(key);
     const p=new TerminalTool(id,name);
     p._slot=slot||0;
     document.getElementById('area').appendChild(p.el);
     p.connect();
     this.tools.set(key,p);
-    this._applyFocusOverlay();
+    this.applyFocusOverlay();
     return p;
   }
 
   // 슬롯을 모르는 호출부의 조회. 포커스 슬롯을 먼저 보고, 없으면 다른 슬롯의
   // 인스턴스를 준다 — 슬롯 1 에만 있는 창의 도구도 검색·상태바에서 닿아야 한다.
-  _toolAny(id){
+  toolAny(id){
     if(!id) return null;
-    const f=this._slotFocused();
-    return this.tools.get(this._slotKey(id,f))
+    const f=this.slotFocused();
+    return this.tools.get(this.slotKey(id,f))
       || this.tools.get(id)
-      || this.tools.get(this._slotKey(id,1))
+      || this.tools.get(this.slotKey(id,1))
       || null;
   }
 
@@ -378,7 +380,7 @@ class App {
       splitH:()=>this.split('horizontal'),splitV:()=>this.split('vertical'),
       newWindow:()=>this.addWindow(),newTab:()=>this.addTabFocused(),
       closeWindow:()=>this.closeWindowActive(),closeTab:()=>this.closeTabFocused(),
-      agentsToggle:()=>this._agentsToggle(),
+      agentsToggle:()=>this.agentsToggle(),
       // FR-WSL-51·74: 버튼과 **같은 함수**를 부른다. 여는 길이 둘로 갈리면
       // 한쪽만 고쳐진다.
       slotAdd:()=>this.slotAdd(),
@@ -413,8 +415,22 @@ class App {
 
   // FR-WSC-12: 원격이 아는 창 id 를 갈아 끼운다. 저장 성공과 원격 채택이 그
   // 사실을 바꾸는 유일한 두 순간이다.
+  //
+  // FR-OPL-2: **탭 id 도 함께 적는다.** 창만 기억하면 창은 살아 있고 그 안의
+  // 탭만 사라지는 갈래(`git-head-mobile` V10-13 의 탭 7→1)를 가릴 수 없다.
+  // 탭 id 는 전역 유일(UUIDv4)이므로 창별로 나누지 않는다 (FR-OPL-3).
   _wsMarkSaved(windows){
     this._wsSavedIds=new Set((windows||[]).map(w=>w&&w.id).filter(Boolean));
+    const tabs=new Set();
+    for(const w of (windows||[]))
+      for(const p of panesOf(w&&w.layout))
+        for(const t of (p.tabs||[])) if(t&&t.id) tabs.add(t.id);
+    this._wsSavedTabs=tabs;
+  }
+
+  // FR-OPL-1: 채택기가 미관측 로컬 변경을 가릴 때 쓰는 기억 한 쌍.
+  _wsSeen(){
+    return {windows:this._wsSavedIds||new Set(),tabs:this._wsSavedTabs||new Set()};
   }
 
   /**
@@ -432,7 +448,7 @@ class App {
    *   이유:     `catch` 가 만든 창은 **사용자에게 보여 주기 위한 것**이지
    *             디스크에 쓸 것이 아니다
    */
-  _save(){
+  save(){
     if(this._bootFailed) return;
     this._savePending=true;
     if(this._saveChain) return this._saveChain;
@@ -501,7 +517,7 @@ class App {
                 // FR-EDT-21: `editors` 도 서버가 권위다. `git` 과 달리
                 // **클라이언트가 소유하는 하위 키가 없으므로** 병합 없이 서버
                 // 값을 통째로 쓴다. 목록이 바뀌었으면 창도 따라와야 한다.
-                if(rem&&rem.editors&&this._edOn()){
+                if(rem&&rem.editors&&this.edOn()){
                   this.ws.editors=rem.editors;
                   // WORKBENCH_REVIEW_SRS FR-WBR-30: **목록만** 갈아끼운다.
                   //
@@ -532,35 +548,22 @@ class App {
                   /**
                    * FR-WSC-12·14: **원격이 본 적 없는 창은 지우지 않는다** (§2.9).
                    *
-                   * 채택이 지워도 되는 창은 원격이 **알았다가 없앤** 창뿐이다.
-                   * 그 판정은 `_wsSavedIds` 가 한다 — 우리 PUT 이 성공시킨 창의
-                   * id 이므로, 거기 있는데 원격에 없으면 삭제이고 거기에도 원격
-                   * 에도 없으면 **아직 나가지 못한 우리 창**이다 (핀 직후 연 Git
-                   * 창이 정확히 그것이다).
+                   * OPTIMISTIC_LAYOUT_SRS FR-OPL-11 로 개정: 그 병합을 여기서
+                   * 하지 않는다.
                    *
-                   * §1.5 가 배제한 "창 합집합" 과 갈리는 자리다 (D-6): 합집합은
-                   * 닫힌 창을 되살리지만 이 판정은 되살리지 않는다.
+                   *   이전 동작: 이 자리가 `_wsSavedIds` 로 미관측 창을 가려
+                   *             `rem.windows` 에 얹은 뒤 적용기를 불렀다
+                   *   새  동작: **적용기가 한다.** 여기는 부르기만 한다
+                   *   이유:     같은 판정이 SSE 채택 경로(`_onWorkspaceChanged`)
+                   *             에는 없었고, 흔들림이 오는 자리는 그쪽이었다
+                   *             (`11 §5` 의 3·4·5·6·7). 판정이 두 벌이면 한쪽만
+                   *             고쳐진다 — 적용기는 두 경로가 반드시 지나는 목이다.
+                   *             그리고 적용기의 것은 **탭까지** 본다
+                   *
+                   * 저장 예약(`FR-WSC-13`)도 적용기가 한다 — 병합이 일어났는지를
+                   * 아는 자리가 거기다 (FR-OPL-9).
                    */
-                  const seen=this._wsSavedIds;
-                  const remIds=new Set((rem.windows||[]).map(w=>w&&w.id).filter(Boolean));
-                  const unseen=(this.ws.windows||[])
-                    .filter(w=>w&&w.id&&!remIds.has(w.id)&&!seen.has(w.id));
-                  // **적용기에 넣어 준다 — 적용한 뒤에 얹지 않는다.**
-                  //
-                  // `_applyRemoteWorkspace` 는 끝에서 `render()` 한다. 뒤에 얹으면
-                  // 그 render 가 **Git 창이 없는 상태**로 한 번 돌아 뷰를
-                  // unmount 하고, 그 뒤 되얹어도 DOM 은 죽은 뷰에 묶인 채 남는다
-                  // (핀 직후 ★ 클릭이 아무 일도 하지 않았다). 병합을 앞에 두면
-                  // 활성 창·활성 리포 보존도 그 안의 기존 규약이 그대로 한다.
-                  if(unseen.length) rem.windows=(rem.windows||[]).concat(unseen);
                   this._applyRemoteWorkspace(rem,[],false);
-                  // 위 병합은 화면의 사실이지 원격의 사실이 아니다 — 원격이 아는
-                  // 창은 여전히 병합 이전의 것뿐이다 (FR-WSC-12).
-                  this._wsSavedIds=remIds;
-                  // FR-WSC-13: 화면에만 남기면 다음 새로고침에서 사라진다. 나가는
-                  // 것은 포기한 본문이 아니라 **채택한 원격에 이 창을 얹은 새
-                  // 본문**이므로 FR-WSC-1 에 어긋나지 않는다.
-                  if(unseen.length) this._savePending=true;
                 }
               }
             }catch{}
@@ -624,20 +627,21 @@ class App {
       }
       // FR-WSC-9: 채택 중에 새 저장이 예약됐으면(재조정이 창을 고친 경우가 그렇다)
       // 그것을 잃지 않는다. 백오프는 다음 비행의 앞머리가 지킨다.
-      if(this._savePending) this.timers.defer(()=>this._save(),{owner:'app',label:'save-pending'});
+      if(this._savePending) this.timers.defer(()=>this.save(),{owner:'app',label:'save-pending'});
     };
     this._saveChain=run();
     return this._saveChain;
   }
 
-  _rename(obj, el){
+  rename(obj, el){
     const old = obj.name;
     const input = document.createElement('input');
     input.type = 'text'; input.value = old; input.className = 'rename-input';
     el.replaceWith(input); input.focus(); input.select();
     const done = () => {
       const v = input.value.trim();
-      if(v && v !== old) { obj.name = v; this._save(); }
+      // FUI-18: 창 이름도 만들 때와 같은 상한을 지난다.
+      if(v && v !== old) { obj.name = clampEntityName(v); this.save(); }
       this.render();
     };
     input.addEventListener('blur', done, {once:true});
@@ -652,7 +656,7 @@ class App {
   // 지금 보이는 탭들. 배열 순서가 표시 순서다 (FR-SBT-18).
   get _sbTabs(){ return SidebarTabs.visible(this) }
   _sbSetTab(id){ SidebarTabs.setTab(this,id) }
-  _sbSyncTabToWindow(){ SidebarTabs.syncToWindow(this) }
+  sbSyncTabToWindow(){ SidebarTabs.syncToWindow(this) }
   _sbUpdateBadges(){ SidebarTabs.updateBadges(this) }
   _sbJumpTo(n){ SidebarTabs.jumpTo(this,n) }
 
@@ -660,7 +664,7 @@ class App {
 
   // FR-SVS-61: 미뤄 둔 그리기가 있으면 이 그리기가 그것을 대신한다 — 지연은
   // "클릭을 삼키지 않기" 위한 것이지 그리기를 빼먹기 위한 것이 아니다.
-  render(){ this._slotRenderPending=false; this.renderer.render(); this._agentsRender() }
+  render(){ this._slotRenderPending=false; this.renderer.render(); this.agentsRender() }
 
 
   _bind(){ this.inputBinding.bind() }

@@ -89,8 +89,9 @@ test.describe('묶음 F·G·K — Editor 검색', () => {
   // 루트가 없다.
   test('V-EKB-2: 터미널 창에서는 패널이 뜨지 않는다', async ({ page }) => {
     await waitForInit(page);
-    expect(await page.evaluate(() => (window as any).app._edSearchRoot())).toBe('');
-    await page.evaluate(() => (window as any).app._edQuickOpen());
+    expect(await page.evaluate(() => (window as any).app.testing.edSearchRoot())).toBe('');
+    await page.evaluate(() => (window as any).app.testing.edQuickOpen());
+    // **예외 (`TEST-16`)**: 찾기 칸이 **뜨지 않음**을 잰다.
     await page.waitForTimeout(200);
     await expect(page.locator('.ed-find.vis')).toHaveCount(0);
   });
@@ -260,7 +261,7 @@ test.describe('묶음 V — 열 수 있는 것과 없는 것', () => {
 
     const p = join(root, 'shown.png');
     writeFileSync(p, PNG);
-    await page.evaluate((f) => (window as any).app._edOpenFile(f), p);
+    await page.evaluate((f) => (window as any).app.testing.edOpenFile(f), p);
 
     const img = page.locator('.fe-image .fe-img');
     await expect(img).toHaveCount(1);
@@ -275,7 +276,7 @@ test.describe('묶음 V — 열 수 있는 것과 없는 것', () => {
 
     const p = join(root, 'shown.bin');
     writeFileSync(p, Buffer.concat([Buffer.from('MZ'), Buffer.alloc(200)]));
-    await page.evaluate((f) => (window as any).app._edOpenFile(f), p);
+    await page.evaluate((f) => (window as any).app.testing.edOpenFile(f), p);
 
     await expect(page.locator('.fe-unsupported')).toHaveCount(1);
     await expect(page.locator('.fe-unsupported .fe-unsup-title')).toHaveText(/열 수 없는/);
@@ -304,9 +305,9 @@ test.describe('묶음 K — 검색 루트의 배선', () => {
     await expect
       .poll(async () => page.evaluate(async (p) => {
         const app = (window as any).app;
-        await app._edReconcile?.();
-        await app._edOpenWindow(p);
-        return app._edSearchRoot();
+        await app.testing.edReconcile?.();
+        await app.testing.edOpenWindow(p);
+        return app.testing.edSearchRoot();
       }, fx('basic')), { timeout: 15000 })
       .not.toBe('');
   }
@@ -321,7 +322,7 @@ test.describe('묶음 K — 검색 루트의 배선', () => {
   test('V-EKB-3: Editor 창이 활성이면 루트가 실제로 잡힌다', async ({ page }) => {
     await waitForInit(page);
     await activateEditorWindow(page);
-    const root = await page.evaluate(() => (window as any).app._edSearchRoot());
+    const root = await page.evaluate(() => (window as any).app.testing.edSearchRoot());
     // 구분자는 그 OS 의 것이다 (FR-CEM-11).
     expect(/[\\/]basic$/.test(root), `루트가 basic 이 아니다: ${root}`).toBe(true);
   });
@@ -330,7 +331,7 @@ test.describe('묶음 K — 검색 루트의 배선', () => {
   test('V-EKB-4: Editor 창이 활성이면 cmd+p 패널이 실제로 뜬다', async ({ page }) => {
     await waitForInit(page);
     await activateEditorWindow(page);
-    await page.evaluate(() => (window as any).app._edQuickOpen());
+    await page.evaluate(() => (window as any).app.testing.edQuickOpen());
 
     await expect(page.locator('.ed-find.vis')).toHaveCount(1);
     await expect(page.locator('.ed-find.vis .ed-find-q')).toBeFocused();
@@ -340,7 +341,7 @@ test.describe('묶음 K — 검색 루트의 배선', () => {
   test('V-EKB-5: cmd+shift+f 패널이 뜨고 Escape 로 닫힌다', async ({ page }) => {
     await waitForInit(page);
     await activateEditorWindow(page);
-    await page.evaluate(() => (window as any).app._edSearchOpen());
+    await page.evaluate(() => (window as any).app.testing.edSearchOpen());
     await expect(page.locator('.ed-find.vis')).toHaveCount(1);
 
     await page.keyboard.press('Escape');
@@ -362,9 +363,9 @@ test.describe('묶음 F·G — 고른 결과가 실제로 열린다', () => {
     await expect
       .poll(async () => page.evaluate(async (p) => {
         const app = (window as any).app;
-        await app._edReconcile?.();
-        await app._edOpenWindow(p);
-        return app._edSearchRoot();
+        await app.testing.edReconcile?.();
+        await app.testing.edOpenWindow(p);
+        return app.testing.edSearchRoot();
       }, fx('basic')), { timeout: 15000 })
       .not.toBe('');
   }
@@ -375,7 +376,7 @@ test.describe('묶음 F·G — 고른 결과가 실제로 열린다', () => {
     await activate(page);
 
     writeFileSync(join(fx('basic'), 'quickpick.txt'), 'hello from quickpick\n');
-    await page.evaluate(() => (window as any).app._edQuickOpen());
+    await page.evaluate(() => (window as any).app.testing.edQuickOpen());
     await page.locator('.ed-find.vis .ed-find-q').fill('quickpick');
 
     const row = page.locator('.ed-find.vis .ed-find-row').first();
@@ -399,7 +400,7 @@ test.describe('묶음 F·G — 고른 결과가 실제로 열린다', () => {
     // 다섯째 줄에만 표식을 둔다.
     writeFileSync(join(fx('basic'), 'grephit.txt'),
       'a\nb\nc\nd\nNEEDLE_XYZ here\nf\n');
-    await page.evaluate(() => (window as any).app._edSearchOpen());
+    await page.evaluate(() => (window as any).app.testing.edSearchOpen());
     await page.locator('.ed-find.vis .ed-find-q').fill('NEEDLE_XYZ');
 
     const row = page.locator('.ed-find.vis .ed-find-row').first();
@@ -438,14 +439,14 @@ test.describe('묶음 K — Monaco 안에서의 키', () => {
     await expect
       .poll(async () => page.evaluate(async (p) => {
         const app = (window as any).app;
-        await app._edReconcile?.();
-        await app._edOpenWindow(p);
-        return app._edSearchRoot();
+        await app.testing.edReconcile?.();
+        await app.testing.edOpenWindow(p);
+        return app.testing.edSearchRoot();
       }, fx('basic')), { timeout: 15000 })
       .not.toBe('');
 
     writeFileSync(join(fx('basic'), 'inmonaco.txt'), 'line one\nline two\n');
-    await page.evaluate((f) => (window as any).app._edOpenFile(f),
+    await page.evaluate((f) => (window as any).app.testing.edOpenFile(f),
       join(fx('basic'), 'inmonaco.txt'));
 
     // Monaco 가 실제로 설 때까지 기다린다 — addCommand 는 그 뒤에 걸린다.

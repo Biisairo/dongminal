@@ -89,19 +89,19 @@ async function waitReady(page: Page) {
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 }
 
-// 워크스페이스 PUT 을 흘려보낸다. `_save()` 는 진행 중인 체인을 돌려주므로
+// 워크스페이스 PUT 을 흘려보낸다. `save()` 는 진행 중인 체인을 돌려주므로
 // 이것을 await 하면 새로고침이 저장을 앞지르지 않는다.
 async function flushSave(page: Page) {
-  await page.evaluate(() => (window as any).app._save());
+  await page.evaluate(() => (window as any).app.testing.save());
 }
 
 // 새로고침 뒤의 대기. 활성 창이 Editor 창이면 터미널 pane 이 화면에 없으므로
-// `waitReady` 의 조건이 서지 않는다. `_editors` 는 init 의 **맨 앞**에서 채워지므로
+// `waitReady` 의 조건이 서지 않는다. `editors` 는 init 의 **맨 앞**에서 채워지므로
 // (FR-EDT-120 이 워크스페이스 처리보다 먼저 서야 한다) 그것만으로는 이르다 —
 // 재조정이 끝난 근거인 Editor 창의 존재를 기다린다.
 async function waitLoaded(page: Page) {
   await page.waitForFunction(
-    () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
+    () => !!(window as any).app?.testing.editors && (window as any).app.testing.edWindows().length > 0,
     undefined, { timeout: 15000 });
 }
 
@@ -137,7 +137,7 @@ const edWins = (page: Page) =>
 // 활성 Editor 창의 pane 하나를 확보하고 그 안에 편집기 탭을 하나 만든다.
 // FR-EDT-100 의 경로를 그대로 지난다 — 테스트가 자기 손으로 layout 을 짓지 않는다.
 async function openFileInRoot(page: Page, filePath: string) {
-  return page.evaluate((fp) => (window as any).app._edOpenFile(fp), filePath);
+  return page.evaluate((fp) => (window as any).app.testing.edOpenFile(fp), filePath);
 }
 
 test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
@@ -156,7 +156,7 @@ test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
   test('E2 (V-RTU-4): Ctrl+Shift+Digit2 가 Repo 탭으로 간다', async ({ page }) => {
     await goto(page);
     await page.keyboard.press('Control+Shift+Digit2');
-    await expect.poll(() => page.evaluate(() => (window as any).app._sbTab)).toBe('repo');
+    await expect.poll(() => page.evaluate(() => (window as any).app.testing.sbTab)).toBe('repo');
     await expect(page.locator('#sb-panel-repo')).toBeVisible();
   });
 
@@ -223,7 +223,7 @@ test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
       await page.evaluate(() => (window as any).app.executeAction('windowNext'));
       seen.push(await page.evaluate(() => {
         const a = (window as any).app;
-        const w = a._aw();
+        const w = a.testing.aw();
         return (w && w.editor && w.editor.root) || '';
       }));
     }
@@ -235,21 +235,21 @@ test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
     await openEditorTab(page);
     // FR-EDT-7: 마지막으로 활성이었던 Editor 창이 없으면 root 에디터 창이다.
     await expect.poll(() => page.evaluate(() => {
-      const w = (window as any).app._aw();
+      const w = (window as any).app.testing.aw();
       return (w && w.editor && w.editor.root) || '';
     })).toBe(HOME_DIR);
 
     // FR-EDT-8: 역방향. 일반 창으로 나갔다가 Editor 창으로 돌아오면 탭이 따라온다.
     await page.evaluate(() => {
       const a = (window as any).app;
-      a.switchWindow(a._plainWindows()[0].id);
+      a.switchWindow(a.testing.plainWindows()[0].id);
     });
-    await expect.poll(() => page.evaluate(() => (window as any).app._sbTab)).toBe('windows');
+    await expect.poll(() => page.evaluate(() => (window as any).app.testing.sbTab)).toBe('windows');
     await page.evaluate(() => {
       const a = (window as any).app;
-      a.switchWindow(a._edWindows()[0].id);
+      a.switchWindow(a.testing.edWindows()[0].id);
     });
-    await expect.poll(() => page.evaluate(() => (window as any).app._sbTab)).toBe('repo');
+    await expect.poll(() => page.evaluate(() => (window as any).app.testing.sbTab)).toBe('repo');
   });
 
   test('E7 (V-EDT-7): root 행은 최하단이고 × 가 없으며 드래그 출발·도착 모두 불가', async ({ page }) => {
@@ -265,7 +265,7 @@ test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
     await expect(last.locator('.sbl-x')).toHaveCount(0);
     expect(await last.evaluate((e: HTMLElement) => e.draggable)).toBe(false);
     // 도착지도 아니다 — dragover 로 대상이 잡히지 않으므로 순서가 그대로다.
-    const before = await page.evaluate(() => (window as any).app._editors.list.slice());
+    const before = await page.evaluate(() => (window as any).app.testing.editors.list.slice());
     await page.evaluate((home) => {
       const a = (window as any).app;
       const list = document.getElementById('repo-entries')!;
@@ -278,8 +278,9 @@ test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
       dst.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: dt, clientY: 5 }));
       src.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: dt }));
     }, HOME_DIR);
+    // **예외 (`TEST-16`): 목록이 바뀌지 **않음**을 잰다.** 기다릴 신호가 없다.
     await page.waitForTimeout(200);
-    expect(await page.evaluate(() => (window as any).app._editors.list.slice())).toEqual(before);
+    expect(await page.evaluate(() => (window as any).app.testing.editors.list.slice())).toEqual(before);
   });
 
   test('E8 (V-EDT-8): 홈 경로를 일반 행으로 추가하면 목록이 변하지 않고 오류도 아니다', async ({ page }) => {
@@ -289,10 +290,10 @@ test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
     // FR-EDT-16: 성공으로 처리하되 목록이 바뀌지 않는다. 클라이언트는 응답만
     // 반영하므로 낙관적으로 행을 더해서도 안 된다.
     const ok = await page.evaluate((home) =>
-      (window as any).app._edMutate('/add', { path: home }), HOME_DIR);
+      (window as any).app.testing.edMutate('/add', { path: home }), HOME_DIR);
     expect(ok).toBe(true);
     await expect(rows(page)).toHaveCount(n0);
-    expect(await page.evaluate(() => (window as any).app._editors.list.slice())).toEqual([PROJ_DIR]);
+    expect(await page.evaluate(() => (window as any).app.testing.editors.list.slice())).toEqual([PROJ_DIR]);
   });
 
   test('E9 (V-EDT-9): 워크스페이스를 비워도 root 행과 root 창이 있다', async ({ page }) => {
@@ -314,7 +315,7 @@ test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
     await page.goto('/');
     await waitReady(page);
     await expect(tab(page, 'repo')).toBeHidden();
-    expect(await page.evaluate(() => (window as any).app._edOff)).toBe(true);
+    expect(await page.evaluate(() => (window as any).app.testing.edOff)).toBe(true);
     // 표면이 없으면 창도 없다 — 추측한 홈으로 만든 창이 남지 않는다.
     expect(await edWins(page)).toHaveLength(0);
   });
@@ -344,8 +345,8 @@ test.describe('묶음 E — 목록의 반영 (FR-EDT-19~21)', () => {
       }
       return route.continue();
     });
-    await page.evaluate(() => (window as any).app._save());
-    await expect.poll(() => page.evaluate(() => (window as any).app._editors.list.slice()),
+    await page.evaluate(() => (window as any).app.testing.save());
+    await expect.poll(() => page.evaluate(() => (window as any).app.testing.editors.list.slice()),
       { timeout: 10000 }).toEqual([PROJ2_DIR]);
     // 목록이 바뀌었으면 창도 따라온다 (FR-EDT-42).
     await expect.poll(async () => (await edWins(page)).map((w) => w.root).sort())
@@ -360,12 +361,13 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
       [...document.querySelectorAll('#windows .sbl-item')].map((e) => (e as HTMLElement).dataset.windowType));
     expect(inList).not.toContain('editor');
     expect(await page.evaluate(() =>
-      (window as any).app._plainWindows().some((w: any) => w.type === 'editor'))).toBe(false);
+      (window as any).app.testing.plainWindows().some((w: any) => w.type === 'editor'))).toBe(false);
 
     // Windows 탭에서의 순회는 일반 창만 돈다.
-    await page.evaluate(() => (window as any).app._sbSetTab('windows'));
+    await page.evaluate(() => (window as any).app.testing.sbSetTab('windows'));
     const before = await page.evaluate(() => (window as any).app.ws.activeWindow);
     await page.evaluate(() => (window as any).app.executeAction('windowNext'));
+    // **예외 (`TEST-16`)**: 순회가 **아무 일도 하지 않음**을 잰다.
     await page.waitForTimeout(200);
     // 일반 창이 하나뿐이면 순회는 아무 일도 하지 않는다 (FR-BLP-15 ③).
     expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(before);
@@ -380,7 +382,7 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
       const a = (window as any).app;
       const r = await fetch('/api/state');
       const st = await r.json();
-      a._applyRemoteWorkspace(st.workspace, st.tools || []);
+      a.testing.applyRemoteWorkspace(st.workspace, st.tools || []);
     });
     let wins = await edWins(page);
     expect(wins.map((w) => w.root).sort()).toEqual([HOME_DIR, PROJ_DIR].sort());
@@ -400,9 +402,13 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     const repo = fx('basic');
     const before = (await edWins(page)).map((w) => w.root);
     expect(before.length).toBeGreaterThan(0);
-    await page.evaluate(async (p) => { await (window as any).app._gitPin(p) }, repo);
+    await page.evaluate(async (p) => { await (window as any).app.testing.gitPin(p) }, repo);
     // 핀 하나가 `workspace_changed` 를 쏘고(§2.4) 그것이 동기화 경로를 돈다.
-    await page.waitForTimeout(1200);
+    // 그 경로가 **끝난 신호**는 연동이 만든 Editor 행이 목록에 서는 것이다
+    // (FR-EDT-31) — 그것을 보고 나서 아래의 생존을 잰다.
+    await expect
+      .poll(async () => (await edWins(page)).map((w) => w.root).includes(repo), { timeout: 15000 })
+      .toBe(true);
 
     // **개수가 아니라 생존을 잰다.** 핀은 연동으로 같은 경로의 Editor 행을
     // 만들므로(FR-EDT-31) 창이 하나 **느는 것이 옳다** — 이 항목이 재는 것은
@@ -411,20 +417,20 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     const after = (await edWins(page)).map((w) => w.root);
     for (const root of before) expect(after).toContain(root);
 
-    await page.evaluate(async (p) => { await (window as any).app._gitUnpin(p) }, repo);
+    await page.evaluate(async (p) => { await (window as any).app.testing.gitUnpin(p) }, repo);
   });
 
   test('E15 (V-EDT-30 / FR-EDT-42(4)): 같은 루트의 창이 둘이면 재조정이 하나로 줄인다 (결정론)', async ({ page }) => {
     await goto(page);
     const kept = await page.evaluate(() => {
       const a = (window as any).app;
-      const root = a._edHome();
-      const orig = a._edWindowFor(root);
+      const root = a.testing.edHome();
+      const orig = a.testing.edWindowFor(root);
       // 다른 브라우저가 같은 루트의 창을 먼저 쓴 상황을 그대로 만든다.
       const dupA = { id: '0000-aaa', name: '~', type: 'editor', editor: { root }, layout: null };
       const dupB = { id: 'zzzz-zzz', name: '~', type: 'editor', editor: { root }, layout: null };
       a.ws.windows.push(dupB, dupA);
-      a._edReconcile();
+      a.testing.edReconcile();
       const left = a.ws.windows.filter((w: any) => w.type === 'editor' && String(w.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
       return { n: left.length, id: left[0] && left[0].id, origId: orig.id };
     });
@@ -437,10 +443,10 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     await goto(page);
     expect((await edWins(page)).map((w) => w.root).sort()).toEqual([HOME_DIR, PROJ_DIR].sort());
 
-    await page.evaluate((p) => (window as any).app._edRemove(p), PROJ_DIR);
+    await page.evaluate((p) => (window as any).app.testing.edRemove(p), PROJ_DIR);
     await expect.poll(async () => (await edWins(page)).map((w) => w.root)).toEqual([HOME_DIR]);
 
-    await page.evaluate((p) => (window as any).app._edMutate('/add', { path: p }), PROJ2_DIR);
+    await page.evaluate((p) => (window as any).app.testing.edMutate('/add', { path: p }), PROJ2_DIR);
     await expect.poll(async () => (await edWins(page)).map((w) => w.root).sort())
       .toEqual([HOME_DIR, PROJ2_DIR].sort());
     // FR-EDT-44: 창 이름은 경로의 마지막 조각이다.
@@ -451,7 +457,7 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     await goto(page);
     await openFileInRoot(page, SOME_FILE);
     await expect.poll(() => page.evaluate(() => {
-      const w = (window as any).app._aw();
+      const w = (window as any).app.testing.aw();
       return !!(w && w.type === 'editor' && w.layout);
     })).toBe(true);
 
@@ -462,7 +468,7 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
 
     const paneCount = () => page.evaluate(() => {
       const a = (window as any).app;
-      return a._flattenPanes(a._aw().layout).length;
+      return a.testing.flattenPanes(a.testing.aw().layout).length;
     });
     expect(await paneCount()).toBe(1);
     await page.evaluate(async () => {
@@ -470,6 +476,7 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
       await a.executeAction('splitH');
       await a.executeAction('splitV');
     });
+    // **예외 (`TEST-16`)**: 분할이 **일어나지 않음**을 잰다.
     await page.waitForTimeout(200);
     expect(await paneCount()).toBe(1);
   });
@@ -482,16 +489,16 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     await openFileInRoot(page, second);
     await expect.poll(() => page.evaluate(() => {
       const a = (window as any).app;
-      return a._flattenPanes(a._aw().layout)[0].tabs.length;
+      return a.testing.flattenPanes(a.testing.aw().layout)[0].tabs.length;
     })).toBe(2);
 
     // FR-EDT-51: 분할이 생기는 유일한 길이다. 새 pane 은 끌어온 탭을 담은 채로 태어난다.
     const after = await page.evaluate(() => {
       const a = (window as any).app;
-      const pane = a._flattenPanes(a._aw().layout)[0];
+      const pane = a.testing.flattenPanes(a.testing.aw().layout)[0];
       const tid = pane.tabs[1].id;
-      a._splitPaneWithTab(pane.id, tid, pane.id, 'right');
-      const panes = a._flattenPanes(a._aw().layout);
+      a.testing.splitPaneWithTab(pane.id, tid, pane.id, 'right');
+      const panes = a.testing.flattenPanes(a.testing.aw().layout);
       return { n: panes.length, tabs: panes.map((p: any) => p.tabs.length) };
     });
     expect(after.n).toBe(2);
@@ -500,12 +507,12 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     // FR-EDT-52: 탭이 0이 되면 그 pane 은 붕괴한다 — 빈 pane 이 남지 않는다.
     await page.evaluate(async () => {
       const a = (window as any).app;
-      const p = a._flattenPanes(a._aw().layout)[1];
+      const p = a.testing.flattenPanes(a.testing.aw().layout)[1];
       await a.closeTab(p.id, p.tabs[0].id);
     });
     await expect.poll(() => page.evaluate(() => {
       const a = (window as any).app;
-      return a._flattenPanes(a._aw().layout).length;
+      return a.testing.flattenPanes(a.testing.aw().layout).length;
     })).toBe(1);
   });
 
@@ -520,12 +527,12 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     // 들어가지 않았다는 증거다 (§2.2).
     const moved = await page.evaluate(() => {
       const a = (window as any).app;
-      let panes = a._flattenPanes(a._aw().layout);
-      a._splitPaneWithTab(panes[0].id, panes[0].tabs[1].id, panes[0].id, 'right');
-      panes = a._flattenPanes(a._aw().layout);
+      let panes = a.testing.flattenPanes(a.testing.aw().layout);
+      a.testing.splitPaneWithTab(panes[0].id, panes[0].tabs[1].id, panes[0].id, 'right');
+      panes = a.testing.flattenPanes(a.testing.aw().layout);
       const tid = panes[1].tabs[0].id;
-      a._moveTabToPane(panes[1].id, tid, panes[0].id, null, false);
-      const now = a._flattenPanes(a._aw().layout);
+      a.testing.moveTabToPane(panes[1].id, tid, panes[0].id, null, false);
+      const now = a.testing.flattenPanes(a.testing.aw().layout);
       return { n: now.length, tabs: now[0].tabs.length };
     });
     expect(moved).toEqual({ n: 1, tabs: 2 });
@@ -533,15 +540,15 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     // V-EDT-35: 다른 Editor 창으로도, 일반 창으로도 나가지 못한다.
     const stayed = await page.evaluate(() => {
       const a = (window as any).app;
-      const src = a._aw();
-      const pane = a._flattenPanes(src.layout)[0];
+      const src = a.testing.aw();
+      const pane = a.testing.flattenPanes(src.layout)[0];
       const tid = pane.tabs[0].id;
-      const otherEd = a._edWindows().find((w: any) => w.id !== src.id);
-      const plain = a._plainWindows()[0];
-      a._moveTabToWindow(pane.id, tid, otherEd.id);
-      a._moveTabToWindow(pane.id, tid, plain.id);
+      const otherEd = a.testing.edWindows().find((w: any) => w.id !== src.id);
+      const plain = a.testing.plainWindows()[0];
+      a.testing.moveTabToWindow(pane.id, tid, otherEd.id);
+      a.testing.moveTabToWindow(pane.id, tid, plain.id);
       return {
-        here: a._flattenPanes(a.ws.windows.find((w: any) => w.id === src.id).layout)[0].tabs.length,
+        here: a.testing.flattenPanes(a.ws.windows.find((w: any) => w.id === src.id).layout)[0].tabs.length,
         active: a.ws.activeWindow === src.id,
       };
     });
@@ -554,12 +561,12 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     await openFileInRoot(page, SOME_FILE);
     const got = await page.evaluate(async () => {
       const a = (window as any).app;
-      const w = a._aw();
-      const pane = a._flattenPanes(w.layout)[0];
+      const w = a.testing.aw();
+      const pane = a.testing.flattenPanes(w.layout)[0];
       const before = a.tools.size;
       await a.addTab(pane.id, 'terminal');
       await a.addTab(pane.id, 'run', { runId: 'x' });
-      return { tabs: a._flattenPanes(a._aw().layout)[0].tabs.length, tools: a.tools.size - before };
+      return { tabs: a.testing.flattenPanes(a.testing.aw().layout)[0].tabs.length, tools: a.tools.size - before };
     });
     expect(got.tabs).toBe(1);
     expect(got.tools).toBe(0);
@@ -589,7 +596,7 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     await openFileInRoot(page, SOME_FILE);
     await expect.poll(() => page.evaluate(() => {
       const a = (window as any).app;
-      return a._flattenPanes(a._aw().layout)[0].tabs.length;
+      return a.testing.flattenPanes(a.testing.aw().layout)[0].tabs.length;
     })).toBe(1);
   });
 
@@ -609,7 +616,7 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     // FR-RSW-1: 폭은 창 레코드가 아니라 워크스페이스 최상위 한 자리다.
     const stored = await page.evaluate(() => {
       const a = (window as any).app;
-      a._edSetSideWidth(310);
+      a.testing.edSetSideWidth(310);
       a.render();
       return {
         ws: a.ws.repoSideWidth,
@@ -623,17 +630,17 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     // FR-RSW-2: 다른 Repo 창으로 옮겨도 같은 폭이다 — 창마다 기억하지 않는다.
     await page.evaluate((home) => {
       const a = (window as any).app;
-      a.switchWindow(a._edWindows().find((w: any) => w.editor.root !== home).id);
+      a.switchWindow(a.testing.edWindows().find((w: any) => w.editor.root !== home).id);
     }, HOME_DIR);
     await expect(page.locator('#area .ed-win .ed-side')).toHaveCSS('width', '310px');
 
     // FR-RSW-4: 상·하한에서 자른다. 값이 없으면 기본이다.
     expect(await page.evaluate(() => {
       const a = (window as any).app;
-      a._edSetSideWidth(9999); const hi = a.ws.repoSideWidth;
-      a._edSetSideWidth(1); const lo = a.ws.repoSideWidth;
-      delete a.ws.repoSideWidth; const none = a._edSideWidth();
-      a._edSetSideWidth(310);
+      a.testing.edSetSideWidth(9999); const hi = a.ws.repoSideWidth;
+      a.testing.edSetSideWidth(1); const lo = a.ws.repoSideWidth;
+      delete a.ws.repoSideWidth; const none = a.testing.edSideWidth();
+      a.testing.edSetSideWidth(310);
       return { hi, lo, none };
     })).toEqual({ hi: 520, lo: 100, none: 220 });
 
@@ -646,8 +653,8 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     expect(await page.evaluate(() => {
       const a = (window as any).app;
       delete a.ws.repoSideWidth;
-      for (const w of a._edWindows()) w.editor.explorerWidth = 275;
-      const moved = a._edMigrateSideWidth();
+      for (const w of a.testing.edWindows()) w.editor.explorerWidth = 275;
+      const moved = a.testing.edMigrateSideWidth();
       return {
         moved,
         ws: a.ws.repoSideWidth,
@@ -662,15 +669,15 @@ test.describe('묶음 R·M — 일반 창 금지와 마이그레이션 (FR-EDT-9
     await goto(page);
     const got = await page.evaluate(async (fp) => {
       const a = (window as any).app;
-      const plain = a._plainWindows()[0];
+      const plain = a.testing.plainWindows()[0];
       a.switchWindow(plain.id);
-      const pane = a._flattenPanes(plain.layout)[0];
+      const pane = a.testing.flattenPanes(plain.layout)[0];
       await a.addTab(pane.id, 'editor', { filePath: fp });
       const has = (n: any): boolean => !n ? false
         : n.type === 'pane' ? (n.tabs || []).some((t: any) => t.type === 'editor')
           : (n.children || []).some(has);
       return {
-        plainHas: a._plainWindows().some((w: any) => has(w.layout)),
+        plainHas: a.testing.plainWindows().some((w: any) => has(w.layout)),
       };
     }, SOME_FILE);
     expect(got.plainHas).toBe(false);
@@ -678,10 +685,10 @@ test.describe('묶음 R·M — 일반 창 금지와 마이그레이션 (FR-EDT-9
     // 대신 **연결된** Editor 로 간다 (FR-EDT-95·96). `SOME_FILE` 을 루트 아래에
     // 포함하는 창이 둘(`HOME_DIR`·`PROJ_DIR`)이므로 깊은 쪽이 이긴다. root
     // 에디터는 그런 창이 하나도 없을 때의 폴백이다 — R3 이 그쪽을 잰다.
-    await page.evaluate((fp) => (window as any).app._execRemote('openEditorTab', { filePath: fp }), SOME_FILE);
+    await page.evaluate((fp) => (window as any).app.testing.execRemote('openEditorTab', { filePath: fp }), SOME_FILE);
     await expect.poll(() => page.evaluate((fp) => {
       const a = (window as any).app;
-      const f = a._findEditorTab(fp);
+      const f = a.testing.findEditorTab(fp);
       return f ? (f.win.type + ':' + (f.win.editor && f.win.editor.root)) : '';
     }, SOME_FILE)).toBe('editor:' + PROJ_DIR);
   });
@@ -712,8 +719,8 @@ test.describe('묶음 R·M — 일반 창 금지와 마이그레이션 (FR-EDT-9
           : (n.children || []).some(has);
       return {
         legacyGone: !a.ws.windows.some((w: any) => w.id === wid),
-        plainHasEditor: a._plainWindows().some((w: any) => has(w.layout)),
-        plainCount: a._plainWindows().length,
+        plainHasEditor: a.testing.plainWindows().some((w: any) => has(w.layout)),
+        plainCount: a.testing.plainWindows().length,
       };
     }, legacyWin);
     // 탭이 0이 된 pane 이 붕괴하고, layout 이 빈 일반 창은 사라진다.
@@ -736,14 +743,14 @@ test.describe('묶음 R·M — 일반 창 금지와 마이그레이션 (FR-EDT-9
     await openFileInRoot(page, SOME_FILE);
     await expect.poll(() => page.evaluate(() => {
       const a = (window as any).app;
-      return !!(a._aw().layout);
+      return !!(a.testing.aw().layout);
     })).toBe(true);
     await flushSave(page);
     await page.reload();
     await waitLoaded(page);
     expect(await page.evaluate((fp) => {
       const a = (window as any).app;
-      const f = a._findEditorTab(fp);
+      const f = a.testing.findEditorTab(fp);
       return f ? f.win.type : '';
     }, SOME_FILE)).toBe('editor');
   });
@@ -762,11 +769,11 @@ test.describe('묶음 W — 백그라운드 복귀 (FR-EDT-54)', () => {
     // 그 창이 사라지고 `_mkWindow` 가 활성 창을 도로 일반 창으로 돌린다.
     const toolId = await page.evaluate(async () => {
       const a = (window as any).app;
-      const plain = a._plainWindows()[0];
+      const plain = a.testing.plainWindows()[0];
       a.switchWindow(plain.id);
-      const pane = a._flattenPanes(plain.layout)[0];
+      const pane = a.testing.flattenPanes(plain.layout)[0];
       await a.addTab(pane.id, 'terminal');
-      const p = a._flattenPanes(a._aw().layout).find((x: any) => x.id === pane.id);
+      const p = a.testing.flattenPanes(a.testing.aw().layout).find((x: any) => x.id === pane.id);
       return p.tabs[p.tabs.length - 1].toolId as string;
     });
     expect(toolId).toBeTruthy();
@@ -782,11 +789,11 @@ test.describe('묶음 W — 백그라운드 복귀 (FR-EDT-54)', () => {
     await openFileInRoot(page, SOME_FILE);
     expect(await page.evaluate(() => {
       const a = (window as any).app;
-      const w = a._aw();
-      return a._isEditorWin(w) && !!a._flattenPanes(w.layout).some((p: any) => p.id === a.focused);
+      const w = a.testing.aw();
+      return a.testing.isEditorWin(w) && !!a.testing.flattenPanes(w.layout).some((p: any) => p.id === a.focused);
     })).toBe(true);
 
-    await page.evaluate((tid) => (window as any).app._restoreTool(tid), toolId);
+    await page.evaluate((tid) => (window as any).app.testing.restoreTool(tid), toolId);
     await expect.poll(async () => {
       const bg = await (await request.get('/api/tools/background')).json();
       return (bg.background || []).some((b: any) => b.toolId === toolId);
@@ -802,8 +809,8 @@ test.describe('묶음 W — 백그라운드 복귀 (FR-EDT-54)', () => {
       };
       const tabsOf = (w: any) => walk(w.layout, []);
       return {
-        edTypes: a._edWindows().flatMap((w: any) => tabsOf(w).map((t: any) => t.type)),
-        plainHasTool: a._plainWindows().some((w: any) => tabsOf(w).some((t: any) => t.toolId === tid)),
+        edTypes: a.testing.edWindows().flatMap((w: any) => tabsOf(w).map((t: any) => t.type)),
+        plainHasTool: a.testing.plainWindows().some((w: any) => tabsOf(w).some((t: any) => t.toolId === tid)),
       };
     }, toolId);
     // Editor 창에는 편집기 탭만 있다.

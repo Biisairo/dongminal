@@ -50,7 +50,7 @@ Object.assign(App.prototype, {
       this._softStep('states',()=>this.bus.publish('softreload',{}));
       // ④ 목록과 패널.
       await this._softStepAsync('editors',()=>this._edLoad&&this._edLoad());
-      this._softStep('gitRepos',()=>this._gitReposRefresh&&this._gitReposRefresh());
+      this._softStep('gitRepos',()=>this.gitReposRefresh&&this.gitReposRefresh());
       this._softStep('gitPanel',()=>{
         const p=this.gitPanel;
         if(p&&typeof p.refresh==='function') p.refresh();

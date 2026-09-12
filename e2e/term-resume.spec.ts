@@ -53,6 +53,8 @@ async function settled(page: any, tries = 40): Promise<string> {
     const now = await bufferText(page);
     if (i > 0 && now === last) return now;
     last = now;
+    // **예외 (`TEST-16`): 고정 대기가 아니라 폴링 간격이다.** 이 루프는 "두 번
+    // 연속 같은 화면" 이라는 조건을 보고 있다.
     await page.waitForTimeout(150);
   }
   return last;
@@ -127,6 +129,7 @@ test.describe('터미널 재접속 (TERMINAL_RESUME_SRS)', () => {
       await dropSocket(page);
       await waitReconnected(page);
     }
+    // **예외 (`TEST-16`)**: 새 출력이 **없음**을 잰다 — 기다릴 신호가 없다.
     await page.waitForTimeout(800);
 
     // 사이에 새 출력이 없었다. 그러므로 받은 것은 스크롤백 재생일 수 없다.
@@ -156,7 +159,8 @@ test.describe('터미널 재접속 (TERMINAL_RESUME_SRS)', () => {
 
     await dropSocket(page);
     await waitReconnected(page);
-    // 재개 직후의 넛지는 한 tick 뒤에 온다. 그것까지 지나고 센다.
+    // **예외 (`TEST-16`)**: 재개 직후의 넛지는 한 tick 뒤에 온다. 그것까지
+    // 지나고 세는 것이 검사이므로 기다릴 신호가 없다.
     await page.waitForTimeout(500);
 
     // `_onWsOpen` 의 크기 보고 한 번은 정상이다 (넛지가 아니다). 넛지는 두 번을

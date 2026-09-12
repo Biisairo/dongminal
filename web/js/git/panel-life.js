@@ -13,7 +13,7 @@ Object.assign(GitPanel.prototype, {
     // FR-RTU-60: Repo 창의 패널은 저장소가 **고정**이다 (창의 루트가 그것이다) —
     // 갈아탈 대상이 없으므로 전환도 없다. 그 값은 `repo` getter 가 준다.
     if(this.root) return;
-    const w=this.app._gitWindow(); if(!w) return;
+    const w=this.app.gitWindow(); if(!w) return;
     if(!w.git) w.git={repo:null};
     if(w.git.repo===path) return;
     w.git.repo=path;
@@ -37,7 +37,7 @@ Object.assign(GitPanel.prototype, {
     // 리포의 선택·diff 를 새 리포의 헤더와 함께 보인다.
     for(const p of this.obs.panels) p._repoSwitchView(path);
     // 마지막 관측을 버렸으므로 chip 도 사라져야 한다 (FR-GIT-59).
-    this.app._updateStatusBar();
+    this.app.updateStatusBar();
     // 상단의 창 이름은 활성 리포에서 온다 — 같은 창에서 리포만 바뀌면 render 가
     // 돌지 않으므로(아래 주석의 조기 반환) 여기서 직접 고쳐 그린다.
     this.app.renderer._rTopbar();
@@ -45,7 +45,7 @@ Object.assign(GitPanel.prototype, {
     // 활성 리포는 창에 붙어 영속한다 (FR-GIT-29). switchWindow 가 이미 활성인
     // 창에서는 조기 반환하므로 여기서 직접 저장한다 — 저장을 그쪽에 맡기면
     // "같은 창에서 리포만 바꾼" 경우가 새로고침에서 사라진다.
-    this.app._save();
+    this.app.save();
   },
 
   /**
@@ -216,20 +216,79 @@ Object.assign(GitPanel.prototype, {
     // FR-RMS-19·20: 소실은 탭을 가리지 않는다. **분기는 이 한 자리다** — 일곱
     // 자리에 두면 한 곳이 빠져도 조용히 지나간다.
     if(this._missing){this._renderMissing(el,view);return}
-    if(view==='changes'){this._renderChanges(el);return}
-    if(view==='diff'){this._renderDiff(el);return}
-    if(view==='history'){this._renderHistory(el);return}
-    if(view==='branches'){this._renderBranches(el);return}
-    if(view==='stash'){this._renderStash(el);return}
-    if(view==='console'){this._renderConsole(el);return}
-    if(view==='worktrees'){this._renderWorktrees(el);return}
-    if(view==='submodules'){this._renderSubmodules(el);return}
+    this._renderBody(view,el);
+    // FR-GRF-9: 골격이 방금 섰어도 낡음은 보여야 한다. 관측이 다음 회차에
+    // 칠해 주기를 기다리면, 실패한 상태에서 탭을 여는 동안 화면이 조용하다.
+    this._paintStaleIn(el);
+  },
+
+  _renderBody(view,el){
+    if(view==='changes') return this._renderChanges(el);
+    if(view==='diff') return this._renderDiff(el);
+    if(view==='history') return this._renderHistory(el);
+    if(view==='branches') return this._renderBranches(el);
+    if(view==='stash') return this._renderStash(el);
+    if(view==='console') return this._renderConsole(el);
+    if(view==='worktrees') return this._renderWorktrees(el);
+    if(view==='submodules') return this._renderSubmodules(el);
     el.innerHTML='';
     if(!this.repo){
       const d=document.createElement('div'); d.className='git-empty';
       d.textContent=GIT_NO_REPO_HINT;
       el.appendChild(d);
     }
+  },
+
+  /**
+   * GIT_REFRESH_LIFECYCLE_SRS FR-GRF-9~12 (`GP-4`): **낡음 배너는 모든 git 뷰에
+   * 걸린다.**
+   *
+   *   이전 동작: `.git-stale-note` 가 Changes 골격 안에만 있었다. History·
+   *             Branches·Stash·Console·Worktrees·Submodules·Diff 를 보는 동안
+   *             망 실패·서버 재시작·권한 상실이 나면 화면은 **아무 표시 없이**
+   *             마지막으로 성공한 목록을 계속 보였다
+   *   새  동작: 소실 안내와 같은 자리(이 파일)에서 뷰 공통으로 그린다
+   *   이유:     `_staleNote`·`_errMsg` 는 **관측기의 값**이라 이미 모든 패널이
+   *             공유한다. 그리는 요소만 한 뷰에 갇혀 있었다 (`11 GP-4`)
+   *
+   * 골격에 자리를 미리 파지 않고 **필요할 때 끼운다** — 뷰가 여덟이고 각자
+   * 자기 마크업을 갖는데, 여덟 곳에 같은 한 줄을 두면 다음 뷰가 늘 때 한 곳이
+   * 빠진다. 그것이 이 결함이 생긴 방식이다.
+   */
+  _staleInfo(){
+    // FR-GRF-12: 소실은 확정된 사실이고 낡음은 그 상위 집합이다 — 겹쳐 보이지 않는다.
+    if(this._missing) return null;
+    if(this._errMsg) return {text:this._errMsg,loading:false};
+    if(this._staleNote) return {text:GIT_STALE_NOTE,loading:false};
+    // 아직 불러오는 중인 것은 오류가 아니다 — 같은 자리에 다른 색으로 알린다.
+    if(!(this._status&&this._status.status)) return {text:GIT_LOADING_HINT,loading:true};
+    return null;
+  },
+
+  _paintStaleIn(el){
+    if(!el) return;
+    const info=this._staleInfo();
+    let note=null;
+    for(const c of el.children) if(c.classList&&c.classList.contains('git-stale-note')){note=c;break}
+    if(!info){ if(note) note.classList.remove('vis'); return }
+    if(!note){
+      note=document.createElement('div');
+      note.className='git-stale-note';
+      // 자리는 머리 바로 아래다 — Changes 에서 그랬던 그 자리이며, 머리가 없는
+      // 뷰에서는 맨 위다.
+      let head=null;
+      for(const c of el.children) if(c.classList&&c.classList.contains('git-head')){head=c;break}
+      el.insertBefore(note,head?head.nextSibling:el.firstChild);
+    }
+    note.textContent=info.text;
+    note.classList.add('vis');
+    note.classList.toggle('loading',info.loading);
+  },
+
+  // 골격이 선 뷰 전부. 목록을 따로 적지 않는다 (`paintHeads` 와 같은 규약).
+  paintStale(){
+    for(const el of this._els.values())
+      if(el.dataset.built==='1') this._paintStaleIn(el);
   },
 
   // ── 소실 (GIT_REPO_MISSING_SRS FR-RMS-6~11·19~21) ──
@@ -337,12 +396,12 @@ Object.assign(GitPanel.prototype, {
   },
 
   _missingPinned(){
-    const pins=((this.app._gitRepos||{}).pinned)||[];
+    const pins=((this.app.gitRepos||{}).pinned)||[];
     return pins.some(p=>p&&p.path===this._missing);
   },
 
   /**
-   * FR-RMS-9: 제거는 **기존 경로를 지난다** (`_gitUnpin`) — 새 경로를 만들면 핀의
+   * FR-RMS-9: 제거는 **기존 경로를 지난다** (`gitUnpin`) — 새 경로를 만들면 핀의
    * 권위가 둘이 된다 (O1: 서버가 권위).
    *
    * 지운 뒤에는 활성 리포를 놓는다. 사라진 폴더의 핀까지 없앤 사용자에게 그 화면을
@@ -350,7 +409,7 @@ Object.assign(GitPanel.prototype, {
    */
   async _missingUnpin(){
     const path=this._missing; if(!path) return;
-    if(await this.app._gitUnpin(path)) this.setRepo(null);
+    if(await this.app.gitUnpin(path)) this.setRepo(null);
   },
 
   // ── Changes 탭 (FR-GIT-32~42) ──

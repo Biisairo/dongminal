@@ -67,8 +67,8 @@
 
   function pane(){
     const a=window.app;
-    if(!a||!a._focusedTerminal) return null;
-    try{return a._focusedTerminal()}catch{return null}
+    if(!a||!a.focusedTerminal) return null;
+    try{return a.focusedTerminal()}catch{return null}
   }
   function scrollState(){
     const p=pane(); if(!p||!p.term) return 'no-pane';
@@ -86,9 +86,9 @@
    */
   function gitObsState(){
     const a=window.app;
-    if(!a||!a._gitPanels||!a._gitPanels.size) return 'git: 패널 없음';
+    if(!a||!a.gitPanels||!a.gitPanels.size) return 'git: 패널 없음';
     const out=[];
-    for(const p of a._gitPanels.values()){
+    for(const p of a.gitPanels.values()){
       const age=p._lastObsAt?Math.round((Date.now()-p._lastObsAt)/1000)+'s':'never';
       out.push((p.repo||'-')+' obs='+age+' poll='+(p._pollOn?p._pollSt:'off'));
     }

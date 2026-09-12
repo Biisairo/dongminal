@@ -7,8 +7,8 @@
  *
  * `GitObserver`(앱에 하나인 git 관측)·`FileTreeStore`(루트마다 하나인 탐색기 관측)
  * 와 같은 형태다 — `constructor(app)` 으로 앱을 받고, 앱으로 나가는 길은 여덟 곳
- * 뿐이다 (`ws`·`focused`·`addTab`·`_slotKey`·`_slotBase`·`_jumpToTool`·
- * `_findToolLocation`).
+ * 뿐이다 (`ws`·`focused`·`addTab`·`slotKey`·`slotBase`·`jumpToTool`·
+ * `findToolLocation`).
  *
  * **본문을 `Object.assign` 으로 얹는 이유**는 원본이 이미 객체 리터럴이기
  * 때문이다. 클래스 본문으로 옮기면 메서드 서른셋에서 끝의 쉼표를 떼야 하고, 그
@@ -160,9 +160,26 @@ Object.assign(RunsPanel.prototype, {
     }
     const pending = this._runsPending === rv.id;
     const confirming = this._runsConfirm === rv.id;
-    if (pending) row.appendChild(runDiv('runs-deleting', '삭제 중…'));
+    if (pending) row.appendChild(runDiv('runs-deleting',
+      this._runsPendingKind === 'close' ? '종료 중…' : '삭제 중…'));
     else if (confirming) row.appendChild(this._runsConfirmEl(rv));
-    else row.appendChild(this._runsDelBtn(rv));
+    else {
+      /**
+       * FUI-04: **진행 중인 Run 을 기록을 잃지 않고 멈춘다.**
+       *
+       *   이전 동작: 유일한 출구가 `삭제` 였고 그것은 기록까지 지운다 —
+       *             "이 Run 을 멈추고 싶다" 와 "이 Run 을 잊고 싶다" 가
+       *             한 버튼이었다
+       *   새  동작: 열린 Run 에는 `종료` 가 함께 선다 (`POST /api/runs/close`)
+       *   이유:     서버는 `close` 를 이미 노출한다 — 없던 것은 화면뿐이었다.
+       *             종료는 정리까지 한다 (FR-RUN-6~9): 에이전트를 끝내고 탭을
+       *             닫고 worktree 를 거둔다
+       *
+       * 닫힌 Run 에는 두지 않는다 — 끝난 것을 또 끝내는 버튼은 뜻이 없다.
+       */
+      if (rv.state === 'open') row.appendChild(this._runsCloseBtn(rv));
+      row.appendChild(this._runsDelBtn(rv));
+    }
 
     // FR-RVZ-5: 모달이 닫히고, 현재 포커스 분할 칸에 새 탭이 생긴다.
     row.addEventListener('click', () => {
@@ -186,18 +203,40 @@ Object.assign(RunsPanel.prototype, {
     return btn;
   },
 
+  // FUI-04: 종료. **삭제와 나란히 서고 확인도 같은 규약이다** — 두 출구가
+  // 다른 모양이면 사용자가 어느 쪽이 무엇을 지우는지 배워야 한다.
+  _runsCloseBtn(rv) {
+    const btn = document.createElement('button');
+    btn.className = 'tbtn runs-close'; btn.textContent = '종료';
+    btn.title = TIP_RUNS_CLOSE;
+    btn.dataset.runid = rv.id;
+    btn.addEventListener('click', e => { e.stopPropagation(); this._runsConfirmSet(rv.id, 'close') });
+    return btn;
+  },
+
   // FR-DEL-4: 확인은 행 안에서 한다 — 모달 위의 모달은 Escape 처리와 포커스
   // 관리를 복잡하게 만든다 (FR-BGK-4 와 같은 판단).
   _runsConfirmEl(rv) {
     const wrap = runDiv('runs-confirm');
+    const closing = this._runsConfirmKind === 'close';
+    wrap.dataset.kind = closing ? 'close' : 'delete';
     // 삭제는 되돌릴 수 없다 (FR-DEL-7). 무엇이 함께 사라지는지 적는다.
+    //
+    // FUI-04: 종료는 **기록을 남긴다** — 그 차이가 두 출구의 전부이므로 확인
+    // 문구가 그것을 말한다. 말하지 않으면 사용자는 안전한 쪽을 고를 수 없다.
     const open = rv.state === 'open';
-    wrap.appendChild(runDiv('runs-q', open
-      ? '삭제? 진행 중인 Run 이며 기록도 함께 사라진다.'
-      : '삭제? 기록이 사라진다.'));
+    wrap.appendChild(runDiv('runs-q', closing
+      ? '종료? 에이전트를 끝내고 탭을 닫는다. 기록은 남는다.'
+      : (open
+        ? '삭제? 진행 중인 Run 이며 기록도 함께 사라진다.'
+        : '삭제? 기록이 사라진다.')));
     const yes = document.createElement('button');
-    yes.className = 'tbtn runs-yes'; yes.textContent = '예'; yes.title = TIP_RUNS_YES;
-    yes.addEventListener('click', e => { e.stopPropagation(); this._runsDelete(rv.id) });
+    yes.className = 'tbtn runs-yes'; yes.textContent = '예';
+    yes.title = closing ? TIP_RUNS_CLOSE_YES : TIP_RUNS_YES;
+    yes.addEventListener('click', e => {
+      e.stopPropagation();
+      if (closing) this._runsClose(rv.id); else this._runsDelete(rv.id);
+    });
     const no = document.createElement('button');
     no.className = 'tbtn runs-no'; no.textContent = '아니오'; no.title = TIP_RUNS_NO;
     no.addEventListener('click', e => { e.stopPropagation(); this._runsConfirmSet(null) });
@@ -206,23 +245,55 @@ Object.assign(RunsPanel.prototype, {
   },
 
   // FR-DEL-3: 확인은 한 번에 하나다. 다른 행의 삭제를 누르면 앞의 확인은 취소된다.
-  _runsConfirmSet(runId) {
+  // FUI-04: **종류도 함께 기억한다** — 같은 행에서 종료와 삭제가 갈리므로,
+  // 무엇을 물었는지 모르면 "예" 가 무엇을 하는지 말할 수 없다.
+  _runsConfirmSet(runId, kind) {
     this._runsConfirm = runId || null;
+    this._runsConfirmKind = runId ? (kind || 'delete') : null;
     this._runsDelErr = null;
     this._runsModalRender();
+  },
+
+  /**
+   * FUI-04: `POST /api/runs/close`.
+   *
+   * **`force` 를 준다.** 그것이 없으면 아직 보고하지 않은 멤버가 있을 때 서버가
+   * 거부하고(`unreported`), 사용자는 그 목록을 화면에서 해소할 길이 없다 —
+   * 여기서 누른 것은 "지금 멈춘다" 이고, 그 뜻을 반만 전하면 버튼이 듣지 않는
+   * 것으로 보인다.
+   *
+   * 실패·성공 처리는 삭제와 **같은 자리**를 쓴다 (`_runsDelErr`·`_runsRefresh`)
+   * — 두 출구의 오류 표시가 갈리면 한쪽만 고쳐진다.
+   */
+  async _runsClose(runId) {
+    this._runsConfirm = null; this._runsConfirmKind = null; this._runsDelErr = null;
+    this._runsPending = runId; this._runsPendingKind = 'close';
+    this._runsModalRender();
+    const r = await apiPost('/api/runs/close', { runId, force: true });
+    let msg = '';
+    if (!r.ok) {
+      msg = r.status === 0 ? '종료 실패 — 서버에 닿지 못했다'
+        : ((r.data && r.data.message) || r.text.trim() || `종료 실패 (${r.status})`);
+    }
+    this._runsPending = null; this._runsPendingKind = null;
+    if (msg) this._runsDelErr = { runId, msg };
+    else await this._runsRefresh();
+    // 응답을 기다리는 사이에 모달이 닫혔을 수 있다 — 그때 그리면 되살아난다.
+    if (this._runsModalOpen) this._runsModalRender();
   },
 
   // FR-DEL-5: DELETE /api/runs/{id}. 성공하면 목록만 다시 받는다 — 모달은 열린
   // 채로 남고, 빈 목록 안내는 그 갱신이 따라온다.
   async _runsDelete(runId) {
-    this._runsConfirm = null; this._runsDelErr = null; this._runsPending = runId;
+    this._runsConfirm = null; this._runsConfirmKind = null; this._runsDelErr = null;
+    this._runsPending = runId; this._runsPendingKind = 'delete';
     this._runsModalRender();
     let ok = false, msg = '';
     const r = await apiDel('/api/runs/' + encodeURIComponent(runId));
     ok = r.ok;
     if (!ok) msg = r.status === 0 ? '삭제 실패 — 서버에 닿지 못했다'
       : (r.text.trim() || `삭제 실패 (${r.status})`);
-    this._runsPending = null;
+    this._runsPending = null; this._runsPendingKind = null;
     if (!ok) this._runsDelErr = { runId, msg };
     else await this._runsRefresh();
     // 응답을 기다리는 사이에 모달이 닫혔을 수 있다 — 그때 그리면 되살아난다.
@@ -267,7 +338,7 @@ Object.assign(RunsPanel.prototype, {
     return live;
   },
 
-  // `_slotKey(탭 id, 칸)` → 대시보드 뷰. 뷰는 **탭보다 오래 살지 않는다**.
+  // `slotKey(탭 id, 칸)` → 대시보드 뷰. 뷰는 **탭보다 오래 살지 않는다**.
   //
   // SLOT_RUN_VIEW_SRS FR-SRV-1: 키가 탭 id 하나였을 때, 같은 Run 탭을 두 칸에서
   // 보면 뒤에 그린 칸의 `appendChild` 가 앞 칸에서 노드를 떼어 가 앞 칸이 비었다.
@@ -280,11 +351,11 @@ Object.assign(RunsPanel.prototype, {
   // renderer._mountTabBody 가 부른다. 루트 DOM 은 **탭과 칸의 쌍마다** 하나이며
   // 재사용된다 — pane 을 다시 그려도 SVG 가 새로 만들어지지 않는다 (NFR-RVZ-2).
   //
-  // FR-SRV-3: 칸 0 의 키는 탭 id **그대로**다 (`_slotKey`, FR-WSL-75) — 단일 슬롯
+  // FR-SRV-3: 칸 0 의 키는 탭 id **그대로**다 (`slotKey`, FR-WSL-75) — 단일 슬롯
   // 모드의 동작은 한 글자도 바뀌지 않는다.
-  _runViewEl(tab, slot) {
+  runViewEl(tab, slot) {
     const m = this._runViewMap();
-    const key = this.app._slotKey(tab.id, slot || 0);
+    const key = this.app.slotKey(tab.id, slot || 0);
     let v = m.get(key);
     if (!v) { v = { key, tabId: tab.id, slot: slot || 0, runId: tab.runId, root: this._runBuildRoot(), data: null, err: null, busy: false, pending: false }; m.set(key, v) }
     // 워크스페이스 복원이 같은 탭 id 에 다른 runId 를 실어 올 수 있다.
@@ -345,12 +416,12 @@ Object.assign(RunsPanel.prototype, {
     const m = this._runViewMap();
     if (!m.size) return;
     const live = this._runLiveTabIds();
-    // FR-SRV-4.2: 키는 복합키다 — 살아 있는 탭 판정은 `_slotBase` 로 한다.
+    // FR-SRV-4.2: 키는 복합키다 — 살아 있는 탭 판정은 `slotBase` 로 한다.
     // 편집기가 이 자리에서 정확히 같은 실수를 냈다 (FR-SVS-60): `@1` 만 잘라
     // 내던 동안 칸 2·3 의 뷰는 살아 있는 탭인데도 매번 파괴됐다.
     // FR-SRV-5: 같은 runId 를 보는 **모든 칸**의 뷰를 갱신한다.
     for (const [key, v] of Array.from(m)) {
-      if (!live.has(this.app._slotBase(key))) { this._runDisposeView(v); m.delete(key); continue }
+      if (!live.has(this.app.slotBase(key))) { this._runDisposeView(v); m.delete(key); continue }
       if (v.runId !== runId) continue;
       v.err = null;
       this._runFetch(v);
@@ -669,10 +740,13 @@ Object.assign(RunsPanel.prototype, {
     const el = root.querySelector('.run-cards');
     reconcileList(el, members, {
       key: m => m.id,
+      // FUI-04: `분리` 버튼의 유무가 `tabId` 로 갈린다 — 근거에 넣지 않으면
+      // 부착·분리 뒤 버튼이 따라오지 않는다 (FR-RPT-2).
       sig: m => [m.role, m.agent, m.state, m.headless ? 1 : 0, m.contextLevel || '',
         Math.round((m.contextRatio || 0) * 100), m.compactCount || 0,
         m.contextTokens || 0, m.contextLimit || 0,
-        (m.worktree && m.worktree.branch) || '', m.succeededBy || ''].join(':'),
+        (m.worktree && m.worktree.branch) || '', m.succeededBy || '',
+        m.tabId ? 1 : 0, this._runDetachErr === m.id ? 1 : 0].join(':'),
       build: m => this._runCardEl(m),
     });
   },
@@ -711,7 +785,64 @@ Object.assign(RunsPanel.prototype, {
       ? '클릭하면 현재 분할 칸의 새 탭으로 부착한다'
       : '클릭하면 이 멤버의 도구로 이동한다';
     card.addEventListener('click', () => this._runJumpToMember(m));
+    /**
+     * `12-func-ui.md FUI-04`: **분리.** 탭은 닫히고 도구는 산다.
+     *
+     *   이전 동작: 부착(`attach`)만 화면에 있었다. 붙인 뒤 자리를 비우려면 탭을
+     *             직접 닫아야 했고, 그것은 **도구를 종료하는 길**과 같은 동작이라
+     *             사용자가 무엇이 일어나는지 알 수 없었다
+     *   새  동작: `POST /api/runs/detach` 를 부르는 버튼이 카드에 선다
+     *   이유:     서버는 이 종단을 이미 갖고 있었다 (FR-HLM-7) — 없던 것은
+     *             화면뿐이다
+     *
+     * **붙어 있는 멤버에만** 둔다 — 서버가 `member_not_attached` 로 거절하는
+     * 조합을 누를 수 있게 보이면 그 버튼은 거짓말이다.
+     */
+    // 실패는 버튼보다 **앞**에 둔다 — 오른쪽 끝(`margin-left:auto`)이 버튼의
+    // 자리이고, 사유가 그 뒤에 붙으면 카드마다 끝이 흔들린다 (FR-BGK-10 과
+    // 같은 자리, `runs-err-inline` 이 삭제 목표 앞에 서는 것과 같은 규약).
+    if (this._runDetachErr === m.id && this._runDetachMsg) {
+      card.appendChild(runDiv('run-card-err', this._runDetachMsg));
+    }
+    if (m.tabId) card.appendChild(this._runDetachBtn(m));
     return card;
+  },
+
+  _runDetachBtn(m) {
+    const btn = document.createElement('button');
+    btn.className = 'tbtn run-card-detach'; btn.textContent = '분리';
+    btn.title = TIP_RUNS_DETACH;
+    btn.dataset.member = m.id;
+    // 카드 클릭은 "그 도구로 간다" 이므로 여기서 멈춘다 — 분리하려는 손이
+    // 그 도구로 끌려가면 무엇이 일어났는지 읽히지 않는다.
+    btn.addEventListener('click', e => { e.stopPropagation(); this._runDetachMember(m) });
+    return btn;
+  },
+
+  /**
+   * FUI-04 / FR-HLM-7: 분리 한 번.
+   *
+   * 실패를 **그 카드에** 남긴다 (FR-DEL-6 과 같은 규약) — 분리는 브라우저가
+   * 탭을 닫아 주어야 끝나므로 실패할 수 있고(구독 없음·시한 초과), 조용히
+   * 넘기면 사용자는 눌리지 않았다고 읽는다.
+   */
+  async _runDetachMember(m) {
+    if (!m || !m.id) return;
+    this._runDetachErr = null; this._runDetachMsg = '';
+    const r = await apiPost('/api/runs/detach', { memberId: m.id });
+    if (!r.ok) { this._runCardFail(m, r, '분리 실패'); return }
+    // 이 멤버를 보고 있는 대시보드 탭들이 결과를 따라온다. 분리는 서버의 사실을
+    // 바꾸므로 `run_changed` 가 오지만, **실패한 경우에는 오지 않는다** — 그
+    // 안내는 이 다시 그리기가 낸다.
+    this._runRefreshViewsOf(m.runId);
+  },
+
+  // FUI-04: 그 Run 의 열린 대시보드 탭만 다시 받는다. 열린 탭이 없으면 요청이
+  // 나가지 않는다 (V-RVZ-4 가 요청 건수를 센다).
+  _runRefreshViewsOf(runId) {
+    for (const v of this._runViewMap().values()) {
+      if (!runId || v.runId === runId) this._runFetch(v);
+    }
   },
 
   // FR-RVZ-13: 이미 탭이 있으면 그리로 간다. 없으면(헤드리스) 부착이며,
@@ -719,12 +850,40 @@ Object.assign(RunsPanel.prototype, {
   // 현재 포커스 분할 칸에 새 탭을 만든다 (FR-HLM-6).
   async _runJumpToMember(m) {
     if (!m || !m.id) return;
-    if (m.toolId && this.app._findToolLocation(m.toolId)) { this.app._jumpToTool(m.toolId); return }
+    if (m.toolId && this.app.findToolLocation(m.toolId)) { this.app.jumpToTool(m.toolId); return }
     try {
       // location 을 비워 둔다 — 그래야 지금 포커스된 분할 칸이 대상이 된다.
       const r = await apiPost('/api/runs/attach', { memberId: m.id });
-      if (!r.ok) console.warn('[run] attach 실패', r.status, r.text.trim());
-    } catch (e) { console.warn('[run] attach 실패', e) }
+      /**
+       * `12-func-ui.md FUI-20`: **실패를 카드가 말한다.**
+       *
+       *   이전 동작: `console.warn` 만. 카드의 툴팁은 "클릭하면 … 부착한다" 고
+       *             약속하는데, 실패하면 화면이 조용했다
+       *   새  동작: 그 카드 안에 사유를 남긴다 — 분리 실패와 **같은 자리**다
+       *   이유:     약속한 동작이 듣지 않으면 사용자는 같은 것을 되풀이해 누른다
+       */
+      if (!r.ok) {
+        console.warn('[run] attach 실패', r.status, r.text.trim());
+        this._runCardFail(m, r, '부착 실패');
+      }
+    } catch (e) {
+      console.warn('[run] attach 실패', e);
+      this._runCardFail(m, null, '부착 실패');
+    }
+  },
+
+  /**
+   * 멤버 카드 하나에 실패 사유를 남긴다 (FUI-20·04).
+   *
+   * 부착과 분리가 **같은 자리**를 쓴다 — 두 실패가 다른 모양이면 사용자가
+   * 어느 쪽이 무엇인지 매번 다시 읽는다 (`runs-err-inline` 과 같은 규약).
+   */
+  _runCardFail(m, r, what) {
+    this._runDetachErr = m.id;
+    this._runDetachMsg = (!r || r.status === 0)
+      ? what + ' — 서버에 닿지 못했다'
+      : ((r.data && r.data.message) || `${what} (${r.status})`);
+    this._runRefreshViewsOf(m.runId);
   },
 
   // FR-RVZ-10: 타임라인. 서버가 준 순서를 그대로 쓴다 — 사건의 순서는 서버의 사실이다.

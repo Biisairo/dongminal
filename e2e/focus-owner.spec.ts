@@ -138,11 +138,11 @@ test.describe('묶음 E — 크로스 기기 창 포커스 소유권', () => {
     await expect.poll(async () => (await owners(request))[w1], { timeout: 10000 }).toBe(idA);
 
     // 구독만 끊는다 (컨텍스트는 살아 있다) → 서버가 즉시 해제해야 한다.
-    await A.page.evaluate(() => (window as any).app._cmdES.close());
+    await A.page.evaluate(() => (window as any).app.testing.cmdES.close());
     await expect.poll(async () => (await owners(request))[w1], { timeout: 10000 }).toBeUndefined();
 
     // 재연결 → onopen 에서 스냅샷 복원 + 재획득. 이것이 없으면 소유권이 영구히 빈다.
-    await A.page.evaluate(() => { (window as any).app._windowFocused = true; (window as any).app._subscribeCommands(); });
+    await A.page.evaluate(() => { (window as any).app.testing.windowFocused = true; (window as any).app.testing.subscribeCommands(); });
     await expect.poll(async () => (await owners(request))[w1], { timeout: 10000 }).toBe(idA);
 
     await A.ctx.close();
@@ -156,11 +156,12 @@ test.describe('묶음 E — 크로스 기기 창 포커스 소유권', () => {
     await claim(A.page);
     await expect.poll(async () => (await owners(request))[w1], { timeout: 10000 }).toBe(idA);
 
-    await A.page.evaluate(() => { (window as any).app._windowFocused = false; (window as any).app._cmdES.close(); });
+    await A.page.evaluate(() => { (window as any).app.testing.windowFocused = false; (window as any).app.testing.cmdES.close(); });
     await expect.poll(async () => (await owners(request))[w1], { timeout: 10000 }).toBeUndefined();
 
-    await A.page.evaluate(() => (window as any).app._subscribeCommands());
-    // 재연결은 되지만 주장하지 않는다. 주장했다면 여기서 idA 가 돌아온다.
+    await A.page.evaluate(() => (window as any).app.testing.subscribeCommands());
+    // **예외 (`TEST-16`)**: 소유를 **주장하지 않음**을 잰다 — 주장했다면 이
+    // 창 안에 idA 가 돌아온다.
     await A.page.waitForTimeout(1500);
     expect((await owners(request))[w1]).toBeUndefined();
 
@@ -169,7 +170,7 @@ test.describe('묶음 E — 크로스 기기 창 포커스 소유권', () => {
 
   test('TC-XDF-9: BroadcastChannel 경로가 없다 (FR-XDF-5)', async ({ browser }) => {
     const A = await newClient(browser);
-    expect(await A.page.evaluate(() => !!(window as any).app._focusCh)).toBe(false);
+    expect(await A.page.evaluate(() => !!(window as any).app.testing.focusCh)).toBe(false);
     await A.ctx.close();
   });
 
@@ -180,15 +181,15 @@ test.describe('묶음 E — 크로스 기기 창 포커스 소유권', () => {
     await claim(A.page);
     await expect(B.page.locator('#area .pn.pn-dimmed')).toHaveCount(1, { timeout: 10000 });
 
-    // _resizeCheck 는 **toolId** 를 받는다 — app.focused 는 pane id 이므로 넘기면
+    // resizeCheck 는 **toolId** 를 받는다 — app.focused 는 pane id 이므로 넘기면
     // _toolWindowId 가 null 을 돌려주고 "아직 어느 Window 에도 없음 → 허용"으로
     // 빠져 테스트가 무의미해진다.
-    // _windowFocused 는 참으로 고정해 OS 포커스 요인을 제거하고 소유권만 남긴다.
+    // windowFocused 는 참으로 고정해 OS 포커스 요인을 제거하고 소유권만 남긴다.
     const probe = () => B.page.evaluate(() => {
       const app = (window as any).app;
-      app._windowFocused = true;
+      app.testing.windowFocused = true;
       const el = document.querySelector('#area .pn-tab[data-toolid]') as HTMLElement | null;
-      return { toolId: el?.dataset.toolid || null, allowed: el ? app._resizeCheck(el.dataset.toolid) : null };
+      return { toolId: el?.dataset.toolid || null, allowed: el ? app.testing.resizeCheck(el.dataset.toolid) : null };
     });
 
     const owned = await probe();
@@ -216,7 +217,7 @@ test.describe('묶음 E — 크로스 기기 창 포커스 소유권', () => {
 
     const st = await A.page.evaluate((w) => {
       const app = (window as any).app;
-      return { owner: app._windowFocusOwner[w], mine: app.clientId, dimmed: document.querySelectorAll('#area .pn.pn-dimmed').length };
+      return { owner: app.testing.windowFocusOwner[w], mine: app.clientId, dimmed: document.querySelectorAll('#area .pn.pn-dimmed').length };
     }, w1);
     expect(st.owner).toBe(st.mine);
     expect(st.dimmed).toBe(0);

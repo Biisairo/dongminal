@@ -154,7 +154,7 @@ Object.assign(App.prototype, {
   // 커맨드클릭은 다르다 — 링크 밑줄을 Monaco 만 그릴 수 있으므로 그쪽은 provider
   // 로 간다 (`_lspProvideDef`, FR-LSP-60~65). 두 벌 구현이 아니라 **같은 종단의
   // 두 계기**이며, 다른 파일로 가는 일은 `registerEditorOpener` 가 이 파일의
-  // `_edOpenFile` 로 되돌린다 (§2.11c 가 그 기각을 되짚었다).
+  // `edOpenFile` 로 되돌린다 (§2.11c 가 그 기각을 되짚었다).
 
   /**
    * 지금 물을 자리. 활성 편집기의 **커서 위치와 현재 텍스트**다 (D-3).
@@ -189,7 +189,7 @@ Object.assign(App.prototype, {
    * 커서를 읽으므로(`_lspWhere`), 그 사이에 다른 것이 커서를 옮기면 엉뚱한
    * 심볼을 묻게 된다.
    */
-  async _lspClickDef(view,position){
+  async lspClickDef(view,position){
     const ed=view&&view._editor;
     if(!ed||!position) return;
     ed.setPosition(position);
@@ -229,12 +229,12 @@ Object.assign(App.prototype, {
    * 지금 자리를 **먼저 스택에 넣는다** — 넣지 않으면 뛴 뒤에 돌아올 수 없고, 그러면
    * 그 이동은 길을 잃는 일이 된다.
    *
-   * 다른 파일이면 탭으로 열린다. 그 경로는 `_edOpenFile` 이 이미 알고 있으며 조상
+   * 다른 파일이면 탭으로 열린다. 그 경로는 `edOpenFile` 이 이미 알고 있으며 조상
    * 폴더를 탐색기에서 펼치는 일까지 한다 (FR-EKB-6).
    */
   _lspGo(at,loc){
     this._lspPush(at);
-    this._edOpenFile(loc.path,{line:loc.line,col:loc.col});
+    this.edOpenFile(loc.path,{line:loc.line,col:loc.col});
   },
 
   // FR-LSP-25: 여럿이면 고르게 한다. 껍데기는 전체 검색과 같은 것이다 — 사용자가
@@ -276,7 +276,7 @@ Object.assign(App.prototype, {
    * Monaco 가 뜬 뒤에 불려야 하므로 `FileEditor` 가 편집기를 세운 직후에 부른다.
    * 두 번째부터는 아무 일도 하지 않는다.
    */
-  async _lspHoverRegister(){
+  async lspHoverRegister(){
     if(typeof monaco==='undefined'||!monaco.languages) return;
     // 언어 목록은 **선언에서 온다** (FR-EXT-1). 화면이 표를 따로 갖고 있으면
     // 언어를 더할 때 한쪽만 고쳐져 그 언어에서 호버가 붙지 않는다.
@@ -375,7 +375,7 @@ Object.assign(App.prototype, {
         // FR-LSP-64: 계기가 둘이어도 돌아오는 길은 하나다 — 여기서도 쌓는다.
         const at=this._lspWhere();
         if(at) this._lspPush(at);
-        this._edOpenFile(path,{line,col});
+        this.edOpenFile(path,{line,col});
         return true;
       },
     });
@@ -445,7 +445,7 @@ Object.assign(App.prototype, {
     return {root,path,text:model.getValue()};
   },
 
-  // 모델의 uri 에서 파일 경로를 되돌린다. 모델은 `_edDoc` 이 파일마다 하나로
+  // 모델의 uri 에서 파일 경로를 되돌린다. 모델은 `edDoc` 이 파일마다 하나로
   // 만들므로 그 규약을 그대로 딛는다.
   _lspPathOfModel(model){
     const v=this._edActiveEditor();
@@ -461,7 +461,7 @@ Object.assign(App.prototype, {
   // 겹쳐 있을 때 짧은 쪽을 고르면 언어 서버가 엉뚱한 저장소를 읽는다.
   _lspRootOfPath(path){
     let best='';
-    for(const w of this._edWindows()){
+    for(const w of this.edWindows()){
       const r=w.editor&&w.editor.root;
       if(!r) continue;
       // 구분자를 `/` 로 굳히지 않는다 — Windows 에서는 어떤 루트도 걸리지 않아
@@ -479,7 +479,7 @@ Object.assign(App.prototype, {
    * 상태를 파일마다 다시 묻지 않는다 — 한 번 받아 두고 설치가 일어났을 때만
    * 버린다. 파일을 여는 것은 흔한 일이고, 그때마다 종단을 치면 그 자체가 지연이 된다.
    */
-  async _lspOfferFor(view){
+  async lspOfferFor(view){
     if(!view||!view.filePath||!view._editor) return;
     const ext=this._lspExtOf(view.filePath);
     if(!ext) return;
@@ -528,7 +528,7 @@ Object.assign(App.prototype, {
     }catch{return false}
   },
 
-  _lspDismiss(id){
+  lspDismiss(id){
     try{
       let o={};
       const raw=localStorage.getItem(LSP_OFFER_KEY);
@@ -542,7 +542,7 @@ Object.assign(App.prototype, {
    * 배너의 `받기`. 설정창의 것과 **같은 종단**을 쓴다 — 두 벌로 두면 한쪽만
    * 고쳐진다.
    */
-  async _lspOfferInstall(id,view){
+  async lspOfferInstall(id,view){
     const out=await this._lspInstallOnce(id);
     this._lspStatusInvalidate();
     if(view&&view.note) view.note(out&&out.ok?LSP_INSTALL_OK:((out&&out.reason)||LSP_STATUS_FAIL),8000);
@@ -595,10 +595,10 @@ Object.assign(App.prototype, {
   /**
    * FR-LSP-35: 탭을 닫으면 그 파일의 진단을 걷는다.
    *
-   * 모델이 파일마다 하나이고 탭을 닫아도 남을 수 있으므로(`_edDocDrop` 이 수명을
+   * 모델이 파일마다 하나이고 탭을 닫아도 남을 수 있으므로(`edDocDrop` 이 수명을
    * 정한다), 걷지 않으면 다시 열었을 때 낡은 밑줄이 먼저 보인다.
    */
-  _lspClearDiagnostics(model){
+  lspClearDiagnostics(model){
     if(!model||typeof monaco==='undefined'||!monaco.editor) return;
     monaco.editor.setModelMarkers(model,LSP_DIAG_OWNER,[]);
   },
@@ -612,7 +612,7 @@ Object.assign(App.prototype, {
     try{localStorage.setItem(LSP_DIAG_KEY,lspDiagOn?'1':'0')}catch{}
     if(lspDiagOn) return;
     for(const v of this.fileEditors.values()){
-      if(v&&v._editor) this._lspClearDiagnostics(v._editor.getModel());
+      if(v&&v._editor) this.lspClearDiagnostics(v._editor.getModel());
     }
   },
 
@@ -641,6 +641,6 @@ Object.assign(App.prototype, {
       return;
     }
     const to=this._lspBack.pop();
-    this._edOpenFile(to.path,{line:to.line,col:to.col});
+    this.edOpenFile(to.path,{line:to.line,col:to.col});
   },
 });

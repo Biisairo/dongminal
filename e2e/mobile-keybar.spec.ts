@@ -440,8 +440,11 @@ test.describe('Mobile keybar tooltips (SRS REQ-T-1..T-4)', () => {
 
     // REQ-T-3: no modifier change after a cancelled long-press
     const modState = await page.evaluate(() => {
-      const w = window as unknown as { App?: { _modKbd?: { ctrl: boolean; alt: boolean } } };
-      return w.App?._modKbd ?? null;
+      // `window.App` 은 **존재한 적이 없다** — 이 단정은 늘 null 을 받아 아래
+      // if 안으로 들어가지 못했다. 계약을 지나게 고쳐 실제로 재게 한다
+      // (APP_TESTING_CONTRACT_SRS · M6 `TEST-6` 의 게이트 구멍에서 드러났다).
+      const w = window as any;
+      return w.app?.testing?.modKbd ?? null;
     });
     if (modState) {
       expect(modState.ctrl).toBe(false);

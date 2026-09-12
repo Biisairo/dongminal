@@ -45,7 +45,7 @@ class GitWorktrees extends GitListTab {
    * 어긋난다. 비교는 문자열 일치다 (unpin 이 그렇게 지운다, FR-GIT-12).
    */
   _isPinned(path){
-    const d=this.app._gitRepos;
+    const d=this.app.gitRepos;
     return !!(d&&Array.isArray(d.pinned)&&d.pinned.some(p=>p&&p.path===path));
   }
 
@@ -126,19 +126,19 @@ class GitWorktrees extends GitListTab {
     if(act==='open'){this.app.openGitWindow(e.path);return}
     if(act==='pin'||act==='unpin'){this._pin(e,act==='unpin');return}
     // FR-GIT-244: 터미널은 **Git 창이 아닌 창**에 연다 (FR-GIT-41·185 와 같은 경로).
-    if(act==='term'){this.app._gitOpenTerminal(e.path);return}
+    if(act==='term'){this.app.gitOpenTerminal(e.path);return}
     if(act==='remove'){this._remove(e);return}
   }
 
   /**
    * 핀·해제 (FR-GIT-249). 안내는 **한 일**을 말한다.
    *
-   * 실패는 이 탭의 안내 줄에만 보인다 — `_gitPin` 은 결과만 돌려주고 스스로
+   * 실패는 이 탭의 안내 줄에만 보인다 — `gitPin` 은 결과만 돌려주고 스스로
    * 알리지 않는다. 같은 사실을 두 번 알리면 사용자는 두 가지 일이 일어난 줄로 읽는다.
    */
   async _pin(e,off){
-    const ok=off?await this.app._gitUnpin(e.path)
-                :(await this.app._gitPin(e.path)).ok;
+    const ok=off?await this.app.gitUnpin(e.path)
+                :(await this.app.gitPin(e.path)).ok;
     this._note=ok?{kind:off?'unpinned':'pinned',msg:(off?GIT_WT_UNPINNED:GIT_WT_PINNED)+e.path}
                  :{kind:'fail',msg:off?GIT_WT_UNPIN_FAIL:GIT_WT_PIN_FAIL};
     if(!this._el) return;

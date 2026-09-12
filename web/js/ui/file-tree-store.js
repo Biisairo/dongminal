@@ -64,7 +64,7 @@ class FileTreeStore {
   // `_edActiveStore` 가 고른다).
   detach(v){
     this.views.delete(v);
-    if(!this.views.size&&this.app._edStores) this.app._edStores.delete(this.root);
+    if(!this.views.size&&this.app.edStores) this.app.edStores.delete(this.root);
   }
 
   // FR-SVS-22: 관측이 갱신되면 그 루트를 보는 **모든** 칸이 다시 칠해진다.

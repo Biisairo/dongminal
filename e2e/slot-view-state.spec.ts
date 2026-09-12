@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS, gitFixture, cleanGitFixture, copyDir, rmTree, rmTreeHard, freshDir, clickRowAct } from './fixtures';
+import { test, expect, waitForInit, waitSettled, GIT_VIEW_TABS, gitFixture, cleanGitFixture, copyDir, rmTree, rmTreeHard, freshDir, clickRowAct, nextFrames } from './fixtures';
 import { TMP, tmpPath, realPath, cssPath } from './osenv';
 
 // 칸별 시선 — SLOT_VIEW_STATE_SRS §8
@@ -43,12 +43,12 @@ const openGitWindow = async (page: Page) => {
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate(() => {
     const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
+    a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
   await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-  const id = await page.evaluate((r: string) => (window as any).app._edWindowFor(r).id, repo);
+  const id = await page.evaluate((r: string) => (window as any).app.testing.edWindowFor(r).id, repo);
   await page.evaluate(() => (window as any).app.render());
   return id;
 };
@@ -109,8 +109,14 @@ const stateActiveTab = async (request: any, winId: string) => {
   expect(r.ok()).toBeTruthy();
   const st = await r.json();
   const w = (st.workspace?.windows || []).find((s: any) => s.id === winId);
-  const walk = (n: any): any => (n?.type === 'pane' ? n : walk(n?.children?.[0]));
-  return walk(w?.layout)?.activeTab || null;
+  // **첫 칸까지 내려간다 — 못 내려가면 멈춘다.** 종전에는 재귀였고 종료 조건이
+  // `n?.type === 'pane'` 하나였다: `n` 이 `undefined` 면 그 조건은 거짓이고
+  // 다음 인자도 `undefined` 이므로 `walk(undefined)` 를 영원히 부른다
+  // (`RangeError: Maximum call stack size exceeded`). 한 번만 부르던 때에는
+  // 드러나지 않았다 — 되풀이해 물으면 아직 서지 않은 레이아웃을 만난다.
+  let n: any = w?.layout;
+  for (let i = 0; n && n.type !== 'pane' && i < 50; i++) n = (n.children || [])[0];
+  return (n && n.type === 'pane' && n.activeTab) || null;
 };
 
 test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
@@ -226,26 +232,35 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
     await clickTab(page, 0, 'Diff');
     await focusSlot(page, 1);
     await clickTab(page, 1, 'Console');
+    /**
+     * 워크스페이스가 말하는 활성 탭의 **이름**.
+     *
+     * 고정 300ms 로 기다렸더니 전량(16 병렬)에서 한 번 `Submodules` 를 읽었다 —
+     * `openGit` 이 마지막으로 여는 뷰이자 이 칸의 **초기** 활성 탭이다. 저장이
+     * 아직 날고 있었던 것이고, 300ms 는 그 사실을 재지 못한다. 재는 것은
+     * "반영되는가" 이지 "300ms 안에 반영되는가" 가 아니다.
+     */
+    const activeTabName = async () => {
+      const at = await stateActiveTab(request, git);
+      return await page.evaluate(([id, tid]) => {
+        const w = (window as any).app.ws.windows.find((s: any) => s.id === id);
+        // **되풀이해 읽으므로 첫 칸 찾기가 아직 서지 않은 레이아웃도 만난다.**
+        // 종전의 재귀 `walk` 은 "안정된 시점에 한 번" 을 전제했고, 갱신 중인
+        // 구조에서 `RangeError` 로 터졌다. 못 찾으면 `null` 을 돌려 poll 이
+        // 다시 묻게 한다.
+        let n: any = w?.layout;
+        for (let i = 0; n && n.type !== 'pane' && i < 50; i++) n = (n.children || [])[0];
+        if (!n || n.type !== 'pane') return null;
+        return (n.tabs || []).find((t: any) => t.id === tid)?.name || null;
+      }, [git, at] as const);
+    };
+
     // 포커스는 칸 1 이므로 이제 워크스페이스가 Console 을 말해야 한다.
-    await page.waitForTimeout(300);
-    let at = await stateActiveTab(request, git);
-    let name = await page.evaluate(([id, tid]) => {
-      const w = (window as any).app.ws.windows.find((s: any) => s.id === id);
-      const walk = (n: any): any => (n.type === 'pane' ? n : walk(n.children[0]));
-      return walk(w.layout).tabs.find((t: any) => t.id === tid)?.name || null;
-    }, [git, at] as const);
-    expect(name).toBe('Console');
+    await expect.poll(activeTabName, { timeout: 10000 }).toBe('Console');
 
     // 포커스를 칸 0 으로 옮기면 워크스페이스는 칸 0 이 보는 것을 말한다.
     await focusSlot(page, 0);
-    await page.waitForTimeout(300);
-    at = await stateActiveTab(request, git);
-    name = await page.evaluate(([id, tid]) => {
-      const w = (window as any).app.ws.windows.find((s: any) => s.id === id);
-      const walk = (n: any): any => (n.type === 'pane' ? n : walk(n.children[0]));
-      return walk(w.layout).tabs.find((t: any) => t.id === tid)?.name || null;
-    }, [git, at] as const);
-    expect(name).toBe('Diff');
+    await expect.poll(activeTabName, { timeout: 10000 }).toBe('Diff');
   });
 
   test('TC-SVS-13: 알람 판정은 어느 칸에서든 보이면 보인다 (FR-SVS-13)', async ({ page }) => {
@@ -267,7 +282,7 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
     await clickTabId(page, 0, tabs[0].id);
 
     const seen = async (toolId: string) =>
-      page.evaluate((t) => (window as any).app._isToolFocusedActive(t), toolId);
+      page.evaluate((t) => (window as any).app.testing.isToolFocusedActive(t), toolId);
 
     expect(await seen(tabs[0].toolId)).toBe(true);   // 포커스 칸이 본다
     expect(await seen(tabs[1].toolId)).toBe(true);   // 다른 칸이 본다 — FR-SVS-13
@@ -376,7 +391,7 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
 
     // 탭을 다른 pane 으로 옮긴다 (드롭 핸들러가 지나는 단일 통로).
     await page.evaluate(([src, tid, d]) =>
-      (window as any).app._moveTabToPane(src, tid, d, null, false),
+      (window as any).app.testing.moveTabToPane(src, tid, d, null, false),
       [rid0, tabs[1].id, dst] as const);
     await renderNow(page);
 
@@ -439,7 +454,7 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
     await clickTabId(page, 1, tabs[0].id);
 
     // 알람이 둘째 탭의 도구를 부른다 — 사용자는 포커스 칸에 있다.
-    await page.evaluate((t) => (window as any).app._jumpToTool(t), tabs[1].toolId);
+    await page.evaluate((t) => (window as any).app.testing.jumpToTool(t), tabs[1].toolId);
     await renderNow(page);
 
     expect(await activeTabId(page, 1)).toBe(tabs[1].id);
@@ -491,7 +506,7 @@ test.describe('묶음 F — 함께 고치는 결함 (FR-SVS-60)', () => {
     const edWin = await page.evaluate(
       () => (window as any).app.ws.windows.find((w: any) => w.type === 'editor').id);
 
-    const opened = await page.evaluate((fp) => (window as any).app._edOpenFile(fp), SOME_FILE);
+    const opened = await page.evaluate((fp) => (window as any).app.testing.edOpenFile(fp), SOME_FILE);
     expect(opened).not.toBeNull();
     await renderNow(page);
 
@@ -501,7 +516,12 @@ test.describe('묶음 F — 함께 고치는 결함 (FR-SVS-60)', () => {
     await slotAdd(page);
     for (let i = 0; i < 4; i++) await openInSlot(page, i, edWin);
     await renderNow(page);
-    await page.waitForTimeout(300);
+    // 칸마다 편집기가 **선 뒤에** 센다 — 넷을 기대하는 아래 단정이 그 전에
+    // 읽으면 아직 둘뿐인 화면을 본다.
+    await expect
+      .poll(() => page.evaluate(() => [...(window as any).app.fileEditors.keys()].length),
+        { timeout: 10000 })
+      .toBeGreaterThanOrEqual(4);
 
     const before = await page.evaluate(() => [...(window as any).app.fileEditors.keys()]);
     expect(before.filter((k: string) => k.endsWith('@2')).length).toBe(1);
@@ -509,7 +529,9 @@ test.describe('묶음 F — 함께 고치는 결함 (FR-SVS-60)', () => {
 
     // 렌더를 여러 번 돌려도 살아 있는 편집기는 회수되지 않는다.
     await page.evaluate(() => { for (let i = 0; i < 3; i++) (window as any).app.render() });
-    await page.waitForTimeout(300);
+    // 회수되지 **않음**을 재므로 조건을 되풀이해 읽을 수 없다 — 그림이 한 바퀴
+    // 돈 뒤에 견준다.
+    await nextFrames(page);
 
     const after = await page.evaluate(() => [...(window as any).app.fileEditors.keys()]);
     expect(after.sort()).toEqual(before.sort());
@@ -541,15 +563,15 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
     expect(r.ok(), `editors/add 실패: ${await r.text()}`).toBeTruthy();
     await waitForInit(page);
     await page.waitForFunction(
-      () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
+      () => !!(window as any).app?.testing.editors && (window as any).app.testing.edWindows().length > 0,
       undefined, { timeout: 15000 });
     const edWin = await page.evaluate((root) => {
       const a = (window as any).app;
-      const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
+      const win = a.testing.edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
       if (!win) throw new Error('Editor 창이 없다: ' + root);
       // UX_BATCH6_SRS FR-DSP-1: 사이드의 기본이 Changes 다. 이 묶음이 재는 것은
       // **탐색기**의 관측과 시선이므로 그 자리를 명시로 연다.
-      a._edSetSide(win, 'explorer');
+      a.testing.edSetSide(win, 'explorer');
       a.switchWindow(win.id);
       return win.id;
     }, ROOT);
@@ -602,7 +624,7 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
     await slotAdd(page);
     await slotAdd(page);
     const edWin = await page.evaluate((root) =>
-      (window as any).app._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/')).id, ROOT);
+      (window as any).app.testing.edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/')).id, ROOT);
     for (let i = 0; i < 4; i++) await openInSlot(page, i, edWin);
     await renderNow(page);
     await page.waitForFunction(
@@ -610,14 +632,14 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
       undefined, { timeout: 15000 });
 
     // 시선은 넷, 관측은 하나다.
-    expect(await page.evaluate(() => (window as any).app._edTrees.size)).toBe(4);
-    expect(await page.evaluate(() => (window as any).app._edStores.size)).toBe(1);
+    expect(await page.evaluate(() => (window as any).app.testing.edTrees.size)).toBe(4);
+    expect(await page.evaluate(() => (window as any).app.testing.edStores.size)).toBe(1);
 
     // 네 뷰가 동시에 git 색을 물어도 요청은 한 벌이다 — `gitBusy` 가 공유이기
     // 때문이며, 그것이 "폴링은 하나, 화면은 여럿" 의 실체다.
     const before = statusReqs;
     await page.evaluate(async () => {
-      const ts = [...(window as any).app._edTrees.values()];
+      const ts = [...(window as any).app.testing.edTrees.values()];
       await Promise.all(ts.map((t: any) => t.pollGit()));
     });
     expect(statusReqs - before).toBeLessThanOrEqual(1);
@@ -639,7 +661,7 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
     const A = path.join(ROOT, 'dirA');
     await clickRow(page, 0, A);
     await expect(rowIn(page, 0, path.join(A, 'inside.txt'))).toHaveCount(1);
-    expect(await page.evaluate(() => (window as any).app._edTrees.size)).toBe(2);
+    expect(await page.evaluate(() => (window as any).app.testing.edTrees.size)).toBe(2);
 
     // 칸 1 을 없앤다 → 칸 0 의 펼침은 그대로고, 관측도 살아 있다.
     await page.evaluate(() => {
@@ -653,8 +675,8 @@ test.describe('묶음 X — 탐색기의 관측과 시선 (FR-SVS-20~24)', () =>
 
     await expect(page.locator(`#area .ed-row[data-path="${cssPath(path.join(A, 'inside.txt'))}"]`))
       .toHaveCount(1);
-    expect(await page.evaluate(() => (window as any).app._edTrees.size)).toBe(1);
-    expect(await page.evaluate(() => (window as any).app._edStores.size)).toBe(1);
+    expect(await page.evaluate(() => (window as any).app.testing.edTrees.size)).toBe(1);
+    expect(await page.evaluate(() => (window as any).app.testing.edStores.size)).toBe(1);
   });
 });
 
@@ -709,16 +731,16 @@ test.describe('묶음 F — 누른 한 번이 듣는다 (FR-SVS-61)', () => {
     await openInSlot(page, 1, repo);
     await focusSlot(page, 1);
     // Repo 창이 활성이므로 사이드바 탭은 `repo` 다 (FR-SBT-14).
-    await expect.poll(() => page.evaluate(() => (window as any).app._sbTab)).toBe('repo');
-    expect(await page.evaluate(() => (window as any).app._slotRenderPending)).toBeFalsy();
+    await expect.poll(() => page.evaluate(() => (window as any).app.testing.sbTab)).toBe('repo');
+    expect(await page.evaluate(() => (window as any).app.testing.slotRenderPending)).toBeFalsy();
 
     await page.evaluate(() => {
       const w = window as any;
       const app = w.app;
       w.__clicks = 0;
       w.__flush = [];
-      const fl = app._slotRenderFlush.bind(app);
-      app._slotRenderFlush = () => { w.__flush.push(!!app._slotRenderPending); return fl() };
+      const fl = app.testing.slotRenderFlush.bind(app);
+      app.testing.slotRenderFlush = () => { w.__flush.push(!!app.testing.slotRenderPending); return fl() };
       document.addEventListener('click', () => w.__clicks++, true);
       // 이 한 번의 누름만 대상으로 한다 — 뒤따르는 조작까지 먹으면 검사가 앱을
       // 망가뜨린다.
@@ -742,8 +764,8 @@ test.describe('묶음 F — 누른 한 번이 듣는다 (FR-SVS-61)', () => {
     expect(await page.evaluate(() => (window as any).app.slots.focused)).toBe(0);
     await expect.poll(() => page.evaluate(() => (window as any).__flush.length), { timeout: 2000 })
       .toBeGreaterThan(0);
-    expect(await page.evaluate(() => (window as any).app._slotRenderPending)).toBeFalsy();
-    expect(await page.evaluate(() => (window as any).app._sbTab)).toBe('windows');
+    expect(await page.evaluate(() => (window as any).app.testing.slotRenderPending)).toBeFalsy();
+    expect(await page.evaluate(() => (window as any).app.testing.sbTab)).toBe('windows');
   });
 
   /**
@@ -760,7 +782,7 @@ test.describe('묶음 F — 누른 한 번이 듣는다 (FR-SVS-61)', () => {
     // 창 B 를 만들고 분할해 pane 둘로 만든다.
     const winB = await page.evaluate(async () => {
       const a = (window as any).app;
-      const r = await a._mkWindow();
+      const r = await a.testing.mkWindow();
       a.switchWindow(r.win);
       await a.executeAction('splitH');
       a.render();
@@ -769,7 +791,7 @@ test.describe('묶음 F — 누른 한 번이 듣는다 (FR-SVS-61)', () => {
     const bPanes: string[] = await page.evaluate((id: string) => {
       const a = (window as any).app;
       const w = a.ws.windows.find((x: any) => x.id === id);
-      const out: any[] = []; a._collectPanes(w.layout, out);
+      const out: any[] = []; a.testing.collectPanes(w.layout, out);
       return out.map((p: any) => p.id);
     }, winB);
     expect(bPanes.length).toBe(2);
@@ -833,13 +855,13 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate(() => {
     const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
+    a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
     await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
-    // FR-RTU-70: 옛 `_gitWindow()` 는 사라졌다 — 창의 신원은 루트다 (D-RTU-18).
-    const git = await page.evaluate((r: string) => (window as any).app._edWindowFor(r).id, repo);
+    // FR-RTU-70: 옛 `gitWindow()` 는 사라졌다 — 창의 신원은 루트다 (D-RTU-18).
+    const git = await page.evaluate((r: string) => (window as any).app.testing.edWindowFor(r).id, repo);
     await slotAdd(page);
     await openInSlot(page, 0, git);
     await openInSlot(page, 1, git);
@@ -865,22 +887,22 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
   const panelOf = (page: Page, slot: number) =>
     page.evaluate((n) => {
       const a = (window as any).app;
-      return a._gitPanel(a._gitRootOfActive(), n);
+      return a.testing.gitPanelAt(a.testing.gitRootOfActive(), n);
     }, slot);
 
   const panelsForActiveRoot = (page: Page) =>
     page.evaluate(() => {
       const a = (window as any).app;
-      const root = a._gitRootOfActive();
+      const root = a.testing.gitRootOfActive();
       let n = 0;
-      for (const k of a._gitPanels.keys()) if (a._gitPanelRoot(k) === root) n++;
+      for (const k of a.testing.gitPanels.keys()) if (a.testing.gitPanelRoot(k) === root) n++;
       return n;
     });
 
   const previewOf = (page: Page, slot: number) =>
     page.evaluate((n) => {
       const a = (window as any).app;
-      const p = a._gitPanel(a._gitRootOfActive(), n);
+      const p = a.testing.gitPanelAt(a.testing.gitRootOfActive(), n);
       return p.previewFile ? p.previewFile.path : null;
     }, slot);
 
@@ -893,8 +915,8 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     expect(await panelsForActiveRoot(page)).toBe(2);
     expect(await page.evaluate(() => {
       const a = (window as any).app;
-      const r = a._gitRootOfActive();
-      return a._gitPanel(r, 0).obs === a._gitPanel(r, 1).obs;
+      const r = a.testing.gitRootOfActive();
+      return a.testing.gitPanelAt(r, 0).obs === a.testing.gitPanelAt(r, 1).obs;
     })).toBe(true);
   });
 
@@ -937,8 +959,8 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     const before = reqs;
     await page.evaluate(async () => {
       const a = (window as any).app;
-      const r = a._gitRootOfActive();
-      const ps = [0, 1, 2, 3].map((i) => a._gitPanel(r, i));
+      const r = a.testing.gitRootOfActive();
+      const ps = [0, 1, 2, 3].map((i) => a.testing.gitPanelAt(r, i));
       await Promise.all(ps.map((p: any) => p.collect()));
     });
     expect(reqs - before).toBeLessThanOrEqual(2);
@@ -993,7 +1015,7 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     // 남은 패널은 관측을 계속 본다.
     expect(await page.evaluate(() => {
       const a = (window as any).app;
-      return !!a._gitPanel(a._gitRootOfActive(), 0).obs;
+      return !!a.testing.gitPanelAt(a.testing.gitRootOfActive(), 0).obs;
     })).toBe(true);
   });
 
@@ -1023,7 +1045,7 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     await page.evaluate((r) => (window as any).app.openGitWindow(r), other);
     await page.waitForFunction((r) => {
       const a = (window as any).app;
-      return a._isEditorWin(a._aw()) && a._edRootOf(a._aw()) === r;
+      return a.testing.isEditorWin(a.testing.aw()) && a.testing.edRootOf(a.testing.aw()) === r;
     }, other, { timeout: 15000 });
     await renderNow(page);
 
@@ -1044,9 +1066,9 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
     // 가드에 걸린다 — 칸마다 두면 같은 쓰기가 두 번 나간다.
     await page.evaluate(async () => {
       const a = (window as any).app;
-      const r = a._gitRootOfActive();
-      const p0 = a._gitPanel(r, 0);
-      const p1 = a._gitPanel(r, 1);
+      const r = a.testing.gitRootOfActive();
+      const p0 = a.testing.gitPanelAt(r, 0);
+      const p1 = a.testing.gitPanelAt(r, 1);
       await Promise.all([p0.uncommittedReset(), p1.uncommittedReset()]);
     });
     expect(writes).toBe(1);
@@ -1061,7 +1083,7 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
       await focusSlot(page, i);
       expect(await page.evaluate((n) => {
         const a = (window as any).app;
-        return a.gitPanel === a._gitPanel(a._gitRootOfActive(), n);
+        return a.gitPanel === a.testing.gitPanelAt(a.testing.gitRootOfActive(), n);
       }, i)).toBe(true);
     }
   });
@@ -1091,15 +1113,15 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
     expect(r.ok(), `editors/add 실패: ${await r.text()}`).toBeTruthy();
     await waitForInit(page);
     await page.waitForFunction(
-      () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
+      () => !!(window as any).app?.testing.editors && (window as any).app.testing.edWindows().length > 0,
       undefined, { timeout: 15000 });
     const edWin = await page.evaluate((root) => {
       const a = (window as any).app;
-      const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
+      const win = a.testing.edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
       a.switchWindow(win.id);
       return win.id;
     }, ROOT);
-    await page.evaluate((fp) => (window as any).app._edOpenFile(fp), FILE);
+    await page.evaluate((fp) => (window as any).app.testing.edOpenFile(fp), FILE);
     await slotAdd(page);
     await openInSlot(page, 0, edWin);
     await openInSlot(page, 1, edWin);
@@ -1224,7 +1246,7 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
       await page.evaluate((k) => { (window as any).app.fileEditors.get(k).save() }, keys[1]);
       await expect.poll(() => page.evaluate(() => (window as any).__seen), { timeout: 10000 }).toBe(1);
       await expect.poll(() => page.evaluate(
-        () => [...(window as any).app._edDocs.values()][0].saving)).toBe(true);
+        () => [...(window as any).app.testing.edDocs.values()][0].saving)).toBe(true);
 
       // 그 칸을 없앤다 → 그 뷰의 `destroy()` 가 저장 도중에 온다.
       await page.evaluate(() => {
@@ -1233,14 +1255,14 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
       });
       await renderNow(page);
       await page.waitForFunction(
-        () => [...(window as any).app._edDocs.values()][0].views.size === 1,
+        () => [...(window as any).app.testing.edDocs.values()][0].views.size === 1,
         undefined, { timeout: 15000 });
 
       await page.evaluate(() => { const w = window as any; w.__release(); w.__restore() });
 
       // FR-WBR-90: 기록이 남지 않는다. FR-WBR-91: 쓰기가 성공했으므로 dirty 도 없다.
       await expect.poll(() => page.evaluate(() => {
-        const d = [...(window as any).app._edDocs.values()][0];
+        const d = [...(window as any).app.testing.edDocs.values()][0];
         return { saving: d.saving, dirty: d.dirty };
       }), { timeout: 10000 }).toEqual({ saving: false, dirty: false });
       expect(fs.readFileSync(FILE, 'utf8')).toBe('written while dying\n');
@@ -1257,9 +1279,9 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
 
   test('TC-SVS-52: 문서는 마지막 칸이 떠날 때 거둬진다 (FR-SVS-55)', async ({ page, request }) => {
     const keys = await sameFileInTwoSlots(page, request);
-    expect(await page.evaluate(() => (window as any).app._edDocs.size)).toBe(1);
+    expect(await page.evaluate(() => (window as any).app.testing.edDocs.size)).toBe(1);
     expect(await page.evaluate(() => {
-      const d = [...(window as any).app._edDocs.values()][0];
+      const d = [...(window as any).app.testing.edDocs.values()][0];
       return d.views.size;
     })).toBe(2);
 
@@ -1271,12 +1293,12 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
     });
     await renderNow(page);
     await page.waitForFunction(() => {
-      const d = [...(window as any).app._edDocs.values()][0];
+      const d = [...(window as any).app.testing.edDocs.values()][0];
       return d && d.views.size === 1;
     }, undefined, { timeout: 15000 });
-    expect(await page.evaluate(() => (window as any).app._edDocs.size)).toBe(1);
+    expect(await page.evaluate(() => (window as any).app.testing.edDocs.size)).toBe(1);
     expect(await page.evaluate(() => {
-      const d = [...(window as any).app._edDocs.values()][0];
+      const d = [...(window as any).app.testing.edDocs.values()][0];
       return !!d.model && !d.model.isDisposed();
     })).toBe(true);
 
@@ -1290,6 +1312,6 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
     });
     await renderNow(page);
     await page.waitForFunction(
-      () => (window as any).app._edDocs.size === 0, undefined, { timeout: 15000 });
+      () => (window as any).app.testing.edDocs.size === 0, undefined, { timeout: 15000 });
   });
 });

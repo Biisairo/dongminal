@@ -252,7 +252,7 @@ const REPO_SIDE_TABS=[
  *             동안 첫 화면과 탭 순서가 서로 다른 말을 했다
  *
  * FR-DSP-2: 이미 저장된 창의 선택은 바뀌지 않는다 — 이 값은 **키가 없을 때**의
- * 답이며 `_edSideOf` 가 그렇게 읽는다.
+ * 답이며 `edSideOf` 가 그렇게 읽는다.
  */
 const REPO_SIDE_DEFAULT=REPO_SIDE_CHANGES;
 
@@ -313,7 +313,14 @@ const EDITOR_TREE_REFRESH=
   '</svg>';
 const EDITOR_TREE_REFRESH_TITLE='Refresh the tree (re-reads expanded folders only)';
 // FR-EDT-65: 상한을 넘긴 폴더. **조회는 실패하지 않는다** — 잘렸다는 사실만 알린다.
-const EDITOR_TREE_TRUNCATED='%s개 이상 — 잘림';
+/**
+ * FS_LIST_PAGING_SRS FR-FSP-11: 잘림 행은 **사실 둘**을 함께 말한다 — 보이는
+ * 수와 전체 수. 종전에는 "%s개 이상 — 잘림" 이었고, 그것은 사용자가 이미 짐작한
+ * 것이다. 알고 싶은 것은 **나머지를 어떻게 보는가**이며 이제 그 길이 있다.
+ */
+const EDITOR_TREE_TRUNCATED='%s / %t — 더 보기';
+const EDITOR_TREE_MORE_BUSY='%s / %t — 받는 중…';
+const EDITOR_TREE_MORE_FAIL='%s / %t — 더 받지 못했습니다. 눌러 다시 시도';
 // FR-EDT-63: 조회 실패는 그 폴더 행에만 남고 트리를 깨뜨리지 않는다.
 const EDITOR_TREE_ERR='읽지 못했습니다';
 
@@ -382,6 +389,16 @@ const EDITOR_MENU_COPY='복사';
 const EDITOR_MENU_PASTE='붙여넣기';
 const EDITOR_MENU_DUPLICATE='복제';
 const EDITOR_PASTE_NONE='복사한 것이 없습니다';
+/**
+ * `12-func-ui.md FUI-11`: **잘라내기.**
+ *
+ *   이전 동작: 붙여넣기는 루트를 건널 수 있는데(FR-WBR-61) 드래그는 트리 안에서만
+ *             성립했다. 그래서 `~/proj` 의 파일을 메모장 트리로 **복사는 되고
+ *             옮기기는 되지 않았고**, "잘라내기" 항목도 없었다
+ *   새  동작: 클립보드가 `move` 를 함께 든다. 붙여넣기가 그때 `rename` 으로 간다
+ *   이유:     복사·붙여넣기가 이미 그 길을 다 냈다 — 없던 것은 **동사 하나**였다
+ */
+const EDITOR_MENU_CUT='잘라내기';
 // FR-FTR-13·18 / FR-ETR-16·23: 탐색기의 전송. 다운로드는 폴더에서도 활성이며
 // 그때는 zip 으로 온다 (D-4). 링크는 여전히 비활성이다 — 링크 자신을 내려받는다는
 // 뜻이 정해져 있지 않다.
@@ -502,3 +519,9 @@ const ED_DD_KIND_TEXT='text';
 // 팝업이 한 번에 보이는 이전 줄의 상한. 넘으면 팝업 안에서 스크롤한다 —
 // 조각 하나가 화면을 통째로 덮으면 그것은 팝업이 아니라 다른 화면이다.
 const ED_DD_PEEK_MAX_LINES=12;
+
+// FUI-07: 모두 저장의 결말. 개별 실패는 `save()` 가 이미 알리므로 여기는
+// **묶음의 결말**만 적는다 — 없으면 여러 파일 중 하나가 막힌 것을 모른다.
+const ED_SAVE_ALL_NONE='저장할 변경이 없습니다';
+const ED_SAVE_ALL_OK='모두 저장했습니다';
+const ED_SAVE_ALL_PARTIAL='일부를 저장하지 못했습니다 — 그 탭의 사유를 보세요';

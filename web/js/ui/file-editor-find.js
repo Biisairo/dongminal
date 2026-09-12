@@ -281,7 +281,7 @@ FileEditor.applyTheme = function() {
   // EDITOR_DIRTY_DIFF_SRS FR-EDD-23b: 변경 표시의 색도 CSS 변수에서 왔으므로
   // 여기서 함께 다시 세운다. 두 번째 테마 훅을 만들지 않는다.
   if (typeof edDdReset === 'function') edDdReset();
-  if (window.app && window.app._edDirtyDiffRepaint) window.app._edDirtyDiffRepaint();
+  if (window.app && window.app.edDirtyDiffRepaint) window.app.edDirtyDiffRepaint();
   const name = monacoTheme();
   if (name !== MONACO_THEME) return;
   monaco.editor.setTheme(name);

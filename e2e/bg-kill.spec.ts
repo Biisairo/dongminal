@@ -53,7 +53,7 @@ async function makeBackgroundTools(page: Page, request: any, n: number): Promise
 
     await expect.poll(
       async () => page.evaluate((tid) =>
-        ((window as any).app._bg || []).some((b: any) => b.toolId === tid), target),
+        ((window as any).app.testing.bg || []).some((b: any) => b.toolId === tid), target),
       { timeout: 10000 },
     ).toBe(true);
     ids.push(target as string);
@@ -327,7 +327,7 @@ test.describe('FR-BGK-2·12: 모바일 배치와 Run 소속', () => {
     // 서버가 헤드리스 도구를 백그라운드로 등록한다 — 브라우저 목록에 오르길 기다린다.
     await expect.poll(
       async () => page.evaluate((tid) =>
-        ((window as any).app._bg || []).some((b: any) => b.toolId === tid), memberTool),
+        ((window as any).app.testing.bg || []).some((b: any) => b.toolId === tid), memberTool),
       { timeout: 10000 },
     ).toBe(true);
     await openModal(page);

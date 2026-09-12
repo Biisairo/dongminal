@@ -155,7 +155,7 @@ Object.assign(App.prototype, {
         // 판단이다. 응답을 기다리는 사이에 우리 PUT 이 끝나면 이 스냅샷은 과거가
         // 되고, 그것을 적용하면 방금 만든 것이 사라진다 — Git 창을 연 직후가 그
         // 창구다 (`openGitWindow` 는 로컬 배열에만 넣고 저장은 뒤따른다).
-        // 적용 **직전에** 다시 본다. `_gitReposRefresh` 의 세대 검사와 같은 정신이다.
+        // 적용 **직전에** 다시 본다. `gitReposRefresh` 의 세대 검사와 같은 정신이다.
         const now=this.wsETag?parseInt(this.wsETag,10):-1;
         const got=et?parseInt(et,10):-1;
         if(got>=0&&now>=0&&got<now) continue;
@@ -178,7 +178,7 @@ Object.assign(App.prototype, {
     this._fgRepaint(toolId);
   },
 
-  _fgMap(){ return this._fgNames||(this._fgNames=new Map()) },
+  _fgMap(){ return this.fgNames||(this.fgNames=new Map()) },
 
   /**
    * 합류/재연결 시의 스냅샷 복원 (`_attnRestore` 와 같은 규약). SSE 는 **변화**
@@ -241,7 +241,7 @@ Object.assign(App.prototype, {
   _fgRepaint(toolId){
     for(const s of this.ws.windows){
       if(!s||!s.layout) continue;
-      for(const pn of this._flattenPanes(s.layout)){
+      for(const pn of this.flattenPanes(s.layout)){
         for(const tab of (pn.tabs||[])){
           if(toolId&&tab.toolId!==toolId) continue;
           if(!toolId&&!tab.toolId) continue;
@@ -253,7 +253,7 @@ Object.assign(App.prototype, {
     // FR-NAM-5·6: 도구 이름을 부르는 다른 표면도 따라간다. 열려 있을 때만 그린다 —
     // 닫힌 것을 그리면 되살아난다. 둘 다 reconcile 이라 값이 그대로면 DOM 은
     // 손대지 않는다 (FR-RPT-3).
-    if(this._agentsRender) this._agentsRender();
+    if(this.agentsRender) this.agentsRender();
     if(this._bgModalOpen) this._bgModalRender();
   },
 
@@ -272,6 +272,15 @@ Object.assign(App.prototype, {
    */
   _applyRemoteWorkspace(sv, serverPanes, toolsKnown){
     const known=toolsKnown!==false;
+    /**
+     * FR-OPL-10: 병합의 근거는 **이 채택 이전의** 기억이다. 아래 `_wsMarkSaved`
+     * 가 그것을 갈아끼우므로 여기서 집어 둔다.
+     *
+     * 순서를 뒤집으면 `git 뷰 탭을 닫았다`가 `git 뷰 탭이 아직 안 나갔다`와
+     * 같은 모양이 된다 — 다른 화면이 닫은 탭을 이 화면이 되살려 영영 닫히지
+     * 않는다 (V-OPL-3e 가 그것을 잡았다).
+     */
+    const seenBefore=this._wsSeen();
     // FR-WSC-12: 이 스냅샷에 실린 창이 곧 **원격이 아는 창**이다. 아래에서
     // 마이그레이션·재조정이 `sv.windows` 를 고치므로 그 전에 적어 둔다.
     this._wsMarkSaved(sv.windows);
@@ -288,18 +297,18 @@ Object.assign(App.prototype, {
     const live=known?new Set(serverIds):TOOLS_ALL_LIVE;
     const nameOf=new Map((serverPanes||[]).map(p=>[p.id,p.name]));
     for(const id of serverIds){
-      if(!this.tools.has(id)) this._mkTool(id, nameOf.get(id)||id);
+      if(!this.tools.has(id)) this.mkTool(id, nameOf.get(id)||id);
     }
     // FR-ATL-7: 서버가 모르는 도구는 죽은 도구다. 이름을 지우는 `_fgApply` 와
     // 같은 규약으로 알람도 함께 거둔다.
     //
-    // FR-TLU-10: 비교는 **`_slotBase(key)`** 로 한다. 칸 1 이상의 인스턴스는
+    // FR-TLU-10: 비교는 **`slotBase(key)`** 로 한다. 칸 1 이상의 인스턴스는
     // 키가 `id@1` 이므로 순수 toolId 집합과 직접 대면 언제나 "없는 도구"가 되고,
     // 살아 있는 칸 도구가 `workspace_changed` 마다 파괴된다. `_slotReap` 이 같은
     // 판정을 이미 이렇게 한다 (app-slots.js, FR-SVS-60 과 같은 자리).
     let attnDropped=false;
     for(const [key,p] of Array.from(this.tools.entries())){
-      const id=this._slotBase(key);
+      const id=this.slotBase(key);
       if(!live.has(id)){ try{p.destroy()}catch{} this.tools.delete(key); if(this._attnDrop(id)) attnDropped=true }
     }
     if(attnDropped) this._attnRefresh();
@@ -311,20 +320,20 @@ Object.assign(App.prototype, {
     // FR-EDT-49 / D-13: 이 필터가 `workspace_changed` 경로다. `git pin` 하나에도
     // 이 이벤트가 오므로(§2.4) 예외가 없으면 pane 없는 Editor 창이 다음 핀 한
     // 번에 사라진다.
-    sv.windows=sv.windows.filter(s=>s&&(s.layout||this._isEditorWin(s)));
+    sv.windows=sv.windows.filter(s=>s&&(s.layout||this.isEditorWin(s)));
     // FR-GIT-186: 다른 브라우저 창이 개정 이전 모양을 보내올 수 있다.
     this._migrateGitWindow(sv.windows);
     // FR-EDT-103·106: 상시 불변식이다 — 다른 브라우저가 만든 편집기 탭도 여기서
     // 걷힌다.
     if(this._migrateEditorTabs(sv.windows)){
-      sv.windows=sv.windows.filter(s=>s&&(s.layout||this._isEditorWin(s)));
+      sv.windows=sv.windows.filter(s=>s&&(s.layout||this.isEditorWin(s)));
       edChanged=true;
     }
     // FR-EDT-20·43: **재조정보다 목록이 먼저다.** 목록은 서버 권위이고
     // `editors.list` 는 워크스페이스에 살므로 이 스냅샷이 최신값을 싣고 있다.
-    // 갱신하지 않으면 재조정이 낡은 `_editors` 를 딛어, 다른 브라우저가(또는
+    // 갱신하지 않으면 재조정이 낡은 `editors` 를 딛어, 다른 브라우저가(또는
     // git 핀 연동이) 만든 행의 창이 생기지 않고 지워진 행의 창이 남는다.
-    if(this._editors&&sv.editors) this._edPatchList(sv.editors.list);
+    if(this.editors&&sv.editors) this._edPatchList(sv.editors.list);
     if(this._edReconcile(sv.windows)) edChanged=true;
     // 재조정이 같은 루트의 창을 새 id 로 만들었을 수 있다 — 그때 활성 창을
     // **루트로** 다시 찾는다. 아래 폴백보다 먼저여야 한다: 폴백은 id 가 없으면
@@ -332,7 +341,7 @@ Object.assign(App.prototype, {
     this._edKeepActive(sv);
     // FR-EDT-45: 활성 창의 폴백은 Editor 창이 아니다 (app.js 의 같은 자리와 한 쌍).
     if(!sv.windows.find(s=>s.id===sv.activeWindow))
-      sv.activeWindow=(sv.windows.find(s=>!this._isEditorWin(s))||sv.windows[0])?.id||null;
+      sv.activeWindow=(sv.windows.find(s=>!this.isEditorWin(s))||sv.windows[0])?.id||null;
     // Preserve per-window viewport state: activeWindow and each window's
     // focusedPane. Remote structural changes (splits/tabs) are applied
     // but this window stays on its own window/pane.
@@ -345,8 +354,31 @@ Object.assign(App.prototype, {
     // (FR-GIT-29 로 Git 창에 붙어 있다). activeWindow·focusedPane 과 같은 범주인데
     // 보존 목록에서 빠져 있어, 리포를 전환한 직후 워크스페이스 동기화가 오면
     // 이전 리포로 되돌아갔다 — 그 화면이 무엇을 가리키는지가 조용히 바뀐다.
-    const localGit=this._gitWindow();
+    const localGit=this.gitWindow();
     const localRepo=(localGit&&localGit.git&&localGit.git.repo)||null;
+    /**
+     * OPTIMISTIC_LAYOUT_SRS FR-OPL-1·13: **아직 나가지 못한 로컬 레이아웃을
+     * 되얹는다.**
+     *
+     * 아래 `this.ws=sv` 한 줄이 레이아웃을 통째로 갈아끼운다. 방금 연 git 뷰
+     * 탭은 `save()` 가 디바운스로 뒤따르는 동안 로컬 배열에만 있으므로 그
+     * 한 줄에 지워졌다 — `11 §5` 가 flaky 아홉 중 다섯을 이 자리로 매핑했다.
+     *
+     * 자리가 여기인 이유 (FR-OPL-13): `clean`·마이그레이션·재조정보다 **뒤**여야
+     * 되얹은 탭이 도구 판정에 걸리지 않고, `this.ws=sv` 보다 **앞**이어야
+     * 뒤따르는 `render()` 가 탭이 없는 화면을 한 번 지나지 않는다.
+     *
+     * 판정의 근거는 **이 채택 이전의** 기억이다 (`seenBefore`, FR-OPL-10).
+     */
+    if(mergeUnseenLayout(this.ws.windows,sv.windows,seenBefore)){
+      // FR-OPL-9 (= FR-WSC-13): 화면에만 남기면 다음 새로고침에서 사라진다.
+      edChanged=true;
+      // 되얹은 창이 활성 창 폴백보다 뒤에 왔다 — 폴백이 고른 창이 그 창이어야
+      // 했을 수 있으므로 다시 본다. 아래 `localActive` 복원이 있으나 그것은
+      // 로컬 활성 창이 살아 있을 때만 돈다.
+      if(!sv.windows.find(s=>s.id===sv.activeWindow))
+        sv.activeWindow=(sv.windows.find(s=>!this.isEditorWin(s))||sv.windows[0])?.id||null;
+    }
     this.ws=sv;
     if(localActive && this.ws.windows.some(s=>s.id===localActive)){
       this.ws.activeWindow=localActive;
@@ -359,7 +391,7 @@ Object.assign(App.prototype, {
     // FR-GRR-2: 로컬이 보던 리포가 이긴다. 로컬에 값이 없으면(첫 로드) 서버 것을
     // 그대로 쓴다 — 복원은 그 경로다.
     if(localRepo){
-      const gw=this._gitWindow();
+      const gw=this.gitWindow();
       if(gw){ if(!gw.git) gw.git={}; gw.git.repo=localRepo }
     }
     if('displayMode' in this.ws) delete this.ws.displayMode;
@@ -368,21 +400,21 @@ Object.assign(App.prototype, {
     // 있다 — 옮긴 키를 지우는 자리는 첫 로드와 여기 둘이다.
     if(this._edMigrateSideWidth()) edChanged=true;
     if(this.ws.sidebarWidth){
-      const w=Math.max(100,Math.min(400,this.ws.sidebarWidth));
+      const w=clampSidebarWidth(this.ws.sidebarWidth);
       document.documentElement.style.setProperty('--sb-w',w+'px');
       try{localStorage.setItem('sidebarWidth',w)}catch{}
     }
-    const a=this._aw();
+    const a=this.aw();
     if(a&&a.layout){
       const saved=a.focusedPane;
       const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);
-      if(f) this._setFocus(f.id, a);
+      if(f) this.setFocusState(f.id, a);
     }
     // FR-SVS-7·14: 칸별 시선은 `activeWindow`·`focusedPane` 과 같은 범주다 —
     // 구조 변경은 받아들이면서 보는 자리는 로컬이 이긴다. 맵은 `_slots` 에
     // 있으므로 살아남고, 포커스 칸의 시선을 새 워크스페이스에 다시 얹는다.
     this._slotTabsToWs();
-    if(edChanged) this._save();
+    if(edChanged) this.save();
     this.render();
   },
 
@@ -419,8 +451,8 @@ Object.assign(App.prototype, {
       // 연결된 Editor** 이고 없으면 root 에디터다 (FR-EDT-95) — 기준 경로가 파일
       // 자신이므로 anchor 를 따로 주지 않는다. `location` 은 따라가지 않는다:
       // 어느 창에 열지는 루트가 정하지 사용자가 서 있던 자리가 정하지 않는다.
-      if(this._edOn()){
-        this._edOpenFile(filePath,{name:name||pathBase(filePath)});
+      if(this.edOn()){
+        this.edOpenFile(filePath,{name:name||pathBase(filePath)});
         return;
       }
       if(location) this._focusLocation(location);
@@ -436,13 +468,13 @@ Object.assign(App.prototype, {
       if(!args.location||(!args.name&&!toAuto)){console.warn('[cmd] '+action+': location/name 필수');return}
       const tgt=this._resolveLocation(args.location);
       if(!tgt){console.warn('[cmd] '+action+': 대상 없음',args.location);return}
-      if(toAuto){ this._tabToAuto(tgt.tab); this._save(); this.render(); return }
-      const name=String(args.name).slice(0,64);
+      if(toAuto){ this._tabToAuto(tgt.tab); this.save(); this.render(); return }
+      const name=clampEntityName(args.name);
       // FR-TAN-2: 에이전트가 준 이름도 사용자가 준 이름과 같은 자격이다 —
       // 역할명이 다음 조회에 지워지면 안 된다.
       if(action==='renameTab'){ tgt.tab.name=name; this._tabToManual(tgt.tab) }
       else tgt.win.name=name;
-      this._save(); this.render();
+      this.save(); this.render();
       return;
     }
     // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-5: newWindow/newTab 은 name/keepFocus
@@ -501,7 +533,7 @@ Object.assign(App.prototype, {
     // keepFocus 인자는 호환을 위해 받지만, location 이 있으면 항상 포커스 유지로 취급한다.
     // FR-BG-2: detach 명령 — 도구를 백그라운드로 보내고 탭을 닫는다.
     if(action==='detachTab'){
-      const loc=this._findToolLocation(args.toolId);
+      const loc=this.findToolLocation(args.toolId);
       if(!loc){console.warn('[cmd] detachTab: 도구 위치 없음',args.toolId);return}
       if(!toolBackgroundCapable(loc.tab.type)){
         console.warn('[cmd] detachTab: 백그라운드 미지원 도구',loc.tab.type);return;
@@ -557,16 +589,16 @@ Object.assign(App.prototype, {
     Promise.resolve(result).then(()=>{
       if(savedWindow==null) return;
       if(this.ws.activeWindow!==savedWindow && this.ws.windows.some(x=>x.id===savedWindow)){
-        const cur=this._aw(); if(cur) cur.focusedPane=this.focused;
+        const cur=this.aw(); if(cur) cur.focusedPane=this.focused;
         this.ws.activeWindow=savedWindow;
         try{sessionStorage.setItem('activeWindow', savedWindow)}catch{}
         this._focusWindow(savedWindow);
       }
-      const a=this._aw();
+      const a=this.aw();
       if(a&&savedFocused&&findPane(a.layout,savedFocused)){
-        this._setFocus(savedFocused, a);
+        this.setFocusState(savedFocused, a);
       }
-      this._save(); this.render();
+      this.save(); this.render();
     });
   },
 
@@ -630,14 +662,14 @@ Object.assign(App.prototype, {
     const tab=pn.tabs[ti];
     if(!tab){console.warn('[cmd] focus: tab #'+(ti+1)+' 없음');return}
     if(this.ws.activeWindow!==sess.id){
-      const cur=this._aw(); if(cur) cur.focusedPane=this.focused;
+      const cur=this.aw(); if(cur) cur.focusedPane=this.focused;
       this.ws.activeWindow=sess.id;
       try{sessionStorage.setItem('activeWindow', sess.id)}catch{}
     }
     this.paneTabSet(pn,tab.id);
-    this._setFocus(pn.id, sess);
+    this.setFocusState(pn.id, sess);
     this._focusWindow(sess.id);
-    this._save(); this.render();
+    this.save(); this.render();
   },
 });
 

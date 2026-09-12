@@ -36,7 +36,7 @@ async function openBranches(page: Page, repo: string) {
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate(() => {
     const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
+    a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
@@ -150,7 +150,7 @@ test.describe('18단계 — Branches 탭', () => {
     const repo = copyFx('with-remote', 'b5');
     await waitForInit(page);
     // 핀은 각 테스트가 스스로 만든다 (design/README.md).
-    await page.evaluate((r) => (window as any).app._gitPin(r), repo);
+    await page.evaluate((r) => (window as any).app.testing.gitPin(r), repo);
     await openBranches(page, repo);
     await waitRefs(page, 2);
 
@@ -413,7 +413,8 @@ test.describe('18단계 — Branches 탭', () => {
 
     const cur = await br(page).locator('.git-br-row.current').getAttribute('data-short');
     await row(page, cur!).dblclick();
-    // 더블클릭이 메뉴보다 관대해지면 두 진입점의 뜻이 갈라진다 — 확인창도 뜨지 않는다.
+    // **예외 (`TEST-16`)**: 확인창이 **뜨지 않음**을 잰다. 더블클릭이 메뉴보다
+    // 관대해지면 두 진입점의 뜻이 갈라진다.
     await page.waitForTimeout(700);
     await expect(confirm(page)).toBeHidden();
     await expect(choice(page)).toBeHidden();
@@ -423,6 +424,7 @@ test.describe('18단계 — Branches 탭', () => {
     const tag = br(page).locator('.git-br-group[data-group="tags"] .git-br-row').first();
     if (await tag.count()) {
       await tag.dblclick();
+      // **예외 (`TEST-16`)**: 확인창이 **뜨지 않음**을 잰다.
       await page.waitForTimeout(700);
       await expect(confirm(page)).toBeHidden();
       expect(await br(page).locator('.git-br-row.current').getAttribute('data-short')).toBe(cur);

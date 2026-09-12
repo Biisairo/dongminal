@@ -62,7 +62,8 @@ test.describe('Boot screen reuse', () => {
       b.done();
       b.show('다시');
     });
-    // 페이드 뒤의 `remove()` 가 도착하고도 남는 시간을 기다린다 (FR-BTR-5).
+    // **예외 (`TEST-16`)**: 페이드 뒤의 `remove()` 가 **오지 않음**을 잰다
+    // (FR-BTR-5) — 그 시간을 지나고도 남아 있는지가 답이다.
     await page.waitForTimeout(FADE_MS + 220);
     await expect(boot(page)).toHaveCount(1);
     await expect(boot(page)).toBeVisible();

@@ -131,12 +131,12 @@ test.describe('묶음 I — I1 Open File (FR-GIT-236)', () => {
     await expect(btn, '인라인 Open File 버튼이 없다').toHaveCount(1, { timeout: 5000 });
 
     // "같은 함수를 지난다"의 검증 가능한 형태: 인라인 버튼과 우클릭 메뉴 둘 다
-    // 결국 app._gitOpenFile 을 같은 인자로 부른다(FR-GIT-41·185, menu.js:57).
+    // 결국 app.testing.gitOpenFile 을 같은 인자로 부른다(FR-GIT-41·185, menu.js:57).
     await page.evaluate(() => {
       const a = (window as any).app;
       (window as any).__openFileCalls = [];
-      const orig = a._gitOpenFile.bind(a);
-      a._gitOpenFile = (p: string) => { (window as any).__openFileCalls.push(p); return orig(p); };
+      const orig = a.testing.gitOpenFile.bind(a);
+      a.testing.gitOpenFile = (p: string) => { (window as any).__openFileCalls.push(p); return orig(p); };
     });
 
     // 행 동작은 hover 에서 드러난다 (사용자 지시 2026-09-08).
@@ -156,7 +156,7 @@ test.describe('묶음 I — I1 Open File (FR-GIT-236)', () => {
     await page.locator('.git-menu .git-menu-item[data-id="openFile"]').click();
 
     const calls = await page.evaluate(() => (window as any).__openFileCalls);
-    expect(calls.length, `_gitOpenFile 이 두 경로에서 각각 불려야 한다: ${JSON.stringify(calls)}`).toBe(2);
+    expect(calls.length, `gitOpenFile 이 두 경로에서 각각 불려야 한다: ${JSON.stringify(calls)}`).toBe(2);
     expect(calls[0]).toBe(calls[1]);
   });
 
@@ -185,6 +185,8 @@ test.describe('묶음 I — I1 Open File (FR-GIT-236)', () => {
       return els.length;
     }, sel);
     expect(n).toBe(3);
+    // **예외 (`TEST-16`)**: 갱신 회차를 **넘겨도** 같은 요소인지 잰다 — 회차가
+    // 지나는 것이 전제이므로 기다릴 신호가 없다.
     await page.waitForTimeout(2600); // GIT_STATUS_POLL_MS(1000) 를 두 회차 넘긴다
     const kept = await page.evaluate((s: string) => {
       const els = [...document.querySelectorAll(s)];
@@ -218,8 +220,8 @@ test.describe('묶음 I — I1 Open File (FR-GIT-236)', () => {
     await page.evaluate(() => {
       const a = (window as any).app;
       (window as any).__openFileCalls = [];
-      const orig = a._gitOpenFile.bind(a);
-      a._gitOpenFile = (p: string) => { (window as any).__openFileCalls.push(p); return orig(p); };
+      const orig = a.testing.gitOpenFile.bind(a);
+      a.testing.gitOpenFile = (p: string) => { (window as any).__openFileCalls.push(p); return orig(p); };
     });
 
     // 선택의 첫 항목(0번, 앵커)이 아니라 선택 안의 **마지막 행**에서 누른다 —
@@ -230,7 +232,7 @@ test.describe('묶음 I — I1 Open File (FR-GIT-236)', () => {
     await btn.click();
 
     const calls = await page.evaluate(() => (window as any).__openFileCalls);
-    expect(calls.length, `_gitOpenFile 호출이 1번이 아니다(선택 전체가 열렸을 수 있다): ${JSON.stringify(calls)}`)
+    expect(calls.length, `gitOpenFile 호출이 1번이 아니다(선택 전체가 열렸을 수 있다): ${JSON.stringify(calls)}`)
       .toBe(1);
     expect(calls[0], '첫 항목이 열렸다 — 누른 행이 아니다').toBe(appJoin(repo, lastPath));
     expect(calls[0]).not.toBe(appJoin(repo, firstPath));
@@ -376,7 +378,10 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
     // "지금 보고 있는 탭과 무관하게 다시 받는다"까지 함께 검증된다.
     for (const v of ['history', 'branches', 'console']) {
       await clickGitView(page, v);
-      await page.waitForTimeout(300);
+      // 마운트가 **끝난 것**이 이 준비의 목적이다 — 아직 서지 않은 뷰는 새로고침
+      // 대상에 들지 않아 아래 단정이 헛돈다.
+      await expect(page.locator(`#area .pn-body .git-view.git-${v}`))
+        .toHaveClass(/vis/, { timeout: 10000 });
     }
     // Changes 는 사이드에 늘 있다 (FR-RTU-32) — 돌아갈 탭이 없다.
     await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
@@ -419,7 +424,8 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
     // 가릴 계기로 못 쓴다 — 새로고침 경로에서만 나가는 /api/git/log 로 센다.
     // History 를 먼저 마운트해야 새로고침이 그것을 대상에 넣는다(V138 과 같은 이유).
     await clickGitView(page, 'history');
-    await page.waitForTimeout(300);
+    await expect(page.locator('#area .pn-body .git-view.git-history'))
+      .toHaveClass(/vis/, { timeout: 10000 });
     // Changes 는 사이드에 늘 있다 (FR-RTU-32) — 돌아갈 탭이 없다.
     await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 
@@ -435,6 +441,8 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
 
     await btn.click();
     await btn.click({ force: true }); // 받는 동안 다시 누른다 — 막혀 있어야 한다
+    // **예외 (`TEST-16`): 나가지 않는 두 번째 요청을 잰다.** 위 라우트가 1.5초를
+    // 붙들므로 그보다 넉넉히 두고 하나뿐인지 본다.
     await page.waitForTimeout(2200);
     expect(logHits, '진행 중에 다시 눌러 log 요청이 두 벌 나갔다').toBe(1);
     await page.unroute('**/api/git/log*');

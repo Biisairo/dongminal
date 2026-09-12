@@ -28,6 +28,16 @@ test.afterAll(() => {
 
 const copyFx = makeCopyFx(FIXTURES);
 
+/**
+ * **이 파일의 검사들은 서로 독립이다** (`TEST-20`).
+ *
+ * 각자 `copyFx` 로 자기 저장소를 받고 서버 설정을 건드리지 않는다 — 파일 안의
+ * 순서에 기대는 자리가 없으므로 워커에 흩어도 같은 답이 나온다. 전역 기본값
+ * (`fullyParallel`)은 그대로 `false` 이고, 독립이 **확인된** 파일만 켠다.
+ */
+test.describe.configure({ mode: 'parallel' });
+
+
 async function openGit(page: Page, repo: string) {
   await fxOpenGit(page, repo);
 }

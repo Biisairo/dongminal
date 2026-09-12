@@ -22,6 +22,19 @@ test.afterAll(() => {
 });
 
 const copyFx = makeCopyFx(FIXTURES);
+
+/**
+ * **이 파일의 검사들은 서로 독립이다** (`TEST-20`).
+ *
+ * 열 개가 각자 `copyFx` 로 자기 저장소를 받고(`s1`~`s10`), 서버 설정을 건드리지
+ * 않는다 — 파일 안의 순서에 기대는 자리가 없다. 그래서 워커에 흩어도 같은 답이
+ * 나온다.
+ *
+ * **전역 기본값(`fullyParallel`)은 그대로 `false` 다.** 파일 안의 순서 의존은
+ * 다른 파일에 실재하고, 그것을 한꺼번에 흩는 것은 이 항목의 범위가 아니다 —
+ * 독립이 **확인된** 파일만 하나씩 켠다.
+ */
+test.describe.configure({ mode: 'parallel' });
 const git = (repo: string, ...args: string[]) =>
   execFileSync('git', ['-C', repo, ...args]).toString().trim();
 
@@ -36,7 +49,7 @@ async function openStash(page: Page, repo: string) {
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate(() => {
     const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
+    a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });

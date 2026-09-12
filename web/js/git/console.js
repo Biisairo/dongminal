@@ -95,7 +95,8 @@ class GitConsole {
     const seq=++this._seq;
     const tok=this.panel.token();
     let u='/api/git/records?repo='+encodeURIComponent(repo)+'&n='+GIT_CON_LIMIT;
-    const r=await apiGet(u);
+    // FR-GRF-6: 같은 시한 (history.js 의 `_get` 과 한 쌍).
+    const r=await apiGet(u,{timeout:GIT_STATUS_FETCH_TIMEOUT_MS});
     const d=r.data;
     // 세대·리포·일련번호 셋을 다 본다 (FR-GIT-54) — 같은 세대 안에서도 응답
     // 순서가 뒤바뀔 수 있다.

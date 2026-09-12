@@ -80,7 +80,7 @@ async function openGitSurfaces(page: Page, repo: string) {
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate((views: readonly string[]) => {
     const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
+    a.testing.edSetSide(a.testing.aw(), 'changes');
     for (const v of views) a.gitPanel.openView(v);
   }, GIT_BODY_VIEWS);
   await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
@@ -100,7 +100,9 @@ test.describe('묶음 C — 모든 버튼의 영어 툴팁', () => {
     for (const tab of ['theme', 'shortcuts', 'statusbar', 'presets', 'display',
       'code', 'notify', 'sandbox', 'backup']) {
       await page.click(`.mtab[data-tab="${tab}"]`);
-      await page.waitForTimeout(120);
+      // 그 탭이 **선 뒤에** 버튼을 훑는다 — 아직 앞 탭이 그려져 있으면 같은
+      // 표면을 두 번 재고 새 표면은 한 번도 재지 않는다.
+      await expect(page.locator(`.mtab[data-tab="${tab}"]`)).toHaveClass(/active/, { timeout: 10000 });
       await assertAll(page, '설정 · ' + tab);
     }
   });
@@ -116,7 +118,8 @@ test.describe('묶음 C — 모든 버튼의 영어 툴팁', () => {
 
     for (const v of GIT_BODY_VIEWS) {
       await clickGitView(page, v);
-      await page.waitForTimeout(250);
+      await expect(page.locator(`#area .pn-body .git-view.git-${v}`))
+        .toHaveClass(/vis/, { timeout: 10000 });
       await assertAll(page, 'Git · ' + v);
     }
   });
@@ -131,7 +134,9 @@ test.describe('묶음 C — 모든 버튼의 영어 툴팁', () => {
       await waitForInit(page);
       await openGitSurfaces(page, copyFx('basic', 'tip4'));
       await page.locator('#area .ed-side .git-files-mode[data-mode="tree"]').click();
-      await page.waitForTimeout(300);
+      // 트리 보기가 실제로 선 신호는 폴더 행이다.
+      await expect(page.locator('#area .ed-side .git-dir').first())
+        .toBeVisible({ timeout: 10000 });
       await assertAll(page, 'Git · Changes (tree)');
 
       const gaps = page.locator('#area .ed-side .git-act-gap');
@@ -148,9 +153,10 @@ test.describe('묶음 C — 모든 버튼의 영어 툴팁', () => {
     await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
     await page.evaluate(() => {
       const a = (window as any).app;
-      a._edSetSide(a._aw(), 'explorer');
+      a.testing.edSetSide(a.testing.aw(), 'explorer');
     });
-    await page.waitForTimeout(400);
+    await expect(page.locator('#area .ed-side .ed-tree .ed-row').first())
+      .toBeVisible({ timeout: 15000 });
     await assertAll(page, 'Editor · Explorer');
   });
 });
@@ -248,9 +254,9 @@ test.describe('묶음 C — 상태바가 여는 표면', () => {
       const a = (window as any).app;
       const id = a.tools && a.tools.size ? [...a.tools.keys()][0] : null;
       if (!id) return false;
-      a._attn.set(id, { reason: 'e2e' });
+      a.testing.attn.set(id, { reason: 'e2e' });
       // 배지를 세우는 것은 `_attnRefresh` 다 (app-attn.js:250).
-      a._attnRefresh();
+      a.testing.attnRefresh();
       return true;
     });
     expect(made, '알림을 걸 도구가 없다 — 시험이 뜻을 잃는다').toBeTruthy();
@@ -279,7 +285,7 @@ test.describe('묶음 C — 상태바가 여는 표면', () => {
 test.describe('묶음 C — 띄워야 보이는 표면', () => {
   test('C12 (V-TIP-12 / FR-TIP-1·2): 알림창(_notify)', async ({ page }) => {
     await waitForInit(page);
-    await page.evaluate(() => (window as any).app._notify('e2e message'));
+    await page.evaluate(() => (window as any).app.testing.notify('e2e message'));
     await expect(page.locator('.confirm-overlay .notify-msg')).toBeVisible({ timeout: 10000 });
     await assertAll(page, '알림창');
   });
@@ -288,7 +294,7 @@ test.describe('묶음 C — 띄워야 보이는 표면', () => {
     await waitForInit(page);
     // 세 갈래를 한 번에 세운다 — 저장·백그라운드 버튼은 옵션이 있어야 선다.
     await page.evaluate(() => {
-      (window as any).app._confirmClose('e2e', { saveBtn: true, bgBtn: true });
+      (window as any).app.testing.confirmClose('e2e', { saveBtn: true, bgBtn: true });
     });
     await expect(page.locator('.confirm-overlay .confirm-btns')).toBeVisible({ timeout: 10000 });
     await assertAll(page, '도구 닫기 확인창');

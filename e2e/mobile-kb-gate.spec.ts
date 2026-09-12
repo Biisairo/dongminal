@@ -25,7 +25,7 @@ async function gotoMobile(page: Page) {
 const ta = (page: Page) => page.locator('#area .pn.focused .xterm-helper-textarea');
 const kbBtn = (page: Page) => page.locator('#mobile-keybar .mkb-btn[data-act="kb"]');
 const inputmode = (page: Page) => page.evaluate(() => {
-  const p = (window as any).app._focusedTerminal();
+  const p = (window as any).app.testing.focusedTerminal();
   const el = p.el.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
   return el.getAttribute('inputmode');
 });
@@ -34,7 +34,7 @@ const inputmode = (page: Page) => page.evaluate(() => {
 // 아니다 — 창이 포커스를 얻고 잃을 때 터미널이 스스로 낸다.
 async function captureSends(page: Page) {
   await page.evaluate(() => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     (window as any).__sent = [] as string[];
     const orig = p._send.bind(p);
     p._send = (m: Uint8Array) => {
@@ -99,8 +99,8 @@ test.describe('묶음 MKB — 키보드 게이트 (FR-MKB-1~7)', () => {
 
     await page.evaluate(() => {
       document.body.classList.add('keyboard-up');
-      (window as any).app._mKbH = null;   // 잡음 게이트를 지나가게 한다
-      (window as any).app._mobileVvApply();
+      (window as any).app.testing.mKbH = null;   // 잡음 게이트를 지나가게 한다
+      (window as any).app.testing.mobileVvApply();
     });
     expect(await inputmode(page), '내려갔는데 풀린 채로 남았다').toBe('none');
   });
@@ -137,7 +137,7 @@ test.describe('묶음 MKB — 키 배열과 `^C` (FR-MKB-8~12)', () => {
     await expect(ctrl).not.toHaveClass(/sticky/);
 
     await page.locator('#mobile-keybar .mkb-btn').filter({ hasText: /^\^C$/ }).click();
-    await page.waitForTimeout(150);
+    await expect.poll(() => sent(page), { timeout: 10000 }).toContain('\x03');
 
     expect(await sent(page), '0x03 이 오지 않았다').toContain('\x03');
     await expect(ctrl, '`^C` 가 sticky 를 건드렸다').not.toHaveClass(/sticky/);
@@ -152,7 +152,7 @@ test.describe('묶음 MKB — 키 배열과 `^C` (FR-MKB-8~12)', () => {
     await captureSends(page);
 
     await page.locator('#mobile-keybar .mkb-btn').filter({ hasText: /^\^C$/ }).click();
-    await page.waitForTimeout(150);
+    await expect.poll(() => sent(page), { timeout: 10000 }).toEqual(['\x03']);
 
     expect(await sent(page)).toEqual(['\x03']);
     await expect(ctrl, 'sticky 가 소모됐다').toHaveClass(/sticky/);

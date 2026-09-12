@@ -3,8 +3,15 @@ import { dirname, join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGit, waitForInit, gitFixture, cleanGitFixture, copyDir, rmTreeHard, rmTree, freshDir, clickGitView } from './fixtures';
+import { test, expect, openGit, waitForInit, gitFixture, cleanGitFixture, copyDir, rmTreeHard, rmTree, freshDir, clickGitView, setSafetyNet } from './fixtures';
 import { tmpPath, realPath, cssPath } from './osenv';
+
+/**
+ * **고정 대기의 예외 (`TEST-16`).** 남아 있는 `waitForTimeout` 은 백오프의
+ * **간격을 재는 창**이다 — "이 시간 동안 몇 건이 나갔는가" 가 곧 답이므로
+ * 짧게 하면 비율을 잴 수 없다. 소실을 **기다리던** 대기는 `TEST-19` 에서
+ * 걷었다 (`setSafetyNet`).
+ */
 
 // GIT_REPO_MISSING_SRS — 소실의 확정과 알림, 그리고 실패 백오프.
 // 검증 V-RMS-4~20.
@@ -104,6 +111,20 @@ const MISSING_WAIT_MS = 45000;
  */
 const UI_WAIT_MS = 20000;
 
+/**
+ * 소실이 화면에 오르는 것을 기다리는 검사는 **안전망을 줄여 두고** 기다린다
+ * (`TEST-19`).
+ *
+ * 폴더가 사라지는 사건은 서버가 방송하지 않는다 — 브라우저의 status 안전망
+ * (기본 30초)이 돌아야 `repo_missing` 을 받는다. 그래서 이 파일의 케이스
+ * 다섯이 회차마다 **31초씩** 앉아 있었고, 그것이 이 스펙 249초의 대부분이다.
+ *
+ * **재는 것은 달라지지 않는다** — "폴더가 사라지면 소실 안내가 뜨는가" 이지
+ * "30초 안에 뜨는가" 가 아니다. 30초라는 값을 재는 자리는 M7 하나이고 거기서는
+ * 이것을 쓰지 않는다.
+ */
+const FAST_SAFETY_MS = 700;
+
 const missing = (page: Page) => page.locator('#area .pn-body .git-missing');
 const gitTab = (page: Page, view: string) => page.locator(`#area .pn-tab[data-git-view="${view}"]`);
 
@@ -113,6 +134,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m1');
     await waitForInit(page);
     await openGit(page, repo);
+    await setSafetyNet(page, FAST_SAFETY_MS);
 
     const view = page.locator('#area .ed-side .git-view.git-changes');
     await expect(view.locator('.git-head-repo')).toHaveAttribute('title', repo);
@@ -132,6 +154,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m2');
     await waitForInit(page);
     await openGit(page, repo);
+    await setSafetyNet(page, FAST_SAFETY_MS);
     await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo);
 
@@ -147,6 +170,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m3');
     await waitForInit(page);
     await openGit(page, repo);
+    await setSafetyNet(page, FAST_SAFETY_MS);
     await vanish(repo);
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
@@ -161,11 +185,18 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
   test('M4 (V-RMS-8·14): 폴더가 돌아오면 개입 없이 목록과 탭이 되살아난다', async ({ page, request }) => {
     // 복구는 소실 주기(30초)를 실제로 기다린다 — 기본 테스트 타임아웃보다 길다.
     // 주기를 줄여 흉내 내면 "개입 없이 돌아온다" 를 검증한 것이 아니게 된다.
+    //
+    // **그 주기는 안전망과 다른 값이다.** 소실이 확정되면 주기는 고정
+    // `GIT_REPO_MISSING_POLL_MS`(30초)이고 사용자 설정을 보지 않는다
+    // (`panel-poll.js` 의 `_cadence`, FR-RMS-26). 그러므로 아래에서 안전망을
+    // 줄이는 것은 **소실로 들어가는 쪽**만 줄인다 — 이 검사가 지키려는 복구
+    // 대기는 그대로 30초다.
     test.setTimeout(120_000);
     await defaultIntervals(request);
     const repo = copyFx('m4');
     await waitForInit(page);
     await openGit(page, repo);
+    await setSafetyNet(page, FAST_SAFETY_MS);
     await vanish(repo);
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
@@ -194,9 +225,10 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
      * 그런데 Repo 창이 서는 유일한 근거가 `editors.list` 이고, 그 목록에 드는
      * 순간 **저장소 루트면 핀도 함께 생긴다** (FR-EDT-33 / `LinkEditorAdd`).
      * 즉 "창은 있는데 핀은 없는 저장소" 라는 상태를 화면으로 만들 수 없다.
-     * 규칙 자체(`_gitBadgeFor`·핀 여부로 갈리는 UI)는 그대로 남는다.
+     * 규칙 자체(`gitBadgeFor`·핀 여부로 갈리는 UI)는 그대로 남는다.
      */
     await openGit(page, repo);
+    await setSafetyNet(page, FAST_SAFETY_MS);
     await expect(page.locator('#area .ed-side .git-view.git-changes .git-head-repo'))
       .toHaveAttribute('title', repo, { timeout: UI_WAIT_MS });
 
@@ -215,7 +247,7 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     await defaultIntervals(request);
     const repo = copyFx('m6');
     await waitForInit(page);
-    await page.evaluate((r) => (window as any).app._gitPin(r), repo);
+    await page.evaluate((r) => (window as any).app.testing.gitPin(r), repo);
     const row = page.locator(`#repo-entries .ed-entry[data-git-repo="${cssPath(repo)}"]`);
     await expect(row).toHaveCount(1, { timeout: UI_WAIT_MS });
 
@@ -231,6 +263,16 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     const repo = copyFx('m7');
     await waitForInit(page);
     await openGit(page, repo);
+    /**
+     * **진입만 빠르게 한다 — 재는 값은 건드리지 않는다.**
+     *
+     * 이 검사가 재는 것은 *소실이 확정된 뒤*의 주기이고, 그 값은 안전망과
+     * 무관한 고정 `GIT_REPO_MISSING_POLL_MS` 다 (`panel-poll.js` 의 `_cadence`:
+     * `if(this._missing) return st>0 ? GIT_REPO_MISSING_POLL_MS : 0`).
+     * 안전망을 700ms 로 두어도 `st>0` 은 그대로이므로 아래 단정이 보는 주기는
+     * 30초 그대로다. 줄어드는 것은 소실로 **들어가는** 30초뿐이다.
+     */
+    await setSafetyNet(page, FAST_SAFETY_MS);
     await vanish(repo);
     await expect(missing(page)).toBeVisible({ timeout: MISSING_WAIT_MS });
 
@@ -270,14 +312,7 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
    * 것은 FR-PIS-8a 의 `!==undefined` 가드가 지켜 준다.
    */
   const BACKOFF_BASE_MS = 1000;
-  async function backoffBase(page: Page) {
-    await page.evaluate((ms) => {
-      (window as any).gitStatusInterval = ms;
-      const app = (window as any).app;
-      if (app._gitPanels) for (const p of app._gitPanels.values()) p._reschedule();
-      if (app.gitPanel && app.gitPanel._reschedule) app.gitPanel._reschedule();
-    }, BACKOFF_BASE_MS);
-  }
+  const backoffBase = (page: Page) => setSafetyNet(page, BACKOFF_BASE_MS);
 
   test('B1 (V-RMS-16): 연속 실패가 쌓이면 요청 간격이 늘어난다', async ({ page }) => {
     const repo = copyFx('b1');
@@ -341,6 +376,13 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
       // 상한을 넘지 않는다
       p._failStreak = 20;
       out.capped = p._cadence(1000);
+      // GIT_REFRESH_LIFECYCLE_SRS FR-GRF-30 (`GP-13`): 상한이 **기준 주기보다
+      // 크다.** 종전에는 둘이 같아(30000) `min(30000*2ⁿ, 30000)` 이 늘 30000
+      // 이었고, 그래서 기본 설정에서 백오프가 아무 일도 하지 않았다.
+      p._failStreak = 1;
+      out.base30 = p._cadence(30000);
+      p._failStreak = 2;
+      out.step30 = p._cadence(30000);
       // 기준 0 은 0 으로 남는다 (꺼 둔 계층을 되살리지 않는다)
       out.off = p._cadence(0);
       // 소실은 고정 주기다 — 백오프로 점증하지 않는다
@@ -353,7 +395,10 @@ test.describe('GIT_REPO_MISSING — 실패 백오프', () => {
 
     expect(got.base).toBe(1000);
     expect(got.backoff).toBe(4000);
-    expect(got.capped).toBe(30000);
+    expect(got.capped).toBe(300000);
+    // 기본 주기(30초)에서도 백오프가 실제로 는다 (V-GRF-13).
+    expect(got.base30, '기본 주기에서 백오프 1단계가 늘지 않았다').toBe(60000);
+    expect(got.step30, '기본 주기에서 백오프 2단계가 늘지 않았다').toBe(120000);
     expect(got.off, '꺼 둔 계층이 백오프로 되살아났다').toBe(0);
     expect(got.missing, '소실인데 고정 주기가 아니다').toBe(30000);
     expect(got.missingOff, '소실이 꺼 둔 계층을 되살렸다').toBe(0);

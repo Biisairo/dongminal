@@ -60,11 +60,11 @@ Object.assign(App.prototype, {
   },
 
   /**
-   * 탭 이름 인라인 편집. 창 이름(`_rename`)과 갈라져 있는 이유는 **빈 문자열의
+   * 탭 이름 인라인 편집. 창 이름(`rename`)과 갈라져 있는 이유는 **빈 문자열의
    * 뜻이 다르기** 때문이다 — 탭에서는 자동 복귀 명령이고(FR-TAN-21), 창에는
    * 그런 개념이 없어 지금처럼 취소로 남는다.
    */
-  _renameTab(tab, el){
+  renameTab(tab, el){
     const old=tab.name;
     const input=document.createElement('input');
     input.type='text'; input.value=old; input.className='rename-input';
@@ -73,8 +73,9 @@ Object.assign(App.prototype, {
       const v=input.value.trim();
       // FR-TAN-21: 비워서 확정하면 자동으로 돌아간다. 지금까지 빈 이름은 그냥
       // 거부돼 동작이 비어 있었고, 여기에 뜻을 준다.
-      if(!v){ this._tabToAuto(tab); this._save() }
-      else if(v!==old){ tab.name=v; this._tabToManual(tab); this._save() }
+      if(!v){ this._tabToAuto(tab); this.save() }
+      // FUI-18: 만들 때와 **같은 상한**이다. 여기가 그 상한의 우회로였다.
+      else if(v!==old){ tab.name=clampEntityName(v); this._tabToManual(tab); this.save() }
       this.render();
     };
     input.addEventListener('blur', done, {once:true});
@@ -93,7 +94,7 @@ Object.assign(App.prototype, {
     const arr=this.ws.windows;
     // FR-EDT-45: Editor 창도 대상이 아니다 — 창 하나 닫았을 뿐인데 편집기
     // 화면에 떨어지면 안 된다 (Git 창을 거르는 것과 같은 근거).
-    const plain=s=>s&&!this._isGitWin(s)&&!this._isEditorWin(s);
+    const plain=s=>s&&!this.isGitWin(s)&&!this.isEditorWin(s);
     for(let d=0;d<arr.length;d++){
       const a=arr[removedIdx+d], b=arr[removedIdx-d];
       if(plain(a)) return a;
@@ -129,7 +130,7 @@ Object.assign(App.prototype, {
     const wid=newEntityId();
     const p=await this._newTool(cwd, cwd?null:refTool, {id:wid,sandbox,sandboxWork:sandbox?work:''});
     const r=newEntityId(),t=newEntityId();
-    const name=(typeof opts.name==='string'&&opts.name?opts.name:'Window').slice(0,64);
+    const name=clampEntityName(typeof opts.name==='string'&&opts.name?opts.name:'Window');
     const s={
       id:wid,name,
       // `opts.name` 은 **창** 이름이다 — 안의 탭은 이름을 받은 적이 없으므로
@@ -153,20 +154,20 @@ Object.assign(App.prototype, {
       // FR-WSL-54: **여는 경로는 포커스 칸에 연다** — 창을 만드는 것도 그 경로다.
       //
       // 화면은 `ws.activeWindow` 가 아니라 **칸이 가리키는 창**을 그린다
-      // (`_slotWindow`). 이 한 줄이 없던 동안 모델만 새 창이 되고 화면은 옛 창을
+      // (`slotWindow`). 이 한 줄이 없던 동안 모델만 새 창이 되고 화면은 옛 창을
       // 그대로 보였다 — 칸이 나뉘어 있을 때만 드러났고, 그대로 접수됐다
       // ("생성과 동시에 이동해야 하는데 이동하지 않는다", 2026-09-11).
       //
       // `switchWindow` 가 밟는 걸음과 같다. 다른 칸은 건드리지 않는다.
       this._slotOnSwitch(s.id);
       try{sessionStorage.setItem('activeWindow', s.id)}catch{}
-      this._setFocus(r, s);
+      this.setFocusState(r, s);
       this._focusWindow(s.id);
     }
     // Fire-and-forget save: keeps the UI snappy. Awaiting here would block
     // render on the PUT roundtrip (see split/addTab which already use
     // this pattern).
-    this._save();
+    this.save();
     // REMOTE_COMMAND_RESULT_SRS FR-RCR-6/7: 생성한 엔터티 id 반환 (echo 용).
     return {win:s.id, pane:r, tab:{uuid:t, toolId:p.id}};
   },
@@ -239,63 +240,63 @@ Object.assign(App.prototype, {
         // FR-CLS-2: 일반 창이 남지 않았다. Git 창만 남기고 사용자를 그 안에
         // 가두지 않는다 — 새 창을 만들고 그리로 간다.
         await this._mkWindow();
-        this.render(); this._save();
+        this.render(); this.save();
         return;
       }
     }
-    const a=this._aw();
+    const a=this.aw();
     if(a&&a.layout){
       const next=(a.focusedPane&&findPane(a.layout,a.focusedPane))?a.focusedPane:firstPane(a.layout)?.id||null;
-      this._setFocus(next, a);
+      this.setFocusState(next, a);
     } else this.focused=null;
     // Render first, save in background (matches split/addTab/closeTab).
     this._focusWindow(this.ws.activeWindow);
     this.render();
-    this._save();
+    this.save();
   },
 
   switchWindow(sid){
     if(this.ws.activeWindow===sid){
-      if(this.isMobile && this._drawerOpen) this._toggleDrawer(false);
+      if(this.isMobile && this.drawerOpen) this._toggleDrawer(false);
       return;
     }
-    const cur=this._aw();if(cur)cur.focusedPane=this.focused;
+    const cur=this.aw();if(cur)cur.focusedPane=this.focused;
     // FR-GIT-185: Open File 이 돌아갈 창을 기억한다 — 규칙이 하나여야 "어디에
     // 열렸는지 모르겠다"가 없다 (O15).
     // RELOAD_CONTINUITY_SRS FR-RLC-6·7: 그 기억은 새로고침을 건넌다. 사이드바
     // 탭 자체는 이미 건너는데(localStorage `sidebarTab`) 그 탭이 **돌아갈 자리**는
     // 건너지 못해, 새로고침 뒤 Windows 탭이 늘 첫 창으로 갔다 (SRS §2.2).
     // 적는 자리는 여기 하나다 — 두 벌로 만들면 한쪽만 갱신된다.
-    if(cur&&!this._isGitWin(cur)&&!this._isEditorWin(cur)) this._rememberReturn('plain',cur.id);
+    if(cur&&!this.isGitWin(cur)&&!this.isEditorWin(cur)) this._rememberReturn('plain',cur.id);
     this.ws.activeWindow=sid;
     // WINDOW_SLOTS_SRS FR-WSL-54: 포커스 슬롯이 이 창을 받는다. 다른 슬롯은
     // 건드리지 않는다 — 그것이 두 칸을 나란히 두는 이유다.
     this._slotOnSwitch(sid);
     // FR-EDT-7: Editor 탭이 돌아갈 창을 같은 규약으로 기억한다 — 들어가는
     // 순간에 적는다. 나갈 때 적으면 한 번도 떠난 적 없는 창을 기억하지 못한다.
-    if(this._isEditorWin(this._aw())) this._rememberReturn('editor',sid);
+    if(this.isEditorWin(this.aw())) this._rememberReturn('editor',sid);
     // Persist per-window activeWindow to sessionStorage (survives refresh,
     // independent across windows).
     try{sessionStorage.setItem('activeWindow', sid)}catch{}
     // D-RTU-18: 루트도 함께 적는다 — 새로고침 뒤 id 는 바뀔 수 있고 루트는 아니다.
     try{
-      const w=this._aw();
-      if(this._isEditorWin(w)) sessionStorage.setItem(ACTIVE_EDITOR_ROOT_KEY,this._edRootOf(w));
+      const w=this.aw();
+      if(this.isEditorWin(w)) sessionStorage.setItem(ACTIVE_EDITOR_ROOT_KEY,this.edRootOf(w));
       else sessionStorage.removeItem(ACTIVE_EDITOR_ROOT_KEY);
     }catch{}
-    const a=this._aw();
+    const a=this.aw();
     if(a&&a.layout){
       const next=(a.focusedPane&&findPane(a.layout,a.focusedPane))?a.focusedPane:firstPane(a.layout)?.id||null;
-      this._setFocus(next, a);
+      this.setFocusState(next, a);
     } else this.focused=null;
-    this._mPaneIdx=0;
-    if(this.isMobile && this._drawerOpen) this._toggleDrawer(false);
+    this.mPaneIdx=0;
+    if(this.isMobile && this.drawerOpen) this._toggleDrawer(false);
     this._focusWindow(sid);
     // FR-GIT-22 + FR-RTU-62: 창 전환은 폴링 조건의 재평가 시점이다. **모든
     // 패널**이 다시 본다 — 떠난 창의 패널이 타이머를 든 채 남으면 아무도 보지
     // 않는 저장소를 계속 폴링한다.
     this._gitRescheduleAll();
-    this._save(); this.render();
+    this.save(); this.render();
   },
 
   /**
@@ -303,7 +304,7 @@ Object.assign(App.prototype, {
    */
   _findPreviewTab(s){
     if(!s||!s.layout) return null;
-    for(const pn of this._flattenPanes(s.layout)){
+    for(const pn of this.flattenPanes(s.layout)){
       const tab=(pn.tabs||[]).find(t=>t&&t.preview);
       if(tab) return {win:s,pane:pn,tab};
     }
@@ -314,14 +315,14 @@ Object.assign(App.prototype, {
    * FR-RTU-42: 미리보기를 고정한다. 계기는 셋이다 — 더블클릭 · 그 탭에서 편집
    * 시작 · 탭 이름 더블클릭. 어느 쪽이든 뜻은 같다: "이 탭은 남는다."
    */
-  _pinPreviewTab(tab){
+  pinPreviewTab(tab){
     if(!tab||!tab.preview) return false;
     delete tab.preview;
     // FR-EXR-59: 고정은 "이 파일에서 일하겠다" 다 — 탐색기가 쥔 포커스를 넘긴다
     // (FR-EXR-58 의 예외). 표명은 아래 render 가 소비한다.
-    this._edFocusWanted=true;
+    this.edFocusWanted=true;
     this.render();
-    this._save();
+    this.save();
     return true;
   },
 
@@ -332,9 +333,9 @@ Object.assign(App.prototype, {
    * 하나가 앱에 한 번 열리면 되지만, git 뷰는 **저장소마다** 자기 것이 있어야
    * 한다. 전체를 훑으면 다른 저장소의 History 로 끌려간다.
    */
-  _findGitViewTab(s, view) {
+  findGitViewTab(s, view) {
     if (!s || !s.layout) return null;
-    for (const pn of this._flattenPanes(s.layout)) {
+    for (const pn of this.flattenPanes(s.layout)) {
       const tab = (pn.tabs || []).find(t => t && t.type === TAB_TYPE_GIT && t.gitView === view);
       if (tab) return { win: s, pane: pn, tab };
     }
@@ -369,11 +370,11 @@ Object.assign(App.prototype, {
 
   async addTab(rid, type = 'terminal', opts = {}) {
     // opts.windowId 지정 시 비활성 창의 pane 에도 추가 가능 (FR-RST-4).
-    const s = opts.windowId ? this.ws.windows.find(x => x.id === opts.windowId) : this._aw();
+    const s = opts.windowId ? this.ws.windows.find(x => x.id === opts.windowId) : this.aw();
     if (!s) return;
     // FR-GIT-179: Git 창의 탭은 GIT_VIEWS 의 고정 탭뿐이다 — 더할 수 없다
     // (FR-GIT-28 개정으로 7개다. 숫자를 여기 적지 않는다 — 선언이 하나뿐이다).
-    if (this._isGitWin(s)) return;
+    if (this.isGitWin(s)) return;
     // FR-EDT-54 → REPO_TAB_UNIFY_SRS FR-RTU-16 으로 개정: Repo 창의 본문에는
     // **편집기 탭과 git 뷰 탭**이 산다. 터미널·run 탭은 여전히 만들 수 없다.
     //
@@ -381,11 +382,11 @@ Object.assign(App.prototype, {
     //   새  동작: editor 와 git 탭 (Diff·History·Branches·Stash·Console·Worktrees)
     //   이유:     diff·history 는 좁은 사이드가 아니라 본문에서 봐야 읽힌다.
     //             그리고 그 탭들은 편집기 탭과 같은 자격이어야 한다 (FR-RTU-33)
-    if (this._isEditorWin(s) && type !== 'editor' && type !== TAB_TYPE_GIT) return;
+    if (this.isEditorWin(s) && type !== 'editor' && type !== TAB_TYPE_GIT) return;
     // FR-EDT-94·106: 그 반대도 불변식이다 — 편집기 탭은 어떤 경로로도 일반
     // 창에 생기지 않는다. Editor 표면이 없는 환경(FR-EDT-120)에서는 갈 곳이
     // 없으므로 옛 경로가 그대로 남는다.
-    if (type === 'editor' && !this._isEditorWin(s) && this._edOn()) {
+    if (type === 'editor' && !this.isEditorWin(s) && this.edOn()) {
       console.warn('[addTab] editor tab belongs to an Editor window (FR-EDT-94)');
       return;
     }
@@ -400,24 +401,24 @@ Object.assign(App.prototype, {
       // (아래 editor 의 중복 방지와 같은 규약).
       const existing = this._findRunTab(opts.runId);
       if (existing) {
-        const cur = this._aw(); if (cur) cur.focusedPane = this.focused;
+        const cur = this.aw(); if (cur) cur.focusedPane = this.focused;
         this.ws.activeWindow = existing.win.id;
         try{sessionStorage.setItem('activeWindow', existing.win.id)}catch{}
         this.paneTabSet(existing.pane, existing.tab.id);
-        this._setFocus(existing.pane.id, existing.win);
+        this.setFocusState(existing.pane.id, existing.win);
         this._focusWindow(existing.win.id);
         this.render();
-        this._save();
+        this.save();
         return;
       }
       // FR-RVZ-8: 이름은 `Run <short>` 다. 여기서 한 번만 정한다 — 사용자가
       // rename 하면 그것이 이기려면 이 값을 나중에 덮어쓰지 않아야 한다.
       const short = opts.short || String(opts.runId).slice(0, 8);
       const t = newEntityId();
-      pn.tabs.push({ id: t, name: (opts.name || 'Run ' + short).slice(0, 64), type: 'run', runId: opts.runId });
+      pn.tabs.push({ id: t, name: clampEntityName(opts.name || 'Run ' + short), type: 'run', runId: opts.runId });
       this.paneTabSet(pn, t);
       this.render();
-      this._save();
+      this.save();
       return { uuid: t };
     }
     /**
@@ -433,12 +434,12 @@ Object.assign(App.prototype, {
       const view = opts.gitView;
       const def = GIT_VIEWS.find(v => v.key === view);
       if (!def) { console.warn('[addTab] git tab requires a known gitView'); return }
-      const existing = this._findGitViewTab(s, view);
+      const existing = this.findGitViewTab(s, view);
       if (existing) {
         this.paneTabSet(existing.pane, existing.tab.id);
-        this._setFocus(existing.pane.id, s);
+        this.setFocusState(existing.pane.id, s);
         this.render();
-        this._save();
+        this.save();
         return { uuid: existing.tab.id };
       }
       const t = newEntityId();
@@ -447,12 +448,12 @@ Object.assign(App.prototype, {
       // 새 탭도 **그 칸을 포커스**한다 — 위의 "이미 있으면" 분기가 이미 그렇게
       // 한다. 그러지 않으면 모바일에서 사이드 자리에 머물러 방금 연 탭이 보이지
       // 않는다 (FR-RTU-80).
-      this._setFocus(pn.id, s);
+      this.setFocusState(pn.id, s);
       this.render();
       // FR-RTU-62: git 뷰 탭이 생기는 것은 **그 창에 git 표면이 서는** 일이다 —
       // 사이드가 Explorer 여도 이제 관측을 쓰는 화면이 있다.
       this._gitRescheduleAll();
-      this._save();
+      this.save();
       return { uuid: t };
     }
     if (type === 'editor') {
@@ -466,31 +467,31 @@ Object.assign(App.prototype, {
         const prev = this._findPreviewTab(s);
         if (prev) {
           prev.tab.filePath = opts.filePath;
-          prev.tab.name = (opts.name || pathBase(opts.filePath) || '').slice(0, 64);
+          prev.tab.name = clampEntityName(opts.name || pathBase(opts.filePath) || '');
           // 편집기 인스턴스는 탭 id 로 산다 — 대상이 바뀌었으므로 버린다.
           for (const [k, v] of [...this.fileEditors]) {
-            if (this._slotBase(k) !== prev.tab.id) continue;
+            if (this.slotBase(k) !== prev.tab.id) continue;
             try { v.destroy() } catch { /* 이미 파괴된 것은 오류가 아니다 */ }
             this.fileEditors.delete(k);
           }
           this.paneTabSet(prev.pane, prev.tab.id);
-          this._setFocus(prev.pane.id, s);
+          this.setFocusState(prev.pane.id, s);
           this.render();
-          this._save();
+          this.save();
           return { uuid: prev.tab.id };
         }
       }
       if (existing) {
-        const cur = this._aw(); if (cur) cur.focusedPane = this.focused;
+        const cur = this.aw(); if (cur) cur.focusedPane = this.focused;
         this.ws.activeWindow = existing.win.id;
         try{sessionStorage.setItem('activeWindow', existing.win.id)}catch{}
         this.paneTabSet(existing.pane, existing.tab.id);
-        this._setFocus(existing.pane.id, existing.win);
+        this.setFocusState(existing.pane.id, existing.win);
         this._focusWindow(existing.win.id);
         const editor = this.fileEditors.get(existing.tab.id);
         if (editor) editor.refresh();
         this.render();
-        this._save();
+        this.save();
         return;
       }
       const name = opts.name || pathBase(opts.filePath);
@@ -502,9 +503,9 @@ Object.assign(App.prototype, {
       pn.tabs.push(tab);
       this.paneTabSet(pn, t);
       // git 뷰 탭과 같은 근거 — 새 탭도 그 칸을 포커스한다 (FR-RTU-80).
-      this._setFocus(pn.id, s);
+      this.setFocusState(pn.id, s);
       this.render();
-      this._save();
+      this.save();
       return { uuid: t };
     }
     const ref = this._paneNewToolRef(s, rid);
@@ -514,7 +515,7 @@ Object.assign(App.prototype, {
     const p = await this._newTool(cwd, cwd ? null : (ref.cwdTool || null), s);
     const t = newEntityId();
     const given = typeof opts.name === 'string' && opts.name;
-    const name = (given ? opts.name : TAB_NAME_DEFAULT).slice(0, 64);
+    const name = clampEntityName(given ? opts.name : TAB_NAME_DEFAULT);
     // FR-TAN-2: `dmctl new-tab --name` 으로 받은 이름은 manual 이다 — 워크플로우·
     // team 스킬의 역할명이 이 경로를 지나므로 그것만으로 만족된다.
     const tab = { id: t, name, type: 'terminal', toolId: p.id };
@@ -523,7 +524,7 @@ Object.assign(App.prototype, {
     // FR-RST-4: keepFocus 면 대상 pane 의 활성 탭도 바꾸지 않는다 (백그라운드 추가).
     if (!opts.keepFocus) this.paneTabSet(pn, t);
     this.render();
-    this._save();
+    this.save();
     // REMOTE_COMMAND_RESULT_SRS FR-RCR-7: 생성한 tab id+toolId 반환 (echo 용).
     return { uuid: t, toolId: p.id };
   },
@@ -531,7 +532,7 @@ Object.assign(App.prototype, {
   async closeTab(rid,tid,sid,opts={}){
     // sid 를 지정하면 해당 창의 탭을 닫는다 (비활성 창 대상도 지원).
     // 지정 안 하면 기존 동작: 활성 창에서 닫는다.
-    const s = sid ? this.ws.windows.find(x=>x.id===sid) : this._aw();
+    const s = sid ? this.ws.windows.find(x=>x.id===sid) : this.aw();
     if(!s) return;
     const pn=findPane(s.layout,rid); if(!pn) return;
     const tab=pn.tabs.find(t=>t.id===tid); if(!tab) return;
@@ -561,7 +562,7 @@ Object.assign(App.prototype, {
      * 뒤라서, 취소를 눌러도 편집은 돌아오지 않는다.
      */
     if(gitTab&&!opts.force){
-      const root=this._edRootOf(s);
+      const root=this.edRootOf(s);
       if(this._gitViewDirty(root,tab.gitView)){
         const r=await this._confirmClose(CLOSE_DIRTY_MSG,{saveBtn:true});
         if(!r) return;
@@ -569,7 +570,7 @@ Object.assign(App.prototype, {
         if(r==='save'&&!await this._gitViewSave(root,tab.gitView)) return;
       }
     }
-    if(gitTab) this._gitDropView(this._edRootOf(s),tab.gitView);
+    if(gitTab) this._gitDropView(this.edRootOf(s),tab.gitView);
     const isEditor=tab.type==='editor';
     if(isEditor){
       const editor=this.fileEditors.get(tab.id);
@@ -624,10 +625,10 @@ Object.assign(App.prototype, {
       // FR-EDT-52·55·56: Editor 창은 pane 이 0이 되어도 남는다 — 창의 수명은
       // 행의 수명이다 (FR-EDT-42). 빈 pane 을 남기지 않는 것과 창을 지우는 것은
       // 다른 일이다.
-      if(!s.layout&&this._isEditorWin(s)){
-        if(isActive){this._setFocus(null,s);this._focusWindow(s.id)}
+      if(!s.layout&&this.isEditorWin(s)){
+        if(isActive){this.setFocusState(null,s);this._focusWindow(s.id)}
         this.render();
-        this._save();
+        this.save();
         return;
       }
       if(!s.layout){
@@ -646,7 +647,7 @@ Object.assign(App.prototype, {
       if(isActive){
         const fallback=this.focused===rid?prevClosestId:this.focused;
         const next=fallback&&findPane(s.layout,fallback)?fallback:firstPane(s.layout)?.id||null;
-        this._setFocus(next,s);
+        this.setFocusState(next,s);
         this._focusWindow(s.id);
       }
     }else{
@@ -658,7 +659,7 @@ Object.assign(App.prototype, {
       // 경우에는 `paneTabSet` 이 `activeTab` 을 쓰지 않는다 (FR-SVS-14).
       if(pn.activeTab===tid) pn.activeTab=nextId;
       if(isActive){
-        this._setFocus(rid,s);
+        this.setFocusState(rid,s);
         this._focusWindow(s.id);
       }
     }
@@ -671,25 +672,25 @@ Object.assign(App.prototype, {
         this._killTool(toolId);
       }
     }
-    this._save();
+    this.save();
   },
 
   // FR-SVS-4: 탭을 고르는 **단일 통로**다. `slot` 을 주면 그 칸의 시선만 바뀌고,
   // 생략하면 포커스 칸이다. 사이드바·순회 키·클릭이 모두 여기를 지난다.
   switchTab(rid,tid,slot){
-    const i=(slot==null)?this._slotFocused():slot;
+    const i=(slot==null)?this.slotFocused():slot;
     // 비포커스 칸의 창은 활성 창이 아닐 수 있다 — 그 칸의 창에서 pane 을 찾는다.
-    const s=(slot==null)?this._aw():(this._slotWindow(i)||this._aw());
+    const s=(slot==null)?this.aw():(this.slotWindow(i)||this.aw());
     if(!s) return;
     const pn=findPane(s.layout,rid); if(!pn) return;
-    if(this.paneTab(pn,i)===tid && this.focused===rid){this._setFocus(rid, s); return}
-    this.paneTabSet(pn,tid,i); this._setFocus(rid, s);
-    this._save(); this.render();
+    if(this.paneTab(pn,i)===tid && this.focused===rid){this.setFocusState(rid, s); return}
+    this.paneTabSet(pn,tid,i); this.setFocusState(rid, s);
+    this.save(); this.render();
   },
 
   // split is serialized through this._splitChain so that rapid successive
   // calls (e.g. holding the shortcut) don't race on this.focused: each call
-  // waits for the previous to finish — including the _setFocus that updates
+  // waits for the previous to finish — including the setFocusState that updates
   // the new target — before reading focus or layout state.
   split(dir,opts={}){
     const prev=this._splitChain||Promise.resolve();
@@ -703,10 +704,10 @@ Object.assign(App.prototype, {
     const tgtWindowId=opts.targetWindow||this.ws.activeWindow;
     let s=this.ws.windows.find(x=>x.id===tgtWindowId);
     // FR-GIT-179: Git 창은 닫힌 창이다 — 분할 칸을 만들 수 없다.
-    if(this._isGitWin(s)) return;
+    if(this.isGitWin(s)) return;
     // FR-EDT-50·51: Editor 창에서 분할이 생기는 유일한 길은 드래그드롭이다.
     // 단축키와 버튼은 이 자리에서 무시된다.
-    if(this._isEditorWin(s)) return;
+    if(this.isEditorWin(s)) return;
     const tgtPaneId=opts.targetPane||(tgtWindowId===this.ws.activeWindow?this.focused:null);
     if(!s||!tgtPaneId) return;
     let count=parseInt(opts.count,10); if(!Number.isFinite(count)||count<2) count=2;
@@ -738,24 +739,24 @@ Object.assign(App.prototype, {
         this.ws.activeWindow=savedWindow;
         try{sessionStorage.setItem('activeWindow', savedWindow)}catch{}
       }
-      const a=this._aw();
+      const a=this.aw();
       if(a && savedFocused && findPane(a.layout,savedFocused)){
-        this._setFocus(savedFocused, a);
+        this.setFocusState(savedFocused, a);
       } else if(savedFocused){
         console.warn('[split] keepFocus: savedFocused pane gone after split, leaving focus as-is');
       }
     } else {
       if(this.ws.activeWindow!==tgtWindowId){
-        const cur=this._aw(); if(cur) cur.focusedPane=this.focused;
+        const cur=this.aw(); if(cur) cur.focusedPane=this.focused;
         this.ws.activeWindow=tgtWindowId;
         try{sessionStorage.setItem('activeWindow', tgtWindowId)}catch{}
       }
       const next = lastR || tgtPaneId;
-      this._setFocus(next, s);
+      this.setFocusState(next, s);
       this._focusWindow(tgtWindowId);
     }
     this.render();
-    this._save();
+    this.save();
     // REMOTE_COMMAND_RESULT_SRS FR-RCR-7: 생성한 pane/tab id 반환 (echo 용).
     return {
       panes: newPanes.map(pn=>pn.id),
@@ -783,13 +784,13 @@ Object.assign(App.prototype, {
     return {};
   },
   switchTabPrev(){
-    const s=this._aw();if(!s||!this.focused)return;
+    const s=this.aw();if(!s||!this.focused)return;
     const pn=findPane(s.layout,this.focused);if(!pn)return;
     const i=pn.tabs.findIndex(t=>t.id===this.paneTab(pn));if(i<0)return;
     this.switchTab(pn.id,pn.tabs[(i-1+pn.tabs.length)%pn.tabs.length].id);
   },
   switchTabNext(){
-    const s=this._aw();if(!s||!this.focused)return;
+    const s=this.aw();if(!s||!this.focused)return;
     const pn=findPane(s.layout,this.focused);if(!pn)return;
     const i=pn.tabs.findIndex(t=>t.id===this.paneTab(pn));if(i<0)return;
     this.switchTab(pn.id,pn.tabs[(i+1)%pn.tabs.length].id);
@@ -801,7 +802,7 @@ Object.assign(App.prototype, {
   // cycle 을 제공하지 않는 탭이 활성이면 아무 일도 하지 않는다 (FR-SBT-20).
   //
   _cycleActive(step){
-    const d=this._sbTabs.find(t=>t.id===this._sbTab);
+    const d=this._sbTabs.find(t=>t.id===this.sbTab);
     if(!d) return;
     // UX_REVISION_SRS FR-BLP-15: 순회 규약은 블루프린트 한 자리에 있다. 탭마다
     // 자기 순회를 구현하던 때는 같은 규약이라고 적어 두고도 서로 달랐다.
@@ -815,7 +816,7 @@ Object.assign(App.prototype, {
   // `path.length<2` 는 분할이 없는 창(Git 창 포함)이 타는 자리다. 여기를 빠뜨리면
   // 터미널 창에서는 넘어가는데 Git 창에서는 안 넘어가는 비대칭이 생긴다.
   paneNavigate(dir){
-    const s=this._aw();if(!s||!this.focused)return this.slotNavigate(dir);
+    const s=this.aw();if(!s||!this.focused)return this.slotNavigate(dir);
     const path=s.layout?findPath(s.layout,this.focused):null;
     if(!path||path.length<2)return this.slotNavigate(dir);
     for(let i=path.length-2;i>=0;i--){
@@ -828,14 +829,14 @@ Object.assign(App.prototype, {
       if(dir==='down'&&!isH)ti=ci+1; if(dir==='up'&&!isH)ti=ci-1;
       if(ti>=0&&ti<parent.children.length){
         const target=firstPane(parent.children[ti]);
-        if(target){this._setFocus(target.id, s);this._save();this.render();return}
+        if(target){this.setFocusState(target.id, s);this.save();this.render();return}
       }
     }
     return this.slotNavigate(dir);
   },
   addTabFocused(){if(this.focused)this.addTab(this.focused,'terminal')},
   closeTabFocused(){
-    const s=this._aw();if(!s||!this.focused)return;
+    const s=this.aw();if(!s||!this.focused)return;
     const pn=findPane(s.layout,this.focused);if(!pn)return;
     this.closeTab(pn.id,this.paneTab(pn));
   },
@@ -852,7 +853,7 @@ Object.assign(App.prototype, {
    * D-2: 자리는 `documentElement` 다. index.html 의 인라인 스크립트가 같은 곳에
    * 붙이며(FR-SBC-5), 그 시점에 `body` 는 아직 없다.
    */
-  _sidebarCollapsed(){
+  sidebarCollapsed(){
     return document.documentElement.classList.contains(SIDEBAR_COLLAPSED_CLASS);
   },
 
@@ -865,9 +866,9 @@ Object.assign(App.prototype, {
    * 상태가 그대로면 아무것도 하지 않는다: 레일의 활성 탭 클릭(FR-SBC-18)이 이미
    * 펼쳐진 사이드바에 재적합을 걸 이유가 없다.
    */
-  _setSidebarCollapsed(on){
+  setSidebarCollapsed(on){
     on=!!on;
-    if(this._sidebarCollapsed()===on) return;
+    if(this.sidebarCollapsed()===on) return;
     document.documentElement.classList.toggle(SIDEBAR_COLLAPSED_CLASS,on);
     try{
       if(on) localStorage.setItem(SIDEBAR_COLLAPSED_KEY,'1');
@@ -876,7 +877,7 @@ Object.assign(App.prototype, {
     for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
   },
 
-  _toggleSidebar(){this._setSidebarCollapsed(!this._sidebarCollapsed())},
+  _toggleSidebar(){this.setSidebarCollapsed(!this.sidebarCollapsed())},
 
   /**
    * PANEL_SURFACE_SRS FR-RAL-9·10: **사이드바가 지금 레일인가.**
@@ -885,7 +886,7 @@ Object.assign(App.prototype, {
    * 유일한 자리다. 접힘만으로는 답이 되지 않는다 — 모바일에서 사이드바는
    * 드로어이고(FR-SBC-20) 그때 접힘 클래스는 아무것도 좁히지 않는다.
    */
-  _sbRail(){return this._sidebarCollapsed()&&!this.isMobile},
+  sbRail(){return this.sidebarCollapsed()&&!this.isMobile},
 
   /**
    * UI_KIT_SRS FR-HSZ-5: **이 영역 안에 있는 보이는 터미널.**
@@ -896,7 +897,7 @@ Object.assign(App.prototype, {
    * `vis` 를 함께 보는 이유는 숨은 도구가 DOM 에 남아 있기 때문이다 — 그것을
    * 집으면 보이지 않는 칸의 격자를 보이는 칸의 값으로 적게 된다.
    */
-  _termIn(el){
+  termIn(el){
     if(!el) return null;
     for(const p of this.tools.values())
       if(p.term&&p.el&&p.el.classList.contains('vis')&&el.contains(p.el)) return p;

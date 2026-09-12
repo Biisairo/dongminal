@@ -1,5 +1,5 @@
 import { execFileSync, spawn } from 'child_process';
-import { cpSync, mkdirSync, rmSync } from 'fs';
+import { cpSync, mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { test as base, expect } from '@playwright/test';
@@ -285,10 +285,16 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
  * 통과하지 못한다 ("waiting for element to be visible, enabled and stable").
  * 둘 다 전체 실행에서 실제로 관측된 실패다.
  *
- * 재렌더는 앱의 정상 동작이므로 **테스트가 견뎌야 한다**: 눌러 보고, 그 뷰가
- * 앞에 오지 않았으면 다시 누른다. 스펙마다 이 재시도를 흩뿌리지 않도록 여기
- * 한 자리에 둔다 — 같은 클릭이 29개 파일에 복제돼 있었고, 그래서 한 곳을 고쳐도
- * 다음 실행에서는 다른 파일이 같은 이유로 무너졌다.
+ * **"재렌더는 앱의 정상 동작이므로 견디는 쪽은 테스트다" 는 절반만 맞다**
+ * (`11-git-polling.md §5`, 2026-09-12 정정). 목록·탭 바의 다시 그리기는 정상
+ * 동작이 맞다. 그러나 **탭이 통째로 사라지던 것은 정상 동작이 아니었다** —
+ * 원인은 관측이 아니라 워크스페이스 재채택이었고(git 관측은 `render()` 를
+ * 부르지 않는다, `app-git.js:610`), `OPTIMISTIC_LAYOUT_SRS` 가 그것을 닫았다.
+ *
+ * 남은 재시도가 견디는 것은 **행/탭의 교체**다: 눌러 보고, 그 뷰가 앞에 오지
+ * 않았으면 다시 누른다. 스펙마다 이 재시도를 흩뿌리지 않도록 여기 한 자리에
+ * 둔다 — 같은 클릭이 29개 파일에 복제돼 있었고, 그래서 한 곳을 고쳐도 다음
+ * 실행에서는 다른 파일이 같은 이유로 무너졌다.
  */
 /**
  * 실패한 테스트의 **가시성·포커스**를 남긴다.
@@ -314,10 +320,13 @@ test.afterEach(async ({ page }, testInfo) => {
 
 export async function clickGitView(page: any, view: string) {
   await expect(async () => {
-    // **탭이 없으면 먼저 연다.** 본문 탭 바는 관측이 닿을 때마다 다시 그려지고,
-    // 창이 바뀌거나 워크스페이스가 다시 적용되면 그 탭이 통째로 사라질 수 있다 —
-    // 그때 클릭만 되풀이하면 없는 것을 25초 동안 기다린다(병렬 실행의 부하에서
-    // 실측). 여는 것은 멱등이므로 이미 있으면 아무 일도 하지 않는다.
+    // **탭이 없으면 먼저 연다.**
+    //
+    //   이전 근거: "워크스페이스가 다시 적용되면 그 탭이 통째로 사라질 수 있다"
+    //   지금:      그 갈래는 `OPTIMISTIC_LAYOUT_SRS` FR-OPL-1 이 닫았다 —
+    //              원격 채택은 아직 나가지 못한 로컬 탭을 덮지 않는다
+    //   남는 이유: 창을 갈아타거나 이 스펙이 아직 그 뷰를 연 적이 없을 수 있다.
+    //              여는 것은 멱등이므로 이미 있으면 아무 일도 하지 않는다
     const tab = page.locator(`#area .pn-tab[data-git-view="${view}"]`);
     if (await tab.count() === 0) {
       await page.evaluate((v: string) => (window as any).app?.gitPanel?.openView(v), view);
@@ -430,7 +439,7 @@ export async function openGitTab(page: any) {
   // 모바일 드로어가 닫혀 있으면 사이드바는 화면 밖으로 밀려 있다 — 눌릴 수 없다.
   const clickable = !!box && box.y >= 0 && box.x >= 0 && (!vp || box.y + box.height <= vp.height);
   if (clickable) await tab.click();
-  else await page.evaluate(() => (window as any).app._sbSetTab('repo'));
+  else await page.evaluate(() => (window as any).app.testing.sbSetTab('repo'));
   await page.waitForFunction(
     () => !document.getElementById('sb-panel-repo')?.hasAttribute('hidden'),
     undefined, { timeout: 10000 });
@@ -440,9 +449,9 @@ export async function openGitTab(page: any) {
  * EDITOR_TAB_SRS FR-EDT-13·42: Editor 창(root 에디터 포함)이 이제 항상 최소
  * 하나 존재한다. `ws.windows` 를 그대로 세거나 인덱싱하는 스펙은 그 창까지
  * 세어 개수·순서가 밀린다. Git 창도 이미 같은 이유로 제외 대상이었다
- * (`app-git.js` `_plainWindows`).
+ * (`app-git.js` `plainWindows`).
  *
- * 앱 내부의 `_plainWindows()` 를 재사용하지 않고 여기서 같은 조건을 독립적으로
+ * 앱 내부의 `plainWindows()` 를 재사용하지 않고 여기서 같은 조건을 독립적으로
  * 판정한다 — 구현이 필터를 잘못 짜면 검증 쪽도 같은 실수를 공유해 결함을
  * 가려버린다.
  */
@@ -455,7 +464,7 @@ export async function plainWindows(page: any): Promise<any[]> {
  * Git 창의 고정 탭 수 (GIT_VIEWS 의 길이).
  *
  * **구현의 `GIT_VIEWS` 를 읽지 않는다.** 읽으면 그 배열에서 탭이 실수로 빠져도
- * e2e 가 통과한다 — 검사가 검사를 멈춘다. `plainWindows` 가 앱의 `_plainWindows()`
+ * e2e 가 통과한다 — 검사가 검사를 멈춘다. `plainWindows` 가 앱의 `plainWindows()`
  * 를 재사용하지 않는 것과 같은 이유다.
  *
  * 고치는 것은 이 숫자가 28개 스펙에 흩어져 있던 사실뿐이다. 숫자는 여전히 e2e 가
@@ -591,15 +600,75 @@ const INIT_READY_SELECTOR = '#area .pn.focused .xterm-helper-textarea';
  * 는 뜻이 아니다 (§2.2). 그것을 서버에서 읽기 전에, 또는 새로고침으로 확인하기
  * 전에 이것을 부른다 (FR-EQS-6·7).
  *
- * FR-EQS-3: **연속으로** 조용해야 정착이다 — `_save()` 는 비행이 끝난 다음 틱에
+ * FR-EQS-3: **연속으로** 조용해야 정착이다 — `save()` 는 비행이 끝난 다음 틱에
  * 다음 비행을 세울 수 있다 (FR-WSC-9).
  */
+/**
+ * 브라우저가 **다음 그림**을 그릴 때까지 기다린다 (`TEST-16`).
+ *
+ * `render()` 뒤의 고정 대기를 대신한다. 그 자리에서 기다리던 것은 시간이 아니라
+ * 레이아웃·페인트 한 바퀴이고, `requestAnimationFrame` 두 번이면 그것이 끝난다 —
+ * `300ms` 같은 값은 그 한 바퀴를 **넉넉히 덮으려고** 고른 숫자였을 뿐이다.
+ *
+ * **상한을 둔다.** 페이지가 뒤로 밀리면 `rAF` 는 멎는다 (러너에서 실제로
+ * 일어난다 — `fixtures` 의 가시성 진단이 그 때문에 있다). 그때 영원히 기다리는
+ * 대신 상한에서 풀어 준다: 이 함수는 "그림이 한 바퀴 돌았다" 를 **보장**하는
+ * 것이 아니라 고정 대기를 **대체**하는 것이고, 뒤따르는 단정이 사실을 가린다.
+ */
+export async function nextFrames(page: any, n = 2, capMs = 2000) {
+  await page.evaluate(
+    ({ k, cap }: { k: number; cap: number }) =>
+      new Promise<void>((res) => {
+        let i = 0;
+        const t = setTimeout(res, cap);
+        const step = () => {
+          if (++i >= k) { clearTimeout(t); res() } else requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }),
+    { k: n, cap: capMs },
+  );
+}
+
+/**
+ * status 안전망 폴링의 주기를 **그 자리에서** 바꾼다 (`TEST-17`·`TEST-19`).
+ *
+ * 기본은 30초다 (`GIT_STATUS_POLL_MS`) — 서버가 변화를 방송하므로 브라우저의
+ * 폴링은 안전망으로 남았다 (`GIT_PUSH_OBSERVE_SRS`). 그래서 **방송이 닿지 않는
+ * 사건**은 그 30초를 실제로 기다려야 화면에 오른다: 저장소 폴더가 사라지는
+ * 것이 그렇다.
+ *
+ * **설정으로는 못 넣는다.** 주기가 사용자 설정이 되면서 하한이 10초이고
+ * (`settings-schema.js`), 그 밖의 값은 저장하면 기본값으로 되돌아간다 —
+ * 화면에서 고를 수 없는 값을 파일로는 넣을 수 있다면 선택지를 나눈 이유가
+ * 사라지기 때문이다 (POLL_INTERVAL_SETTINGS_SRS FR-PIS-8·8a). 검사가 원하는
+ * 것은 사용자 설정이 아니라 **그 자리의 값**이다. 설정 방송이 이 값을 지우지
+ * 않는 것은 FR-PIS-8a 의 `!==undefined` 가드가 지켜 준다.
+ *
+ * `git-polling.spec.ts` 의 `fastSafetyNet` 과 `git-repo-missing.spec.ts` 의
+ * `backoffBase` 가 같은 것을 따로 들고 있었다. 둘의 차이는 활성 패널까지
+ * 다시 거는가 하나뿐이었고, **더 넓은 쪽**을 취했다 — 다시 거는 대상이 늘어도
+ * 재는 것은 달라지지 않는다.
+ *
+ * **주기를 재는 검사는 이것을 쓰지 마라.** 소실 상태의 주기는 안전망과 무관한
+ * 고정값이고(`GIT_REPO_MISSING_POLL_MS`, FR-RMS-26) 그것을 재는 자리가 따로
+ * 있다 (`git-repo-missing` M7).
+ */
+export async function setSafetyNet(page: any, ms: number) {
+  await page.evaluate((v: number) => {
+    (window as any).gitStatusInterval = v;
+    const app = (window as any).app;
+    if (app.testing.gitPanels) for (const p of app.testing.gitPanels.values()) p._reschedule();
+    if (app.gitPanel && app.gitPanel._reschedule) app.gitPanel._reschedule();
+  }, ms);
+}
+
 export async function waitSettled(page: any, timeout = 15000) {
   await page.waitForFunction(
     () => {
       const a = (window as any).app;
       if (!a) return false;
-      const quiet = !a._saveInflight && !a._savePending && !a._wsApplyInflight;
+      const quiet = !a.testing.saveInflight && !a.testing.savePending && !a.testing.wsApplyInflight;
       const n = quiet ? ((window as any).__dmQuiet || 0) + 1 : 0;
       (window as any).__dmQuiet = n;
       return n >= 3;
@@ -685,7 +754,7 @@ export async function openGit(page: any, repo: string) {
   await expect(async () => {
     await page.evaluate(() => {
       const a = (window as any).app;
-      a._edSetSide(a._aw(), 'changes');
+      a.testing.edSetSide(a.testing.aw(), 'changes');
       const p = a.gitPanel;
       if (!p) throw new Error('gitPanel 이 아직 없다');
       for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) {
@@ -709,14 +778,21 @@ export async function openGit(page: any, repo: string) {
   // 관측의 **주인**까지 확인하려 `gitPanel.repo === repo` 를 걸어 봤으나 그 값은
   // Repo 창의 root 라 보낸 경로와 다를 수 있어 영원히 기다렸다 — 되돌렸다.
   //
-  // 상한이 30초인 것은 **병렬의 부하** 때문이다 (E2E_PARALLEL_SRS D-6). 이 대기가
+  // 상한이 45초인 것은 **병렬의 부하** 때문이다 (E2E_PARALLEL_SRS D-6). 이 대기가
   // 딛는 것은 `git status` 한 바퀴이고, 같은 기계에서 도는 다른 워커의 `git` 들과
   // 자리를 다툰다 — 20초에서 회차마다 서로 다른 git 스펙 몇이 여기 걸렸고, 하나씩
   // 격리해 돌리면 모두 통과했다. 재는 것은 "관측이 닿는가" 이지 "몇 초에 닿는가"
   // 가 아니다.
+  //
+  // **30초도 모자랐다.** `git-*` 스펙은 파일 이름 순 분할에서 한 샤드에 몰리고
+  // (8샤드 중 4번이 8분 — 다른 샤드의 세 배), 그 샤드의 스펙들은 서로의 `git`
+  // 과 자리를 다툰다. 전량 회차마다 **다른** 스펙이 여기 걸렸다 —
+  // `git-live-triggers` TC-GLW-3·5 · `git-polling` P4. 같은 근거로 상한을 45초로
+  // 올린 자리가 이미 있다 (`git-repo-missing.spec.ts` 의 `MISSING_WAIT_MS`,
+  // 20→45). 성공하면 즉시 통과하므로 늘리는 비용은 실패할 때뿐이다.
   await page.waitForFunction(
     () => !!(window as any).app?.gitPanel?.statusOf(),
-    undefined, { timeout: 30000 });
+    undefined, { timeout: 45000 });
 }
 
 /**
@@ -725,7 +801,7 @@ export async function openGit(page: any, repo: string) {
  * 검사가 보낸 문자열과 서버가 저장하는 문자열은 같지 않을 수 있다 —
  * `wsentry.NormalizePath` 가 `EvalSymlinks`+`Clean` 을 지나므로 심링크·짧은
  * 이름(`RUNNER~1`)·구분자가 그 자리에서 바뀐다. 창을 찾는 쪽은 **문자열 완전
- * 일치**이므로(`_edWindowFor`), 검사가 자기 철자를 들고 있으면 그 창을 영원히
+ * 일치**이므로(`edWindowFor`), 검사가 자기 철자를 들고 있으면 그 창을 영원히
  * 찾지 못한다 (Windows CI 실측).
  *
  * 그래서 짐작하지 않고 **묻는다**. 목록에서 같은 자리를 가리키는 항목을 골라
@@ -848,11 +924,11 @@ export async function switchToEditorRoot(page: any, root: string, timeout = 1500
   await page.waitForFunction(
     (r: string) => {
       const a = (window as any).app;
-      if (!a?._edWindows) return false;
+      if (!a?.testing.edWindows) return false;
       const key = (p: any) => String(p == null ? '' : p).replace(/\\/g, '/');
-      const win = a._edWindows().find((x: any) => x.editor && key(x.editor.root) === key(r));
+      const win = a.testing.edWindows().find((x: any) => x.editor && key(x.editor.root) === key(r));
       if (!win) return false;
-      if (key(a._edRootOf(a._aw())) === key(r)) return true;
+      if (key(a.testing.edRootOf(a.testing.aw())) === key(r)) return true;
       a.switchWindow(win.id);
       return false;
     },
@@ -877,10 +953,121 @@ export async function switchToEditorRoot(page: any, root: string, timeout = 1500
 export async function openExplorerSide(page: any, timeout = 15000) {
   await page.evaluate(() => {
     const a = (window as any).app;
-    const w = a._aw();
-    if (w) a._edSetSide(w, 'explorer');
+    const w = a.testing.aw();
+    if (w) a.testing.edSetSide(w, 'explorer');
   });
   await page.waitForSelector('.ed-win .ed-explorer .ed-tree', { timeout });
+}
+
+/**
+ * 데스크톱으로 열고 **화면이 멎을 때까지** 기다린다 (`TEST-7`).
+ *
+ * `gotoWithEditors` 와 다른 점은 기다리는 대상이다 — 그쪽은 편집기 창이 서기를,
+ * 이쪽은 저장이 가라앉기를 본다 (E2E_QUIESCENCE_SRS). 창 수나 목록 순서를 세는
+ * 검사는 뒤엣것이 필요하다: 뿌리 편집기 창들이 초기 저장이 도는 동안 뒤늦게
+ * 서기 때문이다.
+ */
+export async function gotoSettled(page: any) {
+  await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
+  await page.goto('/');
+  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+  await waitSettled(page);
+}
+
+/**
+ * **편집기 높이보다 짧은** 400줄 문서 (`TEST-7`).
+ *
+ * `size:'fit'` 이 덮지 못하던 구간이 바로 이 길이다 (`UX_BATCH8_SRS §2.3`) —
+ * 미니맵이 스크롤바와 어긋나는 것이 거기서 보인다. 동시에 미니맵이 **서기는
+ * 하는** 길이라 미리보기 버튼의 자리(FR-DRB-3)를 재는 데도 쓰인다.
+ */
+export const EDITOR_DOC_400 = ['# 제목', '', '본문 하나.', '',
+  ...Array.from({ length: 400 }, (_, i) => `line ${i + 1} 내용 ${i + 1}`)].join('\n') + '\n';
+
+/** 그 문서를 담은 루트를 세우고 그 Editor 창으로 들어간다 (`TEST-7`). */
+export async function enterDocRoot(page: any, request: any, base: string, name: string): Promise<string> {
+  const root = join(base, name);
+  mkdirSync(root, { recursive: true });
+  writeFileSync(join(root, 'doc.md'), EDITOR_DOC_400);
+  const saved = await addEditorRoot(request, root);
+  await waitForInit(page);
+  await switchToEditorRoot(page, saved);
+  return saved;
+}
+
+/** `doc.md` 를 열고 **Monaco 가 실제로 설 때까지** 기다린다 (`TEST-7`). */
+export async function openDocFile(page: any, root: string) {
+  await page.evaluate((p: string) => (window as any).app.testing.edOpenFile(p, { pin: true }),
+    root + '/doc.md');
+  await page.waitForFunction(() => {
+    const eds = [...(window as any).app.fileEditors.values()];
+    return eds.some((e: any) => e._editor && e.name === 'doc.md');
+  }, undefined, { timeout: 30000 });
+}
+
+/** 열려 있는 `doc.md` 를 dirty 로 만든다 (`TEST-7`). */
+export async function makeDocDirty(page: any, text = 'ZZ') {
+  await page.evaluate((t: string) => {
+    const v = [...(window as any).app.fileEditors.values()]
+      .find((e: any) => e._editor && e.name === 'doc.md') as any;
+    v._editor.executeEdits('spec', [{ range: new (window as any).monaco.Range(1, 1, 1, 1), text: t }]);
+  }, text);
+  await page.waitForFunction(
+    () => [...(window as any).app.fileEditors.values()].some((e: any) => e._dirty),
+    undefined, { timeout: 10000 });
+}
+
+/**
+ * 편집기 목록에 루트를 더한다 (`TEST-17`).
+ *
+ * 다섯 파일이 **한 글자도 다르지 않은** 지역 함수로 들고 있던 것이다. 경로가
+ * 갈리면 "무엇이 실패했는가" 의 답도 갈린다 — 실패 문구까지 같아야 한 자리다.
+ *
+ * 서버가 저장한 철자가 필요하면 `addEditorRoot` 를 쓴다 (그쪽은 돌려준다).
+ */
+export async function addEditor(request: any, p: string) {
+  const r = await request.post('/api/editors/add', { data: { path: p } });
+  expect(r.ok(), `editors/add 실패: ${await r.text()}`).toBeTruthy();
+}
+
+/**
+ * 데스크톱으로 열고 **Editor 창이 설 때까지** 기다린다 (`TEST-17`).
+ *
+ * 여섯 파일이 같은 것을 따로 들고 있었다. 기다리는 둘이 핵심이다: 터미널의
+ * helper textarea 는 앱이 섰다는 뜻이고, `edWindows().length > 0` 은 편집기
+ * 표면이 섰다는 뜻이다 — 뒤엣것 없이 루트를 고르면 아직 없는 창을 찾는다.
+ *
+ * **변종은 올리지 않았다** (`E2E_HELPER_RECLAIM_SRS`): `notes-live-explorer`
+ * 는 `sidebarTab` 을 지우고, `sandbox-*` 는 다른 버튼을 기다리며,
+ * `git-submodule-notice` 는 정착까지 본다. 겉이 같아 보인다고 합치면 그 스펙이
+ * 재려던 것과 다른 것을 재게 된다.
+ */
+export async function gotoWithEditors(page: any) {
+  await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
+  await page.goto('/');
+  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
+  await page.waitForFunction(
+    () => !!(window as any).app?.testing.editors && (window as any).app.testing.edWindows().length > 0,
+    undefined, { timeout: 15000 });
+}
+
+/** 그 루트의 Editor 창으로 가서 탐색기를 연다 (`TEST-17`, 다섯 파일 공통). */
+export async function openExplorerAt(page: any, root: string) {
+  await switchToEditorRoot(page, root);
+  await openExplorerSide(page);
+}
+
+/**
+ * 루트를 세우고 그 Editor 창의 탐색기로 들어간다 (`TEST-17`).
+ *
+ * **첫 행이 보이는 것까지가 이 준비다** — 뿌리 조회가 끝났다는 뜻이고, 그 전에
+ * 행을 찾으면 아직 비어 있는 트리를 본다.
+ */
+export async function enterExplorer(page: any, request: any, root: string) {
+  await addEditor(request, root);
+  await gotoWithEditors(page);
+  await openExplorerAt(page, root);
+  await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
 }
 
 /**
@@ -934,7 +1121,7 @@ export function makeCopyFx(root: string) {
     // **그 OS 의 정규형**이다. `osenv.realPath` 를 지나는 것이 규약인 이유는
     // Windows 의 **짧은 이름**이다: 순수 JS 의 `realpathSync` 는 `RUNNER~1` 을
     // 그대로 두고, 서버는 긴 이름으로 답한다 — 그 둘은 문자열로 같지 않아
-    // `_edWindowFor` 가 방금 더한 창을 찾지 못한다 (러너 실측).
+    // `edWindowFor` 가 방금 더한 창을 찾지 못한다 (러너 실측).
     return realPath(dst);
   };
 }

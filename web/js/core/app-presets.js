@@ -6,7 +6,7 @@
  */
 Object.assign(App.prototype, {
   // ── Layout Presets ──
-  _initPresets(){
+  initPresets(){
     document.getElementById('preset-save').addEventListener('click',()=>this._savePreset());
     this._renderPresets();
   },
@@ -15,12 +15,12 @@ Object.assign(App.prototype, {
   // layout 을 null 로 덮어써, 그 창이 다음 로드의 창 필터에 지워지고 도구만 남는다.
   //
   // 활성 창이 Editor·Git 창이면 **직전에 활성이었던 일반 창**으로 간다 —
-  // `_gitBackTarget`(FR-GIT-183a)과 같은 규약이다. 기억이 없으면 목록의 첫 일반
+  // `gitBackTarget`(FR-GIT-183a)과 같은 규약이다. 기억이 없으면 목록의 첫 일반
   // 창이고, 일반 창이 하나도 없으면 null 이다.
   _presetSource(){
-    const a=this._aw();
-    if(a&&!this._isEditorWin(a)&&!this._isGitWin(a)) return a;
-    const plain=this._plainWindows();
+    const a=this.aw();
+    if(a&&!this.isEditorWin(a)&&!this.isGitWin(a)) return a;
+    const plain=this.plainWindows();
     return plain.find(s=>s.id===this._lastPlainWindow)||plain[0]||null;
   },
 
@@ -39,14 +39,14 @@ Object.assign(App.prototype, {
     if(!layout){this._presetMsg(PRESET_SAVE_NO_PLAIN);return}
     const name='프리셋 '+(layoutPresets.length+1);
     layoutPresets.push({name,layout});
-    this._saveSettings();
+    this.saveSettings();
     this._renderPresets();
   },
   async _loadPreset(idx){
     const preset=layoutPresets[idx];if(!preset)return;
     // Create new window with preset layout
     await this._mkWindow();
-    const s=this._aw();if(!s)return;
+    const s=this.aw();if(!s)return;
     // Build layout from preset, creating panes as needed
     const build=async(tpl)=>{
       if(!tpl)return null;
@@ -73,14 +73,14 @@ Object.assign(App.prototype, {
     // 프리셋이 빈 layout 을 담고 있어도 `_mkWindow` 가 만든 layout 을 덮어쓰지
     // 않는다 — 덮어쓰면 창 필터(FR-EDT-49)가 그 일반 창을 지우고 도구만 남는다.
     if(built) s.layout=built;
-    this._setFocus(firstPane(s.layout)?.id||null, s);
-    await this._save();this.render();
+    this.setFocusState(firstPane(s.layout)?.id||null, s);
+    await this.save();this.render();
   },
   _deletePreset(idx){
     layoutPresets.splice(idx,1);
     if(defaultPreset===idx)defaultPreset=-1;
     else if(defaultPreset>idx)defaultPreset--;
-    this._saveSettings();
+    this.saveSettings();
     this._renderPresets();
   },
   _renamePreset(idx){
@@ -91,7 +91,7 @@ Object.assign(App.prototype, {
     item.replaceWith(inp);inp.focus();inp.select();
     const save=()=>{
       layoutPresets[idx].name=inp.value.trim()||layoutPresets[idx].name;
-      this._saveSettings();this._renderPresets();
+      this.saveSettings();this._renderPresets();
     };
     inp.addEventListener('blur',save);
     inp.addEventListener('keydown',e=>{if(e.key==='Enter')save();if(e.key==='Escape'){inp.value=layoutPresets[idx].name;save()}e.stopPropagation()});
@@ -144,7 +144,7 @@ Object.assign(App.prototype, {
       // 하던 일을 같은 모양의 두 상태가 한다.
       const star=UIKit.button({icon:'star',iconFill:i===defaultPreset,
         title:'Make this the default preset',kind:'ghost',cls:'preset-btn'});
-      star.addEventListener('click',e=>{e.stopPropagation();defaultPreset=defaultPreset===i?-1:i;this._saveSettings();this._renderPresets()});
+      star.addEventListener('click',e=>{e.stopPropagation();defaultPreset=defaultPreset===i?-1:i;this.saveSettings();this._renderPresets()});
       item.appendChild(star);
       // Load button
       const load=UIKit.button({icon:'play',title:'Load this preset',kind:'ghost',cls:'preset-btn'});

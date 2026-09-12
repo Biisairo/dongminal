@@ -4,7 +4,7 @@ import { test, expect, plainWindows, waitForInit } from './fixtures';
 
 // SRS: APP_DECOMPOSE_SRS.md (S1-Phase1)
 //   불변식: this.focused === active session.focusedPane
-//   본 스펙은 _setFocus 도입 이후 18 사이트의 동작이 1:1 보존되는지 검증.
+//   본 스펙은 setFocus 도입 이후 18 사이트의 동작이 1:1 보존되는지 검증.
 
 async function readInvariant(page: Page) {
   return page.evaluate(() => {
@@ -67,7 +67,9 @@ test.describe('Focus invariant (S1-Phase1)', () => {
       const a = (window as any).app;
       a.switchWindow(id);
     }, firstWin);
-    await page.waitForTimeout(150);
+    await expect
+      .poll(() => page.evaluate(() => (window as any).app.ws.activeWindow), { timeout: 10000 })
+      .toBe(firstWin);
 
     const after = await readInvariant(page);
     expect(after.focused).toBe(after.windowFocusedPane);
@@ -81,7 +83,7 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     // behind a confirm dialog and make the test flaky.
     await page.evaluate(() => {
       const a = (window as any).app;
-      a._isToolBusy = async () => false;
+      a.testing.isToolBusy = async () => false;
     });
     // Add 2 more terminal tabs and wait for each pane to register.
     await page.evaluate(async () => {
@@ -141,7 +143,9 @@ test.describe('Focus invariant (S1-Phase1)', () => {
     expect(otherRid).toBeTruthy();
 
     await page.evaluate((rid) => (window as any).app.setFocus(rid), otherRid);
-    await page.waitForTimeout(80);
+    await expect
+      .poll(() => page.evaluate(() => (window as any).app.focused), { timeout: 10000 })
+      .toBe(otherRid);
 
     const inv = await readInvariant(page);
     expect(inv.focused).toBe(otherRid);

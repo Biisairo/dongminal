@@ -21,6 +21,16 @@ test.afterAll(() => {
 });
 
 const copyFx = makeCopyFx(FIXTURES);
+
+/**
+ * **이 파일의 검사들은 서로 독립이다** (`TEST-20`).
+ *
+ * 각자 `copyFx` 로 자기 저장소를 받고 서버 설정을 건드리지 않는다 — 파일 안의
+ * 순서에 기대는 자리가 없으므로 워커에 흩어도 같은 답이 나온다. 전역 기본값
+ * (`fullyParallel`)은 그대로 `false` 이고, 독립이 **확인된** 파일만 켠다.
+ */
+test.describe.configure({ mode: 'parallel' });
+
 const tab = (page: Page, v: string) => page.locator(`#area .pn-tab[data-git-view="${v}"]`);
 const con = (page: Page) => page.locator('#area .pn-body .git-view.git-console');
 const rows = (page: Page) => con(page).locator('.git-con-row');
@@ -103,16 +113,36 @@ test.describe('묶음 Q — Console 탭', () => {
     const a = copyFx('basic', 'k5a');
     const b = copyFx('with-remote', 'k5b');
     await waitForInit(page);
-    await openConsole(page, a);
-    await expect.poll(async () => (await argvs(page)).length, { timeout: 15000 })
-      .toBeGreaterThan(0);
+    await openGit(page, a);
 
-    await page.evaluate((r) => (window as any).app.gitPanel.setRepo(r), b);
-    // 앞 리포의 기록이 남아 있으면 이력이 아니라 잡음이다.
-    await expect.poll(async () => {
-      const d = await con(page).locator('.git-con-detail').allTextContents();
-      return d.some((t) => t.includes(a));
-    }, { timeout: 15000 }).toBe(false);
+    // **a 의 기록을 이 검사가 스스로 만든다.** 기본 필터는 쓰기와 실패만 보이므로
+    // (K3) 저장소를 열어 두기만 해서는 목록이 비어 있다 — 읽기 폴링밖에 돌지
+    // 않는다. 종전에는 preflight 의 `config --get` 이 미설정에서 exit 1 을 내어
+    // 우연히 이 자리를 채우고 있었고, 그것이 `--default=` 로 닫히자(GP-10 의 두
+    // 번째 겹) 이 검사의 전제가 함께 사라졌다.
+    const row = page.locator('#area .ed-side .git-group[data-group="working"] .git-file[data-path="tracked.txt"]');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await clickRowAct(page, row, 'stage');
+    await expect(page.locator('#area .ed-side .git-group[data-group="staged"] .git-file[data-path="tracked.txt"]'))
+      .toBeVisible({ timeout: 15000 });
+
+    await clickGitView(page, 'console');
+    await expect(con(page)).toHaveClass(/vis/);
+    const hasAdd = async () => (await argvs(page)).some((t) => t.includes('add'));
+    await expect.poll(hasAdd, { timeout: 15000 }).toBe(true);
+
+    // **리포를 바꾸는 길은 그 저장소의 Repo 창이다** (REPO_TAB_UNIFY_SRS
+    // FR-RTU-70·72). 종전에는 여기서 `setRepo(b)` 를 불렀으나 그 호출은 아무
+    // 일도 하지 않았다 — Repo 창의 패널은 저장소가 고정이라 `setRepo` 가 첫
+    // 줄에서 반환하고(FR-RTU-60), 그것이 돌던 옛 `WINDOW_TYPE_GIT` 창은
+    // 사라졌다.
+    await openGit(page, b);
+    await clickGitView(page, 'console');
+    await expect(con(page)).toHaveClass(/vis/);
+    // 앞 리포의 기록이 남아 있으면 이력이 아니라 잡음이다. 판정은 **보이는 행**
+    // 으로 한다 — `.git-con-detail` 은 펼친 행에만 생기므로(`_emit`) 펼치지 않은
+    // 채 그것을 세면 무엇이 남아 있든 0 이라 아무것도 재지 못한다.
+    await expect.poll(hasAdd, { timeout: 15000 }).toBe(false);
   });
 });
 

@@ -20,8 +20,8 @@ Object.assign(App.prototype, {
   // 죽어 있었다. "터미널 창에서는 빈 문자열"만 보던 검사는 그것을 통과시킨다.
   _edSearchRoot(){
     const s=this.ws.windows.find(w=>w.id===this.ws.activeWindow);
-    if(!this._isEditorWin(s)) return '';
-    return this._edRootOf(s)||'';
+    if(!this.isEditorWin(s)) return '';
+    return this.edRootOf(s)||'';
   },
 
   // FR-EFP-13 의 판정. `_edActiveEditor` 와 가르는 이유는 위의 주석이다.
@@ -55,13 +55,13 @@ Object.assign(App.prototype, {
   // 활성 탭은 pane 이 안다.
   _edActiveEditor(){
     const s=this.ws.windows.find(w=>w.id===this.ws.activeWindow);
-    if(!this._isEditorWin(s)) return null;
+    if(!this.isEditorWin(s)) return null;
     const p=findPane(s.layout,s.focusedPane||this.focused)
       ||((s.layout&&s.layout.type==='pane')?s.layout:null);
     // 편집기 인스턴스는 칸마다 선다 (FR-WSL-20) — 포커스 칸의 것을 찾는다.
     const tid=p&&this.paneTab(p);
     if(!tid) return null;
-    return this.fileEditors.get(this._slotKey(tid,this._slotFocused()))
+    return this.fileEditors.get(this.slotKey(tid,this.slotFocused()))
       ||this.fileEditors.get(tid)||null;
   },
 
@@ -73,7 +73,7 @@ Object.assign(App.prototype, {
    * 창에서 `Mod+F` 를 눌렀을 때 터미널 검색이 떠야 하기 때문이다. 여기서
    * preventDefault 까지 하고 아무 일도 안 하면 그 키는 죽은 키가 된다.
    */
-  _edTrySearchKey(e){
+  edTrySearchKey(e){
     // UX_BATCH9_SRS FR-ESV-2: **app 이 수행하는 것만** 돈다. 편집기 인스턴스의
     // 액션(저장)은 그 편집기가 자기 자리에서 판정한다 — 여기서 잡으면 "어느
     // 편집기가" 를 다시 골라야 하고, 그 고르기가 결함의 원인이었다 (§2.1).
@@ -98,6 +98,9 @@ Object.assign(App.prototype, {
    *  - 파일 내 검색 — 편집기가 서 있어야 한다. 인스턴스가 있는 것만으로는 부족하다
    *    — 이미지·이진 파일 탭은 인스턴스는 있고 Monaco 는 없다 (FR-EFP-13).
    *  - 나머지 검색 둘 — 루트만 있으면 된다.
+   *  - 모두 저장 (FUI-07) — **활성 창이 Editor 창이어야 한다.** 루트가 있는
+   *    것만으로는 부족하다: 저장 대상이 "이 창의 탭들" 이므로 창이 답의
+   *    일부다. 아니면 false 를 돌려 그 키가 터미널로 내려간다 (FR-EKB-4).
    */
   _edKeyGate(action){
     if(ED_LSP_ACTIONS[action]){
@@ -105,6 +108,7 @@ Object.assign(App.prototype, {
       return this._edFindReady()&&!!this._edSearchRoot();
     }
     if(action==='edFindInFile') return this._edFindReady();
+    if(action==='edSaveAll') return this.isEditorWin(this.aw());
     return !!this._edSearchRoot();
   },
 
@@ -247,6 +251,6 @@ Object.assign(App.prototype, {
     this._edPanelClose();
     const abs=pathJoin(p._root,it.path);
     // `find` 만 파일 자체를 열고, 나머지(grep·refs·defs)는 **그 줄로** 연다.
-    this._edOpenFile(abs,p._mode==='find'?undefined:{line:it.line,col:it.col});
+    this.edOpenFile(abs,p._mode==='find'?undefined:{line:it.line,col:it.col});
   },
 });

@@ -31,15 +31,15 @@ test.describe('복원 비행 (RESTORE_FLIGHT_SRS)', () => {
     await waitForInit(page);
     const has = await page.evaluate(async (gateSrc) => {
       const app = (window as any).app;
-      app._activity.clear();
+      app.testing.activity.clear();
       const g = eval(gateSrc)((u: string) => u.includes('/api/tools/activity') && !u.includes('/set'),
         { activities: [] });                                   // 스냅숏은 비어 있다
-      app._activityRestore();
-      app._onToolActivity({ toolId: 'late', state: 'working', tool: 'Bash', detail: 'A' });
+      app.testing.activityRestore();
+      app.testing.onToolActivity({ toolId: 'late', state: 'working', tool: 'Bash', detail: 'A' });
       g.release();
       await new Promise(r => setTimeout(r, 150));
       g.restore();
-      return app._activity.has('late');
+      return app.testing.activity.has('late');
     }, GATE);
     expect(has, '복원 응답이 비행 중 도착한 활동을 지웠다').toBe(true);
   });
@@ -49,17 +49,17 @@ test.describe('복원 비행 (RESTORE_FLIGHT_SRS)', () => {
     await waitForInit(page);
     const has = await page.evaluate(async (gateSrc) => {
       const app = (window as any).app;
-      app._activity.clear();
-      app._onToolActivity({ toolId: 'dying', state: 'working', tool: 'Bash', detail: 'B' });
+      app.testing.activity.clear();
+      app.testing.onToolActivity({ toolId: 'dying', state: 'working', tool: 'Bash', detail: 'B' });
       // 스냅숏은 아직 살아 있다고 말한다 — 요청 시점의 진실이다.
       const g = eval(gateSrc)((u: string) => u.includes('/api/tools/activity') && !u.includes('/set'),
         { activities: [{ toolId: 'dying', state: 'working', tool: 'Bash', detail: 'B', updatedAt: 1 }] });
-      app._activityRestore();
-      app._onToolActivity({ toolId: 'dying', state: 'ended' });
+      app.testing.activityRestore();
+      app.testing.onToolActivity({ toolId: 'dying', state: 'ended' });
       g.release();
       await new Promise(r => setTimeout(r, 150));
       g.restore();
-      return app._activity.has('dying');
+      return app.testing.activity.has('dying');
     }, GATE);
     expect(has, '낡은 스냅숏이 끝난 활동을 되살렸다').toBe(false);
   });
@@ -69,14 +69,14 @@ test.describe('복원 비행 (RESTORE_FLIGHT_SRS)', () => {
     await waitForInit(page);
     const name = await page.evaluate(async (gateSrc) => {
       const app = (window as any).app;
-      app._fgMap().clear();
+      app.testing.fgMap().clear();
       const g = eval(gateSrc)((u: string) => u.includes('/api/state'), { tools: [] });
-      app._fgRestore();
-      app._onToolForeground({ toolId: 'late', name: 'vim' });
+      app.testing.fgRestore();
+      app.testing.onToolForeground({ toolId: 'late', name: 'vim' });
       g.release();
       await new Promise(r => setTimeout(r, 150));
       g.restore();
-      return app._fgMap().get('late') || null;
+      return app.testing.fgMap().get('late') || null;
     }, GATE);
     expect(name, '복원 응답이 비행 중 붙은 이름을 지웠다').toBe('vim');
   });
@@ -86,17 +86,17 @@ test.describe('복원 비행 (RESTORE_FLIGHT_SRS)', () => {
     await waitForInit(page);
     const name = await page.evaluate(async (gateSrc) => {
       const app = (window as any).app;
-      app._fgMap().clear();
-      app._onToolForeground({ toolId: 'dying', name: 'vim' });
+      app.testing.fgMap().clear();
+      app.testing.onToolForeground({ toolId: 'dying', name: 'vim' });
       // 스냅숏은 vim 이 아직 떠 있다고 말한다.
       const g = eval(gateSrc)((u: string) => u.includes('/api/state'),
         { tools: [{ id: 'dying', fgName: 'vim' }] });
-      app._fgRestore();
-      app._onToolForeground({ toolId: 'dying', name: '' });     // 프로그램이 끝났다
+      app.testing.fgRestore();
+      app.testing.onToolForeground({ toolId: 'dying', name: '' });     // 프로그램이 끝났다
       g.release();
       await new Promise(r => setTimeout(r, 150));
       g.restore();
-      return app._fgMap().get('dying') || null;
+      return app.testing.fgMap().get('dying') || null;
     }, GATE);
     expect(name, '낡은 스냅숏이 지운 이름을 되살렸다').toBe(null);
   });
@@ -106,15 +106,15 @@ test.describe('복원 비행 (RESTORE_FLIGHT_SRS)', () => {
     await waitForInit(page);
     const has = await page.evaluate(async (gateSrc) => {
       const app = (window as any).app;
-      app._attn.clear();
+      app.testing.attn.clear();
       const g = eval(gateSrc)((u: string) => u.includes('/api/tools/attention') && !u.includes('clear'),
         { toolIds: [] });
-      app._attnRestore();
-      app._onToolAttention({ toolId: 'late', reason: 'done' });
+      app.testing.attnRestore();
+      app.testing.onToolAttention({ toolId: 'late', reason: 'done' });
       g.release();
       await new Promise(r => setTimeout(r, 150));
       g.restore();
-      return app._attn.has('late');
+      return app.testing.attn.has('late');
     }, GATE);
     expect(has, '복원 응답이 비행 중 올라온 알람을 지웠다').toBe(true);
   });
@@ -124,17 +124,17 @@ test.describe('복원 비행 (RESTORE_FLIGHT_SRS)', () => {
     await waitForInit(page);
     const has = await page.evaluate(async (gateSrc) => {
       const app = (window as any).app;
-      app._attn.clear();
-      app._onToolAttention({ toolId: 'seen', reason: 'done' });
+      app.testing.attn.clear();
+      app.testing.onToolAttention({ toolId: 'seen', reason: 'done' });
       // 스냅숏은 알람이 아직 서 있다고 말한다.
       const g = eval(gateSrc)((u: string) => u.includes('/api/tools/attention') && !u.includes('clear'),
         { toolIds: ['seen'] });
-      app._attnRestore();
-      app._attnClear('seen', true);        // 사용자가 그 도구에 키를 눌렀다
+      app.testing.attnRestore();
+      app.testing.attnClear('seen', true);        // 사용자가 그 도구에 키를 눌렀다
       g.release();
       await new Promise(r => setTimeout(r, 150));
       g.restore();
-      return app._attn.has('seen');
+      return app.testing.attn.has('seen');
     }, GATE);
     expect(has, '낡은 스냅숏이 사용자가 거둔 알람을 되살렸다').toBe(false);
   });

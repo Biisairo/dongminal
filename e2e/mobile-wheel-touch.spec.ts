@@ -40,7 +40,7 @@ test('TC-MTI-25 (FR-MTI-28): 터치 드래그가 xterm 의 wheel 경로로 넘�
   // 스크롤백이 전혀 없는 상태 — 실기기의 TUI 조건(len==rows)이다.
   // 이전 구현(scrollLines)은 여기서 아무 일도 하지 못했다.
   const wheels = await page.evaluate(() => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     (window as any).__wheels = [];
     p.term.element.addEventListener('wheel', (e: WheelEvent) => {
       (window as any).__wheels.push(e.deltaY);
@@ -51,7 +51,9 @@ test('TC-MTI-25 (FR-MTI-28): 터치 드래그가 xterm 의 wheel 경로로 넘�
 
   const client = await page.context().newCDPSession(page);
   await touchDrag(client, await screenCenter(page), 200);
-  await page.waitForTimeout(200);
+  await expect
+    .poll(() => page.evaluate(() => ((window as any).__wheels as number[]).length), { timeout: 10000 })
+    .toBeGreaterThan(0);
 
   const got = await page.evaluate(() => (window as any).__wheels as number[]);
   expect(got.length).toBeGreaterThan(0);
@@ -66,7 +68,7 @@ test('TC-MTI-26 (FR-MTI-28): 마우스 리포팅이 켜진 TUI 에는 휠 리포
   const client = await page.context().newCDPSession(page);
   // 마우스 리포팅을 켠다(DECSET 1000+1006) — 실기기 로그의 조건.
   await page.evaluate(() => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     (window as any).__sent = [];
     const orig = p._send.bind(p);
     p._send = (m: Uint8Array) => {
@@ -82,11 +84,15 @@ test('TC-MTI-26 (FR-MTI-28): 마우스 리포팅이 켜진 TUI 에는 휠 리포
     };
     p.term.write('\x1b[?1000h\x1b[?1006h');
   });
+  // **예외 (`TEST-16`)**: 마우스 트래킹 모드가 들어간 것을 화면에서 알 길이
+  // 없다 — 이 시퀀스는 아무것도 그리지 않는다.
   await page.waitForTimeout(300);
   await page.evaluate(() => { (window as any).__sent = [] });
 
   await touchDrag(client, await screenCenter(page), -200);   // 위로 끌기 = 아래로 스크롤
-  await page.waitForTimeout(200);
+  await expect
+    .poll(() => page.evaluate(() => ((window as any).__sent as string[]).length), { timeout: 10000 })
+    .toBeGreaterThan(0);
 
   const sent = (await page.evaluate(() => (window as any).__sent as string[])).join('');
   // SGR 휠 리포트: ESC[<64;x;yM (up) / ESC[<65;x;yM (down)
@@ -101,7 +107,7 @@ test('TC-MTI-27 (FR-MTI-29): 스크롤 제스처의 합성 마우스 이벤트�
 
   // 제스처 직후의 합성분에 해당하는 창에서 mousedown 이 막힌다.
   const dp = await page.evaluate(({ x, y }) => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     const ev = new MouseEvent('mousedown', { clientX: x, clientY: y, bubbles: true, cancelable: true });
     p.el.dispatchEvent(ev);
     return ev.defaultPrevented;

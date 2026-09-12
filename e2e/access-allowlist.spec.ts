@@ -77,7 +77,10 @@ test.describe('접속 허용 목록', () => {
     await page.locator('#acl-enabled').check();
     await page.click('#acl-save');
 
-    const dialog = page.locator('.ui-modal');
+    // **키트 클래스 단독으로 찾지 않는다** (`TEST-18`). `.ui-modal` 은 골격의
+    // 이름이라 어느 모달인지 말하지 않고, 그 이름은 CSS 정리(M7 `UX-16`·`UX-17`)
+    // 의 대상이기도 하다 — 이 확인창의 신원은 `acl-confirm` 이다.
+    const dialog = page.locator('.ui-modal.acl-confirm');
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText('차단');
     // 취소하면 저장되지 않는다 — 상태 문구가 저장을 말하지 않아야 한다.
@@ -137,6 +140,6 @@ test.describe('접속 허용 목록', () => {
     await page.locator('#acl-enabled').uncheck();
     await page.click('#acl-save');
     await expect(page.locator('#acl-status')).toHaveText('저장했습니다');
-    await expect(page.locator('.ui-modal')).toHaveCount(0);
+    await expect(page.locator('.ui-modal.acl-confirm')).toHaveCount(0);
   });
 });

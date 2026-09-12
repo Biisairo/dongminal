@@ -7,15 +7,15 @@ class InputBinding {
   constructor(app){ this.app = app; }
 
   bind(){
-    if(this.app._kb) return; this.app._kb=true;
+    if(this.app.kb) return; this.app.kb=true;
     const sbEl=document.getElementById('sidebar');
     // FR-HSZ-3: 두 핸들의 반대쪽이 같은 요소다 — 콘텐츠 영역.
     const contentEl=document.getElementById('content');
     document.getElementById('split-h').addEventListener('click',()=>this.app.split('horizontal'));
     document.getElementById('split-v').addEventListener('click',()=>this.app.split('vertical'));
-    document.getElementById('agents-toggle').addEventListener('click',()=>this.app._agentsToggle());
+    document.getElementById('agents-toggle').addEventListener('click',()=>this.app.agentsToggle());
     const ap=document.getElementById('agents-panel'),aph=document.getElementById('agents-handle');
-    try{if(localStorage.getItem('agentsPanelOpen')==='1'){ap.classList.add('open');aph.classList.add('open');document.getElementById('agents-toggle').classList.add('open');this.app._agentsStartPoll()}}catch{}
+    try{if(localStorage.getItem('agentsPanelOpen')==='1'){ap.classList.add('open');aph.classList.add('open');document.getElementById('agents-toggle').classList.add('open');this.app.agentsStartPoll()}}catch{}
     /**
      * UI_KIT_SRS FR-HSZ-1·10: 여섯 핸들이 `UIKit.drag` 한 골격을 쓴다.
      *
@@ -33,7 +33,7 @@ class InputBinding {
       sides:(ctx)=>{
         const aw=ap.offsetWidth, cw=contentEl?contentEl.offsetWidth:0, tot=aw+cw;
         return [
-          {px:cw,cell:UIKit.grid(this.app._focusedTerminal&&this.app._focusedTerminal(),'x',cw-ctx.c0,0),
+          {px:cw,cell:UIKit.grid(this.app.focusedTerminal&&this.app.focusedTerminal(),'x',cw-ctx.c0,0),
             pct:tot?cw/tot*100:null},
           {px:aw,pct:tot?aw/tot*100:null},
         ];
@@ -51,15 +51,15 @@ class InputBinding {
     // UX_REVISION_SRS FR-BLP-13: 사이드바 리스트는 **타입으로 서술자를 찾아** 한
     // 경로로 커밋한다 — 목록이 늘어도 이 배선은 늘지 않는다. 에이전트 패널은
     // 사이드바 리스트가 아니므로 자기 경로를 유지한다.
-    document.addEventListener('dragover',e=>{const dr=this.app._drag;if(dr&&(dr.type==='agent'||SidebarList.defByDragType(dr.type)))e.preventDefault()});
+    document.addEventListener('dragover',e=>{const dr=this.app.drag;if(dr&&(dr.type==='agent'||SidebarList.defByDragType(dr.type)))e.preventDefault()});
     // FR-MOV-1: 탭 드래그가 사이드바 위에서 죽지 않게 한다. 창 항목이 자기
     // dragover 에서 preventDefault 하지만, 항목 사이 여백에 걸치면 그 이벤트가
     // 오지 않아 native 가 드롭을 거절한다 — 여기서 사이드바 전체를 수락한다.
     // 드롭 자체는 창 항목만 처리하므로 여백에서 놓으면 아무 일도 없다.
-    sbEl.addEventListener('dragover',e=>{const dr=this.app._drag;if(dr&&dr.type==='tab')e.preventDefault()});
+    sbEl.addEventListener('dragover',e=>{const dr=this.app.drag;if(dr&&dr.type==='tab')e.preventDefault()});
     document.addEventListener('drop',e=>{
-      const dr=this.app._drag; if(!dr) return;
-      if(dr.type==='agent'){e.preventDefault();this.app._reorderAgents(dr);return}
+      const dr=this.app.drag; if(!dr) return;
+      if(dr.type==='agent'){e.preventDefault();this.app.reorderAgents(dr);return}
       const def=SidebarList.defByDragType(dr.type);
       if(def){e.preventDefault();SidebarList.commit(this.app,def,dr)}
     });
@@ -86,11 +86,13 @@ class InputBinding {
       move:(ctx,ev)=>{
         const raw=ctx.w0+(ev.clientX-ctx.sx0);
         const collapse=raw<SIDEBAR_COLLAPSE_AT_PX;
-        // 접힘 자체는 `_setSidebarCollapsed` 한 자리에서 정한다 — 클래스·저장·
+        // 접힘 자체는 `setSidebarCollapsed` 한 자리에서 정한다 — 클래스·저장·
         // 터미널 재적합이 거기 묶여 있고, 두 벌로 두면 한쪽만 고쳐진다.
-        if(collapse!==this.app._sidebarCollapsed()) this.app._setSidebarCollapsed(collapse);
+        if(collapse!==this.app.sidebarCollapsed()) this.app.setSidebarCollapsed(collapse);
         // 펼친 동안에만 폭을 따라간다. 접힌 폭(레일)은 고정이다 (FR-SBC-2·16).
-        if(!collapse&&raw>=100&&raw<=400){
+        // FE-18: 구간은 상수 둘이 정한다 — 드래그로 갈 수 없는 폭이 저장에서
+        // 살아남는(또는 그 반대의) 어긋남을 막는다.
+        if(!collapse&&raw>=SIDEBAR_W_MIN_PX&&raw<=SIDEBAR_W_MAX_PX){
           document.documentElement.style.setProperty('--sb-w',raw+'px');
           this.app.ws.sidebarWidth=raw;
         }
@@ -101,30 +103,30 @@ class InputBinding {
         const sw=sb.offsetWidth, cw=contentEl?contentEl.offsetWidth:0, tot=sw+cw;
         return [
           {px:sw,pct:tot?sw/tot*100:null},
-          {px:cw,cell:UIKit.grid(this.app._focusedTerminal&&this.app._focusedTerminal(),'x',cw-ctx.c0,0),
+          {px:cw,cell:UIKit.grid(this.app.focusedTerminal&&this.app.focusedTerminal(),'x',cw-ctx.c0,0),
             pct:tot?cw/tot*100:null},
         ];
       },
       end:()=>{
         for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();
         try{localStorage.setItem('sidebarWidth',this.app.ws.sidebarWidth)}catch{}
-        this.app._save();
+        this.app.save();
       },
     });
-    this.app._recording=null;
+    this.app.recording=null;
     window.addEventListener('keydown',e=>{
-      if(this.app._recording){e.preventDefault();e.stopImmediatePropagation();
+      if(this.app.recording){e.preventDefault();e.stopImmediatePropagation();
         if(e.code==='Escape'){
           const btn=document.querySelector('.sc-key.recording');
           if(btn){btn.classList.remove('recording');btn.textContent=displayKey(shortcuts[btn.dataset.action]||'')}
-          this.app._recording=null;return;
+          this.app.recording=null;return;
         }
         if(MOD_CODES.has(e.code))return;
-        shortcuts[this.app._recording]=fmtShortcut(e);
-        const btn=document.querySelector(`.sc-key[data-action="${this.app._recording}"]`);
-        this.app._recording=null;
+        shortcuts[this.app.recording]=fmtShortcut(e);
+        const btn=document.querySelector(`.sc-key[data-action="${this.app.recording}"]`);
+        this.app.recording=null;
         if(btn){btn.classList.remove('recording');btn.textContent=displayKey(shortcuts[btn.dataset.action]||'')}
-        this.app._saveSettings();
+        this.app.saveSettings();
         return;
       }
       const ae=document.activeElement;
@@ -137,7 +139,7 @@ class InputBinding {
       // 터미널 검색의 관용 배선과 같은 조합이기 때문이다 — Editor 창이면 편집기
       // 검색이, 아니면 터미널 검색이 뜬다. Editor 창이 아닐 때 이 함수는 키를
       // 삼키지 않고 false 를 돌려준다 (FR-EKB-4).
-      if(this.app._edTrySearchKey(e)) return;
+      if(this.app.edTrySearchKey(e)) return;
       for(const h of BUILTIN_HOTKEYS){
         if(h.match(e)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(h.action);return}
       }
@@ -150,25 +152,35 @@ class InputBinding {
       this._blockBrowserDefault(e);
     },true);
     const si=document.getElementById('search-input');
-    si.addEventListener('input',()=>this.app._doSearch('next'));
+    si.addEventListener('input',()=>this.app.doSearch('next'));
     si.addEventListener('keydown',e=>{
-      if(e.key==='Enter'){e.preventDefault();this.app._doSearch(e.shiftKey?'prev':'next')}
+      if(e.key==='Enter'){e.preventDefault();this.app.doSearch(e.shiftKey?'prev':'next')}
       if(e.key==='Escape'){e.preventDefault();e.stopPropagation();this.app.closeSearch()}
       e.stopPropagation();
     });
-    document.getElementById('search-next').addEventListener('click',()=>this.app._doSearch('next'));
-    document.getElementById('search-prev').addEventListener('click',()=>this.app._doSearch('prev'));
-    document.getElementById('search-case').addEventListener('click',function(){this.classList.toggle('active')});
+    document.getElementById('search-next').addEventListener('click',()=>this.app.doSearch('next'));
+    document.getElementById('search-prev').addEventListener('click',()=>this.app.doSearch('prev'));
+    /**
+     * FUI-15: 토글 셋. **누르면 곧바로 다시 찾는다** — 옵션을 바꾼 뒤 Enter 를
+     * 한 번 더 눌러야 한다면 그 토글은 반쯤 듣는 것이다 (편집기 찾기 줄이
+     * 그렇게 하고 있다).
+     */
+    for(const id of ['search-case','search-word','search-regex']){
+      document.getElementById(id).addEventListener('click',ev=>{
+        ev.currentTarget.classList.toggle('active');
+        this.app.doSearch('next');
+      });
+    }
     document.getElementById('search-close').addEventListener('click',()=>this.app.closeSearch());
-    this.app._initModal();
-    this.app._initStatusBar();
-    this.app._initPresets();
-    this.app._initMobile();
-    this.app._initMobileKeybar();
-    this.app._initAttn();
+    this.app.initModal();
+    this.app.initStatusBar();
+    this.app.initPresets();
+    this.app.initMobile();
+    this.app.initMobileKeybar();
+    this.app.initAttn();
     // POLL_INTERVAL_SETTINGS_SRS FR-PIS-20: `Polling` 탭의 행을 표에서 만든다.
     // 옛 `_initAgentsSettings` 가 있던 자리이며, 그 드롭다운이 이 탭으로 옮겼다.
-    this.app._initPollingSettings();
+    this.app.initPollingSettings();
   }
 
   /**

@@ -1,3 +1,4 @@
+import { execFileSync } from 'child_process';
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 
@@ -5,6 +6,13 @@ import { Page } from '@playwright/test';
 
 import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, clickRowAct } from './fixtures';
 import { tmpPath, realPath } from './osenv';
+
+/**
+ * **고정 대기의 예외 (`TEST-16`).** 이 파일의 `waitForTimeout` 은 전부 **갱신
+ * 회차를 넘기려고** 둔 것이다 — 재는 것이 "회차를 넘겨도 같은 요소인가" 이므로
+ * 그 회차가 지나는 것 자체가 검사의 전제이고, 기다릴 신호가 따로 없다.
+ * 짧게 하면 회차를 넘지 못해 **아무것도 재지 않는 초록**이 된다.
+ */
 
 // GIT_REVIEW4_SRS §3.2·§3.5 — 바깥 계기의 다시 그리기.
 // 검증 V104~V113 (FR-RPT-1~7, FR-GIT-227).
@@ -26,6 +34,8 @@ test.afterAll(() => {
 const fx = (name: string) => realPath(join(FIXTURES, name));
 
 const copyFx = makeCopyFx(FIXTURES);
+const git = (repo: string, ...args: string[]) =>
+  execFileSync('git', ['-C', repo, ...args]).toString().trim();
 // 선택자에 걸리는 요소 전부에 표식을 심는다. 반환은 심은 개수다.
 const markAll = (page: Page, sel: string) =>
   page.evaluate((s: string) => {
@@ -126,7 +136,7 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: r }),
       });
-      await (window as any).app._gitReposRefresh();
+      await (window as any).app.testing.gitReposRefresh();
     }, fx('basic'));
     // 요소 보존을 보려면 요소가 화면에 있어야 한다 — GIT 패널은 탭 뒤다 (FR-SBT-2).
     await openGitTab(page);
@@ -219,7 +229,7 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     await expect(page.locator(sel)).toHaveCount(1, { timeout: 10000 });
     const n = await markAll(page, sel);
     // agentsPollMs 의 기본값을 모르지 않도록 짧게 바꿔 회차를 확실히 지나게 한다.
-    await page.evaluate(() => { (window as any).app.agentsPollMs = 1000; (window as any).app._agentsStartPoll() });
+    await page.evaluate(() => { (window as any).app.agentsPollMs = 1000; (window as any).app.testing.agentsStartPoll() });
     await page.waitForTimeout(2600);
     expect(await markCount(page, sel)).toEqual({ kept: n, total: n });
   });
@@ -266,12 +276,12 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
       // 만들면 hover·드래그·선택이 그 자리에서 죽는다 (NFR-RTU-5).
       await page.evaluate(() => {
         const a = (window as any).app;
-        a._edSetSide(a._aw(), 'explorer');
+        a.testing.edSetSide(a.testing.aw(), 'explorer');
       });
       await expect(page.locator('#area .ed-side .ed-explorer')).toBeVisible({ timeout: 10000 });
       await page.evaluate(() => {
         const a = (window as any).app;
-        a._edSetSide(a._aw(), 'changes');
+        a.testing.edSetSide(a.testing.aw(), 'changes');
       });
       await expect(page.locator(sel).first()).toBeVisible({ timeout: 10000 });
 
@@ -296,6 +306,64 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
       await page.evaluate((r: string) => (window as any).app.openGitWindow(r), fx('basic'));
       await expect(page.locator(sel).first()).toBeVisible({ timeout: 10000 });
 
+      expect(await markCount(page, sel)).toEqual({ kept: n, total: n });
+    });
+});
+
+/**
+ * GIT_REFRESH_LIFECYCLE_SRS FR-GRF-17~21 (`GP-9`) — **Branches·Stash 도 같은 규약**.
+ *
+ * `git-repaint` 는 Changes 행·GIT 섹션·상태바·Console·Agents·WINDOWS 를 재렌더
+ * 생존으로 검증해 왔으나 **Branches·Stash 는 대상에 없었다.** 그 공백이 두 뷰가
+ * `innerHTML=''` 로 남아 있던 이유다 (`11 GP-9` 의 "검증 공백").
+ */
+test.describe('FR-GRF — Branches·Stash 목록 (V-GRF-8·9)', () => {
+  test('P14 (V-GRF-8 / FR-GRF-17): Branches 행이 갱신 회차를 넘어 같은 요소로 남는다',
+    async ({ page }) => {
+      await waitForInit(page);
+      await openGit(page, fx('with-remote'));
+      await clickGitView(page, 'branches');
+      const sel = '#area .pn-body .git-view.git-branches .git-br-row';
+      await expect(page.locator(sel).first()).toBeVisible({ timeout: 20000 });
+      const n = await markAll(page, sel);
+      expect(n).toBeGreaterThan(0);
+      // 관측 회차를 확실히 넘긴다. 그 사이 `paintStatus`·`_reloadViews` 가 돈다.
+      await page.waitForTimeout(POLLS);
+      expect(await markCount(page, sel)).toEqual({ kept: n, total: n });
+    });
+
+  test('P14b (V-GRF-8 / FR-GRF-18): 브랜치가 늘어도 바뀌지 않은 행은 유지된다',
+    async ({ page }) => {
+      const repo = copyFx('with-remote', 'p14b');
+      await waitForInit(page);
+      await openGit(page, repo);
+      await clickGitView(page, 'branches');
+      const sel = '#area .pn-body .git-view.git-branches .git-br-row';
+      await expect(page.locator(sel).first()).toBeVisible({ timeout: 20000 });
+      const before = await markAll(page, sel);
+      expect(before).toBeGreaterThan(0);
+      // 밖에서 브랜치 하나를 만든다 — 관측이 HEAD 변화 없이 refs 를 다시 받는
+      // 경로를 타게 새 브랜치로 옮기지 않는다.
+      git(repo, 'branch', 'rpt-new');
+      await page.evaluate(() => (window as any).app.gitPanel._branchesView.reload());
+      await expect(page.locator(sel)).toHaveCount(before + 1, { timeout: 20000 });
+      const m = await markCount(page, sel);
+      expect(m).toEqual({ kept: before, total: before + 1 });
+    });
+
+  test('P15 (V-GRF-9 / FR-GRF-17): Stash 행이 갱신 회차를 넘어 같은 요소로 남는다',
+    async ({ page }) => {
+      const repo = copyFx('basic', 'p15');
+      git(repo, 'stash', 'push', '-u', '-m', 'rpt-stash-1');
+      await waitForInit(page);
+      await openGit(page, repo);
+      await clickGitView(page, 'stash');
+      const sel = '#area .pn-body .git-view.git-stash .git-stash-row';
+      await expect(page.locator(sel).first()).toBeVisible({ timeout: 20000 });
+      const n = await markAll(page, sel);
+      expect(n).toBeGreaterThan(0);
+      // 관측 회차마다 `_reloadViews` 가 stash 를 다시 받는다 — 그것이 이 검사의 계기다.
+      await page.waitForTimeout(POLLS);
       expect(await markCount(page, sel)).toEqual({ kept: n, total: n });
     });
 });

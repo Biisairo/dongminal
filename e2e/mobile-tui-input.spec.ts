@@ -16,7 +16,7 @@ async function gotoDesktop(page: Page) {
 test('TC-MTI-4: 데스크톱 모드에서는 beforeinput 을 가로채지 않는다', async ({ page }) => {
   await gotoDesktop(page);
   const r = await page.evaluate(() => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     const sentArr: string[] = [];
     const orig = p._send.bind(p);
     p._send = (m: Uint8Array) => { if (m[0] === 0) sentArr.push(new TextDecoder().decode(m.subarray(1))); return orig(m); };
@@ -36,7 +36,7 @@ test('TC-MTI-4: 데스크톱 모드에서는 beforeinput 을 가로채지 않는
 test('TC-MTI-8: 데스크톱 모드의 터치 스크롤 개입은 없다', async ({ page }) => {
   await gotoDesktop(page);
   const moved = await page.evaluate(() => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     let s = '';
     for (let i = 1; i <= 300; i++) s += `line-${i}\r\n`;
     p.term.write(s);
@@ -60,7 +60,7 @@ test('TC-MTI-8: 데스크톱 모드의 터치 스크롤 개입은 없다', async
 test('TC-MTI-34 (FR-MTI-35): 데스크톱의 조합 미리보기와 증분 전송이 살아 있다', async ({ page }) => {
   await gotoDesktop(page);
   const r = await page.evaluate(async () => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     const sentArr: string[] = [];
     const orig = p._send.bind(p);
     p._send = (m: Uint8Array) => { if (m[0] === 0) sentArr.push(new TextDecoder().decode(m.subarray(1))); return orig(m) };

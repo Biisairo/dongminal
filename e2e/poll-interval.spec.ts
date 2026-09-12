@@ -83,6 +83,7 @@ test.describe('묶음 PIS·제거 — 브라우저 signature 폴링 (FR-PIS-1~4)
     const sig = counter(page, '/api/git/signature');
     await waitForInit(page);
     await openGit(page, fx('basic'));
+    // **예외 (`TEST-16`)**: 지워진 계층이 **되살아나지 않음**을 잰다.
     await page.waitForTimeout(1500);
     expect(sig.n, '지워진 계층이 되살아났다').toBe(0);
     await clearIntervals(request);
@@ -98,7 +99,7 @@ test.describe('묶음 PIS·제거 — 브라우저 signature 폴링 (FR-PIS-1~4)
     await openGit(page, fx('basic'));
     await expect.poll(async () => page.evaluate(() => {
       const app = (window as any).app;
-      for (const o of (app._gitObservers || new Map()).values()) {
+      for (const o of (app.testing.gitObservers || new Map()).values()) {
         const p = o.any();
         if (p && p._lastSig) return true;
       }
@@ -266,6 +267,8 @@ test.describe('묶음 PIS·설정 — 다섯 주기 (FR-PIS-6~15)', () => {
       await patchSettings(request, { statsInterval: 30000 });
       await waitForInit(page);
       const stats = counter(page, '/api/stats');
+      // **예외 (`TEST-16`)**: 기준선을 잡는 창이다 — 아래가 세는 것은 이 뒤의
+      // 증가분이다.
       await page.waitForTimeout(600);
       const base = stats.n;
 

@@ -48,12 +48,12 @@ test.afterAll(() => { rmTree(ROOT) });
 // 그 안의 편집기 탭이 이 파일을 연다 (FR-EDD-3 의 창 루트가 그 창의 것이다).
 async function openFile(page: Page, repo: string, rel: string) {
   await openGit(page, repo);
-  await page.evaluate((f) => (window as any).app._edOpenFile(f), join(repo, rel));
+  await page.evaluate((f) => (window as any).app.testing.edOpenFile(f), join(repo, rel));
   await expect(page.locator('.file-editor .monaco-editor')).toHaveCount(1, { timeout: 30000 });
   // 기준을 받아 첫 계산이 끝날 때까지 — 그 전의 단언은 "아직 오지 않았다" 를
   // "변경이 없다" 로 읽는다.
   await page.waitForFunction((f) => {
-    const dd = (window as any).app._edDirtyDiff && (window as any).app._edDirtyDiff(f);
+    const dd = (window as any).app.testing.edDirtyDiff && (window as any).app.testing.edDirtyDiff(f);
     return !!(dd && dd.settled);
   }, join(repo, rel), { timeout: 20000 });
 }
@@ -221,8 +221,8 @@ test.describe('묶음 M — 표시 (FR-EDD-20~28)', () => {
     freshDir(plain);
     writeFileSync(join(plain, 'a.txt'), BASE.join('\n') + '\n');
     await waitForInit(page);
-    await page.evaluate((p) => (window as any).app._edMutate('/add', { path: p }), plain);
-    await page.evaluate((f) => (window as any).app._edOpenFile(f), join(plain, 'a.txt'));
+    await page.evaluate((p) => (window as any).app.testing.edMutate('/add', { path: p }), plain);
+    await page.evaluate((f) => (window as any).app.testing.edOpenFile(f), join(plain, 'a.txt'));
     await expect(page.locator('.file-editor .monaco-editor')).toHaveCount(1, { timeout: 30000 });
     const cur = BASE.slice(); cur[0] = 'ONE';
     await setLines(page, cur);

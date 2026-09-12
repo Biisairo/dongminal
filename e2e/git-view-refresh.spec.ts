@@ -1,10 +1,12 @@
 import { execFileSync } from 'child_process';
-import { mkdtempSync, writeFileSync } from 'fs';
+import { mkdtempSync, writeFileSync, appendFileSync } from 'fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, GIT_VIEW_TABS, openGit, clickGitView, gitFixture, cleanGitFixture, copyDir, rmTree, freshDir } from './fixtures';
+import {
+  test, expect, waitForInit, GIT_VIEW_TABS, openGit, clickGitView, gitFixture, cleanGitFixture, copyDir, rmTree, freshDir, makeCopyFx, nextFrames,
+} from './fixtures';
 import { TMP, tmpPath, realPath } from './osenv';
 
 // GIT_VIEW_REFRESH_SRS §4 — 쓰기 뒤 뷰 갱신. 검증 V-GVR-1~8.
@@ -279,13 +281,14 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
     await page.evaluate(() => {
       const a = (window as any).app;
-      a._edSetSide(a._aw(), 'changes');
+      a.testing.edSetSide(a.testing.aw(), 'changes');
     });
     await expect(changes(page)).toBeVisible({ timeout: 10000 });
     await ready(page);
     await btn(page, 'push').click();
     await jobEnded(page, '완료');
-    // 갱신이 늦게 새는 것도 잡는다 — 끝난 뒤 한 박자 더 본다.
+    // **예외 (`TEST-16`): 일어나지 않는 것을 잰다.** 갱신이 늦게 새는 것을
+    // 잡으므로 기다릴 신호가 없다 — 끝난 뒤 한 박자 더 보는 것이 검사다.
     await page.waitForTimeout(1500);
 
     expect(refs.n, '열지 않은 History·Branches 가 refs 를 받았다').toBe(0);
@@ -344,9 +347,10 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     await page.evaluate(() => {
       (window as any).gitStatusInterval = 600;
       const app = (window as any).app;
-      if (app._gitPanels) for (const p of app._gitPanels.values()) p._reschedule();
+      if (app.testing.gitPanels) for (const p of app.testing.gitPanels.values()) p._reschedule();
     });
-    // 창을 여는 동안의 요청이 가라앉을 여유를 준다.
+    // **예외 (`TEST-16`)**: 창을 여는 동안의 요청이 가라앉을 여유를 준다 —
+    // 아래가 세는 것은 그 뒤의 증가분이다.
     await page.waitForTimeout(500);
     const stBase = status.n;
     const vBase = views.n;
@@ -363,9 +367,12 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     const { repo } = copyPair('g9');
     await waitForInit(page);
     await openGit(page, repo);
-    // Console 을 한 번 열어 폴링을 건다.
+    // Console 을 한 번 열어 폴링을 건다. **한 건이 실제로 온 것**이 그 신호다 —
+    // 폴링이 걸리지 않았는데 떠나면 아래의 `0` 은 아무것도 말하지 않는다.
+    const lit = counter(page, (u) => u.includes('/api/git/records'));
     await openTab(page, 'console');
-    await page.waitForTimeout(300);
+    await expect.poll(() => lit.n, { timeout: 10000, message: 'Console 폴링이 걸리지 않았다' })
+      .toBeGreaterThan(0);
 
     // 다른 탭으로 떠난다. 본문은 버려지지만 요소의 `vis` 클래스는 남는다 —
     // 그것만 보면 폴링이 계속 돈다.
@@ -374,11 +381,12 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     // 사이드에 있어 그리로 가는 것이 본문 탭을 바꾸지 않는다 — Console 은 계속
     // 활성이고, 그때 폴링이 도는 것은 옳다.
     await openTab(page, 'history');
-    await page.waitForTimeout(300);
+    await expect(page.locator('#area .pn-body .git-view.git-history')).toHaveClass(/vis/, { timeout: 10000 });
 
     let n = 0;
     const onReq = (r: any) => { if (r.url().includes('/api/git/records')) n++ };
     page.on('request', onReq);
+    // **예외 (`TEST-16`)**: 이 창 동안 몇 건인지가 답이다.
     await page.waitForTimeout(3000); // 폴링 주기의 여러 배
     page.off('request', onReq);
     expect(n, `떠난 Console 이 ${n}건을 더 받았다`).toBe(0);
@@ -411,7 +419,17 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     await openGit(page, repo);
     await openTab(page, 'stash');
     const rows = () => page.locator('#area .pn-body .git-view.git-stash .git-stash-row');
-    await page.waitForTimeout(800); // 첫 조회가 끝나기를 기다린다
+    await expect(page.locator('#area .pn-body .git-view.git-stash')).toHaveClass(/vis/, { timeout: 10000 });
+    /**
+     * **예외 (`TEST-16`): 첫 조회가 끝난 것을 말해 주는 신호가 화면에 없다.**
+     *
+     * 기준은 "조회가 끝난 뒤의 행 수" 여야 한다 — 조회 전에 세면 아래의
+     * `before + 1` 이 엉뚱한 수를 가리킨다. 그런데 그 시점을 잡을 방법이 없다:
+     * 행 수로는 알 수 없고(이 픽스처에 stash 가 하나도 없으면 조회 뒤에도 `0`
+     * 이다), 요청으로도 알 수 없다(`openGit` 이 이미 받아 두므로 탭을 여는
+     * 것만으로는 새 요청이 나가지 않는다 — 실측).
+     */
+    await page.waitForTimeout(800);
     const before = await rows().count();
 
     // 추적되지 않은 파일도 담아야 `stash push` 가 확실히 항목을 만든다 —
@@ -442,7 +460,10 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     await waitForInit(page);
     await openGit(page, repo);
     await openTab(page, 'history');
-    await page.waitForTimeout(600);
+    await expect(page.locator('#area .pn-body .git-view.git-history')).toHaveClass(/vis/, { timeout: 10000 });
+    // 첫 조회가 끝난 뒤부터 센다 — 그 전부터 세면 여는 요청이 결과에 섞인다.
+    await expect(page.locator('#area .pn-body .git-view.git-history .git-hist-row').first())
+      .toBeVisible({ timeout: 15000 });
 
     let n = 0;
     const onReq = (r: any) => {
@@ -450,8 +471,126 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
       if (u.includes('/api/git/log') || u.includes('/api/git/refs') || u.includes('/api/git/stash?')) n++;
     };
     page.on('request', onReq);
+    // **예외 (`TEST-16`)**: 이 창 동안 몇 건인지가 답이다.
     await page.waitForTimeout(3000); // 폴링 주기의 여러 배
     page.off('request', onReq);
     expect(n, `변화가 없는데 ${n}건을 받았다`).toBe(0);
   });
+});
+
+/**
+ * 묶음 GLV — **열어 둔 뷰가 변화를 따라온다** (FR-GLV-1·2·4·6).
+ *
+ * 이 파일의 주제 그대로다 — 열어 둔 diff 가 파일 수정을 따라오고, 칸을 줄여도
+ * 남은 패널의 관측이 살며, 거부당한 대상은 되풀이해 받지 않는다.
+ *
+ * `TEST-7` 로 `ux-batch6` 에서 옮겨 왔다 — 납품 묶음이 아니라 **이 기능**이
+ * 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
+ */
+
+const B6FX = tmpPath('dm-b6-git-view-refresh-' + process.pid);
+test.beforeAll(() => { gitFixture(B6FX) });
+test.afterAll(() => { cleanGitFixture(B6FX) });
+const copyFx = makeCopyFx(B6FX);
+
+// ── 묶음 V — 실시간 갱신 ─────────────────────────────
+
+// V-GLV-1 (FR-GLV-1·2): diff 를 연 채 파일을 고치면 화면이 따라온다.
+//
+// 파일 **내용**의 변화는 관측으로 알 수 없다 — `git status` 는 이미 수정된 파일이
+// 또 수정돼도 같은 줄을 낸다. 그래서 열려 있는 diff 는 관측 회차마다 다시 받는다.
+test('V-GLV-1 (FR-GLV-1·2): 열어 둔 diff 가 파일 수정을 따라온다', async ({ page }) => {
+  const repo = copyFx('basic', 'b6-diff-live');
+  await waitForInit(page);
+  await openGit(page, repo);
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a.gitPanel.openView('diff');
+  });
+  await page.evaluate(() => {
+    const row = document.querySelector('#area .ed-side .git-file[data-path="tracked.txt"]') as HTMLElement;
+    if (row) row.click();
+  });
+  await expect(page.locator('#area .pn-body .git-view.git-diff .monaco-diff-editor'))
+    .toBeVisible({ timeout: 30000 });
+
+  const seen = async () => page.evaluate(() => {
+    const p = (window as any).app.gitPanel;
+    const v = p && p._diffView;
+    return v && v._mod ? v._mod.getValue() : '';
+  });
+  await expect.poll(seen, { timeout: 20000 }).toContain('two');
+
+  appendFileSync(join(repo, 'tracked.txt'), 'BATCH6-LIVE\n');
+  // 폴링이 나르는 자리다 — 예산은 실패 백오프 상한을 견딘다 (FR-CEM-31).
+  await expect.poll(seen, { timeout: 45000 }).toContain('BATCH6-LIVE');
+});
+
+// V-GLV-2 (FR-GLV-4): 칸을 늘렸다 줄여도 관측이 계속된다.
+//
+// `GitPanel.destroy()` 의 `_stop()` 이 **관측자의 공유 타이머**를 껐고, 다시 거는
+// 자리가 없었다 — 남은 칸의 Git 창이 눈앞에 있는데도 갱신이 멎었다.
+test('V-GLV-2 (FR-GLV-4): 칸을 줄여도 남은 패널의 관측이 산다', async ({ page }) => {
+  const repo = copyFx('basic', 'b6-resettle');
+  await waitForInit(page);
+  await openGit(page, repo);
+  const on = () => page.evaluate((r: string) => {
+    const a = (window as any).app;
+    const p = a.testing.gitPanelAt(r, 0);
+    return { pollOn: !!p._pollOn, ok: !!p._pollOk() };
+  }, repo);
+  expect((await on()).pollOn, '전제가 깨졌다 — 처음부터 관측이 멎어 있다').toBe(true);
+
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a.slotAdd();
+    a.render();
+  });
+  await expect(page.locator('#area .slot')).toHaveCount(2, { timeout: 10000 });
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a.slotRemove();
+    a.render();
+  });
+  // 칸이 하나로 돌아가면 `.slot` 래퍼 자체가 사라진다 — 하나뿐인 칸은 감싸지
+  // 않는다 (둘일 때 2개, 하나로 줄면 0개).
+  await expect(page.locator('#area .slot')).toHaveCount(0, { timeout: 10000 });
+  const got = await on();
+  expect(got.ok, '칸을 줄인 뒤 관측 조건이 거짓이 됐다').toBe(true);
+  expect(got.pollOn, '남은 패널이 있는데 폴링이 멎었다').toBe(true);
+
+  // 그리고 실제로 따라온다 — 조건뿐 아니라 결과를 잰다.
+  writeFileSync(join(repo, 'resettle.txt'), 'x\n');
+  await expect(page.locator('#area .ed-side .git-file[data-path="resettle.txt"]'))
+    .toHaveCount(1, { timeout: 45000 });
+});
+
+//
+// FR-GLV-1 을 넣고 실측했을 때 잘못된 대상의 `/api/git/diff-content` 가 **매초
+// 400 을 냈다** — 자동 재적재가 실패를 그만큼 되풀이한 것이다.
+test('V-GLV-3 (FR-GLV-6): 거부당한 diff 는 폴링이 되풀이하지 않는다', async ({ page }) => {
+  const repo = copyFx('basic', 'b6-refused');
+  let hits = 0;
+  await page.route('**/api/git/diff-content**', (route) => {
+    hits++;
+    route.fulfill({
+      status: 500, contentType: 'application/json',
+      body: JSON.stringify({ error: 'internal' }),
+    });
+  });
+  await waitForInit(page);
+  await openGit(page, repo);
+  await page.evaluate(() => (window as any).app.gitPanel.openView('diff'));
+  await page.evaluate(() => {
+    const row = document.querySelector('#area .ed-side .git-file[data-path="tracked.txt"]') as HTMLElement;
+    if (row) row.click();
+  });
+  // 거부 응답이 **온 것**이 전제다 — 그것을 보고 나서 되풀이 여부를 잰다.
+  await expect.poll(() => hits, { timeout: 15000 }).toBeGreaterThan(0);
+  const first = hits;
+  expect(first, '거부 응답이 한 번도 오지 않았다 — 전제가 깨졌다').toBeGreaterThan(0);
+  // **예외 (`TEST-16`)**: 되풀이해 받지 **않음**을 잰다 — 관측 주기(기본 3초)를
+  // 두 바퀴 넘게 기다리는 것이 곧 검사다.
+  await page.waitForTimeout(8000);
+  expect(hits, `거부당한 대상을 되풀이해 받았다 (${first} → ${hits})`).toBe(first);
 });

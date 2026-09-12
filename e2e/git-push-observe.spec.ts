@@ -6,6 +6,13 @@ import { Page } from '@playwright/test';
 import { test, expect, makeCopyFx, openGit, waitForInit, waitSettled, gitFixture, cleanGitFixture } from './fixtures';
 import { tmpPath } from './osenv';
 
+/**
+ * **고정 대기의 예외 (`TEST-16`).** 이 파일의 `waitForTimeout` 은 전부 **요청이
+ * 나가지 않음**을 재거나, 정해진 창(窓) 동안 **몇 건이 나갔는가**를 재는 것이다
+ * (`NFR-1` 의 10초 관찰이 그렇다). 기다릴 신호가 없고, 짧게 하면 세는 창이 줄어
+ * 검사가 약해진다.
+ */
+
 // GIT_PUSH_OBSERVE_SRS §4.2 — 브라우저 쪽 계약 (B-1~B-5).
 //
 // 종전에는 브라우저가 signature 를 500ms 마다 물어 변화를 스스로 찾았다. 이제
@@ -159,10 +166,10 @@ test('B-4 푸시가 끊겨도 안전망 폴링이 화면을 따라잡는다', as
     const app = (window as any).app;
     // 안전망을 1초로 줄이고 주기를 다시 건다 (FR-GIT-22: 참이 되면 즉시 1회).
     (window as any).gitStatusInterval = 1000;
-    for (const p of app._gitPanels.values()) p._reschedule();
+    for (const p of app.testing.gitPanels.values()) p._reschedule();
     // 푸시를 끊는다 — 이제 화면을 살리는 것은 안전망뿐이다.
     app.bus.closeChannel('commands');
-    try { app._sse.close() } catch { /* 이미 닫힘 */ }
+    try { app.testing.sse.close() } catch { /* 이미 닫힘 */ }
   });
 
   const before = await untracked(page).count();

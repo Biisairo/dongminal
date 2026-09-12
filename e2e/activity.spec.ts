@@ -115,7 +115,7 @@ test.describe('Agent activity panel', () => {
     // Drag pid2's card above pid1's card (native HTML5 DnD via synthetic events
     // sharing one DataTransfer — same path the sidebar session DnD uses). Full
     // browser sequence: drop commits immediately (no snap-back flicker), dragend
-    // is a guarded fallback (must NOT double-move thanks to _drag.done).
+    // is a guarded fallback (must NOT double-move thanks to drag.done).
     await page.evaluate(
       ({ src, dst }) => {
         const dt = new DataTransfer();
@@ -140,7 +140,7 @@ test.describe('Agent activity panel', () => {
     // Persisted into ws.agentsOrder and survives a polling re-sync.
     const order = await page.evaluate(() => (window as any).app.ws.agentsOrder);
     expect(order.indexOf(pid2)).toBeLessThan(order.indexOf(pid1));
-    await page.evaluate(() => (window as any).app._activityRestore());
+    await page.evaluate(() => (window as any).app.testing.activityRestore());
     await expect(page.locator('#agents-panel .ag-card').first()).toHaveAttribute('data-toolid', pid2!, {
       timeout: 10000,
     });
@@ -323,14 +323,14 @@ test.describe('Agent panel window groups (FR-AGG)', () => {
   test('V-3: 탭을 다른 창으로 옮기면 카드가 그 그룹으로 간다 (FR-AGG-6)', async ({ page }) => {
     const { win1, win2, pidA, pidB, pidC } = await twoWindows(page);
 
-    // `_moveTabToWindow` 의 출발지는 **활성 창**이다 (`_aw`) — 사이드바에서 끄는
+    // `moveTabToWindow` 의 출발지는 **활성 창**이다 (`aw`) — 사이드바에서 끄는
     // 손은 언제나 보고 있는 창에서 출발하므로, 그 자리를 먼저 만든다.
     await page.evaluate(
       ({ win1, win2, pidB }: any) => {
         const app = (window as any).app;
         app.switchWindow(win1);
-        const loc = app._findToolLocation(pidB);
-        app._moveTabToWindow(loc.pane.id, loc.tab.id, win2);
+        const loc = app.testing.findToolLocation(pidB);
+        app.testing.moveTabToWindow(loc.pane.id, loc.tab.id, win2);
       },
       { win1, win2, pidB },
     );

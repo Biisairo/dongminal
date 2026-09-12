@@ -59,7 +59,7 @@ test('TC-MVN-15: 인터넷 없이 편집기가 선다', async ({ page, request, 
   await waitForInit(page);
   await switchToEditorRoot(page, key);
 
-  await page.evaluate((f) => (window as any).app._edOpenFile(f), join(root, 'sample.ts'));
+  await page.evaluate((f) => (window as any).app.testing.edOpenFile(f), join(root, 'sample.ts'));
   await expect(page.locator('.file-editor .monaco-editor')).toHaveCount(1, { timeout: 30000 });
 
   // 떴다는 것과 **내용을 들고 있다**는 것은 다르다. 로더만 서고 모델이 비면
@@ -86,7 +86,7 @@ test('TC-MVN-16: 인터넷 없이 Diff 뷰가 선다', async ({ page, request, b
   await waitForInit(page);
   await switchToEditorRoot(page, key);
 
-  await page.evaluate((f) => (window as any).app._edOpenFile(f), join(root, 'sample.ts'));
+  await page.evaluate((f) => (window as any).app.testing.edOpenFile(f), join(root, 'sample.ts'));
   await expect(page.locator('.file-editor .monaco-editor')).toHaveCount(1, { timeout: 30000 });
 
   // Diff 편집기를 직접 세운다. 화면 경로(git 창)를 지나면 저장소 픽스처가 필요하고,

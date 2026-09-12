@@ -44,7 +44,7 @@ async function openGitView(page: Page, repo: string, view: string) {
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate(() => {
     const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
+    a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
@@ -63,14 +63,14 @@ async function openGitView(page: Page, repo: string, view: string) {
 
 // Repo 창을 칸 1 에 두고 **칸 0(터미널 창)에 선다.** 접수한 배치 그대로다.
 //
-// **개정 (REPO_TAB_UNIFY_SRS FR-RTU-70).** 옛 `_gitWindow()` 는 `null` 이다 —
+// **개정 (REPO_TAB_UNIFY_SRS FR-RTU-70).** 옛 `gitWindow()` 는 `null` 이다 —
 // git 표면을 든 창은 **활성 Repo 창**이며 `openGit` 이 그것을 세워 두었다.
 async function splitWithGitAside(page: Page) {
   return page.evaluate(() => {
     const app = (window as any).app;
-    const gitWin = app._edWindows().find((w: any) => app._edRootOf(w) === app._gitRootOfActive())
-      || app._aw();
-    const plain = app._plainWindows()[0];
+    const gitWin = app.testing.edWindows().find((w: any) => app.testing.edRootOf(w) === app.testing.gitRootOfActive())
+      || app.testing.aw();
+    const plain = app.testing.plainWindows()[0];
     app.slotAdd();
     app.slotOpen(0, plain.id);
     app.slotOpen(1, gitWin.id);
@@ -92,7 +92,7 @@ const histSubjects = (page: Page) =>
 const pollOk = (page: Page, repo: string, slot = 1) =>
   page.evaluate(([r, n]) => {
     const a = (window as any).app;
-    return !!a._gitPanel(r, n)._pollOk();
+    return !!a.testing.gitPanelAt(r, n)._pollOk();
   }, [repo, slot] as const);
 
 /**
@@ -112,7 +112,7 @@ const pollOk = (page: Page, repo: string, slot = 1) =>
 const pollDiag = (page: Page, repo: string, slot = 0) =>
   page.evaluate(([r, n]) => {
     const a = (window as any).app;
-    const p = a._gitPanel(r, n);
+    const p = a.testing.gitPanelAt(r, n);
     if (!p) return null;
     const h = p._historyView;
     return {
@@ -136,6 +136,10 @@ async function waitSubject(page: Page, text: string, ms = 45000) {
   const t0 = Date.now();
   while (Date.now() - t0 < ms) {
     if ((await histSubjects(page)).some((s) => s.includes(text))) return true;
+    // **예외 (`TEST-16`): 고정 대기가 아니라 폴링 간격이다.** 이 루프는 조건을
+    // 보고 있으므로 이미 결정적이고, `expect.poll` 로 바꾸지 않는 이유는 실패
+    // 메시지다 — 호출부가 `pollDiag` 로 **실패한 시점의** 관측 상태를 찍는데,
+    // poll 의 `message` 는 기다리기 전에 평가되어 그 진단을 잃는다.
     await page.waitForTimeout(400);
   }
   return false;
@@ -182,7 +186,7 @@ test.describe('M6 — 보이면 갱신된다', () => {
     // 다른 창으로 가면 돌지 않는다 — 단일 슬롯에서는 그 창이 화면에서 사라진다.
     await page.evaluate(() => {
       const app = (window as any).app;
-      const w = app._plainWindows()[0];
+      const w = app.testing.plainWindows()[0];
       if (w) app.switchWindow(w.id);
     });
     expect(await pollOk(page, repo, 0), '보이지 않는 창을 관측하고 있다').toBe(false);
@@ -205,6 +209,8 @@ test.describe('M6 — 보이면 갱신된다', () => {
     });
     const reloading = page.evaluate(() =>
       (window as any).app.gitPanel._historyView.reload());
+    // **예외 (`TEST-16`): 경합을 만드는 대기다.** 요청이 날아가 있는 동안 세대를
+    // 올려야 그 응답이 버려지는 경로를 탄다 — 그 "동안" 이 이 검사의 전제다.
     await page.waitForTimeout(150);
     await page.evaluate(() => { (window as any).app.gitPanel._gen++ });
     await reloading.catch(() => {});
@@ -230,19 +236,19 @@ test.describe('M6 — Editor 도 같은 원칙', () => {
 
     await waitForInit(page);
     await page.waitForFunction(
-      (root) => ((window as any).app._edWindows() || [])
+      (root) => ((window as any).app.testing.edWindows() || [])
         .some((w: any) => w.editor && w.editor.root === root),
       repo, { timeout: 20000 });
 
     // 그 Editor 창을 칸 1 에 놓고 **칸 0(터미널)에 선다.**
     const info = await page.evaluate((root) => {
       const app = (window as any).app;
-      const ed = app._edWindows().find((w: any) => w.editor && w.editor.root === root);
+      const ed = app.testing.edWindows().find((w: any) => w.editor && w.editor.root === root);
       // UX_BATCH6_SRS FR-DSP-1: 사이드의 기본이 Changes 다. 재려는 것은 **탐색기**의
       // 갱신이므로 그 자리를 명시로 연다 — 이 창은 활성이 아니라서 공용
       // `openExplorerSide`(활성 창을 본다)로는 닿지 않는다.
-      app._edSetSide(ed, 'explorer');
-      const plain = app._plainWindows()[0];
+      app.testing.edSetSide(ed, 'explorer');
+      const plain = app.testing.plainWindows()[0];
       app.slotAdd();
       app.slotOpen(0, plain.id);
       app.slotOpen(1, ed.id);
@@ -255,7 +261,7 @@ test.describe('M6 — Editor 도 같은 원칙', () => {
 
     // 보이는 트리가 폴링 대상에 들어 있는가 — 활성 창의 것 **하나**가 아니다.
     const n = await page.evaluate(() =>
-      ((window as any).app._edVisibleTrees?.() || []).length);
+      ((window as any).app.testing.edVisibleTrees?.() || []).length);
     expect(n, '보이는 탐색기가 폴링 대상에서 빠졌다').toBeGreaterThan(0);
   });
 });
@@ -275,6 +281,7 @@ async function waitBadge(page: Page, name: string, want: boolean, ms = 15000) {
   const t0 = Date.now();
   while (Date.now() - t0 < ms) {
     if ((await badges(page)).includes(name) === want) return true;
+    // **예외 (`TEST-16`)**: 위 `waitSubject` 와 같은 폴링 간격이다.
     await page.waitForTimeout(400);
   }
   return false;

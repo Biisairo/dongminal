@@ -38,10 +38,10 @@ const SB_TAB_DEFS=[
     // **무엇의** 목록인지 처음 보는 사용자에게 보이지 않는다.
     title:'Terminal windows in this workspace',
     // FR-SBT-13: 알람이 있는 창 수. `.si.attn` 이 목록 안에서만 알리던 것을 탭까지 끌어올린다.
-    badge:app=>app._plainWindows().filter(s=>app._windowHasAttn(s)).length,
-    // FR-SBT-22·23: 마지막으로 활성이었던 일반 창. 대상 계산은 `_gitBackTarget`
+    badge:app=>app.plainWindows().filter(s=>app.windowHasAttn(s)).length,
+    // FR-SBT-22·23: 마지막으로 활성이었던 일반 창. 대상 계산은 `gitBackTarget`
     // 한 자리다 (FR-SBT-36).
-    onActivate:app=>{const w=app._gitBackTarget();if(w)app.switchWindow(w.id)},
+    onActivate:app=>{const w=app.gitBackTarget();if(w)app.switchWindow(w.id)},
     // UX_REVISION_SRS FR-BLP-1~3: 목록의 서술자. 그리는 일도 순회도 SidebarList 가
     // 한다 — 이 탭이 주는 것은 **타깃뿐**이다.
     list:{
@@ -50,7 +50,7 @@ const SB_TAB_DEFS=[
       itemClass:'si',dotClass:'si-dot',nameClass:'si-name',xClass:'si-x',
       actions:['add-window','add-preset'],
       // FR-GIT-182: Git 창은 이 목록에 없다 — 진입점은 GIT 탭의 리포 항목뿐이다.
-      items:app=>app._plainWindows(),
+      items:app=>app.plainWindows(),
       key:s=>s.id,
       // FR-BLP-15~18: 순회. 규약은 블루프린트가 갖고, 여기는 타깃만 준다.
       cycle:{
@@ -61,13 +61,13 @@ const SB_TAB_DEFS=[
       // 같은 창 안의 이동은 분할 칸의 탭 바가 이미 한다.
       tabDrop:{
         accepts:(app,r)=>r.key!==app.ws.activeWindow,
-        drop:(app,r,dr)=>app._moveTabToWindow(dr.srcPaneId,dr.tabId,r.key),
+        drop:(app,r,dr)=>app.moveTabToWindow(dr.srcPaneId,dr.tabId,r.key),
       },
       row:(app,s)=>({
         name:s.name,
         active:s.id===app.ws.activeWindow,
         // FR-PAN-16: 알람이 있는 창을 사이드바에서 구분 표시.
-        attn:app._windowHasAttn(s),
+        attn:app.windowHasAttn(s),
         // SANDBOX_WINDOW_SRS: 격리된 창임을 목록에서 구분한다. 어느 창이
         // 샌드박스인지 알 수 없으면 사용자가 격리를 신뢰할 근거가 없다.
         // SANDBOX_PICK_COPY_SRS FR-SPK-21·22: 작업 폴더가 복사본인 창은 그
@@ -82,7 +82,7 @@ const SB_TAB_DEFS=[
         dataset:{sid:s.id,windowType:s.type||WINDOW_TYPE_TERMINAL},
         onOpen:app=>app.switchWindow(s.id),
         onRemove:app=>app.delWindow(s.id),
-        onRename:(app,el)=>app._rename(s,el),
+        onRename:(app,el)=>app.rename(s,el),
       }),
       reorder:{
         type:'window',
@@ -97,7 +97,7 @@ const SB_TAB_DEFS=[
         // 창 순서는 클라이언트가 workspace.json 에 쓴다 — 서버 확정이 없다.
         // FR-AGG-3: agents 패널의 그룹 순서는 이 배열에서 파생하므로(D-9) 같은
         // 자리에서 다시 그린다 — 폴링을 기다리면 방금 만든 순서를 한 박자 늦게 본다.
-        commit:app=>{app._save();if(app._agentsRender)app._agentsRender()},
+        commit:app=>{app.save();if(app.agentsRender)app.agentsRender()},
       },
     },
   },
@@ -118,14 +118,14 @@ const SB_TAB_DEFS=[
     // FR-EDT-120: 목록의 원천은 `/api/editors` 다 — 그것이 없으면 행을 만들 수
     // 없다. **git 이 없는 것은 사유가 되지 않는다** (FR-RTU-9 / D-RTU-12):
     // 탐색기와 편집기는 git 없이 성립하고, 그때 Changes 사이드가 사유를 보인다.
-    visible:app=>app._edOn(),
+    visible:app=>app.edOn(),
     // FR-RTU-6: 헤더 배지는 두지 않는다 — 근거 없는 숫자를 남기지 않는다는
     // FR-GOB-13 의 판단이 그대로다. 개수는 행마다 붙는다.
     // FR-EDT-7: 탭을 고르면 콘텐츠 창까지 바뀐다.
-    onActivate:app=>{const w=app._edActivateTarget();if(w)app.switchWindow(w.id)},
+    onActivate:app=>{const w=app.edActivateTarget();if(w)app.switchWindow(w.id)},
     // FR-GOB-9: 들어간 순간 등록된 리포 전부를 관측한다. 다음 폴링(3초)을
     // 기다리면 사용자는 낡은 배지를 먼저 본다.
-    onEnter:app=>{if(app._gitReposRefresh)app._gitReposRefresh()},
+    onEnter:app=>{if(app.gitReposRefresh)app.gitReposRefresh()},
     list:{
       containerId:REPO_LIST_ID,
       // FR-EDT-14 / FR-NOT-10: 고정 항목(root·메모장)의 자리는 **패널 최하단**이다.
@@ -134,28 +134,28 @@ const SB_TAB_DEFS=[
       nameClass:'ed-entry-name',xClass:'ed-entry-x',badgeClass:'git-badge',
       actions:[REPO_ADD_ID],
       // 첫 응답 전에는 "없다" 를 말하지 않는다.
-      ready:app=>!!app._editors,
+      ready:app=>!!app.editors,
       emptyText:REPO_ENTRIES_NONE,emptyClass:'ed-entries-none',
-      items:app=>app._edEntries(),
+      items:app=>app.edEntries(),
       key:e=>'ed:'+e.path,
-      fixed:app=>app._edFixed(),
+      fixed:app=>app.edFixed(),
       // FR-RTU-8: 순회 대상은 `items` 뒤에 `fixed` 를 이어 붙인 순서다 — 고정 행이
       // 마지막 자리로 **포함된다.** 제외하면 키만으로는 거기 갈 수 없다.
       cycle:{
         currentKey:app=>{
-          const w=app._aw();
-          return app._isEditorWin(w)?('ed:'+app._edRootOf(w)):null;
+          const w=app.aw();
+          return app.isEditorWin(w)?('ed:'+app.edRootOf(w)):null;
         },
-        open:(app,e)=>app._edOpenWindow(e.path),
+        open:(app,e)=>app.edOpenWindow(e.path),
       },
       row:(app,e)=>{
-        const w=app._edWindowFor(e.path);
+        const w=app.edWindowFor(e.path);
         // FR-NOT-10: 고정 행 둘(`~`·메모장)은 지울 수 없고 재배치의 출발점도
         // 대상도 아니다. 가르는 것은 클래스뿐이며 CSS 가 그것을 딛는다.
         const pinned=!!e.root||!!e.notes;
         // FR-RTU-6: 변경 개수는 **git 쪽 관측**에서 온다. 두 목록이 같은 집합이므로
         // 경로로 짝지으면 되고, 저장소가 아닌 행에는 배지가 없다.
-        const b=app._gitBadgeFor(e.path);
+        const b=app.gitBadgeFor(e.path);
         const stale=!!b&&gitBadgeStale(b);
         /**
          * FR-RMS-11·17: 저장소였던 자리가 **사라졌다면** 행이 그 사실을 말한다.
@@ -168,14 +168,14 @@ const SB_TAB_DEFS=[
          * 정당한 행이므로(FR-RTU-9 / D-RTU-12) 사유를 적지 않는다 — 핀 항목이
          * 있고 그 항목이 실패를 실어 왔을 때만이다.
          */
-        const pin=app._gitPinEntry(e.path);
+        const pin=app.gitPinEntry(e.path);
         const gone=!!pin&&pin.isRepo===false&&!!pin.reason;
         const why=gone?(GIT_WRITE_ERR[pin.reason]||pin.reason):'';
         const cls=[e.root?'ed-root':(e.notes?'ed-notes':''),gone?'norepo':'']
           .filter(Boolean).join(' ');
         return {
           // FR-EDT-10 / FR-NOT-9: 표시 이름은 경로의 마지막 조각, 툴팁은 절대경로.
-          name:app._edName(e.path),
+          name:app.edName(e.path),
           title:why?e.path+' — '+why:e.path,
           active:!!w&&w.id===app.ws.activeWindow,
           cls,
@@ -188,27 +188,27 @@ const SB_TAB_DEFS=[
           fixed:pinned,
           removable:!pinned,
           dataset:{edRoot:e.path,gitRepo:e.path},
-          onOpen:app=>app._edOpenWindow(e.path),
+          onOpen:app=>app.edOpenWindow(e.path),
           // FR-RTU-5 의 대칭: 제거도 하나다 — `/api/editors/remove` 가 연동으로
           // 핀까지 함께 지운다 (FR-EDT-34).
-          onRemove:pinned?null:(app=>app._edRemove(e.path)),
+          onRemove:pinned?null:(app=>app.edRemove(e.path)),
         };
       },
       // FR-EDT-12·27: 순서는 서버가 권위다 — (src,target,before) 델타다.
       reorder:{
         type:'editor',
         apply:(app,dr)=>{
-          const arr=(app._editors||{}).list;
+          const arr=(app.editors||{}).list;
           if(!Array.isArray(arr)) return false;
           const key=p=>'ed:'+p;
           const si=arr.findIndex(x=>key(x)===dr.src); if(si<0) return false;
           const[moved]=arr.splice(si,1);
           let ti=arr.findIndex(x=>key(x)===dr.target);
           if(ti<0) arr.push(moved); else { if(!dr.before) ti++; arr.splice(ti,0,moved) }
-          app._edMirror();
+          app.edMirror();
           return true;
         },
-        commit:(app,dr)=>app._edReorder(dr),
+        commit:(app,dr)=>app.edReorder(dr),
       },
     },
   },
@@ -263,7 +263,7 @@ const SidebarTabs={
   labelForWindow(app,w){
     // FR-RTU-1: Git 창과 Repo 창이 같은 탭에 속한다. 옛 Git 창은 마이그레이션
     // 전까지 남으므로(FR-RTU-70) 그 라벨도 여기서 나온다.
-    const id=(app._isGitWin(w)||app._isEditorWin(w))?REPO_TAB_ID:'windows';
+    const id=(app.isGitWin(w)||app.isEditorWin(w))?REPO_TAB_ID:'windows';
     const d=SB_TAB_DEFS.find(x=>x.id===id);
     return d?d.label:'';
   },
@@ -280,15 +280,15 @@ const SidebarTabs={
    * 바뀐다.** 탭과 활성 창은 한 상태의 두 표현이다 (FR-SBT-15 개정, D-7).
    *
    * `silent` 는 역방향(창 → 탭, FR-SBT-14)의 것이다 — 콘텐츠가 이미 그 창이므로
-   * 다시 옮길 이유가 없다. `_sbBusy` 는 §3.9.2 가 요구하는 **재진입 가드**다:
+   * 다시 옮길 이유가 없다. `sbBusy` 는 §3.9.2 가 요구하는 **재진입 가드**다:
    * 탭 전환이 창을 바꾸고 그 창 변경이 다시 탭 동기화를 부르는 순환을 한 번에
    * 끊는다 (V-SBT-10).
    */
   setTab(app,id,opts){
-    if(app._sbBusy) return;
-    const d=this.def(app,id); if(!d||app._sbTab===id) return;
-    this.saveScroll(app._sbTab);
-    app._sbTab=id;
+    if(app.sbBusy) return;
+    const d=this.def(app,id); if(!d||app.sbTab===id) return;
+    this.saveScroll(app.sbTab);
+    app.sbTab=id;
     try{localStorage.setItem(SB_TAB_KEY,id)}catch{}
     this.paint(app);
     this.restoreScroll(id);
@@ -297,8 +297,8 @@ const SidebarTabs={
     if(d.onEnter) d.onEnter(app);
     if(opts&&opts.silent) return;
     if(!d.onActivate) return;
-    app._sbBusy=true;
-    try{d.onActivate(app)}finally{app._sbBusy=false}
+    app.sbBusy=true;
+    try{d.onActivate(app)}finally{app.sbBusy=false}
   },
 
   /**
@@ -310,12 +310,12 @@ const SidebarTabs={
    */
   syncToWindow(app){
     // FR-EDT-8 + FR-RTU-1: Repo 창(과 아직 남아 있는 옛 Git 창)이 활성이면 탭도
-    // `repo` 로 따라온다. 재진입은 기존 `_sbBusy` 가드가 그대로 끊는다.
-    const w=app._aw();
-    if(app._isGitWin(w)||app._isEditorWin(w)){this.setTab(app,REPO_TAB_ID,{silent:true});return}
+    // `repo` 로 따라온다. 재진입은 기존 `sbBusy` 가드가 그대로 끊는다.
+    const w=app.aw();
+    if(app.isGitWin(w)||app.isEditorWin(w)){this.setTab(app,REPO_TAB_ID,{silent:true});return}
     // 그 반대는 **갈 창이 실제로 있을 때만** 한다 — 없는데 내려보내면 탭만
     // 전환된 상태(FR-SBT-25)를 깬다.
-    if(app._sbTab===REPO_TAB_ID&&(app._edWindows().length||app._gitWindow()))
+    if(app.sbTab===REPO_TAB_ID&&(app.edWindows().length||app.gitWindow()))
       this.setTab(app,'windows',{silent:true});
   },
 
@@ -323,7 +323,7 @@ const SidebarTabs={
   // 번호가 밀리지 않는다. 토글이 아니므로 이미 그 탭이면 아무 일도 하지 않는다.
   jumpTo(app,n){
     const d=SB_TAB_DEFS[n-1];
-    if(!d||!this.def(app,d.id)||app._sbTab===d.id) return;
+    if(!d||!this.def(app,d.id)||app.sbTab===d.id) return;
     this.setTab(app,d.id);
   },
 
@@ -337,17 +337,17 @@ const SidebarTabs={
     if(!bar.childElementCount) for(const d of SB_TAB_DEFS) bar.appendChild(this.build(app,d));
     // 보관된 탭이 지금 보이지 않으면 첫 탭으로 떨어진다 (FR-SBT-8).
     const vis=this.visible(app);
-    if(!vis.some(d=>d.id===app._sbTab)) app._sbTab=vis.length?vis[0].id:null;
+    if(!vis.some(d=>d.id===app.sbTab)) app.sbTab=vis.length?vis[0].id:null;
     for(const d of SB_TAB_DEFS){
       const b=bar.querySelector('.sb-tab[data-panel="'+d.id+'"]');
       const on=vis.includes(d);
       if(b){
         b.hidden=!on;
-        b.classList.toggle('active',on&&app._sbTab===d.id);
-        b.setAttribute('aria-selected',on&&app._sbTab===d.id?'true':'false');
+        b.classList.toggle('active',on&&app.sbTab===d.id);
+        b.setAttribute('aria-selected',on&&app.sbTab===d.id?'true':'false');
       }
       const p=document.getElementById(d.panelId);
-      if(p) p.hidden=!(on&&app._sbTab===d.id);
+      if(p) p.hidden=!(on&&app.sbTab===d.id);
     }
     this.updateBadges(app);
   },
@@ -392,7 +392,7 @@ const SidebarTabs={
     for(const d of SB_TAB_DEFS){
       const g=bar.querySelector('.sb-tab[data-panel="'+d.id+'"] .sb-tab-badge');
       if(!g) continue;
-      const n=(d.badge&&app._sbTab!==d.id)?d.badge(app):0;
+      const n=(d.badge&&app.sbTab!==d.id)?d.badge(app):0;
       g.hidden=!(n>0);
       if(n>0) g.textContent=String(n);
     }

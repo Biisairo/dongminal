@@ -28,7 +28,36 @@ class TerminalTool {
     // Drag & drop upload
     this.el.addEventListener('dragover',e=>{e.preventDefault();if([...e.dataTransfer.types].includes('Files')){e.stopPropagation();this.el.classList.add('dragover')}});
     this.el.addEventListener('dragleave',()=>this.el.classList.remove('dragover'));
-    this.el.addEventListener('drop',e=>{if(!e.dataTransfer.files||!e.dataTransfer.files.length)return;e.preventDefault();e.stopPropagation();this.el.classList.remove('dragover');this._uploadFiles(e.dataTransfer.files)});
+    /**
+     * TERMINAL_FOLDER_DROP_SRS FR-TFD-10: **폴더도 받는다.**
+     *
+     * `dataTransfer.files` 만 보면 폴더는 오지 않거나 크기 0 의 실패가 된다 —
+     * 그런데 README·features.md 는 "폴더를 놓으면 하위 구조가 그대로 올라간다"
+     * 고 두 표면을 함께 말해 왔다. 없던 것은 기능이 아니라 이음매다.
+     *
+     * `items` 를 **먼저** 본다 (`dropEntries`). entry API 가 없는 브라우저에서만
+     * `files` 로 내려가며, 그때는 지금까지와 같은 동작이다 (파일만 올라간다).
+     *
+     * 한계(`EDITOR_UPLOAD_MAX_ENTRIES`)는 탐색기와 **같은 값**을 쓴다 — 같은
+     * 한 가지 사실을 두 벌로 적으면 한쪽만 바뀐다.
+     */
+    this.el.addEventListener('drop',e=>{
+      const hasFiles=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length;
+      const hasItems=e.dataTransfer&&e.dataTransfer.items&&e.dataTransfer.items.length;
+      if(!hasFiles&&!hasItems) return;
+      e.preventDefault();e.stopPropagation();
+      this.el.classList.remove('dragover');
+      walkDrop(e,EDITOR_UPLOAD_MAX_ENTRIES).then(r=>{
+        if(!r){ if(hasFiles) this._uploadFiles(e.dataTransfer.files); return }
+        // FR-TFD-14: 상한을 넘으면 **하나도** 올리지 않는다. 절반만 올라간
+        // 폴더는 되돌릴 길이 없다.
+        if(r.over){
+          this._toast(EDITOR_UPLOAD_TOO_MANY.replace('%n',EDITOR_UPLOAD_MAX_ENTRIES),'err',TOAST_ERR_MS);
+          return;
+        }
+        if(r.items.length) this._uploadFiles(r.items);
+      });
+    });
   }
   open() {
     if(this._opened) return; this._opened=true;
@@ -92,7 +121,7 @@ class TerminalTool {
     });
     this.term.onResize(({cols,rows})=>{
       // Only the OS-focused window that owns the pane's window may send resize.
-      if(!window.app||!window.app._resizeCheck(this.id,this._slot)) return;
+      if(!window.app||!window.app.resizeCheck(this.id,this._slot)) return;
       this._sendResize(cols,rows);
     });
     // FR-MTI-1: 모바일 소프트 키보드 입력을 xterm 의 CompositionHelper 경로에서
@@ -161,8 +190,8 @@ class TerminalTool {
     // (Windows CI 에서 실측: 그 OS 는 포커스 보고가 늦게 도착해 매번 재현됐다.)
     if(s==='\x1b[I'||s==='\x1b[O') return s;
     const A=window.app;
-    if(!(A && A.isMobile && A._modKbd)) return s;
-    const mk=A._modKbd;
+    if(!(A && A.isMobile && A.modKbd)) return s;
+    const mk=A.modKbd;
     if(!mk.ctrl && !mk.alt) return s;
     let out=s;
     const c=out.codePointAt(0);
@@ -171,7 +200,7 @@ class TerminalTool {
     let changed=false;
     if(mk.ctrl===true){mk.ctrl=false;changed=true}
     if(mk.alt===true){mk.alt=false;changed=true}
-    if(changed && A._mkbRefresh) A._mkbRefresh();
+    if(changed && A.mkbRefresh) A.mkbRefresh();
     return out;
   }
 
@@ -485,7 +514,46 @@ class TerminalTool {
     this._clearHealthy();
     this.write('\r\n\x1b[90m── exited ──\x1b[0m\r\n');
     this.el.style.opacity='1'; this._reconnecting=false;
-    this._showOverlay('도구 종료됨','이 탭을 닫아 주세요');
+    /**
+     * FUI-14: **출구를 함께 놓는다.**
+     *
+     * 이 오버레이는 종전에 "이 탭을 닫아 주세요" 로 끝났다 — 안내가 사용자에게
+     * 일을 넘기고 그 일의 자리를 말하지 않으면 그것은 출구가 아니다.
+     *
+     * 두 동작 다 앱이 이미 갖고 있다. 여기서는 **자리만** 준다.
+     */
+    this._showOverlay(TERM_EXITED_TITLE,TERM_EXITED_SUB,[
+      {label:TERM_EXITED_CLOSE,cls:'tp-ov-close',run:()=>this._exitClose()},
+      {label:TERM_EXITED_NEW,cls:'tp-ov-new',run:()=>this._exitNewShell()},
+    ]);
+  }
+
+  // 이 패널이 든 탭의 자리. 슬롯 복합키(`id@1`)를 지나야 남의 칸을 닫지 않는다.
+  _exitSpot(){
+    const app=window.app;
+    if(!app||!app.findToolLocation) return null;
+    return app.findToolLocation(this.id);
+  }
+
+  // FUI-14: 탭 닫기. `closeTab` 이 확인·정리 규약을 이미 든다.
+  _exitClose(){
+    const loc=this._exitSpot();
+    if(!loc) return;
+    window.app.closeTab(loc.pane.id,loc.tab.id,loc.win.id);
+  }
+
+  /**
+   * FUI-14: **같은 자리에 새 셸.**
+   *
+   * 순서가 요점이다 — 먼저 열고 나서 닫는다. 반대로 하면 그 칸의 마지막 탭이
+   * 닫히는 순간 칸이 붕괴해(`closeTab` 의 규약) 새 탭이 갈 자리가 사라진다.
+   */
+  async _exitNewShell(){
+    const loc=this._exitSpot();
+    if(!loc) return;
+    const app=window.app;
+    await app.addTab(loc.pane.id,'terminal',{windowId:loc.win.id});
+    app.closeTab(loc.pane.id,loc.tab.id,loc.win.id);
   }
   // FR-RCS-3: 연결이 WS_HEALTHY_MS 이상 유지되어야 백오프를 되돌린다.
   _markHealthy(){
@@ -507,7 +575,7 @@ class TerminalTool {
     // FR-TRS-7: 새 소켓이다. 좌표 통보를 받기 전까지는 세지 않는다 — 그 전에 오는
     // OpOutput 은 재생분이고, 그것을 더하면 좌표가 재생 길이만큼 앞질러 간다.
     this._seqLive=false;
-    if(this.term && window.app && window.app._resizeCheck(this.id)){
+    if(this.term && window.app && window.app.resizeCheck(this.id)){
       this._sendResize(this.term.cols,this.term.rows);
     }
     this._flushSendQueue();
@@ -543,7 +611,7 @@ class TerminalTool {
     const cols=this.term.cols, rows=this.term.rows;
     if(!(rows>1)) return;
     // FR-TRS-19: 크기의 주인이 아닌 창이 PTY 를 흔들면 주인 창의 화면이 깨진다.
-    if(!window.app||!window.app._resizeCheck(this.id,this._slot)) return;
+    if(!window.app||!window.app.resizeCheck(this.id,this._slot)) return;
     this._sendResize(cols,rows-1);
     TIMERS.defer(()=>{if(this.term)this._sendResize(cols,rows)},{owner:this,label:'trs-nudge'});
   }
@@ -677,12 +745,27 @@ class TerminalTool {
   // 종전에는 `innerHTML` 에 `escHtml(...)` 을 끼워 넣었는데, `escHtml` 은
   // `helpers.js` 의 전역이라 그 파일을 싣지 않는 자리에서는 없다 — 패널이 종료될
   // 때마다 `ReferenceError` 로 터졌다 (`reconnect-storm.spec.ts` 가 그 자리다).
-  _showOverlay(title,sub){
+  /**
+   * `acts` 는 오버레이가 주는 출구다 (FUI-14). 없으면 종전과 같이 글 둘뿐이다 —
+   * 재연결 중의 오버레이에는 누를 것이 없다.
+   */
+  _showOverlay(title,sub,acts){
     let ov=this.el.querySelector('.tp-overlay');
     if(!ov){ov=document.createElement('div');ov.className='tp-overlay';this.el.appendChild(ov)}
     const t=document.createElement('div');t.className='tp-ov-title';t.textContent=title;
     const b=document.createElement('div');b.className='tp-ov-sub';b.textContent=sub;
-    ov.replaceChildren(t,b);
+    const kids=[t,b];
+    if(acts&&acts.length){
+      const bar=document.createElement('div');bar.className='tp-ov-acts';
+      for(const a of acts){
+        const btn=document.createElement('button');
+        btn.className='tbtn '+a.cls; btn.type='button'; btn.textContent=a.label;
+        btn.addEventListener('click',ev=>{ev.stopPropagation();a.run()});
+        bar.appendChild(btn);
+      }
+      kids.push(bar);
+    }
+    ov.replaceChildren(...kids);
     ov.classList.add('visible');
   }
   _hideOverlay(){
@@ -750,10 +833,10 @@ class TerminalTool {
   }
   _onCwd(cwd){
     this._cwd=cwd;
-    if(app)app._cwd=cwd;
-    if(app)app._updateStatusBar();
+    if(app)app.cwd=cwd;
+    if(app)app.updateStatusBar();
     // precmd·에이전트 hook 은 같은 OSC 경로를 탄다 — 셸 명령 직후의 즉시 신호다 (FR-GIT-18).
-    if(app)app._gitSignal('cwd');
+    if(app)app.gitSignal('cwd');
   }
   // FR-TXN-1: 알림은 터미널 화면이 아니라 창 하단 팝업으로 간다 — 셸이 소유한
   // 화면에 남이 쓰면 프롬프트가 어긋나 명령이 도는 것처럼 보인다
@@ -782,18 +865,32 @@ class TerminalTool {
         // FR-FTR-10: 끝나도 셸에 엔터를 보내지 않는다 — 그 순간 돌고 있는 것이
         // 셸이 아니면 그 프로그램이 엔터를 받는다.
         if(i>=files.length) return;
-        const f=files[i++];
-        const fd=new FormData();fd.append('file',f);
+        // FR-TFD-12: `{file, relPath}` 도 받는다. `relPath` 가 있으면 서버가 그
+        // 아래 폴더를 만든다 — `file` 보다 **먼저** 실어야 한다. 서버가 스트림으로
+        // 파싱하므로 순서가 계약이다 (`file-tree-xfer.js` 의 근거와 같다).
+        const it=files[i++];
+        const f=it&&it.file?it.file:it;
+        const rel=(it&&it.relPath)||'';
+        const fd=new FormData();
+        if(rel) fd.append('relPath',rel);
+        fd.append('file',f);
         // FR-TXN-3·5: 파일 하나의 일은 팝업 하나에서 마친다. 진행 팝업은 스스로
         // 사라지지 않는다 — 전송이 소멸 시간보다 길면 시작한 일이 사라진다.
-        const t=this._toast(TERM_UPLOAD_BUSY.replace('%s',f.name),'',0);
+        // FR-TFD-13: 보이는 이름은 `relPath` 다 — `a/b/c.txt` 를 `c.txt` 로만
+        // 보이면 어느 것이 끝났는지 알 수 없다.
+        const label=rel||f.name;
+        const t=this._toast(TERM_UPLOAD_BUSY.replace('%s',label),'',0);
         apiPost('/api/upload',fd,{query:{dir:cwd}})
           .then(r=>(r.ok&&r.data)?r.data:Promise.reject(r))
           .then(d=>{
-            if(t)t.update(TERM_UPLOAD_OK.replace('%s',d.name).replace('%z',this._fmtSize(d.size)),'ok');
+            // FR-TFD-13: 폴더 맥락과 **실제 저장된 이름**을 함께 보인다. 서버는
+            // 충돌 시 개명하므로(`c (1).txt`) 그 사실이 보여야 하고, 그렇다고
+            // 마지막 조각만 보이면 어느 폴더의 것인지 알 수 없다.
+            const at=rel?rel.replace(/[^/]*$/,'')+d.name:d.name;
+            if(t)t.update(TERM_UPLOAD_OK.replace('%s',at).replace('%z',this._fmtSize(d.size)),'ok');
             uploadNext();
           }).catch(()=>{
-            if(t)t.update(TERM_UPLOAD_FAIL.replace('%s',f.name),'err',TOAST_ERR_MS);
+            if(t)t.update(TERM_UPLOAD_FAIL.replace('%s',label),'err',TOAST_ERR_MS);
             uploadNext();
           });
       };

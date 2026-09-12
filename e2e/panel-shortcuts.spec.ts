@@ -1,5 +1,7 @@
 
-import { test, expect, waitForInit } from './fixtures';
+import {
+  test, expect, waitForInit, gotoSettled,
+} from './fixtures';
 
 // 페이지 전역 (web/js/core/helpers.js).
 declare const SHORTCUT_DEFAULTS: Record<string, string>;
@@ -57,3 +59,38 @@ test.describe('진입점 단축키', () => {
     await expect(list).toContainText('Run 오케스트레이션');
   });
 });
+
+/**
+ * 묶음 KEY — **브라우저 기본 키를 막는 경계** (FR-KEY-*).
+ *
+ * 단축키의 경계가 이 파일의 주제다 — 매칭 없는 Ctrl 조합은 막고, 예외는
+ * 통과시킨다.
+ *
+ * `TEST-7` 로 `ux-revision` 에서 옮겨 왔다 — 납품 묶음이 아니라 **이 기능**이
+ * 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
+ */
+
+test.describe('묶음 K — 브라우저 기본 키 차단 (FR-KEY-*)', () => {
+  test('V-KEY-1·2·4: 매칭 없는 Ctrl 조합은 막고, 예외는 통과시킨다', async ({ page }) => {
+    await gotoSettled(page);
+    const probe = (code: string, key: string, ctrl = true) => page.evaluate(([c, k, ctrlKey]) => {
+      const e = new KeyboardEvent('keydown', { code: c as string, key: k as string, ctrlKey: !!ctrlKey, bubbles: true, cancelable: true });
+      window.dispatchEvent(e);
+      return e.defaultPrevented;
+    }, [code, key, ctrl] as any);
+
+    // Ctrl+S 는 어느 단축키에도 없다 — 브라우저 저장을 막는다.
+    expect(await probe('KeyS', 's')).toBe(true);
+    // FR-KEY-4: 복사·새로고침은 그대로 둔다.
+    expect(await probe('KeyC', 'c')).toBe(false);
+    expect(await probe('F5', 'F5', false)).toBe(false);
+    // FR-KEY-2: 수식키 없는 글자는 대상이 아니다.
+    expect(await probe('KeyS', 's', false)).toBe(false);
+
+    // FR-KEY-6: 끄면 기본 동작이 돌아온다.
+    await page.evaluate(() => { (0, eval)('blockBrowserKeys = false') });
+    expect(await probe('KeyS', 's')).toBe(false);
+    await page.evaluate(() => { (0, eval)('blockBrowserKeys = true') });
+  });
+});
+

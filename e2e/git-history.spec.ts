@@ -7,6 +7,12 @@ import { Page } from '@playwright/test';
 import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openRowMenu, gitFixture, cleanGitFixture } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
+/**
+ * **고정 대기의 예외 (`TEST-16`).** 남은 `waitForTimeout` 은 전부 **일어나지
+ * 않는 것**을 잰다 — 없는 리비전에는 줄이 서지 않는다 · 더블클릭해도 HEAD 가
+ * 바뀌지 않는다 · 상세가 열리지 않는다. 기다릴 신호가 없다.
+ */
+
 // GIT_M4_STEP1417_CONTRACT §3·§4·§5 — History 탭. 검증 V47~V51 · V64 · V65 + V48 성능.
 //
 // 테스트 저장소는 e2e/git_fixture.sh 가 만든다 (design/README.md).
@@ -33,7 +39,7 @@ async function openHistory(page: Page, repo: string) {
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate(() => {
     const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
+    a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });

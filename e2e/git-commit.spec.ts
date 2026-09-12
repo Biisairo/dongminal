@@ -4,7 +4,9 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit, gitFixture, cleanGitFixture } from './fixtures';
+import {
+  test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit, gitFixture, cleanGitFixture,
+} from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 // GIT_M2_STEP1011_CONTRACT §3 — 커밋 클라이언트. 검증 V33·V35·V36
@@ -62,7 +64,7 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
     await openGit(page, repo);
 
     // 핀을 먼저 만든다 — draft 저장이 git.pinned 를 지우지 않는지 함께 본다 (O1·O6).
-    await page.evaluate((r) => (window as any).app._gitPin(r), repo);
+    await page.evaluate((r) => (window as any).app.testing.gitPin(r), repo);
     await msg(page).fill(text);
     // 입력이 멈춘 뒤 300ms 디바운스로 저장한다.
     await page.waitForFunction(
@@ -73,7 +75,7 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
       repo,
       { timeout: 5000 },
     );
-    await page.evaluate(() => (window as any).app._save());
+    await page.evaluate(() => (window as any).app.testing.save());
 
     // 서버에 실제로 남았고, 같은 git 객체의 핀도 그대로다.
     const st = await (await request.get('/api/workspace')).json();
@@ -265,7 +267,7 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
       repo,
       { timeout: 5000 },
     );
-    await page.evaluate(() => (window as any).app._save());
+    await page.evaluate(() => (window as any).app.testing.save());
     await page.reload();
     await page.waitForSelector('#area .ed-side .git-view.git-changes .git-commit-msg',
       { timeout: 15000 });
@@ -360,3 +362,69 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
     expect(await page.evaluate(() => localStorage.getItem('gitCommitHeight'))).toBeTruthy();
   });
 });
+
+/**
+ * UI 개정 — **커밋 영역의 정렬** (FR-GIT-213).
+ *
+ * 커밋 입력과 실행 버튼이 이 파일의 주제다.
+ *
+ * `TEST-7` 로 `git-ui-revision` 에서 옮겨 왔다 — 납품 묶음(“UI 개정”)이 아니라
+ * **이 기능**이 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
+ */
+const GURFX = tmpPath('dm-gur-git-commit-' + process.pid);
+test.beforeAll(() => { gitFixture(GURFX) });
+test.afterAll(() => { cleanGitFixture(GURFX) });
+const gurFx = (n: string) => realPath(join(GURFX, n));
+const gurCopy = makeCopyFx(GURFX);
+
+async function gurOpenChanges(page: Page, repo: string) {
+  await openGit(page, repo);
+  await page.evaluate(() => (window as any).app.gitPanel.openView('changes'));
+  await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
+}
+
+test.describe('UI 개정 — 커밋 영역의 정렬 (FR-GIT-213)', () => {
+  test('V90 (FR-GIT-213): 입력창이 폭을 다 쓰고 amend·Commit 이 그 아래 한 줄에 선다', async ({ page }) => {
+    await waitForInit(page);
+    await gurOpenChanges(page, gurFx('basic'));
+    const area = page.locator('#area .ed-side .git-commit');
+    await expect(area).toBeVisible({ timeout: 15000 });
+
+    const read = () => page.evaluate(() => {
+      const q = (s: string) => document.querySelector('#area .ed-side ' + s) as HTMLElement;
+      const box = (s: string) => { const e = q(s); const r = e.getBoundingClientRect();
+        return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height),
+                 cy: Math.round(r.y + r.height / 2), bottom: Math.round(r.bottom) }; };
+      return {
+        main: box('.git-commit-main'),
+        msg: box('.git-commit-msg'),
+        amend: box('.git-commit-amend'),
+        go: box('.git-commit-go'),
+      };
+    });
+
+    const a = await read();
+    // 입력창이 커밋 영역의 폭을 (거의) 다 쓴다 — 오른쪽에 세로 칸이 없다.
+    expect(a.msg.w).toBeGreaterThan(a.main.w - 4);
+    // amend·Commit 은 입력창 **아래**에 있다.
+    expect(a.amend.y).toBeGreaterThanOrEqual(a.msg.bottom - 1);
+    expect(a.go.y).toBeGreaterThanOrEqual(a.msg.bottom - 1);
+    // 그리고 서로 같은 가로줄이다 (세로 중심이 어긋나지 않는다).
+    expect(Math.abs(a.amend.cy - a.go.cy)).toBeLessThanOrEqual(1);
+    // 둘은 왼쪽에 **붙어** 선다 — 양끝으로 밀면 한 벌인 것이 상관없어 보인다.
+    expect(a.amend.x).toBeLessThan(a.go.x);
+    const gap = a.go.x - (a.amend.x + a.amend.w);
+    expect(gap, '두 컨트롤이 떨어져 있다: ' + gap + 'px').toBeLessThanOrEqual(16);
+    expect(a.go.x).toBeLessThan(a.main.x + a.main.w / 2);
+
+    // 입력창이 자라도 그 줄의 정렬은 그대로다 (FR-GIT-74 로 높이가 변한다).
+    await page.locator('#area .ed-side .git-commit-msg').fill('a\nb\nc\nd\ne\nf');
+    await expect.poll(async () => (await read()).msg.h, { timeout: 10000 })
+      .toBeGreaterThan(a.msg.h);
+    const b = await read();
+    expect(b.msg.h).toBeGreaterThan(a.msg.h);
+    expect(Math.abs(b.amend.cy - b.go.cy)).toBeLessThanOrEqual(1);
+    expect(b.msg.w).toBeGreaterThan(b.main.w - 4);
+  });
+});
+

@@ -17,7 +17,7 @@ async function gotoMobile(page: Page) {
 // 포커스된 터미널의 _send 를 감싸 전송 문자열을 기록한다.
 async function installSendSpy(page: Page) {
   await page.evaluate(() => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     if (!p) throw new Error('포커스된 터미널이 없다');
     (window as any).__sent = [];
     if ((p as any).__spied) return;
@@ -43,7 +43,7 @@ const clearSent = (page: Page) => page.evaluate(() => { (window as any).__sent =
 // 실기기 소프트 키보드의 이벤트 패턴: keydown(229) → beforeinput/input(composed).
 async function softKey(page: Page, data: string, opts: { keydown?: boolean; keyup?: boolean; composing?: boolean } = {}) {
   await page.evaluate(({ data, opts }) => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     const ta = p.el.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
     ta.focus();
     if (opts.keydown !== false) {
@@ -70,19 +70,23 @@ async function softKey(page: Page, data: string, opts: { keydown?: boolean; keyu
 
 async function paneState(page: Page) {
   return await page.evaluate(() => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     return { viewportY: p.term.buffer.active.viewportY, rows: p.term.rows };
   });
 }
 
 async function fill(page: Page, lines = 300) {
   await page.evaluate((n) => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     let s = '';
     for (let i = 1; i <= n; i++) s += `line-${i}\r\n`;
     p.term.write(s);
   }, lines);
-  await page.waitForTimeout(300);
+  // `write` 는 비동기다 — 버퍼가 자란 것을 본다.
+  await expect
+    .poll(() => page.evaluate(() =>
+      (window as any).app.testing.focusedTerminal().term.buffer.active.length), { timeout: 10000 })
+    .toBeGreaterThan(lines);
 }
 
 async function touchDrag(client: CDPSession, from: { x: number; y: number }, dy: number, steps = 10) {
@@ -116,7 +120,7 @@ test.describe('FR-MTI-1~5: 모바일 IME 입력이 유실되지 않는다', () =
     await clearSent(page);
     // 실측된 결함: xterm CompositionHelper 는 ["abc","bc","c"] 를 보내 6글자가 들어간다.
     await page.evaluate(async () => {
-      const p = (window as any).app._focusedTerminal();
+      const p = (window as any).app.testing.focusedTerminal();
       const ta = p.el.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
       ta.focus(); ta.value = '';
       const soft = (d: string) => {
@@ -140,7 +144,7 @@ test.describe('FR-MTI-1~5: 모바일 IME 입력이 유실되지 않는다', () =
     await clearSent(page);
     // 실측된 결함: 'x' 가 사라지고 "\r" 만 전송된다.
     await page.evaluate(async () => {
-      const p = (window as any).app._focusedTerminal();
+      const p = (window as any).app.testing.focusedTerminal();
       const ta = p.el.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
       ta.focus(); ta.value = '';
       ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Unidentified', keyCode: 229, bubbles: true, cancelable: true } as any));
@@ -158,7 +162,7 @@ test.describe('FR-MTI-1~5: 모바일 IME 입력이 유실되지 않는다', () =
   test('TC-MTI-3: composition 중 beforeinput 은 가로채지 않는다', async ({ page }) => {
     await gotoMobile(page);
     const notCancelled = await page.evaluate(() => {
-      const p = (window as any).app._focusedTerminal();
+      const p = (window as any).app.testing.focusedTerminal();
       const ta = p.el.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
       ta.focus();
       const bi = new InputEvent('beforeinput', {
@@ -178,7 +182,9 @@ test.describe('FR-MTI-6~11: 터치 스크롤', () => {
     const before = await paneState(page);
     const client = await page.context().newCDPSession(page);
     await touchDrag(client, await screenCenter(page), 200);
-    await page.waitForTimeout(100);
+    await expect
+      .poll(async () => before.viewportY - (await paneState(page)).viewportY, { timeout: 10000 })
+      .toBeGreaterThan(20);
     const after = await paneState(page);
     const moved = before.viewportY - after.viewportY;
     expect(moved).toBeGreaterThan(20);
@@ -198,7 +204,10 @@ test.describe('FR-MTI-6~11: 터치 스크롤', () => {
     }
     await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] } as any);
     const atEnd = await paneState(page);
-    await page.waitForTimeout(800);
+    // 관성은 손을 뗀 **뒤에** 더 간다 — 그 움직임이 실제로 일어난 것을 본다.
+    await expect
+      .poll(async () => atEnd.viewportY - (await paneState(page)).viewportY, { timeout: 10000 })
+      .toBeGreaterThan(0);
     const settled = await paneState(page);
     expect(atEnd.viewportY - settled.viewportY).toBeGreaterThan(0);
   });
@@ -212,6 +221,7 @@ test.describe('FR-MTI-6~11: 터치 스크롤', () => {
     await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: c.x, y: c.y }] } as any);
     await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: c.x, y: c.y + 3 }] } as any);
     await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] } as any);
+    // **예외 (`TEST-16`): 일어나지 않는 스크롤을 잰다.** 기다릴 신호가 없다.
     await page.waitForTimeout(300);
     const after = await paneState(page);
     expect(after.viewportY).toBe(before.viewportY);
@@ -229,7 +239,7 @@ test.describe('FR-MTI-12: 리사이즈 병합', () => {
         const orig = p.doFit.bind(p);
         p.doFit = () => { fits++; return orig(); };
       }
-      for (let i = 0; i < 20; i++) app._scheduleMobileFit();
+      for (let i = 0; i < 20; i++) app.testing.scheduleMobileFit();
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
       return fits;
     });
@@ -247,7 +257,7 @@ test.describe('FR-MTI-14: 키바 버튼은 포커스를 받지 않는다', () =>
     // FR-MTI-25 이후 첫 로드에는 포커스가 없다. 이 검증의 대상은 "키바가 이미
     // 있는 포커스를 빼앗지 않는가" 이므로 먼저 명시적으로 포커스를 준다.
     await page.evaluate(() => {
-      const p = (window as any).app._focusedTerminal();
+      const p = (window as any).app.testing.focusedTerminal();
       (p.el.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement).focus();
     });
     const box = await page.locator('#mobile-keybar .mkb-btn').first().boundingBox();
@@ -256,6 +266,8 @@ test.describe('FR-MTI-14: 키바 버튼은 포커스를 받지 않는다', () =>
     await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] } as any);
     await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + 40, y }] } as any);
     await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] } as any);
+    // **예외 (`TEST-16`): 포커스를 **잃지 않음**을 잰다.** 이미 그 상태이므로
+    // 조건을 되풀이해 읽으면 즉시 통과해 아무것도 재지 못한다.
     await page.waitForTimeout(300);
     const cls = await page.evaluate(() => document.activeElement?.className || '');
     expect(cls).toContain('xterm-helper-textarea');
@@ -267,21 +279,21 @@ test.describe('FR-MTI-15~17: sticky modifier', () => {
     await gotoMobile(page);
     await installSendSpy(page);
     await clearSent(page);
-    await page.evaluate(() => { (window as any).app._modKbd.ctrl = true; });
+    await page.evaluate(() => { (window as any).app.testing.modKbd.ctrl = true; });
     await softKey(page, 'ab', { keyup: true });
     const out = await sent(page);
     expect(out).toEqual(['\x01b']);
-    expect(await page.evaluate(() => (window as any).app._modKbd.ctrl)).toBe(false);
+    expect(await page.evaluate(() => (window as any).app.testing.modKbd.ctrl)).toBe(false);
   });
 
   test('TC-MTI-12: Alt sticky + 한글에는 ESC 를 붙이지 않고 sticky 를 소비한다', async ({ page }) => {
     await gotoMobile(page);
     await installSendSpy(page);
     await clearSent(page);
-    await page.evaluate(() => { (window as any).app._modKbd.alt = true; });
+    await page.evaluate(() => { (window as any).app.testing.modKbd.alt = true; });
     await softKey(page, '가', { keyup: true });
     expect(await sent(page)).toEqual(['가']);
-    expect(await page.evaluate(() => (window as any).app._modKbd.alt)).toBe(false);
+    expect(await page.evaluate(() => (window as any).app.testing.modKbd.alt)).toBe(false);
   });
 });
 
@@ -291,7 +303,9 @@ test.describe('FR-MTI-19: 물리 키보드 중복 방지', () => {
     await installSendSpy(page);
     // FR-MTI-25: 모바일에서 입력 포커스는 터미널을 탭해야 생긴다.
     await page.locator('#area .pn.focused').first().dispatchEvent('mousedown');
-    await page.waitForTimeout(150);
+    await expect
+      .poll(() => page.evaluate(() => document.activeElement?.className || ''), { timeout: 10000 })
+      .toContain('xterm-helper-textarea');
     await clearSent(page);
     // page.keyboard.type 은 keydown/char/keyup 을 보낸다 — xterm 이 keydown 을
     // 처리한 뒤 char 의 beforeinput 이 오는 경로다.
@@ -299,7 +313,8 @@ test.describe('FR-MTI-19: 물리 키보드 중복 방지', () => {
     // 중복이 나는 유일한 문자였다. 반드시 포함한다.
     await page.keyboard.type('cd /tmp/xyz');
     await page.keyboard.press('Enter');
-    await page.waitForTimeout(200);
+    await expect.poll(async () => (await sent(page)).join(''), { timeout: 10000 })
+      .toBe('cd /tmp/xyz\r');
     expect((await sent(page)).join('')).toBe('cd /tmp/xyz\r');
   });
 });

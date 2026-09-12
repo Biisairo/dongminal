@@ -4,6 +4,12 @@ import { Page } from '@playwright/test';
 
 import { test, expect } from './fixtures';
 
+/**
+ * **고정 대기의 예외 (`TEST-16`).** 이 파일의 `waitForTimeout` 은 **소켓이 늘지
+ * 않음**을 잰다 — 즉시 재연결이 걸렸다면 그 창 안에 수십 개가 생긴다. 기다릴
+ * 신호가 없고, 짧게 하면 폭주를 놓친다.
+ */
+
 // RECONNECT_STORM_SRS 묶음 R — 재연결 폭주 차단. 검증 V-RCS-1~6.
 //
 // 이 저장소에 JS 단위 테스트 러너가 없으므로 web/js/ui/term-pane.js 를 빈 페이지에
@@ -16,6 +22,10 @@ import { test, expect } from './fixtures';
 // 않으므로, 빠뜨리면 `apiGet is not defined` 로 그 자리에서 터진다.
 const API_JS = join(process.cwd(), 'web', 'js', 'core', 'api.js');
 const TERM_PANE_JS = join(process.cwd(), 'web', 'js', 'ui', 'term-pane.js');
+// TERMINAL_FOLDER_DROP_SRS FR-TFD-1 / C-2: `term-pane.js` 의 드롭 경로가 이
+// 순수 함수를 쓴다. 이 하네스는 전역을 손으로 세우므로 **같은 변경에서** 여기
+// 한 줄이 늘어야 한다 — 격리가 이 검사의 값이고, 그래서 값을 치르는 자리다.
+const DROP_ENTRIES_JS = join(process.cwd(), 'web', 'js', 'ui', 'drop-entries.js');
 // EVENT_TIMER_HUB_SRS INV-1: `TermPane` 의 타이머는 전역 `TIMERS` 를 지난다.
 // 재는 것은 바뀌지 않는다 — 백오프·종단 판정은 여전히 이 클래스의 것이다.
 const TIMER_HUB_JS = join(process.cwd(), 'web', 'js', 'core', 'timer-hub.js');
@@ -30,6 +40,13 @@ async function loadTermPane(page: Page) {
     (window as any).enc = new TextEncoder();
     (window as any).WS_HEALTHY_MS = 3000;
     (window as any).OSC_CARRY_MS = 50;
+    // `12-func-ui.md FUI-14`: 종료 오버레이의 문구·라벨. 이 하네스는 `term-pane.js`
+    // 를 **홀로** 싣고 `constants.js` 를 싣지 않으므로(그것이 이 검사의 격리다)
+    // 그 파일이 읽는 전역을 여기서 세운다 — 위 다섯과 같은 규약이다.
+    (window as any).TERM_EXITED_TITLE = '도구 종료됨';
+    (window as any).TERM_EXITED_SUB = '이 탭을 닫거나 같은 자리에 새 셸을 엽니다';
+    (window as any).TERM_EXITED_CLOSE = '탭 닫기';
+    (window as any).TERM_EXITED_NEW = '새 셸';
 
     const opened: any[] = [];
     (window as any).__opened = opened;
@@ -55,6 +72,7 @@ async function loadTermPane(page: Page) {
   });
   await page.addScriptTag({ path: TIMER_HUB_JS });
   await page.addScriptTag({ path: API_JS });
+  await page.addScriptTag({ path: DROP_ENTRIES_JS });
   await page.addScriptTag({ path: TERM_PANE_JS });
   // `class` 선언은 전역 렉시컬 환경에 들어가고 window 에는 붙지 않는다
   // (repaint.js 의 `function` 선언과 다른 점). 이름으로 꺼내 올려둔다.
@@ -184,5 +202,22 @@ test.describe('재연결 폭주 차단 (RECONNECT_STORM_SRS 묶음 R)', () => {
     const ov = page.locator('.tp-overlay .tp-ov-title');
     await expect(ov).toHaveText('도구 종료됨');
     expect(await page.evaluate(() => (window as any).__pane._exited)).toBe(true);
+
+    /**
+     * `12-func-ui.md FUI-14`: **출구가 함께 선다.**
+     *
+     *   이전 동작: 안내가 "이 탭을 닫아 주세요" 로 끝났다 — 사용자에게 일을
+     *             넘기면서 그 일의 자리를 말하지 않았다
+     *   새  동작: `탭 닫기` 와 `새 셸` 두 버튼
+     *   이유:     두 동작 다 앱이 이미 갖고 있다 (`closeTab`·`addTab`) —
+     *             없던 것은 그 자리의 버튼뿐이었다
+     *
+     * **누를 수 있어야 한다.** 오버레이 전체는 `pointer-events:none` 이다
+     * (재연결 중에도 터미널이 눌려야 하므로) — 버튼 줄만 그것을 되살린다.
+     */
+    await expect(page.locator('.tp-overlay .tp-ov-close')).toHaveText('탭 닫기');
+    await expect(page.locator('.tp-overlay .tp-ov-new')).toHaveText('새 셸');
+    expect(await page.evaluate(() =>
+      getComputedStyle(document.querySelector('.tp-ov-acts')!).pointerEvents)).toBe('auto');
   });
 });

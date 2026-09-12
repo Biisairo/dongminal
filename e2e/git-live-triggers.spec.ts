@@ -48,14 +48,14 @@ async function settled(page: Page) {
  * 계기가 새어 폴링이 멎은 상태를 만든다.
  *
  * **워치독을 함께 막는다.** 이 파일이 재려는 것은 복귀 계기 하나이고, 워치독은
- * 렌더 훅으로도 같은 자리를 되살린다 — `_gitWdAt` 을 미래에 두면 `_gitWatchdogAll`
+ * 렌더 훅으로도 같은 자리를 되살린다 — `_gitWdAt` 을 미래에 두면 `gitWatchdogAll`
  * 의 문턱이 닫힌 채로 남아(`now - _gitWdAt < GIT_WATCHDOG_CHECK_MS`) 그 경로가
  * 결과에 섞이지 않는다.
  */
 async function stoppedAndWatchdogMuted(page: Page) {
   await page.evaluate(`(() => {${PANEL}
     p._stop();
-    window.app._gitWdAt = Date.now() + 3600 * 1000;
+    window.app.testing.gitWdAt = Date.now() + 3600 * 1000;
   })()`);
   expect((await panelState(page)).pollOn).toBe(false);
 }
@@ -90,7 +90,7 @@ test.describe('GIT_LIVE_TRIGGERS — 복귀 계기는 앱당 한 벌이고 전�
   test('TC-GLW-3: 숨김 신호는 부팅 관측기 밖의 폴링을 걷는다', async ({ page }) => {
     await settled(page);
     await page.evaluate(`(() => {
-      window.app._gitWdAt = Date.now() + 3600 * 1000;
+      window.app.testing.gitWdAt = Date.now() + 3600 * 1000;
       Object.defineProperty(document, 'hidden', { get: () => true, configurable: true });
       document.dispatchEvent(new Event('visibilitychange'));
     })()`);
@@ -101,7 +101,7 @@ test.describe('GIT_LIVE_TRIGGERS — 복귀 계기는 앱당 한 벌이고 전�
 
 test.describe('GIT_LIVE_TRIGGERS — 워치독에 주기가 있다', () => {
   /**
-   * 렌더 훅을 끊는다. `_gitWatchdogAll` 의 종전 유일한 호출처가 `render()` 이므로
+   * 렌더 훅을 끊는다. `gitWatchdogAll` 의 종전 유일한 호출처가 `render()` 이므로
    * (renderer.js:155), 그것을 끊으면 남는 계기는 주기뿐이다 — 이 묶음이 재려는
    * 것이 정확히 그것이다.
    */
@@ -113,7 +113,7 @@ test.describe('GIT_LIVE_TRIGGERS — 워치독에 주기가 있다', () => {
     await page.evaluate(`(() => {${PANEL}
       ${CUT_RENDER}
       p._stop();
-      window.app._gitWdAt = 0;
+      window.app.testing.gitWdAt = 0;
     })()`);
     expect((await panelState(page)).pollOn).toBe(false);
 
@@ -139,8 +139,9 @@ test.describe('GIT_LIVE_TRIGGERS — 워치독에 주기가 있다', () => {
     await settled(page);
     const box = { n: 0 };
     page.on('request', (r) => { if (r.url().includes('/api/git/status')) box.n++ });
-    await page.evaluate(`(() => { ${CUT_RENDER} window.app._gitWdAt = 0 })()`);
+    await page.evaluate(`(() => { ${CUT_RENDER} window.app.testing.gitWdAt = 0 })()`);
 
+    // **예외 (`TEST-16`)**: 요청이 **나가지 않음**을 잰다.
     await page.waitForTimeout(4000);
 
     expect(box.n, '주기 워치독만으로 status 요청이 나갔다').toBe(0);

@@ -36,8 +36,15 @@ const localPlain = (p: Page) => p.evaluate(() => {
 
 // SSE 를 끊는다 — 이 화면은 이제 남의 변경을 모른다.
 async function blind(p: Page) {
-  await p.evaluate(() => { try { (window as any).app._sse.close() } catch { /* 이미 없음 */ } });
-  await p.waitForTimeout(300);
+  await p.evaluate(() => { try { (window as any).app.testing.sse.close() } catch { /* 이미 없음 */ } });
+  // 실제로 닫힌 것을 본다 — 닫히기 전에 조작하면 이 화면이 아직 남의 변경을
+  // 받는다. `2` 는 `EventSource.CLOSED` 다. (구독이 애초에 없으면 `-1`.)
+  await expect
+    .poll(() => p.evaluate(() => {
+      const s = (window as any).app.testing.sse;
+      return s ? s.readyState : -1;
+    }), { timeout: 10000 })
+    .not.toBe(1);
 }
 
 // 저장을 일으킨다. 창을 건드리지 않는 조작이어야 한다 — 이 검사가 재려는 것은
@@ -46,7 +53,7 @@ async function touchAndSave(p: Page, width: number) {
   await p.evaluate((w) => {
     const a = (window as any).app;
     a.ws.sidebarWidth = w;
-    a._save();
+    a.testing.save();
   }, width);
 }
 
@@ -105,7 +112,7 @@ test.describe('워크스페이스 저장 충돌', () => {
    * 409 뒤 이 화면은 서버의 `editors` 를 통째로 채택한다. 그 자리가
    * `_edApplyServer({home,list})` 를 직접 불렀고 — **`notes` 가 빠져 있었다.**
    * `_edApplyServer` 는 준 것 전부를 반영하므로 없는 필드는 지워지고(FR-NOT-11),
-   * 메모 루트가 `_edRoots()` 에서 빠지면 재조정이 **메모장 창을 삭제한다.**
+   * 메모 루트가 `edRoots()` 에서 빠지면 재조정이 **메모장 창을 삭제한다.**
    * 사용자가 접수한 "editor 에서 메모장이 안 보이는 경우가 있음" 이 이것이다.
    */
   test('V-WBR-30: 충돌 재시도를 거쳐도 메모장 행과 창이 남는다', async ({ browser, request }) => {
@@ -113,7 +120,7 @@ test.describe('워크스페이스 저장 충돌', () => {
     const B = await openScreen(browser);
     const before = await serverPlain(request);
 
-    const notes = await B.evaluate(() => (window as any).app._editors?.notes as string);
+    const notes = await B.evaluate(() => (window as any).app.testing.editors?.notes as string);
     expect(notes, '메모 루트가 없다 — 이 검사가 성립하지 않는다').toBeTruthy();
 
     await blind(B);
@@ -127,12 +134,12 @@ test.describe('워크스페이스 저장 충돌', () => {
 
     // 채택이 끝나기를 기다린 뒤 본다.
     await B.waitForFunction(
-      () => !(window as any).app._wsApplyInflight, undefined, { timeout: 15000 });
+      () => !(window as any).app.testing.wsApplyInflight, undefined, { timeout: 15000 });
 
-    expect(await B.evaluate(() => (window as any).app._editors?.notes as string),
+    expect(await B.evaluate(() => (window as any).app.testing.editors?.notes as string),
       '충돌 재시도가 메모 루트를 지웠다').toBe(notes);
     expect(await B.evaluate((r) =>
-      (window as any).app._edWindows().some((w: any) => w.editor && w.editor.root === r), notes),
+      (window as any).app.testing.edWindows().some((w: any) => w.editor && w.editor.root === r), notes),
       '메모장 창이 사라졌다').toBe(true);
 
     await A.context().close();
@@ -155,7 +162,7 @@ test.describe('워크스페이스 저장 충돌', () => {
     // id 가 필요하므로 같은 경로를 직접 탄다 (app-layout.js, FR-RCR-6/7).
     const newWin: string = await A.evaluate(async () => {
       const a = (window as any).app;
-      const r = await a._mkWindow({});
+      const r = await a.testing.mkWindow({});
       a.render();
       return r.win;
     });
@@ -166,6 +173,8 @@ test.describe('워크스페이스 저장 충돌', () => {
     // 이 폭이 포기할 본문의 표식이다 — 다시 나가면 그것이 재시도다 (FR-WSC-5).
     await touchAndSave(B, 251);
     await expect.poll(() => codes.length, { timeout: 15000 }).toBeGreaterThan(0);
+    // **예외 (`TEST-16`)**: 재시도가 **더 나가는지**를 보는 창이다 — 짧게 하면
+    // 늦게 오는 두 번째를 놓친다.
     await B.waitForTimeout(2000);
 
     expect(codes[0], `첫 PUT 이 409 가 아니다: ${JSON.stringify(codes)}`).toBe(409);
@@ -259,8 +268,11 @@ test.describe('워크스페이스 저장 충돌', () => {
         data: JSON.stringify(ws),
       });
       await touchAndSave(B, 300 + i);
+      // **예외 (`TEST-16`): 충돌을 만드는 간격이다.** 저장이 겹치도록 촘촘히
+      // 낸다 — 그 겹침이 이 검사의 전제다.
       await B.waitForTimeout(150);
     }
+    // **예외 (`TEST-16`)**: 기록이 쌓일 창을 준다.
     await B.waitForTimeout(1500);
 
     expect(warns.some((w) => w.includes('workspace')),

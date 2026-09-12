@@ -37,7 +37,7 @@ async function enter(page: Page, request: APIRequestContext) {
   await page.goto('/');
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
   await page.waitForFunction(
-    () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
+    () => !!(window as any).app?.testing.editors && (window as any).app.testing.edWindows().length > 0,
     undefined, { timeout: 15000 });
   await switchToEditorRoot(page, ROOT);
   await openExplorerSide(page);
@@ -81,7 +81,7 @@ test('터미널 창의 Mod+F 는 종전대로 터미널 검색이다', async ({ 
   await enter(page, request);
   await page.evaluate(() => {
     const a = (window as any).app;
-    const term = a.ws.windows.find((w: any) => !a._isEditorWin(w));
+    const term = a.ws.windows.find((w: any) => !a.testing.isEditorWin(w));
     if (!term) throw new Error('터미널 창이 없다');
     a.switchWindow(term.id);
   });

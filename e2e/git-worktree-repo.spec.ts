@@ -17,7 +17,7 @@ import { TMP, tmpPath, realPath, cssPath } from './osenv';
  *
  * 이미 확정된 것은 여기서 되풀이하지 않는다:
  *   - Worktrees 탭의 `open` → 그 워크트리의 Repo 창: `git-worktrees.spec.ts` V151
- *     이 `_edRootOf(_aw())` 로 이미 단정하고 통과한다
+ *     이 `edRootOf(aw())` 로 이미 단정하고 통과한다
  *
  * 그래서 남은 셋만 본다: `+ Add` 경로 · 각 뷰가 딛는 기준 · detached 표시.
  *
@@ -79,7 +79,7 @@ async function openSideChanges(page: Page, root: string) {
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate(() => {
     const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
+    a.testing.edSetSide(a.testing.aw(), 'changes');
   });
   await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 }

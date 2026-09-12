@@ -103,8 +103,8 @@ test('TC-ATS-5 탭 제목을 합성하는 자리가 그대로 하나다', async 
   // 합성기가 살아 있는지 — 알람 수를 넣으면 접두사가 붙는다.
   const withBadge = await page.evaluate(() => {
     const app = (window as any).app;
-    app._attn = new Map([['t1', {}], ['t2', {}]]);
-    app._applyPageTitle();
+    app.testing.attn = new Map([['t1', {}], ['t2', {}]]);
+    app.testing.applyPageTitle();
     return document.title;
   });
   expect(withBadge).toMatch(/^\(2\) /);

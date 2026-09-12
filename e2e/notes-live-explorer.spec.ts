@@ -6,6 +6,12 @@ import { APIRequestContext, Page } from '@playwright/test';
 import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
+/**
+ * **고정 대기의 예외 (`TEST-16`).** 이 파일의 `waitForTimeout` 은 전부 **그 창
+ * 동안 몇 건이 나갔는가**를 재는 폴링 관찰이다 (`POLL_WAIT`). 짧게 하면 주기를
+ * 넘지 못해 세는 것 자체가 뜻을 잃는다.
+ */
+
 // NOTES_LIVE_EXPLORER_SRS §5.2 — 묶음 N(메모장)·묶음 L(탐색기의 살아있는 반영)의
 // 클라이언트 검증 V-13~V-25.
 //
@@ -47,7 +53,7 @@ async function goto(page: Page) {
   await page.goto('/');
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
   await page.waitForFunction(
-    () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
+    () => !!(window as any).app?.testing.editors && (window as any).app.testing.edWindows().length > 0,
     undefined, { timeout: 15000 });
 }
 
@@ -64,7 +70,7 @@ async function openEditorWin(page: Page, root: string) {
 }
 
 const notesRoot = (page: Page) =>
-  page.evaluate(() => (window as any).app._edNotes() as string);
+  page.evaluate(() => (window as any).app.testing.edNotes() as string);
 
 const fixedRows = (page: Page) => page.locator('#repo-root .sbl-item');
 const treeRows = (page: Page) => page.locator('.ed-tree .ed-row');
@@ -111,8 +117,8 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
     await page.waitForSelector('.ed-win .ed-side', { timeout: 10000 });
     const got = await page.evaluate(() => {
       const a = (window as any).app;
-      const w = a._aw();
-      return { root: a._edRootOf(w), name: w.name };
+      const w = a.testing.aw();
+      return { root: a.testing.edRootOf(w), name: w.name };
     });
     expect(got.root).toBe(notes);
     // FR-NOT-9: 행과 창이 같은 이름을 쓴다.
@@ -128,7 +134,7 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
     const notes = await notesRoot(page);
     await openEditorWin(page, notes);
 
-    await page.evaluate(() => (window as any).app._edActiveTree().startCreate(false));
+    await page.evaluate(() => (window as any).app.testing.edActiveTree().startCreate(false));
     const input = page.locator('.ed-tree .ed-input');
     await expect(input).toBeVisible({ timeout: 10000 });
     await input.fill('memo-v16.md');
@@ -152,7 +158,7 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
 
   test('V-18b: 워크스페이스 동기화를 거쳐도 메모장 행과 창이 남는다', async ({ page }) => {
     // FR-NOT-13 의 회귀. `_applyRemoteWorkspace` 는 `editors.list` 만 새로 알고
-    // 나머지는 아는 값을 되쓴다 — 거기서 `notes` 가 지워지면 `_edRoots()` 에서
+    // 나머지는 아는 값을 되쓴다 — 거기서 `notes` 가 지워지면 `edRoots()` 에서
     // 메모 루트가 빠지고 **재조정이 메모장 창을 삭제한다.** 실제로 그렇게 깨졌고
     // 전체 e2e 의 창 수가 그것을 잡았다.
     await goto(page);
@@ -160,15 +166,15 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
     const notes = await notesRoot(page);
     const before = await page.evaluate(() => (window as any).app.ws.windows.length);
 
-    await page.evaluate(() => (window as any).app._onWorkspaceChanged());
+    await page.evaluate(() => (window as any).app.testing.onWorkspaceChanged());
     await page.waitForFunction(
-      () => !(window as any).app._wsApplyInflight, undefined, { timeout: 10000 });
+      () => !(window as any).app.testing.wsApplyInflight, undefined, { timeout: 10000 });
 
     expect(await notesRoot(page), '동기화가 메모 루트를 지웠다').toBe(notes);
     expect(await page.evaluate(() => (window as any).app.ws.windows.length),
       '동기화가 창을 지웠다').toBe(before);
     expect(await page.evaluate((r) =>
-      (window as any).app._edWindows().some((w: any) => w.editor && w.editor.root === r), notes),
+      (window as any).app.testing.edWindows().some((w: any) => w.editor && w.editor.root === r), notes),
       '메모장 창이 사라졌다').toBe(true);
     await expect(fixedRows(page)).toHaveCount(2);
   });
@@ -191,9 +197,9 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
   /**
    * WORKBENCH_REVIEW_SRS 묶음 S (FR-WBR-40~42 / D-WBR-9).
    *
-   * 루트가 `_edRoots()` 에서 빠지면 재조정이 그 창을 **통째로 splice** 하고
+   * 루트가 `edRoots()` 에서 빠지면 재조정이 그 창을 **통째로 splice** 하고
    * (`app-editor.js`), 그 순간 탭 id 가 사라져 렌더러의 회수기가 편집기를
-   * 파괴하며 `_edDocDrop` 이 모델까지 dispose 한다 — **저장하지 않은 편집이
+   * 파괴하며 `edDocDrop` 이 모델까지 dispose 한다 — **저장하지 않은 편집이
    * 묻지도 알리지도 않고 사라진다.** 탭을 닫을 때는 이미 묻고 있다.
    *
    * 메모장이 유독 약한 이유는 `notes` 가 선택적이기 때문이다 (FR-NOT-11) —
@@ -212,7 +218,7 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ path: f, content: 'disk\n' }),
         });
-        await (window as any).app._edOpenFile(f);
+        await (window as any).app.testing.edOpenFile(f);
       }, file);
       await page.waitForFunction(() =>
         [...(window as any).app.fileEditors.values()].some((e: any) => e._editor),
@@ -227,9 +233,9 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
       // `notes` 가 빠진 채로 재조정이 돈다 — FR-NOT-11 이 허용하는 응답이다.
       const gone = await page.evaluate((r) => {
         const a = (window as any).app;
-        a._editors.notes = '';
-        a._edReconcile();
-        return !a._edWindows().some((w: any) => w.editor && w.editor.root === r);
+        a.testing.editors.notes = '';
+        a.testing.edReconcile();
+        return !a.testing.edWindows().some((w: any) => w.editor && w.editor.root === r);
       }, notes);
       expect(gone, '저장하지 않은 편집이 있는데 창이 지워졌다').toBe(false);
 
@@ -251,7 +257,7 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: f, content: 'disk\n' }),
       });
-      await (window as any).app._edOpenFile(f);
+      await (window as any).app.testing.edOpenFile(f);
     }, file);
     await page.waitForFunction(() =>
       [...(window as any).app.fileEditors.values()].some((e: any) => e._editor),
@@ -264,12 +270,12 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
     // 미룬다.
     await page.evaluate((r) => {
       const a = (window as any).app;
-      a._editors.notes = '';
-      a._edReconcile();
+      a.testing.editors.notes = '';
+      a.testing.edReconcile();
       return r;
     }, notes);
     expect(await page.evaluate((r) =>
-      (window as any).app._edWindows().some((w: any) => w.editor && w.editor.root === r), notes))
+      (window as any).app.testing.edWindows().some((w: any) => w.editor && w.editor.root === r), notes))
       .toBe(true);
 
     // 저장하면 미룰 이유가 사라진다 — 다음 재조정이 거둔다 (면제가 아니다).
@@ -277,9 +283,9 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
       const ed = [...(window as any).app.fileEditors.values()].find((e: any) => e._editor);
       await ed.save();
     });
-    await page.evaluate(() => (window as any).app._edReconcile());
+    await page.evaluate(() => (window as any).app.testing.edReconcile());
     expect(await page.evaluate((r) =>
-      (window as any).app._edWindows().some((w: any) => w.editor && w.editor.root === r), notes))
+      (window as any).app.testing.edWindows().some((w: any) => w.editor && w.editor.root === r), notes))
       .toBe(false);
   });
 });
@@ -364,7 +370,7 @@ test.describe('묶음 L — 탐색기의 살아있는 반영 (FR-FSL-1~14)', () 
       .toHaveCount(0);
 
     const dirs = await page.evaluate(() =>
-      (window as any).app._edActiveTree()._stampDirs() as string[]);
+      (window as any).app.testing.edActiveTree()._stampDirs() as string[]);
     expect(dirs).toContain(PLAIN);
     expect(dirs).not.toContain(sub);
   });
@@ -383,7 +389,7 @@ test.describe('묶음 L — 탐색기의 살아있는 반영 (FR-FSL-1~14)', () 
     // 이 시험이 재는 것은 "색의 근거가 없다" 이므로 그 사실을 새 표현으로 잰다.
     await expect.poll(
       () => page.evaluate(() => {
-        const t = (window as any).app._edActiveTree();
+        const t = (window as any).app.testing.edActiveTree();
         return { off: !!t._gitOff, backoff: t._gitRetryAt > 0, painted: t._st.size };
       }),
       { timeout: POLL_WAIT }).toEqual({ off: false, backoff: true, painted: 0 });
@@ -409,7 +415,7 @@ test.describe('묶음 L — 탐색기의 살아있는 반영 (FR-FSL-1~14)', () 
     await expect(treeRows(page).first()).toBeVisible({ timeout: 10000 });
 
     await expect.poll(
-      () => page.evaluate(() => (window as any).app._edActiveTree()._stampOff),
+      () => page.evaluate(() => (window as any).app.testing.edActiveTree()._stampOff),
       { timeout: POLL_WAIT }).toBe(true);
 
     const stamp = counter(page, (u) => u.includes('/api/fs/stamp'));
@@ -447,7 +453,7 @@ test.describe('묶음 K — 캐럿 (FR-CUR-1·2)', () => {
     const memo = j(notes, 'v26.txt');
     fs.writeFileSync(memo, 'hello\n');
     try {
-      await page.evaluate((p) => (window as any).app._edOpenFile(p), memo);
+      await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), memo);
       await page.waitForSelector('.file-editor .monaco-editor', { timeout: 20000 });
       const opts = await page.evaluate(() => {
         const a = (window as any).app;

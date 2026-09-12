@@ -53,7 +53,7 @@ async function enter(page: Page, request: APIRequestContext) {
   await page.goto('/');
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
   await page.waitForFunction(
-    () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 1,
+    () => !!(window as any).app?.testing.editors && (window as any).app.testing.edWindows().length > 1,
     undefined, { timeout: 15000 });
   // 바깥 창에서 시작한다 — 안쪽 파일을 열었을 때 **옮겨 가는지**를 재려면 그렇다.
   await switchToEditorRoot(page, OUTER);
@@ -63,7 +63,7 @@ async function enter(page: Page, request: APIRequestContext) {
 const activeRoot = (page: Page) =>
   page.evaluate(() => {
     const a = (window as any).app;
-    return String(a._edRootOf(a._aw()) || '');
+    return String(a.testing.edRootOf(a.testing.aw()) || '');
   });
 
 const key = (p: string) => String(p).replace(/\\/g, '/');
@@ -73,14 +73,14 @@ test.describe('중첩된 Editor 루트 — 안쪽이 이긴다 (FR-EDT-95)', () 
     await enter(page, request);
     expect(key(await activeRoot(page)), '바깥에서 시작하지 않았다').toBe(key(OUTER));
 
-    await page.evaluate((p) => (window as any).app._edOpenFile(p), j(INNER, 'inner.txt'));
+    await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(INNER, 'inner.txt'));
     await expect.poll(async () => key(await activeRoot(page)), { timeout: 15000 })
       .toBe(key(INNER));
   });
 
   test('N2: 여러 겹 아래의 파일도 안쪽 창이다', async ({ page, request }) => {
     await enter(page, request);
-    await page.evaluate((p) => (window as any).app._edOpenFile(p), j(INNER, 'deep', 'nested.txt'));
+    await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(INNER, 'deep', 'nested.txt'));
     await expect.poll(async () => key(await activeRoot(page)), { timeout: 15000 })
       .toBe(key(INNER));
   });
@@ -88,14 +88,14 @@ test.describe('중첩된 Editor 루트 — 안쪽이 이긴다 (FR-EDT-95)', () 
   test('N3: 바깥에만 있는 파일은 바깥 창이다 — 안쪽이 가로채지 않는다', async ({ page, request }) => {
     await enter(page, request);
     await switchToEditorRoot(page, INNER);
-    await page.evaluate((p) => (window as any).app._edOpenFile(p), j(OUTER, 'outer.txt'));
+    await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(OUTER, 'outer.txt'));
     await expect.poll(async () => key(await activeRoot(page)), { timeout: 15000 })
       .toBe(key(OUTER));
   });
 
   test('N4: 그 창의 탐색기가 연 파일을 펼쳐 보인다', async ({ page, request }) => {
     await enter(page, request);
-    await page.evaluate((p) => (window as any).app._edOpenFile(p), j(INNER, 'deep', 'nested.txt'));
+    await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(INNER, 'deep', 'nested.txt'));
     await expect.poll(async () => key(await activeRoot(page)), { timeout: 15000 })
       .toBe(key(INNER));
     // 조상까지 펼쳐진다 (FR-EDT-63) — 중첩이어도 그 규약은 같다.

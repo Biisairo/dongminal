@@ -12,24 +12,48 @@ Object.assign(FileTree.prototype, {
    * 한 겹만 읽는다 (FR-EDT-59). 실패는 그 폴더의 캐시에만 남으므로 트리의 나머지는
    * 그대로다 (FR-EDT-63).
    */
-  async load(dir){
+  async load(dir,opts){
     if(this._busy.has(dir)) return;
     this._busy.add(dir); this._paintAll();
-    const u=FS_LIST_API+'?root='+encodeURIComponent(this.root)+'&path='+encodeURIComponent(dir);
+    /**
+     * FS_LIST_PAGING_SRS FR-FSP-12·14: `opts.offset` 이 있으면 **이어 붙인다.**
+     *
+     *   더 보기      offset = 적재분        → 다음 쪽을 뒤에 잇는다
+     *   재조회       offset = 0 · keep=적재분 → 받아 둔 만큼을 다시 채운다
+     *
+     * 재조회가 첫 쪽만 받고 나머지를 버리면 폴링 한 번이 사용자의 "더 보기" 를
+     * 되돌린다. 그래서 쪽 수를 기억했다가 그만큼 이어 받는다.
+     */
+    const off=(opts&&opts.offset)|0;
+    const u=FS_LIST_API+'?root='+encodeURIComponent(this.root)+'&path='+encodeURIComponent(dir)
+      +(off?'&offset='+off:'');
     const r=await apiGet(u);
     const d=r.data;
     this._busy.delete(dir);
     if(!r.ok){
-      this._kids.set(dir,{entries:[],truncated:false,err:(d&&d.code)||EDITOR_TREE_ERR});
+      // 이어 받기가 실패하면 **적재분은 그대로 둔다** (FR-FSP-13) — 조회 실패를
+      // 목록 전체의 실패로 바꾸지 않는다.
+      if(off){
+        const cur=this._kids.get(dir);
+        if(cur){ cur.moreErr=true; cur.moreBusy=false; this._paintAll(); return }
+      }
+      this._kids.set(dir,{entries:[],truncated:false,total:0,err:(d&&d.code)||EDITOR_TREE_ERR});
       // 읽지 못한 겹의 스탬프는 근거가 없다. 남겨 두면 다음 폴링이 "안 바뀌었다"
       // 로 읽어 실패한 겹을 영영 다시 읽지 않는다.
       this._stamps.delete(dir);
     }else{
+      const got=Array.isArray(d.entries)?d.entries:[];
+      const prev=off?((this._kids.get(dir)||{}).entries||[]):[];
       this._kids.set(dir,{
         // 순서는 서버가 정한다 (D-20) — 여기서 다시 정렬하면 잘림의 경계가
-        // 요청마다 달라진다 (FR-EDT-61·65).
-        entries:Array.isArray(d.entries)?d.entries:[],
-        truncated:!!d.truncated, err:'',
+        // 요청마다 달라진다 (FR-EDT-61·65). 이어 붙일 때도 **다시 정렬하지
+        // 않는다** (FR-FSP-20) — 서버가 준 순서대로 뒤에 잇는다.
+        entries:off?prev.concat(got):got,
+        truncated:!!d.truncated, total:(typeof d.total==='number')?d.total:got.length,
+        // 첫 쪽의 크기는 **서버가 말해 준 것**이다 (FR-FSP-15). 상한을 클라에
+        // 다시 적으면 한쪽만 바뀐다 — 이 값은 그 사실에서 파생된다.
+        page0:off?((this._kids.get(dir)||{}).page0||got.length):got.length,
+        err:'', moreBusy:false, moreErr:false,
       });
       // NOTES_LIVE_EXPLORER_SRS FR-FSL-10: 방금 읽은 목록과 **같은 관측**의
       // 스탬프를 기억한다. 폴링에서만 채우면 그 사이의 변경이 "처음 본 겹" 으로
@@ -88,10 +112,29 @@ Object.assign(FileTree.prototype, {
     return !!(s&&s.has(this._base(p)));
   },
 
+  /**
+   * FR-FSP-14: 그 겹을 **받아 둔 만큼** 다시 읽는다.
+   *
+   * 첫 쪽만 받고 나머지를 버리면 폴링 한 번이 사용자의 "더 보기" 를 되돌린다.
+   * 한 요청의 상한은 그대로이므로 받아 둔 쪽 수만큼 이어 받는다 — 쪽이 하나인
+   * 보통의 겹에서는 지금까지와 **똑같이 한 번**이다.
+   */
+  async reload(dir){
+    const had=(this._kids.get(dir)||{}).entries||[];
+    await this.load(dir);
+    const st=this._kids.get(dir);
+    if(!st||st.err) return;
+    while(st.truncated&&st.entries.length<had.length){
+      const before=st.entries.length;
+      await this.load(dir,{offset:before});
+      if(this._kids.get(dir)!==st||st.entries.length<=before) break;
+    }
+  },
+
   // FR-EDT-64: **펼쳐져 있는 폴더만** 다시 읽는다. 펼침은 보존된다.
   refresh(){
-    this.load(this.root);
-    for(const p of this._open) this.load(p);
+    this.reload(this.root);
+    for(const p of this._open) this.reload(p);
   },
 
   /**
@@ -128,7 +171,23 @@ Object.assign(FileTree.prototype, {
   },
 
   toggle(p){
-    if(this._open.has(p)){this._open.delete(p);this._paintAll();return}
+    if(this._open.has(p)){
+      this._open.delete(p);
+      /**
+       * FR-FSP-15: 접으면 **이어 받은 쪽을 버린다.** 접는 것은 "이제 안 본다"
+       * 는 말이고, 그 상태를 무한히 들고 있을 이유가 없다.
+       *
+       * **첫 쪽은 남긴다** — 다시 펴는 것이 빈 화면이어서는 안 되고, 여기서
+       * 캐시를 통째로 지우면 "이미 읽어 둔 폴더는 다시 묻지 않는다"(FR-EDT-67)
+       * 가 모든 폴더에 대해 깨진다.
+       */
+      const st=this._kids.get(p);
+      if(st&&st.page0&&st.entries.length>st.page0){
+        st.entries=st.entries.slice(0,st.page0);
+        st.truncated=true; st.moreBusy=false; st.moreErr=false;
+      }
+      this._paintAll();return;
+    }
     this._open.add(p);
     this._paintAll();
     // 이미 읽어 둔 폴더는 다시 묻지 않는다 — 갱신의 계기는 FR-EDT-67 의 셋뿐이다.
@@ -242,7 +301,7 @@ Object.assign(FileTree.prototype, {
     // REPO_TAB_UNIFY_SRS FR-RTU-40·43: 한 번 클릭은 **미리보기**다. 트리를 훑는
     // 일이 탭 20개가 되면 목록을 보는 것 자체가 정리를 부른다 (D-RTU-9).
     // 고정하려면 더블클릭한다 (FR-RTU-42).
-    else if(kind==='file') this.app._edOpenFile(p,{preview:true});
+    else if(kind==='file') this.app.edOpenFile(p,{preview:true});
     else this._paintAll();
   },
 
@@ -271,7 +330,7 @@ Object.assign(FileTree.prototype, {
 
   /**
    * FR-EXR-51~57: 탐색기의 키보드 길. **조작을 만들지 않는다** — 이미 있는
-   * `doDelete`·`_edClipSet`·`doPasteInto`·`startRename` 에 길만 낸다.
+   * `doDelete`·`edClipSet`·`doPasteInto`·`startRename` 에 길만 낸다.
    *
    * 전역 `keydown`(`input-binding.js`, capture)은 이 키들을 삼키지 않는다
    * (EXPLORER_ROOT_KEYS_SRS §2.5 실측) — 그래서 그 규약(FR-EKB-1·4)을 뒤집지
@@ -292,7 +351,7 @@ Object.assign(FileTree.prototype, {
       if(e.altKey||e.shiftKey) return;
       if(e.code==='KeyC'){
         if(!pick) return;
-        take(); this.app._edClipSet(this.root,pick); return;
+        take(); this.app.edClipSet(this.root,pick); return;
       }
       if(e.code==='KeyV'){
         take(); this.doPasteInto(this._targetDir()); return;
@@ -323,9 +382,9 @@ Object.assign(FileTree.prototype, {
         if(!pick) return;
         take();
         // 더블클릭과 뜻이 같다 (FR-RTU-42) — 다만 키보드로는 미리보기를 지나지
-        // 않았을 수 있으므로 `_edPinTabFor` 가 아니라 여는 자리를 부른다.
+        // 않았을 수 있으므로 `edPinTabFor` 가 아니라 여는 자리를 부른다.
         if(kind==='dir') this.toggle(pick);
-        else if(kind==='file') this.app._edOpenFile(pick,{preview:false});
+        else if(kind==='file') this.app.edOpenFile(pick,{preview:false});
         return;
     }
   },
@@ -339,7 +398,7 @@ Object.assign(FileTree.prototype, {
       return;
     }
     if(row.dataset.kind!=='file') return;
-    this.app._edPinTabFor(row.dataset.path);
+    this.app.edPinTabFor(row.dataset.path);
   },
 
   // ── 겹의 변경 감지 (NOTES_LIVE_EXPLORER_SRS 묶음 L / FR-FSL-6~14) ──
@@ -404,7 +463,7 @@ Object.assign(FileTree.prototype, {
     }
     // 순차로 읽는다. 병렬로 던지면 각 응답의 paint 가 서로를 덮어 중간 상태가
     // 깜빡인다 (`revealPath` 와 같은 근거).
-    for(const dir of stale) await this.load(dir);
+    for(const dir of stale) await this.reload(dir);
   },
 
   // ── git 색 (FR-EDT-69~78) ──
@@ -705,8 +764,13 @@ Object.assign(FileTree.prototype, {
       }
       // FR-EDT-65: 잘린 폴더. 조회가 실패한 것이 아니므로 행 뒤에 사실만 덧붙인다.
       if(st.truncated){
-        out.push({t:'more',path:dir,depth,n:st.entries.length,
-          k:'m:'+dir,s:'m\u0001'+st.entries.length+'\u0001'+depth});
+        out.push({t:'more',path:dir,depth,n:st.entries.length,total:st.total||st.entries.length,
+          busy:!!st.moreBusy,err:!!st.moreErr,
+          k:'m:'+dir,
+          // 서명에 상태를 실어야 `reconcileList` 가 같은 행을 다시 그린다 —
+          // 빠뜨리면 "받는 중…" 이 화면에 서지 않는다.
+          s:'m\u0001'+st.entries.length+'\u0001'+(st.total||0)+'\u0001'+depth
+            +'\u0001'+(st.moreBusy?1:0)+(st.moreErr?1:0)});
       }
     };
     // 뿌리에는 행이 없으므로(이름은 머리가 보인다) 뿌리의 실패는 여기 실어 보인다.
@@ -752,9 +816,28 @@ Object.assign(FileTree.prototype, {
 
   _el(it){
     if(it.t==='more'){
+      /**
+       * FR-FSP-11·12: **사실만 말하고 끝내지 않는다.** 보이는 수와 전체 수를
+       * 함께 말하고, 누르면 다음 쪽을 이어 받는다.
+       *
+       * 받는 동안의 다시 누름은 무시한다 — 요청이 두 벌로 나가면 같은 구간을
+       * 두 번 받아 목록에 중복이 선다.
+       */
       const d=document.createElement('div'); d.className='ed-more';
       this._pad(d,it.depth);
-      d.textContent=EDITOR_TREE_TRUNCATED.replace('%s',it.n);
+      const tpl=it.err?EDITOR_TREE_MORE_FAIL:(it.busy?EDITOR_TREE_MORE_BUSY:EDITOR_TREE_TRUNCATED);
+      d.textContent=tpl.replace('%s',it.n).replace('%t',it.total);
+      if(it.err) d.classList.add('ed-more-err');
+      if(it.busy) d.classList.add('ed-more-busy');
+      else{
+        d.classList.add('ed-more-can');
+        d.addEventListener('click',()=>{
+          const st=this._kids.get(it.path);
+          if(!st||st.moreBusy) return;
+          st.moreBusy=true; st.moreErr=false; this._paintAll();
+          this.load(it.path,{offset:st.entries.length});
+        });
+      }
       return d;
     }
     if(it.t==='err'){

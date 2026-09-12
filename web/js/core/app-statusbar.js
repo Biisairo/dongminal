@@ -6,14 +6,14 @@
  */
 Object.assign(App.prototype, {
   // ── Status Bar ──
-  _initStatusBar(){
+  initStatusBar(){
     this._stats={};this._latency=null;
     // FR-GIT-101a: 진행 중인 원격 작업 목록. **표시용이 아니다** — 다른 브라우저
     // 창이 띄운 작업도 같은 리포의 원격 버튼을 막아야 하므로(FR-GIT-101) 이
     // 폴링이 그 목록을 나른다. 상태바 chip 은 철회됐고 폴링은 남았다.
     this._gitJobs=[];
     // FR-BGU-4: 진입점은 정적 요소다. 리스너를 여기서 한 번만 부착한다 —
-    // 지표 재생성(_updateStatusBar) 주기에 종속되면 안 된다.
+    // 지표 재생성(updateStatusBar) 주기에 종속되면 안 된다.
     const bgBtn=document.getElementById('bg-btn');
     if(bgBtn) bgBtn.addEventListener('click',e=>{e.stopPropagation();this._bgModalToggle()});
     this._initStatusBarReflow();
@@ -40,7 +40,7 @@ Object.assign(App.prototype, {
     const st=await apiGet('/api/stats');
     if(st.ok&&st.data) this._stats=st.data;
     await this._pollGitJobs();
-    this._updateStatusBar();
+    this.updateStatusBar();
   },
   /**
    * FR-RPT-3: 지표를 통째로 다시 만들지 않는다.
@@ -53,7 +53,7 @@ Object.assign(App.prototype, {
    * "전체가 같으면 그리지 않는다" 가 거의 발동하지 않는다. 그래서 지표를 **항목으로**
    * 다루고, 값이 바뀐 항목만 다시 만든다.
    */
-  _updateStatusBar(){
+  updateStatusBar(){
     const bar=document.getElementById('sb-items');if(!bar)return;
     const items=[];
     const push=(k,html)=>items.push({k,html});
@@ -82,12 +82,7 @@ Object.assign(App.prototype, {
       if(loc)push('location',`<span class="sb-item" title="dmctl 대상: ${e(loc)}">📍 ${e(loc)}</span>`);
     }
     if(statusBar.cwd){
-      const cwd=this._cwd||'~';
-      // Show ~/.../last3dirs
-      let short=cwd.replace(/^\/Users\/[^/]+/,'~');
-      const parts=short.split('/');
-      if(parts.length>4)short='~/.../'+parts.slice(-3).join('/');
-      push('cwd',`<span class="sb-item">📁 ${e(short)}</span>`);
+      push('cwd',`<span class="sb-item">📁 ${e(this._shortCwd(this.cwd||'~'))}</span>`);
     }
     if(statusBar.hostname&&this._stats.hostname){
       push('hostname',`<span class="sb-item">💻 ${e(this._stats.hostname)}</span>`);
@@ -96,15 +91,15 @@ Object.assign(App.prototype, {
       push('cpu',`<span class="sb-item">CPU ${e(this._stats.cpu)}%</span>`);
     }
     if(statusBar.memory&&this._stats.memTotal){
-      const used=this._fmtBytes(this._stats.memUsed);
-      const total=this._fmtBytes(this._stats.memTotal);
+      const used=this._fmtMemSize(this._stats.memUsed);
+      const total=this._fmtMemSize(this._stats.memTotal);
       push('memory',`<span class="sb-item">MEM ${e(used)}/${e(total)}</span>`);
     }
     if(statusBar.disk&&this._stats.diskPct){
       push('disk',`<span class="sb-item">DISK ${e(this._stats.diskPct)}%</span>`);
     }
     if(statusBar.termsize){
-      const p=this._focusedTerminal();
+      const p=this.focusedTerminal();
       if(p&&p.term){
         push('termsize',`<span class="sb-item">${e(p.term.cols)}×${e(p.term.rows)}</span>`);
       }
@@ -317,12 +312,51 @@ Object.assign(App.prototype, {
     // 목록 갱신이 실패한 회차에도 '종료 중…' 이 남지 않게 여기서 한 번 더 그린다.
     if(this._bgModalOpen) this._bgModalRender();
   },
-  _fmtBytes(b){
+  /**
+   * 상태바의 cwd 표기 (M6 `FE-21`).
+   *
+   *   이전 동작: `cwd.replace(/^\/Users\/[^/]+/,'~')` — **macOS 전용 정규식**
+   *             이었다. Linux 의 `/home/<user>` 도 Windows 의 `C:\Users\<user>`
+   *             도 걸리지 않아, 그 두 OS 에서는 절대경로가 통째로 상태바에
+   *             들어갔다. 자르는 쪽도 `split('/')` 이라 Windows 에서는 조각이
+   *             언제나 하나였고, 그래서 **길이 제한도 듣지 않았다**
+   *   새  동작: **서버가 아는 홈**(`_edHome()`)을 접두로 쓰고, 구분자는
+   *             `pathSep` 이 그 경로에게 묻는다
+   *   이유:     홈이 어디인지는 OS 가 아니라 **그 인스턴스**가 안다. 추측하는
+   *             정규식 대신 아는 값을 쓴다 — `pathBase`·`pathUnder` 가 같은
+   *             이유로 구분자를 경로에게 묻고 있었다
+   *
+   * 홈 아래가 아니면 `~` 를 붙이지 않는다. 종전에는 잘라낼 때 무조건 `~/.../`
+   * 를 앞세워, 홈 밖의 깊은 경로가 **홈 아래인 것처럼** 보였다.
+   */
+  _shortCwd(cwd){
+    const sep=pathSep(cwd);
+    const home=this._edHome?this._edHome():'';
+    let short=cwd,athome=false;
+    if(home&&pathUnder(home,cwd)){
+      athome=true;
+      const rel=pathRel(home,cwd);
+      short=rel?('~'+sep+rel.split('/').join(sep)):'~';
+    }
+    const parts=short.split(sep);
+    if(parts.length>4) short=(athome?'~':'…')+sep+'...'+sep+parts.slice(-3).join(sep);
+    return short;
+  },
+
+  /**
+   * **시스템 메모리**의 표기 (M6 `FE-22`).
+   *
+   * `file-editor` 의 `_fmtFileSize` 와 **합치지 마라.** 그쪽은 B·KB 가 뜻을
+   * 갖는 값(파일 크기)이고 이쪽은 언제나 MB 이상이다. 이름이 둘 다
+   * `_fmtBytes` 였던 것이 그 둘을 "중복" 으로 읽히게 했다 — 합치면 두 화면 중
+   * 하나의 표기가 조용히 바뀐다.
+   */
+  _fmtMemSize(b){
     if(b<1073741824)return(b/1048576).toFixed(1)+'MB';
     return(b/1073741824).toFixed(1)+'GB';
   },
   _locationLabel(){
-    const s=this._aw();if(!s||!s.layout||!this.focused)return null;
+    const s=this.aw();if(!s||!s.layout||!this.focused)return null;
     const sidx=this.ws.windows.findIndex(x=>x.id===this.ws.activeWindow);
     if(sidx<0)return null;
     const panes=[];
@@ -339,12 +373,12 @@ Object.assign(App.prototype, {
     if(tidx<0)return null;
     return `W${sidx+1}.P${pidx+1}.T${tidx+1}`;
   },
-  _updateCwd(){
-    const p=this._focusedTerminal();if(!p)return;
+  updateCwd(){
+    const p=this.focusedTerminal();if(!p)return;
     apiGet('/api/cwd',{query:{tool:p.id}}).then(r=>{
       if(!r.data) return;
-      this._cwd=r.data.cwd;
-      this._updateStatusBar();
+      this.cwd=r.data.cwd;
+      this.updateStatusBar();
     });
   },
   _renderStatusBarSettings(){
@@ -367,7 +401,7 @@ Object.assign(App.prototype, {
       const toggle=document.createElement('label');
       const inp=document.createElement('input');inp.type='checkbox';inp.checked=!!statusBar[k];
       const slider=document.createElement('span');slider.className='slider';
-      inp.addEventListener('change',()=>{statusBar[k]=inp.checked;this._saveSettings();this._updateStatusBar()});
+      inp.addEventListener('change',()=>{statusBar[k]=inp.checked;this.saveSettings();this.updateStatusBar()});
       toggle.appendChild(inp);toggle.appendChild(slider);
       row.appendChild(label);row.appendChild(toggle);
       el.appendChild(row);

@@ -14,18 +14,22 @@ async function gotoMobile(page: Page) {
 
 async function fill(page: Page, lines = 300) {
   await page.evaluate((n) => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     let s = '';
     for (let i = 1; i <= n; i++) s += `line-${i}\r\n`;
     p.term.write(s);
   }, lines);
-  await page.waitForTimeout(300);
+  // `write` 는 비동기다 — 버퍼가 자란 것을 본다.
+  await expect
+    .poll(() => page.evaluate(() =>
+      (window as any).app.testing.focusedTerminal().term.buffer.active.length), { timeout: 10000 })
+    .toBeGreaterThan(lines);
 }
 
 // 하단으로부터의 거리 — rows 가 바뀌어도 이것이 보존되어야 한다.
 async function distFromBottom(page: Page) {
   return await page.evaluate(() => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     const b = p.term.buffer.active;
     return { dist: b.baseY - b.viewportY, rows: p.term.rows };
   });
@@ -70,14 +74,17 @@ test.describe('FR-MTI-21: 리사이즈가 스크롤 위치를 유지한다', () 
   test('TC-MTI-16: 하단에서 40행 위를 보던 상태가 rows 변화 후에도 유지된다', async ({ page }) => {
     await gotoMobile(page);
     await fill(page);
-    await page.evaluate(() => { (window as any).app._focusedTerminal().term.scrollLines(-40) });
-    await page.waitForTimeout(200);
+    await page.evaluate(() => { (window as any).app.testing.focusedTerminal().term.scrollLines(-40) });
+    await expect.poll(async () => (await distFromBottom(page)).dist, { timeout: 10000 }).toBe(40);
     const before = await distFromBottom(page);
     expect(before.dist).toBe(40);
 
-    // 키보드 등장과 같은 경로: 뷰포트 축소 → window resize → fit
+    // 키보드 등장과 같은 경로: 뷰포트 축소 → window resize → fit.
+    // **`rows` 가 실제로 바뀐 것**이 그 경로가 끝난 신호다 — 아래 단정이 딛는
+    // 전제이기도 하다.
     await page.setViewportSize({ width: 412, height: 460 });
-    await page.waitForTimeout(500);
+    await expect.poll(async () => (await distFromBottom(page)).rows, { timeout: 10000 })
+      .not.toBe(before.rows);
     const after = await distFromBottom(page);
     expect(after.rows).not.toBe(before.rows);   // rows 가 실제로 바뀌었는지
     expect(after.dist).toBe(40);
@@ -86,11 +93,14 @@ test.describe('FR-MTI-21: 리사이즈가 스크롤 위치를 유지한다', () 
   test('TC-MTI-17: 하단에 있었으면 리사이즈 후에도 하단이다', async ({ page }) => {
     await gotoMobile(page);
     await fill(page);
-    await page.evaluate(() => { (window as any).app._focusedTerminal().term.scrollToBottom() });
-    await page.waitForTimeout(200);
+    await page.evaluate(() => { (window as any).app.testing.focusedTerminal().term.scrollToBottom() });
+    await expect.poll(async () => (await distFromBottom(page)).dist, { timeout: 10000 }).toBe(0);
+    const rows0 = (await distFromBottom(page)).rows;
     expect((await distFromBottom(page)).dist).toBe(0);
     await page.setViewportSize({ width: 412, height: 460 });
-    await page.waitForTimeout(500);
+    // 리사이즈가 끝난 신호는 `rows` 의 변화다 — 그 뒤에 자리를 본다.
+    await expect.poll(async () => (await distFromBottom(page)).rows, { timeout: 10000 })
+      .not.toBe(rows0);
     expect((await distFromBottom(page)).dist).toBe(0);
   });
 });
@@ -100,14 +110,16 @@ test.describe('FR-MTI-22/24: 스크롤 제스처가 키보드를 부르지 않�
     await gotoMobile(page);
     await fill(page);
     await page.evaluate(() => {
-      const p = (window as any).app._focusedTerminal();
+      const p = (window as any).app.testing.focusedTerminal();
       (p.el.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement).focus();
     });
     expect(await page.evaluate(() => document.activeElement?.className || '')).toContain('xterm-helper-textarea');
 
     const client = await page.context().newCDPSession(page);
     await touchDrag(client, await screenCenter(page), 200);
-    await page.waitForTimeout(300);
+    await expect
+      .poll(() => page.evaluate(() => document.activeElement?.className || ''), { timeout: 10000 })
+      .not.toContain('xterm-helper-textarea');
     const cls = await page.evaluate(() => document.activeElement?.className || '');
     expect(cls).not.toContain('xterm-helper-textarea');
   });
@@ -126,7 +138,9 @@ test.describe('FR-MTI-25: 터미널 탭이 키보드를 올리는 유일한 경�
     await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
     expect(await page.evaluate(() => document.activeElement?.className || '')).not.toContain('xterm-helper-textarea');
     await page.locator('#area .pn.focused').first().dispatchEvent('mousedown');
-    await page.waitForTimeout(200);
+    await expect
+      .poll(() => page.evaluate(() => document.activeElement?.className || ''), { timeout: 10000 })
+      .toContain('xterm-helper-textarea');
     expect(await page.evaluate(() => document.activeElement?.className || '')).toContain('xterm-helper-textarea');
   });
 });
@@ -134,6 +148,8 @@ test.describe('FR-MTI-25: 터미널 탭이 키보드를 올리는 유일한 경�
 test.describe('FR-MTI-25: 자동 focus 억제', () => {
   test('TC-MTI-23: 모바일 첫 로드에서 helper textarea 가 focus 되지 않는다', async ({ page }) => {
     await gotoMobile(page);
+    // **예외 (`TEST-16`): 일어나지 않는 자동 focus 를 잰다.** 기다릴 신호가
+    // 없다 — 시간을 주고 그래도 잡히지 않았는지 본다.
     await page.waitForTimeout(300);
     const cls = await page.evaluate(() => document.activeElement?.className || '');
     expect(cls).not.toContain('xterm-helper-textarea');
@@ -156,12 +172,12 @@ test.describe('FR-MKB-5: 키보드 내리기 (옛 FR-MTI-26)', () => {
     const btn = page.locator('#mobile-keybar .mkb-btn[data-act="kb"]');
     await expect(btn).toHaveCount(1);
     await page.evaluate(() => {
-      const p = (window as any).app._focusedTerminal();
+      const p = (window as any).app.testing.focusedTerminal();
       p._kbAllow();
     });
 
     await page.evaluate(() => {
-      const p = (window as any).app._focusedTerminal();
+      const p = (window as any).app.testing.focusedTerminal();
       (p.el.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement).focus();
       (window as any).__sent = [];
       const orig = p._send.bind(p);
@@ -174,6 +190,7 @@ test.describe('FR-MKB-5: 키보드 내리기 (옛 FR-MTI-26)', () => {
       };
     });
     await btn.click();
+    // **예외 (`TEST-16`)**: focus 도 전송도 **일어나지 않음**을 잰다.
     await page.waitForTimeout(200);
     const cls = await page.evaluate(() => document.activeElement?.className || '');
     expect(cls).not.toContain('xterm-helper-textarea');

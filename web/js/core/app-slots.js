@@ -33,13 +33,13 @@ Object.assign(App.prototype, {
   // ── 상태 (FR-WSL-73) ──
 
   slotCount(){ return this._slots?this._slots.windows.length:1 },
-  _slotFocused(){ return this._slots?this._slots.focused:0 },
+  slotFocused(){ return this._slots?this._slots.focused:0 },
 
   // FR-WSL-75: 칸 0 의 키는 `toolId` **그대로**다. 단일 슬롯 모드의 Map 이 지금과
   // 한 글자도 다르지 않아야 D-4 가 Map 층에서도 성립한다.
-  _slotKey(id,slot){ return slot?`${id}@${slot}`:id },
+  slotKey(id,slot){ return slot?`${id}@${slot}`:id },
 
-  // 복합키에서 슬롯 번호와 원래 id 를 되돌린다. `_slotKey` 의 역이며 **자리는
+  // 복합키에서 슬롯 번호와 원래 id 를 되돌린다. `slotKey` 의 역이며 **자리는
   // 여기 하나다** — 렌더러의 편집기 회수가 자기 손으로 `@1` 만 잘라 내다가 칸
   // 2·3 의 편집기를 매 render 마다 파괴했다 (FR-SVS-60).
   _slotOf(k){
@@ -48,7 +48,7 @@ Object.assign(App.prototype, {
     const i=parseInt(k.slice(at+1),10);
     return Number.isInteger(i)?i:0;
   },
-  _slotBase(k){
+  slotBase(k){
     const at=k.lastIndexOf('@');
     if(at<0) return k;
     return Number.isInteger(parseInt(k.slice(at+1),10))?k.slice(0,at):k;
@@ -78,7 +78,7 @@ Object.assign(App.prototype, {
   paneTab(pn,slot){
     if(!pn) return null;
     const tabs=pn.tabs||[];
-    const i=(slot==null)?this._slotFocused():slot;
+    const i=(slot==null)?this.slotFocused():slot;
     const m=this._slots&&Array.isArray(this._slots.tabs)?this._slots.tabs[i]:null;
     const tid=m&&m[pn.id];
     if(tid&&tabs.some(t=>t.id===tid)) return tid;
@@ -96,10 +96,10 @@ Object.assign(App.prototype, {
    */
   paneTabSet(pn,tid,slot){
     if(!pn||!tid) return;
-    const i=(slot==null)?this._slotFocused():slot;
+    const i=(slot==null)?this.slotFocused():slot;
     const m=this._slotTabMap(i);
     if(m){ m[pn.id]=tid; this._slotsPersist() }
-    if(!this._slots||i===this._slotFocused()) pn.activeTab=tid;
+    if(!this._slots||i===this.slotFocused()) pn.activeTab=tid;
   },
 
   // FR-SVS-3: 칸이 창을 받으면 그 창의 pane 마다 **그 순간의 활성 탭**으로
@@ -107,10 +107,10 @@ Object.assign(App.prototype, {
   // 움직인다 — 오버라이드가 없는 pane 은 `pn.activeTab` 을 따르기 때문이다.
   _slotTabsSeed(i){
     if(!this._slots) return;
-    const s=this._slotWindow(i);
+    const s=this.slotWindow(i);
     if(!s||!s.layout) return;
     const m=this._slotTabMap(i);
-    for(const pn of this._flattenPanes(s.layout)){
+    for(const pn of this.flattenPanes(s.layout)){
       if(!m[pn.id]&&pn.activeTab) m[pn.id]=pn.activeTab;
     }
   },
@@ -120,12 +120,12 @@ Object.assign(App.prototype, {
   // 포커스 칸을 따라오는** 것이다.
   _slotTabsToWs(){
     if(!this._slots) return false;
-    const s=this._slotWindow(this._slotFocused());
+    const s=this.slotWindow(this.slotFocused());
     if(!s||!s.layout) return false;
-    const m=this._slots.tabs&&this._slots.tabs[this._slotFocused()];
+    const m=this._slots.tabs&&this._slots.tabs[this.slotFocused()];
     if(!m) return false;
     let changed=false;
-    for(const pn of this._flattenPanes(s.layout)){
+    for(const pn of this.flattenPanes(s.layout)){
       const tid=m[pn.id];
       if(tid&&pn.activeTab!==tid&&(pn.tabs||[]).some(t=>t.id===tid)){pn.activeTab=tid;changed=true}
     }
@@ -133,8 +133,8 @@ Object.assign(App.prototype, {
   },
 
   // 칸 idx 에 있는 창. 단일 슬롯 모드면 활성 창이다.
-  _slotWindow(i){
-    if(!this._slots) return i?null:this._aw();
+  slotWindow(i){
+    if(!this._slots) return i?null:this.aw();
     const id=this._slots.windows[i];
     return id?(this.ws.windows.find(s=>s.id===id)||null):null;
   },
@@ -151,7 +151,7 @@ Object.assign(App.prototype, {
    *
    * 단일 슬롯 모드의 답은 종전과 한 글자도 다르지 않다 (FR-SVS-38).
    */
-  _windowVisible(id){
+  windowVisible(id){
     if(!id) return false;
     if(!this._slots) return this.ws.activeWindow===id;
     return this._slots.windows.includes(id);
@@ -169,7 +169,7 @@ Object.assign(App.prototype, {
     return this._slotIds[i];
   },
 
-  // 이 브라우저 창이 쓰는 신원 전부. `_resizeCheck`·`_applyFocusOverlay` 가
+  // 이 브라우저 창이 쓰는 신원 전부. `resizeCheck`·`applyFocusOverlay` 가
   // "내 것인가" 를 판정할 때 딛는다 (FR-WSL-13).
   _slotIdentities(){
     const n=this.slotCount();
@@ -304,7 +304,7 @@ Object.assign(App.prototype, {
       const km=this._slots.tabs&&this._slots.tabs[ki];
       const kw=keep?this.ws.windows.find(x=>x.id===keep):null;
       if(km&&kw&&kw.layout){
-        for(const pn of this._flattenPanes(kw.layout)){
+        for(const pn of this.flattenPanes(kw.layout)){
           const tid=km[pn.id];
           if(tid&&(pn.tabs||[]).some(t=>t.id===tid)) pn.activeTab=tid;
         }
@@ -346,7 +346,7 @@ Object.assign(App.prototype, {
    *
    * 포커스 이동은 **구조를 바꾸지 않는다** — 바뀌는 것은 강조 클래스와 소유권
    * 흐림뿐이다. 그래서 강조만 즉시 칠하고 전체 그리기는 이 클릭이 끝난 뒤로
-   * 미룬다. 미룬 것을 실제로 하는 자리는 `_slotRenderFlush` 이고, 클릭이 자기
+   * 미룬다. 미룬 것을 실제로 하는 자리는 `slotRenderFlush` 이고, 클릭이 자기
    * 일로 render 를 돌면 그것이 대신한다 (`App.render` 가 플래그를 지운다).
    */
   slotFocusTo(i,opts){
@@ -379,14 +379,14 @@ Object.assign(App.prototype, {
    */
   slotNav(delta){
     const n=this.slotCount(); if(n<=1) return;
-    this.slotFocusTo((this._slotFocused()+delta+n)%n);
+    this.slotFocusTo((this.slotFocused()+delta+n)%n);
   },
 
   // 강조만 칠한다. render 를 대신하는 것이 아니라 그 **앞자리**를 메운다 —
   // 사용자가 누른 칸이 즉시 켜져 보여야 하기 때문이다.
   _slotPaintFocus(){
     const n=this.slotCount();
-    const f=this._slotFocused();
+    const f=this.slotFocused();
     for(let k=0;k<n;k++){
       const el=document.querySelector(`#area .slot[data-slot="${k}"]`);
       if(el) el.classList.toggle('slot-focused',k===f);
@@ -394,7 +394,7 @@ Object.assign(App.prototype, {
   },
 
   // 미뤄 둔 그리기를 지금 한다. 클릭이 **끝난 뒤** 부르는 자리다.
-  _slotRenderFlush(){
+  slotRenderFlush(){
     if(!this._slotRenderPending) return;
     this.render();
   },
@@ -426,7 +426,7 @@ Object.assign(App.prototype, {
       // FR-SCH-13: `defer` 는 기다리는 것이 아니라 **순서를 미루는 것**이다 —
       // 이 자리가 원하는 것이 정확히 그것이다. click 은 mouseup 의 **뒤에**
       // 서므로, 마감을 가진 지연이 아니라 다음 태스크여야 한다.
-      this.timers.defer(()=>this._slotRenderFlush(),{owner:'slots',label:'render-flush'});
+      this.timers.defer(()=>this.slotRenderFlush(),{owner:'slots',label:'render-flush'});
     },{once:true});
   },
 
@@ -434,17 +434,17 @@ Object.assign(App.prototype, {
   // 창이 기억하는 자리로 맞춘다 — 창을 오갈 때 `switchWindow` 가 하는 일과 같다
   // (FR-WSL-43).
   _slotSyncActive(){
-    const s=this._slotWindow(this._slotFocused());
+    const s=this.slotWindow(this.slotFocused());
     if(!s) return;
     this.ws.activeWindow=s.id;
     try{sessionStorage.setItem('activeWindow',s.id)}catch{}
     // FR-SVS-14: 워크스페이스의 활성 탭은 **포커스 칸이 보는 것**이다. 포커스가
     // 칸을 옮기면 그것도 따라온다.
-    if(this._slotTabsToWs()) this._save();
+    if(this._slotTabsToWs()) this.save();
     if(s.layout){
       const saved=s.focusedPane;
       const pn=(saved&&findPane(s.layout,saved))?{id:saved}:firstPane(s.layout);
-      if(pn) this._setFocus(pn.id,s);
+      if(pn) this.setFocusState(pn.id,s);
     }
   },
 
@@ -545,9 +545,9 @@ Object.assign(App.prototype, {
     const n=this.slotCount();
     for(let i=1;i<SLOT_MAX;i++){
       const tools=new Set(), tabs=new Set();
-      const s=(i<n)?this._slotWindow(i):null;
+      const s=(i<n)?this.slotWindow(i):null;
       if(s&&s.layout){
-        for(const pn of this._flattenPanes(s.layout)){
+        for(const pn of this.flattenPanes(s.layout)){
           for(const t of (pn.tabs||[])){
             if(t.toolId) tools.add(t.toolId);
             tabs.add(t.id);
@@ -558,13 +558,13 @@ Object.assign(App.prototype, {
     }
     for(const [k,p] of [...this.tools]){
       const i=this._slotOf(k); if(!i) continue;
-      if(keepTools.get(i)?.has(this._slotBase(k))) continue;
+      if(keepTools.get(i)?.has(this.slotBase(k))) continue;
       try{p.destroy()}catch{}
       this.tools.delete(k);
     }
     for(const [k,v] of [...this.fileEditors]){
       const i=this._slotOf(k); if(!i) continue;
-      if(keepTabs.get(i)?.has(this._slotBase(k))) continue;
+      if(keepTabs.get(i)?.has(this.slotBase(k))) continue;
       try{v.destroy()}catch{}
       this.fileEditors.delete(k);
     }
@@ -575,7 +575,7 @@ Object.assign(App.prototype, {
     const rp=this._runs;
     if(rp&&rp._runViews) for(const [k,v] of [...rp._runViews]){
       const i=this._slotOf(k); if(!i) continue;
-      if(keepTabs.get(i)?.has(this._slotBase(k))) continue;
+      if(keepTabs.get(i)?.has(this.slotBase(k))) continue;
       rp._runDisposeView(v);
       rp._runViews.delete(k);
     }
@@ -619,7 +619,7 @@ Object.assign(App.prototype, {
 
   // 손잡이는 **이웃한 두 칸의 배분**만 바꾼다 — 나머지 칸은 그대로다. 창 안
   // 분할의 손잡이(`_handle`)와 같은 규약이다.
-  _slotHandleBind(h,i){
+  slotHandleBind(h,i){
     if(!h) return;
     /**
      * UI_KIT_SRS FR-HSZ-1·10: 여섯 핸들이 `UIKit.drag` 한 골격을 쓴다.
@@ -648,13 +648,13 @@ Object.assign(App.prototype, {
         const aPx=Math.min(ctx.total-SLOT_MIN_PX,Math.max(SLOT_MIN_PX,ctx.aPx0+delta));
         this._slots.sizes[i]=ctx.sum*(aPx/ctx.total);
         this._slots.sizes[i+1]=ctx.sum-this._slots.sizes[i];
-        this._slotApplySizes();
+        this.slotApplySizes();
       },
       sides:(ctx)=>{
         const {a,b,vert,aPx0,total}=ctx;
         const ap=vert?a.getBoundingClientRect().height:a.getBoundingClientRect().width;
         const bp=Math.max(0,total-ap), d=ap-aPx0;
-        const cell=(el,delta)=>UIKit.grid(this._termIn(el),vert?'y':'x',vert?0:delta,vert?delta:0);
+        const cell=(el,delta)=>UIKit.grid(this.termIn(el),vert?'y':'x',vert?0:delta,vert?delta:0);
         return [
           {px:ap,cell:cell(a,d),pct:total?ap/total*100:null},
           {px:bp,cell:cell(b,-d),pct:total?bp/total*100:null},
@@ -670,7 +670,7 @@ Object.assign(App.prototype, {
 
   // 칸은 flex 아이템이다 (D-8) — 배분값만 준다. 방향은 `#area[data-slotdir]` 의
   // `flex-direction` 이 정하므로 여기서 축을 따질 일이 없다.
-  _slotApplySizes(){
+  slotApplySizes(){
     if(!this._slots) return;
     for(let i=0;i<this._slots.windows.length;i++){
       const el=document.querySelector(`#area .slot[data-slot="${i}"]`);

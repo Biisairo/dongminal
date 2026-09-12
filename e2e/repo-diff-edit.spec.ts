@@ -56,7 +56,7 @@ async function enter(page: Page, request: APIRequestContext, root: string) {
   await page.goto('/');
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
   await page.waitForFunction(
-    () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
+    () => !!(window as any).app?.testing.editors && (window as any).app.testing.edWindows().length > 0,
     undefined, { timeout: 15000 });
   await switchToEditorRoot(page, root);
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 10000 });
@@ -141,7 +141,8 @@ test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
       const v = (window as any).app.gitPanel._diffView;
       v._mod.setValue('편집 중인 내용\n');
     });
-    // 관측 주기(1초)를 여러 번 넘긴다 — 덮였다면 이 사이에 사라진다.
+    // **예외 (`TEST-16`)**: 관측 주기(1초)를 여러 번 넘긴다 — 덮였다면 이 사이에
+    // 사라지므로, 그 창이 곧 검사다.
     await page.waitForTimeout(3000);
     const kept = await page.evaluate(() =>
       (window as any).app.gitPanel._diffView._mod.getValue());

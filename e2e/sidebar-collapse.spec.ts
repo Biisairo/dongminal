@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit as fxWaitForInit } from './fixtures';
+import { test, expect, waitForInit as fxWaitForInit, nextFrames } from './fixtures';
 
 // SIDEBAR_COLLAPSE_SRS §5 — 검증 V-SBC-*.
 //
@@ -17,7 +17,9 @@ const RAIL_W = 40;
 // 키로 토글한다. 손잡이 드래그와 **같은 함수**를 부른다 (FR-SBC-7a).
 async function toggleKey(page: Page) {
   await page.keyboard.press('Control+Shift+E');
-  await page.waitForTimeout(60);
+  // 접힘은 클래스 하나로 드러난다 — 그림이 한 바퀴 돌면 그 클래스가 선다.
+  // (토글이므로 "어느 쪽" 인지는 호출부가 안다 — 여기서는 반영만 기다린다.)
+  await nextFrames(page);
 }
 
 // 경계 손잡이를 끌어 접거나 편다. `to` 는 놓을 지점의 화면 x 좌표다.
@@ -28,7 +30,7 @@ async function dragHandle(page: Page, to: number) {
   await page.mouse.down();
   await page.mouse.move(to, box.y + box.height / 2, { steps: 8 });
   await page.mouse.up();
-  await page.waitForTimeout(80);
+  await nextFrames(page);
 }
 const collapsed = (page: Page) =>
   page.evaluate(() => document.documentElement.classList.contains('sb-collapsed'));
@@ -177,19 +179,19 @@ test.describe('묶음 SBC — 레일에서의 탭 전환 (FR-SBC-17·18)', () =>
 
     await page.locator('.sb-tab[data-panel="repo"]').click();
 
-    expect(await page.evaluate(() => (window as any).app._sbTab)).toBe('repo');
+    expect(await page.evaluate(() => (window as any).app.testing.sbTab)).toBe('repo');
     expect(await collapsed(page)).toBe(true);
   });
 
   test('SBC9 (V-SBC-6): 이미 활성인 탭의 아이콘은 아무것도 바꾸지 않는다', async ({ page }) => {
     await waitForInit(page);
-    const active = await page.evaluate(() => (window as any).app._sbTab);
+    const active = await page.evaluate(() => (window as any).app.testing.sbTab);
     await toggleKey(page);
     expect(await collapsed(page)).toBe(true);
 
     await page.locator(`.sb-tab[data-panel="${active}"]`).click();
 
-    expect(await page.evaluate(() => (window as any).app._sbTab)).toBe(active);
+    expect(await page.evaluate(() => (window as any).app.testing.sbTab)).toBe(active);
     expect(await collapsed(page)).toBe(true);
   });
 });
@@ -227,7 +229,7 @@ test.describe('묶음 SBC — 부수 효과 (FR-SBC-19·20)', () => {
         const orig = p.doFit.bind(p);
         p.doFit = () => { (window as any).__fits++; return orig() };
       }
-      app._setSidebarCollapsed(false);
+      app.testing.setSidebarCollapsed(false);
     });
     expect(await page.evaluate(() => (window as any).__fits)).toBe(0);
   });
@@ -244,7 +246,7 @@ test.describe('묶음 SBC — 부수 효과 (FR-SBC-19·20)', () => {
 
   test('SBC13 (V-SBC-10): 모바일에서는 접힘 규칙이 걸리지 않는다', async ({ page }) => {
     await waitForInit(page, { mobile: true });
-    await page.evaluate(() => (window as any).app._setSidebarCollapsed(true));
+    await page.evaluate(() => (window as any).app.testing.setSidebarCollapsed(true));
     // 클래스는 붙되 드로어의 폭(전체 폭)은 그대로다 — 규칙이 `body:not(.mobile)`
     // 로 한정돼 있기 때문이다.
     expect(await collapsed(page)).toBe(true);
@@ -286,7 +288,7 @@ test.describe('묶음 RAL — 레일의 목록 (FR-RAL-1~10)', () => {
       // 두 줄을 넘겨 `…` 가 설 만큼 긴 이름을 하나 둔다.
       await page.evaluate(() => {
         const a = (window as any).app;
-        a._plainWindows()[0].name = '아주아주긴이름을가진창하나';
+        a.testing.plainWindows()[0].name = '아주아주긴이름을가진창하나';
         a.render();
       });
       await page.locator('#add-window').click();
@@ -322,7 +324,7 @@ test.describe('묶음 RAL — 레일의 목록 (FR-RAL-1~10)', () => {
   test('RAL2 (FR-RAL-3): 전체 이름은 title 로 닿는다', async ({ page }) => {
     await waitForInit(page);
     await toggleKey(page);
-    const name = await page.evaluate(() => (window as any).app._plainWindows()[0].name);
+    const name = await page.evaluate(() => (window as any).app.testing.plainWindows()[0].name);
     const row = page.locator('#windows .si').first();
     await expect(row).toHaveAttribute('title', name);
     // 화면의 글자도 **전체 이름**이다 — 잘리는 일은 CSS 가 한다.
@@ -339,7 +341,7 @@ test.describe('묶음 RAL — 레일의 목록 (FR-RAL-1~10)', () => {
     await page.locator('#add-window').click();
     await expect(page.locator('#windows .si')).toHaveCount(2, { timeout: 10000 });
     const [first, second] = await page.evaluate(() =>
-      (window as any).app._plainWindows().map((s: any) => s.id).slice(0, 2));
+      (window as any).app.testing.plainWindows().map((s: any) => s.id).slice(0, 2));
     await page.evaluate((id) => (window as any).app.switchWindow(id), first);
 
     await toggleKey(page);
@@ -355,7 +357,7 @@ test.describe('묶음 RAL — 레일의 목록 (FR-RAL-1~10)', () => {
     await toggleKey(page);
     const sid = await page.evaluate(() => {
       const app = (window as any).app;
-      const s = app._plainWindows()[0];
+      const s = app.testing.plainWindows()[0];
       const ids: string[] = [];
       const walk = (n: any) => {
         if (!n) return;
@@ -363,8 +365,8 @@ test.describe('묶음 RAL — 레일의 목록 (FR-RAL-1~10)', () => {
         (n.children || []).forEach(walk);
       };
       walk(s.layout);
-      app._attn.set(ids[0], { reason: 'test' });
-      app._attnRefresh();
+      app.testing.attn.set(ids[0], { reason: 'test' });
+      app.testing.attnRefresh();
       return s.id;
     });
     await expect(page.locator(`#windows .si[data-sid="${sid}"]`)).toHaveClass(/attn/);
@@ -378,12 +380,12 @@ test.describe('묶음 RAL — 레일의 목록 (FR-RAL-1~10)', () => {
     await waitForInit(page);
     const dragStart = () => page.evaluate(() => {
       const app = (window as any).app;
-      app._drag = null;
+      app.testing.drag = null;
       const el = document.querySelector('#windows .si') as HTMLElement;
       const e = new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: new DataTransfer() });
       el.dispatchEvent(e);
-      const started = !!app._drag;
-      app._drag = null;
+      const started = !!app.testing.drag;
+      app.testing.drag = null;
       return { started, prevented: e.defaultPrevented };
     });
 
@@ -427,8 +429,8 @@ test.describe('묶음 RAL — 레일의 목록 (FR-RAL-1~10)', () => {
   // 클래스가 붙어도 목록은 펼침 그대로다 (SBC13 이 폭에 대해 재는 것과 같은 경계).
   test('RAL8 (FR-RAL-10): 모바일에서는 레일 규약이 걸리지 않는다', async ({ page }) => {
     await waitForInit(page, { mobile: true });
-    await page.evaluate(() => (window as any).app._setSidebarCollapsed(true));
-    expect(await page.evaluate(() => (window as any).app._sbRail())).toBe(false);
+    await page.evaluate(() => (window as any).app.testing.setSidebarCollapsed(true));
+    expect(await page.evaluate(() => (window as any).app.testing.sbRail())).toBe(false);
     const d = await page.evaluate(() => {
       const row = document.querySelector('#windows .si') as HTMLElement;
       const cs = getComputedStyle(row.querySelector('.sbl-name')!);

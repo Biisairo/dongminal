@@ -82,7 +82,7 @@ Object.assign(GitPanel.prototype, {
       return;
     }
     this._note=null;
-    this.app._gitOpenFileHead(d.openPath,t.path);
+    this.app.gitOpenFileHead(d.openPath,t.path);
   },
 
   // 워킹 트리에 남은 변경의 개수. History 의 미커밋 변경 행(FR-GIT-127)과
@@ -214,7 +214,7 @@ Object.assign(GitPanel.prototype, {
     // FR-GIT-236: Open File 은 쓰기가 아니므로 진행 중인 쓰기에 막히지 않는다.
     // 우클릭 메뉴도 이 자리를 지난다 — 두 벌로 두면 한쪽만 고쳐진다.
     if(act==='openFile'){
-      for(const i of items) this.app._gitOpenFile(this.absPath(i));
+      for(const i of items) this.app.gitOpenFile(this.absPath(i));
       return;
     }
     if(this._writing) return;

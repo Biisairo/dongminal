@@ -1,6 +1,8 @@
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit } from './fixtures';
+import {
+  test, expect, waitForInit, gotoSettled,
+} from './fixtures';
 
 // 묶음 V (ORCHESTRATION_V2_SRS §3.5) — Run 시각화의 **브라우저 쪽**.
 //
@@ -388,7 +390,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
 
     // Run 이 사라졌다 — /graph 가 404 를 낸다.
     await mockRuns(page, [], {});
-    await page.evaluate((id) => (window as any).app._onRunChanged({ runId: id }), RUN_A);
+    await page.evaluate((id) => (window as any).app.testing.onRunChanged({ runId: id }), RUN_A);
 
     await expect(page.locator('#area .run-view .run-miss.vis')).toHaveText(RUN_GONE_TEXT);
     // FR-RVZ-9: 탭을 자동으로 닫지 않는다 — 사용자가 만든 것은 사용자가 닫는다.
@@ -416,7 +418,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
     // report 의 text 는 결과 문자열이다 (`succeeded|failed`).
     next.timeline = [...a.timeline, { at: NOW(), kind: 'report', memberId: 'm1', text: 'succeeded' }];
     await mockRuns(page, listOf(next), { [RUN_A]: next });
-    await page.evaluate((id) => (window as any).app._onRunChanged({ runId: id }), RUN_A);
+    await page.evaluate((id) => (window as any).app.testing.onRunChanged({ runId: id }), RUN_A);
 
     await expect(page.locator('#area .run-view.vis .run-tl-row')).toHaveCount(3);
     // NFR-RVZ-2: 같은 요소가 그대로 서 있고 hover 도 그대로다.
@@ -424,3 +426,313 @@ test.describe('Run 시각화 (묶음 V)', () => {
     expect(await node.evaluate((el) => el.matches(':hover'))).toBe(true);
   });
 });
+
+/**
+ * `12-func-ui.md FUI-04` — **Run 을 기록을 잃지 않고 멈춘다.**
+ *
+ * 접수한 결함: *"Run 을 UI 에서 중단·정리할 길이 없다 — 유일한 출구가 기록까지
+ * 지우는 삭제. 서버는 `close`·`detach` 를 이미 노출한다."*
+ */
+test.describe('FUI-04 — Run 의 출구', () => {
+  // 종단을 가로채 **무엇이 나갔는지**를 잰다. 실제 Run 을 띄우면 멤버 상태가
+  // 시간에 따라 흔들려 단정이 결정론적이지 않다 (이 파일의 규약).
+  function captureRunPost(page: Page, path: string) {
+    const seen: any[] = [];
+    page.route('**' + path, (route) => {
+      seen.push(JSON.parse(route.request().postData() || '{}'));
+      return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+    });
+    return seen;
+  }
+
+  test('V-FUI-4a: 열린 Run 에만 종료가 서고, 닫힌 Run 에는 서지 않는다', async ({ page }) => {
+    const a = graphA(), b = graphB();   // a=open, b=closed
+    await mockRuns(page, listOf(a, b), { [RUN_A]: a, [RUN_B]: b });
+    await waitForInit(page);
+    await openModal(page);
+
+    await expect(runRow(page, RUN_A).locator('.runs-close')).toHaveCount(1);
+    // 끝난 것을 또 끝내는 버튼은 뜻이 없다.
+    await expect(runRow(page, RUN_B).locator('.runs-close')).toHaveCount(0);
+    // 삭제는 둘 다에 남는다 — 종료가 삭제를 대신하지 않는다.
+    await expect(runRow(page, RUN_A).locator('.runs-del')).toHaveCount(1);
+    await expect(runRow(page, RUN_B).locator('.runs-del')).toHaveCount(1);
+  });
+
+  test('V-FUI-4b: 종료는 확인을 거치고 그 문구가 삭제와 다르다', async ({ page }) => {
+    const a = graphA();
+    await mockRuns(page, listOf(a), { [RUN_A]: a });
+    const posts = captureRunPost(page, '/api/runs/close');
+    await waitForInit(page);
+    await openModal(page);
+
+    await runRow(page, RUN_A).locator('.runs-close').click();
+    const confirm = runRow(page, RUN_A).locator('.runs-confirm');
+    await expect(confirm).toHaveAttribute('data-kind', 'close');
+    // **기록이 남는다** 는 것이 두 출구의 차이 전부다 — 문구가 그것을 말한다.
+    await expect(confirm.locator('.runs-q')).toContainText('기록은 남는다');
+    expect(posts).toHaveLength(0);   // 확인 전에는 아무것도 나가지 않는다
+
+    await confirm.locator('.runs-yes').click();
+    await expect.poll(() => posts.length, { timeout: 10000 }).toBe(1);
+    expect(posts[0].runId).toBe(RUN_A);
+    // `force` 가 없으면 미보고 멤버에서 서버가 거부하고, 사용자는 그 목록을
+    // 화면에서 해소할 길이 없다.
+    expect(posts[0].force).toBe(true);
+  });
+
+  test('V-FUI-4c: 삭제의 확인은 그대로 남는다 — 두 출구가 섞이지 않는다', async ({ page }) => {
+    const a = graphA();
+    await mockRuns(page, listOf(a), { [RUN_A]: a });
+    await waitForInit(page);
+    await openModal(page);
+
+    await runRow(page, RUN_A).locator('.runs-del').click();
+    const confirm = runRow(page, RUN_A).locator('.runs-confirm');
+    await expect(confirm).toHaveAttribute('data-kind', 'delete');
+    await expect(confirm.locator('.runs-q')).toContainText('기록도 함께 사라진다');
+  });
+
+  test('V-FUI-4d: 붙어 있는 멤버 카드에만 분리가 서고, 누르면 detach 가 나간다',
+    async ({ page }) => {
+      const a = graphA();
+      await mockRuns(page, listOf(a), { [RUN_A]: a });
+      const posts = captureRunPost(page, '/api/runs/detach');
+      await waitForInit(page);
+      await openModal(page);
+      await runRow(page, RUN_A).click();
+      await expect(page.locator('#area .run-view.vis')).toBeVisible();
+
+      const cards = page.locator('#area .run-view.vis .run-card');
+      await expect(cards.first()).toBeVisible();
+      // `tabId` 없는 멤버(헤드리스)는 서버가 `member_not_attached` 로 거절한다 —
+      // 누를 수 있게 보이면 그 버튼은 거짓말이다.
+      const attached = page.locator('#area .run-view.vis .run-card:has(.run-card-detach)');
+      const n = await attached.count();
+      expect(n).toBeGreaterThan(0);
+      expect(n).toBeLessThan(await cards.count());
+
+      const id = await attached.first().getAttribute('data-member');
+      await attached.first().locator('.run-card-detach').click();
+      await expect.poll(() => posts.length, { timeout: 10000 }).toBe(1);
+      expect(posts[0].memberId).toBe(id);
+    });
+
+  test('V-FUI-4e: 분리 클릭이 그 도구로 끌고 가지 않는다', async ({ page }) => {
+    const a = graphA();
+    await mockRuns(page, listOf(a), { [RUN_A]: a });
+    captureRunPost(page, '/api/runs/detach');
+    await waitForInit(page);
+    await openModal(page);
+    await runRow(page, RUN_A).click();
+    await expect(page.locator('#area .run-view.vis')).toBeVisible();
+    const before = await tabCount(page);
+
+    await page.locator('#area .run-view.vis .run-card .run-card-detach').first().click();
+    // **예외 (`TEST-16`)**: 탭이 **늘지 않음**을 잰다.
+    await page.waitForTimeout(500);
+    // 카드 클릭은 "그 도구로 간다" 다. 분리하려는 손이 거기로 끌려가면 무엇이
+    // 일어났는지 읽히지 않는다.
+    expect(await tabCount(page)).toBe(before);
+  });
+});
+
+/**
+ * 묶음 RUN — **슬롯을 인지하는 점프와 지목** (FR-RUN-1·2·6a·6b).
+ *
+ * Run 카드 클릭이 지나는 길이다. 종전에는 `ws.activeWindow` 만 바꿔서, 슬롯
+ * 모드에서는 아무 일도 일어나지 않았다.
+ *
+ * `TEST-7` 로 `ux-batch6` 에서 옮겨 왔다 — 납품 묶음이 아니라 **이 기능**이
+ * 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
+ */
+
+// ── 묶음 N — 슬롯을 인지하는 점프 ────────────────────
+
+// V-RUN-1 (FR-RUN-1): 점프하면 **포커스 칸이 그 창을 받는다.**
+//
+// 종전에는 `ws.activeWindow` 만 바꿨다. 슬롯 모드에서 무엇이 보이는가는
+// `_slots.windows` 가 정하므로 아무 일도 일어나지 않았다 — Run 카드 클릭이
+// 그 길을 지난다 (접수 ⑧).
+//
+// **포커스 칸을 옮기지 않는 것**이 요점이다 — 사용자가 서 있는 칸에 떠야 한다
+// (FR-SVS-12). `switchWindow` 와 같은 한 줄을 지난다.
+test('V-RUN-1 (FR-RUN-1): 점프하면 포커스 칸이 그 창을 받는다',
+  async ({ page }) => {
+    await waitForInit(page);
+    const info = await page.evaluate(async () => {
+      const a = (window as any).app;
+      await a.addWindow();            // 둘째 창
+      const wins = a.testing.plainWindows();
+      const w0 = wins[0], w1 = wins[wins.length - 1];
+      a.slotAdd();
+      a.slotOpen(0, w0.id);
+      a.slotOpen(1, w1.id);
+      a.slotFocusTo(0);
+      a.render();
+      return {
+        focusedBefore: a.testing.slotFocused(),
+        slot0Before: a.testing.slots.windows[0],
+        target: w1.layout.tabs[0].toolId, w0: w0.id, w1: w1.id,
+      };
+    });
+    expect(info.focusedBefore).toBe(0);
+    expect(info.slot0Before).toBe(info.w0);
+    expect(info.target).toBeTruthy();
+
+    const after = await page.evaluate((toolId: string) => {
+      const a = (window as any).app;
+      a.testing.jumpToTool(toolId);
+      return { focused: a.testing.slotFocused(), slot0: a.testing.slots.windows[0], active: a.ws.activeWindow };
+    }, info.target);
+    expect(after.focused, '포커스 칸이 옮겨졌다 — FR-SVS-12 가 깨진다').toBe(0);
+    expect(after.slot0, '포커스 칸이 그 창을 받지 않았다 — 화면은 그대로다').toBe(info.w1);
+    expect(after.active).toBe(info.w1);
+  });
+
+// 단일 슬롯의 동작은 종전과 같다 (FR-RUN-2).
+test('V-RUN-1 (FR-RUN-2): 단일 슬롯의 점프는 종전과 같다', async ({ page }) => {
+  await waitForInit(page);
+  const got = await page.evaluate(async () => {
+    const a = (window as any).app;
+    await a.addWindow();
+    const wins = a.testing.plainWindows();
+    const w1 = wins[wins.length - 1];
+    a.switchWindow(wins[0].id);
+    const toolId = w1.layout.tabs[0].toolId;
+    a.testing.jumpToTool(toolId);
+    return { active: a.ws.activeWindow, want: w1.id, slots: !!a.testing.slots };
+  });
+  expect(got.slots, '단일 슬롯 전제가 깨졌다').toBe(false);
+  expect(got.active).toBe(got.want);
+});
+
+// V-GLV-3 (FR-GLV-6): 거부당한 대상은 폴링이 다시 받지 않는다.
+
+// ── 묶음 N — closeTab 의 지목 ────────────────────────
+
+// V-RUN-4 (FR-RUN-6a): 서버가 방송하는 `closeTab` 은 **탭 uuid** 로 지목한다.
+// 좌표는 자리라 앞의 탭이 닫히면 뒤의 것이 밀린다.
+test('V-RUN-4 (FR-RUN-6a): uuid 로 지목한 탭이 닫힌다', async ({ page }) => {
+  await waitForInit(page);
+  const got = await page.evaluate(async () => {
+    const a = (window as any).app;
+    await a.addTab();
+    const win = a.testing.aw();
+    const tabs = win.layout.tabs;
+    const victim = tabs[0].id;
+    a.testing.execRemote('closeTab', { location: victim, force: true });
+    await new Promise((r) => setTimeout(r, 600));
+    const left = (a.testing.aw().layout.tabs || []).map((t: any) => t.id);
+    return { victim, left };
+  });
+  expect(got.left, 'uuid 로 지목한 탭이 닫히지 않았다').not.toContain(got.victim);
+});
+
+// V-RUN-4 (FR-RUN-6b): 없는 자리를 지목하면 **아무것도 닫지 않는다.**
+//
+// 종전에는 포커스 탭이 닫혔다 — 이미 닫힌 탭을 한 번 더 닫으라는 요청이 사용자의
+// 터미널을 없앴다.
+test('V-RUN-4 (FR-RUN-6b): 없는 자리를 지목한 closeTab 은 아무것도 닫지 않는다',
+  async ({ page }) => {
+    await waitForInit(page);
+    const got = await page.evaluate(async () => {
+      const a = (window as any).app;
+      const before = (a.testing.aw().layout.tabs || []).map((t: any) => t.id);
+      a.testing.execRemote('closeTab', { location: 'no-such-tab-uuid', force: true });
+      await new Promise((r) => setTimeout(r, 600));
+      const after = (a.testing.aw().layout.tabs || []).map((t: any) => t.id);
+      return { before, after };
+    });
+    expect(got.after, '엉뚱한 탭을 닫았다').toEqual(got.before);
+  });
+
+/**
+ * 묶음 DEL·FIT — **Run 삭제와 대시보드 맞춤** (FR-DEL-* · FR-FIT-*).
+ *
+ * Run 의 표면이 이 파일의 주제다 — 삭제가 확인을 거치고, 좁은 칸에서 카드가
+ * 줄어든다.
+ *
+ * `TEST-7` 로 `ux-revision` 에서 옮겨 왔다 — 납품 묶음이 아니라 **이 기능**이
+ * 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
+ */
+
+test.describe('묶음 D — Run 삭제 (FR-DEL-*)', () => {
+  test('V-DEL-1·2·3: 삭제는 확인을 거치고, 버튼 클릭이 대시보드를 열지 않는다', async ({ page }) => {
+    await gotoSettled(page);
+    const toolId = await page.evaluate(() => {
+      const app = (window as any).app;
+      const w = app.ws.windows.find((x: any) => x.id === app.ws.activeWindow);
+      return w.layout.tabs[0].toolId;
+    });
+    // Run 하나를 연다. 조정자는 이 창의 도구다 — 살아 있으므로 수거되지 않는다.
+    // 앞선 스펙이 남긴 Run 이 목록에 있을 수 있으므로 **이 Run 의 행**만 본다.
+    const runId = await page.evaluate(async ([tid]) => {
+      const r = await fetch('/api/runs', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ objective: 'e2e 삭제 대상', projection: 'dedicated-window', toolId: tid }),
+      });
+      return (await r.json()).id;
+    }, [toolId]);
+
+    await page.locator('#runs-btn').click();
+    const row = page.locator(`#runs-modal .runs-row[data-runid="${runId}"]`);
+    await expect(row).toBeVisible({ timeout: 10000 });
+    const tabsBefore = await page.locator('.pn-tab').count();
+
+    // FR-DEL-3: 첫 클릭은 확인이다.
+    await row.locator('.runs-del').click();
+    await expect(row.locator('.runs-confirm')).toBeVisible();
+    // FR-DEL-2: 여기까지 탭이 하나도 늘지 않았다 — 대시보드가 열리지 않았다.
+    expect(await page.locator('.pn-tab').count()).toBe(tabsBefore);
+
+    await row.locator('.runs-yes').click();
+    // FR-DEL-5: 그 행이 목록에서 사라진다.
+    await expect(row).toHaveCount(0, { timeout: 10000 });
+  });
+});
+
+// ── 묶음 F — 대시보드 맞춤 ──
+
+test.describe('묶음 F — 대시보드 맞춤 (FR-FIT-*)', () => {
+  test('V-FIT-2·3: 좁은 칸에서 축소되고, 넓은 칸에서 확대되지 않는다', async ({ page }) => {
+    await gotoSettled(page);
+    const toolId = await page.evaluate(() => {
+      const app = (window as any).app;
+      const w = app.ws.windows.find((x: any) => x.id === app.ws.activeWindow);
+      return w.layout.tabs[0].toolId;
+    });
+    const runId = await page.evaluate(async ([tid]) => {
+      const r = await fetch('/api/runs', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ objective: 'e2e fit', projection: 'dedicated-window', toolId: tid }),
+      });
+      return (await r.json()).id;
+    }, [toolId]);
+    await page.evaluate(async ([id]) => {
+      const app = (window as any).app;
+      await app.addTab(app.focused, 'run', { runId: id, short: String(id).slice(0, 8) });
+    }, [runId]);
+
+    const svg = page.locator('.run-view .run-graph');
+    await expect(svg).toBeVisible({ timeout: 10000 });
+    // 멤버가 없으면 배치 폭은 RUN_MIN_W(720)이다. 1280 뷰포트에서는 남는 폭만큼
+    // **키우되 상한(1.5배)을 넘지 않는다** (FR-FIT-3).
+    await expect.poll(async () => Number(await svg.getAttribute('width')), { timeout: 10000 })
+      .toBeGreaterThan(720);
+    expect(Number(await svg.getAttribute('width'))).toBeLessThanOrEqual(720 * 1.5);
+
+    // 칸을 좁힌다 — 사이드바를 넓혀 콘텐츠를 줄인다.
+    await page.setViewportSize({ width: 700, height: 720 });
+    await expect
+      .poll(async () => Number(await svg.getAttribute('width')), { timeout: 10000 })
+      .toBeLessThan(720);
+    // FR-FIT-2: 비율이 유지된다 (viewBox 는 그대로, width/height 가 같은 비로 준다).
+    const [w, h] = await Promise.all([svg.getAttribute('width'), svg.getAttribute('height')]);
+    const vb = (await svg.getAttribute('viewBox'))!.split(' ').map(Number);
+    expect(Math.abs(Number(w) / vb[2] - Number(h) / vb[3])).toBeLessThan(0.02);
+  });
+});
+
+// ── 묶음 N — 도구 이름의 단일 출처 ──
+

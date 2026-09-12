@@ -55,7 +55,7 @@ async function openChanges(page: Page, repo: string) {
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate(() => {
     const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
+    a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
@@ -123,6 +123,7 @@ test.describe('묶음 A — 진행 중 작업의 출구 (V176)', () => {
     await page.keyboard.press('Escape');
     await expect(page.locator('#git-confirm')).toHaveCount(0, { timeout: 10000 });
 
+    // **예외 (`TEST-16`)**: 취소한 중단이 **일어나지 않음**을 잰다.
     await page.waitForTimeout(1000);
     expect(await opKind(page), '취소했는데 머지가 중단됐다').toBe('merge');
     await expect(bar(page)).toBeVisible();

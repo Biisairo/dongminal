@@ -5,13 +5,13 @@
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
 Object.assign(App.prototype, {
-  // _setFocus is the single entry point for the focus invariant
+  // setFocusState is the single entry point for the focus invariant
   // (this.focused === active window.focusedPane). It accepts an optional
   // window reference; when omitted, the active window is used. When the
   // mutated window is not the active one, only its focusedPane is updated
   // (this.focused unchanged). REG-2~8 회귀 클래스 차단용 단일 진입점.
-  _setFocus(rid, sess){
-    const target = sess || this._aw();
+  setFocusState(rid, sess){
+    const target = sess || this.aw();
     const moved = !!rid && this.focused !== rid;
     if(target) target.focusedPane = rid;
     if(!sess || (target && target.id === this.ws.activeWindow)){
@@ -30,17 +30,17 @@ Object.assign(App.prototype, {
        *
        * FR-RTU-83: **이 자리만으로는 모자라다.** 이미 포커스인 pane 에 여는
        * 부름은 `moved` 가 거짓이라 여기를 지나지 않는다 — 그래서 여는 쪽이
-       * `_mobileShowPane` 을 직접 부른다 (`_edOpenFile`·`openView`·
+       * `mobileShowPane` 을 직접 부른다 (`edOpenFile`·`openView`·
        * `_docRenderOpen`). 여기는 그 함수의 **포커스 경로**일 뿐이다.
        */
-      if(moved && this.isMobile && this._mobileOnSide&&this._mobileOnSide()){
-        this._mobileShowPane(rid);
+      if(moved && this.isMobile && this.mobileOnSide&&this.mobileOnSide()){
+        this.mobileShowPane(rid);
       }
       // ATTENTION_FIRING_SRS FR-ATA-1: 포커스는 더 이상 해제가 아니다. 여기
       // 있던 `_attnClearFocused()` 가 "사용자가 보기 전에 알람이 사라진다" 의
       // 마지막 고리였다 — 해제는 `_attnNoteInteraction` 한 자리에서만 온다.
     }
-    this._agentsRender(); // 외부 포커스 변경도 카드 .focused 에 즉시 반영(render 미경유 경로 포함)
+    this.agentsRender(); // 외부 포커스 변경도 카드 .focused 에 즉시 반영(render 미경유 경로 포함)
     this._persistFocusedPanes();
   },
 
@@ -61,19 +61,19 @@ Object.assign(App.prototype, {
     // the user is asserting "I want this window" (multi-window).
     this._focusWindow(this.ws.activeWindow);
     if(this.focused===rid) return;
-    this._clearAllSearchDecorations();
-    this._setFocus(rid);
-    this._prevFocus=rid;
+    this.clearAllSearchDecorations();
+    this.setFocusState(rid);
+    this.prevFocus=rid;
     document.querySelectorAll('.pn').forEach(el=>{
       el.classList.toggle('focused',el.dataset.paneid===rid);
     });
-    this._researchIfOpen();
-    this._updateCwd();
+    this.researchIfOpen();
+    this.updateCwd();
     // FR-FLW-3: 목록은 핀에서만 오므로 포커스와 무관하다 — 여기서 새로 조회하지
     // 않는다. `+ Add` 가 딛는 마지막 터미널만 갱신한다 (D-FLW-6).
     this._gitTermToolId();
-    this._updateStatusBar();
-    this._save();
+    this.updateStatusBar();
+    this.save();
   },
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -88,7 +88,7 @@ Object.assign(App.prototype, {
   //
   //  State:
   //    _windowFocusOwner : { windowId → clientId } — server-authoritative
-  //    _windowFocused      : boolean (OS focus on this client)
+  //    windowFocused      : boolean (OS focus on this client)
   //
   //  Transport (FR-XDF-5/6): the server owns the map. Claims go out as
   //  POST /api/focus/claim; every change comes back over the existing command
@@ -103,7 +103,7 @@ Object.assign(App.prototype, {
   //
   //  Single entry point:
   //    _focusWindow(sid)  — claim ownership, POST, resize, overlay.
-  //    Called from: setFocus, switchWindow, _focusLocation, _jumpToTool,
+  //    Called from: setFocus, switchWindow, _focusLocation, jumpToTool,
   //                 _mkWindow, addTab(existing), window.focus, split.
   // ═══════════════════════════════════════════════════════════════════════
 
@@ -111,15 +111,15 @@ Object.assign(App.prototype, {
   // _focusClaim (out) and the `window_focus` SSE branch (in).
   _initFocusSync(){
     window.addEventListener('focus',()=>{
-      this._windowFocused=true;
+      this.windowFocused=true;
       this._paintFocusEdge();
     this._paintAttnEdge();
       if(this.ws.activeWindow) this._focusWindow(this.ws.activeWindow);
     });
-    window.addEventListener('blur',()=>{this._windowFocused=false;this._paintFocusEdge()});
+    window.addEventListener('blur',()=>{this.windowFocused=false;this._paintFocusEdge()});
     // FR-UFE-8: 첫 화면도 실제 상태를 말한다 — 배경 탭에서 연 창은 이벤트가 한
     // 번도 오지 않으므로, 여기서 한 번 칠하지 않으면 포커스가 없는 채로 포커스
-    // 있는 얼굴을 하고 있다. (`_windowFocused` 의 초기값은 `document.hasFocus()`)
+    // 있는 얼굴을 하고 있다. (`windowFocused` 의 초기값은 `document.hasFocus()`)
     this._paintFocusEdge();
   },
 
@@ -127,7 +127,7 @@ Object.assign(App.prototype, {
    * UNFOCUSED_EDGE_SRS FR-UFE-6·7: 가장자리 표시의 유일한 스위치.
    *
    * 조건이 둘인 것이 요점이다 — **설정이 켜져 있고, 포커스가 없을 때**만 붙는다.
-   * 포커스 상태는 `_windowFocused` 하나에서 읽는다 (D-8): 여기서 `hasFocus()` 를
+   * 포커스 상태는 `windowFocused` 하나에서 읽는다 (D-8): 여기서 `hasFocus()` 를
    * 다시 물으면 이벤트가 아직 안 온 순간에 두 값이 갈린다.
    */
   _paintFocusEdge(){
@@ -138,7 +138,7 @@ Object.assign(App.prototype, {
     ds.style.setProperty('--ufe-alpha',a);
     ds.style.setProperty('--ufe-alpha-mid',+(a*UFE_ALPHA_MID_RATIO).toFixed(4));
     // 0 은 곧 끔이다 (D-4a) — 스위치를 따로 묻지 않는다.
-    ds.classList.toggle(WIN_UNFOCUSED_CLASS, focusEdgeLevel>0 && !this._windowFocused);
+    ds.classList.toggle(WIN_UNFOCUSED_CLASS, focusEdgeLevel>0 && !this.windowFocused);
   },
 
   /**
@@ -162,7 +162,7 @@ Object.assign(App.prototype, {
   // 자리가 한 글자도 바뀌지 않아야 한다.
   _focusWindow(windowId,slot){
     if(!windowId) return;
-    const si=(slot==null)?this._slotFocused():slot;
+    const si=(slot==null)?this.slotFocused():slot;
     const cid=this._slotIdentity(si);
     let changed=false;
     // Release other windows this SLOT owns (one slot → one window).
@@ -181,8 +181,8 @@ Object.assign(App.prototype, {
     if(changed) this._focusClaim(windowId,cid);
     // Send resize immediately (before render) so PTY matches this window's
     // size by the time the user sees the panes. Only if OS-focused.
-    if(this._windowFocused) this._resendWindowSizes(windowId,si);
-    this._applyFocusOverlay();
+    if(this.windowFocused) this.resendWindowSizes(windowId,si);
+    this.applyFocusOverlay();
   },
 
   // _focusClaim posts ownership to the server (FR-XDF-7). The server answers by
@@ -211,7 +211,7 @@ Object.assign(App.prototype, {
    */
   _onWindowFocus(a){
     this._windowFocusOwner=(a&&a.owners)||{};
-    this._applyFocusOverlay();
+    this.applyFocusOverlay();
   },
 
   /**
@@ -225,24 +225,24 @@ Object.assign(App.prototype, {
       if(!this._restoreLive('focus',t)) return;
       this._restoreEnd('focus',t);
       this._windowFocusOwner=j.owners||{};
-      this._applyFocusOverlay();
+      this.applyFocusOverlay();
       // FR-WSL-12: 슬롯이 둘이면 둘 다 재주장한다 — 각 슬롯의 구독이 따로 끊기고
       // 따로 해제되므로, 하나만 되찾으면 다른 칸이 영영 dim 된 채로 남는다.
-      if(this._windowFocused){
+      if(this.windowFocused){
         if(this._slots) this._slotClaimAll();
         else if(this.ws.activeWindow) this._focusWindow(this.ws.activeWindow,0);
       }
     }).catch(()=>{});
   },
 
-  // _resizeCheck returns true if this window is allowed to send resize for
+  // resizeCheck returns true if this window is allowed to send resize for
   // a given pane (has OS focus + owns the pane's window or it's unowned).
   //
   // FR-WSL-14: `slot` 은 **묻는 인스턴스가 선 슬롯**이다. 같은 창이 두 슬롯에 있으면
   // toolId 가 같으므로, 슬롯을 묻지 않으면 두 인스턴스가 모두 허가를 받아 서로
   // 다른 크기를 PTY 에 보낸다 — 크기는 하나뿐이다.
-  _resizeCheck(toolId,slot){
-    if(!this._windowFocused) return false;
+  resizeCheck(toolId,slot){
+    if(!this.windowFocused) return false;
     const sid=this._toolWindowId(toolId);
     if(!sid) return true; // pane not in any window yet → allow
     const owner=this._windowFocusOwner[sid];
@@ -250,13 +250,13 @@ Object.assign(App.prototype, {
     return owner===this._slotIdentity(slot||0);
   },
 
-  // _applyFocusOverlay syncs the DOM: panes whose window is owned by
+  // applyFocusOverlay syncs the DOM: panes whose window is owned by
   // another window get the dimmed overlay (pn-dimmed class).
   //
   // FR-WSL-14: 판정이 pane 마다 갈린다 — 같은 창이 두 슬롯에 있으면 한쪽만 소유하고
   // 다른 쪽은 흐려져야 한다. 그래서 "내 것인가" 를 앱 전체가 아니라 **그 pane 이
   // 선 슬롯의 신원**으로 묻는다.
-  _applyFocusOverlay(){
+  applyFocusOverlay(){
     for(const pn of document.querySelectorAll('.pn')){
       const slotEl=pn.closest?pn.closest('.slot'):null;
       const slot=slotEl?(parseInt(slotEl.dataset.slot,10)||0):0;
@@ -292,12 +292,12 @@ Object.assign(App.prototype, {
     return null;
   },
 
-  // _resendWindowSizes sends resize for every pane in a window.
+  // resendWindowSizes sends resize for every pane in a window.
   // Sends even for hidden panes (they retain last-visible dimensions) so the
   // PTY is sized correctly BEFORE render, avoiding a one-frame glitch.
-  _resendWindowSizes(windowId,slot){
+  resendWindowSizes(windowId,slot){
     if(!windowId) return;
-    const si=(slot==null)?this._slotFocused():slot;
+    const si=(slot==null)?this.slotFocused():slot;
     // Don't send resize if another slot/client owns this window.
     const owner=this._windowFocusOwner[windowId];
     if(owner&&owner!==this._slotIdentity(si)) return;
@@ -313,7 +313,7 @@ Object.assign(App.prototype, {
     };
     walk(s.layout);
     for(const pid of toolIds){
-      const p=this.tools.get(this._slotKey(pid,si));
+      const p=this.tools.get(this.slotKey(pid,si));
       // Send resize even if pane is hidden — the dimensions were set when
       // it was last visible and are still valid. This avoids a visible
       // glitch where the PTY renders at the wrong size for one frame.

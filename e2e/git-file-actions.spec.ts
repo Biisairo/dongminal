@@ -4,8 +4,10 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, openGit, waitForInit, clickGitView, gitFixture, cleanGitFixture } from './fixtures';
-import { tmpPath } from './osenv';
+import {
+  test, expect, makeCopyFx, openGit, waitForInit, clickGitView, gitFixture, cleanGitFixture, clickRowAct,
+} from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // GIT_ACTIONS_SRS §3.6 묶음 F — stash · 파일 · 미커밋 행.
 // 검증 V199(FR-GIT-272) · V200(273) · V201(274·275) · V203(277).
@@ -408,3 +410,72 @@ test.describe('묶음 F — stash · 파일 · 미커밋 행', () => {
     expect(existsSync(join(repo, 'untracked.txt'))).toBe(true);
   });
 });
+
+/**
+ * UI 개정 — **동작의 진입점** (FR-GIT-207~209).
+ *
+ * 행에서 무엇을 누를 수 있는가가 이 파일의 주제다.
+ *
+ * `TEST-7` 로 `git-ui-revision` 에서 옮겨 왔다 — 납품 묶음(“UI 개정”)이 아니라
+ * **이 기능**이 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
+ */
+const GURFX = tmpPath('dm-gur-git-file-actions-' + process.pid);
+test.beforeAll(() => { gitFixture(GURFX) });
+test.afterAll(() => { cleanGitFixture(GURFX) });
+const gurFx = (n: string) => realPath(join(GURFX, n));
+const gurCopy = makeCopyFx(GURFX);
+
+async function gurOpenChanges(page: Page, repo: string) {
+  await openGit(page, repo);
+  await page.evaluate(() => (window as any).app.gitPanel.openView('changes'));
+  await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
+}
+
+const gurFiles = (page: Page) => page.locator('#area .ed-side .git-file');
+
+async function gurWaitFiles(page: Page, min = 1) {
+  await expect.poll(() => gurFiles(page).count(), { timeout: 20000 }).toBeGreaterThanOrEqual(min);
+}
+
+test.describe('UI 개정 — 동작의 진입점 (FR-GIT-207~209)', () => {
+  test('V85 (FR-GIT-207·209): 파일 목록 위에 선택 동작 줄이 없다', async ({ page }) => {
+    await waitForInit(page);
+    await gurOpenChanges(page, gurFx('basic'));
+    await gurWaitFiles(page, 3);
+    // 여러 개를 골라도 줄이 생기지 않는다 — 진입점은 행 버튼 하나다.
+    await gurFiles(page).nth(0).click();
+    await gurFiles(page).nth(1).click({ modifiers: ['ControlOrMeta'] });
+    await expect(page.locator('#area .ed-side .git-sel')).toHaveCount(0);
+    await expect(page.locator('#area .ed-side .git-sel-act')).toHaveCount(0);
+    await expect(page.locator('#area .ed-side .git-sel-clear')).toHaveCount(0);
+    // 그룹 일괄은 남는다 (FR-GIT-66~68).
+    await expect(page.locator('#area .ed-side .git-group-bulk').first()).toHaveCount(1);
+  });
+
+  test('V86 (FR-GIT-208): 선택 안의 행에서 누르면 선택 전체가, 밖이면 그 행만 대상이다', async ({ page }) => {
+    const repo = gurCopy('basic', 'v86');
+    await waitForInit(page);
+    await gurOpenChanges(page, repo);
+    await gurWaitFiles(page, 5);
+    // 플랫 보기로 고정한다 — 트리는 행 순서가 디렉터리로 묶여 헷갈린다.
+    await page.locator('#area .ed-side .git-files-mode[data-mode="flat"]').click();
+
+    // FR-CMG-1: 워킹 그룹 하나에 수정과 새 파일이 함께 있다 — `basic` 은 셋이다.
+    const work = page.locator('#area .ed-side .git-group[data-group="working"] .git-file');
+    await expect.poll(() => work.count(), { timeout: 15000 }).toBe(3);
+
+    // ① 선택 **밖**의 행에서 누른다 — 그 행만 대상이다.
+    await work.nth(0).click();
+    await expect(page.locator('#area .ed-side .git-file.sel')).toHaveCount(1);
+    await clickRowAct(page, work.nth(1), 'stage');
+    await expect.poll(() => work.count(), { timeout: 20000 }).toBe(2);
+
+    // ② 선택 **안**의 행에서 누른다 — 선택 전체가 대상이다.
+    await work.nth(0).click();
+    await work.nth(1).click({ modifiers: ['ControlOrMeta'] });
+    await expect(page.locator('#area .ed-side .git-file.sel')).toHaveCount(2);
+    await clickRowAct(page, work.nth(0), 'stage');
+    await expect.poll(() => work.count(), { timeout: 20000 }).toBe(0);
+  });
+});
+

@@ -37,11 +37,19 @@ const GIT_OP_MERGE='merge';
 const GIT_OP_REBASE='rebase';
 const GIT_OP_CHERRY='cherry-pick';
 const GIT_OP_REVERT='revert';
+// GIT_DETECT_TIER_SRS FR-GDT-18·19: 서버가 새로 가르는 둘.
+const GIT_OP_AM='am';
+const GIT_OP_BISECT='bisect';
 const GIT_OP_LABEL={
   [GIT_OP_MERGE]:'머지가 진행 중입니다',
   [GIT_OP_REBASE]:'리베이스가 진행 중입니다',
   [GIT_OP_CHERRY]:'체리픽이 진행 중입니다',
   [GIT_OP_REVERT]:'리버트가 진행 중입니다',
+  // FR-GDT-19: 종전에는 이것이 "리베이스가 진행 중입니다" 로 보였고, 출구
+  // 버튼이 `git rebase --continue/--abort` 를 냈다 — 맞지 않는 명령이다.
+  [GIT_OP_AM]:'패치 적용(git am)이 진행 중입니다',
+  // FR-GDT-18: 종전에는 감지도 표시도 출구도 없었다 — detached HEAD 로만 보였다.
+  [GIT_OP_BISECT]:'bisect 탐색이 진행 중입니다',
 };
 // 리베이스의 "몇 번째 중". 보이지 않으면 사용자는 끝났는지 알 수 없다.
 const GIT_OP_AT='%n/%t';

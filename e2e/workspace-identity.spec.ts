@@ -18,6 +18,24 @@ async function newClient(browser: any) {
   return { ctx, page };
 }
 
+/**
+ * 그 클라이언트의 **동기화 경로가 선 것**까지 본다 (`TEST-16`).
+ *
+ * 두 클라이언트를 세운 뒤 고정 800ms 를 두던 자리다. 기다리던 것은 시간이 아니라
+ * SSE 가 열리는 것이고 — 그 전에 조작하면 한쪽이 남의 변경을 못 받은 채 검사가
+ * 시작된다 — 그 상태는 물어볼 수 있다.
+ */
+async function sseReady(...pages: Page[]) {
+  for (const p of pages) {
+    await expect
+      .poll(() => p.evaluate(() => {
+        const s = (window as any).app.testing.sse;
+        return s ? s.readyState : -1;
+      }), { timeout: 15000, message: 'SSE 가 열리지 않았다' })
+      .toBe(1);
+  }
+}
+
 // 활성 창의 (Pane id, 탭 id, toolId) 를 평면으로 돌려준다.
 function shape(page: Page) {
   return page.evaluate(() => {
@@ -117,7 +135,7 @@ test.describe('묶음 I — 엔터티 id 는 uuid 다', () => {
   test('TC-WID-3: 두 클라이언트가 동기화 전 각각 만들어도 id 가 겹치지 않는다', async ({ browser }) => {
     const A = await newClient(browser);
     const B = await newClient(browser);
-    await A.page.waitForTimeout(800);
+    await sseReady(A.page, B.page);
 
     // 브로드캐스트가 아니라 각자 로컬 생성 — 단일 실행자 게이팅이 닿지 않는 경로다.
     // addTab 은 만든 탭의 {uuid, toolId} 를 돌려준다 (FR-RCR-7).
@@ -137,7 +155,7 @@ test.describe('묶음 X — 생성 명령은 한 클라이언트만 수행한다
   test('TC-SXE-6: 클라이언트 2개 + newTab 1회 → 탭 1개, 도구 1개만 생성된다', async ({ browser, request }) => {
     const A = await newClient(browser);
     const B = await newClient(browser);
-    await A.page.waitForTimeout(800);
+    await sseReady(A.page, B.page);
 
     const before = await shape(A.page);
     const toolsBefore = await toolCount(request);
@@ -149,7 +167,9 @@ test.describe('묶음 X — 생성 명령은 한 클라이언트만 수행한다
 
     await expect.poll(async () => (await shape(A.page)).tabs.length, { timeout: 10000 })
       .toBe(before.tabs.length + 1);
-    await A.page.waitForTimeout(1000); // 늦게 오는 두 번째 생성이 있으면 여기서 드러난다
+    // **예외 (`TEST-16`): 오지 않는 두 번째 생성을 잰다.** 늦게 오는 것이 있으면
+    // 여기서 드러나므로 기다릴 신호가 없다.
+    await A.page.waitForTimeout(1000);
 
     const afterA = await shape(A.page);
     const afterB = await shape(B.page);
@@ -174,7 +194,7 @@ test.describe('묶음 X — 생성 명령은 한 클라이언트만 수행한다
   test('TC-SXE-7: focus 는 게이팅되지 않는다 — 두 클라이언트 모두 수행한다', async ({ browser, request }) => {
     const A = await newClient(browser);
     const B = await newClient(browser);
-    await A.page.waitForTimeout(800);
+    await sseReady(A.page, B.page);
 
     // 분할해 Pane 을 2개로 만든 뒤, 두 번째 Pane 의 탭을 대상으로 focus 를 보낸다.
     await request.post('/api/commands', { data: { action: 'splitV', args: {} } });

@@ -24,7 +24,7 @@ async function gotoMobile(page: Page) {
 async function installSendSpy(page: Page) {
   await page.evaluate(() => {
     const app = (window as any).app;
-    const p = app._focusedTerminal();
+    const p = app.testing.focusedTerminal();
     if (!p) throw new Error('포커스된 터미널이 없다');
     (window as any).__sent = [];
     if ((p as any).__spied) return;
@@ -101,7 +101,8 @@ test.describe('FR-MTB-1/2: 짧은 탭이 키를 전송한다', () => {
     await clearSent(page);
 
     await keybarBtn(page, 'Tab').tap();
-    // 중복 발동이 있으면 잠깐 뒤에 두 번째가 들어온다.
+    // **예외 (`TEST-16`): 오지 않는 두 번째를 잰다.** 중복 발동이 있으면 잠깐
+    // 뒤에 들어오므로 기다릴 신호가 없다 — 시간을 주고 하나뿐인지 본다.
     await page.waitForTimeout(500);
     expect(await sent(page)).toEqual([[0, 0x09]]);
   });
@@ -112,8 +113,8 @@ test.describe('FR-MTB-1/2: 짧은 탭이 키를 전송한다', () => {
     await clearSent(page);
 
     await keybarBtn(page, '↑').tap();
-    await page.waitForTimeout(400);
     // '\x1b[A' → [OP.INPUT, 0x1b, 0x5b, 0x41]
+    await expect.poll(() => sent(page), { timeout: 10000 }).toEqual([[0, 0x1b, 0x5b, 0x41]]);
     expect(await sent(page)).toEqual([[0, 0x1b, 0x5b, 0x41]]);
   });
 
@@ -128,7 +129,7 @@ test.describe('FR-MTB-1/2: 짧은 탭이 키를 전송한다', () => {
     // Ctrl 변환은 0x40~0x7e 만 대상이다 (sendToFocused). '/'(0x2f)·'-'(0x2d) 는
     // 범위 밖이라 원문이 나가는 것이 정상 — 범위 안의 '~'(0x7e) 로 검증한다.
     await keybarBtn(page, '~').tap();
-    await page.waitForTimeout(400);
+    await expect.poll(() => sent(page), { timeout: 10000 }).toEqual([[0, 0x7e & 0x1f]]);
     expect(await sent(page)).toEqual([[0, 0x7e & 0x1f]]);
     // sticky 는 한 번 쓰고 해제된다.
     await expect(ctrl).not.toHaveClass(/sticky/);
@@ -173,6 +174,7 @@ test.describe('FR-MTB-3: 수평 슬라이드', () => {
       await touch(client, 'touchMove', [{ x: start.x - i * 25, y: start.y }]);
     }
     await touch(client, 'touchEnd', []);
+    // **예외 (`TEST-16`)**: 전송이 **없음**을 잰다 — 기다릴 신호가 없다.
     await page.waitForTimeout(500);
 
     expect(await sent(page)).toEqual([]);
@@ -193,10 +195,11 @@ test.describe('FR-MTB-4/5: 롱프레스', () => {
     await touch(client, 'touchEnd', []);
 
     await expect(page.locator('#mkb-tip')).toHaveCount(0);
+    // **예외 (`TEST-16`)**: 롱프레스가 키를 보내지 **않음**을 잰다.
     await page.waitForTimeout(300);
     expect(await sent(page)).toEqual([]);
 
-    const mod = await page.evaluate(() => (window as any).app._modKbd);
+    const mod = await page.evaluate(() => (window as any).app.testing.modKbd);
     expect(mod).toEqual({ ctrl: false, alt: false });
   });
 
@@ -222,7 +225,9 @@ test.describe('FR-MTB-6: 포커스 가드', () => {
     await installSendSpy(page);
 
     await keybarBtn(page, 'Esc').tap();
-    await page.waitForTimeout(300);
+    // 키가 실제로 나간 뒤에 포커스를 본다 — 그 전에 보면 아직 아무 일도 일어나지
+    // 않은 화면을 재게 된다.
+    await expect.poll(() => sent(page), { timeout: 10000 }).not.toEqual([]);
 
     const active = await page.evaluate(() => {
       const el = document.activeElement as HTMLElement | null;

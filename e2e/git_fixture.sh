@@ -42,8 +42,31 @@ if [ -z "$PY_BIN" ]; then
   exit 1
 fi
 
-# 픽스처는 사용자의 전역 설정에 의존하지 않는다 — user.name 이 없는 환경에서도
-# 스크립트가 성립해야 하고, preflight 검증(FR-GIT-86)이 전역 설정에 흔들리면 안 된다.
+# 픽스처는 **사용자의 git 설정을 한 톨도 보지 않는다** (M6 `TEST-16`~`21` 의
+# `TEST-21`).
+#
+#   이전 동작: 저장소마다 `user.name`·`user.email`·`commit.gpgsign` 셋만 덮었다.
+#             나머지는 전부 호스트의 전역·시스템 설정이 그대로 이겼다 —
+#             `init.defaultBranch`·`core.autocrlf`·`core.hooksPath`·`safe.directory`·
+#             별칭·`includeIf`·`gpg.format`. 그중 어느 하나만 달라도 픽스처의
+#             모양이 기계마다 갈리고, 그러면 e2e 의 실패가 **그 기계의 사실**이
+#             된다 (재현되지 않는 실패가 그렇게 생긴다)
+#   새  동작: 전역·시스템 설정을 통째로 끊는다
+#   이유:     픽스처는 **닫힌 입력**이어야 한다. 세 값만 덮는 것은 "무엇이 새는지
+#             아는 것" 을 전제하는데, 그 목록은 git 이 늘리는 것이지 우리가
+#             정하는 것이 아니다
+#
+# `GIT_CONFIG_GLOBAL`/`GIT_CONFIG_SYSTEM` 은 git 2.32+ 다. 그보다 낮은 git 에서는
+# 그 둘이 조용히 무시되므로 `GIT_CONFIG_NOSYSTEM` 을 함께 둔다 — 시스템 설정만은
+# 어느 판에서도 끊긴다.
+#
+# `/dev/null` 은 git-bash(Windows)에도 있다. 빈 파일을 만들어 가리키지 않는 이유는
+# 그 파일의 수명을 이 스크립트가 책임져야 하기 때문이다.
+export GIT_CONFIG_GLOBAL=/dev/null
+export GIT_CONFIG_SYSTEM=/dev/null
+export GIT_CONFIG_NOSYSTEM=1
+# 저장소마다의 설정은 그대로 둔다 — 아래 `init` 이 심는 셋이 그것이고, 그 셋은
+# **픽스처의 사실**이지 호스트의 것이 아니다.
 init() {
   local d="$OUT/$1"
   rm -rf "$d"; mkdir -p "$d"; git -C "$d" init -q -b main .
@@ -184,7 +207,21 @@ git -C "$d" tag v1.0 main~500
 git -C "$d" tag v2.0 main~100
 
 # ── 9. bare remote 를 가진 저장소 — FR-GIT-98~107, V40 ──
-git init -q --bare "$OUT/remote.git"
+# **초기 브랜치를 못박는다** (M6 `TEST-21`).
+#
+#	이전 동작: `git init --bare` 뿐이었다. bare 저장소의 HEAD 가 가리키는 이름은
+#	          `init.defaultBranch` 가 정하는데, 그 값은 **호스트의 전역 설정**에서
+#	          왔다. 개발 호스트가 `main` 이라 우연히 맞았을 뿐이다
+#	새  동작: `-b main`
+#	이유:     이 스크립트가 전역 설정을 끊는 순간(위 `GIT_CONFIG_GLOBAL`) git 의
+#	          내장 기본값은 `master` 다. 그러면 bare 의 HEAD 는 `master` 를
+#	          가리키는데 실제로 밀리는 브랜치는 `main` 이고, 그 remote 를 clone 한
+#	          쪽은 **체크아웃 없는 작업 트리**를 받는다 — `git commit -am` 이
+#	          "커밋할 것이 없다" 로 실패한다 (전량에서 `git-remote` 여섯이 그렇게
+#	          무너졌다).
+#
+# **픽스처는 자기 전제를 스스로 세운다** — `M5_PROGRESS §3-4` 가 같은 부류를 적었다.
+git init -q --bare -b main "$OUT/remote.git"
 d=$(init with-remote)
 printf 'a\n' > "$d/f.txt"; git -C "$d" add -A; git -C "$d" commit -qm "init"
 git -C "$d" remote add origin "$OUT/remote.git"

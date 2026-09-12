@@ -44,7 +44,7 @@ const openInSlot = (page: Page, i: number, id: string) =>
 const activeWindowOf = (page: Page) => page.evaluate(() => (window as any).app.ws.activeWindow);
 const addWindow = (page: Page) =>
   page.evaluate(async () => {
-    const r = await (window as any).app._mkWindow();
+    const r = await (window as any).app.testing.mkWindow();
     (window as any).app.render();
     return r.win as string;
   });

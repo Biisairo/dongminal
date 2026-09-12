@@ -4,7 +4,9 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
+import {
+  test, expect, rmTree, switchToEditorRoot, openExplorerSide, addEditor, gotoWithEditors, openExplorerAt, enterExplorer,
+} from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M5(파일 조작) · M6(파일 열기 라우팅)의 검증
@@ -71,32 +73,6 @@ test.afterAll(() => {
 
 // 목록의 권위는 서버다 (FR-EDT-20) — 행을 만들면 재조정이 창을 만든다. 조작 종단은
 // 이 목록으로 root 를 대조하므로(FR-EDT-113) 여기를 지나지 않으면 전부 거부된다.
-async function addEditor(request: APIRequestContext, p: string) {
-  const r = await request.post('/api/editors/add', { data: { path: p } });
-  expect(r.ok(), `editors/add 실패: ${await r.text()}`).toBeTruthy();
-}
-
-async function goto(page: Page) {
-  await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-  await page.waitForFunction(
-    () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
-    undefined, { timeout: 15000 });
-}
-
-async function openEditor(page: Page, root: string) {
-  await switchToEditorRoot(page, root);
-  await openExplorerSide(page);
-}
-
-async function enter(page: Page, request: APIRequestContext, root: string) {
-  await addEditor(request, root);
-  await goto(page);
-  await openEditor(page, root);
-  await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
-}
-
 const row = (page: Page, p: string) => page.locator(`.ed-tree .ed-row[data-path="${cssPath(p)}"]`);
 const input = (page: Page) => page.locator('.ed-tree .ed-input');
 const opErr = (page: Page) => page.locator('.ed-tree .ed-op-err');
@@ -162,7 +138,7 @@ const diskText = (p: string) =>
 test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
   test('O1 (V-EDT-57 / FR-EDT-81): 새 파일·새 폴더가 선택된 폴더 아래에 생긴다', async ({ page, request }) => {
     const R = mkRoot('o1');
-    await enter(page, request, R);
+    await enterExplorer(page, request, R);
 
     // ① 선택이 없으면 루트다.
     await page.locator('.ed-head-new-file').click();
@@ -192,7 +168,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
 
   test('O2 (V-EDT-58 / FR-EDT-82): 이름 변경은 확장자 앞까지 선택한다', async ({ page, request }) => {
     const R = mkRoot('o2');
-    await enter(page, request, R);
+    await enterExplorer(page, request, R);
     await row(page, j(R, 'src')).click();
     await expect(row(page, j(R, 'src', 'a.txt'))).toBeVisible();
 
@@ -215,7 +191,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
 
   test('O3 (V-EDT-59 / FR-EDT-83): 폴더 삭제 확인창이 재귀와 항목 수를 밝힌다', async ({ page, request }) => {
     const R = mkRoot('o3');
-    await enter(page, request, R);
+    await enterExplorer(page, request, R);
 
     await ctx(page, j(R, 'src'), 'delete');
     await expect(confirmMsg(page)).toBeVisible();
@@ -232,17 +208,17 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
 
   test('O4 (V-EDT-60 / FR-EDT-84): dirty 탭의 파일 삭제는 그 사실을 밝힌다', async ({ page, request }) => {
     const R = mkRoot('o4');
-    await enter(page, request, R);
+    await enterExplorer(page, request, R);
     await row(page, j(R, 'src')).click();
     await row(page, j(R, 'src', 'a.txt')).click();
     await expect.poll(async () => (await tabs(page)).length).toBe(1);
 
-    // Monaco 는 CDN 에서 온다 — e2e 에서 편집을 흉내 낼 수 없으므로 `_edDirtyUnder`
+    // Monaco 는 CDN 에서 온다 — e2e 에서 편집을 흉내 낼 수 없으므로 `edDirtyUnder`
     // 가 읽는 계약(`FileEditor._dirty`) 자체를 세운다.
     await page.evaluate(() => {
       for (const e of (window as any).app.fileEditors.values()) e._dirty = true;
     });
-    await openEditor(page, R);
+    await openExplorerAt(page, R);
     await ctx(page, j(R, 'src', 'a.txt'), 'delete');
     await expect(confirmMsg(page)).toContainText('저장되지 않은 탭 1개');
     await expect(confirmMsg(page)).toContainText('a.txt');
@@ -252,7 +228,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
 
   test('O5 (V-EDT-61 / FR-EDT-85): 폴더를 자기 하위로 옮길 수 없다', async ({ page, request }) => {
     const R = mkRoot('o5');
-    await enter(page, request, R);
+    await enterExplorer(page, request, R);
     await row(page, j(R, 'src')).click();
     await expect(row(page, j(R, 'src', 'deep'))).toBeVisible();
 
@@ -271,7 +247,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
    */
   test('O5b (V-WBR-2): 그 사유는 다른 행을 고르면 사라진다', async ({ page, request }) => {
     const R = mkRoot('o5b');
-    await enter(page, request, R);
+    await enterExplorer(page, request, R);
     await row(page, j(R, 'src')).click();
     await expect(row(page, j(R, 'src', 'deep'))).toBeVisible();
 
@@ -285,7 +261,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
 
   test('O5d (V-WBR-1): 그 사유는 다음 조작이 시작될 때 사라진다', async ({ page, request }) => {
     const R = mkRoot('o5d');
-    await enter(page, request, R);
+    await enterExplorer(page, request, R);
     await row(page, j(R, 'src')).click();
     await expect(row(page, j(R, 'src', 'deep'))).toBeVisible();
 
@@ -302,7 +278,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
   test('O5c (V-WBR-3 / NFR-WBR-2): 실패 직후의 다시 그리기에는 남아 있다',
     async ({ page, request }) => {
       const R = mkRoot('o5c');
-      await enter(page, request, R);
+      await enterExplorer(page, request, R);
       await row(page, j(R, 'src')).click();
       await expect(row(page, j(R, 'src', 'deep'))).toBeVisible();
 
@@ -319,7 +295,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
   test('O6 (V-EDT-62 / FR-EDT-86): 같은 이름이 있으면 거부하고 덮어쓰지 않는다', async ({ page, request }) => {
     const R = mkRoot('o6');
     w(j(R, 'docs', 'a.txt'), 'DOCS-A\n');
-    await enter(page, request, R);
+    await enterExplorer(page, request, R);
     await row(page, j(R, 'src')).click();
     await row(page, j(R, 'docs')).click();
     await expect(row(page, j(R, 'docs', 'a.txt'))).toBeVisible();
@@ -341,7 +317,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
 
   test('O7 (V-EDT-68 / FR-EDT-88): 조작 뒤 영향받은 폴더만 다시 읽는다', async ({ page, request }) => {
     const R = mkRoot('o7');
-    await enter(page, request, R);
+    await enterExplorer(page, request, R);
     await row(page, j(R, 'src')).click();
     await expect(row(page, j(R, 'src', 'a.txt'))).toBeVisible();
     await row(page, j(R, 'docs')).click();
@@ -354,6 +330,8 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     await input(page).fill('n.txt');
     await input(page).press('Enter');
     await expect(row(page, j(R, 'src', 'n.txt'))).toBeVisible({ timeout: 10000 });
+    // **예외 (`TEST-16`)**: 요청이 **더 나가지 않음**을 잰다 — 정확히 한 건이
+    // 답이므로 늦게 오는 두 번째까지 보아야 한다.
     await page.waitForTimeout(500);
     expect(c1.n).toBe(1);
 
@@ -361,13 +339,14 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     const c2 = counter(page, isList);
     await row(page, j(R, 'src', 'b.txt')).dragTo(row(page, j(R, 'docs')));
     await expect(row(page, j(R, 'docs', 'b.txt'))).toBeVisible({ timeout: 10000 });
+    // **예외 (`TEST-16`)**: 위와 같다 — 정확히 두 건인지 본다.
     await page.waitForTimeout(500);
     expect(c2.n).toBe(2);
   });
 
   test('O8 (V-EDT-69 / FR-EDT-90): 이름 변경·이동을 열린 탭이 따라간다', async ({ page, request }) => {
     const R = mkRoot('o8');
-    await enter(page, request, R);
+    await enterExplorer(page, request, R);
     // **더블클릭으로 연다** (REPO_TAB_UNIFY_SRS FR-RTU-40·42).
     //   이전 동작: 한 번 클릭이 탭을 하나씩 만들었다
     //   새  동작: 한 번 클릭은 **미리보기 탭 하나를 재사용**한다 — 목록을 훑어도
@@ -376,10 +355,10 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     //             계기가 더블클릭이므로 그것을 쓴다
     await row(page, j(R, 'src')).click();
     await row(page, j(R, 'src', 'a.txt')).dblclick();
-    await openEditor(page, R);
+    await openExplorerAt(page, R);
     await row(page, j(R, 'src', 'deep')).click();
     await row(page, j(R, 'src', 'deep', 'c.txt')).dblclick();
-    await openEditor(page, R);
+    await openExplorerAt(page, R);
     await expect.poll(async () => (await tabs(page)).length).toBe(2);
 
     // ① 폴더의 이름 변경 — 그 아래 모든 탭이 따라간다. 탭은 닫히지 않는다.
@@ -412,17 +391,17 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
 
   test('O9 (V-EDT-70 / FR-EDT-91): 삭제되면 그 탭이 닫힌다 — 폴더면 하위 전부', async ({ page, request }) => {
     const R = mkRoot('o9');
-    await enter(page, request, R);
+    await enterExplorer(page, request, R);
     // FR-RTU-40·42: 한 번 클릭은 미리보기 탭 하나를 재사용한다 — 셋을 동시에
     // 열어 두려면 고정해야 한다 (O8 과 같은 근거).
     await row(page, j(R, 'src')).click();
     await row(page, j(R, 'src', 'a.txt')).dblclick();
-    await openEditor(page, R);
+    await openExplorerAt(page, R);
     await row(page, j(R, 'src', 'deep')).click();
     await row(page, j(R, 'src', 'deep', 'c.txt')).dblclick();
-    await openEditor(page, R);
+    await openExplorerAt(page, R);
     await row(page, j(R, 'top.txt')).dblclick();
-    await openEditor(page, R);
+    await openExplorerAt(page, R);
     await expect.poll(async () => (await tabs(page)).length).toBe(3);
 
     // FR-EDT-91: dirty 여도 확인창을 **다시** 띄우지 않는다 (FR-EDT-84 에서 이미 밝혔다).
@@ -441,7 +420,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
 
   test('O10 (V-EDT-71 / FR-EDT-92): 실패는 사유를 보이고 낙관적 반영을 되돌린다', async ({ page, request }) => {
     const R = mkRoot('o10');
-    await enter(page, request, R);
+    await enterExplorer(page, request, R);
     await row(page, j(R, 'src')).click();
     await expect(row(page, j(R, 'src', 'a.txt'))).toBeVisible();
 
@@ -469,23 +448,23 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
     const IN = realPath(j(OUT, 'src'));
     await addEditor(request, OUT);
     await addEditor(request, IN);
-    await goto(page);
+    await gotoWithEditors(page);
 
-    await page.evaluate((p) => (window as any).app._edOpenFile(p), j(IN, 'a.txt'));
+    await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(IN, 'a.txt'));
     await expect.poll(async () => (await tabs(page)).map((t) => t.root)).toEqual([IN]);
   });
 
   test('R2 (V-EDT-74 / FR-EDT-96): edit <path> 가 연결된 Editor 로 간다', async ({ page, request }) => {
     const R = mkRoot('r2');
     await addEditor(request, R);
-    await goto(page);
+    await gotoWithEditors(page);
 
     // `edit` 이 브라우저에서 도달하는 자리는 `_execRemote('openEditorTab')` 하나다.
-    await page.evaluate((p) => (window as any).app._execRemote('openEditorTab', { filePath: p }),
+    await page.evaluate((p) => (window as any).app.testing.execRemote('openEditorTab', { filePath: p }),
       j(R, 'top.txt'));
     await expect.poll(async () => (await tabs(page)).map((t) => t.root)).toEqual([R]);
     // FR-EDT-102: 연 창으로 전환된다.
-    expect(await page.evaluate(() => (window as any).app._aw().editor.root)).toBe(R);
+    expect(await page.evaluate(() => (window as any).app.testing.aw().editor.root)).toBe(R);
   });
 
   test('R3 (V-EDT-75 / FR-EDT-96·99): 루트 밖 경로의 edit 은 root 에디터로 간다', async ({ page, request }) => {
@@ -493,10 +472,10 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
     const OUT = j(BASE, 'r3-outside.txt');
     w(OUT, 'X\n');
     await addEditor(request, R);
-    await goto(page);
-    const home = await page.evaluate(() => (window as any).app._edHome());
+    await gotoWithEditors(page);
+    const home = await page.evaluate(() => (window as any).app.testing.edHome());
 
-    await page.evaluate((p) => (window as any).app._execRemote('openEditorTab', { filePath: p }), OUT);
+    await page.evaluate((p) => (window as any).app.testing.execRemote('openEditorTab', { filePath: p }), OUT);
     // FR-EDT-99: 그 창의 탐색기가 이 파일을 가리키지 못하는 것이 정상이다.
     await expect.poll(async () => (await tabs(page)).map((t) => t.root)).toEqual([home]);
     expect(home).not.toBe(R);
@@ -508,11 +487,11 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
     const SUB = realPath(j(REPO, 'sub'));
     await addEditor(request, REPO);
     await addEditor(request, SUB);
-    await goto(page);
+    await gotoWithEditors(page);
     await page.evaluate((r) => (window as any).app.openGitWindow(r), REPO);
     await page.waitForFunction(() => (window as any).app.gitPanel.repo, undefined, { timeout: 10000 });
 
-    await page.evaluate((p) => (window as any).app._gitOpenFile(p), j(SUB, 'x.txt'));
+    await page.evaluate((p) => (window as any).app.testing.gitOpenFile(p), j(SUB, 'x.txt'));
     await expect.poll(async () => (await tabs(page)).map((t) => t.root)).toEqual([REPO]);
   });
 
@@ -520,7 +499,7 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
     const SUB = realPath(j(REPO, 'sub'));
     await addEditor(request, REPO);
     await addEditor(request, SUB);
-    await goto(page);
+    await gotoWithEditors(page);
     await page.evaluate((r) => (window as any).app.openGitWindow(r), REPO);
     await page.waitForFunction(() => (window as any).app.gitPanel.repo, undefined, { timeout: 10000 });
 
@@ -536,16 +515,16 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
   test('R6 (V-EDT-78 / FR-EDT-100): 비활성 대상 창에서도 그 창의 focusedPane 에 붙는다', async ({ page, request }) => {
     const R = mkRoot('r6');
     await addEditor(request, R);
-    await goto(page);
+    await gotoWithEditors(page);
 
     // pane 둘을 만든다. 분할이 생기는 길은 드롭 하나뿐이므로(D-8) 그 경로를 쓴다.
-    await page.evaluate((p) => (window as any).app._edOpenFile(p), j(R, 'top.txt'));
-    await page.evaluate((p) => (window as any).app._edOpenFile(p), j(R, 'docs', 'd.txt'));
+    await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(R, 'top.txt'));
+    await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(R, 'docs', 'd.txt'));
     const two = await page.evaluate(() => {
       const a = (window as any).app;
-      const t = a._findEditorTab(a._aw().layout.tabs[1].filePath);
-      a._splitPaneWithTab(t.pane.id, t.tab.id, t.pane.id, 'right');
-      return { focused: a._aw().focusedPane, panes: a._aw().layout.children.map((c: any) => c.id) };
+      const t = a.testing.findEditorTab(a.testing.aw().layout.tabs[1].filePath);
+      a.testing.splitPaneWithTab(t.pane.id, t.tab.id, t.pane.id, 'right');
+      return { focused: a.testing.aw().focusedPane, panes: a.testing.aw().layout.children.map((c: any) => c.id) };
     });
     expect(two.panes).toHaveLength(2);
     expect(two.focused).toBe(two.panes[1]);
@@ -553,9 +532,9 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
     // 다른 창으로 떠난다 — 이제 대상 창은 **비활성**이다.
     await page.evaluate(() => {
       const a = (window as any).app;
-      a.switchWindow(a._plainWindows()[0].id);
+      a.switchWindow(a.testing.plainWindows()[0].id);
     });
-    await page.evaluate((p) => (window as any).app._edOpenFile(p), j(R, 'src', 'a.txt'));
+    await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(R, 'src', 'a.txt'));
     const t = await tabs(page);
     expect(t.find((x) => x.file === j(R, 'src', 'a.txt'))!.pane).toBe(two.focused);
   });
@@ -563,18 +542,18 @@ test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
   test('R7 (V-EDT-79 / FR-EDT-101): 이미 열린 파일을 다시 열면 그 탭으로 간다', async ({ page, request }) => {
     const R = mkRoot('r7');
     await addEditor(request, R);
-    await goto(page);
+    await gotoWithEditors(page);
     const f = j(R, 'top.txt');
 
-    await page.evaluate((p) => (window as any).app._edOpenFile(p), f);
+    await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), f);
     await expect.poll(async () => (await tabs(page)).length).toBe(1);
     const first = (await tabs(page))[0];
     await page.evaluate(() => {
       const a = (window as any).app;
-      a.switchWindow(a._plainWindows()[0].id);
+      a.switchWindow(a.testing.plainWindows()[0].id);
     });
     // 두 번째는 `edit` 의 경로로 연다 — 중복 방지는 진입점마다 따로 있지 않다.
-    await page.evaluate((p) => (window as any).app._execRemote('openEditorTab', { filePath: p }), f);
+    await page.evaluate((p) => (window as any).app.testing.execRemote('openEditorTab', { filePath: p }), f);
     const t = await tabs(page);
     expect(t).toHaveLength(1);
     expect(t[0].id).toBe(first.id);
@@ -605,8 +584,8 @@ test.describe('묶음 W — 편집기 줄바꿈', () => {
   test('W1 (V-WBR-10·11 / NFR-WBR-1): 설정을 켜면 열려 있던 편집기가 곧바로 줄을 바꾼다',
     async ({ page, request }) => {
       const R = mkRoot('ww1');
-      await enter(page, request, R);
-      await page.evaluate((p) => (window as any).app._edOpenFile(p), j(R, 'top.txt'));
+      await enterExplorer(page, request, R);
+      await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(R, 'top.txt'));
       await expect.poll(() => wrapOf(page), { timeout: 10000 }).toBe('off');
 
       // 편집 중인 내용과 커서를 잃지 않는다 (NFR-WBR-1) — 재생성이 아니라
@@ -640,7 +619,7 @@ test.describe('묶음 W — 편집기 줄바꿈', () => {
   test('W2 (V-WBR-11·12·13): 값이 서버에 남고, 새로고침 뒤 새 편집기에도 선다',
     async ({ page, request }) => {
       const R = mkRoot('ww2');
-      await enter(page, request, R);
+      await enterExplorer(page, request, R);
       await openCodePanel(page);
       await page.locator('#ds-wordwrap').check();
 
@@ -651,7 +630,7 @@ test.describe('묶음 W — 편집기 줄바꿈', () => {
         return (await r.json()).editorWordWrap;
       }, { timeout: 10000 }).toBe(true);
 
-      await page.evaluate(() => (window as any).app._saveSettings());
+      await page.evaluate(() => (window as any).app.testing.saveSettings());
       await expect.poll(async () => {
         const r = await request.get('/api/settings');
         const j = await r.json();
@@ -660,13 +639,13 @@ test.describe('묶음 W — 편집기 줄바꿈', () => {
 
       await page.reload();
       await openExplorerSide(page);
-      await page.evaluate((p) => (window as any).app._edOpenFile(p), j(R, 'top.txt'));
+      await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(R, 'top.txt'));
       await expect.poll(() => wrapOf(page), { timeout: 15000 }).toBe('on');
 
       // 뒷정리 — 이 값은 서버에 살아 다음 스펙까지 따라간다.
       await page.evaluate(() => {
         (window as any).editorWordWrap = false;
-        (window as any).app._saveSettings();
+        (window as any).app.testing.saveSettings();
       });
     });
 });
@@ -681,7 +660,7 @@ test.describe('묶음 W — 편집기 줄바꿈', () => {
 test.describe('묶음 S — 다중 선택 (FR-EMS-1~25)', () => {
   const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
   const selPaths = (page: Page) => page.evaluate(() => {
-    const tree = (window as any).app._edActiveTree();
+    const tree = (window as any).app.testing.edActiveTree();
     return [...(tree && tree._selSet ? tree._selSet : [])].sort();
   });
   const selRows = (page: Page) => page.locator('.ed-tree .ed-row.sel');
@@ -689,7 +668,7 @@ test.describe('묶음 S — 다중 선택 (FR-EMS-1~25)', () => {
   // V-EMS-1 · V-EMS-2 · V-EMS-3
   test('S1: Mod+클릭이 선택을 더하고 빼며, 파일을 열지 않는다', async ({ page, request }) => {
     const R = mkRoot('s1');
-    await enter(page, request, R);
+    await enterExplorer(page, request, R);
     await row(page, j(R, 'src')).click();
 
     await row(page, j(R, 'src', 'a.txt')).click();
@@ -710,7 +689,7 @@ test.describe('묶음 S — 다중 선택 (FR-EMS-1~25)', () => {
   // V-EMS-4 · V-EMS-5 · V-EMS-6
   test('S2: Shift+클릭이 보이는 순서의 범위를 고르고, 평범한 클릭이 되돌린다', async ({ page, request }) => {
     const R = mkRoot('s2');
-    await enter(page, request, R);
+    await enterExplorer(page, request, R);
     await row(page, j(R, 'src')).click();          // 펼친다
     await row(page, j(R, 'src', 'a.txt')).click(); // 앵커
 
@@ -733,7 +712,7 @@ test.describe('묶음 S — 다중 선택 (FR-EMS-1~25)', () => {
   // V-EMS-7: 확인창 하나로 묻고 셋이 사라진다.
   test('S3: 여럿을 골라 지우면 확인창이 하나이고 수를 밝힌다', async ({ page, request }) => {
     const R = mkRoot('s3');
-    await enter(page, request, R);
+    await enterExplorer(page, request, R);
     await row(page, j(R, 'src')).click();
     await row(page, j(R, 'src', 'a.txt')).click();
     await row(page, j(R, 'src', 'b.txt')).click({ modifiers: [mod] });
@@ -753,7 +732,7 @@ test.describe('묶음 S — 다중 선택 (FR-EMS-1~25)', () => {
   // V-EMS-8: 조상이 함께 선택되면 자손은 대상에서 빠진다.
   test('S4: 폴더와 그 안의 파일을 함께 고르면 폴더 하나만 지운다', async ({ page, request }) => {
     const R = mkRoot('s4');
-    await enter(page, request, R);
+    await enterExplorer(page, request, R);
     await row(page, j(R, 'src')).click();
     await row(page, j(R, 'src', 'deep')).click();   // 펼친다 — c.txt 가 보여야 고를 수 있다
     await expect(row(page, j(R, 'src', 'deep', 'c.txt'))).toBeVisible({ timeout: 10000 });

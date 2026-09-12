@@ -123,7 +123,7 @@ class GitCommit {
     if(!repo) return;
     const d=this._drafts();
     if(v) d[repo]=v; else delete d[repo];
-    this.app._save();
+    this.app.save();
   }
 
   _setValue(v){

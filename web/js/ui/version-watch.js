@@ -105,7 +105,7 @@
    * 그때는 잃을 편집도 없다.
    */
   const anyDirty=()=>{
-    try{ return !!(window.app&&app._edAnyDirty&&app._edAnyDirty()) }catch{ return false }
+    try{ return !!(window.app&&app.edAnyDirty&&app.edAnyDirty()) }catch{ return false }
   };
 
   // 미룬 목표를 따로 들고 있지 않는다 — `saw` 는 서버 인사와 탭 복귀마다 다시

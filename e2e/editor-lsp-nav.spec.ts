@@ -13,6 +13,13 @@ import { APIRequestContext, Page } from '@playwright/test';
 import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
+/**
+ * **고정 대기의 예외 (`TEST-16`).** 이 파일의 `waitForTimeout` 은 전부 **일어나지
+ * 않는 것**을 잰다 — provider 가 서지 않는다 · 언어 서버에 묻지 않는다 · 옛 키가
+ * 듣지 않는다 · 밑줄이 얹히지 않는다 · 제안이 뜨지 않는다. 기다릴 신호가 없으므로
+ * 시간을 주고 그래도 그대로인지 보는 것이 검사 자체다.
+ */
+
 const j = (...p: string[]) => path.join(...p);
 
 /**
@@ -46,7 +53,7 @@ async function enter(page: Page, request: APIRequestContext) {
   await page.goto('/');
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
   await page.waitForFunction(
-    () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
+    () => !!(window as any).app?.testing.editors && (window as any).app.testing.edWindows().length > 0,
     undefined, { timeout: 15000 });
   await switchToEditorRoot(page, ROOT);
   await openExplorerSide(page);
@@ -55,12 +62,12 @@ async function enter(page: Page, request: APIRequestContext) {
 
 async function openFile(page: Page, rel: string) {
   const abs = P(rel);
-  await page.evaluate((p) => (window as any).app._edOpenFile(p), abs);
+  await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), abs);
   // **꼬리로 견주지 않는다.** `endsWith('pkg/deep/helper.go')` 는 Windows 의
   // 경로(`…\pkg\deep\helper.go`)에 결코 맞지 않아 이 대기가 20초를 다 쓴다
   // (러너 실측). 절대경로를 통째로 견주되 구분자만 맞춘다 (FR-CEM-11).
   await page.waitForFunction((p) => {
-    const v = (window as any).app._edActiveEditor();
+    const v = (window as any).app.testing.edActiveEditor();
     if (!v || !v._editor || v.el.offsetParent === null) return false;
     const key = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
     return key(v.filePath) === key(p);
@@ -96,16 +103,16 @@ const GOPLS_MISSING = {
 async function expectHoverGround(page: Page) {
   const ground = () => page.evaluate(() => {
     const a = (window as any).app;
-    const v = a._edActiveEditor();
+    const v = a.testing.edActiveEditor();
     const path = v && v.filePath;
     return {
       path: path || null,
       hasModel: !!(v && v._editor && v._editor.getModel()),
       lang: (v && v._editor && v._editor.getModel() && v._editor.getModel().getLanguageId()) || null,
-      root: path ? (a._lspRootOfPath(path) || null) : null,
-      roots: a._edWindows().map((w: any) => (w.editor && w.editor.root) || null),
+      root: path ? (a.testing.lspRootOfPath(path) || null) : null,
+      roots: a.testing.edWindows().map((w: any) => (w.editor && w.editor.root) || null),
       // provider 가 실제로 걸렸는가. 이것이 비면 Monaco 는 아무에게도 묻지 않는다.
-      hoverLangs: [...(a._lspHoverLangs || [])],
+      hoverLangs: [...(a.testing.lspHoverLangs || [])],
     };
   });
   const g = await ground();
@@ -113,7 +120,7 @@ async function expectHoverGround(page: Page) {
   expect(g.lang, `모델의 언어가 go 가 아니다 — provider 가 걸리지 않는다: ${JSON.stringify(g)}`).toBe('go');
   expect(g.root, `이 파일을 품는 Editor 루트를 못 찾았다 — 호버 요청이 만들어지지 않는다: ${JSON.stringify(g)}`).toBeTruthy();
   // **등록은 비동기다.** provider 는 `/api/lsp/status` 의 답을 받은 뒤에 걸리므로
-  // (`_lspHoverRegister` → `_lspStatusCached`), 편집기가 선 그 순간에는 아직
+  // (`lspHoverRegister` → `_lspStatusCached`), 편집기가 선 그 순간에는 아직
   // 걸리지 않았을 수 있다 — 러너가 느릴수록 그 틈이 벌어진다 (Windows 실측).
   // 걸리기 전에 호버를 트리거하면 Monaco 는 **아무에게도 묻지 않고**, 증상은
   // "말풍선이 안 뜬다" 로만 보인다.
@@ -129,7 +136,7 @@ async function expectHoverGround(page: Page) {
  */
 async function expectDefGround(page: Page) {
   await expect
-    .poll(async () => page.evaluate(() => [...((window as any).app._lspDefLangs || [])]),
+    .poll(async () => page.evaluate(() => [...((window as any).app.testing.lspDefLangs || [])]),
       { timeout: 15000 })
     .toContain('go');
 }
@@ -137,7 +144,7 @@ async function expectDefGround(page: Page) {
 // 커서를 그 자리에 둔다 — 요청이 싣는 좌표가 이것이다.
 async function putCursor(page: Page, line: number, col: number) {
   await page.evaluate(([l, c]) => {
-    const ed = (window as any).app._edActiveEditor()._editor;
+    const ed = (window as any).app.testing.edActiveEditor()._editor;
     ed.setPosition({ lineNumber: l, column: c });
     ed.focus();
   }, [line, col] as const);
@@ -159,7 +166,7 @@ async function stubLSP(page: Page, kind: 'definition' | 'references',
 }
 
 const activePath = (page: Page) => page.evaluate(
-  () => String((window as any).app._edActiveEditor()?.filePath || ''));
+  () => String((window as any).app.testing.edActiveEditor()?.filePath || ''));
 
 // 그 파일의 편집기가 **실제로 설** 때까지 기다린다.
 //
@@ -167,14 +174,14 @@ const activePath = (page: Page) => page.evaluate(
 // Monaco 생성이 비동기이므로, 경로만 보고 커서를 읽으면 `_editor` 가 아직 null 이다.
 async function waitEditorAt(page: Page, abs: string) {
   await page.waitForFunction((p) => {
-    const v = (window as any).app._edActiveEditor();
+    const v = (window as any).app.testing.edActiveEditor();
     if (!v || !v._editor) return false;
     const key = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
     return key(v.filePath) === key(p);
   }, abs, { timeout: 20000 });
 }
 const cursor = (page: Page) => page.evaluate(() => {
-  const p = (window as any).app._edActiveEditor()._editor.getPosition();
+  const p = (window as any).app.testing.edActiveEditor()._editor.getPosition();
   return { line: p.lineNumber, col: p.column };
 });
 const note = (page: Page) => page.locator('.file-editor:visible .fe-note.vis');
@@ -239,7 +246,7 @@ test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
     // 없다 — `getAction` 은 `null` 을 준다(실측). 커맨드클릭도 같은 명령 서비스를
     // 지나므로 판정은 같다.
     await page.evaluate(() => {
-      const ed = (window as any).app._edActiveEditor()._editor;
+      const ed = (window as any).app.testing.edActiveEditor()._editor;
       ed.trigger('e2e', 'editor.action.revealDefinition', {});
     });
 
@@ -274,7 +281,7 @@ test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
 
     // `helper()` 의 한가운데 (4행 5열) 화면 좌표.
     const at = await page.evaluate(() => {
-      const ed = (window as any).app._edActiveEditor()._editor;
+      const ed = (window as any).app.testing.edActiveEditor()._editor;
       const p = ed.getScrolledVisiblePosition({ lineNumber: 4, column: 5 });
       const r = ed.getDomNode().getBoundingClientRect();
       return { x: r.left + p.left + 2, y: r.top + p.top + p.height / 2 };
@@ -298,7 +305,7 @@ test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
     await stubStatus(page, [{ id: 'gopls', langs: ['go'], exts: ['.go'], found: true }]);
     await openFile(page, 'notes.txt');
     await page.waitForTimeout(500);
-    const langs = await page.evaluate(() => [...((window as any).app._lspDefLangs || [])]);
+    const langs = await page.evaluate(() => [...((window as any).app.testing.lspDefLangs || [])]);
     expect(langs).not.toContain('plaintext');
   });
 
@@ -377,7 +384,7 @@ test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
     // 터미널 창으로 옮긴다 — Editor 창이 아니면 이 키는 우리 것이 아니다.
     await page.evaluate(() => {
       const a = (window as any).app;
-      const term = a.ws.windows.find((w: any) => !a._isEditorWin(w));
+      const term = a.ws.windows.find((w: any) => !a.testing.isEditorWin(w));
       if (!term) throw new Error('터미널 창이 없다');
       a.switchWindow(term.id);
     });
@@ -439,7 +446,7 @@ test.describe('코드 탐색 — 호버 (M3)', () => {
     await page.locator('.file-editor.vis .monaco-editor').first().click();
     await putCursor(page, 4, 3);
     await page.evaluate(() => {
-      const ed = (window as any).app._edActiveEditor()._editor;
+      const ed = (window as any).app.testing.edActiveEditor()._editor;
       ed.trigger('test', 'editor.action.showHover', null);
     });
 
@@ -469,7 +476,7 @@ test.describe('코드 탐색 — 호버 (M3)', () => {
     await expectHoverGround(page);
     await putCursor(page, 2, 1);
     await page.evaluate(() => {
-      const ed = (window as any).app._edActiveEditor()._editor;
+      const ed = (window as any).app.testing.edActiveEditor()._editor;
       ed.trigger('test', 'editor.action.showHover', null);
     });
     await page.waitForTimeout(800);
@@ -499,7 +506,7 @@ test.describe('코드 탐색 — 호버 (M3)', () => {
     await page.locator('.file-editor.vis .monaco-editor').first().click();
     await putCursor(page, 4, 3);
     await page.evaluate(() => {
-      const ed = (window as any).app._edActiveEditor()._editor;
+      const ed = (window as any).app.testing.edActiveEditor()._editor;
       ed.trigger('test', 'editor.action.showHover', null);
     });
     // 물었는가를 먼저 본다 (위 검사와 같은 근거).
@@ -515,11 +522,11 @@ test.describe('코드 탐색 — 진단 (M4)', () => {
   // 서버가 밀어 준 진단을 흉내낸다. 실제 SSE 를 타지 않는 이유는 이 검사가 재려는
   // 것이 **밑줄을 얹는 경로**이고, SSE 배선은 Go 쪽이 잰다는 것이다.
   const push = (page: Page, path: string, items: any[]) => page.evaluate(
-    ([p, its]) => (window as any).app._lspOnDiagnostics({ path: p, items: its }),
+    ([p, its]) => (window as any).app.testing.lspOnDiagnostics({ path: p, items: its }),
     [path, items] as const);
 
   const markers = (page: Page) => page.evaluate(() => {
-    const v = (window as any).app._edActiveEditor();
+    const v = (window as any).app.testing.edActiveEditor();
     const model = v?._editor?.getModel();
     if (!model) return [];
     return (window as any).monaco.editor.getModelMarkers({ resource: model.uri })

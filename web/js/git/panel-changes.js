@@ -80,8 +80,8 @@ Object.assign(GitPanel.prototype, {
       this._applyCadence();
       this.signal('init');
       // 목록·핀이 함께 바뀌었다 (FR-RTU-27). 사이드바가 그것을 따라오게 한다.
-      if(this.app._edRefresh) this.app._edRefresh();
-      if(this.app._gitReposRefresh) this.app._gitReposRefresh();
+      if(this.app.edRefresh) this.app.edRefresh();
+      if(this.app.gitReposRefresh) this.app.gitReposRefresh();
     }else if(res!==false){
       // `false` 는 사용자가 취소한 것이다 — 실패가 아니므로 사유를 남기지 않는다.
       this._initErr=(res&&res.message)||GIT_INIT_FAIL;
@@ -105,6 +105,9 @@ Object.assign(GitPanel.prototype, {
     // (FR-GIT-152·167).
     if(this._branchesView) this._branchesView.paintStatus();
     if(this._stashView) this._stashView.paintStatus();
+    // FR-GRF-9: 낡음은 **모든 뷰**의 사실이다 — 위의 뷰별 칠하기와 달리
+    // 무엇을 보고 있든 같은 것을 말한다.
+    this.paintStale();
   },
 
   /**
@@ -190,7 +193,10 @@ Object.assign(GitPanel.prototype, {
         '<button class="git-op-act" data-act="'+GIT_OP_SKIP+'"></button>'+
         '<button class="git-op-act" data-act="'+GIT_OP_ABORT+'"></button>'+
       '</div>'+
-      '<div class="git-stale-note"></div>'+
+      // FR-GRF-11: 낡음 배너는 **여기 없다.** 뷰 공통으로 옮겼다
+      // (`panel-life.js` `_paintStaleIn`) — 이 골격에만 있던 탓에 History·
+      // Branches·Stash·Console 을 보는 동안에는 실패가 화면에 한 톨도 나타나지
+      // 않았다 (`11 GP-4`). 자리는 같다: 머리 바로 아래.
       '<div class="git-partial-note">'+
         '<div class="git-partial-msg"></div>'+
         '<ul class="git-partial-list"></ul>'+
@@ -295,12 +301,8 @@ Object.assign(GitPanel.prototype, {
   _paintChanges(el){
     const s=this._status&&this._status.status;
     this._paintHeadIn(el);
-    const note=el.querySelector('.git-stale-note');
-    const loading=!s&&!this._errMsg&&!this._staleNote;
-    note.textContent=this._errMsg||(this._staleNote?GIT_STALE_NOTE:(loading?GIT_LOADING_HINT:''));
-    note.classList.toggle('vis',!!note.textContent);
-    // 아직 불러오는 중인 것은 오류가 아니다 — 같은 자리에 다른 색으로 알린다.
-    note.classList.toggle('loading',loading);
+    // FR-GRF-9: 낡음 배너는 뷰 공통이다 — 여기서는 이 뷰의 것만 칠한다.
+    this._paintStaleIn(el);
     this._paintOp(el,s);
     // FR-CMG-2: 워킹 그룹은 서버의 두 배열을 합친 것이다 — 판정은 한 자리다.
     for(const g of GIT_GROUPS) this._paintGroup(el,g,gitGroupEntries(s,g.key));
@@ -342,7 +344,7 @@ Object.assign(GitPanel.prototype, {
   /**
    * FR-GIT-282: 지금 열 수 있는 리포를 그 자리에서 고른다.
    *
-   * 목록은 좌측 GIT 섹션과 **같은 정보원**(`app._gitRepos`)이다 — 두 벌로 두면
+   * 목록은 좌측 GIT 섹션과 **같은 정보원**(`app.gitRepos`)이다 — 두 벌로 두면
    * 사이드바에는 있는 리포가 여기에는 없는 상태가 생긴다.
    */
   /**
@@ -368,7 +370,7 @@ Object.assign(GitPanel.prototype, {
         this.app.openGitWindow(c.path).then(id=>{
           if(!id) return;
           const w=this.app.ws.windows.find(s=>s&&s.id===id);
-          if(w) this.app._edSetSide(w,REPO_SIDE_CHANGES);
+          if(w) this.app.edSetSide(w,REPO_SIDE_CHANGES);
         });
       },
     }));
@@ -377,7 +379,7 @@ Object.assign(GitPanel.prototype, {
   },
 
   _repoChoices(){
-    const d=this.app._gitRepos||{};
+    const d=this.app.gitRepos||{};
     const out=[],seen=new Set();
     const name=p=>pathBase(p)||p;
     const add=e=>{
@@ -401,13 +403,28 @@ Object.assign(GitPanel.prototype, {
     // FR-LAY-3: `.gone` 을 `[hidden]` 으로 옮겼다.
     box.hidden=!!g.hideEmpty&&!entries.length;
     const cnt=box.querySelector('.git-group-count');
-    cnt.textContent='('+entries.length+')';
+    /**
+     * FR-GDT-24: **서버가 잘랐으면 그 사실을 보인다.**
+     *
+     * 잘린 그룹에서 `entries.length` 는 상한이지 저장소의 사실이 아니다 — 그
+     * 숫자만 보이면 사용자는 파일이 없어진 것으로 읽는다. 원래 개수는 서버가
+     * `status.truncated` 로 실어 준다 (FR-GDT-23).
+     *
+     * 두 출신이 섞이는 그룹(`working`)에서는 그 둘 중 하나만 잘려도 목록이
+     * 잘린 것이므로, 원본 키 전부를 본다.
+     */
+    const st=this._status&&this._status.status;
+    const cut=gitGroupTruncated(st,g.key);
+    cnt.textContent='('+entries.length+(cut?'+':'')+')';
+    cnt.classList.toggle('git-group-cut',!!cut);
     // FR-CMG-11: 합계만으로는 **지울 것이 있는지** 보이지 않는다. 두 출신이 섞이는
     // 그룹에서만 내역을 적는다 — 갈리지 않는 그룹에 같은 말을 두면 뜻이 없다.
     if(GIT_GROUP_SRC[g.key]){
       const m=entries.filter(e=>e.untracked).length;
       cnt.title=GIT_GROUP_COUNT_TITLE(entries.length-m,m);
     }
+    // 잘렸다는 사실이 개수의 뜻을 바꾼다 — 그 설명이 이깁니다.
+    if(cut) cnt.title=GIT_GROUP_TRUNCATED.replace('%n',String(cut));
     // 빈 그룹에 일괄 동작은 뜻이 없다 — **버튼마다** 건다 (FR-WBR-53). 하나만
     // 찾으면 둘째가 빈 그룹에서도 눌린다.
     for(const b of box.querySelectorAll('.git-group-bulk')) b.disabled=!entries.length;

@@ -1,4 +1,4 @@
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, nextFrames } from './fixtures';
 
 // SRS: PANE_DOM_RECONCILE_SRS.md
 //   render 는 레이아웃 DOM 을 다시 짓지 않는다. 살아 있는 위젯이 DOM 에서
@@ -20,14 +20,30 @@ const PICK = `
   const pane = a.tools.get(tab.toolId);
 `;
 
+/**
+ * 관측이 조건을 만족할 때까지 기다린다 — 고정 대기를 대신한다 (`TEST-16`).
+ *
+ * 이 파일이 기다리던 것은 전부 관측할 수 있는 값이었다: 버퍼가 찼는가, 바닥에
+ * 붙었는가, 분할이 섰는가. 재는 것은 "그렇게 되는가" 이지 "몇 ms 안에 되는가"
+ * 가 아니다.
+ */
+async function until(page: any, read: () => Promise<any>, pred: (v: any) => boolean,
+                     why: string, timeout = 10000) {
+  await expect.poll(async () => pred(await read()), { timeout, message: why }).toBe(true);
+}
+
 async function fillScrollback(page: any, lines = 300) {
+  const base = (await paneState(page)).length;
   await page.evaluate(`(() => {${PICK}
     let payload = '';
     for (let i = 1; i <= ${lines}; i++) payload += 'LINE-' + i + '\\r\\n';
     pane.term.write(payload);
     pane.term.scrollToBottom();
   })()`);
-  await page.waitForTimeout(120);
+  // `write` 는 비동기다 — 버퍼가 자라고 **바닥에 붙은 것까지** 본다.
+  await until(page, () => paneState(page),
+    (v) => v.length > base && v.atBottom && v.scrollTop > 0,
+    '스크롤백이 채워지고 바닥에 붙는 데까지 가지 못했다');
 }
 
 async function paneState(page: any) {
@@ -58,9 +74,12 @@ test.describe('Pane DOM reconcile', () => {
         pane.term.write('TICK-' + ${i} + '\\r\\n');
         window.app.render();
       })()`);
-      await page.waitForTimeout(40);
+      // 한 줄이 실제로 버퍼에 들어간 뒤 다음 회차로 간다 — 회차 사이에 시간을
+      // 주는 것이 목적이 아니라 **출력과 render 가 번갈아 나는 것**이 목적이다.
+      await nextFrames(page);
     }
-    await page.waitForTimeout(200);
+    await until(page, () => paneState(page), (v) => v.atBottom,
+      '출력 중 render 가 끼어들자 맨 아래를 놓쳤다');
 
     const st = await paneState(page);
     expect(st.atBottom, `viewportY=${st.viewportY} baseY=${st.baseY}`).toBe(true);
@@ -70,12 +89,17 @@ test.describe('Pane DOM reconcile', () => {
   test('중간을 보던 스크롤은 render 뒤에도 그 자리다', async ({ page }) => {
     await waitForInit(page, { clearLocalStorage: true });
     await fillScrollback(page);
+    const atBottom = (await paneState(page)).viewportY;
     await page.evaluate(`(() => {${PICK} pane.term.scrollLines(-40) })()`);
-    await page.waitForTimeout(80);
+    await until(page, () => paneState(page), (v) => v.viewportY < atBottom,
+      '위로 굴렸는데 자리가 그대로다');
 
     const before = await paneState(page);
     await page.evaluate('window.app.render()');
-    await page.waitForTimeout(200);
+    // **"변하지 않는다" 는 기다려서 얻는 것이 아니다** — 그림이 한 바퀴 돈 뒤
+    // 그대로인지 본다. 조건을 poll 하면 이미 참이라 즉시 통과해 아무것도 재지
+    // 못한다.
+    await nextFrames(page);
     const after = await paneState(page);
 
     expect(after.viewportY).toBe(before.viewportY);
@@ -170,7 +194,8 @@ test.describe('Pane DOM reconcile', () => {
     await page.evaluate(`(() => {${PICK} window.__tp = pane.el; window.__term = pane })()`);
 
     await page.evaluate('window.app.split("horizontal")');
-    await page.waitForTimeout(500);
+    await expect(page.locator('#area .pn')).toHaveCount(2, { timeout: 10000 });
+    await nextFrames(page);
 
     const r = await page.evaluate(`(() => {
       const p = window.__term;
@@ -191,9 +216,12 @@ test.describe('Pane DOM reconcile', () => {
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.request().method() === 'POST'),
       page.click('#add-window'),
     ]);
-    await page.waitForTimeout(400);
     await page.evaluate((sid) => (window as any).app.switchWindow(sid), home);
-    await page.waitForTimeout(500);
+    await expect
+      .poll(() => page.evaluate('window.app.ws.activeWindow'), { timeout: 10000 })
+      .toBe(home);
+    await until(page, () => paneState(page), (v) => v.atBottom,
+      '창을 돌아왔는데 맨 아래가 아니다');
 
     const st = await paneState(page);
     expect(st.atBottom, `viewportY=${st.viewportY} baseY=${st.baseY}`).toBe(true);
@@ -207,14 +235,17 @@ test.describe('Pane DOM reconcile', () => {
       pane.term.write('\\x1b[?1049h');      // 대체 화면 진입
       pane.term.write('ALT-SCREEN-BODY');
     })()`);
-    await page.waitForTimeout(150);
+    const bufType = () => page.evaluate(`(() => {${PICK} return pane.term.buffer.active.type })()`);
+    await expect.poll(bufType, { timeout: 10000, message: '대체 화면으로 들어가지 않았다' })
+      .toBe('alternate');
 
     const before: { type: string; y: number } = await page.evaluate(`(() => {${PICK}
       const b = pane.term.buffer.active;
       return { type: b.type, y: b.viewportY };
     })()`);
     await page.evaluate('window.app.render()');
-    await page.waitForTimeout(300);
+    // 위와 같다 — 손대지 **않았음**을 재므로 그림 한 바퀴 뒤에 견준다.
+    await nextFrames(page);
     const after: { type: string; y: number } = await page.evaluate(`(() => {${PICK}
       const b = pane.term.buffer.active;
       return { type: b.type, y: b.viewportY };
@@ -230,9 +261,9 @@ test.describe('Pane DOM reconcile', () => {
     await page.evaluate(`(() => {${PICK} window.__tp = pane.el })()`);
 
     await page.evaluate('window.app.slotAdd()');
-    await page.waitForTimeout(600);
+    await expect(page.locator('#area .slot')).toHaveCount(2, { timeout: 10000 });
     await page.evaluate('window.app.slotFocusTo(0)');
-    await page.waitForTimeout(400);
+    await expect(page.locator('#area .slot[data-slot="0"] .pn.focused')).toHaveCount(1, { timeout: 10000 });
 
     const r = await page.evaluate(`(() => {${PICK}
       return { same: window.__tp === pane.el, mounted: !!pane.el.closest('.pn-body') };

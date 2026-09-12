@@ -170,7 +170,7 @@ test.describe('Layout & navigation', () => {
       // Force an immediate remote-state apply on the next microtask while
       // _splitInner is still awaiting _newTool.
       await Promise.resolve();
-      await app._onWorkspaceChanged();
+      await app.testing.onWorkspaceChanged();
       await p;
     });
     await page.unroute(TOOLS_CREATE);
@@ -231,7 +231,7 @@ test.describe('Layout & navigation', () => {
       const app = (window as any).app;
       return { active: app.ws.activeWindow, focused: app.focused, count: app.ws.windows.length };
     });
-    await page.evaluate(() => (window as any).app._execRemote('newWindow', { name: 'wf-test', keepFocus: true }));
+    await page.evaluate(() => (window as any).app.testing.execRemote('newWindow', { name: 'wf-test', keepFocus: true }));
     await page.waitForFunction((n) => (window as any).app.ws.windows.length === n + 1, before.count, { timeout: 10000 });
     const after = await page.evaluate(() => {
       const app = (window as any).app;
@@ -250,7 +250,7 @@ test.describe('Layout & navigation', () => {
   test('remote newWindow with name only switches and names', async ({ page }) => {
     await waitForInit(page);
     const beforeCount = await page.evaluate(() => (window as any).app.ws.windows.length);
-    await page.evaluate(() => (window as any).app._execRemote('newWindow', { name: 'named-active' }));
+    await page.evaluate(() => (window as any).app.testing.execRemote('newWindow', { name: 'named-active' }));
     await page.waitForFunction((n) => (window as any).app.ws.windows.length === n + 1, beforeCount, { timeout: 10000 });
     const after = await page.evaluate(() => {
       const app = (window as any).app;
@@ -301,7 +301,7 @@ test.describe('Layout & navigation', () => {
       };
     });
 
-    await page.evaluate((s) => (window as any).app._execRemote('newTab',
+    await page.evaluate((s) => (window as any).app.testing.execRemote('newTab',
       { location: s.targetCoord, keepFocus: true, name: 'worker' }), state);
     await page.waitForFunction((s) => {
       const app = (window as any).app;
@@ -351,8 +351,8 @@ test.describe('Layout & navigation', () => {
       const app = (window as any).app;
       const si = app.ws.windows.findIndex((x: any) => x.id === app.ws.activeWindow) + 1;
       const coord = `W${si}.P1.T1`;
-      app._execRemote('renameTab', { location: coord, name: 'writer' });
-      app._execRemote('renameWindow', { location: coord, name: 'x'.repeat(80) });
+      app.testing.execRemote('renameTab', { location: coord, name: 'writer' });
+      app.testing.execRemote('renameWindow', { location: coord, name: 'x'.repeat(80) });
       const s = app.ws.windows[si - 1];
       const rgs: any[] = [];
       (function collect(n: any) {
@@ -388,7 +388,7 @@ test.describe('Layout & navigation', () => {
       const si = app.ws.windows.findIndex((x: any) => x.id === app.ws.activeWindow) + 1;
       return `W${si}.P1.T1`;
     });
-    await page.evaluate((c) => (window as any).app._execRemote('splitV',
+    await page.evaluate((c) => (window as any).app.testing.execRemote('splitV',
       { reqId: 'test-req-9', location: c, count: 2, keepFocus: true }), coord);
 
     await expect.poll(() => captured.length, { timeout: 10000 }).toBeGreaterThan(0);
@@ -406,7 +406,7 @@ test.describe('Layout & navigation', () => {
   test('creating command via POST returns newTabs end-to-end through SSE', async ({ page }) => {
     await waitForInit(page);
     // 페이지의 SSE 구독이 자리잡도록 잠깐 대기.
-    await page.waitForFunction(() => window.app && window.app._cmdES && window.app._cmdES.readyState === 1, { timeout: 5000 });
+    await page.waitForFunction(() => window.app && window.app.testing.cmdES && window.app.testing.cmdES.readyState === 1, { timeout: 5000 });
     const resp = await page.evaluate(async () => {
       const r = await fetch('/api/commands', {
         method: 'POST',
@@ -439,7 +439,7 @@ test.describe('Layout & navigation', () => {
       const si = app.ws.windows.findIndex((x: any) => x.id === app.ws.activeWindow) + 1;
       return `W${si}.P1.T1`;
     });
-    await page.evaluate((c) => (window as any).app._execRemote('splitV',
+    await page.evaluate((c) => (window as any).app.testing.execRemote('splitV',
       { location: c, count: 2, keepFocus: true }), coord); // reqId 없음
     await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
     // 분할은 됐지만 echo 는 없어야.
@@ -451,7 +451,7 @@ test.describe('Layout & navigation', () => {
     await waitForInit(page);
     const long = 'x'.repeat(80);
     const beforeCount = await page.evaluate(() => (window as any).app.ws.windows.length);
-    await page.evaluate((n) => (window as any).app._execRemote('newWindow', { name: n, keepFocus: true }), long);
+    await page.evaluate((n) => (window as any).app.testing.execRemote('newWindow', { name: n, keepFocus: true }), long);
     await page.waitForFunction((n) => (window as any).app.ws.windows.length === n + 1, beforeCount, { timeout: 10000 });
     const lastName = await page.evaluate(() => {
       const app = (window as any).app;

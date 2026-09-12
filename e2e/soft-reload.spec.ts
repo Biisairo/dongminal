@@ -91,6 +91,7 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
     }, undefined, { timeout: 20000 });
     // 붙은 뒤 오버레이를 지우는 타이머는 300ms 다. 넉넉히 지나고도 남아 있으면
     // 그것이 사용자에게는 "연결 안 됨" 이다.
+    // **예외 (`TEST-16`)**: 오버레이가 **남지 않음**을 잰다.
     await page.waitForTimeout(2000);
     expect(await overlays(), '연결은 붙었는데 오버레이가 남아 있다').toBe(0);
 
@@ -120,15 +121,15 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
 
   test('SR4 (V-SRL-3): SSE 가 닫혀 있으면 다시 연결한다', async ({ page }) => {
     await enter(page);
-    await page.waitForFunction(() => (window as any).app?._sse?.readyState === 1, undefined, { timeout: 15000 });
+    await page.waitForFunction(() => (window as any).app?.testing.sse?.readyState === 1, undefined, { timeout: 15000 });
 
     // 구독을 죽인다. 이 상태로 두면 화면은 다음 변화부터 다시 낡는다 (§2.2).
-    await page.evaluate(() => { (window as any).app._sse.close() });
-    expect(await page.evaluate(() => (window as any).app._sse.readyState)).toBe(2);
+    await page.evaluate(() => { (window as any).app.testing.sse.close() });
+    expect(await page.evaluate(() => (window as any).app.testing.sse.readyState)).toBe(2);
 
     await btn(page).click();
     await page.waitForFunction(
-      () => (window as any).app?._sse?.readyState === 1, undefined, { timeout: 20000 });
+      () => (window as any).app?.testing.sse?.readyState === 1, undefined, { timeout: 20000 });
   });
 
   test('SR5 (V-SRL-6): 사라진 도구로 판정된 pane 은 다시 붙지 않는다', async ({ page }) => {
@@ -202,11 +203,11 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
 
       await enter(page);
       await page.waitForFunction(
-        () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
+        () => !!(window as any).app?.testing.editors && (window as any).app.testing.edWindows().length > 0,
         undefined, { timeout: 15000 });
       await page.evaluate((root) => {
         const a = (window as any).app;
-        const win = a._edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
+        const win = a.testing.edWindows().find((x: any) => x.editor && String(x.editor.root).replace(/\\/g, '/') === String(root).replace(/\\/g, '/'));
         a.switchWindow(win.id);
       }, stored);
       await openExplorerSide(page);
@@ -218,10 +219,11 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
       // 폴링을 세운다 — 3초 주기가 대신 읽어 주면 이 시험이 무엇을 재는지 알 수 없다.
       await page.evaluate(() => {
         const a = (window as any).app;
-        if (a._edGitInterval) { clearInterval(a._edGitInterval); a._edGitInterval = null }
+        if (a.testing.edGitInterval) { clearInterval(a.testing.edGitInterval); a.testing.edGitInterval = null }
       });
       fs.writeFileSync(path.join(sub, 'b.txt'), 'B\n');
       // 폴링이 서 있으므로 저절로는 오지 않는다.
+      // **예외 (`TEST-16`)**: 그 행이 **서지 않음**을 잰다.
       await page.waitForTimeout(1000);
       await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(path.join(sub, 'b.txt'))}"]`))
         .toHaveCount(0);

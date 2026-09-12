@@ -194,6 +194,7 @@ test.describe('FR-BGR-1/2: location 으로 복귀 대상 Pane 을 지정한다',
     // 알려지지 않은 탭 uuid 는 서버의 IsKnownTabID 게이트에서 400 이다.
     expect(r.status()).toBe(400);
 
+    // **예외 (`TEST-16`)**: 목록에서 **사라지지 않음**을 잰다.
     await page.waitForTimeout(500);
     const bg = await (await request.get('/api/tools/background')).json();
     expect((bg.background || []).some((b: any) => b.toolId === toolId),
@@ -211,8 +212,9 @@ test.describe('FR-BGR-1/2: location 으로 복귀 대상 Pane 을 지정한다',
 
     await page.evaluate((tid) => {
       const app = (window as any).app;
-      return app._restoreTool(tid, { windowId: 'sZZZ', paneId: 'rZZZ' });
+      return app.testing.restoreTool(tid, { windowId: 'sZZZ', paneId: 'rZZZ' });
     }, toolId);
+    // **예외 (`TEST-16`)**: 목록에서 **사라지지 않음**을 잰다.
     await page.waitForTimeout(500);
 
     const bg = await (await request.get('/api/tools/background')).json();
@@ -289,7 +291,7 @@ test.describe('FR-BGR-7: location 미지정 복귀는 조용히 무효가 되지
       const plainCount = () => app.ws.windows.filter((w: any) => w && w.type !== 'git' && w.type !== 'editor').length;
       const t0 = performance.now();
       while (performance.now() - t0 < 15000) {
-        if (plainCount() === 0) { await app._restoreTool(tid); return true }
+        if (plainCount() === 0) { await app.testing.restoreTool(tid); return true }
         await new Promise((r) => setTimeout(r, 1));
       }
       return false;

@@ -35,7 +35,7 @@ test('TC-FAB-17: 상한을 넘는 텍스트 파일은 Monaco 를 세우지 않�
   await waitForInit(page);
   await switchToEditorRoot(page, saved);
 
-  await page.evaluate((p: string) => (window as any).app._edOpenFile(p, { pin: true }),
+  await page.evaluate((p: string) => (window as any).app.testing.edOpenFile(p, { pin: true }),
     saved + '/big.txt');
 
   // 사유가 보인다 — 크기와 상한을 함께 말한다.
@@ -55,7 +55,7 @@ test('TC-FAB-17: 상한을 넘는 텍스트 파일은 Monaco 를 세우지 않�
   expect(built.dl, '나가는 길(내려받기)이 없다').toBe(true);
 
   // 같은 루트의 작은 파일은 그대로 열린다 — 게이트가 전부를 막으면 그것은 고장이다.
-  await page.evaluate((p: string) => (window as any).app._edOpenFile(p, { pin: true }),
+  await page.evaluate((p: string) => (window as any).app.testing.edOpenFile(p, { pin: true }),
     saved + '/small.txt');
   await page.waitForFunction(() => {
     const eds = [...(window as any).app.fileEditors.values()];

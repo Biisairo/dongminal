@@ -16,7 +16,7 @@ const activeWindowOf = (page: Page) => page.evaluate(() => (window as any).app.w
 
 const addWindow = (page: Page) =>
   page.evaluate(async () => {
-    const r = await (window as any).app._mkWindow();
+    const r = await (window as any).app.testing.mkWindow();
     (window as any).app.render();
     return r.win;
   });
@@ -68,7 +68,7 @@ async function stubState(page: Page, opts: { known: boolean; tools?: unknown[] }
 // 인자 없는 `_onWorkspaceChanged` 는 rev 비교를 건너뛰고 무조건 받아 적용한다
 // (`app-cmd.js` 의 `typeof rev==='number'`). SSE 가 나르는 것과 같은 경로다.
 const applyState = (page: Page) =>
-  page.evaluate(() => (window as any).app._onWorkspaceChanged());
+  page.evaluate(() => (window as any).app.testing.onWorkspaceChanged());
 
 test.describe('묶음 L — 도구 목록을 모를 때 하지 않는 일', () => {
   test('TC-TLU-4·5 (FR-TLU-5·6): 모르는 스냅숏은 도구도 창도 지우지 않는다', async ({ page }) => {

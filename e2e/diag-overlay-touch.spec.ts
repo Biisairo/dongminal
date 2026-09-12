@@ -11,6 +11,7 @@ async function goto(page: Page, q = '') {
 
 test('진단 오버레이는 ?diag=1 없이는 뜨지 않는다', async ({ page }) => {
   await goto(page);
+  // **예외 (`TEST-16`)**: 오버레이가 **뜨지 않음**을 잰다.
   await page.waitForTimeout(500);
   await expect(page.locator('#diag-ov')).toHaveCount(0);
 });
@@ -18,7 +19,9 @@ test('진단 오버레이는 ?diag=1 없이는 뜨지 않는다', async ({ page 
 test('?diag=1 이면 오버레이가 뜨고 환경을 기록한다', async ({ page }) => {
   await goto(page, '?diag=1');
   await expect(page.locator('#diag-ov')).toHaveCount(1);
-  await page.waitForTimeout(1200);
+  // 로그가 그 줄들을 **담을 때까지** 기다린다 — 고정 대기로는 아직 비어 있는
+  // 로그를 읽는다.
+  await expect(page.locator('#diag-ov .dg-log')).toContainText('isMobile=', { timeout: 10000 });
   const txt = await page.locator('#diag-ov .dg-log').textContent();
   expect(txt).toContain('isMobile=');
   expect(txt).toContain('tp.touchAction=');
@@ -27,7 +30,8 @@ test('?diag=1 이면 오버레이가 뜨고 환경을 기록한다', async ({ pa
 
 test('전송이 /api/upload 로 로그를 올린다', async ({ page }) => {
   await goto(page, '?diag=1');
-  await page.waitForTimeout(1000);
+  // 보낼 내용이 쌓인 뒤 누른다 — 빈 로그를 올리면 이 검사가 아무것도 재지 않는다.
+  await expect(page.locator('#diag-ov .dg-log')).toContainText('isMobile=', { timeout: 10000 });
   const [req] = await Promise.all([
     page.waitForRequest((r) => r.url().includes('/api/upload') && r.method() === 'POST', { timeout: 10000 }),
     page.locator('#diag-ov .dg-b[data-a="send"]').click(),

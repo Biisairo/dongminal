@@ -221,6 +221,29 @@ const SIDEBAR_COLLAPSED_CLASS='sb-collapsed';
  * 작아야 한다: 그 사이가 "더 좁히려 했다" 는 뜻을 담는 구간이다.
  */
 const SIDEBAR_COLLAPSE_AT_PX=70;
+/**
+ * 사이드바 폭의 하한·상한 (M6 `FE-18`).
+ *
+ *   이전 동작: `100`·`400` 이 **네 자리에 리터럴**로 있었다 — `app.js`·
+ *             `app-cmd.js`(둘 다 `Math.max(100,Math.min(400,…))`),
+ *             `input-binding.js`(드래그의 허용 구간), `index.html`(첫 페인트의
+ *             복원). 한 곳만 고치면 드래그로는 갈 수 없는 폭이 저장에서 살아남거나
+ *             그 반대가 된다
+ *   새  동작: 상수 둘이다
+ *   이유:     `SIDEBAR_COLLAPSE_AT_PX` 의 주석이 이미 *"최소 폭(100)보다 작아야
+ *             한다"* 로 그 값을 **참조**하고 있었다 — 참조하는 값이 이름을 갖지
+ *             않으면 그 관계는 주석에만 산다
+ *
+ * **`index.html` 의 첫 페인트 스크립트는 예외다** (D-SBW-1): 그 한 줄은 어떤
+ * 스크립트보다 먼저 돌아야 하므로(FR-SBC-5) 상수를 볼 수 없다. 그래서 거기에는
+ * 숫자가 남고, 아래 게이트 대신 **그 자리의 주석**이 이 상수를 가리킨다.
+ */
+const SIDEBAR_W_MIN_PX=100;
+const SIDEBAR_W_MAX_PX=400;
+/** 그 구간으로 접는다. 저장·복원·드래그가 전부 이 한 자리를 지난다. */
+function clampSidebarWidth(w){
+  return Math.max(SIDEBAR_W_MIN_PX,Math.min(SIDEBAR_W_MAX_PX,w));
+}
 
 const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight','ShiftLeft','ShiftRight']);
 /**
@@ -253,9 +276,75 @@ const BUILTIN_HOTKEYS = [
   { match: e => e.code === 'KeyF' && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey, action: 'toggleSearch' },
 ];
 
+/**
+ * 터미널 하나가 보관하는 스크롤백 줄 수 (M6 `FE-28`).
+ *
+ * **비용을 여기 적어 둔다.** 이 값은 리터럴로 있던 탓에 무엇을 재는 숫자인지
+ * 어디에도 없었다.
+ *
+ *   한 줄     xterm 은 셀마다 코드포인트+속성을 든다 — 80칸 기준 대략 수백 바이트
+ *   한 인스턴스  그 줄이 **실제로 찰 때만** 는다. 상한이지 선점이 아니다
+ *   곱하기     **칸(슬롯)마다 인스턴스가 따로다.** 같은 도구를 두 칸에 보이면
+ *             xterm 도 둘이고 버퍼도 둘이다 (`slotBase` 가 그 복합키를 가른다)
+ *
+ * 서버가 보관하는 것은 도구당 **1 MiB** 다 (`toolhub/conn.go` 의 `bufMax`).
+ * 그 둘은 다른 것을 답한다 — 서버의 것은 *재접속이 되감을 수 있는 창*이고
+ * (`TERMINAL_RESUME_SRS`), 이 값은 *이 화면이 위로 스크롤할 수 있는 범위*다.
+ * 그래서 같은 값일 필요가 없고, 같게 맞추면 화면의 역사가 1 MiB 로 잘린다.
+ *
+ * **상한을 더 낮추는 것은 제품 결정이다** — 사용자가 위로 얼마나 갈 수 있는가는
+ * 메모리와 맞바꾸는 값이고, 그 교환비를 여기서 정할 근거가 없다. `FE-28` 이
+ * 남긴 물음이 그것이며 이 상수는 그 물음을 **볼 수 있게** 만든다.
+ */
+const TERM_SCROLLBACK_LINES=50000;
+/**
+ * 창·탭 이름의 길이 상한 (`12-func-ui.md FUI-18`).
+ *
+ *   이전 동작: **만들 때만** 잘랐다 — `app-layout.js` 네 자리의 `.slice(0,64)`.
+ *             이름을 **바꾸는** 두 자리(`renameTab`·`rename`)는 자르지 않아,
+ *             수천 자를 넣으면 워크스페이스 JSON 과 사이드바 폭이 그대로 받았다
+ *   새  동작: 만들기와 바꾸기가 **같은 상한**을 지난다
+ *   이유:     상한이 한쪽에만 있으면 그것은 상한이 아니다 — 우회로가 화면에
+ *             버젓이 있다
+ */
+const ENTITY_NAME_MAX=64;
+/** 이름 하나를 그 상한으로 접는다. 만들기·바꾸기가 같은 자리를 지난다. */
+function clampEntityName(s){
+  return String(s==null?'':s).slice(0,ENTITY_NAME_MAX);
+}
+/**
+ * 백그라운드 복귀가 실패했을 때의 안내 (`12-func-ui.md FUI-21`).
+ *
+ *   이전 동작: `console.warn` 만이었다. 모달은 이미 닫혔으므로 사용자에게는
+ *             **"눌렀는데 아무것도 안 됨"** 이다
+ *   새  동작: 화면에 말한다
+ *   이유:     실패에 출구가 없으면 사용자는 같은 것을 되풀이해 누른다 —
+ *             그리고 그 도구는 여전히 백그라운드 목록에 있어 닿을 수 있다
+ */
+const BG_RESTORE_NO_PANE='되돌릴 분할 칸이 없습니다 — 창이나 칸을 먼저 만드세요';
+const BG_RESTORE_FAIL='백그라운드에서 되돌리지 못했습니다 — 목록에 그대로 있습니다';
+/**
+ * 종료된 도구 탭의 출구 (`12-func-ui.md FUI-14`).
+ *
+ *   이전 동작: 오버레이가 **"이 탭을 닫아 주세요"** 라고만 했다. 닫는 길은
+ *             탭 바의 `×` 뿐이고, 다시 셸을 여는 길은 새 탭을 만들어 그 자리로
+ *             끌어오는 것뿐이었다. 워크스페이스에는 없는 toolId 를 가리키는 탭이
+ *             남아, 새로고침 뒤에도 같은 회색 오버레이가 선다
+ *   새  동작: 오버레이가 **닫기**와 **같은 자리에 새 셸** 둘을 준다
+ *   이유:     안내가 "당신이 알아서 하세요" 로 끝나면 그것은 출구가 아니다.
+ *             두 동작 다 이미 있다 (`closeTab`·`addTab`) — 없던 것은 그 자리의
+ *             버튼뿐이다
+ */
+const TERM_EXITED_TITLE='도구 종료됨';
+const TERM_EXITED_SUB='이 탭을 닫거나 같은 자리에 새 셸을 엽니다';
+const TERM_EXITED_CLOSE='탭 닫기';
+const TERM_EXITED_NEW='새 셸';
+// FUI-15: 터미널 검색의 결과 표기. `n/N` 은 숫자라 문구가 없다.
+const SEARCH_NONE='없음';
+const SEARCH_BAD_REGEX='정규식 오류';
 // TOPTS theme is set after THEMES loads (see themes.js)
 var TOPTS={
-  scrollback:50000,cursorBlink:true,cursorStyle:'block',
+  scrollback:TERM_SCROLLBACK_LINES,cursorBlink:true,cursorStyle:'block',
   fontSize:14,lineHeight:1.2,allowProposedApi:true,logLevel:'off',
   fontFamily:"'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace",
   theme:null,
@@ -354,6 +443,16 @@ const TIP_BG_KILL_NO='Leave it running';
 const TIP_RUNS_DEL='Remove this run from the list and its history';
 const TIP_RUNS_YES='Delete this run permanently';
 const TIP_RUNS_NO='Keep this run';
+/**
+ * `12-func-ui.md FUI-04`: **Run 을 UI 에서 멈출 길이 없었다.**
+ *
+ * 유일한 출구가 `삭제` 였고 그것은 **기록까지 지운다** — 진행 중인 Run 을
+ * 멈추려면 무엇이 있었는지도 함께 잃어야 했다. 서버는 `close`·`detach` 를
+ * 이미 노출하고 있었으므로 없던 것은 화면뿐이다.
+ */
+const TIP_RUNS_CLOSE='Stop this run and clean up — the record stays';
+const TIP_RUNS_CLOSE_YES='Stop this run now';
+const TIP_RUNS_DETACH='Detach this member — the tab closes, the tool keeps running';
 // FR-TIP-1: 단축키 설정의 두 버튼. 키 조합과 `↺` 가 라벨이라 무엇을 하는지는
 // 툴팁만 말할 수 있다.
 const SHORTCUT_REBIND_TITLE='Click, then press the keys you want for this action';

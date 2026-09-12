@@ -74,8 +74,8 @@ test.describe('레이아웃 프리셋과 Editor 창', () => {
     await page.evaluate(() => {
       const a = (window as any).app;
       (window as any).layoutPresets.length = 0;
-      a._saveSettings();
-      a._renderPresets();
+      a.testing.saveSettings();
+      a.testing.renderPresets();
     }).catch(() => { /* 페이지가 이미 닫혔으면 할 일이 없다 */ });
   });
 
@@ -84,12 +84,12 @@ test.describe('레이아웃 프리셋과 Editor 창', () => {
     const got = await page.evaluate(() => {
       const a = (window as any).app;
       (window as any).layoutPresets.length = 0;
-      const ed = a._edWindows()[0];
+      const ed = a.testing.edWindows()[0];
       a.switchWindow(ed.id);
-      a._savePreset();
+      a.testing.savePreset();
       const list = (window as any).layoutPresets;
       return {
-        activeIsEditor: a._isEditorWin(a._aw()),
+        activeIsEditor: a.testing.isEditorWin(a.testing.aw()),
         edHasLayout: !!ed.layout,
         count: list.length,
         layouts: list.map((p: any) => p.layout),
@@ -108,14 +108,14 @@ test.describe('레이아웃 프리셋과 Editor 창', () => {
     const got = await page.evaluate(() => {
       const a = (window as any).app;
       (window as any).layoutPresets.length = 0;
-      const ed = a._edWindows()[0];
+      const ed = a.testing.edWindows()[0];
       a.switchWindow(ed.id);
       // 일반 창이 하나도 없는 상태는 delWindow 의 과도 상태뿐이므로 그 자리를
       // 대신 세운다 — 재는 것은 "대상이 없을 때의 처신" 이다.
-      const real = a._plainWindows;
-      a._plainWindows = () => [];
-      a._savePreset();
-      a._plainWindows = real;
+      const real = a.testing.plainWindows;
+      a.testing.plainWindows = () => [];
+      a.testing.savePreset();
+      a.testing.plainWindows = real;
       const msg = document.querySelector('#panel-presets .preset-msg');
       return { count: (window as any).layoutPresets.length, msg: msg ? msg.textContent : '' };
     });
@@ -131,13 +131,13 @@ test.describe('레이아웃 프리셋과 Editor 창', () => {
       // 개정 이전에 저장된 프리셋이 이 모양이다.
       (window as any).layoutPresets.push({ name: '빈 프리셋', layout: null });
       const before = a.ws.windows.map((w: any) => w.id);
-      await a._loadPreset(0);
-      const w = a._aw();
+      await a.testing.loadPreset(0);
+      const w = a.testing.aw();
       return {
         isNew: !before.includes(w.id),
         hasLayout: !!w.layout,
         // 창 필터(FR-EDT-49)를 그대로 태운다 — 여기서 지워지면 도구만 남는다.
-        survives: a.ws.windows.filter((s: any) => s && (s.layout || a._isEditorWin(s)))
+        survives: a.ws.windows.filter((s: any) => s && (s.layout || a.testing.isEditorWin(s)))
           .some((s: any) => s.id === w.id),
       };
     });

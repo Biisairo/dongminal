@@ -39,7 +39,7 @@ test('TC-RST-2 되돌리면 서버 설정이 비워지고 다시 열린다', asy
   // 되돌릴 값을 하나 심는다 — 되돌아갔는지 보려면 되돌릴 것이 있어야 한다.
   await page.evaluate(() => {
     (window as any).pageTitle = '되돌리기 전';
-    return (window as any).app._saveSettings();
+    return (window as any).app.testing.saveSettings();
   });
   const before = await (await page.request.get(`${baseURL}/api/settings`)).json();
   expect(before.pageTitle).toBe('되돌리기 전');

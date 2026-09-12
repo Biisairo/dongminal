@@ -239,10 +239,14 @@ test.describe('모바일 390px', () => {
     // ── 사이드 자리 (FR-RTU-80) ─────────────────────────────────────
     await page.evaluate(() => {
       const a = (window as any).app;
-      a._mPaneIdx = 0;
+      a.testing.mPaneIdx = 0;
       a.render();
     });
     await expect(changes(page).locator('.git-head-repo')).toHaveText('with-remote', { timeout: 10000 });
+    // **예외 (`TEST-16`): 레이아웃이 앉은 것을 말해 주는 신호가 없다.** 아래는
+    // 뷰 **안의 모든 요소**가 경계를 넘지 않는지 재므로, 특정 행이 서는 것을
+    // 신호로 쓸 수 없다 — 목록이 비어도 이 검사는 성립한다 (실측: 모바일
+    // 390px 에서 `.git-file` 을 기다리면 영영 오지 않는다).
     await page.waitForTimeout(800);
 
     // V10
@@ -258,6 +262,7 @@ test.describe('모바일 390px', () => {
     await page.click('#m-pane-next');
     await clickGitView(page, 'history');
     await expect(hist(page).locator('.git-head-repo')).toHaveText('with-remote', { timeout: 10000 });
+    // **예외 (`TEST-16`)**: 위와 같다.
     await page.waitForTimeout(800);
     const h = await overflow(page, '#area .pn-body .git-view.git-history');
     expect(h.items).toEqual([]);

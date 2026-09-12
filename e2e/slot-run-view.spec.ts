@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, nextFrames } from './fixtures';
 
 // SLOT_RUN_VIEW_SRS §5 TC-SRV-*
 //
@@ -73,7 +73,7 @@ const runViewsPerSlot = (page: Page) =>
 
 const viewKeys = (page: Page) =>
   // 뷰 레지스트리는 RunsPanel 이 든다 (APP_STATE_EXTRACT_SRS 묶음 A).
-  page.evaluate(() => [...((window as any).app._runsPanel()._runViews || new Map()).keys()]);
+  page.evaluate(() => [...((window as any).app.testing.runsPanel()._runViews || new Map()).keys()]);
 
 test.describe('Run 뷰의 칸 다중화', () => {
   // TC-SRV-1
@@ -108,7 +108,9 @@ test.describe('Run 뷰의 칸 다중화', () => {
 
     const before = await viewKeys(page);
     for (let i = 0; i < 3; i++) await page.evaluate(() => (window as any).app.render());
-    await page.waitForTimeout(300);
+    // 회수되지 **않음**을 재므로 조건을 되풀이해 읽을 수 없다 — 그림이 한 바퀴
+    // 돈 뒤에 견준다.
+    await nextFrames(page);
 
     expect(await viewKeys(page)).toEqual(before);
     expect(await page.locator('.run-view').count()).toBe(2);
@@ -148,10 +150,10 @@ test.describe('Run 뷰의 칸 다중화', () => {
       // _onRunChanged 는 그 안에서 자기 _runPaint 를 부르므로, App 의 위임 껍데기를
       // 갈아 끼우면 이 관찰이 아무것도 잡지 못한다. **재는 것은 그대로다** —
       // Run 이 바뀌면 그것을 보는 뷰 전부가 다시 그려지는가.
-      const runs = app._runsPanel();
+      const runs = app.testing.runsPanel();
       const orig = runs._runPaint.bind(runs);
       runs._runPaint = (v: any) => { seen.push(String(v.tabId)); return orig(v) };
-      app._onRunChanged({ runId: rid });
+      app.testing.onRunChanged({ runId: rid });
       await new Promise((r) => setTimeout(r, 500));
       runs._runPaint = orig;
       return seen;
@@ -173,7 +175,7 @@ test.describe('Run 뷰의 칸 다중화', () => {
       app.closeTab(p, t);
       app.render();
       // 회수는 run 변경 수신에서 스스로 맞춘다 (app-runs.js 의 규약).
-      app._onRunChanged({ runId: 'zzzz' });
+      app.testing.onRunChanged({ runId: 'zzzz' });
     }, [paneId, tabId] as const);
 
     await expect.poll(() => page.locator('.run-view').count(), { timeout: 15000 }).toBe(0);

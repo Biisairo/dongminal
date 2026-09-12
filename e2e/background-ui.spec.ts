@@ -13,7 +13,7 @@ import { test, expect, waitForInit } from './fixtures';
 async function openConfirm(page: Page, opts: Record<string, unknown>) {
   await page.evaluate((o) => {
     // Promise 는 의도적으로 버린다 — 닫힘까지 기다리면 evaluate 가 걸린다.
-    void (window as any).app._confirmClose('테스트', o);
+    void (window as any).app.testing.confirmClose('테스트', o);
   }, opts);
   await page.waitForSelector('.confirm-overlay .confirm-btns button');
 }
@@ -91,7 +91,7 @@ async function makeBackgroundTool(page: Page, request: any): Promise<string> {
   // 백그라운드 도구와 구별되지 않아 뒤의 선택이 엉뚱한 행을 짚는다.
   await expect.poll(
     async () => page.evaluate((tid) =>
-      ((window as any).app._bg || []).some((b: any) => b.toolId === tid), before),
+      ((window as any).app.testing.bg || []).some((b: any) => b.toolId === tid), before),
     { timeout: 10000 },
   ).toBe(true);
 
@@ -148,7 +148,7 @@ test.describe('FR-SBR-8..13: 백그라운드 진입점', () => {
   // V-SBR-6
   test('TC-SBR-6: 도구가 0개여도 보이고, 하이라이트는 없다', async ({ page }) => {
     await waitForInit(page);
-    await expect.poll(async () => page.evaluate(() => (window as any).app._bg.length),
+    await expect.poll(async () => page.evaluate(() => (window as any).app.testing.bg.length),
       { timeout: 10000 }).toBe(0);
     const btn = page.locator('#bg-btn');
     await expect(btn).toBeVisible();
@@ -211,11 +211,11 @@ test.describe('FR-SBR-8..13: 백그라운드 진입점', () => {
       const mark = Symbol.for('tc-bgu-5');
       const el = document.getElementById('bg-btn') as any;
       el[mark] = true;
-      for (let i = 0; i < 3; i++) app._updateStatusBar();
+      for (let i = 0; i < 3; i++) app.testing.updateStatusBar();
       const now = document.getElementById('bg-btn') as any;
       return !!(now && now[mark]);
     });
-    expect(survived, '_updateStatusBar 가 진입점을 재생성했다').toBe(true);
+    expect(survived, 'updateStatusBar 가 진입점을 재생성했다').toBe(true);
   });
 
   test('TC-BGU-9: 진입점은 상태바 지표가 아니다', async ({ page, request }) => {

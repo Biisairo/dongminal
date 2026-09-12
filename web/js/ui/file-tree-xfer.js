@@ -207,9 +207,12 @@ Object.assign(FileTree.prototype, {
       {sep:true},
       // FR-WBR-70: 복사·붙여넣기·복제. 붙여넣는 자리는 만들기와 같은 규칙이
       // 정한다 — 폴더면 그 안, 아니면 그 형제 (`dir` 이 그것이다).
-      {id:'copy',label:EDITOR_MENU_COPY,run:()=>this.app._edClipSet(this.root,p)},
+      {id:'copy',label:EDITOR_MENU_COPY,run:()=>this.app.edClipSet(this.root,p)},
+      // FUI-11: 같은 클립보드에 **동사만** 다르게 놓는다. 붙여넣는 쪽이
+      // `c.move` 로 갈린다 — 자리와 대상은 복사와 한 글자도 다르지 않다.
+      {id:'cut',label:EDITOR_MENU_CUT,run:()=>this.app.edClipSet(this.root,p,true)},
       {id:'paste',label:EDITOR_MENU_PASTE,
-        disabled:()=>this.app._edClipGet()?'':EDITOR_PASTE_NONE,
+        disabled:()=>this.app.edClipGet()?'':EDITOR_PASTE_NONE,
         run:()=>this.doPasteInto(dir)},
       {id:'duplicate',label:EDITOR_MENU_DUPLICATE,run:()=>this.doDuplicate(p)},
       {sep:true},
@@ -222,7 +225,7 @@ Object.assign(FileTree.prototype, {
 
   /**
    * FR-EDT-85 · FR-FTR-17·20·23: 드래그. 상태는 **이 인스턴스**가 쥔다 —
-   * `app._drag` 는 탭 이동의 것이고(renderer.js) 거기 끼어들면 pane 이 이 드래그를
+   * `app.drag` 는 탭 이동의 것이고(renderer.js) 거기 끼어들면 pane 이 이 드래그를
    * 받는다.
    *
    * 받는 것이 둘이다. **트리 내부의 이동**(`this._drag` 가 서 있다)과 **바깥에서
@@ -403,54 +406,21 @@ Object.assign(FileTree, {
   },
 
   /**
-   * FR-EDT-21: 드롭된 최상위 entry 들. **동기적으로** 꺼낸다 — `dataTransfer` 의
-   * `items` 는 이벤트 핸들러가 끝나면 비워지므로, 재귀(비동기) 안에서 꺼내면
-   * 아무것도 없다.
+   * 드롭된 최상위 entry 들. 본체는 `ui/drop-entries.js` 의 `dropEntries` 다 —
+   * 터미널도 같은 일을 하므로 공용으로 뽑았다 (TERMINAL_FOLDER_DROP_SRS FR-TFD-1·4).
    *
-   * `webkitGetAsEntry` 가 없는 브라우저에서는 null 이고, 그때는 `files` 로
-   * 폴백한다 — 폴더는 못 올리지만 파일은 올라간다.
+   * 이름을 남기는 이유: 이것을 부르는 자리가 여럿이고, 지우면 이 변경이
+   * "이음매를 더한다" 를 넘어 "탐색기를 고친다" 가 된다 (FR-TFD-4).
    */
   _dropEntries(e){
-    const items=(e.dataTransfer&&e.dataTransfer.items)||null;
-    if(!items||!items.length) return null;
-    const out=[];
-    // `DataTransferItemList` 는 배열이 아니다 — 인덱스로 읽는다.
-    for(let i=0;i<items.length;i++){
-      const it=items[i];
-      if(!it||it.kind!=='file'||typeof it.webkitGetAsEntry!=='function') continue;
-      const en=it.webkitGetAsEntry();
-      if(en) out.push(en);
-    }
-    return out.length?out:null;
+    return dropEntries(e);
   },
 
   /**
-   * entry 하나를 걷는다. 파일이면 담고 디렉터리면 그 안으로 내려간다.
-   * 상한을 넘으면 `false` 를 돌려 **걷기 자체를 멈춘다** (FR-ETR-22) — 홈 폴더를
-   * 잘못 놓았을 때 브라우저가 멎지 않아야 한다.
-   *
-   * `readEntries` 는 한 번에 전부 주지 않는다. 빈 배열이 올 때까지 되풀이해야
-   * 하며, 그러지 않으면 항목이 100개쯤에서 잘린다 (Chrome 의 실제 동작이다).
+   * entry 하나를 걷는다. 본체는 `walkDropEntry` 다 (FR-TFD-1·4). 상한은 여기서
+   * 준다 — 공용 함수는 상수를 참조하지 않는다 (FR-TFD-3).
    */
-  async _walkEntry(en,prefix,out){
-    if(!en) return true;
-    if(out.length>=EDITOR_UPLOAD_MAX_ENTRIES) return false;
-    const rel=prefix?prefix+'/'+en.name:en.name;
-    if(en.isFile){
-      const f=await new Promise(res=>en.file(res,()=>res(null)));
-      // 읽지 못한 항목은 건너뛴다. 드롭한 것 중 하나를 못 읽었다고 나머지를
-      // 버리지 않는다 — 실패는 업로드 단계에서 사용자에게 묻는다 (FR-ETR-26).
-      if(f) out.push({file:f,relPath:rel});
-      return true;
-    }
-    if(!en.isDirectory) return true;
-    const reader=en.createReader();
-    for(;;){
-      const batch=await new Promise(res=>reader.readEntries(res,()=>res([])));
-      if(!batch||!batch.length) return true;
-      for(const child of batch){
-        if(await FileTree._walkEntry(child,rel,out)===false) return false;
-      }
-    }
+  _walkEntry(en,prefix,out){
+    return walkDropEntry(en,prefix,out,EDITOR_UPLOAD_MAX_ENTRIES);
   },
 });

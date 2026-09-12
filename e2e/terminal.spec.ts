@@ -31,11 +31,56 @@ test.describe('Terminal features', () => {
     await page.locator('#search-input').fill('findme_12345');
     await page.locator('#search-input').press('Enter');
 
-    // _doSearch sets #search-count to '' when results exist, '없음' when none.
-    const countText = await page.locator('#search-count').textContent();
-    expect(countText).not.toBe('없음');
+    /**
+     * `12-func-ui.md FUI-15` 로 `#search-count` 가 **`n/N`** 이 됐다.
+     *
+     *   이전 동작: `''`(찾음) 또는 `'없음'` 둘뿐 — 몇 번째인지도 몇 개인지도
+     *             알 수 없었다
+     *   새  동작: 벤더 addon 의 `onDidChangeResults` 를 구독해 자리와 수를 적는다
+     *   이유:     편집기 찾기 줄은 이미 그렇게 한다 — 같은 앱의 두 검색이
+     *             비대칭이었다
+     */
+    await expect(page.locator('#search-count')).toHaveText(/^\d+\/\d+$/, { timeout: 10000 });
 
     // Close search.
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#search-bar')).toBeHidden();
+  });
+
+  // FUI-15: 토글 셋과 없음 표기.
+  test('터미널 검색의 토글 셋과 없음 표기 (FUI-15)', async ({ page }) => {
+    await waitForInit(page);
+    await waitShellReady(page);
+    await page.keyboard.type('echo fui15_alpha fui15_beta');
+    await page.keyboard.press('Enter');
+    await expect(page.locator('#area .pn.focused .xterm-rows'))
+      .toContainText('fui15_alpha', { timeout: 10000 });
+
+    await page.keyboard.press('Control+f');
+    await expect(page.locator('#search-bar')).toBeVisible();
+    // 토글 셋이 다 있다 — 편집기 찾기 줄과 같은 구성이다.
+    await expect(page.locator('#search-case')).toBeVisible();
+    await expect(page.locator('#search-word')).toBeVisible();
+    await expect(page.locator('#search-regex')).toBeVisible();
+
+    // 없는 것은 "없음" 이다.
+    await page.locator('#search-input').fill('fui15_zzz_none');
+    await page.locator('#search-input').press('Enter');
+    await expect(page.locator('#search-count')).toHaveText('없음', { timeout: 10000 });
+
+    // 정규식 토글이 실제로 걸린다 — 켜지 않으면 `.` 는 글자 그대로다.
+    await page.locator('#search-input').fill('fui15_(alpha|beta)');
+    await page.locator('#search-input').press('Enter');
+    await expect(page.locator('#search-count')).toHaveText('없음', { timeout: 10000 });
+    await page.locator('#search-regex').click();
+    await expect(page.locator('#search-count')).toHaveText(/^\d+\/\d+$/, { timeout: 10000 });
+
+    // 깨진 정규식은 **그 사실을 말한다** — addon 은 그때도 0건을 내므로
+    // "없음" 과 구분되지 않는다.
+    await page.locator('#search-input').fill('fui15_(');
+    await page.locator('#search-input').press('Enter');
+    await expect(page.locator('#search-count')).toHaveText('정규식 오류', { timeout: 10000 });
+
     await page.keyboard.press('Escape');
     await expect(page.locator('#search-bar')).toBeHidden();
   });

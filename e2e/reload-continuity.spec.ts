@@ -9,18 +9,18 @@ import { test, expect, waitForInit, waitSettled } from './fixtures';
 
 const activeWindowOf = (page: Page) => page.evaluate(() => (window as any).app.ws.activeWindow);
 const plainIds = (page: Page) =>
-  page.evaluate(() => (window as any).app._plainWindows().map((w: any) => w.id));
+  page.evaluate(() => (window as any).app.testing.plainWindows().map((w: any) => w.id));
 
 const addWindow = (page: Page) =>
   page.evaluate(async () => {
-    const r = await (window as any).app._mkWindow();
+    const r = await (window as any).app.testing.mkWindow();
     (window as any).app.render();
     return r.win;
   });
 
 const setTab = (page: Page, id: string) =>
-  page.evaluate((t) => (window as any).app._sbSetTab(t), id);
-const tabOf = (page: Page) => page.evaluate(() => (window as any).app._sbTab);
+  page.evaluate((t) => (window as any).app.testing.sbSetTab(t), id);
+const tabOf = (page: Page) => page.evaluate(() => (window as any).app.testing.sbTab);
 
 // 새로고침. 같은 브라우저 탭이므로 sessionStorage 는 살아남는다 — 그것이
 // 이 검증의 전제다 (SRS §2.3).
@@ -34,7 +34,7 @@ async function reload(page: Page) {
   await waitSettled(page);
   await page.reload();
   await page.waitForFunction(
-    () => !!(window as any).app && !!(window as any).app._sbTab && !!(window as any).app.ws.activeWindow,
+    () => !!(window as any).app && !!(window as any).app.testing.sbTab && !!(window as any).app.ws.activeWindow,
     undefined, { timeout: 15000 });
 }
 
@@ -114,7 +114,7 @@ test.describe('묶음 Q — 사이드바가 돌아갈 자리의 기억', () => {
     await page.evaluate(() => {
       try { sessionStorage.removeItem('lastPlainWindow') } catch { /* 사생활 모드 */ }
     });
-    await page.evaluate(() => { (window as any).app._lastPlainWindow = null });
+    await page.evaluate(() => { (window as any).app.testing.lastPlainWindow = null });
 
     await setTab(page, 'windows');
 

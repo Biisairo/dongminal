@@ -90,7 +90,7 @@ const TermClipboard={
    * 하나에 창마다 복사창이 서고, 사용자는 자기가 보던 창이 아닌 곳에서 그것을
    * 만난다 — 어느 복사의 창인지도 알 수 없고, 닫아도 다른 창에 그대로 남는다.
    *
-   * 판정은 `_attnUserIsWatching` 을 **그대로 빌린다** (FR-ATA-7). 알림은 보고
+   * 판정은 `attnUserIsWatching` 을 **그대로 빌린다** (FR-ATA-7). 알림은 보고
    * 있으면 억제하고 복사창은 보고 있을 때만 서지만, "사용자가 지금 이것을 보고
    * 있는가" 라는 물음 자체는 하나다 — 두 벌로 두면 한쪽만 고쳐진다.
    *
@@ -100,8 +100,8 @@ const TermClipboard={
   _watchedHere(toolId){
     if(!toolId) return true;
     const app=(typeof window!=='undefined')?window.app:null;
-    if(!app||typeof app._attnUserIsWatching!=='function') return true;
-    return !!app._attnUserIsWatching(toolId);
+    if(!app||typeof app.attnUserIsWatching!=='function') return true;
+    return !!app.attnUserIsWatching(toolId);
   },
 
   /**

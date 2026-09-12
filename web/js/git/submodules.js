@@ -103,7 +103,7 @@ class GitSubmodules extends GitListTab {
     const path=e?e.path:'';
     if(act==='open'){this.app.openGitWindow(e.absPath||'');return}
     // FR-GIT-244 와 같은 경로다 — 터미널은 Git 창이 아닌 창에 연다.
-    if(act==='term'){this.app._gitOpenTerminal(e.absPath||'');return}
+    if(act==='term'){this.app.gitOpenTerminal(e.absPath||'');return}
     if(act==='sync'){this._sync(path);return}
     /**
      * `init` 과 `update` 는 같은 명령이고 `--init` 만 다르다.

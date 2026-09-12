@@ -2,6 +2,12 @@ import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, waitSettled } from './fixtures';
 
+/**
+ * **고정 대기의 예외 (`TEST-16`).** 이 파일의 `waitForTimeout` 은 전부 **일어나지
+ * 않는 것**을 잰다 — 새로고침이 되풀이되지 않는다 · 가만히 두면 버전 확인이
+ * 나가지 않는다 · 멀쩡한 구독을 끊지 않는다. 기다릴 신호가 없다.
+ */
+
 // RELOAD_CONTINUITY_SRS §5 묶음 P — TC-RLC-1~4.
 //
 // 서빙되는 자산은 바이너리에 embed 되어 있어 테스트 중에 바꿀 수 없다. 대신
@@ -259,11 +265,11 @@ test('TC-RLC-22b (FR-RLC-23): 인사도 되풀이 방지를 따른다', async ({
 // 인사도 오지 않는다 — 판 소식만이 아니라 명령·워크스페이스도 함께 멎는다.
 
 // 지금 구독이 몇 번째로 열린 것인지. 다시 열렸는지를 이 수로 판정한다.
-const sseGen = (page: Page) => page.evaluate(() => (window as any).app._sseGen || 0);
+const sseGen = (page: Page) => page.evaluate(() => (window as any).app.testing.sseGen || 0);
 
 // 마지막 수신 시각을 과거로 밀어 침묵을 흉내낸다 — 실제로 45초를 기다릴 수는 없다.
 const fakeSilence = (page: Page, ms: number) =>
-  page.evaluate((back) => { (window as any).app._sseSeen = Date.now() - back }, ms);
+  page.evaluate((back) => { (window as any).app.testing.sseSeen = Date.now() - back }, ms);
 
 test('TC-RLC-27 (FR-RLC-25·28): 수신이 이어지는 동안에는 끊지 않는다', async ({ page }) => {
   await waitForInit(page);
@@ -279,11 +285,11 @@ test('TC-RLC-26 (FR-RLC-26): 깨어남의 계기에서 침묵을 즉시 판정�
   const gen = await sseGen(page);
 
   // 잠에서 깬 half-open 소켓 — 브라우저는 여전히 OPEN 이라고 믿는다.
-  expect(await page.evaluate(() => (window as any).app._cmdES?.readyState)).toBe(1);
+  expect(await page.evaluate(() => (window as any).app.testing.cmdES?.readyState)).toBe(1);
   await fakeSilence(page, 120000);
 
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-  await page.waitForFunction((g) => ((window as any).app._sseGen || 0) > g, gen, { timeout: 10000 });
+  await page.waitForFunction((g) => ((window as any).app.testing.sseGen || 0) > g, gen, { timeout: 10000 });
   expect(await sseGen(page)).toBeGreaterThan(gen);
 });
 
@@ -298,6 +304,6 @@ test('TC-RLC-25 (FR-RLC-25): 침묵이 상한을 넘으면 스스로 다시 연�
 
   // 깨어남의 계기 없이도 감시가 돈다 — 화면을 보고 있지 않아도 되살아나야 한다.
   await fakeSilence(page, 120000);
-  await page.waitForFunction((g) => ((window as any).app._sseGen || 0) > g, gen, { timeout: 20000 });
+  await page.waitForFunction((g) => ((window as any).app.testing.sseGen || 0) > g, gen, { timeout: 20000 });
   expect(await sseGen(page)).toBeGreaterThan(gen);
 });

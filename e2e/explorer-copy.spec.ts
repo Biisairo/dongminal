@@ -3,7 +3,9 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openRowMenu, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
+import {
+  test, expect, openRowMenu, rmTree, switchToEditorRoot, openExplorerSide, addEditor, gotoWithEditors, openExplorerAt, enterExplorer,
+} from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // WORKBENCH_REVIEW_SRS 묶음 P — 탐색기의 복사·복제 (FR-WBR-70~74,
@@ -40,32 +42,6 @@ function mkRoot(tag: string) {
 test.beforeAll(() => { BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-edcp-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
-async function addEditor(request: APIRequestContext, p: string) {
-  const r = await request.post('/api/editors/add', { data: { path: p } });
-  expect(r.ok(), `editors/add 실패: ${await r.text()}`).toBeTruthy();
-}
-
-async function goto(page: Page) {
-  await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-  await page.waitForFunction(
-    () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
-    undefined, { timeout: 15000 });
-}
-
-async function openEditor(page: Page, root: string) {
-  await switchToEditorRoot(page, root);
-  await openExplorerSide(page);
-}
-
-async function enter(page: Page, request: APIRequestContext, root: string) {
-  await addEditor(request, root);
-  await goto(page);
-  await openEditor(page, root);
-  await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
-}
-
 const row = (page: Page, p: string) => page.locator(`.ed-tree .ed-row[data-path="${cssPath(p)}"]`);
 const opErr = (page: Page) => page.locator('.ed-tree .ed-op-err');
 const menuItem = (page: Page, id: string) =>
@@ -91,7 +67,7 @@ test.describe('묶음 P — 탐색기의 복사·복제', () => {
   test('C1 (V-WBR-69 / FR-WBR-70): 메뉴에 셋이 있고, 복사 전에는 붙여넣기가 비활성이다',
     async ({ page, request }) => {
       const R = mkRoot('c1');
-      await enter(page, request, R);
+      await enterExplorer(page, request, R);
 
       await openMenu(page, j(R, 'top.txt'));
       await expect(menuItem(page, 'copy')).toBeVisible();
@@ -112,12 +88,12 @@ test.describe('묶음 P — 탐색기의 복사·복제', () => {
       const A = mkRoot('c2a');
       const B = mkRoot('c2b');
       await addEditor(request, B);
-      await enter(page, request, A);
+      await enterExplorer(page, request, A);
 
       await ctx(page, j(A, 'top.txt'), 'copy');
 
       // 창을 바꾼다 — 클립보드는 앱이 들고 있으므로 따라온다 (FR-WBR-71).
-      await openEditor(page, B);
+      await openExplorerAt(page, B);
       await expect(row(page, j(B, 'top.txt'))).toBeVisible({ timeout: 10000 });
       await ctx(page, j(B, 'docs'), 'paste');
 
@@ -131,7 +107,7 @@ test.describe('묶음 P — 탐색기의 복사·복제', () => {
   test('C3 (V-WBR-71 / FR-WBR-71): 새로고침하면 붙여넣기가 다시 비활성이다',
     async ({ page, request }) => {
       const R = mkRoot('c3');
-      await enter(page, request, R);
+      await enterExplorer(page, request, R);
 
       await ctx(page, j(R, 'top.txt'), 'copy');
       await openMenu(page, j(R, 'docs'));
@@ -142,9 +118,9 @@ test.describe('묶음 P — 탐색기의 복사·복제', () => {
       // 않는다 — 창 목록이 선 것으로 판정한다.
       await page.reload();
       await page.waitForFunction(
-        () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
+        () => !!(window as any).app?.testing.editors && (window as any).app.testing.edWindows().length > 0,
         undefined, { timeout: 15000 });
-      await openEditor(page, R);
+      await openExplorerAt(page, R);
       await expect(row(page, j(R, 'top.txt'))).toBeVisible({ timeout: 10000 });
 
       // 무기한 사는 상태를 두지 않는다 — "언젠가 복사한 것" 이 남지 않는다.
@@ -155,7 +131,7 @@ test.describe('묶음 P — 탐색기의 복사·복제', () => {
   test('C4 (V-WBR-72 / FR-WBR-70): 복제가 원본의 형제 자리에 `… copy` 를 만든다',
     async ({ page, request }) => {
       const R = mkRoot('c4');
-      await enter(page, request, R);
+      await enterExplorer(page, request, R);
 
       await ctx(page, j(R, 'top.txt'), 'duplicate');
       await expect(row(page, j(R, 'top copy.txt'))).toBeVisible({ timeout: 10000 });
@@ -178,7 +154,7 @@ test.describe('묶음 P — 탐색기의 복사·복제', () => {
   test('C5 (V-WBR-73 / FR-WBR-73): 원본이 사라진 뒤 붙여넣으면 그 자리에 사유가 붙는다',
     async ({ page, request }) => {
       const R = mkRoot('c5');
-      await enter(page, request, R);
+      await enterExplorer(page, request, R);
 
       await ctx(page, j(R, 'top.txt'), 'copy');
       fs.rmSync(j(R, 'top.txt'));
@@ -196,7 +172,7 @@ test.describe('묶음 P — 탐색기의 복사·복제', () => {
   test('C6 (V-WBR-74 / FR-WBR-74): 복사 뒤 다시 읽는 것은 대상 폴더 하나다',
     async ({ page, request }) => {
       const R = mkRoot('c6');
-      await enter(page, request, R);
+      await enterExplorer(page, request, R);
       // 양쪽을 다 펼쳐 둔다 — 재조회가 넓으면 여기서 드러난다.
       await row(page, j(R, 'src')).click();
       await expect(row(page, j(R, 'src', 'a.txt'))).toBeVisible({ timeout: 10000 });
@@ -209,4 +185,85 @@ test.describe('묶음 P — 탐색기의 복사·복제', () => {
       await expect(row(page, j(R, 'docs', 'a.txt'))).toBeVisible({ timeout: 10000 });
       expect(c.n, '대상 폴더 하나만 다시 읽는다').toBe(1);
     });
+});
+
+/**
+ * `12-func-ui.md FUI-11` — **잘라내기.**
+ *
+ * 접수한 결함: *"다른 루트로의 이동이 없다(복사는 있다)."* 붙여넣기는 루트를
+ * 건널 수 있는데(FR-WBR-61) 드래그는 트리 안에서만 성립했고, "잘라내기" 항목
+ * 자체가 없었다.
+ *
+ * **복사와 같은 클립보드를 쓴다** — 동사만 다르다. 그래서 여기서 재는 것은
+ * 복사와 **갈리는 자리**뿐이다: 원본이 사라지는가, 한 번만 붙는가, 이름이
+ * 개명되지 않는가, 그리고 루트를 건너는가.
+ */
+test.describe('FUI-11 — 탐색기의 잘라내기', () => {
+  test('X1: 메뉴에 잘라내기가 있고, 붙여넣으면 원본이 사라진다',
+    async ({ page, request }) => {
+      const R = mkRoot('x1');
+      await enterExplorer(page, request, R);
+
+      await openMenu(page, j(R, 'top.txt'));
+      await expect(menuItem(page, 'cut')).toBeVisible();
+      await menuItem(page, 'cut').click();
+
+      await ctx(page, j(R, 'docs'), 'paste');
+      await expect(row(page, j(R, 'docs', 'top.txt'))).toBeVisible({ timeout: 10000 });
+      // **복사와 갈리는 자리다** — 원본이 없다.
+      await expect(row(page, j(R, 'top.txt'))).toHaveCount(0);
+      expect(fs.existsSync(j(R, 'top.txt'))).toBeFalsy();
+      expect(fs.existsSync(j(R, 'docs', 'top.txt'))).toBeTruthy();
+    });
+
+  test('X2: 잘라낸 것은 한 번만 붙는다', async ({ page, request }) => {
+    const R = mkRoot('x2');
+    await enterExplorer(page, request, R);
+    await ctx(page, j(R, 'top.txt'), 'cut');
+    await ctx(page, j(R, 'docs'), 'paste');
+    await expect(row(page, j(R, 'docs', 'top.txt'))).toBeVisible({ timeout: 10000 });
+
+    // 클립보드가 비었다 — 남겨 두면 다음 붙여넣기가 이미 없는 원본을 찾는다.
+    await openMenu(page, j(R, 'src'));
+    await expect(menuItem(page, 'paste')).toHaveClass(/disabled/);
+  });
+
+  test('X3: 같은 이름이 있으면 거절한다 — 개명하지 않는다', async ({ page, request }) => {
+    const R = mkRoot('x3');
+    w(j(R, 'docs', 'top.txt'), 'OTHER\n');
+    await enterExplorer(page, request, R);
+
+    await ctx(page, j(R, 'top.txt'), 'cut');
+    await ctx(page, j(R, 'docs'), 'paste');
+
+    // 복사는 `top copy.txt` 로 올라가지만(FR-WBR-63) 이동은 그러지 않는다 —
+    // "복제" 는 개명이 본질이고 "옮기기" 는 아니다.
+    await expect(opErr(page)).toBeVisible({ timeout: 10000 });
+    expect(fs.existsSync(j(R, 'top.txt')), '거절됐는데 원본이 사라졌다').toBeTruthy();
+    expect(fs.readFileSync(j(R, 'docs', 'top.txt'), 'utf8')).toBe('OTHER\n');
+  });
+
+  test('X4: 루트를 건너 옮긴다 — 양쪽 트리가 따라온다', async ({ page, request }) => {
+    const A = mkRoot('x4a'), B = mkRoot('x4b');
+    await addEditor(request, A);
+    await addEditor(request, B);
+    await gotoWithEditors(page);
+
+    await openExplorerAt(page, A);
+    await expect(row(page, j(A, 'top.txt'))).toBeVisible({ timeout: 10000 });
+    await ctx(page, j(A, 'top.txt'), 'cut');
+
+    await openExplorerAt(page, B);
+    await expect(row(page, j(B, 'docs'))).toBeVisible({ timeout: 10000 });
+    await ctx(page, j(B, 'docs'), 'paste');
+    await expect(row(page, j(B, 'docs', 'top.txt'))).toBeVisible({ timeout: 10000 });
+
+    expect(fs.existsSync(j(A, 'top.txt')), '출발 루트에 남아 있다').toBeFalsy();
+    expect(fs.existsSync(j(B, 'docs', 'top.txt'))).toBeTruthy();
+
+    // 출발 트리로 돌아가면 그 행이 없다 — 남의 인스턴스도 다시 읽었다.
+    await openExplorerAt(page, A);
+    await expect(row(page, j(A, 'docs'))).toBeVisible({ timeout: 10000 });
+    await expect(row(page, j(A, 'top.txt'))).toHaveCount(0);
+  });
 });

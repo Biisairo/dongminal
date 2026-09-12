@@ -3,7 +3,9 @@ import * as path from 'path';
 
 import { APIRequestContext, Locator, Page } from '@playwright/test';
 
-import { test, expect, openRowMenu, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
+import {
+  test, expect, openRowMenu, rmTree, switchToEditorRoot, openExplorerSide, gotoWithEditors, openExplorerAt,
+} from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // FILE_TRANSFER_SRS §5 — V-FTR-8·12·14~21.
@@ -44,14 +46,8 @@ async function addEditor(request: APIRequestContext, p: string) {
 
 async function enter(page: Page, request: APIRequestContext, root: string) {
   await addEditor(request, root);
-  await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-  await page.waitForFunction(
-    () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
-    undefined, { timeout: 15000 });
-  await switchToEditorRoot(page, root);
-  await openExplorerSide(page);
+  await gotoWithEditors(page);
+  await openExplorerAt(page, root);
   await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
 }
 
@@ -72,8 +68,10 @@ async function ctx(page: Page, p: string, id: string) {
 // 트리를 펼친다 — 폴더 행 클릭이 toggle 이다.
 async function open(page: Page, ...paths: string[]) {
   for (const p of paths) {
-    await row(page, p).click();
-    await page.waitForTimeout(150);
+    const r = row(page, p);
+    await r.click();
+    // 펼침이 선 뒤 다음 겹으로 간다 — 표식은 트위스티다 (`EDITOR_TREE_TW_OPEN`).
+    await expect(r.locator('.ed-tw')).toHaveText('▾', { timeout: 10000 });
   }
 }
 
@@ -136,6 +134,7 @@ test.describe('묶음 F — 루트 이동과 자동 펼침 (FR-FTR-20~24)', () =
     page.on('request', (req) => { if (req.url().includes('/api/fs/rename')) renames++ });
 
     await row(page, j(R, 'top.txt')).dragTo(head(page));
+    // **예외 (`TEST-16`)**: 이동 요청이 **나가지 않음**을 잰다.
     await page.waitForTimeout(600);
 
     expect(renames).toBe(0);
@@ -355,6 +354,49 @@ test.describe('묶음 C — 터미널 (FR-FTR-8·10·11)', () => {
     expect(fs.readFileSync(j(R, 'toast.txt'), 'utf8')).toBe('UP');
     // FR-TXN-4: 성공 팝업은 3초 뒤 사라진다.
     await expect(page.locator('.toast-host .toast')).toHaveCount(0, { timeout: 6000 });
+  });
+
+  test('FT14 (V-TFD-1): 터미널에 놓은 폴더가 cwd 아래에 구조로 선다 (FR-TFD-12·30)', async ({ page, request }) => {
+    const R = mkRoot('ft14');
+    await enter(page, request, R);
+    await page.route('**/api/cwd*', (route) =>
+      route.fulfill({ json: { cwd: R, source: 'tool' } }));
+
+    // 실제 드롭의 `webkitGetAsEntry` 는 합성 `DataTransfer` 에서 null 이라
+    // e2e 로 폴더 entry 를 세울 수 없다 — 폄(walk)은 단위가 잰다
+    // (`web/js/test/drop-entries.test.mjs`). 여기서 재는 것은 **그 뒤**다:
+    // `{file, relPath}` 가 서버까지 가서 구조를 세우는가.
+    await page.evaluate(async () => {
+      const app = (window as any).app;
+      const tool = [...app.tools.values()][0];
+      tool._uploadFiles([
+        { file: new File(['A\n'], 'a.txt', { type: 'text/plain' }), relPath: 'top/a.txt' },
+        { file: new File(['B\n'], 'b.txt', { type: 'text/plain' }), relPath: 'top/sub/b.txt' },
+      ]);
+    });
+
+    await expect(page.locator('.toast-host .toast.ok')).toHaveCount(2, { timeout: 10000 });
+    // **이것이 README 의 "하위 구조가 그대로 올라간다" 다.**
+    expect(fs.readFileSync(j(R, 'top', 'a.txt'), 'utf8')).toBe('A\n');
+    expect(fs.readFileSync(j(R, 'top', 'sub', 'b.txt'), 'utf8')).toBe('B\n');
+  });
+
+  test('FT15 (V-TFD-2): 팝업의 이름이 relPath 다 (FR-TFD-13)', async ({ page, request }) => {
+    const R = mkRoot('ft15');
+    await enter(page, request, R);
+    await page.route('**/api/cwd*', (route) =>
+      route.fulfill({ json: { cwd: R, source: 'tool' } }));
+
+    await page.evaluate(async () => {
+      const app = (window as any).app;
+      const tool = [...app.tools.values()][0];
+      tool._uploadFiles([
+        { file: new File(['D\n'], 'deep.txt', { type: 'text/plain' }), relPath: 'x/y/deep.txt' },
+      ]);
+    });
+
+    // `deep.txt` 로만 보이면 폴더 안의 어느 것이 끝났는지 알 수 없다.
+    await expect(page.locator('.toast-host .toast.ok')).toHaveText(/x\/y\/deep\.txt 업로드 완료/);
   });
 
   test('FT10 (V-FTR-8): OSC 가 청크 경계에서 갈려도 다운로드가 일어난다', async ({ page, request }) => {

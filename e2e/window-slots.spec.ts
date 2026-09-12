@@ -1,4 +1,6 @@
-import { test, expect, waitForInit, waitSettled } from './fixtures';
+import {
+  test, expect, waitForInit, waitSettled, gotoSettled,
+} from './fixtures';
 
 // 창 슬롯 — WINDOW_SLOTS_SRS §5 TC-WSL-*
 //
@@ -6,7 +8,7 @@ import { test, expect, waitForInit, waitSettled } from './fixtures';
 // sessionStorage 로 하고, 서버를 보는 것은 소유권(§3.2)뿐이다 — 그것만이 서버가
 // 슬롯의 존재를 겪는 지점이다.
 //
-// 서버의 활성 탭 판정은 검증 대상이 아니다. `_save()` 가 PUT 에서
+// 서버의 활성 탭 판정은 검증 대상이 아니다. `save()` 가 PUT 에서
 // activeWindow·focusedPane 을 벗기므로(app.js:293) 그 판정은 슬롯 이전에도
 // 클라이언트의 현재 포커스를 따라오지 않았다 (SRS §2.7).
 
@@ -28,7 +30,7 @@ const setSlotDir = (page, d: string) => page.evaluate((v) => ((window as any).ap
 // **포커스 칸이 이 창을 받는다** (FR-WSL-54) — 창을 만드는 것도 "여는 경로" 다.
 const addWindow = (page) =>
   page.evaluate(async () => {
-    const r = await (window as any).app._mkWindow();
+    const r = await (window as any).app.testing.mkWindow();
     (window as any).app.render();
     return r.win;
   });
@@ -40,7 +42,7 @@ const addWindow = (page) =>
 // FR-WSL-54 의 결함이었다 (2026-09-11).
 const addBgWindow = (page) =>
   page.evaluate(async () => {
-    const r = await (window as any).app._mkWindow({ keepFocus: true });
+    const r = await (window as any).app.testing.mkWindow({ keepFocus: true });
     (window as any).app.render();
     return r.win;
   });
@@ -94,7 +96,7 @@ test.describe('묶음 F — 여는 경로는 포커스 칸에 연다 (FR-WSL-54)
       await focusSlot(page, 1);
 
       const before = await page.evaluate(() =>
-        (window as any).app._slotWindow((window as any).app.slots.focused)?.id ?? null);
+        (window as any).app.testing.slotWindow((window as any).app.slots.focused)?.id ?? null);
 
       const count = () => page.evaluate(() => (window as any).app.ws.windows.length);
       const n = await count();
@@ -104,7 +106,7 @@ test.describe('묶음 F — 여는 경로는 포커스 칸에 연다 (FR-WSL-54)
 
       const after = await page.evaluate(() => {
         const app = (window as any).app;
-        const shown = app._slotWindow(app.slots.focused);
+        const shown = app.testing.slotWindow(app.slots.focused);
         return { act: app.ws.activeWindow, shown: shown ? shown.id : null };
       });
       expect(after.shown, '포커스 칸이 새 창을 보이지 않는다 — 모델만 바뀌었다')
@@ -115,7 +117,7 @@ test.describe('묶음 F — 여는 경로는 포커스 칸에 연다 (FR-WSL-54)
       const other = await page.evaluate(() => {
         const app = (window as any).app;
         const i = app.slots.focused === 0 ? 1 : 0;
-        const w = app._slotWindow(i);
+        const w = app.testing.slotWindow(i);
         return w ? w.id : null;
       });
       expect(other, '다른 칸까지 새 창으로 바뀌었다').not.toBe(after.act);
@@ -247,7 +249,7 @@ test.describe('묶음 I — 슬롯 신원과 소유권', () => {
     expect(await activeWindowOf(page)).toBe(w1);
     await focusSlot(page, 2);
     expect(await activeWindowOf(page)).toBe(w3);
-    const awId = await page.evaluate(() => (window as any).app._aw().id);
+    const awId = await page.evaluate(() => (window as any).app.testing.aw().id);
     expect(awId).toBe(w3);
 
     await focusSlot(page, 0);
@@ -348,7 +350,7 @@ test.describe('묶음 N — 슬롯 간 이동', () => {
      */
     const gitWin = await page.evaluate(() => {
       const app = (window as any).app;
-      const w = app._edWindows()[0];
+      const w = app.testing.edWindows()[0];
       app.render();
       return w.id;
     });
@@ -393,7 +395,7 @@ test.describe('묶음 N — 슬롯 간 이동', () => {
     const inTarget = await page.evaluate((id) => {
       const app = (window as any).app;
       const win = app.ws.windows.find((w) => w.id === id);
-      return app._flattenPanes(win.layout).some((p) => p.id === app.focused);
+      return app.testing.flattenPanes(win.layout).some((p) => p.id === app.focused);
     }, w2);
     expect(inTarget).toBe(true);
   });
@@ -415,7 +417,7 @@ test.describe('묶음 T — 도구 인스턴스', () => {
     const w2Tools = await page.evaluate((id) => {
       const app = (window as any).app;
       const win = app.ws.windows.find((w) => w.id === id);
-      return app._flattenPanes(win.layout).flatMap((p) => p.tabs.map((t) => t.toolId));
+      return app.testing.flattenPanes(win.layout).flatMap((p) => p.tabs.map((t) => t.toolId));
     }, w2);
     for (const t of w2Tools) expect(keysAfter).not.toContain(`${t}@1`);
 
@@ -429,14 +431,14 @@ test.describe('묶음 T — 도구 인스턴스', () => {
     await slotAdd(page); // 같은 창이 두 칸에 — 도구가 두 벌이다
     const toolId = await page.evaluate(() => {
       const app = (window as any).app;
-      const pn = app._flattenPanes(app._aw().layout)[0];
+      const pn = app.testing.flattenPanes(app.testing.aw().layout)[0];
       return pn.tabs.find((t) => t.id === pn.activeTab).toolId;
     });
     await expect.poll(async () => (await toolKeys(page)).includes(`${toolId}@1`), {
       timeout: 10000,
     }).toBe(true);
 
-    await page.evaluate((id) => (window as any).app._killTool(id), toolId);
+    await page.evaluate((id) => (window as any).app.testing.killTool(id), toolId);
     const keys = await toolKeys(page);
     expect(keys).not.toContain(toolId);
     expect(keys).not.toContain(`${toolId}@1`);
@@ -635,7 +637,7 @@ test.describe('묶음 D — 슬롯 방향', () => {
 // FR-WSL-40 의 경계 넘침과 다른 손짓이다: 그쪽은 "옆으로 계속 가다 보니 칸을
 // 넘는다" 이고 이쪽은 "칸으로 간다". 그래서 이쪽만 끝에서 감긴다.
 test.describe('묶음 N — 칸 사이의 직접 이동 (FR-WSL-56)', () => {
-  const focusedSlot = (page) => page.evaluate(() => (window as any).app._slotFocused());
+  const focusedSlot = (page) => page.evaluate(() => (window as any).app.testing.slotFocused());
 
   test('TC-WSL-28: 다음·이전 칸으로 옮기고 끝에서 감긴다', async ({ page }) => {
     await waitForInit(page);
@@ -683,3 +685,272 @@ test.describe('묶음 N — 칸 사이의 직접 이동 (FR-WSL-56)', () => {
     expect(await focusedSlot(page)).toBe(0);
   });
 });
+
+/**
+ * `12-func-ui.md FUI-19` — **슬롯을 건너는 탭 드래그.**
+ *
+ * 접수한 결함: *"표식은 뜨고 드롭은 조용히 무시된다."* `moveTabToPane` 이
+ * 출발·도착 pane 을 `aw()`(포커스 칸의 창) 안에서만 찾아, 다른 칸의 창이면
+ * `return` 했다 — **표식이 약속한 것을 동작이 지키지 않았다.**
+ *
+ * 드래그 제스처를 흉내 내지 않고 **그 드롭이 부르는 함수**를 잰다. 드래그는
+ * playwright 에서 결정적이지 않고(`dragover` 좌표가 렌더 시점에 달렸다), 여기서
+ * 재려는 것은 제스처가 아니라 **그 뒤의 규약**이다.
+ */
+test.describe('FUI-19 — 슬롯을 건너는 탭 이동', () => {
+  /** 그 창의 첫 칸과 탭 목록. 슬롯이 아니라 **창**을 본다. */
+  const paneOf = (page, winId: string) => page.evaluate((id) => {
+    const w = (window as any).app.ws.windows.find((x: any) => x.id === id);
+    const walk = (n: any): any =>
+      !n ? null : (n.type === 'pane' ? n : (n.children || []).map(walk).find(Boolean));
+    const p = walk(w?.layout);
+    return p ? { pane: p.id as string, tabs: (p.tabs || []).map((t: any) => t.id as string) } : null;
+  }, winId);
+
+  /**
+   * 칸 둘에 **서로 다른 창**을 세운다. 돌려주는 것은 [왼쪽 창, 오른쪽 창] 이다.
+   *
+   * `addWindow` 는 **포커스 칸이 그 창을 받는다** (FR-WSL-54) — 그래서 먼저
+   * 만들면 왼쪽 칸이 새 창으로 바뀌고 두 칸이 같은 창을 본다. 순서가 요점이다:
+   * 왼쪽 칸의 원래 창을 집어 둔 **뒤에** 오른쪽 칸을 만들고 거기서 새 창을 연다.
+   */
+  async function twoSlots(page) {
+    await waitForInit(page);
+    const w1 = await page.evaluate(() => (window as any).app.ws.activeWindow);
+    expect(w1, '첫 창이 없다').toBeTruthy();
+    await slotAdd(page);
+    await focusSlot(page, 1);
+    const w2 = await addWindow(page);
+    await focusSlot(page, 0);
+    await waitSettled(page);
+    const left = await page.evaluate(() => (window as any).app.testing.slotWindow(0)?.id ?? null);
+    expect(left, '왼쪽 칸이 원래 창을 잃었다').toBe(w1);
+    expect(w2).not.toBe(w1);
+    return [w1 as string, w2 as string] as const;
+  }
+
+  test('TC-FUI-19: 다른 칸의 창으로 놓은 탭이 실제로 옮겨진다', async ({ page }) => {
+    const [w1, w2] = await twoSlots(page);
+
+    // 출발 창의 마지막 탭은 내주지 않는다 (FR-MOV-4) — 하나 더 만든다.
+    const src0 = (await paneOf(page, w1))!;
+    if (src0.tabs.length <= 1) {
+      await page.evaluate((rid) => (window as any).app.addTab(rid, 'terminal'), src0.pane);
+      await waitSettled(page);
+    }
+    const src = (await paneOf(page, w1))!;
+    const dst = (await paneOf(page, w2))!;
+    const moving = src.tabs[0];
+
+    // 드롭이 부르는 **바로 그 함수**다. 드래그 제스처는 결정적이지 않고, 여기서
+    // 재려는 것은 제스처가 아니라 그 뒤의 규약이다.
+    await page.evaluate(([sp, tid, dp]) =>
+      (window as any).app.testing.moveTabToPane(sp, tid, dp, null, false),
+    [src.pane, moving, dst.pane] as const);
+    await waitSettled(page);
+
+    const after = (await paneOf(page, w2))!;
+    expect(after.tabs.length, '다른 칸의 창으로 옮겨지지 않았다').toBe(dst.tabs.length + 1);
+    expect(after.tabs).toContain(moving);
+    // 출발 쪽에서는 빠졌다.
+    expect((await paneOf(page, w1))!.tabs).not.toContain(moving);
+  });
+
+  test('TC-FUI-19b: 마지막 탭은 여전히 내주지 않는다 (FR-MOV-4)', async ({ page }) => {
+    const [w1, w2] = await twoSlots(page);
+
+    // 왼쪽 창을 탭 하나로 줄인다.
+    for (;;) {
+      const p = (await paneOf(page, w1))!;
+      if (p.tabs.length <= 1) break;
+      await page.evaluate(([rid, tid, sid]) =>
+        (window as any).app.closeTab(rid, tid, sid),
+      [p.pane, p.tabs[p.tabs.length - 1], w1] as const);
+      await waitSettled(page);
+    }
+    const src = (await paneOf(page, w1))!;
+    const dst = (await paneOf(page, w2))!;
+
+    await page.evaluate(([sp, tid, dp]) =>
+      (window as any).app.testing.moveTabToPane(sp, tid, dp, null, false),
+    [src.pane, src.tabs[0], dst.pane] as const);
+    await waitSettled(page);
+
+    // 창이 탭 없이 남으면 그 창으로 돌아갈 진입점이 사이드바 항목뿐이고 거기서는
+    // 아무것도 할 수 없다 — 그 금지는 슬롯을 건너는 경로에도 그대로 선다.
+    expect((await paneOf(page, w2))!.tabs.length).toBe(dst.tabs.length);
+    expect((await paneOf(page, w1))!.tabs.length).toBe(1);
+  });
+});
+
+/**
+ * 묶음 CLS·MOV — **창을 닫을 때와 탭을 옮길 때** (FR-CLS-* · FR-MOV-*).
+ *
+ * 칸과 창의 관계가 이 파일의 주제다 — 닫은 뒤 어느 창이 활성이 되는가, 탭이
+ * 다른 창으로 갈 때 도구가 따라가는가.
+ *
+ * `TEST-7` 로 `ux-revision` 에서 옮겨 왔다 — 납품 묶음이 아니라 **이 기능**이
+ * 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
+ */
+
+test.describe('묶음 C — 창 닫기의 활성 창 (FR-CLS-*)', () => {
+  test('V-CLS-1·2: 일반 창을 닫아도 Repo 탭으로 떨어지지 않는다', async ({ page }) => {
+    await gotoSettled(page);
+    /**
+     * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-70 / FR-EDT-13).** 옛 Git 창은 사라졌고
+     * `openGitWindow()` 는 경로 없이는 아무것도 열지 않는다. 그런데 이 시험이
+     * 필요로 하는 상황 — "일반 창을 닫으면 특수 창만 남는다" — 은 **저절로**
+     * 성립한다: Repo 창(`~`)이 늘 하나 있다 (FR-EDT-13).
+     */
+    await expect
+      .poll(() => page.evaluate(() => (window as any).app.testing.edWindows().length))
+      .toBeGreaterThan(0);
+    // 일반 창으로 돌아가 그 창을 닫는다. 남는 것은 Repo 창뿐인 상황이다.
+    const plain = await page.evaluate(() => {
+      const app = (window as any).app;
+      const w = app.testing.plainWindows()[0];
+      app.switchWindow(w.id);
+      return w.id;
+    });
+    await page.evaluate(id => (window as any).app.delWindow(id), plain);
+    await expect
+      .poll(() => page.evaluate(() => {
+        const app = (window as any).app;
+        const a = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
+        return (a && a.type) || 'terminal';
+      }), { timeout: 10000 })
+      .toBe('terminal');
+    // FR-CLS-2: 일반 창이 새로 만들어졌고, 사이드바 탭은 Windows 다.
+    expect(await page.evaluate(() => (window as any).app.testing.sbTab)).toBe('windows');
+  });
+});
+
+// ── 묶음 M — 탭의 창 간 이동 ──
+
+test.describe('묶음 M — 탭을 다른 창으로 (FR-MOV-*)', () => {
+  /**
+   * V-MOV-1: **실제 드래그 제스처**로 잰다.
+   *
+   * `moveTabToWindow` 를 직접 부르면 그 함수만 검증된다 — 그것을 부르는 배선이
+   * 빠져도 통과한다. 실제로 블루프린트로 옮기는 과정에서 창 항목의 드롭 핸들러가
+   * 사라진 적이 있고, 함수를 직접 부르는 검사는 그것을 놓쳤다.
+   *
+   * Playwright 의 `dragTo` 는 HTML5 DnD 를 합성하지 않으므로 이벤트를 직접 만든다.
+   */
+  test('V-MOV-1 (제스처): 탭을 사이드바 창 항목에 놓으면 옮겨진다', async ({ page }) => {
+    await gotoSettled(page);
+    const src = await page.evaluate(async () => {
+      const app = (window as any).app;
+      await app.addTab(app.focused, 'terminal', {});
+      const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
+      const pane = win.layout;
+      return { winId: win.id, tabId: pane.activeTab };
+    });
+    const dstId = await page.evaluate(async () => {
+      const app = (window as any).app;
+      const r = await app.testing.mkWindow({ keepFocus: true });
+      app.render();
+      return r.win;
+    });
+    await page.evaluate(id => (window as any).app.switchWindow(id), src.winId);
+    await expect(page.locator(`#windows .si[data-sid="${dstId}"]`)).toBeVisible();
+
+    // dragstart(탭) → dragover(창 항목) → drop(창 항목).
+    await page.evaluate(([tabId, dst]) => {
+      const dt = new DataTransfer();
+      const tab = document.querySelector(`.pn-tab[data-tab-id="${tabId}"]`) as HTMLElement;
+      const target = document.querySelector(`#windows .si[data-sid="${dst}"]`) as HTMLElement;
+      tab.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }));
+      target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }));
+      target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
+    }, [src.tabId, dstId] as const);
+
+    // FR-MOV-8: 옮긴 창으로 따라간다.
+    await expect.poll(() => page.evaluate(() => (window as any).app.ws.activeWindow),
+      { timeout: 10000 }).toBe(dstId);
+    const where = await page.evaluate(tabId => {
+      const app = (window as any).app;
+      for (const w of app.ws.windows) {
+        let hit: string | null = null;
+        const walk = (n: any) => {
+          if (!n || hit) return;
+          for (const t of n.tabs || []) if (t.id === tabId) hit = w.id;
+          for (const c of n.children || []) walk(c);
+        };
+        walk(w.layout);
+        if (hit) return hit;
+      }
+      return null;
+    }, src.tabId);
+    expect(where, '탭이 대상 창으로 가지 않았다').toBe(dstId);
+  });
+
+  test('V-MOV-2·9: 탭이 대상 창으로 옮겨지고 도구가 따라간다', async ({ page }) => {
+    await gotoSettled(page);
+    // 원본 창에 탭 하나를 더한다 — 마지막 탭은 옮길 수 없다 (FR-MOV-4).
+    const src = await page.evaluate(async () => {
+      const app = (window as any).app;
+      await app.addTab(app.focused, 'terminal', {});
+      const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
+      const pane = win.layout.type === 'pane' ? win.layout : null;
+      return { winId: win.id, paneId: pane.id, tabId: pane.activeTab, toolId: pane.tabs.find((t: any) => t.id === pane.activeTab).toolId };
+    });
+    const dstId = await page.evaluate(async () => {
+      const app = (window as any).app;
+      const r = await app.testing.mkWindow({ keepFocus: true });
+      app.render();
+      return r.win;
+    });
+    // 옮기기 전에 원본 창을 활성으로 되돌린다 — 이동은 활성 창에서 나간다.
+    await page.evaluate(id => (window as any).app.switchWindow(id), src.winId);
+    await page.evaluate(a => (window as any).app.testing.moveTabToWindow(a.paneId, a.tabId, a.dst),
+      { paneId: src.paneId, tabId: src.tabId, dst: dstId });
+
+    const where = await page.evaluate(tabId => {
+      const app = (window as any).app;
+      for (const w of app.ws.windows) {
+        let hit: any = null;
+        const walk = (n: any) => {
+          if (!n || hit) return;
+          for (const t of n.tabs || []) if (t.id === tabId) hit = { win: w.id, toolId: t.toolId };
+          for (const c of n.children || []) walk(c);
+        };
+        walk(w.layout);
+        if (hit) return hit;
+      }
+      return null;
+    }, src.tabId);
+    expect(where?.win).toBe(dstId);
+    // FR-MOV-9: 도구를 다시 만들지 않는다.
+    expect(where?.toolId).toBe(src.toolId);
+    // FR-MOV-8: 옮긴 창으로 따라간다.
+    expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(dstId);
+  });
+
+  test('V-MOV-3: 창의 마지막 탭은 옮겨지지 않는다', async ({ page }) => {
+    await gotoSettled(page);
+    const src = await page.evaluate(() => {
+      const app = (window as any).app;
+      const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
+      return { winId: win.id, paneId: win.layout.id, tabId: win.layout.activeTab };
+    });
+    const dstId = await page.evaluate(async () => {
+      const app = (window as any).app;
+      const r = await app.testing.mkWindow({ keepFocus: true });
+      app.render();
+      return r.win;
+    });
+    await page.evaluate(id => (window as any).app.switchWindow(id), src.winId);
+    await page.evaluate(a => (window as any).app.testing.moveTabToWindow(a.paneId, a.tabId, a.dst),
+      { paneId: src.paneId, tabId: src.tabId, dst: dstId });
+    const stillHome = await page.evaluate(a => {
+      const app = (window as any).app;
+      const w = app.ws.windows.find((x: any) => x.id === a.winId);
+      return !!w && JSON.stringify(w.layout).includes(a.tabId);
+    }, src);
+    expect(stillHome).toBe(true);
+  });
+});
+
+// ── 묶음 D — Runs 모달 삭제 버튼 ──
+

@@ -36,7 +36,7 @@ const edRows = (page: Page) =>
     (els) => els.map((e) => (e as HTMLElement).dataset.edRoot || ''));
 
 const editorsList = (page: Page) =>
-  page.evaluate(() => ((window as any).app._editors || {}).list || []);
+  page.evaluate(() => ((window as any).app.testing.editors || {}).list || []);
 
 test.describe('묶음 L — git 핀 ↔ Editor 행 연동 (실서버)', () => {
   test('L1 (V-EDT-17 / FR-EDT-31·39): 리포를 핀하면 새로고침 없이 Editor 행과 창이 생긴다', async ({ page, request }) => {
@@ -98,12 +98,12 @@ test.describe('묶음 L — git 핀 ↔ Editor 행 연동 (실서버)', () => {
     await page.evaluate(async (p) => {
       const a = (window as any).app;
       await a.openGitWindow(p);
-      await a._gitOpenFile(p + '/a.txt');
+      await a.testing.gitOpenFile(p + '/a.txt');
     }, root);
 
     await expect.poll(() => page.evaluate((p) => {
       const a = (window as any).app;
-      const f = a._findEditorTab(p + '/a.txt');
+      const f = a.testing.findEditorTab(p + '/a.txt');
       return f ? (f.win.editor && f.win.editor.root) : '';
     }, root), { timeout: 10000 }).toBe(root);
   });
@@ -121,7 +121,7 @@ test.describe('묶음 L — git 핀 ↔ Editor 행 연동 (실서버)', () => {
     const root = (await (await request.post('/api/git/repos/pin', { data: { path: repo } })).json()).root as string;
 
     // 이제 브라우저가 처음 붙는다. 창이 없으므로 `_mkWindow()` 와 재조정이
-    // `_save()` 를 부른다 — 그 PUT 이 서버 소유 키를 덮어써서는 안 된다.
+    // `save()` 를 부른다 — 그 PUT 이 서버 소유 키를 덮어써서는 안 된다.
     await waitForInit(page);
     await expect.poll(() => edRoots(page), { timeout: 10000 }).toContain(root);
 
@@ -150,17 +150,17 @@ test.describe('묶음 L — git 핀 ↔ Editor 행 연동 (실서버)', () => {
       // 그 저장소의 Repo 창에 앉는다.
       await page.evaluate(async (p) => { await (window as any).app.openGitWindow(p) }, root);
       await expect.poll(() => page.evaluate(() => {
-        const a = (window as any).app; const w = a._aw();
+        const a = (window as any).app; const w = a.testing.aw();
         return (w && w.editor && w.editor.root) || '';
       }), { timeout: 10000 }).toBe(root);
 
       // 핀을 지운다. 연동이 Editor 행도 함께 지우고(FR-EDT-32) 재조정이 창을 뺀다.
-      await page.evaluate(async (p) => { await (window as any).app._gitUnpin(p) }, root);
+      await page.evaluate(async (p) => { await (window as any).app.testing.gitUnpin(p) }, root);
 
       // 그 루트의 창이 없어졌고, 활성 창은 남아 있는 다른 창이다.
       await expect.poll(() => edRoots(page), { timeout: 10000 }).not.toContain(root);
       await expect.poll(() => page.evaluate(() => {
-        const a = (window as any).app; const w = a._aw();
+        const a = (window as any).app; const w = a.testing.aw();
         return (w && w.editor && w.editor.root) || 'other';
       }), { timeout: 10000 }).not.toBe(root);
     });

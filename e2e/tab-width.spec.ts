@@ -24,7 +24,7 @@ async function makeTabs(page: Page) {
     for (let i = 0; i < 3; i++) await a.addTab(pane, 'terminal');
     // 이름은 **탭 목록에 직접** 박는다 — 파생 이름(FR-TAN-*)에 기대면 이 시험이
     // 그 규칙까지 딛게 된다. `findPane` 은 전역이다 (helpers.js:427).
-    const s = a._aw();
+    const s = a.testing.aw();
     const pn = (window as any).findPane(s.layout, pane);
     const names = ['a', 'a very long tab name indeed', 'mid'];
     pn.tabs.slice(-3).forEach((t: any, i: number) => {
@@ -158,7 +158,7 @@ test.describe('탭 너비 고정 (FR-TBW-1~11)', () => {
     await page.reload();
     await waitForInit(page);
     await expect(page.locator(TAB).first()).toBeVisible({ timeout: 15000 });
-    // R3: `_saveSettings` 목록에서 빠지면 여기서 드러난다.
+    // R3: `saveSettings` 목록에서 빠지면 여기서 드러난다.
     //
     // **폭은 poll 로 잰다** (CI_E2E_MATRIX_SRS FR-CEM-35). 새로고침 뒤 탭은 설정
     // (`GET /api/settings`)보다 먼저 그려지므로, 첫 탭이 보인 순간에 재면 설정

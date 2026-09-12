@@ -2,7 +2,7 @@
  * 설정 블롭의 **서술자 표** — 키·타입·범위·기본값의 단일 원천
  * (CONFIG_MANAGEMENT_SRS 묶음 S, FR-CFG-1·2).
  *
- * 종전에는 같은 키 목록이 **세 곳**에 손으로 적혀 있었다 — `_saveSettings` 의
+ * 종전에는 같은 키 목록이 **세 곳**에 손으로 적혀 있었다 — `saveSettings` 의
  * PUT 본문 · `_settingsApply` 의 얹는 갈래 · `SETTINGS_PORTABILITY_SRS §3.1` 의
  * 이식 표. 그 계약의 집행자는 **사람의 눈**이었고, 빠뜨린 실패는 다른 브라우저
  * 창을 열어 보기 전까지 아무도 모른다.

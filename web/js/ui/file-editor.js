@@ -202,7 +202,7 @@ class FileEditor {
     // FR-EXC-11: 표식의 폴백. 자리는 `__dirty` 와 같다 — 문서를 못 얻은 뷰도
     // 저장은 할 수 있어야 한다.
     this.__stamp = '';
-    this._doc = (typeof app !== 'undefined' && app && app._edDoc) ? app._edDoc(filePath) : null;
+    this._doc = (typeof app !== 'undefined' && app && app.edDoc) ? app.edDoc(filePath) : null;
     if (this._doc) this._doc.views.add(this);
     // EDITOR_GIT_UX_SRS FR-EGS-10: 검색 결과로 열린 경우 갈 자리. Monaco 가
     // 뜨기 전에 요청이 올 수 있으므로 여기 담아 두었다 생성 직후에 쓴다.
@@ -291,7 +291,7 @@ class FileEditor {
         '<div class="fe-unsup-title">' + FILE_TOO_LARGE_TITLE + '</div>' +
         '<div class="fe-unsup-path">' + escHtml(this.filePath) + '</div>' +
         '<div class="fe-unsup-meta">' +
-          escHtml(this._fmtBytes(probe.size)) + ' · 상한 ' + escHtml(this._fmtBytes(probe.maxBytes)) +
+          escHtml(this._fmtFileSize(probe.size)) + ' · 상한 ' + escHtml(this._fmtFileSize(probe.maxBytes)) +
         '</div>' +
         '<div class="fe-unsup-hint">' + FILE_TOO_LARGE_HINT + '</div>' +
         '<a class="fe-unsup-dl" download href="' + escHtml(href) + '">' + FILE_TOO_LARGE_DOWNLOAD + '</a>' +
@@ -306,7 +306,7 @@ class FileEditor {
         '<div class="fe-unsup-title">' + FILE_UNSUPPORTED_TITLE + '</div>' +
         '<div class="fe-unsup-path">' + escHtml(this.filePath) + '</div>' +
         '<div class="fe-unsup-meta">' +
-          escHtml(probe.mime || '') + ' · ' + escHtml(this._fmtBytes(probe.size)) +
+          escHtml(probe.mime || '') + ' · ' + escHtml(this._fmtFileSize(probe.size)) +
         '</div>' +
         '<div class="fe-unsup-hint">' + FILE_UNSUPPORTED_HINT + '</div>' +
       '</div>';
@@ -325,7 +325,7 @@ class FileEditor {
     const meta = this.el.querySelector('.fe-img-meta');
     img.addEventListener('load', () => {
       meta.textContent = img.naturalWidth + '×' + img.naturalHeight +
-        ' · ' + (probe.mime || '') + ' · ' + this._fmtBytes(probe.size);
+        ' · ' + (probe.mime || '') + ' · ' + this._fmtFileSize(probe.size);
     });
     img.addEventListener('error', () => {
       meta.textContent = FILE_IMAGE_FAIL;
@@ -333,7 +333,21 @@ class FileEditor {
     img.src = src;
   }
 
-  _fmtBytes(n) {
+  /**
+   * **파일 크기**의 표기 (M6 `FE-22`).
+   *
+   * `app-statusbar` 의 `_fmtMemSize` 와 **합치지 마라.** 겉이 비슷하고 이름도
+   * 같았지만(`_fmtBytes`) 두 함수는 다른 값을 위한 것이다:
+   *
+   *   여기      파일 크기. **B·KB 가 뜻을 갖는다** — 수십 바이트짜리 파일이
+   *             실재하고, 그것을 `0.0MB` 로 적으면 사실을 지운다. 단위 앞에
+   *             공백이 있다
+   *   statusbar 시스템 메모리. 언제나 MB 이상이고 공백이 없다
+   *
+   * 이름이 같았던 것이 `FE-22` 가 "두 벌" 로 읽은 이유다. 합치면 두 화면 중
+   * 하나의 표기가 조용히 바뀐다 — 그래서 합치는 대신 **이름을 갈랐다**.
+   */
+  _fmtFileSize(n) {
     const b = Number(n);
     if (!isFinite(b)) return '';
     if (b < 1024) return b + ' B';
@@ -434,14 +448,14 @@ class FileEditor {
     // FR-LSP-39: 호버 provider 는 **언어마다 한 번**이다. 편집기를 여럿 세워도
     // 등록이 늘지 않아야 한다 — 늘면 같은 호버가 여러 번 뜬다. 그 판정은 app 이
     // 갖고 있으므로 여기서는 부르기만 한다.
-    if (window.app && window.app._lspHoverRegister) window.app._lspHoverRegister();
+    if (window.app && window.app.lspHoverRegister) window.app.lspHoverRegister();
     // FR-LSP-44: 이 파일의 언어 서버가 없으면 제안한다. 판정은 app 이 하며
     // 상태를 파일마다 다시 묻지 않는다.
-    if (window.app && window.app._lspOfferFor) window.app._lspOfferFor(this);
+    if (window.app && window.app.lspOfferFor) window.app.lspOfferFor(this);
     // DOC_RENDER_VIEW_SRS FR-DRV-2·3: 렌더할 수 있는 문서면 버튼을 세우고, 이
     // 파일의 렌더 뷰에 모델이 생겼음을 알린다. 판정과 버튼은 app 이 갖는다 —
     // 편집기는 자기가 무슨 문서인지 알 필요가 없다.
-    if (window.app && window.app._docRenderMount) window.app._docRenderMount(this);
+    if (window.app && window.app.docRenderMount) window.app.docRenderMount(this);
 
     // Track dirty state
     // 모델이 공유되므로 이 이벤트는 같은 파일을 보는 에디터 **모두**에 온다.
@@ -476,14 +490,14 @@ class FileEditor {
      * **타이핑한 글자가 전부 문서에 삽입됐다** (그 SRS §2.2~2.4).
      *
      * capture 로 먼저 보면 매칭된 키는 Monaco 에 닿지 않는다. 매칭되지 않으면
-     * `_edTrySearchKey` 는 아무것도 하지 않으므로(FR-EFP-3) 편집기가 그대로 받는다 —
+     * `edTrySearchKey` 는 아무것도 하지 않으므로(FR-EFP-3) 편집기가 그대로 받는다 —
      * 여기서 전파를 멈추면 편집기가 글자를 하나도 받지 못한다.
      *
      * FR-EKB-1·5 는 그대로다: 판정은 app 이 한 벌로 갖는다. 여기서 조합을 다시
      * 적으면 설정에서 바꾼 키가 안쪽에만 반영되지 않는다.
      */
     this.el.addEventListener('keydown', (e) => {
-      if (window.app && window.app._edTrySearchKey(e)) return;
+      if (window.app && window.app.edTrySearchKey(e)) return;
       // UX_BATCH9_SRS FR-ESV-1·2: **이 편집기의** 액션. 여섯과 같은 자리에서
       // 판정하되 수행은 인스턴스가 한다 — 포커스가 있는 편집기가 곧 이 요소의
       // 임자이므로, "어느 편집기를 저장할 것인가" 를 따로 고르지 않는다.
@@ -586,7 +600,7 @@ class FileEditor {
       // 드래그로 끝난 클릭은 선택이다 — 그 자리를 고른 것이 아니다.
       const sel = this._editor.getSelection();
       if (sel && !sel.isEmpty()) return;
-      if (window.app && window.app._lspClickDef) window.app._lspClickDef(this, pos);
+      if (window.app && window.app.lspClickDef) window.app.lspClickDef(this, pos);
     });
   }
 
@@ -644,12 +658,12 @@ class FileEditor {
   // 하고(레이아웃은 그쪽의 것이다) 여기서는 계기만 전한다.
   _pinIfPreview() {
     const app = window.app;
-    if (!app || !app._pinPreviewTab) return;
+    if (!app || !app.pinPreviewTab) return;
     for (const s of app.ws.windows || []) {
       if (!s || !s.layout) continue;
-      for (const pn of app._flattenPanes(s.layout)) {
+      for (const pn of app.flattenPanes(s.layout)) {
         const tab = (pn.tabs || []).find((t) => t && t.id === this.id);
-        if (tab) { app._pinPreviewTab(tab); return }
+        if (tab) { app.pinPreviewTab(tab); return }
       }
     }
   }
@@ -763,7 +777,7 @@ class FileEditor {
       if (doc) { if (!edited) doc.dirty = false; for (const v of doc.views) v._updateTabLabel() }
       else { if (!edited) this._dirty = false; this._tabLabelAll() }
       // 파일 저장은 즉시 신호다 (FR-GIT-18) — 작업 트리가 방금 바뀌었다.
-      if (typeof app !== 'undefined' && app) app._gitSignal('write');
+      if (typeof app !== 'undefined' && app) app.gitSignal('write');
       return true;
     } catch (e) {
       console.error('[FileEditor] save error:', e);
@@ -868,7 +882,7 @@ class FileEditor {
       // EDITOR_LSP_SRS §2.11b / FR-LSP-26b: **내용이 같으면 넣지 않는다.**
       //
       // `setValue` 는 커서를 1,1 로 되돌리고 undo 스택을 버린다. 그런데 이 갱신은
-      // 비동기이고, `_edOpenFile` 은 탭을 활성화한 **직후에** 그 줄로 커서를
+      // 비동기이고, `edOpenFile` 은 탭을 활성화한 **직후에** 그 줄로 커서를
       // 옮긴다 (FR-EGS-10) — 그래서 늦게 도착한 이 `setValue` 가 방금 옮긴 커서를
       // 앗아갔다. 이미 열어 둔 파일을 검색 결과나 정의 이동으로 고르면 그 줄로
       // 가지 않는 결함이 그것이었다 (V-EGS-10 이 그것을 잡고 있었다).
@@ -885,7 +899,7 @@ class FileEditor {
 
   _updateTabLabel() {
     // Update the tab data model so dirty state survives re-renders
-    const s = app._aw();
+    const s = app.aw();
     if (s) {
       for (const n of (s.layout ? [s.layout] : [])) {
         const walk = n => {
@@ -1002,7 +1016,7 @@ class FileEditor {
         go.textContent = LSP_INSTALLING;
         // 조달의 단위는 **팩**이다 (FR-EXT-5·31) — 서버 id 로 부르면 다섯을 내는
         // 팩에서 아무것도 받지 못한다.
-        if (window.app) window.app._lspOfferInstall(st.pack || st.id, this);
+        if (window.app) window.app.lspOfferInstall(st.pack || st.id, this);
       });
     }
     const set = el.querySelector('.fe-offer-set');
@@ -1020,7 +1034,7 @@ class FileEditor {
     // FR-LSP-45: `다시 보지 않기` 는 그 **언어**에 대한 것이다. 파일마다 뜨면
     // 그것이 곧 고장이므로 이 기억이 필요하다.
     el.querySelector('.fe-offer-no').addEventListener('click', () => {
-      if (window.app) window.app._lspDismiss(st.id);
+      if (window.app) window.app.lspDismiss(st.id);
       this.offerClose();
     });
     // ✕ 는 이번만 닫는다 — 기억하지 않는다.
@@ -1050,22 +1064,22 @@ class FileEditor {
     // dispose 순서에 기대지 않는다.
     if (this._findDecos) { this._findDecos.clear(); this._findDecos = null }
     // EDITOR_LSP_SRS FR-LSP-35: 진단은 **모델의 것**이고 모델은 탭보다 오래 살
-      // 수 있다 (`_edDocDrop` 이 수명을 정한다). 걷지 않으면 다시 열었을 때 낡은
+      // 수 있다 (`edDocDrop` 이 수명을 정한다). 걷지 않으면 다시 열었을 때 낡은
     // 밑줄이 먼저 보인다.
-    if (this._editor && window.app && window.app._lspClearDiagnostics) {
-      window.app._lspClearDiagnostics(this._editor.getModel());
+    if (this._editor && window.app && window.app.lspClearDiagnostics) {
+      window.app.lspClearDiagnostics(this._editor.getModel());
     }
     if (this._editor) {
       // 모델은 **에디터의 것이 아니다** — `{model}` 로 준 것은 dispose 되지 않는다.
-      // 문서의 수명은 `_edDocDrop` 이 정한다 (FR-SVS-55).
+      // 문서의 수명은 `edDocDrop` 이 정한다 (FR-SVS-55).
       this._editor.dispose();
       this._editor = null;
     }
     // FR-EDD-16: 팝업과 등록을 먼저 걷는다 — 문서를 놓기 전이어야 관리자가
     // 살아 있는 동안 정리된다.
     if (this._ddDrop) this._ddDrop();
-    if (typeof app !== 'undefined' && app && app._edDocDrop) {
-      app._edDocDrop(this.filePath, this);
+    if (typeof app !== 'undefined' && app && app.edDocDrop) {
+      app.edDocDrop(this.filePath, this);
     }
     this._doc = null;
   }

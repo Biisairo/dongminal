@@ -4,8 +4,10 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
-import { TMP, realPath, cssPath } from './osenv';
+import {
+  test, expect, rmTree, switchToEditorRoot, openExplorerSide, nextFrames, gotoWithEditors, waitForInit, openGit, gitFixture, cleanGitFixture, makeCopyFx,
+} from './fixtures';
+import { TMP, realPath, cssPath, tmpPath } from './osenv';
 
 // REPO_TAB_UNIFY_SRS §4 — 통합 창의 검증 V-RTU-10~35.
 //
@@ -75,15 +77,6 @@ async function addEditor(request: APIRequestContext, p: string) {
   expect(r.ok(), `editors/add 실패: ${await r.text()}`).toBeTruthy();
 }
 
-async function goto(page: Page) {
-  await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-  await page.waitForFunction(
-    () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
-    undefined, { timeout: 15000 });
-}
-
 async function openRepo(page: Page, root: string) {
   await switchToEditorRoot(page, root);
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 10000 });
@@ -91,7 +84,7 @@ async function openRepo(page: Page, root: string) {
 
 async function enter(page: Page, request: APIRequestContext, root: string) {
   await addEditor(request, root);
-  await goto(page);
+  await gotoWithEditors(page);
   await openRepo(page, root);
 }
 
@@ -143,9 +136,9 @@ test.describe('묶음 W — 사이드는 Explorer 와 Changes 를 갈아 끼운�
       await sideTab(page, 'changes').click();
       await expect(sideTab(page, 'changes')).toHaveClass(/active/);
       // 워크스페이스에 적힌다 — 폭과 같은 규약이다 (FR-RTU-13).
-      expect(await page.evaluate(() => (window as any).app._aw().editor.side)).toBe('changes');
+      expect(await page.evaluate(() => (window as any).app.testing.aw().editor.side)).toBe('changes');
 
-      await page.evaluate(() => (window as any).app._save());
+      await page.evaluate(() => (window as any).app.testing.save());
       await page.reload();
       await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
       await expect(sideTab(page, 'changes')).toHaveClass(/active/);
@@ -207,9 +200,10 @@ test.describe('묶음 V — git 뷰는 본문 탭이 된다', () => {
       const before = await mainTabs(page).count();
       await page.evaluate(() => {
         const a = (window as any).app;
-        const w = a._aw();
-        a.addTab(a._edEnsurePane(w), 'terminal', { windowId: w.id });
+        const w = a.testing.aw();
+        a.addTab(a.testing.edEnsurePane(w), 'terminal', { windowId: w.id });
       });
+      // **예외 (`TEST-16`)**: 본문 탭이 **늘지 않음**을 잰다 — 기다릴 신호가 없다.
       await page.waitForTimeout(300);
       expect(await mainTabs(page).count()).toBe(before);
     });
@@ -219,7 +213,7 @@ test.describe('묶음 V — git 뷰는 본문 탭이 된다', () => {
       const other = makeRepo(fs.mkdtempSync(j(BASE, 'other-')));
       await addEditor(request, REPO);
       await addEditor(request, other);
-      await goto(page);
+      await gotoWithEditors(page);
 
       await openRepo(page, REPO);
       await sideTab(page, 'changes').click();
@@ -341,7 +335,7 @@ test.describe('묶음 P — 미리보기 탭', () => {
     await tree.locator(`.ed-row[data-path="${cssPath(j(REPO, 'README.md'))}"]`).click();
     await expect(mainTabs(page).first()).toHaveClass(/pn-tab-preview/, { timeout: 10000 });
 
-    await page.evaluate(() => (window as any).app._save());
+    await page.evaluate(() => (window as any).app.testing.save());
     await page.reload();
     await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
     // 저장하지 않으면 모든 탭이 고정으로 되살아나 사용자가 정리해야 한다.
@@ -392,12 +386,12 @@ test.describe('묶음 V — git 뷰 탭의 자격 (FR-RTU-33·34)', () => {
       await openTwoViews(page);
       const moved = await page.evaluate(() => {
         const a = (window as any).app;
-        const plain = a._plainWindows()[0];
-        const pane = a._flattenPanes(a._aw().layout)[0];
+        const plain = a.testing.plainWindows()[0];
+        const pane = a.testing.flattenPanes(a.testing.aw().layout)[0];
         const tab = (pane.tabs || []).find((t: any) => t.type === 'git');
-        const before = ((a._flattenPanes(plain.layout)[0] || {}).tabs || []).length;
-        a._moveTabToWindow(pane.id, tab.id, plain.id);
-        return { before, after: ((a._flattenPanes(plain.layout)[0] || {}).tabs || []).length };
+        const before = ((a.testing.flattenPanes(plain.layout)[0] || {}).tabs || []).length;
+        a.testing.moveTabToWindow(pane.id, tab.id, plain.id);
+        return { before, after: ((a.testing.flattenPanes(plain.layout)[0] || {}).tabs || []).length };
       });
       expect(moved.after, 'git 뷰 탭이 다른 창으로 나갔다').toBe(moved.before);
     });
@@ -484,9 +478,11 @@ test.describe('묶음 S — 관측의 경계 (NFR-RTU-1)', () => {
       const poll = await page.evaluate(() => {
         (window as any).gitStatusInterval = 600;
         const app = (window as any).app;
-        if (app._gitPanels) for (const p of app._gitPanels.values()) p._reschedule();
+        if (app.testing.gitPanels) for (const p of app.testing.gitPanels.values()) p._reschedule();
         return 600;
       });
+      // **예외 (`TEST-16`)**: 폴링 회차를 **여러 번 넘기는** 창이다 — 그동안
+      // 어느 저장소가 몇 번 폴링됐는지가 답이다.
       await page.waitForTimeout(poll * 3 + 500);
 
       expect(hits.get(REPO) || 0, '보이는 저장소가 폴링되지 않았다').toBeGreaterThan(0);
@@ -507,11 +503,11 @@ test.describe('묶음 B — 모바일 영역 순회 (FR-RTU-80~82)', () => {
     await page.goto('/');
     await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
     await page.waitForFunction(
-      () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
+      () => !!(window as any).app?.testing.editors && (window as any).app.testing.edWindows().length > 0,
       undefined, { timeout: 15000 });
     await page.evaluate((r) => {
       const a = (window as any).app;
-      const win = a._edWindows().find((x: any) => a._edRootOf(x) === r);
+      const win = a.testing.edWindows().find((x: any) => a.testing.edRootOf(x) === r);
       a.switchWindow(win.id);
     }, root);
     await expect(page.locator('body')).toHaveClass(/mobile/);
@@ -521,7 +517,7 @@ test.describe('묶음 B — 모바일 영역 순회 (FR-RTU-80~82)', () => {
     async ({ page, request }) => {
       await enterMobile(page, request, REPO);
       // 편집기 탭 하나를 만든다 — pane 이 하나 서야 계수가 둘이 된다.
-      await page.evaluate((p) => (window as any).app._edOpenFile(p), j(REPO, 'README.md'));
+      await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(REPO, 'README.md'));
       await expect(page.locator('#area .ed-area .pn-tab')).toHaveCount(1, { timeout: 15000 });
       await expect(indicator(page)).toHaveText('2/2', { timeout: 10000 });
 
@@ -548,7 +544,10 @@ test.describe('묶음 B — 모바일 영역 순회 (FR-RTU-80~82)', () => {
       await expect(indicator(page)).toHaveText('1/1', { timeout: 10000 });
       await sideTab(page, 'changes').click();
       await expect(side(page).locator('.git-view.git-changes')).toBeVisible({ timeout: 10000 });
-      await page.waitForTimeout(800);
+      // 목록이 실제로 들어찬 뒤에 재야 경계를 넘는 요소가 있다면 보인다 —
+      // 빈 뷰는 언제나 경계 안이다.
+      await expect(side(page).locator('.git-file').first()).toBeVisible({ timeout: 15000 });
+      await nextFrames(page);
 
       const over = await page.evaluate(() => {
         const view = document.querySelector('#area .ed-side .git-view.git-changes') as HTMLElement;
@@ -577,7 +576,7 @@ test.describe('묶음 B — 모바일 영역 순회 (FR-RTU-80~82)', () => {
       await enterMobile(page, request, REPO);
 
       // ① 첫 파일 — pane 이 여기서 선다. 종전 코드도 통과하던 자리다.
-      await page.evaluate((p) => (window as any).app._edOpenFile(p), j(REPO, 'README.md'));
+      await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(REPO, 'README.md'));
       await expect(indicator(page)).toHaveText('2/2', { timeout: 15000 });
 
       // 사이드로 돌아간다. 이제 본문의 pane 은 **있고 이미 포커스**다.
@@ -625,7 +624,7 @@ test.describe('묶음 B — 모바일 영역 순회 (FR-RTU-80~82)', () => {
         }] }),
       }));
       await enterMobile(page, request, REPO);
-      await page.evaluate((p) => (window as any).app._edOpenFile(p), j(REPO, 'README.md'));
+      await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), j(REPO, 'README.md'));
       await expect(indicator(page)).toHaveText('2/2', { timeout: 15000 });
 
       // 띠가 실제로 서야 이 검사가 뜻을 갖는다.
@@ -668,7 +667,7 @@ const SIDE_WIDTHS = [220, 100];
 async function setSideWidth(page: Page, w: number) {
   await page.evaluate((v) => {
     const a = (window as any).app;
-    a._edSetSideWidth(v);
+    a.testing.edSetSideWidth(v);
     a.render();
   }, w);
   // 폭이 실제로 바뀐 뒤에 잰다 — 렌더가 style.width 를 다시 쓴다.
@@ -800,3 +799,78 @@ test.describe('묶음 N — 좁은 폭에서도 누를 자리가 남는다', () 
       }
     });
 });
+
+/**
+ * 묶음 DSP — **Repo 창 사이드의 기본과 기억** (FR-DSP-1·2·1d).
+ *
+ * 이 파일이 세운 통합 창의 사이드가 무엇을 처음 보이고 무엇을 기억하는가다.
+ *
+ * `TEST-7` 로 `ux-batch6` 에서 옮겨 왔다 — 납품 묶음이 아니라 **이 기능**이
+ * 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
+ */
+
+const B6FX = tmpPath('dm-b6-repo-tab-' + process.pid);
+test.beforeAll(() => { gitFixture(B6FX) });
+test.afterAll(() => { cleanGitFixture(B6FX) });
+const copyFx = makeCopyFx(B6FX);
+
+// ── 묶음 T — 표시 ────────────────────────────────────
+
+test('V-DSP-1 (FR-DSP-1): Repo 창의 사이드 기본 탭은 Changes 다', async ({ page }) => {
+  const repo = copyFx('basic', 'b6-side');
+  await waitForInit(page);
+  // `openGit` 은 사이드를 명시로 바꾸므로 여기서는 쓰지 않는다 — 재려는 것이
+  // 바로 그 **기본값**이다.
+  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 20000 });
+  const side = await page.evaluate(() => {
+    const a = (window as any).app;
+    return a.testing.edSideOf(a.testing.aw());
+  });
+  expect(side).toBe('changes');
+});
+
+// FR-DSP-2: 이미 저장된 선택은 기본값이 바뀌어도 그대로다.
+test('V-DSP-1 (FR-DSP-2): 저장된 사이드 선택은 유지된다', async ({ page }) => {
+  const repo = copyFx('basic', 'b6-side-keep');
+  await waitForInit(page);
+  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+  await page.evaluate(() => {
+    const a = (window as any).app;
+    a.testing.edSetSide(a.testing.aw(), 'explorer');
+  });
+  await expect(page.locator('#area .ed-side .ed-explorer')).toBeVisible({ timeout: 10000 });
+  const side = await page.evaluate(() => {
+    const a = (window as any).app;
+    return a.testing.edSideOf(a.testing.aw());
+  });
+  expect(side).toBe('explorer');
+});
+
+// V-DSP-5 (FR-DSP-1d): **관측이 뷰보다 먼저 와도** History 가 그 관측을 읽는다.
+//
+// FR-DSP-1 로 사이드 기본이 Changes 가 되면서 관측이 창을 여는 즉시 나가게 됐고,
+// 그러면 뒤에 선 History 는 `paintStatus` 를 한 번도 받지 못한다 — 저장소가
+// 그대로면 관측도 그대로라 다시 그릴 계기가 오지 않는다. 미커밋 행이 없는 채로
+// 굳었다 (ubuntu 러너 실측: git-history H8 · git-menu N8·N11 · git-file-actions
+// F10~F12 일곱 건).
+test('V-DSP-5 (FR-DSP-1d): 첫 관측이 History 보다 먼저 와도 미커밋 행이 선다',
+  async ({ page }) => {
+    const repo = copyFx('basic', 'b6-late-view');
+    await waitForInit(page);
+    await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+    await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+    // **예외 (`TEST-16`): 순서를 만드는 대기다.** 관측이 뷰보다 먼저 오는 상황을
+    // 일부러 만든다 — 러너에서만 나던 순서이고, 기다릴 신호가 없다.
+    await page.waitForTimeout(4000);
+    await page.evaluate(() => {
+      const a = (window as any).app;
+      a.testing.edSetSide(a.testing.aw(), 'changes');
+      a.gitPanel.openView('history');
+    });
+    await expect(page.locator('#area .pn-body .git-view.git-history .git-hist-row.uncommitted'))
+      .toHaveCount(1, { timeout: 15000 });
+  });
+

@@ -9,7 +9,7 @@ async function gotoMobile(page: Page) {
   await page.waitForSelector('body.mobile', { timeout: 15000 });
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
   await page.evaluate(() => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     (window as any).__sent = [];
     const orig = p._send.bind(p);
     p._send = (m: Uint8Array) => {
@@ -33,7 +33,7 @@ const sent = (page: Page) => page.evaluate(() => (window as any).__sent as strin
 // 오고, 확정 문자(스페이스)는 compositionend 보다 **먼저** insertText 로 온다.
 async function typeKoreanThenSpace(page: Page) {
   await page.evaluate(async () => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     const ta = p.el.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
     const fire = (type: string, init: any) => ta.dispatchEvent(new (init.__ce ? CompositionEvent : InputEvent)(type, init));
 
@@ -70,7 +70,7 @@ test('TC-MTI-28 (FR-MTI-30): 확정 문자는 조합이 닫힌 뒤에 나간다'
 test('TC-MTI-29 (FR-MTI-30): 조합 중에는 확정 문자를 보내지 않는다', async ({ page }) => {
   await gotoMobile(page);
   await page.evaluate(async () => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     const ta = p.el.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
     ta.dispatchEvent(new CompositionEvent('compositionstart', { data: '', bubbles: true }));
     ta.dispatchEvent(new InputEvent('beforeinput', { data: ' ', inputType: 'insertText', isComposing: false, bubbles: true, cancelable: true } as any));
@@ -83,7 +83,7 @@ test('TC-MTI-29 (FR-MTI-30): 조합 중에는 확정 문자를 보내지 않는�
 test('TC-MTI-33 (FR-MTI-35): 조합 미리보기가 살아 있다 — 치는 과정이 보인다', async ({ page }) => {
   await gotoMobile(page);
   const view = await page.evaluate(async () => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     const ta = p.el.querySelector('.xterm-helper-textarea') as HTMLTextAreaElement;
     ta.dispatchEvent(new CompositionEvent('compositionstart', { data: '', bubbles: true }));
     ta.dispatchEvent(new CompositionEvent('compositionupdate', { data: '가나', bubbles: true }));
@@ -99,7 +99,7 @@ test('TC-MTI-33 (FR-MTI-35): 조합 미리보기가 살아 있다 — 치는 과
 test('TC-MTI-31 (FR-MTI-32): wheel 은 프레임당 한 번, 누적 delta 로 나간다', async ({ page }) => {
   await gotoMobile(page);
   const n = await page.evaluate(async () => {
-    const p = (window as any).app._focusedTerminal();
+    const p = (window as any).app.testing.focusedTerminal();
     const got: number[] = [];
     p.term.element.addEventListener('wheel', (e: WheelEvent) => got.push(e.deltaY), true);
     for (let i = 0; i < 10; i++) p._touchScrollBy(-10);

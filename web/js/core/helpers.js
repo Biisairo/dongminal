@@ -279,6 +279,19 @@ const SHORTCUT_DEFAULTS={
   // 편집기를 둘 열면 `Cmd+S` 가 마지막에 만든 편집기로 갔다 — 그쪽이 dirty 가
   // 아니면 아무 일도 일어나지 않는다 (SRS §2.1).
   edSave:'Mod+KeyS',
+  /**
+   * `12-func-ui.md FUI-07`: **모두 저장.**
+   *
+   *   이전 동작: `_edWinSaveDirty` 는 **창 닫기 확인창에서만** 불렸다. 여러
+   *             파일을 고치면 탭마다 `Cmd+S` 이고, 그 일을 한 번에 하는 길은
+   *             "창을 닫으려 해 보는 것" 뿐이었다
+   *   새  동작: 액션 하나가 그 함수를 부른다
+   *   이유:     있던 동작에 진입점이 없던 것이다 — 없던 기능이 아니다
+   *
+   * `Mod+Alt+KeyS` 인 것은 `Mod+Shift+KeyS` 가 브라우저·OS 에서 자주 잡혀 있기
+   * 때문이다 (`edNavBack` 이 같은 이유로 `Mod+Alt` 를 쓴다).
+   */
+  edSaveAll:'Mod+Alt+KeyS',
 };
 const SHORTCUT_LABELS={
   // GIT_SIDEBAR_TABS_SRS FR-SBT-31·33: 이 키는 **활성 사이드바 탭의 목록**을 순회한다
@@ -305,6 +318,7 @@ const SHORTCUT_LABELS={
   edQuickOpen:'파일 검색 (Editor)',
   edGrep:'파일 전체에서 검색 (Editor)',
   edSave:'저장 (Editor)',
+  edSaveAll:'모두 저장 (Editor)',
   // `DOC-3` (M5): 기본값은 있는데 **라벨이 없었다.** 라벨이 없으면 Settings ▸
   // Shortcuts 의 목록에 뜨지 않고, 뜨지 않으면 사용자가 바꿀 수 없다 — 바꿀 수
   // 있다고 적힌 문서가 그 순간 거짓이 된다.
@@ -317,6 +331,9 @@ const ED_SEARCH_ACTIONS={
   edFindInFile:'_edFindInFile',
   edQuickOpen:'_edQuickOpen',
   edGrep:'_edSearchOpen',
+  // FUI-07: **창**이 수행한다 — `ED_VIEW_ACTIONS`(편집기 인스턴스의 것)가 아니라
+  // 이쪽이다. "어느 편집기가" 가 답의 일부가 아니고, 답은 "이 창의 전부" 다.
+  edSaveAll:'_edSaveAll',
 };
 
 // EDITOR_LSP_SRS 묶음 F — 코드 탐색 셋. 검색 셋과 나눠 두는 이유는 **게이트가
@@ -339,10 +356,10 @@ const ED_VIEW_ACTIONS={
 // 편집기 안에서 **우리가 먼저 잡는** 액션 전부다.
 //
 // 한 이름으로 두는 이유는 이 표를 읽는 자리가 둘이기 때문이다 — 편집기 안팎의
-// 판정(`_edTrySearchKey`)과, 전역 배선이 그 셋을 건너뛰는 자리
+// 판정(`edTrySearchKey`)과, 전역 배선이 그 셋을 건너뛰는 자리
 // (`input-binding.js`). 두 벌로 적으면 새 액션을 더할 때 한쪽만 고쳐지고, 그러면
 // 그 키가 Editor 창이 아닐 때 삼켜져 죽은 키가 된다 (FR-EKB-4).
-// app 이 수행하는 것 — `_edTrySearchKey` 가 이 표를 돈다.
+// app 이 수행하는 것 — `edTrySearchKey` 가 이 표를 돈다.
 const ED_APP_ACTIONS={...ED_SEARCH_ACTIONS,...ED_LSP_ACTIONS};
 // 전역 배선이 건너뛰어야 하는 것 전부 — 수행 주체와 무관하다 (input-binding.js).
 const ED_CAPTURE_ACTIONS={...ED_APP_ACTIONS,...ED_VIEW_ACTIONS};
@@ -613,6 +630,116 @@ function findPath(n,rid){
   if(n.children) for(const c of n.children){const p=findPath(c,rid);if(p)return[n,...p]}
   return null;
 }
+function panesOf(n){
+  if(!n) return [];
+  if(n.type==='pane') return [n];
+  return (n.children||[]).flatMap(panesOf);
+}
+
+/**
+ * OPTIMISTIC_LAYOUT_SRS FR-OPL-1~8: **원격이 본 적 없는 로컬 레이아웃 변경을
+ * 원격 스냅샷에 되얹는다.**
+ *
+ * 채택(`_applyRemoteWorkspace`)은 `this.ws=sv` 한 줄로 레이아웃을 통째로
+ * 갈아끼운다. 방금 연 git 뷰 탭은 아직 로컬 배열에만 있으므로(`save` 는
+ * 디바운스로 뒤따른다) 그 한 줄이 지운다 — `11 §5` 가 flaky 아홉 중 다섯을
+ * 이 자리로 매핑했다.
+ *
+ * 지워도 되는 것은 **원격이 알았다가 없앤 것**뿐이다. `seen` 이 그 판정이며
+ * 창 id 와 탭 id 두 벌이다 (FR-OPL-2). 합집합이 아닌 이유는 D-OPL-1 이다 —
+ * 합집합은 다른 화면이 닫은 창을 되살려 영영 닫히지 않게 만든다.
+ *
+ * **`remote` 를 제자리에서 고친다** (NFR-OPL-2). 돌려주는 값은 병합 건수다.
+ *
+ * @param {any[]} local  이 화면의 창 배열 (`this.ws.windows`)
+ * @param {any[]} remote 채택할 원격 창 배열 — 제자리에서 고쳐진다
+ * @param {{windows:Set<string>,tabs:Set<string>}} seen 원격이 아는 것
+ */
+function mergeUnseenLayout(local,remote,seen){
+  if(!Array.isArray(local)||!Array.isArray(remote)) return 0;
+  const seenWins=(seen&&seen.windows)||new Set();
+  const seenTabs=(seen&&seen.tabs)||new Set();
+  const byId=new Map();
+  const edByRoot=new Map();
+  // FR-OPL-3 / D-OPL-2: 원격에 **어디에든** 있는 탭은 미관측이 아니다. 대응 창
+  // 안만 보면 원격이 탭을 다른 창으로 옮긴 직후 그 탭이 둘이 된다.
+  const remTabs=new Set();
+  for(const w of remote){
+    if(!w||!w.id) continue;
+    if(!byId.has(w.id)) byId.set(w.id,w);
+    if(w.type===WINDOW_TYPE_EDITOR){
+      const r=(w.editor&&w.editor.root)||'';
+      if(r&&!edByRoot.has(r)) edByRoot.set(r,w);
+    }
+    for(const p of panesOf(w.layout))
+      for(const t of (p.tabs||[])) if(t&&t.id) remTabs.add(t.id);
+  }
+  let merged=0;
+  for(const w of local){
+    if(!w||!w.id) continue;
+    // FR-OPL-4: id → (Editor 창이면) 루트. 재조정이 같은 루트의 창을 새 id 로
+    // 세우므로(`_edReconcile` ④) id 만 보면 그 창의 탭을 전부 잃는다.
+    let rw=byId.get(w.id)||null;
+    if(!rw&&w.type===WINDOW_TYPE_EDITOR){
+      const r=(w.editor&&w.editor.root)||'';
+      if(r) rw=edByRoot.get(r)||null;
+    }
+    if(!rw){
+      // 원격이 아는 창인데 스냅샷에 없다 = 삭제다. 되살리지 않는다.
+      if(seenWins.has(w.id)) continue;
+      remote.push(w);
+      for(const p of panesOf(w.layout))
+        for(const t of (p.tabs||[])) if(t&&t.id) remTabs.add(t.id);
+      merged++;
+      continue;
+    }
+    merged+=mergeUnseenTabs(w,rw,seenTabs,remTabs);
+  }
+  return merged;
+}
+
+/** FR-OPL-5~8: 대응이 있는 창 한 쌍의 탭을 맞춘다. */
+function mergeUnseenTabs(lw,rw,seenTabs,remTabs){
+  let rPanes=panesOf(rw.layout);
+  const rById=new Map(rPanes.map(p=>[p.id,p]));
+  let merged=0;
+  for(const lp of panesOf(lw.layout)){
+    const tabs=lp.tabs||[];
+    for(let i=0;i<tabs.length;i++){
+      const t=tabs[i];
+      if(!t||!t.id||remTabs.has(t.id)||seenTabs.has(t.id)) continue;
+      // FR-OPL-6: 같은 id 의 칸 → 첫 칸 → 칸이 없으면 로컬 칸을 그대로 옮긴다.
+      // 마지막 갈래는 `layout:null` 로 태어나는 Repo 창의 첫 탭이 정확히 그것이다
+      // (FR-EDT-55 · `edEnsurePane`).
+      let dst=rById.get(lp.id)||rPanes[0]||null;
+      if(!dst){
+        rw.layout=lp;
+        rPanes=[lp];
+        rById.set(lp.id,lp);
+        for(const x of tabs) if(x&&x.id) remTabs.add(x.id);
+        merged++;
+        break;
+      }
+      if(!Array.isArray(dst.tabs)) dst.tabs=[];
+      // FR-OPL-7 / D-OPL-4: 로컬에서 **바로 앞에 있던 탭**이 앵커다. 인덱스를
+      // 그대로 쓰면 원격이 앞에 탭을 더한 경우 자리가 어긋난다.
+      let at=dst.tabs.length;
+      for(let k=i-1;k>=0;k--){
+        const a=tabs[k];
+        if(!a||!a.id) continue;
+        const j=dst.tabs.findIndex(x=>x&&x.id===a.id);
+        if(j>=0){at=j+1;break}
+      }
+      dst.tabs.splice(at,0,t);
+      remTabs.add(t.id);
+      merged++;
+      // FR-OPL-8: 되얹은 것이 로컬의 활성 탭이었으면 그 자리도 살린다.
+      if(lp.activeTab===t.id) dst.activeTab=t.id;
+    }
+  }
+  return merged;
+}
+
 function clean(n,ok){
   if(!n) return null;
   if(n.type==='pane'){
@@ -775,6 +902,22 @@ function visiblePoll(ms, fn, opts){
  * 판정이 한 자리인 것이 이 함수의 전부다: 그리는 쪽(`_paintGroup`)과 대상을 모으는
  * 쪽(`_group`)과 다이얼로그의 지문이 같은 묶음을 보아야 한다 (FR-CMG-13).
  */
+/**
+ * GIT_DETECT_TIER_SRS FR-GDT-23·24: 이 그룹이 서버 상한에서 잘렸는가.
+ *
+ * 돌려주는 값은 **자르기 전의 개수**이며 잘리지 않았으면 0 이다. 두 출신이
+ * 섞이는 그룹(`working`)에서는 원본 중 하나만 잘려도 목록이 잘린 것이므로 합을
+ * 낸다 — `gitGroupEntries` 가 합치는 그 키들이다.
+ */
+function gitGroupTruncated(status,key){
+  const t=status&&status.truncated;
+  if(!t) return 0;
+  const src=GIT_GROUP_SRC[key]||[key];
+  let n=0;
+  for(const k of src) n+=t[k]||0;
+  return n;
+}
+
 function gitGroupEntries(status,key){
   if(!status) return [];
   const src=GIT_GROUP_SRC[key];

@@ -4,8 +4,15 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
+import {
+  test, expect, rmTree, switchToEditorRoot, openExplorerSide, addEditor, gotoWithEditors, openExplorerAt, enterExplorer,
+} from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
+
+/**
+ * **고정 대기의 예외 (`TEST-16`).** 남은 `waitForTimeout` 은 폴링 주기의 배수를
+ * **넘기는 창**이다 — 그동안 요청이 몇 건인가가 답이므로 기다릴 신호가 없다.
+ */
 
 // EDITOR_TAB_SRS §4 — M3(파일 탐색기) · M4(탐색기의 git 색)의 검증 V-EDT-40~56.
 //
@@ -114,33 +121,7 @@ test.afterAll(() => {
 
 // Editor 목록은 서버가 권위다 (FR-EDT-20). 행을 만들면 재조정이 창을 만든다
 // (FR-EDT-42) — 테스트가 창을 손으로 짓지 않는다.
-async function addEditor(request: APIRequestContext, p: string) {
-  const r = await request.post('/api/editors/add', { data: { path: p } });
-  expect(r.ok(), `editors/add 실패: ${await r.text()}`).toBeTruthy();
-}
-
-async function goto(page: Page) {
-  await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-  await page.waitForFunction(
-    () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
-    undefined, { timeout: 15000 });
-}
-
-async function openEditor(page: Page, root: string) {
-  await switchToEditorRoot(page, root);
-  await openExplorerSide(page);
-}
-
 // 루트 하나를 세우고 그 Editor 창을 연다. 첫 행이 보이면 뿌리 조회가 끝난 것이다.
-async function enter(page: Page, request: APIRequestContext, root: string) {
-  await addEditor(request, root);
-  await goto(page);
-  await openEditor(page, root);
-  await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
-}
-
 const rows = (page: Page) => page.locator('.ed-tree .ed-row');
 const row = (page: Page, p: string) => page.locator(`.ed-tree .ed-row[data-path="${String(p).replace(/\\/g, '\\\\')}"]`);
 const names = (page: Page) =>
@@ -178,13 +159,13 @@ const isStatusOf = (repo: string) => (u: string) =>
 
 test.describe('묶음 X — 파일 탐색기 (FR-EDT-57~68)', () => {
   test('X1 (V-EDT-40): dot 파일과 dot 폴더가 보인다', async ({ page, request }) => {
-    await enter(page, request, PLAIN);
+    await enterExplorer(page, request, PLAIN);
     await expect(row(page, j(PLAIN, '.dotdir'))).toBeVisible();
     await expect(row(page, j(PLAIN, '.dotfile'))).toBeVisible();
   });
 
   test('X2 (V-EDT-43): 폴더 먼저, 이름 오름차순(대소문자 무시)', async ({ page, request }) => {
-    await enter(page, request, PLAIN);
+    await enterExplorer(page, request, PLAIN);
     // 폴더 넷이 먼저, 그 다음 파일·링크 다섯. `Bravo` 가 `alpha` 뒤인 것이
     // 대소문자 무시의 증거다 (바이트 순서라면 앞선다).
     expect(await names(page)).toEqual([
@@ -194,7 +175,7 @@ test.describe('묶음 X — 파일 탐색기 (FR-EDT-57~68)', () => {
   });
 
   test('X3 (V-EDT-41): 펼칠 때만 그 폴더가 조회된다', async ({ page, request }) => {
-    await enter(page, request, PLAIN);
+    await enterExplorer(page, request, PLAIN);
     const c = counter(page, isList);
     // 뿌리는 이미 읽혔다. 여기서부터 세는 것은 펼침이 만드는 조회뿐이다.
     await row(page, j(PLAIN, 'alpha')).click();
@@ -211,7 +192,7 @@ test.describe('묶음 X — 파일 탐색기 (FR-EDT-57~68)', () => {
   });
 
   test('X4 (V-EDT-42): 링크는 펼쳐지지도 열리지도 않고 linkDir 이 응답에 있다', async ({ page, request }) => {
-    await enter(page, request, PLAIN);
+    await enterExplorer(page, request, PLAIN);
     const d = await page.evaluate(async (r) => {
       const u = `/api/fs/list?root=${encodeURIComponent(r)}&path=${encodeURIComponent(r)}`;
       return (await fetch(u)).json();
@@ -236,7 +217,7 @@ test.describe('묶음 X — 파일 탐색기 (FR-EDT-57~68)', () => {
   });
 
   test('X5 (V-EDT-44): 조회 실패가 그 폴더 행에만 남는다', async ({ page, request }) => {
-    await enter(page, request, PLAIN);
+    await enterExplorer(page, request, PLAIN);
     // 권한 실패를 디스크로 만들면 실행 사용자에 따라 결과가 갈린다. 여기서 재는
     // 것은 **클라이언트가 실패를 어디에 담는가** 이므로 응답만 세운다.
     const bad = j(PLAIN, 'deep');
@@ -257,31 +238,98 @@ test.describe('묶음 X — 파일 탐색기 (FR-EDT-57~68)', () => {
     ]);
   });
 
-  test('X6 (V-EDT-45): 잘림을 표시하고 조회는 실패하지 않는다', async ({ page, request }) => {
-    await addEditor(request, PLAIN);
-    // FS_LIST_MAX 는 10000 이다 — 그 수의 픽스처를 만드는 대신 서버가 이미
-    // 계약대로 주는 `truncated` 를 세우고 UI 만 잰다 (FR-EDT-65 / V-EDT-45 의 UI 절반).
-    await page.route('**/api/fs/list**', async (route) => {
+  /**
+   * 잘린 겹을 흉내 내는 라우트. `fsListMax` 는 10,000 이라 그 수의 픽스처를
+   * 만드는 대신 서버가 계약대로 주는 응답을 세우고 **클라이언트 계약**만 잰다
+   * (FS_LIST_PAGING_SRS §4.2). 쪽 크기는 `page`, 전체는 `total` 이다.
+   */
+  const routePaged = (page_: Page, pageSize: number, total: number) =>
+    page_.route('**/api/fs/list**', async (route) => {
       const u = new URL(route.request().url());
+      const off = Number(u.searchParams.get('offset') || 0);
+      const n = Math.max(0, Math.min(pageSize, total - off));
       await route.fulfill({
         json: {
           path: u.searchParams.get('path'),
-          entries: Array.from({ length: 20 }, (_, i) => ({
-            name: 'f' + i, dir: false, link: false, linkDir: false,
+          entries: Array.from({ length: n }, (_, i) => ({
+            name: 'f' + (off + i), dir: false, link: false, linkDir: false,
           })),
-          truncated: true,
+          offset: off, total, truncated: off + n < total,
         },
       });
     });
-    await goto(page);
-    await openEditor(page, PLAIN);
-    await expect(page.locator('.ed-tree .ed-more')).toHaveText('20개 이상 — 잘림');
+
+  test('X6 (V-FSP-1): 잘린 겹이 보이는 수와 전체 수를 함께 말한다', async ({ page, request }) => {
+    await addEditor(request, PLAIN);
+    await routePaged(page, 20, 50);
+    await gotoWithEditors(page);
+    await openExplorerAt(page, PLAIN);
+    // **사실만 말하고 끝내지 않는다** — 나머지에 닿는 길이 그 자리에 있다.
+    await expect(page.locator('.ed-tree .ed-more')).toHaveText('20 / 50 — 더 보기');
     await expect(rows(page)).toHaveCount(20);
+  });
+
+  test('X6b (V-FSP-2·3): 더 보기가 이어 붙이고, 다 받으면 그 행이 사라진다', async ({ page, request }) => {
+    await addEditor(request, PLAIN);
+    await routePaged(page, 20, 50);
+    await gotoWithEditors(page);
+    await openExplorerAt(page, PLAIN);
+
+    const more = page.locator('.ed-tree .ed-more');
+    await more.click();
+    await expect(more).toHaveText('40 / 50 — 더 보기');
+    await expect(rows(page)).toHaveCount(40);
+    // 이어 붙인 것이지 갈아치운 것이 아니다 — 첫 쪽의 첫 행이 그대로 있다.
+    await expect(rows(page).first()).toHaveText(/f0\b/);
+
+    await more.click();
+    await expect(rows(page)).toHaveCount(50);
+    // 전부 받으면 더 말할 것이 없다.
+    await expect(page.locator('.ed-tree .ed-more')).toHaveCount(0);
+  });
+
+  test('X6c (V-FSP-5): 접었다 펴면 첫 쪽이다', async ({ page, request }) => {
+    await addEditor(request, PLAIN);
+    await routePaged(page, 20, 50);
+    await gotoWithEditors(page);
+    await openExplorerAt(page, PLAIN);
+
+    await page.locator('.ed-tree .ed-more').click();
+    await expect(rows(page)).toHaveCount(40);
+
+    // 루트는 접을 수 없으므로 탐색기를 닫았다 여는 대신, 캐시를 버리는 경로를
+    // 직접 잰다 — `toggle` 의 접기 분기가 그것이다 (FR-FSP-15).
+    const after = await page.evaluate(() => {
+      const t = (window as any).app.testing.edActiveTree();
+      const dir = t.root;
+      t._open.add(dir); t.toggle(dir);          // 접는다
+      return t._kids.get(dir).entries.length;
+    });
+    expect(after).toBe(20);
+  });
+
+  test('X6d (V-FSP-4): 재조회가 적재분을 되돌리지 않는다 (FR-FSP-14)', async ({ page, request }) => {
+    await addEditor(request, PLAIN);
+    await routePaged(page, 20, 50);
+    await gotoWithEditors(page);
+    await openExplorerAt(page, PLAIN);
+
+    await page.locator('.ed-tree .ed-more').click();
+    await expect(rows(page)).toHaveCount(40);
+
+    // 폴링 한 번이 사용자의 "더 보기" 를 되돌리면 그 기능은 쓸 수 없다 —
+    // 갱신 회차가 올 때마다 목록이 20으로 접힌다.
+    await page.evaluate(async () => {
+      const t = (window as any).app.testing.edActiveTree();
+      await t.reload(t.root);
+    });
+    await expect(rows(page)).toHaveCount(40);
+    await expect(page.locator('.ed-tree .ed-more')).toHaveText('40 / 50 — 더 보기');
   });
 
   test('X7 (V-EDT-46): 폴링이 돌아도 펼침·선택·스크롤이 유지된다', async ({ page, request }) => {
     test.setTimeout(60000);
-    await enter(page, request, REPO);
+    await enterExplorer(page, request, REPO);
     // 펼침과 선택을 한 번에 만든다. **파일을 고르지 않는다** — 편집기 열기는
     // 아직 root 에디터로 가고(M2 의 폴백, 라우팅은 FR-EDT-95~99 의 것이다) 그러면
     // 활성 창이 바뀌어 여기서 재려는 폴링 자체가 멈춘다 (FR-EDT-76).
@@ -319,7 +367,7 @@ test.describe('묶음 X — 파일 탐색기 (FR-EDT-57~68)', () => {
 
 test.describe('묶음 X — 탐색기의 git 색 (FR-EDT-69~78)', () => {
   test('X8 (V-EDT-48): --git-st-add 가 :root 에 있고 Git 패널의 색이 그대로다', async ({ page, request }) => {
-    await enter(page, request, PLAIN);
+    await enterExplorer(page, request, PLAIN);
     // 정의 자리는 **하나**다 (FR-EDT-70 / D-4).
     const css = await (await request.get('/style.css')).text();
     expect(css.match(/--git-st-add\s*:/g) || []).toHaveLength(1);
@@ -342,10 +390,10 @@ test.describe('묶음 X — 탐색기의 git 색 (FR-EDT-69~78)', () => {
 
   test('X9 (V-EDT-47): 루트가 저장소가 아니면 색이 없다', async ({ page, request }) => {
     await addEditor(request, PLAIN);
-    await goto(page);
+    await gotoWithEditors(page);
     // 판정은 창을 여는 순간 한 번이므로(FR-EDT-69) 세는 자리가 그 앞이어야 한다.
     const c = counter(page, isStatusOf(PLAIN));
-    await openEditor(page, PLAIN);
+    await openExplorerAt(page, PLAIN);
     await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
     await expect.poll(() => c.n, { timeout: 10000 }).toBeGreaterThan(0);
     await expect(page.locator('.ed-tree .ed-row[data-st]')).toHaveCount(0);
@@ -369,7 +417,7 @@ test.describe('묶음 X — 탐색기의 git 색 (FR-EDT-69~78)', () => {
   });
 
   test('X10 (V-EDT-49·50): 파일의 상태색과 unstaged 우선', async ({ page, request }) => {
-    await enter(page, request, REPO);
+    await enterExplorer(page, request, REPO);
     await expect(row(page, j(REPO, 'a.txt'))).toHaveAttribute('data-st', 'M', { timeout: 10000 });
     const [green, accent, danger] = await Promise.all([
       varColor(page, '--git-st-add'), varColor(page, '--accent'), varColor(page, '--danger'),
@@ -404,7 +452,7 @@ test.describe('묶음 X — 탐색기의 git 색 (FR-EDT-69~78)', () => {
   });
 
   test('X11 (V-EDT-51·52·53·54): 폴더의 접어 올림과 우선순위', async ({ page, request }) => {
-    await enter(page, request, REPO);
+    await enterExplorer(page, request, REPO);
     // FR-EDT-73: 근거가 status 의 경로들이므로 **펼치지 않은** 폴더에도 색이 있다.
     await expect(row(page, j(REPO, 'moddir'))).toHaveAttribute('data-st', 'M', { timeout: 10000 });
     await expect(row(page, j(REPO, 'moddir', 'm.txt'))).toHaveCount(0);
@@ -422,11 +470,11 @@ test.describe('묶음 X — 탐색기의 git 색 (FR-EDT-69~78)', () => {
     test.setTimeout(90000);
     await addEditor(request, REPO);
     await addEditor(request, PLAIN);
-    await goto(page);
+    await gotoWithEditors(page);
     // 저장소 창을 한 번 열어 트리를 살려 둔다 — 그래야 "살아 있지만 비활성" 이다.
-    await openEditor(page, REPO);
+    await openExplorerAt(page, REPO);
     await expect(row(page, j(REPO, 'a.txt'))).toHaveAttribute('data-st', 'M', { timeout: 10000 });
-    await openEditor(page, PLAIN);
+    await openExplorerAt(page, PLAIN);
     const poll = await page.evaluate(() => (window as any).gitReposInterval);
     const c = counter(page, isStatusOf(REPO));
     await page.waitForTimeout(poll * 3 + 1000);
@@ -437,21 +485,21 @@ test.describe('묶음 X — 탐색기의 git 색 (FR-EDT-69~78)', () => {
     test.setTimeout(60000);
     await addEditor(request, REPO);
     await addEditor(request, PLAIN);
-    await goto(page);
-    await openEditor(page, REPO);
+    await gotoWithEditors(page);
+    await openExplorerAt(page, REPO);
     await expect(row(page, j(REPO, 'a.txt'))).toHaveAttribute('data-st', 'M', { timeout: 10000 });
-    await openEditor(page, PLAIN);
+    await openExplorerAt(page, PLAIN);
 
     const c = counter(page, isStatusOf(REPO));
     // ① 창 활성화
-    await openEditor(page, REPO);
+    await openExplorerAt(page, REPO);
     await expect.poll(() => c.n, { timeout: 2000 }).toBeGreaterThanOrEqual(1);
     // 응답이 도착해야 다음 신호가 single-flight 에 막히지 않는다.
     await page.waitForTimeout(500);
     const base = c.n;
-    // ② 저장. 진입점은 `FileEditor.save` 가 부르는 `_gitSignal('write')` 하나다
+    // ② 저장. 진입점은 `FileEditor.save` 가 부르는 `gitSignal('write')` 하나다
     //    (FR-EDT-78) — 그 자리를 그대로 두드린다.
-    await page.evaluate(() => (window as any).app._gitSignal('write'));
+    await page.evaluate(() => (window as any).app.testing.gitSignal('write'));
     await expect.poll(() => c.n, { timeout: 1000 }).toBeGreaterThan(base);
   });
 });
@@ -459,7 +507,7 @@ test.describe('묶음 X — 탐색기의 git 색 (FR-EDT-69~78)', () => {
 test.describe('묶음 X — 다시 그리기와 실패의 회복 (FR-EDT-66·69)', () => {
   test('X14 (FR-EDT-66): 바깥 render 가 인라인 입력의 포커스·선택을 깨뜨리지 않는다',
     async ({ page, request }) => {
-      await enter(page, request, PLAIN);
+      await enterExplorer(page, request, PLAIN);
       // FR-EDT-81 의 인라인 입력. `_rLayout` 은 매 render 마다 `.ed-win` 을
       // 떼었다 붙이므로(renderer.js) 그 순간 입력이 문서에서 떨어진다.
       await page.locator('.ed-head-new-file').click();
@@ -499,7 +547,7 @@ test.describe('묶음 X — 다시 그리기와 실패의 회복 (FR-EDT-66·69)
         await route.continue();
       });
 
-      await enter(page, request, REPO);
+      await enterExplorer(page, request, REPO);
       expect(failed, '500 을 돌려줄 기회가 없었다').toBe(true);
       const poll = await page.evaluate(() => (window as any).gitReposInterval);
       await expect(row(page, j(REPO, 'a.txt')))
@@ -507,28 +555,28 @@ test.describe('묶음 X — 다시 그리기와 실패의 회복 (FR-EDT-66·69)
       // 판정이 굳지 않았다는 사실 자체도 재둔다 — 색이 늦게 오는 것과 구분된다.
       expect(await page.evaluate(() => {
         const a = (window as any).app;
-        return a._edTree(a._aw())._gitOff;
+        return a.testing.edTree(a.testing.aw())._gitOff;
       })).toBe(false);
     });
   test('X16 (FR-EDT-42): 일반 창에 있는 동안 Editor 행을 지워도 그 창의 탐색기가 즉시 거둬진다', async ({ page, request }) => {
     const base = fs.mkdtempSync(path.join(TMP, 'dm-ed-reap-'));
     const root = makePlain(base);
-    await enter(page, request, root);
-    await expect.poll(() => page.evaluate(() => (window as any).app._edTrees?.size || 0)).toBeGreaterThan(0);
+    await enterExplorer(page, request, root);
+    await expect.poll(() => page.evaluate(() => (window as any).app.testing.edTrees?.size || 0)).toBeGreaterThan(0);
 
-    // 일반 창으로 옮긴 뒤 행을 지운다. 회수가 `_edTree`(활성 창 렌더)에만
+    // 일반 창으로 옮긴 뒤 행을 지운다. 회수가 `edTree`(활성 창 렌더)에만
     // 얹혀 있으면 이 경로에서 트리와 분리된 DOM 이 남는다.
     const before = await page.evaluate(() => {
       const a = (window as any).app;
-      const plain = a._plainWindows()[0];
+      const plain = a.testing.plainWindows()[0];
       if (plain) a.switchWindow(plain.id);
-      return a._edTrees.size;
+      return a.testing.edTrees.size;
     });
     expect(before).toBeGreaterThan(0);
 
-    await page.evaluate(async (r) => { await (window as any).app._edRemove(r) }, realPath(root));
+    await page.evaluate(async (r) => { await (window as any).app.testing.edRemove(r) }, realPath(root));
 
-    await expect.poll(() => page.evaluate(() => (window as any).app._edTrees.size)).toBeLessThan(before);
+    await expect.poll(() => page.evaluate(() => (window as any).app.testing.edTrees.size)).toBeLessThan(before);
   });
 
 });

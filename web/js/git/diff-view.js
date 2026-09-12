@@ -196,7 +196,8 @@ class GitDiffView {
     // 루트 커밋이다 — 서버가 그것을 absent 로 답한다.
     if(target.oid) u+='&oid='+encodeURIComponent(target.oid);
     if(target.parentOid) u+='&parentOid='+encodeURIComponent(target.parentOid);
-    const r=await apiGet(u);
+    // FR-GRF-6: 조회에는 시한이 있다.
+    const r=await apiGet(u,{timeout:GIT_STATUS_FETCH_TIMEOUT_MS});
     const d=r.data;
     // 닿지 못한 것과 거부당한 것을 가른다 (UX_BATCH6_SRS FR-GLV-6). 앞은
     // 일시적일 수 있고 뒤는 다시 물어도 같은 답이 온다.

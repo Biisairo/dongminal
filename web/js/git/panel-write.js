@@ -192,8 +192,8 @@ Object.assign(GitPanel.prototype, {
     // FR-SVS-44: 쓰기의 **결과는 관측**이다 — 조작이 어느 칸에서 시작됐는지는
     // 결과에 영향을 주지 않으므로 모든 칸이 함께 바뀐다.
     this.obs.paintAll();
-    this.app._gitReposRefresh();
-    this.app._updateStatusBar();
+    this.app.gitReposRefresh();
+    this.app.updateStatusBar();
   },
 
   /**

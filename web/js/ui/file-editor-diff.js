@@ -254,9 +254,9 @@ class EdDirtyDiff{
   // 그 파일의 창이고, 그 창의 루트가 status 의 대상이다 (FR-EDD-3).
   _root(){
     const app=this.app;
-    if(!app||!app._edRoots) return '';
+    if(!app||!app.edRoots) return '';
     let best='';
-    for(const r of app._edRoots()){
+    for(const r of app.edRoots()){
       if(!r) continue;
       // 구분자를 `/` 로 굳히지 않는다 — Windows 에서는 **어떤 루트도 걸리지
       // 않아** 이 함수가 늘 빈 값을 내고, 변경 표시가 통째로 서지 않는다.
@@ -388,7 +388,7 @@ class EdDirtyDiff{
       return {ok:false,msg:GIT_WRITE_ERR[code]||ED_DD_STAGE_FAIL};
     }
     // FR-EDD-48: 방금 index 가 바뀌었다 — 화면과 기준이 함께 따라와야 한다.
-    if(this.app&&this.app._gitSignal) this.app._gitSignal('patch');
+    if(this.app&&this.app.gitSignal) this.app.gitSignal('patch');
     this.refresh();
     return {ok:true,wide:co.wide};
   }
@@ -418,8 +418,8 @@ class EdDirtyDiff{
 Object.assign(FileEditor.prototype,{
   _ddInit(){
     const app=window.app;
-    if(!app||!app._edDirtyDiff||!this._editor) return;
-    this._dd=app._edDirtyDiff(this.filePath);
+    if(!app||!app.edDirtyDiff||!this._editor) return;
+    this._dd=app.edDirtyDiff(this.filePath);
     this._dd.views.add(this);
     this._dd.attach(this._editor.getModel());
     this._editor.onMouseDown((e)=>{

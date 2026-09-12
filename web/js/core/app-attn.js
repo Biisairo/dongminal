@@ -5,7 +5,7 @@
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
 Object.assign(App.prototype, {
-  _attnHas(toolId){return this._attn.has(toolId)},
+  attnHas(toolId){return this._attn.has(toolId)},
 
   // 활성 창의 포커스 pane 에서 그 도구의 탭이 보이는지 (FR-PAN-9).
   //
@@ -14,13 +14,13 @@ Object.assign(App.prototype, {
   // pane 이지만, 그 pane 을 그리는 칸은 여럿일 수 있다.
   _isToolFocusedActive(toolId){
     if(!toolId) return false;
-    const s=this._aw(); if(!s||!s.layout) return false;
+    const s=this.aw(); if(!s||!s.layout) return false;
     const pn=findPane(s.layout,this.focused); if(!pn) return false;
     const tabs=pn.tabs||[];
     const n=this.slotCount();
     for(let i=0;i<n;i++){
       // 그 칸이 이 창을 보고 있지 않으면 그 칸의 시선은 이 판정과 무관하다.
-      if(this._slots&&this._slotWindow(i)!==s) continue;
+      if(this._slots&&this.slotWindow(i)!==s) continue;
       const at=tabs.find(t=>t.id===this.paneTab(pn,i));
       if(at&&at.toolId===toolId) return true;
     }
@@ -61,7 +61,7 @@ Object.assign(App.prototype, {
    * 출력이 붙어 있는 모든 브라우저로 가므로 복사창은 **보고 있는 창에만** 서야
    * 한다. 그쪽에서는 이 물음이 여전히 옳다.
    */
-  _attnUserIsWatching(toolId){
+  attnUserIsWatching(toolId){
     const browserFocused=(typeof document!=='undefined'&&typeof document.hasFocus==='function')?document.hasFocus():true;
     return browserFocused&&this._isToolFocusedActive(toolId);
   },
@@ -175,7 +175,7 @@ Object.assign(App.prototype, {
   },
 
   // FR-PAN-16: 창 layout 안에 주의 상태 pane 이 있는지
-  _windowHasAttn(s){
+  windowHasAttn(s){
     if(!s||!s.layout||!this._attn.size) return false;
     const walk=(node)=>{
       if(!node) return false;
@@ -219,8 +219,8 @@ Object.assign(App.prototype, {
    * 말고는 없앨 방법이 없다. FR-ATJ-1·2 로 두 갈래를 준다: 백그라운드면 복귀,
    * 어디에도 없으면 해제. **클릭이 아무 일도 하지 않는 경우는 없다.**
    */
-  _jumpToTool(toolId){
-    const loc=this._findToolLocation(toolId);
+  jumpToTool(toolId){
+    const loc=this.findToolLocation(toolId);
     if(!loc){this._attnLand(toolId);return}
     this._attnClear(toolId);
     this.ws.activeWindow=loc.win.id;
@@ -231,7 +231,7 @@ Object.assign(App.prototype, {
      *   이전 동작: `ws.activeWindow` 만 바꿨다
      *   새  동작: `switchWindow` 와 **같은 한 줄**을 지난다 (`_slotOnSwitch`)
      *   이유:     슬롯 모드에서 무엇이 보이는가는 `_slots.windows` 가 정한다
-     *             (`_windowVisible`). `activeWindow` 만 바꾸면 **아무 일도
+     *             (`windowVisible`). `activeWindow` 만 바꾸면 **아무 일도
      *             일어나지 않는다** — 접수 ⑧("run 에서 하위 세션 클릭했을 때
      *             해당 세션으로 이동하지 않음")이 그 자리다
      *
@@ -244,14 +244,14 @@ Object.assign(App.prototype, {
     this._slotOnSwitch(loc.win.id);
     // FR-SVS-12: 알람은 사용자를 부르는 것이고 사용자는 포커스 칸에 있다.
     this.paneTabSet(loc.pane,loc.tab.id);
-    this._setFocus(loc.pane.id, loc.win);
+    this.setFocusState(loc.pane.id, loc.win);
     this._focusWindow(loc.win.id);
     this.render();
   },
 
   /**
    * FR-ATJ-1·2·3: 탭이 없는 도구의 알람이 착지하는 자리. 판정은 여기 하나다 —
-   * 알림 센터와 활동 카드가 둘 다 `_jumpToTool` 을 지나므로 두 벌로 만들지 않는다.
+   * 알림 센터와 활동 카드가 둘 다 `jumpToTool` 을 지나므로 두 벌로 만들지 않는다.
    */
   _attnLand(toolId){
     const bg=(this._bg||[]).some(b=>b&&b.toolId===toolId);
@@ -280,7 +280,7 @@ Object.assign(App.prototype, {
     // 사이드바 창 알람 표시 갱신 (전체 재렌더 없이)
     document.querySelectorAll('#windows .si').forEach(el=>{
       const s=this.ws.windows.find(x=>x.id===el.dataset.sid);
-      el.classList.toggle('attn', !!(s&&this._windowHasAttn(s)));
+      el.classList.toggle('attn', !!(s&&this.windowHasAttn(s)));
     });
     // GIT_SIDEBAR_TABS_SRS FR-SBT-13: 같은 사실을 사이드바 탭 배지도 보인다 —
     // Windows 탭이 비활성이면 목록의 `.si.attn` 이 보이지 않기 때문이다.
@@ -289,12 +289,12 @@ Object.assign(App.prototype, {
     // FR-ATV-1: 포커스 예외가 없다. 표식이 맥박을 얻은 뒤로 둘은 시간축에서
     // 갈라지므로, 같은 자리에 겹쳐도 서로를 가리지 않는다 (§2.4).
     document.querySelectorAll('#area .pn-tab[data-toolid]').forEach(t=>{
-      t.classList.toggle('attn', this._attnHas(t.dataset.toolid));
+      t.classList.toggle('attn', this.attnHas(t.dataset.toolid));
     });
     document.querySelectorAll('#area .pn[data-paneid]').forEach(pn=>{
       const at=pn.querySelector('.pn-tab.active[data-toolid]');
       const pid=at?at.dataset.toolid:null;
-      pn.classList.toggle('attn', !!(pid&&this._attnHas(pid)));
+      pn.classList.toggle('attn', !!(pid&&this.attnHas(pid)));
     });
     const badge=document.getElementById('attn-badge');
     if(badge){
@@ -305,7 +305,7 @@ Object.assign(App.prototype, {
     }
     const center=document.getElementById('attn-center');
     if(center&&center.classList.contains('open')) this._attnCenterRender();
-    this._agentsRender(); // FR-AAP-18: 활동 카드의 alarm 표시도 함께 갱신
+    this.agentsRender(); // FR-AAP-18: 활동 카드의 alarm 표시도 함께 갱신
   },
 
   _positionAttnCenter(){
@@ -361,7 +361,7 @@ Object.assign(App.prototype, {
         d.title=detail;
         item.appendChild(d);
       }
-      item.addEventListener('click',()=>{this._jumpToTool(toolId);this._attnCenterClose()});
+      item.addEventListener('click',()=>{this.jumpToTool(toolId);this._attnCenterClose()});
       center.appendChild(item);
     }
   },
@@ -407,8 +407,8 @@ Object.assign(App.prototype, {
     // TLS-1: 막힌 환경에서는 시도조차 하지 않는다. `new Notification` 이
     // 예외를 던지고, 그 예외는 아래 try 가 삼켜 아무 흔적도 남지 않았다.
     if(this.attnDesktopBlocked||Notification.permission!=='granted') return;
-    const loc=this._findToolLocation(toolId);
-    const where=loc?[loc.win&&loc.win.name,tabName(loc.tab,this._fgNames)].filter(Boolean).join(' · '):('pane '+toolId);
+    const loc=this.findToolLocation(toolId);
+    const where=loc?[loc.win&&loc.win.name,tabName(loc.tab,this.fgNames)].filter(Boolean).join(' · '):('pane '+toolId);
     const head=reason==='done'?'✅ 작업 완료':reason==='waiting'?'⌨️ 입력 대기 중':reason==='idle'?'⏸️ 작업이 멈췄습니다':'🔔 주의가 필요합니다';
     // 같은 pane 의 이전 알림을 닫고 새로 띄운다 — tag+renotify 는 (특히 macOS 에서)
     // 조용히 갱신만 되어 재팝업이 안 되므로, close→재생성으로 매번 확실히 다시 띄운다.
@@ -466,7 +466,7 @@ Object.assign(App.prototype, {
   },
 
   // notification center 배지/팝오버 이벤트 바인딩 + 설정 토글 (FR-PAN-14/16)
-  _initAttn(){
+  initAttn(){
     const badge=document.getElementById('attn-badge');
     if(badge&&!badge._bound){
       badge._bound=true;
@@ -504,7 +504,7 @@ Object.assign(App.prototype, {
     if(!this.attnDesktopBlocked&&Notification.permission==='default'&&this.attnDesktop&&!this._attnPermAsked){
       this._attnPermAsked=true;
       let asked=false;
-      const ask=()=>{if(asked)return;asked=true;try{const r=Notification.requestPermission();if(r&&r.then)r.then(()=>this._initAttn&&this._attnRefresh())}catch{}};
+      const ask=()=>{if(asked)return;asked=true;try{const r=Notification.requestPermission();if(r&&r.then)r.then(()=>this.initAttn&&this._attnRefresh())}catch{}};
       document.addEventListener('pointerdown',ask,{once:true,capture:true});
       document.addEventListener('keydown',ask,{once:true,capture:true});
     }

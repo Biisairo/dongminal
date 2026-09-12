@@ -324,7 +324,7 @@ test.describe('13단계 — 원격 작업', () => {
       for (const w of [220, 100]) {
         await page.evaluate((v) => {
           const a = (window as any).app;
-          a._edSetSideWidth(v);
+          a.testing.edSetSideWidth(v);
           a.render();
         }, w);
         await expect(page.locator('#area .ed-win .ed-side')).toHaveCSS('width', `${w}px`);

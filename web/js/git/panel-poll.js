@@ -171,6 +171,19 @@ Object.assign(GitPanel.prototype, {
       if(withConsole&&this._consoleView) jobs.push(this._consoleView.reload());
       if(this._worktreesView) jobs.push(this._worktreesView.reload());
       if(this._submodulesView) jobs.push(this._submodulesView.reload());
+      /**
+       * GIT_DETECT_TIER_SRS FR-GDT-12 (`11 GP-11b`): **원격 목록도 대상이다.**
+       *
+       *   이전 동작: Branches 탭의 원격 목록은 **리포가 바뀔 때만** 받았다
+       *             (`GitRemoteList._adopt`). 터미널에서 친 `git remote add`
+       *             는 화면에 영영 오지 않았다
+       *   새  동작: 다른 목록과 같은 자리에서 받는다
+       *   이유:     감지가 열려도(signature 가 `.git/config` 를 보게 됐다) 받는
+       *             자리가 없으면 화면은 그대로다. 구멍은 둘이었다
+       *
+       * 열지 않은 뷰는 `_el` 판정이 조기 반환하므로 요청이 늘지 않는다 (FR-GVR-4).
+       */
+      if(this._branchesView) jobs.push(this._branchesView.reloadRemotesIfOpen());
     }
     return jobs;
   },
@@ -241,15 +254,15 @@ Object.assign(GitPanel.prototype, {
     if(this._gitMissing) return false;
     // REPO_TAB_UNIFY_SRS FR-RTU-62: **이 패널의 표면**이 화면에 있는가.
     //
-    // 종전에는 `_gitWindow()` 하나였다 — Git 창이 워크스페이스에 하나뿐이라
+    // 종전에는 `gitWindow()` 하나였다 — Git 창이 워크스페이스에 하나뿐이라
     // 그것이 곧 "그 표면" 이었기 때문이다. 창이 경로마다 생기면 패널도 여럿이고,
     // 그때 이 판정이 남의 창을 보면 비활성 창의 패널까지 git 을 부른다
     // (NFR-RTU-1 이 그것을 금한다).
-    const w=this.root?this.app._edWindowFor(this.root):this.app._gitWindow();
-    if(!w||!this.app._windowVisible(w.id)) return false;
+    const w=this.root?this.app.edWindowFor(this.root):this.app.gitWindow();
+    if(!w||!this.app.windowVisible(w.id)) return false;
     // 창이 보이는 것과 **이 패널의 표면**이 보이는 것은 다르다 — 사이드가
     // Explorer 이고 본문에 git 뷰 탭도 없으면 이 관측을 쓰는 화면이 없다.
-    if(this.root&&!this.app._gitSurfaceOn(w)) return false;
+    if(this.root&&!this.app.gitSurfaceOn(w)) return false;
     return !!this.repo;
   },
 
@@ -360,10 +373,24 @@ Object.assign(GitPanel.prototype, {
     // 깨우지 않는다.
     if(!this._pollOk()) return false;
     const st=this._cadence(gitStatusInterval);
-    // 주기 0 은 사용자가 끈 것이다 (FR-GIT-23). 끈 것을 되살리지 않는다.
-    if(st<=0) return false;
-    const age=this._lastObsAt?Date.now()-this._lastObsAt:Infinity;
-    if(this._pollOn&&age<st*GIT_WATCHDOG_FACTOR) return false;
+    /**
+     * GIT_REFRESH_LIFECYCLE_SRS FR-GRF-1·2 (`GP-2`): 주기 0 에서 **첫 관측은
+     * 한다.**
+     *
+     *   이전 동작: `if(st<=0) return false` — 워치독이 통째로 물러났다
+     *   새  동작: 한 번도 관측이 없으면(`_lastObsAt===null`) 주기와 무관하게
+     *            1회 수집한다. **타이머는 여전히 걸지 않는다**
+     *   이유:     주기 0 은 "요청을 주기적으로 내지 않는다" 이지 "한 번도
+     *            관측하지 않는다" 가 아니다. `_applyCadence` 가
+     *            `_pollOn=true, _pollSt=0` 에서 늘 거짓을 돌려주므로
+     *            (`:301`) 그 뒤의 모든 `_reschedule()` 이 수집을 걸렀고,
+     *            남는 계기는 포커스·새로고침뿐이었다 — status **0건**.
+     *            e2e `git-polling` P4 의 확정 원인이다
+     */
+    const never=!this._lastObsAt;
+    if(st<=0&&!never) return false;
+    const age=never?Infinity:Date.now()-this._lastObsAt;
+    if(st>0&&this._pollOn&&age<st*GIT_WATCHDOG_FACTOR) return false;
     /**
      * GIT_OBSERVE_REVIVE_SRS FR-GOR-2: **물어보는 일에만 주기를 건다.**
      *
@@ -375,7 +402,10 @@ Object.assign(GitPanel.prototype, {
      * **주기를 다시 거는 일은 이 문턱 밖이다** — 그것은 요청이 아니고, 함께 묶으면
      * 직전에 한 번 물어본 탓에 꺼진 타이머가 한 주기를 더 꺼진 채로 남는다.
      */
-    const ask=!this._wdTryAt||Date.now()-this._wdTryAt>=st;
+    // FR-GRF-3: 주기 0 에는 문턱의 간격을 기본 status 주기로 잡는다 — 0 을
+    // 그대로 쓰면 워치독 회차(1초)마다 한 건이 나간다.
+    const gap=st>0?st:GIT_STATUS_POLL_MS;
+    const ask=!this._wdTryAt||Date.now()-this._wdTryAt>=gap;
     if(!ask&&this._pollOn) return false;   // 걸 것도 물을 것도 없다
     // FR-GLR-6 (FR-GOR-7): 관측기는 **루트마다** 서므로 `repo` 만으로는 어느
     // 표면이 멎었는지 특정되지 않는다 — 같은 문자열이 여럿이다 (SRS §2.4).
@@ -518,6 +548,21 @@ Object.assign(GitPanel.prototype, {
     // (FR-RTU-25). `git init` 뒤의 첫 성공이 이 자리를 지난다.
     this._notRepo=false;
     /**
+     * GIT_REFRESH_LIFECYCLE_SRS FR-GRF-4·5 (`GP-3`): **git 이 돌아왔다.**
+     *
+     *   이전 동작: `_gitMissing=true` 를 푸는 코드가 **생성자 한 줄뿐**이었다.
+     *             git 을 찾지 못한 응답 한 번이면 그 관측기는 페이지 수명 내내
+     *             `_pollOk()===false`·`signal()` 무시 상태로 남았고, 새로고침
+     *             버튼으로 목록을 되살려도 자동 갱신은 돌아오지 않았다
+     *   새  동작: 성공한 관측이 푼다 — `_notRepo=false` 와 같은 자리다
+     *   이유:     `_notRepo`·`_missing` 은 둘 다 복구 경로를 갖는다.
+     *             `git_missing` 만 빠져 있었다 (`11 GP-3`)
+     *
+     * 푼 뒤에 주기를 다시 건다 (FR-GRF-5) — 해제만 하면 `_pollOk()` 가 참이 돼도
+     * 타이머는 걷힌 채 남는다. 위의 `_applyCadence()` 는 이 해제 **전**에 돌았다.
+     */
+    if(this._gitMissing){this._gitMissing=false;this._applyCadence()}
+    /**
      * FR-GIT-227 (FR-RPT-1·2): 관측이 지난 회차와 같으면 다시 그리지 않는다.
      *
      * 폴링이 1초마다 도는데 그때마다 목록을 새로 만들면 화면은 그대로인 채 요소만
@@ -536,9 +581,9 @@ Object.assign(GitPanel.prototype, {
     const obs=JSON.stringify(d.status||null);
     if(obs!==this._obsSig){this.obs.paintAll(); this._obsSig=obs}
     // 활성 리포의 배지가 따라 갱신된다. 다른 리포는 서버의 마지막 관측값이다.
-    this.app._gitReposRefresh();
+    this.app.gitReposRefresh();
     // 상태바 chip 은 Git 창 밖에서도 보이므로 관측마다 갱신한다 (FR-GIT-57).
-    this.app._updateStatusBar();
+    this.app.updateStatusBar();
     // FR-GIT-111 (FR-RPT-8): 충돌 판정은 관측마다 돈다 — 다시 그리기에 업히면
     // 관측이 같은 회차에 판정이 멈춘다.
     this.obs.notifyStatusAll();

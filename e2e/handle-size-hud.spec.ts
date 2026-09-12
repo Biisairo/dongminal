@@ -32,7 +32,9 @@ async function grab(page: Page, sel: string, dx: number, dy: number) {
   await page.mouse.move(cx, cy);
   await page.mouse.down();
   await page.mouse.move(cx + dx, cy + dy, { steps: 6 });
-  await page.waitForTimeout(120);
+  // 끄는 동안 뜨는 HUD 가 그 신호다 (FR-HSZ-2) — 고정 대기로는 아직 뜨지 않은
+  // 화면을 다음 단정이 읽는다.
+  await expect(page.locator('#ui-size-hud')).toHaveClass(/\bon\b/, { timeout: 10000 });
 }
 
 /** 한 벌의 줄들. `[px, (C×R), %]` 이며 터미널이 아니면 가운데가 없다. */
@@ -87,13 +89,22 @@ const HANDLES: {
       await expect(page.locator('#area .sh')).toHaveCount(1);
     },
   },
+  /**
+   * git 핸들 둘은 **Repo 창이 정착한 뒤에** 잡는다 (E2E_QUIESCENCE_SRS
+   * FR-EQS-6·7). `openGit` 이 끝났다는 것은 그 창이 **그 순간** 섰다는 뜻이고,
+   * 뒤따르는 워크스페이스 적용이 활성 창을 되돌리면 그 창은 `hidden` 이 되어
+   * 안의 핸들이 `hidden` 인 채 굳는다 — 전량(16 병렬)에서 `.git-commit-resize`
+   * 가 그렇게 한 번 흔들렸다. 정착의 순간을 관측하지는 못했으므로 **귀속을
+   * 짓지 않는다**; 기다리는 것 자체가 이 저장소의 규약이고 `.slot-handle` 이
+   * 이미 같은 자리에서 그렇게 한다.
+   */
   {
     name: '.ed-ex-handle (탐색기 폭)', sel: '#area .ed-ex-handle', dx: 60, dy: 0, terms: [],
-    setup: async (page) => { await openGit(page, fx('basic')) },
+    setup: async (page) => { await openGit(page, fx('basic')); await waitSettled(page) },
   },
   {
     name: '.git-commit-resize (커밋 입력 높이)', sel: '#area .git-commit-resize', dx: 0, dy: 40, terms: [],
-    setup: async (page) => { await openGit(page, fx('basic')) },
+    setup: async (page) => { await openGit(page, fx('basic')); await waitSettled(page) },
   },
 ];
 
@@ -168,7 +179,7 @@ test.describe('묶음 HSZ — 핸들의 크기 표시 (FR-HSZ-1~10)', () => {
 
     const saved = await page.evaluate(() => {
       const app = (window as any).app;
-      const w = app._aw();
+      const w = app.testing.aw();
       const find = (n: any): any => {
         if (!n) return null;
         if (n.type === 'split' && Array.isArray(n.sizes)) return n.sizes;
@@ -194,6 +205,8 @@ test.describe('묶음 HSZ — 핸들의 크기 표시 (FR-HSZ-1~10)', () => {
     let n = 0;
     page.on('request', r => { if (/\/resize/.test(r.url())) n++ });
     await grab(page, '#area .sh', 40, 0);
+    // **예외 (`TEST-16`)**: 끄는 **동안** 몇 번 그렸는지가 답이다 — 그 창을
+    // 줄이면 세는 것 자체가 뜻을 잃는다.
     await page.waitForTimeout(300);
     const during = n;
     await page.mouse.up();

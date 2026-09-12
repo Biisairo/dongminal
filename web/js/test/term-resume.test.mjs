@@ -18,8 +18,13 @@ function pane(opts = {}) {
     clock,
     expose: ['OP', 'TerminalTool', 'TIMERS'],
   });
-  // `_resizeCheck` 는 크기의 주인을 가르는 판정이다 (FR-TRS-19). 검사가 그 답을 쥔다.
-  ctx.app = { _resizeCheck: () => opts.owner !== false, isMobile: false };
+  // `resizeCheck` 는 크기의 주인을 가르는 판정이다 (FR-TRS-19). 검사가 그 답을 쥔다.
+  //
+  // 이름에 `_` 가 없는 이유: `FE-4` 가 디렉터리를 넘는 이름을 승격했다
+  // (FE_MODULE_BOUNDARY_SRS FR-FMB-40) — `term-pane.js` 가 `ui/` 라 이것이 그
+  // 경계를 넘는다. **격리 하네스는 전역을 손으로 세우므로**(C-5) 승격이 이
+  // 스텁까지가 그 변경의 범위다.
+  ctx.app = { resizeCheck: () => opts.owner !== false, isMobile: false };
   const p = new ctx.TerminalTool('t1', 'tool');
   // 보낸 프레임을 붙잡는다 — 소켓은 세우지 않는다.
   p.sent = [];

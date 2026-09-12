@@ -35,14 +35,14 @@ test.describe('묶음 G — 상태바 (브랜치 chip 철회)', () => {
     await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
     await page.evaluate(() => {
       const a = (window as any).app;
-      a._edSetSide(a._aw(), 'changes');
+      a.testing.edSetSide(a.testing.aw(), 'changes');
     });
     await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
     // 관측이 도착할 시간을 준 뒤에 본다 — 도착 전에 세면 아무것도 없는 것이 당연하다.
     await expect
       .poll(() => page.evaluate(() => !!(window as any).app.gitPanel.statusOf()), { timeout: 20000 })
       .toBe(true);
-    await page.evaluate(() => (window as any).app._updateStatusBar());
+    await page.evaluate(() => (window as any).app.testing.updateStatusBar());
 
     await expect(page.locator('#sb-items .sb-git')).toHaveCount(0);
     const text = (await page.locator('#sb-items').textContent()) || '';
@@ -74,7 +74,7 @@ test.describe('묶음 G — 상태바 (브랜치 chip 철회)', () => {
   test('B3 (FR-GIT-112 철회): 상태바에 원격 작업 chip 의 자리가 없다', async ({ page }) => {
     await waitForInit(page);
     await expect(page.locator('#sb-items .sb-git-job')).toHaveCount(0);
-    const has = await page.evaluate(() => typeof (window as any).app._gitJobChip);
+    const has = await page.evaluate(() => typeof (window as any).app.testing.gitJobChip);
     expect(has, '_gitJobChip 이 되살아났다').toBe('undefined');
   });
 });

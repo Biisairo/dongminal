@@ -239,8 +239,8 @@ class DocRender {
     this.kind = docRenderKindOf(filePath);
     // 이 문서가 속한 Editor 루트. `/` 로 시작하는 참조의 기준이자 루트 밖 판정의
     // 기준이다 (FR-DRV-25·26).
-    this.fsRoot = (typeof app !== 'undefined' && app && app._docRenderRootOf)
-      ? app._docRenderRootOf(filePath) : '';
+    this.fsRoot = (typeof app !== 'undefined' && app && app.docRenderRootOf)
+      ? app.docRenderRootOf(filePath) : '';
     this.el = document.createElement('div');
     this.el.className = 'doc-render';
     this.el.tabIndex = 0;
@@ -256,7 +256,7 @@ class DocRender {
     this.el.querySelector('.dr-path').textContent = name || '';
     // FR-DRV-6: **같은 버튼이 되돌린다.** 렌더를 켠 손이 끄는 법을 따로 배우지 않는다.
     this.el.querySelector('.dr-source').addEventListener('click', () => {
-      if (window.app && window.app._docRenderToSource) window.app._docRenderToSource(this);
+      if (window.app && window.app.docRenderToSource) window.app.docRenderToSource(this);
     });
     // 편집기 안의 키가 밖으로 나가지 않는 것과 같은 규약 — 여기서 앱 단축키가
     // 끼어들면 스크롤 중에 창이 바뀐다.
@@ -265,8 +265,8 @@ class DocRender {
     this._body.addEventListener('click', (e) => this._onLinkClick(e));
 
     // FR-DRV-40: 문서를 딛는다. 뷰가 문서의 `views` 에 드는 것도 `FileEditor` 와
-    // 같은 규약이며, 그래야 `_edDocDrop` 이 수명을 셀 수 있다 (FR-SVS-55).
-    this._doc = (typeof app !== 'undefined' && app && app._edDoc) ? app._edDoc(filePath) : null;
+    // 같은 규약이며, 그래야 `edDocDrop` 이 수명을 셀 수 있다 (FR-SVS-55).
+    this._doc = (typeof app !== 'undefined' && app && app.edDoc) ? app.edDoc(filePath) : null;
     if (this._doc) this._doc.views.add(this);
     this._model = null;
     this._sub = null;
@@ -422,10 +422,10 @@ class DocRender {
     try { rel = decodeURIComponent(target) } catch { /* 잘못 인코딩된 링크는 그대로 쓴다 */ }
     const dir = docDirOf(this.filePath);
     const abs = docResolvePath(dir, rel, this.fsRoot);
-    // FR-DRV-26: 루트 밖으로는 가지 않는다. `_edOpenFile` 도 거절하지만, 거절이
+    // FR-DRV-26: 루트 밖으로는 가지 않는다. `edOpenFile` 도 거절하지만, 거절이
     // 침묵이면 링크가 죽은 것인지 우리가 막은 것인지 갈리지 않는다.
     if (!docInsideRoot(abs, this.fsRoot)) { this._note(DOC_RENDER_OUTSIDE); return }
-    if (window.app && window.app._edOpenFile) window.app._edOpenFile(abs, {});
+    if (window.app && window.app.edOpenFile) window.app.edOpenFile(abs, {});
   }
 
   // 앵커. **이 상자 안에서만 움직인다** — `scrollIntoView` 는 조상 스크롤까지
@@ -638,8 +638,8 @@ class DocRender {
     this._revokeBlob();
     if (this._sub) { this._sub.dispose(); this._sub = null }
     this._model = null;
-    if (typeof app !== 'undefined' && app && app._edDocDrop) {
-      app._edDocDrop(this.filePath, this);
+    if (typeof app !== 'undefined' && app && app.edDocDrop) {
+      app.edDocDrop(this.filePath, this);
     }
     this._doc = null;
   }

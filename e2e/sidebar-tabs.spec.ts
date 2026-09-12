@@ -1,9 +1,17 @@
 import { join } from 'path';
 
-import { Page } from '@playwright/test';
+import { Page, APIRequestContext } from '@playwright/test';
 
-import { test, expect, waitForInit as fxWaitForInit, gitFixture, cleanGitFixture } from './fixtures';
+import {
+  test, expect, waitForInit as fxWaitForInit, gitFixture, cleanGitFixture, gotoSettled, plainWindows,
+} from './fixtures';
 import { tmpPath, realPath, cssPath } from './osenv';
+
+/**
+ * **고정 대기의 예외 (`TEST-16`).** 남은 `waitForTimeout` 은 전부 **아무 일도
+ * 일어나지 않음**을 잰다 — 같은 키를 다시 눌러도 토글되지 않는다 · 포커스가 없으면
+ * 듣지 않는다 · 일반 창이 하나면 순회가 멈춘다. 기다릴 신호가 없다.
+ */
 
 // GIT_SIDEBAR_TABS_SRS §4.2 — 검증 V-SBT-*.
 //
@@ -31,7 +39,7 @@ async function waitForInit(page: Page) {
 }
 
 const tab = (page: Page, id: string) => page.locator(`.sb-tab[data-panel="${id}"]`);
-const activeTab = (page: Page) => page.evaluate(() => (window as any).app._sbTab);
+const activeTab = (page: Page) => page.evaluate(() => (window as any).app.testing.sbTab);
 const activeWinType = (page: Page) =>
   page.evaluate(() => {
     const a = (window as any).app;
@@ -43,10 +51,10 @@ const activeWinType = (page: Page) =>
  * 이므로, "탭이 창을 만들었는가" 는 그 루트의 창이 있는가로 잰다.
  */
 const repoWinFor = (page: Page, root: string) =>
-  page.evaluate((r) => !!(window as any).app._edWindowFor(r), root);
+  page.evaluate((r) => !!(window as any).app.testing.edWindowFor(r), root);
 
 async function pin(page: Page, repo: string) {
-  await page.evaluate(async (p) => { await (window as any).app._gitPin(p) }, repo);
+  await page.evaluate(async (p) => { await (window as any).app.testing.gitPin(p) }, repo);
 }
 
 test.describe('묶음 T — 탭 바와 영속 (FR-SBT-1~8)', () => {
@@ -78,7 +86,7 @@ test.describe('묶음 T — 탭 바와 영속 (FR-SBT-1~8)', () => {
     expect(await activeTab(page)).toBe('repo');
     const root = await page.evaluate(() => {
       const a = (window as any).app;
-      return a._isEditorWin(a._aw()) ? a._edRootOf(a._aw()) : null;
+      return a.testing.isEditorWin(a.testing.aw()) ? a.testing.edRootOf(a.testing.aw()) : null;
     });
     expect(root, 'Repo 탭이 창으로 데려가지 않았다').toBeTruthy();
 
@@ -89,7 +97,7 @@ test.describe('묶음 T — 탭 바와 영속 (FR-SBT-1~8)', () => {
     // **같은 루트의 창이다** — id 가 바뀌어도 사용자에게는 같은 창이다.
     expect(await page.evaluate(() => {
       const a = (window as any).app;
-      return a._edRootOf(a._aw());
+      return a.testing.edRootOf(a.testing.aw());
     })).toBe(root);
   });
 
@@ -162,13 +170,13 @@ test.describe('묶음 T — 탭과 콘텐츠 창 (FR-SBT-14·22~25)', () => {
     // FR-RTU-21: 뷰 탭은 Changes 사이드의 아이콘 줄이 연다 — 창을 여는 것만으로는
     // 서지 않는다. 창이 섰는지는 사이드로 확인한다.
     await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
-    expect(await page.evaluate(() => (window as any).app._lastPlainWindow)).toBe(from);
+    expect(await page.evaluate(() => (window as any).app.testing.lastPlainWindow)).toBe(from);
 
     // 직전 창을 워크스페이스에서 들어낸다 — 복귀 대상이 사라진 상태다.
     //
     // **서버까지 알린다.** 클라이언트의 `ws.windows` 만 고치면 서버는 그 창을
     // 여전히 알고 있고, 다음 `workspace_changed` 한 번에 되살아난다 — 그러면
-    // `_gitBackTarget` 이 되살아난 직전 창을 찾아내 이 테스트가 세운 전제
+    // `gitBackTarget` 이 되살아난 직전 창을 찾아내 이 테스트가 세운 전제
     // ("복귀 대상이 사라졌다") 자체가 무너진다. 실측으로 확인한 실패였다:
     // 앞선 스펙이 Editor 창 재조정을 남기면 그 왕복이 실제로 일어난다.
     // 저장이 409 로 겹치면 앱은 **그 저장을 포기하고** 서버 것을 채택한다
@@ -180,7 +188,7 @@ test.describe('묶음 T — 탭과 콘텐츠 창 (FR-SBT-14·22~25)', () => {
       await page.evaluate(async (id) => {
         const a = (window as any).app;
         a.ws.windows = a.ws.windows.filter((w: any) => w.id !== id);
-        await a._save();
+        await a.testing.save();
       }, from);
       const st = await (await page.request.get('/api/state')).json();
       expect((st?.workspace?.windows || []).some((w: any) => w.id === from)).toBe(false);
@@ -189,7 +197,7 @@ test.describe('묶음 T — 탭과 콘텐츠 창 (FR-SBT-14·22~25)', () => {
     await tab(page, 'windows').click();
     const [first, active] = await page.evaluate(() => {
       const a = (window as any).app;
-      return [a._plainWindows()[0].id, a.ws.activeWindow];
+      return [a.testing.plainWindows()[0].id, a.ws.activeWindow];
     });
     expect(active, '첫 일반 창으로 가지 않았다').toBe(first);
   });
@@ -227,7 +235,7 @@ test.describe('묶음 T — 탭과 콘텐츠 창 (FR-SBT-14·22~25)', () => {
       expect(await activeTab(page)).toBe('repo');
       expect(await activeWinType(page)).toBe('editor');
     }
-    expect(await page.evaluate(() => (window as any).app._sbBusy)).toBe(false);
+    expect(await page.evaluate(() => (window as any).app.testing.sbBusy)).toBe(false);
   });
 });
 
@@ -241,7 +249,7 @@ test.describe('묶음 T — 배지 (FR-SBT-13 · FR-GOB-13·14)', () => {
     await pin(page, repo);
     const st = await request.get('/api/git/status?repo=' + encodeURIComponent(repo));
     expect(st.ok(), `status 실패: ${await st.text()}`).toBeTruthy();
-    await page.evaluate(() => (window as any).app._gitReposRefresh());
+    await page.evaluate(() => (window as any).app.testing.gitReposRefresh());
 
     // 목록의 **행** 배지는 그대로다 (FR-GOB-14). 행 배지는 변경 **파일 수**이므로
     // 픽스처의 값을 못박지 않고 보이는 것만 본다 — 옛 헤더 배지(변경 있는 리포
@@ -267,7 +275,7 @@ test.describe('묶음 T — 배지 (FR-SBT-13 · FR-GOB-13·14)', () => {
 
     await tab(page, 'windows').click();
     urls.length = 0;
-    await page.evaluate(() => (window as any).app._gitReposRefresh());
+    await page.evaluate(() => (window as any).app.testing.gitReposRefresh());
     await expect.poll(() => urls.length).toBeGreaterThan(0);
     expect(urls.every(u => !u.includes('observe=1')), `windows 탭에서 관측했다: ${urls}`).toBeTruthy();
 
@@ -288,8 +296,8 @@ test.describe('묶음 T — 배지 (FR-SBT-13 · FR-GOB-13·14)', () => {
     await page.evaluate(() => {
       const a = (window as any).app;
       const id = [...a.tools.keys()][0];
-      a._attn.set(id, { reason: 'test' });
-      a._attnRefresh();
+      a.testing.attn.set(id, { reason: 'test' });
+      a.testing.attnRefresh();
     });
     await expect(badge).toHaveText('1', { timeout: 10000 });
   });
@@ -336,7 +344,7 @@ test.describe('묶음 T — 단축키 (FR-SBT-26~33)', () => {
     const ids = await page.evaluate(async () => {
       const a = (window as any).app;
       await a.addWindow();
-      return a._plainWindows().map((w: any) => w.id);
+      return a.testing.plainWindows().map((w: any) => w.id);
     });
     expect(ids.length).toBeGreaterThanOrEqual(2);
     await page.evaluate((id) => (window as any).app.switchWindow(id), ids[0]);
@@ -376,8 +384,8 @@ test.describe('묶음 T — 단축키 (FR-SBT-26~33)', () => {
 
     const cur = () => page.evaluate(() => {
       const app = (window as any).app;
-      const w = app._aw();
-      return app._isEditorWin(w) ? app._edRootOf(w) : null;
+      const w = app.testing.aw();
+      return app.testing.isEditorWin(w) ? app.testing.edRootOf(w) : null;
     });
     await expect.poll(cur, { timeout: 10000 }).toBe(a);
 
@@ -419,7 +427,7 @@ test.describe('묶음 T — 단축키 (FR-SBT-26~33)', () => {
     await page.evaluate(async () => {
       const w = window as any;
       w.shortcuts.sidebarTab2 = SHORTCUT_DEFAULTS.sidebarTab2;
-      await w.app._saveSettings();
+      await w.app.testing.saveSettings();
     });
   });
 });
@@ -433,7 +441,7 @@ test.describe('묶음 T — 인터페이스화 (FR-SBT-18~21)', () => {
     const ids = await page.evaluate(async () => {
       const a = (window as any).app;
       await a.addWindow();
-      return a._plainWindows().map((w: any) => w.id);
+      return a.testing.plainWindows().map((w: any) => w.id);
     });
     expect(ids.length).toBeGreaterThanOrEqual(2);
 
@@ -475,3 +483,150 @@ test.describe('묶음 T — 인터페이스화 (FR-SBT-18~21)', () => {
 // 렉시컬 바인딩이므로 `page.evaluate` 안에서 이름으로 직접 읽는다.
 declare const SB_TAB_DEFS: unknown[];
 declare const SHORTCUT_DEFAULTS: Record<string, string>;
+
+/**
+ * 묶음 BLP — **사이드바 두 목록은 한 골격을 쓴다** (FR-BLP-*).
+ *
+ * 이 파일이 재는 사이드바 탭과 같은 자리다 — 액션 행이 첫 자식이고, 순회 규약이
+ * 두 목록에서 같다.
+ *
+ * `TEST-7` 로 `ux-revision` 에서 옮겨 왔다 — 납품 묶음이 아니라 **이 기능**이
+ * 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
+ */
+
+const UXRFX = tmpPath('dm-uxr-sidebar-tabs-' + process.pid);
+test.beforeAll(() => { gitFixture(UXRFX) });
+test.afterAll(() => { cleanGitFixture(UXRFX) });
+const uxrFx = (n: string) => realPath(join(UXRFX, n));
+
+// 보낸 경로가 아니라 응답의 root 로 항목을 찾아야 한다 (git-sidebar 와 같은 규약).
+async function uxrPin(request: APIRequestContext, path: string) {
+  const r = await request.post('/api/git/repos/pin', { data: { path } });
+  expect(r.ok(), `pin 실패: ${await r.text()}`).toBeTruthy();
+  return (await r.json()).root as string;
+}
+
+async function uxrUnpinAll(request: APIRequestContext) {
+  const r = await request.get('/api/git/repos');
+  if (!r.ok()) return;
+  for (const e of ((await r.json()).pinned || []) as any[]) {
+    if (e && e.path) await request.post('/api/git/repos/unpin', { data: { path: e.path } });
+  }
+}
+
+test.describe('묶음 B — 사이드바 리스트 블루프린트 (FR-BLP-*)', () => {
+  test('V-BLP-1: 두 패널의 첫 자식이 액션 버튼 행이다', async ({ page }) => {
+    await gotoSettled(page);
+    for (const id of ['sb-panel-windows', 'sb-panel-repo']) {
+      const first = await page.evaluate(
+        p => document.getElementById(p)?.firstElementChild?.className, id);
+      expect(first, `${id} 의 첫 자식`).toBe('sb-actions');
+    }
+    // FR-BLP-8: `+ Add` 가 목록 위에 온다 — `+ New` 와 같은 자리.
+    const addBeforeList = await page.evaluate(() => {
+      // FR-RTU-5: `+ Add` 는 하나다 (`#repo-add`) — 목록도 하나다 (D-RTU-2).
+      const btn = document.getElementById('repo-add');
+      const list = document.getElementById('repo-entries');
+      if (!btn || !list) return null;
+      return !!(btn.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+    expect(addBeforeList).toBe(true);
+  });
+
+  test('V-BLP-4: 기존 셀렉터가 그대로 산다', async ({ page }) => {
+    await gotoSettled(page);
+    // 창 목록의 행·이름·삭제 표식은 이름이 바뀌지 않았다 (FR-BLP-6).
+    await expect(page.locator('#windows .si').first()).toBeVisible();
+    await expect(page.locator('#windows .si .si-name').first()).toBeVisible();
+    expect(await page.locator('#windows .si .si-x').count()).toBeGreaterThan(0);
+    // FR-BLP-7: 공통 클래스가 함께 붙는다.
+    await expect(page.locator('#windows .si').first()).toHaveClass(/sbl-item/);
+  });
+
+  test('V-BLP-2: 창 재배치가 즉시 반영된다 (블루프린트 경로)', async ({ page }) => {
+    await gotoSettled(page);
+    await page.evaluate(() => (window as any).app.addWindow());
+    await expect(page.locator('#windows .si')).toHaveCount(2, { timeout: 10000 });
+    // `#windows` 목록에 실제로 보이는 항목은 일반 창뿐이다 (EDITOR_TAB_SRS
+    // FR-EDT-13: root 에디터 창은 항상 있지만 이 목록에는 안 나온다). `ws.windows`
+    // 를 그대로 인덱싱하면 드래그 src/target 이 화면에 없는 Editor 창을 집는다.
+    const before = (await plainWindows(page)).map((w: any) => w.id);
+    expect(before.length).toBeGreaterThanOrEqual(2);
+    // 문서 전역 drop 이 쓰는 경로 그대로 — 항목 밖에서 놓은 경우다 (V-BLP-3).
+    await page.evaluate(([src, tgt]) => {
+      const app = (window as any).app;
+      const def = (0, eval)('SB_TAB_DEFS').find((d: any) => d.id === 'windows');
+      (0, eval)('SidebarList').commit(app, def, { type: 'window', src, target: tgt, before: true, done: false });
+    }, [before[1], before[0]]);
+    const after = (await plainWindows(page)).map((w: any) => w.id);
+    expect(after[0]).toBe(before[1]);
+    // 화면도 같은 회차에 바뀐다 — 폴링을 기다리지 않는다.
+    const shown = await page.evaluate(() =>
+      [...document.querySelectorAll('#windows .si')].map(e => (e as HTMLElement).dataset.sid));
+    expect(shown).toEqual(after);
+  });
+});
+
+test.describe('묶음 B — 목록 순회 (FR-BLP-15~18)', () => {
+  test('V-BLP-5: 두 목록이 같은 순회 규약을 쓴다', async ({ page, request }) => {
+    await uxrUnpinAll(request);
+    await gotoSettled(page);
+
+    // ① 창 목록: 창이 하나면 아무 일도 하지 않는다.
+    const only = await page.evaluate(() => (window as any).app.ws.activeWindow);
+    await page.evaluate(() => (window as any).app.executeAction('windowNext'));
+    expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(only);
+
+    // ② 창 목록: 둘이면 감싸며 돈다.
+    await page.evaluate(() => (window as any).app.addWindow());
+    await expect(page.locator('#windows .si')).toHaveCount(2, { timeout: 10000 });
+    const ids = await page.evaluate(() => (window as any).app.ws.windows.map((w: any) => w.id));
+    const from = await page.evaluate(() => (window as any).app.ws.activeWindow);
+    await page.evaluate(() => (window as any).app.executeAction('windowNext'));
+    const after = await page.evaluate(() => (window as any).app.ws.activeWindow);
+    expect(ids, '순회가 목록 밖으로 나갔다').toContain(after);
+    expect(after, '순회가 제자리에 머물렀다').not.toBe(from);
+    // 끝에서 감싼다 — 두 개짜리 목록에서 두 번 돌면 제자리다.
+    await page.evaluate(() => (window as any).app.executeAction('windowNext'));
+    expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).toBe(from);
+
+    /**
+     * ③ `Repo` 목록도 같은 규약이다 — 순회가 목록의 순서대로 돌고 감싼다.
+     *
+     * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-8).** 옛 시험은 "핀이 하나뿐이면 그
+     * 하나로 들어가고 더 돌 곳이 없다" 를 쟀다. `Repo` 목록에는 핀만이 아니라
+     * **고정 행**(`~`·메모장)도 있고(FR-EDT-13·14) 순회 대상이 그 둘을 이어
+     * 붙인 것이므로, 핀이 하나여도 돌 자리가 있다.
+     */
+    const root = await uxrPin(request, uxrFx('basic'));
+    await expect.poll(() => page.evaluate(() =>
+      ((window as any).app.testing.gitRepos?.pinned || []).length), { timeout: 20000 }).toBe(1);
+    await page.locator('.sb-tab[data-panel="repo"]').click();
+
+    const order = await page.evaluate(() => [
+      ...document.querySelectorAll('#repo-entries .ed-entry'),
+      ...document.querySelectorAll('#repo-root .ed-entry'),
+    ].map((e) => (e as HTMLElement).dataset.edRoot!));
+    expect(order, '핀한 저장소가 목록에 없다').toContain(root);
+    expect(order.length, '순회할 행이 둘 이상이어야 한다').toBeGreaterThan(1);
+
+    const cur = () => page.evaluate(() => {
+      const a = (window as any).app;
+      return a.testing.isEditorWin(a.testing.aw()) ? a.testing.edRootOf(a.testing.aw()) : null;
+    });
+    const start = await cur();
+    let i = order.indexOf(start!);
+    expect(i, 'Repo 탭이 목록 안의 창으로 데려가지 않았다').toBeGreaterThanOrEqual(0);
+    // ④ 한 바퀴 돌면 제자리다 — 창 목록과 같다.
+    for (let n = 0; n < order.length; n++) {
+      await page.evaluate(() => (window as any).app.executeAction('windowNext'));
+      i = (i + 1) % order.length;
+      await expect.poll(cur, { timeout: 10000 }).toBe(order[i]);
+    }
+    await expect.poll(cur, { timeout: 10000 }).toBe(start);
+    await uxrUnpinAll(request);
+  });
+});
+
+// ── 묶음 W — 작업 경로 승계 ──
+

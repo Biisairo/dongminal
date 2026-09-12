@@ -25,8 +25,18 @@ import type { Reporter, TestCase, TestResult, FullResult } from '@playwright/tes
  * 아무도 세지 않던 동안 제품 결함 셋이 초록 뒤에 있었고, 사용자는 그것을
  * "가끔 안 된다" 로 만나고 있었다 (`playwright.config.ts:51-70`).
  *
- * 그래서 여기서 **센다.** 판정하지 않는 규약은 그대로다 — 실패로 올리지 않고
- * 수를 드러낼 뿐이다. 승격은 계통 결함이 정리된 뒤(M6)의 일이다.
+ * 그래서 여기서 **센다.** 그리고 M6 부터는 **판정한다** (`CI_GATES_SRS §3` 개정).
+ *
+ *   이전 동작: 수를 잡 요약에 드러내고 기준선(4)을 기록하는 데까지
+ *   새  동작: `flaky > 0` 이면 실행을 **실패로 끝낸다**
+ *   이유:     "올리지 않는다" 의 근거는 *"제품 쪽 계통 결함이 남아 있어 지금
+ *             올리면 이후 모든 마일스톤의 CI 가 빨갛다"* 였다. M6 이 그 계통
+ *             결함을 닫았으므로 근거가 사라졌다. 세기만 하는 게이트는 결국
+ *             아무도 보지 않는다 — `11 §5` 가 매핑하기 전까지 flaky 아홉이
+ *             1년 가까이 초록 뒤에 있었던 것이 그 증거다
+ *
+ * **`DM_E2E_ALLOW_FLAKY=1` 이 그 승격을 끈다.** 조사 중에 전량을 돌리는 사람이
+ * 흔들림 하나로 실행 전체를 잃지 않게 하는 손잡이이며, CI 는 이것을 주지 않는다.
  */
 class ParityReporter implements Reporter {
   private skipped: TestCase[] = [];
@@ -42,7 +52,13 @@ class ParityReporter implements Reporter {
     }
   }
 
-  onEnd(_result: FullResult) {
+  /**
+   * CI_GATES_SRS §3 (M6 개정): `flaky > 0` 은 실패다.
+   *
+   * `onEnd` 가 `{status}` 를 돌려주면 playwright 가 그것을 최종 상태로 삼는다 —
+   * 검사 결과를 고치지 않고 **실행의 판정만** 바꾸는 자리다.
+   */
+  async onEnd(_result: FullResult) {
     // 사유는 `test.skip(cond, '사유')` 의 그 문자열이다. playwright 는 그것을
     // annotation 으로 싣는다.
     const byReason = new Map<string, number>();
@@ -64,6 +80,18 @@ class ParityReporter implements Reporter {
     try { writeFileSync('parity-flaky.txt', String(this.flaky.length)) } catch { /* 없어도 요약이 0 을 쓴다 */ }
     // eslint-disable-next-line no-console
     console.log(lines.join('\n'));
+    if (!this.flaky.length) return;
+    if (process.env.DM_E2E_ALLOW_FLAKY === '1') {
+      // eslint-disable-next-line no-console
+      console.log('[parity] DM_E2E_ALLOW_FLAKY=1 — 흔들림을 실패로 올리지 않는다');
+      return;
+    }
+    // eslint-disable-next-line no-console
+    console.log(
+      `[parity] flaky ${this.flaky.length}건 — 실패로 올린다 (CI_GATES_SRS §3).\n` +
+      '[parity] 재시도에서 통과한 것은 "가끔 안 되는 것" 이며 사용자는 그것을 그대로 만난다.\n' +
+      '[parity] 조사 중이라면 DM_E2E_ALLOW_FLAKY=1 로 끌 수 있다.');
+    return { status: 'failed' as const };
   }
 }
 

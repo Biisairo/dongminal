@@ -133,7 +133,7 @@ window.addEventListener('resize',()=>{
 //    여는 것은 실수가 아니다 — 거기서 물으면 자동 갱신이 자동이 아니게 된다
 //    (사용자가 화면을 보고 있지 않으면 대화만 떠 있고 갱신은 영영 오지 않는다).
 //  - `tools.size`    — 잃을 연결이 하나라도 있는가
-//  - `_edAnyDirty()` — 잃을 **편집**이 하나라도 있는가 (UX_BATCH8_SRS FR-CLG-5)
+//  - `edAnyDirty()` — 잃을 **편집**이 하나라도 있는가 (UX_BATCH8_SRS FR-CLG-5)
 //
 // 넷째 조건이 늦게 붙은 것은 사유가 하나였기 때문이다:
 //
@@ -152,5 +152,5 @@ window.addEventListener('resize',()=>{
 window.addEventListener('beforeunload',e=>{
   if(!confirmLeave) return;
   if(window.__dmReloading) return;
-  if(app.tools.size>0||app._edAnyDirty()) e.preventDefault();
+  if(app.tools.size>0||app.edAnyDirty()) e.preventDefault();
 });

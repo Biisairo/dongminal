@@ -27,7 +27,7 @@ test.describe('묶음 SBX — 상태바는 터미널 출력을 그대로 그리�
     const payload = '/tmp/<img src=x onerror="window.__xss=1">';
     await page.evaluate((p) => {
       const app = (window as any).app;
-      const pane = app._focusedTerminal();
+      const pane = app.testing.focusedTerminal();
       pane._onCwd(p);
     }, payload);
 
@@ -53,8 +53,8 @@ test.describe('묶음 SBX — 상태바는 터미널 출력을 그대로 그리�
     // `title="…"` 로 들어가는 자리를 노린다 (location 지표).
     await page.evaluate(() => {
       const app = (window as any).app;
-      app._stats = { ...(app._stats || {}), hostname: '" onmouseover="window.__xss2=1" x="' };
-      app._updateStatusBar();
+      app.testing.stats = { ...(app.testing.stats || {}), hostname: '" onmouseover="window.__xss2=1" x="' };
+      app.testing.updateStatusBar();
     });
 
     expect(await page.evaluate(() => (window as any).__xss2)).toBe(0);
@@ -85,7 +85,7 @@ test.describe('묶음 UX1 — 확인창의 규약이 GitConfirm 과 같다', () 
 
     const decided = await page.evaluate(async () => {
       const app = (window as any).app;
-      const p = app._confirmClose('실행 중인 프로세스가 있습니다. 탭을 닫으시겠습니까?', { bgBtn: true });
+      const p = app.testing.confirmClose('실행 중인 프로세스가 있습니다. 탭을 닫으시겠습니까?', { bgBtn: true });
       await new Promise((r) => setTimeout(r, 0));
       // 취소로 옮긴 뒤의 Enter 는 취소다 — 팝업이 Enter 를 가로채지 않는다는
       // 증거다 (FR-PDA-2 / D-1). 합성 이벤트로는 브라우저의 click 합성이 일어나지
@@ -103,7 +103,7 @@ test.describe('묶음 UX1 — 확인창의 규약이 GitConfirm 과 같다', () 
     await waitForInit(page);
     const focused = await page.evaluate(async () => {
       const app = (window as any).app;
-      app._confirmClose('닫으시겠습니까?', { bgBtn: true, saveBtn: true });
+      app.testing.confirmClose('닫으시겠습니까?', { bgBtn: true, saveBtn: true });
       await new Promise((r) => setTimeout(r, 0));
       const cls = document.activeElement ? document.activeElement.className : '';
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));

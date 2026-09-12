@@ -24,7 +24,7 @@ test.describe('focusedPane 불변식 회귀', () => {
 
     // Split horizontally → 2 panes in session 1.
     await page.evaluate(() => (window as any).app.split('h'));
-    await page.waitForTimeout(100);
+    await expect(page.locator('#area .pn')).toHaveCount(2, { timeout: 10000 });
 
     // Pick the second pane as focus target.
     const r2id = await page.evaluate(() => {
@@ -60,7 +60,7 @@ test.describe('focusedPane 불변식 회귀', () => {
 
     // Split → 2 panes; close the second pane (focused after split).
     await page.evaluate(() => (window as any).app.split('h'));
-    await page.waitForTimeout(100);
+    await expect(page.locator('#area .pn')).toHaveCount(2, { timeout: 10000 });
 
     const stateBefore = await page.evaluate(() => {
       const a = (window as any).app;
@@ -169,7 +169,7 @@ test.describe('focusedPane 불변식 회귀', () => {
     await page.evaluate(async (sid) => {
       const a = (window as any).app;
       // 삭제 시 busy 확인 모달이 뜨지 않도록 fake.
-      a._isToolBusy = async () => false;
+      a.testing.isToolBusy = async () => false;
       await a.delWindow(sid);
     }, sidA);
 

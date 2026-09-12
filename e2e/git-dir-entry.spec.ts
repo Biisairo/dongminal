@@ -4,7 +4,9 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGit as fxOpenGit, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
+import {
+  test, expect, openGit as fxOpenGit, rmTree, switchToEditorRoot, openExplorerSide, addEditor, gotoWithEditors, openExplorerAt, enterExplorer,
+} from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
 // GIT_DIR_ENTRY_SRS §4 — 디렉터리 상태 항목의 검증 V-DIR-10~42.
@@ -80,32 +82,6 @@ test.afterAll(() => {
 });
 
 // ── 진입 ────────────────────────────────────────────
-
-async function addEditor(request: APIRequestContext, p: string) {
-  const r = await request.post('/api/editors/add', { data: { path: p } });
-  expect(r.ok(), `editors/add 실패: ${await r.text()}`).toBeTruthy();
-}
-
-async function goto(page: Page) {
-  await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
-  await page.goto('/');
-  await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-  await page.waitForFunction(
-    () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
-    undefined, { timeout: 15000 });
-}
-
-async function openEditor(page: Page, root: string) {
-  await switchToEditorRoot(page, root);
-  await openExplorerSide(page);
-}
-
-async function enter(page: Page, request: APIRequestContext, root: string) {
-  await addEditor(request, root);
-  await goto(page);
-  await openEditor(page, root);
-  await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
-}
 
 const row = (page: Page, p: string) =>
   page.locator(`.ed-tree .ed-row[data-path="${cssPath(p)}"]`);
@@ -201,14 +177,14 @@ test.describe('묶음 S — 디렉터리 항목의 확정', () => {
 
 test.describe('묶음 X — 디렉터리 항목의 색과 상속', () => {
   test('X1 (V-DIR-10): 서브모듈 폴더에 색이 나온다', async ({ page, request }) => {
-    await enter(page, request, PARENT);
+    await enterExplorer(page, request, PARENT);
     // 서브모듈의 워킹 트리 변경은 부모에게 unstaged 수정(M)이다.
     await expect.poll(() => stClass(page, j(PARENT, 'sub')), { timeout: 10000 })
       .toContain('st-mod');
   });
 
   test('X2 (V-DIR-11): 중첩 저장소 폴더에 색이 나온다', async ({ page, request }) => {
-    await enter(page, request, PARENT);
+    await enterExplorer(page, request, PARENT);
     // 미추적은 신규색이다 (`?` → new).
     await expect.poll(() => stClass(page, j(PARENT, 'nested')), { timeout: 10000 })
       .toContain('st-new');
@@ -216,7 +192,7 @@ test.describe('묶음 X — 디렉터리 항목의 색과 상속', () => {
 
   test('X3 (V-DIR-12): 중첩 저장소 **안의 파일**이 상속 색을 갖는다',
     async ({ page, request }) => {
-      await enter(page, request, PARENT);
+      await enterExplorer(page, request, PARENT);
       await expect.poll(() => stClass(page, j(PARENT, 'nested')), { timeout: 10000 })
         .toContain('st-new');
       await expand(page, j(PARENT, 'nested'));
@@ -226,7 +202,7 @@ test.describe('묶음 X — 디렉터리 항목의 색과 상속', () => {
     });
 
   test('X4 (V-DIR-13): 하위의 자기 상태가 상속을 이긴다', async ({ page, request }) => {
-    await enter(page, request, PARENT);
+    await enterExplorer(page, request, PARENT);
     await expand(page, j(PARENT, 'src'));
     // src 아래 keep.txt 는 자기 수정 상태를 갖는다 — 상속이 아니라 그것이 이긴다.
     await expect.poll(() => stClass(page, j(PARENT, 'src', 'keep.txt')), { timeout: 10000 })
@@ -239,7 +215,7 @@ test.describe('묶음 X — 디렉터리 항목의 색과 상속', () => {
 test.describe('묶음 A — 저장소 안의 루트도 색을 갖는다', () => {
   test('A1 (V-DIR-40·41): 하위 폴더를 루트로 삼아도 색이 나오고 접두가 맞는다',
     async ({ page, request }) => {
-      await enter(page, request, SUBDIR);
+      await enterExplorer(page, request, SUBDIR);
       // 고치기 전에는 `repo !== root` 로 판정해 색이 통째로 꺼졌다 (FR-EDT-69).
       await expect.poll(() => stClass(page, j(SUBDIR, 'keep.txt')), { timeout: 10000 })
         .toContain('st-mod');
@@ -247,7 +223,7 @@ test.describe('묶음 A — 저장소 안의 루트도 색을 갖는다', () => 
 
   test('A2 (V-DIR-42): 루트 밖의 경로가 접어 올림에 새어 들지 않는다',
     async ({ page, request }) => {
-      await enter(page, request, SUBDIR);
+      await enterExplorer(page, request, SUBDIR);
       await expect.poll(() => stClass(page, j(SUBDIR, 'keep.txt')), { timeout: 10000 })
         .toContain('st-mod');
       // 루트 밖(`sub`·`nested`)의 항목은 트리에 없다. 그것이 새어 들었다면
@@ -266,7 +242,7 @@ const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-chang
 const diffView = (page: Page) => page.locator('#area .pn-body .git-view.git-diff');
 
 async function openGit(page: Page, repo: string) {
-  await goto(page);
+  await gotoWithEditors(page);
   await fxOpenGit(page, repo);
   // 첫 관측이 닿아야 행이 선다.
   await expect(changes(page).locator('.git-file').first()).toBeVisible({ timeout: 10000 });
@@ -334,7 +310,7 @@ test.describe('묶음 G — Git 패널의 디렉터리 행', () => {
 const gitOff = (page: Page, root: string) =>
   page.evaluate((r) => {
     const a = (window as any).app;
-    const s = a._edStore(r);
+    const s = a.testing.edStore(r);
     return { off: !!s.gitOff, retry: s.gitRetryAt > 0 };
   }, root);
 
@@ -343,7 +319,7 @@ test.describe('묶음 R — _gitOff 는 사유마다 수명이 다르다', () =>
     async ({ page, request }) => {
       const plain = realPath(fs.mkdtempSync(j(BASE, 'plain-')));
       w(j(plain, 'f.txt'), 'x\n');
-      await enter(page, request, plain);
+      await enterExplorer(page, request, plain);
       // "저장소가 아니다" 를 받아도 굳지 않는다 — `git init` 이 뒤집을 수 있는
       // 사유다. (그 답은 이제 200 `isRepo:false` 로 온다 —
       // API_ANSWER_NOT_ABSENCE_SRS FR-ANA-1.)
@@ -367,9 +343,9 @@ test.describe('묶음 R — _gitOff 는 사유마다 수명이 다르다', () =>
 
       // FR-DIR-32: 창 활성화는 백오프를 넘긴다 — 다른 창에 들렀다 돌아온다.
       // 들르는 곳은 홈(`~`) 창이다 — 그것만이 언제나 있다 (FR-EDT-13).
-      const home = await page.evaluate(() => (window as any).app._edHome());
-      await openEditor(page, home);
-      await openEditor(page, plain);
+      const home = await page.evaluate(() => (window as any).app.testing.edHome());
+      await openExplorerAt(page, home);
+      await openExplorerAt(page, plain);
       await expect.poll(() => stClass(page, j(plain, 'f.txt')), { timeout: 10000 })
         .toContain('st-new');
     });
@@ -380,8 +356,8 @@ test.describe('묶음 R — _gitOff 는 사유마다 수명이 다르다', () =>
     await page.route('**/api/git/status**', (route) =>
       route.fulfill({ status: 503, contentType: 'application/json',
         body: JSON.stringify({ code: 'git_unavailable', message: 'no git' }) }));
-    await goto(page);
-    await openEditor(page, PARENT);
+    await gotoWithEditors(page);
+    await openExplorerAt(page, PARENT);
     await expect.poll(() => gitOff(page, PARENT), { timeout: 10000 })
       .toEqual({ off: true, retry: false });
   });

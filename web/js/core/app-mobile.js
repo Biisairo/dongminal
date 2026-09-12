@@ -5,16 +5,16 @@
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
 Object.assign(App.prototype, {
-  _applyMobileMode(){
+  applyMobileMode(){
     const mob=this.isMobile;
     document.body.classList.toggle('mobile', mob);
-    if(!mob && this._drawerOpen){this._drawerOpen=false;document.body.classList.remove('drawer-open')}
+    if(!mob && this.drawerOpen){this.drawerOpen=false;document.body.classList.remove('drawer-open')}
     if(!mob){document.body.classList.remove('keyboard-up')}
   },
   _toggleDrawer(open){
-    if(!this.isMobile){this._drawerOpen=false;document.body.classList.remove('drawer-open');return}
-    this._drawerOpen = (open===undefined) ? !this._drawerOpen : !!open;
-    document.body.classList.toggle('drawer-open', this._drawerOpen);
+    if(!this.isMobile){this.drawerOpen=false;document.body.classList.remove('drawer-open');return}
+    this.drawerOpen = (open===undefined) ? !this.drawerOpen : !!open;
+    document.body.classList.toggle('drawer-open', this.drawerOpen);
   },
   /**
    * REPO_TAB_UNIFY_SRS FR-RTU-80: **모바일 순회의 첫 자리는 사이드다.**
@@ -26,33 +26,33 @@ Object.assign(App.prototype, {
    * 사이드 자리를 갖는 조건은 **모바일 + Repo 창**이다. 일반 창에는 사이드가
    * 없으므로 종전과 한 글자도 다르지 않다.
    */
-  _mobileSideSlots(){
-    return (this.isMobile&&this._isEditorWin(this._aw()))?1:0;
+  mobileSideSlots(){
+    return (this.isMobile&&this.isEditorWin(this.aw()))?1:0;
   },
 
   // 지금 사이드 자리에 서 있는가. 그 자리에서는 본문의 pane 을 그리지 않는다.
-  _mobileOnSide(){
-    return this._mobileSideSlots()>0&&this._mPaneIdx===0;
+  mobileOnSide(){
+    return this.mobileSideSlots()>0&&this.mPaneIdx===0;
   },
 
   _mobileCurrentPane(){
-    const s=this._aw(); if(!s||!s.layout) return null;
-    const regs=this._flattenPanes(s.layout);
+    const s=this.aw(); if(!s||!s.layout) return null;
+    const regs=this.flattenPanes(s.layout);
     if(!regs.length) return null;
-    const off=this._mobileSideSlots();
+    const off=this.mobileSideSlots();
     const n=regs.length+off;
-    if(this._mPaneIdx>=n) this._mPaneIdx=n-1;
-    if(this._mPaneIdx<0) this._mPaneIdx=0;
-    // 사이드 자리에는 pane 이 없다 — 부르는 쪽이 그 없음을 견딘다 (`_initMobile`
+    if(this.mPaneIdx>=n) this.mPaneIdx=n-1;
+    if(this.mPaneIdx<0) this.mPaneIdx=0;
+    // 사이드 자리에는 pane 이 없다 — 부르는 쪽이 그 없음을 견딘다 (`initMobile`
     // 의 `+` 버튼이 그렇다).
-    const i=this._mPaneIdx-off;
+    const i=this.mPaneIdx-off;
     return i>=0?regs[i]:null;
   },
 
   /**
    * REPO_TAB_UNIFY_SRS FR-RTU-83 (2026-09-08 접수): **연 것은 보여야 한다.**
    *
-   *   이전 동작: 사이드를 떠나는 판정이 `_setFocus` 의 `moved`(포커스 pane 이
+   *   이전 동작: 사이드를 떠나는 판정이 `setFocusState` 의 `moved`(포커스 pane 이
    *              실제로 **바뀌었는가**)에만 있었다. 본문에 pane 이 이미 있고
    *              그것이 이미 포커스면 옮겨 갈 것이 없으므로 사이드에 남았다 —
    *              탭은 생기는데 화면은 그대로였다
@@ -64,42 +64,42 @@ Object.assign(App.prototype, {
    * 데스크톱에서는 곧바로 물러선다 — 모바일 순회에만 있는 자리다.
    * 바뀐 것이 있을 때만 `true` 이고, `opts.render` 면 그때만 다시 그린다.
    */
-  _mobileShowPane(rid,opts){
+  mobileShowPane(rid,opts){
     if(!rid||!this.isMobile) return false;
-    const s=this._aw(); if(!s||!s.layout) return false;
-    const i=this._flattenPanes(s.layout).findIndex(p=>p&&p.id===rid);
+    const s=this.aw(); if(!s||!s.layout) return false;
+    const i=this.flattenPanes(s.layout).findIndex(p=>p&&p.id===rid);
     if(i<0) return false;
-    const idx=i+this._mobileSideSlots();
-    if(this._mPaneIdx===idx) return false;
-    this._mPaneIdx=idx;
+    const idx=i+this.mobileSideSlots();
+    if(this.mPaneIdx===idx) return false;
+    this.mPaneIdx=idx;
     if(opts&&opts.render) this.render();
     return true;
   },
 
   // FR-RTU-82: 계수는 **사이드를 포함한다** — pane 이 둘이면 `1/3` 이다.
-  _mobilePaneCount(){
-    const s=this._aw(); if(!s) return 0;
-    const off=this._mobileSideSlots();
+  mobilePaneCount(){
+    const s=this.aw(); if(!s) return 0;
+    const off=this.mobileSideSlots();
     if(!s.layout) return off;
-    return this._flattenPanes(s.layout).length+off;
+    return this.flattenPanes(s.layout).length+off;
   },
   navMobilePane(delta){
-    const n=this._mobilePaneCount(); if(n<=1) return;
-    this._mPaneIdx = (this._mPaneIdx + delta + n) % n;
+    const n=this.mobilePaneCount(); if(n<=1) return;
+    this.mPaneIdx = (this.mPaneIdx + delta + n) % n;
     const pn=this._mobileCurrentPane();
     // 사이드 자리에서는 포커스를 옮기지 않는다 — 사이드는 분할 트리 밖이라
     // 포커스의 대상이 아니고(FR-RTU-11), 옮기면 렌더의 포커스 동기화가 곧바로
     // 본문 자리로 되돌린다.
     if(pn){
-      this._setFocus(pn.id);
-      this._save();
+      this.setFocusState(pn.id);
+      this.save();
     }
     this.render();
   },
 
   // ── Mobile bindings ──
 
-  _initMobile(){
+  initMobile(){
     // Topbar mobile buttons
     const prev=document.getElementById('m-pane-prev');
     const next=document.getElementById('m-pane-next');
@@ -126,7 +126,7 @@ Object.assign(App.prototype, {
       sb.insertBefore(xb, sb.firstChild);
     }
     // Auto-close drawer on window switch (mobile)
-    // (handled in switchWindow via _drawerOpen check)
+    // (handled in switchWindow via drawerOpen check)
 
     // Display Settings panel sync
     const dsMode=document.getElementById('ds-mode');
@@ -149,7 +149,7 @@ Object.assign(App.prototype, {
     }
   },
 
-  _initMobileKeybar(){
+  initMobileKeybar(){
     const bar=document.getElementById('mobile-keybar');
     if(!bar) return;
     bar.innerHTML='';
@@ -199,12 +199,12 @@ Object.assign(App.prototype, {
       // FR-MKB-11: 무엇을 보내는지 이름이 말한다.
       '^C':'Interrupt (Ctrl+C)',
     };
-    this._modKbd={ctrl:false,alt:false};
-    const refresh=()=>this._mkbRefresh();
+    this.modKbd={ctrl:false,alt:false};
+    const refresh=()=>this.mkbRefresh();
     // FR-MTI-15~17: sticky 규칙은 TerminalTool 한 곳에만 둔다 — 키바 경로와
     // 키보드 경로가 서로 다른 규칙을 쓰면 어느 쪽도 신뢰할 수 없다.
     const sendToFocused=(s)=>{
-      const p=this._focusedTerminal();
+      const p=this.focusedTerminal();
       if(!p) return;
       if(p.term){try{p.term.focus()}catch{}}
       p._sendText(p._applyStickyMods(s));
@@ -255,21 +255,21 @@ Object.assign(App.prototype, {
          * 쓰면 두 곳이 `inputmode` 의 진실을 다툰다.
          */
         if(k.act==='kb'){
-          const p=this._focusedTerminal();
+          const p=this.focusedTerminal();
           // 터미널이 아닌 것(편집기·git 입력)에 포커스가 있을 수 있다. 그쪽은
           // 이 규칙의 대상이 아니므로(FR-MKB-14) 종전대로 내리기만 한다.
           if(!p||!p._kbSuppressed){
             const ae=document.activeElement;if(ae&&ae.blur)try{ae.blur()}catch{}
-            this._mkbRefresh();
+            this.mkbRefresh();
             return;
           }
           if(p._kbSuppressed()) p._kbAllow(); else p._kbSuppress();
-          this._mkbRefresh();
+          this.mkbRefresh();
           return;
         }
         // FR-MKB-10 / D-12: sticky 를 거치지 않는 날것의 바이트.
         if(k.raw!==undefined){
-          const p=this._focusedTerminal();
+          const p=this.focusedTerminal();
           if(!p) return;
           if(p.term){try{p.term.focus()}catch{}}
           p._sendText(k.raw);
@@ -279,9 +279,9 @@ Object.assign(App.prototype, {
           const now=Date.now();
           const dbl=(now-lastTap)<MKB_DOUBLE_TAP_MS;
           lastTap=now;
-          const cur=this._modKbd[k.mod];
-          if(dbl){this._modKbd[k.mod]=(cur==='lock')?false:'lock'}
-          else{this._modKbd[k.mod]=cur?false:true}
+          const cur=this.modKbd[k.mod];
+          if(dbl){this.modKbd[k.mod]=(cur==='lock')?false:'lock'}
+          else{this.modKbd[k.mod]=cur?false:true}
           refresh();
         }else{
           sendToFocused(k.send);
@@ -436,12 +436,12 @@ Object.assign(App.prototype, {
    */
   _kbSuppressAll(){
     for(const p of this.tools.values()) if(p._kbApply) p._kbApply();
-    this._mkbRefresh();
+    this.mkbRefresh();
   },
 
-  _mkbRefresh(){
+  mkbRefresh(){
     document.querySelectorAll('#mobile-keybar .mkb-btn[data-mod]').forEach(b=>{
-      const m=b.dataset.mod, st=this._modKbd&&this._modKbd[m];
+      const m=b.dataset.mod, st=this.modKbd&&this.modKbd[m];
       b.classList.toggle('sticky', st===true);
       b.classList.toggle('locked', st==='lock');
     });
@@ -453,7 +453,7 @@ Object.assign(App.prototype, {
      */
     const kb=document.querySelector('#mobile-keybar .mkb-btn[data-act="kb"]');
     if(kb){
-      const p=this._focusedTerminal&&this._focusedTerminal();
+      const p=this.focusedTerminal&&this.focusedTerminal();
       kb.classList.toggle('sticky', !!(p&&p._kbSuppressed&&!p._kbSuppressed()));
     }
   },

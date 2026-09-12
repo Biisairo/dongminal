@@ -12,7 +12,7 @@ async function enableAllItems(page: Page) {
   await page.evaluate(() => {
     const sb = (window as any).statusBar;
     for (const k of Object.keys(sb)) sb[k] = true;
-    (window as any).app._updateStatusBar();
+    (window as any).app.testing.updateStatusBar();
   });
 }
 
@@ -88,10 +88,10 @@ test.describe('상태바 줄바꿈', () => {
       const sb = (window as any).statusBar;
       for (const k of Object.keys(sb)) sb[k] = false;
       sb.connection = true;
-      (window as any).app._updateStatusBar();
+      (window as any).app.testing.updateStatusBar();
     });
     const termRows = () => page.evaluate(() => {
-      const p = (window as any).app._focusedTerminal();
+      const p = (window as any).app.testing.focusedTerminal();
       return p && p.term ? p.term.rows : -1;
     });
     await expect.poll(async () => (await measure(page)).rows, { timeout: 5000 }).toBe(1);

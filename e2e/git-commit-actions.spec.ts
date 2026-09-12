@@ -93,7 +93,7 @@ async function openHistory(page: Page, repo: string) {
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate(() => {
     const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
+    a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
@@ -118,7 +118,7 @@ async function openChanges(page: Page, repo: string) {
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate(() => {
     const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
+    a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
@@ -177,6 +177,7 @@ test.describe('묶음 D — 커밋 동작 (V191~V194)', () => {
     // 취소하면 저장소는 그대로다.
     await page.keyboard.press('Escape');
     await expect(page.locator('.git-dialog')).toHaveCount(0, { timeout: 10000 });
+    // **예외 (`TEST-16`)**: 취소한 명령이 **돌지 않음**을 잰다.
     await page.waitForTimeout(500);
     expect(headOid(repo), '취소했는데 실행됐다').toBe(before);
   });
@@ -255,6 +256,7 @@ test.describe('묶음 D — 커밋 동작 (V191~V194)', () => {
     // 취소하면 저장소는 그대로다.
     await page.keyboard.press('Escape');
     await expect(page.locator('#git-confirm')).toHaveCount(0, { timeout: 10000 });
+    // **예외 (`TEST-16`)**: 취소한 명령이 **돌지 않음**을 잰다.
     await page.waitForTimeout(500);
     expect(headOid(repo), '취소했는데 --hard 가 실행됐다').toBe(before);
   });

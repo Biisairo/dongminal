@@ -3,8 +3,15 @@ import { join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture, setSafetyNet } from './fixtures';
 import { tmpPath, realPath } from './osenv';
+
+/**
+ * **고정 대기의 예외 (`TEST-16`).** 이 파일의 `waitForTimeout` 은 전부 **그
+ * 창(窓) 동안 요청이 몇 건인가**를 재거나, 그 시간을 주어도 화면이 바뀌지
+ * 않음을 재는 것이다. 짧게 하면 세는 창이 줄어 검사가 약해진다 — 재려는 것이
+ * "일어나지 않음" 이므로 기다릴 신호가 없다.
+ */
 
 // GIT_M1_STEP56_CONTRACT §4 — 변경 감지. 검증 V6·V18·V5·V4.
 //
@@ -21,13 +28,7 @@ import { tmpPath, realPath } from './osenv';
 // 안전망 주기를 검사용으로 줄인다. 재는 것은 "폴링이 경계를 지키는가" 이지
 // 30초라는 값이 아니다 — 값을 재면 상수를 바꿀 때 검사가 깨진다.
 const FAST_SAFETY_MS = 700;
-async function fastSafetyNet(page: Page) {
-  await page.evaluate((ms) => {
-    (window as any).gitStatusInterval = ms;
-    const app = (window as any).app;
-    if (app._gitPanels) for (const p of app._gitPanels.values()) p._reschedule();
-  }, FAST_SAFETY_MS);
-}
+const fastSafetyNet = (page: Page) => setSafetyNet(page, FAST_SAFETY_MS);
 
 const FIXTURES = tmpPath('dm-git-fx-polling-' + process.pid);
 
@@ -71,17 +72,17 @@ const switchToWindow = (page: Page, id: string) =>
 
 /**
  * **개정 (REPO_TAB_UNIFY_SRS FR-RTU-70).** 옛 `WINDOW_TYPE_GIT` 창은 로드에
- * 사라지므로 `app._gitWindow()` 는 `null` 이다. git 표면을 든 창은 **그 저장소의
- * Repo 창**이며 `_edWindowFor(repo)` 가 그것을 준다.
+ * 사라지므로 `app.testing.gitWindow()` 는 `null` 이다. git 표면을 든 창은 **그 저장소의
+ * Repo 창**이며 `edWindowFor(repo)` 가 그것을 준다.
  */
 const repoWindowId = (page: Page, repo: string) => page.evaluate((r) => {
-  const w = (window as any).app._edWindowFor(r);
+  const w = (window as any).app.testing.edWindowFor(r);
   return w ? w.id : null;
 }, repo);
 
 const otherWindowId = (page: Page, repo: string) => page.evaluate((r) => {
   const app = (window as any).app;
-  const w = app._edWindowFor(r);
+  const w = app.testing.edWindowFor(r);
   const gid = w ? w.id : null;
   // 그 Repo 창이 아닌 아무 창. 다른 Repo 창이어도 된다 — 재는 것은 "떠난 창의
   // 패널이 폴링을 멈추는가" 이므로 목적지의 종류는 상관없다.
@@ -180,7 +181,7 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
 
     await page.evaluate(() => {
       const app = (window as any).app;
-      for (let i = 0; i < 6; i++) app._gitSignal('test');
+      for (let i = 0; i < 6; i++) app.testing.gitSignal('test');
     });
     await expect.poll(() => c.n - base, { timeout: 3000 }).toBe(1);
     await page.waitForTimeout(700);
@@ -255,7 +256,7 @@ test.describe('묶음 C 클라 — 변경 감지', () => {
 
     const stuck = await page.evaluate(() => {
       const app = (window as any).app;
-      for (const o of app._gitObservers.values()) {
+      for (const o of app.testing.gitObservers.values()) {
         const p = o.any();
         if (p && o._busy) return true;
       }

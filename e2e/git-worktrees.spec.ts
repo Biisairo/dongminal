@@ -93,7 +93,7 @@ async function backToWorktrees(page: Page, repo: string) {
   await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
   await page.evaluate(() => {
     const a = (window as any).app;
-    a._edSetSide(a._aw(), 'changes');
+    a.testing.edSetSide(a.testing.aw(), 'changes');
     const p = a.gitPanel;
     for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
   });
@@ -384,12 +384,12 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
     await expect.poll(() => page.evaluate(() => {
       const a = (window as any).app;
       const w = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
-      return !!w && !a._isGitWin(w) && !a._isEditorWin(w);
+      return !!w && !a.testing.isGitWin(w) && !a.testing.isEditorWin(w);
     }), { timeout: 20000 }).toBe(true);
     const hasTerminalInPlain = await page.evaluate(() => {
       const a = (window as any).app;
       const w = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
-      if (!w || a._isGitWin(w) || a._isEditorWin(w)) return false;
+      if (!w || a.testing.isGitWin(w) || a.testing.isEditorWin(w)) return false;
       const has = (n: any): boolean =>
         n.type === 'pane' ? (n.tabs || []).some((t: any) => t.type === 'terminal')
                           : (n.children || []).some(has);
@@ -404,7 +404,7 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
     await rowOpen.locator('.git-wt-act[data-act="open"]').click();
     await expect.poll(() => page.evaluate(() => {
       const a = (window as any).app;
-      return a._isEditorWin(a._aw()) ? a._edRootOf(a._aw()) : null;
+      return a.testing.isEditorWin(a.testing.aw()) ? a.testing.edRootOf(a.testing.aw()) : null;
     }), { timeout: 15000 }).toBe(wtPath);
 
     /**
@@ -422,7 +422,7 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
      */
     await page.evaluate(async () => {
       const a = (window as any).app;
-      for (const [id] of [...a.tools]) await a._killTool(id);
+      for (const [id] of [...a.tools]) await a.testing.killTool(id);
     });
     await expect.poll(async () => (await (await request.get('/api/state')).json()).tools?.length ?? 0,
       { timeout: 15000 }).toBe(0);

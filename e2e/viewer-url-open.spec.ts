@@ -48,7 +48,7 @@ test.describe('VIEWER_URL_OPEN — 뷰어 쪽 동작', () => {
         (window as any).__opened.push([u, t]);
         return null;
       };
-      (window as any).app._execRemote('openUrl', { url: 'https://example.com/a' });
+      (window as any).app.testing.execRemote('openUrl', { url: 'https://example.com/a' });
     });
 
     const popup = page.locator('.openurl-modal');
@@ -70,7 +70,7 @@ test.describe('VIEWER_URL_OPEN — 뷰어 쪽 동작', () => {
     await page.evaluate(() => {
       (window as any).__opened = [];
       (window as any).open = (u: string) => { (window as any).__opened.push(u); return null };
-      (window as any).app._execRemote('openUrl', { url: 'https://example.com/b' });
+      (window as any).app.testing.execRemote('openUrl', { url: 'https://example.com/b' });
     });
     const popup = page.locator('.openurl-modal');
     await popup.getByRole('button', { name: '취소' }).click();
@@ -84,7 +84,7 @@ test.describe('VIEWER_URL_OPEN — 뷰어 쪽 동작', () => {
     const fire = () => page.evaluate(() => {
       (window as any).__opened = [];
       (window as any).open = (u: string) => { (window as any).__opened.push(u); return null };
-      (window as any).app._execRemote('openUrl', { url: 'https://example.com/d' });
+      (window as any).app.testing.execRemote('openUrl', { url: 'https://example.com/d' });
     });
 
     await fire();
@@ -104,7 +104,7 @@ test.describe('VIEWER_URL_OPEN — 뷰어 쪽 동작', () => {
     await waitForInit(page);
     const fire = () => page.evaluate(() => {
       (window as any).open = () => null;
-      (window as any).app._execRemote('openUrl', { url: 'https://example.com/c' });
+      (window as any).app.testing.execRemote('openUrl', { url: 'https://example.com/c' });
     });
     await fire();
     await page.locator('.openurl-modal').getByRole('button', { name: '열기' }).click();
@@ -120,8 +120,8 @@ test.describe('VIEWER_URL_OPEN — 뷰어 쪽 동작', () => {
     await page.evaluate(() => {
       (window as any).__opened = [];
       (window as any).open = (u: string) => { (window as any).__opened.push(u); return null };
-      (window as any).app._execRemote('openUrl', { url: 'javascript:alert(1)' });
-      (window as any).app._execRemote('openUrl', { url: '' });
+      (window as any).app.testing.execRemote('openUrl', { url: 'javascript:alert(1)' });
+      (window as any).app.testing.execRemote('openUrl', { url: '' });
     });
     await expect(page.locator('.openurl-modal')).toHaveCount(0);
     expect(await page.evaluate(() => (window as any).__opened)).toEqual([]);

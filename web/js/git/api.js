@@ -58,6 +58,9 @@ function gitEchoOk(d,echo){
  * @param {object} [opts]
  *   opts.stale  () => boolean — 참이면 `{stale:true}`. 응답을 버린다.
  *   opts.echo   {…}          — `requested` 와 대조할 값들. 어긋나면 실패다.
+ *   opts.timeout {number}    — ms. **기본이 있다** (아래). `0` 은 시한 없음.
+ *   opts.signal {AbortSignal} — 있으면 `timeout` 보다 우선한다. 낡은 요청을
+ *                        끊는 자리가 쓴다 (FR-GRF-31).
  *
  * echo·stale 은 **옵트인**이다 (FR-DPN-33). 그 개념이 없는 전역 조회
  * (`/api/git/repos`·`/api/git/policy`)에 토큰을 요구하면 호출자가 의미 없는 값을
@@ -75,6 +78,26 @@ function gitEchoOk(d,echo){
  * `{error, message}`). 그래서 실패 경로에서 `data` 를 읽을 때는 `res.data&&`
  * 로 가드한다.
  */
+/**
+ * GIT_REFRESH_LIFECYCLE_SRS FR-GRF-6·7 (`GP-5`): **git 조회에는 기본 시한이 있다.**
+ *
+ *   이전 동작: `gitFetch`/`gitPost` 에 `AbortSignal` 이 없었다. `FR-RMS-29` 가
+ *             "single-flight 인데 답이 오지 않으면 잠금이 영구히 남는다" 를
+ *             **status 경로에서만** 고쳤고, `/api/git/log`·`refs`·`stash`·
+ *             `records`·`worktrees`·`remotes`·`diff` 는 그대로였다
+ *   새  동작: 같은 상수를 기본으로 쓴다. 호출자가 주면 그것이 이긴다
+ *   이유:     History 는 그중 유일하게 잠금(`_loading`)을 갖는다 — 응답도
+ *             거부도 오지 않는 연결(터널 끊김·프록시 중단)에서 `finally` 가
+ *             실행되지 않아 커밋 목록이 **영구히** 멎었다 (`11 GP-5`).
+ *             `history.js:970` 의 주석이 지키려던 것은 "거부" 였고 "무응답" 이
+ *             아니다
+ *
+ * `0` 을 명시하면 시한이 없다 — 장시간 작업(jobs) 경로가 그것을 쓴다.
+ */
+function gitTimeout(o,def){
+  return (o&&o.timeout!==undefined)?o.timeout:def;
+}
+
 async function gitFetch(path,params,opts){
   const o=opts||{};
   // 전송은 `core/api.js` 가 한다 (CLIENT_API_SRS FR-CAPI-14). 이 함수가 가진
@@ -84,8 +107,15 @@ async function gitFetch(path,params,opts){
   // **실패해도 본문을 읽는다.** 서버가 사유를 `{error, message}` 로 주고
   // (`apierr` 규약) 화면이 그 message 를 그대로 보인다 — 버리면 사용자는
   // "실패했다" 만 받고 무엇을 고칠지 알 수 없다. 그 성질은 아래 겹이 지킨다.
-  const res=await apiGet(path,{query:params||undefined});
-  if(res.status===0) return {ok:false,data:null,stale:false,status:0};
+  const res=await apiGet(path,{query:params||undefined,
+    timeout:gitTimeout(o,GIT_STATUS_FETCH_TIMEOUT_MS),signal:o.signal});
+  // FR-GRF-8: 시한으로 끊긴 요청은 **망 실패와 같은 길**을 간다 — `core/api.js`
+  // 가 그것을 `status:0` 으로 준다. 호출자는 이전 화면을 지키고 사유를 보인다.
+  //
+  // FR-GRF-31: **우리가 끊은 것은 실패가 아니다.** 새 요청이 이미 나갔으므로
+  // 낡은 것으로 버린다 — 실패로 읽으면 화면이 없는 사유를 보인다.
+  if(res.status===0)
+    return {ok:false,data:null,stale:!!(o.signal&&o.signal.aborted),status:0};
   // 응답이 돌아온 뒤에 묻는다 — 그 사이에 리포가 바뀌었으면 이 응답은 남의 것이다.
   if(o.stale&&o.stale()) return {ok:false,data:null,stale:true,status:res.status};
 
@@ -103,9 +133,15 @@ async function gitFetch(path,params,opts){
  * echo·stale 은 없다. 변경은 사용자의 한 번의 행위이며, 늦게 온 남의 응답을
  * 자기 것으로 읽는 문제가 조회와 다르게 생기지 않는다 — 그리고 필요해지면
  * 그때 옵션을 준다.
+ *
+ * FR-GRF-6: 시한은 `gitFetch` 와 같은 기본을 쓴다. **잡을 여는 쓰기는
+ * `opts.timeout:0` 을 준다** — 그 응답은 잡 id 만 싣고 곧바로 오지만, 서버가
+ * 늦는 동안 끊으면 화면은 시작하지 않은 것으로 읽고 잡은 돈다.
  */
-async function gitPost(path,body){
-  const res=await apiPost(path,body||{});
+async function gitPost(path,body,opts){
+  const o=opts||{};
+  const res=await apiPost(path,body||{},
+    {timeout:gitTimeout(o,GIT_WRITE_FETCH_TIMEOUT_MS),signal:o.signal});
   // `data!==null` 이다 — `!!data` 로 쓰면 `0`·`""`·`false` 도 실패가 된다. 그것들은
   // 유효한 JSON 본문이며, gitFetch 와 판정이 갈리면 두 규약이 된다.
   //

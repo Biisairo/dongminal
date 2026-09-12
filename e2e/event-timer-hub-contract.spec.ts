@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { join } from 'path';
 
 import { Page } from '@playwright/test';
@@ -33,7 +34,18 @@ const API_JS = join(WEB, 'core', 'api.js');
 const APP_CMD_JS = join(WEB, 'core', 'app-cmd.js');
 const HELPERS_JS = join(WEB, 'core', 'helpers.js');
 const TIMER_HUB_JS = join(WEB, 'core', 'timer-hub.js');
-const CONST_GIT_JS = join(WEB, 'core', 'constants-git.js');
+/**
+ * git 상수는 **여러 파일**이다 (FE_MODULE_BOUNDARY_SRS FR-FMB-1) — 탭별로 갈렸다.
+ *
+ * 목록을 여기 손으로 적지 않고 `index.html` 의 순서에서 **파생시킨다.** 손으로
+ * 적으면 상수 하나가 다른 절로 옮겨 갈 때 이 하네스가 조용히 죽는다 — 실제로
+ * 그렇게 죽었다(`GIT_FAIL_BACKOFF_MAX_MS` 가 `constants-git-detect.js` 로 갔다).
+ * 합성 페이지는 index.html 의 로드 순서를 물려받지 않으므로 그 순서를 읽어 쓴다.
+ */
+const CONST_GIT_JS = [
+  ...readFileSync(join(process.cwd(), 'web', 'index.html'), 'utf8')
+    .matchAll(/<script src="js\/core\/(constants-git[\w.-]*)\.js\?/g),
+].map((m) => join(WEB, 'core', `${m[1]}.js`));
 const EVENT_BUS_JS = join(WEB, 'core', 'event-bus.js');
 const PANEL_POLL_JS = join(WEB, 'git', 'panel-poll.js');
 
@@ -61,7 +73,9 @@ async function loadRestoreProtocol(page: Page) {
       _fgMap() {
         return this._fg;
       }
-      _flattenPanes() {
+      // 승격된 이름이다 (FE_MODULE_BOUNDARY_SRS FR-FMB-40) — 제품이 `flattenPanes`
+      // 를 부르므로 스텁도 그 이름이어야 한다. 격리 하네스는 전역을 손으로 세운다.
+      flattenPanes() {
         return [];
       }
       _fgPaint() {}
@@ -79,6 +93,17 @@ async function loadRestoreProtocol(page: Page) {
   });
 }
 
+/**
+ * **이 파일은 `app.testing` 을 쓰지 않는다** (APP_TESTING_CONTRACT_SRS FR-ATC-14).
+ *
+ * 여기의 `__app` 은 `window.app` 이 아니라 이 스펙이 위에서 만든 **대역**이다
+ * (`App` 클래스 자체를 흉내 낸다) — 계약은 실제 `App.prototype` 에 서므로 그
+ * 대역에는 없다. 그래서 변수 이름도 `stub` 이다: `app` 이라 부르면 그것이 앱인
+ * 것처럼 읽히고, 게이트(`check-e2e-private.sh`)도 그 이름을 보고 잡는다.
+ *
+ * 격리가 이 검사의 값이다 — 앱 없이 `_restore*` 규약만 재려는 것이므로 진짜
+ * 앱을 싣는 것이 답이 아니다 (`reconnect-storm` 과 같은 부류).
+ */
 test.describe('T-1·T-2 — 스냅샷과 증분의 경쟁 (FR-RSF-3·5·7)', () => {
   // T-1: 비행 중 증분이 만진 id 는 뒤늦게 도착한 스냅샷이 덮지 않는다.
   //
@@ -88,18 +113,18 @@ test.describe('T-1·T-2 — 스냅샷과 증분의 경쟁 (FR-RSF-3·5·7)', () 
     await loadRestoreProtocol(page);
 
     const r = await page.evaluate(() => {
-      const app = (window as any).__app;
+      const stub = (window as any).__app;
       // ① 증분이 먼저 도착해 X 의 전경 이름을 세웠다.
-      app._fgMap().set('X', 'from-sse');
+      stub._fgMap().set('X', 'from-sse');
 
       // ② 스냅샷 비행이 시작되고, 그 사이 증분이 X 를 만졌다고 기록한다.
-      const t = app._restoreBegin('fg');
-      app._restoreNote('fg', 'X');
+      const t = stub._restoreBegin('fg');
+      stub._restoreNote('fg', 'X');
 
       // ③ X 를 **모르는** 스냅샷이 뒤늦게 도착한다. 보호가 없으면 X 가 지워진다.
-      app._fgApply([{ id: 'Y', fgName: 'from-snapshot' }], t);
+      stub._fgApply([{ id: 'Y', fgName: 'from-snapshot' }], t);
 
-      return { x: app._fgMap().get('X') || null, y: app._fgMap().get('Y') || null };
+      return { x: stub._fgMap().get('X') || null, y: stub._fgMap().get('Y') || null };
     });
 
     expect(r.x, '증분이 만진 id 를 스냅샷이 지웠다 (FR-RSF-3)').toBe('from-sse');
@@ -112,10 +137,10 @@ test.describe('T-1·T-2 — 스냅샷과 증분의 경쟁 (FR-RSF-3·5·7)', () 
     await loadRestoreProtocol(page);
 
     const left = await page.evaluate(() => {
-      const app = (window as any).__app;
-      app._fgMap().set('X', 'stale');
-      app._fgApply([{ id: 'Y', fgName: 'fresh' }]);
-      return { x: app._fgMap().get('X') || null, y: app._fgMap().get('Y') || null };
+      const stub = (window as any).__app;
+      stub._fgMap().set('X', 'stale');
+      stub._fgApply([{ id: 'Y', fgName: 'fresh' }]);
+      return { x: stub._fgMap().get('X') || null, y: stub._fgMap().get('Y') || null };
     });
 
     expect(left.x, 'touched 가 없는데도 낡은 id 가 살아남았다 (FR-RSF-7)').toBeNull();
@@ -127,11 +152,11 @@ test.describe('T-1·T-2 — 스냅샷과 증분의 경쟁 (FR-RSF-3·5·7)', () 
     await loadRestoreProtocol(page);
 
     const r = await page.evaluate(() => {
-      const app = (window as any).__app;
-      const t = app._restoreBegin('attn');
-      const before = app._restoreLive('attn', t);
-      app._restoreVoid('attn'); // 전체 초기화가 일어났다
-      return { before, after: app._restoreLive('attn', t) };
+      const stub = (window as any).__app;
+      const t = stub._restoreBegin('attn');
+      const before = stub._restoreLive('attn', t);
+      stub._restoreVoid('attn'); // 전체 초기화가 일어났다
+      return { before, after: stub._restoreLive('attn', t) };
     });
 
     expect(r.before, '갓 시작한 비행이 살아 있지 않다').toBe(true);
@@ -143,12 +168,12 @@ test.describe('T-1·T-2 — 스냅샷과 증분의 경쟁 (FR-RSF-3·5·7)', () 
     await loadRestoreProtocol(page);
 
     const r = await page.evaluate(() => {
-      const app = (window as any).__app;
-      const first = app._restoreBegin('activity');
-      const second = app._restoreBegin('activity');
+      const stub = (window as any).__app;
+      const first = stub._restoreBegin('activity');
+      const second = stub._restoreBegin('activity');
       return {
-        first: app._restoreLive('activity', first),
-        second: app._restoreLive('activity', second),
+        first: stub._restoreLive('activity', first),
+        second: stub._restoreLive('activity', second),
       };
     });
 
@@ -169,7 +194,7 @@ test.describe('T-1·T-2 — 스냅샷과 증분의 경쟁 (FR-RSF-3·5·7)', () 
 async function loadPanelPoll(page: Page) {
   await page.setContent('<!doctype html><title>panel-poll</title>');
   await page.addScriptTag({ path: TIMER_HUB_JS });
-  await page.addScriptTag({ path: CONST_GIT_JS });
+  for (const p of CONST_GIT_JS) await page.addScriptTag({ path: p });
   await page.evaluate(() => {
     // panel-poll.js 는 GitPanel.prototype 에 얹는다. 폴링 계층이 딛는 것만 세운다.
     // `_applyStatus` 는 **덮지 않는다** — 실패가 `_fail()` 을 지나 `_failStreak`
@@ -207,11 +232,12 @@ async function loadPanelPoll(page: Page) {
       // POLL_INTERVAL_SETTINGS_SRS FR-PIS-1: signature 폴링 계층이 사라졌다 —
       // `_sigPoll` 도 함께 걷는다.
       _stPoll = null as any;
+      // 넷 다 승격된 이름이다 (FE_MODULE_BOUNDARY_SRS FR-FMB-40).
       app = {
-        _gitWindow: () => ({ id: 'w1' }),
-        _edWindowFor: () => ({ id: 'w1' }),
-        _windowVisible: () => true,
-        _gitSurfaceOn: () => true,
+        gitWindow: () => ({ id: 'w1' }),
+        edWindowFor: () => ({ id: 'w1' }),
+        windowVisible: () => true,
+        gitSurfaceOn: () => true,
       };
       token() { return 'tok' }
       isStale() { return false }

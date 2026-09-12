@@ -8,7 +8,7 @@
  *
  * **표 하나가 전부를 진다** (FR-PIS-6·7·10). 값을 읽는 자리·쓰는 자리·선택지·
  * 설명이 한 행에 있으므로, 주기를 더할 때 고치는 곳이 이 배열 하나다. 흩어 두면
- * `_saveSettings` 의 키 목록과 `_settingsApply` 와 화면이 세 벌이 되고, 그중
+ * `saveSettings` 의 키 목록과 `_settingsApply` 와 화면이 세 벌이 되고, 그중
  * 하나를 빠뜨린 실패는 다른 브라우저 창을 열어 보기 전까지 아무도 모른다.
  *
  * 로드 순서 계약: constants-git.js·constants.js **뒤**(기본값 상수를 읽는다),
@@ -18,7 +18,7 @@
 /**
  * 주기 하나의 서술자.
  *
- *   key       서버 설정의 키이자 `_saveSettings` 가 싣는 이름
+ *   key       서버 설정의 키이자 `saveSettings` 가 싣는 이름
  *   id        `Polling` 탭에 서는 `<select>` 의 id
  *   label     사용자가 보는 이름
  *   hint      **무엇을 얼마나 자주 묻는지** (FR-PIS-21). 값 이름이 아니라 화면의 말이다
@@ -104,7 +104,7 @@ Object.assign(App.prototype, {
    * 행을 **여기서** 만드는 이유는 표가 진실이기 때문이다 (FR-PIS-6). index.html 에
    * 손으로 다섯을 적으면 주기를 더할 때 고칠 자리가 둘이 된다.
    */
-  _initPollingSettings(){
+  initPollingSettings(){
     const box=document.getElementById('poll-settings');
     if(!box||box.dataset.built==='1') return;
     for(const spec of POLL_SETTINGS){
@@ -121,7 +121,7 @@ Object.assign(App.prototype, {
       }
       sel.addEventListener('change',()=>{
         spec.set(pollValue(parseInt(sel.value,10),spec));
-        this._saveSettings();
+        this.saveSettings();
         // 값이 바뀐 즉시 도는 타이머에 닿는다 — 저장 왕복을 기다리면 사용자는
         // 설정이 듣지 않는 것으로 읽는다 (FR-WBR-10·11 과 같은 근거).
         if(spec.key==='gitStatusInterval'){
@@ -168,6 +168,6 @@ Object.assign(App.prototype, {
     agentsPollInterval=v;
     TIMERS.refreshChanged();
     this._pollPaintRows();
-    this._saveSettings();
+    this.saveSettings();
   },
 });

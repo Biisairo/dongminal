@@ -9,7 +9,7 @@
 
 Object.assign(App.prototype, {
 
-  // Run 을 한 번도 열지 않은 브라우저는 만들지 않는다 (`_gitObs` 와 같은 규약).
+  // Run 을 한 번도 열지 않은 브라우저는 만들지 않는다 (`gitObs` 와 같은 규약).
   _runsPanel() {
     if (!this._runs) this._runs = new RunsPanel(this);
     return this._runs;
@@ -17,7 +17,7 @@ Object.assign(App.prototype, {
 
   _runsModalToggle(open) { return this._runsPanel()._runsModalToggle(open) },
   _findRunTab(runId) { return this._runsPanel()._findRunTab(runId) },
-  _runViewEl(tab, slot) { return this._runsPanel()._runViewEl(tab, slot) },
+  runViewEl(tab, slot) { return this._runsPanel().runViewEl(tab, slot) },
   _runDisposeView(v) { return this._runsPanel()._runDisposeView(v) },
   _onRunChanged(args) { return this._runsPanel()._onRunChanged(args) },
   _runPaint(v) { return this._runsPanel()._runPaint(v) },

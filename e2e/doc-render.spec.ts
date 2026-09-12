@@ -10,7 +10,10 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
+import {
+  test, expect, rmTree, switchToEditorRoot, openExplorerSide, waitSettled,
+  enterDocRoot, openDocFile,
+} from './fixtures';
 import { TMP, realPath } from './osenv';
 
 const j = (...p: string[]) => path.join(...p);
@@ -88,7 +91,7 @@ async function enter(page: Page, request: APIRequestContext) {
   await page.goto('/');
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
   await page.waitForFunction(
-    () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
+    () => !!(window as any).app?.testing.editors && (window as any).app.testing.edWindows().length > 0,
     undefined, { timeout: 15000 });
   await switchToEditorRoot(page, ROOT);
   await openExplorerSide(page);
@@ -130,7 +133,7 @@ test.describe('문서 렌더 뷰', () => {
     const kinds = await page.evaluate(() => {
       const a = (window as any).app;
       const out: any[] = [];
-      for (const pn of a._flattenPanes(a._aw().layout))
+      for (const pn of a.testing.flattenPanes(a.testing.aw().layout))
         for (const t of pn.tabs || []) out.push({ type: t.type, render: !!t.render });
       return out;
     });
@@ -148,7 +151,7 @@ test.describe('문서 렌더 뷰', () => {
     await page.locator('.ed-tree .ed-row', { hasText: 'doc.md' }).first().click();
     const active = await page.evaluate(() => {
       const a = (window as any).app;
-      const pn = a._flattenPanes(a._aw().layout).find((p: any) => p.id === a.focused);
+      const pn = a.testing.flattenPanes(a.testing.aw().layout).find((p: any) => p.id === a.focused);
       const t = (pn.tabs || []).find((x: any) => x.id === a.paneTab(pn, 0));
       return { render: !!t.render, path: t.filePath };
     });
@@ -207,7 +210,7 @@ test.describe('문서 렌더 뷰', () => {
     await page.locator('.doc-render.vis .dr-source').click();
     const active = await page.evaluate(() => {
       const a = (window as any).app;
-      const pn = a._flattenPanes(a._aw().layout).find((p: any) => p.id === a.focused);
+      const pn = a.testing.flattenPanes(a.testing.aw().layout).find((p: any) => p.id === a.focused);
       const t = (pn.tabs || []).find((x: any) => x.id === a.paneTab(pn, 0));
       return !!t.render;
     });
@@ -221,7 +224,7 @@ test.describe('문서 렌더 뷰', () => {
     await expect(page.locator(RENDER_BODY)).toBeVisible({ timeout: 15000 });
     await page.evaluate(() => {
       const a = (window as any).app;
-      for (const pn of a._flattenPanes(a._aw().layout)) {
+      for (const pn of a.testing.flattenPanes(a.testing.aw().layout)) {
         const t = (pn.tabs || []).find((x: any) => !x.render);
         if (t) { a.closeTab(pn.id, t.id); return }
       }
@@ -234,7 +237,9 @@ test.describe('문서 렌더 뷰', () => {
     await openFile(page, 'doc.md');
     await page.locator(RENDER_BTN).click();
     await expect(page.locator(RENDER_BODY)).toBeVisible({ timeout: 15000 });
-    await page.waitForTimeout(700);   // 워크스페이스 저장이 나가도록
+    // 새로고침 전에 저장이 **서버에 남은 것**까지 본다 (E2E_QUIESCENCE_SRS
+    // FR-EQS-6·7) — 고정 대기로는 비행 중인 저장을 지나칠 수 있다.
+    await waitSettled(page);
     await page.reload();
     await expect(page.locator(RENDER_BODY + ' h1')).toHaveText('제목 하나', { timeout: 25000 });
   });
@@ -325,7 +330,7 @@ test.describe('문서 렌더 뷰', () => {
       const a = (window as any).app;
       const out: string[] = [];
       for (const w of a.ws.windows)
-        for (const pn of (w.layout ? a._flattenPanes(w.layout) : []))
+        for (const pn of (w.layout ? a.testing.flattenPanes(w.layout) : []))
           for (const t of pn.tabs || []) if (t.filePath && !t.render) out.push(t.filePath);
       return out.some((p: string) => p.endsWith('doc.md'));
     }), { timeout: 15000 }).toBeTruthy();
@@ -398,7 +403,7 @@ test.describe('문서 렌더 뷰', () => {
       const a = (window as any).app;
       const out: string[] = [];
       for (const w of a.ws.windows)
-        for (const pn of (w.layout ? a._flattenPanes(w.layout) : []))
+        for (const pn of (w.layout ? a.testing.flattenPanes(w.layout) : []))
           for (const t of pn.tabs || []) if (t.filePath) out.push(t.filePath);
       return out.some((p: string) => p.includes('/etc/'));
     });
@@ -463,5 +468,65 @@ test.describe('문서 렌더 뷰', () => {
       return [...a.fileEditors.values()].some((v: any) => v._dirty && !v._editor);
     });
     expect(dirty).toBeFalsy();
+  });
+});
+
+
+/**
+ * 묶음 DRB — **미리보기 버튼의 이름과 자리** (FR-DRB-1·2·3·3a · FR-SCR-2).
+ *
+ * `TEST-7` 로 `ux-batch8` 에서 옮겨 왔다 — 그 버튼이 여는 것이 이 파일의 주제다.
+ * 접수한 말은 "미리보기 버튼이 무엇인지 모르겠다" 였고, 그때 그것은 기호 하나짜리
+ * 22px 정사각이었다. 그래서 재는 것이 **라벨·폭·자리·색**으로 넷이다.
+ *
+ * **문서는 400줄짜리를 따로 세운다** (`enterDocRoot`): 자리 단정이 미니맵의 왼쪽
+ * 변을 기준으로 삼는데, 미니맵이 서지 않으면 그 단정이 뜻을 잃는다.
+ */
+test.describe('묶음 DRB — 미리보기 버튼 (FR-DRB-1~3a)', () => {
+  test('V-DRB-1: 미리보기 버튼에 라벨이 있고, 렌더 뷰는 공통 스크롤을 쓴다', async ({ page, request }) => {
+    const root = await enterDocRoot(page, request, BASE, 'drb');
+    await openDocFile(page, root);
+
+    const btn = page.locator('.file-editor.vis .fe-render');
+    await expect(btn).toHaveCount(1);
+    // FR-DRB-1: **낱말 하나다** — 기호는 이름 앞의 장식이었다.
+    await expect(btn).toHaveText('미리보기');
+    const look = await page.evaluate(() => {
+      const v = [...(window as any).app.fileEditors.values()]
+        .find((e: any) => e._editor && e.name === 'doc.md') as any;
+      const b = v.el.querySelector('.fe-render') as HTMLElement;
+      const cs = getComputedStyle(b);
+      const r = b.getBoundingClientRect();
+      const box = v.el.getBoundingClientRect();
+      return {
+        w: r.width, opacity: parseFloat(cs.opacity), scroll: b.scrollWidth,
+        // FR-DRB-3: 미니맵의 왼쪽 변보다 앞에 선다 — 그것이 "가리지 않는다" 의 뜻이다.
+        right: Math.round(r.right - box.left),
+        minimapLeft: v._editor.getLayoutInfo().minimap.minimapLeft,
+        // FR-DRB-3 (U-2): 자리는 **아래쪽**이다. 위쪽 띠는 찾기·알림·제안이 나눠 쓴다.
+        top: Math.round(r.top - box.top),
+        boxH: Math.round(box.height),
+        // FR-DRB-3a: 기본 상태에서 강조색이다 — 배경에 잠기지 않는다.
+        color: cs.color, borderColor: cs.borderTopColor,
+      };
+    });
+    // 라벨을 담는 폭이다 — 22px 정사각이던 때의 폭으로는 글자가 들어가지 않는다.
+    expect(look.w).toBeGreaterThan(40);
+    // 라벨이 상자 밖으로 넘치지 않는다.
+    expect(Math.round(look.w)).toBeGreaterThanOrEqual(look.scroll);
+    expect(look.opacity).toBeGreaterThanOrEqual(0.85);
+    expect(look.minimapLeft, '미니맵이 서지 않아 이 단언이 뜻을 잃는다').toBeGreaterThan(0);
+    expect(look.right, '버튼이 미니맵·스크롤바를 덮는다').toBeLessThanOrEqual(look.minimapLeft);
+    // U-2: 좌**하**단이다. 위쪽 절반에 있으면 첫 줄을 가리고 제안 띠와 자리를 다툰다.
+    expect(look.boxH, '편집기 상자가 서지 않아 이 단언이 뜻을 잃는다').toBeGreaterThan(0);
+    expect(look.top, '버튼이 아직 위쪽에 있다').toBeGreaterThan(look.boxH / 2);
+    // FR-DRB-3a: 글자와 테두리가 같은 강조색이며, 본문 색(--text)이 아니다.
+    expect(look.color).toBe(look.borderColor);
+
+    await btn.click();
+    const body = page.locator('.doc-render .dr-body');
+    await expect(body).toBeVisible({ timeout: 20000 });
+    // FR-SCR-2: 스크롤 표면은 키트의 것이다.
+    await expect(body).toHaveClass(/ui-scroll/);
   });
 });

@@ -54,7 +54,7 @@ async function makeBackgroundTool(page: Page, request: any): Promise<string> {
   expect(r.status(), `detachTab 이 ${r.status()} 로 거부됐다`).toBe(200);
   await expect.poll(
     async () => page.evaluate((tid) =>
-      ((window as any).app._bg || []).some((b: any) => b.toolId === tid), target),
+      ((window as any).app.testing.bg || []).some((b: any) => b.toolId === tid), target),
     { timeout: 10000 },
   ).toBe(true);
   return target as string;

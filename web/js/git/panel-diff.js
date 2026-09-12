@@ -52,7 +52,7 @@ Object.assign(GitPanel.prototype, {
     if(!this.repo||!e||!e.path||e.dir) return false;
     const abs=pathJoin(this.repo,e.path);
     // 한 번 클릭이므로 미리보기다 (FR-RTU-40) — 목록을 훑어도 탭이 쌓이지 않는다.
-    this.app._edOpenFile(abs,{preview:true});
+    this.app.edOpenFile(abs,{preview:true});
     return true;
   },
 
@@ -107,17 +107,17 @@ Object.assign(GitPanel.prototype, {
   openView(view){
     const app=this.app;
     if(this.root){
-      const w=app._edWindowFor(this.root); if(!w) return;
-      if(view===REPO_SIDE_CHANGES){ app._edSetSide(w,REPO_SIDE_CHANGES); return }
-      const rid=app._edEnsurePane(w); if(!rid) return;
+      const w=app.edWindowFor(this.root); if(!w) return;
+      if(view===REPO_SIDE_CHANGES){ app.edSetSide(w,REPO_SIDE_CHANGES); return }
+      const rid=app.edEnsurePane(w); if(!rid) return;
       app.addTab(rid,TAB_TYPE_GIT,{gitView:view,windowId:w.id});
       // FR-RTU-83: 모바일은 사이드(Changes)에 서서 이 부름을 낸다. 본문의 칸을
       // 가리키지 않으면 diff 탭은 생기고 화면은 Changes 그대로다.
-      app._mobileShowPane(rid,{render:true});
+      app.mobileShowPane(rid,{render:true});
       return;
     }
-    const w=app._gitWindow(); if(!w||!w.layout) return;
-    for(const pn of app._flattenPanes(w.layout)){
+    const w=app.gitWindow(); if(!w||!w.layout) return;
+    for(const pn of app.flattenPanes(w.layout)){
       const t=(pn.tabs||[]).find(x=>x.type===TAB_TYPE_GIT&&x.gitView===view);
       if(t){app.switchTab(pn.id,t.id);return}
     }
@@ -271,7 +271,8 @@ Object.assign(GitPanel.prototype, {
     const tok=this.token();
     const u='/api/git/blame?repo='+encodeURIComponent(this.repo||'')+
       '&rev='+encodeURIComponent(t.rev)+'&path='+encodeURIComponent(t.path);
-    const r=await apiGet(u);
+    // FR-GRF-6: 조회에는 시한이 있다.
+    const r=await apiGet(u,{timeout:GIT_STATUS_FETCH_TIMEOUT_MS});
     const d=r.data;
     if(this.isStale(tok)||this._blameKey!==key) return;
     // 서버가 되돌려준 요청값도 확인한다 — 같은 세대 안에서도 응답 순서가 뒤바뀔 수
@@ -381,7 +382,8 @@ Object.assign(GitPanel.prototype, {
     const tok=this.token();
     const u='/api/git/hunks?repo='+encodeURIComponent(f.repo)+
       '&axis='+encodeURIComponent(f.axis)+'&path='+encodeURIComponent(f.path);
-    const r=await apiGet(u);
+    // FR-GRF-6: 조회에는 시한이 있다.
+    const r=await apiGet(u,{timeout:GIT_STATUS_FETCH_TIMEOUT_MS});
     const d=r.data;
     if(this.isStale(tok)||this._hunkKey!==key) return;
     // 서버가 되돌려준 요청값도 확인한다 — 같은 세대 안에서도 응답 순서가 뒤바뀔 수
@@ -808,16 +810,16 @@ Object.assign(GitPanel.prototype, {
     const app=this.app;
     if(!app||!f||!f.repo||!f.path) return [];
     const abs=f.repo.replace(/\/+$/,'')+'/'+f.path;
-    const has=(app._edEntries?app._edEntries():[]).some(e=>e&&e.path===abs);
+    const has=(app.edEntries?app.edEntries():[]).some(e=>e&&e.path===abs);
     const go=()=>{
-      const w=app._edWindowFor&&app._edWindowFor(abs);
+      const w=app.edWindowFor&&app.edWindowFor(abs);
       if(w) app.switchWindow(w.id);
     };
     const acts=has
       ? [{label:GIT_DIR_ENTRY_GO,title:GIT_DIR_ENTRY_GO_TITLE,run:go}]
       : [{label:GIT_DIR_ENTRY_ADD,title:GIT_DIR_ENTRY_ADD_TITLE,run:async()=>{
           // 추가가 실패하면 창도 없다 — 성공했을 때만 옮긴다.
-          if(await app._edMutate('/add',{path:abs})) go();
+          if(await app.edMutate('/add',{path:abs})) go();
         }}];
     /**
      * UX_BATCH5_SRS FR-SUB-11: **서브모듈에만** 관리 자리로 가는 길을 더한다.
@@ -892,8 +894,8 @@ Object.assign(GitPanel.prototype, {
   // diff 탭 하나의 dirty 를 탭 레코드에 옮긴다 (FR-RTU-53).
   _setDiffDirty(v){
     if(!this.root) return;
-    const w=this.app._edWindowFor(this.root); if(!w) return;
-    const found=this.app._findGitViewTab(w,'diff'); if(!found) return;
+    const w=this.app.edWindowFor(this.root); if(!w) return;
+    const found=this.app.findGitViewTab(w,'diff'); if(!found) return;
     if(!!found.tab.dirty===!!v) return;
     found.tab.dirty=!!v;
     this.app.render();
@@ -902,7 +904,7 @@ Object.assign(GitPanel.prototype, {
   _gitSaved(){
     this.signal('write');
     // 탐색기의 색도 같은 사실을 딛는다 (FR-EDT-78).
-    const t=this.app._edActiveTree&&this.app._edActiveTree();
+    const t=this.app.edActiveTree&&this.app.edActiveTree();
     if(t&&t.pollGit) t.pollGit({now:true});
   },
 

@@ -1,4 +1,6 @@
-import { test, expect, waitForInit as fxWaitForInit } from './fixtures';
+import {
+  test, expect, waitForInit as fxWaitForInit, waitSettled, gotoSettled,
+} from './fixtures';
 
 /**
  * CONVENIENCE_SRS 묶음 N — 전경 프로세스 기반 탭 이름 (FR-TAN-*).
@@ -57,7 +59,7 @@ async function firstTab(page) {
   return page.evaluate(() => {
     const app = (window as any).app;
     const win = app.ws.windows.find((s: any) => s.id === app.ws.activeWindow);
-    const pane = app._flattenPanes(win.layout)[0];
+    const pane = app.testing.flattenPanes(win.layout)[0];
     const tab = pane.tabs[0];
     return { id: tab.id, name: tab.name, nameSource: tab.nameSource, toolId: tab.toolId, paneId: pane.id };
   });
@@ -73,7 +75,7 @@ async function firstTab(page) {
  */
 async function renameRemote(page, coord: string, args: Record<string, unknown>) {
   await page.evaluate(([c, a]) =>
-    (window as any).app._execRemote('renameTab', Object.assign({ location: c }, a)),
+    (window as any).app.testing.execRemote('renameTab', Object.assign({ location: c }, a)),
     [coord, args] as any);
 }
 
@@ -84,7 +86,7 @@ const FIRST_TAB_COORD = 'W1.P1.T1';
 async function pushForeground(page, toolId: string, name: string) {
   // 스냅숏과 SSE 를 함께 움직인다 (installStateStub 참조).
   if (name) fgStub.set(toolId, name); else fgStub.delete(toolId);
-  await page.evaluate(([id, n]) => (window as any).app._onToolForeground({ toolId: id, name: n }),
+  await page.evaluate(([id, n]) => (window as any).app.testing.onToolForeground({ toolId: id, name: n }),
     [toolId, name]);
 }
 
@@ -210,8 +212,8 @@ test.describe('전경 프로세스 기반 탭 이름 (묶음 N)', () => {
     await expect(labelOf(page, tab.id)).toHaveText('vim');
     // 파생 이후에 워크스페이스를 쓰게 만든다 — 저장 경로가 파생 이름을 집어
     // 가는지 보려면 저장이 한 번 일어나야 한다.
-    await page.evaluate(() => (window as any).app._save());
-    await page.waitForTimeout(500);
+    await page.evaluate(() => (window as any).app.testing.save());
+    await waitSettled(page);
 
     const r = await request.get('/api/workspace');
     const raw = await r.text();
@@ -229,8 +231,8 @@ test.describe('전경 프로세스 기반 탭 이름 (묶음 N)', () => {
     const computed = await page.evaluate((tid) => {
       const app = (window as any).app;
       const win = app.ws.windows.find((s: any) => s.id === app.ws.activeWindow);
-      const t = app._flattenPanes(win.layout)[0].tabs.find((x: any) => x.id === tid);
-      return (window as any).tabName(t, app._fgNames);
+      const t = app.testing.flattenPanes(win.layout)[0].tabs.find((x: any) => x.id === tid);
+      return (window as any).tabName(t, app.testing.fgNames);
     }, tab.id);
     expect(computed).toBe('claude');
     await expect(labelOf(page, tab.id)).toHaveText('claude');
@@ -245,8 +247,86 @@ test.describe('전경 프로세스 기반 탭 이름 (묶음 N)', () => {
     page.on('request', (r) => urls.push(r.url()));
     await pushForeground(page, tab.toolId, 'vim');
     await expect(labelOf(page, tab.id)).toHaveText('vim');
+    // **예외 (`TEST-16`)**: 그 창 동안 `/api/state` 를 **긁지 않음**을 잰다.
     await page.waitForTimeout(3000);
     // 파생 이름이 붙고 유지되는 동안 state 를 다시 긁지 않는다.
     expect(urls.filter((u) => u.includes('/api/state'))).toHaveLength(0);
   });
 });
+
+/**
+ * 묶음 NAM — **파생 이름이 쓰이는 자리들** (FR-NAM-*).
+ *
+ * 이 파일이 재는 탭 이름과 같은 값이다 — 백그라운드 모달·에이전트 패널도 그것을
+ * 쓰고, 수동으로 준 이름이 그것을 이긴다.
+ *
+ * `TEST-7` 로 `ux-revision` 에서 옮겨 왔다 — 납품 묶음이 아니라 **이 기능**이
+ * 주제인 자리다. 단정은 옮기면서 바꾸지 않았다.
+ */
+
+test.describe('묶음 N — 도구 이름 (FR-NAM-*)', () => {
+  test('V-NAM-1·2·5: 백그라운드 모달이 파생 이름을 쓴다', async ({ page }) => {
+    await gotoSettled(page);
+    // 탭 둘을 만든다 — 하나를 백그라운드로 보내도 창에 탭이 남아야 한다.
+    const toolId = await page.evaluate(async () => {
+      const app = (window as any).app;
+      await app.addTab(app.focused, 'terminal', {});
+      const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
+      const pane = app.testing.flattenPanes(win.layout)[0];
+      const tab = pane.tabs.find((t: any) => t.id === pane.activeTab);
+      return tab.toolId;
+    });
+    // 서버의 tool_foreground SSE 를 흉내낸다 (FR-TAN-8) — 조회가 아니라 적용을 잰다.
+    await page.evaluate(([id]) =>
+      (window as any).app.testing.onToolForeground({ toolId: id, name: 'vim' }), [toolId]);
+    // 도구를 떼어 낸다 — 탭이 사라지므로 이름을 아는 자리는 파생 이름뿐이다.
+    await page.evaluate(([id]) =>
+      (window as any).app.testing.execRemote('detachTab', { toolId: id }), [toolId]);
+
+    await page.locator('#bg-btn').click();
+    const row = page.locator(`#bg-modal .bg-row[data-toolid="${toolId}"]`);
+    await expect(row).toBeVisible({ timeout: 10000 });
+    // FR-NAM-5: `Shell` 이 아니라 그 도구가 지금 돌리는 것의 이름이다.
+    await expect(row.locator('.bg-name')).toHaveText('vim');
+  });
+
+  test('V-NAM-4: 에이전트 패널도 파생 이름을 쓴다', async ({ page }) => {
+    await gotoSettled(page);
+    const toolId = await page.evaluate(() => {
+      const app = (window as any).app;
+      const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
+      return win.layout.tabs[0].toolId;
+    });
+    // 에이전트 패널은 활동이 관측된 도구만 카드로 만든다.
+    await page.evaluate(([id]) => {
+      const app = (window as any).app;
+      app.testing.onToolActivity({ toolId: id, state: 'working', tool: 'Bash' });
+      if (!document.getElementById('agents-panel')!.classList.contains('open')) app.testing.agentsToggle();
+    }, [toolId]);
+    await expect(page.locator('#agents-panel .ag-card')).toHaveCount(1, { timeout: 10000 });
+
+    await page.evaluate(([id]) =>
+      (window as any).app.testing.onToolForeground({ toolId: id, name: 'claude' }), [toolId]);
+    // 전경 이름이 바뀌면 카드가 **그 자리에서** 따라간다 — 폴링을 기다리지 않는다.
+    await expect(page.locator('#agents-panel .ag-card .ag-loc')).toContainText('claude', { timeout: 5000 });
+  });
+
+  test('V-NAM-3: 수동으로 준 이름이 파생 이름을 이긴다', async ({ page }) => {
+    await gotoSettled(page);
+    const toolId = await page.evaluate(async () => {
+      const app = (window as any).app;
+      await app.addTab(app.focused, 'terminal', { name: '비평가' });
+      const win = app.ws.windows.find((w: any) => w.id === app.ws.activeWindow);
+      const pane = app.testing.flattenPanes(win.layout)[0];
+      return pane.tabs.find((t: any) => t.id === pane.activeTab).toolId;
+    });
+    await page.evaluate(([id]) =>
+      (window as any).app.testing.onToolForeground({ toolId: id, name: 'vim' }), [toolId]);
+    const shown = await page.evaluate(([id]) =>
+      (window as any).app.testing.toolName(id, 'Shell'), [toolId]);
+    expect(shown).toBe('비평가');
+  });
+});
+
+// ── 묶음 K — 브라우저 기본 키 차단 ──
+

@@ -70,7 +70,7 @@ async function enter(page: Page, request: APIRequestContext) {
   await page.goto('/');
   await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
   await page.waitForFunction(
-    () => !!(window as any).app?._editors && (window as any).app._edWindows().length > 0,
+    () => !!(window as any).app?.testing.editors && (window as any).app.testing.edWindows().length > 0,
     undefined, { timeout: 15000 });
   await switchToEditorRoot(page, ROOT);
   await openExplorerSide(page);
@@ -83,9 +83,9 @@ async function enter(page: Page, request: APIRequestContext) {
 // 탭을 열면 첫 편집기는 숨겨진 채 DOM 에 남고, `.first()` 는 그 숨은 것을 잡는다.
 // 기다릴 대상은 "지금 활성인 편집기가 이 파일이고 화면에 있다" 는 사실이다.
 async function openFile(page: Page, name: string) {
-  await page.evaluate((p) => (window as any).app._edOpenFile(p), P(name));
+  await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), P(name));
   await page.waitForFunction((n) => {
-    const v = (window as any).app._edActiveEditor();
+    const v = (window as any).app.testing.edActiveEditor();
     return !!(v && v._editor && new RegExp('[\\\\/]' + n + '$').test(String(v.filePath)) && v.el.offsetParent !== null);
   }, name, { timeout: 20000 });
 }
@@ -113,7 +113,7 @@ const opt = (page: Page, k: string) =>
 const monacoWidget = (page: Page) => page.locator('.monaco-editor .find-widget.visible');
 
 const docText = (page: Page) => page.evaluate(
-  () => (window as any).app._edActiveEditor()?._editor?.getModel()?.getValue() ?? '');
+  () => (window as any).app.testing.edActiveEditor()?._editor?.getModel()?.getValue() ?? '');
 
 async function openFind(page: Page) {
   await page.keyboard.press('Control+f');
@@ -141,6 +141,8 @@ test.describe('편집기 파일 내 찾기 패널', () => {
 
     await openFind(page);
     await page.keyboard.type('needle');
+    // **예외 (`TEST-16`): 문서가 바뀌지 **않음**을 잰다.** 기다릴 신호가 없다 —
+    // 시간을 주고 그래도 그대로인지 본다.
     await page.waitForTimeout(400);
 
     expect(await docText(page), '검색어가 문서에 삽입됐다').toBe(before);
@@ -170,6 +172,7 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     for (const key of ['Control+h', 'Control+e', 'F3', 'Control+g']) {
       await focusBody(page);
       await page.keyboard.press(key);
+      // **예외 (`TEST-16`)**: 위젯이 **뜨지 않음**을 잰다.
       await page.waitForTimeout(300);
       await expect(monacoWidget(page), `${key} 로 위젯이 떴다`).toHaveCount(0);
       await page.keyboard.press('Escape');
@@ -184,7 +187,7 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     const before = await docText(page);
 
     await page.keyboard.type('ZZ');
-    await page.waitForTimeout(300);
+    await expect.poll(() => docText(page), { timeout: 10000 }).not.toBe(before);
     expect(await docText(page), '편집기가 글자를 받지 못했다').not.toBe(before);
     expect(await docText(page)).toContain('ZZ');
   });
@@ -237,7 +240,7 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     await expect(count(page)).toHaveText('4/4');
     // `smoothScrolling` 이 켜져 있어 스크롤은 애니메이션이다 — 도착을 기다린다.
     await page.waitForFunction((ln) => {
-      const ed = (window as any).app._edActiveEditor()._editor;
+      const ed = (window as any).app.testing.edActiveEditor()._editor;
       return ed.getVisibleRanges().some(
         (x: any) => x.startLineNumber <= ln && ln <= x.endLineNumber);
     }, NEEDLE_LINE_LAST, { timeout: 5000 });
@@ -266,7 +269,7 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     await focusBody(page);
     // 1행의 `needle` 을 고른다 (7~13열).
     await page.evaluate(() => {
-      const ed = (window as any).app._edActiveEditor()._editor;
+      const ed = (window as any).app.testing.edActiveEditor()._editor;
       ed.setSelection({ startLineNumber: 1, startColumn: 7, endLineNumber: 1, endColumn: 13 });
       ed.focus();
     });
@@ -364,7 +367,7 @@ test.describe('편집기 파일 내 찾기 패널', () => {
 
     // 편집기에 한 건을 더 넣는다 — 패널을 거치지 않고 모델을 직접 고친다.
     await page.evaluate(() => {
-      const ed = (window as any).app._edActiveEditor()._editor;
+      const ed = (window as any).app.testing.edActiveEditor()._editor;
       const m = ed.getModel();
       m.applyEdits([{
         range: { startLineNumber: 4, startColumn: 1, endLineNumber: 4, endColumn: 1 },
@@ -414,6 +417,7 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     await focusBody(page);
     // 우리 편집기에서는 닫혀 있다.
     await page.keyboard.press('Control+h');
+    // **예외 (`TEST-16`)**: 위젯이 **뜨지 않음**을 잰다.
     await page.waitForTimeout(300);
     await expect(monacoWidget(page)).toHaveCount(0);
 
@@ -441,10 +445,11 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     await enter(page, request);
     await openFile(page, 'find.txt');
     // 이미지 탭으로 옮긴다 — Monaco 가 서지 않는다 (FR-EVW-4).
-    await page.evaluate((p) => (window as any).app._edOpenFile(p), P('pic.png'));
+    await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), P('pic.png'));
     await expect(page.locator('.fe-image .fe-img')).toBeVisible({ timeout: 20000 });
 
     await page.keyboard.press('Control+f');
+    // **예외 (`TEST-16`)**: 찾기 패널도 위젯도 **뜨지 않음**을 잰다.
     await page.waitForTimeout(400);
     await expect(page.locator('.fe-find.vis:visible')).toHaveCount(0);
     await expect(monacoWidget(page)).toHaveCount(0);

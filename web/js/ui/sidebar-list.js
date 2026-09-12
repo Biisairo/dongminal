@@ -171,7 +171,7 @@ const SidebarList = {
     const clear = () => list && list.querySelectorAll('.sbl-item').forEach(x =>
       x.classList.remove('drop-into'));
     el.addEventListener('dragover', e => {
-      const dr = app._drag; if (!dr || dr.type !== 'tab') return;
+      const dr = app.drag; if (!dr || dr.type !== 'tab') return;
       if (!d.tabDrop.accepts(app, r)) return;
       e.preventDefault(); e.stopPropagation();
       clear(); el.classList.add('drop-into');
@@ -180,10 +180,10 @@ const SidebarList = {
       if (!el.contains(e.relatedTarget)) el.classList.remove('drop-into');
     });
     el.addEventListener('drop', e => {
-      const dr = app._drag; if (!dr || dr.type !== 'tab') return;
+      const dr = app.drag; if (!dr || dr.type !== 'tab') return;
       if (!d.tabDrop.accepts(app, r)) return;
       e.preventDefault(); e.stopPropagation();
-      clear(); app._drag = null;
+      clear(); app.drag = null;
       d.tabDrop.drop(app, r, dr);
     });
   },
@@ -205,13 +205,13 @@ const SidebarList = {
       // FR-RAL-9: 레일에서는 재배치를 하지 않는다 — 40px 폭에서 위/아래 절반을
       // 가르는 판정(아래 dragover)은 실패하기 쉽고, 순서를 바꾸려는 사람은 이미
       // 펼칠 이유가 있다. CSS 로는 막을 수 없으므로 제스처의 출발점에서 끊는다.
-      if (app._sbRail && app._sbRail()) { e.preventDefault(); return }
-      app._drag = { type: d.reorder.type, src: r.key, target: null, before: false, done: false };
+      if (app.sbRail && app.sbRail()) { e.preventDefault(); return }
+      app.drag = { type: d.reorder.type, src: r.key, target: null, before: false, done: false };
       if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
       TIMERS.defer(() => el.classList.add('dragging'), {label:'drag-class'});
     });
     el.addEventListener('dragover', e => {
-      const dr = app._drag; if (!dr || dr.type !== d.reorder.type) return;
+      const dr = app.drag; if (!dr || dr.type !== d.reorder.type) return;
       e.preventDefault(); clear();
       const rect = el.getBoundingClientRect();
       const before = (e.clientY - rect.top) < rect.height / 2;
@@ -219,12 +219,12 @@ const SidebarList = {
       el.classList.add(before ? 'drag-above' : 'drag-below');
     });
     el.addEventListener('drop', e => {
-      const dr = app._drag; if (!dr || dr.type !== d.reorder.type) return;
+      const dr = app.drag; if (!dr || dr.type !== d.reorder.type) return;
       e.preventDefault(); e.stopPropagation(); clear();
       SidebarList.commit(app, def, dr);
     });
     el.addEventListener('dragend', () => {
-      app._drag = null; el.classList.remove('dragging', 'drop-into'); clear();
+      app.drag = null; el.classList.remove('dragging', 'drop-into'); clear();
     });
   },
 

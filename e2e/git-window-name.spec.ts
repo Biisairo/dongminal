@@ -65,7 +65,7 @@ test.describe('Git 창의 상단 이름', () => {
     await waitForInit(page);
     const name = await page.evaluate(() => {
       const app = (window as any).app;
-      const w = app.ws.windows.find((x: any) => !app._isGitWin(x) && !app._isEditorWin(x));
+      const w = app.ws.windows.find((x: any) => !app.testing.isGitWin(x) && !app.testing.isEditorWin(x));
       app.switchWindow(w.id);
       return w.name;
     });
