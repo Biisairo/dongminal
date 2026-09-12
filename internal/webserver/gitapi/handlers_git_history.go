@@ -40,6 +40,16 @@ type gitLogResponse struct {
 	// FR-GVR-8a). 클라이언트가 이 목록이 어느 시각의 저장소인지 알아야, 관측의
 	// 기준선이 그보다 새로울 때 목록이 낡았음을 판정할 수 있다. 읽지 못하면 빈 값이다.
 	Signature string `json:"signature"`
+	// Initial 은 **커밋이 아직 없는 저장소**라는 뜻이다
+	// (GIT_DETECT_TIER_SRS FR-GDT-21 · `11 GP-17`).
+	//
+	//   이전 동작: `git log` 가 exit 128 로 실패했고 그것이 오류로 올라가
+	//             화면에 "커밋 목록을 불러오지 못했습니다" 가 떴다. **"아직
+	//             없다" 와 "읽지 못했다" 가 같은 문구**가 된다
+	//   새  동작: 커밋이 없는 것으로 확인되면 200 + 빈 목록 + 이 표식
+	//   이유:     빈 저장소는 실패가 아니다. `git init` 직후의 사용자가 가장
+	//             먼저 만나는 화면이 오류 문구일 이유가 없다
+	Initial bool `json:"initial,omitempty"`
 }
 
 // GET /api/git/log?repo=&ref=&skip=&limit=&order=&author=&since=&until=&path=&grep=&reflog=
@@ -72,7 +82,35 @@ func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
 		Author: req.Author, Since: req.Since, Until: req.Until, Path: req.Path, Grep: req.Grep,
 		Reflog: req.Reflog,
 	})
+	/*
+		FR-GDT-21: **커밋이 없는 것은 실패가 아니다.**
+
+		판정을 여기서 지어내지 않는다 — `Status.Initial` 이 그 사실의 유일한
+		근거다 (`query/status.go:44`).
+
+		**`Observed` 를 쓴다 — `Status` 가 아니다** (`gitBadge` 와 같은 규약,
+		`handlers_git.go:230`). 이 경로는 git 을 실행하지 않아야 한다: 인자
+		검증으로 거부된 요청도 이 자리를 지나므로, 여기서 관측하면 "거부했는데
+		실행했다" 가 된다 (H-L2 가 그것을 잡는다). History 는 Repo 창 안에서
+		열리고 그 창은 이미 status 를 한 번 받았으므로 값은 거의 언제나 있다.
+
+		**갈래가 둘이다.** `git log` 는 인자에 따라 빈 저장소에서 exit 128 로
+		실패하기도 하고(`HEAD` 를 요구하는 형태) 빈 목록으로 성공하기도 한다
+		(`--all` 갈래). 두 갈래 다 같은 사실을 뜻하므로 같은 답을 낸다 —
+		한쪽만 다루면 화면의 문구가 요청 인자에 따라 갈린다.
+	*/
+	initial := false
+	if obs, ok := s.Git.Observed(root); ok {
+		initial = obs.Status.Initial
+	}
 	if err != nil {
+		if initial {
+			gitJSON(w, http.StatusOK, gitLogResponse{
+				Requested: req, Repo: root, Limit: query.LogLimit(req.Limit),
+				Commits: []query.Commit{}, Initial: true,
+			})
+			return
+		}
 		gitError(w, err)
 		return
 	}
@@ -81,6 +119,9 @@ func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
 	sig, _ := s.Git.Signature(r.Context(), root)
 	gitJSON(w, http.StatusOK, gitLogResponse{
 		Requested: req, Repo: root, Limit: query.LogLimit(req.Limit), Commits: commits,
+		// 목록이 비어 있을 때만 뜻이 있다 — 커밋이 있는데 이 표식이 서면 화면이
+		// 거짓말을 한다.
+		Initial:   initial && len(commits) == 0,
 		Signature: sig.Value,
 	})
 }

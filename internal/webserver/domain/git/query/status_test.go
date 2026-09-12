@@ -3,6 +3,7 @@ package query
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -360,5 +361,37 @@ func TestParseStatusV2_UntrackedNestedDirKeepsInnerSlashes(t *testing.T) {
 	}
 	if !st.Untracked[0].Dir {
 		t.Fatal("Dir 이 거짓이다")
+	}
+}
+
+// V-GDT-13 (GIT_DETECT_TIER_SRS FR-GDT-22·23 · `11 GP-15`): 그룹에 상한이 있고
+// **잘렸다는 사실이 응답에 실린다.**
+//
+// 조용히 자르면 사용자는 파일이 없어진 것으로 읽는다. 그리고 `Total` 은 자르기
+// 전의 수라 배지는 여전히 참이다.
+func TestFinalizeStatus_CapsGroups(t *testing.T) {
+	st := Status{}
+	n := StatusGroupCap + 37
+	for i := 0; i < n; i++ {
+		st.Untracked = append(st.Untracked, FileEntry{Path: fmt.Sprintf("f%06d.txt", i), XY: "??"})
+	}
+	finalizeStatus(&st)
+	if len(st.Untracked) != StatusGroupCap {
+		t.Fatalf("untracked 가 %d 개다 (상한 %d)", len(st.Untracked), StatusGroupCap)
+	}
+	if st.Truncated["untracked"] != n {
+		t.Fatalf("잘린 사실이 실리지 않았다: %v", st.Truncated)
+	}
+	if st.Total != n {
+		t.Fatalf("Total 이 자르기 뒤의 수다: %d (want %d)", st.Total, n)
+	}
+}
+
+// 상한 안이면 표식이 없다 — 늘 붙으면 "잘렸다" 가 뜻을 잃는다.
+func TestFinalizeStatus_NoMarkWhenUnderCap(t *testing.T) {
+	st := Status{Untracked: []FileEntry{{Path: "a", XY: "??"}}}
+	finalizeStatus(&st)
+	if st.Truncated != nil {
+		t.Fatalf("자르지 않았는데 표식이 있다: %v", st.Truncated)
 	}
 }

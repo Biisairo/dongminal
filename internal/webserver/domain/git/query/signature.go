@@ -29,8 +29,18 @@ type Signature struct {
 	// 뒤 45초 동안 그대로였다 (CI_E2E_MATRIX_SRS FR-CEM-32 실측) — 그때 위
 	// RefsMtimeNs 는 추가·삭제를 놓친다. 이름은 ReadDir 이 이미 돌려주므로 비용이
 	// 0 이고, 새 항목은 시각과 무관하게 목록에 나타난다.
-	RefsShape int64  `json:"refsShape"`
-	Value     string `json:"value"` // 위 전부를 합친 비교용 문자열
+	RefsShape int64 `json:"refsShape"`
+	// Extras 는 signature 가 **보지 않던 자리들**을 접은 값이다
+	// (GIT_DETECT_TIER_SRS FR-GDT-12~16 · `11 GP-11 a·b·c·d`).
+	//
+	// 종전의 signature 는 `.git/config`·`logs/refs/stash`·`.git/worktrees` 를
+	// 한 톨도 보지 않았다. 그래서 터미널에서 친 `git remote add`·`git stash drop`·
+	// `git worktree prune` 이 **감지되지 않았고**, 화면은 낡은 목록을 아무 표시
+	// 없이 계속 보였다.
+	//
+	// 값은 stat 네 번이다 — 1차 게이트의 예산(NFR-GDT-2·3) 안이다.
+	Extras int64  `json:"extras"`
+	Value  string `json:"value"` // 위 전부를 합친 비교용 문자열
 }
 
 const (
@@ -45,6 +55,12 @@ const (
 	// 디렉터리는 ref 수보다 훨씬 적지만(보통 한 자릿수), 남이 만든 저장소가
 	// 어떤 모양일지는 알 수 없다 — 감지 하나가 폴링 주기를 먹지 않게 막는다.
 	refsWalkMaxDirs = 256
+
+	// GIT_DETECT_TIER_SRS FR-GDT-12~15 가 보는 자리들.
+	configFile    = "config"
+	logsRefsStash = "logs/refs/stash"
+	refsStash     = "refs/stash"
+	worktreesDir  = "worktrees"
 )
 
 // SignatureOf 는 gitdir 을 해석한 뒤 파일만 읽는다.
@@ -81,6 +97,7 @@ func ReadSignature(gitDir, commonDir string) (Signature, error) {
 	// FR-GVR-21·23: ref 의 추가·삭제. `commonDir` 을 쓰는 이유는 worktree 가
 	// 자기 gitdir 을 갖더라도 refs 는 공용이기 때문이다 (위 RefMtimeNs 와 같은 규약).
 	sig.RefsMtimeNs, sig.RefsShape = refsTree(commonDir)
+	sig.Extras = extrasOf(gitDir, commonDir)
 	sig.Value = strings.Join([]string{
 		sig.Head,
 		strconv.FormatInt(sig.IndexMtimeNs, 10),
@@ -89,8 +106,60 @@ func ReadSignature(gitDir, commonDir string) (Signature, error) {
 		strconv.FormatInt(sig.RefMtimeNs, 10),
 		strconv.FormatInt(sig.RefsMtimeNs, 10),
 		strconv.FormatInt(sig.RefsShape, 10),
+		strconv.FormatInt(sig.Extras, 10),
 	}, sigSep)
 	return sig, nil
+}
+
+// extrasOf 는 FR-GDT-12~16 의 네 자리를 하나로 접는다.
+//
+// **없는 파일은 없다는 사실이 값이다** (FR-GDT-16) — `statMtimeSize` 가 0,0 을
+// 주므로 생겼다 사라지는 것도 변화로 잡힌다.
+//
+// `.git/config` 를 **내용이 아니라 mtime·size 로** 보는 이유는 D-GDT-4 다:
+// 내용을 읽으면 큰 config 에서 회차마다 파싱이 돈다. 같은 크기로 같은 자리를
+// 고치는 편집을 놓치는 한계는 ref in-place 이동(FR-GVR-24)과 같은 성질이며 같은
+// 이유로 수용한다.
+//
+// 자리마다 다른 상수를 섞는다 — 섞지 않으면 두 자리가 같은 나노초에 바뀔 때
+// XOR 이 서로를 지운다 (`refsTree` 가 이름 길이를 섞는 것과 같은 이유).
+func extrasOf(gitDir, commonDir string) int64 {
+	var sum int64
+	mix := func(path string, salt int64) {
+		mt, size := statMtimeSize(path)
+		sum ^= mt + size*31 + salt
+	}
+	// (b)(c) `git remote add/set-url`·`git config` — Branches 탭의 원격 목록과
+	// preflight 표시가 이것을 딛는다. worktree 의 config 는 공용이다.
+	mix(filepath.Join(commonDir, configFile), 1)
+	// (a) `stash drop`/`clear` — `refs/stash` 의 **내용**만 바뀌므로 refsTree 가
+	// 놓친다. reflog 가 켜져 있으면 `logs/refs/stash` 가 함께 움직이고, 꺼져
+	// 있으면 `refs/stash` 만 움직인다 (FR-GDT-15) — 둘 다 본다.
+	mix(filepath.Join(commonDir, logsRefsStash), 2)
+	mix(filepath.Join(commonDir, refsStash), 3)
+	// (d) `worktree prune`/`remove` — 디렉터리 mtime 과 **항목 이름**을 함께
+	// 본다. mtime 을 믿을 수 없는 플랫폼에서도 이름은 참이다 (FR-CEM-32 의 교훈).
+	sum ^= dirShape(filepath.Join(commonDir, worktreesDir))
+	return sum
+}
+
+// dirShape 는 디렉터리 하나의 mtime 과 항목 이름을 접는다. 재귀하지 않는다 —
+// `.git/worktrees` 는 한 겹이고, 그 아래를 걸으면 1차 게이트의 예산을 넘는다.
+func dirShape(dir string) int64 {
+	h := fnv.New64a()
+	if fi, err := os.Stat(dir); err == nil {
+		_, _ = h.Write([]byte(strconv.FormatInt(fi.ModTime().UnixNano(), 10)))
+	}
+	ents, err := os.ReadDir(dir)
+	if err != nil {
+		// 없는 디렉터리도 값이다 — 있다가 사라지면 해시가 달라진다.
+		return int64(h.Sum64())
+	}
+	for _, e := range ents {
+		_, _ = h.Write([]byte(e.Name()))
+		_, _ = h.Write([]byte{0})
+	}
+	return int64(h.Sum64())
 }
 
 // refsTree 는 `refs` 아래를 한 번 걸어 두 값을 낸다 (FR-GVR-21·21a·22·23):

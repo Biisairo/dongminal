@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/query"
@@ -57,6 +58,44 @@ var operationVerbs = map[string]map[string][]string{
 		OpAbort:    {"revert", "--abort"},
 		OpSkip:     {"revert", "--skip"},
 	},
+	// GIT_DETECT_TIER_SRS FR-GDT-19·20 (`11 GP-18`): **`git am` 의 출구는
+	// `git am` 이다.**
+	//
+	//   이전 동작: `rebase-apply` 를 리베이스로 읽었으므로 출구가
+	//             `git rebase --continue/--abort` 였다 — `git am` 진행 중에는
+	//             맞지 않는 명령이고, 눌리면 실패 문구로만 끝났다
+	//   새  동작: 자기 명령을 낸다
+	//   이유:     출구는 **그 상태의 명령**이어야 한다 (FR-GDT-20)
+	query.OpAm: {
+		OpContinue: {"am", "--continue"},
+		OpAbort:    {"am", "--abort"},
+		OpSkip:     {"am", "--skip"},
+	},
+	// FR-GDT-18·20: bisect 는 **나가는 길 하나뿐이다.** `good`/`bad` 는 탐색의
+	// 진행이며 이 표면이 제공하는 동작이 아니다 — 열어 두면 화면에 없는 조작이
+	// API 직접 호출로 들어온다 (`guardInitArgs` 와 같은 근거).
+	query.OpBisect: {
+		OpAbort: {"bisect", "reset"},
+	},
+}
+
+// OperationKinds 는 출구를 가진 종류 전부다. **정렬돼 있다** — 응답이 회차마다
+// 달라지면 그것만으로 클라이언트가 다시 그린다.
+//
+// GIT_DETECT_TIER_SRS FR-GDT-18·19: 이 목록을 **파생시킨다.**
+//
+//	이전 동작: `handlers_git_policy.go` 가 네 종류를 손으로 적었다
+//	새  동작: `operationVerbs` 에서 나온다
+//	이유:     `am`·`bisect` 를 더했을 때 그 손으로 적은 목록이 따라오지 않아
+//	          화면에 출구 버튼이 하나도 서지 않았다 (V-GDT-10 이 잡았다).
+//	          목록이 둘이면 한쪽만 고쳐진다
+func OperationKinds() []string {
+	out := make([]string, 0, len(operationVerbs))
+	for k := range operationVerbs {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // OperationActions 는 그 종류가 실제로 줄 수 있는 출구다. **API 로 노출한다** —

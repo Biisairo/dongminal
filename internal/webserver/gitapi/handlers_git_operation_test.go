@@ -43,7 +43,14 @@ func TestAPIGitOperation_AbortRequiresConfirm(t *testing.T) {
 func TestAPIGitOperation_RejectsUnknownCombo(t *testing.T) {
 	for _, body := range []string{
 		`{"repo":` + qWorkRepo + `,"kind":"merge","action":"skip"}`,
-		`{"repo":` + qWorkRepo + `,"kind":"bisect","action":"abort","confirm":true}`,
+		// GIT_DETECT_TIER_SRS FR-GDT-18 로 `bisect` 는 **아는 종류가 됐다.**
+		// 그러나 출구는 `reset`(=abort) 하나뿐이므로 continue·skip 은 여전히 400 이다.
+		//
+		//	이전 동작: `bisect`/`abort` 가 "모르는 종류" 로 400
+		//	새  동작: 아는 종류이므로 진행 중 대조를 지나 409(mismatch)가 된다.
+		//	          여기서 재는 것은 **실행 전 400** 이므로 대상을 바꾼다
+		//	이유:     bisect 는 감지·표시·출구가 전부 없어 사용자가 갇혔다 (`11 GP-11g`)
+		`{"repo":` + qWorkRepo + `,"kind":"bisect","action":"continue","confirm":true}`,
 		`{"repo":` + qWorkRepo + `,"kind":"rebase","action":"start"}`,
 	} {
 		f := newGitM5Fake(t)

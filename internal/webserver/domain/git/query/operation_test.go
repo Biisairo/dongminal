@@ -8,9 +8,15 @@ import (
 
 // 묶음 A — 진행 중 작업 (GIT_ACTIONS_SRS §3.1 FR-GIT-251, 검증 V175).
 
+// 표식 이름에는 `rebase-apply/applying` 처럼 **한 겹 아래**의 것이 있다
+// (GIT_DETECT_TIER_SRS FR-GDT-19) — 부모를 먼저 만든다.
 func opTouch(t *testing.T, dir, name string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(dir, name), []byte(""), 0o644); err != nil {
+	p := filepath.Join(dir, name)
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte(""), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -125,5 +131,73 @@ func TestOperationMarkers_CoverPreflightChecks(t *testing.T) {
 		if got := DetectOperation(dir).Kind; got != c.kind {
 			t.Fatalf("%q 의 표식으로 판정하면 %q 가 나온다", c.kind, got)
 		}
+	}
+}
+
+// ── GIT_DETECT_TIER_SRS 묶음 E (V-GDT-10·11 · `11 GP-11g`·`GP-18`) ──
+
+// V-GDT-11: `git am` 은 리베이스가 아니다.
+//
+// 둘 다 `rebase-apply` 를 만든다. `applying` 이 있으면 `am` 이고 없으면
+// `rebase --apply` 갈래다 — git 자신이 `wt-status.c` 에서 같은 판정을 한다.
+func TestDetectOperation_AmVsRebaseApply(t *testing.T) {
+	// `applying` 이 있으면 am
+	amDir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(amDir, rebaseApplyDir), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(amDir, rebaseApplyDir, rebaseApplying), []byte("1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := DetectOperation(amDir); got.Kind != OpAm {
+		t.Fatalf("git am 을 %q 로 읽었다 (FR-GDT-19)", got.Kind)
+	}
+	// 없으면 rebase
+	rbDir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(rbDir, rebaseApplyDir), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := DetectOperation(rbDir); got.Kind != OpRebase {
+		t.Fatalf("rebase --apply 를 %q 로 읽었다 (FR-GDT-19)", got.Kind)
+	}
+}
+
+// `am` 도 진행 위치를 갖는다 — 같은 파일 이름을 쓴다.
+func TestDetectOperation_AmProgress(t *testing.T) {
+	d := t.TempDir()
+	if err := os.Mkdir(filepath.Join(d, rebaseApplyDir), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range map[string]string{
+		rebaseApplying:  "1\n",
+		rebaseApplyNext: "2\n",
+		rebaseApplyLast: "5\n",
+	} {
+		if err := os.WriteFile(filepath.Join(d, rebaseApplyDir, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := DetectOperation(d)
+	if got.Kind != OpAm || got.At != 2 || got.Total != 5 {
+		t.Fatalf("am 의 진행 위치가 다르다: %+v", got)
+	}
+}
+
+// V-GDT-10: bisect 를 감지한다. **가장 낮은 우선순위다** — 그 위의 어느 것도
+// 진행 중이 아닐 때만 bisect 가 그 저장소의 상태다.
+func TestDetectOperation_Bisect(t *testing.T) {
+	d := t.TempDir()
+	if err := os.WriteFile(filepath.Join(d, bisectLogFile), []byte("git bisect start\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := DetectOperation(d); got.Kind != OpBisect {
+		t.Fatalf("bisect 를 %q 로 읽었다 (FR-GDT-18)", got.Kind)
+	}
+	// 충돌이 남으면 그것이 먼저다 — 사용자가 먼저 풀어야 하는 것이 그쪽이다.
+	if err := os.WriteFile(filepath.Join(d, mergeHeadFile), []byte("deadbeef\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := DetectOperation(d); got.Kind != OpMerge {
+		t.Fatalf("머지가 진행 중인데 %q 로 읽었다", got.Kind)
 	}
 }

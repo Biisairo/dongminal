@@ -19,6 +19,9 @@ const (
 	BlockRebaseInProgress     = "rebase_in_progress"
 	BlockCherryPickInProgress = "cherry_pick_in_progress"
 	BlockRevertInProgress     = "revert_in_progress"
+	// GIT_DETECT_TIER_SRS FR-GDT-18·19: 이 둘도 **커밋을 막을 이유**다.
+	BlockAmInProgress     = "am_in_progress"
+	BlockBisectInProgress = "bisect_in_progress"
 
 	WarnDetachedHead = "detached_head"
 )
@@ -34,9 +37,14 @@ const (
 // 진행 중 상태를 뜻하는 gitdir 안의 이름들. **git 을 실행하지 않는다** — 존재
 // 여부가 그대로 답이다.
 const (
-	mergeHeadFile      = "MERGE_HEAD"
-	rebaseMergeDir     = "rebase-merge"
-	rebaseApplyDir     = "rebase-apply"
+	mergeHeadFile  = "MERGE_HEAD"
+	rebaseMergeDir = "rebase-merge"
+	rebaseApplyDir = "rebase-apply"
+	// GIT_DETECT_TIER_SRS FR-GDT-19 / D-GDT-6: `git am` 만 만드는 표식이다.
+	// `git rebase --apply` 갈래는 같은 디렉터리를 쓰되 이 파일을 만들지 않는다.
+	rebaseApplying = "applying"
+	// FR-GDT-18: bisect 의 표식. `git bisect start` 가 만들고 `reset` 이 지운다.
+	bisectLogFile      = "BISECT_LOG"
 	cherryPickHeadFile = "CHERRY_PICK_HEAD"
 	revertHeadFile     = "REVERT_HEAD"
 )
@@ -102,6 +110,20 @@ var inProgressChecks = []struct {
 		BlockRevertInProgress, OpRevert,
 		"리버트가 진행 중입니다",
 		"`git revert --continue` 로 진행하거나 `git revert --abort` 로 되돌리세요",
+	},
+	// GIT_DETECT_TIER_SRS FR-GDT-19 (`11 GP-18`): 종전에는 `git am` 이
+	// `rebase_in_progress` 로 막혔고, 그 해소법이 **맞지 않는 명령**을 안내했다.
+	{
+		BlockAmInProgress, OpAm,
+		"패치 적용(git am)이 진행 중입니다",
+		"충돌을 해결한 뒤 `git am --continue` 로 진행하거나 `git am --abort` 로 되돌리세요",
+	},
+	// FR-GDT-18 (`11 GP-11g`): bisect 중의 커밋은 탐색을 오염시킨다. 종전에는
+	// 막는 이유도 나갈 길도 화면에 없었다 — detached HEAD 로만 보였다.
+	{
+		BlockBisectInProgress, OpBisect,
+		"bisect 탐색이 진행 중입니다 — 지금 커밋하면 탐색 결과를 믿을 수 없습니다",
+		"`git bisect reset` 으로 탐색을 끝내고 원래 자리로 돌아가세요",
 	},
 }
 
@@ -190,10 +212,25 @@ func identityBlock(name, email string) (Block, bool) {
 	}, true
 }
 
-// configGet 은 설정값 하나를 읽는다. **미설정은 빈 문자열이며 실패가 아니다**
-// (configUnsetExit 참고). exit 1 이 아닌 실패는 그대로 올린다.
+// configGet 은 설정값 하나를 읽는다. **미설정은 빈 문자열이며 실패가 아니다.**
+//
+// `--default=` 를 주는 이유는 그 사실을 **git 의 exit code 에도** 적기 위해서다
+// (M6, `GP-10` 과 같은 부류).
+//
+//	이전 동작: `git config --get <key>` — 미설정이면 exit 1 이다. 도메인은 그것을
+//	          "미설정" 으로 읽었지만(아래 `configUnsetExit`) **실행 기록에는
+//	          `ExitCode:1` 이 남았고**, Console 의 기본 필터
+//	          (`r.write||r.exitCode!==0||r.err`)가 그것을 **실패한 명령**으로
+//	          보였다. preflight 는 커밋 화면이 설 때마다 도므로 그 줄이 사용자가
+//	          친 적 없는 "실패" 로 Console 맨 위를 차지했다 (e2e `git-console` K2)
+//	새  동작: 미설정이 exit 0 + 빈 출력이다
+//	이유:     "설정이 없다" 는 **답이지 실패가 아니다.** 그 사실을 도메인만 알고
+//	          기록은 모르면, 기록을 읽는 화면이 틀린 말을 한다
+//
+// `configUnsetExit` 처리는 그대로 둔다 — `--default` 가 없는 옛 git(2.18 미만)의
+// 열화 경로다.
 func configGet(s *core.Service, ctx context.Context, repo, key string) (string, error) {
-	out, err := s.Exec(ctx, repo, "config", "--get", key)
+	out, err := s.Exec(ctx, repo, "config", "--get", "--default=", key)
 	if err != nil {
 		var xe *core.ExecError
 		if errors.As(err, &xe) && xe.Unwrap() == nil && xe.ExitCode == configUnsetExit {

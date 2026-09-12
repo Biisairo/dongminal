@@ -10,8 +10,8 @@ import (
 // 브라우저의 BroadcastChannel('dongminal-focus') 이었고, 그것은 동일 브라우저·동일
 // origin 한정이라 다른 기기와 통신할 수 없었다 (SRS §2.7).
 //
-// 상태를 읽는 곳은 브라우저에 둘 있다 — dim 표시(_applyFocusOverlay)와 PTY 리사이즈
-// 권한 판정(_resizeCheck). 둘은 같은 상태를 읽으므로 소유권 오판은 표시 문제가 아니라
+// 상태를 읽는 곳은 브라우저에 둘 있다 — dim 표시(applyFocusOverlay)와 PTY 리사이즈
+// 권한 판정(resizeCheck). 둘은 같은 상태를 읽으므로 소유권 오판은 표시 문제가 아니라
 // 터미널 크기 결정 문제다 (FR-XDF-4).
 
 // FocusRegistry holds window→client ownership in memory. It is never persisted:

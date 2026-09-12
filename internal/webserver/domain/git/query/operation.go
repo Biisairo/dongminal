@@ -23,6 +23,19 @@ const (
 	OpRebase     = "rebase"
 	OpCherryPick = "cherry-pick"
 	OpRevert     = "revert"
+	// GIT_DETECT_TIER_SRS FR-GDT-19 (`11 GP-18`): **`git am` 은 리베이스가
+	// 아니다.**
+	//
+	//   이전 동작: `rebase-apply` 디렉터리를 `rebase` 로만 읽었다. `git am` 도
+	//             그 디렉터리를 만들므로 화면은 "리베이스가 진행 중입니다" 라
+	//             적고 출구 버튼이 `git rebase --continue/--abort` 를 냈다 —
+	//             **`git am` 진행 중에 그 명령은 맞지 않는다**
+	//   새  동작: `rebase-apply/applying` 이 있으면 `am` 이다
+	//   이유:     git 자신이 `wt-status.c` 에서 같은 판정을 한다 (D-GDT-6)
+	OpAm = "am"
+	// FR-GDT-18 (`11 GP-11g`): bisect 는 감지·표시·출구가 **전부 없었다.**
+	// 화면에는 detached HEAD 로만 보이고 나갈 길이 없다.
+	OpBisect = "bisect"
 )
 
 // 리베이스의 진행 위치를 담은 파일. 백엔드가 둘이라 이름도 둘이다 (git 2.50.1).
@@ -44,10 +57,16 @@ var operationMarkers = []struct {
 	kind  string
 	names []string
 }{
+	// `am` 이 `rebase` 보다 앞이다 — 둘 다 `rebase-apply` 를 만들고, 더 좁은
+	// 판정(`applying` 이 함께 있다)이 먼저 서야 한다 (FR-GDT-19).
+	{OpAm, []string{filepath.Join(rebaseApplyDir, rebaseApplying)}},
 	{OpRebase, []string{rebaseMergeDir, rebaseApplyDir}},
 	{OpCherryPick, []string{cherryPickHeadFile}},
 	{OpRevert, []string{revertHeadFile}},
 	{OpMerge, []string{mergeHeadFile}},
+	// bisect 는 **맨 뒤다.** 위의 어느 것도 진행 중이 아닐 때만 "bisect 중" 이
+	// 그 저장소의 상태다 — bisect 중의 체크아웃이 충돌을 남기면 그 충돌이 먼저다.
+	{OpBisect, []string{bisectLogFile}},
 }
 
 // markersOf 는 한 종류의 표식 이름들이다. preflight 가 자기 차단 목록을 세울 때
@@ -79,7 +98,9 @@ func DetectOperation(gitDir string) Operation {
 			continue
 		}
 		op := Operation{Kind: m.kind}
-		if m.kind == OpRebase {
+		// 진행 위치는 두 백엔드가 같은 파일 이름을 쓴다 — `am` 도 `rebase-apply`
+		// 의 `next`/`last` 에 자기 위치를 적는다.
+		if m.kind == OpRebase || m.kind == OpAm {
 			op.At, op.Total = rebaseProgress(gitDir)
 		}
 		return op

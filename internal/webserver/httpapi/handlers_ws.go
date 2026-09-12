@@ -143,7 +143,7 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remo
 // new window opens, the frontend creates WS connections for ALL tools with
 // default cols/rows (120x40), which would incorrectly resize tools owned by
 // other windows. The frontend sends the correct toolhub.OpResize via the WS binary
-// protocol after terminal open+fit, guarded by _resizeCheck (session ownership).
+// protocol after terminal open+fit, guarded by resizeCheck (session ownership).
 func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, toolID string, _ *toolhub.Tool, since int64) {
 	_ = conn.Send(toolhub.OpToolID, []byte(toolID))
 

@@ -268,9 +268,21 @@ cmd.Env = core.Env() 를 붙여라. 그것이 프롬프트·askpass·페이저·
 // 숫자를 못박는 이유는 "하나쯤" 이 쌓이는 것을 막기 위해서다. 목록을 늘리려면
 // 이 상수를 함께 고쳐야 하고, 그 diff 가 리뷰에 보인다.
 func TestCommandAllowlistsDidNotGrow(t *testing.T) {
+	//
+	// GIT_DETECT_TIER_SRS FR-GDT-18~20 으로 **둘이 늘었다** (22 → 24).
+	//
+	//	이전 동작: `am`·`bisect` 가 목록 밖이었다. `rebase-apply` 를 만드는
+	//	          `git am` 이 "리베이스 중" 으로 표시되고 출구가 맞지 않는
+	//	          명령을 냈으며, bisect 는 감지·표시·출구가 전부 없었다
+	//	새  동작: 둘 다 **진행 중 작업의 출구로만** 허용된다
+	//	이유:     이 목록의 약속은 "한 하위 명령에 읽기와 쓰기를 함께 갖는 것을
+	//	          넣지 않는다" 였다. `am --continue|--skip|--abort` 와
+	//	          `bisect reset` 은 그 조건을 만족한다 — 전부 쓰기이고,
+	//	          `guardOpOnlyArgs` 가 그 셋 밖의 모양을 실행 전에 막는다.
+	//	          `worktree`·`submodule` 의 기각(D-9)은 그대로다
 	const (
 		wantRead  = 15
-		wantWrite = 22
+		wantWrite = 24
 	)
 	if len(readCommands) != wantRead {
 		t.Fatalf("readCommands 가 %d 개다 (기대 %d) — 허용 목록이 바뀌었다면 근거 문서를 함께 고쳐라 (FR-GIT-7)", len(readCommands), wantRead)

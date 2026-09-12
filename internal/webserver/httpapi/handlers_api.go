@@ -33,7 +33,7 @@ func fmtDuration(d time.Duration) string {
 // 스냅샷을 읽을 뿐이므로 클라이언트 수와 무관하게 즉시 반환된다 (FR-STAT-9, 10, 11).
 //
 // 한 번도 유효하지 않았던 지표는 키 자체를 생략한다 (FR-STAT-7). 클라이언트의
-// _updateStatusBar 는 각 키를 truthy / !==undefined 로 검사하므로 생략을 견딘다.
+// updateStatusBar 는 각 키를 truthy / !==undefined 로 검사하므로 생략을 견딘다.
 func (s *Server) getStats() map[string]interface{} {
 	hostname, _ := os.Hostname()
 	out := map[string]interface{}{

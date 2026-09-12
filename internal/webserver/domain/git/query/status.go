@@ -51,6 +51,17 @@ type Status struct {
 	Untracked   []FileEntry `json:"untracked"`
 	Conflicts   []FileEntry `json:"conflicts"`
 	Total       int         `json:"total"` // **서로 다른 경로의 개수.** 배지용 (FR-GIT-14)
+	// Truncated 는 상한에서 잘린 그룹의 **원래 개수**다
+	// (GIT_DETECT_TIER_SRS FR-GDT-22·23 · `11 GP-15`).
+	//
+	//   이전 동작: 상한이 없었다. 변경·미추적 파일이 수만 개인 저장소(빌드
+	//             산출물, `node_modules` 미무시)에서 서버는 그 목록 전체를 매
+	//             회차 만들어 해시하고, 브라우저는 관측마다 통째로 문자열화했다.
+	//             History 는 300/100 페이징이 있는데 status 만 상한이 없었다
+	//   새  동작: 그룹마다 `StatusGroupCap` 에서 자르고 **잘렸다는 사실을 싣는다**
+	//   이유:     조용히 자르면 사용자는 파일이 없어진 것으로 읽는다 (FR-GDT-23).
+	//             `Total` 은 자르기 **전**의 수라 배지는 여전히 참이다
+	Truncated map[string]int `json:"truncated,omitempty"`
 	// Operation 은 충돌로 멈춘 중간 상태다 (FR-GIT-251). porcelain 은 이것을 주지
 	// 않으므로 gitdir 의 표식에서 파생하며, 관측을 만드는 자리(store.observe)가
 	// 채운다 — 여기서 채우면 status 마다 rev-parse 가 한 번씩 더 돈다.
@@ -255,12 +266,28 @@ func addTracked(st *Status, e FileEntry) {
 
 // finalizeStatus 는 그룹을 경로 오름차순으로 정렬하고 Total 을 센다.
 // 정렬하는 이유는 UI 가 git 의 출력 순서에 의존하지 않게 하는 것이다.
+// StatusGroupCap 은 그룹 하나가 실어 나르는 항목 수의 상한이다 (FR-GDT-22).
+//
+// 2000 은 사람이 화면에서 다룰 수 있는 수를 한참 넘는다 — 그보다 많으면 목록이
+// 아니라 잡음이고, 사용자가 할 일은 `.gitignore` 를 고치는 것이다.
+const StatusGroupCap = 2000
+
 func finalizeStatus(st *Status) {
 	seen := make(map[string]struct{})
-	for _, g := range []*[]FileEntry{&st.Staged, &st.Changes, &st.Untracked, &st.Conflicts} {
-		sort.SliceStable(*g, func(i, j int) bool { return (*g)[i].Path < (*g)[j].Path })
+	names := []string{"staged", "changes", "untracked", "conflicts"}
+	for i, g := range []*[]FileEntry{&st.Staged, &st.Changes, &st.Untracked, &st.Conflicts} {
+		sort.SliceStable(*g, func(a, b int) bool { return (*g)[a].Path < (*g)[b].Path })
 		for _, e := range *g {
 			seen[e.Path] = struct{}{}
+		}
+		// **자르기는 세기 뒤다** (FR-GDT-23): `Total` 은 배지의 근거이고 그것이
+		// 잘린 수를 말하면 사용자가 세는 파일 수와 어긋난다.
+		if n := len(*g); n > StatusGroupCap {
+			if st.Truncated == nil {
+				st.Truncated = map[string]int{}
+			}
+			st.Truncated[names[i]] = n
+			*g = (*g)[:StatusGroupCap]
 		}
 	}
 	// Total 은 합이 아니라 서로 다른 경로의 개수다 — 한 파일이 Staged·Changes 에

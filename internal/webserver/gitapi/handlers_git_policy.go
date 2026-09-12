@@ -43,8 +43,12 @@ func (s *GitServer) apiGitPolicy(w http.ResponseWriter, r *http.Request) {
 	}
 	// FR-GIT-252: 진행 중 작업의 **출구 목록도 서버가 권위다.** 클라이언트가 이것을
 	// 복제하면 merge 에 없는 `skip` 버튼이 생기고, 눌리면 exit 128 로만 실패한다.
+	//
+	// **목록을 여기 적지 않는다** (GIT_DETECT_TIER_SRS FR-GDT-18·19). 손으로
+	// 적은 네 종류가 `am`·`bisect` 를 더했을 때 따라오지 않아, 화면에 출구
+	// 버튼이 하나도 서지 않았다 — 종류가 둘이면 한쪽만 고쳐진다.
 	ops := map[string][]string{}
-	for _, k := range []string{query.OpMerge, query.OpRebase, query.OpCherryPick, query.OpRevert} {
+	for _, k := range write.OperationKinds() {
 		ops[k] = write.OperationActions(k)
 	}
 	gitJSON(w, http.StatusOK, map[string]any{

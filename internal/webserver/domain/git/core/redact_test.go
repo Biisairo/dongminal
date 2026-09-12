@@ -67,6 +67,14 @@ func TestRecordRedacted(t *testing.T) {
 // FR-GIT-218: Console 은 폴링을 기본에서 감춘다. 쓰기 판정을 새로 만들지 않고
 // writeCommands(FR-GIT-95) 를 그대로 딛는지 본다 — 두 곳에서 다르게 판정하면
 // 화면이 감춘 것과 실행 경로가 막는 것이 어긋난다.
+//
+// GIT_REFRESH_LIFECYCLE_SRS FR-GRF-25 로 판정이 한 겹 깊어졌다 (I7 개정).
+//
+//	이전 동작: `stash list` 가 쓰기다 — `argv[0]` 만 봤다
+//	새  동작: (동사, 하위명령) 쌍으로 가른다. `stash list` 는 읽기다
+//	이유:     관측 회차마다 도는 조회가 Console 맨 위를 차지해 명령 이력이
+//	          사용자의 조작으로 읽히지 않았다 (`11 GP-10`). **실행 게이트는
+//	          그대로다** — 그쪽 판정은 아래 TC-GRF-2 가 지킨다
 func TestRecordCarriesWriteFlag(t *testing.T) {
 	for _, c := range []struct {
 		argv  []string
@@ -77,7 +85,7 @@ func TestRecordCarriesWriteFlag(t *testing.T) {
 		{[]string{"add", "a.txt"}, true},
 		{[]string{"commit", "-F", "-"}, true},
 		{[]string{"clean", "-f"}, true},
-		{[]string{"stash", "list"}, true}, // I7: stash 는 목록도 쓰기 경로다
+		{[]string{"stash", "list"}, false}, // I7 개정: 실행은 쓰기 경로, 기록은 읽기
 		{nil, false},
 	} {
 		got := newRecord(absR, c.argv, Output{}, nil)

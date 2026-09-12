@@ -80,7 +80,7 @@ func TestStats_AllValid(t *testing.T) {
 }
 
 // FR-STAT-7: 한 번도 유효하지 않았던 지표는 키가 생략된다. 클라이언트
-// _updateStatusBar 가 truthy / !==undefined 로 검사하므로 0 을 넣는 것보다 안전하다.
+// updateStatusBar 가 truthy / !==undefined 로 검사하므로 0 을 넣는 것보다 안전하다.
 func TestStats_OmitsInvalidKeys(t *testing.T) {
 	ts, _ := statsServer(t, sysstat.Snapshot{
 		DiskPct: 10, DiskValid: true,

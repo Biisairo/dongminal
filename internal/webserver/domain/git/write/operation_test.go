@@ -52,7 +52,11 @@ func TestOperationArgs_Rejects(t *testing.T) {
 	cases := []struct{ kind, action string }{
 		{query.OpNone, OpAbort},
 		{"", ""},
-		{"bisect", OpAbort},
+		// GIT_DETECT_TIER_SRS FR-GDT-18 로 `bisect` 는 **아는 종류가 됐다.**
+		// 다만 출구는 하나뿐이다 — `good`/`bad` 는 탐색의 진행이고 이 표면이
+		// 제공하는 동작이 아니다.
+		{query.OpBisect, OpContinue},
+		{query.OpBisect, OpSkip},
 		{query.OpMerge, OpSkip},
 		{query.OpRebase, "start"},
 		{query.OpRebase, "--abort"},

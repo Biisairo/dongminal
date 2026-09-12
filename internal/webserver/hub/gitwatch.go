@@ -8,6 +8,7 @@ import (
 	"hash/fnv"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"dongminal/internal/webserver/domain/git/query"
@@ -42,8 +43,29 @@ import (
 const (
 	// GitWatchInterval 은 감시 회차의 주기다 (FR-GPO-2). 브라우저의 종전
 	// **status** 주기와 같다 — 사용자가 보는 갱신 속도가 느려지면 안 된다.
-	// signature 주기(500ms)가 아닌 이유는 이 회차가 status 를 관측하기 때문이다.
 	GitWatchInterval = 1000 * time.Millisecond
+
+	// GitWatchWorktreeEvery 는 **워크트리 회차**의 간격이다 (FR-GDT-3).
+	//
+	// signature 가 같아도 이 회차에서는 `git status` 를 돌린다 — 작업 트리의
+	// 파일 생성·수정·삭제는 signature 가 보지 못하고, 그것을 잡는 길이 이것뿐이기
+	// 때문이다 (`gitwatch.go` 머리말이 실측으로 확인한 사실).
+	//
+	// 4 는 약 4초다. 브라우저 안전망(30초)보다 훨씬 짧으므로 사용자가 겪는 갱신은
+	// 여전히 서버 푸시다 (FR-GDT-6).
+	GitWatchWorktreeEvery = 4
+
+	// GitWatchRoundTimeout 은 회차 하나의 시한이다 (FR-GDT-9 · `GO-33`).
+	//
+	// **회차의 것이지 저장소의 것이 아니다** (D-GDT-7). 저장소마다 걸면 느린
+	// 저장소 하나가 회차를 늘 이 값까지 붙든다. 회차에 걸면 그 안의 병렬 관측이
+	// 함께 끊기고, 다음 회차가 1초 뒤에 오므로 잃는 것이 없다.
+	GitWatchRoundTimeout = 20 * time.Second
+
+	// GitWatchParallel 은 한 회차에서 동시에 도는 관측 수의 상한이다 (FR-GDT-8).
+	// `gitObserveMax` 와 같은 값이며 같은 이유다 — 대상이 늘어도 git 프로세스가
+	// 대상 수만큼 한꺼번에 뜨지 않게 한다.
+	GitWatchParallel = 4
 
 	// GitWatchTTL 은 관심 표명의 수명이다 (FR-GPO-11). 브라우저의 안전망
 	// 폴링(30초)보다 세 배 길다 — 보고 있는 동안에는 만료되지 않는다.
@@ -62,6 +84,9 @@ const (
 // 회차가 브라우저의 요청과 겹치면 git 은 한 번만 돈다.
 type GitObserver interface {
 	Status(ctx context.Context, repo string) (store.Observation, bool, error)
+	// Signature 는 **1차 게이트**다 (GIT_DETECT_TIER_SRS FR-GDT-1).
+	// git 을 실행하지 않는다 — read 1회 + stat 몇 번이다.
+	Signature(ctx context.Context, repo string) (query.Signature, error)
 }
 
 // obsMark 는 관측 하나를 비교 가능한 한 줄로 접는다.
@@ -77,6 +102,15 @@ func obsMark(o store.Observation) string {
 	fmt.Fprintf(h, "%s|%s|%s|%t|%d|%d|",
 		o.Signature.Value, o.Status.Oid, o.Status.Branch, o.Status.Detached,
 		o.Status.Ahead, o.Status.Behind)
+	// GIT_DETECT_TIER_SRS FR-GDT-17 (`11 GP-11e`): **진행 중 작업도 근거다.**
+	//
+	//   이전 동작: `Operation` 이 빠져 있었다. `cherry-pick --quit` 처럼 표식만
+	//             사라지는 조작은 HEAD 도 index 도 파일 목록도 건드리지 않으므로
+	//             obsMark 가 그대로였고, "진행 중" 바가 화면에 굳은 채 남았다
+	//   새  동작: 종류와 진행 위치를 싣는다
+	//   이유:     그 바는 관측을 딛는 화면이고, 관측의 근거에 없는 것은 화면에서
+	//             갱신되지 않는다 (FR-RPT-2 의 서버 쪽 짝이다)
+	fmt.Fprintf(h, "%s:%d/%d|", o.Status.Operation.Kind, o.Status.Operation.At, o.Status.Operation.Total)
 	// Conflicts 가 빠져 있었다. 머지가 멈춘 동안 사용자가 손대는 것이 바로 그
 	// 파일들인데, 그 변화만 방송이 잡지 못해 30초 안전망까지 화면이 낡았다.
 	for _, g := range [][]query.FileEntry{
@@ -126,15 +160,30 @@ type GitWatcher struct {
 	// (GIT_WATCH_LEASE_SRS FR-GWL-3). 여기 없는 신원은 임차인이 될 수 없다.
 	live  map[string]uint64
 	epoch uint64
+	// round 는 회차 번호다. 워크트리 회차의 판정이 이것을 딛는다 (FR-GDT-3·4).
+	round uint64
 }
 
 type gitWatchEntry struct {
 	lastMark string
 	seenAt   time.Time // 마지막 관심 표명 시각
 	hasMark  bool
+	// lastSig 는 1차 게이트의 직전 값이다 (FR-GDT-1·2).
+	lastSig string
+	hasSig  bool
+	// phase 는 워크트리 회차의 위상이다 (FR-GDT-4). 저장소 경로에서 파생하므로
+	// 같은 저장소는 늘 같은 위상을 갖고, 다른 저장소는 흩어진다.
+	phase uint64
 	// holders 는 이 저장소를 보고 있는 신원들이다 (clientId → 그 구독의 epoch).
 	// **비어 있지 않으면 유휴로 만료되지 않는다** (FR-GWL-2).
 	holders map[string]uint64
+}
+
+// watchPhase 는 저장소 경로에서 워크트리 회차의 위상을 뽑는다 (FR-GDT-4).
+func watchPhase(repo string) uint64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(repo))
+	return h.Sum64() % GitWatchWorktreeEvery
 }
 
 func NewGitWatcher(git GitObserver, hub CommandBroker) *GitWatcher {
@@ -208,7 +257,13 @@ func (w *GitWatcher) NoteFor(repo string, obs store.Observation, clientID string
 	//
 	// 브라우저는 방금 이 관측을 응답으로 받았다. 그러므로 이 값이 곧 "브라우저가
 	// 아는 상태" 이고, 기준선으로 정확하다.
-	e := &gitWatchEntry{seenAt: now, lastMark: mark, hasMark: true, holders: map[string]uint64{}}
+	e := &gitWatchEntry{
+		seenAt: now, lastMark: mark, hasMark: true,
+		// 기준선은 방금 브라우저가 받은 관측의 것이다 — signature 도 그것을 쓴다.
+		lastSig: obs.Signature.Value, hasSig: obs.Signature.Value != "",
+		phase:   watchPhase(repo),
+		holders: map[string]uint64{},
+	}
 	if clientID != "" {
 		e.holders[clientID] = ep
 	}
@@ -365,47 +420,126 @@ func (w *GitWatcher) Tick(ctx context.Context) int {
 	w.mu.Lock()
 	now := w.now()
 	w.evictLocked(now)
+	round := w.round
+	w.round++
 	repos := make([]string, 0, len(w.watch))
 	for repo := range w.watch {
 		repos = append(repos, repo)
 	}
 	w.mu.Unlock()
 
-	sent := 0
-	for _, repo := range repos {
-		obs, _, err := w.git.Status(ctx, repo)
-		mark := ""
-		if err == nil {
-			mark = obsMark(obs)
-		}
-		w.mu.Lock()
-		e, ok := w.watch[repo]
-		if !ok { // 회차 중에 만료·퇴출됐다
-			w.mu.Unlock()
-			continue
-		}
-		if err != nil {
-			// FR-GLW-7: 탈락은 **저장소가 읽히지 않은 것**이다 (FR-GPO-5).
-			// 되풀이되지 않는다 — 이 저장소는 여기서 대상에서 빠진다.
-			dmlog.Errorf(nil, "[gitwatch] 관측 실패로 감시에서 뺀다 (repo=%s err=%v)", repo, err)
-			delete(w.watch, repo)
-			w.mu.Unlock()
-			continue
-		}
-		first := !e.hasMark
-		changed := e.hasMark && e.lastMark != mark
-		e.lastMark, e.hasMark = mark, true
-		w.mu.Unlock()
+	/*
+		GIT_DETECT_TIER_SRS FR-GDT-8 (`11 GP-8` · `GO-33`): **회차를 병렬로 돈다.**
 
-		if first || !changed {
-			continue
+		  이전 동작: 한 고루틴에서 차례로 관측했다. 저장소 하나가 3초 걸리면 그
+		            회차 전체가 3초 이상이고, `time.Ticker` 는 밀린 틱을 버리므로
+		            **다른 저장소의 감지가 함께 늦어졌다**
+		  새  동작: `gitObservePins` 와 같은 세마포어로 묶는다
+		  이유:     같은 문제를 아는 자리가 이미 있었는데 감시 회차만 순차였다
+
+		상한을 두는 이유도 그쪽과 같다 — 대상이 늘어도 git 프로세스가 대상 수만큼
+		한꺼번에 뜨지 않게 한다.
+	*/
+	var (
+		wg   sync.WaitGroup
+		sem  = make(chan struct{}, GitWatchParallel)
+		sent atomic.Int64
+	)
+	for _, repo := range repos {
+		if ctx.Err() != nil {
+			break // 회차의 시한이 끝났다 (FR-GDT-9)
 		}
-		if w.hub != nil {
-			w.hub.Broadcast(gitChangedPayload(repo, mark))
-		}
-		sent++
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(repo string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			if w.observe(ctx, repo, round) {
+				sent.Add(1)
+			}
+		}(repo)
 	}
-	return sent
+	wg.Wait()
+	return int(sent.Load())
+}
+
+/*
+observe 는 저장소 하나의 회차다. 방송했으면 참이다.
+
+**2단이다** (FR-GDT-1·2). 1차는 `ReadSignature` — git 을 실행하지 않는다. 2차는
+`git status` 이고, 그것을 돌리는 회차는 셋 중 하나다:
+
+	① signature 가 직전 회차와 다르다
+	② 이 저장소의 워크트리 회차다 (저빈도)
+	③ signature 를 읽지 못했다 — 판정할 수 없으면 관측한다
+
+	이전 동작: 회차마다 `git status` 를 돌렸다. 아무 변화가 없어도 1초마다,
+	          최대 16개 저장소 동시에, 브라우저가 숨어도 90초 동안
+	새  동작: 변화가 없으면 1차 게이트에서 끝난다
+	이유:     `GIT_PUSH_OBSERVE_SRS §1.2` 가 fsnotify 를 기각하며 든 근거가
+	          **"ReadSignature = 0.02ms 이므로 싸다"** 였는데, 구현이 그 자리에서
+	          `git status` 를 돌려 그 근거를 스스로 무효로 만들었다 (`11 GP-7`).
+	          사용자의 진단("변경이 없어도 1초마다 git 을 돌린다")이 정확했다
+*/
+func (w *GitWatcher) observe(ctx context.Context, repo string, round uint64) bool {
+	sig, sigErr := w.git.Signature(ctx, repo)
+
+	w.mu.Lock()
+	e, ok := w.watch[repo]
+	if !ok { // 회차 중에 만료·퇴출됐다
+		w.mu.Unlock()
+		return false
+	}
+	// FR-GDT-4 / D-GDT-2: 워크트리 회차를 저장소마다 **어긋나게** 돈다. 전부 같은
+	// 회차에 몰리면 4초마다 16개의 `git status` 가 동시에 뜬다 — 1초마다 하나씩
+	// 뜨는 것보다 나쁜 모양이다(피크가 높다).
+	worktreeRound := (round+e.phase)%GitWatchWorktreeEvery == 0
+	sigChanged := sigErr != nil || !e.hasSig || e.lastSig != sig.Value
+	if sigErr == nil {
+		e.lastSig, e.hasSig = sig.Value, true
+	} else {
+		e.hasSig = false
+	}
+	need := sigChanged || worktreeRound
+	w.mu.Unlock()
+
+	// FR-GDT-7: 2차를 건너뛴 회차는 **방송하지 않는다.** 비교할 obsMark 를 만들지
+	// 않았으므로 "바뀌었다" 를 말할 근거가 없다.
+	if !need {
+		return false
+	}
+
+	obs, _, err := w.git.Status(ctx, repo)
+	mark := ""
+	if err == nil {
+		mark = obsMark(obs)
+	}
+	w.mu.Lock()
+	e, ok = w.watch[repo]
+	if !ok {
+		w.mu.Unlock()
+		return false
+	}
+	if err != nil {
+		// FR-GLW-7: 탈락은 **저장소가 읽히지 않은 것**이다 (FR-GPO-5).
+		// 되풀이되지 않는다 — 이 저장소는 여기서 대상에서 빠진다.
+		dmlog.Errorf(nil, "[gitwatch] 관측 실패로 감시에서 뺀다 (repo=%s err=%v)", repo, err)
+		delete(w.watch, repo)
+		w.mu.Unlock()
+		return false
+	}
+	first := !e.hasMark
+	changed := e.hasMark && e.lastMark != mark
+	e.lastMark, e.hasMark = mark, true
+	w.mu.Unlock()
+
+	if first || !changed {
+		return false
+	}
+	if w.hub != nil {
+		w.hub.Broadcast(gitChangedPayload(repo, mark))
+	}
+	return true
 }
 
 /*
@@ -422,11 +556,28 @@ func StartGitWatch(w *GitWatcher, stopCh <-chan struct{}) {
 	go func() {
 		t := time.NewTicker(GitWatchInterval)
 		defer t.Stop()
-		ctx := context.Background()
+		/*
+			FR-GDT-10 (`GO-33`): **종료가 진행 중인 회차를 취소한다.**
+
+			  이전 동작: `context.Background()` — 종료 신호가 와도 이미 뜬
+			            `git status` 는 끝까지 돌았고, 개별 회차에 시한도 없었다
+			  새  동작: 뿌리 컨텍스트를 `stopCh` 에 묶고, 회차마다 그 아래에
+			            시한을 건다
+			  이유:     `01-go-arch.md GO-33` 이 지적한 그 줄이며, `11 GP-8` 이
+			            같은 자리를 감지 비용 쪽에서 다시 지목했다
+		*/
+		root, cancelRoot := context.WithCancel(context.Background())
+		defer cancelRoot()
+		go func() {
+			<-stopCh
+			cancelRoot()
+		}()
 		for {
 			select {
 			case <-t.C:
+				ctx, cancel := context.WithTimeout(root, GitWatchRoundTimeout)
 				w.Tick(ctx)
+				cancel()
 			case <-stopCh:
 				return
 			}

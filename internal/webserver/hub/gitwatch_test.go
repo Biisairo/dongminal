@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,14 +24,35 @@ import (
 // fakeSigner 는 관측 하나를 흉내낸다. `sigs` 는 signature 값이고 `files` 는
 // **작업 트리** 쪽 변화다 — 둘을 따로 두는 이유는 signature 가 `.git` 만 보고
 // 작업 트리를 보지 못한다는 것이 이 SRS 의 핵심 발견이기 때문이다 (§2.7).
+//
+// GIT_DETECT_TIER_SRS FR-GDT-1: **1차 게이트가 생겼다.** `sigCalls` 가 그것의
+// 호출 수이고 `calls` 는 여전히 2차(`git status`)의 것이다 — 두 수를 따로 세지
+// 않으면 "변화가 없을 때 git 이 도는가" 를 잴 수 없다.
 type fakeSigner struct {
-	sigs  map[string]string
-	files map[string][]string
-	errs  map[string]error
-	calls int
+	sigs     map[string]string
+	files    map[string][]string
+	errs     map[string]error
+	sigErrs  map[string]error
+	calls    int
+	sigCalls int
+	mu       sync.Mutex
+}
+
+func (f *fakeSigner) Signature(_ context.Context, repo string) (query.Signature, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.sigCalls++
+	if err, ok := f.sigErrs[repo]; ok && err != nil {
+		return query.Signature{}, err
+	}
+	// 작업 트리 변화는 signature 에 **잡히지 않는다** — 그것이 2단 게이트가
+	// 워크트리 회차를 따로 두는 이유다 (FR-GDT-3).
+	return query.Signature{Value: f.sigs[repo]}, nil
 }
 
 func (f *fakeSigner) Status(_ context.Context, repo string) (store.Observation, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.calls++
 	if err, ok := f.errs[repo]; ok && err != nil {
 		return store.Observation{}, false, err
@@ -215,19 +237,102 @@ func TestGitWatch_ErrorDropsRepo(t *testing.T) {
 	}
 }
 
-// G-7: 회차마다 관측은 **정확히 한 번**이다.
+// G-7 → **V-GDT-1·2 로 개정** (GIT_DETECT_TIER_SRS 묶음 A).
 //
-// 감시자가 Store 를 여러 번 부르면 그만큼 git 이 돈다 — TTL 캐시가 그중 일부를
-// 먹더라도 그것에 기대는 설계는 아니다. `GitObserver` 인터페이스에 메서드가
-// 하나뿐인 것이 그 경계다.
-func TestGitWatch_UsesSignatureOnly(t *testing.T) {
+//	이전 동작: 회차마다 `Status`(= `git status` 프로세스) **정확히 한 번**.
+//	          아무 변화가 없어도 1초마다, 최대 16개 저장소 동시에
+//	새  동작: 회차마다 `Signature` 한 번. `Status` 는 **필요한 회차에만**
+//	이유:     `GIT_PUSH_OBSERVE_SRS §1.2` 가 fsnotify 를 기각하며 든 근거가
+//	          "`ReadSignature` = 0.02ms 이므로 싸다" 였는데 구현이 그 자리에서
+//	          `git status` 를 돌려 그 근거를 스스로 무효로 만들었다 (`11 GP-7`)
+//
+// **"정확히 한 번" 의 계약은 살아 있다** — 자리가 2차에서 1차로 옮겨졌을 뿐이다.
+func TestGitWatch_FirstGateIsSignature(t *testing.T) {
 	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
 	w := newWatcher(sig, &fakeBroker{})
 	note(t, w, sig, "/r")
+	// 워크트리 회차를 피해 재려면 위상을 알아야 한다. 위상은 저장소 경로에서
+	// 나오므로 결정적이다 (FR-GDT-4).
+	base := sig.calls
+	nonWorktree := 0
+	for i := 0; i < GitWatchWorktreeEvery; i++ {
+		before := sig.calls
+		w.Tick(context.Background())
+		if sig.calls == before {
+			nonWorktree++
+		}
+	}
+	if sig.sigCalls != GitWatchWorktreeEvery {
+		t.Fatalf("1차 게이트가 회차마다 한 번이 아니다: %d (V-GDT-1)", sig.sigCalls)
+	}
+	// GitWatchWorktreeEvery 회차 중 워크트리 회차는 정확히 하나다.
+	if nonWorktree != GitWatchWorktreeEvery-1 {
+		t.Fatalf("변화가 없는데 git status 가 %d 회차에서 돌았다 (V-GDT-1)",
+			GitWatchWorktreeEvery-nonWorktree)
+	}
+	if sig.calls-base != 1 {
+		t.Fatalf("워크트리 회차가 하나가 아니다: %d (FR-GDT-3)", sig.calls-base)
+	}
+}
+
+// V-GDT-2: signature 가 바뀐 회차는 2차 관측을 **반드시** 한다.
+func TestGitWatch_SignatureChangeForcesStatus(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
+	br := &fakeBroker{}
+	w := newWatcher(sig, br)
+	note(t, w, sig, "/r")
+	// 워크트리 회차가 아닌 회차를 하나 찾아 그 자리에서 signature 를 바꾼다.
+	for i := 0; i < GitWatchWorktreeEvery*2; i++ {
+		before := sig.calls
+		sig.sigs["/r"] = "a"
+		w.Tick(context.Background())
+		if sig.calls != before {
+			continue // 워크트리 회차였다
+		}
+		// 여기가 "signature 가 같아 2차를 건너뛴" 회차다. 이제 바꿔 본다.
+		sig.sigs["/r"] = "b"
+		before = sig.calls
+		w.Tick(context.Background())
+		if sig.calls != before+1 {
+			t.Fatalf("signature 가 바뀌었는데 git status 가 돌지 않았다 (V-GDT-2)")
+		}
+		if got := gitChangedRepos(br); len(got) != 1 {
+			t.Fatalf("signature 가 바뀌었는데 알리지 않았다: %v (V-GDT-2)", got)
+		}
+		return
+	}
+	t.Fatal("워크트리 회차가 아닌 회차를 찾지 못했다 — 위상 계산이 깨졌다")
+}
+
+// V-GDT-3: signature 를 **읽지 못하면** 관측한다. 판정할 수 없으면 묻는다.
+func TestGitWatch_SignatureErrorFallsBackToStatus(t *testing.T) {
+	sig := &fakeSigner{
+		sigs:    map[string]string{"/r": "a"},
+		sigErrs: map[string]error{"/r": errors.New("gitdir 을 읽을 수 없다")},
+	}
+	w := newWatcher(sig, &fakeBroker{})
+	note(t, w, sig, "/r")
+	before := sig.calls
 	w.Tick(context.Background())
-	w.Tick(context.Background())
-	if sig.calls != 2 {
-		t.Fatalf("회차마다 정확히 한 번 읽어야 한다: %d (G-7)", sig.calls)
+	if sig.calls != before+1 {
+		t.Fatalf("1차를 읽지 못했는데 2차를 건너뛰었다 (FR-GDT-2 ③)")
+	}
+}
+
+// V-GDT-4: 워크트리 회차의 위상이 저장소마다 다르다 — 전부 같은 회차에 몰리면
+// 4초마다 16개의 `git status` 가 동시에 뜬다 (D-GDT-2).
+func TestGitWatch_WorktreePhaseSpread(t *testing.T) {
+	seen := map[uint64]bool{}
+	for _, r := range []string{"/a", "/b", "/c", "/d", "/e", "/f", "/g", "/h"} {
+		seen[watchPhase(r)] = true
+	}
+	if len(seen) < 2 {
+		t.Fatalf("위상이 흩어지지 않는다: %v (FR-GDT-4)", seen)
+	}
+	for p := range seen {
+		if p >= GitWatchWorktreeEvery {
+			t.Fatalf("위상이 회차 범위를 벗어난다: %d", p)
+		}
 	}
 }
 
@@ -267,13 +372,25 @@ func TestGitWatch_WorktreeChangeBroadcasts(t *testing.T) {
 
 	// 작업 트리에만 파일이 생겼다. signature 는 한 글자도 바뀌지 않는다.
 	sig.files["/r"] = []string{"new.txt"}
-	w.Tick(context.Background())
+	// GIT_DETECT_TIER_SRS FR-GDT-3 으로 **지연이 생겼다.** signature 가 그대로면
+	// 2차 관측은 워크트리 회차에서만 돈다 — 그 간격 안에 한 번은 반드시 온다.
+	//
+	//   이전 동작: 다음 회차(1초)에 알렸다
+	//   새  동작: 워크트리 회차(최대 GitWatchWorktreeEvery 회차)에 알린다
+	//   이유:     그 지연의 대가로 "변화가 없어도 1초마다 git status" 가 사라진다.
+	//             브라우저 안전망(30초)보다 훨씬 짧으므로 사용자가 겪는 갱신은
+	//             여전히 서버 푸시다 (FR-GDT-6)
+	for i := 0; i < GitWatchWorktreeEvery; i++ {
+		w.Tick(context.Background())
+	}
 
 	if got := gitChangedRepos(br); len(got) != 1 {
-		t.Fatalf("작업 트리 변화를 알리지 않았다: %v (G-8)", got)
+		t.Fatalf("작업 트리 변화를 알리지 않았다: %v (G-8 · FR-GDT-3)", got)
 	}
 	// 그대로면 다시 알리지 않는다 — 변화 감지가 넓어졌다고 시끄러워지면 안 된다.
-	w.Tick(context.Background())
+	for i := 0; i < GitWatchWorktreeEvery; i++ {
+		w.Tick(context.Background())
+	}
 	if n := len(gitChangedRepos(br)); n != 1 {
 		t.Fatalf("변화가 없는데 또 알렸다: %d (G-1)", n)
 	}
@@ -288,7 +405,10 @@ func TestGitWatch_FileStateChangeBroadcasts(t *testing.T) {
 	w.Tick(context.Background())
 
 	sig.files["/r"] = []string{"b.txt"} // 같은 수, 다른 파일
-	w.Tick(context.Background())
+	// FR-GDT-3: 작업 트리 쪽이므로 워크트리 회차를 기다린다 (G-8 과 같은 이유).
+	for i := 0; i < GitWatchWorktreeEvery; i++ {
+		w.Tick(context.Background())
+	}
 	if n := len(gitChangedRepos(br)); n != 1 {
 		t.Fatalf("목록이 바뀌었는데 알리지 않았다: %d (G-9)", n)
 	}
@@ -597,5 +717,32 @@ func TestGitWatch_NoteForUnknownClientIsTTL(t *testing.T) {
 	w.Tick(context.Background())
 	if w.Watching() != 0 {
 		t.Fatalf("구독 없는 신원이 임대를 얻었다 (FR-GWL-8)")
+	}
+}
+
+// NFR-GDT-1 (GIT_DETECT_TIER_SRS): **1분 동안 `git status` 가 60회에서 15회로 준다.**
+//
+// 사용자가 접수한 진단이 이것이었다 — *"변경이 없어도 1초마다 git 을 돌린다."*
+// 그 진단은 정확했고(`11 GP-7`), 이 검사가 그 수를 못박는다.
+//
+// **프로세스를 세지 않고 회차를 센다.** 실제 프로세스 수를 재려면 격리 인스턴스와
+// 1분의 벽시계가 필요하고 그 값은 러너의 부하에 흔들린다 — 여기서 재는 것은
+// 설계이고, 설계는 결정적이다.
+func TestGitWatch_QuietRepoCost(t *testing.T) {
+	const rounds = 60 // GitWatchInterval 이 1초이므로 1분이다
+	sig := &fakeSigner{sigs: map[string]string{"/r": "quiet"}}
+	w := newWatcher(sig, &fakeBroker{})
+	note(t, w, sig, "/r")
+	for i := 0; i < rounds; i++ {
+		w.Tick(context.Background())
+	}
+	// 1차 게이트는 회차마다 돈다 — 그것이 싸다는 것이 이 설계의 전부다.
+	if sig.sigCalls != rounds {
+		t.Fatalf("1차 게이트가 %d 회 돌았다 (기대 %d)", sig.sigCalls, rounds)
+	}
+	want := rounds / GitWatchWorktreeEvery
+	if sig.calls != want {
+		t.Fatalf("아무 변화 없는 저장소에서 git status 가 %d 회 돌았다 (기대 %d) — "+
+			"NFR-GDT-1 은 60 → 15 이하다", sig.calls, want)
 	}
 }

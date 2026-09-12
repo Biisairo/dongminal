@@ -56,7 +56,13 @@ var checkRefFormatFlags = []string{CheckRefFormatBranch, CheckRefFormatNormalize
 // configReadFlags 는 `git config` 를 읽기로 유지하는 플래그다. 값이 필요한 것은
 // `--type=bool` 처럼 `=` 형태로만 받는다 — 값을 별도 인자로 받으면 그것이 플래그의
 // 값인지 설정할 값인지 가릴 수 없다.
-var configReadFlags = []string{"--get", "--get-all", "--list", "--type"}
+//
+// `--default` 는 **`=` 형태만** 받는다 (`configReadFlag` 가 그것을 강제한다).
+// `git config --get --default= <key>` 는 미설정에서 **exit 0 + 빈 출력**이다 —
+// 그 형태가 필요한 이유는 `M6 §3` 의 발견이다: 미설정이 exit 1 이면 실행 기록의
+// `ExitCode` 가 1 이 되고, Console 의 기본 필터가 그것을 **실패한 명령**으로
+// 보인다 (`GP-10` 과 같은 부류 — Console 이 사용자의 이력이 아니게 된다).
+var configReadFlags = []string{"--get", "--get-all", "--list", "--type", "--default"}
 
 // guardArgs 는 읽기 경로의 인자 배열을 검사한다 (FR-GIT-2, 7).
 func guardArgs(args []string) error {

@@ -27,6 +27,10 @@ var writeCommands = map[string]bool{
 	"stash": true, "branch": true, "tag": true,
 	"fetch": true, "pull": true, "push": true,
 	"merge": true, "rebase": true, "cherry-pick": true, "revert": true,
+	// GIT_DETECT_TIER_SRS FR-GDT-19·20: 진행 중 작업의 **출구**로만 쓰인다.
+	// `am` 은 `--continue|--skip|--abort`, `bisect` 는 `reset` 뿐이며 그 한정은
+	// `write.operationVerbs` 가 하고 아래 guard 가 다시 못박는다.
+	"am": true, "bisect": true,
 	"update-ref": true, "symbolic-ref": true,
 	// FR-GIT-269: 원격 목록의 add/remove. 목록 **조회**는 여기 오지 않는다 —
 	// query/remote.go 가 `config --list` 로 이미 얻으므로 읽기 허용 목록을 늘릴
@@ -46,11 +50,53 @@ var writeCommands = map[string]bool{
 // 제공하지 않는 동작이고, 열어 두면 화면에 없는 변경이 API 직접 호출로 들어온다.
 var remoteSubArgs = map[string]int{"add": 2, "remove": 1}
 
-// IsWriteCommand 는 argv 의 하위 명령이 쓰기 목록에 있는지 답한다 (FR-GIT-218).
+// readOnlySubcommands 는 **쓰기 동사 아래의 읽기 하위 명령**이다
+// (GIT_REFRESH_LIFECYCLE_SRS FR-GRF-25 · `GP-10`).
+//
+// `git stash list` 는 `argv[0]=="stash"` 라 쓰기 동사를 쓰지만 저장소를 바꾸지
+// 않는다. 그런데 `IsWriteCommand` 가 `argv[0]` 만 보던 탓에 **쓰기로 기록**됐고,
+// 관측 회차마다 `_reloadViews` 가 그것을 실행하므로 Console 맨 위는 사용자가 친
+// 적 없는 `stash list` 가 됐다 (e2e `git-console` K2 · `git-view-refresh` G3·G5).
+//
+// **실행 게이트는 이 표를 보지 않는다** (FR-GRF-26). `ExecWrite` 의 허용목록은
+// 여전히 `writeCommands` 이고 두 목록의 교집합은 그대로 비어 있다 (FR-GIT-95) —
+// 달라지는 것은 기록의 분류뿐이다.
+//
+// 값이 빈 집합이면 "인자 없는 형태가 읽기" 라는 뜻이다 (`git branch` 는 목록,
+// `git remote` 도 목록).
+var readOnlySubcommands = map[string]map[string]bool{
+	"stash":  {"list": true, "show": true},
+	"branch": {"--list": true, "-l": true, "--show-current": true},
+	"tag":    {"-l": true, "--list": true},
+	"remote": {"-v": true, "--verbose": true, "show": true},
+}
+
+// bareIsRead 는 인자 없는 형태가 읽기인 동사다. `git branch`·`git remote`·
+// `git tag` 는 인자가 없으면 목록을 낸다.
+var bareIsRead = map[string]bool{"branch": true, "remote": true, "tag": true}
+
+// IsWriteCommand 는 argv 가 저장소를 바꾸는 실행인지 답한다 (FR-GIT-218).
+//
+// 판정은 **(동사, 하위명령) 쌍**이다 (FR-GRF-25). 동사만 보면 같은 동사 아래의
+// 읽기가 전부 쓰기로 기록된다.
+//
 // 목록을 두 벌 두지 않으려고 노출한다 — Console 이 감추는 기준과 ExecWrite 가
 // 막는 기준이 어긋나면, 화면이 "쓰기가 아니다" 라고 한 것이 실제로는 쓰기다.
 func IsWriteCommand(argv []string) bool {
-	return len(argv) > 0 && writeCommands[argv[0]]
+	if len(argv) == 0 || !writeCommands[argv[0]] {
+		return false
+	}
+	if len(argv) == 1 {
+		return !bareIsRead[argv[0]]
+	}
+	subs := readOnlySubcommands[argv[0]]
+	if subs == nil {
+		return true
+	}
+	// 첫 인자 하나로 가른다. `stash show --name-status -z <ref>` 처럼 뒤에 무엇이
+	// 붙어도 그 실행이 읽기라는 사실은 바뀌지 않는다 — 반대로 `stash push -u` 는
+	// 첫 인자가 목록에 없으므로 쓰기로 남는다.
+	return !subs[argv[1]]
 }
 
 // WriteSpec 은 쓰기 한 번의 요청이다.
@@ -114,6 +160,31 @@ func GuardWriteArgs(args []string) error {
 	}
 	if args[0] == "init" {
 		return guardInitArgs(args[1:])
+	}
+	if sub, ok := opOnlySubcommands[args[0]]; ok {
+		return guardOpOnlyArgs(args[0], args[1:], sub)
+	}
+	return nil
+}
+
+// opOnlySubcommands 는 **진행 중 작업의 출구로만** 쓰이는 동사와 그 허용 모양이다
+// (GIT_DETECT_TIER_SRS FR-GDT-20).
+//
+// `am`·`bisect` 는 이 표면이 **시작하지 않는** 명령이다 — 사용자가 터미널에서
+// 시작한 것을 GUI 가 끝내거나 중단할 수 있게 할 뿐이다. 그래서 시작 갈래
+// (`am <mbox>`·`bisect start`)를 열지 않는다. `guardInitArgs` 와 같은 근거다:
+// 화면에 없는 동작이 API 직접 호출로 들어오지 않게 한다.
+var opOnlySubcommands = map[string]map[string]bool{
+	"am":     {"--continue": true, "--skip": true, "--abort": true},
+	"bisect": {"reset": true},
+}
+
+func guardOpOnlyArgs(verb string, rest []string, allow map[string]bool) error {
+	if len(rest) != 1 {
+		return fmt.Errorf("%w: git %s 는 하위 명령 하나만 받는다: %q", ErrUnsafeArgument, verb, rest)
+	}
+	if !allow[rest[0]] {
+		return fmt.Errorf("%w: git %s 의 %q 는 이 표면이 제공하지 않는다", ErrUnsafeArgument, verb, rest[0])
 	}
 	return nil
 }

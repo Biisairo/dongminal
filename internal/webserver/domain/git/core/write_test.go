@@ -323,3 +323,60 @@ func TestOutput_StderrTail(t *testing.T) {
 		t.Fatal("빈 stderr 가 빈 문자열이 아니다")
 	}
 }
+
+// ── 쓰기 분류 (GIT_REFRESH_LIFECYCLE_SRS FR-GRF-25~27 · V-GRF-11·12) ──
+
+// TC-GRF-1: `IsWriteCommand` 는 (동사, 하위명령) 쌍으로 판정한다.
+//
+// 동사만 보면 같은 동사 아래의 읽기가 전부 쓰기로 기록되고, 관측이 그것을
+// 회차마다 실행하므로 Console 맨 위가 사용자가 친 적 없는 명령이 된다 (`GP-10`).
+func TestIsWriteCommand_VerbAndSubcommand(t *testing.T) {
+	for _, tc := range []struct {
+		argv []string
+		want bool
+	}{
+		// 읽기 — 쓰기 동사 아래의 조회
+		{[]string{"stash", "list", "--format=%gd"}, false},
+		{[]string{"stash", "show", "--name-status", "-z", "stash@{0}"}, false},
+		{[]string{"branch", "--list"}, false},
+		{[]string{"branch", "-l"}, false},
+		{[]string{"branch", "--show-current"}, false},
+		{[]string{"branch"}, false},
+		{[]string{"tag", "-l"}, false},
+		{[]string{"tag"}, false},
+		{[]string{"remote", "-v"}, false},
+		{[]string{"remote", "show", "origin"}, false},
+		{[]string{"remote"}, false},
+		// 쓰기 — 같은 동사라도 하위 명령이 다르면 쓰기다
+		{[]string{"stash", "push", "-u"}, true},
+		{[]string{"stash", "drop", "stash@{0}"}, true},
+		{[]string{"stash"}, true},
+		{[]string{"branch", "-d", "feat"}, true},
+		{[]string{"branch", "feat"}, true},
+		{[]string{"tag", "v1"}, true},
+		{[]string{"remote", "add", "origin", "url"}, true},
+		{[]string{"add", "-A"}, true},
+		{[]string{"commit"}, true},
+		// 쓰기 목록 밖은 여전히 거짓이다 — "쓰기가 아니다" 가 아니라 "목록에 없다"
+		{[]string{"status"}, false},
+		{[]string{"worktree", "list"}, false},
+		{nil, false},
+	} {
+		if got := IsWriteCommand(tc.argv); got != tc.want {
+			t.Errorf("IsWriteCommand(%q) = %v, want %v", tc.argv, got, tc.want)
+		}
+	}
+}
+
+// TC-GRF-2: 분류가 바뀌어도 **실행 게이트는 그대로다** (FR-GRF-26).
+//
+// `stash list` 는 읽기로 기록되지만 여전히 `ExecWrite` 로만 실행할 수 있다 —
+// `Exec` 은 쓰기 동사를 막고 그 판정은 `argv[0]` 의 것이다.
+func TestReadOnlySubcommand_StillGatedAsWrite(t *testing.T) {
+	s := New(WithRunner(func(_ context.Context, _ string, _ []string) (Output, error) {
+		return Output{}, nil
+	}))
+	if _, err := s.Exec(context.Background(), t.TempDir(), "stash", "list"); err == nil {
+		t.Fatal("Exec 이 쓰기 동사를 통과시켰다 — 게이트는 argv[0] 로 남아야 한다 (FR-GIT-95)")
+	}
+}
