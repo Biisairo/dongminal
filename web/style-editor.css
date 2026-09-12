@@ -245,13 +245,13 @@ body.mobile .ed-row{height:var(--touch-min)}
 .ed-find{
   position:fixed;inset:0;z-index:var(--z-modal);display:none;
   justify-content:center;align-items:flex-start;padding-top:12vh;
-  background:rgba(0,0,0,.35);
+  background:var(--backdrop-soft);
 }
 .ed-find.vis{display:flex}
 .ed-find-box{
   width:min(720px,92vw);max-height:70vh;display:flex;flex-direction:column;
-  background:var(--sidebar-bg,#16161e);border:1px solid var(--border);
-  border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.5);overflow:hidden;
+  background:var(--sidebar-bg);border:1px solid var(--border);
+  border-radius:8px;box-shadow:var(--shadow-2);overflow:hidden;
 }
 .ed-find-q{
   flex:0 0 auto;padding:10px 12px;border:none;outline:none;font-size:var(--fs-lg);
@@ -285,8 +285,8 @@ body.mobile .ed-row{height:var(--touch-min)}
 .fe-find{
   position:absolute;top:6px;right:18px;z-index:var(--z-raised);display:none;
   align-items:center;gap:4px;padding:4px 6px;
-  background:var(--sidebar-bg,#16161e);border:1px solid var(--border);
-  border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.45);
+  background:var(--sidebar-bg);border:1px solid var(--border);
+  border-radius:6px;box-shadow:var(--shadow-1);
 }
 .fe-find.vis{display:flex}
 .fe-find-q{
@@ -356,9 +356,9 @@ body.mobile .ed-row{height:var(--touch-min)}
   position:fixed;z-index:var(--z-popover);left:50%;top:50%;transform:translate(-50%,-50%);
   display:flex;flex-direction:column;gap:6px;
   width:min(560px,calc(100vw - 32px));padding:12px;
-  background:var(--sidebar-bg,#16161e);border:1px solid var(--accent,#7aa2f7);
-  border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,.6);
-  color:var(--text-bright,#c0caf5);font-size:var(--fs-md);
+  background:var(--sidebar-bg);border:1px solid var(--accent);
+  border-radius:8px;box-shadow:var(--shadow-2);
+  color:var(--text-bright);font-size:var(--fs-md);
 }
 .tc-copy-head{font-weight:600}
 .tc-copy-why{color:var(--text-hint);font-size:var(--fs-sm)}
@@ -374,7 +374,7 @@ body.mobile .ed-row{height:var(--touch-min)}
 .tc-copy-row button{
   border:none;border-radius:5px;padding:6px 12px;font:inherit;font-weight:600;
 }
-.tc-copy-do{background:var(--accent,#7aa2f7);color:#16161e}
+.tc-copy-do{background:var(--accent);color:var(--bg)}
 .tc-copy-close{background:var(--border);color:var(--text-bright)}
 
 /* ── 코드 탐색: 언어 서버의 관측 (EDITOR_LSP_SRS 묶음 A · FR-LSP-46) ──
@@ -415,8 +415,8 @@ body.mobile .ed-row{height:var(--touch-min)}
   position:absolute;top:6px;right:18px;z-index:var(--z-raised);
   max-width:min(520px,72%);padding:5px 10px;
   border:1px solid var(--border);border-radius:6px;
-  background:var(--sidebar-bg,#16161e);color:var(--text-bright);
-  font-size:var(--fs-sm);line-height:1.4;box-shadow:0 4px 16px rgba(0,0,0,.45);
+  background:var(--sidebar-bg);color:var(--text-bright);
+  font-size:var(--fs-sm);line-height:1.4;box-shadow:var(--shadow-1);
   opacity:0;pointer-events:none;transition:opacity .12s;
   overflow-wrap:anywhere;
 }
@@ -431,7 +431,7 @@ body.mobile .ed-row{height:var(--touch-min)}
   position:absolute;top:0;left:0;right:0;z-index:var(--z-raised);
   display:flex;align-items:center;gap:8px;padding:6px 10px;
   border-bottom:1px solid var(--border);
-  background:var(--sidebar-bg,#16161e);
+  background:var(--sidebar-bg);
   font-size:var(--fs-sm);line-height:1.5;
 }
 .fe-offer-msg{flex:1 1 auto;min-width:0;color:var(--text);overflow-wrap:anywhere}

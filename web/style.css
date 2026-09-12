@@ -69,6 +69,30 @@
   --z-modal:400;     /* 앱을 덮는 차단 화면 — 모달 상자·확인창·부팅 화면 */
   --z-popover:500;   /* 모달 위에 뜨는 것 — 메뉴·토스트·HUD·드롭다운 */
   --z-edge:600;      /* 창 수준의 비상호작용 표식 — 포커스·알림 테두리 */
+
+  /* DESIGN_TOKENS_SRS FR-TOK-6 (`UX-14`): 백드롭과 그림자. 착수 시 `:root` 밖
+     검정 리터럴이 백드롭 12곳(알파 여섯 종)·그림자 23곳(geometry 11종 × 알파
+     다섯 종)이었다.
+
+     **백드롭이 둘인 것은 뜻이 둘이기 때문이다** (사용자 결정 2026-09-13).
+     `--backdrop` 은 **막는다** — 모달이 떠 있는 동안 뒤를 만지지 않는다.
+     `--backdrop-soft` 는 **뒤가 보여야 한다** — `.pn-dimmed` 의 "클릭하여 포커스"
+     는 도는 터미널 위에 얹히고, 그 터미널이 보이는 것이 그 오버레이의 요구다
+     (.6 으로 덮으면 "이 칸은 다른 창이 가진다" 가 "이 칸을 보지 말라" 가 된다).
+
+     **그림자는 색이 아니라 전체 값이다** (사용자 결정 2026-09-13). 알파만
+     토큰화하면 `0 1px 4px`·`0 2px 12px`·`0 4px 16px`·`0 6px 20px`·`0 6px 24px`·
+     `0 8px 32px` 일곱이 남고, 그것은 글자 크기 12종·z-index 28값과 **정확히 같은
+     부류**다 — 값이 뜻을 말하지 않으면 다음 사람은 옆줄을 베껴 쓴다. 뜻은 둘이다:
+     화면에 붙은 것(`-1`)과 떠 있는 것(`-2`).
+
+     라이트 테마에서 검정 그림자가 무거운 것은 이 문서의 범위가 아니다 (§8) —
+     여기 값은 테마와 무관한 상수이고, 테마별 파생이 필요해지면 그때 이 토큰이
+     `applyThemeObj` 로 옮겨간다. */
+  --backdrop:rgba(0,0,0,.6);
+  --backdrop-soft:rgba(0,0,0,.4);
+  --shadow-1:0 2px 10px rgba(0,0,0,.4);
+  --shadow-2:0 8px 32px rgba(0,0,0,.5);
   --bg:#1a1b26;--sidebar-bg:#16161e;--border:#292e42;
   --accent:#7aa2f7;--text:#a9b1d6;--text-muted:#8b95bf;
   --text-bright:#c0caf5;--text-dim:#414868;--danger:#f7768e;
@@ -102,6 +126,12 @@
   --git-sec-divider:2px solid var(--border-strong);
   --accent-hover:rgba(122,162,247,.1);--accent-active:rgba(122,162,247,.12);
   --accent-subtle:rgba(122,162,247,.08);
+  /* DESIGN_TOKENS_SRS FR-TOK-7 (`UX-14`): 위험 틴트. 착수 시 `rgba(247,118,142,α)`
+     가 11곳에 알파 여섯 종(.12 .14 .15 .18 .2 .25)으로 흩어져 있었다 — 기본
+     테마에서만 맞고 나머지 53종에서 어긋난다. 뜻은 둘이다: 쉬는 배경과 hover.
+     `--accent-*` 와 같이 `applyThemeObj` 가 테마의 `danger` 에서 파생한다. */
+  --danger-subtle:rgba(247,118,142,.12);
+  --danger-strong:rgba(247,118,142,.2);
   --attn:#e0af68;--attn-subtle:rgba(224,175,104,.16);--attn-glow:rgba(224,175,104,.5);
   /* UX_REVISION_SRS FR-STC-1~3 · EDITOR_TAB_SRS FR-EDT-70: 상태문자의 초록.
      전역 테마에 "추가" 색이 없으므로 값을 **이 한 자리에서** 정한다. Git 패널
@@ -173,7 +203,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   color:var(--text-muted);opacity:0;cursor:pointer;border-radius:2px;
 }
 .sbl-item:hover .sbl-x{opacity:1}
-.sbl-x:hover{color:var(--danger-text);background:rgba(247,118,142,.2)}
+.sbl-x:hover{color:var(--danger-text);background:var(--danger-strong)}
 /* 배지는 창 목록에 아직 없지만 자리는 공통이다 — 다음 탭이 그냥 쓴다. */
 .sbl-badge{
   flex-shrink:0;min-width:16px;padding:0 4px;border-radius:8px;text-align:center;
@@ -227,7 +257,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
    스스로 사라져야 하고, 그동안 사용자가 다른 창을 보는 것을 막을 이유가 없다. */
 .sbx-progress{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:var(--z-popover);
   padding:8px 14px;font-size:var(--fs-md);color:var(--text-bright);background:var(--bg-alt);
-  border:1px solid var(--border);border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.35)}
+  border:1px solid var(--border);border-radius:4px;box-shadow:var(--shadow-1)}
 /* FR-SPK-7: 고를 것이 하나뿐일 때 늘리는 길. */
 .sbx-hint{margin:10px 0 0;font-size:var(--fs-sm);color:var(--text-hint)}
 .sbx-settings{margin-left:8px;padding:2px 8px;font-size:var(--fs-sm);background:transparent;
@@ -413,7 +443,7 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
   display:none;position:fixed;z-index:var(--z-popover);
   min-width:200px;max-width:320px;max-height:60vh;overflow-y:auto;
   background:var(--sidebar-bg);border:1px solid var(--attn);border-radius:6px;
-  box-shadow:0 4px 16px rgba(0,0,0,.4);padding:4px;
+  box-shadow:var(--shadow-1);padding:4px;
 }
 #attn-center.open{display:block}
 .attn-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px 8px;border-bottom:1px solid var(--border);margin-bottom:4px}
@@ -692,7 +722,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 /* ── Modal ── */
 #modal-overlay{
   position:fixed;inset:0;z-index:var(--z-modal);
-  background:rgba(0,0,0,.55);backdrop-filter:blur(2px);
+  background:var(--backdrop);backdrop-filter:blur(2px);
   display:none;align-items:center;justify-content:center;
 }
 #modal-overlay.open{display:flex}
@@ -713,7 +743,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   width:min(760px,94vw);height:min(80vh,720px);
   background:var(--bg);border:1px solid var(--border);border-radius:10px;
   display:flex;flex-direction:column;overflow:hidden;
-  box-shadow:0 8px 32px rgba(0,0,0,.5);
+  box-shadow:var(--shadow-2);
 }
 .modal-header{
   display:flex;align-items:center;justify-content:space-between;
@@ -836,7 +866,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .sc-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 .sc-group-title{font-size:var(--fs-sm);font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--accent-text);margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
 .sc-group-title:first-child{margin-top:0}
-.sc-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.sc-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)}
 .sc-row>span{color:var(--text);font-size:var(--fs-md);flex:1;min-width:0}
 .sc-btns{display:flex;align-items:center;gap:4px;flex-shrink:0}
 .sc-key{
@@ -883,7 +913,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 .tp.dragover::after{
   content:'Drop files here';position:absolute;inset:0;
   display:flex;align-items:center;justify-content:center;
-  background:rgba(0,0,0,.6);border:2px dashed var(--accent);
+  background:var(--backdrop);border:2px dashed var(--accent);
   color:var(--accent-text);font-size:var(--fs-lg);z-index:var(--z-overlay);pointer-events:none;
 }
 /* ── 전송 알림 팝업 (TERM_XFER_NOTICE_SRS FR-TXN-2·7, NFR-TXN-3) ──
@@ -899,7 +929,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   pointer-events:auto;cursor:pointer;max-width:min(70vw,420px);
   padding:6px 12px;font-size:var(--fs-md);border-radius:6px;
   background:var(--bg);color:var(--text-muted);
-  border:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,.5);
+  border:1px solid var(--border);box-shadow:var(--shadow-2);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .toast.ok{border-color:var(--accent-border);color:var(--text-bright)}
@@ -918,7 +948,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 .tp-overlay{
   position:absolute;inset:0;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:6px;
-  background:rgba(0,0,0,.7);z-index:var(--z-overlay);
+  background:var(--backdrop);z-index:var(--z-overlay);
   opacity:0;transition:opacity .3s;pointer-events:none;
 }
 .tp-overlay.visible{opacity:1}
@@ -937,7 +967,7 @@ body.mobile .tp-ov-acts .tbtn{min-height:var(--touch-min);padding:0 14px}
   content:'클릭하여 포커스';
   position:absolute;inset:0;z-index:var(--z-overlay);
   display:flex;align-items:center;justify-content:center;
-  background:rgba(0,0,0,.4);backdrop-filter:blur(2px);
+  background:var(--backdrop-soft);backdrop-filter:blur(2px);
   color:var(--text-muted);font-size:var(--fs-lg);font-weight:400;
   letter-spacing:.05em;
   pointer-events:none;
@@ -961,7 +991,7 @@ body.mobile .tp-ov-acts .tbtn{min-height:var(--touch-min);padding:0 14px}
   flex-shrink:0;max-width:100%;white-space:nowrap;margin-left:-1px}
 .sb-item+.sb-item{border-left:1px solid var(--border)}
 .sb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-.sb-dot.ok{background:#4caf50}
+.sb-dot.ok{background:var(--term-green)}
 .sb-dot.err{background:var(--danger)}
 .sb-sep{color:var(--border);margin:0 2px}
 
@@ -969,7 +999,7 @@ body.mobile .tp-ov-acts .tbtn{min-height:var(--touch-min);padding:0 14px}
 /* FR-UIK-13: 스크롤은 `.modal-body` 하나다 (종전 `max-height:60vh` 를 걷었다) —
    `.sc-list` 가 이미 같은 이유로 비어 있다. */
 .sb-settings{}
-.sbs-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.sbs-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid var(--border)}
 .sbs-row span{color:var(--text);font-size:var(--fs-md)}
 .sbs-row>span{flex:1 1 auto;min-width:0;line-height:1.5;overflow-wrap:anywhere}
 .sbs-row>:not(span){flex:0 0 auto}
@@ -1001,17 +1031,17 @@ body.mobile .tp-ov-acts .tbtn{min-height:var(--touch-min);padding:0 14px}
   border-radius:4px;font-size:var(--fs-md);opacity:.5;transition:opacity .15s,color .15s,background .15s;
 }
 .preset-btn:hover{opacity:1;color:var(--accent-text);background:var(--accent-hover)}
-.preset-btn.del:hover{color:var(--danger-text);background:rgba(255,80,80,.1)}
+.preset-btn.del:hover{color:var(--danger-text);background:var(--danger-subtle)}
 /* ── Confirm Dialog ── */
 .confirm-overlay{
   position:fixed;inset:0;z-index:var(--z-modal);
-  background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
+  background:var(--backdrop);backdrop-filter:blur(2px);
   display:flex;align-items:center;justify-content:center;
 }
 .confirm-box{
   background:var(--bg);border:1px solid var(--border);border-radius:8px;
   padding:20px 24px;min-width:280px;
-  box-shadow:0 8px 32px rgba(0,0,0,.5);
+  box-shadow:var(--shadow-2);
 }
 .confirm-msg{color:var(--text-bright);font-size:var(--fs-lg);margin-bottom:16px;line-height:1.5}
 /* 알림 본문은 런타임이 낸 오류를 그대로 싣는다 — 길고 개행이 있다. 자르면
@@ -1024,8 +1054,8 @@ body.mobile .tp-ov-acts .tbtn{min-height:var(--touch-min);padding:0 14px}
   padding:6px 16px;border-radius:4px;border:1px solid transparent;
   background:transparent;font-size:var(--fs-md);cursor:pointer;font-family:inherit;
 }
-.confirm-ok{border-color:var(--danger);background:rgba(247,118,142,.15);color:var(--danger-text)}
-.confirm-ok:hover{background:rgba(247,118,142,.25)}
+.confirm-ok{border-color:var(--danger);background:var(--danger-subtle);color:var(--danger-text)}
+.confirm-ok:hover{background:var(--danger-strong)}
 .confirm-save{border-color:var(--accent);background:var(--accent-subtle);color:var(--accent-text)}
 .confirm-save:hover{background:var(--accent-hover)}
 .confirm-bg{border-color:var(--accent-border);color:var(--accent-text)}
@@ -1046,7 +1076,7 @@ body.mobile .tp-ov-acts .tbtn{min-height:var(--touch-min);padding:0 14px}
 
 /* ── Display Settings ── */
 .display-settings{display:flex;flex-direction:column;gap:10px}
-.ds-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.ds-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid var(--border)}
 .ds-row span{color:var(--text);font-size:var(--fs-md)}
 /* FR-UIK-14: 라벨이 길면 **줄을 바꾼다.** 종전에는 줄지 않는 글자가 손잡이를
    오른쪽으로 밀어 본문에 가로 막대를 세웠다. 손잡이 쪽은 줄지 않는다 — 줄어야
@@ -1210,11 +1240,11 @@ body.mobile #sidebar{
   transform:translateY(-100%);
   transition:transform .22s ease;
   border-right:none;border-bottom:1px solid var(--border);
-  box-shadow:0 6px 20px rgba(0,0,0,.45);
+  box-shadow:var(--shadow-2);
   overflow-y:auto;
 }
 body.mobile.drawer-open #sidebar{transform:translateY(0)}
-#drawer-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:var(--z-overlay);opacity:0;transition:opacity .2s ease}
+#drawer-backdrop{display:none;position:fixed;inset:0;background:var(--backdrop);z-index:var(--z-overlay);opacity:0;transition:opacity .2s ease}
 body.mobile.drawer-open #drawer-backdrop{display:block;opacity:1}
 
 /* drawer close button shown only on mobile when drawer open */
@@ -1277,7 +1307,7 @@ body.mobile #window-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;wh
   padding:6px 10px;background:var(--sidebar-bg);border:1px solid var(--accent-border);
   border-radius:6px;color:var(--text-bright);font-size:var(--fs-md);pointer-events:none;
   z-index:var(--z-popover);white-space:nowrap;
-  box-shadow:0 2px 12px rgba(0,0,0,.5);
+  box-shadow:var(--shadow-1);
 }
 
 /* keybar sits above safe area when keyboard is up; JS sets bottom dynamically (visibility handled at L392) */
@@ -1377,13 +1407,13 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
 body.mobile #bg-btn{padding:4px 6px}
 .bg-modal{
   position:fixed;inset:0;z-index:var(--z-modal);
-  background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
+  background:var(--backdrop);backdrop-filter:blur(2px);
   display:flex;align-items:center;justify-content:center;
 }
 .bg-box{
   min-width:280px;max-width:min(520px,90vw);max-height:70vh;overflow-y:auto;
   background:var(--bg);border:1px solid var(--border);border-radius:8px;
-  box-shadow:0 8px 32px rgba(0,0,0,.5);padding:4px;font-size:var(--fs-md);
+  box-shadow:var(--shadow-2);padding:4px;font-size:var(--fs-md);
 }
 .bg-box .bg-head{padding:8px 10px;color:var(--text-muted);border-bottom:1px solid var(--border)}
 .bg-box .bg-empty{padding:10px;color:var(--text-muted)}
@@ -1438,6 +1468,11 @@ body.mobile #bg-btn{padding:4px 6px}
 :root{
   --boot-brand:#4F8461;
   --boot-brand-lit:#6fae83;
+  /* FR-TOK-29: 발광과 그림자도 브랜드에서 온다. 값이 `--boot-brand`(79,132,97)와
+     그보다 어두운 한 단(53,97,70)이라는 것이 위 문단의 "같은 물건" 규약이다 —
+     테마 토큰이 아니므로 파생하지 않고 여기 둔다. */
+  --boot-glow:rgba(79,132,97,.09);
+  --boot-shadow:rgba(53,97,70,.34);
 }
 #boot{
   position:fixed;inset:0;z-index:var(--z-modal);
@@ -1445,7 +1480,7 @@ body.mobile #bg-btn{padding:4px 6px}
   /* 바탕의 은은한 발광 — 로고가 화면에 놓인 것이 아니라 **떠 있게** 보인다.
      넓게 깔면 **밝은 테마에서 얼룩이 된다**(실측): 흰 바탕은 옅은 색을 숨겨 주지
      않는다. 좁고 옅게 둔다. */
-  background:radial-gradient(34% 30% at 50% 45%,rgba(79,132,97,.09),transparent 70%),var(--bg);
+  background:radial-gradient(34% 30% at 50% 45%,var(--boot-glow),transparent 70%),var(--bg);
   color:var(--text-muted);
   transition:opacity .18s ease;
 }
@@ -1455,7 +1490,7 @@ body.mobile #bg-btn{padding:4px 6px}
 .boot-logo{
   width:84px;height:84px;
   /* 같은 이유로 그림자도 좁다 — 밝은 바탕에서 넓은 그림자는 탁한 회색 원이 된다. */
-  filter:drop-shadow(0 8px 18px rgba(53,97,70,.34));
+  filter:drop-shadow(0 8px 18px var(--boot-shadow));
   animation:boot-breathe 3.2s ease-in-out infinite;
 }
 .boot-name{margin-top:20px;font-size:var(--fs-lg);letter-spacing:.16em;color:var(--text-bright);opacity:.94}
@@ -1633,6 +1668,6 @@ html.attn-edge-on #focus-edge{opacity:0}
   padding:8px 12px;border-radius:6px;z-index:var(--z-popover);
   background:var(--bg-alt);color:var(--text-bright);
   border:1px solid var(--border);
-  box-shadow:0 4px 16px rgba(0,0,0,.35);
+  box-shadow:var(--shadow-1);
   font-size:var(--fs-md);max-width:min(560px,92vw);
 }

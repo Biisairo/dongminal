@@ -400,7 +400,7 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 /* ── 파괴적 동작 확인 (FR-GIT-90~97·174~178) ── */
 .gc-modal{
   position:fixed;inset:0;z-index:var(--z-modal);
-  background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
+  background:var(--backdrop);backdrop-filter:blur(2px);
   display:flex;align-items:center;justify-content:center;
 }
 /* 테두리 색이 파괴적이라는 사실을 먼저 알린다 */
@@ -408,7 +408,7 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
   display:flex;flex-direction:column;
   min-width:300px;max-width:min(560px,92vw);max-height:80vh;
   background:var(--bg);border:1px solid var(--danger);border-radius:8px;
-  box-shadow:0 8px 32px rgba(0,0,0,.5);font-size:var(--fs-md);color:var(--text);
+  box-shadow:var(--shadow-2);font-size:var(--fs-md);color:var(--text);
 }
 .gc-head{flex:0 0 auto;padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text-bright)}
 /* FR-GIT-178: 목록 위에 알리기만 한다 — 실행을 막지 않는다 */
@@ -844,7 +844,7 @@ select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
   padding:2px 4px;
   background:var(--sidebar-bg);
   border:1px solid var(--border);border-radius:4px;
-  box-shadow:0 1px 4px rgba(0,0,0,.3);
+  box-shadow:var(--shadow-1);
   /* diff 의 글자 위에 겹쳐 뜨므로 그 위여야 한다. */
   z-index:var(--z-raised);
 }
@@ -925,13 +925,13 @@ select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
    규약이라는 사실이 화면에서 사라진다. */
 .runs-modal{
   position:fixed;inset:0;z-index:var(--z-modal);
-  background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
+  background:var(--backdrop);backdrop-filter:blur(2px);
   display:flex;align-items:center;justify-content:center;
 }
 .runs-box{
   min-width:360px;max-width:min(680px,92vw);max-height:70vh;overflow-y:auto;
   background:var(--bg);border:1px solid var(--border);border-radius:8px;
-  box-shadow:0 8px 32px rgba(0,0,0,.5);padding:4px;font-size:var(--fs-md);
+  box-shadow:var(--shadow-2);padding:4px;font-size:var(--fs-md);
 }
 .runs-box .runs-head{padding:8px 10px;color:var(--text-muted);border-bottom:1px solid var(--border)}
 .runs-box .runs-err{padding:10px;color:var(--danger-text)}
@@ -971,11 +971,11 @@ select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
    색이 같으면 두 버튼이 같은 일을 한다고 읽힌다. */
 .runs-box .runs-close:hover{color:var(--accent-text);border-color:var(--accent)}
 .runs-box .runs-del{padding:2px 8px;color:var(--text-muted);border-color:var(--border)}
-.runs-box .runs-del:hover{color:var(--danger-text);border-color:var(--danger);background:rgba(247,118,142,.12)}
+.runs-box .runs-del:hover{color:var(--danger-text);border-color:var(--danger);background:var(--danger-subtle)}
 .runs-box .runs-confirm{display:inline-flex;gap:6px;align-items:center}
 .runs-box .runs-q{color:var(--text-bright);font-size:var(--fs-sm);white-space:nowrap}
 .runs-box .runs-yes{padding:2px 8px;color:var(--danger-text);border-color:var(--danger)}
-.runs-box .runs-yes:hover{background:rgba(247,118,142,.18);color:var(--danger-text);border-color:var(--danger)}
+.runs-box .runs-yes:hover{background:var(--danger-strong);color:var(--danger-text);border-color:var(--danger)}
 .runs-box .runs-no{padding:2px 8px}
 .runs-box .runs-deleting{color:var(--text-muted);font-size:var(--fs-sm);white-space:nowrap}
 .runs-box .runs-err-inline{color:var(--danger-text);font-size:var(--fs-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1017,7 +1017,7 @@ body.mobile .runs-box .runs-del,body.mobile .runs-box .runs-close{min-height:var
 /* FR-RVZ-12: 노드 시각 규약. 색은 전부 테마 변수다.
    `--run-ok` 만 여기서 정한다 — 전역 테마에 "성공" 색이 없다 (`--git-st-add` 가
    style.css 에서 세운 것과 같은 규약이며, 값을 두는 자리는 이 한 곳이다). */
-.run-view{--run-ok:#9ece6a}
+.run-view{--run-ok:var(--term-green)}
 .run-view .run-node .run-node-box{fill:var(--sidebar-bg);stroke:var(--border);stroke-width:1.5}
 .run-view .run-node .run-node-role{fill:var(--text-bright);font-size:var(--fs-md);font-family:inherit}
 .run-view .run-node .run-node-sub{fill:var(--text-muted);font-size:var(--fs-sm);font-family:inherit}
@@ -1171,12 +1171,12 @@ body.mobile .sb-tab-badge{min-width:18px;padding:0 6px;font-size:var(--fs-sm);li
 /* FR-BGK-2: 항상 보인다. hover 게이팅하지 않는다 — 터치 기기에 hover 가 없고,
    `.git-repo-x` 의 opacity:0 규약을 여기서 되풀이하지 않는다. */
 .bg-box .bg-kill{padding:2px 8px;color:var(--text-muted);border-color:var(--border)}
-.bg-box .bg-kill:hover{color:var(--danger-text);border-color:var(--danger);background:rgba(247,118,142,.12)}
+.bg-box .bg-kill:hover{color:var(--danger-text);border-color:var(--danger);background:var(--danger-subtle)}
 /* FR-BGK-4: 인라인 확인 — 행 안에서 바뀐다. 모달 위의 모달을 띄우지 않는다. */
 .bg-box .bg-confirm{display:inline-flex;gap:6px;align-items:center}
 .bg-box .bg-q{color:var(--text-bright);font-size:var(--fs-sm);white-space:nowrap}
 .bg-box .bg-yes{padding:2px 8px;color:var(--danger-text);border-color:var(--danger)}
-.bg-box .bg-yes:hover{background:rgba(247,118,142,.18);color:var(--danger-text);border-color:var(--danger)}
+.bg-box .bg-yes:hover{background:var(--danger-strong);color:var(--danger-text);border-color:var(--danger)}
 .bg-box .bg-no{padding:2px 8px}
 .bg-box .bg-killing{color:var(--text-muted);font-size:var(--fs-sm);white-space:nowrap}
 /* FR-BGK-10: 오류는 행 안에 남는다 — 모달을 닫지 않는다. */

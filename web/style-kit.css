@@ -83,8 +83,8 @@
 
 .ui-btn-primary{color:var(--accent-text);border-color:var(--accent-border);background:var(--accent-subtle)}
 .ui-btn-primary:hover{background:var(--accent-active);border-color:var(--accent)}
-.ui-btn-danger{color:var(--danger-text);border-color:var(--danger);background:rgba(247,118,142,.12)}
-.ui-btn-danger:hover{background:rgba(247,118,142,.2);color:var(--danger-text);border-color:var(--danger)}
+.ui-btn-danger{color:var(--danger-text);border-color:var(--danger);background:var(--danger-subtle)}
+.ui-btn-danger:hover{background:var(--danger-strong);color:var(--danger-text);border-color:var(--danger)}
 .ui-btn-attn{color:var(--attn-text);border-color:var(--attn-subtle)}
 .ui-btn-attn:hover{background:var(--attn-subtle);color:var(--attn-text);border-color:var(--attn)}
 /* 테두리 없이 사는 버튼 — 행 안의 동작처럼 이웃과 경쟁하지 않아야 하는 자리. */
@@ -116,12 +116,12 @@
 .ui-modal{
   position:fixed;inset:0;z-index:var(--z-modal);
   display:flex;align-items:center;justify-content:center;
-  background:rgba(0,0,0,.55);
+  background:var(--backdrop);
 }
 .ui-modal-box{
   display:flex;flex-direction:column;min-width:280px;max-width:90vw;max-height:82vh;
   background:var(--sidebar-bg);border:1px solid var(--border);border-radius:6px;
-  box-shadow:0 8px 32px rgba(0,0,0,.5);
+  box-shadow:var(--shadow-2);
 }
 .ui-modal-head{
   display:flex;align-items:center;gap:8px;flex:0 0 auto;
@@ -139,7 +139,7 @@
 .ui-menu{
   position:fixed;z-index:var(--z-popover);min-width:160px;padding:3px;
   background:var(--sidebar-bg);border:1px solid var(--border-strong);border-radius:5px;
-  box-shadow:0 6px 20px rgba(0,0,0,.45);font-size:var(--fs-md);color:var(--text);
+  box-shadow:var(--shadow-2);font-size:var(--fs-md);color:var(--text);
 }
 .ui-menu-item{
   display:flex;align-items:center;gap:7px;
@@ -148,7 +148,7 @@
 .ui-menu-item:hover{background:var(--accent-hover);color:var(--accent-text)}
 .ui-menu-item.disabled{opacity:.4;pointer-events:none}
 .ui-menu-item.danger{color:var(--danger-text)}
-.ui-menu-item.danger:hover{background:rgba(247,118,142,.14);color:var(--danger-text)}
+.ui-menu-item.danger:hover{background:var(--danger-subtle);color:var(--danger-text)}
 .ui-menu-sep{height:1px;margin:3px 6px;background:var(--border)}
 .ui-menu-label{padding:5px 10px 3px;color:var(--text-hint);font-size:var(--fs-sm)}
 /* 메뉴 안에 앉는 컨트롤 무리 — 필터·옵션처럼 누르는 것이 아니라 채우는 것들. */
@@ -157,7 +157,7 @@
 /* ── 컨트롤 (FR-UIK-9) ───────────────────────────────────────────────── */
 .ui-field{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
-  padding:6px 0;border-bottom:1px solid rgba(255,255,255,.03);
+  padding:6px 0;border-bottom:1px solid var(--border);
 }
 .ui-field-label{color:var(--text);font-size:var(--fs-md)}
 .ui-input,.ui-select{
@@ -186,7 +186,7 @@
   padding:4px 8px;border:1px solid var(--accent-border);border-radius:var(--ui-radius);
   background:var(--sidebar-bg);color:var(--text-bright);
   font-family:inherit;font-size:var(--fs-sm);line-height:1.35;text-align:center;white-space:nowrap;
-  box-shadow:0 2px 10px rgba(0,0,0,.4);
+  box-shadow:var(--shadow-1);
 }
 /* FR-HSZ-4 / D-4: 한 벌의 내용은 **세로로 쌓인 줄**이다 — 가로로 이으면 좁은
    핸들 옆에서 화면 밖으로 나간다. */

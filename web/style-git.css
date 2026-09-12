@@ -228,7 +228,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
    테두리 색처럼 각자의 것만 덮는다. 파괴적 확인은 `.gc-*` 가 따로 지킨다 */
 .git-dialog{
   position:fixed;inset:0;z-index:var(--z-modal);
-  background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
+  background:var(--backdrop);backdrop-filter:blur(2px);
   display:flex;align-items:center;justify-content:center;
 }
 .git-dialog-box{
@@ -236,7 +236,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
   min-width:300px;max-width:min(520px,92vw);max-height:80vh;
   background:var(--bg);color:var(--text);
   border:1px solid var(--border);border-radius:8px;
-  box-shadow:0 8px 32px rgba(0,0,0,.5);font-size:var(--fs-md);
+  box-shadow:var(--shadow-2);font-size:var(--fs-md);
 }
 .git-dialog-head{flex:0 0 auto;font-size:var(--fs-lg);color:var(--text-bright)}
 /* FR-GIT-178: 상단에 알리기만 한다 — 실행을 막지 않는다 */
@@ -377,7 +377,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
   display:none;position:absolute;left:0;top:calc(100% + 3px);z-index:var(--z-popover);
   min-width:170px;padding:4px;font-size:var(--fs-sm);
   background:var(--bg);border:1px solid var(--border);border-radius:5px;
-  box-shadow:0 6px 24px rgba(0,0,0,.5);
+  box-shadow:var(--shadow-2);
 }
 .git-commit-menu.vis{display:block}
 .git-commit-opt{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:3px;cursor:pointer;color:var(--text)}
@@ -416,7 +416,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
   display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:var(--fs-md);
   background:var(--bg);color:var(--text);
   border:1px solid var(--accent-border);border-radius:6px;
-  box-shadow:0 8px 32px rgba(0,0,0,.5);
+  box-shadow:var(--shadow-2);
 }
 .git-undo-btn{
   font:inherit;font-size:var(--fs-sm);padding:3px 10px;cursor:pointer;
@@ -758,7 +758,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 .git-menu{
   position:fixed;z-index:var(--z-popover);min-width:160px;padding:3px;
   background:var(--bg);border:1px solid var(--border);border-radius:6px;
-  box-shadow:0 8px 32px rgba(0,0,0,.5);font-size:var(--fs-md);color:var(--text);
+  box-shadow:var(--shadow-2);font-size:var(--fs-md);color:var(--text);
 }
 .git-menu-item{padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap}
 .git-menu-item:hover,.git-menu-item.active{background:var(--accent-subtle);color:var(--text-bright)}

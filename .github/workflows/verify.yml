@@ -251,6 +251,14 @@ jobs:
       - name: z-index 층
         run: node scripts/check-z-index.mjs
 
+      # `UX-14`·`UX-15` — 착수 시 `:root` 밖 색 리터럴 116곳이었고 Tokyo Night
+      # 값이 박힌 자리는 **기본 테마에서만 맞고 나머지 53종에서 어긋났다.**
+      # `:root` 안은 통과시킨다: 규칙은 "리터럴을 쓰지 마라" 가 아니라 "리터럴은
+      # 이름을 얻고 한자리에 모여라" 다 (FR-TOK-29). `mask-image` 는 알파만
+      # 읽으므로 범위 밖이고, 건너뛴 수를 출력에 찍는다 — 조용한 예외는 구멍이다.
+      - name: 하드코딩 색
+        run: node scripts/check-hardcoded-color.mjs
+
       # 서식은 취향이 아니라 diff 의 크기다 (TEST-10). 착수 시 1건 위반이 있었다.
       - name: gofmt
         run: |

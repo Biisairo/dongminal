@@ -228,6 +228,10 @@ function applyThemeObj(t){
     '--accent-hover':hexToRgba(ui.accent,.1),
     '--accent-active':hexToRgba(ui.accent,.12),
     '--accent-subtle':hexToRgba(ui.accent,.08),
+    // DESIGN_TOKENS_SRS FR-TOK-7: 위험 틴트도 파생이다. 종전에는 CSS 11곳에
+    // Tokyo Night 의 `rgba(247,118,142,α)` 가 박혀 있어 나머지 53종에서 어긋났다.
+    '--danger-subtle':hexToRgba(ui.danger,.12),
+    '--danger-strong':hexToRgba(ui.danger,.2),
     '--attn':attn,
     '--attn-subtle':hexToRgba(attn,.16),
     '--attn-glow':hexToRgba(attn,.5),

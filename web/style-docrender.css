@@ -136,9 +136,14 @@
   background:color-mix(in srgb,var(--text) 6%,var(--bg));
   color:var(--text-hint);font-size:var(--fs-sm);
 }
+/* FR-TOK-29: 문서의 종이색은 **테마 토큰이 아니다.** 여기 그려지는 것은 우리
+   화면이 아니라 남의 HTML 문서이고, 그 문서는 흰 바탕을 전제로 쓰였다 — 테마를
+   문서에 강요하면 문서가 스스로 정한 색이 읽히지 않게 된다. xterm 캔버스를
+   예외로 둔 것과 같은 논리이며, 예외로 등록하지 않고 **이름을 준다**. */
+:root{--doc-paper:#fff}
 .dr-html{
   flex:1 1 auto;min-height:0;width:100%;border:1px solid var(--border);border-radius:4px;
-  background:#fff;   /* 문서 자신의 배경을 쓴다 — 우리 테마를 문서에 강요하지 않는다 */
+  background:var(--doc-paper);   /* 문서 자신의 배경을 쓴다 — 우리 테마를 문서에 강요하지 않는다 */
 }
 
 /* ── 표 (FR-DRV-16) ── */
