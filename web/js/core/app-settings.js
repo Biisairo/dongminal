@@ -228,8 +228,48 @@ Object.assign(App.prototype, {
   initModal(){
     const overlay=document.getElementById('modal-overlay');
     const modal=document.getElementById('modal');
+    /**
+     * ACCESSIBILITY_BASELINE_SRS FR-A11Y-18 (`UX-3`): 탭 줄이 **tablist** 다.
+     *
+     * 속성을 `index.html` 에 손으로 적지 않는다 — 탭이 열하나이고 하나를 빠뜨리면
+     * 그 탭만 조용히 접근성 트리 밖으로 나간다. `data-tab` 에서 파생하면 탭을
+     * 더하는 사람이 아무것도 기억하지 않아도 된다 (FR-A11Y-13 과 같은 규약).
+     */
+    const tabs=[...modal.querySelectorAll('.mtab')];
+    modal.querySelector('.modal-tabs').setAttribute('role','tablist');
+    for(const t of tabs){
+      const id='panel-'+t.dataset.tab;
+      t.setAttribute('role','tab');
+      t.setAttribute('aria-controls',id);
+      t.setAttribute('aria-selected',String(t.classList.contains('active')));
+      const pn=document.getElementById(id);
+      if(pn){
+        pn.setAttribute('role','tabpanel');
+        if(!t.id)t.id='mtab-'+t.dataset.tab;
+        pn.setAttribute('aria-labelledby',t.id);
+      }
+    }
+    /**
+     * 닫는 길이 셋(닫기 버튼·바깥 클릭·Esc)이므로 **닫는 일도 한 자리**여야 한다.
+     * 종전에는 세 자리가 각자 `classList.remove('open')` 을 불렀고, 그래서
+     * 포커스 복귀를 더하면 세 곳에 같은 줄을 적어야 했다 — 그중 하나를 빠뜨리는
+     * 것이 `UX-3` 가 보고한 부류의 결함이다.
+     */
+    let releaseDlg=null;
+    const closeSettings=()=>{
+      if(!overlay.classList.contains('open'))return;
+      overlay.classList.remove('open');
+      if(releaseDlg){releaseDlg();releaseDlg=null}
+    };
     document.getElementById('settings-btn').addEventListener('click',()=>{
       overlay.classList.add('open');
+      // 연 컨트롤을 **명시로** 든다. `document.activeElement` 에 맡기면 키보드로
+      // 연 경우와 클릭으로 연 경우가 갈린다 (클릭 뒤 포커스가 버튼에 남지 않는
+      // 브라우저가 있다).
+      releaseDlg=UIKit.dialogOpen(modal,{
+        labelledBy:'.modal-title',
+        returnTo:document.getElementById('settings-btn'),
+      });
       this._renderThemePanel();this._renderShortcutList();this._renderPresets();
       const dsMode=document.getElementById('ds-mode');
       const dsBp=document.getElementById('ds-bp');
@@ -256,13 +296,19 @@ Object.assign(App.prototype, {
       // Auto-close drawer when opening settings on mobile
       if(this.isMobile && this.drawerOpen){this._toggleDrawer(false);this.renderer._rTopbar()}
     });
-    document.getElementById('modal-close').addEventListener('click',()=>overlay.classList.remove('open'));
-    overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.remove('open')});
-    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&overlay.classList.contains('open')){e.preventDefault();overlay.classList.remove('open')}});
+    document.getElementById('modal-close').addEventListener('click',closeSettings);
+    overlay.addEventListener('click',e=>{if(e.target===overlay)closeSettings()});
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&overlay.classList.contains('open')){e.preventDefault();closeSettings()}});
     modal.querySelectorAll('.mtab').forEach(tab=>{
       tab.addEventListener('click',()=>{
-        modal.querySelectorAll('.mtab').forEach(t=>t.classList.remove('active'));
+        modal.querySelectorAll('.mtab').forEach(t=>{
+          t.classList.remove('active');
+          // `aria-selected` 와 `.active` 가 **같은 것을 말해야** 한다 — 갈라지면
+          // 화면과 접근성 트리가 다른 탭을 가리킨다 (`TC-A11Y-8b` 가 짝을 본다).
+          t.setAttribute('aria-selected','false');
+        });
         tab.classList.add('active');
+        tab.setAttribute('aria-selected','true');
         modal.querySelectorAll('.mpanel').forEach(p=>p.style.display='none');
         document.getElementById('panel-'+tab.dataset.tab).style.display='';
         if(tab.dataset.tab==='presets')this._renderPresets();

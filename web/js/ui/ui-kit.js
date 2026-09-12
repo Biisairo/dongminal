@@ -131,6 +131,119 @@ const UIKit = {
   },
 
   /**
+   * ACCESSIBILITY_BASELINE_SRS FR-A11Y-18 (`UX-3`) — **모달의 접근성 계약이 한
+   * 자리에 있다.**
+   *
+   * 이것이 골격 수렴(`UX-16` 의 나머지)과 **다른 일**인 것이 요점이다. 요구는
+   * "일곱 모달이 같은 DOM 을 쓴다" 가 아니라 "열면 포커스가 안으로 들어가고 `Tab`
+   * 이 밖으로 나가지 않으며 닫으면 연 컨트롤로 돌아간다" 다. 그것은 **컨테이너
+   * 하나를 받는 함수**로 충분하고, 그래서 골격이 일곱이어도 계약은 한 벌이다.
+   *
+   * ## 왜 스택인가
+   *
+   * 중첩이 실재한다 — 설정 모달의 Access 탭에서 자기 주소를 자르는 목록을
+   * 저장하면 `.acl-confirm` 이 그 위에 뜬다. `Tab` 트랩은 **맨 위 것**만 걸려야
+   * 하고, 닫을 때 포커스는 **그 아래 것**으로 돌아가야 한다.
+   *
+   * `Escape` 순서는 여기서 다루지 않는다. 실측으로 이미 맞다: `modal()` 의
+   * Escape 리스너는 **캡처**이고 `stopPropagation()` 하며, 설정 모달의 것은
+   * **버블**이다 — 그래서 안쪽이 먼저 먹고 바깥은 못 받는다. 맞는 것을 옮기면
+   * 옮기는 동안만 틀릴 수 있으므로 그대로 둔다 (`TC-A11Y-9` 가 고정한다).
+   *
+   * ## 왜 `Tab` 을 캡처에서 잡나
+   *
+   * 트랩은 **다른 누가 처리하기 전에** 걸려야 한다. 그리고 리스너는 하나다 —
+   * 모달마다 하나씩 달면 중첩에서 둘이 같은 키를 두 번 처리한다.
+   */
+  _dlgStack: [],
+  _dlgSeq: 0,
+  _dlgBound: false,
+
+  /** 상자 안에서 `Tab` 이 닿을 수 있는 것들. 보이지 않는 것은 닿지 않는다. */
+  _dlgFocusables(box) {
+    const sel = 'a[href],button,input,select,textarea,summary,[tabindex]';
+    return [...box.querySelectorAll(sel)].filter((e) => {
+      if (e.disabled || e.getAttribute('tabindex') === '-1') return false;
+      // `.mpanel` 은 `display:none` 으로 숨으므로 상자를 뜨지 않아도 걸러진다.
+      return e.getClientRects().length > 0;
+    });
+  },
+
+  _dlgOnKey(e) {
+    if (e.key !== 'Tab') return;
+    const st = UIKit._dlgStack;
+    const top = st[st.length - 1];
+    if (!top || !top.box.isConnected) return;
+    const f = UIKit._dlgFocusables(top.box);
+    if (!f.length) { e.preventDefault(); top.box.focus(); return }
+    const a = document.activeElement;
+    const inside = top.box.contains(a);
+    const first = f[0], last = f[f.length - 1];
+    // 밖에 있으면 방향에 맞는 끝으로 데려온다 — 바깥에서 들어오는 `Tab` 도 트랩의
+    // 일이다. 안에 있으면 경계에서만 감싼다.
+    if (e.shiftKey && (!inside || a === first)) { e.preventDefault(); last.focus() }
+    else if (!e.shiftKey && (!inside || a === last)) { e.preventDefault(); first.focus() }
+  },
+
+  /**
+   * 상자를 모달로 연다. 돌려주는 것은 **닫을 때 부를 함수** 하나다.
+   *
+   * spec: `{labelledBy, label, returnTo, focus}`
+   *   labelledBy  이름을 주는 요소(또는 상자 안의 선택자). id 가 없으면 붙여 준다.
+   *   label       이름을 줄 요소가 없을 때의 `aria-label`.
+   *   returnTo    닫을 때 포커스를 돌려줄 자리. 기본은 **여는 순간의 포커스**.
+   *   focus       열 때 포커스를 줄 자리. 기본은 첫 번째로 닿을 수 있는 것.
+   */
+  dialogOpen(box, spec) {
+    const s = spec || {};
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+
+    // **이름이 뜻을 가져야 한다.** `aria-labelledby` 가 빈 요소를 가리키면 접근
+    // 이름은 여전히 없고, axe 도 그것을 잡지 못한다 (`TC-A11Y-8a` 가 글자를 본다).
+    const t = typeof s.labelledBy === 'string' ? box.querySelector(s.labelledBy) : s.labelledBy;
+    if (t && (t.textContent || '').trim()) {
+      if (!t.id) t.id = 'ui-dlg-title-' + (++this._dlgSeq);
+      box.setAttribute('aria-labelledby', t.id);
+    } else if (s.label) {
+      box.setAttribute('aria-label', s.label);
+    }
+    // 상자 자신이 포커스를 받을 수 있어야 한다 — 안에 닿을 것이 없는 모달도 있다.
+    if (!box.hasAttribute('tabindex')) box.setAttribute('tabindex', '-1');
+
+    if (!this._dlgBound) {
+      document.addEventListener('keydown', this._dlgOnKey, true);
+      this._dlgBound = true;
+    }
+    const entry = { box, returnTo: s.returnTo || document.activeElement };
+    this._dlgStack.push(entry);
+
+    /**
+     * 포커스는 **다음 프레임**에 준다. 부르는 쪽이 상자를 붙이는 것은 이 함수가
+     * 돌아간 뒤이고, 붙기 전의 `focus()` 는 아무 일도 하지 않는다 (`modal()` 의
+     * 기존 주석이 같은 이유를 적어 뒀다).
+     */
+    TIMERS.frame(() => {
+      if (!box.isConnected) return;
+      const want = s.focus && s.focus.isConnected ? s.focus : this._dlgFocusables(box)[0];
+      (want || box).focus();
+    }, { label: 'dialog-focus' });
+
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      const i = this._dlgStack.indexOf(entry);
+      if (i >= 0) this._dlgStack.splice(i, 1);
+      // **돌아갈 자리가 아직 있는가**를 본다. 없으면 아무 데도 주지 않는다 —
+      // 사라진 요소에 `focus()` 하면 포커스가 `<body>` 로 떨어지고, 그러면 다음
+      // `Tab` 이 문서 맨 앞에서 시작한다.
+      const r = entry.returnTo;
+      if (r && r.isConnected && typeof r.focus === 'function') r.focus();
+    };
+  },
+
+  /**
    * FR-UIK-25: 오버레이 + 상자. 닫는 길 셋(닫기 버튼·바깥 클릭·Esc)이 **같은
    * onClose 로 간다** — 지금까지 셋 중 둘만 있는 상자가 있었다.
    *
@@ -169,9 +282,13 @@ const UIKit = {
     }
 
     let closed = false;
+    // FR-A11Y-18: 접근성 계약은 `dialogOpen` 이 갖는다. `defBtn` 을 알아야
+    // 포커스를 줄 수 있으므로 아래에서 열고, 여기서는 닫을 손잡이만 잡아 둔다.
+    let releaseDlg = null;
     const close = () => {
       if (closed) return;
       closed = true;
+      if (releaseDlg) releaseDlg();
       document.removeEventListener('keydown', onKey, true);
       if (ov.parentNode) ov.parentNode.removeChild(ov);
       if (s.onClose) s.onClose();
@@ -203,10 +320,9 @@ const UIKit = {
       if (a.kind === 'primary' || a.kind === 'danger') primary = b;
     }
     const defBtn = primary || last;
-    if (defBtn) {
-      TIMERS.frame(() => { if (defBtn.isConnected && !closed) defBtn.focus() },
-        { label: 'modal-focus' });
-    }
+    // 어느 버튼에 포커스를 주는지는 여전히 여기가 정한다(위 FR-PDA-1·11) — 옮긴
+    // 것은 **주는 방법**이고, 그것이 트랩·복귀와 한 벌이어야 한다 (FR-A11Y-18).
+    releaseDlg = UIKit.dialogOpen(box, { labelledBy: t, label: s.title || '', focus: defBtn });
     return { el: ov, box, body, foot, close, defBtn };
   },
 
