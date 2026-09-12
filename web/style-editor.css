@@ -17,7 +17,7 @@
    한쪽이 다른 종류의 항목으로 읽힌다. */
 .sbl-item.ed-root .sbl-name,
 .sbl-item.ed-notes .sbl-name{color:var(--text-bright)}
-.ed-entries-none{padding:4px 8px;font-size:11px;color:var(--text-dim)}
+.ed-entries-none{padding:4px 8px;font-size:11px;color:var(--text-hint)}
 
 /* FR-EDT-46: 창은 좌우 둘로 나뉜다. 탐색기는 분할 트리 **밖**의 고정 영역이며
    어떤 드롭으로도 쪼개지지 않는다 — 트리는 `.ed-area` 안에만 산다. */
@@ -40,8 +40,8 @@
 }
 /* 요구 ③/⑤: 아이콘이 상자를 꽉 채운다 (FR-GLY-5). */
 .ed-side-refresh>.ui-icon{width:18px;height:18px}
-.ed-side-refresh:hover:not(:disabled){color:var(--accent);background:var(--accent-hover)}
-.ed-side-refresh:disabled{color:var(--text-dim);cursor:not-allowed}
+.ed-side-refresh:hover:not(:disabled){color:var(--accent-text);background:var(--accent-hover)}
+.ed-side-refresh:disabled{color:var(--text-hint);cursor:not-allowed}
 /* 균등 분할이다 — 이름이 짧다고 제 몫을 빼앗기면 폭 최소값에서 둘 다 잘린다
    (NFR-EDT-3 과 같은 근거). */
 /* FR-GIT-195~198: Git 표면의 컨트롤은 히트 영역 하한(30px)을 넘는다. 통합이
@@ -72,7 +72,7 @@
   background:transparent;border:1px solid transparent;border-radius:3px;
   color:var(--text-muted);cursor:pointer;
 }
-.ed-side-act:hover{color:var(--accent);border-color:var(--accent-border)}
+.ed-side-act:hover{color:var(--accent-text);border-color:var(--accent-border)}
 /* UI_KIT_SRS FR-GLY-5 / FR-UIK-3: **아이콘은 이 버튼의 높이에서 파생한다.**
 
    `.ui-btn-icon` 의 규칙은 `--ui-btn-h`(26px)를 딛는데 이 버튼의 하한은
@@ -105,7 +105,7 @@
 /* FR-EDT-55: pane 이 **없는** 것이지 빈 pane 이 있는 것이 아니다. */
 .ed-empty{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  padding:0 16px;text-align:center;font-size:12px;color:var(--text-dim);
+  padding:0 16px;text-align:center;font-size:12px;color:var(--text-hint);
 }
 /* 모바일 배치는 후속이다 (비목표 8) — 탐색기를 접을 규약이 아직 없으므로 최소
    폭만 양보한다. */
@@ -165,8 +165,8 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
 /* FR-EDT-60: 링크는 따라가지 않는다는 사실을 표시가 알린다. */
 .ed-mark{flex:0 0 auto;font-size:10px;color:var(--text-muted)}
 /* FR-EDT-63: 조회 실패는 그 폴더 행에만 남는다 — 트리는 그대로 산다. */
-.ed-row.ed-err .ed-name{color:var(--danger);text-decoration:line-through}
-.ed-tree-err,.ed-more{font-size:11px;color:var(--text-dim);padding-top:2px;padding-bottom:2px}
+.ed-row.ed-err .ed-name{color:var(--danger-text);text-decoration:line-through}
+.ed-tree-err,.ed-more{font-size:11px;color:var(--text-hint);padding-top:2px;padding-bottom:2px}
 
 /* FR-ETR-7: 무시된 항목은 흐려진다 (VS Code 의 표시와 같다). 폴더도 함께 —
    `node_modules` 가 그 예다.
@@ -194,15 +194,15 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
 /* FR-EDT-70 / D-4: 색은 **같은 변수와 같은 상태 클래스**를 참조한다 (GIT_ST_CLASS).
    새 색값을 만들지 않는다 — 같은 뜻을 두 화면에서 다른 색으로 말하지 않기 위해서다.
    `--attn` 을 쓰지 않는 이유도 Git 패널과 같다 (style.css 의 st-ren 주석). */
-.ed-row.st-mod .ed-name{color:var(--accent)}
+.ed-row.st-mod .ed-name{color:var(--accent-text)}
 .ed-row.st-add .ed-name,.ed-row.st-new .ed-name{color:var(--git-st-add)}
-.ed-row.st-del .ed-name{color:var(--danger)}
+.ed-row.st-del .ed-name{color:var(--danger-text)}
 .ed-row.st-ren .ed-name,.ed-row.st-cpy .ed-name{color:var(--text-bright)}
-.ed-row.st-conf .ed-name{color:var(--danger)}
+.ed-row.st-conf .ed-name{color:var(--danger-text)}
 /* FR-GIT-190 / FR-STC-4: 일부만 스테이지된 파일. **상태색보다 뒤에 와서 이긴다** —
    Git 패널의 `.git-file.partial` 과 같은 규약이고, 같은 사실을 두 화면이 다른
    색으로 말하지 않기 위해서다. */
-.ed-row.st-partial .ed-name{color:var(--attn)}
+.ed-row.st-partial .ed-name{color:var(--attn-text)}
 /* FR-EDT-14: 고정 항목은 목록 **아래**, 패널의 맨 밑이다. 목록이 남은 높이를
    전부 먹으므로(`.sbl-list` 가 `flex:1 1 auto`) 이 블록은 자연히 바닥에 붙는다.
    구분선이 "목록의 끝" 과 "고정된 것" 을 가른다. */
@@ -230,7 +230,7 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
 /* FR-EDT-92: 조작 실패의 사유. 조회 실패(`.ed-tree-err`)와 색을 달리한다 — 하나는
    보여 주지 못한 것이고 하나는 하지 못한 것이다. */
 .ed-op-err{
-  font-size:11px;color:var(--danger);white-space:normal;
+  font-size:11px;color:var(--danger-text);white-space:normal;
   padding-top:2px;padding-bottom:2px;padding-right:6px;
 }
 /* FR-EDT-83: 삭제 확인창은 `_confirmClose` 의 껍데기를 그대로 쓴다 — 줄만 여럿이다. */
@@ -254,19 +254,19 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
   background:transparent;color:var(--text-bright);border-bottom:1px solid var(--border);
 }
 .ed-find-note{
-  flex:0 0 auto;padding:4px 12px;font-size:11px;color:var(--text-dim);
+  flex:0 0 auto;padding:4px 12px;font-size:11px;color:var(--text-hint);
   border-bottom:1px solid var(--border);
 }
 .ed-find-list{flex:1 1 auto;min-height:0;overflow-y:auto}
 .ed-find-row{
   display:flex;align-items:baseline;gap:8px;padding:5px 12px;font-size:12px;cursor:pointer;
 }
-.ed-find-row:hover{background:var(--hover-bg,var(--border))}
+.ed-find-row:hover{background:var(--border)}
 .ed-find-row.sel{background:var(--accent-active);color:var(--text-bright)}
 .ed-find-name{color:var(--text-bright);flex:0 0 auto}
 .ed-find-path{color:var(--text-muted);flex:0 0 auto;white-space:nowrap}
 .ed-find-text{
-  color:var(--text-dim);flex:1 1 auto;min-width:0;
+  color:var(--text-hint);flex:1 1 auto;min-width:0;
   overflow:hidden;text-overflow:ellipsis;white-space:pre;font-family:monospace;
 }
 
@@ -290,9 +290,9 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
 .fe-find-q:focus{border-color:var(--accent)}
 /* FR-EFP-24: 잘못된 정규식은 **그 사실로** 보인다 — 조용한 0건이 아니다. */
 .fe-find.bad-re .fe-find-q{border-color:var(--danger)}
-.fe-find.bad-re .fe-find-count{color:var(--danger)}
+.fe-find.bad-re .fe-find-count{color:var(--danger-text)}
 .fe-find-count{
-  min-width:46px;text-align:center;font-size:11px;color:var(--text-dim);
+  min-width:46px;text-align:center;font-size:11px;color:var(--text-hint);
   white-space:nowrap;
 }
 .fe-find-opt,.fe-find-prev,.fe-find-next,.fe-find-close{
@@ -302,7 +302,7 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
   background:transparent;color:var(--text-muted);font-size:11px;line-height:1;
 }
 .fe-find-opt:hover,.fe-find-prev:hover,.fe-find-next:hover,.fe-find-close:hover{
-  background:var(--hover-bg,var(--border));color:var(--text-bright);
+  background:var(--border);color:var(--text-bright);
 }
 /* 켜진 토글은 눌린 채로 남아 보인다 — 지금 무엇이 걸려 있는지가 결과를 설명한다. */
 .fe-find-opt.on{
@@ -323,11 +323,11 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
   height:100%;padding:24px;text-align:center;color:var(--text-muted);font-size:12px;
 }
-.fe-unsup-title{color:var(--attn);font-size:14px;font-weight:600}
+.fe-unsup-title{color:var(--attn-text);font-size:14px;font-weight:600}
 .fe-unsup-path{color:var(--text-bright);word-break:break-all;font-family:monospace;font-size:11px}
-.fe-unsup-meta{color:var(--text-dim);font-size:11px}
-.fe-unsup-hint{color:var(--text-dim);font-size:11px;margin-top:4px}
-.fe-unsup-dl{color:var(--accent);font-size:11px;margin-top:6px;text-decoration:underline}
+.fe-unsup-meta{color:var(--text-hint);font-size:11px}
+.fe-unsup-hint{color:var(--text-hint);font-size:11px;margin-top:4px}
+.fe-unsup-dl{color:var(--accent-text);font-size:11px;margin-top:6px;text-decoration:underline}
 
 .fe-image{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
@@ -335,7 +335,7 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
 }
 /* FR-EVW-4: 원본 비율을 지키고 칸보다 크면 줄여 맞춘다. */
 .fe-img{max-width:100%;max-height:calc(100% - 28px);object-fit:contain}
-.fe-img-meta{flex:0 0 auto;color:var(--text-dim);font-size:11px;font-family:monospace}
+.fe-img-meta{flex:0 0 auto;color:var(--text-hint);font-size:11px;font-family:monospace}
 
 /* ── 터미널의 복사창 (EXPLORER_TRANSFER_IGNORE_SRS 묶음 F · FR-ETR-40·41) ──
 
@@ -354,7 +354,7 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
   color:var(--text-bright,#c0caf5);font-size:12px;
 }
 .tc-copy-head{font-weight:600}
-.tc-copy-why{color:var(--text-dim);font-size:11px}
+.tc-copy-why{color:var(--text-hint);font-size:11px}
 /* 내용은 읽고 고르는 것이지 고치는 것이 아니지만 readOnly 를 쓰지 않는다 —
    iOS 는 readOnly 인 요소의 선택을 무시해 복사가 되지 않는다. */
 .tc-copy-text{
@@ -383,9 +383,9 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
 .lsp-head{grid-area:head;display:flex;align-items:baseline;gap:8px;min-width:0}
 .lsp-name{color:var(--text-bright);font-size:12px;font-weight:600}
 .lsp-id{color:var(--text-muted);font-size:11px;font-family:monospace}
-.lsp-state{grid-area:state;font-size:11px;color:var(--text-dim)}
+.lsp-state{grid-area:state;font-size:11px;color:var(--text-hint)}
 /* 없는 서버는 그 사실이 눈에 들어와야 한다 — 그것이 이 패널을 여는 이유다. */
-.lsp-row[data-found="false"] .lsp-state{color:var(--attn)}
+.lsp-row[data-found="false"] .lsp-state{color:var(--attn-text)}
 .lsp-path{
   grid-area:path;font-size:11px;color:var(--text-muted);font-family:monospace;
   overflow-wrap:anywhere;
@@ -395,10 +395,10 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
   padding:4px 10px;border:1px solid var(--border);border-radius:4px;cursor:pointer;
   background:transparent;color:var(--text);font-size:11px;white-space:nowrap;
 }
-.lsp-install:hover:not(:disabled){background:var(--hover-bg,var(--border));color:var(--text-bright)}
+.lsp-install:hover:not(:disabled){background:var(--border);color:var(--text-bright)}
 .lsp-install:disabled{opacity:.45;cursor:default}
 /* 결과는 그 자리에 남는다 (FR-LSP-10) — 조용히 사라지면 사용자는 무엇이 됐는지 모른다. */
-.lsp-msg{grid-area:msg;font-size:11px;color:var(--text-dim);overflow-wrap:anywhere}
+.lsp-msg{grid-area:msg;font-size:11px;color:var(--text-hint);overflow-wrap:anywhere}
 .lsp-msg:empty{display:none}
 .lsp-empty{padding:10px;font-size:11px;color:var(--text-muted)}
 
@@ -432,7 +432,7 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
   flex:0 0 auto;padding:3px 8px;border:1px solid var(--border);border-radius:4px;
   cursor:pointer;background:transparent;color:var(--text);font-size:11px;white-space:nowrap;
 }
-.fe-offer button:hover:not(:disabled){background:var(--hover-bg,var(--border));color:var(--text-bright)}
+.fe-offer button:hover:not(:disabled){background:var(--border);color:var(--text-bright)}
 .fe-offer button:disabled{opacity:.45;cursor:default}
 .fe-offer-go{border-color:var(--accent);color:var(--text-bright)}
 .fe-offer-x{border-color:transparent;color:var(--text-muted)}
@@ -495,7 +495,7 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
 .fe-dd-peek-close{margin-left:auto}
 /* 사유와 진행 상태. 침묵은 고장과 구별되지 않는다 (FR-EDD-44·46·47). */
 .fe-dd-peek-note{
-  flex:1 1 auto;min-width:0;color:var(--text-dim);font-size:11px;
+  flex:1 1 auto;min-width:0;color:var(--text-hint);font-size:11px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .fe-dd-peek-old{
@@ -504,7 +504,7 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
   font-size:12px;line-height:1.5;white-space:pre;
 }
 /* 이전에 아무것도 없던 자리 — 파일의 내용이 아니라 우리의 말이다. */
-.fe-dd-peek-old.none{color:var(--text-dim);font-style:italic}
+.fe-dd-peek-old.none{color:var(--text-hint);font-style:italic}
 
 /* ── 저장의 경합 확인 (EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-9) ──
    상자·백드롭·버튼 줄은 `.ui-modal` 이 갖는다. 여기에는 어느 파일의 이야기인지를

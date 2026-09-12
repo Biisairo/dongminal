@@ -141,12 +141,16 @@ export function fakeClock(start = 1_700_000_000_000) {
  * @param {string[]} files `web/js` 기준 상대 경로. **index.html 과 같은 순서로 준다.**
  * @param {object} [opts]
  * @param {string[]} [opts.expose] 꺼내 볼 최상위 `const`/`class` 이름들.
+ * @param {object} [opts.globals] 싣기 **전에** 세워 둘 전역. 실으려는 파일이 제
+ *   앞 파일의 전역에 **대입**할 때 쓴다 (`ui/themes.js` 끝줄의 `TOPTS.theme=…`).
+ *   그 한 줄 때문에 `core/constants.js` 를 통째로 끌고 오면 검사 대상이 실제로
+ *   무엇에 기대는지가 감춰진다 — 최소 대역이라는 이 하네스의 규약과 같은 이유다.
  * @param {ReturnType<typeof fakeClock>} [opts.clock]
  * @returns 컨텍스트. 함수 선언과 `expose` 한 이름이 속성으로 보인다.
  */
 export function load(files, opts = {}) {
   const clock = opts.clock || fakeClock();
-  const ctx = vm.createContext({ ...browserStub(clock), _clock: clock });
+  const ctx = vm.createContext({ ...browserStub(clock), ...(opts.globals || {}), _clock: clock });
   ctx.globalThis = ctx;
   ctx.window = ctx;
 

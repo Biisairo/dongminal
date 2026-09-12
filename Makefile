@@ -72,6 +72,10 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@node scripts/check-e2e-waits.mjs
 	@echo "── 프론트 계층 경계 (ui/·git/ 이 App 의 내부를 파고들지 않는가)"
 	@scripts/check-layer.sh
+	@echo "── 글자 대비 (테마 전종에서 파생이 바닥에 닿는가)"
+	@node scripts/check-contrast.mjs
+	@echo "── CSS 토큰 (읽는 이름이 실제로 세워지는가)"
+	@node scripts/check-css-vars.mjs
 	@echo "gates ok"
 
 # 한 번에 도는 샤드 수. 샤드 하나가 워커 2개(= 인스턴스 2개)를 띄우므로 이 값이

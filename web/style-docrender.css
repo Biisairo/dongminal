@@ -13,15 +13,15 @@
 .dr-bar{
   flex:0 0 auto;display:flex;align-items:center;gap:8px;
   padding:4px 8px;border-bottom:1px solid var(--border);
-  background:var(--bg-alt,var(--bg));
+  background:var(--bg-alt);
 }
 .dr-source{
   flex:0 0 auto;padding:2px 8px;border:1px solid var(--border);border-radius:4px;
-  background:transparent;color:var(--text-dim);font-size:11px;cursor:pointer;
+  background:transparent;color:var(--text-hint);font-size:11px;cursor:pointer;
 }
 .dr-source:hover{color:var(--text);border-color:var(--accent)}
 .dr-path{
-  flex:1 1 auto;min-width:0;color:var(--text-dim);font-size:11px;
+  flex:1 1 auto;min-width:0;color:var(--text-hint);font-size:11px;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 
@@ -39,7 +39,7 @@
 .dr-body:has(.dr-svg-wrap),.dr-body:has(.dr-html-wrap){max-width:none;display:flex;padding:12px}
 /* 표는 폭을 제한하지 않되 흐르게 둔다 — 넓은 표는 자기 상자 안에서 가로로 구른다. */
 .dr-body:has(.dr-table){max-width:none}
-.dr-note{color:var(--text-dim);font-size:12px;font-style:italic}
+.dr-note{color:var(--text-hint);font-size:12px;font-style:italic}
 
 /* ── 본문 요소 ── */
 .dr-body h1,.dr-body h2,.dr-body h3,.dr-body h4{
@@ -49,23 +49,23 @@
 .dr-body h2{font-size:1.35em;padding-bottom:.2em;border-bottom:1px solid var(--border)}
 .dr-body h3{font-size:1.15em}
 .dr-body p{margin:.7em 0}
-.dr-body a{color:var(--accent);text-decoration:none}
+.dr-body a{color:var(--accent-text);text-decoration:none}
 .dr-body a:hover{text-decoration:underline}
 .dr-body img{max-width:100%;height:auto}
 .dr-body hr{border:0;border-top:1px solid var(--border);margin:1.5em 0}
 .dr-body blockquote{
-  margin:.8em 0;padding:.1em 1em;border-left:3px solid var(--border);color:var(--text-dim);
+  margin:.8em 0;padding:.1em 1em;border-left:3px solid var(--border);color:var(--text-hint);
 }
 .dr-body ul,.dr-body ol{margin:.7em 0;padding-left:1.6em}
 .dr-body li{margin:.25em 0}
 .dr-body table{border-collapse:collapse;margin:1em 0;display:block;overflow-x:auto}
 .dr-body th,.dr-body td{border:1px solid var(--border);padding:5px 10px;text-align:left}
-.dr-body th{background:var(--bg-alt,var(--bg));font-weight:600}
+.dr-body th{background:var(--bg-alt);font-weight:600}
 
 .dr-body code{
   padding:.15em .4em;border-radius:3px;font-size:.88em;
   background:color-mix(in srgb,var(--text) 10%,var(--bg));
-  font-family:'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace;
+  font-family:var(--mono);
 }
 .dr-body pre{
   margin:.9em 0;padding:10px 12px;border:1px solid var(--border);border-radius:5px;
@@ -85,7 +85,7 @@
 .dr-body .hljs-link,.dr-body .hljs-selector-attr{color:var(--term-cyan,var(--text))}
 .dr-body .hljs-title,.dr-body .hljs-title.function_,.dr-body .hljs-built_in{color:var(--term-blue,var(--accent))}
 .dr-body .hljs-type,.dr-body .hljs-class .hljs-title,.dr-body .hljs-params{color:var(--term-yellow,var(--text))}
-.dr-body .hljs-comment,.dr-body .hljs-quote{color:var(--text-dim);font-style:italic}
+.dr-body .hljs-comment,.dr-body .hljs-quote{color:var(--text-hint);font-style:italic}
 .dr-body .hljs-deletion{color:var(--term-red,var(--danger))}
 .dr-body .hljs-emphasis{font-style:italic}
 .dr-body .hljs-strong{font-weight:600}
@@ -108,7 +108,7 @@
 .fe-render{
   position:absolute;bottom:8px;left:8px;z-index:6;
   height:22px;padding:0 8px;border:1px solid var(--accent);border-radius:4px;
-  background:var(--bg);color:var(--accent);font-size:11px;line-height:1;cursor:pointer;
+  background:var(--bg);color:var(--accent-text);font-size:11px;line-height:1;cursor:pointer;
   white-space:nowrap;opacity:1;transition:background .12s,color .12s;
 }
 .fe-render:hover{background:var(--accent);color:var(--bg)}
@@ -123,7 +123,7 @@
 .dr-svg{
   flex:1 1 auto;min-height:0;max-width:100%;object-fit:contain;
 }
-.dr-svg-meta{flex:0 0 auto;color:var(--text-dim);font-size:11px}
+.dr-svg-meta{flex:0 0 auto;color:var(--text-hint);font-size:11px}
 
 /* ── HTML (FR-DRV-15·22) ── */
 .dr-html-wrap{display:flex;flex-direction:column;height:100%;min-height:0;gap:6px}
@@ -131,7 +131,7 @@
 .dr-html-note{
   flex:0 0 auto;padding:3px 8px;border:1px solid var(--border);border-radius:4px;
   background:color-mix(in srgb,var(--text) 6%,var(--bg));
-  color:var(--text-dim);font-size:11px;
+  color:var(--text-hint);font-size:11px;
 }
 .dr-html{
   flex:1 1 auto;min-height:0;width:100%;border:1px solid var(--border);border-radius:4px;
@@ -141,11 +141,11 @@
 /* ── 표 (FR-DRV-16) ── */
 .dr-table{
   border-collapse:collapse;font-size:12px;
-  font-family:'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace;
+  font-family:var(--mono);
 }
 .dr-table th,.dr-table td{
   border:1px solid var(--border);padding:3px 8px;text-align:left;white-space:pre;
   max-width:40em;overflow:hidden;text-overflow:ellipsis;
 }
-.dr-table th{background:var(--bg-alt,var(--bg));font-weight:600;position:sticky;top:0}
+.dr-table th{background:var(--bg-alt);font-weight:600;position:sticky;top:0}
 .dr-table tr:nth-child(even) td{background:color-mix(in srgb,var(--text) 3%,var(--bg))}

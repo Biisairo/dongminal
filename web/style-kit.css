@@ -56,9 +56,9 @@
   font-family:inherit;font-size:var(--ui-font);line-height:1;
   cursor:pointer;flex-shrink:0;white-space:nowrap;
 }
-.ui-btn:hover{background:var(--accent-active);color:var(--accent);border-color:var(--accent-border)}
+.ui-btn:hover{background:var(--accent-active);color:var(--accent-text);border-color:var(--accent-border)}
 .ui-btn:focus-visible{outline:1px solid var(--accent);outline-offset:1px}
-.ui-btn:disabled,.ui-btn.disabled{opacity:.4;cursor:default;background:transparent;color:var(--text-dim);border-color:var(--border)}
+.ui-btn:disabled,.ui-btn.disabled{opacity:.4;cursor:default;background:transparent;color:var(--text-hint);border-color:var(--border)}
 
 /* FR-UIK-5 / 요구 ⑤: 아이콘 버튼은 정사각이고 **아이콘이 상자를 꽉 채운다**. */
 .ui-btn-icon{width:var(--ui-btn-h);padding:0}
@@ -79,12 +79,12 @@
   height:calc(var(--ui-btn-h-lg) * var(--ui-icon-ratio));
 }
 
-.ui-btn-primary{color:var(--accent);border-color:var(--accent-border);background:var(--accent-subtle)}
+.ui-btn-primary{color:var(--accent-text);border-color:var(--accent-border);background:var(--accent-subtle)}
 .ui-btn-primary:hover{background:var(--accent-active);border-color:var(--accent)}
-.ui-btn-danger{color:var(--danger);border-color:var(--danger);background:rgba(247,118,142,.12)}
-.ui-btn-danger:hover{background:rgba(247,118,142,.2);color:var(--danger);border-color:var(--danger)}
-.ui-btn-attn{color:var(--attn);border-color:var(--attn-subtle)}
-.ui-btn-attn:hover{background:var(--attn-subtle);color:var(--attn);border-color:var(--attn)}
+.ui-btn-danger{color:var(--danger-text);border-color:var(--danger);background:rgba(247,118,142,.12)}
+.ui-btn-danger:hover{background:rgba(247,118,142,.2);color:var(--danger-text);border-color:var(--danger)}
+.ui-btn-attn{color:var(--attn-text);border-color:var(--attn-subtle)}
+.ui-btn-attn:hover{background:var(--attn-subtle);color:var(--attn-text);border-color:var(--attn)}
 /* 테두리 없이 사는 버튼 — 행 안의 동작처럼 이웃과 경쟁하지 않아야 하는 자리. */
 .ui-btn-ghost{border-color:transparent;background:transparent}
 .ui-btn-ghost:hover{border-color:transparent;background:var(--accent-hover)}
@@ -143,12 +143,12 @@
   display:flex;align-items:center;gap:7px;
   padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;
 }
-.ui-menu-item:hover{background:var(--accent-hover);color:var(--accent)}
+.ui-menu-item:hover{background:var(--accent-hover);color:var(--accent-text)}
 .ui-menu-item.disabled{opacity:.4;pointer-events:none}
-.ui-menu-item.danger{color:var(--danger)}
-.ui-menu-item.danger:hover{background:rgba(247,118,142,.14);color:var(--danger)}
+.ui-menu-item.danger{color:var(--danger-text)}
+.ui-menu-item.danger:hover{background:rgba(247,118,142,.14);color:var(--danger-text)}
 .ui-menu-sep{height:1px;margin:3px 6px;background:var(--border)}
-.ui-menu-label{padding:5px 10px 3px;color:var(--text-dim);font-size:10px}
+.ui-menu-label{padding:5px 10px 3px;color:var(--text-hint);font-size:10px}
 /* 메뉴 안에 앉는 컨트롤 무리 — 필터·옵션처럼 누르는 것이 아니라 채우는 것들. */
 .ui-menu-group{padding:4px 10px 6px;display:flex;flex-direction:column;gap:6px}
 
@@ -163,14 +163,14 @@
   color:var(--text);font-family:inherit;font-size:12px;padding:3px 8px;outline:none;
 }
 .ui-input:focus,.ui-select:focus{border-color:var(--accent)}
-.ui-input::placeholder{color:var(--text-dim)}
-.ui-hint{color:var(--text-dim);font-size:11px;line-height:1.5;margin-top:6px}
+.ui-input::placeholder{color:var(--text-hint)}
+.ui-hint{color:var(--text-hint);font-size:11px;line-height:1.5;margin-top:6px}
 .ui-badge{
   min-width:16px;padding:0 5px;border-radius:8px;
   background:var(--accent-subtle);border:1px solid var(--accent-border);
-  color:var(--accent);font-size:10px;line-height:14px;text-align:center;
+  color:var(--accent-text);font-size:10px;line-height:14px;text-align:center;
 }
-.ui-badge-attn{background:var(--attn-subtle);border-color:var(--attn);color:var(--attn)}
+.ui-badge-attn{background:var(--attn-subtle);border-color:var(--attn);color:var(--attn-text)}
 
 /* ── 핸들의 크기 표시 (FR-HSZ-2·3·4·8) ────────────────────────────────
    문서에 **하나**뿐인 겹이다 (D-10). 끄는 동안만 보이고, 손을 가로채지 않는다. */
@@ -187,7 +187,7 @@
 }
 /* FR-HSZ-4 / D-4: 한 벌의 내용은 **세로로 쌓인 줄**이다 — 가로로 이으면 좁은
    핸들 옆에서 화면 밖으로 나간다. */
-.ui-size-box b{display:block;font-weight:600;color:var(--accent)}
+.ui-size-box b{display:block;font-weight:600;color:var(--accent-text)}
 .ui-size-box i{display:block;font-style:normal;color:var(--text-muted)}
 /* FR-HSZ-4b (사용자 지시 2026-09-08): **핸들에 붙는 쪽으로 정렬한다.**
 

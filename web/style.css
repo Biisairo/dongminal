@@ -32,9 +32,28 @@
 
 :root{
   --bg:#1a1b26;--sidebar-bg:#16161e;--border:#292e42;
-  --accent:#7aa2f7;--text:#a9b1d6;--text-muted:#565f89;
+  --accent:#7aa2f7;--text:#a9b1d6;--text-muted:#8b95bf;
   --text-bright:#c0caf5;--text-dim:#414868;--danger:#f7768e;
   --accent-border:#3d59a1;
+  /* DESIGN_TOKENS_SRS FR-TOK-2·2a·4: 글자 토큰은 파생이다 — `applyThemeObj` 가
+     테마마다 다시 세운다. 여기 값은 **기본 테마(Tokyo Night)의 파생 결과**이고
+     첫 페인트용이다. `--text-muted` 가 팔레트의 `#565f89`(2.76:1) 가 아닌 것이
+     그래서다.
+
+     `--text-dim` 은 파생이 아니다 — 글자가 아니라 **경계·채움**용이다
+     (FR-TOK-3 / D-TOK-2). 글자로 쓰려면 `--text-hint` 를 쓴다. */
+  --text-hint:#7a83a7;
+  /* FR-TOK-5: 표 머리·그룹 머리의 표면. `mixHex(bg,text,.06)` 의 기본 테마 값이다.
+     **정의된 적이 없어 네 자리가 투명으로 떨어지고 있었다** (`UX-5`). */
+  --bg-alt:#232431;
+  /* 고정폭 글꼴은 한 벌이다. `style-docrender.css` 가 같은 스택을 따로 적고
+     있었고 `style-git.css` 는 없는 `--mono` 를 읽어 `monospace` 로 떨어졌다. */
+  --mono:'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace;
+  /* FR-DRV-13d: 구문 강조색. `applyThemeObj` 가 터미널 팔레트에서 파생해
+     덮어쓴다 — 여기 값은 기본 테마의 파생 결과이고 첫 페인트용이다. */
+  --term-red:#f7768e;--term-green:#9ece6a;--term-yellow:#e0af68;
+  --term-blue:#7aa2f7;--term-magenta:#bb9af7;--term-cyan:#7dcfff;
+  --accent-text:#7aa2f7;--danger-text:#f7768e;--attn-text:#e0af68;
   /* FR-GIT-216: JS 가 테마에서 파생해 덮어쓴다. 여기 값은 첫 페인트용이다 */
   --border-strong:#565c76;
   /* FR-STB-21: 같은 규약. mixHex(border,accent,.55) 의 기본 테마 값이다 */
@@ -104,54 +123,54 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   color:var(--text-muted);opacity:0;cursor:pointer;border-radius:2px;
 }
 .sbl-item:hover .sbl-x{opacity:1}
-.sbl-x:hover{color:var(--danger);background:rgba(247,118,142,.2)}
+.sbl-x:hover{color:var(--danger-text);background:rgba(247,118,142,.2)}
 /* 배지는 창 목록에 아직 없지만 자리는 공통이다 — 다음 탭이 그냥 쓴다. */
 .sbl-badge{
   flex-shrink:0;min-width:16px;padding:0 4px;border-radius:8px;text-align:center;
-  font-size:10px;background:var(--accent-subtle);color:var(--accent);
+  font-size:10px;background:var(--accent-subtle);color:var(--accent-text);
 }
 /* 샌드박스 창 표식. accent 는 알람·활성이 쓰는 색이므로 섞지 않는다 — 격리
    여부는 지나가는 상태가 아니라 그 창의 성질이다. */
-.sbl-badge.si-sbx{background:transparent;border:1px solid var(--border);color:var(--text-dim);border-radius:3px}
+.sbl-badge.si-sbx{background:transparent;border:1px solid var(--border);color:var(--text-hint);border-radius:3px}
 /* 샌드박스 프로파일 선택. 등급이 이름 옆에 붙어, 무엇을 고르는지가 고르는
    자리에서 보인다 (FR-SBX-25). */
 .confirm-btns.sbx-pick{flex-wrap:wrap}
 .sbx-workdir{display:flex;align-items:center;gap:8px;margin:0 0 14px}
-.sbx-workdir label{color:var(--text-dim);font-size:11px;flex:0 0 auto}
+.sbx-workdir label{color:var(--text-hint);font-size:11px;flex:0 0 auto}
 .sbx-workdir input{flex:1 1 auto;min-width:0;padding:4px 6px;font-size:12px;
   background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text-bright)}
 .sbx-workdir input:focus{outline:none;border-color:var(--accent)}
 .sbx-now{flex:0 0 auto;padding:3px 8px;font-size:10px;white-space:nowrap;
   background:transparent;border:1px solid var(--border);border-radius:4px;
-  color:var(--text-dim);cursor:pointer}
-.sbx-now:hover{color:var(--accent);border-color:var(--accent)}
+  color:var(--text-hint);cursor:pointer}
+.sbx-now:hover{color:var(--accent-text);border-color:var(--accent)}
 .sbx-recent{display:flex;flex-wrap:wrap;gap:4px;margin:-8px 0 14px}
 .sbx-recent-item{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   padding:2px 6px;font-size:10px;background:transparent;
-  border:1px solid var(--border);border-radius:3px;color:var(--text-dim);cursor:pointer}
-.sbx-recent-item:hover{color:var(--accent);border-color:var(--accent)}
+  border:1px solid var(--border);border-radius:3px;color:var(--text-hint);cursor:pointer}
+.sbx-recent-item:hover{color:var(--accent-text);border-color:var(--accent)}
 .sbx-grade{margin-left:6px;padding:0 5px;border-radius:8px;font-size:10px;
-  background:var(--accent-subtle);color:var(--text-dim)}
-.sbx-grade.iso{color:var(--accent)}
+  background:var(--accent-subtle);color:var(--text-hint)}
+.sbx-grade.iso{color:var(--accent-text)}
 /* SANDBOX_PICK_COPY_SRS FR-SPK-5: 고른 폴더가 어떻게 되는지. 등급 배지와 같은
    모양이되 색을 나눈다 — 마운트는 호스트로 이어지고(주의), 복사는 이어지지
    않는다(중립). 두 사실이 같은 색이면 배지를 읽을 이유가 없다. */
 .sbx-work{margin-left:4px;padding:0 5px;border-radius:8px;font-size:10px;
-  background:var(--accent-subtle);color:var(--text-dim)}
-.sbx-work-mount{color:var(--attn)}
+  background:var(--accent-subtle);color:var(--text-hint)}
+.sbx-work-mount{color:var(--attn-text)}
 /* UX_BATCH6_SRS FR-SBM-1: 작업 방식을 고르는 줄. 작업 폴더 입력 바로 아래에
    두는 이유는 그 둘이 한 물음이기 때문이다 — "어느 폴더를, 어떻게". */
 .sbx-work-pick{display:flex;align-items:center;gap:6px;margin:-8px 0 10px}
-.sbx-work-pick label{color:var(--text-dim);font-size:11px;flex:0 0 auto}
+.sbx-work-pick label{color:var(--text-hint);font-size:11px;flex:0 0 auto}
 .sbx-work-opt{padding:2px 10px;font-size:11px;background:transparent;
-  border:1px solid var(--border);border-radius:3px;color:var(--text-dim);cursor:pointer}
+  border:1px solid var(--border);border-radius:3px;color:var(--text-hint);cursor:pointer}
 .sbx-work-opt:hover{color:var(--text-bright);border-color:var(--accent)}
 .sbx-work-opt.on{color:var(--text-bright);border-color:var(--accent);
   background:var(--accent-subtle)}
-.sbx-work-opt.sbx-work-mount.on{color:var(--attn);border-color:var(--attn)}
+.sbx-work-opt.sbx-work-mount.on{color:var(--attn-text);border-color:var(--attn)}
 /* FR-SBM-5: 고른 것의 결과. 등급 배지와 **다른 자리**다 — 배지는 프로파일의
    성질이고 이 줄은 이번 선택의 결과다. 비어 있으면 자리를 차지하지 않는다. */
-.sbx-work-warn{display:none;margin:-4px 0 10px;font-size:11px;color:var(--attn)}
+.sbx-work-warn{display:none;margin:-4px 0 10px;font-size:11px;color:var(--attn-text)}
 .sbx-work-warn.vis{display:block}
 /* NFR-SPK-2: 복사가 도는 동안의 표시. 모달이 아니라 배너다 — 진행은 끝나면
    스스로 사라져야 하고, 그동안 사용자가 다른 창을 보는 것을 막을 이유가 없다. */
@@ -159,10 +178,10 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   padding:8px 14px;font-size:12px;color:var(--text-bright);background:var(--bg-alt);
   border:1px solid var(--border);border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.35)}
 /* FR-SPK-7: 고를 것이 하나뿐일 때 늘리는 길. */
-.sbx-hint{margin:10px 0 0;font-size:11px;color:var(--text-dim)}
+.sbx-hint{margin:10px 0 0;font-size:11px;color:var(--text-hint)}
 .sbx-settings{margin-left:8px;padding:2px 8px;font-size:10px;background:transparent;
-  border:1px solid var(--border);border-radius:3px;color:var(--text-dim);cursor:pointer}
-.sbx-settings:hover{color:var(--accent);border-color:var(--accent)}
+  border:1px solid var(--border);border-radius:3px;color:var(--text-hint);cursor:pointer}
+.sbx-settings:hover{color:var(--accent-text);border-color:var(--accent)}
 
 /* UX_BATCH5_SRS 묶음 B — 런타임 상태 모달 (FR-SRT-6·7·8).
    껍데기는 `.confirm-box` 그대로다: 새 껍데기를 만들면 닫기·Esc·겹침 규약이 두
@@ -178,11 +197,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .sbx-rt-copy{flex:0 0 auto;padding:5px 10px;font:inherit;font-size:11px;cursor:pointer;
   background:transparent;color:var(--text-muted);
   border:1px solid var(--border);border-radius:3px}
-.sbx-rt-copy:hover{color:var(--accent);border-color:var(--accent)}
+.sbx-rt-copy:hover{color:var(--accent-text);border-color:var(--accent)}
 /* 설치 뒤 재시작이 필요하다는 사실은 안내보다 약하되 사라지면 안 된다 — 이것이
    없으면 사용자는 설치하고도 같은 모달을 다시 본다. */
-.sbx-rt-restart{margin:0 0 6px;font-size:11px;color:var(--attn)}
-.sbx-rt-docs{margin:0 0 10px;font-size:11px;color:var(--text-dim);word-break:break-all}
+.sbx-rt-restart{margin:0 0 6px;font-size:11px;color:var(--attn-text)}
+.sbx-rt-docs{margin:0 0 10px;font-size:11px;color:var(--text-hint);word-break:break-all}
 /* 진행과 사유가 같은 자리에 산다. 닫히지 않으므로 읽을 시간이 있다. */
 .sbx-rt-note{margin:0 0 10px;padding:6px 8px;font-size:11px;color:var(--text-muted);
   background:var(--bg);border:1px solid var(--border);border-radius:3px;
@@ -203,7 +222,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
      남아야 한다 — 목록의 행들과 같은 축이다. */
   display:flex;align-items:center;gap:6px;justify-content:flex-start;
 }
-#add-window:hover,#add-preset:hover,#repo-add:hover{background:var(--accent-hover);color:var(--accent)}
+#add-window:hover,#add-preset:hover,#repo-add:hover{background:var(--accent-hover);color:var(--accent-text)}
 /* 샌드박스 창 열기. `+ New` 안쪽 오른쪽에 앉는 작은 박스다 — 별개의 동작이
    아니라 새 창의 변종임을 자리로 말한다. */
 /* FR-GAP-1: 안쪽 `Box` 가 간격만큼 넓어졌다 — 오른쪽 여백도 그만큼 따라간다.
@@ -215,14 +234,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   position:absolute;right:5px;top:50%;transform:translateY(-50%);
   display:inline-flex;align-items:center;gap:var(--ui-gap);
   padding:1px 5px;border:1px solid var(--border);border-radius:3px;
-  font-size:10px;line-height:14px;color:var(--text-dim);opacity:.75;
+  font-size:10px;line-height:14px;color:var(--text-hint);opacity:.75;
 }
 #add-window:hover #add-sandbox-window{opacity:1}
-#add-sandbox-window:hover{color:var(--accent);border-color:var(--accent);background:var(--accent-hover)}
+#add-sandbox-window:hover{color:var(--accent-text);border-color:var(--accent);background:var(--accent-hover)}
 /* UX_REVISION_SRS FR-BLP-5·9: 패널의 액션 버튼 행. 두 패널이 같은 골격을 쓰므로
    여백도 한 자리에서 정한다 — 한쪽만 고치면 "구조가 같다" 가 깨진다. */
 .sb-actions{display:flex;flex-direction:column;flex:0 0 auto;margin-bottom:6px}
-#add-preset{color:var(--text-dim);opacity:.7}
+#add-preset{color:var(--text-hint);opacity:.7}
 #add-preset:hover{opacity:1}
 
 #sb-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border);position:relative}
@@ -336,7 +355,7 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
 .spacer{flex:1}
 
 /* 주의 알림 배지 + 센터 팝오버 (FR-PAN-16) */
-#attn-badge{position:relative;color:var(--attn);border-color:var(--attn);
+#attn-badge{position:relative;color:var(--attn-text);border-color:var(--attn);
   animation:attn-pulse-badge 2s ease-in-out infinite}
 #attn-badge .attn-count{margin-left:4px;font-size:10px;font-weight:600}
 #attn-center{
@@ -348,7 +367,7 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
 #attn-center.open{display:block}
 .attn-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px 8px;border-bottom:1px solid var(--border);margin-bottom:4px}
 .attn-head .attn-title{font-size:11px;color:var(--text-muted)}
-.attn-clear-all{font-size:11px;color:var(--attn);background:none;border:1px solid var(--attn);border-radius:4px;padding:2px 8px;cursor:pointer}
+.attn-clear-all{font-size:11px;color:var(--attn-text);background:none;border:1px solid var(--attn);border-radius:4px;padding:2px 8px;cursor:pointer}
 .attn-clear-all:hover{background:var(--attn-subtle)}
 /* FR-AEV-15: 이름 · 사유 · 내용 세 칸. 내용은 길 수 있으므로(codex 의
    last-assistant-message 는 문단으로 온다) **줄이 늘지 않고 잘린다** — 항목 높이가
@@ -362,7 +381,7 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
 }
 .attn-item:hover{background:var(--attn-subtle)}
 .attn-item .attn-name{flex-shrink:0;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.attn-item .attn-reason{flex-shrink:0;font-size:10px;color:var(--attn)}
+.attn-item .attn-reason{flex-shrink:0;font-size:10px;color:var(--attn-text)}
 .attn-item .attn-detail{
   flex:1 1 auto;min-width:0;margin-left:auto;text-align:right;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
@@ -372,10 +391,10 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
   padding:4px 10px;border:1px solid var(--border);border-radius:4px;
   background:transparent;color:var(--text-muted);font-size:11px;cursor:pointer;
 }
-.tbtn:hover{background:var(--accent-active);color:var(--accent);border-color:var(--accent-border)}
+.tbtn:hover{background:var(--accent-active);color:var(--accent-text);border-color:var(--accent-border)}
 /* agents 토글: split 버튼과 동일 UI, 색상만 구분(--attn) */
-#agents-toggle{color:var(--attn);border-color:var(--attn-subtle)}
-#agents-toggle:hover,#agents-toggle.open{background:var(--attn-subtle);color:var(--attn);border-color:var(--attn)}
+#agents-toggle{color:var(--attn-text);border-color:var(--attn-subtle)}
+#agents-toggle:hover,#agents-toggle.open{background:var(--attn-subtle);color:var(--attn-text);border-color:var(--attn)}
 
 /* ── Terminal area ── */
 #area{flex:1;position:relative;overflow:hidden;background:var(--bg)}
@@ -403,7 +422,7 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
   border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden;
   text-overflow:ellipsis;user-select:none}
 /* FR-STB-26: 포커스의 언어는 종전대로 accent 다. */
-.slot-focused>.slot-head{color:var(--accent);
+.slot-focused>.slot-head{color:var(--accent-text);
   border-bottom-color:var(--accent);font-weight:600}
 .slot-empty>.slot-body{display:flex;align-items:center;justify-content:center}
 .slot-empty>.slot-body::after{content:'사이드바에서 창을 고르세요';opacity:.45;font-size:12px}
@@ -470,14 +489,14 @@ body.tabfix .pn-tab .pn-tab-label{
 body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .pn-tab:hover{background:var(--accent-hover);color:var(--text)}
 .pn-tab.active{color:var(--text-bright);background:var(--accent-subtle)}
-.pn-tab-x{font-size:11px;color:var(--text-dim);opacity:0;cursor:pointer}
+.pn-tab-x{font-size:11px;color:var(--text-hint);opacity:0;cursor:pointer}
 .pn-tab:hover .pn-tab-x{opacity:1}
-.pn-tab-x:hover{color:var(--danger)}
+.pn-tab-x:hover{color:var(--danger-text)}
 .pn-tab-add{
   width:24px;display:flex;align-items:center;justify-content:center;
-  background:transparent;border:none;color:var(--text-dim);font-size:14px;cursor:pointer;flex-shrink:0;
+  background:transparent;border:none;color:var(--text-hint);font-size:14px;cursor:pointer;flex-shrink:0;
 }
-.pn-tab-add:hover{color:var(--accent)}
+.pn-tab-add:hover{color:var(--accent-text)}
 
 /* 주의 알림 강조 — 포커스(--accent)·위험(--danger)과 구분되는 테마색 --attn, 굵은 실선+글로우로 가시성 강화 (FR-PAN-10) */
 
@@ -521,12 +540,12 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   50%{background:transparent}
 }
 
-.pn-tab.attn{color:var(--attn);background:var(--attn-subtle);font-weight:600;box-shadow:inset 0 -3px 0 var(--attn);
+.pn-tab.attn{color:var(--attn-text);background:var(--attn-subtle);font-weight:600;box-shadow:inset 0 -3px 0 var(--attn);
   animation:attn-pulse-tab 2s ease-in-out infinite}
 /* ATTENTION_FIRING_SRS FR-ATV-3: 활성이면서 알람인 탭. 배경은 활성 색으로 두고
    밑줄만 숨쉰다 — 배경까지 맥박에 실으면 반주기 동안 어느 탭이 열려 있는지
    알 수 없게 된다. 알람이 활성 표시를 빼앗지 않는다. */
-.pn-tab.active.attn{color:var(--attn);background:var(--accent-subtle);
+.pn-tab.active.attn{color:var(--attn-text);background:var(--accent-subtle);
   animation:attn-pulse-tab-active 2s ease-in-out infinite}
 /* FR-ATP-8: 분할 칸의 링은 **자식 위에 뜬 겹**이다.
    개정 전에는 2px 테두리 + 안쪽 2px 그림자였는데, 안쪽 그림자는 요소의 배경 층에
@@ -558,14 +577,14 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .ag-head{display:flex;align-items:center;gap:6px;padding:8px 10px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)}
 .ag-title{flex:1}
 .ag-refresh,.ag-close{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;line-height:1;padding:2px 4px;border-radius:3px}
-.ag-refresh:hover,.ag-close:hover{color:var(--accent);background:var(--accent-hover)}
-.ag-empty{padding:12px 10px;font-size:12px;color:var(--text-dim)}
+.ag-refresh:hover,.ag-close:hover{color:var(--accent-text);background:var(--accent-hover)}
+.ag-empty{padding:12px 10px;font-size:12px;color:var(--text-hint)}
 /* PANEL_SURFACE_SRS FR-AGG-1·10·11·12: 창 그룹의 머리. 카드가 있는 창만 갖는다. */
 .ag-group{display:flex;align-items:center;gap:4px;padding:5px 8px;cursor:pointer;background:var(--bg-alt);border-bottom:1px solid var(--border);font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em}
-.ag-group:hover{color:var(--accent);background:var(--accent-hover)}
+.ag-group:hover{color:var(--accent-text);background:var(--accent-hover)}
 .ag-group-fold{flex:none}
 .ag-group-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ag-group.attn .ag-group-name{color:var(--attn)}
+.ag-group.attn .ag-group-name{color:var(--attn-text)}
 .ag-card{padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
 .ag-card:hover{background:var(--accent-hover)}
 .ag-card.attn{box-shadow:inset 3px 0 0 var(--attn);animation:attn-pulse-bar 2s ease-in-out infinite}
@@ -576,9 +595,9 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .ag-card.drag-below{box-shadow:inset 0 -2px 0 var(--accent)}
 .ag-loc{font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ag-state{font-size:12px;color:var(--text-bright);margin-top:2px}
-.ag-state.working{color:var(--accent)}
+.ag-state.working{color:var(--accent-text)}
 .ag-state.done{color:var(--text-bright)}
-.ag-state.waiting{color:var(--attn)}
+.ag-state.waiting{color:var(--attn-text)}
 .ag-state.idle{color:var(--text)}
 .ag-detail{font-size:11px;color:var(--text);margin-top:2px;font-family:ui-monospace,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
@@ -604,10 +623,10 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   color:var(--text-muted);font-size:13px;cursor:pointer;text-align:center;
   transition:background .15s,color .15s;
 }
-#soft-reload-btn:hover:not(:disabled){background:var(--accent-hover);color:var(--accent)}
+#soft-reload-btn:hover:not(:disabled){background:var(--accent-hover);color:var(--accent-text)}
 /* FR-SRL-11: 도는 동안 그 사실을 보인다. 표시가 없으면 사용자는 눌린 줄 모르고
    다시 누른다. */
-#soft-reload-btn.busy{color:var(--accent);border-color:var(--accent);cursor:default}
+#soft-reload-btn.busy{color:var(--accent-text);border-color:var(--accent);cursor:default}
 #soft-reload-btn.busy{animation:sr-spin 1s linear infinite}
 @keyframes sr-spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
 
@@ -617,7 +636,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   color:var(--text-muted);font-size:13px;cursor:pointer;text-align:center;
   transition:background .15s,color .15s;
 }
-#settings-btn:hover{background:var(--accent-hover);color:var(--accent)}
+#settings-btn:hover{background:var(--accent-hover);color:var(--accent-text)}
 
 /* ── Modal ── */
 #modal-overlay{
@@ -667,7 +686,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   width:calc(var(--modal-close-h) * var(--ui-icon-ratio));
   height:calc(var(--modal-close-h) * var(--ui-icon-ratio));
 }
-.modal-close:hover{background:var(--border);color:var(--danger)}
+.modal-close:hover{background:var(--border);color:var(--danger-text)}
 
 /* FR-UIK-14: 넓힌 폭에 탭 열이 한 줄로 선다. 그래도 서지 못하는 폭(모바일)에서는
    **가로로 미는 대신 접는다** — 밀면 화면 밖의 탭을 찾을 계기가 없다. */
@@ -678,7 +697,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   white-space:nowrap;flex:0 0 auto;
 }
 .mtab:hover{color:var(--text)}
-.mtab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.mtab.active{color:var(--accent-text);border-bottom-color:var(--accent)}
 
 /* FR-UIK-13: 스크롤은 **여기 하나**다. 패널마다 자기 `max-height` 를 들면 상자
    안에 스크롤이 둘 생기고, 어느 쪽이 움직일지는 마우스 자리가 정하게 된다. */
@@ -742,8 +761,8 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;
   transition:border-color .15s,color .15s;
 }
-#custom-toggle:hover{border-color:var(--accent-border);color:var(--accent)}
-#custom-toggle.active{border-color:var(--accent);color:var(--accent);border-style:solid}
+#custom-toggle:hover{border-color:var(--accent-border);color:var(--accent-text)}
+#custom-toggle.active{border-color:var(--accent);color:var(--accent-text);border-style:solid}
 .ce-section{margin-top:10px}
 .ce-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:6px}
 .ce-colors{display:flex;flex-wrap:wrap;gap:6px}
@@ -756,7 +775,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .sc-list{}
 .sc-list::-webkit-scrollbar{width:6px}
 .sc-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
-.sc-group-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.sc-group-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--accent-text);margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
 .sc-group-title:first-child{margin-top:0}
 .sc-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.03)}
 .sc-row>span{color:var(--text);font-size:12px;flex:1;min-width:0}
@@ -767,15 +786,15 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   font-family:inherit;min-width:80px;text-align:center;transition:border-color .15s;
 }
 .sc-key:hover{border-color:var(--accent-border)}
-.sc-key.recording{border-color:var(--accent);color:var(--accent);animation:sc-pulse 1s infinite}
+.sc-key.recording{border-color:var(--accent);color:var(--accent-text);animation:sc-pulse 1s infinite}
 @keyframes sc-pulse{0%,100%{border-color:var(--accent)}50%{border-color:transparent}}
 .sc-rst{
-  background:none;border:none;color:var(--text-dim);cursor:pointer;
+  background:none;border:none;color:var(--text-hint);cursor:pointer;
   width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:4px;
   font-size:11px;opacity:.5;transition:opacity .15s,background .15s;
 }
-.sc-rst:hover{opacity:1;color:var(--accent);background:var(--accent-hover)}
-kbd{background:var(--border);border:1px solid var(--accent-border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent);font-family:inherit}
+.sc-rst:hover{opacity:1;color:var(--accent-text);background:var(--accent-hover)}
+kbd{background:var(--border);border:1px solid var(--accent-border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--accent-text);font-family:inherit}
 
 /* ── Search Bar ── */
 .search-bar{
@@ -796,16 +815,16 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   border-radius:3px;font-size:12px;
 }
 .search-bar button:hover{color:var(--text-bright);background:var(--accent-hover)}
-.search-bar button.active{color:var(--accent)}
+.search-bar button.active{color:var(--accent-text)}
 .search-icon{color:var(--text-muted);font-size:14px}
-#search-count{color:var(--text-dim);font-size:11px;min-width:40px;text-align:center}
+#search-count{color:var(--text-hint);font-size:11px;min-width:40px;text-align:center}
 
 /* ── Drag & Drop ── */
 .tp.dragover::after{
   content:'Drop files here';position:absolute;inset:0;
   display:flex;align-items:center;justify-content:center;
   background:rgba(0,0,0,.6);border:2px dashed var(--accent);
-  color:var(--accent);font-size:14px;z-index:20;pointer-events:none;
+  color:var(--accent-text);font-size:14px;z-index:20;pointer-events:none;
 }
 /* ── 전송 알림 팝업 (TERM_XFER_NOTICE_SRS FR-TXN-2·7, NFR-TXN-3) ──
    자리는 오른쪽 아래다 — 하단 가운데의 `.git-undo-toast` 와 다투지 않는다 (D-2).
@@ -824,7 +843,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .toast.ok{border-color:var(--accent-border);color:var(--text-bright)}
-.toast.err{border-color:var(--danger);color:var(--danger)}
+.toast.err{border-color:var(--danger);color:var(--danger-text)}
 
 /* ── 여기서 열기 확인 (VIEWER_URL_OPEN_SRS FR-VUO-7) ──
    상자·백드롭·중앙 정렬은 `.ui-modal` 이 갖는다. 여기에는 주소가 길어도 상자를
@@ -843,7 +862,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   opacity:0;transition:opacity .3s;pointer-events:none;
 }
 .tp-overlay.visible{opacity:1}
-.tp-ov-title{color:var(--danger);font-size:14px;font-weight:600}
+.tp-ov-title{color:var(--danger-text);font-size:14px;font-weight:600}
 .tp-ov-sub{color:var(--text-muted);font-size:11px}
 /* FUI-14: 종료된 도구의 출구 둘.
    **`pointer-events` 를 여기서만 되살린다.** 오버레이 전체는 `none` 이어야
@@ -914,14 +933,14 @@ body.mobile .tp-ov-acts .tbtn{min-height:44px;padding:0 14px}
 .preset-item:hover{border-color:var(--accent-border);background:var(--accent-hover)}
 .preset-info{flex:1;min-width:0}
 .preset-name{color:var(--text-bright);font-size:12px;font-weight:500}
-.preset-desc{color:var(--text-dim);font-size:10px;margin-top:2px}
+.preset-desc{color:var(--text-hint);font-size:10px;margin-top:2px}
 .preset-btn{
-  background:none;border:none;color:var(--text-dim);cursor:pointer;
+  background:none;border:none;color:var(--text-hint);cursor:pointer;
   width:24px;height:24px;display:flex;align-items:center;justify-content:center;
   border-radius:4px;font-size:12px;opacity:.5;transition:opacity .15s,color .15s,background .15s;
 }
-.preset-btn:hover{opacity:1;color:var(--accent);background:var(--accent-hover)}
-.preset-btn.del:hover{color:var(--danger);background:rgba(255,80,80,.1)}
+.preset-btn:hover{opacity:1;color:var(--accent-text);background:var(--accent-hover)}
+.preset-btn.del:hover{color:var(--danger-text);background:rgba(255,80,80,.1)}
 /* ── Confirm Dialog ── */
 .confirm-overlay{
   position:fixed;inset:0;z-index:200;
@@ -944,11 +963,11 @@ body.mobile .tp-ov-acts .tbtn{min-height:44px;padding:0 14px}
   padding:6px 16px;border-radius:4px;border:1px solid transparent;
   background:transparent;font-size:12px;cursor:pointer;font-family:inherit;
 }
-.confirm-ok{border-color:var(--danger);background:rgba(247,118,142,.15);color:var(--danger)}
+.confirm-ok{border-color:var(--danger);background:rgba(247,118,142,.15);color:var(--danger-text)}
 .confirm-ok:hover{background:rgba(247,118,142,.25)}
-.confirm-save{border-color:var(--accent);background:var(--accent-subtle);color:var(--accent)}
+.confirm-save{border-color:var(--accent);background:var(--accent-subtle);color:var(--accent-text)}
 .confirm-save:hover{background:var(--accent-hover)}
-.confirm-bg{border-color:var(--accent-border);color:var(--accent)}
+.confirm-bg{border-color:var(--accent-border);color:var(--accent-text)}
 .confirm-bg:hover{background:var(--accent-hover)}
 .confirm-cancel{border-color:var(--border);color:var(--text-muted)}
 .confirm-cancel:hover{background:var(--accent-hover);color:var(--text)}
@@ -961,7 +980,7 @@ body.mobile .tp-ov-acts .tbtn{min-height:44px;padding:0 14px}
 }
 .preset-save:hover{border-color:var(--accent-border);background:var(--accent-hover)}
 /* 저장을 거절한 사유. 비어 있으면 자리를 차지하지 않는다. */
-.preset-msg{color:var(--danger);font-size:12px;line-height:1.5}
+.preset-msg{color:var(--danger-text);font-size:12px;line-height:1.5}
 .preset-msg:empty{display:none}
 
 /* ── Display Settings ── */
@@ -979,7 +998,7 @@ body.mobile .tp-ov-acts .tbtn{min-height:44px;padding:0 14px}
 }
 .ds-text{width:200px}
 .ds-num:focus,.ds-text:focus{border-color:var(--accent)}
-.ds-hint{color:var(--text-dim);font-size:11px;line-height:1.5;margin-top:6px}
+.ds-hint{color:var(--text-hint);font-size:11px;line-height:1.5;margin-top:6px}
 /* FR-WSL-81: 값이 둘뿐인 설정의 토글. 지금 값을 적어 두고 누르면 뒤집힌다 —
    고를 목록이 없으므로 펼침도 없다. 폭을 고정하는 이유는 두 값의 글자 수가
    달라 누를 때마다 행이 흔들리기 때문이다. */
@@ -1000,7 +1019,7 @@ body.mobile .tp-ov-acts .tbtn{min-height:44px;padding:0 14px}
    두고, 지금 값은 손잡이의 자리와 켜진 이름이 함께 말한다 — 값이 적힌 버튼 하나는
    "지금 무엇인가" 만 말하고 "무엇을 고를 수 있는가" 를 숨겼다. */
 .ds-switch{display:inline-flex;align-items:center;gap:8px}
-.ds-switch .ds-sw-lbl{font-size:11px;color:var(--text-dim);transition:color .15s}
+.ds-switch .ds-sw-lbl{font-size:11px;color:var(--text-hint);transition:color .15s}
 .ds-switch[data-v="horizontal"] .ds-sw-lbl.l,
 .ds-switch[data-v="vertical"] .ds-sw-lbl.r{color:var(--text-bright)}
 .ds-switch button{
@@ -1059,11 +1078,11 @@ body.mobile .tp-ov-acts .tbtn{min-height:44px;padding:0 14px}
 /* FR-LAY-2: 되돌려 적을 것이 없다 — `[hidden]` 이 위에서 한 번에 한다. */
 .bk-summary{color:var(--text);font-size:11px;line-height:1.6;white-space:pre-line}
 .bk-actions{display:flex;gap:8px;justify-content:flex-end}
-.bk-danger{border-color:var(--danger);color:var(--danger)}
+.bk-danger{border-color:var(--danger);color:var(--danger-text)}
 .bk-danger:hover{border-color:var(--danger)}
 .bk-msg{font-size:11px;line-height:1.5;margin-top:8px}
-.bk-msg.ok{color:var(--text-dim)}
-.bk-msg.err{color:var(--danger)}
+.bk-msg.ok{color:var(--text-hint)}
+.bk-msg.err{color:var(--danger-text)}
 
 /* ── 창 배치 되돌리기 (M5 `G4-7`) ── */
 /* FR-LAY-2: 되돌려 적을 것이 없다 — `[hidden]` 이 위에서 한 번에 한다. */
@@ -1071,7 +1090,7 @@ body.mobile .tp-ov-acts .tbtn{min-height:44px;padding:0 14px}
 .bk-rev{
   display:flex;align-items:center;gap:8px;
   border:1px solid var(--border);border-radius:4px;padding:6px 8px;
-  font-size:11px;color:var(--text-dim);
+  font-size:11px;color:var(--text-hint);
 }
 .bk-rev-when{flex:1 1 auto;color:var(--text)}
 .bk-rev-size{flex:0 0 auto;font-variant-numeric:tabular-nums}
@@ -1114,7 +1133,7 @@ body.mobile #mobile-keybar.mobile-only:not([hidden]){display:flex !important}
   width:30px;height:26px;align-items:center;justify-content:center;
   flex-shrink:0;font-family:inherit;
 }
-.mtbtn:hover{background:var(--accent-hover);color:var(--accent)}
+.mtbtn:hover{background:var(--accent-hover);color:var(--accent-text)}
 .mtbtn:active{background:var(--accent-active)}
 .m-pane-nav{display:inline-flex;align-items:center;gap:2px;margin-left:4px}
 #m-pane-indicator{font-size:11px;color:var(--text-muted);min-width:32px;text-align:center;font-variant-numeric:tabular-nums}
@@ -1143,7 +1162,7 @@ body.mobile.drawer-open #drawer-backdrop{display:block;opacity:1}
   font-size:20px;cursor:pointer;width:32px;height:32px;
   display:none;align-items:center;justify-content:center;border-radius:4px;
 }
-.drawer-close:hover{color:var(--danger);background:var(--accent-hover)}
+.drawer-close:hover{color:var(--danger-text);background:var(--accent-hover)}
 body.mobile .drawer-close{display:flex}
 
 /* hide split handles entirely on mobile */
@@ -1185,8 +1204,8 @@ body.mobile #window-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;wh
   user-select:none;-webkit-user-select:none;
 }
 .mkb-btn:active{background:var(--accent-active)}
-.mkb-btn.sticky{border-color:var(--accent);color:var(--accent);background:var(--accent-subtle)}
-.mkb-btn.locked{border-color:var(--accent);background:var(--accent-active);color:var(--accent);font-weight:600}
+.mkb-btn.sticky{border-color:var(--accent);color:var(--accent-text);background:var(--accent-subtle)}
+.mkb-btn.locked{border-color:var(--accent);background:var(--accent-active);color:var(--accent-text);font-weight:600}
 
 /* long-press key tooltip popup */
 #mkb-tip{
@@ -1253,7 +1272,7 @@ body.mobile #soft-reload-btn{padding:8px;font-size:12px}
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   color:var(--text-muted);font-size:14px;
 }
-.fe-error{color:var(--danger);padding:20px;text-align:center}
+.fe-error{color:var(--danger-text);padding:20px;text-align:center}
 .fe-error-path{font-family:monospace;font-size:12px;color:var(--text-muted);margin-top:8px;word-break:break-all}
 
 /* ── 백그라운드 도구 진입점·모달 (FR-BGU-2..8) ── */
@@ -1263,7 +1282,7 @@ body.mobile #soft-reload-btn{padding:8px;font-size:12px}
 #sb-items{display:flex;flex-wrap:wrap;align-items:center;gap:2px;
   flex:1;min-width:0;overflow:hidden}
 /* FR-SBR-10: 하이라이트는 팔레트를 쓴다. 평소에는 이웃 .tbtn 과 같은 얼굴이다. */
-#bg-btn.on{color:var(--accent);border-color:var(--accent);background:var(--accent-active)}
+#bg-btn.on{color:var(--accent-text);border-color:var(--accent);background:var(--accent-active)}
 body.mobile #bg-btn{padding:4px 6px}
 .bg-modal{
   position:fixed;inset:0;z-index:200;
@@ -1293,13 +1312,13 @@ body.mobile #bg-btn{padding:4px 6px}
   background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text-bright)}
 .sbx-mount input[type=text]:focus{outline:none;border-color:var(--accent)}
 .sbx-flag{display:flex;align-items:center;gap:3px;flex:0 0 auto;
-  font-size:10px;color:var(--text-dim);cursor:pointer;white-space:nowrap}
+  font-size:10px;color:var(--text-hint);cursor:pointer;white-space:nowrap}
 .sbx-del{flex:0 0 auto;width:20px;height:20px;line-height:1;padding:0;
   background:transparent;border:1px solid var(--border);border-radius:4px;
-  color:var(--text-dim);cursor:pointer}
-.sbx-del:hover{color:var(--accent);border-color:var(--accent)}
-.sbx-status{font-size:11px;color:var(--text-dim)}
-.sbx-status.err{color:var(--accent)}
+  color:var(--text-hint);cursor:pointer}
+.sbx-del:hover{color:var(--accent-text);border-color:var(--accent)}
+.sbx-status{font-size:11px;color:var(--text-hint)}
+.sbx-status.err{color:var(--accent-text)}
 
 
 /* ── 접속 허용 목록 (ACCESS_ALLOWLIST_SRS FR-ACL-22) ── */
@@ -1311,8 +1330,8 @@ body.mobile #bg-btn{padding:4px 6px}
 .acl-label{flex:1 1 0}
 /* 해석 결과는 줄의 끝에서 조용히 있어야 한다 — 평소에는 배경이고, 실패했을 때만 눈에 든다. */
 .acl-state{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  font-size:10px;color:var(--text-dim)}
-.acl-state.err{color:var(--accent)}
+  font-size:10px;color:var(--text-hint)}
+.acl-state.err{color:var(--accent-text)}
 
 /* ── 부팅 화면 (BOOT_SCREEN_SRS 묶음 BTS) ──
    FR-BTS-7: 색은 테마의 것이다 — head 인라인이 선주입한 변수를 그대로 쓰므로,
@@ -1495,8 +1514,8 @@ html.attn-edge-on #focus-edge{opacity:0}
   position:fixed;left:50%;bottom:16px;transform:translateX(-50%);
   display:flex;align-items:center;gap:10px;
   padding:8px 12px;border-radius:6px;z-index:60;
-  background:var(--bg-elev,#222);color:var(--text-bright,#eee);
-  border:1px solid var(--border,#444);
+  background:var(--bg-alt);color:var(--text-bright);
+  border:1px solid var(--border);
   box-shadow:0 4px 16px rgba(0,0,0,.35);
   font-size:12px;max-width:min(560px,92vw);
 }

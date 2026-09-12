@@ -127,7 +127,7 @@ Object.assign(App.prototype, {
     const pbtn=document.getElementById('add-preset');
     if(pbtn)pbtn.style.display=defaultPreset>=0&&layoutPresets[defaultPreset]?'':'none';
     if(!layoutPresets.length){
-      el.innerHTML='<div style="color:var(--text-dim);font-size:12px;text-align:center;padding:20px">저장된 프리셋이 없습니다</div>';
+      el.innerHTML='<div style="color:var(--text-hint);font-size:12px;text-align:center;padding:20px">저장된 프리셋이 없습니다</div>';
       return;
     }
     layoutPresets.forEach((p,i)=>{
