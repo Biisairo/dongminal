@@ -57,7 +57,7 @@
   cursor:pointer;flex-shrink:0;white-space:nowrap;
 }
 .ui-btn:hover{background:var(--accent-active);color:var(--accent-text);border-color:var(--accent-border)}
-.ui-btn:focus-visible{outline:1px solid var(--accent);outline-offset:1px}
+.ui-btn:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .ui-btn:disabled,.ui-btn.disabled{opacity:.4;cursor:default;background:transparent;color:var(--text-hint);border-color:var(--border)}
 
 /* FR-UIK-5 / 요구 ⑤: 아이콘 버튼은 정사각이고 **아이콘이 상자를 꽉 채운다**. */
@@ -98,7 +98,7 @@
 }
 .ui-tab:hover{color:var(--text)}
 .ui-tab.active{color:var(--text-bright)}
-.ui-tab:focus-visible{outline:1px solid var(--accent);outline-offset:-2px}
+.ui-tab:focus-visible{outline:1px solid var(--focus-ring);outline-offset:-2px}
 /* 활성 표시의 **축**은 수식어가 고른다 — 레일은 세로다 (FR-UIK-6). */
 .ui-tabs-underline .ui-tab.active::after{
   content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--accent);
@@ -163,6 +163,7 @@
   color:var(--text);font-family:inherit;font-size:12px;padding:3px 8px;outline:none;
 }
 .ui-input:focus,.ui-select:focus{border-color:var(--accent)}
+.ui-input:focus-visible,.ui-select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .ui-input::placeholder{color:var(--text-hint)}
 .ui-hint{color:var(--text-hint);font-size:11px;line-height:1.5;margin-top:6px}
 .ui-badge{

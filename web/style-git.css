@@ -291,7 +291,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 .git-dialog-opt:hover{background:var(--accent-hover)}
 /* O14: 기본 선택은 첫 항목이 아니라 포커스가 가리킨다 — 위험한 항목은 색으로 구분 */
 .git-dialog-opt.danger{border-color:var(--danger);color:var(--danger-text)}
-.git-dialog-opt:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.git-dialog-opt:focus-visible{outline:2px solid var(--focus-ring);outline-offset:1px}
 /* 실행 버튼은 옵션과 분리된 별도 행이다 (FR-GIT-94·177) */
 .git-dialog-actions{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding-top:4px}
 .git-dialog-progress{flex:1;color:var(--text-muted)}
@@ -302,7 +302,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 .git-dialog-cancel{border-color:var(--border);color:var(--text-muted)}
 .git-dialog-go{border-color:var(--accent);color:var(--accent-text)}
 .git-dialog-cancel:focus-visible,.git-dialog-go:focus-visible{
-  outline:2px solid var(--accent);outline-offset:1px}
+  outline:2px solid var(--focus-ring);outline-offset:1px}
 .git-dialog-cancel:disabled,.git-dialog-go:disabled{opacity:.5;cursor:default}
 /* FR-GIT-94·177: 모바일 폭에서는 옵션이 스크롤로 접히고 확인 버튼이 목록과
    분리된 별도 행이 된다 */

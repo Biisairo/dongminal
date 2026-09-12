@@ -8,6 +8,9 @@
   position:absolute;inset:0;display:flex;flex-direction:column;
   background:var(--bg);color:var(--text);outline:none;
 }
+/* FR-TOK-24: `tabIndex=0` 인 표면이다 — 키보드로 닿는데 표시가 없었다.
+   안쪽으로 그린다: `inset:0` 이라 바깥으로 그리면 이웃 칸에 잘린다. */
+.doc-render:focus-visible{outline:1px solid var(--focus-ring);outline-offset:-1px}
 /* FR-LAY-4: 죽은 규칙이었다 — 기본이 이미 flex 이고 숨기는 CSS 가 없다. 지웠다. */
 
 .dr-bar{

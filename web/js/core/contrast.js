@@ -212,6 +212,15 @@ function deriveContrastTokens(ui,mode,attn,term){
     textHint:at(ui.textDim,CONTRAST_FLOORS.hint),
     accentText:at(ui.accent,CONTRAST_FLOORS.strong),
     dangerText:at(ui.danger,CONTRAST_FLOORS.strong),
+    /**
+     * FR-TOK-25 — 포커스 링. 글자가 아니라 **UI 컴포넌트**이므로 바닥이 3:1 이다
+     * (WCAG 1.4.11). `--accent-text`(4.5)와 나누는 이유가 그것이다: 링에 글자
+     * 바닥을 주면 52/54 에서 이유 없이 더 바랜다 — 필요한 만큼만 움직인다.
+     *
+     * 실측으로 원시 `--accent` 가 3:1 을 못 넘는 테마는 둘이다 (Ayu Light 2.62 ·
+     * Everforest Light 2.50). 그 둘에서 포커스가 보이지 않았다.
+     */
+    focusRing:at(ui.accent,CONTRAST_FLOORS.ui),
   };
   if(attn) out.attnText=at(attn,CONTRAST_FLOORS.strong);
   if(term){

@@ -54,6 +54,9 @@
   --term-red:#f7768e;--term-green:#9ece6a;--term-yellow:#e0af68;
   --term-blue:#7aa2f7;--term-magenta:#bb9af7;--term-cyan:#7dcfff;
   --accent-text:#7aa2f7;--danger-text:#f7768e;--attn-text:#e0af68;
+  /* FR-TOK-25: 포커스 링. `applyThemeObj` 가 테마마다 3:1 을 보장해 덮어쓴다 —
+     여기 값은 기본 테마의 파생 결과이고 첫 페인트용이다. */
+  --focus-ring:#7aa2f7;
   /* FR-GIT-216: JS 가 테마에서 파생해 덮어쓴다. 여기 값은 첫 페인트용이다 */
   --border-strong:#565c76;
   /* FR-STB-21: 같은 규약. mixHex(border,accent,.55) 의 기본 테마 값이다 */
@@ -115,6 +118,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   padding:0 3px;outline:none;width:100%;height:100%;box-sizing:border-box;
   min-width:40px;max-width:120px;
 }
+/* 행 높이를 꽉 채우는 입력이라 바깥으로 그리면 이웃 행에 잘린다. */
+.rename-input:focus-visible{outline:1px solid var(--focus-ring);outline-offset:-1px}
 /* 히트 영역은 **두 목록이 같다.** 창 목록은 16px, Git 목록은 30px 이었다 —
    접근성 하한(FR-GIT-195: 터치에 hover 가 없다)이 있는 쪽으로 맞춘다. */
 .sbl-x{
@@ -140,6 +145,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .sbx-workdir input{flex:1 1 auto;min-width:0;padding:4px 6px;font-size:12px;
   background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text-bright)}
 .sbx-workdir input:focus{outline:none;border-color:var(--accent)}
+.sbx-workdir input:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .sbx-now{flex:0 0 auto;padding:3px 8px;font-size:10px;white-space:nowrap;
   background:transparent;border:1px solid var(--border);border-radius:4px;
   color:var(--text-hint);cursor:pointer}
@@ -809,6 +815,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   padding:3px 8px;color:var(--text-bright);font-size:12px;font-family:inherit;outline:none;
 }
 .search-bar input:focus{border-color:var(--accent)}
+.search-bar input:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .search-bar button{
   background:none;border:none;color:var(--text-muted);cursor:pointer;
   width:24px;height:24px;display:flex;align-items:center;justify-content:center;
@@ -921,6 +928,7 @@ body.mobile .tp-ov-acts .tbtn{min-height:44px;padding:0 14px}
 .sbs-row input:checked+.slider::before{transform:translateX(16px);background:var(--text-bright)}
 .sbs-select{background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;padding:2px 6px;outline:none;font-family:inherit}
 .sbs-select:focus{border-color:var(--accent)}
+.sbs-select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 
 /* ── Presets ── */
 /* FR-UIK-13: 같은 근거로 자기 스크롤을 갖지 않는다. */
@@ -998,6 +1006,7 @@ body.mobile .tp-ov-acts .tbtn{min-height:44px;padding:0 14px}
 }
 .ds-text{width:200px}
 .ds-num:focus,.ds-text:focus{border-color:var(--accent)}
+.ds-num:focus-visible,.ds-text:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .ds-hint{color:var(--text-hint);font-size:11px;line-height:1.5;margin-top:6px}
 /* FR-WSL-81: 값이 둘뿐인 설정의 토글. 지금 값을 적어 두고 누르면 뒤집힌다 —
    고를 목록이 없으므로 펼침도 없다. 폭을 고정하는 이유는 두 값의 글자 수가
@@ -1008,7 +1017,7 @@ body.mobile .tp-ov-acts .tbtn{min-height:44px;padding:0 14px}
   text-align:center;
 }
 .ds-toggle:hover{border-color:var(--accent)}
-.ds-toggle:focus-visible{outline:1px solid var(--accent);outline-offset:1px}
+.ds-toggle:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 
 /* ── 세그먼트·레인지 (SETTINGS_CONTROLS_SRS 묶음 SCT) ──
    `.ds-toggle`·`.ds-num` 이 이미 쓰는 언어를 그대로 잇는다: 바탕 `--bg`, 테두리
@@ -1028,7 +1037,7 @@ body.mobile .tp-ov-acts .tbtn{min-height:44px;padding:0 14px}
   cursor:pointer;transition:background .15s,border-color .15s;
 }
 .ds-switch button:hover{border-color:var(--accent)}
-.ds-switch button:focus-visible{outline:1px solid var(--accent);outline-offset:1px}
+.ds-switch button:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .ds-switch button i{
   position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;
   background:var(--accent);transition:transform .15s ease;
@@ -1068,7 +1077,7 @@ body.mobile .tp-ov-acts .tbtn{min-height:44px;padding:0 14px}
 }
 .ds-range input[type=range]:hover::-webkit-slider-thumb{background:var(--text-bright)}
 .ds-range input[type=range]:hover::-moz-range-thumb{background:var(--text-bright)}
-.ds-range input[type=range]:focus-visible{outline:1px solid var(--accent);outline-offset:2px;border-radius:4px}
+.ds-range input[type=range]:focus-visible{outline:1px solid var(--focus-ring);outline-offset:2px;border-radius:4px}
 
 /* ── 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS FR-SPT-15·16) ── */
 .bk-confirm{
@@ -1306,11 +1315,13 @@ body.mobile #bg-btn{padding:4px 6px}
 .sbx-input{flex:1 1 auto;min-width:0;padding:4px 6px;font-size:12px;
   background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text-bright)}
 .sbx-input:focus{outline:none;border-color:var(--accent)}
+.sbx-input:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .sbx-mounts{display:flex;flex-direction:column;gap:6px;margin:0 0 10px}
 .sbx-mount{display:flex;align-items:center;gap:6px}
 .sbx-mount input[type=text]{flex:1 1 0;min-width:0;padding:3px 6px;font-size:11px;
   background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text-bright)}
 .sbx-mount input[type=text]:focus{outline:none;border-color:var(--accent)}
+.sbx-mount input[type=text]:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .sbx-flag{display:flex;align-items:center;gap:3px;flex:0 0 auto;
   font-size:10px;color:var(--text-hint);cursor:pointer;white-space:nowrap}
 .sbx-del{flex:0 0 auto;width:20px;height:20px;line-height:1;padding:0;
@@ -1326,6 +1337,7 @@ body.mobile #bg-btn{padding:4px 6px}
 .acl-row input[type=text]{min-width:0;padding:3px 6px;font-size:11px;
   background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text-bright)}
 .acl-row input[type=text]:focus{outline:none;border-color:var(--accent)}
+.acl-row input[type=text]:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .acl-value{flex:2 1 0}
 .acl-label{flex:1 1 0}
 /* 해석 결과는 줄의 끝에서 조용히 있어야 한다 — 평소에는 배경이고, 실패했을 때만 눈에 든다. */

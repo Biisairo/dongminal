@@ -219,6 +219,9 @@ function applyThemeObj(t){
     '--accent-text':aa.accentText,
     '--danger-text':aa.dangerText,
     '--attn-text':aa.attnText,
+    // FR-TOK-25: 포커스 링. 바닥이 3:1 인 것은 글자가 아니라 UI 컴포넌트여서다
+    // (WCAG 1.4.11). `--accent` 를 그대로 쓰면 밝은 테마 둘에서 링이 보이지 않는다.
+    '--focus-ring':aa.focusRing,
     '--accent-border':ui.accentBorder,
     '--border-strong':mixHex(ui.border,ui.text,BORDER_STRONG_MIX),
     '--slot-edge':mixHex(ui.border,ui.accent,SLOT_EDGE_MIX),

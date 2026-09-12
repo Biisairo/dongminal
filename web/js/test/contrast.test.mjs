@@ -308,3 +308,30 @@ test('FR-TOK-11 바닥이 사다리다 (hint < muted < text)', () => {
   assert.equal(CONTRAST_FLOORS.hint, 4.5); // AA 본문 하한
   assert.equal(CONTRAST_FLOORS.ui, 3); // WCAG 1.4.11 UI 컴포넌트
 });
+
+// ── FR-TOK-25. 포커스 링 ─────────────────────────────────────────────
+//
+// 지금 포커스 링은 `var(--accent)` 를 그대로 쓴다. 그것은 **경계·배경용**
+// 원시값이고(FR-TOK-4) 바닥을 받지 않는다 — 실측 2/54(Ayu Light 2.62 ·
+// Everforest Light 2.50)에서 WCAG 1.4.11 의 3:1 을 넘지 못한다. 포커스가
+// 보이지 않으면 키보드 사용자는 자기가 어디 있는지 모른다.
+test('FR-TOK-25 --focus-ring 이 테마 전부에서 3:1 을 넘는다', () => {
+  const bad = [];
+  for (const name of themeNames) {
+    const t = THEMES[name];
+    const d = deriveContrastTokens(t.ui, t.mode);
+    for (const [bgName, bg] of [['bg', t.ui.bg], ['sidebarBg', t.ui.sidebarBg], ['bgAlt', d.bgAlt]]) {
+      const got = contrastRatio(d.focusRing, bg);
+      if (got < CONTRAST_FLOORS.ui - 1e-9) bad.push(`${name} on ${bgName} ${got.toFixed(2)}`);
+    }
+  }
+  assert.deepEqual(bad, [], `포커스 링 미달 ${bad.length}건`);
+});
+
+// 바닥을 넘는 동안은 **손대지 않는다** (FR-TOK-8). 링이 무조건 글자색 쪽으로
+// 끌려가면 52/54 에서 테마의 강조색이 이유 없이 바랜다.
+test('FR-TOK-25 이미 3:1 을 넘는 테마에서는 --accent 그대로다', () => {
+  const t = THEMES['Tokyo Night'];
+  const d = deriveContrastTokens(t.ui, t.mode);
+  assert.equal(d.focusRing, t.ui.accent);
+});

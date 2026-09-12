@@ -114,6 +114,7 @@
   border:1px solid var(--border);border-radius:3px;
 }
 .git-hist-search:focus{border-color:var(--accent);outline:none}
+.git-hist-search:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 /* FR-HSU-9·10: 옵션 드롭다운의 손잡이. 걸린 필터가 있으면 배지가 선다 */
 .git-hist-opts{
   display:inline-flex;align-items:center;gap:3px;flex:0 0 auto;
@@ -327,6 +328,7 @@ body.mobile .git-refs{width:110px}
   border:1px solid var(--border);border-radius:3px;
 }
 .git-con-search:focus{outline:none;border-color:var(--accent)}
+.git-con-search:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .git-con-spacer{flex:1 1 auto}
 .git-con-count{color:var(--text-hint);font-size:11px}
 .git-con-list{flex:1 1 auto;min-height:0;overflow-y:auto;font-size:12px}
@@ -440,7 +442,7 @@ body.mobile .git-repo-xslot{width:24px;height:24px}
 /* FR-GIT-97: 기본 선택지는 취소다 — 강조도 취소에 준다 */
 .gc-cancel{border-color:var(--accent);color:var(--accent-text)}
 .gc-go{border-color:var(--danger);color:var(--danger-text)}
-.gc-cancel:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.gc-cancel:focus-visible{outline:2px solid var(--focus-ring);outline-offset:1px}
 .gc-cancel:disabled,.gc-go:disabled{opacity:.5;cursor:default}
 /* 1단계 확인(FR-GIT-72·87)은 파괴적이 아니다 — 색으로 그것을 구분한다 */
 .gc-box.soft{border-color:var(--accent-border)}
@@ -801,7 +803,7 @@ input[type="checkbox"]:disabled,input[type="radio"]:disabled{
   opacity:.45;cursor:not-allowed;
 }
 input[type="checkbox"]:focus-visible,input[type="radio"]:focus-visible{
-  outline:2px solid var(--accent);outline-offset:1px;
+  outline:2px solid var(--focus-ring);outline-offset:1px;
 }
 /* FR-GIT-205: select 도 같은 토큰으로. 화살표는 기본 위젯을 지우고 직접 그린다 */
 select{
@@ -817,6 +819,7 @@ select{
 }
 select:hover{border-color:var(--accent)}
 select:focus{border-color:var(--accent);outline:none}
+select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 /* FR-GIT-206·226: 컨트롤을 담은 행은 손이 닿는 높이여야 한다 */
 .git-dialog-row,.git-commit-amend,.git-commit-opt,.git-diff-ws,.git-diff-fold{
   min-height:var(--git-row-min);display:flex;align-items:center;gap:6px;cursor:pointer;

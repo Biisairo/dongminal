@@ -42,6 +42,9 @@ const CHECK = [
   ['textHint', CONTRAST_FLOORS.hint],
   ['accentText', CONTRAST_FLOORS.strong],
   ['dangerText', CONTRAST_FLOORS.strong],
+  // 포커스 링은 글자가 아니라 **UI 컴포넌트**다 — 바닥이 3:1 이다 (FR-TOK-25 /
+  // WCAG 1.4.11). 원시 `--accent` 로는 2/54 가 못 넘었다.
+  ['focusRing', CONTRAST_FLOORS.ui],
 ];
 
 if (process.argv.includes('-h') || process.argv.includes('--help')) {
