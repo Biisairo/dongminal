@@ -196,7 +196,27 @@ func (s *Server) apiUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	// 터미널 표면은 자동 개명한다 — `(1)`·`(2)` 는 api.md 의 공개 계약이다.
 	outPath, written, ok := uploadInto(w, r, safeDir, func(d, n string) (string, error) {
-		return uniquePath(d, n), nil
+		// TERMINAL_FOLDER_DROP_SRS FR-TFD-30: 터미널도 **폴더를 받는다.**
+		//
+		// `relPath` 가 없으면 지금까지와 같다 — 확장이지 대체가 아니다.
+		// 있으면 자리를 정하는 규칙은 탐색기와 **같은 함수**가 진다
+		// (`fsUploadTarget`): 문자열 탈출 · 경계 밖 · 링크를 따라가는 MkdirAll
+		// 세 가지를 그 함수가 이미 막는다. 두 벌로 적으면 한쪽만 고쳐진다.
+		//
+		// 경계(`root`)가 `d` 자신인 것이 탐색기와 다른 점이다. 터미널에는
+		// 편집기 루트가 없고, 넘지 말아야 할 선은 **이 도구의 cwd** 다.
+		rel := r.FormValue("relPath")
+		if rel == "" {
+			return uniquePath(d, n), nil
+		}
+		target, err := fsUploadTarget(d, d, rel, n)
+		if err != nil {
+			return "", err
+		}
+		// 자동 개명은 **마지막 조각에만** 건다. 중간 디렉터리는 이미 있는 것을
+		// 그대로 쓴다 (FR-ETR-19·20) — 폴더까지 개명하면 한 번의 드롭이 `a` 와
+		// `a (1)` 로 갈라진다.
+		return uniquePath(filepath.Dir(target), filepath.Base(target)), nil
 	}, textFail(w))
 	if !ok {
 		return
