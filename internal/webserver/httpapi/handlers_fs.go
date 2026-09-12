@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -214,10 +215,15 @@ type fsEntry struct {
 // fsListDir 는 한 겹만 읽는다 (FR-EDT-59). 정렬은 폴더 먼저, 그 다음 파일·링크이며
 // 각각 이름 오름차순(대소문자 무시)이다 (FR-EDT-61) — 잘림의 경계가 요청마다
 // 달라지지 않으려면 순서가 서버에서 결정돼야 한다.
-func fsListDir(dir string, max int) ([]fsEntry, bool, error) {
+//
+// FS_LIST_PAGING_SRS FR-FSP-1·2·4: `offset` 이 뜻을 갖는 것은 **순서가 서버의
+// 것이기 때문**이다. 잘림의 경계가 요청마다 달라지지 않으므로 같은 `offset` 은
+// 같은 자리를 가리킨다. `total` 은 정렬 전 전체 수이며 `os.ReadDir` 이 이미
+// 전부 읽으므로 세는 비용이 없다.
+func fsListDir(dir string, offset, max int) ([]fsEntry, int, bool, error) {
 	des, err := os.ReadDir(dir)
 	if err != nil {
-		return nil, false, fsFromOS(err)
+		return nil, 0, false, fsFromOS(err)
 	}
 	out := make([]fsEntry, 0, len(des))
 	for _, de := range des {
@@ -239,10 +245,17 @@ func fsListDir(dir string, max int) ([]fsEntry, bool, error) {
 		}
 		return out[i].Name < out[j].Name
 	})
-	if len(out) > max {
-		return out[:max], true, nil
+	total := len(out)
+	// FR-FSP-3: 넘어선 `offset` 은 오류가 아니라 **빈 쪽**이다. 폴더가 줄어든
+	// 뒤의 요청이 그 꼴이고, 그때 사용자가 볼 것은 오류가 아니라 "더는 없다" 다.
+	if offset >= total {
+		return []fsEntry{}, total, false, nil
 	}
-	return out, false, nil
+	out = out[offset:]
+	if len(out) > max {
+		return out[:max], total, true, nil
+	}
+	return out, total, false, nil
 }
 
 // GET /api/fs/list?root=<abs>&path=<abs> (FR-EDT-108).
@@ -270,13 +283,22 @@ func (s *Server) apiFSList(w http.ResponseWriter, r *http.Request) {
 		fsFail(w, fsErrBadRequest, "디렉터리가 아니다")
 		return
 	}
-	entries, truncated, err := fsListDir(target, fsListMax)
+	// FR-FSP-1: 음수·정수 아님은 `0` 으로 떨어진다 — 손으로 고친 URL 하나가
+	// 오류 화면이 되지 않아야 한다 (`pollValue` 와 같은 규약).
+	offset := 0
+	if v, err := strconv.Atoi(r.URL.Query().Get("offset")); err == nil && v > 0 {
+		offset = v
+	}
+	entries, total, truncated, err := fsListDir(target, offset, fsListMax)
 	if err != nil {
 		fsFailErr(w, err)
 		return
 	}
 	fsJSON(w, http.StatusOK, map[string]any{
 		"path": target, "entries": entries, "truncated": truncated,
+		// FR-FSP-2: 어디부터 받았고 전부가 몇인가. 잘림 행이 "보이는 수 / 전체 수"
+		// 를 말하려면 둘 다 필요하다.
+		"offset": offset, "total": total,
 		// NOTES_LIVE_EXPLORER_SRS FR-FSL-10: 이 목록과 **같은 관측**의 스탬프.
 		// 폴링에서만 채우면 목록을 읽은 뒤 스탬프를 처음 보기까지의 변경이
 		// "처음 본 겹" 으로 삼켜져 영영 재조회되지 않는다. 위에서 이미 Stat
@@ -367,28 +389,64 @@ type fsRenameReq struct {
 	Root string `json:"root"`
 	From string `json:"from"`
 	To   string `json:"to"`
+	// SrcRoot·DstRoot 는 **루트를 건너는 이동**이다
+	// (`12-func-ui.md FUI-11`). 주지 않으면 `Root` 하나가 둘 다를 맡는다 —
+	// 기존 호출은 한 글자도 바뀌지 않는다.
+	//
+	//	이전 동작: `from`·`to` 를 **같은 root** 로 검사했다. 그래서 홈 트리와
+	//	          저장소 트리 사이를 **복사는 되고 옮기기는 되지 않았다**
+	//	          (`/api/fs/copy` 만 두 루트를 받는다) — 탐색기에 "잘라내기"
+	//	          항목이 없던 이유가 그것이다
+	//	새  동작: 복사와 **같은 모양**으로 두 루트를 받는다
+	//	이유:     경계는 그대로 단단하다 — 둘 다 Editor 목록에 있는지 `fsRoot`
+	//	          가 각각 검사한다. 달라지는 것은 "한 루트 안" 이라는 불필요한
+	//	          제약뿐이다
+	SrcRoot string `json:"srcRoot"`
+	DstRoot string `json:"dstRoot"`
 }
 
-// POST /api/fs/rename (FR-EDT-109·115).
+// POST /api/fs/rename (FR-EDT-109·115 · `FUI-11`).
 //
-// 이름 변경과 이동은 같은 연산이므로 종단을 나누지 않는다. from 과 to **둘 다**
+// 이름 변경과 이동은 같은 연산이므로 종단을 나누지 않는다. from 과 to 를 각자의
 // 루트 아래로 검사한다. to 가 이미 있으면 거부한다 — os.Rename 은 조용히
 // 덮어쓴다 (FR-EDT-86).
+//
+// **개명하지 않는다.** 복사(`/api/fs/copy`)는 충돌하면 `name copy 2` 로 올라가지만
+// (FR-WBR-63) 이동은 그러지 않는다 — "복제" 는 개명이 본질이고 "옮기기" 는
+// 아니다. 옮기려던 자리에 다른 것이 있으면 그것은 사용자가 알아야 할 사실이다.
 func (s *Server) apiFSRename(w http.ResponseWriter, r *http.Request) {
+	// **여기서 `fsOpMu` 를 잡지 않는다** — `fsRenameNoReplace` 가 잡는다.
+	// `sync.Mutex` 는 재진입하지 않으므로 둘 다 잡으면 교착이다.
 	var req fsRenameReq
 	if !fsDecode(w, r, &req) {
 		return
 	}
-	root, from, ok := s.fsRootTarget(w, req.Root, req.From)
+	// 루트를 주지 않으면 `Root` 가 둘 다를 맡는다 (기존 계약).
+	srcRoot, dstRoot := req.SrcRoot, req.DstRoot
+	if srcRoot == "" {
+		srcRoot = req.Root
+	}
+	if dstRoot == "" {
+		dstRoot = req.Root
+	}
+	_, from, ok := s.fsRootTarget(w, srcRoot, req.From)
 	if !ok {
 		return
 	}
-	to, ok := fsTargetIn(w, root, req.To)
+	_, to, ok := s.fsRootTarget(w, dstRoot, req.To)
 	if !ok {
 		return
 	}
-	if _, err := os.Lstat(from); err != nil {
+	st, err := os.Lstat(from)
+	if err != nil {
 		fsFailErr(w, fsFromOS(err))
+		return
+	}
+	// 자기 하위로 옮기지 않는다 — 복사와 같은 판정이고 같은 이유다 (FR-EDT-85).
+	// 루트를 건너게 되면서 이 검사가 **필요해졌다**: 한 루트 안에서는 클라이언트의
+	// 드래그 규칙이 그것을 막고 있었다.
+	if err := fsCopyGuardSelf(from, filepath.Dir(to), st); err != nil {
+		fsFailErr(w, err)
 		return
 	}
 	if err := fsRenameNoReplace(from, to); err != nil {

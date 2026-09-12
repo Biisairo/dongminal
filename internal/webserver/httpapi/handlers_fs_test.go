@@ -778,7 +778,7 @@ func BenchmarkFSList1000(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		entries, truncated, err := fsListDir(dir, fsListMax)
+		entries, _, truncated, err := fsListDir(dir, 0, fsListMax)
 		if err != nil || truncated || len(entries) != 1000 {
 			b.Fatalf("entries=%d truncated=%v err=%v", len(entries), truncated, err)
 		}
