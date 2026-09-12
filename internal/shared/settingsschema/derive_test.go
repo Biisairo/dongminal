@@ -35,19 +35,22 @@ func TestSchemaAndAccessKeysMatch(t *testing.T) {
 	}
 }
 
-// `_saveSettings` 가 표를 돌아야 한다 — 인라인 나열로 되돌아가면 여기서 잡힌다.
+// `saveSettings` 가 표를 돌아야 한다 — 인라인 나열로 되돌아가면 여기서 잡힌다.
+//
+// 이름에 `_` 가 없는 이유: `FE-4` 가 디렉터리를 넘는 이름을 승격했다
+// (FE_MODULE_BOUNDARY_SRS FR-FMB-40). `ui/` 가 저장 실패를 알리려 이것을 부른다.
 func TestSaveSettingsDerivesFromTable(t *testing.T) {
 	src, err := os.ReadFile("../../../web/js/core/app-settings.js")
 	if err != nil {
 		t.Fatal(err)
 	}
 	s := string(src)
-	body := between(s, "async _saveSettings(){", "\n  },")
+	body := between(s, "async saveSettings(){", "\n  },")
 	if body == "" {
-		t.Fatal("_saveSettings 를 찾지 못했다")
+		t.Fatal("saveSettings 를 찾지 못했다")
 	}
 	if !strings.Contains(body, "for(const spec of SETTINGS_SCHEMA)") {
-		t.Error("_saveSettings 가 서술자 표를 돌지 않는다 (FR-CFG-4)")
+		t.Error("saveSettings 가 서술자 표를 돌지 않는다 (FR-CFG-4)")
 	}
 	// 인라인 나열의 흔적 — 옛 형태가 되살아나면 잡는다.
 	for _, k := range []string{"gitConsoleInterval,", "focusEdgeLevel,attnEdgeLevel"} {

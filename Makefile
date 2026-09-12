@@ -64,6 +64,14 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-api-docs.sh
 	@echo "── 단축키 문서 (기본값·라벨·설정 화면·문서가 한 벌인가)"
 	@scripts/check-shortcuts-docs.sh
+	@echo "── e2e 의 내부 접근 (app.testing 계약만 쓰는가)"
+	@scripts/check-e2e-private.sh
+	@echo "── 로드 순서 (스크립트가 아직 서지 않은 이름을 읽지 않는가)"
+	@node scripts/check-load-order.mjs
+	@echo "── e2e 의 고정 대기 (근거가 있는 예외만인가)"
+	@node scripts/check-e2e-waits.mjs
+	@echo "── 프론트 계층 경계 (ui/·git/ 이 App 의 내부를 파고들지 않는가)"
+	@scripts/check-layer.sh
 	@echo "gates ok"
 
 # 한 번에 도는 샤드 수. 샤드 하나가 워커 2개(= 인스턴스 2개)를 띄우므로 이 값이

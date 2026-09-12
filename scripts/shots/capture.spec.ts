@@ -21,8 +21,8 @@ async function boot(page: Page) {
     const w = window as any;
     w.statusBar.hostname = false;
     w.pageTitle = 'notes-app';
-    w.app._updateStatusBar();
-    w.app._applyPageTitle();
+    w.app.testing.updateStatusBar();
+    w.app.testing.applyPageTitle();
   });
 }
 

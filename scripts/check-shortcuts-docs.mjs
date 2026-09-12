@@ -5,7 +5,9 @@
 import { readFileSync } from 'node:fs';
 
 const H = readFileSync('web/js/core/helpers.js', 'utf8');
-const A = readFileSync('web/js/core/app-settings.js', 'utf8');
+// 단축키 패널은 `app-settings.js` 에서 갈라져 나왔다 (FE_MODULE_BOUNDARY_SRS
+// FR-FMB-10) — `_renderShortcutList` 가 사는 자리가 곧 이 파일이다.
+const A = readFileSync('web/js/core/app-settings-keys.js', 'utf8');
 const DOC_PATH = 'docs/external/shortcuts.md';
 const DOC = readFileSync(DOC_PATH, 'utf8');
 
