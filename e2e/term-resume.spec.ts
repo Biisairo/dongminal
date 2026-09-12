@@ -11,15 +11,23 @@ import { test, expect, waitForInit, waitShellReady } from './fixtures';
  * 여기서 재는 것은 그 조각들이 **서로 맞물려 화면을 지키는가** 하나다.
  */
 
-/** 활성 터미널의 스크롤백 전체를 글로 뽑는다. 화면 밖도 포함해야 중복이 보인다. */
+/**
+ * 활성 터미널의 스크롤백 전체를 글로 뽑는다. 화면 밖도 포함해야 중복이 보인다.
+ *
+ * **줄 끝 공백을 지운다.** `translateToString(true)` 는 한 번도 쓰이지 않은 칸만
+ * 걷어내므로, 커서가 지나가며 **써 놓은** 공백은 남는다. ConPTY 는 재접속의 크기
+ * 보고에 프롬프트를 되그리면서 그 한 칸을 달리 남긴다 — 러너 실측:
+ * `"PS C:\Users\runneradmin> "` 대 `"PS C:\Users\runneradmin>"`.
+ * 여기서 재려는 것은 **글자**이지 커서 칸이 아니다.
+ */
 const bufferText = (page: any) =>
   page.evaluate(() => {
     const app = (window as any).app;
     const pane = [...app.tools.values()].find((p: any) => p.el.classList.contains('vis')) as any;
     const b = pane.term.buffer.active;
     const out: string[] = [];
-    for (let i = 0; i < b.length; i++) out.push(b.getLine(i)?.translateToString(true) ?? '');
-    return out.join('\n');
+    for (let i = 0; i < b.length; i++) out.push((b.getLine(i)?.translateToString(true) ?? '').replace(/\s+$/, ''));
+    return out.join('\n').replace(/\n+$/, '');
   });
 
 /** 서버가 통보한 좌표. -1 이면 아직 모른다. */
