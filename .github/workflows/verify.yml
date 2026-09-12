@@ -214,6 +214,27 @@ jobs:
       - name: 프론트 계층 경계
         run: scripts/check-layer.sh
 
+      # M7 — 접근성 셋. `make gates` 에는 있었고 **여기에는 없었다**: 이 파일과
+      # Makefile 의 목록이 갈리면 로컬에서 잡히는 것을 CI 가 놓치고, 그 차이는
+      # 밀어 보고 나서야 드러난다 (Makefile 머리말이 세운 규약).
+      #
+      # 대비 게이트는 `themes.js` 를 고치는 커밋에서 즉시 빨개진다 — 새 테마도
+      # 자동으로 검사를 받는다 (DESIGN_TOKENS_SRS FR-TOK-26·27).
+      - name: 글자 대비
+        run: node scripts/check-contrast.mjs
+
+      # `--bg-alt` 가 이 게이트의 이유다 — 일곱 자리가 읽었고 정의된 적이
+      # 없었다. **폴백이 있어도 잡는다**: 폴백은 부재를 숨기고, 숨겨진 채로 두면
+      # 폴백을 적지 않은 다음 사람이 빈 값을 얻는다 (FR-TOK-28 / D-TOK-6).
+      - name: CSS 토큰
+        run: node scripts/check-css-vars.mjs
+
+      # `UX-13` — 착수 시 `outline:none` 17 vs `:focus-visible` 9 였다. 개수가
+      # 아니라 **선택자**로 짝을 본다: 아무 데나 링을 더해 수를 맞추는 것으로는
+      # 포커스가 사라진 그 요소가 고쳐지지 않는다 (FR-TOK-24·25·30).
+      - name: 포커스 표시
+        run: node scripts/check-focus.mjs
+
       # 서식은 취향이 아니라 diff 의 크기다 (TEST-10). 착수 시 1건 위반이 있었다.
       - name: gofmt
         run: |
