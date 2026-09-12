@@ -72,7 +72,14 @@
      (규약의 선례로 `.git-hunks` 를 들고 있었는데 그 선택자는 폐기됐다 —
       DIFF_HUNK_BAR_SRS FR-DHB-1. 값이 여기 사는 근거는 그대로다.) */
   --git-st-add:#9ece6a;
-  --m-kb-h:38px;
+  /* ACCESSIBILITY_BASELINE_SRS FR-A11Y-27 (`UX-7`): 모바일 터치 타겟의 하한.
+     **AA 요건이 아니다** — WCAG 2.1 에는 타겟 크기 SC 가 없고 44 는 AAA 의
+     2.5.5 값이다. 이 앱이 휴대폰에서 실제로 쓰이므로 자체 하한으로 둔다.
+     값이 여기 하나인 것이 요구다: 세 자리가 각자 44 를 적고 있었고, 그렇게
+     흩어진 값은 하나를 고칠 때 나머지가 남는다. */
+  --touch-min:44px;
+  /* 키바의 높이. 버튼 44 + 위아래 여백 4 (E-3: 폭은 면제, 세로는 받는다). */
+  --m-kb-h:52px;
   /* SIDEBAR_COLLAPSE_SRS FR-SBC-2: 접힌 사이드바(아이콘 레일)의 폭. 펼침 폭
      (`--sb-w`)은 건드리지 않는다 — 접힘이 그것을 덮으면 펼쳤을 때 돌아갈
      자리가 없다 (FR-SBC-3). */
@@ -877,7 +884,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
    누를 것이 있는 회차에만 그 자리가 포인터를 받는다. */
 .tp-ov-acts{display:flex;gap:8px;margin-top:4px;pointer-events:auto}
 .tp-ov-acts .tbtn{padding:3px 10px;font-size:11px}
-body.mobile .tp-ov-acts .tbtn{min-height:44px;padding:0 14px}
+body.mobile .tp-ov-acts .tbtn{min-height:var(--touch-min);padding:0 14px}
 
 /* ── Dimmed session overlay (multi-window: another window owns this session) ── */
 .pn-dimmed .pn-body::after{
@@ -1206,7 +1213,9 @@ body.mobile #window-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;wh
   /* manipulation: 더블탭 확대를 끊어 모디파이어 더블탭(lock)과 충돌하지 않게
      한다. 수평 팬(키바 슬라이드)은 그대로 허용된다. */
   touch-action:manipulation;
-  flex-shrink:0;min-width:38px;height:30px;padding:0 8px;
+  /* 폭 38 은 §6 E-3 의 예외다 — 한 줄에 19개가 서는 가로 스크롤 스트립이라
+     폭을 44 로 올리면 한 화면에 여덟만 남는다. 세로는 하한을 받는다. */
+  flex-shrink:0;min-width:38px;height:var(--touch-min);padding:0 8px;
   background:var(--bg);border:1px solid var(--border);border-radius:5px;
   color:var(--text-bright);font-size:12px;font-family:inherit;
   cursor:pointer;display:flex;align-items:center;justify-content:center;
@@ -1230,17 +1239,44 @@ body.mobile #window-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;wh
 /* on mobile, hide split-related drag indicators */
 body.mobile .pn-drop-indicator{display:none !important}
 
-/* enlarge touch targets on mobile */
-body.mobile .sbl-item{height:40px;font-size:13px}
-body.mobile .sbl-x{opacity:1;width:24px;height:24px;font-size:14px}
+/* ── 모바일 터치 타겟 하한 (FR-A11Y-27~29 / `UX-7`) ────────────────────
+   착수 시 인계서는 여섯 자리를 적고 있었고, 같은 화면을 **파생으로 훑자
+   17종**이 나왔다 — 손으로 적은 목록은 표본이었다. 그래서 여기서도 자리를
+   하나씩 세지 않고 **켜는 축**(키트 버튼·탭 줄·목록 행)에 하한을 준다.
+
+   판정은 이 파일이 아니라 `e2e/touch-targets.spec.ts` 가 한다. 그것이 모바일
+   뷰포트에서 DOM 을 훑으므로, 여기 빠진 자리가 있으면 검사가 말한다. */
+body.mobile .ui-btn{min-height:var(--touch-min)}
+/* 아이콘 버튼은 글자가 폭을 벌어 주지 않는다 — 가로도 받아야 한다. */
+body.mobile .ui-btn-icon{min-width:var(--touch-min)}
+/* 닫기는 자기 크기를 토큰으로 갖는다 — 아이콘도 그 비율로 함께 큰다. */
+body.mobile .modal-close{--modal-close-h:var(--touch-min)}
+/* 상단바가 32px 이면 그 안의 버튼이 44 가 될 수 없다. 담는 쪽부터 연다. */
+body.mobile #topbar{height:var(--touch-min);min-height:var(--touch-min)}
+body.mobile .mtab{min-height:var(--touch-min)}
+body.mobile .mtbtn{width:var(--touch-min);height:var(--touch-min)}
+body.mobile .sbl-item{height:var(--touch-min);font-size:13px}
+body.mobile .sbl-x{opacity:1;width:var(--touch-min);height:var(--touch-min);font-size:14px}
+/* 탭 줄은 `align-items:stretch` 라 줄을 열면 탭과 `+` 가 함께 큰다. */
+/* `+1px` 은 아래 테두리다 — `box-sizing:border-box` 라 테두리가 높이 안에서
+   먹히고, 그러면 늘어난 탭이 43 이 된다 (실측). */
+body.mobile .pn-tabs{
+  height:calc(var(--touch-min) + 1px);min-height:calc(var(--touch-min) + 1px);
+}
 body.mobile .pn-tab{padding:0 14px;font-size:13px}
 /* FR-GHM-12: Git 창의 고정 탭은 일곱이고 늘거나 줄지 않는다 (FR-GIT-28) — 390px
    폭에서 일곱이 다 들어가려면 일반 탭의 여백을 쓸 수 없다 */
 body.mobile .pn-tab[data-git-view]{padding:0 6px;font-size:12px}
-body.mobile .pn-tab-x{opacity:1;width:18px;height:18px}
-body.mobile .pn-tab-add{width:32px;font-size:18px}
+/* §6 E-4 — 폭은 면제다. `×` 는 탭 **안에** 있는 컨트롤이라 44 로 넓히면
+   탭 자신의 가운데가 그 위로 들어온다: 실측으로 `history` 탭의 중심 x=130 이
+   `×`[128..172] 안이었고, **탭을 누르면 탭이 닫혔다.** 세로는 줄 높이만큼
+   받으므로 손가락이 실제로 빗나가는 축은 이미 덮인다. */
+body.mobile .pn-tab-x{opacity:1;width:18px;height:var(--touch-min)}
+body.mobile .pn-tab-add{width:var(--touch-min);font-size:18px}
+/* 이 셋은 `#id` 로 `min-height` 를 따로 들고 있어 `.ui-btn` 의 하한이 닿지
+   않는다 — 같은 자리에서 함께 올린다. */
 body.mobile #add-window,body.mobile #add-preset,body.mobile #settings-btn,
-body.mobile #soft-reload-btn{padding:8px;font-size:12px}
+body.mobile #soft-reload-btn{padding:8px;font-size:12px;min-height:var(--touch-min)}
 
 /* ── Tab bar drag target ── */
 .pn-tabs.drag-target{background:var(--accent-hover);box-shadow:inset 0 -2px 0 var(--accent)}

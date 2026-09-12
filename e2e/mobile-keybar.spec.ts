@@ -106,13 +106,25 @@ test.describe('Mobile keybar visibility (SRS REQ-F-1..F-4)', () => {
 //
 // 기준 수치 (MOBILE_VIEWPORT 375×667, 키보드 300px, 스크롤 120px):
 //   vv.height = 367 · offsetTop = 120 · 가시 영역 = [120, 487]
-//   kbH = 667-367-120 = 180 · padBottom = 180+38 = 218 · padTop = 120
-//   #app = [120, 449] · 키바 = [449, 487]  → 틈도 겹침도 없다
+//   kbH = 667-367-120 = 180 · padBottom = 180 + 키바 높이 · padTop = 120
+//   #app 아래에 키바가 붙고 가시 영역 하단에 닿는다 → 틈도 겹침도 없다
 test.describe('묶음 F — 모바일 키보드 뷰포트 (FR-MKV-*)', () => {
   const KB = 300;
   const SCROLL = 120;
-  const KEYBAR = 38;
   const kbH = MOBILE_VIEWPORT.height - (MOBILE_VIEWPORT.height - KB) - SCROLL; // 180
+
+  /**
+   * 키바 높이는 **토큰에서 읽는다** — 여기 38 이 박혀 있었다.
+   *
+   * `UX-7`(FR-A11Y-27)이 버튼 높이를 44 로 올리면서 `--m-kb-h` 가 38 → 52 가
+   * 됐고, 박아 둔 값이 그 커밋에서 셋을 빨갛게 했다. 이 검사들이 재려는 것은
+   * **"38 인가"** 가 아니라 **"padding 이 키바 높이와 맞물리는가"** 다 — 값을
+   * 다시 박으면 다음 변경에서 같은 일이 난다.
+   */
+  async function keybarH(page: Page) {
+    return page.evaluate(() =>
+      parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--m-kb-h')));
+  }
 
   // simulateKeyboard 는 vv.height 와 vv.offsetTop 을 함께 세운다. innerHeight 를
   // 건드리지 않는 것이 WebKit 재현의 핵심이다 — layout viewport 는 줄지 않는다.
@@ -172,7 +184,7 @@ test.describe('묶음 F — 모바일 키보드 뷰포트 (FR-MKV-*)', () => {
 
     const p = await pads(page);
     expect(p.top).toBe('0px');
-    expect(p.bottom).toBe(`${KEYBAR}px`);
+    expect(p.bottom).toBe(`${await keybarH(page)}px`);
     expect(p.up).toBe(false);
   });
 
@@ -181,7 +193,7 @@ test.describe('묶음 F — 모바일 키보드 뷰포트 (FR-MKV-*)', () => {
     await simulateKeyboard(page, { kb: KB, offsetTop: SCROLL });
 
     // kbH 는 이미 offsetTop 을 뺀 값이다. padding-bottom 은 kbH + 키바 높이 그대로다.
-    expect((await pads(page)).bottom).toBe(`${kbH + KEYBAR}px`);
+    expect((await pads(page)).bottom).toBe(`${kbH + (await keybarH(page))}px`);
   });
 
   test('TC-MKV-5: topbar 가 가시 영역 안에 남는다 (FR-MKV-4)', async ({ page }) => {
@@ -291,13 +303,13 @@ test.describe('묶음 F — 모바일 키보드 뷰포트 (FR-MKV-*)', () => {
 
   test('TC-B2: CSS 변수 --m-kb-h 가 키바 높이와 일치한다', async ({ page }) => {
     await gotoMobile(page);
-    const varValue = await page.evaluate(() =>
-      getComputedStyle(document.documentElement).getPropertyValue('--m-kb-h').trim(),
-    );
-    expect(varValue).toBe(`${KEYBAR}px`);
+    // 이 검사가 재는 것은 **두 출처가 같은가**다: 토큰이 말하는 높이와 실제로
+    // 그려진 높이. 어느 한쪽 값을 여기 적으면 그 비교가 사라진다.
+    const declared = await keybarH(page);
+    expect(declared).toBeGreaterThan(0);
 
-    const keybarH = await page.locator('#mobile-keybar').evaluate((el) => (el as HTMLElement).getBoundingClientRect().height);
-    expect(Math.round(keybarH)).toBe(KEYBAR);
+    const painted = await page.locator('#mobile-keybar').evaluate((el) => (el as HTMLElement).getBoundingClientRect().height);
+    expect(Math.round(painted)).toBe(declared);
   });
 });
 
