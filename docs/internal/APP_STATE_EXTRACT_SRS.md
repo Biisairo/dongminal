@@ -72,7 +72,7 @@ _runsConfirm _runsDelErr _runDefsSeq _runViews _runViewMap …
 |---|---|
 | `_runsModalToggle` | `app.js` |
 | `_findRunTab` | `app-layout.js` |
-| `_runViewEl` | `renderer.js` |
+| `runViewEl` | `renderer.js` |
 | `_runDisposeView` | `app-slots.js` |
 | `_onRunChanged` | `app-cmd.js` · **e2e 2개** |
 | `_runPaint` | **e2e 1개** |
@@ -138,8 +138,8 @@ app._onRunChanged({ runId: rid });                                      // 내�
 메서드 본문은 **구간 이동**이고, 편집은 **앱으로 나가는 8곳뿐**이다:
 
 ```
-this.ws (2)  this.focused (1)  this.addTab (1)  this._jumpToTool (1)
-this._findToolLocation (1)  this._slotKey (1)  this._slotBase (1)
+this.ws (2)  this.focused (1)  this.addTab (1)  this.jumpToTool (1)
+this.findToolLocation (1)  this.slotKey (1)  this.slotBase (1)
                               → this.app.<같은 이름>
 ```
 
@@ -148,7 +148,7 @@ this._findToolLocation (1)  this._slotKey (1)  this._slotBase (1)
 이동임을 증명할 수 없게 된다. 이름 정리는 이 SRS 의 일이 아니다 (§5 N5).
 
 **FR-ASE-3** `App` 은 `runs` 접근자 하나로 그것을 지연 생성한다
-(`_gitObs()` 와 같은 규약 — Run 을 쓰지 않는 브라우저는 만들지 않는다).
+(`gitObs()` 와 같은 규약 — Run 을 쓰지 않는 브라우저는 만들지 않는다).
 
 **FR-ASE-4** `app-runs.js` 에는 **위임 껍데기 여섯**만 남는다 (C-3).
 
@@ -239,7 +239,7 @@ this._softStep('attn', () => this._attnRestore && this._attnRestore());
 
 | 대상 | 정의 메서드 | **바깥이 부름** | 전용 필드 | 판정 |
 |---|---|---|---|---|
-| `app-editor.js` | 50 | **35** | 5 | **부적합.** 위임 껍데기가 본체보다 커진다. `_isEditorWin` 하나만 14곳이 부른다 |
+| `app-editor.js` | 50 | **35** | 5 | **부적합.** 위임 껍데기가 본체보다 커진다. `isEditorWin` 하나만 14곳이 부른다 |
 | `app-attn.js` | 26 | **14** | 6 | **부적합.** 게다가 주제가 섞였다 (§7.4) |
 | `app-reload.js` | 6 | 2 | **3** | **이득 없음.** 옮길 상태가 셋뿐이다 |
 
@@ -249,8 +249,8 @@ this._softStep('attn', () => this._attnRestore && this._attnRestore());
 
 | 메서드 | 부르는 곳 |
 |---|---|
-| `_findToolLocation` | `runs-panel.js` · `app-cmd.js` · `app-agents.js` |
-| `_jumpToTool` | `runs-panel.js` · `app-agents.js` · e2e |
+| `findToolLocation` | `runs-panel.js` · `app-cmd.js` · `app-agents.js` |
+| `jumpToTool` | `runs-panel.js` · `app-agents.js` · e2e |
 | `_toolName` | `app-statusbar.js` · `app-agents.js` · e2e |
 
 "도구를 찾고·이동하고·이름 짓는" 일은 알림의 것이 아니다. 같은 파일이 `_bg`·
@@ -316,16 +316,16 @@ web/js/**/*.js 의 Object.assign(App.prototype,{…}) · class App 본문에서
 | `_gitJobs` | **`app-git.js` 가 13곳에서 쓴다.** 상태바는 초기화하고 읽을 뿐이다 |
 | `_bg` | `app-tool.js` 가 채우고 · `app-attn.js` 가 읽고 · **e2e 4개가 `app._bg` 로 직접 읽는다** |
 | `_bgModalOpen`·`_bgModalKey` | `app.js`·`app-cmd.js`·`app-tool.js` |
-| `_cwd` | **`term-pane.js:525` 가 `app._cwd=cwd` 로 쓴다** |
+| `cwd` | **`term-pane.js:525` 가 `app.cwd=cwd` 로 쓴다** |
 | `_stats`·`_latency` | `app.js` 생성자가 함께 초기화한다 |
 
 **떼면 `app-git.js` 가 남의 객체를 13번 만지게 된다.** 조건 1 이 6/15 로 깨진다.
 
 #### `app-editor.js` — 부적합
 
-50개 중 **35개**를 바깥이 붙잡는다. `_isEditorWin` 하나만 `app-cmd`·`app-dnd`·
+50개 중 **35개**를 바깥이 붙잡는다. `isEditorWin` 하나만 `app-cmd`·`app-dnd`·
 `app-edsearch`·`app-git`·`app-layout`·`app-presets` 등에서 부른다. 전용 필드는
-**둘**(`_edGitInterval`·`_edLastActive`)뿐이고 `_edDocs`·`_edTrees`·`_edStores`
+**둘**(`_edGitInterval`·`_edLastActive`)뿐이고 `_edDocs`·`_edTrees`·`edStores`
 는 e2e 가 `app.` 으로 직접 읽는다. **위임 껍데기 35개가 본체를 압도한다.**
 
 #### `app-attn.js` — 부적합 (그러나 §7.4 의 값은 유효하다)
@@ -333,7 +333,7 @@ web/js/**/*.js 의 Object.assign(App.prototype,{…}) · class App 본문에서
 26개 중 15개를 바깥이 붙잡고, 전용 필드는 6개다. 객체 추출은 부적합이다.
 **대신 §7.4 의 주제 혼재가 실측으로 확인됐고**, 그 처리는
 `ATTN_UTIL_RELOCATE_SRS.md` 로 분리했다 — 단, §7.4 가 공용 유틸로 지목한 셋 중
-`_jumpToTool` 은 **알림 전용이 맞다**(그 SRS §5 N1 에서 정정).
+`jumpToTool` 은 **알림 전용이 맞다**(그 SRS §5 N1 에서 정정).
 
 #### `app-reload.js` — 이득 없음
 

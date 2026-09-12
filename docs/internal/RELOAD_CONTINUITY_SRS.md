@@ -58,10 +58,10 @@
 (`sidebar-tabs.js:39`):
 
 ```js
-onActivate:app=>{const w=app._gitBackTarget();if(w)app.switchWindow(w.id)},
+onActivate:app=>{const w=app.gitBackTarget();if(w)app.switchWindow(w.id)},
 ```
 
-`_gitBackTarget`(`app-git.js:85`) 은 `this._lastPlainWindow` 를 본다. 그 값은
+`gitBackTarget`(`app-git.js:85`) 은 `this._lastPlainWindow` 를 본다. 그 값은
 `switchWindow` 가 적고(`app-layout.js:181`), **`app.js:33` 에서 `null` 로 태어난다** —
 어디에도 저장되지 않는다. `Editor` 탭의 `_lastEditorWindow`(`app-layout.js:188`,
 `app-editor.js:224`)도 같다.
@@ -75,7 +75,7 @@ onActivate:app=>{const w=app._gitBackTarget();if(w)app.switchWindow(w.id)},
 | **새로고침** | `git` ✅ | Git 창 ✅ | **`null`** ❌ |
 | Windows 탭으로 돌아온다 | `windows` | **창1** ❌ | — |
 
-`_gitBackTarget` 의 폴백이 `plain[0]` 이므로 첫 번째 창이 나온다. **탭은 기억되는데 그
+`gitBackTarget` 의 폴백이 `plain[0]` 이므로 첫 번째 창이 나온다. **탭은 기억되는데 그
 탭이 돌아갈 자리는 기억되지 않는** 반쪽 영속이다.
 
 ### 2.3 같은 규약이 이미 세 곳에 있다
@@ -160,8 +160,8 @@ onActivate:app=>{const w=app._gitBackTarget();if(w)app.switchWindow(w.id)},
 **FR-RLC-8** 복원은 `App.init` 에서 `activeWindow`·`focusedPanes` 와 **같은 블록**에
 둔다. 복원한 창 id 가 지금 워크스페이스에 없으면 버린다 — 없는 창으로 돌아갈 수는 없다.
 
-**FR-RLC-9** 복원값이 없거나 버려졌을 때의 동작은 지금과 같다 — `_gitBackTarget` 은
-`plain[0]`, `_edActivateTarget` 은 root 편집기 창.
+**FR-RLC-9** 복원값이 없거나 버려졌을 때의 동작은 지금과 같다 — `gitBackTarget` 은
+`plain[0]`, `edActivateTarget` 은 root 편집기 창.
 
 **FR-RLC-10** 저장·복원의 실패(사생활 모드 등)는 삼킨다. 사이드바의 편의가 화면을
 세우지 못하게 해서는 안 된다 — 기존 `try{}catch{}` 규약과 같다.

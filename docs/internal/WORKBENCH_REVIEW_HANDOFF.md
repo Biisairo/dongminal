@@ -45,7 +45,7 @@
 
 | 가설 | 왜 틀렸나 |
 |---|---|
-| `refresh()` 가 디스크 내용으로 버퍼를 덮는다 | 덮는 것은 **사실이다** (`file-editor.js` 가 dirty 를 묻지 않고 `setValue`). 그러나 그 길은 `_edOpenFile` 의 `existing` 가지에서만 불린다 — **탭 줄에서 탭을 클릭하는 경로에는 없다.** 사용자는 탭을 눌렀다고 답했다 |
+| `refresh()` 가 디스크 내용으로 버퍼를 덮는다 | 덮는 것은 **사실이다** (`file-editor.js` 가 dirty 를 묻지 않고 `setValue`). 그러나 그 길은 `edOpenFile` 의 `existing` 가지에서만 불린다 — **탭 줄에서 탭을 클릭하는 경로에는 없다.** 사용자는 탭을 눌렀다고 답했다 |
 | 쓰기 종단이 메모 루트를 거부한다 | `apiFileWrite` 에는 **루트 검사가 아예 없다** (`handlers_files.go`). 절대경로면 쓴다 |
 
 또 하나. **`_dirty` 는 뷰가 아니라 문서의 것이다** — `file-editor.js` 의 접근자가
@@ -57,11 +57,11 @@
 **닫은 것 (묶음 S).** 재조정이 창을 지울 때 저장하지 않은 편집을 지킨다.
 
 ```
-루트가 _edRoots() 에서 빠진다
+루트가 edRoots() 에서 빠진다
   → _edReconcile 이 창 레코드를 통째로 splice        (app-editor.js)
   → 그 창의 탭 id 가 사라진다
   → 렌더러의 회수기가 편집기를 파괴한다              (renderer.js:235)
-  → _edDocDrop 이 모델까지 dispose 한다
+  → edDocDrop 이 모델까지 dispose 한다
   → 저장하지 않은 편집이 묻지도 알리지도 않고 사라진다
 ```
 
@@ -69,7 +69,7 @@
 같은 손실을 다른 길에서 조용히 냈다. 이제 dirty 편집기가 있으면 그 창을 남기고
 (FR-WBR-40) 창 이름과 함께 한 번 알린다 (FR-WBR-41).
 
-**메모장이 유독 약한 이유.** `_edRoots()` 는 `[home, notes?, ...list]` 인데 `home`
+**메모장이 유독 약한 이유.** `edRoots()` 는 `[home, notes?, ...list]` 인데 `home`
 은 없으면 `_edApplyServer` 가 반영 자체를 포기하는 반면 **`notes` 는 선택적이라
 응답 한 번에 빈 문자열이 된다** (FR-NOT-11). 그 순간 메모장 창이 통째로 지워졌다.
 FR-WBR-30 이 고친 자리(워크스페이스 충돌 재시도가 `notes` 를 빠뜨리던 것)가 그
@@ -237,12 +237,12 @@ CSS 만 되돌리자 통과해 원인이 확정됐다. 회귀표(§6)의 flake �
 
 | 파일 | 왜 |
 |---|---|
-| `web/js/core/app-editor.js` | `_edReconcile` 의 dirty 가드(`_edWinDirty`) · `_edApplyServer` 의 계약 · `_edDocDrop` |
+| `web/js/core/app-editor.js` | `_edReconcile` 의 dirty 가드(`_edWinDirty`) · `_edApplyServer` 의 계약 · `edDocDrop` |
 | `web/js/ui/file-editor.js` | `save()` 의 `_doc.saving` · `refresh()` 의 `setValue` · `_dirty` 접근자 |
 | `web/js/ui/file-tree-paint.js` | `_fail`·`_clearErr` — 실패 메시지의 수명 |
 | `web/js/core/app-layout.js` | `_mkWindow`(승계 없음) · 탭 닫기의 dirty 가드 |
 | `internal/helper/runtimebin/dmctl.go` | `--cwd` 와 `cwdTool` 을 싣지 않는 판단 |
-| `web/js/core/app-settings.js` | `_saveSettings` 의 블롭 리터럴 — 값을 더할 때 함께 고쳐야 하는 자리 |
+| `web/js/core/app-settings.js` | `saveSettings` 의 블롭 리터럴 — 값을 더할 때 함께 고쳐야 하는 자리 |
 | `web/js/core/constants-git.js` | `GIT_GROUP_BULK`(그룹당 하나) · `GIT_BULK_LABEL` · `GIT_DISCARD_NOTE` — 묶음 D 가 바꾸는 자리 |
 | `web/js/git/panel-changes.js` | 그룹 머리 조립(`:248`) · `_emitTree`/`_emitFlat`(`:429·437`) · `_dirEl` — 묶음 D·F |
 | `web/js/git/panel-files.js` | `_bulk`·`_run`·`_discard`(`:182·188·258`) — 명령 분기가 이미 사는 자리 |

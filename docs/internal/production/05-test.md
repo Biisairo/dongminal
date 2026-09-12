@@ -99,7 +99,7 @@
 - 조치: (1) CI 에서 `flaky > 0` 을 실패로 승격(`parity-reporter.ts` 가 이미 결과를 세니 한 줄 추가), (2) 제품 쪽 — `reconcileList`/탭 바가 노드를 교체하지 않고 갱신하도록(`pane-dom-reconcile.spec.ts` 가 그 규약을 이미 칸에 대해 검증한다; git 뷰로 확장), (3) 그 전까지 `expect(count)` 류를 `expect.poll` 로. 규모 **M**.
 
 ### [P1] e2e 가 프론트 내부(private) 상태에 결합돼 있다 — 리팩터 비용이 테스트로 전가된다
-- 위치: 81/135 스펙, `app._focusedTerminal` 38 · `app._edOpenFile` 32 · `app._edWindows` 31 · `app._execRemote` 21 · `app._sbTab` 14 · `app._edActiveEditor` 14 · `app._gitPin` 12 · `app._fgMap` 10 …; `git-head-mobile.spec.ts:172-183` 는 `r._busy = true; r._paint()` 로 내부 플래그를 직접 켠다
+- 위치: 81/135 스펙, `app.focusedTerminal` 38 · `app.edOpenFile` 32 · `app.edWindows` 31 · `app._execRemote` 21 · `app.sbTab` 14 · `app._edActiveEditor` 14 · `app.gitPin` 12 · `app._fgMap` 10 …; `git-head-mobile.spec.ts:172-183` 는 `r._busy = true; r._paint()` 로 내부 플래그를 직접 켠다
 - 현상: 밑줄 필드 533회. `fixtures.ts:266-281` 의 `openGitTab` 조차 `app._sbSetTab('repo')` 를 부른다.
 - 왜 문제인가: 프론트 리팩터(다른 축 감사 대상 `app-editor.js` 1,155 · `history.js` 1,274 · `branches.js` 990) 때 테스트가 결함이 아니라 이름 변경으로 깨진다. `DRIFT_RECLAIM_SRS §7.6` 이 그 세 파일을 "손대지 않았다" 고 적은 이유의 일부다.
 - 조치: 테스트가 쓰는 진입점을 `window.app.testing = { openFile, focusedTerminal, … }` 같은 **공개 계약 한 벌**로 모으고 스펙은 그것만 부른다. 이관은 기계적. 규모 **M**.

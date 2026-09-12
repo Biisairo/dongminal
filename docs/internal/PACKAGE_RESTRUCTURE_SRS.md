@@ -468,8 +468,8 @@ export 승격: `gitEnv`→`Env`, `guardWriteArgs`→`GuardWriteArgs`, `sanitizeA
 ### 3.10 묶음 J — `app.js` 14분할
 
 **FR-APP-1** `class App` 본문에는 다음만 남긴다: `constructor`, 접근자 11개(§2.4),
-`init`, `render`, `_bind`, `_save`, `_rename`, `executeAction`, `_mkTool`,
-`_collectPanes`, `_flattenPanes`.
+`init`, `render`, `_bind`, `save`, `rename`, `executeAction`, `mkTool`,
+`_collectPanes`, `flattenPanes`.
 
 **FR-APP-2** 나머지 메서드를 주제별 13파일로 옮긴다. 각 파일은
 `Object.assign(App.prototype, { … })` 한 블록이다.
@@ -479,16 +479,16 @@ export 승격: `gitEnv`→`Env`, `guardWriteArgs`→`GuardWriteArgs`, `sanitizeA
 | `app-cmd.js` | 원격 커맨드·워크스페이스 동기화 | `_subscribeCommands`, `_execRemote`, `_applyRemoteWorkspace` |
 | `app-tool.js` | 도구 생명주기 | `_newTool`, `_restoreTool`, `_setToolBackground`, `_killTool` |
 | `app-layout.js` | 창·탭·분할 | `addTab`, `closeTab`, `split`, `_splitInner`, `switchWindow` |
-| `app-focus.js` | 포커스 동기화 | `_initFocusSync`, `_focusClaim`, `_resendWindowSizes` |
-| `app-attn.js` | 주의 알림 | `_onToolAttention`, `_attnRefresh`, `_attnCenterRender`, `_initAttn` |
-| `app-agents.js` | 활동 패널 | `_onToolActivity`, `_agentsRender`, `_agentOrderSync` |
-| `app-git.js` | git 연동 | `openGitWindow`, `_gitReposRefresh`, `_gitPin`, `_gitChip` |
-| `app-search.js` | 검색 | `toggleSearch`, `_doSearch` |
-| `app-mobile.js` | 모바일 | `_initMobile`, `_initMobileKeybar`, `navMobilePane` |
-| `app-settings.js` | 설정 모달·테마 | `_initModal`, `_renderThemePanel`, `_renderShortcutList` |
-| `app-statusbar.js` | 상태바 | `_initStatusBar`, `_pollStats`, `_updateStatusBar` |
+| `app-focus.js` | 포커스 동기화 | `_initFocusSync`, `_focusClaim`, `resendWindowSizes` |
+| `app-attn.js` | 주의 알림 | `_onToolAttention`, `_attnRefresh`, `_attnCenterRender`, `initAttn` |
+| `app-agents.js` | 활동 패널 | `_onToolActivity`, `agentsRender`, `_agentOrderSync` |
+| `app-git.js` | git 연동 | `openGitWindow`, `gitReposRefresh`, `gitPin`, `_gitChip` |
+| `app-search.js` | 검색 | `toggleSearch`, `doSearch` |
+| `app-mobile.js` | 모바일 | `initMobile`, `initMobileKeybar`, `navMobilePane` |
+| `app-settings.js` | 설정 모달·테마 | `initModal`, `_renderThemePanel`, `_renderShortcutList` |
+| `app-statusbar.js` | 상태바 | `initStatusBar`, `_pollStats`, `updateStatusBar` |
 | `app-presets.js` | 레이아웃 프리셋 | `_savePreset`, `_loadPreset`, `_renderPresets` |
-| `app-dnd.js` | 드래그앤드롭 | `_moveTabToPane`, `_splitPaneWithTab` |
+| `app-dnd.js` | 드래그앤드롭 | `moveTabToPane`, `splitPaneWithTab` |
 
 **FR-APP-3** 메서드 **본문을 수정하지 않는다.** `this` 의미가 그대로이므로 변경은
 클래스 본문에서 객체 리터럴로의 이동뿐이다.

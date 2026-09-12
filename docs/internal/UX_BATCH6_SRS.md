@@ -76,7 +76,7 @@
 - `web/js/git/panel-life.js:143` `destroy` / `:150` `detach` — `_stop()` 이 관측자의 타이머를 끈다
 - `web/js/git/panel-poll.js:146` `_reloadViews` — Diff 가 목록에 없다
 - `web/js/ui/renderer.js:423` `_rSide` — 캐시된 뷰를 매 render 마다 옮겨 붙인다
-- `web/js/core/app-attn.js:223` `_jumpToTool` — `_slotOnSwitch` 를 부르지 않는다
+- `web/js/core/app-attn.js:223` `jumpToTool` — `_slotOnSwitch` 를 부르지 않는다
 - `internal/webserver/domain/run/store_context.go:45` `DefaultContextPolicy` — `LimitTokens: 200000`
 - `internal/helper/runtimebin/dmctl_activity.go:110` `transcriptSize` — stat 1회
 - `internal/webserver/httpapi/handlers_attention.go:210` `apiToolBackgroundSet` — 방송이 없다
@@ -210,7 +210,7 @@ internal/helper/runtimebin/dmctl_activity.go:110
 띄운다. 실행할 명령은 나중에 `dmctl run launch | dmctl send-input` 이 타이핑한다.
 따라서 명령이 끝나도 셸이 남고, 도구는 살아 있으며 목록에도 남는다.
 
-### 2.10 슬롯 모드에서 `_jumpToTool` 은 화면을 바꾸지 않는다
+### 2.10 슬롯 모드에서 `jumpToTool` 은 화면을 바꾸지 않는다
 
 ```js
 web/js/core/app-attn.js:227  this.ws.activeWindow=loc.win.id;   // ← 이것뿐이다
@@ -219,7 +219,7 @@ web/js/core/app-layout.js:238  switchWindow: this._slotOnSwitch(sid);
 
 슬롯 모드에서 무엇이 보이는가는 `_slots.windows` 가 정하므로(`app-slots.js:154`),
 `activeWindow` 만 바꾸면 **아무 일도 일어나지 않는다.** Run 카드 클릭
-(`runs-panel.js:675` → `_runJumpToMember` → `_jumpToTool`)이 그 길을 지난다.
+(`runs-panel.js:675` → `_runJumpToMember` → `jumpToTool`)이 그 길을 지난다.
 
 ### 2.11 인수인계는 30초 안에 오지 않으면 버려진다
 
@@ -482,7 +482,7 @@ HTTP 종단과 `dmctl run succeed --headless` 만 대상이다).
 
 ### 3.7 묶음 N — Run 이동 · 승계 · 정리
 
-**FR-RUN-1.** `_jumpToTool` 은 **포커스 칸이 그 창을 받게 한다** — `switchWindow` 와
+**FR-RUN-1.** `jumpToTool` 은 **포커스 칸이 그 창을 받게 한다** — `switchWindow` 와
 같은 한 줄(`_slotOnSwitch`)을 지난다.
 
 **포커스 칸을 옮기지 않는다.** 그 창이 이미 다른 칸에 보인다고 그리로 포커스를
@@ -583,7 +583,7 @@ rev 가 오른다. 그 직후 `closeTab` 을 받은 브라우저가 탭을 지�
 아직 만들어지지 않았으면 경로를 창마다 기억해 두고, 그 자리에 갔을 때 드러낸다.
 
 **근거 (실측).** `_edTreeFor` 는 트리가 **만들어졌을 때만** 그것을 준다. 사이드가
-Changes 인 창은 `_edTree` 를 지나지 않으므로 트리가 없고, 그러면 `revealPath` 가
+Changes 인 창은 `edTree` 를 지나지 않으므로 트리가 없고, 그러면 `revealPath` 가
 통째로 건너뛰어졌다 — 검색·`dmctl open`·변경 클릭이 모두 이 자리를 지나므로
 "연 파일이 탐색기 어디에 있는가"(FR-EDT-63)가 사라진다. e2e
 `editor-nested-root` N4 가 잡았다.

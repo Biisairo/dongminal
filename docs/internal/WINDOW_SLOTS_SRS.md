@@ -70,7 +70,7 @@
 
 ### 2.1 콘텐츠 영역은 창 하나만 그린다
 
-`_rLayout` (`web/js/ui/renderer.js:96`) 은 `this.app._aw()` 가 준 창 **하나**의
+`_rLayout` (`web/js/ui/renderer.js:96`) 은 `this.app.aw()` 가 준 창 **하나**의
 `layout` 을 `#area` 에 그린다. 매 렌더마다 이렇게 돈다.
 
 1. 모든 도구 DOM 을 `#area` 직속으로 되돌리고 `vis` 를 뗀다 (`:99-110`)
@@ -111,8 +111,8 @@ for(const sid of Object.keys(this._windowFocusOwner)){
 
 | 결과 | 자리 |
 |---|---|
-| 소유자만 PTY 크기를 보낸다 | `_resizeCheck` (`app-focus.js:153`) |
-| 비소유자에게는 pane 이 흐려진다 | `_applyFocusOverlay` (`:163`), `.pn-dimmed` |
+| 소유자만 PTY 크기를 보낸다 | `resizeCheck` (`app-focus.js:153`) |
+| 비소유자에게는 pane 이 흐려진다 | `applyFocusOverlay` (`:163`), `.pn-dimmed` |
 
 **슬롯 2개를 그냥 만들면 여기에 먼저 걸린다.** 같은 창이든 다른 창이든 상관없이,
 `clientId` 가 하나뿐이므로 두 슬롯 중 하나는 소유를 잃고 흐려진다.
@@ -132,7 +132,7 @@ for(const sid of Object.keys(this._windowFocusOwner)){
 
 ### 2.5 도구 인스턴스는 `toolId` 당 하나다
 
-`_mkTool` (`web/js/core/app.js:204`) 은 `tools` Map 에 `toolId` 를 키로
+`mkTool` (`web/js/core/app.js:204`) 은 `tools` Map 에 `toolId` 를 키로
 `TerminalTool` 을 하나 만들고, 그 인스턴스가 DOM 하나 (`term-pane.js:14`) 와
 WebSocket 하나 (`:8`) 를 소유한다. Map 접근은 코드 전역 30곳이며 대부분
 `tools.get(toolId)` 단순 조회다.
@@ -170,7 +170,7 @@ WebSocket 하나 (`:8`) 를 소유한다. Map 접근은 코드 전역 30곳이�
 한편 서버는 `activeWindow`+`focusedPane`+`activeTab` 으로 **활성 탭**을 판정하고
 (`manager.go:545`), `dmctl` 이 "지금 사용자가 보는 도구"를 찾는 근거로 쓴다.
 
-**그런데 그 판정은 클라이언트의 현재 포커스를 따라오지 않는다.** `_save()` 는 PUT
+**그런데 그 판정은 클라이언트의 현재 포커스를 따라오지 않는다.** `save()` 는 PUT
 본문에서 `activeWindow` 와 `focusedPane` 을 **벗겨낸다** (`app.js:293`) — 여러 창이
 같은 워크스페이스를 볼 때 한쪽의 시선이 다른 쪽의 화면을 끌고 가지 않도록 한
 것이다. 서버는 이 두 필드를 **읽기만 하고 쓰는 자리가 없다** (Go 전역에서
@@ -204,10 +204,10 @@ WebSocket 하나 (`:8`) 를 소유한다. Map 접근은 코드 전역 30곳이�
 표현할 수 없다. 창 안 분할이 이미 같은 표현을 쓴다 (`split.sizes`, `renderer.js` 의
 `sc.style.flex`).
 
-**FR-WSL-3** `ws.activeWindow` 는 **포커스 슬롯의 창**을 뜻한다. 이 정의로 `_aw()`
+**FR-WSL-3** `ws.activeWindow` 는 **포커스 슬롯의 창**을 뜻한다. 이 정의로 `aw()`
 (`app-layout.js` 외 48곳) 는 무변경으로 정확한 답을 낸다.
 
-서버의 활성 탭 판정 (`manager.go:545`) 은 **이 SRS 의 관심 밖이다** — `_save()` 가
+서버의 활성 탭 판정 (`manager.go:545`) 은 **이 SRS 의 관심 밖이다** — `save()` 가
 PUT 에서 `activeWindow`·`focusedPane` 을 벗기므로 (§2.7) 그 판정은 슬롯 이전에도
 클라이언트의 현재 포커스를 따라오지 않았다. 슬롯은 그것을 낫게도 나쁘게도 하지
 않는다.
@@ -237,7 +237,7 @@ PUT 에서 `activeWindow`·`focusedPane` 을 벗기므로 (§2.7) 그 판정은 
 **FR-WSL-12** `_focusWindow` 의 "한 클라이언트 → 한 창" 규칙은 **"한 슬롯 → 한 창"**
 으로 읽는다. 슬롯 0 이 창을 클레임해도 슬롯 1 의 소유는 놓지 않는다.
 
-**FR-WSL-13** `_resizeCheck` (`app-focus.js:153`) 과 `_applyFocusOverlay` (`:163`) 은
+**FR-WSL-13** `resizeCheck` (`app-focus.js:153`) 과 `applyFocusOverlay` (`:163`) 은
 "내 신원" 을 **슬롯 신원의 집합**으로 판정한다. 어느 슬롯이든 소유하고 있으면 내
 것이다.
 
@@ -249,7 +249,7 @@ clientId` 이고, 여전히 클라이언트 하나가 창 하나를 소유한다
 (`e2e/focus-owner.spec.ts:76`) 은 개정 없이 통과해야 한다.**
 
 **FR-WSL-16** OS 포커스가 이 브라우저 창에 없으면 어느 슬롯도 PTY 크기를 보내지
-않는다 — `_windowFocused` 게이트 (`app-focus.js:154`) 는 슬롯보다 상위다.
+않는다 — `windowFocused` 게이트 (`app-focus.js:154`) 는 슬롯보다 상위다.
 
 ### 3.3 묶음 T — 도구 인스턴스 다중화
 
@@ -289,7 +289,7 @@ clientId` 이고, 여전히 클라이언트 하나가 창 하나를 소유한다
 
 **FR-WSL-34** 토프바의 창 이름 (`#window-name`) 은 포커스 슬롯의 창 이름이다. 토프바의
 나머지 버튼(`Split H`·`Split V`·`+` 등)도 포커스 슬롯의 창을 대상으로 한다 — 지금
-`_rTopbar` (`renderer.js:65`) 가 `_aw()` 로 판정하는 그대로다.
+`_rTopbar` (`renderer.js:65`) 가 `aw()` 로 판정하는 그대로다.
 
 **FR-WSL-35** 슬롯은 **서로 구별되어야 한다.** 칸이 둘을 넘으면 "어느 칸이 무슨
 창인지" 와 "지금 어느 칸에 있는지" 가 둘 다 즉시 읽혀야 한다. 셋을 만족한다.
@@ -363,8 +363,8 @@ clientId` 이고, 여전히 클라이언트 하나가 창 하나를 소유한다
 >
 > `switchWindow` 는 `_slotOnSwitch` 로 칸을 옮기는데 `_mkWindow` 는 `ws.activeWindow`
 > 만 바꾸고 그 걸음을 밟지 않았다. 화면은 **칸이 가리키는 창**을 그리므로
-> (`_slotWindow`), 모델은 새 창이고 화면은 옛 창이었다. 칸이 하나뿐일 때는
-> `_slotWindow(0)` 이 활성 창으로 떨어져 드러나지 않는다.
+> (`slotWindow`), 모델은 새 창이고 화면은 옛 창이었다. 칸이 하나뿐일 때는
+> `slotWindow(0)` 이 활성 창으로 떨어져 드러나지 않는다.
 >
 > **검사는 모델이 아니라 화면을 재야 한다.** 종전 검사들이 `ws.activeWindow` 만
 > 비교해 이 결함을 지나쳤고, 이 문서의 e2e 헬퍼조차 `openInSlot` 으로 칸을 명시
@@ -579,7 +579,7 @@ e2e 는 `e2e/window-slots.spec.ts` 에 둔다. 소유권 관련은 `focus-owner.
 | TC-WSL-2c | FR-WSL-1·50 | 슬롯이 `SLOT_MAX` 면 `+` 가, 1개면 `−` 가 `disabled` 다 |
 | TC-WSL-3 | FR-WSL-2 | 슬롯이 여럿이어도 `workspace.json` 은 `schemaVersion` 2 이고 `slots` 키가 없다 |
 | TC-WSL-4 | FR-WSL-2·61 | 슬롯 배치(3칸)가 새로고침 후 복원된다 |
-| TC-WSL-5 | FR-WSL-3 | 포커스 슬롯을 바꾸면 `ws.activeWindow` 와 `_aw()` 가 그 슬롯의 창을 가리킨다 |
+| TC-WSL-5 | FR-WSL-3 | 포커스 슬롯을 바꾸면 `ws.activeWindow` 와 `aw()` 가 그 슬롯의 창을 가리킨다 |
 | TC-WSL-6 | FR-WSL-12·13 | 서로 다른 창을 세 칸에 두면 **어느 pane 도 dim 되지 않는다** |
 | TC-WSL-7 | FR-WSL-14 | 같은 창을 두 칸에 두면 비포커스 칸만 dim 된다 |
 | TC-WSL-8 | FR-WSL-15 | 슬롯이 여럿이어도 `/api/focus` 의 `owners` 는 창 하나당 신원 하나다 |

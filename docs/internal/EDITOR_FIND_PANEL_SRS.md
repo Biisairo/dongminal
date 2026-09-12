@@ -62,7 +62,7 @@
 
 ```js
 this.el.addEventListener('keydown', (e) => {
-  if (window.app && window.app._edTrySearchKey(e)) return;
+  if (window.app && window.app.edTrySearchKey(e)) return;
   e.stopPropagation();
 });
 ```
@@ -76,7 +76,7 @@ this.el.addEventListener('keydown', (e) => {
 
 1. Monaco 가 자기 keybinding 으로 `actions.find` 를 실행한다 → 위젯이 열리고
    **find 입력칸이 포커스를 받는다**
-2. 이벤트가 `this.el` 까지 올라온다 → `_edTrySearchKey` 가 매칭한다 →
+2. 이벤트가 `this.el` 까지 올라온다 → `edTrySearchKey` 가 매칭한다 →
    `_edFindInFile()` 이 돈다
 
 `stopImmediatePropagation()` 은 2 에서 불리지만 1 은 **이미 끝났다.** 전파를 멈추는

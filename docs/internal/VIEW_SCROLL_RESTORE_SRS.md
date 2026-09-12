@@ -106,7 +106,7 @@ Run 뷰는 **장부에 오르지 않는다.**
 ### 2.4 편집기 인스턴스는 산다 — 잃는 것은 DOM 이 떨어지는 순간이다
 
 `_mountTabBody`(`web/js/ui/renderer.js:781-795`)는 `app.fileEditors` 에
-`_slotKey(id,slot)` 로 인스턴스를 캐시하고 `editor.el` 을 그대로 쓴다. 즉 Monaco
+`slotKey(id,slot)` 로 인스턴스를 캐시하고 `editor.el` 을 그대로 쓴다. 즉 Monaco
 에디터 객체는 살아 있다. 그런데도 시선을 잃으므로 원인은 **DOM 이동**이며, 이는
 `EXPLORER_ROOT_KEYS_SRS §7.1` 이 포커스에 대해 이미 적어 둔 함정과 **같은 자리**다.
 

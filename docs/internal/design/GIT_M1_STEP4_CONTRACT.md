@@ -12,7 +12,7 @@ GIT_SRS.md §3.2 의 클라이언트 절반이다. 검증은 V17(신규)·V3·V7
 | `web/index.html` | 사이드바에 GIT 섹션 마크업 + 캐시 버전 bump |
 | `web/style.css` | `/* ── Git 사이드바 ── */` 구획 (섹션 스크롤·배지·항목) |
 | `web/js/constants.js` | 리포 목록 갱신 주기 상수 |
-| `web/js/app.js` | `_gitReposRefresh`·`_gitPin`·`_gitUnpin`·`_gitFocusToolId` |
+| `web/js/app.js` | `gitReposRefresh`·`gitPin`·`gitUnpin`·`_gitFocusToolId` |
 | `web/js/renderer.js` | `_rGitSection` |
 | `e2e/git-sidebar.spec.ts` | **신규** — V17·V16 |
 
@@ -49,7 +49,7 @@ GIT_SRS.md §3.2 의 클라이언트 절반이다. 검증은 V17(신규)·V3·V7
 
 `render()` 에서 `_rSidebar()` 다음에 `_rGitSection()` 을 부른다.
 
-데이터는 `this.app._gitRepos` 다 (§3). 없으면 섹션 본문을 비운다.
+데이터는 `this.app.gitRepos` 다 (§3). 없으면 섹션 본문을 비운다.
 
 ### 2.1 follow 항목 (FR-GIT-9·10)
 
@@ -69,7 +69,7 @@ GIT_SRS.md §3.2 의 클라이언트 절반이다. 검증은 V17(신규)·V3·V7
 ```
 
 - `.git-repo.pinned`. `data-git-repo="<path>"`.
-- `×`(`.git-repo-x`) 클릭 → `app._gitUnpin(path)`. 클릭 전파를 막는다.
+- `×`(`.git-repo-x`) 클릭 → `app.gitUnpin(path)`. 클릭 전파를 막는다.
 - `isRepo:false` 면 `.norepo` 로 흐리게 보이되 **목록에서 지우지 않는다.**
   `×` 는 그대로 동작해야 한다 (사라진 리포를 사용자가 지울 수 있어야 한다).
 
@@ -104,17 +104,17 @@ const GIT_REPOS_POLL_MS=3000;
 // 없으면 빈 문자열이고 서버는 자기 cwd 를 쓴다.
 _gitFocusToolId(){ … }
 
-// _gitReposRefresh 는 GIT 섹션의 목록을 갱신한다. 실패는 조용히 넘기지 않고
+// gitReposRefresh 는 GIT 섹션의 목록을 갱신한다. 실패는 조용히 넘기지 않고
 // 이전 목록을 유지한다 — 네트워크 한 번 튀었다고 섹션이 비면 안 된다.
-async _gitReposRefresh(){ … }
+async gitReposRefresh(){ … }
 
-// _gitPin 은 경로를 검증해 핀한다. 저장소가 아니면 사유를 보인다 (FR-GIT-12).
-async _gitPin(path){ … }
-async _gitUnpin(path){ … }
+// gitPin 은 경로를 검증해 핀한다. 저장소가 아니면 사유를 보인다 (FR-GIT-12).
+async gitPin(path){ … }
+async gitUnpin(path){ … }
 ```
 
-- `_gitReposRefresh` 는 `GET /api/git/repos?tool=<toolId>` 를 부르고 결과를
-  `this._gitRepos` 에 넣은 뒤 `_rGitSection()` 만 다시 그린다 (전체 `render()` 를
+- `gitReposRefresh` 는 `GET /api/git/repos?tool=<toolId>` 를 부르고 결과를
+  `this.gitRepos` 에 넣은 뒤 `_rGitSection()` 만 다시 그린다 (전체 `render()` 를
   부르지 않는다 — 터미널 재부착 비용이 크다).
 - 503/`git_unavailable` 이면 섹션 전체를 숨긴다 (`#git-repos`·제목·`+ Add`).
   git 이 없는 환경에서 빈 섹션이 자리를 차지하지 않게 한다.
@@ -124,9 +124,9 @@ async _gitUnpin(path){ … }
      (`_startStatsPoll` 의 선례를 그대로 따른다, FR-STAT-17)
   3. `visibilitychange` 로 다시 보이면 즉시 1회
   4. `setFocus`(칸 포커스 변경) 뒤 — follow 대상이 바뀔 수 있다
-  5. `_gitPin`·`_gitUnpin` 성공 뒤
+  5. `gitPin`·`gitUnpin` 성공 뒤
   6. `gitPanel` 이 상태를 새로 관측한 뒤 (6단계가 이 훅을 부른다. 지금은
-     `app._gitReposRefresh` 가 존재하기만 하면 된다)
+     `app.gitReposRefresh` 가 존재하기만 하면 된다)
 
 ### 3.1 `+ Add` (FR-GIT-12)
 
@@ -135,7 +135,7 @@ async _gitUnpin(path){ … }
 - 기존 코드에 모달·프롬프트 유틸이 있는지 **먼저 확인**하고 있으면 그것을 쓴다.
   없으면 `window.prompt` 를 쓴다 (M1 범위에서 새 모달 프레임워크를 만들지 않는다 —
   다이얼로그 공통 규약은 M5 묶음 P 다).
-- 기본값은 현재 `_cwd` 다.
+- 기본값은 현재 `cwd` 다.
 - `POST /api/git/repos/pin` → 실패 응답의 `error`·`message` 를 사용자에게 보인다.
   **조용히 실패하지 않는다.** 기존 알림 수단(토스트가 있으면 그것, 없으면 `alert`)을
   쓴다. 있는지 먼저 확인해라.

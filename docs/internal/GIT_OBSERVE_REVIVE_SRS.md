@@ -6,7 +6,7 @@
 >
 > | 개정된 것 | 어떻게 | 어디서 |
 > |---|---|---|
-> | NFR-GOR-2 (**새 타이머를 만들지 않는다.** 계기는 이미 도는 렌더에 얹힌 채로 둔다) | 얹힐 것에 **주기가 없었다** — `_gitWatchdogAll` 의 호출처는 `render()` 하나뿐이고 그것은 사용자 조작과 `workspace_changed` 로만 돈다. 렌더 훅은 남기고 `TimerHub.every` 로 주기 계기를 하나 더한다 (`whenHidden:'pause'`) | GIT_LIVE_TRIGGERS_SRS FR-GLW-4·5 / D-4 |
+> | NFR-GOR-2 (**새 타이머를 만들지 않는다.** 계기는 이미 도는 렌더에 얹힌 채로 둔다) | 얹힐 것에 **주기가 없었다** — `gitWatchdogAll` 의 호출처는 `render()` 하나뿐이고 그것은 사용자 조작과 `workspace_changed` 로만 돈다. 렌더 훅은 남기고 `TimerHub.every` 로 주기 계기를 하나 더한다 (`whenHidden:'pause'`) | GIT_LIVE_TRIGGERS_SRS FR-GLW-4·5 / D-4 |
 
 ## 1. 개요
 

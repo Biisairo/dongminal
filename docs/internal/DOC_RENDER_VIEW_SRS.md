@@ -77,7 +77,7 @@
 
 ```js
 if(at.type==='editor'){
-  const key=this.app._slotKey(at.id,slot);
+  const key=this.app.slotKey(at.id,slot);
   let editor=this.app.fileEditors.get(key);
   if(!editor){editor=new FileEditor(at.id,at.name,at.filePath);...}
 ```
@@ -112,7 +112,7 @@ SVG 를 그리려면 이 벽에 문을 내야 한다. **문을 내는 방법이 
 
 ### 2.5 문서는 파일마다 하나이고, 뷰는 칸마다다
 
-`app._edDoc(filePath)` 가 (모델, dirty, views) 를 쥐고 `FileEditor` 들이 그것을
+`app.edDoc(filePath)` 가 (모델, dirty, views) 를 쥐고 `FileEditor` 들이 그것을
 공유한다 (FR-SVS-50~55). 그러므로 **렌더 뷰가 그 문서를 구독하면 저장하지 않은
 편집을 그릴 수 있다** — 디스크를 읽으면 방금 쓴 문장이 보이지 않는다.
 
@@ -122,7 +122,7 @@ SVG 를 그리려면 이 벽에 문을 내야 한다. **문을 내는 방법이 
 
 ```js
 for(const[k,v] of app.fileEditors){
-  const tid=app._slotBase(k);
+  const tid=app.slotBase(k);
   if(!allTabIds.has(tid)){v.destroy();app.fileEditors.delete(k)}
 }
 ```
@@ -135,7 +135,7 @@ for(const[k,v] of app.fileEditors){
 `app-layout.js:344`:
 
 ```js
-if (this._isEditorWin(s) && type !== 'editor' && type !== TAB_TYPE_GIT) return;
+if (this.isEditorWin(s) && type !== 'editor' && type !== TAB_TYPE_GIT) return;
 ```
 
 새 타입은 이 가드를 지나야 한다.
@@ -175,7 +175,7 @@ if (this._isEditorWin(s) && type !== 'editor' && type !== TAB_TYPE_GIT) return;
 
 ### 2.12 칸을 나눠 탭을 넣는 길이 이미 있다
 
-`app-dnd.js:98` 의 `_splitPaneWithTab(srcRid, tabId, targetRid, zone)` — 드래그
+`app-dnd.js:98` 의 `splitPaneWithTab(srcRid, tabId, targetRid, zone)` — 드래그
 드롭이 쓰는 것이며, "옆 칸에 연다" 가 딛을 바닥이다.
 
 ### 2.13 알림·오버레이의 규약이 이미 있다
@@ -250,7 +250,7 @@ VS Code 도 같다. 그쪽의 마크다운 미리보기는 LSP 가 아니라 **�
 - **FR-DRV-7** 렌더 탭은 **옆 칸**에 선다 (I-2). 지금 칸의 오른쪽(세로 분할이면
   아래) 형제 칸이 그 자리다.
 - **FR-DRV-8** 형제 칸이 없으면 지금 칸을 **가로로 나눠** 만든다. 그 일은 이미 있는
-  `_splitPaneWithTab` 의 경로를 딛는다 (§2.12) — 분할 규칙을 두 벌로 쓰지 않는다.
+  `splitPaneWithTab` 의 경로를 딛는다 (§2.12) — 분할 규칙을 두 벌로 쓰지 않는다.
 - **FR-DRV-9** 렌더 탭은 `type:'editor'` 를 유지하고 **`render:true`** 로 갈린다
   (D-1). 새 탭 타입을 만들지 않는다.
 - **FR-DRV-10** `_findEditorTab` 은 **소스 탭만** 찾는다 (§2.9). 갈리지 않으면
@@ -388,7 +388,7 @@ VS Code 도 같다. 그쪽의 마크다운 미리보기는 LSP 가 아니라 **�
   그린다" 가 "외부 코드를 실행한다" 로 넓어지지 않는다.
 - **FR-DRV-28** 링크의 대상에 따라 다르게 움직인다.
   - 문서 안 앵커(`#heading`) → 렌더 뷰 안에서 스크롤
-  - 저장소 안 상대 링크(`./other.md`) → **그 파일을 탭으로 연다** (`_edOpenFile`)
+  - 저장소 안 상대 링크(`./other.md`) → **그 파일을 탭으로 연다** (`edOpenFile`)
   - 외부 링크 → 새 창. `rel="noopener noreferrer"` 를 붙인다
 - **FR-DRV-29** 상한이 있다: 파일 바이트, 표의 행·열 수. 넘으면 그리지 않고 그
   사실을 말한다 (FR-DRV-17).

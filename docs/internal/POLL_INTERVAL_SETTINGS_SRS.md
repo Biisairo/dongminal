@@ -91,7 +91,7 @@
 
 ### 2.2 ⑤ 와 ⑥ 은 상수여서 설정 블롭에 자리가 없다
 
-③④ 는 `_saveSettings` 가 이미 실어 보내고 `_settingsApply` 가 받는다 —
+③④ 는 `saveSettings` 가 이미 실어 보내고 `_settingsApply` 가 받는다 —
 손잡이만 없다. ⑤⑥ 은 그것조차 없어 **키를 새로 만들어야 한다.**
 
 ⑤ 에서 파생하는 것이 셋 있고, 셋 다 `const` 로 **로드 시점에 굳는다**:
@@ -196,7 +196,7 @@ GIT_PUSH_OBSERVE 가 없앤 60초당 120회 요청이 되살아난다.
 | ID | 요구사항 | 우선 |
 |----|---------|------|
 | FR-PIS-1 | 브라우저 signature 폴링 계층을 제거한다: `GIT_SIGNATURE_POLL_MS` · `gitSignatureInterval` · `_pollSignature` · `_sigPoll` · `_pollSig` · `_sigBusy` · `observer.tick('sig')` 의 갈래 · `panel.js` 의 통로 접근자 셋. | 필수 |
-| FR-PIS-2 | `_saveSettings` 의 본문과 `_settingsApply` 에서 `gitSignatureInterval` 키가 사라진다. 저장된 옛 값은 **읽지 않고 버린다** — 다시 읽을 계층이 없으므로 남겨도 아무 일도 하지 않는다. | 필수 |
+| FR-PIS-2 | `saveSettings` 의 본문과 `_settingsApply` 에서 `gitSignatureInterval` 키가 사라진다. 저장된 옛 값은 **읽지 않고 버린다** — 다시 읽을 계층이 없으므로 남겨도 아무 일도 하지 않는다. | 필수 |
 | FR-PIS-3 | 서버의 `StartGitWatch` · `/api/git/signature` 종단 · `_lastSig` · `_sigT` 는 **그대로 남는다** (D-5). `_lastSig` 는 status 응답이 채우므로(`panel-poll.js:384`) 확인창·히스토리 재조회·다이얼로그 지문이 종전과 같이 동작한다. | 필수 |
 | FR-PIS-4 | `_cadence(st,sig)` 는 `_cadence(st)` 가 된다 — 실패 백오프와 소실 고정 주기의 규약은 그대로다. | 필수 |
 | FR-PIS-5 | 제거 뒤에도 §2.4 의 26건이 통과한다. signature 를 세워 재던 자리(`event-timer-hub-contract` · `git-polling`)는 **함께 고친다** — 회귀가 아니라 제거의 증거다. | 필수 |

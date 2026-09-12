@@ -69,16 +69,16 @@
 
 ### 2.1 에이전트 카드는 평면이고 창은 글자다
 
-`_agentsRender`(`app-agents.js:145`)는 `ws.agentsOrder`(toolId 배열) 순서로 카드를
+`agentsRender`(`app-agents.js:145`)는 `ws.agentsOrder`(toolId 배열) 순서로 카드를
 한 줄씩 쌓는다. 창은 `.ag-loc` 의 텍스트 `창이름 · 도구이름` 으로만 나타난다.
-재배치(`_reorderAgents`)는 그 평면 배열 안의 자리바꿈이다.
+재배치(`reorderAgents`)는 그 평면 배열 안의 자리바꿈이다.
 
-**필요한 정보는 이미 매 렌더마다 계산된다** — `_findToolLocation(toolId)`
+**필요한 정보는 이미 매 렌더마다 계산된다** — `findToolLocation(toolId)`
 (`app-tool.js:563`)이 `{win, pane, tab}` 을 돌려주고, 그것을 못 찾은 도구는 이미
 목록에서 빠진다. 그룹화는 **새 상태가 아니라 이 값의 묶음**이다.
 
 `ws.windows` 는 창 순서의 진실이고, 사이드바의 재배치가 그 배열을 직접 바꾼다
-(`sidebar-tabs.js` 의 `reorder.apply`). 탭 이동은 `_moveTabToWindow`
+(`sidebar-tabs.js` 의 `reorder.apply`). 탭 이동은 `moveTabToWindow`
 (`app-dnd.js:48`)가 워크스페이스 트리를 옮긴다.
 
 ### 2.2 레일은 목록을 통째로 감춘다
@@ -153,7 +153,7 @@
   규약이 갈라진다. 키는 `working` 이고 원천은 `['changes','untracked']` 다.
 - **D-9 그룹은 상태가 아니라 파생이다** (①). `ws` 에 그룹 배열을 저장하지 않는다 —
   저장하면 창 순서·탭 이동과 **두 개의 진실**이 생기고, D-2 의 "즉각" 이 동기화
-  코드가 된다. 그룹은 매 렌더에서 `ws.windows` × `_findToolLocation` 으로 만든다.
+  코드가 된다. 그룹은 매 렌더에서 `ws.windows` × `findToolLocation` 으로 만든다.
 - **D-10 `ws.agentsOrder` 는 그대로 둔다.** 지금도 toolId 의 평면 배열이고, 그룹 안
   순서는 그 배열을 창별로 걸러 낸 것이면 충분하다 — 스키마를 바꾸면 마이그레이션이
   생기고, 카드가 창을 옮겼을 때 옛 창의 순서 배열에 유령 id 가 남는다.
@@ -178,7 +178,7 @@
 | FR-AGG-2 | 그룹의 순서는 `ws.windows` 의 순서다 (D-1). 패널에서 그룹을 끌지 않는다. | 필수 |
 | FR-AGG-3 | 사이드바에서 창 순서를 바꾸면 그룹 순서가 **같은 프레임에** 따라간다 — 폴링을 기다리지 않는다 (D-2). | 필수 |
 | FR-AGG-4 | 카드가 있는 창만 그룹을 갖는다. 활동 중인 도구가 없는 창은 머리도 없다 — 빈 머리는 정보가 아니다. | 필수 |
-| FR-AGG-5 | 카드의 소속은 `_findToolLocation(toolId).win` 이다 (D-9). 어떤 소속도 따로 저장하지 않는다. | 필수 |
+| FR-AGG-5 | 카드의 소속은 `findToolLocation(toolId).win` 이다 (D-9). 어떤 소속도 따로 저장하지 않는다. | 필수 |
 | FR-AGG-6 | 탭을 다른 창으로 옮기면 카드가 그 그룹으로 **즉시** 옮겨 간다 (D-2). | 필수 |
 | FR-AGG-7 | 드래그로 바꾸는 것은 **그룹 안의 카드 순서**다 (D-1). | 필수 |
 | FR-AGG-8 | 카드를 **다른 그룹 위에 놓는 것은 재배치가 아니다** — 아무 일도 일어나지 않고 원래 자리에 남는다. 창 사이의 이동은 탭을 옮기는 일이며 그 손잡이는 사이드바에 이미 있다 (`tabDrop`). | 필수 |
@@ -245,7 +245,7 @@
 
 ### 3.5 비기능
 
-- **NFR-1** ① 의 그룹화는 렌더 비용을 늘리지 않는다 — `_findToolLocation` 은 지금도
+- **NFR-1** ① 의 그룹화는 렌더 비용을 늘리지 않는다 — `findToolLocation` 은 지금도
   카드마다 불린다. 그룹은 그 결과의 묶음일 뿐이다.
 - **NFR-2** ①·④ 어느 것도 터미널을 재부착하지 않는다. `reconcileList` 규약을 지킨다.
 - **NFR-3** ⑦ 은 git 명령의 수를 늘리지 않는다. 일괄 폐기는 최대 두 번(`checkout`·
@@ -303,7 +303,7 @@
   있을 때만 붙이고 있었고, 창 목록의 서술자는 그 값을 주지 않는다 — 레일에서
   창 이름에 닿을 길이 하나도 없었다. `r.title || r.name` 으로 늘 채운다.
 - **재배치 차단은 CSS 로 되지 않는다** (FR-RAL-9). `_bindDrag` 의 `dragstart` 에서
-  끊고, 판정은 `app._sbRail()` 한 자리다 — CSS 선택자
+  끊고, 판정은 `app.sbRail()` 한 자리다 — CSS 선택자
   `html.sb-collapsed body:not(.mobile)` 와 같은 뜻이며 모바일을 함께 뺀다
   (FR-RAL-10). 접힘만 보면 모바일 드로어에서 재배치가 사라진다.
 - **점의 색은 활성이 이미 쓰고 있다** (FR-RAL-7). `.sbl-item.active .sbl-dot` 가

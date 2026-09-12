@@ -28,7 +28,7 @@
 |---|---|
 | 모바일 모드 | `App.isMobile === true` (`body.mobile`) |
 | helper textarea | xterm 이 만드는 `.xterm-helper-textarea` — 실제 키 입력 수신부 |
-| sticky modifier | 모바일 키바의 Ctrl/Alt 1회성(sticky) 또는 고정(lock) 상태 (`App._modKbd`) |
+| sticky modifier | 모바일 키바의 Ctrl/Alt 1회성(sticky) 또는 고정(lock) 상태 (`App.modKbd`) |
 | 관성 스크롤 | 터치를 뗀 뒤 마지막 속도로 감쇠하며 이어지는 스크롤 |
 
 ---

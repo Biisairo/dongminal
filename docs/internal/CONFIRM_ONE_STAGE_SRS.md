@@ -81,7 +81,7 @@ await confirm(page).locator('.gc-go').click();   // 실행
 
 ### 2.4 Git 밖에는 두 걸음이 없다
 
-파일 탐색기의 영구 삭제(`file-tree-edit.js:188` → `_edConfirmDelete`)는 한 걸음이며,
+파일 탐색기의 영구 삭제(`file-tree-edit.js:188` → `edConfirmDelete`)는 한 걸음이며,
 지워지는 것·개수·미저장 탭을 한 화면에 적는다 (FR-EDT-83·84). 그 뒤 탭을 닫을 때 다시
 묻지 않는 것도 명시되어 있다 (`app-layout.js:334`). **이미 이 SRS 가 만들려는 모양이다** —
 바꿀 것이 없다.

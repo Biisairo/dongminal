@@ -68,7 +68,7 @@ init(){
    `web/js/core/app-git.js:290` 의 `this.gitPanel.init()` 하나이고,
    `_initGitSection` 은 부팅에서 한 번 돈다 (`app.js:269`).
 
-그리고 `gitPanel` getter 는 `_gitPanel(this._gitRootOfActive(),…)` 이며
+그리고 `gitPanel` getter 는 `gitPanel(this._gitRootOfActive(),…)` 이며
 (`app-git.js:772`), `_gitRootOfActive()` 는 활성 창이 Repo 창이 아니면 **`''`** 를
 준다 (`app-git.js:202`).
 
@@ -89,10 +89,10 @@ init(){
 
 ```js
 // web/js/ui/renderer.js:155  (render() 의 끝)
-this.app._gitWatchdogAll();
+this.app.gitWatchdogAll();
 ```
 
-이것이 `_gitWatchdogAll` 의 **유일한** 호출처다. `render()` 는 사용자 조작과 SSE
+이것이 `gitWatchdogAll` 의 **유일한** 호출처다. `render()` 는 사용자 조작과 SSE
 `workspace_changed` 로만 돈다 — 주기적이지 않다. `UX_BATCH9_SRS` D-4 는 "이미 도는
 것에 얹는다" 고 했으나 그 계기가 실제로는 성기다.
 
@@ -150,7 +150,7 @@ if err != nil { delete(w.watch, repo); … }
 | FR-GLW-1 | 가시성·포커스 복귀 계기는 **앱당 한 벌**이고, 살아 있는 **관측기 전부**의 폴링 조건을 다시 보게 한다. 어느 관측기가 먼저 섰는지가 결과를 바꾸지 않는다 | 필수 |
 | FR-GLW-2 | 그 계기는 문서·창에 리스너를 새로 달지 않고 `EventBus` 의 생명주기 토픽(`life:visible`·`life:focus`·`life:hidden`)을 지난다. 문서 이벤트는 앱당 한 벌이다 (FR-SVS-30 · FR-BUS-8) | 필수 |
 | FR-GLW-3 | **숨김 신호도 같은 자리를 지난다.** 숨으면 전 패널이 조건을 다시 보고 폴링을 걷는다 — 종전 리스너가 하던 일이 빠지지 않는다 (FR-GLR-3 · NFR-RTU-1) | 필수 |
-| FR-GLW-4 | 워치독은 **주기 계기**를 갖는다. `GIT_WATCHDOG_CHECK_MS` 마다 `_gitWatchdogAll` 이 돈다. 렌더 훅은 그대로 남는다 | 필수 |
+| FR-GLW-4 | 워치독은 **주기 계기**를 갖는다. `GIT_WATCHDOG_CHECK_MS` 마다 `gitWatchdogAll` 이 돈다. 렌더 훅은 그대로 남는다 | 필수 |
 | FR-GLW-5 | 그 주기 계기는 숨김 중에 돌지 않는다 (`whenHidden:'pause'`). 아무도 보지 않는 동안 되살릴 것이 없다 | 필수 |
 | FR-GLW-6 | 정상 상태에서 이 두 계기가 내는 git 요청은 **0** 이다. 나이 판정이 앞서 돌아가므로 산술만 돈다 (FR-GLR-7 · FR-GOR-3 계승) | 필수 |
 | FR-GLW-7 | 서버는 감시 대상이 사라지는 두 경로 — **TTL 만료**와 **Tick 오류 탈락** — 를 각각 로그 한 줄로 구분해 남긴다 | 필수 |
@@ -209,7 +209,7 @@ if err != nil { delete(w.watch, repo); … }
 
 - **D-4. 주기 워치독은 `TimerHub.every` 로 두고 `whenHidden:'pause'` 를 준다.**
 
-  `when` 은 주지 않는다. 이 job 의 콜백(`_gitWatchdogAll`)은 **그 자체가 판정**이고
+  `when` 은 주지 않는다. 이 job 의 콜백(`gitWatchdogAll`)은 **그 자체가 판정**이고
   (`_gitWdAt` 문턱 → 패널마다 `_watchdog()` → 나이 판정), 조건을 스케줄러로 옮기면
   같은 판단이 두 곳에 서게 된다 (FR-SCH-4 의 정신).
 

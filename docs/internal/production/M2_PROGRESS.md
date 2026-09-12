@@ -433,7 +433,7 @@ renderer.js `_rLayout` 이 매 render 마다 `.ed-win` 을 떼었다 붙인다
 한 번 클릭(미리보기)과 더블클릭(고정)을 갈라야 했던 것도 여기서 나왔다 —
 훑어보는 손짓은 탐색기가 포커스를 지키고(그래서 방향키가 이어진다), 여는 손짓은
 편집기에 넘긴다(`FR-EXR-59`). 판정은 렌더 후 재포커스 **한 자리**가 소유한다
-(`_edFocusWanted`) — 여는 자리마다 `focus()` 를 부르면 그것이 `FR-EFP-5` 가 겪은
+(`edFocusWanted`) — 여는 자리마다 `focus()` 를 부르면 그것이 `FR-EFP-5` 가 겪은
 형태가 된다.
 
 #### 검증
@@ -1604,7 +1604,7 @@ file-tree.js:129        툴바의 새 폴더 버튼   → this.startCreate(true)
 file-tree-xfer.js:186   메뉴 newDir          → this.startCreate(true, dir)
 ```
 
-Notes 판정도 이미 있다 — `app-editor.js:50` 이 `root===this._edNotes()` 로 이름을
+Notes 판정도 이미 있다 — `app-editor.js:50` 이 `root===this.edNotes()` 로 이름을
 가른다. **새 판정을 만들지 말고 그것을 쓴다.**
 
 두 자리에서 각자 막으면 한쪽만 고쳐지는 부류가 된다(이 저장소가 여러 번 겪은
@@ -1630,7 +1630,7 @@ Notes 판정도 이미 있다 — `app-editor.js:50` 이 `root===this._edNotes()
 
 | 조작 | 이미 있는 것 |
 |---|---|
-| 복사 | `app._edClipSet(this.root, p)` — 클립보드 상태는 `app-editor.js:850-851` |
+| 복사 | `app.edClipSet(this.root, p)` — 클립보드 상태는 `app-editor.js:850-851` |
 | 붙여넣기 | `doPasteInto(dir)` — 빈 클립보드면 `EDITOR_PASTE_NONE` 로 막혀 있다 |
 | 복제 | `doDuplicate(p)` |
 | 삭제 | `doDelete(p)` — **확인창까지 자기가 든다**(재귀 여부·항목 수·dirty 탭을 밝혀야 해서 일반 확인으로는 `FR-EDT-83·84` 를 못 만족한다) |
@@ -1688,7 +1688,7 @@ diff" 를 함께 말한 것과 맞는다.
 |---|---|---|
 | 1 | diff 탭이 `isEditor` 가 아니라 확인을 건너뛴다 | git diff 탭에서 편집 → 탭 닫기 |
 | 2 | `editor._dirty` 가 `false` 로 읽힌다 | `_doc` 이 끊기면 `set _dirty` 가 **죽은 필드**(`__dirty`)에 쓴다 — `file-editor.js:566-568` 이 그 함정을 이미 적고 있다 |
-| 3 | `opts.force` 로 닫는 경로를 탄다 | `app-editor.js:956 _edCloseTabsUnder` 가 `{force:true}` 다. 이것은 **삭제 경로 전용**이며(`FR-EDT-91`) 다른 경로가 그것을 재사용하고 있으면 결함 |
+| 3 | `opts.force` 로 닫는 경로를 탄다 | `app-editor.js:956 edCloseTabsUnder` 가 `{force:true}` 다. 이것은 **삭제 경로 전용**이며(`FR-EDT-91`) 다른 경로가 그것을 재사용하고 있으면 결함 |
 | 4 | 떠남 확인 토글이 꺼져 있다 | `LEAVE_CONFIRM_TOGGLE_SRS` — 설정으로 끌 수 있다면 기본값·적용 범위를 본다 |
 
 닿는 스펙: `EDITOR_TAB_SRS` `FR-EDT-91`·`FR-EDT-84` · `LEAVE_CONFIRM_TOGGLE_SRS` ·

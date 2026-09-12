@@ -280,8 +280,8 @@ Editor 탭:    [일반 행들 …] ── 구분선 ── [root 행 `~`]   ← 
 **분할은 드래그드롭뿐이다** (FR-EDT-50·51). 단축키·버튼 분할이 없으므로 빈 pane 이
 생길 경로가 없고, pane 은 언제나 탭을 하나 이상 갖는다. 탭은 **같은 Editor 창
 안에서만** 옮겨진다 — 게이트는 창 경계를 넘는 두 자리(`app-dnd.js` 의
-`_moveTabToWindow` 출발·도착)에만 있다. 창 **안**의 이동(`_moveTabToPane`)과 드롭
-분할(`_splitPaneWithTab`)에 조건을 더하면 유일한 분할 수단이 함께 막힌다.
+`moveTabToWindow` 출발·도착)에만 있다. 창 **안**의 이동(`moveTabToPane`)과 드롭
+분할(`splitPaneWithTab`)에 조건을 더하면 유일한 분할 수단이 함께 막힌다.
 
 **Git 핀과 Editor 행은 서로를 만들고 지운다** (FR-EDT-31~38a). 그 연동은
 `internal/webserver/domain/wsentry` 가 **한 번의 read-modify-write** 로 수행한다 —
@@ -328,7 +328,7 @@ Editor 창에는 여전히 편집기 탭만 산다.
 다만 칸은 그릇에서 **시선**이 되었다 (`SLOT_VIEW_STATE_SRS`). 창도 하나, 관측도
 하나인데 **보는 자리마다 자기 시선을 갖는다** — 칸마다 다른 탭을 볼 수 있다
 (FR-SVS-1). 그 규약의 원본은 터미널이다: PTY 는 서버에 하나이고 xterm 인스턴스는
-칸마다 하나다 (`_mkTool(toolId,name,slot)`). 활성 탭도 같은 모양이 되었다.
+칸마다 하나다 (`mkTool(toolId,name,slot)`). 활성 탭도 같은 모양이 되었다.
 
 탐색기도 같은 모양으로 갈렸다. `FileTreeStore`(`file-tree.js`) 가 **루트마다 하나**로
 디렉터리 캐시·git 색·무시된 이름을 들고, `FileTree` 는 **칸마다 하나**로 펼침·선택·
@@ -346,7 +346,7 @@ Git 도 같다. `GitObserver`(`git/panel.js`) 가 **앱에 하나**로 폴링·`
 메뉴·확인창·다이얼로그가 그것을 딛는다.
 
 편집기는 한 겹 더 있다. **문서**(내용과 dirty)는 파일 경로마다 하나이고
-(`app._edDoc`), `FileEditor` 는 칸마다 하나다. 두 에디터가 같은 Monaco
+(`app.edDoc`), `FileEditor` 는 칸마다 하나다. 두 에디터가 같은 Monaco
 `ITextModel` 을 들므로 한 칸의 타이핑이 다른 칸에 즉시 보이고, 커서·스크롤·접힘은
 에디터별로 남는다. 이 층이 없던 동안 같은 파일을 두 칸에 열면 독립 편집기 둘이 각자
 편집하고 한쪽 저장이 다른 쪽 저장을 덮었다.
@@ -431,7 +431,7 @@ id="sb-panel-…">`) 하나를 두면 끝이다. 아래 넷이 그 배열에서 
 
 `onActivate`·`cycle` 이 이 탭을 **조작**으로 만든다. 탭을 고르면 콘텐츠 창이 따라
 바뀌고(FR-SBT-22), 창이 바뀌면 탭이 따라온다(FR-SBT-14). 두 방향이 서로를 부르므로
-`_sbBusy` 가 재진입을 한 번에 끊는다. 순회 키(`Ctrl+Shift+[ ]`)는 새 키를 만들지 않고
+`sbBusy` 가 재진입을 한 번에 끊는다. 순회 키(`Ctrl+Shift+[ ]`)는 새 키를 만들지 않고
 **활성 탭의 `cycle`** 로 디스패치된다 (`app-layout.js` 의 `_cycleActive`).
 
 ## 에이전트 접합면과 Run
@@ -937,7 +937,7 @@ HTTP `PUT /api/workspace` 핸들러는 `Save(blob, ifMatch)` 호출 → 인덱�
 
 ### 클라이언트 낙관적 UI (성능 재개선 턴)
 
-`web/js/core/app-layout.js` 의 `split`, `closeTab`, `addTab` 은 레이아웃 mutation + `render()` 를 **즉시** 실행하고 `_kill`, `_save` 를 await 하지 않고 fire-and-forget. `_save()` 는 내부 직렬화 큐로 ETag 경쟁을 방지하고 coalescing 수행.
+`web/js/core/app-layout.js` 의 `split`, `closeTab`, `addTab` 은 레이아웃 mutation + `render()` 를 **즉시** 실행하고 `_kill`, `save` 를 await 하지 않고 fire-and-forget. `save()` 는 내부 직렬화 큐로 ETag 경쟁을 방지하고 coalescing 수행.
 
 또한 `/api/tools` POST 에 `cwdTool=<refToolId>` 쿼리 지원 → 클라이언트가 `/api/cwd` 사전 조회할 필요 없음 (RT 1 건 제거).
 

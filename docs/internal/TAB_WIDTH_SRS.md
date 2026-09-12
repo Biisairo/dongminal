@@ -59,7 +59,7 @@
 ### 1.5 참조
 
 - `web/style.css:282~297` (`.pn-tabs`·`.pn-tab`·`.pn-tab-x`)
-- `web/js/ui/renderer.js:590` (탭 골격), `web/js/core/app-settings.js:8` (`_saveSettings`)
+- `web/js/ui/renderer.js:590` (탭 골격), `web/js/core/app-settings.js:8` (`saveSettings`)
 - VSCode `workbench.contribution.ts` — §1.2
 
 ---
@@ -80,7 +80,7 @@
 - `flex-shrink:0` + `white-space:nowrap` → 라벨 전체가 보이는 폭. 곧 `fit` 이다
 - 탭 하나의 구조는 `<span class="pn-tab-label">` + `<span class="pn-tab-x">×</span>`
   (`renderer.js:590`) — 라벨에 `overflow`·`text-overflow` 규칙이 **없다**
-- 설정은 `/api/settings` 블롭 하나에 실린다. `_saveSettings` 가 **읽어 쓰는 값을
+- 설정은 `/api/settings` 블롭 하나에 실린다. `saveSettings` 가 **읽어 쓰는 값을
   전부 다시 실으므로**, 새 값을 그 목록에 더하지 않으면 다른 설정을 바꿀 때
   조용히 사라진다 (`app-settings.js:11` 의 주석이 그 함정을 적어 두었다)
 
@@ -210,4 +210,4 @@ X-BOX: {"tabW":40, "xW":6.44, "inside":true, "visible":"1"}
 |---|---|---|---|
 | R1 | 고정 폭이 탭 이름을 읽을 수 없게 만든다 | MEDIUM | FR-TBW-6 의 툴팁 + 하한 40px(D-3) |
 | R2 | 탭 폭을 단정하는 기존 e2e 가 깨진다 | LOW | 기본이 꺼짐이므로 끈 상태의 동작이 불변이다 (FR-TBW-9). 켜는 것은 새 spec 안에서만 |
-| R3 | `_saveSettings` 목록에 새 값을 빠뜨려 다른 설정 저장 때 사라진다 | **MEDIUM** | 그 함정이 코드 주석에 이미 적혀 있다 (§2). FR-TBW-8 의 e2e 가 새로고침 뒤를 본다 |
+| R3 | `saveSettings` 목록에 새 값을 빠뜨려 다른 설정 저장 때 사라진다 | **MEDIUM** | 그 함정이 코드 주석에 이미 적혀 있다 (§2). FR-TBW-8 의 e2e 가 새로고침 뒤를 본다 |

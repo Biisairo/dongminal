@@ -148,7 +148,7 @@ return (d&&d.cwd)||'';
 `{"cwd":"…/dongminal","source":"server"}`). **판단 근거가 응답에 있는데 소비자가
 읽지 않는다.** `repo-at` 에는 그 필드가 아예 없다.
 
-**폴백을 타는 계기**는 `_focusedTerminal`(`app-search.js:33`)이다. 활성 창의 포커스된
+**폴백을 타는 계기**는 `focusedTerminal`(`app-search.js:33`)이다. 활성 창의 포커스된
 pane 의 활성 탭이 터미널일 때만 값을 주므로, **Git 창이나 Editor 창에서 `+ Add` 를
 누르면 언제나 `null` 이다.** `_gitTermToolId`(`app-git.js:226`)의 폴백 둘
 (`_lastTermTool` · `_anyTermToolId`)이 그것을 받아내지만, 둘 다 비면 빈 문자열이
@@ -411,7 +411,7 @@ xterm 이 그것을 처리된 것으로 보게 한다 — `false` 면 잔재가 
 것을 그대로 메모리에 올리는 자리이며, 상한이 **있다**는 것이 값보다 중요하다.
 
 **FR-ETR-44.** 3단(복사창)은 **사용자가 지금 그 터미널을 보고 있는 브라우저에서만**
-선다. 판정은 `_attnUserIsWatching(toolId)` 하나를 빌린다 (ATTENTION_FIRING_SRS
+선다. 판정은 `attnUserIsWatching(toolId)` 하나를 빌린다 (ATTENTION_FIRING_SRS
 FR-ATA-7) — 브라우저가 OS 포커스를 갖고, 그 도구가 포커스된 칸의 활성 탭인가.
 
 한 도구의 출력은 붙어 있는 **모든** 브라우저로 간다. 게이트가 없으면 OSC 52 하나에

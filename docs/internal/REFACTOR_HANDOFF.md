@@ -23,10 +23,10 @@
 | flaky 수정 | `tab-names` 3/10 실패 → **10/10 통과** | `FG_RESTORE_RACE_SRS.md` |
 | `RunsPanel` 추출 | `app-runs.js` 730→38줄 · App 필드 88→77 | `APP_STATE_EXTRACT_SRS.md` |
 | 추출 후보 넷 재측정 | `statusbar`·`editor`·`attn`·`reload` **전부 패스**. 코드 변경 0 | `APP_STATE_EXTRACT_SRS.md` §8 |
-| `app-attn.js` 유틸 회수 | `_findToolLocation`·`_toolName` → `app-tool.js`. 25줄 이동, 본문 무변경 | `ATTN_UTIL_RELOCATE_SRS.md` |
+| `app-attn.js` 유틸 회수 | `findToolLocation`·`_toolName` → `app-tool.js`. 25줄 이동, 본문 무변경 | `ATTN_UTIL_RELOCATE_SRS.md` |
 | 복원 경쟁 조사 | 셋 중 **하나가 결함**. 양방향 확정 재현 + 묶음 A 의 잔여 발견 | `FG_RESTORE_RACE_SRS.md` §8 |
 | 복원 비행 수정 | 규약을 함수로. 세 복원의 **양방향** 결함 제거. e2e 933 | `RESTORE_FLIGHT_SRS.md` |
-| `agents-poll` 배선 회수 | `_initAttn` → `_initAgentsSettings`(`app-agents.js`) | 위 SRS §5 N2 의 유보를 해제 |
+| `agents-poll` 배선 회수 | `initAttn` → `_initAgentsSettings`(`app-agents.js`) | 위 SRS §5 N2 의 유보를 해제 |
 
 저장소 최대 파일: **2,984줄 → 1,245줄**(`constants-git.js`, 의도적 비목표).
 
@@ -66,7 +66,7 @@
 | `app-reload.js` | 6 | 2 | 5 | **1** | 이득 없음 — 옮길 상태가 없다 |
 
 **앞 세션이 남긴 "`app-statusbar.js` 가 전용 필드 7개로 가장 유망" 은 틀렸다.** 실제 전용은
-6개이고, 나머지 9개 중 `_gitJobs`·`_bg`·`_cwd` 는 **다른 파일이 쓰는** 상태다.
+6개이고, 나머지 9개 중 `_gitJobs`·`_bg`·`cwd` 는 **다른 파일이 쓰는** 상태다.
 떼면 `app-git.js`·`app-tool.js`·`term-pane.js` 가 남의 객체를 만지게 된다.
 
 결론: **`App` 의 46%가 전용 필드인 것은 사실이나, 그 전용 필드들이 파일 경계와
@@ -74,12 +74,12 @@
 
 ### 3.2 대신 한 것 — `app-attn.js` 의 공용 유틸 회수
 
-`_findToolLocation`·`_toolName` 을 `app-tool.js` 로 옮겼다. 도착지가 이미
+`findToolLocation`·`_toolName` 을 `app-tool.js` 로 옮겼다. 도착지가 이미
 `_isToolInActiveWindow(toolId)` — 같은 모양의 layout walk — 를 들고 있어 `toolId`
 조회가 한자리에 모인다. `App.prototype` 의 메서드로 남으므로 **위임 껍데기 없음 ·
 호출부 무변경**, `git diff` 는 삭제 25줄 = 추가 25줄이다.
 
-**`_jumpToTool` 은 옮기지 않았다** — `APP_STATE_EXTRACT_SRS` §7.4 가 이것도 공용
+**`jumpToTool` 은 옮기지 않았다** — `APP_STATE_EXTRACT_SRS` §7.4 가 이것도 공용
 유틸로 지목했으나 재조사하면 아니다. 본문이 `_attnClear`·`_attnLand` 를 직접
 부르고 존재 이유로 FR-ATA-6·FR-ATJ-1·2 를 든다. **알림 전용이 맞다**
 (`ATTN_UTIL_RELOCATE_SRS` §5 N1 에서 정정).

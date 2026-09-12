@@ -117,14 +117,14 @@ _rGitSection(){ SidebarList.paint(this.app,SB_TAB_DEFS.find(d=>d.id==='git')) }
 
 | 게이트 | 위치 | 판정 |
 |---|---|---|
-| 분할 금지 | `app-layout.js:402` | 창 (`_isGitWin`) |
+| 분할 금지 | `app-layout.js:402` | 창 (`isGitWin`) |
 | 탭 추가 금지 | `app-layout.js:220` | 창 |
 | pane 간 이동 | `app-dnd.js:16` | 창 |
 | 창 간 이동 (출발·도착) | `app-dnd.js:44`·`:46` | 창 |
 | 드롭 분할 | `app-dnd.js:91` | 창 |
 | 탭 자체가 못 움직임 | `app-dnd.js:22`·`:50`·`:96` | **탭 타입** (`TAB_TYPE_GIT`) |
 | 툴바 분할 버튼 숨김 | `renderer.js:69-74` | 창 |
-| 사이드바 창 목록 제외 | `app-git.js:14` (`_plainWindows`) | 창 |
+| 사이드바 창 목록 제외 | `app-git.js:14` (`plainWindows`) | 창 |
 
 **Editor 창의 조건은 창 판정 자리에만 더한다** — 탭 타입 자리에 넣으면 편집기 탭이
 자기 창 안에서도 못 움직이게 된다 (FR-EDT-40 이 깨진다).
@@ -230,7 +230,7 @@ web/js/core/helpers.js:280
 ### 2.10 탐색기 폭은 워크스페이스에 넣는 것이 기존 규약이다
 
 `sidebarWidth` 는 **워크스페이스에 산다** — `input-binding.js:46` 이
-`this.app.ws.sidebarWidth=w` 로 쓰고 `_save()` 한다(`:47`). `localStorage` 는 첫
+`this.app.ws.sidebarWidth=w` 로 쓰고 `save()` 한다(`:47`). `localStorage` 는 첫
 페인트를 위한 **사본**일 뿐이다 (`index.html:17`, `app.js:94-97`,
 `app-cmd.js:246-249`).
 
@@ -279,7 +279,7 @@ root 행이 **마지막 자리로 포함**된다 — 제외하면 키만으로�
 없으면 root 에디터 창이다.
 
 **FR-EDT-8.** 역방향도 성립한다 — Editor 창이 활성이면 사이드바 탭이 `editor` 로
-따라온다 (FR-SBT-14). 재진입은 기존 `_sbBusy` 가드가 그대로 끊는다.
+따라온다 (FR-SBT-14). 재진입은 기존 `sbBusy` 가드가 그대로 끊는다.
 
 **FR-EDT-9.** 행을 클릭하면 그 행의 Editor 창이 활성화된다.
 
@@ -328,7 +328,7 @@ root 행의 표시 이름은 `~` 다.
 **FR-EDT-20a.** **창이 하나도 없는 워크스페이스에서도 서버 소유 키를 채택한다.**
 로드 경로는 `sv.windows.length` 가 0 이면 서버 스냅샷을 통째로 버리는데
 (`app.js`), `git.pinned`·`editors.list` 는 **창과 무관하게 서버가 권위**이고 창이
-없는 워크스페이스에도 들어 있다. 버린 채로 `_mkWindow()` 와 재조정이 `_save()` 를
+없는 워크스페이스에도 들어 있다. 버린 채로 `_mkWindow()` 와 재조정이 `save()` 를
 부르면 그 PUT 이 두 키를 **지운다** — 핀을 걸어 둔 채 브라우저를 처음 열면 핀이
 사라진다(실측). 두 키는 창 분기 **밖에서** 반영한다.
 
@@ -435,7 +435,7 @@ FR-EDT-16 이 그 추가를 "목록을 바꾸지 않는" 무동작으로 규정�
 **FR-EDT-44.** 창 이름은 경로의 마지막 조각이고, root 에디터 창의 이름은 `~` 다.
 
 **FR-EDT-45.** Editor 창은 **Windows 탭의 창 목록에 나오지 않고 창 순회의 대상도
-아니다** — `_plainWindows`(`app-git.js:14`)가 Git 창과 함께 거른다.
+아니다** — `plainWindows`(`app-git.js:14`)가 Git 창과 함께 거른다.
 
 **FR-EDT-46.** 창은 좌우 둘로 나뉜다. 좌측은 **탐색기**, 우측은 **편집기 영역**이다.
 탐색기는 분할 트리 **밖**의 고정 영역이며 어떤 드롭으로도 쪼개지지 않는다.
@@ -465,7 +465,7 @@ windows.filter(s => s && (s.layout || s.type === WINDOW_TYPE_EDITOR))
 
 **FR-EDT-51.** **분할이 생기는 유일한 길은 드래그드롭이다.** 탭을 pane 의
 가장자리(좌·우·상·하)로 끌어다 놓을 때만 새 pane 이 생기고, 그 pane 은 끌어온 탭을
-담은 채로 태어난다 (`_splitPaneWithTab`, `app-dnd.js:88`).
+담은 채로 태어난다 (`splitPaneWithTab`, `app-dnd.js:88`).
 
 **FR-EDT-52.** **빈 pane 은 존재하지 않는다.** pane 은 언제나 탭을 하나 이상 갖고,
 탭이 0이 되면 기존 붕괴 규약(`doRemove`)대로 사라진다. `empty` 같은 표식을 두지
@@ -479,10 +479,10 @@ windows.filter(s => s && (s.layout || s.type === WINDOW_TYPE_EDITOR))
 일반 창으로도 나가지 못하고, 밖에서 들어오지도 못한다.
 
 게이트가 들어가는 자리는 **창 경계를 넘는 경로 둘뿐**이다 —
-`_moveTabToWindow` 의 출발·도착 검사(`app-dnd.js:44`·`:46`).
+`moveTabToWindow` 의 출발·도착 검사(`app-dnd.js:44`·`:46`).
 
-**나머지 둘에는 넣지 않는다.** `_moveTabToPane`(`:16`)은 활성 창 **안**의 분할 칸끼리
-옮기는 경로이고, `_splitPaneWithTab`(`:91`)은 FR-EDT-51 이 허용한 **유일한 분할
+**나머지 둘에는 넣지 않는다.** `moveTabToPane`(`:16`)은 활성 창 **안**의 분할 칸끼리
+옮기는 경로이고, `splitPaneWithTab`(`:91`)은 FR-EDT-51 이 허용한 **유일한 분할
 경로**다. 여기에 Editor 창 조건을 더하면 창 안의 이동과 분할이 함께 막혀
 FR-EDT-51·FR-EDT-36(V-EDT-33·36)이 깨진다.
 
@@ -659,7 +659,7 @@ FR-PIS-12) 그 별칭만 로드 시점 값에 굳는 자리가 됐다. "둘이 �
 동시에 떠 있어도 git 실행이 겹치지 않는다.
 
 **FR-EDT-78.** 위 주기 외에 **즉시 갱신하는 계기가 셋** 있다 — 파일 저장
-(`FileEditor.save` 의 `_gitSignal('write')`), 파일 조작 완료(FR-EDT-89), 창 활성화.
+(`FileEditor.save` 의 `gitSignal('write')`), 파일 조작 완료(FR-EDT-89), 창 활성화.
 
 ### 3.8 묶음 F — 파일 조작
 
@@ -1069,10 +1069,10 @@ root 에디터로 보낸다" 까지만 한다. M6 이 연결·리포 규칙을 �
 | **신규** `web/js/core/app-editor.js` | 행·창의 App 믹스인, 재조정, 라우팅 | M2·M6 |
 | **`web/js/core/app.js`** | **창 필터(`:104`)** · 마이그레이션 호출(`:106`) · **409 병합(`:226-232`)** | M2 |
 | **`web/js/core/app-cmd.js`** | **창 필터(`:210`)** · 재조정 호출(`:212`) · `openEditorTab` 라우팅(`:285`) | M2·M6 |
-| `web/js/core/app-git.js` | `_plainWindows`(`:14`) · `_gitOpenFile`(`:110`)·`_gitOpenFileHead`(`:125`) | M2·M6 |
+| `web/js/core/app-git.js` | `plainWindows`(`:14`) · `gitOpenFile`(`:110`)·`gitOpenFileHead`(`:125`) | M2·M6 |
 | `web/js/core/app-layout.js` | 분할 게이트(`:402`) · `addTab` 게이트(`:220`) · `_findEditorTab`(`:190`) | M2 |
 | `web/js/core/app-dnd.js` | 창 판정 자리 넷(`:16`·`:44`·`:46`·`:91`) | M2 |
-| `web/js/core/helpers.js` | `_isEditorWin` 헬퍼. **`clean` 은 건드리지 않는다** | M2 |
+| `web/js/core/helpers.js` | `isEditorWin` 헬퍼. **`clean` 은 건드리지 않는다** | M2 |
 | **신규** `web/js/ui/file-tree.js` | 탐색기 컴포넌트 | M3·M4·M5 |
 | `web/style.css` | `--git-st-add` 를 `:root` 로 승격 · Editor 창 배치 · 탐색기 | M2·M4 |
 | **신규** `e2e/editor-*.spec.ts` | V-EDT-* | 전 단계 |
@@ -1135,8 +1135,8 @@ root 에디터로 보낸다" 까지만 한다. M6 이 연결·리포 규칙을 �
 | **D-33** | root 행은 **패널 최하단의 별도 컨테이너**에 그린다 | 초판은 "목록의 같은 컨테이너 마지막" 이었으나 사용자가 뜻한 것은 패널의 바닥(설정 버튼 위)이었다. 같은 컨테이너에 두면 목록이 길어질 때 함께 스크롤돼 바닥을 떠난다 (FR-EDT-14) |
 | **D-34** | 지운 리포를 보고 있던 Git 창은 **떠난다** | 리포를 고르는 자리가 이미 비었으므로 그 창에는 갈 곳이 없다. 남기면 사용자가 없앤 것이 화면에 그대로 뜬다 |
 | **D-32** | 부분 스테이지는 탐색기에서도 **노랑이 상태색을 이긴다** | Git 패널의 규약을 그대로 가져온다. 이것을 빠뜨리면 같은 파일이 두 화면에서 다른 색이 된다 (FR-EDT-72a) |
-| **D-31** | 서버 소유 키(`git.pinned`·`editors.list`)는 **창 분기 밖에서** 채택한다 | 실제 앱을 띄워 찾은 결함이다 — 창이 없는 워크스페이스에서 로드가 서버 스냅샷을 버리고, 이어지는 `_save()` 가 핀을 지웠다. 기존 결함이지만 root 에디터 창을 늘 만들어야 하는 이번 기능이 그것을 상시로 만들었다 (FR-EDT-20a) |
-| **D-30** | 탐색기 회수의 자리는 **재조정**이다 | `_edTree` 는 활성 Editor 창을 그릴 때만 불려, 일반 창에 있는 동안 행을 지우면 분리된 DOM 이 남았다. 재조정은 창이 사라지는 것을 아는 유일한 자리다 (FR-EDT-42) |
+| **D-31** | 서버 소유 키(`git.pinned`·`editors.list`)는 **창 분기 밖에서** 채택한다 | 실제 앱을 띄워 찾은 결함이다 — 창이 없는 워크스페이스에서 로드가 서버 스냅샷을 버리고, 이어지는 `save()` 가 핀을 지웠다. 기존 결함이지만 root 에디터 창을 늘 만들어야 하는 이번 기능이 그것을 상시로 만들었다 (FR-EDT-20a) |
+| **D-30** | 탐색기 회수의 자리는 **재조정**이다 | `edTree` 는 활성 Editor 창을 그릴 때만 불려, 일반 창에 있는 동안 행을 지우면 분리된 DOM 이 남았다. 재조정은 창이 사라지는 것을 아는 유일한 자리다 (FR-EDT-42) |
 | **D-27** | 셀 수 없는 트리는 **지우지 않는다** | 절반만 지워진 트리가 거부보다 나쁘다 (FR-EDT-118) |
 | **D-28** | 저장소 루트 판정은 `/api/git/status` 로 색과 **함께** 받는다 | `/api/git/repo-at` 은 `tool=` 만 받아 임의 경로를 판정하지 못한다 (FR-EDT-69) |
 | **D-29** | 목록이 그대로면 **저장도 브로드캐스트도 하지 않는다** | rev 가 오르면 모든 브라우저가 재조정을 돈다. 바뀐 것이 없는데 치를 비용이 아니다 (FR-EDT-27) |

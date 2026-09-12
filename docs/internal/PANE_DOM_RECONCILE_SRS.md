@@ -21,7 +21,7 @@ TUI(claude code·pi agent 등)를 띄운 터미널에서 화면이 스스로 맨
 
 - `web/js/ui/renderer.js` — `_rLayout` / `_rWindowInto` / `_buildNode` /
   `_buildPane` / `_buildSp` / `_mountTabBody` / `_handle`.
-- 위 함수가 부르는 App 측 조회(`_mkTool`·`_gitPanel`·`_runViewEl`·`fileEditors`)
+- 위 함수가 부르는 App 측 조회(`mkTool`·`gitPanel`·`runViewEl`·`fileEditors`)
   의 **호출 규약**. 그 구현은 바꾸지 않는다.
 - 신규·변경 e2e.
 
@@ -29,7 +29,7 @@ TUI(claude code·pi agent 등)를 띄운 터미널에서 화면이 스스로 맨
 - 서버·프로토콜·xterm 버전.
 - `render()` 를 부르는 54곳의 호출 빈도 자체(줄이지 않는다 — 자주 불려도 무해한
   것이 이 작업의 목표다).
-- 사이드바·토프바·모바일 순회(`_mPaneIdx`) 의 구조.
+- 사이드바·토프바·모바일 순회(`mPaneIdx`) 의 구조.
 - Git 패널·편집기 **내부**의 DOM 관리(이미 자기 캐시를 갖는다).
 
 ### 1.3 정의 (Definitions)
@@ -50,7 +50,7 @@ TUI(claude code·pi agent 등)를 띄운 터미널에서 화면이 스스로 맨
 
 - `docs/internal/archive/PANE_SCROLL_PRESERVE_SRS.md` — 이 결함의 1·2·3차 패치와
   그 실패 이유. 본 문서가 그 FR-1~FR-4 를 대체한다.
-- `docs/internal/WINDOW_SLOTS_SRS.md` — 슬롯 구조(`_rSlot`·`_slotKey`).
+- `docs/internal/WINDOW_SLOTS_SRS.md` — 슬롯 구조(`_rSlot`·`slotKey`).
 - `docs/internal/SLOT_VIEW_STATE_SRS.md` — 칸별 활성 탭(`paneTab`).
 - `docs/internal/REPO_TAB_UNIFY_SRS.md` — 탭의 종류와 자격.
 - `e2e/regression-pane-scroll.spec.ts` — 기존 회귀 검사.
@@ -160,7 +160,7 @@ renderer.js:345-347 은 가드 없이 옛 `scrollTop` 픽셀을 대입한다. xt
 
 ### 2.12 다시 그리기가 DOM 을 새로 만드는 것에 기대는 코드가 있다
 
-`_renameTab`(app-layout.js:67)은 탭 라벨을 input 으로 **교체**하고, 확정할 때
+`renameTab`(app-layout.js:67)은 탭 라벨을 input 으로 **교체**하고, 확정할 때
 `render()` 를 부른다. 그 input 을 스스로 걷지 않는다 — 다시 그리기가 탭을 새로
 만들어 없애 주기 때문이다.
 
@@ -183,7 +183,7 @@ renderer.js:345-347 은 가드 없이 옛 `scrollTop` 픽셀을 대입한다. xt
 | FR-PDR-2 | pane 은 `data-paneid` + 슬롯 번호로 식별한다. 같은 키가 같은 부모 자리에 오면 `.pn` 요소를 그대로 두고 (a) 클래스(`focused`·`attn`), (b) 탭 바, (c) 본문만 갱신한다 | 필수 |
 | FR-PDR-3 | 활성 탭이 바뀌지 않았으면 `.pn-body` 의 자식을 **떼지도 다시 붙이지도 않는다.** 같은 부모에 `appendChild` 를 다시 부르는 것도 이동이며 금지한다 | 필수 |
 | FR-PDR-4 | 탭 요소는 `data-tab-id` 로 매칭한다. 사라진 것만 제거하고, 새 것만 만들고, 남은 것은 라벨·`title`·클래스만 갱신한다. 순서가 바뀌면 요소를 **옮긴다**(다시 만들지 않는다) | 필수 |
-| FR-PDR-4a | 밖에서 구조가 바뀐 탭은 재사용하지 않고 다시 만든다. 이름 변경은 라벨을 input 으로 **갈아 끼우고**(`_renameTab` 의 `el.replaceWith`) 확정 뒤의 다시 그리기가 그 자리를 되돌리는 것에 기댄다 — 재사용은 그 전제를 깬다 (§2.12) | 필수 |
+| FR-PDR-4a | 밖에서 구조가 바뀐 탭은 재사용하지 않고 다시 만든다. 이름 변경은 라벨을 input 으로 **갈아 끼우고**(`renameTab` 의 `el.replaceWith`) 확정 뒤의 다시 그리기가 그 자리를 되돌리는 것에 기댄다 — 재사용은 그 전제를 깬다 (§2.12) | 필수 |
 | FR-PDR-5 | `.sp` 는 (부모 안 위치, `direction`, 자식 수)가 같으면 재사용하고 `sizes` 만 반영한다. 하나라도 다르면 그 서브트리만 다시 만든다 | 필수 |
 | FR-PDR-6 | 슬롯 컨테이너(`.slot`·`.slot-handle`)는 인덱스로 재사용한다. 칸 수·방향이 바뀌면 그 차이분만 만들거나 지운다 | 필수 |
 | FR-PDR-7 | 이벤트 핸들러는 **요소를 새로 만들 때 1회만** 건다. 재사용 경로에서 다시 걸지 않는다 | 필수 |
@@ -205,7 +205,7 @@ renderer.js:345-347 은 가드 없이 옛 `scrollTop` 픽셀을 대입한다. xt
 | ID | 요구사항 | 우선순위 |
 |----|---------|---------|
 | FR-PDR-20 | `_rLayout` 의 무조건 갈무리(renderer.js:222-223)와 rAF 무조건 복원(renderer.js:329-348)을 제거한다. 남는 것은 FR-PDR-10~12 의 조건부 경로뿐이다 | 필수 |
-| FR-PDR-21 | rAF 콜백의 나머지 책임(`open()`·`doFit()`·포커스·`_resendWindowSizes`)은 그대로 둔다. `doFit()` 은 크기가 실제로 바뀐 pane 에만 불러도 되나, 그 최적화는 이 작업의 비목표다 | 필수 |
+| FR-PDR-21 | rAF 콜백의 나머지 책임(`open()`·`doFit()`·포커스·`resendWindowSizes`)은 그대로 둔다. `doFit()` 은 크기가 실제로 바뀐 pane 에만 불러도 되나, 그 최적화는 이 작업의 비목표다 | 필수 |
 | FR-PDR-22 | `archive/PANE_SCROLL_PRESERVE_SRS.md` 의 FR-1~FR-4 는 본 문서로 대체됨을 그 문서 머리에 적는다 | 필수 |
 
 ### 3.4 비기능 (Non-functional)
@@ -214,7 +214,7 @@ renderer.js:345-347 은 가드 없이 옛 `scrollTop` 픽셀을 대입한다. xt
 |----|---------|
 | NFR-PDR-1 | 레이아웃이 바뀌지 않은 render 는 **골격 요소를 하나도 만들지 않아야** 한다(텍스트·클래스 갱신만). 살아 있는 위젯 안쪽은 이 요구의 대상이 아니다 — xterm 은 화면을 그릴 때마다 행을 새로 만들고 커서가 깜빡이는 것만으로도 노드가 오간다 (Windows CI 실측). 검증은 골격 클래스로 가려서 센다 |
 | NFR-PDR-2 | 기존 e2e 가 의존하는 선택자 계층(`.pn` > `.pn-tabs`/`.pn-body` > 위젯)은 변하지 않는다 |
-| NFR-PDR-3 | 재조정은 App 상태를 읽기만 한다. `_setFocus` 등 기존 부작용은 지금 있는 자리에 그대로 둔다 |
+| NFR-PDR-3 | 재조정은 App 상태를 읽기만 한다. `setFocus` 등 기존 부작용은 지금 있는 자리에 그대로 둔다 |
 
 ## 4. 설계 결정 (Design Decisions)
 
@@ -286,7 +286,7 @@ TUI 를 띄운 탭에서 다른 브라우저 창의 `dmctl` 로 워크스페이�
 - `render()` 호출 횟수를 줄이는 것. 자주 불려도 무해하게 만드는 것이 목표다.
 - 사이드바·토프바·상태바의 재조정.
 - Git 패널·편집기 내부 DOM 관리.
-- 모바일 pane 순회(`_mPaneIdx`) 구조 변경. 모바일도 재조정의 대상이지만 순회
+- 모바일 pane 순회(`mPaneIdx`) 구조 변경. 모바일도 재조정의 대상이지만 순회
   방식 자체는 그대로다.
 - `doFit()` 호출 최적화.
 - xterm 업그레이드.

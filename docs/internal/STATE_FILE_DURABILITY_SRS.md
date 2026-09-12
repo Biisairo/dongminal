@@ -112,7 +112,7 @@ if s.SchemaVersion < SchemaVersion { return nil, ErrSchemaTooOld }
 ### 2.5 프론트의 부팅 실패 갈래가 저장으로 이어진다
 
 `app.js:218-221` 의 `catch` 는 창이 없으면 새로 만든다. 그 뒤의 정상 흐름이
-`_save()` 를 부르면 방금 만든 **빈 판**이 PUT 된다. 서버가 `If-Match` 를 요구하지
+`save()` 를 부르면 방금 만든 **빈 판**이 PUT 된다. 서버가 `If-Match` 를 요구하지
 않으므로(§2.3) 그 PUT 은 성공한다.
 
 ---

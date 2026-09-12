@@ -26,7 +26,7 @@
 | 묶음 | 내용 |
 |---|---|
 | **S** 서술자 | 브라우저 설정 키의 **단일 원천** — 키·타입·범위·기본값 |
-| **D** 파생 | `_saveSettings` 의 키 나열과 `BACKUP_KEYS` 가 그 표에서 파생된다 |
+| **D** 파생 | `saveSettings` 의 키 나열과 `BACKUP_KEYS` 가 그 표에서 파생된다 |
 | **C** CLI | `dongminal config show` · `dongminal config validate` |
 | **F** 파일 | `server.json` — 서버 기동값의 파일 계층 |
 | **P** 우선순위 | **플래그 > 환경변수 > 파일 > 기본값** |
@@ -60,7 +60,7 @@
 
 | 자리 | 무엇 |
 |---|---|
-| `app-settings.js:18` | `_saveSettings` 의 PUT 본문 — **키 20개를 인라인으로 나열** |
+| `app-settings.js:18` | `saveSettings` 의 PUT 본문 — **키 20개를 인라인으로 나열** |
 | `app-settings.js:326` | `_settingsApply` — 같은 키를 **받는 쪽**에서 다시 나열 |
 | `SETTINGS_PORTABILITY_SRS §3.1` | 이식 표 — 문서에만 있다 |
 
@@ -71,7 +71,7 @@
 > `tabFixedWidth` `tabWidthPx` `focusEdgeLevel` `attnEdgeLevel`). **문서를 근거로
 > 코드를 단정하지 않는다** — 이 마일스톤이 반복해 만나는 자리다.
 
-`_saveSettings` 의 주석이 그 위험을 이미 적고 있다 — *"블롭 전체를 갈아치우므로
+`saveSettings` 의 주석이 그 위험을 이미 적고 있다 — *"블롭 전체를 갈아치우므로
 읽어 쓰는 값은 전부 실어야 한다 — 여기서 빠지면 다른 설정을 건드릴 때 조용히
 사라진다."* **그 계약의 집행자가 사람의 눈**이라는 것이 결함이다.
 
@@ -178,7 +178,7 @@
 
 ### 3.2 묶음 D — 파생
 
-**FR-CFG-4** `_saveSettings` 의 PUT 본문은 `SETTINGS_SCHEMA` 를 돌며 만들어진다.
+**FR-CFG-4** `saveSettings` 의 PUT 본문은 `SETTINGS_SCHEMA` 를 돌며 만들어진다.
 키를 인라인으로 나열하지 않는다.
 
 **FR-CFG-5** 값을 읽고 얹는 방법은 `app-settings.js` 의 `SETTINGS_ACCESS` 가
@@ -259,7 +259,7 @@
 
 | ID | 확인 |
 |---|---|
-| TC-CFG-1 | `SETTINGS_SCHEMA`·`SETTINGS_ACCESS`·`_saveSettings` PUT 본문의 키 집합이 **셋 다 같다** |
+| TC-CFG-1 | `SETTINGS_SCHEMA`·`SETTINGS_ACCESS`·`saveSettings` PUT 본문의 키 집합이 **셋 다 같다** |
 | TC-CFG-2 | 범위 밖 `focusEdgeLevel`·`attnEdgeLevel`·주기가 기본값으로 떨어진다 |
 | TC-CFG-3 | `settings-schema.js` 가 `const SETTINGS_SCHEMA = <JSON>;` 형태다 (`FR-CFG-2`) |
 

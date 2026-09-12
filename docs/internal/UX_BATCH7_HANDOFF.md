@@ -106,7 +106,7 @@
 ### 2.3 설정이 상태가 됐다
 
 `_settingsApply(saved)` 하나가 얹는 일을 전부 지고, 부팅·SSE·소프트 리로드가 같은 길을 지난다.
-`STATE_REGISTRY` 에 `settings` 항목이 있다. **새 설정을 더하면 `_saveSettings` 의 키 목록과
+`STATE_REGISTRY` 에 `settings` 항목이 있다. **새 설정을 더하면 `saveSettings` 의 키 목록과
 `_settingsApply` 두 곳만 고치면 된다.**
 
 `opts.boot` 는 "부팅에서만 해야 하는 일" 을 가르는 자리이며, ⑪ 이 그 첫 손님이다
@@ -119,7 +119,7 @@
 설정 키 · 화면 id · 라벨 · 안내 문구 · 기본값 · 읽기/쓰기 · 선택지 · `0` 허용 여부가 한 행에 있다.
 `Polling` 탭의 행도 이 배열에서 그려지므로 index.html 에 다섯을 손으로 적지 않는다.
 
-**주기를 더할 때 고치는 자리는 두 곳이다**: 이 배열 한 행과 `_saveSettings` 의 키 목록.
+**주기를 더할 때 고치는 자리는 두 곳이다**: 이 배열 한 행과 `saveSettings` 의 키 목록.
 
 > **함정 둘**
 > - `const` 의 TDZ. `gitConsoleInterval` 은 `GIT_CON_POLL_MS`(`constants-git.js` 아래쪽)
@@ -142,7 +142,7 @@
 
 > ①·⑦ 은 **끝났다.** 아래 1·2 는 무엇을 했는지의 기록이고, 남은 것은 3·4 다.
 
-1. ~~**① agents 창 그룹**~~ (`app-agents.js`) — `_agentsRender` 가 `_findToolLocation` 으로 창을 이미
+1. ~~**① agents 창 그룹**~~ (`app-agents.js`) — `agentsRender` 가 `findToolLocation` 으로 창을 이미
    알고 있다. 그룹은 **파생**이며 `ws` 에 저장하지 않는다 (D-9). 순서는 `ws.agentsOrder` 그대로 두고
    창별로 거른다 (D-10). 카드의 `.ag-loc` 에서 창 이름을 빼고 머리로 올린다 (FR-AGG-13).
 2. ~~**⑦ changes/untracked 통합**~~ (`constants-git.js`·`panel-changes.js`) — 서버 응답은 건드리지 않고
@@ -156,7 +156,7 @@
 4. ~~**④ 레일 목록**~~ (`style.css` 의 `html.sb-collapsed` 절 + `SidebarList`) — 서술자를
    그대로 쓰고 레일 전용 데이터를 만들지 않았다 (D-11). 앞 세션이 되돌리기 전에 확인한
    것 둘이 그대로 맞았고, 그 위에 셋을 더 알았다 — **PANEL_SURFACE_SRS §4.1** 에 적었다.
-   요점: `title` 은 조건부일 수 없고, 재배치 차단의 판정은 `app._sbRail()` 한 자리이며
+   요점: `title` 은 조건부일 수 없고, 재배치 차단의 판정은 `app.sbRail()` 한 자리이며
    (CSS 선택자 `html.sb-collapsed body:not(.mobile)` 와 같은 뜻이다 — 모바일을 함께
    빼야 FR-RAL-10 이 선다), 레일의 점 색은 `.active` 가 이미 accent 를 쓰고 `.attn` 이
    덮여서는 안 되므로 `has-badge:not(.attn)` 로 한정한다.
@@ -183,7 +183,7 @@
 
 지금 상태: `Polling` 탭 하나에 다섯이 나란히 서고(흩어져 있던 둘도 그리로 옮겼다),
 `agentsPollMs` 는 서버 설정으로 이사했다. **주기를 더할 때 고치는 자리는
-`POLL_SETTINGS` 배열 한 행이다** — `_saveSettings` 의 키 목록만 함께 본다.
+`POLL_SETTINGS` 배열 한 행이다** — `saveSettings` 의 키 목록만 함께 본다.
 
 ### 3.2 묶음 A 잔여
 

@@ -516,7 +516,7 @@ go test ./internal/webserver/httpapi/ -run 'FileWrite|Origin|CSRF|Host' 2>&1 | t
 |---|---|---|---|
 | **FUI-01** (원본 P1 → **P0 재판정**) | 이미 열린 파일을 **다시 열면** 미저장 편집이 디스크 내용으로 조용히 덮인다. `refresh()` 가 `_loading` 만 보고 `_dirty` 를 보지 않는다 | `app-layout.js:469-480`; `file-editor.js:585-611` | S |
 | **FUI-02** (P1) | 저장이 외부 변경을 대조하지 않는다 — 마지막 쓰기가 이긴다. **워크스페이스 저장은 이미 ETag/409 를 갖는데 파일 저장에만 없다** | `file-editor.js:561-565`; `handlers_files.go:362-390` | M |
-| **FUI-03** (P1) | 새 판 자동 새로고침이 미저장 편집을 묻지 않고 버린다(`_edAnyDirty()` 를 이 경로가 읽지 않는다) | `version-watch.js:59-72`; `main.js:151-155` | S |
+| **FUI-03** (P1) | 새 판 자동 새로고침이 미저장 편집을 묻지 않고 버린다(`edAnyDirty()` 를 이 경로가 읽지 않는다) | `version-watch.js:59-72`; `main.js:151-155` | S |
 | **FBE-03** (P1) | 웹서버만 재시작해도 헤드리스 Run 멤버가 15초 안에 강제 종료된다. epoch 가 **웹서버 기동마다 새 uuid** 라 데몬이 살아 있어도 펜싱되고, reaper 가 부팅 직후 즉시 그 Run 의 도구를 죽인다 — `FR-HLM-3` 복원 기계장치가 무력화된다 | `run/store.go:110-132`; `main.go:317`; `handlers_runs_delete.go:120` | M |
 | **FBE-07** (P1) | `paned.pid` 를 PID 재사용 검증 없이 신뢰 — 재부팅 후 `stop --all` 이 무관한 프로세스를 SIGTERM→SIGKILL 할 수 있다. **같은 파일의 `Listen` 은 소켓에 대해 정확히 이 문제를 방어한다** | `ctl/cli/proc.go:83-96`; `paned.go:431-436` | S |
 | **FBE-17** (P2) | `run.Store` 변경 10곳이 메모리 선반영 후 저장, 실패 시 롤백 없음 → 메모리와 `runs.json` 이 갈라진다 | `run/store.go:203,271,328,361,402` 등 | S/M |
@@ -553,7 +553,7 @@ go test ./internal/webserver/httpapi/ -run 'FileWrite|Origin|CSRF|Host' 2>&1 | t
 - 디스크 쓰기를 실패시키면 `PUT /api/settings`·`PUT /api/access`·workspace PUT 이 500 을 반환하고 `Close()` 가 flush 오류를 반환해 `serve` 가 비0 종료.
 - `dongminal doctor --bundle out.zip` 이 버전·OS·홈 파일 목록·로그 tail 3종·마스킹된 설정/ACL·진단 스냅샷을 담고, `grep` 으로 자격증명·URL userinfo 가 검출되지 않는다.
 - 편집기 저장이 mtime/ETag 불일치에 412 를 반환하고 UI 가 충돌을 표시.
-- `web/js/core/app-settings.js` 의 `_saveSettings` 가 `res.ok` 를 검사하고 실패를 사용자에게 보이며, `core/main.js:14-21` 의 설정 로드 실패가 부팅 화면 문구로 노출.
+- `web/js/core/app-settings.js` 의 `saveSettings` 가 `res.ok` 를 검사하고 실패를 사용자에게 보이며, `core/main.js:14-21` 의 설정 로드 실패가 부팅 화면 문구로 노출.
 - 데몬 `write`/`resize` 가 실패를 `PanedError{-32000}` 로 돌려주고 `ToolManager.Write` 가 없는 도구에 `ErrToolNotFound` 를 반환. `ToolHub.Delete` 가 `error` 를 반환.
 - **미저장 편집 불변식**이 e2e 로 고정된다: ① dirty 상태에서 같은 파일을 다시 열면 내용이 보존되고 `●` 가 유지된다 ② 두 브라우저에서 같은 파일을 저장하면 뒤쪽이 409/412 를 받고 "덮어쓰기 / 다시 읽기 / 비교" 를 묻는다 ③ dirty 상태에서 자산 판이 바뀌면 자동 새로고침이 배너로 물러난다.
 - `POST /api/file/write` 가 `ifMtime`(또는 ETag)을 받고 불일치 시 412. `GET /api/file/read` 응답에 그 값이 실린다. **`FR-EDT-101` 을 "dirty 가 아닐 때만 새로 읽는다" 로 개정**한다(`12 FUI-01` 이 "스펙 결함을 겸한다" 고 지적).
@@ -916,7 +916,7 @@ grep -q '401' internal/ctl/cli/verify.go && echo "verify 401 item ok"
 - `grep -rn 'http.Error(w' internal/` 0건(현재 63곳). 모든 오류 응답이 코드를 갖고 `codes.go` 에 등록되며 `inventory.go` 전수성 테스트가 새 코드까지 덮는다.
 - `docs/external/errors.md`(또는 `api.md` 절)가 `codes.go` 에서 생성되고 코드 40여 개 전부에 의미·복구 안내가 있다(현재 문서화 7개). 생성물과 코드 목록의 불일치를 CI 가 잡는다.
 - 오류 응답 본문에 요청 ID 가 실려 사용자가 그 ID 로 로그를 찾을 수 있다.
-- 설정 키·타입·범위·기본값의 단일 원천 + `dongminal config show/validate`. `_saveSettings` 의 24키 나열이 서술자 표에서 파생됨을 확인.
+- 설정 키·타입·범위·기본값의 단일 원천 + `dongminal config show/validate`. `saveSettings` 의 24키 나열이 서술자 표에서 파생됨을 확인.
 - 환경변수 13개 전부 문서화(상수 9 + 흩어진 4: `DONGMINAL_ATTENTION_IDLE_MS`·`_BELL`·`DONGMINAL_CMD_RESULT_TIMEOUT_MS`·`DONGMINAL_URL_OPEN`). `PORT` 비숫자 값이 `net.Listen` 전에 명확한 오류로 거부.
 - `dongminal update --check`(옵트인) · `uninstall --dry-run`(홈 15항목 목록 출력) · `backup --out`/`restore <zip>`(소켓·pid·로그 제외 확인).
 - `POST /api/workspace/revert` 로 최근 N rev 되돌리기 + UI 진입점.

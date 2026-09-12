@@ -150,7 +150,7 @@ _attnRestore(){
 
 ```
 miss : []      ← querySelector 는 요소를 찾았다. DOM 을 못 고친 것이 아니다
-map  : []      ← _fgNames 가 비어 있다. 넣은 이름이 사라졌다
+map  : []      ← fgNames 가 비어 있다. 넣은 이름이 사라졌다
 ```
 
 `tabName()` 은 `claude` 를 내는데 DOM 은 `Shell` 이던 V-TAN-15 의 실패도 같은
@@ -194,7 +194,7 @@ map  : []      ← _fgNames 가 비어 있다. 넣은 이름이 사라졌다
 | 함수 | 상태 | SSE 가 증분 갱신? | restore 의 방식 | 판정 |
 |---|---|---|---|---|
 | `_attnRestore` | `_attn` | **예** (`_onToolAttention`) | `before` 확정 후 차분 | 규약 지킴 |
-| `_fgRestore` | `_fgNames` | **예** (`_onToolForeground`) | `before` 확정 후 차분 | 묶음 A 에서 고침 |
+| `_fgRestore` | `fgNames` | **예** (`_onToolForeground`) | `before` 확정 후 차분 | 묶음 A 에서 고침 |
 | **`_activityRestore`** | `_activity` | **예** (`_onToolActivity`) | **응답 도착 후 `clear()`** | **결함** |
 | `_bgRefresh` | `_bg` | 아니오 — SSE 가 `_bgRefresh()` 재호출 | 통째 교체 | 없음 |
 | `_focusRestore` | `_windowFocusOwner` | 아니오 — 맵 전체가 온다 | 통째 교체 | 없음 |
@@ -224,7 +224,7 @@ _activityRestore(){
 | **B** | 요청 중 `ended` 도착 → 낡은 스냅숏에는 살아 있음 | `지운직후:false → 응답후:true` **되살아난다** |
 
 **노출은 재연결 순간에 그치지 않는다.** `_activityRestore` 는 `es.onopen` 말고도
-`_agentsStartPoll` 이 **`agentsPollMs`(기본 5,000ms)마다** 부르고, `.ag-refresh`
+`agentsStartPoll` 이 **`agentsPollMs`(기본 5,000ms)마다** 부르고, `.ag-refresh`
 클릭과 `_softReload` 도 부른다. 패널이 열려 있는 동안 창이 5초마다 열린다.
 
 다만 증상은 영구적이지 않다 — 폴링이 돌면 다음 주기에 스스로 낫는다. 묶음 A 의

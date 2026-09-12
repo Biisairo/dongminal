@@ -23,10 +23,10 @@
 
 | 이동 | 대상 | 도착 | 근거 |
 |---|---|---|---|
-| R1 | `_findToolLocation(toolId)` | `app-tool.js` | 도착지가 이미 `_isToolInActiveWindow(toolId)` — **같은 모양의 layout walk** — 를 들고 있다 |
+| R1 | `findToolLocation(toolId)` | `app-tool.js` | 도착지가 이미 `_isToolInActiveWindow(toolId)` — **같은 모양의 layout walk** — 를 들고 있다 |
 | R2 | `_toolName(toolId,fallback)` | `app-tool.js` | `toolId → 표시 이름`. R1 에 의존하며, 부르는 셋 중 알림은 없다 |
 
-**범위는 둘뿐이다.** `_jumpToTool` 은 옮기지 않는다 (§5 N1).
+**범위는 둘뿐이다.** `jumpToTool` 은 옮기지 않는다 (§5 N1).
 
 ### 1.3 정의 (Definitions)
 
@@ -40,7 +40,7 @@
 
 - `APP_STATE_EXTRACT_SRS.md` §7.4 — 이 SRS 를 요구한 관측
 - `SPLIT_REFACTOR_SRS.md` §7.3 — 선행 주석이 경계에서 떨어지는 결함 (§2.3 에서 재발견)
-- `web/js/core/app-tool.js` — 도착지. `_aw`·`_isToolInActiveWindow` 가 사는 자리
+- `web/js/core/app-tool.js` — 도착지. `aw`·`_isToolInActiveWindow` 가 사는 자리
 
 ---
 
@@ -48,7 +48,7 @@
 
 ### 2.1 무엇이 공용임을 말하는가 — 실측
 
-`_findToolLocation` 을 부르는 곳 (정의 파일 제외):
+`findToolLocation` 을 부르는 곳 (정의 파일 제외):
 
 | 부르는 곳 | 무엇을 하려고 |
 |---|---|
@@ -65,7 +65,7 @@
 | `e2e/ux-revision.spec.ts:501` | 이름 규칙 검사 |
 
 **여섯 자리 중 알림인 것은 하나도 없다.** `_toolName` 은 본문이 세 줄이고 그중
-둘이 `helpers.js` 의 `toolDisplayName` 과 `_findToolLocation` 에 위임한다 — 알림의
+둘이 `helpers.js` 의 `toolDisplayName` 과 `findToolLocation` 에 위임한다 — 알림의
 상태를 하나도 만지지 않는다.
 
 ### 2.2 도착지가 `app-tool.js` 인 이유
@@ -76,7 +76,7 @@
 // app-tool.js — 활성 창 안에 있는가
 _isToolInActiveWindow(toolId){ … walk(s.layout) … }
 // app-attn.js — 모든 창에서 어디 있는가
-_findToolLocation(toolId){ … for(const s of this.ws.windows) walk(s.layout,s) … }
+findToolLocation(toolId){ … for(const s of this.ws.windows) walk(s.layout,s) … }
 ```
 
 후자는 전자의 일반형이다. `app-layout.js` 의 `_findEditorTab(filePath)` 도 형태가
@@ -93,10 +93,10 @@ _findToolLocation(toolId){ … for(const s of this.ws.windows) walk(s.layout,s) 
   _toolName(toolId,fallback){
 ```
 
-첫 줄은 **`_findToolLocation` 의 주석인데 `_toolName` 위에 놓여 있다.**
+첫 줄은 **`findToolLocation` 의 주석인데 `_toolName` 위에 놓여 있다.**
 `SPLIT_REFACTOR_SRS` §7.3 이 기록한 부류의 결함이며, 이번 이동이 그 둘을 갈라놓기
 때문에 **지금 고치지 않으면 주석이 남의 메서드에 붙어 남는다.** 주석은
-`_findToolLocation` 을 따라간다.
+`findToolLocation` 을 따라간다.
 
 ---
 
@@ -104,18 +104,18 @@ _findToolLocation(toolId){ … for(const s of this.ws.windows) walk(s.layout,s) 
 
 ### 3.1 기능 요구사항
 
-**FR-AUR-1** `_findToolLocation` 과 `_toolName` 의 **본문을 한 글자도 바꾸지 않고**
+**FR-AUR-1** `findToolLocation` 과 `_toolName` 의 **본문을 한 글자도 바꾸지 않고**
 `app-attn.js` 에서 `app-tool.js` 의 `Object.assign(App.prototype,{…})` 블록으로
 옮긴다.
 
 **FR-AUR-2** 메서드 이름을 바꾸지 않는다. `App.prototype` 의 메서드로 남으므로
-**호출부는 한 줄도 바뀌지 않는다** — `this._toolName(…)`·`app._findToolLocation(…)`
+**호출부는 한 줄도 바뀌지 않는다** — `this._toolName(…)`·`app.findToolLocation(…)`
 가 그대로 해소된다.
 
-**FR-AUR-3** 두 메서드는 `_toolName` → `_findToolLocation` 순서로, 서로 붙여
+**FR-AUR-3** 두 메서드는 `_toolName` → `findToolLocation` 순서로, 서로 붙여
 `app-tool.js` 의 `_isToolInActiveWindow` **뒤에** 놓는다. 조회 계열이 한자리에 모인다.
 
-**FR-AUR-4** §2.3 의 떨어진 주석을 `_findToolLocation` 위로 되돌린다. 이것이
+**FR-AUR-4** §2.3 의 떨어진 주석을 `findToolLocation` 위로 되돌린다. 이것이
 본문 밖에서 유일하게 허용되는 편집이다.
 
 **FR-AUR-5** `app-attn.js` 에는 위임 껍데기를 **남기지 않는다.** `App` 이 여전히
@@ -142,7 +142,7 @@ _findToolLocation(toolId){ … for(const s of this.ws.windows) walk(s.layout,s) 
 | TC-AUR-2 | 이동한 두 메서드의 본문이 `git show` 기준 **삭제줄 = 추가줄** 로 일치 (FR-AUR-1) |
 | TC-AUR-3 | `App.prototype` 메서드 이름 집합이 이동 전후 동일 (C-3) |
 | TC-AUR-4 | e2e 전량 통과, 개수 927 동일. 실패 1건은 단독 재실행으로 산발/회귀를 가른다 |
-| TC-AUR-5 | `app-attn.js` 에 두 메서드의 **정의**가 남지 않는다. 호출(`this._findToolLocation` 2곳 · `this._toolName` 1곳)은 남는 것이 정상이다 — 이동은 정의 자리만 바꾼다 |
+| TC-AUR-5 | `app-attn.js` 에 두 메서드의 **정의**가 남지 않는다. 호출(`this.findToolLocation` 2곳 · `this._toolName` 1곳)은 남는 것이 정상이다 — 이동은 정의 자리만 바꾼다 |
 
 ---
 
@@ -150,10 +150,10 @@ _findToolLocation(toolId){ … for(const s of this.ws.windows) walk(s.layout,s) 
 
 | # | 하지 않는 것 | 사유 |
 |---|---|---|
-| **N1** | `_jumpToTool` 을 옮기는 것 | **`APP_STATE_EXTRACT_SRS` §7.4 의 판단을 정정한다.** 재조사해 보면 이것은 공용 유틸이 **아니다** — 본문이 `_attnClear` 와 `_attnLand` 를 직접 부르고, 주석이 그 존재 이유로 **FR-ATA-6**("해제는 여기서 한다")·**FR-ATJ-1·2**(탭 없는 도구의 착지)를 든다. 알림 요구사항이 본문의 절반이다. 옮기면 FR 이 자기 파일에서 떨어진다. `_findToolLocation` 과 달리 **이동이 주제를 정리하지 않고 흩는다** |
-| N2 | `_initAttn` 안의 `agents-poll` 설정 배선 | 알림이 아니라 에이전트 폴링 설정이다(`app-attn.js:406-413`). 그러나 이것은 **메서드가 아니라 메서드 안의 13줄**이라 옮기려면 `_initAttn` 을 쪼개야 하고, 그 편집은 "옮기기만 했다" 를 diff 로 증명할 수 없다. 별도 판단이 필요하다 |
-| N3 | `_findEditorTab`·`_isToolInActiveWindow`·`_findToolLocation` 셋의 통합 | 세 layout walk 가 중복인 것은 맞지만 키(`filePath`/`toolId`)와 범위(활성 창/전체)가 다르다. 통합은 본문을 바꾸는 일이며 이 SRS 의 "옮기기만 한다" 와 양립하지 않는다 |
-| N4 | `_toolName` 을 `helpers.js` 로 내리는 것 | `this._findToolLocation`·`this._fgNames` 에 의존한다. 순수 함수가 아니므로 `App` 의 메서드로 남아야 한다 |
+| **N1** | `jumpToTool` 을 옮기는 것 | **`APP_STATE_EXTRACT_SRS` §7.4 의 판단을 정정한다.** 재조사해 보면 이것은 공용 유틸이 **아니다** — 본문이 `_attnClear` 와 `_attnLand` 를 직접 부르고, 주석이 그 존재 이유로 **FR-ATA-6**("해제는 여기서 한다")·**FR-ATJ-1·2**(탭 없는 도구의 착지)를 든다. 알림 요구사항이 본문의 절반이다. 옮기면 FR 이 자기 파일에서 떨어진다. `findToolLocation` 과 달리 **이동이 주제를 정리하지 않고 흩는다** |
+| N2 | `initAttn` 안의 `agents-poll` 설정 배선 | 알림이 아니라 에이전트 폴링 설정이다(`app-attn.js:406-413`). 그러나 이것은 **메서드가 아니라 메서드 안의 13줄**이라 옮기려면 `initAttn` 을 쪼개야 하고, 그 편집은 "옮기기만 했다" 를 diff 로 증명할 수 없다. 별도 판단이 필요하다 |
+| N3 | `_findEditorTab`·`_isToolInActiveWindow`·`findToolLocation` 셋의 통합 | 세 layout walk 가 중복인 것은 맞지만 키(`filePath`/`toolId`)와 범위(활성 창/전체)가 다르다. 통합은 본문을 바꾸는 일이며 이 SRS 의 "옮기기만 한다" 와 양립하지 않는다 |
+| N4 | `_toolName` 을 `helpers.js` 로 내리는 것 | `this.findToolLocation`·`this.fgNames` 에 의존한다. 순수 함수가 아니므로 `App` 의 메서드로 남아야 한다 |
 
 ---
 
@@ -170,8 +170,8 @@ _findToolLocation(toolId){ … for(const s of this.ws.windows) walk(s.layout,s) 
 `git diff` 는 **삭제 25줄 · 추가 25줄**이고 두 집합이 정렬하면 완전히 일치한다 —
 본문이 한 글자도 바뀌지 않았다는 기계적 증명이다 (TC-AUR-2).
 
-`app-attn.js` 에 남은 `_findToolLocation` 2곳·`_toolName` 1곳은 **호출**이다
-(`_jumpToTool`·`_attnDesktopNotify`·`_attnCenterRender`). 알림이 공용 유틸을
+`app-attn.js` 에 남은 `findToolLocation` 2곳·`_toolName` 1곳은 **호출**이다
+(`jumpToTool`·`_attnDesktopNotify`·`_attnCenterRender`). 알림이 공용 유틸을
 쓰는 것은 옳고, 이제 **정의하지는 않는다.**
 
 ### 6.2 검증

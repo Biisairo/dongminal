@@ -91,7 +91,7 @@ async save() { if (!this._editor || !this._dirty) return; ... }
 > 박으면 설정에서 바꾼 키가 Monaco 안에서만 듣지 않는다 — 위의 keydown 이 그
 > 자리를 대신한다.
 
-검색·LSP 여섯 키는 `this.el` 의 capture 리스너(`_edTrySearchKey`)로 옮겨졌고
+검색·LSP 여섯 키는 `this.el` 의 capture 리스너(`edTrySearchKey`)로 옮겨졌고
 (`file-editor.js:439`), 그 여섯은 `SHORTCUT_DEFAULTS` 에 있어 설정에서 바꿀 수
 있다. **저장만 옛 방식으로 남았고**, 그래서 목록에도 없다 (`helpers.js:237-277`).
 
@@ -119,11 +119,11 @@ _applyCadence(){ if(!this._pollOk()){ this._stop(); return false } ... }
 ```
 
 `_pollOk()`(244-259)는 `document.hidden`, 저장소 소실, **창이 보이는가**
-(`_windowVisible`), **이 패널의 표면이 화면에 있는가**(`_gitSurfaceOn`), 저장소가
+(`windowVisible`), **이 패널의 표면이 화면에 있는가**(`gitSurfaceOn`), 저장소가
 정해졌는가를 본다. 하나라도 거짓이면 타이머를 없앤다.
 
 되살아나는 계기는 **밖에서 알려 주는 것뿐이다** — `_gitRescheduleAll()`
-(`app-git.js:53`)을 부르는 자리들과, 패널을 처음 만드는 `_gitPanel()`
+(`app-git.js:53`)을 부르는 자리들과, 패널을 처음 만드는 `gitPanel()`
 (`app-git.js:106`). 그 파일의 주석이 이 설계를 못 박는다:
 
 > **여기서만 부른다.** 매 부름마다 부르면 렌더마다 조건을 다시 보게 되고 …
@@ -228,7 +228,7 @@ CDP 의 `Input.imeSetComposition`·`Input.insertText` 로 실제 IME 와 같은 
 | FR-ESV-3 | 기본 조합은 `SHORTCUT_DEFAULTS` 에 `edSave:'Mod+KeyS'` 로 둔다. 설정에서 바꿀 수 있어야 하고, 바꾼 값이 편집기 안에서도 그대로 듣는다 | 필수 |
 | FR-ESV-4 | 이 조합을 잡았으면 브라우저 기본 동작(페이지 저장)을 막는다. 잡지 못했으면(편집기가 서 있지 않다) **삼키지 않는다** — FR-EKB-4 와 같은 규약 | 필수 |
 | FR-ESV-5 | dirty 가 아니면 저장하지 않는 동작은 그대로다. 다만 그 판정의 대상이 **눌린 그 편집기**여야 한다 | 필수 |
-| FR-ESV-6 | 저장 실패의 표시(빨간 테두리)와 `_gitSignal('write')` 는 그대로다 | 필수 |
+| FR-ESV-6 | 저장 실패의 표시(빨간 테두리)와 `gitSignal('write')` 는 그대로다 | 필수 |
 
 ### 3.2 묶음 B — 자동 갱신은 스스로 되살아난다
 

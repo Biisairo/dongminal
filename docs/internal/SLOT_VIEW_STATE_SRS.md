@@ -87,13 +87,13 @@
 | 층 | 실체 | 자리 |
 |---|---|---|
 | 모델 | PTY. 서버에 하나 | `internal/webserver` |
-| 시선 | `Tool` 인스턴스. **칸마다 하나** | `_mkTool(toolId, name, slot)` (`renderer.js:417`) |
+| 시선 | `Tool` 인스턴스. **칸마다 하나** | `mkTool(toolId, name, slot)` (`renderer.js:417`) |
 
-`this.tools` 의 키가 `_slotKey(id,slot)` = `toolId@1` 이므로 (`app-slots.js:40`) 두 칸이
+`this.tools` 의 키가 `slotKey(id,slot)` = `toolId@1` 이므로 (`app-slots.js:40`) 두 칸이
 같은 터미널을 보면 각자의 xterm 이 같은 PTY 를 구독한다. **데이터는 하나, 화면은
 둘이다.**
 
-편집기 본문도 같은 키 규약 위에 있다 — `fileEditors` 의 키가 `_slotKey(at.id,slot)`
+편집기 본문도 같은 키 규약 위에 있다 — `fileEditors` 의 키가 `slotKey(at.id,slot)`
 다 (`renderer.js:401`).
 
 따라서 본 SRS 가 git·탐색기에 요구하는 것은 **이 규약의 확장**이며, 새 추상 계층을
@@ -258,7 +258,7 @@ click 리스너다 (`renderer.js:473`).
 t=0    mousedown  tgt=SPAN.          ← xterm 의 문자 span
 t=2    setFocus / slotFocusTo(0, defer=true)
 t=51   mouseup
-       ⟨click 없음 → _slotRenderFlush 없음 → render 없음⟩
+       ⟨click 없음 → slotRenderFlush 없음 → render 없음⟩
 t=593  sync tab=repo → setTab->windows
 t=3669 sync
 ```
@@ -298,8 +298,8 @@ pane 의 mousedown 리스너가 칸의 것보다 **먼저** 돈다 — 버블은
 pane 은 칸의 자손이다 (`renderer.js` 의 `_makePane`, `_makeSlot`). 그 순간
 `ws.activeWindow` 는 아직 **이전 포커스 칸의 창**이다.
 
-`setFocus(rid)` (`app-focus.js:60`) 는 창을 인자로 받지 않으므로 `_setFocus(rid)` 의
-대상이 `this._aw()` — 그 이전 창이 된다.
+`setFocus(rid)` (`app-focus.js:60`) 는 창을 인자로 받지 않으므로 `setFocus(rid)` 의
+대상이 `this.aw()` — 그 이전 창이 된다.
 
 ```
 이전 칸 창.focusedPane = 누른 칸의 pane id
@@ -313,7 +313,7 @@ pane 은 칸의 자손이다 (`renderer.js` 의 `_makePane`, `_makeSlot`). 그 �
 - 칸 1 로 돌아가면 그 id 가 B 에 없으므로 `findPane` 이 실패해 **첫 pane 으로
   떨어진다** — 보던 분할 칸을 잃는다
 
-**서버에는 나가지 않는다** — `_save()` 가 PUT 에서 `activeWindow`·`focusedPane` 을
+**서버에는 나가지 않는다** — `save()` 가 PUT 에서 `activeWindow`·`focusedPane` 을
 벗긴다 (`app.js`). **소유권도 오염되지 않는다**: `_focusWindow` 가 slot 을 생략해
 아직 이전 칸 번호를 쓰므로 그 창을 **그 칸의 신원으로** 재주장하며, 이미 소유자라
 POST 도 나가지 않는다 (실측: owners 맵이 정확했다).
@@ -369,7 +369,7 @@ POST 도 나가지 않는다 (실측: owners 맵이 정확했다).
 - **FR-SVS-23** 칸이 사라지면 그 칸의 시선은 회수된다. 그 루트를 보는 칸이 하나도
   남지 않으면 관측도 회수하고 폴링을 멈춘다.
 - **FR-SVS-24** 창별 `_edTrees` 규약(FR-EDT-57)은 칸별로 확장된다 — 키가
-  `_slotKey(winId, slot)` 가 된다. 칸 0 의 키는 `winId` **그대로**다 (FR-WSL-75 와
+  `slotKey(winId, slot)` 가 된다. 칸 0 의 키는 `winId` **그대로**다 (FR-WSL-75 와
   같은 이유).
 
 ### 3.3 O — Git 관측
@@ -422,7 +422,7 @@ POST 도 나가지 않는다 (실측: owners 맵이 정확했다).
   하나였다. 열지 않은 뷰는 각자의 조기 반환이 그대로 거른다 (FR-GVR-4).
 
 - **FR-SVS-39b** 탐색기의 git 색도 같은 원칙을 따른다. 지금은 **활성 창의 트리
-  하나**만 폴링하므로(`_edActiveTree`), 칸 둘에 Editor 창을 놓으면 서 있지 않은
+  하나**만 폴링하므로(`edActiveTree`), 칸 둘에 Editor 창을 놓으면 서 있지 않은
   쪽이 멎는다. 보이는 **모든** 트리를 폴링한다 — 관측은 루트마다 하나이고
   캐시·single-flight 가 그 위에 있으므로(FR-EDT-77) 같은 루트를 둘이 보아도
   git 실행은 한 번이다.
@@ -523,7 +523,7 @@ POST 도 나가지 않는다 (실측: owners 맵이 정확했다).
 
 ### 3.7 I — 인터페이스 계약
 
-- **FR-SVS-70** 칸별 상태의 키는 **모두 `_slotKey` 를 지난다** (`app-slots.js:40`).
+- **FR-SVS-70** 칸별 상태의 키는 **모두 `slotKey` 를 지난다** (`app-slots.js:40`).
   칸 0 의 키는 접미사가 없다.
 - **FR-SVS-71** `sessionStorage` 의 `slots` 키에 탭 오버라이드가 함께 들어간다.
   형식이 어긋나면 키를 지우고 단일 슬롯 모드로 떨어진다 (FR-WSL-72 의 규약 그대로).
@@ -701,7 +701,7 @@ POST 도 나가지 않는다 (실측: owners 맵이 정확했다).
   (FR-SVS-39c). `_seq` 를 올리는 것은 낡음이 아니다 — 그것은 status 의 single-flight
   일련번호라, 밖에서 올리면 진행 중인 status 응답이 소유권을 잃어 `_busy` 가 영구히
   참으로 남는다
-- **TC-SVS-60·64 의 진단** 은 **그 저장소의 패널**(`_gitPanel(repo, slot)`)을 읽고
+- **TC-SVS-60·64 의 진단** 은 **그 저장소의 패널**(`gitPanel(repo, slot)`)을 읽고
   single-flight 잠금(`_busy`·`_again`)·History 잠금(`_loading`·`_again`)·관측 근거
   (`_lastSig`·`_lastViewFp`)를 함께 남긴다 — `app.gitPanel` 은 활성 창의 것이라
   터미널 칸에 서 있으면 빈 값을 말한다 (CI_E2E_MATRIX_SRS FR-CEM-33)

@@ -13,21 +13,21 @@
   `web/js/core/app-focus.js`(클래스 토글), `web/js/core/app.js`(초기 반영),
   `web/js/core/helpers.js`(전역 기본값), `web/js/core/app-settings.js`(설정 배선·복원),
   `web/js/core/constants.js`(상수), `web/js/core/main.js`(복원 시 반영), `e2e/unfocused-edge.spec.ts`(신규).
-- 비포함: 창별(dongminal window) 포커스 소유권 표시(`_applyFocusOverlay`, 기존 `.pn` dim), 알람 링(`.pn.attn`),
+- 비포함: 창별(dongminal window) 포커스 소유권 표시(`applyFocusOverlay`, 기존 `.pn` dim), 알람 링(`.pn.attn`),
   펄스·애니메이션, 서버측 변경(`/api/settings` 는 해석하지 않는 blob 이다).
 
 ### 1.3 정의 (Definitions)
-- **OS 포커스**: `document.hasFocus()` 가 참인 상태. 앱은 이것을 `app._windowFocused` 로 들고 있다.
+- **OS 포커스**: `document.hasFocus()` 가 참인 상태. 앱은 이것을 `app.windowFocused` 로 들고 있다.
 - **가장자리 표시(edge indicator)**: 화면 네 변에서 안쪽으로 지정 거리만큼 페이드아웃하는 오버레이.
 - **반전 혼합**: `mix-blend-mode:difference` 로 아래 픽셀의 보색을 그리는 것. 어떤 테마·어떤 화면
   내용 위에서도 대비가 보장된다.
 
 ## 2. 현황 (Current State)
-1. `app._windowFocused` 는 이미 있다 — 초기값은 `document.hasFocus()`(`app.js:20`), 유지는
+1. `app.windowFocused` 는 이미 있다 — 초기값은 `document.hasFocus()`(`app.js:20`), 유지는
    `_initFocusSync()` 의 `focus`/`blur` 리스너(`app-focus.js:110-116`)다.
-2. 그 값은 **동작**에만 쓰인다: 리사이즈 전송 허가(`_resizeCheck`), 재연결 시 소유권 재주장
+2. 그 값은 **동작**에만 쓰인다: 리사이즈 전송 허가(`resizeCheck`), 재연결 시 소유권 재주장
    (`_focusRestore`), 렌더러의 분기(`renderer.js:312`). 화면에는 아무 표시도 없다.
-3. 화면에 있는 dim 은 다른 것이다 — `_applyFocusOverlay` 의 `.pn` dim 은 "이 **창**을 다른
+3. 화면에 있는 dim 은 다른 것이다 — `applyFocusOverlay` 의 `.pn` dim 은 "이 **창**을 다른
    클라이언트가 소유한다" 는 뜻이며(FR-XDF), 이 브라우저 창의 OS 포커스와 무관하다.
 4. 결과: 창 두 개를 나란히 띄우면 둘 다 같아 보인다. 어느 쪽에 키가 가는지 눌러 봐야 안다.
 
@@ -105,7 +105,7 @@
 | FR-UFE-4 | 색은 아래 픽셀에서 파생한다 (D-5) — `backdrop-filter:invert(1) saturate(--ufe-sat)` (D-5a 개정). 팔레트의 특정 색을 쓰지 않는다. | 필수 |
 | FR-UFE-5 | 세기는 `--ufe-alpha`(= 요소의 opacity)다. 기본값에서 1 미만이므로 그 자리의 글자도 형태를 유지한다. | 필수 |
 | FR-UFE-6 | OS 포커스를 잃으면 `documentElement` 에 `win-unfocused` 클래스가 붙고, 얻으면 떨어진다. | 필수 |
-| FR-UFE-7 | 클래스는 `_initFocusSync()` 의 `focus`/`blur` 와 **같은 자리**에서 토글된다 — `_windowFocused` 와 다른 진실을 만들지 않는다. | 필수 |
+| FR-UFE-7 | 클래스는 `_initFocusSync()` 의 `focus`/`blur` 와 **같은 자리**에서 토글된다 — `windowFocused` 와 다른 진실을 만들지 않는다. | 필수 |
 | FR-UFE-8 | 첫 화면도 실제 포커스 상태를 반영한다 — 배경 탭에서 연 창은 처음부터 표시가 켜져 있다. | 필수 |
 | FR-UFE-9 | 나타남과 사라짐은 0.2초 동안 opacity 로 전이한다 — 창을 오갈 때 깜빡이지 않는다. | 필수 |
 | FR-UFE-10 | Settings ▸ Display 에 `포커스 잃은 창 표시` 레인지(0~10)가 있다. 손잡이는 그 하나뿐이다 (D-4a). | 필수 |
@@ -122,7 +122,7 @@
 ### 3.2 비기능 요구사항 (Non-functional)
 - NFR-1 표시가 켜져 있어도 터미널 텍스트의 글자꼴은 흐려지지 않는다 (D-6: blur 금지).
 - NFR-2 오버레이는 합성 레이어 하나다. 포커스 전환 외에는 어떤 스크립트도 돌지 않는다.
-- NFR-3 기존 `.pn` dim(`_applyFocusOverlay`)·알람 링(`.pn.attn`)과 겹쳐도 서로를 가리지 않는다 —
+- NFR-3 기존 `.pn` dim(`applyFocusOverlay`)·알람 링(`.pn.attn`)과 겹쳐도 서로를 가리지 않는다 —
   이 표시는 화면 **가장자리**에, 그것들은 칸 **경계**에 산다.
 - NFR-4 기존 e2e 는 수정 없이 통과한다. 헤드리스 브라우저는 포커스를 가진 상태로 뜨므로 평상시 이 표시는 없다.
 
@@ -130,7 +130,7 @@
 | 항목 | 이전 | 새 | 이유 |
 |------|------|-----|------|
 | 포커스를 잃은 창 | 화면상 구분 없음 | 가장자리에 반전 그라데이션 | 어느 창이 키를 받는지 눌러 보지 않고 알아야 한다 |
-| `_windowFocused` | 동작 판단에만 쓰임 | 화면 표시의 근거이기도 함 | 진실을 하나로 둔다 (FR-UFE-7) |
+| `windowFocused` | 동작 판단에만 쓰임 | 화면 표시의 근거이기도 함 | 진실을 하나로 둔다 (FR-UFE-7) |
 | `/api/settings` | `focusEdge` 없음 | `focusEdge:boolean` | 취향 스위치는 기기를 옮겨도 같아야 한다 (D-7) |
 
 ## 4. 검증 (Verification)

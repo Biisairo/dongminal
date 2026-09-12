@@ -82,7 +82,7 @@
 | `delWindow(sid)` (`app-layout.js:169`) | 실행 중인 **프로세스**만 묻는다 | 그 창의 모든 편집 |
 | `beforeunload` (`main.js:139`) | `app.tools.size>0` 만 본다 | 도구가 없는 Editor 창의 편집 |
 
-`_edRemove` 경로는 이미 막혀 있다 — dirty 인 창은 남기고 알린다 (FR-WBR-40).
+`edRemove` 경로는 이미 막혀 있다 — dirty 인 창은 남기고 알린다 (FR-WBR-40).
 **같은 손실을 다른 길에서 조용히 낼 이유가 없다**는 그 문서의 근거가 이 둘에도
 그대로 선다.
 

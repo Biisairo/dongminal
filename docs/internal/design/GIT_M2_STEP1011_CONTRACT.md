@@ -260,7 +260,7 @@ const UndoTTL = 5 * time.Second
 - **경계 드래그**: `.git-commit-resize` 를 잡아 높이를 바꾼다. 값은
   `localStorage`(기기별)에 남긴다.
 - **draft 영속 (FR-GIT-75, O6)**: `ws.git.drafts[<repo>]`. 입력이 멈춘 뒤
-  300ms 디바운스로 `_save()` 한다. 리포·창 전환·새로고침에서 보존된다.
+  300ms 디바운스로 `save()` 한다. 리포·창 전환·새로고침에서 보존된다.
   서버가 `git.drafts` 를 건드리지 않으므로(핀과 달리) 클라이언트가 주인이다.
 - **template (FR-GIT-76)**: draft 가 비어 있고 preflight 의 `template` 이 있으면
   그것으로 채운다. draft 가 있으면 덮지 않는다.

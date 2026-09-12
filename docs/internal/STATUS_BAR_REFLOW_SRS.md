@@ -92,7 +92,7 @@ Git 작업 chip 이 붙는 경우)는 `window.resize` 를 내지 않는다.
 ### 2.4 진입점은 상태바 우측 끝에 산다
 
 `#sb-bg-btn` 은 `#sb-items` **밖**의 형제이고 `margin-left:auto` 로 오른쪽 끝에
-붙는다(FR-BGU-3). 0개면 `display:none` 이다(FR-BGU-5). 리스너는 `_initStatusBar`
+붙는다(FR-BGU-3). 0개면 `display:none` 이다(FR-BGU-5). 리스너는 `initStatusBar`
 가 한 번만 붙이고, 표시와 개수만 `_updateBgBtn` 이 갱신한다(FR-RPT-3 의 이유).
 
 ### 2.5 진입점은 모바일에서도 유일한 통로다

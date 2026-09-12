@@ -65,7 +65,7 @@
 | **조정자 도구** | `Record.CoordinatorToolID` 가 가리키는 도구. Run 을 연 셸 |
 | **사이드바 리스트** | 사이드바 탭 패널의 항목 목록. 지금은 `#windows`·`#git-repos` 둘 |
 | **블루프린트** | 사이드바 리스트가 공유하는 단일 구현. 탭은 **타깃만** 다르다 |
-| **파생 이름** | 전경 프로세스에서 얻은 도구 이름 (`FR-TAN-8`, `app._fgNames`) |
+| **파생 이름** | 전경 프로세스에서 얻은 도구 이름 (`FR-TAN-8`, `app.fgNames`) |
 
 ### 1.4 참조 (References)
 
@@ -104,7 +104,7 @@
 | A6 | `addTab`·`_splitInner` 는 `_paneNewToolRef` 로 cwd 를 승계한다 | `app-layout.js:247,381` |
 | A7 | 팀 스킬의 1단계가 `dmctl new-window` 다 | `skills/team/SKILL.md:112` |
 | A8 | 전역 keydown 은 **매칭된 단축키만** `preventDefault` 한다 | `input-binding.js:55-60` |
-| A9 | `_moveTabToPane` 은 `this._aw()` 한 창 안에서만 동작한다 | `app-dnd.js:14` |
+| A9 | `moveTabToPane` 은 `this.aw()` 한 창 안에서만 동작한다 | `app-dnd.js:14` |
 | A10 | `delWindow` 는 다음 활성 창을 인덱스로 고르며 Git 창을 거르지 않는다 | `app-layout.js:121` |
 | A11 | 활성 창이 Git 창이면 사이드바 탭이 Git 으로 따라간다 | `sidebar-tabs.js:113` |
 | A12 | 백그라운드 모달·알림은 `b.name`·`tab.name` 을 쓴다 — 파생 이름을 모른다 | `app-statusbar.js:194,233`, `app-attn.js:185,203` |
@@ -210,7 +210,7 @@
 |---|---|
 | **FR-MOV-1** | 탭을 끌어 사이드바 창 목록의 창 항목에 놓으면 그 창으로 옮겨진다 |
 | **FR-MOV-2** | 대상 창의 **포커스 분할 칸**(없으면 첫 분할 칸)의 마지막 자리에 들어간다 |
-| **FR-MOV-3** | 원래 분할 칸이 비면 지금처럼 접힌다 (`_moveTabToPane` 과 같은 규약) |
+| **FR-MOV-3** | 원래 분할 칸이 비면 지금처럼 접힌다 (`moveTabToPane` 과 같은 규약) |
 | **FR-MOV-4** | 창의 마지막 탭은 옮길 수 없다 — 창이 탭 없이 남으면 되살릴 진입점이 없다 |
 | **FR-MOV-5** | Git 창은 주지도 받지도 않는다 (FR-GIT-181) |
 | **FR-MOV-6** | git 탭(`TAB_TYPE_GIT`)은 옮길 수 없다 (FR-GIT-28) |
@@ -224,7 +224,7 @@
 |---|---|
 | **FR-CLS-1** | 창을 닫은 뒤 고르는 다음 활성 창은 **일반 창**이다. Git 창은 후보가 아니다 |
 | **FR-CLS-2** | 일반 창이 하나도 남지 않으면 새 창을 만든다 |
-| **FR-CLS-3** | Git 창 자신을 닫는 경우는 예외다 — 그때의 대상은 `_gitBackTarget()` 이다 (FR-SBT-23·36) |
+| **FR-CLS-3** | Git 창 자신을 닫는 경우는 예외다 — 그때의 대상은 `gitBackTarget()` 이다 (FR-SBT-23·36) |
 | **FR-CLS-4** | 활성이 아닌 창을 닫으면 활성 창은 바뀌지 않는다 (현행 유지) |
 
 ### 3.7 묶음 N — 도구 이름의 단일 출처

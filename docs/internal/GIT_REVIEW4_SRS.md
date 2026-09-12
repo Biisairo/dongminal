@@ -134,10 +134,10 @@ E1 은 이 표의 첫 두 줄이고, E3 는 세 번째 줄이다. 원인이 하�
 | # | 자리 | 계기 | 주기 | 요소 상태 | 기존 가드 | 판정 |
 |---|---|---|---|---|---|---|
 | 1 | Changes 파일·디렉터리 행<br>`GitPanel._paintGroup` | git status 폴링 → `_applyStatus` → `_paint` | **1s** (`GIT_STATUS_POLL_MS`) | `.git-file-acts` hover (opacity 0→1, transition .1s) · 더블클릭 (FR-GIT-52) · 우클릭 | **없음** | **결함 — E1** |
-| 2 | GIT 섹션 follow·핀 행<br>`Renderer._rGitSection` | `_gitReposRefresh` 폴링 | **3s** (`GIT_REPOS_POLL_MS`) | `.git-repo-x` hover · 핀 native DnD (FR-GIT-223) | **없음** | **결함** |
-| 3 | 상태바 지표·chip<br>`_updateStatusBar` | stats 폴링 + git status 폴링 + `_updateCwd` | **1s** | `title` 기본 툴팁 (`sb-git`·location chip) | **없음** | **결함(경미)** |
+| 2 | GIT 섹션 follow·핀 행<br>`Renderer._rGitSection` | `gitReposRefresh` 폴링 | **3s** (`GIT_REPOS_POLL_MS`) | `.git-repo-x` hover · 핀 native DnD (FR-GIT-223) | **없음** | **결함** |
+| 3 | 상태바 지표·chip<br>`updateStatusBar` | stats 폴링 + git status 폴링 + `updateCwd` | **1s** | `title` 기본 툴팁 (`sb-git`·location chip) | **없음** | **결함(경미)** |
 | 4 | Console 기록 행<br>`GitConsole._paintList` | records 폴링 | **2s** (`GIT_CON_POLL_MS`) | 펼친 상세의 **글자 선택** (FR-GIT-225 의 명시적 예외) · `title` | **없음** | **결함** |
-| 5 | Agents 활동 카드<br>`_agentsRender` | activity 폴링 (패널 열림 동안) + SSE `tool_activity` | `agentsPollMs` | 카드 native DnD (FR-AAP-21) · 클릭 | **없음** | **결함** |
+| 5 | Agents 활동 카드<br>`agentsRender` | activity 폴링 (패널 열림 동안) + SSE `tool_activity` | `agentsPollMs` | 카드 native DnD (FR-AAP-21) · 클릭 | **없음** | **결함** |
 | 6 | WINDOWS 행<br>`Renderer._rSidebar` | SSE `workspace_changed` → `render()`, 원격 `renameTab`/`renameWindow` | 푸시 | `.si-x` hover · `.si-name` 더블클릭 이름변경 · 창 native DnD | **없음** | **결함** |
 | 7 | 커밋 행 ref 배지 | — | — | (지금은 리스너가 없다) | — | **E3 — 붙이는 순간 이 함정에 걸린다** (§3.4) |
 | 8 | 레이아웃·탭 골격<br>`Renderer._rLayout` | SSE `workspace_changed` → `render()` | 푸시 | `.pn-tab-x` hover · 탭 더블클릭 이름변경 · 탭 DnD | **없음** | **남긴다 — §3.2.1** |
@@ -309,7 +309,7 @@ Git Graph 에서 통과선은 자기 일이 없는 행에서도 왼쪽으로 휜
   이름·알람·모바일 모드)다. FR-RPT-2 를 지키지 못하면 **레이아웃이 조용히 얼어붙는다** —
   이 판의 다른 다섯 자리보다 실패의 값이 크다.
 - 여기의 다시 그리기는 터미널 재부착을 부르고, 그 비용 때문에 이미 여러 경로가
-  `render()` 를 피해 가도록 만들어져 있다 (`_attnRefresh`·`_gitReposRefresh`). 즉
+  `render()` 를 피해 가도록 만들어져 있다 (`_attnRefresh`·`gitReposRefresh`). 즉
   **핫 경로가 아니다.**
 
 **남기는 것을 조용히 하지 않는다** — `GIT_REMAINING` §6 에 별건으로 적는다.
@@ -457,7 +457,7 @@ Git Graph 에서 통과선은 자기 일이 없는 행에서도 왼쪽으로 휜
     행마다 조건을 손으로 쓰지 않는다.
   - 행 인라인 동작과 우클릭 메뉴는 **하나의 실행 경로로 합친다.** 지금은 갈라져
     있다 — 인라인 버튼은 전부 `panel.js` `_run` 을 지나지만, 메뉴의 `openFile` 은
-    `_run` 을 지나지 않고 `app._gitOpenFile(panel.absPath(t))` 를 직접 부른다
+    `_run` 을 지나지 않고 `app.gitOpenFile(panel.absPath(t))` 를 직접 부른다
     (`menu.js:57`). 두 벌로 두면 한쪽만 고쳐진다.
   - **다중 선택이어도 그 행 하나만 연다.** `_rowTargets`(`panel.js:835`)는 클릭한
     행이 선택 안에 있으면 선택 전체를 대상으로 묶으므로, 그 규약을 그대로 쓰면
@@ -709,7 +709,7 @@ pin 과 달리 삭제 버튼이 없어서 그 버튼 영역만큼 오른쪽으�
 - **후보 ②(Git 창 안에서 `Ctrl+Shift+[ ]` 를 리포 순회로 재해석)와 I6 은 같은 키를
   두고 충돌한다.** I6 은 그 키가 **Git 을 떠나는 키**로 동작하기를 요구한다. 둘을
   함께 택할 수 없다.
-- Git 창을 창 순회에 **합치는** 안은 `_cycleWindow` 의 `_plainWindows()` → 전체 창
+- Git 창을 창 순회에 **합치는** 안은 `_cycleWindow` 의 `plainWindows()` → 전체 창
   한 줄이지만, **FR-GIT-182 의 개정**이고 (그 조항이 폐기한 **FR-GIT-30 의 복원**이며)
   `e2e/git-window.spec.ts` **E7** · `e2e/git-ui-revision.spec.ts` **V72** 후반의 기대값을
   뒤집는다. 약화가 아니라 뒤집기로 처리해야 한다.
@@ -797,11 +797,11 @@ GIT 섹션은 그대로다.
   - 핀돼 있지 않으면 `Pin`, 핀돼 있으면 `Unpin` 이다. 누르면 각각 핀·해제하고 안내도
     한 일을 말한다. 상태를 보이지 않는 버튼은 누를 때마다 같은 문구를 내며, 사용자는
     그것을 고장으로 읽는다 (FR-GIT-180 과 같은 근거).
-  - 핀 여부의 근거는 좌측 GIT 섹션과 **같은 목록**(`app._gitRepos.pinned`)이다 — 두
+  - 핀 여부의 근거는 좌측 GIT 섹션과 **같은 목록**(`app.gitRepos.pinned`)이다 — 두
     벌로 세면 어긋난다. 비교는 **문자열 일치**다 (unpin 이 그렇게 지운다, FR-GIT-12).
   - 행의 다시 그리기 근거(`_sig`)에 **핀 여부를 넣는다** (FR-RPT-2).
   - **판정을 그리기에 업히지 않는다** (FR-RPT-8): 핀 목록이 도착하는 자리
-    (`_gitReposRefresh`)에서 Worktrees 목록에 알린다 — 다른 창이나 사이드바의 `×` 로
+    (`gitReposRefresh`)에서 Worktrees 목록에 알린다 — 다른 창이나 사이드바의 `×` 로
     핀이 바뀌어도 버튼이 따라온다. 상태 폴링은 관측이 같으면 다시 그리지 않으므로
     (FR-GIT-227) 그리기에 업히면 버튼이 낡은 채로 남는다.
   - 실패는 **한 자리에만** 보인다 — 그 탭의 안내 줄이다. 같은 사실을 `window.alert`

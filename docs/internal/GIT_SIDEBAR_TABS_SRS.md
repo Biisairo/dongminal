@@ -96,7 +96,7 @@
 |---|---|
 | 두 목록이 같은 flex 컬럼에서 높이를 다툰다 | `style.css:27` `#windows{flex:1 1 auto}` · `style.css:1492` `#git-repos{flex:0 1 auto;max-height:40%}` |
 | 렌더 진입점은 둘로 이미 갈려 있다 | `renderer.js:36` `_rSidebar()` · `renderer.js:74` `_rGitSection()` |
-| 갱신 주기도 다르다 | Windows 는 SSE `workspace_changed`, Git 은 **3초 폴링** (`_gitReposRefresh`) |
+| 갱신 주기도 다르다 | Windows 는 SSE `workspace_changed`, Git 은 **3초 폴링** (`gitReposRefresh`) |
 | git 이 없는 환경이면 Git 섹션 전체가 `display:none` | `renderer.js:79-84` `this.app._gitOff` |
 | 두 목록 모두 **드래그 재배치**를 갖는다 | `_siEl` 의 dragstart/drop · 핀 재배치 (FR-GIT-223) |
 | 두 목록 모두 `reconcileList` 로 **요소를 보존**한다 | FR-RPT-2/3 — 새로 만들면 hover·드래그가 깨진다 |
@@ -289,7 +289,7 @@
 `_lastPlainWindow` 다.
 
 ```js
-if(cur&&!this._isGitWin(cur)) this._lastPlainWindow=cur.id;
+if(cur&&!this.isGitWin(cur)) this._lastPlainWindow=cur.id;
 ```
 
 **I6 은 새 상태를 요구하지 않는다** — 이 값을 쓰는 경로만 있으면 닫힌다. 이로써
@@ -429,10 +429,10 @@ if(cur&&!this._isGitWin(cur)) this._lastPlainWindow=cur.id;
 ```js
 // 탭 레지스트리 (FR-SBT-18/19) — 새 탭은 여기 한 줄
 App.prototype._sbTabs           // [descriptor, …]. 배열 순서 = 표시 순서 = 직행 키 번호
-App.prototype._sbTab            // 현재 활성 탭 id ('windows' | 'git' | …)
+App.prototype.sbTab            // 현재 활성 탭 id ('windows' | 'git' | …)
 
 App.prototype._sbSetTab(id)                   // 전환. onActivate 를 부른다 (FR-SBT-22)
-App.prototype._sbSyncTabToWindow()            // 활성 창 → 탭 (FR-SBT-14)
+App.prototype.sbSyncTabToWindow()            // 활성 창 → 탭 (FR-SBT-14)
 App.prototype._sbUpdateBadges()               // FR-SBT-12/13
 App.prototype._sbJumpTo(n)                    // 직행 키 (FR-SBT-26). n 은 1-based
 App.prototype._cycleActive(dir)               // 순회 디스패치 (FR-SBT-33)

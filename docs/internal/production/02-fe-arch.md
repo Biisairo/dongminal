@@ -19,20 +19,20 @@
 ### [P0] 터미널 출력 → 상태바 innerHTML 로 스크립트 주입 (XSS)
 - 위치:
   - 싱크: `web/js/core/app-statusbar.js:75-79` (`push('cwd', \`<span class="sb-item">📁 ${short}</span>\`)`), `:82` (hostname), `:66` (`title="dmctl 대상: ${loc}"`), 최종 삽입 `:119-122` (`t.innerHTML=i.html`).
-  - 소스 1: `web/js/ui/term-pane.js:665-686` — **모든 터미널 출력 청크**에서 `/\x1b\]777;(\w+);([^\x07]*)\x07/g` 를 찾아 `Cwd` 면 `_onCwd(val)` → `app._cwd=cwd; app._updateStatusBar()`.
+  - 소스 1: `web/js/ui/term-pane.js:665-686` — **모든 터미널 출력 청크**에서 `/\x1b\]777;(\w+);([^\x07]*)\x07/g` 를 찾아 `Cwd` 면 `_onCwd(val)` → `app.cwd=cwd; app.updateStatusBar()`.
   - 소스 2: `app-statusbar.js:340` `/api/cwd` 응답의 실제 디렉터리 이름.
   - 이 파일에 `escHtml` 호출 0건 (`grep -c escHtml core/app-statusbar.js` = 0). 기본값 on (`core/helpers.js:353 cwd:{def:true}`).
 - 현상: 셸에서 도는 **어떤 프로그램이든** `printf '\e]777;Cwd;<img src=x onerror=…>\a'` 한 줄로 웹 UI 문서 컨텍스트에서 JS 를 실행시킨다. `cat` 한 파일, `curl` 응답, SSH 원격 호스트의 프롬프트, 에이전트 출력 전부가 소스다. 디렉터리 이름에 `<` 가 들어 있어도(POSIX 허용) `/api/cwd` 경로로 같은 결과.
 - 왜 프로덕션 문제인가: 이 UI 는 터미널·파일 시스템·git 쓰기·설정(ACL 포함) API 에 세션으로 닿는다. XSS = 원격 코드 실행에 준한다. `--expose` + Tailscale 환경에서 원격 호스트가 보낸 바이트 하나가 로컬 머신을 넘긴다. `index.html` 에 CSP 가 없어 2차 방어도 없다 (CSP 는 `/api/file/raw` 에만, `internal/webserver/httpapi/handlers_file_probe.go:168`).
-- 조치: `_updateStatusBar` 의 `push()` 를 문자열 조립에서 `document.createElement` + `textContent` 로 바꾸거나, 최소한 모든 보간값을 `escHtml()` 로 감싼다(`_locationLabel`·`_stats.*` 포함 — 값의 출처가 아니라 싱크에서 막는다). e2e 에 `\e]777;Cwd;<img onerror>` 를 쏘는 회귀 테스트 추가. 추가로 `index.html` 에 CSP(`script-src 'self' https://cdn.jsdelivr.net`) 를 Go 쪽과 협의해 건다.
+- 조치: `updateStatusBar` 의 `push()` 를 문자열 조립에서 `document.createElement` + `textContent` 로 바꾸거나, 최소한 모든 보간값을 `escHtml()` 로 감싼다(`_locationLabel`·`_stats.*` 포함 — 값의 출처가 아니라 싱크에서 막는다). e2e 에 `\e]777;Cwd;<img onerror>` 를 쏘는 회귀 테스트 추가. 추가로 `index.html` 에 CSP(`script-src 'self' https://cdn.jsdelivr.net`) 를 Go 쪽과 협의해 건다.
 - 규모: S (싱크 수정) / M (CSP 포함).
 
 ### [P0] 부팅 실패 시 워크스페이스를 빈 판으로 덮어쓴다 (데이터 손실)
-- 위치: `web/js/core/app.js:210-213` (`catch(e){ console.error(...); if(!this.ws.windows.length) await this._mkWindow(); }`) → `core/app-layout.js:117-160` `_mkWindow` 가 `this._save()` 호출(`:160`) → `app.js:388-389` `if(this.wsETag) headers['If-Match']=this.wsETag` — 실패 경로에선 `wsETag` 가 `null` 이라 **If-Match 없이 PUT**.
+- 위치: `web/js/core/app.js:210-213` (`catch(e){ console.error(...); if(!this.ws.windows.length) await this._mkWindow(); }`) → `core/app-layout.js:117-160` `_mkWindow` 가 `this.save()` 호출(`:160`) → `app.js:388-389` `if(this.wsETag) headers['If-Match']=this.wsETag` — 실패 경로에선 `wsETag` 가 `null` 이라 **If-Match 없이 PUT**.
 - 서버 확인: `internal/shared/workspace/manager.go:212` `if ifMatch != "" { …stale 검사… }` — 헤더가 비면 검사를 **건너뛰고 저장한다**.
-- 현상: `/api/state` 가 일시적으로 5xx 를 주거나(데몬 재접속 중, `_fetchStateKnown` 의 `res.ok` 거짓 → `stRes.json()` 예외), 네트워크가 잠깐 끊긴 채 페이지가 열리면, 브라우저는 창 1개짜리 새 워크스페이스를 만들어 If-Match 없이 밀어 넣는다. 서버의 모든 창·핀·편집기 목록이 사라진다. `_save` 의 409 방어(`app.js:400-516`)는 If-Match 가 있을 때만 작동한다.
+- 현상: `/api/state` 가 일시적으로 5xx 를 주거나(데몬 재접속 중, `_fetchStateKnown` 의 `res.ok` 거짓 → `stRes.json()` 예외), 네트워크가 잠깐 끊긴 채 페이지가 열리면, 브라우저는 창 1개짜리 새 워크스페이스를 만들어 If-Match 없이 밀어 넣는다. 서버의 모든 창·핀·편집기 목록이 사라진다. `save` 의 409 방어(`app.js:400-516`)는 If-Match 가 있을 때만 작동한다.
 - 왜 프로덕션 문제인가: 복구 불가능한 사용자 상태 손실이며, 발생 조건(부팅 순간의 일시 장애)이 흔하다 — 서버 재시작 직후 자동 새로고침(`version-watch.js`)이 정확히 그 순간에 페이지를 다시 연다.
-- 조치: (1) init 실패 시 `_save()` 를 금지 — `_mkWindow(opts)` 에 `{noSave:true}` 를 주거나 `wsETag===null` 이면 `_save` 가 PUT 을 거부하고 재조회부터 하게 한다. (2) 서버도 `If-Match` 부재를 거부(또는 `*` 만 허용)하도록 Go 감사 축과 조율. (3) 실패를 사용자에게 보인다(현재 `console.error` 뿐).
+- 조치: (1) init 실패 시 `save()` 를 금지 — `_mkWindow(opts)` 에 `{noSave:true}` 를 주거나 `wsETag===null` 이면 `save` 가 PUT 을 거부하고 재조회부터 하게 한다. (2) 서버도 `If-Match` 부재를 거부(또는 `*` 만 허용)하도록 Go 감사 축과 조율. (3) 실패를 사용자에게 보인다(현재 `console.error` 뿐).
 - 규모: S (클라이언트 가드) / S (서버 정책).
 
 ---
@@ -48,7 +48,7 @@
 
 ### [P1] 계층 역전 — ui/·git/ 가 App 의 `_private` 를 직접 파고든다
 - 위치 (distinct `app._xxx` 참조 수): `ui/renderer.js` 54, `ui/sidebar-tabs.js` 29, `ui/input-binding.js` 20, `ui/file-editor.js` 13, `git/panel-diff.js` 11, `ui/file-tree-edit.js` 8 … (git/ 전체 26개 distinct, ui/ 전체 60+). `window.app` 직접 참조 30건 (`ui/term-pane.js`, `ui/doc-render.js:414`, `git/dialog.js`, `git/history.js`, `git/menu.js`, `git/confirm.js` …).
-- 현상: `docs/internal/architecture.md` 는 core/ui/git 을 디렉터리로 나눴지만, 언더스코어 메서드가 사실상 공개 API 다. `renderer.js` 는 `app._drag`, `app._mPaneIdx`, `app._prevFocus` 같은 **필드**까지 읽고 쓴다. `state-registry.js:136-161` 도 문자열 메서드 이름(`'_attnRestore'`)으로 App 을 호출한다.
+- 현상: `docs/internal/architecture.md` 는 core/ui/git 을 디렉터리로 나눴지만, 언더스코어 메서드가 사실상 공개 API 다. `renderer.js` 는 `app.drag`, `app.mPaneIdx`, `app.prevFocus` 같은 **필드**까지 읽고 쓴다. `state-registry.js:136-161` 도 문자열 메서드 이름(`'_attnRestore'`)으로 App 을 호출한다.
 - 왜 문제인가: App 내부 이름 변경이 3개 디렉터리 60+ 지점을 깨뜨리고, 어느 것이 계약인지 알 수 없다. 타입·린트가 없으므로 오타는 런타임까지 간다.
 - 조치: App 의 공개 표면을 명시(`_` 없는 메서드로 승격 + 문서화)하거나, ui/git 가 필요한 것을 생성자 인자(콜백/인터페이스)로 받게 한다. 첫 단계로 `renderer.js` 가 쓰는 54개를 목록화해 `AppView` 인터페이스 하나로 묶는다.
 - 규모: L.
@@ -67,12 +67,12 @@
 
 ### [P1] 조용히 삼켜지는 실패 — 설정 저장·부팅 설정·초기화
 - 위치:
-  - `core/app-settings.js:15` `_saveSettings`: `try{await fetch('/api/settings',{method:'PUT',…})}catch{}` — 실패해도 UI 는 저장된 것처럼 보인다. 응답 `ok` 도 보지 않는다.
+  - `core/app-settings.js:15` `saveSettings`: `try{await fetch('/api/settings',{method:'PUT',…})}catch{}` — 실패해도 UI 는 저장된 것처럼 보인다. 응답 `ok` 도 보지 않는다.
   - `core/main.js:14-21` 설정 로드 실패 `catch{}` — 테마·단축키·폴링이 기본값으로 조용히 떨어진다.
   - `core/app.js:210-213` init 실패 → `console.error` 만.
   - `core/app-statusbar.js:41-44` stats 실패 `catch{}` (이건 허용 가능).
   - 전체: 빈 `catch{}` 122건. 대부분은 `sessionStorage`/`ws.close()` 같은 무해한 것이지만(`term-pane.js` 19, `app-layout.js` 11 확인), 위 셋은 사용자 결과가 달라진다.
-- 조치: `_saveSettings` 는 `res.ok` 검사 + 실패 시 `Toast.show(..,'err')`; main.js 설정 실패는 부팅 화면 문구로 알림; init 실패는 P0-2 와 함께 처리.
+- 조치: `saveSettings` 는 `res.ok` 검사 + 실패 시 `Toast.show(..,'err')`; main.js 설정 실패는 부팅 화면 문구로 알림; init 실패는 P0-2 와 함께 처리.
 - 규모: S.
 
 ### [P1] fetch 관용구 중복 — `gitFetch` 가 있는데 core 는 손으로 23벌
@@ -106,7 +106,7 @@
 5. `_fmtBytes` 두 벌: `ui/file-editor.js:294`, `core/app-statusbar.js:316` (+ `doc-render.js` 의 `docFmtBytes`). `ETag||Etag` 헤더 이중 조회 4곳(`app.js:138,422,518` …).
 
 ### D. 상태 관리·이벤트 버스 (3건)
-1. 설정이 전역 `var` 26개에 흩어져 있고(`helpers.js`, `constants.js`) `_settingsApply`(`app-settings.js:321-436`) 가 키마다 `if(saved.x!==undefined)` 분기를 손으로 쓴다 — `POLL_SETTINGS` 표처럼 나머지 설정도 서술자 표로 통일하면 `_saveSettings` 의 24개 키 나열(`:15`)도 파생된다. M.
+1. 설정이 전역 `var` 26개에 흩어져 있고(`helpers.js`, `constants.js`) `_settingsApply`(`app-settings.js:321-436`) 가 키마다 `if(saved.x!==undefined)` 분기를 손으로 쓴다 — `POLL_SETTINGS` 표처럼 나머지 설정도 서술자 표로 통일하면 `saveSettings` 의 24개 키 나열(`:15`)도 파생된다. M.
 2. 버스 토픽은 문자열 하드코딩: `'workspace_changed'`, `'server_hello'`, `'run_changed'`, `'sse:open'`, `'softreload'` (`app-cmd.js:64-78`, `state-registry.js:43-126`, `event-bus.js:179-222`). `LIFE_*` 만 상수. 서버 action 이름과 같은 공간을 쓰는 함정을 `event-bus.js:24-38` 주석이 경고하지만 상수화로 막지는 않았다. S.
 3. `helpers.js:752 visiblePoll` 이 TimerHub 이후에도 4곳에서 쓰인다(`app-statusbar.js:30` 등) — 같은 일을 하는 표면이 둘(`TIMERS.every` vs `visiblePoll`). S.
 
@@ -116,7 +116,7 @@
 3. xterm `scrollback:50000`(`constants.js:246`) × 슬롯당 인스턴스(`app.js:284-297` 주석: 같은 도구를 두 슬롯에 그리면 인스턴스·WebSocket 둘). 탭이 많을 때 메모리 상한 없음.
 
 ### F. 이벤트 리스너 (1건, 확인 결과 양호)
-- `addEventListener` 375 vs `removeEventListener` 19 이지만, 검사한 document/window 수준 리스너는 앱 수명(`event-bus.js:149-155`, `timer-hub.js:38`, `app-focus.js:113-119`) 이거나 `{once:true}`(`app-slots.js:424`, `app-attn.js:437-438`) 이거나 짝이 맞는다 (`ui-kit.js:332-340`, `git/menu.js:381-394`, `app-tool.js` keydown 4/4, `git/dialog.js`, `git/confirm.js`). 요소 수준 리스너는 DOM 과 함께 GC. `app-settings.js:478` 의 document keydown 은 `_initModal` 1회 등록. 누수 발견 없음.
+- `addEventListener` 375 vs `removeEventListener` 19 이지만, 검사한 document/window 수준 리스너는 앱 수명(`event-bus.js:149-155`, `timer-hub.js:38`, `app-focus.js:113-119`) 이거나 `{once:true}`(`app-slots.js:424`, `app-attn.js:437-438`) 이거나 짝이 맞는다 (`ui-kit.js:332-340`, `git/menu.js:381-394`, `app-tool.js` keydown 4/4, `git/dialog.js`, `git/confirm.js`). 요소 수준 리스너는 DOM 과 함께 GC. `app-settings.js:478` 의 document keydown 은 `initModal` 1회 등록. 누수 발견 없음.
 
 ### G. 테스트 (1건)
 - e2e 135 스펙(Playwright)이 사실상 유일한 검증이고 CI 에 없다. 순수 모듈(`hunk-coords.js`, `lanes.js`, `repaint.js`, `helpers.js` path/shortcut, `git/api.js` 의 `gitEchoOk`)은 `node --test` 로 의존성 없이 단위 테스트 가능. S.
@@ -125,8 +125,8 @@
 
 ## 우선 실행 순서 제안
 1. P0-1 상태바 싱크 수정 + 회귀 e2e (S, 즉시)
-2. P0-2 init 실패 경로 `_save` 차단 + 서버 If-Match 필수화 (S, Go 축과 함께)
-3. P1 `_saveSettings` 실패 피드백 (S)
+2. P0-2 init 실패 경로 `save` 차단 + 서버 If-Match 필수화 (S, Go 축과 함께)
+3. P1 `saveSettings` 실패 피드백 (S)
 4. `check-html.sh`(innerHTML 보간 검사) + eslint `no-undef` (M) — 이후 모든 리팩터의 안전망
 5. `core/api.js` 로 fetch 관용구 통합 (M)
 6. Monaco 벤더링 (M)

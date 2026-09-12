@@ -373,7 +373,7 @@ e2e `git-history` H22 가 그 자리를 간헐로 잡아 왔다.
 #### (3) 핀 통지가 활성 패널 하나에만 갔다 (FR-DRC-16)
 
 ```js
-// app-git.js `_gitReposRefresh` — 고치기 전
+// app-git.js `gitReposRefresh` — 고치기 전
 if(this.gitPanel&&this.gitPanel.notifyPins) this.gitPanel.notifyPins();
 ```
 

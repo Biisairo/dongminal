@@ -113,7 +113,7 @@ diff·history·branches 는 **오른쪽에 편집기 탭과 똑같은 자격으�
 
 ```js
 web/js/git/panel-life.js:76-84   elFor(view) { … 뷰별 DOM 을 만들어 캐시하고 돌려준다 }
-web/js/ui/renderer.js:425-433    if(at.type===TAB_TYPE_GIT){ … _gitPanel(slot).elFor(at.gitView) … }
+web/js/ui/renderer.js:425-433    if(at.type===TAB_TYPE_GIT){ … gitPanel(slot).elFor(at.gitView) … }
 ```
 
 `_mountTabBody` 는 **탭 타입별 분기**이고 git 분기가 이미 있다. 탭이 어느 창에
@@ -126,8 +126,8 @@ web/js/ui/renderer.js:425-433    if(at.type===TAB_TYPE_GIT){ … _gitPanel(slot)
 
 ```js
 web/js/core/app-layout.js:285-292
-  if (this._isGitWin(s)) return;                          // Git 창엔 탭 추가 금지
-  if (this._isEditorWin(s) && type !== 'editor') return;  // Editor 창엔 editor 만
+  if (this.isGitWin(s)) return;                          // Git 창엔 탭 추가 금지
+  if (this.isEditorWin(s) && type !== 'editor') return;  // Editor 창엔 editor 만
 ```
 
 FR-EDT-54 의 자리다. **이 한 줄이 요구 ②를 막는 전부다.**
@@ -139,8 +139,8 @@ FR-EDT-54 의 자리다. **이 한 줄이 요구 ②를 막는 전부다.**
 ### 2.4 `GitPanel` 은 칸마다 하나이고 창을 모른다
 
 ```js
-web/js/core/app-git.js:24-31    _gitPanel(slot){ … key=this._slotKey('git',slot||0) … }
-web/js/core/app-git.js:551-552  get gitPanel(){ return this._gitPanel(this._slotFocused()) }
+web/js/core/app-git.js:24-31    gitPanel(slot){ … key=this.slotKey('git',slot||0) … }
+web/js/core/app-git.js:551-552  get gitPanel(){ return this.gitPanel(this.slotFocused()) }
 ```
 
 키에 창 id 가 없는 이유가 주석에 있다 — "Git 창은 워크스페이스에 하나뿐이므로
@@ -150,7 +150,7 @@ web/js/core/app-git.js:551-552  get gitPanel(){ return this._gitPanel(this._slot
 > 하고, `app.gitPanel` 이 무엇을 돌려주는지도 다시 정해야 한다 — 지금은 **활성
 > 칸**만 보고 활성 **창**은 보지 않는다.
 
-관측은 앱에 하나다 (`_gitObs`, FR-SVS-30).
+관측은 앱에 하나다 (`gitObs`, FR-SVS-30).
 
 > **착수 시점에는 "이쪽은 바뀌지 않는다" 고 적었고, 구현이 그것을 뒤집었다**
 > (D-RTU-16). `GitObserver` 는 status·signature·소실·실패 누적을 **통째로** 들고
@@ -162,7 +162,7 @@ web/js/core/app-git.js:551-552  get gitPanel(){ return this._gitPanel(this._slot
 ```js
 web/js/git/panel-diff.js:56-62
   openView(view){
-    const w=this.app._gitWindow(); if(!w||!w.layout) return;
+    const w=this.app.gitWindow(); if(!w||!w.layout) return;
     …그 창의 pane 에서 gitView 가 맞는 탭을 찾아 switchTab…
   }
 ```
@@ -443,7 +443,7 @@ Diff 탭은 창에 하나이고(FR-RTU-31) 내용이 선택을 따르므로 탭�
 "타이핑이 먹지 않는다" 가 된다. 문구는 그 축이 왜 읽기 전용인지 말한다 (index 는
 파일이 아니다 / 커밋은 지나간 것이다).
 
-**FR-RTU-55.** 저장 뒤에는 git 관측을 즉시 갱신한다 (`_gitSignal('write')`). 방금
+**FR-RTU-55.** 저장 뒤에는 git 관측을 즉시 갱신한다 (`gitSignal('write')`). 방금
 고친 것이 목록과 색에 곧바로 선다.
 
 **FR-RTU-56.** 편집 중인 diff 의 대상이 폴링으로 바뀌어도 **사용자의 편집을 덮지
@@ -518,9 +518,9 @@ SSE 동기화) — `_migrateGitWindow` 가 이미 그 자리에 있다.
 사이드바 행·`dmctl`·e2e 셋이므로 이름과 계약을 유지한다.
 
 **FR-RTU-73.** `openView(view)` 는 **활성 Repo 창의 본문**에서 탭을 찾거나 만든다.
-`_gitWindow()` 의존을 걷어낸다 (§2.5).
+`gitWindow()` 의존을 걷어낸다 (§2.5).
 
-**FR-RTU-74.** `_gitBackTarget`·`_gitCloseWindow` 는 폐기한다 — 돌아갈 자리를
+**FR-RTU-74.** `gitBackTarget`·`_gitCloseWindow` 는 폐기한다 — 돌아갈 자리를
 계산하던 이유가 Git 창이라는 특수 창이었고, 그것이 사라진다.
 
 **FR-RTU-75.** 옛 워크스페이스의 Git 창 안에 있던 탭은 **버린다.** 그 탭들은 전부
@@ -540,7 +540,7 @@ SSE 동기화) — `_migrateGitWindow` 가 이미 그 자리에 있다.
 대상이 아니므로 렌더는 사이드에 서 있는 동안 포커스를 따라가지 않는다 — 그러지
 않으면 사이드에 설 수 없다. 그런데 파일이나 뷰 탭을 여는 일은 포커스를 옮기는
 일이고, 그때는 그 자리를 보여야 한다 (열었는데 보이지 않으면 실패로 읽힌다,
-FR-EDT-102). 그 구분은 `_setFocus` 가 **포커스가 실제로 바뀐 부름**만 사이드를
+FR-EDT-102). 그 구분은 `setFocus` 가 **포커스가 실제로 바뀐 부름**만 사이드를
 떠나게 하는 것으로 낸다.
 
 **FR-RTU-81.** 사이드 자리에서는 `Explorer`·`Changes` 탭이 그대로 동작한다.
@@ -549,7 +549,7 @@ FR-EDT-102). 그 구분은 `_setFocus` 가 **포커스가 실제로 바뀐 부�
 
 **FR-RTU-83.** (2026-09-08 접수) **여는 부름이 자기가 연 칸을 가리킨다.**
 
-윗 문단의 `_setFocus` 판정만으로는 모자랐다. 그 판정의 조건은 "포커스 pane 이 실제로
+윗 문단의 `setFocus` 판정만으로는 모자랐다. 그 판정의 조건은 "포커스 pane 이 실제로
 **바뀌었는가**" 인데, 본문에 pane 이 이미 있고 그것이 이미 포커스면 바뀔 것이 없다 —
 그 부름은 판정을 지나지 않고, 사이드에 그대로 남는다.
 
@@ -558,9 +558,9 @@ FR-EDT-102). 그 구분은 `_setFocus` 가 **포커스가 실제로 바뀐 부�
 남는다 — 탭은 만들어졌고 사용자는 그것을 볼 방법이 없다. **에디터·diff·이미지·
 미리보기 넷이 전부 이 한 자리였다.**
 
-그러므로 여는 자리들이 `_mobileShowPane(rid)` 을 **직접** 부른다: `_edOpenFile`
+그러므로 여는 자리들이 `mobileShowPane(rid)` 을 **직접** 부른다: `edOpenFile`
 (파일·이미지), `GitPanel.openView`(diff·history 등 본문 뷰 탭), `_docRenderOpen`
-(미리보기). 포커스가 움직였는지와 무관하다. `_setFocus` 의 판정은 그 함수의 포커스
+(미리보기). 포커스가 움직였는지와 무관하다. `setFocus` 의 판정은 그 함수의 포커스
 경로로 남는다 — 지우면 포커스만 옮기는 다른 부름들이 사이드에 갇힌다.
 
 미리보기는 **나눈 뒤의 칸 id 를 여기서 만들지 않으므로** 탭을 다시 찾아 그 자리를
@@ -823,16 +823,16 @@ GIT_MANUAL_CHECKLIST G2.12 로 옮겼다 (D-RTU-35).
 | **D-RTU-17** | **M7(마이그레이션)을 M3 직후로 앞당겼다** | 스펙의 순서 근거("옛 창을 남겨 둔 채 새 자리를 세운다")가 M3 에 의해 무효화됐다 — 사이드바에서 `Git` 탭이 사라진 순간 옛 Git 창으로 가는 **진입점이 이미 없어졌다.** 남겨 두면 중간 상태의 e2e 를 두 번 고쳐야 했다 |
 | **D-RTU-18** | **Repo 창의 신원은 id 가 아니라 루트다** | 실측한 결함이다 — 목록에 없던 경로를 `openGitWindow` 로 열면 로컬이 창을 만들고 전환하는데, 곧이어 온 `workspace_changed` 가 서버 스냅샷으로 목록을 덮고 재조정이 같은 루트의 창을 **새 id 로** 만든다. `activeWindow` 는 옛 id 를 가리킨 채 남아 폴백이 엉뚱한 일반 창을 고른다. `_edKeepActive` 가 루트로 다시 찾는다 |
 | **D-RTU-19** | `repo-side.js` 를 만들지 않았다 | 사이드는 자기 상태도 DOM 도 소유하지 않는다(탐색기·패널이 소유) — 파일을 나눌 이유가 없어 `renderer._rSide` 한 함수로 두었다. §5.1 의 표는 착수 전 예상이다 |
-| **D-RTU-20** | `_gitBackTarget` 은 폐기하지 않았다 | FR-RTU-74 가 `_gitCloseWindow` 와 함께 폐기라 했으나, 그 계산은 `Windows` 탭이 돌아갈 자리로도 쓰인다 (FR-SBT-23·36). 폐기한 것은 `_gitCloseWindow` 와 `_gitLeaveIfRemoved` 의 본문뿐이다 |
+| **D-RTU-20** | `gitBackTarget` 은 폐기하지 않았다 | FR-RTU-74 가 `_gitCloseWindow` 와 함께 폐기라 했으나, 그 계산은 `Windows` 탭이 돌아갈 자리로도 쓰인다 (FR-SBT-23·36). 폐기한 것은 `_gitCloseWindow` 와 `_gitLeaveIfRemoved` 의 본문뿐이다 |
 | **D-RTU-21** | `git init` 은 `writeCommands` 에 들어가되 **인자를 받지 않는다** | `Exec` 은 읽기 전용이라 가드에 막힌다 (FR-GIT-95). 경로 인자를 허용하면 핸들러의 존재·디렉터리 검사를 우회해 다른 자리에 저장소가 생긴다 |
 | **D-RTU-22** | **Changes 사이드의 인라인 diff 미리보기와 손잡이를 걷었다** — EDITOR_GIT_UX_SRS 묶음 D(FR-CSZ-1~8) 폐기 | 사용자 지시("스펙 문구대로 vsc 처럼 탭으로 에디터창에"). 실측이 그 판단을 받쳤다 — 사이드는 260px 이고 그 안을 `목록 \| 손잡이 \| 미리보기` 로 나누면 목록 칸이 **~90px** 이 된다. `.git-file-path` 가 0 으로 눌려 호버 시 이름이 사라지고 동작 버튼이 행 가운데를 덮어, **선택하려는 클릭이 `stage` 를 실행했다** (C4b 가 그것으로 실패했다). 그리고 diff 를 본문 탭으로 옮긴 것이 요구 ②이므로 같은 것을 두 자리에 둘 이유가 없다. §1.1 의 그림과 FR-RTU-20 의 네 줄에도 그 칸이 없었다 — 초판 스펙이 옳고 구현이 옛 자리를 들고 있었다. 미리보기가 들고 있던 축 라벨은 Diff 탭의 바로 옮겼다 (정보를 잃지 않는다) |
 | **D-RTU-23** | **변경 목록의 한 번 클릭이 본문을 연다. 더블클릭 계기는 없다** — FR-RTU-40 개정, FR-RTU-42 ④에서 변경 목록 제외 | 사용자 지시("한번클릭을 diff, 두번클릭은 제거. 이것도 vsc 와 동치"). 인라인 미리보기를 걷으면 클릭의 결과를 보일 자리가 본문뿐이고, 그때 더블클릭을 남기면 "한 번 눌렀는데 아무 일도 없다" 가 된다. §2.8 이 미리보기 탭을 도입한 근거("변경 20개를 훑으면 탭 20개")는 Diff 탭이 창에 하나라는 FR-RTU-31 이 이미 만족시키므로, Diff 탭에는 `preview` 를 붙이지 않는다 |
 | **D-RTU-24** | **git 뷰 탭은 닫히고 끌린다** — FR-RTU-33 을 실제로 구현했다. 이름 변경만 없다 | 초판이 요구했으나 구현되지 않은 채 M2 가 ✅ 로 적혀 있었다 (`closeTab` 이 `TAB_TYPE_GIT` 을 조기 반환하고 렌더가 `×`·draggable 을 떼고 있었다). 옛 금지의 근거는 Git 창의 탭이 **고정 일곱**이라 자리가 늘 같아야 근육 기억이 선다는 것이었고(FR-GIT-28) 그 창이 사라졌다. 이름만 예외인 이유는 탭 이름이 뷰 이름에서 파생되기 때문이다 — 고쳐도 다음 렌더가 되돌린다. 닫을 때 그 뷰의 DOM·Monaco 는 놓고 상태(스크롤·선택·diff 대상)는 패널에 남긴다 (FR-RTU-34 + NFR-RTU-3) |
-| **D-RTU-25** | **관측의 조건은 "창이 보인다" 가 아니라 "그 표면이 보인다" 다** — `_gitSurfaceOn` · 탐색기도 같은 게이트 | FR-RTU-62 의 문구가 이미 "그 표면" 이었는데 구현은 창 가시성만 봤다. 그 결과 **저장소가 아닌 루트의 Repo 창에도** status 가 3초마다 나갔다 (V-EDT-47 이 1회를 기대하는데 4회). 사이드가 `Explorer` 이고 본문에 git 뷰 탭도 없으면 그 관측을 쓰는 화면이 하나도 없다. 대칭으로 탐색기 트리도 사이드가 `Changes` 면 묻지 않는다 — 그 게이트가 없어 폴링을 끈 설정에서도 status 가 왔다 (V18·V5 실측). `_gitRescheduleAll` 은 **패널을 만들지 않는다**: 만들면 그것이 곧 폴링이었다 |
-| **D-RTU-26** | **`Repo` 행이 소실 사유와 `norepo` 를 되찾았다** | 옛 `Git` 목록의 행이 하던 일(FR-RMS-11·17)이 두 탭을 합칠 때 빠졌다 — 폴더가 사라진 저장소의 행이 아무 말도 하지 않았다 (V-RMS-11 실측). 배지만으로는 안 된다: 사라진 저장소는 배지가 `null` 이고 그것은 "관측이 아직 없다" 와 구분되지 않는다. 그래서 핀 항목의 `isRepo`·`reason` 을 읽는 자리(`_gitPinEntry`)를 따로 둔다. **저장소가 아닌 것과 사라진 것은 다르다** — 앞쪽은 이제 정당한 행이므로(D-RTU-12) 사유를 적지 않는다 |
+| **D-RTU-25** | **관측의 조건은 "창이 보인다" 가 아니라 "그 표면이 보인다" 다** — `gitSurfaceOn` · 탐색기도 같은 게이트 | FR-RTU-62 의 문구가 이미 "그 표면" 이었는데 구현은 창 가시성만 봤다. 그 결과 **저장소가 아닌 루트의 Repo 창에도** status 가 3초마다 나갔다 (V-EDT-47 이 1회를 기대하는데 4회). 사이드가 `Explorer` 이고 본문에 git 뷰 탭도 없으면 그 관측을 쓰는 화면이 하나도 없다. 대칭으로 탐색기 트리도 사이드가 `Changes` 면 묻지 않는다 — 그 게이트가 없어 폴링을 끈 설정에서도 status 가 왔다 (V18·V5 실측). `_gitRescheduleAll` 은 **패널을 만들지 않는다**: 만들면 그것이 곧 폴링이었다 |
+| **D-RTU-26** | **`Repo` 행이 소실 사유와 `norepo` 를 되찾았다** | 옛 `Git` 목록의 행이 하던 일(FR-RMS-11·17)이 두 탭을 합칠 때 빠졌다 — 폴더가 사라진 저장소의 행이 아무 말도 하지 않았다 (V-RMS-11 실측). 배지만으로는 안 된다: 사라진 저장소는 배지가 `null` 이고 그것은 "관측이 아직 없다" 와 구분되지 않는다. 그래서 핀 항목의 `isRepo`·`reason` 을 읽는 자리(`gitPinEntry`)를 따로 둔다. **저장소가 아닌 것과 사라진 것은 다르다** — 앞쪽은 이제 정당한 행이므로(D-RTU-12) 사유를 적지 않는다 |
 | **D-RTU-27** | **헤더의 리포 드롭다운은 `openGitWindow` 다** | `setRepo` 는 Repo 창의 패널에서 조기 반환하므로(저장소가 창의 루트다) 드롭다운이 **아무 일도 하지 않았다** — 실측한 결함이다 (V207). 고른 뒤 그 창의 사이드도 `Changes` 로 돌린다: 사용자가 누른 자리가 Changes 이므로 "같은 자리의 다른 저장소" 로 가는 것이 그 손짓의 뜻이다 |
 | **D-RTU-28** | **`+ Add` 가 하나가 되면서 사라진 화면이 둘 있다** | ① FR-FLW-6 의 "저장소가 아닌 경로 거부" — 종단이 `/api/editors/add` 하나이고 저장소가 아닌 경로도 정당한 행이다 (D-RTU-12). ② FR-RMS-10 의 절반("핀 없는 저장소에는 핀 제거 버튼이 없다") — Repo 창이 서는 근거가 `editors.list` 이고 그 목록에 든 저장소 루트는 `LinkEditorAdd` 가 핀까지 만든다 (FR-EDT-33). 즉 "창은 있는데 핀은 없는 저장소" 를 화면으로 만들 수 없다. 규칙 자체는 남고 e2e 만 그 절반을 놓는다 |
-| **D-RTU-29** | **모바일은 사이드와 본문을 나란히 두지 않는다** — 순회의 자리 하나씩이다 | 초판 FR-RTU-80 이 "한 줄로 순회" 라고 적었으나 구현은 `max-width:40%` 로 둘을 나란히 두는 데 그쳤다. 390px 에서 그것은 **둘 다 쓸 수 없는 폭**이다 — 사이드가 156px 이 되어 커밋·원격·일괄 버튼이 경계를 넘었다 (실측 V10). 자리 하나씩 보이면 각 자리가 전체 폭을 쓴다 (D-RTU-11: 기존 pane 순회에 자리를 더하는 것이라 새 조작을 배우지 않는다). **포커스가 옮겨 가면 사이드를 떠난다** — 그 계기를 `_setFocus` 한 자리에 두었고, `addTab` 이 새 탭에도 그것을 부르게 했다 (종전에는 "이미 있으면" 분기만 불렀다) |
+| **D-RTU-29** | **모바일은 사이드와 본문을 나란히 두지 않는다** — 순회의 자리 하나씩이다 | 초판 FR-RTU-80 이 "한 줄로 순회" 라고 적었으나 구현은 `max-width:40%` 로 둘을 나란히 두는 데 그쳤다. 390px 에서 그것은 **둘 다 쓸 수 없는 폭**이다 — 사이드가 156px 이 되어 커밋·원격·일괄 버튼이 경계를 넘었다 (실측 V10). 자리 하나씩 보이면 각 자리가 전체 폭을 쓴다 (D-RTU-11: 기존 pane 순회에 자리를 더하는 것이라 새 조작을 배우지 않는다). **포커스가 옮겨 가면 사이드를 떠난다** — 그 계기를 `setFocus` 한 자리에 두었고, `addTab` 이 새 탭에도 그것을 부르게 했다 (종전에는 "이미 있으면" 분기만 불렀다) |
 | **D-RTU-30** | **탭 바가 스크롤되는 것이 계약이다** — 옛 GIT_HEAD_MOBILE V13("일곱 탭이 전부 뷰포트 안") 은 폐기 | 그 요구의 근거는 탭이 **고정**이라 사용자가 줄일 수 없다는 것이었다 — 들어가지 않으면 닿을 방법이 없었다. 뷰 탭이 필요할 때 열고 닫는 보통 탭이 된 지금(FR-RTU-30·33) 남는 계약은 **닿을 수 있는가**이며 `.pn-tabs{overflow-x:auto}` 가 그것을 준다. 390px 에서 여섯 탭은 447px 을 쓴다 |
 | **D-RTU-31** | **사이드의 두 컨트롤도 히트 영역 하한을 지킨다** | `.ed-side-tab`·`.ed-side-act` 가 24px·23px 로 서 있었다 — 통합이 새로 넣은 컨트롤이 기존 FR-GIT-195~198(하한 30px, 기준은 이 앱의 `.si` 행 높이)을 지나쳤다 (V80 실측). 새 표면이라고 기준이 달라질 이유가 없다 |
 | **D-RTU-32** | **활성 Repo 창은 루트로 되살린다** | 새로고침 뒤 `Windows` 탭으로 돌아가는 결함이었다 (V-SBT-4 실측). Repo 창은 `editors.list` 에서 **재조정이 만들므로**(FR-EDT-42) 저장이 서버에 닿기 전이거나 다른 브라우저가 쓴 워크스페이스를 처음 읽으면 같은 루트의 창이 새 id 로 선다. `sessionStorage` 의 id 만으로는 사용자가 보던 창을 찾지 못한다 — 루트를 함께 적고(`activeEditorRoot`) id 가 없으면 루트로 다시 찾는다. `_edKeepActive` 도 그 키를 함께 옮긴다 |

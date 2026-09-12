@@ -49,6 +49,7 @@
 | 참조 찾기 (Editor) | `Shift+F12` |
 | 이동 뒤로 (Editor) | `Ctrl+Alt+-` / `Cmd+Alt+-` |
 | 저장 (Editor) | `Ctrl+S` / `Cmd+S` |
+| 모두 저장 (Editor) | `Ctrl+Alt+S` / `Cmd+Alt+S` |
 | 파일 내에서 검색 (Editor) | `Ctrl+F` / `Cmd+F` |
 | 파일 검색 (Editor) | `Ctrl+P` / `Cmd+P` |
 | 파일 전체에서 검색 (Editor) | `Ctrl+Shift+F` / `Cmd+Shift+F` |

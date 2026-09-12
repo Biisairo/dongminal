@@ -55,11 +55,11 @@
 | 상태 | 복원 | 변경 지점 | 갱신 주체 |
 |---|---|---|---|
 | `_activity` | `_activityRestore` | `_onToolActivity`(set/delete) | SSE |
-| `_fgNames` | `_fgRestore` | `_onToolForeground`(set/delete) | SSE |
+| `fgNames` | `_fgRestore` | `_onToolForeground`(set/delete) | SSE |
 | `_attn` | `_attnRestore` | `_onToolAttention`(set)·`_onToolAttentionClear`(delete)·`_attnDrop`(delete)·`_attnClear`(delete)·`_attnClearAll`(**clear**) | SSE + **사용자 조작** |
 
 **`_attn` 만 사용자 조작으로도 바뀐다.** `_attnClear` 는 `_attnNoteInteraction`
-(pointerdown/keydown)과 `_jumpToTool` 이 부른다 — 재연결 도중에 사용자가 알람을
+(pointerdown/keydown)과 `jumpToTool` 이 부른다 — 재연결 도중에 사용자가 알람을
 거두면 낡은 스냅숏이 그것을 되살린다. 이것이 방향 B 가 이론이 아닌 이유다.
 
 `_attnClearAll` 은 id 하나가 아니라 **전부**를 지우므로 만진 id 로 표현되지 않는다.
@@ -80,7 +80,7 @@
 
 ### 2.3 추월을 함께 막아야 하는 이유
 
-`_activityRestore` 는 `_agentsStartPoll` 이 **`agentsPollMs`(기본 5,000ms)마다**
+`_activityRestore` 는 `agentsStartPoll` 이 **`agentsPollMs`(기본 5,000ms)마다**
 부른다. 앞 비행의 응답이 늦으면 새 비행이 시작되고, 그때 `touched` 를 새로 만들면
 **앞 응답이 새 비행의 빈 집합을 보고 전부 적용해 버린다** — 고치려던 결함이 그대로
 돌아온다.
@@ -132,7 +132,7 @@
 |---|---|
 | C-1 | 서버 API 를 바꾸지 않는다. 도착 시각·seq 를 새로 요구하지 않는다 |
 | C-2 | e2e 개수는 신규 6건만큼만 는다. 기존 스펙은 고치지 않는다 |
-| C-3 | `_attn`·`_fgNames`·`_activity` 의 **평상시 동작이 바뀌지 않는다** — 비행이 없으면 종전과 같다 |
+| C-3 | `_attn`·`fgNames`·`_activity` 의 **평상시 동작이 바뀌지 않는다** — 비행이 없으면 종전과 같다 |
 
 ### 3.3 동작 변경 기록
 
@@ -178,7 +178,7 @@
 |---|---|---|
 | N1 | `_bgRefresh`·`_focusRestore` 에 규약 적용 | `FG_RESTORE_RACE_SRS` §8.2 가 결함 없음을 확정했다. 증분 갱신 경로가 없어 `touched` 가 항상 비고, 규약을 붙이면 죽은 코드가 된다 |
 | N2 | 서버가 seq·도착 시각을 주게 하는 것 | C-1. 클라이언트만으로 풀린다 — 무엇이 더 새로운지는 "비행 중에 왔는가" 로 충분하다 |
-| N3 | `_agentsStartPoll` 의 폴링 주기 조정 | 폴링은 결함의 노출을 넓혔을 뿐 원인이 아니다. 원인을 고치면 주기는 무관하다 |
+| N3 | `agentsStartPoll` 의 폴링 주기 조정 | 폴링은 결함의 노출을 넓혔을 뿐 원인이 아니다. 원인을 고치면 주기는 무관하다 |
 | N4 | `_activity` 의 표시 순서 규칙 개선 | `ws.agentsOrder` 가 정하는 현행 규칙을 그대로 둔다. §3.3 은 그것이 바뀌지 않음을 보장할 뿐이다 |
 
 ---

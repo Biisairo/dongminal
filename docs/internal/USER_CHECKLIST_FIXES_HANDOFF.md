@@ -44,7 +44,7 @@ bash scripts/test_migrate.sh   28 통과
 | FR-BGU-6..9 | 앵커 팝오버 → 중앙 모달(`#bg-modal`), 배경 클릭 + `Esc` |
 
 핵심 구조 변경: 지표(`#sb-items`, 폴링마다 재생성)와 진입점(`#sb-bg-btn`, 정적)의
-수명을 분리했다. 리스너는 `_initStatusBar` 에서 1회 부착한다.
+수명을 분리했다. 리스너는 `initStatusBar` 에서 1회 부착한다.
 
 `e2e/background-ui.spec.ts` 11개. `.bg-row` 에 `data-toolid` 가 있다 (D 에서 추가).
 
@@ -111,7 +111,7 @@ bash scripts/test_migrate.sh   28 통과
 | FR-XDF-11/12/13 | `_focusRestore` — 스냅샷 정렬 + OS 포커스 시 재획득 |
 
 **이 작업의 실체는 동기화 결손 수정이 아니다.** 지금까지 원격 기기의
-`_windowFocusOwner` 에는 자기 자신만 있어 `_resizeCheck` 가 항상 `true` 였다 —
+`_windowFocusOwner` 에는 자기 자신만 있어 `resizeCheck` 가 항상 `true` 였다 —
 **모든 기기가 각자 PTY 를 리사이즈하고 마지막 것이 이겼다.** 묶음 E 는 여태 발현되지
 않았던 리사이즈 권한 게이팅을 **처음으로 켜는** 작업이다. 그래서 획득 정책이 곧 PTY
 크기 정책이고, 사용자 확인을 받아 last-focus-wins 를 유지했다 (PLAN E-7).
@@ -238,10 +238,10 @@ Desktop Chrome 프로젝트에서 `.click()` 을 쓰면 터치 코드 경로를 
 `dmctl` 은 `-l` 을 `--at` 의 단축으로 쓰지만(`dmctl.go:213`), `detach` 에서는
 `--list` 다. 두 CLI 의 단축이 다르다는 것을 전제하라.
 
-### 10. `_resizeCheck` 는 **toolId** 를 받는다 — pane id 를 넘기면 조용히 통과한다
+### 10. `resizeCheck` 는 **toolId** 를 받는다 — pane id 를 넘기면 조용히 통과한다
 
-`app.focused` 는 **pane id** 이고 `_resizeCheck(toolId)` 는 **tool id** 를 받는다.
-pane id 를 넘기면 `_toolWindowId` 가 null 을 돌려주고 `_resizeCheck` 는
+`app.focused` 는 **pane id** 이고 `resizeCheck(toolId)` 는 **tool id** 를 받는다.
+pane id 를 넘기면 `_toolWindowId` 가 null 을 돌려주고 `resizeCheck` 는
 `return true // pane not in any window yet → allow` 로 빠진다. TC-XDF-10 이 이 때문에
 "리사이즈가 허용됐다"고 실패했는데, 원인은 구현이 아니라 **테스트가 엉뚱한 식별자를
 넘긴 것**이었다. 도구를 지목할 때는 DOM 에서 꺼내라 —

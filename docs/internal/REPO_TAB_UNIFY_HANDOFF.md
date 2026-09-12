@@ -26,7 +26,7 @@
 ## 2. §3.1 의 미해결은 결함이 아니었다
 
 앞 세션의 기록은 이랬다 — "untracked 행을 더블클릭해 연 탭에 `preview` 가 붙지
-않는다. 만든 뒤 누군가 `_pinPreviewTab` 으로 지우는 쪽이 유력하다."
+않는다. 만든 뒤 누군가 `pinPreviewTab` 으로 지우는 쪽이 유력하다."
 
 **아니었다.** 그 경로는 `panel-changes.js` 의 **dblclick 핸들러**였고, FR-RTU-42 ④
 가 "변경 목록 행의 더블클릭도 고정 계기" 라고 못박고 있었다 — 즉 그 탭은 고정되는
@@ -65,11 +65,11 @@
 | 결함 | 증상 | 자리 |
 |---|---|---|
 | `_gitObserveOk` 가 옛 탭 id `'git'` 비교 | **Repo 행의 변경 개수 배지가 영영 서지 않았다** (FR-RTU-6 위반) | `app-git.js` |
-| `Repo` 행이 소실 사유·`norepo` 를 잃음 | 폴더가 사라진 저장소의 행이 아무 말도 하지 않았다 (FR-RMS-11·17) | `sidebar-tabs.js` · `_gitPinEntry` |
+| `Repo` 행이 소실 사유·`norepo` 를 잃음 | 폴더가 사라진 저장소의 행이 아무 말도 하지 않았다 (FR-RMS-11·17) | `sidebar-tabs.js` · `gitPinEntry` |
 | 헤더 리포 드롭다운이 `setRepo` 호출 | Repo 창 패널은 `this.root` 로 조기 반환 → **아무 일도 하지 않았다** | `panel-changes._openRepoPicker` |
 | Worktrees 행의 `open` 도 같은 결함 | 같은 이유로 no-op | `worktrees.js._act` |
-| 폴링이 "창이 보이는가" 만 봄 | **저장소가 아닌 루트에도** status 가 3초마다 (V-EDT-47: 1회 기대에 4회) | `_pollOk` + `_gitSurfaceOn` |
-| 탐색기 트리도 같은 결함 | 사이드가 Changes 인데도 묻는다 — **폴링을 끈 설정에서도 status 가 왔다** (V18·V5) | `_edVisibleTrees` · `_edActiveTree` |
+| 폴링이 "창이 보이는가" 만 봄 | **저장소가 아닌 루트에도** status 가 3초마다 (V-EDT-47: 1회 기대에 4회) | `_pollOk` + `gitSurfaceOn` |
+| 탐색기 트리도 같은 결함 | 사이드가 Changes 인데도 묻는다 — **폴링을 끈 설정에서도 status 가 왔다** (V18·V5) | `_edVisibleTrees` · `edActiveTree` |
 | `_gitRescheduleAll` 이 패널을 만든다 | 만드는 것이 곧 폴링이었다 | `app-git.js` |
 | `closeTab` 이 `TAB_TYPE_GIT` 조기 반환 | **FR-RTU-33·34 가 미구현이었다** — M2 는 ✅ 로 적혀 있었다 | `app-layout` · `app-dnd` · `renderer` |
 | `_edKeepActive` 가 sessionStorage 를 안 옮김 | 새로고침 뒤 Changes 사이드가 사라졌다 (V33·FR-GIT-76) | `app-editor.js` |
@@ -120,8 +120,8 @@ e2e 가 쓰는 값이다), 220px 에서 이미 argv 가 **0 으로 눌린다** �
 | Add 다이얼로그 | `#git-add-repo-dlg`·`.gar-path` → `#editor-add-dlg`·`.eda-path` (종단이 하나다) | — |
 | 탭 id·라벨 | `'git'` → `'repo'` · `Git` → `Repo` (창 타입은 `editor`) | — |
 | `gitPanel.setRepo(x)` | → `openGitWindow(x)` (리포 전환은 창 전환이다) | 7곳 |
-| `app._gitWindow()` | → `_edWindowFor(root)` (창의 신원은 루트다) | 6곳 |
-| `_gitPanel(slot)` | → `_gitPanel(root, slot)` | `slot-view-state` |
+| `app.gitWindow()` | → `edWindowFor(root)` (창의 신원은 루트다) | 6곳 |
+| `gitPanel(slot)` | → `gitPanel(root, slot)` | `slot-view-state` |
 | `pn-tab[data-git-view="changes"]` 클릭 | 지웠다 — Changes 는 사이드에 늘 있다 | 8곳 |
 
 **폐기한 시험** — 이유를 각 자리에 주석으로 남겼다.
@@ -155,9 +155,9 @@ e2e 가 쓰는 값이다), 220px 에서 이미 argv 가 **0 으로 눌린다** �
 
 | 파일 | 왜 |
 |---|---|
-| `web/js/core/app-git.js` | `_gitSurfaceOn`(관측 게이트) · `_gitPinEntry` · `_gitDropView` · `openGitWindow` |
-| `web/js/core/app-mobile.js` | `_mobileSideSlots`·`_mobileOnSide` — 순회의 사이드 자리 |
-| `web/js/core/app-focus.js` | `_setFocus` 의 모바일 계기 (사이드를 떠나는 판정) |
+| `web/js/core/app-git.js` | `gitSurfaceOn`(관측 게이트) · `gitPinEntry` · `_gitDropView` · `openGitWindow` |
+| `web/js/core/app-mobile.js` | `mobileSideSlots`·`mobileOnSide` — 순회의 사이드 자리 |
+| `web/js/core/app-focus.js` | `setFocus` 의 모바일 계기 (사이드를 떠나는 판정) |
 | `web/js/core/app.js` · `app-layout.js` | `ACTIVE_EDITOR_ROOT_KEY` — 활성 Repo 창을 루트로 되살린다 |
 | `web/js/ui/renderer.js` | `_rEditorWin`(모바일 한 자리) · `_rWindowInto`(사이드 오프셋) · 탭의 `×`·draggable |
 | `web/js/git/panel-life.js` | `dropView` — 탭이 닫힐 때 뷰 하나만 놓는다 |

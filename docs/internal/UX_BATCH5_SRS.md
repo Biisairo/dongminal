@@ -186,7 +186,7 @@ $ curl '/api/git/status?repo=<outer>/vendor/inner'          # 서브모듈
 | E6 | 그 창의 History | 워크트리에만 있는 커밋이 보인다 |
 
 `open` → 그 워크트리의 Repo 창은 **이미 검증돼 있었다** — `git-worktrees.spec.ts`
-V151 이 `_edRootOf(_aw())` 로 단정하며 통과 중이다.
+V151 이 `edRootOf(aw())` 로 단정하며 통과 중이다.
 
 **결론:** 워크트리를 저장소로 다루는 경로에 결함이 없다. D-11 대로 **아무것도 고치지
 않는다.** 남는 것은 FR-WTG-2 (진입점의 말) 하나이며, 그 문구(`GIT_WT_ACT_TITLE.open`

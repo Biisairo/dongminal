@@ -115,7 +115,7 @@ web/js/app.js:501-502  Pane·Tab 카운터 seeding
 
 ### 2.4 (iii) 저장 — last-write-wins (본 SRS 비목표)
 
-`_save`(`app.js:1591`)는 `If-Match` 로 낙관적 잠금을 걸지만, 409 를 받으면 ETag 만 새로
+`save`(`app.js:1591`)는 `If-Match` 로 낙관적 잠금을 걸지만, 409 를 받으면 ETag 만 새로
 받아 **자기 상태를 그대로 재PUT** 한다. 머지가 없으므로 동시 편집은 뒤에 쓴 쪽이
 전부 이긴다. (i)(ii)를 고쳐도 사람 둘이 각자 브라우저에서 동시에 탭을 만들면 한쪽이
 유실된다. 오케스트레이터 경로(`dmctl` → `/api/commands` → 브로드캐스트)는 묶음 X 가

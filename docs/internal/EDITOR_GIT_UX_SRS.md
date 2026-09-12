@@ -305,7 +305,7 @@ Monaco 0.56 은 EditContext API 를 쓴다. 포커스를 받는 요소는 textar
 ### 3.6 묶음 K — 키 배분 (FR-EKB)
 
 **FR-EKB-1** 편집기 검색의 키는 **Monaco 안팎 두 자리에** 배선한다 (§2.4).
-편집 중에도 떠야 한다. 판정은 한 벌이다(`_edTrySearchKey`) — 두 벌로 두면
+편집 중에도 떠야 한다. 판정은 한 벌이다(`edTrySearchKey`) — 두 벌로 두면
 설정에서 바꾼 키가 한쪽에만 반영된다.
 
 **FR-EKB-2** 이 조합들은 브라우저 기본 동작을 막는다 (`cmd+p` = 인쇄).
@@ -350,7 +350,7 @@ Shortcuts)를 딛는다. 종전에는 조합이 코드에 박혀 있어 바꿀 �
 (`FileTree.revealPath`).
 
 검색이 방금 알려 준 경로를 사용자가 손으로 다시 펼치게 두지 않기 위해서다. 두
-검색(파일·전체)이 그 요구의 출처이지만 배선은 `_edOpenFile` 한 자리에 둔다 —
+검색(파일·전체)이 그 요구의 출처이지만 배선은 `edOpenFile` 한 자리에 둔다 —
 부름터마다 걸면 git 변경파일·`dmctl open` 이 갈라진다.
 
 ---
@@ -442,5 +442,5 @@ Shortcuts)를 딛는다. 종전에는 조합이 코드에 박혀 있어 바꿀 �
 | FR-DOR-1~6 | `web/js/core/constants.js`, `web/js/git/panel.js` |
 | FR-EQO-1~6 · FR-EGS-1~9 | `internal/webserver/httpapi/handlers_fs_search.go`, `handlers_api.go` |
 | FR-EQO-7·8 · FR-EGS-10 · FR-EKB-1~4 | `web/js/ui/file-editor.js`, `web/js/core/app-editor.js` |
-| FR-EKB-5 | `web/js/core/helpers.js`(`Mod`·기본값), `web/js/core/app-edsearch.js`(`_edTrySearchKey`), `web/js/core/app-settings.js`(목록) |
-| FR-EKB-6 | `web/js/ui/file-tree.js`(`revealPath`), `web/js/core/app-editor.js`(`_edOpenFile`) |
+| FR-EKB-5 | `web/js/core/helpers.js`(`Mod`·기본값), `web/js/core/app-edsearch.js`(`edTrySearchKey`), `web/js/core/app-settings.js`(목록) |
+| FR-EKB-6 | `web/js/ui/file-tree.js`(`revealPath`), `web/js/core/app-editor.js`(`edOpenFile`) |

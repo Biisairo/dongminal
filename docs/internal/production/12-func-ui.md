@@ -34,16 +34,16 @@
 - 기대 동작: 열 때 받은 mtime/해시를 저장 시 함께 보내고 서버가 다르면 409 → 편집기가 "디스크가 바뀌었습니다: 덮어쓰기 / 다시 읽기 / 비교" 를 묻는다. 워크스페이스 저장은 이미 같은 규약(ETag/If-Match, `app.js:388`)을 갖고 있다.
 - 재현: 브라우저 A·B 에서 같은 파일 열기 → A 에서 1행 고쳐 저장 → B 에서 5행 고쳐 저장 → A 의 변경이 사라진다. 또는 편집 중 터미널에서 `git checkout other-branch` → 저장 → 체크아웃된 내용이 편집 전 버퍼로 덮인다.
 - 영향: README 가 명시한 사용 시나리오("노트북에서도 아이패드에서도 같은 터미널", 에이전트 다중 실행)에서 정확히 발생한다. 서버 `WriteFileAtomic` 이 "원자적" 이라 부분 손상은 없지만 **어느 쪽이 이겼는지 아무도 모른다.**
-- 조치: `/api/file/read` 응답에 `X-File-Mtime`(또는 ETag)을 싣고 `_fetchFile` 이 문서에 보관 → `save()` 가 `ifMtime` 을 보냄 → 서버 409 → 편집기 `_confirmClose` 골격으로 3지선다. `EdDirtyDiff` 의 `_gitSignal` 훅(`app-editor.js:1153`)이 이미 "저장소가 바뀌었다" 를 받으므로 그 자리에서 mtime 재조회를 걸면 감지도 싸다.
+- 조치: `/api/file/read` 응답에 `X-File-Mtime`(또는 ETag)을 싣고 `_fetchFile` 이 문서에 보관 → `save()` 가 `ifMtime` 을 보냄 → 서버 409 → 편집기 `_confirmClose` 골격으로 3지선다. `EdDirtyDiff` 의 `gitSignal` 훅(`app-editor.js:1153`)이 이미 "저장소가 바뀌었다" 를 받으므로 그 자리에서 mtime 재조회를 걸면 감지도 싸다.
 - 규모: M (서버 S + 클라이언트 S/M)
 
 ### [P1] FUI-03 새 판 자동 새로고침이 미저장 편집을 묻지 않고 버린다
 - 위치: `web/js/ui/version-watch.js:59-72` (`reload()` — `__dmReloading=true` 뒤 `location.reload()`), `web/js/core/main.js:151-155` (`beforeunload` 가드는 `__dmReloading` 이면 물러난다), `web/js/core/app-backup.js:187-193` (같은 경로)
-- 현재 동작: 서버가 새 자산 판으로 재기동되면(`server_hello`) 열린 편집기의 dirty 여부와 무관하게 즉시 새로고침한다. `_edAnyDirty()`(`app-editor.js:302`)는 이 경로에서 읽히지 않는다.
+- 현재 동작: 서버가 새 자산 판으로 재기동되면(`server_hello`) 열린 편집기의 dirty 여부와 무관하게 즉시 새로고침한다. `edAnyDirty()`(`app-editor.js:302`)는 이 경로에서 읽히지 않는다.
 - 기대 동작과 근거: `RELOAD_CONTINUITY_SRS` FR-RLC-5a 와 `features.md:245` 가 "자동 새로고침은 묻지 않는다" 를 **세션 연결**에 대해 근거 짓는다("연결만 잃는다. 세션은 서버에 남는다"). 미저장 편집은 그 근거의 범위 밖이다 — 서버에 남지 않는다. 문서화된 결정이지만 그 결정이 다루지 않은 손실이므로 결함으로 분류한다.
 - 재현: 파일 편집(저장 안 함) → 서버를 새 빌드로 `dongminal start`(자산 판 변경) → 화면이 스스로 다시 열리고 편집이 사라진다. 개발 중인 사용자에게 흔한 순서다.
 - 영향: 데이터 손실. `softReload` 는 "가진 것을 버리지 않는다" 를 원칙으로 세웠는데(`app-reload.js:6-9`) 그 옆의 하드 리로드는 예외 없이 버린다.
-- 조치: `reload()` 앞에 `app._edAnyDirty()` 검사 → dirty 면 하단 배너("새 판이 있습니다 — 저장하지 않은 편집 N개. 저장 후 다시 열기 / 지금 다시 열기")로 물러난다. 사용자가 보고 있지 않으면 자동 갱신이 멎는다는 우려는 dirty 가 없을 때만 자동으로 두면 해소된다.
+- 조치: `reload()` 앞에 `app.edAnyDirty()` 검사 → dirty 면 하단 배너("새 판이 있습니다 — 저장하지 않은 편집 N개. 저장 후 다시 열기 / 지금 다시 열기")로 물러난다. 사용자가 보고 있지 않으면 자동 갱신이 멎는다는 우려는 dirty 가 없을 때만 자동으로 두면 해소된다.
 - 규모: S
 
 ### [P1] FUI-04 Run 을 UI 에서 중단·정리할 길이 없다 — 유일한 출구가 기록까지 지우는 "삭제"
@@ -91,9 +91,9 @@
 
 **FUI-17 터미널 본문 컨텍스트 메뉴가 없다** — `term-pane.js` 에 `contextmenu` 리스너 0건. 복사·붙여넣기(원격 http 에서 `navigator.clipboard` 부재 시 유일한 마우스 경로)·선택 검색·탭 이름 바꾸기·화면 지우기가 마우스로 닿지 않는다. 탐색기·git·(FUI-08 이후) 탭과의 비대칭. S/M
 
-**FUI-18 탭·창 이름 변경에 길이 상한이 없다** — 생성 시에는 `.slice(0,64)`(`app-layout.js:132,403,455,503`) 인데 `_renameTab`(`:76-77`)·`_rename`(`app.js:568-575`)은 자르지 않는다. 수천 자를 넣으면 워크스페이스 JSON 과 사이드바 폭이 그대로 받는다. 조치: 두 곳에 같은 상한. S
+**FUI-18 탭·창 이름 변경에 길이 상한이 없다** — 생성 시에는 `.slice(0,64)`(`app-layout.js:132,403,455,503`) 인데 `renameTab`(`:76-77`)·`rename`(`app.js:568-575`)은 자르지 않는다. 수천 자를 넣으면 워크스페이스 JSON 과 사이드바 폭이 그대로 받는다. 조치: 두 곳에 같은 상한. S
 
-**FUI-19 슬롯 간 탭 드래그가 표식은 뜨고 드롭은 조용히 무시된다** — `renderer.js:1030-1053` `dragover` 가 드롭 표식을 그리지만 `drop` → `_moveTabToPane`(`app-dnd.js:15-33`)이 `this._aw()`(포커스 슬롯의 창)에서만 pane 을 찾아 다른 슬롯의 창이면 `return`. `_splitPaneWithTab` 도 같다. 재현: 슬롯 2개에 서로 다른 창 → 왼쪽 탭을 오른쪽 pane 본문으로 끌기 → 표식 표시 → 놓으면 아무 일도 없음. 조치: pane 요소의 `_ctx.slot` 로 대상 창을 구해 `_moveTabToWindow` 규약으로 넘기거나, 다른 슬롯이면 `dropEffect='none'` 으로 표식을 끈다. S/M
+**FUI-19 슬롯 간 탭 드래그가 표식은 뜨고 드롭은 조용히 무시된다** — `renderer.js:1030-1053` `dragover` 가 드롭 표식을 그리지만 `drop` → `moveTabToPane`(`app-dnd.js:15-33`)이 `this.aw()`(포커스 슬롯의 창)에서만 pane 을 찾아 다른 슬롯의 창이면 `return`. `splitPaneWithTab` 도 같다. 재현: 슬롯 2개에 서로 다른 창 → 왼쪽 탭을 오른쪽 pane 본문으로 끌기 → 표식 표시 → 놓으면 아무 일도 없음. 조치: pane 요소의 `_ctx.slot` 로 대상 창을 구해 `moveTabToWindow` 규약으로 넘기거나, 다른 슬롯이면 `dropEffect='none'` 으로 표식을 끈다. S/M
 
 ### D. Runs · 에이전트 · 백그라운드 · 알림 (4)
 

@@ -358,7 +358,7 @@ syscall.Sysctl("hw.memsize")      // little-endian uint64 파싱
 | **새 동작** | tick 차분이 성립하는 첫 주기 이전에는 `cpu` 키가 생략될 수 있다 |
 | **이유** | CPU% 는 누적 tick 의 차분으로만 얻을 수 있다. 단일 시점 tick 에는 순간 사용률 정보가 없다 |
 
-클라이언트 `_updateStatusBar`(`app.js:2313`)는 이미 `this._stats.cpu!==undefined` 를
+클라이언트 `updateStatusBar`(`app.js:2313`)는 이미 `this._stats.cpu!==undefined` 를
 검사하므로 키 생략을 견딘다. 프론트 변경은 필요하지 않다.
 
 ---

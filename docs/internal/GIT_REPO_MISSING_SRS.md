@@ -149,7 +149,7 @@ git 바이너리가 사라진 경우와 섞일 수 있고, 그것은 이미 `Err
 | **FR-RMS-6** | `_applyError` 는 `repo_missing` 전용 분기를 갖는다. 소실 상태로 들어가고, `_status` 를 비운다 — **사라진 폴더의 파일 목록을 보이지 않는다.** |
 | **FR-RMS-7** | 소실 상태는 **활성 리포를 해제하지 않는다** (`setRepo(null)` 를 부르지 않는다). 사용자가 보던 리포가 무엇인지 잃지 않고, 복구가 자동으로 일어날 수 있어야 한다. `not_a_git_repo` 와 갈리는 지점이다. |
 | **FR-RMS-8** | Changes 탭은 소실 안내와 함께 **리포 이름을 실은 머리**를 세운다 — 어느 리포의 이야기인지가 사라지면 안 된다. 브랜치·배지는 싣지 않는다: 그것은 사라진 폴더의 값이라 지금 참인지 알 수 없다. 안내는 넷을 싣는다 — ① 사라졌다는 문장 ② **저장소의 절대경로** ③ 사유 코드(`repo_missing`) ④ 다시 확인 중이라는 사실과 그 주기. |
-| **FR-RMS-9** | 안내에는 진입점 둘이 있다 — **`핀 제거`** 와 **`다시 확인`**. `핀 제거` 는 기존 `_gitUnpin` 을 지난다(새 경로를 만들지 않는다). `다시 확인` 은 기존 `refresh()` 를 지난다. |
+| **FR-RMS-9** | 안내에는 진입점 둘이 있다 — **`핀 제거`** 와 **`다시 확인`**. `핀 제거` 는 기존 `gitUnpin` 을 지난다(새 경로를 만들지 않는다). `다시 확인` 은 기존 `refresh()` 를 지난다. |
 | **FR-RMS-10** | `핀 제거` 는 **핀되지 않은 리포에서는 보이지 않는다.** 없는 핀을 지우는 버튼은 거짓말이다. 핀이 바깥에서 바뀌면 버튼이 따라온다 (`notifyPins`, FR-RPT-8). **그 절반은 화면으로 만들 수 없게 됐다** — REPO_TAB_UNIFY_SRS D-RTU-28: Repo 창이 서는 근거가 `editors.list` 이고 그 목록에 든 저장소 루트는 `LinkEditorAdd` 가 핀까지 만든다 (FR-EDT-33). 즉 "창은 있는데 핀은 없는 저장소" 라는 상태가 없다. 규칙은 남고 e2e 만 그 절반을 놓았다 (`git-repo-missing` M5). |
 | **FR-RMS-10a** | `핀 제거` 뒤에는 활성 리포를 놓는다(`setRepo(null)`). 사라진 폴더의 핀까지 없앤 사용자에게 그 화면을 계속 보일 이유가 없고, 돌아갈 곳은 "리포를 선택하세요" 다. |
 | **FR-RMS-11** | 복구되면 안내가 사라지고 목록이 돌아온다. 사용자의 개입을 요구하지 않는다. |
@@ -251,7 +251,7 @@ git 바이너리가 사라진 경우와 섞일 수 있고, 그것은 이미 `Err
 | FR-RMS-4·5 | V-RMS-1·2·3 | `gitapi/handlers_git.go` (`gitErrorCode`) |
 | FR-RMS-6·7 | V-RMS-4·12 | `git/panel.js` (`_applyError`) |
 | FR-RMS-8·12 | V-RMS-4·5 | `git/panel.js` (`_renderChanges` 의 목록 자리) |
-| FR-RMS-9·10·10a | V-RMS-6·7 | `git/panel.js` (`_missingBlock`·`_missingUnpin`·`notifyPins`) + `core/app-git.js` (`_gitUnpin`) |
+| FR-RMS-9·10·10a | V-RMS-6·7 | `git/panel.js` (`_missingBlock`·`_missingUnpin`·`notifyPins`) + `core/app-git.js` (`gitUnpin`) |
 | FR-RMS-11 | V-RMS-8 | `git/panel.js` (`_applyStatus` 의 복구 경로) |
 | FR-RMS-13~16 | V-RMS-9·10 | `git/panel.js` (`_reschedule`) · `core/constants.js` |
 | FR-RMS-17·18 | V-RMS-11 | `ui/renderer.js` (`_rGitRepo`) · `core/constants.js` |

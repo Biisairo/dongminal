@@ -7,7 +7,7 @@
 > | 개정된 것 | 어떻게 | 어디서 |
 > |---|---|---|
 > | FR-GOB-5·9 (관측은 **Git 탭을 보고 있는 동안**) | 그 탭은 `Repo` 다 (id `repo`). 판정이 옛 문자열 `'git'` 을 보고 있어 **배지가 영영 서지 않았다** — 실측한 결함이다 | REPO_TAB_UNIFY_SRS FR-RTU-1·6 / D-RTU-26 |
-> | FR-GOB-13 (탭 헤더 배지는 없다) | 그대로다. 행마다 붙는 배지는 `Repo` 행이 `_gitBadgeFor` 로 읽는다 | REPO_TAB_UNIFY_SRS FR-RTU-6 |
+> | FR-GOB-13 (탭 헤더 배지는 없다) | 그대로다. 행마다 붙는 배지는 `Repo` 행이 `gitBadgeFor` 로 읽는다 | REPO_TAB_UNIFY_SRS FR-RTU-6 |
 
 ## 1. 개요 (Introduction)
 
@@ -83,7 +83,7 @@
 | A6 | `_attnRestore` 는 **병합만** 한다 — 서버에 없는 id 를 지우지 않는다 | `app-attn.js:40` |
 | A7 | 바로 옆 `_fgApply` 는 "목록에 없는 도구의 이름은 지운다"고 **명시적으로** 정리한다 | `app-cmd.js:147` |
 | A8 | `_attnRestore` 는 `_attnRefresh` 만 부른다 — `_attnClearFocused` 를 부르지 않는다 | `app-attn.js:40-47` |
-| A9 | `_jumpToTool` 은 탭 위치를 못 찾으면 **조용히 return** 한다 | `app-attn.js:113` |
+| A9 | `jumpToTool` 은 탭 위치를 못 찾으면 **조용히 return** 한다 | `app-attn.js:113` |
 | A10 | 알림 항목 이름은 `_toolName(toolId,toolId)` — 죽은 도구는 파생 이름이 없어 **raw UUID** 로 보인다 | `app-attn.js:185`, `helpers.js:345` |
 | A11 | `gitBadge` 는 `Store.Observed` 만 읽는다. 이 경로는 `git status` 를 실행하지 않는다 | `gitapi/handlers_git.go:173` |
 | A12 | 관측을 만드는 유일한 폴링은 **활성 리포 하나**로 게이팅된다 | `git/panel.js:2194 _pollOk` |
@@ -141,7 +141,7 @@ A6 이 그것을 영구화한다. 화면을 새로 고쳐도 서버가 유령 id
 |---|---|
 | **FR-ATJ-1** | 탭이 없는 도구의 알람 항목을 클릭하면, 그 도구가 백그라운드 목록에 있을 때 **복귀시킨다** (`_restoreTool` — FR-BGR-5 의 경로를 그대로 쓴다) |
 | **FR-ATJ-2** | 백그라운드 목록에도 없으면 그 알람을 **해제**한다. 클릭이 아무 일도 하지 않는 경우는 없다 |
-| **FR-ATJ-3** | FR-ATJ-1·2 의 판정은 `_jumpToTool` 한 자리에 둔다 — 알림 센터와 활동 카드가 같은 함수를 부르므로 두 벌로 만들지 않는다 |
+| **FR-ATJ-3** | FR-ATJ-1·2 의 판정은 `jumpToTool` 한 자리에 둔다 — 알림 센터와 활동 카드가 같은 함수를 부르므로 두 벌로 만들지 않는다 |
 
 ### 3.3 묶음 O — 핀 리포 전체 관측
 
@@ -160,7 +160,7 @@ A6 이 그것을 영구화한다. 화면을 새로 고쳐도 서버가 유령 id
 
 | ID | 요구사항 |
 |---|---|
-| **FR-GOB-7** | `_gitReposRefresh` 는 관측 여부를 인자로 받지 않는다. **Git 탭이 활성인지**를 스스로 보고 정한다 — 조건이 두 자리에 흩어지면 한쪽이 낡는다 |
+| **FR-GOB-7** | `gitReposRefresh` 는 관측 여부를 인자로 받지 않는다. **Git 탭이 활성인지**를 스스로 보고 정한다 — 조건이 두 자리에 흩어지면 한쪽이 낡는다 |
 | **FR-GOB-8** | 관측 조건은 셋이 전부 참일 때다: ① 사이드바의 활성 탭이 `git` ② `document.hidden` 이 거짓 ③ `_gitOff` 가 거짓 |
 | **FR-GOB-9** | Git 탭을 활성화하는 순간 **즉시 1회** 관측 갱신이 돈다. 다음 폴링 주기를 기다리지 않는다 |
 | **FR-GOB-10** | 이후 `GIT_REPOS_POLL_MS` 주기의 목록 폴링이 관측 갱신을 겸한다 — 별도 타이머를 만들지 않는다 |

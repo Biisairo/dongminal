@@ -96,7 +96,7 @@
   "타이머가 조용히 걷힌" 것 둘 다 되살린다. 주기 0 은 "요청을 주기적으로 내지 않는다"이지
   "한 번도 관측하지 않는다"가 아니다.
 - **재현 조건**: `PUT /api/settings {"gitStatusInterval":0}` → 저장소를 연다 → 패널이 만들어지는
-  시점(`_gitPanel`:125 의 `_reschedule`)에 그 표면이 아직 화면에 없으면(`_pollOk` 거짓 → `_stop()`)
+  시점(`gitPanel`:125 의 `_reschedule`)에 그 표면이 아직 화면에 없으면(`_pollOk` 거짓 → `_stop()`)
   이후 포커스 이벤트가 오기 전까지 status 가 **0건**이다.
 - **사용자 영향**: e2e `git-polling` **P4** 의 확정 원인 (아래 §5 매핑). 사용자에게는 "안전망을 껐더니
   Changes 가 영영 '불러오는 중'".
@@ -130,7 +130,7 @@
   그것을 **그리는 요소는 Changes 골격 안에만 있다.** History·Branches·Stash·Console·Worktrees·
   Submodules·Diff 탭을 보고 있는 동안 망 실패·서버 재시작·권한 상실이 나면 화면은
   **마지막으로 성공한 목록을 아무 표시 없이 계속 보인다.**
-  상태바 chip(`_updateStatusBar`)에도 stale 표시가 없다.
+  상태바 chip(`updateStatusBar`)에도 stale 표시가 없다.
 - **기대 동작**: `GIT_REPO_MISSING_SRS` 의 소실 안내는 `_render` 한 자리에서 **모든 탭**에 걸리도록
   설계돼 있다(panel-life.js `_renderMissing`). 실패/낡음은 같은 대우를 받지 못한다.
 - **재현 조건**: Repo 창 → History 탭 → 서버를 죽인다(`dmctl stop`) → 30초 이상 둔다 →
@@ -175,7 +175,7 @@
     `click` 이 아예 만들어지지 않는다 (`:641` 새로고침, `:670` 진입점 6개)
   스크롤만은 `_keepScrollAll`/`_restoreScroll`(`:180-210`)이 지킨다 — **대비가 스크롤 하나뿐이다.**
 - **폴링과의 관계 (중요)**: git 관측은 `render()` 를 부르지 않는다 —
-  `_applyStatus` → `_gitReposRefresh` → `_rGitSection()`(=`_rLists`+`_rTopbar`)뿐이다
+  `_applyStatus` → `gitReposRefresh` → `_rGitSection()`(=`_rLists`+`_rTopbar`)뿐이다
   (`app-git.js:610-614`, "전체 render() 를 부르지 않는다"). 따라서 **이 결함은 폴링이 아니라
   render 계기(SSE `workspace_changed`, 창/탭/레이아웃 조작)에 걸린다.**
 - **재현 조건**: Repo 창의 커밋 메시지 칸에 타이핑 중, 다른 브라우저 창(또는 `dmctl`)에서
@@ -417,7 +417,7 @@
 | 4 | `git-commit-actions` D1 | `.git-view.vis` 15초 미발견 | **뷰/탭 유실.** `_onWorkspaceChanged` 가 서버 레이아웃을 채택하면 방금 연 git 뷰 탭이 사라진다 | `app-cmd.js:306-330`, `app.js:531-556`, `fixtures.ts:270-273` | **제품** |
 | 5 | `git-branch-actions` BR11 | `.git-view.vis` 없음, 15초 | 4번과 동일 | 동일 | **제품** |
 | 6 | `repo-tab` X4 | `.git-file[data-path]` 없음, 20초 | 4번과 동일 (사이드가 Changes 로 서지 않음) + GP-6 (`_rSide` 재생성) | `renderer.js:609,646-655` | **제품** |
-| 7 | `git-head-mobile` V10-13 | 탭 수 `7 → 1` | 4번과 동일. `waitForTimeout(800)` 부족은 **증상이지 원인이 아니다** | `app-cmd.js:306`, `openView`→`addTab`→디바운스 `_save` | **제품** |
+| 7 | `git-head-mobile` V10-13 | 탭 수 `7 → 1` | 4번과 동일. `waitForTimeout(800)` 부족은 **증상이지 원인이 아니다** | `app-cmd.js:306`, `openView`→`addTab`→디바운스 `save` | **제품** |
 | 8 | `git-branches` B6 | 행 개수 0 (≥2 기대), 20초 | **제품 결함.** `paint()` → `panel.repo!==this._repo` → `_adopt()` → `reset()` 이 `_refs=[]` 로 비우고, `if(!this._repo) return` 이면 **다시 받지 않는다.** 그 뒤 관측이 같으면 `_obsSig` 가드로 `paintAll` 도 오지 않아 빈 목록이 굳는다 | `branches.js:118-120,145-152,28-38` | **제품** |
 | 9 | `git-history` H15 | `.git-hist-loaded` 없음, 20초 | **미확정.** `.git-hist-loaded` 도 `mount()` 전용 요소(`history.js:146`)이므로 3번과 같은 뷰 유실 가족일 가능성이 높으나, GP-5(무응답 fetch 잠금)로도 설명된다. 둘을 가르려면 실패 트레이스의 `/api/git/log` 요청 유무를 봐야 한다 | `history.js:146,928` | **미확정** |
 
@@ -652,7 +652,7 @@ GP-12(숨은 탭이 방송에 반응) · GP-13(백오프 무효) · GP-15(status
    실제 계기인지는 코드상 가능하나 실행으로 확인하지 못했다.
 3. **GP-17(빈 저장소)·GP-3(git_missing)·GP-5(무응답 fetch)** 는 코드 경로로 확정했으나
    런타임 재현은 하지 않았다.
-4. **모바일 경로**(`_mobileOnSide`, `app-mobile.js`)에서 사이드/본문이 한 번에 하나만 서는 모양의
-   `_pollOk` 판정 — 표면이 화면에 없는 동안 `_gitSurfaceOn` 이 참을 유지하는지 확인하지 않았다.
+4. **모바일 경로**(`mobileOnSide`, `app-mobile.js`)에서 사이드/본문이 한 번에 하나만 서는 모양의
+   `_pollOk` 판정 — 표면이 화면에 없는 동안 `gitSurfaceOn` 이 참을 유지하는지 확인하지 않았다.
 5. **`GIT_HIST_LAYOUT_FRAMES=60`** 상한 이후의 복구 경로 — 60프레임 안에 높이가 서지 않는
    화면에서 무엇이 다시 부르는지 추적하지 않았다.

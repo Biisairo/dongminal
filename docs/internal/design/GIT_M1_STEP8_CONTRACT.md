@@ -8,7 +8,7 @@ GIT_SRS.md §3.7 이다. 검증은 V27(신규)·V14.
 | 파일 | 변경 |
 |---|---|
 | `web/js/helpers.js` | `STATUS_ITEMS` 에 `git` 항목 추가 |
-| `web/js/app.js` | `_updateStatusBar` 에 chip 렌더 |
+| `web/js/app.js` | `updateStatusBar` 에 chip 렌더 |
 | `web/style.css` | `.sb-git` 스타일 |
 | `e2e/git-statusbar.spec.ts` | **신규** — V27 |
 
@@ -26,7 +26,7 @@ GIT_SRS.md §3.7 이다. 검증은 V27(신규)·V14.
 git:{label:'Git (브랜치·변경 수)',def:true},
 ```
 
-`_updateStatusBar()` 에서, `statusBar.git` 이 참이고 `this.gitPanel` 의 마지막
+`updateStatusBar()` 에서, `statusBar.git` 이 참이고 `this.gitPanel` 의 마지막
 관측이 있을 때만 항목을 넣는다.
 
 표기는 `GIT_SURFACE_MAP.md` S6 를 따른다:
@@ -44,13 +44,13 @@ git:{label:'Git (브랜치·변경 수)',def:true},
 - detached 면 `.sb-git-detached` 로 구분한다.
 - **리포가 없거나 마지막 관측이 없으면 항목을 넣지 않는다** (FR-GIT-59).
   빈 chip 이나 `-` 를 보이지 않는다.
-- 클릭 리스너는 `_initStatusBar` 에서 **한 번만** 붙인다 — `_updateStatusBar` 는
+- 클릭 리스너는 `initStatusBar` 에서 **한 번만** 붙인다 — `updateStatusBar` 는
   `innerHTML` 을 갈아치우므로 그 안에서 붙이면 누적된다.
   기존 `sb-bg-btn` 이 같은 이유로 정적 요소인 것과 같은 규약이다 (FR-BGU-4).
   chip 은 동적으로 생기므로 `#sb-items` 에 위임(delegation)으로 붙인다.
 - 클릭 → `app.openGitWindow()` (리포 인자 없음 — 현재 활성 리포를 유지한다).
 
-`GitPanel` 은 상태를 새로 관측할 때마다 `app._updateStatusBar()` 를 부른다.
+`GitPanel` 은 상태를 새로 관측할 때마다 `app.updateStatusBar()` 를 부른다.
 활성 리포가 없어지면 마지막 관측을 버려 chip 이 사라지게 한다.
 
 ## 3. e2e (`e2e/git-statusbar.spec.ts`)

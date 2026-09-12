@@ -137,7 +137,7 @@ for(const p of this.app.tools.values()) if(p.el.classList.contains('vis')) p.doF
 **FR-SBC-9** 접힘 판정은 드래그 **중에** 실시간으로 바뀐다. 한 손짓 안에서 접었다
 다시 펼 수 있다.
 
-**FR-SBC-10** 접힘 전이는 `_setSidebarCollapsed` 한 자리를 지난다 — 클래스·저장·
+**FR-SBC-10** 접힘 전이는 `setSidebarCollapsed` 한 자리를 지난다 — 클래스·저장·
 터미널 재적합이 거기 묶여 있고, 두 벌로 두면 한쪽만 고쳐진다.
 
 **FR-SBC-11** (개정 2026-09-08) 레일에 남는 것은 **탭 아이콘** · **활성 탭의

@@ -14,7 +14,7 @@ GIT_SRS.md §3.3·§3.5 의 클라이언트 절반이다. 검증은 V5·V6·V9·
 | `web/js/git-panel.js` | Changes view 구성 + 감지 3계층 |
 | `web/js/constants.js` | 폴링 주기·상한 상수 |
 | `web/js/term-pane.js` | `_onCwd` 에 즉시 신호 훅 1줄 |
-| `web/js/app.js` | `_gitSignal` (즉시 신호 진입점), 파일 저장 훅 |
+| `web/js/app.js` | `gitSignal` (즉시 신호 진입점), 파일 저장 훅 |
 | `web/style.css` | `/* ── Git 창 ── */` 구획 |
 | `e2e/git-changes.spec.ts` | **신규** — V22·V23·V24 |
 | `e2e/git-polling.spec.ts` | **신규** — V6·V18 |
@@ -148,16 +148,16 @@ signature 를 갱신한다 — 직후 signature 폴링이 헛되이 변화를 �
 
 | 신호 | 배선 |
 |---|---|
-| 터미널 `precmd` | `term-pane.js` 의 `_onCwd(cwd)` 끝에 `if(app)app._gitSignal('cwd')` |
+| 터미널 `precmd` | `term-pane.js` 의 `_onCwd(cwd)` 끝에 `if(app)app.gitSignal('cwd')` |
 | 에이전트 hook | `precmd` 와 같은 OSC 경로를 타므로 위와 동일 |
-| 파일 저장 | `POST /api/file/write` 를 부르는 클라이언트 코드(내장 편집기 저장)에 `app._gitSignal('write')` |
+| 파일 저장 | `POST /api/file/write` 를 부르는 클라이언트 코드(내장 편집기 저장)에 `app.gitSignal('write')` |
 | 브라우저 가시성·포커스 복귀 | `visibilitychange`(→ 보이게 됨)·`window.focus` |
 
 ```js
 // app.js
-// _gitSignal 은 즉시 신호의 단일 진입점이다. 어디서 왔는지는 라벨로만 남기고
+// gitSignal 은 즉시 신호의 단일 진입점이다. 어디서 왔는지는 라벨로만 남기고
 // 처리는 GitPanel 이 한다 — 디바운스와 게이팅이 한 곳에 있어야 한다.
-_gitSignal(kind){ if(this.gitPanel) this.gitPanel.signal(kind) }
+gitSignal(kind){ if(this.gitPanel) this.gitPanel.signal(kind) }
 ```
 
 `GitPanel.signal(kind)`:
@@ -197,9 +197,9 @@ Git 창을 보지 않을 때도 딛는 값이고, 즉시 신호는 사용자 행
 
 폴링·수집은 **활성 리포에만** 한다. 핀된 다른 리포에 대해 `collect()`·`signature()`
 를 부르는 코드 경로가 있어서는 안 된다. 다른 리포의 배지는
-`app._gitReposRefresh()` 가 서버의 마지막 관측값을 받아 그린다 (4단계).
+`app.gitReposRefresh()` 가 서버의 마지막 관측값을 받아 그린다 (4단계).
 
-`collect()` 성공 후 `app._gitReposRefresh()` 를 부른다 — 활성 리포의 배지가
+`collect()` 성공 후 `app.gitReposRefresh()` 를 부른다 — 활성 리포의 배지가
 따라 갱신된다.
 
 ### 3.6 stale 가드 (FR-GIT-16, 검증 V4)

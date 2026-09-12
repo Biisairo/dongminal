@@ -54,7 +54,7 @@ RECONNECT_STORM_SRS 가 닫은 창은 **없는 도구를 향한** 재접속이�
 | **순차** 재연결 (12ms 간격, 10개) | 배열을 도는 루프가 하나씩 다시 만들었다 |
 
 12ms 간격의 순차 생성은 `_applyRemoteWorkspace` 의
-`for(const id of ok){ if(!this.tools.has(id)) this._mkTool(...) }` 와 모양이 같다.
+`for(const id of ok){ if(!this.tools.has(id)) this.mkTool(...) }` 와 모양이 같다.
 서버 로그에 `readWS error` 도 `output relay stopped` 도 없다 — **서버가 닫은 것이
 아니다.**
 
@@ -90,7 +90,7 @@ for(const [id,p] of Array.from(this.tools.entries())){
   if(!ok.has(id)){ p.destroy(); this.tools.delete(id) } // ← 전부 파괴
 }
 for(const s of sv.windows){ s.layout=clean(s.layout, ok) }  // ← 레이아웃도 전부 지움
-sv.windows=sv.windows.filter(s=>s&&(s.layout||this._isEditorWin(s)));
+sv.windows=sv.windows.filter(s=>s&&(s.layout||this.isEditorWin(s)));
 ```
 
 세 줄이 차례로 **살아 있는 도구 전부**, **그것을 담은 pane**, **pane 이 없어진 창**을
@@ -127,7 +127,7 @@ for(const [id,p] of Array.from(this.tools.entries())){
 }
 ```
 
-`this.tools` 의 키는 `_slotKey(id,slot)` 이다 (`app-slots.js:39`) — 칸 0 은 `id` 그대로,
+`this.tools` 의 키는 `slotKey(id,slot)` 이다 (`app-slots.js:39`) — 칸 0 은 `id` 그대로,
 칸 1 이상은 `id@1`. 위 루프는 그 복합 키를 **순수 `toolId` 집합과 직접 비교**하므로,
 칸 1 이상의 인스턴스는 살아 있어도 `ok` 에 없다. 즉 **`workspace_changed` 가 올 때마다
 슬롯 도구가 파괴되고 다음 `render()` 가 다시 만든다** (`renderer.js:451` `_mountTabBody`).
@@ -137,12 +137,12 @@ for(const [id,p] of Array.from(this.tools.entries())){
 ```js
 for(const [k,p] of [...this.tools]){
   const i=this._slotOf(k); if(!i) continue;
-  if(keepTools.get(i)?.has(this._slotBase(k))) continue;
+  if(keepTools.get(i)?.has(this.slotBase(k))) continue;
   …
 }
 ```
 
-`_slotBase` 의 주석이 이 결함의 이름을 이미 적어 두었다 — *"렌더러의 편집기 회수가 자기
+`slotBase` 의 주석이 이 결함의 이름을 이미 적어 두었다 — *"렌더러의 편집기 회수가 자기
 손으로 `@1` 만 잘라 내다가 칸 2·3 의 편집기를 매 render 마다 파괴했다 (FR-SVS-60)."*
 같은 실수가 도구 청소에 한 번 더 있다.
 
@@ -196,10 +196,10 @@ for(const [k,p] of [...this.tools]){
 
 ### 3.3 묶음 M — 슬롯 키 (FR-TLU)
 
-**FR-TLU-10** 죽은 도구 청소는 Map 의 키가 아니라 **`_slotBase(key)`** 를 서버 목록과
+**FR-TLU-10** 죽은 도구 청소는 Map 의 키가 아니라 **`slotBase(key)`** 를 서버 목록과
 비교한다. 칸 1 이상의 살아 있는 인스턴스는 파괴되지 않는다.
 
-**FR-TLU-11** 알람 해제(`_attnDrop`)에 넘기는 것도 `_slotBase(key)` 다 — 알람은 도구의
+**FR-TLU-11** 알람 해제(`_attnDrop`)에 넘기는 것도 `slotBase(key)` 다 — 알람은 도구의
 것이지 칸의 것이 아니다.
 
 **FR-TLU-12** 칸이 사라져 인스턴스를 회수하는 일은 여전히 `_slotReap` 의 것이다

@@ -268,7 +268,7 @@
 | C2.3 | `_doFlush` — 777 escape 파싱 | Download, Cwd, OpenCodeServer, CodeServerList |
 | C2.4 | `_doFlush` — escape 제거 후 term.write | clean 텍스트 |
 | C2.5 | `_doFlush` — term 없으면 _buf에 누적 | |
-| C2.6 | `_onCwd` — app._cwd 갱신 및 상태바 업데이트 | |
+| C2.6 | `_onCwd` — app.cwd 갱신 및 상태바 업데이트 | |
 | C2.7 | `_downloadFile` — anchor 클릭 트리거 | download 속성; 터미널에 로그 |
 | C2.9 | `_listCodeServers` — 터미널에 테이블 렌더링 | 빈 목록; 코드서버 링크 클릭 가능 |
 | C2.10 | `_uploadFiles` — FormData POST /api/upload | cwd 기반 dir; 성공/실패 터미널 출력; **`source!=='tool'` 이면 올리지 않는다**; **끝나도 엔터를 보내지 않는다** (FR-FTR-10·11) |
@@ -329,7 +329,7 @@
 | C8.1 | 연결 상태 표시 | WS onopen/onclose 기반 |
 | C8.2 | 레이턴시 측정 | 주기적 ping 또는 API 응답 시간 |
 | C8.3 | 위치(MCP id) 표시 | 현재 활성 분할 칸의 label |
-| C8.4 | CWD 표시 | 도구의 _cwd |
+| C8.4 | CWD 표시 | 도구의 cwd |
 | C8.5 | 메모리 사용량 | /api/stats의 memUsed |
 | C8.6 | 호스트명 | /api/stats의 hostname |
 | C8.7 | CPU | /api/stats의 cpu |
@@ -407,21 +407,21 @@ Safari 의 스크롤 휴리스틱은 실기기로만 확인된다. 화면이 미
 | # | 동작 | 업데이트 되어야 할 대상 | 엣지/실패 케이스 |
 |---|------|------------------------|------------------|
 | C13.1 | `_mkWindow` (새 창) | `activeWindow` = 새 창, `focused` = 새 분할 칸, **(버그) `window.focusedPane` 미설정**, DOM `.pn.focused`, 상태바 갱신 | 창 0개 상태에서 생성; render 호출 |
-| C13.2 | `addTab` (새 탭, terminal) | `pane.activeTab` = 새 탭, `focused` 유지(같은 분할 칸), 도구 생성 및 연결, `_save` | 분할 칸 없음; 참조 도구 CWD 상속 |
+| C13.2 | `addTab` (새 탭, terminal) | `pane.activeTab` = 새 탭, `focused` 유지(같은 분할 칸), 도구 생성 및 연결, `save` | 분할 칸 없음; 참조 도구 CWD 상속 |
 | C13.3 | `addTab` (새 탭, editor) — 이미 열린 파일 | `activeWindow` = 그 탭이 속한 창, `pane.activeTab` = 기존 탭, `focused` = 그 분할 칸, **이전 창 `focusedPane` = 현재 `focused` 저장**, editor.refresh | 동일 파일 이미 열림; 창 전환 발생 |
 | C13.5 | `split` (keepFocus=false) | `focused` = 마지막 새 분할 칸, `activeWindow` = 대상 창(변경 시), **(버그) `window.focusedPane` 동기화 누락**, DOM 리사이즈 핸들러 부착 | mobile이면 split 금지(force 제외); count<2 → 2 |
 | C13.6 | `split` (keepFocus=true) | `focused` 유지, **(버그) `window.focusedPane` 동기화 누락**, 새 분할 칸만 추가 | 다른 창 대상 split 시에도 focused 유지 |
 | C13.7 | `closeTab` — 마지막 탭 아님 | `pane.activeTab` = 남은 첫 탭, `focused` 유지 | **terminal 탭만 busy 확인 및 confirm**; editor 탭은 미저장 변경 확인 |
 | C13.8 | `closeTab` — 마지막 탭 (분할 칸 제거) | `focused` fallback: 인접 분할 칸 또는 첫 분할 칸, 비활성 창의 `focusedPane` 도 업데이트 | 창 전체 삭제(`delWindow`) 트리거; **FR-BG-6f: keepTool 이면 도구를 백그라운드 등록** |
-| C13.9 | `switchWindow` | 이전 창 `focusedPane` 저장, `activeWindow` 변경, `focused` = 저장된 focusedPane 또는 첫 분할 칸, `_mPaneIdx=0`, drawer 닫기 | 동일 창 클릭 시 mobile drawer만 닫기 |
-| C13.10 | `setFocus` | `app.focused`, `_prevFocus`(**render에서만 갱신, setFocus에서는 불일치 가능**), `window.focusedPane`, DOM `.pn.focused` 토글, `_clearAllSearchDecorations`, `_researchIfOpen`, `_updateCwd`, `_updateStatusBar`, `_save` | 이미 동일 분할 칸이면 early return |
-| C13.11 | `_focusLocation` (리모트) | `activeWindow` 변경(필요 시), **이전 창 `focusedPane` 저장**, `pane.activeTab` = 지정 탭, `window.focusedPane` = 지정 분할 칸, `focused` = 지정 분할 칸, `_save`, `render` | 잘못된 location 형식; 없는 창/분할 칸/탭 |
-| C13.12 | `_execRemote` + keepFocus | `savedWindow`, `savedFocused` 저장 → 액션 실행 → 복원 → `_save` | `splitH`/`splitV`에서만 keepFocus 의미 있음; `location` 지정 `closeTab`은 항상 포커스 유지; 나머지 action의 keepFocus 무의미 |
-| C13.13 | `navMobilePane` | `_mPaneIdx` 증감, `focused` = 해당 분할 칸, `window.focusedPane` 동기화, `_save`, `render` | 순환; paneCount<=1이면 no-op |
-| C13.14 | `render` — `_prevFocus` ≠ `focused` | `_clearAllSearchDecorations`, `_researchIfOpen` 호출(setFocus에서도 중복 호출 가능) | |
-| C13.15 | `render` — mobile 모드 | `_mPaneIdx` 동기화(`focused` 기준), `focused` 재조정, 단일 분할 칸만 DOM에 표시 | |
+| C13.9 | `switchWindow` | 이전 창 `focusedPane` 저장, `activeWindow` 변경, `focused` = 저장된 focusedPane 또는 첫 분할 칸, `mPaneIdx=0`, drawer 닫기 | 동일 창 클릭 시 mobile drawer만 닫기 |
+| C13.10 | `setFocus` | `app.focused`, `prevFocus`(**render에서만 갱신, setFocus에서는 불일치 가능**), `window.focusedPane`, DOM `.pn.focused` 토글, `clearAllSearchDecorations`, `researchIfOpen`, `updateCwd`, `updateStatusBar`, `save` | 이미 동일 분할 칸이면 early return |
+| C13.11 | `_focusLocation` (리모트) | `activeWindow` 변경(필요 시), **이전 창 `focusedPane` 저장**, `pane.activeTab` = 지정 탭, `window.focusedPane` = 지정 분할 칸, `focused` = 지정 분할 칸, `save`, `render` | 잘못된 location 형식; 없는 창/분할 칸/탭 |
+| C13.12 | `_execRemote` + keepFocus | `savedWindow`, `savedFocused` 저장 → 액션 실행 → 복원 → `save` | `splitH`/`splitV`에서만 keepFocus 의미 있음; `location` 지정 `closeTab`은 항상 포커스 유지; 나머지 action의 keepFocus 무의미 |
+| C13.13 | `navMobilePane` | `mPaneIdx` 증감, `focused` = 해당 분할 칸, `window.focusedPane` 동기화, `save`, `render` | 순환; paneCount<=1이면 no-op |
+| C13.14 | `render` — `prevFocus` ≠ `focused` | `clearAllSearchDecorations`, `researchIfOpen` 호출(setFocus에서도 중복 호출 가능) | |
+| C13.15 | `render` — mobile 모드 | `mPaneIdx` 동기화(`focused` 기준), `focused` 재조정, 단일 분할 칸만 DOM에 표시 | |
 | C13.16 | `render` — focus 복원 | `requestAnimationFrame` 후 활성 탭의 term.focus() 또는 편집기 focus | editor vs terminal 구분 |
-| C13.17 | **모바일↔데스크톱 전환** | `_applyMobileMode` 호출, `_mPaneIdx` 재조정, `focused`가 유효한 분할 칸을 가리키는지, DOM 리렌더 | viewport resize 이벤트 |
+| C13.17 | **모바일↔데스크톱 전환** | `applyMobileMode` 호출, `mPaneIdx` 재조정, `focused`가 유효한 분할 칸을 가리키는지, DOM 리렌더 | viewport resize 이벤트 |
 
 ---
 
@@ -479,16 +479,16 @@ Safari 의 스크롤 휴리스틱은 실기기로만 확인된다. 화면이 미
 | E2.8 | **setFocus** — 분할 칸 mousedown | 비활성 분할 칸 클릭 → `.pn.focused` 이동, API PUT body에서 `focusedPane` 동기화 확인 |
 | E2.9 | **_focusLocation** — 리모트 포커스 | SSE `focus` 명령 수신 → 지정 location으로 `.pn.focused` 이동, `activeTab` 변경, 이전 창 `focusedPane` 저장 확인 |
 | E2.10 | **검색 열린 상태에서 포커스 이동** | 검색창 열림 + pane 전환 → `page.evaluate(() => app.panes.get(id).search.decorations?.length)` 로 초기화 확인, 새 pane에서 재검색 |
-| E2.11 | **모바일 pane 전환** | viewport 축소 + `›` 클릭 → `.pn.focused` 이동, `_mPaneIdx` 동기화(표시 `2/2`) |
-| E2.12 | **모바일↔데스크톱 전환** 포커스 일관성 | viewport resize → `body.mobile` 토글, `_mPaneIdx` 재조정, `.pn.focused`가 유효한 분할 칸을 가리킴 |
+| E2.11 | **모바일 pane 전환** | viewport 축소 + `›` 클릭 → `.pn.focused` 이동, `mPaneIdx` 동기화(표시 `2/2`) |
+| E2.12 | **모바일↔데스크톱 전환** 포커스 일관성 | viewport resize → `body.mobile` 토글, `mPaneIdx` 재조정, `.pn.focused`가 유효한 분할 칸을 가리킴 |
 
 ### E3. DOM/레이아웃 동기화
 | # | 테스트 | 검증 방법 |
 |---|--------|-----------|
-| E3.1 | Split 리사이저 드래그 → flex 비율 변경 | `.sh` 드래그 → `.sc` style.flex 변경, `_save` API 호출(body에 sizes 포함) |
+| E3.1 | Split 리사이저 드래그 → flex 비율 변경 | `.sh` 드래그 → `.sc` style.flex 변경, `save` API 호출(body에 sizes 포함) |
 | E3.2 | 탭 drag & drop — 같은 분할 칸 내 순서 변경 | `.pn-tab` 드래그 → 순서 변경, `.pn-tab.active` 유지 |
 | E3.3 | 탭 drag & drop — 다른 분할 칸으로 이동 | source → target 분할 칸 body drop → source 분할 칸의 `.pn` 제거/축소, target에 탭 추가 |
-| E3.4 | 창 목록 drag & drop 순서 변경 | `.si` 드래그 → 창 순서 변경, `_save` 호출 |
+| E3.4 | 창 목록 drag & drop 순서 변경 | `.si` 드래그 → 창 순서 변경, `save` 호출 |
 | E3.5 | 사이드바 리사이즈 → CSS 변수 `--sb-w` | `#sb-handle` 드래그 → `documentElement` style 확인, localStorage `sidebarWidth` |
 
 ### E4. 설정 및 테마
@@ -509,7 +509,7 @@ Safari 의 스크롤 휴리스틱은 실기기로만 확인된다. 화면이 미
 ### E7. 동시성/충돌 시나리오
 | # | 테스트 | 검증 방법 |
 |---|--------|-----------|
-| E7.1 | **두 브라우저 탭 동시 수정 → 409 Conflict** | 탭 A에서 split → 탭 B에서 탭 추가 → 탭 A `_save` 409 수신 → ETag 갱신 후 재시도 → 최종 동기화. **(버그) `this.ws`를 서버 값으로 병합하지 않고 덮어쓰는 문제** 감지 |
+| E7.1 | **두 브라우저 탭 동시 수정 → 409 Conflict** | 탭 A에서 split → 탭 B에서 탭 추가 → 탭 A `save` 409 수신 → ETag 갱신 후 재시도 → 최종 동기화. **(버그) `this.ws`를 서버 값으로 병합하지 않고 덮어쓰는 문제** 감지 |
 | E7.2 | 서버 재시작 → tools.json 복원 → 재연결 | 서버 프로세스 kill → 재시작 → 페이지 새로고침 → 기존 도구 id 로 WS 연결, snapshot 수신. 백그라운드 도구는 복원되지 않는다 (FR-BG-9) |
 | E7.3 | WS 연결 끊김 → 재연결 오버레이 | 서버 일시 중지 → `.tp-overlay` "연결 끊김" 표시 → 서버 재개 → 재연결 및 오버레이 제거 |
 

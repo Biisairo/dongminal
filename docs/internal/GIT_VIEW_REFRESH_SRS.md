@@ -150,7 +150,7 @@ status 가 이미 새 oid 를 실었고 목록은 그 전의 것이었다).
 지난다 — 자동 경로가 수동 경로보다 적게 하면 "새로고침을 눌러야 보인다" 가 남는다.
 
 **FR-GVR-10. 사이드바 Git 탭에 들어가면 핀 전부를 한 번 관측하고 계속 관측한다.**
-이미 성립한다 (FR-GOB-8·10) — 탭의 `onEnter` 가 `_gitReposRefresh()` 를 부르고,
+이미 성립한다 (FR-GOB-8·10) — 탭의 `onEnter` 가 `gitReposRefresh()` 를 부르고,
 `_gitObserveOk()` 가 참인 동안 3초 폴링이 `?observe=1` 을 계속 싣는다.
 
 **FR-GVR-11. 판정 근거는 signature 가 아니라 `_viewFp` 다.**

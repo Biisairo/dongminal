@@ -92,9 +92,9 @@ git 폴링)가 그 줄을 **함께 다시 그린다.** 접수한 말 그대로�
 | 자리 | 무엇이 사는가 | 성질 |
 |---|---|---|
 | `localStorage` | `attnDesktop`·`attnSound`·`agentsPollMs`·`sidebarWidth` | **기기별**. 알림 권한과 화면 치수처럼 옮기면 뜻을 잃는 것 |
-| `/api/settings` (`_saveSettings`) | `themeName`·`shortcuts`·`statusBar`·`layoutPresets`·`fgTabNames`·`pageTitle`·`confirmLeave`… | **취향**. 기기를 넘고 설정 내보내기에 담긴다 (SETTINGS_PORTABILITY_SRS) |
+| `/api/settings` (`saveSettings`) | `themeName`·`shortcuts`·`statusBar`·`layoutPresets`·`fgTabNames`·`pageTitle`·`confirmLeave`… | **취향**. 기기를 넘고 설정 내보내기에 담긴다 (SETTINGS_PORTABILITY_SRS) |
 
-`_saveSettings` 는 **블롭 전체를 갈아치운다**(`app-settings.js:11`) — 읽어 쓰는 값이
+`saveSettings` 는 **블롭 전체를 갈아치운다**(`app-settings.js:11`) — 읽어 쓰는 값이
 그 리터럴에서 빠지면 다른 설정을 건드릴 때 조용히 사라진다. 새 값을 더할 때 함께
 고쳐야 하는 자리다.
 
@@ -126,7 +126,7 @@ git 폴링)가 그 줄을 **함께 다시 그린다.** 접수한 말 그대로�
 
 ```js
 // web/js/core/app.js:410 — `notes` 가 없다
-this._edApply({home:this._editors.home, list:rem.editors.list});
+this._edApply({home:this.editors.home, list:rem.editors.list});
 ```
 
 그 경로는 워크스페이스 저장이 충돌한 뒤 **서버 값을 채택하는 재시도**다(FR-EDT-21).
@@ -282,7 +282,7 @@ else this.__dirty=v }` 이므로(`:208`) 505 의 `this._dirty=false` 는 파괴�
 
 ```js
 // app-reload.js:50-54
-for(const w of this._edWindows())
+for(const w of this.edWindows())
   if(w&&w.editor&&typeof w.editor.refresh==='function') w.editor.refresh();
 ```
 
@@ -295,15 +295,15 @@ for(const w of this._edWindows())
 
 D-WBR-8 이 "확인하지 못해 남겨 둔다" 고 적은 자리다. **확인했다 — 남겨야 한다.**
 
-호출자는 둘이다. `_splitInner` 는 `_isEditorWin(s)` 면 먼저 돌아가고(FR-EDT-50·51)
+호출자는 둘이다. `_splitInner` 는 `isEditorWin(s)` 면 먼저 돌아가고(FR-EDT-50·51)
 `addTab` 은 두 가드를 지난다.
 
 | 가드 | 무엇 |
 |---|---|
 | `app-layout.js:344` | Editor 창에서는 `editor`·git 말고 못 만든다 → 터미널 탭이 여기 오지 않는다 |
-| `app-layout.js:348` | 편집기 탭은 일반 창에 생기지 않는다 — **`this._edOn()` 일 때만이다** |
+| `app-layout.js:348` | 편집기 탭은 일반 창에 생기지 않는다 — **`this.edOn()` 일 때만이다** |
 
-`_edOn()` 은 `/api/editors` 가 실패하면 거짓이고(`app-editor.js:24`, FR-EDT-120),
+`edOn()` 은 `/api/editors` 가 실패하면 거짓이고(`app-editor.js:24`, FR-EDT-120),
 그때는 **옛 경로가 그대로 남아 편집기 탭이 일반 창에 산다** — 348 의 주석이 그렇게
 적고 있다. 그 창의 칸에서 터미널 탭을 더하면 이 분기가 선다. 옛 워크스페이스가
 남긴 상태도 같은 자리로 온다.
@@ -340,7 +340,7 @@ D-WBR-8 이 "확인하지 못해 남겨 둔다" 고 적은 자리다. **확인�
 **FR-WBR-12. 값은 `/api/settings` 에 산다** — `fgTabNames`·`confirmLeave` 와 같은
 규약이다(§2.2, D-WBR-7). 화면의 자리는 설정 다이얼로그의 `#panel-code` 다.
 
-`_saveSettings` 의 블롭 리터럴에 함께 실어야 한다 — 빠지면 다른 설정을 건드리는
+`saveSettings` 의 블롭 리터럴에 함께 실어야 한다 — 빠지면 다른 설정을 건드리는
 순간 조용히 사라진다.
 
 ### 3.3 묶음 C — 새 창의 cwd
@@ -375,9 +375,9 @@ FR-CWD-4 와 그 시험 TC-CWD-1 을 **뒤집는다.**
 **FR-WBR-40. 재조정은 저장하지 않은 편집이 있는 Editor 창을 지우지 않는다.**
 그 창은 편집이 저장되거나 버려질 때까지 남는다.
 
-지금은 루트가 `_edRoots()` 에서 빠지면 창 레코드를 **통째로 splice** 하고
+지금은 루트가 `edRoots()` 에서 빠지면 창 레코드를 **통째로 splice** 하고
 (`app-editor.js:214·221`), 그 순간 그 창의 탭 id 가 사라져 렌더러의 회수기가
-편집기를 파괴하며(`renderer.js:235`) `_edDocDrop` 이 **모델까지 dispose** 한다 —
+편집기를 파괴하며(`renderer.js:235`) `edDocDrop` 이 **모델까지 dispose** 한다 —
 저장하지 않은 편집이 **묻지도 알리지도 않고** 사라진다.
 
 **탭을 닫을 때는 이미 묻고 있다** (`app-layout.js:519`: dirty 면 저장·버림·취소를
@@ -389,7 +389,7 @@ FR-CWD-4 와 그 시험 TC-CWD-1 을 **뒤집는다.**
 **FR-WBR-42. 편집이 사라지면 다음 재조정이 그 창을 거둔다.** 미루는 것이지
 면제가 아니다.
 
-**메모장이 유독 약한 이유.** `_edRoots()` 는 `[home, notes?, ...list]` 인데 `home`
+**메모장이 유독 약한 이유.** `edRoots()` 는 `[home, notes?, ...list]` 인데 `home`
 은 없으면 `_edApplyServer` 가 반영 자체를 포기하는 반면 **`notes` 는 선택적이라
 응답 한 번에 빈 문자열이 된다** (FR-NOT-11). 그 순간 메모장 창이 통째로 지워진다.
 FR-WBR-30 이 고친 자리(`app.js` 의 충돌 재시도)가 그 방아쇠 하나였다.
@@ -765,5 +765,5 @@ V-WBR-30 은 고치기 전 상태로 되돌려 **실패하는 것을 확인했�
 | **D-WBR-16** | **클립보드는 앱 안에 살고 새로고침이면 비운다** | 사용자 선택. dongminal 의 "창" 은 브라우저 창이 아니라 화면 안의 레코드이므로(`_mkWindow`) **모든 창·분할 칸·탐색기가 한 브라우저 탭 안에 있다** — 앱이 들면 실제 쓰임을 다 덮는다. `localStorage`·워크스페이스를 쓰지 않는 이유는 무기한 사는 상태가 "언젠가 복사한 것" 을 메뉴에 남기기 때문이다. **OS 클립보드는 애초에 선택지가 아니다**(§2.10) |
 | **D-WBR-17** | **복사는 두 루트를 받는다 — 폴더 스테이징은 트리 보기에만 둔다** | 사용자 선택 둘. 앞의 것: `fsResolveTarget` 이 한 root 로만 검사해(`handlers_fs.go:153`) 홈 트리와 저장소 트리 사이에 길이 없다 — 둘 다 Editor 목록에 있는지 검사하면 경계는 그대로 단단하다. 뒤의 것: **플랫 보기에는 폴더 행이 아예 없고**(§2.9) 플랫의 뜻이 "경로를 펼쳐 다 보여준다" 이므로 폴더라는 단위가 없는 것이 일관된다 |
 | **D-WBR-18** | **그룹 일괄은 아이콘이다** — `+`·`−`·`↺`. D-WBR-10(라벨 가르기)·D-WBR-11(줄 늘리기)을 **뒤집는다** | 사용자 선택. **구현이 스펙을 뒤집은 자리다.** 착수 시에는 좁은 폭(100px)만의 문제로 보았으나, 실측에서 **기본 220px 에서도** 글자 라벨 둘이 들어가지 않았다(FR-WBR-52 의 표). 줄을 늘리자 머리가 36→71px 이 되어 FR-GIT-220 을 깨고 밀린 행이 화면 밖으로 나갔다 — `git-ui-revision` V97 과 `git-file-actions` F5 가 그것을 잡았다(F5 는 3/3 결정적 실패였고, CSS 만 되돌리자 통과했다). 아이콘을 고른 이유는 새 어휘를 만들지 않아서다 — 행 동작이 이미 `+`·`−`·`↺` 를 쓴다. 대가는 "All" 이라는 글자를 잃는 것이며, **툴팁과 확인창이 그 뜻을 말한다**(FR-WBR-52a·55) |
-| **D-WBR-19** | **`_paneNewToolRef` 의 editor 분기는 남긴다 — 닿는 길이 **있다**.** D-WBR-8 을 종결한다 | **확인했다**(§2.13). D-WBR-8 은 "추적의 한계 때문에 지우지 않는다" 였는데, 이번에 가드 둘을 읽어 답이 나왔다: `addTab:348` 의 "편집기 탭은 일반 창에 생기지 않는다" 는 **`_edOn()` 일 때만**이고, `_edOn()` 은 `/api/editors` 가 실패하면 거짓이다(FR-EDT-120). 그 환경에서는 옛 경로가 남아 편집기 탭이 일반 창에 살고, 그 칸에서 터미널 탭을 더하면 이 분기가 선다. **지우면 그 환경에서 동작이 바뀐다** |
+| **D-WBR-19** | **`_paneNewToolRef` 의 editor 분기는 남긴다 — 닿는 길이 **있다**.** D-WBR-8 을 종결한다 | **확인했다**(§2.13). D-WBR-8 은 "추적의 한계 때문에 지우지 않는다" 였는데, 이번에 가드 둘을 읽어 답이 나왔다: `addTab:348` 의 "편집기 탭은 일반 창에 생기지 않는다" 는 **`edOn()` 일 때만**이고, `edOn()` 은 `/api/editors` 가 실패하면 거짓이다(FR-EDT-120). 그 환경에서는 옛 경로가 남아 편집기 탭이 일반 창에 살고, 그 칸에서 터미널 탭을 더하면 이 분기가 선다. **지우면 그 환경에서 동작이 바뀐다** |
 | **D-WBR-8** | **`_paneNewToolRef` 의 editor 분기는 남겨 둔다 — 지금은 닿는 길이 없다** | FR-CWD-1 을 걷으면서 그 분기(편집 중 파일의 디렉터리를 주는 자리)의 마지막 호출자가 사라졌다. 옛 두 진입점(같은 pane 의 `addTab`, 같은 창의 split)은 Editor 창에서 이미 막혀 있고(FR-EDT-54·50·51), `_mkWindow` 가 그 규칙의 유일한 관측점이었다 — archive 의 `MD_FOCUS_NEW_PANE_CWD_SRS` FR-1·2 가 그것으로 검증되고 있었다. **지우지 않은 이유는 확신이 아니라 추적의 한계다** — "닿지 않는다" 를 끝까지 확인하지 못한 코드를 지우는 것은 이 판의 범위를 넘는다. 다음 판에서 확인하고 지운다 |

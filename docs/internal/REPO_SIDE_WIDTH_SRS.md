@@ -17,7 +17,7 @@ Repo 창의 좌측 사이드(`Changes`·`Explorer` 탭이 갈아 끼워지는 �
   모바일 배치(사이드가 자리 전체를 쓰므로 폭이 없다, FR-RTU-80).
 
 ### 1.3 정의 (Definitions)
-- **Repo 창**: `_isEditorWin(s)` 가 참인 창 레코드. 좌측 사이드 + 우측 편집기 영역.
+- **Repo 창**: `isEditorWin(s)` 가 참인 창 레코드. 좌측 사이드 + 우측 편집기 영역.
 - **사이드**: `.ed-side`. 탭 줄 + 본문(`Changes` 뷰 또는 탐색기 트리).
 - **칸(slot)**: 워크스페이스 분할의 한 자리. 서로 다른 칸이 서로 다른 Repo 창을
   **동시에** 보일 수 있다 (SLOT_VIEW_STATE_SRS).
@@ -28,7 +28,7 @@ Repo 창의 좌측 사이드(`Changes`·`Explorer` 탭이 갈아 끼워지는 �
 |---|---|
 | 저장 | `window.editor.explorerWidth` — 창 레코드마다 하나 (EDITOR_TAB_SRS FR-EDT-47 / D-18) |
 | 읽기 | `_edExplorerWidth(s)` (`app-editor.js:630`) — 없으면 `EDITOR_EXPLORER_W_DEFAULT`(220), 100~520 로 자른다 |
-| 쓰기 | `_edSetExplorerWidth(s,w)` (`:637`) — 창 레코드에 쓰고 `_save()` |
+| 쓰기 | `_edSetExplorerWidth(s,w)` (`:637`) — 창 레코드에 쓰고 `save()` |
 | 그리기 | `_rEditorWin` 이 `side.style.width` 를 인라인으로 준다 (`renderer.js:394`) |
 | 드래그 | `_rEdHandle(h,s,ex)` (`:495`) — 움직이는 동안 **그 사이드 하나**의 인라인 폭만 바꾸고, mouseup 에 확정 |
 
@@ -47,8 +47,8 @@ Repo 창의 좌측 사이드(`Changes`·`Explorer` 탭이 갈아 끼워지는 �
   Go 구조체를 고칠 것이 없다.
 - **D-4 이름을 `explorerWidth` 에서 바꾼다.** 그 값이 정하는 것은 탐색기가 아니라 **사이드**의
   폭이고, 사이드에는 `Changes` 도 산다 (REPO_TAB_UNIFY_SRS FR-RTU-11·12). 자리를 옮기는
-  김에 이름도 사실에 맞춘다 — 상수 `REPO_SIDE_W_*`, 접근자 `_edSideWidth`·`_edSetSideWidth`
-  (활성 탭의 `_edSideOf`·`_edSetSide` 와 같은 말투다).
+  김에 이름도 사실에 맞춘다 — 상수 `REPO_SIDE_W_*`, 접근자 `edSideWidth`·`edSetSideWidth`
+  (활성 탭의 `edSideOf`·`edSetSide` 와 같은 말투다).
 - **D-5 드래그 중에도 동기화한다.** 화면에 보이는 사이드 전부의 인라인 폭을 같은 틱에 바꾼다.
   mouseup 에만 맞추면, 칸 둘이 나란히 보일 때 드래그하는 동안 둘이 어긋나 보인다.
   다시 그리지 않는 이유는 `_rLayout` 이 매 render 마다 `.ed-win` 을 새로 만들기 때문이다 —
@@ -68,7 +68,7 @@ Repo 창의 좌측 사이드(`Changes`·`Explorer` 탭이 갈아 끼워지는 �
 |----|---------|------|
 | FR-RSW-1 | 사이드 폭은 워크스페이스 최상위 `repoSideWidth` **한 변수**에 산다. 창 레코드는 폭을 갖지 않는다 (D-2·D-3). | 필수 |
 | FR-RSW-2 | 모든 Repo 창이 그 값을 읽어 그린다 — 어느 창에서 조절해도 다른 창이 같은 폭이 된다 (D-1). | 필수 |
-| FR-RSW-3 | 드래그가 도는 동안 화면에 있는 모든 사이드의 폭이 함께 움직인다. 확정은 mouseup 한 번이고 그때 `_save()` 한다 (D-5). | 필수 |
+| FR-RSW-3 | 드래그가 도는 동안 화면에 있는 모든 사이드의 폭이 함께 움직인다. 확정은 mouseup 한 번이고 그때 `save()` 한다 (D-5). | 필수 |
 | FR-RSW-4 | 값이 없거나 숫자가 아니면 `REPO_SIDE_W_DEFAULT`(220) 다. 읽을 때도 쓸 때도 `REPO_SIDE_W_MIN`(100) ~ `REPO_SIDE_W_MAX`(520) 로 자른다 — 상·하한과 기본값은 종전과 같은 수다. | 필수 |
 | FR-RSW-5 | 옛 워크스페이스의 `window.editor.explorerWidth` 는 첫 진입에서 `repoSideWidth` 로 승계되고(값이 아직 없을 때만), 창 레코드에서는 지워진다. 바뀌었으면 저장한다 (D-6). | 필수 |
 | FR-RSW-6 | 다른 브라우저가 폭을 바꾸면 `workspace_changed` 반영에서 그대로 따라온다 — 최상위 키이므로 `this.ws=sv` 와 `render()` 가 그 경로다 (D-3). | 필수 |
@@ -87,15 +87,15 @@ Repo 창의 좌측 사이드(`Changes`·`Explorer` 탭이 갈아 끼워지는 �
 | 저장 자리 | `windows[].editor.explorerWidth` | `ws.repoSideWidth` 하나 | 폭은 창의 성질이 아니다 (D-1·D-2) |
 | 창 사이 | 창마다 다른 폭 | 전부 같은 폭 | 사용자 지시 |
 | 드래그 | 끄는 사이드만 움직인다 | 보이는 사이드가 함께 움직인다 | 칸이 둘일 때 어긋나 보인다 (D-5) |
-| 이름 | `explorerWidth` / `_edExplorerWidth` / `EDITOR_EXPLORER_W_*` | `repoSideWidth` / `_edSideWidth` / `REPO_SIDE_W_*` | 그 폭은 사이드의 것이고 사이드에는 `Changes` 도 산다 (D-4) |
+| 이름 | `explorerWidth` / `_edExplorerWidth` / `EDITOR_EXPLORER_W_*` | `repoSideWidth` / `edSideWidth` / `REPO_SIDE_W_*` | 그 폭은 사이드의 것이고 사이드에는 `Changes` 도 산다 (D-4) |
 | 옛 값 | — | 첫 값을 승계하고 창 레코드에서 지운다 | 옮긴 키를 남기지 않는다 (D-6) |
 
 ## 4. 검증 (Verification)
 | ID | 대상 | 검증 방법 |
 |----|------|----------|
-| V-RSW-1 (FR-RSW-1·2) | e2e: `_edSetSideWidth(310)` 뒤 `ws.repoSideWidth===310`, 열려 있는 **모든** `.ed-side` 의 폭이 310px, 창 레코드에 `editor.explorerWidth` 가 없다. |
+| V-RSW-1 (FR-RSW-1·2) | e2e: `edSetSideWidth(310)` 뒤 `ws.repoSideWidth===310`, 열려 있는 **모든** `.ed-side` 의 폭이 310px, 창 레코드에 `editor.explorerWidth` 가 없다. |
 | V-RSW-2 (FR-RSW-1) | e2e: 새로고침 뒤에도 310px 이고 값은 여전히 워크스페이스 최상위에 있다. |
-| V-RSW-3 (FR-RSW-4) | e2e: `_edSetSideWidth(9999)` → 520, `_edSetSideWidth(1)` → 100. 값을 지우면 220. |
+| V-RSW-3 (FR-RSW-4) | e2e: `edSetSideWidth(9999)` → 520, `edSetSideWidth(1)` → 100. 값을 지우면 220. |
 | V-RSW-4 (FR-RSW-5) | e2e: 창 레코드에 `explorerWidth` 를 심고 `repoSideWidth` 를 지운 뒤 다시 읽으면 승계되고 창 레코드의 키가 사라진다. |
 | V-RSW-5 (FR-RSW-7) | e2e: 창 A 의 사이드를 `Changes` 로 바꿔도 창 B 는 `Explorer` 다. |
 | V-RSW-6 (회귀) | `npx playwright test e2e/editor-tab.spec.ts e2e/repo-tab.spec.ts` 통과. |

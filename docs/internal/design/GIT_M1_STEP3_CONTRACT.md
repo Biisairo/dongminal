@@ -9,7 +9,7 @@ GIT_SRS.md §3.4 를 코드 계약으로 확정한 문서다. 검증은 V8·V19�
 |---|---|
 | `web/js/constants.js` | Git 창·탭 상수 추가 |
 | `web/js/git-panel.js` | **신규** — `GitPanel` 골격 + stale 가드 |
-| `web/js/app.js` | `openGitWindow`·`_gitWindow`·`_mkGitWindow`, 탭 삭제·이름변경 방어 |
+| `web/js/app.js` | `openGitWindow`·`gitWindow`·`_mkGitWindow`, 탭 삭제·이름변경 방어 |
 | `web/js/renderer.js` | `_buildPane` 의 git 탭 분기, 사이드바의 Git 창 표식 |
 | `web/index.html` | `git-panel.js` 스크립트 태그 + 캐시 버전 bump |
 | `web/style.css` | `git-` 접두 클래스 |
@@ -68,8 +68,8 @@ const GIT_VIEWS=[
 - **활성 리포는 `window.git.repo`** 다 (FR-GIT-29 나머지 절반).
 - 창은 `ws.windows[]` 의 평범한 원소다 — 창 목록·창 전환 단축키·브로드캐스트가
   공짜로 따라온다 (FR-GIT-30·31).
-- `_save()` 는 `this.ws` 를 통째로 직렬화하므로 `type`·`git`·`gitView` 는
-  추가 배선 없이 영속한다. **`_save()` 를 고치지 않는다.**
+- `save()` 는 `this.ws` 를 통째로 직렬화하므로 `type`·`git`·`gitView` 는
+  추가 배선 없이 영속한다. **`save()` 를 고치지 않는다.**
 
 ### 1.3 하위호환 (FR-GIT-25, 검증 V8)
 
@@ -83,8 +83,8 @@ const GIT_VIEWS=[
 ## 2. App 메서드 (FR-GIT-26)
 
 ```js
-// _gitWindow 는 워크스페이스의 Git 창이다. 없으면 null.
-_gitWindow(){ return this.ws.windows.find(s=>s&&s.type===WINDOW_TYPE_GIT)||null }
+// gitWindow 는 워크스페이스의 Git 창이다. 없으면 null.
+gitWindow(){ return this.ws.windows.find(s=>s&&s.type===WINDOW_TYPE_GIT)||null }
 
 // openGitWindow 는 Git 창을 활성화한다. 없으면 만든다 — **두 번 불러도 창은
 // 하나다** (FR-GIT-26). repo 를 주면 활성 리포까지 전환한다 (FR-GIT-15).
@@ -98,10 +98,10 @@ _mkGitWindow(repo){ … }
 
 `openGitWindow(repo)` 의 순서:
 
-1. `_gitWindow()` 가 있으면 그 창을, 없으면 `_mkGitWindow(repo)` 로 만든다.
+1. `gitWindow()` 가 있으면 그 창을, 없으면 `_mkGitWindow(repo)` 로 만든다.
 2. `repo` 가 주어졌고 `win.git.repo` 와 다르면 `win.git.repo=repo` 로 바꾸고
    `this.gitPanel.setRepo(repo)` 를 호출한다 (stale 세대 증가).
-3. `switchWindow(win.id)` 로 전환한다. (`switchWindow` 가 이미 `_save`·`render` 를
+3. `switchWindow(win.id)` 로 전환한다. (`switchWindow` 가 이미 `save`·`render` 를
    한다면 중복 호출하지 않는다 — 기존 구현을 먼저 보라.)
 4. 창 id 를 반환한다.
 
@@ -111,7 +111,7 @@ _mkGitWindow(repo){ … }
 ### 2.1 고정 탭 방어 (FR-GIT-28)
 
 - `closeTab(paneId, tabId)` 는 대상이 git 탭이면 **아무것도 하지 않고 반환**한다.
-- `_rename(obj, el)` 경로: git 탭은 dblclick 리스너를 아예 달지 않는다 (§3).
+- `rename(obj, el)` 경로: git 탭은 dblclick 리스너를 아예 달지 않는다 (§3).
 - 탭 드래그(재배치·다른 pane 으로 이동)는 git 탭에서 막는다 — `draggable=false`.
   고정 탭의 자리가 항상 같아야 근육 기억이 선다.
 - pane 의 `+`(새 탭) 버튼은 **그대로 둔다.** Git 창 안에 터미널을 배치할 수 있어야

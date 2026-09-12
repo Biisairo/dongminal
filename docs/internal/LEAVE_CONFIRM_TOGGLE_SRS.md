@@ -77,7 +77,7 @@ window.addEventListener('beforeunload',e=>{
 
 ### 2.4 블롭은 PUT 이 전체를 갈아치운다
 
-`_saveSettings`(`web/js/core/app-settings.js:11`)가 싣는 키 목록에 새 키를 넣지 않으면,
+`saveSettings`(`web/js/core/app-settings.js:11`)가 싣는 키 목록에 새 키를 넣지 않으면,
 다른 설정을 건드리는 순간 이 값이 조용히 사라진다.
 
 ### 2.5 `blockBrowserKeys` 가 배선의 본이다
@@ -131,7 +131,7 @@ window.addEventListener('beforeunload',e=>{
 
 - **FR-LVC-4** 값은 설정 블롭의 `confirmLeave` 키로 서버에 저장된다. 브라우저·기기를
   가리지 않고 같은 서버에 붙은 모든 화면이 같은 판단을 쓴다.
-- **FR-LVC-5** `_saveSettings` 가 싣는 키 목록에 `confirmLeave` 가 들어간다 (§2.4).
+- **FR-LVC-5** `saveSettings` 가 싣는 키 목록에 `confirmLeave` 가 들어간다 (§2.4).
 - **FR-LVC-6** 저장된 적 없으면 **끔**이다 (D-1). `blockBrowserKeys` 와 달리 기본값이
   거짓이며, 그것이 접수한 요구다.
 

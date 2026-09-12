@@ -97,7 +97,7 @@ Ink 식 재렌더(커서를 위로 올려 `\x1b[0J` 로 지우고 다시 쓰기)
 
 ### 1.5 리사이즈 폭주 경로 (코드 근거)
 
-`web/js/core/app-mobile.js` `_initMobileKeybar()` 내부:
+`web/js/core/app-mobile.js` `initMobileKeybar()` 내부:
 
 ```js
 vv.addEventListener('resize', apply);
@@ -219,7 +219,7 @@ b.addEventListener('touchend', e => {
 **(c) sticky modifier 누수** — `web/js/ui/term-pane.js` `onData`:
 
 ```js
-if (A && A.isMobile && A._modKbd && out.length === 1) {   // ← 1글자일 때만
+if (A && A.isMobile && A.modKbd && out.length === 1) {   // ← 1글자일 때만
   if (mk.ctrl && c >= 0x40 && c <= 0x7e) out = String.fromCharCode(c & 0x1f);
   if (mk.alt) out = '\x1b' + out;
   ... // sticky 소비

@@ -20,22 +20,41 @@
 
 ### 1.2 왜 `fsnotify` 가 아닌가
 
+> **개정 (2026-09-12, M6 · `GIT_DETECT_TIER_SRS`).** 아래 비용표는 **한동안
+> 사실이 아니었다.** 이 SRS 의 구현은 감시 회차에서 `ReadSignature` 가 아니라
+> `Store.Status()` — 곧 실제 `git status` 프로세스 — 를 1초마다 돌렸다
+> (`hub/gitwatch.go`, `11-git-polling.md GP-7`). 그러므로 §1.7 이 약속한
+> *"비용은 옮겨질 뿐 늘지 않는다"* 도 성립하지 않았다.
+>
+> 그 전환에는 이유가 있었다 — **signature 는 작업 트리를 보지 못한다**
+> (`gitwatch.go:29-36` 이 e2e 실측으로 확인했다). 틀린 것은 그 결론에서
+> signature 를 **통째로 버린 것**이다.
+>
+> **M6 이 그것을 2단으로 되돌렸다**: 1초 회차는 `ReadSignature` 만 돌리고,
+> `git status` 는 ① signature 가 바뀐 회차 ② 저빈도 워크트리 회차에서만 돈다.
+> 그래서 아래 표는 **다시** 이 문서의 사실이다. 자세한 것은
+> [`./GIT_DETECT_TIER_SRS.md`](./GIT_DETECT_TIER_SRS.md) 묶음 A.
+
 `EVENT_TIMER_HUB_SRS` 초안은 이 일을 "서버에 파일 감시를 도입한다" 고 적었다.
 **틀렸다.**
 
 | | `ReadSignature` | 파일 감시 |
 |---|---|---|
-| 비용 | read 1회 + stat 2회 = **0.02ms** (FR-GIT-19 §2.6) | 워처 등록·유지, 재귀 감시 |
+| 비용 | read 1회 + stat 6회 이하 = **0.02ms 대** (FR-GIT-19 §2.6 · FR-GDT-12~16 으로 stat 넷이 늘었다) | 워처 등록·유지, 재귀 감시 |
 | 플랫폼 | 없음 — `os.Stat` 뿐 | inotify 한도 · FSEvents 지연 · Windows 별도 API |
 | 정확도 | **실측으로 다듬어졌다** (아래) | 이벤트 폭주·누락을 새로 다뤄야 한다 |
+| 작업 트리 | **보지 못한다** — 그래서 저빈도 `git status` 회차가 함께 선다 (FR-GDT-3) | 본다. 다만 `.gitignore` 를 스스로 해석해야 한다 |
 
-마지막 줄이 결정적이다. 이 저장소의 signature 는 두 번 넓혀졌다:
+마지막 두 줄이 결정적이다. 이 저장소의 signature 는 **세 번** 넓혀졌다:
 
 - `RefsMtimeNs` — ref 파일이 생기거나 사라지면 부모 디렉터리 mtime 이 바뀐다.
   브랜치·태그·원격 추적 ref 의 추가·삭제가 여기 잡힌다 (FR-GVR-21).
 - `RefsShape` — **디렉터리 mtime 은 파일시스템이 갱신을 미룰 수 있다.** Windows
   러너에서 `git branch` 뒤 45초 동안 그대로였다 (FR-CEM-32 실측). 이름을 접은
   값은 시각과 무관하다.
+- `Extras` (M6) — `.git/config`·`logs/refs/stash`·`refs/stash`·`.git/worktrees`.
+  `git remote add`·`git stash drop`·`git worktree prune` 이 **한 톨도 감지되지
+  않던** 자리다 (`11 GP-11 a·b·c·d`). stat 네 번으로 메웠다 (FR-GDT-12~16).
 
 파일 감시로 바꾸면 이 지식이 버려진다. **감시는 signature 를 대체하지 못하고,
 signature 를 감시하는 주체만 바뀌면 된다.**
@@ -212,8 +231,16 @@ D-POLL-2 의 `finally` 가 지킨 것은 **잠금**(`_refreshing`)이었고, 관
 
 **FR-GPO-3** 회차마다 감시 대상 각각의 **관측(status + signature)** 을 읽고,
 직전과 다를 때만 방송한다. 같으면 아무것도 하지 않는다 (FR-TAN-9 와 같은 계약).
-비교 대상은 `obsMark` — signature 값, HEAD·브랜치·ahead/behind, 그리고 세 그룹의
-파일 목록(경로·XY·서브모듈 상태)을 접은 값이다.
+비교 대상은 `obsMark` — signature 값, HEAD·브랜치·ahead/behind, 진행 중 작업,
+그리고 네 그룹의 파일 목록(경로·XY·서브모듈 상태)을 접은 값이다.
+
+> **개정 (2026-09-12, `GIT_DETECT_TIER_SRS` FR-GDT-1·2·3).** *"회차마다 관측을
+> 읽는다"* 가 **2단이 됐다.** 회차마다 읽는 것은 `ReadSignature` 이고,
+> `Store.Status()` 는 ① signature 가 바뀐 회차 ② 저빈도 워크트리 회차
+> (`GitWatchWorktreeEvery` = 4회차) ③ signature 를 읽지 못한 회차에서만 돈다.
+>
+> **`.git` 안의 변화는 지금과 같은 1초 반응을 유지한다** — signature 가 그것을
+> 보기 때문이다. 늦어지는 것은 작업 트리 변화뿐이며 최악이 4초다.
 
 **FR-GPO-4** 방송 payload:
 

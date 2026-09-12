@@ -88,7 +88,7 @@ follow 가 **지금 유일하게 하는 일**은 핀하지 않은 리포를 한 
 | F4 | `ui/renderer.js` `_rGitSection` | `d.follow` 를 목록 첫 항목으로 |
 | F5 | 〃 `_rGitRepo(e,follow)` | `follow` 분기 4곳(클래스·이름·`×` 자리·드래그) |
 | F6 | 〃 `_gitRepoSig` | 근거 첫 항목이 `it.follow` |
-| F7 | `core/app-git.js` `_gitFocusToolId`·`_gitReposRefresh` | 폴링이 `?tool=` 을 싣는다 |
+| F7 | `core/app-git.js` `_gitFocusToolId`·`gitReposRefresh` | 폴링이 `?tool=` 을 싣는다 |
 | F8 | `core/app.js` `_lastTermTool` | FR-GIT-210 의 상태 |
 | F9 | `core/app-focus.js` | 칸 포커스 변화마다 목록을 새로고침 |
 | F10 | `core/constants.js` `GIT_NOT_REPO_LABEL` | follow 전용 표시 |
@@ -96,7 +96,7 @@ follow 가 **지금 유일하게 하는 일**은 핀하지 않은 리포를 한 
 | F12 | e2e | `git-sidebar.spec.ts`(S2 등) · `git-improve.spec.ts`(V140~V142) |
 | F13 | `gitapi/handlers_git_test.go` H3 | follow 응답의 두 경우 |
 
-`+ Add` 의 현재 모습은 `window.prompt(GIT_ADD_REPO_PROMPT, this._cwd||'')`
+`+ Add` 의 현재 모습은 `window.prompt(GIT_ADD_REPO_PROMPT, this.cwd||'')`
 (`app-git.js:195`) 다 — 브라우저 네이티브 프롬프트이며 기본값이 **cwd 문자열**이다.
 
 ### 2.3 제약 (Constraints)
@@ -233,7 +233,7 @@ follow 가 **지금 유일하게 하는 일**은 핀하지 않은 리포를 한 
 | **D-FLW-2** | 서버의 follow 조회도 **함께 지운다** | 화면만 지우면 3초마다 도는 `rev-parse` 가 아무도 읽지 않는 값을 위해 남는다 |
 | **D-FLW-3** | 현재 터미널의 리포는 **`+ Add` 를 여는 순간에만** 묻는다 | 상주시키면 그것이 follow 의 부활이다. 여는 순간의 1회 조회는 폴링이 아니다 |
 | **D-FLW-6** | 마지막으로 포커스된 터미널의 추적은 **남긴다** | FR-GIT-210 이 잡아낸 사실이 `+ Add` 에서도 그대로다 — Git 창을 보는 중에 열면 포커스가 터미널이 아니고, 빈 값을 보내면 서버가 자기 cwd(dongminal)로 답한다. 추적은 값 갱신뿐이며 아무것도 조회하지 않는다 |
-| **D-FLW-8** | 그 추적을 **기억에서 계산으로** 옮긴다 (FR-FLW-13) | 갱신 계기를 늘리는 길도 있었다 — `_lastTermTool` 갱신을 단일 진입점 `_setFocus()` 로 옮기는 것. 택하지 않은 이유는 그것이 세 통로 중 둘(`switchWindow`·`switchTab`)만 덮기 때문이다. `addTab` 은 활성 탭만 옮기고 `_setFocus` 를 아예 지나지 않으므로 계기가 또 하나 남는다. 계기를 세는 설계는 통로가 늘 때마다 같은 결함을 다시 만든다 |
+| **D-FLW-8** | 그 추적을 **기억에서 계산으로** 옮긴다 (FR-FLW-13) | 갱신 계기를 늘리는 길도 있었다 — `_lastTermTool` 갱신을 단일 진입점 `setFocus()` 로 옮기는 것. 택하지 않은 이유는 그것이 세 통로 중 둘(`switchWindow`·`switchTab`)만 덮기 때문이다. `addTab` 은 활성 탭만 옮기고 `setFocus` 를 아예 지나지 않으므로 계기가 또 하나 남는다. 계기를 세는 설계는 통로가 늘 때마다 같은 결함을 다시 만든다 |
 | **D-FLW-4** | `+ Add` 를 `window.prompt` 에서 **다이얼로그로** 옮긴다 | FR-FLW-6~9 의 사유 표시가 한 줄 프롬프트에 담기지 않는다 |
 | **D-FLW-5** | ~~하단바 chip 의 판정을 바꾸지 않는다~~ → **D-FLW-7 이 대체** | 처음에는 chip 을 그대로 두기로 했으나 사용자가 제거를 지시했다 |
 | **D-FLW-7** | 하단바의 **브랜치 chip 을 제거**한다 (FR-GIT-57~59 철회) | 2026-08-27 사용자 결정. follow 를 지우면 활성 리포는 터미널을 따라가지 않는다 — 그 값을 하단바에 상주시키면 "지금 있는 곳" 으로 오해되기만 한다. **이로써 터미널의 리포를 실시간으로 감지하는 상주 로직이 전부 사라진다** (사용자가 그 귀결을 확인했다). 남는 감지는 `+ Add` 를 여는 순간의 1회뿐이다 |

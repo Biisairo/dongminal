@@ -58,7 +58,7 @@
   읽는다 (`internal/shared/settingsschema`).
   생성기를 두지 않은 이유(D-CFG-2): 생성기는 원천을 Go 로 옮기고 JS 를 산출물로
   만든다 — 게이트 밖에서 JS 를 고친 사람이 조용히 되돌려진다.
-- **파생**: `_saveSettings` 가 표를 돌아 본문을 만든다. `_settingsApply` 도 같은
+- **파생**: `saveSettings` 가 표를 돌아 본문을 만든다. `_settingsApply` 도 같은
   표를 돈다 — 종전에는 키마다 `if` 가 하나씩이었고 범위 검사가 같은 모양으로 두
   번 세 번 적혀 있었다.
 - **`server.json`**: 기동값의 파일 계층. 우선순위 **플래그 > 환경변수 > 파일 >

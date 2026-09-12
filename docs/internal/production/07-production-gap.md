@@ -242,7 +242,7 @@
 ### 현재 상태
 
 - **소스가 다섯 층**: ① CLI 플래그(`ctl/cli/options.go`: `--port/--home/--expose/--restart-daemon/--isolated/--foreground`, 포트 범위 검증 `:88-92`, `~` 확장) ② 환경변수 — 이름 상수 9개(`dmenv.go`, `options.go:28-42`: `DONGMINAL_HOME/HOST/PORT/LOG/TOOL_ID/TOOL_HOME/HISTFILE/RESTART_RUNNER`, `PORT`) + 상수 없이 흩어진 4개(`DONGMINAL_ATTENTION_IDLE_MS`, `DONGMINAL_ATTENTION_BELL`, `DONGMINAL_CMD_RESULT_TIMEOUT_MS`, `DONGMINAL_URL_OPEN`; GO-P2 "dmenv 한 곳으로" 연계) ③ 서버 파일(`access.json`·`sandbox.json`) ④ 브라우저 blob(`settings.json` — 서버 불해석) ⑤ 브라우저 저장소(`localStorage`/`sessionStorage`, FE-P2 C-2 키 리터럴).
-- **스키마·검증**: `settings.json` 서버측 0(SEC-P2 §4.4). 프론트 `_settingsApply`(`app-settings.js:321-436`) 가 키별 `if(saved.x!==undefined)` 로 얹고 일부만 범위 검증(폴링 주기 `pollValue`, `focusEdgeLevel`, `attnEdgeLevel`, `tabWidthPx`). 미지 키 무시, 타입 오류는 `!!`·`Number()` 강제. `access.json` 은 PUT 때만 `validateAccessValue`. 설정 키의 단일 목록은 `_saveSettings` 의 24키 나열(`app-settings.js:15`) — 즉 **저장 함수가 스키마다.**
+- **스키마·검증**: `settings.json` 서버측 0(SEC-P2 §4.4). 프론트 `_settingsApply`(`app-settings.js:321-436`) 가 키별 `if(saved.x!==undefined)` 로 얹고 일부만 범위 검증(폴링 주기 `pollValue`, `focusEdgeLevel`, `attnEdgeLevel`, `tabWidthPx`). 미지 키 무시, 타입 오류는 `!!`·`Number()` 강제. `access.json` 은 PUT 때만 `validateAccessValue`. 설정 키의 단일 목록은 `saveSettings` 의 24키 나열(`app-settings.js:15`) — 즉 **저장 함수가 스키마다.**
 - **기본값**: `dmenv` 상수(호스트·포트·홈), 프론트 `constants.js` 전역 `var`(FE-P1). 서버측 설정 기본값 표 없음.
 - **문서**: `getting-started.md` 가 `DONGMINAL_HOME/HOST/PORT/LOG/TOOL_ID`·`PORT` 를, `features.md` 가 `DONGMINAL_ATTENTION_*` 를 문서화. **미문서**: `DONGMINAL_TOOL_HOME`, `DONGMINAL_CMD_RESULT_TIMEOUT_MS`, `DONGMINAL_URL_OPEN`, `DONGMINAL_HISTFILE`(내부). `settings.json` 키 참조 문서 없음(`features.md` 는 UI 설명).
 - **잘못된 설정 시 동작**: `settings.json` 비JSON → 서버는 그대로 서빙 → `main.js:14-21` `catch{}` → 기본값으로 조용히(FE-P1). `access.json` 손상 → fail-open(SEC). `workspace.json` 손상 → 빈 인덱스(§4). `PORT` 환경변수는 검증 없이 `net.Listen` 까지 간다(`ResolvePort`) → `start` 가 "기동 실패. 로그:" 로 끝난다(`start.go:124-129`) — 사유는 로그 tail 에만.
@@ -256,7 +256,7 @@
 
 | ID | 등급 | 갭 | 영향 범위 | 규모 |
 |---|---|---|---|---|
-| G5-1 | 권장 | 설정 스키마 단일 원천 + `config validate` — 지금은 `_saveSettings` 의 24키 나열이 스키마 | `app-settings.js` 서술자 표(FE-P2 D-1 과 같은 작업), 서버 `handlers_settings.go` 최소 검증(SEC-P2 §4.4), 신규 CLI | M |
+| G5-1 | 권장 | 설정 스키마 단일 원천 + `config validate` — 지금은 `saveSettings` 의 24키 나열이 스키마 | `app-settings.js` 서술자 표(FE-P2 D-1 과 같은 작업), 서버 `handlers_settings.go` 최소 검증(SEC-P2 §4.4), 신규 CLI | M |
 | G5-2 | 권장 | 환경변수 4개 미문서 + 잘못된 값의 동작 미정의(`PORT` 비숫자 → 로그 tail 에만) | `getting-started.md`, `options.go` `ResolvePort` 검증 | S |
 | G5-3 | 권장 | 서버 설정 파일 부재 — 인증·TLS·로그 레벨 도입 시 필요 | 신규 `ctl/cli/config.go`, `options.go` 우선순위, `dmenv` | M |
 | G5-4 | 선택 | 설정 변경 감사 로그(누가·언제·무엇을 — 인증 도입 뒤 의미가 생긴다) | `handlers_settings.go`, `access.go` PUT | S |

@@ -37,9 +37,9 @@
 
 | 탭 타입 | 인스턴스 키 | 슬롯 |
 |---|---|---|
-| terminal | `_mkTool(toolId,name,**slot**)` → `_slotKey(toolId,slot)` | ✅ |
-| editor | `_slotKey(at.id,**slot**)` | ✅ |
-| git | `_gitPanel(**slot**)` | ✅ |
+| terminal | `mkTool(toolId,name,**slot**)` → `slotKey(toolId,slot)` | ✅ |
+| editor | `slotKey(at.id,**slot**)` | ✅ |
+| git | `gitPanel(**slot**)` | ✅ |
 | **run** | `_runViewMap().get(tab.id)` — `app-runs.js:271` | ❌ |
 
 DOM 노드는 한 부모에만 붙는다. 캐시가 하나이므로 두 번째 칸의 `appendChild` 가 첫
@@ -56,14 +56,14 @@ Git 패널이 같은 문제를 이미 겪었고 그 해법이 규약으로 남�
 
 | 자리 | 가정 |
 |---|---|
-| `_runViewEl` (`:271`) | `m.get(tab.id)` |
+| `runViewEl` (`:271`) | `m.get(tab.id)` |
 | `_onRunChanged` (`:329~336`) | `live.has(tabId)` · `m.delete(tabId)` |
 | `_runPaint` 예약 (`:390`) | `m.get(v.tabId)===v` |
 
 편집기가 **정확히 이 실수를 이미 했다** (renderer.js 의 FR-SVS-60 주석).
 
 > 편집기 Map 의 키는 복합키다 (FR-WSL-75) — 회수는 탭 id 로 판정한다. FR-SVS-60:
-> 파싱은 `_slotBase` 한 자리다. **여기서 `@1` 만 잘라 내던 동안 칸 2·3 의 편집기는
+> 파싱은 `slotBase` 한 자리다. **여기서 `@1` 만 잘라 내던 동안 칸 2·3 의 편집기는
 > 살아 있는 탭인데도 매 render 마다 파괴됐다.**
 
 그러므로 이 SRS 는 "키를 바꾼다" 가 아니라 **"키를 바꾸고 그 키를 읽는 세 자리를
@@ -73,19 +73,19 @@ Git 패널이 같은 문제를 이미 겪었고 그 해법이 규약으로 남�
 
 ## 3. 요구사항
 
-**FR-SRV-1** Run 뷰 인스턴스의 키는 `_slotKey(tab.id, slot)` 이다. 같은 Run 탭이 두
+**FR-SRV-1** Run 뷰 인스턴스의 키는 `slotKey(tab.id, slot)` 이다. 같은 Run 탭이 두
 칸에 보이면 뷰도 DOM 도 **둘**이다.
 
-**FR-SRV-2** `_runViewEl(tab, slot)` 이 슬롯을 인자로 받는다. 부르는 자리는
+**FR-SRV-2** `runViewEl(tab, slot)` 이 슬롯을 인자로 받는다. 부르는 자리는
 `renderer._mountTabBody` 하나이며 그것은 이미 자기 슬롯을 안다.
 
-**FR-SRV-3** 단일 슬롯 모드의 키는 `tab.id` **그대로**다 — `_slotKey` 가 슬롯 0 에
+**FR-SRV-3** 단일 슬롯 모드의 키는 `tab.id` **그대로**다 — `slotKey` 가 슬롯 0 에
 접미사를 붙이지 않는다 (FR-WSL-75). 칸이 하나일 때의 동작은 한 글자도 바뀌지 않는다.
 
 **FR-SRV-4** 키를 읽는 **세 자리 모두** 복합키를 안다 (§2.2).
 
-1. 조회 — `_slotKey` 로 만든 키
-2. 회수 — 살아 있는 탭 판정은 `_slotBase(k)` 로 한다. 그리고 **사라진 칸의 뷰도**
+1. 조회 — `slotKey` 로 만든 키
+2. 회수 — 살아 있는 탭 판정은 `slotBase(k)` 로 한다. 그리고 **사라진 칸의 뷰도**
    거둔다 (`_slotReap`, FR-SVS-46 과 같은 자리).
 3. 다시 그리기 예약 — 자기 키로 자기 자신인지 확인한다.
 
@@ -128,6 +128,6 @@ Git 패널이 인스턴스 자체를 칸마다 둔 것과 같은 이유다.
 ## 6. 비목표
 
 1. Run 대시보드의 내용·API·그래프를 바꾸지 않는다.
-2. `_buildPane` 이 `_aw()` 로 창 타입을 판정하는 문제(`renderer.js:497·504·513`)는
+2. `_buildPane` 이 `aw()` 로 창 타입을 판정하는 문제(`renderer.js:497·504·513`)는
    별건이다 — 같은 "슬롯을 모르는 코드" 계열이지만 탭 바와 드래그의 동작 결함이며
    이 SRS 의 증상과 다르다.

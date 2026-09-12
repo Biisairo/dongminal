@@ -116,7 +116,7 @@ file-tree-xfer.js:186            메뉴 newDir    startCreate(true,dir)
 
 | 조작 | 있는 것 | 확인 |
 |---|---|---|
-| 복사 | `app._edClipSet(this.root,p)` | `app-editor.js:871` |
+| 복사 | `app.edClipSet(this.root,p)` | `app-editor.js:871` |
 | 붙여넣기 | `doPasteInto(dir)` | `file-tree-edit.js:224`. 빈 클립보드는 `EDITOR_PASTE_NONE` 로 막혀 있다 |
 | 복제 | `doDuplicate(p)` | `file-tree-edit.js:243` |
 | 삭제 | `doDelete(p)` | `file-tree-edit.js:193`. **확인창까지 자기가 든다** (`FR-EDT-83`·`84`) |
@@ -145,7 +145,7 @@ file-tree-xfer.js:186            메뉴 newDir    startCreate(true,dir)
 | 자리 | 판정 |
 |---|---|
 | `activeElement` 게이트 (`:131`) | `INPUT`/`TEXTAREA` 면 나간다. 탐색기 컨테이너는 `div` 라 **나가지 않는다** |
-| `_edTrySearchKey` (`:139`) | `Mod+F` 계열만 본다 |
+| `edTrySearchKey` (`:139`) | `Mod+F` 계열만 본다 |
 | `BUILTIN_HOTKEYS` (`constants.js:240`) | `Mod+F` 하나뿐 |
 | `SHORTCUT_DEFAULTS` (`helpers.js`) | `Delete`·`Mod+C`·`Mod+V`·`F2`·맨 방향키가 **하나도 없다**. 방향키는 `Ctrl+Shift+Arrow` 로만 쓰인다 |
 | `_blockBrowserDefault` (`:157`) | 수식키 없는 키는 대상이 아니다 → `Delete`·`F2`·방향키 통과. `KeyC`·`KeyV`·`KeyX` 는 `KEY_BLOCK_EXEMPT_MOD`(`constants.js:234`)로 면제 |
@@ -157,7 +157,7 @@ file-tree-xfer.js:186            메뉴 newDir    startCreate(true,dir)
 
 | 얽힘 | 내용 |
 |---|---|
-| `U-4` → `U-14` | 루트를 **선택 가능**하게 만들면 `Delete`·`F2`·복사가 루트를 겨눈다. `startRename` 만 루트를 막고 `doDelete`·`_edClipSet` 은 막지 않는다 |
+| `U-4` → `U-14` | 루트를 **선택 가능**하게 만들면 `Delete`·`F2`·복사가 루트를 겨눈다. `startRename` 만 루트를 막고 `doDelete`·`edClipSet` 은 막지 않는다 |
 | `U-12` → `U-16` | `U-12` 가 부르는 `startCreate` 를 `U-16` 이 막는다 |
 | `U-12` → `U-13` | `U-13` 은 `U-12`(와 나머지 넷)가 만든 파일의 후속이다 |
 | `U-4` → `U-12` | 같은 "빈 여백" 판정을 클릭과 더블클릭이 나눠 쓴다 |
@@ -284,13 +284,13 @@ file-tree-xfer.js:186            메뉴 newDir    startCreate(true,dir)
 | 키 | 동작 | 부르는 것 |
 |---|---|---|
 | `Delete` · `Backspace` | 선택을 지운다 | `doDelete(sel)` |
-| `Mod+C` | 선택을 복사한다 | `app._edClipSet(this.root, sel)` |
+| `Mod+C` | 선택을 복사한다 | `app.edClipSet(this.root, sel)` |
 | `Mod+V` | 붙여넣는다 | `doPasteInto(this._targetDir())` |
 | `F2` | 이름을 고친다 | `startRename(sel)` |
 | `ArrowDown` · `ArrowUp` | 선택을 **보이는 순서**로 옮긴다 | — |
 | `ArrowRight` | 닫힌 폴더를 펼친다 | `toggle(sel)` |
 | `ArrowLeft` | 열린 폴더를 접는다 | `toggle(sel)` |
-| `Enter` | 파일이면 고정해 열고, 폴더면 토글한다 | `_edPinTabFor` / `toggle` |
+| `Enter` | 파일이면 고정해 열고, 폴더면 토글한다 | `edPinTabFor` / `toggle` |
 
 `Backspace` 를 함께 받는 것은 macOS 의 삭제 관용이 그것이기 때문이다.
 
@@ -447,7 +447,7 @@ focus-invariant   포커스 규약
    구조를 그대로 옮기는 일을 거부하면 드롭이 조용히 실패한다. 필요해지면 그때
    `FILE_API_BOUNDARY_SRS` 쪽에서 판정한다.
 4. **방향키의 부모 이동·`Home`/`End`·타이핑 점프** (D-7).
-5. **`Mod+X`(잘라내기).** 클립보드(`_edClipSet`)에 cut/copy 구분이 없어 그 모델을
+5. **`Mod+X`(잘라내기).** 클립보드(`edClipSet`)에 cut/copy 구분이 없어 그 모델을
    넓히는 일이 된다.
 6. **탐색기의 포커스 링 디자인.** `tabindex` 가 만드는 기본 표시를 쓴다.
 7. **탭 바 여백의 **한 번** 클릭.** 뜻을 정하지 않는다 — 더블클릭만 더한다.
