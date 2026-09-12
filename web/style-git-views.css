@@ -399,7 +399,7 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 
 /* ── 파괴적 동작 확인 (FR-GIT-90~97·174~178) ── */
 .gc-modal{
-  position:fixed;inset:0;z-index:300;
+  position:fixed;inset:0;z-index:var(--z-modal);
   background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
   display:flex;align-items:center;justify-content:center;
 }
@@ -846,7 +846,7 @@ select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
   border:1px solid var(--border);border-radius:4px;
   box-shadow:0 1px 4px rgba(0,0,0,.3);
   /* diff 의 글자 위에 겹쳐 뜨므로 그 위여야 한다. */
-  z-index:12;
+  z-index:var(--z-raised);
 }
 .git-hunk-act{
   font:inherit;font-size:var(--fs-sm);padding:2px 8px;cursor:pointer;flex-shrink:0;
@@ -924,7 +924,7 @@ select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
    규약을 쓰므로 치수·그림자도 그것을 따른다 — 두 모달이 다르게 생기면 같은
    규약이라는 사실이 화면에서 사라진다. */
 .runs-modal{
-  position:fixed;inset:0;z-index:200;
+  position:fixed;inset:0;z-index:var(--z-modal);
   background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
   display:flex;align-items:center;justify-content:center;
 }
@@ -1159,7 +1159,7 @@ body.mobile .run-view .run-card-detach{min-height:var(--touch-min);padding:0 12p
    터치 타깃은 최소 44px (데스크톱 30px 은 `.si`·버튼과 맞춘 값이다). */
 /* 드로어 닫기 `✕` 는 사이드바 우상단에 절대 배치된다 (app-mobile.js) — 자리를
    비워 두지 않으면 마지막 탭 위에 겹친다. */
-body.mobile #sb-tabs{position:sticky;top:0;z-index:1;background:var(--sidebar-bg);padding-right:36px}
+body.mobile #sb-tabs{position:sticky;top:0;z-index:var(--z-sticky);background:var(--sidebar-bg);padding-right:36px}
 body.mobile .sb-tab{height:var(--touch-min);font-size:var(--fs-md)}
 body.mobile .sb-tab-badge{min-width:18px;padding:0 6px;font-size:var(--fs-sm);line-height:18px;border-radius:9px}
 

@@ -243,6 +243,14 @@ jobs:
       - name: 글자 크기
         run: node scripts/check-font-size.mjs
 
+      # `UX-16` — 착수 시 44선언 · 28값 · 1~9999 였다. `.ed-find` 9997 ·
+      # `.tc-copy` 9999 가 요점이다: **위에 있어야 한다는 뜻을 값으로 말할 방법이
+      # 없어서 큰 수를 골랐다.** 리터럴을 0 으로 재고(FR-TOK-31), 층에 대한
+      # 산술도 잡는다 — `calc(var(--z-modal) + 1)` 은 이름을 붙인 ±1 이고
+      # 같은 층 안의 순서는 DOM 이 정한다 (FR-TOK-22 / D-TOK-8).
+      - name: z-index 층
+        run: node scripts/check-z-index.mjs
+
       # 서식은 취향이 아니라 diff 의 크기다 (TEST-10). 착수 시 1건 위반이 있었다.
       - name: gofmt
         run: |

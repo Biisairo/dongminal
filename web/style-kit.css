@@ -114,7 +114,7 @@
 
 /* ── 상자 (FR-UIK-7) ─────────────────────────────────────────────────── */
 .ui-modal{
-  position:fixed;inset:0;z-index:200;
+  position:fixed;inset:0;z-index:var(--z-modal);
   display:flex;align-items:center;justify-content:center;
   background:rgba(0,0,0,.55);
 }
@@ -137,7 +137,7 @@
 
 /* ── 메뉴 (FR-UIK-8) ─────────────────────────────────────────────────── */
 .ui-menu{
-  position:fixed;z-index:3000;min-width:160px;padding:3px;
+  position:fixed;z-index:var(--z-popover);min-width:160px;padding:3px;
   background:var(--sidebar-bg);border:1px solid var(--border-strong);border-radius:5px;
   box-shadow:0 6px 20px rgba(0,0,0,.45);font-size:var(--fs-md);color:var(--text);
 }
@@ -178,7 +178,7 @@
 /* ── 핸들의 크기 표시 (FR-HSZ-2·3·4·8) ────────────────────────────────
    문서에 **하나**뿐인 겹이다 (D-10). 끄는 동안만 보이고, 손을 가로채지 않는다. */
 #ui-size-hud{
-  position:fixed;inset:0;z-index:450;display:none;pointer-events:none;
+  position:fixed;inset:0;z-index:var(--z-popover);display:none;pointer-events:none;
 }
 #ui-size-hud.on{display:block}
 .ui-size-box{

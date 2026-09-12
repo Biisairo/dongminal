@@ -81,6 +81,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@node scripts/check-focus.mjs
 	@echo "── 글자 크기 (font-size 가 토큰에서 오는가)"
 	@node scripts/check-font-size.mjs
+	@echo "── z-index 층 (값이 층에서 오고 산술이 없는가)"
+	@node scripts/check-z-index.mjs
 	@echo "gates ok"
 
 # 한 번에 도는 샤드 수. 샤드 하나가 워커 2개(= 인스턴스 2개)를 띄우므로 이 값이

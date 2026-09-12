@@ -137,6 +137,19 @@ Object.assign(FileEditor.prototype, {
       q.value = this._editor.getModel().getValueInRange(sel);
       this._findCur = 0;
     }
+    /**
+     * DESIGN_TOKENS_SRS FR-TOK-22 (`UX-16`): **겹치는 순서를 DOM 이 정한다.**
+     *
+     * `.fe-find`·`.fe-note`·`.fe-offer` 는 같은 층(`--z-raised`)이고 셋 다 첫
+     * 사용 시점에 `appendChild` 된다 — 사용자가 무엇을 먼저 건드렸느냐로 순서가
+     * 갈린다. 종전에는 CSS 가 11/12/13 사다리로 고정했는데, 그 사다리는 알림이
+     * **항상** 위라는 뜻이었고 알림과 찾기는 좌표가 같다(`top:6px;right:18px`) —
+     * 알림이 뜬 동안 찾기를 열면 방금 열어 놓은 입력 칸이 가려졌다.
+     *
+     * 보일 때 맨 뒤로 옮기면 "마지막에 보인 것이 위" 가 되고, 그것이 사용자가
+     * 방금 한 일을 보여 준다 (사용자 결정 2026-09-13).
+     */
+    this.el.appendChild(p);
     p.classList.add('vis');
     q.focus();
     // 전체 선택해 둔다 — 한 번의 타이핑으로 다른 말로 갈아 칠 수 있어야 한다.

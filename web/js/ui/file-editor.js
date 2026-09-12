@@ -946,6 +946,9 @@ class FileEditor {
       this._note = el;
     }
     this._note.textContent = text;
+    // FR-TOK-22: 같은 층에서 겹치는 순서는 DOM 이 정한다 — 보일 때 맨 뒤로
+    // 옮긴다 (`file-editor-find.js` 의 `findOpen` 이 같은 규약이다).
+    this.el.appendChild(this._note);
     this._note.classList.add('vis');
     TIMERS.cancel(this._noteT);
     // 스스로 사라진다 — 닫는 조작을 배워야 하는 알림은 알림이 아니라 창이다.

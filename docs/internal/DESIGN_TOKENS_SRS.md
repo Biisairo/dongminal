@@ -306,37 +306,94 @@ FR-TOK-22 가 지목한 바로 그 ±1 이 사라진다.
 착수 시 실측은 **44선언 · 28값 · 1~9999** 다 (`web/vendor/` 제외). 값 옆의
 숫자가 종전 값이다.
 
-| 층 | 선언 (종전 값) | 계 |
-|---|---|---|
-| `--z-raised` | `.sh`1 · `.slot-handle`5 · `.git-commit`5 · `.fe-render`6 · `.fe-dd-peek`6 · `.fe-offer`11 · `.fe-find`12 · `.git-hunk-bar`12 · `.fe-note`13 · `.pn-drop-indicator`15 · `.pn.attn::after`35 | 11 |
-| `--z-sticky` | `.git-head`1 · `.git-files-bar`1 · `.tl-section`1 · `body.mobile #sb-tabs`1 · `.search-bar`10 · `#mobile-keybar`60 | 6 |
-| `--z-overlay` | `.tp.dragover::after`20 · `.tp-overlay`25 · `.pn-dimmed .pn-body::after`30 · `#drawer-backdrop`40 · `body.mobile #sidebar`50 · `#boot`1000 | 6 |
-| `--z-modal` | `#modal-overlay`100 · `.ui-modal`200 · `.confirm-overlay`200 · `.bg-modal`200 · `.runs-modal`200 · `.gc-modal`300 · `.git-dialog`300 · `.ed-find`9997 | 8 |
-| `--z-popover` | `.sbx-progress`60 · `.ver-held`60 · `#mkb-tip`70 · `#attn-center`200 · `.git-undo-toast`400 · `.toast-host`420 · `#ui-size-hud`450 · `.ui-menu`3000 · `.git-menu`3000 · `.tc-copy`9999 · `.git-commit-menu`20 | 11 |
-| `--z-edge` | `#focus-edge`500 · `#attn-edge`501 | 2 |
-| | | **44** |
+| 층 | 값 | 선언 (종전 값) | 계 |
+|---|---|---|---|
+| `--z-raised` | 100 | `.sh`1 · `.git-head`1 · `.slot-handle`5 · `.fe-render`6 · `.fe-dd-peek`6 · `.fe-offer`11 · `.fe-find`12 · `.git-hunk-bar`12 · `.fe-note`13 · `.pn-drop-indicator`15 | 10 |
+| `--z-sticky` | 200 | `.git-files-bar`1 · `.tl-section`1 · `body.mobile #sb-tabs`1 · `.search-bar`10 | 4 |
+| `--z-overlay` | 300 | `.tp.dragover::after`20 · `.tp-overlay`25 · `.pn-dimmed .pn-body::after`30 · `.pn.attn::after`35 · `#drawer-backdrop`40 · `body.mobile #sidebar`50 · `#mobile-keybar`60 | 7 |
+| `--z-modal` | 400 | `#modal-overlay`100 · `.ui-modal`200 · `.confirm-overlay`200 · `.bg-modal`200 · `.runs-modal`200 · `.gc-modal`300 · `.git-dialog`300 · `.ed-find`9997 · `#boot`1000 | 9 |
+| `--z-popover` | 500 | `.git-commit-menu`20 · `.sbx-progress`60 · `.ver-held`60 · `#mkb-tip`70 · `#attn-center`200 · `.git-undo-toast`400 · `.toast-host`420 · `#ui-size-hud`450 · `.ui-menu`3000 · `.git-menu`3000 · `.tc-copy`9999 | 11 |
+| `--z-edge` | 600 | `#focus-edge`500 · `#attn-edge`501 | 2 |
+| — | — | `.git-commit`5 — **선언이 사라졌다** (아래) | −1 |
+| | | | **43** |
+
+간격 100 은 여유지 의미가 아니다 — 그 사이에 값을 적을 일이 없고, 게이트가
+리터럴을 막는다.
+
+**구현이 초안의 다섯을 고쳤다.** 사상표를 종이에서 만든 뒤 **쌓임 문맥과 DOM
+순서를 실제로 따라가자** 다섯 자리가 틀렸다. 셋은 "같은 층으로 접으면 DOM
+순서가 답한다" 를 확인하는 과정에서, 둘은 **전량 e2e 가** 드러냈다.
+
+| 선언 | 초안 | 실제 | 왜 |
+|---|---|---|---|
+| `.pn.attn::after` 35 | `--z-raised` | **`--z-overlay`** | 같은 `.pn` 문맥의 `.pn-dimmed .pn-body::after`(30)가 overlay 로 가므로, 알림 링이 raised(100)면 **흐림막이 링을 덮는다**. 둘을 같은 층에 두면 `.pn::after` 가 `.pn-body` 보다 뒤에 와서 DOM 순서가 오늘과 같은 답을 준다 |
+| `#mobile-keybar` 60 | `--z-sticky` | **`--z-overlay`** | 키바는 "뷰 안의" 고정 요소가 아니라 **뷰포트에 붙어 뷰를 덮는** chrome 이다. sticky(200)로 내리면 드로어(`#drawer-backdrop`·`body.mobile #sidebar`, overlay)가 키바를 덮는다. overlay 로 두면 `index.html` 에서 키바가 그 둘보다 **뒤에** 오므로(119·120 < 225) DOM 순서가 오늘(60 > 50 > 40)과 같다 |
+| `#boot` 1000 | `--z-overlay` | **`--z-modal`** | `#boot` 은 한 뷰를 덮는 것이 아니라 **앱 전체를 덮는 차단 화면**이다. overlay 로 내리면 `body.mobile #sidebar`(overlay)가 `index.html` 상 `#boot`(98)보다 뒤(120)라서 **모바일에서 드로어가 부팅 화면 위로 그려진다** — NFR-TOK-2 가 지키는 첫 페인트가 깨진다 |
+| `.git-head` 1 | `--z-sticky` | **`--z-raised`** | 이름만 보고 골랐다. 그 규칙은 `position:relative` 이고 **스크롤에 붙지 않는다** — 뷰 안에서 한 겹 위일 뿐이다. sticky(200)로 올리자 형제 `.git-commit`(raised 100) 위가 되어 **머리가 커밋 메뉴의 클릭을 가로챘다**(종전 `commit 5 > head 1`). 전량 e2e 가 `git-commit.spec.ts` E12 에서 `<div class="git-head"> intercepts pointer events` 로 잡았다 |
+| `.git-commit` 5 | `--z-raised` | **선언을 지웠다** | 아래 |
+
+**`.search-bar` 의 `z-index` 는 무력하다.** 그 규칙에 `position` 이 없어서
+(`style.css`) 종전 `10` 도 지금 `--z-sticky` 도 계산에 들어가지 않는다. 사상은
+한다 — 값이 층에서 와야 한다는 요구는 그 선언이 효력이 있는지와 무관하고,
+언젠가 `position` 이 붙는 날 뜻이 이미 적혀 있다.
 
 **`--z-raised` 는 1 이 될 수 없다.** `.fe-dd-peek` 의 `6` 은 임의값이 아니다 —
 그 규칙의 주석이 근거를 적고 있다: Monaco 의 `.view-lines` 가 **클릭을
 가로챘고**(playwright 가 `intercepts pointer events` 로 거부했다) 그래서 올린
-값이다. 이 층은 **벤더(Monaco, 예외 E-2)의 내부 스택 위**여야 하므로 값은
-그 위에서 고른다.
+값이다. `.git-hunk-bar`(12)도 같은 부류다 — Monaco 의 **content widget**
+(`panel-diff.js:447` 이 `addContentWidget` 으로 붙인다)이라 Monaco 가 인라인으로
+`position:absolute` 를 주고, 그 위젯 무리 안에서 순서를 다툰다. 이 층은
+**벤더(Monaco, 예외 E-2)의 내부 스택 위**여야 하므로 값은 그 위에서 고른다.
+
+**`.file-editor` 의 세 겹은 DOM 순서가 답하지 못했다** (사용자 결정 2026-09-13).
+`.fe-offer`(11) · `.fe-find`(12) · `.fe-note`(13) 은 셋 다 **첫 사용 시점에**
+`appendChild` 된다 (`file-editor.js:944`·`966`, `file-editor-find.js:76`) — 사용자가
+무엇을 먼저 건드렸느냐로 DOM 순서가 갈린다. 그러면서 **알림과 찾기는 좌표가
+같고**(`top:6px;right:18px`) 찾기는 제안 띠 위에 얹힌다. FR-TOK-22 의 "DOM
+순서가 정한다" 가 여기서는 답이 없다.
+
+그래서 **보일 때 맨 뒤로 옮긴다** — `findOpen` 과 `note()` 가 `appendChild` 로
+자신을 끝에 다시 붙인다. "마지막에 보인 것이 위" 이고, 그것이 사용자가 방금 한
+일을 보여 준다. **동작 1건이 바뀐다**: 종전 사다리는 알림이 **항상** 위였고,
+좌표가 같으므로 알림이 뜬 동안 찾기를 열면 **방금 열어 놓은 입력 칸이
+가려졌다.** 이제 찾기가 보인다 — 변경이면서 거의 수정이다.
+
+**`#focus-edge` / `#attn-edge` 의 ±1 은 DOM 순서로 옮겼다.** 종전 500/501 은
+D-TOK-8 이 지목한 "누가 위인가를 값으로 적은 자리" 다. 같은 층(`--z-edge`)에
+두고 `index.html` 에서 **`#attn-edge` 를 뒤로** 옮겼다 — 알림 테두리가 포커스
+테두리 위여야 하기 때문이다(종전 501 > 500): `#focus-edge` 의
+`backdrop-filter:invert` 가 알림색을 뒤집으면 알람이 알람으로 보이지 않는다.
+동작은 같고 ±1 은 사라졌다.
 
 **페인트 순서가 실제로 바뀌는 자리 (FR-TOK-22 의 대가)**
 
 | 자리 | 이전 | 이후 | 판단 |
 |---|---|---|---|
 | `.tp.dragover::after`20 ↔ `.tp-overlay`25 | 오버레이가 위 | **드롭 힌트가 위** | 힌트는 `.tp` 의 `::after` 라 DOM 에서 `.tp-overlay`(`appendChild`, `term-pane.js:754`) 뒤에 온다. 드래그 중이라면 힌트가 보이는 쪽이 맞다 |
-| `.sbx-progress`60 · `.ver-held`60 · `#attn-center`200 | 모달 아래(또는 같은 층) | **모달 위** | 셋 다 진행·알림·드롭다운이다. 모달이 떠 있어도 보여야 하는 부류이고 `--z-popover` 의 뜻이 그것이다 |
-| `#boot`1000 | 모달 위 | **모달 아래** | 부팅 중에는 모달이 없다. 무해하지만 기록한다 |
-| `#focus-edge`500·`#attn-edge`501 | 메뉴 아래 | **메뉴 위** | `--z-edge` 가 최상위다. 둘 다 `pointer-events:none` 이므로 조작을 막지 않는다 |
+| `.sbx-progress`60 · `.ver-held`60 · `#attn-center`200 | 모달 아래(또는 같은 층) | **모달 위** | 진행·알림·드롭다운이다. 모달이 떠 있어도 보여야 하는 부류이고 `--z-popover` 의 뜻이 그것이다 |
+| `.ed-find`9997 ↔ 메뉴 3000 | 팔레트가 메뉴 위 | **메뉴가 팔레트 위** | 팔레트는 배경을 깐 모달이고 메뉴는 그 위에 뜬다. 팔레트 위에서 우클릭한 메뉴가 팔레트에 가리지 않는다 |
+| `#boot`1000 ↔ 모달 | 부팅 화면이 모달 위 | **모달이 부팅 화면 위** | 부팅 중에는 모달이 없다. 무해하지만 기록한다 |
+| `#focus-edge`·`#attn-edge` | 메뉴·팔레트 아래 | **최상위** | `--z-edge` 가 그 뜻이다. 둘 다 `pointer-events:none` 이므로 조작을 막지 않는다 |
+| `.fe-note` ↔ `.fe-find` | 알림이 항상 위 | **나중에 보인 것이 위** | 위의 세 겹 항목 |
 
-**`.git-commit-menu` 의 값은 무력하다.** `.git-commit{position:relative;z-index:5}`
-가 쌓임 문맥을 만들고(그 규칙의 주석이 이유를 적는다 — 뒤따르는 형제
-`.git-changes-body` 가 메뉴를 가려 클릭이 먹지 않았다) 메뉴는 그 안에 갇힌다.
-뜻으로는 popover 이므로 그 토큰을 쓰되 **시각 변화는 없다.** 언젠가
-`.git-commit` 의 `z-index` 가 사라지면 그때 메뉴가 제 층으로 올라간다 — 그것이
-맞는 동작이다.
+**`.git-commit` 의 선언이 사라졌다 — 층 체계가 그것을 불필요하게 만들었다.**
+종전 `.git-commit{position:relative;z-index:5}` 는 **메뉴를 형제들 위로
+들어올리려고 상자에 걸린 값**이었다(그 규칙의 주석이 그렇게 적고 있다 — 뒤따르는
+`.git-changes-body` 가 메뉴를 가려 클릭이 먹지 않았다).
+
+그 방식의 대가가 실측으로 드러났다: **메뉴의 층이 상자의 층에 갇힌다.**
+`.git-files-bar` 가 `--z-sticky`(200, 그 규칙은 진짜 `position:sticky` 다)로 가자
+상자(`--z-raised` 100)보다 위가 되어 메뉴의 클릭이 다시 먹지 않았다.
+
+그래서 `position:relative` 만 남기고 **층은 메뉴가 자기 것을 쓴다**
+(`.git-commit-menu` → `--z-popover` 500). 상자는 쌓임 문맥을 만들지 않으므로 그
+500 이 `.git-view` 문맥에서 실제로 효력을 갖고, `.git-files-bar`(200)·
+`.git-head`(100)·목록 행(0)을 전부 넘는다.
+
+**이것이 층 체계가 있는 이유다**: 팝오버는 팝오버 층에 있으면 되고, 그것을 담은
+상자가 같이 올라갈 필요가 없다. 상자를 올리는 방식은 그 상자와 형제들의 값을
+**영원히 서로 매어 둔다** — 44선언을 값으로 다투던 시절의 문법이다. 선언 하나가
+줄어 **43** 이 됐고, 그것이 이 마일스톤이 무엇을 없앴는지를 말한다.
 
 ### 3.5 포커스
 
@@ -589,6 +646,7 @@ FR-TOK-22 가 지목한 바로 그 ±1 이 사라진다.
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-13 | FR-TOK-21·22·23·31 구현 (`UX-16`). z-index **44선언 28값 → 여섯 층 · 43선언** (100/200/300/400/500/600). 사상표는 §3.4. 구현이 초안의 **다섯**을 고쳤다 — `.pn.attn::after`·`#mobile-keybar`·`#boot` 는 쌓임 문맥·DOM 순서를 따라가 보니 층이 달랐고, `.git-head`(실은 `position:relative`)·`.git-commit` 은 **전량 e2e 가** 잡았다. `.git-commit` 의 선언은 지웠다 — 메뉴를 들어올리려 상자에 걸린 값이었고, 메뉴가 `--z-popover` 를 직접 쓰면 필요 없다. `.file-editor` 의 세 겹은 DOM 순서가 답하지 못해 **보일 때 맨 뒤로 옮기는** 규약을 세웠다(사용자 결정). `#focus-edge`/`#attn-edge` 의 ±1 은 `index.html` 의 순서로 옮겼다. 게이트는 `scripts/check-z-index.mjs` — 리터럴 0 과 **층에 대한 산술 0**(이름을 붙인 ±1). 탐침 `z-index:42` · `calc(var(--z-modal) + 1)` 둘로 검출 확인. Makefile·`verify.yml` 둘 다 |
 | 2026-09-13 | FR-TOK-18·19·20·32 구현 (`UX-18`). 글자 크기 **12종 → 다섯**. 사상표는 §3.3. 값은 사용자 결정(`13px`→`14px`, 내리지 않고 올린다). `--sb-rail-fs` 가 `var(--fs-xs)` 가 됐고 `--ui-font` 가 `var(--fs-sm)` 을 가리킨다. 게이트는 `scripts/check-font-size.mjs` — **종수를 세지 않고 px 리터럴을 0 으로** 잰다(종수 조건은 한 줄 고쳐 통과할 수 있다). 탐침 `font-size:13px` 로 검출 확인. Makefile·`verify.yml` 둘 다에 넣었다. **회귀 1건**: `UI_LAYOUT_DEFAULTS_SRS` 의 계산값 기준선에서 `#add-sandbox-window` 의 `inset` 이 1.73px 움직였다 — `10px`→11px 의 직접 귀결이고 그 문서 §9 에 이전/새/이유를 적었다 |
 | 2026-09-13 | FR-TOK-25·30 구현 (`UX-13`). `--focus-ring` 을 파생으로 세웠다 — 원시 `--accent` 는 54종 중 **2종**(Ayu Light 2.62 · Everforest Light 2.50)에서 3:1 을 못 넘었고 그 테마에서 포커스가 보이지 않았다. FR-TOK-30 의 문장을 **개수에서 선택자로** 고쳤다: 개수 조건만으로는 링을 아무 데나 더해 통과할 수 있다. 게이트는 `scripts/check-focus.mjs` |
 | 2026-09-12 | 초안. 사용자 결정 = 파생 토큰(팔레트 불변). §4 D-TOK-4 의 사다리는 **단일 바닥 4.5 가 54종 중 34종에서 계층을 무너뜨린다**는 실측에서 나왔다 |

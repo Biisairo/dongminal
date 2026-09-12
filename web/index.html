@@ -528,8 +528,15 @@
      맥박)도 다르므로, 한 요소에 두 규칙을 걸면 전이가 서로를 자른다.
      안쪽 `<i>` 는 맥박만 진다 (세기는 바깥이 든다, D-8).
      색은 `--attn`(테마의 알람색)이고 보일지는 `html.attn-edge-on` 이 정한다. -->
-<div id="attn-edge"><i></i></div>
+<!-- DESIGN_TOKENS_SRS FR-TOK-22 (`UX-16`): 두 표식은 같은 층(`--z-edge`)이고
+     **순서는 이 두 줄이 정한다.** 종전에는 `z-index` 500 / 501 로 적혀 있었다 —
+     "이 둘 중 누가 위인가" 를 값으로 말한 자리이고 D-TOK-8 이 금지한 ±1 이다.
+     알림 테두리가 포커스 테두리 위다(종전 501 > 500): `#focus-edge` 의
+     `backdrop-filter:invert` 가 알림색을 뒤집으면 알람이 알람으로 보이지 않는다.
+     그래서 `#attn-edge` 가 **나중에** 온다. 이 두 줄의 순서를 바꾸면 그 규칙이
+     바뀐다. -->
 <div id="focus-edge"></div>
+<div id="attn-edge"><i></i></div>
 <script src="vendor/xterm.js"></script>
 <script src="vendor/addon-fit.js"></script>
 <script src="vendor/addon-web-links.js"></script>

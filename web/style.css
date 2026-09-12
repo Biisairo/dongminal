@@ -49,6 +49,26 @@
   --fs-md:12px;
   --fs-lg:14px;
   --fs-xl:18px;
+
+  /* DESIGN_TOKENS_SRS FR-TOK-21·22 (`UX-16`): z-index 는 **여섯 층**이다. 착수 시
+     실측은 44선언 · 28값 · 1~9999 였고, 의미의 층이 값에서 읽히지 않았다 —
+     `#modal-overlay` 100 과 `.ui-modal` 200 이 같은 뜻이었고 토스트가 400·420
+     둘이었다. `.ed-find` 9997 · `.tc-copy` 9999 가 요점이다: **위에 있어야
+     한다는 뜻을 값으로 말할 방법이 없어서 큰 수를 골랐다.**
+
+     층은 **뜻**이고 값은 그 뜻의 부산물이다. 간격 100 은 여유지 의미가 아니다 —
+     그 사이에 값을 적을 일이 없다. **같은 층 안의 순서는 DOM 이 정한다**
+     (FR-TOK-22): DOM 순서로 답할 수 없으면 층이 다른 것이고(D-TOK-8), 그때
+     층을 더하는 것은 SRS §3.4 를 고치는 일이다. `--z-edge` 가 그렇게 생겼다.
+
+     44선언 전수 사상표는 `DESIGN_TOKENS_SRS` §3.4 가 갖는다.
+     `scripts/check-z-index.mjs` 가 리터럴 0 과 **층에 대한 산술 0** 을 지킨다. */
+  --z-raised:100;    /* 같은 뷰 안에서 한 겹 위 — 손잡이·드래그 표식·편집기 알림 */
+  --z-sticky:200;    /* 뷰 안의 고정 요소 — 탭 줄·목록 머리 */
+  --z-overlay:300;   /* 뷰를 덮는 것 — 백드롭·드로어·칸 오버레이·모바일 키바 */
+  --z-modal:400;     /* 앱을 덮는 차단 화면 — 모달 상자·확인창·부팅 화면 */
+  --z-popover:500;   /* 모달 위에 뜨는 것 — 메뉴·토스트·HUD·드롭다운 */
+  --z-edge:600;      /* 창 수준의 비상호작용 표식 — 포커스·알림 테두리 */
   --bg:#1a1b26;--sidebar-bg:#16161e;--border:#292e42;
   --accent:#7aa2f7;--text:#a9b1d6;--text-muted:#8b95bf;
   --text-bright:#c0caf5;--text-dim:#414868;--danger:#f7768e;
@@ -205,7 +225,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .sbx-work-warn.vis{display:block}
 /* NFR-SPK-2: 복사가 도는 동안의 표시. 모달이 아니라 배너다 — 진행은 끝나면
    스스로 사라져야 하고, 그동안 사용자가 다른 창을 보는 것을 막을 이유가 없다. */
-.sbx-progress{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;
+.sbx-progress{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:var(--z-popover);
   padding:8px 14px;font-size:var(--fs-md);color:var(--text-bright);background:var(--bg-alt);
   border:1px solid var(--border);border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.35)}
 /* FR-SPK-7: 고를 것이 하나뿐일 때 늘리는 길. */
@@ -390,7 +410,7 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
   animation:attn-pulse-badge 2s ease-in-out infinite}
 #attn-badge .attn-count{margin-left:4px;font-size:var(--fs-sm);font-weight:600}
 #attn-center{
-  display:none;position:fixed;z-index:200;
+  display:none;position:fixed;z-index:var(--z-popover);
   min-width:200px;max-width:320px;max-height:60vh;overflow-y:auto;
   background:var(--sidebar-bg);border:1px solid var(--attn);border-radius:6px;
   box-shadow:0 4px 16px rgba(0,0,0,.4);padding:4px;
@@ -461,7 +481,7 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
    끄는 축만 방향을 따른다 — 창 안 분할의 `.sh` 가 이미 그렇게 갈라져 있다. */
 /* FR-STB-20·24: 슬롯 계층은 분할 손잡이(`.sh`, 3px·`--border`)와 **다른 색과
    굵기**로 선다. 같은 색에 굵기만 1px 다르던 동안 두 계층은 구분되지 않았다. */
-.slot-handle{position:relative;flex:0 0 8px;background:var(--slot-edge);z-index:5}
+.slot-handle{position:relative;flex:0 0 8px;background:var(--slot-edge);z-index:var(--z-raised)}
 .slot-handle:hover{background:var(--accent)}
 #area[data-slotdir="horizontal"] .slot-handle{cursor:col-resize}
 #area[data-slotdir="vertical"] .slot-handle{cursor:row-resize}
@@ -478,7 +498,7 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
 .sp[data-d="horizontal"]{flex-direction:row}
 .sp[data-d="vertical"]{flex-direction:column}
 .sc{flex:1;position:relative;overflow:hidden;min-width:0;min-height:0}
-.sh{flex-shrink:0;background:var(--border);transition:background .15s;position:relative;z-index:1}
+.sh{flex-shrink:0;background:var(--border);transition:background .15s;position:relative;z-index:var(--z-raised)}
 .sh:hover{background:var(--accent)}
 .sp[data-d="horizontal"]>.sh{width:3px;cursor:col-resize}
 .sp[data-d="vertical"]>.sh{height:3px;cursor:row-resize}
@@ -589,7 +609,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
    알람이 있는 칸에서 포커스가 보이지 않던 자리다 (B5). 안쪽으로 한 겹 물리면
    포커스가 바깥에, 알람이 그 안에 나란히 선다. */
 .pn.attn::after{
-  content:'';position:absolute;inset:0;z-index:35;pointer-events:none;
+  content:'';position:absolute;inset:0;z-index:var(--z-overlay);pointer-events:none;
   box-shadow:inset 0 0 0 3px var(--attn),0 0 12px -1px var(--attn-glow);
   animation:attn-pulse-ring 2s ease-in-out infinite;
 }
@@ -671,7 +691,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 
 /* ── Modal ── */
 #modal-overlay{
-  position:fixed;inset:0;z-index:100;
+  position:fixed;inset:0;z-index:var(--z-modal);
   background:rgba(0,0,0,.55);backdrop-filter:blur(2px);
   display:none;align-items:center;justify-content:center;
 }
@@ -760,7 +780,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   font-size:var(--fs-xs);letter-spacing:.12em;color:var(--text-muted);
   padding:8px 10px 4px;border-bottom:1px solid var(--border);
   text-transform:uppercase;background:var(--bg);
-  position:sticky;top:0;z-index:1;
+  position:sticky;top:0;z-index:var(--z-sticky);
 }
 .tl-dots{display:flex;gap:2px}
 .tl-dots span{width:8px;height:8px;border-radius:2px}
@@ -840,7 +860,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   display:flex;align-items:center;gap:4px;
   padding:4px 8px;
   background:var(--sidebar-bg);border-top:1px solid var(--border);
-  z-index:10;flex-shrink:0;
+  z-index:var(--z-sticky);flex-shrink:0;
 }
 /* FR-LAY-3: `.hidden` 을 `[hidden]` 으로 옮겼다 — 숨김의 자리는 하나다. */
 .search-bar input{
@@ -864,14 +884,14 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   content:'Drop files here';position:absolute;inset:0;
   display:flex;align-items:center;justify-content:center;
   background:rgba(0,0,0,.6);border:2px dashed var(--accent);
-  color:var(--accent-text);font-size:var(--fs-lg);z-index:20;pointer-events:none;
+  color:var(--accent-text);font-size:var(--fs-lg);z-index:var(--z-overlay);pointer-events:none;
 }
 /* ── 전송 알림 팝업 (TERM_XFER_NOTICE_SRS FR-TXN-2·7, NFR-TXN-3) ──
    자리는 오른쪽 아래다 — 하단 가운데의 `.git-undo-toast` 와 다투지 않는다 (D-2).
    컨테이너는 클릭을 통과시키고 팝업 자신만 받는다: 알림이 떠 있는 동안 그 아래의
    터미널을 누를 수 없으면 알림이 방해가 된다. */
 .toast-host{
-  position:fixed;right:16px;bottom:52px;z-index:420;
+  position:fixed;right:16px;bottom:52px;z-index:var(--z-popover);
   display:flex;flex-direction:column;align-items:flex-end;gap:6px;
   pointer-events:none;
 }
@@ -898,7 +918,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 .tp-overlay{
   position:absolute;inset:0;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:6px;
-  background:rgba(0,0,0,.7);z-index:25;
+  background:rgba(0,0,0,.7);z-index:var(--z-overlay);
   opacity:0;transition:opacity .3s;pointer-events:none;
 }
 .tp-overlay.visible{opacity:1}
@@ -915,7 +935,7 @@ body.mobile .tp-ov-acts .tbtn{min-height:var(--touch-min);padding:0 14px}
 /* ── Dimmed session overlay (multi-window: another window owns this session) ── */
 .pn-dimmed .pn-body::after{
   content:'클릭하여 포커스';
-  position:absolute;inset:0;z-index:30;
+  position:absolute;inset:0;z-index:var(--z-overlay);
   display:flex;align-items:center;justify-content:center;
   background:rgba(0,0,0,.4);backdrop-filter:blur(2px);
   color:var(--text-muted);font-size:var(--fs-lg);font-weight:400;
@@ -984,7 +1004,7 @@ body.mobile .tp-ov-acts .tbtn{min-height:var(--touch-min);padding:0 14px}
 .preset-btn.del:hover{color:var(--danger-text);background:rgba(255,80,80,.1)}
 /* ── Confirm Dialog ── */
 .confirm-overlay{
-  position:fixed;inset:0;z-index:200;
+  position:fixed;inset:0;z-index:var(--z-modal);
   background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
   display:flex;align-items:center;justify-content:center;
 }
@@ -1186,7 +1206,7 @@ body.mobile #sidebar{
   position:fixed;top:0;left:0;right:0;bottom:auto;
   width:100%;min-width:0;max-width:none;
   height:auto;max-height:min(75vh,520px);
-  z-index:50;
+  z-index:var(--z-overlay);
   transform:translateY(-100%);
   transition:transform .22s ease;
   border-right:none;border-bottom:1px solid var(--border);
@@ -1194,7 +1214,7 @@ body.mobile #sidebar{
   overflow-y:auto;
 }
 body.mobile.drawer-open #sidebar{transform:translateY(0)}
-#drawer-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40;opacity:0;transition:opacity .2s ease}
+#drawer-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:var(--z-overlay);opacity:0;transition:opacity .2s ease}
 body.mobile.drawer-open #drawer-backdrop{display:block;opacity:1}
 
 /* drawer close button shown only on mobile when drawer open */
@@ -1231,7 +1251,7 @@ body.mobile #window-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;wh
   position:fixed;left:0;right:0;bottom:env(safe-area-inset-bottom, 0px);
   height:var(--m-kb-h);background:var(--sidebar-bg);border-top:1px solid var(--border);
   display:none;align-items:center;gap:4px;padding:4px 6px;
-  overflow-x:auto;overflow-y:hidden;z-index:60;
+  overflow-x:auto;overflow-y:hidden;z-index:var(--z-overlay);
   -webkit-overflow-scrolling:touch;
 }
 #mobile-keybar::-webkit-scrollbar{height:0}
@@ -1256,7 +1276,7 @@ body.mobile #window-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;wh
   position:fixed;transform:translate(-50%,-100%);
   padding:6px 10px;background:var(--sidebar-bg);border:1px solid var(--accent-border);
   border-radius:6px;color:var(--text-bright);font-size:var(--fs-md);pointer-events:none;
-  z-index:70;white-space:nowrap;
+  z-index:var(--z-popover);white-space:nowrap;
   box-shadow:0 2px 12px rgba(0,0,0,.5);
 }
 
@@ -1324,7 +1344,7 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
 .pn-drop-indicator{
   position:absolute;pointer-events:none;
   background:var(--accent);opacity:.18;
-  border:2px solid var(--accent);border-radius:2px;z-index:15;
+  border:2px solid var(--accent);border-radius:2px;z-index:var(--z-raised);
   transition:all .08s;
 }
 .pn-drop-indicator[data-zone="left"]  {top:0;left:0;width:33%;height:100%}
@@ -1356,7 +1376,7 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
 #bg-btn.on{color:var(--accent-text);border-color:var(--accent);background:var(--accent-active)}
 body.mobile #bg-btn{padding:4px 6px}
 .bg-modal{
-  position:fixed;inset:0;z-index:200;
+  position:fixed;inset:0;z-index:var(--z-modal);
   background:rgba(0,0,0,.6);backdrop-filter:blur(2px);
   display:flex;align-items:center;justify-content:center;
 }
@@ -1420,7 +1440,7 @@ body.mobile #bg-btn{padding:4px 6px}
   --boot-brand-lit:#6fae83;
 }
 #boot{
-  position:fixed;inset:0;z-index:1000;
+  position:fixed;inset:0;z-index:var(--z-modal);
   display:flex;align-items:center;justify-content:center;
   /* 바탕의 은은한 발광 — 로고가 화면에 놓인 것이 아니라 **떠 있게** 보인다.
      넓게 깔면 **밝은 테마에서 얼룩이 된다**(실측): 흰 바탕은 옅은 색을 숨겨 주지
@@ -1541,7 +1561,7 @@ body.mobile #bg-btn{padding:4px 6px}
  * blur 는 쓰지 않는다 (D-6): 흐려지는 것은 **마스크의 알파**이지 화면의 픽셀이
  * 아니다 — 터미널 글자는 한 번도 뭉개지지 않는다. */
 #focus-edge{
-  position:fixed;inset:0;z-index:500;pointer-events:none;
+  position:fixed;inset:0;z-index:var(--z-edge);pointer-events:none;
   opacity:0;transition:opacity .2s ease;
   /* 보이지 않는 동안에는 필터를 걸지 않는다 — `backdrop-filter` 는 그 아래가
      다시 그려질 때마다(터미널은 늘 그렇다) 재합성을 부른다. */
@@ -1571,7 +1591,7 @@ html.ufe-preview #focus-edge{
 }
 
 #attn-edge{
-  position:fixed;inset:0;z-index:501;pointer-events:none;
+  position:fixed;inset:0;z-index:var(--z-edge);pointer-events:none;
   display:none;opacity:var(--ae-alpha,0);
 }
 /* FR-AED-6: 알림이 하나라도 있으면 켜진다. 판정은 `_attnRefresh` 한 자리다.
@@ -1610,7 +1630,7 @@ html.attn-edge-on #focus-edge{opacity:0}
 .ver-held{
   position:fixed;left:50%;bottom:16px;transform:translateX(-50%);
   display:flex;align-items:center;gap:10px;
-  padding:8px 12px;border-radius:6px;z-index:60;
+  padding:8px 12px;border-radius:6px;z-index:var(--z-popover);
   background:var(--bg-alt);color:var(--text-bright);
   border:1px solid var(--border);
   box-shadow:0 4px 16px rgba(0,0,0,.35);
