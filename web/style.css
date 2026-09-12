@@ -1428,7 +1428,30 @@ body.mobile #bg-btn{padding:4px 6px}
 @keyframes boot-flow{0%{left:-45%}100%{left:103%}}
 /* 움직임을 줄이라고 한 사람에게는 흐름 대신 **선 하나**를 준다 — 진행 중이라는
    사실은 남기되 눈을 끌지 않는다. */
+/* ── 움직임 줄이기 (`UX-12` / WCAG 2.3.3 · 2.2.2) ──────────────────────
+   착수 시 이 선언은 **세 자리**뿐이었고 `animation:` 19 · `transition:` 29 중
+   나머지는 요청을 받지 않았다 — 자리마다 손으로 적는 한 새 애니메이션은 항상
+   덮이지 않은 채로 들어온다.
+
+   그래서 **전역으로 받고**, 멎었을 때 모양이 깨지는 자리만 아래에서 따로 적는다.
+   `0s` 가 아니라 `.01ms` 인 것은 관용이다: 길이가 0 이면 일부 엔진이 애니메이션
+   자체를 걸지 않아 끝 상태가 적용되지 않는다. `iteration-count:1` 은 무한 반복을
+   끊는다 — 그것이 이 미디어 쿼리가 실제로 막으려는 것이다.
+
+   전환 **이벤트**에 기대는 코드가 없다는 것을 확인했다 (`transitionend`·
+   `animationend` 리스너 0). 있었다면 이 규칙이 그 코드를 굶겼을 것이다. */
 @media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+    scroll-behavior:auto !important;
+  }
+}
+
+@media (prefers-reduced-motion:reduce){
+  /* 전역 규칙은 **멎게** 할 뿐 모양을 정하지 않는다. 아래 셋은 멎은 자리가
+     중간 프레임이라 따로 적는다. */
   .boot-inner,.boot-logo{animation:none}
   .boot-bar i{animation:none;left:0;width:100%;
     background:linear-gradient(90deg,var(--boot-brand),var(--boot-brand-lit))}

@@ -200,7 +200,10 @@
     <div id="area"></div>
     <div id="search-bar" class="search-bar" hidden>
       <span class="search-icon"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg></span>
-      <input id="search-input" type="text" placeholder="검색...">
+      <!-- `UX-10`: placeholder 는 이름이 아니다 — 글자를 치는 순간 사라지고,
+           스크린리더가 이름으로 읽는다는 보장도 없다. 같은 일을 하는
+           `#m-search-btn` 과 **같은 이름**을 준다. -->
+      <input id="search-input" type="text" placeholder="검색..." aria-label="Search in this terminal">
       <button id="search-prev" class="ui-btn ui-btn-icon ui-btn-sm" title="Previous match (Shift+Enter)" aria-label="Previous match"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-up"/></svg></button>
       <button id="search-next" class="ui-btn ui-btn-icon ui-btn-sm" title="Next match (Enter)" aria-label="Next match"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-down"/></svg></button>
       <button id="search-case" class="ui-btn ui-btn-sm" title="Match case">Aa</button>
