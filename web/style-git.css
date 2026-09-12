@@ -32,31 +32,31 @@
 .git-pending,.git-empty{
   position:absolute;inset:0;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:6px;
-  color:var(--text-muted);font-size:13px;
+  color:var(--text-muted);font-size:var(--fs-lg);
 }
-.git-pending-name{color:var(--text-bright);font-size:14px}
+.git-pending-name{color:var(--text-bright);font-size:var(--fs-lg)}
 .git-pending-hint{color:var(--text-hint)}
 /* 소실 (GIT_REPO_MISSING_SRS FR-RMS-8·19). .git-empty 와 같은 자리·같은 배치이며,
    다른 것은 색뿐이다 — 이것은 "아직 고르지 않았다" 가 아니라 사실의 보고다. */
 .git-missing{
   position:absolute;inset:0;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:8px;padding:16px;
-  color:var(--text-muted);font-size:13px;text-align:center;
+  color:var(--text-muted);font-size:var(--fs-lg);text-align:center;
 }
-.git-missing-title{color:var(--attn-text);font-size:14px;font-weight:600}
+.git-missing-title{color:var(--attn-text);font-size:var(--fs-lg);font-weight:600}
 /* 경로는 길고 끊을 곳이 없다 — 넘치면 가로 스크롤 대신 줄을 접는다. */
 .git-missing-path{
   max-width:100%;color:var(--text-bright);font-family:var(--mono);
-  font-size:12px;word-break:break-all;
+  font-size:var(--fs-md);word-break:break-all;
 }
-.git-missing-reason{color:var(--text-hint);font-size:11px}
+.git-missing-reason{color:var(--text-hint);font-size:var(--fs-sm)}
 .git-missing-acts{display:flex;gap:8px;margin-top:4px}
 .git-missing-acts button{
   background:transparent;border:1px solid var(--border);border-radius:4px;
-  color:var(--text-bright);font:inherit;font-size:12px;padding:4px 12px;cursor:pointer;
+  color:var(--text-bright);font:inherit;font-size:var(--fs-md);padding:4px 12px;cursor:pointer;
 }
 .git-missing-acts button:hover{background:var(--border)}
-.git-missing-auto{color:var(--text-hint);font-size:11px;margin-top:2px}
+.git-missing-auto{color:var(--text-hint);font-size:var(--fs-sm);margin-top:2px}
 /* 소실 상태의 Changes 머리는 리포 이름만 싣는다 — 브랜치는 사라진 폴더의 것이라
    지금 참인지 알 수 없다. */
 /* FR-GHM-3: History 도 같은 머리를 실으므로 쌓임 순서도 같다. */
@@ -76,25 +76,25 @@
    뒤에 모인다 — 자리는 마크업(GitPanel.headHTML)이 정한다. */
 .git-head{
   display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:6px 10px;
-  border-bottom:1px solid var(--border);font-size:12px;
+  border-bottom:1px solid var(--border);font-size:var(--fs-md);
 }
 .git-head-repo{color:var(--text-bright);font-weight:500;white-space:nowrap;cursor:pointer}
 .git-head-repo:hover{color:var(--accent-text)}
 .git-head-branch{color:var(--accent-text);white-space:nowrap}
 .git-head-badges{display:flex;gap:4px;min-width:0;overflow:hidden}
 .git-head-badge{
-  padding:0 6px;border-radius:8px;font-size:10px;white-space:nowrap;
+  padding:0 6px;border-radius:8px;font-size:var(--fs-sm);white-space:nowrap;
   background:var(--accent-subtle);color:var(--accent-text);
 }
 .git-head-badge.git-badge-detached,.git-head-badge.git-badge-conflict{
   background:var(--attn-subtle);color:var(--attn-text);
 }
 .git-head-badge.git-badge-noupstream{background:transparent;color:var(--text-muted)}
-.git-head-ab{color:var(--text-muted);font-size:11px;white-space:nowrap}
+.git-head-ab{color:var(--text-muted);font-size:var(--fs-sm);white-space:nowrap}
 .git-head-spacer{flex:1 1 auto}
 .git-head-remote{display:flex;gap:4px;flex-shrink:0}
 .git-remote-btn,.git-commit-btn,.git-files-mode{
-  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;
+  font:inherit;font-size:var(--fs-sm);padding:2px 8px;cursor:pointer;
   background:var(--bg);color:var(--text);
   border:1px solid var(--border);border-radius:3px;
 }
@@ -112,7 +112,7 @@
 .git-remote-more>.ui-icon{width:12px;height:12px}
 /* 변형은 `▾` 다이얼로그에서만 온다 (FR-GIT-99) — 버튼과 붙여 한 벌로 보인다 */
 .git-remote-more{
-  font:inherit;font-size:10px;padding:2px 4px;cursor:pointer;
+  font:inherit;font-size:var(--fs-sm);padding:2px 4px;cursor:pointer;
   background:var(--bg);color:var(--text-muted);
   border:1px solid var(--border);border-left:0;border-radius:0 3px 3px 0;
 }
@@ -145,14 +145,14 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
    말하지 못한다 (D-RTU-34). */
 .git-job-bar{
   display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:4px 10px;
-  font-size:11px;min-width:0;
+  font-size:var(--fs-sm);min-width:0;
 }
 /* FR-RTU-100: 폭과 무관하게 자리와 크기가 고정인 유일한 계기. 하한은 기존
    히트 영역 규약을 그대로 쓴다 (FR-GIT-195~198). */
 .git-job-fold{
   flex:0 0 auto;min-width:var(--git-hit);min-height:var(--git-hit);
   display:flex;align-items:center;justify-content:center;
-  font:inherit;font-size:11px;line-height:1;cursor:pointer;
+  font:inherit;font-size:var(--fs-sm);line-height:1;cursor:pointer;
   background:transparent;color:var(--text-muted);
   border:1px solid var(--border);border-radius:3px;
 }
@@ -161,14 +161,14 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 /* 기준 폭을 60px 로 **명시**한다 — `auto` 로 두면 wrap 이 argv 의 내용 길이로
    줄을 갈라 두 줄이 세 줄이 된다 (FR-RTU-101). */
 .git-job-argv{
-  color:var(--text-muted);font-family:monospace;font-size:10px;
+  color:var(--text-muted);font-family:monospace;font-size:var(--fs-sm);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   flex:1 1 60px;min-width:60px;
 }
 .git-job-state{color:var(--text-muted);flex-shrink:0}
 .git-job-spacer{flex:1 1 auto}
 .git-job-cancel,.git-job-copy,.git-job-close{
-  display:none;font:inherit;font-size:10px;padding:1px 6px;cursor:pointer;flex-shrink:0;
+  display:none;font:inherit;font-size:var(--fs-sm);padding:1px 6px;cursor:pointer;flex-shrink:0;
   background:transparent;color:var(--text);border:1px solid var(--border);border-radius:3px;
 }
 .git-job-copy{display:inline-block}
@@ -176,42 +176,42 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 .git-job-cancel{color:var(--attn-text);border-color:var(--attn)}
 .git-job-cancel:disabled{color:var(--text-hint);border-color:var(--border);cursor:not-allowed}
 /* FR-GIT-111: 충돌은 해결 UI 가 아니라 안내다 */
-.git-job-note{display:none;padding:3px 10px;font-size:11px;color:var(--attn-text);background:var(--attn-subtle)}
+.git-job-note{display:none;padding:3px 10px;font-size:var(--fs-sm);color:var(--attn-text);background:var(--attn-subtle)}
 .git-job-note.vis{display:block}
 .git-job-fail{display:none;flex-direction:column;gap:4px;padding:4px 10px 6px}
 .git-job-fail.vis{display:flex}
-.git-job-reason{font-size:11px;color:var(--danger-text)}
+.git-job-reason{font-size:var(--fs-sm);color:var(--danger-text)}
 .git-job-tail{
   margin:0;max-height:80px;overflow:auto;white-space:pre-wrap;word-break:break-all;
-  font-family:monospace;font-size:10px;color:var(--text-muted);
+  font-family:monospace;font-size:var(--fs-sm);color:var(--text-muted);
 }
 /* FR-GIT-104: 자격증명을 받는 자리가 아니다 — 안내와 복사 가능한 명령만 있다 */
 .git-job-auth{display:none;flex-direction:column;gap:3px}
 .git-job-auth.vis{display:flex}
-.git-job-auth-note{font-size:11px;color:var(--attn-text)}
+.git-job-auth-note{font-size:var(--fs-sm);color:var(--attn-text)}
 .git-job-auth-cmd{
-  font-family:monospace;font-size:10px;color:var(--text-bright);
+  font-family:monospace;font-size:var(--fs-sm);color:var(--text-bright);
   background:var(--accent-subtle);padding:3px 6px;border-radius:3px;
   white-space:pre-wrap;word-break:break-all;
 }
 .git-job-auth-copy{
-  align-self:flex-start;font:inherit;font-size:10px;padding:1px 6px;cursor:pointer;
+  align-self:flex-start;font:inherit;font-size:var(--fs-sm);padding:1px 6px;cursor:pointer;
   background:transparent;color:var(--text);border:1px solid var(--border);border-radius:3px;
 }
 /* FR-GIT-105: 선택지는 서버가 준 순서 그대로이고 **하나도 강조하지 않는다** —
    생김새를 달리 주는 것이 곧 force 를 기본 제안하는 것이다 */
 .git-job-opts{display:none;flex-direction:column;gap:3px;align-items:flex-start}
 .git-job-opts.vis{display:flex}
-.git-job-opts-note{font-size:11px;color:var(--text-muted)}
+.git-job-opts-note{font-size:var(--fs-sm);color:var(--text-muted)}
 .git-job-opt{
-  font:inherit;font-size:11px;padding:2px 8px;cursor:pointer;
+  font:inherit;font-size:var(--fs-sm);padding:2px 8px;cursor:pointer;
   background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
 }
 .git-job-opt:hover{background:var(--accent-hover);color:var(--accent-text)}
 /* FR-GIT-103: 진행 표시는 stderr 로 오지만 오류가 아니다 — 색을 가르지 않는다 */
 .git-job-log{
   margin:0;max-height:140px;overflow-y:auto;padding:0 10px 6px;
-  font-family:monospace;font-size:10px;color:var(--text-muted);
+  font-family:monospace;font-size:var(--fs-sm);color:var(--text-muted);
 }
 .git-job-log::-webkit-scrollbar{width:8px}
 .git-job-log::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
@@ -234,9 +234,9 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
   min-width:300px;max-width:min(520px,92vw);max-height:80vh;
   background:var(--bg);color:var(--text);
   border:1px solid var(--border);border-radius:8px;
-  box-shadow:0 8px 32px rgba(0,0,0,.5);font-size:12px;
+  box-shadow:0 8px 32px rgba(0,0,0,.5);font-size:var(--fs-md);
 }
-.git-dialog-head{flex:0 0 auto;font-size:13px;color:var(--text-bright)}
+.git-dialog-head{flex:0 0 auto;font-size:var(--fs-lg);color:var(--text-bright)}
 /* FR-GIT-178: 상단에 알리기만 한다 — 실행을 막지 않는다 */
 .git-dialog-changed{flex:0 0 auto;display:none;padding:6px 8px;border-radius:4px;
   color:var(--attn-text);background:var(--attn-subtle)}
@@ -259,33 +259,33 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 .git-dialog-fields{flex:0 1 auto;min-height:0;overflow-y:auto;
   display:flex;flex-direction:column;gap:8px}
 .git-dialog-field{display:flex;flex-direction:column;gap:3px}
-.git-dialog-label{font-size:11px;color:var(--text-muted)}
+.git-dialog-label{font-size:var(--fs-sm);color:var(--text-muted)}
 .git-dialog-row{display:flex;align-items:center;gap:6px;cursor:pointer}
 .git-dialog-input{
-  font:inherit;font-size:12px;padding:5px 8px;min-width:0;
+  font:inherit;font-size:var(--fs-md);padding:5px 8px;min-width:0;
   background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
 }
 /* FR-GIT-159·167: 왜 실행할 수 없는지 보인다 — 사유 없이 꺼진 버튼은 해소할 수 없다 */
-.git-dialog-why{display:none;color:var(--attn-text);font-size:11px}
+.git-dialog-why{display:none;color:var(--attn-text);font-size:var(--fs-sm)}
 .git-dialog-why.vis{display:block}
 /* FR-GIT-175: 실패 사유와 stderr tail 을 남기고 복사할 수 있게 한다 */
 .git-dialog-err{flex:0 0 auto;display:none}
 .git-dialog-err.vis{display:block}
-.git-dialog-err-reason{color:var(--danger-text);font-size:11px;word-break:break-all}
+.git-dialog-err-reason{color:var(--danger-text);font-size:var(--fs-sm);word-break:break-all}
 .git-dialog-err-tail{display:none;max-height:24vh;overflow:auto;margin:4px 0 0;
   padding:6px 8px;background:var(--sidebar-bg);border-radius:4px;
-  font-family:monospace;font-size:11px;color:var(--text-muted);white-space:pre}
+  font-family:monospace;font-size:var(--fs-sm);color:var(--text-muted);white-space:pre}
 .git-dialog-err-tail.vis{display:block}
 .git-dialog-copy{margin-top:6px;padding:3px 10px;border-radius:4px;
   border:1px solid var(--border);background:transparent;color:var(--text-muted);
-  font:inherit;font-size:11px;cursor:pointer}
+  font:inherit;font-size:var(--fs-sm);cursor:pointer}
 .git-dialog-copy:hover{color:var(--text-bright);border-color:var(--accent)}
 /* 선택지가 셋 이상인 결정 (FR-GIT-156·157). 좁은 폭에서도 잘리지 않게 세로로 쌓는다 */
 .git-dialog-opts{flex:0 1 auto;min-height:0;overflow-y:auto;
   display:flex;flex-direction:column;gap:8px}
 .git-dialog-opt{
   padding:8px 12px;border-radius:4px;border:1px solid var(--border);
-  background:transparent;color:var(--text);font:inherit;font-size:12px;
+  background:transparent;color:var(--text);font:inherit;font-size:var(--fs-md);
   cursor:pointer;text-align:left;
 }
 .git-dialog-opt:hover{background:var(--accent-hover)}
@@ -297,7 +297,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 .git-dialog-progress{flex:1;color:var(--text-muted)}
 .git-dialog-cancel,.git-dialog-go{
   padding:5px 14px;border-radius:4px;border:1px solid var(--border);
-  background:transparent;font:inherit;font-size:12px;cursor:pointer;
+  background:transparent;font:inherit;font-size:var(--fs-md);cursor:pointer;
 }
 .git-dialog-cancel{border-color:var(--border);color:var(--text-muted)}
 .git-dialog-go{border-color:var(--accent);color:var(--accent-text)}
@@ -315,7 +315,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 }
 .git-dialog-box.mobile .git-dialog-progress{flex:0 0 auto}
 .git-dialog-box.mobile .git-dialog-cancel,.git-dialog-box.mobile .git-dialog-go,
-.git-dialog-box.mobile .git-dialog-opt{padding:12px;font-size:13px}
+.git-dialog-box.mobile .git-dialog-opt{padding:12px;font-size:var(--fs-lg)}
 
 /* ── 커밋 영역 (FR-GIT-74~85) ── */
 /* 목록과 독립된 고정 영역이다 (FR-GIT-39) — 높이는 안쪽 textarea 가 정한다 */
@@ -336,7 +336,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
    높이가 도로 접힌다 (FR-GIT-74). 폭은 stretch 가 채운다. */
 .git-commit-msg{
   flex:0 0 auto;min-width:0;resize:none;overflow-y:auto;
-  font:inherit;font-size:12px;padding:4px 6px;line-height:17px;
+  font:inherit;font-size:var(--fs-md);padding:4px 6px;line-height:17px;
   background:var(--bg);color:var(--text);
   border:1px solid var(--border);border-radius:3px;
 }
@@ -344,14 +344,14 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 .git-commit-bar{display:flex;align-items:center;gap:8px;min-width:0}
 .git-commit-spacer{flex:1 1 auto}
 /* 라벨이 체크박스보다 흐리면 무엇을 켜는 것인지 읽히지 않는다 */
-.git-commit-amend{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);cursor:pointer;flex-shrink:0}
+.git-commit-amend{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--text-muted);cursor:pointer;flex-shrink:0}
 /* FR-GIT-85: 서명이 활성이면 그 사실을 보인다 */
-.git-commit-gpg{display:none;font-size:11px;color:var(--accent-text);white-space:nowrap;flex-shrink:0}
+.git-commit-gpg{display:none;font-size:var(--fs-sm);color:var(--accent-text);white-space:nowrap;flex-shrink:0}
 .git-commit-gpg.vis{display:block}
 .git-commit-go{position:relative;display:flex;gap:0;flex-shrink:0}
 .git-commit-btn{border-top-right-radius:0;border-bottom-right-radius:0}
 .git-commit-more{
-  font:inherit;font-size:11px;padding:2px 6px;cursor:pointer;
+  font:inherit;font-size:var(--fs-sm);padding:2px 6px;cursor:pointer;
   background:var(--bg);color:var(--text);
   border:1px solid var(--border);border-left:none;
   border-top-right-radius:3px;border-bottom-right-radius:3px;
@@ -362,7 +362,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
    `right:0` 이면 버튼 왼쪽으로 자라 `.git-view` 의 overflow 에 잘려 누를 수 없다. */
 .git-commit-menu{
   display:none;position:absolute;left:0;top:calc(100% + 3px);z-index:20;
-  min-width:170px;padding:4px;font-size:11px;
+  min-width:170px;padding:4px;font-size:var(--fs-sm);
   background:var(--bg);border:1px solid var(--border);border-radius:5px;
   box-shadow:0 6px 24px rgba(0,0,0,.5);
 }
@@ -370,7 +370,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 .git-commit-opt{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:3px;cursor:pointer;color:var(--text)}
 .git-commit-opt:hover{background:var(--accent-hover)}
 /* FR-GIT-84: 왜 못 누르는지 보인다 */
-.git-commit-why{display:none;padding:0 2px 2px;font-size:11px;color:var(--text-muted)}
+.git-commit-why{display:none;padding:0 2px 2px;font-size:var(--fs-sm);color:var(--text-muted)}
 .git-commit-why.vis{display:block}
 .git-commit-why.err{color:var(--danger-text)}
 /* FR-GIT-74: 경계 드래그. 높이는 기기별로 localStorage 에 남는다 */
@@ -381,7 +381,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 .git-commit-resize:hover{background:var(--accent-hover)}
 /* FR-GIT-88: 무엇이 왜 막혔고 어떻게 푸는지를 함께 보인다 */
 .git-preflight{display:none;margin:0 -10px;padding:6px 10px;border-top:1px solid var(--border);
-  background:var(--attn-subtle);font-size:11px}
+  background:var(--attn-subtle);font-size:var(--fs-sm)}
 .git-preflight.vis{display:block}
 .git-preflight-head{color:var(--attn-text);margin-bottom:4px}
 .git-preflight-block{margin-bottom:4px}
@@ -391,7 +391,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 .git-preflight-cmd{flex:1 1 auto;min-width:0;padding:2px 6px;border-radius:3px;
   background:var(--sidebar-bg);color:var(--text-bright);font-family:monospace;word-break:break-all}
 .git-preflight-copy{
-  font:inherit;font-size:10px;padding:1px 6px;cursor:pointer;flex-shrink:0;
+  font:inherit;font-size:var(--fs-sm);padding:1px 6px;cursor:pointer;flex-shrink:0;
   background:transparent;color:var(--text-muted);
   border:1px solid var(--border);border-radius:3px;
 }
@@ -400,13 +400,13 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 /* FR-GIT-81·83 · O7: 5초 뒤 사라진다. 사라진 뒤에는 진입점이 DOM 에 없다 */
 .git-undo-toast{
   position:fixed;z-index:400;left:50%;bottom:52px;transform:translateX(-50%);
-  display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:12px;
+  display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:var(--fs-md);
   background:var(--bg);color:var(--text);
   border:1px solid var(--accent-border);border-radius:6px;
   box-shadow:0 8px 32px rgba(0,0,0,.5);
 }
 .git-undo-btn{
-  font:inherit;font-size:11px;padding:3px 10px;cursor:pointer;
+  font:inherit;font-size:var(--fs-sm);padding:3px 10px;cursor:pointer;
   background:transparent;color:var(--accent-text);
   border:1px solid var(--accent);border-radius:4px;
 }
@@ -415,7 +415,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 /* 진행 중 작업 (FR-GIT-252). 상태만 보이고 출구가 없으면 사용자가 갇힌다 —
    그래서 사유와 버튼이 **같은 줄**에 있다. 색은 테마 변수에서 파생한다. */
 .git-op-bar{
-  display:none;align-items:center;gap:8px;padding:4px 10px;font-size:11px;
+  display:none;align-items:center;gap:8px;padding:4px 10px;font-size:var(--fs-sm);
   color:var(--attn-text);background:var(--attn-subtle);
   border-bottom:1px solid var(--border);
 }
@@ -424,7 +424,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 .git-op-at{color:var(--text-muted);font-family:monospace;white-space:nowrap}
 .git-op-spacer{flex:1 1 auto}
 .git-op-act{
-  display:none;font:inherit;font-size:11px;padding:0 8px;min-height:var(--git-btn-h);
+  display:none;font:inherit;font-size:var(--fs-sm);padding:0 8px;min-height:var(--git-btn-h);
   cursor:pointer;white-space:nowrap;
   background:transparent;color:var(--text);
   border:1px solid var(--border);border-radius:3px;
@@ -436,7 +436,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 .git-op-act[data-act="abort"]{color:var(--danger-text)}
 .git-op-act[data-act="abort"]:hover{color:var(--danger-text);border-color:var(--danger)}
 
-.git-stale-note{display:none;padding:3px 10px;font-size:11px;color:var(--attn-text);background:var(--attn-subtle)}
+.git-stale-note{display:none;padding:3px 10px;font-size:var(--fs-sm);color:var(--attn-text);background:var(--attn-subtle)}
 .git-stale-note.vis{display:block}
 .git-stale-note.loading{color:var(--text-muted);background:transparent}
 
@@ -476,7 +476,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 .git-group-head{
   display:flex;flex-wrap:nowrap;align-items:center;gap:5px;padding:0 6px 0 9px;cursor:pointer;
   min-height:calc(var(--git-btn-h) + 6px);min-width:0;
-  font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);
+  font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);
 }
 .git-group-head:hover{background:var(--accent-hover)}
 .git-group-caret{width:9px;flex-shrink:0}
@@ -492,7 +492,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
    어휘의 아이콘이 자리마다 다르게 보이면 같은 것으로 읽히지 않는다.
    FR-GIT-195·226: 아이콘 버튼의 하한도 30px 이다 (`--git-hit`). */
 .git-group-bulk{
-  font:inherit;font-size:12px;line-height:1;cursor:pointer;flex:0 0 auto;
+  font:inherit;font-size:var(--fs-md);line-height:1;cursor:pointer;flex:0 0 auto;
   min-width:var(--git-hit);min-height:var(--git-hit);padding:0;
   display:flex;align-items:center;justify-content:center;
   text-transform:none;letter-spacing:normal;
@@ -532,7 +532,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
   /* 줄을 넘기지 않는다 — 동작 열이 자리지킴으로 **언제나** 잡혀 있으므로
      넘길 이유가 사라졌다. 좁아지면 이름이 줄고, 버튼은 제자리에 남는다. */
   display:flex;flex-wrap:nowrap;align-items:center;gap:6px;padding:0 6px 0 9px;
-  min-height:var(--git-row-min);font-size:12px;white-space:nowrap;cursor:pointer;
+  min-height:var(--git-row-min);font-size:var(--fs-md);white-space:nowrap;cursor:pointer;
   border-left:3px solid transparent;
   background-image:repeating-linear-gradient(to right,
     var(--border) 0 1px, transparent 1px var(--git-indent));
@@ -578,17 +578,17 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 /* REPO_TAB_UNIFY_SRS FR-RTU-25: 저장소가 아닌 자리. 사실과 **거기서 할 수 있는
    일**을 함께 둔다 — 사유만 있는 화면은 사용자를 그 자리에 세워 둔다. */
 .git-init{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:16px 12px}
-.git-init-msg{font-size:12px;color:var(--text)}
+.git-init-msg{font-size:var(--fs-md);color:var(--text)}
 .git-init-path{
   max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  font-size:11px;color:var(--text-hint);
+  font-size:var(--fs-sm);color:var(--text-hint);
 }
 .git-init-btn{
-  padding:5px 12px;font-size:12px;color:var(--text-bright);background:var(--bg-alt);
+  padding:5px 12px;font-size:var(--fs-md);color:var(--text-bright);background:var(--bg-alt);
   border:1px solid var(--border);border-radius:4px;cursor:pointer;
 }
 .git-init-btn:hover{border-color:var(--accent);color:var(--accent-text)}
-.git-init-err{font-size:11px;color:var(--danger-text)}
+.git-init-err{font-size:var(--fs-sm);color:var(--danger-text)}
 /* UX_REVISION_SRS FR-STC-1~3: 상태문자의 색. 추가는 diff 의 add 와 같은 초록,
    삭제는 danger — 같은 뜻을 두 화면에서 다른 색으로 말하지 않는다.
    `--git-st-add` 는 `:root` 에 산다 — 탐색기 트리에는 `.git-files` 조상이 없고,
@@ -665,7 +665,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 /* FR-GIT-195·226: 아이콘 하나짜리 버튼도 행과 같은 히트 영역을 갖는다. 테두리가
    사라져도 누를 자리는 그대로다 — 히트 영역과 테두리는 다른 것이다. */
 .git-file-act{
-  font:inherit;font-size:12px;line-height:1;cursor:pointer;
+  font:inherit;font-size:var(--fs-md);line-height:1;cursor:pointer;
   min-width:var(--git-hit);min-height:var(--git-hit);padding:0;
   display:flex;align-items:center;justify-content:center;
   background:transparent;color:var(--text-muted);
@@ -677,7 +677,7 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 /* `ours`·`theirs` 는 글자다 (FR-GLY-8) — 정사각에 갇히지 않는다. */
 /* `ours`·`theirs` 는 글자다 (FR-GLY-8) — 정사각에 갇히지 않는다. 겹이 사이드를
    넘지 않도록 좁은 폭에서는 줄어든다: 읽기 어려워지는 것이 닿지 못하는 것보다 낫다. */
-.git-act-word{padding:0 6px;font-size:11px;flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.git-act-word{padding:0 6px;font-size:var(--fs-sm);flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
 /* 요구 ③/⑤: 아이콘이 상자를 꽉 채운다. 눈금은 히트 영역에서 파생한다
    (FR-GLY-5) — 자리마다 px 를 적지 않는다. */
 .git-file-act>.ui-icon,.git-group-bulk>.ui-icon{
@@ -718,14 +718,14 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 }
 
 /* FR-GIT-73 · §7.1 I2: 부분 적용을 조용히 넘기지 않는다 */
-.git-partial-note{display:none;padding:4px 10px;font-size:11px;
+.git-partial-note{display:none;padding:4px 10px;font-size:var(--fs-sm);
   color:var(--attn-text);background:var(--attn-subtle)}
 .git-partial-note.vis{display:block}
 .git-partial-msg{word-break:break-all}
 .git-partial-list{margin:2px 0 0;padding:0 0 0 14px;max-height:80px;overflow-y:auto;color:var(--text)}
 .git-partial-path{font-family:monospace;word-break:break-all}
 .git-partial-close{
-  margin-top:4px;font:inherit;font-size:11px;padding:0 8px;min-height:var(--git-btn-h);cursor:pointer;
+  margin-top:4px;font:inherit;font-size:var(--fs-sm);padding:0 8px;min-height:var(--git-btn-h);cursor:pointer;
   background:transparent;color:var(--text-muted);
   border:1px solid var(--border);border-radius:3px;
 }
@@ -739,13 +739,13 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
    을 받으므로, 좁아지면 버튼이 다음 줄로 간다 — 감추지 않는다. */
 .git-dir-name{color:var(--text-muted);flex:1 1 60px;min-width:60px;overflow:hidden;text-overflow:ellipsis}
 /* FR-GIT-42: 다음 덩어리를 이어 그릴 지점 */
-.git-file-more{padding:3px 8px;font-size:11px;color:var(--text-hint)}
+.git-file-more{padding:3px 8px;font-size:var(--fs-sm);color:var(--text-hint)}
 
 /* FR-GIT-146: 컨텍스트 메뉴 프레임워크. 대상 종류별 항목 집합이 이 골격을 공유한다 */
 .git-menu{
   position:fixed;z-index:3000;min-width:160px;padding:3px;
   background:var(--bg);border:1px solid var(--border);border-radius:6px;
-  box-shadow:0 8px 32px rgba(0,0,0,.5);font-size:12px;color:var(--text);
+  box-shadow:0 8px 32px rgba(0,0,0,.5);font-size:var(--fs-md);color:var(--text);
 }
 .git-menu-item{padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap}
 .git-menu-item:hover,.git-menu-item.active{background:var(--accent-subtle);color:var(--text-bright)}

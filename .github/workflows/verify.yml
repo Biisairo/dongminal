@@ -235,6 +235,14 @@ jobs:
       - name: 포커스 표시
         run: node scripts/check-focus.mjs
 
+      # `UX-18` — 착수 시 글자 크기가 12종이었고 `11px`/`11.5px`, `13/14/15` 가
+      # 뜻 없이 함께 있었다. 종수를 세지 않고 **px 리터럴을 0 으로** 재는 이유는
+      # 종수 조건이라면 `10px`→`11px` 한 줄로 통과하고 다음 사람이 다시 `13px`
+      # 을 적기 때문이다 (FR-TOK-32). `--ui-font` 가 `--fs-sm` 을 가리키는지도
+      # 함께 본다 — 두 이름이 각자 값을 들면 키울 때 한쪽만 커진다 (FR-TOK-20).
+      - name: 글자 크기
+        run: node scripts/check-font-size.mjs
+
       # 서식은 취향이 아니라 diff 의 크기다 (TEST-10). 착수 시 1건 위반이 있었다.
       - name: gofmt
         run: |

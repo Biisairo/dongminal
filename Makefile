@@ -79,6 +79,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@node scripts/check-css-vars.mjs
 	@echo "── 포커스 표시 (outline 을 지운 자리마다 되살린 자리가 있는가)"
 	@node scripts/check-focus.mjs
+	@echo "── 글자 크기 (font-size 가 토큰에서 오는가)"
+	@node scripts/check-font-size.mjs
 	@echo "gates ok"
 
 # 한 번에 도는 샤드 수. 샤드 하나가 워커 2개(= 인스턴스 2개)를 띄우므로 이 값이

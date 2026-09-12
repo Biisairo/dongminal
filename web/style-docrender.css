@@ -20,11 +20,11 @@
 }
 .dr-source{
   flex:0 0 auto;padding:2px 8px;border:1px solid var(--border);border-radius:4px;
-  background:transparent;color:var(--text-hint);font-size:11px;cursor:pointer;
+  background:transparent;color:var(--text-hint);font-size:var(--fs-sm);cursor:pointer;
 }
 .dr-source:hover{color:var(--text);border-color:var(--accent)}
 .dr-path{
-  flex:1 1 auto;min-width:0;color:var(--text-hint);font-size:11px;
+  flex:1 1 auto;min-width:0;color:var(--text-hint);font-size:var(--fs-sm);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 
@@ -33,7 +33,7 @@
    자리였다. */
 .dr-body{
   flex:1 1 auto;min-height:0;overflow:auto;
-  padding:16px 20px 40px;line-height:1.7;font-size:14px;
+  padding:16px 20px 40px;line-height:1.7;font-size:var(--fs-lg);
   /* 읽는 화면이므로 본문 폭을 제한한다 — 넓은 칸에서 한 줄이 화면을 가로지르면
      눈이 다음 줄의 첫머리를 잃는다. */
   max-width:52em;
@@ -42,7 +42,7 @@
 .dr-body:has(.dr-svg-wrap),.dr-body:has(.dr-html-wrap){max-width:none;display:flex;padding:12px}
 /* 표는 폭을 제한하지 않되 흐르게 둔다 — 넓은 표는 자기 상자 안에서 가로로 구른다. */
 .dr-body:has(.dr-table){max-width:none}
-.dr-note{color:var(--text-hint);font-size:12px;font-style:italic}
+.dr-note{color:var(--text-hint);font-size:var(--fs-md);font-style:italic}
 
 /* ── 본문 요소 ── */
 .dr-body h1,.dr-body h2,.dr-body h3,.dr-body h4{
@@ -74,7 +74,7 @@
   margin:.9em 0;padding:10px 12px;border:1px solid var(--border);border-radius:5px;
   overflow-x:auto;background:color-mix(in srgb,var(--text) 6%,var(--bg));
 }
-.dr-body pre code{padding:0;background:none;font-size:12px;line-height:1.55}
+.dr-body pre code{padding:0;background:none;font-size:var(--fs-md);line-height:1.55}
 
 /* ── 하이라이터의 토큰 (FR-DRV-13d) ──
  *
@@ -111,7 +111,7 @@
 .fe-render{
   position:absolute;bottom:8px;left:8px;z-index:6;
   height:22px;padding:0 8px;border:1px solid var(--accent);border-radius:4px;
-  background:var(--bg);color:var(--accent-text);font-size:11px;line-height:1;cursor:pointer;
+  background:var(--bg);color:var(--accent-text);font-size:var(--fs-sm);line-height:1;cursor:pointer;
   white-space:nowrap;opacity:1;transition:background .12s,color .12s;
 }
 .fe-render:hover{background:var(--accent);color:var(--bg)}
@@ -126,7 +126,7 @@
 .dr-svg{
   flex:1 1 auto;min-height:0;max-width:100%;object-fit:contain;
 }
-.dr-svg-meta{flex:0 0 auto;color:var(--text-hint);font-size:11px}
+.dr-svg-meta{flex:0 0 auto;color:var(--text-hint);font-size:var(--fs-sm)}
 
 /* ── HTML (FR-DRV-15·22) ── */
 .dr-html-wrap{display:flex;flex-direction:column;height:100%;min-height:0;gap:6px}
@@ -134,7 +134,7 @@
 .dr-html-note{
   flex:0 0 auto;padding:3px 8px;border:1px solid var(--border);border-radius:4px;
   background:color-mix(in srgb,var(--text) 6%,var(--bg));
-  color:var(--text-hint);font-size:11px;
+  color:var(--text-hint);font-size:var(--fs-sm);
 }
 .dr-html{
   flex:1 1 auto;min-height:0;width:100%;border:1px solid var(--border);border-radius:4px;
@@ -143,7 +143,7 @@
 
 /* ── 표 (FR-DRV-16) ── */
 .dr-table{
-  border-collapse:collapse;font-size:12px;
+  border-collapse:collapse;font-size:var(--fs-md);
   font-family:var(--mono);
 }
 .dr-table th,.dr-table td{

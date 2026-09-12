@@ -612,6 +612,22 @@ editor 계열  editor-explorer · editor-ops · editor-tab · editor-find-panel 
   이관 부분은 결함 증거가 0 이어서(C2 의 870px 잘림과 대조) **증거 있는 부분 +
   어휘 게이트**로 확정했다 (사용자 결정).
 - 2026-09-10 구현·검증 완료.
+- 2026-09-13 기준선의 **한 값**이 움직였다 (M7 `UX-18` / `DESIGN_TOKENS_SRS`
+  FR-TOK-19). `terminal|span` = `#add-sandbox-window`(`New` 버튼 안의 `Box` 배지)
+  의 `inset` 이 `14px 5px -4px 77.7656px` → `14px 5px -4px 76.0312px` 이 됐다.
+  **이유**: 그 배지의 `font-size` 가 `10px` → `var(--fs-sm)`(11px) 로 올랐고,
+  `right:5px` 로 매달려 있어 글자가 1.73px 넓어지면 해소된 `left` 가 그만큼
+  줄어든다. 의도된 변경이다 (사용자 결정 2026-09-13).
+
+  **기준선을 다시 뜨지 않고 그 한 값만 고쳤다.** `LAYOUT_BASELINE=write` 로 다시
+  뜨자 내 것이 아닌 드리프트가 함께 들어왔다 — 다른 마일스톤이 더한 요소
+  (`div.ds-sep`·`div.bk-revs`·`div.ds-hint.ds-warn`·`button.ed-side-refresh`)와
+  클래스가 바뀐 것(`div.git-stale-note` → `.git-stale-note.loading`), 그리고
+  이번 회차에 렌더되지 않은 조건부 행들(`git-ref.head`·`git-con-row` 등)까지
+  168행이다. 그것을 함께 커밋하면 **FR-LAY-51 이 금지한 "뭉개기"** 가 된다 —
+  다음 사람은 그 168행이 무엇이었는지 알 수 없다. 기준선이 코드보다 낡아 있다는
+  사실은 남는다: 갱신은 **그 자체로 하나의 작업**이고, 갱신할 때 168행 각각의
+  출처를 대야 한다.
   · **닫은 결함 셋** — `worktrees`·`submodules` 의 870px 잘림(§2.3) ·
     `blame` 의 스크롤 소유권(`U-7`) · **모바일 `m-add-tab`**(§2.3b, 어휘 통일
     이전부터 있던 것) · 그리고 `style.css` 끝의 **닫히지 않은 주석**(§2.1c)
