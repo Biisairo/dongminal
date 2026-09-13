@@ -433,4 +433,6 @@ AS-1(한 프로세스 = 한 세션)은 codex 에서 거짓이다. 두 `thread/st
 d05eee9  feat(m8): P1 — Go 부채 ①~④ + TEST-8
 5504fa2  feat(m8): P2 — 축 B 국제화 (카탈로그·게이트·외부화·locale 설정·서버 오류 문장)
 7b7b322  fix(i18n): UX-20 혼용 해소 — 데이터 교정 (TC-B-7)
+13918d6  feat(m8): P3 — 축 C-a 프로토콜 표면·에이전트 도구 (claude 한정, 묶음 P+T+A)
+0306db4  feat(m8): P4 — 축 C-b, codex·omp 어댑터 (같은 Proto 구조체, 가짜 세 프로토콜, 대조 잡)
 ```
