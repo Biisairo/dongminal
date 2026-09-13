@@ -751,7 +751,14 @@ class TerminalTool {
    */
   _showOverlay(title,sub,acts){
     let ov=this.el.querySelector('.tp-overlay');
-    if(!ov){ov=document.createElement('div');ov.className='tp-overlay';this.el.appendChild(ov)}
+    if(!ov){
+      ov=document.createElement('div');ov.className='tp-overlay';
+      // FR-A11Y-19 (`UX-8`): 연결이 끊긴 것과 다시 붙는 것은 **읽혀야 하는
+      // 사실**이다 — 터미널을 보고 있지 않은 사용자에게는 화면만으로 전달되지
+      // 않는다. 리전은 내용이 바뀌기 전에 서야 하므로 만들 때 붙인다.
+      ov.setAttribute('role','status');
+      this.el.appendChild(ov);
+    }
     const t=document.createElement('div');t.className='tp-ov-title';t.textContent=title;
     const b=document.createElement('div');b.className='tp-ov-sub';b.textContent=sub;
     const kids=[t,b];

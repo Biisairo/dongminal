@@ -2,7 +2,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect } from './fixtures';
+import { test, expect, liveRegionOf } from './fixtures';
 
 /**
  * **고정 대기의 예외 (`TEST-16`).** 이 파일의 `waitForTimeout` 은 **소켓이 늘지
@@ -201,6 +201,10 @@ test.describe('재연결 폭주 차단 (RECONNECT_STORM_SRS 묶음 R)', () => {
 
     const ov = page.locator('.tp-overlay .tp-ov-title');
     await expect(ov).toHaveText('도구 종료됨');
+    // ACCESSIBILITY_BASELINE_SRS TC-A11Y-10 (FR-A11Y-19): 연결이 끊긴 것과 다시
+    // 붙는 것은 **읽혀야 하는 사실**이다 — 터미널을 보고 있지 않은 사용자에게는
+    // 화면만으로 전달되지 않는다. 문구가 든 요소에서 위로 올라가 리전을 찾는다.
+    expect(await liveRegionOf(ov), '오버레이 문구가 라이브 리전 밖에 있다').not.toBeNull();
     expect(await page.evaluate(() => (window as any).__pane._exited)).toBe(true);
 
     /**

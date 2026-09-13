@@ -615,6 +615,31 @@ const INIT_READY_SELECTOR = '#area .pn.focused .xterm-helper-textarea';
  * 대신 상한에서 풀어 준다: 이 함수는 "그림이 한 바퀴 돌았다" 를 **보장**하는
  * 것이 아니라 고정 대기를 **대체**하는 것이고, 뒤따르는 단정이 사실을 가린다.
  */
+/**
+ * ACCESSIBILITY_BASELINE_SRS D-A11Y-4 — **"리전이 있다" 가 아니라 "그 문구가 리전
+ * 안에 들어왔다"** 를 재기 위한 판정.
+ *
+ * `aria-live` 를 어딘가에 붙이는 것은 한 줄이고, 그것만으로는 알림이 읽히지
+ * 않는다 — 문구가 **그 리전의 자손**이어야 한다. 그래서 요소에서 위로 올라가며
+ * 리전을 찾고, 찾은 것의 신원을 돌려준다. 못 찾으면 `null` 이다.
+ *
+ * `role="status"`·`role="alert"`·`role="log"` 는 암묵적으로 live 다 — 속성만 보면
+ * 그 셋을 놓친다.
+ */
+export async function liveRegionOf(el: any): Promise<{ live: string; role: string; id: string; cls: string } | null> {
+  return el.evaluate((n: Element) => {
+    const LIVE_ROLES = new Set(['status', 'alert', 'log']);
+    for (let e: Element | null = n; e; e = e.parentElement) {
+      const live = e.getAttribute('aria-live') || '';
+      const role = e.getAttribute('role') || '';
+      if ((live && live !== 'off') || LIVE_ROLES.has(role)) {
+        return { live, role, id: (e as HTMLElement).id || '', cls: typeof e.className === 'string' ? e.className : '' };
+      }
+    }
+    return null;
+  });
+}
+
 export async function nextFrames(page: any, n = 2, capMs = 2000) {
   await page.evaluate(
     ({ k, cap }: { k: number; cap: number }) =>

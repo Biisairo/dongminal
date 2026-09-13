@@ -411,9 +411,17 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 .git-preflight-copy:hover{color:var(--text-bright);border-color:var(--accent)}
 
 /* FR-GIT-81·83 · O7: 5초 뒤 사라진다. 사라진 뒤에는 진입점이 DOM 에 없다 */
+/* `UX-8`: 자리는 이제 `.toast-host` 가 정한다 (오른쪽 아래). 종전에는 여기서
+   `position:fixed; left:50%` 로 가운데 아래에 섰고, 전송 알림이 그것과 겹치지
+   않으려고 오른쪽으로 비켰다 (TERM_XFER_NOTICE_SRS D-2). 한 열에 쌓이면 겹침이
+   **구조적으로 불가능**하므로 그 비킴의 이유가 없어졌다 — 대가로 되돌리기가
+   가운데에서 오른쪽으로 옮겨 온다 (사용자 결정 2026-09-13).
+   남는 것은 **모양**이다: 글자와 버튼이 나란히 서는 가로 배치. */
 .git-undo-toast{
-  position:fixed;z-index:var(--z-popover);left:50%;bottom:52px;transform:translateX(-50%);
   display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:var(--fs-md);
+  /* `.toast` 의 `max-width:min(70vw,420px)` 안에 든다 — 실측: 글자 `커밋했습니다`
+     와 버튼 `Undo` 를 합쳐 ~156px 이고 390px 화면에서도 70vw(273px)보다 좁다.
+     문구가 길어지면(M9 의 i18n 이 그럴 수 있다) 이 전제가 깨지므로 그때 다시 잰다. */
   background:var(--bg);color:var(--text);
   border:1px solid var(--accent-border);border-radius:6px;
   box-shadow:var(--shadow-2);

@@ -4,7 +4,7 @@ import * as path from 'path';
 import { APIRequestContext, Locator, Page } from '@playwright/test';
 
 import {
-  test, expect, openRowMenu, rmTree, switchToEditorRoot, openExplorerSide, gotoWithEditors, openExplorerAt,
+  test, expect, openRowMenu, rmTree, switchToEditorRoot, openExplorerSide, gotoWithEditors, openExplorerAt, liveRegionOf,
 } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
@@ -325,6 +325,10 @@ test.describe('묶음 C — 터미널 (FR-FTR-8·10·11)', () => {
     // 사유 팝업은 8초 남는다 (FR-TXN-4) — 1.5초 뒤에도 읽을 수 있다.
     const err = page.locator('.toast-host .toast.err');
     await expect(err).toHaveText(/업로드하지 않았습니다/);
+    // ACCESSIBILITY_BASELINE_SRS TC-A11Y-10 (FR-A11Y-19 / D-A11Y-4): 실패 사유가
+    // **읽혀야** 한다. 재는 것은 "리전이 있다" 가 아니라 그 문구가 리전 **안에**
+    // 들어왔다 이므로, 문구가 든 요소에서 위로 올라가 리전을 찾는다.
+    expect(await liveRegionOf(err), '업로드 실패 사유가 라이브 리전 밖에 있다').not.toBeNull();
     // FR-TXN-6: 누르면 곧바로 닫힌다 — 자동 소멸을 기다릴 필요가 없다.
     await err.click();
     await expect(page.locator('.toast-host .toast')).toHaveCount(0);

@@ -41,10 +41,10 @@ Object.assign(App.prototype, {
    * 닫는 함수를 돌려준다 — 여는 쪽이 끝나는 시점을 안다.
    */
   _sbxProgress(msg){
-    const el=document.createElement('div');
-    el.className='sbx-progress';el.textContent=msg;
-    document.body.appendChild(el);
-    return ()=>el.remove();
+    // FR-A11Y-19 (`UX-8`): 진행도 `Toast` 를 지난다 — 알림의 자리와 라이브 리전이
+    // 한 곳이어야 한다. NFR-SPK-2 대로 **자동 소멸은 주지 않는다**(`ms:0`):
+    // 끝내는 것은 부르는 쪽이고, 돌려주는 것이 그 손잡이다.
+    return Toast.show(msg,'',0,{cls:'sbx-progress'}).close;
   },
 
   /**

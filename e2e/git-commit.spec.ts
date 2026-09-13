@@ -6,6 +6,7 @@ import { Page } from '@playwright/test';
 
 import {
   test, expect, makeCopyFx, waitForInit, openGit as fxOpenGit, gitFixture, cleanGitFixture,
+  liveRegionOf,
 } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
@@ -151,6 +152,14 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
     // FR-GIT-80: 입력을 비운다.
     await expect(msg(page)).toHaveValue('');
     await expect(toast(page)).toBeVisible();
+
+    // ACCESSIBILITY_BASELINE_SRS TC-A11Y-10 (FR-A11Y-19 / D-A11Y-4): **되돌릴 수
+    // 있다는 사실이 읽혀야 한다.** 5초 안에 눌러야 하는 기회를 못 보는 사용자에게는
+    // 그 기회가 없는 것과 같다. 재는 것은 "리전이 있다" 가 아니라 **그 문구가 리전
+    // 안에 들어왔다** 이므로, 상자가 아니라 **글자가 든 요소**에서 위로 올라간다.
+    const undoText = toast(page).locator('.git-undo-text');
+    await expect(undoText).toHaveText(/.+/);
+    expect(await liveRegionOf(undoText), 'Undo 문구가 라이브 리전 밖에 있다').not.toBeNull();
 
     // FR-GIT-82: 상태와 메시지를 커밋 직전으로 되돌린다.
     await toast(page).locator('.git-undo-btn').click();

@@ -431,23 +431,32 @@ class GitCommit {
   _undoShow(repo,token){
     this._undoHide();
     if(!token) return;
-    const t=document.createElement('div');
-    t.className='git-undo-toast'; t.id='git-undo';
-    const s=document.createElement('span');
-    s.className='git-undo-text'; s.textContent=GIT_UNDO_TEXT;
-    const b=document.createElement('button');
-    b.className='git-undo-btn'; b.textContent=GIT_UNDO_LABEL; b.title=GIT_TIP_UNDO;
-    b.addEventListener('click',()=>this._undoRun());
-    t.appendChild(s); t.appendChild(b);
-    document.body.appendChild(t);
-    this._undo={repo,token,el:t,timer:TIMERS.after(GIT_UNDO_MS,()=>this._undoHide(),{owner:this,label:'undo-window'})};
+    /**
+     * ACCESSIBILITY_BASELINE_SRS FR-A11Y-19 (`UX-8`): **`Toast` 를 지난다.**
+     *
+     * 종전에는 여기서 자기 DOM·타이머·자리를 갖고 `document.body` 에 직접 붙였다.
+     * 그러면 알림 채널이 하나 늘고, 라이브 리전도 하나 더 필요하다 — 리전이 넷이면
+     * 보조기술이 넷을 각각 감시하고 다음 사람이 다섯 번째를 잊는다.
+     *
+     * **되돌릴 수 있다는 사실이 읽혀야 한다.** 5초 안에 눌러야 하는 기회를 못 보는
+     * 사용자에게는 그 기회가 없는 것과 같다.
+     *
+     * `id`·클래스 셋을 그대로 두는 것은 신원이다 — `#git-undo`·`.git-undo-btn` 은
+     * e2e 가 짚는 이름이고, `.git-undo-toast` 는 이 알림의 모양을 정한다.
+     */
+    const h=Toast.show(GIT_UNDO_TEXT,'',GIT_UNDO_MS,{
+      id:'git-undo', cls:'git-undo-toast', textCls:'git-undo-text',
+      actions:[{label:GIT_UNDO_LABEL,title:GIT_TIP_UNDO,cls:'git-undo-btn',
+                onClick:()=>this._undoRun()}],
+    });
+    this._undo={repo,token,close:h.close};
   }
 
   _undoHide(){
     const u=this._undo; if(!u) return;
     this._undo=null;
-    TIMERS.cancel(u.timer);
-    if(u.el) u.el.remove();
+    // 타이머도 `Toast` 가 갖는다 — `close` 가 둘을 함께 끝낸다.
+    if(u.close) u.close();
   }
 
   async _undoRun(){
