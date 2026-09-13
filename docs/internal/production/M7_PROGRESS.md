@@ -5,7 +5,7 @@
 
 ---
 
-## 1. 어디까지 왔나 (2026-09-13, 다섯 번째 세션 종료)
+## 1. 어디까지 왔나 (2026-09-13, 다섯 번째 세션 — **M7 종료**)
 
 | 무엇 | 상태 |
 |---|---|
@@ -33,7 +33,7 @@
 | `UX-4` 목록·탭·트리의 역할·키 이동 | **완료** — `listbox/option`·`tablist/tab`·`tree/treeitem`. 키 계약은 함수 하나(`UIKit.roving`), 트리는 `aria-activedescendant` (D-A11Y-10·11·12). `×` 는 포인터 전용 + `Delete` (사용자 결정). `FUI-13` 은 이미 서 있었다 (FR-EXR-51~57) |
 | 게이트 | `check-*` 27 → **30** · **Makefile 과 CI 가 30/30 으로 일치** (`make gates` 는 gofmt·go vet·go build 를 더해 33개를 돌린다) |
 | 단위 테스트 | 99 → **133** |
-| e2e | 1,600 → **1,626 항목 · 155 스펙** · 시간표 1.00배 |
+| e2e | 1,600 → **1,642 항목 · 155 스펙** · 시간표 1.00배 |
 | 전량 e2e | **unexpected 0 을 열 회차 중 다섯에서** — 남은 것은 §5-5 의 두 군집 |
 | M6 잔여 — 샤드 편중 | **닫힘** — 1.51배 → **1.00배**, 벽시계 5.9 → 4.3분 |
 | M6 잔여 — 전량 flaky 0 | **1회 달성** (`UX-3` 회차, 1,607항목) — 3회 연속은 미충족 (§5-5) |
@@ -861,6 +861,7 @@ auto}` → `.fe-dd-peek-bar>.ui-btn-icon`. 옮기고 나면 옛 이름의 규칙
 | ⑤ 확인창·토스트·git 다이얼로그(`.confirm-*`·`.git-undo-btn`·`.gc-*`·`.git-dialog-*`) 뒤 | unexpected 1 · flaky 3 | V169 (①과 같다) · flaky 셋은 TC-ESV-3 · TC-GOR-1(군집) · `sidebar-collapse` SBC7 — 새 이름, **단독 3회 반복 통과.** 표적 200건 통과. 첫 판의 TC-BGU-2 는 표적에서 잡아 고쳤다 (§2j-4) |
 | ⑥ git 패널 본체(`.git-remote-btn`·`.git-commit-btn`·`.git-files-mode`·`.git-init-btn`·`.git-*-act`) 뒤 | **unexpected 0** · flaky 4 | 넷 다 §5-5 군집(`bg-kill-touch` TC-BGK-12t · `git-refresh-lifecycle` V-GRF-1 · `repo-diff-edit` E3 · `slot-view-state` TC-SVS-21). 표적: git 스펙 43파일 504건 전부 통과 (V169 포함) |
 | ⑦ P2 열(작은 여섯·`UX-19`·메뉴 묶음) 뒤 | unexpected 1 · flaky 3 | **진짜 회귀** — `touch-targets` TC-A11Y-13b: `UX-19` 의 추종 체크박스가 Theme 탭에 서자 파생 검사가 14px 를 잡았다 (배운 것 33 의 재현: 역할 있는 컨트롤을 더하면 옆의 검사가 저절로 잰다). 모바일 설정 체크박스 전부에 44px 히트 영역을 줬다(표식은 안에 그린다). flaky 셋은 `git-repo-missing` M3 · `git-improve` V138 · TC-GOR-1 — 군집 |
+| ⑧ 종료 판정 (체크박스 히트 영역 뒤) | **unexpected 0** · flaky 6 | 여섯 다 §5-5 군집(`git-diff` D10 · `repo-diff-edit` E1 · `bg-kill-touch` · `git-worktrees` V168·V169 · `repo-tab` X4). 1,636 통과 · 155 스펙. **M7 의 e2e 근거다** |
 
 **2026-09-13 (네 번째 세션, `UX-4`·`UX-2`·`UX-25`·`G7-1`) — 아홉 회차**
 
@@ -1064,3 +1065,67 @@ M6 은 뿌리를 *"샤드 4 의 편중"* 으로 적었다. 균형을 맞추자 �
 **두 헬퍼를 보는 일**일 가능성이 높다 (예: `expect.poll` 의 대상이 "요청이 왔는가"
 인지 "화면이 그것을 반영했는가" 인지 — M6 `TEST-16` 의 판정이 여기 다시 걸린다).
 그것은 그 자체로 하나의 작업이고 이 세션도 넘기지 못했다.
+
+---
+
+## 6. M7 종료 판정 (2026-09-13, 다섯 번째 세션)
+
+로드맵 §M7 DoD 의 항목마다 근거를 적는다. **판정: 닫는다.** 사람 손이 남는 것
+하나(VoiceOver 순회)는 아래 §6.2 에 그대로 적었다 — 기계가 대신 잰 것으로 통과를
+꾸미지 않는다.
+
+### 6.1 DoD 대조
+
+| DoD | 근거 | 판정 |
+|---|---|---|
+| 접근성 목표 선언 + axe 스모크(설정 모달·사이드바·git 확인창) 위반 0, 벤더 제외는 등록부 파생, "axe 초록 ≠ AA" 선언 | `ACCESSIBILITY_BASELINE_SRS` §3.3·FR-A11Y-15 · `a11y-axe.spec.ts` TC-A11Y-1~3 (표면 셋, 설정 탭 파생) — 넷째 세션 §2i | ✅ |
+| 키보드 순회: Tab 만으로 창 목록·분할 칸 탭·탐색기 행, Enter/Space·화살표, 단축키 없는 파일 열기 | `a11y-keyboard.spec.ts` TC-A11Y-6a~f·7 (`UX-4`, §2f) | ✅ |
+| 세 팩토리의 `tabindex`/`role`, `×` 의 이름 | 팩토리 셋에서 파생. `×` 는 `UIKit.button` 이 **아니라** 포인터 표식 + `Delete` — 사용자 결정 D-A11Y-10 (axe `nested-interactive`) | ✅ (결정으로 대체) |
+| 54종 글자 토큰 대비 게이트 + 런타임 같은 함수, 사용자 정의도 같은 파생 | `check-contrast.mjs` · D-TOK-5 · TC-TOK-6 (첫 세션 §2-1) | ✅ |
+| 미정의 커스텀 프로퍼티 0 | `check-css-vars.mjs` (`UX-5`) | ✅ |
+| 위험색·상태색·구분선 토큰화, Dracula·Gruvbox·라이트 11종 확인 | FR-TOK-6·7 · `UX-14`·`UX-15` (§2c) · 이 세션 §6.2 의 눈 확인 | ✅ |
+| `role=dialog`·포커스 관리·Tab 트랩·복귀·중첩 Escape 순서 (설정 모달·`UIKit.modal`) | `a11y-dialog.spec.ts` TC-A11Y-8a~d·9 (`UX-3`, §2d). 옛 모달 다섯은 범위 밖 — "열려 있는 것" | ✅ |
+| `aria-live` 리전 + `Toast` 가 undo·progress 흡수, 업로드·재연결·Undo 가 읽힘 | `a11y-live.spec.ts` (`UX-8`, D-A11Y-9) | ✅ |
+| 모바일 히트 박스 44px | `touch-targets.spec.ts` TC-A11Y-13a·b — 파생 검사, 예외 E-3·E-4. 이 세션이 설정 체크박스까지 넓혔다 (§4 ⑦) | ✅ |
+| `prefers-reduced-motion` 전역 1줄 + 6곳 | `UX-12` (둘째 세션) | ✅ |
+| 창 삭제 Undo 5초 e2e · 파일 삭제 복구 힌트 | `window-close-undo.spec.ts` (`UX-2`) · `editor-ops` O11 (`UX-25`) | ✅ |
+| z-index 토큰 수렴 · **모달 골격 7벌이 `.ui-modal` 위로** · 백드롭 토큰 | §3.4 (셋째 세션) · **이 세션 §2j, TC-TOK-21** | ✅ |
+| 버튼 외형 6벌이 `.ui-btn` 상속으로 비워지고 반경·높이 통일 · 글자 크기 다섯 · 10→11px | **이 세션 `⑤` — 옛 클래스 서른아홉이 선언 0** (§7.1~7.5) · `UX-18` (셋째) | ✅ |
+| `GitMenu` 가 `UIKit.menu` 의 얇은 어댑터, 두 메뉴의 키 이동 동일 | **이 세션 §2k-3, `CONTEXT_MENU_UNIFY_SRS`** | ✅ |
+| 시스템 다크/라이트 추종 + 두 테마 맵 캐시로 첫 페인트 깜빡임 0 | **이 세션 §2k-2, `SYSTEM_THEME_FOLLOW_SRS` TC-STF-3** | ✅ |
+| 탭·탐색기 빈 여백·터미널 본문 컨텍스트 메뉴, 비활성 사유 표시 | **이 세션 TC-CMU-3·4·5** | ✅ |
+| 알림 센터 개별 해제 · 프리셋 삭제 인라인 확인 · 로드 실패 `_notify` | **이 세션 §2k-1** (`FUI-22`·`FUI-25`) | ✅ |
+| 모바일 드로어에 Runs·Agents | **이 세션 §2k-1** (`FUI-27`) | ✅ |
+| `03 §4` 양호 판정 7건 보존 · `12 §5` 양호 판정 보존 | 관련 e2e 가 전량에서 통과 (§4 ⑧) | ✅ |
+
+**DoD 밖이지만 로드맵 표의 항목**: `UX-13`·`UX-7`·`UX-10`·`UX-6`·`UX-5`·`FR-DRV-13d`·
+`UX-16`·`UX-17`·`UX-19`·`UX-22`·`UX-23`·`UX-24`·`UX-26`·`FUI-08·12·13·17·22·25·26·27`·
+`G7-1` — 표의 스물여덟 행 전부가 닫혔다 (`FUI-13` 은 `UX-4` 에 귀속).
+
+### 6.2 사람이 보는 것 (SRS §5.2)
+
+- **테마 넷 눈 확인** — Tokyo Night · Gruvbox Dark(다크 둘) · Solarized Light ·
+  Catppuccin Latte(라이트 둘). 첫 화면과 설정 모달을 찍어 봤다
+  (`m7-human/*.png`): 사이드바·상단바·상태바 글자가 넷 다 읽히고, 키트로 접힌
+  상단바 버튼·설정 모달(8px 상자·blur 백드롭)이 라이트에서도 경계가 선다. 시각
+  계층(hint < muted < text)이 뭉개진 자리는 없었다.
+- **xterm screen-reader 모드** — `term.options.screenReaderMode=true` 로 켜고
+  `ls -la; echo M7-SR-CHECK` 뒤 `.xterm-accessibility-tree` 를 읽었다: 행 33개가
+  실리고 방금의 출력(`M7-SR-CHECK`)이 그 안에 있다. E-1 의 "벤더의 접근성 모드를
+  따른다" 가 실제로 무엇을 주는지의 근거다.
+- **VoiceOver 순회 — 하지 않았다.** 사람이 macOS VoiceOver 를 켜고 사이드바 →
+  탭 → 탐색기를 돌며 **이름이 뜻을 갖는지** 듣는 일이며, 이 세션(에이전트)이
+  대신할 수 없다. 기계가 확인한 것은 접근 이름의 **존재**(axe `button-name`·
+  `label` 0건, TC-A11Y-8a 가 글자를 본다)까지다. **남은 손 하나**로 기록한다 —
+  M7 을 여는 사유로 두지 않는다 (DoD 항목이 아니라 SRS 의 마무리 절차이고,
+  결과가 결함이면 M9 앞의 작은 수정이다).
+
+### 6.3 남는 것 (M7 밖)
+
+- 옛 모달 다섯의 `dialogOpen` (트랩·복귀) — 골격이 한 벌이 돼 이제 S. 접근성
+  SRS 의 변경으로.
+- `DESIGN_TOKENS_SRS` §7.6 탭 넷 — D-5 는 그때까지 열려 있다. 로드맵 항목 없음.
+- `Tab` 이 벤더 표면에 갇힌다 (셋째 세션 "열려 있는 것") — 탈출 키는 사용자
+  결정.
+- §5-5 의 두 군집 (`slot-view-state` · git 관측 주기) — 전량 flaky 0 의 3회
+  연속은 미달. M6 잔여로 남는다.

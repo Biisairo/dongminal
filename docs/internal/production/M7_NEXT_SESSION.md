@@ -1,153 +1,72 @@
-# M7 다음 세션 착수 프롬프트 — 접근성·디자인 시스템·UX 안전
+# M7 — 닫혔다. 다음 세션 착수 프롬프트 (M9 국제화 / M8 Go 부채)
 
-아래 블록을 새 세션에 그대로 붙여넣으면 된다.
+**M7 은 완료다** (2026-09-13, 다섯 번째 세션). 종료 판정은
+`M7_PROGRESS.md` §6 — DoD 열아홉 항목 전부 근거가 있고, 로드맵 표의 스물여덟 행이
+전부 닫혔다. 두 선행 SRS 는 `승인·구현완료`, 신규 SRS 둘(`SYSTEM_THEME_FOLLOW` ·
+`CONTEXT_MENU_UNIFY`)도 `승인·구현완료`.
 
-**M7 은 진행 중이다** (2026-09-13, 다섯 번째 세션 종료). 선행 SRS 2건이 서 있고
-**①·②·③·④·`UX-16`** 이 닫혔다. `⑤` 과도기 클래스는 **표면 다섯 중 넷**이 닫혔다
-(옛 클래스 서른이 선언 0). 남은 것은 **`⑤` 의 git 패널 본체**(아홉), **P2 열**
-(UX 넷 + FUI 여섯), 그리고 **M7 종료 판정**(SRS §5.2 사람이 보는 것 1회)이다.
+**사람 손 하나가 남아 있다** — macOS VoiceOver 로 사이드바 → 탭 → 탐색기를 돌며
+이름이 뜻을 갖는지 듣는 것 (SRS §5.2). 에이전트가 대신할 수 없어 하지 않았다
+(§6.2). 결과가 결함이면 M9 앞의 작은 수정이다.
 
 ---
 
 ```
 프로젝트: /Users/dykim/personal/dongminal
 
-M7(접근성·디자인 시스템·UX 안전) 진행 중이다. 선행·①·②·③·④·UX-16 이 끝났고
-`⑤`(과도기 클래스, UX-17 포함)는 상단바·설정 모달·편집기·확인창 표면이 끝났다.
-남은 것은 `⑤` 의 git 패널 본체 · P2 열 · 종료 판정이다. **다음은 `⑤` git 패널
-본체(§7.5 아홉)** 다 — 한 표면, 전량 1회. 그다음 P2, 마지막에 M7 종료 판정
-(§5.2 사람이 보는 것 1회).
+M7 은 끝났다 (M7_PROGRESS §6). 다음은 로드맵 §1.5 지도에서 **M9 국제화(i18n)**
+(선행 M5·M6·M7 전부 완료) 또는 **M8 Go 아키텍처 부채** (선행 M1·M3) 다 — 둘은
+상호 의존이 없다. 어느 것을 먼저 할지는 사용자 결정이다.
 
-## 상태
+## M7 이 남긴 것 — 다음 마일스톤이 딛는 자리
 
-  사용자 결정    로드맵의 미결정 0건. 기준은 **WCAG 2.1 AA 전면**
-                 (xterm 캔버스·Monaco 위젯은 예외 등록부 E-1·E-2)
-  선행 SRS 2건   ACCESSIBILITY_BASELINE_SRS · DESIGN_TOKENS_SRS (둘 다 `승인·구현중`)
-  닫힌 것        UX-6 · UX-5 · FR-DRV-13d (첫 세션)
-                 UX-13 · UX-7 · UX-12 · UX-10 (둘째 세션)
-                 UX-18 · UX-16(z-index) · UX-14 · UX-15 · UX-3 · UX-8 (셋째 세션)
-                 UX-4 · UX-2 · UX-25 · G7-1(axe) (넷째 세션)
-                 **UX-16(모달 골격 7벌) · ⑤ 표면 넷(+UX-17)** (다섯째 세션 —
-                 D-TOK-10·11 · FR-TOK-40~45 · TC-TOK-21·22)
-  게이트         `make gates` 33개 (`check-*` 30 + gofmt·vet·build). 이 세션은
-                 게이트를 더하지 않았다 — `scripts/count-css-class-decls.mjs` 는
-                 **자**(TC-TOK-22)이지 게이트가 아니다
-  단위 테스트    133
-  e2e            1,626 항목 · 155 스펙 (`a11y-dialog` +TC-TOK-21)
-  전량 e2e       다섯 회차 (M7_PROGRESS §4) — 내 회귀 0. unexpected 는 전부
-                 V169(HEAD 에서도 죽는다) 또는 §5-5 군집
-  결정 색인      439건 (D-TOK-10·11 이 이 세션의 둘)
-  예외 등록부    접근성 4건 · 토큰 0건
+  키트         버튼·탭·상자·메뉴가 `UIKit` 한 벌이다. 옛 버튼 클래스 서른아홉과
+               모달 오버레이 여섯이 선언 0 (DESIGN_TOKENS_SRS §7). 새 버튼은
+               `UIKit.button`/`ui-btn` 이고, 새 메뉴는 `UIKit.menu`(키 이동·사유·
+               역할이 있다), 새 모달은 `UIKit.modal` 또는 `ui-modal`/`ui-modal-box`
+               병기다. **M9 의 문구 외부화가 닿을 컨테이너가 이것들이다.**
+  토큰         색·글자·z-index 가 토큰이고 게이트 30종이 지킨다. 테마는 시스템
+               추종(슬롯 둘)을 안다.
+  접근성       WCAG 2.1 AA 선언, axe 표면 셋 위반 0, 키보드 순회, 라이브 리전,
+               44px 터치. 예외 등록부 4건.
+  e2e          1,642 항목 · 155 스펙 · 8샤드 ~4.5분. 판정은 unexpected 0.
+               §5-5 의 두 군집이 회차당 0~6 flaky 를 낸다 — M6 잔여.
 
 ## 먼저 읽을 것
 
-- `docs/internal/production/M7_PROGRESS.md` — **여기부터.** §1 이 전체 상태,
-  **§2j 가 다섯째 세션이 배운 것**, §4 가 전량 회차, §5-5 가 flaky 진단
-- `docs/internal/DESIGN_TOKENS_SRS.md` **§3.9(모달 골격 사상표) · §7(잔여표 —
-  7.1~7.4 끝났다, 7.5 git 이 다음, 7.6 탭은 범위 밖) · D-TOK-10·11**
-- `docs/internal/UI_LAYOUT_DEFAULTS_SRS.md` §9 — **기준선 JSON 이 클래스 목록을
-  키로 쓴다.** 병기로 키가 바뀌면 그 행이 조용히 대조에서 빠진다 (아래 배운 것 35)
-- `docs/internal/production/PRODUCTION_ROADMAP.md` §M7 — 범위의 진실
+- `docs/internal/production/M7_PROGRESS.md` §6 — 종료 판정과 **남는 것**
+- `docs/internal/production/PRODUCTION_ROADMAP.md` §M9 · §M8 — 다음 범위
+- `docs/internal/DESIGN_TOKENS_SRS.md` §7.6 — 탭 넷 (D-5 가 열려 있는 이유)
+- `docs/internal/production/M2_NEXT_SESSION.md` — 규약과 "비싸게 배운 것"
 
-## 남은 것 — 착수 순서
+## M7 밖에 남는 것 (작다 — 착수 전에 먹어도 된다)
 
-**1. `⑤` git 패널 본체 (M) — §7.5 의 표**
-
-  `.git-remote-btn` 22 · `.git-commit-btn` 12 · `.git-files-mode` 19 · `.git-init-btn` 9 ·
-  `.git-file-act` 24 · `.git-op-act` 17 · `.git-wt-act` 16 · `.git-sub-act` 18 ·
-  `.git-hunk-act` 15. **병기가 하나도 없다** — `panel-changes.js`·`commit.js`·
-  `worktrees.js`·`submodules.js`·`panel-diff.js` 가 이름만 붙인다. 상태 규칙이
-  붙어 있다: `.git-files-mode.active` · `.git-op-act[data-act=abort]` 위험색 ·
-  `.git-remote-btn`+`.git-remote-more` 의 **묶인 모서리** · `.git-file-act` 의
-  hover 에만 드러남과 `--git-hit` 하한 (`style-git-views.css:734`). 방식은 이 세션과
-  같다: `ui-btn`(+등급) 병기 → 옛 이름 규칙에서 외형을 지우고 상태·배치만 남기되
-  **상태는 키트 등급 토글로**(`.gc-go` 의 `_paint` 처럼), 배치는 담는 쪽 선택자로
-  (D-TOK-11). e2e 가 아홉 이름 전부를 짚으므로 이름은 남는다 (②). `.git-file-act`
-  의 30px 하한은 `ui-btn-lg` 가 같은 값이다 (`.ed-side-act` 가 그렇게 갔다).
-  끝나면 `style-kit.css` 머리말의 "남은 것" 을 줄이고 전량 1회.
-
-**2. P2 열 (S/M)**
-
-  `UX-19`(시스템 다크/라이트 추종) · `UX-22`(단축키 발견) · `UX-23`(드래그 어포던스,
-  `cursor:grab` 0건) · `UX-24`(탭 줄 오버플로) · `UX-26`+`FUI-26`+`FUI-08·12·17`
-  (컨텍스트 메뉴 하나로, `UIKit.roving` 이 키 계약) · `FUI-22`(알림 개별 해제) ·
-  `FUI-25`(프리셋 삭제 확인·로드 실패 피드백) · `FUI-27`(모바일 Runs·Agents 진입).
-  묶음: 메뉴 다섯 · CSS 둘(`UX-23`+`UX-24`) · `UX-19` · `UX-22` · 작은 셋.
-
-**3. M7 종료 판정**
-
-  로드맵 §M7 DoD 와 대조하고 SRS §5.2 의 **사람이 보는 것**(VoiceOver 순회 · 테마 넷
-  눈 확인 · xterm screen-reader 모드)을 1회 하고 기록한다. 두 SRS 를 `승인·구현완료`
-  로. **D-5 는 M7 DoD 가 아니다** — §7.5·7.6 이 남아 있어도 M7 은 닫힌다; 그 사실을
-  적는다.
-
-## 이 세션이 닫은 것 — 다음 세션이 알아 둘 것
-
-**UX-16 모달 골격** (§3.9): 오버레이 여섯에 `ui-modal`, 상자 여섯에 `ui-modal-box`
-병기, 옛 오버레이 규칙 삭제. `.ui-modal` 이 `backdrop-filter:blur(2px)` 를 얻었고
-`.ui-modal-box` 는 `--bg`·8px 로 (사용자 결정, D-TOK-10). `#modal-overlay` 의
-`display:none`/`.open` 만 상태로 남는다. **옛 다섯은 `UIKit.dialogOpen` 을 부르지
-않는다** — 트랩·복귀가 없다 (FR-TOK-45 로 비목표에 뒀다, 아래 "열려 있는 것").
-
-**⑤ 표면 넷**: 상단바(`.tbtn`·`.mtbtn`) · 설정 모달(`.modal-close`·`.preset-*`·
-`.ds-toggle`·`.sbx-del`·`.sc-rst`·`.drawer-close`) · 편집기(`.fe-find-*`·`.fe-offer-*`·
-`.fe-dd-peek-*`·`.ed-side-act`·`.ed-head-btn`) · 확인창(`.confirm-*`·`.git-undo-btn`·
-`.gc-*`·`.git-dialog-*`). 자는 `node scripts/count-css-class-decls.mjs <이름…>` —
-0 이 아니면 종료코드 1.
-  - **역할 색은 뜻이 고른다**: `.confirm-ok` 가 어디서나 붉던 것을 파괴적 닫기·
-    삭제만 `danger`, 확인·실행·저장·백그라운드는 `primary` 로. `Toast` 의 action
-    이 `ui-btn ui-btn-sm ui-btn-primary`. `.gc-go` 는 `_paint` 가 soft 면 `primary`
-  - hover 에서만 붉어지는 삭제(`.runs-del`·`.bg-kill`·`.preset-del`)는 도메인 이름에
-    남았다 — 키트 등급이 아니라 뜻이 다르다
-
-## 이 세션이 비싸게 배운 것 (앞선 서른넷에 더해 셋)
-
-35. **기준선 JSON 은 클래스 목록을 키로 쓰고, 키가 바뀐 행은 조용히 빠진다.**
-    `ui-layout-defaults` 는 "양쪽에 있는 키만 대조한다" — 병기로 키가 바뀌면
-    빨개지지 않고 그 행이 대조에서 사라진다. FR-TOK-37("판정은 검사다") 이 이
-    부류를 못 본다. 키를 손으로 옮겨 적었고(마흔 행, `UI_LAYOUT_DEFAULTS_SRS` §9),
-    값은 `LAYOUT_BASELINE=write` 로 **임시 파일**에 떠서 그 행만 가져왔다 — 기준선
-    자체를 다시 뜨면 168행의 남의 드리프트가 함께 들어온다 (FR-LAY-51)
-
-36. **이름을 키로 쓰는 배치 규칙이 "선언 0" 을 막는다 — 옮겨라, 예외로 두지 마라.**
-    `.tbtn` 18선언 중 넷은 외형이 아니라 `.slot-ctl .tbtn{min-width}` 같은 배치였다.
-    ③(근거 주석으로 남긴다)로 가고 싶어지지만 그러면 이름이 영원히 남는다. 키트
-    선택자(`ui-btn-sm`)나 담는 쪽(`.fe-dd-peek-bar>.ui-btn-icon`)·id(`#drawer-close`)
-    로 옮기면 문자 그대로 0 이다 (D-TOK-11). 이 세션에서 ③ 은 `#modal-overlay` 의
-    켜고 끄기 하나뿐이다
-
-37. **키트를 붙이면 요소 선택자 규칙이 키트를 덮는다.** `.fe-offer button{…}`·
-    `.confirm-btns button{…}` 은 (0,1,1) 이라 `.ui-btn`(0,1,0) 보다 세다 — 병기만
-    하면 키트는 아무것도 그리지 않는다. 그 규칙을 지우면 **같은 선택자 아래의
-    다른 버튼**(`.fe-offer-go`·`.fe-offer-set`)도 맨몸이 되므로 함께 키트에 올려야
-    한다. 한 표면의 "옛 클래스 목록" 은 이름이 아니라 **캐스케이드가 닿는 범위**다
-
-## e2e — 무엇을 신호로 쓰나
-
-(넷째 세션의 규약 그대로 — 아래 "변하지 않는 규약". 이 세션의 다섯 회차는 전부
-unexpected ≤ 1 이었고 그 하나는 V169 또는 §5-5 군집이다. **V169 는 HEAD 에서도
-단독 2/2 로 죽는다** — 그 검사 자신의 문제이고, 다음 세션이 §5-5 를 손대면 거기서
-시작하면 된다.)
-
-    벽시계 ~4.4분 · 항목 1,626 · 스펙 155 · 불균형 1.00배
-
-**새 스펙을 더하면** `make e2e-rebalance` — 직전 전량의 JSON 리포트를 읽으므로
-**전량 뒤·표적 전**에 돌린다.
+  1. 옛 모달 다섯(`.confirm-overlay`·`.bg-modal`·`.runs-modal`·`.gc-modal`·
+     `.git-dialog`)에 `UIKit.dialogOpen(box)` — 트랩·복귀. 골격이 한 벌이라 S.
+     접근성 SRS FR-A11Y-18 의 범위를 넓히고 `a11y-dialog` 에 단정을 더한다.
+  2. 탭 넷(`.pn-tab`·`.sb-tab`·`.mtab`·`.ed-side-tab`)의 키트 수렴 — D-5 종료.
+     `.pn-tab` 은 e2e 43 파일이 짚는 도메인 훅이라 이름은 남기고 외형만.
+  3. `Tab` 이 xterm·Monaco 에 갇힌다 — 탈출 키(예: `Ctrl+M`)는 사용자 결정.
+  4. 모바일 길게 누르기(터치 컨텍스트 메뉴) — CONTEXT_MENU_UNIFY §6 비목표.
 
 ## 변하지 않는 규약
 
-- **로컬 전량은 `make e2e`** (8샤드 병렬, ~4.5분). 판정은 `unexpected 0`
+- **로컬 전량은 `make e2e`** (8샤드 병렬, ~4.5분). 판정은 `unexpected 0`.
+  전량은 **묶음마다 1회** — 항목마다 돌리지 않는다 (다섯째 세션의 교훈: 하루
+  여덟 회차는 과했다). 표적 스펙으로 먼저 확인한다
 - **출력을 자르지 마라.** `LC_ALL=C grep -a` 로 읽어라. 합성 명령의 종료코드는
   로그 파일의 `종료코드` 줄을 읽어라
 - **전량이 도는 동안 `web/js`·CSS·`scripts/`·`e2e/` 를 고치지 마라** (문서는 된다)
 - **전량을 겹쳐 돌리지 마라** · **재시동은 하지 않는다** · `--isolated`
+- `make e2e-rebalance` 는 **전량 직후·표적 전**에 — 표적 실행이 JSON 리포트를 덮는다
 - 중·대 규모는 **스펙 → 테스트(RED) → 구현(GREEN)**
 - **동작을 바꾸면 그 근거 문서를 같은 변경에서 고쳐라** (이전/새/이유)
-- 게이트를 세우면 **탐침으로 검출을 확인하고 지운다** · Makefile 과 `verify.yml`
-  둘 다
+- 게이트를 세우면 **탐침으로 검출을 확인하고 지운다** · Makefile 과 `verify.yml` 둘 다
 - **하네스를 복사하지 마라** — 새 단정은 그 설정이 이미 있는 자리에
+- **기준선 JSON(`e2e/baseline/ui-layout.json`)은 클래스 목록을 키로 쓴다** — 클래스가
+  바뀌면 행이 조용히 빠지고, 겹치면 첫 것이 이긴다. 키를 손으로 옮긴다
 - `decisions.md` 는 생성물이다. `D-*` 를 더하면 `go run ./scripts/gen-decisions`
-- **기준선 JSON 의 키가 바뀌는 변경은 그 행을 손으로 옮긴다** (배운 것 35)
+- 설정 키를 더하면 `SETTINGS_SCHEMA`·`SETTINGS_ACCESS` 둘 다, 그리고 TC-CFG-4 의 개수
 - 커밋 메시지에 AI 서명 금지. 커밋은 사용자 확인 후에만
 ```
 
