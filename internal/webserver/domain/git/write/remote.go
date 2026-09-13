@@ -246,61 +246,6 @@ func PushRange(upstream, branch string) string {
 	return upstream + ".." + branch
 }
 
-// ── Sync (FR-GIT-270) ──
-
-// sync 한 번의 단계. **순서가 곧 규약이다** — pull 이 먼저이고, 앞이 실패하면
-// 뒤를 돌리지 않는다.
-const (
-	SyncStepPull = "pull"
-	SyncStepPush = "push"
-)
-
-// SyncSteps 는 그 순서다. 화면이 "1/2" 를 말하려면 몇 단계인지 알아야 한다.
-var SyncSteps = []string{SyncStepPull, SyncStepPush}
-
-// StepOutcome 은 앞 단계가 어떻게 끝났는가다. job 을 그대로 받지 않는 이유는
-// 판정이 순수해야 하기 때문이다 — 순수해야 "돌리지 않았다"를 단위로 고정할 수
-// 있고, 그 고정이 이 요구사항의 전부다 (V197).
-type StepOutcome struct {
-	ExitCode int    `json:"exitCode"`
-	Err      string `json:"err,omitempty"`
-	Canceled bool   `json:"canceled"`
-}
-
-// OK 는 뒤를 돌려도 되는가다. exit 만 보지 않는다 — 취소도 사유가 있는 종료이고,
-// 취소한 pull 뒤에 push 가 도는 것은 사용자가 요청한 적 없는 일이다.
-func (o StepOutcome) OK() bool { return o.ExitCode == 0 && o.Err == "" && !o.Canceled }
-
-// SyncNext 는 앞 단계의 결과를 보고 다음 단계를 정한다 (FR-GIT-270).
-//
-// **앞이 실패하면 뒤를 돌리지 않는다.** 멈출 때는 사유를 함께 준다 — 조용히
-// 멈추면 사용자는 push 가 돈 줄 안다.
-func SyncNext(step string, prev StepOutcome) (next string, run bool, reason string) {
-	switch step {
-	case "":
-		return SyncStepPull, true, ""
-	case SyncStepPull:
-		if prev.OK() {
-			return SyncStepPush, true, ""
-		}
-		return "", false, syncStopReason(prev)
-	case SyncStepPush:
-		// 마지막 단계다. 멈춘 것이 아니므로 사유가 없다.
-		return "", false, ""
-	}
-	return "", false, fmt.Sprintf("%q 는 sync 의 단계가 아니다", step)
-}
-
-func syncStopReason(o StepOutcome) string {
-	switch {
-	case o.Canceled:
-		return "pull 을 취소해 push 를 돌리지 않았다"
-	case o.Err != "":
-		return "pull 이 실패해 push 를 돌리지 않았다: " + o.Err
-	}
-	return fmt.Sprintf("pull 이 exit %d 로 끝나 push 를 돌리지 않았다", o.ExitCode)
-}
-
 // ── 원격 목록 add / remove (FR-GIT-269) ──
 
 // RemoteRemoveAction 은 remove 의 recovery hint 이름이다. **파괴적 목록에 없다** —

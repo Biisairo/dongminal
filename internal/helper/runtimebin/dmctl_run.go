@@ -588,35 +588,44 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 		writeRawJSON(stdout, raw)
 		return 0
 	}
-	var rec struct {
-		ID      string `json:"id"`
-		State   string `json:"state"`
-		Cleanup []struct {
-			Role   string `json:"role"`
-			ToolID string `json:"toolId"`
-			TabID  string `json:"tabId"`
-			Live   bool   `json:"live"`
-		} `json:"cleanup"`
-		Worktrees []runWorktree `json:"worktrees"`
-		Swept     bool          `json:"swept"`
-		// 묶음 H — 헤드리스 도구의 수명 (FR-HLM-4/5). KeptTools 는 --keep-tools 로
-		// 살려 둔 것이고, Orphans 는 그 결과 남은 것이다. 둘은 같은 도구를 가리키지만
-		// 하나는 **선택**의 보고이고 하나는 **상태**의 보고다.
-		KeptTools []runOrphan `json:"keptTools"`
-		Orphans   []runOrphan `json:"orphans"`
-		// UX_BATCH6_SRS FR-RUN-9: 서버가 **실제로 닫은** 탭. `Cleanup` 이 대상의
-		// 목록이라면 이쪽은 결과의 목록이다.
-		ClosedTabs []struct {
-			Role   string `json:"role"`
-			TabID  string `json:"tabId"`
-			Exited bool   `json:"exited"`
-			Empty  bool   `json:"empty"`
-		} `json:"closedTabs"`
-	}
+	var rec closeResponse
 	if err := json.Unmarshal(raw, &rec); err != nil {
 		fmt.Fprintf(stderr, "dmctl: invalid close response: %v\n", err)
 		return 1
 	}
+	printCloseReport(stdout, rec)
+	return 0
+}
+
+// closeResponse 는 `POST /api/runs/close` 의 응답 중 사람이 읽는 보고에 쓰는 부분이다.
+type closeResponse struct {
+	ID      string `json:"id"`
+	State   string `json:"state"`
+	Cleanup []struct {
+		Role   string `json:"role"`
+		ToolID string `json:"toolId"`
+		TabID  string `json:"tabId"`
+		Live   bool   `json:"live"`
+	} `json:"cleanup"`
+	Worktrees []runWorktree `json:"worktrees"`
+	Swept     bool          `json:"swept"`
+	// 묶음 H — 헤드리스 도구의 수명 (FR-HLM-4/5). KeptTools 는 --keep-tools 로
+	// 살려 둔 것이고, Orphans 는 그 결과 남은 것이다. 둘은 같은 도구를 가리키지만
+	// 하나는 **선택**의 보고이고 하나는 **상태**의 보고다.
+	KeptTools []runOrphan `json:"keptTools"`
+	Orphans   []runOrphan `json:"orphans"`
+	// UX_BATCH6_SRS FR-RUN-9: 서버가 **실제로 닫은** 탭. `Cleanup` 이 대상의
+	// 목록이라면 이쪽은 결과의 목록이다.
+	ClosedTabs []struct {
+		Role   string `json:"role"`
+		TabID  string `json:"tabId"`
+		Exited bool   `json:"exited"`
+		Empty  bool   `json:"empty"`
+	} `json:"closedTabs"`
+}
+
+// printCloseReport 는 close 의 사람용 보고다 — 닫은 것·남은 것·보존한 것·잔여물 순.
+func printCloseReport(stdout io.Writer, rec closeResponse) {
 	if rec.Swept {
 		fmt.Fprintf(stdout, "run=%s  state=%s  (정리 전용 — 상태는 바꾸지 않았다)\n", rec.ID, rec.State)
 	} else {
@@ -647,8 +656,21 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stdout, "  role=%s  tabId=%s%s\n", c.Role, c.TabID, note)
 		}
 	}
-	// 닫히지 않은 채 남은 멤버 탭. `--keep-tools` 를 주었거나 도구가 이미 죽어
-	// 대상에서 빠진 경우이며, 그 사실을 조정자가 알아야 한다.
+	printCloseLeftTabs(stdout, rec)
+	// 보존은 선택이므로 그 선택을 되짚어 준다 (FR-HLM-4). 보존도 **보고**된다.
+	if len(rec.KeptTools) > 0 {
+		fmt.Fprintf(stdout, "헤드리스 도구 %d건 보존 (--keep-tools):\n", len(rec.KeptTools))
+		for _, o := range rec.KeptTools {
+			fmt.Fprintf(stdout, "  role=%s  toolId=%s  memberId=%s\n", o.Role, o.ToolID, o.MemberID)
+		}
+	}
+	printOrphans(stdout, rec.Orphans)
+	printCloseResidue(stdout, rec.Worktrees)
+}
+
+// printCloseLeftTabs 는 닫히지 않은 채 남은 멤버 탭이다. `--keep-tools` 를 주었거나
+// 도구가 이미 죽어 대상에서 빠진 경우이며, 그 사실을 조정자가 알아야 한다.
+func printCloseLeftTabs(stdout io.Writer, rec closeResponse) {
 	closed := map[string]bool{}
 	for _, c := range rec.ClosedTabs {
 		closed[c.TabID] = true
@@ -659,40 +681,36 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 			left = append(left, i)
 		}
 	}
-	if len(left) > 0 {
-		fmt.Fprintln(stdout, "남은 탭 (필요하면 dmctl close-tab --at <tabId>):")
-		for _, i := range left {
-			c := rec.Cleanup[i]
-			fmt.Fprintf(stdout, "  role=%s  toolId=%s  tabId=%s  live=%v\n", c.Role, c.ToolID, c.TabID, c.Live)
-		}
+	if len(left) == 0 {
+		return
 	}
-	// 보존은 선택이므로 그 선택을 되짚어 준다 (FR-HLM-4). 보존도 **보고**된다.
-	if len(rec.KeptTools) > 0 {
-		fmt.Fprintf(stdout, "헤드리스 도구 %d건 보존 (--keep-tools):\n", len(rec.KeptTools))
-		for _, o := range rec.KeptTools {
-			fmt.Fprintf(stdout, "  role=%s  toolId=%s  memberId=%s\n", o.Role, o.ToolID, o.MemberID)
-		}
+	fmt.Fprintln(stdout, "남은 탭 (필요하면 dmctl close-tab --at <tabId>):")
+	for _, i := range left {
+		c := rec.Cleanup[i]
+		fmt.Fprintf(stdout, "  role=%s  toolId=%s  tabId=%s  live=%v\n", c.Role, c.ToolID, c.TabID, c.Live)
 	}
-	printOrphans(stdout, rec.Orphans)
-	// 잔여물은 조용히 남기지 않는다 (FR-WKT-12). 지운 것은 굳이 나열하지 않는다 —
-	// 목록이 길어지면 정작 남은 것이 묻힌다.
-	var leftTrees []runWorktree
-	for _, wt := range rec.Worktrees {
+}
+
+// printCloseResidue 는 잔여물이다 — 조용히 남기지 않는다 (FR-WKT-12). 지운 것은 굳이
+// 나열하지 않는다: 목록이 길어지면 정작 남은 것이 묻힌다.
+func printCloseResidue(stdout io.Writer, trees []runWorktree) {
+	var left []runWorktree
+	for _, wt := range trees {
 		if !wt.Removed {
-			leftTrees = append(leftTrees, wt)
+			left = append(left, wt)
 		}
 	}
-	if len(leftTrees) > 0 {
-		fmt.Fprintf(stdout, "잔여물 %d건 (지우지 않았다):\n", len(leftTrees))
-		for _, wt := range leftTrees {
-			line := fmt.Sprintf("  %s  branch=%s  사유=%s", wt.Path, wt.Branch, wt.Residue)
-			if wt.Detail != "" {
-				line += "  (" + wt.Detail + ")"
-			}
-			fmt.Fprintln(stdout, line)
-		}
+	if len(left) == 0 {
+		return
 	}
-	return 0
+	fmt.Fprintf(stdout, "잔여물 %d건 (지우지 않았다):\n", len(left))
+	for _, wt := range left {
+		line := fmt.Sprintf("  %s  branch=%s  사유=%s", wt.Path, wt.Branch, wt.Residue)
+		if wt.Detail != "" {
+			line += "  (" + wt.Detail + ")"
+		}
+		fmt.Fprintln(stdout, line)
+	}
 }
 
 // M8_UNIFIED_SRS D-A-1 (FBE-01 클라이언트 절반): 서버가 요청을 붙잡는 종단은 그 상한에

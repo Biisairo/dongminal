@@ -122,10 +122,18 @@ func (m *ToolManager) SnapshotToolSince(id string, since int64) (ToolSnapshot, e
 // Values above this clamp back to the default to reject pathological inputs.
 const MaxTerminalDim uint64 = 4096
 
+// DefaultCols·DefaultRows 는 크기를 받지 못한 도구의 터미널 크기다 — 요청에 값이
+// 없을 때(ParseSize)·되살릴 때(LoadAllWith)·화면이 없는 헤드리스 멤버가 같은 수를
+// 읽는다 (M8 D-A-17). 브라우저가 새 도구에 보내는 값과 같다.
+const (
+	DefaultCols uint16 = 120
+	DefaultRows uint16 = 40
+)
+
 // ParseSize extracts cols/rows from request query.
-// Out-of-range (0 or > MaxTerminalDim) or unparseable values fall back to defaults (120, 40).
+// Out-of-range (0 or > MaxTerminalDim) or unparseable values fall back to DefaultCols/DefaultRows.
 func ParseSize(r *http.Request) (uint16, uint16) {
-	c, ro := uint16(120), uint16(40)
+	c, ro := DefaultCols, DefaultRows
 	if v, err := strconv.ParseUint(r.URL.Query().Get("cols"), 10, 16); err == nil && v > 0 && v <= MaxTerminalDim {
 		c = uint16(v)
 	}

@@ -327,3 +327,14 @@ func recordBudgets(seen *[]time.Duration) (restore func()) {
 	}
 	return func() { clientWithin = prev }
 }
+
+// M8 D-A-24: `wait` 의 기본 예산은 서버 기본(`runwait.ActivityWaitDefault`) + 여유다 —
+// 사본이 아니다. 시한을 주면 그 시한 + 여유다.
+func TestRunBudget_WaitFollowsRunwait(t *testing.T) {
+	if got := waitBudget(0); got != runwait.ActivityWaitDefault+waitClientSlack {
+		t.Fatalf("기본 예산 %v, want %v", got, runwait.ActivityWaitDefault+waitClientSlack)
+	}
+	if got := waitBudget(60_000); got != 60*time.Second+waitClientSlack {
+		t.Fatalf("60초 시한의 예산 %v", got)
+	}
+}

@@ -110,13 +110,12 @@ func TestTool_SignalOtherLabels_BypassTheGate(t *testing.T) {
 // 이미 알렸다 (FR-ATN-10).
 func TestTool_MaybeIdle_SettledTurnDoesNotFire(t *testing.T) {
 	defer SetAttnBusyProbe(func(*Tool) bool { return true })()
-	defer func(orig func() int64) { attnNow = orig }(attnNow)
 	var mu sync.Mutex
 	var attn, clear []string
 	const threshold = int64(1000)
 
 	p := newAttnPane("agent", &mu, &attn, &clear)
-	attnNow = func() int64 { return 0 }
+	defer stubAttnNow(func() int64 { return 0 })()
 	p.SetActivity("working", "Bash", "make")
 	p.SetActivity("done", "", "")
 
@@ -132,13 +131,12 @@ func TestTool_MaybeIdle_SettledTurnDoesNotFire(t *testing.T) {
 // 것이 없다 (FR-ATN-10).
 func TestTool_MaybeIdle_NeverStartedDoesNotFire(t *testing.T) {
 	defer SetAttnBusyProbe(func(*Tool) bool { return true })()
-	defer func(orig func() int64) { attnNow = orig }(attnNow)
 	var mu sync.Mutex
 	var attn, clear []string
 	const threshold = int64(1000)
 
 	p := newAttnPane("agent", &mu, &attn, &clear)
-	attnNow = func() int64 { return 0 }
+	defer stubAttnNow(func() int64 { return 0 })()
 	p.SetActivity("idle", "", "startup") // SessionStart
 
 	p.LastOutputAt.Store(0)
@@ -153,13 +151,12 @@ func TestTool_MaybeIdle_NeverStartedDoesNotFire(t *testing.T) {
 // 남겨 둔 이유다 — B3 의 회귀를 만들지 않는다 (FR-ATN-11 / FR-ATF-10).
 func TestTool_MaybeIdle_StaleWorkingStillFires(t *testing.T) {
 	defer SetAttnBusyProbe(func(*Tool) bool { return true })()
-	defer func(orig func() int64) { attnNow = orig }(attnNow)
 	var mu sync.Mutex
 	var attn, clear []string
 	const threshold = int64(1000)
 
 	p := newAttnPane("agent", &mu, &attn, &clear)
-	attnNow = func() int64 { return 0 }
+	defer stubAttnNow(func() int64 { return 0 })()
 	p.SetActivity("working", "Bash", "make") // 이 뒤로 훅이 끊겼다
 
 	p.LastOutputAt.Store(0)

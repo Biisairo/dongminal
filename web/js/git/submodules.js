@@ -23,7 +23,9 @@ class GitSubmodules extends GitListTab {
 
   _headHTML(){
     return '<button class="git-sub-bulk" data-act="update"></button>'+
-           '<button class="git-sub-bulk" data-act="sync"></button>';
+           '<button class="git-sub-bulk" data-act="sync"></button>'+
+           // M8 D-A-27: update 는 작업이다 — 도는 동안 취소가 선다.
+           '<button class="git-sub-cancel"></button>';
   }
 
   _mountHead(el){
@@ -33,12 +35,24 @@ class GitSubmodules extends GitListTab {
       // FR-SUB-9: 대상이 **전부**다 — 경로를 비워 보내는 것이 그 뜻이다.
       b.addEventListener('click',()=>this._act(b.dataset.act,null));
     }
+    const c=el.querySelector('.git-sub-cancel');
+    c.textContent=GIT_JOB_CANCEL; c.title=GIT_SUB_CANCEL_TITLE;
+    c.addEventListener('click',()=>this._cancel());
   }
 
   // FR-SUB-9: 서브모듈이 없으면 일괄에 뜻이 없다 (FR-WBR-53 과 같은 근거).
   _paintHead(){
     for(const b of this._el.querySelectorAll('.git-sub-bulk'))
       b.disabled=!this._list.length||this._busy;
+    const c=this._el.querySelector('.git-sub-cancel');
+    if(c){ c.hidden=!this._job; c.disabled=!!this._canceling; }
+  }
+
+  unmount(){
+    // 스트림은 화면의 것이 아니라 작업의 것이다 — 탭을 떠나도 작업은 돈다. 그러나
+    // 사라진 화면에 줄을 그리지 않도록 스트림만 놓는다; 돌아오면 목록이 다시 선다.
+    this._closeStream();
+    super.unmount();
   }
 
   _emptyText(){return GIT_SUB_EMPTY}
@@ -140,7 +154,7 @@ class GitSubmodules extends GitListTab {
       action:GIT_SUB_UPDATE_ACTION,title:GIT_SUB_UPDATE_TITLE,targets:[target],
       hint:{note:GIT_SUB_UPDATE_NOTE,command:argv.join(' ')},
       stages:2,
-      run:()=>this._run('/api/git/submodules/update',
+      run:()=>this._runJob('/api/git/submodules/update',
         {repo,path,init,recursive:false,confirm:true},GIT_SUB_UPDATED+target,GIT_SUB_UPDATE_FAIL),
     });
   }
@@ -187,6 +201,113 @@ class GitSubmodules extends GitListTab {
     if(this._el){this._paintNote();this._paintList()}
     // 사유와 stderr tail 은 다이얼로그 안에서 보인다 (FR-GIT-96·175).
     return {ok:false,reason:this.panel.writeReason(res),stderrTail:d.message||''};
+  }
+
+  // ── 작업 (M8 D-A-27, FBE-08) ──
+
+  /**
+   * `update` 는 **작업**이다 — 원격에서 clone 하므로 fetch 와 같은 성질이다. 응답은
+   * `{job}` 이고, 진행은 `/api/git/job/events` 스트림으로, 끝은 `done` 으로 온다.
+   * 그동안 버튼은 잠기고 취소가 선다. 끝나면 목록과 Changes 를 함께 새로 받는다.
+   *
+   *   이전 동작: 동기 POST — 응답이 올 때까지 잠김, 취소 없음, 진행 없음
+   *   새  동작: 작업 — 시작 즉시 돌아오고 진행 줄 수와 취소를 보인다
+   *   이유:     서버가 원격 작업의 기계장치(취소·진행·상한)에 태웠다 (FBE-08)
+   */
+  async _runJob(url,body,okMsg,failMsg){
+    this._busy=true;
+    if(this._el) this._paintList();
+    const res=await gitPost(url,body);
+    const job=res.ok&&res.data&&res.data.job;
+    if(!job||!job.id){
+      this._busy=false;
+      const d=(res&&res.data)||{};
+      this._note={kind:'fail',msg:failMsg};
+      if(this._el){this._paintNote();this._paintList()}
+      return {ok:false,reason:this.panel.writeReason({data:d}),stderrTail:d.message||''};
+    }
+    this._job=job; this._jobOk=okMsg; this._jobFail=failMsg;
+    this._lines=0; this._seq=0; this._retries=0; this._canceling=false;
+    this._note={kind:'run',msg:GIT_SUB_UPDATING};
+    if(this._el){this._paintNote();this._paintHead()}
+    this._openStream();
+    return {ok:true};
+  }
+
+  _openStream(){
+    const job=this._job;
+    if(!job||typeof EventSource==='undefined') return;
+    const id=job.id;
+    // 채널은 버스가 연다 (FR-BUS-7). 원격 탭의 `git-job` 과 다른 id 다 — 같은 id 는
+    // 서로를 닫는다.
+    const es=this.app.bus.openChannel('git-sub-job',
+      '/api/git/job/events?id='+encodeURIComponent(id)+'&after='+this._seq,{owner:this});
+    if(!es) return;
+    this._stream=es;
+    es.addEventListener('line',ev=>{
+      if(this._stream!==es) return;
+      let ln=null; try{ln=JSON.parse(ev.data)}catch{ln=null}
+      if(!ln||(ln.seq!=null&&ln.seq<=this._seq)) return;
+      if(ln.seq!=null) this._seq=ln.seq;
+      this._lines++; this._retries=0;
+      // 진행은 줄 수로 말한다 — 서브모듈 탭에 로그 상자는 없다. 원문은 Console 에 남는다.
+      this._note={kind:'run',msg:GIT_SUB_UPDATING+' ('+this._lines+')'};
+      if(this._el) this._paintNote();
+    });
+    es.addEventListener('done',ev=>{
+      if(this._stream!==es) return;
+      let jb=null; try{jb=JSON.parse(ev.data)}catch{jb=null}
+      this._finishJob(jb||{id,done:true});
+    });
+    es.onerror=()=>{
+      if(this._stream!==es) return;
+      this._closeStream();
+      if(this._retries>=GIT_JOB_RETRY_MAX){
+        this._finishJob(Object.assign({},job,{done:true,err:GIT_JOB_STREAM_FAIL}));
+        return;
+      }
+      this._retries++;
+      TIMERS.after(GIT_JOB_RETRY_MS,()=>{
+        if(this._job&&this._job.id===id&&!this._stream) this._openStream();
+      },{owner:this,label:'sub-job-retry'});
+    };
+  }
+
+  _closeStream(){
+    if(!this._stream) return;
+    this._stream.close();
+    this._stream=null;
+  }
+
+  _finishJob(jb){
+    this._closeStream();
+    this._job=null; this._busy=false; this._canceling=false;
+    const failed=!!(jb&&(jb.err||jb.canceled||(jb.exitCode&&jb.exitCode!==0)));
+    this._note=failed
+      ? {kind:'fail',msg:(jb&&jb.canceled)?GIT_SUB_UPDATE_CANCELED:(this._jobFail+((jb&&jb.err)?' — '+jb.err:''))}
+      : {kind:'done',msg:this._jobOk};
+    // 상태가 바뀌었다 — 목록과 Changes 를 함께 새로 받는다 (서버의 완료 훅이 관측
+    // 캐시를 이미 버렸다).
+    this._load();
+    this.panel.signal('submodule');
+    this.panel.collect();
+    if(this._el){this._paintNote();this._paintHead()}
+  }
+
+  async _cancel(){
+    const job=this._job;
+    if(!job||this._canceling) return;
+    const ok=await GitDialog.confirm({
+      action:GIT_ACT_JOB_CANCEL,title:GIT_JOB_CANCEL_TITLE,stages:1,
+      targets:[GIT_SUB_ALL],hint:{note:GIT_SUB_CANCEL_NOTE,command:''},
+    });
+    if(!ok||!this._job||this._job.id!==job.id) return;
+    this._canceling=true;
+    if(this._el) this._paintHead();
+    const r=await apiPost('/api/git/job/cancel',{id:job.id});
+    if(r.ok) return; // 끝은 스트림의 done 으로 온다
+    this._canceling=false;
+    if(this._el) this._paintHead();
   }
 }
 

@@ -692,6 +692,13 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 }
 .git-sub-bulk:hover:not(:disabled){background:var(--accent-hover);color:var(--accent-text)}
 .git-sub-bulk:disabled{color:var(--text-hint);cursor:not-allowed}
+/* M8 D-A-27: 갱신이 도는 동안만 보이는 취소. 모양은 일괄 버튼과 같고 뜻은 위험이다. */
+.git-sub-cancel{
+  font:inherit;font-size:var(--fs-sm);padding:2px 8px;cursor:pointer;
+  background:var(--bg);color:var(--danger-text);
+  border:1px solid var(--danger);border-radius:3px;
+}
+.git-sub-cancel:disabled{color:var(--text-hint);border-color:var(--border);cursor:not-allowed}
 .git-sub-note-close{
   flex-shrink:0;font:inherit;font-size:var(--fs-sm);padding:0 8px;cursor:pointer;
   background:transparent;color:var(--text-muted);

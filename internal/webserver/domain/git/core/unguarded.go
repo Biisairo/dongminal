@@ -136,6 +136,13 @@ func (s *Service) denyUnguarded(dir string, spec UnguardedSpec, err error) (Outp
 //
 // 표식이 없으면 Console 에서 화이트리스트를 지난 실행과 섞이고, 그 목록을 근거로
 // 삼는 판단이 틀린다.
+// RecordUnguarded 는 인가를 호출자가 진 실행을 기록에 남긴다 — Unguarded 표식과
+// 사유를 든다. 작업 경로(`jobs.StartUnguarded`)가 끝난 실행을 여기로 옮긴다
+// (M8 D-A-27); 실행 자체는 ExecUnguarded 가 아니라 스트리밍 실행기였다.
+func (s *Service) RecordUnguarded(dir string, spec UnguardedSpec, out Output, err error) {
+	s.recordUnguarded(dir, spec, out, err)
+}
+
 func (s *Service) recordUnguarded(dir string, spec UnguardedSpec, out Output, err error) {
 	if s == nil || s.rec == nil {
 		return

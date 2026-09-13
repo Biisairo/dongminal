@@ -136,7 +136,7 @@ class AgentPane {
     // 휴면·오류 뒤에 라이브로 exit 아닌 이벤트가 오면 재개된 것이다 (다른 브라우저가 재개했을 때).
     if(!replay&&this._dormant&&ev.kind!=='exit') this._revive();
     switch(ev.kind){
-      case 'session': this._setState('idle'); if(ev.status) {this._setModel(ev.status.model); this._setPerm(ev.status.permissionMode)} this._sessionLine(ev.sessionId); break;
+      case 'session': this._setState('idle'); this._mergeStatus(ev.status); this._sessionLine(ev.sessionId); break;
       case 'user': this._endLive(); this._msg('agp-user',ev.text||''); this._pushHistory(ev.text||''); break;
       case 'turn_start': this._setState('working'); break;
       case 'turn_end': this._endLive(); this._setState('done'); if(ev.isError) this._line('agp-note agp-err', ev.text==='aborted_streaming'?t('agent.turn_aborted'):t('agent.turn_error',{reason:ev.text||''})); break;
@@ -148,7 +148,7 @@ class AgentPane {
       case 'approval_open': this._setState('waiting'); if(ev.approval){this._openIds.add(ev.approval.id); this._renderOpen(); if(!replay) this._announce(ev.approval); this._openApproval(ev.approval)} break;
       case 'approval_closed': this._setState('working'); if(ev.approval){this._openIds.delete(ev.approval.id); if(this._dialog&&this._dialog.id===ev.approval.id) this._dialog.close(); if(this.state&&this.state.open) this.state.open=this.state.open.filter(o=>o.id!==ev.approval.id)} this._renderOpen(); break;
       case 'usage': this._setUsage(ev.usage||{}); break;
-      case 'status': if(ev.status){ this._setModel(ev.status.model); this._setPerm(ev.status.permissionMode); if(ev.status.models&&this.state) this.state.status=Object.assign({},this.state.status,{models:ev.status.models}); if(ev.status.commands&&this.state) this.state.status=Object.assign({},this.state.status,{commands:ev.status.commands}); if(ev.status.compacted) this._line('agp-note',t('agent.compacted')) } break;
+      case 'status': this._mergeStatus(ev.status); if(ev.status&&ev.status.compacted) this._line('agp-note',t('agent.compacted')); break;
       case 'reset': this._line('agp-note',t('agent.reset',{sid:(ev.sessionId||'').slice(0,8)})); break;
       case 'error': this._line('agp-note agp-err',t('agent.error',{text:(ev.tool?ev.tool+': ':'')+(ev.text||'')})); break;
       case 'exit': this._exit(ev,replay); break;
@@ -164,6 +164,19 @@ class AgentPane {
     this.stateEl.textContent=key?t(key):'';
     this.stateEl.dataset.state=st||'';
     this.el.dataset.state=st||'';
+  }
+  /**
+   * 상태 조각을 합친다 — 모델·권한은 머리에, 선택지(models·commands)는 `state.status` 에.
+   * `session` 과 `status` 가 같은 함수를 지난다: claude 의 `initialize` 응답은 `session`
+   * 으로 오는데(D-C-16) 종전에는 그 분기가 commands·models 를 버렸다 — 재생이 initialize
+   * 보다 먼저 돌아온 판에서 슬래시 목록이 영영 비었다 (e2e TC-AGT-4, M8 P7 실측).
+   */
+  _mergeStatus(st){
+    if(!st) return;
+    this._setModel(st.model); this._setPerm(st.permissionMode);
+    if(!this.state) return;
+    if(st.models) this.state.status=Object.assign({},this.state.status,{models:st.models});
+    if(st.commands) this.state.status=Object.assign({},this.state.status,{commands:st.commands});
   }
   _setModel(m){ if(m){ this._model=m; this.modelEl.textContent=t('agent.model_current',{model:m}) } }
   _setPerm(p){ if(p){ this._perm=p; this.permEl.textContent=t('agent.perm_mode_current',{mode:p}) } }

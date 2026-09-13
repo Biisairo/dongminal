@@ -109,6 +109,7 @@ func (m *Manager) Exit(toolID string, info toolhub.ExitInfo) {
 	}
 	detail := info.String()
 	s.dormant, s.reason, s.pending = state, detail, ""
+	s.dormantAt = time.Now().UnixMilli()
 	s.emit(agentadapter.Event{Kind: agentadapter.EvExit, Text: reason, Detail: detail, IsError: reason == ExitDied})
 	wait := s.exitWait
 	s.exitWait = nil
@@ -243,12 +244,39 @@ func (m *Manager) Restore(alive, referenced func(toolID string) bool) {
 			s.handshake(opts)
 			continue
 		}
-		s.dormant, s.reason = DormantError, ReasonServerRestart
+		s.dormant, s.reason, s.dormantAt = DormantError, ReasonServerRestart, time.Now().UnixMilli()
 		m.mu.Lock()
 		m.sess[id] = s
 		m.mu.Unlock()
 	}
 	m.saveRecords()
+}
+
+// Reap 은 **어느 탭도 참조하지 않는** 휴면·오류 세션 중 그 상태로 olderThan 을 넘긴
+// 것을 Forget 한다 (M8 D-A-23) — Restore 의 "참조 없음" 판정을 런타임에 되풀이하는
+// 것이다. 유예는 생성 직후의 창(도구가 먼저 서고 탭이 뒤에 저장된다)을 지나기
+// 위해서다. 활성 세션은 대상이 아니다. 회수한 toolId 를 돌려준다.
+func (m *Manager) Reap(referenced func(toolID string) bool, olderThan time.Duration) []string {
+	cutoff := time.Now().Add(-olderThan).UnixMilli()
+	m.mu.Lock()
+	sess := make([]*Session, 0, len(m.sess))
+	for _, s := range m.sess {
+		sess = append(sess, s)
+	}
+	m.mu.Unlock()
+	var reaped []string
+	for _, s := range sess {
+		s.mu.Lock()
+		dead := s.dormant != "" && s.dormantAt <= cutoff
+		s.mu.Unlock()
+		if !dead || referenced(s.toolID) {
+			continue
+		}
+		dmlog.Infof(nil, "[agent %s] 참조 없는 %s 세션을 거둔다", s.toolID, s.dormant)
+		m.Forget(s.toolID)
+		reaped = append(reaped, s.toolID)
+	}
+	return reaped
 }
 
 // rebuildFromLog 는 디스크 로그로 링·스냅샷·합쳐진 상태(status·usage·열린 요청)를 되살린다.

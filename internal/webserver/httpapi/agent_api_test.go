@@ -673,3 +673,25 @@ func TestAgentAPI_AllProtocols(t *testing.T) {
 		})
 	}
 }
+
+// M8 D-A-23: 탭 없는 오류 세션은 리퍼가 거둔다 — 부팅 규칙의 반복. 유예 안이면 남고,
+// 유예를 0 으로 주면 곧 사라진다. 참조된 세션은 남는다.
+func TestAgentAPI_ReaperCollectsUnreferencedErrorSession(t *testing.T) {
+	s, m, sse := directAgentServer(t)
+	id := createAgent(t, s, "")
+	tool := m.Get(id)
+	waitAgent(t, "idle", func() bool { a := tool.Activity(); return a != nil && a.State == "idle" })
+	agentPost(t, s, "/api/agent/prompt", `{"toolId":"`+id+`","text":"DIE"}`)
+	waitAgent(t, "exit", func() bool { return has(sse.kinds(id), "exit") })
+	waitAgent(t, "오류 상태", func() bool { st, _, _ := agentEvents(t, s, id, 0); return st["dormant"] == "error" })
+
+	if got := s.reapAgents(time.Hour); len(got) != 0 || s.agentMgr().Get(id) == nil {
+		t.Fatalf("유예 안의 세션이 회수됐다: %v", got)
+	}
+	if got := s.reapAgents(0); len(got) != 1 || got[0] != id {
+		t.Fatalf("회수 = %v, want [%s]", got, id)
+	}
+	if s.agentMgr().Get(id) != nil || has(stateToolIDs(t, s), id) {
+		t.Fatal("회수 뒤에도 세션이 남았다")
+	}
+}

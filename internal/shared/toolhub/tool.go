@@ -1,28 +1,21 @@
 package toolhub
 
 import (
-	"bytes"
 	"context"
 	"dongminal/internal/shared/dmlog"
 	"errors"
-	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"os/user"
 	"path/filepath"
 	"runtime/debug"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
-	"time"
 
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/outbuf"
 	"dongminal/internal/shared/platform"
-
-	"github.com/gorilla/websocket"
 )
 
 // Tool — PTY 하나의 수명.
@@ -165,46 +158,6 @@ func (p *Tool) IsBusy() bool {
 	return toolBusyProbe(pid)
 }
 
-// Cwd 는 도구 셸의 작업 디렉터리다. 조회할 수 없는 처지(Windows, 또는 PTY 없는
-// 합성 Tool)에서는 **빈 값**이다 — ToolHub.Cwd 의 계약이 "empty if unknown"
-// 이며(hub.go), 여기서 서버의 cwd 로 덮으면 그것이 `source:"tool"` 을 달고 나가
-// `+ Add` 의 자동채움에 남의 경로로 앉는다 (FR-ETR-31, §2.4). 도구의 실제
-// cwd 는 셸 훅의 OSC 777 로도 들어오므로 이 경로는 보조다 (FR-XPI-6).
-//
-// 폴백이 없어진 것은 아니다 — 그것을 딛는 자리가 cwdOrServer 로 직접 부른다.
-func (p *Tool) Cwd() string {
-	if pid := p.CmdProcessPID(); pid > 0 {
-		if cwd, ok := platform.Current().Info.CWD(pid); ok {
-			return cwd
-		}
-	}
-	// 직접 조회가 안 되는 처지(Windows)에서는 **셸 훅이 알린 값**이 답이다
-	// (FR-WTC-3). 순서가 이러한 이유는 신선도다: 직접 조회는 지금의 값이고,
-	// 보고는 마지막 프롬프트의 값이다 — 둘 다 있으면 앞의 것이 낫다.
-	if v, ok := p.reportedCwd.Load().(string); ok && v != "" {
-		return v
-	}
-	return ""
-}
-
-// noteCwdReport 는 셸 훅의 보고를 기록한다 (FR-WTC-2).
-func (p *Tool) noteCwdReport(cwd string) {
-	if cwd != "" {
-		p.reportedCwd.Store(cwd)
-	}
-}
-
-// cwdOrServer 는 종전 Cwd 의 동작이다. 도구의 cwd 를 **비워 둘 수 없는** 자리가
-// 쓴다 — 영속이 빈 값을 저장하면 재기동 때 홈으로 되살아나고, CWD 를 제공하지
-// 않는 Windows 에서는 그것이 모든 도구에 걸린다.
-func cwdOrServer(p *Tool) string {
-	if cwd := p.Cwd(); cwd != "" {
-		return cwd
-	}
-	cwd, _ := os.Getwd()
-	return cwd
-}
-
 // ToolHooks carries the attention wiring StartTool applies before launching
 // readPTY (race-free). A nil *ToolHooks disables attention for that tool.
 type ToolHooks struct {
@@ -224,27 +177,6 @@ type ToolHooks struct {
 	OnOutput func(id string, kind ToolKind, data []byte, end int64)
 }
 
-// ExitInfo 는 도구 프로세스가 끝난 사정이다 (M8_UNIFIED_SRS D-C-15 · FR-ABG-20). Code 는
-// 종료 코드(신호로 죽었으면 -1, 모르면 0), Stderr 는 파이프 stderr 의 마지막 줄들이다 —
-// PTY 도구는 비어 있다. 두 모드가 같은 모양을 나른다: 직접 모드는 ExitObserver 의 인자,
-// 데몬 모드는 `exit` push 의 `code`·`stderr`.
-type ExitInfo struct {
-	Code   int      `json:"code"`
-	Stderr []string `json:"stderr,omitempty"`
-}
-
-// String 은 사람이 읽을 한 줄이다 — 뷰가 그대로 보인다. 비어 있으면 "".
-func (e ExitInfo) String() string {
-	if e.Code == 0 && len(e.Stderr) == 0 {
-		return ""
-	}
-	s := fmt.Sprintf("exit %d", e.Code)
-	if len(e.Stderr) > 0 {
-		s += ": " + strings.Join(e.Stderr, " | ")
-	}
-	return s
-}
-
 // ExitInfo 는 이 도구의 종료 사정이다. 끝나기 전에 부르면 Code 는 0 이고 Stderr 는 지금까지의 꼬리다.
 func (p *Tool) ExitInfo() ExitInfo {
 	info := ExitInfo{Code: int(p.exitCode.Load())}
@@ -254,40 +186,10 @@ func (p *Tool) ExitInfo() ExitInfo {
 	return info
 }
 
-// stderrTail 은 마지막 stderrTailLines 줄(합쳐 stderrTailBytes 이내)을 든다. StartPipe 의
-// 읽기 고루틴이 쓰고 ExitInfo 가 읽는다.
-type stderrTail struct {
-	mu   sync.Mutex
-	buf  []string
-	size int
-}
-
 const (
 	stderrTailLines = 8
 	stderrTailBytes = 2048
 )
-
-func newStderrTail() *stderrTail { return &stderrTail{} }
-
-func (t *stderrTail) add(line string) {
-	if len(line) > stderrTailBytes {
-		line = line[:stderrTailBytes]
-	}
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.buf = append(t.buf, line)
-	t.size += len(line)
-	for len(t.buf) > stderrTailLines || (t.size > stderrTailBytes && len(t.buf) > 1) {
-		t.size -= len(t.buf[0])
-		t.buf = t.buf[1:]
-	}
-}
-
-func (t *stderrTail) lines() []string {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return append([]string(nil), t.buf...)
-}
 
 // NewDetachedTool은 PTY 없이 훅만 배선된 Tool 을 만든다. 셸을 띄우지 않으므로
 // 프로세스도 파일 디스크립터도 만들지 않는다 — 데몬 모드에서 원격 도구를
@@ -313,36 +215,6 @@ func NewAttendingTool(id string, hooks *ToolHooks, armed bool) *Tool {
 	p.attention.Store(true)
 	p.attnArmed.Store(armed)
 	return p
-}
-
-// toolHome 은 도구 셸이 **자기 홈으로 여길 곳**이다. dmenv.EnvToolHome 이 있으면
-// 그것이 우선하고, 없으면 종전대로 사용자 홈이다.
-//
-// 이 갈래가 있는 이유는 셸이 로그인 셸이기 때문이다 — rc 를 읽고 히스토리를
-// 쓴다. 검사가 띄운 셸까지 사용자 홈을 쓰면 검사가 주입한 명령이 사용자의
-// 히스토리에 섞인다. 격리는 검사 쪽에서 이 변수를 심어 얻는다.
-//
-// **도구가 열리는 자리(startDir)는 이것이 아니다.** 둘을 한 값으로 묶으면 홈을
-// 격리하는 순간 도구가 열리는 위치까지 따라 옮겨진다 — 상태바의 cwd 와 탭 이름이
-// 달라지고, 사용자가 보는 첫 화면이 바뀐다. 격리하려는 것은 셸이 쓰는 자리이지
-// 사용자가 서 있는 자리가 아니다.
-func toolHome() string {
-	if v := os.Getenv(dmenv.EnvToolHome); v != "" {
-		return v
-	}
-	return userHome()
-}
-
-// userHome 은 도구가 아무 지시 없이 열릴 자리다. 언제나 사용자의 홈이다.
-func userHome() string {
-	home, _ := os.UserHomeDir()
-	return home
-}
-
-// toolBrowserEnv 는 도구 셸의 BROWSER 다 (VIEWER_URL_OPEN_SRS FR-VUO-13).
-// 확장자는 설치와 같은 규칙을 따른다 — Windows 에서는 open-url.exe 다.
-func toolBrowserEnv(binDir string) string {
-	return "BROWSER=" + filepath.Join(binDir, "open-url"+platform.Current().Paths.ExeSuffix())
 }
 
 // StartTool spawns a shell under a new PTY. Exported for tool manager + tests.
@@ -547,320 +419,6 @@ func (p *Tool) feedAndClients(chunk []byte) (end int64, conns []*SafeConn, live 
 	return end, conns, true
 }
 
-// broadcast delivers msg to all currently-registered clients. It is a no-op
-// once the tool has transitioned to exited. Caller must NOT hold cmu.
-func (p *Tool) broadcast(msg []byte) {
-	p.cmu.Lock()
-	if p.exited {
-		p.cmu.Unlock()
-		return
-	}
-	snap := make([]*SafeConn, len(p.cls))
-	copy(snap, p.cls)
-	p.cmu.Unlock()
-	p.deliver(msg, snap)
-}
-
-// deliver 는 확보된 목록에 쓴다. 쓰기는 락 밖이다 — 느린 소켓 하나가 PTY 읽기
-// 루프를 멈추게 하면 안 된다.
-func (p *Tool) deliver(msg []byte, snap []*SafeConn) {
-	for _, c := range snap {
-		if err := c.WriteMsg(websocket.BinaryMessage, msg); err != nil {
-			dmlog.Errorf(nil, "[tool %s] broadcast error addr=%s: %v", p.ID, c.RemoteAddr(), err)
-			p.RemoveClient(c)
-			c.Close()
-		}
-	}
-}
-
-// observeOutput records output activity and runs observe-only L1 detection on
-// the raw chunk. Called from the readPTY goroutine only; attnCarry needs no
-// lock. The live bytes are never mutated.
-func (p *Tool) observeOutput(chunk []byte) { p.observeOutputAt(chunk, attnNow()) }
-
-// observeOutputAt is observeOutput with an injectable timestamp (tests).
-func (p *Tool) observeOutputAt(chunk []byte, now int64) {
-	p.LastOutputAt.Store(now)
-	// FR-ATF-5: 재무장이 잠긴 동안에는 출력이 무장을 세우지 못한다. 시각은
-	// 그래도 적는다 — 준비완료 사다리(FR-STA-4)가 그 값을 읽는다.
-	if !p.attnRearmLocked.Load() {
-		p.attnArmed.Store(true)
-	}
-	scan := chunk
-	if len(p.attnCarry) > 0 {
-		scan = append(append([]byte(nil), p.attnCarry...), chunk...)
-	}
-	if bytes.IndexByte(scan, 0x1b) < 0 && bytes.IndexByte(scan, 0x07) < 0 {
-		p.attnCarry = nil
-		return
-	}
-	// cwd 보고는 **알람 배선과 무관하게** 읽는다 (FR-WTC-2). 이 함수의 위쪽에서
-	// `onAttention == nil` 로 돌아가지 않도록 순서를 지킨다 — 알람을 켜지 않은
-	// 도구도 자기 자리는 말해야 한다.
-	p.noteCwdReport(DetectCwdReport(scan))
-	if p.onAttention == nil {
-		return
-	}
-	sig, carry := DetectAttentionSignal(scan, p.allowBell, AttnMaxCarry)
-	p.attnCarry = carry
-	if sig {
-		p.setAttention("signaled")
-	}
-}
-
-// setAttention transitions none→attention exactly once (edge), firing the
-// notifier only on the transition (NFR-PAN-3). Returns true if it transitioned.
-// Used by passive detection (L1 OSC, L2 idle) where re-alerting an already-
-// flagged tool would be noise.
-func (p *Tool) setAttention(reason string) bool {
-	if p.attention.CompareAndSwap(false, true) {
-		if p.onAttention != nil {
-			p.onAttention(p.ID, reason)
-		}
-		return true
-	}
-	return false
-}
-
-// SignalAttention raises attention and ALWAYS notifies (not edge-gated). Used
-// by explicit agent signals (`dmctl notify` → set endpoint): each discrete
-// completion/waiting event must re-alert the user even if a prior unattended
-// alarm is still active. The state itself stays idempotent (already-true).
-//
-// **다만 무엇이 사건인지는 먼저 묻는다** (묶음 N). edge 게이팅이 없는 것은
-// 의도였고 그대로 남지만, 그 전제 — 훅이 오는 모든 순간이 새 사건이다 — 는
-// 사실이 아니었다 (§2.7). 배경 턴의 종료와 입력 유휴 알림은 되풀이지 사건이
-// 아니므로, 여기서 걸러 낸다. 걸러진 신호는 방송도 하지 않는다 (FR-ATN-4).
-func (p *Tool) SignalAttention(reason string) {
-	if !p.turn.AllowSignal(reason) {
-		return
-	}
-	p.attention.Store(true)
-	if p.onAttention != nil {
-		p.onAttention(p.ID, reason)
-	}
-}
-
-// SignalAgentEvent 는 **활동 이벤트에서 파생한** 알람이다 (FR-AEV-10).
-//
-// `SignalAttention` 과 나뉘어 있는 것은 판정의 재료가 하나 더 있기 때문이다 —
-// 그 에이전트가 턴의 출처를 말할 수 있는가(`Signals.UserTurn`). 그 밖의 모든
-// 것은 같은 자리, 같은 판정이다 (FR-AEV-11).
-//
-// 이것이 있어서 **활동을 보고할 수 있는 에이전트는 누구나 알람을 얻는다.**
-// 종전에는 에이전트마다 `dmctl notify` 를 따로 배선해야 했고, omp 는 그 배선이
-// 없어 상태만 바뀌고 알람이 울리지 않았다 (SRS §2.1).
-func (p *Tool) SignalAgentEvent(state string, turnKnown bool) {
-	if !p.turn.AllowActivitySignal(state, turnKnown) {
-		return
-	}
-	p.attention.Store(true)
-	if p.onAttention != nil {
-		p.onAttention(p.ID, state)
-	}
-}
-
-// clearAttention transitions attention→none exactly once, firing the clear
-// notifier only on the transition.
-func (p *Tool) clearAttention() bool {
-	if p.attention.CompareAndSwap(true, false) {
-		if p.onAttentionClear != nil {
-			p.onAttentionClear(p.ID)
-		}
-		return true
-	}
-	return false
-}
-
-// Attend marks the tool as attended-to: disarms idle, locks re-arming, and
-// clears attention.
-// Invoked only via the explicit focus/clear endpoints — NOT on raw WS input,
-// because xterm replies to terminal queries (cursor-position/device-attribute
-// reports an agent's TUI emits) arrive as OpInput too and would spuriously
-// clear a just-raised alarm. Real "user attended" is signalled by focus.
-//
-// FR-ATF-5: 잠금은 무장을 내리는 바로 이 자리에서 선다. 사용자가 **보기만
-// 했다**는 뜻이므로, 다음 화면 갱신이 곧바로 같은 알람을 되살리면 안 된다.
-func (p *Tool) Attend() {
-	p.attnArmed.Store(false)
-	p.attnRearmLocked.Store(true)
-	p.clearAttention()
-}
-
-// AttendTyped 는 사용자가 그 도구에 **키를 눌렀을** 때의 주목이다 (FR-ATF-6).
-// 보기만 한 것과 다른 점은 하나다 — 일을 시켰으므로 그 결과를 다시 기다리게
-// 되고, 따라서 재무장을 열어 둔다.
-func (p *Tool) AttendTyped() {
-	p.attnArmed.Store(false)
-	p.attnRearmLocked.Store(false)
-	// FR-ATN-16: 같은 구분을 L1 명시 신호에도 준다 — 키를 눌렀으면 그다음의
-	// 대기는 새 사건이다.
-	p.turn.NoteAttendTyped()
-	p.clearAttention()
-}
-
-// attnBusyProbe reports whether a tool has a running foreground process. It is
-// a package variable so tests can substitute a deterministic probe.
-var attnBusyProbe = func(p *Tool) bool { return p.IsBusy() }
-
-// SetAttnBusyProbe는 유휴 탐지와 활동 스냅샷 정리가 쓰는 전경 프로세스 검사를
-// 교체하고, 이전 검사로 되돌리는 함수를 돌려준다. 다른 패키지의 테스트가 이것을
-// 필요로 하는 이유는 NewDetachedTool 로 만든 도구에 프로세스가 없어 항상
-// "busy 아님"으로 읽히고, 그러면 working 상태가 정리 대상이 되기 때문이다.
-func SetAttnBusyProbe(f func(*Tool) bool) (restore func()) {
-	prev := attnBusyProbe
-	attnBusyProbe = f
-	return func() { attnBusyProbe = prev }
-}
-
-// maybeIdle fires L2 (idle) attention when an armed tool has been quiet for at
-// least threshold. It disarms after firing so it fires once per quiet edge;
-// new output re-arms it. threshold<=0 disables L2.
-//
-// 발화까지 세 관문이 있고, 셋은 서로 다른 것을 묻는다 (ATTENTION_FIRING_SRS
-// FR-ATF-1·3·10):
-//
-//	① 에이전트가 도는 도구인가   — 활동을 보고한 적이 있는가 (agentSeen)
-//	② 전경 프로세스가 있는가     — 셸 프롬프트로 돌아간 도구는 울지 않는다
-//	③ 지금 일하는 중은 아닌가    — 단, 굳은 `working` 은 억제하지 못한다
-//
-// ① 이 없던 동안 `vim`·`less`·`top`·`ssh`·빌드 대기가 전부 울었다. ② 만으로는
-// "무언가 돌고 있다"까지밖에 말하지 못한다.
-func (p *Tool) maybeIdle(now, threshold int64) {
-	// FR-AAL-5: 에이전트 도구는 L2 idle 의 대상이 아니다 — 프로토콜이 턴의 시작과
-	// 끝을 명시하고, 끊기면 idle 이 아니라 오류다 (FR-ABG-20).
-	if p.Kind == KindAgent {
-		return
-	}
-	if threshold <= 0 || !p.attnArmed.Load() {
-		return
-	}
-	if now-p.LastOutputAt.Load() < threshold {
-		return
-	}
-	p.attnArmed.Store(false)
-	if !p.agentSeen.Load() || !attnBusyProbe(p) {
-		return
-	}
-	// FR-ATN-10: 턴이 진행 중이 아니면 알릴 것이 없다. 종결 뒤의 정적은 L1 이
-	// 이미 알린 사실이고, 시작한 적 없는 도구의 정적은 사건이 아니다.
-	if !p.turn.InProgress() {
-		return
-	}
-	if ActivityStillWorking(p.activity.Load(), now) {
-		return
-	}
-	p.setAttention("idle")
-}
-
-// ActivityStillWorking reports whether an activity snapshot suppresses idle:
-// the agent says it is working AND that word is recent enough to believe
-// (FR-ATF-10). 훅이 끊긴 채 `working` 으로 굳은 활동은 억제하지 못한다 — 그것이
-// 알람을 영구히 막던 자리다 (B3).
-//
-// 공개인 이유는 데몬 모드가 **같은 판정**을 써야 하기 때문이다 (FR-ATF-12).
-// 두 벌로 적으면 한쪽만 고쳐지는 날이 온다.
-func ActivityStillWorking(a *ActivityState, now int64) bool {
-	return a != nil && a.State == "working" && now-a.UpdatedAt < AttnWorkingStale
-}
-
-// Attention reports whether the tool currently needs attention.
-func (p *Tool) Attention() bool { return p.attention.Load() }
-
-type ActivityState struct {
-	State     string `json:"state"`
-	Tool      string `json:"tool,omitempty"`
-	Detail    string `json:"detail,omitempty"`
-	UpdatedAt int64  `json:"updatedAt"`
-}
-
-type ActivitySnap struct {
-	ToolID    string `json:"toolId"`
-	State     string `json:"state"`
-	Tool      string `json:"tool,omitempty"`
-	Detail    string `json:"detail,omitempty"`
-	UpdatedAt int64  `json:"updatedAt"`
-}
-
-// NoteUserPrompt 는 사용자 프롬프트로 턴이 시작되었음을 기록한다 (FR-ATN-1).
-// 활동 보고와 **별도 경로**인 이유는 둘이 다른 것을 말하기 때문이다 — 활동은
-// "지금 무엇을 하는가" 이고, 이것은 "이 턴이 왜 시작되었는가" 다.
-func (p *Tool) NoteUserPrompt() { p.turn.NoteUserPrompt() }
-
-func (p *Tool) SetActivity(state, tool, detail string) {
-	// FR-ATF-2: 보고했다는 사실이 에이전트 표시를 세우고, `ended` 가 내린다.
-	// 상태의 종류는 묻지 않는다 — 에이전트만이 활동을 보고하기 때문이다.
-	p.agentSeen.Store(state != "ended")
-	p.turn.NoteActivity(state)
-	if state == "ended" {
-		p.activity.Store(nil) // 종료 → 카드 제거(스냅샷에서 빠짐)
-	} else {
-		p.activity.Store(&ActivityState{State: state, Tool: tool, Detail: detail, UpdatedAt: attnNow()})
-	}
-	if p.onActivity != nil {
-		p.onActivity(p.ID, state, tool, detail)
-	}
-}
-
-func (p *Tool) Activity() *ActivityState { return p.activity.Load() }
-
-// AddClient registers c. Returns false when the tool has already exited; in
-// that case OpExit is sent to c immediately (outside cmu) and c is left
-// untouched in the caller's possession. Caller must NOT hold cmu.
-func (p *Tool) AddClient(c *SafeConn) bool {
-	_, ok := p.AddClientAt(c)
-	return ok
-}
-
-// AddClientAt 은 클라이언트를 등록하고 **등록 시점의 스트림 오프셋**을 돌려준다
-// (FR-TRS-17). 그 자리부터는 broadcast 가 나르므로, 재생은 거기서 멈춰야 한다.
-func (p *Tool) AddClientAt(c *SafeConn) (int64, bool) {
-	p.cmu.Lock()
-	if p.exited {
-		p.cmu.Unlock()
-		_ = c.Send(OpExit, nil)
-		dmlog.Infof(nil, "[tool %s] addClient after exit addr=%s — sent OpExit", p.ID, c.RemoteAddr())
-		return 0, false
-	}
-	p.cls = append(p.cls, c)
-	n := len(p.cls)
-	off := p.stream.Offset()
-	p.cmu.Unlock()
-	dmlog.Infof(nil, "[tool %s] client connected addr=%s total=%d at=%d", p.ID, c.RemoteAddr(), n, off)
-	return off, true
-}
-
-func (p *Tool) RemoveClient(c *SafeConn) {
-	p.cmu.Lock()
-	for i, v := range p.cls {
-		if v == c {
-			p.cls = append(p.cls[:i], p.cls[i+1:]...)
-			break
-		}
-	}
-	n := len(p.cls)
-	p.cmu.Unlock()
-	dmlog.Infof(nil, "[tool %s] client disconnected addr=%s remaining=%d", p.ID, c.RemoteAddr(), n)
-}
-
-func (p *Tool) resize(c, r uint16) error {
-	if p.term == nil {
-		return fmt.Errorf("tool %s: 터미널이 없다", p.ID)
-	}
-	p.tmu.Lock()
-	defer p.tmu.Unlock()
-	// 이미 닫힌 터미널의 크기를 고치는 것은 오류이지 경쟁이 아니다. 사라지는
-	// 도구에 늦게 도착한 요청은 정상적으로 일어난다 — 거절하고 끝낸다.
-	if p.termClosed {
-		return fmt.Errorf("tool %s: 터미널이 닫혔다", p.ID)
-	}
-	err := p.term.Resize(c, r)
-	if err != nil {
-		dmlog.Errorf(nil, "[tool %s] resize error cols=%d rows=%d: %v", p.ID, c, r, err)
-	}
-	return err
-}
-
 // Wait returns a channel closed when the tool terminates (test helper).
 func (p *Tool) Wait() <-chan struct{} { return p.done }
 
@@ -903,135 +461,4 @@ func (p *Tool) CmdProcessPID() int {
 		return 0
 	}
 	return p.term.PID()
-}
-
-// Write sends data to the PTY master. Safe to call from any goroutine.
-func (p *Tool) Write(data []byte) error {
-	if p.term == nil {
-		return fmt.Errorf("tool %s: 터미널이 없다", p.ID)
-	}
-	_, err := p.term.Write(data)
-	return err
-}
-
-// kill transitions the tool to exited exactly once: it marks exited under
-// cmu, fans out a final OpExit to the clients that were registered at that
-// moment (outside cmu), then tears down the PTY/process and stream.
-//
-// terminateWait 는 프로세스에 정중한 종료(SIGTERM)를 청하고 grace 안에 끝나기를
-// 기다린다 (FR-BGK-7). 강제 종료는 하지 않는다 — 그것은 kill() 의 몫이다. 유예는
-// 상한이지 대기 시간이 아니다: 먼저 끝나면 그 자리에서 돌아온다. 프로세스가 없는
-// 합성 Tool 에서는 할 일이 없고, 무엇보다 매달리지 않는다 (done 이 nil 이다).
-func (p *Tool) terminateWait(grace time.Duration) {
-	pid := p.CmdProcessPID()
-	if pid <= 0 {
-		return
-	}
-	if err := platform.Current().Process.Terminate(pid); err != nil {
-		return
-	}
-	timer := time.NewTimer(grace)
-	defer timer.Stop()
-	select {
-	case <-p.Wait():
-	case <-timer.C:
-	}
-}
-
-// terminateGrace 는 정중한 종료 요청(Terminate)과 강제 종료(Kill) 사이의 유예다
-// (M8 `GO-40`). HTTP Delete 가 이 길을 동기로 지나므로 짧다 — 백그라운드 도구의
-// 3초 유예는 위층(`httpapi` 의 `toolKillGrace`)이 따로 든다 (FR-BGK-7).
-const terminateGrace = 50 * time.Millisecond
-
-// kill is race-free by design:
-//   - sync.Once guarantees the body executes at most once, even when the
-//     readPTY goroutine calls kill() on EOF while an external caller (API
-//     handler, watchdog) concurrently calls kill().
-//   - The once.Do body is self-contained: it snapshots the client list
-//     under cmu, broadcasts outside cmu (avoiding deadlock with addClient),
-//     then tears down resources (ptmx, cmd, stream). No call from inside
-//     the once body re-enters kill() or readPTY.
-//   - Closing p.done inside once.Do safely unblocks any Wait() readers;
-//     the close is also idempotent under the Once guard.
-//   - The onExit callback is NOT invoked here — it was moved to readPTY
-//     (which is the sole caller after EOF) to avoid re-entrancy issues.
-func (p *Tool) kill() {
-	p.once.Do(func() {
-		// Phase 1: atomic mark + snapshot under cmu.
-		p.cmu.Lock()
-		p.exited = true
-		snap := make([]*SafeConn, len(p.cls))
-		copy(snap, p.cls)
-		p.cmu.Unlock()
-
-		// Phase 2: final OpExit broadcast outside cmu. Errors are ignored —
-		// the tool is dying anyway and clients will close on their side.
-		exitMsg := []byte{OpExit}
-		for _, c := range snap {
-			_ = c.WriteMsg(websocket.BinaryMessage, exitMsg)
-		}
-
-		// Phase 3: tear down PTY/process/stream.
-		pid := p.CmdProcessPID()
-		dmlog.Infof(nil, "[tool %s] killing pid=%d", p.ID, pid)
-		// NewDetachedTool 로 만든 Tool 은 done 이 nil 이다 (PTY 도 프로세스도 없는
-		// 합성 Tool — 데몬 모드의 원격 도구 대리와 테스트가 쓴다). 무조건 닫으면
-		// close(nil chan) 으로 패닉한다. 아래 ptmx·cmd·stream 이 이미 같은 방어를
-		// 하고 있었고 이 줄만 빠져 있었다.
-		if p.done != nil {
-			close(p.done)
-		}
-		if p.term != nil {
-			p.tmu.Lock()
-			p.termClosed = true
-			p.term.Close()
-			p.tmu.Unlock()
-			// 순서와 유예는 종전과 같다 — 정중히 요청, 유예, 강제 종료, 수확.
-			// 유예는 채널로 기다린다 (M8 `GO-12`): 프로세스가 먼저 끝나면 그 자리에서
-			// 수확하고, 유예가 다 되면 강제 종료한 뒤 수확한다. HTTP Delete 경로가
-			// 이 함수를 동기로 지나므로 죽은 프로세스 앞에서 자지 않는다.
-			p.term.Terminate()
-			waited := make(chan error, 1)
-			go func() { waited <- p.term.Wait() }()
-			grace := time.NewTimer(terminateGrace)
-			var werr error
-			select {
-			case werr = <-waited:
-				grace.Stop()
-			case <-grace.C:
-				p.term.Kill()
-				werr = <-waited
-			}
-			if werr != nil {
-				dmlog.Infof(nil, "[tool %s] wait: %v", p.ID, werr)
-				var ee *exec.ExitError
-				if errors.As(werr, &ee) {
-					p.exitCode.Store(int32(ee.ExitCode()))
-				} else {
-					p.exitCode.Store(-1)
-				}
-			}
-		}
-		if p.stream != nil {
-			p.stream.Close()
-		}
-		// tool 종료 → 활동 카드 제거(셸 exit/Ctrl+C 등, SessionEnd hook 없이도).
-		if p.activity.Load() != nil {
-			p.SetActivity("ended", "", "")
-		}
-		// FR-ATL-1·2 (NFR-PAN-8): 주의도 같은 자리에서 내린다. 활동만 정리하고
-		// 주의를 남겨 두었던 것이, 닫은 탭의 알람이 배지에 남던 원인이다.
-		// disarm 까지 하는 이유는 Attend 와 같다 — 죽은 도구가 idle 로 다시
-		// 깨어나면 안 된다. FR-ATF-7: 상태를 버리는 자리가 재무장 잠금도 함께
-		// 버린다.
-		p.attnArmed.Store(false)
-		p.attnRearmLocked.Store(false)
-		p.clearAttention()
-	})
-}
-
-// Resize is the exported wrapper around the unexported resize for
-// ToolManager delegation. It calls pty.Setsize on the PTY master.
-func (p *Tool) Resize(cols, rows uint16) error {
-	return p.resize(cols, rows)
 }

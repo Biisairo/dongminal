@@ -383,7 +383,8 @@ class App {
       paneUp:()=>this.paneNavigate('up'),paneDown:()=>this.paneNavigate('down'),
       paneLeft:()=>this.paneNavigate('left'),paneRight:()=>this.paneNavigate('right'),
       splitH:()=>this.split('horizontal'),splitV:()=>this.split('vertical'),
-      newWindow:()=>this.addWindow(),newTab:()=>this.addTabFocused(),
+      newWindow:()=>this.addWindow().catch(err=>this._notify(t('core.open_window_fail')+' — '+((err&&err.message)||err))),
+      newTab:()=>this.addTabFocused(),
       closeWindow:()=>this.closeWindowActive(),closeTab:()=>this.closeTabFocused(),
       agentsToggle:()=>this.agentsToggle(),
       // FR-WSL-51·74: 버튼과 **같은 함수**를 부른다. 여는 길이 둘로 갈리면

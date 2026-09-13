@@ -4,6 +4,7 @@ import (
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/toolhub"
+	"errors"
 
 	"dongminal/internal/shared/toolipc"
 
@@ -170,12 +171,32 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 	case "backgroundlist":
 		resp = pc.backgroundList(req)
 	default:
-		resp = toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32601, Message: "unknown method: " + req.Method}}
+		resp = toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeMethodNotFound, Message: "unknown method: " + req.Method}}
 	}
 	pc.enqueue(resp, false)
 }
 
 // ── Request handlers ────────────────────────────────────────────────────
+
+// decodeParams 는 요청 파라미터를 T 로 읽는다 (M8 D-A-16, GO-22). 실패는
+// CodeInvalidParams 하나다 — 핸들러 열둘이 같은 두 줄을 베끼지 않는다.
+func decodeParams[T any](req *toolipc.PanedRequest) (T, *toolipc.PanedError) {
+	var p T
+	if err := json.Unmarshal(req.Params, &p); err != nil {
+		return p, &toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeInvalidParams, Message: err.Error()}}
+	}
+	return p, nil
+}
+
+// createError 는 생성 실패를 코드로 옮긴다. 상한 초과는 CodeToolCap — 서버가 그것을
+// `toolhub.ErrToolCap` 으로 되돌려 두 모드가 같은 429 를 낸다 (D-A-16).
+func createError(req *toolipc.PanedRequest, err error) toolipc.PanedError {
+	code := toolipc.CodeInternal
+	if errors.Is(err, toolhub.ErrToolCap) {
+		code = toolipc.CodeToolCap
+	}
+	return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: code, Message: err.Error()}}
+}
 
 func (pc *panedConn) hello(req *toolipc.PanedRequest) interface{} {
 	tools := pc.pm.List()
@@ -199,7 +220,7 @@ func (pc *panedConn) hello(req *toolipc.PanedRequest) interface{} {
 }
 
 func (pc *panedConn) create(req *toolipc.PanedRequest) interface{} {
-	var p struct {
+	p, perr := decodeParams[struct {
 		Cwd     string `json:"cwd"`
 		Cols    uint16 `json:"cols"`
 		Rows    uint16 `json:"rows"`
@@ -214,15 +235,15 @@ func (pc *panedConn) create(req *toolipc.PanedRequest) interface{} {
 		Agent string   `json:"agent"`
 		// M8_UNIFIED_SRS D-C-11: 휴면·오류 세션의 재개 — 같은 도구 신원으로 다시 세운다.
 		ReuseID string `json:"reuseId"`
-	}
-	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
+	}](req)
+	if perr != nil {
+		return *perr
 	}
 	tool, err := pc.pm.Create(p.Cwd, p.Cols, p.Rows,
 		toolhub.Placement{WindowUUID: p.Window, Profile: p.Profile, Command: p.Command, Work: p.Work,
 			Kind: toolhub.ToolKind(p.Kind), Argv: p.Argv, Agent: p.Agent, ReuseID: p.ReuseID})
 	if err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32603, Message: err.Error()}}
+		return createError(req, err)
 	}
 	if pc.wireTool != nil {
 		pc.wireTool(tool)
@@ -234,18 +255,18 @@ func (pc *panedConn) create(req *toolipc.PanedRequest) interface{} {
 }
 
 func (pc *panedConn) restore(req *toolipc.PanedRequest) interface{} {
-	var p struct {
+	p, perr := decodeParams[struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 		Cwd  string `json:"cwd"`
 		Cols uint16 `json:"cols"`
 		Rows uint16 `json:"rows"`
-	}
-	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
+	}](req)
+	if perr != nil {
+		return *perr
 	}
 	if err := pc.pm.Restore(p.ID, p.Name, p.Cwd, p.Cols, p.Rows); err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32603, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeInternal, Message: err.Error()}}
 	}
 	if pc.wireTool != nil {
 		if restored := pc.pm.Get(p.ID); restored != nil {
@@ -258,16 +279,16 @@ func (pc *panedConn) restore(req *toolipc.PanedRequest) interface{} {
 }
 
 func (pc *panedConn) kill(req *toolipc.PanedRequest) interface{} {
-	var p struct {
+	p, perr := decodeParams[struct {
 		ID string `json:"id"`
-	}
-	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
+	}](req)
+	if perr != nil {
+		return *perr
 	}
 	// `GO-8`: 없는 도구를 지운 것도 사실대로 답한다. 클라이언트가 그것을 정상으로
 	// 볼지는 클라이언트가 정한다.
 	if err := pc.pm.Delete(p.ID); err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32000, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeServer, Message: err.Error()}}
 	}
 	return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
 }
@@ -275,35 +296,35 @@ func (pc *panedConn) kill(req *toolipc.PanedRequest) interface{} {
 // terminate 는 정중한 종료 뒤의 kill 이다 (FBE-05/12). 유예는 클라이언트가 싣는다
 // — 값의 주인은 서버(httpapi 의 toolKillGrace)이고 데몬은 그것을 집행한다.
 func (pc *panedConn) terminate(req *toolipc.PanedRequest) interface{} {
-	var p struct {
+	p, perr := decodeParams[struct {
 		ID      string `json:"id"`
 		GraceMs int64  `json:"graceMs"`
-	}
-	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
+	}](req)
+	if perr != nil {
+		return *perr
 	}
 	if err := pc.pm.Terminate(p.ID, time.Duration(p.GraceMs)*time.Millisecond); err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32000, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeServer, Message: err.Error()}}
 	}
 	return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
 }
 
 func (pc *panedConn) write(req *toolipc.PanedRequest) interface{} {
-	var p struct {
+	p, perr := decodeParams[struct {
 		ID   string `json:"id"`
 		Data string `json:"data"`
-	}
-	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
+	}](req)
+	if perr != nil {
+		return *perr
 	}
 	raw, err := base64.StdEncoding.DecodeString(p.Data)
 	if err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: "invalid base64"}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeInvalidParams, Message: "invalid base64"}}
 	}
 	// `GO-8`: **반환값을 버리지 않는다.** 종전에는 없는 도구에 쓴 것도 성공으로
 	// 답했고, 브라우저는 자기가 보낸 키가 들어간 줄 알았다.
 	if err := pc.pm.Write(p.ID, raw); err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32000, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeServer, Message: err.Error()}}
 	}
 	return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
 }
@@ -313,36 +334,36 @@ func (pc *panedConn) write(req *toolipc.PanedRequest) interface{} {
 // 때문이다 (BRACKETED_PASTE_SRS FR-BPW-4). cwd·busy 가 데몬 RPC 를 경유하는 것과
 // 같은 이유다.
 func (pc *panedConn) paste(req *toolipc.PanedRequest) interface{} {
-	var p struct {
+	p, perr := decodeParams[struct {
 		ID     string `json:"id"`
 		Data   string `json:"data"`
 		Submit bool   `json:"submit"`
-	}
-	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
+	}](req)
+	if perr != nil {
+		return *perr
 	}
 	raw, err := base64.StdEncoding.DecodeString(p.Data)
 	if err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: "invalid base64"}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeInvalidParams, Message: "invalid base64"}}
 	}
 	if err := pc.pm.SendPaste(p.ID, raw, p.Submit); err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32000, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeServer, Message: err.Error()}}
 	}
 	return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
 }
 
 func (pc *panedConn) resize(req *toolipc.PanedRequest) interface{} {
-	var p struct {
+	p, perr := decodeParams[struct {
 		ID   string `json:"id"`
 		Cols uint16 `json:"cols"`
 		Rows uint16 `json:"rows"`
-	}
-	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
+	}](req)
+	if perr != nil {
+		return *perr
 	}
 	// `GO-8`: 리사이즈도 같다 — 없는 도구의 크기를 바꿨다고 답하지 않는다.
 	if err := pc.pm.Resize(p.ID, p.Cols, p.Rows); err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32000, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeServer, Message: err.Error()}}
 	}
 	return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
 }
@@ -360,11 +381,11 @@ func (pc *panedConn) snapshot(req *toolipc.PanedRequest) interface{} {
 		Since int64  `json:"since"`
 	}{Since: -1}
 	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeInvalidParams, Message: err.Error()}}
 	}
 	snap, err := pc.pm.SnapshotToolSince(p.ID, p.Since)
 	if err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32603, Message: err.Error()}}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeInternal, Message: err.Error()}}
 	}
 	return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 		"data":           base64.StdEncoding.EncodeToString(snap.Data),
@@ -377,11 +398,11 @@ func (pc *panedConn) snapshot(req *toolipc.PanedRequest) interface{} {
 }
 
 func (pc *panedConn) cwd(req *toolipc.PanedRequest) interface{} {
-	var p struct {
+	p, perr := decodeParams[struct {
 		ID string `json:"id"`
-	}
-	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
+	}](req)
+	if perr != nil {
+		return *perr
 	}
 	return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 		"cwd": pc.pm.Cwd(p.ID),
@@ -389,11 +410,11 @@ func (pc *panedConn) cwd(req *toolipc.PanedRequest) interface{} {
 }
 
 func (pc *panedConn) busy(req *toolipc.PanedRequest) interface{} {
-	var p struct {
+	p, perr := decodeParams[struct {
 		ID string `json:"id"`
-	}
-	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
+	}](req)
+	if perr != nil {
+		return *perr
 	}
 	return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 		"busy": pc.pm.Busy(p.ID),
@@ -401,12 +422,12 @@ func (pc *panedConn) busy(req *toolipc.PanedRequest) interface{} {
 }
 
 func (pc *panedConn) setBackground(req *toolipc.PanedRequest) interface{} {
-	var p struct {
+	p, perr := decodeParams[struct {
 		ID         string `json:"id"`
 		Background bool   `json:"background"`
-	}
-	if err := json.Unmarshal(req.Params, &p); err != nil {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
+	}](req)
+	if perr != nil {
+		return *perr
 	}
 	return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 		"ok": pc.pm.SetBackground(p.ID, p.Background),

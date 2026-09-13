@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/pollwait"
 	"dongminal/internal/shared/toolhub"
 	"encoding/hex"
 	"encoding/json"
@@ -25,10 +26,10 @@ import (
 
 // 화면이 없으므로 크기는 리사이즈 대상이 아니다 (FR-HLM-2). 고정값이 필요한
 // 이유가 그것이고, 값은 브라우저가 새 도구를 만들 때 쓰는 것과 같다
-// (web/js/core/app-tool.js `_newTool`).
+// (web/js/core/app-tool.js `_newTool`) — toolhub 의 기본과 한 수다 (M8 D-A-17).
 const (
-	headlessCols = 120
-	headlessRows = 40
+	headlessCols = toolhub.DefaultCols
+	headlessRows = toolhub.DefaultRows
 )
 
 // attachSettleTimeout 은 부착·분리를 브라우저가 반영하기를 기다리는 상한이다.
@@ -254,7 +255,7 @@ func (s *Server) broadcastLayout(action string, args map[string]any) int {
 // 근거다.
 func (s *Server) awaitTab(ctx context.Context, toolID string, want bool) string {
 	var tabID string
-	_ = pollUntil(ctx, attachSettleTimeout, attachPollInterval, func() bool {
+	_ = pollwait.Until(ctx, attachSettleTimeout, attachPollInterval, func() bool {
 		tabID = s.tabIDOfTool(toolID)
 		return (tabID != "") == want
 	})

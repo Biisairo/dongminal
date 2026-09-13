@@ -45,6 +45,14 @@ var gitBinAllowed = []string{
 	filepath.Join("internal", "webserver", "domain", "git"),
 }
 
+// testOnlyGitPkgs 는 git 을 띄우되 **테스트만 import 하는** 패키지다 (M8 D-A-20 —
+// `shared/gittest` 픽스처). 제품의 실행 경로가 아니므로 두 규약(바이너리 자리·환경
+// 규약)의 대상이 아니다. 그 전제(제품 코드가 import 하지 않는다)는
+// TestTestOnlyGitPkgsAreNotImportedByProduct 가 지킨다.
+var testOnlyGitPkgs = []string{
+	filepath.Join("internal", "shared", "gittest"),
+}
+
 // unguardedAllowed 는 인가를 건너뛰는 진입점을 **부를 수 있는 자리**다
 // (FR-GXU-12). 이 목록이 이 설계의 안전 장치 전부다 — `ExecUnguarded` 는
 // 화이트리스트를 지나지 않으므로, 누가 부를 수 있는지가 고정되지 않으면
@@ -122,7 +130,7 @@ func underAny(rel string, allowed []string) bool {
 func TestGitBinaryLookupIsConfinedToDomain(t *testing.T) {
 	var offenders []string
 	goFilesUnderRepo(t, func(rel, body string) {
-		if underAny(rel, gitBinAllowed) || strings.HasSuffix(rel, "_test.go") {
+		if underAny(rel, gitBinAllowed) || underAny(rel, testOnlyGitPkgs) || strings.HasSuffix(rel, "_test.go") {
 			return
 		}
 		for i, line := range strings.Split(body, "\n") {
@@ -240,7 +248,7 @@ func TestExecAllowlistsHaveNoDeadEntries(t *testing.T) {
 func TestGitExecSitesPassEnvContract(t *testing.T) {
 	var offenders []string
 	goFilesUnderRepo(t, func(rel, body string) {
-		if strings.HasSuffix(rel, "_test.go") || !gitLookPath.MatchString(body) {
+		if strings.HasSuffix(rel, "_test.go") || underAny(rel, testOnlyGitPkgs) || !gitLookPath.MatchString(body) {
 			return
 		}
 		if !strings.Contains(body, envLiteral) {
@@ -295,5 +303,27 @@ func TestCommandAllowlistsDidNotGrow(t *testing.T) {
 		if readCommands[name] || writeCommands[name] {
 			t.Fatalf("%q 가 허용 목록에 들어갔다 — GIT_EXEC_UNIFY_SRS §5 N1 위반 (FR-GIT-246 · D-9)", name)
 		}
+	}
+}
+
+// M8 D-A-20: 테스트 전용 git 패키지는 제품 코드가 import 하지 않는다 — 그것이 위
+// 두 규약에서 빠지는 전제다.
+func TestTestOnlyGitPkgsAreNotImportedByProduct(t *testing.T) {
+	var offenders []string
+	goFilesUnderRepo(t, func(rel, body string) {
+		if strings.HasSuffix(rel, "_test.go") {
+			return
+		}
+		for _, pkg := range testOnlyGitPkgs {
+			if underAny(rel, []string{pkg}) {
+				continue
+			}
+			if strings.Contains(body, `"dongminal/`+filepath.ToSlash(pkg)+`"`) {
+				offenders = append(offenders, rel)
+			}
+		}
+	})
+	if len(offenders) > 0 {
+		t.Fatalf("테스트 전용 git 패키지를 제품 코드가 import 한다:\n  %s", strings.Join(offenders, "\n  "))
 	}
 }

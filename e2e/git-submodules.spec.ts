@@ -167,9 +167,13 @@ test.describe('묶음 D — Submodules 탭', () => {
     await box(page).locator('.gc-go').click();
     await expect(page.locator('#git-confirm')).toHaveCount(0, { timeout: 30000 });
 
-    // 상태가 바뀌면 행의 동작도 따라 바뀐다 (FR-SUB-8).
+    // 상태가 바뀌면 행의 동작도 따라 바뀐다 (FR-SUB-8). M8 D-A-27: 갱신은 작업이라
+    // 확인창은 시작 즉시 닫히고, 끝은 작업 스트림의 `done` 이 알린다 — 그때 목록이
+    // 다시 서고 완료 문구가 남는다.
     await expect(row(page, 'vendor/beta')).toHaveAttribute('data-state', 'ok', { timeout: 30000 });
     expect(fs.existsSync(j(repo, 'vendor', 'beta', 'b.txt'))).toBeTruthy();
+    await expect(sub(page).locator('.git-sub-note')).toHaveAttribute('data-kind', 'done', { timeout: 10000 });
+    await expect(sub(page).locator('.git-sub-cancel')).toBeHidden();
   });
 
   test('D5 (V-SUB-5 / FR-SUB-5): 확인을 취소하면 아무것도 바뀌지 않는다', async ({ page }) => {
@@ -222,6 +226,8 @@ test.describe('묶음 D — Submodules 탭', () => {
       // FR-WBR-53 과 같은 근거 — 대상이 없는 일괄은 뜻이 없다.
       await expect(sub(page).locator('.git-sub-bulk[data-act="update"]')).toBeDisabled();
       await expect(sub(page).locator('.git-sub-bulk[data-act="sync"]')).toBeDisabled();
+      // M8 D-A-27: 취소는 갱신 작업이 도는 동안에만 선다 — 놀고 있으면 없다.
+      await expect(sub(page).locator('.git-sub-cancel')).toBeHidden();
     });
 
   /**

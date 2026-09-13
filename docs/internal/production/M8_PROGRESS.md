@@ -5,7 +5,7 @@
 
 ---
 
-## 1. 어디까지 왔나 (2026-09-14, 여덟 번째 세션 — **P6 완료**)
+## 1. 어디까지 왔나 (2026-09-14, 아홉 번째 세션 — **P7 완료 · M8 완료**)
 
 | 단계 | 상태 |
 |---|---|
@@ -16,7 +16,7 @@
 | **P4** C-b codex·omp 어댑터 | **완료** — 아래 §1-7 표. 실측 먼저(스펙 §2.3.3 P4 표) · FR-U-2 첫 판정 "한 구조체에 든다" · `codex_proto.go`·`omp_proto.go` + R-8 표 · 가짜가 세 프로토콜을 말한다 · `agent-tool.spec.ts` 13/13 · 대조 잡 `drift_test.go`(실제 바이너리 셋 초록) · 전량 e2e §1-8 |
 | **P5** C-c 묶음 B 휴면·재생·오류 | **완료** — 아래 §1-9 표. 착수 실측 먼저(드리프트 셋 초록 · omp 접두 · codex rejoin, 스펙 §3.4.4 P5 표) · D-C-11~17 · 세션은 프로세스보다 오래 산다(같은 `toolId` 로 재개) · 디스크 JSONL+`agents.json` · 요약 스냅샷 · `EvExit` 사유 · `agent-tool.spec.ts` 16/16 · 전량 e2e §1-10 |
 | **P6** A ⑤ CLI 계약 | **완료** — 아래 §1-11 표. 착수 실측(드리프트 셋 초록) → 재감사(FBE-11 은 이미 해소, 나머지 열림, codex 표면은 실측이 전제를 뒤집음) → D-A-1~9 · Go `-race -shuffle` 초록 · `make gates` 초록 · 전량 e2e §1-12 |
-| P7 | 착수 전 — P7 착수 프롬프트는 `M8_NEXT_SESSION.md` |
+| **P7** A ⑥·⑦ 분리·중복·죽은 코드 · 테스트 결정성 | **완료 — M8 완료** — 아래 §1-13 표. 착수 실측(드리프트 셋 초록) → 재감사(GO-25·26·D-WBR-8 은 이미 해소, 나머지 열림) → D-A-10~27 · 500줄 초과 26→20(지목 다섯 전부 500 아래) · Go `-race -shuffle` 초록 · `make gates` 초록 · 전량 e2e §1-14. P1~P6 유산 전부 거두거나 사유를 적었다(D-A-26) |
 
 **사용자 판단 셋은 착수 시 해소됐다** (2026-09-13): FR-APS-10 정정(stdio 제어 프레임,
 MCP 서버 없음) · D-U-4 정정(변형 + `Kind`) · FR-AGT-11·12 확정. 스펙 본문과 §9.3 ⑤⑥,
@@ -203,6 +203,60 @@ codex `thread/resume` rejoin·재 `initialize` 를 드라이버로 봤다 (스�
 |---|---|---|
 | ① 코드 완료 직후 | **unexpected 0** · flaky 6 | 1,697 통과 · 3 skipped · 8샤드 각 3.9~4.6분 · 단독 실행(`pgrep` 0 확인 뒤 `run_in_background` 하나). flaky 여섯: `git-observe-revive` TC-GLR-4 · `git-worktrees` V169 · `editor-save` TC-ESV-3 — §5-5 군집 · `bg-kill` TC-BGK-12t · `editor` X15 — 그 이웃 · **`agent-tool` TC-AGT-4**(슬래시 자동완성 목록이 필터 전 3항목으로 잡힘 — UI 타이밍, P6 는 web/js 를 i18n 키 둘 외에 만지지 않았다). 여섯 전부 재시도에서 통과, `agent-tool.spec.ts` 는 단독 2회 반복 32/32(retry 0). `make e2e-rebalance` 로 시간표 갱신(8샤드 406~408s, 불균형 1.00배) |
 
+### 1-13. P7 항목별 판정
+
+**실측이 먼저였다**: 드리프트 잡 셋 초록(claude · codex 0.154.0 무모델(자격증명 없음) · omp). 그리고
+재감사 — 로드맵·감사의 줄 번호는 낡았고(P1 §2-10) 셋은 이미 닫혀 있었다. 500줄 초과 목록은 `wc -l`
+로 다시 뽑았다: 26개(지목 다섯 = `tool.go` 1037 · `handlers_fs.go` 845 · `worktree.go` 775 ·
+`handlers_runs.go` 719 · `doctor.go` 691 · `main.go` 689).
+
+| 항목 | 판정 | 어디에 |
+|---|---|---|
+| GO-14 `handlers_fs.go` | **해소** — `/api/editors/*` → `handlers_editors.go`, 전송 → `handlers_fs_transfer.go`, 이름변경·삭제 → `handlers_fs_mutate.go`. 845 → 403 (D-A-10, 이동만) | `httpapi/handlers_editors.go`·`handlers_fs_{transfer,mutate}.go` |
+| GO-15 `tool.go` | **해소** — 주의·활동 상태기 → `tool_attention.go`, 클라이언트 전달 → `tool_clients.go`, 종료·쓰기·리사이즈 → `tool_control.go`, ExitInfo·stderr 꼬리 → `tool_exitinfo.go`, 홈·환경 → `tool_env.go`, cwd → `tool_cwd.go`. 1037 → 464 | `toolhub/tool_*.go` · `architecture.md` |
+| GO-16 `main.go serve` | **해소** — `cmd/dongminal/app.go`: `buildApp`(조립) / `run`(기동) / `shutdown`(종료). 종료 순서는 `shutdownSteps()` 표 `[마커, 데몬 연결, 도구 저장, 샌드박스, LSP, 워크스페이스]` 이고 테스트가 이름 순서를 잰다. `buildDeps` 3벌은 그대로(조립의 것) — `main.go` 689 → 461. 패키지는 `cmd/dongminal`(축 규칙, D-A-12) | `cmd/dongminal/app.go` · `TestShutdownSteps_OrderIsTheContract` |
+| GO-17 `handlers_runs.go` | **해소** — 트리 조작 → `workspace.ApplyRunMarks`(D-A-13, 테이블 테스트), close → `handlers_runs_close.go`, 표식 → `handlers_runs_marks.go`. `apiRunMemberAdd` 는 `rollbackMemberAdd`·`memberAddedView`, `apiRunClose` 는 `unreportedExtra`·`cleanupTargets` 로. 719 → 425 | `workspace/runmarks.go` · `httpapi/handlers_runs_{close,marks}.go` |
+| GO-18 `worktree.go` | **해소** — `parse.go`(porcelain)·`naming.go`(bucket·slug·ref)·`remove.go`. 775 → 440. **`..` 오탐** 고침 — 조각 판정(D-A-14, 동작 변경: `a..b` 허용, 조각 `..` 는 여전히 거부) | `worktree/{parse,naming,remove}.go` · `TestCheckPath_DotDotIsASegmentNotASubstring` |
+| GO-19 거대 함수 셋 | **해소** — `runSubClose` 124 → 요청 + `closeResponse`·`printCloseReport`·`printCloseLeftTabs`·`printCloseResidue` · `dmctlListWorkspace` 119 → `parseListWorkspaceFlags`·`fetchListWorkspaceRows`·`listWorkspaceLine` · `RewriteIdentifiers` 147 → `claimTools`·`claimEntities`·`identityRewriter{tools,workspace}` | `runtimebin/dmctl_run.go`·`dmctl_listworkspace.go` · `migrate/identity.go` |
+| GO-20 `doctor.go` | **해소** — `doctorChecks(p, home, probeBin) []doctorCheck{name, run}` 표를 `RunDoctor` 가 순서대로 돈다(D-A-11, 순서 테스트). 프로브(PTY 왕복·콘솔 없는 자식) → `doctor_probe.go`. 691 → 439 | `cli/doctor.go`·`doctor_probe.go` · `TestDoctorChecks_TableOrderIsTheContract` |
+| GO-21 `handlePush` | **해소** — `pushOutput`·`pushForeground`·`pushExit` | `toolclient/client.go` |
+| GO-22 JSON-RPC | **해소** — `toolipc.Code*` 상수 5개(`CodeToolCap` 포함) · `decodeParams[T]` 로 핸들러 10곳의 두 줄 제거 · `createError` (D-A-16) | `toolipc/wire.go` · `ipc/paned.go` · `paned_decode_test.go` |
+| GO-24 `dataPath` | **해소** — `main.go` 사본 삭제(`filepath.Join(home, …)`), toolhub 의 메서드만 남는다 (D-A-18) | `cmd/dongminal/main.go` |
+| GO-25 `HeadlessToolIDs` | **이미 해소** — 부팅 읽기 1회, `SetOwnedTools` 술어는 저장 시점에 신선해야 한다 (D-A-18) | |
+| GO-26 스냅샷 프레이밍 | **이미 해소** — FR-TRS-12 `buildReplay` 하나 | `httpapi/term_resume.go` |
+| GO-27 `pollUntil` | **해소** — `shared/pollwait.Until`(D-A-15). 요청 경로 넷 · `dialOrStartDaemon` 데몬 소켓 대기 · `waitReady`·`waitDaemonConnected`(tries×interval 상한) · `killPort`·`stopDaemon`(동작 변경: 고정 1초 → 사라짐까지 최대 1초). `killport_test` 의 가짜는 "답의 순서" 에서 "생사에서 파생" 으로 | `shared/pollwait/` · `cli/{start,health_wait,proc}.go` |
+| GO-28 `120×40` | **해소** — `toolhub.DefaultCols/DefaultRows` 셋이 읽는다 (D-A-17) | `toolhub/manager_hub.go`·`persist.go` · `httpapi/handlers_runs_headless.go` |
+| `09` FR-GCC-3·4 | **해소** — `SyncStep*`·`SyncSteps`·`StepOutcome`·`SyncNext`·`syncStopReason` 과 자기 테스트 둘 삭제 (D-A-19). FR-GIT-270 은 이미 ⊘ | `git/write/remote.go`·`remote_actions_test.go` |
+| `09` D-WBR-8 | **이미 해소 — 지우지 않는다** — WORKBENCH_REVIEW_SRS D-WBR-19 가 닿는 길(FR-EDT-120 환경)을 확인하고 D-WBR-8 을 종결했다. 감사 `09` 가 낡은 지도였다 (D-A-19) | |
+| FBE-08 작업 경로분 | **해소** — `jobs.StartUnguarded`(인가는 호출자, 기록은 `RecordUnguarded` 표식+사유) · `submodule.UpdateSpec` · `POST /api/git/submodules/update` 가 `{job}`(D-A-27, 동작 변경) · 브라우저 Submodules 탭이 작업을 구독해 진행 줄 수·**취소** 를 보이고 끝나면 목록·Changes 를 다시 받는다 · 원격 탭은 자기 종류만 채택 · e2e D4·D7 단정 추가 · `api.md`·UX_BATCH5 정정 | `git/jobs/job.go` · `submodule/submodule.go` · `gitapi/handlers_git_submodule.go` · `web/js/git/submodules.js` · `TestJobStartUnguarded_*`·`TestUpdateSpec_*`·`TestAPIGitSubmoduleUpdate_IsAJob` |
+| TEST-23 픽스처 7벌 | **해소** — `shared/gittest`(`Path`·`Run`·`Init`·`Repo`) 한 벌, 일곱 자리가 얇은 래퍼로 부른다. 넷만 차단하던 전역·시스템 gitconfig 를 전부 차단. git 실행 게이트(`exec_gate_test`)는 이 테스트 전용 패키지를 예외로 두고 **제품 코드가 import 하지 않음**을 새 테스트가 지킨다 (D-A-20) | `shared/gittest/` · `git/core/exec_gate_test.go` |
+| TEST-25 호스트 셸 | **해소** — `testpath.PinShell()`(bash → sh)을 `toolhub`·`httpapi` 의 `TestMain` 이 건다. `history_shell_test` 둘은 bash·zsh 서브테스트로 돌고 없는 셸은 이름을 남기고 Skip. Windows 는 무동작(build tag). `check-seams` 가 `testpath` 를 예외로 (D-A-21). `t.Skip` 131 → 127 | `testpath/shell_{posix,windows}.go` · `toolhub/main_test.go`·`history_shell_test.go` · `check-seams.sh` |
+| TEST-26 전역 훅 | **해소** — `attnNow` 교체 6곳이 `stubAttnNow(f) (restore)` 하나로 (D-A-22) | `toolhub/attention_*_test.go` |
+| TEST-24 | **기록** — `Merge`·`Replay` 의 doc 에 "함수 단위 0% 는 결손이 아니다 — 계약은 MergeArgs·HTTP 종단이 시험한다" 를 적었다. `OperationActions` 는 `/api/git/policy` 가 쓴다(필요) · `BatchError.Unwrap` 은 `errors.As/Is` 의 계약(필요) | `git/write/branch.go`·`replay.go` |
+| GO-42 · `clientWithin` | **조건 미충족 그대로 — 결정** — `t.Parallel()` 도입 패키지 0. 훅 다섯과 `clientWithin` 은 전부 restore 형식. 어느 패키지가 병렬을 들이면 그 패키지부터 필드로 (D-A-22) | |
+| GO-44 `Git *store.Store` | **남긴다** — gitapi 가 `Service()` 를 72곳에서 쓴다. GO-39 의 후속으로 로드맵에 (D-A-26 ①) | 로드맵 §M8 뒤 |
+| `time.Sleep` 잔여 | **일부** — 100 → 98. 고정 대기 넷을 조건 폴링으로(재접속 뒤 출력·WS 스냅샷·kill 뒤 소멸·`handlers_ws`). 나머지는 폴링 루프의 간격이거나 부정 단정("일어나지 않는다")의 관측 창 — 시간 자체가 대상이다. `sandboxplace/e2e_test` 700~900ms 넷은 docker 가 없어 검증 불가 (D-A-26 ⑥) | |
+| `fail()` 한국어 9곳 | **동결 유지 — 결정** — D-ERR-2(본문은 공개 계약) · 문장의 주인은 이미 `err.<code>` (D-A-26 ②) | |
+| §5-5 flaky 군집 | **비목표 — 사유** — M7 §5-5 가 "두 헬퍼를 보는 별도의 일" 로 좁혔다. 로드맵 항목으로 (D-A-26 ③) | 로드맵 |
+| (P6 발견) `agent-tool` TC-AGT-4 | **해소 — 제품 결함이었다** — 전량 ①에서 두 번 다 실패(슬래시 목록 0항목). 단독 `--repeat-each=8` 로 2/8 재현 → 트레이스: 재생(`since=0`)이 `initialize` 보다 먼저 돌아와 `state.status={}` 이었고, 뒤이어 온 `initialize` 응답은 `session` 이벤트(D-C-16)인데 뷰의 `session` 분기가 `commands`·`models` 를 버렸다 — `status` 분기만 합쳤다. `_mergeStatus` 하나를 둘이 지난다. 12/12·16/16 초록. P6 의 "3항목" 도 같은 자리의 다른 얼굴이었을 가능성이 크다 (§2-39) | `web/js/ui/agent-pane.js` |
+| (P5) 탭 없는 오류 세션 | **해소** — `agentsess.Manager.Reap(referenced, olderThan)` + `Server.StartAgentReaper`(Run 리퍼 주기, 유예 30초). 부팅 규칙(D-C-14)의 런타임 반복 (D-A-23, 동작 변경) | `agentsess/dormant.go` · `httpapi/handlers_agent.go` · `TestDormant_ReapUnreferencedAfterGrace`·`TestAgentAPI_ReaperCollectsUnreferencedErrorSession` |
+| (P5) 레코드 없는 도구 이행 | **그대로 — 결정** — 한 번뿐인 이행 경로 (D-A-26 ④) | |
+| (P5) `agents.json`·`migrate` | **불필요 — 결정** — uuid 시대에 태어난 파일, 구 형식 식별자가 없다 (D-A-26 ⑤) | |
+| (P5) `_newAgentTool(…, opts.resume)` | **해소** — 지웠다. 재개는 `/api/agent/resume` (D-A-25) | `web/js/core/app-agent-tool.js` |
+| (P6) `wait` 예산 사본 | **해소** — `runwait.ActivityWaitDefault/Max` 를 서버와 dmctl 이 읽는다. `waitBudget(timeoutMS)` 로 떼어 테스트 (D-A-24) | `shared/runwait` · `httpapi/handlers_status.go` · `runtimebin/dmctl_status.go` |
+| (P6) 데몬 모드 `ErrToolCap` 429 | **해소** — `CodeToolCap` 이 경계를 건너 `errors.Is` 가 참. **발견**: `toolclient.call` 이 오류 응답을 한 번도 오류로 읽지 않았다(`PanedResponse` 해석이 성공해 빈 맵) — `GO-8` 이 데몬 모드에서 반쪽이었다. 고쳤다(동작 변경, D-A-16). `ListOK` 테스트의 가짜는 hello 를 답하게 | `toolclient/client.go` · `client_rpcerr_test.go` |
+| (P6) `_newTool` throw | **해소** — 원격 `newWindow`·`newTab`·단축키·`addTabFocused` 가 `_notify`(`core.open_window_fail`·새 `core.open_tab_fail`). echo 는 내지 않는다(D-A-2) (D-A-25) | `web/js/core/app-cmd.js`·`app.js`·`app-layout.js` · ko·en |
+| V | V-11 | `git diff` 에 `claude.go`·`codex.go`·`omp.go`·`*_proto.go`·훅 e2e 0줄 | |
+| V | 양호 판정 | `go vet` 무경고 · `go build`(linux·windows 교차 포함) · `check-gitwrite.sh` 통과 · 게이트 36 초록 | |
+
+
+### 1-14. 전량 e2e (P7 판정)
+
+| 회차 | 결과 | 비고 |
+|---|---|---|
+| ① 코드 완료 직후 | unexpected 1 · flaky 3 | 1,660 통과 · 8샤드 · 단독 실행(`pgrep` 0 확인 뒤 `run_in_background` 하나). **실패 하나는 제품 결함** — `agent-tool` TC-AGT-4(슬래시 목록 0항목, 재시도도 실패). 단독 `--repeat-each=8` 로 2/8 재현 → 뷰의 `session` 분기가 `initialize` 의 commands 를 버렸다(§1-13 · §2-39). flaky 셋은 §5-5 군집·이웃(`git-observe-revive` TC-GLR-4 · `slot-view-state` TC-SVS-40 · `git-sidebar` V100) |
+| ② 수정 뒤 | **unexpected 0** · flaky 2 | 1,662 통과 · 3 skipped · 8샤드 각 3.9~5.1분. flaky 둘은 `bg-kill` TC-BGK-12(P6 표에도 있다) · `git-live-triggers` TC-GLW-4(§5-5 군집) — 두 스펙 단독 실행(retry 0) 19/19 초록. `agent-tool` 16/16 · TC-AGT-4 단독 12/12. `make e2e-rebalance` 로 시간표 갱신(8샤드 430~433s, 불균형 1.00배) |
+
 ### 1-6. 전량 e2e (P3 판정)
 
 | 회차 | 결과 | 비고 |
@@ -364,6 +418,55 @@ FBE-04 의 수정은 두 글자(`true` → `n > 0`)인데 귀결은 크다 — `
 빼는 FR-RUN-6d 의 최적화가, 닫히지 않은 탭까지 빼고 있었다. 최적화의 전제("사라질 자리") 가 거짓일 수
 있는 경로(브라우저 0)를 최적화가 스스로 검사하지 않았다. `delivered` 를 함께 싣는 것은 D-A-2 와 같은
 어휘다 — CLI 와 HTTP 가 "배달 사실" 을 같은 이름으로 말한다.
+
+### 2-35. (P7) 오류 응답을 오류로 읽지 않는 클라이언트 위에 `GO-8` 이 서 있었다
+
+D-A-16 의 목표는 작았다 — 상한 초과 코드 하나를 프로세스 경계 너머로 나르는 것. 테스트를 쓰자
+`Create` 가 오류 응답에 **nil** 을 돌려줬다. `toolclient.call` 은 `PanedResponse` 로 먼저 해석하고
+실패할 때만 오류 응답을 시도했는데, 오류 응답도 `id` 를 가지므로 첫 해석이 언제나 성공했다 —
+`Result` 없음 → 빈 맵 → err nil. M3 의 `GO-8`("IPC 경계에서 실패를 성공으로 답하지 않는다")은
+데몬이 답하는 쪽만 고쳤고, 그것을 읽는 쪽이 여전히 성공으로 뭉갰다. 기존 테스트
+(`TestToolClientListOKUnknown`)가 초록이었던 이유는 `list` 응답에 `tools` 키가 없으면 "모른다"
+로 읽는 별도의 방어가 있어서였다 — 방어가 결함을 가렸다. 교훈: **경계의 계약은 양 끝에서 잰다.**
+한쪽의 테스트가 초록인 것은 그쪽의 사실일 뿐이다.
+
+### 2-36. (P7) "분리" 는 이동이어야 파일이 줄어도 동작이 남는다
+
+여섯 파일을 쪼갰고 테스트는 새로 쓴 것(`..` 오탐·doctor 표·종료 순서)만 늘었다 — 이동한 심볼은
+같은 테스트가 그대로 잰다 (D-A-10). 심볼을 옮기는 스크립트가 한 일은 "선언 + 앞의 주석 블록" 을
+그대로 나르는 것뿐이고, 남은 것은 import 정리였다. 판정은 `go vet` + 같은 테스트 초록 + `-race
+-shuffle` 전량이다. 옮기면서 고치고 싶은 것이 보여도 고치지 않았다 — 그것은 다른 커밋의 일이다.
+`main.go` 만 예외다: 종료 순서가 **주석**이었고 그것을 코드(표)로 만드는 것이 DoD 였으므로,
+거기서는 구조를 바꾸고 순서를 테스트로 못박았다 (D-A-12).
+
+### 2-37. (P7) 테스트의 고정 대기는 "무엇을 기다리는가" 로 갈린다
+
+`time.Sleep` 100곳을 다 없앨 수는 없었다 — 셋으로 갈린다. ① 조건을 기다리는 고정 대기(재접속 뒤
+출력·스냅샷·소멸): 폴링으로 바꿨다. ② 폴링 루프 자신의 간격: 그것이 곧 대기의 형태다. ③ **부정
+단정**의 관측 창("이 시간 동안 일어나지 않는다"): 시간이 대상이라 폴링으로 바꿀 수 없다. 재접속
+테스트 하나는 폴링으로 바꾸자 되레 실패했다(연결 끊김 감지의 지연이 재접속 백오프와 겹쳤다) —
+되돌렸다. 세는 것은 개수가 아니라 종류다. `killPort` 의 대기를 폴링으로 바꾸자 그 테스트의 가짜
+("답의 순서")가 깨졌다 — 폴링 뒤의 관측 횟수는 시간의 함수라, 가짜는 **사실(살아 있는가)** 에서
+답을 파생해야 했다 (D-A-15).
+
+### 2-38. (P7) 유산은 셋으로 갈렸다 — 거둔 것 · 결정으로 닫은 것 · 사유와 함께 남긴 것
+
+P1~P6 가 남긴 열넷 중 여덟은 코드로 거뒀고(오류 세션 회수·`wait` 상한·`ErrToolCap`·생성 실패
+피드백·죽은 `resume`·FBE-08 작업 경로·`..` 오탐·픽스처), 넷은 **결정**으로 닫았다(GO-42 조건
+미충족·한국어 본문 동결·이행 경로·`migrate` 불필요 — 각각 왜 하지 않는지가 D-A-22·26 에 있다),
+둘은 이 단계 밖으로 **사유와 함께** 넘겼다(GO-44 는 GO-39 의 후속, §5-5 군집은 두 헬퍼를 보는
+별도의 일). "전부 거둔다" 의 뜻은 전부 코드로 만드는 것이 아니라 **하나도 이유 없이 남기지
+않는 것**이었다.
+
+### 2-39. (P7) "flaky" 라 부른 것 하나는 결정론적 경합이었다
+
+TC-AGT-4 는 P6 전량에서 한 번, P7 전량 ①에서 두 번(재시도 포함) 흔들렸다. 단독은 늘 초록이라 §5-5
+군집의 이웃으로 적을 뻔했다. `--repeat-each=8` 이 2/8 을 재현했고 트레이스가 답했다 — 재생이
+`initialize` 보다 먼저 돌아오면 `state.status` 가 비고, 그 뒤의 `initialize` 응답은 `session` 이벤트로
+오는데(D-C-16) 뷰의 `session` 분기가 `commands`·`models` 를 버렸다. `status` 분기만 합쳤다. 두 분기가
+같은 조각을 다르게 다룬 것이 결함이고, "단독은 초록" 인 이유는 단독에서는 서버가 언제나 재생보다
+빨랐기 때문이다. 교훈은 둘이다: **흔들림은 먼저 반복으로 재현해 본다**(8회면 충분했다) — 군집에
+넣는 것은 그 뒤다. 그리고 **같은 조각을 받는 분기는 같은 함수를 지난다** — `_mergeStatus` 하나.
 
 ### 2-14. (P2) 감사는 주석을 셌고, "6곳" 은 이미 0 이었다
 

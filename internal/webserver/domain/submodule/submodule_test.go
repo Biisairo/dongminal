@@ -2,6 +2,7 @@ package submodule
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -245,5 +246,27 @@ func TestRepoGuard(t *testing.T) {
 	}
 	if len(*calls) != 0 {
 		t.Error("거부했는데 git 을 실행했다")
+	}
+}
+
+// M8 D-A-27: update 는 작업 경로를 탄다 — 이 패키지는 인가(경로 가드·`--` 규약)를
+// 지고 argv 와 사유를 준다. 실행은 jobs 의 것이다.
+func TestUpdateSpec_GuardsPathAndBuildsArgv(t *testing.T) {
+	spec, err := UpdateSpec("/abs/repo", "vendor/x", true, true)
+	if err != nil {
+		t.Fatalf("UpdateSpec: %v", err)
+	}
+	want := []string{"submodule", "update", "--init", "--recursive", "--", "vendor/x"}
+	if fmt.Sprint(spec.Argv) != fmt.Sprint(want) || spec.Reason != UnguardedReason {
+		t.Fatalf("spec=%+v", spec)
+	}
+	if spec, err := UpdateSpec("/abs/repo", "", false, false); err != nil || fmt.Sprint(spec.Argv) != fmt.Sprint([]string{"submodule", "update"}) {
+		t.Fatalf("전체 대상: %+v %v", spec, err)
+	}
+	if _, err := UpdateSpec("/abs/repo", "../x", true, false); !errors.Is(err, ErrUnsafePath) {
+		t.Fatalf("경로 이탈: %v", err)
+	}
+	if _, err := UpdateSpec("relative", "", true, false); !errors.Is(err, ErrUnsafePath) {
+		t.Fatalf("상대 repo: %v", err)
 	}
 }

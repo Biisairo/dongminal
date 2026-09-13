@@ -63,6 +63,30 @@ func RewriteIdentifiers(workspaceBlob, toolsBlob []byte, gen func() string) ([]b
 		return nil, nil, rep, nil
 	}
 
+	// 매핑을 먼저 완성한 뒤 일괄 치환한다 (FR-MGU-5).
+	toolMap := claimTools(tools, gen)
+	entityMap := claimEntities(ws, gen)
+	rw := &identityRewriter{toolMap: toolMap, entityMap: entityMap, rep: &rep, seen: map[string]struct{}{}}
+	rw.tools(tools)
+	rw.workspace(ws)
+
+	var wsOut, toolsOut []byte
+	var err error
+	if ws != nil {
+		if wsOut, err = json.Marshal(ws); err != nil {
+			return nil, nil, rep, fmt.Errorf("workspace 직렬화: %w", err)
+		}
+	}
+	if tools != nil {
+		if toolsOut, err = json.Marshal(tools); err != nil {
+			return nil, nil, rep, fmt.Errorf("tools 직렬화: %w", err)
+		}
+	}
+	return wsOut, toolsOut, rep, nil
+}
+
+// claimTools 는 tools.json 의 구 형식 id 마다 새 uuid 를 예약한다.
+func claimTools(tools []interface{}, gen func() string) map[string]string {
 	toolMap := map[string]string{}
 	for _, raw := range tools {
 		item, ok := raw.(map[string]interface{})
@@ -73,7 +97,12 @@ func RewriteIdentifiers(workspaceBlob, toolsBlob []byte, gen func() string) ([]b
 			toolMap[id] = gen()
 		}
 	}
+	return toolMap
+}
 
+// claimEntities 는 창·분할 칸·탭의 구 형식 id 마다 새 uuid 를 예약한다 — 도구와
+// 분리된 매핑이다.
+func claimEntities(ws map[string]interface{}, gen func() string) map[string]string {
 	entityMap := map[string]string{}
 	windows, _ := ws["windows"].([]interface{})
 	for _, raw := range windows {
@@ -91,102 +120,99 @@ func RewriteIdentifiers(workspaceBlob, toolsBlob []byte, gen func() string) ([]b
 			})
 		}
 	}
+	return entityMap
+}
 
-	// ── 치환 ────────────────────────────────────────────────
-	seen := map[string]struct{}{}
-	dangle := func(old string) {
-		if _, dup := seen[old]; dup {
-			return
-		}
-		seen[old] = struct{}{}
-		rep.Dangling = append(rep.Dangling, old)
-	}
-	// 참조는 매핑에 있을 때만 바꾼다. 구 형식인데 매핑에 없으면 끊어진 참조다
-	// (FR-MGU-6). 이미 uuid 인 참조는 매핑에 없는 것이 정상이므로 보고하지 않는다.
-	ref := func(m map[string]interface{}, key string, table map[string]string) {
-		old, ok := m[key].(string)
-		if !ok || old == "" {
-			return
-		}
-		if nw, ok := table[old]; ok {
-			m[key] = nw
-			return
-		}
-		if !isUUIDForm(old) {
-			dangle(old)
-		}
-	}
+// identityRewriter 는 완성된 매핑으로 치환하고 보고를 센다.
+type identityRewriter struct {
+	toolMap, entityMap map[string]string
+	rep                *IdentityReport
+	seen               map[string]struct{}
+}
 
+func (rw *identityRewriter) dangle(old string) {
+	if _, dup := rw.seen[old]; dup {
+		return
+	}
+	rw.seen[old] = struct{}{}
+	rw.rep.Dangling = append(rw.rep.Dangling, old)
+}
+
+// ref 는 참조를 매핑에 있을 때만 바꾼다. 구 형식인데 매핑에 없으면 끊어진 참조다
+// (FR-MGU-6). 이미 uuid 인 참조는 매핑에 없는 것이 정상이므로 보고하지 않는다.
+func (rw *identityRewriter) ref(m map[string]interface{}, key string, table map[string]string) {
+	old, ok := m[key].(string)
+	if !ok || old == "" {
+		return
+	}
+	if nw, ok := table[old]; ok {
+		m[key] = nw
+		return
+	}
+	if !isUUIDForm(old) {
+		rw.dangle(old)
+	}
+}
+
+func (rw *identityRewriter) tools(tools []interface{}) {
 	for _, raw := range tools {
 		item, ok := raw.(map[string]interface{})
 		if !ok {
 			continue
 		}
 		if id, ok := item["id"].(string); ok {
-			if nw, ok := toolMap[id]; ok {
+			if nw, ok := rw.toolMap[id]; ok {
 				item["id"] = nw
-				rep.Tools++
+				rw.rep.Tools++
 			}
 		}
 	}
+}
 
-	ref(ws, "activeWindow", entityMap)
+func (rw *identityRewriter) workspace(ws map[string]interface{}) {
+	rw.ref(ws, "activeWindow", rw.entityMap)
 	if order, ok := ws["agentsOrder"].([]interface{}); ok {
 		for i, raw := range order {
 			old, ok := raw.(string)
 			if !ok || old == "" {
 				continue
 			}
-			if nw, ok := toolMap[old]; ok {
+			if nw, ok := rw.toolMap[old]; ok {
 				order[i] = nw
 				continue
 			}
 			if !isUUIDForm(old) {
-				dangle(old)
+				rw.dangle(old)
 			}
 		}
 	}
-
+	windows, _ := ws["windows"].([]interface{})
 	for _, raw := range windows {
 		win, ok := raw.(map[string]interface{})
 		if !ok {
 			continue
 		}
-		if apply(entityMap, win, "id") {
-			rep.Windows++
+		if apply(rw.entityMap, win, "id") {
+			rw.rep.Windows++
 		}
-		ref(win, "focusedPane", entityMap)
+		rw.ref(win, "focusedPane", rw.entityMap)
 		layout, ok := win["layout"].(map[string]interface{})
 		if !ok {
 			continue
 		}
 		walkNodes(layout, func(node map[string]interface{}) {
-			if apply(entityMap, node, "id") {
-				rep.Panes++
+			if apply(rw.entityMap, node, "id") {
+				rw.rep.Panes++
 			}
-			ref(node, "activeTab", entityMap)
+			rw.ref(node, "activeTab", rw.entityMap)
 			for _, tab := range tabsOf(node) {
-				if apply(entityMap, tab, "id") {
-					rep.Tabs++
+				if apply(rw.entityMap, tab, "id") {
+					rw.rep.Tabs++
 				}
-				ref(tab, "toolId", toolMap)
+				rw.ref(tab, "toolId", rw.toolMap)
 			}
 		})
 	}
-
-	var wsOut, toolsOut []byte
-	var err error
-	if ws != nil {
-		if wsOut, err = json.Marshal(ws); err != nil {
-			return nil, nil, rep, fmt.Errorf("workspace 직렬화: %w", err)
-		}
-	}
-	if tools != nil {
-		if toolsOut, err = json.Marshal(tools); err != nil {
-			return nil, nil, rep, fmt.Errorf("tools 직렬화: %w", err)
-		}
-	}
-	return wsOut, toolsOut, rep, nil
 }
 
 // claim은 m[key] 가 구 형식 식별자면 매핑에 새 uuid 를 예약한다.

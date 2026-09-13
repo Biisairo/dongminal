@@ -138,13 +138,12 @@ func TestTool_Rearm_LockDoesNotSilenceL1(t *testing.T) {
 // working 이 알람을 영구히 막던 것이 B3 이다.
 func TestTool_MaybeIdle_StaleWorkingDoesNotSuppress(t *testing.T) {
 	defer SetAttnBusyProbe(func(*Tool) bool { return true })()
-	defer func(orig func() int64) { attnNow = orig }(attnNow)
 	var mu sync.Mutex
 	var attn, clear []string
 	const threshold = int64(1000)
 
 	p := newAttnPane("agent", &mu, &attn, &clear)
-	attnNow = func() int64 { return 0 }
+	defer stubAttnNow(func() int64 { return 0 })()
 	p.SetActivity("working", "Bash", "make")
 
 	// 신선한 working → 억제된다.

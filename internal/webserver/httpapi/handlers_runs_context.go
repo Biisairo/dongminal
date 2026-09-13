@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/pollwait"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -406,7 +407,7 @@ func (s *Server) requestHandoff(ctx context.Context, rec run.Record, prev run.Me
 		wait = time.Duration(timeoutMs) * time.Millisecond
 	}
 	var summary string
-	err := pollUntil(ctx, wait, handoffPollInterval, func() bool {
+	err := pollwait.Until(ctx, wait, handoffPollInterval, func() bool {
 		if _, cur, ok := s.Runs.FindMember(prev.ID); ok && cur.HandoffSummary != baseline {
 			summary = cur.HandoffSummary
 			return true
@@ -416,7 +417,7 @@ func (s *Server) requestHandoff(ctx context.Context, rec run.Record, prev run.Me
 	if err == nil {
 		return summary, true
 	}
-	if !errors.Is(err, errWaitTimeout) {
+	if !errors.Is(err, pollwait.ErrTimeout) {
 		return baseline, true
 	}
 	dmlog.Infof(nil, "[run] handoff 시한 초과 run=%s member=%s wait=%s — 요약 없이 승계하고 기다림을 프리앰블로 넘긴다",

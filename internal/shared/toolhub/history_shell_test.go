@@ -42,6 +42,22 @@ func TestStartTool_ShellSeesOwnHistFile(t *testing.T) {
 	if !testpath.POSIXShell() {
 		t.Skip("$HISTFILE 을 셸에게 되묻는 POSIX 문법이다")
 	}
+	// 두 셸의 rc 사슬이 다르다(ZDOTDIR · --rcfile) — 둘 다 잰다. 없는 셸은 이름을
+	// 남기고 건너뛴다 (M8 D-A-21).
+	shells := testpath.Shells()
+	for _, name := range []string{"bash", "zsh"} {
+		path, ok := shells[name]
+		t.Run(name, func(t *testing.T) {
+			if !ok {
+				t.Skipf("%s 가 이 호스트에 없다", name)
+			}
+			t.Setenv("SHELL", path)
+			testShellSeesOwnHistFile(t)
+		})
+	}
+}
+
+func testShellSeesOwnHistFile(t *testing.T) {
 	instHome, iso := t.TempDir(), t.TempDir()
 	t.Setenv(dmenv.EnvHome, instHome)
 	t.Setenv(dmenv.EnvToolHome, iso)
@@ -71,6 +87,20 @@ func TestStartTool_LeavesSharedHistoryAlone(t *testing.T) {
 	if !testpath.POSIXShell() {
 		t.Skip("POSIX 셸 전용")
 	}
+	shells := testpath.Shells()
+	for _, name := range []string{"bash", "zsh"} {
+		path, ok := shells[name]
+		t.Run(name, func(t *testing.T) {
+			if !ok {
+				t.Skipf("%s 가 이 호스트에 없다", name)
+			}
+			t.Setenv("SHELL", path)
+			testLeavesSharedHistoryAlone(t)
+		})
+	}
+}
+
+func testLeavesSharedHistoryAlone(t *testing.T) {
 	instHome, iso := t.TempDir(), t.TempDir()
 	t.Setenv(dmenv.EnvHome, instHome)
 	t.Setenv(dmenv.EnvToolHome, iso)

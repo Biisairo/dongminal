@@ -888,6 +888,131 @@ ko 와 **키 집합이 같다**는 검사가 덮는다. CSS `content` 만 라틴
 FBE-11(`termReset`)은 TERMINAL_RESUME FR-TRS-12 가 이미 닫았다 — `buildReplay` 하나를 두 모드가 쓰고
 `termReset` 은 전량 재생 때만 나간다. 판정표에 "이미 해소" 로 적는다.
 
+**D-A-10 — 분리는 이동이다.** (P7, GO-14·15·18·20·21) 500줄 초과 파일의 축소는 **심볼을 옮기기만**
+한다 — 같은 패키지의 새 파일로, 시그니처·동작·주석은 그대로. `handlers_fs.go` 의 `/api/editors/*` →
+`handlers_editors.go` · `tool.go` 의 주의·활동 상태기 → `tool_attention.go` · `worktree.go` 의
+porcelain 파서·slug·ref 검사 → `parse.go`·`naming.go` · `doctor.go` 의 프로브(PTY 왕복·콘솔 없는
+자식) → `doctor_probe.go` · `client.go` 의 `handlePush` → 이벤트별 메서드. 판정은 "같은 테스트가
+그대로 초록" 이다 — 이동에 테스트를 새로 쓰지 않는다.
+
+**D-A-11 — `doctor` 는 표다.** (P7, GO-20) 진단 항목은 `[]doctorCheck{name, run}` 으로 `RunDoctor` 가
+순서대로 돈다. 항목의 함수 시그니처는 그대로이고 표는 그것을 닫아 넣는 클로저다. 실패 수 집계·
+로그 포획·임시 bin 은 표 밖(전후)이다.
+
+**D-A-12 — `serve` 는 `Build → Run → Shutdown` 이다.** (P7, GO-16) `cmd/dongminal/app.go` 의
+`buildApp(cfg, home, host, port) (*app, error)` 가 조립(데몬 연결·`buildDeps` 3벌·서버·해석층 배선)을,
+`app.run(ctx)` 이 기동(스위퍼·폴·감시·리퍼·HTTP)을, `app.shutdown()` 이 종료를 맡는다. 종료 순서는
+**슬라이스**다 — `shutdownSteps() []shutdownStep{name, fn}` 이 `[마커, 데몬 연결, 도구 저장, 샌드박스,
+LSP, 워크스페이스]` 를 그 순서로 들고 `shutdown` 은 그것을 돈다. 테스트가 이름 순서를 잰다 — 주석이
+코드가 된 자리다. 패키지는 `cmd/dongminal` 그대로다(`internal/webserver/app` 을 만들면 ①·②·④ 의
+패키지를 ③ 아래에서 import 하게 되어 축 규칙에 걸린다).
+
+**D-A-13 — Run 표식의 트리 조작은 `shared/workspace` 의 것이다.** (P7, GO-17) `applyRunMarks`·
+`markTabsIn`·`setOrClear` 는 `workspace.ApplyRunMarks(tree, tabs, windowID, markWindow, runID) bool`
+로 옮긴다 — workspace.json 의 모양을 아는 자리는 그 패키지다. `markWorkspaceRun*`(Save 재시도·방송)은
+httpapi 에 남는다(HTTP 의 관심사). `apiRunClose`·`apiRunMemberAdd` 는 응답 조립을 함수로 뗀다.
+
+**D-A-14 — `..` 는 조각으로 판정한다.** (P7, GO-18) `worktree.checkPath` 의 `strings.Contains(p, "..")`
+는 `a..b` 같은 정상 이름을 거부했다. 경로 **조각**이 `..` 인 경우만 이탈이다 — `handlers_fs.go`
+`fsUnderRoot` 와 같은 규칙. `validRef` 의 `..` 는 그대로다(git ref 문법이 `..` 를 금한다).
+  이전 동작: `<root>/run/a..b` 제거 거부(ErrUnsafePath)
+  새  동작: 허용. `<root>/../x` 는 여전히 거부
+  이유:     오탐. Clean 뒤 root 접두 검사가 이탈을 이미 막는다
+
+**D-A-15 — 대기 폴링은 `shared/pollwait` 한 벌이다.** (P7, GO-27) `httpapi.pollUntil` 을
+`pollwait.Until(ctx, max, every, cond) error`(`pollwait.ErrTimeout`)로 올리고 요청 경로 넷·데몬 소켓
+대기(`dialOrStartDaemon`)·`waitReady`·`killPort`/`stopDaemon` 이 그것을 쓴다.
+  이전 동작: `killPort`·`stopDaemon` 이 TERM 뒤 **고정 1초** 를 잤다
+  새  동작: 같은 1초를 상한으로 프로세스가 사라지면 곧 KILL 판정으로 간다(상한은 같다)
+  이유:     정지가 빨라지고 대기의 형태가 한 벌이 된다. 기다리는 것은 시간이 아니라 사라짐이다
+
+**D-A-16 — JSON-RPC 코드와 파라미터 해석은 한 벌이다.** (P7, GO-22 · P6 발견) `toolipc` 에
+`CodeMethodNotFound(-32601)`·`CodeInvalidParams(-32602)`·`CodeInternal(-32603)`·`CodeServer(-32000)` 와
+**`CodeToolCap(-32010)`** 을 둔다. 데몬 핸들러는 `decodeParams[T](req) (T, *PanedError)` 로 파라미터를
+읽는다. `create` 가 `toolhub.ErrToolCap` 을 `CodeToolCap` 으로 싣고, `toolclient.call` 은 오류 응답을
+`*toolipc.RPCError{Code, Message}` 로 돌려주며 `Create` 는 `CodeToolCap` 을 `toolhub.ErrToolCap` 으로
+되돌린다 — 데몬 모드에서도 `errors.Is(err, toolhub.ErrToolCap)` 이 참이고 HTTP 가 429 를 낸다.
+  이전 동작: 데몬 모드에서 상한 초과가 500 (`paned error: 도구 수가 상한에 이르렀다`)
+  새  동작: 두 모드가 같은 429 `tool_cap`
+  이유:     상한 판정이 프로세스 경계에서 문자열로 뭉개졌다
+구현 중 발견: `toolclient.call` 은 오류 응답을 **한 번도 오류로 읽지 않았다** — `PanedResponse` 로
+먼저 해석했고 오류 응답도 `id` 를 가져 그 해석이 성공했다(`Result` 없음 → 빈 맵, err nil). M3 의
+`GO-8`(데몬이 write/kill 실패를 답한다)은 그래서 데몬 모드에서 반쪽이었다.
+  이전 동작: 데몬의 오류 응답(없는 도구에 write·kill·paste 등)이 클라이언트에서 nil 로 돌아왔다
+  새  동작: `*toolipc.RPCError` 로 돌아온다 — 핸들러가 이미 하던 오류 처리가 데몬 모드에서도 선다
+  이유:     오류를 성공으로 답하는 경계는 `GO-8` 이 지우려 한 바로 그것이다
+
+**D-A-17 — 기본 터미널 크기는 `toolhub.DefaultCols/DefaultRows` 다.** (P7, GO-28) `ParseSize`·
+`LoadAllWith`·헤드리스 멤버가 같은 상수를 읽는다. 브라우저의 `cols=120&rows=40` 은 그대로다(그쪽은
+자기 값을 보낸다).
+
+**D-A-18 — `dataPath` 는 지운다.** (P7, GO-24) `main.go` 의 사본은 `filepath.Join(home, …)` 로 —
+`serve` 의 홈은 비지 않는다. `toolhub` 의 것은 `dataDir==""` 폴백이 있는 자기 메서드로 남는다.
+GO-25(`HeadlessToolIDs` 두 번)는 이미 해소다 — 부팅 읽기는 한 번이고 `SetOwnedTools` 의 술어는 저장
+시점에 신선해야 하므로 읽기가 맞다. GO-26(스냅샷 프레이밍)은 FR-TRS-12 의 `buildReplay` 가 닫았다.
+
+**D-A-19 — 죽은 Sync 상태기계는 지운다.** (P7, `09` FR-GCC-3·4) `write.SyncStep*`·`SyncSteps`·
+`StepOutcome`·`SyncNext`·`syncStopReason` 과 자기 테스트 둘. FR-GIT-270 은 GIT_ACTIONS_SRS 에서 이미
+⊘ 철회다. D-WBR-8(`app-layout.js` editor 분기)은 **지우지 않는다** — WORKBENCH_REVIEW_SRS D-WBR-19 가
+닿는 길(FR-EDT-120 환경)을 확인하고 D-WBR-8 을 종결했다. `09` 의 그 항목은 낡은 지도였다.
+
+**D-A-20 — Go 테스트의 저장소 픽스처는 `shared/gittest` 한 벌이다.** (P7, TEST-23) `gittest.Path(t)`
+(없으면 Skip) · `gittest.Run(t, dir, args…)`(전역·시스템 gitconfig 차단) · `gittest.Init(t)`(`init -b
+main` + `user.*`) · `gittest.Repo(t)`(첫 커밋까지). 일곱 벌이 이것을 부른다. `testpath` 와 같은
+"테스트 전용 shared" 다.
+
+**D-A-21 — 테스트가 띄우는 셸은 고정한다.** (P7, TEST-25) 셸을 띄우는 패키지의 `TestMain` 이
+`testpath.PinShell()` 로 `SHELL` 을 `/bin/bash`(없으면 `/bin/sh`)로 고정한다 — 호스트의 `$SHELL` 이
+검사 경로를 고르지 않는다. zsh 의 rc 사슬을 재는 검사(`history_shell_test`)는 셸 목록(`bash`·`zsh`)을
+서브테스트로 돌고, 없는 셸은 **이름을 남기고** Skip 한다 — "돈 항목 수" 가 아니라 어느 셸이 빠졌는지가
+보인다. Windows 는 무동작(`DONGMINAL_SHELL` 은 그쪽의 값이다).
+
+**D-A-22 — 테스트 훅의 교체는 restore 를 돌려주는 헬퍼 한 형식이다.** (P7, TEST-26 · GO-42 결정)
+`attnNow` 는 `stubAttnNow(t, f)` 하나로(`t.Cleanup` 복원). GO-42 의 구조체 필드 주입은 **하지 않는다** —
+DoD 의 조건("`t.Parallel()` 도입 패키지")이 성립하지 않고(도입 0), 전역 훅 다섯은 이미 전부
+`t.Cleanup` 복원 형식이다. `runtimebin.clientWithin` 도 같은 결이다. 어느 패키지가 `t.Parallel()` 을
+들이면 그 패키지의 훅부터 필드로 옮긴다(`ToolManager.startTool` 이 본).
+
+**D-A-23 — 오류 세션의 런타임 회수는 부팅 규칙의 반복이다.** (P7, P5 유산) `agentsess.Manager.Reap
+(referenced, olderThan)` 이 **어느 탭도 참조하지 않는** 휴면·오류 세션 중 그 상태로 `olderThan` 을 넘긴
+것을 `Forget` 한다 — D-C-14 의 부팅 판정(`workspace.ReferencedToolIDs`)을 리퍼 틱마다 적용하는 것이다.
+유예(30초)는 생성 직후의 창(도구가 먼저 서고 탭이 뒤에 저장된다)을 지나기 위해서다. 활성 세션은 대상이
+아니다. `Server.StartAgentReaper` 가 Run 리퍼와 같은 주기로 돈다.
+  이전 동작: 탭 없는 에이전트 도구가 죽으면 오류 세션·로그가 다음 부팅까지 남았다(보이는 자리 없음)
+  새  동작: 유예 뒤 회수
+  이유:     닿을 수 없는 세션은 되살릴 길도 보일 자리도 없다 — 부팅이 버리는 것과 같은 것
+
+**D-A-24 — `wait` 의 기본 상한도 `runwait` 다.** (P7, P6 유산 — D-A-1 의 연장) `runwait.ActivityWait
+Default`(5분)·`ActivityWaitMax`(30분)을 서버(`/api/tools/activity/wait`)와 `dmctl wait` 가 함께 읽는다.
+`waitClientDefaultBudgetMS` 사본은 지운다.
+
+**D-A-25 — 창·탭 생성 실패는 화면에 말한다.** (P7, P6 유산) 원격 명령 `newWindow`·`newTab` 과
+사이드바의 창 추가가 `_newTool` 의 거부(400 `tool_cwd_missing`·샌드박스 실패)를 `_notify` 로 보인다
+(`t('window.create_fail')`·`t('tab.create_fail')`). echo 는 내지 않는다 — `dmctl` 은 D-A-2 의 `timedOut`
+으로 exit 1 을 이미 받고, 빈 echo 는 "만들어졌다" 로 읽힌다. `_newAgentTool` 의 `opts.resume` 은
+지운다(재개는 `/api/agent/resume`, D-C-11).
+
+**D-A-26 — 남기는 것과 그 사유.** (P7) ① GO-44 `Git *store.Store`: gitapi 가 `Service()` 를 72곳에서
+쓴다 — 인터페이스로 좁혀도 git 없이 돌지 못하므로 좁히지 않는다. 좁힘은 GO-39(git 실행기 통합)의
+후속이며 로드맵에 남긴다. ② `fail()`/`httpErr` 한국어 본문 9곳: D-ERR-2(본문은 공개 계약)가 동결했고
+문장의 주인은 이미 카탈로그(`err.<code>`)다 — 옮기지 않는다. ③ §5-5 flaky 군집: M7 §5-5 가 "두 헬퍼
+(git 관측 주기 대기·칸 그리기 대기)를 보는 별도의 일" 로 좁혔고 그 일은 이 단계의 것이 아니다 —
+로드맵에 항목으로 남긴다. ④ 데몬 모드의 레코드 없는 에이전트 도구(P5 이전 판)는 빈 옵션 채택
+그대로 — 한 번뿐인 이행 경로다. ⑤ `agents.json` 과 `migrate`: 그 파일은 uuid 시대에 태어나 구 형식
+식별자가 없다 — `migrate` 가 알 것이 없다. ⑥ `sandboxplace/e2e_test.go` 의 700~900ms 고정 대기:
+컨테이너 런타임이 있어야 도는 검사라 이 호스트에서 검증할 수 없어 손대지 않는다. ⑦ FBE-08 작업
+경로분은 D-A-27.
+
+**D-A-27 — `submodule update` 는 작업이다.** (P7, FBE-08 작업 경로분) `jobs.Jobs.StartUnguarded(repo,
+kind, argv, reason)` 이 허용 목록 대신 **호출자의 인가**(submodule 의 `checkRepo`·`checkPath`·`--`
+규약)를 전제로 작업을 띄운다 — `Kind="submodule"`, 취소·SSE·상한·자격증명 지움은 fetch/pull/push 와
+같은 기계장치다. `POST /api/git/submodules/update` 는 `{job}` 을 즉시 돌려주고(fetch 와 같은 모양)
+완료 훅이 관측 캐시를 버린다. 브라우저의 Submodules 탭은 작업을 구독해 진행 줄과 **취소** 를 보이고
+끝나면 목록을 다시 받는다. `sync` 는 그대로 동기다(원격에 닿지 않는다).
+  이전 동작: 요청 고루틴에서 동기 실행 — 진행 없음·취소 없음·180초 매달림
+  새  동작: 작업 경로 — 진행 SSE·취소·상한은 원격 작업과 같다
+  이유:     `job.go` 의 규정("원격 작업은 분 단위이고 취소할 수 있어야 한다")에 서브모듈 clone 이 든다
+
 **D-C-1 — 에이전트 탭은 `type:"agent"` + `toolId` 다.** (P3) 탭 레코드가 종류를 들어야 브라우저가
 목록을 받기 전에도 어느 뷰를 그릴지 안다. `toolId` 를 보는 코드(닫기·복원·백그라운드·`dmctl
 list-workspace`)는 그대로 닿고, `type==='terminal'` 을 묻던 자리 중 뜻이 "도구가 있는 탭" 이던
@@ -1452,6 +1577,7 @@ PTY 화면 갱신보다 작다). **다른 것 둘**:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-14 | **P7 완료 — M8 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-13, 전량 e2e 는 §1-14. 착수 실측(드리프트 셋 초록) 뒤 재감사 — GO-25·26·D-WBR-8 은 이미 해소(각각 술어의 성질·FR-TRS-12·D-WBR-19), 나머지는 열림. D-A-10~27 신설: 분리는 이동(D-A-10, 500줄 초과 26→20 · 지목 다섯 전부 500 아래) · doctor 표(D-A-11) · `serve`→`buildApp/run/shutdown` + 종료 순서 표(D-A-12) · Run 표식 트리 조작 `workspace.ApplyRunMarks`(D-A-13) · `..` 조각 판정(D-A-14, 동작 변경) · `shared/pollwait`(D-A-15, stop 대기 동작 변경) · JSON-RPC 코드·`decodeParams`·`RPCError`·`CodeToolCap`(D-A-16 — 구현 중 발견: 클라이언트가 오류 응답을 한 번도 오류로 읽지 않았다, 동작 변경) · `DefaultCols/Rows`(D-A-17) · `dataPath` 삭제(D-A-18) · Sync 상태기계 삭제(D-A-19) · `shared/gittest`(D-A-20) · 셸 고정 `PinShell`+셸별 서브테스트(D-A-21) · 훅 stub 한 형식·GO-42 는 조건 미충족 그대로(D-A-22) · 오류 세션 런타임 회수 `Reap`(D-A-23, 동작 변경) · `wait` 기본 상한 `runwait`(D-A-24) · 창·탭 생성 실패 `_notify`(D-A-25) · 남기는 것과 사유(D-A-26: GO-44·한국어 본문 9곳·§5-5 군집·이행 경로·`migrate`·docker 검사) · `submodule update` 는 작업(D-A-27, FBE-08, 동작 변경). §3.2 ⑥·⑦ 이 닫혔다 |
 | 2026-09-14 | **P6 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-11, 전량 e2e 는 §1-12. 착수 실측(드리프트 셋 초록) 뒤 재감사 — FBE-11 은 이미 해소(FR-TRS-12), codex 표면은 실측이 전제를 뒤집음(0.154.0 `[PROMPT]`·`--model`). D-A-1~9 신설: `shared/runwait` 예산(D-A-1) · `dmctlDelivery` exit 1(D-A-2, 동작 변경) · `closedTabs[].closed` 는 방송 결과(D-A-3) · codex 터미널 표면 argv·`--model` + `launchNotes`(D-A-4, 사용자 결정) · `status --member`(D-A-5) · `run delete`·`run graph`(D-A-6) · 없는 `cwd` 400 `tool_cwd_missing`(D-A-7) · `wrapPaste`·`quoteEnvelope`(D-A-8) · 격리 기동 안내·전경 도구 홈(D-A-9, 동작 변경). §3.2 ⑥ 의 `FBE-09~11` 은 P6 가 닫았다(인계서가 그것을 P6 DoD 로 들었다) |
 | 2026-09-14 | **P5 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-9, 전량 e2e 는 §1-10. 세션이 프로세스보다 오래 산다(D-C-11 — `Dormant` hibernated·error, 같은 `toolId` 로 재개 `ReuseID`) · 디스크 `agents/<toolId>.jsonl`+`agents.json`(D-C-12·14) · 요약 스냅샷은 버려진 이벤트의 접힘(D-C-13) · `EvExit` 사유 + stderr 꼬리 `ExitInfo`(D-C-15, 데몬 `exit` push 가 실제 code·stderr 를 싣는다) · 신원 없는 도구는 휴면 불가, claude `initialize` 응답이 `idle`(D-C-16) · 휴면 세션은 `/api/state.tools` 에 합쳐진다(D-C-17). HTTP `hibernate`·`resume`, 오류 코드 셋. P4 발견 둘 해소(가짜 claude 의 init 시점 · codex rejoin). 발견: 틈 되메움이 readLoop 안의 RPC 였다(§2-30, 비동기로) |
 | 2026-09-14 | **P5 착수.** 드리프트 잡 셋 초록. §3.4.4 P5 착수 실측(omp 접두 무제한·모호하면 조용히 고른다 · codex `thread/resume` 이 살아 있는 thread 를 rejoin 한다 · 재 `initialize` 는 `Already initialized`). D-C-11~17 — 휴면·오류는 세션의 상태, 같은 `toolId` 로 재개(`ReuseID`) · 디스크 JSONL(SSE 와 같은 줄)+`agents.json` · 스냅샷은 버려진 이벤트의 접힘 · `EvExit` 가 사유를 든다 · 신원 없는 도구는 휴면 불가(claude 첫 턴 전) · 휴면 도구는 목록에 합쳐진다 |

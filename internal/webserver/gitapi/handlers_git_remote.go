@@ -176,6 +176,22 @@ func (s *GitServer) gitStartJob(w http.ResponseWriter, requested, root, kind str
 	gitJSON(w, http.StatusOK, body)
 }
 
+// gitStartUnguardedJob 은 인가를 도메인이 진 작업을 띄운다 (M8 D-A-27) — 응답의
+// 모양과 busy 판정은 gitStartJob 과 같다.
+func (s *GitServer) gitStartUnguardedJob(w http.ResponseWriter, requested, root, kind string, argv []string, reason string) {
+	jb, err := s.gitJobs.get(s.Git).StartUnguarded(root, kind, argv, reason)
+	if err != nil {
+		if errors.Is(err, jobs.ErrJobBusy) {
+			gitFail(w, http.StatusConflict, gitErrJobBusy, gitTail(err.Error()))
+			return
+		}
+		code, name := gitErrorCode(err)
+		gitFail(w, code, name, gitTail(err.Error()))
+		return
+	}
+	gitJSON(w, http.StatusOK, map[string]any{"requested": requested, "repo": root, "job": jb})
+}
+
 // gitPushError 는 Publish 확인 요구만 따로 다룬다. **계획을 함께 보낸다** —
 // 무엇이 설정되는지 모르면 사용자가 확인할 수 없다 (FR-GIT-100).
 func gitPushError(w http.ResponseWriter, requested, root string, plan write.PushPlan, err error) {

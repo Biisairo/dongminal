@@ -420,3 +420,48 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 		time.Sleep(5 * time.Millisecond)
 	}
 }
+
+// M8 D-A-23: 어느 탭도 참조하지 않는 휴면·오류 세션은 유예 뒤 회수된다 — 부팅의
+// "참조 없음" 판정(D-C-14)을 런타임에도 적용한다. 활성 세션과 참조된 세션, 아직
+// 유예 안의 세션은 남는다.
+func TestDormant_ReapUnreferencedAfterGrace(t *testing.T) {
+	m, _ := newDiskMgr(t, t.TempDir(), 8)
+	ad := agentadapter.Adapter{ID: "fake", Proto: fakeProto()}
+	for _, id := range []string{"live", "ref-dead", "young-dead", "old-dead"} {
+		if _, err := m.Open(id, ad, agentadapter.LaunchOpts{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, id := range []string{"ref-dead", "young-dead", "old-dead"} {
+		m.Exit(id, toolhub.ExitInfo{Code: 1})
+	}
+	// old-dead 만 유예를 넘겼다 — 시각을 뒤로 돌린다.
+	old := m.Get("old-dead")
+	old.mu.Lock()
+	old.dormantAt -= int64(10 * time.Minute / time.Millisecond)
+	old.mu.Unlock()
+
+	referenced := func(id string) bool { return id == "ref-dead" || id == "live" }
+	got := m.Reap(referenced, 30*time.Second)
+	if len(got) != 1 || got[0] != "old-dead" {
+		t.Fatalf("회수 = %v, want [old-dead]", got)
+	}
+	for _, id := range []string{"live", "ref-dead", "young-dead"} {
+		if m.Get(id) == nil {
+			t.Fatalf("%s 가 회수됐다", id)
+		}
+	}
+	if m.Get("old-dead") != nil {
+		t.Fatal("old-dead 가 남았다")
+	}
+	if _, err := os.Stat(filepath.Join(m.deps.DataDir, "agents", "old-dead.jsonl")); !os.IsNotExist(err) {
+		t.Fatalf("로그가 남았다: %v", err)
+	}
+	// 참조가 사라진 활성 세션은 대상이 아니다 — 프로세스가 있다.
+	if got := m.Reap(func(string) bool { return false }, 0); len(got) != 2 {
+		t.Fatalf("유예 0 이면 죽은 둘이 회수된다: %v", got)
+	}
+	if m.Get("live") == nil {
+		t.Fatal("활성 세션이 회수됐다")
+	}
+}

@@ -33,10 +33,17 @@ func newAttnPane(id string, mu *sync.Mutex, attn *[]string, clear *[]string) *To
 // 보고했다는 사실만으로 L2 가 울었기 때문이다 (V-ATF-2). 묶음 N 이 그 자리를
 // 뒤집었다: 종결을 보고한 뒤의 정적은 L1 이 이미 알린 사실이다.
 func startStaleWork(p *Tool) {
-	orig := attnNow
-	attnNow = func() int64 { return -AttnWorkingStale }
+	restore := stubAttnNow(func() int64 { return -AttnWorkingStale })
 	p.SetActivity("working", "Bash", "make")
-	attnNow = orig
+	restore()
+}
+
+// stubAttnNow 는 시계를 갈아 끼우고 되돌리는 함수를 돌려준다 (M8 D-A-22 —
+// `SetAttnBusyProbe` 와 같은 형식). 시계를 되돌리는 코드를 검사마다 적지 않는다.
+func stubAttnNow(f func() int64) (restore func()) {
+	prev := attnNow
+	attnNow = f
+	return func() { attnNow = prev }
 }
 
 // TC-PAN-8/9/10: idle sweeper edge semantics.

@@ -4,6 +4,7 @@ import (
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/toolhub"
+	"errors"
 
 	"dongminal/internal/shared/toolipc"
 
@@ -335,107 +336,123 @@ func (pc *ToolClient) handleResponse(id int64, raw json.RawMessage) {
 }
 
 // handlePush dispatches a server-pushed event to per-tool subscribers
-// and to the global OnOutput/OnExit callbacks.
+// and to the global OnOutput/OnExit callbacks. 이벤트마다 메서드 하나다
+// (M8 GO-21) — 모르는 이벤트는 버린다.
 func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 	switch event {
 	case "output":
-		var ev struct {
-			Tool string `json:"tool"`
-			Data string `json:"data"`
-			// End 는 이 청크의 끝 절대 오프셋이다 (TERMINAL_RESUME_SRS FR-TRS-15).
-			// 이 필드를 보내지 않는 옛 데몬에서는 0 으로 읽히고, 그때 받는 쪽은
-			// 겹침 제거를 건너뛴다 — 지금 동작과 같아질 뿐 나빠지지 않는다.
-			End int64 `json:"end"`
-			// Kind 는 도구의 종류다 (M8_UNIFIED_SRS D-C-10). 여기서 목록으로 되물으면
-			// 그 RPC 의 응답을 읽을 고루틴이 바로 이 readLoop 라 시한까지 막힌다.
-			Kind string `json:"kind"`
-		}
-		if err := json.Unmarshal(raw, &ev); err != nil {
-			return
-		}
-		data, err := base64.StdEncoding.DecodeString(ev.Data)
-		if err != nil {
-			return
-		}
-		// Attention/activity detection: once per chunk, in this single readLoop
-		// goroutine — independent of WS subscribers (FR-15, §6.2).
-		pc.mu.Lock()
-		onOutput := pc.onOutput
-		pc.mu.Unlock()
-		if onOutput != nil {
-			onOutput(ev.Tool, toolhub.ToolKind(ev.Kind), data, ev.End)
-		}
-		// Dispatch to per-tool output channels. Non-blocking: a single slow
-		// WS subscriber must never stall readLoop (which serves every tool).
-		// Drops are counted/logged rather than silently lost (FR-18).
-		//
-		// 순회는 **락 안에서** 한다. 종전에는 락 안에서 map 을 꺼내고 밖에서
-		// 돌았는데, 꺼낸 것은 사본이 아니라 map 그 자체다 — 그 사이 브라우저
-		// 하나가 붙거나 떨어지면(Subscribe·unsubscribe) Go 런타임이 프로세스를
-		// 죽인다: `concurrent map iteration and map write`. recover 로 잡히는
-		// 종류가 아니고, 서버가 통째로 사라진다.
-		//
-		// 락을 잡은 채 보내도 막히지 않는다 — 아래 send 는 default 가 있어
-		// 언제나 즉시 떨어진다. 로그만 락 밖으로 미룬다(I/O 라 길다).
-		var dropped int64
-		pc.subMu.RLock()
-		for ch := range pc.subbers[ev.Tool] {
-			select {
-			case ch <- OutChunk{Data: data, End: ev.End}:
-			default:
-				dropped = pc.dropped.Add(1)
-			}
-		}
-		pc.subMu.RUnlock()
-		if dropped == 1 || (dropped > 0 && dropped%256 == 0) {
-			dmlog.Warnf(nil, "toolclient: WS output backpressure tool=%s dropped=%d (slow browser?)", ev.Tool, dropped)
-		}
+		pc.pushOutput(raw)
 	case "fg":
-		var ev struct {
-			Tool string `json:"tool"`
-			Name string `json:"name"`
-		}
-		if err := json.Unmarshal(raw, &ev); err != nil {
-			return
-		}
-		pc.invalidateList()
-		pc.mu.Lock()
-		cb := pc.onForeground
-		pc.mu.Unlock()
-		if cb != nil {
-			cb(ev.Tool, ev.Name)
-		}
+		pc.pushForeground(raw)
 	case "exit":
-		var ev struct {
-			Tool   string   `json:"tool"`
-			Code   int      `json:"code"`
-			Stderr []string `json:"stderr"`
+		pc.pushExit(raw)
+	}
+}
+
+// pushOutput 은 `output` push 다 — 해석층(onOutput)에 한 번, 구독한 브라우저마다 한 번.
+func (pc *ToolClient) pushOutput(raw json.RawMessage) {
+	var ev struct {
+		Tool string `json:"tool"`
+		Data string `json:"data"`
+		// End 는 이 청크의 끝 절대 오프셋이다 (TERMINAL_RESUME_SRS FR-TRS-15).
+		// 이 필드를 보내지 않는 옛 데몬에서는 0 으로 읽히고, 그때 받는 쪽은
+		// 겹침 제거를 건너뛴다 — 지금 동작과 같아질 뿐 나빠지지 않는다.
+		End int64 `json:"end"`
+		// Kind 는 도구의 종류다 (M8_UNIFIED_SRS D-C-10). 여기서 목록으로 되물으면
+		// 그 RPC 의 응답을 읽을 고루틴이 바로 이 readLoop 라 시한까지 막힌다.
+		Kind string `json:"kind"`
+	}
+	if err := json.Unmarshal(raw, &ev); err != nil {
+		return
+	}
+	data, err := base64.StdEncoding.DecodeString(ev.Data)
+	if err != nil {
+		return
+	}
+	// Attention/activity detection: once per chunk, in this single readLoop
+	// goroutine — independent of WS subscribers (FR-15, §6.2).
+	pc.mu.Lock()
+	onOutput := pc.onOutput
+	pc.mu.Unlock()
+	if onOutput != nil {
+		onOutput(ev.Tool, toolhub.ToolKind(ev.Kind), data, ev.End)
+	}
+	// Dispatch to per-tool output channels. Non-blocking: a single slow
+	// WS subscriber must never stall readLoop (which serves every tool).
+	// Drops are counted/logged rather than silently lost (FR-18).
+	//
+	// 순회는 **락 안에서** 한다. 종전에는 락 안에서 map 을 꺼내고 밖에서
+	// 돌았는데, 꺼낸 것은 사본이 아니라 map 그 자체다 — 그 사이 브라우저
+	// 하나가 붙거나 떨어지면(Subscribe·unsubscribe) Go 런타임이 프로세스를
+	// 죽인다: `concurrent map iteration and map write`. recover 로 잡히는
+	// 종류가 아니고, 서버가 통째로 사라진다.
+	//
+	// 락을 잡은 채 보내도 막히지 않는다 — 아래 send 는 default 가 있어
+	// 언제나 즉시 떨어진다. 로그만 락 밖으로 미룬다(I/O 라 길다).
+	var dropped int64
+	pc.subMu.RLock()
+	for ch := range pc.subbers[ev.Tool] {
+		select {
+		case ch <- OutChunk{Data: data, End: ev.End}:
+		default:
+			dropped = pc.dropped.Add(1)
 		}
-		if err := json.Unmarshal(raw, &ev); err != nil {
-			return
-		}
-		pc.invalidateList()
-		// Signal every WS subscriber of this tool so it can send toolhub.OpExit and
-		// tear down (parity with direct-mode tool.kill). Closing + removing
-		// under subMu means no concurrent output dispatch sends on a closed chan.
-		pc.subMu.Lock()
-		subs := pc.subbers[ev.Tool]
-		delete(pc.subbers, ev.Tool)
-		pc.subMu.Unlock()
-		for _, exitCh := range subs {
-			close(exitCh)
-		}
-		// Global exit callback (activity cleanup). Buffer if not yet wired —
-		// SetOnExit 가 재생한다.
-		pc.mu.Lock()
-		onExit := pc.onExit
-		if onExit == nil {
-			pc.earlyPushes = append(pc.earlyPushes, earlyPush{tool: ev.Tool, info: toolhub.ExitInfo{Code: ev.Code, Stderr: ev.Stderr}})
-		}
-		pc.mu.Unlock()
-		if onExit != nil {
-			onExit(ev.Tool, toolhub.ExitInfo{Code: ev.Code, Stderr: ev.Stderr})
-		}
+	}
+	pc.subMu.RUnlock()
+	if dropped == 1 || (dropped > 0 && dropped%256 == 0) {
+		dmlog.Warnf(nil, "toolclient: WS output backpressure tool=%s dropped=%d (slow browser?)", ev.Tool, dropped)
+	}
+}
+
+// pushForeground 는 `fg` push 다 — 전경 이름이 바뀌었다.
+func (pc *ToolClient) pushForeground(raw json.RawMessage) {
+	var ev struct {
+		Tool string `json:"tool"`
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(raw, &ev); err != nil {
+		return
+	}
+	pc.invalidateList()
+	pc.mu.Lock()
+	cb := pc.onForeground
+	pc.mu.Unlock()
+	if cb != nil {
+		cb(ev.Tool, ev.Name)
+	}
+}
+
+// pushExit 은 `exit` push 다 — 구독자를 닫고 전역 종료 콜백을 부른다.
+func (pc *ToolClient) pushExit(raw json.RawMessage) {
+	var ev struct {
+		Tool   string   `json:"tool"`
+		Code   int      `json:"code"`
+		Stderr []string `json:"stderr"`
+	}
+	if err := json.Unmarshal(raw, &ev); err != nil {
+		return
+	}
+	pc.invalidateList()
+	// Signal every WS subscriber of this tool so it can send toolhub.OpExit and
+	// tear down (parity with direct-mode tool.kill). Closing + removing
+	// under subMu means no concurrent output dispatch sends on a closed chan.
+	pc.subMu.Lock()
+	subs := pc.subbers[ev.Tool]
+	delete(pc.subbers, ev.Tool)
+	pc.subMu.Unlock()
+	for _, exitCh := range subs {
+		close(exitCh)
+	}
+	// Global exit callback (activity cleanup). Buffer if not yet wired —
+	// SetOnExit 가 재생한다.
+	pc.mu.Lock()
+	onExit := pc.onExit
+	if onExit == nil {
+		pc.earlyPushes = append(pc.earlyPushes, earlyPush{tool: ev.Tool, info: toolhub.ExitInfo{Code: ev.Code, Stderr: ev.Stderr}})
+	}
+	pc.mu.Unlock()
+	if onExit != nil {
+		onExit(ev.Tool, toolhub.ExitInfo{Code: ev.Code, Stderr: ev.Stderr})
 	}
 }
 
@@ -484,14 +501,18 @@ func (pc *ToolClient) callWithin(method string, params interface{}, within time.
 		if !ok {
 			return nil, fmt.Errorf("paned connection lost")
 		}
-		var resp toolipc.PanedResponse
+		// 성공과 오류를 **한 번에** 읽는다 (M8 D-A-16). 종전에는 PanedResponse 로
+		// 먼저 읽었는데 오류 응답도 `id` 를 가져 그 해석이 성공했고, 오류는 "결과
+		// 없음" 으로 뭉개졌다 — Delete·Create 의 실패가 nil 로 돌아왔다.
+		var resp struct {
+			Result any                  `json:"result"`
+			Error  *toolipc.PanedErrObj `json:"error"`
+		}
 		if err := json.Unmarshal(raw, &resp); err != nil {
-			// Try error response
-			var errResp toolipc.PanedError
-			if err2 := json.Unmarshal(raw, &errResp); err2 == nil {
-				return nil, fmt.Errorf("paned error: %s", errResp.Error.Message)
-			}
 			return nil, err
+		}
+		if resp.Error != nil {
+			return nil, &toolipc.RPCError{Code: resp.Error.Code, Message: resp.Error.Message}
 		}
 		result, ok := resp.Result.(map[string]interface{})
 		if !ok {
@@ -612,8 +633,7 @@ func (pc *ToolClient) ListOK() ([]toolhub.ToolInfo, bool) {
 	raw, ok := resp["tools"]
 	if !ok {
 		// 목록이 있어야 할 자리가 응답에 없다. 데몬의 `list` 는 언제나 그 키를
-		// 넣으므로(`ipc/paned.go`), 없다는 것은 이 응답이 목록이 아니라는 뜻이다 —
-		// `call` 이 오류 응답을 빈 맵으로 돌려주는 경로가 여기로 온다.
+		// 넣으므로(`ipc/paned.go`), 없다는 것은 이 응답이 목록이 아니라는 뜻이다.
 		return nil, false
 	}
 	if raw == nil {
@@ -693,6 +713,11 @@ func (pc *ToolClient) Create(cwd string, cols, rows uint16, place toolhub.Placem
 		"reuseId": place.ReuseID,
 	})
 	if err != nil {
+		// M8 D-A-16: 상한 초과는 코드로 건너온다 — 핸들러의 `errors.Is` 가 두 모드에서 같다.
+		var rpc *toolipc.RPCError
+		if errors.As(err, &rpc) && rpc.Code == toolipc.CodeToolCap {
+			return nil, fmt.Errorf("%w: %s", toolhub.ErrToolCap, rpc.Message)
+		}
 		return nil, err
 	}
 	pc.invalidateList()

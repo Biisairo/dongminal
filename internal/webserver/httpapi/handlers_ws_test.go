@@ -79,7 +79,7 @@ func TestHandleWS_ExistingTool(t *testing.T) {
 	if err := p.Write([]byte("echo hello\n")); err != nil {
 		t.Fatalf("write ptmx: %v", err)
 	}
-	time.Sleep(200 * time.Millisecond)
+	waitUntil(t, "스냅샷", func() bool { blob, _ := p.Stream().Snapshot(); return len(blob) > 0 })
 
 	ws := mustWS(t, ts, "/ws?tool="+p.ID+"&cols=80&rows=24")
 	defer ws.Close()

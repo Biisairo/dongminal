@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"dongminal/internal/shared/gittest"
 	"errors"
 	"os"
 	"os/exec"
@@ -15,44 +16,6 @@ import (
 //
 // 기본은 **실제 git 없이 결정론적인** 단위 테스트다. Runner 주입(FR-GIT-4)이
 // 그것을 가능하게 하며, 실제 git 이 필요한 것만 gitPath 로 건너뛴다.
-
-func gitPath(t *testing.T) string {
-	t.Helper()
-	p, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git 이 없다 — 이 테스트를 건너뛴다")
-	}
-	return p
-}
-
-// tempRepo 는 커밋 하나를 가진 임시 저장소를 만든다. 심링크를 푸는 이유는 git 이
-// toplevel 을 물리 경로로 답하기 때문이다 (macOS 의 /var → /private/var).
-func tempRepo(t *testing.T) string {
-	t.Helper()
-	bin := gitPath(t)
-	dir, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatalf("EvalSymlinks: %v", err)
-	}
-	run := func(args ...string) {
-		t.Helper()
-		cmd := exec.Command(bin, args...)
-		cmd.Dir = dir
-		cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_SYSTEM="+os.DevNull)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
-		}
-	}
-	run("init", "-b", "main")
-	run("config", "user.email", "t@example.com")
-	run("config", "user.name", "tester")
-	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("x\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	run("add", ".")
-	run("commit", "-m", "init")
-	return dir
-}
 
 // 케이스 1 (V2, FR-GIT-2): 주입한 Runner 가 받은 args 가 전달한 배열과 정확히 같다.
 func TestExec_ArgsPassedVerbatim(t *testing.T) {
@@ -370,3 +333,8 @@ func TestExec_GitMissingIsNotRepoMissing(t *testing.T) {
 		t.Fatalf("err = %v, want ErrGitMissing", err)
 	}
 }
+
+func gitPath(t *testing.T) string { return gittest.Path(t) }
+
+// tempRepo 는 커밋 하나를 가진 임시 저장소다 (`gittest.Repo`, M8 D-A-20).
+func tempRepo(t *testing.T) string { return gittest.Repo(t) }

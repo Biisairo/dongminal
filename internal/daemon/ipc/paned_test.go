@@ -139,8 +139,8 @@ func TestPanedUnknownMethod(t *testing.T) {
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if resp.Error.Code != -32601 {
-		t.Fatalf("code=%d want -32601", resp.Error.Code)
+	if resp.Error.Code != toolipc.CodeMethodNotFound {
+		t.Fatalf("code=%d want CodeMethodNotFound", resp.Error.Code)
 	}
 }
 
@@ -179,7 +179,11 @@ func TestPanedKillRemovesTool(t *testing.T) {
 	}
 	params, _ := json.Marshal(map[string]string{"id": tl.ID})
 	pc.dispatch(&toolipc.PanedRequest{ID: 1, Method: "kill", Params: params})
-	time.Sleep(200 * time.Millisecond) // allow async cleanup
+	// 비동기 정리를 기다린다 — 고정 대기가 아니라 사라짐을 본다 (TEST-8).
+	deadline := time.Now().Add(5 * time.Second)
+	for pm.IsLive(tl.ID) && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
 	if pm.IsLive(tl.ID) {
 		t.Fatal("tool should be dead after kill")
 	}

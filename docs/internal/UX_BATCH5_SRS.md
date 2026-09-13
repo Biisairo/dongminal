@@ -404,6 +404,13 @@ POST /api/git/submodules/sync    {repo, path, confirm:true}
 
 `path` 가 비면 저장소의 서브모듈 전부가 대상이다.
 
+> **M8 D-A-27 (2026-09-14)**: `update` 는 **작업**이다 — 응답이 `{requested, repo, job}`
+> 이고 진행은 `GET /api/git/job/events`, 취소는 `POST /api/git/job/cancel` 이다
+> (fetch/pull/push 와 같은 기계장치, FBE-08). `sync` 는 그대로 동기 `{ok}` 다.
+>   이전 동작: 요청 고루틴에서 동기 실행 — 진행 없음·취소 없음·180초 매달림
+>   새  동작: 작업 경로 — 진행 SSE·취소·상한은 원격 작업과 같다
+>   이유:     `submodule update --init` 은 원격에서 clone 한다 — 원격 작업의 정의에 든다
+
 **FR-SUB-5** `update` 는 **파괴적이다** — 서브모듈 안의 체크아웃을 등록된 커밋으로
 옮기며, 그 안의 커밋되지 않은 변경이 있으면 git 이 거부하거나 덮는다. 그러므로
 `GitConfirm` 의 파괴적 확인(2단계)을 거치고, 확인창은 대상 경로와 실행될 명령을

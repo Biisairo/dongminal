@@ -314,7 +314,8 @@
 | GET | `/api/git/worktrees` | worktree 목록 |
 | POST | `/api/git/worktrees/create` · `/api/git/worktrees/remove` | 만들고 지운다 |
 | GET | `/api/git/submodules` | 서브모듈 목록 |
-| POST | `/api/git/submodules/sync` · `/api/git/submodules/update` | 동기화하고 갱신한다 |
+| POST | `/api/git/submodules/sync` | `.gitmodules` 의 URL 을 설정으로 옮긴다 (동기, `{ok}`) |
+| POST | `/api/git/submodules/update` | 등록된 커밋으로 옮긴다 — **작업**이다: `{job}` 을 돌려주고 진행·취소는 아래 작업 종단 (fetch 와 같다) |
 
 ### Git — 기록
 

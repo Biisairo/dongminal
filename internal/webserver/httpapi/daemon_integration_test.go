@@ -286,8 +286,10 @@ func TestDaemonReconnectPreservesTools(t *testing.T) {
 
 	// Output should still flow
 	_ = pm.Write(toolID, []byte("echo reconnect_test\n"))
-	time.Sleep(200 * time.Millisecond)
-
+	waitUntil(t, "재접속 뒤 출력", func() bool {
+		snap, _ := pm.SnapshotTool(toolID)
+		return len(snap.Data) > 0
+	})
 	snap, _ := pm.SnapshotTool(toolID)
 	if len(snap.Data) == 0 {
 		t.Fatal("snapshot empty after write — output not flowing")

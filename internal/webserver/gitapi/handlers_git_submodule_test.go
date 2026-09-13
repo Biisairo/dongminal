@@ -202,13 +202,17 @@ func TestAPIGitSubmoduleWrites_OKCarriesResolvedRepo(t *testing.T) {
 	if err := os.MkdirAll(sub, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	// M8 D-A-27: update 는 작업이라 `ok` 대신 `job` 을 든다 — requested·repo 는 같다.
+	s.gitJobs.run = gitRemoteEmit("done")
 	for _, path := range []string{"/api/git/submodules/update", "/api/git/submodules/sync"} {
 		body := `{"repo":` + jsonStr(sub) + `,"confirm":true}`
 		code, out := wtReq(t, s, http.MethodPost, path, body)
 		if code != http.StatusOK {
 			t.Fatalf("%s: 200 이어야 한다, got %d (%+v)", path, code, out)
 		}
-		if out["ok"] != true {
+		if path == "/api/git/submodules/update" {
+			gitRemoteJobID(t, out)
+		} else if out["ok"] != true {
 			t.Fatalf("%s: ok 가 true 여야 한다: %+v", path, out)
 		}
 		if out["repo"] != repo {
@@ -219,5 +223,43 @@ func TestAPIGitSubmoduleWrites_OKCarriesResolvedRepo(t *testing.T) {
 		if out["requested"] != sub {
 			t.Fatalf("%s: requested=%v, want %s", path, out["requested"], sub)
 		}
+	}
+}
+
+// M8 D-A-27 (FBE-08): update 는 작업이다 — 응답은 `{job}` 이고 진행·취소는 원격 작업의
+// 종단을 그대로 쓴다. 완료 훅이 부모의 관측 캐시를 버린다.
+func TestAPIGitSubmoduleUpdate_IsAJob(t *testing.T) {
+	s, repo := submoduleTestServer(t)
+	release := make(chan struct{})
+	s.gitJobs.run = gitRemoteHold(release)
+	body := `{"repo":` + jsonStr(repo) + `,"path":"vendor/x","init":true,"confirm":true}`
+	code, out := wtReq(t, s, http.MethodPost, "/api/git/submodules/update", body)
+	if code != http.StatusOK {
+		t.Fatalf("200 이어야 한다, got %d (%+v)", code, out)
+	}
+	id := gitRemoteJobID(t, out)
+	jb, _ := out["job"].(map[string]any)
+	if jb["kind"] != "submodule" {
+		t.Fatalf("kind=%v", jb["kind"])
+	}
+	argv, _ := jb["argv"].([]any)
+	if len(argv) < 2 || argv[0] != "submodule" || argv[1] != "update" {
+		t.Fatalf("argv=%v", argv)
+	}
+	// 같은 리포의 두 번째 작업은 busy 다 — 원격 작업과 같은 배타.
+	if code, out := wtReq(t, s, http.MethodPost, "/api/git/submodules/update", body); code != http.StatusConflict || out["error"] != gitErrJobBusy {
+		t.Fatalf("busy 여야 한다: %d %+v", code, out)
+	}
+	// 취소는 원격 작업의 종단이다.
+	if code, out := wtReq(t, s, http.MethodPost, "/api/git/job/cancel", `{"repo":`+jsonStr(repo)+`,"id":"`+id+`"}`); code != http.StatusOK {
+		t.Fatalf("cancel: %d %+v", code, out)
+	}
+	if final := gitRemoteWaitDone(t, s, id); !final.Canceled {
+		t.Fatalf("final=%+v", final)
+	}
+	close(release)
+	// sync 는 그대로 동기다 — `ok` 를 든다.
+	if code, out := wtReq(t, s, http.MethodPost, "/api/git/submodules/sync", `{"repo":`+jsonStr(repo)+`,"confirm":true}`); code != http.StatusOK || out["ok"] != true {
+		t.Fatalf("sync: %d %+v", code, out)
 	}
 }

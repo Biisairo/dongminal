@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/pollwait"
 	"errors"
 	"time"
 
@@ -114,7 +115,7 @@ func (s *Server) waitToolsIdle(ctx context.Context, ids []string) {
 	if s.Tools == nil || len(ids) == 0 {
 		return
 	}
-	err := pollUntil(ctx, exitSettleTimeout, exitPollInterval, func() bool {
+	err := pollwait.Until(ctx, exitSettleTimeout, exitPollInterval, func() bool {
 		for _, id := range ids {
 			if s.Tools.Busy(id) {
 				return false
@@ -122,7 +123,7 @@ func (s *Server) waitToolsIdle(ctx context.Context, ids []string) {
 		}
 		return true
 	})
-	if errors.Is(err, errWaitTimeout) {
+	if errors.Is(err, pollwait.ErrTimeout) {
 		dmlog.Infof(nil, "[run] close 정리: 종료 대기 상한 초과 — 그대로 닫는다 (%d개)", len(ids))
 	}
 }

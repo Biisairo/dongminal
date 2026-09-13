@@ -130,7 +130,7 @@ func (m *ToolManager) LoadAllWith(referenced map[string]struct{}, restore restor
 		}
 		// **하나가 실패해도 멈추지 않는다.** 첫 실패에서 멈추면 그 뒤의 탭이
 		// 전부 빈 채로 돌아온다.
-		if err := restore(s.ID, s.Name, s.Cwd, 120, 40); err != nil {
+		if err := restore(s.ID, s.Name, s.Cwd, DefaultCols, DefaultRows); err != nil {
 			dmlog.Errorf(nil, "[tool %s] restore error: %v", s.ID, err)
 			continue
 		}

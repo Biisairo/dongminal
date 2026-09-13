@@ -1,12 +1,12 @@
 package gitapi
 
 import (
+	"dongminal/internal/shared/gittest"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -23,43 +23,6 @@ import (
 //
 // **실제 git 을 쓴다.** fake 로는 이 표면의 요점(경로 충돌·소유 판정·checkPath 의
 // 구조적 거부)을 확인할 수 없다 — domain/worktree 의 테스트 관용구와 같은 이유다.
-
-func wtGitBin(t *testing.T) string {
-	t.Helper()
-	p, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git 이 없다 — worktree 표면 테스트를 건너뛴다")
-	}
-	return p
-}
-
-func wtGitRun(t *testing.T, dir string, args ...string) string {
-	t.Helper()
-	cmd := exec.Command(wtGitBin(t), args...)
-	cmd.Dir = dir
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
-	}
-	return strings.TrimSpace(string(out))
-}
-
-func wtTempRepo(t *testing.T) string {
-	t.Helper()
-	dir, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	wtGitRun(t, dir, "init", "-b", "main")
-	wtGitRun(t, dir, "config", "user.email", "t@example.com")
-	wtGitRun(t, dir, "config", "user.name", "tester")
-	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("x\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	wtGitRun(t, dir, "add", ".")
-	wtGitRun(t, dir, "commit", "-m", "init")
-	return dir
-}
 
 // worktreeTestServer 는 실제 git 을 쓰는 GitServer 를 세운다. RunWorktreeRoot 는
 // 실제로 만들 필요가 없다 — gitWorktreeOwner 는 경로 prefix 비교만 한다.
@@ -390,3 +353,10 @@ func TestAPIGitWorktreeRemove_RejectsUnknownPath(t *testing.T) {
 	}
 	wantNoOK(t, out)
 }
+
+func wtGitBin(t *testing.T) string { return gittest.Path(t) }
+
+func wtGitRun(t *testing.T, dir string, args ...string) string { return gittest.Run(t, dir, args...) }
+
+// wtTempRepo 는 커밋 하나를 가진 임시 저장소다 (`gittest.Repo`, M8 D-A-20).
+func wtTempRepo(t *testing.T) string { return gittest.Repo(t) }

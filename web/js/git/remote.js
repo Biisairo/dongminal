@@ -553,6 +553,8 @@ class GitRemote {
 
   _isMine(j){
     if(!j||!j.repo) return false;
+    // M8 D-A-27: 서브모듈 갱신도 작업이지만 이 표면의 것이 아니다 — 그쪽 탭이 든다.
+    if(!GIT_REMOTE_LABEL[j.kind]) return false;
     if(j.repo===this.panel.repo) return true;
     const st=this.panel._status;
     return !!(st&&j.repo===st.repo);

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"time"
 
 	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/dmenv"
@@ -82,6 +83,41 @@ func (s *Server) AgentOutput(toolID string, kind toolhub.ToolKind, data []byte, 
 // 종료 코드와 stderr 꼬리다.
 func (s *Server) AgentExit(toolID string, info toolhub.ExitInfo) {
 	s.agentMgr().Exit(toolID, info)
+}
+
+// agentReapGrace 는 휴면·오류 세션이 회수 대상이 되기까지의 유예다 (M8 D-A-23) —
+// 도구가 먼저 서고 탭이 뒤에 저장되는 생성 직후의 창을 지난다.
+const agentReapGrace = 30 * time.Second
+
+// reapAgents 는 어느 탭도 참조하지 않는 휴면·오류 세션 중 유예를 넘긴 것을 거둔다
+// (D-A-23). 판정은 AgentRestore 와 같은 `workspace.ReferencedToolIDs` 다.
+func (s *Server) reapAgents(grace time.Duration) []string {
+	refs := map[string]struct{}{}
+	if s.Work != nil {
+		raw, _ := s.Work.Snapshot()
+		r, err := workspace.ReferencedToolIDs(raw)
+		if err != nil {
+			return nil // 워크스페이스를 읽지 못하면 아무것도 모르는 것이다 — 거두지 않는다
+		}
+		refs = r
+	}
+	return s.agentMgr().Reap(func(id string) bool { _, ok := refs[id]; return ok }, grace)
+}
+
+// StartAgentReaper 는 Run 리퍼와 같은 주기로 reapAgents 를 돈다. stop 이 닫히면 끝난다.
+func (s *Server) StartAgentReaper(stop <-chan struct{}) {
+	go func() {
+		t := time.NewTicker(reapInterval)
+		defer t.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-t.C:
+				s.reapAgents(agentReapGrace)
+			}
+		}
+	}()
 }
 
 // AgentForget 은 사용자의 닫기다 — 세션·레코드·로그를 지운다. 도구를 지우는 길

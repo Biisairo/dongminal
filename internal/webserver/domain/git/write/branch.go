@@ -441,6 +441,11 @@ func BranchDelete(s *core.Service, ctx context.Context, repo string, o BranchDel
 //
 // **파괴적이 아니다** — 충돌로 멈춰도 저장소는 되돌릴 수 있는 중간 상태이고,
 // 그 출구는 묶음 A 가 준다 (FR-GIT-251·252).
+//
+// 커버리지 주의 (M8 TEST-24): 이 함수의 함수 단위 커버리지 0% 는 결손이 아니다 —
+// 3줄 래퍼이고, 인자 조립·검증의 계약은 MergeArgs(branch_test.go)가, HTTP 종단은
+// gitapi 의 TestAPIGitBranchMerge 가 가짜 실행기로 시험한다. 실제 `git merge` 를
+// 돌리는 함수 단위 테스트를 여기 더하지 않는다 (로드맵 §1.6 정정).
 func Merge(s *core.Service, ctx context.Context, repo string, o MergeOpts) (core.Output, error) {
 	argv, err := MergeArgs(o)
 	if err != nil {

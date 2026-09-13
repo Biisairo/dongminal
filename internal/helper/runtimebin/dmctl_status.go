@@ -6,6 +6,7 @@
 package runtimebin
 
 import (
+	"dongminal/internal/shared/runwait"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -236,12 +237,8 @@ func runDmctlWait(args []string, stdout, stderr io.Writer) int {
 		q.Set("timeoutMs", strconv.FormatInt(f.timeoutMS, 10))
 	}
 	// 서버가 요청을 붙잡으므로 클라이언트 타임아웃은 서버 상한보다 넉넉해야 한다.
-	budget := f.timeoutMS
-	if budget <= 0 {
-		budget = waitClientDefaultBudgetMS
-	}
 	body, code := statusGet(baseURL()+"/api/tools/activity/wait?"+q.Encode(),
-		"/api/tools/activity/wait", time.Duration(budget)*time.Millisecond+waitClientSlack, stderr)
+		"/api/tools/activity/wait", waitBudget(f.timeoutMS), stderr)
 	if code != 0 {
 		return code
 	}
@@ -291,10 +288,17 @@ func runDmctlWait(args []string, stdout, stderr io.Writer) int {
 	return 1
 }
 
-const (
-	waitClientDefaultBudgetMS = 300_000
-	waitClientSlack           = 10 * time.Second
-)
+// waitClientSlack 은 서버 상한 위의 여유다. 기본 예산은 서버 기본과 같은 상수
+// (`runwait.ActivityWaitDefault`)에서 나온다 — 사본이 아니다 (M8 D-A-24 · D-A-1).
+const waitClientSlack = 10 * time.Second
+
+// waitBudget 은 `wait` 의 클라이언트 예산이다 — 준 시한(없으면 서버 기본) + 여유.
+func waitBudget(timeoutMS int64) time.Duration {
+	if timeoutMS <= 0 {
+		return runwait.ActivityWaitDefault + waitClientSlack
+	}
+	return time.Duration(timeoutMS)*time.Millisecond + waitClientSlack
+}
 
 // statusGet performs the GET and maps transport/HTTP failures to exit codes.
 // timeout<=0 uses the shared short-lived client.

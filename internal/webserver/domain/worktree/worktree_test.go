@@ -2,6 +2,7 @@ package worktree
 
 import (
 	"context"
+	"dongminal/internal/shared/gittest"
 	"errors"
 	"os"
 	"os/exec"
@@ -18,46 +19,6 @@ import (
 // 이 묶음은 저장소에서 **파일시스템을 파괴할 수 있는 유일한 경로**다. 그래서
 // 안전 규칙(FR-WKT-8/9/10)을 먼저 못박는다. 테스트는 전부 격리된 임시 저장소를
 // 쓴다 — 운영 저장소·사용자 홈을 대상으로 하지 않는다 (§4.3).
-
-func git(t *testing.T, dir string, args ...string) string {
-	t.Helper()
-	cmd := exec.Command(gitPath(t), args...)
-	cmd.Dir = dir
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
-	}
-	return strings.TrimSpace(string(out))
-}
-
-func gitPath(t *testing.T) string {
-	t.Helper()
-	p, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git 이 없다 — worktree 테스트를 건너뛴다")
-	}
-	return p
-}
-
-// tempRepo 는 커밋 하나를 가진 임시 저장소를 만든다. 심볼릭 링크를 푸는 이유는
-// git 이 toplevel 을 물리 경로로 답하기 때문이다 (macOS 의 /var → /private/var).
-func tempRepo(t *testing.T) string {
-	t.Helper()
-	gitPath(t)
-	dir, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatalf("EvalSymlinks: %v", err)
-	}
-	git(t, dir, "init", "-b", "main")
-	git(t, dir, "config", "user.email", "t@example.com")
-	git(t, dir, "config", "user.name", "tester")
-	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("x\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	git(t, dir, "add", ".")
-	git(t, dir, "commit", "-m", "init")
-	return dir
-}
 
 func tempManager(t *testing.T) *Manager {
 	t.Helper()
@@ -733,3 +694,33 @@ func TestRemove_RetryStopsWhenContextIsCancelled(t *testing.T) {
 		t.Fatalf("끊긴 요청에 %s 를 기다렸다", time.Since(start))
 	}
 }
+
+// M8 D-A-14 (GO-18): `..` 는 경로 **조각**으로 판정한다. `a..b` 는 정상 이름이고
+// 조각 `..` 만 이탈이다 — 종전의 `strings.Contains(p, "..")` 는 앞의 것을 거부했다.
+func TestCheckPath_DotDotIsASegmentNotASubstring(t *testing.T) {
+	m := tempManager(t)
+	sep := string(filepath.Separator)
+	ok := filepath.Join(m.Root(), "run", "a..b")
+	if err := m.checkPath(ok); err != nil {
+		t.Fatalf("정상 이름 %q 가 거부됐다: %v", ok, err)
+	}
+	dots := filepath.Join(m.Root(), "run", "...")
+	if err := m.checkPath(dots); err != nil {
+		t.Fatalf("정상 이름 %q 가 거부됐다: %v", dots, err)
+	}
+	bad := m.Root() + sep + "run" + sep + ".." + sep + ".." + sep + "etc"
+	if err := m.checkPath(bad); !errors.Is(err, ErrUnsafePath) {
+		t.Fatalf("조각 `..` 는 이탈이다: %q → %v", bad, err)
+	}
+	inside := m.Root() + sep + "run" + sep + ".." + sep + "run2" + sep + "m"
+	if err := m.checkPath(inside); !errors.Is(err, ErrUnsafePath) {
+		t.Fatalf("루트 안으로 돌아와도 조각 `..` 는 이탈이다: %q → %v", inside, err)
+	}
+}
+
+func git(t *testing.T, dir string, args ...string) string { return gittest.Run(t, dir, args...) }
+
+func gitPath(t *testing.T) string { return gittest.Path(t) }
+
+// tempRepo 는 커밋 하나를 가진 임시 저장소다 (`gittest.Repo`, M8 D-A-20).
+func tempRepo(t *testing.T) string { return gittest.Repo(t) }

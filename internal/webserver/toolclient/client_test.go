@@ -549,7 +549,11 @@ func TestToolClientListOKEmpty(t *testing.T) {
 
 func TestToolClientListOKUnknown(t *testing.T) {
 	sockPath := startFakePaned(t, func(req toolipc.PanedRequest) interface{} {
-		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32603, Message: "boom"}}
+		// hello 는 답한다 — 오류 응답이 dial 을 막지 않게 (M8 D-A-16 뒤로는 오류가 오류다).
+		if req.Method == "hello" {
+			return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{}}
+		}
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeInternal, Message: "boom"}}
 	})
 	pc, _ := DialToolClient(sockPath)
 	defer pc.Close()

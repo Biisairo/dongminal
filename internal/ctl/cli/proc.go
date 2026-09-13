@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+	"dongminal/internal/shared/pollwait"
 	"fmt"
 	"io"
 	"net"
@@ -56,7 +58,20 @@ func signalPIDs(pids []int, send func(int) error) {
 	}
 }
 
-// killPort는 포트를 점유한 프로세스를 TERM → 1초 → KILL 로 종료한다.
+// stopGrace·stopPoll 은 신호 뒤 사라짐을 기다리는 상한과 간격이다 (M8 D-A-15).
+// 종전에는 상한만큼 **고정으로** 잤다 — 이제 사라지면 곧 돌아온다.
+const (
+	stopGrace = time.Second
+	stopPoll  = 50 * time.Millisecond
+)
+
+// portFree 는 포트가 비기를 stopGrace 까지 기다린다.
+func portFree(port string) bool {
+	return pollwait.Until(context.Background(), stopGrace, stopPoll,
+		func() bool { return len(pidsOnPort(port)) == 0 }) == nil
+}
+
+// killPort는 포트를 점유한 프로세스를 TERM → (최대 1초) → KILL 로 종료한다.
 // 반환값은 종료 후 포트가 비었는지 여부다.
 func killPort(port string, w io.Writer, label string) bool {
 	pids := pidsOnPort(port)
@@ -66,11 +81,10 @@ func killPort(port string, w io.Writer, label string) bool {
 	fmt.Fprintf(w, "%s (포트 %s) 정지 중...\n", label, port)
 	proc := procCtl()
 	signalPIDs(pids, proc.Terminate)
-	time.Sleep(time.Second)
-	if pids = pidsOnPort(port); len(pids) > 0 {
+	if !portFree(port) {
 		fmt.Fprintf(w, "강제 종료...\n")
-		signalPIDs(pids, proc.Kill)
-		time.Sleep(time.Second)
+		signalPIDs(pidsOnPort(port), proc.Kill)
+		portFree(port)
 	}
 	return len(pidsOnPort(port)) == 0
 }
@@ -149,12 +163,15 @@ func stopDaemon(home string, w io.Writer) bool {
 	case alive:
 		fmt.Fprintf(w, "dongminald 정지 중 pid=%d...\n", pid)
 		proc := procCtl()
+		gone := func() bool {
+			return pollwait.Until(context.Background(), stopGrace, stopPoll,
+				func() bool { return !proc.Alive(pid) }) == nil
+		}
 		_ = proc.Terminate(pid)
-		time.Sleep(time.Second)
-		if proc.Alive(pid) {
+		if !gone() {
 			fmt.Fprintln(w, "강제 종료...")
 			_ = proc.Kill(pid)
-			time.Sleep(time.Second)
+			gone()
 		}
 		if proc.Alive(pid) {
 			fmt.Fprintf(w, "dongminald pid=%d 가 아직 살아 있습니다\n", pid)

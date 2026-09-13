@@ -568,3 +568,51 @@ func TestJob_OnDoneRunsBeforeDoneIsPublished(t *testing.T) {
 		time.Sleep(time.Millisecond)
 	}
 }
+
+// M8 D-A-27 (FBE-08): 인가를 호출자가 지는 작업 — `submodule update` 가 이 길로
+// 온다. 허용 목록 대신 사유를 요구하고, 기록은 Unguarded 표식과 사유를 든다.
+// 취소·구독·같은 리포 배타는 원격 작업과 같은 기계장치다.
+func TestJobStartUnguarded_RecordsReasonAndSharesMachinery(t *testing.T) {
+	svc := jobSvc()
+	j := NewJobs(svc, WithJobRunner(func(_ context.Context, _ string, args []string, emit func(string, string)) (int, error) {
+		emit(LineStderr, "Cloning into 'vendor/x'...")
+		if args[0] != "submodule" {
+			return 2, nil
+		}
+		return 0, nil
+	}))
+	jb, err := j.StartUnguarded(jobRepo, "submodule", []string{"submodule", "update", "--init", "--", "vendor/x"}, "테스트 사유")
+	if err != nil {
+		t.Fatalf("StartUnguarded: %v", err)
+	}
+	if jb.Kind != "submodule" || jb.Argv[0] != "submodule" {
+		t.Fatalf("job=%+v", jb)
+	}
+	if _, err := j.StartUnguarded(jobRepo, "submodule", []string{"submodule", "update"}, "x"); !errors.Is(err, ErrJobBusy) {
+		t.Fatalf("같은 리포는 배타여야 한다: %v", err)
+	}
+	final := jobWait(t, j, jb.ID, time.Second)
+	if final.ExitCode != 0 || final.Err != "" {
+		t.Fatalf("final=%+v", final)
+	}
+	recs := svc.Records(5)
+	if len(recs) != 1 || !recs[0].Unguarded || recs[0].Reason != "테스트 사유" || recs[0].Argv[0] != "submodule" {
+		t.Fatalf("기록: %+v", recs)
+	}
+}
+
+func TestJobStartUnguarded_RejectsMissingReasonOrArgv(t *testing.T) {
+	j := NewJobs(jobSvc(), WithJobRunner(jobBlockRunner(nil)))
+	if _, err := j.StartUnguarded(jobRepo, "submodule", []string{"submodule", "update"}, ""); err == nil {
+		t.Fatal("사유 없는 인가 우회가 통과했다")
+	}
+	if _, err := j.StartUnguarded(jobRepo, "submodule", nil, "x"); err == nil {
+		t.Fatal("빈 argv 가 통과했다")
+	}
+	if _, err := j.StartUnguarded("repo", "submodule", []string{"submodule"}, "x"); err == nil {
+		t.Fatal("상대 경로가 통과했다")
+	}
+	if _, err := j.StartUnguarded(jobRepo, "fetch", []string{"submodule"}, "x"); err == nil {
+		t.Fatal("kind 와 argv 불일치가 통과했다")
+	}
+}

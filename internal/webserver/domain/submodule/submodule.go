@@ -174,6 +174,10 @@ Update 는 서브모듈을 등록된 커밋으로 옮긴다 (FR-SUB-4).
 `path` 가 비면 저장소의 서브모듈 **전부**가 대상이다.
 */
 func (m *Manager) Update(repo, path string, init, recursive bool) error {
+	return m.runPathOp(repo, path, updateArgs(init, recursive))
+}
+
+func updateArgs(init, recursive bool) []string {
 	args := []string{"submodule", "update"}
 	if init {
 		args = append(args, "--init")
@@ -181,7 +185,24 @@ func (m *Manager) Update(repo, path string, init, recursive bool) error {
 	if recursive {
 		args = append(args, "--recursive")
 	}
-	return m.runPathOp(repo, path, args)
+	return args
+}
+
+// Spec 은 작업 경로에 넘길 실행 명세다 — argv 와 인가 우회의 사유 (M8 D-A-27).
+type Spec struct {
+	Argv   []string
+	Reason string
+}
+
+// UpdateSpec 은 `submodule update` 의 작업 명세다 (FBE-08 작업 경로분). 이 패키지가
+// 인가(checkRepo·checkPath·`--` 규약)를 지고, 실행은 `jobs.StartUnguarded` 가 한다 —
+// 원격에서 clone 하는 조작이라 취소·진행·상한이 fetch 와 같아야 한다.
+func UpdateSpec(repo, path string, init, recursive bool) (Spec, error) {
+	args, err := pathOpArgs(repo, path, updateArgs(init, recursive))
+	if err != nil {
+		return Spec{}, err
+	}
+	return Spec{Argv: args, Reason: UnguardedReason}, nil
 }
 
 // Sync 는 `.gitmodules` 의 URL 을 `.git/config` 로 옮긴다 (FR-SUB-4).
@@ -193,23 +214,33 @@ func (m *Manager) Sync(repo, path string) error {
 // runPathOp 은 경로 가드와 `--` 규약을 한 자리에 둔다. 두 조작이 같은 규칙을
 // 따라야 하고, 그것을 각자 적으면 한쪽만 고쳐진다.
 func (m *Manager) runPathOp(repo, path string, args []string) error {
-	if err := checkRepo(repo); err != nil {
+	args, err := pathOpArgs(repo, path, args)
+	if err != nil {
 		return err
-	}
-	if path != "" {
-		if err := checkPath(path); err != nil {
-			return err
-		}
-		// `--` 뒤에 둔다 — 앞에 두면 `-` 로 시작하는 경로가 플래그로 읽히고,
-		// 그때 대상이 뜻하지 않게 넓어진다. 경로가 없으면 뒤에 올 것이 없으므로
-		// 붙이지 않는다.
-		args = append(args, "--", path)
 	}
 	out, err := m.run(repo, args...)
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrFailed, tail(out, err))
 	}
 	return nil
+}
+
+// pathOpArgs 는 경로 가드를 지나 argv 를 완성한다 — 동기 조작과 작업 경로가 같은
+// 인가를 지난다.
+func pathOpArgs(repo, path string, args []string) ([]string, error) {
+	if err := checkRepo(repo); err != nil {
+		return nil, err
+	}
+	if path != "" {
+		if err := checkPath(path); err != nil {
+			return nil, err
+		}
+		// `--` 뒤에 둔다 — 앞에 두면 `-` 로 시작하는 경로가 플래그로 읽히고,
+		// 그때 대상이 뜻하지 않게 넓어진다. 경로가 없으면 뒤에 올 것이 없으므로
+		// 붙이지 않는다.
+		args = append(args, "--", path)
+	}
+	return args, nil
 }
 
 // checkRepo 는 호출자가 RepoRoot 로 정규화한 절대경로만 받는다. 상대경로는 해석
@@ -254,9 +285,9 @@ func (m *Manager) run(dir string, args ...string) (string, error) {
 	return m.git(dir, args...)
 }
 
-// unguardedReason 은 실행 기록에 남는 사유다 (GIT_EXEC_UNIFY_SRS FR-GXU-1).
+// UnguardedReason 은 실행 기록에 남는 사유다 (GIT_EXEC_UNIFY_SRS FR-GXU-1).
 // Console 이 이 문장으로 "왜 이 실행이 화이트리스트를 지나지 않았는가"를 답한다.
-const unguardedReason = "submodule 도메인 — 화이트리스트가 argv[0] 으로 키잉되어 status 와 update 를 가를 수 없다 (D-9)"
+const UnguardedReason = "submodule 도메인 — 화이트리스트가 argv[0] 으로 키잉되어 status 와 update 를 가를 수 없다 (D-9)"
 
 /*
 ExecGit 는 Service 없이 도는 기본 Runner 다. 기록이 남지 않을 뿐 환경·마감·출력
@@ -293,7 +324,7 @@ func runGit(svc *core.Service, dir string, args ...string) (string, error) {
 	out, err := svc.ExecUnguarded(context.Background(), dir, core.UnguardedSpec{
 		Argv:    args,
 		Timeout: opTimeout,
-		Reason:  unguardedReason,
+		Reason:  UnguardedReason,
 	})
 	if errors.Is(err, core.ErrGitMissing) {
 		return "", fmt.Errorf("%w: git 을 찾을 수 없다: %v", ErrFailed, err)

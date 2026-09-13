@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+	"dongminal/internal/shared/pollwait"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -66,14 +68,12 @@ func fetchHealth(url string, timeout time.Duration) (healthState, bool) {
 // 이미 **단단한 관문**으로 판정했고, 이것은 그 위의 덤이다.
 func waitDaemonConnected(url string, tries int, interval time.Duration) (healthState, bool) {
 	var last healthState
-	for i := 0; i < tries; i++ {
-		if st, ok := fetchHealth(url, healthTimeout); ok {
+	err := pollwait.Until(context.Background(), time.Duration(tries)*interval, interval, func() bool {
+		st, ok := fetchHealth(url, healthTimeout)
+		if ok {
 			last = st
-			if st.DaemonConnected {
-				return st, true
-			}
 		}
-		time.Sleep(interval)
-	}
-	return last, false
+		return ok && st.DaemonConnected
+	})
+	return last, err == nil
 }

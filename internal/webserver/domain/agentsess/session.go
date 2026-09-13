@@ -205,6 +205,8 @@ type Session struct {
 	reason   string
 	pending  string
 	exitWait chan struct{}
+	// dormantAt 은 dormant 가 선 시각(ms)이다 — Reap 의 유예가 이것을 잰다 (D-A-23).
+	dormantAt int64
 	// recordDirty 는 레코드를 다시 써야 한다는 표시다 — emit 이 세우고 flushRecord 가 내린다.
 	// recordKey 는 마지막으로 표시를 세운 근거다.
 	recordDirty atomic.Bool

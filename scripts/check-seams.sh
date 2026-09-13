@@ -29,15 +29,17 @@ os.FindProcess · SysProcAttr · unix 소켓 직접 사용 · /proc 직접 읽�
 lsof/pgrep/ps · creack/pty · 셸 경로 하드코딩 · 종단 파일명 하드코딩.
 
 예외: internal/shared/platform (추상화 그 자체),
-      internal/webserver/domain/sysstat (자체 Reader 인터페이스가 이미 있다).
+      internal/webserver/domain/sysstat (자체 Reader 인터페이스가 이미 있다),
+      internal/shared/testpath (테스트 전용 — OS 마다 다른 검사 전제를 다룬다).
 
 설계는 docs/internal/CROSS_PLATFORM_SRS.md 참조.
 EOF
   exit 0
 fi
 
-# 예외 경로 — 이 아래는 OS 를 알아도 된다.
-EXEMPT='^internal/shared/platform/|^internal/webserver/domain/sysstat/'
+# 예외 경로 — 이 아래는 OS 를 알아도 된다. testpath 는 **테스트 전용**이며 OS 마다
+# 다른 검사 전제(경로·권한·셸)를 build tag 로 다루는 것이 존재 이유다 (M8 D-A-21).
+EXEMPT='^internal/shared/platform/|^internal/webserver/domain/sysstat/|^internal/shared/testpath/'
 
 # 테스트 파일까지 검사하지 않는 패턴들이다. 테스트는 결정론을 위해 특정 셸을
 # 못박는 것이 정당하다 — "$SHELL 이 무엇이든" 을 검증하는 테스트가 아니라

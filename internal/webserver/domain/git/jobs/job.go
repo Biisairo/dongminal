@@ -97,7 +97,7 @@ var rejectPatterns = []string{"non-fast-forward", "! [rejected]", "fetch first",
 type Job struct {
 	ID       string   `json:"id"`
 	Repo     string   `json:"repo"`
-	Kind     string   `json:"kind"` // fetch | pull | push
+	Kind     string   `json:"kind"` // fetch | pull | push | submodule (D-A-27)
 	Argv     []string `json:"argv"`
 	Started  int64    `json:"startedUnixMs"`
 	Done     bool     `json:"done"`
@@ -145,16 +145,19 @@ type Jobs struct {
 // jobState 는 작업 하나의 전부다. raw 를 job 과 나눠 두는 이유가 핵심이다 —
 // 실행에는 원본 argv 가 필요하고, 밖으로 나가는 것은 지운 값이어야 한다.
 type jobState struct {
-	job      Job
-	raw      []string
-	spec     core.WriteSpec
-	cancel   context.CancelFunc
-	canceled bool
-	lines    []Line
-	stderr   []string
-	seq      uint64
-	subs     map[*jobSub]struct{}
-	doneAt   time.Time
+	job  Job
+	raw  []string
+	spec core.WriteSpec
+	// unguarded 는 인가를 호출자가 진 작업의 사유다 (D-A-27). 비어 있지 않으면
+	// 기록이 Unguarded 표식을 든다.
+	unguarded string
+	cancel    context.CancelFunc
+	canceled  bool
+	lines     []Line
+	stderr    []string
+	seq       uint64
+	subs      map[*jobSub]struct{}
+	doneAt    time.Time
 }
 
 type jobSub struct {
@@ -239,6 +242,32 @@ func (j *Jobs) Start(repo string, kind string, spec core.WriteSpec) (*Job, error
 		return nil, fmt.Errorf("%w: kind %q 와 argv %q 가 어긋난다", ErrJobKind, kind, spec.Argv[0])
 	}
 
+	return j.launch(repo, kind, spec, "")
+}
+
+// StartUnguarded 는 **인가를 호출자가 진** 작업이다 (M8 D-A-27, FBE-08) — `submodule
+// update` 가 이 길로 온다. 허용 목록(GuardWriteArgs)을 지나지 않는 대신 사유를
+// 요구하며(ExecUnguarded 와 같은 규약), 기록은 Unguarded 표식과 그 사유를 든다.
+// 배타·취소·상한·스트리밍·자격증명 지움은 Start 와 같은 기계장치다. 호출자는
+// `core` 의 unguardedAllowed 에 든 도메인이어야 한다 — 경로 가드는 그쪽의 것이다.
+func (j *Jobs) StartUnguarded(repo, kind string, argv []string, reason string) (*Job, error) {
+	if strings.TrimSpace(repo) == "" || !filepath.IsAbs(repo) {
+		return nil, fmt.Errorf("%w: cwd 는 절대 경로여야 한다: %q", core.ErrUnsafeArgument, repo)
+	}
+	if strings.TrimSpace(reason) == "" {
+		return nil, fmt.Errorf("%w: Reason 이 비었다 — 인가를 건너뛰는 사유를 적어야 한다", core.ErrUnsafeArgument)
+	}
+	if len(argv) == 0 || strings.TrimSpace(kind) == "" {
+		return nil, fmt.Errorf("%w: 인자가 없다", core.ErrUnsafeArgument)
+	}
+	if argv[0] != kind {
+		return nil, fmt.Errorf("%w: kind %q 와 argv %q 가 어긋난다", ErrJobKind, kind, argv[0])
+	}
+	return j.launch(repo, kind, core.WriteSpec{Argv: argv, Destructive: true}, reason)
+}
+
+// launch 는 검사를 마친 작업을 띄운다 — Start 와 StartUnguarded 의 공통 몸통.
+func (j *Jobs) launch(repo, kind string, spec core.WriteSpec, unguarded string) (*Job, error) {
 	j.mu.Lock()
 	j.sweepLocked()
 	if id, busy := j.active[repo]; busy {
@@ -255,10 +284,11 @@ func (j *Jobs) Start(repo string, kind string, spec core.WriteSpec) (*Job, error
 			Started:  j.now().UnixMilli(),
 			ExitCode: -1,
 		},
-		raw:    append([]string(nil), spec.Argv...),
-		spec:   spec,
-		cancel: cancel,
-		subs:   map[*jobSub]struct{}{},
+		raw:       append([]string(nil), spec.Argv...),
+		spec:      spec,
+		unguarded: unguarded,
+		cancel:    cancel,
+		subs:      map[*jobSub]struct{}{},
 	}
 	j.byID[st.job.ID] = st
 	j.active[repo] = st.job.ID
@@ -471,9 +501,15 @@ func (j *Jobs) finish(st *jobState, exit int, runErr error, dur time.Duration) {
 	if final.Err != "" {
 		recErr = errors.New(final.Err)
 	}
+	out := core.Output{Stderr: tail, ExitCode: exit, DurationMs: dur.Milliseconds()}
+	if st.unguarded != "" {
+		// 인가를 건너뛴 실행은 그 표식과 사유로 남는다 (D-A-27) — Console 이 그것으로
+		// "왜 화이트리스트를 지나지 않았는가" 에 답한다 (FR-GXU-1).
+		j.svc.RecordUnguarded(final.Repo, core.UnguardedSpec{Argv: final.Argv, Reason: st.unguarded}, out, recErr)
+		return
+	}
 	j.svc.RecordWrite(final.Repo,
-		core.WriteSpec{Argv: final.Argv, Destructive: st.spec.Destructive, Stdin: st.spec.Stdin},
-		core.Output{Stderr: tail, ExitCode: exit, DurationMs: dur.Milliseconds()}, recErr)
+		core.WriteSpec{Argv: final.Argv, Destructive: st.spec.Destructive, Stdin: st.spec.Stdin}, out, recErr)
 }
 
 // sweepLocked 는 보존 기간이 지난 작업을 버린다. 진행 중인 것은 건드리지 않는다.

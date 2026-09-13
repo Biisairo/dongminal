@@ -1,4 +1,4 @@
-package httpapi
+package pollwait
 
 import (
 	"context"
@@ -9,9 +9,9 @@ import (
 
 // M8 `GO-12`: 요청 경로의 대기는 ctx 로 끊긴다.
 
-func TestPollUntil_ReturnsImmediatelyWhenConditionHolds(t *testing.T) {
+func TestUntil_ReturnsImmediatelyWhenConditionHolds(t *testing.T) {
 	start := time.Now()
-	if err := pollUntil(context.Background(), time.Second, 100*time.Millisecond, func() bool { return true }); err != nil {
+	if err := Until(context.Background(), time.Second, 100*time.Millisecond, func() bool { return true }); err != nil {
 		t.Fatalf("err=%v", err)
 	}
 	if time.Since(start) > 50*time.Millisecond {
@@ -19,10 +19,10 @@ func TestPollUntil_ReturnsImmediatelyWhenConditionHolds(t *testing.T) {
 	}
 }
 
-func TestPollUntil_TimesOutWithoutSleepingPastMax(t *testing.T) {
+func TestUntil_TimesOutWithoutSleepingPastMax(t *testing.T) {
 	start := time.Now()
-	err := pollUntil(context.Background(), 30*time.Millisecond, time.Second, func() bool { return false })
-	if !errors.Is(err, errWaitTimeout) {
+	err := Until(context.Background(), 30*time.Millisecond, time.Second, func() bool { return false })
+	if !errors.Is(err, ErrTimeout) {
 		t.Fatalf("err=%v want timeout", err)
 	}
 	if time.Since(start) > 500*time.Millisecond {
@@ -30,12 +30,12 @@ func TestPollUntil_TimesOutWithoutSleepingPastMax(t *testing.T) {
 	}
 }
 
-func TestPollUntil_StopsWhenContextIsCancelled(t *testing.T) {
+func TestUntil_StopsWhenContextIsCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	polls := 0
 	done := make(chan error, 1)
 	go func() {
-		done <- pollUntil(ctx, time.Minute, time.Minute, func() bool { polls++; return false })
+		done <- Until(ctx, time.Minute, time.Minute, func() bool { polls++; return false })
 	}()
 	time.Sleep(20 * time.Millisecond)
 	start := time.Now()

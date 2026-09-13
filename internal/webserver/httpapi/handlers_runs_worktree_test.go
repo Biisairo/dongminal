@@ -2,9 +2,9 @@ package httpapi
 
 import (
 	"context"
+	"dongminal/internal/shared/gittest"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -19,43 +19,6 @@ import (
 //
 // 여기 테스트는 전부 **격리된 임시 저장소**를 쓴다. 운영 저장소·사용자 홈을
 // 대상으로 하지 않는다 (§4.3, 함정 1~3).
-
-func gitBin(t *testing.T) string {
-	t.Helper()
-	p, err := exec.LookPath("git")
-	if err != nil {
-		t.Skip("git 이 없다 — 격리 테스트를 건너뛴다")
-	}
-	return p
-}
-
-func gitRun(t *testing.T, dir string, args ...string) string {
-	t.Helper()
-	cmd := exec.Command(gitBin(t), args...)
-	cmd.Dir = dir
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
-	}
-	return strings.TrimSpace(string(out))
-}
-
-func tempGitRepo(t *testing.T) string {
-	t.Helper()
-	dir, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	gitRun(t, dir, "init", "-b", "main")
-	gitRun(t, dir, "config", "user.email", "t@example.com")
-	gitRun(t, dir, "config", "user.name", "tester")
-	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("x\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	gitRun(t, dir, "add", ".")
-	gitRun(t, dir, "commit", "-m", "init")
-	return dir
-}
 
 // isolatedServer wires a Run server with a worktree manager over a temp home.
 func isolatedServer(t *testing.T, caller string) (*Server, string, *worktree.Manager) {
@@ -380,3 +343,10 @@ func TestCleanupWorktrees_RejectsUserAreaSiblingPath(t *testing.T) {
 		t.Fatal("사용자의 브랜치가 사라졌다")
 	}
 }
+
+func gitBin(t *testing.T) string { return gittest.Path(t) }
+
+func gitRun(t *testing.T, dir string, args ...string) string { return gittest.Run(t, dir, args...) }
+
+// tempGitRepo 는 커밋 하나를 가진 임시 저장소다 (`gittest.Repo`, M8 D-A-20).
+func tempGitRepo(t *testing.T) string { return gittest.Repo(t) }

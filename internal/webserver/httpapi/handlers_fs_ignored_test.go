@@ -1,13 +1,12 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/gittest"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -23,20 +22,8 @@ import (
 // 맞지만 **추적 중인** 파일 하나다.
 func ignoreRepo(t *testing.T) string {
 	t.Helper()
-	bin := gitBin(t)
-	dir, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatalf("EvalSymlinks: %v", err)
-	}
-	run := func(args ...string) {
-		t.Helper()
-		cmd := exec.Command(bin, args...)
-		cmd.Dir = dir
-		cmd.Env = append(os.Environ(), "GIT_CONFIG_GLOBAL="+os.DevNull, "GIT_CONFIG_SYSTEM="+os.DevNull)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
-		}
-	}
+	dir := gittest.Init(t)
+	run := func(args ...string) { t.Helper(); gittest.Run(t, dir, args...) }
 	write := func(rel, body string) {
 		t.Helper()
 		p := filepath.Join(dir, rel)
@@ -47,9 +34,6 @@ func ignoreRepo(t *testing.T) string {
 			t.Fatal(err)
 		}
 	}
-	run("init", "-b", "main")
-	run("config", "user.email", "t@example.com")
-	run("config", "user.name", "tester")
 	write(".gitignore", "node_modules/\n*.log\ntracked.log\n")
 	write("node_modules/pkg/a.js", "x\n")
 	write("src/main.js", "x\n")

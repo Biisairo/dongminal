@@ -204,6 +204,11 @@ const GIT_SUB_SYNC_FAIL=t('git.sub_sync_fail');
 const GIT_SUB_UPDATED=t('git.sub_updated');
 const GIT_SUB_SYNCED=t('git.sub_synced');
 const GIT_SUB_ALL=t('git.sub_all');
+// M8 D-A-27: update 는 작업이다 — 도는 동안의 문구와 취소.
+const GIT_SUB_UPDATING=t('git.sub_updating');
+const GIT_SUB_UPDATE_CANCELED=t('git.sub_update_canceled');
+const GIT_SUB_CANCEL_TITLE=t('git.sub_cancel_title');
+const GIT_SUB_CANCEL_NOTE=t('git.sub_cancel_note');
 
 const GIT_WT_CREATE_TITLE=t('git.wt_create_title');
 const GIT_WT_CREATE_RUN='Create';

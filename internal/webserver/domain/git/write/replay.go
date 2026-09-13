@@ -24,6 +24,10 @@ var ErrReplayTarget = errors.New("replay_target_invalid")
 //
 // repo 는 **호출자가 이미 정규화한 루트**이고, 기록의 cwd 와 같아야 한다. 다른
 // 저장소의 기록을 여기로 끌어오면 화면에 보이지 않던 저장소가 바뀐다.
+//
+// 커버리지 주의 (M8 TEST-24): 함수 단위 0% 는 결손이 아니다 — 계약(cwd 불일치 거부
+// ErrReplayTarget·argv 재실행)은 gitapi 의 handlers_git_replay_test.go 다섯 건이 HTTP
+// 종단에서 시험한다. 여기 실제 git 을 돌리는 테스트를 더하지 않는다 (로드맵 §1.6 정정).
 func Replay(s *core.Service, ctx context.Context, repo string, rec core.Record) (core.Output, error) {
 	if len(rec.Argv) == 0 {
 		return denied(), fmt.Errorf("%w: argv 가 비었다", ErrReplayTarget)

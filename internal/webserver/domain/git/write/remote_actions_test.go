@@ -178,46 +178,6 @@ func TestRemoteAdd_ExistingIsRejected(t *testing.T) {
 	}
 }
 
-// ── FR-GIT-270 Sync ──
-
-// V197: **앞이 실패하면 뒤를 돌리지 않는다.** 이 판정은 순수하다 — job 을 그대로
-// 받지 않으므로 단위로 고정된다.
-func TestSyncNext_StopsWhenPullFails(t *testing.T) {
-	cases := []struct {
-		name string
-		step string
-		prev StepOutcome
-		want string
-		run  bool
-	}{
-		{"시작은 pull 이다", "", StepOutcome{}, SyncStepPull, true},
-		{"pull 이 성공하면 push 다", SyncStepPull, StepOutcome{}, SyncStepPush, true},
-		{"pull 이 exit != 0 이면 멈춘다", SyncStepPull, StepOutcome{ExitCode: 1}, "", false},
-		{"pull 이 사유를 남기면 멈춘다", SyncStepPull, StepOutcome{Err: "충돌"}, "", false},
-		{"pull 을 취소하면 멈춘다", SyncStepPull, StepOutcome{Canceled: true}, "", false},
-		{"push 뒤에는 없다", SyncStepPush, StepOutcome{}, "", false},
-		{"모르는 단계", "merge", StepOutcome{}, "", false},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			next, run, reason := SyncNext(c.step, c.prev)
-			if next != c.want || run != c.run {
-				t.Fatalf("SyncNext(%q, %+v) = (%q, %v), want (%q, %v)", c.step, c.prev, next, run, c.want, c.run)
-			}
-			// 멈춘 이유는 말해야 한다 — 조용히 멈추면 사용자는 push 가 돈 줄 안다.
-			if !run && c.step == SyncStepPull && reason == "" {
-				t.Fatal("멈춘 사유가 비었다")
-			}
-		})
-	}
-}
-
-func TestSyncSteps_OrderIsTheContract(t *testing.T) {
-	if fmt.Sprint(SyncSteps) != fmt.Sprint([]string{"pull", "push"}) {
-		t.Fatalf("SyncSteps = %v — 순서가 곧 규약이다 (FR-GIT-270)", SyncSteps)
-	}
-}
-
 // ── FR-GIT-271 Push preview ──
 
 // 대상 remote/branch 를 고쳐 밀 수 있어야 한다. **upstream 을 건드리지 않는 것이

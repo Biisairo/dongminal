@@ -11,6 +11,7 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/runwait"
 	"dongminal/internal/shared/toolhub"
 
 	"net/http"
@@ -28,8 +29,9 @@ const (
 	// readyQuietMS: 훅 상태가 없을 때 준비완료로 볼 출력 정적 구간 (FR-STA-4 3단계).
 	readyQuietMS = 3000
 
-	waitDefaultTimeoutMS = 300_000   // 5분 (FR-STA-2)
-	waitMaxTimeoutMS     = 1_800_000 // 30분 (FR-STA-2)
+	// 기본·최대는 `shared/runwait` — dmctl 이 같은 수를 읽는다 (M8 D-A-24).
+	waitDefaultTimeoutMS = int64(runwait.ActivityWaitDefault / time.Millisecond)
+	waitMaxTimeoutMS     = int64(runwait.ActivityWaitMax / time.Millisecond)
 	waitMinTimeoutMS     = 100
 
 	// 상태 재평가는 메모리 읽기라 촘촘해도 싸다.
@@ -225,7 +227,7 @@ func (s *Server) apiToolStatusWait(w http.ResponseWriter, r *http.Request) {
 		writeToolIOError(w, http.StatusBadRequest, "for 는 ready 또는 done 이어야 한다: "+cond)
 		return
 	}
-	timeoutMS := int64(waitDefaultTimeoutMS)
+	timeoutMS := waitDefaultTimeoutMS
 	if v := r.URL.Query().Get("timeoutMs"); v != "" {
 		parsed, err := strconv.ParseInt(v, 10, 64)
 		if err != nil {

@@ -494,11 +494,13 @@ Object.assign(App.prototype, {
       // (FR-CWD-3 은 남는다).
       // FR-WBR-23: `--cwd` 가 오면 그 경로다. `--workdir` 은 샌드박스 창의
       // 컨테이너 안 자리라 다른 인자이며, 둘이 함께 오면 앞의 것이 이긴다.
+      // M8 D-A-25: 도구 생성의 거부(없는 `--cwd` 400 · 샌드박스 실패)는 화면에
+      // 말한다. echo 는 내지 않는다 — dmctl 은 `timedOut` 으로 exit 1 을 받는다(D-A-2).
       this._mkWindow({name:args.name,keepFocus:!!args.keepFocus,cwdTool:args.cwdTool,
         sandbox:args.sandbox,cwd:args.cwd||args.workdir}).then((c)=>{
         this.render();
         if(args.reqId&&c) this._echoResult(args.reqId,{newWindows:[c.win],newPanes:[c.pane],newTabs:[c.tab]});
-      });
+      }).catch(err=>this._notify(t('core.open_window_fail')+' — '+((err&&err.message)||err)));
       return;
     }
     if(action==='newTab'){
@@ -519,7 +521,7 @@ Object.assign(App.prototype, {
       }
       if(rid) this.addTab(rid,'terminal',opts).then((tab)=>{
         if(args.reqId&&tab) this._echoResult(args.reqId,{newTabs:[tab]});
-      });
+      }).catch(err=>this._notify(t('core.open_tab_fail')+' — '+((err&&err.message)||err)));
       return;
     }
     const isSplit=(action==='splitH'||action==='splitV');

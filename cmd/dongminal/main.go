@@ -9,11 +9,9 @@ import (
 
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"time"
 
@@ -22,7 +20,7 @@ import (
 	"dongminal/internal/helper/runtimebin"
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
-	"dongminal/internal/shared/runtime"
+	"dongminal/internal/shared/pollwait"
 	"dongminal/internal/shared/serverconf"
 	"dongminal/internal/shared/uuid"
 	"dongminal/internal/shared/workspace"
@@ -36,16 +34,7 @@ import (
 	"dongminal/internal/webserver/httpapi"
 	"dongminal/internal/webserver/seam/adapters"
 	"dongminal/internal/webserver/toolclient"
-	"dongminal/web"
 )
-
-func dataPath(dataDir, name string) string {
-	dir := dataDir
-	if dir == "" {
-		dir = "."
-	}
-	return filepath.Join(dir, name)
-}
 
 // dialOrStartDaemon connects to a running dongminald or starts one,
 // returning a ToolClient ready for use. Falls back to nil if the daemon
@@ -114,14 +103,19 @@ func dialOrStartDaemon(home string) *toolclient.ToolClient {
 		return nil
 	}
 
-	// Wait for daemon socket to appear
-	for i := 0; i < daemonReadyTries; i++ {
-		time.Sleep(daemonReadyPoll)
-		pc, err := toolclient.DialPaneClientWithReconnect(endpoint, spawn)
-		if err == nil {
-			dmlog.Infof(nil, "connected to newly started dongminald")
-			return pc
+	// Wait for daemon socket to appear (M8 D-A-15 — 상한은 tries×poll).
+	var pc *toolclient.ToolClient
+	err := pollwait.Until(context.Background(), daemonReadyTries*daemonReadyPoll, daemonReadyPoll, func() bool {
+		c, err := toolclient.DialPaneClientWithReconnect(endpoint, spawn)
+		if err != nil {
+			return false
 		}
+		pc = c
+		return true
+	})
+	if err == nil {
+		dmlog.Infof(nil, "connected to newly started dongminald")
+		return pc
 	}
 	dmlog.Infof(nil, "dongminald did not become ready (falling back to direct mode)")
 	return nil
@@ -303,7 +297,7 @@ func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub) (builtDeps, e
 // the tool adapters.
 func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.CommandHub, attnTracker *hub.AttnTracker) (builtDeps, error) {
 
-	wsMgr, err := workspace.New(toolHub, workspace.FilePersister{Path: dataPath(cfg.DataDir, "workspace.json")})
+	wsMgr, err := workspace.New(toolHub, workspace.FilePersister{Path: filepath.Join(cfg.DataDir, "workspace.json")})
 	if err != nil {
 		return builtDeps{}, err
 	}
@@ -345,13 +339,13 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 	// worktree 격리의 관리자 (묶음 W). 자기 영역은 $DONGMINAL_HOME/worktrees
 	// 아래뿐이고, 정리 대상은 Run 레코드가 정한다 (FR-WKT-9/10). 격리를 쓰지
 	// 않는 Run 은 이 객체를 건드리지 않는다.
-	worktrees := worktree.New(dataPath(cfg.DataDir, "worktrees"), worktree.WithService(gitSvc))
+	worktrees := worktree.New(filepath.Join(cfg.DataDir, "worktrees"), worktree.WithService(gitSvc))
 
 	// Git 창 Worktrees 탭의 사용자 worktree 관리자 (FR-WKT-13) — 위 worktrees 와는
 	// 별개의 Manager 인스턴스이며 root 만 형제(git-worktrees)다. checkPath 가 서로의
 	// root 밖을 거부하므로 이 둘이 갈라진 것만으로 Run 정리가 사용자 worktree 를
 	// 건드리지 않는다는 것이 구조적으로 보장된다 — 그 사실이 I7 안전의 전부다.
-	userWorktrees := worktree.New(dataPath(cfg.DataDir, "git-worktrees"), worktree.WithService(gitSvc))
+	userWorktrees := worktree.New(filepath.Join(cfg.DataDir, "git-worktrees"), worktree.WithService(gitSvc))
 
 	// 상태바 지표 샘플러. 커널을 주기적으로 읽어 스냅샷을 유지하므로 /api/stats 가
 	// 요청 경로에서 커널을 호출하지 않는다 (SYSTEM_STATS_SRS FR-STAT-8/9/11).
@@ -368,7 +362,7 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 	// 무엇이 있는지는 **플러그인 선언**이 정한다 (FR-EXT-1). 여기서 하는 일은
 	// 동봉 선언을 한 번 펴 두는 것뿐이며(FR-EXT-34), 서버도 런타임도 받지 않는다 —
 	// 그것은 사용자가 눌러야 일어난다 (FR-EXT-16).
-	extSvc := ext.NewService(dataPath(cfg.DataDir, "ext"))
+	extSvc := ext.NewService(filepath.Join(cfg.DataDir, "ext"))
 	for _, err := range extSvc.Deploy() {
 		dmlog.Warnf(nil, "플러그인 선언을 펴지 못했습니다: %v", err)
 	}
@@ -464,226 +458,4 @@ func resolveHome() (string, error) {
 	}
 	os.Setenv(dmenv.EnvHome, home)
 	return home, nil
-}
-
-// serve는 웹 서버를 이 프로세스로 실행한다 (FR-FG-1). `dongminal start
-// --foreground` 의 실체이며, 배경 모드는 자기 자신을 이 형태로 재실행한다.
-func serve(home, host, port string) int {
-	os.Setenv(dmenv.EnvHome, home)
-	// helper multi-call(dmctl/edit/…)이 서버 주소를 찾는 값이다.
-	os.Setenv(dmenv.EnvPort, port)
-	os.Setenv(dmenv.EnvHost, host)
-
-	// CONFIG_MANAGEMENT_SRS FR-CFG-13: 홈이 정해졌으므로 이제 파일 계층까지
-	// 읽어 로그 수준을 다시 세운다. `main` 의 첫 Init 은 환경변수까지만 봤다.
-	conf := serverconf.Resolve(serverconf.Inputs{Home: home})
-	for _, w := range conf.Warnings {
-		dmlog.Warnf(nil, "%s", w)
-	}
-	dmlog.Init(dmlog.Options{Level: conf.LogLevel.Value})
-
-	if err := runtime.Install(filepath.Join(home, "bin")); err != nil {
-		dmlog.Infof(nil, "runtime install: %v", err)
-		return 1
-	}
-
-	// FR-VHL-10: 서버의 빌드 판을 헬스가 쓴다. 데몬은 `boot.Run(home, cli.Version)`
-	// 으로 같은 값을 받는다 — 둘이 같은 출처를 봐야 불일치 판정이 뜻을 갖는다.
-	cfg := httpapi.Config{Port: port, DataDir: home, StaticFS: web.FS(), Version: cli.Version}
-
-	// Try daemon mode: connect to dongminald if available
-	panedClient := dialOrStartDaemon(home)
-
-	var bd builtDeps
-	var err error
-	var attnTracker *hub.AttnTracker
-	if panedClient != nil {
-		// Daemon mode: ToolClient implements ToolHub
-		bd, err = buildDepsWithHub(cfg, panedClient)
-		attnTracker = bd.attnTracker
-		// Wire tool output → attention/activity detection (once per chunk in the
-		// readLoop goroutine), and tool exit → activity cleanup.
-		if attnTracker != nil {
-			// M8_UNIFIED_SRS D-C-2: 에이전트 도구의 바이트는 해석층이 먼저 받고, 그
-			// 도구는 터미널 경로(L1 OSC·L2 무장)를 지나지 않는다 (FR-AAL-5). 서버는
-			// 아래에서 만들어지므로 늦게 묶인 포인터로 부른다.
-			var srvRef *httpapi.Server
-			panedClient.SetOnOutput(func(toolID string, kind toolhub.ToolKind, data []byte, end int64) {
-				if srvRef != nil && srvRef.AgentOutput(toolID, kind, data, end) {
-					return
-				}
-				attnTracker.FeedOutput(toolID, data)
-			})
-			bd.bindServer = func(srv *httpapi.Server) { srvRef = srv }
-			// FR-ATL-3: 활동만 내리고 주의를 남기면 죽은 도구의 알람이 배지에
-			// 남는다. 두 레이어를 같은 콜백에서 함께 정리한다 — Forget 이
-			// 주의 해제(에지)와 상태 폐기를 한 번에 한다.
-			panedClient.SetOnExit(func(toolID string, info toolhub.ExitInfo) {
-				if srvRef != nil {
-					srvRef.AgentExit(toolID, info)
-				}
-				attnTracker.SetActivity(toolID, "ended", "", "")
-				attnTracker.Forget(toolID)
-				// UX_BATCH6_SRS FR-BGP-1·2: 백그라운드 목록은 살아 있는
-				// 프로세스의 목록이다. 데몬 모드에서 그 죽음을 웹서버가 아는
-				// 자리는 여기 하나다 — direct 모드의 짝은 `hub.WireBackground`.
-				//
-				// **백그라운드였는지 가리지 않는다.** 그 사실을 아는 것은 데몬의
-				// 레지스트리이고, 여기 닿을 때는 이미 지워진 뒤다. 방송이 나르는
-				// 것은 "다시 물어라" 한 줄이므로(BackgroundChangedPayload), 탭에
-				// 붙은 도구가 죽었을 때 한 번 더 묻는 값은 목록 조회 한 번이다 —
-				// 가리려고 데몬에 왕복을 더하는 것보다 싸다.
-				bd.deps.Commands.Broadcast(hub.BackgroundChangedPayload())
-			})
-			// FR-TAN-7: PTY 를 dongminald 가 들고 있으므로 전경 이름은 IPC push
-			// 로 온다. direct 모드의 WireForeground 와 같은 Broadcast 에 잇는다.
-			panedClient.SetOnForeground(hub.BroadcastForeground(bd.deps.Commands))
-		}
-	} else {
-		// Direct mode: ToolManager directly (backward compatible)
-		bd, err = buildDeps(cfg)
-	}
-	if err != nil {
-		// 스키마 미달은 사용자가 조치할 수 있는 상태다 — 스택 대신 안내를 낸다.
-		if errors.Is(err, workspace.ErrSchemaTooOld) {
-			dmlog.Infof(nil, "workspace.json 이 구 스키마입니다.")
-			dmlog.Infof(nil, "  1) 서버와 데몬을 완전히 정지: dongminal stop --all")
-			dmlog.Infof(nil, "  2) 변환 내용 확인:            dongminal migrate --dry-run")
-			dmlog.Infof(nil, "  3) 변환 실행:                 dongminal migrate")
-			return 1
-		}
-		dmlog.Infof(nil, "buildDeps: %v", err)
-		return 1
-	}
-	dmlog.Infof(nil, "workspace manager ready rev=%d bytes=%d", bd.wsMgr.CurrentRev(), len(bd.wsMgr.Raw()))
-
-	srv, err := httpapi.New(cfg, bd.deps)
-	if err != nil {
-		dmlog.Infof(nil, "server init: %v", err)
-		return 1
-	}
-	// M8_UNIFIED_SRS D-C-2: 에이전트 도구의 해석층 배선. 직접 모드는 ToolManager 의
-	// 출력 관측자·종료 관측자, 데몬 모드는 위 push 콜백의 늦은 포인터다. 그 뒤
-	// 레코드(agents.json)로 세션을 되살린다 — 살아 있는 도구(데몬이 든 것)는 채택,
-	// 없는 것은 오류 상태 (D-C-14).
-	if bd.bindServer != nil {
-		bd.bindServer(srv)
-	}
-	if bd.pm != nil {
-		bd.pm.SetOutputObserver(func(id string, kind toolhub.ToolKind, data []byte, end int64) {
-			srv.AgentOutput(id, kind, data, end)
-		})
-		bd.pm.SetExitObserver(srv.AgentExit)
-	}
-	srv.AgentRestore()
-
-	ctx, stop := signal.NotifyContext(context.Background(), platform.Current().Process.ShutdownSignals()...)
-	defer stop()
-
-	// Close daemon connection IMMEDIATELY on signal, before HTTP server shutdown.
-	// This lets dongminald accept the new dongminal's connection right away.
-	if panedClient != nil {
-		go func() {
-			<-ctx.Done()
-			panedClient.Close()
-		}()
-	}
-
-	// 스위퍼의 틱은 여기서 만든다 — 스위퍼는 틱을 받을 뿐 시계를 갖지 않는다
-	// (TEST-8). 티커는 ctx 와 함께 멈춘다.
-	if bd.pm != nil {
-		tk := time.NewTicker(toolhub.AttentionSweepInterval)
-		context.AfterFunc(ctx, tk.Stop)
-		bd.pm.StartAttentionSweeper(ctx.Done(), tk.C)
-	}
-	if bd.attnTracker != nil {
-		tk := time.NewTicker(hub.SweeperInterval)
-		context.AfterFunc(ctx, tk.Stop)
-		bd.attnTracker.StartSweeper(ctx.Done(), tk.C)
-	}
-	if bd.sampler != nil {
-		bd.sampler.Start(ctx.Done())
-	}
-	// FR-TAN-8: 전경 조회를 돌리는 주체. 두 모드가 이 하나를 쓴다 — List() 가
-	// direct 에서는 ForegroundNames() 를 직접 부르고, 데몬에서는 list RPC 가
-	// 되어 dongminald 안에서 같은 일을 시킨다.
-	hub.StartForegroundPoll(bd.deps.Tools, ctx.Done())
-	// GIT_PUSH_OBSERVE_SRS FR-GPO-1·13: 저장소 signature 를 확인해 바뀌었을 때만
-	// 알린다. 브라우저가 500ms 마다 묻던 것을 서버가 대신 본다 — 그 확인은 git 을
-	// 실행하지 않고 read 1회 + stat 2회다.
-	srv.StartGitWatch(ctx.Done())
-	// UX_REVISION_SRS FR-DEL-14/18: 끝난 Run 과 조정자를 잃은 Run 을 거둔다.
-	// 부팅 직후 한 번 돌므로 epoch 펜싱이 aborted 로 표시한 Run 도 여기서 사라진다.
-	srv.StartRunReaper(ctx.Done())
-	// ACCESS_ALLOWLIST_SRS FR-ACL-5a·15: 허용 목록의 호스트명 해석과 이 머신의
-	// 인터페이스 주소를 주기적으로 갱신한다. 요청 경로는 그 결과만 읽는다 —
-	// 게이트 판정에 DNS 왕복이 붙으면 모든 요청이 그만큼 느려진다.
-	srv.StartAccessRefresh(ctx.Done())
-	// RECONNECT_STORM_SRS FR-LOG-1: 서버가 자기 로그의 크기를 스스로 지킨다.
-	// 폭주가 4.17 GB 를 만든 뒤에도 상한이 없다는 사실은 그대로였다.
-	go cli.WatchLogSize(ctx.Done())
-	// TLS-2: 판정은 `dmenv` 한 벌이다. 종전에는 여기서도 `0.0.0.0`/`::` 만
-	// 보아 `DONGMINAL_HOST=192.168.1.5` 기동이 `local-only` 로 남았다.
-	exposure := dmenv.ExposureLabel(host)
-	if exposure == "exposed" {
-		exposure = "exposed to LAN"
-	}
-	// 플랫폼을 남긴다. 크로스플랫폼 문제 보고에서 가장 먼저 필요한 값이고,
-	// WSL 은 리눅스와 빌드가 같아 로그 없이는 구별되지 않는다 (FR-XWS-1).
-	dmlog.Infof(nil, "dongminal starting on http://%s:%s (%s, platform=%s)",
-		host, port, exposure, platform.Current().OS)
-
-	// OBSERVABILITY_SRS FR-OBS-15·16 (M5 `G2-6`): 마지막 종료가 정상이었는가.
-	//
-	// 워크스페이스 손상과 강제 종료는 **증상이 같고 조치가 다르다** — "창이
-	// 사라졌다" 는 신고에서 이 한 줄이 둘을 가른다. 판정을 먼저 하고 그 뒤에
-	// 덮는다: 읽기가 판정만 하므로 순서가 곧 계약이다.
-	if le := platform.ReadLastExit(home); le.Crashed {
-		dmlog.Warn(nil, "지난 종료가 정상 경로를 지나지 않았습니다 (강제 종료·크래시·전원 차단)",
-			"marker", platform.LastExitFile)
-	} else if le.First {
-		dmlog.Debug(nil, "종료 마커가 없습니다 — 첫 기동이거나 지워졌습니다")
-	}
-	platform.MarkRunning(home)
-
-	// FR-LSP-17: 쓰이지 않는 언어 서버를 주기적으로 정지시킨다. 서버 수명과 함께
-	// 시작하고 끝난다 — 진단 스냅샷(runDiagSnapshots)과 같은 규약이다.
-	if bd.lspSvc != nil {
-		go bd.lspSvc.RunSweeper(ctx)
-	}
-
-	runErr := srv.Run(ctx, host+":"+port)
-
-	dmlog.Infof(nil, "shutting down")
-	// OBSERVABILITY_SRS FR-OBS-15: 여기를 지났으면 정상 종료다. 다음 기동이
-	// 이 한 글자로 "강제로 죽었는가" 에 답한다.
-	platform.MarkCleanExit(home)
-	// Close daemon connection FIRST so dongminald can accept new connections.
-	if panedClient != nil {
-		panedClient.Close()
-	}
-	if bd.pm != nil {
-		// 문을 닫고 인플라이트 저장을 거둔 뒤에 마지막 상태를 쓴다 (boot.go 와 같다).
-		bd.pm.StopSaving()
-		bd.pm.SaveAll()
-	}
-	// 샌드박스 컨테이너는 **정지**한다. 지우지 않는 것은 창이 workspace 에 그대로
-	// 남아 있기 때문이다 — 다음 기동에서 그 창을 열면 하던 자리로 돌아간다
-	// (FR-SBX-44).
-	if bd.deps.Sandbox != nil {
-		bd.deps.Sandbox.Shutdown()
-	}
-	// 언어 서버는 **정지**한다 (FR-LSP-18). 컨테이너와 달리 남겨 둘 상태가 없다 —
-	// 다음 기동의 첫 요청이 다시 세운다. 정지하지 않으면 큰 저장소에서 수백 MB 를
-	// 쓰는 프로세스가 서버보다 오래 산다.
-	if bd.lspSvc != nil {
-		bd.lspSvc.Shutdown()
-	}
-	_ = bd.wsMgr.Close()
-	if runErr != nil {
-		dmlog.Infof(nil, "server fatal: %v", runErr)
-		return 1
-	}
-	dmlog.Infof(nil, "server stopped")
-	return 0
 }

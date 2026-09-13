@@ -95,6 +95,7 @@ internal/
     toolhub/             #   ②③  — ToolManager·PTY·브라우저 WS·주의 알림 탐지(OSC/idle)
                          #     conn(SafeConn) · tool(PTY 하나의 수명) · manager(레지스트리)
                          #     persist(tools.json) · manager_hub(ToolHub 구현) — 타입이 곧 파일
+                         #     tool_{attention,clients,control,cwd,env,exitinfo} — Tool 의 관심사별 (M8 D-A-10)
     toolipc/             #   ②③  — paned 와이어 포맷만 (25줄)
     outbuf/              #   ②③  — PTY 출력 바운디드 버퍼 (Stream)
     runtime/             #   ②③  — helper symlink 설치 + 셸 훅 embed + agent-hooks 생성
@@ -104,7 +105,8 @@ internal/
       fakeagent/         #     테스트 픽스처 — 프로토콜 표면을 말하는 가짜 에이전트 (M8 V-12)
         cmd/             #       그 바이너리 — e2e 가 DONGMINAL_AGENT_BIN_DIR 에 놓는다. 제품에 들지 않는다
     runfile/             #   ②③  — runs.json 읽기만 (헤드리스 도구 id). 스키마의 주인은 domain/run
-    runwait/             #   ①③  — Run 종단이 요청을 붙잡는 상한 (서버와 dmctl 이 같은 수를 읽는다, M8 D-A-1)
+    runwait/             #   ①③  — Run 종단이 요청을 붙잡는 상한 (서버와 dmctl 이 같은 수를 읽는다, M8 D-A-1·24)
+    pollwait/            #   ①③④ — "조건이 설 때까지 묻는" 대기 한 벌 (요청 경로·데몬 소켓·start/stop, M8 D-A-15)
     sandbox/             #   ②③  — Window 하나의 컨테이너 생명주기 + 그 안의 실행 명세
     sandboxplace/        #   ②③  — 샌드박스 프로파일 → 실행 명세 배선 (toolhub 와 sandbox 를 잇는다)
     diagtail/            #   ②③  — 실행 진단 문자열의 절단 규칙 하나 (상한은 표면마다)
@@ -114,7 +116,8 @@ internal/
     platform/            #   ①②③④ — OS 마다 갈리는 능력을 인터페이스 뒤로 (경로·프로세스·셸·소켓)
     dmenv/               #   ①②③④ — 환경변수 이름·기본 엔드포인트·헬퍼 이름 (의존 0)
     dmlog/               #   ①②③④ — 로그가 지나는 한 자리 (수준·요청 ID)
-    testpath/            #   테스트 전용 — OS 마다 다른 경로 전제를 분기 없이 다룬다
+    testpath/            #   테스트 전용 — OS 마다 다른 경로 전제를 분기 없이 다룬다 (+ 셸 고정 PinShell, M8 D-A-21)
+    gittest/             #   테스트 전용 — git 저장소 픽스처 한 벌 (M8 D-A-20). 제품 코드는 import 하지 않는다
 web/                     # 프론트엔드 자산 + embed.FS()
   style{,-git,-git-views,-editor}.css   # 넷의 <link> 순서 = 원본 선언 순서 (캐스케이드)
   js/core/               #   App 클래스 (app.js + 주제별 app-*.js 17) + helpers·main

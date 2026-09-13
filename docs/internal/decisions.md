@@ -438,6 +438,24 @@
 | `D-A-7` | — 없는 `--cwd` 는 400 이다.** (P6, FBE-16) 검사 자리는 `apiToolsCreate`(HTTP 종단) —… |  | 채택 |
 | `D-A-8` | — 붙여넣기 본문의 종료 마커와 엔벨로프 구분자는 서버가 치환한다.** (P6, FBE-18) |  | 채택 |
 | `D-A-9` | — 격리 기동은 두 경로가 같은 안내를 내고 같은 도구 홈을 심는다.** (P6, FBE-09·10) |  | 채택 |
+| `D-A-10` | — 분리는 이동이다.** (P7, GO-14·15·18·20·21) 500줄 초과 파일의 축소는 **심볼을 옮기기만… |  | 채택 |
+| `D-A-11` | — `doctor` 는 표다.** (P7, GO-20) 진단 항목은 `[]doctorCheck{name, run}` 으로 `RunDoctor` 가… |  | 채택 |
+| `D-A-12` | — `serve` 는 `Build → Run → Shutdown` 이다.** (P7, GO-16) `cmd/dongminal/app.go` 의… |  | 채택 |
+| `D-A-13` | — Run 표식의 트리 조작은 `shared/workspace` 의 것이다.** (P7, GO-17) `applyRunMarks`·… |  | 채택 |
+| `D-A-14` | — `..` 는 조각으로 판정한다.** (P7, GO-18) `worktree.checkPath` 의 `strings.Contains(p, "..")`… |  | 채택 |
+| `D-A-15` | — 대기 폴링은 `shared/pollwait` 한 벌이다.** (P7, GO-27) `httpapi.pollUntil` 을… |  | 채택 |
+| `D-A-16` | — JSON-RPC 코드와 파라미터 해석은 한 벌이다.** (P7, GO-22 · P6 발견) `toolipc` 에… |  | 채택 |
+| `D-A-17` | — 기본 터미널 크기는 `toolhub.DefaultCols/DefaultRows` 다.** (P7, GO-28) `ParseSize`·… |  | 채택 |
+| `D-A-18` | — `dataPath` 는 지운다.** (P7, GO-24) `main.go` 의 사본은 `filepath.Join(home, …)` 로 —… |  | 채택 |
+| `D-A-19` | — 죽은 Sync 상태기계는 지운다.** (P7, `09` FR-GCC-3·4) `write.SyncStep*`·`SyncSteps`·… |  | 채택 |
+| `D-A-20` | — Go 테스트의 저장소 픽스처는 `shared/gittest` 한 벌이다.** (P7, TEST-23) `gittest.Path(t)`… |  | 채택 |
+| `D-A-21` | — 테스트가 띄우는 셸은 고정한다.** (P7, TEST-25) 셸을 띄우는 패키지의 `TestMain` 이… |  | 채택 |
+| `D-A-22` | — 테스트 훅의 교체는 restore 를 돌려주는 헬퍼 한 형식이다.** (P7, TEST-26 · GO-42 결정) |  | 채택 |
+| `D-A-23` | — 오류 세션의 런타임 회수는 부팅 규칙의 반복이다.** (P7, P5 유산) `agentsess.Manager.Reap… |  | 채택 |
+| `D-A-24` | — `wait` 의 기본 상한도 `runwait` 다.** (P7, P6 유산 — D-A-1 의 연장) `runwait.ActivityWait… |  | 채택 |
+| `D-A-25` | — 창·탭 생성 실패는 화면에 말한다.** (P7, P6 유산) 원격 명령 `newWindow`·`newTab` 과… |  | 채택 |
+| `D-A-26` | — 남기는 것과 그 사유.** (P7) ① GO-44 `Git *store.Store`: gitapi 가 `Service()` 를 72곳에서… |  | 채택 |
+| `D-A-27` | — `submodule update` 는 작업이다.** (P7, FBE-08 작업 경로분) `jobs.Jobs.StartUnguarded(repo,… |  | 채택 |
 | `D-B-1` | — 로케일 전환은 페이지를 다시 연다.** 문구 상수 1,100여 개가 `const X=t('…')` 로… |  | 채택 |
 | `D-B-2` | — 게이트가 한글만 본다.** 영어 리터럴을 잡을 기계적 기준이 없다(식별자·CSS 클래스·… |  | 채택 |
 | `D-B-3` | — 서버 본문은 동결, 문장의 소유는 프론트.** D-ERR-2 를 지킨다. 동결 목록이 게이트에… |  | 채택 |
@@ -839,4 +857,4 @@
 
 ---
 
-결정 **491건** · 문서 **65개**.
+결정 **509건** · 문서 **65개**.

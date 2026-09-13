@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+	"dongminal/internal/shared/pollwait"
 	"fmt"
 	"io"
 	"os"
@@ -367,13 +369,9 @@ func ServerURL(host, port string) string {
 const daemonReadyTries = 10
 
 func waitReady(url string, tries int, interval time.Duration) bool {
-	for i := 0; i < tries; i++ {
-		if ping(url+"/api/ping", time.Second) {
-			return true
-		}
-		time.Sleep(interval)
-	}
-	return false
+	// tries×interval 이 상한이다 (M8 D-A-15) — 세는 것은 횟수가 아니라 시간이다.
+	return pollwait.Until(context.Background(), time.Duration(tries)*interval, interval,
+		func() bool { return ping(url+"/api/ping", time.Second) }) == nil
 }
 
 // pingHost는 0.0.0.0/:: 로 바인드했을 때 실제로 두드릴 주소다.

@@ -103,19 +103,31 @@ POST /api/git/submodules/update — 서브모듈을 등록된 커밋으로 옮�
 **파괴적이다** (FR-SUB-5). 서브모듈 안의 체크아웃이 바뀌며 커밋되지 않은 변경이
 있으면 git 이 거부하거나 덮는다 — 그래서 `confirm` 을 요구한다. discard·clean 과
 같은 규약이다.
+
+**작업이다** (M8 D-A-27, FBE-08). `update --init` 은 원격에서 clone 하므로 fetch 와
+같은 성질 — 분 단위·진행 출력·취소. 응답은 `{requested, repo, job}` 이고 진행은
+`GET /api/git/job/events`, 취소는 `POST /api/git/job/cancel` 이다. 인가(경로 가드·
+`--` 규약)는 submodule 도메인이 `UpdateSpec` 으로 지고, 실행은 작업 허브가 한다.
+완료 훅이 부모의 관측 캐시를 버린다 (체크아웃이 옮겨지면 status 가 달라진다).
+
+	이전 동작: 요청 고루틴에서 동기 실행 — 진행 없음·취소 없음·180초 매달림, 응답 `{ok}`
+	새  동작: 작업 경로 — 응답 `{job}`
+	이유:     `job.go` 의 규정("원격 작업은 분 단위이고 취소할 수 있어야 한다")
 */
 func (s *GitServer) apiGitSubmoduleUpdate(w http.ResponseWriter, r *http.Request) {
 	var req gitSubmoduleReq
 	t := s.beginServiceWrite(w, r, &req, s.Submodules != nil, gitSubmodulesUnavailable)
 	t.requireConfirm(true, req.Confirm, gitSubmoduleConfirmReason)
 	t.resolve(req.Repo)
-	t.exec(func(root string) error {
-		return s.Submodules.Update(root, req.Path, req.Init, req.Recursive)
-	}, gitSubmoduleError)
-	// 체크아웃이 옮겨지면 부모의 status 도 달라진다 — 관측 캐시를 버리지 않으면
-	// 화면이 한 주기 동안 옛 상태를 보인다.
-	t.invalidate()
-	t.okPlain(nil)
+	if t.stop() {
+		return
+	}
+	spec, err := submodule.UpdateSpec(t.root, req.Path, req.Init, req.Recursive)
+	if err != nil {
+		gitSubmoduleError(w, err)
+		return
+	}
+	s.gitStartUnguardedJob(w, req.Repo, t.root, "submodule", spec.Argv, spec.Reason)
 }
 
 // POST /api/git/submodules/sync — `.gitmodules` 의 URL 을 `.git/config` 로 옮긴다.

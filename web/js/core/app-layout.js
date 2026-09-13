@@ -931,7 +931,7 @@ Object.assign(App.prototype, {
     }
     return this.slotNavigate(dir);
   },
-  addTabFocused(){if(this.focused)this.addTab(this.focused,'terminal')},
+  addTabFocused(){if(this.focused)this.addTab(this.focused,'terminal').catch(err=>this._notify(t('core.open_tab_fail')+' — '+((err&&err.message)||err)))},
   closeTabFocused(){
     const s=this.aw();if(!s||!this.focused)return;
     const pn=findPane(s.layout,this.focused);if(!pn)return;

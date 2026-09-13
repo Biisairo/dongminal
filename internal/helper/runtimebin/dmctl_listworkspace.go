@@ -13,45 +13,57 @@ import (
 // dmctlListWorkspace implements `dmctl list-workspace`. /api/state 호출 후 workspace
 // 트리를 순회해 toolline.Line 으로 렌더링한다 — MCP `list_workspace` 와 byte-level
 // 동일 포맷 (DMCTL_WHO_AM_I_SRS FR-DMC-LP-1).
-func dmctlListWorkspace(args []string, stdout, stderr io.Writer) int {
-	jsonOut := false
-	windowFilter, tabFilter := "", ""
+// listWorkspaceFlags 는 list-workspace 의 인자다.
+type listWorkspaceFlags struct {
+	jsonOut      bool
+	windowFilter string
+	tabFilter    string
+}
+
+// parseListWorkspaceFlags 는 인자를 읽는다. 두 번째 반환값이 참이면 이미 답했다
+// (헬프 또는 오류) — 그 종료 코드가 첫 번째 값이다.
+func parseListWorkspaceFlags(args []string, stdout, stderr io.Writer) (listWorkspaceFlags, int, bool) {
+	var f listWorkspaceFlags
 	i := 0
 	for i < len(args) {
 		a := args[i]
 		switch {
 		case a == "-h" || a == "--help":
 			fmt.Fprint(stdout, dmctlListWorkspaceHelp)
-			return 0
+			return f, 0, true
 		case a == "--json":
-			jsonOut = true
+			f.jsonOut = true
 		case a == "--window" || a == "--tab":
 			if i+1 >= len(args) {
 				fmt.Fprintf(stderr, "list-workspace: flag %s requires value\n", a)
-				return 2
+				return f, 2, true
 			}
 			if a == "--window" {
-				windowFilter = args[i+1]
+				f.windowFilter = args[i+1]
 			} else {
-				tabFilter = args[i+1]
+				f.tabFilter = args[i+1]
 			}
 			i += 2
 			continue
 		default:
 			fmt.Fprintf(stderr, "list-workspace: unknown argument: %s\n", a)
-			return 2
+			return f, 2, true
 		}
 		i++
 	}
+	return f, 0, false
+}
 
+// fetchListWorkspaceRows 는 `/api/state` 를 읽어 행으로 만든다.
+func fetchListWorkspaceRows(stderr io.Writer) ([]listWorkspaceRow, int) {
 	status, body, err := httpGet(baseURL() + "/api/state")
 	if err != nil {
 		fmt.Fprintf(stderr, "dmctl: %v\n", err)
-		return 1
+		return nil, 1
 	}
 	if status < 200 || status >= 300 {
 		fmt.Fprintf(stderr, "dmctl: /api/state returned status %d: %s\n", status, body)
-		return 1
+		return nil, 1
 	}
 
 	var state struct {
@@ -60,7 +72,7 @@ func dmctlListWorkspace(args []string, stdout, stderr io.Writer) int {
 	}
 	if err := json.Unmarshal(body, &state); err != nil {
 		fmt.Fprintf(stderr, "dmctl: invalid /api/state response: %v\n", err)
-		return 1
+		return nil, 1
 	}
 
 	shellPids := make(map[string]int, len(state.Tools))
@@ -77,20 +89,31 @@ func dmctlListWorkspace(args []string, stdout, stderr io.Writer) int {
 	// FR-TAN-18: `tab="..."` 는 **화면에 보이는 이름**이다. 설정을 함께 읽는
 	// 이유가 그것이다 — 사용자가 파생을 껐으면 에이전트도 껐을 때의 이름을
 	// 봐야 한다.
-	rows := buildListWorkspaceRows(state.Workspace, shellPids, sizes, fg, onceBool(fgTabNamesEnabled))
+	return buildListWorkspaceRows(state.Workspace, shellPids, sizes, fg, onceBool(fgTabNamesEnabled)), 0
+}
+
+func dmctlListWorkspace(args []string, stdout, stderr io.Writer) int {
+	f, code, done := parseListWorkspaceFlags(args, stdout, stderr)
+	if done {
+		return code
+	}
+	rows, code := fetchListWorkspaceRows(stderr)
+	if code != 0 {
+		return code
+	}
 
 	// LIST_PANES_NAME_FILTER_SRS FR-LPF-1/2: 이름 필터 (부분 일치, 대소문자 무시, AND).
-	filtered := windowFilter != "" || tabFilter != ""
+	filtered := f.windowFilter != "" || f.tabFilter != ""
 	if filtered {
 		var keep []listWorkspaceRow
 		for _, r := range rows {
-			if MatchFold(r.Window, windowFilter) && MatchFold(r.Tab, tabFilter) {
+			if MatchFold(r.Window, f.windowFilter) && MatchFold(r.Tab, f.tabFilter) {
 				keep = append(keep, r)
 			}
 		}
 		rows = keep
 		if len(rows) == 0 {
-			if jsonOut {
+			if f.jsonOut {
 				stdout.Write([]byte("[]\n"))
 			} else {
 				fmt.Fprintln(stderr, "(no match)")
@@ -99,13 +122,12 @@ func dmctlListWorkspace(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 
-	if jsonOut {
-		enc := json.NewEncoder(stdout)
+	if f.jsonOut {
 		if len(rows) == 0 {
 			stdout.Write([]byte("[]\n"))
 			return 0
 		}
-		_ = enc.Encode(rows)
+		_ = json.NewEncoder(stdout).Encode(rows)
 		return 0
 	}
 
@@ -114,23 +136,27 @@ func dmctlListWorkspace(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 	for _, r := range rows {
-		line := toolline.Line{
-			FocusMarker: r.Focused,
-			Label:       r.Label,
-			UUID:        r.UUID,
-			Short:       r.Short,
-			ToolID:      r.ToolID,
-			ShellPID:    r.ShellPID,
-			SizeCols:    r.SizeCols,
-			SizeRows:    r.SizeRows,
-			Window:      r.Window,
-			Tab:         r.Tab,
-			WindowUUID:  r.WindowUUID,
-			PaneUUID:    r.PaneUUID,
-		}
-		fmt.Fprintln(stdout, line.Render())
+		fmt.Fprintln(stdout, listWorkspaceLine(r).Render())
 	}
 	return 0
+}
+
+// listWorkspaceLine 은 행 하나를 사람용 한 줄로 옮긴다 (toolline 의 형식).
+func listWorkspaceLine(r listWorkspaceRow) toolline.Line {
+	return toolline.Line{
+		FocusMarker: r.Focused,
+		Label:       r.Label,
+		UUID:        r.UUID,
+		Short:       r.Short,
+		ToolID:      r.ToolID,
+		ShellPID:    r.ShellPID,
+		SizeCols:    r.SizeCols,
+		SizeRows:    r.SizeRows,
+		Window:      r.Window,
+		Tab:         r.Tab,
+		WindowUUID:  r.WindowUUID,
+		PaneUUID:    r.PaneUUID,
+	}
 }
 
 const dmctlListWorkspaceHelp = `dmctl list-workspace — 열린 도구 목록 조회
