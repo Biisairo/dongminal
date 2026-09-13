@@ -46,6 +46,32 @@ const (
 // 조정자를 영구히 멈추게 한다.
 const opTimeout = 180 * time.Second
 
+// removeRetryTries·removeRetryGap·removeRetryBudget 은 `git worktree remove` 의
+// 되풀이 규칙이다 (FR-WKT-18). 예산은 되풀이 전체의 상한이지 git 한 번의 상한이
+// 아니다 — 그쪽은 opTimeout 이다.
+const (
+	removeRetryTries  = 6
+	removeRetryGap    = 250 * time.Millisecond
+	removeRetryBudget = 3 * time.Second
+)
+
+// Service 는 소비자 — httpapi 의 Run 격리와 gitapi 의 Worktrees 탭 — 가 이
+// 관리자에 요구하는 표면이다 (M8 `GO-44`). `*Manager` 가 만족한다. 두 소비자가
+// 같은 표면을 쓰므로 여기 한 벌로 둔다; 핸들러 테스트는 이것을 가짜로 채워 git
+// 없이 돌 수 있다.
+type Service interface {
+	Root() string
+	Path(runShort, leaf string) string
+	Resolve(cwd, base string) (Repo, error)
+	Create(s Spec) error
+	Rollback(s Spec)
+	Remove(ctx context.Context, s RemoveSpec) Result
+	BranchExists(repo, branch string) bool
+	List(repo string) ([]Entry, error)
+}
+
+var _ Service = (*Manager)(nil)
+
 // Runner 는 git 한 번이다. 테스트가 직렬화·실패 경로를 결정적으로 관찰할 수
 // 있도록 주입 가능하게 둔다.
 type Runner func(dir string, args ...string) (string, error)
@@ -395,7 +421,7 @@ type Result struct {
 //
 // 오류를 반환하지 않고 Result 로 답하는 이유는, 정리가 **여러 건의 부분 성공**
 // 이기 때문이다 — 하나가 남았다고 나머지를 포기하면 잔여물만 늘어난다.
-func (m *Manager) Remove(s RemoveSpec) Result {
+func (m *Manager) Remove(ctx context.Context, s RemoveSpec) Result {
 	res := Result{Path: s.Path, Branch: s.Branch}
 	if err := m.checkPath(s.Path); err != nil {
 		res.Residue, res.Detail = ResidueUnsafePath, err.Error()
@@ -430,7 +456,7 @@ func (m *Manager) Remove(s RemoveSpec) Result {
 		res.Residue = ResidueDirty
 		return res
 	}
-	if err := m.removeWithRetry(s); err != nil {
+	if err := m.removeWithRetry(ctx, s); err != nil {
 		// 조회·제거 실패를 "사라졌다"의 증거로 쓰지 않는다 — prune 뒤 실제로
 		// 사라졌는지 재확인하고, 아니면 잔여물로 보고한다.
 		_, _ = m.git(s.Repo, "worktree", "prune")
@@ -455,15 +481,29 @@ func (m *Manager) Remove(s RemoveSpec) Result {
 // 정직하게 실패다 — 잠금의 주인이 우리가 아닐 수 있고, 그 사실을 삼키면 안 된다.
 //
 // POSIX 에서는 첫 시도가 성공하므로 이 함수가 하는 일이 없다.
-func (m *Manager) removeWithRetry(s RemoveSpec) error {
-	const tries = 6
+//
+// 되풀이에는 **예산이 있고 ctx 로 끊긴다** (M8 `GO-12`). 이 함수는 호출자가
+// `repoLock` 을 쥔 채 지나므로, 여기서 기다리는 시간은 같은 저장소의 다른
+// worktree 조작 전부가 기다리는 시간이다. 종전에는 git 한 번이 상한(180초)까지
+// 걸리면 여섯 번을 다 되풀이해 최악 18분을 잠근 채였다 — 되풀이는 관측의 짧은
+// 틈을 만나기 위한 것이지 느린 git 을 기다리기 위한 것이 아니므로, 예산을 넘긴
+// 실패는 그대로 실패다.
+func (m *Manager) removeWithRetry(ctx context.Context, s RemoveSpec) error {
+	start := time.Now()
 	var err error
-	for i := 0; i < tries; i++ {
+	for i := 0; i < removeRetryTries; i++ {
 		if _, err = m.git(s.Repo, "worktree", "remove", s.Path); err == nil {
 			return nil
 		}
-		if i < tries-1 {
-			time.Sleep(250 * time.Millisecond)
+		if i == removeRetryTries-1 || time.Since(start) > removeRetryBudget {
+			return err
+		}
+		gap := time.NewTimer(removeRetryGap)
+		select {
+		case <-ctx.Done():
+			gap.Stop()
+			return fmt.Errorf("%w (요청이 끊겨 되풀이를 접었다: %v)", err, ctx.Err())
+		case <-gap.C:
 		}
 	}
 	return err

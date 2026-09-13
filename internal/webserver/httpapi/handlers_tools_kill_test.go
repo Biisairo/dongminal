@@ -10,8 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"dongminal/internal/daemon/ipc"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/toolhub"
+	"dongminal/internal/webserver/toolclient"
 
 	"dongminal/internal/shared/testpath"
 )
@@ -21,12 +23,8 @@ import (
 
 // shortGrace 는 유예를 테스트 시간 규모로 줄인다. 3 초를 실제로 기다리는 테스트는
 // 재현 가능하지만 느리고, 검증하려는 것은 "유예가 있는가" 이지 그 길이가 아니다.
-func shortGrace(t *testing.T, d time.Duration) {
-	t.Helper()
-	prev := toolKillGrace
-	toolKillGrace = d
-	t.Cleanup(func() { toolKillGrace = prev })
-}
+// 서버 하나의 값이다 — 같은 프로세스의 다른 서버는 영향받지 않는다 (M8 `GO-9`).
+func shortGrace(s *Server, d time.Duration) { s.limits.toolKillGrace = d }
 
 // waitFor 는 가짜 셸이 남기는 준비 표식을 기다린다.
 func waitFor(t *testing.T, path string) {
@@ -74,7 +72,6 @@ func TestApiToolKill_NoHubIs404(t *testing.T) {
 // V-BGK-8: 종료 후 GET /api/tools/background 에서 사라진다 (FR-BGK-6 — Delete 가
 // background 맵에서도 제거한다).
 func TestApiToolKill_RemovesFromBackgroundList(t *testing.T) {
-	shortGrace(t, 200*time.Millisecond)
 	dir := toolTempDir(t)
 	m := toolhub.NewToolManager(dir, nil)
 	t.Cleanup(m.StopSaving)
@@ -84,6 +81,7 @@ func TestApiToolKill_RemovesFromBackgroundList(t *testing.T) {
 	}
 	m.SetBackground(tl.ID, true)
 	s := &Server{Deps: Deps{Tools: m}}
+	shortGrace(s, 200*time.Millisecond)
 
 	rec := postKill(s, `{"toolId":`+testpath.JSONQuote(tl.ID)+`}`)
 	if rec.Code != http.StatusOK {
@@ -122,7 +120,6 @@ func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
 		t.Skip("POSIX 셸 스크립트와 SIGTERM 이 없는 OS 다")
 	}
 	const grace = 400 * time.Millisecond
-	shortGrace(t, grace)
 	dir := toolTempDir(t)
 	shell := filepath.Join(dir, "stubborn.sh")
 	ready := filepath.Join(dir, "ready")
@@ -147,10 +144,12 @@ func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
 	waitFor(t, ready)
 	m.SetBackground(tl.ID, true)
 
+	s := &Server{Deps: Deps{Tools: m}}
+	shortGrace(s, grace)
 	start := time.Now()
 	done := make(chan int, 1)
 	go func() {
-		done <- postKill(&Server{Deps: Deps{Tools: m}}, `{"toolId":`+testpath.JSONQuote(tl.ID)+`}`).Code
+		done <- postKill(s, `{"toolId":`+testpath.JSONQuote(tl.ID)+`}`).Code
 	}()
 
 	// 유예 도중: 아직 죽이지 않았다. 이 확인이 없으면 "그냥 유예만큼 잤다" 와
@@ -176,35 +175,71 @@ func TestApiToolKill_SigtermThenKillAfterGrace(t *testing.T) {
 	}
 }
 
-// SIGTERM 을 받고 바로 죽는 프로세스는 유예를 다 쓰지 않는다 — 유예는 상한이지
-// 대기 시간이 아니다 (FR-BGK-7).
-func TestTerminateWithGrace_ReturnsEarlyOnExit(t *testing.T) {
+// M8 FBE-05/12: **데몬 모드에서도** 유예가 3초(여기서는 줄인 값)다. 종전에는 유예를
+// 서버가 pid 를 보고 기다렸는데, 데몬 모드의 Get 은 pid 없는 합성 Tool 을 주므로
+// 유예가 통째로 건너뛰어지고 데몬의 Delete 가 50ms 만 기다렸다 (실측 50ms).
+// 이제 유예는 도구가 있는 프로세스 — 데몬 — 가 `terminate` RPC 로 기다린다.
+//
+// 가짜 셸은 TERM 을 받으면 **이력 표식을 남기고** 그 뒤에도 살아 있다 — 백그라운드
+// claude 세션이 SIGTERM 에 이력을 적는 것과 같은 자리다. 표식이 남고, 유예가 다
+// 지나고, 그 뒤 강제 종료된다.
+func TestApiToolKill_DaemonModeHonorsGrace(t *testing.T) {
+	if !testpath.POSIXShell() {
+		t.Skip("POSIX 셸 스크립트와 SIGTERM 이 없는 OS 다")
+	}
+	const grace = 400 * time.Millisecond
 	dir := toolTempDir(t)
-	m := toolhub.NewToolManager(dir, nil)
-	t.Cleanup(m.StopSaving)
-	tl, err := m.Create(dir, 80, 24, toolhub.Placement{})
+	shell := filepath.Join(dir, "stubborn.sh")
+	ready := filepath.Join(dir, "ready")
+	history := filepath.Join(dir, "history")
+	script := "#!/bin/sh\ntrap ': > " + history + "' TERM\n: > " + ready + "\nwhile :; do sleep 0.05; done\n"
+	if err := os.WriteFile(shell, []byte(script), 0o755); err != nil {
+		t.Fatalf("가짜 셸 작성: %v", err)
+	}
+	t.Setenv("SHELL", shell)
+
+	// 데몬 + 클라이언트 — 서버는 ToolClient 를 ToolHub 로 든다.
+	pm := toolhub.NewToolManager(dir, nil)
+	t.Cleanup(pm.StopSaving)
+	sockPath := filepath.Join(dir, "s")
+	ps := ipc.NewPanedServer(pm, sockPath, "")
+	if err := ps.Listen(); err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	defer ps.Close()
+	go func() { ps.Accept() }()
+	pc, err := toolclient.DialToolClient(sockPath)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer pc.Close()
+
+	tl, err := pc.Create(dir, 80, 24, toolhub.Placement{})
 	if err != nil {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}
-	defer m.Delete(tl.ID)
+	waitFor(t, ready)
+	pid := pm.Get(tl.ID).CmdProcessPID()
+	pc.SetBackground(tl.ID, true)
 
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		m.Delete(tl.ID) // 도구가 스스로 끝난 것과 같은 자리 — done 이 닫힌다
-	}()
+	s := &Server{Deps: Deps{Tools: pc}}
+	shortGrace(s, grace)
 	start := time.Now()
-	terminateWithGrace(tl, 5*time.Second)
-	if elapsed := time.Since(start); elapsed >= 5*time.Second {
-		t.Errorf("소요=%v — 종료를 감지하지 못하고 유예를 다 썼다", elapsed)
+	code := postKill(s, `{"toolId":`+testpath.JSONQuote(tl.ID)+`}`).Code
+	elapsed := time.Since(start)
+	if code != http.StatusOK {
+		t.Fatalf("status=%d, want 200", code)
 	}
-}
-
-// 데몬 모드의 Get 은 cmd 없는 Tool 을 돌려준다. 그때 여기서 할 일은 없고,
-// 무엇보다 매달리면 안 된다 (done 채널이 nil 이다).
-func TestTerminateWithGrace_NoProcessIsNoop(t *testing.T) {
-	start := time.Now()
-	terminateWithGrace(toolhub.NewDetachedTool("d1", nil), time.Hour)
-	if elapsed := time.Since(start); elapsed > time.Second {
-		t.Fatalf("소요=%v — pid 없는 도구에서 매달렸다", elapsed)
+	if elapsed < grace {
+		t.Errorf("소요=%v, want >= %v — 데몬 모드에서 유예 없이 죽였다", elapsed, grace)
+	}
+	if _, err := os.Stat(history); err != nil {
+		t.Errorf("SIGTERM 이 닿지 않았다 — 이력 표식이 없다: %v", err)
+	}
+	if platform.Current().Process.Alive(pid) {
+		t.Errorf("pid=%d 가 아직 살아 있음 — 유예 뒤 강제 종료로 넘어가지 않았다", pid)
+	}
+	if pm.Get(tl.ID) != nil {
+		t.Error("데몬 레지스트리에 도구가 남았다")
 	}
 }

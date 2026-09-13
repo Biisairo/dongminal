@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"crypto/sha256"
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/toolhub"
@@ -159,7 +160,7 @@ func (s *Server) apiRunAttach(w http.ResponseWriter, r *http.Request) {
 			"구독 중인 브라우저가 없다 — 부착은 화면이 있어야 한다")
 		return
 	}
-	tabID := s.awaitTab(m.ToolID, true)
+	tabID := s.awaitTab(r.Context(), m.ToolID, true)
 	if tabID == "" {
 		// 기록을 고치지 않는다. 브라우저가 늦게 탭을 만들었다면 다시 부르면
 		// 그 탭을 관측해 성공한다 — 재시도가 스스로 낫는다.
@@ -213,7 +214,7 @@ func (s *Server) apiRunDetach(w http.ResponseWriter, r *http.Request) {
 			"구독 중인 브라우저가 없다 — 분리는 화면이 있어야 한다")
 		return
 	}
-	if s.awaitTab(m.ToolID, false) != "" {
+	if s.awaitTab(r.Context(), m.ToolID, false) != "" {
 		writeToolIOError(w, http.StatusGatewayTimeout,
 			"브라우저가 탭 닫기를 반영하지 않았다 — 잠시 후 다시 시도한다")
 		return
@@ -251,18 +252,13 @@ func (s *Server) broadcastLayout(action string, args map[string]any) int {
 // 폴링인 이유는 위 attachSettleTimeout 의 주석과 같다. 브라우저가 workspace.json
 // 을 저장해야 색인이 움직이므로, 이 관측이 "화면에 실제로 반영됐다"의 유일한
 // 근거다.
-func (s *Server) awaitTab(toolID string, want bool) string {
-	deadline := time.Now().Add(attachSettleTimeout)
-	for {
-		tabID := s.tabIDOfTool(toolID)
-		if (tabID != "") == want {
-			return tabID
-		}
-		if !time.Now().Before(deadline) {
-			return tabID
-		}
-		time.Sleep(attachPollInterval)
-	}
+func (s *Server) awaitTab(ctx context.Context, toolID string, want bool) string {
+	var tabID string
+	_ = pollUntil(ctx, attachSettleTimeout, attachPollInterval, func() bool {
+		tabID = s.tabIDOfTool(toolID)
+		return (tabID != "") == want
+	})
+	return tabID
 }
 
 // closeHeadlessTools terminates the tools of members that hold no tab
@@ -338,7 +334,7 @@ func (s *Server) reconcileMemberTab(toolID string) {
 		return
 	}
 	go func() {
-		tabID := s.awaitTab(toolID, true)
+		tabID := s.awaitTab(context.Background(), toolID, true)
 		if tabID == "" {
 			// 브라우저가 탭을 만들지 않았다. 기록은 그대로 두는 편이 낫다 —
 			// 없는 탭을 가리키는 기록보다 빈 기록이 정직하다.

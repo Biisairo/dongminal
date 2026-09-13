@@ -27,15 +27,6 @@ var commands = map[string]runFunc{
 	"open-url": runOpenURL,
 }
 
-// HelperNames는 multi-call 로 등록된 helper 이름 목록.
-func HelperNames() []string {
-	out := make([]string, 0, len(commands))
-	for k := range commands {
-		out = append(out, k)
-	}
-	return out
-}
-
 // HelperName은 argv[0] 에서 실행 파일의 이름을 뽑는다.
 //
 // **확장자를 뗀다.** Windows 의 실행 파일은 `dmctl.exe` 이고 설치도 그 이름으로

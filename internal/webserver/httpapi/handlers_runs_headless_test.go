@@ -97,6 +97,8 @@ func (h *headlessHub) Delete(id string) error {
 	return nil
 }
 
+func (h *headlessHub) Terminate(id string, _ time.Duration) error { return h.Delete(id) }
+
 func (h *headlessHub) SetBackground(id string, bg bool) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -127,7 +129,10 @@ func (h *headlessHub) counts() (created, deleted, background int) {
 	return len(h.created), len(h.deleted), len(h.bg)
 }
 
-func (h *headlessHub) List() []map[string]interface{} { return nil }
+func (h *headlessHub) List() []toolhub.ToolInfo           { return nil }
+func (h *headlessHub) ListOK() ([]toolhub.ToolInfo, bool) { return nil, true }
+func (h *headlessHub) Connected() bool                    { return true }
+func (h *headlessHub) Daemon() toolhub.DaemonHub          { return nil }
 func (h *headlessHub) Get(id string) *toolhub.Tool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -139,7 +144,6 @@ func (h *headlessHub) Busy(string) bool                     { return false }
 func (h *headlessHub) Write(string, []byte) error           { return nil }
 func (h *headlessHub) SendPaste(string, []byte, bool) error { return nil }
 func (h *headlessHub) Resize(string, uint16, uint16) error  { return nil }
-func (h *headlessHub) IsDaemon() bool                       { return false }
 func (h *headlessHub) IsLive(id string) bool                { return h.io.Has(id) }
 func (h *headlessHub) SnapshotTool(string) (toolhub.ToolSnapshot, error) {
 	return toolhub.ToolSnapshot{}, nil

@@ -95,9 +95,8 @@ func (s *Server) fileRoots() ([]string, error) {
 		// `List()` 가 도구 목록의 유일한 공개 창구다. `Cwd(id)` 는 데몬 모드에서
 		// RPC 를 지나므로 살아 있는 값이다 (`Get(id).Cwd()` 는 아니다).
 		for _, t := range s.Tools.List() {
-			id, _ := t["id"].(string)
-			if id != "" {
-				add(s.Tools.Cwd(id))
+			if t.ID != "" {
+				add(s.Tools.Cwd(t.ID))
 			}
 		}
 	}
@@ -116,7 +115,7 @@ func (s *Server) fileUnrestricted() bool {
 	var cfg struct {
 		FileAPIUnrestricted bool `json:"fileApiUnrestricted"`
 	}
-	if err := json.Unmarshal(s.Settings.get(), &cfg); err != nil {
+	if err := json.Unmarshal(s.Settings.Get(), &cfg); err != nil {
 		return false
 	}
 	if cfg.FileAPIUnrestricted {

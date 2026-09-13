@@ -10,6 +10,7 @@
 package httpapi
 
 import (
+	"context"
 	"dongminal/internal/shared/dmlog"
 	"errors"
 	"fmt"
@@ -151,7 +152,7 @@ func (s *Server) freeBranch(repo, runShort, role, fallback string) string {
 //
 // 대상은 **Run 이 만든 것뿐**이다. 파일시스템을 훑지 않는다 — 사용자가 같은 루트
 // 아래에 만든 트리를 구분할 방법이 없기 때문이다.
-func (s *Server) cleanupWorktrees(rec run.Record, keep bool) []worktree.Result {
+func (s *Server) cleanupWorktrees(ctx context.Context, rec run.Record, keep bool) []worktree.Result {
 	targets := rec.WorktreeTargets()
 	if len(targets) == 0 {
 		return nil
@@ -168,7 +169,7 @@ func (s *Server) cleanupWorktrees(rec run.Record, keep bool) []worktree.Result {
 		return out
 	}
 	for _, t := range targets {
-		res := s.Worktrees.Remove(worktree.RemoveSpec{
+		res := s.Worktrees.Remove(ctx, worktree.RemoveSpec{
 			Repo: rec.Repo, Path: t.Path, Branch: t.Branch, Keep: keep,
 		})
 		if !res.Removed {

@@ -4,10 +4,6 @@ import (
 	"dongminal/internal/webserver/apierr"
 	"encoding/json"
 	"net/http"
-	"time"
-
-	"dongminal/internal/shared/platform"
-	"dongminal/internal/shared/toolhub"
 )
 
 // 묶음 X — 백그라운드 도구 즉시 종료 (CONVENIENCE_SRS FR-BGK-*).
@@ -16,10 +12,6 @@ import (
 // 복귀가 화면을 바꾼다. 삭제 경로 자체는 이미 있다 (ToolManager.Delete 가
 // background 맵에서도 함께 제거한다). 이 종단은 **새 경로가 아니라 기존 경로에
 // 문을 다는 일**이다.
-
-// toolKillGrace 는 SIGTERM 과 SIGKILL 사이의 유예다 (FR-BGK-7). 테스트가
-// 줄여 쓴다 — 3 초를 실제로 기다리는 테스트는 재현 가능하지만 느리다.
-var toolKillGrace = 3 * time.Second
 
 // apiToolKill implements POST /api/tools/kill (FR-BGK-6).
 // Body: {"toolId":"..."}.
@@ -46,35 +38,13 @@ func (s *Server) apiToolKill(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "toolId="+body.ToolID+" 존재하지 않음", http.StatusNotFound, apierr.CodeToolNotFound)
 		return
 	}
-	tool := s.Tools.Get(body.ToolID)
-	if tool == nil {
+	// 유예는 도구가 있는 프로세스에서 기다린다 — 직접 모드는 여기, 데몬 모드는
+	// 데몬이다 (FBE-05/12). 종전에는 이 자리에서 pid 를 보고 기다렸는데, 데몬
+	// 모드의 Get 은 pid 없는 합성 Tool 을 주므로 유예가 통째로 건너뛰어졌다.
+	if err := s.tools(r).Terminate(body.ToolID, s.limits.toolKillGrace); err != nil {
 		httpErr(w, "toolId="+body.ToolID+" 존재하지 않음", http.StatusNotFound, apierr.CodeToolNotFound)
 		return
 	}
-	terminateWithGrace(tool, toolKillGrace)
-	// `GO-8`: 오류를 **명시로** 무시한다. 이 경로에서 "이미 없다" 는 정상이며
-	// (목록이 앞서 걷혔거나 사용자가 두 번 눌렀다) 치울 것이 없다는 뜻이다.
-	// 버리는 것과 판단한 것은 다르므로 그 사실을 여기 적어 둔다.
-	_ = s.tools(r).Delete(body.ToolID)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{"ok": true})
-}
-
-// terminateWithGrace 는 tool 의 프로세스에 SIGTERM 을 보내고 종료를 grace 만큼
-// 기다린다 (FR-BGK-7). 강제 종료는 하지 않는다 — 호출자의 Delete 가 한다.
-//
-// 데몬 모드에서 Get 은 cmd 없는 Tool 을 돌려주므로 pid 가 0 이다. 그때는 여기서
-// 할 수 있는 일이 없고, Delete 가 데몬 쪽 ToolManager 로 건너가 같은 순서를 밟는다.
-func terminateWithGrace(tool *toolhub.Tool, grace time.Duration) {
-	pid := tool.CmdProcessPID()
-	if pid <= 0 {
-		return
-	}
-	if err := platform.Current().Process.Terminate(pid); err != nil {
-		return
-	}
-	select {
-	case <-tool.Wait():
-	case <-time.After(grace):
-	}
 }

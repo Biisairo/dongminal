@@ -174,8 +174,10 @@ func WithCeiling(d time.Duration) JobsOption { return func(j *Jobs) { j.ceiling 
 // 함께 준다.
 func WithJobRunner(r JobRunner) JobsOption { return func(j *Jobs) { j.run = r } }
 
-// WithOnDone 은 작업이 끝난 직후 불릴 훅이다. status 캐시 무효화(FR-GIT-107)가
-// 이것을 딛는다 — Jobs 는 Store 를 모르고, 알아야 할 이유도 없다.
+// WithOnDone 은 작업의 끝이 **공개되기 직전** 불릴 훅이다 — 받은 스냅샷은
+// 최종 상태(Done=true)이지만 Get·SSE 는 아직 그것을 보여 주지 않는다. status
+// 캐시 무효화(FR-GIT-107)가 이것을 딛는다 — Jobs 는 Store 를 모르고, 알아야 할
+// 이유도 없다.
 func WithOnDone(f func(*Job)) JobsOption { return func(j *Jobs) { j.onDone = f } }
 
 // WithJobClock 은 테스트가 시간을 지배하게 한다. 보존 기간 검증이 실제 5분 경과에
@@ -412,52 +414,66 @@ func (j *Jobs) appendLine(st *jobState, stream, text string) {
 // finish 는 작업을 닫는다. 실패의 **사유와 후속 선택지**를 여기서 정한다 —
 // 클라이언트가 stderr 를 다시 해석하면 판정이 두 벌이 된다.
 func (j *Jobs) finish(st *jobState, exit int, runErr error, dur time.Duration) {
+	// 최종 상태는 사본에서 만든다 — st.job 은 잠금 아래에서만 읽히므로 밖에서
+	// 쓸 수 없다. 사본이 완성되면 훅을 먼저 부르고, 그 뒤에 한 번의 잠금으로
+	// 공개한다.
 	j.mu.Lock()
-	st.job.Done = true
-	st.job.ExitCode = exit
-	st.job.Canceled = st.canceled
+	final := st.job
+	canceled := st.canceled
 	tail := strings.Join(st.stderr, "\n")
-	st.job.StderrTail = tail
+	j.mu.Unlock()
+
+	final.Done = true
+	final.ExitCode = exit
+	final.Canceled = canceled
+	final.StderrTail = tail
 	switch {
-	case st.canceled:
-		st.job.Err = "취소했다. 원격에 일부가 적용됐을 수 있다"
+	case canceled:
+		final.Err = "취소했다. 원격에 일부가 적용됐을 수 있다"
 	case runErr != nil:
-		st.job.Err = core.SanitizeRemote(runErr.Error())
+		final.Err = core.SanitizeRemote(runErr.Error())
 	case exit != 0:
 		// exit 만으로도 실패는 실패다. 사유를 비워 두면 클라이언트가 exitCode 를
 		// 직접 해석해야 하고, 그 판정이 두 벌이 된다. 자세한 내용은 StderrTail 이다.
-		st.job.Err = fmt.Sprintf("git %s 가 exit %d 로 끝났다", st.job.Kind, exit)
+		final.Err = fmt.Sprintf("git %s 가 exit %d 로 끝났다", final.Kind, exit)
 	}
-	if !st.canceled {
-		st.job.AuthRequired = matchesAny(tail, authPatterns)
-		st.job.Rejected = matchesAny(tail, rejectPatterns)
-		if st.job.Rejected {
-			st.job.Options = append([]string(nil), RemoteRejectOptions...)
+	if !canceled {
+		final.AuthRequired = matchesAny(tail, authPatterns)
+		final.Rejected = matchesAny(tail, rejectPatterns)
+		if final.Rejected {
+			final.Options = append([]string(nil), RemoteRejectOptions...)
 		}
 	}
+
+	// 훅은 **끝이 공개되기 전에** 돈다 (FR-GIT-107). Done 을 세우고 구독자를
+	// 닫은 뒤에 부르면, 그 사이에 `done` 을 본 쪽이 status 를 물어 만료되지 않은
+	// 캐시를 받는다 — `-race -shuffle` 전량에서 실제로 잡힌 창이다 (M8 P1 ②).
+	if j.onDone != nil {
+		snapshot := final
+		j.onDone(&snapshot)
+	}
+
+	j.mu.Lock()
+	st.job = final
 	st.doneAt = j.now()
-	if j.active[st.job.Repo] == st.job.ID {
-		delete(j.active, st.job.Repo)
+	if j.active[final.Repo] == final.ID {
+		delete(j.active, final.Repo)
 	}
 	for sub := range st.subs {
 		delete(st.subs, sub)
 		sub.close()
 	}
-	snapshot := st.job
 	j.mu.Unlock()
 
 	// 기록은 **지운 argv** 로 남는다 (FR-GIT-104). 파괴적 선언은 호출자가 준
 	// spec 을 그대로 옮긴다 (I5).
 	var recErr error
-	if snapshot.Err != "" {
-		recErr = errors.New(snapshot.Err)
+	if final.Err != "" {
+		recErr = errors.New(final.Err)
 	}
-	j.svc.RecordWrite(snapshot.Repo,
-		core.WriteSpec{Argv: snapshot.Argv, Destructive: st.spec.Destructive, Stdin: st.spec.Stdin},
+	j.svc.RecordWrite(final.Repo,
+		core.WriteSpec{Argv: final.Argv, Destructive: st.spec.Destructive, Stdin: st.spec.Stdin},
 		core.Output{Stderr: tail, ExitCode: exit, DurationMs: dur.Milliseconds()}, recErr)
-	if j.onDone != nil {
-		j.onDone(&snapshot)
-	}
 }
 
 // sweepLocked 는 보존 기간이 지난 작업을 버린다. 진행 중인 것은 건드리지 않는다.

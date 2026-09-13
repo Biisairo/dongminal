@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/toolhub"
@@ -60,6 +61,11 @@ func (h reqHub) Create(cwd string, cols, rows uint16, place toolhub.Placement) (
 func (h reqHub) Delete(id string) error {
 	h.rpc("delete", "tool", id)
 	return h.ToolHub.Delete(id)
+}
+
+func (h reqHub) Terminate(id string, grace time.Duration) error {
+	h.rpc("terminate", "tool", id, "grace", grace)
+	return h.ToolHub.Terminate(id, grace)
 }
 
 func (h reqHub) Resize(id string, cols, rows uint16) error {

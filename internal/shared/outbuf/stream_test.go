@@ -156,3 +156,16 @@ func TestLen_AboveMax(t *testing.T) {
 		t.Errorf("Len=%d want 100", s.Len())
 	}
 }
+
+// M8 `GO-37`: Feed 는 인자를 보관하지 않는다 — readPTY 가 읽기 버퍼를 복사 없이
+// 넘길 수 있는 근거다. 넘긴 뒤 그 버퍼를 덮어써도 스트림은 바뀌지 않는다.
+func TestFeedDoesNotRetainInput(t *testing.T) {
+	s := NewStream(context.Background(), 100)
+	raw := []byte("hello")
+	s.Feed(raw)
+	copy(raw, "XXXXX")
+	snap, _ := s.Snapshot()
+	if string(snap) != "hello" {
+		t.Fatalf("Feed 가 인자를 보관했다: snap=%q", snap)
+	}
+}

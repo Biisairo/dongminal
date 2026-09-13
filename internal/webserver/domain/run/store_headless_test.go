@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"dongminal/internal/shared/runfile"
 )
 
 // 묶음 H — 저장소 절반의 검증 (ORCHESTRATION_V2_SRS §3.2.2).
@@ -315,5 +317,35 @@ func TestHeadlessToolIDs_FailuresAreEmpty(t *testing.T) {
 	}
 	if got := HeadlessToolIDs(dir); len(got) != 0 {
 		t.Fatalf("깨진 파일 = %v, want 빈 집합", got)
+	}
+}
+
+// `shared/runfile` 은 이 패키지의 스키마를 **프로젝션으로 복제**한다 (M8 `GO-4`).
+// 파일 이름·열린 상태의 와이어 값·판정 함수가 갈라지면 데몬이 되살리는 집합과
+// 서버가 아는 집합이 달라진다. 위의 `TestHeadlessToolIDs_*` 가 Store 로 쓴 파일을
+// 그 리더로 읽으므로 필드 태그의 일치는 이미 지켜지고, 여기서는 상수 둘과 멤버
+// 판정을 못 박는다.
+func TestRunfileProjectionMatchesStore(t *testing.T) {
+	if runfile.FileName != fileName {
+		t.Fatalf("runfile.FileName %q != run.fileName %q", runfile.FileName, fileName)
+	}
+	if runfile.StateOpen != string(Open) {
+		t.Fatalf("runfile.StateOpen %q != run.Open %q", runfile.StateOpen, Open)
+	}
+	s, runID := headlessStore(t)
+	addHeadlessMember(t, s, runID, "tool-h")
+	rec, _ := s.Get(runID)
+	var want []string
+	for _, m := range rec.Members {
+		if m.HeadlessTool() {
+			want = append(want, m.ToolID)
+		}
+	}
+	got := HeadlessToolIDs(s.dir)
+	if len(want) != 1 || len(got) != 1 {
+		t.Fatalf("Member.HeadlessTool %v 와 runfile 판정 %v 가 다르다", want, got)
+	}
+	if _, ok := got[want[0]]; !ok {
+		t.Fatalf("runfile 이 %q 를 놓쳤다: %v", want[0], got)
 	}
 }

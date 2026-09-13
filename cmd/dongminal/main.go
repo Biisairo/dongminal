@@ -59,6 +59,15 @@ func dataPath(dataDir, name string) string {
 // statements, ensuring the goroutine exits promptly. The wrapper goroutine
 // here (lines 50-53) is fire-and-forget: it writes its result to a buffered
 // channel and exits, regardless of whether the outer select consumes it.
+// daemonBusyWait 는 첫 dial 이 옛 연결에 막혀 있다고 판정하는 시한이고,
+// daemonReadyTries·daemonReadyPoll 은 새로 띄운 데몬의 소켓이 서기를 기다리는
+// 횟수·간격이다 (M8 `GO-40`).
+const (
+	daemonBusyWait   = 3 * time.Second
+	daemonReadyTries = 20
+	daemonReadyPoll  = 100 * time.Millisecond
+)
+
 func dialOrStartDaemon(home string) *toolclient.ToolClient {
 	// 종단 주소는 platform 이 만든다 — 데몬(boot.Run)이 listen 하는 주소와 같은
 	// 함수에서 나와야 표현이 바뀌어도 양쪽이 함께 옮겨간다 (FR-XIP-1).
@@ -88,7 +97,7 @@ func dialOrStartDaemon(home string) *toolclient.ToolClient {
 			return r.pc
 		}
 		// Connection failed (e.g. socket doesn't exist). Start fresh daemon.
-	case <-time.After(3 * time.Second):
+	case <-time.After(daemonBusyWait):
 		// Daemon is busy with old connection. Wait for the goroutine to finish.
 		dmlog.Infof(nil, "dongminald busy, waiting for old connection to clear...")
 		r := <-ch
@@ -106,8 +115,8 @@ func dialOrStartDaemon(home string) *toolclient.ToolClient {
 	}
 
 	// Wait for daemon socket to appear
-	for i := 0; i < 20; i++ {
-		time.Sleep(100 * time.Millisecond)
+	for i := 0; i < daemonReadyTries; i++ {
+		time.Sleep(daemonReadyPoll)
 		pc, err := toolclient.DialPaneClientWithReconnect(endpoint, spawn)
 		if err == nil {
 			dmlog.Infof(nil, "connected to newly started dongminald")
@@ -270,13 +279,9 @@ func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub) (builtDeps, e
 	// uses the busy RPC to dongminald to check foreground process status, so a
 	// bare prompt does not raise a bogus alarm (FR-15).
 	attnTracker := hub.NewAttnTracker(cmdHub, hub.DefaultIdleMS())
-	if bp, ok := toolHub.(interface{ Busy(string) bool }); ok {
-		attnTracker.SetBusyProbe(bp.Busy)
-	}
+	attnTracker.SetBusyProbe(toolHub.Busy)
 	// FR-ATL-6: 종료 통지를 놓쳐도 죽은 도구의 알람이 복원되지 않게 한다.
-	if lp, ok := toolHub.(interface{ IsLive(string) bool }); ok {
-		attnTracker.SetLiveProbe(lp.IsLive)
-	}
+	attnTracker.SetLiveProbe(toolHub.IsLive)
 
 	bd, err := buildCommonDeps(cfg, toolHub, cmdHub, attnTracker)
 	if err != nil {
@@ -496,11 +501,11 @@ func serve(home, host, port string) int {
 		// Wire tool output → attention/activity detection (once per chunk in the
 		// readLoop goroutine), and tool exit → activity cleanup.
 		if attnTracker != nil {
-			panedClient.OnOutput = attnTracker.FeedOutput
+			panedClient.SetOnOutput(attnTracker.FeedOutput)
 			// FR-ATL-3: 활동만 내리고 주의를 남기면 죽은 도구의 알람이 배지에
 			// 남는다. 두 레이어를 같은 콜백에서 함께 정리한다 — Forget 이
 			// 주의 해제(에지)와 상태 폐기를 한 번에 한다.
-			panedClient.OnExit = func(toolID string, code int) {
+			panedClient.SetOnExit(func(toolID string, code int) {
 				attnTracker.SetActivity(toolID, "ended", "", "")
 				attnTracker.Forget(toolID)
 				// UX_BATCH6_SRS FR-BGP-1·2: 백그라운드 목록은 살아 있는
@@ -513,11 +518,10 @@ func serve(home, host, port string) int {
 				// 붙은 도구가 죽었을 때 한 번 더 묻는 값은 목록 조회 한 번이다 —
 				// 가리려고 데몬에 왕복을 더하는 것보다 싸다.
 				bd.deps.Commands.Broadcast(hub.BackgroundChangedPayload())
-			}
+			})
 			// FR-TAN-7: PTY 를 dongminald 가 들고 있으므로 전경 이름은 IPC push
 			// 로 온다. direct 모드의 WireForeground 와 같은 Broadcast 에 잇는다.
 			panedClient.SetOnForeground(hub.BroadcastForeground(bd.deps.Commands))
-			panedClient.FlushEarlyPushes()
 		}
 	} else {
 		// Direct mode: ToolManager directly (backward compatible)
@@ -555,11 +559,17 @@ func serve(home, host, port string) int {
 		}()
 	}
 
+	// 스위퍼의 틱은 여기서 만든다 — 스위퍼는 틱을 받을 뿐 시계를 갖지 않는다
+	// (TEST-8). 티커는 ctx 와 함께 멈춘다.
 	if bd.pm != nil {
-		bd.pm.StartAttentionSweeper(ctx.Done())
+		tk := time.NewTicker(toolhub.AttentionSweepInterval)
+		context.AfterFunc(ctx, tk.Stop)
+		bd.pm.StartAttentionSweeper(ctx.Done(), tk.C)
 	}
 	if bd.attnTracker != nil {
-		bd.attnTracker.StartSweeper(ctx.Done())
+		tk := time.NewTicker(hub.SweeperInterval)
+		context.AfterFunc(ctx, tk.Stop)
+		bd.attnTracker.StartSweeper(ctx.Done(), tk.C)
 	}
 	if bd.sampler != nil {
 		bd.sampler.Start(ctx.Done())

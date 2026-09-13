@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/helper/runtimebin"
 	"dongminal/internal/shared/agentadapter"
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/testpath"
 )
 
@@ -28,7 +28,7 @@ func TestInstallOmpAssets_ShimAndOverlay(t *testing.T) {
 	if err := Install(dir); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
-	hooks := runtimebin.AgentHooksDirIn(dir)
+	hooks := dmenv.AgentHooksDirIn(dir)
 
 	shim, err := os.ReadFile(filepath.Join(hooks, agentadapter.OmpShimFile))
 	if err != nil {
@@ -128,7 +128,7 @@ func TestOmpMemberLaunchLinePointsAtInstalledOverlay(t *testing.T) {
 	if err := Install(dir); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
-	hooks := runtimebin.AgentHooksDirIn(dir)
+	hooks := dmenv.AgentHooksDirIn(dir)
 	omp, err := agentadapter.Get("omp")
 	if err != nil {
 		t.Fatal(err)
@@ -169,7 +169,7 @@ func TestOmpInjectionIsRuntimeOnly(t *testing.T) {
 	}
 
 	// ② 우리 산출물은 binDir 아래다.
-	hooks := runtimebin.AgentHooksDirIn(binDir)
+	hooks := dmenv.AgentHooksDirIn(binDir)
 	for _, f := range []string{agentadapter.OmpShimFile, agentadapter.OmpMemberConfigFile} {
 		p := filepath.Join(hooks, f)
 		if _, err := os.Stat(p); err != nil {

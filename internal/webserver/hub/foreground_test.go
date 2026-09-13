@@ -79,25 +79,28 @@ func TestBroadcastForeground(t *testing.T) {
 // fakeHub는 List 호출 횟수만 세는 toolhub.ToolHub 대역이다.
 type fakeHub struct{ calls atomic.Int64 }
 
-func (f *fakeHub) List() []map[string]interface{} {
+func (f *fakeHub) List() []toolhub.ToolInfo {
 	f.calls.Add(1)
 	return nil
 }
+func (f *fakeHub) ListOK() ([]toolhub.ToolInfo, bool) { return f.List(), true }
+func (f *fakeHub) Connected() bool                    { return true }
+func (f *fakeHub) Daemon() toolhub.DaemonHub          { return nil }
 func (f *fakeHub) Create(string, uint16, uint16, toolhub.Placement) (*toolhub.Tool, error) {
 	return nil, nil
 }
-func (f *fakeHub) Get(string) *toolhub.Tool             { return nil }
-func (f *fakeHub) Cwd(string) string                    { return "" }
-func (f *fakeHub) Busy(string) bool                     { return false }
-func (f *fakeHub) Delete(string) error                  { return nil }
-func (f *fakeHub) Write(string, []byte) error           { return nil }
-func (f *fakeHub) SendPaste(string, []byte, bool) error { return nil }
-func (f *fakeHub) Resize(string, uint16, uint16) error  { return nil }
+func (f *fakeHub) Get(string) *toolhub.Tool              { return nil }
+func (f *fakeHub) Cwd(string) string                     { return "" }
+func (f *fakeHub) Busy(string) bool                      { return false }
+func (f *fakeHub) Delete(string) error                   { return nil }
+func (f *fakeHub) Terminate(string, time.Duration) error { return nil }
+func (f *fakeHub) Write(string, []byte) error            { return nil }
+func (f *fakeHub) SendPaste(string, []byte, bool) error  { return nil }
+func (f *fakeHub) Resize(string, uint16, uint16) error   { return nil }
 func (f *fakeHub) SnapshotTool(string) (toolhub.ToolSnapshot, error) {
 	return toolhub.ToolSnapshot{}, nil
 }
 func (f *fakeHub) IsLive(string) bool                        { return false }
-func (f *fakeHub) IsDaemon() bool                            { return false }
 func (f *fakeHub) SetBackground(string, bool) bool           { return false }
 func (f *fakeHub) BackgroundList() []toolhub.BackgroundEntry { return nil }
 

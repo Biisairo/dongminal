@@ -1,8 +1,11 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -385,7 +388,7 @@ func TestContextPolicy_ReadsSettings(t *testing.T) {
 
 	dir := t.TempDir()
 	st := newSettingsStore(filepath.Join(dir, "settings.json"))
-	st.set([]byte(`{"orchestration":{"contextWarnRatio":0.4,"contextCriticalRatio":0.6,` +
+	st.Set([]byte(`{"orchestration":{"contextWarnRatio":0.4,"contextCriticalRatio":0.6,` +
 		`"contextBytesPerToken":4,"contextLimitTokens":1000}}`))
 	s.Settings = st
 
@@ -400,7 +403,7 @@ func TestContextPolicy_ReadsSettings(t *testing.T) {
 	}
 
 	// 망가진 설정은 기본값으로 되돌아간다 — 설정 오타가 Run 을 멈추면 안 된다.
-	st.set([]byte(`{{{`))
+	st.Set([]byte(`{{{`))
 	if got := s.contextPolicy(); got != run.DefaultContextPolicy() {
 		t.Fatalf("깨진 설정이 기본값으로 회복되지 않았다: %+v", got)
 	}
@@ -500,5 +503,31 @@ func TestApiRunSucceed_HeadlessRollsBackToolWhenSucceedFails(t *testing.T) {
 	cur, _ := store.Get(m.RunID)
 	if len(cur.Members) != 2 {
 		t.Fatalf("실패한 승계가 멤버를 남겼다: %d명 %+v", len(cur.Members), cur.Members)
+	}
+}
+
+// M8 `GO-12` · FBE-01 서버측: 요청이 끊기면 승계의 대기가 그 자리에서 끝나고
+// **잇지 않는다.** 종전에는 `time.Sleep` 위에서 상한(기본 180초)까지 잔 뒤 이었고,
+// dmctl 은 이미 실패로 보고한 뒤라 재시도가 멤버를 이중으로 만들었다.
+func TestApiRunSucceed_CancelledRequestStopsWaitingAndDoesNotSucceed(t *testing.T) {
+	s, store, _, rec, m := ctxServer(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	req := apiTestRequest(http.MethodPost, "/api/runs/succeed",
+		strings.NewReader(fmt.Sprintf(`{"memberId":%q,"at":"tab-c","timeoutMs":60000}`, m.ID))).WithContext(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.Handler().ServeHTTP(httptest.NewRecorder(), req)
+	}()
+	time.Sleep(100 * time.Millisecond)
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("요청이 끊겼는데 대기가 계속된다")
+	}
+	cur, _ := store.Get(rec.ID)
+	if len(cur.Members) != 1 {
+		t.Fatalf("끊긴 요청이 승계를 이었다: %d명", len(cur.Members))
 	}
 }

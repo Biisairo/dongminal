@@ -3,6 +3,7 @@ package hub
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"dongminal/internal/shared/toolhub"
 )
@@ -191,5 +192,46 @@ func TestAttnTracker_ClearAll_DoesNotResurrect(t *testing.T) {
 	tr.SweepIdleAt(int64(6_000) * 1e6)
 	if tr.Attention("agent") {
 		t.Fatalf("`모두 제거` 뒤 화면 갱신만으로 되살아났다")
+	}
+}
+
+// reentrantBroker 는 Broadcast 안에서 트래커를 **되묻는** 대역이다 — SSE 허브가
+// 구독자 콜백에서 상태를 조회하는 자리와 같다. 트래커가 자기 락을 쥔 채 Broadcast
+// 를 부르면 여기서 멈춘다.
+type reentrantBroker struct {
+	fakeBroker
+	tr *AttnTracker
+}
+
+func (r *reentrantBroker) Broadcast(p []byte) int {
+	r.tr.Attention("agent")
+	return r.fakeBroker.Broadcast(p)
+}
+
+// M8 `GO-32`: ClearAllAttention 은 락을 놓고 Broadcast 한다. 같은 파일의 Forget
+// 은 이미 그렇게 하는데 ClearAll 만 락 안에서 불렀다 — Broadcast 가 hub 락을
+// 잡으므로 락 순서 의존이고, 구독자가 트래커를 되물으면 데드락이다.
+func TestAttnTracker_ClearAll_BroadcastsOutsideLock(t *testing.T) {
+	rb := &reentrantBroker{}
+	tr := NewAttnTracker(rb, 1000)
+	rb.tr = tr
+	tr.SetBusyProbe(func(string) bool { return true })
+	tr.nowFn = func() int64 { return 0 }
+	startStaleWork(tr, "agent")
+	tr.FeedOutput("agent", []byte("x"))
+	tr.SweepIdleAt(int64(2_000) * 1e6)
+	if !tr.Attention("agent") {
+		t.Fatal("전제: 주의가 서 있어야 한다")
+	}
+
+	done := make(chan int, 1)
+	go func() { done <- tr.ClearAllAttention() }()
+	select {
+	case n := <-done:
+		if n != 1 {
+			t.Fatalf("해제 수 = %d", n)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("ClearAllAttention 이 락을 쥔 채 Broadcast 해 데드락")
 	}
 }

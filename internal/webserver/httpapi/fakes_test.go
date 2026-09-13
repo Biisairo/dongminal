@@ -68,15 +68,18 @@ func (f *fakePaneHub) Busy(id string) bool {
 	return f.busies[id]
 }
 
-func (f *fakePaneHub) List() []map[string]interface{} {
+func (f *fakePaneHub) List() []toolhub.ToolInfo {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	out := make([]map[string]interface{}, 0, len(f.tools))
+	out := make([]toolhub.ToolInfo, 0, len(f.tools))
 	for _, p := range f.tools {
-		out = append(out, map[string]interface{}{"id": p.ID, "name": p.Name, "pid": 0})
+		out = append(out, toolhub.ToolInfo{ID: p.ID, Name: p.Name})
 	}
 	return out
 }
+func (f *fakePaneHub) ListOK() ([]toolhub.ToolInfo, bool) { return f.List(), true }
+func (f *fakePaneHub) Connected() bool                    { return true }
+func (f *fakePaneHub) Daemon() toolhub.DaemonHub          { return nil }
 
 func (f *fakePaneHub) Create(cwd string, cols, rows uint16, place toolhub.Placement) (*toolhub.Tool, error) {
 	f.mu.Lock()
@@ -111,6 +114,7 @@ func (f *fakePaneHub) Delete(id string) error {
 	return nil
 }
 
+func (f *fakePaneHub) Terminate(id string, _ time.Duration) error          { return f.Delete(id) }
 func (f *fakePaneHub) IsLive(id string) bool                               { return f.Get(id) != nil }
 func (f *fakePaneHub) Write(id string, data []byte) error                  { return nil }
 func (f *fakePaneHub) SendPaste(id string, text []byte, submit bool) error { return nil }
@@ -118,7 +122,6 @@ func (f *fakePaneHub) Resize(id string, cols, rows uint16) error           { ret
 func (f *fakePaneHub) SnapshotTool(id string) (toolhub.ToolSnapshot, error) {
 	return toolhub.ToolSnapshot{}, nil
 }
-func (f *fakePaneHub) IsDaemon() bool                            { return false }
 func (f *fakePaneHub) SetBackground(string, bool) bool           { return false }
 func (f *fakePaneHub) BackgroundList() []toolhub.BackgroundEntry { return nil }
 
@@ -281,19 +284,19 @@ type fakeSettingsStore struct {
 	saveErr error
 }
 
-func (f *fakeSettingsStore) get() []byte {
+func (f *fakeSettingsStore) Get() []byte {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return append([]byte(nil), f.blob...)
 }
-func (f *fakeSettingsStore) set(b []byte) {
+func (f *fakeSettingsStore) Set(b []byte) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.blob = append([]byte(nil), b...)
 }
 
 // 실물처럼 실패를 돌려줄 수 있다 (M3 DoD). `saveErr` 를 세우면 그 저장이 실패한다.
-func (f *fakeSettingsStore) save() error {
+func (f *fakeSettingsStore) Save() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.saves++
@@ -309,9 +312,9 @@ type fakeUnknownHub struct {
 	*fakePaneHub
 }
 
-func (f *fakeUnknownHub) List() []map[string]interface{} { return nil }
+func (f *fakeUnknownHub) List() []toolhub.ToolInfo { return nil }
 
-func (f *fakeUnknownHub) ListOK() ([]map[string]interface{}, bool) { return nil, false }
+func (f *fakeUnknownHub) ListOK() ([]toolhub.ToolInfo, bool) { return nil, false }
 
 // windows 는 회수 시험이 주입하는 살아 있는 Window 목록이다. 기본값 nil 은
 // "workspace 를 읽지 못했다" 를 뜻하며, 그때 회수는 일어나지 않아야 한다.

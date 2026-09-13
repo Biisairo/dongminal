@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"os/exec"
@@ -365,7 +366,7 @@ func TestCleanupWorktrees_RejectsUserAreaSiblingPath(t *testing.T) {
 		Worktree:  &run.Worktree{Path: userArea, Branch: "user-branch"},
 	}
 
-	trees := s.cleanupWorktrees(rec, false)
+	trees := s.cleanupWorktrees(context.Background(), rec, false)
 	if len(trees) != 1 {
 		t.Fatalf("정리 대상 1개를 기대했다: %+v", trees)
 	}

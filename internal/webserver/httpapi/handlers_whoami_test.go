@@ -178,11 +178,10 @@ type sizedPaneHub struct {
 	rows int
 }
 
-func (s *sizedPaneHub) List() []map[string]interface{} {
+func (s *sizedPaneHub) List() []toolhub.ToolInfo {
 	out := s.fakePaneHub.List()
-	for _, m := range out {
-		m["sizeCols"] = s.cols
-		m["sizeRows"] = s.rows
+	for i := range out {
+		out[i].Cols, out[i].Rows = s.cols, s.rows
 	}
 	return out
 }

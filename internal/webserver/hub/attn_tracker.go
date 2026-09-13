@@ -135,16 +135,18 @@ func (t *AttnTracker) Forget(toolID string) {
 // 않는 갈래였다), 두 번 부르면 close 가 패닉하는 상태였다. 티커도 이 고루틴
 // 밖에서 쓰이지 않으므로 구조체 필드로 둘 이유가 없다 — 필드로 두면 잠금 없이
 // 공유되는 값이 하나 더 생긴다.
-func (t *AttnTracker) StartSweeper(stopCh <-chan struct{}) {
+//
+// 틱은 **주입한다** (M8 TEST-8). 배선(main.go)은 1초 티커의 채널을 주고, 테스트는
+// 자기 채널로 틱을 보낸다 — 그래야 "다음 틱까지" 를 자지 않고도 sweep 을
+// 결정적으로 일으킬 수 있다.
+func (t *AttnTracker) StartSweeper(stopCh <-chan struct{}, tick <-chan time.Time) {
 	if t.idleThreshold <= 0 {
 		return
 	}
 	go func() {
-		tk := time.NewTicker(1 * time.Second)
-		defer tk.Stop()
 		for {
 			select {
-			case <-tk.C:
+			case <-tick:
 				t.sweepIdle()
 			case <-stopCh:
 				return
@@ -152,6 +154,9 @@ func (t *AttnTracker) StartSweeper(stopCh <-chan struct{}) {
 		}
 	}()
 }
+
+// SweeperInterval 은 배선이 스위퍼에 주는 틱의 주기다.
+const SweeperInterval = 1 * time.Second
 
 // FeedOutput processes raw PTY output for attention detection (L1 OSC).
 // Called from handleWSDaemon when output arrives from dongminald.
@@ -304,18 +309,24 @@ func (t *AttnTracker) AttentionIDs() []string {
 // tick 에서 통째로 되살아났다. 직접 모드는 처음부터 `Attend()` 를 지났으므로
 // 이 결함이 없었다 (§2.4) — 두 모드가 갈라져 있던 자리다.
 func (t *AttnTracker) ClearAllAttention() int {
+	// 방송은 락을 놓고 한다 — Forget 과 같은 규약이다 (M8 `GO-32`). Broadcast 가
+	// hub 락을 잡으므로 여기서 t.mu 를 쥔 채 부르면 락 순서 의존이 되고, 구독자가
+	// 트래커를 되물으면 데드락이다.
 	t.mu.Lock()
-	defer t.mu.Unlock()
-	n := 0
+	var cleared []string
 	for _, ps := range t.tools {
 		ps.attnArmed.Store(false)
 		ps.attnRearmLocked.Store(true)
 		if ps.attention.CompareAndSwap(true, false) {
-			t.onAttentionClear(ps.id)
-			n++
+			cleared = append(cleared, ps.id)
 		}
 	}
-	return n
+	onClear := t.onAttentionClear
+	t.mu.Unlock()
+	for _, id := range cleared {
+		onClear(id)
+	}
+	return len(cleared)
 }
 
 // NoteUserPrompt 는 사용자 프롬프트로 턴이 시작되었음을 기록한다 (FR-ATN-1).

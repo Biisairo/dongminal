@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"dongminal/internal/shared/dmlog"
 	"net/http"
 	"strings"
@@ -39,7 +40,7 @@ func (s *Server) apiRunDelete(w http.ResponseWriter, r *http.Request) {
 		writeRunError(w, run.ErrUnknownRun, nil)
 		return
 	}
-	trees, err := s.purgeRun(rec, "manual", true)
+	trees, err := s.purgeRun(r.Context(), rec, "manual", true)
 	if err != nil {
 		writeRunError(w, err, nil)
 		return
@@ -63,10 +64,10 @@ func (s *Server) apiRunDelete(w http.ResponseWriter, r *http.Request) {
 //
 // **탭 부착 멤버의 도구는 여기서도 닫지 않는다** (FR-BG-3) — 화면에 있는 것을
 // 서버가 말없이 죽이지 않는다는 규약은 삭제에서도 같다.
-func (s *Server) purgeRun(rec run.Record, why string, force bool) ([]worktree.Result, error) {
+func (s *Server) purgeRun(ctx context.Context, rec run.Record, why string, force bool) ([]worktree.Result, error) {
 	s.markWorkspaceRun(rec, "", "") // 표식 해제
 	s.closeHeadlessTools(rec, false)
-	trees := s.cleanupWorktrees(rec, false)
+	trees := s.cleanupWorktrees(ctx, rec, false)
 	residue := 0
 	for _, t := range trees {
 		if !t.Removed {
@@ -104,7 +105,7 @@ func (s *Server) reapRuns() int {
 		if rec.State != run.Open {
 			why = "ended-" + string(rec.State)
 		}
-		if _, err := s.purgeRun(rec, why, false); err != nil {
+		if _, err := s.purgeRun(context.Background(), rec, why, false); err != nil {
 			dmlog.Errorf(nil, "[run] 자동 제거 실패 id=%s: %v", rec.ID, err)
 			continue
 		}

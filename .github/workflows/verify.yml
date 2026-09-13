@@ -223,6 +223,14 @@ jobs:
       - name: 프론트 계층 경계
         run: scripts/check-layer.sh
 
+      # M8 `GO-4`·`GO-48` — **프로세스 축 경계.** `internal/` 은 프로세스 축으로
+      # 묶여 있는데 감사 시점에 네 곳이 새어 있었고 문서는 "예외는 없다" 고
+      # 적혀 있었다. 축 패키지는 자기 축과 shared/ 만, shared/ 는 shared/ 만
+      # import 한다(`go list -deps`). 같은 게이트가 architecture.md 의 패키지
+      # 표를 `go list ./...` 과 양방향으로 대조한다.
+      - name: 프로세스 축 경계 · 패키지 표
+        run: scripts/check-pkg-axis.sh
+
       # M7 — 접근성 셋. `make gates` 에는 있었고 **여기에는 없었다**: 이 파일과
       # Makefile 의 목록이 갈리면 로컬에서 잡히는 것을 CI 가 놓치고, 그 차이는
       # 밀어 보고 나서야 드러난다 (Makefile 머리말이 세운 규약).

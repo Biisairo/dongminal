@@ -2,9 +2,7 @@ package toolhub
 
 import (
 	"os"
-	"strings"
 	"testing"
-	"time"
 
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/testpath"
@@ -46,21 +44,12 @@ func TestStartTool_ShellSeesIsolatedHome(t *testing.T) {
 	}
 	defer p.kill()
 
-	time.Sleep(500 * time.Millisecond)
+	waitShellReady(t, p)
 	if err := p.Write([]byte("printf 'HOMEIS(%s)\\n' \"$HOME\"\n")); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 
-	want := "HOMEIS(" + iso + ")"
-	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
-		blob, _ := p.Stream().Snapshot()
-		if strings.Contains(string(blob), want) {
-			return
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	blob, _ := p.Stream().Snapshot()
-	t.Fatalf("셸이 격리 홈을 보지 못했습니다. want %q, got:\n%s", want, blob)
+	waitOutput(t, p, "HOMEIS("+iso+")")
 }
 
 // 홈을 격리해도 **도구가 열리는 자리는 사용자 홈이다.**
@@ -85,19 +74,9 @@ func TestStartTool_StartDirStaysUserHome(t *testing.T) {
 	}
 	defer p.kill()
 
-	time.Sleep(500 * time.Millisecond)
+	waitShellReady(t, p)
 	if err := p.Write([]byte("printf 'PWDIS(%s)\\n' \"$PWD\"\n")); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-
-	marker := "PWDIS(" + want + ")"
-	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
-		blob, _ := p.Stream().Snapshot()
-		if strings.Contains(string(blob), marker) {
-			return
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	blob, _ := p.Stream().Snapshot()
-	t.Fatalf("도구가 사용자 홈에서 열리지 않았습니다. want %q, got:\n%s", marker, blob)
+	waitOutput(t, p, "PWDIS("+want+")")
 }

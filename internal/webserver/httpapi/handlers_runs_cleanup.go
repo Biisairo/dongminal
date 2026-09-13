@@ -1,7 +1,9 @@
 package httpapi
 
 import (
+	"context"
 	"dongminal/internal/shared/dmlog"
+	"errors"
 	"time"
 
 	"dongminal/internal/shared/agentadapter"
@@ -36,7 +38,7 @@ const (
 //
 // 돌려주는 것은 **무엇을 어떻게 했는가**다 (FR-RUN-9). 조용히 사라지는 자원이
 // 없어야 한다는 규약은 worktree 잔여물·보존 도구와 같다.
-func (s *Server) closeRunTabs(rec run.Record, keep bool) []map[string]any {
+func (s *Server) closeRunTabs(ctx context.Context, rec run.Record, keep bool) []map[string]any {
 	out := []map[string]any{}
 	if keep {
 		// FR-RUN-8: `--keep-tools` 는 아무것도 닫지 않는다 — 종전 규약 그대로다.
@@ -73,7 +75,7 @@ func (s *Server) closeRunTabs(rec run.Record, keep bool) []map[string]any {
 	for _, t := range targets {
 		ids = append(ids, t.toolID)
 	}
-	s.waitToolsIdle(ids)
+	s.waitToolsIdle(ctx, ids)
 
 	// ② 탭을 닫는다. 좌표가 아니라 uuid 를 싣는다 — 브라우저의 `closeTab` 이
 	//    `location` 을 그렇게 해석한다 (app-cmd.js `_resolveLocation`).
@@ -101,25 +103,21 @@ func (s *Server) closeRunTabs(rec run.Record, keep bool) []map[string]any {
 //
 // 상한을 넘겨도 돌아온다 — 기다림은 확인창을 피하기 위한 것이지 정리의 조건이
 // 아니다 (FR-RUN-6 의 근거).
-func (s *Server) waitToolsIdle(ids []string) {
+func (s *Server) waitToolsIdle(ctx context.Context, ids []string) {
 	if s.Tools == nil || len(ids) == 0 {
 		return
 	}
-	deadline := time.Now().Add(exitSettleTimeout)
-	for time.Now().Before(deadline) {
-		busy := false
+	err := pollUntil(ctx, exitSettleTimeout, exitPollInterval, func() bool {
 		for _, id := range ids {
 			if s.Tools.Busy(id) {
-				busy = true
-				break
+				return false
 			}
 		}
-		if !busy {
-			return
-		}
-		time.Sleep(exitPollInterval)
+		return true
+	})
+	if errors.Is(err, errWaitTimeout) {
+		dmlog.Infof(nil, "[run] close 정리: 종료 대기 상한 초과 — 그대로 닫는다 (%d개)", len(ids))
 	}
-	dmlog.Infof(nil, "[run] close 정리: 종료 대기 상한 초과 — 그대로 닫는다 (%d개)", len(ids))
 }
 
 // emptyRunTabs 는 **전용 창**에 남은 비-멤버 탭의 uuid 다 (FR-RUN-7).

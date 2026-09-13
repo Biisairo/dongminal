@@ -51,21 +51,21 @@ type ToolClient struct {
 	reconnects atomic.Int64
 	closed     chan struct{}
 
-	// Push event callbacks. OnOutput runs once per output chunk in the readLoop
-	// goroutine (attention/activity detection — DAEMON_SPLIT_SRS §6.2); it is
-	// independent of WS subscribers so detection works even with no browser and
-	// never double-counts or races attnCarry across multiple subscribers.
-	OnOutput func(toolID string, data []byte)
-	OnExit   func(toolID string, code int)
-	// OnForeground fires when a tool's foreground process name changes
-	// (CONVENIENCE_SRS FR-TAN-9). The daemon only pushes on change, so this
-	// never repeats a value. nil disables the callback; the same name also
-	// rides in every List() response, so nothing is lost by leaving it unset.
+	// Push event callbacks — **셋 다 `mu` 아래**이고 setter 로만 걸린다 (M8
+	// `GO-5`). readLoop 는 dial 이 돌아온 순간 이미 돌고 있고 데몬은 접속 직후
+	// 값을 밀 수 있으므로, 배선이 끝나기 전에 readLoop 가 이 필드를 읽는 창이
+	// 실재한다 (`go test -race` 3회 중 1회 관측, 2026-08-28 — 그때 fg 만 고쳤고
+	// 나머지 둘은 문서화된 채 남아 있었다).
 	//
-	// Install it with SetOnForeground, not by assignment — readLoop reads this
-	// under pc.mu and the daemon can push `fg` before the caller has finished
-	// wiring.
-	OnForeground func(toolID, name string)
+	// onOutput 은 output 청크마다 readLoop 고루틴에서 한 번 돈다(주의·활동
+	// 탐지, DAEMON_SPLIT_SRS §6.2) — WS 구독자와 독립이라 브라우저가 없어도
+	// 탐지가 돌고 attnCarry 를 구독자 수만큼 겹쳐 세지 않는다.
+	// onForeground 는 전경 프로세스 이름이 바뀔 때 온다 (CONVENIENCE_SRS
+	// FR-TAN-9). 데몬은 변화만 밀므로 같은 값이 되풀이되지 않는다. nil 이면
+	// 끈다 — 같은 이름이 List() 응답에도 실리므로 잃는 것은 없다.
+	onOutput     func(toolID string, data []byte)
+	onExit       func(toolID string, code int)
+	onForeground func(toolID, name string)
 	earlyPushes  []earlyPush
 
 	// Per-tool WS subscribers: output channel → its exit-signal channel. The
@@ -75,44 +75,56 @@ type ToolClient struct {
 	subbers map[string]map[chan OutChunk]chan struct{}
 	dropped atomic.Int64
 
+	// listCache·listAt 은 마지막 list 응답과 그 시각이다 (`GO-6`, ListOK 참조).
+	listMu    sync.Mutex
+	listCache []toolhub.ToolInfo
+	listAt    time.Time
+	listGen   uint64
+
 	// daemonInfo 는 마지막 hello 가 말한 판이다 (FR-VHL-2). 재연결마다 갱신되므로
 	// `mu` 아래 둔다 — readLoop 와 같은 잠금이다.
 	daemonInfo DaemonInfo
 }
 
-// DaemonInfo 는 마지막 `hello` 가 말한 **데몬의 판**이다
-// (VERSION_HEALTH_SRS FR-VHL-2).
-//
-// 여기서 판정하지 않는다 — 이 겹이 아는 것은 "데몬이 뭐라고 했는가" 이고,
-// 그것을 우리 판과 견주는 일은 헬스 종단의 몫이다 (FR-VHL-11). 정책을 여기 두면
-// 이 패키지가 릴리스 규약을 알아야 한다.
-type DaemonInfo struct {
-	// Protocol 은 데몬이 말한 문법 판이다. 말하지 않았으면 현재 판으로 읽는다
-	// (FR-VHL-5) — 옛 데몬을 거부하면 갱신 중인 인스턴스가 통째로 멈춘다.
-	Protocol int
-	// Build 는 데몬 바이너리의 판이다. **말하지 않았으면 빈 값**이며, 빈 것은
-	// 불일치가 아니다 (FR-CBG-5 — 모른다 ≠ 다르다).
-	Build string
-}
+// DaemonInfo 는 toolhub.DaemonInfo 다 — 뜻은 그쪽 주석에 있다.
+type DaemonInfo = toolhub.DaemonInfo
 
+// earlyPush 는 배선 전에 도착한 exit 다 — exit 만 버퍼한다 (SetOnExit 참조).
 type earlyPush struct {
-	event string
-	tool  string
-	code  int
+	tool string
+	code int
 }
 
-// SetOnForeground 는 fg 콜백을 **잠금 안에서** 건다. 맨 대입을 쓰지 마라 —
-// readLoop 는 DialToolClient 시점에 이미 돌고 있고, `fg` 푸시는 WS 구독과
-// 무관하게 도착한다. 데몬은 연결 직후 값을 밀 수 있으므로 배선이 끝나기 전에
-// readLoop 가 이 필드를 읽는 창이 실재한다 — 읽기만 잠그면 레이스는 남는다
-// (`go test -race` 3회 중 1회 관측, 2026-08-28).
-//
-// 같은 계열이 둘 더 있다 — `OnOutput`·`OnExit` 도 맨 대입으로 걸리고 있어
-// 같은 창을 안는다. 이 묶음(CONVENIENCE_SRS FR-TAN-9)의 범위 밖이라 손대지
-// 않았다. 그 둘을 고칠 사람은 이 setter 를 본으로 삼으면 된다.
+// SetOnOutput 은 output 콜백을 잠금 안에서 건다. 배선 전에 도착한 output 은
+// 버리지 않고 **놓친다** — 화면은 다음 snapshot 이 메우고, 주의 탐지는 다음
+// 청크에서 이어진다 (exit 와 달리 유실이 상태를 남기지 않는다).
+func (pc *ToolClient) SetOnOutput(cb func(toolID string, data []byte)) {
+	pc.mu.Lock()
+	pc.onOutput = cb
+	pc.mu.Unlock()
+}
+
+// SetOnExit 은 exit 콜백을 잠금 안에서 걸고, 배선 전에 도착해 버퍼된 exit 를
+// **그 자리에서 재생**한다. exit 하나를 놓치면 죽은 도구의 활동·주의가 배지에
+// 남으므로(FR-ATL-3) output 과 달리 버퍼가 있다.
+func (pc *ToolClient) SetOnExit(cb func(toolID string, code int)) {
+	pc.mu.Lock()
+	pc.onExit = cb
+	pushes := pc.earlyPushes
+	pc.earlyPushes = nil
+	pc.mu.Unlock()
+	if cb == nil {
+		return
+	}
+	for _, p := range pushes {
+		cb(p.tool, p.code)
+	}
+}
+
+// SetOnForeground 는 fg 콜백을 잠금 안에서 건다 (CONVENIENCE_SRS FR-TAN-9).
 func (pc *ToolClient) SetOnForeground(cb func(toolID, name string)) {
 	pc.mu.Lock()
-	pc.OnForeground = cb
+	pc.onForeground = cb
 	pc.mu.Unlock()
 }
 
@@ -341,8 +353,11 @@ func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 		}
 		// Attention/activity detection: once per chunk, in this single readLoop
 		// goroutine — independent of WS subscribers (FR-15, §6.2).
-		if pc.OnOutput != nil {
-			pc.OnOutput(ev.Tool, data)
+		pc.mu.Lock()
+		onOutput := pc.onOutput
+		pc.mu.Unlock()
+		if onOutput != nil {
+			onOutput(ev.Tool, data)
 		}
 		// Dispatch to per-tool output channels. Non-blocking: a single slow
 		// WS subscriber must never stall readLoop (which serves every tool).
@@ -377,8 +392,9 @@ func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 		if err := json.Unmarshal(raw, &ev); err != nil {
 			return
 		}
+		pc.invalidateList()
 		pc.mu.Lock()
-		cb := pc.OnForeground
+		cb := pc.onForeground
 		pc.mu.Unlock()
 		if cb != nil {
 			cb(ev.Tool, ev.Name)
@@ -391,6 +407,7 @@ func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 		if err := json.Unmarshal(raw, &ev); err != nil {
 			return
 		}
+		pc.invalidateList()
 		// Signal every WS subscriber of this tool so it can send toolhub.OpExit and
 		// tear down (parity with direct-mode tool.kill). Closing + removing
 		// under subMu means no concurrent output dispatch sends on a closed chan.
@@ -401,28 +418,16 @@ func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 		for _, exitCh := range subs {
 			close(exitCh)
 		}
-		// Global exit callback (activity cleanup). Buffer if not yet wired.
+		// Global exit callback (activity cleanup). Buffer if not yet wired —
+		// SetOnExit 가 재생한다.
 		pc.mu.Lock()
-		if pc.OnExit != nil {
-			pc.mu.Unlock()
-			pc.OnExit(ev.Tool, ev.Code)
-		} else {
-			pc.earlyPushes = append(pc.earlyPushes, earlyPush{event: "exit", tool: ev.Tool, code: ev.Code})
-			pc.mu.Unlock()
+		onExit := pc.onExit
+		if onExit == nil {
+			pc.earlyPushes = append(pc.earlyPushes, earlyPush{tool: ev.Tool, code: ev.Code})
 		}
-	}
-}
-
-// FlushEarlyPushes replays any buffered exit events that arrived before
-// the OnExit callback was set.
-func (pc *ToolClient) FlushEarlyPushes() {
-	pc.mu.Lock()
-	pushes := pc.earlyPushes
-	pc.earlyPushes = nil
-	pc.mu.Unlock()
-	for _, p := range pushes {
-		if p.event == "exit" && pc.OnExit != nil {
-			pc.OnExit(p.tool, p.code)
+		pc.mu.Unlock()
+		if onExit != nil {
+			onExit(ev.Tool, ev.Code)
 		}
 	}
 }
@@ -430,6 +435,12 @@ func (pc *ToolClient) FlushEarlyPushes() {
 // call sends a request and blocks until the response arrives, the connection
 // is lost, the call times out (FR-14), or the client closes.
 func (pc *ToolClient) call(method string, params interface{}) (map[string]interface{}, error) {
+	return pc.callWithin(method, params, panedCallTimeout)
+}
+
+// callWithin 은 시한을 따로 받는 call 이다 — 데몬 쪽에서 유예를 기다리는
+// `terminate` 처럼 기본 시한보다 오래 걸리는 것이 정상인 호출의 자리.
+func (pc *ToolClient) callWithin(method string, params interface{}, within time.Duration) (map[string]interface{}, error) {
 	pc.mu.Lock()
 	if pc.enc == nil {
 		pc.mu.Unlock()
@@ -457,6 +468,10 @@ func (pc *ToolClient) call(method string, params interface{}) (map[string]interf
 		return nil, err
 	}
 
+	// 호출마다 타이머를 만들고 **돌아갈 때 멈춘다** (M8 `GO-35`). time.After 는
+	// 시한이 다 될 때까지 회수되지 않아 고빈도 list 에서 5초짜리 타이머가 쌓였다.
+	timeout := time.NewTimer(within)
+	defer timeout.Stop()
 	select {
 	case raw, ok := <-ch:
 		if !ok {
@@ -478,7 +493,7 @@ func (pc *ToolClient) call(method string, params interface{}) (map[string]interf
 		return result, nil
 	case <-cd:
 		return nil, fmt.Errorf("paned connection lost")
-	case <-time.After(panedCallTimeout):
+	case <-timeout.C:
 		pc.mu.Lock()
 		delete(pc.pending, id)
 		pc.mu.Unlock()
@@ -509,14 +524,8 @@ func (pc *ToolClient) Close() {
 // OutChunk 는 구독자가 받는 출력 한 조각이다.
 //
 // 바이트만으로는 부족하다 — 구독은 스냅샷 **앞에** 서므로 둘이 겹치고, 겹친
-// 앞부분을 잘라내려면 그 조각이 스트림의 어디인지 알아야 한다
-// (TERMINAL_RESUME_SRS FR-TRS-15·16). End 는 이 조각의 **끝** 절대 오프셋이며,
-// 조각이 덮는 구간은 `[End-len(Data), End)` 다. 0 은 "모른다" 이고, 그때는
-// 잘라내지 않는다.
-type OutChunk struct {
-	Data []byte
-	End  int64
-}
+// OutChunk 는 toolhub.OutChunk 다 — 조각의 뜻은 그쪽 주석에 있다.
+type OutChunk = toolhub.OutChunk
 
 func (pc *ToolClient) Subscribe(toolID string, ch chan OutChunk) (exitCh <-chan struct{}, unsubscribe func()) {
 	ex := make(chan struct{})
@@ -533,9 +542,8 @@ func (pc *ToolClient) Subscribe(toolID string, ch chan OutChunk) (exitCh <-chan 
 	}
 }
 
-// IsDaemon reports whether this ToolClient is in daemon mode (always true).
-// Used by handleWS to detect daemon mode at runtime.
-func (pc *ToolClient) IsDaemon() bool { return true }
+// Daemon 은 자기 자신이다 — 이 클라이언트가 곧 프로세스 경계를 건너는 표면이다.
+func (pc *ToolClient) Daemon() toolhub.DaemonHub { return pc }
 
 // Connected reports whether a live daemon connection is currently established.
 // During a reconnect window it returns false, so callers can distinguish a
@@ -558,7 +566,7 @@ func (pc *ToolClient) Connected() bool {
 
 // ── toolhub.ToolHub implementation ──────────────────────────────────────────────
 
-func (pc *ToolClient) List() []map[string]interface{} {
+func (pc *ToolClient) List() []toolhub.ToolInfo {
 	out, _ := pc.ListOK()
 	return out
 }
@@ -573,7 +581,23 @@ func (pc *ToolClient) List() []map[string]interface{} {
 //
 // 그래서 판정을 RPC 를 실제로 하는 이 자리 하나에 둔다. 응답이 왔으면 목록이
 // 비어 있어도 아는 것이고, 오지 않았으면 모르는 것이다.
-func (pc *ToolClient) ListOK() ([]map[string]interface{}, bool) {
+func (pc *ToolClient) ListOK() ([]toolhub.ToolInfo, bool) {
+	// 짧은 TTL 캐시 (M8 `GO-6`). Get·IsLive·Has 가 전부 이 목록을 딛는데, 요청
+	// 하나가 멤버·도구마다 그것을 물어 `GET /api/runs` 한 번이 list RPC 를
+	// 수십 번 직렬로 왕복했다. 재접속 창에서는 그 하나하나가 5초 시한에
+	// 매달렸다. 캐시는 push(`exit`·`fg`)와 이 클라이언트를 지나는 변경(create·
+	// kill·terminate·restore·setbackground)이 **보내기 전과 돌아온 뒤 두 번**
+	// 무효화한다 — 데몬은 한 연결의 요청을 직렬로 처리하므로, 변경이 진행되는
+	// 동안의 조회는 캐시가 아니라 RPC 로 가야 변경 뒤에 답을 받는다. 종전(캐시
+	// 없음)의 관측 순서가 그것이었고, e2e skill-contract 가 그 순서를 단정한다.
+	if tools, ok := pc.cachedList(); ok {
+		return tools, true
+	}
+	// RPC 를 시작한 **세대**를 적어 둔다. 응답이 오기 전에 무효화가 끼면(예: 이
+	// list 가 데몬에서 답해진 뒤 kill 이 지나갔다) 그 응답은 이미 낡은 것이라
+	// 저장하지 않는다 — 저장하면 무효화를 덮어써 지운 도구가 TTL 동안 되살아난다
+	// (e2e skill-contract 에서 실측).
+	gen := pc.listGeneration()
 	resp, err := pc.call("list", struct{}{})
 	if err != nil {
 		return nil, false
@@ -587,25 +611,65 @@ func (pc *ToolClient) ListOK() ([]map[string]interface{}, bool) {
 	}
 	if raw == nil {
 		// 키는 있고 값이 null 이다 — 도구가 0개인 것이며, 아는 것이다.
+		pc.storeList(nil, gen)
 		return nil, true
 	}
-	arr, ok := raw.([]interface{})
-	if !ok {
+	// 와이어는 toolhub.ToolInfo 의 JSON 그대로다 (`GO-13`) — 한 번 다시 부호화해
+	// 그 타입으로 읽는다. 형 단언으로 키를 하나씩 뜯던 자리다.
+	blob, err := json.Marshal(raw)
+	if err != nil {
 		return nil, false
 	}
-	out := make([]map[string]interface{}, 0, len(arr))
-	for _, item := range arr {
-		m, ok := item.(map[string]interface{})
-		if ok {
-			out = append(out, m)
-		}
+	var out []toolhub.ToolInfo
+	if err := json.Unmarshal(blob, &out); err != nil {
+		return nil, false
 	}
+	pc.storeList(out, gen)
 	return out, true
+}
+
+// listCacheTTL 은 목록 캐시의 수명이다. 낡은 값이 살 수 있는 최대 창이며, 그
+// 안의 변경은 push 와 변경 호출이 무효화로 덮는다.
+const listCacheTTL = 200 * time.Millisecond
+
+func (pc *ToolClient) cachedList() ([]toolhub.ToolInfo, bool) {
+	pc.listMu.Lock()
+	defer pc.listMu.Unlock()
+	if pc.listAt.IsZero() || time.Since(pc.listAt) > listCacheTTL {
+		return nil, false
+	}
+	return pc.listCache, true
+}
+
+func (pc *ToolClient) listGeneration() uint64 {
+	pc.listMu.Lock()
+	defer pc.listMu.Unlock()
+	return pc.listGen
+}
+
+// storeList 는 gen 이 지금 세대일 때만 저장한다 — 그 사이 무효화가 있었으면 이
+// 응답은 낡은 것이다.
+func (pc *ToolClient) storeList(tools []toolhub.ToolInfo, gen uint64) {
+	pc.listMu.Lock()
+	if pc.listGen == gen {
+		pc.listCache, pc.listAt = tools, time.Now()
+	}
+	pc.listMu.Unlock()
+}
+
+// invalidateList 는 캐시를 버리고 세대를 올린다 — 목록을 바꿨거나 바뀌었다는
+// push 를 받은 자리. 진행 중인 list 응답은 이 세대 앞의 것이라 저장되지 않는다.
+func (pc *ToolClient) invalidateList() {
+	pc.listMu.Lock()
+	pc.listAt = time.Time{}
+	pc.listGen++
+	pc.listMu.Unlock()
 }
 
 // 데몬 모드에서는 PTY 를 데몬이 소유하므로 샌드박스 배치도 그쪽에서 일어난다.
 // 여기서는 어느 Window 의 도구인지만 실어 보낸다 (FR-SBX-11).
 func (pc *ToolClient) Create(cwd string, cols, rows uint16, place toolhub.Placement) (*toolhub.Tool, error) {
+	pc.invalidateList()
 	resp, err := pc.call("create", map[string]interface{}{
 		"cwd": cwd, "cols": cols, "rows": rows,
 		"window": place.WindowUUID, "profile": place.Profile,
@@ -618,6 +682,7 @@ func (pc *ToolClient) Create(cwd string, cols, rows uint16, place toolhub.Placem
 	if err != nil {
 		return nil, err
 	}
+	pc.invalidateList()
 	id, _ := resp["id"].(string)
 	name, _ := resp["name"].(string)
 	return &toolhub.Tool{ID: id, Name: name}, nil
@@ -625,11 +690,9 @@ func (pc *ToolClient) Create(cwd string, cols, rows uint16, place toolhub.Placem
 
 func (pc *ToolClient) Get(id string) *toolhub.Tool {
 	// ToolClient doesn't have local state; we check liveness via List
-	tools := pc.List()
-	for _, m := range tools {
-		if m["id"].(string) == id {
-			name, _ := m["name"].(string)
-			return &toolhub.Tool{ID: id, Name: name}
+	for _, t := range pc.List() {
+		if t.ID == id {
+			return &toolhub.Tool{ID: id, Name: t.Name}
 		}
 	}
 	return nil
@@ -638,14 +701,29 @@ func (pc *ToolClient) Get(id string) *toolhub.Tool {
 // Delete 는 데몬에게 그 도구를 지우라 한다. **RPC 의 실패를 그대로 돌려준다**
 // (`GO-8`) — 종전에는 반환이 없어 데몬이 무엇을 답하든 성공으로 읽혔다.
 func (pc *ToolClient) Delete(id string) error {
+	pc.invalidateList()
 	_, err := pc.call("kill", map[string]interface{}{"id": id})
+	pc.invalidateList()
+	return err
+}
+
+// Terminate 는 데몬에게 유예를 실어 보낸다 (FBE-05/12). 데몬은 그 유예를 자기
+// 쪽에서 기다린 뒤 지우므로, 이 호출의 시한은 기본 시한에 유예를 더한 값이다.
+func (pc *ToolClient) Terminate(id string, grace time.Duration) error {
+	pc.invalidateList()
+	_, err := pc.callWithin("terminate", map[string]interface{}{
+		"id": id, "graceMs": grace.Milliseconds(),
+	}, panedCallTimeout+grace)
+	pc.invalidateList()
 	return err
 }
 
 func (pc *ToolClient) Restore(id, name, cwd string, cols, rows uint16) error {
+	pc.invalidateList()
 	_, err := pc.call("restore", map[string]interface{}{
 		"id": id, "name": name, "cwd": cwd, "cols": cols, "rows": rows,
 	})
+	pc.invalidateList()
 	return err
 }
 
@@ -701,7 +779,9 @@ func (pc *ToolClient) Busy(id string) bool {
 }
 
 func (pc *ToolClient) SetBackground(id string, bg bool) bool {
+	pc.invalidateList()
 	resp, err := pc.call("setbackground", map[string]interface{}{"id": id, "background": bg})
+	pc.invalidateList()
 	if err != nil {
 		return false
 	}

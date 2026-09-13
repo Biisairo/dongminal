@@ -35,13 +35,13 @@ func newSettingsStore(path string) *settingsStore {
 	return s
 }
 
-func (s *settingsStore) get() []byte {
+func (s *settingsStore) Get() []byte {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.raw
 }
 
-func (s *settingsStore) set(b []byte) {
+func (s *settingsStore) Set(b []byte) {
 	s.mu.Lock()
 	s.raw = b
 	s.mu.Unlock()
@@ -52,7 +52,7 @@ func (s *settingsStore) set(b []byte) {
 // 종전에는 오류를 로그로 삼켰고 핸들러는 언제나 200 이었다. 사용자는 설정이 바뀐
 // 줄 알고 다음 기동에서 옛 값을 만난다 — 클라이언트가 `res.ok` 를 보게 된 지금
 // 그 값이 진실이어야 한다.
-func (s *settingsStore) save() error {
+func (s *settingsStore) Save() error {
 	s.mu.Lock()
 	data := s.raw
 	s.mu.Unlock()
@@ -71,7 +71,7 @@ func (s *settingsStore) save() error {
 func (s *Server) apiSettingsGet(w http.ResponseWriter, r *http.Request) {
 	var data []byte
 	if s.Settings != nil {
-		data = s.Settings.get()
+		data = s.Settings.Get()
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if len(data) > 0 {
@@ -109,8 +109,8 @@ func (s *Server) apiSettingsPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.Settings != nil {
-		s.Settings.set(body)
-		if err := s.Settings.save(); err != nil {
+		s.Settings.Set(body)
+		if err := s.Settings.Save(); err != nil {
 			// 사유는 감춘다 (SEC-17) — 저장 실패의 원인은 내부 사정이고, 여기
 			// 실리면 경로가 나간다. 사용자가 할 일은 다시 시도하는 것뿐이다.
 			httpErr(w, "settings save failed", http.StatusInternalServerError, apierr.CodeSaveFailed)

@@ -68,13 +68,45 @@ type SandboxReaper interface {
 }
 
 // SettingsStore abstracts the in-memory + on-disk settings blob holder.
+//
+// 메서드가 공개인 이유 (M8 `GO-45`): 종전에는 비공개 메서드만 있어 이 패키지
+// 밖에서는 구현할 수 없었다 — 주입 표면인데 주입할 수 있는 것이 이 패키지의
+// 구현 하나뿐이었다.
 type SettingsStore interface {
-	get() []byte
-	set([]byte)
-	// save 는 **실패를 돌려준다** (M3 DoD). 종전에는 반환이 없어 PUT 이 쓰기
+	Get() []byte
+	Set([]byte)
+	// Save 는 **실패를 돌려준다** (M3 DoD). 종전에는 반환이 없어 PUT 이 쓰기
 	// 실패에도 200 을 답했고, 사용자는 설정이 바뀐 줄 알았다.
-	save() error
+	Save() error
 }
+
+// RunStore 는 /api/runs* 가 Run 레코드 저장소에 요구하는 표면이다 (M8 `GO-44`).
+// `*run.Store` 가 만족한다. 인터페이스인 이유는 핸들러 테스트가 runs.json 없이
+// 돌 수 있게 하기 위해서다 — 저장소의 동작은 그쪽 패키지의 테스트가 지킨다.
+type RunStore interface {
+	Start(opt run.StartOptions) (run.Record, error)
+	Get(runID string) (run.Record, bool)
+	List() []run.Record
+	Close(runID string, force bool) (run.Record, []run.Member, error)
+	Delete(runID string) (run.Record, error)
+	Sweep(runID string) (run.Record, error)
+	ReapTargets(alive func(toolID string) bool) []run.Record
+	AddMember(runID string, spec run.MemberSpec) (run.Member, error)
+	FindMember(memberID string) (run.Record, run.Member, bool)
+	MemberByTool(toolID string) (run.Member, bool)
+	Attach(memberID, tabID string) (run.Record, run.Member, error)
+	Detach(memberID string) (run.Record, run.Member, error)
+	Report(senderToolID string, spec run.ReportSpec) (run.Member, error)
+	Succeed(spec run.SucceedSpec) (prev run.Member, next run.Member, err error)
+	Handoff(senderToolID, claimedMemberID, summary string) (run.Member, error)
+	HandoffWaiting(memberID string) bool
+	GiveUpHandoff(memberID string)
+	ObserveContext(toolID string, obs run.ContextObservation, policy run.ContextPolicy) (m run.Member, entered string, found bool)
+	MarkWorktrees(runID string, marks []run.WorktreeMark) error
+	AppendMessage(runID string, ev run.MsgEvent) error
+}
+
+var _ RunStore = (*run.Store)(nil)
 
 // Deps is the full injection surface for New.
 type Deps struct {
@@ -97,16 +129,16 @@ type Deps struct {
 	// Runs owns runs.json — the orchestration execution record
 	// (RUN_ORCHESTRATION_SRS 묶음 R). nil 이면 /api/runs* 가 503 이며 그 밖의
 	// 동작에는 영향이 없다 (NFR-RUN-1).
-	Runs *run.Store
+	Runs RunStore
 	// Worktrees 는 격리 Run 의 작업 트리를 만들고 정리한다 (묶음 W). nil 이면
 	// 격리를 요청한 Run 시작이 거부된다 — 조용히 none 으로 낮추지 않는다
 	// (FR-WKT-11).
-	Worktrees *worktree.Manager
+	Worktrees worktree.Service
 	// UserWorktrees 는 Git 창 Worktrees 탭이 쓰는 사용자 worktree 영역의 Manager 다
 	// (FR-WKT-13) — root 는 $DONGMINAL_HOME/git-worktrees 로 Worktrees(위 필드,
 	// Run 격리 영역)의 형제이며 별개의 Manager 인스턴스다. nil 이면 그 탭의
 	// 목록·생성·제거가 전부 503 이다 — Run 격리에는 영향이 없다.
-	UserWorktrees *worktree.Manager
+	UserWorktrees worktree.Service
 	// WorkIndex resolves tool identifiers (uuid / toolId / label) and labels
 	// them back for the agent-message envelope (FR-API-3/4). Nil → 503.
 	WorkIndex toolaccess.WorkspaceReader

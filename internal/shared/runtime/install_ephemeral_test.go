@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/helper/runtimebin"
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 )
 
@@ -53,7 +53,7 @@ func TestInstall_EphemeralSelfSurvivesSourceRemoval(t *testing.T) {
 	if st := InspectHelpers(binDir); len(st.Problems) > 0 {
 		t.Fatalf("원본이 사라지자 헬퍼가 죽었다: %+v", st.Problems)
 	}
-	for _, name := range runtimebin.HelperNames() {
+	for _, name := range dmenv.HelperNames() {
 		if _, err := os.Stat(helperPath(binDir, name)); err != nil {
 			t.Errorf("%s: %v", name, err)
 		}
@@ -106,7 +106,7 @@ func TestIsEphemeralExe(t *testing.T) {
 // V-HLI-4: 사용자가 본 그 사건 — 링크는 있는데 대상이 없다.
 func TestCheckHelpers_FindsDangling(t *testing.T) {
 	binDir := t.TempDir()
-	names := runtimebin.HelperNames()
+	names := dmenv.HelperNames()
 	if len(names) < 2 {
 		t.Skip("헬퍼가 둘 미만")
 	}
@@ -183,7 +183,7 @@ func TestInspectHelpers_FreshHomeIsNotBroken(t *testing.T) {
 
 // D-6: 일부만 있으면 그것은 고장이다 — 온전한 설치는 전부를 놓는다.
 func TestInspectHelpers_PartialInstallIsBroken(t *testing.T) {
-	names := runtimebin.HelperNames()
+	names := dmenv.HelperNames()
 	if len(names) < 2 {
 		t.Skip("헬퍼가 둘 미만")
 	}

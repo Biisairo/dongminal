@@ -6,13 +6,13 @@
 package httpapi
 
 import (
+	"context"
 	"dongminal/internal/shared/dmlog"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
-	"time"
 
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/apierr"
@@ -350,7 +350,10 @@ func (s *Server) apiRunPreamble(w http.ResponseWriter, r *http.Request) {
 	 * 같은 시간을 또 먹어서는 안 된다.
 	 */
 	if s.Runs.HandoffWaiting(m.ID) {
-		s.waitHandoff(m.ID)
+		if s.waitHandoff(r.Context(), m.ID) != nil {
+			// 묻는 쪽이 사라졌다 — 표식은 그대로 둔다. 다음 조회가 이어서 기다린다.
+			return
+		}
 		if _, cur, ok := s.Runs.FindMember(m.ID); ok {
 			m = cur
 		}
@@ -365,22 +368,19 @@ func (s *Server) apiRunPreamble(w http.ResponseWriter, r *http.Request) {
 // waitHandoff 는 전임자의 요약이 도착하기를 상한 안에서 기다린다 (FR-RUN-4).
 //
 // 상한을 넘기면 **기다림을 접는다** (FR-RUN-5) — 없는 것은 없다고 말하며, 그
-// 사실은 프리앰블의 인수인계 절이 이미 적는다.
-func (s *Server) waitHandoff(memberID string) {
-	deadline := time.Now().Add(handoffPreambleWait)
-	for time.Now().Before(deadline) {
-		remaining := time.Until(deadline)
-		if remaining > handoffPollInterval {
-			remaining = handoffPollInterval
-		}
-		time.Sleep(remaining)
-		if !s.Runs.HandoffWaiting(memberID) {
-			return
-		}
+// 사실은 프리앰블의 인수인계 절이 이미 적는다. 요청이 먼저 끊기면 접지 않고
+// 그 오류를 돌려준다 — 오지 않은 것과 묻는 쪽이 사라진 것은 다르다.
+func (s *Server) waitHandoff(ctx context.Context, memberID string) error {
+	err := pollUntil(ctx, handoffPreambleWait, handoffPollInterval, func() bool {
+		return !s.Runs.HandoffWaiting(memberID)
+	})
+	if !errors.Is(err, errWaitTimeout) {
+		return err
 	}
 	dmlog.Infof(nil, "[run] handoff 기다림 종료 member=%s wait=%s — 요약 없이 프리앰블을 낸다",
 		memberID, handoffPreambleWait)
 	s.Runs.GiveUpHandoff(memberID)
+	return nil
 }
 
 // apiRunReport implements POST /api/runs/report (FR-PRE-2/5/7).
@@ -478,7 +478,7 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 	// `cleanup` 목록만 돌려주고 `/exit` → `close-tab` 을 조정자에게 맡겼고, 그
 	// 절차를 건너뛴 조정자가 남긴 것이 접수 ⑩(닫히지 않는 세션·창)과
 	// ⑬(빈 터미널)이다. 무엇을 닫아야 하는지 아는 것은 기록이고 기록은 여기 있다.
-	closed := s.closeRunTabs(rec, body.KeepTools)
+	closed := s.closeRunTabs(r.Context(), rec, body.KeepTools)
 	// UX_BATCH6_SRS FR-RUN-6d: 표식 해제는 **닫고 난 뒤, 남은 자리에만** 한다.
 	//
 	//   이전 동작: 닫기 전에 표식을 지워 workspace.json 을 썼다 (rev+1)
@@ -489,7 +489,7 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 	//             (ubuntu 러너 실측 · e2e `skill-contract`). 사라질 자리의 표식은
 	//             지울 것이 없다 — 자리가 사라진다.
 	s.markWorkspaceRunExcept(rec, "", "", closedTabIDs(closed))
-	trees := s.cleanupWorktrees(rec, body.KeepWorktrees)
+	trees := s.cleanupWorktrees(r.Context(), rec, body.KeepWorktrees)
 	residue := 0
 	for _, t := range trees {
 		if !t.Removed {

@@ -137,6 +137,44 @@ type Server struct {
 	// helloEvery 는 SSE 인사의 주기다 (FR-RLC-20a). 제로값이면 기본값을 쓴다 —
 	// 시험만이 이 값을 줄인다.
 	helloEvery time.Duration
+
+	// limits 는 요청 상한과 유예다 (M8 `GO-9`). 종전에는 패키지 전역이라 "두
+	// 서버가 한 프로세스에 공존한다" 는 이 파일 머리말의 계약을 깼고, 테스트가
+	// 전역을 낮추면 같은 프로세스의 다른 서버까지 낮아졌다. `New` 가 기본값을
+	// 채우고 시험만이 서버 하나의 값을 낮춘다.
+	limits serverLimits
+
+	// fsOps 는 탐색기의 파일 조작을 직렬화한다 (FR-EDT-115). 잡는 구간은
+	// **실제 파일 조작**뿐이다 — 본문 읽기와 경로 판정은 밖에서 한다.
+	fsOps sync.Mutex
+
+	// contextNotices 는 이미 보낸 컨텍스트 통지를 기억한다 (FR-CBG-7). 서버
+	// 수명이지 프로세스 수명이 아니다.
+	contextNotices contextNoticeLog
+}
+
+// serverLimits 는 서버 하나의 상한·유예다. const 가 아닌 것은 테스트가 낮춰
+// 잡기 위해서다 — 실제 값으로 픽스처를 만들면 테스트가 파일시스템을 만든다.
+type serverLimits struct {
+	// fsList·fsDelete·fsCopy — FS_LIST_MAX·FS_DELETE_MAX (FR-EDT-65·118), 복사는
+	// 같은 규약이다 (FR-WBR-66): 먼저 세고, 넘으면 시작하지 않는다.
+	fsList   int
+	fsDelete int
+	fsCopy   int
+	// uploadMaxBytes 는 업로드 본문의 상한이다 (FR-FTR-5, D-6).
+	uploadMaxBytes int64
+	// toolKillGrace 는 SIGTERM 과 SIGKILL 사이의 유예다 (FR-BGK-7).
+	toolKillGrace time.Duration
+}
+
+func defaultLimits() serverLimits {
+	return serverLimits{
+		fsList:         10000,
+		fsDelete:       10000,
+		fsCopy:         10000,
+		uploadMaxBytes: 512 << 20,
+		toolKillGrace:  3 * time.Second,
+	}
 }
 
 // New constructs a Server from cfg + deps. If deps.Commands is nil, a fresh
@@ -175,6 +213,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		Focus:   hub.NewFocusRegistry(),
 		Access:  access,
 		started: time.Now(),
+		limits:  defaultLimits(),
 	}
 	// REQUEST_GATE_SRS FR-RQG-6: 허용 호스트 집합은 `access.self` 를 읽으므로
 	// 그 뒤에 선다. 새 수집 코드를 만들지 않는 것이 이 설계의 요점이다.

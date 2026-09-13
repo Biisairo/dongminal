@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"dongminal/internal/helper/runtimebin"
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 )
 
@@ -26,7 +26,7 @@ func brokenHome(t *testing.T) string {
 	}
 	gone := filepath.Join(t.TempDir(), "go-build-사라짐", "dongminal")
 	suffix := platform.Current().Paths.ExeSuffix()
-	for _, n := range runtimebin.HelperNames() {
+	for _, n := range dmenv.HelperNames() {
 		if err := os.Symlink(gone, filepath.Join(binDir, n+suffix)); err != nil {
 			t.Skipf("이 파일시스템은 심볼릭 링크를 만들지 못한다: %v", err)
 		}
@@ -75,7 +75,7 @@ func TestHealth_SilentOnHealthyHelpers(t *testing.T) {
 		t.Fatal(err)
 	}
 	suffix := platform.Current().Paths.ExeSuffix()
-	for _, n := range runtimebin.HelperNames() {
+	for _, n := range dmenv.HelperNames() {
 		if err := os.WriteFile(filepath.Join(binDir, n+suffix), []byte("x"), 0o755); err != nil {
 			t.Fatal(err)
 		}

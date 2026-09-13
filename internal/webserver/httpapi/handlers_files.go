@@ -102,21 +102,16 @@ func jsonFail(w http.ResponseWriter) failFn {
 	}
 }
 
-// uploadMaxBytes 는 업로드 본문의 상한이다 (FR-FTR-5, D-6). const 가 아닌 것은
-// 테스트가 상한을 낮춰 잡기 위해서다 — 실제 값으로 픽스처를 만들면 테스트가
-// 디스크를 512MiB 쓴다 (fsListMax 와 같은 관례).
-var uploadMaxBytes int64 = 512 << 20
-
 // uploadInto 는 multipart 의 `file` 하나를 dir 에 받는다. 두 표면이 공유한다 —
 // 상한과 대상 검사가 두 벌이 되면 한쪽만 고쳐진다 (FR-FTR-4 와 같은 근거).
 //
 // name 을 정하는 것은 호출자다: 터미널 표면은 자동 개명하고(api.md 의 공개 계약),
 // 탐색기 표면은 거부한다 (FR-FTR-16, D-3).
-func uploadInto(w http.ResponseWriter, r *http.Request, dir string,
+func (s *Server) uploadInto(w http.ResponseWriter, r *http.Request, dir string,
 	pick func(dir, name string) (string, error), fail failFn) (string, int64, bool) {
 	// MaxBytesReader 가 ParseMultipartForm 보다 앞에 선다 — 뒤에 서면 상한을 넘는
 	// 본문이 이미 임시 파일로 디스크에 떨어진 뒤다 (FR-FTR-5).
-	r.Body = http.MaxBytesReader(w, r.Body, uploadMaxBytes)
+	r.Body = http.MaxBytesReader(w, r.Body, s.limits.uploadMaxBytes)
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		var mbe *http.MaxBytesError
@@ -195,7 +190,7 @@ func (s *Server) apiUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 터미널 표면은 자동 개명한다 — `(1)`·`(2)` 는 api.md 의 공개 계약이다.
-	outPath, written, ok := uploadInto(w, r, safeDir, func(d, n string) (string, error) {
+	outPath, written, ok := s.uploadInto(w, r, safeDir, func(d, n string) (string, error) {
 		// TERMINAL_FOLDER_DROP_SRS FR-TFD-30: 터미널도 **폴더를 받는다.**
 		//
 		// `relPath` 가 없으면 지금까지와 같다 — 확장이지 대체가 아니다.

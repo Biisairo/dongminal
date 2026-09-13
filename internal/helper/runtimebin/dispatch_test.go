@@ -2,7 +2,11 @@ package runtimebin
 
 import (
 	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
+
+	"dongminal/internal/shared/dmenv"
 )
 
 func TestDispatchUnknownReturnsNotHandled(t *testing.T) {
@@ -21,7 +25,7 @@ func TestDispatchUnknownReturnsNotHandled(t *testing.T) {
 }
 
 func TestDispatchHelperBasename(t *testing.T) {
-	for _, name := range HelperNames() {
+	for _, name := range dmenv.HelperNames() {
 		_, ok := Dispatch([]string{"/abs/path/" + name, "-h"})
 		if !ok {
 			t.Errorf("helper %s not dispatched via basename", name)
@@ -29,9 +33,23 @@ func TestDispatchHelperBasename(t *testing.T) {
 	}
 }
 
-func TestHelperNamesNonEmpty(t *testing.T) {
-	if len(HelperNames()) == 0 {
+// 설치가 까는 이름(`dmenv.HelperNames`)과 여기서 갈라 서는 이름(`commands`)은
+// 한 벌이어야 한다 — 이름이 한쪽에만 있으면 링크만 있고 서지 않는 헬퍼가 되거나,
+// 서는데 설치되지 않는 헬퍼가 된다 (M8 `GO-4`: 목록을 shared 로 내리면서 생긴
+// 두 자리의 일치를 이 테스트가 지킨다).
+func TestHelperNamesMatchDispatchTable(t *testing.T) {
+	want := append([]string{}, dmenv.HelperNames()...)
+	sort.Strings(want)
+	got := make([]string, 0, len(commands))
+	for k := range commands {
+		got = append(got, k)
+	}
+	sort.Strings(got)
+	if len(want) == 0 {
 		t.Fatal("HelperNames empty")
+	}
+	if strings.Join(want, ",") != strings.Join(got, ",") {
+		t.Fatalf("dmenv.HelperNames %v != runtimebin commands %v", want, got)
 	}
 }
 

@@ -188,8 +188,8 @@ func TestForegroundProbeFailureIsSilent(t *testing.T) {
 		t.Fatalf("조회 실패인데 이름이 나왔다: %v", got)
 	}
 	for _, m := range pm.List() {
-		if m["fgName"] != "" {
-			t.Fatalf("fgName=%v — 조회 실패는 빈 문자열이어야 한다", m["fgName"])
+		if m.FgName != "" {
+			t.Fatalf("fgName=%v — 조회 실패는 빈 문자열이어야 한다", m.FgName)
 		}
 	}
 }
@@ -204,9 +204,9 @@ func TestForegroundListCarriesName(t *testing.T) {
 		return map[string]string{"a": "vim"}
 	})
 
-	seen := map[string]interface{}{}
+	seen := map[string]string{}
 	for _, m := range pm.List() {
-		seen[m["id"].(string)] = m["fgName"]
+		seen[m.ID] = m.FgName
 	}
 	if seen["a"] != "vim" {
 		t.Fatalf("a.fgName=%v want vim", seen["a"])

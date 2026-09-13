@@ -1,9 +1,8 @@
 package hub
 
 import (
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/dmlog"
-	"os"
-	"strconv"
 	"sync"
 	"time"
 
@@ -94,12 +93,7 @@ const defaultCommandResultTimeout = 3 * time.Second
 
 // CommandResultTimeout is the long-poll wait, overridable via env (NFR-RCR-1).
 func CommandResultTimeout() time.Duration {
-	if v := os.Getenv("DONGMINAL_CMD_RESULT_TIMEOUT_MS"); v != "" {
-		if ms, err := strconv.Atoi(v); err == nil && ms > 0 {
-			return time.Duration(ms) * time.Millisecond
-		}
-	}
-	return defaultCommandResultTimeout
+	return dmenv.MillisEnv(dmenv.EnvCmdResultTimeoutMS, defaultCommandResultTimeout, 1)
 }
 
 // NewReqId returns a fresh 1회성 correlation key.

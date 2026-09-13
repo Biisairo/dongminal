@@ -57,6 +57,8 @@ internal/
     ipc/                 #   PanedServer — Unix socket accept 루프 (연결 하나를 직렬 처리)
   webserver/             # ③ 웹 서버 프로세스
     httpapi/             #   HTTP/WS/SSE 라우팅 + settingsStore + 잔여 핸들러 (Server)
+    httproute/           #   라우팅표 한 벌 — httpapi·gitapi 가 타입 매개변수로 공유
+    httpreq/             #   요청 본문을 읽는 한 자리 (표면별 크기 상한)
     gitapi/              #   /api/git/* 핸들러 74개 (GitServer). 라우트 테이블을 스스로 소유
                          #     gitwrite.go — 쓰기 한 번의 순서를 타입이 강제한다
     apierr/              #   sentinel → (status, code) 등록부 + 와이어 코드 단일 소유
@@ -65,7 +67,6 @@ internal/
     seam/
       adapters/          #     toolaccess 인터페이스 ↔ 구체 타입 브리지
       toolaccess/        #     도구(PTY)·워크스페이스·커맨드 허브 접합면 인터페이스
-      clientpid/         #     원격 TCP(remoteAddr) → client PID (ps/lsof)
     domain/
       git/               #     git 실행의 유일한 경로. 아래 5패키지 (§git 절)
         core/            #       Service + 두 초크포인트(Exec, ExecWrite) + guard·errors·record
@@ -76,9 +77,16 @@ internal/
       run/               #     Run 레코드 — runs.json + 투영/격리 타입 + 멤버 프리앰블
       worktree/          #     Run 격리의 git worktree 생성·정리 + 안전 가드
       sysstat/           #     상태바 지표를 커널에서 직접 읽는다 (cgo 격리)
+      submodule/         #     서브모듈 목록·조작 — 허용 목록의 판정 단위라 별도 패키지
+      wsentry/           #     workspace.json 최상위 두 목록 (git.pinned[]·editors.list[])
+      lsp/               #     언어 서버 세션 (정의·참조·호버) — 세션 상한·유휴 회수
+      ext/               #     언어 서버 플러그인 매니페스트 — 서버 목록은 여기 없다
   ctl/                   # ④ 제어 CLI 프로세스
     cli/                 #   start/stop/health/migrate 디스패치 + 옵션 해석
     migrate/             #   v1 → v2 엔티티 스키마 1회성 변환
+    decidx/              #   결정 색인 생성기 — `go run ./scripts/gen-decisions` 가 부른다
+    errdoc/              #   오류 카탈로그 생성기 — `go run ./scripts/gen-errors` 가 부른다
+                         #     (apierr 를 읽는다 — check-pkg-axis.sh 의 예외 등록부)
   shared/                # 둘 이상의 프로세스가 실행한다
     workspace/           #   ①②③ — workspace.json 인덱싱·resolve·영속화
     uuid/                #   ②③④ — 엔티티 uuid(UUID v7) 생성·파싱
@@ -91,6 +99,17 @@ internal/
       shellhooks/        #     bash-hook.sh, zdotdir/.zshrc (실제 파일)
       agentplugin/       #     세션 스코프 주입 플러그인 (skills/team, skills/workflow)
     agentadapter/        #   ①③  — 에이전트별 선언 테이블 (기동·탐지·주입·훅 파서·종료)
+    runfile/             #   ②③  — runs.json 읽기만 (헤드리스 도구 id). 스키마의 주인은 domain/run
+    sandbox/             #   ②③  — Window 하나의 컨테이너 생명주기 + 그 안의 실행 명세
+    sandboxplace/        #   ②③  — 샌드박스 프로파일 → 실행 명세 배선 (toolhub 와 sandbox 를 잇는다)
+    diagtail/            #   ②③  — 실행 진단 문자열의 절단 규칙 하나 (상한은 표면마다)
+    serverconf/          #   ③④  — 서버 기동값 네 계층 (플래그 > 환경 > server.json > 기본)
+    settingsschema/      #   ③④  — settings-schema.js 를 같은 바이트로 읽는다 (표는 JS 가 원천)
+    listorder/           #   ③   — 끌어다 놓기 한 번의 목록 반영 (gitapi·wsentry 가 공유)
+    platform/            #   ①②③④ — OS 마다 갈리는 능력을 인터페이스 뒤로 (경로·프로세스·셸·소켓)
+    dmenv/               #   ①②③④ — 환경변수 이름·기본 엔드포인트·헬퍼 이름 (의존 0)
+    dmlog/               #   ①②③④ — 로그가 지나는 한 자리 (수준·요청 ID)
+    testpath/            #   테스트 전용 — OS 마다 다른 경로 전제를 분기 없이 다룬다
 web/                     # 프론트엔드 자산 + embed.FS()
   style{,-git,-git-views,-editor}.css   # 넷의 <link> 순서 = 원본 선언 순서 (캐스케이드)
   js/core/               #   App 클래스 (app.js + 주제별 app-*.js 17) + helpers·main
@@ -101,7 +120,9 @@ web/                     # 프론트엔드 자산 + embed.FS()
                          #     observer(관측 하나) · panel(칸마다 하나) · diff-view(Monaco)
                          #     panel-{life,changes,views,write,files,diff,poll}.js — 주제별 증강
 e2e/                     # Playwright 스펙 + git 픽스처(git_fixture.sh)
-scripts/                 # build.sh — 빌드 · verify-isolated.sh — `dongminal verify` 껍데기
+scripts/                 # build.sh — 빌드 · verify-isolated.sh — `dongminal verify` 껍데기 · check-*.sh — 게이트
+  gen-decisions/         #   `docs/internal/decisions.md` 생성기 (ctl/decidx)
+  gen-errors/            #   `docs/external/errors.md` 생성기 (ctl/errdoc)
 .github/workflows/       # verify.yml — 매 푸시 검사 (Linux·Windows)
                          # release.yml — 태그 v* → 5개 대상 빌드 → GitHub Releases
                          #   운영 동작은 바이너리의 액션 (internal/ctl/cli)
@@ -110,10 +131,19 @@ docs/
   external/              # 사용자 문서
 ```
 
-**프로세스 축에 예외는 없다.** 마지막까지 축 밖에 있던 `internal/server` 가
-`internal/webserver/httpapi` 로 들어오면서 모든 패키지가 네 프로세스 중 하나 또는
-`shared/` 에 속한다. 판정 기준은 링크 클로저가 아니라 **실행**이다 — 단일 바이너리라
-클로저는 네 프로세스가 모두 같고, 그것으로는 아무것도 갈리지 않는다.
+**모든 패키지가 네 프로세스 중 하나 또는 `shared/` 에 속한다.** 마지막까지 축 밖에
+있던 `internal/server` 가 `internal/webserver/httpapi` 로 들어오면서 그렇게 됐다. 판정
+기준은 링크 클로저가 아니라 **실행**이다 — 단일 바이너리라 클로저는 네 프로세스가
+모두 같고, 그것으로는 아무것도 갈리지 않는다.
+
+**축의 import 규칙은 게이트가 지킨다** (`scripts/check-pkg-axis.sh`, M8 `GO-4`): 축
+패키지는 자기 축과 `shared/` 만, `shared/` 는 `shared/` 만 import 한다 (`go list -deps`,
+추이 의존 포함). 위 표도 같은 게이트가 `go list ./...` 과 양방향으로 대조한다 (`GO-48`).
+**예외는 그 스크립트의 `ALLOW` 에만 있다** — 직접 import 한 쌍 단위로 근거와 함께.
+지금은 둘이다: `ctl/cli → domain/git/core`(git 실행과 URL 마스킹의 유일한 규칙을 ④ 가
+우회하지 않는다) · `ctl/errdoc → apierr`(생성기의 원천). 종전 문서는 "예외는 없다" 고
+적었으나 감사(`01-go-arch.md`) 시점에 네 곳이 새어 있었다 — 규약은 선언으로 지켜지지
+않는다.
 
 `httpapi` 안의 핸들러는 **무엇을 손볼 때 함께 봐야 하는가**로 갈라 뒀다.
 `handlers_files.go` 가 경로를 사용자 입력에서 받는 유일한 면이고(`safeResolve`·
@@ -998,10 +1028,21 @@ WS 구독 쪽 규칙도 같은 뿌리다: 데몬 모드의 출력 릴레이(`rel
 
 ## 동시성
 
-- `ToolManager` : 내부에 `sync.RWMutex`. `Snapshot()` 은 슬라이스 복사로 외부 공개. 백그라운드 도구는 `background map[string]BackgroundEntry` 로 같은 락 아래에서 관리한다.
+- `ToolManager` : 내부에 `sync.RWMutex`. `Snapshot()` 은 슬라이스 복사로 외부 공개. 백그라운드 도구는 `background map[string]BackgroundEntry` 로 같은 락 아래에서 관리한다. `Create` 는 **락 밖에서** 띄운다(fork/exec + PTY open) — 상한(`ToolCap`)은 락 안에서 자리를 예약(`pending`)해 지킨다 (M8 `GO-29`). 도구 종료 콜백은 `invalidator` 를 락으로 읽는다 (`GO-30`).
 - `workspace.Manager` : `atomic.Pointer[[]byte]` + `atomic.Pointer[*index]` + `atomic.Uint64` (rev). Save 내부에서만 `sync.Mutex` 로 직렬화. 리더는 락 없이 atomic load.
 - `outbuf.Stream` : `sync.Mutex` + `atomic.Int64` (누적 카운터). Feed/Snapshot 모두 lock 내에서 slice 조작.
 - `CommandHub` : SSE 구독자 list + broadcast. 내부 `sync.RWMutex`.
+- `toolclient.ToolClient` : 데몬 연결·pending RPC 맵·콜백은 `mu` 아래, 재접속 supervisor 는 `connDone` 채널로 세대를 가른다. 도구별 WS 구독자는 별도 `subMu`(RWMutex) — readLoop 가 push 를 fan-out 하는 동안 RPC 락을 쥐지 않는다. `stopped`·`reconnects`·`dropped` 는 atomic.
+- `hub.AttnTracker` : 도구 맵은 `mu`, 도구 하나의 상태(`lastOutputAt`·`attention`·`activity` 등)는 atomic — 스위퍼 틱과 출력 콜백이 같은 도구를 락 없이 읽는다. Broadcast 는 락을 놓고 부른다 (hub 락 순서 의존을 끊는다).
+- `git/jobs.Jobs` : 리포당 진행 중 작업 하나(`active`), 작업 맵과 구독자 집합은 `mu`. 구독은 채널 하나 + `sync.Once` 로 닫히고, 러너 goroutine 은 `context.CancelFunc` 로 끊는다.
+
+**모드 판별은 `ToolHub.Daemon()` 하나다** (M8 `GO-46`). 직접 모드(`*ToolManager`)는
+`nil`, 데몬 모드(`*toolclient.ToolClient`)는 자기 자신을 `DaemonHub` 로 돌려준다 —
+프로세스 경계를 건너는 표면(`Subscribe`·`SnapshotToolSince`·`DaemonInfo`·`Reconnects`)은
+거기에만 있고, 나머지(`List() []ToolInfo`·`ListOK`·`Connected`·`Terminate`·…)는 두
+모드가 같은 인터페이스로 답한다. `httpapi` 는 그래서 `toolclient` 를 import 하지
+않는다; 구체 타입은 composition root 만 안다. 종류(터미널·에이전트)를 묻는 메서드는
+두지 않는다 — 무엇이 흐르든 바이트이고 해석은 소비자의 몫이다 (M8_UNIFIED_SRS §9.3 ④⑤).
 
 ## 종료 경로
 

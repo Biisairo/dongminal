@@ -6,10 +6,9 @@
 package run
 
 import (
-	"encoding/json"
 	"errors"
-	"os"
-	"path/filepath"
+
+	"dongminal/internal/shared/runfile"
 )
 
 // 부착·분리의 거부 사유다. 뭉뚱그리지 않는 이유는 다른 곳과 같다 (FR-PRE-6) —
@@ -98,43 +97,10 @@ func (m Member) HeadlessTool() bool {
 	return m.Headless && m.TabID == "" && m.ToolID != ""
 }
 
-// HeadlessToolIDs reads runs.json directly and returns the tool ids of headless
-// members belonging to Runs that are **open on disk** (FR-HLM-3).
-//
-// 왜 Store 를 거치지 않고 파일을 직접 읽나 — 두 가지가 다르기 때문이다.
-//
-//  1. 부팅 시 이 값이 필요한 시점은 `Store.Load` 가 **펜싱하기 전**이다.
-//     Load 는 이전 세대가 열어 둔 Run 을 aborted 로 확정하므로(FR-RUN-5), 그
-//     뒤에 물으면 "열린 Run" 이 하나도 없다. 되살릴지 말지는 **지난 세대가
-//     끝날 때의 사실**로 정해야 한다.
-//  2. 이 질문의 소비자는 도구 계층(toolhub)과 부팅 배선이며, 둘 다 Store 의
-//     수명주기 밖에 있다. 특히 데몬 모드의 dongminald 에는 Store 자체가 없다.
-//
-// 열린 Run 으로 한정하는 이유: 끝난 Run 의 도구는 FR-HLM-5 의 **고아**이고,
-// 고아를 부팅마다 되살리면 영원히 쌓인다. 정리는 close 의 몫이지 부팅의 몫이
-// 아니다.
-//
-// 실패는 빈 집합이다. 되살리지 못하는 것보다 닿을 수 없는 셸을 늘리는 쪽이
-// 나쁘다 — workspace 참조 해석이 같은 판단을 한다 (FR-EM-14).
-func HeadlessToolIDs(dir string) map[string]struct{} {
-	out := map[string]struct{}{}
-	blob, err := os.ReadFile(filepath.Join(dir, fileName))
-	if err != nil {
-		return out
-	}
-	var body fileBody
-	if err := json.Unmarshal(blob, &body); err != nil {
-		return out
-	}
-	for _, rec := range body.Runs {
-		if rec.State != Open {
-			continue
-		}
-		for _, m := range rec.Members {
-			if m.HeadlessTool() {
-				out[m.ToolID] = struct{}{}
-			}
-		}
-	}
-	return out
-}
+// HeadlessToolIDs 는 runs.json 을 직접 읽어 **디스크에서 열린** Run 의 headless
+// 도구 id 를 돌려준다 (FR-HLM-3). 본체는 `shared/runfile` 이다 — 데몬(②)도 같은
+// 물음을 묻는데 데몬에는 Store 가 없고 이 패키지는 ③ 의 것이라, 둘이 실행하는
+// 리더는 shared 에 산다 (M8 `GO-4`). 왜 Store 를 거치지 않는지는 그쪽 주석에 있다.
+// 이 패키지가 스키마의 주인이므로 그 리더가 Store 가 쓴 파일을 같게 읽는지는 이
+// 패키지의 테스트가 지킨다.
+func HeadlessToolIDs(dir string) map[string]struct{} { return runfile.HeadlessToolIDs(dir) }

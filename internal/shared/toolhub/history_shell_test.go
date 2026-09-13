@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
@@ -57,19 +56,11 @@ func TestStartTool_ShellSeesOwnHistFile(t *testing.T) {
 	}
 	defer p.kill()
 
-	time.Sleep(500 * time.Millisecond)
+	waitShellReady(t, p)
 	if err := p.Write([]byte("printf 'HF(%s)\\n' \"$HISTFILE\"\n")); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
-		blob, _ := p.Stream().Snapshot()
-		if strings.Contains(string(blob), want) {
-			return
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	blob, _ := p.Stream().Snapshot()
-	t.Fatalf("셸이 자기 히스토리를 보지 못했습니다. want %q, got:\n%s", want, blob)
+	waitOutput(t, p, want)
 }
 
 // TC-THI-22: 도구를 써도 사용자(=도구 홈)의 히스토리는 변하지 않는다.
@@ -95,13 +86,13 @@ func TestStartTool_LeavesSharedHistoryAlone(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartTool: %v", err)
 	}
-	time.Sleep(500 * time.Millisecond)
-	if err := p.Write([]byte("echo tool_only_command\n")); err != nil {
+	waitShellReady(t, p)
+	if err := p.Write([]byte("echo tool_only_command; printf 'DONE(%s)\\n' ok\n")); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	time.Sleep(500 * time.Millisecond)
+	waitOutput(t, p, "DONE(ok)")
 	p.kill()
-	time.Sleep(500 * time.Millisecond)
+	<-p.Wait()
 
 	blob, err := os.ReadFile(shared)
 	if err != nil {

@@ -120,7 +120,16 @@ func (m *ToolManager) SendPaste(id string, text []byte, submit bool) error {
 	if !submit {
 		return nil
 	}
-	time.Sleep(pasteSubmitDelay)
+	// 틈은 도구의 죽음으로 끊긴다 — 죽은 도구 앞에서 자지 않는다 (M8 `GO-12`).
+	// 데몬 모드에서 이 함수는 연결 하나를 직렬 처리하는 핸들러 안에서 돌므로,
+	// 여기서 자는 시간은 곧 그 연결의 다른 RPC 가 기다리는 시간이다.
+	gap := time.NewTimer(pasteSubmitDelay)
+	defer gap.Stop()
+	select {
+	case <-gap.C:
+	case <-p.Wait():
+		return fmt.Errorf("터미널 쓰기 (submit): 도구가 끝났다")
+	}
 	if err := p.Write([]byte{'\r'}); err != nil {
 		return fmt.Errorf("터미널 쓰기 (submit): %w", err)
 	}

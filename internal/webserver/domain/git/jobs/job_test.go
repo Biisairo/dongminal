@@ -533,3 +533,38 @@ func TestJob_SanitizesCredentialsEverywhere(t *testing.T) {
 		t.Fatalf("지운 흔적이 없다 — 검사가 무의미하다:\n%s", blob)
 	}
 }
+
+// 완료 훅은 **끝이 공개되기 전에** 불린다 (FR-GIT-107). 종전에는 Done 을 세우고
+// 구독자를 닫은 뒤에 불러, 그 사이에 `done` 을 본 쪽이 status 를 물으면 아직
+// 만료되지 않은 캐시를 받았다 — `-race -shuffle` 전량에서 실제로 한 번 잡혔다
+// (M8 P1 ②).
+func TestJob_OnDoneRunsBeforeDoneIsPublished(t *testing.T) {
+	seen := make(chan bool, 1)
+	var j *Jobs
+	j = NewJobs(jobSvc(),
+		WithJobRunner(func(context.Context, string, []string, func(string, string)) (int, error) { return 0, nil }),
+		WithOnDone(func(jb *Job) {
+			cur, _ := j.Get(jb.ID)
+			seen <- cur != nil && cur.Done
+		}),
+	)
+	jb, _ := j.Start(jobRepo, "fetch", jobFetchSpec())
+	select {
+	case published := <-seen:
+		if published {
+			t.Fatal("훅이 불릴 때 이미 Done 이 공개돼 있다")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("완료 훅이 불리지 않았다")
+	}
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if cur, ok := j.Get(jb.ID); ok && cur.Done {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("훅 뒤에 Done 이 공개되지 않았다")
+		}
+		time.Sleep(time.Millisecond)
+	}
+}

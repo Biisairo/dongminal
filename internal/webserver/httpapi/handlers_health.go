@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
-
-	"dongminal/internal/webserver/toolclient"
 )
 
 // VERSION_HEALTH_SRS 묶음 H — `GET /api/health`.
@@ -58,12 +56,12 @@ func (s *Server) apiHealth(w http.ResponseWriter, r *http.Request) {
 
 	if s.Tools != nil {
 		out.Tools = len(s.Tools.List())
-		// 데몬 모드의 판정은 **타입**이다 — `handlers_ws.go` 가 이미 쓰는 관례이며,
-		// 두 모드를 가르는 자리를 새로 만들지 않는다.
-		if pc, ok := s.Tools.(*toolclient.ToolClient); ok {
-			info := pc.DaemonInfo()
+		// 데몬 모드의 판정은 `Daemon()` 하나다 (`GO-46`) — 두 모드를 가르는
+		// 자리를 새로 만들지 않는다.
+		if d := s.Tools.Daemon(); d != nil {
+			info := d.DaemonInfo()
 			out.Daemon = healthDaemon{
-				Connected: pc.Connected(),
+				Connected: s.Tools.Connected(),
 				Protocol:  info.Protocol,
 				Build:     info.Build,
 				// FR-VHL-11: 빌드를 **아는데** 다를 때만 어긋남이다. 데몬이 판을

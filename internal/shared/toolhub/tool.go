@@ -72,7 +72,6 @@ type Tool struct {
 	exited    bool
 	done      chan struct{}
 	once      sync.Once
-	Restored  bool
 
 	// Attention state (PANE_ATTENTION_NOTIFY_SRS). attnCarry is touched only
 	// by the readPTY goroutine (no lock). The atomics are shared with the
@@ -351,12 +350,19 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 
 // readPTY drains the PTY master, feeds the bounded stream buffer (single
 // drop path: outbuf.Stream compaction → Stats.TotalBytesDrop), and
-// fan-outs OpOutput messages to live clients. On EOF/IO error it triggers
-// a single kill() (which itself emits the final OpExit) and signals onExit.
+// fan-outs OpOutput messages to live clients. On EOF/IO error — **and on
+// panic** — it triggers a single kill() (which itself emits the final OpExit)
+// and signals onExit.
+//
+// 패닉 경로가 EOF 경로와 같은 이유 (M8 `GO-7`): 종전에는 recover 가 로그만
+// 남기고 돌아갔다. 그러면 PTY fd 와 프로세스가 남고, 클라이언트는 OpExit 을 받지
+// 못해 재연결을 되풀이하며(무한 재연결의 조건), tools.json 에는 계속 기재된다 —
+// 반죽음이다. 읽기 고루틴이 죽은 도구는 죽은 도구다.
 func (p *Tool) readPTY() {
 	defer func() {
 		if r := recover(); r != nil {
 			dmlog.Errorf(nil, "[tool %s] readPTY panic: %v\n%s", p.ID, r, debug.Stack())
+			p.exitAfterRead()
 		}
 	}()
 	raw := make([]byte, 8192)
@@ -374,10 +380,7 @@ func (p *Tool) readPTY() {
 			} else {
 				dmlog.Errorf(nil, "[tool %s] readPTY unexpected error: %v", p.ID, err)
 			}
-			p.kill()
-			if r := p.relay.Load(); r != nil && r.onExit != nil {
-				go r.onExit(p.ID)
-			}
+			p.exitAfterRead()
 			return
 		}
 		// Single backpressure path: Stream.Feed never blocks; loss (if any)
@@ -402,13 +405,27 @@ func (p *Tool) readPTY() {
 	}
 }
 
+// exitAfterRead 는 읽기 고루틴이 끝난 뒤의 정리다 — kill() 그리고 onExit, 이
+// 순서로. EOF 와 패닉이 같은 자리를 지난다. kill 은 sync.Once 라 다른 경로가
+// 먼저 죽였어도 두 번 돌지 않는다.
+func (p *Tool) exitAfterRead() {
+	p.kill()
+	if r := p.relay.Load(); r != nil && r.onExit != nil {
+		go r.onExit(p.ID)
+	}
+}
+
 // feedAndClients 는 청크를 스트림에 넣고, **같은 cmu 구간에서** 그 청크를 받을
 // 클라이언트 목록을 확보한다 (FR-TRS-17). 그래야 AddClient 가 돌려준 오프셋이
 // "이 클라이언트가 broadcast 로 받기 시작하는 자리" 와 정확히 일치한다.
+//
+// Feed 에는 읽기 버퍼를 **그대로** 넘긴다 — Stream 은 자기 버퍼에 복사하고 인자를
+// 보관하지 않는다 (outbuf.Feed 의 계약). 청크당 명시적 복사는 릴레이 쪽 하나다
+// (M8 `GO-37`).
 func (p *Tool) feedAndClients(chunk []byte) (end int64, conns []*SafeConn, live bool) {
 	p.cmu.Lock()
 	defer p.cmu.Unlock()
-	_, end = p.stream.Feed(append([]byte(nil), chunk...))
+	_, end = p.stream.Feed(chunk)
 	if p.exited {
 		return end, nil, false
 	}
@@ -783,6 +800,31 @@ func (p *Tool) Write(data []byte) error {
 // cmu, fans out a final OpExit to the clients that were registered at that
 // moment (outside cmu), then tears down the PTY/process and stream.
 //
+// terminateWait 는 프로세스에 정중한 종료(SIGTERM)를 청하고 grace 안에 끝나기를
+// 기다린다 (FR-BGK-7). 강제 종료는 하지 않는다 — 그것은 kill() 의 몫이다. 유예는
+// 상한이지 대기 시간이 아니다: 먼저 끝나면 그 자리에서 돌아온다. 프로세스가 없는
+// 합성 Tool 에서는 할 일이 없고, 무엇보다 매달리지 않는다 (done 이 nil 이다).
+func (p *Tool) terminateWait(grace time.Duration) {
+	pid := p.CmdProcessPID()
+	if pid <= 0 {
+		return
+	}
+	if err := platform.Current().Process.Terminate(pid); err != nil {
+		return
+	}
+	timer := time.NewTimer(grace)
+	defer timer.Stop()
+	select {
+	case <-p.Wait():
+	case <-timer.C:
+	}
+}
+
+// terminateGrace 는 정중한 종료 요청(Terminate)과 강제 종료(Kill) 사이의 유예다
+// (M8 `GO-40`). HTTP Delete 가 이 길을 동기로 지나므로 짧다 — 백그라운드 도구의
+// 3초 유예는 위층(`httpapi` 의 `toolKillGrace`)이 따로 든다 (FR-BGK-7).
+const terminateGrace = 50 * time.Millisecond
+
 // kill is race-free by design:
 //   - sync.Once guarantees the body executes at most once, even when the
 //     readPTY goroutine calls kill() on EOF while an external caller (API
@@ -826,12 +868,24 @@ func (p *Tool) kill() {
 			p.termClosed = true
 			p.term.Close()
 			p.tmu.Unlock()
-			// 순서와 유예는 종전과 같다 — 정중히 요청, 50ms, 강제 종료, 수확.
+			// 순서와 유예는 종전과 같다 — 정중히 요청, 유예, 강제 종료, 수확.
+			// 유예는 채널로 기다린다 (M8 `GO-12`): 프로세스가 먼저 끝나면 그 자리에서
+			// 수확하고, 유예가 다 되면 강제 종료한 뒤 수확한다. HTTP Delete 경로가
+			// 이 함수를 동기로 지나므로 죽은 프로세스 앞에서 자지 않는다.
 			p.term.Terminate()
-			time.Sleep(50 * time.Millisecond)
-			p.term.Kill()
-			if err := p.term.Wait(); err != nil {
-				dmlog.Infof(nil, "[tool %s] wait: %v", p.ID, err)
+			waited := make(chan error, 1)
+			go func() { waited <- p.term.Wait() }()
+			grace := time.NewTimer(terminateGrace)
+			var werr error
+			select {
+			case werr = <-waited:
+				grace.Stop()
+			case <-grace.C:
+				p.term.Kill()
+				werr = <-waited
+			}
+			if werr != nil {
+				dmlog.Infof(nil, "[tool %s] wait: %v", p.ID, werr)
 			}
 		}
 		if p.stream != nil {

@@ -3,7 +3,6 @@ package httpapi
 import (
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/webserver/apierr"
-	"dongminal/internal/webserver/toolclient"
 
 	"dongminal/internal/shared/toolhub"
 
@@ -54,7 +53,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			// During a daemon reconnect window Get() fails transiently. Don't
 			// declare the tool gone — just close so the browser shows "재연결 중"
 			// and keeps retrying; toolhub.OpExit is reserved for a genuinely absent tool.
-			if dc, ok := s.Tools.(interface{ Connected() bool }); ok && !dc.Connected() {
+			if !s.Tools.Connected() {
 				dmlog.Warnf(nil, "ws addr=%s: tool %s lookup during daemon reconnect; closing for retry", r.RemoteAddr, toolID)
 				return
 			}
@@ -95,9 +94,9 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		since = -1
 	}
 
-	// Branch: daemon mode vs direct mode
-	if s.Tools.IsDaemon() {
-		s.handleWSDaemon(conn, toolID, tool, since)
+	// Branch: daemon mode vs direct mode — 모드 판별은 `Daemon()` 하나다 (`GO-46`).
+	if d := s.Tools.Daemon(); d != nil {
+		s.handleWSDaemon(conn, d, toolID, since)
 	} else {
 		s.handleWSDirect(conn, tool, r.RemoteAddr, since)
 	}
@@ -144,14 +143,8 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remo
 // default cols/rows (120x40), which would incorrectly resize tools owned by
 // other windows. The frontend sends the correct toolhub.OpResize via the WS binary
 // protocol after terminal open+fit, guarded by resizeCheck (session ownership).
-func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, toolID string, _ *toolhub.Tool, since int64) {
+func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, pc toolhub.DaemonHub, toolID string, since int64) {
 	_ = conn.Send(toolhub.OpToolID, []byte(toolID))
-
-	pc, ok := s.Tools.(*toolclient.ToolClient)
-	if !ok {
-		dmlog.Infof(nil, "[tool %s] daemon mode but toolhub.ToolHub is not *toolclient.ToolClient", toolID)
-		return
-	}
 
 	// Subscribe to live output BEFORE taking the snapshot so output produced
 	// during the snapshot RPC round-trip is buffered rather than lost (FR-17).
@@ -159,7 +152,7 @@ func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, toolID string, _ *toolhu
 	// 겹침은 더 이상 견디는 것이 아니라 **잘라내는** 것이다 (FR-TRS-16). 종전
 	// 주석은 그 몇 바이트를 "harmless" 라 적었는데, 실측 왕복이 38 ms 이고 그동안
 	// TUI 가 낸 델타가 두 번 들어간다 — TUI 에는 harmless 가 아니다 (SRS §2.5).
-	outputCh := make(chan toolclient.OutChunk, 256)
+	outputCh := make(chan toolhub.OutChunk, 256)
 	exitCh, unsub := pc.Subscribe(toolID, outputCh)
 	defer unsub()
 
@@ -200,8 +193,8 @@ func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, toolID string, _ *toolhu
 	// 데몬 배선에서는 쓰기 실패가 이 연결의 끝이 아니다 — 도구는 다른 프로세스에
 	// 있고, 재연결이 그 소유자를 되찾는다. 그래서 오류를 삼킨다.
 	wsReadLoop(conn, toolID,
-		func(b []byte) error { _ = pc.Write(toolID, b); return nil },
-		func(c, ro uint16) { _ = pc.Resize(toolID, c, ro) })
+		func(b []byte) error { _ = s.Tools.Write(toolID, b); return nil },
+		func(c, ro uint16) { _ = s.Tools.Resize(toolID, c, ro) })
 }
 
 // wsReadLoop 는 클라이언트 → 도구 방향의 읽기 한 벌이다 (DRIFT_RECLAIM_SRS
@@ -274,7 +267,7 @@ func readWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool) { readWS(conn, too
 // broken pipe 를 쏟아냈다 — 읽기 루프가 toolhub.PongWait 로 깨질 때까지 26초간 로그가
 // 7.7MB 로 불었다 (실측 2026-08-25). 소켓을 닫으면 읽기 루프가 곧바로 풀리고
 // 핸들러의 defer 가 구독을 해제한다.
-func relayOutput(conn *toolhub.SafeConn, toolID string, outputCh <-chan toolclient.OutChunk, exitCh <-chan struct{}, done <-chan struct{}, sent int64) {
+func relayOutput(conn *toolhub.SafeConn, toolID string, outputCh <-chan toolhub.OutChunk, exitCh <-chan struct{}, done <-chan struct{}, sent int64) {
 	for {
 		select {
 		case chunk := <-outputCh:

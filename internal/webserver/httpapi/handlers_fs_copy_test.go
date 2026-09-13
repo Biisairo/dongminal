@@ -231,9 +231,7 @@ func TestFSCopySymlinkNotFollowed(t *testing.T) {
 func TestFSCopyOverMaxDoesNotStart(t *testing.T) {
 	s, ws, home := fsTestServer(t)
 	seedRoot(t, ws, home)
-	old := fsCopyMax
-	fsCopyMax = 3
-	t.Cleanup(func() { fsCopyMax = old })
+	s.limits.fsCopy = 3
 
 	d := filepath.Join(home, "big")
 	if err := os.Mkdir(d, 0o755); err != nil {

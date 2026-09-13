@@ -299,16 +299,16 @@ func TestSettingsStore(t *testing.T) {
 	os.WriteFile(path, []byte(`{"k":"v"}`), 0644)
 
 	s := newSettingsStore(path)
-	if string(s.get()) != `{"k":"v"}` {
-		t.Fatalf("get=%q", s.get())
+	if string(s.Get()) != `{"k":"v"}` {
+		t.Fatalf("get=%q", s.Get())
 	}
 
-	s.set([]byte(`{"k":"w"}`))
-	if string(s.get()) != `{"k":"w"}` {
-		t.Fatalf("get after set=%q", s.get())
+	s.Set([]byte(`{"k":"w"}`))
+	if string(s.Get()) != `{"k":"w"}` {
+		t.Fatalf("get after set=%q", s.Get())
 	}
 
-	s.save()
+	s.Save()
 	data, _ := os.ReadFile(path)
 	if string(data) != `{"k":"w"}` {
 		t.Fatalf("file=%q", data)
@@ -321,7 +321,7 @@ func TestSettingsStore(t *testing.T) {
 	// 빈 저장은 **파일을 만들지 않는다.**
 	empty := filepath.Join(t.TempDir(), "empty.json")
 	s2 := newSettingsStore(empty)
-	s2.save()
+	s2.Save()
 	if _, err := os.Stat(empty); !os.IsNotExist(err) {
 		t.Fatalf("빈 저장이 파일을 만들었다: %v", err)
 	}

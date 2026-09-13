@@ -12,11 +12,11 @@ import (
 	"os/signal"
 
 	"dongminal/internal/daemon/ipc"
+	"dongminal/internal/shared/runfile"
 	"dongminal/internal/shared/runtime"
 	"dongminal/internal/shared/sandboxplace"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/workspace"
-	"dongminal/internal/webserver/domain/run"
 
 	"dongminal/internal/shared/platform"
 )
@@ -67,11 +67,11 @@ func Run(home, version string) {
 	}
 	// FR-HLM-3: 헤드리스 멤버의 도구는 Run 이 소유하므로 재시작을 넘긴다.
 	// 데몬에는 Run 저장소가 없다 — runs.json 의 주인은 웹서버 프로세스다. 그래서
-	// 파일을 직접 읽는 술어를 위에서 꽂는다. toolhub 자신은 Run 을 모른 채로
+	// 파일만 읽는 `shared/runfile` 의 술어를 위에서 꽂는다. toolhub 자신은 Run 을 모른 채로
 	// 남으며(의존 방향), 이 배선 패키지가 둘을 잇는 자리다.
-	pm.SetOwnedTools(func() map[string]struct{} { return run.HeadlessToolIDs(home) })
+	pm.SetOwnedTools(func() map[string]struct{} { return runfile.HeadlessToolIDs(home) })
 	refs := referencedTools(filepath.Join(home, "workspace.json"))
-	headless := run.HeadlessToolIDs(home)
+	headless := runfile.HeadlessToolIDs(home)
 	for id := range headless {
 		refs[id] = struct{}{}
 	}

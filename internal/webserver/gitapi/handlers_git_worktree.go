@@ -216,7 +216,7 @@ func (s *GitServer) apiGitWorktreeRemove(w http.ResponseWriter, r *http.Request)
 		// 브랜치를 함께 지우는 것은 별도 선택이며 기본이 아니다 (FR-GIT-243).
 		branch = ""
 	}
-	res := s.UserWorktrees.Remove(worktree.RemoveSpec{Repo: t.root, Path: req.Path, Branch: branch})
+	res := s.UserWorktrees.Remove(r.Context(), worktree.RemoveSpec{Repo: t.root, Path: req.Path, Branch: branch})
 	// `ok` 는 "요청을 처리했다" 이고 `removed` 는 "실제로 지웠다" 다 — 둘은 다르다.
 	// 지우지 않은 경우(dirty)도 정상 처리이며 사유는 `residue` 가 싣는다. 그래서
 	// 이 자리는 `rejectBody` 가 아니라 `okPlain` 이다.

@@ -1,6 +1,7 @@
 package worktree
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
@@ -161,7 +162,7 @@ func TestRemove_CleanRemovesWorktreeAndMergedBranch(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	res := m.Remove(RemoveSpec{Repo: repo, Path: spec.Path, Branch: spec.Branch})
+	res := m.Remove(context.Background(), RemoveSpec{Repo: repo, Path: spec.Path, Branch: spec.Branch})
 	if !res.Removed || res.Residue != "" {
 		t.Fatalf("clean worktree 는 제거된다: %+v", res)
 	}
@@ -186,7 +187,7 @@ func TestRemove_DirtyIsPreservedAndReported(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res := m.Remove(RemoveSpec{Repo: repo, Path: spec.Path, Branch: spec.Branch})
+	res := m.Remove(context.Background(), RemoveSpec{Repo: repo, Path: spec.Path, Branch: spec.Branch})
 	if res.Removed || res.Residue != ResidueDirty {
 		t.Fatalf("dirty 는 보존 + 보고다: %+v", res)
 	}
@@ -213,7 +214,7 @@ func TestRemove_UnmergedBranchIsResidue(t *testing.T) {
 	git(t, spec.Path, "add", ".")
 	git(t, spec.Path, "commit", "-m", "work")
 
-	res := m.Remove(RemoveSpec{Repo: repo, Path: spec.Path, Branch: spec.Branch})
+	res := m.Remove(context.Background(), RemoveSpec{Repo: repo, Path: spec.Path, Branch: spec.Branch})
 	if !res.Removed {
 		t.Fatalf("clean 트리는 제거된다: %+v", res)
 	}
@@ -257,7 +258,7 @@ func TestRemove_RejectsRiskyPaths(t *testing.T) {
 		{"사용자 worktree 영역(FR-WKT-13, V153)", userArea},
 	}
 	for _, c := range risky {
-		res := m.Remove(RemoveSpec{Repo: repo, Path: c.path, Branch: "dmn/a/b"})
+		res := m.Remove(context.Background(), RemoveSpec{Repo: repo, Path: c.path, Branch: "dmn/a/b"})
 		if res.Removed || res.Residue != ResidueUnsafePath {
 			t.Errorf("%s: 거부되어야 한다: %+v", c.name, res)
 		}
@@ -363,7 +364,7 @@ func TestNew_ResolvesSymlinkedRoot(t *testing.T) {
 
 	// symlink 를 지나는 root 아래의 정당한 worktree 가 제거된다 — checkPath 가
 	// 거부하면(수정 전 결함) Residue 가 unsafe-path 로 남는다.
-	res := m.Remove(RemoveSpec{Repo: repo, Path: spec.Path, Branch: spec.Branch})
+	res := m.Remove(context.Background(), RemoveSpec{Repo: repo, Path: spec.Path, Branch: spec.Branch})
 	if !res.Removed || res.Residue != "" {
 		t.Fatalf("symlink 경유 root 아래의 정당한 worktree 가 거부됐다: %+v", res)
 	}
@@ -694,5 +695,41 @@ func TestParseWorktreeList_NormalizesPaths(t *testing.T) {
 	}
 	if entries[0].Branch != "main" || !entries[1].Detached {
 		t.Errorf("레코드 해석이 어긋났다: %+v", entries)
+	}
+}
+
+// M8 `GO-12`: `git worktree remove` 의 되풀이는 요청이 끊기면 그 자리에서 접는다.
+// 이 함수는 호출자가 repoLock 을 쥔 채 지나므로, 여기서 기다리는 시간은 같은
+// 저장소의 다른 조작 전부가 기다리는 시간이다.
+func TestRemove_RetryStopsWhenContextIsCancelled(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := filepath.Join(root, "repo")
+	path := filepath.Join(root, "worktrees", "run1234", "mem5678")
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var removes int
+	m := New(filepath.Join(root, "worktrees"), WithRunner(func(dir string, args ...string) (string, error) {
+		if len(args) >= 2 && args[0] == "worktree" && args[1] == "remove" {
+			removes++
+			return "", errors.New("locked")
+		}
+		return "", nil // status --porcelain 은 clean, prune 은 성공
+	}))
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	start := time.Now()
+	res := m.Remove(ctx, RemoveSpec{Repo: repo, Path: path})
+	if res.Removed || res.Residue != ResidueRemoveFailed {
+		t.Fatalf("잔여물로 보고돼야 한다: %+v", res)
+	}
+	if removes != 1 {
+		t.Fatalf("끊긴 요청에 %d번 되풀이했다", removes)
+	}
+	if time.Since(start) > removeRetryGap {
+		t.Fatalf("끊긴 요청에 %s 를 기다렸다", time.Since(start))
 	}
 }

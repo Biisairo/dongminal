@@ -45,6 +45,9 @@ func NewStream(parent context.Context, max int) *Stream {
 // tail-over 바이트는 Snapshot 시점에 잘려 나올 뿐 손실은 아니므로 카운트하지 않는다.
 // end 는 이 청크를 포함한 **누적 입력 바이트**다 (FR-TRS-1). compaction 이
 // 일어나도 되감기지 않는 절대 좌표이며, 재접속의 재개 지점이 이 좌표계에 있다.
+//
+// p 는 **보관하지 않는다** — 자기 버퍼에 복사한다. 호출자가 재사용하는 읽기
+// 버퍼를 그대로 넘겨도 된다 (M8 `GO-37`).
 func (s *Stream) Feed(p []byte) (dropped int, end int64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

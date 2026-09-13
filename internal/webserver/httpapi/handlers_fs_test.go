@@ -334,9 +334,7 @@ func TestFSList_TruncatesWithoutFailing(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	restore := fsListMax
-	fsListMax = 3
-	defer func() { fsListMax = restore }()
+	s.limits.fsList = 3
 
 	code, out := fsReq(t, s, http.MethodGet, "/api/fs/list?root="+root+"&path="+root, "")
 	if code != 200 {
@@ -575,9 +573,7 @@ func TestFSDelete_OverMaxDeletesNothing(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	restore := fsDeleteMax
-	fsDeleteMax = 3
-	defer func() { fsDeleteMax = restore }()
+	s.limits.fsDelete = 3
 
 	code, out := fsReq(t, s, http.MethodPost, "/api/fs/delete", `{"root":`+testpath.JSONQuote(root)+`,"path":`+testpath.JSONQuote(target)+`}`)
 	if code != http.StatusBadRequest || out["code"] != fsErrBadRequest {
@@ -588,7 +584,7 @@ func TestFSDelete_OverMaxDeletesNothing(t *testing.T) {
 		t.Fatalf("일부가 지워졌다: %d개 (%v)", len(des), err)
 	}
 
-	fsDeleteMax = restore
+	s.limits.fsDelete = defaultLimits().fsDelete
 	if code, out := fsReq(t, s, http.MethodPost, "/api/fs/delete", `{"root":`+testpath.JSONQuote(root)+`,"path":`+testpath.JSONQuote(target)+`}`); code != 200 {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
@@ -778,7 +774,7 @@ func BenchmarkFSList1000(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		entries, _, truncated, err := fsListDir(dir, 0, fsListMax)
+		entries, _, truncated, err := fsListDir(dir, 0, defaultLimits().fsList)
 		if err != nil || truncated || len(entries) != 1000 {
 			b.Fatalf("entries=%d truncated=%v err=%v", len(entries), truncated, err)
 		}

@@ -42,8 +42,6 @@ const fsCopyNameMax = 1000
 var errFSCopySkip = errors.New("fs: 복사할 수 없는 종류다")
 
 func (s *Server) apiFSCopy(w http.ResponseWriter, r *http.Request) {
-	fsOpMu.Lock()
-	defer fsOpMu.Unlock()
 	var req fsCopyReq
 	if !fsDecode(w, r, &req) {
 		return
@@ -84,13 +82,16 @@ func (s *Server) apiFSCopy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// **먼저 세고** 나서 복사한다 (FR-WBR-66) — 세다 멈추면 절반만 복사된 트리가
-	// 남는다. 삭제와 같은 규약이다 (FR-EDT-118).
-	n, err := fsCountEntries(src, fsCopyMax)
+	// 남는다. 삭제와 같은 규약이다 (FR-EDT-118). 세는 것부터 만드는 것까지가 한
+	// 조작이다 — 그 구간만 잠근다.
+	s.fsOps.Lock()
+	defer s.fsOps.Unlock()
+	n, err := fsCountEntries(src, s.limits.fsCopy)
 	if err != nil {
 		fsFailErr(w, fsFromOS(err))
 		return
 	}
-	if n > fsCopyMax {
+	if n > s.limits.fsCopy {
 		fsFail(w, fsErrBadRequest, "복사 항목 수가 상한을 넘었다")
 		return
 	}

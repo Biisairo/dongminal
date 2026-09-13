@@ -196,9 +196,7 @@ func TestFSDownload_Guards(t *testing.T) {
 func TestUpload_MaxBytes(t *testing.T) {
 	root := t.TempDir()
 	srv := transferSrv(t, root)
-	old := uploadMaxBytes
-	uploadMaxBytes = 64
-	t.Cleanup(func() { uploadMaxBytes = old })
+	srv.limits.uploadMaxBytes = 64
 
 	rec := doUpload(t, srv, "/api/upload?dir="+url.QueryEscape(root), "big.txt", bytes.Repeat([]byte("x"), 4096))
 	if rec.Code != http.StatusRequestEntityTooLarge {

@@ -50,10 +50,9 @@ func TestDaemonFullFlow(t *testing.T) {
 	tracker := hub.NewAttnTracker(cmdHub, 500) // 500ms idle threshold for fast test
 
 	// Wire exit → activity cleanup
-	pc.OnExit = func(toolID string, code int) {
+	pc.SetOnExit(func(toolID string, code int) {
 		tracker.SetActivity(toolID, "ended", "", "")
-	}
-	pc.FlushEarlyPushes()
+	})
 
 	// Record SSE broadcasts
 	var sseMu sync.Mutex
@@ -253,7 +252,7 @@ func TestDaemonReconnectPreservesTools(t *testing.T) {
 	tools1 := pc1.List()
 	found := false
 	for _, m := range tools1 {
-		if m["id"].(string) == toolID {
+		if m.ID == toolID {
 			found = true
 		}
 	}
@@ -277,7 +276,7 @@ func TestDaemonReconnectPreservesTools(t *testing.T) {
 	tools2 := pc2.List()
 	found = false
 	for _, m := range tools2 {
-		if m["id"].(string) == toolID {
+		if m.ID == toolID {
 			found = true
 		}
 	}
@@ -362,27 +361,25 @@ func TestDaemonAttnTrackerL2Idle(t *testing.T) {
 	// Feed initial output to arm the idle detector
 	tracker.FeedOutput("p1", []byte("prompt"))
 
-	// Start sweeper
+	// Start sweeper — 틱은 이 테스트가 준다 (TEST-8). 문턱(200ms)이 지난 뒤의
+	// 틱에서 울어야 한다; 그때까지 틱을 보내며 되묻는다.
 	stopCh := make(chan struct{})
-	tracker.StartSweeper(stopCh)
+	tick := make(chan time.Time)
+	tracker.StartSweeper(stopCh, tick)
 	defer close(stopCh)
 
-	// Wait for idle threshold to trigger (ticker fires every 1s)
-	time.Sleep(1500 * time.Millisecond)
-
-	sseMu.Lock()
-	hasIdle := false
-	for _, r := range attentionReasons {
-		if r == "idle" {
-			hasIdle = true
+	sweptIdle := func() bool {
+		tick <- time.Now()
+		sseMu.Lock()
+		defer sseMu.Unlock()
+		for _, r := range attentionReasons {
+			if r == "idle" {
+				return true
+			}
 		}
+		return false
 	}
-	sseMu.Unlock()
-
-	if !hasIdle {
-		t.Log("attention reasons:", attentionReasons)
-		t.Fatal("expected L2 idle attention to fire after 200ms threshold")
-	}
+	waitUntil(t, "L2 idle 발화", sweptIdle)
 }
 
 func bytesRepeat(n int, b byte) []byte {
@@ -429,7 +426,7 @@ func TestDaemonToolCreateDeleteLifecycle(t *testing.T) {
 	// Delete middle tool
 	ids := make([]string, 0)
 	for _, m := range pc.List() {
-		ids = append(ids, m["id"].(string))
+		ids = append(ids, m.ID)
 	}
 	pc.Delete(ids[1])
 	time.Sleep(100 * time.Millisecond)
@@ -609,10 +606,19 @@ func TestDaemonAttnTrackerL2IdleBusyGate(t *testing.T) {
 
 	tracker.FeedOutput("p1", []byte("prompt"))
 	stopCh := make(chan struct{})
-	tracker.StartSweeper(stopCh)
+	tick := make(chan time.Time)
+	tracker.StartSweeper(stopCh, tick)
 	defer close(stopCh)
 
-	time.Sleep(1300 * time.Millisecond)
+	// 문턱(100ms)을 넘긴 뒤의 틱 — 울면 안 된다.
+	time.Sleep(150 * time.Millisecond)
+	tick <- time.Now()
+	tick <- time.Now() // 앞 틱의 sweep 이 끝난 뒤에야 받힌다 — 순서 보장
+	// 판정은 트래커의 상태로 한다 — sweep 이 동기로 세우므로 결정적이다. SSE 는
+	// 비동기라 부재를 증명하지 못한다.
+	if tracker.Attention("p1") {
+		t.Fatal("idle attention must not fire when tool is not busy (FR-15)")
+	}
 	mu.Lock()
 	defer mu.Unlock()
 	for _, r := range reasons {
@@ -649,10 +655,17 @@ func TestDaemonAttnTrackerL2IdleSuppressedWhileWorking(t *testing.T) {
 	tracker.FeedOutput("p1", []byte("output"))
 	tracker.SetActivity("p1", "working", "bash", "running")
 	stopCh := make(chan struct{})
-	tracker.StartSweeper(stopCh)
+	tick := make(chan time.Time)
+	tracker.StartSweeper(stopCh, tick)
 	defer close(stopCh)
 
-	time.Sleep(1300 * time.Millisecond)
+	// 문턱(100ms)을 넘긴 뒤의 틱 — 일하는 중이므로 울면 안 된다.
+	time.Sleep(150 * time.Millisecond)
+	tick <- time.Now()
+	tick <- time.Now()
+	if tracker.Attention("p1") {
+		t.Fatal("idle attention must not fire while agent is working")
+	}
 	mu.Lock()
 	for _, r := range reasons {
 		if r == "tool_attention" {
@@ -668,7 +681,17 @@ func TestDaemonAttnTrackerL2IdleSuppressedWhileWorking(t *testing.T) {
 	// 에이전트 표시 자체를 내린다 (FR-ATF-2).
 	tracker.SetActivity("p1", "waiting", "", "")
 	tracker.FeedOutput("p1", []byte("more output"))
-	time.Sleep(1300 * time.Millisecond)
+	waitUntil(t, "물음 뒤 L2 발화", func() bool {
+		tick <- time.Now()
+		mu.Lock()
+		defer mu.Unlock()
+		for _, r := range reasons {
+			if r == "tool_attention" {
+				return true
+			}
+		}
+		return false
+	})
 	mu.Lock()
 	defer mu.Unlock()
 	found := false
@@ -752,7 +775,7 @@ func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
 
 	cmdHub := hub.NewCommandHub()
 	tracker := hub.NewAttnTracker(cmdHub, 10000)
-	pc.OnOutput = tracker.FeedOutput // wire detection like main.go
+	pc.SetOnOutput(tracker.FeedOutput) // wire detection like main.go
 
 	var mu sync.Mutex
 	var attn bool

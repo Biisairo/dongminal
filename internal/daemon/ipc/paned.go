@@ -146,6 +146,11 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 		resp = pc.restore(req)
 	case "kill":
 		resp = pc.kill(req)
+	case "terminate":
+		// 유예를 기다리는 동안 이 연결의 다른 요청을 막지 않는다 — 응답은 id 로
+		// 짝지어지므로 순서가 바뀌어도 클라이언트는 제 응답을 찾는다.
+		go pc.enqueue(pc.terminate(req), false)
+		return
 	case "write":
 		resp = pc.write(req)
 	case "paste":
@@ -175,10 +180,8 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 func (pc *panedConn) hello(req *toolipc.PanedRequest) interface{} {
 	tools := pc.pm.List()
 	ids := make([]string, 0, len(tools))
-	for _, m := range tools {
-		if id, ok := m["id"].(string); ok {
-			ids = append(ids, id)
-		}
+	for _, t := range tools {
+		ids = append(ids, t.ID)
 	}
 	// FR-VHL-1: 판을 **둘로 나눠** 싣는다.
 	//
@@ -256,6 +259,22 @@ func (pc *panedConn) kill(req *toolipc.PanedRequest) interface{} {
 	// `GO-8`: 없는 도구를 지운 것도 사실대로 답한다. 클라이언트가 그것을 정상으로
 	// 볼지는 클라이언트가 정한다.
 	if err := pc.pm.Delete(p.ID); err != nil {
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32000, Message: err.Error()}}
+	}
+	return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
+}
+
+// terminate 는 정중한 종료 뒤의 kill 이다 (FBE-05/12). 유예는 클라이언트가 싣는다
+// — 값의 주인은 서버(httpapi 의 toolKillGrace)이고 데몬은 그것을 집행한다.
+func (pc *panedConn) terminate(req *toolipc.PanedRequest) interface{} {
+	var p struct {
+		ID      string `json:"id"`
+		GraceMs int64  `json:"graceMs"`
+	}
+	if err := json.Unmarshal(req.Params, &p); err != nil {
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
+	}
+	if err := pc.pm.Terminate(p.ID, time.Duration(p.GraceMs)*time.Millisecond); err != nil {
 		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32000, Message: err.Error()}}
 	}
 	return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}

@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"dongminal/internal/webserver/hub"
+	"time"
 
 	"dongminal/internal/shared/toolhub"
 
@@ -83,41 +84,44 @@ func TestCommandAdapter_Wraps(t *testing.T) {
 
 // fakeHub is a minimal ToolHub for exercising daemon-mode adapters.
 type fakeHub struct {
-	list []map[string]interface{}
+	list []toolhub.ToolInfo
 }
 
-func (f fakeHub) List() []map[string]interface{} { return f.list }
+func (f fakeHub) List() []toolhub.ToolInfo           { return f.list }
+func (f fakeHub) ListOK() ([]toolhub.ToolInfo, bool) { return f.list, true }
+func (f fakeHub) Connected() bool                    { return true }
+func (f fakeHub) Daemon() toolhub.DaemonHub          { return nil }
 func (f fakeHub) Create(string, uint16, uint16, toolhub.Placement) (*toolhub.Tool, error) {
 	return nil, nil
 }
 func (f fakeHub) Get(id string) *toolhub.Tool {
 	for _, m := range f.list {
-		if m["id"] == id {
+		if m.ID == id {
 			return &toolhub.Tool{ID: id}
 		}
 	}
 	return nil
 }
-func (f fakeHub) Cwd(string) string                    { return "" }
-func (f fakeHub) Busy(string) bool                     { return false }
-func (f fakeHub) Delete(string) error                  { return nil }
-func (f fakeHub) Write(string, []byte) error           { return nil }
-func (f fakeHub) SendPaste(string, []byte, bool) error { return nil }
-func (f fakeHub) Resize(string, uint16, uint16) error  { return nil }
+func (f fakeHub) Cwd(string) string                     { return "" }
+func (f fakeHub) Busy(string) bool                      { return false }
+func (f fakeHub) Delete(string) error                   { return nil }
+func (f fakeHub) Terminate(string, time.Duration) error { return nil }
+func (f fakeHub) Write(string, []byte) error            { return nil }
+func (f fakeHub) SendPaste(string, []byte, bool) error  { return nil }
+func (f fakeHub) Resize(string, uint16, uint16) error   { return nil }
 func (f fakeHub) SnapshotTool(string) (toolhub.ToolSnapshot, error) {
 	return toolhub.ToolSnapshot{}, nil
 }
 func (f fakeHub) IsLive(string) bool                        { return true }
-func (f fakeHub) IsDaemon() bool                            { return true }
 func (f fakeHub) SetBackground(string, bool) bool           { return false }
 func (f fakeHub) BackgroundList() []toolhub.BackgroundEntry { return nil }
 
 // TestToolAdapter_DaemonListShellPID verifies daemon-mode List() carries the
-// shell PID from the hub payload (decoded as float64), which whoami relies on
-// for PID-chain matching (FR-16).
+// shell PID from the hub payload, which whoami relies on for PID-chain
+// matching (FR-16).
 func TestToolAdapter_DaemonListShellPID(t *testing.T) {
-	hub := fakeHub{list: []map[string]interface{}{
-		{"id": "1", "name": "Shell #1", "pid": float64(4242), "sizeCols": float64(120), "sizeRows": float64(40)},
+	hub := fakeHub{list: []toolhub.ToolInfo{
+		{ID: "1", Name: "Shell #1", PID: 4242, Cols: 120, Rows: 40},
 	}}
 	a := Tool{Hub: hub}
 	got := a.List()
@@ -138,8 +142,8 @@ func TestClientResolver_DaemonMatchesAncestor(t *testing.T) {
 	// Use the current process PID as a "shell PID" so the ancestor walk finds
 	// it immediately (clientPID == shellPID).
 	self := os.Getpid()
-	hub := fakeHub{list: []map[string]interface{}{
-		{"id": "7", "name": "S", "pid": float64(self)},
+	hub := fakeHub{list: []toolhub.ToolInfo{
+		{ID: "7", Name: "S", PID: self},
 	}}
 	r := Client{Hub: hub}
 	// FromRemoteAddr can't be exercised without a live socket, so we assert the
@@ -164,9 +168,9 @@ func TestToolAdapter_ForegroundNameBothModes(t *testing.T) {
 	t.Cleanup(pm.StopSaving)
 	pm.Adopt(toolhub.NewDetachedTool("1", nil))
 
-	// 데몬이 보낸 목록의 모양 그대로(JSON 디코드 결과) 흉내낸다.
-	daemon := Tool{Hub: fakeHub{list: []map[string]interface{}{
-		{"id": "1", "name": "Shell", "pid": float64(4242), "fgName": "claude"},
+	// 데몬이 보낸 목록의 모양 그대로 흉내낸다.
+	daemon := Tool{Hub: fakeHub{list: []toolhub.ToolInfo{
+		{ID: "1", Name: "Shell", PID: 4242, FgName: "claude"},
 	}}}
 	got := daemon.List()
 	if len(got) != 1 || got[0].ForegroundName != "claude" {
@@ -185,8 +189,8 @@ func TestToolAdapter_ForegroundNameBothModes(t *testing.T) {
 // TestToolAdapter_ForegroundNameAbsentField는 fgName 이 없는 목록(구 데몬)에서도
 // 조용히 빈 문자열이 되는 것을 고정한다. 필드 추가는 하위 호환이다.
 func TestToolAdapter_ForegroundNameAbsentField(t *testing.T) {
-	a := Tool{Hub: fakeHub{list: []map[string]interface{}{
-		{"id": "1", "name": "Shell", "pid": float64(1)},
+	a := Tool{Hub: fakeHub{list: []toolhub.ToolInfo{
+		{ID: "1", Name: "Shell", PID: 1},
 	}}}
 	if got := a.List(); len(got) != 1 || got[0].ForegroundName != "" {
 		t.Fatalf("List=%+v want ForegroundName=\"\"", got)

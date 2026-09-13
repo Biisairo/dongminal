@@ -95,7 +95,12 @@ type Manager struct {
 	// OnIndexUpdate, when non-nil, runs synchronously after the in-memory index
 	// is replaced (initial load + every Save). Use it to reconcile satellite
 	// stores (e.g., mdscroll) against the current set of tabs.
+	//
+	// **`mu` 밖에서 불린다** (M8 `GO-34`) — 훅이 Snapshot·Resolve 를 되물어도
+	// 된다. 순서는 rev 순서다: hookMu 를 `mu` 안에서 잡으므로 인덱스를 먼저
+	// 바꾼 Save 의 훅이 먼저 돈다. 훅 안에서 Save 를 부르면 hookMu 에서 막힌다.
 	OnIndexUpdate func()
+	hookMu        sync.Mutex
 
 	writeCh    chan []byte
 	done       chan struct{}
@@ -263,7 +268,6 @@ func (m *Manager) Raw() []byte {
 
 func (m *Manager) Save(blob []byte, ifMatch string) (uint64, error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	cur := uint64(0)
 	if p := m.snap.Load(); p != nil {
 		cur = p.rev
@@ -271,11 +275,13 @@ func (m *Manager) Save(blob []byte, ifMatch string) (uint64, error) {
 	if ifMatch != "" {
 		want, err := strconv.ParseUint(ifMatch, 10, 64)
 		if err != nil || want != cur {
+			m.mu.Unlock()
 			return 0, ErrStale
 		}
 	}
 	ix, err := buildIndex(blob)
 	if err != nil {
+		m.mu.Unlock()
 		return 0, fmt.Errorf("workspace parse: %w", err)
 	}
 	buf := append([]byte(nil), blob...)
@@ -283,12 +289,18 @@ func (m *Manager) Save(blob []byte, ifMatch string) (uint64, error) {
 	m.snap.Store(&snap{raw: buf, rev: newRev})
 	m.idx.Store(ix)
 	m.enqueueWrite(buf)
-	// OnIndexUpdate is called under m.mu. Callers MUST NOT re-enter the
-	// Manager (e.g. call Save, Snapshot, Resolve, or any method that
-	// acquires m.mu) or a deadlock will occur.
-	if m.OnIndexUpdate != nil {
-		m.OnIndexUpdate()
+	hook := m.OnIndexUpdate
+	if hook == nil {
+		m.mu.Unlock()
+		return newRev, nil
 	}
+	// 락 순서는 mu → hookMu 다. hookMu 를 mu 안에서 잡아 두면 rev 순서가 곧
+	// 훅 호출 순서이고, mu 는 훅이 도는 동안 풀려 있어 다른 Save 가 줄을 서지
+	// 않는다 (M8 `GO-34`).
+	m.hookMu.Lock()
+	m.mu.Unlock()
+	hook()
+	m.hookMu.Unlock()
 	return newRev, nil
 }
 

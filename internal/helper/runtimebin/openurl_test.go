@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/dmenv"
 )
 
 // V4: dmctl open-url — 서버가 "local" 이라 답할 때만 이 셸이 직접 연다
@@ -117,13 +119,13 @@ func TestOpenURL_UsageErrors(t *testing.T) {
 // 헬퍼로 등록되어야 BROWSER 가 가리킬 실행 파일이 생긴다 (FR-VUO-12).
 func TestOpenURL_RegisteredAsHelper(t *testing.T) {
 	found := false
-	for _, n := range HelperNames() {
+	for _, n := range dmenv.HelperNames() {
 		if n == "open-url" {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("open-url 이 헬퍼 목록에 없다: %v", HelperNames())
+		t.Fatalf("open-url 이 헬퍼 목록에 없다: %v", dmenv.HelperNames())
 	}
 }
 

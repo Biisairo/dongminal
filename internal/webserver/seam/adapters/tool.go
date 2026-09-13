@@ -25,10 +25,8 @@ func (a Tool) listPanes() []*toolhub.Tool {
 	// ToolHub doesn't have Snapshot; build from List
 	var out []*toolhub.Tool
 	if a.Hub != nil {
-		for _, m := range a.Hub.List() {
-			id, _ := m["id"].(string)
-			name, _ := m["name"].(string)
-			out = append(out, &toolhub.Tool{ID: id, Name: name})
+		for _, t := range a.Hub.List() {
+			out = append(out, &toolhub.Tool{ID: t.ID, Name: t.Name})
 		}
 	}
 	return out
@@ -39,17 +37,14 @@ func (a Tool) List() []toolaccess.ToolInfo {
 	// Synthetic Tools built in listPanes() have no os/exec handle, so
 	// CmdProcessPID() would return 0 and break whoami PID matching (FR-16).
 	if a.PM == nil && a.Hub != nil {
-		maps := a.Hub.List()
-		out := make([]toolaccess.ToolInfo, 0, len(maps))
-		for _, m := range maps {
-			id, _ := m["id"].(string)
-			name, _ := m["name"].(string)
+		infos := a.Hub.List()
+		out := make([]toolaccess.ToolInfo, 0, len(infos))
+		for _, t := range infos {
 			// 데몬 모드: 전경 조회는 PTY 를 가진 데몬이 하고, 결과는 목록
 			// 응답에 실려 온다 (FR-TAN-7). 여기서 tcgetpgrp 를 부를 수는
 			// 없다 — Size() 가 PTMX 대신 List 를 쓰는 것과 같은 사정이다.
-			fg, _ := m["fgName"].(string)
 			out = append(out, toolaccess.ToolInfo{
-				ID: id, Name: name, ShellPID: mapInt(m["pid"]), ForegroundName: fg,
+				ID: t.ID, Name: t.Name, ShellPID: t.PID, ForegroundName: t.FgName,
 			})
 		}
 		return out
@@ -66,19 +61,6 @@ func (a Tool) List() []toolaccess.ToolInfo {
 		})
 	}
 	return out
-}
-
-// mapInt coerces a JSON-decoded numeric (float64) or native int to int.
-func mapInt(v interface{}) int {
-	switch n := v.(type) {
-	case int:
-		return n
-	case int64:
-		return int(n)
-	case float64:
-		return int(n)
-	}
-	return 0
 }
 
 func (a Tool) Has(id string) bool {
@@ -123,15 +105,10 @@ func (a Tool) Size(id string) string {
 		return fmt.Sprintf("%dx%d", cols, rows)
 	}
 	// Daemon mode: ToolHub doesn't expose the terminal; use List for cols/rows.
-	// JSON numbers decode as float64, so coerce via mapInt.
 	if a.Hub != nil {
-		for _, m := range a.Hub.List() {
-			if mid, _ := m["id"].(string); mid == id {
-				cols := mapInt(m["sizeCols"])
-				rows := mapInt(m["sizeRows"])
-				if cols > 0 && rows > 0 {
-					return fmt.Sprintf("%dx%d", cols, rows)
-				}
+		for _, t := range a.Hub.List() {
+			if t.ID == id && t.Cols > 0 && t.Rows > 0 {
+				return fmt.Sprintf("%dx%d", t.Cols, t.Rows)
 			}
 		}
 	}

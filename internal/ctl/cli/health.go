@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"dongminal/internal/helper/runtimebin"
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/runtime"
 )
@@ -65,7 +64,7 @@ func RunHealth(o HealthOpts, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "   %s\n", runtime.HelperFixHint)
 		fail += len(st.Problems)
 	default:
-		fmt.Fprintf(stdout, "✅ 헬퍼 %d개 실행 가능 (%s)\n", len(runtimebin.HelperNames()), binDir)
+		fmt.Fprintf(stdout, "✅ 헬퍼 %d개 실행 가능 (%s)\n", len(dmenv.HelperNames()), binDir)
 	}
 
 	if fail > 0 {

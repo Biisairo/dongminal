@@ -10,7 +10,7 @@ import (
 
 	"dongminal/internal/shared/agentadapter"
 
-	"dongminal/internal/helper/runtimebin"
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/testpath"
 )
@@ -64,7 +64,7 @@ func TestInstallHelperSymlinks(t *testing.T) {
 	if err := installWith(dir, self); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
-	helpers := append([]string{}, runtimebin.HelperNames()...)
+	helpers := append([]string{}, dmenv.HelperNames()...)
 	sort.Strings(helpers)
 	for _, name := range helpers {
 		dst := filepath.Join(dir, helperFile(name))

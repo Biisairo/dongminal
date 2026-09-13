@@ -83,7 +83,7 @@ type GitServer struct {
 	// 별개의 인스턴스다. worktree 의 git 실행은 전부 여기(domain/worktree)를 지난다
 	// (FR-GIT-246) — domain/git 의 화이트리스트를 넓히지 않는다. nil 이면
 	// Worktrees 탭의 목록·생성·제거가 전부 503 이다.
-	UserWorktrees *worktree.Manager
+	UserWorktrees worktree.Service
 	// Submodules 는 서브모듈 조작의 Manager 다 (UX_BATCH5_SRS FR-SUB-1~5).
 	// worktree 와 같은 이유로 별도 도메인이다 (D-9 정정): `git submodule` 은 한
 	// 하위 명령에 읽기와 쓰기가 함께 있어 domain/git 의 어느 화이트리스트에도

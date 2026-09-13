@@ -5,19 +5,57 @@
 
 ---
 
-## 1. 어디까지 왔나 (2026-09-13, 첫 번째 세션 — **P0 스파이크 종료**)
+## 1. 어디까지 왔나 (2026-09-13, 두 번째 세션 — **P1 완료**)
 
 | 단계 | 상태 |
 |---|---|
-| **P0** 스파이크 (U-1~U-10 · 산출물 ①~⑤) | **완료** — 스펙 §9.1 표가 채워졌고 §9.3 이 섰다. 제품 코드 0줄 |
-| P1 A ①~④ + `TEST-8` | 착수 전 — `M8_NEXT_SESSION.md` 가 안내한다 |
+| **P0** 스파이크 (U-1~U-10 · 산출물 ①~⑤) | **완료** (첫 세션) — 스펙 §9.1 표가 채워졌고 §9.3 이 섰다. 제품 코드 0줄 |
+| **P1** A ①~④ + `TEST-8` | **완료** — 아래 §1-1 표. `go test -race -shuffle=on -count=1 ./...` 통과 · `make gates` 초록 · 전량 e2e unexpected 0 (§1-2) |
 | P2~P7 | 착수 전 |
 
-**사용자 판단 대기 셋** (스펙 §9.3 ⑥ · 이 문서 §2-6):
+**사용자 판단 셋은 착수 시 해소됐다** (2026-09-13): FR-APS-10 정정(stdio 제어 프레임,
+MCP 서버 없음) · D-U-4 정정(변형 + `Kind`) · FR-AGT-11·12 확정. 스펙 본문과 §9.3 ⑤⑥,
+R-2 에 반영했고 `decisions.md` 를 다시 만들었다.
 
-1. **FR-APS-10 정정** — claude 승인은 MCP 서버가 아니라 stdio 제어 프레임(`--permission-prompt-tool stdio`)으로 온다. 라이브 왕복 확인.
-2. **D-U-4 정정** — "새 도구 종류" 가 아니라 "전송만 다른 변형 + `Kind`" 가 `GO-46` 에 싸다.
-3. FR-AGT-11·FR-AGT-12 추가 — 사용자 요구 둘(*"omp 로그인 방식 전부·모델 변경"* · *"동시 접근은 터미널처럼 한쪽만 컨트롤"*)을 FR 로 적었다. 확인만.
+### 1-1. P1 항목별 판정
+
+| 단계 | 항목 | 판정 | 어디에 |
+|---|---|---|---|
+| ① | GO-4 | **해소** — 위반 4곳 중 a·b 해소, c·d 예외 등록. `scripts/check-pkg-axis.sh` 가 축 규칙(축 패키지→자기 축+shared, shared→shared)을 `go list -deps` 로 지킨다. Makefile·verify.yml 배선, 탐침 3종 확인 | `check-pkg-axis.sh` · `shared/dmenv/helpers.go` · `shared/runfile/` · `architecture.md` §패키지 레이아웃 |
+| ① | GO-48 | **해소** — 표에 빠진 20개(+`clientpid` 는 실재하지 않아 삭제)를 더했고 같은 게이트가 `go list ./...` 과 양방향 대조. 동시성 절에 `toolclient`·`AttnTracker`·`Jobs` | `architecture.md` |
+| ② | GO-5 | **해소** — `SetOnOutput/SetOnExit/SetOnForeground`, 필드 비공개, `FlushEarlyPushes` 는 `SetOnExit` 안으로. 레이스 테스트 2건(잠금을 빼면 `DATA RACE` 로 잡힘을 탐침) | `toolclient/client.go` · `client_test.go` |
+| ② | GO-7 | **해소** — `exitAfterRead()` 를 EOF·패닉이 함께 지난다. 릴레이 콜백에 패닉을 주입해 kill·onExit·OpExit·프로세스 소멸을 확인 | `toolhub/tool.go` · `tool_readpty_panic_test.go` |
+| ② | GO-29 | **해소** — `Create` 가 잠금 밖에서 띄운다. 상한은 `pending` 예약으로. `startTool` 필드 주입(가짜 기동으로 잠금 규약을 판정) | `toolhub/manager.go` · `manager_create_lock_test.go` |
+| ② | GO-30 | **해소** — `toolExited` 가 `invalidator` 를 락으로 읽는다 | 같은 자리 |
+| ② | GO-31 | **확인 → 삭제** — 읽는 쪽은 TERMINAL_RESUME(FR-TRS-12)이 이미 지웠고 `Restored` 는 **쓰기 전용**이었다. 레이스는 없었고, 필드를 지웠다 | `toolhub/tool.go`·`manager.go` |
+| ② | GO-32 | **해소** — `ClearAllAttention` 이 락을 놓고 방송. 방송 안에서 되묻는 대역으로 데드락을 RED 로 잡았다 | `hub/attn_tracker.go` · `attn_firing_test.go` |
+| ② | GO-33 | **확인** — `StartGitWatch` 는 이미 ctx 를 쓴다 (GP-8, M6) |  |
+| ② | GO-34 | **해소** — `OnIndexUpdate` 를 `mu` 밖에서, `hookMu` 로 rev 순서 보장. 훅이 막힌 동안 다른 Save 의 rev 가 진행함을 테스트 | `workspace/manager.go` · `manager_tabids_test.go` |
+| ② | GO-35 | **해소** — `call` 이 `NewTimer`+`Stop` | `toolclient/client.go` |
+| ② | GO-37 | **해소** — `Stream.Feed` 는 인자를 보관하지 않는다(계약 테스트) → `feedAndClients` 의 사본 제거. 청크당 명시적 복사는 릴레이 하나 | `outbuf/stream.go` · `toolhub/tool.go` |
+| ② | GO-42 | **확인 — 조건 미충족** — DoD 는 "`t.Parallel()` 도입 패키지에서" 인데 도입 패키지가 0 이다. 전역 훅 5개(`toolBusyProbe`·`attnBusyProbe`·`fgProbe`·`attnNow`·`procCtl`) 잔존. `ToolManager.startTool` 필드 주입이 교체의 본이다 |  |
+| ② | (발견) FR-GIT-107 | **해소** — 전량 `-race -shuffle` 에서 `TestGitRemote_InvalidatesStatusCacheOnDone` 이 한 번 떨어졌다. 원인은 제품 코드: `Jobs.finish` 가 `Done` 을 공개한 **뒤** 완료 훅(캐시 무효화)을 불렀다. 훅 → 공개 → 기록 순으로 고쳤다 | `git/jobs/job.go` · `job_test.go` · `GIT_SRS` FR-GIT-107 정정 |
+| ③ | GO-9 | **해소** — `limits`·`fsOps`·`contextNotices` 가 `Server` 필드. 두 서버 동시 기동 테스트 2건(상한·통지 기억 독립). `fsOps` 는 Mkdir/OpenFile/count+RemoveAll/count+copy 구간만 | `httpapi/server.go` · `server_coexist_test.go` |
+| ③ | GO-12 · FBE-01(서버) | **해소** — `pollUntil(ctx, max, every, cond)` 하나로 4곳(`waitHandoff`·`requestHandoff`·`waitToolsIdle`·`awaitTab`). 끊긴 `succeed` 는 잇지 않고 헤드리스 도구를 거둔다. `SendPaste` 의 틈은 도구 죽음으로 끊기고, `kill()` 유예는 `Wait` 채널로, worktree 되풀이는 ctx + 예산(3초) — `repoLock` 18분 경로 소멸. 요청 경로 `time.Sleep` 0 | `httpapi/wait.go` · `handlers_runs*.go` · `toolhub/bracketpaste.go`·`tool.go` · `worktree/worktree.go` |
+| ③ | GO-40 | **해소** — `daemonBusyWait`·`daemonReadyTries`·`daemonReadyPoll`·`terminateGrace`·`removeRetry*`. `termReset` 은 이미 이름이 있었고 `/tmp` 기본값은 의도된 것 | `cmd/dongminal/main.go` 등 |
+| ③ | GO-41 | **해소** — 튜닝 env 셋(`ATTENTION_IDLE_MS`·`ATTENTION_BELL`·`CMD_RESULT_TIMEOUT_MS`)의 이름과 읽는 규칙(`MillisEnv`·`FlagEnv`)이 `dmenv` 한 곳 | `shared/dmenv/tuning.go` |
+| ④ | GO-13 | **해소** — `ToolHub.List() []ToolInfo`, 와이어(데몬 `list`)와 소비자가 같은 타입. `m["id"].(string)` 형 단언 0, `map[string]interface{}` 80→71, 필드명 변경이 컴파일 오류 1회 확인 | `toolhub/hub.go` · 소비처 6곳 |
+| ④ | GO-6 | **해소** — `ToolClient` 에 200ms TTL 목록 캐시 + `exit`·`fg` push 와 변경 호출(create·kill·terminate·restore·setbackground) 무효화(**보내기 전·돌아온 뒤 두 번**, 세대 가드). Get/IsLive 30회에 list RPC 1회 계측. 전량 e2e 가 잡은 결함은 §1-2 ① | `toolclient/client.go` · `client_test.go` |
+| ④ | GO-44 | **부분 해소** — `RunStore`(httpapi)·`worktree.Service` 인터페이스, `Runs`·`Worktrees`·`UserWorktrees` 가 그것을 든다. 가짜로 git 없이 도는 핸들러 테스트 1건. **`Git *store.Store` 는 남긴다** — gitapi 가 `Service()`(구체)를 83곳에서 쓰므로 인터페이스로 좁혀도 git 없이 돌지 못한다; ⑥(GO-39 git 실행기 통합) 뒤의 일 | `httpapi/deps.go` · `worktree/worktree.go` · `deps_seam_test.go` |
+| ④ | GO-45 | **해소** — `SettingsStore` 의 `Get/Set/Save` 공개 | `httpapi/deps.go` |
+| ④ | GO-46 | **해소** — `ToolHub` 에 `ListOK`·`Connected`·`Daemon() DaemonHub`(+`Terminate`), `IsDaemon` 삭제. `DaemonHub` 는 `Subscribe`·`SnapshotToolSince`·`DaemonInfo`·`Reconnects`. 타입 단언 6곳(ws 2·api 1·main 2·health/diag 2) 소멸, **httpapi 가 `toolclient` 를 import 하지 않는다**. 종류별 메서드 없음 — §9.3 ④⑤ 를 받아들일 모양 | `toolhub/hub.go` · `handlers_ws.go` · `architecture.md` |
+| ④ | GO-47 | **미착수 — DoD 없음** — `Get(id) *Tool` 의 `term==nil` 계약은 D-U-4(변형 + `Kind`)가 그대로 딛는다. 좁히는 것은 축 C 가 `Kind` 를 더할 때 함께 |  |
+| ④ | FBE-05/12 | **해소** — `ToolHub.Terminate(id, grace)`; 데몬은 `terminate {id, graceMs}` 를 **자기 고루틴에서** 처리해 연결의 다른 RPC 를 막지 않는다. 데몬 모드 통합 테스트(가짜 셸이 TERM 에 이력 표식을 남기고 유예 뒤 강제 종료) | `daemon/ipc/paned.go` · `handlers_tools_kill*.go` · `CONVENIENCE_SRS` FR-BGK-7 정정 |
+| ⑦ | TEST-8 | **DoD 분 해소** — 1초 이상 `time.Sleep` 0 (`daemon_integration_test` 4곳 → 틱 주입 + `waitUntil`), `StartSweeper(stop, tick)`·`StartAttentionSweeper(stop, tick)`, `history_shell_test`·`toolhome_test` 의 500ms → `waitShellReady`/`waitOutput`. 총 `time.Sleep` 은 94→96 (새 테스트의 밀리초 폴링) — 나머지 정리는 ⑦ P7 | `hub/attn_tracker.go` · `toolhub/manager.go` · `toolhub/waitpoll_test.go` |
+
+### 1-2. 전량 e2e (P1 판정)
+
+| 회차 | 결과 | 비고 |
+|---|---|---|
+| ① 코드 완료 직후 | unexpected 1 · flaky 3 | `skill-contract` "전용 창 Run 이 사용자 공간을 건드리지 않고 …" — **목록 캐시(GO-6)의 결함**. 재시도 2회 모두 실패, HEAD 에서는 통과, TTL 0 이면 통과. 원인: 데몬은 한 연결의 RPC 를 직렬로 처리하므로 종전(캐시 없음)에는 `kill` 이 도는 동안의 `list` 가 그 뒤에 답을 받았는데, 캐시는 `kill` **전에** 받은 목록을 그 동안 그대로 냈다. 수정: 변경 RPC(create·kill·terminate·restore·setbackground)는 **보내기 전과 돌아온 뒤 두 번** 무효화하고, 무효화가 세대를 올려 진행 중이던 list 응답은 저장하지 않는다. 표적 3회 통과 |
+| ② 수정 뒤 | **unexpected 0** · flaky 8 | flaky 는 전부 M7 §5-5 군집 또는 그 이웃(`slot-view-state` TC-SVS-2·21 · `git-observe-revive` TC-GLR-4 · `git-worktrees` V169 · `repo-tab` V-DSP-1 · `repo-diff-edit` E1 · `git-history` H6·H16 · `git-improve` V138 · `settings-reset-revert` TC-RST-2). 여덟 스펙 전부 **단독 실행(retry 0)에서 통과**. M7 의 "3회 연속 flaky 0" 미충족은 그대로다 (사용자 지시로 세기 중단) |
+
+`make e2e-rebalance` 는 못 했다 — 표적 실행이 `test-results/` 를 비워 샤드 리포트가 사라졌다 (규약대로 **전량 직후·표적 전에** 돌려야 한다; 다음 세션이 전량 뒤에 먼저 돌린다). 시간표는 M7 것 그대로이고 가장 느린 샤드가 4.9분이다.
 
 **바이너리**: claude 2.1.270 · codex 0.154.0(bunx 캐시) · omp 17.4.0. 라이브 모델 턴은 claude 만
 — codex 는 토큰 만료(사용자: *"지금 사용 안 하고 있다"*), omp 는 등록 키 둘 다 401.
@@ -26,6 +64,40 @@
 ---
 
 ## 2. 무엇이 바뀌었나
+
+### 2-10. (P1) 감사의 줄 번호는 낡았고, 다섯 중 둘은 이미 닫혀 있었다
+
+GO-31(`Restored` 레이스)은 읽는 쪽이 TERMINAL_RESUME 에서 이미 사라져 **쓰기 전용
+필드**였고, GO-33(gitwatch ctx)은 M6 이 닫았다. GO-42 는 DoD 의 조건("`t.Parallel()`
+도입 패키지")이 성립하지 않았다. 반대로 감사가 적지 않은 것이 전량 `-race -shuffle`
+에서 잡혔다 — `Jobs.finish` 가 `Done` 을 공개한 뒤 캐시를 지워 FR-GIT-107 이 그 창에서
+거짓이었다. **판정은 게이트가 하고 감사는 지도일 뿐이다** (M2 의 교훈 그대로).
+
+### 2-11. (P1) 유예는 도구가 있는 프로세스에서 기다린다
+
+FBE-05/12 의 실체는 "서버가 pid 를 보고 기다린다" 는 설계 자체였다 — 데몬 모드의
+`Get` 은 pid 없는 합성 Tool 을 주므로 유예가 통째로 건너뛰어졌다. 고친 모양은
+`ToolHub.Terminate(id, grace)` 하나: 직접 모드는 그 자리에서, 데몬 모드는 RPC 로
+데몬이 기다린다. 데몬의 디스패치가 직렬이라 `terminate` 만 고루틴으로 뗐다 — 응답이
+id 로 짝지어지므로 순서가 바뀌어도 된다. **데몬 연결 하나가 직렬**이라는 사실은
+`SendPaste` 의 120ms 틈에서도 같은 값을 물었다.
+
+### 2-12. (P1) `Daemon()` 하나가 타입 단언 여섯을 대신했고, httpapi 가 toolclient 를 잊었다
+
+GO-46 의 답은 "인터페이스에 메서드를 올리거나 하위 인터페이스" 였다 — 둘 다 했다.
+두 모드가 같이 답할 수 있는 것(`ListOK`·`Connected`·`Terminate`)은 `ToolHub` 로, 프로세스
+경계를 건널 때만 있는 것(`Subscribe`·`SnapshotToolSince`·진단 둘)은 `DaemonHub` 로 갈랐고
+`Daemon()` 이 그 경계다. 결과로 `httpapi` 의 비검사 코드가 `toolclient` 를 import 하지
+않는다 — 구체 타입은 composition root 만 안다. §9.3 ④⑤ 가 요구한 "종류별 메서드 없음"
+은 지켰다: 인터페이스에 `Kind` 가 없고, 축 C 는 `Placement` 와 `ToolInfo` 에 그것을 더한다.
+
+### 2-13. (P1) 끊긴 요청의 대기는 그 요청의 것이다
+
+`pollUntil(ctx, …)` 하나로 네 대기를 모으자 FBE-01 의 서버 절반이 함께 닫혔다 — 그런데
+"끊기면 무엇을 하지 않는가" 는 자리마다 달랐다. `succeed` 는 잇지 않고 헤드리스 도구를
+거둔다(재시도가 처음부터), `preamble` 은 표식을 남긴다(다음 조회가 이어 기다린다),
+`close` 는 그대로 닫는다(정리는 조건이 아니다). 헬퍼가 같아도 부작용의 판단은 호출자의
+것이다.
 
 ### 2-1. claude 의 승인은 MCP 가 아니었다 — 스펙의 "범위 항목" 이 사라진다
 
@@ -126,8 +198,10 @@ AS-1(한 프로세스 = 한 세션)은 codex 에서 거짓이다. 두 `thread/st
 
 ---
 
-## 4. 이 세션의 커밋
+## 4. 커밋
 
 ```
 75e1d83  docs(m8): P0 스파이크를 닫는다 — §9.1 실측·§9.3 산출물·FR-AGT-11/12·P1 인계
+31b0d28  docs(m8): 인계서에 커밋 해시를 적는다
+(P1 — 사용자 확인 뒤)
 ```

@@ -12,7 +12,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/wsentry"
@@ -48,15 +47,6 @@ const (
 	fsErrTooLarge = apierr.CodeTooLarge
 	// FR-ETR-45: 지금은 자리가 없다 — 재시도가 유효하다.
 	fsErrBusy = apierr.CodeBusy
-)
-
-// FS_LIST_MAX·FS_DELETE_MAX (FR-EDT-65·118). const 가 아닌 이유는 테스트가 상한을
-// 낮춰 잡기 위해서다 — 실제 값으로 픽스처를 만들면 테스트가 파일시스템을 만든다.
-var (
-	fsListMax   = 10000
-	fsDeleteMax = 10000
-	// FR-WBR-66: 복사도 같은 규약이다 — 먼저 세고, 넘으면 시작하지 않는다.
-	fsCopyMax = 10000
 )
 
 // fsError 는 코드와 사유를 묶는다. 헬퍼의 실패를 호출자가 그대로 응답으로 옮길 수
@@ -289,7 +279,7 @@ func (s *Server) apiFSList(w http.ResponseWriter, r *http.Request) {
 	if v, err := strconv.Atoi(r.URL.Query().Get("offset")); err == nil && v > 0 {
 		offset = v
 	}
-	entries, total, truncated, err := fsListDir(target, offset, fsListMax)
+	entries, total, truncated, err := fsListDir(target, offset, s.limits.fsList)
 	if err != nil {
 		fsFailErr(w, err)
 		return
@@ -349,8 +339,6 @@ func fsTargetIn(w http.ResponseWriter, root, p string) (string, bool) {
 // os.OpenFile(O_EXCL) 의 원자성으로 막는다 — 편집기의 저장과 겹칠 수 있다
 // (FR-EDT-93).
 func (s *Server) apiFSCreate(w http.ResponseWriter, r *http.Request) {
-	fsOpMu.Lock()
-	defer fsOpMu.Unlock()
 	var req fsCreateReq
 	if !fsDecode(w, r, &req) {
 		return
@@ -369,14 +357,19 @@ func (s *Server) apiFSCreate(w http.ResponseWriter, r *http.Request) {
 			fsFail(w, fsErrBadRequest, "메모장에는 폴더를 만들 수 없다")
 			return
 		}
-		if err := os.Mkdir(target, 0o755); err != nil {
+		s.fsOps.Lock()
+		err := os.Mkdir(target, 0o755)
+		s.fsOps.Unlock()
+		if err != nil {
 			fsFailErr(w, fsFromOS(err))
 			return
 		}
 		fsOK(w)
 		return
 	}
+	s.fsOps.Lock()
 	f, err := os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	s.fsOps.Unlock()
 	if err != nil {
 		fsFailErr(w, fsFromOS(err))
 		return
@@ -415,7 +408,7 @@ type fsRenameReq struct {
 // (FR-WBR-63) 이동은 그러지 않는다 — "복제" 는 개명이 본질이고 "옮기기" 는
 // 아니다. 옮기려던 자리에 다른 것이 있으면 그것은 사용자가 알아야 할 사실이다.
 func (s *Server) apiFSRename(w http.ResponseWriter, r *http.Request) {
-	// **여기서 `fsOpMu` 를 잡지 않는다** — `fsRenameNoReplace` 가 잡는다.
+	// **여기서 `fsOps` 를 잡지 않는다** — `fsRenameNoReplace` 가 잡는다.
 	// `sync.Mutex` 는 재진입하지 않으므로 둘 다 잡으면 교착이다.
 	var req fsRenameReq
 	if !fsDecode(w, r, &req) {
@@ -449,14 +442,14 @@ func (s *Server) apiFSRename(w http.ResponseWriter, r *http.Request) {
 		fsFailErr(w, err)
 		return
 	}
-	if err := fsRenameNoReplace(from, to); err != nil {
+	if err := s.fsRenameNoReplace(from, to); err != nil {
 		fsFailErr(w, err)
 		return
 	}
 	fsOK(w)
 }
 
-// fsOpMu 는 파일 조작을 직렬화한다 (FR-EDT-115).
+// `Server.fsOps` 는 파일 조작을 직렬화한다 (FR-EDT-115).
 //
 // `os.Rename` 은 대상이 있으면 **조용히 덮어쓴다.** Go 에 이식 가능한
 // 무덮어쓰기 rename(`RENAME_NOREPLACE`)이 없어 "검사 → 콜" 사이의 창을 시스템
@@ -466,7 +459,6 @@ func (s *Server) apiFSRename(w http.ResponseWriter, r *http.Request) {
 // 닫지 못하는 것은 **dongminal 밖의 프로세스**가 같은 순간에 그 이름을 만드는
 // 경우다. 그것까지 막으려면 플랫폼별 시스템 콜을 들여야 하고, 그것은 §6 비목표의
 // cross-platform 보류와 충돌한다 (D-26).
-var fsOpMu sync.Mutex
 
 // fsRenameNoReplace 는 대상이 이미 있으면 덮어쓰지 않고 거절한다.
 //
@@ -484,12 +476,12 @@ var fsOpMu sync.Mutex
 //     쓰지 않는 이유는 플랫폼마다 링크를 따라가는지가 갈리기 때문이다 —
 //     따라가면 링크가 아니라 그 대상이 옮겨져 뜻이 달라진다.
 //
-// 폴백에 남는 창은 `fsOpMu` 가 우리 자신끼리의 경합에 한해 없앤다. 바깥
+// 폴백에 남는 창은 `fsOps` 가 우리 자신끼리의 경합에 한해 없앤다. 바깥
 // 프로세스와의 경합은 남으며, 그것까지 닫으려면 플랫폼별 시스템 콜이 필요하다
 // (D-26, §6 비목표의 cross-platform 보류).
-func fsRenameNoReplace(from, to string) error {
-	fsOpMu.Lock()
-	defer fsOpMu.Unlock()
+func (s *Server) fsRenameNoReplace(from, to string) error {
+	s.fsOps.Lock()
+	defer s.fsOps.Unlock()
 
 	st, err := os.Lstat(from)
 	if err != nil {
@@ -527,8 +519,6 @@ type fsDeleteReq struct {
 
 // POST /api/fs/delete (FR-EDT-109·114·118). 영구 삭제다 — 휴지통은 없다 (D-7).
 func (s *Server) apiFSDelete(w http.ResponseWriter, r *http.Request) {
-	fsOpMu.Lock()
-	defer fsOpMu.Unlock()
 	var req fsDeleteReq
 	if !fsDecode(w, r, &req) {
 		return
@@ -542,13 +532,15 @@ func (s *Server) apiFSDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 먼저 세고 나서 지운다. 세다가 중간에 멈추면 절반만 지워진 트리가 남는다
-	// (FR-EDT-118).
-	n, err := fsCountEntries(target, fsDeleteMax)
+	// (FR-EDT-118). 세는 것부터 지우는 것까지가 한 조작이다 — 그 구간만 잠근다.
+	s.fsOps.Lock()
+	defer s.fsOps.Unlock()
+	n, err := fsCountEntries(target, s.limits.fsDelete)
 	if err != nil {
 		fsFailErr(w, err)
 		return
 	}
-	if n > fsDeleteMax {
+	if n > s.limits.fsDelete {
 		fsFail(w, fsErrBadRequest, "삭제 항목 수가 상한을 넘었다")
 		return
 	}
@@ -595,7 +587,7 @@ func (s *Server) apiFSUpload(w http.ResponseWriter, r *http.Request) {
 		fsFailErr(w, err)
 		return
 	}
-	outPath, written, ok := uploadInto(w, r, dir, func(d, n string) (string, error) {
+	outPath, written, ok := s.uploadInto(w, r, dir, func(d, n string) (string, error) {
 		if n == "" || n == "." || n == string(filepath.Separator) {
 			return "", fsError{fsErrBadRequest, "파일 이름이 없다"}
 		}

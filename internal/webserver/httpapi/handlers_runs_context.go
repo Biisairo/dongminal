@@ -1,8 +1,10 @@
 package httpapi
 
 import (
+	"context"
 	"dongminal/internal/shared/dmlog"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -73,11 +75,12 @@ func (l *contextNoticeLog) claim(memberID, level string) bool {
 	if l.sent[key] {
 		return false
 	}
+	if l.sent == nil {
+		l.sent = map[string]bool{}
+	}
 	l.sent[key] = true
 	return true
 }
-
-var contextNotices = &contextNoticeLog{sent: map[string]bool{}}
 
 // contextPolicy 는 추정 공식과 임계를 설정에서 읽는다 (FR-CBG-2). 설정이 없거나
 // 읽히지 않으면 기본값이다 — 관측 층의 설정 문제로 Run 이 멈추면 안 된다.
@@ -97,7 +100,7 @@ func (s *Server) contextPolicy() run.ContextPolicy {
 			ContextCriticalRatio float64 `json:"contextCriticalRatio"`
 		} `json:"orchestration"`
 	}
-	if err := json.Unmarshal(s.Settings.get(), &cfg); err != nil {
+	if err := json.Unmarshal(s.Settings.Get(), &cfg); err != nil {
 		return run.DefaultContextPolicy()
 	}
 	o := cfg.Orchestration
@@ -202,7 +205,7 @@ func (s *Server) notifyContextAlert(m run.Member, level string) {
 	if s.Runs == nil || s.ToolIO == nil {
 		return
 	}
-	if !contextNotices.claim(m.ID, level) {
+	if !s.contextNotices.claim(m.ID, level) {
 		return
 	}
 	rec, ok := s.Runs.Get(m.RunID)
@@ -311,7 +314,16 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 
 	// 1) 인수인계를 청한다. 이전 멤버가 이미 죽었으면 청할 곳이 없으므로
 	//    곧바로 요약 없는 승계로 간다 (V-CBG-7).
-	summary, asked := s.requestHandoff(rec, prev, body.TimeoutMs)
+	summary, asked := s.requestHandoff(r.Context(), rec, prev, body.TimeoutMs)
+	if r.Context().Err() != nil {
+		// 묻는 쪽이 사라졌다 (FBE-01). 여기서 잇지 않는다 — 이었는데 실패로
+		// 보고되면 재시도가 멤버를 이중으로 만든다. 우리가 만든 도구만 거둔다.
+		if body.Headless && s.Tools != nil {
+			_ = s.Tools.Delete(toolID)
+		}
+		dmlog.Infof(nil, "[run] succeed 중단 — 요청이 끊겼다 run=%s member=%s", rec.Short, prev.ID)
+		return
+	}
 
 	// 2) 사슬을 잇는다. worktree 는 물려받고 새로 만들지 않는다.
 	prevAfter, next, err := s.Runs.Succeed(run.SucceedSpec{
@@ -365,7 +377,7 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 //
 // 두 번째 값은 **청했는가**다 (UX_BATCH6_SRS FR-RUN-4). 청하지도 못한 것과 청했는데
 // 늦는 것은 다르다 — 앞은 기다릴 이유가 없고, 뒤는 오는 중일 수 있다.
-func (s *Server) requestHandoff(rec run.Record, prev run.Member, timeoutMs int) (string, bool) {
+func (s *Server) requestHandoff(ctx context.Context, rec run.Record, prev run.Member, timeoutMs int) (string, bool) {
 	baseline := prev.HandoffSummary
 	if s.ToolIO == nil || !s.ToolIO.Has(prev.ToolID) {
 		// 청할 상대가 없다. 이미 남겨 둔 요약이 있으면 그것을 쓴다.
@@ -390,21 +402,19 @@ func (s *Server) requestHandoff(rec run.Record, prev run.Member, timeoutMs int) 
 	if timeoutMs > 0 {
 		wait = time.Duration(timeoutMs) * time.Millisecond
 	}
-	deadline := time.Now().Add(wait)
-	for {
-		remaining := time.Until(deadline)
-		if remaining <= 0 {
-			break
-		}
-		// 남은 시간보다 오래 자지 않는다 — 아주 짧은 --timeout-ms 를 준 조정자가
-		// 폴링 간격만큼 붙들리면 시한이 시한 노릇을 못 한다.
-		if remaining > handoffPollInterval {
-			remaining = handoffPollInterval
-		}
-		time.Sleep(remaining)
+	var summary string
+	err := pollUntil(ctx, wait, handoffPollInterval, func() bool {
 		if _, cur, ok := s.Runs.FindMember(prev.ID); ok && cur.HandoffSummary != baseline {
-			return cur.HandoffSummary, true
+			summary = cur.HandoffSummary
+			return true
 		}
+		return false
+	})
+	if err == nil {
+		return summary, true
+	}
+	if !errors.Is(err, errWaitTimeout) {
+		return baseline, true
 	}
 	dmlog.Infof(nil, "[run] handoff 시한 초과 run=%s member=%s wait=%s — 요약 없이 승계하고 기다림을 프리앰블로 넘긴다",
 		rec.Short, prev.ID, wait)

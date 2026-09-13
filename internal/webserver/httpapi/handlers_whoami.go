@@ -51,13 +51,9 @@ func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
 
 	if s.Tools != nil {
 		for _, p := range s.Tools.List() {
-			if id, _ := p["id"].(string); id == toolID {
-				if c, ok := p["sizeCols"].(int); ok {
-					resp["sizeCols"] = c
-				}
-				if rr, ok := p["sizeRows"].(int); ok {
-					resp["sizeRows"] = rr
-				}
+			if p.ID == toolID {
+				resp["sizeCols"] = p.Cols
+				resp["sizeRows"] = p.Rows
 				break
 			}
 		}

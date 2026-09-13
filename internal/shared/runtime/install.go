@@ -18,8 +18,8 @@ import (
 	"sort"
 	"strings"
 
-	"dongminal/internal/helper/runtimebin"
 	"dongminal/internal/shared/agentadapter"
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 )
 
@@ -35,8 +35,9 @@ const shellHookRoot = "shellhooks"
 //go:embed all:agentplugin
 var agentPluginFS embed.FS
 
-// helperNames는 multi-call 로 등록된 helper 명. runtimebin 과 동기화 유지.
-func helperNames() []string { return runtimebin.HelperNames() }
+// helperNames 는 multi-call 로 서는 helper 명 — 디스패치 표(`runtimebin`)와의
+// 일치는 그쪽 테스트가 지킨다.
+func helperNames() []string { return dmenv.HelperNames() }
 
 // Install은 helper symlink + shell hook 파일을 binDir 에 설치한다.
 func Install(binDir string) error {
@@ -305,7 +306,7 @@ func pruneAgentPlugin(binDir string) error {
 // 디렉터리는 여기서 한 번 만든다 — 어댑터마다 MkdirAll 을 되풀이할 이유가 없다
 // (FR-AAC-2).
 func installAgentAssets(binDir string) error {
-	dir := runtimebin.AgentHooksDirIn(binDir)
+	dir := dmenv.AgentHooksDirIn(binDir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}

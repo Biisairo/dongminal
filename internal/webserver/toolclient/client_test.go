@@ -12,6 +12,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -438,11 +440,10 @@ func TestToolClientForegroundNameOverIPC(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	fgOf := func(list []map[string]interface{}) string {
+	fgOf := func(list []toolhub.ToolInfo) string {
 		for _, m := range list {
-			if id, _ := m["id"].(string); id == tool.ID {
-				n, _ := m["fgName"].(string)
-				return n
+			if m.ID == tool.ID {
+				return m.FgName
 			}
 		}
 		return "<도구 없음>"
@@ -571,5 +572,253 @@ func TestToolClientListDelegatesToListOK(t *testing.T) {
 	}
 	if len(pc.List()) != 1 {
 		t.Errorf("List 와 ListOK 가 다른 것을 준다")
+	}
+}
+
+// ── M8 `GO-5`: 콜백 배선과 readLoop 의 레이스 ──
+//
+// readLoop 는 dial 이 돌아온 순간 이미 돌고 있고, 데몬은 접속 직후부터 `output`·
+// `exit` 를 밀 수 있다. 배선(main.go)이 그 뒤에 오므로 콜백 필드는 setter 로만
+// 걸리고 readLoop 는 잠금 아래에서 읽는다 — 이 둘은 `go test -race` 가 판정한다.
+
+// fakePushingPaned 는 hello 에 답한 직후부터 `output` 을 계속 밀고 마지막에
+// `exit` 를 미는 가짜 데몬이다. 배선이 끝나기 전에 push 가 도착하는 창을 만든다.
+func fakePushingPaned(t *testing.T, outputs int) string {
+	t.Helper()
+	sockPath := t.TempDir() + "/s"
+	ln, err := platform.Current().IPC.Listen(sockPath)
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	t.Cleanup(func() { ln.Close() })
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		enc := json.NewEncoder(conn)
+		dec := json.NewDecoder(conn)
+		var req toolipc.PanedRequest
+		if err := dec.Decode(&req); err != nil {
+			return
+		}
+		enc.Encode(toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{"version": 1}})
+		data := base64.StdEncoding.EncodeToString([]byte("x"))
+		for i := 0; i < outputs; i++ {
+			enc.Encode(map[string]interface{}{"event": "output", "tool": "t1", "data": data, "end": i + 1})
+		}
+		enc.Encode(map[string]interface{}{"event": "exit", "tool": "t1", "code": 7})
+		// 클라이언트가 닫을 때까지 연결을 연다 — 먼저 닫으면 재접속이 돈다.
+		io.Copy(io.Discard, conn)
+	}()
+	return sockPath
+}
+
+// 배선이 push 와 겹친다: 콜백을 setter 로 걸면서 readLoop 가 같은 필드를 읽는다.
+// -race 아래에서 깨끗해야 하고, 배선 뒤의 push 는 콜백에 닿아야 한다.
+func TestToolClientSetCbRace(t *testing.T) {
+	sockPath := fakePushingPaned(t, 2000)
+	pc, err := DialToolClient(sockPath)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer pc.Close()
+
+	got := make(chan struct{}, 1)
+	exited := make(chan int, 1)
+	pc.SetOnOutput(func(toolID string, data []byte) {
+		select {
+		case got <- struct{}{}:
+		default:
+		}
+	})
+	pc.SetOnExit(func(toolID string, code int) { exited <- code })
+
+	select {
+	case code := <-exited:
+		if code != 7 {
+			t.Fatalf("exit code=%d want 7", code)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("exit push 가 콜백에 닿지 않았다")
+	}
+	select {
+	case <-got:
+	default:
+		t.Fatal("배선 뒤의 output push 가 콜백에 닿지 않았다")
+	}
+}
+
+// 배선 전에 도착한 `exit` 는 버려지지 않는다 — SetOnExit 가 그것을 재생한다
+// (종전의 FlushEarlyPushes 가 하던 일이 setter 안으로 들어왔다).
+func TestToolClientEarlyExitReplay(t *testing.T) {
+	sockPath := fakePushingPaned(t, 0)
+	pc, err := DialToolClient(sockPath)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer pc.Close()
+
+	// exit 가 readLoop 에 읽힐 때까지 기다린다 — 버퍼에 들어간 것을 확인한다.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		pc.mu.Lock()
+		n := len(pc.earlyPushes)
+		pc.mu.Unlock()
+		if n == 1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("배선 전의 exit 가 버퍼에 들어가지 않았다")
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	exited := make(chan int, 1)
+	pc.SetOnExit(func(toolID string, code int) { exited <- code })
+	select {
+	case code := <-exited:
+		if code != 7 {
+			t.Fatalf("exit code=%d want 7", code)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("SetOnExit 가 버퍼된 exit 를 재생하지 않았다")
+	}
+}
+
+// ── M8 `GO-6`: 목록 캐시 ──
+//
+// Get·IsLive 가 호출마다 전체 list RPC 를 왕복하던 자리다. 요청 하나가 멤버·도구마다
+// 그것을 물어 `GET /api/runs` 한 번이 수십 번 직렬 왕복이었다.
+
+// fakeCountingPaned 는 list RPC 횟수를 세고, 요청이 오면 그 사이에 이벤트도 민다.
+func fakeCountingPaned(t *testing.T, lists *atomic.Int64, events <-chan map[string]interface{}) string {
+	t.Helper()
+	sockPath := t.TempDir() + "/s"
+	ln, err := platform.Current().IPC.Listen(sockPath)
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	t.Cleanup(func() { ln.Close() })
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		enc := json.NewEncoder(conn)
+		dec := json.NewDecoder(conn)
+		var mu sync.Mutex
+		go func() {
+			for ev := range events {
+				mu.Lock()
+				enc.Encode(ev)
+				mu.Unlock()
+			}
+		}()
+		for {
+			var req toolipc.PanedRequest
+			if err := dec.Decode(&req); err != nil {
+				return
+			}
+			var resp interface{}
+			switch req.Method {
+			case "list":
+				lists.Add(1)
+				resp = toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
+					"tools": []interface{}{map[string]interface{}{"id": "t1", "name": "S1", "pid": 7, "fgName": "vim"}},
+				}}
+			default:
+				resp = toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{"version": 1}}
+			}
+			mu.Lock()
+			enc.Encode(resp)
+			mu.Unlock()
+		}
+	}()
+	return sockPath
+}
+
+func TestToolClientListCache(t *testing.T) {
+	var lists atomic.Int64
+	events := make(chan map[string]interface{})
+	defer close(events)
+	pc, err := DialToolClient(fakeCountingPaned(t, &lists, events))
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer pc.Close()
+
+	for i := 0; i < 10; i++ {
+		if pc.Get("t1") == nil || !pc.IsLive("t1") || pc.Get("nope") != nil {
+			t.Fatal("조회 결과가 틀리다")
+		}
+	}
+	if got := lists.Load(); got != 1 {
+		t.Fatalf("Get/IsLive 30회에 list RPC %d회 (want 1 — TTL 안에서는 캐시)", got)
+	}
+	if tools := pc.List(); len(tools) != 1 || tools[0].FgName != "vim" || tools[0].PID != 7 {
+		t.Fatalf("ToolInfo 디코드가 틀리다: %+v", tools)
+	}
+}
+
+func TestToolClientListInval(t *testing.T) {
+	var lists atomic.Int64
+	events := make(chan map[string]interface{})
+	defer close(events)
+	pc, err := DialToolClient(fakeCountingPaned(t, &lists, events))
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer pc.Close()
+
+	pc.Get("t1")
+	pc.Get("t1")
+	if got := lists.Load(); got != 1 {
+		t.Fatalf("list RPC %d회 (want 1)", got)
+	}
+	// exit push 가 캐시를 버린다 — 다음 조회는 다시 묻는다.
+	events <- map[string]interface{}{"event": "exit", "tool": "t1", "code": 0}
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		pc.Get("t1")
+		if lists.Load() >= 2 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("exit push 뒤에도 캐시가 살아 있다")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	// 변경 호출도 버린다.
+	before := lists.Load()
+	pc.Get("t1") // 캐시
+	_ = pc.Delete("t1")
+	pc.Get("t1")
+	if lists.Load() != before+1 {
+		t.Fatalf("Delete 뒤 캐시가 살아 있다: %d → %d", before, lists.Load())
+	}
+}
+
+// 무효화가 진행 중인 list 응답보다 **뒤에** 오면 그 응답은 저장되지 않는다. 저장하면
+// 방금 지운 도구가 TTL 동안 목록에 되살아난다 — e2e skill-contract 가 그렇게 깨졌다.
+func TestToolClientListStaleGen(t *testing.T) {
+	var lists atomic.Int64
+	events := make(chan map[string]interface{})
+	defer close(events)
+	pc, err := DialToolClient(fakeCountingPaned(t, &lists, events))
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer pc.Close()
+
+	gen := pc.listGeneration()
+	pc.invalidateList() // list 가 데몬에서 답해진 뒤, 응답이 도착하기 전의 무효화
+	pc.storeList([]toolhub.ToolInfo{{ID: "stale"}}, gen)
+	if _, ok := pc.cachedList(); ok {
+		t.Fatal("낡은 세대의 응답이 캐시에 저장됐다")
+	}
+	pc.storeList([]toolhub.ToolInfo{{ID: "fresh"}}, pc.listGeneration())
+	if tools, ok := pc.cachedList(); !ok || len(tools) != 1 || tools[0].ID != "fresh" {
+		t.Fatalf("현재 세대의 응답은 저장돼야 한다: %v %v", tools, ok)
 	}
 }

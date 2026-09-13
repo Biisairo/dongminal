@@ -2,9 +2,9 @@ package toolhub
 
 import (
 	"bytes"
-	"os"
-	"strconv"
 	"time"
+
+	"dongminal/internal/shared/dmenv"
 )
 
 // Tool attention (PANE_ATTENTION_NOTIFY_SRS): terminal-monitoring based
@@ -53,13 +53,7 @@ var attnNow = func() int64 { return time.Now().UnixNano() }
 // AttentionIdleThreshold resolves the L2 idle threshold: env override
 // (DONGMINAL_ATTENTION_IDLE_MS) or the named default. 0 disables L2.
 func AttentionIdleThreshold() time.Duration {
-	ms := attnDefaultIdleMS
-	if v := os.Getenv("DONGMINAL_ATTENTION_IDLE_MS"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
-			ms = n
-		}
-	}
-	return time.Duration(ms) * time.Millisecond
+	return dmenv.MillisEnv(dmenv.EnvAttentionIdleMS, time.Duration(attnDefaultIdleMS)*time.Millisecond, 0)
 }
 
 // AttentionAllowBell resolves whether a bare BEL counts as an attention signal.
@@ -68,9 +62,7 @@ func AttentionIdleThreshold() time.Duration {
 // 공개인 이유는 데몬 모드가 **같은 자리**를 딛어야 하기 때문이다
 // (HOST_PARITY_SRS FR-HPR-17). 종전에는 데몬 모드가 이 값을 읽는 코드 자체가
 // 없어 `DONGMINAL_ATTENTION_BELL` 이 그쪽에서 무성 무시되었다.
-func AttentionAllowBell() bool {
-	return os.Getenv("DONGMINAL_ATTENTION_BELL") == "1"
-}
+func AttentionAllowBell() bool { return dmenv.FlagEnv(dmenv.EnvAttentionBell) }
 
 // DetectAttentionSignal scans b (already prepended with any prior carry) for
 // terminal notification escape sequences and, when allowBell is set, a bare

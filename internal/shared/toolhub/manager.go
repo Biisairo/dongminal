@@ -22,9 +22,18 @@ import (
 // 주의 알림 스위퍼와 활동 스냅숏이 여기 있는 이유는 그것들이 **전체를 훑는**
 // 동작이기 때문이다 — 도구 하나로는 답이 나오지 않는다.
 
+// startToolFunc 는 StartTool 의 모양이다. ToolManager 가 필드로 드는 이유는
+// 테스트가 기동을 가짜로 바꿔 잠금 규약(Create 가 잠금 밖에서 띄운다)을 판정하기
+// 위해서다 — 패키지 전역을 바꿔 끼우면 t.Parallel 을 막는다 (M8 `GO-42`).
+type startToolFunc func(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *ToolHooks, place *platform.ProcSpec) (*Tool, error)
+
 type ToolManager struct {
 	mu    sync.RWMutex
 	tools map[string]*Tool
+	// pending 은 예약됐으나 아직 등록되지 않은 도구 수다 — Create 가 잠금 밖에서
+	// 띄우는 동안 상한(ToolCap)이 그 자리를 세게 한다 (M8 `GO-29`).
+	pending   int
+	startTool startToolFunc
 
 	dataDir     string
 	invalidator func(toolID string)
@@ -119,6 +128,7 @@ type BackgroundEntry struct {
 func NewToolManager(dataDir string, invalidator func(string)) *ToolManager {
 	return &ToolManager{
 		tools:         make(map[string]*Tool),
+		startTool:     StartTool,
 		dataDir:       dataDir,
 		invalidator:   invalidator,
 		idleThreshold: int64(AttentionIdleThreshold()),
@@ -200,16 +210,18 @@ func (m *ToolManager) sweepIdle(now int64) {
 
 // StartAttentionSweeper launches the L2 idle sweeper goroutine. stop closes on
 // server shutdown. No-op when L2 is disabled (idleThreshold<=0).
-func (m *ToolManager) StartAttentionSweeper(stop <-chan struct{}) {
+//
+// 틱은 주입한다 (M8 TEST-8) — 배선은 `AttentionSweepInterval` 티커의 채널을,
+// 테스트는 자기 채널을 준다. 데몬 모드의 `hub.AttnTracker.StartSweeper` 와 같은
+// 모양이다.
+func (m *ToolManager) StartAttentionSweeper(stop <-chan struct{}, tick <-chan time.Time) {
 	if m.idleThreshold <= 0 {
 		return
 	}
 	go func() {
-		t := time.NewTicker(attnTickMS * time.Millisecond)
-		defer t.Stop()
 		for {
 			select {
-			case <-t.C:
+			case <-tick:
 				m.sweepIdle(attnNow())
 			case <-stop:
 				return
@@ -217,6 +229,9 @@ func (m *ToolManager) StartAttentionSweeper(stop <-chan struct{}) {
 		}
 	}()
 }
+
+// AttentionSweepInterval 은 배선이 스위퍼에 주는 틱의 주기다.
+const AttentionSweepInterval = attnTickMS * time.Millisecond
 
 // AttentionIDs returns the ids of tools currently needing attention (FR-PAN-8).
 func (m *ToolManager) AttentionIDs() []string {
@@ -390,23 +405,30 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 		return nil, err
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	// **잠금 안에서, 그리고 기동 전에** 센다 (04-secops P1-4).
+	// **잠금 안에서, 그리고 기동 전에** 센다 (04-secops P1-4) — 그리고 자리를
+	// **예약**한다 (M8 `GO-29`).
 	//
 	// 잠금 밖에서 세면 동시 요청 여럿이 같은 값을 보고 함께 통과한다 — 상한이
-	// 있는데 넘는 상태가 정확히 그렇게 생긴다. `StartTool` 뒤에 세면 이미 뜬
-	// PTY 와 셸이 등록되지 못한 채 남는다.
-	if len(m.tools) >= ToolCap {
+	// 있는데 넘는 상태가 정확히 그렇게 생긴다. 기동 뒤에 세면 이미 뜬 PTY 와
+	// 셸이 등록되지 못한 채 남는다. 종전에는 그래서 잠금을 쥔 채 띄웠고, 그동안
+	// Get/List/IsLive 가 전부 대기했다 — fork/exec + PTY open 은 잠금 밖의 일이다.
+	// 예약(pending)이 그 둘을 같이 만족시킨다.
+	m.mu.Lock()
+	if len(m.tools)+m.pending >= ToolCap {
+		m.mu.Unlock()
 		dmlog.Infof(nil, "[tool] 상한 초과로 생성을 거절한다 (cap=%d)", ToolCap)
 		return nil, ErrToolCap
 	}
-	p, err := StartTool(id, defaultToolName, cwd, cols, rows, func(toolID string) {
-		m.Delete(toolID)
-		if m.invalidator != nil {
-			m.invalidator(toolID)
-		}
-	}, m.attnHooks(), spec)
+	m.pending++
+	hooks := m.attnHooks()
+	start := m.startTool
+	m.mu.Unlock()
+
+	p, err := start(id, defaultToolName, cwd, cols, rows, m.toolExited, hooks, spec)
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.pending--
 	if err != nil {
 		dmlog.Errorf(nil, "[tool %s] create error: %v", id, err)
 		return nil, err
@@ -421,6 +443,19 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 	m.mutated.Store(true)
 	m.saveAsync()
 	return p, nil
+}
+
+// toolExited 는 도구 프로세스가 끝났을 때의 콜백이다 (readPTY 의 onExit).
+// 레지스트리에서 지우고 위층(workspace)에 알린다. invalidator 는 SetInvalidator
+// 가 잠금으로 쓰므로 **잠금으로 읽는다** (M8 `GO-30`) — 종전의 클로저는 맨 읽기였다.
+func (m *ToolManager) toolExited(toolID string) {
+	m.Delete(toolID)
+	m.mu.RLock()
+	f := m.invalidator
+	m.mu.RUnlock()
+	if f != nil {
+		f(toolID)
+	}
 }
 
 // SetPlacer 는 배치 결정자를 꽂는다. 배선에서 한 번 불린다.
@@ -461,16 +496,10 @@ func (m *ToolManager) placement(place Placement) (*platform.ProcSpec, error) {
 func (m *ToolManager) Restore(id, name, cwd string, cols, rows uint16) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	p, err := StartTool(id, name, cwd, cols, rows, func(toolID string) {
-		m.Delete(toolID)
-		if m.invalidator != nil {
-			m.invalidator(toolID)
-		}
-	}, m.attnHooks(), nil)
+	p, err := m.startTool(id, name, cwd, cols, rows, m.toolExited, m.attnHooks(), nil)
 	if err != nil {
 		return err
 	}
-	p.Restored = true
 	m.tools[id] = p
 	dmlog.Infof(nil, "[tool %s] restored total=%d", id, len(m.tools))
 	return nil
@@ -494,33 +523,50 @@ func (m *ToolManager) Get(id string) *Tool {
 	return m.tools[id]
 }
 
-func (m *ToolManager) List() []map[string]interface{} {
+func (m *ToolManager) List() []ToolInfo {
 	// 전경 이름은 m.mu 를 잡기 전에 구한다 (FR-TAN-7/8). 자체 캐시가 있어
 	// 목록 요청이 잦아도 조회 주기는 fgRefreshInterval 로 묶여 있다.
 	fg := m.ForegroundNames()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	var out []map[string]interface{}
+	var out []ToolInfo
 	for _, p := range m.tools {
-		pid := p.CmdProcessPID()
 		cols, rows := 0, 0
 		if c, r, ok := p.Size(); ok {
 			cols, rows = int(c), int(r)
 		}
-		out = append(out, map[string]interface{}{
-			"id": p.ID, "name": p.Name, "pid": pid,
-			"sizeCols": cols, "sizeRows": rows,
-			"fgName": fg[p.ID],
+		out = append(out, ToolInfo{
+			ID: p.ID, Name: p.Name, PID: p.CmdProcessPID(),
+			Cols: cols, Rows: rows, FgName: fg[p.ID],
 		})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i]["id"].(string) < out[j]["id"].(string) })
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
 }
+
+// ListOK 는 직접 모드에서 언제나 안다 (FR-TLU-3) — 목록이 이 프로세스에 있다.
+func (m *ToolManager) ListOK() ([]ToolInfo, bool) { return m.List(), true }
+
+// Connected 는 직접 모드에서 언제나 참이다 — 레지스트리가 이 프로세스에 있다.
+func (m *ToolManager) Connected() bool { return true }
+
+// Daemon 은 직접 모드에서 nil 이다 — 프로세스 경계가 없다.
+func (m *ToolManager) Daemon() DaemonHub { return nil }
 
 // Delete 는 도구를 지운다. **없으면 `ErrToolNotFound` 다** (`GO-8`).
 //
 // 종전에는 반환이 없어서 데몬 IPC 가 언제나 성공으로 답했다. 이미 없는 것을
 // 지우는 일이 정상인 호출자도 있으므로 여기서는 사실만 주고 판단은 넘긴다.
+// Terminate 는 정중한 종료 뒤의 Delete 다 (FR-BGK-7, ToolHub 참조).
+func (m *ToolManager) Terminate(id string, grace time.Duration) error {
+	p := m.Get(id)
+	if p == nil {
+		return ErrToolNotFound
+	}
+	p.terminateWait(grace)
+	return m.Delete(id)
+}
+
 func (m *ToolManager) Delete(id string) error {
 	m.mu.Lock()
 	p := m.tools[id]
@@ -588,6 +634,3 @@ func (m *ToolManager) StopSaving() {
 
 // IsLive implements the liveness interface consumed by workspace.Manager.
 func (m *ToolManager) IsLive(id string) bool { return m.Get(id) != nil }
-
-// IsDaemon reports false: ToolManager is direct mode, not daemon-backed.
-func (m *ToolManager) IsDaemon() bool { return false }
