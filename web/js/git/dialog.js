@@ -156,9 +156,9 @@ class GitDialog {
   _build(){
     const ns=this.ns;
     const ov=document.createElement('div');
-    ov.id=this.id; ov.className='git-dialog '+ns+'-modal';
+    ov.id=this.id; ov.className='git-dialog ui-modal '+ns+'-modal';
     ov.innerHTML=
-      '<div class="git-dialog-box '+ns+'-box" role="dialog" aria-modal="true">'+
+      '<div class="git-dialog-box ui-modal-box '+ns+'-box" role="dialog" aria-modal="true">'+
         '<div class="git-dialog-head '+ns+'-head"></div>'+
         // FR-GIT-178: 상단에 알린다.
         '<div class="git-dialog-changed"></div>'+

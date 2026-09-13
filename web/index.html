@@ -187,9 +187,9 @@
            Split H·V 와 떨어진 자리다 (§7 R-3). 한계에 닿으면 비활성이 된다.
            리스너는 app-slots.js 가 붙인다. -->
       <span class="slot-ctl desktop-only">
-        <button class="tbtn ui-btn ui-btn-icon" id="slot-remove" title="Remove a window slot (Ctrl+Shift+X)" aria-label="Remove a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-minus"/></svg></button>
+        <button class="tbtn ui-btn ui-btn-icon ui-btn-sm" id="slot-remove" title="Remove a window slot (Ctrl+Shift+X)" aria-label="Remove a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-minus"/></svg></button>
         <span class="slot-ctl-label">Slot</span>
-        <button class="tbtn ui-btn ui-btn-icon" id="slot-add" title="Add a window slot (Ctrl+Shift+S)" aria-label="Add a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></button>
+        <button class="tbtn ui-btn ui-btn-icon ui-btn-sm" id="slot-add" title="Add a window slot (Ctrl+Shift+S)" aria-label="Add a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></button>
       </span>
       <!-- FR-WSL-50: Agents 가 데스크톱 버튼 중 가장 오른쪽이다. -->
       <button class="tbtn ui-btn ui-btn-attn desktop-only" id="agents-toggle" title="Show all agents in one place">Agents</button>
@@ -229,8 +229,8 @@
 <div id="attn-center"></div>
 
 <!-- Settings Modal -->
-<div id="modal-overlay">
-  <div id="modal">
+<div id="modal-overlay" class="ui-modal">
+  <div id="modal" class="ui-modal-box">
     <div class="modal-header">
       <span class="modal-title">Settings</span>
       <button class="modal-close ui-btn ui-btn-icon ui-btn-ghost" id="modal-close" title="Close settings" aria-label="Close settings"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button>
@@ -280,7 +280,7 @@
       </div>
       <div class="mpanel" id="panel-presets" style="display:none">
         <div class="preset-list" id="preset-list"></div>
-        <button id="preset-save" class="preset-save" title="Save the current layout as a preset">현재 레이아웃 저장</button>
+        <button id="preset-save" class="ui-btn ui-btn-lg" title="Save the current layout as a preset">현재 레이아웃 저장</button>
       </div>
       <div class="mpanel" id="panel-display" style="display:none">
         <div class="display-settings">
@@ -421,7 +421,7 @@
           <div class="ds-row"><span>이 서버가 아는 자기 이름</span><span id="acl-hostname" class="sbx-status"></span></div>
           <div class="ds-row"><span>지금 들어온 이름</span><span id="acl-host-now" class="sbx-status"></span></div>
           <div class="ds-row"><span>이 컴퓨터의 별명</span>
-            <button type="button" class="ds-toggle" id="acl-host-add" title="Add a host alias">+ 추가</button>
+            <button type="button" class="ds-toggle ui-btn" id="acl-host-add" title="Add a host alias">+ 추가</button>
           </div>
           <div id="acl-host-list" class="sbx-mounts"></div>
           <!-- FR-ACL-38: 이 칸이 넓히는 것이 무엇인지, 그리고 막힌 뒤에는 여기서 고칠
@@ -429,14 +429,14 @@
           <div class="ds-hint">이 컴퓨터를 부르는 이름을 넣습니다(<code>macmini-office</code> · <code>macmini-office.tail5da9ae.ts.net</code> · <code>macmini.local</code>). 여기 없는 이름으로 접속하면 <b>화면은 뜨지만 <code>/api/*</code>·<code>/ws</code> 가 421 로 끊깁니다.</b> 위쪽 허용 목록과 달리 <b>적용 토글과 무관하게 항상 적용되며</b>, 이름은 해석하지 않고 그대로 비교합니다. <b>이 칸은 DNS 리바인딩 방어의 화이트리스트입니다</b> — 남의 도메인을 넣으면 그 도메인이 이 서버를 가리키게 만든 웹페이지가 응답을 읽을 수 있으므로 <b>이 컴퓨터가 불리는 이름만</b> 넣고, 와일드카드(<code>*</code>)는 쓸 수 없습니다. 이미 이름으로 막힌 상태라면 그 브라우저에서는 이 칸을 고칠 수 없습니다 — 서버가 돌고 있는 컴퓨터에서, 또는 IP 로 접속해 고치세요.</div>
 
           <div class="ds-row"><span>허용 목록</span>
-            <button type="button" class="ds-toggle" id="acl-add" title="Add an allowlist entry">+ 추가</button>
+            <button type="button" class="ds-toggle ui-btn" id="acl-add" title="Add an allowlist entry">+ 추가</button>
           </div>
           <div id="acl-list" class="sbx-mounts"></div>
           <div class="ds-hint">IP(<code>100.117.248.111</code>) · 대역(<code>192.168.0.0/24</code>) · 이름(<code>macmini</code>, <code>macmini.tail5da9ae.ts.net</code>)을 넣습니다. 이름은 서버가 주기적으로 해석해 IP 와 대조하며, 해석된 주소가 줄 끝에 보입니다 — <code>.local</code>(mDNS)은 해석되지 않습니다. 같은 기기라도 <b>tailscale 로 붙을 때와 같은 LAN 에서 붙을 때 주소가 다르므로</b>, 쓰는 경로를 모두 넣으세요.</div>
 
           <div class="ds-row">
             <span id="acl-status" class="sbx-status"></span>
-            <button type="button" class="ds-toggle" id="acl-save" title="Save the access allowlist">저장</button>
+            <button type="button" class="ds-toggle ui-btn" id="acl-save" title="Save the access allowlist">저장</button>
           </div>
         </div>
       </div>
@@ -453,14 +453,14 @@
           <div class="ds-hint">이미지를 비우면 <code>dev</code> 프로파일을 쓸 수 없고 <code>scratch</code> 만 남습니다. 포트는 쉼표로 구분하며, 컨테이너를 만든 뒤에는 더할 수 없어 미리 넉넉히 적는 편이 낫습니다.</div>
 
           <div class="ds-row"><span>기본 마운트</span>
-            <button type="button" class="ds-toggle" id="sbx-mount-add" title="Add a mount to this sandbox profile">+ 추가</button>
+            <button type="button" class="ds-toggle ui-btn" id="sbx-mount-add" title="Add a mount to this sandbox profile">+ 추가</button>
           </div>
           <div id="sbx-mounts" class="sbx-mounts"></div>
           <div class="ds-hint">샌드박스 창이면 언제나 붙는 자리입니다 — 설정과 자격증명을 둡니다(<code>~/.claude</code>, <code>~/.ssh</code>). <code>~</code> 는 홈으로 펴집니다. <b>scratch</b> 를 켜면 그 항목이 격리 창에도 들어가고, 그 순간 그 창은 격리 경계가 아니게 됩니다 — 읽기 전용이어도 내용은 읽힙니다.</div>
 
           <div class="ds-row">
             <span id="sbx-status" class="sbx-status"></span>
-            <button type="button" class="ds-toggle" id="sbx-save" title="Save the sandbox profile definition">저장</button>
+            <button type="button" class="ds-toggle ui-btn" id="sbx-save" title="Save the sandbox profile definition">저장</button>
           </div>
           <div class="ds-hint">저장하면 곧바로 반영되지만, <b>이미 열려 있는 샌드박스 창은 그대로입니다</b>. 새 설정으로 열려면 그 창을 닫았다 다시 여세요 — 그때 컨테이너 안에 설치했던 것은 사라집니다.</div>
         </div>
@@ -469,20 +469,20 @@
         <div class="display-settings">
           <div class="ds-row">
             <span>설정 내보내기</span>
-            <button type="button" class="ds-toggle" id="bk-export" title="Export settings and workspace to a file">파일로 저장</button>
+            <button type="button" class="ds-toggle ui-btn" id="bk-export" title="Export settings and workspace to a file">파일로 저장</button>
           </div>
           <div class="ds-hint">이 창의 설정 전부(테마·단축키·상태바·프리셋·표시·알림)를 JSON 파일 하나로 내려받습니다. 창 너비 같은 화면 치수와 리포별 Git 보기 취향은 옮겨도 뜻을 잃으므로 담지 않습니다.</div>
           <div class="ds-row">
             <span>설정 가져오기</span>
-            <button type="button" class="ds-toggle" id="bk-import" title="Import settings and workspace from a file">파일 고르기</button>
+            <button type="button" class="ds-toggle ui-btn" id="bk-import" title="Import settings and workspace from a file">파일 고르기</button>
           </div>
           <div class="ds-hint">고른 파일의 값으로 <b>전체 교체</b>합니다. 파일에 없는 설정은 기본값으로 돌아갑니다. 교체가 끝나면 페이지를 다시 엽니다.</div>
           <input type="file" id="bk-file" accept="application/json,.json" hidden>
           <div class="bk-confirm" id="bk-confirm" hidden>
             <div class="bk-summary" id="bk-summary"></div>
             <div class="bk-actions">
-              <button type="button" class="ds-toggle bk-danger" id="bk-apply" title="Apply the imported backup — this overwrites current settings">교체하고 다시 열기</button>
-              <button type="button" class="ds-toggle" id="bk-cancel" title="Discard the imported backup">취소</button>
+              <button type="button" class="ds-toggle ui-btn bk-danger" id="bk-apply" title="Apply the imported backup — this overwrites current settings">교체하고 다시 열기</button>
+              <button type="button" class="ds-toggle ui-btn" id="bk-cancel" title="Discard the imported backup">취소</button>
             </div>
           </div>
           <div class="bk-msg" id="bk-msg"></div>
@@ -492,7 +492,7 @@
           <div class="ds-sep"></div>
           <div class="ds-row">
             <span>창 배치 되돌리기</span>
-            <button type="button" class="ds-toggle" id="bk-revlist" title="List saved workspace generations you can revert to">되돌릴 수 있는 판 보기</button>
+            <button type="button" class="ds-toggle ui-btn" id="bk-revlist" title="List saved workspace generations you can revert to">되돌릴 수 있는 판 보기</button>
           </div>
           <div class="ds-hint">창·칸·탭의 배치를 저장 직전의 판으로 되돌립니다. 설정이 아니라 <b>배치</b>만 바뀝니다. 되돌린 뒤에도 직전 판이 목록의 맨 앞에 남으므로, 잘못 골랐으면 한 번 더 되돌리면 됩니다.</div>
           <div class="bk-revs" id="bk-revs" hidden></div>
@@ -502,14 +502,14 @@
           <div class="ds-sep"></div>
           <div class="ds-row">
             <span>기본값으로 되돌리기</span>
-            <button type="button" class="ds-toggle bk-danger" id="bk-reset" title="Reset every setting in this window to its default">전부 되돌리기</button>
+            <button type="button" class="ds-toggle ui-btn bk-danger" id="bk-reset" title="Reset every setting in this window to its default">전부 되돌리기</button>
           </div>
           <div class="ds-hint">이 창의 설정 전부(테마·단축키·상태바·프리셋·표시·알림)를 기본값으로 되돌립니다. <b>창 배치는 건드리지 않습니다.</b> 되돌릴 수 없으니 먼저 <b>파일로 저장</b>을 눌러 지금 설정을 담아 두세요.</div>
           <div class="bk-confirm" id="bk-reset-confirm" hidden>
             <div class="bk-summary">지금 설정을 전부 버리고 기본값으로 되돌립니다. 되돌릴 수 없습니다.</div>
             <div class="bk-actions">
-              <button type="button" class="ds-toggle bk-danger" id="bk-reset-apply" title="Reset all settings and reload">되돌리고 다시 열기</button>
-              <button type="button" class="ds-toggle" id="bk-reset-cancel" title="Keep current settings">취소</button>
+              <button type="button" class="ds-toggle ui-btn bk-danger" id="bk-reset-apply" title="Reset all settings and reload">되돌리고 다시 열기</button>
+              <button type="button" class="ds-toggle ui-btn" id="bk-reset-cancel" title="Keep current settings">취소</button>
             </div>
           </div>
         </div>

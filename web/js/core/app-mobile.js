@@ -119,7 +119,7 @@ Object.assign(App.prototype, {
     const sb=document.getElementById('sidebar');
     if(sb && !sb.querySelector('.drawer-close')){
       const xb=document.createElement('button');
-      xb.className='ui-btn ui-btn-icon ui-btn-ghost drawer-close';
+      xb.id='drawer-close'; xb.className='ui-btn ui-btn-icon ui-btn-ghost drawer-close';
       xb.appendChild(UIKit.icon('x'));
       xb.title='Close the sidebar';xb.setAttribute('aria-label','Close the sidebar');
       xb.addEventListener('click',()=>{this._toggleDrawer(false);this.renderer._rTopbar()});

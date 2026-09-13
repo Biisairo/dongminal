@@ -612,6 +612,17 @@ editor 계열  editor-explorer · editor-ops · editor-tab · editor-find-panel 
   이관 부분은 결함 증거가 0 이어서(C2 의 870px 잘림과 대조) **증거 있는 부분 +
   어휘 게이트**로 확정했다 (사용자 결정).
 - 2026-09-10 구현·검증 완료.
+- 2026-09-13 (다섯째 세션, M7 `⑤` 과도기 클래스 / `DESIGN_TOKENS_SRS` §7) 기준선의
+  **키 이름 마흔**을 옮기고 그중 서른의 `display` 를 고쳤다. 옛 버튼 클래스가
+  키트를 얻으면서 클래스 목록(= 키)이 바뀐 자리다 — 옮기지 않으면 "양쪽에 있는
+  키만 대조한다" 규약에 따라 그 행이 **조용히 대조에서 빠진다.** 열 화면 ×
+  `button.tbtn.ui-btn.ui-btn-icon` → `.ui-btn-sm` (값 불변) ·
+  `button.ds-toggle`·`button.bk-danger.ds-toggle` → `.ui-btn` (`display` block →
+  flex — `.ui-btn` 이 `inline-flex` 이고 flex 항목이라 블록화된다) ·
+  `button.preset-save` → `button.ui-btn.ui-btn-lg` (inline-block → inline-flex).
+  셋 다 의도된 변경이다 (FR-TOK-35, 사용자 결정 2026-09-13). 값은
+  `LAYOUT_BASELINE=write` 로 임시 파일에 떠서 그 행만 옮겨 적었고 기준선 자체는
+  다시 뜨지 않았다 (아래 168행의 드리프트는 그대로다).
 - 2026-09-13 기준선의 **한 값**이 움직였다 (M7 `UX-18` / `DESIGN_TOKENS_SRS`
   FR-TOK-19). `terminal|span` = `#add-sandbox-window`(`New` 버튼 안의 `Box` 배지)
   의 `inset` 이 `14px 5px -4px 77.7656px` → `14px 5px -4px 76.0312px` 이 됐다.

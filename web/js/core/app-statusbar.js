@@ -177,7 +177,7 @@ Object.assign(App.prototype, {
   _bgModalRender(){
     let ov=document.getElementById('bg-modal');
     if(!ov){
-      ov=document.createElement('div'); ov.id='bg-modal'; ov.className='bg-modal';
+      ov=document.createElement('div'); ov.id='bg-modal'; ov.className='bg-modal ui-modal';
       document.body.appendChild(ov);
       // FR-BGU-7: 배경 클릭 — 오버레이 자신이 대상일 때만 닫는다.
       ov.addEventListener('click',e=>{if(e.target===ov)this._bgModalToggle(false)});
@@ -185,7 +185,7 @@ Object.assign(App.prototype, {
       document.addEventListener('keydown',this._bgModalKey);
     }
     ov.innerHTML='';
-    const box=document.createElement('div'); box.className='bg-box';
+    const box=document.createElement('div'); box.className='bg-box ui-modal-box';
     const head=document.createElement('div'); head.className='bg-head';
     head.textContent=`백그라운드 도구 ${this._bg.length}개`;
     box.appendChild(head);
@@ -247,7 +247,7 @@ Object.assign(App.prototype, {
   // FR-BGK-2: 항상 보인다. hover 게이팅하지 않는다 — 터치 기기에 hover 가 없다.
   _bgKillBtn(b){
     const btn=document.createElement('button');
-    btn.className='tbtn bg-kill'; btn.textContent='종료';
+    btn.className='ui-btn ui-btn-sm bg-kill'; btn.textContent='종료';
     btn.title=`${this._toolName(b.toolId,b.name)} 종료`;
     btn.dataset.toolid=b.toolId;
     btn.addEventListener('click',e=>{e.stopPropagation();this._bgConfirmSet(b.toolId)});
@@ -259,9 +259,9 @@ Object.assign(App.prototype, {
   _bgConfirmEl(b){
     const wrap=document.createElement('span'); wrap.className='bg-confirm';
     const q=document.createElement('span'); q.className='bg-q'; q.textContent=this._bgKillQuestion(b);
-    const yes=document.createElement('button'); yes.className='tbtn bg-yes'; yes.textContent='예';
+    const yes=document.createElement('button'); yes.className='ui-btn ui-btn-sm ui-btn-danger bg-yes'; yes.textContent='예';
     yes.title=TIP_BG_KILL_YES;
-    const no=document.createElement('button'); no.className='tbtn bg-no'; no.textContent='아니오';
+    const no=document.createElement('button'); no.className='ui-btn ui-btn-sm bg-no'; no.textContent='아니오';
     no.title=TIP_BG_KILL_NO;
     yes.addEventListener('click',e=>{e.stopPropagation();this._bgKill(b.toolId)});
     no.addEventListener('click',e=>{e.stopPropagation();this._bgConfirmSet(null)});

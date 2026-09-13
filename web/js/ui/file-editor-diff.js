@@ -444,7 +444,7 @@ Object.assign(FileEditor.prototype,{
     node.className='fe-dd-peek';
     node.innerHTML=
       '<div class="fe-dd-peek-bar">'+
-        '<button type="button" class="fe-dd-peek-act" data-act="revert" title="'+
+        '<button type="button" class="ui-btn ui-btn-sm fe-dd-peek-act" data-act="revert" title="'+
           escHtml(ED_DD_REVERT_TITLE)+'">'+escHtml(ED_DD_REVERT)+'</button>'+
         '<button type="button" class="ui-btn ui-btn-sm fe-dd-peek-act" data-act="stage" title="'+
           escHtml(ED_DD_STAGE_TITLE)+'">'+escHtml(ED_DD_STAGE)+'</button>'+

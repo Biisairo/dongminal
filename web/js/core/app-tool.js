@@ -17,9 +17,9 @@ Object.assign(App.prototype, {
   // 오류 메시지이며, innerHTML 에 끼우면 그 내용이 마크업으로 해석된다.
   // (`_confirmClose` 가 종전에 그랬고, 지금은 같은 규약으로 수렴했다.)
   _notify(msg){
-    const ov=document.createElement('div');ov.className='confirm-overlay';
-    ov.innerHTML='<div class="confirm-box"><div class="confirm-msg notify-msg"></div>'+
-      '<div class="confirm-btns"><button class="confirm-ok" title="'+TIP_NOTIFY_OK+'">확인</button></div></div>';
+    const ov=document.createElement('div');ov.className='confirm-overlay ui-modal';
+    ov.innerHTML='<div class="confirm-box ui-modal-box"><div class="confirm-msg notify-msg"></div>'+
+      '<div class="confirm-btns"><button class="ui-btn ui-btn-primary confirm-ok" title="'+TIP_NOTIFY_OK+'">확인</button></div></div>';
     ov.querySelector('.confirm-msg').textContent=msg;
     document.body.appendChild(ov);
     const btn=ov.querySelector('.confirm-ok');btn.focus();
@@ -79,8 +79,8 @@ Object.assign(App.prototype, {
     return new Promise(resolve=>{
       const missing=st.state===SBX_RT_MISSING;
       const ov=document.createElement('div');
-      ov.className='confirm-overlay'; ov.dataset.state=st.state;
-      const box=document.createElement('div'); box.className='confirm-box sbx-rt';
+      ov.className='confirm-overlay ui-modal'; ov.dataset.state=st.state;
+      const box=document.createElement('div'); box.className='confirm-box ui-modal-box sbx-rt';
       const title=document.createElement('div'); title.className='confirm-msg';
       title.textContent=missing?SBX_RT_TITLE_MISSING:SBX_RT_TITLE_STOPPED;
       box.appendChild(title);
@@ -134,12 +134,12 @@ Object.assign(App.prototype, {
       let start=null;
       if(!missing&&st.startTryable){
         start=document.createElement('button');
-        start.type='button'; start.className='confirm-ok sbx-rt-start';
+        start.type='button'; start.className='ui-btn ui-btn-primary confirm-ok sbx-rt-start';
         start.textContent=SBX_RT_START;
         btns.appendChild(start);
       }
       const close=document.createElement('button');
-      close.type='button'; close.className='confirm-cancel'; close.textContent=SBX_RT_CLOSE;
+      close.type='button'; close.className='ui-btn confirm-cancel'; close.textContent=SBX_RT_CLOSE;
       btns.appendChild(close);
       box.appendChild(btns);
       ov.appendChild(box);
@@ -211,8 +211,8 @@ Object.assign(App.prototype, {
 
   _pickSandbox(list,here){
     return new Promise(resolve=>{
-      const ov=document.createElement('div');ov.className='confirm-overlay';
-      const box=document.createElement('div');box.className='confirm-box';
+      const ov=document.createElement('div');ov.className='confirm-overlay ui-modal';
+      const box=document.createElement('div');box.className='confirm-box ui-modal-box';
       const msg=document.createElement('div');msg.className='confirm-msg';
       msg.textContent='샌드박스 프로파일';
       box.appendChild(msg);
@@ -307,7 +307,7 @@ Object.assign(App.prototype, {
       const onKey=e=>{if(e.key==='Escape'){e.preventDefault();cleanup(null)}};
       for(const p of list){
         const b=document.createElement('button');
-        b.className='confirm-ok sbx-opt';
+        b.className='ui-btn ui-btn-primary confirm-ok sbx-opt';
         const grade=document.createElement('span');
         grade.className='sbx-grade'+(p.isolated?' iso':'');
         grade.textContent=p.isolated?'격리':'비격리';
@@ -329,7 +329,7 @@ Object.assign(App.prototype, {
         btns.appendChild(b);
       }
       const cancel=document.createElement('button');
-      cancel.className='confirm-cancel';cancel.textContent='취소';cancel.title=TIP_SBX_CANCEL;
+      cancel.className='ui-btn confirm-cancel';cancel.textContent='취소';cancel.title=TIP_SBX_CANCEL;
       cancel.addEventListener('click',()=>cleanup(null));
       btns.appendChild(cancel);
       box.appendChild(btns);
@@ -381,8 +381,8 @@ Object.assign(App.prototype, {
    */
   _confirmClose(msg, opts = {}){
     return new Promise(resolve=>{
-      const ov=document.createElement('div');ov.className='confirm-overlay';
-      const box=document.createElement('div');box.className='confirm-box';
+      const ov=document.createElement('div');ov.className='confirm-overlay ui-modal';
+      const box=document.createElement('div');box.className='confirm-box ui-modal-box';
       const text=document.createElement('div');text.className='confirm-msg';
       text.textContent=msg;
       const row=document.createElement('div');row.className='confirm-btns';
@@ -390,14 +390,14 @@ Object.assign(App.prototype, {
 
       const mk=(cls,tip,label)=>{
         const b=document.createElement('button');
-        b.className=cls; b.title=tip; b.textContent=label;
+        b.className='ui-btn '+cls; b.title=tip; b.textContent=label;
         row.appendChild(b);
         return b;
       };
       // 순서는 종전 그대로다 — 백그라운드·저장이 앞, 닫기·취소가 뒤.
-      const bgBtn=opts.bgBtn?mk('confirm-bg',TIP_CLOSE_BG,opts.bgLabel||'백그라운드로'):null;
-      const saveBtn=opts.saveBtn?mk('confirm-save',TIP_CLOSE_SAVE,'저장 후 닫기'):null;
-      const okBtn=mk('confirm-ok',TIP_CLOSE_TOOL,'닫기');
+      const bgBtn=opts.bgBtn?mk('ui-btn-primary confirm-bg',TIP_CLOSE_BG,opts.bgLabel||'백그라운드로'):null;
+      const saveBtn=opts.saveBtn?mk('ui-btn-primary confirm-save',TIP_CLOSE_SAVE,'저장 후 닫기'):null;
+      const okBtn=mk('ui-btn-danger confirm-ok',TIP_CLOSE_TOOL,'닫기');
       const cancelBtn=mk('confirm-cancel',TIP_CLOSE_CANCEL,'취소');
 
       document.body.appendChild(ov);

@@ -99,7 +99,7 @@ Object.assign(RunsPanel.prototype, {
   _runsModalRender() {
     let ov = document.getElementById('runs-modal');
     if (!ov) {
-      ov = runDiv('runs-modal'); ov.id = 'runs-modal';
+      ov = runDiv('runs-modal ui-modal'); ov.id = 'runs-modal';
       document.body.appendChild(ov);
       // FR-RVZ-2: 배경 클릭 — 오버레이 자신이 대상일 때만 닫는다.
       ov.addEventListener('click', e => { if (e.target === ov) this._runsModalToggle(false) });
@@ -107,7 +107,7 @@ Object.assign(RunsPanel.prototype, {
       document.addEventListener('keydown', this._runsModalKey);
     }
     ov.innerHTML = '';
-    const box = runDiv('runs-box');
+    const box = runDiv('runs-box ui-modal-box');
     // 최근순. 서버 순서에 기대지 않는다 — 정렬은 이 화면의 약속이다.
     const rows = (this._runsList || []).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     box.appendChild(runDiv('runs-head', `Run ${rows.length}개`));
@@ -195,7 +195,7 @@ Object.assign(RunsPanel.prototype, {
   // FR-DEL-1·2: 항상 보인다 (터치에 hover 가 없다). 행 클릭으로 새지 않는다.
   _runsDelBtn(rv) {
     const btn = document.createElement('button');
-    btn.className = 'tbtn runs-del'; btn.textContent = '삭제';
+    btn.className = 'ui-btn ui-btn-sm runs-del'; btn.textContent = '삭제';
     // FR-TIP-2: 툴팁은 영어다. 어느 Run 인지는 라벨 옆의 행이 이미 말한다.
     btn.title = TIP_RUNS_DEL;
     btn.dataset.runid = rv.id;
@@ -207,7 +207,7 @@ Object.assign(RunsPanel.prototype, {
   // 다른 모양이면 사용자가 어느 쪽이 무엇을 지우는지 배워야 한다.
   _runsCloseBtn(rv) {
     const btn = document.createElement('button');
-    btn.className = 'tbtn runs-close'; btn.textContent = '종료';
+    btn.className = 'ui-btn ui-btn-sm runs-close'; btn.textContent = '종료';
     btn.title = TIP_RUNS_CLOSE;
     btn.dataset.runid = rv.id;
     btn.addEventListener('click', e => { e.stopPropagation(); this._runsConfirmSet(rv.id, 'close') });
@@ -231,14 +231,14 @@ Object.assign(RunsPanel.prototype, {
         ? '삭제? 진행 중인 Run 이며 기록도 함께 사라진다.'
         : '삭제? 기록이 사라진다.')));
     const yes = document.createElement('button');
-    yes.className = 'tbtn runs-yes'; yes.textContent = '예';
+    yes.className = 'ui-btn ui-btn-sm ui-btn-danger runs-yes'; yes.textContent = '예';
     yes.title = closing ? TIP_RUNS_CLOSE_YES : TIP_RUNS_YES;
     yes.addEventListener('click', e => {
       e.stopPropagation();
       if (closing) this._runsClose(rv.id); else this._runsDelete(rv.id);
     });
     const no = document.createElement('button');
-    no.className = 'tbtn runs-no'; no.textContent = '아니오'; no.title = TIP_RUNS_NO;
+    no.className = 'ui-btn ui-btn-sm runs-no'; no.textContent = '아니오'; no.title = TIP_RUNS_NO;
     no.addEventListener('click', e => { e.stopPropagation(); this._runsConfirmSet(null) });
     wrap.appendChild(yes); wrap.appendChild(no);
     return wrap;
@@ -810,7 +810,7 @@ Object.assign(RunsPanel.prototype, {
 
   _runDetachBtn(m) {
     const btn = document.createElement('button');
-    btn.className = 'tbtn run-card-detach'; btn.textContent = '분리';
+    btn.className = 'ui-btn ui-btn-sm run-card-detach'; btn.textContent = '분리';
     btn.title = TIP_RUNS_DETACH;
     btn.dataset.member = m.id;
     // 카드 클릭은 "그 도구로 간다" 이므로 여기서 멈춘다 — 분리하려는 손이

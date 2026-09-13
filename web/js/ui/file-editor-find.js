@@ -69,9 +69,9 @@ Object.assign(FileEditor.prototype, {
       + opt('case', ED_FIND_OPT_CASE, ED_FIND_OPT_CASE_TITLE)
       + opt('regex', ED_FIND_OPT_REGEX, ED_FIND_OPT_REGEX_TITLE)
       + opt('word', ED_FIND_OPT_WORD, ED_FIND_OPT_WORD_TITLE)
-      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost fe-find-prev" title="' + ED_FIND_PREV_TITLE + '" aria-label="' + ED_FIND_PREV_TITLE + '">' + UIKit.iconHTML('arrow-up') + '</button>'
-      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost fe-find-next" title="' + ED_FIND_NEXT_TITLE + '" aria-label="' + ED_FIND_NEXT_TITLE + '">' + UIKit.iconHTML('arrow-down') + '</button>'
-      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost fe-find-close" title="' + ED_FIND_CLOSE_TITLE + '" aria-label="' + ED_FIND_CLOSE_TITLE + '">' + UIKit.iconHTML('x') + '</button>';
+      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-find-prev" title="' + ED_FIND_PREV_TITLE + '" aria-label="' + ED_FIND_PREV_TITLE + '">' + UIKit.iconHTML('arrow-up') + '</button>'
+      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-find-next" title="' + ED_FIND_NEXT_TITLE + '" aria-label="' + ED_FIND_NEXT_TITLE + '">' + UIKit.iconHTML('arrow-down') + '</button>'
+      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-find-close" title="' + ED_FIND_CLOSE_TITLE + '" aria-label="' + ED_FIND_CLOSE_TITLE + '">' + UIKit.iconHTML('x') + '</button>';
     this.el.appendChild(p);
     this._find = p;
     this._findOpts = edFindOptsLoad();

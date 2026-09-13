@@ -818,7 +818,7 @@ class Renderer {
       for(const a of GIT_SIDE_ACTIONS){
         // FR-GLY-4·6 / FR-UIK-10: 스프라이트로 바꾸되 기존 클래스는 그대로 둔다.
         const x=document.createElement('button');
-        x.className='ui-btn ui-btn-icon ui-btn-ghost ed-side-act'; x.dataset.view=a.key;
+        x.className='ui-btn ui-btn-icon ui-btn-ghost ui-btn-lg ed-side-act'; x.dataset.view=a.key;
         x.appendChild(UIKit.icon(a.icon));
         x.title=a.title; x.setAttribute('aria-label',a.title);
         // 패널 **인스턴스**는 캡처하지 않는다 — 창이 사라졌다 서면 다시 만들어지고,

@@ -226,17 +226,11 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
 /* ── 다이얼로그 공통 골격 (FR-GIT-171~178) ── */
 /* 흡수한 다이얼로그는 자기 클래스 접두를 유지한다 — 아래 규칙 뒤에 오는 그 블록들이
    테두리 색처럼 각자의 것만 덮는다. 파괴적 확인은 `.gc-*` 가 따로 지킨다 */
-.git-dialog{
-  position:fixed;inset:0;z-index:var(--z-modal);
-  background:var(--backdrop);backdrop-filter:blur(2px);
-  display:flex;align-items:center;justify-content:center;
-}
+/* 골격은 `.ui-modal`/`.ui-modal-box` — 여기는 치수뿐이다 (FR-TOK-40·43). */
 .git-dialog-box{
-  display:flex;flex-direction:column;gap:8px;padding:12px;
+  gap:8px;padding:12px;
   min-width:300px;max-width:min(520px,92vw);max-height:80vh;
-  background:var(--bg);color:var(--text);
-  border:1px solid var(--border);border-radius:8px;
-  box-shadow:var(--shadow-2);font-size:var(--fs-md);
+  color:var(--text);font-size:var(--fs-md);
 }
 .git-dialog-head{flex:0 0 auto;font-size:var(--fs-lg);color:var(--text-bright)}
 /* FR-GIT-178: 상단에 알리기만 한다 — 실행을 막지 않는다 */
@@ -278,34 +272,17 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
   padding:6px 8px;background:var(--sidebar-bg);border-radius:4px;
   font-family:monospace;font-size:var(--fs-sm);color:var(--text-muted);white-space:pre}
 .git-dialog-err-tail.vis{display:block}
-.git-dialog-copy{margin-top:6px;padding:3px 10px;border-radius:4px;
-  border:1px solid var(--border);background:transparent;color:var(--text-muted);
-  font:inherit;font-size:var(--fs-sm);cursor:pointer}
-.git-dialog-copy:hover{color:var(--text-bright);border-color:var(--accent)}
+/* 복사 버튼의 외형은 `.ui-btn.ui-btn-sm` — 오류 아래 한 줄 띄우는 것만 여기 것이다. */
+.git-dialog-err>.ui-btn{margin-top:6px}
 /* 선택지가 셋 이상인 결정 (FR-GIT-156·157). 좁은 폭에서도 잘리지 않게 세로로 쌓는다 */
 .git-dialog-opts{flex:0 1 auto;min-height:0;overflow-y:auto;
   display:flex;flex-direction:column;gap:8px}
-.git-dialog-opt{
-  padding:8px 12px;border-radius:4px;border:1px solid var(--border);
-  background:transparent;color:var(--text);font:inherit;font-size:var(--fs-md);
-  cursor:pointer;text-align:left;
-}
-.git-dialog-opt:hover{background:var(--accent-hover)}
-/* O14: 기본 선택은 첫 항목이 아니라 포커스가 가리킨다 — 위험한 항목은 색으로 구분 */
-.git-dialog-opt.danger{border-color:var(--danger);color:var(--danger-text)}
-.git-dialog-opt:focus-visible{outline:2px solid var(--focus-ring);outline-offset:1px}
+/* 선택지의 외형은 키트다 — 위험한 항목은 `dialog.js` 가 `ui-btn-danger` 를 붙인다
+   (O14: 기본 선택은 첫 항목이 아니라 포커스가 가리킨다). */
 /* 실행 버튼은 옵션과 분리된 별도 행이다 (FR-GIT-94·177) */
 .git-dialog-actions{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding-top:4px}
 .git-dialog-progress{flex:1;color:var(--text-muted)}
-.git-dialog-cancel,.git-dialog-go{
-  padding:5px 14px;border-radius:4px;border:1px solid var(--border);
-  background:transparent;font:inherit;font-size:var(--fs-md);cursor:pointer;
-}
-.git-dialog-cancel{border-color:var(--border);color:var(--text-muted)}
-.git-dialog-go{border-color:var(--accent);color:var(--accent-text)}
-.git-dialog-cancel:focus-visible,.git-dialog-go:focus-visible{
-  outline:2px solid var(--focus-ring);outline-offset:1px}
-.git-dialog-cancel:disabled,.git-dialog-go:disabled{opacity:.5;cursor:default}
+/* 취소·실행의 외형은 키트 등급이다 — 실행이 `primary` (§7.3). */
 /* FR-GIT-94·177: 모바일 폭에서는 옵션이 스크롤로 접히고 확인 버튼이 목록과
    분리된 별도 행이 된다 */
 .git-dialog-box.mobile{width:calc(100vw - 24px);max-width:none;max-height:calc(100vh - 32px)}
@@ -316,8 +293,8 @@ body.mobile .git-remote-btn,body.mobile .git-remote-more{
   margin-top:10px;padding-top:12px;border-top:2px solid var(--border);
 }
 .git-dialog-box.mobile .git-dialog-progress{flex:0 0 auto}
-.git-dialog-box.mobile .git-dialog-cancel,.git-dialog-box.mobile .git-dialog-go,
-.git-dialog-box.mobile .git-dialog-opt{padding:12px;font-size:var(--fs-lg)}
+.git-dialog-box.mobile .git-dialog-actions>.ui-btn,
+.git-dialog-box.mobile .git-dialog-opts>.ui-btn{height:auto;padding:12px;font-size:var(--fs-lg)}
 
 /* ── 커밋 영역 (FR-GIT-74~85) ── */
 /* 목록과 독립된 고정 영역이다 (FR-GIT-39) — 높이는 안쪽 textarea 가 정한다 */

@@ -47,7 +47,7 @@ Object.assign(App.prototype, {
           this._cancelRecording();
           this.recording=k;btn.textContent='키를 누르세요...';btn.classList.add('recording');
         });
-        const rst=UIKit.button({icon:'undo',title:SHORTCUT_RESET_TITLE,kind:'ghost',size:'sm',cls:'sc-rst'});
+        const rst=UIKit.button({icon:'undo',title:SHORTCUT_RESET_TITLE,kind:'ghost',size:'sm'});
         rst.addEventListener('click',()=>{shortcuts[k]=SHORTCUT_DEFAULTS[k];this.saveSettings();btn.textContent=displayKey(shortcuts[k])});
         row.appendChild(label);
         const btns=document.createElement('div');btns.className='sc-btns';

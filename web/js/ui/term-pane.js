@@ -766,7 +766,7 @@ class TerminalTool {
       const bar=document.createElement('div');bar.className='tp-ov-acts';
       for(const a of acts){
         const btn=document.createElement('button');
-        btn.className='tbtn '+a.cls; btn.type='button'; btn.textContent=a.label;
+        btn.className='ui-btn '+a.cls; btn.type='button'; btn.textContent=a.label;
         btn.addEventListener('click',ev=>{ev.stopPropagation();a.run()});
         bar.appendChild(btn);
       }

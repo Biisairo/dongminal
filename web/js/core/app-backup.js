@@ -240,7 +240,7 @@ Object.assign(App.prototype, {
       size.textContent=String(g.bytes)+' B';
       const btn=document.createElement('button');
       btn.type='button';
-      btn.className='ds-toggle';
+      btn.className='ds-toggle ui-btn';
       btn.title='Revert the window layout to this generation';
       btn.textContent='이 판으로';
       btn.addEventListener('click',()=>this._bkRevert(g.gen));

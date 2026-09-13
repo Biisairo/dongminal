@@ -431,7 +431,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "terminal|button.tbtn.ui-btn.ui-btn-icon": {
+ "terminal|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -872,8 +872,8 @@
   "flexDirection": "column",
   "minHeight": "0px"
  },
- "terminal|button.preset-save": {
-  "display": "inline-block",
+ "terminal|button.ui-btn.ui-btn-lg": {
+  "display": "inline-flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -1016,8 +1016,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "terminal|button.ds-toggle": {
-  "display": "block",
+ "terminal|button.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -1079,8 +1079,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "terminal|button.bk-danger.ds-toggle": {
-  "display": "block",
+ "terminal|button.bk-danger.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -1535,7 +1535,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:changes|button.tbtn.ui-btn.ui-btn-icon": {
+ "git:changes|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -2855,8 +2855,8 @@
   "flexDirection": "column",
   "minHeight": "0px"
  },
- "git:changes|button.preset-save": {
-  "display": "inline-block",
+ "git:changes|button.ui-btn.ui-btn-lg": {
+  "display": "inline-flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -2999,8 +2999,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:changes|button.ds-toggle": {
-  "display": "block",
+ "git:changes|button.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -3062,8 +3062,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:changes|button.bk-danger.ds-toggle": {
-  "display": "block",
+ "git:changes|button.bk-danger.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -3518,7 +3518,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:diff|button.tbtn.ui-btn.ui-btn-icon": {
+ "git:diff|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -4955,8 +4955,8 @@
   "flexDirection": "column",
   "minHeight": "0px"
  },
- "git:diff|button.preset-save": {
-  "display": "inline-block",
+ "git:diff|button.ui-btn.ui-btn-lg": {
+  "display": "inline-flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -5099,8 +5099,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:diff|button.ds-toggle": {
-  "display": "block",
+ "git:diff|button.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -5162,8 +5162,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:diff|button.bk-danger.ds-toggle": {
-  "display": "block",
+ "git:diff|button.bk-danger.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -5618,7 +5618,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:history|button.tbtn.ui-btn.ui-btn-icon": {
+ "git:history|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -7256,8 +7256,8 @@
   "flexDirection": "column",
   "minHeight": "0px"
  },
- "git:history|button.preset-save": {
-  "display": "inline-block",
+ "git:history|button.ui-btn.ui-btn-lg": {
+  "display": "inline-flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -7400,8 +7400,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|button.ds-toggle": {
-  "display": "block",
+ "git:history|button.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -7463,8 +7463,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|button.bk-danger.ds-toggle": {
-  "display": "block",
+ "git:history|button.bk-danger.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -7919,7 +7919,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:branches|button.tbtn.ui-btn.ui-btn-icon": {
+ "git:branches|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -9533,8 +9533,8 @@
   "flexDirection": "column",
   "minHeight": "0px"
  },
- "git:branches|button.preset-save": {
-  "display": "inline-block",
+ "git:branches|button.ui-btn.ui-btn-lg": {
+  "display": "inline-flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -9677,8 +9677,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:branches|button.ds-toggle": {
-  "display": "block",
+ "git:branches|button.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -9740,8 +9740,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:branches|button.bk-danger.ds-toggle": {
-  "display": "block",
+ "git:branches|button.bk-danger.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -10196,7 +10196,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:stash|button.tbtn.ui-btn.ui-btn-icon": {
+ "git:stash|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -11567,8 +11567,8 @@
   "flexDirection": "column",
   "minHeight": "0px"
  },
- "git:stash|button.preset-save": {
-  "display": "inline-block",
+ "git:stash|button.ui-btn.ui-btn-lg": {
+  "display": "inline-flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -11711,8 +11711,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:stash|button.ds-toggle": {
-  "display": "block",
+ "git:stash|button.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -11774,8 +11774,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:stash|button.bk-danger.ds-toggle": {
-  "display": "block",
+ "git:stash|button.bk-danger.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -12230,7 +12230,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:console|button.tbtn.ui-btn.ui-btn-icon": {
+ "git:console|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -13616,8 +13616,8 @@
   "flexDirection": "column",
   "minHeight": "0px"
  },
- "git:console|button.preset-save": {
-  "display": "inline-block",
+ "git:console|button.ui-btn.ui-btn-lg": {
+  "display": "inline-flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -13760,8 +13760,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:console|button.ds-toggle": {
-  "display": "block",
+ "git:console|button.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -13823,8 +13823,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:console|button.bk-danger.ds-toggle": {
-  "display": "block",
+ "git:console|button.bk-danger.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -14279,7 +14279,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:worktrees|button.tbtn.ui-btn.ui-btn-icon": {
+ "git:worktrees|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -15674,8 +15674,8 @@
   "flexDirection": "column",
   "minHeight": "0px"
  },
- "git:worktrees|button.preset-save": {
-  "display": "inline-block",
+ "git:worktrees|button.ui-btn.ui-btn-lg": {
+  "display": "inline-flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -15818,8 +15818,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:worktrees|button.ds-toggle": {
-  "display": "block",
+ "git:worktrees|button.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -15881,8 +15881,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:worktrees|button.bk-danger.ds-toggle": {
-  "display": "block",
+ "git:worktrees|button.bk-danger.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -16337,7 +16337,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:submodules|button.tbtn.ui-btn.ui-btn-icon": {
+ "git:submodules|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -17657,8 +17657,8 @@
   "flexDirection": "column",
   "minHeight": "0px"
  },
- "git:submodules|button.preset-save": {
-  "display": "inline-block",
+ "git:submodules|button.ui-btn.ui-btn-lg": {
+  "display": "inline-flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -17801,8 +17801,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:submodules|button.ds-toggle": {
-  "display": "block",
+ "git:submodules|button.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -17864,8 +17864,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:submodules|button.bk-danger.ds-toggle": {
-  "display": "block",
+ "git:submodules|button.bk-danger.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -18329,7 +18329,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "editor|button.tbtn.ui-btn.ui-btn-icon": {
+ "editor|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -18911,8 +18911,8 @@
   "flexDirection": "column",
   "minHeight": "0px"
  },
- "editor|button.preset-save": {
-  "display": "inline-block",
+ "editor|button.ui-btn.ui-btn-lg": {
+  "display": "inline-flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -19055,8 +19055,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "editor|button.ds-toggle": {
-  "display": "block",
+ "editor|button.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -19118,8 +19118,8 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "editor|button.bk-danger.ds-toggle": {
-  "display": "block",
+ "editor|button.bk-danger.ds-toggle.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",

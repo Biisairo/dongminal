@@ -976,13 +976,13 @@ class FileEditor {
     // 마크업에 잇는 것은 **이름 붙인 값**이다 — 속성 접근이 마크업 안에 그대로
     // 들어가면 `check-html.sh` 가 그것을 값으로 보고 막는다 (FE-16·17 의 규칙).
     const actBtn = st.canInstall
-      ? '<button type="button" class="fe-offer-go">' + LSP_OFFER_INSTALL + '</button>'
-      : '<button type="button" class="fe-offer-set">' + LSP_OFFER_SETTINGS + '</button>';
+      ? '<button type="button" class="ui-btn ui-btn-sm ui-btn-primary fe-offer-go">' + LSP_OFFER_INSTALL + '</button>'
+      : '<button type="button" class="ui-btn ui-btn-sm fe-offer-set">' + LSP_OFFER_SETTINGS + '</button>';
     el.innerHTML =
       '<span class="fe-offer-msg"></span>' +
       actBtn +
       '<button type="button" class="fe-offer-no">' + LSP_OFFER_DISMISS + '</button>' +
-      '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost fe-offer-x" title="' + ED_FIND_CLOSE_TITLE + '" aria-label="' + ED_FIND_CLOSE_TITLE + '">' + UIKit.iconHTML('x') + '</button>';
+      '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-offer-x" title="' + ED_FIND_CLOSE_TITLE + '" aria-label="' + ED_FIND_CLOSE_TITLE + '">' + UIKit.iconHTML('x') + '</button>';
     // 사유는 텍스트 노드로 넣는다 — 서버가 보낸 이름이 그 자리에 닿는다.
     el.querySelector('.fe-offer-msg').textContent = body;
     this.el.appendChild(el);

@@ -66,27 +66,11 @@
    요구한 것은 "고정 높이" 가 아니라 그 성질이다. */
 .ed-side-acts{display:flex;flex-wrap:wrap;flex:0 0 auto;gap:2px;padding:3px 4px;
   border-bottom:1px solid var(--border)}
-.ed-side-act{
-  flex:1 1 var(--git-hit);min-width:var(--git-hit);min-height:var(--git-hit);
-  padding:2px 0;font-size:var(--fs-md);line-height:1.4;
-  background:transparent;border:1px solid transparent;border-radius:3px;
-  color:var(--text-muted);cursor:pointer;
-}
-.ed-side-act:hover{color:var(--accent-text);border-color:var(--accent-border)}
-/* UI_KIT_SRS FR-GLY-5 / FR-UIK-3: **아이콘은 이 버튼의 높이에서 파생한다.**
-
-   `.ui-btn-icon` 의 규칙은 `--ui-btn-h`(26px)를 딛는데 이 버튼의 하한은
-   `--git-hit`(30px)이다 — git 표면의 히트 영역은 WINDOWS 목록 행과 같아야
-   한다는 별개 규약이 그 값을 정했다 (FR-GIT-226). 그래서 키트 규칙 그대로는
-   30px 버튼에 17.7px 아이콘이 앉아 비율이 0.59 가 됐다 (실측). 접수한 말이
-   "모든 버튼안에는 아이콘이 꽉 차야한다" 이므로 그 자리의 높이로 다시 파생한다.
-
-   px 를 적지 않는 것이 이 규칙의 요점이다 — `--git-hit` 이 바뀌면 아이콘도
-   따라간다. */
-.ed-side-act.ui-btn-icon>.ui-icon{
-  width:calc(var(--git-hit) * var(--ui-icon-ratio));
-  height:calc(var(--git-hit) * var(--ui-icon-ratio));
-}
+/* 진입점 버튼의 외형·치수는 `.ui-btn.ui-btn-icon.ui-btn-ghost.ui-btn-lg` 다
+   (DESIGN_TOKENS_SRS §7.4). 종전에는 `--git-hit`(30px)을 하한으로 들고 아이콘을
+   그 값에서 따로 파생했는데, 키트의 `lg`(`--ui-btn-h-lg`=30px)가 같은 값이고
+   아이콘 파생까지 함께 온다. 여기 남는 것은 **줄을 나눠 채우는 배치**뿐이다. */
+.ed-side-acts>.ui-btn{flex:1 1 var(--ui-btn-h-lg)}
 
 /* `.git-view` 가 `position:absolute;inset:0` 이므로 담는 쪽이 위치 기준이어야 한다. */
 .ed-side-body{flex:1 1 auto;position:relative;min-height:0;min-width:0;overflow:hidden}
@@ -131,17 +115,12 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
 .ed-head.sel{background:var(--accent-active)}
 .ed-head-name{flex:1 1 auto;min-width:0;font-size:var(--fs-sm);color:var(--text-bright);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ed-head-btn{
-  flex:0 0 auto;width:22px;height:22px;line-height:1;
-  background:none;border:0;color:var(--text-muted);cursor:pointer;border-radius:3px;
-  /* 글자 버튼과 그림 버튼이 섞여 있다 — 가운데 정렬을 둘 다에 건다. */
-  display:inline-flex;align-items:center;justify-content:center;padding:0;
-}
-.ed-head-btn:hover{background:var(--accent-hover);color:var(--text-bright)}
-/* FR-EDT-80: 새 파일·새 폴더는 문서와 폴더를 그대로 그린다 (종전 `⊕`·`⊞` 는
-   어느 쪽이 무엇인지 말하지 않았다). `currentColor` 라 hover 의 색 변화를
-   글자 버튼과 똑같이 따라간다. */
-.ed-head-btn svg{
+/* 머리 버튼의 외형은 `.ui-btn.ui-btn-icon.ui-btn-ghost.ui-btn-sm` 이다 (§7.4).
+   FR-EDT-80: 새 파일·새 폴더는 문서와 폴더를 그대로 그린다 (종전 `⊕`·`⊞` 는
+   어느 쪽이 무엇인지 말하지 않았다). 이 그림은 스프라이트가 아니라 자기 경로
+   (`EDITOR_HEAD_ICONS`)라 `.ui-icon` 의 치수를 받지 않는다 — 담는 쪽에 건다.
+   `currentColor` 라 hover 의 색 변화를 글자 버튼과 똑같이 따라간다. */
+.ed-head .ui-btn svg{
   width:14px;height:14px;display:block;
   fill:none;stroke:currentColor;stroke-width:1.3;
   stroke-linecap:round;stroke-linejoin:round;
@@ -306,15 +285,15 @@ body.mobile .ed-row{height:var(--touch-min)}
   min-width:46px;text-align:center;font-size:var(--fs-sm);color:var(--text-hint);
   white-space:nowrap;
 }
-.fe-find-opt,.fe-find-prev,.fe-find-next,.fe-find-close{
+/* 이동·닫기 셋의 외형은 `.ui-btn.ui-btn-icon.ui-btn-ghost.ui-btn-sm` 이다 (§7.4).
+   옵션 토글은 켜진 상태(`.on`)를 갖는 글자 버튼이라 자기 것이다. */
+.fe-find-opt{
   flex:0 0 auto;min-width:22px;height:22px;padding:0 4px;
   display:flex;align-items:center;justify-content:center;
   border:1px solid transparent;border-radius:4px;cursor:pointer;
   background:transparent;color:var(--text-muted);font-size:var(--fs-sm);line-height:1;
 }
-.fe-find-opt:hover,.fe-find-prev:hover,.fe-find-next:hover,.fe-find-close:hover{
-  background:var(--border);color:var(--text-bright);
-}
+.fe-find-opt:hover{background:var(--border);color:var(--text-bright)}
 /* 켜진 토글은 눌린 채로 남아 보인다 — 지금 무엇이 걸려 있는지가 결과를 설명한다. */
 .fe-find-opt.on{
   background:var(--accent-active);border-color:var(--accent);color:var(--text-bright);
@@ -439,14 +418,7 @@ body.mobile .ed-row{height:var(--touch-min)}
   font-size:var(--fs-sm);line-height:1.5;
 }
 .fe-offer-msg{flex:1 1 auto;min-width:0;color:var(--text);overflow-wrap:anywhere}
-.fe-offer button{
-  flex:0 0 auto;padding:3px 8px;border:1px solid var(--border);border-radius:4px;
-  cursor:pointer;background:transparent;color:var(--text);font-size:var(--fs-sm);white-space:nowrap;
-}
-.fe-offer button:hover:not(:disabled){background:var(--border);color:var(--text-bright)}
-.fe-offer button:disabled{opacity:.45;cursor:default}
-.fe-offer-go{border-color:var(--accent);color:var(--text-bright)}
-.fe-offer-x{border-color:transparent;color:var(--text-muted)}
+/* 버튼 셋의 외형은 키트다 — 설치는 `primary`, 설정은 기본, 닫기는 ghost 아이콘 (§7.4). */
 /* 제안 띠가 있으면 찾기 패널과 알림 줄이 그 아래로 내려 앉는다 — 같은 자리를
    다투면 둘 중 하나가 가려진다.
 
@@ -495,15 +467,9 @@ body.mobile .ed-row{height:var(--touch-min)}
   flex:0 0 auto;display:flex;align-items:center;gap:6px;
   padding:2px 6px;border-bottom:1px solid var(--border);
 }
-.fe-dd-peek-act,.fe-dd-peek-close{
-  background:none;border:1px solid var(--border);border-radius:3px;
-  color:var(--text);font-size:var(--fs-sm);padding:1px 6px;cursor:pointer;
-}
-.fe-dd-peek-act:hover:not(:disabled),.fe-dd-peek-close:hover{
-  color:var(--text-bright);border-color:var(--accent);
-}
-.fe-dd-peek-act:disabled{opacity:.45;cursor:default}
-.fe-dd-peek-close{margin-left:auto}
+/* 동작·닫기의 외형은 `.ui-btn.ui-btn-sm` 이다 (§7.4). 닫기를 오른쪽 끝으로 미는
+   배치만 담는 쪽에 건다 (D-TOK-11). */
+.fe-dd-peek-bar>.ui-btn-icon{margin-left:auto}
 /* 사유와 진행 상태. 침묵은 고장과 구별되지 않는다 (FR-EDD-44·46·47). */
 .fe-dd-peek-note{
   flex:1 1 auto;min-width:0;color:var(--text-hint);font-size:var(--fs-sm);

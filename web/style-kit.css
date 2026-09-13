@@ -7,8 +7,11 @@
  * 의미이므로, 키트가 먼저 서고 기존 파일이 그것을 덮을 수 있어야 한다
  * (FR-UIK-1·11). 그래서 여기에는 `!important` 가 없다.
  *
- * **기존 클래스를 지우지 않는다** (D-5 / FR-UIK-10). `.ui-btn` 은 `.tbtn` 과
- * 함께 붙는다 — e2e 131개와 기존 캐스케이드가 옛 이름 위에 서 있다.
+ * **기존 클래스를 지우지 않는다** (D-5 / FR-UIK-10). 키트 클래스는 옛 이름과
+ * 함께 붙는다 — 기존 캐스케이드가 옛 이름 위에 서 있다. 과도기는 옛 이름의
+ * CSS 선언이 0 이 되는 시점에 끝난다 (DESIGN_TOKENS_SRS §3.7); **남은 것의
+ * 목록은 그 문서 §7 이다** — 상단바(`.tbtn`·`.mtbtn`)와 모달 오버레이 여섯은
+ * 끝났다.
  *
  * 색은 소유하지 않는다 (FR-UIK-2). `--accent`·`--border`·`--text-*`·`--danger`
  * 는 style.css 의 :root 와 테마가 준다.
@@ -112,15 +115,20 @@
   background:var(--accent);color:var(--bg);font-size:var(--fs-xs);line-height:15px;text-align:center;
 }
 
-/* ── 상자 (FR-UIK-7) ─────────────────────────────────────────────────── */
+/* ── 상자 (FR-UIK-7) ─────────────────────────────────────────────────────
+   DESIGN_TOKENS_SRS §3.9 (FR-TOK-40~42): 오버레이·상자의 겉모습은 **여기 한
+   벌**이다. 옛 골격 여섯(`#modal-overlay`·`.confirm-overlay`·`.bg-modal`·
+   `.runs-modal`·`.gc-modal`·`.git-dialog`)은 이 두 클래스를 함께 붙이고 자기
+   치수만 남긴다. 값은 다수값이다 (D-TOK-10) — blur 는 여섯이 갖고 하나가
+   없었고, `--bg`·8px 는 여섯이 같았다. */
 .ui-modal{
   position:fixed;inset:0;z-index:var(--z-modal);
   display:flex;align-items:center;justify-content:center;
-  background:var(--backdrop);
+  background:var(--backdrop);backdrop-filter:blur(2px);
 }
 .ui-modal-box{
   display:flex;flex-direction:column;min-width:280px;max-width:90vw;max-height:82vh;
-  background:var(--sidebar-bg);border:1px solid var(--border);border-radius:6px;
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;
   box-shadow:var(--shadow-2);
 }
 .ui-modal-head{

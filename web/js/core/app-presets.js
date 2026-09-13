@@ -143,15 +143,15 @@ Object.assign(App.prototype, {
       // UI_KIT_SRS FR-GLY-4: 채움과 획으로 기본 여부를 가른다 — 별 두 글자가
       // 하던 일을 같은 모양의 두 상태가 한다.
       const star=UIKit.button({icon:'star',iconFill:i===defaultPreset,
-        title:'Make this the default preset',kind:'ghost',cls:'preset-btn'});
+        title:'Make this the default preset',kind:'ghost'});
       star.addEventListener('click',e=>{e.stopPropagation();defaultPreset=defaultPreset===i?-1:i;this.saveSettings();this._renderPresets()});
       item.appendChild(star);
       // Load button
-      const load=UIKit.button({icon:'play',title:'Load this preset',kind:'ghost',cls:'preset-btn'});
+      const load=UIKit.button({icon:'play',title:'Load this preset',kind:'ghost'});
       load.addEventListener('click',e=>{e.stopPropagation();this._loadPreset(i)});
       item.appendChild(load);
       // Delete button
-      const del=UIKit.button({icon:'x',title:'Delete this preset',kind:'ghost',cls:'preset-btn del'});
+      const del=UIKit.button({icon:'x',title:'Delete this preset',kind:'ghost',cls:'preset-del'});
       del.addEventListener('click',e=>{e.stopPropagation();this._deletePreset(i)});
       item.appendChild(del);
       el.appendChild(item);

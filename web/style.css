@@ -468,14 +468,10 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
   font-size:var(--fs-sm);color:var(--text-muted);
 }
-.tbtn{
-  padding:4px 10px;border:1px solid var(--border);border-radius:4px;
-  background:transparent;color:var(--text-muted);font-size:var(--fs-sm);cursor:pointer;
-}
-.tbtn:hover{background:var(--accent-active);color:var(--accent-text);border-color:var(--accent-border)}
-/* agents 토글: split 버튼과 동일 UI, 색상만 구분(--attn) */
-#agents-toggle{color:var(--attn-text);border-color:var(--attn-subtle)}
-#agents-toggle:hover,#agents-toggle.open{background:var(--attn-subtle);color:var(--attn-text);border-color:var(--attn)}
+/* `.tbtn` 의 외형은 `.ui-btn` 이 갖는다 (DESIGN_TOKENS_SRS §7.1 · FR-TOK-35).
+   이름은 기준선 JSON(`ui-layout.json`)이 키로 짚으므로 HTML 에 남는다 (②). */
+/* agents 토글: 색은 `.ui-btn-attn` 이고, 열린 상태만 여기 것이다 */
+#agents-toggle.open{background:var(--attn-subtle);color:var(--attn-text);border-color:var(--attn)}
 
 /* ── Terminal area ── */
 #area{flex:1;position:relative;overflow:hidden;background:var(--bg)}
@@ -521,8 +517,6 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
    섞이지 않는다 (§7 R-3). */
 /* FR-GAP-2: 간격은 키트의 토큰이다 — 한 덩어리로 읽히는 것과 맞붙는 것은 다르다. */
 .slot-ctl{display:inline-flex;align-items:center;gap:var(--ui-gap);margin:0 2px}
-.slot-ctl .tbtn{min-width:22px;padding:2px 6px}
-.slot-ctl .tbtn:disabled{opacity:.35;cursor:default}
 /* `G7-1` 첫 판: 글자에 `opacity` 를 걸면 토큰이 바닥을 넘어도 화면은 넘지 못한다
    (실측 `.slot-ctl-label` 3.84 · `#add-sandbox-window` 3.27 — 계산 게이트는
    토큰만 보므로 못 잡는다). 흐림은 색으로 말한다 — 파생 토큰은 바닥을 받는다. */
@@ -726,11 +720,10 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 #settings-btn:hover{background:var(--accent-hover);color:var(--accent-text)}
 
 /* ── Modal ── */
-#modal-overlay{
-  position:fixed;inset:0;z-index:var(--z-modal);
-  background:var(--backdrop);backdrop-filter:blur(2px);
-  display:none;align-items:center;justify-content:center;
-}
+/* 골격은 `.ui-modal`/`.ui-modal-box` 가 갖는다 (DESIGN_TOKENS_SRS FR-TOK-40).
+   여기 남는 것은 **켜고 끄는 상태**뿐이다 — 이 모달은 DOM 에 상주하고 `.open`
+   으로 보인다 (FR-TOK-36 ③). */
+#modal-overlay{display:none}
 #modal-overlay.open{display:flex}
 /* UI_KIT_SRS FR-UIK-12·13 (2026-09-08 접수): **크기가 탭에 따라 달라지지 않는다.**
  *
@@ -746,34 +739,16 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
  *   새  동작: 탭 열이 한 줄로 서는 폭을 주고, 좁은 화면에서는 뷰포트를 따른다
  *   이유:     가로 스크롤은 "거기 더 있다" 를 감춘다 (사용자 지시) */
 #modal{
-  width:min(760px,94vw);height:min(80vh,720px);
-  background:var(--bg);border:1px solid var(--border);border-radius:10px;
-  display:flex;flex-direction:column;overflow:hidden;
-  box-shadow:var(--shadow-2);
+  width:min(760px,94vw);max-width:94vw;height:min(80vh,720px);overflow:hidden;
 }
 .modal-header{
   display:flex;align-items:center;justify-content:space-between;
   padding:14px 18px;border-bottom:1px solid var(--border);
 }
 .modal-title{font-size:var(--fs-lg);font-weight:600;color:var(--text-bright)}
-/* UI_KIT_SRS FR-GLY-5: 이 버튼은 자기 치수(24px)를 갖는다 — 키트의
-   `--ui-btn-h`(26px)가 아니다. 병기만 하면 26px 기준의 아이콘이 24px 버튼에
-   앉아 **넘친다** (실측 0.74, 목표 0.68). `.ed-side-act` 는 같은 부류의 반대
-   방향이었다: 30px 버튼에 26px 기준 아이콘이라 덜 찼다.
-
-   토큰을 하나 세워 높이와 아이콘이 **같은 값에서** 파생하게 한다 — 그래야
-   한쪽만 고쳐지는 일이 없다. */
-.modal-close{
-  --modal-close-h:24px;
-  background:none;border:none;color:var(--text-muted);font-size:var(--fs-xl);cursor:pointer;
-  width:var(--modal-close-h);height:var(--modal-close-h);
-  display:flex;align-items:center;justify-content:center;border-radius:4px;
-}
-.modal-close.ui-btn-icon>.ui-icon{
-  width:calc(var(--modal-close-h) * var(--ui-icon-ratio));
-  height:calc(var(--modal-close-h) * var(--ui-icon-ratio));
-}
-.modal-close:hover{background:var(--border);color:var(--danger-text)}
+/* 닫기 버튼의 외형·치수는 `.ui-btn.ui-btn-icon.ui-btn-ghost` 다 (DESIGN_TOKENS_SRS
+   §7.2). 자기 치수(24px)를 들고 있던 동안 아이콘 파생 규칙까지 따로 있어야
+   했다 — 키트의 26px 로 가면 그 규칙이 필요 없다. */
 
 /* FR-UIK-14: 넓힌 폭에 탭 열이 한 줄로 선다. 그래도 서지 못하는 폭(모바일)에서는
    **가로로 미는 대신 접는다** — 밀면 화면 밖의 탭을 찾을 계기가 없다. */
@@ -884,12 +859,6 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .sc-key:hover{border-color:var(--accent-border)}
 .sc-key.recording{border-color:var(--accent);color:var(--accent-text);animation:sc-pulse 1s infinite}
 @keyframes sc-pulse{0%,100%{border-color:var(--accent)}50%{border-color:transparent}}
-.sc-rst{
-  background:none;border:none;color:var(--text-hint);cursor:pointer;
-  width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:4px;
-  font-size:var(--fs-sm);opacity:.5;transition:opacity .15s,background .15s;
-}
-.sc-rst:hover{opacity:1;color:var(--accent-text);background:var(--accent-hover)}
 kbd{background:var(--border);border:1px solid var(--accent-border);border-radius:4px;padding:2px 8px;font-size:var(--fs-sm);color:var(--accent-text);font-family:inherit}
 
 /* ── Search Bar ── */
@@ -952,11 +921,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
   border:1px solid var(--accent-border);border-radius:6px;
   box-shadow:var(--shadow-2);
 }
-.git-undo-btn,.win-undo-toast .toast-act{
-  font:inherit;font-size:var(--fs-sm);padding:3px 10px;cursor:pointer;
-  background:transparent;color:var(--accent-text);
-  border:1px solid var(--accent);border-radius:4px;
-}
+/* 동작 버튼의 외형은 `Toast` 가 붙이는 `.ui-btn.ui-btn-sm.ui-btn-primary` 다 (§7.3). */
 
 /* ── 여기서 열기 확인 (VIEWER_URL_OPEN_SRS FR-VUO-7) ──
    상자·백드롭·중앙 정렬은 `.ui-modal` 이 갖는다. 여기에는 주소가 길어도 상자를
@@ -982,8 +947,7 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
    한다 — 재연결 중에도 이 겹이 서고, 그때 터미널이 눌리지 않으면 그것이 결함이다.
    누를 것이 있는 회차에만 그 자리가 포인터를 받는다. */
 .tp-ov-acts{display:flex;gap:8px;margin-top:4px;pointer-events:auto}
-.tp-ov-acts .tbtn{padding:3px 10px;font-size:var(--fs-sm)}
-body.mobile .tp-ov-acts .tbtn{min-height:var(--touch-min);padding:0 14px}
+body.mobile .tp-ov-acts .ui-btn{padding:0 14px}
 
 /* ── Dimmed session overlay (multi-window: another window owns this session) ── */
 .pn-dimmed .pn-body::after{
@@ -1048,51 +1012,25 @@ body.mobile .tp-ov-acts .tbtn{min-height:var(--touch-min);padding:0 14px}
 .preset-info{flex:1;min-width:0}
 .preset-name{color:var(--text-bright);font-size:var(--fs-md);font-weight:500}
 .preset-desc{color:var(--text-hint);font-size:var(--fs-sm);margin-top:2px}
-.preset-btn{
-  background:none;border:none;color:var(--text-hint);cursor:pointer;
-  width:24px;height:24px;display:flex;align-items:center;justify-content:center;
-  border-radius:4px;font-size:var(--fs-md);opacity:.5;transition:opacity .15s,color .15s,background .15s;
-}
-.preset-btn:hover{opacity:1;color:var(--accent-text);background:var(--accent-hover)}
-.preset-btn.del:hover{color:var(--danger-text);background:var(--danger-subtle)}
-/* ── Confirm Dialog ── */
-.confirm-overlay{
-  position:fixed;inset:0;z-index:var(--z-modal);
-  background:var(--backdrop);backdrop-filter:blur(2px);
-  display:flex;align-items:center;justify-content:center;
-}
-.confirm-box{
-  background:var(--bg);border:1px solid var(--border);border-radius:8px;
-  padding:20px 24px;min-width:280px;
-  box-shadow:var(--shadow-2);
-}
+/* 행 동작의 외형은 `.ui-btn-ghost` 다 (DESIGN_TOKENS_SRS §7.2). 삭제만 hover 에서
+   위험색을 미리 보인다 (`.runs-del` 과 같은 규약). */
+.preset-del:hover{color:var(--danger-text);background:var(--danger-subtle)}
+/* ── Confirm Dialog ──
+   오버레이·상자의 겉모습은 `.ui-modal`/`.ui-modal-box` (FR-TOK-40·42). 머리
+   없는 상자라 안쪽 여백만 자기 것이다 (FR-TOK-43). */
+.confirm-box{padding:20px 24px;min-width:280px}
 .confirm-msg{color:var(--text-bright);font-size:var(--fs-lg);margin-bottom:16px;line-height:1.5}
 /* 알림 본문은 런타임이 낸 오류를 그대로 싣는다 — 길고 개행이 있다. 자르면
    원인이 잘리므로 스크롤시킨다. */
 .notify-msg{max-height:40vh;overflow:auto;white-space:pre-wrap;text-align:left}
 .confirm-btns{display:flex;gap:8px;justify-content:flex-end}
-/* 형태 규약은 여기서만 선언한다 — 버튼별 규칙은 역할 색만 다룬다 (FR-BGU-1).
-   버튼을 추가할 때 형태를 다시 쓰지 않아야 .confirm-bg 같은 누락이 재발하지 않는다. */
-.confirm-btns button{
-  padding:6px 16px;border-radius:4px;border:1px solid transparent;
-  background:transparent;font-size:var(--fs-md);cursor:pointer;font-family:inherit;
-}
-.confirm-ok{border-color:var(--danger);background:var(--danger-subtle);color:var(--danger-text)}
-.confirm-ok:hover{background:var(--danger-strong)}
-.confirm-save{border-color:var(--accent);background:var(--accent-subtle);color:var(--accent-text)}
-.confirm-save:hover{background:var(--accent-hover)}
-.confirm-bg{border-color:var(--accent-border);color:var(--accent-text)}
-.confirm-bg:hover{background:var(--accent-hover)}
-.confirm-cancel{border-color:var(--border);color:var(--text-muted)}
-.confirm-cancel:hover{background:var(--accent-hover);color:var(--text)}
+/* 버튼의 형태와 역할 색은 키트 등급이다 (DESIGN_TOKENS_SRS §7.3) — 파괴적 닫기·
+   삭제는 `ui-btn-danger`, 저장·확인·실행은 `ui-btn-primary`, 나머지는 기본.
+   종전에는 `.confirm-ok` 가 어디서나 붉었다 — 오류 알림의 `확인` 과 런타임의
+   `실행` 까지. 이름이 아니라 뜻이 색을 고른다. */
 
-.preset-save{
-  margin-top:8px;width:100%;padding:7px;
-  background:none;border:1px solid var(--border);border-radius:6px;
-  color:var(--text-bright);font-size:var(--fs-md);cursor:pointer;font-family:inherit;
-  transition:border-color .15s,background .15s;
-}
-.preset-save:hover{border-color:var(--accent-border);background:var(--accent-hover)}
+/* 외형은 `.ui-btn.ui-btn-lg` — 목록 아래 한 줄을 다 쓰는 배치만 여기 것이다 (D-TOK-11). */
+#preset-save{margin-top:8px;width:100%}
 /* 저장을 거절한 사유. 비어 있으면 자리를 차지하지 않는다. */
 .preset-msg{color:var(--danger-text);font-size:var(--fs-md);line-height:1.5}
 .preset-msg:empty{display:none}
@@ -1114,16 +1052,8 @@ body.mobile .tp-ov-acts .tbtn{min-height:var(--touch-min);padding:0 14px}
 .ds-num:focus,.ds-text:focus{border-color:var(--accent)}
 .ds-num:focus-visible,.ds-text:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .ds-hint{color:var(--text-hint);font-size:var(--fs-sm);line-height:1.5;margin-top:6px}
-/* FR-WSL-81: 값이 둘뿐인 설정의 토글. 지금 값을 적어 두고 누르면 뒤집힌다 —
-   고를 목록이 없으므로 펼침도 없다. 폭을 고정하는 이유는 두 값의 글자 수가
-   달라 누를 때마다 행이 흔들리기 때문이다. */
-.ds-toggle{
-  min-width:78px;background:var(--bg);border:1px solid var(--border);border-radius:4px;
-  color:var(--text);font-size:var(--fs-md);padding:3px 8px;font-family:inherit;cursor:pointer;
-  text-align:center;
-}
-.ds-toggle:hover{border-color:var(--accent)}
-.ds-toggle:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
+/* `.ds-toggle` 의 외형은 `.ui-btn` 이다 (DESIGN_TOKENS_SRS §7.2). 이름은 기준선
+   JSON 이 키로 짚으므로 남는다 (FR-TOK-36 ②). */
 
 /* ── 세그먼트·레인지 (SETTINGS_CONTROLS_SRS 묶음 SCT) ──
    `.ds-toggle`·`.ds-num` 이 이미 쓰는 언어를 그대로 잇는다: 바탕 `--bg`, 테두리
@@ -1236,20 +1166,14 @@ body.mobile .tp-ov-acts .tbtn{min-height:var(--touch-min);padding:0 14px}
  */
 .mobile-only{display:none !important}
 body.mobile .desktop-only{display:none !important}
-body.mobile .mtbtn.mobile-only:not([hidden]){display:flex !important}
+body.mobile #topbar .ui-btn.mobile-only:not([hidden]){display:inline-flex !important}
 body.mobile .m-pane-nav.mobile-only:not([hidden]){display:inline-flex !important}
 /* keybar is always visible in mobile mode (SRS: MOBILE_KEYBAR_ALWAYS_VISIBLE) — overrides .mobile-only !important */
 body.mobile #mobile-keybar.mobile-only:not([hidden]){display:flex !important}
 
-/* ── Mobile topbar buttons ── */
-.mtbtn{
-  background:transparent;border:1px solid transparent;border-radius:4px;
-  color:var(--text);cursor:pointer;font-size:var(--fs-lg);
-  width:30px;height:26px;align-items:center;justify-content:center;
-  flex-shrink:0;font-family:inherit;
-}
-.mtbtn:hover{background:var(--accent-hover);color:var(--accent-text)}
-.mtbtn:active{background:var(--accent-active)}
+/* ── Mobile topbar buttons ──
+   `.mtbtn` 의 외형은 `.ui-btn.ui-btn-icon.ui-btn-ghost` 가 갖는다 (§7.1). 모바일
+   44px 는 아래 `body.mobile .ui-btn`/`.ui-btn-icon` 의 하한이 준다. */
 .m-pane-nav{display:inline-flex;align-items:center;gap:2px;margin-left:4px}
 #m-pane-indicator{font-size:var(--fs-sm);color:var(--text-muted);min-width:32px;text-align:center;font-variant-numeric:tabular-nums}
 
@@ -1270,15 +1194,10 @@ body.mobile.drawer-open #sidebar{transform:translateY(0)}
 #drawer-backdrop{display:none;position:fixed;inset:0;background:var(--backdrop);z-index:var(--z-overlay);opacity:0;transition:opacity .2s ease}
 body.mobile.drawer-open #drawer-backdrop{display:block;opacity:1}
 
-/* drawer close button shown only on mobile when drawer open */
-.drawer-close{
-  position:absolute;top:6px;right:6px;
-  background:transparent;border:none;color:var(--text-muted);
-  font-size:var(--fs-xl);cursor:pointer;width:32px;height:32px;
-  display:none;align-items:center;justify-content:center;border-radius:4px;
-}
-.drawer-close:hover{color:var(--danger-text);background:var(--accent-hover)}
-body.mobile .drawer-close{display:flex}
+/* drawer close button shown only on mobile when drawer open. 외형은 키트, 자리와
+   가시성만 여기 것이다 (D-TOK-11 — 이름이 아니라 id 에 건다). */
+#drawer-close{position:absolute;top:6px;right:6px;display:none}
+body.mobile #drawer-close{display:inline-flex}
 
 /* hide split handles entirely on mobile */
 body.mobile .sh{display:none !important}
@@ -1349,11 +1268,9 @@ body.mobile .ui-btn{min-height:var(--touch-min)}
 /* 아이콘 버튼은 글자가 폭을 벌어 주지 않는다 — 가로도 받아야 한다. */
 body.mobile .ui-btn-icon{min-width:var(--touch-min)}
 /* 닫기는 자기 크기를 토큰으로 갖는다 — 아이콘도 그 비율로 함께 큰다. */
-body.mobile .modal-close{--modal-close-h:var(--touch-min)}
 /* 상단바가 32px 이면 그 안의 버튼이 44 가 될 수 없다. 담는 쪽부터 연다. */
 body.mobile #topbar{height:var(--touch-min);min-height:var(--touch-min)}
 body.mobile .mtab{min-height:var(--touch-min)}
-body.mobile .mtbtn{width:var(--touch-min);height:var(--touch-min)}
 body.mobile .sbl-item{height:var(--touch-min);font-size:var(--fs-lg)}
 /* `G7-1`: 테마 행이 `option` 이 되자 파생 검사(TC-A11Y-13b)가 30px 를 잡았다 —
    역할이 없던 동안 보이지 않던 하한 미달이다. 목록 행의 하한과 같다. */
@@ -1431,15 +1348,10 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
 /* FR-SBR-10: 하이라이트는 팔레트를 쓴다. 평소에는 이웃 .tbtn 과 같은 얼굴이다. */
 #bg-btn.on{color:var(--accent-text);border-color:var(--accent);background:var(--accent-active)}
 body.mobile #bg-btn{padding:4px 6px}
-.bg-modal{
-  position:fixed;inset:0;z-index:var(--z-modal);
-  background:var(--backdrop);backdrop-filter:blur(2px);
-  display:flex;align-items:center;justify-content:center;
-}
+/* 골격은 `.ui-modal`/`.ui-modal-box` — 여기는 치수뿐이다 (FR-TOK-40·43). */
 .bg-box{
   min-width:280px;max-width:min(520px,90vw);max-height:70vh;overflow-y:auto;
-  background:var(--bg);border:1px solid var(--border);border-radius:8px;
-  box-shadow:var(--shadow-2);padding:4px;font-size:var(--fs-md);
+  padding:4px;font-size:var(--fs-md);
 }
 .bg-box .bg-head{padding:8px 10px;color:var(--text-muted);border-bottom:1px solid var(--border)}
 .bg-box .bg-empty{padding:10px;color:var(--text-muted)}
@@ -1462,10 +1374,6 @@ body.mobile #bg-btn{padding:4px 6px}
 .sbx-mount input[type=text]:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .sbx-flag{display:flex;align-items:center;gap:3px;flex:0 0 auto;
   font-size:var(--fs-sm);color:var(--text-hint);cursor:pointer;white-space:nowrap}
-.sbx-del{flex:0 0 auto;width:20px;height:20px;line-height:1;padding:0;
-  background:transparent;border:1px solid var(--border);border-radius:4px;
-  color:var(--text-hint);cursor:pointer}
-.sbx-del:hover{color:var(--accent-text);border-color:var(--accent)}
 .sbx-status{font-size:var(--fs-sm);color:var(--text-hint)}
 .sbx-status.err{color:var(--accent-text)}
 

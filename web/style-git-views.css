@@ -398,17 +398,11 @@ body.mobile .git-refs{width:110px}
 body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 
 /* ── 파괴적 동작 확인 (FR-GIT-90~97·174~178) ── */
-.gc-modal{
-  position:fixed;inset:0;z-index:var(--z-modal);
-  background:var(--backdrop);backdrop-filter:blur(2px);
-  display:flex;align-items:center;justify-content:center;
-}
-/* 테두리 색이 파괴적이라는 사실을 먼저 알린다 */
+/* 골격은 `.ui-modal`/`.ui-modal-box` (FR-TOK-40·43). 테두리 색이 파괴적이라는
+   사실을 먼저 알린다 — 그것과 치수만 여기 것이다. */
 .gc-box{
-  display:flex;flex-direction:column;
   min-width:300px;max-width:min(560px,92vw);max-height:80vh;
-  background:var(--bg);border:1px solid var(--danger);border-radius:8px;
-  box-shadow:var(--shadow-2);font-size:var(--fs-md);color:var(--text);
+  border-color:var(--danger);font-size:var(--fs-md);color:var(--text);
 }
 .gc-head{flex:0 0 auto;padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text-bright)}
 /* FR-GIT-178: 목록 위에 알리기만 한다 — 실행을 막지 않는다 */
@@ -431,22 +425,15 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 /* stderr tail 은 원문 그대로 보존한다 (FR-GIT-96) */
 .gc-err-tail{max-height:24vh;overflow:auto;margin:0;padding:6px 8px;background:var(--sidebar-bg);
   border-radius:4px;font-family:monospace;font-size:var(--fs-sm);color:var(--text-muted);white-space:pre}
-.gc-copy{margin-top:6px;padding:3px 10px;border-radius:4px;border:1px solid var(--border);
-  background:transparent;color:var(--text-muted);font-size:var(--fs-sm);cursor:pointer}
-.gc-copy:hover{color:var(--text-bright);border-color:var(--accent)}
+/* 복사 버튼의 외형은 `.ui-btn.ui-btn-sm` — 힌트·오류 아래 한 줄 띄우는 것만 여기 것이다. */
+.gc-hint>.ui-btn,.gc-err>.ui-btn{margin-top:6px}
 .gc-actions{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:10px 12px;
   border-top:1px solid var(--border)}
 .gc-progress{flex:1;color:var(--text-muted)}
-.gc-cancel,.gc-go{padding:5px 14px;border-radius:4px;border:1px solid var(--border);
-  background:transparent;font-size:var(--fs-md);cursor:pointer}
-/* FR-GIT-97: 기본 선택지는 취소다 — 강조도 취소에 준다 */
-.gc-cancel{border-color:var(--accent);color:var(--accent-text)}
-.gc-go{border-color:var(--danger);color:var(--danger-text)}
-.gc-cancel:focus-visible{outline:2px solid var(--focus-ring);outline-offset:1px}
-.gc-cancel:disabled,.gc-go:disabled{opacity:.5;cursor:default}
-/* 1단계 확인(FR-GIT-72·87)은 파괴적이 아니다 — 색으로 그것을 구분한다 */
+/* 취소·실행의 외형은 키트 등급이다 (§7.3). FR-GIT-97: 기본 선택지는 취소다 —
+   취소가 `primary`, 실행은 파괴적이면 `danger`, 1단계 확인(soft, FR-GIT-72·87)이면
+   `primary` 로 JS(`_paint`)가 고른다. */
 .gc-box.soft{border-color:var(--accent-border)}
-.gc-box.soft .gc-go{border-color:var(--accent);color:var(--accent-text)}
 /* FR-GIT-94·177: 모바일에서는 실행 버튼을 목록과 분리된 별도 행에 두고
    구분선과 여백으로 목록에서 떼어 놓는다 */
 .gc-box.mobile{width:calc(100vw - 24px);max-width:none;max-height:calc(100vh - 32px)}
@@ -456,7 +443,7 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
   margin-top:10px;padding:12px;border-top:2px solid var(--border);
 }
 .gc-box.mobile .gc-progress{flex:0 0 auto}
-.gc-box.mobile .gc-cancel,.gc-box.mobile .gc-go{padding:12px;font-size:var(--fs-lg)}
+.gc-box.mobile .gc-actions>.ui-btn{height:auto;padding:12px;font-size:var(--fs-lg)}
 
 /* ── Git Branches 탭 (FR-GIT-147~160) ── */
 /* 트리만 스크롤한다. 바는 고정이다 — 바가 목록과 함께 스크롤되면 많은 브랜치에서
@@ -921,17 +908,11 @@ select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 /* --- track: runs (WS-5 · ORCHESTRATION_V2_SRS 묶음 V) --- */
 
 /* FR-RVZ-2: Run 목록 모달. 백그라운드 도구 모달(.bg-modal)과 같은 상호작용
-   규약을 쓰므로 치수·그림자도 그것을 따른다 — 두 모달이 다르게 생기면 같은
-   규약이라는 사실이 화면에서 사라진다. */
-.runs-modal{
-  position:fixed;inset:0;z-index:var(--z-modal);
-  background:var(--backdrop);backdrop-filter:blur(2px);
-  display:flex;align-items:center;justify-content:center;
-}
+   규약을 쓰므로 치수도 그것을 따른다 — 골격은 `.ui-modal`/`.ui-modal-box`
+   (FR-TOK-40·43). */
 .runs-box{
   min-width:360px;max-width:min(680px,92vw);max-height:70vh;overflow-y:auto;
-  background:var(--bg);border:1px solid var(--border);border-radius:8px;
-  box-shadow:var(--shadow-2);padding:4px;font-size:var(--fs-md);
+  padding:4px;font-size:var(--fs-md);
 }
 .runs-box .runs-head{padding:8px 10px;color:var(--text-muted);border-bottom:1px solid var(--border)}
 .runs-box .runs-err{padding:10px;color:var(--danger-text)}
@@ -966,17 +947,12 @@ select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .runs-box .runs-close,.runs-box .runs-confirm,.runs-box .runs-deleting{margin-left:auto;flex-shrink:0}
 .runs-box .runs-row:not(:has(.runs-close)) .runs-del{margin-left:auto}
 .runs-box .runs-del{flex-shrink:0}
-.runs-box .runs-close{padding:2px 8px;color:var(--text-muted);border-color:var(--border)}
-/* 종료는 파괴적이 **아니다** — 기록이 남는다. 그래서 위험색을 쓰지 않는다:
-   색이 같으면 두 버튼이 같은 일을 한다고 읽힌다. */
-.runs-box .runs-close:hover{color:var(--accent-text);border-color:var(--accent)}
-.runs-box .runs-del{padding:2px 8px;color:var(--text-muted);border-color:var(--border)}
+/* 버튼의 외형은 `.ui-btn.ui-btn-sm` 이다 (DESIGN_TOKENS_SRS §7.1). 종료는 파괴적이
+   **아니다** — 기록이 남는다. 그래서 기본 등급이고, 삭제만 hover 에서 위험색을
+   미리 보인다: 색이 같으면 두 버튼이 같은 일을 한다고 읽힌다. */
 .runs-box .runs-del:hover{color:var(--danger-text);border-color:var(--danger);background:var(--danger-subtle)}
 .runs-box .runs-confirm{display:inline-flex;gap:6px;align-items:center}
 .runs-box .runs-q{color:var(--text-bright);font-size:var(--fs-sm);white-space:nowrap}
-.runs-box .runs-yes{padding:2px 8px;color:var(--danger-text);border-color:var(--danger)}
-.runs-box .runs-yes:hover{background:var(--danger-strong);color:var(--danger-text);border-color:var(--danger)}
-.runs-box .runs-no{padding:2px 8px}
 .runs-box .runs-deleting{color:var(--text-muted);font-size:var(--fs-sm);white-space:nowrap}
 .runs-box .runs-err-inline{color:var(--danger-text);font-size:var(--fs-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 터치. hover 없이 닿아야 하므로 히트 영역만 키운다 (.bg-row 와 같은 44px 규약). */
@@ -1081,9 +1057,7 @@ body.mobile .runs-box .runs-del,body.mobile .runs-box .runs-close{min-height:var
 /* FUI-04: 멤버 카드의 `분리`. 카드는 가로 한 줄이므로 버튼도 그 줄의 끝이다 —
    `margin-left:auto` 가 카드 폭이 어떻든 오른쪽 끝에 붙인다. 실패 안내는 그
    뒤에 남는다 (FR-DEL-6 과 같은 규약: 사유는 그 자리에 있다). */
-.run-view .run-card-detach{margin-left:auto;flex-shrink:0;padding:2px 8px;
-  color:var(--text-muted);border-color:var(--border)}
-.run-view .run-card-detach:hover{color:var(--accent-text);border-color:var(--accent)}
+.run-view .run-card-detach{margin-left:auto;flex-shrink:0}
 .run-view .run-card-err{color:var(--danger-text);white-space:nowrap;
   overflow:hidden;text-overflow:ellipsis}
 body.mobile .run-view .run-card{min-height:var(--touch-min)}
@@ -1170,14 +1144,11 @@ body.mobile .sb-tab-badge{min-width:18px;padding:0 6px;font-size:var(--fs-sm);li
 .bg-box .bg-kill,.bg-box .bg-confirm,.bg-box .bg-killing{margin-left:auto;flex-shrink:0}
 /* FR-BGK-2: 항상 보인다. hover 게이팅하지 않는다 — 터치 기기에 hover 가 없고,
    `.git-repo-x` 의 opacity:0 규약을 여기서 되풀이하지 않는다. */
-.bg-box .bg-kill{padding:2px 8px;color:var(--text-muted);border-color:var(--border)}
+/* 외형은 `.ui-btn.ui-btn-sm` — 종료는 hover 에서 위험색을 미리 보인다 (`.runs-del` 과 같다). */
 .bg-box .bg-kill:hover{color:var(--danger-text);border-color:var(--danger);background:var(--danger-subtle)}
 /* FR-BGK-4: 인라인 확인 — 행 안에서 바뀐다. 모달 위의 모달을 띄우지 않는다. */
 .bg-box .bg-confirm{display:inline-flex;gap:6px;align-items:center}
 .bg-box .bg-q{color:var(--text-bright);font-size:var(--fs-sm);white-space:nowrap}
-.bg-box .bg-yes{padding:2px 8px;color:var(--danger-text);border-color:var(--danger)}
-.bg-box .bg-yes:hover{background:var(--danger-strong);color:var(--danger-text);border-color:var(--danger)}
-.bg-box .bg-no{padding:2px 8px}
 .bg-box .bg-killing{color:var(--text-muted);font-size:var(--fs-sm);white-space:nowrap}
 /* FR-BGK-10: 오류는 행 안에 남는다 — 모달을 닫지 않는다. */
 .bg-box .bg-err{color:var(--danger-text);font-size:var(--fs-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

@@ -212,7 +212,7 @@ class FileTree {
    * 들어온다. 목록에 있는 것만 그림이 되므로 그 경로가 아예 없다.
    */
   _headBtn(cls,label,title,fn){
-    const b=document.createElement('button'); b.className='ed-head-btn '+cls;
+    const b=document.createElement('button'); b.className='ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm ed-head-btn '+cls;
     if(EDITOR_HEAD_ICONS.has(label)) b.innerHTML=label;
     else b.textContent=label;
     b.title=title;

@@ -25,7 +25,7 @@ Object.assign(App.prototype, {
     const ro=flag('ro','읽기 전용으로 붙입니다',m.readonly);
     // 이 표식이 켜지면 그 창은 더 이상 격리 경계가 아니다 (FR-SBX-39b).
     const sc=flag('scratch','격리 창에도 붙입니다 — 켜면 그 창은 격리 경계가 아니게 됩니다',m.scratch);
-    const del=UIKit.button({icon:'x',title:'Remove this mount',kind:'ghost',size:'sm',cls:'sbx-del'});
+    const del=UIKit.button({icon:'x',title:'Remove this mount',kind:'ghost',size:'sm'});
     del.addEventListener('click',()=>row.remove());
     row.append(host,cont,ro,sc,del);
     return row;

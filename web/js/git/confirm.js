@@ -169,9 +169,9 @@ class GitConfirm {
   }
 
   _build(){
-    const ov=document.createElement('div'); ov.id='git-confirm'; ov.className='gc-modal';
+    const ov=document.createElement('div'); ov.id='git-confirm'; ov.className='gc-modal ui-modal';
     ov.innerHTML=
-      '<div class="gc-box" role="dialog" aria-modal="true">'+
+      '<div class="gc-box ui-modal-box" role="dialog" aria-modal="true">'+
         '<div class="gc-head"></div>'+
         // FR-GIT-178: 목록 **위**에 알린다.
         '<div class="gc-changed"></div>'+
@@ -191,7 +191,7 @@ class GitConfirm {
         // 실행 버튼이 목록과 분리된 별도 행이다 (FR-GIT-94·177).
         '<div class="gc-actions">'+
           '<span class="gc-progress"></span>'+
-          '<button type="button" class="ui-btn gc-cancel"></button>'+
+          '<button type="button" class="ui-btn ui-btn-primary gc-cancel"></button>'+
           '<button type="button" class="ui-btn ui-btn-danger gc-go"></button>'+
         '</div>'+
       '</div>';
@@ -230,6 +230,10 @@ class GitConfirm {
     b.classList.toggle('mobile',this.mobile);
     // 파괴적이 아닌 확인은 테두리 색으로 구분한다.
     b.classList.toggle('soft',!this.destructive);
+    // 1단계 확인(soft)은 파괴적이 아니다 — 실행 버튼의 등급이 그것을 말한다.
+    const goBtn=b.querySelector('.gc-go');
+    goBtn.classList.toggle('ui-btn-danger',!!this.destructive);
+    goBtn.classList.toggle('ui-btn-primary',!this.destructive);
     b.dataset.action=this.action;
     // FR-COS-5: 걸음은 언제나 하나다. 속성을 지우지 않는 이유는 그것을 읽던
     // 검증이 조용히 무의미해지는 것이 사라지는 것보다 나쁘기 때문이다 (D-3).

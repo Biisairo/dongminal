@@ -154,17 +154,17 @@ Object.assign(App.prototype, {
   _edConfirm(lines,okLabel){
     return new Promise(resolve=>{
       const ov=document.createElement('div');
-      ov.className='confirm-overlay ed-confirm';
-      const box=document.createElement('div'); box.className='confirm-box';
+      ov.className='confirm-overlay ui-modal ed-confirm';
+      const box=document.createElement('div'); box.className='confirm-box ui-modal-box';
       const msg=document.createElement('div'); msg.className='confirm-msg';
       for(const t of lines){
         const l=document.createElement('div'); l.className='ed-confirm-line';
         l.textContent=t; msg.appendChild(l);
       }
       const btns=document.createElement('div'); btns.className='confirm-btns';
-      const ok=document.createElement('button'); ok.className='confirm-ok'; ok.textContent=okLabel;
+      const ok=document.createElement('button'); ok.className='ui-btn ui-btn-danger confirm-ok'; ok.textContent=okLabel;
       ok.title=TIP_DEL_OK;
-      const no=document.createElement('button'); no.className='confirm-cancel'; no.textContent=EDITOR_DEL_CANCEL;
+      const no=document.createElement('button'); no.className='ui-btn confirm-cancel'; no.textContent=EDITOR_DEL_CANCEL;
       no.title=TIP_DEL_CANCEL;
       btns.appendChild(ok); btns.appendChild(no);
       box.appendChild(msg); box.appendChild(btns); ov.appendChild(box);

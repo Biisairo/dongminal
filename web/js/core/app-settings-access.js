@@ -40,7 +40,7 @@ Object.assign(App.prototype, {
     if(opts.plain){/* 해석 상태 없음 */}
     else if(e&&e.error){st.textContent='해석 실패';st.classList.add('err');st.title=e.error}
     else if(e&&e.resolved&&e.resolved.length){st.textContent=e.resolved.join(', ');st.title='해석된 주소'}
-    const del=UIKit.button({icon:'x',title:'Remove this entry',kind:'ghost',size:'sm',cls:'sbx-del'});
+    const del=UIKit.button({icon:'x',title:'Remove this entry',kind:'ghost',size:'sm'});
     del.addEventListener('click',()=>row.remove());
     row.append(on,val,lab,st,del);
     return row;
