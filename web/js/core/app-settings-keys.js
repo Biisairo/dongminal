@@ -19,6 +19,7 @@ Object.assign(App.prototype, {
       // 툴바의 차례(Runs · Background · Agents)와 맞춘다.
       {label:'패널',keys:['runsToggle','bgToggle','agentsToggle','sidebarToggle']},
       {label:'새로고침',keys:['softReload']},
+      {label:'도움말',keys:['shortcutsHelp']},
       // EDITOR_GIT_UX_SRS FR-EKB-5: 편집기의 검색 셋. 좁은 것부터 넓은 것으로
       // 늘어놓는다 — 파일 안 → 파일 이름 → 파일 내용 전체.
       {label:'Editor 검색',keys:['edFindInFile','edQuickOpen','edGrep']},

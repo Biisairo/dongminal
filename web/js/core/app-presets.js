@@ -146,14 +146,27 @@ Object.assign(App.prototype, {
         title:'Make this the default preset',kind:'ghost'});
       star.addEventListener('click',e=>{e.stopPropagation();defaultPreset=defaultPreset===i?-1:i;this.saveSettings();this._renderPresets()});
       item.appendChild(star);
-      // Load button
+      // Load button. 로드맵 M7 `FUI-25`: 실패는 **보인다** — 도구 생성이
+      // 거절되면 종전에는 창만 비어 있었다.
       const load=UIKit.button({icon:'play',title:'Load this preset',kind:'ghost'});
-      load.addEventListener('click',e=>{e.stopPropagation();this._loadPreset(i)});
+      load.addEventListener('click',e=>{e.stopPropagation();this._loadPreset(i).catch(err=>this._notify(PRESET_LOAD_FAIL.replace('%s',String(err&&err.message||err))))});
       item.appendChild(load);
-      // Delete button
-      const del=UIKit.button({icon:'x',title:'Delete this preset',kind:'ghost',cls:'preset-del'});
-      del.addEventListener('click',e=>{e.stopPropagation();this._deletePreset(i)});
-      item.appendChild(del);
+      // Delete button. `FUI-25`: 인라인 확인을 지난다 (Runs·백그라운드 목록의
+      // `예/아니오` 와 같은 규약 — 모달 위의 모달을 띄우지 않는다).
+      if(this._presetConfirm===i){
+        const wrap=document.createElement('span'); wrap.className='preset-confirm';
+        const q=document.createElement('span'); q.className='preset-q'; q.textContent=PRESET_DEL_Q;
+        const yes=UIKit.button({label:'예',title:'Delete this preset',kind:'danger',size:'sm',cls:'preset-yes'});
+        yes.addEventListener('click',e=>{e.stopPropagation();this._presetConfirm=-1;this._deletePreset(i)});
+        const no=UIKit.button({label:'아니오',title:'Keep this preset',size:'sm',cls:'preset-no'});
+        no.addEventListener('click',e=>{e.stopPropagation();this._presetConfirm=-1;this._renderPresets()});
+        wrap.append(q,yes,no);
+        item.appendChild(wrap);
+      }else{
+        const del=UIKit.button({icon:'x',title:'Delete this preset',kind:'ghost',cls:'preset-del'});
+        del.addEventListener('click',e=>{e.stopPropagation();this._presetConfirm=i;this._renderPresets()});
+        item.appendChild(del);
+      }
       el.appendChild(item);
     });
   },

@@ -237,3 +237,28 @@ test.describe('Pane attention', () => {
     expect(cleared, '복원 응답이 그 사이 도착한 알람을 지웠다').toBe(false);
   });
 });
+
+// 로드맵 M7 P2 — `FUI-22`: 알림 센터의 항목을 **하나씩** 뗄 수 있다. 종전에는
+// 항목 클릭(= 그 도구로 이동)과 "모두 제거" 뿐이었다 — 보기만 하고 넘기려면
+// 이동하거나 전부를 잃어야 했다.
+test.describe('알림 센터 개별 해제 (FUI-22)', () => {
+  test('항목의 × 가 그 항목만 떼고 도구로 이동하지 않는다', async ({ page }) => {
+    await waitForInit(page);
+    await waitShellReady(page);
+    await page.keyboard.type(NOTIFY_DONE);
+    await page.keyboard.press('Enter');
+    const before = await page.locator('#area .pn.focused .pn-tab').count();
+    await page.locator('#area .pn.focused .pn-tab-add').click();
+    await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
+    await expect(page.locator('#attn-badge')).toBeVisible({ timeout: 10000 });
+    await page.click('#attn-badge');
+    const item = page.locator('#attn-center .attn-item');
+    await expect(item).toHaveCount(1);
+    const activeBefore = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-tab');
+    await item.locator('.attn-x').click();
+    await expect(page.locator('#attn-center .attn-item')).toHaveCount(0);
+    await expect(page.locator('#attn-badge')).toBeHidden();
+    // 이동하지 않았다 — 활성 탭이 그대로다.
+    expect(await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-tab')).toBe(activeBefore);
+  });
+});

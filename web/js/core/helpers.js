@@ -25,7 +25,7 @@ function matchShortcut(e,s){
   return e.ctrlKey===p.ctrl&&e.metaKey===p.meta;
 }
 function fmtShortcut(e){const p=[];if(e.ctrlKey)p.push('Ctrl');if(e.altKey)p.push('Alt');if(e.metaKey)p.push('Meta');if(e.shiftKey)p.push('Shift');p.push(e.code);return p.join('+')}
-function displayKey(s){return s.replace(/Key/g,'').replace(/BracketLeft/g,'[').replace(/BracketRight/g,']').replace(/Mod/g,'⌘/⌃').replace(/Meta/g,'⌘').replace(/Ctrl/g,'⌃').replace(/Alt/g,'⌥').replace(/Shift/g,'⇧').replace(/Arrow/g,'')}
+function displayKey(s){return s.replace(/Key/g,'').replace(/BracketLeft/g,'[').replace(/BracketRight/g,']').replace(/Slash/g,'/').replace(/Mod/g,'⌘/⌃').replace(/Meta/g,'⌘').replace(/Ctrl/g,'⌃').replace(/Alt/g,'⌥').replace(/Shift/g,'⇧').replace(/Arrow/g,'')}
 
 // ── 경로 잇기 ──
 
@@ -316,6 +316,10 @@ const SHORTCUT_DEFAULTS={
    * 때문이다 (`edNavBack` 이 같은 이유로 `Mod+Alt` 를 쓴다).
    */
   edSaveAll:'Mod+Alt+KeyS',
+  // 로드맵 M7 `UX-22`: 단축키 **목록으로 가는 키.** 목록은 설정 안에 있었지만
+  // 거기 닿는 키가 없었다 — 키를 모르는 사람이 키 목록을 찾는 길이 마우스뿐이면
+  // 목록은 이미 아는 사람만 본다. `?` 의 관용이며 `Ctrl+Shift` 는 이 앱의 관용이다.
+  shortcutsHelp:'Ctrl+Shift+Slash',
 };
 const SHORTCUT_LABELS={
   // GIT_SIDEBAR_TABS_SRS FR-SBT-31·33: 이 키는 **활성 사이드바 탭의 목록**을 순회한다
@@ -343,6 +347,7 @@ const SHORTCUT_LABELS={
   edGrep:'파일 전체에서 검색 (Editor)',
   edSave:'저장 (Editor)',
   edSaveAll:'모두 저장 (Editor)',
+  shortcutsHelp:'단축키 목록',
   // `DOC-3` (M5): 기본값은 있는데 **라벨이 없었다.** 라벨이 없으면 Settings ▸
   // Shortcuts 의 목록에 뜨지 않고, 뜨지 않으면 사용자가 바꿀 수 없다 — 바꿀 수
   // 있다고 적힌 문서가 그 순간 거짓이 된다.

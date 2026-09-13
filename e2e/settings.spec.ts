@@ -290,3 +290,26 @@ test.describe('설정 모달의 가로 (FR-UIK-14)', () => {
     expect(own.over, '상태바 패널이 스스로 스크롤한다').toBe(0);
   });
 });
+
+// 로드맵 M7 P2 — `FUI-25`: 프리셋 삭제는 **인라인 확인**을 지난다 (Runs·백그라운드
+// 목록의 `예/아니오` 와 같은 규약). 종전에는 × 한 번에 사라졌고 되돌릴 길이 없었다.
+test.describe('프리셋 삭제 확인 (FUI-25)', () => {
+  test('× 는 묻고, 아니오는 남기고, 예는 지운다', async ({ page }) => {
+    await waitForInit(page);
+    await page.evaluate(() => { (window as any).app.testing.savePreset() });
+    await page.click('#settings-btn');
+    await page.click('.mtab[data-tab="presets"]');
+    const items = page.locator('#panel-presets .preset-item');
+    await expect(items).not.toHaveCount(0);
+    const n = await items.count();
+    const last = items.last();
+    await last.locator('.preset-del').click();
+    const confirm = last.locator('.preset-confirm');
+    await expect(confirm).toBeVisible();
+    await confirm.locator('.preset-no').click();
+    await expect(page.locator('#panel-presets .preset-item')).toHaveCount(n);
+    await page.locator('#panel-presets .preset-item').last().locator('.preset-del').click();
+    await page.locator('#panel-presets .preset-item').last().locator('.preset-confirm .preset-yes').click();
+    await expect(page.locator('#panel-presets .preset-item')).toHaveCount(n - 1);
+  });
+});

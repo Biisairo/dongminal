@@ -187,3 +187,36 @@ test.describe('탭 너비 고정 (FR-TBW-1~11)', () => {
       expect(inline, '탭에 인라인 width 가 붙었다').toBe(0);
     });
 });
+
+// 로드맵 M7 P2 — `UX-23`(드래그 어포던스) · `UX-24`(탭 줄 오버플로).
+test.describe('탭 줄 — 끌 수 있음이 보이고 넘침이 보인다 (UX-23 · UX-24)', () => {
+  test('UX-23: 끌 수 있는 탭·창 항목은 손 모양이다', async ({ page }) => {
+    await waitForInit(page);
+    await makeTabs(page);
+    const cursors = await page.evaluate(() => ({
+      tab: getComputedStyle(document.querySelector('#area .pn-tab')!).cursor,
+      win: getComputedStyle(document.querySelector('#sidebar .sbl-item')!).cursor,
+    }));
+    expect(cursors).toEqual({ tab: 'grab', win: 'grab' });
+  });
+
+  test('UX-24: 탭이 넘치면 줄이 그 사실을 표시하고 휠로 구른다', async ({ page }) => {
+    await waitForInit(page);
+    // 좁은 창 — 넓은 화면에서는 열넷도 한 줄에 선다.
+    await page.setViewportSize({ width: 640, height: 600 });
+    await page.evaluate(async () => {
+      const a = (window as any).app;
+      for (let i = 0; i < 14; i++) await a.addTab(a.focused, 'terminal');
+      a.render();
+    });
+    const bar = page.locator('#area .pn.focused .pn-tabs');
+    await expect.poll(() => bar.evaluate((e) => e.scrollWidth > e.clientWidth), { timeout: 10000 }).toBe(true);
+    // 넘침은 속성으로 드러나고 CSS 가 그것을 그린다 — 스크롤바를 감춘 채 아무
+    // 표시가 없던 것이 `UX-24` 다.
+    await expect(bar).toHaveAttribute('data-overflow', /right|both/);
+    // 세로 휠이 가로로 구른다 — 가로 휠이 없는 마우스가 대부분이다.
+    await bar.hover();
+    await page.mouse.wheel(0, 120);
+    await expect.poll(() => bar.evaluate((e) => e.scrollLeft), { timeout: 5000 }).toBeGreaterThan(0);
+  });
+});

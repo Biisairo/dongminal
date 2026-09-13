@@ -476,3 +476,19 @@ test.describe('Mobile keybar tooltips (SRS REQ-T-1..T-4)', () => {
     await expect(page.locator('#mkb-tip')).toHaveCount(0);
   });
 });
+
+// 로드맵 M7 P2 — `FUI-27`: 모바일에서 Runs·Agents 에 닿는 길. 상단바의 둘은
+// `desktop-only` 이고 단축키는 물리 키가 없는 기기에서 길이 아니다 — 드로어가
+// 그 길이다.
+test.describe('모바일 드로어의 Runs·Agents (FUI-27)', () => {
+  test('드로어에 두 진입점이 있고 Runs 가 열린다', async ({ page }) => {
+    await gotoMobile(page);
+    await page.click('#m-drawer-toggle');
+    await expect(page.locator('body')).toHaveClass(/drawer-open/);
+    const acts = page.locator('#m-drawer-acts button');
+    await expect(acts).toHaveCount(2);
+    await acts.filter({ hasText: 'Runs' }).click();
+    await expect(page.locator('#runs-modal .runs-box')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('body')).not.toHaveClass(/drawer-open/);
+  });
+});

@@ -601,3 +601,6 @@ const RELOAD_BUSY_TITLE='다시 가져오는 중…';
 const PRESET_PANEL_ID='panel-presets';
 const PRESET_MSG_CLASS='preset-msg';
 const PRESET_SAVE_NO_PLAIN='저장할 일반 창이 없습니다 — 터미널 창을 열고 다시 시도하세요';
+// 로드맵 M7 `FUI-25`: 삭제의 인라인 확인 문구와 로드 실패 알림.
+const PRESET_DEL_Q='삭제? 되돌릴 수 없다.';
+const PRESET_LOAD_FAIL='프리셋을 불러오지 못했습니다: %s';

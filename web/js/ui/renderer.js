@@ -1060,6 +1060,9 @@ class Renderer {
     // `Tab` 에 닿는 탭은 하나다 — 포커스가 줄 안에 있으면 그 탭, 아니면 활성 탭.
     const ae=document.activeElement;
     UIKit.rove(kids,kids.includes(ae)?ae:kids.find(t=>t.classList.contains('active')));
+    // UX-24: 탭이 늘거나 줄면 넘침을 다시 판정한다 (`_makePane` 의 표식).
+    const pn=tabs.parentNode;
+    if(pn&&pn._markTabOverflow) pn._markTabOverflow();
   }
 
   // 탭 요소 하나와 그 배선. **여기서만 배선한다** (FR-PDR-7) — 지금 어느 pane 의
@@ -1212,6 +1215,26 @@ class Renderer {
       e.stopPropagation();
       app.addTab(n.id,'terminal');
     });
+    /**
+     * 로드맵 M7 `UX-24`: 탭이 넘치면 **그 사실이 보인다.** 스크롤바를 감춘 채
+     * (`.pn-tabs::-webkit-scrollbar{height:0}`) 아무 표시가 없어 화면 밖의 탭을
+     * 찾을 계기가 없었다. 넘친 쪽을 속성으로 적고 CSS 가 가장자리를 흐린다;
+     * 세로 휠은 가로로 구른다 — 가로 휠이 없는 마우스가 대부분이다.
+     */
+    const markOverflow=()=>{
+      const left=tabs.scrollLeft>0;
+      const right=tabs.scrollLeft+tabs.clientWidth<tabs.scrollWidth-1;
+      const v=left&&right?'both':left?'left':right?'right':'';
+      if(v) tabs.dataset.overflow=v; else delete tabs.dataset.overflow;
+    };
+    tabs.addEventListener('scroll',markOverflow,{passive:true});
+    tabs.addEventListener('wheel',e=>{
+      if(e.deltaX||!e.deltaY||tabs.scrollWidth<=tabs.clientWidth)return;
+      e.preventDefault();
+      tabs.scrollLeft+=e.deltaY;
+    },{passive:false});
+    if(typeof ResizeObserver!=='undefined') new ResizeObserver(markOverflow).observe(tabs);
+    el._markTabOverflow=markOverflow;
     tabs.addEventListener('dragover',e=>{
       if(!app.drag||app.drag.type!=='tab')return;
       e.preventDefault(); e.stopPropagation();

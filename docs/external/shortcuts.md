@@ -42,6 +42,7 @@
 | 다음 슬롯 | `Ctrl+Alt+]` |
 | 사이드바 접기/펼치기 | `Ctrl+Shift+E` |
 | 내부 새로고침 | `Ctrl+Shift+K` |
+| 단축키 목록 | `Ctrl+Shift+/` |
 | 사이드바 탭: Windows | `Ctrl+Shift+1` |
 | 사이드바 탭: Git | `Ctrl+Shift+2` |
 | 사이드바 탭: Editor | `Ctrl+Shift+3` |

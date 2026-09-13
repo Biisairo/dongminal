@@ -94,3 +94,15 @@ test.describe('묶음 K — 브라우저 기본 키 차단 (FR-KEY-*)', () => {
   });
 });
 
+// 로드맵 M7 P2 — `UX-22`: 단축키를 **찾을 수 있다.** 목록은 설정 안에 있었지만
+// 거기 닿는 키가 없었고, 키를 모르는 사람이 키 목록을 찾을 길은 메뉴뿐이었다.
+test.describe('단축키 발견 (UX-22)', () => {
+  test('Ctrl+Shift+/ 가 설정의 Shortcuts 탭을 연다', async ({ page }) => {
+    await waitForInit(page);
+    await page.keyboard.press('Control+Shift+Slash');
+    await expect(page.locator('#modal-overlay')).toBeVisible();
+    await expect(page.locator('#panel-shortcuts')).toBeVisible();
+    // 그 키 자신도 목록에 있어 바꿀 수 있다.
+    await expect(page.locator('#panel-shortcuts .sc-row', { hasText: '단축키 목록' })).toHaveCount(1);
+  });
+});

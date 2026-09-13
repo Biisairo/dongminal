@@ -362,6 +362,12 @@ Object.assign(App.prototype, {
         item.appendChild(d);
       }
       item.addEventListener('click',()=>{this.jumpToTool(toolId);this._attnCenterClose()});
+      // 로드맵 M7 `FUI-22`: **하나만** 뗀다. 항목 클릭은 이동이고 "모두 제거" 는
+      // 전부다 — 보고 넘기려는 알림 하나를 위해 그 둘 중 하나를 고르게 하지 않는다.
+      // 서버에도 알린다(`_attnClear`) — 다른 브라우저의 배지도 함께 내려간다.
+      const x=UIKit.button({icon:'x',title:'Dismiss this alert',kind:'ghost',size:'sm',cls:'attn-x'});
+      x.addEventListener('click',e=>{e.stopPropagation();this._attnClear(toolId,false);this._attnCenterRender()});
+      item.appendChild(x);
       center.appendChild(item);
     }
   },

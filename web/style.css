@@ -461,6 +461,9 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
   min-width:0;
 }
 .attn-item:hover{background:var(--attn-subtle)}
+/* FUI-22: 개별 해제. 세부 글자(`.attn-detail`)가 `margin-left:auto` 로 오른쪽에 서므로
+   × 는 그 뒤에 온다 — 항목 클릭(이동)과 겹치지 않게 `stopPropagation` 한다. */
+.attn-item .attn-x{flex:0 0 auto}
 .attn-item .attn-name{flex-shrink:0;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .attn-item .attn-reason{flex-shrink:0;font-size:var(--fs-sm);color:var(--attn-text)}
 .attn-item .attn-detail{
@@ -543,6 +546,11 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
   overflow-x:auto;flex-shrink:0;
 }
 .pn-tabs::-webkit-scrollbar{height:0}
+/* UX-24: 넘친 쪽의 가장자리를 흐린다 — 렌더러가 `data-overflow` 를 세운다 (renderer.js
+   `_makePane`). 스크롤바를 감춘 대가로 "저 너머에 더 있다" 를 이것이 말한다. */
+.pn-tabs[data-overflow="right"]{mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent)}
+.pn-tabs[data-overflow="left"]{mask-image:linear-gradient(to right,transparent,#000 28px)}
+.pn-tabs[data-overflow="both"]{mask-image:linear-gradient(to right,transparent,#000 28px,#000 calc(100% - 28px),transparent)}
 /* D-A11Y-11: 탭만 담는 tablist. 바 안의 한 겹이라 `+` 와 함께 스크롤한다. */
 .pn-tablist{display:flex;align-items:stretch;flex-shrink:0}
 .pn-tab{
@@ -1003,6 +1011,9 @@ body.mobile .tp-ov-acts .ui-btn{padding:0 14px}
 /* ── Presets ── */
 /* FR-UIK-13: 같은 근거로 자기 스크롤을 갖지 않는다. */
 .preset-list{display:flex;flex-direction:column;gap:4px}
+/* FUI-25: 인라인 삭제 확인 — 행 안에서 `×` 자리가 `삭제? 예 아니오` 로 바뀐다 */
+.preset-confirm{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto}
+.preset-q{color:var(--text-bright);font-size:var(--fs-sm);white-space:nowrap}
 .preset-item{
   display:flex;align-items:center;gap:8px;
   padding:7px 10px;border:1px solid var(--border);border-radius:6px;
@@ -1015,6 +1026,11 @@ body.mobile .tp-ov-acts .ui-btn{padding:0 14px}
 /* 행 동작의 외형은 `.ui-btn-ghost` 다 (DESIGN_TOKENS_SRS §7.2). 삭제만 hover 에서
    위험색을 미리 보인다 (`.runs-del` 과 같은 규약). */
 .preset-del:hover{color:var(--danger-text);background:var(--danger-subtle)}
+/* 로드맵 M7 `UX-23`: 끌 수 있는 것은 **미리** 손 모양이다 — 탭·창 항목·탐색기 행.
+   `draggable` 은 JS 가 붙이므로 그 속성이 곧 선택자다. `cursor:grab` 은 이 셋뿐이다. */
+.pn-tab[draggable="true"],.sbl-item[draggable="true"],.ed-row[draggable="true"]{cursor:grab}
+.pn-tab[draggable="true"]:active,.sbl-item[draggable="true"]:active,.ed-row[draggable="true"]:active{cursor:grabbing}
+
 /* ── Confirm Dialog ──
    오버레이·상자의 겉모습은 `.ui-modal`/`.ui-modal-box` (FR-TOK-40·42). 머리
    없는 상자라 안쪽 여백만 자기 것이다 (FR-TOK-43). */
@@ -1198,6 +1214,14 @@ body.mobile.drawer-open #drawer-backdrop{display:block;opacity:1}
    가시성만 여기 것이다 (D-TOK-11 — 이름이 아니라 id 에 건다). */
 #drawer-close{position:absolute;top:6px;right:6px;display:none}
 body.mobile #drawer-close{display:inline-flex}
+/* FUI-27: 드로어 머리의 Runs·Agents. `.mobile-only` 의 `!important` 를 같은 규약으로 푼다. */
+body.mobile #m-drawer-acts.mobile-only:not([hidden]){display:flex !important;gap:var(--ui-gap);padding:8px 44px 0 10px}
+/* 모바일의 에이전트 패널은 옆이 아니라 **위**에 선다 — 드로어와 같은 자리·같은 층. */
+body.mobile #agents-panel.open{
+  position:fixed;top:0;left:0;right:0;width:100%;min-width:0;
+  max-height:min(75vh,520px);z-index:var(--z-overlay);
+  border-left:none;border-bottom:1px solid var(--border);box-shadow:var(--shadow-2);
+}
 
 /* hide split handles entirely on mobile */
 body.mobile .sh{display:none !important}
