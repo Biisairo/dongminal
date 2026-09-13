@@ -131,5 +131,5 @@ P0 가 끝나면 P1 = Go 부채 ①~④ + `TEST-8` (스펙 §3.2). 그 단계는
 bb53fc2  docs(m7): M7 을 닫는다 — 종료 판정·SRS 구현완료·로드맵·인계
 0a96261  docs(roadmap): AGENT_PROTOCOL_SURFACE_SRS 를 M10 으로 편입하고 병행(훅 유지)으로 D-1 을 뒤집는다
 c3e19e1  docs(roadmap): M8·M9·M10 을 하나의 일정 하나의 스펙으로 — M8_UNIFIED_SRS
-(이 커밋)  docs(m8): 스펙을 승인·구현중으로 올리고 P0 스파이크 인계를 세운다
+7676935  docs(m8): 스펙을 승인·구현중으로 올리고 P0 스파이크 인계를 세운다
 ```
