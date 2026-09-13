@@ -6,6 +6,7 @@ import { APIRequestContext, Page } from '@playwright/test';
 
 import {
   test, expect, rmTree, switchToEditorRoot, openExplorerSide, addEditor, gotoWithEditors, openExplorerAt, enterExplorer,
+  liveRegionOf,
 } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
@@ -416,6 +417,36 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     await expect.poll(async () => (await tabs(page)).map((t) => t.file)).toEqual([j(R, 'top.txt')]);
     await onDisk(() => fs.existsSync(j(R, 'src'))).toBe(false);
     await expect(page.locator('.confirm-overlay')).toHaveCount(0);
+  });
+
+  /**
+   * M7 `UX-25` (`03 §P2`): 지운 뒤 **되돌릴 길이 있으면** 알린다. 추적 중이던
+   * 파일은 git 이 갖고 있다 — 추적되지 않은 파일에는 그 길이 없으므로 띄우지
+   * 않는다 (없는 길을 알리면 다음 사람이 그것을 믿는다). `Toast` 를 지나므로
+   * 라이브 리전 안에 든다 (FR-A11Y-19).
+   */
+  test('O11 (UX-25): 추적 중이던 파일을 지우면 git 으로 되돌리는 길을 알린다 — 추적되지 않은 파일은 아니다', async ({ page, request }) => {
+    const R = mkRepo('ux25');
+    w(j(R, 'sub', 'n.txt'), 'new\n');   // 추적되지 않은 파일
+    await enterExplorer(page, request, R);
+    await row(page, j(R, 'sub')).click();
+    // git 색이 닿아야 판정할 근거가 있다 — 추적되지 않은 행이 그 색을 받을 때까지.
+    await expect(row(page, j(R, 'sub', 'n.txt'))).toHaveClass(/st-new/, { timeout: 15000 });
+
+    await ctx(page, j(R, 'sub', 'x.txt'), 'delete');
+    await page.locator('.ed-confirm .confirm-ok').click();
+    await expect(row(page, j(R, 'sub', 'x.txt'))).toHaveCount(0, { timeout: 10000 });
+    const hint = page.locator('.ed-del-hint');
+    await expect(hint).toHaveText(/git checkout -- sub\/x\.txt/);
+    expect(await liveRegionOf(hint), '힌트가 라이브 리전 밖에 있다').not.toBeNull();
+    await hint.click();
+    await expect(hint).toHaveCount(0);
+
+    await ctx(page, j(R, 'sub', 'n.txt'), 'delete');
+    await page.locator('.ed-confirm .confirm-ok').click();
+    await expect(row(page, j(R, 'sub', 'n.txt'))).toHaveCount(0, { timeout: 10000 });
+    await onDisk(() => fs.existsSync(j(R, 'sub', 'n.txt'))).toBe(false);
+    await expect(page.locator('.ed-del-hint')).toHaveCount(0);
   });
 
   test('O10 (V-EDT-71 / FR-EDT-92): 실패는 사유를 보이고 낙관적 반영을 되돌린다', async ({ page, request }) => {

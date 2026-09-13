@@ -442,6 +442,9 @@ const EDITOR_DEL_DIR='%s 폴더를 재귀적으로 삭제합니다 — 그 안�
 const EDITOR_DEL_MANY='%n개 항목을 삭제합니다 — %s';
 const EDITOR_DEL_MANY_TREE='폴더 안의 항목 %n개가 함께 사라집니다.';
 const EDITOR_DEL_PERMANENT='영구 삭제입니다. 휴지통으로 가지 않으며 되돌릴 수 없습니다.';
+// `UX-25`: 추적 중이던 파일은 git 이 갖고 있다 — 지운 뒤에 그 길을 알린다.
+// `%s` 는 저장소 기준 경로. 추적되지 않은 파일에는 이 길이 없으므로 띄우지 않는다.
+const EDITOR_DEL_RECOVER_HINT='git checkout -- %s 로 되돌릴 수 있습니다';
 const EDITOR_DEL_DIRTY='저장되지 않은 탭 %n개가 함께 닫힙니다 — %s';
 const EDITOR_DEL_COUNT_MORE='%n개 이상';
 const EDITOR_DEL_OK='영구 삭제';

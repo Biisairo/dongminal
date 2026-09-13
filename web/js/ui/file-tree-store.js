@@ -42,6 +42,9 @@ class FileTreeStore {
     this.gitOff=false;
     this.gitRetryAt=0;
     this.gitBusy=false;
+    // `UX-25`: 마지막 status 응답이 **저장소의 것**이었나. 색이 비어 있어도(깨끗한
+    // 저장소) 참이다 — 삭제 뒤 복구 힌트가 "추적 중인 파일이었다" 를 판정하는 근거.
+    this.gitOn=false;
     // FR-ETR-5·6: 무시된 이름. 겹별 Set.
     this.ign=new Map();
     this.ignOff=false;

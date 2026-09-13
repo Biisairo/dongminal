@@ -150,6 +150,8 @@ class FileTree {
   set _dirOwn(v){ this.store.dirOwn=v }
   get _repoPrefix(){ return this.store.repoPrefix }
   set _repoPrefix(v){ this.store.repoPrefix=v }
+  get _gitOn(){ return this.store.gitOn }
+  set _gitOn(v){ this.store.gitOn=v }
   get _gitOff(){ return this.store.gitOff }
   set _gitOff(v){ this.store.gitOff=v }
   get _gitRetryAt(){ return this.store.gitRetryAt }

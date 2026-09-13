@@ -241,10 +241,13 @@ Object.assign(FileTree.prototype, {
 
     const dirs=[];
     for(const t of targets){const d=this._parent(t);if(!dirs.includes(d))dirs.push(d)}
+    // `UX-25`: 복구 길은 **지우기 전에** 판정한다 — 지운 뒤에는 상태가 없다.
+    const recover=targets.filter(t=>this._recoverable(t)).map(t=>this._repoRel(t));
     const snap=this._snap(dirs);
     for(const t of targets) this._optimDel(t);
     this._paintAll();
     let failed=null;
+    const done=[];
     for(const t of targets){
       const r=await this.app.edFs(FS_DELETE_API,{root:this.root,path:t});
       if(!r.ok){failed={path:t,msg:r.msg};continue}
@@ -252,7 +255,17 @@ Object.assign(FileTree.prototype, {
       // 않는다 — FR-EDT-84 에서 이미 밝혔다.
       await this.app.edCloseTabsUnder(t);
       this._forget(t);
+      done.push(this._repoRel(t));
     }
+    /**
+     * `UX-25` (`03 §P2` "파일 삭제는 영구인데 되돌릴 길이 없다"): **되돌릴 길이
+     * 있으면 알린다.** 확인창은 "영구" 라고 말하고 그것은 파일 시스템으로서는
+     * 참이지만, 추적 중이던 파일은 git 이 갖고 있다. 추적되지 않은 파일에는 그
+     * 길이 없으므로 띄우지 않는다 — 없는 길을 알리면 다음 사람이 그것을 믿는다.
+     * `Toast` 를 지나므로 라이브 리전에 든다 (FR-A11Y-19).
+     */
+    const hint=recover.filter(p=>done.includes(p));
+    if(hint.length) Toast.show(EDITOR_DEL_RECOVER_HINT.replace('%s',hint.join(' ')),'',TOAST_ERR_MS,{cls:'ed-del-hint'});
     if(failed){
       // 하나라도 실패했으면 낙관적 반영을 믿을 수 없다 — 서버의 답으로 다시 읽는다.
       this._restore(snap);
@@ -261,6 +274,15 @@ Object.assign(FileTree.prototype, {
     this._selOnly('');
     await this._after(dirs);
   },
+
+  // `UX-25`: git 이 되돌릴 수 있는 경로인가 — 저장소 안이고, 무시되지 않았고,
+  // 추적되지 않은 것(`?`)이 아니다. 폴더는 접어 올린 문자로 본다.
+  _recoverable(p){
+    if(!this._gitOn||this._isIgnored(p)) return false;
+    return this._stOf(p,this._kindOf(p))!==gitStateChar('untracked');
+  },
+  // 저장소 루트 기준 경로 — `git checkout -- <path>` 가 받는 형태.
+  _repoRel(p){ return (this._repoPrefix||'')+(this._rel(p)||this._base(p)) },
 
   /**
    * FR-WBR-70: 복사·붙여넣기·복제. 종단은 **하나**다 (`/api/fs/copy`) — 복제는

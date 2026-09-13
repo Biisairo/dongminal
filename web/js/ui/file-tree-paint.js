@@ -570,6 +570,7 @@ Object.assign(FileTree.prototype, {
    * 없는 경로가 접어 올림에 새어 들면 루트 폴더가 근거 없는 색을 얻는다.
    */
   _setStatus(st){
+    this._gitOn=!!st;
     const files=new Map(),dirs=new Map();
     const put=(arr,ch)=>{
       for(const e of arr||[]){
