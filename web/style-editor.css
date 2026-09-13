@@ -149,6 +149,10 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
 /* FR-EDT-68: 스크롤 주체는 트리 하나다. 행은 중첩 DOM 이 아니라 패딩으로 들여쓴
    평평한 목록이므로(FR-GIT-211 과 같은 규약) 재사용이 성립한다. */
 .ed-tree{flex:1 1 auto;min-height:0;overflow:auto;padding-bottom:6px}
+/* D-A11Y-11: 포커스는 컨테이너가 쥔다. 링은 컨테이너와 **가리키는 행** 둘에
+   그린다 — 컨테이너 둘레만으로는 어느 행인지 말하지 못한다. */
+.ed-tree:focus-visible{outline:1px solid var(--focus-ring);outline-offset:-1px}
+.ed-tree:focus-visible .ed-row.sel{outline:1px solid var(--focus-ring);outline-offset:-1px}
 .ed-tree::-webkit-scrollbar{width:4px}
 .ed-tree::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 .ed-row{

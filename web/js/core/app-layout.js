@@ -320,7 +320,7 @@ Object.assign(App.prototype, {
     delete tab.preview;
     // FR-EXR-59: 고정은 "이 파일에서 일하겠다" 다 — 탐색기가 쥔 포커스를 넘긴다
     // (FR-EXR-58 의 예외). 표명은 아래 render 가 소비한다.
-    this.edFocusWanted=true;
+    this.focusHandoff=true;
     this.render();
     this.save();
     return true;

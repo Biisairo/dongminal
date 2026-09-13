@@ -11,9 +11,9 @@
  * `.git-repo-xslot`)은 **표본**이었다 — 같은 화면을 파생으로 훑자 17종이 나왔다.
  * 손으로 적은 목록을 보는 검사는 손으로 적은 만큼만 본다.
  *
- * 그래서 표준 대화 요소를 DOM 에서 파생한다. `div` 로 만든 컨트롤 몇은 아직
- * `role`·`tabindex` 가 없어 파생에 잡히지 않으므로 이름으로 더한다 — `UX-4` 가
- * 그 셋에 역할을 주면 **이 목록은 지워진다**.
+ * 그래서 표준 대화 요소를 DOM 에서 파생한다. `UX-4` 가 목록·탭·트리에 역할을
+ * 주면서 "역할 없는 컨트롤" 목록은 사라졌다 — 남은 손 목록은 **포인터 전용
+ * 표식** 둘뿐이다 (아래 `POINTER_ONLY`).
  */
 import { Page } from '@playwright/test';
 
@@ -26,10 +26,11 @@ const MOBILE = { width: 390, height: 844 };
 const FLOOR = 44;
 
 /**
- * 아직 역할이 없는 `div` 컨트롤. `UX-4`(목록·탭·트리 팩토리에 `role`/`tabindex`)
- * 가 끝나면 아래 표준 선택자에 저절로 잡히고 이 배열은 사라진다.
+ * 접근성 트리에 **없는** 터치 타겟 (D-A11Y-10). `option`·`tab` 안의 `×` 는
+ * `aria-hidden` 이라 표준 선택자에 잡히지 않지만 손가락은 접근성 트리를 보지
+ * 않는다 — 키보드는 `Delete` 로 같은 일을 하고, 터치는 여전히 이 자리를 누른다.
  */
-const ROLELESS = ['.sbl-item', '.sbl-x', '.pn-tab', '.pn-tab-x', '.ed-row', '.git-repo-xslot'];
+const POINTER_ONLY = ['.sbl-x', '.pn-tab-x'];
 
 /** §6 E-3·E-4 — 가로가 면제되는 자리. 예외는 **표에서만** 온다 (FR-A11Y-29). */
 const WIDTH_EXEMPT = ['.mkb-btn', '.pn-tab-x'];
@@ -50,15 +51,15 @@ async function gotoMobile(page: Page) {
 /** 지금 보이는 대화 요소 중 하한에 못 미치는 것. */
 async function tooSmall(page: Page): Promise<Small[]> {
   return page.evaluate(
-    ({ FLOOR, ROLELESS, WIDTH_EXEMPT, VENDOR }) => {
+    ({ FLOOR, POINTER_ONLY, WIDTH_EXEMPT, VENDOR }) => {
       const STANDARD = [
         'button', 'a[href]', 'input:not([type=hidden])', 'select', 'textarea',
-        '[role=button]', '[role=tab]', '[role=option]', '[role=menuitem]', '[role=checkbox]',
+        '[role=button]', '[role=tab]', '[role=option]', '[role=treeitem]', '[role=menuitem]', '[role=checkbox]',
         '[tabindex]:not([tabindex="-1"])',
       ];
       const out: { at: string; w: number; h: number }[] = [];
       const seen = new Set<Element>();
-      for (const el of Array.from(document.querySelectorAll([...STANDARD, ...ROLELESS].join(',')))) {
+      for (const el of Array.from(document.querySelectorAll([...STANDARD, ...POINTER_ONLY].join(',')))) {
         if (seen.has(el)) continue;
         seen.add(el);
         if (VENDOR.some((v) => el.closest(v))) continue;
@@ -79,7 +80,7 @@ async function tooSmall(page: Page): Promise<Small[]> {
       for (const o of out) if (!by.has(o.at)) by.set(o.at, o);
       return [...by.values()].sort((a, b) => a.at.localeCompare(b.at));
     },
-    { FLOOR, ROLELESS, WIDTH_EXEMPT, VENDOR },
+    { FLOOR, POINTER_ONLY, WIDTH_EXEMPT, VENDOR },
   );
 }
 

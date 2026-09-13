@@ -131,6 +131,65 @@ const UIKit = {
   },
 
   /**
+   * ACCESSIBILITY_BASELINE_SRS FR-A11Y-16 (`UX-4`) — **목록·탭 줄의 키보드 계약이
+   * 한 자리에 있다** (roving tabindex, D-A11Y-11).
+   *
+   * 컨테이너 하나에 리스너 하나다. 항목은 그리기마다 다시 만들어질 수 있으므로
+   * (`reconcileList`) 항목에 걸지 않는다 — 탐색기가 같은 이유로 컨테이너에 건다
+   * (FR-EXR-51).
+   *
+   * spec:
+   *   items()        지금의 항목들, 보이는 순서. 컨테이너 여럿에 걸쳐도 된다
+   *                  (Repo 목록의 고정 행은 다른 컨테이너에 산다)
+   *   horizontal     탭 줄이면 ←→, 목록이면 ↑↓
+   *   activate(el)   Enter/Space. **클릭과 같은 일**이어야 한다 (D-A11Y-12)
+   *   remove(el)     Delete/Backspace. `×` 가 하는 일이다 (D-A11Y-10). 없으면 무시
+   *
+   * 끝에서 감싸지 않는다 — 탐색기의 `_moveSel` 이 잡는 것과 같은 규약이다.
+   */
+  roving(container, spec) {
+    // renderer 의 재포커스가 **키보드로 들어온** 포커스를 빼앗지 않는 표식.
+    container.classList.add('kb-nav');
+    container.addEventListener('keydown', (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      // 인라인 입력(이름 변경)의 키는 그 입력의 것이다 — `Enter` 가 확정이 아니라
+      // 활성화가 되고 `Backspace` 가 글자가 아니라 **행을 지운다** (FR-EXR-55 와
+      // 같은 규약; 실측으로 `V-TAN-6` 이 이렇게 빨개졌다).
+      if (e.target.closest && e.target.closest('input,textarea,select,[contenteditable]')) return;
+      const items = spec.items();
+      const cur = items.find((it) => it === e.target || it.contains(e.target));
+      if (!cur) return;
+      const i = items.indexOf(cur);
+      const [prev, next] = spec.horizontal ? ['ArrowLeft', 'ArrowRight'] : ['ArrowUp', 'ArrowDown'];
+      let to = null;
+      switch (e.key) {
+        case next: to = items[Math.min(items.length - 1, i + 1)]; break;
+        case prev: to = items[Math.max(0, i - 1)]; break;
+        case 'Home': to = items[0]; break;
+        case 'End': to = items[items.length - 1]; break;
+        case 'Enter': case ' ':
+          e.preventDefault(); spec.activate(cur); return;
+        case 'Delete': case 'Backspace':
+          if (!spec.remove) return;
+          e.preventDefault(); spec.remove(cur); return;
+        default: return;
+      }
+      e.preventDefault();
+      if (to && to !== cur) { UIKit.rove(items, to); to.focus() }
+    });
+  },
+
+  /**
+   * `Tab` 에 닿는 항목은 **하나**다 — `current` 가 항목이면 그것, 아니면 첫 항목.
+   * 그리기마다 부른다: 다시 만들어진 항목은 `tabindex=-1` 로 태어나므로 세우지
+   * 않으면 목록 전체가 `Tab` 에서 사라진다.
+   */
+  rove(items, current) {
+    const cur = current && items.includes(current) ? current : items[0];
+    for (const it of items) it.tabIndex = it === cur ? 0 : -1;
+  },
+
+  /**
    * ACCESSIBILITY_BASELINE_SRS FR-A11Y-18 (`UX-3`) — **모달의 접근성 계약이 한
    * 자리에 있다.**
    *

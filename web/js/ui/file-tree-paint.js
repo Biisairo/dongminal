@@ -788,8 +788,15 @@ Object.assign(FileTree.prototype, {
     });
     // FR-EXR-3: 루트의 선택은 **머리**가 보인다 — 뿌리에는 행이 없다(위 `_items`).
     this.head.classList.toggle('sel',this._sel===this.root);
+    // D-A11Y-11: 앵커가 행이면 그 행을 가리킨다. 루트·없음이면 가리키는 것이 없다.
+    const sel=this.list.querySelector('.ed-row.sel');
+    if(sel&&sel.id) this.list.setAttribute('aria-activedescendant',sel.id);
+    else this.list.removeAttribute('aria-activedescendant');
     this._focusInput();
   },
+
+  // 행의 id — 인스턴스 접두 + 경로. 공백이 id 에 설 수 없으므로 인코딩한다.
+  _rowId(p){ return this._uid+'-'+encodeURIComponent(p) },
 
   /**
    * FR-EDT-82: 이름 변경은 **확장자 앞까지** 미리 선택한다 — 바꾸려는 것은 거의
@@ -868,6 +875,13 @@ Object.assign(FileTree.prototype, {
       +(it.ignored?' ed-ignored':'');
     d.dataset.path=it.path; d.dataset.kind=it.kind;
     if(it.st) d.dataset.st=it.st;
+    // FR-A11Y-16 / D-A11Y-11: 평평한 트리의 `treeitem`. 값은 전부 서명에 든
+    // 것이므로(`_items`) 바뀌면 행이 다시 만들어져 속성도 따라온다.
+    d.id=this._rowId(it.path);
+    d.setAttribute('role','treeitem');
+    d.setAttribute('aria-level',String(it.depth+1));
+    d.setAttribute('aria-selected',it.sel?'true':'false');
+    if(it.kind==='dir') d.setAttribute('aria-expanded',it.open?'true':'false');
     // FR-EDT-85: 드래그 이동의 출발점. 링크도 옮길 수 있다 — 조작은 링크 **자신**을
     // 대상으로 삼는다 (D-21).
     d.draggable=true;

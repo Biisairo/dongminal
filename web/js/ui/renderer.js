@@ -536,14 +536,22 @@ class Renderer {
        *             되돌리는 **모든 자리**" 를 가리키며 여기가 그 하나다
        *
        * FR-EXR-59: 명시적으로 여는 손짓(더블클릭·`Enter`·생성 직후)은 예외다 —
-       * `edFocusWanted` 가 그 한 번을 표명한다. 판정을 이 자리 하나에 두는
+       * `focusHandoff` 가 그 한 번을 표명한다. 판정을 이 자리 하나에 두는
        * 이유는 여는 자리마다 `focus()` 를 부르면 그 자리가 여러 벌이 되기
        * 때문이다 (FR-EFP-5 가 겪은 형태).
+       *
+       * ACCESSIBILITY_BASELINE_SRS D-A11Y-12: 목록·탭 줄(`.kb-nav`)도 같은
+       * 함정이다 — 화살표로 훑는 동안 SSE 한 번이 포커스를 터미널로 끌고 간다.
+       * 다만 **키보드로 들어온 포커스**(`:focus-visible`)만 지킨다: 탭에
+       * `tabindex` 가 생기면 클릭도 탭에 포커스를 두는데, 그것까지 지키면
+       * 탭을 누른 뒤 터미널에 글자를 칠 수 없다. Enter 로 연 것은 `focusHandoff`
+       * 가 넘긴다 (`UIKit.roving` 의 activate).
        */
       const ae=document.activeElement;
-      const inTree=!app.edFocusWanted&&ae&&ae.closest&&ae.closest('.ed-explorer');
+      const held=!app.focusHandoff&&ae&&ae.closest&&(ae.closest('.ed-explorer')
+        ||(ae.closest('.kb-nav')&&ae.matches(':focus-visible')));
       const s=app.aw();
-      if(app.focused && !app.isMobile && s?.layout && !inTree){
+      if(app.focused && !app.isMobile && s?.layout && !held){
         const pn=findPane(s.layout,app.focused);
         if(pn){const tab=pn.tabs.find(t=>t.id===app.paneTab(pn));if(tab){
           // 포커스 슬롯의 인스턴스를 focus 한다 (FR-WSL-20).
@@ -553,7 +561,7 @@ class Renderer {
           // 표명은 **실제로 넘긴 때**만 지운다 — 여는 한 손짓이 render 를 여러 번
           // 부르므로(addTab·switchWindow·mobileShowPane), 읽을 때 지우면 탭이
           // 아직 활성이 아닌 첫 렌더가 그것을 먹는다.
-          app.edFocusWanted=false;
+          app.focusHandoff=false;
         }}
       }
       // After fit, panes have correct dimensions. Re-send sizes for the
@@ -1029,6 +1037,8 @@ class Renderer {
       // FR-RTU-41: 미리보기 탭은 기울임이다 — "이 자리는 곧 대체된다".
       t.className='pn-tab'+(active?' active':'')+(attn?' attn':'')+(isGit?' git':'')
         +(tab.preview?' '+REPO_PREVIEW_CLASS:'');
+      // FR-A11Y-16: 선택은 클래스와 **같은 것**을 말한다 (TC-A11Y-6b).
+      t.setAttribute('aria-selected',active?'true':'false');
       const name=this._tabDisplayName(tab);
       const lab=t.querySelector('.pn-tab-label');
       if(lab.textContent!==name) lab.textContent=name;
@@ -1039,9 +1049,17 @@ class Renderer {
     }
     // FR-GIT-180 / FR-EDT-54: Git·Editor 창에는 `+` 자리를 만들지 않는다 —
     // 눌리지만 아무 일도 하지 않는 버튼은 고장으로 읽힌다.
+    // D-A11Y-11: 탭은 `tablist` 안에, `+` 는 그 **옆**에 — tablist 의 자식은 tab
+    // 뿐이어야 한다. 둘 다 같은 바 안에 있으므로 함께 스크롤한다.
+    const list=tabs.firstChild;
+    this._place(list,kids);
     const aw=app.aw();
-    if(!(app.isGitWin(aw)||app.isEditorWin(aw))) kids.push(this._keep(key+'/add',()=>this._makeTabAdd()));
-    this._place(tabs,kids);
+    const bar=[list];
+    if(!(app.isGitWin(aw)||app.isEditorWin(aw))) bar.push(this._keep(key+'/add',()=>this._makeTabAdd()));
+    this._place(tabs,bar);
+    // `Tab` 에 닿는 탭은 하나다 — 포커스가 줄 안에 있으면 그 탭, 아니면 활성 탭.
+    const ae=document.activeElement;
+    UIKit.rove(kids,kids.includes(ae)?ae:kids.find(t=>t.classList.contains('active')));
   }
 
   // 탭 요소 하나와 그 배선. **여기서만 배선한다** (FR-PDR-7) — 지금 어느 pane 의
@@ -1049,8 +1067,12 @@ class Renderer {
   _makeTab(){
     const app=this.app;
     const t=document.createElement('div');
+    // D-A11Y-10: `×` 는 포인터 전용 표식이다 — `tab` 안의 컨트롤은 접근성 트리에
+    // 설 수 없다. 키보드는 탭에서 `Delete` 로 닫는다 (`_makePane` 의 roving).
     t.innerHTML='<span class="pn-tab-label"></span>'
-      +'<span class="pn-tab-x" title="'+TAB_CLOSE_TITLE+'">'+UIKit.iconHTML('x','ui-icon-sm')+'</span>';
+      +'<span class="pn-tab-x" aria-hidden="true" title="'+TAB_CLOSE_TITLE+'">'+UIKit.iconHTML('x','ui-icon-sm')+'</span>';
+    t.setAttribute('role','tab');
+    t.tabIndex=-1;
     t.draggable=true;
     const ctx=()=>{
       const pn=t.closest('.pn');
@@ -1150,10 +1172,27 @@ class Renderer {
     const el=document.createElement('div');
     el.className='pn';
     const tabs=document.createElement('div'); tabs.className='pn-tabs';
+    const list=document.createElement('div'); list.className='pn-tablist';
+    list.setAttribute('role','tablist');
+    tabs.appendChild(list);
     const body=document.createElement('div'); body.className='pn-body';
     el.appendChild(tabs); el.appendChild(body);
     const node=()=>(el._ctx&&el._ctx.node)||null;
     const slotOf=()=>(el._ctx&&el._ctx.slot)||0;
+    /**
+     * FR-A11Y-16 / D-A11Y-11·12: 키보드 계약은 `UIKit.roving` 이 갖는다. Enter 는
+     * 탭의 클릭이고 Delete 는 `×` 의 클릭이다 — 두 길이 같은 함수를 지난다.
+     * 활성이 아닌 탭을 고르면 포커스를 넘긴다 (마우스와 같다).
+     */
+    UIKit.roving(list,{
+      horizontal:true,
+      items:()=>[...list.querySelectorAll('.pn-tab')],
+      activate:t=>{
+        if(!t.classList.contains('active')) app.focusHandoff=true;
+        t.click();
+      },
+      remove:t=>{const x=t.querySelector('.pn-tab-x');if(x)x.click()},
+    });
     /**
      * FR-EXR-40~44: 탭 바의 **빈 여백** 더블클릭이 새 탭을 연다.
      *

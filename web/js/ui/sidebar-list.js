@@ -66,6 +66,10 @@ const SidebarList = {
     // 하기 때문이다. 행 안에 두면 순회가 그 값을 얻으려고 행을 만들어야 한다.
     const items = source.map(it => Object.assign({ key: d.key(it) }, d.row(app, it)));
     el.classList.toggle('empty', !items.length);
+    // FR-A11Y-16: 목록은 `listbox` 다 — 행이 있을 때만. 빈 안내는 `option` 이
+    // 아니므로 그때는 역할을 내린다 (자식 없는 listbox 는 결함으로 읽힌다).
+    if (items.length) { el.setAttribute('role', 'listbox'); el.setAttribute('aria-label', def.label || '') }
+    else { el.removeAttribute('role'); el.removeAttribute('aria-label') }
     if (!items.length) {
       // FR-BLP-4: 빈 목록 표시도 블루프린트의 것이다. 문구만 서술자가 준다.
       if (!main || !d.emptyText) { el.innerHTML = ''; return }
@@ -73,6 +77,10 @@ const SidebarList = {
       el.firstElementChild.textContent = d.emptyText;
       return;
     }
+    this._bindKeys(app, def, el);
+    // 다시 만들어질 행이 포커스를 쥐고 있으면 그 키를 기억해 둔다 (아래 `_rove`).
+    const ae = document.activeElement;
+    const held = ae && el.contains(ae) && ae.classList.contains('sbl-item') ? ae.dataset[RPT_KEY] : null;
     // FR-RPT-3 / FR-BLP-14: 목록을 비우고 다시 만들지 않는다. 이 함수는 폴링과
     // SSE 로도 불리므로, 요소를 새로 만들면 끌고 있던 항목이 DOM 에서 빠진다.
     reconcileList(el, items, {
@@ -80,6 +88,59 @@ const SidebarList = {
       sig: r => this._sig(r),
       build: r => this._build(app, def, r),
     });
+    this._rove(def, held);
+  },
+
+  // 서술자의 컨테이너 둘(목록·고정)에 걸친 행 전부, 보이는 순서. 키 이동은 이
+  // 순서를 따른다 — `entries()` 가 순회에 쓰는 순서와 같다 (FR-EDT-6).
+  _rows(d) {
+    const out = [];
+    for (const id of [d.containerId, d.fixedContainerId]) {
+      const el = id && document.getElementById(id);
+      if (el) for (const c of el.children) if (c.classList.contains('sbl-item')) out.push(c);
+    }
+    return out;
+  },
+
+  /**
+   * FR-A11Y-16 / D-A11Y-11·12: 키보드 계약은 `UIKit.roving` 이 갖는다. 컨테이너마다
+   * 한 번 건다 — 행에 걸면 reconcile 이 행을 다시 만들 때 함께 사라진다.
+   *
+   * Enter 는 **클릭 그 자체**다. 활성이 아닌 행을 열면 포커스를 넘긴다 — 마우스로
+   * 창을 고르면 터미널이 포커스를 받는 것과 같아야 한다. 이미 활성인 행은
+   * 그리기를 부르지 않으므로 표명하지 않는다.
+   */
+  _bindKeys(app, def, el) {
+    if (el._kbNav) return;
+    el._kbNav = true;
+    const d = def.list;
+    UIKit.roving(el, {
+      items: () => this._rows(d),
+      activate: row => {
+        if (!row.classList.contains('active')) app.focusHandoff = true;
+        row.click();
+      },
+      remove: row => { const x = row.querySelector('.sbl-x'); if (x) x.click() },
+    });
+  },
+
+  /**
+   * `Tab` 에 닿는 행은 하나다 — 포커스가 목록 안에 있으면 그 행, 아니면 활성 행.
+   *
+   * 다시 만들어진 행은 포커스를 **잃는다** (요소가 떨어져 나가면 `body` 로 간다).
+   * 같은 키의 새 행으로 되돌린다 — 되돌리지 않으면 Enter 한 번에 목록 밖으로
+   * 떨어지고, 넘긴 포커스(`focusHandoff`)는 그 뒤 렌더가 가져간다.
+   */
+  _rove(def, held) {
+    const rows = this._rows(def.list);
+    if (!rows.length) return;
+    let ae = document.activeElement;
+    if (held != null && (!ae || !ae.isConnected || ae === document.body)) {
+      const back = rows.find(r => r.dataset[RPT_KEY] === held);
+      if (back) { back.focus(); ae = back }
+    }
+    const cur = rows.includes(ae) ? ae : rows.find(r => r.classList.contains('active'));
+    UIKit.rove(rows, cur);
   },
 
   // 행의 **보이는 값 전부**다 (FR-RPT-2). 서술자가 row() 에 담은 것과 1:1 이므로
@@ -101,6 +162,11 @@ const SidebarList = {
       r.badge ? 'has-badge' : '']
       .filter(Boolean).join(' ');
     if (r.dataset) for (const k in r.dataset) if (r.dataset[k] != null) el.dataset[k] = r.dataset[k];
+    // FR-A11Y-16: 행은 `option` 이다. `Tab` 에 닿는 하나는 `_rove` 가 정한다 —
+    // 여기서는 전부 -1 로 태어난다 (D-A11Y-11).
+    el.setAttribute('role', 'option');
+    el.setAttribute('aria-selected', r.active ? 'true' : 'false');
+    el.tabIndex = -1;
     // FR-RAL-3: 툴팁은 **늘** 있다. 레일에서는 이름이 한 글자로 줄어들어(FR-RAL-2)
     // 툴팁이 전체 이름에 닿는 유일한 길이 되기 때문이다 — 조건부로 붙이면 창
     // 목록처럼 `title` 을 주지 않는 서술자가 레일에서 벙어리가 된다.
@@ -130,6 +196,9 @@ const SidebarList = {
     if (r.removable) {
       const x = document.createElement('span');
       x.className = ['sbl-x', d.xClass].filter(Boolean).join(' ');
+      // D-A11Y-10: 포인터 전용 표식이다 — `option` 안의 컨트롤은 접근성 트리에
+      // 설 수 없다. 키보드는 행에서 `Delete` 로 같은 일을 한다 (`_bindKeys`).
+      x.setAttribute('aria-hidden', 'true');
       // UI_KIT_SRS FR-GLY-4: 글자 `×` 가 아니라 아이콘이다. 클래스는 그대로
       // 남으므로 CSS 와 e2e 는 이 자리를 종전처럼 짚는다 (FR-UIK-10).
       x.appendChild(UIKit.icon('x', { size: 'sm' }));

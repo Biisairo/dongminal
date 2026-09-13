@@ -27,6 +27,8 @@
  * 루트마다 하나인 관측(`FileTreeStore`)은 file-tree-store.js 다.
  */
 class FileTree {
+  static _seq=0;
+
   constructor(app,win){
     this.app=app;
     this.winId=win.id;
@@ -69,7 +71,14 @@ class FileTree {
     // 주도권을 가져온다" 는 **포커스를 옮기는 일**이고 전역 핸들러를 바꾸는 일이
     // 아니다 — 전역 `keydown`(FR-EKB-1·4)은 탐색기를 의도적으로 담당하며 이
     // 스펙의 키와 겹치지 않는다 (EXPLORER_ROOT_KEYS_SRS §2.5).
-    this.el.tabIndex=0;
+    //
+    // ACCESSIBILITY_BASELINE_SRS D-A11Y-11: `Tab` 정지는 **트리**(`.ed-tree`)가
+    // 갖는다 — `role=tree` 는 머리의 버튼을 자식으로 둘 수 없다. 이 요소는 -1 로
+    // 남아 머리를 누른 손이 포커스를 여기 두고 키를 계속 쓸 수 있게 한다.
+    this.el.tabIndex=-1;
+    // ACCESSIBILITY_BASELINE_SRS D-A11Y-11: 행의 id 접두. 같은 루트를 두 칸에
+    // 보이면 같은 경로의 행이 둘이므로 인스턴스마다 다르다.
+    this._uid='edt'+(++FileTree._seq);
     this.head=this._head();
     this.el.appendChild(this.head);
     // FR-EXR-2: 머리도 루트다 — 드롭이 이미 그렇게 읽는다 (FR-FTR-20). 머리는
@@ -100,6 +109,12 @@ class FileTree {
     });
     this.list=document.createElement('div');
     this.list.className='ed-tree';
+    // FR-A11Y-16 / D-A11Y-11: 트리는 컨테이너가 포커스를 쥐고 선택된 행을
+    // `aria-activedescendant` 로 가리킨다 (`paint`). 행이 포커스를 갖지 않는
+    // 이유는 reconcile 이 선택마다 행을 다시 만들기 때문이다 (FR-EXR-51).
+    this.list.tabIndex=0;
+    this.list.setAttribute('role','tree');
+    this.list.setAttribute('aria-label',this.app.edName(this.root));
     this.el.appendChild(this.list);
 
     // 행은 reconcile 로 다시 만들어질 수 있다 — 리스너는 컨테이너 하나에만 건다.
@@ -237,7 +252,7 @@ class FileTree {
       if(!this._focusOwn||!this.el.isConnected) return;
       const cur=document.activeElement;
       if(cur&&cur!==document.body) return;
-      this.el.focus();
+      this.list.focus();
     },{owner:this,label:'tree-focus'});
   }
 
