@@ -28,7 +28,7 @@ P6 CLI 계약 → P7 분리·중복·죽은 코드·테스트 결정성). 인계
 | 500줄 초과 Go 파일 | 26 → 20 (지목 다섯 `tool.go`·`handlers_fs.go`·`handlers_runs.go`·`worktree.go`·`doctor.go` + `main.go` 전부 500 아래) |
 | 새 패키지 | `internal/shared/pollwait` · `internal/shared/gittest`(테스트 전용) |
 | 동작 변경 (P7) | D-A-14 `..` 조각 판정 · D-A-15 stop 대기 · D-A-16 데몬 RPC 오류가 오류로 · D-A-23 오류 세션 회수 · D-A-27 `submodule update` 작업 — 각 결정에 이전/새/이유 |
-| 커밋 | P7 단계 종료 커밋 `__HASH__` |
+| 커밋 | P7 단계 종료 커밋 `fc6db80` |
 
 ## M8 이 사유와 함께 남긴 것 (다음 마일스톤의 후보)
 

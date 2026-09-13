@@ -655,4 +655,5 @@ d05eee9  feat(m8): P1 — Go 부채 ①~④ + TEST-8
 0306db4  feat(m8): P4 — 축 C-b, codex·omp 어댑터 (같은 Proto 구조체, 가짜 세 프로토콜, 대조 잡)
 e6f9037  feat(m8): P5 — 축 C-c 묶음 B, 이벤트 로그 디스크·요약 스냅샷·휴면·재개·오류 상태
 251bc30  feat(m8): P6 — 축 A ⑤ CLI 계약, dmctl 예산·delivered 판정·codex 표면 실측·run delete/graph·cwd 400·붙여넣기 인용
+fc6db80  feat(m8): P7 — 축 A ⑥·⑦, 파일 분리·serve Build/Run/Shutdown·doctor 표·중복 6건·Sync 죽은 코드·FBE-08 작업 경로·gittest·셸 고정·RPC 오류 코드
 ```
