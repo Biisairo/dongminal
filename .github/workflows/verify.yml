@@ -134,6 +134,15 @@ jobs:
       - name: 제3자 자산 판 기록
         run: scripts/check-vendor.sh
 
+      # 에이전트 이름의 소유권 (AGENT_ADAPTER_COMPLETION_SRS FR-AAC-31·32).
+      #
+      # **이 게이트는 CI 에 없었다** (M7 셋째 세션 실측). Makefile 에만 있었고,
+      # Makefile 머리말이 금지한 바로 그 상태다 — 로컬에서 잡히는 것을 CI 가 놓치고
+      # 그 차이는 밀어 보고 나서야 드러난다. M7 둘째 세션이 같은 부류 둘을 고칠 때
+      # 이 하나를 놓쳤다("게이트는 두 자리에 들어가야 끝난다" 의 세 번째 사례).
+      - name: 에이전트 이름
+        run: scripts/check-agent-names.sh
+
       # 환경변수 문서 대조 (CONFIG_MANAGEMENT_SRS FR-CFG-18 · M5 `G5-2`).
       #
       # 문서는 **조용히** 낡는다. 이 검사가 없던 동안 여섯이 표 밖에 있었고,
