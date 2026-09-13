@@ -177,7 +177,11 @@ const BORDER_STRONG_MIX=.35;
 // 값을 바꿀 때는 border·accent·bg 세 축의 거리를 함께 확인한다 (FR-STB-23).
 const SLOT_EDGE_MIX=.55;
 
-function applyThemeObj(t){
+/**
+ * SYSTEM_THEME_FOLLOW_SRS FR-STF-6: 맵 **계산**은 적용과 분리된다 — 반대 모드의
+ * 슬롯은 화면에 닿지 않고 계산돼 캐시로만 간다 (FR-STF-5).
+ */
+function themeVarsOf(t){
   const ui=t.ui;
   // 주의 알림색은 팔레트 중 accent(포커스)와 가장 대비되는 색 — 포커스와 겹치지 않게 (FR-PAN-10)
   const attn=pickAttnColor(t);
@@ -239,10 +243,30 @@ function applyThemeObj(t){
   // FR-DRV-13d: 구문 강조색을 **실제로** 터미널 팔레트에서 세운다. 그 주석이
   // 약속한 지 오래인데 파생이 없어 여섯 다 폴백으로 떨어지고 있었다.
   if(aa.syntax) for(const k in aa.syntax) vars['--term-'+k]=aa.syntax[k];
+  return vars;
+}
+
+/** 시스템 모드 — `dark`/`light`. 선주입(`index.html`)이 같은 질의를 읽는다. */
+function systemColorMode(){
+  return (typeof matchMedia==='function'&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light';
+}
+
+function applyThemeObj(t){
+  const ui=t.ui;
+  const vars=themeVarsOf(t);
   const s=document.documentElement.style;
   for(const k in vars) s.setProperty(k,vars[k]);
   // FR-BTS-2: 기록 실패는 다음 부팅의 첫 페인트가 기본값이 된다는 뜻일 뿐이다.
-  try{localStorage.setItem(THEME_VARS_KEY,JSON.stringify(vars))}catch{}
+  // FR-STF-5: 추종이 켜져 있으면 **두 슬롯의 맵**을 캐시한다 — 선주입이 시스템
+  // 모드로 하나를 고른다. 꺼져 있으면 종전 키 하나이고 스위치 키는 지운다.
+  try{
+    localStorage.setItem(THEME_VARS_KEY,JSON.stringify(vars));
+    if(typeof themeFollowSystem!=='undefined'&&themeFollowSystem&&THEMES[themeNameDark]&&THEMES[themeNameLight]){
+      localStorage.setItem(THEME_FOLLOW_KEY,'1');
+      localStorage.setItem(THEME_VARS_KEY+'.dark',JSON.stringify(themeVarsOf(THEMES[themeNameDark])));
+      localStorage.setItem(THEME_VARS_KEY+'.light',JSON.stringify(themeVarsOf(THEMES[themeNameLight])));
+    }else localStorage.removeItem(THEME_FOLLOW_KEY);
+  }catch{}
   TOPTS.theme=t.terminal;
   document.getElementById('area').style.background=ui.bg;
   for(const p of app.tools.values()){if(p.term)p.term.options.theme=t.terminal}

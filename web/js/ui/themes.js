@@ -279,6 +279,11 @@ const THEMES={
 };
 
 var currentThemeName='Tokyo Night';
+// SYSTEM_THEME_FOLLOW_SRS FR-STF-1 / D-STF-1: 추종 스위치와 모드별 슬롯 둘.
+// `currentThemeName` 을 없애지 않는다 — 추종이 꺼진 블롭은 그 이름 하나로 산다.
+var themeFollowSystem=false;
+var themeNameDark='Tokyo Night';
+var themeNameLight='GitHub Light';
 var customTheme=null; // {ui:{...}, terminal:{...}} or null
 
 // Set TOPTS initial theme now that THEMES is defined

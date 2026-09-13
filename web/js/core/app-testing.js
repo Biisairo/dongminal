@@ -108,6 +108,8 @@ const APP_TESTING_NAMES = [
   '_applyPageTitle', '_lspDefLangs', '_lspOnDiagnostics', '_mKbH', 'modKbd', '_mobileVvApply',
   '_scheduleMobileFit', 'resizeCheck',
   '_lspHoverLangs', '_lspRootOfPath',
+  // SYSTEM_THEME_FOLLOW_SRS TC-STF-1·2: 슬롯을 읽고 세운다.
+  'themeSlots', 'setThemeSlots',
 ];
 
 /**

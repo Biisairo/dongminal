@@ -1,3 +1,5 @@
+import { Page } from '@playwright/test';
+
 import { test, expect, waitForInit } from './fixtures';
 
 test.describe('Theme & settings', () => {
@@ -159,5 +161,83 @@ test.describe('디자인 토큰 — 파생이 테마를 따른다 (FR-TOK-13)', 
 
     // 테마는 설정으로 영속한다 — 뒤 스펙에 흘리지 않게 되돌린다.
     await apply("(function(){applyThemeObj(THEMES['" + BASE + "']);return ''})()");
+  });
+});
+
+// SYSTEM_THEME_FOLLOW_SRS — TC-STF-1·2·3 (로드맵 M7 `UX-19`).
+test.describe('시스템 다크/라이트 추종 (FR-STF-1~8)', () => {
+  const bgOf = (page: Page) => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
+  const uiBg = (page: Page, name: string) => page.evaluate<string>("THEMES[" + JSON.stringify(name) + "].ui.bg");
+  const DARK = 'Tokyo Night', LIGHT = 'GitHub Light';
+
+  // 설정은 서버에 남는다 — 다음 스펙이 추종이 켜진 채로 시작하지 않게 끝에 끈다.
+  test.afterEach(async ({ page }) => { await follow(page, false) });
+
+  async function follow(page: Page, on: boolean) {
+    if (!(await page.locator('#modal-overlay.open').count())) await page.click('#settings-btn');
+    await expect(page.locator('#modal-overlay')).toBeVisible();
+    await page.click('.mtab[data-tab="theme"]');
+    const cb = page.locator('#ds-theme-follow');
+    if ((await cb.isChecked()) !== on) {
+      const put = page.waitForResponse((r) => r.url().includes('/api/settings') && r.request().method() === 'PUT');
+      await cb.click();
+      await put;
+    }
+  }
+
+  test('TC-STF-1: 시스템 모드가 바뀌면 새로고침 없이 슬롯의 테마가 적용된다', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await waitForInit(page);
+    await follow(page, true);
+    await page.evaluate((n) => { const a = (window as any).app; a.testing.setThemeSlots({ dark: n[0], light: n[1] }) }, [DARK, LIGHT]);
+    await expect.poll(() => bgOf(page)).toBe(await uiBg(page, DARK));
+    await page.emulateMedia({ colorScheme: 'light' });
+    await expect.poll(() => bgOf(page), { timeout: 5000 }).toBe(await uiBg(page, LIGHT));
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await expect.poll(() => bgOf(page), { timeout: 5000 }).toBe(await uiBg(page, DARK));
+  });
+
+  test('TC-STF-2: 추종 중 반대 모드의 테마를 고르면 그 슬롯만 바뀌고 화면은 그대로다', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await waitForInit(page);
+    await follow(page, true);
+    await page.evaluate((n) => { (window as any).app.testing.setThemeSlots({ dark: n[0], light: n[1] }) }, [DARK, LIGHT]);
+    const darkBg = await uiBg(page, DARK);
+    await expect.poll(() => bgOf(page)).toBe(darkBg);
+    const put = page.waitForResponse((r) => r.url().includes('/api/settings') && r.request().method() === 'PUT');
+    await page.locator('#theme-list .tl-item', { hasText: 'Solarized Light' }).click();
+    await put;
+    expect(await bgOf(page)).toBe(darkBg);
+    const slots = await page.evaluate(() => (window as any).app.testing.themeSlots());
+    expect(slots).toEqual({ dark: DARK, light: 'Solarized Light' });
+    // 반대 모드의 슬롯은 목록에 표시된다 — 적용 중이 아니어도 고른 것이 보인다.
+    await expect(page.locator('#theme-list .tl-item.slot', { hasText: 'Solarized Light' })).toHaveCount(1);
+  });
+
+  test('TC-STF-3: 첫 페인트가 시스템 모드의 슬롯으로 선다 — 두 모드 다', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await waitForInit(page);
+    await follow(page, true);
+    await page.evaluate((n) => { (window as any).app.testing.setThemeSlots({ dark: n[0], light: n[1] }) }, [DARK, LIGHT]);
+    await expect.poll(() => bgOf(page)).toBe(await uiBg(page, DARK));
+    const lightBg = await uiBg(page, LIGHT), darkBg = await uiBg(page, DARK);
+    for (const [scheme, want] of [['light', lightBg], ['dark', darkBg]] as const) {
+      await page.emulateMedia({ colorScheme: scheme });
+      // 선주입이 세운 값을 **스크립트가 얹기 전에** 읽는다 — `<head>` 인라인이
+      // 끝난 시점의 인라인 스타일이 첫 페인트다.
+      await page.addInitScript(() => {
+        // 문서가 아직 없을 수 있으므로 요소를 보지 않고 **첫 `setProperty('--bg')`**
+        // 를 가로챈다 — 그것이 곧 선주입이 세운 첫 페인트의 값이다.
+        const orig = CSSStyleDeclaration.prototype.setProperty;
+        CSSStyleDeclaration.prototype.setProperty = function (k: string, v: string | null, pr?: string) {
+          if (k === '--bg' && !(window as any).__firstBg) (window as any).__firstBg = String(v).trim();
+          return orig.call(this, k, v, pr);
+        };
+      });
+      await page.reload();
+      await waitForInit(page);
+      expect(await page.evaluate(() => (window as any).__firstBg), scheme + ' 의 첫 페인트').toBe(want);
+      expect(await bgOf(page), scheme + ' 의 최종').toBe(want);
+    }
   });
 });

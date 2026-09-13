@@ -32,6 +32,8 @@ const DEFAULT_PAGE_TITLE='Dongminal';
 // 보다 먼저 돌므로 **키 문자열이 그쪽에도 리터럴로 적혀 있다**. 바꿀 때는 둘을
 // 함께 바꾼다 (FR-BTS-3).
 const THEME_VARS_KEY='dm.themeVars';
+// SYSTEM_THEME_FOLLOW_SRS FR-STF-5: 선주입이 두 맵 중 하나를 고를지의 스위치.
+const THEME_FOLLOW_KEY='dm.themeFollow';
 // 걷힘 애니메이션. 화면이 이미 준비된 뒤의 시간이므로 짧다.
 const BOOT_FADE_MS=180;
 // FR-BTS-14: 준비 신호가 오지 않아도 이 시간이 지나면 걷는다. 서버가 답하지

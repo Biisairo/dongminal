@@ -43,7 +43,10 @@ const SETTINGS_SCHEMA = [
   {"key":"tabFixedWidth","type":"bool","def":false,"where":"Display ▸ 탭 너비 고정"},
   {"key":"tabWidthPx","type":"int","def":160,"min":40,"max":480,"where":"Display ▸ 탭 너비"},
   {"key":"focusEdgeLevel","type":"int","def":5,"min":0,"max":10,"where":"Display ▸ 비활성 창 가장자리"},
-  {"key":"attnEdgeLevel","type":"int","def":5,"min":0,"max":10,"where":"Display ▸ 알림 가장자리"}
+  {"key":"attnEdgeLevel","type":"int","def":5,"min":0,"max":10,"where":"Display ▸ 알림 가장자리"},
+  {"key":"themeFollowSystem","type":"bool","def":false,"where":"Theme ▸ 시스템 추종"},
+  {"key":"themeNameDark","type":"string","def":"Tokyo Night","where":"Theme ▸ 다크 슬롯"},
+  {"key":"themeNameLight","type":"string","def":"GitHub Light","where":"Theme ▸ 라이트 슬롯"}
 ];
 
 const SETTINGS_BY_KEY=Object.fromEntries(SETTINGS_SCHEMA.map(s=>[s.key,s]));

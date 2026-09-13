@@ -97,6 +97,11 @@ const SETTINGS_ACCESS={
     this._paintAttnEdge();
     this._attnRefresh();
   }},
+  // SYSTEM_THEME_FOLLOW_SRS FR-STF-1: 얹는 것은 값뿐이다 — 어느 테마를 적용할지는
+  // `_settingsApply` 의 테마 갈래가 셋을 함께 보고 정한다 (`_applyThemeChoice`).
+  themeFollowSystem:{get:()=>themeFollowSystem,set(v){themeFollowSystem=!!v}},
+  themeNameDark:{get:()=>themeNameDark,set(v){if(THEMES[v]) themeNameDark=v}},
+  themeNameLight:{get:()=>themeNameLight,set(v){if(THEMES[v]) themeNameLight=v}},
 };
 
 
@@ -180,8 +185,10 @@ Object.assign(App.prototype, {
     }
     // 테마는 두 키가 한 쌍이라 표 밖에 남는다 — **사용자 정의가 이름을 이긴다.**
     // 표를 돌며 각자 얹으면 순서에 따라 답이 갈린다.
-    if(saved.customTheme){customTheme=saved.customTheme;applyThemeObj(customTheme)}
-    else if(saved.themeName&&THEMES[saved.themeName]){customTheme=null;currentThemeName=saved.themeName;applyThemeObj(THEMES[currentThemeName])}
+    if(saved.customTheme){customTheme=saved.customTheme}
+    else if(saved.themeName&&THEMES[saved.themeName]){customTheme=null;currentThemeName=saved.themeName}
+    // FR-STF-2·7: 추종이 켜져 있으면 슬롯이 이기고, 사용자 정의는 남되 적용되지 않는다.
+    this._applyThemeChoice();
     // 설정 변경은 감지 계층의 재평가 시점이다 (FR-GIT-23). 이 계층만 따로인
     // 이유는 백오프·소실 판정·활성 저장소 판정을 함께 쥐고 있어 주기만 떼어 올
     // 수 없기 때문이다 (FR-PIS-15).
@@ -255,6 +262,7 @@ Object.assign(App.prototype, {
   },
 
   initModal(){
+    this._initThemeFollow();   // FR-STF-2
     const overlay=document.getElementById('modal-overlay');
     const modal=document.getElementById('modal');
     /**

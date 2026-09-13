@@ -267,7 +267,7 @@
 
 | ID | 확인 |
 |---|---|
-| TC-CFG-4 | Go 가 embed 된 표를 읽어 20개 서술자를 얻는다 |
+| TC-CFG-4 | Go 가 embed 된 표를 읽어 서술자를 얻는다 — 착수 시 20개, `SYSTEM_THEME_FOLLOW_SRS`(M7 `UX-19`)가 셋을 더해 23개 |
 | TC-CFG-5 | 표의 키가 `SETTINGS_PORTABILITY_SRS §3.1` 의 서버 계층과 모순되지 않는다 |
 
 ### 4.3 우선순위 (unit, Go)

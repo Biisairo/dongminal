@@ -5,9 +5,61 @@
  * 이유는 44개 테마의 목록과 **그것을 고치는 편집기**가 함께 있어야 하기 때문이다.
  */
 Object.assign(App.prototype, {
+  /**
+   * SYSTEM_THEME_FOLLOW_SRS FR-STF-2·4·7: 세 이름 중 **무엇을 적용할지** 정하는
+   * 자리 하나. 추종이 켜져 있으면 시스템 모드의 슬롯, 아니면 사용자 정의 →
+   * `currentThemeName` 순이다 (기존 규약: 사용자 정의가 이름을 이긴다).
+   */
+  _applyThemeChoice(){
+    if(themeFollowSystem){
+      const name=systemColorMode()==='dark'?themeNameDark:themeNameLight;
+      const t=THEMES[name]; if(t){currentThemeName=name;applyThemeObj(t);return}
+    }
+    applyThemeObj(customTheme||THEMES[currentThemeName]);
+  },
+
+  /** FR-STF-2: 시스템 모드가 바뀌면 그 자리에서 다시 고른다 — 새로고침이 없다. */
+  _initThemeFollow(){
+    if(typeof matchMedia!=='function') return;
+    const mq=matchMedia('(prefers-color-scheme: dark)');
+    const on=()=>{if(themeFollowSystem){this._applyThemeChoice();this._renderThemePanel()}};
+    if(mq.addEventListener) mq.addEventListener('change',on); else if(mq.addListener) mq.addListener(on);
+  },
+
+  /** e2e 계약 — 슬롯을 읽고 세운다 (APP_TESTING_CONTRACT). */
+  themeSlots(){return {dark:themeNameDark,light:themeNameLight}},
+  setThemeSlots(s){
+    if(s&&THEMES[s.dark]) themeNameDark=s.dark;
+    if(s&&THEMES[s.light]) themeNameLight=s.light;
+    this._applyThemeChoice(); this._renderThemePanel(); this.saveSettings();
+  },
+
   _renderThemePanel(){
     const list=document.getElementById('theme-list'); list.innerHTML='';
-    const activeName=customTheme?null:currentThemeName;
+    // FR-STF-8: 스위치는 목록 위의 `.ds-row` 하나 — 이름은 구조에서 파생한다.
+    const head=document.getElementById('theme-follow-row');
+    if(head){
+      const cb=head.querySelector('#ds-theme-follow');
+      cb.checked=themeFollowSystem;
+      if(!cb._bound){
+        cb._bound=true;
+        cb.addEventListener('change',()=>{
+          themeFollowSystem=cb.checked;
+          // FR-STF-4: 켜는 순간 지금 테마가 자기 모드의 슬롯에 들어간다.
+          if(themeFollowSystem&&!customTheme){
+            const t=THEMES[currentThemeName];
+            if(t&&t.mode==='light') themeNameLight=currentThemeName; else if(t) themeNameDark=currentThemeName;
+          }
+          this._applyThemeChoice(); this._renderThemePanel(); this.saveSettings();
+        });
+      }
+      // FR-STF-7: 사용자 정의가 있는데 추종이 켜져 있으면 그것은 적용되지 않는다.
+      const hint=head.nextElementSibling;
+      if(hint&&hint.classList.contains('ds-hint')) hint.hidden=!(themeFollowSystem&&customTheme);
+    }
+    const activeName=customTheme&&!themeFollowSystem?null:currentThemeName;
+    // FR-STF-3: 반대 모드의 슬롯도 보인다 — 적용 중이 아니어도 고른 것이다.
+    const slotName=themeFollowSystem?(systemColorMode()==='dark'?themeNameLight:themeNameDark):null;
     // `G7-1` 첫 판: 스크롤 영역에 키보드가 닿아야 한다(axe `scrollable-region-
     // focusable`) — 그리고 테마를 **고르는** 일도 키보드로 되어야 한다 (2.1.1).
     // 목록은 listbox, 항목은 option, 키 계약은 `UIKit.roving` 한 벌이다 (D-A11Y-11).
@@ -39,7 +91,7 @@ Object.assign(App.prototype, {
       for(const name of names){
         const t=THEMES[name];
         const item=document.createElement('div');
-        item.className='tl-item'+(name===activeName?' active':'');
+        item.className='tl-item'+(name===activeName?' active':'')+(name===slotName?' slot':'');
         item.setAttribute('role','option');
         item.setAttribute('aria-selected',name===activeName?'true':'false');
         item.tabIndex=-1;
@@ -59,6 +111,13 @@ Object.assign(App.prototype, {
         label.textContent=name;
         item.appendChild(dots); item.appendChild(label);
         item.addEventListener('click',()=>{
+          // FR-STF-3: 추종 중에는 그 테마의 모드에 맞는 슬롯이 바뀐다 — 지금
+          // 시스템 모드와 같은 쪽이면 즉시 적용되고, 아니면 저장만 된다.
+          if(themeFollowSystem){
+            if(t.mode==='light') themeNameLight=name; else themeNameDark=name;
+            this._applyThemeChoice(); this._renderThemePanel(); this.saveSettings();
+            return;
+          }
           currentThemeName=name; customTheme=null;
           applyThemeObj(t); this._renderThemePanel(); this._hideCustomEditor();
           this.saveSettings();

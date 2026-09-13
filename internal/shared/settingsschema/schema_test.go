@@ -13,8 +13,9 @@ func TestLoadReadsEmbeddedTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if len(specs) != 20 {
-		t.Fatalf("서술자 %d개, 기대 20개", len(specs))
+	// 23 = 착수 시 20 + SYSTEM_THEME_FOLLOW_SRS FR-STF-1 의 셋 (M7 `UX-19`).
+	if len(specs) != 23 {
+		t.Fatalf("서술자 %d개, 기대 23개", len(specs))
 	}
 	by := settingsschema.ByKey(specs)
 	for _, k := range []string{"themeName", "tabWidthPx", "attnEdgeLevel", "gitStatusInterval"} {

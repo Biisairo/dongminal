@@ -795,6 +795,8 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .tl-item:last-child{border-bottom:none}
 .tl-item:hover{background:var(--accent-hover)}
 .tl-item.active{background:var(--accent-active)}
+/* FR-STF-3: 추종 중 반대 모드의 슬롯 — 적용 중이 아니어도 고른 것이 보인다 */
+.tl-item.slot{box-shadow:inset 2px 0 0 var(--accent)}
 .tl-section{
   font-size:var(--fs-xs);letter-spacing:.12em;color:var(--text-muted);
   padding:8px 10px 4px;border-bottom:1px solid var(--border);
