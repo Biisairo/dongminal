@@ -209,8 +209,8 @@ Object.assign(App.prototype, {
     // 일관되어야 한다 — 한가한 셸까지 보존하면 백그라운드가 쓰레기로 찬다.
     let keep=new Set();
     if(busyChecks.some(Boolean)){
-      const r=await this._confirmClose('실행 중인 프로세스가 있습니다. 창을 닫으시겠습니까?',
-        {bgBtn:true,bgLabel:'실행 중인 것만 백그라운드로'});
+      const r=await this._confirmClose(t('core.q_close_window'),
+        {bgBtn:true,bgLabel:t('core.bg_running_only')});
       if(!r) return;
       if(r==='background'){
         for(let i=0;i<pids.length;i++) if(busyChecks[i]) keep.add(pids[i]);
@@ -682,7 +682,7 @@ Object.assign(App.prototype, {
       // 뒤이며, 그러고도 도는 프로세스에 확인창을 띄우면 무인 정리가 그 자리에서
       // 막힌다. 사용자의 결정은 `dmctl run close` 를 부른 순간에 이미 있었다.
       if(tab.toolId && !opts.keepTool && !opts.force && await this._isToolBusy(tab.toolId)){
-        const r=await this._confirmClose('실행 중인 프로세스가 있습니다. 탭을 닫으시겠습니까?',
+        const r=await this._confirmClose(t('core.q_close_tab'),
           {bgBtn:toolBackgroundCapable(tab.type)});
         if(!r) return;
         if(r==='background') opts={...opts,keepTool:true};

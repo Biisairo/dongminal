@@ -76,7 +76,7 @@ const SB_TAB_DEFS=[
         // 창에만 붙는다 (복사한 것이 없으면 뜻이 없다).
         badge:s.sandbox?{text:'▣ '+s.sandbox+(s.sandboxCopy?' · '+SANDBOX_COPY_BADGE:''),
           cls:'si-sbx',
-          title:'샌드박스 창 — 이 창의 도구는 컨테이너 안에서 돕니다'
+          title:t('sbx.window_badge_title')
             +(s.sandboxCopy?String.fromCharCode(10)+SANDBOX_COPY_BADGE_TITLE:'')}:null,
         removable:true,
         dataset:{sid:s.id,windowType:s.type||WINDOW_TYPE_TERMINAL},
@@ -183,7 +183,7 @@ const SB_TAB_DEFS=[
           badge:(b&&b.total>0)?{
             text:String(b.total),
             cls:stale?'stale':'',
-            title:stale?'최신 아님 (마지막 관측: '+new Date(b.observedAtUnixMs).toLocaleTimeString()+')':'',
+            title:stale?t('git.badge_stale',{at:new Date(b.observedAtUnixMs).toLocaleTimeString()}):'',
           }:null,
           fixed:pinned,
           removable:!pinned,
@@ -228,7 +228,7 @@ function sbTabAction(i){return 'sidebarTab'+(i+1)}
 for(let i=0;i<SB_TAB_DEFS.length&&i<9;i++){
   const k=sbTabAction(i);
   SHORTCUT_DEFAULTS[k]='Ctrl+Shift+Digit'+(i+1);
-  SHORTCUT_LABELS[k]='사이드바 탭: '+SB_TAB_DEFS[i].label;
+  SHORTCUT_LABELS[k]=t('shortcut.sidebar_tab',{label:SB_TAB_DEFS[i].label});
   shortcuts[k]=SHORTCUT_DEFAULTS[k];
 }
 /**

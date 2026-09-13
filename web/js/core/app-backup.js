@@ -70,7 +70,7 @@ Object.assign(App.prototype, {
     {
       const r=await apiGet('/api/settings');
       if(!r.ok||!r.data){
-        this._bkMsg('설정을 읽지 못해 내보내지 않았습니다 (HTTP '+r.status+')','err');
+        this._bkMsg(t('backup.export_read_fail',{status:r.status}),'err');
         return false;
       }
       server=r.data;
@@ -83,7 +83,7 @@ Object.assign(App.prototype, {
     a.href=url; a.download=this._bkFileName(now);
     document.body.appendChild(a); a.click(); a.remove();
     TIMERS.defer(()=>URL.revokeObjectURL(url),{label:'revoke-url'});
-    this._bkMsg('내보냈습니다 — '+a.download,'ok');
+    this._bkMsg(t('backup.exported',{name:a.download}),'ok');
     return true;
   },
 
@@ -97,13 +97,13 @@ Object.assign(App.prototype, {
   _bkParse(text){
     let env;
     try{env=JSON.parse(text)}
-    catch{return {err:'JSON 파일이 아닙니다'}}
-    if(!env||typeof env!=='object'||Array.isArray(env)) return {err:'JSON 파일이 아닙니다'};
-    if(env.kind!==BACKUP_KIND) return {err:'dongminal 설정 파일이 아닙니다'};
+    catch{return {err:t('backup.not_json')}}
+    if(!env||typeof env!=='object'||Array.isArray(env)) return {err:t('backup.not_json')};
+    if(env.kind!==BACKUP_KIND) return {err:t('backup.not_ours')};
     const v=Number(env.version);
-    if(!(v>=1)) return {err:'dongminal 설정 파일이 아닙니다'};
-    if(v>BACKUP_VERSION) return {err:'더 새로운 판의 설정 파일입니다 (v'+env.version+')'};
-    if(!env.server||typeof env.server!=='object'||Array.isArray(env.server)) return {err:'설정 내용이 없습니다'};
+    if(!(v>=1)) return {err:t('backup.not_ours')};
+    if(v>BACKUP_VERSION) return {err:t('backup.newer_version',{v:env.version})};
+    if(!env.server||typeof env.server!=='object'||Array.isArray(env.server)) return {err:t('backup.no_content')};
     return {env};
   },
 
@@ -115,15 +115,13 @@ Object.assign(App.prototype, {
       const cur=store==='session'?session:local;
       return cur[key]!==undefined && (!src||src[key]===undefined);
     }).length;
-    const when=env.exportedAt?new Date(env.exportedAt).toLocaleString():'시각 없음';
+    const when=env.exportedAt?new Date(env.exportedAt).toLocaleString():t('backup.no_time');
     const lines=[
-      '내보낸 시각: '+when,
-      '설정 항목: '+Object.keys(env.server).length+'개(서버) · '
-        +Object.keys(env.local||{}).length+'개(기기) · '
-        +Object.keys(env.session||{}).length+'개(탭)',
-      '지금 설정은 이 파일의 값으로 전부 바뀝니다'
-        +(willClear?(' — 파일에 없는 설정 '+willClear+'개는 기본값으로 돌아갑니다'):'')
-        +'. 되돌릴 수 없습니다.',
+      t('backup.exported_at',{when}),
+      t('backup.item_counts',{server:Object.keys(env.server).length,local:Object.keys(env.local||{}).length,session:Object.keys(env.session||{}).length}),
+      t('backup.replace_warn')
+        +(willClear?t('backup.replace_clear',{n:willClear}):'')
+        +t('backup.replace_tail'),
     ];
     const el=document.getElementById('bk-summary');
     if(el) el.textContent=lines.join('\n');
@@ -153,7 +151,7 @@ Object.assign(App.prototype, {
     {
       const r=await apiPut('/api/settings',env.server);
       if(!r.ok){
-        this._bkMsg('서버에 설정을 쓰지 못했습니다 (HTTP '+r.status+'). 아무것도 바뀌지 않았습니다.','err');
+        this._bkMsg(t('backup.write_fail',{status:r.status}),'err');
         return false;
       }
     }
@@ -192,7 +190,7 @@ Object.assign(App.prototype, {
   async _bkReset(){
     const r=await apiPut('/api/settings',{});
     if(!r.ok){
-      this._bkMsg('서버에 설정을 쓰지 못했습니다 (HTTP '+r.status+'). 아무것도 바뀌지 않았습니다.','err');
+      this._bkMsg(t('backup.write_fail',{status:r.status}),'err');
       return false;
     }
     for(const {store,key} of BACKUP_KEYS){
@@ -215,7 +213,7 @@ Object.assign(App.prototype, {
     if(!box) return;
     const r=await apiGet('/api/workspace/revisions');
     if(!r.ok){
-      this._bkMsg('되돌릴 수 있는 판을 읽지 못했습니다 (HTTP '+r.status+')','err');
+      this._bkMsg(t('backup.revisions_fail',{status:r.status}),'err');
       return;
     }
     const gens=(r.data&&r.data.generations)||[];
@@ -224,7 +222,7 @@ Object.assign(App.prototype, {
     if(!gens.length){
       const empty=document.createElement('div');
       empty.className='bk-rev';
-      empty.textContent='되돌릴 수 있는 판이 없습니다 — 아직 덮어쓴 적이 없습니다.';
+      empty.textContent=t('backup.no_revisions');
       box.appendChild(empty);
       return;
     }
@@ -234,7 +232,7 @@ Object.assign(App.prototype, {
       const when=document.createElement('span');
       when.className='bk-rev-when';
       // 값은 전부 textContent 로 넣는다 — 보간이 스크립트가 되지 않는다 (FE-16).
-      when.textContent=g.modified||('판 '+g.gen);
+      when.textContent=g.modified||t('backup.gen',{gen:g.gen});
       const size=document.createElement('span');
       size.className='bk-rev-size';
       size.textContent=String(g.bytes)+' B';
@@ -242,7 +240,7 @@ Object.assign(App.prototype, {
       btn.type='button';
       btn.className='ds-toggle ui-btn';
       btn.title='Revert the window layout to this generation';
-      btn.textContent='이 판으로';
+      btn.textContent=t('backup.revert_to');
       btn.addEventListener('click',()=>this._bkRevert(g.gen));
       row.append(when,size,btn);
       box.appendChild(row);
@@ -259,7 +257,7 @@ Object.assign(App.prototype, {
   async _bkRevert(gen){
     const r=await apiPost('/api/workspace/revert',{gen});
     if(!r.ok){
-      this._bkMsg('되돌리지 못했습니다 (HTTP '+r.status+')','err');
+      this._bkMsg(t('backup.revert_fail',{status:r.status}),'err');
       return;
     }
     window.__dmReloading=true;

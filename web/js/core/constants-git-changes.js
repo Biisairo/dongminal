@@ -41,7 +41,7 @@ const GIT_GROUP_SRC={working:['changes','untracked']};
  *
  * 조용히 자르면 사용자는 파일이 없어진 것으로 읽는다. `%n` 은 실제 개수다.
  */
-const GIT_GROUP_TRUNCATED='%n개 중 일부만 보입니다 — .gitignore 로 줄이세요';
+const GIT_GROUP_TRUNCATED=t('git.group_truncated');
 // 그룹이 diff 축을 결정한다 (FR-GIT-52). 값은 /api/git/diff-content 의 axis 인자다.
 // commit-parent 는 다른 셋과 달리 리비전을 인자로 받는다 (FR-GIT-138·139) —
 // worktree·index·HEAD 는 암묵적 리비전이지만 커밋 축은 두 커밋을 명시해야 한다.
@@ -66,8 +66,8 @@ const GIT_AXIS_EDITABLE=new Set([GIT_AXIS.UNSTAGED,GIT_AXIS.CONFLICT]);
 // FR-RTU-54: 읽기 전용인 이유를 축마다 말한다. 조용히 무시하면 "타이핑이 먹지
 // 않는다" 가 된다.
 const GIT_AXIS_READONLY_WHY={
-  [GIT_AXIS.STAGED]:'스테이지된 내용은 파일이 아니라 git 의 스냅샷입니다 — 고치려면 워킹 트리 쪽에서 고치고 다시 스테이지하세요.',
-  [GIT_AXIS.COMMIT]:'커밋은 지나간 것입니다 — 여기서 고칠 수 없습니다.',
+  [GIT_AXIS.STAGED]:t('git.axis_readonly_why.staged'),
+  [GIT_AXIS.COMMIT]:t('git.axis_readonly_why.commit'),
 };
 
 const GIT_AXIS_LABEL={
@@ -75,11 +75,11 @@ const GIT_AXIS_LABEL={
   'commit-parent':'commit ↔ parent',
 };
 // 원격 버튼은 M3 가 살렸다 — 라벨·title·다이얼로그는 아래 원격 작업 절에 있다.
-const GIT_PREVIEW_HINT='파일을 선택하세요';
-const GIT_LOADING_HINT='불러오는 중…';
-const GIT_STALE_NOTE='갱신 실패';
+const GIT_PREVIEW_HINT=t('git.preview_hint');
+const GIT_LOADING_HINT=t('git.loading_hint');
+const GIT_STALE_NOTE=t('git.stale_note');
 // FR-RTU-52: 저장 실패는 그 자리에 남는다 — 알림창은 닫는 순간 사유가 사라진다.
-const GIT_DIFF_SAVE_FAIL='저장하지 못했습니다';
+const GIT_DIFF_SAVE_FAIL=t('git.diff_save_fail');
 // FR-GIT-238: 새로고침. 이모지를 쓰지 않는다 (FR-GIT-187·192 와 같은 어휘).
 const GIT_REFRESH_LABEL='refresh-cw';
 // FR-GCC-8: 파일 목록의 보기 방식. 같은 패널의 언어를 하나로 모은다 — 글자
@@ -87,17 +87,17 @@ const GIT_REFRESH_LABEL='refresh-cw';
 // `GIT_FILE_VIEW_TITLE` 이 말한다 — 같은 것을 두 벌로 두지 않는다.
 const GIT_FILES_MODE_ICON={tree:'folder',flat:'list'};
 const GIT_REFRESH_TITLE='Refresh everything — status, History, Branches and Console';
-const GIT_ERR_NOT_REPO='저장소가 아닙니다';
-const GIT_ERR_GIT_MISSING='git 을 찾을 수 없습니다';
+const GIT_ERR_NOT_REPO=t('git.err_not_repo');
+const GIT_ERR_GIT_MISSING=t('git.err_git_missing');
 //
 // 사유 코드를 화면에 함께 싣는다. "사라졌다" 는 표시가 참인지 사용자가 판정할 수
 // 있어야 하고, 그 판정의 근거가 코드다 (접수한 말의 뒤 문장).
-const GIT_ERR_REPO_MISSING='이 폴더가 사라졌습니다';
-const GIT_RMS_PIN_REASON='폴더가 없습니다';
-const GIT_RMS_REASON_PREFIX='사유: ';
+const GIT_ERR_REPO_MISSING=t('git.err_repo_missing');
+const GIT_RMS_PIN_REASON=t('git.rms_pin_reason');
+const GIT_RMS_REASON_PREFIX=t('git.rms_reason_prefix');
 const GIT_RMS_CODE='repo_missing';
-const GIT_RMS_UNPIN='핀 제거';
-const GIT_RMS_RECHECK='다시 확인';
+const GIT_RMS_UNPIN=t('git.rms_unpin');
+const GIT_RMS_RECHECK=t('git.rms_recheck');
 const GIT_TIP_MISSING_UNPIN='Remove this repository from the GIT section';
 const GIT_TIP_MISSING_RECHECK='Check again whether this folder is back';
 // 파일 목록은 한 번에 다 그리지 않는다 (FR-GIT-42). 스크롤이 끝에 닿을 때마다
@@ -228,10 +228,10 @@ const GIT_BULK_TITLE_GROUP={working:{discard:'Discard everything here — new fi
 const GIT_ACT_TITLE_UNTRACKED={discard:'Delete this file — this cannot be undone'};
 // FR-CMG-11: 머리의 개수는 합계다. 합계만으로는 지울 것이 있는지 보이지 않으므로
 // 내역을 툴팁에 적는다.
-const GIT_GROUP_COUNT_TITLE=(n,m)=>'추적 '+n+' · 새 파일 '+m;
+const GIT_GROUP_COUNT_TITLE=(n,m)=>t('git.group_count_title',{n,m});
 // FR-GIT-70: staged 와 unstaged 를 동시에 가진 파일. 체크박스의 indeterminate 와
 // 행 클래스 둘로 구분한다 — 색만으로는 무엇이 다른지 알 수 없다.
-const GIT_PARTIAL_TITLE='일부만 스테이지됨';
+const GIT_PARTIAL_TITLE=t('git.partial_title');
 
 // GIT_DIR_ENTRY_SRS 묶음 G — **디렉터리 항목**. git 이 파일이 아니라 디렉터리
 // 하나를 상태의 단위로 보고한 행이다 (FR-DIR-20~22).
@@ -240,13 +240,10 @@ const GIT_PARTIAL_TITLE='일부만 스테이지됨';
 // `Subproject commit …` 두 줄뿐이고 중첩 저장소는 아예 내용이 없다(실측).
 // 사용자가 알아야 하는 것은 **여기가 다른 저장소라는 사실**과 그리로 가는 길이다.
 const GIT_DIR_ENTRY_SUFFIX='/';
-const GIT_DIR_ENTRY_TITLE_SUB='서브모듈 — 이 저장소는 커밋 하나로만 추적합니다';
-const GIT_DIR_ENTRY_TITLE_NESTED='다른 저장소 — 이 저장소는 안을 들여다보지 않습니다';
-const GIT_DIR_ENTRY_NOTE_SUB=
-  '서브모듈입니다 — 이 저장소는 커밋 하나로만 이 폴더를 추적합니다. '+
-  '안의 변경은 여기서 보이지 않습니다.';
-const GIT_DIR_ENTRY_NOTE_NESTED=
-  '다른 저장소입니다 — 이 저장소는 안을 들여다보지 않습니다.';
+const GIT_DIR_ENTRY_TITLE_SUB=t('git.dir_entry_title_sub');
+const GIT_DIR_ENTRY_TITLE_NESTED=t('git.dir_entry_title_nested');
+const GIT_DIR_ENTRY_NOTE_SUB=t('git.dir_entry_note_sub');
+const GIT_DIR_ENTRY_NOTE_NESTED=t('git.dir_entry_note_nested');
 
 //
 // porcelain v2 `sub` 필드(`S<c><m><u>`)의 자리값. 파싱은 `gitSubParts` 한 곳이
@@ -260,9 +257,9 @@ const GIT_SUB_UNTRACKED='U';
 // FR-SDN-8: 툴팁의 문장. 성분을 알면 `GIT_DIR_ENTRY_TITLE_SUB` 을 **대체한다** —
 // 뒤에 덧붙이면 "서브모듈" 이 한 툴팁에 두 번 나오고, 종전 문장이 말하던 것을
 // 이 문장들이 더 정확히 말한다. 툴팁은 짧아야 하므로 사실 하나씩만 싣는다.
-const GIT_SUB_TITLE_COMMIT='서브모듈 — 기록된 커밋이 바뀌었습니다, 스테이지하면 담깁니다';
-const GIT_SUB_TITLE_INNER='서브모듈 안의 변경 — 여기서는 스테이지해도 사라지지 않습니다';
-const GIT_SUB_TITLE_BOTH='서브모듈 — 기록된 커밋은 담기고, 안의 변경은 남습니다';
+const GIT_SUB_TITLE_COMMIT=t('git.sub_title_commit');
+const GIT_SUB_TITLE_INNER=t('git.sub_title_inner');
+const GIT_SUB_TITLE_BOTH=t('git.sub_title_both');
 // FR-SDN-12·13 (D-2a): 담을 몫이 없는 행의 `Stage` 는 꺼지고, 그 사유를 말한다.
 // 사유 없이 꺼진 버튼은 사용자가 해소할 수 없다 (FR-GIT-101 과 같은 규약).
 
@@ -270,35 +267,26 @@ const GIT_SUB_TITLE_BOTH='서브모듈 — 기록된 커밋은 담기고, 안의
 //
 // FR-SDN-6: 안쪽만인 경우(B)는 **사라지지 않는다는 사실을 먼저** 말한다. 순서가
 // 뒤집히면 "먼저 커밋하라" 가 조언으로 읽히고 지금 눈앞의 행은 설명되지 않는다.
-const GIT_SUB_NOTE_COMMIT=
-  '서브모듈입니다 — 기록된 커밋이 바뀌었습니다. '+
-  '스테이지하면 이 저장소에 그 커밋이 담깁니다. 안의 변경은 여기서 보이지 않습니다.';
+const GIT_SUB_NOTE_COMMIT=t('git.sub_note_commit');
 // 안내문은 `textContent` 로 들어간다 (diff-view.js `_setNote`) — 마크다운 강조가
 // 렌더링되지 않으므로 별표를 쓰지 않는다. 무게는 문장 순서가 진다 (FR-SDN-6).
-const GIT_SUB_NOTE_INNER=
-  '서브모듈입니다 — 여기서는 스테이지·커밋해도 이 행이 사라지지 않습니다. '+
-  '기록된 커밋은 그대로이고 바뀐 것은 서브모듈 안이기 때문입니다: '+
-  '이 저장소가 커밋할 수 있는 것은 서브모듈의 커밋 해시 하나뿐입니다. '+
-  '서브모듈을 자기 저장소로 열어 그 안에서 먼저 커밋하세요.';
-const GIT_SUB_NOTE_BOTH=
-  '서브모듈입니다 — 기록된 커밋이 바뀌었고, 서브모듈 안에도 커밋하지 않은 변경이 있습니다. '+
-  '스테이지하면 커밋 몫은 담기지만 안쪽 몫은 이 행에 남습니다 — '+
-  '그것은 서브모듈을 자기 저장소로 열어 그 안에서 커밋해야 합니다.';
-const GIT_DIR_ENTRY_ADD='저장소로 추가';
-const GIT_DIR_ENTRY_ADD_TITLE='이 폴더를 Repo 목록에 더하고 그 창으로 갑니다';
-const GIT_DIR_ENTRY_GO='저장소로 이동';
-const GIT_DIR_ENTRY_GO_TITLE='이미 목록에 있습니다 — 그 창으로 갑니다';
+const GIT_SUB_NOTE_INNER=t('git.sub_note_inner');
+const GIT_SUB_NOTE_BOTH=t('git.sub_note_both');
+const GIT_DIR_ENTRY_ADD=t('git.dir_entry_add');
+const GIT_DIR_ENTRY_ADD_TITLE=t('git.dir_entry_add_title');
+const GIT_DIR_ENTRY_GO=t('git.dir_entry_go');
+const GIT_DIR_ENTRY_GO_TITLE=t('git.dir_entry_go_title');
 // UX_BATCH5_SRS FR-SUB-11: 서브모듈 항목에서 **그것을 관리하는 자리**로 가는 길.
 //
 // `저장소로 이동`(위)과 다른 것이다 — 그쪽은 서브모듈 **자신의** 창으로 가고,
 // 이쪽은 **부모 저장소의** Submodules 탭으로 간다: init·update·sync 가 사는 자리다.
 // 중첩 저장소에는 붙지 않는다 (`.gitmodules` 에 없으므로 그 목록에 서지 않는다).
-const GIT_DIR_ENTRY_SUBTAB='Submodules 탭';
-const GIT_DIR_ENTRY_SUBTAB_TITLE='이 저장소의 Submodules 탭으로 갑니다 — init·update·sync 가 그 자리에 있습니다';
+const GIT_DIR_ENTRY_SUBTAB=t('git.dir_entry_subtab');
+const GIT_DIR_ENTRY_SUBTAB_TITLE=t('git.dir_entry_subtab_title');
 // FR-GIT-72: 충돌 파일의 stage 는 "해결됨 표시" 다. 파괴적이 아니므로 1단계 확인이다.
 const GIT_ACT_RESOLVE='resolve_mark';
-const GIT_RESOLVE_TITLE='충돌을 해결됨으로 표시합니다';
-const GIT_RESOLVE_NOTE='스테이지한 뒤에도 언스테이지로 되돌릴 수 있습니다';
+const GIT_RESOLVE_TITLE=t('git.resolve_title');
+const GIT_RESOLVE_NOTE=t('git.resolve_note');
 // FR-GIT-224: 충돌 파일 하나를 한쪽으로 받아 해결한다. **파괴적이다** — 워킹
 // 트리의 충돌 표식과 손대던 내용이 사라지고 되살릴 값이 없다.
 //
@@ -306,8 +294,8 @@ const GIT_RESOLVE_NOTE='스테이지한 뒤에도 언스테이지로 되돌릴 �
 // 현재 브랜치이지만 rebase 중에는 ours 가 올려놓는 대상이고 내 커밋이 theirs 다.
 // 라벨은 git 의 낱말 그대로 두고(FR-GIT-200) 툴팁이 어느 쪽인지 밝힌다.
 const GIT_ACT_RESOLVE_SIDE='resolve_side';
-const GIT_RESOLVE_SIDE_TITLE='한쪽 내용으로 덮고 해결됨으로 표시합니다';
-const GIT_RESOLVE_SIDE_NOTE='충돌 표식과 손대던 내용은 되살릴 값이 없습니다. 충돌 상태로 되돌리려면 아래를 실행합니다';
+const GIT_RESOLVE_SIDE_TITLE=t('git.resolve_side_title');
+const GIT_RESOLVE_SIDE_NOTE=t('git.resolve_side_note');
 // 진행 중인 조작별 설명. 모르면 둘 다 밝힌다 — 틀린 한쪽을 단정하지 않는다.
 const GIT_SIDE_TITLE={
   merge:{ours:'Take the current branch (ours) side',
@@ -326,17 +314,17 @@ const GIT_OP_BY_BLOCK={merge_in_progress:'merge',rebase_in_progress:'rebase',
 // FR-GIT-89~92: discard. 파괴적 판정은 /api/git/policy 가 한다 — 이 이름은 그
 // 목록의 키이고, 목록을 프론트에 복제하지 않는다.
 const GIT_ACT_DISCARD='discard';
-const GIT_DISCARD_TITLE='워킹 트리의 변경을 폐기합니다';
+const GIT_DISCARD_TITLE=t('git.discard_title');
 // O8: stash 를 자동 생성하지 않는다 — 안내만 한다.
-const GIT_DISCARD_NOTE='폐기 전에 아래를 실행하면 stash 로 남습니다 (자동 실행하지 않습니다)';
+const GIT_DISCARD_NOTE=t('git.discard_note');
 // FR-WBR-55: untracked 가 섞이면 되돌리기가 아니라 **삭제**다. 서버의
 // `discardHint` 가 실행 **뒤에** 적는 것과 같은 뜻을, 실행 **전에** 화면이 말한다
 // — 그 hint 는 기록이라 확인창에 닿지 않는다.
-const GIT_DISCARD_NOTE_DEL='파일 자체가 삭제되며 되살릴 값이 없습니다. ';
+const GIT_DISCARD_NOTE_DEL=t('git.discard_note_del');
 // FR-GIT-73 · §7.1 I2: git 은 경로별로 처리해 진짜 롤백이 없다. 부분 적용을
 // 조용히 넘기지 않는 것이 요구사항이고, 그것을 이 안내가 맡는다.
-const GIT_PARTIAL_NOTE='일부만 적용됐습니다 — 아래 경로가 바뀌었습니다';
-const GIT_WRITE_FAIL='동작이 실패했습니다';
+const GIT_PARTIAL_NOTE=t('git.partial_note');
+const GIT_WRITE_FAIL=t('git.write_fail');
 const GIT_NOTE_CLOSE='Close';
 //
 // 아래는 라벨이 한두 낱말이라 **무엇을** 하는지 말하지 않는 버튼들이다. 각 상수는

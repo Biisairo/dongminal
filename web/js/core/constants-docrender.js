@@ -21,10 +21,10 @@ const DOC_RENDER_DELIM = { '.csv': ',', '.tsv': '\t' };
 // UX_BATCH8_SRS FR-DRB-1·4: **낱말 하나다.** 종전의 `◈` 는 무엇을 하는 버튼인지
 // 말하지 않았고("버튼이 없음" 으로 접수됐다), 라벨이 선 뒤로는 그 기호가 뜻을
 // 보태지 않는다 — 이름 앞의 장식일 뿐이다.
-const DOC_RENDER_BTN = '미리보기';
-const DOC_RENDER_BTN_TITLE = '옆 칸에 렌더된 모습 열기';
-const DOC_RENDER_SOURCE = '‹ 소스';
-const DOC_RENDER_SOURCE_TITLE = '이 문서의 소스로 돌아가기';
+const DOC_RENDER_BTN = t('docrender.btn');
+const DOC_RENDER_BTN_TITLE = t('docrender.btn_title');
+const DOC_RENDER_SOURCE = t('docrender.source');
+const DOC_RENDER_SOURCE_TITLE = t('docrender.source_title');
 // FR-DRV-11: 렌더 탭임을 알리는 표시. **이름을 늘리지 않는다** — 좁은 탭에서는
 // 파일명이 먼저 잘린다 (TAB_WIDTH_SRS).
 const DOC_RENDER_TAB_MARK = '◈ ';
@@ -34,23 +34,23 @@ const DOC_RENDER_DEBOUNCE_MS = 180;
 
 // FR-DRV-29: 상한. 넘으면 그리지 않고 사유를 말한다 (FR-DRV-17).
 const DOC_RENDER_MAX_BYTES = 2 * 1024 * 1024;
-const DOC_RENDER_TOO_BIG = '문서가 너무 커서 그리지 않았습니다';
-const DOC_RENDER_FAIL = '문서를 그리지 못했습니다';
-const DOC_RENDER_NO_LIB = '렌더러를 불러오지 못했습니다';
-const DOC_RENDER_LOADING = '그리는 중…';
+const DOC_RENDER_TOO_BIG = t('docrender.too_big');
+const DOC_RENDER_FAIL = t('docrender.fail');
+const DOC_RENDER_NO_LIB = t('docrender.no_lib');
+const DOC_RENDER_LOADING = t('docrender.loading');
 // FR-DRV-17: SVG 가 그려지지 않는 흔한 이유는 문서 자신이다 — 그 사실을 말한다.
-const DOC_RENDER_SVG_FAIL = '이 SVG 를 그리지 못했습니다 — 문서가 올바르지 않을 수 있습니다';
+const DOC_RENDER_SVG_FAIL = t('docrender.svg_fail');
 
 // FR-DRV-22: **스크립트가 돌지 않는다는 사실을 적는다.** 적지 않으면 "왜 내
 // 스크립트가 안 도는가" 가 우리 버그로 읽힌다.
-const DOC_RENDER_HTML_NOTE = '미리보기입니다 — 이 문서의 스크립트는 실행되지 않습니다';
+const DOC_RENDER_HTML_NOTE = t('docrender.html_note');
 
 // FR-DRV-29: 표의 상한. 넘으면 그 사실을 말한다 — 잘라 놓고 침묵하면 사용자는
 // 파일이 그만큼인 줄로 읽는다.
 const DOC_RENDER_TABLE_MAX_ROWS = 2000;
 const DOC_RENDER_TABLE_MAX_COLS = 200;
-const DOC_RENDER_TABLE_CUT = '큰 표라서 앞부분만 보입니다 — %r행 중 %n행';
-const DOC_RENDER_TABLE_EMPTY = '표에 담을 내용이 없습니다';
+const DOC_RENDER_TABLE_CUT = t('docrender.table_cut');
+const DOC_RENDER_TABLE_EMPTY = t('docrender.table_empty');
 // FR-DRV-26: 루트 밖으로는 가지 않는다. 침묵하면 링크가 죽은 것인지 우리가 막은
 // 것인지 갈리지 않는다.
-const DOC_RENDER_OUTSIDE = '이 창의 폴더 밖은 열지 않습니다';
+const DOC_RENDER_OUTSIDE = t('docrender.outside');

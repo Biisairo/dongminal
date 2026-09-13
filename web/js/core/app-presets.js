@@ -37,7 +37,7 @@ Object.assign(App.prototype, {
     // 빈 layout 을 프리셋으로 남기지 않는다. 눌렀는데 아무 일도 일어나지 않으면
     // 사용자는 고장으로 읽으므로 사유를 화면에 남긴다.
     if(!layout){this._presetMsg(PRESET_SAVE_NO_PLAIN);return}
-    const name='프리셋 '+(layoutPresets.length+1);
+    const name=t('presets.default_name',{n:layoutPresets.length+1});
     layoutPresets.push({name,layout});
     this.saveSettings();
     this._renderPresets();
@@ -98,11 +98,11 @@ Object.assign(App.prototype, {
   },
   _describeLayout(layout){
     if(!layout)return'';
-    if(layout.type==='pane')return`탭 ${layout.tabCount}개`;
+    if(layout.type==='pane')return tn('presets.tabs',layout.tabCount);
     if(layout.type==='split'){
-      const dir=layout.direction==='horizontal'?'가로':'세로';
+      const dir=layout.direction==='horizontal'?t('presets.horizontal'):t('presets.vertical');
       const descs=layout.children.map(c=>this._describeLayout(c)).filter(Boolean);
-      return`${dir} 분할 [${descs.join(', ')}]`;
+      return t('presets.split',{dir,children:descs.join(', ')});
     }
     return'';
   },
@@ -127,7 +127,8 @@ Object.assign(App.prototype, {
     const pbtn=document.getElementById('add-preset');
     if(pbtn)pbtn.style.display=defaultPreset>=0&&layoutPresets[defaultPreset]?'':'none';
     if(!layoutPresets.length){
-      el.innerHTML='<div style="color:var(--text-hint);font-size:12px;text-align:center;padding:20px">저장된 프리셋이 없습니다</div>';
+      el.innerHTML='<div style="color:var(--text-hint);font-size:12px;text-align:center;padding:20px"></div>';
+      el.firstChild.textContent=t('presets.empty');
       return;
     }
     layoutPresets.forEach((p,i)=>{
@@ -156,9 +157,9 @@ Object.assign(App.prototype, {
       if(this._presetConfirm===i){
         const wrap=document.createElement('span'); wrap.className='preset-confirm';
         const q=document.createElement('span'); q.className='preset-q'; q.textContent=PRESET_DEL_Q;
-        const yes=UIKit.button({label:'예',title:'Delete this preset',kind:'danger',size:'sm',cls:'preset-yes'});
+        const yes=UIKit.button({label:t('core.yes'),title:'Delete this preset',kind:'danger',size:'sm',cls:'preset-yes'});
         yes.addEventListener('click',e=>{e.stopPropagation();this._presetConfirm=-1;this._deletePreset(i)});
-        const no=UIKit.button({label:'아니오',title:'Keep this preset',size:'sm',cls:'preset-no'});
+        const no=UIKit.button({label:t('core.no'),title:'Keep this preset',size:'sm',cls:'preset-no'});
         no.addEventListener('click',e=>{e.stopPropagation();this._presetConfirm=-1;this._renderPresets()});
         wrap.append(q,yes,no);
         item.appendChild(wrap);

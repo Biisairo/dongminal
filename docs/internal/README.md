@@ -115,6 +115,19 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [GIT_MANUAL_CHECKLIST.md](./GIT_MANUAL_CHECKLIST.md) | Git 창 수동 검증 체크리스트 (V14·V60). 자동 테스트가 잡지 못하는 것만 — 배치·색·읽힘, 모바일 실기기, 성능·보안 기준. 픽스처(`e2e/git_fixture.sh`) 기준 |
 | [NEXT_SESSION_PROMPT.md](./NEXT_SESSION_PROMPT.md) | 다음 세션 첫 메시지로 붙여넣을 프롬프트(파일 전체가 그대로 첫 메시지다). **열려 있는 것은 Git 창 하나** — 재구성 트랙은 16단계로 닫혔다. `GIT_REMAINING.md` 가 출발점이고, 착수 전에 물어야 할 것(단축키 배정 · "원래 있던 윈도우"의 정의 · 자격증명 배제 유지 여부)과 반복하면 안 되는 함정(`stop` 의 포트 기반 대상 선정, BSD `sed` 의 `\b`, 보호 테스트 약화)을 담는다 |
 
+## 언어 정책 (결정 — 2026-09-13, `M8_UNIFIED_SRS` FR-B-1)
+
+| 항목 | 결정 |
+|---|---|
+| 지원 로케일 | `ko` · `en` — 카탈로그는 `web/js/i18n/<locale>.js`, 읽는 함수는 `t`·`tn` (`web/js/core/i18n.js`) |
+| 기본 | `ko` |
+| 감지 | **하지 않는다.** `navigator.language`·`Intl` 로 고르지 않고 설정 키 `locale` 만 본다 — 단일 사용자 제품이고, 감지는 e2e 전량을 브라우저 로케일에 묶는다 |
+| 폴백 | 활성 로케일에 없는 키 → `ko` 문장 + `console.warn`(키마다 한 번). `ko` 에도 없으면 키 자체 |
+| 전환 | 설정 저장 → `localStorage['dm.locale']` → 페이지 재로드 (D-B-1). 첫 페인트 전의 `<html lang>` 은 head 인라인 스크립트가 같은 키를 읽는다 |
+| 범위 밖 | CLI 출력(`dongminal`·`dmctl`) · 서버 로그 · 서버 오류 응답 **본문**(D-ERR-2 동결, 문장은 `X-Error-Code` → 프론트 `err.<code>`) · `SETTINGS_SCHEMA.where` · 테스트 문자열 |
+| 게이트 | `scripts/check-i18n.mjs` — JS 문자열 리터럴·HTML 텍스트/속성·CSS `content` 의 한글 0, ko·en 키 집합 일치. 예외 등록부는 스크립트 상단 |
+| 툴팁 | `UX_BATCH5_SRS` FR-TIP-2(`title` 은 영어)는 **ko 카탈로그의 데이터**로 유지 |
+
 ## 용어
 
 좌표계는 `W{n}.P{n}.T{n}` 이고 계층은 아래와 같다. 보관 문서의 `session`·`region`·

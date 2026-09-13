@@ -47,6 +47,10 @@ async function loadTermPane(page: Page) {
     (window as any).TERM_EXITED_SUB = '이 탭을 닫거나 같은 자리에 새 셸을 엽니다';
     (window as any).TERM_EXITED_CLOSE = '탭 닫기';
     (window as any).TERM_EXITED_NEW = '새 셸';
+    // M8 FR-B-2·6: 오버레이 문구는 `t()` 를, 드롭 안내는 상수를 읽는다. 격리 하네스이므로
+    // 카탈로그 대신 키를 그대로 돌려주는 `t` 와 상수 하나를 세운다.
+    (window as any).t = (k: string) => k;
+    (window as any).DROP_FILES_HINT = 'Drop files here';
 
     const opened: any[] = [];
     (window as any).__opened = opened;

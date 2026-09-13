@@ -25,9 +25,19 @@ function keysOf(b) {
 }
 
 // 라벨 값(한국어 문구)까지 읽는다 — 문서의 첫 칸이 그것이다.
+//
+// M8 P2 (FR-B-2) 뒤로 라벨은 `t('shortcut.x')` 다 — 문장은 ko 카탈로그에 산다.
+// 문서는 ko 로 적혀 있으므로 **ko 값**으로 푼다. 리터럴이 남아 있으면(예: `Pane ↑`)
+// 그대로 읽는다.
+const KO = readFileSync('web/js/i18n/ko.js', 'utf8');
+const koCat = {};
+for (const m of KO.matchAll(/^\s*'([a-z0-9_.]+)':\s*'((?:[^'\\]|\\.)*)',?$/gm)) koCat[m[1]] = m[2].replace(/\\'/g, "'");
 function labelsOf(b) {
   const out = {};
-  for (const m of b.matchAll(/(?:^|[,{\n]\s*)([A-Za-z_$][\w$]*)\s*:\s*'([^']*)'/g)) out[m[1]] = m[2];
+  for (const m of b.matchAll(/(?:^|[,{\n]\s*)([A-Za-z_$][\w$]*)\s*:\s*(?:'([^']*)'|t\('([a-z0-9_.]+)'\))/g)) {
+    if (m[2] !== undefined) out[m[1]] = m[2];
+    else if (koCat[m[3]] !== undefined) out[m[1]] = koCat[m[3]];
+  }
   return out;
 }
 

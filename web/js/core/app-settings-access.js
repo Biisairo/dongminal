@@ -20,7 +20,7 @@ Object.assign(App.prototype, {
     row.dataset.id=(e&&e.id)||'';
     const on=document.createElement('label');
     on.className='sbx-flag';
-    on.title='이 줄을 적용합니다';
+    on.title=t('acl.row_enable_title');
     const cb=document.createElement('input');
     cb.type='checkbox';
     cb.checked=e?e.enabled!==false:true;
@@ -31,15 +31,15 @@ Object.assign(App.prototype, {
     val.value=(e&&e.value)||'';
     const lab=document.createElement('input');
     lab.type='text';lab.className='acl-label';
-    lab.placeholder='이름표';
+    lab.placeholder=t('acl.label_placeholder');
     lab.value=(e&&e.label)||'';
     const st=document.createElement('span');
     st.className='acl-state';
     // FR-ACL-16: 해석 실패가 조용히 지나가면 사용자는 규칙이 걸린 줄 안다.
     // 축②(`plain`)에는 이 칸이 비어 있다 — 별명은 해석하지 않는다 (FR-ACL-34).
     if(opts.plain){/* 해석 상태 없음 */}
-    else if(e&&e.error){st.textContent='해석 실패';st.classList.add('err');st.title=e.error}
-    else if(e&&e.resolved&&e.resolved.length){st.textContent=e.resolved.join(', ');st.title='해석된 주소'}
+    else if(e&&e.error){st.textContent=t('acl.resolve_fail');st.classList.add('err');st.title=e.error}
+    else if(e&&e.resolved&&e.resolved.length){st.textContent=e.resolved.join(', ');st.title=t('acl.resolved_title')}
     const del=UIKit.button({icon:'x',title:'Remove this entry',kind:'ghost',size:'sm'});
     del.addEventListener('click',()=>row.remove());
     row.append(on,val,lab,st,del);
@@ -135,7 +135,7 @@ Object.assign(App.prototype, {
     try{
       const r=await apiGet('/api/access');
       if(!r.ok){
-        status.textContent=r.text.trim()||'허용 목록을 읽지 못했습니다';
+        status.textContent=apiErrText(r,t('acl.read_fail'));
         status.classList.add('err');
         return;
       }
@@ -144,39 +144,39 @@ Object.assign(App.prototype, {
       this._aclYou=v.you||'';
       document.getElementById('acl-enabled').checked=!!v.enabled;
       const you=document.getElementById('acl-you');
-      you.textContent=v.you||'(알 수 없음)';
-      you.title=(v.self&&v.self.length)?('이 서버의 주소: '+v.self.join(', ')):'';
+      you.textContent=v.you||t('core.unknown_paren');
+      you.title=(v.self&&v.self.length)?t('acl.self_addrs',{addrs:v.self.join(', ')}):'';
       for(const e of this._aclKnown) box.appendChild(this._aclRow(e));
       // FR-ACL-35: 서버가 자기를 무엇으로 아는지, 지금 어떤 이름으로 불렸는지.
       // 이 둘을 볼 수 없어서 U-18 의 원인을 아무도 짚지 못했다.
       const hn=document.getElementById('acl-hostname');
-      if(hn) hn.textContent=v.hostname||'(알 수 없음)';
+      if(hn) hn.textContent=v.hostname||t('core.unknown_paren');
       const hnow=document.getElementById('acl-host-now');
-      if(hnow) hnow.textContent=v.host||'(알 수 없음)';
+      if(hnow) hnow.textContent=v.host||t('core.unknown_paren');
       if(hostBox) for(const e of (v.hosts||[])) hostBox.appendChild(this._aclHostRow(e));
     }catch(e){
-      status.textContent='허용 목록을 읽지 못했습니다 — '+((e&&e.message)||e);
+      status.textContent=t('acl.read_fail')+' — '+((e&&e.message)||e);
       status.classList.add('err');
     }
   },
 
   async _aclSave(cfg){
     const status=document.getElementById('acl-status');
-    status.classList.remove('err');status.textContent='저장 중…';
+    status.classList.remove('err');status.textContent=t('core.saving');
     try{
       const r=await apiPut('/api/access',cfg);
       if(!r.ok){
         // 거부 사유가 그대로 온다 — 어느 줄이 잘못됐는지 모르면 고칠 수 없다.
-        status.textContent=r.text.trim()||'저장하지 못했습니다';
+        status.textContent=apiErrText(r,t('core.save_fail'));
         status.classList.add('err');
         return;
       }
       // 재로드가 상태줄을 비우므로 문구는 그 **뒤에** 쓴다. 순서가 바뀌면
       // 저장에 성공해도 화면에는 아무 말도 남지 않는다.
       await this._loadAccessPanel();
-      status.textContent='저장했습니다';
+      status.textContent=t('core.saved');
     }catch(e){
-      status.textContent='저장하지 못했습니다 — '+((e&&e.message)||e);
+      status.textContent=t('core.save_fail')+' — '+((e&&e.message)||e);
       status.classList.add('err');
     }
   },
@@ -208,30 +208,30 @@ Object.assign(App.prototype, {
        */
       const body=document.createElement('div');
       const p1=document.createElement('p');
-      p1.appendChild(document.createTextNode('이 목록은 지금 접속 중인 주소 '));
+      p1.appendChild(document.createTextNode(t('acl.lockout_p1a')));
       const code=document.createElement('code');
       code.textContent=this._aclYou||'';
       p1.appendChild(code);
-      p1.appendChild(document.createTextNode(' 를 허용하지 않습니다.'));
+      p1.appendChild(document.createTextNode(t('acl.lockout_p1b')));
       const p2=document.createElement('p');
-      p2.appendChild(document.createTextNode('저장하면 '));
+      p2.appendChild(document.createTextNode(t('acl.lockout_p2a')));
       const b=document.createElement('b');
-      b.textContent='이 브라우저의 접속이 끊깁니다.';
+      b.textContent=t('acl.lockout_p2b');
       p2.appendChild(b);
       p2.appendChild(document.createTextNode(
-        ' 서버가 돌고 있는 컴퓨터에서는 언제나 접속되므로 거기서 되돌릴 수 있습니다.'));
+        t('acl.lockout_p2c')));
       body.appendChild(p1);
       body.appendChild(p2);
       const m=UIKit.modal({
-        title:'이 브라우저가 차단됩니다',
+        title:t('acl.lockout_title'),
         cls:'acl-confirm',
         width:'min(460px,90vw)',
         body,
         // title 을 주면 그것이 aria-label 이 되어 접근 이름이 라벨을 덮는다.
         // 라벨만 둔다 (open-url.js 와 같은 규약).
         actions:[
-          {label:'취소'},
-          {label:'그래도 저장',kind:'danger',onClick:()=>this._aclSave(cfg)},
+          {label:t('core.cancel')},
+          {label:t('acl.save_anyway'),kind:'danger',onClick:()=>this._aclSave(cfg)},
         ],
       });
       document.body.appendChild(m.el);

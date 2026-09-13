@@ -72,14 +72,14 @@ Object.assign(App.prototype, {
     const e=escHtml;
     if(statusBar.connection){
       const ok=this._latency!==null;
-      push('connection',`<span class="sb-item"><span class="sb-dot ${e(ok?'ok':'err')}"></span>${e(ok?'연결됨':'끊김')}</span>`);
+      push('connection',`<span class="sb-item"><span class="sb-dot ${e(ok?'ok':'err')}"></span>${e(ok?t('statusbar.connected'):t('statusbar.disconnected'))}</span>`);
     }
     if(statusBar.latency&&this._latency!==null){
       push('latency',`<span class="sb-item">${e(this._latency)}ms</span>`);
     }
     if(statusBar.location){
       const loc=this._locationLabel();
-      if(loc)push('location',`<span class="sb-item" title="dmctl 대상: ${e(loc)}">📍 ${e(loc)}</span>`);
+      if(loc)push('location',`<span class="sb-item" title="${e(t('statusbar.location_title',{loc}))}">📍 ${e(loc)}</span>`);
     }
     if(statusBar.cwd){
       push('cwd',`<span class="sb-item">📁 ${e(this._shortCwd(this.cwd||'~'))}</span>`);
@@ -106,8 +106,8 @@ Object.assign(App.prototype, {
     }
     if(statusBar.uptime){
       const parts=[];
-      if(this._stats.sysUptime)parts.push('시스템 '+this._stats.sysUptime);
-      if(this._stats.srvUptime)parts.push('서버 '+this._stats.srvUptime);
+      if(this._stats.sysUptime)parts.push(t('statusbar.uptime_sys',{v:this._stats.sysUptime}));
+      if(this._stats.srvUptime)parts.push(t('statusbar.uptime_srv',{v:this._stats.srvUptime}));
       if(parts.length)push('uptime',`<span class="sb-item">↑ ${e(parts.join(' │ '))}</span>`);
     }
     // **상태바에 git 표면은 없다.** 브랜치 chip 은 FR-FLW-12 가, 진행 중 원격 작업
@@ -187,11 +187,11 @@ Object.assign(App.prototype, {
     ov.innerHTML='';
     const box=document.createElement('div'); box.className='bg-box ui-modal-box';
     const head=document.createElement('div'); head.className='bg-head';
-    head.textContent=`백그라운드 도구 ${this._bg.length}개`;
+    head.textContent=tn('bg.head',this._bg.length);
     box.appendChild(head);
     if(!this._bg.length){
       const empty=document.createElement('div'); empty.className='bg-empty';
-      empty.textContent='없음'; box.appendChild(empty);
+      empty.textContent=t('core.none'); box.appendChild(empty);
     }
     for(const b of this._bg) box.appendChild(this._bgRow(b));
     ov.appendChild(box);
@@ -203,7 +203,7 @@ Object.assign(App.prototype, {
     const confirming=this._bgConfirm===b.toolId;
     const pending=this._bgPending===b.toolId;
     const row=document.createElement('div'); row.className='bg-row';
-    if(!confirming&&!pending) row.title='클릭하면 현재 분할 칸의 새 탭으로 복귀';
+    if(!confirming&&!pending) row.title=t('bg.row_title');
     // .pn-tab[data-toolid] 과 같은 관행 — 어느 도구의 행인지 DOM 으로 식별한다.
     row.dataset.toolid=b.toolId;
     // FR-NAM-5: 백그라운드 도구에는 탭이 없다 — 파생 이름이 그 도구를 부르는
@@ -227,7 +227,7 @@ Object.assign(App.prototype, {
     if(pending){
       // 서버가 SIGTERM 유예(3초)를 기다리므로 응답은 즉답이 아니다. 아무 표시가
       // 없으면 사용자는 눌리지 않았다고 보고 행을 다시 누른다 — 그것이 복귀다.
-      const p=document.createElement('span'); p.className='bg-killing'; p.textContent='종료 중…';
+      const p=document.createElement('span'); p.className='bg-killing'; p.textContent=t('runs.closing');
       row.appendChild(p);
     }else if(confirming){
       row.appendChild(this._bgConfirmEl(b));
@@ -247,8 +247,8 @@ Object.assign(App.prototype, {
   // FR-BGK-2: 항상 보인다. hover 게이팅하지 않는다 — 터치 기기에 hover 가 없다.
   _bgKillBtn(b){
     const btn=document.createElement('button');
-    btn.className='ui-btn ui-btn-sm bg-kill'; btn.textContent='종료';
-    btn.title=`${this._toolName(b.toolId,b.name)} 종료`;
+    btn.className='ui-btn ui-btn-sm bg-kill'; btn.textContent=t('runs.close');
+    btn.title=t('bg.kill_title',{name:this._toolName(b.toolId,b.name)});
     btn.dataset.toolid=b.toolId;
     btn.addEventListener('click',e=>{e.stopPropagation();this._bgConfirmSet(b.toolId)});
     return btn;
@@ -259,9 +259,9 @@ Object.assign(App.prototype, {
   _bgConfirmEl(b){
     const wrap=document.createElement('span'); wrap.className='bg-confirm';
     const q=document.createElement('span'); q.className='bg-q'; q.textContent=this._bgKillQuestion(b);
-    const yes=document.createElement('button'); yes.className='ui-btn ui-btn-sm ui-btn-danger bg-yes'; yes.textContent='예';
+    const yes=document.createElement('button'); yes.className='ui-btn ui-btn-sm ui-btn-danger bg-yes'; yes.textContent=t('core.yes');
     yes.title=TIP_BG_KILL_YES;
-    const no=document.createElement('button'); no.className='ui-btn ui-btn-sm bg-no'; no.textContent='아니오';
+    const no=document.createElement('button'); no.className='ui-btn ui-btn-sm bg-no'; no.textContent=t('core.no');
     no.title=TIP_BG_KILL_NO;
     yes.addEventListener('click',e=>{e.stopPropagation();this._bgKill(b.toolId)});
     no.addEventListener('click',e=>{e.stopPropagation();this._bgConfirmSet(null)});
@@ -281,10 +281,10 @@ Object.assign(App.prototype, {
 
   _bgKillQuestion(b){
     const run=this._bgRun(b);
-    if(!run) return '종료?';
+    if(!run) return t('bg.q_kill');
     return run.role
-      ? `종료? 이 도구는 Run ${run.short} 의 멤버 ${run.role} 이다.`
-      : `종료? 이 도구는 Run ${run.short} 의 멤버다.`;
+      ? t('bg.q_kill_member_role',{short:run.short,role:run.role})
+      : t('bg.q_kill_member',{short:run.short});
   },
 
   // FR-BGK-5: 확인은 한 번에 하나다. 다른 행의 종료를 누르면 앞의 확인은 취소된다.
@@ -303,8 +303,7 @@ Object.assign(App.prototype, {
     const r=await apiPost('/api/tools/kill',{toolId});
     const ok=r.ok;
     let msg='';
-    if(!ok) msg=r.status===0?'종료 실패 — 서버에 닿지 못했다'
-      :(r.text.trim()||`종료 실패 (${r.status})`);
+    if(!ok) msg=apiErrText(r,t('runs.close_fail'));
     this._bgPending=null;
     if(!ok) this._bgError={toolId,msg};
     else await this._bgRefresh();

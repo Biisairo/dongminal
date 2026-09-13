@@ -20,7 +20,7 @@ const themeReady=(async()=>{try{
   if(r.ok) app._settingsApply(r.data,{boot:true});
 }catch{}
   // FR-BTS-11: 설정이 왔든 오지 않았든, 남은 것은 워크스페이스다.
-  BootScreen.step('워크스페이스를 복원합니다');
+  BootScreen.step(t('boot.step_workspace'));
 })();
 
 /**
@@ -62,7 +62,7 @@ document.getElementById('add-window').addEventListener('click',async(e)=>{
     if(!list.length){
       // 런타임은 살아 있는데 고를 것이 없는 경우다 — 상태 갈래가 위에서 끝났으므로
       // 여기 남는 것은 정의가 비었거나 조회가 실패한 때다 (FR-SBX-20).
-      app._notify('샌드박스를 쓸 수 없습니다 — 컨테이너 런타임(docker)이 설치되어 실행 중인지 확인하세요.');
+      app._notify(t('sbx.unavailable_notify'));
       return;
     }
     // SANDBOX_PICK_COPY_SRS FR-SPK-1 / D-SPK-1: **언제나 묻는다.**
@@ -90,7 +90,7 @@ document.getElementById('add-window').addEventListener('click',async(e)=>{
   // "눌러도 아무 일이 없다" 로만 남는다 (FR-SBX-20). 복사 상한을 넘긴 거부도
   // 이 길로 온다 (FR-SPK-14).
   app.addWindow(sandbox?{sandbox,cwd:workdir||undefined,sandboxWork:work}:undefined)
-    .catch(err=>app._notify('창을 열지 못했습니다 — '+((err&&err.message)||err)))
+    .catch(err=>app._notify(t('core.open_window_fail')+' — '+((err&&err.message)||err)))
     .finally(()=>{if(done)done()});
 });
 document.getElementById('add-preset').addEventListener('click',()=>{

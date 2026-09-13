@@ -29,22 +29,22 @@
  */
 const POLL_SETTINGS=[
   {
-    key:'agentsPollInterval', id:'pi-agents', label:'에이전트 활동',
-    hint:'실행 중인 도구의 활동 스냅샷 — 에이전트 패널의 카드와 탭의 활동 표시',
+    key:'agentsPollInterval', id:'pi-agents', label:t('poll.agents.label'),
+    hint:t('poll.agents.hint'),
     def:()=>AGENTS_POLL_DEFAULT,
     get:()=>agentsPollInterval, set:v=>{agentsPollInterval=v},
-    opts:[[2000,'2초'],[3000,'3초'],[5000,'5초'],[10000,'10초'],[30000,'30초']],
+    opts:[[2000,tn('core.dur_sec',2)],[3000,tn('core.dur_sec',3)],[5000,tn('core.dur_sec',5)],[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)]],
   },
   {
-    key:'statsInterval', id:'pi-stats', label:'시스템 통계',
-    hint:'하단 상태바의 CPU·메모리·지연',
+    key:'statsInterval', id:'pi-stats', label:t('poll.stats.label'),
+    hint:t('poll.stats.hint'),
     def:()=>STATS_INTERVAL_DEFAULT,
     get:()=>statsInterval, set:v=>{statsInterval=v},
-    opts:[[1000,'1초'],[2000,'2초'],[3000,'3초'],[5000,'5초'],[10000,'10초'],[30000,'30초']],
+    opts:[[1000,tn('core.dur_sec',1)],[2000,tn('core.dur_sec',2)],[3000,tn('core.dur_sec',3)],[5000,tn('core.dur_sec',5)],[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)]],
   },
   {
-    key:'gitStatusInterval', id:'pi-gitstatus', label:'git 상태 안전망',
-    hint:'평소 git 변화는 서버가 곧바로 알립니다. 이것은 그 알림이 놓친 것을 줍는 그물이라 드물어도 됩니다.',
+    key:'gitStatusInterval', id:'pi-gitstatus', label:t('poll.git_status.label'),
+    hint:t('poll.git_status.hint'),
     def:()=>GIT_STATUS_POLL_MS,
     get:()=>gitStatusInterval, set:v=>{gitStatusInterval=v},
     // FR-PIS-9: `0` 이 뜻을 갖는 유일한 자리 — 본줄이 따로 있으므로 꺼도 멎지 않는다.
@@ -55,21 +55,21 @@ const POLL_SETTINGS=[
     // 줍는 그물이 1~2분에 한 번이면 그물이 아니고, 그 사이는 push 가 이미 덮는다.
     // 짧게 두거나 끄거나 둘 중 하나다.
     off:true,
-    opts:[[10000,'10초'],[30000,'30초'],[0,'끔']],
+    opts:[[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)],[0,t('core.off')]],
   },
   {
-    key:'gitReposInterval', id:'pi-gitrepos', label:'저장소 목록·탐색기',
-    hint:'사이드바의 변경 개수 배지, 탐색기의 파일 목록과 git 색',
+    key:'gitReposInterval', id:'pi-gitrepos', label:t('poll.git_repos.label'),
+    hint:t('poll.git_repos.hint'),
     def:()=>GIT_REPOS_POLL_MS,
     get:()=>gitReposInterval, set:v=>{gitReposInterval=v},
-    opts:[[1000,'1초'],[2000,'2초'],[3000,'3초'],[5000,'5초'],[10000,'10초'],[30000,'30초']],
+    opts:[[1000,tn('core.dur_sec',1)],[2000,tn('core.dur_sec',2)],[3000,tn('core.dur_sec',3)],[5000,tn('core.dur_sec',5)],[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)]],
   },
   {
-    key:'gitConsoleInterval', id:'pi-gitconsole', label:'git 콘솔',
-    hint:'Git 의 명령 기록. 그 탭을 보고 있는 동안에만 묻습니다.',
+    key:'gitConsoleInterval', id:'pi-gitconsole', label:t('poll.git_console.label'),
+    hint:t('poll.git_console.hint'),
     def:()=>GIT_CON_POLL_MS,
     get:()=>gitConsoleInterval, set:v=>{gitConsoleInterval=v},
-    opts:[[1000,'1초'],[2000,'2초'],[5000,'5초'],[10000,'10초']],
+    opts:[[1000,tn('core.dur_sec',1)],[2000,tn('core.dur_sec',2)],[5000,tn('core.dur_sec',5)],[10000,tn('core.dur_sec',10)]],
   },
 ];
 

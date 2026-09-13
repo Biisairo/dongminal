@@ -132,6 +132,19 @@
 `constants*.js` 5파일 2,737줄이 문구를 든다 · `index.html` 정적 문구 178줄 · JS 77파일
 241줄의 한국어 리터럴 · 서버 `http.Error` 한국어 6곳 · CLI 출력은 전부 한국어 자유 문장.
 
+**실측 정정 (2026-09-13, P2 착수 — 위 수치는 2026-09-09 감사다):**
+
+| 항목 | 감사(09-09) | 실측(09-13) | 비고 |
+|---|---|---|---|
+| `constants*.js` | 5파일 2,737줄 | **12파일 3,020줄** — 한국어 문자열 리터럴 **630줄** | M6 묶음 D 가 git 버킷을 8파일로 갈랐다 |
+| JS 한국어 리터럴(constants 밖) | 77파일 241줄 | **31파일 254줄** (주석 제외, 문자열·템플릿 리터럴만) | `runs-panel.js` 47 · `helpers.js` 34 · `app-backup.js` 23 … |
+| JS 합 | — | **43파일 884줄** | 이것이 FR-B-3 의 분모다 |
+| `index.html` 정적 문구 | 178줄 | **주석 밖 72줄** (주석 포함 273) | 감사는 주석을 함께 셌다 |
+| CSS `content` 문구 | 3곳 (`style.css:376,772,818`) | **3곳 — `style.css:508`(ko)·`:900`(en `Drop files here`)·`:964`(ko)** | 줄 번호만 낡았다 |
+| 서버 `http.Error` 한국어 | 6곳 | **0곳** — M5 `G6-1` 이 전부 `httpErr` 로 옮겼다. `httpErr` 의 한국어 본문은 **9곳 5문장** (`handlers_tools_kill.go`×3 · `handlers_attention.go`×2 · `focus.go`×2 · `handlers_api.go`×2) | fs·git 방언의 JSON 본문 한국어 100+ 는 **코드가 이미 있고** 프론트가 코드로 문장을 고른다 (`ED_FS_ERR`·`GIT_WRITE_ERR`) — FR-B-8 의 범위 밖 |
+| `Intl`·`navigator.language` | 0 | 0 | |
+| e2e 의 한국어 텍스트 단정 | — | **151곳 / 155스펙** | 기본 로케일이 ko 여야 하는 실무적 근거 (FR-B-1) |
+
 ### 2.3 축 C — 에이전트 표면 (조사로 확정한 사실, 2026-09-12)
 
 #### 2.3.1 알람의 생산이 네 갈래다
@@ -351,9 +364,58 @@ terminal_slash_commands/messaging_socket_path` · `result.terminal_reason/stop_r
 | FR-B-5 | `<html lang>` 이 활성 로케일이다. 다른 언어가 섞인 요소에는 그 `lang` 이 붙는다 (`UX-9`). | 필수 |
 | FR-B-6 | CSS `content` 로만 전달되던 문구 3곳(`style.css:376,772,818`)이 DOM 텍스트로 간다 — 접근성 트리의 이름 또는 텍스트 노드로 잡히는지 e2e 가 단정한다 (`UX-11`, `FR-A11Y-21`). | 필수 |
 | FR-B-7 | 툴팁의 단축키 표기가 `displayKey(shortcuts.*)` 보간으로 생성되고, 재바인딩 뒤 툴팁이 갱신됨을 e2e 가 단정한다 (`UX-21`). 보간 파라미터는 카탈로그의 자리표시자 규약을 지난다. | 필수 |
-| FR-B-8 | 서버의 한국어 `http.Error` 6곳이 오류 코드로 바뀌고 문장은 카탈로그가 든다 (`G7-4`, `ERROR_CONTRACT_SRS` 의 규약). | 필수 |
+| FR-B-8 | ~~서버의 한국어 `http.Error` 6곳이 오류 코드로 바뀌고~~ **(정정 2026-09-13: `http.Error` 한국어는 M5 가 0 으로 만들었다)** 핵심 표면의 오류 응답은 `X-Error-Code` 가 문장의 열쇠다 — 프론트가 `r.text` 대신 `err.<code>` 카탈로그 문장을 보이고(`apiErrText`), 서버 본문은 D-ERR-2 로 동결되며 새 한국어 본문은 게이트가 막는다 (`G7-4`, `ERROR_CONTRACT_SRS` 의 규약). | 필수 |
 | FR-B-9 | 혼용(`index.html:268,274` 한국어 vs `:286,294` 영어)이 **카탈로그 데이터 교정만으로** 해소된다 — 코드 변경 0 이 외부화의 증거다 (`UX-20`). | 필수 |
 | FR-B-10 | 축 C 의 새 UI(대화·도구 호출·승인·사용량·TUI 출구)는 **처음부터 키**다. 게이트가 그것을 잡는다. | 필수 |
+
+**FR-B-1 의 결정 (사용자 결정 2026-09-13 — 안 A)**
+
+| 항목 | 결정 |
+|---|---|
+| 지원 로케일 | `ko` · `en` |
+| 기본 로케일 | `ko` |
+| 감지 규칙 | **`navigator.language` 를 쓰지 않는다.** 설정 키 `locale`(`ko`\|`en`)이 유일한 원천이다 — 단일 사용자 제품(결정 7)이고, 감지를 넣으면 e2e 155스펙이 브라우저 로케일에 의존한다 |
+| 폴백 | 활성 로케일에 없는 키는 `ko` 문장으로 표시하고 `console.warn` 한 번(키마다). `ko` 에도 없으면 **키 자체**를 표시하고 경고한다 |
+| `en` 카탈로그 | **전수 번역** — 폴백은 기계적 안전망이지 설계가 아니다 (`scripts/check-i18n.mjs` 가 ko·en 키 집합의 일치를 잡는다) |
+| 전환 | 설정을 저장하면 `localStorage['dm.locale']` 에 비추고 **페이지를 다시 연다** (D-B-1) |
+| 범위 밖 | CLI 출력(`dmctl`·`dongminal`) · 서버 로그 · `SETTINGS_SCHEMA` 의 `where`(문서 필드, Go 가 같은 바이트를 읽는다) · e2e·단위 테스트의 문자열 |
+| 서버 오류 | 본문은 **바뀌지 않는다**(D-ERR-2). `X-Error-Code` 가 문장의 열쇠이고 문장은 프론트 카탈로그(`err.<code>`)가 든다 (FR-B-8 정정) |
+| 툴팁 | FR-TIP-2(`title` 은 영어)는 **ko 카탈로그의 데이터**로 유지된다 — 규약을 바꾸는 것은 카탈로그 diff 한 번이다 |
+
+**키 규약 (FR-B-2)**
+
+- 키는 `seg(.seg)+` 이고 `seg` 는 `[a-z0-9_]+` 다. 첫 세그먼트가 **네임스페이스**다.
+- 네임스페이스: `core`(`constants.js`) · `git`(`constants-git*.js`) · `editor`(`constants-editor.js`) ·
+  `docrender` · `html`(`index.html` 정적 문구 — `html.<영역>.<이름>`) · `err`(서버 오류 코드 →
+  문장, 키의 둘째 세그먼트가 곧 `X-Error-Code`) · 그 밖은 화면 단위(`runs`·`bg`·`attn`·`backup`·
+  `acl`·`sbx`·`presets`·`keys`·`diag`·`term`·`shortcut`·`statusbar`·`poll`·`boot`).
+- 상수 하나가 키 하나다: `const GIT_ACT_TITLE=t('git.act_title')` — 이름을 소문자로 내리고 네임스페이스
+  접두(`GIT_`·`ED_`·`DOC_RENDER_`)를 뗀다. 객체·배열 값은 `ns.name.prop` 으로 펼친다.
+- 자리표시자는 `{name}` 이다. `t(key, params)` 가 `params[name]` 을 문자열로 치환한다. 치환되지
+  않은 자리표시자는 그대로 남는다(결함이 보인다).
+- 복수형: `tn(key, n, params)` 가 `Intl.PluralRules(locale).select(n)` 으로 `key.one`/`key.other`
+  를 고른다(없으면 `key.other`). `{n}` 은 자동으로 들어간다. `ko` 는 `.other` 만 둔다.
+- 카탈로그 파일은 `web/js/i18n/<locale>.js` 하나씩이고 `I18N.register('<locale>', {…})` 한 호출이다.
+  읽는 함수는 `t`·`tn` 둘(`web/js/core/i18n.js`)이며 `constants.js` **앞**에 선다.
+- `index.html` 의 정적 문구는 `data-i18n`(텍스트) · `data-i18n-title` · `data-i18n-placeholder` ·
+  `data-i18n-aria-label` 속성에 키를 적고 `I18N.apply(root)` 가 채운다. 단축키를 품는 툴팁은
+  `data-i18n-shortcut="<action>"` 을 더해 `{key}` 에 `displayKey(shortcuts[action])` 이 들어간다 (FR-B-7).
+
+**게이트 규칙 (FR-B-3 — `scripts/check-i18n.mjs`)**
+
+- 대상: `web/js/**/*.js` · `web/index.html` · `web/*.css`.
+- JS: espree AST 의 `Literal`(문자열)·`TemplateLiteral` 의 원문에 한글(`[가-힣ㄱ-ㆎ]`)이 있으면 위반.
+  주석은 AST 에 없으므로 자연히 지난다.
+- HTML: 주석 밖의 텍스트 노드와 `title`·`placeholder`·`aria-label`·`alt`·`value` 속성값의 한글.
+- CSS: 주석 밖 `content:` 값에 한글 또는 **2자 이상의 라틴 단어** (FR-B-6 — `content` 문구는
+  언어와 무관하게 DOM 으로 간다).
+- 예외 등록부(스크립트 상단의 표 — 줄마다 사유):
+  ① `web/js/i18n/` 카탈로그 자신 ② `web/js/test/` ③ `console.<x>(…)` 의 인자(로그) ④ `throw new
+  Error(…)` 의 인자(개발자 오류) ⑤ `settings-schema.js` 의 `where` 값(문서 필드).
+- 카탈로그 검사: `ko`·`en` 의 키 집합이 같다 · 키 형식이 규약이다 · `t('…')` 리터럴 호출의 키가
+  카탈로그에 있다.
+- Go: `check-http-error.sh` 가 `http.Error` 한국어 0 과 **`httpErr` 한국어 본문이 동결 목록(9곳)을
+  넘지 않음**을 함께 잡는다 (TC-B-6). 동결 목록은 D-ERR-2 의 공개 계약이다 — 줄어들 수는 있다.
 
 **DoD (로드맵 §M9 원문)**
 
@@ -656,6 +718,34 @@ codex 의 프로토콜 표면은 app-server 뿐이다. experimental 딱지는 R-
 **D-U-9 — 축 B 가 축 C 앞이다.** 새 UI 의 문구 100여 개가 키로 태어나야 축 B 가
 그것을 한 번 더 걷지 않는다 (§1.1). 축 C 가 지우는 UI 문구는 없다 (병행).
 
+**D-B-1 — 로케일 전환은 페이지를 다시 연다.** 문구 상수 1,100여 개가 `const X=t('…')` 로
+로드 시점에 한 번 평가되고 77파일이 그 이름을 읽는다 — 살아 있는 재렌더는 모든 소비처를
+고치는 일이고 그 값은 이 제품(단일 사용자, 전환은 드물다)에 없다. 설정 저장 → `localStorage`
+비추기 → `location.reload()`. 첫 페인트 전의 `<html lang>` 과 로케일 결정은 head 인라인
+스크립트가 같은 키(`dm.locale`)를 읽는다 (BOOT_SCREEN 의 `dm.themeVars` 와 같은 모양).
+
+**D-B-2 — 게이트가 한글만 본다.** 영어 리터럴을 잡을 기계적 기준이 없다(식별자·CSS 클래스·
+프로토콜 문자열과 구분 불가). 한글 0 이면 "ko 문장이 카탈로그 밖에 없다" 가 보장되고, en 은
+ko 와 **키 집합이 같다**는 검사가 덮는다. CSS `content` 만 라틴 단어도 잡는다 — 거기서는
+글자가 곧 문구다.
+
+**D-B-3 — 서버 본문은 동결, 문장의 소유는 프론트.** D-ERR-2 를 지킨다. 동결 목록이 게이트에
+있으므로 "한국어 제거" 는 본문을 고치는 일이 아니라 **프론트가 본문을 읽지 않게** 하는 일이다.
+비브라우저 클라이언트(`curl`)는 종전 본문을 그대로 받는다 — CLI 는 FR-B-1 의 범위 밖이다.
+
+**D-B-3a — 코드가 구체적이면 카탈로그가, 상태에서 파생됐으면 본문이 사유다.** (전량 e2e 가
+잡았다, 2026-09-13) 첫 구현은 "코드가 카탈로그에 있으면 카탈로그" 였고, 접속 허용 목록의 저장
+거부(`fail(w, 400, err.Error())` — 본문이 **사용자가 보낸 값과 그 설명**)가 `err.bad_request` 의
+일반 문장으로 덮였다. `fail()` 은 코드를 상태에서 파생하므로(`bad_request`·`not_found`·`forbidden`·
+`internal_error`·`conflict`·`method_not_allowed`) 그 여섯에서는 **본문이 사유**이고, `httpErr` 이
+구체 코드(`missing_argument`·`tool_not_found`·`sandbox_unavailable`…)를 붙인 자리는 **코드가
+사유**다 — 동결된 한국어 본문 9곳 중 여덟이 이쪽이다. `apiErrText` 의 순서: 닿지 못함 →
+구체 코드의 카탈로그 → 본문 → 파생 코드의 카탈로그 → `{what} ({status})`.
+
+**D-B-4 — ko 카탈로그의 값은 종전 문자열과 바이트 단위로 같다.** 외부화 패스에서 문구를 고치지
+않는다(e2e 151 단정이 그 위에 선다). 문구 교정은 별도 diff(FR-B-9 의 UX-20 넷이 그 첫 예) —
+외부화와 교정이 한 커밋에 섞이면 어느 쪽이 깨뜨렸는지 알 수 없다.
+
 **D-U-10 — 축 A ⑤(CLI 계약)는 C-a 뒤다.** Run 멤버의 기동 경로가 둘이 된 뒤 한 번에
 본다 — 먼저 고치면 C-a 가 다시 고친다.
 
@@ -678,8 +768,9 @@ codex 의 프로토콜 표면은 app-server 뿐이다. experimental 딱지는 R-
 | TC-B-3 (e2e) | `<html lang>` 이 활성 로케일이고, 혼용 요소의 `lang` 이 붙는다 |
 | TC-B-4 (e2e) | CSS `content` 문구 3곳이 접근성 트리의 이름/텍스트 노드로 잡힌다 (`FR-A11Y-21`) |
 | TC-B-5 (e2e) | 단축키를 재바인딩하면 툴팁이 갱신된다 |
-| TC-B-6 (Go) | `http.Error` 한국어 0 (grep 게이트, `ERROR_CONTRACT` 의 카탈로그 게이트에 편입) |
-| TC-B-7 | 혼용 해소가 카탈로그 파일 diff 만으로 이뤄졌음을 커밋이 보인다 |
+| TC-B-6 (Go) | `http.Error` 한국어 0 · `httpErr` 한국어 본문이 동결 목록을 넘지 않는다 (`check-http-error.sh`, 탐침: 한국어 `httpErr` 하나를 더하면 빨개진다) |
+| TC-B-7 | 혼용 해소가 카탈로그 파일 diff 만으로 이뤄졌음을 커밋이 보인다 (외부화 커밋과 **별도 커밋**, D-B-4) |
+| TC-B-8 (unit) | `t`·`tn`·`I18N.apply` 의 계약 — 치환·폴백·경고 1회·복수형·속성 채움·`lang` (`web/js/test/i18n.test.mjs`) |
 
 ### 6.3 축 C 의 검증 (V-1~V-9)
 
@@ -1093,6 +1184,8 @@ PTY 화면 갱신보다 작다). **다른 것 둘**:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-13 | **P2 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-3, 전량 e2e 는 §1-4. 카탈로그 915키(ko·en 전수), JS·HTML 한글 리터럴 0, CSS `content` 문구 0, 게이트 `check-i18n.mjs`(탐침 5종)·`check-http-error.sh` 확장, 설정 키 `locale`(TC-CFG-4 24). 전량이 잡은 셋: 격리 하네스의 전역 · **D-B-3a**(파생 코드의 본문은 사유) · `lang=ko` 의 글리프 메트릭(기준선 값 하나). FR-B-9 는 별도 데이터 커밋(TC-B-7) |
+| 2026-09-13 | **P2 착수.** §2.2 실측 정정(constants 12파일·JS 884줄/43파일·HTML 72줄·`http.Error` 한국어 0). FR-B-1 결정(안 A: ko·en · 기본 ko · 감지 없음 · 폴백 ko · CLI 밖 · 서버 본문 동결). §3.3 에 키 규약·게이트 규칙 신설, FR-B-8 정정, D-B-1~4, TC-B-6·7 정정, TC-B-8 추가 |
 | 2026-09-13 | **P1 코드 완료** (전량 e2e 대기). ①~④ + TEST-8 의 항목별 판정은 `production/M8_PROGRESS.md` §1-1. DoD 밖으로 남긴 것: GO-44 의 `Git *store.Store`(gitapi 의 `Service()` 83곳 — ⑥ 뒤) · GO-47(DoD 없음, 축 C 의 `Kind` 와 함께) · GO-42(조건 미충족). 전량 `-race -shuffle` 이 FR-GIT-107 의 창을 잡아 `Jobs.finish` 의 순서를 고쳤다 |
 | 2026-09-13 | **P1 착수.** 사용자 판단 셋 반영 — FR-APS-10 정정(stdio 제어 프레임, MCP 서버 없음) · D-U-4 정정(변형 + `Kind`) · FR-AGT-11·12 확정. R-2 에 숨은 플래그 기재 |
 | 2026-09-13 | **P0 스파이크 완료.** §9.1 표를 실측으로 채우고 §9.3(산출물 ①~⑤·충돌 플래그 ⑥·부작용 ⑦)을 신설. FR-AGT-11·FR-AGT-12 추가(사용자 요구 둘). FR-APS-10·D-U-4 에 충돌 표식 — 사용자 판단 대기. 진행 기록 `production/M8_PROGRESS.md` |

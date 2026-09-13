@@ -22,9 +22,9 @@ Object.assign(App.prototype, {
       const s=document.createElement('span');s.textContent=label;
       l.appendChild(c);l.appendChild(s);return l;
     };
-    const ro=flag('ro','읽기 전용으로 붙입니다',m.readonly);
+    const ro=flag('ro',t('sbx.mount_ro'),m.readonly);
     // 이 표식이 켜지면 그 창은 더 이상 격리 경계가 아니다 (FR-SBX-39b).
-    const sc=flag('scratch','격리 창에도 붙입니다 — 켜면 그 창은 격리 경계가 아니게 됩니다',m.scratch);
+    const sc=flag('scratch',t('sbx.mount_scratch'),m.scratch);
     const del=UIKit.button({icon:'x',title:'Remove this mount',kind:'ghost',size:'sm'});
     del.addEventListener('click',()=>row.remove());
     row.append(host,cont,ro,sc,del);
@@ -61,7 +61,7 @@ Object.assign(App.prototype, {
       const r=await apiGet('/api/sandbox/config');
       if(!r.ok){
         // 런타임이 없으면 설정할 대상 자체가 없다. 빈 화면보다 이유가 낫다.
-        status.textContent=r.text.trim()||'샌드박스 설정을 읽지 못했습니다';
+        status.textContent=apiErrText(r,t('sbx.config_read_fail'));
         status.classList.add('err');
         return;
       }
@@ -70,7 +70,7 @@ Object.assign(App.prototype, {
       document.getElementById('sbx-ports').value=(cfg.dev&&cfg.dev.ports||[]).join(', ');
       for(const m of cfg.mounts||[]) box.appendChild(this._sbxMountRow(m));
     }catch(e){
-      status.textContent='샌드박스 설정을 읽지 못했습니다 — '+((e&&e.message)||e);
+      status.textContent=t('sbx.config_read_fail')+' — '+((e&&e.message)||e);
       status.classList.add('err');
     }
   },
@@ -83,18 +83,18 @@ Object.assign(App.prototype, {
       document.getElementById('sbx-mounts').appendChild(this._sbxMountRow()));
     save.addEventListener('click',async()=>{
       const status=document.getElementById('sbx-status');
-      status.classList.remove('err');status.textContent='저장 중…';
+      status.classList.remove('err');status.textContent=t('core.saving');
       try{
         const r=await apiPut('/api/sandbox/config',this._sbxCollect());
         if(!r.ok){
           // 거부 사유가 그대로 온다 — 무엇이 잘못됐는지 모르면 고칠 수 없다.
-          status.textContent=r.text.trim()||'저장하지 못했습니다';
+          status.textContent=apiErrText(r,t('core.save_fail'));
           status.classList.add('err');
           return;
         }
-        status.textContent='저장했습니다';
+        status.textContent=t('core.saved');
       }catch(e){
-        status.textContent='저장하지 못했습니다 — '+((e&&e.message)||e);
+        status.textContent=t('core.save_fail')+' — '+((e&&e.message)||e);
         status.classList.add('err');
       }
     });

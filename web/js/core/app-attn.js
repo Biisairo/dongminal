@@ -337,14 +337,14 @@ Object.assign(App.prototype, {
     if(!this._attn.size){this._attnCenterClose();return}
     const head=document.createElement('div');
     head.className='attn-head';
-    head.innerHTML=`<span class="attn-title">주의 알림 ${escHtml(this._attn.size)}</span><button class="attn-clear-all" title="Clear every attention alert">모두 제거</button>`;
+    head.innerHTML=`<span class="attn-title">${escHtml(t('attn.title',{n:this._attn.size}))}</span><button class="attn-clear-all" title="Clear every attention alert">${escHtml(t('attn.clear_all'))}</button>`;
     head.querySelector('.attn-clear-all').addEventListener('click',e=>{e.stopPropagation();this._attnClearAll()});
     center.appendChild(head);
     for(const [toolId,info] of this._attn){
       // FR-NAM-6: 알림도 파생 이름을 쓴다 — 화면의 탭과 다른 이름을 부르면
       // 사용자가 어느 도구인지 못 찾는다.
       const name=this._toolName(toolId,toolId);
-      const reason=info&&info.reason==='idle'?'작업 멈춤':'알림 신호';
+      const reason=info&&info.reason==='idle'?t('attn.reason_idle'):t('attn.reason_signal');
       const item=document.createElement('div');
       item.className='attn-item';
       const nameSpan=document.createElement('span');nameSpan.className='attn-name';nameSpan.textContent=name;
@@ -401,11 +401,7 @@ Object.assign(App.prototype, {
     if(dt){dt.disabled=true;dt.checked=false}
     if(!box) return;
     box.hidden=false;
-    box.textContent=
-      '평문 HTTP 접속에서는 브라우저가 데스크톱 알림을 막습니다. '+
-      '이 화면의 토글을 켜도 알림은 오지 않습니다.\n'+
-      '대신 이 환경에서는 사운드가 기본으로 켜지고, 탭 제목의 배지가 '+
-      '대기 중인 도구 수를 계속 보여 줍니다.';
+    box.textContent=t('attn.insecure_note');
   },
 
   _attnDesktopNotify(reason,toolId){
@@ -415,7 +411,7 @@ Object.assign(App.prototype, {
     if(this.attnDesktopBlocked||Notification.permission!=='granted') return;
     const loc=this.findToolLocation(toolId);
     const where=loc?[loc.win&&loc.win.name,tabName(loc.tab,this.fgNames)].filter(Boolean).join(' · '):('pane '+toolId);
-    const head=reason==='done'?'✅ 작업 완료':reason==='waiting'?'⌨️ 입력 대기 중':reason==='idle'?'⏸️ 작업이 멈췄습니다':'🔔 주의가 필요합니다';
+    const head=reason==='done'?t('attn.head_done'):reason==='waiting'?t('attn.head_waiting'):reason==='idle'?t('attn.head_idle'):t('attn.head_other');
     // 같은 pane 의 이전 알림을 닫고 새로 띄운다 — tag+renotify 는 (특히 macOS 에서)
     // 조용히 갱신만 되어 재팝업이 안 되므로, close→재생성으로 매번 확실히 다시 띄운다.
     this._attnNotifs=this._attnNotifs||{};

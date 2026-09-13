@@ -11,7 +11,8 @@ import { load, plain } from './harness.mjs';
  * 같은 불변식을 e2e 의 경주로 재게 되고, 그것이 이 저장소가 이미 겪은 낭비다.
  */
 
-const h = () => load(['core/constants.js', 'core/helpers.js'], {
+// `constants.js` 가 `t()` 로 문구를 읽으므로 카탈로그가 앞선다 (index.html 과 같은 순서).
+const h = () => load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/helpers.js'], {
   expose: ['mergeUnseenLayout', 'WINDOW_TYPE_EDITOR'],
 });
 

@@ -291,7 +291,7 @@ class FileEditor {
         '<div class="fe-unsup-title">' + FILE_TOO_LARGE_TITLE + '</div>' +
         '<div class="fe-unsup-path">' + escHtml(this.filePath) + '</div>' +
         '<div class="fe-unsup-meta">' +
-          escHtml(this._fmtFileSize(probe.size)) + ' · 상한 ' + escHtml(this._fmtFileSize(probe.maxBytes)) +
+          escHtml(t('editor.size_with_limit',{size:this._fmtFileSize(probe.size),max:this._fmtFileSize(probe.maxBytes)})) +
         '</div>' +
         '<div class="fe-unsup-hint">' + FILE_TOO_LARGE_HINT + '</div>' +
         '<a class="fe-unsup-dl" download href="' + escHtml(href) + '">' + FILE_TOO_LARGE_DOWNLOAD + '</a>' +

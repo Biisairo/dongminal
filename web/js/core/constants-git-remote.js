@@ -38,11 +38,11 @@ const GIT_JOB_LINE_CAP=2000;
 // SSE 가 끊기면 마지막 seq 부터 다시 잇는다 (계약 §2.3.1).
 const GIT_JOB_RETRY_MS=1000;
 const GIT_JOB_RETRY_MAX=5;
-const GIT_JOB_RUNNING='진행 중…';
-const GIT_JOB_OK='완료';
-const GIT_JOB_FAIL='실패';
-const GIT_JOB_CANCELED='취소했습니다';
-const GIT_JOB_CANCELING='취소하는 중…';
+const GIT_JOB_RUNNING=t('git.job_running');
+const GIT_JOB_OK=t('git.job_ok');
+const GIT_JOB_FAIL=t('git.job_fail');
+const GIT_JOB_CANCELED=t('git.job_canceled');
+const GIT_JOB_CANCELING=t('git.job_canceling');
 const GIT_JOB_CLOSE='Close';
 // REPO_TAB_UNIFY_SRS FR-RTU-100: 로그 접기 토글. 폭이 줄어도 자리가 고정인 유일한
 // 계기이므로 라벨도 한 글자여야 한다 — 글자가 길면 그것이 다시 폭을 다툰다.
@@ -50,63 +50,63 @@ const GIT_JOB_FOLD_OPEN='\u25be';
 const GIT_JOB_FOLD_CLOSED='\u25b8';
 
 const GIT_JOB_COPY='Copy Output';
-const GIT_JOB_STREAM_FAIL='출력이 끊겼습니다 — 다시 잇는 중…';
-const GIT_JOB_START_FAIL='원격 작업을 시작하지 못했습니다';
+const GIT_JOB_STREAM_FAIL=t('git.job_stream_fail');
+const GIT_JOB_START_FAIL=t('git.job_start_fail');
 // FR-GIT-102: 취소는 **부분 적용 가능성을 알린다** — 원격에 절반이 올라간 뒤
 // 끊길 수 있다. 그 사실을 확인 문구에 명시한다.
 const GIT_ACT_JOB_CANCEL='job_cancel';
 const GIT_JOB_CANCEL='Cancel';
-const GIT_JOB_CANCEL_TITLE='진행 중인 원격 작업을 끊습니다';
-const GIT_JOB_CANCEL_NOTE='끊긴 시점까지 원격에 일부가 적용된 채로 끝날 수 있습니다';
+const GIT_JOB_CANCEL_TITLE=t('git.job_cancel_title');
+const GIT_JOB_CANCEL_NOTE=t('git.job_cancel_note');
 // FR-GIT-104: **자격증명을 받지 않는다.** 입력을 만들지 않고 터미널에서 수행하도록
 // 안내만 한다 — 만들지 않는 것이 유일한 보장이다.
-const GIT_JOB_AUTH_NOTE='자격증명이 필요합니다 — dongminal 은 자격증명을 받지도 저장하지도 않습니다. 터미널 탭에서 아래를 실행하세요';
+const GIT_JOB_AUTH_NOTE=t('git.job_auth_note');
 const GIT_JOB_AUTH_COPY='Copy Command';
 // FR-GIT-105: 선택지는 **서버가 준 순서 그대로** 그린다. 순서가 곧 우선순위이고
 // force 는 마지막이며 강조하지 않는다.
-const GIT_JOB_REJECT_NOTE='원격이 앞서 있어 거부됐습니다 — 아래에서 고르세요';
+const GIT_JOB_REJECT_NOTE=t('git.job_reject_note');
 // 이름은 서버(internal/git/job.go)와 같은 문자열이다. 목록과 순서는 서버가 준다.
 const GIT_JOB_FIX_REBASE='fetch_rebase';
 const GIT_JOB_FIX_MERGE='fetch_merge';
 const GIT_JOB_FIX_LEASE='force_with_lease';
 const GIT_JOB_FIX_LABEL={
-  fetch_rebase:'가져와 rebase (git pull --rebase)',
-  fetch_merge:'가져와 merge (git pull)',
-  force_with_lease:'강제로 밀어 올리기 (--force-with-lease)',
+  fetch_rebase:t('git.job_fix_label.fetch_rebase'),
+  fetch_merge:t('git.job_fix_label.fetch_merge'),
+  force_with_lease:t('git.job_fix_label.force_with_lease'),
 };
 // FR-GIT-111: pull 이 충돌을 남기면 Changes 탭으로 보낸다. 해결 UI 는 M3 범위 밖이다.
-const GIT_JOB_CONFLICT_NOTE='충돌이 남았습니다 — Changes 탭의 충돌 그룹에서 확인하세요';
+const GIT_JOB_CONFLICT_NOTE=t('git.job_conflict_note');
 // FR-GIT-100: upstream 이 없으면 Push 는 Publish 다. 서버가 실행 전에 되묻는다
 // (계약 §2.3.1 ①) — 그 확인을 이 문구가 맡는다. 파괴적이 아니므로 1단계다.
 const GIT_ACT_PUBLISH='publish';
-const GIT_PUBLISH_TITLE='upstream 을 설정하며 밀어 올립니다';
+const GIT_PUBLISH_TITLE=t('git.publish_title');
 // FR-GIT-106: force 는 `--force-with-lease` 가 기본이고 `--force` 는 파괴적 확인을
 // 거친다. 이름은 서버의 파괴적 목록(/api/git/policy)의 키이며 목록을 복제하지 않는다.
 const GIT_ACT_FORCE_PUSH='force_push';
-const GIT_FORCE_PUSH_TITLE='원격의 커밋을 덮어씁니다';
-const GIT_FORCE_PUSH_NOTE='덮어쓰기 전에 아래로 원격의 현재 커밋을 적어 두세요 — 덮어쓴 뒤에는 원격의 reflog 에만 남습니다';
+const GIT_FORCE_PUSH_TITLE=t('git.force_push_title');
+const GIT_FORCE_PUSH_NOTE=t('git.force_push_note');
 // `▾` 다이얼로그 (FR-GIT-109·110). **첫 선택지가 기본이고 그것이 안전한 쪽이다**
 // (FR-GIT-97·173).
 const GIT_REMOTE_DIALOGS={
-  fetch:{title:'Fetch 옵션',run:'Fetch',fields:[
-    {key:'prune',type:'check',label:'사라진 원격 브랜치 정리 (--prune)'},
-    {key:'tags',type:'radio',label:'태그',opts:[
-      {v:'',label:'기본 (저장소 설정에 맡김)'},
-      {v:'yes',label:'모든 태그 (--tags)'},
-      {v:'no',label:'태그 없음 (--no-tags)'},
+  fetch:{title:t('git.remote_dialogs.fetch.title'),run:'Fetch',fields:[
+    {key:'prune',type:'check',label:t('git.remote_dialogs.fetch.prune')},
+    {key:'tags',type:'radio',label:t('git.remote_dialogs.fetch.tags'),opts:[
+      {v:'',label:t('git.remote_dialogs.fetch.tags_default')},
+      {v:'yes',label:t('git.remote_dialogs.fetch.tags_yes')},
+      {v:'no',label:t('git.remote_dialogs.fetch.tags_no')},
     ]},
   ]},
-  pull:{title:'Pull 옵션',run:'Pull',fields:[
-    {key:'mode',type:'radio',label:'합치는 방식',opts:[
-      {v:'',label:'기본 (merge)'},
+  pull:{title:t('git.remote_dialogs.pull.title'),run:'Pull',fields:[
+    {key:'mode',type:'radio',label:t('git.remote_dialogs.pull.mode'),opts:[
+      {v:'',label:t('git.remote_dialogs.pull.mode_default')},
       {v:'rebase',label:'rebase (--rebase)'},
-      {v:'ff-only',label:'fast-forward 만 (--ff-only)'},
-      {v:'no-ff',label:'항상 머지 커밋 (--no-ff)'},
+      {v:'ff-only',label:t('git.remote_dialogs.pull.mode_ff_only')},
+      {v:'no-ff',label:t('git.remote_dialogs.pull.mode_no_ff')},
     ]},
   ]},
-  push:{title:'Push 옵션',run:'Push',fields:[
-    {key:'force',type:'radio',label:'강제',opts:[
-      {v:'',label:'강제하지 않음'},
+  push:{title:t('git.remote_dialogs.push.title'),run:'Push',fields:[
+    {key:'force',type:'radio',label:t('git.remote_dialogs.push.force'),opts:[
+      {v:'',label:t('git.remote_dialogs.push.force_none')},
       {v:'lease',label:'--force-with-lease'},
       {v:'force',label:'--force'},
     ]},
@@ -116,16 +116,16 @@ const GIT_REMOTE_DIALOGS={
 const GIT_WT_ADD='+ New Worktree';
 // FR-TIP-1: worktree 가 무엇인지 모르는 사용자에게 라벨은 아무 말도 하지 않는다.
 const GIT_WT_ADD_TITLE='Create a worktree — a second checkout of this repository in its own folder';
-const GIT_WT_EMPTY='worktree 가 없습니다';
-const GIT_WT_LOAD_FAIL='worktree 목록을 불러오지 못했습니다';
+const GIT_WT_EMPTY=t('git.wt_empty');
+const GIT_WT_LOAD_FAIL=t('git.wt_load_fail');
 const GIT_WT_DETACHED='detached';
 const GIT_WT_MAIN='main';
 // 소유 표식 (FR-GIT-240). **사용자 것은 표식이 없다** — 그것이 기본이기 때문이다.
 // 이모지를 쓰지 않는다 (FR-GIT-187·192).
-const GIT_WT_OWN_LABEL={run:'Run',outside:'외부'};
+const GIT_WT_OWN_LABEL={run:'Run',outside:t('git.wt_own_label.outside')};
 const GIT_WT_OWN_TITLE={
-  run:'Run 격리가 만든 worktree 입니다 — 여기서 지울 수 없습니다',
-  outside:'dongminal 밖에서 만든 worktree 입니다 — 여기서 지울 수 없습니다',
+  run:t('git.wt_own_title.run'),
+  outside:t('git.wt_own_title.outside'),
 };
 // 행 동작 (FR-GIT-244). 제거는 사용자 것에만 붙고, 열기는 활성 리포 행에 붙지
 // 않는다 — 눌리지만 아무 일도 하지 않는 버튼은 고장으로 읽힌다 (FR-GIT-180).
@@ -152,8 +152,8 @@ const GIT_WT_ACT_TITLE={
 // 골격과 규약은 **Worktrees 탭과 같다** (FR-SUB-7) — 머리의 일괄, 안내 줄, 목록.
 // 새 규약을 만들지 않는다: 같은 모양의 목록이 둘이면 규칙도 하나여야 한다.
 
-const GIT_SUB_EMPTY='서브모듈이 없습니다';
-const GIT_SUB_LOAD_FAIL='서브모듈 목록을 불러오지 못했습니다';
+const GIT_SUB_EMPTY=t('git.sub_empty');
+const GIT_SUB_LOAD_FAIL=t('git.sub_load_fail');
 // 상태 라벨. 서버의 `State*` 와 짝이며, 그 판정은 `git submodule status` 의 접두
 // 문자에서 온다 (FR-SUB-2) — 우리가 다시 계산하지 않는다.
 const GIT_SUB_STATE_OK='ok';
@@ -195,36 +195,36 @@ const GIT_SUB_BULK_TITLE={
 // 있다. `sync` 는 설정만 옮기므로 그렇지 않다.
 const GIT_SUB_UPDATE_ACTION='submodule_update';
 const GIT_SUB_SYNC_ACTION='submodule_sync';
-const GIT_SUB_UPDATE_TITLE='서브모듈을 등록된 커밋으로 옮깁니다';
-const GIT_SUB_UPDATE_NOTE='서브모듈 안의 커밋되지 않은 변경이 있으면 덮이거나 거부됩니다.';
-const GIT_SUB_SYNC_TITLE='서브모듈의 URL 을 설정으로 옮깁니다';
-const GIT_SUB_SYNC_NOTE='.gitmodules 의 URL 을 이 저장소의 .git/config 로 옮깁니다. 체크아웃은 바뀌지 않습니다.';
-const GIT_SUB_UPDATE_FAIL='서브모듈을 갱신하지 못했습니다';
-const GIT_SUB_SYNC_FAIL='서브모듈 URL 을 옮기지 못했습니다';
-const GIT_SUB_UPDATED='갱신했습니다: ';
-const GIT_SUB_SYNCED='URL 을 옮겼습니다: ';
-const GIT_SUB_ALL='전부';
+const GIT_SUB_UPDATE_TITLE=t('git.sub_update_title');
+const GIT_SUB_UPDATE_NOTE=t('git.sub_update_note');
+const GIT_SUB_SYNC_TITLE=t('git.sub_sync_title');
+const GIT_SUB_SYNC_NOTE=t('git.sub_sync_note');
+const GIT_SUB_UPDATE_FAIL=t('git.sub_update_fail');
+const GIT_SUB_SYNC_FAIL=t('git.sub_sync_fail');
+const GIT_SUB_UPDATED=t('git.sub_updated');
+const GIT_SUB_SYNCED=t('git.sub_synced');
+const GIT_SUB_ALL=t('git.sub_all');
 
-const GIT_WT_CREATE_TITLE='새 worktree 를 만듭니다';
+const GIT_WT_CREATE_TITLE=t('git.wt_create_title');
 const GIT_WT_CREATE_RUN='Create';
-const GIT_WT_NAME_PH='이름 — 디렉터리 이름이 됩니다';
-const GIT_WT_REF_PH='대상 ref — 브랜치·태그·커밋';
-const GIT_WT_OPT_NEWBRANCH='이 이름으로 새 브랜치를 만든다';
-const GIT_WT_NEED_NAME='이름이 필요합니다';
-const GIT_WT_NEED_REF='대상 ref 가 필요합니다';
-const GIT_WT_CREATED='만들었습니다: ';
-const GIT_WT_PINNED='핀했습니다: ';
-const GIT_WT_PIN_FAIL='핀하지 못했습니다';
-const GIT_WT_UNPINNED='핀을 풀었습니다: ';
-const GIT_WT_UNPIN_FAIL='핀을 풀지 못했습니다';
-const GIT_WT_REMOVE_TITLE='worktree 를 지웁니다';
-const GIT_WT_REMOVE_NOTE='디렉터리가 사라집니다. 저장하지 않은 변경이 남아 있으면 거부됩니다.';
+const GIT_WT_NAME_PH=t('git.wt_name_ph');
+const GIT_WT_REF_PH=t('git.wt_ref_ph');
+const GIT_WT_OPT_NEWBRANCH=t('git.wt_opt_newbranch');
+const GIT_WT_NEED_NAME=t('git.wt_need_name');
+const GIT_WT_NEED_REF=t('git.wt_need_ref');
+const GIT_WT_CREATED=t('git.wt_created');
+const GIT_WT_PINNED=t('git.wt_pinned');
+const GIT_WT_PIN_FAIL=t('git.wt_pin_fail');
+const GIT_WT_UNPINNED=t('git.wt_unpinned');
+const GIT_WT_UNPIN_FAIL=t('git.wt_unpin_fail');
+const GIT_WT_REMOVE_TITLE=t('git.wt_remove_title');
+const GIT_WT_REMOVE_NOTE=t('git.wt_remove_note');
 // 제거는 200 으로 오면서 `removed:false` 일 수 있다 — 사유를 그 자리에 보인다
 // (FR-GIT-243: 사용자의 작업을 지우지 않는다).
 const GIT_WT_RESIDUE={
-  'dirty':'저장하지 않은 변경이 있어 지우지 않았습니다',
-  'unsafe-path':'이 경로는 지울 수 있는 영역이 아닙니다',
-  'remove-failed':'git 이 제거하지 못했습니다',
-  'branch-retained':'트리는 지웠으나 브랜치가 남았습니다',
+  'dirty':t('git.wt_residue.dirty'),
+  'unsafe-path':t('git.wt_residue.unsafe_path'),
+  'remove-failed':t('git.wt_residue.remove_failed'),
+  'branch-retained':t('git.wt_residue.branch_retained'),
 };
-const GIT_WT_REMOVE_FAIL='worktree 를 지우지 못했습니다';
+const GIT_WT_REMOVE_FAIL=t('git.wt_remove_fail');

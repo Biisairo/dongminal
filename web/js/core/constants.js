@@ -32,6 +32,10 @@ const DEFAULT_PAGE_TITLE='Dongminal';
 // 보다 먼저 돌므로 **키 문자열이 그쪽에도 리터럴로 적혀 있다**. 바꿀 때는 둘을
 // 함께 바꾼다 (FR-BTS-3).
 const THEME_VARS_KEY='dm.themeVars';
+// M8 FR-B-6 (UX-11): 종전에 CSS `content` 로만 있던 문구 셋. DOM 텍스트가 됐다.
+const SLOT_EMPTY_HINT=t('core.slot_empty_hint');
+const DROP_FILES_HINT=t('core.drop_files_hint');
+const CLICK_TO_FOCUS_HINT=t('core.click_to_focus_hint');
 // SYSTEM_THEME_FOLLOW_SRS FR-STF-5: 선주입이 두 맵 중 하나를 고를지의 스위치.
 const THEME_FOLLOW_KEY='dm.themeFollow';
 // 걷힘 애니메이션. 화면이 이미 준비된 뒤의 시간이므로 짧다.
@@ -42,9 +46,9 @@ const BOOT_MAX_MS=6000;
 
 // BOOT_SCREEN_REUSE_SRS D-BTR-8: 다시 세울 때의 단계 문구. 부르는 자리마다 적으면
 // 같은 장면이 자리마다 다른 말을 한다.
-const BOOT_STEP_RELOAD='화면을 다시 세웁니다';
-const BOOT_STEP_VERSION='새 버전을 받았습니다 — 다시 엽니다';
-const BOOT_STEP_BACKUP='설정을 되돌렸습니다 — 다시 엽니다';
+const BOOT_STEP_RELOAD=t('core.boot_step_reload');
+const BOOT_STEP_VERSION=t('core.boot_step_version');
+const BOOT_STEP_BACKUP=t('core.boot_step_backup');
 
 // ── 포커스를 잃은 창의 가장자리 표시 (UNFOCUSED_EDGE_SRS 묶음 UFE) ──
 // D-8: 표시 여부는 `documentElement` 의 클래스 하나로 정한다 — 포커스는 초당
@@ -81,7 +85,7 @@ const UFE_ALPHA_PER_LEVEL=.1;
 // 쪽으로 몰면 띠는 그대로 보이면서 글자 위의 영향은 사라진다.
 const UFE_ALPHA_MID_RATIO=.27;
 // FR-UFE-15 / SETTINGS_CONTROLS_SRS D-7: 0 은 숫자가 아니라 상태다.
-const UFE_LEVEL_OFF_LABEL='끔';
+const UFE_LEVEL_OFF_LABEL=t('core.ufe_level_off_label');
 // FR-UFE-18: 레인지에서 손을 뗀 뒤 미리보기를 유지하는 시간.
 const UFE_PREVIEW_MS=1400;
 // 미리보기 동안 붙는 클래스. style.css 가 같은 이름을 안다.
@@ -323,8 +327,8 @@ function clampEntityName(s){
  *   이유:     실패에 출구가 없으면 사용자는 같은 것을 되풀이해 누른다 —
  *             그리고 그 도구는 여전히 백그라운드 목록에 있어 닿을 수 있다
  */
-const BG_RESTORE_NO_PANE='되돌릴 분할 칸이 없습니다 — 창이나 칸을 먼저 만드세요';
-const BG_RESTORE_FAIL='백그라운드에서 되돌리지 못했습니다 — 목록에 그대로 있습니다';
+const BG_RESTORE_NO_PANE=t('core.bg_restore_no_pane');
+const BG_RESTORE_FAIL=t('core.bg_restore_fail');
 /**
  * 종료된 도구 탭의 출구 (`12-func-ui.md FUI-14`).
  *
@@ -337,13 +341,13 @@ const BG_RESTORE_FAIL='백그라운드에서 되돌리지 못했습니다 — �
  *             두 동작 다 이미 있다 (`closeTab`·`addTab`) — 없던 것은 그 자리의
  *             버튼뿐이다
  */
-const TERM_EXITED_TITLE='도구 종료됨';
-const TERM_EXITED_SUB='이 탭을 닫거나 같은 자리에 새 셸을 엽니다';
-const TERM_EXITED_CLOSE='탭 닫기';
-const TERM_EXITED_NEW='새 셸';
+const TERM_EXITED_TITLE=t('core.term_exited_title');
+const TERM_EXITED_SUB=t('core.term_exited_sub');
+const TERM_EXITED_CLOSE=t('core.term_exited_close');
+const TERM_EXITED_NEW=t('core.term_exited_new');
 // FUI-15: 터미널 검색의 결과 표기. `n/N` 은 숫자라 문구가 없다.
-const SEARCH_NONE='없음';
-const SEARCH_BAD_REGEX='정규식 오류';
+const SEARCH_NONE=t('core.search_none');
+const SEARCH_BAD_REGEX=t('core.search_bad_regex');
 // TOPTS theme is set after THEMES loads (see themes.js)
 var TOPTS={
   scrollback:TERM_SCROLLBACK_LINES,cursorBlink:true,cursorStyle:'block',
@@ -374,34 +378,33 @@ const SANDBOX_WORK_NONE='none';
 // UX_BATCH6_SRS FR-SBM-1: 아는 작업 방식 전부. 판정을 표 하나에서 파생시킨다 —
 // 손으로 적으면 넷째가 생길 때 한쪽만 고쳐진다.
 const SANDBOX_WORK_KINDS=[SANDBOX_WORK_MOUNT,SANDBOX_WORK_COPY,SANDBOX_WORK_NONE];
-const SANDBOX_WORK_LABEL={[SANDBOX_WORK_MOUNT]:'마운트',[SANDBOX_WORK_COPY]:'복사'};
+const SANDBOX_WORK_LABEL={[SANDBOX_WORK_MOUNT]:t('core.sandbox_work_label.mount'),[SANDBOX_WORK_COPY]:t('core.sandbox_work_label.copy')};
 // FR-SBM-1: 선택창의 두 갈래. `none` 은 고를 것이 아니라 **그 프로파일이 폴더를
 // 쓰지 않는다**는 사실이므로 고르는 목록에 없다.
 const SANDBOX_WORK_PICKS=[SANDBOX_WORK_MOUNT,SANDBOX_WORK_COPY];
 // FR-SBM-5: 마운트에 폴더를 함께 고르면 그 창은 격리 경계가 아니다. 등급 배지는
 // 프로파일의 것이므로(FR-SBM-4) 그 사실은 이 줄이 따로 말한다.
-const SANDBOX_MOUNT_WARN='이 창 안의 코드가 고른 폴더를 고칠 수 있습니다 — 격리 경계가 아닙니다.';
-const SANDBOX_WORK_PICK_LABEL='작업 방식';
+const SANDBOX_MOUNT_WARN=t('core.sandbox_mount_warn');
+const SANDBOX_WORK_PICK_LABEL=t('core.sandbox_work_pick_label');
 const SANDBOX_WORK_TITLE={
-  [SANDBOX_WORK_MOUNT]:'고른 폴더가 컨테이너에 이어집니다. 컨테이너 안 변경이 호스트에 그대로 남습니다.',
-  [SANDBOX_WORK_COPY]:'고른 폴더의 내용이 컨테이너로 복사됩니다. 컨테이너 안 변경은 호스트로 돌아오지 않습니다.',
-  [SANDBOX_WORK_NONE]:'이 프로파일은 작업 폴더를 쓰지 않습니다 — 고른 폴더는 쓰이지 않습니다.',
+  [SANDBOX_WORK_MOUNT]:t('core.sandbox_work_title.mount'),
+  [SANDBOX_WORK_COPY]:t('core.sandbox_work_title.copy'),
+  [SANDBOX_WORK_NONE]:t('core.sandbox_work_title.none'),
 };
 // FR-SPK-3·4: 입력란은 언제나 보이고 비어 있다. 지금 있는 자리는 버튼으로만 넣는다.
-const SANDBOX_WORKDIR_LABEL='작업 폴더';
-const SANDBOX_WORKDIR_PLACEHOLDER='비우면 아무것도 넣지 않습니다';
+const SANDBOX_WORKDIR_LABEL=t('core.sandbox_workdir_label');
+const SANDBOX_WORKDIR_PLACEHOLDER=t('core.sandbox_workdir_placeholder');
 // FR-SPK-7: 프로파일이 scratch 하나뿐일 때. 이 안내가 없으면 사용자는 프로파일을
 // 늘리는 길이 있다는 것 자체를 알 수 없다.
 // UX_BATCH6_SRS FR-SBM-1: 마운트는 이제 여기서 고른다 — 안내가 가리키던 것이
 // 사라졌다. 남은 것은 **이미지**다: scratch 는 debian 한 벌이고, 다른 도구가
 // 필요하면 dev 프로파일에 그 이미지를 적어야 한다.
-const SANDBOX_DEV_HINT='다른 이미지가 필요하면 설정에서 dev 프로파일을 정의하세요.';
-const SANDBOX_DEV_SETTINGS='설정 열기';
+const SANDBOX_DEV_HINT=t('core.sandbox_dev_hint');
+const SANDBOX_DEV_SETTINGS=t('core.sandbox_dev_settings');
 // FR-SPK-22: 복사본으로 연 창의 사이드바 배지.
-const SANDBOX_COPY_PROGRESS='작업 폴더를 컨테이너로 복사하는 중입니다 — 크기에 따라 시간이 걸립니다.';
-const SANDBOX_COPY_BADGE='복사';
-const SANDBOX_COPY_BADGE_TITLE=
-  '작업 폴더의 복사본입니다 — 이 창 안의 변경은 호스트로 돌아오지 않습니다.';
+const SANDBOX_COPY_PROGRESS=t('core.sandbox_copy_progress');
+const SANDBOX_COPY_BADGE=t('core.sandbox_copy_badge');
+const SANDBOX_COPY_BADGE_TITLE=t('core.sandbox_copy_badge_title');
 
 // UX_BATCH5_SRS FR-TIP-1: 칸의 탭 추가 버튼. `+` 만으로는 무엇이 더해지는지
 // 보이지 않는다.
@@ -423,11 +426,11 @@ const TAB_CLOSE_TITLE='Close this tab';
 
 // UX_BATCH8_SRS FR-CLG-1: 닫기 가드의 문구는 **한 자리**다 — 탭 닫기와 창 닫기가
 // 같은 사건을 두고 다른 말을 쓰면 같은 팝업으로 읽히지 않는다.
-const CLOSE_DIRTY_MSG='저장되지 않은 변경사항이 있습니다.';
+const CLOSE_DIRTY_MSG=t('core.close_dirty_msg');
 // WINDOW_CLOSE_UNDO_SRS FR-WCU-1·2 / NFR-WCU-1: 한가한 창의 닫기는 묻지 않고
 // 되돌린다. 유예는 git Undo 와 같은 5초다. `%s` 는 창 이름.
 const WINDOW_CLOSE_UNDO_MS=5000;
-const WINDOW_CLOSE_UNDO_TEXT='창을 닫았습니다 — %s';
+const WINDOW_CLOSE_UNDO_TEXT=t('core.window_close_undo_text');
 const WINDOW_CLOSE_UNDO_LABEL='Undo';
 const WINDOW_CLOSE_UNDO_TITLE='Bring the window and its shells back';
 
@@ -481,25 +484,25 @@ const SBX_RT_MISSING='missing';
 // 의 기동은 수십 초가 걸리므로 상한을 넉넉히 둔다.
 const SBX_RT_POLL_MS=2000;
 const SBX_RT_POLL_MAX_MS=60000;
-const SBX_RT_TITLE_MISSING='컨테이너 런타임이 없습니다';
-const SBX_RT_TITLE_STOPPED='컨테이너 런타임이 실행 중이 아닙니다';
-const SBX_RT_MSG_MISSING='샌드박스 창은 컨테이너 런타임(docker) 위에서 돕니다. 아래 명령으로 설치하세요.';
+const SBX_RT_TITLE_MISSING=t('core.sbx_rt_title_missing');
+const SBX_RT_TITLE_STOPPED=t('core.sbx_rt_title_stopped');
+const SBX_RT_MSG_MISSING=t('core.sbx_rt_msg_missing');
 // FR-SRT-6: 이 문장이 없으면 사용자는 설치하고도 같은 모달을 다시 본다 — 런타임을
 // 찾는 일은 서버가 뜰 때 한 번뿐이다 (`sandboxplace.Wire`).
-const SBX_RT_MSG_RESTART='설치한 뒤에는 dongminal 을 다시 시작해야 합니다.';
-const SBX_RT_MSG_STOPPED='docker 는 설치되어 있으나 데몬에 닿지 못했습니다. 지금 실행할까요?';
+const SBX_RT_MSG_RESTART=t('core.sbx_rt_msg_restart');
+const SBX_RT_MSG_STOPPED=t('core.sbx_rt_msg_stopped');
 // D-5: linux 의 기동은 권한을 요구한다. 서버가 sudo 를 부르면 비밀번호를 받을 길이
 // 없어 무응답으로 멈추므로, 사용자가 자기 셸에서 치는 것이 유일하게 끝나는 길이다.
-const SBX_RT_MSG_MANUAL='아래 명령을 직접 실행하세요.';
-const SBX_RT_START='실행';
-const SBX_RT_COPY='복사';
-const SBX_RT_COPIED='복사했습니다';
-const SBX_RT_CLOSE='닫기';
-const SBX_RT_STARTING='실행 중입니다 — 데몬이 뜰 때까지 기다립니다…';
-const SBX_RT_START_FAIL='실행하지 못했습니다';
+const SBX_RT_MSG_MANUAL=t('core.sbx_rt_msg_manual');
+const SBX_RT_START=t('core.sbx_rt_start');
+const SBX_RT_COPY=t('core.sbx_rt_copy');
+const SBX_RT_COPIED=t('core.sbx_rt_copied');
+const SBX_RT_CLOSE=t('core.sbx_rt_close');
+const SBX_RT_STARTING=t('core.sbx_rt_starting');
+const SBX_RT_START_FAIL=t('core.sbx_rt_start_fail');
 // 상한을 넘긴 것은 실패와 다르다 — 명령은 돌았고 데몬이 아직 안 떴을 뿐이다.
-const SBX_RT_TIMEOUT='기다리는 동안 데몬이 뜨지 않았습니다 — 조금 뒤 다시 눌러 보세요.';
-const SBX_RT_NO_CMD='이 운영체제의 설치 명령을 알지 못합니다 — docker 문서를 참고하세요.';
+const SBX_RT_TIMEOUT=t('core.sbx_rt_timeout');
+const SBX_RT_NO_CMD=t('core.sbx_rt_no_cmd');
 const SBX_RT_DOCS='https://docs.docker.com/get-started/get-docker/';
 
 // ── 파일 전송 (FILE_TRANSFER_SRS §3.3) ──
@@ -509,7 +512,7 @@ const SBX_RT_DOCS='https://docs.docker.com/get-started/get-docker/';
 // 화면이 영영 멈추지 않게 한다.
 const OSC_CARRY_MAX=4096;
 const OSC_CARRY_MS=50;
-const TERM_UPLOAD_NO_CWD='✗ 이 터미널의 폴더를 알 수 없어 업로드하지 않았습니다';
+const TERM_UPLOAD_NO_CWD=t('core.term_upload_no_cwd');
 
 // ── 전송 알림 (TERM_XFER_NOTICE_SRS §3) ──
 
@@ -517,10 +520,10 @@ const TERM_UPLOAD_NO_CWD='✗ 이 터미널의 폴더를 알 수 없어 업로�
 // 스스로 사라지지 않는다 (FR-TXN-5).
 const TOAST_MS=3000;
 const TOAST_ERR_MS=8000;
-const TERM_UPLOAD_BUSY='↑ %s 업로드 중…';
-const TERM_UPLOAD_OK='✓ %s 업로드 완료 (%z)';
-const TERM_UPLOAD_FAIL='✗ %s 업로드 실패';
-const TERM_DOWNLOAD_BUSY='↓ %s 내려받는 중…';
+const TERM_UPLOAD_BUSY=t('core.term_upload_busy');
+const TERM_UPLOAD_OK=t('core.term_upload_ok');
+const TERM_UPLOAD_FAIL=t('core.term_upload_fail');
+const TERM_DOWNLOAD_BUSY=t('core.term_download_busy');
 
 // ── Editor 탭 · Editor 창 (EDITOR_TAB_SRS 묶음 T·W) ──
 
@@ -533,9 +536,9 @@ const FILE_RAW_API='/api/file/raw';
 const FILE_KIND_TEXT='text';
 const FILE_KIND_IMAGE='image';
 const FILE_KIND_BINARY='binary';
-const FILE_UNSUPPORTED_TITLE='열 수 없는 형식입니다';
-const FILE_UNSUPPORTED_HINT='이진 파일은 편집기로 열지 않습니다 — 열어서 저장하면 원본이 깨집니다.';
-const FILE_IMAGE_FAIL='이미지를 불러오지 못했습니다';
+const FILE_UNSUPPORTED_TITLE=t('core.file_unsupported_title');
+const FILE_UNSUPPORTED_HINT=t('core.file_unsupported_hint');
+const FILE_IMAGE_FAIL=t('core.file_image_fail');
 
 // EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-9 — 저장하려는데 그 파일이 밖에서 바뀌었다.
 //
@@ -546,29 +549,29 @@ const FILE_IMAGE_FAIL='이미지를 불러오지 못했습니다';
 // FR-EXC-11: 표식이 실려 오는 자리. 값은 **불투명**하며 클라이언트는 이름만 안다.
 // RELOAD_CONTINUITY_SRS D-2 개정 — 새 판이 있으나 저장하지 않은 편집 때문에
 // 자동 새로고침을 미뤘다는 알림. 누르면 사용자가 직접 고른 것이다.
-const VER_HELD_MSG='새 판이 있습니다. 저장하지 않은 편집이 있어 새로고침을 미뤘습니다.';
-const VER_HELD_GO='지금 새로고침';
+const VER_HELD_MSG=t('core.ver_held_msg');
+const VER_HELD_GO=t('core.ver_held_go');
 
 // 로드맵 `FUI-05`: 저장 실패는 사유와 함께 알린다 — 테두리만으로는 무엇이
 // 잘못됐는지 말하지 못한다.
-const FILE_SAVE_FAIL='저장하지 못했습니다';
+const FILE_SAVE_FAIL=t('core.file_save_fail');
 
 // `FE-7`: 설정 저장 실패는 조용히 지나가지 않는다 — 사용자는 바뀐 줄 알고
 // 다음 기동에서 옛 값을 만난다.
-const SETTINGS_SAVE_FAIL='설정을 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.';
+const SETTINGS_SAVE_FAIL=t('core.settings_save_fail');
 
 const FILE_STAMP_HEADER='X-File-Stamp';
-const FILE_CONFLICT_TITLE='파일이 밖에서 바뀌었습니다';
-const FILE_CONFLICT_MSG='이 파일은 연 뒤 디스크에서 바뀌었습니다. 덮어쓰면 그 변경이 사라집니다.';
-const FILE_CONFLICT_GO='내 것으로 덮어쓰기';
-const FILE_CONFLICT_CANCEL='취소';
+const FILE_CONFLICT_TITLE=t('core.file_conflict_title');
+const FILE_CONFLICT_MSG=t('core.file_conflict_msg');
+const FILE_CONFLICT_GO=t('core.file_conflict_go');
+const FILE_CONFLICT_CANCEL=t('core.file_conflict_cancel');
 
 // FILE_API_BOUNDARY_SRS FR-FAB-9 (`FUI-06`) — 상한을 넘는 파일은 올리지 않는다.
 // 상한 **값**은 여기 없다. 서버가 `probe.maxBytes` 로 준다 — 두 벌이면 한쪽만
 // 고쳐지고, 그때 사용자는 "열린다고 했는데 안 열린다" 를 만난다.
-const FILE_TOO_LARGE_TITLE='너무 커서 열지 않습니다';
-const FILE_TOO_LARGE_HINT='터미널에서 여세요. 아래에서 내려받을 수도 있습니다.';
-const FILE_TOO_LARGE_DOWNLOAD='내려받기';
+const FILE_TOO_LARGE_TITLE=t('core.file_too_large_title');
+const FILE_TOO_LARGE_HINT=t('core.file_too_large_hint');
+const FILE_TOO_LARGE_DOWNLOAD=t('core.file_too_large_download');
 const FILE_DOWNLOAD_API='/api/download';
 
 // FR-EDT-110 의 종단. M2 는 목록 조회·추가·제거·재정렬만 쓴다.
@@ -580,11 +583,11 @@ const EDITORS_API='/api/editors';
 // 코드가 아니라 **환경이 정하는 것**이라, 이 창이 없으면 복사는 "될 때도 있고
 // 안 될 때도 있는 것" 이 된다 (D-12).
 const TERM_COPY_ID='term-copy';
-const TERM_COPY_TITLE='복사';
-const TERM_COPY_WHY='브라우저가 자동 복사를 막았습니다 — 아래에서 복사하세요';
-const TERM_COPY_DO='복사';
-const TERM_COPY_MANUAL='직접 선택해 복사하세요';
-const TERM_COPY_CLOSE='닫기';
+const TERM_COPY_TITLE=t('core.term_copy_title');
+const TERM_COPY_WHY=t('core.term_copy_why');
+const TERM_COPY_DO=t('core.term_copy_do');
+const TERM_COPY_MANUAL=t('core.term_copy_manual');
+const TERM_COPY_CLOSE=t('core.term_copy_close');
 
 // ── 내부 새로고침 (SOFT_RELOAD_SRS 묶음 C · FR-SRL-8~11) ──
 //
@@ -593,7 +596,7 @@ const TERM_COPY_CLOSE='닫기';
 // 사실만 다시 받는다.**
 const RELOAD_BTN_ID='soft-reload-btn';
 const RELOAD_TITLE='Reload the app without a full page refresh';
-const RELOAD_BUSY_TITLE='다시 가져오는 중…';
+const RELOAD_BUSY_TITLE=t('core.reload_busy_title');
 
 // ── 레이아웃 프리셋 ──
 //
@@ -602,20 +605,20 @@ const RELOAD_BUSY_TITLE='다시 가져오는 중…';
 // 창은 사라지고 도구만 남는다. 그럴 때 저장을 거절하고 사유를 남긴다.
 const PRESET_PANEL_ID='panel-presets';
 const PRESET_MSG_CLASS='preset-msg';
-const PRESET_SAVE_NO_PLAIN='저장할 일반 창이 없습니다 — 터미널 창을 열고 다시 시도하세요';
+const PRESET_SAVE_NO_PLAIN=t('core.preset_save_no_plain');
 // CONTEXT_MENU_UNIFY_SRS FR-CMU-8·10: 탭·터미널 본문의 컨텍스트 메뉴 문구.
-const TAB_MENU_NEW='새 탭';
-const TAB_MENU_RENAME='이름 변경';
-const TAB_MENU_CLOSE='탭 닫기';
-const TAB_MENU_RENAME_GIT_NO='git 뷰 탭의 이름은 뷰가 정합니다';
-const TAB_MENU_NEW_NO='이 창에는 새 탭을 둘 수 없습니다';
-const TERM_MENU_COPY='복사';
-const TERM_MENU_PASTE='붙여넣기';
-const TERM_MENU_SELECT_ALL='모두 선택';
-const TERM_MENU_FIND='찾기';
-const TERM_MENU_COPY_NO='선택한 글자가 없습니다';
-const TERM_MENU_PASTE_NO='이 브라우저에서는 클립보드를 읽을 수 없습니다 — Ctrl/Cmd+V 를 쓰세요';
-const TERM_MENU_PASTE_DENIED='클립보드 읽기가 거절됐습니다';
+const TAB_MENU_NEW=t('core.tab_menu_new');
+const TAB_MENU_RENAME=t('core.tab_menu_rename');
+const TAB_MENU_CLOSE=t('core.tab_menu_close');
+const TAB_MENU_RENAME_GIT_NO=t('core.tab_menu_rename_git_no');
+const TAB_MENU_NEW_NO=t('core.tab_menu_new_no');
+const TERM_MENU_COPY=t('core.term_menu_copy');
+const TERM_MENU_PASTE=t('core.term_menu_paste');
+const TERM_MENU_SELECT_ALL=t('core.term_menu_select_all');
+const TERM_MENU_FIND=t('core.term_menu_find');
+const TERM_MENU_COPY_NO=t('core.term_menu_copy_no');
+const TERM_MENU_PASTE_NO=t('core.term_menu_paste_no');
+const TERM_MENU_PASTE_DENIED=t('core.term_menu_paste_denied');
 // 로드맵 M7 `FUI-25`: 삭제의 인라인 확인 문구와 로드 실패 알림.
-const PRESET_DEL_Q='삭제? 되돌릴 수 없다.';
-const PRESET_LOAD_FAIL='프리셋을 불러오지 못했습니다: %s';
+const PRESET_DEL_Q=t('core.preset_del_q');
+const PRESET_LOAD_FAIL=t('core.preset_load_fail');

@@ -59,7 +59,7 @@ const OpenUrl = {
 
     const lead=document.createElement('div');
     lead.className='openurl-lead';
-    lead.textContent='이 기기의 브라우저로 엽니다.';
+    lead.textContent=t('openurl.lead');
 
     const addr=document.createElement('div');
     addr.className='openurl-addr';
@@ -69,15 +69,15 @@ const OpenUrl = {
     body.appendChild(lead); body.appendChild(addr);
 
     const m=UIKit.modal({
-      title:'여기서 열기',
+      title:t('openurl.title'),
       cls:'openurl-modal',
       width:'min(520px,90vw)',
       body,
       actions:[
-        {label:'취소'},
+        {label:t('core.cancel')},
         // 이 호출은 클릭 핸들러의 동기 실행 안에 있다 (FR-VUO-8). 제스처 밖으로
         // 나가면 브라우저가 조용히 차단한다.
-        {label:'열기', kind:'primary', cls:'openurl-go',
+        {label:t('openurl.open'), kind:'primary', cls:'openurl-go',
          onClick:()=>window.open(url,'_blank')},
       ],
     });

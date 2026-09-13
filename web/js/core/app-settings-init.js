@@ -125,6 +125,26 @@ Object.assign(App.prototype, {
    *
    * 가드가 이 전역을 그때그때 읽으므로 리스너를 다시 걸 일이 없다 (FR-LVC-10).
    */
+  /**
+   * M8_UNIFIED_SRS FR-B-4: Settings ▸ Display 의 `언어`. 저장이 끝난 뒤 페이지를
+   * 다시 연다 (D-B-1) — 저장 전에 열면 다음 부팅이 옛 값을 읽는다.
+   */
+  _initLocale(){
+    const sel=document.getElementById('ds-locale');
+    if(!sel) return;
+    sel.value=I18N.locale;
+    sel.addEventListener('change',async()=>{
+      uiLocale=I18N.resolve(sel.value);
+      const ok=await this.saveSettings();
+      if(ok&&uiLocale!==I18N.locale&&this._localeMirror(uiLocale)) location.reload();
+    });
+  },
+
+  /** 거울을 쓴다. 되읽어 같아야 참이다 — 사생활 모드에서는 거짓이다. */
+  _localeMirror(v){
+    try{localStorage.setItem(I18N_STORAGE_KEY,v);return localStorage.getItem(I18N_STORAGE_KEY)===v}catch{return false}
+  },
+
   _initConfirmLeave(){
     const cb=document.getElementById('ds-confirmleave');
     if(!cb) return;

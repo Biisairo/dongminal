@@ -132,6 +132,42 @@ async function apiSend(method, path, body, opts) {
   return { ok: res.ok, status: res.status, data, text, headers: res.headers || null };
 }
 
+/**
+ * 실패 봉투를 **사용자가 읽을 문장**으로 (M8_UNIFIED_SRS FR-B-8 · D-B-3).
+ *
+ * 순서 (D-B-3a): 닿지 못함 → **구체 코드**의 카탈로그(`err.<code>`) → 서버 본문(`message`
+ * 또는 평문) → **상태에서 파생된 코드**의 카탈로그 → "{what} ({status})".
+ *
+ * 코드가 둘로 갈리는 이유: `fail()` 은 코드를 상태에서 파생하고(`bad_request`…) 그때의
+ * 본문은 **사유**다 — 접속 허용 목록의 저장 거부는 사용자가 보낸 값과 그 설명을 본문에
+ * 싣는다(전량 e2e 가 잡았다). 반대로 `httpErr` 이 구체 코드를 붙인 자리의 본문은 코드의
+ * 한국어 풀이일 뿐이고 D-ERR-2 로 동결돼 있으므로, 문장은 카탈로그가 든다 — 그래서
+ * 로케일을 바꾸면 서버를 고치지 않아도 오류 문구가 따라온다 (FR-B-8).
+ *
+ *   이전 동작: 호출자마다 `r.text.trim()||'…실패 (status)'` 를 손으로 짰다
+ *   새  동작: 이 한 자리. 구체 코드면 카탈로그가, 파생 코드면 본문이 이긴다
+ *   이유:     FR-B-8 — 문장의 소유가 프론트로 넘어갔다 · D-B-3a
+ *
+ * @param {ApiRes|null} r
+ * @param {string} what  실패한 일 ("종료 실패" 처럼). 닿지 못함·상태 문구의 주어다.
+ */
+function apiErrText(r, what) {
+  if (!r || r.status === 0) return t('core.err_unreachable', { what });
+  const code = r.headers && typeof r.headers.get === 'function' ? r.headers.get('X-Error-Code') : null;
+  const inCat = !!code && I18N.has('err.' + code);
+  if (inCat && !API_ERR_DERIVED.has(code)) return t('err.' + code);
+  const body = (r.data && typeof r.data.message === 'string' && r.data.message) || (r.text || '').trim();
+  if (body) return body;
+  if (inCat) return t('err.' + code);
+  return t('core.err_status', { what, status: r.status });
+}
+
+/**
+ * 상태에서 파생되는 코드 — `apierr/codes_core.go` 의 "상태에서 파생되는 기본값" 묶음과
+ * 같다. 이 코드가 온 응답의 본문은 호출자가 적은 **사유**이므로 카탈로그가 덮지 않는다.
+ */
+const API_ERR_DERIVED = new Set(['bad_request', 'not_found', 'forbidden', 'internal_error', 'conflict', 'method_not_allowed']);
+
 /** 조회 하나. */
 function apiGet(path, opts) { return apiSend('GET', path, null, opts) }
 

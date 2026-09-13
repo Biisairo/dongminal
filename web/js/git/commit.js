@@ -389,7 +389,7 @@ class GitCommit {
     if(det){
       const ok=await GitDialog.confirm({
         action:GIT_ACT_DETACHED,title:GIT_DETACHED_TITLE,targets:[det.reason||''],
-        hint:{note:GIT_DETACHED_NOTE,command:'git switch -c <새 브랜치>'},
+        hint:{note:GIT_DETACHED_NOTE,command:t('git.detached_command')},
         stages:1,
       });
       if(!ok||this._repo!==repo) return;

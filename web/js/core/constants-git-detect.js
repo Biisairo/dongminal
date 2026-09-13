@@ -86,8 +86,7 @@ const GIT_REPO_MISSING_POLL_MS=30000;
  */
 const GIT_FAIL_BACKOFF_MAX_MS=300000;
 // 안내에 실을 재확인 주기 (초). 상수에서 파생한다 — 두 곳에 적으면 갈린다.
-const GIT_RMS_AUTO_NOTE=(GIT_REPO_MISSING_POLL_MS/1000)+
-  '초마다 다시 확인합니다 — 폴더가 돌아오면 자동으로 복구됩니다';
+const GIT_RMS_AUTO_NOTE=t('git.rms_auto_note',{sec:GIT_REPO_MISSING_POLL_MS/1000});
 /**
  * 주기는 설정으로 덮을 수 있다 (FR-GIT-23) — statsInterval 과 같은 방식이다.
  *

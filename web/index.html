@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
   <meta charset="UTF-8">
   <!-- interactive-widget=resizes-visual (FR-MTI-27): resizes-content 는 소프트
@@ -47,6 +47,10 @@
        있으면 맵이 둘(`.dark`·`.light`)이고 시스템 모드가 하나를 고른다 — 고르기만
        하고 계산하지 않는다. 키 문자열은 `THEME_FOLLOW_KEY` 와 같다. -->
   <script>try{var tk='dm.themeVars';if(localStorage.getItem('dm.themeFollow')==='1'){tk+=(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'.dark':'.light'}var tv=JSON.parse(localStorage.getItem(tk)||'null');if(tv&&typeof tv==='object'){var ds=document.documentElement.style;for(var k in tv)if(k.slice(0,2)==='--')ds.setProperty(k,tv[k])}}catch(e){}</script>
+  <!-- M8_UNIFIED_SRS FR-B-5 / D-B-1: `<html lang>` 을 첫 페인트 전에 활성 로케일로 세운다.
+       키 문자열과 지원 로케일은 `i18n.js` 의 `I18N_STORAGE_KEY`·`I18N_LOCALES` 와 같아야
+       한다 — 이 스크립트가 그것보다 먼저 돈다 (테마 캐시와 같은 모양). -->
+  <script>try{var lc=localStorage.getItem('dm.locale');document.documentElement.lang=lc==='en'?'en':'ko'}catch(e){}</script>
 </head>
 <body>
 <!-- UI_KIT_SRS FR-GLY-1·2·3: UI 아이콘 스프라이트.
@@ -112,11 +116,11 @@
       <path d="M16.5 13 H34 A17 17 0 0 1 51 32 A17 17 0 0 1 34 51 H16.5 A3.5 3.5 0 0 1 13 47.5 V16.5 A3.5 3.5 0 0 1 16.5 13 Z" fill="none" stroke="#08110D" stroke-width="7.5"/>
       <path d="M24 26.5 L29.5 32 L24 37.5" fill="none" stroke="#08110D" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>
-    <div class="boot-name">Dongminal</div>
+    <div class="boot-name" lang="en">Dongminal</div>
     <!-- 진행 바는 **얼마나 남았는지 모른다**. 부팅의 두 걸음(설정·워크스페이스)은
          각자 네트워크에 달려 있어 비율로 말할 수 없다 — 그래서 채우는 대신 흐른다. -->
     <div class="boot-bar"><i></i></div>
-    <div id="boot-step">설정을 불러옵니다</div>
+    <div id="boot-step" data-i18n="boot.step_settings"></div>
   </div>
 </div>
 <div id="app">
@@ -135,7 +139,7 @@
         <!-- SANDBOX_WINDOW_SRS: 샌드박스 창은 `+ New` 의 변종이므로 버튼을
              따로 세우지 않고 그 안에 둔다. span 인 것은 button 안에 button 을
              넣을 수 없기 때문이며, 분기는 클릭 대상으로 한다. -->
-        <button id="add-window" class="ui-btn" title="New window"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg>New<span id="add-sandbox-window" title="샌드박스 창 — 이 창의 모든 탭이 하나의 컨테이너 안에서 돕니다 (docker 필요)"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-box"/></svg>Box</span></button>
+        <button id="add-window" class="ui-btn" title="New window"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg>New<span id="add-sandbox-window" data-i18n-title="html.sandbox_window_title"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-box"/></svg>Box</span></button>
         <button id="add-preset" class="ui-btn" title="New window from default preset"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star"/></svg>Preset</button>
       </div>
       <div id="windows"></div>
@@ -178,8 +182,8 @@
       </span>
       <span class="spacer"></span>
       <button class="tbtn ui-btn" id="attn-badge" title="Tools waiting for your attention" aria-label="Tools waiting for your attention" style="display:none"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bell"/></svg><span class="attn-count">0</span></button>
-      <button class="tbtn ui-btn desktop-only" id="split-h" title="Split Horizontal (Ctrl+Shift+H)">Split H</button>
-      <button class="tbtn ui-btn desktop-only" id="split-v" title="Split Vertical (Ctrl+Shift+V)">Split V</button>
+      <button class="tbtn ui-btn desktop-only" id="split-h" data-i18n-title="html.split_h_title" data-i18n-shortcut="splitH">Split H</button>
+      <button class="tbtn ui-btn desktop-only" id="split-v" data-i18n-title="html.split_v_title" data-i18n-shortcut="splitV">Split V</button>
       <!-- ORCHESTRATION_V2_SRS FR-RVZ-1: Run 시각화 진입점. Split V 와 Agents
            사이가 지정된 자리다. 리스너는 app-runs.js 가 붙인다. -->
       <button class="tbtn ui-btn desktop-only" id="runs-btn" title="Run orchestration">Runs</button>
@@ -191,9 +195,9 @@
            Split H·V 와 떨어진 자리다 (§7 R-3). 한계에 닿으면 비활성이 된다.
            리스너는 app-slots.js 가 붙인다. -->
       <span class="slot-ctl desktop-only">
-        <button class="tbtn ui-btn ui-btn-icon ui-btn-sm" id="slot-remove" title="Remove a window slot (Ctrl+Shift+X)" aria-label="Remove a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-minus"/></svg></button>
+        <button class="tbtn ui-btn ui-btn-icon ui-btn-sm" id="slot-remove" data-i18n-title="html.slot_remove_title" data-i18n-shortcut="slotRemove" aria-label="Remove a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-minus"/></svg></button>
         <span class="slot-ctl-label">Slot</span>
-        <button class="tbtn ui-btn ui-btn-icon ui-btn-sm" id="slot-add" title="Add a window slot (Ctrl+Shift+S)" aria-label="Add a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></button>
+        <button class="tbtn ui-btn ui-btn-icon ui-btn-sm" id="slot-add" data-i18n-title="html.slot_add_title" data-i18n-shortcut="slotAdd" aria-label="Add a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></button>
       </span>
       <!-- FR-WSL-50: Agents 가 데스크톱 버튼 중 가장 오른쪽이다. -->
       <button class="tbtn ui-btn ui-btn-attn desktop-only" id="agents-toggle" title="Show all agents in one place">Agents</button>
@@ -207,7 +211,7 @@
       <!-- `UX-10`: placeholder 는 이름이 아니다 — 글자를 치는 순간 사라지고,
            스크린리더가 이름으로 읽는다는 보장도 없다. 같은 일을 하는
            `#m-search-btn` 과 **같은 이름**을 준다. -->
-      <input id="search-input" type="text" placeholder="검색..." aria-label="Search in this terminal">
+      <input id="search-input" type="text" data-i18n-placeholder="html.search_placeholder" aria-label="Search in this terminal">
       <button id="search-prev" class="ui-btn ui-btn-icon ui-btn-sm" title="Previous match (Shift+Enter)" aria-label="Previous match"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-up"/></svg></button>
       <button id="search-next" class="ui-btn ui-btn-icon ui-btn-sm" title="Next match (Enter)" aria-label="Next match"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-down"/></svg></button>
       <button id="search-case" class="ui-btn ui-btn-sm" title="Match case">Aa</button>
@@ -236,10 +240,11 @@
 <div id="modal-overlay" class="ui-modal">
   <div id="modal" class="ui-modal-box">
     <div class="modal-header">
-      <span class="modal-title">Settings</span>
+      <span class="modal-title" lang="en">Settings</span>
       <button class="modal-close ui-btn ui-btn-icon ui-btn-ghost" id="modal-close" title="Close settings" aria-label="Close settings"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button>
     </div>
-    <div class="modal-tabs">
+    <!-- FR-B-5: 탭 이름은 ko 카탈로그에서도 영어다 (FR-B-9 의 데이터) — 요소가 그 언어를 말한다. -->
+    <div class="modal-tabs" lang="en">
       <button class="mtab active" data-tab="theme" title="Theme settings">Theme</button>
       <button class="mtab" data-tab="shortcuts" title="Keyboard shortcut settings">Shortcuts</button>
       <button class="mtab" data-tab="statusbar" title="Status bar settings">Status Bar</button>
@@ -262,10 +267,10 @@
         <!-- SYSTEM_THEME_FOLLOW_SRS FR-STF-8: 추종 스위치. 이름은 `.ds-row` 구조에서 파생한다. -->
         <div class="display-settings">
           <div class="ds-row" id="theme-follow-row">
-            <span>시스템 다크/라이트 따르기</span>
+            <span data-i18n="html.theme_follow"></span>
             <input type="checkbox" id="ds-theme-follow">
           </div>
-          <div class="ds-hint" hidden>사용자 정의 테마는 모드가 없어 추종 중에는 적용되지 않습니다 — 목록에서 다크·라이트 슬롯을 고르세요.</div>
+          <div class="ds-hint" hidden data-i18n="html.theme_follow_hint"></div>
         </div>
         <div class="theme-layout">
           <div class="theme-list" id="theme-list"></div>
@@ -280,10 +285,10 @@
       <div class="mpanel" id="panel-shortcuts" style="display:none">
         <div class="display-settings">
           <div class="ds-row">
-            <span>브라우저 기본 단축키 차단</span>
+            <span data-i18n="html.block_keys"></span>
             <input type="checkbox" id="sc-blockbrowser">
           </div>
-          <div class="ds-hint">Ctrl/Cmd 조합의 브라우저 기본 동작(저장·인쇄·찾기·북마크…)을 막아 단축키로 쓸 수 있게 합니다. 복사·붙여넣기·전체선택과 F5·F11·F12 는 그대로 둡니다. Ctrl+T·Ctrl+N·Ctrl+W 처럼 브라우저가 페이지에 넘기지 않는 조합은 어떤 설정으로도 막을 수 없습니다.</div>
+          <div class="ds-hint" data-i18n="html.block_keys_hint"></div>
         </div>
         <div class="sc-list" id="sc-list"></div>
       </div>
@@ -292,18 +297,27 @@
       </div>
       <div class="mpanel" id="panel-presets" style="display:none">
         <div class="preset-list" id="preset-list"></div>
-        <button id="preset-save" class="ui-btn ui-btn-lg" title="Save the current layout as a preset">현재 레이아웃 저장</button>
+        <button id="preset-save" class="ui-btn ui-btn-lg" title="Save the current layout as a preset" data-i18n="html.preset_save"></button>
       </div>
       <div class="mpanel" id="panel-display" style="display:none">
         <div class="display-settings">
+          <!-- M8_UNIFIED_SRS FR-B-4: UI 언어. 값은 서버 설정 `locale` 이고 바꾸면 다시 연다 (D-B-1). -->
           <div class="ds-row">
-            <span>페이지 제목</span>
+            <span data-i18n="html.locale"></span>
+            <select class="sbs-select" id="ds-locale">
+              <option value="ko" lang="ko">한국어</option>
+              <option value="en" lang="en">English</option>
+            </select>
+          </div>
+          <div class="ds-hint" data-i18n="html.locale_hint"></div>
+          <div class="ds-row">
+            <span data-i18n="html.page_title"></span>
             <input type="text" class="ds-text" id="ds-title" maxlength="60" placeholder="Dongminal">
           </div>
-          <div class="ds-hint">브라우저 탭에 뜨는 이름입니다. 여러 대에 띄웠을 때 탭 줄에서 구분됩니다. 비우면 'Dongminal' 로 돌아갑니다.</div>
+          <div class="ds-hint" data-i18n="html.page_title_hint"></div>
           <!-- FR-WSL-81: 슬롯 방향. 값은 창 안 분할과 같은 용어다. -->
           <div class="ds-row">
-            <span>슬롯 방향</span>
+            <span data-i18n="html.slot_dir"></span>
             <!-- SETTINGS_CONTROLS_SRS FR-SCT-4 / D-3a·D-4a: 흔히 보는 토글 스위치다.
                  두 값의 이름은 트랙 **바깥 양쪽**에 마크업으로 그대로 적는다 — 바뀌지
                  않는 이름이고 자리도 고정이라 JS 가 채울 것이 없다. -->
@@ -313,46 +327,46 @@
               <span class="ds-sw-lbl r">Vertical</span>
             </span>
           </div>
-          <div class="ds-hint">두 창을 나란히 볼 때(⧉ Slot · Ctrl+Shift+S) 칸을 어느 축으로 나눌지 정합니다.</div>
+          <div class="ds-hint" data-i18n="html.slot_dir_hint"></div>
           <div class="ds-row">
-            <span>Display Mode</span>
+            <span data-i18n="html.display_mode"></span>
             <select class="sbs-select" id="ds-mode">
-              <option value="auto">Auto (뷰포트 기준)</option>
-              <option value="desktop">Desktop (강제)</option>
-              <option value="mobile">Mobile (강제)</option>
+              <option value="auto" data-i18n="html.mode_auto"></option>
+              <option value="desktop" data-i18n="html.mode_desktop"></option>
+              <option value="mobile" data-i18n="html.mode_mobile"></option>
             </select>
           </div>
           <div class="ds-row">
-            <span>Mobile Breakpoint (px)</span>
+            <span data-i18n="html.breakpoint"></span>
             <input type="number" class="ds-num" id="ds-bp" min="320" max="2000" step="10">
           </div>
-          <div class="ds-hint">'Auto' 모드에서 창 너비가 Breakpoint보다 작으면 모바일 레이아웃으로 전환됩니다.</div>
+          <div class="ds-hint" data-i18n="html.mode_hint"></div>
           <!-- TAB_WIDTH_SRS FR-TBW-1·2 -->
           <div class="ds-row">
-            <span>탭 너비 고정</span>
+            <span data-i18n="html.tab_fixed"></span>
             <input type="checkbox" id="ds-tabfix">
           </div>
           <div class="ds-row">
-            <span>탭 너비 (px)</span>
+            <span data-i18n="html.tab_width"></span>
             <input type="number" class="ds-num" id="ds-tabw" min="40" max="480" step="10">
           </div>
-          <div class="ds-hint">탭의 너비를 이름 길이와 무관하게 같게 만듭니다. 이름이 길면 말줄임으로 잘리고 전체 이름은 툴팁에 뜹니다. 탭이 많아 줄이 넘치면 지금처럼 가로로 스크롤합니다(폭은 줄지 않습니다).</div>
+          <div class="ds-hint" data-i18n="html.tab_width_hint"></div>
           <div class="ds-row">
-            <span>프로세스 이름을 탭 이름으로</span>
+            <span data-i18n="html.fg_names"></span>
             <input type="checkbox" id="ds-fgnames">
           </div>
-          <div class="ds-hint">터미널에서 실행 중인 프로그램 이름(vim·claude·ssh…)이 탭 이름이 됩니다. 직접 지정한 이름은 덮이지 않습니다.</div>
+          <div class="ds-hint" data-i18n="html.fg_names_hint"></div>
           <!-- LEAVE_CONFIRM_TOGGLE_SRS FR-LVC-1·2 -->
           <div class="ds-row">
-            <span>떠날 때 확인</span>
+            <span data-i18n="html.confirm_leave"></span>
             <input type="checkbox" id="ds-confirmleave">
           </div>
-          <div class="ds-hint">탭을 닫거나 새로고침할 때 되묻습니다. 끄면 실수로 닫아도 묻지 않고 터미널 세션과의 연결을 잃습니다(세션 자체는 서버에 남아 다시 접속하면 이어집니다). 확인 문구는 브라우저가 정하므로 바꿀 수 없습니다. 새 판을 받는 자동 새로고침은 이 설정과 무관하게 묻지 않습니다.</div>
+          <div class="ds-hint" data-i18n="html.confirm_leave_hint"></div>
           <!-- UNFOCUSED_EDGE_SRS FR-UFE-10 -->
           <!-- UNFOCUSED_EDGE_SRS FR-UFE-10 / D-4a: 스위치와 정도가 **한 손잡이**다.
                0 이 곧 끔이므로 "켜져 있는데 0" 같은 뜻 없는 상태가 없다. -->
           <div class="ds-row">
-            <span>포커스 잃은 창 표시</span>
+            <span data-i18n="html.focus_edge"></span>
             <span class="ds-range">
               <input type="range" id="ds-focusedge" min="0" max="10" step="1" title="How strong the edge indicator is — 0 turns it off">
               <b id="ds-focusedge-val"></b>
@@ -361,14 +375,14 @@
           <!-- ALERT_MOBILE_CONTEXT_SRS FR-AED-8·11: 포커스 표시와 **같은 손잡이 하나**다 —
                0 이 곧 끔이고 기본은 5 (FR-UFE-10 의 D-4a 를 그대로 잇는다). -->
           <div class="ds-row">
-            <span>알림 가장자리 점멸</span>
+            <span data-i18n="html.attn_edge"></span>
             <span class="ds-range">
               <input type="range" id="ds-attnedge" min="0" max="10" step="1" title="How strong the alert edge pulse is — 0 turns it off">
               <b id="ds-attnedge-val"></b>
             </span>
           </div>
-          <div class="ds-hint">주의가 필요한 도구가 하나라도 있으면 화면 가장자리가 알람색으로 2초에 한 번 숨을 쉽니다. 어느 창의 알림이든 켜지므로, 다른 창을 보고 있어도 눈에 들어옵니다. 0 으로 내리면 그리지 않습니다. 세기는 옮기는 동안 그대로 미리 보입니다. 칸·탭·목록의 기존 표시는 그대로 남고 이 띠가 그 위에 더해집니다.</div>
-          <div class="ds-hint">이 브라우저 창이 키를 받지 않는 동안 화면 가장자리에 옅은 띠를 그립니다. 0 으로 내리면 그리지 않습니다. 세기는 옮기는 동안 화면에 그대로 미리 보입니다. 색은 그 자리에 있는 색의 반대값이라 어느 테마에서나 눈에 띄고, 화면 안쪽은 건드리지 않아 글을 읽는 데는 지장이 없습니다. 창을 여러 개 띄웠을 때 어느 쪽에 키가 가는지 눌러 보지 않고 알기 위한 것입니다.</div>
+          <div class="ds-hint" data-i18n="html.attn_edge_hint"></div>
+          <div class="ds-hint" data-i18n="html.focus_edge_hint"></div>
         </div>
       </div>
       <!-- EDITOR_LSP_SRS 묶음 A — 언어 서버의 관측과 받기 (FR-LSP-46) -->
@@ -384,23 +398,23 @@
           <div class="ds-hint" id="lsp-diag-hint"></div>
           <!-- WORKBENCH_REVIEW_SRS FR-WBR-10 -->
           <div class="ds-row">
-            <span>줄 바꿈</span>
+            <span data-i18n="html.word_wrap"></span>
             <input type="checkbox" id="ds-wordwrap">
           </div>
-          <div class="ds-hint">긴 줄을 편집기 폭에 맞춰 접어 보입니다. 끄면 한 줄로 두고 가로로 스크롤합니다(기본). 이미 열려 있는 편집기에도 곧바로 적용됩니다. diff 화면은 두 축을 나란히 놓는 자리라 이 설정을 따르지 않습니다.</div>
+          <div class="ds-hint" data-i18n="html.word_wrap_hint"></div>
         </div>
       </div>
       <div class="mpanel" id="panel-notify" style="display:none">
         <div class="display-settings">
           <div class="ds-row">
-            <span>데스크톱 알림</span>
+            <span data-i18n="html.desktop_notify"></span>
             <input type="checkbox" id="attn-desktop">
           </div>
           <div class="ds-row">
-            <span>사운드</span>
+            <span data-i18n="html.sound"></span>
             <input type="checkbox" id="attn-sound">
           </div>
-          <div class="ds-hint">데스크톱 알림은 브라우저 권한 허용이 필요합니다. 시각 강조와 탭 제목 배지는 항상 동작합니다.</div>
+          <div class="ds-hint" data-i18n="html.notify_hint"></div>
           <!-- TLS-1: 평문 HTTP 접속이면 브라우저가 Notification 을 통째로 막는다.
                사유와 대체 수단을 여기 적는다. 문구는 `_attnSecurityNotice` 가 넣는다 —
                조건이 런타임에 결정되므로 마크업에 박을 수 없다. -->
@@ -413,88 +427,88 @@
       <div class="mpanel" id="panel-polling" style="display:none">
         <div class="display-settings" id="poll-settings"></div>
         <!-- FR-PIS-25: 주기를 늘려도 화면이 낡은 채 남지 않는 이유를 적는다. -->
-        <div class="ds-hint">숨은 브라우저 탭과 보이지 않는 화면에서는 아무것도 묻지 않고, 돌아오면 즉시 한 번 갚습니다. 창 전환·저장·git 명령처럼 결과를 곧바로 봐야 하는 순간은 주기와 무관하게 그때 갱신합니다.</div>
+        <div class="ds-hint" data-i18n="html.polling_hint"></div>
       </div>
       <!-- FR-SPT-14·15: 무엇이 실리고 무엇이 실리지 않는지를 함께 적는다. -->
       <div class="mpanel" id="panel-access" style="display:none">
         <div class="display-settings">
           <div class="ds-row">
-            <span>허용 목록 적용</span>
-            <label class="sbx-flag"><input type="checkbox" id="acl-enabled"><span>켜기</span></label>
+            <span data-i18n="html.acl_enabled"></span>
+            <label class="sbx-flag"><input type="checkbox" id="acl-enabled"><span data-i18n="html.acl_on"></span></label>
           </div>
-          <div class="ds-hint">끄면 접속에 아무 제한이 없습니다(지금까지의 동작). 켜면 아래 목록에 있는 출발지만 들어옵니다. <b><code>--expose</code> 로 띄웠다면 이것을 켜지 않는 한 같은 네트워크의 누구나 이 서버의 터미널과 파일에 접근할 수 있습니다.</b></div>
+          <div class="ds-hint" data-i18n-html="html.acl_enabled_hint"></div>
 
-          <div class="ds-row"><span>지금 내 주소</span><span id="acl-you" class="sbx-status"></span></div>
-          <div class="ds-hint">이 값이 목록에 없으면 저장하는 순간 이 브라우저는 끊깁니다. <b>서버가 돌고 있는 컴퓨터에서는 목록과 무관하게 언제나 접속되므로</b>, 잘못 설정해도 그 컴퓨터에서 되돌릴 수 있습니다.</div>
+          <div class="ds-row"><span data-i18n="html.acl_you"></span><span id="acl-you" class="sbx-status"></span></div>
+          <div class="ds-hint" data-i18n-html="html.acl_you_hint"></div>
 
           <!-- FR-ACL-37: 축② — 이 서버가 **불리는 이름**. 위쪽이 "누가 들어오나" 이고
                여기가 "뭐라고 불리며 들어오나" 다. 자리를 둘 사이에 둔 이유는 두 축이
                나란히 서야 무엇이 무엇인지 읽히기 때문이다 (U-18). -->
-          <div class="ds-row"><span>이 서버가 아는 자기 이름</span><span id="acl-hostname" class="sbx-status"></span></div>
-          <div class="ds-row"><span>지금 들어온 이름</span><span id="acl-host-now" class="sbx-status"></span></div>
-          <div class="ds-row"><span>이 컴퓨터의 별명</span>
-            <button type="button" class="ds-toggle ui-btn" id="acl-host-add" title="Add a host alias">+ 추가</button>
+          <div class="ds-row"><span data-i18n="html.acl_hostname"></span><span id="acl-hostname" class="sbx-status"></span></div>
+          <div class="ds-row"><span data-i18n="html.acl_host_now"></span><span id="acl-host-now" class="sbx-status"></span></div>
+          <div class="ds-row"><span data-i18n="html.acl_host_alias"></span>
+            <button type="button" class="ds-toggle ui-btn" id="acl-host-add" title="Add a host alias" data-i18n="html.add"></button>
           </div>
           <div id="acl-host-list" class="sbx-mounts"></div>
           <!-- FR-ACL-38: 이 칸이 넓히는 것이 무엇인지, 그리고 막힌 뒤에는 여기서 고칠
                수 없다는 사실을 함께 적는다. -->
-          <div class="ds-hint">이 컴퓨터를 부르는 이름을 넣습니다(<code>macmini-office</code> · <code>macmini-office.tail5da9ae.ts.net</code> · <code>macmini.local</code>). 여기 없는 이름으로 접속하면 <b>화면은 뜨지만 <code>/api/*</code>·<code>/ws</code> 가 421 로 끊깁니다.</b> 위쪽 허용 목록과 달리 <b>적용 토글과 무관하게 항상 적용되며</b>, 이름은 해석하지 않고 그대로 비교합니다. <b>이 칸은 DNS 리바인딩 방어의 화이트리스트입니다</b> — 남의 도메인을 넣으면 그 도메인이 이 서버를 가리키게 만든 웹페이지가 응답을 읽을 수 있으므로 <b>이 컴퓨터가 불리는 이름만</b> 넣고, 와일드카드(<code>*</code>)는 쓸 수 없습니다. 이미 이름으로 막힌 상태라면 그 브라우저에서는 이 칸을 고칠 수 없습니다 — 서버가 돌고 있는 컴퓨터에서, 또는 IP 로 접속해 고치세요.</div>
+          <div class="ds-hint" data-i18n-html="html.acl_host_alias_hint"></div>
 
-          <div class="ds-row"><span>허용 목록</span>
-            <button type="button" class="ds-toggle ui-btn" id="acl-add" title="Add an allowlist entry">+ 추가</button>
+          <div class="ds-row"><span data-i18n="html.acl_list"></span>
+            <button type="button" class="ds-toggle ui-btn" id="acl-add" title="Add an allowlist entry" data-i18n="html.add"></button>
           </div>
           <div id="acl-list" class="sbx-mounts"></div>
-          <div class="ds-hint">IP(<code>100.117.248.111</code>) · 대역(<code>192.168.0.0/24</code>) · 이름(<code>macmini</code>, <code>macmini.tail5da9ae.ts.net</code>)을 넣습니다. 이름은 서버가 주기적으로 해석해 IP 와 대조하며, 해석된 주소가 줄 끝에 보입니다 — <code>.local</code>(mDNS)은 해석되지 않습니다. 같은 기기라도 <b>tailscale 로 붙을 때와 같은 LAN 에서 붙을 때 주소가 다르므로</b>, 쓰는 경로를 모두 넣으세요.</div>
+          <div class="ds-hint" data-i18n-html="html.acl_list_hint"></div>
 
           <div class="ds-row">
             <span id="acl-status" class="sbx-status"></span>
-            <button type="button" class="ds-toggle ui-btn" id="acl-save" title="Save the access allowlist">저장</button>
+            <button type="button" class="ds-toggle ui-btn" id="acl-save" title="Save the access allowlist" data-i18n="html.save"></button>
           </div>
         </div>
       </div>
       <div class="mpanel" id="panel-sandbox" style="display:none">
         <div class="display-settings">
           <div class="ds-row">
-            <span>dev 이미지</span>
+            <span data-i18n="html.sbx_image"></span>
             <input type="text" id="sbx-image" class="sbx-input" placeholder="node:22">
           </div>
           <div class="ds-row">
-            <span>포트</span>
+            <span data-i18n="html.sbx_ports"></span>
             <input type="text" id="sbx-ports" class="sbx-input" placeholder="3000, 5173-5180">
           </div>
-          <div class="ds-hint">이미지를 비우면 <code>dev</code> 프로파일을 쓸 수 없고 <code>scratch</code> 만 남습니다. 포트는 쉼표로 구분하며, 컨테이너를 만든 뒤에는 더할 수 없어 미리 넉넉히 적는 편이 낫습니다.</div>
+          <div class="ds-hint" data-i18n-html="html.sbx_image_hint"></div>
 
-          <div class="ds-row"><span>기본 마운트</span>
-            <button type="button" class="ds-toggle ui-btn" id="sbx-mount-add" title="Add a mount to this sandbox profile">+ 추가</button>
+          <div class="ds-row"><span data-i18n="html.sbx_mounts"></span>
+            <button type="button" class="ds-toggle ui-btn" id="sbx-mount-add" title="Add a mount to this sandbox profile" data-i18n="html.add"></button>
           </div>
           <div id="sbx-mounts" class="sbx-mounts"></div>
-          <div class="ds-hint">샌드박스 창이면 언제나 붙는 자리입니다 — 설정과 자격증명을 둡니다(<code>~/.claude</code>, <code>~/.ssh</code>). <code>~</code> 는 홈으로 펴집니다. <b>scratch</b> 를 켜면 그 항목이 격리 창에도 들어가고, 그 순간 그 창은 격리 경계가 아니게 됩니다 — 읽기 전용이어도 내용은 읽힙니다.</div>
+          <div class="ds-hint" data-i18n-html="html.sbx_mounts_hint"></div>
 
           <div class="ds-row">
             <span id="sbx-status" class="sbx-status"></span>
-            <button type="button" class="ds-toggle ui-btn" id="sbx-save" title="Save the sandbox profile definition">저장</button>
+            <button type="button" class="ds-toggle ui-btn" id="sbx-save" title="Save the sandbox profile definition" data-i18n="html.save"></button>
           </div>
-          <div class="ds-hint">저장하면 곧바로 반영되지만, <b>이미 열려 있는 샌드박스 창은 그대로입니다</b>. 새 설정으로 열려면 그 창을 닫았다 다시 여세요 — 그때 컨테이너 안에 설치했던 것은 사라집니다.</div>
+          <div class="ds-hint" data-i18n-html="html.sbx_save_hint"></div>
         </div>
       </div>
       <div class="mpanel" id="panel-backup" style="display:none">
         <div class="display-settings">
           <div class="ds-row">
-            <span>설정 내보내기</span>
-            <button type="button" class="ds-toggle ui-btn" id="bk-export" title="Export settings and workspace to a file">파일로 저장</button>
+            <span data-i18n="html.bk_export"></span>
+            <button type="button" class="ds-toggle ui-btn" id="bk-export" title="Export settings and workspace to a file" data-i18n="html.bk_export_btn"></button>
           </div>
-          <div class="ds-hint">이 창의 설정 전부(테마·단축키·상태바·프리셋·표시·알림)를 JSON 파일 하나로 내려받습니다. 창 너비 같은 화면 치수와 리포별 Git 보기 취향은 옮겨도 뜻을 잃으므로 담지 않습니다.</div>
+          <div class="ds-hint" data-i18n="html.bk_export_hint"></div>
           <div class="ds-row">
-            <span>설정 가져오기</span>
-            <button type="button" class="ds-toggle ui-btn" id="bk-import" title="Import settings and workspace from a file">파일 고르기</button>
+            <span data-i18n="html.bk_import"></span>
+            <button type="button" class="ds-toggle ui-btn" id="bk-import" title="Import settings and workspace from a file" data-i18n="html.bk_import_btn"></button>
           </div>
-          <div class="ds-hint">고른 파일의 값으로 <b>전체 교체</b>합니다. 파일에 없는 설정은 기본값으로 돌아갑니다. 교체가 끝나면 페이지를 다시 엽니다.</div>
+          <div class="ds-hint" data-i18n-html="html.bk_import_hint"></div>
           <input type="file" id="bk-file" accept="application/json,.json" hidden>
           <div class="bk-confirm" id="bk-confirm" hidden>
             <div class="bk-summary" id="bk-summary"></div>
             <div class="bk-actions">
-              <button type="button" class="ds-toggle ui-btn bk-danger" id="bk-apply" title="Apply the imported backup — this overwrites current settings">교체하고 다시 열기</button>
-              <button type="button" class="ds-toggle ui-btn" id="bk-cancel" title="Discard the imported backup">취소</button>
+              <button type="button" class="ds-toggle ui-btn bk-danger" id="bk-apply" title="Apply the imported backup — this overwrites current settings" data-i18n="html.bk_apply"></button>
+              <button type="button" class="ds-toggle ui-btn" id="bk-cancel" title="Discard the imported backup" data-i18n="html.cancel"></button>
             </div>
           </div>
           <div class="bk-msg" id="bk-msg"></div>
@@ -503,25 +517,25 @@
                짝이며, 그 명령과 달리 **서버가 돌고 있어도** 쓸 수 있다. -->
           <div class="ds-sep"></div>
           <div class="ds-row">
-            <span>창 배치 되돌리기</span>
-            <button type="button" class="ds-toggle ui-btn" id="bk-revlist" title="List saved workspace generations you can revert to">되돌릴 수 있는 판 보기</button>
+            <span data-i18n="html.bk_revert"></span>
+            <button type="button" class="ds-toggle ui-btn" id="bk-revlist" title="List saved workspace generations you can revert to" data-i18n="html.bk_revlist"></button>
           </div>
-          <div class="ds-hint">창·칸·탭의 배치를 저장 직전의 판으로 되돌립니다. 설정이 아니라 <b>배치</b>만 바뀝니다. 되돌린 뒤에도 직전 판이 목록의 맨 앞에 남으므로, 잘못 골랐으면 한 번 더 되돌리면 됩니다.</div>
+          <div class="ds-hint" data-i18n-html="html.bk_revert_hint"></div>
           <div class="bk-revs" id="bk-revs" hidden></div>
 
           <!-- FUI-24: 설정 전체를 기본값으로 되돌리는 길. 종전에는 없었다 —
                한 항목씩 되돌리는 수밖에 없었고, 어느 것을 만졌는지 기억해야 했다. -->
           <div class="ds-sep"></div>
           <div class="ds-row">
-            <span>기본값으로 되돌리기</span>
-            <button type="button" class="ds-toggle ui-btn bk-danger" id="bk-reset" title="Reset every setting in this window to its default">전부 되돌리기</button>
+            <span data-i18n="html.bk_reset"></span>
+            <button type="button" class="ds-toggle ui-btn bk-danger" id="bk-reset" title="Reset every setting in this window to its default" data-i18n="html.bk_reset_btn"></button>
           </div>
-          <div class="ds-hint">이 창의 설정 전부(테마·단축키·상태바·프리셋·표시·알림)를 기본값으로 되돌립니다. <b>창 배치는 건드리지 않습니다.</b> 되돌릴 수 없으니 먼저 <b>파일로 저장</b>을 눌러 지금 설정을 담아 두세요.</div>
+          <div class="ds-hint" data-i18n-html="html.bk_reset_hint"></div>
           <div class="bk-confirm" id="bk-reset-confirm" hidden>
-            <div class="bk-summary">지금 설정을 전부 버리고 기본값으로 되돌립니다. 되돌릴 수 없습니다.</div>
+            <div class="bk-summary" data-i18n="html.bk_reset_summary"></div>
             <div class="bk-actions">
-              <button type="button" class="ds-toggle ui-btn bk-danger" id="bk-reset-apply" title="Reset all settings and reload">되돌리고 다시 열기</button>
-              <button type="button" class="ds-toggle ui-btn" id="bk-reset-cancel" title="Keep current settings">취소</button>
+              <button type="button" class="ds-toggle ui-btn bk-danger" id="bk-reset-apply" title="Reset all settings and reload" data-i18n="html.bk_reset_apply"></button>
+              <button type="button" class="ds-toggle ui-btn" id="bk-reset-cancel" title="Keep current settings" data-i18n="html.cancel"></button>
             </div>
           </div>
         </div>
@@ -570,6 +584,11 @@
 <!-- 잡히지 않은 오류의 기록 (OBSERVABILITY_SRS FR-OBS-18). **가장 앞이어야 한다**
      — 이 훅이 걸리기 전의 예외는 잡히지 않는다. 서버로 보내지 않는다(D-OBS-4). -->
 <script src="js/core/error-log.js?v=__ASSETV__"></script>
+<!-- M8_UNIFIED_SRS FR-B-2: 카탈로그는 **모든 상수보다 먼저** 선다 — `constants*.js` 가
+     `const X=t('…')` 로 로드 시점에 읽는다. 로케일은 여기서 한 번 정해진다 (D-B-1). -->
+<script src="js/core/i18n.js?v=__ASSETV__"></script>
+<script src="js/i18n/ko.js?v=__ASSETV__"></script>
+<script src="js/i18n/en.js?v=__ASSETV__"></script>
 <script src="js/core/constants.js?v=__ASSETV__"></script>
 <script src="js/core/constants-git.js?v=__ASSETV__"></script>
 <!-- 탭별 git 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1). 순서는 원본 파일의 절

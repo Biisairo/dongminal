@@ -458,11 +458,15 @@ class Renderer {
         const head=this._keep('slot:'+i+'/head',()=>{
           const h=document.createElement('div'); h.className='slot-head'; return h;
         });
-        head.textContent=win?this._rWinTitle(win):'창 없음';
+        head.textContent=win?this._rWinTitle(win):t('core.no_window');
         // 분할 트리는 `inset:0` 으로 조상을 채우므로 머리글과 겹치지 않게 자기
         // 몫의 상자를 준다.
         const body=this._keep('slot:'+i+'/body',()=>{
-          const b=document.createElement('div'); b.className='slot-body'; return b;
+          const b=document.createElement('div'); b.className='slot-body';
+          // FR-B-6 (UX-11): 빈 칸의 안내는 CSS `content` 가 아니라 DOM 텍스트다 —
+          // 접근성 트리에 잡히고 카탈로그를 지난다. 창이 있으면 CSS 가 숨긴다.
+          const hint=document.createElement('div'); hint.className='slot-empty-hint'; hint.textContent=SLOT_EMPTY_HINT;
+          b.appendChild(hint); return b;
         });
         this._place(el,[head,body]);
         kids.push(el);
@@ -969,7 +973,7 @@ class Renderer {
    */
   _hideOthers(body,keep){
     for(const c of [...body.children]){
-      if(c===keep||c.classList.contains('pn-drop-indicator')) continue;
+      if(c===keep||c.classList.contains('pn-drop-indicator')||c.classList.contains('pn-dim-hint')) continue;
       c.classList.remove('vis');
       c.remove();
     }
@@ -1197,6 +1201,9 @@ class Renderer {
     list.setAttribute('role','tablist');
     tabs.appendChild(list);
     const body=document.createElement('div'); body.className='pn-body';
+    // FR-B-6 (UX-11): 다른 화면이 쥔 칸의 안내. `.pn-dimmed` 일 때만 CSS 가 보인다.
+    const dim=document.createElement('div'); dim.className='pn-dim-hint'; dim.textContent=CLICK_TO_FOCUS_HINT;
+    body.appendChild(dim);
     el.appendChild(tabs); el.appendChild(body);
     const node=()=>(el._ctx&&el._ctx.node)||null;
     const slotOf=()=>(el._ctx&&el._ctx.slot)||0;

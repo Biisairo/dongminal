@@ -348,30 +348,30 @@ const SHORTCUT_DEFAULTS={
 const SHORTCUT_LABELS={
   // GIT_SIDEBAR_TABS_SRS FR-SBT-31·33: 이 키는 **활성 사이드바 탭의 목록**을 순회한다
   // (Windows 탭이면 창, Git 탭이면 리포). 모드 의존이 되었으므로 설명이 따라간다.
-  windowNext:'다음 항목 (활성 탭 기준)',windowPrev:'이전 항목 (활성 탭 기준)',
-  tabNext:'다음 탭',tabPrev:'이전 탭',
+  windowNext:t('shortcut.window_next'),windowPrev:t('shortcut.window_prev'),
+  tabNext:t('shortcut.tab_next'),tabPrev:t('shortcut.tab_prev'),
   paneUp:'Pane ↑',paneDown:'Pane ↓',paneLeft:'Pane ←',paneRight:'Pane →',
-  splitH:'가로 분할',splitV:'세로 분할',
-  newWindow:'새 창',newTab:'새 탭',
-  closeWindow:'창 닫기',closeTab:'탭 닫기',
-  agentsToggle:'에이전트 패널',
-  slotAdd:'창 슬롯 더하기',
-  slotRemove:'창 슬롯 빼기',
-  slotPrev:'이전 슬롯',
-  slotNext:'다음 슬롯',
-  bgToggle:'백그라운드 도구',
-  sidebarToggle:'사이드바 접기/펼치기',
-  runsToggle:'Run 오케스트레이션',
-  softReload:'내부 새로고침',
-  edGotoDef:'정의로 이동 (Editor)',
-  edFindRefs:'참조 찾기 (Editor)',
-  edNavBack:'이동 뒤로 (Editor)',
-  edFindInFile:'파일 내에서 검색 (Editor)',
-  edQuickOpen:'파일 검색 (Editor)',
-  edGrep:'파일 전체에서 검색 (Editor)',
-  edSave:'저장 (Editor)',
-  edSaveAll:'모두 저장 (Editor)',
-  shortcutsHelp:'단축키 목록',
+  splitH:t('shortcut.split_h'),splitV:t('shortcut.split_v'),
+  newWindow:t('shortcut.new_window'),newTab:t('shortcut.new_tab'),
+  closeWindow:t('shortcut.close_window'),closeTab:t('shortcut.close_tab'),
+  agentsToggle:t('shortcut.agents_toggle'),
+  slotAdd:t('shortcut.slot_add'),
+  slotRemove:t('shortcut.slot_remove'),
+  slotPrev:t('shortcut.slot_prev'),
+  slotNext:t('shortcut.slot_next'),
+  bgToggle:t('shortcut.bg_toggle'),
+  sidebarToggle:t('shortcut.sidebar_toggle'),
+  runsToggle:t('shortcut.runs_toggle'),
+  softReload:t('shortcut.soft_reload'),
+  edGotoDef:t('shortcut.ed_goto_def'),
+  edFindRefs:t('shortcut.ed_find_refs'),
+  edNavBack:t('shortcut.ed_nav_back'),
+  edFindInFile:t('shortcut.ed_find_in_file'),
+  edQuickOpen:t('shortcut.ed_quick_open'),
+  edGrep:t('shortcut.ed_grep'),
+  edSave:t('shortcut.ed_save'),
+  edSaveAll:t('shortcut.ed_save_all'),
+  shortcutsHelp:t('shortcut.shortcuts_help'),
   // `DOC-3` (M5): 기본값은 있는데 **라벨이 없었다.** 라벨이 없으면 Settings ▸
   // Shortcuts 의 목록에 뜨지 않고, 뜨지 않으면 사용자가 바꿀 수 없다 — 바꿀 수
   // 있다고 적힌 문서가 그 순간 거짓이 된다.
@@ -421,21 +421,21 @@ var shortcuts={...SHORTCUT_DEFAULTS};
 // ── Status bar state ──
 
 const STATUS_ITEMS={
-  connection:{label:'연결 상태',def:true},
-  latency:{label:'레이턴시',def:true},
-  location:{label:'현재 위치 (dmctl 대상)',def:true},
-  cwd:{label:'현재 디렉토리',def:true},
+  connection:{label:t('statusbar.connection'),def:true},
+  latency:{label:t('statusbar.latency'),def:true},
+  location:{label:t('statusbar.location'),def:true},
+  cwd:{label:t('statusbar.cwd'),def:true},
   // U-19 ① (2026-09-11 사용자 판정): **`git` 항목은 제거됐다.**
   // 몇 초 동안만 뜨는 것을 켜고 끄는 스위치는 켜 두어도 늘 안 보이므로 설정으로서
   // 뜻이 없었다. FR-GIT-112(상태바 표시)가 철회됐다 — 작업 목록 폴링 자체는
   // 남는다(FR-GIT-101a). 저장된 설정에 옛 키가 있어도 이 표를 딛는 화면은 그것을
   // 보지 않는다.
-  memory:{label:'메모리',def:true},
-  hostname:{label:'호스트명',def:false},
+  memory:{label:t('statusbar.memory'),def:true},
+  hostname:{label:t('statusbar.hostname'),def:false},
   cpu:{label:'CPU',def:false},
-  disk:{label:'디스크',def:false},
-  termsize:{label:'터미널 크기',def:false},
-  uptime:{label:'업타임',def:false},
+  disk:{label:t('statusbar.disk'),def:false},
+  termsize:{label:t('statusbar.termsize'),def:false},
+  uptime:{label:t('statusbar.uptime'),def:false},
 };
 var statusBar={}; // {itemKey: true/false}
 for(const[k,v]of Object.entries(STATUS_ITEMS))statusBar[k]=v.def;
@@ -466,6 +466,10 @@ var pageTitle='';
 // **기본값이 거짓인 것이 규칙이다** (D-1). 접수한 요구가 "묻지 않기" 이므로,
 // 켬을 기본으로 두면 요구는 이뤄지지 않은 채 설정 항목만 하나 늘어난다.
 var confirmLeave=false;
+// M8_UNIFIED_SRS FR-B-1·4: UI 언어. /api/settings blob 에 실린다 — 기기를 옮겨도
+// 같은 언어여야 한다. **활성 로케일은 `I18N.locale` 이고 이 값은 저장할 값이다** —
+// 둘이 다른 순간은 사용자가 고르고 페이지가 다시 열리기 전뿐이다 (D-B-1).
+var uiLocale=I18N.locale;
 /**
  * UNFOCUSED_EDGE_SRS FR-UFE-10·12·13: 포커스를 잃은 창의 가장자리 표시 세기(0~10).
  *

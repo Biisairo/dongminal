@@ -63,7 +63,7 @@ const GIT_HIST_BRANCH_TITLE='Create a branch at the current HEAD (right-click a 
 // reflog 포함 (FR-GIT-280). 어떤 ref 도 가리키지 않게 된 커밋 — reset 으로 되돌린
 // 것, 지운 브랜치의 끝 — 은 이 토글로만 목록에 들어온다.
 const GIT_HIST_REFLOG='reflog';
-const GIT_HIST_REFLOG_TITLE='어떤 ref 도 가리키지 않는 커밋을 reflog 에서 찾아 함께 보인다';
+const GIT_HIST_REFLOG_TITLE=t('git.hist_reflog_title');
 
 /**
  * 검색 (PANEL_SURFACE_SRS §3.4 / 요구 ⑨).
@@ -76,25 +76,25 @@ const GIT_HIST_REFLOG_TITLE='어떤 ref 도 가리키지 않는 커밋을 reflog
  *   이유:     "찾는다" 는 하나의 일이다 (D-5·D-6) — 범위를 고르는 것은 사용자의
  *             일이 아니고, `Go` 가 하던 일은 결과의 한 줄로 옮길 수 있다
  */
-const GIT_SEARCH_PLACEHOLDER='검색 — 메시지 · 작성자 · 해시 · ref';
+const GIT_SEARCH_PLACEHOLDER=t('git.search_placeholder');
 // FR-HSU-14: 손이 멎은 뒤 한 번이다. 글자마다 저장소 전체를 훑지 않는다.
 const GIT_SEARCH_DEBOUNCE_MS=400;
 // FR-HSU-8: 지금 보고 있는 범위. 사용자가 "없다" 와 "아직 안 받았다" 를 가른다.
-const GIT_SEARCH_SCOPE_LOADED='로드된 %n개 중 %m개';
-const GIT_SEARCH_SCOPE_REPO='저장소 전체에서 %m개';
-const GIT_SEARCH_SCOPE_WIDENING='저장소 전체로 넓히는 중…';
+const GIT_SEARCH_SCOPE_LOADED=t('git.search_scope_loaded');
+const GIT_SEARCH_SCOPE_REPO=t('git.search_scope_repo');
+const GIT_SEARCH_SCOPE_WIDENING=t('git.search_scope_widening');
 // FR-HSU-6: 입력이 실재하는 리비전일 때 결과 위에 서는 줄.
-const GIT_SEARCH_REV_MARK='이 리비전';
+const GIT_SEARCH_REV_MARK=t('git.search_rev_mark');
 const GIT_SEARCH_REV_TITLE='Jump to this commit in the history list';
 // FR-HSU-9·10: 정렬·필터·reflog 를 담는 드롭다운.
-const GIT_HIST_OPTS='옵션';
+const GIT_HIST_OPTS=t('git.hist_opts');
 const GIT_HIST_OPTS_TITLE='Sorting, filters and reflog';
-const GIT_HIST_OPTS_ORDER='정렬';
+const GIT_HIST_OPTS_ORDER=t('git.hist_opts_order');
 
 // jump (FR-GIT-131). 상한을 넘으면 찾지 못했다고 알린다 — 무한히 받아 오지 않는다.
 const GIT_JUMP_MAX_PAGES=20;
-const GIT_JUMP_NOT_FOUND='찾지 못했습니다';
-const GIT_JUMP_SEARCHING='찾는 중…';
+const GIT_JUMP_NOT_FOUND=t('git.jump_not_found');
+const GIT_JUMP_SEARCHING=t('git.jump_searching');
 // 찾은 행은 잠깐 강조한다 — 스크롤만 하면 어느 줄로 갔는지 알 수 없다.
 const GIT_JUMP_FLASH_MS=2000;
 
@@ -103,11 +103,11 @@ const GIT_JUMP_FLASH_MS=2000;
 const GIT_DATE_FORMAT_KEY='gitDateFormat';
 const GIT_DATE_RELATIVE='relative';
 const GIT_DATE_ABSOLUTE='absolute';
-const GIT_REL_NOW='방금';
+const GIT_REL_NOW=t('git.rel_now');
 // [단위 길이(ms), 접미사]. 큰 단위부터 본다.
 const GIT_REL_UNITS=[
-  [31536000000,'년'],[2592000000,'개월'],[604800000,'주'],
-  [86400000,'일'],[3600000,'시간'],[60000,'분'],
+  [31536000000,t('git.rel_units.year')],[2592000000,t('git.rel_units.month')],[604800000,t('git.rel_units.week')],
+  [86400000,t('git.rel_units.day')],[3600000,t('git.rel_units.hour')],[60000,t('git.rel_units.minute')],
 ];
 
 // 컬럼 반응형 (FR-GIT-125). `ResizeObserver` 로 목록 폭을 본다 — 미디어 쿼리는 창
@@ -125,28 +125,28 @@ const GIT_REF_GROUPS=[
   {kind:'remote',name:'Remote'},
   {kind:'tag',   name:'Tags'},
 ];
-const GIT_REF_ALL='전체 (--all)';
+const GIT_REF_ALL=t('git.ref_all');
 // upstream 이 사라진 것은 ahead/behind 0 과 **다르다** — 구분하지 않으면 사용자가
 // 동기화된 브랜치로 읽는다 (계약 §2.5).
-const GIT_REF_GONE='upstream 사라짐';
+const GIT_REF_GONE=t('git.ref_gone');
 const GIT_HIST_REF_KEY='gitHistRef'; // 리포별 선택. 실제 키는 <이것>:<repo>
 
 // 미커밋 변경 행 (FR-GIT-127). 클릭 → Changes 탭 (표면 지도 S4).
-const GIT_HIST_UNCOMMITTED='미커밋 변경';
+const GIT_HIST_UNCOMMITTED=t('git.hist_uncommitted');
 
 // 실패와 상태 (FR-GIT-132). **이미 로드된 목록을 지우지 않는다.**
-const GIT_HIST_LOAD_FAIL='커밋 목록을 불러오지 못했습니다';
-const GIT_HIST_DETAIL_FAIL='커밋 상세를 불러오지 못했습니다';
-const GIT_HIST_EMPTY='커밋이 없습니다';
+const GIT_HIST_LOAD_FAIL=t('git.hist_load_fail');
+const GIT_HIST_DETAIL_FAIL=t('git.hist_detail_fail');
+const GIT_HIST_EMPTY=t('git.hist_empty');
 // GIT_DETECT_TIER_SRS FR-GDT-21 (`11 GP-17`): **빈 저장소는 실패가 아니다.**
 // 필터에 걸리는 것이 없는 것(`GIT_HIST_EMPTY`)과도 다른 사실이다 — 뭉개면
 // 사용자는 필터를 지워 보고 나서야 저장소가 비었음을 안다.
-const GIT_HIST_NO_COMMITS='커밋이 아직 없습니다';
-const GIT_HIST_LOADING='불러오는 중…';
-const GIT_HIST_END='마지막입니다';
-const GIT_HIST_LOADED_N='%n개 로드';
+const GIT_HIST_NO_COMMITS=t('git.hist_no_commits');
+const GIT_HIST_LOADING=t('git.hist_loading');
+const GIT_HIST_END=t('git.hist_end');
+const GIT_HIST_LOADED_N=t('git.hist_loaded_n');
 // FR-GIT-120: 상한을 넘어 접힌 행. 표식 없이 접으면 그래프가 조용히 틀려 보인다.
-const GIT_HIST_COMPRESSED='레인 상한을 넘어 압축됐습니다';
+const GIT_HIST_COMPRESSED=t('git.hist_compressed');
 
 // DRIFT_RECLAIM_SRS FR-DRC-14: 목록 높이가 서기를 기다리는 프레임 상한.
 //
@@ -155,11 +155,11 @@ const GIT_HIST_COMPRESSED='레인 상한을 넘어 압축됐습니다';
 // (접혀서 0px 인 칸)에서 사슬이 끝나게 하는 것뿐이다.
 const GIT_HIST_LAYOUT_FRAMES=60;
 
-const GIT_DETAIL_PARENTS='부모';
-const GIT_DETAIL_FILES='변경 파일';
-const GIT_DETAIL_NO_FILES='변경 파일이 없습니다';
-const GIT_DETAIL_PARENT_PICK='비교 부모';
-const GIT_DETAIL_ROOT='루트 커밋';
+const GIT_DETAIL_PARENTS=t('git.detail_parents');
+const GIT_DETAIL_FILES=t('git.detail_files');
+const GIT_DETAIL_NO_FILES=t('git.detail_no_files');
+const GIT_DETAIL_PARENT_PICK=t('git.detail_parent_pick');
+const GIT_DETAIL_ROOT=t('git.detail_root');
 // FR-GIT-138: 커밋 축의 대상은 워킹 트리 목록과 다른 축이다 — 어느 두 리비전을
 // 비교하는지 함께 보인다. 축 이름만 보이면 사용자는 어느 부모와의 비교인지 알 수
 // 없다 (FR-GIT-139).
@@ -169,4 +169,4 @@ const GIT_DIFF_REV_RANGE='..';
 // FR-GIT-144: detached 가 됨을 사전 경고한다. 파괴적이 아니므로 1단계 확인이다 —
 // dirty 면 그 뒤에 묶음 N 의 3선택이 이어진다 (FR-GIT-157, O14).
 const GIT_CHECKOUT_DETACHED_ACT='checkout_detached';
-const GIT_CHECKOUT_DETACHED_TITLE='HEAD 가 브랜치를 떠납니다 (detached)';
+const GIT_CHECKOUT_DETACHED_TITLE=t('git.checkout_detached_title');

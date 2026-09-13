@@ -505,7 +505,9 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
 .slot-focused>.slot-head{color:var(--accent-text);
   border-bottom-color:var(--accent);font-weight:600}
 .slot-empty>.slot-body{display:flex;align-items:center;justify-content:center}
-.slot-empty>.slot-body::after{content:'사이드바에서 창을 고르세요';opacity:.45;font-size:var(--fs-md)}
+/* FR-B-6 (UX-11): 안내는 DOM 텍스트(`.slot-empty-hint`)다 — 접근성 트리에 잡히고 번역된다. */
+.slot-body>.slot-empty-hint{display:none}
+.slot-empty>.slot-body>.slot-empty-hint{display:block;opacity:.45;font-size:var(--fs-md)}
 /* FR-WSL-32: 칸 사이마다 하나씩. 생김새와 히트 확장은 `#sb-handle` 과 같고,
    끄는 축만 방향을 따른다 — 창 안 분할의 `.sh` 가 이미 그렇게 갈라져 있다. */
 /* FR-STB-20·24: 슬롯 계층은 분할 손잡이(`.sh`, 3px·`--border`)와 **다른 색과
@@ -896,8 +898,9 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 #search-count{color:var(--text-hint);font-size:var(--fs-sm);min-width:40px;text-align:center}
 
 /* ── Drag & Drop ── */
-.tp.dragover::after{
-  content:'Drop files here';position:absolute;inset:0;
+.tp>.tp-drop-hint{display:none}
+.tp.dragover>.tp-drop-hint{
+  position:absolute;inset:0;
   display:flex;align-items:center;justify-content:center;
   background:var(--backdrop);border:2px dashed var(--accent);
   color:var(--accent-text);font-size:var(--fs-lg);z-index:var(--z-overlay);pointer-events:none;
@@ -960,8 +963,8 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 body.mobile .tp-ov-acts .ui-btn{padding:0 14px}
 
 /* ── Dimmed session overlay (multi-window: another window owns this session) ── */
-.pn-dimmed .pn-body::after{
-  content:'클릭하여 포커스';
+.pn-body>.pn-dim-hint{display:none}
+.pn-dimmed .pn-body>.pn-dim-hint{
   position:absolute;inset:0;z-index:var(--z-overlay);
   display:flex;align-items:center;justify-content:center;
   background:var(--backdrop-soft);backdrop-filter:blur(2px);

@@ -71,11 +71,11 @@ const GIT_DIFF_WS_LABEL='Ignore Whitespace';
 // **네트워크를 말하지 않는다** (MONACO_VENDORING_SRS FR-MVN-3). 편집기는 이제
 // 바이너리 안에서 오므로 이 실패에 네트워크가 끼어들 자리가 없다 — 종전 문구는
 // 사용자를 없는 원인으로 보냈다. 새로고침이 실제로 듣는 유일한 조치다.
-const GIT_DIFF_MONACO_FAIL='에디터를 불러오지 못했습니다 — 새로고침해 보세요';
-const GIT_DIFF_LOAD_FAIL='diff 를 불러오지 못했습니다';
+const GIT_DIFF_MONACO_FAIL=t('git.diff_monaco_fail');
+const GIT_DIFF_LOAD_FAIL=t('git.diff_load_fail');
 // 커밋·discard 로 대상이 목록에서 사라진 경우 (§3.3). 아무 파일이나 임의로
 // 보이지 않고 사실만 알린다.
-const GIT_DIFF_GONE_NOTE='선택한 파일이 목록에서 사라졌습니다';
+const GIT_DIFF_GONE_NOTE=t('git.diff_gone_note');
 // FR-GIT-46·47·48: 본문을 못 주는 쪽은 안내만으로 끝나지 않는다 — 서버가 실은
 // 메타(oid·크기)를 안내 아래 줄로 보인다. 서버가 준 값만 쓴다.
 const GIT_META_SIZED=new Set(['binary','too_large']);
@@ -86,11 +86,11 @@ const GIT_LFS_OID_PREFIX='sha256:';
 const GIT_LFS_OID_ABBREV=12;
 const GIT_META_SEP=' · ';
 // 양쪽 메타가 다를 때만 쪽을 밝힌다. diff 에디터의 좌·우가 곧 이전·이후다.
-const GIT_META_SIDE={orig:'이전',mod:'이후'};
+const GIT_META_SIDE={orig:t('git.meta_side.orig'),mod:t('git.meta_side.mod')};
 const GIT_META_LABEL_SEP=': ';
 const GIT_DIFF_ERR={
-  bad_request:'잘못된 diff 요청입니다',
-  not_found:'파일을 찾을 수 없습니다',
+  bad_request:t('git.diff_err.bad_request'),
+  not_found:t('git.diff_err.not_found'),
   not_a_git_repo:GIT_ERR_NOT_REPO,
   git_missing:GIT_ERR_GIT_MISSING,
 };
@@ -104,10 +104,10 @@ const GIT_CON_READS_LABEL='Show Reads';
 const GIT_CON_REFRESH='Refresh';
 // FR-TIP-1: 무엇을 다시 받는지가 라벨에 없다 — 머리의 `⟳` 와 대상이 다르다.
 const GIT_CON_REFRESH_TITLE='Reload the list of git commands this app has run';
-const GIT_CON_EMPTY='아직 실행한 명령이 없습니다';
-const GIT_CON_EMPTY_READS='기록이 없습니다';
-const GIT_CON_FAIL='기록을 불러오지 못했습니다';
-const GIT_CON_DESTRUCTIVE='파괴적';
+const GIT_CON_EMPTY=t('git.con_empty');
+const GIT_CON_EMPTY_READS=t('git.con_empty_reads');
+const GIT_CON_FAIL=t('git.con_fail');
+const GIT_CON_DESTRUCTIVE=t('git.con_destructive');
 const GIT_CON_CWD='cwd';
 // 읽기까지 열었을 때만 큰 목록이 된다. 그 전에는 쓰기만 남아 훨씬 짧다.
 const GIT_CON_LIMIT=500;

@@ -78,6 +78,15 @@ jobs:
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
+      # node 로 쓴 게이트(로드 순서·고정 대기·문구 카탈로그…)는 `espree`·`eslint-scope`
+      # 를 import 한다 — `node_modules` 없이는 첫 줄에서 죽는다. M8 P2 가 발견: 이
+      # 잡에는 `npm ci` 가 없었다 ("게이트는 두 자리에 들어가야 끝난다" 의 네 번째 사례).
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: 의존
+        run: npm ci
 
       # OS 의존 호출이 internal/shared/platform 밖에 없는가 (FR-XPL-5).
       - name: 이음매
@@ -275,6 +284,12 @@ jobs:
       # 읽으므로 범위 밖이고, 건너뛴 수를 출력에 찍는다 — 조용한 예외는 구멍이다.
       - name: 하드코딩 색
         run: node scripts/check-hardcoded-color.mjs
+
+      # M8_UNIFIED_SRS FR-B-3 — 문구가 카탈로그 밖에 남으면 외부화는 그 커밋에서 되돌아간다.
+      # JS 리터럴·HTML 텍스트/속성·CSS `content` 의 한글 0, ko·en 키 집합 일치, `t`/`tn` 의
+      # 가려짐. 예외 등록부는 스크립트 상단 — 줄마다 사유가 있다.
+      - name: 문구 카탈로그
+        run: node scripts/check-i18n.mjs
 
       # 서식은 취향이 아니라 diff 의 크기다 (TEST-10). 착수 시 1건 위반이 있었다.
       - name: gofmt

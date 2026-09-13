@@ -23,12 +23,12 @@
   el.innerHTML=
     '<div class="dg-bar">'+
       '<span class="dg-t">DIAG</span>'+
-      '<button class="dg-b" data-a="send" title="Upload this log to the server as a file">전송</button>'+
-      '<button class="dg-b" data-a="clear" title="Clear the collected log lines">지우기</button>'+
-      '<button class="dg-b" data-a="pause" title="Pause and resume log collection">멈춤</button>'+
-      '<button class="dg-b" data-a="env" title="Log the current environment (viewport, user agent, feature flags)">환경</button>'+
-      '<button class="dg-b" data-a="hub" title="Dump pending timers and event topics (TimerHub / EventBus)">허브</button>'+
-      '<button class="dg-b" data-a="err" title="Dump uncaught errors and unhandled promise rejections">오류</button>'+
+      '<button class="dg-b" data-a="send" title="Upload this log to the server as a file">'+escHtml(t('diag.send'))+'</button>'+
+      '<button class="dg-b" data-a="clear" title="Clear the collected log lines">'+escHtml(t('diag.clear'))+'</button>'+
+      '<button class="dg-b" data-a="pause" title="Pause and resume log collection">'+escHtml(t('diag.pause'))+'</button>'+
+      '<button class="dg-b" data-a="env" title="Log the current environment (viewport, user agent, feature flags)">'+escHtml(t('diag.env'))+'</button>'+
+      '<button class="dg-b" data-a="hub" title="Dump pending timers and event topics (TimerHub / EventBus)">'+escHtml(t('diag.hub'))+'</button>'+
+      '<button class="dg-b" data-a="err" title="Dump uncaught errors and unhandled promise rejections">'+escHtml(t('diag.err'))+'</button>'+
       '<button class="dg-b" data-a="min" title="Minimize this overlay">─</button>'+
     '</div>'+
     '<div class="dg-log"></div>';
@@ -86,7 +86,7 @@
    */
   function gitObsState(){
     const a=window.app;
-    if(!a||!a.gitPanels||!a.gitPanels.size) return 'git: 패널 없음';
+    if(!a||!a.gitPanels||!a.gitPanels.size) return 'git: no panels';
     const out=[];
     for(const p of a.gitPanels.values()){
       const age=p._lastObsAt?Math.round((Date.now()-p._lastObsAt)/1000)+'s':'never';
@@ -220,7 +220,7 @@
     if(a==='env'){env();return}
     if(a==='hub'){hub();return}
     if(a==='err'){errs();return}
-    if(a==='pause'){paused=!paused;e.target.textContent=paused?'재개':'멈춤';return}
+    if(a==='pause'){paused=!paused;e.target.textContent=paused?t('diag.resume'):t('diag.pause');return}
     if(a==='send'){
       const body=lines.join('\n')+'\n';
       const name='dongminal-diag-'+Date.now()+'.txt';
@@ -229,8 +229,8 @@
       e.target.textContent='...';
       apiPost('/api/upload',fd,{query:{dir:'/tmp'}})
         .then(r=>{
-          if(!r.ok){e.target.textContent='실패';put('UPLOAD FAIL '+r.status);return}
-          e.target.textContent='보냄';put('UPLOADED '+(r.data&&r.data.name));
+          if(!r.ok){e.target.textContent=t('diag.fail');put('UPLOAD FAIL '+r.status);return}
+          e.target.textContent=t('diag.sent');put('UPLOADED '+(r.data&&r.data.name));
         });
     }
   });
@@ -274,7 +274,7 @@
       // 온 적 없는 topic 이 곧 "안 오는 이벤트" 다 — 그것부터 보이게 둔다.
       s.topics.slice().sort((a,b)=>a.count-b.count).forEach(x=>
         put('  · '+x.topic+' subs='+x.subs+' n='+x.count
-          +(x.agoMs!=null?' ago='+x.agoMs+'ms':' (온 적 없음)')));
+          +(x.agoMs!=null?' ago='+x.agoMs+'ms':' (never)')));
     }else put('HUB bus 없음');
   };
 

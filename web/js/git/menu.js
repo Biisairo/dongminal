@@ -61,14 +61,14 @@ const GIT_MENUS={
   commit:[
     // FR-GIT-141: 18단계의 생성 다이얼로그를 시작점만 이 커밋으로 고정해 연다 —
     // 이름 검증(FR-GIT-159)까지 그것이 이미 안다.
-    {id:'branch-from',label:'여기서 브랜치 생성…',
+    {id:'branch-from',label:t('git.menu.branch_from'),
      run:t=>gitMenuPanel().createBranchFrom(t.oid)},
     // FR-GIT-260: 태그 생성의 **같은 다이얼로그**를 대상만 이 커밋으로 고정해 연다
     // — 이름 검증도 종류 선택도 그것이 이미 안다.
     {id:'tag-from',label:GIT_TAG_CREATE_AT,
      run:t=>gitMenuPanel().createTag(t.oid)},
-    {id:'copy-hash',   label:'커밋 해시 복사',run:t=>gitMenuPanel().copyText(t.oid)},
-    {id:'copy-subject',label:'커밋 제목 복사',run:t=>gitMenuPanel().copyText(t.subject)},
+    {id:'copy-hash',   label:t('git.menu.copy_hash'),run:t=>gitMenuPanel().copyText(t.oid)},
+    {id:'copy-subject',label:t('git.menu.copy_subject'),run:t=>gitMenuPanel().copyText(t.subject)},
     {sep:true},
     // FR-GIT-144: detached 가 됨을 사전 경고하고, dirty 면 묶음 N 의 3선택을
     // 거친다 — 태그 메뉴와 같은 경로다. 판정을 두 벌로 만들지 않는다.
@@ -135,7 +135,7 @@ const GIT_MENUS={
   // 원격 ref 로 그냥 옮겨 가면 detached 가 되므로 같은 이름의 로컬을 만들며 추적을
   // 설정한다 (FR-GIT-156). 어느 쪽이 왜 막혔는지는 사유로 알린다.
   branch:[
-    {id:'copy-name',label:'브랜치 이름 복사',run:t=>gitMenuPanel().copyText(t.short)},
+    {id:'copy-name',label:t('git.menu.copy_branch_name'),run:t=>gitMenuPanel().copyText(t.short)},
     {id:'checkout', label:'Checkout',
      disabled:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_MENU_REMOTE_REF:(t.isHead?GIT_MENU_CURRENT:''),
      run:t=>gitMenuPanel().checkoutRef(t.short,{})},
@@ -222,7 +222,7 @@ const GIT_MENUS={
   // — 그 명령은 지우기 전 oid 를 싣는다 (FR-GIT-92·250.2).
   tag:[
     {id:'create',label:GIT_TAG_NEW,run:()=>gitMenuPanel().createTag('')},
-    {id:'copy-name',label:'태그 이름 복사',run:t=>gitMenuPanel().copyText(t.short)},
+    {id:'copy-name',label:t('git.menu.copy_tag_name'),run:t=>gitMenuPanel().copyText(t.short)},
     // 태그는 브랜치가 아니므로 옮겨 가면 detached 다 — 사전 경고를 1단계 거친다
     // (FR-GIT-144 와 같은 규약).
     {id:'checkout', label:'Checkout (detached)',warn:true,
@@ -274,7 +274,7 @@ const GIT_MENUS={
   ],
   // 미커밋 변경 행 (FR-GIT-127·277).
   uncommitted:[
-    {id:'open-changes',label:'Changes 탭 열기',run:()=>gitMenuPanel().openView('changes')},
+    {id:'open-changes',label:t('git.menu.open_changes'),run:()=>gitMenuPanel().openView('changes')},
     {sep:true},
     // FR-GIT-277: 생성 다이얼로그를 그대로 다시 쓴다 — 두 벌로 두면 한쪽만 고쳐진다.
     {id:'stash',label:GIT_UNC_STASH,

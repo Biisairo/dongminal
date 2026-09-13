@@ -21,9 +21,9 @@
  */
 
 // 대시보드가 다루는 문자열. 한 자리에 모아 둔다 — e2e 가 같은 값을 본다.
-const RUN_GONE_TEXT = '이 Run 은 더 이상 없다';
-const RUN_EMPTY_TEXT = '진행 중인 Run 이 없다';
-const RUN_EMPTY_HINT = '/dongminal:team 으로 팀을 연다';
+const RUN_GONE_TEXT = t('runs.gone');
+const RUN_EMPTY_TEXT = t('runs.empty');
+const RUN_EMPTY_HINT = t('runs.empty_hint');
 // 조정자는 멤버가 아니므로 uuid 가 없다. 서버가 쓰는 것과 같은 문자열이다.
 const RUN_COORD = 'coordinator';
 // FR-RVZ-12: "최근 통신" 의 경계. 서버 시각은 Unix **초**다 (run/store.go 의 now()).
@@ -89,8 +89,7 @@ Object.assign(RunsPanel.prototype, {
     let list = null, err = null;
     const r = await apiGet('/api/runs');
     if (r.ok) list = (r.data && r.data.runs) || [];
-    else if (r.status === 0) err = '목록을 받지 못했다 — 서버에 닿지 못했다';
-    else err = r.text.trim() || `목록을 받지 못했다 (${r.status})`;
+    else err = apiErrText(r, t('runs.list_fail'));
     this._runsList = list || [];
     this._runsErr = err;
     if (this._runsModalOpen) this._runsModalRender();
@@ -110,7 +109,7 @@ Object.assign(RunsPanel.prototype, {
     const box = runDiv('runs-box ui-modal-box');
     // 최근순. 서버 순서에 기대지 않는다 — 정렬은 이 화면의 약속이다.
     const rows = (this._runsList || []).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    box.appendChild(runDiv('runs-head', `Run ${rows.length}개`));
+    box.appendChild(runDiv('runs-head', tn('runs.head', rows.length)));
     if (this._runsErr) {
       box.appendChild(runDiv('runs-err', this._runsErr));
     } else if (!rows.length) {
@@ -129,7 +128,7 @@ Object.assign(RunsPanel.prototype, {
     const headless = members.filter(m => m.headless).length;
     const row = runDiv('runs-row');
     row.dataset.runid = rv.id;
-    row.title = '클릭하면 현재 분할 칸의 새 탭에 대시보드가 열린다';
+    row.title = t('runs.row_title');
 
     row.appendChild(runDiv('runs-short', rv.short || String(rv.id || '').slice(0, 8)));
     row.appendChild(runDiv('runs-obj', rv.objective || ''));
@@ -138,7 +137,7 @@ Object.assign(RunsPanel.prototype, {
     row.appendChild(st);
 
     row.appendChild(runDiv('runs-members',
-      headless ? `${members.length}명(${headless} 헤드리스)` : `${members.length}명`));
+      headless ? t('runs.members_headless', { n: members.length, h: headless }) : tn('runs.members', members.length)));
 
     // FR-RVZ-3: 격리가 none 이면 표시하지 않는다 — 없는 것이 기본값이므로
     // 적어 두면 목록에서 눈에 띄는 것이 전부 같아진다.
@@ -151,7 +150,7 @@ Object.assign(RunsPanel.prototype, {
     if (lv) row.appendChild(runDiv('runs-ctx lv-' + lv, '⚠ ' + lv));
 
     const ago = this._runAgo(rv.createdAt);
-    row.appendChild(runDiv('runs-ago', ago ? ago + ' 전' : ''));
+    row.appendChild(runDiv('runs-ago', ago ? t('runs.ago', { ago }) : ''));
 
     // FR-DEL-6: 실패는 그 행에 남는다. 삭제 목표보다 앞에 두어 오른쪽 끝이
     // 흔들리지 않는다 (FR-BGK-10 과 같은 자리).
@@ -161,7 +160,7 @@ Object.assign(RunsPanel.prototype, {
     const pending = this._runsPending === rv.id;
     const confirming = this._runsConfirm === rv.id;
     if (pending) row.appendChild(runDiv('runs-deleting',
-      this._runsPendingKind === 'close' ? '종료 중…' : '삭제 중…'));
+      this._runsPendingKind === 'close' ? t('runs.closing') : t('runs.deleting')));
     else if (confirming) row.appendChild(this._runsConfirmEl(rv));
     else {
       /**
@@ -195,7 +194,7 @@ Object.assign(RunsPanel.prototype, {
   // FR-DEL-1·2: 항상 보인다 (터치에 hover 가 없다). 행 클릭으로 새지 않는다.
   _runsDelBtn(rv) {
     const btn = document.createElement('button');
-    btn.className = 'ui-btn ui-btn-sm runs-del'; btn.textContent = '삭제';
+    btn.className = 'ui-btn ui-btn-sm runs-del'; btn.textContent = t('runs.delete');
     // FR-TIP-2: 툴팁은 영어다. 어느 Run 인지는 라벨 옆의 행이 이미 말한다.
     btn.title = TIP_RUNS_DEL;
     btn.dataset.runid = rv.id;
@@ -207,7 +206,7 @@ Object.assign(RunsPanel.prototype, {
   // 다른 모양이면 사용자가 어느 쪽이 무엇을 지우는지 배워야 한다.
   _runsCloseBtn(rv) {
     const btn = document.createElement('button');
-    btn.className = 'ui-btn ui-btn-sm runs-close'; btn.textContent = '종료';
+    btn.className = 'ui-btn ui-btn-sm runs-close'; btn.textContent = t('runs.close');
     btn.title = TIP_RUNS_CLOSE;
     btn.dataset.runid = rv.id;
     btn.addEventListener('click', e => { e.stopPropagation(); this._runsConfirmSet(rv.id, 'close') });
@@ -226,19 +225,17 @@ Object.assign(RunsPanel.prototype, {
     // 문구가 그것을 말한다. 말하지 않으면 사용자는 안전한 쪽을 고를 수 없다.
     const open = rv.state === 'open';
     wrap.appendChild(runDiv('runs-q', closing
-      ? '종료? 에이전트를 끝내고 탭을 닫는다. 기록은 남는다.'
-      : (open
-        ? '삭제? 진행 중인 Run 이며 기록도 함께 사라진다.'
-        : '삭제? 기록이 사라진다.')));
+      ? t('runs.q_close')
+      : (open ? t('runs.q_delete_open') : t('runs.q_delete'))));
     const yes = document.createElement('button');
-    yes.className = 'ui-btn ui-btn-sm ui-btn-danger runs-yes'; yes.textContent = '예';
+    yes.className = 'ui-btn ui-btn-sm ui-btn-danger runs-yes'; yes.textContent = t('core.yes');
     yes.title = closing ? TIP_RUNS_CLOSE_YES : TIP_RUNS_YES;
     yes.addEventListener('click', e => {
       e.stopPropagation();
       if (closing) this._runsClose(rv.id); else this._runsDelete(rv.id);
     });
     const no = document.createElement('button');
-    no.className = 'ui-btn ui-btn-sm runs-no'; no.textContent = '아니오'; no.title = TIP_RUNS_NO;
+    no.className = 'ui-btn ui-btn-sm runs-no'; no.textContent = t('core.no'); no.title = TIP_RUNS_NO;
     no.addEventListener('click', e => { e.stopPropagation(); this._runsConfirmSet(null) });
     wrap.appendChild(yes); wrap.appendChild(no);
     return wrap;
@@ -272,8 +269,7 @@ Object.assign(RunsPanel.prototype, {
     const r = await apiPost('/api/runs/close', { runId, force: true });
     let msg = '';
     if (!r.ok) {
-      msg = r.status === 0 ? '종료 실패 — 서버에 닿지 못했다'
-        : ((r.data && r.data.message) || r.text.trim() || `종료 실패 (${r.status})`);
+      msg = apiErrText(r, t('runs.close_fail'));
     }
     this._runsPending = null; this._runsPendingKind = null;
     if (msg) this._runsDelErr = { runId, msg };
@@ -291,8 +287,7 @@ Object.assign(RunsPanel.prototype, {
     let ok = false, msg = '';
     const r = await apiDel('/api/runs/' + encodeURIComponent(runId));
     ok = r.ok;
-    if (!ok) msg = r.status === 0 ? '삭제 실패 — 서버에 닿지 못했다'
-      : (r.text.trim() || `삭제 실패 (${r.status})`);
+    if (!ok) msg = apiErrText(r, t('runs.delete_fail'));
     this._runsPending = null; this._runsPendingKind = null;
     if (!ok) this._runsDelErr = { runId, msg };
     else await this._runsRefresh();
@@ -397,8 +392,7 @@ Object.assign(RunsPanel.prototype, {
     let data = null, err = null;
     const r = await apiGet('/api/runs/' + encodeURIComponent(v.runId) + '/graph');
     if (r.status === 404) err = 'gone';
-    else if (r.status === 0) err = '대시보드를 받지 못했다 — 서버에 닿지 못했다';
-    else if (!r.ok) err = r.text.trim() || `대시보드를 받지 못했다 (${r.status})`;
+    else if (!r.ok) err = apiErrText(r, t('runs.graph_fail'));
     else data = r.data;
     v.busy = false;
     if (err) v.err = err; else { v.data = data; v.err = null }
@@ -489,11 +483,11 @@ Object.assign(RunsPanel.prototype, {
     const headless = members.filter(m => m.headless).length;
     const parts = [
       ['short', 'Run ' + (d.short || String(d.runId || '').slice(0, 8))],
-      ['obj', d.objective ? '목적: ' + d.objective : ''],
+      ['obj', d.objective ? t('runs.objective', { v: d.objective }) : ''],
       ['state', 'state=' + (d.state || '')],
       ['iso', 'isolation=' + (d.isolation || 'none')],
-      ['ago', '경과 ' + this._runAgo(d.createdAt)],
-      ['members', headless ? `멤버 ${members.length} (헤드리스 ${headless})` : `멤버 ${members.length}`],
+      ['ago', t('runs.elapsed', { ago: this._runAgo(d.createdAt) })],
+      ['members', headless ? t('runs.member_count_headless', { n: members.length, h: headless }) : t('runs.member_count', { n: members.length })],
     ].filter(p => p[1]);
     paintIfChanged(el, parts.map(p => p[1]).join('|'), () => {
       el.innerHTML = '';
@@ -649,9 +643,9 @@ Object.assign(RunsPanel.prototype, {
       p.setAttribute('stroke-width', String(Math.min(4, 1 + 0.6 * Math.log2(1 + it.count))));
       // count 는 **보관된 메시지** 기준이다 — Run 당 최근 500건 상한(FR-RVZ-14)에
       // 걸려 잘려 나간 건은 빠진다. "총 통신 횟수" 로 읽히면 안 된다.
-      const t = runSvg('title');
-      t.textContent = `보관된 메시지 ${it.count}건`;
-      p.appendChild(t);
+      const title = runSvg('title');
+      title.textContent = tn('runs.archived_msgs', it.count);
+      p.appendChild(title);
     }
     return p;
   },
@@ -668,7 +662,7 @@ Object.assign(RunsPanel.prototype, {
      * 벌이 된다.
      */
     const items = [Object.assign(
-      { id: RUN_COORD, role: '조정자', agent: '', state: '', coord: true },
+      { id: RUN_COORD, role: t('runs.coordinator'), agent: '', state: '', coord: true },
       d.coordinator || {})];
     for (const m of members) items.push(m);
     reconcileList(g, items, {
@@ -691,16 +685,16 @@ Object.assign(RunsPanel.prototype, {
     const g = runSvg('g', { class: cls.join(' ') });
     g.dataset.node = m.id;
 
-    const t = runSvg('title');
-    t.textContent = m.coord ? '조정자'
-      : [m.role, m.agent, m.state, m.headless ? '헤드리스' : ''].filter(Boolean).join(' · ');
-    g.appendChild(t);
+    const title = runSvg('title');
+    title.textContent = m.coord ? t('runs.coordinator')
+      : [m.role, m.agent, m.state, m.headless ? t('runs.headless') : ''].filter(Boolean).join(' · ');
+    g.appendChild(title);
 
     g.appendChild(runSvg('rect', {
       class: 'run-node-box', x, y, width: RUN_NODE_W, height: RUN_NODE_H, rx: 5,
     }));
     const role = runSvg('text', { class: 'run-node-role', x: cx, y: y + 21, 'text-anchor': 'middle' });
-    role.textContent = m.role || (m.coord ? '조정자' : '(역할 없음)');
+    role.textContent = m.role || (m.coord ? t('runs.coordinator') : t('runs.no_role_paren'));
     g.appendChild(role);
     const sub = runSvg('text', { class: 'run-node-sub', x: cx, y: y + 36, 'text-anchor': 'middle' });
     sub.textContent = m.coord ? '' : [m.agent, m.state].filter(Boolean).join(' · ');
@@ -755,7 +749,7 @@ Object.assign(RunsPanel.prototype, {
     const card = runDiv('run-card state-' + (m.state || 'starting'));
     card.dataset.member = m.id;
     if (m.headless) card.classList.add('headless');
-    card.appendChild(runDiv('run-card-role', '[' + (m.role || '역할 없음') + ']'));
+    card.appendChild(runDiv('run-card-role', '[' + (m.role || t('runs.no_role')) + ']'));
     if (m.agent) card.appendChild(runDiv('run-card-agent', m.agent));
     card.appendChild(runDiv('run-card-state', m.state || ''));
     if (m.contextLevel) {
@@ -778,12 +772,12 @@ Object.assign(RunsPanel.prototype, {
         : `ctx ~${pct}%${warn}`;
       card.appendChild(runDiv('run-card-ctx lv-' + m.contextLevel, text));
     }
-    if (m.compactCount) card.appendChild(runDiv('run-card-compact', `compact ${m.compactCount}회`));
+    if (m.compactCount) card.appendChild(runDiv('run-card-compact', tn('runs.compact_count', m.compactCount)));
     if (m.worktree && m.worktree.branch) card.appendChild(runDiv('run-card-wt', 'wt: ' + m.worktree.branch));
-    if (m.headless) card.appendChild(runDiv('run-card-headless', '(헤드리스)'));
+    if (m.headless) card.appendChild(runDiv('run-card-headless', t('runs.headless_paren')));
     card.title = m.headless
-      ? '클릭하면 현재 분할 칸의 새 탭으로 부착한다'
-      : '클릭하면 이 멤버의 도구로 이동한다';
+      ? t('runs.card_attach_title')
+      : t('runs.card_jump_title');
     card.addEventListener('click', () => this._runJumpToMember(m));
     /**
      * `12-func-ui.md FUI-04`: **분리.** 탭은 닫히고 도구는 산다.
@@ -810,7 +804,7 @@ Object.assign(RunsPanel.prototype, {
 
   _runDetachBtn(m) {
     const btn = document.createElement('button');
-    btn.className = 'ui-btn ui-btn-sm run-card-detach'; btn.textContent = '분리';
+    btn.className = 'ui-btn ui-btn-sm run-card-detach'; btn.textContent = t('runs.detach');
     btn.title = TIP_RUNS_DETACH;
     btn.dataset.member = m.id;
     // 카드 클릭은 "그 도구로 간다" 이므로 여기서 멈춘다 — 분리하려는 손이
@@ -830,7 +824,7 @@ Object.assign(RunsPanel.prototype, {
     if (!m || !m.id) return;
     this._runDetachErr = null; this._runDetachMsg = '';
     const r = await apiPost('/api/runs/detach', { memberId: m.id });
-    if (!r.ok) { this._runCardFail(m, r, '분리 실패'); return }
+    if (!r.ok) { this._runCardFail(m, r, t('runs.detach_fail')); return }
     // 이 멤버를 보고 있는 대시보드 탭들이 결과를 따라온다. 분리는 서버의 사실을
     // 바꾸므로 `run_changed` 가 오지만, **실패한 경우에는 오지 않는다** — 그
     // 안내는 이 다시 그리기가 낸다.
@@ -864,11 +858,11 @@ Object.assign(RunsPanel.prototype, {
        */
       if (!r.ok) {
         console.warn('[run] attach 실패', r.status, r.text.trim());
-        this._runCardFail(m, r, '부착 실패');
+        this._runCardFail(m, r, t('runs.attach_fail'));
       }
     } catch (e) {
       console.warn('[run] attach 실패', e);
-      this._runCardFail(m, null, '부착 실패');
+      this._runCardFail(m, null, t('runs.attach_fail'));
     }
   },
 
@@ -880,9 +874,7 @@ Object.assign(RunsPanel.prototype, {
    */
   _runCardFail(m, r, what) {
     this._runDetachErr = m.id;
-    this._runDetachMsg = (!r || r.status === 0)
-      ? what + ' — 서버에 닿지 못했다'
-      : ((r.data && r.data.message) || `${what} (${r.status})`);
+    this._runDetachMsg = apiErrText(r, what);
     this._runRefreshViewsOf(m.runId);
   },
 
@@ -919,10 +911,10 @@ Object.assign(RunsPanel.prototype, {
   _runAgo(ts) {
     if (!ts) return '';
     const s = Math.max(0, Math.floor(Date.now() / 1000 - ts));
-    if (s < 60) return s + '초';
-    if (s < 3600) return Math.floor(s / 60) + '분';
-    if (s < 86400) return Math.floor(s / 3600) + '시간';
-    return Math.floor(s / 86400) + '일';
+    if (s < 60) return tn('core.dur_sec', s);
+    if (s < 3600) return tn('core.dur_min', Math.floor(s / 60));
+    if (s < 86400) return tn('core.dur_hour', Math.floor(s / 3600));
+    return tn('core.dur_day', Math.floor(s / 86400));
   },
 
   _runClock(ts) {

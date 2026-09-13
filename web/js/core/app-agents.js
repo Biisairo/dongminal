@@ -217,7 +217,7 @@ Object.assign(App.prototype, {
     g.dataset.sid=win.id;
     g.appendChild(UIKit.button({
       icon:folded?'chevron-right':'chevron-down',
-      title:folded?'펼치기':'접기',
+      title:folded?t('core.expand'):t('core.collapse'),
       kind:'ghost',size:'sm',cls:'ag-group-fold',
       onClick:e=>{e.stopPropagation();this._agFoldToggle(win.id)},
     }));
@@ -229,7 +229,7 @@ Object.assign(App.prototype, {
       const b=document.createElement('span');
       b.className='ag-group-attn ui-badge ui-badge-attn';
       b.textContent=String(attn);
-      b.title=attn+'개의 알람';
+      b.title=tn('attn.alarm_count',attn);
       g.appendChild(b);
     }
     g.addEventListener('click',()=>this.switchWindow(win.id));
@@ -264,7 +264,7 @@ Object.assign(App.prototype, {
   _agEmptyEl(){
     const empty=document.createElement('div');
     empty.className='ag-empty';
-    empty.textContent='활동 중인 에이전트 없음';
+    empty.textContent=t('attn.no_active_agents');
     return empty;
   },
 

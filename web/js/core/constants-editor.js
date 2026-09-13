@@ -23,38 +23,38 @@ const EDITOR_ROOT_NAME='~';
 // NOTES_LIVE_EXPLORER_SRS FR-NOT-9: 메모장 행·창의 이름. root 행이 `~` 하나로
 // 서듯 이것도 한 자리에서만 정해진다 — 행과 창이 같은 이름을 써야 사용자가 둘을
 // 같은 것으로 읽는다 (FR-EDT-10·44).
-const EDITOR_NOTES_NAME='메모장';
+const EDITOR_NOTES_NAME=t('editor.notes_name');
 // LSP_PLUGIN_SRS FR-EXT-9b: 언어 서버 플러그인의 선언들이 사는 자리. 메모장과 같은
 // 규약으로 탐색기에 한 줄로 선다 — 선언은 사용자가 고치라고 만든 파일이므로
 // (FR-EXT-9) 우리 편집기로 열 수 있어야 한다.
-const EDITOR_PLUGINS_NAME='플러그인';
-const REPO_ENTRIES_NONE='+ Add 로 경로를 추가하세요';
+const EDITOR_PLUGINS_NAME=t('editor.plugins_name');
+const REPO_ENTRIES_NONE=t('editor.repo_entries_none');
 
 // FR-EDT-28: `+ Add`. 지금 터미널의 cwd 를 미리 채운다 — 경로를 타이핑하게 하면
 // 리포 추가와 달리 딛을 자리가 없다.
-const EDITOR_ADD_TITLE='Editor 추가';
-const EDITOR_ADD_RUN='추가';
-const EDITOR_ADD_PROMPT='디렉터리 경로 (절대경로)';
-const EDITOR_ADD_HERE='지금 터미널: %s';
-const EDITOR_ADD_NO_TERM='지금 터미널의 경로를 얻지 못했습니다 — 경로를 직접 넣으세요';
-const EDITOR_ADD_NEED_PATH='경로가 필요합니다';
-const EDITOR_ADD_FAIL='Editor 를 추가하지 못했습니다';
+const EDITOR_ADD_TITLE=t('editor.add_title');
+const EDITOR_ADD_RUN=t('editor.add_run');
+const EDITOR_ADD_PROMPT=t('editor.add_prompt');
+const EDITOR_ADD_HERE=t('editor.add_here');
+const EDITOR_ADD_NO_TERM=t('editor.add_no_term');
+const EDITOR_ADD_NEED_PATH=t('editor.add_need_path');
+const EDITOR_ADD_FAIL=t('editor.add_fail');
 
 // FR-EDT-55: pane 이 하나도 없는 창의 우측. 빈 pane 이 아니라 pane 이 **없는** 것이다.
-const EDITOR_EMPTY_HINT='탐색기에서 파일을 열면 여기에 나타납니다';
+const EDITOR_EMPTY_HINT=t('editor.empty_hint');
 
 // EDITOR_GIT_UX_SRS 묶음 F·G — Editor 창의 찾기.
 const ED_FIND_API='/api/fs/find';
 const ED_GREP_API='/api/fs/grep';
 // 입력마다 부르면 한 글자에 저장소 전체를 훑는 요청이 나간다.
 const ED_SEARCH_DEBOUNCE_MS=150;
-const ED_FIND_PLACEHOLDER='파일 이름으로 찾기';
-const ED_GREP_PLACEHOLDER='모든 파일에서 내용 찾기';
-const ED_FIND_HINT='이름의 일부를 입력하세요 (경로도 됩니다)';
-const ED_GREP_HINT='찾을 내용을 입력하세요';
-const ED_SEARCH_EMPTY='결과 없음';
-const ED_SEARCH_FAIL='찾지 못했습니다';
-const ED_SEARCH_COUNT_SUFFIX='건';
+const ED_FIND_PLACEHOLDER=t('editor.find_placeholder');
+const ED_GREP_PLACEHOLDER=t('editor.grep_placeholder');
+const ED_FIND_HINT=t('editor.find_hint');
+const ED_GREP_HINT=t('editor.grep_hint');
+const ED_SEARCH_EMPTY=t('editor.search_empty');
+const ED_SEARCH_FAIL=t('editor.search_fail');
+const ED_SEARCH_COUNT_SUFFIX=t('editor.search_count_suffix');
 
 // 패널 네 모드의 안내문. 한 표에 두는 이유는 모드를 더할 때 `_edPanel` 의 조건이
 // 늘지 않게 하기 위해서다 — 종전에는 `mode==='find'?A:B` 라 셋째 모드를 넣을
@@ -62,8 +62,8 @@ const ED_SEARCH_COUNT_SUFFIX='건';
 const ED_PANEL_PLACEHOLDER={
   find:ED_FIND_PLACEHOLDER,
   grep:ED_GREP_PLACEHOLDER,
-  refs:'참조 (↑↓ 로 옮기고 Enter 로 엽니다)',
-  defs:'정의가 여럿입니다 (↑↓ · Enter)',
+  refs:t('editor.panel_placeholder.refs'),
+  defs:t('editor.panel_placeholder.defs'),
 };
 const ED_PANEL_HINT={
   find:ED_FIND_HINT,
@@ -85,18 +85,18 @@ const ED_PANEL_HINT={
 const ED_FIND_OPT_CASE='Aa';
 const ED_FIND_OPT_REGEX='.*';
 const ED_FIND_OPT_WORD='ab';
-const ED_FIND_OPT_CASE_TITLE='대소문자 구분';
-const ED_FIND_OPT_REGEX_TITLE='정규식';
-const ED_FIND_OPT_WORD_TITLE='단어 단위';
-const ED_FIND_PREV_TITLE='이전 일치 (Shift+Enter)';
-const ED_FIND_NEXT_TITLE='다음 일치 (Enter)';
-const ED_FIND_CLOSE_TITLE='닫기 (Escape)';
-const ED_FIND_IN_PLACEHOLDER='찾기';
+const ED_FIND_OPT_CASE_TITLE=t('editor.find_opt_case_title');
+const ED_FIND_OPT_REGEX_TITLE=t('editor.find_opt_regex_title');
+const ED_FIND_OPT_WORD_TITLE=t('editor.find_opt_word_title');
+const ED_FIND_PREV_TITLE=t('editor.find_prev_title');
+const ED_FIND_NEXT_TITLE=t('editor.find_next_title');
+const ED_FIND_CLOSE_TITLE=t('editor.find_close_title');
+const ED_FIND_IN_PLACEHOLDER=t('editor.find_in_placeholder');
 // FR-EFP-16: 질의가 비면 수를 말하지 않는다 — 아직 묻지 않은 것이다. 0건과
 // 빈 질의를 같은 화면으로 두면 사용자가 "없다" 로 읽는다.
-const ED_FIND_NONE='결과 없음';
+const ED_FIND_NONE=t('editor.find_none');
 // FR-EFP-24: 조용히 0건으로 보이면 사용자가 없는 줄로 읽는다.
-const ED_FIND_BAD_RE='잘못된 정규식';
+const ED_FIND_BAD_RE=t('editor.find_bad_re');
 // FR-EFP-23 / D-4: 옵션은 기기별이다. 설정 블롭의 값들은 "이 서버가 무엇인가" 를
 // 말하는데, 검색 옵션은 그런 값이 아니라 지금 이 손의 버릇이다.
 const ED_FIND_OPTS_KEY='edFindOpts';
@@ -118,35 +118,31 @@ const LSP_STATUS_API='/api/lsp/status';
 const LSP_INSTALL_API='/api/lsp/install';
 // FR-LSP-5: 어디서 찾았는지를 사람의 말로 옮기는 자리는 여기 하나다.
 const LSP_ORIGIN_LABEL={
-  config:'설정에 적은 경로',
+  config:t('editor.lsp_origin_label.config'),
   path:'PATH',
-  managed:'dongminal 이 받은 것',
+  managed:t('editor.lsp_origin_label.managed'),
 };
-const LSP_FOUND='있음';
-const LSP_MISSING='없음';
+const LSP_FOUND=t('editor.lsp_found');
+const LSP_MISSING=t('editor.lsp_missing');
 // FR-EXT-28: PATH 의 것을 쓰는 것은 정당하지만, 그것이 우리 격리의 **예외**라는
 // 사실까지 조용하면 "격리했다" 는 말이 거짓이 된다.
-const LSP_NOT_ISOLATED='격리 안 됨';
+const LSP_NOT_ISOLATED=t('editor.lsp_not_isolated');
 // 팩이 내는 서버 중 일부만 선 상태. 전부 없는 것과 다른 말이어야 사용자가 다시
 // 받아야 할지 판단할 수 있다.
-const LSP_PARTIAL='일부만 있음';
+const LSP_PARTIAL=t('editor.lsp_partial');
 // FR-EXT-8: 읽지 못한 선언이 있으면 알린다 — 조용히 빠지면 사용자는 자기가 고친
 // 파일이 무시된 이유를 알 수 없다.
-const LSP_DECL_PROBLEM='읽지 못한 플러그인 선언';
-const LSP_INSTALL='받기';
+const LSP_DECL_PROBLEM=t('editor.lsp_decl_problem');
+const LSP_INSTALL=t('editor.lsp_install');
 // FR-TIP-1: 라벨은 한 낱말이라 무엇을 받는지 말하지 않는다. 라벨 자체는
 // 그대로다 (FR-TIP-3) — 툴팁만 더한다.
 const LSP_INSTALL_TITLE='Download and install this language server';
-const LSP_INSTALLING='받는 중…';
-const LSP_STATUS_FAIL='언어 서버 상태를 읽지 못했습니다';
-const LSP_UNAVAILABLE='이 서버는 코드 탐색을 제공하지 않습니다';
+const LSP_INSTALLING=t('editor.lsp_installing');
+const LSP_STATUS_FAIL=t('editor.lsp_status_fail');
+const LSP_UNAVAILABLE=t('editor.lsp_unavailable');
 // FR-LSP-10: 결과는 사유와 함께 그 자리에 남는다.
-const LSP_INSTALL_OK='받았습니다';
-const LSP_PANEL_HINT=
-  '정의로 이동·참조 찾기·호버·진단은 언어 서버가 있어야 동작합니다. '+
-  '무엇이 있는지는 플러그인 선언이 정하며, 선언은 탐색기의 `플러그인` 에서 고칠 수 있습니다. '+
-  'PATH 에 이미 있으면 그것을 쓰고, 없을 때 `받기` 를 누르면 dongminal 전용 폴더에만 받습니다 '+
-  '— 시스템은 건드리지 않고, 그 폴더를 지우면 원상복구됩니다.';
+const LSP_INSTALL_OK=t('editor.lsp_install_ok');
+const LSP_PANEL_HINT=t('editor.lsp_panel_hint');
 
 // ── 코드 탐색: 정의·참조 이동 (EDITOR_LSP_SRS 묶음 C·F · M2) ──
 const LSP_DEF_API='/api/lsp/definition';
@@ -155,18 +151,18 @@ const LSP_REFS_API='/api/lsp/references';
 const LSP_BACK_MAX=64;
 // FR-LSP-28 / D-9: **침묵은 고장과 구별되지 않는다.** 아래 넷이 "아무 일도
 // 일어나지 않음" 을 서로 다른 문장으로 갈라 놓는 자리다.
-const LSP_NO_DEF='정의를 찾지 못했습니다';
-const LSP_NO_REFS='참조를 찾지 못했습니다';
-const LSP_ASK_FAIL='언어 서버에 묻지 못했습니다';
-const LSP_NO_BACK='뒤로 갈 자리가 없습니다';
+const LSP_NO_DEF=t('editor.lsp_no_def');
+const LSP_NO_REFS=t('editor.lsp_no_refs');
+const LSP_ASK_FAIL=t('editor.lsp_ask_fail');
+const LSP_NO_BACK=t('editor.lsp_no_back');
 // 참조 목록은 전체 검색과 **같은 껍데기**를 쓴다 (§2.11) — 사용자가 이미 아는
 // 조작(↑↓·Enter)이 그대로다.
-const LSP_REFS_PLACEHOLDER='참조 (↑↓ 로 옮기고 Enter 로 엽니다)';
-const LSP_REFS_HINT='%s개의 참조';
-const LSP_DEFS_PLACEHOLDER='정의가 여럿입니다';
-const LSP_DEFS_HINT='%s개의 정의';
+const LSP_REFS_PLACEHOLDER=t('editor.lsp_refs_placeholder');
+const LSP_REFS_HINT=t('editor.lsp_refs_hint');
+const LSP_DEFS_PLACEHOLDER=t('editor.lsp_defs_placeholder');
+const LSP_DEFS_HINT=t('editor.lsp_defs_hint');
 // 요청이 오래 걸리면 진행 중임이 보인다 (FR-LSP-43).
-const LSP_ASKING='언어 서버에 묻는 중…';
+const LSP_ASKING=t('editor.lsp_asking');
 // 알림 줄이 스스로 사라지기까지. 닫는 조작을 배워야 하는 알림은 알림이 아니라 창이다.
 const FE_NOTE_MS=4000;
 
@@ -194,21 +190,21 @@ const LSP_DIAG_SEVERITY={1:8,2:4,3:2,4:1};
 // FR-LSP-36: 진단을 켜고 끈다. 큰 저장소에서 저장하지 않은 파일마다 경고가 서는
 // 것을 원하지 않는 사용자가 있다. **기기별**이다 — 화면의 시끄러움에 대한 취향이다.
 const LSP_DIAG_KEY='lspDiagnostics';
-const LSP_DIAG_LABEL='에러·경고 밑줄';
-const LSP_DIAG_HINT='언어 서버가 찾은 문제를 편집기에 밑줄로 표시합니다. 끄면 정의 이동·참조 찾기·호버는 그대로 동작합니다.';
+const LSP_DIAG_LABEL=t('editor.lsp_diag_label');
+const LSP_DIAG_HINT=t('editor.lsp_diag_hint');
 
 // ── 코드 탐색: 설치 제안 (묶음 G · M5) ──
 //
 // FR-LSP-44·45: 서버가 없는 언어의 파일을 **처음 열 때** 제안한다. 파일마다 뜨면
 // 그것이 곧 고장이므로, 닫으면 그 언어에 다시 뜨지 않는다 — 그 기억은 기기별이다.
 const LSP_OFFER_KEY='lspOfferDismissed';
-const LSP_OFFER_BODY='%s 를 설치하면 이 파일에서 정의 이동·참조 찾기·호버·진단이 동작합니다.';
+const LSP_OFFER_BODY=t('editor.lsp_offer_body');
 // FR-EXT-29: 받을 수 없는 사유는 **서버가 사람의 말로 적어 보낸다**(`note`).
 // 이것은 그 값이 비었을 때만 쓰는 안전망이다.
-const LSP_OFFER_BLOCKED='%s 를 지금 받을 수 없습니다.';
-const LSP_OFFER_INSTALL='받기';
-const LSP_OFFER_DISMISS='다시 보지 않기';
-const LSP_OFFER_SETTINGS='설정에서 보기';
+const LSP_OFFER_BLOCKED=t('editor.lsp_offer_blocked');
+const LSP_OFFER_INSTALL=t('editor.lsp_offer_install');
+const LSP_OFFER_DISMISS=t('editor.lsp_offer_dismiss');
+const LSP_OFFER_SETTINGS=t('editor.lsp_offer_settings');
 
 // ── Editor 탐색기 (EDITOR_TAB_SRS 묶음 X · FR-EDT-57~78) ──
 
@@ -274,7 +270,7 @@ const REPO_SIDE_W_MAX=520;
 //
 // 기울임이 곧 "이 탭은 곧 대체된다" 는 표시다 (FR-RTU-41).
 const REPO_PREVIEW_CLASS='pn-tab-preview';
-const REPO_PREVIEW_TITLE='미리보기 — 다음에 고른 것이 이 자리를 대신합니다. 더블클릭하면 고정됩니다.';
+const REPO_PREVIEW_TITLE=t('editor.repo_preview_title');
 
 // POLL_INTERVAL_SETTINGS_SRS FR-PIS-12: **별칭이 사라졌다.** `EDITOR_GIT_POLL_MS`
 // 는 `GIT_REPOS_POLL_MS` 의 다른 이름일 뿐이었고, 주기가 설정이 되면 그 별칭만
@@ -318,11 +314,11 @@ const EDITOR_TREE_REFRESH_TITLE='Refresh the tree (re-reads expanded folders onl
  * 수와 전체 수. 종전에는 "%s개 이상 — 잘림" 이었고, 그것은 사용자가 이미 짐작한
  * 것이다. 알고 싶은 것은 **나머지를 어떻게 보는가**이며 이제 그 길이 있다.
  */
-const EDITOR_TREE_TRUNCATED='%s / %t — 더 보기';
-const EDITOR_TREE_MORE_BUSY='%s / %t — 받는 중…';
-const EDITOR_TREE_MORE_FAIL='%s / %t — 더 받지 못했습니다. 눌러 다시 시도';
+const EDITOR_TREE_TRUNCATED=t('editor.tree_truncated');
+const EDITOR_TREE_MORE_BUSY=t('editor.tree_more_busy');
+const EDITOR_TREE_MORE_FAIL=t('editor.tree_more_fail');
 // FR-EDT-63: 조회 실패는 그 폴더 행에만 남고 트리를 깨뜨리지 않는다.
-const EDITOR_TREE_ERR='읽지 못했습니다';
+const EDITOR_TREE_ERR=t('editor.tree_err');
 
 // FR-EDT-74 / D-5: 폴더 색의 우선순위. 삭제(D)가 표에 **없는 것이 규칙이다** —
 // 지워진 파일은 애초에 탐색기에 없으므로 그 상태가 폴더 색을 정할 근거가 없다.
@@ -380,15 +376,15 @@ const EDITOR_TREE_NEW_DIR_TITLE='New folder in the selected folder';
 // "우리가 쓴 상수뿐" 이라는 사실을 주석이 아니라 코드가 보장하게 하기 위해서다 —
 // 나중에 사용자 입력이 그 자리에 닿아도 그림이 되지 않는다.
 const EDITOR_HEAD_ICONS=new Set([EDITOR_TREE_NEW_FILE,EDITOR_TREE_NEW_DIR,EDITOR_TREE_REFRESH]);
-const EDITOR_MENU_NEW_FILE='새 파일';
-const EDITOR_MENU_NEW_DIR='새 폴더';
-const EDITOR_MENU_RENAME='이름 변경';
+const EDITOR_MENU_NEW_FILE=t('editor.menu_new_file');
+const EDITOR_MENU_NEW_DIR=t('editor.menu_new_dir');
+const EDITOR_MENU_RENAME=t('editor.menu_rename');
 // FR-WBR-70: 복사·붙여넣기·복제. 붙여넣기는 복사한 것이 없으면 비활성이고 그
 // 사유를 툴팁이 말한다 (다운로드의 링크 규약과 같다).
-const EDITOR_MENU_COPY='복사';
-const EDITOR_MENU_PASTE='붙여넣기';
-const EDITOR_MENU_DUPLICATE='복제';
-const EDITOR_PASTE_NONE='복사한 것이 없습니다';
+const EDITOR_MENU_COPY=t('editor.menu_copy');
+const EDITOR_MENU_PASTE=t('editor.menu_paste');
+const EDITOR_MENU_DUPLICATE=t('editor.menu_duplicate');
+const EDITOR_PASTE_NONE=t('editor.paste_none');
 /**
  * `12-func-ui.md FUI-11`: **잘라내기.**
  *
@@ -398,57 +394,57 @@ const EDITOR_PASTE_NONE='복사한 것이 없습니다';
  *   새  동작: 클립보드가 `move` 를 함께 든다. 붙여넣기가 그때 `rename` 으로 간다
  *   이유:     복사·붙여넣기가 이미 그 길을 다 냈다 — 없던 것은 **동사 하나**였다
  */
-const EDITOR_MENU_CUT='잘라내기';
+const EDITOR_MENU_CUT=t('editor.menu_cut');
 // FR-FTR-13·18 / FR-ETR-16·23: 탐색기의 전송. 다운로드는 폴더에서도 활성이며
 // 그때는 zip 으로 온다 (D-4). 링크는 여전히 비활성이다 — 링크 자신을 내려받는다는
 // 뜻이 정해져 있지 않다.
-const EDITOR_MENU_UPLOAD='업로드';
-const EDITOR_MENU_UPLOAD_DIR='폴더 업로드';
-const EDITOR_MENU_DOWNLOAD='다운로드';
-const EDITOR_DOWNLOAD_LINK_NO='링크는 내려받을 수 없습니다';
-const EDITOR_UPLOAD_FAIL='%s 을(를) 올리지 못했습니다';
+const EDITOR_MENU_UPLOAD=t('editor.menu_upload');
+const EDITOR_MENU_UPLOAD_DIR=t('editor.menu_upload_dir');
+const EDITOR_MENU_DOWNLOAD=t('editor.menu_download');
+const EDITOR_DOWNLOAD_LINK_NO=t('editor.download_link_no');
+const EDITOR_UPLOAD_FAIL=t('editor.upload_fail');
 
 // FR-ETR-22: 폴더 드롭의 재귀 수집 상한. 홈 폴더를 잘못 놓았을 때 브라우저가
 // 멎지 않게 하는 값이다.
 const EDITOR_UPLOAD_MAX_ENTRIES=10000;
-const EDITOR_UPLOAD_TOO_MANY='항목이 %n개를 넘어 올리지 않았습니다 — 더 작은 폴더를 고르세요';
+const EDITOR_UPLOAD_TOO_MANY=t('editor.upload_too_many');
 
 // FR-ETR-26~30: 전송이 한 항목에서 실패했을 때의 선택. 폴더 하나가 수백 개일 수
 // 있으므로 "이후 모두 건너뛰기" 가 함께 있어야 한다 — 같은 사유로 이어 실패할 때
 // 묻기를 되풀이하면 그 자체가 고장이다 (D-9).
-const EDITOR_UPLOAD_FAIL_TITLE='업로드 실패';
-const EDITOR_UPLOAD_FAIL_BODY='%s 을(를) 올리지 못했습니다 — %r';
-const EDITOR_UPLOAD_RETRY='재시도';
-const EDITOR_UPLOAD_SKIP='건너뛰기';
-const EDITOR_UPLOAD_SKIP_ALL='이후 모두 건너뛰기';
-const EDITOR_UPLOAD_ABORT='중단';
+const EDITOR_UPLOAD_FAIL_TITLE=t('editor.upload_fail_title');
+const EDITOR_UPLOAD_FAIL_BODY=t('editor.upload_fail_body');
+const EDITOR_UPLOAD_RETRY=t('editor.upload_retry');
+const EDITOR_UPLOAD_SKIP=t('editor.upload_skip');
+const EDITOR_UPLOAD_SKIP_ALL=t('editor.upload_skip_all');
+const EDITOR_UPLOAD_ABORT=t('editor.upload_abort');
 // FR-ETR-30: 조용히 끝나면 사용자는 전부 올라간 줄 안다.
-const EDITOR_UPLOAD_SKIPPED='%n개를 건너뛰었습니다';
-const EDITOR_UPLOAD_ABORTED='%n개를 남기고 중단했습니다';
+const EDITOR_UPLOAD_SKIPPED=t('editor.upload_skipped');
+const EDITOR_UPLOAD_ABORTED=t('editor.upload_aborted');
 // FR-FTR-23: 드래그 중 접힌 폴더가 펼쳐지기까지의 체류 시간 (D-5).
 const EDITOR_SPRING_MS=600;
 // `revealPath` 가 거슬러 올라갈 겹의 상한. `_parent` 는 최상위에서 `'/'` 를
 // 내므로 루트가 `'/'` 인 트리에서는 스스로 멈추지 않는다 — 경로 깊이에 상한을
 // 두는 편이 종료 조건을 경로 모양에 맡기는 것보다 확실하다.
 const EDITOR_TREE_REVEAL_MAX=64;
-const EDITOR_MENU_DELETE='삭제';
+const EDITOR_MENU_DELETE=t('editor.menu_delete');
 
 // FR-EDT-83·84: 삭제 확인창. **영구 삭제**라는 사실, 폴더면 재귀와 항목 수,
 // 그리고 저장되지 않은 탭이 함께 닫힌다는 사실을 한 자리에서 밝힌다.
-const EDITOR_DEL_FILE='%s 을(를) 삭제합니다.';
-const EDITOR_DEL_DIR='%s 폴더를 재귀적으로 삭제합니다 — 그 안의 항목 %n개가 함께 사라집니다.';
+const EDITOR_DEL_FILE=t('editor.del_file');
+const EDITOR_DEL_DIR=t('editor.del_dir');
 // FR-EMS-21: 여럿을 지울 때. **수가 먼저다** — 이름만 늘어놓으면 몇 개인지
 // 사용자가 세어야 한다.
-const EDITOR_DEL_MANY='%n개 항목을 삭제합니다 — %s';
-const EDITOR_DEL_MANY_TREE='폴더 안의 항목 %n개가 함께 사라집니다.';
-const EDITOR_DEL_PERMANENT='영구 삭제입니다. 휴지통으로 가지 않으며 되돌릴 수 없습니다.';
+const EDITOR_DEL_MANY=t('editor.del_many');
+const EDITOR_DEL_MANY_TREE=t('editor.del_many_tree');
+const EDITOR_DEL_PERMANENT=t('editor.del_permanent');
 // `UX-25`: 추적 중이던 파일은 git 이 갖고 있다 — 지운 뒤에 그 길을 알린다.
 // `%s` 는 저장소 기준 경로. 추적되지 않은 파일에는 이 길이 없으므로 띄우지 않는다.
-const EDITOR_DEL_RECOVER_HINT='git checkout -- %s 로 되돌릴 수 있습니다';
-const EDITOR_DEL_DIRTY='저장되지 않은 탭 %n개가 함께 닫힙니다 — %s';
-const EDITOR_DEL_COUNT_MORE='%n개 이상';
-const EDITOR_DEL_OK='영구 삭제';
-const EDITOR_DEL_CANCEL='취소';
+const EDITOR_DEL_RECOVER_HINT=t('editor.del_recover_hint');
+const EDITOR_DEL_DIRTY=t('editor.del_dirty');
+const EDITOR_DEL_COUNT_MORE=t('editor.del_count_more');
+const EDITOR_DEL_OK=t('editor.del_ok');
+const EDITOR_DEL_CANCEL=t('editor.del_cancel');
 // 확인창의 항목 수는 클라이언트가 `list` 로 센다 — 서버에 세는 종단이 없다.
 // 상한을 두는 이유는 큰 트리에서 확인창이 열리기까지 조회가 무한정 붙기 때문이다.
 // 넘으면 "N개 이상" 으로 알린다 — 확인창이 늦게 뜨는 것보다 낫다.
@@ -457,22 +453,22 @@ const EDITOR_DEL_COUNT_MAX=2000;
 // FR-EDT-92: 실패는 그 자리에 사유를 표시한다. 서버의 코드(FR-EDT-117)를 사람의
 // 말로 옮기는 자리는 여기 하나다.
 const EDITOR_FS_ERR_MSG={
-  bad_request:'요청이 올바르지 않습니다',
-  outside_root:'Editor 루트 밖은 조작할 수 없습니다',
-  permission_denied:'권한이 없습니다',
-  not_found:'대상이 없습니다',
-  exists:'같은 이름이 이미 있습니다',
-  io_failed:'파일시스템 조작에 실패했습니다',
-  too_large:'파일이 너무 큽니다',
+  bad_request:t('editor.fs_err_msg.bad_request'),
+  outside_root:t('editor.fs_err_msg.outside_root'),
+  permission_denied:t('editor.fs_err_msg.permission_denied'),
+  not_found:t('editor.fs_err_msg.not_found'),
+  exists:t('editor.fs_err_msg.exists'),
+  io_failed:t('editor.fs_err_msg.io_failed'),
+  too_large:t('editor.fs_err_msg.too_large'),
 };
-const EDITOR_FS_ERR_UNKNOWN='조작하지 못했습니다';
+const EDITOR_FS_ERR_UNKNOWN=t('editor.fs_err_unknown');
 // FR-EDT-85: 서버에 묻기 전에 클라이언트가 막는 유일한 경우다 — os.Rename 은 이
 // 이동을 성공시키고 트리를 잃어버린다.
-const EDITOR_MOVE_INTO_SELF='자기 자신이나 자기 하위로는 옮길 수 없습니다';
+const EDITOR_MOVE_INTO_SELF=t('editor.move_into_self');
 // WORKBENCH_REVIEW_SRS FR-WBR-41: 재조정이 지우려던 창을 미뤘다는 사실. 창 이름을
 // 밝히는 이유는 FR-EDT-84 와 같다 — 개수만으로는 무엇을 정리해야 할지 모른다.
-const EDITOR_HELD_DIRTY='저장하지 않은 편집이 있어 창을 닫지 않았습니다 — %s';
-const EDITOR_NAME_INVALID='이름에 / 를 쓸 수 없습니다';
+const EDITOR_HELD_DIRTY=t('editor.held_dirty');
+const EDITOR_NAME_INVALID=t('editor.name_invalid');
 
 // ── 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS) ──
 //
@@ -503,18 +499,18 @@ const ED_DD_COLOR_VAR={
 };
 
 // FR-EDD-31·35: 팝업의 말. 조각의 종류마다 이전 쪽이 무엇이었는지가 다르다.
-const ED_DD_PEEK_ADDED='이 줄들은 새로 더해졌습니다 — 이전에는 없던 자리입니다';
-const ED_DD_REVERT='되돌리기';
-const ED_DD_REVERT_TITLE='이 조각을 index 의 내용으로 되돌립니다 (되돌리기는 Cmd+Z 로 취소됩니다)';
-const ED_DD_STAGE='스테이지';
-const ED_DD_STAGE_TITLE='이 조각을 스테이지합니다 — 저장하지 않은 편집이 있으면 먼저 저장합니다';
-const ED_DD_PEEK_CLOSE_TITLE='닫기';
+const ED_DD_PEEK_ADDED=t('editor.dd_peek_added');
+const ED_DD_REVERT=t('editor.dd_revert');
+const ED_DD_REVERT_TITLE=t('editor.dd_revert_title');
+const ED_DD_STAGE=t('editor.dd_stage');
+const ED_DD_STAGE_TITLE=t('editor.dd_stage_title');
+const ED_DD_PEEK_CLOSE_TITLE=t('editor.dd_peek_close_title');
 // FR-EDD-44·46·47: 스테이지가 못 선 사유. 침묵은 고장과 구별되지 않는다.
-const ED_DD_SAVE_FAIL='저장하지 못해 스테이지하지 않았습니다';
-const ED_DD_STAGE_FAIL='스테이지하지 못했습니다';
-const ED_DD_STAGE_STALE='그 사이 파일이 바뀌었습니다 — 다시 고르세요';
-const ED_DD_STAGE_WIDE='조각의 경계를 좁히지 못해 덩어리 전체를 스테이지했습니다';
-const ED_DD_STAGING='스테이지하는 중…';
+const ED_DD_SAVE_FAIL=t('editor.dd_save_fail');
+const ED_DD_STAGE_FAIL=t('editor.dd_stage_fail');
+const ED_DD_STAGE_STALE=t('editor.dd_stage_stale');
+const ED_DD_STAGE_WIDE=t('editor.dd_stage_wide');
+const ED_DD_STAGING=t('editor.dd_staging');
 // 서버 DiffSide.kind 중 본문을 diff 할 수 있는 하나. `GIT_DIFF_DRAWABLE` 은
 // `absent`(한쪽이 없다)까지 포함하는데, 그것은 여기서 "표시하지 않는다" 다
 // (FR-EDD-6) — 두 판정이 다르므로 그 집합을 빌려 쓰지 않는다.
@@ -525,6 +521,6 @@ const ED_DD_PEEK_MAX_LINES=12;
 
 // FUI-07: 모두 저장의 결말. 개별 실패는 `save()` 가 이미 알리므로 여기는
 // **묶음의 결말**만 적는다 — 없으면 여러 파일 중 하나가 막힌 것을 모른다.
-const ED_SAVE_ALL_NONE='저장할 변경이 없습니다';
-const ED_SAVE_ALL_OK='모두 저장했습니다';
-const ED_SAVE_ALL_PARTIAL='일부를 저장하지 못했습니다 — 그 탭의 사유를 보세요';
+const ED_SAVE_ALL_NONE=t('editor.save_all_none');
+const ED_SAVE_ALL_OK=t('editor.save_all_ok');
+const ED_SAVE_ALL_PARTIAL=t('editor.save_all_partial');

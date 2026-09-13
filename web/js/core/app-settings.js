@@ -102,6 +102,15 @@ const SETTINGS_ACCESS={
   themeFollowSystem:{get:()=>themeFollowSystem,set(v){themeFollowSystem=!!v}},
   themeNameDark:{get:()=>themeNameDark,set(v){if(THEMES[v]) themeNameDark=v}},
   themeNameLight:{get:()=>themeNameLight,set(v){if(THEMES[v]) themeNameLight=v}},
+  // FR-B-4 / D-B-1: 서버의 값이 활성 로케일과 다르면 거울(`localStorage`)을 고치고
+  // 페이지를 다시 연다 — 상수 1,100여 개가 로드 시점에 읽었으므로 살아 있는
+  // 재렌더는 없다. 거울을 쓰지 못하는 브라우저에서는 다시 열지 않는다(무한 재로드).
+  locale:{get:()=>uiLocale,set(v){
+    uiLocale=I18N.resolve(v);
+    const sel=document.getElementById('ds-locale');
+    if(sel) sel.value=uiLocale;
+    if(uiLocale!==I18N.locale&&this._localeMirror(uiLocale)) location.reload();
+  }},
 };
 
 
@@ -189,6 +198,8 @@ Object.assign(App.prototype, {
     else if(saved.themeName&&THEMES[saved.themeName]){customTheme=null;currentThemeName=saved.themeName}
     // FR-STF-2·7: 추종이 켜져 있으면 슬롯이 이기고, 사용자 정의는 남되 적용되지 않는다.
     this._applyThemeChoice();
+    // FR-B-7: 단축키를 품은 툴팁은 설정이 선 뒤에 채운다 — 기본값이어도 한 번은 채워야 한다.
+    I18N.applyShortcuts(document);
     // 설정 변경은 감지 계층의 재평가 시점이다 (FR-GIT-23). 이 계층만 따로인
     // 이유는 백오프·소실 판정·활성 저장소 판정을 함께 쥐고 있어 주기만 떼어 올
     // 수 없기 때문이다 (FR-PIS-15).
@@ -375,6 +386,7 @@ Object.assign(App.prototype, {
     this._initFocusEdge();
     this._initAttnEdge();
     this._initWordWrap();
+    this._initLocale();
     this._initLSP();
     this._initBackup();
     this._initSandboxPanel();

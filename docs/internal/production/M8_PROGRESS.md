@@ -5,13 +5,14 @@
 
 ---
 
-## 1. 어디까지 왔나 (2026-09-13, 두 번째 세션 — **P1 완료**)
+## 1. 어디까지 왔나 (2026-09-13, 세 번째 세션 — **P2 완료**)
 
 | 단계 | 상태 |
 |---|---|
 | **P0** 스파이크 (U-1~U-10 · 산출물 ①~⑤) | **완료** (첫 세션) — 스펙 §9.1 표가 채워졌고 §9.3 이 섰다. 제품 코드 0줄 |
 | **P1** A ①~④ + `TEST-8` | **완료** — 아래 §1-1 표. `go test -race -shuffle=on -count=1 ./...` 통과 · `make gates` 초록 · 전량 e2e unexpected 0 (§1-2) |
-| P2~P7 | 착수 전 |
+| **P2** B 국제화 | **완료** — 아래 §1-3 표. 사용자 결정 FR-B-1(안 A) · 카탈로그 915키(ko·en 전수) · 게이트 `check-i18n.mjs`(35번째) · 전량 e2e §1-4 |
+| P3~P7 | 착수 전 |
 
 **사용자 판단 셋은 착수 시 해소됐다** (2026-09-13): FR-APS-10 정정(stdio 제어 프레임,
 MCP 서버 없음) · D-U-4 정정(변형 + `Kind`) · FR-AGT-11·12 확정. 스펙 본문과 §9.3 ⑤⑥,
@@ -63,7 +64,81 @@ R-2 에 반영했고 `decisions.md` 를 다시 만들었다.
 
 ---
 
+### 1-3. P2 항목별 판정
+
+**사용자 결정 (2026-09-13, 착수 시 한 번)**: FR-B-1 = **안 A** — 지원 `ko`·`en` · 기본 `ko` ·
+`navigator.language` 감지 없음(설정 `locale` 만) · 폴백 `ko`+콘솔 경고 · `en` 전수 번역 · 전환은
+페이지 재로드 · CLI·서버 로그·`SETTINGS_SCHEMA.where` 범위 밖 · 서버 오류 본문은 동결(D-ERR-2)하고
+`X-Error-Code` 로 프론트가 문장을 고른다 · 툴팁 영어 규약(FR-TIP-2)은 ko 카탈로그 데이터로 유지.
+스펙 §3.3 "FR-B-1 의 결정" 표와 `README.md` §언어 · `docs/internal/README.md` §언어 정책에 같은 내용.
+
+| 순서 | 항목 | 판정 | 어디에 |
+|---|---|---|---|
+| ① | FR-B-1 언어 정책 | **해소** — 위 결정. 두 README 에 기록 | `README.md` · `docs/internal/README.md` · 스펙 §3.3 |
+| ② | FR-B-2 카탈로그 | **해소** — `t(key,params)`·`tn(key,n,params)`·`I18N.register/apply/applyShortcuts`. 카탈로그 `web/js/i18n/ko.js`(915키)·`en.js`(915+복수형 `.one` 13). 키 규약·네임스페이스는 스펙 §3.3 | `web/js/core/i18n.js` · `web/js/i18n/` · 단위 13건 `i18n.test.mjs`(TC-B-8) |
+| ③ | FR-B-3 게이트 | **해소** — `scripts/check-i18n.mjs`(espree AST: JS 리터럴 한글 · HTML 텍스트/속성 · CSS `content` 문구 · ko·en 키 집합 · `t()` 키 존재 · **`t`/`tn` 가려짐**). Makefile·verify.yml 둘 다. **탐침 5종** 확인 뒤 지움: JS 리터럴(잡음) · HTML 텍스트(잡음) · CSS `content`(잡음) · `console.warn` 한글(지나감 — 예외 등록부) · Go `httpErr` 한국어 추가(`check-http-error.sh` 가 잡음) | `scripts/check-i18n.mjs` · `scripts/check-http-error.sh` · `Makefile` · `verify.yml` |
+| ④ | 외부화 | **해소** — `constants*.js` 12파일 630줄 → `t()` (키는 상수 이름에서 기계적 파생, 객체·배열 값은 `.prop`) · 그 밖 31파일 254줄 → `t()`/`tn()` (`apiErrText` 로 모인 오류 문구 포함) · `index.html` 72줄 → `data-i18n`/`-html`/`-title`/`-placeholder`. 한글 리터럴 **0** (게이트) | 43 JS 파일 · `web/index.html` |
+| ⑤ | FR-B-5 `<html lang>` | **해소** — head 인라인 스크립트(`dm.locale` 거울)가 첫 페인트 전에, `i18n.js` 가 로드 시 다시 세운다. 영어가 섞인 요소 셋(`.boot-name`·`.modal-title`·`.modal-tabs`)과 언어 선택지 `<option>` 에 `lang` | `web/index.html` · `i18n.js` · TC-B-3 |
+| ⑤ | FR-B-6 CSS `content` | **해소** — 3곳 전부 DOM 텍스트(`.slot-empty-hint`·`.tp-drop-hint`·`.pn-dim-hint`). CSS 는 보일 때만 `display` 를 연다. 접근성 트리의 텍스트로 잡힘을 e2e 셋이 `ariaSnapshot()` 으로 단정 (TC-B-4) | `renderer.js` · `term-pane.js` · `style.css` |
+| ⑤ | FR-B-7 툴팁 보간 | **해소** — 정적 단축키 툴팁 4곳(`split-h`·`split-v`·`slot-add`·`slot-remove`)이 `data-i18n-shortcut` 으로 `{key}`=`displayKey(shortcuts[action])`. 설정 적용·녹화·되돌리기 세 자리에서 `I18N.applyShortcuts`. e2e 가 재바인딩 뒤 갱신을 단정 (TC-B-5). **동작 변경**: 종전 `(Ctrl+Shift+H)` → `(⌃+⇧+H)`(displayKey 표기) | `index.html` · `app-settings.js` · `input-binding.js` · `app-settings-keys.js` |
+| ⑥ | FR-B-8 서버 오류 | **정정 후 해소** — `http.Error` 한국어는 M5 가 이미 0 으로. `httpErr` 한국어 본문 9곳은 D-ERR-2 로 **동결**(게이트가 상한 9 를 지킨다). 문장의 소유는 프론트: `apiErrText(r, what)` 이 `X-Error-Code` → `err.<code>`(25 코드) → 본문 → `{what} ({status})` 순. **동작 변경**: 코드가 카탈로그에 있으면 서버 본문 대신 카탈로그 문장 (이전: 본문 그대로 / 이유: FR-B-8) | `api.js` · `check-http-error.sh` · `i18n/*.js` `err.*` |
+| ⑥ | FR-B-4 설정 키 | **해소** — `locale` 을 `SETTINGS_SCHEMA`·`SETTINGS_ACCESS` 둘 다, TC-CFG-4 23→24. Display ▸ 언어 `<select id="ds-locale">`. 저장 성공 뒤 거울 쓰기 → `location.reload()` (D-B-1). 미번역 키 폴백·콘솔 경고 1회는 단위+e2e 가 단정 (TC-B-2) | `settings-schema.js` · `app-settings.js` · `app-settings-init.js` · `schema_test.go` |
+| ⑥ | FR-B-9 혼용 | **해소(별도 커밋)** — `Display Mode`·`Mobile Breakpoint (px)` 라벨을 키로 올린 뒤(코드) ko 값만 한국어로 고친 커밋 하나 (데이터). TC-B-7 의 "카탈로그 diff 만" 이 그 커밋이다 | `web/js/i18n/ko.js` |
+| — | FR-B-10 | **전제 성립** — 축 C 의 새 UI 는 한글 리터럴을 적는 순간 게이트가 빨개진다 |  |
+| — | (발견) CI `gates` 잡 | **해소** — `npm ci` 가 없어 node 게이트(`check-load-order` 등)가 CI 에서 `espree` 를 찾지 못하는 상태였다. `setup-node`+`npm ci` 를 잡 머리에 더했다 | `verify.yml` |
+
+### 1-4. 전량 e2e (P2 판정)
+
+| 회차 | 결과 | 비고 |
+|---|---|---|
+| ① 코드 완료 직후 | unexpected 8 · flaky 1 | 셋 다 이 변경의 것 — (a) `reconnect-storm` 5건: 격리 하네스가 전역을 손으로 세우는데 `term-pane.js` 가 새로 읽는 `DROP_FILES_HINT`·`t()` 가 없었다 → 하네스에 둘을 더했다("같은 변경에서 여기 한 줄이 늘어야 한다" 의 그 자리) (b) `access-allowlist` 2건: `apiErrText` 가 코드의 카탈로그 문장으로 **사유가 든 본문**을 덮었다 → D-B-3a(구체 코드면 카탈로그, 파생 코드면 본문) (c) `ui-layout-defaults` V-LAY-1: `<html lang="ko">` 가 글리프 메트릭을 바꿔 `#add-sandbox-window` 의 `left` 가 76.03→77.42px — `lang="en"` 으로 되돌리면 통과함을 실측해 원인을 확정하고 기준선의 그 값 하나만 고쳤다(전체 재생성은 1,739줄이 늘어 기준선의 뜻이 바뀐다). flaky 는 `slot-view-state` TC-SVS-21(M7 §5-5 군집), 단독 통과 |
+| ② 수정 뒤 | **unexpected 0** · flaky 1 | flaky 는 `git-history` H17(M7 §5-5 군집의 이웃 — P1 ② 에도 H6·H16 이 있었다), 단독 실행(retry 0) 통과. `make e2e-rebalance` 를 전량 직후에 돌려 시간표를 갱신했다(8샤드 385~387s, 불균형 1.00배) |
+
+**바이너리**: P1 과 같다 (claude 2.1.270).
+
 ## 2. 무엇이 바뀌었나
+
+### 2-14. (P2) 감사는 주석을 셌고, "6곳" 은 이미 0 이었다
+
+§2.2 의 수는 전부 다시 세야 했다 — `constants*.js` 5파일은 M6 이 12파일로 갈랐고, "JS 241줄/
+77파일" 은 주석까지 센 것이어서 문자열 리터럴만 세면 **43파일 884줄**(constants 630 + 나머지
+254)이고, `index.html` 178줄은 주석 밖 **72줄**이다. `http.Error` 한국어 6곳은 M5 의 `G6-1` 이
+`httpErr` 로 옮기며 **0** 이 됐고, 남은 것은 `httpErr` 의 한국어 본문 9곳 — 그것은 D-ERR-2 가
+"한 바이트도 바꾸지 않는다" 고 못박은 공개 계약이다. 그래서 FR-B-8 은 "본문을 고친다" 에서
+"프론트가 본문을 읽지 않게 한다" 로 정정됐다 (D-B-3). P1 의 교훈(§2-10)과 같다: **판정은
+게이트가 하고 감사는 지도다.** 그리고 분모가 바뀌면 스펙을 먼저 고치고 시작한다 (FR-U-6).
+
+### 2-15. (P2) 상수가 로드 시점에 읽으므로 전환은 재로드다
+
+`const X=t('…')` 가 1,100여 개고 77파일이 그 이름을 읽는다. "로케일을 바꾸면 UI 전부가
+바뀐다"(FR-B-4)를 살아 있는 재렌더로 하려면 모든 소비처가 구독자가 되어야 하고, 그 값은 이
+제품에 없다 — 단일 사용자이고 전환은 드물다. 그래서 D-B-1: 저장 → `localStorage` 거울 →
+`location.reload()`. 첫 페인트 전의 `<html lang>` 은 테마 캐시(`dm.themeVars`)와 같은 모양으로
+head 인라인 스크립트가 같은 키를 읽는다. 설정이 서버에서 오는데 카탈로그는 설정보다 먼저
+필요하다는 시차를 거울 하나가 잇는다 — 새 브라우저의 첫 방문은 ko 로 뜨고 설정을 받은 뒤 한 번
+다시 연다.
+
+### 2-16. (P2) 게이트가 외부화보다 먼저여야 했던 이유가 하나 더 나왔다
+
+외부화 중에 `const t = runSvg('title'); t.textContent = … ? t('runs.coordinator') : …` 를 만들었다 —
+지역 `t` 가 전역 `t()` 를 가려 **런타임에만** 죽는 코드다. eslint `no-undef` 는 잡지 못한다(이름은
+있다). 게이트에 규칙을 하나 더했다: `eslint-scope` 로 `t`/`tn` 호출이 전역 아닌 바인딩에
+덮이는지를 본다. 스펙이 적은 게이트 규칙 넷에 다섯째가 실측에서 더해졌다 — 게이트는 외부화를
+**지키는** 것만이 아니라 외부화를 **하는 동안** 실수를 잡는 도구였다.
+
+### 2-17. (P2) CI 의 node 게이트는 돌 수 없는 상태였다
+
+`verify.yml` 의 `gates` 잡에 `npm ci` 가 없었다. `check-load-order.mjs`(M6)부터 node 로 쓴 게이트는
+`espree` 를 import 하므로 러너에서는 첫 줄에서 죽는다 — 로컬 `make gates` 는 `node_modules` 가
+있어 초록이었다. "게이트는 두 자리에 들어가야 끝난다" 의 네 번째 사례이고, 이번에는 두 자리에
+**들어가 있었는데 한 자리가 돌 수 없었다.** `setup-node`+`npm ci` 를 잡 머리에 더했다.
+
+### 2-18. (P2) 한글 게이트로 영어 혼용을 잡을 수는 없다
+
+게이트는 한글만 본다(D-B-2) — 영어 리터럴은 식별자·클래스·프로토콜 문자열과 기계적으로 가를 수
+없다. 그래서 UX-20 의 혼용 자리(`Display Mode`·`Mobile Breakpoint (px)`)는 게이트가 지나갔고,
+FR-B-9 를 위해 **손으로** 키로 올려야 했다. en 쪽의 보장은 "ko 와 키 집합이 같다" 하나다. 축 C 가
+새 UI 를 영어 리터럴로 적으면 게이트는 침묵한다 — 리뷰의 몫으로 남는다 (FR-B-10 의 한계).
 
 ### 2-10. (P1) 감사의 줄 번호는 낡았고, 다섯 중 둘은 이미 닫혀 있었다
 
@@ -204,4 +279,5 @@ AS-1(한 프로세스 = 한 세션)은 codex 에서 거짓이다. 두 `thread/st
 75e1d83  docs(m8): P0 스파이크를 닫는다 — §9.1 실측·§9.3 산출물·FR-AGT-11/12·P1 인계
 31b0d28  docs(m8): 인계서에 커밋 해시를 적는다
 d05eee9  feat(m8): P1 — Go 부채 ①~④ + TEST-8
+(P2 종료 커밋 해시는 커밋 뒤에 적는다)
 ```

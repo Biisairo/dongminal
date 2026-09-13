@@ -324,7 +324,7 @@ Object.assign(GitHistory, {
     const d=Math.max(0,(now||Date.now())-ms);
     for(const u of GIT_REL_UNITS){
       const n=Math.floor(d/u[0]);
-      if(n>=1) return n+u[1]+' 전';
+      if(n>=1) return t('git.rel_ago',{v:n+u[1]});
     }
     return GIT_REL_NOW;
   },

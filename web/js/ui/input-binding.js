@@ -126,6 +126,7 @@ class InputBinding {
         const btn=document.querySelector(`.sc-key[data-action="${this.app.recording}"]`);
         this.app.recording=null;
         if(btn){btn.classList.remove('recording');btn.textContent=displayKey(shortcuts[btn.dataset.action]||'')}
+        I18N.applyShortcuts(document);   // FR-B-7: 툴팁이 새 표기를 따라온다
         this.app.saveSettings();
         return;
       }

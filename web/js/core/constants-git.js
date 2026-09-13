@@ -85,14 +85,14 @@ const GIT_SIDE_ACTIONS=[
 // **사실만 말하고 끝내지 않는다.** "저장소가 아닙니다" 는 사용자가 이미 아는
 // 것이고, 알고 싶은 것은 여기서 무엇을 할 수 있는가다.
 const GIT_INIT_ACTION='repo_init';
-const GIT_INIT_NOT_REPO='이 폴더는 git 저장소가 아닙니다.';
+const GIT_INIT_NOT_REPO=t('git.init_not_repo');
 const GIT_INIT_RUN='git init';
-const GIT_INIT_CONFIRM='이 폴더를 git 저장소로 만듭니다';
-const GIT_INIT_HINT='되돌리려면 그 폴더의 .git 을 지우면 됩니다. 저장소가 되면 Repo 목록에도 함께 섭니다.';
-const GIT_INIT_FAIL='저장소를 만들지 못했습니다';
+const GIT_INIT_CONFIRM=t('git.init_confirm');
+const GIT_INIT_HINT=t('git.init_hint');
+const GIT_INIT_FAIL=t('git.init_fail');
 
-const GIT_PENDING_HINT='이후 마일스톤에서 제공됩니다';
-const GIT_NO_REPO_HINT='리포를 선택하세요';
+const GIT_PENDING_HINT=t('git.pending_hint');
+const GIT_NO_REPO_HINT=t('git.no_repo_hint');
 
 // GIT 섹션 목록 갱신 주기(ms). 배지는 서버의 마지막 관측값이다. Git 탭이 활성일
 // 때만 이 호출이 `observe=1` 을 실어 핀 전부를 관측한다 (FR-GOB-8·10) — 그
@@ -112,19 +112,19 @@ const GIT_BADGE_STALE_FACTOR=4;
 // 한 번의 클릭)을 이 다이얼로그가 대신하므로 **지금 터미널의 리포가 미리 채워진다.**
 // FR-FLW-11: 핀이 하나도 없을 때. follow 행이 늘 한 줄을 채우고 있었으므로 이
 // 섹션은 빈 적이 없었다 — 이제는 있고, 빈 자리는 고장처럼 보인다.
-const GIT_REPOS_NONE='+ Add 로 리포를 추가하세요';
-const GIT_ADD_REPO_TITLE='리포 추가';
-const GIT_ADD_REPO_RUN='추가';
-const GIT_ADD_REPO_PROMPT='리포 경로 (절대경로)';
-const GIT_ADD_REPO_HERE='지금 터미널: %s';
-const GIT_ADD_REPO_NO_TERM='지금 터미널은 저장소가 아닙니다 (%s) — 경로를 직접 넣으세요';
+const GIT_REPOS_NONE=t('git.repos_none');
+const GIT_ADD_REPO_TITLE=t('git.add_repo_title');
+const GIT_ADD_REPO_RUN=t('git.add_repo_run');
+const GIT_ADD_REPO_PROMPT=t('git.add_repo_prompt');
+const GIT_ADD_REPO_HERE=t('git.add_repo_here');
+const GIT_ADD_REPO_NO_TERM=t('git.add_repo_no_term');
 // FR-ETR-34: 위와 다른 경우다. 저쪽은 "터미널은 있는데 저장소가 아니다" 이고
 // 이쪽은 "딛을 터미널이 없다" 이므로 사용자가 할 일이 다르다.
-const GIT_ADD_REPO_NO_TOOL='지금 터미널의 경로를 얻지 못했습니다 — 경로를 직접 넣으세요';
+const GIT_ADD_REPO_NO_TOOL=t('git.add_repo_no_tool');
 // FR-ETR-31~33: `/api/cwd` 와 `/api/git/repo-at` 이 함께 쓰는 어휘. 서버의 상수와
 // 짝이며(gitCwdSourceTool), 문자열을 여러 곳에 흩뿌리면 한쪽만 바뀐다.
 const GIT_CWD_SOURCE_TOOL='tool';
-const GIT_ADD_REPO_NEED_PATH='경로가 필요합니다';
-const GIT_ADD_REPO_DUP='이미 목록에 있습니다';
-const GIT_ADD_REPO_FAIL='리포를 추가하지 못했습니다';
-const GIT_PIN_FAIL_LABEL='리포 추가 실패';
+const GIT_ADD_REPO_NEED_PATH=t('git.add_repo_need_path');
+const GIT_ADD_REPO_DUP=t('git.add_repo_dup');
+const GIT_ADD_REPO_FAIL=t('git.add_repo_fail');
+const GIT_PIN_FAIL_LABEL=t('git.pin_fail_label');

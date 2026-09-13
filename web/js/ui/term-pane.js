@@ -25,6 +25,9 @@ class TerminalTool {
     this.box=document.createElement('div');
     this.box.style.cssText='width:100%;height:100%';
     this.el.appendChild(this.box);
+    // FR-B-6 (UX-11): 드롭 안내는 DOM 텍스트다. `.dragover` 일 때만 CSS 가 보인다.
+    const drop=document.createElement('div'); drop.className='tp-drop-hint'; drop.textContent=DROP_FILES_HINT;
+    this.el.appendChild(drop);
     // Drag & drop upload
     this.el.addEventListener('dragover',e=>{e.preventDefault();if([...e.dataTransfer.types].includes('Files')){e.stopPropagation();this.el.classList.add('dragover')}});
     this.el.addEventListener('dragleave',()=>this.el.classList.remove('dragover'));
@@ -656,12 +659,12 @@ class TerminalTool {
     };
     this.ws.onclose=()=>{
       if(this._destroyed||this._exited) return;
-      this._showOverlay('연결 끊김', '재연결 중...');
+      this._showOverlay(t('term.disconnected'), t('term.reconnecting'));
       this._scheduleReconnect();
     };
     this.ws.onerror=()=>{
       if(this._destroyed||this._exited) return;
-      this._showOverlay('연결 오류', '재연결 중...');
+      this._showOverlay(t('term.conn_error'), t('term.reconnecting'));
       this._scheduleReconnect();
     };
   }
@@ -692,7 +695,7 @@ class TerminalTool {
     this._retryDelay=0;
     this._resetDecoderIfNoResume();
     this._reconnecting=true;
-    this._showOverlay('다시 연결', '내부 새로고침...');
+    this._showOverlay(t('term.reconnect'), t('term.soft_reload'));
     this.connect();
     return true;
   }
@@ -749,13 +752,13 @@ class TerminalTool {
         if(this._destroyed||this._exited)return;
         if(this.ws&&this.ws!==ws) return;
         if(this.ws===ws) this.ws=null;
-        this._showOverlay('연결 끊김','재연결 중...');
+        this._showOverlay(t('term.disconnected'),t('term.reconnecting'));
         this._scheduleReconnect();
       };
       ws.onerror=()=>{
         if(this._destroyed||this._exited)return;
         if(this.ws&&this.ws!==ws) return;
-        this._showOverlay('연결 오류','재연결 중...');
+        this._showOverlay(t('term.conn_error'),t('term.reconnecting'));
         this._scheduleReconnect();
       };
     },{owner:this,label:'ws-retry'});

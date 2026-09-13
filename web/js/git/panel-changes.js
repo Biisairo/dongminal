@@ -328,9 +328,9 @@ Object.assign(GitPanel.prototype, {
     };
     if(s){
       if(s.detached) add('git-badge-detached','detached HEAD');
-      else if(!s.hasUpstream) add('git-badge-noupstream','upstream 없음');
+      else if(!s.hasUpstream) add('git-badge-noupstream',t('git.badge_no_upstream'));
       const n=(s.conflicts||[]).length;
-      if(n) add('git-badge-conflict','충돌 '+n);
+      if(n) add('git-badge-conflict',t('git.badge_conflicts',{n}));
     }
     // ahead/behind 는 0 이면 그리지 않는다.
     const ab=[];
@@ -471,7 +471,7 @@ Object.assign(GitPanel.prototype, {
     if(it.t==='file') return this._rowEl(it.group,it.e,it.depth);
     const more=document.createElement('div');
     more.className='git-file-more'; more.dataset.group=it.group;
-    more.textContent='… '+it.n+' 개 더';
+    more.textContent=tn('git.more_rows',it.n);
     if(this._io) this._io.observe(more);
     return more;
   },

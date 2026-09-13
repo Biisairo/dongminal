@@ -244,7 +244,7 @@ class GitConfirm {
     ch.classList.toggle('vis',this.changed);
     // 개수는 목록과 **함께** 보인다 (FR-GIT-91).
     b.querySelector('.gc-count').textContent=
-      GIT_CONFIRM_COUNT_LABEL+' '+this.targets.length+'개';
+      GIT_CONFIRM_COUNT_LABEL+' '+tn('git.count_items',this.targets.length);
     const ul=b.querySelector('.gc-targets'); ul.innerHTML='';
     const put=t=>{
       const li=document.createElement('li'); li.className='gc-target'; li.textContent=t;
@@ -254,7 +254,7 @@ class GitConfirm {
       for(const sec of this.sections){
         const h=document.createElement('li');
         h.className='gc-target-sect';
-        h.textContent=sec.label+' '+sec.paths.length+'개';
+        h.textContent=sec.label+' '+tn('git.count_items',sec.paths.length);
         ul.appendChild(h);
         for(const t of sec.paths) put(t);
       }

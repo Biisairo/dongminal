@@ -19,7 +19,7 @@ Object.assign(App.prototype, {
   _notify(msg){
     const ov=document.createElement('div');ov.className='confirm-overlay ui-modal';
     ov.innerHTML='<div class="confirm-box ui-modal-box"><div class="confirm-msg notify-msg"></div>'+
-      '<div class="confirm-btns"><button class="ui-btn ui-btn-primary confirm-ok" title="'+TIP_NOTIFY_OK+'">확인</button></div></div>';
+      '<div class="confirm-btns"><button class="ui-btn ui-btn-primary confirm-ok" title="'+TIP_NOTIFY_OK+'">'+escHtml(t('core.ok'))+'</button></div></div>';
     ov.querySelector('.confirm-msg').textContent=msg;
     document.body.appendChild(ov);
     const btn=ov.querySelector('.confirm-ok');btn.focus();
@@ -214,7 +214,7 @@ Object.assign(App.prototype, {
       const ov=document.createElement('div');ov.className='confirm-overlay ui-modal';
       const box=document.createElement('div');box.className='confirm-box ui-modal-box';
       const msg=document.createElement('div');msg.className='confirm-msg';
-      msg.textContent='샌드박스 프로파일';
+      msg.textContent=t('sbx.profile_title');
       box.appendChild(msg);
       let input=null;
       // SANDBOX_PICK_COPY_SRS FR-SPK-3: 작업 폴더 입력은 **언제나** 보인다.
@@ -235,7 +235,7 @@ Object.assign(App.prototype, {
         // 고르는 행위여야 한다 (FR-SBX-40).
         if(here){
           const now=document.createElement('button');
-          now.type='button';now.className='sbx-now';now.textContent='지금 위치';now.title=here;
+          now.type='button';now.className='sbx-now';now.textContent=t('sbx.here');now.title=here;
           now.addEventListener('click',()=>{input.value=here;input.focus()});
           wrap.appendChild(now);
         }
@@ -310,7 +310,7 @@ Object.assign(App.prototype, {
         b.className='ui-btn ui-btn-primary confirm-ok sbx-opt';
         const grade=document.createElement('span');
         grade.className='sbx-grade'+(p.isolated?' iso':'');
-        grade.textContent=p.isolated?'격리':'비격리';
+        grade.textContent=p.isolated?t('sbx.isolated'):t('sbx.not_isolated');
         b.textContent=p.name+' ';
         b.appendChild(grade);
         // FR-SPK-5 (FR-SBM-1 로 개정): 방식은 이제 **위에서 고른다.** 프로파일이
@@ -319,8 +319,8 @@ Object.assign(App.prototype, {
         const def=p.work||SANDBOX_WORK_NONE;
         b.title=(p.image?p.image+String.fromCharCode(10):'')+
           (p.isolated
-            ? '컨테이너 안 코드가 호스트를 조작할 수 없습니다.'
-            : 'dmctl 이 들어 있어 컨테이너 안에서 워크스페이스를 조작할 수 있습니다. 실수는 막지만 악의적 코드는 막지 못합니다.')+
+            ? t('sbx.isolated_note')
+            : t('sbx.not_isolated_note'))+
           String.fromCharCode(10)+(SANDBOX_WORK_TITLE[def]||'');
         // FR-SPK-6 / FR-SBM-2: `none` 인 프로파일에서는 입력한 폴더가 버려진다.
         b.addEventListener('click',()=>cleanup({profile:p.name,
@@ -329,7 +329,7 @@ Object.assign(App.prototype, {
         btns.appendChild(b);
       }
       const cancel=document.createElement('button');
-      cancel.className='ui-btn confirm-cancel';cancel.textContent='취소';cancel.title=TIP_SBX_CANCEL;
+      cancel.className='ui-btn confirm-cancel';cancel.textContent=t('core.cancel');cancel.title=TIP_SBX_CANCEL;
       cancel.addEventListener('click',()=>cleanup(null));
       btns.appendChild(cancel);
       box.appendChild(btns);
@@ -395,10 +395,10 @@ Object.assign(App.prototype, {
         return b;
       };
       // 순서는 종전 그대로다 — 백그라운드·저장이 앞, 닫기·취소가 뒤.
-      const bgBtn=opts.bgBtn?mk('ui-btn-primary confirm-bg',TIP_CLOSE_BG,opts.bgLabel||'백그라운드로'):null;
-      const saveBtn=opts.saveBtn?mk('ui-btn-primary confirm-save',TIP_CLOSE_SAVE,'저장 후 닫기'):null;
-      const okBtn=mk('ui-btn-danger confirm-ok',TIP_CLOSE_TOOL,'닫기');
-      const cancelBtn=mk('confirm-cancel',TIP_CLOSE_CANCEL,'취소');
+      const bgBtn=opts.bgBtn?mk('ui-btn-primary confirm-bg',TIP_CLOSE_BG,opts.bgLabel||t('core.to_background')):null;
+      const saveBtn=opts.saveBtn?mk('ui-btn-primary confirm-save',TIP_CLOSE_SAVE,t('core.save_and_close')):null;
+      const okBtn=mk('ui-btn-danger confirm-ok',TIP_CLOSE_TOOL,t('core.close'));
+      const cancelBtn=mk('confirm-cancel',TIP_CLOSE_CANCEL,t('core.cancel'));
 
       document.body.appendChild(ov);
       /**
