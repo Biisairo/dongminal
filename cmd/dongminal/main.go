@@ -163,6 +163,9 @@ type builtDeps struct {
 	// 없다 — 그쪽은 인터페이스이고, 거기에 Sweeper·Shutdown 을 넣으면 httpapi 가
 	// 프로세스의 수명을 알게 되어 방향이 어긋난다 (EDITOR_LSP_SRS D-4).
 	lspSvc *lsp.Service
+	// bindServer 는 데몬 모드의 push 콜백에 서버를 늦게 묶는다 (M8_UNIFIED_SRS
+	// D-C-2) — 콜백은 서버보다 먼저 배선되고, 해석층은 서버의 것이다.
+	bindServer func(*httpapi.Server)
 }
 
 // restoreHeadlessBackground puts the restored headless tools back into the
@@ -501,11 +504,24 @@ func serve(home, host, port string) int {
 		// Wire tool output → attention/activity detection (once per chunk in the
 		// readLoop goroutine), and tool exit → activity cleanup.
 		if attnTracker != nil {
-			panedClient.SetOnOutput(attnTracker.FeedOutput)
+			// M8_UNIFIED_SRS D-C-2: 에이전트 도구의 바이트는 해석층이 먼저 받고, 그
+			// 도구는 터미널 경로(L1 OSC·L2 무장)를 지나지 않는다 (FR-AAL-5). 서버는
+			// 아래에서 만들어지므로 늦게 묶인 포인터로 부른다.
+			var srvRef *httpapi.Server
+			panedClient.SetOnOutput(func(toolID string, kind toolhub.ToolKind, data []byte, end int64) {
+				if srvRef != nil && srvRef.AgentOutput(toolID, kind, data, end) {
+					return
+				}
+				attnTracker.FeedOutput(toolID, data)
+			})
+			bd.bindServer = func(srv *httpapi.Server) { srvRef = srv }
 			// FR-ATL-3: 활동만 내리고 주의를 남기면 죽은 도구의 알람이 배지에
 			// 남는다. 두 레이어를 같은 콜백에서 함께 정리한다 — Forget 이
 			// 주의 해제(에지)와 상태 폐기를 한 번에 한다.
 			panedClient.SetOnExit(func(toolID string, code int) {
+				if srvRef != nil {
+					srvRef.AgentExit(toolID)
+				}
 				attnTracker.SetActivity(toolID, "ended", "", "")
 				attnTracker.Forget(toolID)
 				// UX_BATCH6_SRS FR-BGP-1·2: 백그라운드 목록은 살아 있는
@@ -546,6 +562,19 @@ func serve(home, host, port string) int {
 		dmlog.Infof(nil, "server init: %v", err)
 		return 1
 	}
+	// M8_UNIFIED_SRS D-C-2: 에이전트 도구의 해석층 배선. 직접 모드는 ToolManager 의
+	// 출력 관측자·종료 관측자, 데몬 모드는 위 push 콜백의 늦은 포인터다. 그 뒤
+	// 이미 살아 있는 에이전트 도구(데몬이 든 것)에 세션을 세운다.
+	if bd.bindServer != nil {
+		bd.bindServer(srv)
+	}
+	if bd.pm != nil {
+		bd.pm.SetOutputObserver(func(id string, kind toolhub.ToolKind, data []byte, end int64) {
+			srv.AgentOutput(id, kind, data, end)
+		})
+		bd.pm.SetExitObserver(srv.AgentExit)
+	}
+	srv.AgentAdoptExisting()
 
 	ctx, stop := signal.NotifyContext(context.Background(), platform.Current().Process.ShutdownSignals()...)
 	defer stop()

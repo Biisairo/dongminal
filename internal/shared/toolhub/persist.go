@@ -74,6 +74,12 @@ func (m *ToolManager) SaveAll() {
 		if p.sandboxed {
 			continue
 		}
+		// M8_UNIFIED_SRS D-C-5: 에이전트 도구도 기재하지 않는다. Restore 는 셸을
+		// 띄우는 길이라 재개 인자 없이 되살릴 수 없다 — 그 되살림은 P5 의
+		// 휴면·재개다. 데몬이 살아 있으면 서버 재시동은 넘긴다.
+		if p.Kind == KindAgent {
+			continue
+		}
 		states = append(states, ToolState{ID: p.ID, Name: p.Name, Cwd: cwdOrServer(p)})
 	}
 	sort.Slice(states, func(i, j int) bool { return states[i].ID < states[j].ID })

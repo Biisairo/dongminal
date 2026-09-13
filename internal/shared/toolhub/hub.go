@@ -16,7 +16,21 @@ type ToolInfo struct {
 	// FgName 은 전경 프로세스 이름이다 (FR-TAN-7). 데몬 모드에서는 PTY 를 가진
 	// 데몬이 조회해 목록에 실어 보낸다.
 	FgName string `json:"fgName"`
+	// Kind 는 도구의 종류다 (M8_UNIFIED_SRS D-U-4). 비어 있으면 터미널 —
+	// 옛 데몬이 보내는 목록과 같은 모양이다. Agent 는 에이전트 도구의 어댑터
+	// id 이며 toolhub 는 그 뜻을 모른다 — 서버가 재기동 뒤 해석층을 다시 세울
+	// 때 어느 어댑터인지 아는 유일한 자리다.
+	Kind  ToolKind `json:"kind,omitempty"`
+	Agent string   `json:"agent,omitempty"`
 }
+
+// ToolKind 는 도구의 종류다. 종류가 갈리는 코드는 셋에 한정된다 (D-U-4):
+// 서버의 해석층 · 브라우저의 뷰 · 전송이 필요한 호출의 무동작.
+type ToolKind string
+
+// KindAgent 는 PTY 가 없고 프로토콜 프레임만 오가는 도구다 (FR-AGT-2).
+// 터미널 도구는 빈 값이다 — 이름을 두면 그것을 묻는 자리가 생긴다.
+const KindAgent ToolKind = "agent"
 
 // OutChunk 는 도구 출력 한 조각이다 — 프로세스 경계를 건너는 push 의 단위.
 //
@@ -76,6 +90,11 @@ type ToolHub interface {
 	// Create 는 도구를 띄운다. windowUUID 가 비어 있지 않고 그 Window 가
 	// 샌드박스 창이면 도구는 대응 컨테이너 안에서 돈다 (FR-SBX-10).
 	Create(cwd string, cols, rows uint16, place Placement) (*Tool, error)
+	// Get 은 도구를 찾는다. **데몬 모드는 신원만 든 합성 Tool 이다** (`GO-47`) —
+	// ID·Name·Kind·Agent 는 믿을 수 있고, 전송·프로세스가 필요한 메서드
+	// (Write·Resize·Cwd·IsBusy·Size)는 무동작 또는 영값이다. 그것들은 이
+	// 인터페이스의 같은 이름 메서드로 간다 — `Cwd`·`Busy`·`SendPaste` 가 여기 있는
+	// 이유다.
 	Get(id string) *Tool
 	// Cwd resolves the live working directory of tool id (empty if unknown).
 	// In daemon mode this routes through the daemon cwd RPC; Get(id).Cwd() is

@@ -190,12 +190,13 @@ func TestPanedPushOutputBase64(t *testing.T) {
 	var buf bytes.Buffer
 	pc := &panedConn{encoder: json.NewEncoder(&buf)}
 	raw := []byte("hello\x1b[31mworld\x1b[0m\n")
-	pc.pushOutputData("1", raw, int64(len(raw)))
+	pc.pushOutputData("1", "", raw, int64(len(raw)))
 
 	var ev struct {
-		Event string `json:"event"`
-		Tool  string `json:"tool"`
-		Data  string `json:"data"`
+		Event string  `json:"event"`
+		Tool  string  `json:"tool"`
+		Data  string  `json:"data"`
+		Kind  *string `json:"kind"`
 	}
 	json.Unmarshal(bytes.TrimRight(buf.Bytes(), "\n"), &ev)
 	if ev.Event != "output" || ev.Tool != "1" {
@@ -204,6 +205,26 @@ func TestPanedPushOutputBase64(t *testing.T) {
 	dec, _ := base64.StdEncoding.DecodeString(ev.Data)
 	if !bytes.Equal(dec, raw) {
 		t.Fatalf("round-trip mismatch")
+	}
+	// 터미널 도구의 청크에는 kind 가 없다 — 옛 데몬과 같은 모양이다.
+	if ev.Kind != nil {
+		t.Fatalf("터미널 청크에 kind 가 실렸다: %q", *ev.Kind)
+	}
+}
+
+// M8_UNIFIED_SRS D-C-10: 에이전트 도구의 청크는 종류를 싣는다 — 받는 쪽(ToolClient
+// readLoop)이 목록에 되묻지 않게.
+func TestPanedPushOutputCarriesKind(t *testing.T) {
+	var buf bytes.Buffer
+	pc := &panedConn{encoder: json.NewEncoder(&buf)}
+	raw := []byte(`{"type":"hello"}` + "\n")
+	pc.pushOutputData("1", toolhub.KindAgent, raw, int64(len(raw)))
+	var ev struct {
+		Kind string `json:"kind"`
+	}
+	json.Unmarshal(bytes.TrimRight(buf.Bytes(), "\n"), &ev)
+	if ev.Kind != string(toolhub.KindAgent) {
+		t.Fatalf("kind=%q", ev.Kind)
 	}
 }
 
@@ -227,7 +248,7 @@ func TestPanedPushOutputStopped(t *testing.T) {
 	var buf bytes.Buffer
 	pc := &panedConn{encoder: json.NewEncoder(&buf)}
 	pc.stopped.Store(true)
-	pc.pushOutputData("1", []byte("x"), 1)
+	pc.pushOutputData("1", "", []byte("x"), 1)
 	if buf.Len() > 0 {
 		t.Fatal("pushOutputData should no-op when stopped")
 	}

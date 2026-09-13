@@ -118,6 +118,14 @@ var apiRoutes = []apiRoute{
 	httproute.When(http.MethodDelete, httproute.Under("/api/runs/"), (*Server).apiRunDelete),
 	httproute.When(http.MethodGet, httproute.UnderWith("/api/tools/", "/busy"), (*Server).apiToolBusy),
 	httproute.When(http.MethodDelete, httproute.Under("/api/tools/"), (*Server).apiToolDelete),
+	// ── M8_UNIFIED_SRS 묶음 P·T — 에이전트 도구 (handlers_agent.go) ──
+	httproute.Get("/api/agents", (*Server).apiAgentsList),
+	httproute.Get("/api/agent/events", (*Server).apiAgentEvents),
+	httproute.Post("/api/agent/prompt", (*Server).apiAgentPrompt),
+	httproute.Post("/api/agent/approve", (*Server).apiAgentApprove),
+	httproute.Post("/api/agent/control", (*Server).apiAgentControl),
+	httproute.Post("/api/agent/interrupt", (*Server).apiAgentInterrupt),
+	httproute.Get("/api/agent/tui-line", (*Server).apiAgentTUILine),
 	httproute.Get("/api/focus", (*Server).apiFocusGet),
 	httproute.Post("/api/focus/claim", (*Server).apiFocusClaim),
 	httproute.Get("/api/sandbox/profiles", (*Server).apiSandboxProfiles),
@@ -262,6 +270,12 @@ func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 		if refID := r.URL.Query().Get("cwdTool"); refID != "" {
 			cwd = s.Tools.Cwd(refID)
 		}
+	}
+	// M8_UNIFIED_SRS FR-AGT-8: 에이전트 도구도 **같은 종단**이다. 갈리는 것은
+	// 배치(파이프·argv)뿐이고 그것은 handlers_agent.go 가 든다.
+	if r.URL.Query().Get("kind") == string(toolhub.KindAgent) {
+		s.createAgentTool(w, r, cwd, cols, rows)
+		return
 	}
 	// FR-SBX-11: 어느 Window 의 어떤 프로파일인지는 호출자가 실어 보낸다.
 	// 프로파일이 비어 있으면 종전대로 호스트에서 뜬다.

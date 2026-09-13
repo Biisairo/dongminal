@@ -58,7 +58,8 @@ DOM·CSS 를 따로 그린다. 그리고 셋에는 메뉴가 아예 없다 — �
 | FR-CMU-5 | `opts.cls`·`opts.itemCls`·`opts.sepCls` 로 옛 이름을 **함께** 붙일 수 있다 (D-5 병기). `GitMenu` 는 `git-menu`·`git-menu-item`·`git-menu-sep` 을 붙여 e2e 가 짚는 이름을 지킨다. `.cur`·`.disabled`·`.active` 도 그대로다. | 필수 |
 | FR-CMU-6 | `GitMenu.openList` 는 항목 표를 키트 항목으로 옮기고 **`UIKit.menu` 를 부른다.** 확인 게이트 `_pick` 과 `primary`/`runPrimary` 는 그대로다. `GitMenu.close` 는 `UIKit.closeMenu` 다. 자기 DOM·키 리스너·`_cur` 는 사라진다. | 필수 |
 | FR-CMU-7 | `style-git.css` 의 `.git-menu`·`.git-menu-item`·`.git-menu-sep` 외형 규칙은 사라진다 — 골격은 `.ui-menu` 다. 남는 것은 `.git-menu-item.cur`(지금 서 있는 자리, FR-GIT-282)뿐이다. | 필수 |
-| FR-CMU-8 | **탭 메뉴** (FUI-08): `.pn-tab` 우클릭 → `새 탭` · `이름 변경` · `탭 닫기`. git 뷰 탭은 이름 변경이 비활성이고 사유가 보인다(FR-RTU-33). Editor·Git 창은 `새 탭` 이 비활성이다(FR-GIT-179·FR-EDT-54). 각 항목은 이미 있는 함수를 부른다 — `addTab`·`renameTab`·`closeTab`. | 필수 |
+| FR-CMU-8 | **탭 메뉴** (FUI-08): `.pn-tab` 우클릭 → `새 탭` · `이름 변경` · `탭 닫기`. git 뷰 탭은 이름 변경이 비활성이고 사유가 보인다(FR-RTU-33). Editor·Git 창은 `새 탭` 이 비활성이다(FR-GIT-179·FR-EDT-54). 각 항목은 이미 있는 함수를 부른다 — `addTab`·`renameTab`·`closeTab`. **에이전트 탭**(`M8_UNIFIED_SRS` FR-AGT-10)은 `새 탭` 뒤에 `터미널로 열기` 하나가 더 있다 — 에이전트 탭 **만들기**는 여기 없고 `+` 우클릭 메뉴(FR-CMU-8a)에 있다. | 필수 |
+| FR-CMU-8a | **`+` 메뉴** (`M8_UNIFIED_SRS` FR-AGT-1): 탭 바의 `+` 우클릭 → `새 탭` · 등록부의 에이전트마다 `에이전트 탭: <id>` (프로토콜 표면과 실행 파일이 있는 것만, `GET /api/agents`). 좌클릭은 종전대로 터미널 탭 하나다. | 필수 |
 | FR-CMU-9 | **탐색기 빈 여백 메뉴** (FUI-12): 목록의 행 밖 우클릭 → `새 파일` · `새 폴더` · `업로드` · `폴더 업로드` · `붙여넣기`. 자리는 **루트**다. 행 메뉴의 같은 항목과 같은 함수를 부른다. | 필수 |
 | FR-CMU-10 | **터미널 본문 메뉴** (FUI-17): `.tp-term` 우클릭 → `복사`(선택이 없으면 비활성, 사유) · `붙여넣기`(`navigator.clipboard.readText` 가 없으면 비활성, 사유) · `모두 선택` · `찾기` · `새 탭`. 복사는 `TermClipboard.write`, 붙여넣기는 `term.paste`, 찾기는 `toggleSearch` 다. | 필수 |
 | FR-CMU-11 | 새 메뉴 셋도 `UIKit.menu` 다 — `GitMenu.openList` 를 거치지 않는다(확인 게이트가 필요한 항목이 없다). | 필수 |
@@ -106,4 +107,5 @@ DOM·CSS 를 따로 그린다. 그리고 셋에는 메뉴가 아예 없다 — �
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-13 | M8 P3. FR-CMU-8 에 에이전트 탭의 `터미널로 열기`(FR-AGT-10) 명시 · FR-CMU-8a `+` 우클릭 메뉴 신설(에이전트 탭 만들기). P3 첫 세션이 탭 메뉴에도 만들기를 넣었다가 전량 e2e TC-CMU-3 이 잡아 `+` 메뉴로만 두었다 |
 | 2026-09-13 | 초안·구현. TC-CMU-2~6 GREEN, 기존 N1~N3 그대로 통과. `.git-menu*` 선언 18 → `.cur` 2 (+ `style-git-views.css` 의 히트 영역 하한은 도메인 규칙으로 남는다) |

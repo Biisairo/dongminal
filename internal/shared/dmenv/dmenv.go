@@ -46,6 +46,12 @@ const (
 	EnvHost = "DONGMINAL_HOST"
 	EnvPort = "DONGMINAL_PORT"
 
+	// EnvAgentBinDir 은 에이전트 도구의 실행 파일을 먼저 찾는 디렉터리다
+	// (M8_UNIFIED_SRS D-C-7). 거기에 어댑터의 DetectCmd 이름이 있으면 그것, 없으면
+	// PATH 다. e2e 가 가짜 에이전트를 꽂는 자리이며, 그래서 서버 코드에 에이전트
+	// 이름이 늘지 않는다.
+	EnvAgentBinDir = "DONGMINAL_AGENT_BIN_DIR"
+
 	// DefaultHomeDir 은 EnvHome 이 비었을 때 사용자 홈 아래에 잡는 이름이다.
 	// cli 의 기본값 계산과 데몬 진입점이 같은 값을 딛어야 한다 — 갈라지면 한쪽이
 	// 다른 인스턴스를 본다.

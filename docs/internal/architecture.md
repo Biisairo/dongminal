@@ -81,6 +81,7 @@ internal/
       wsentry/           #     workspace.json 최상위 두 목록 (git.pinned[]·editors.list[])
       lsp/               #     언어 서버 세션 (정의·참조·호버) — 세션 상한·유휴 회수
       ext/               #     언어 서버 플러그인 매니페스트 — 서버 목록은 여기 없다
+      agentsess/         #     에이전트 도구의 해석층 — 바이트→줄→Proto.Decode→이벤트 로그·활동 (M8 D-C-2)
   ctl/                   # ④ 제어 CLI 프로세스
     cli/                 #   start/stop/health/migrate 디스패치 + 옵션 해석
     migrate/             #   v1 → v2 엔티티 스키마 1회성 변환
@@ -98,7 +99,9 @@ internal/
     runtime/             #   ②③  — helper symlink 설치 + 셸 훅 embed + agent-hooks 생성
       shellhooks/        #     bash-hook.sh, zdotdir/.zshrc (실제 파일)
       agentplugin/       #     세션 스코프 주입 플러그인 (skills/team, skills/workflow)
-    agentadapter/        #   ①③  — 에이전트별 선언 테이블 (기동·탐지·주입·훅 파서·종료)
+    agentadapter/        #   ①③  — 에이전트별 선언 테이블 (기동·탐지·주입·훅 파서·종료 + 프로토콜 표면 Proto)
+      fakeagent/         #     테스트 픽스처 — 프로토콜 표면을 말하는 가짜 에이전트 (M8 V-12)
+        cmd/             #       그 바이너리 — e2e 가 DONGMINAL_AGENT_BIN_DIR 에 놓는다. 제품에 들지 않는다
     runfile/             #   ②③  — runs.json 읽기만 (헤드리스 도구 id). 스키마의 주인은 domain/run
     sandbox/             #   ②③  — Window 하나의 컨테이너 생명주기 + 그 안의 실행 명세
     sandboxplace/        #   ②③  — 샌드박스 프로파일 → 실행 명세 배선 (toolhub 와 sandbox 를 잇는다)
@@ -500,6 +503,26 @@ id="sb-panel-…">`) 하나를 두면 끝이다. 아래 넷이 그 배열에서 
 `Tab.runId` · `Window.ownerRunId` 표식은 **best-effort** 다. `workspace.json` 의 쓰기
 주체는 브라우저이고 그쪽 409 처리가 머지 없이 재PUT 이므로 동시 편집에 지워질 수
 있다. 소유권의 진실은 `runs.json` 이다.
+
+### 프로토콜 표면 — 에이전트 도구 (`M8_UNIFIED_SRS` 묶음 P·T)
+
+위 접합면이 "도구 **안의** 에이전트가 우리를 부르는" 길이라면, 이것은 "우리가 에이전트를
+**프레임으로** 모는" 길이다. 에이전트 도구는 `Tool.Kind = agent` 인 **변형**이다 (D-U-4): PTY 대신
+파이프(`platform.StartPipe`)로 뜨고 argv 는 어댑터의 `Proto.Launch` 가 만든다 — 셸을 거치지
+않는다. 그 밖(생성 종단·닫기·백그라운드·데몬 push·`dmctl wait`)은 터미널과 **같은 길**을 지난다
+(FR-AGT-8). 종류를 묻는 자리는 셋으로 끝난다 — 서버 해석층 입구·브라우저 뷰(`AgentPane`)·전송
+(`SendPaste` 무동작·데몬 push non-droppable·L2 idle 제외).
+
+해석층은 서버의 `domain/agentsess` 하나다 (D-C-2). 두 모드가 같은 바이트를 절대 오프셋 위에서
+받고(직접 `ToolHooks.OnOutput` · 데몬 `ToolClient.SetOnOutput`), 틈은 `SnapshotTool` 로 되메운다.
+**종류는 청크에 실려 온다** (D-C-10) — 입구가 목록에 되물으면 데몬 모드에서 그 물음이 readLoop
+안의 RPC 가 되어 시한까지 막히기 때문이다. 세션은 줄로 자르고 `Proto.Decode` 로 공통 이벤트
+(`session`·`turn_start`·`approval_open`·…·`exit`)를 만들어 메모리 링에 쌓는다 (D-C-3); 브라우저는
+`GET /api/agent/events` 로 재생하고 SSE `agent_event` 로 잇는다. 활동(`idle`·`working`·`waiting`·
+`done`·`ended`)은 공통 이벤트에서 파생해 `activity/set` 과 **같은 함수**를 지난다 — 그래서 알람·
+활동 패널·`dmctl wait --for ready` 가 그대로 선다. 승인·질문은 한 통로(`ApprovalRequest.Kind`) —
+서버는 대신 답하지 않으며, 선택지는 프로토콜이 준 것 그대로다 (FR-APS-5·6). 에이전트 지식은
+전부 어댑터의 `Proto` 구현(`claude_proto.go`)에 있고, 해석층·HTTP·뷰는 에이전트 이름을 모른다.
 
 ## 오케스트레이션 다이어그램
 

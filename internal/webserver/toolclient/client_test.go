@@ -626,7 +626,7 @@ func TestToolClientSetCbRace(t *testing.T) {
 
 	got := make(chan struct{}, 1)
 	exited := make(chan int, 1)
-	pc.SetOnOutput(func(toolID string, data []byte) {
+	pc.SetOnOutput(func(toolID string, _ toolhub.ToolKind, data []byte, _ int64) {
 		select {
 		case got <- struct{}{}:
 		default:

@@ -46,6 +46,9 @@ var claudeAdapter = Adapter{
 	Readiness: Readiness{Hooks: true},
 	// /exit 은 대화를 저장하고 정상 종료한다. SIGKILL 로 끊으면 이력이 남지 않는다.
 	ExitCommand: "/exit",
+	// M8_UNIFIED_SRS FR-APS-9: 프로토콜 표면. 터미널 표면과 같은 선언에 나란히 —
+	// 구현은 claude_proto.go.
+	Proto: &claudeProto,
 }
 
 // parseClaudeHook maps a Claude Code hook event (stdin JSON) to an activity

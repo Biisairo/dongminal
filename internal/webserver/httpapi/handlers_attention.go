@@ -167,41 +167,49 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeBadRequest)
 		return
 	}
-	if s.Tools != nil {
-		// FR-AEV-10: **알람은 활동 이벤트에서 파생한다.** 에이전트마다 `dmctl
-		// notify` 를 따로 배선하지 않는다 — 그 배선이 없던 omp 는 상태만 바뀌고
-		// 알람이 울리지 않았다 (SRS §2.1).
-		//
-		// 파생의 자리가 서버인 이유는 D-1 이다: `dmctl` 이 한 번 더 POST 하면
-		// 왕복이 늘고 **두 요청의 순서가 다시 문제가 된다.** 한 요청 안에서는
-		// 순서가 확정되고, 직접·데몬 두 모드가 같은 자리를 지난다 (FR-AEV-14).
-		alarm := req.State == "done" || req.State == "waiting"
-		turnKnown := agentReportsUserTurn(req.Agent)
-		if s.AttnTracker != nil {
-			// FR-ATN-1: 표시를 먼저 세운다. 활동 보고와 별도 경로인 것은 둘이
-			// 다른 것을 말하기 때문이다 — 활동은 "지금 무엇을 하는가", 이것은
-			// "이 턴이 왜 시작되었는가" 다.
-			if req.UserPrompt {
-				s.AttnTracker.NoteUserPrompt(req.ToolID)
-			}
-			s.AttnTracker.SetActivity(req.ToolID, req.State,
-				hub.SanitizeActivityField(req.Tool, hub.ActivityToolMax),
-				hub.SanitizeActivityField(req.Detail, hub.ActivityDetailMax))
-			if alarm {
-				s.AttnTracker.SignalAgentEvent(req.ToolID, req.State, turnKnown)
-			}
-		} else if tool := s.Tools.Get(req.ToolID); tool != nil {
-			if req.UserPrompt {
-				tool.NoteUserPrompt()
-			}
-			tool.SetActivity(req.State, hub.SanitizeActivityField(req.Tool, hub.ActivityToolMax), hub.SanitizeActivityField(req.Detail, hub.ActivityDetailMax))
-			if alarm {
-				tool.SignalAgentEvent(req.State, turnKnown)
-			}
-		}
-	}
+	s.reportActivity(req.ToolID, req.State, req.Tool, req.Detail, req.UserPrompt, agentReportsUserTurn(req.Agent))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+}
+
+// reportActivity 는 활동 보고의 **한 자리**다 — 훅 표면(`dmctl activity`)과 프로토콜
+// 표면(에이전트 도구의 해석층, M8_UNIFIED_SRS D-C-2)이 같은 함수를 지난다. 그래야
+// 알람·활동 패널·`dmctl wait` 가 두 표면에서 같은 길로 선다 (FR-APS-2 · FR-AGT-8).
+//
+// FR-AEV-10: **알람은 활동 이벤트에서 파생한다.** 에이전트마다 `dmctl notify` 를
+// 따로 배선하지 않는다 — 그 배선이 없던 omp 는 상태만 바뀌고 알람이 울리지
+// 않았다 (SRS §2.1).
+//
+// 파생의 자리가 서버인 이유는 D-1 이다: `dmctl` 이 한 번 더 POST 하면 왕복이
+// 늘고 **두 요청의 순서가 다시 문제가 된다.** 한 요청 안에서는 순서가 확정되고,
+// 직접·데몬 두 모드가 같은 자리를 지난다 (FR-AEV-14).
+func (s *Server) reportActivity(toolID, state, tool, detail string, userPrompt, turnKnown bool) {
+	if s.Tools == nil {
+		return
+	}
+	alarm := state == "done" || state == "waiting"
+	tool = hub.SanitizeActivityField(tool, hub.ActivityToolMax)
+	detail = hub.SanitizeActivityField(detail, hub.ActivityDetailMax)
+	if s.AttnTracker != nil {
+		// FR-ATN-1: 표시를 먼저 세운다. 활동 보고와 별도 경로인 것은 둘이
+		// 다른 것을 말하기 때문이다 — 활동은 "지금 무엇을 하는가", 이것은
+		// "이 턴이 왜 시작되었는가" 다.
+		if userPrompt {
+			s.AttnTracker.NoteUserPrompt(toolID)
+		}
+		s.AttnTracker.SetActivity(toolID, state, tool, detail)
+		if alarm {
+			s.AttnTracker.SignalAgentEvent(toolID, state, turnKnown)
+		}
+	} else if t := s.Tools.Get(toolID); t != nil {
+		if userPrompt {
+			t.NoteUserPrompt()
+		}
+		t.SetActivity(state, tool, detail)
+		if alarm {
+			t.SignalAgentEvent(state, turnKnown)
+		}
+	}
 }
 
 // backgroundRow is a background tool plus its Run membership, when it has one

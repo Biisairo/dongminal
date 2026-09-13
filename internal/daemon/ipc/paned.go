@@ -207,12 +207,18 @@ func (pc *panedConn) create(req *toolipc.PanedRequest) interface{} {
 		Profile string `json:"profile"`
 		Command string `json:"command"`
 		Work    string `json:"work"`
+		// M8_UNIFIED_SRS §9.3 ④: 에이전트 도구 — 종류·argv·어댑터 id 가 더해진다.
+		// 데몬은 그 뜻을 모른다; 프로세스를 세우는 자리가 여기라 값만 받는다.
+		Kind  string   `json:"kind"`
+		Argv  []string `json:"argv"`
+		Agent string   `json:"agent"`
 	}
 	if err := json.Unmarshal(req.Params, &p); err != nil {
 		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
 	}
 	tool, err := pc.pm.Create(p.Cwd, p.Cols, p.Rows,
-		toolhub.Placement{WindowUUID: p.Window, Profile: p.Profile, Command: p.Command, Work: p.Work})
+		toolhub.Placement{WindowUUID: p.Window, Profile: p.Profile, Command: p.Command, Work: p.Work,
+			Kind: toolhub.ToolKind(p.Kind), Argv: p.Argv, Agent: p.Agent})
 	if err != nil {
 		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32603, Message: err.Error()}}
 	}
@@ -221,7 +227,7 @@ func (pc *panedConn) create(req *toolipc.PanedRequest) interface{} {
 	}
 	return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 		"id": tool.ID, "name": tool.Name, "pid": tool.CmdProcessPID(),
-		"cols": p.Cols, "rows": p.Rows,
+		"cols": p.Cols, "rows": p.Rows, "kind": string(tool.Kind), "agent": tool.Agent,
 	}}
 }
 
@@ -434,12 +440,22 @@ func (pc *panedConn) pushForeground(toolID, name string) {
 
 // end 는 이 청크의 끝 절대 오프셋이다 (TERMINAL_RESUME_SRS FR-TRS-15). 받는 쪽이
 // 스냅샷과 겹치는 앞부분을 정확히 잘라내는 근거다.
-func (pc *panedConn) pushOutputData(toolID string, data []byte, end int64) {
-	pc.enqueue(map[string]interface{}{
+//
+// kind 는 청크에 실린다 (M8_UNIFIED_SRS D-C-10) — 받는 쪽이 종류를 되묻지 않게.
+// 그리고 droppable 을 정한다 (D-C-8): PTY 청크는 떨어져도 다음 snapshot 이 화면을
+// 치유하지만, 프로토콜 프레임 하나가 떨어지면 승인 요청이 사라진다. 에이전트
+// 도구의 output 은 `exit` 와 같은 등급으로 기다린다 — 막히는 것은 그 도구의 읽기
+// 고루틴 하나이고, 파이프가 에이전트에 역압을 준다.
+func (pc *panedConn) pushOutputData(toolID string, kind toolhub.ToolKind, data []byte, end int64) {
+	ev := map[string]interface{}{
 		"event": "output", "tool": toolID,
 		"data": base64.StdEncoding.EncodeToString(data),
 		"end":  end,
-	}, true)
+	}
+	if kind != "" {
+		ev["kind"] = string(kind)
+	}
+	pc.enqueue(ev, kind != toolhub.KindAgent)
 }
 
 // ── Unix socket server ──────────────────────────────────────────────────
@@ -549,13 +565,14 @@ func (ps *PanedServer) Accept() error {
 	// closures and just swap currConn. `p.wired` guards against re-wiring
 	// (which would nest exit handlers and re-trigger pushes). (FR-12)
 	pc.wireTool = func(p *toolhub.Tool) {
+		kind := p.Kind
 		p.WireRelayOnce(func(baseExit func(string)) (func(string, []byte, int64), func(string)) {
 			return func(toolID string, data []byte, end int64) {
 					ps.mu.Lock()
 					c := ps.currConn
 					ps.mu.Unlock()
 					if c != nil {
-						c.pushOutputData(toolID, data, end)
+						c.pushOutputData(toolID, kind, data, end)
 					}
 				}, func(toolID string) {
 					ps.mu.Lock()

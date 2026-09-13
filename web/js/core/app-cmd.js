@@ -73,6 +73,11 @@ Object.assign(App.prototype, {
 
     bus.subscribe('workspace_changed',a=>this._onWorkspaceChanged(a&&a.rev),{owner:'app'});
 
+    // M8_UNIFIED_SRS D-C-3: 에이전트 도구의 이벤트. 뷰가 seq 로 이어 붙이고, 구독이
+    // 다시 열리면 놓친 것을 재생으로 맞춘다.
+    bus.subscribe('agent_event',a=>this._onAgentEvent(a),{owner:'app'});
+    bus.subscribe('sse:open',()=>this._agentResyncAll(),{owner:'app'});
+
     // FR-RVZ-16: Run 이 바뀌었다. 열려 있는 그 Run 의 탭만 /graph 를 다시 부른다 —
     // 폴링하지 않으며, 열린 Run 탭이 없으면 아무 요청도 나가지 않는다.
     bus.subscribe('run_changed',a=>this._onRunChanged(a),{owner:'app'});

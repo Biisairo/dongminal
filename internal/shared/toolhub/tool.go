@@ -56,6 +56,13 @@ type Tool struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 	PID  int    `json:"pid"`
+	// Kind 는 도구의 종류다 (M8_UNIFIED_SRS D-U-4 — 변형 + 표식). 비어 있으면
+	// 터미널. 에이전트 도구는 term 이 파이프 전송(platform.StartPipe)이고, 이
+	// 파일에서 종류를 묻는 자리는 **L2 idle 제외**(FR-AAL-5) 하나다 — 나머지
+	// 차이는 전송 인터페이스 안에서 끝난다.
+	Kind ToolKind `json:"kind,omitempty"`
+	// Agent 는 에이전트 도구의 어댑터 id 다. toolhub 는 뜻을 모르고 나른다.
+	Agent string `json:"agent,omitempty"`
 	// term 은 의사 터미널과 거기 붙은 셸 프로세스를 함께 소유한다. 종전의
 	// ptmx(*os.File) + cmd(*exec.Cmd) 두 필드를 대신한다 — Windows ConPTY 는
 	// 그 둘이 분리되지 않기 때문이다 (CROSS_PLATFORM_SRS FR-XPT-3).
@@ -197,6 +204,16 @@ type ToolHooks struct {
 	OnAttentionClear func(id string)
 	OnActivity       func(id, state, tool, detail string)
 	AllowBell        bool
+	// OnOutput 은 출력 청크마다 readPTY 고루틴에서 한 번 돈다 — 직접 모드의
+	// 해석층이 바이트를 받는 자리다 (M8_UNIFIED_SRS D-C-2). end 는 청크를 포함한
+	// 누적 오프셋. 기동 **전에** 릴레이에 실리므로 첫 바이트도 놓치지 않는다;
+	// 데몬 모드는 `WireRelayOnce` 가 릴레이를 통째로 바꾸므로 그쪽에는 닿지 않는다
+	// — 데몬 프로세스에는 해석층이 없다.
+	//
+	// kind 가 청크와 **함께** 온다 (D-C-10). 받는 쪽이 목록에서 되묻게 두면 데몬
+	// 모드에서는 그 물음이 readLoop 안의 RPC 가 되어 자기 응답을 기다리다 시한에
+	// 걸린다 — 청크의 출처가 종류를 아는 자리이므로 여기서 실어 보낸다.
+	OnOutput func(id string, kind ToolKind, data []byte, end int64)
 }
 
 // NewDetachedTool은 PTY 없이 훅만 배선된 Tool 을 만든다. 셸을 띄우지 않으므로
@@ -315,7 +332,18 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 	if place != nil {
 		spec.Path, spec.Args = place.Path, place.Args
 	}
-	term, err := platform.Current().PTY.Start(spec, cols, rows)
+	var term platform.Terminal
+	var err error
+	if place != nil && place.Pipe {
+		// FR-AGT-2·3: 에이전트 도구 — 파이프가 PTY 를 대신할 뿐 소유 구조는 같다.
+		// stderr 는 로그로 (D-C-6).
+		spec.Pipe = true
+		term, err = platform.StartPipe(spec, func(line string) {
+			dmlog.Infof(nil, "[tool %s] stderr: %s", id, line)
+		})
+	} else {
+		term, err = platform.Current().PTY.Start(spec, cols, rows)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -326,8 +354,16 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 		stream:    outbuf.NewStream(context.Background(), bufMax),
 		done:      make(chan struct{}),
 	}
+	if place != nil && place.Pipe {
+		p.Kind = KindAgent
+	}
 	// Set the base exit callback before readPTY starts (race-free).
-	p.relay.Store(&toolRelay{onExit: onExit})
+	relay := &toolRelay{onExit: onExit}
+	if hooks != nil && hooks.OnOutput != nil {
+		kind, onOutput := p.Kind, hooks.OnOutput
+		relay.onOutput = func(id string, data []byte, end int64) { onOutput(id, kind, data, end) }
+	}
+	p.relay.Store(relay)
 	if hooks != nil {
 		p.onAttention = hooks.OnAttention
 		p.onAttentionClear = hooks.OnAttentionClear
@@ -614,6 +650,11 @@ func SetAttnBusyProbe(f func(*Tool) bool) (restore func()) {
 // ① 이 없던 동안 `vim`·`less`·`top`·`ssh`·빌드 대기가 전부 울었다. ② 만으로는
 // "무언가 돌고 있다"까지밖에 말하지 못한다.
 func (p *Tool) maybeIdle(now, threshold int64) {
+	// FR-AAL-5: 에이전트 도구는 L2 idle 의 대상이 아니다 — 프로토콜이 턴의 시작과
+	// 끝을 명시하고, 끊기면 idle 이 아니라 오류다 (FR-ABG-20).
+	if p.Kind == KindAgent {
+		return
+	}
 	if threshold <= 0 || !p.attnArmed.Load() {
 		return
 	}

@@ -702,6 +702,51 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 /* xterm 뷰포트의 스크롤바는 키트가 정한다 (`style-kit.css` 의 `.ui-scroll`,
    UX_BATCH8_SRS FR-SCR-3) — 렌더 뷰와 같은 정의를 딛는다. */
 
+/* ── agent pane (M8_UNIFIED_SRS 묶음 T — xterm 자리의 대화 뷰, D-U-4 (b)) ──
+   `.tp` 와 같은 자리 규약이다: 절대 배치, `.vis` 로 보인다. 색·글자·층은 토큰만. */
+.agent-pane{position:absolute;inset:0;display:none;flex-direction:column;background:var(--bg);color:var(--text)}
+.agent-pane.vis{display:flex}
+.agp-head{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:2px 8px;
+  font-size:var(--fs-sm);color:var(--text-muted);border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden}
+.agp-head .agp-agent{color:var(--text-bright);font-weight:600}
+.agp-head .agp-state[data-state=working]{color:var(--accent-text)}
+.agp-head .agp-state[data-state=waiting]{color:var(--attn-text)}
+.agp-head .agp-state[data-state=ended]{color:var(--danger-text)}
+.agp-head .agp-open{color:var(--attn-text)}
+.agp-head .agp-spacer{flex:1}
+.agp-log{flex:1;overflow:auto;padding:8px 12px;display:flex;flex-direction:column;gap:8px;font-size:var(--fs-md);line-height:1.5}
+.agp-msg{max-width:100%;padding:6px 10px;border-radius:var(--ui-radius);border:1px solid var(--border);background:var(--sidebar-bg)}
+.agp-msg.agp-user{align-self:flex-end;background:var(--accent-subtle);border-color:var(--accent-border)}
+.agp-msg.agp-live{border-style:dashed}
+.agp-who{font-size:var(--fs-xs);color:var(--text-hint);margin-bottom:2px}
+.agp-body{white-space:pre-wrap;word-break:break-word}
+.agp-think{font-size:var(--fs-sm);color:var(--text-muted);margin:4px 0}
+.agp-think summary{cursor:pointer}
+.agp-think-body{white-space:pre-wrap;padding:4px 8px;border-left:2px solid var(--border)}
+.agp-tool{margin:6px 0;border:1px solid var(--border);border-radius:var(--ui-radius);background:var(--bg);font-size:var(--fs-sm)}
+.agp-tool-head,.agp-tool-res-head{padding:3px 8px;color:var(--text-muted);border-bottom:1px solid var(--border)}
+.agp-tool-res-head.agp-err{color:var(--danger-text)}
+.agp-tool-in,.agp-tool-res{margin:0;padding:6px 8px;font-family:var(--mono);white-space:pre-wrap;word-break:break-all;max-height:240px;overflow:auto}
+.agp-line{font-size:var(--fs-sm);color:var(--text-hint);text-align:center}
+.agp-line.agp-err{color:var(--danger-text)}
+.agp-line.agp-exit{color:var(--text-muted);padding:6px;border:1px dashed var(--border);border-radius:var(--ui-radius)}
+.agp-raw{font-size:var(--fs-xs);color:var(--text-hint)}
+.agp-raw pre{margin:2px 0;white-space:pre-wrap;word-break:break-all}
+.agp-input{flex:0 0 auto;border-top:1px solid var(--border);padding:6px 8px;display:flex;flex-direction:column;gap:4px}
+.agp-input-row{display:flex;gap:6px;align-items:flex-end}
+.agp-ta{flex:1;resize:none;font:inherit;font-size:var(--fs-md);padding:6px 8px;color:var(--text);background:var(--bg);
+  border:1px solid var(--border);border-radius:var(--ui-radius);min-height:2.6em;max-height:40vh}
+.agp-ta:focus-visible{outline:2px solid var(--focus-ring);outline-offset:1px}
+.agp-sugg{display:flex;flex-wrap:wrap;gap:4px}
+.agp-appr{display:flex;flex-direction:column;gap:8px;min-width:320px;max-width:70vw}
+.agp-appr-desc{color:var(--text-muted)}
+.agp-appr-in{margin:0;padding:8px;font-family:var(--mono);font-size:var(--fs-sm);white-space:pre-wrap;word-break:break-all;
+  background:var(--sidebar-bg);border:1px solid var(--border);border-radius:var(--ui-radius);max-height:40vh;overflow:auto}
+.agp-q{border:1px solid var(--border);border-radius:var(--ui-radius);padding:6px 10px;display:flex;flex-direction:column;gap:4px}
+.agp-q legend{color:var(--text-bright);padding:0 4px}
+.agp-q-opt{display:flex;gap:6px;align-items:baseline;cursor:pointer}
+.pn-dimmed .agent-pane .agp-input{opacity:.5}
+
 /* ── Settings button ── */
 /* FR-SRL-8: 내부 새로고침과 설정은 사이드바 최하단에 나란히 선다. 새로고침이
    왼쪽인 것은 그쪽이 자주 쓰이기 때문이고, 폭을 나눠 가져 둘 다 손가락에

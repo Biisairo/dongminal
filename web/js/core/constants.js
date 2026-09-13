@@ -608,6 +608,9 @@ const PRESET_MSG_CLASS='preset-msg';
 const PRESET_SAVE_NO_PLAIN=t('core.preset_save_no_plain');
 // CONTEXT_MENU_UNIFY_SRS FR-CMU-8·10: 탭·터미널 본문의 컨텍스트 메뉴 문구.
 const TAB_MENU_NEW=t('core.tab_menu_new');
+// M8_UNIFIED_SRS FR-AGT-10: 에이전트 탭의 TUI 출구 (renderer 의 탭 메뉴 — 그 자리는
+// 지역 `t` 가 전역 `t()` 를 가린다).
+const AGENT_OPEN_TERMINAL=t('agent.open_terminal');
 const TAB_MENU_RENAME=t('core.tab_menu_rename');
 const TAB_MENU_CLOSE=t('core.tab_menu_close');
 const TAB_MENU_RENAME_GIT_NO=t('core.tab_menu_rename_git_no');

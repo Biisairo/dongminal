@@ -932,6 +932,11 @@ class Renderer {
     }else if(at.type==='run'){
       // FR-RVZ-6: 네 번째 타입. 루트 DOM 은 탭마다 캐시된다 (NFR-RVZ-2).
       el=this.app.runViewEl(at,slot);
+    }else if(at.type==='agent'){
+      // M8_UNIFIED_SRS D-U-4 (b): 에이전트 도구 — xterm 대신 대화 뷰. 종류를 묻는
+      // 세 자리 중 하나가 여기다.
+      const p=at.toolId?this.app.mkAgent(at.toolId,at.name||'',slot):null;
+      if(p) el=p.el;
     }else{
       // 슬롯 1 의 인스턴스는 그 슬롯이 처음 이 도구를 그릴 때 선다 (FR-WSL-20).
       const p=at.toolId?this.app.mkTool(at.toolId,at.name||'',slot):null;
@@ -1107,8 +1112,14 @@ class Renderer {
       const aw=app.aw();
       const noNew=app.isGitWin(aw)||app.isEditorWin(aw);
       const label=t.querySelector('.pn-tab-label');
+      // M8_UNIFIED_SRS FR-AGT-10: 에이전트 탭이면 TUI 출구 — 같은 세션을 터미널로.
+      // 에이전트 탭 **만들기**는 `+` 우클릭에만 있다 — 이 메뉴는 FR-CMU-8 의 셋이다.
+      const tui=c.tab.type==='agent'
+        ?[{id:'agent-tui',label:AGENT_OPEN_TERMINAL,onClick:()=>app.agentOpenTerminal(c.tab.toolId)}]
+        :[];
       UIKit.menu([
         {id:'new',label:TAB_MENU_NEW,disabled:noNew?TAB_MENU_NEW_NO:false,onClick:()=>app.addTab(c.pane.id,'terminal')},
+        ...tui,
         {id:'rename',label:TAB_MENU_RENAME,disabled:c.tab.type===TAB_TYPE_GIT?TAB_MENU_RENAME_GIT_NO:false,
           onClick:()=>{if(c.tab.preview) app.pinPreviewTab(c.tab); if(label) app.renameTab(c.tab,label)}},
         {id:'close',label:TAB_MENU_CLOSE,onClick:()=>app.closeTab(c.pane.id,c.tab.id,null,{slot:c.slot})},
@@ -1186,6 +1197,18 @@ class Renderer {
       e.stopPropagation();
       const pn=add.closest('.pn');
       if(pn&&pn._ctx&&pn._ctx.node) app.addTab(pn._ctx.node.id);
+    });
+    // M8_UNIFIED_SRS FR-AGT-1: `+` 의 컨텍스트 메뉴가 에이전트 탭을 낸다 — 클릭은
+    // 종전대로 터미널이다. 목록은 등록부에서 파생한다 (FR-U-1).
+    add.addEventListener('contextmenu',e=>{
+      e.preventDefault(); e.stopPropagation();
+      const pn=add.closest('.pn');
+      if(!(pn&&pn._ctx&&pn._ctx.node)) return;
+      const pid=pn._ctx.node.id;
+      UIKit.menu([
+        {id:'new',label:TAB_MENU_NEW,onClick:()=>app.addTab(pid,'terminal')},
+        ...app.agentMenuItems(pid),
+      ],{at:{x:e.clientX,y:e.clientY},cls:'tab-menu'});
     });
     return add;
   }

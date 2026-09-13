@@ -237,6 +237,15 @@ mcp_status·interrupt`) · `user`(도구 결과·`<local-command-stdout>`) · `i
 terminal_slash_commands/messaging_socket_path` · `result.terminal_reason/stop_reason`.
 전부 §9.3 ⑥ F-2.
 
+**2.1.270 P3 재실측 (2026-09-13, P3 착수)** — 같은 판이고 위 표와 어긋나는 프레임은 없다. 더 확정한
+것 둘: ① `AskUserQuestion` 은 `can_use_tool` + `requires_user_interaction:true` 로 오고 payload 는
+`input.questions[{question,header,options[{label,description}],multiSelect}]` 다. 답은 `behavior:"allow"` +
+`updatedInput.answers{<question>:<label>}` **한 프레임**이며 `user` 의 `tool_result` 가 그 답을 되읊는다
+(FR-AGT-4 의 "질문 답변"). ② `control_response.response.updatedPermissions:[<permission_suggestions 의 항목
+그대로>]` 를 실으면 CLI 가 그것을 적용한다 — `setMode` 를 실었을 때 `system:status{permissionMode:"acceptEdits"}`
+가 뒤따르고 같은 세션의 다음 `Bash` 는 요청 없이 돌았다. 그러므로 승인 다이얼로그의 선택지는
+`allow` · `deny` · **`permission_suggestions` 각 항목**이며 우리가 접거나 늘리지 않는다 (FR-AGT-5).
+
 #### 2.3.5 전경 프로세스 이름은 이미 있다
 
 `hub/foreground.go` 가 2 초 주기(`ForegroundInterval`)로 전경 프로그램 이름을
@@ -501,8 +510,20 @@ claude 의 승인 요청은 **stdio 제어 프레임**(`control_request{subtype:
 가 PTY 를 대신할 뿐 소유 구조는 바뀌지 않는다.
 
 **FR-AGT-4** UI 는 **최소한** 다음을 그린다: 대화(사용자/에이전트 메시지) ·
-도구 호출과 결과 · 진행 중 델타 · 승인 다이얼로그 · 활동 상태 · 사용량/컨텍스트
-창 · 비용.
+도구 호출과 결과 · 진행 중 델타 · 승인 다이얼로그 · **질문 답변**(에이전트가 사용자에게
+묻는 선택형 질문 — claude `AskUserQuestion`, 같은 `can_use_tool` 통로. 사용자 지시 2026-09-13,
+P3) · 활동 상태 · 사용량/컨텍스트 창 · 비용.
+
+**FR-AGT-4a** (추가, 사용자 지시 2026-09-13 P3 — *"esc 를 통한 인터셉트, 히스토리같은 기능들도
+동작해야해. 최대한 tui agent 의 모든 공통 기능을 이용하게 할 수 있으면 좋겠어."*) **TUI 에이전트의
+공통 조작이 에이전트 도구에서도 된다** — 프로토콜이 그 길을 주는 한. P3(claude)에서 확정하는 것:
+`Esc` → 진행 중 턴 인터럽트(`Proto.Interrupt`) · 입력 상자의 `↑`/`↓` → 이 도구에서 보낸 프롬프트
+히스토리(이벤트 로그의 `user` 에서 되살린다 — 재접속 뒤에도 남는다) · `/` 로 시작하면 슬래시 명령
+자동완성(목록은 `initialize` 의 `commands`, 없는 것은 그대로 보낸다 — 명령의 해석은 에이전트의 것) ·
+`Shift+Tab` → 권한 모드 순환(`set_permission_mode`, 순서는 `initialize` 가 준 것이 없으므로 P3 는
+claude 의 TUI 순서 `default → acceptEdits → plan → default` 를 어댑터가 `Proto.PermissionModes` 로
+선언한다 — 비어 있으면 그 에이전트에 순환이 없다) · `Ctrl+C` 두 번 같은 종료 관용은 두지 않는다(탭 닫기가 그 자리). 어댑터가
+주지 않는 조작은 부재다 (FR-APS-4) — 메뉴에 나타나지 않는다.
 
 **FR-AGT-5** 승인 다이얼로그는 프로토콜이 준 선택지를 **그대로** 낸다. codex 의
 `acceptForSession` 처럼 에이전트마다 다른 선택지를 우리가 접거나 늘리지 않는다.
@@ -543,7 +564,8 @@ UI 로 노출한다.** 어댑터의 `Proto.Control`(§9.3 ③) 이 지원하는 
 새 기계를 만들지 않는다 — `app-focus.js` 의 `_windowFocusOwner`·`applyFocusOverlay` 가
 에이전트 도구의 pane 에도 그대로 적용된다 (FR-AGT-7 의 "종류를 묻지 않는 코드" 에 든다).
 서버가 소유자 아닌 클라이언트의 승인 응답을 거절할지는 P3 에서 정한다 — 터미널은
-지금 클라이언트만 막는다.
+지금 클라이언트만 막는다. **P3 결정(D-C-4): 거절하지 않는다** — 터미널과 같은 동작이 요구였고,
+`clientId` 는 자기 신고 값이라 서버측 거절이 보안이 아니며, 서버는 도구가 어느 창에 있는지 모른다.
 
 **FR-AGT-10** (추가, FR-U-4) **TUI 출구.** 에이전트 도구의 탭 메뉴에 "터미널로
 열기" 가 있다 — 같은 세션 신원으로 터미널 탭을 열고(`claude --resume <id>` 류, 어댑터의
@@ -633,7 +655,9 @@ UI 로 노출한다.** 어댑터의 `Proto.Control`(§9.3 ③) 이 지원하는 
 잇는다. 이벤트 로그는 이 인스턴스의 디스크에만 있다.
 
 **NFR-C-2** 이벤트 로그는 **무한히 자라지 않는다.** 상한과 잘라내기 규칙을 둔다.
-값은 구현 시 정한다.
+**P3 값**: 도구마다 메모리 링 **4,096 이벤트**. 넘치면 가장 오래된 것부터 버리고 `seq` 는
+계속 는다 — 재생 요청의 `since` 가 잘린 앞을 가리키면 응답이 `truncated:true` 를 싣는다
+(FR-ABG-21 의 요약 스냅샷·디스크 영속은 P5).
 
 **NFR-C-3** 프레임 처리는 **에이전트를 막지 않는다.** 우리 쪽 처리 지연이 에이전트의
 진행을 늦추면 안 된다.
@@ -748,6 +772,54 @@ ko 와 **키 집합이 같다**는 검사가 덮는다. CSS `content` 만 라틴
 
 **D-U-10 — 축 A ⑤(CLI 계약)는 C-a 뒤다.** Run 멤버의 기동 경로가 둘이 된 뒤 한 번에
 본다 — 먼저 고치면 C-a 가 다시 고친다.
+
+**D-C-1 — 에이전트 탭은 `type:"agent"` + `toolId` 다.** (P3) 탭 레코드가 종류를 들어야 브라우저가
+목록을 받기 전에도 어느 뷰를 그릴지 안다. `toolId` 를 보는 코드(닫기·복원·백그라운드·`dmctl
+list-workspace`)는 그대로 닿고, `type==='terminal'` 을 묻던 자리 중 뜻이 "도구가 있는 탭" 이던
+곳(`allPids`)은 `toolId` 유무로 고친다. 종류를 묻는 자리는 D-U-4 의 셋 — 서버 해석층·뷰·전송 호출.
+
+**D-C-2 — 해석층은 서버(③)에 있고 두 모드가 같은 바이트를 받는다.** (P3) 직접 모드는
+`ToolHooks.OnOutput`(기동 전에 배선, readPTY 고루틴이 부른다), 데몬 모드는 `ToolClient.SetOnOutput`
+의 사슬. 에이전트 도구의 바이트는 `AttnTracker.FeedOutput`(L1 OSC·L2 무장)을 **지나지 않는다**
+(FR-AAL-5) — 그 도구의 알람은 공통 이벤트에서 파생한 활동 보고(`idle`·`working`·`waiting`·`done`·
+`ended`)가 `activity/set` 과 **같은 함수**를 지나 세운다 (FR-APS-2·FR-AGT-8: `dmctl wait --for ready`
+가 `system:init` 에 답하는 길이 이것이다). 세션은 도구 하나에 하나, 해석은 절대 오프셋 위에서
+한다 — 생성 직후·재접속 뒤·틈이 보이면 `SnapshotTool(Since)` 로 되메운다 (§9.3 ④의 "틈").
+
+**D-C-10 — 종류는 청크에 실려 온다.** (P3, 둘째 세션) 해석층 입구(`Server.AgentOutput`)는 도구의
+종류를 **되묻지 않는다** — `ToolHooks.OnOutput`·`ToolClient.SetOnOutput` 이 `kind` 를 청크와 함께
+준다(데몬의 `output` push 에 `kind` 필드, 터미널 도구는 생략). 이유: 데몬 모드에서 그 입구는
+ToolClient 의 readLoop 안이고, `Tools.Get` 은 그 readLoop 이 응답을 읽어야 끝나는 RPC 다 —
+되물으면 시한(5초)까지 막혔다가 연결을 떨어뜨리고, 그 사이의 `IsLive`·`Cwd`·WS attach 가 전부
+실패한다 (실측: e2e TC-AGT-6 의 `── exited ──`, `M8_PROGRESS` §2-25). 청크의 출처(readPTY·데몬의
+relay)는 `Tool.Kind` 를 이미 알고 있으므로 싣는 데 비용이 없다.
+
+**D-C-3 — 이벤트 로그는 P3 에서 메모리다.** (NFR-C-2) 재생은 `GET /api/agent/events?tool&since` 가
+하고 라이브는 SSE `agent_event{tool,seq,ev}` 다. 브라우저는 열 때 재생 → `seq` 로 이어 붙인다.
+디스크·요약 스냅샷·휴면은 P5 (FR-ABG-2·4·10·21).
+
+**D-C-4 — 비소유자의 승인 응답을 서버가 거절하지 않는다.** (FR-AGT-12) 근거는 그 조항에.
+
+**D-C-5 — 에이전트 도구는 `tools.json` 에 기재하지 않는다.** (P3) `Restore` 가 셸을 띄우는 길이라
+재개 인자(`--resume <id>`)와 argv 없이 되살릴 수 없다 — 그 되살림은 P5 의 휴면·재개다. 샌드박스
+도구의 제외(FR-SBX-33)와 같은 자리. 데몬이 살아 있으면 서버 재시동은 넘긴다(도구는 데몬의 것).
+
+**D-C-6 — stderr 는 로그로 간다.** (P3) 에이전트 프로세스의 stderr 는 줄 단위로 `dmlog` 에 남긴다.
+`output` 스트림에 섞지 않는다 — 청크가 줄과 무관해 JSON 한 줄이 갈린다. 연결 끊김의 사유를 UI 에
+싣는 것(§9.3 ④의 `stream:"stderr"`)은 FR-ABG-20 과 함께 P5.
+
+**D-C-7 — 실행 파일은 `DONGMINAL_AGENT_BIN_DIR` 이 먼저다.** (§9.3 ②의 전제) 그 디렉터리에
+`DetectCmd` 이름의 파일이 있으면 그것, 없으면 `PATH`. e2e 는 그 디렉터리에 가짜 에이전트를
+`DetectCmd` 이름으로 놓는다 — 서버·픽스처 어느 쪽에도 에이전트 이름 리터럴이 늘지 않는다.
+
+**D-C-8 — 데몬 모드에서 에이전트 도구의 `output` 푸시는 떨어지지 않는다.** (§9.3 ④ 조건 1)
+`enqueue(…, droppable=false)` — `exit` 와 같은 등급. 데몬의 배선 클로저가 `Tool.Kind` 를 본다;
+이것은 D-U-4 (c) 전송 호출에 든다.
+
+**D-C-9 — 가짜 에이전트는 프롬프트 본문으로 시나리오를 고른다.** (V-12) `APPROVE` 가 들어 있으면
+`can_use_tool Bash` 를 열고 답을 기다린 뒤 도구 결과와 본문을 낸다 · `QUESTION` 이면 `AskUserQuestion` ·
+`DIE` 면 `result` 없이 `exit 1` · 그 밖은 `PONG`. `--resume <id>` 는 그 id 로 `system:init`. 설정
+파일도 환경변수도 없다 — 서버는 그것을 어떤 에이전트와도 같게 다룬다.
 
 ---
 
@@ -1113,6 +1185,12 @@ codex 다음 `turn/start` 의 `model`·`approvalPolicy` · omp `set_model`·`set
 
 터미널 표면의 필드(`Launch`·`HookParse`·`InstallAssets`·`ParseUsage`·`ContextWindow`·
 `Readiness`·`Signals`)는 **그대로**다 (FR-U-3). `Adapter` 에 `Proto *Proto` 하나가 는다.
+
+**P3 가 구현한 모양과 시안의 차이** (2026-09-13): `Approve(req, Decision, st)` — `Decision{Choice,
+Answers}` 로 승인(`allow`·`deny`·`suggestion:<i>`)과 질문 답변(`answers`)을 한 시그니처가 받는다 ·
+`ApprovalRequest` 에 `Kind`(`permission`·`question`)·`Questions` 가 는다 · `Event.Status *ProtoStatus`
+(모델·권한 모드·모델 목록·명령 목록·계정) 가 `initialize` 응답과 `system:status` 를 나른다 ·
+`LaunchOpts.PermissionMode` 추가 · `Cancel` 은 claude 에 없어 nil (D-U-6). 나머지는 시안 그대로.
 두 표면이 한 파일(`claude.go` 등)에 나란히 놓이므로 R-8 의 완화(같은 표에서 도는
 단위 테스트)가 성립한다.
 
@@ -1184,6 +1262,9 @@ PTY 화면 갱신보다 작다). **다른 것 둘**:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-13 | **P3 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-5, 전량 e2e 는 §1-6. 묶음 P(`Adapter.Proto`·claude 구현·가짜 에이전트)·T(`Kind=agent` 변형·파이프 전송·`/api/agent/*`·`AgentPane`·TUI 출구)·A(활동 보고 한 자리·L2 idle 제외). **D-C-10** 신설 — 종류는 청크에 실려 온다(데몬 readLoop 의 자기 RPC, §2-25). 둘째 세션이 잡은 뷰 결함 둘(재생 비행 중 SSE·열린 요청 이중 계수, §2-26). V-11 확인: 훅 표면 diff 0 · `claude.go` 3줄 |
+| 2026-09-13 | **P3 중 사용자 지시.** FR-AGT-4a — Esc 인터럽트 · ↑↓ 프롬프트 히스토리 · 슬래시 자동완성 · Shift+Tab 권한 모드 순환 |
+| 2026-09-13 | **P3 착수.** §2.3.4 P3 재실측(같은 판 · `AskUserQuestion` payload · `updatedPermissions` 적용 확인). FR-AGT-4 에 **질문 답변** 추가(사용자 지시). FR-AGT-12 의 P3 결정(D-C-4). NFR-C-2 값. D-C-1~9. §9.3 ③ 실제 모양 |
 | 2026-09-13 | **P2 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-3, 전량 e2e 는 §1-4. 카탈로그 915키(ko·en 전수), JS·HTML 한글 리터럴 0, CSS `content` 문구 0, 게이트 `check-i18n.mjs`(탐침 5종)·`check-http-error.sh` 확장, 설정 키 `locale`(TC-CFG-4 24). 전량이 잡은 셋: 격리 하네스의 전역 · **D-B-3a**(파생 코드의 본문은 사유) · `lang=ko` 의 글리프 메트릭(기준선 값 하나). FR-B-9 는 별도 데이터 커밋(TC-B-7) |
 | 2026-09-13 | **P2 착수.** §2.2 실측 정정(constants 12파일·JS 884줄/43파일·HTML 72줄·`http.Error` 한국어 0). FR-B-1 결정(안 A: ko·en · 기본 ko · 감지 없음 · 폴백 ko · CLI 밖 · 서버 본문 동결). §3.3 에 키 규약·게이트 규칙 신설, FR-B-8 정정, D-B-1~4, TC-B-6·7 정정, TC-B-8 추가 |
 | 2026-09-13 | **P1 코드 완료** (전량 e2e 대기). ①~④ + TEST-8 의 항목별 판정은 `production/M8_PROGRESS.md` §1-1. DoD 밖으로 남긴 것: GO-44 의 `Git *store.Store`(gitapi 의 `Service()` 83곳 — ⑥ 뒤) · GO-47(DoD 없음, 축 C 의 `Kind` 와 함께) · GO-42(조건 미충족). 전량 `-race -shuffle` 이 FR-GIT-107 의 창을 잡아 `Jobs.finish` 의 순서를 고쳤다 |

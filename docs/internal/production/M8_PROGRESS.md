@@ -5,14 +5,15 @@
 
 ---
 
-## 1. 어디까지 왔나 (2026-09-13, 세 번째 세션 — **P2 완료**)
+## 1. 어디까지 왔나 (2026-09-13, 다섯 번째 세션 — **P3 완료**)
 
 | 단계 | 상태 |
 |---|---|
 | **P0** 스파이크 (U-1~U-10 · 산출물 ①~⑤) | **완료** (첫 세션) — 스펙 §9.1 표가 채워졌고 §9.3 이 섰다. 제품 코드 0줄 |
 | **P1** A ①~④ + `TEST-8` | **완료** — 아래 §1-1 표. `go test -race -shuffle=on -count=1 ./...` 통과 · `make gates` 초록 · 전량 e2e unexpected 0 (§1-2) |
 | **P2** B 국제화 | **완료** — 아래 §1-3 표. 사용자 결정 FR-B-1(안 A) · 카탈로그 915키(ko·en 전수) · 게이트 `check-i18n.mjs`(35번째) · 전량 e2e §1-4 |
-| P3~P7 | 착수 전 |
+| **P3** C-a 묶음 P+T (claude) | **완료** — 아래 §1-5 표. Go `-race -shuffle` 초록 · `make gates` 초록 · `agent-tool.spec.ts` 7/7(3회 반복 21/21) · 전량 e2e §1-6. 두 세션(첫 세션이 Go·뷰, 둘째 세션이 e2e 4건의 원인 둘 = §2-25·§2-26) |
+| P4~P7 | 착수 전 — P4 착수 프롬프트는 `M8_NEXT_SESSION.md` |
 
 **사용자 판단 셋은 착수 시 해소됐다** (2026-09-13): FR-APS-10 정정(stdio 제어 프레임,
 MCP 서버 없음) · D-U-4 정정(변형 + `Kind`) · FR-AGT-11·12 확정. 스펙 본문과 §9.3 ⑤⑥,
@@ -96,7 +97,105 @@ R-2 에 반영했고 `decisions.md` 를 다시 만들었다.
 
 **바이너리**: P1 과 같다 (claude 2.1.270).
 
+### 1-5. P3 항목별 판정
+
+**사용자 결정·지시 (2026-09-13)**: FR-AGT-4 에 **질문 답변**(`AskUserQuestion`) · FR-AGT-4a(Esc 인터럽트·
+↑↓ 히스토리·`/` 자동완성·Shift+Tab 권한 순환 — *"최대한 tui agent 의 모든 공통 기능을 이용하게"*) ·
+`-p --input-format stream-json` 은 1회성이 아니다(§2-19) · 출력에 이모티콘을 쓰지 않는다.
+
+| 묶음 | 항목 | 판정 | 어디에 |
+|---|---|---|---|
+| P | FR-APS-1·9 `Adapter.Proto` | **해소** — 터미널 표면 옆에 선택 필드 하나. `claude.go` 는 `Proto: &claudeProto` 세 줄뿐(V-11) | `proto.go` · `claude.go` · `claude_proto.go` · `proto_test.go`(R-8 표) |
+| P | FR-APS-2·3 공통 이벤트·활동 어휘 | **해소** — `Event.Activity()`: session→idle · turn_start/approval_closed→working · approval_open→waiting · turn_end→done · exit→ended | `proto.go` |
+| P | FR-APS-4·D-U-6 부재 | **해소** — 없는 것은 nil/omitempty. `Proto` nil 이면 생성이 `agent_no_proto` 로 거절된다 — 셸로 조용히 내려가지 않는다 | `handlers_agent.go` |
+| P | FR-APS-5·6 승인 요청-응답 | **해소** — `ProtoState.Open` · `Approve` 한 프레임(allow·deny·제안 n·질문 답) · 서버는 대신 답하지 않는다 | `claude_proto.go` · `agentsess` |
+| P | FR-APS-8 모르는 프레임 | **해소** — `raw` 이벤트로 원문 보존 | `agentsess.decodeLine` |
+| P | FR-APS-10 stdio 승인 | **해소** — `--permission-prompt-tool stdio` · `updatedPermissions` 로 제안 적용(실측 §2-20) | `claude_proto.go` |
+| T | FR-AGT-1·2·3·7·8 `Kind=agent` 변형 | **해소** — 파이프 전송(`platform.StartPipe`), Resize/SendPaste 무동작, 같은 Create 종단(`?kind=agent`), 데몬 모드 동일(`TestAgentAPI_DaemonMode`) | toolhub · platform · httpapi |
+| T | FR-AGT-4·4a·5·9·11·12 GUI | **해소** — `AgentPane`(대화·상태·사용량·다이얼로그·Esc·히스토리·자동완성·Shift+Tab·메뉴). e2e TC-AGT-1~5·7 | `agent-pane.js` · `app-agent-tool.js` · `agent-tool.spec.ts` |
+| T | FR-AGT-10 TUI 출구 | **해소** — `GET /api/agent/tui-line` → 터미널 탭에 `--resume <sid>` 한 줄. e2e TC-AGT-6 | `handlers_agent.go` · `app-agent-tool.js` |
+| A | FR-AAL-1~6 | **해소** — waiting/done 알람이 활동 보고에서(`reportActivity` 한 자리), 에이전트 도구는 L2 idle 제외. 종류는 청크에 실려 온다(D-C-10, §2-25) | `agentkind_test.go` · `agent_api_test.go` |
+| — | GO-47 `ToolHub.Get` | **좁힘** — 계약 문서화 · 합성 Tool 이 Kind·Agent 를 든다 | `hub.go` · `toolclient.Get` |
+| — | (발견) 데몬 readLoop 자기 RPC | **해소** — §2-25. `TestAgentAPI_DaemonTermChunkNoStall` | `handlers_agent.go` · `paned.go` · `client.go` |
+| — | (발견) 뷰의 재생 경합 · 열린 요청 수 이중 계수 | **해소** — §2-26. `_pending` 버퍼 · `_openIds` 집합 | `agent-pane.js` |
+| V | V-1·2·5·6·8·9·12·13 | Go 테스트 · V-3·V-10 e2e · V-11 `git diff` 로 확인(훅 표면 diff 0, `claude.go` 3줄) | |
+
+### 1-6. 전량 e2e (P3 판정)
+
+| 회차 | 결과 | 비고 |
+|---|---|---|
+| ① 코드 완료 직후 | unexpected 1 · flaky 4 | **진짜 회귀** — `tab-width` TC-CMU-3: P3 첫 세션이 에이전트 탭 만들기를 `+` 우클릭과 **탭 메뉴 둘 다**에 넣어 FR-CMU-8 의 셋이 넷이 됐다. 표적 검사(`agent-tool.spec`)는 `+` 메뉴만 쓰므로 전량만 잡았다. 탭 메뉴에서 뺐다(만들기는 FR-CMU-8a `+` 메뉴만, 에이전트 탭의 `터미널로 열기` 는 남는다 — `CONTEXT_MENU_UNIFY_SRS` §8). flaky 넷은 전부 §5-5 군집(`git-live-triggers` TC-GLW-6 · `git-worktrees` V169 · `editor-save` TC-ESV-1·2 · `slot-view-state` TC-SVS-22) |
+| ② 수정 뒤 | **unexpected 0** · flaky 2 | 둘 다 `git-observe-revive`(TC-GOR-1 · TC-GLR-3) — §5-5 군집. 1,653 통과 · 8샤드. `make e2e-rebalance` 로 시간표 갱신(8샤드 393~394s, 불균형 1.00배) |
+
 ## 2. 무엇이 바뀌었나
+
+### 2-19. (P3) `-p` 는 1회성이 아니다 — stdin 이 열려 있는 동안 세션이 산다
+
+사용자 질문(*"-p 옵션은 1회성 응답 옵션 아니야?"*)에 실측으로 답했다: `-p --input-format stream-json`
+한 프로세스에 프롬프트 9개를 차례로 넣어 `result` 9개를 받았고 `session_id` 는 `/clear` 때만 바뀌었다
+(`/tmp/m8-spike/claude-ctl.jsonl`). 프롬프트를 인자로 주는 `-p "…"` 만 1회성이다. 같은 바이너리·같은
+`~/.claude` 이므로 "있는 에이전트" 그대로다 — 바뀌는 것은 표면(TUI 대신 프레임) 하나.
+
+### 2-20. (P3) 질문 답변은 승인과 같은 통로다
+
+사용자 지시(FR-AGT-4 "질문 답변")로 `AskUserQuestion` 을 실측했다: `can_use_tool` +
+`requires_user_interaction:true`, `input.questions[]`, 답은 `allow` + `updatedInput.answers{질문:라벨}` 한
+프레임. 그래서 `ApprovalRequest.Kind` 가 `permission`·`question` 둘이고 다이얼로그 하나가 둘을 그린다.
+`updatedPermissions:[제안 항목 그대로]` 도 실측으로 확인해(`setMode` → `system:status{permissionMode}`)
+승인 선택지를 allow·deny·제안 n 개로 프로토콜 그대로 낼 수 있었다 (FR-AGT-5).
+
+### 2-21. (P3) 해석층은 서버에 하나, 두 모드가 같은 바이트를 절대 오프셋 위에서 받는다
+
+직접 모드는 `ToolHooks.OnOutput`(기동 전 배선), 데몬 모드는 `SetOnOutput` 사슬 — 둘 다 `(id, data, end)` 다.
+세션은 `seen` 오프셋을 들고 겹침은 버리고 틈은 `SnapshotTool` 로 되메운다; 열 때도 스냅샷을 먼저 읽는다
+(세션이 붙기 전에 나온 `system:init` 을 놓치지 않기 위해 — 테스트 `TestSession_OpenResyncsFromSnapshot`).
+활동 보고는 `activity/set` 핸들러의 본문을 `reportActivity` 로 뽑아 **같은 함수**를 지난다 — 그래서
+알람·활동 패널·`dmctl wait --for ready` 가 에이전트 도구에서도 터미널과 같은 길로 섰다 (FR-AGT-8).
+
+### 2-22. (P3) 종류를 묻는 자리는 정말 셋으로 끝났다
+
+D-U-4 의 판정대로 `Tool.Kind` 를 묻는 곳은 (a) 해석층 입구(`AgentOutput`) (b) 뷰(`_mountTabBody` 의
+agent 갈래·`AgentPane`) (c) 전송 — `SendPaste` 무동작·데몬 push 의 non-droppable·`maybeIdle` 제외(FR-AAL-5)
+— 그리고 영속 제외(D-C-5)다. `Resize`·`Size`·`ForegroundPGID` 는 `platform.StartPipe` 의 `Terminal` 구현
+안에서 무동작으로 끝나 toolhub 가 종류를 묻지 않았다. 브라우저에서 `type==='terminal'` 을 묻던 자리는
+셋이었고, 뜻이 "도구가 있는 탭" 이던 `allPids` 하나만 `toolId` 유무로 고쳤다.
+
+### 2-23. (P3) 가짜 에이전트는 테스트 바이너리 자신이다
+
+`agent_api_test.go` 는 `DM_FAKEAGENT=1` 로 자기를 다시 실행하면 `fakeagent.Main` 을 돈다 — `go build`
+없이 서버 핸들러를 실제 프로세스·파이프로 잰다. 파일 이름은 어댑터의 `DetectCmd` 에서 온다(리터럴이
+아니다). e2e 는 `global-setup` 이 바이너리를 하나 만들어 `E2E_AGENT_BIN_DIR` 에 놓고 서버가
+`DONGMINAL_AGENT_BIN_DIR` 로 받는다 (D-C-7).
+
+### 2-24. (P3) 게이트가 잡은 셋 · 실측이 잡은 하나
+
+`check-i18n` 이 renderer 탭 메뉴의 `t('agent.open_terminal')` 을 잡았다 — 그 자리는 지역 `t` 가 전역을
+가린다(§2-16 의 그 규칙). 상수 `AGENT_OPEN_TERMINAL` 로 우회. `check-pkg-axis` 가 새 패키지 셋을 표에
+없다고 잡았다(GO-48) — 표에 더했다. 뷰의 클래스 접두 `ag-` 가 활동 패널의 `.ag-head`·`.ag-state` 와
+충돌했다 — `agp-` 로 바꿨다. 그리고 `Event.Message` 는 와이어에서 JSON 배열 **그대로** 온다
+(`json.RawMessage` 인라인) — 뷰가 문자열로 여겨 `JSON.parse` 하다 빈 본문을 그렸다; 배열이면 그대로 쓴다.
+
+### 2-25. (P3) 해석층 입구가 종류를 되물었고, 그 물음이 readLoop 을 5초 세웠다
+
+e2e TC-AGT-6 의 `── exited ──` 는 셸이 죽은 것이 아니었다. 데몬 모드에서 `Server.AgentOutput` 은
+세션이 없는 도구의 종류를 `Tools.Get` 으로 물었고, 그것은 `ToolClient.List` — **자기가 지금 돌고
+있는 readLoop 이 응답을 읽어야 끝나는 RPC** 다. 5초 시한까지 막혔다가 `dropIfCurrent` 가 연결을
+떨어뜨렸고, 그 사이의 `IsLive`(→ `/api/tools/input` 404 "id 해석 실패")·`Cwd`(→ `source:"server"`)·
+WS attach(→ `OP.EXIT`)가 전부 실패했다. 새 도구의 첫 청크마다, 그리고 목록 캐시가 식을 때마다 — HEAD
+바이너리와 나란히 띄워 `create → cwd` 로 잰 것이 0.02s 대 5.00s 였다. 답은 D-C-10: 청크의 출처
+(readPTY·데몬의 relay)는 `Tool.Kind` 를 이미 알므로 **종류를 청크에 싣는다** — `ToolHooks.OnOutput`·
+`ToolClient.SetOnOutput` 이 `kind` 를 받고, 데몬의 `output` push 에 `kind` 필드(터미널은 생략)가
+간다. 입구의 `agentKinds` 기억과 되묻기는 없어졌다. 회귀 시험 `TestAgentAPI_DaemonTermChunkNoStall`
+(첫 청크 뒤의 `IsLive` 가 2초 안에 답한다). 유닉스 소켓 경로 길이 때문에 테스트 이름이 짧다.
+
+### 2-26. (P3) 재생이 비행 중일 때 온 SSE 는 상태를 잃었다
+
+TC-AGT-4 의 `/co` 자동완성이 간헐로 비었다 — `initialize` 의 commands 가 뷰에 없었다. 열 때
+`GET /api/agent/events` 가 비행 중인 사이에 `status` 가 SSE 로 왔고, `this.state` 가 아직 null 이라
+commands 병합이 떨어졌다. 뒤이어 앉은 서버 상태는 그 status **앞**의 것이었고, 재생이 0건이라 seq
+틈도 없어 다시 묻지 않았다 (trace: events 응답 `commands=None nev=0` 하나뿐). `AgentPane` 은 이제
+비행 중의 SSE 를 `_pending` 에 잡아 두었다가 재생 뒤에 `onEvent` 로 이어 붙인다 — 틈이면 그 자리에서
+다시 재생한다.
 
 ### 2-14. (P2) 감사는 주석을 셌고, "6곳" 은 이미 0 이었다
 

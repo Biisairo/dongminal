@@ -517,9 +517,17 @@ Object.assign(App.prototype, {
       Toast.show(BG_RESTORE_FAIL,'err');
       return;
     }
-    if(!this.tools.has(toolId)) this.mkTool(toolId,DEFAULT_TOOL_NAME);
+    // M8_UNIFIED_SRS FR-ABG-1: 종류가 어느 뷰의 탭으로 돌아가는지를 정한다 — 목록의
+    // `kind` 가 그것을 말한다(백그라운드 항목). 비어 있으면 터미널.
+    const entry=(this._bg||[]).find(b=>b&&b.toolId===toolId);
+    const isAgent=opts.kind==='agent'||(entry&&entry.kind==='agent');
     const t=newEntityId();
-    pn.tabs.push({id:t,name:'Shell',type:'terminal',toolId});
+    if(isAgent){
+      pn.tabs.push({id:t,name:clampEntityName(opts.name||(entry&&entry.name)||DEFAULT_TOOL_NAME),type:'agent',toolId});
+    }else{
+      if(!this.tools.has(toolId)) this.mkTool(toolId,DEFAULT_TOOL_NAME);
+      pn.tabs.push({id:t,name:'Shell',type:'terminal',toolId});
+    }
     this.paneTabSet(pn,t);
     this.render();
     this.save();
@@ -567,6 +575,9 @@ Object.assign(App.prototype, {
     for(const k of [pid,this.slotKey(pid,1)]){
       const p=this.tools.get(k);
       if(p){try{p.destroy()}catch{}; this.tools.delete(k)}
+      // 에이전트 도구의 뷰도 같은 자리에서 거둔다 (M8_UNIFIED_SRS FR-AGT-7).
+      const a=this.agentPanes&&this.agentPanes.get(k);
+      if(a){try{a.destroy()}catch{}; this.agentPanes.delete(k)}
     }
   },
 

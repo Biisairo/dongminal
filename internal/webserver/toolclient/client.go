@@ -63,7 +63,7 @@ type ToolClient struct {
 	// onForeground 는 전경 프로세스 이름이 바뀔 때 온다 (CONVENIENCE_SRS
 	// FR-TAN-9). 데몬은 변화만 밀므로 같은 값이 되풀이되지 않는다. nil 이면
 	// 끈다 — 같은 이름이 List() 응답에도 실리므로 잃는 것은 없다.
-	onOutput     func(toolID string, data []byte)
+	onOutput     func(toolID string, kind toolhub.ToolKind, data []byte, end int64)
 	onExit       func(toolID string, code int)
 	onForeground func(toolID, name string)
 	earlyPushes  []earlyPush
@@ -98,7 +98,7 @@ type earlyPush struct {
 // SetOnOutput 은 output 콜백을 잠금 안에서 건다. 배선 전에 도착한 output 은
 // 버리지 않고 **놓친다** — 화면은 다음 snapshot 이 메우고, 주의 탐지는 다음
 // 청크에서 이어진다 (exit 와 달리 유실이 상태를 남기지 않는다).
-func (pc *ToolClient) SetOnOutput(cb func(toolID string, data []byte)) {
+func (pc *ToolClient) SetOnOutput(cb func(toolID string, kind toolhub.ToolKind, data []byte, end int64)) {
 	pc.mu.Lock()
 	pc.onOutput = cb
 	pc.mu.Unlock()
@@ -343,6 +343,9 @@ func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 			// 이 필드를 보내지 않는 옛 데몬에서는 0 으로 읽히고, 그때 받는 쪽은
 			// 겹침 제거를 건너뛴다 — 지금 동작과 같아질 뿐 나빠지지 않는다.
 			End int64 `json:"end"`
+			// Kind 는 도구의 종류다 (M8_UNIFIED_SRS D-C-10). 여기서 목록으로 되물으면
+			// 그 RPC 의 응답을 읽을 고루틴이 바로 이 readLoop 라 시한까지 막힌다.
+			Kind string `json:"kind"`
 		}
 		if err := json.Unmarshal(raw, &ev); err != nil {
 			return
@@ -357,7 +360,7 @@ func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 		onOutput := pc.onOutput
 		pc.mu.Unlock()
 		if onOutput != nil {
-			onOutput(ev.Tool, data)
+			onOutput(ev.Tool, toolhub.ToolKind(ev.Kind), data, ev.End)
 		}
 		// Dispatch to per-tool output channels. Non-blocking: a single slow
 		// WS subscriber must never stall readLoop (which serves every tool).
@@ -678,6 +681,9 @@ func (pc *ToolClient) Create(cwd string, cols, rows uint16, place toolhub.Placem
 		"command": place.Command,
 		// UX_BATCH6_SRS FR-SBM-3: 작업 방식도 데몬이 배치할 때 쓴다.
 		"work": place.Work,
+		// M8_UNIFIED_SRS §9.3 ④: 에이전트 도구의 종류·argv·어댑터 id. 프로세스를
+		// 세우는 것은 데몬이므로 값만 실어 보낸다 — 프로파일·명령과 같은 방향이다.
+		"kind": string(place.Kind), "argv": place.Argv, "agent": place.Agent,
 	})
 	if err != nil {
 		return nil, err
@@ -685,14 +691,18 @@ func (pc *ToolClient) Create(cwd string, cols, rows uint16, place toolhub.Placem
 	pc.invalidateList()
 	id, _ := resp["id"].(string)
 	name, _ := resp["name"].(string)
-	return &toolhub.Tool{ID: id, Name: name}, nil
+	kind, _ := resp["kind"].(string)
+	agent, _ := resp["agent"].(string)
+	return &toolhub.Tool{ID: id, Name: name, Kind: toolhub.ToolKind(kind), Agent: agent}, nil
 }
 
+// Get 은 **신원만 든 합성 Tool** 이다 (`GO-47`, ToolHub.Get 의 계약) — ID·Name·
+// Kind·Agent 는 목록에서 오고, 전송·프로세스가 필요한 메서드는 무동작·영값이다.
 func (pc *ToolClient) Get(id string) *toolhub.Tool {
 	// ToolClient doesn't have local state; we check liveness via List
 	for _, t := range pc.List() {
 		if t.ID == id {
-			return &toolhub.Tool{ID: id, Name: t.Name}
+			return &toolhub.Tool{ID: id, Name: t.Name, Kind: t.Kind, Agent: t.Agent}
 		}
 	}
 	return nil

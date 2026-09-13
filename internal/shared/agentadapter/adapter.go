@@ -221,6 +221,13 @@ type Adapter struct {
 	// 넓히는 기존 경로가 그대로 받으므로(UX_BATCH6_SRS FR-CTX-6·7) 새 동작을
 	// 만들 필요가 없다.
 	ContextWindow func(model string) (float64, bool)
+
+	// Proto 는 **프로토콜 표면**이다 (M8_UNIFIED_SRS FR-APS-9 · FR-U-2). 터미널
+	// 표면의 필드들과 같은 구조체에 나란히 든다 — 한 파일이 두 표면을 들어야
+	// 한쪽만 고쳐지는 일(R-8)을 같은 표의 테스트가 잡는다.
+	//
+	// `nil` 은 "이 에이전트는 에이전트 도구로 뜰 수 없다" 는 선언이다 (FR-APS-4).
+	Proto *Proto
 }
 
 // Usage 는 전사본 한 줄이 말하는 사용량이다 (FR-AAC-12).

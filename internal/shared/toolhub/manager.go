@@ -98,6 +98,8 @@ type ToolManager struct {
 	attnNotify     func(id, reason string)
 	attnClear      func(id string)
 	activityNotify func(id, state, tool, detail string)
+	outputObserver func(id string, kind ToolKind, data []byte, end int64)
+	exitObserver   func(id string)
 
 	// background는 탭에서 떼어내 백그라운드로 보낸 도구의 전환 시각(unix
 	// nanos)을 담는다. 런타임 전용 — tools.json 에 기재하지 않으므로 데몬
@@ -120,6 +122,9 @@ type BackgroundEntry struct {
 	Name   string `json:"name"`
 	Cwd    string `json:"cwd"`
 	Since  int64  `json:"since"`
+	// Kind 는 도구의 종류다 (M8_UNIFIED_SRS FR-ABG-1) — 되살릴 때 어느 뷰의 탭으로
+	// 돌아가는가. 비어 있으면 터미널.
+	Kind ToolKind `json:"kind,omitempty"`
 }
 
 // NewToolManager builds an empty manager. dataDir is where tools.json lives;
@@ -156,11 +161,29 @@ func (m *ToolManager) SetActivityNotifier(notify func(id, state, tool, detail st
 }
 
 // attnHooks builds the per-tool hooks from the manager's notifier config.
+// SetOutputObserver 는 모든 도구의 출력 청크를 받는 관측자를 꽂는다 (D-C-2) —
+// 직접 모드의 에이전트 해석층이 그 자리다. 기동 전에 릴레이에 실리므로 이 뒤에
+// 만들어진 도구만 받는다; 배선에서 LoadAll 앞에 한 번 부른다.
+func (m *ToolManager) SetOutputObserver(f func(id string, kind ToolKind, data []byte, end int64)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.outputObserver = f
+}
+
+// SetExitObserver 는 도구의 죽음을 받는 관측자다 — 직접 모드의 에이전트 해석층이
+// 세션을 닫는 자리 (D-C-2). 데몬 모드의 짝은 ToolClient.SetOnExit.
+func (m *ToolManager) SetExitObserver(f func(id string)) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.exitObserver = f
+}
+
 func (m *ToolManager) attnHooks() *ToolHooks {
-	if m.attnNotify == nil && m.attnClear == nil && m.activityNotify == nil {
+	if m.attnNotify == nil && m.attnClear == nil && m.activityNotify == nil && m.outputObserver == nil {
 		return nil
 	}
-	return &ToolHooks{OnAttention: m.attnNotify, OnAttentionClear: m.attnClear, OnActivity: m.activityNotify, AllowBell: m.allowBell}
+	return &ToolHooks{OnAttention: m.attnNotify, OnAttentionClear: m.attnClear, OnActivity: m.activityNotify,
+		AllowBell: m.allowBell, OnOutput: m.outputObserver}
 }
 
 // ActivitySnapshot returns the current activity of every tool that has reported
@@ -362,6 +385,18 @@ type Placement struct {
 	// 그쪽 명세가 정하며, 둘이 동시에 참이면 어느 쪽이 이기는지 말할 수 없다.
 	Command string
 
+	// Kind 가 KindAgent 면 **에이전트 도구**다 (M8_UNIFIED_SRS D-U-4·FR-AGT-1).
+	// Argv 가 그 프로세스의 전체 argv(Argv[0] 이 실행 파일)이고, 셸도 PTY 도
+	// 없이 파이프로 뜬다 (FR-AGT-2·3). Agent 는 어댑터 id — 표시명이 되고
+	// ToolInfo 에 실려 서버가 해석층을 세우는 근거가 된다. toolhub 는 그 뜻을
+	// 모른다: argv 를 만든 것은 어댑터이고 프레임을 읽는 것은 서버다.
+	//
+	// Profile·Command 와 함께 쓰지 않는다 — 컨테이너 안의 에이전트 도구는 이
+	// 단계의 범위 밖이다.
+	Kind  ToolKind
+	Argv  []string
+	Agent string
+
 	// 아래 둘은 **ToolManager 가 채운다.** 호출자는 건드리지 않는다 — 도구
 	// 식별자는 여기서 만들어지고, 작업 디렉터리는 Create 의 인자이므로 바깥에서
 	// 다시 실어 보낼 이유가 없다.
@@ -424,7 +459,11 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 	start := m.startTool
 	m.mu.Unlock()
 
-	p, err := start(id, defaultToolName, cwd, cols, rows, m.toolExited, hooks, spec)
+	name := defaultToolName
+	if place.Kind == KindAgent && place.Agent != "" {
+		name = place.Agent
+	}
+	p, err := start(id, name, cwd, cols, rows, m.toolExited, hooks, spec)
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -438,6 +477,9 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 	// 샌드박스로 오인되어 백그라운드로 갈 수 없게 된다 — 그 도구는 백그라운드에
 	// 살라고 만든 것이다.
 	p.sandboxed = place.Profile != ""
+	if place.Kind == KindAgent {
+		p.Kind, p.Agent = KindAgent, place.Agent
+	}
 	m.tools[id] = p
 	dmlog.Infof(nil, "[tool %s] registered total=%d", id, len(m.tools))
 	m.mutated.Store(true)
@@ -452,7 +494,11 @@ func (m *ToolManager) toolExited(toolID string) {
 	m.Delete(toolID)
 	m.mu.RLock()
 	f := m.invalidator
+	ex := m.exitObserver
 	m.mu.RUnlock()
+	if ex != nil {
+		ex(toolID)
+	}
 	if f != nil {
 		f(toolID)
 	}
@@ -470,6 +516,13 @@ func (m *ToolManager) SetPlacer(f func(Placement) (*platform.ProcSpec, error)) {
 // Window 가 지정되지 않았으면 결정자를 묻지도 않는다 — 샌드박스가 아닌 창의
 // 경로가 이 기능 도입 전과 완전히 같아야 한다 (NFR-SBX-2).
 func (m *ToolManager) placement(place Placement) (*platform.ProcSpec, error) {
+	if place.Kind == KindAgent {
+		// FR-AGT-2·3: 에이전트 도구 — argv 그대로, 파이프로. 셸을 거치지 않는다.
+		if len(place.Argv) == 0 {
+			return nil, fmt.Errorf("에이전트 도구의 argv 가 비어 있다")
+		}
+		return &platform.ProcSpec{Path: place.Argv[0], Args: place.Argv, Pipe: true}, nil
+	}
 	if place.Profile == "" {
 		// FR-BGP-3: 셸 대신 명령. 셸을 띄우고 그 안에 타이핑하는 대신 명령
 		// 자체를 도구의 프로세스로 세운다 — 그래야 그 명령의 끝이 도구의 끝이다.
@@ -538,6 +591,7 @@ func (m *ToolManager) List() []ToolInfo {
 		out = append(out, ToolInfo{
 			ID: p.ID, Name: p.Name, PID: p.CmdProcessPID(),
 			Cols: cols, Rows: rows, FgName: fg[p.ID],
+			Kind: p.Kind, Agent: p.Agent,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })

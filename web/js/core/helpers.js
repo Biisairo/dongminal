@@ -548,6 +548,8 @@ function normalizeTab(t) {
 // 닫히지도 않는 고정 탭이다 (FR-GIT-28).
 const TOOL_CAPABILITIES = {
   terminal: { backgroundCapable: true },
+  // M8_UNIFIED_SRS FR-ABG-1: 에이전트 도구도 서버가 소유한 프로세스다 — 백그라운드는 같은 길.
+  agent:    { backgroundCapable: true },
   editor:   { backgroundCapable: false },
   git:      { backgroundCapable: false },
 };
@@ -677,7 +679,8 @@ function firstPane(n){
 }
 function allPids(n){
   if(!n) return [];
-  if(n.type==='pane') return (n.tabs||[]).filter(t=>t.type==='terminal').map(t=>t.toolId);
+  // M8_UNIFIED_SRS D-C-1: "도구가 있는 탭" 이다 — 터미널과 에이전트 둘 다.
+  if(n.type==='pane') return (n.tabs||[]).filter(t=>t.toolId).map(t=>t.toolId);
   if(n.children) return n.children.flatMap(c=>allPids(c));
   return [];
 }

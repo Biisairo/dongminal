@@ -18,6 +18,10 @@ export const E2E_HOME =
 // (FR-EPL-8) — `go run` 을 워커마다 부르면 같은 컴파일을 N 번 기다린다.
 export const E2E_BIN = E2E_HOME + '/dongminal-e2e' + (isWin ? '.exe' : '');
 
+// 가짜 에이전트가 놓이는 디렉터리 (M8_UNIFIED_SRS V-12 · D-C-7). `globalSetup` 이
+// 만들고 워커의 서버가 `DONGMINAL_AGENT_BIN_DIR` 로 받는다.
+export const E2E_AGENT_BIN_DIR = E2E_HOME + '/agent-bin';
+
 // 워커 0 의 포트. 워커 i 는 `E2E_PORT0 + i` 를 쓴다 (FR-EPL-1).
 //
 // **샤드를 로컬에서 병렬로 돌 때는 이 뿌리가 샤드마다 달라야 한다** (FR-EPL-14).
