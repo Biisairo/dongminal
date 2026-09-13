@@ -216,11 +216,32 @@ Object.assign(App.prototype, {
         for(let i=0;i<pids.length;i++) if(busyChecks[i]) keep.add(pids[i]);
       }
     }
-    for(const pid of keep) this._setToolBackground(pid,true);
-    if(keep.size) this._bgRefresh();
-    // FR-BG-4b: backgroundCapable 이 아닌 도구는 전환 대상이 아니라 종료된다.
-    for(const pid of pids) if(!keep.has(pid)) this._kill(pid);
+    /**
+     * WINDOW_CLOSE_UNDO_SRS FR-WCU-1·3·5 (`UX-2`): **묻지 않은 닫기는 되돌릴 수 있다.**
+     *
+     *   이전 동작: 한가한 창은 곧바로 `_kill` — 확인도 되돌리기도 없었다
+     *   새  동작: 확인창이 뜨지 않은 창의 도구는 죽이지 않고 **백그라운드**로
+     *             보낸 뒤 유예(`WINDOW_CLOSE_UNDO_MS`)를 연다. Undo 가 되돌리고,
+     *             만료가 죽인다 (`_winUndoFinal`)
+     *   이유:     `×` 는 hover 에서만 보이는 16px 이고 `Delete` 키 길도 생겼다
+     *             (FR-A11Y-16). 확인창 대신 Undo 인 이유는 한가한 셸을 닫는 일이
+     *             거의 언제나 뜻한 일이어서다 — 되돌릴 수 있으면 묻지 않아도 된다
+     *
+     * 확인을 **지난** 닫기는 종전대로 최종이다 (D-WCU-2) — 안전망은 길마다 하나.
+     */
+    const asked=busyChecks.some(Boolean);
+    if(!asked){
+      this._winUndoFinal();
+      for(const pid of pids) this._setToolBackground(pid,true);
+      this._bgRefresh();
+    }else{
+      for(const pid of keep) this._setToolBackground(pid,true);
+      if(keep.size) this._bgRefresh();
+      // FR-BG-4b: backgroundCapable 이 아닌 도구는 전환 대상이 아니라 종료된다.
+      for(const pid of pids) if(!keep.has(pid)) this._kill(pid);
+    }
     this.ws.windows.splice(i,1);
+    if(!asked) this._winUndoArm(s,i,pids);
     // FR-WSL-6: 실제로 지워진 뒤에 슬롯을 정리한다 — 위의 확인 대화에서
     // 취소되면 여기 도달하지 않는다.
     this._slotOnWindowGone(sid);
@@ -251,6 +272,61 @@ Object.assign(App.prototype, {
     } else this.focused=null;
     // Render first, save in background (matches split/addTab/closeTab).
     this._focusWindow(this.ws.activeWindow);
+    this.render();
+    this.save();
+  },
+
+  // ── 창 닫기의 되돌리기 (WINDOW_CLOSE_UNDO_SRS FR-WCU-1~7) ──
+
+  /**
+   * 유예를 연다. **하나만 산다** (FR-WCU-6) — `delWindow` 가 앞선 것을 먼저
+   * 최종으로 만든다. 진입점은 `Toast` 의 동작 버튼이라 라이브 리전을 지난다
+   * (FR-WCU-2 / FR-A11Y-19). 타이머는 우리 것이다 — 토스트의 것과 길이가 같지만
+   * 만료가 해야 할 일(죽이기)은 토스트가 모른다.
+   */
+  _winUndoArm(win,index,pids){
+    const h=Toast.show(WINDOW_CLOSE_UNDO_TEXT.replace('%s',win.name||''),'',WINDOW_CLOSE_UNDO_MS,{
+      id:'win-undo', cls:'win-undo-toast',
+      actions:[{label:WINDOW_CLOSE_UNDO_LABEL,title:WINDOW_CLOSE_UNDO_TITLE,
+                onClick:()=>this._winUndoRun()}],
+    });
+    const timer=this.timers.after(WINDOW_CLOSE_UNDO_MS,()=>this._winUndoFinal(),
+      {owner:'app',label:'win-undo'});
+    this._winUndo={win,index,pids,close:h.close,timer};
+  },
+
+  /**
+   * FR-WCU-4: 만료. **지금 어느 창에도 없는 도구만** 죽인다 — 유예 동안 백그라운드
+   * 목록에서 되살린 도구는 다른 창의 것이 됐다 (D-WCU-1).
+   */
+  _winUndoFinal(){
+    const u=this._winUndo; if(!u) return;
+    this._winUndo=null;
+    if(u.timer) u.timer.stop();
+    u.close();
+    const referenced=new Set(this.ws.windows.flatMap(w=>allPids(w.layout)));
+    for(const pid of u.pids) if(!referenced.has(pid)) this._kill(pid);
+    this._bgRefresh();
+  },
+
+  /**
+   * FR-WCU-7 / D-WCU-3: 창 객체를 **같은 자리**에 되돌린다. 도구 인스턴스는
+   * `_kill` 을 지나지 않았으므로 살아 있고 다음 render 가 붙인다.
+   */
+  _winUndoRun(){
+    const u=this._winUndo; if(!u) return;
+    this._winUndo=null;
+    if(u.timer) u.timer.stop();
+    u.close();
+    const at=Math.min(u.index,this.ws.windows.length);
+    this.ws.windows.splice(at,0,u.win);
+    for(const pid of u.pids) this._setToolBackground(pid,false);
+    this._bgRefresh();
+    this.ws.activeWindow=u.win.id;
+    try{sessionStorage.setItem('activeWindow',u.win.id)}catch{}
+    const next=(u.win.focusedPane&&findPane(u.win.layout,u.win.focusedPane))?u.win.focusedPane:firstPane(u.win.layout)?.id||null;
+    this.setFocusState(next,u.win);
+    this._focusWindow(u.win.id);
     this.render();
     this.save();
   },

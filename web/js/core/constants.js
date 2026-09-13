@@ -422,6 +422,12 @@ const TAB_CLOSE_TITLE='Close this tab';
 // UX_BATCH8_SRS FR-CLG-1: 닫기 가드의 문구는 **한 자리**다 — 탭 닫기와 창 닫기가
 // 같은 사건을 두고 다른 말을 쓰면 같은 팝업으로 읽히지 않는다.
 const CLOSE_DIRTY_MSG='저장되지 않은 변경사항이 있습니다.';
+// WINDOW_CLOSE_UNDO_SRS FR-WCU-1·2 / NFR-WCU-1: 한가한 창의 닫기는 묻지 않고
+// 되돌린다. 유예는 git Undo 와 같은 5초다. `%s` 는 창 이름.
+const WINDOW_CLOSE_UNDO_MS=5000;
+const WINDOW_CLOSE_UNDO_TEXT='창을 닫았습니다 — %s';
+const WINDOW_CLOSE_UNDO_LABEL='Undo';
+const WINDOW_CLOSE_UNDO_TITLE='Bring the window and its shells back';
 
 // ── 툴팁 (UX_BATCH5_SRS 묶음 C / FR-TIP-1·2·4) ──
 //

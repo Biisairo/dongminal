@@ -939,6 +939,22 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 .toast.ok{border-color:var(--accent-border);color:var(--text-bright)}
 .toast.err{border-color:var(--danger);color:var(--danger-text)}
 
+/* 되돌리기 알림 — 글자와 동작 버튼이 나란히 선다. git 커밋(FR-GIT-81)이 세운
+   모양이고 창 닫기(WINDOW_CLOSE_UNDO_SRS FR-WCU-2)가 같은 것을 쓴다 — 두 벌이면
+   한쪽만 고쳐진다. 실측: `커밋했습니다`+`Undo` 가 ~156px 로 `.toast` 의
+   `max-width:min(70vw,420px)` 안에 든다. 문구가 길어지면(M9 i18n) 다시 잰다. */
+.git-undo-toast,.win-undo-toast{
+  display:flex;align-items:center;gap:10px;padding:8px 12px;font-size:var(--fs-md);
+  background:var(--bg);color:var(--text);
+  border:1px solid var(--accent-border);border-radius:6px;
+  box-shadow:var(--shadow-2);
+}
+.git-undo-btn,.win-undo-toast .toast-act{
+  font:inherit;font-size:var(--fs-sm);padding:3px 10px;cursor:pointer;
+  background:transparent;color:var(--accent-text);
+  border:1px solid var(--accent);border-radius:4px;
+}
+
 /* ── 여기서 열기 확인 (VIEWER_URL_OPEN_SRS FR-VUO-7) ──
    상자·백드롭·중앙 정렬은 `.ui-modal` 이 갖는다. 여기에는 주소가 길어도 상자를
    밀지 않게 하는 규칙만 둔다. */
