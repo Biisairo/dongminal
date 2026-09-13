@@ -23,7 +23,7 @@
 | `UX-18` 글자 크기 | **완료** — 12종 → 다섯. px 리터럴 378 → **0**. 사상표 SRS §3.3 |
 | `UX-16` z-index (**절반**) | **완료** — 44선언 28값 → 여섯 층 · **43선언**. 사상표 SRS §3.4 |
 | `UX-16` 모달 골격 7벌 | **완료** — 오버레이 여섯이 `.ui-modal`, 상자 여섯이 `.ui-modal-box` 위에. 키트 값을 다수값으로 (D-TOK-10). 사상표 SRS §3.9 · TC-TOK-21 |
-| `⑤` 과도기 클래스 (+`UX-17`) | **표면 넷 완료** — 상단바·설정 모달·편집기·확인창(+git 다이얼로그)의 옛 클래스 **서른**이 선언 0. 남은 것: git 패널 본체 아홉(§7.5) · 탭 넷(범위 밖). D-5 는 아직 열려 있다 |
+| `⑤` 과도기 클래스 (+`UX-17`) | **버튼·모달 표면 다섯 완료** — 옛 클래스 **서른아홉**이 선언 0 (§7.1~7.5). 남은 것: 탭 넷(§7.6, 로드맵 범위 밖). D-5 는 그때까지 열려 있다 |
 | `UX-14`·`UX-15` 색 리터럴 | **완료** — `:root` 밖 116 → **0**. 116 중 52 는 색이 아니었다(마스크 알파) |
 | `UX-3` 모달 시맨틱·포커스 | **완료** — 계약이 골격이 아니라 함수 하나(`UIKit.dialogOpen`)에 있다 (D-A11Y-7) |
 | `UX-8` 라이브 리전 | **완료** — 리전 0 → 2, 알림 채널 4 → 2 (D-A11Y-9) |
@@ -820,6 +820,7 @@ auto}` → `.fe-dd-peek-bar>.ui-btn-icon`. 옮기고 나면 옛 이름의 규칙
 | ③ 설정 모달(`.modal-close`·`.preset-*`·`.ds-toggle`·`.sbx-del`·`.sc-rst`·`.drawer-close`) 뒤 | unexpected 1 · flaky 4 | V169 (①과 같다 — HEAD 에서도 죽는다) · flaky 넷은 §5-5 군집(`repo-diff-edit` E1 · `git-history` H22 · `slot-view-state` TC-SVS-21 · `git-observe-revive` TC-GOR-1). 표적 94건 통과 |
 | ④ 편집기·탐색기(`.fe-find-*`·`.fe-offer-*`·`.fe-dd-peek-*`·`.ed-side-act`·`.ed-head-btn`) 뒤 | unexpected 1 · flaky 2 | `slot-view-state` TC-SVS-5 — §5-5 의 칸별 상태 군집. **단독 반복 3회(TC-SVS-4·5, 48항목) 전부 통과.** flaky 둘(TC-SVS-4 · `editor-save` TC-ESV-3)은 넷째 세션 명단의 이름. 표적 236건 통과 |
 | ⑤ 확인창·토스트·git 다이얼로그(`.confirm-*`·`.git-undo-btn`·`.gc-*`·`.git-dialog-*`) 뒤 | unexpected 1 · flaky 3 | V169 (①과 같다) · flaky 셋은 TC-ESV-3 · TC-GOR-1(군집) · `sidebar-collapse` SBC7 — 새 이름, **단독 3회 반복 통과.** 표적 200건 통과. 첫 판의 TC-BGU-2 는 표적에서 잡아 고쳤다 (§2j-4) |
+| ⑥ git 패널 본체(`.git-remote-btn`·`.git-commit-btn`·`.git-files-mode`·`.git-init-btn`·`.git-*-act`) 뒤 | **unexpected 0** · flaky 4 | 넷 다 §5-5 군집(`bg-kill-touch` TC-BGK-12t · `git-refresh-lifecycle` V-GRF-1 · `repo-diff-edit` E3 · `slot-view-state` TC-SVS-21). 표적: git 스펙 43파일 504건 전부 통과 (V169 포함) |
 
 **2026-09-13 (네 번째 세션, `UX-4`·`UX-2`·`UX-25`·`G7-1`) — 아홉 회차**
 

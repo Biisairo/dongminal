@@ -216,8 +216,9 @@ Object.assign(GitPanel.prototype, {
     box.querySelector('.git-op-at').textContent=(op.total>0)
       ? GIT_OP_AT.replace('%n',String(op.at||0)).replace('%t',String(op.total)) : '';
     const acts=this._opActions(kind);
+    // 숨김의 어휘는 `[hidden]` 이다 (FR-LAY-30) — 옛 `.vis` 규칙은 이름에 매여 있었다.
     for(const b of box.querySelectorAll('.git-op-act'))
-      b.classList.toggle('vis',acts.indexOf(b.dataset.act)>=0);
+      b.hidden=acts.indexOf(b.dataset.act)<0;
   },
 
   // 정책은 한 번만 받아 들고 있는다. 받으면 그때 다시 그린다 — 판정을 그리기에

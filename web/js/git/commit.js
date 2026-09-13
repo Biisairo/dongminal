@@ -50,8 +50,8 @@ class GitCommit {
           '<label class="git-commit-amend"><input type="checkbox"><span></span></label>'+
           '<span class="git-commit-gpg"></span>'+
           '<div class="git-commit-go">'+
-            '<button class="git-commit-btn"></button>'+
-            '<button class="git-commit-more"></button>'+
+            '<button class="ui-btn ui-btn-primary git-commit-btn"></button>'+
+            '<button class="ui-btn ui-btn-primary git-commit-more"></button>'+
             '<div class="git-commit-menu"></div>'+
           '</div>'+
           '<span class="git-commit-spacer"></span>'+

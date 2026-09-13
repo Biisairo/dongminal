@@ -603,7 +603,7 @@ Object.assign(GitPanel.prototype, {
         el.innerHTML='';
         for(const act of acts){
           const b=document.createElement('button');
-          b.className='git-hunk-act'; b.dataset.act=act;
+          b.className='ui-btn ui-btn-lg git-hunk-act'; b.dataset.act=act;
           b.textContent=lines?GIT_HUNK_LINE_LABEL[act]:GIT_HUNK_LABEL[act];
           b.title=GIT_HUNK_TITLE[act];
           b.disabled=!!this._writing;

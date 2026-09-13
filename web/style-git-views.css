@@ -623,14 +623,9 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 .git-wt-rowspacer{flex:0 0 4px}
 /* 행 인라인 동작. 항상 보인다 — .git-file-acts 와 같은 규약 */
 .git-wt-acts{display:flex;gap:2px;flex-shrink:0}
-.git-wt-act{
-  font:inherit;font-size:var(--fs-sm);line-height:1;cursor:pointer;padding:0 6px;
-  display:flex;align-items:center;justify-content:center;
-  background:transparent;color:var(--text-muted);
-  border:1px solid var(--border);border-radius:3px;
-}
-.git-wt-act:hover{color:var(--text-bright);border-color:var(--accent)}
-.git-wt-act[data-act="remove"]:hover{color:var(--danger-text);border-color:var(--danger)}
+/* 행 동작의 외형은 `.ui-btn.ui-btn-sm` 이다 (§7.5). 제거만 hover 에서 위험색을
+   미리 보인다 — 담는 쪽에 건다 (D-TOK-11). */
+.git-wt-acts>[data-act="remove"]:hover{color:var(--danger-text);border-color:var(--danger)}
 /* 머리의 생성 진입점과 안내 닫기. 같은 자리를 쓰는 Stash 탭(.git-stash-new ·
    .git-stash-note-close)과 같은 어휘여야 한다 — 규칙이 없으면 브라우저 기본 베벨로
    떠서 어두운 테마에서 튄다 */
@@ -686,18 +681,10 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 .git-sub-desc{flex-shrink:0;font-size:var(--fs-sm);color:var(--text-hint)}
 .git-sub-rowspacer{flex:0 0 4px}
 .git-sub-acts{display:flex;gap:2px;flex-shrink:0}
-.git-sub-act{
-  font:inherit;font-size:var(--fs-sm);line-height:1;cursor:pointer;padding:0 6px;
-  display:flex;align-items:center;justify-content:center;
-  background:transparent;color:var(--text-muted);
-  border:1px solid var(--border);border-radius:3px;
-}
-.git-sub-act:hover:not(:disabled){color:var(--text-bright);border-color:var(--accent)}
-/* FR-SUB-5: update 는 서브모듈 안의 변경을 덮을 수 있다 — 파괴적인 것은 색으로도
-   갈린다 (행의 `↺` 와 같은 규약) */
-.git-sub-act[data-act="update"]:hover:not(:disabled),
-.git-sub-act[data-act="init"]:hover:not(:disabled){color:var(--danger-text);border-color:var(--danger)}
-.git-sub-act:disabled{color:var(--text-hint);cursor:not-allowed}
+/* 행 동작의 외형은 `.ui-btn.ui-btn-sm` 이다 (§7.5). FR-SUB-5: update 는 서브모듈
+   안의 변경을 덮을 수 있다 — 파괴적인 것은 hover 에서 색으로도 갈린다. */
+.git-sub-acts>[data-act="update"]:hover:not(:disabled),
+.git-sub-acts>[data-act="init"]:hover:not(:disabled){color:var(--danger-text);border-color:var(--danger)}
 .git-sub-bulk{
   font:inherit;font-size:var(--fs-sm);padding:2px 8px;cursor:pointer;
   background:var(--bg);color:var(--text);
@@ -723,8 +710,6 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 .git-view button,.git-dialog button,#git-confirm button,.git-menu-item{
   min-height:var(--git-btn-h);min-width:var(--git-hit);
 }
-/* FR-GIT-226 으로 세 값이 같아졌다 — 행 인라인 동작의 예외가 사라졌다 */
-.git-view .git-file-act{min-height:var(--git-hit);min-width:var(--git-hit)}
 /* 입력도 같은 눈높이여야 옆 버튼과 어긋나 보이지 않는다 */
 /* 체크박스·라디오는 제외한다 — 이 하한을 먹이면 14px 상자가 26px 로 늘어나
    타원이 된다 (실측). 그 둘의 치수는 FR-GIT-206 이 따로 정한다. */
@@ -835,16 +820,9 @@ select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
   /* diff 의 글자 위에 겹쳐 뜨므로 그 위여야 한다. */
   z-index:var(--z-raised);
 }
-.git-hunk-act{
-  font:inherit;font-size:var(--fs-sm);padding:2px 8px;cursor:pointer;flex-shrink:0;
-  min-height:var(--git-row-min);
-  background:var(--bg);color:var(--text);
-  border:1px solid var(--border);border-radius:3px;
-}
-.git-hunk-act:hover:not(:disabled){color:var(--text-bright);border-color:var(--accent)}
-.git-hunk-act:disabled{color:var(--text-hint);cursor:not-allowed}
-/* revert 는 파괴적이다 — 색으로도 그 사실이 보여야 한다 (FR-GIT-89·279) */
-.git-hunk-act[data-act="revert"]{color:var(--attn-text)}
+/* 덩이 동작의 외형은 `.ui-btn.ui-btn-lg`(30px = 옛 `--git-row-min`) 다 (§7.5).
+   revert 는 파괴적이다 — 색으로도 그 사실이 보여야 한다 (FR-GIT-89·279). */
+.git-hunk-bar>[data-act="revert"]{color:var(--attn-text)}
 
 /* 조각 관측의 상태 한 줄 (FR-DHB-4·5). Diff 탭 **머리**에 산다 — 빈 문자열이면
    자리를 갖지 않으므로 아무것도 가리지 않는다. */

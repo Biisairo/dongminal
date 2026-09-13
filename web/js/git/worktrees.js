@@ -89,7 +89,7 @@ class GitWorktrees extends GitListTab {
     const acts=document.createElement('span'); acts.className='git-wt-acts';
     for(const a of this._actsOf(e)){
       const btn=document.createElement('button');
-      btn.className='git-wt-act'; btn.dataset.act=a;
+      btn.className='ui-btn ui-btn-sm git-wt-act'; btn.dataset.act=a;
       btn.textContent=GIT_WT_ACT_LABEL[a]; btn.title=GIT_WT_ACT_TITLE[a];
       btn.addEventListener('click',ev=>{ev.stopPropagation();this._act(a,e)});
       acts.appendChild(btn);

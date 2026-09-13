@@ -857,14 +857,24 @@ e2e 가 셋을 짚는다(`.ed-side-act`). 지우는 것보다 남기는 것이 �
 `.git-dialog-actions>.ui-btn`·`.git-dialog-opts>.ui-btn` 에 (D-TOK-11; 키트의
 `height:26px` 를 `auto` 로 풀어야 `padding:12px` 가 산다).
 
-**남은 것** — git 패널 본체. 병기가 없고 상태(`.active`·`[data-act=abort]`·묶인
-모서리·hover 에만 드러남)가 붙어 있어 한 표면으로 따로 간다:
-
-| 클래스 | 선언 | 병기 | e2e | 예상 처리 |
-|---|---|---|---|---|
-| `.git-remote-btn` · `.git-commit-btn` · `.git-files-mode` | 22 · 12 · 19 | **아니다** | 6 · 2 · 6 | 병기 → ② |
-| `.git-init-btn` | 9 | **아니다** | 1 | 병기 → ② |
-| `.git-file-act` · `.git-op-act` · `.git-wt-act` · `.git-sub-act` · `.git-hunk-act` | 24 · 17 · 16 · 18 · 15 | **아니다** | 8 · 2 · 2 · 1 · 2 | 병기 → ② |
+**git 패널 본체 — 끝났다** (2026-09-13, 같은 세션): `.git-remote-btn` 22 ·
+`.git-commit-btn` 12 · `.git-files-mode` 19 · `.git-init-btn` 9 · `.git-file-act` 24 ·
+`.git-op-act` 17 · `.git-wt-act` 16 · `.git-sub-act` 18 · `.git-hunk-act` 15 → 전부 0.
+이름은 e2e 가 아홉 전부를 짚어 남는다 (②).
+- 치수: 아이콘 버튼(원격·보기 모드·행 동작)은 `ui-btn-icon ui-btn-lg`(30px = 옛
+  `--git-btn-h`/`--git-hit`), 덩이·조작·초기화는 `ui-btn-lg`, 워크트리·서브모듈 행은
+  `ui-btn-sm`. 아이콘은 키트 비율(.68)로 — 옛 .62/.58 파생 규칙은 갔다.
+- 상태는 키트 등급 토글로: 보기 모드의 `.active` 옆에 `_paintMode` 가
+  `ui-btn-primary` 를 붙인다 · 중단(`abort`)은 `ui-btn-danger` · 커밋 한 쌍과
+  초기화는 `primary`. 진행 중 조작 버튼의 보임은 `.vis` 가 아니라 **`[hidden]`**
+  (FR-LAY-30 의 어휘, `git-detect-tier` 한 줄을 그에 맞췄다).
+- hover 에서만 붉어지는 파괴적 동작(폐기·제거·update/init·revert)은 담는 쪽에
+  건다 — `.git-file-acts>[data-act="discard"]` 꼴 (D-TOK-11).
+- 원격·커밋의 **붙은 한 쌍** 모서리는 `.git-head-remote>.ui-btn:nth-child(odd)` ·
+  `.git-commit-go>.ui-btn:first-child` 와 짝(`.git-remote-more`·`.git-commit-more`)의
+  자기 규칙에 남는다 — 이름이 아니라 자리다.
+- `body.mobile .git-remote-btn{min-height:28px}` 는 갔다 — `body.mobile .ui-btn` 의
+  44px 하한이 대신한다.
 
 ### 7.6 탭 — 이번 범위 밖 (§2.8)
 

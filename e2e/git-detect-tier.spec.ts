@@ -116,7 +116,7 @@ test('V-GDT-10 (FR-GDT-18·20): bisect 가 화면에 뜨고 출구가 bisect 다
     await expect(opBar(page)).toBeVisible({ timeout: DETECT_WAIT });
     await expect(opBar(page).locator('.git-op-kind')).toContainText('bisect');
     // 출구는 **그 상태의 명령**이어야 한다 (FR-GDT-20). bisect 는 `reset` 하나다.
-    const acts = opBar(page).locator('.git-op-act.vis');
+    const acts = opBar(page).locator('.git-op-act:not([hidden])');
     await expect(acts).toHaveCount(1, { timeout: 10000 });
     await expect(acts).toHaveAttribute('data-act', 'abort');
   });

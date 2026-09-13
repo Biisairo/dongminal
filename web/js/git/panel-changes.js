@@ -49,7 +49,7 @@ Object.assign(GitPanel.prototype, {
     const path=document.createElement('div'); path.className='git-init-path';
     path.textContent=this.root; path.title=this.root;
     const btn=document.createElement('button');
-    btn.className='git-init-btn'; btn.textContent=GIT_INIT_RUN;
+    btn.className='ui-btn ui-btn-lg ui-btn-primary git-init-btn'; btn.textContent=GIT_INIT_RUN;
     btn.addEventListener('click',()=>this.runInit());
     box.appendChild(msg); box.appendChild(path); box.appendChild(btn);
     // 실패는 그 자리에 남는다 — 알림창은 닫는 순간 사유가 사라진다.
@@ -189,9 +189,9 @@ Object.assign(GitPanel.prototype, {
         '<span class="git-op-kind"></span>'+
         '<span class="git-op-at"></span>'+
         '<span class="git-op-spacer"></span>'+
-        '<button class="git-op-act" data-act="'+GIT_OP_CONTINUE+'"></button>'+
-        '<button class="git-op-act" data-act="'+GIT_OP_SKIP+'"></button>'+
-        '<button class="git-op-act" data-act="'+GIT_OP_ABORT+'"></button>'+
+        '<button class="ui-btn ui-btn-lg git-op-act" data-act="'+GIT_OP_CONTINUE+'" hidden></button>'+
+        '<button class="ui-btn ui-btn-lg git-op-act" data-act="'+GIT_OP_SKIP+'" hidden></button>'+
+        '<button class="ui-btn ui-btn-lg ui-btn-danger git-op-act" data-act="'+GIT_OP_ABORT+'" hidden></button>'+
       '</div>'+
       // FR-GRF-11: 낡음 배너는 **여기 없다.** 뷰 공통으로 옮겼다
       // (`panel-life.js` `_paintStaleIn`) — 이 골격에만 있던 탓에 History·
@@ -219,8 +219,8 @@ Object.assign(GitPanel.prototype, {
       '<div class="git-changes-body">'+
         '<div class="git-files">'+
           '<div class="git-files-bar">'+
-            '<button class="git-files-mode" data-mode="tree"></button>'+
-            '<button class="git-files-mode" data-mode="flat"></button>'+
+            '<button class="ui-btn ui-btn-icon ui-btn-lg git-files-mode" data-mode="tree"></button>'+
+            '<button class="ui-btn ui-btn-icon ui-btn-lg git-files-mode" data-mode="flat"></button>'+
             '<span class="git-files-spacer"></span>'+
           '</div>'+
         '</div>'+
@@ -552,7 +552,7 @@ Object.assign(GitPanel.prototype, {
     for(const c of (own.length?this._actCols(own,GIT_BULK_COLS):[])){
       if(!c.act){acts.appendChild(this._actGap());continue}
       const b=document.createElement('button');
-      b.className='git-file-act'; b.dataset.act=c.act;
+      b.className='ui-btn ui-btn-icon ui-btn-ghost ui-btn-lg git-file-act'; b.dataset.act=c.act;
       b.appendChild(UIKit.icon(GIT_ACT_ICON[c.act]));
       // FR-CMG-9: 폴더 아래에 두 출신이 섞일 수 있다 — 정확한 내역은 확인창이 보인다.
       b.title=(GIT_DIR_ACT_TITLE_GROUP[it.group]||{})[c.act]||
@@ -623,9 +623,9 @@ Object.assign(GitPanel.prototype, {
       if(!c.act){acts.appendChild(this._actGap());continue}
       const a=c.act;
       const b=document.createElement('button');
-      b.className='git-file-act'; b.dataset.act=a;
-      // `ours`·`theirs` 는 어휘이지 아이콘이 아니다 (FR-GLY-8).
-      if(GIT_ACT_ICON[a]) b.appendChild(UIKit.icon(GIT_ACT_ICON[a]));
+      b.className='ui-btn ui-btn-ghost ui-btn-lg git-file-act'; b.dataset.act=a;
+      // `ours`·`theirs` 는 어휘이지 아이콘이 아니다 (FR-GLY-8) — 정사각이 아니다.
+      if(GIT_ACT_ICON[a]){b.classList.add('ui-btn-icon');b.appendChild(UIKit.icon(GIT_ACT_ICON[a]))}
       else{b.classList.add('git-act-word');b.textContent=GIT_ACT_LABEL[a]}
       // ours·theirs 는 진행 중인 조작에 따라 뜻이 뒤집힌다 (FR-GIT-224).
       // FR-CMG-5: 폐기의 뜻은 그 행의 출신이 정한다 — 새 파일의 폐기는 삭제다.
@@ -806,8 +806,12 @@ Object.assign(GitPanel.prototype, {
 
   _paintMode(el){
     const tree=this._treeMode();
-    for(const b of el.querySelectorAll('.git-files-mode'))
-      b.classList.toggle('active',(b.dataset.mode==='tree')===tree);
+    for(const b of el.querySelectorAll('.git-files-mode')){
+      const on=(b.dataset.mode==='tree')===tree;
+      b.classList.toggle('active',on);
+      // 켜진 쪽의 외형은 키트 등급이다 (DESIGN_TOKENS_SRS §7.5)
+      b.classList.toggle('ui-btn-primary',on);
+    }
     el.querySelector('.git-files').classList.toggle('tree',tree);
   },
 
@@ -835,8 +839,8 @@ Object.assign(GitPanel, {
       // 원격 버튼은 기본 동작만 하고 변형은 `▾` 다이얼로그에서 온다
       // (FR-GIT-98·99). 동작은 GitRemote 가 붙인다.
       (remote?'<span class="git-head-remote">'+GIT_REMOTE_KINDS.map(k=>
-        '<button class="git-remote-btn" data-remote="'+k+'" disabled></button>'+
-        '<button class="git-remote-more" data-remote="'+k+'" disabled></button>'
+        '<button class="ui-btn ui-btn-icon ui-btn-lg git-remote-btn" data-remote="'+k+'" disabled></button>'+
+        '<button class="ui-btn ui-btn-lg git-remote-more" data-remote="'+k+'" disabled></button>'
       ).join('')+'</span>':'')+
       '<span class="git-head-spacer"></span>'+
     '</div>';
