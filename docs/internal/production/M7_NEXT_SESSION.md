@@ -294,9 +294,10 @@ cd90223  test(e2e): 새 스펙을 시간표에 넣는다 (a11y-keyboard)
 67793ec  docs(m7): 네 번째 세션의 근거를 맺고 다음 인계를 세운다
 1d96dfb  docs(m7): 인계서에 커밋 해시를 적는다
 e299e58  docs(m7): 인계서에 로드맵의 FUI 여섯을 되살린다
-(이 커밋) feat(ux): 창 닫기를 5초 안에 되돌린다 (UX-2)
-(이 커밋) feat(explorer): 지운 파일의 복구 길을 알린다 (UX-25)
-(이 커밋) docs(m7): ③ 을 맺고 ④ 로 인계한다
+9e2ce7f  feat(ux): 창 닫기를 5초 안에 되돌린다 (UX-2)
+8f24b7b  feat(explorer): 지운 파일의 복구 길을 알린다 (UX-25)
+ebe7f5f  test(e2e): 시간표를 다시 맞춘다 (window-close-undo)
+554c7db  docs(m7): ③ 을 맺고 ④ 로 인계한다
 ```
 
 ---
