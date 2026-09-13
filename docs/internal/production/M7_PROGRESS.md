@@ -5,7 +5,7 @@
 
 ---
 
-## 1. 어디까지 왔나 (2026-09-13, 네 번째 세션 종료)
+## 1. 어디까지 왔나 (2026-09-13, 다섯 번째 세션 종료)
 
 | 무엇 | 상태 |
 |---|---|
@@ -22,7 +22,8 @@
 | `UX-10` 검색 입력 이름 | **완료** — `aria-label`. placeholder 는 이름이 아니다 |
 | `UX-18` 글자 크기 | **완료** — 12종 → 다섯. px 리터럴 378 → **0**. 사상표 SRS §3.3 |
 | `UX-16` z-index (**절반**) | **완료** — 44선언 28값 → 여섯 층 · **43선언**. 사상표 SRS §3.4 |
-| `UX-16` 모달 골격 7벌 | **열려 있다** — 인계서 ② 가 z-index 반쪽만 적었다 (§2c-8) |
+| `UX-16` 모달 골격 7벌 | **완료** — 오버레이 여섯이 `.ui-modal`, 상자 여섯이 `.ui-modal-box` 위에. 키트 값을 다수값으로 (D-TOK-10). 사상표 SRS §3.9 · TC-TOK-21 |
+| `⑤` 과도기 클래스 (+`UX-17`) | **표면 넷 완료** — 상단바·설정 모달·편집기·확인창(+git 다이얼로그)의 옛 클래스 **서른**이 선언 0. 남은 것: git 패널 본체 아홉(§7.5) · 탭 넷(범위 밖). D-5 는 아직 열려 있다 |
 | `UX-14`·`UX-15` 색 리터럴 | **완료** — `:root` 밖 116 → **0**. 116 중 52 는 색이 아니었다(마스크 알파) |
 | `UX-3` 모달 시맨틱·포커스 | **완료** — 계약이 골격이 아니라 함수 하나(`UIKit.dialogOpen`)에 있다 (D-A11Y-7) |
 | `UX-8` 라이브 리전 | **완료** — 리전 0 → 2, 알림 채널 4 → 2 (D-A11Y-9) |
@@ -32,16 +33,14 @@
 | `UX-4` 목록·탭·트리의 역할·키 이동 | **완료** — `listbox/option`·`tablist/tab`·`tree/treeitem`. 키 계약은 함수 하나(`UIKit.roving`), 트리는 `aria-activedescendant` (D-A11Y-10·11·12). `×` 는 포인터 전용 + `Delete` (사용자 결정). `FUI-13` 은 이미 서 있었다 (FR-EXR-51~57) |
 | 게이트 | `check-*` 27 → **30** · **Makefile 과 CI 가 30/30 으로 일치** (`make gates` 는 gofmt·go vet·go build 를 더해 33개를 돌린다) |
 | 단위 테스트 | 99 → **133** |
-| e2e | 1,600 → **1,606 항목 · 152 스펙** · 시간표 1.00배 |
+| e2e | 1,600 → **1,626 항목 · 155 스펙** · 시간표 1.00배 |
 | 전량 e2e | **unexpected 0 을 열 회차 중 다섯에서** — 남은 것은 §5-5 의 두 군집 |
 | M6 잔여 — 샤드 편중 | **닫힘** — 1.51배 → **1.00배**, 벽시계 5.9 → 4.3분 |
 | M6 잔여 — 전량 flaky 0 | **1회 달성** (`UX-3` 회차, 1,607항목) — 3회 연속은 미충족 (§5-5) |
 
-**①·②·③·④ 가 닫혔다.** 남은 것: `UX-16` 나머지(모달 골격 7벌) · `UX-17` · `UX-19` ·
-`UX-22`~`UX-24` · `UX-26`+`FUI-26` · `FUI-08·12·17` · `FUI-22` · `FUI-25` · `FUI-27` ·
-`⑤` 과도기 클래스. 그다음 `UX-16` 나머지(모달 골격 7벌) · `UX-17` ·
-`UX-19` · `UX-22`~`UX-24` · `UX-26`. 그리고 `④` axe 스모크(`G7-1`) · `⑤` 과도기
-클래스.
+**①·②·③·④·`UX-16` 이 닫혔고 `⑤` 는 표면 넷이 닫혔다** (§2j). 남은 것: `⑤` 의
+git 패널 본체(§7.5 아홉) · `UX-19` · `UX-22`~`UX-24` · `UX-26`+`FUI-26` ·
+`FUI-08·12·17` · `FUI-22` · `FUI-25` · `FUI-27` · M7 종료 판정.
 
 **이 세션이 스펙을 세 번 정정했다.** FR-TOK-7 의 구분선 요구가 자기 바닥을 못
 넘었고(§2c-5), 인계서의 "게이트가 지킨다" 가 사실이 아니었고(§2c-6),
@@ -681,6 +680,83 @@ SRS 에 적었다.
 
 ---
 
+## 2j. 다섯 번째 세션 (2026-09-13) — `UX-16` 나머지 절반 (모달 골격 7벌)
+
+### 2j-1. 잔여표를 채우니 "열한 종" 이 서른 남짓이었다
+
+`DESIGN_TOKENS_SRS` §7 은 넷째 세션까지 비어 있었다. 채우려고 실측하니
+(`/tmp/cssdecl.mjs` — 이름이 든 선택자의 본문 선언을 센다) `UI_KIT_SRS` §2.1 의
+열한 종 밖에도 **병기는 됐는데 자기 외형을 그대로 든** 클래스가 많았다 —
+`.modal-close` 17 · `.drawer-close` 17 · `.fe-find-*` 16×3 · `.gc-go/-cancel` 14×2 ·
+`.git-dialog-go/-cancel/-opt` 15·15·16. 키트가 그리고 옛 규칙이 다시 덮는다. 그리고
+`.tbtn` 은 키트 **없이** 쓰이는 자리가 아홉이었다 (`term-pane`·`app-statusbar`·
+`runs-panel`). §7 을 표면 다섯으로 나눠 채웠고 탭 넷은 범위 밖 행으로 남겼다.
+
+### 2j-2. 오버레이 여섯이 같은 8선언을 들고 있었고 키트가 소수였다
+
+`#modal-overlay`·`.confirm-overlay`·`.bg-modal`·`.runs-modal`·`.gc-modal`·
+`.git-dialog` 의 본문은 **글자 그대로 같다** (`position:fixed;inset:0;z-index;
+background:var(--backdrop);backdrop-filter:blur(2px);display:flex;…`). `.ui-modal` 만
+blur 가 없었다. 상자도 여섯이 `--bg`·8px 인데 `.ui-modal-box` 는 `--sidebar-bg`·6px —
+**키트가 소수**였다. 사용자 결정: 키트를 다수값으로 고친다 (D-TOK-10). 옛 여섯의
+화면은 그대로이고 키트 모달 셋(open-url·ACL·편집 충돌)만 바뀐다.
+
+구현은 병기(D-5)와 삭제다: 오버레이 여섯에 `ui-modal`, 상자 여섯에 `ui-modal-box`
+를 함께 붙이고, 오버레이 규칙 여섯을 **지웠다** (`#modal-overlay` 의
+`display:none`/`.open` 만 상태로 남는다, FR-TOK-36 ③). 상자에는 치수와 뜻만 남았다
+(`.gc-box{border-color:var(--danger)}` · `#modal{width;height;overflow}`). `#modal` 의
+`max-width:94vw` 는 키트의 90vw 가 FR-UIK-14 의 "좁은 화면에서 뷰포트를 따른다" 를
+좁히지 않게 두는 한 줄이다.
+
+### 2j-3. RED 는 이름이 아니라 계산값을 본다
+
+`TC-TOK-21`(`a11y-dialog.spec.ts`)은 일곱을 전부 열고 ① `ui-modal`/`ui-modal-box`
+클래스 ② 오버레이의 계산된 배경 = `--backdrop` ③ `blur(2px)` ④ 상자 반경 8px ·
+배경 = `--bg` 를 단정한다. 이름만 보면 클래스를 붙이고 옛 규칙을 둔 채 통과한다 —
+옛 규칙이 키트를 다시 덮는 것이 정확히 §7 이 세는 결함이므로 계산값이 필요했다.
+착수 시 17건으로 빨갰다 (설정의 반경 10px · 키트의 6px·`--sidebar-bg`·blur 없음 ·
+여섯의 클래스 없음). 구현 뒤 0.
+
+`UIKit` 은 클래식 스크립트의 최상위 `const` 라 `window.UIKit` 이 없다 — e2e 는
+`new Function('return UIKit')()` 로 전역 렉시컬 스코프에서 읽는다. 확인창은
+`app._notify` 가 아니라 계약 이름 `app.testing.confirmClose` 로 연다 —
+`check-e2e-internals` 게이트가 첫 판을 잡았다.
+
+### 2j-4. `⑤` 는 표면 넷을 닫았다 — 기준선이 이름을 붙잡는다
+
+`DESIGN_TOKENS_SRS` §7 의 표면 다섯 중 상단바·설정 모달·편집기·확인창(+git
+다이얼로그)을 닫았다 — 옛 클래스 **서른** 이 선언 0 이 됐다 (자는
+`scripts/count-css-class-decls.mjs`). 남은 것은 git 패널 본체(`.git-remote-btn` 등
+아홉, 병기 없음 + 상태 규칙)와 탭 넷(범위 밖).
+
+**FR-TOK-36 의 ①/② 를 가른 것은 e2e 가 아니라 기준선 JSON 이었다.**
+`e2e/baseline/ui-layout.json` 이 클래스 목록을 키로 쓰고, 그 스펙은 "양쪽에 있는
+키만 대조한다" 라서 이름을 떼거나 더하면 그 행이 **조용히 대조에서 빠진다** —
+빨개지지 않는다. 그래서 (a) 이름은 대체로 남기고(②), (b) 병기로 키가 바뀐 마흔
+행은 손으로 옮겨 적었다 (`UI_LAYOUT_DEFAULTS_SRS` §9). 기준선 전체를 다시 뜨는
+것은 FR-LAY-51 이 금한다.
+
+**이름을 키로 쓰던 배치 규칙은 옮겼다** (D-TOK-11). `.slot-ctl .tbtn{min-width}`
+→ `ui-btn-sm` · `body.mobile .mtbtn{44px}` → 이미 있던 `body.mobile .ui-btn` 하한 ·
+`.drawer-close{position:absolute…}` → `#drawer-close` · `.fe-dd-peek-close{margin-left:
+auto}` → `.fe-dd-peek-bar>.ui-btn-icon`. 옮기고 나면 옛 이름의 규칙은 문자 그대로
+0 이다.
+
+**역할 색은 이름이 아니라 뜻이 고른다.** `.confirm-ok` 가 어디서나 붉었다 — 오류
+알림의 `확인` 과 런타임의 `실행` 까지. 등급을 뜻으로 다시 붙였고(§7.3), 첫 판에서
+백그라운드를 기본 등급으로 뒀다가 TC-BGU-2(세 역할의 글자색 구분)가 취소와 겹쳤다고
+빨개져 `primary` 로 고쳤다 — 종전 색과 같다.
+
+### 2j-5. 옛 다섯에는 접근성 계약이 없다 — 넓히지 않았다
+
+골격을 모으다 보니 `.confirm-overlay`·`.bg-modal`·`.runs-modal`·`.gc-modal`·
+`.git-dialog` 는 `UIKit.dialogOpen` 을 부르지 않는다(트랩·복귀 없음). D-A11Y-7 이
+"나중에 골격을 모을 때 그 함수는 그대로 쓰인다" 고 적어 뒀지만 이 묶음은 CSS·DOM
+의 일이다 — 섞으면 전량이 빨개졌을 때 어느 쪽의 회귀인지 말할 수 없다. FR-TOK-45
+로 비목표에 적고 "열려 있는 것" 으로 넘긴다.
+
+---
+
 ## 3. 탐침 기록 (FR-TOK-33 · FR-A11Y-25)
 
 | 탐침 | 결과 |
@@ -734,6 +810,16 @@ SRS 에 적었다.
 ---
 
 ## 4. 전량 e2e 기록
+
+**2026-09-13 (다섯째 세션, `UX-16` 나머지·`⑤`)**
+
+| 회차 | 결과 | 무엇이었나 |
+|---|---|---|
+| ① 모달 골격 수렴 뒤 | unexpected 1 · flaky 6 | `git-worktrees` V169 — 넷 세션째 같은 이름. **단독 반복 3회 중 2회 실패, 그리고 `git stash` 로 되돌린 HEAD 에서도 2/2 실패** — 이 변경의 것이 아니다 (핀 토글이며 모달을 열지 않는다). flaky 여섯은 전부 §5-5 군집(`git-observe-revive` ×2 · `git-live-triggers` · `repo-tab` X4 · `slot-view-state` ×2). 1,626항목 · 155스펙. 시간표를 이 회차로 맞췄다 (1.00배) |
+| ② 상단바(`.tbtn`·`.mtbtn`) 뒤 | **unexpected 0** · flaky 2 | TC-SVS-40 · V169 — 둘 다 §5-5 군집. 표적 191건(레이아웃 기준선·터치·bg·runs·아이콘 비율·슬롯)은 전부 통과 |
+| ③ 설정 모달(`.modal-close`·`.preset-*`·`.ds-toggle`·`.sbx-del`·`.sc-rst`·`.drawer-close`) 뒤 | unexpected 1 · flaky 4 | V169 (①과 같다 — HEAD 에서도 죽는다) · flaky 넷은 §5-5 군집(`repo-diff-edit` E1 · `git-history` H22 · `slot-view-state` TC-SVS-21 · `git-observe-revive` TC-GOR-1). 표적 94건 통과 |
+| ④ 편집기·탐색기(`.fe-find-*`·`.fe-offer-*`·`.fe-dd-peek-*`·`.ed-side-act`·`.ed-head-btn`) 뒤 | unexpected 1 · flaky 2 | `slot-view-state` TC-SVS-5 — §5-5 의 칸별 상태 군집. **단독 반복 3회(TC-SVS-4·5, 48항목) 전부 통과.** flaky 둘(TC-SVS-4 · `editor-save` TC-ESV-3)은 넷째 세션 명단의 이름. 표적 236건 통과 |
+| ⑤ 확인창·토스트·git 다이얼로그(`.confirm-*`·`.git-undo-btn`·`.gc-*`·`.git-dialog-*`) 뒤 | unexpected 1 · flaky 3 | V169 (①과 같다) · flaky 셋은 TC-ESV-3 · TC-GOR-1(군집) · `sidebar-collapse` SBC7 — 새 이름, **단독 3회 반복 통과.** 표적 200건 통과. 첫 판의 TC-BGU-2 는 표적에서 잡아 고쳤다 (§2j-4) |
 
 **2026-09-13 (네 번째 세션, `UX-4`·`UX-2`·`UX-25`·`G7-1`) — 아홉 회차**
 
