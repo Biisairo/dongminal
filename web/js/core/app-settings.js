@@ -225,6 +225,35 @@ Object.assign(App.prototype, {
     });
   },
 
+  /**
+   * ACCESSIBILITY_BASELINE_SRS FR-A11Y-13 (`G7-1` 첫 판): 설정 컨트롤의 **이름을
+   * 구조에서 파생**한다.
+   *
+   * 첫 판이 올린 것: `<input>` 18개 중 17개·`<select>` 6개에 이름이 없고
+   * `label[for]` 는 0개였다 — 이름이 없는 게 아니라 **연결 기제가 없었다.** 관용구는
+   * 한결같다: `.ds-row`/`.sbs-row` 의 첫 자식 `<span>` 이 이름이고 그 뒤에 컨트롤
+   * 하나가 선다. 그러므로 손으로 스물셋을 적지 않고 그 구조에서 `aria-labelledby`
+   * 를 세운다 — 행을 더하는 사람이 아무것도 기억하지 않아도 된다 (`.mtab` 의
+   * tablist 와 같은 규약). 컨트롤이 둘 이상인 행은 건드리지 않는다 — 어느 것의
+   * 이름인지 구조가 말하지 않는다.
+   *
+   * 열 때마다 돈다 — 상태바·주기 행은 다시 그려질 수 있다. 멱등이다.
+   */
+  _labelSettingsRows(){
+    const modal=document.getElementById('modal'); if(!modal) return;
+    let n=0;
+    for(const row of modal.querySelectorAll('.ds-row,.sbs-row')){
+      const lab=row.firstElementChild;
+      if(!lab||lab.tagName!=='SPAN'||lab.className||!(lab.textContent||'').trim()) continue;
+      const ctls=row.querySelectorAll('input:not([type=hidden]),select,textarea,[role=switch]');
+      if(ctls.length!==1) continue;
+      const c=ctls[0];
+      if(c.hasAttribute('aria-label')||c.hasAttribute('aria-labelledby')) continue;
+      if(!lab.id) lab.id='ds-lbl-'+(c.id||String(++n));
+      c.setAttribute('aria-labelledby',lab.id);
+    }
+  },
+
   initModal(){
     const overlay=document.getElementById('modal-overlay');
     const modal=document.getElementById('modal');
@@ -283,6 +312,7 @@ Object.assign(App.prototype, {
       this._slotDirPaint();
       const scBlock=document.getElementById('sc-blockbrowser');
       if(scBlock) scBlock.checked=blockBrowserKeys;
+      this._labelSettingsRows();
       // FR-LVC-3: 열 때마다 현재 값을 다시 칠한다 — 다른 화면에서 바뀐 값이
       // 이 모달에 옛 상태로 남아 있으면 사용자가 그것을 켜진 줄로 읽는다.
       const dsLeave=document.getElementById('ds-confirmleave');

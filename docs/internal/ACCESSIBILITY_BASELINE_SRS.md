@@ -460,11 +460,11 @@ axe 가 판정할 수 없고 사람이 매번 볼 수도 없는 것을 e2e 단�
 
 | ID | 무엇 | 방법 |
 |---|---|---|
-| TC-A11Y-1 | axe 스모크 첫 화면 위반 0 | e2e, `wcag2a/2aa/21a/21aa` |
-| TC-A11Y-2 | axe 스모크 설정 모달 (탭 전부, 파생 목록) 위반 0 | e2e |
-| TC-A11Y-3 | axe 스모크 git 확인창 위반 0 | e2e |
-| TC-A11Y-4 | 탐침 — 일부러 `aria-label` 없는 아이콘 버튼을 넣으면 TC-A11Y-1 이 **빨개진다** | 수동 1회 + 기록 (FR-A11Y-25) |
-| TC-A11Y-5 | 탐침 — 벤더 `exclude` 를 지우면 xterm/Monaco 위반이 **올라온다** (제외가 실제로 듣고 있음) | 수동 1회 + 기록 |
+| TC-A11Y-1 | axe 스모크 첫 화면 위반 0. **구현 2026-09-13** (`e2e/a11y-axe.spec.ts`, `@axe-core/playwright@4.13`). 첫 판이 올린 것: 사이드바 탭 둘의 `aria-required-parent`(`#sb-tabs` 에 `tablist` 가 없었다) · `color-contrast` 둘 — **둘 다 글자에 걸린 `opacity`** 였다(`.slot-ctl-label` .6 → 3.84 · `#add-sandbox-window` .75 → 3.27). 계산 게이트는 토큰만 보므로 못 잡는 부류다 — 흐림은 색(`--text-hint`)으로 말하게 고쳤다 | e2e, `wcag2a/2aa/21a/21aa` |
+| TC-A11Y-2 | axe 스모크 설정 모달 (탭 전부, 파생 목록) 위반 0. **구현 2026-09-13**. 첫 판: `label` 20 · `select-name` 6 — 이름이 없는 게 아니라 **연결 기제가 없었다**(`label[for]` 0). `.ds-row`/`.sbs-row` 의 구조(첫 `<span>` + 컨트롤 하나)에서 `aria-labelledby` 를 **파생**한다 (`_labelSettingsRows`, 열 때마다·멱등). `#theme-list` 의 `scrollable-region-focusable` 은 그 목록이 **키보드로 고를 수 없던** 사실이었다 — `listbox/option` + `UIKit.roving` (D-A11Y-11 의 세 번째 적용). 테마 미리보기의 `color-contrast` 7 은 두 부류: UI 글자가 **팔레트 원시값**으로 그려져 파생 전의 흐림을 보였다(→ `deriveContrastTokens` 로 화면과 같은 값) · ANSI 16색 표본이 글자였다(`● Bk` 검정 위 검정 1.05 → 칠 견본 `.pv-sw`) | e2e |
+| TC-A11Y-3 | axe 스모크 git 확인창 위반 0. **구현 2026-09-13** — `GitConfirm` 자신은 첫 판부터 위반 0 이었다 (사이드바 탭 둘은 배경의 것) | e2e |
+| TC-A11Y-4 | 탐침 — 일부러 `aria-label` 없는 아이콘 버튼을 넣으면 TC-A11Y-1 이 **빨개진다**. **실측 2026-09-13**: `button-name (critical) ×1 — #probe-noname` 으로 빨강 | 수동 1회 + 기록 (FR-A11Y-25) |
+| TC-A11Y-5 | 탐침 — 벤더 `exclude` 를 지우면 xterm/Monaco 위반이 **올라온다** (제외가 실제로 듣고 있음). **실측 2026-09-13: 올라오지 않았다.** 첫 화면의 xterm 은 제외 없이도 위반 0 이다 — 지금의 벤더 표면은 깨끗하고, 제외는 **벤더 갱신에 대한 보험**이지 오늘의 위반을 가리는 것이 아니다. 이 사실을 여기 적는다: 탐침이 초록이면 그 검사는 아무것도 재지 않는다는 규약(배운 것 25)대로, 제외 셋이 지금 재는 것은 없다. Monaco 는 세 표면에 없다 | 수동 1회 + 기록 |
 | TC-A11Y-6 | `Tab` 만으로 창 목록 → 분할 칸 탭 → 탐색기 행 도달, `Enter`/`Space` 활성화. **구현 2026-09-13** (`e2e/a11y-keyboard.spec.ts`, 셋으로 갈랐다): **6a** 창 목록 — `Tab` 이 `[role=option]` 에 닿고, `ArrowDown` 이 **포커스만** 옮기며(활성 창 불변), `Enter` 가 그 창을 활성화하고 **포커스를 터미널에 넘긴다**(D-A11Y-12), `Delete` 가 `×` 와 같은 일을 한다 · **6b** 분할 칸 탭 — `[role=tablist] > [role=tab]`, `aria-selected` 가 `.active` 와 같은 것을 말하고, `ArrowRight`+`Enter` 로 전환, `Delete` 로 닫힘 · **6c** 탐색기 — `Tab` 이 `[role=tree]` 에 닿고 `ArrowDown` 뒤 `aria-activedescendant` 가 `[role=treeitem][aria-selected=true]` 를 가리키며 폴더의 `aria-expanded` 가 `ArrowRight` 를 따른다. 그리고 **6d** 화살표로 옮긴 포커스가 `render()` 를 **살아남는다** — 재포커스가 키보드 포커스를 빼앗지 않는다(D-A11Y-12) | e2e |
 | TC-A11Y-7 | 단축키 없이 파일 열기 성공. **구현 2026-09-13**: `document.body` 에서 출발해 **`Tab`·화살표·`Enter` 만으로** Repo 탭 → 루트 행 → Explorer 사이드 탭 → 트리 → 파일 행 → 편집기 탭이 열린다. `Cmd+P`·`app.*` 호출 없음. 도달 판정은 "N 번 안에 닿는가" 다 — 순서를 손으로 적으면 컨트롤이 하나 늘 때 깨진다 | e2e |
 | TC-A11Y-8 | 모달 포커스 트랩 + 닫을 때 `#settings-btn` 복귀. **구현 2026-09-13** (`e2e/a11y-dialog.spec.ts`, 넷으로 갈랐다): **8a** `role=dialog`·`aria-modal`·`aria-labelledby` 와 **그것이 가리키는 요소에 글자가 있는가**(빈 요소를 가리키면 이름은 여전히 없고 axe 도 못 잡는다) · **8b** `.modal-tabs` 가 tablist 이고 `aria-selected` 가 `.active` 와 **같은 것을 말하는가** · **8c** `Tab` **60번**과 `Shift+Tab` 20번에 한 번도 벗어나지 않는가(몇 번으로는 경계에 닿지 못한다 — 닿지 않은 검사는 트랩을 재지 않는다) · **8d** Escape 와 **닫기 버튼** 둘 다에서 복귀하는가 | e2e |
@@ -537,6 +537,7 @@ axe 가 판정할 수 없고 사람이 매번 볼 수도 없는 것을 e2e 단�
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-13 | `G7-1` — axe 스모크 구현 (TC-A11Y-1~5 실측 기록). 예외 등록부는 **늘지 않았다** — 첫 판의 위반 전부가 고칠 수 있는 결함이었다. `exclude` 는 §6 의 "전부" 행에서 파생한다 (`a11y-axe.spec.ts`, FR-A11Y-23) |
 | 2026-09-13 | `UX-4` — D-A11Y-10·11·12 추가, FR-A11Y-16 에 `Delete` 경로 명시, TC-A11Y-6·7 구현 기록. `×` 를 `UIKit.button` 으로 바꾸지 않은 근거(`nested-interactive`)를 적었다 (사용자 결정) |
 | 2026-09-13 | §3.4a 추가 — 터치 타겟 44px (`UX-7`). **AA 요건이 아님을 명시**하고 자체 하한으로 세운 근거를 적었다. 대상은 손으로 적지 않고 DOM 에서 파생한다 (실측 17종 > 인계서의 표본 6종). 모바일 키바와 탭의 닫기는 세로만 받는다 (E-3·E-4) |
 | 2026-09-12 | 초안. 사용자 결정 2 = (a) WCAG 2.1 AA 전면. §2.5 에서 **로드맵의 대비 전제가 1개 테마 표본이었음**을 실측으로 정정 (54종 · `--text-dim` 0/54 · `--text-muted` 10/54) |

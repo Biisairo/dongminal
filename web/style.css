@@ -316,9 +316,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   position:absolute;right:5px;top:50%;transform:translateY(-50%);
   display:inline-flex;align-items:center;gap:var(--ui-gap);
   padding:1px 5px;border:1px solid var(--border);border-radius:3px;
-  font-size:var(--fs-sm);line-height:14px;color:var(--text-hint);opacity:.75;
+  font-size:var(--fs-sm);line-height:14px;color:var(--text-hint);
 }
-#add-window:hover #add-sandbox-window{opacity:1}
 #add-sandbox-window:hover{color:var(--accent-text);border-color:var(--accent);background:var(--accent-hover)}
 /* UX_REVISION_SRS FR-BLP-5·9: 패널의 액션 버튼 행. 두 패널이 같은 골격을 쓰므로
    여백도 한 자리에서 정한다 — 한쪽만 고치면 "구조가 같다" 가 깨진다. */
@@ -524,7 +523,10 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
 .slot-ctl{display:inline-flex;align-items:center;gap:var(--ui-gap);margin:0 2px}
 .slot-ctl .tbtn{min-width:22px;padding:2px 6px}
 .slot-ctl .tbtn:disabled{opacity:.35;cursor:default}
-.slot-ctl-label{font-size:var(--fs-sm);opacity:.6;user-select:none}
+/* `G7-1` 첫 판: 글자에 `opacity` 를 걸면 토큰이 바닥을 넘어도 화면은 넘지 못한다
+   (실측 `.slot-ctl-label` 3.84 · `#add-sandbox-window` 3.27 — 계산 게이트는
+   토큰만 보므로 못 잡는다). 흐림은 색으로 말한다 — 파생 토큰은 바닥을 받는다. */
+.slot-ctl-label{font-size:var(--fs-sm);color:var(--text-hint);user-select:none}
 /* FR-WSL-81: 설정의 두 칸짜리 세그먼트 토글. */
 .sp[data-d="horizontal"]{flex-direction:row}
 .sp[data-d="vertical"]{flex-direction:column}
@@ -845,6 +847,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .pv-tabs{display:flex;height:18px;gap:0}
 .pv-tab{font-size:var(--pv-fs-sm);padding:2px 8px;display:flex;align-items:center;white-space:nowrap}
 .pv-term{flex:1;padding:6px 8px;font-family:monospace;font-size:var(--pv-fs-md);line-height:1.6}
+.pv-sw{display:inline-block;width:14px;height:8px;border-radius:2px;vertical-align:middle}
 .pv-status{height:14px;display:flex;align-items:center;padding:0 6px;font-size:var(--pv-fs-xs);border-top:1px solid inherit}
 
 /* ── Custom editor ── */
@@ -1352,6 +1355,9 @@ body.mobile #topbar{height:var(--touch-min);min-height:var(--touch-min)}
 body.mobile .mtab{min-height:var(--touch-min)}
 body.mobile .mtbtn{width:var(--touch-min);height:var(--touch-min)}
 body.mobile .sbl-item{height:var(--touch-min);font-size:var(--fs-lg)}
+/* `G7-1`: 테마 행이 `option` 이 되자 파생 검사(TC-A11Y-13b)가 30px 를 잡았다 —
+   역할이 없던 동안 보이지 않던 하한 미달이다. 목록 행의 하한과 같다. */
+body.mobile .tl-item{min-height:var(--touch-min)}
 body.mobile .sbl-x{opacity:1;width:var(--touch-min);height:var(--touch-min);font-size:var(--fs-lg)}
 /* 탭 줄은 `align-items:stretch` 라 줄을 열면 탭과 `+` 가 함께 큰다. */
 /* `+1px` 은 아래 테두리다 — `box-sizing:border-box` 라 테두리가 높이 안에서

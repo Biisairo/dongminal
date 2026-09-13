@@ -334,6 +334,9 @@ const SidebarTabs={
    */
   paint(app){
     const bar=document.getElementById('sb-tabs'); if(!bar) return;
+    // ACCESSIBILITY_BASELINE_SRS FR-A11Y-12 (`G7-1` 첫 판): `tab` 은 `tablist` 안에
+    // 있어야 한다 — axe `aria-required-parent` 가 사이드바 탭 둘을 올렸다.
+    bar.setAttribute('role','tablist');
     if(!bar.childElementCount) for(const d of SB_TAB_DEFS) bar.appendChild(this.build(app,d));
     // 보관된 탭이 지금 보이지 않으면 첫 탭으로 떨어진다 (FR-SBT-8).
     const vis=this.visible(app);
