@@ -23,7 +23,7 @@
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| POST | `/api/tools?cols=&rows=&cwd=&cwdTool=` | 새 PTY 생성. `cwd` 또는 `cwdTool`(참조 도구 id) 중 하나로 시작 디렉터리 지정 |
+| POST | `/api/tools?cols=&rows=&cwd=&cwdTool=` | 새 PTY 생성. `cwd` 또는 `cwdTool`(참조 도구 id) 중 하나로 시작 디렉터리 지정. 명시한 `cwd` 가 디렉터리가 아니면 **400** `tool_cwd_missing` — 홈으로 조용히 떨어지지 않는다 (샌드박스 창은 배치기가 판정) |
 | DELETE | `/api/tools/<id>` | PTY 종료 |
 | GET | `/api/tools/<id>/busy` | `{ busy: bool }` — foreground process 여부 |
 | GET | `/api/cwd?tool=<id>` | 해당 도구의 현재 작업 디렉터리. 응답 `{cwd, source}` — `source` 는 `tool`(도구의 것) 또는 `server`(폴백한 서버 프로세스 cwd). `tool` 생략·미상이면 폴백한다 |
@@ -37,7 +37,7 @@
 |--------|------|------|
 | GET | `/api/tools/output?id=&bytes=&strip=` | 도구의 스크롤백. `strip=1` 이면 ANSI 제거. `bytes<=0`/생략이면 전체 (기본값 판단은 `dmctl` 몫). `{ toolId, text, dropped }` |
 | POST | `/api/tools/input` | `{ id, text, execute }` — bracketed paste 로 주입, `execute` 면 자동 엔터 |
-| POST | `/api/tools/message` | `{ to, from, message }` — 신뢰 봉투로 감싸 주입 + 자동 엔터. `from` 이 비면 `unknown`. 봉투 헤더와 응답의 `from`/`to` 는 **uuid** 뿐 |
+| POST | `/api/tools/message` | `{ to, from, message }` — 신뢰 봉투로 감싸 주입 + 자동 엔터. `from` 이 비면 `unknown`. 봉투 헤더와 응답의 `from`/`to` 는 **uuid** 뿐. 본문 안의 `[DONGMINAL-AGENT-MSG` · `[/DONGMINAL-AGENT-MSG` 는 `[\DONGMINAL-AGENT-MSG` · `[\/DONGMINAL-AGENT-MSG` 로 **인용**된다 — 정확한 헤더는 서버가 만든 것 하나뿐이다 |
 
 `id`/`to`/`from` 은 tab uuid·`toolId` 만 받는다. `W?.P?.T?` 좌표 라벨은 400, 대상이
 없으면 404 `{ "error": … }`.
@@ -234,7 +234,7 @@
 | POST | `/api/runs/handoff` | 팀원 자리를 넘긴다 |
 | POST | `/api/runs/report` | 팀원이 자기 몫의 결과를 보고한다 |
 | POST | `/api/runs/succeed` | Run 을 성공으로 닫는다 |
-| POST | `/api/runs/close` | Run 을 닫는다 |
+| POST | `/api/runs/close` | Run 을 닫는다. 응답의 `closedTabs[].closed` 는 **방송 결과**다 — 구독 중인 브라우저가 없으면 `false`(`delivered:0`)이고 그 탭의 Run 표식은 지워진다 |
 
 ### Git — 저장소·상태
 

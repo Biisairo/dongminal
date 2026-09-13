@@ -43,8 +43,8 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl read-output [--at <uuid>] [--bytes N]   # raw 바이트, ANSI 포함 (기본 8192)
   dmctl send-input --at <uuid> [--execute] <텍스트>   # 쉘 대상. - 또는 생략 시 stdin
   dmctl msg --to <uuid> [--from <uuid>] <메시지>      # 에이전트 대상 (신뢰 엔벨로프)
-  dmctl status [--at <uuid>] [--json]                 # 그 도구의 에이전트 상태
-  dmctl wait [--at <uuid>] --for ready|done [--timeout-ms N]  # 상태 대기 (서버 long-poll)
+  dmctl status [--at <uuid> | --member <uuid>] [--json]      # 그 도구의 에이전트 상태
+  dmctl wait [--at <uuid> | --member <uuid>] --for ready|done [--timeout-ms N]  # 상태 대기 (서버 long-poll)
 
 오케스트레이션 실행 기록 — 누가 어느 Run 의 팀원인가:
   dmctl run start --objective <목적> [--projection <p>] [--isolation <i>]
@@ -52,6 +52,10 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl run launch --member <uuid> [--model <m>]   # 기동줄(프리앰블 포함)을 낸다
   dmctl run report --outcome succeeded|failed --summary <3문장>
   dmctl run status [--run <uuid>] / dmctl run list / dmctl run close --run <uuid>
+  dmctl run delete --run <uuid> / dmctl run graph --run <uuid>
+
+  레이아웃 명령은 구독 중인 브라우저가 없으면(delivered=0) exit 1 이다 — 아무것도
+  만들어지지 않았다. 생성 명령이 결과를 받지 못해도(timedOut) exit 1 이다.
 
   여러 에이전트를 팀으로 묶는 절차는 /dongminal:team 스킬에 있다.
   각 서브커맨드의 상세는 dmctl <서브커맨드> --help 로 본다.
@@ -433,7 +437,41 @@ func dmctlPost(action string, args map[string]any, stdout, stderr io.Writer) int
 	url := baseURL() + "/api/commands"
 	body := map[string]any{"action": action, "args": args}
 	status, resp, err := httpPostJSON(url, body)
-	return dmctlHTTPResult("dmctl", status, resp, err, true, stdout, stderr)
+	if code := dmctlHTTPResult("dmctl", status, resp, err, true, stdout, stderr); code != 0 {
+		return code
+	}
+	return dmctlDelivery(resp, stderr)
+}
+
+// dmctlDelivery 는 `/api/commands` 응답의 **배달 사실**을 종료 코드로 옮긴다
+// (M8_UNIFIED_SRS D-A-2, 10-func-backend FBE-02).
+//
+//	이전 동작: HTTP 200 이면 exit 0 — 브라우저가 없어도(`delivered:0`), 생성 명령이
+//	          아무것도 만들지 못했어도(`timedOut:true`)
+//	새  동작: `delivered==0` 이면 exit 1, 생성 명령이 `timedOut` 이면 exit 1. 본문은
+//	          그대로 stdout 에 남는다
+//	이유:     헬프의 팀 구성 절차(`new-tab` → `run member --at <새 uuid>`)가 exit 0 을
+//	          "만들어졌다" 로 읽는다. 같은 종단의 `detach` 는 이미 이렇게 판정한다
+//
+// 판정은 필드가 **있을 때만**이다 — 그 필드를 모르는 응답을 0 으로 읽어 실패로
+// 만들지 않는다. 모른다와 없다는 다르다.
+func dmctlDelivery(resp []byte, stderr io.Writer) int {
+	var got struct {
+		Delivered *int  `json:"delivered"`
+		TimedOut  *bool `json:"timedOut"`
+	}
+	if json.Unmarshal(resp, &got) != nil || got.Delivered == nil {
+		return 0
+	}
+	if *got.Delivered == 0 {
+		fmt.Fprintln(stderr, "dmctl: 구독 중인 브라우저가 없습니다 — 페이지를 새로고침하세요")
+		return 1
+	}
+	if got.TimedOut != nil && *got.TimedOut {
+		fmt.Fprintln(stderr, "dmctl: 브라우저가 결과를 답하지 않았습니다 — 만들어지지 않았을 수 있습니다. list-workspace 로 확인하세요")
+		return 1
+	}
+	return 0
 }
 
 func dmctlSend(args []string, stdout, stderr io.Writer) int {
@@ -452,5 +490,8 @@ func dmctlSend(args []string, stdout, stderr io.Writer) int {
 	url := baseURL() + "/api/commands"
 	body := map[string]any{"action": action, "args": rawArgs}
 	status, resp, err := httpPostJSON(url, body)
-	return dmctlHTTPResult("dmctl", status, resp, err, true, stdout, stderr)
+	if code := dmctlHTTPResult("dmctl", status, resp, err, true, stdout, stderr); code != 0 {
+		return code
+	}
+	return dmctlDelivery(resp, stderr)
 }

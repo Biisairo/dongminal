@@ -11,18 +11,18 @@ import "encoding/json"
 //   - 준비완료를 훅으로 알 수 없다 (Readiness.Hooks=false). 갓 띄운 codex 는
 //     활동 상태가 unknown 이고, FR-STA-4 3단계(출력 3초 정적)로 판정된다
 //
-// 아래 값 중 **확인된 것은 정책 주입뿐이다** — internal/shared/runtime 의 셸 래퍼가
-// 실제로 `-c notify=[...]` 로 띄우고 있다. 모델 플래그·종료 지시·프롬프트를
-// 위치 인자로 받는지는 이 환경에서 확인하지 못했으므로 비우거나 보수적인 쪽을
-// 택했다. 추측한 플래그는 없는 것보다 나쁘다 — 기동 자체를 깨뜨린다.
+// 정책 주입은 internal/shared/runtime 의 셸 래퍼가 실제로 `-c notify=[...]` 로 띄우는
+// 것으로 확인됐다. 모델 플래그와 위치 인자 프롬프트는 **codex 0.154.0 `--help` 실측**
+// 이다 (M8_UNIFIED_SRS D-A-4, 2026-09-14): `codex [OPTIONS] [PROMPT]` ·
+// `-m, --model <MODEL>`. 종전(P0)에는 둘을 확인하지 못해 비우고 보수적인 쪽
+// (`PromptStdinAfterStart`)을 택했고, 그 결과 `dmctl run launch` 가 codex 멤버의
+// 프리앰블을 통째로 빠뜨렸다 (10-func-backend FBE-06·14). 종료 지시는 여전히 미확인.
 var codexAdapter = Adapter{
-	ID:        "codex",
-	DetectCmd: "codex",
-	Launch:    []string{"codex"},
-	ModelFlag: "", // 미확인 — 지정되면 조용히 생략된다
-	// 위치 인자 프롬프트를 확인하지 못했다. argv 로 단정하면 기동이 깨질 수
-	// 있으므로, 띄운 뒤 붙여넣는 보수적인 경로를 택한다.
-	PromptInjection: PromptStdinAfterStart,
+	ID:              "codex",
+	DetectCmd:       "codex",
+	Launch:          []string{"codex"},
+	ModelFlag:       "--model",
+	PromptInjection: PromptArgv, // codex [OPTIONS] [PROMPT]
 	PolicyInjection: PolicyInjection{
 		Flags:         []string{"-c"}, // -c notify=[".../dmctl","notify","codex"]
 		SessionScoped: true,

@@ -47,6 +47,7 @@ func runSubSucceed(f runFlags, stdout, stderr io.Writer) int {
 	body := map[string]any{
 		"memberId": f.member, "at": f.at, "headless": f.headless, "toolId": selfToolID(),
 	}
+	timeoutMs := 0
 	if f.timeoutMs != "" {
 		ms, err := strconv.Atoi(f.timeoutMs)
 		if err != nil || ms < 0 {
@@ -54,8 +55,10 @@ func runSubSucceed(f runFlags, stdout, stderr io.Writer) int {
 			return 2
 		}
 		body["timeoutMs"] = ms
+		timeoutMs = ms
 	}
-	raw, code := runPost("/api/runs/succeed", body, stderr)
+	// 서버가 그 시한만큼 붙잡는다 — 클라이언트는 그보다 넉넉해야 한다 (M8 D-A-1).
+	raw, code := runPostWithin("/api/runs/succeed", body, succeedBudget(timeoutMs), stderr)
 	if code != 0 {
 		return code
 	}

@@ -279,3 +279,53 @@ func asList(v any) []any {
 	out, _ := v.([]any)
 	return out
 }
+
+// M8_UNIFIED_SRS D-A-3 (FBE-04): **브라우저가 없으면 닫히지 않았다고 말한다.**
+//
+// 종전에는 방송 결과를 버리고 `closed:true` 를 고정했다. 그러면 `closedTabIDs` 가 그
+// 탭을 표식 해제 대상에서 빼고, 실제로는 남아 있는 탭에 지워진 Run 의 `runId` 가
+// 영구히 붙는다. attach/detach 처럼 멈추지는 않는다 — 정리는 조건이 아니다.
+func TestRunClose_NoBrowserReportsUnclosedAndClearsMarks(t *testing.T) {
+	f := newHeadlessFixture(t)
+	ws := newFakeWorkspaceStore()
+	ws.raw = []byte(`{"schemaVersion":2,"windows":[{"id":"win-1","layout":` +
+		`{"type":"pane","id":"p1","tabs":[{"id":"tab-a","name":"Shell","toolId":"tool-a"}]}}]}`)
+	f.s.Work = ws
+
+	code, out := postRun(t, f.s, "/api/runs",
+		`{"objective":"정리","projection":"dedicated-window","isolation":"none","windowId":"win-1"}`)
+	if code != http.StatusOK {
+		t.Fatalf("run start want 200, got %d (%+v)", code, out)
+	}
+	runID, _ := out["id"].(string)
+	f.wi.setWindow("tab-a", "win-1")
+	postRun(t, f.s, "/api/runs/members",
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"작가","agent":"claude","id":"tab-a"}`)
+	postRun(t, f.s, "/api/runs/report", `{"toolId":"tool-a","outcome":"succeeded","summary":"끝"}`)
+	if !strings.Contains(string(ws.Raw()), `"runId":`+testpath.JSONQuote(runID)) {
+		t.Fatalf("전제가 깨졌다 — 등록이 탭에 표식을 남기지 않았다: %s", ws.Raw())
+	}
+
+	// 브라우저가 떠난다.
+	f.cmds.Remove(f.sub)
+
+	code, closed := postRun(t, f.s, "/api/runs/close", `{"runId":`+testpath.JSONQuote(runID)+`}`)
+	if code != http.StatusOK {
+		t.Fatalf("close want 200, got %d (%+v)", code, closed)
+	}
+	tabs := asList(closed["closedTabs"])
+	if len(tabs) != 1 {
+		t.Fatalf("보고된 탭 = %d개, want 1: %+v", len(tabs), closed["closedTabs"])
+	}
+	c, _ := tabs[0].(map[string]any)
+	if c["closed"] != false {
+		t.Fatalf("구독자 0 인데 closed=%v: %+v", c["closed"], c)
+	}
+	if d, _ := c["delivered"].(float64); d != 0 {
+		t.Fatalf("delivered=%v, want 0: %+v", c["delivered"], c)
+	}
+	// 남은 탭의 표식은 지워진다 — 존재하지 않는 Run 을 가리키는 탭이 남지 않는다.
+	if strings.Contains(string(ws.Raw()), `"runId"`) {
+		t.Fatalf("닫히지 않은 탭에 표식이 남았다: %s", ws.Raw())
+	}
+}

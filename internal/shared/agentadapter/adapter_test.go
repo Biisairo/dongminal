@@ -190,11 +190,29 @@ func TestLaunchLine_OmitsModelWhenUnknown(t *testing.T) {
 	if got, _ := claude.LaunchLine("", "", "안녕"); strings.Contains(got, "--model") {
 		t.Fatalf("모델을 지정하지 않았는데 플래그가 붙었다: %q", got)
 	}
-	// codex 의 모델 플래그는 이 환경에서 확인하지 못했다 (D-D). 확인되지 않은
-	// 플래그를 명령줄에 넣으면 기동 자체가 깨지므로 조용히 생략해야 한다.
+	// 모델 플래그가 **비어 있는** 선언은 값을 조용히 생략한다 — 확인되지 않은
+	// 플래그를 명령줄에 넣으면 기동 자체가 깨진다. 그 사실을 호출자에게 말하는 것은
+	// CLI 의 몫이다 (M8 D-A-4).
+	unknown := Adapter{ID: "x", Launch: []string{"x"}, PromptInjection: PromptArgv}
+	if got, _ := unknown.LaunchLine("", "o3", "안녕"); strings.Contains(got, "o3") {
+		t.Fatalf("모델 플래그가 없는 선언인데 값을 실었다: %q", got)
+	}
+}
+
+// M8_UNIFIED_SRS D-A-4 (FBE-06·14): codex 의 터미널 표면은 실측이다 — 0.154.0 `--help`
+// 가 `codex [OPTIONS] [PROMPT]` 와 `-m, --model <MODEL>` 을 든다. P0 의 "미확인 —
+// 보수적으로 stdin-after-start" 는 소멸한다.
+func TestCodex_TerminalSurfaceIsMeasured(t *testing.T) {
 	codex, _ := Get("codex")
-	if got, _ := codex.LaunchLine("", "o3", "안녕"); strings.Contains(got, "o3") {
-		t.Fatalf("codex 는 모델 플래그가 미검증이라 실어선 안 된다: %q", got)
+	if codex.PromptInjection != PromptArgv {
+		t.Fatalf("codex 는 위치 인자 프롬프트를 받는다 (실측): %q", codex.PromptInjection)
+	}
+	got, err := codex.LaunchLine("", "o3", "안녕")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(got, "codex --model o3 ") || !strings.Contains(got, "안녕") {
+		t.Fatalf("codex 기동줄이 모델·프롬프트를 싣지 않는다: %q", got)
 	}
 }
 

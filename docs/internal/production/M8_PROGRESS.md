@@ -5,7 +5,7 @@
 
 ---
 
-## 1. 어디까지 왔나 (2026-09-14, 일곱 번째 세션 — **P5 완료**)
+## 1. 어디까지 왔나 (2026-09-14, 여덟 번째 세션 — **P6 완료**)
 
 | 단계 | 상태 |
 |---|---|
@@ -15,7 +15,8 @@
 | **P3** C-a 묶음 P+T (claude) | **완료** — 아래 §1-5 표. Go `-race -shuffle` 초록 · `make gates` 초록 · `agent-tool.spec.ts` 7/7(3회 반복 21/21) · 전량 e2e §1-6. 두 세션(첫 세션이 Go·뷰, 둘째 세션이 e2e 4건의 원인 둘 = §2-25·§2-26) |
 | **P4** C-b codex·omp 어댑터 | **완료** — 아래 §1-7 표. 실측 먼저(스펙 §2.3.3 P4 표) · FR-U-2 첫 판정 "한 구조체에 든다" · `codex_proto.go`·`omp_proto.go` + R-8 표 · 가짜가 세 프로토콜을 말한다 · `agent-tool.spec.ts` 13/13 · 대조 잡 `drift_test.go`(실제 바이너리 셋 초록) · 전량 e2e §1-8 |
 | **P5** C-c 묶음 B 휴면·재생·오류 | **완료** — 아래 §1-9 표. 착수 실측 먼저(드리프트 셋 초록 · omp 접두 · codex rejoin, 스펙 §3.4.4 P5 표) · D-C-11~17 · 세션은 프로세스보다 오래 산다(같은 `toolId` 로 재개) · 디스크 JSONL+`agents.json` · 요약 스냅샷 · `EvExit` 사유 · `agent-tool.spec.ts` 16/16 · 전량 e2e §1-10 |
-| P6~P7 | 착수 전 — P6 착수 프롬프트는 `M8_NEXT_SESSION.md` |
+| **P6** A ⑤ CLI 계약 | **완료** — 아래 §1-11 표. 착수 실측(드리프트 셋 초록) → 재감사(FBE-11 은 이미 해소, 나머지 열림, codex 표면은 실측이 전제를 뒤집음) → D-A-1~9 · Go `-race -shuffle` 초록 · `make gates` 초록 · 전량 e2e §1-12 |
+| P7 | 착수 전 — P7 착수 프롬프트는 `M8_NEXT_SESSION.md` |
 
 **사용자 판단 셋은 착수 시 해소됐다** (2026-09-13): FR-APS-10 정정(stdio 제어 프레임,
 MCP 서버 없음) · D-U-4 정정(변형 + `Kind`) · FR-AGT-11·12 확정. 스펙 본문과 §9.3 ⑤⑥,
@@ -175,6 +176,33 @@ codex `thread/resume` rejoin·재 `initialize` 를 드라이버로 봤다 (스�
 |---|---|---|
 | ① 코드 완료 직후 | **unexpected 0** · flaky 1 | 1,663 통과 · 8샤드 각 3.8~4.5분 · 단독 실행(`pgrep` 0 확인 뒤 `run_in_background` 하나). flaky 하나는 `git-observe-revive` TC-GOR-3 — P3 ② 와 같은 §5-5 군집. 에이전트 도구 16건은 재시도 없이 통과. `make e2e-rebalance` 로 시간표 갱신(8샤드 395~397s, 불균형 1.00배) |
 
+### 1-11. P6 항목별 판정
+
+**실측이 먼저였다**: 드리프트 잡 셋 초록(claude 2.1.270 · codex 0.154.0 · omp 17.4.0, codex 는 자격증명
+없음 — 무모델까지). 그리고 재감사가 전제 하나를 뒤집었다 — codex 0.154.0 `--help` 가 `codex [OPTIONS]
+[PROMPT]` · `-m, --model` 을 든다. P0 이 "미확인" 으로 비워 둔 두 값이 FBE-06·14 의 실체였다.
+
+| 항목 | 판정 | 어디에 |
+|---|---|---|
+| FBE-01(클라) | **해소** — `runPostWithin/runGetWithin` + `clientWithin(budget)`. `succeed` = `--timeout-ms`(없으면 180초) + 10초, `preamble`(launch · `--member` 해석) = 90 + 10초, `close` = 20 + 40초. 상한 셋은 새 `shared/runwait` — 서버 `httpapi` 의 상수가 그것을 가리킨다(D-A-1). "60초 뒤 답해도 성공" 은 예산 계산(순수) + 전송이 예산을 쓴다(300ms 응답을 50ms 는 끊고 5초는 잇는다) 두 단정으로 | `runtimebin/http.go`·`dmctl_run.go` · `shared/runwait` · `TestRunBudget_*`·`TestRunPostWithin_UsesBudget`·`TestDmctlRun{Succeed,Launch,Close}_Uses*Budget` |
+| FBE-02 | **해소** — `dmctlDelivery`: `delivered==0` → exit 1(detach 와 같은 문구), 생성 명령 `timedOut` → exit 1. 본문은 stdout 에 남는다. 필드가 **있을 때만** 판정(모른다 ≠ 없다). `send` 도 같은 경로 (D-A-2). 동작 변경 — 이전/새/이유는 `dmctl.go` 주석과 D-A-2 | `dmctl.go` · `TestRunDmctlPost_*`·`TestRunDmctlSend_NoBrowserIsExit1` · `commands.md` |
+| FBE-04 | **해소** — `closed = broadcastLayout(...) > 0`, `delivered` 도 싣는다. `closedTabIDs` 는 `closed==true` 만 → 브라우저 0 이면 표식 해제가 남은 탭을 지운다 (D-A-3). 정리는 멈추지 않는다 | `handlers_runs_cleanup.go`·`handlers_runs.go` · `TestRunClose_NoBrowserReportsUnclosedAndClearsMarks` · `api.md` |
+| FBE-06 · 14 | **해소 (실측 + 안내)** — 사용자 결정 "선언 정정 + 안내 코드". `codex.go` 터미널 표면 `PromptArgv`·`--model`(D-A-4, 프로토콜 필드 불변). `launchNotes`: 주입이 argv 가 아니면 `wait --for ready` 뒤 `--text | send-input` 안내, `--model` 인데 플래그가 없으면 "생략했다" — 둘 다 stderr, exit 0. 헬프 3단계 절차에 2b) 분기. 종전 테스트 둘(codex 미확인 고정)은 뒤집었다 | `codex.go` · `dmctl_run.go` · `TestCodex_TerminalSurfaceIsMeasured` · `TestLaunchNotes_*` · `TestDmctlRunLaunch_CodexCarriesPreambleAndModel` |
+| FBE-09 · 10 | **해소** — `announceIsolated`(격리 홈 · 도구 셸의 홈 · 정지법) 하나를 두 경로가 부르고, `ensureIsolatedToolHome` 하나가 도구 홈을 만든다 — **전경 격리 기동이 도구 홈을 심지 않던 비대칭도 함께** (D-A-9, 동작 변경 기록). 헬프·getting-started 에 도구 홈 상실 | `ctl/cli/start.go`·`help.go` · `TestRunStart_IsolatedForegroundAnnouncesHomes` |
+| FBE-11 | **이미 해소** — TERMINAL_RESUME FR-TRS-12: `buildReplay` 하나를 두 모드가 쓰고 `termReset` 은 전량 재생 때만 | `httpapi/term_resume.go` |
+| FBE-13 | **해소** — `parseStatusFlags` 의 `--member` 게이트를 풀었다. 해석은 `memberToolID` 한 벌(예산은 preamble 것). FR-HLM-11 본문에 status 를 더했다 (D-A-5). 종전 테스트 `TestDmctlStatus_DoesNotAcceptMember` 는 결정과 정반대라 지웠다 | `dmctl_status.go` · `TestDmctlStatus_Member*` |
+| FBE-15 | **해소** — `run delete --run`(`DELETE /api/runs/{id}`, 잔여물 보고) · `run graph --run [--json]`(멤버·간선·타임라인). 헬프가 close 와의 차이를 적는다 (D-A-6). `httpDelete` 헬퍼 | `dmctl_run_admin.go` · `TestDmctlRunDelete_*`·`TestDmctlRunGraph_*` · `commands.md` |
+| FBE-16 | **해소** — `apiToolsCreate`: 명시 `cwd` 가 디렉터리가 아니면 400 `tool_cwd_missing`(새 코드 — `codes_core`·`codes_doc`·`errors.md`·`err.tool_cwd_missing` ko·en). 샌드박스는 배치기, `cwdTool`·`Restore` 의 폴백은 남긴다 (D-A-7). dmctl 쪽은 브라우저가 echo 하지 않아 `timedOut` → D-A-2 로 exit 1 | `handlers_api.go` · `TestHandleAPI_ToolsCreate_{MissingCwd,FileCwd}Is400` |
+| FBE-18 | **해소 (둘 다)** — `wrapPaste` 가 켜진 모드에서 본문의 `ESC[201~` 제거 · `quoteEnvelope` 가 `[DONGMINAL-AGENT-MSG`→`[\DONGMINAL-AGENT-MSG`, `[/…`→`[\/…`. 04-Sec P0-1/2 는 Origin/CSRF 라 M2 가 다루지 않았음을 확인하고 여기서 닫았다 (D-A-8). `agent-context` 본문 불변 | `bracketpaste.go` · `handlers_toolio.go` · `TestWrapPaste_StripsEndMarkerInsideBody` · `TestToolMessage_QuotesEnvelopeDelimitersInBody` |
+| FUI-23 | 기록만 — Run 시작은 스킬의 것 (D-A-6 말미) | |
+| V | V-11 | `git diff` 에 `claude.go`·`omp.go`·`*_proto.go`·훅 e2e 0줄. `codex.go` 는 터미널 표면 두 값(`ModelFlag`·`PromptInjection`)과 주석만 | |
+
+### 1-12. 전량 e2e (P6 판정)
+
+| 회차 | 결과 | 비고 |
+|---|---|---|
+| ① 코드 완료 직후 | **unexpected 0** · flaky 6 | 1,697 통과 · 3 skipped · 8샤드 각 3.9~4.6분 · 단독 실행(`pgrep` 0 확인 뒤 `run_in_background` 하나). flaky 여섯: `git-observe-revive` TC-GLR-4 · `git-worktrees` V169 · `editor-save` TC-ESV-3 — §5-5 군집 · `bg-kill` TC-BGK-12t · `editor` X15 — 그 이웃 · **`agent-tool` TC-AGT-4**(슬래시 자동완성 목록이 필터 전 3항목으로 잡힘 — UI 타이밍, P6 는 web/js 를 i18n 키 둘 외에 만지지 않았다). 여섯 전부 재시도에서 통과, `agent-tool.spec.ts` 는 단독 2회 반복 32/32(retry 0). `make e2e-rebalance` 로 시간표 갱신(8샤드 406~408s, 불균형 1.00배) |
+
 ### 1-6. 전량 e2e (P3 판정)
 
 | 회차 | 결과 | 비고 |
@@ -311,6 +339,31 @@ FR-ABG-21 의 첫 독해는 "잘렸으면 지금 상태의 요약을 앞에 붙�
 것). 스냅샷을 **링에서 버려지는 이벤트를 차례로 접은 것**으로 정하자(D-C-13) 스냅샷 + 남은 이벤트 = 전량과
 같은 뜻이 되고, 디스크 압축(`{snap}` + 링)이 그 정의 그대로 파일의 모양이 됐다. 재시동 뒤 되살림도 같은
 접기(스냅샷 먼저, 남은 이벤트 위에)로 상태를 만든다.
+
+### 2-32. (P6) "미확인" 은 결함의 가면이었다 — 실측 하나가 두 항목을 닫았다
+
+FBE-06(codex 프리앰블 유실)과 FBE-14(`--model` 무시)는 P0 의 "이 환경에서 확인하지 못했다" 두 줄에서
+났다. 보수적 선택(`PromptStdinAfterStart`·빈 `ModelFlag`)은 "기동을 깨뜨리지 않는다" 는 점에서 옳았지만,
+그 대가(프리앰블이 통째로 빠진다)를 **아무도 말하지 않았다** — 감사가 요구한 것이 그 말(stderr 안내)이다.
+P6 는 둘 다 했다: 실측으로 선언을 고쳐 codex 를 그 분기에서 꺼냈고, 분기 자체는 어댑터 계약에 남으므로
+안내 코드도 넣었다(사용자 결정). 교훈은 P1 §2-10 의 변주다 — **감사는 지도이고 판정은 실측이 한다.**
+감사가 "안내를 넣어라" 고 적은 자리에서 먼저 물을 것은 "그 전제가 아직 사실인가" 였다.
+
+### 2-33. (P6) 클라이언트 예산은 서버 상한의 사본이면 안 된다
+
+`wait` 는 P6 전에 이미 옳게 했는데, 그 방식이 `waitClientDefaultBudgetMS = 300_000` — 서버 기본의
+**사본**이었다. 같은 모양으로 `succeed`·`preamble`·`close` 를 고치면 사본이 넷이 된다. 서버 상수를
+`shared/runwait` 로 올리고 양쪽이 그것을 읽게 했다 (D-A-1). "60초 뒤 답해도 성공" 을 60초 자는
+테스트로 재지 않은 것도 같은 결 — 잴 것은 시간이 아니라 **불변식**(예산 ≥ 상한 + 여유)과 **전송이
+그 예산을 실제로 쓴다**는 사실이고, 둘 다 밀리초로 잰다. `clientWithin` 이 변수인 것은 그 두 번째
+단정을 위해서다 — 이 패키지의 명령은 구조체가 없는 함수라 주입할 자리가 그것뿐이다.
+
+### 2-34. (P6) "닫았다" 는 방송의 반환값이었고, 그 값을 버린 자리가 표식을 영구히 남겼다
+
+FBE-04 의 수정은 두 글자(`true` → `n > 0`)인데 귀결은 크다 — `closedTabIDs` 가 "닫은 탭" 을 표식 해제에서
+빼는 FR-RUN-6d 의 최적화가, 닫히지 않은 탭까지 빼고 있었다. 최적화의 전제("사라질 자리") 가 거짓일 수
+있는 경로(브라우저 0)를 최적화가 스스로 검사하지 않았다. `delivered` 를 함께 싣는 것은 D-A-2 와 같은
+어휘다 — CLI 와 HTTP 가 "배달 사실" 을 같은 이름으로 말한다.
 
 ### 2-14. (P2) 감사는 주석을 셌고, "6곳" 은 이미 0 이었다
 

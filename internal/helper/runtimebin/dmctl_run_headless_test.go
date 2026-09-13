@@ -350,21 +350,6 @@ func TestDmctlWait_MemberWithoutToolFails(t *testing.T) {
 	}
 }
 
-// status 는 --member 를 받지 않는다 — SRS §4.1 이 wait 에만 연다. 조용히 무시하지
-// 않고 사용법 오류로 가른다.
-func TestDmctlStatus_DoesNotAcceptMember(t *testing.T) {
-	ts, _ := runStub(t, nil)
-	pointDmctlAtServer(t, ts, "tool-a")
-
-	var errBuf bytes.Buffer
-	if code := runDmctlStatus([]string{"--member", "m-1"}, io.Discard, &errBuf); code != 2 {
-		t.Fatalf("exit = %d, want 2", code)
-	}
-	if !strings.Contains(errBuf.String(), "unknown argument") {
-		t.Fatalf("알 수 없는 인자로 가르지 않았다: %q", errBuf.String())
-	}
-}
-
 // ── 도움말이 실제 표면을 말한다 ──
 //
 // 도움말과 구현이 어긋나면 조정자가 없는 명령을 친다. 다섯 서브커맨드가 오래
@@ -417,5 +402,54 @@ func TestDmctlRun_AttachDetachAreNotStubs(t *testing.T) {
 		if strings.Contains(errBuf.String(), "구현되지 않았다") {
 			t.Fatalf("%s 가 아직 스텁이다", sub)
 		}
+	}
+}
+
+// ── M8_UNIFIED_SRS D-A-5 (FBE-13): status --member ──
+//
+// 헤드리스 멤버는 탭 uuid 가 없어 `wait` 만 `--member` 를 받았고 `status` 는
+// "unknown argument" 였다. 해석은 같은 함수(`memberToolID`)이고 접합면에는 toolId 만 간다.
+func TestDmctlStatus_MemberResolvesToToolID(t *testing.T) {
+	ts, calls := runStub(t, map[string]string{
+		"/api/runs/preamble":      `{"runId":"r-1","memberId":"m-1","role":"수집","toolId":"tool-h"}`,
+		"/api/tools/activity/get": `{"toolId":"tool-h","live":true,"state":"working","quietMs":3}`,
+	})
+	pointDmctlAtServer(t, ts, "tool-a")
+
+	var out bytes.Buffer
+	if code := runDmctlStatus([]string{"--member", "m-1"}, &out, io.Discard); code != 0 {
+		t.Fatalf("exit = %d (%s)", code, out.String())
+	}
+	if len(*calls) != 2 || (*calls)[0].Path != "/api/runs/preamble" {
+		t.Fatalf("요청 = %+v, want 해석 + 조회", *calls)
+	}
+	get := (*calls)[1]
+	if get.Path != "/api/tools/activity/get" || !strings.Contains(get.Query, "id=tool-h") {
+		t.Fatalf("toolId 로 조회하지 않는다: %+v", get)
+	}
+	if strings.Contains(get.Query, "m-1") {
+		t.Fatalf("멤버 uuid 가 접합면에 샜다: %q", get.Query)
+	}
+	if !strings.Contains(out.String(), "toolId=tool-h") || !strings.Contains(out.String(), "state=working") {
+		t.Fatalf("출력이 어긋난다: %q", out.String())
+	}
+}
+
+func TestDmctlStatus_MemberAndAtAreExclusive(t *testing.T) {
+	ts, calls := runStub(t, nil)
+	pointDmctlAtServer(t, ts, "tool-a")
+
+	var errBuf bytes.Buffer
+	if code := runDmctlStatus([]string{"--member", "m-1", "--at", "tab-x"}, io.Discard, &errBuf); code != 2 {
+		t.Fatalf("exit = %d, want 2", code)
+	}
+	if len(*calls) != 0 {
+		t.Fatalf("거부 전에 서버를 불렀다: %+v", *calls)
+	}
+}
+
+func TestDmctlStatus_HelpMentionsMember(t *testing.T) {
+	if !strings.Contains(dmctlStatusHelp, "--member") {
+		t.Fatal("status 헬프가 --member 를 안내하지 않는다")
 	}
 }

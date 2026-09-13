@@ -1,59 +1,68 @@
-# M8 통합 — 다음 세션 착수 프롬프트 (P6 축 A ⑤ — CLI 계약)
+# M8 통합 — 다음 세션 착수 프롬프트 (P7 축 A ⑥·⑦ — 분리·중복·죽은 코드 · 테스트 결정성)
 
 아래 블록을 새 세션에 그대로 붙여넣으면 된다.
 
-**P5 는 끝났다** (2026-09-14, 한 세션 — 커밋 `e6f9037`). Go·브라우저·e2e·문서·게이트 전부
-초록이고 전량 e2e 는 `M8_PROGRESS.md` §1-10. **P6 는 착수 전**이다.
+**P6 는 끝났다** (2026-09-14, 한 세션 — 커밋 `P6_COMMIT`). Go·브라우저·e2e·문서·게이트 전부
+초록이고 전량 e2e 는 `M8_PROGRESS.md` §1-12. **P7 은 착수 전**이다 — M8 의 마지막 단계다.
 
 ---
 
 ```
 프로젝트: /Users/dykim/personal/dongminal
 
-M8 통합의 **P6 = 축 A ⑤, CLI 계약** 을 한다 (`docs/internal/M8_UNIFIED_SRS.md` §4 표 P6 · §3.2 표 ⑤ =
-`FBE-02`·`04`·`06`·`13~16`·`18` · `FUI-23`(기록) · §3.2 DoD 의 "dmctl 계약" 이하 항목들 · D-U-10). 진입
-조건은 P3 였다 — Run 멤버의 기동 경로가 둘(TUI 터미널 도구 · 에이전트 도구)이 된 뒤 한 번에 본다.
-**`FBE-06`(codex 프리앰블)은 TUI 멤버에 남는다** — 에이전트 도구 경로는 프롬프트를 프레임으로 넣으므로
-그 문제가 없다. 작업 트리는 깨끗하다 — `git status` 로 확인하라.
+M8 통합의 **P7 = 축 A ⑥·⑦, 분리·중복·죽은 코드 · 테스트 결정성 나머지** 를 한다
+(`docs/internal/M8_UNIFIED_SRS.md` §4 표 P7 · §3.2 표 ⑥ = `GO-14~21` · `GO-22·24~28` · `09 FR-GCC-3·4` ·
+`09 D-WBR-8` · `FBE-08`(작업 경로분) — **`FBE-09~11` 은 P6 가 닫았다** · ⑦ = `TEST-23·25·26` · `TEST-24`(기록) ·
+§3.2 DoD 의 "500줄 초과 Go 파일" · "`main.go serve` → `Build(cfg)`/`App.Run`/`App.Shutdown`" · "`doctor.go` 표" ·
+"중복 6건" · "`worktree.go:600` `..` 오탐" · "Go 테스트 `gittest` 픽스처 7벌 → 1벌 · `DONGMINAL_SHELL` `t.Setenv`" ·
+"`write.SyncNext`·`StepOutcome` 제거 · `app-layout.js:732-736` 죽은 분기" · TEST-24 커버리지 주석 · 양호 판정 유지
+확인). 진입 조건은 P1 이었다 — 언제든. 이것이 M8 의 마지막 단계이므로 **P1~P6 가 남긴 것**(아래 절)도
+여기서 거둔다. 작업 트리는 깨끗하다 — `git status` 로 확인하라.
 
 ## 먼저 읽을 것 (순서대로)
 
-1. `docs/internal/production/10-func-backend.md` — `FBE-02`(§77) · `FBE-04`(§100) · `FBE-06`(§120) ·
-   `FBE-13~16`(§176~) · `FBE-18`(§193, 보안 축 04-Sec 와 조율) · §285 미측정 항목 · §297 표. 이것이 요구의
-   원문이다. `FUI-23` 은 `12-func-ui.md` §106 에 있다 — 기록만(조치 제안 없음)
-2. `docs/internal/M8_UNIFIED_SRS.md` — §3.2 표 ⑤ 와 DoD 중 CLI 계약 항목(`runPost`/`runGet` 예산 ·
-   `dmctlHTTPResult.delivered` · `/api/runs/close` 의 `closed` · `run launch` 의 codex 안내 · `--isolated`
-   안내 · `termReset` 두 모드 · `status --member` · `run delete`·`run graph` · 없는 `--cwd` 400 · `wrapPaste`
-   의 `ESC[201~`) · §10 "P5 완료" 행 · D-U-10
-3. `docs/internal/production/M8_PROGRESS.md` §1-9(P5 판정표)·§1-10(전량)·§2-29~2-31(P5 가 배운 것) ·
-   §1-1(P1 판정표 — ④ 에서 이미 닫힌 것: `FBE-05/12` 데몬 kill 유예 3초 · `GO-46` ToolHub)
-4. 코드:
-   - `internal/ctl/cli/dmctl*.go`(`runPost`·`runGet`·`dmctlHTTPResult` · `dmctl_status.go` 의 `wait` 가 예산을
-     받는 모범) · `internal/webserver/httpapi/handlers_runs*.go`(`/api/runs/close`·`launch`·헤드리스) ·
-     `handlers_commands*.go`(방송 결과 `delivered`·`newTabs`)
-   - `internal/shared/agentadapter/*.go` 의 터미널 표면(`Launch`·`PromptInjection`·`PromptArgv`) — FBE-06
-     은 codex 의 `PromptInjection != PromptArgv` 안내다. 프로토콜 표면(`*_proto.go`)은 건드리지 않는다
-   - `web/js/core/app-runs*.js`(Run 의 UI 쪽 — `run delete`·`run graph` 의 격차 FUI-04 와 짝)
-   - `e2e/dmctl*.spec.ts` · `e2e/run*.spec.ts` · `internal/ctl/cli/*_test.go`
+1. `docs/internal/M8_UNIFIED_SRS.md` §2.1 표(`GO-14~28` · `TEST-23~26` · `09` 두 행 · `FBE-08`) · §3.2 표 ⑥·⑦ 과
+   DoD 의 해당 항목 · §10 "P6 완료" 행 · D-A-1~9 (P6 가 확정한 것 — 바꾸지 않는다)
+2. 로드맵 `docs/internal/production/PRODUCTION_ROADMAP.md` §M8 의 원문 표 — 항목마다 파일·줄 번호가 있다
+   (낡았을 수 있다 — P1 §2-10). `01-go-arch.md` 의 GO-14~28 · `05-test.md` 의 TEST-23~26 · `09-srs-implementation-gap.md`
+   의 FR-GCC-3·4 · D-WBR-8 · `10-func-backend.md` §140 FBE-08
+3. `docs/internal/production/M8_PROGRESS.md` §1-11(P6 판정표)·§1-12(전량)·§2-32~2-34(P6 가 배운 것) · §1-1 의
+   GO-42·GO-44·TEST-8 행(P1 이 ⑦ 로 미룬 것) · 아래 "P1~P6 가 P7 에 남긴 것"
+4. 코드: `cmd/dongminal/main.go`(serve·buildDeps) · `internal/ctl/cli/doctor.go` · `internal/webserver/httpapi/handlers_fs.go`·
+   `handlers_runs.go` · `internal/shared/toolhub/tool.go` · `internal/webserver/domain/worktree/worktree.go` ·
+   `domain/git/write/*`(SyncNext·StepOutcome) · `domain/submodule/submodule.go`(FBE-08) · `web/js/core/app-layout.js:732-736` ·
+   Go 테스트의 git 픽스처들(`gittest` 후보)
 
 ## 남은 일 (순서)
 
 1. **착수 실측** — `go test -tags agentdrift -run TestDrift -v ./internal/shared/agentadapter/`
    (PATH 에 codex 가 없으면 `~/.bun/install/cache/@openai/codex@0.154.0-*/vendor/aarch64-apple-darwin/bin`
-   을 앞에 둔다). 셋 초록이어야 착수. P6 는 어댑터의 프로토콜 표면을 고치지 않으므로 이것으로 끝
-2. **재감사** — 10-func-backend 의 항목마다 지금 코드에서 사실인지 다시 잰다(P1 §2-10 의 교훈: 감사의 줄
-   번호는 낡고 몇은 이미 닫혀 있다). 닫힌 것은 판정표에 "이미 해소" 로, 남은 것만 스펙 §5 에 D-A-… 로
-   결정을 적는다 — 특히 `FBE-02` 의 **exit 1 전환은 동작 변경**이라(로드맵 §1113) 이전/새/이유를 적는다
-3. **구현** — Spec → Test → Code. CLI 는 `internal/ctl/cli` 테스트가, HTTP 는 httpapi 테스트가, 브라우저 없는
-   `dmctl` 은 통합 테스트가 잰다 ("전임자가 60초 뒤 답해도 `succeed` 가 성공" 은 통합 테스트로)
+   을 앞에 둔다). 셋 초록이어야 착수. P7 은 어댑터를 고치지 않는다
+2. **재감사** — 항목마다 지금 코드에서 사실인지 다시 잰다(P1 §2-10 · P6 §2-32). 500줄 초과 파일 목록은
+   `wc -l` 로 다시 뽑는다. 닫힌 것은 판정표에 "이미 해소" 로, 남은 것만 스펙 §5 에 D-A-10… 으로
+3. **구현** — Spec → Test → Code. 죽은 코드는 지우기 전에 참조를 도구로 확인(LSP/Serena). 지울 수 없는
+   보류는 M5 의 모범대로 **가드 테스트로 봉인**. 분리(파일 쪼개기)는 동작 변경이 아니어야 한다 — 같은
+   테스트가 그대로 초록. `main.go` 의 종료 순서 주석이 코드가 되면 그 순서를 테스트가 잰다
 4. **V 전량**: `go test -race ./...` · `make gates` · `make unit` · `make test` · V-11(훅 표면 diff 0 ·
-   `claude.go`·`codex.go`·`omp.go` 의 **프로토콜 필드**는 그대로) · `make e2e` → `unexpected 0` →
-   `make e2e-rebalance`
-5. **문서** — `M8_PROGRESS.md` §1 표(P6 완료)·§1-11 판정표·§1-12 전량 · 스펙 §10 "P6 완료" 행 ·
-   `docs/external/commands.md`(dmctl 헬프가 바뀌면 `check-commands-docs`) · `api.md` · 이 파일을
-   **P7 착수 프롬프트**로 다시 쓴다
-6. **커밋** — 단계 종료 커밋 하나 (`feat(m8): P6 — 축 A ⑤ CLI 계약 …`). 사용자 확인 뒤
-7. **인수인계** P7 (아래 절차)
+   `claude.go`·`codex.go`·`omp.go` **프로토콜 필드** 그대로) · `make e2e` → `unexpected 0` → `make e2e-rebalance`
+5. **문서** — `M8_PROGRESS.md` §1 표(P7 완료 — **M8 완료**)·§1-13 판정표·§1-14 전량 · 스펙 §10 "P7 완료" 행 ·
+   `architecture.md` 패키지 표(파일을 쪼개면 게이트가 잡는다) · `PRODUCTION_ROADMAP.md` §M8 상태 · 이 파일은
+   M8 이 끝나므로 **M8 종료 기록**으로 다시 쓴다(다음 마일스톤이 있으면 그 착수 프롬프트로)
+6. **커밋** — 단계 종료 커밋 하나 (`feat(m8): P7 — 축 A ⑥·⑦ …`). 사용자 확인 뒤
+7. **인수인계** — M8 이 끝나면 인계 대상이 없다. 사용자에게 M8 종료를 보고하고 다음 지시를 기다린다
+   (아래 절차의 3·4 는 사용자가 다음 마일스톤을 열 때만)
+
+## P6 가 확정한 것 (바꾸지 않는다)
+
+  D-A-1  `dmctl` 의 대기 예산은 `shared/runwait` 의 상수 + 여유. `runPostWithin/runGetWithin` · `clientWithin(budget)`
+  D-A-2  `/api/commands` 를 지나는 명령은 `delivered`(생성은 `timedOut` 도)를 판정해 exit 1. 필드가 있을 때만
+  D-A-3  `closedTabs[].closed` 는 방송 결과, `delivered` 동반. `closedTabIDs` 는 `closed==true` 만
+  D-A-4  codex 터미널 표면 = `PromptArgv` · `--model`(0.154.0 실측). `launchNotes` 가 argv 아님·모델 플래그 없음을 stderr 로
+  D-A-5  `status --member` = `wait --member` 와 같은 해석(`memberToolID`)
+  D-A-6  `run delete`(`DELETE /api/runs/{id}`) · `run graph`(`GET /api/runs/{id}/graph`)
+  D-A-7  명시 `cwd` 가 디렉터리가 아니면 `/api/tools` 400 `tool_cwd_missing`. 샌드박스·`cwdTool`·`Restore` 는 종전 폴백
+  D-A-8  `wrapPaste` 가 본문의 `ESC[201~` 제거 · `quoteEnvelope` 가 `[DONGMINAL-AGENT-MSG`→`[\DONGMINAL-AGENT-MSG`
+  D-A-9  격리 기동 안내 `announceIsolated` 하나, 도구 홈 `ensureIsolatedToolHome` 하나 — 전경도 같다
 
 ## P3·P4·P5 가 확정한 것 (바꾸지 않는다)
 
@@ -86,23 +95,42 @@ M8 통합의 **P6 = 축 A ⑤, CLI 계약** 을 한다 (`docs/internal/M8_UNIFIE
   탭 메뉴(FR-CMU-8)는 셋 그대로 + 에이전트 탭이면 `터미널로 열기`. 에이전트 탭 **만들기**는 `+`
   우클릭(FR-CMU-8a)에만. 휴면·재개는 에이전트 뷰의 메뉴에만 (FR-ABG-11).
 
-## 사용자 결정·지시 (P3~P5 것 — P6 에도 적용)
+## 사용자 결정·지시 (P3~P6 것 — P7 에도 적용)
 
 - FR-AGT-4 질문 답변 · FR-AGT-4a(Esc·↑↓·`/`·Shift+Tab — *"최대한 tui agent 의 모든 공통 기능을 이용하게"*)
 - 자격증명이 없으면 무모델 프레임까지만 실측하고 "미확인 — 자격증명 없음" 으로 적는다 — 사용자에게
   자격증명을 묻지 마라 (P0 의 사용자 결정)
 - `-p --input-format stream-json` 은 1회성이 아니다 (실측 §2-19)
+- (P6) codex 의 터미널 표면은 "선언 정정 + 안내 코드" — 실측으로 선언을 고치되 어댑터 계약의 분기 안내는 남긴다
 - 출력에 이모티콘을 쓰지 않는다
 
-## P5 가 P6·P7 에 남긴 것
+## P1~P6 가 P7 에 남긴 것 (P7 의 범위다 — 전부 거둔다)
 
-- 백그라운드(탭 없는) 에이전트 도구가 죽으면 오류 세션이 탭 없이 남는다 — 부팅 때 "참조 없음" 으로 버려진다.
-  런타임에 거두는 자리는 없다 (P7 의 죽은 코드·분리 축에서 볼 것)
-- 데몬 모드에서 레코드 없이 살아 있는 에이전트 도구(P5 이전 판이 남긴 것)는 빈 옵션으로 채택된다 — codex 는
-  그때 새 thread 가 선다 (한 번뿐인 이행 경로)
-- `agents.json` 은 `backup`·`uninstall` 의 홈 구성표에 들었다 (`homelayout.go`). `dongminal migrate` 는 모른다
-- `app-agent-tool.js` 의 `_newAgentTool(…, opts.resume)` 은 여전히 아무도 싣지 않는다 — 재개는
-  `/api/agent/resume` 이다. P7 의 죽은 코드 후보
+- (P1) GO-44 의 `Git *store.Store` — gitapi 가 `Service()`(구체)를 83곳에서 쓴다. ⑥(GO-39 git 실행기 통합)
+  뒤의 일로 미뤘다. 좁힐 수 있으면 좁히고, 없으면 사유를 스펙에 적는다
+- (P1) GO-42 — 전역 테스트 훅 5개(`toolBusyProbe`·`attnBusyProbe`·`fgProbe`·`attnNow`·`procCtl`) 잔존. DoD 조건
+  ("`t.Parallel()` 도입 패키지") 미충족이라 P1 이 확인만 했다. ⑦ 에서 `ToolManager.startTool` 필드 주입을 본으로
+  교체할지 결정
+- (P1) `time.Sleep` 잔여 — 테스트 96곳(밀리초 폴링). ⑦ 의 `pollUntil`/`waitFor` 로 줄인다
+- (P2) `fail()` 한국어 본문 — `check-http-error.sh` 의 동결 9곳. 카탈로그로 옮길지 결정
+- (P3~P5) §5-5 flaky 군집(`git-observe-revive` · `slot-view-state` · `git-worktrees` V169 …) — 전량마다 1~8건.
+  "3회 연속 flaky 0" 은 미충족 상태 그대로
+- (P5) 백그라운드(탭 없는) 에이전트 도구가 죽으면 오류 세션이 탭 없이 남는다 — 부팅 때 "참조 없음" 으로
+  버려진다. 런타임에 거두는 자리는 없다
+- (P5) 데몬 모드에서 레코드 없이 살아 있는 에이전트 도구(P5 이전 판이 남긴 것)는 빈 옵션으로 채택된다 —
+  codex 는 그때 새 thread 가 선다 (한 번뿐인 이행 경로)
+- (P5) `agents.json` 은 `backup`·`uninstall` 의 홈 구성표에 들었다 (`homelayout.go`). `dongminal migrate` 는 모른다
+- (P5) `app-agent-tool.js` 의 `_newAgentTool(…, opts.resume)` 은 아무도 싣지 않는다 — 재개는 `/api/agent/resume`.
+  죽은 코드 후보
+- (P6) `runtimebin` 의 `clientWithin` 은 패키지 변수(테스트 주입) — GO-42 와 같은 결. 구조체가 생기면 거기로
+- (P6) `wait` 의 `waitClientDefaultBudgetMS`(300_000)는 서버 기본의 사본이다 — `/api/tools/activity/wait` 의
+  기본 상한을 `runwait` 로 올려 같은 수로 만들 것 (D-A-1 의 연장)
+- (P6) 데몬 모드에서 `ErrToolCap` 이 429 로 옮겨지지 않는다 — `toolclient.Create` 가 RPC 오류를 일반 오류로
+  돌려주므로 `errors.Is(err, toolhub.ErrToolCap)` 이 거짓. 재감사 때 발견, P6 범위 밖
+- (P6) 전량에서 `agent-tool` TC-AGT-4(슬래시 자동완성 목록)가 처음 flaky 로 잡혔다 — 필터 전 3항목이 보였다.
+  단독 2회 반복은 초록. §5-5 군집 밖의 새 후보
+- (P6) `dmctl new-window --cwd /없는/경로` 에서 브라우저의 `_mkWindow` 가 400 을 받으면 `_newTool` 이 throw —
+  창은 생기고 레이아웃이 반쯤(FUI-25 와 같은 결). e2e 는 잡지 않았다. 프론트의 실패 피드백 자리
 
 ## 변하지 않는 규약
 
@@ -121,8 +149,8 @@ M8 통합의 **P6 = 축 A ⑤, CLI 계약** 을 한다 (`docs/internal/M8_UNIFIE
 - 스펙에 D-… 를 더하면 `go run ./scripts/gen-decisions` (`decisions.md` 는 생성물)
 - **하네스를 복사하지 마라** — 새 단정은 그 설정이 이미 있는 자리에
 - 에이전트 이름을 등록부 밖에 적지 마라 (`check-agent-names` — e2e·`_test.go` 는 밖이다)
-- P1~P5 가 남긴 것(GO-44 `Git *store.Store`·GO-42·`time.Sleep` 잔여·`fail()` 한국어 본문·§5-5 flaky 군집·위
-  "P5 가 남긴 것")은 P6 의 범위에 든 것만 줍고 나머지는 P7 — 줍지 마라
+- P1~P6 가 남긴 것(위 절)은 **전부 P7 의 범위**다 — 마지막 단계이므로 미룰 곳이 없다. 거둘 수 없는 것은
+  사유와 함께 스펙 §7 비목표 또는 로드맵에 적는다
 - 커밋 메시지에 AI 서명 금지. 커밋은 사용자 확인 후에만
 
 ## 단계 종료 절차 (사용자 지시 2026-09-13 — **모든 단계에 같다**)
@@ -147,14 +175,15 @@ M8 통합의 **P6 = 축 A ⑤, CLI 계약** 을 한다 (`docs/internal/M8_UNIFIE
 
 ---
 
-## 지금 저장소의 상태 (2026-09-14, P5 종료 시점)
+## 지금 저장소의 상태 (2026-09-14, P6 종료 시점)
 
 | 항목 | 값 |
 |---|---|
-| 마일스톤 | M0~M3·M5·M6·M7 완료 · M4 미수행 · **M8 P0~P5 완료** · P6·P7 착수 전 |
-| Go | `go test -race -shuffle=on ./...` 초록 (agentadapter 23 · fakeagent 6 · agentsess 22 · httpapi AgentAPI 13 · settingsschema TC-CFG-4 = 25키) |
-| 드리프트 | `go test -tags agentdrift` — claude·codex·omp 실제 바이너리 셋 초록 (2026-09-14, 어댑터 수정 뒤 재실행) |
-| 게이트 | `make gates` 초록 (36 게이트 · check-i18n 984키) |
-| e2e | `agent-tool.spec.ts` 16/16 (2회 반복 32/32) · 전량 `M8_PROGRESS.md` §1-10 |
-| 카탈로그 | `agent.*` 58키 + `html.agent_approval*` 2키 + `err.agent_*` 7키 (ko·en) |
-| 커밋 | P5 단계 종료 커밋 `e6f9037` |
+| 마일스톤 | M0~M3·M5·M6·M7 완료 · M4 미수행 · **M8 P0~P6 완료** · P7 착수 전 |
+| Go | `go test -race -shuffle=on ./...` 초록 (runtimebin 에 P6 테스트 20여 건 · httpapi 3건 · toolhub 1건 · cli 2건 · agentadapter 1건) |
+| 드리프트 | `go test -tags agentdrift` — claude·codex·omp 실제 바이너리 셋 초록 (2026-09-14, P6 착수) |
+| 게이트 | `make gates` 초록 (36 게이트 · check-i18n 985키) |
+| e2e | `agent-tool.spec.ts` 32/32(2회 반복) · 전량 `M8_PROGRESS.md` §1-12 (unexpected 0 · flaky 6) |
+| 오류 코드 | `tool_cwd_missing` 추가 (`err.tool_cwd_missing` ko·en) |
+| 새 패키지 | `internal/shared/runwait` (① ③ 이 함께 읽는 대기 상한) |
+| 커밋 | P6 단계 종료 커밋 `P6_COMMIT` |

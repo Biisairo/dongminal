@@ -623,3 +623,79 @@ func TestRunDmctlNewWindowWithoutToolID(t *testing.T) {
 		t.Errorf("빈 도구 id 를 실었다: %v", args)
 	}
 }
+
+// M8_UNIFIED_SRS D-A-2 (FBE-02): `/api/commands` 를 지나는 명령은 `delivered` 를 판정한다.
+// 종전에는 HTTP 200 이면 exit 0 이었다 — 브라우저가 없어도, 아무것도 만들어지지
+// 않았어도. 같은 종단의 `detach` 가 이미 하던 판정을 여기서도 한다.
+func TestRunDmctlPost_NoBrowserIsExit1(t *testing.T) {
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"ok":true,"action":"newTab","delivered":0,"timedOut":true,"newTabs":[]}`))
+	})
+	defer cleanup()
+	var stdout, stderr bytes.Buffer
+	rc := runDmctl([]string{"new-tab"}, &stdout, &stderr)
+	if rc != 1 {
+		t.Fatalf("rc=%d want 1 (stdout=%s stderr=%s)", rc, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "구독 중인 브라우저가 없습니다") {
+		t.Errorf("detach 와 같은 문구여야 한다: %q", stderr.String())
+	}
+	// 본문은 그대로 남는다 — 스크립트가 읽던 것을 빼앗지 않는다.
+	if !strings.Contains(stdout.String(), `"delivered":0`) {
+		t.Errorf("응답 본문이 stdout 에 없다: %q", stdout.String())
+	}
+}
+
+func TestRunDmctlPost_CreateTimedOutIsExit1(t *testing.T) {
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"ok":true,"action":"newWindow","delivered":1,"timedOut":true,"newTabs":[],"newWindows":[]}`))
+	})
+	defer cleanup()
+	var stdout, stderr bytes.Buffer
+	rc := runDmctl([]string{"new-window", "--cwd", "/does/not/exist"}, &stdout, &stderr)
+	if rc != 1 {
+		t.Fatalf("rc=%d want 1 (stderr=%s)", rc, stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "list-workspace") {
+		t.Errorf("확인 수단을 말해야 한다: %q", stderr.String())
+	}
+}
+
+func TestRunDmctlPost_DeliveredIsExit0(t *testing.T) {
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"ok":true,"action":"closeTab","delivered":2}`))
+	})
+	defer cleanup()
+	var stdout, stderr bytes.Buffer
+	if rc := runDmctl([]string{"close-tab"}, &stdout, &stderr); rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
+	}
+	if stderr.Len() != 0 {
+		t.Errorf("성공에 stderr 가 있다: %q", stderr.String())
+	}
+}
+
+// `send` 는 raw 이지만 같은 종단이다 — 같은 판정을 지난다.
+func TestRunDmctlSend_NoBrowserIsExit1(t *testing.T) {
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"ok":true,"action":"focus","delivered":0}`))
+	})
+	defer cleanup()
+	var stdout, stderr bytes.Buffer
+	if rc := runDmctl([]string{"send", "focus", `{"location":"u"}`}, &stdout, &stderr); rc != 1 {
+		t.Fatalf("rc=%d want 1", rc)
+	}
+}
+
+// 판정은 `delivered` 가 **있을 때만**이다. 그 필드를 모르는 응답(오류 본문·옛 서버)을
+// "0" 으로 읽어 실패로 만들지 않는다 — 모른다와 없다는 다르다.
+func TestRunDmctlPost_UnknownDeliveryPasses(t *testing.T) {
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"ok":true}`))
+	})
+	defer cleanup()
+	var stdout, stderr bytes.Buffer
+	if rc := runDmctl([]string{"tab-next"}, &stdout, &stderr); rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
+	}
+}

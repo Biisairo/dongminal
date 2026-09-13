@@ -118,9 +118,50 @@ func RunStart(o StartOpts, serve Serve, stdout, stderr io.Writer) int {
 	}
 
 	if o.Foreground {
+		// M8_UNIFIED_SRS D-A-9 (FBE-09·10): 격리 기동은 전경에서도 **어디에 떴는지** 말하고,
+		// 도구 셸의 홈도 같은 규칙으로 격리한다.
+		//
+		//   이전 동작: `--isolated --foreground` 는 임시 홈 경로를 끝내 알리지 않았고
+		//             (안내가 `startDetached` 안에만), 도구 셸은 사용자 홈에서 떴다
+		//             (`prepareServerCmd` 만 도구 홈을 심었다)
+		//   새  동작: 두 경로가 같은 안내를 내고 같은 도구 홈을 심는다
+		//   이유:     "자동으로 지우지 않습니다" 인데 경로를 모르면 지울 수도 없다.
+		//             격리의 뜻(사용자 히스토리·설정 비오염)이 모드에 따라 달라선 안 된다
+		if o.Isolated {
+			if th := ensureIsolatedToolHome(home); th != "" {
+				os.Setenv(dmenv.EnvToolHome, th)
+			}
+			announceIsolated(stdout, home, port, true)
+		}
 		return serve(home, host, port)
 	}
 	return startDetached(o, home, host, port, stdout, stderr)
+}
+
+// announceIsolated 는 격리 기동의 자리다 — 임시 홈, 도구 셸의 홈, 그리고 내리는 법.
+func announceIsolated(stdout io.Writer, home, port string, foreground bool) {
+	fmt.Fprintf(stdout, "격리 홈: %s (자동으로 지우지 않습니다)\n", home)
+	if th := isolatedToolHome(home); th != "" {
+		fmt.Fprintf(stdout, "도구 셸의 홈: %s — 사용자 rc·git config·자격증명이 없는 빈 홈입니다\n", th)
+	}
+	if foreground {
+		fmt.Fprintln(stdout, "정지: ^C")
+		return
+	}
+	fmt.Fprintf(stdout, "정지: dongminal stop --all --port %s --home %s\n", port, home)
+}
+
+// ensureIsolatedToolHome 은 격리 홈 아래 도구 셸의 홈을 만들어 그 경로를 준다. 격리가
+// 아니거나 만들지 못하면 빈 문자열 — 격리는 검사의 편의이지 기동의 조건이 아니다.
+func ensureIsolatedToolHome(home string) string {
+	th := isolatedToolHome(home)
+	if th == "" {
+		return ""
+	}
+	if err := os.MkdirAll(th, 0o755); err != nil {
+		return ""
+	}
+	return th
 }
 
 // resolveStartTarget은 홈과 **포트의 플래그 계층**을 정한다. --isolated 는
@@ -218,8 +259,7 @@ func startDetached(o StartOpts, home, host, port string, stdout, stderr io.Write
 			"    반영하려면 데몬을 재시작해야 하며 **실행 중인 세션이 사라집니다**.\n")
 	}
 	if o.Isolated {
-		fmt.Fprintf(stdout, "격리 홈: %s (자동으로 지우지 않습니다)\n", home)
-		fmt.Fprintf(stdout, "정지: dongminal stop --all --port %s --home %s\n", port, home)
+		announceIsolated(stdout, home, port, false)
 	}
 	return 0
 }
@@ -301,10 +341,8 @@ func prepareServerCmd(home, host, port, logPath string) (*exec.Cmd, *os.File, st
 	// 격리 인스턴스면 도구 셸의 홈도 함께 격리한다 (FR-E2G-1 의 연장). 셸이
 	// 없는 홈을 받지 않도록 여기서 만든다 — 만들지 못하면 격리를 포기하는 대신
 	// 그냥 심지 않는다. 격리는 검사의 편의이지 기동의 조건이 아니다.
-	if th := isolatedToolHome(home); th != "" {
-		if err := os.MkdirAll(th, 0o755); err == nil {
-			env[dmenv.EnvToolHome] = th
-		}
+	if th := ensureIsolatedToolHome(home); th != "" {
+		env[dmenv.EnvToolHome] = th
 	}
 	cmd.Env = withEnv(os.Environ(), env,
 		// 서버는 dongminald 를, dongminald 는 도구 셸을 자식으로 낳는다. 이 두

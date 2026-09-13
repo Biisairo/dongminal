@@ -11,8 +11,10 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"dongminal/internal/shared/agentadapter"
+	"dongminal/internal/shared/runwait"
 )
 
 const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
@@ -25,6 +27,8 @@ const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
   dmctl run report --outcome succeeded|failed --summary <3문장> [--files a,b] [--run <uuid>] [--member <uuid>]
   dmctl run status [--run <uuid>]
   dmctl run close  --run <uuid> [--force] [--keep-worktrees] [--keep-tools]
+  dmctl run delete --run <uuid>
+  dmctl run graph  --run <uuid> [--json]
   dmctl run list
   dmctl run attach --member <uuid> [--at <탭 uuid>]
   dmctl run detach --member <uuid>
@@ -49,7 +53,8 @@ const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
                  이후 run status 의 고아 목록에 계속 나온다.
   --brief        이 멤버가 할 일의 본문. 프리앰블에 실리고 기록에 남는다.
                  값이 - 이면 stdin 에서 읽는다. 여러 줄이면 heredoc 을 써라.
-  --model        기동할 모델. 그 에이전트의 모델 플래그가 확인된 경우에만 붙는다.
+  --model        기동할 모델. 그 에이전트의 모델 플래그가 확인된 경우에만 붙는다 —
+                 없으면 생략하고 stderr 로 알린다.
   --text         기동줄 대신 프리앰블 본문만 낸다.
   --json         서버 응답을 그대로 낸다 (launch 는 조립 결과를 낸다).
 
@@ -61,6 +66,11 @@ const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
 
 2 를 건너뛰고 3 을 보내면 에이전트가 아직 뜨지 않아 셸에 텍스트가 찍히고 증발한다.
 화면 모양으로 준비완료를 판정하지 마라 — wait 가 훅 상태를 근거로 판정한다.
+
+프롬프트를 기동줄에 싣지 못하는 에이전트(--json 의 promptInjection=stdin-after-start)는
+launch 가 stderr 로 그 사실을 알린다. 그때는 2 뒤에 한 단계가 더 있다:
+  2b) dmctl run launch --member <uuid> --text | dmctl send-input --at <탭 uuid> --execute -
+등록된 에이전트 셋(claude·codex·omp)은 모두 argv 로 받으므로 이 분기를 타지 않는다.
 
 보고(report)의 권한은 **발신 도구의 정체**다. --run/--member 는 대조용이며
 생략이 정상이다 — 남의 id 를 알아도 남의 몫을 보고할 수 없다.
@@ -90,6 +100,10 @@ status 의 ctx= 는 전부 **추정**이다 (~ 표기). transcript 크기에서 
 close 는 도구를 닫지 않는다 — 정리 대상을 돌려주므로, 조정자가 에이전트를
 종료(예: /exit)시킨 뒤 dmctl close-tab --at <탭 uuid> 로 마무리한다. 실행 중인
 도구의 탭을 서버가 바로 닫으면 브라우저가 확인창을 띄워 무인 정리가 막힌다.
+
+delete 는 close 와 다르다 — 미보고 검사 없이 **레코드를 지운다** (표식 해제 → 헤드리스
+도구 종료 → worktree 정리 → 삭제). 웹 UI 의 삭제와 같은 뜻이며, 잔여물이 있으면 보고한다.
+graph 는 멤버·메시지 간선·타임라인을 낸다 — 대시보드가 그리는 그것이다.
 `
 
 type runFlags struct {
@@ -153,6 +167,10 @@ func runDmctlRunStdin(stdin io.Reader, args []string, stdout, stderr io.Writer) 
 		return runSubStatus(sub, f, stdout, stderr)
 	case "close":
 		return runSubClose(f, stdout, stderr)
+	case "delete":
+		return runSubDelete(f, stdout, stderr)
+	case "graph":
+		return runSubGraph(f, stdout, stderr)
 	// ── ORCHESTRATION_V2 선등록 (PARALLEL_DELIVERY_PLAN Step 0-14) ──
 	// 구현은 각 워크스트림의 전용 파일에 있다. 여기서 case 를 열어 두면 이후
 	// 아무도 이 디스패치를 만지지 않는다.
@@ -388,7 +406,8 @@ func runSubLaunch(f runFlags, stdout, stderr io.Writer) int {
 	}
 	q := url.Values{}
 	q.Set("member", f.member)
-	raw, code := runGet("/api/runs/preamble?"+q.Encode(), stderr)
+	// 프리앰블은 늦은 인수인계를 서버가 기다려 준다 (FR-RUN-4) — 그 상한만큼의 예산이다.
+	raw, code := runGetWithin("/api/runs/preamble?"+q.Encode(), preambleBudget, stderr)
 	if code != 0 {
 		return code
 	}
@@ -423,6 +442,12 @@ func runSubLaunch(f runFlags, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "run launch: %v\n", err)
 		return 1
 	}
+	// M8 D-A-4 (FBE-06·14): 기동줄이 싣지 못한 것을 **말한다.** `adapter.go` 가 "호출자가
+	// 별도로 붙여넣어야 한다" 고 적은 그 호출자가 이 명령이고, 종전에는 신호가 없었다.
+	// 종료 코드는 그대로 0 — 기동줄은 유효하다.
+	for _, n := range launchNotes(adapter, got.MemberID, got.TabID, f.model) {
+		fmt.Fprintln(stderr, "run launch: "+n)
+	}
 	if f.jsonOut {
 		blob, err := json.Marshal(map[string]any{
 			"runId": got.RunID, "memberId": got.MemberID, "role": got.Role,
@@ -440,6 +465,26 @@ func runSubLaunch(f runFlags, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintln(stdout, line)
 	return 0
+}
+
+// launchNotes 는 기동줄에 실리지 못한 것의 안내다 (M8 D-A-4). 비어 있으면 기동줄이
+// 프리앰블·모델을 다 들었다는 뜻이다.
+func launchNotes(a agentadapter.Adapter, memberID, tabID, model string) []string {
+	var notes []string
+	if a.PromptInjection != agentadapter.PromptArgv {
+		at := tabID
+		if at == "" {
+			at = "<탭 uuid>"
+		}
+		notes = append(notes, fmt.Sprintf(
+			"%s 는 기동줄에 프리앰블을 싣지 못한다 (%s). 뜬 뒤에 따로 붙여넣어라: "+
+				"dmctl wait --at %s --for ready && dmctl run launch --member %s --text | dmctl send-input --at %s --execute -",
+			a.ID, a.PromptInjection, at, memberID, at))
+	}
+	if model != "" && a.ModelFlag == "" {
+		notes = append(notes, fmt.Sprintf("%s 의 모델 플래그를 모른다 — --model %s 를 생략했다", a.ID, model))
+	}
+	return notes
 }
 
 func runSubReport(f runFlags, stdout, stderr io.Writer) int {
@@ -530,10 +575,12 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "run close: --run 은 필수다")
 		return 2
 	}
-	raw, code := runPost("/api/runs/close", map[string]any{
+	// close 는 `/exit` 뒤 셸 복귀를 서버가 기다리고(FR-RUN-6) worktree 까지 거둔다 —
+	// 10초 공용 클라이언트로는 정상 경로가 끊긴다 (M8 D-A-1).
+	raw, code := runPostWithin("/api/runs/close", map[string]any{
 		"runId": f.run, "force": f.force, "keepWorktrees": f.keepTrees,
 		"keepTools": f.keepTools,
-	}, stderr)
+	}, closeBudget, stderr)
 	if code != 0 {
 		return code
 	}
@@ -648,15 +695,50 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 	return 0
 }
 
+// M8_UNIFIED_SRS D-A-1 (FBE-01 클라이언트 절반): 서버가 요청을 붙잡는 종단은 그 상한에
+// 여유를 더한 예산으로 부른다. 상한은 `shared/runwait` — 서버와 같은 수다.
+//
+// 종전에는 전 서브커맨드가 10초 공용 클라이언트였다. `succeed` 의 정상 경로(요약 작성에
+// 수십 초)가 늘 `context deadline exceeded` 로 끝났고, 그동안 서버는 승계를 마쳤다 —
+// 재시도가 멤버와 도구를 둘씩 만들었다.
+const (
+	runClientSlack  = 10 * time.Second
+	preambleBudget  = runwait.PreambleWait + runClientSlack
+	closeClientRoom = 40 * time.Second // /exit 대기 뒤의 헤드리스 종료 유예·worktree 정리
+	closeBudget     = runwait.ExitSettle + closeClientRoom
+)
+
+// succeedBudget 은 `--timeout-ms`(0 이면 서버 기본)에 여유를 더한 값이다.
+func succeedBudget(timeoutMs int) time.Duration {
+	wait := runwait.HandoffWaitDefault
+	if timeoutMs > 0 {
+		wait = time.Duration(timeoutMs) * time.Millisecond
+	}
+	return wait + runClientSlack
+}
+
 // runPost/runGet share the error rendering: an enumerated refusal reason is
 // surfaced as-is so the caller can act on it (FR-PRE-6).
 func runPost(path string, body map[string]any, stderr io.Writer) ([]byte, int) {
-	status, raw, err := httpPostJSON(baseURL()+path, body)
-	return runResult(path, status, raw, err, stderr)
+	return runPostWithin(path, body, 0, stderr)
 }
 
 func runGet(path string, stderr io.Writer) ([]byte, int) {
-	status, raw, err := httpGet(baseURL() + path)
+	return runGetWithin(path, 0, stderr)
+}
+
+func runPostWithin(path string, body map[string]any, budget time.Duration, stderr io.Writer) ([]byte, int) {
+	status, raw, err := httpPostJSONWithin(baseURL()+path, body, budget)
+	return runResult(path, status, raw, err, stderr)
+}
+
+func runGetWithin(path string, budget time.Duration, stderr io.Writer) ([]byte, int) {
+	status, raw, err := httpGetWithin(baseURL()+path, budget)
+	return runResult(path, status, raw, err, stderr)
+}
+
+func runDelete(path string, stderr io.Writer) ([]byte, int) {
+	status, raw, err := httpDelete(baseURL() + path)
 	return runResult(path, status, raw, err, stderr)
 }
 

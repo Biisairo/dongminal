@@ -276,6 +276,24 @@ func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 			cwd = s.Tools.Cwd(refID)
 		}
 	}
+	// M8_UNIFIED_SRS D-A-7 (FBE-16): 없는 `cwd` 는 **400** 이다.
+	//
+	//   이전 동작: toolhub 가 조용히 홈으로 폴백했다 — `dmctl new-window --cwd /없는/경로`
+	//             가 홈에서 뜬 창과 exit 0 을 냈다
+	//   새  동작: 명시한 `cwd` 가 디렉터리가 아니면 도구를 만들지 않고 400
+	//   이유:     `manager.go` 의 주석("조용히 걸러 내면 왜 안 붙었는지 알 수 없다")이
+	//             이미 이 뜻이다. 그 판정을 하던 배치기는 샌드박스 창에만 있었다
+	//
+	// 샌드박스는 종전대로 배치기가 판정한다 (FR-SBX-41). `cwdTool` 로 물려받은 값은
+	// 사용자가 고른 것이 아니라 여기 들지 않는다 — 참조 도구의 자리가 사라졌으면
+	// 홈이 맞다. toolhub 의 폴백은 되살림(`Restore`)의 길이라 남는다.
+	profile := r.URL.Query().Get("sandbox")
+	if explicit := r.URL.Query().Get("cwd"); explicit != "" && profile == "" {
+		if info, err := os.Stat(explicit); err != nil || !info.IsDir() {
+			httpErr(w, "cwd is not a directory: "+explicit, http.StatusBadRequest, apierr.CodeToolCwdMissing)
+			return
+		}
+	}
 	// M8_UNIFIED_SRS FR-AGT-8: 에이전트 도구도 **같은 종단**이다. 갈리는 것은
 	// 배치(파이프·argv)뿐이고 그것은 handlers_agent.go 가 든다.
 	if r.URL.Query().Get("kind") == string(toolhub.KindAgent) {
@@ -286,7 +304,7 @@ func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 	// 프로파일이 비어 있으면 종전대로 호스트에서 뜬다.
 	tool, err := s.tools(r).Create(cwd, cols, rows, toolhub.Placement{
 		WindowUUID: r.URL.Query().Get("window"),
-		Profile:    r.URL.Query().Get("sandbox"),
+		Profile:    profile,
 		// UX_BATCH6_SRS FR-SBM-3: 창이 고른 작업 방식. 비면 프로파일의 것이다.
 		Work: r.URL.Query().Get("sandboxWork"),
 	})

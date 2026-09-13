@@ -104,6 +104,7 @@ internal/
       fakeagent/         #     테스트 픽스처 — 프로토콜 표면을 말하는 가짜 에이전트 (M8 V-12)
         cmd/             #       그 바이너리 — e2e 가 DONGMINAL_AGENT_BIN_DIR 에 놓는다. 제품에 들지 않는다
     runfile/             #   ②③  — runs.json 읽기만 (헤드리스 도구 id). 스키마의 주인은 domain/run
+    runwait/             #   ①③  — Run 종단이 요청을 붙잡는 상한 (서버와 dmctl 이 같은 수를 읽는다, M8 D-A-1)
     sandbox/             #   ②③  — Window 하나의 컨테이너 생명주기 + 그 안의 실행 명세
     sandboxplace/        #   ②③  — 샌드박스 프로파일 → 실행 명세 배선 (toolhub 와 sandbox 를 잇는다)
     diagtail/            #   ②③  — 실행 진단 문자열의 절단 규칙 하나 (상한은 표면마다)

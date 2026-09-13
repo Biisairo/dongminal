@@ -350,7 +350,9 @@ Tool 을 탭에 연결한다. `--at` 이 없으면 **현재 포커스 분할 칸
 
 **FR-HLM-11** 헤드리스 멤버에 대한 **Barrier 는 동일하다** — `dmctl wait --at <탭>`
 대신 `dmctl wait --member <멤버 uuid>` 를 받는다. 화면 스크래핑에 의존하지 않으므로
-헤드리스에서도 그대로 성립한다.
+헤드리스에서도 그대로 성립한다. `dmctl status --member <멤버 uuid>` 도 같은 해석이다
+(M8_UNIFIED_SRS D-A-5 — 종전에는 `wait` 만 `--member` 를 받아 헤드리스 멤버의 상태를
+조회할 수단이 없었다).
 
 **FR-HLM-12** `dmctl read-screen --at <헤드리스 Tool uuid>` 는 **동작한다.** 출력
 버퍼는 화면 부착 여부와 무관하다. 헤드리스 멤버가 막혔을 때 진단할 유일한 길이므로

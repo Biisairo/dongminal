@@ -424,6 +424,7 @@ I18N.register('en', {
   'err.save_failed': 'Could not save.',
   'err.stale_revision': 'The revision you hold is behind the server\'s current one.',
   'err.streaming_unsupported': 'Streaming is not available on this connection.',
+  'err.tool_cwd_missing': 'The working directory does not exist or is not a directory — give an absolute path to an existing directory.',
   'err.tool_not_found': 'That tool does not exist — it was closed or belongs to another instance.',
   'err.tools_unavailable': 'The tool layer is not up yet.',
   'err.unknown_action': 'Unknown command.',

@@ -3,8 +3,13 @@ package runtimebin
 import (
 	"bytes"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
+
+	"dongminal/internal/shared/runwait"
 )
 
 // 묶음 C 의 CLI 절반 (ORCHESTRATION_V2_SRS §3.3, V-CBG-*).
@@ -224,4 +229,101 @@ func TestContextCell_UnknownStaysUnknown(t *testing.T) {
 	if got := (runMember{}).contextCell(); got != "ctx=— (unknown)" {
 		t.Errorf("모름의 표기가 바뀌었다: %s", got)
 	}
+}
+
+// M8_UNIFIED_SRS D-A-1 (FBE-01 클라이언트 절반): 오래 붙잡히는 종단은 서버 상한 + 여유의
+// 예산으로 부른다. 종전에는 전 서브커맨드가 10초 공용 클라이언트였고, 승계는 정상
+// 경로(요약에 수십 초)에서 늘 "실패" 로 보고된 뒤 서버 쪽에서 성공해 있었다.
+func TestRunBudget_SucceedFollowsTimeout(t *testing.T) {
+	if got, want := succeedBudget(0), runwait.HandoffWaitDefault+runClientSlack; got != want {
+		t.Fatalf("기본 예산 = %s, want %s (서버 기본 + 여유)", got, want)
+	}
+	if got, want := succeedBudget(60_000), 60*time.Second+runClientSlack; got != want {
+		t.Fatalf("--timeout-ms 60000 → %s, want %s", got, want)
+	}
+	if preambleBudget <= runwait.PreambleWait {
+		t.Fatalf("preamble 예산 %s 은 서버 상한 %s 보다 커야 한다", preambleBudget, runwait.PreambleWait)
+	}
+	if closeBudget <= runwait.ExitSettle {
+		t.Fatalf("close 예산 %s 은 서버 상한 %s 보다 커야 한다", closeBudget, runwait.ExitSettle)
+	}
+}
+
+// 예산은 실제로 전송에 쓰인다 — 짧으면 끊기고 길면 잇는다. 60초를 자는 대신 같은
+// 사실을 밀리초로 잰다.
+func TestRunPostWithin_UsesBudget(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(300 * time.Millisecond)
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	defer ts.Close()
+	pointDmctlAtServer(t, ts, "tool-a")
+
+	var errb bytes.Buffer
+	if _, code := runPostWithin("/api/runs/succeed", map[string]any{}, 50*time.Millisecond, &errb); code == 0 {
+		t.Fatal("50ms 예산인데 300ms 응답을 기다렸다")
+	}
+	errb.Reset()
+	if _, code := runPostWithin("/api/runs/succeed", map[string]any{}, 5*time.Second, &errb); code != 0 {
+		t.Fatalf("5초 예산인데 끊겼다: %s", errb.String())
+	}
+}
+
+// succeed 가 그 예산으로 부르는지는 기록된 예산으로 본다.
+func TestDmctlRunSucceed_UsesLongBudget(t *testing.T) {
+	blob := `{"member":{"id":"m-2","role":"writer","toolId":"tool-c","tabId":"tab-c"},"prevMemberId":"m-1","prevState":"succeeded","hasSummary":true}`
+	ts, _ := runStub(t, map[string]string{"/api/runs/succeed": blob})
+	pointDmctlAtServer(t, ts, "tool-a")
+	var seen []time.Duration
+	restore := recordBudgets(&seen)
+	defer restore()
+
+	var out bytes.Buffer
+	if code := runDmctlRun([]string{"succeed", "--member", "m-1", "--at", "tab-c", "--timeout-ms", "60000"}, &out, io.Discard); code != 0 {
+		t.Fatalf("exit = %d (%s)", code, out.String())
+	}
+	if len(seen) != 1 || seen[0] != 60*time.Second+runClientSlack {
+		t.Fatalf("succeed 의 예산 = %v, want %s", seen, 60*time.Second+runClientSlack)
+	}
+}
+
+// launch 와 --member 해석은 preamble 종단을 부르고, 그 종단은 늦은 요약을 90초까지
+// 기다린다 — 10초 클라이언트로는 정상 경로가 끊긴다.
+func TestDmctlRunLaunch_UsesPreambleBudget(t *testing.T) {
+	preambleStub(t, "claude")
+	var seen []time.Duration
+	restore := recordBudgets(&seen)
+	defer restore()
+
+	if code := runDmctlRun([]string{"launch", "--member", "m-1"}, io.Discard, io.Discard); code != 0 {
+		t.Fatalf("exit = %d", code)
+	}
+	if len(seen) != 1 || seen[0] != preambleBudget {
+		t.Fatalf("launch 의 예산 = %v, want %s", seen, preambleBudget)
+	}
+}
+
+func TestDmctlRunClose_UsesCloseBudget(t *testing.T) {
+	ts, _ := runStub(t, map[string]string{"/api/runs/close": `{"id":"r","state":"closed"}`})
+	pointDmctlAtServer(t, ts, "tool-a")
+	var seen []time.Duration
+	restore := recordBudgets(&seen)
+	defer restore()
+
+	if code := runDmctlRun([]string{"close", "--run", "r"}, io.Discard, io.Discard); code != 0 {
+		t.Fatalf("exit = %d", code)
+	}
+	if len(seen) != 1 || seen[0] != closeBudget {
+		t.Fatalf("close 의 예산 = %v, want %s", seen, closeBudget)
+	}
+}
+
+// recordBudgets 는 예산 클라이언트가 만들어질 때의 예산을 적는다.
+func recordBudgets(seen *[]time.Duration) (restore func()) {
+	prev := clientWithin
+	clientWithin = func(d time.Duration) *http.Client {
+		*seen = append(*seen, d)
+		return prev(d)
+	}
+	return func() { clientWithin = prev }
 }

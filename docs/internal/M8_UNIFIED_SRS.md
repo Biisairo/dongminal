@@ -814,6 +814,80 @@ ko 와 **키 집합이 같다**는 검사가 덮는다. CSS `content` 만 라틴
 **D-U-10 — 축 A ⑤(CLI 계약)는 C-a 뒤다.** Run 멤버의 기동 경로가 둘이 된 뒤 한 번에
 본다 — 먼저 고치면 C-a 가 다시 고친다.
 
+**D-A-1 — `dmctl` 의 대기 예산은 서버 상한의 사본이 아니라 같은 상수다.** (P6, FBE-01 클라이언트
+절반) `runPost`/`runGet` 이 예산을 받고, `succeed` 는 `--timeout-ms`(없으면 서버 기본 180초) + 여유,
+`preamble`(`run launch`·`wait --member`·`status --member` 의 멤버 해석)은 90초 + 여유, `close` 는
+20초 + 40초 여유다. 상한 셋은 `shared/runwait` 한 곳에 있고 서버(`httpapi`)와 CLI(`runtimebin`)가
+그것을 함께 읽는다 — `wait` 가 `waitClientDefaultBudgetMS` 로 서버 기본을 **베껴** 둔 형태는 답습하지
+않는다(두 벌은 한쪽만 바뀐다). "전임자가 60초 뒤 답해도 성공" 은 60초 자는 테스트가 아니라 두 단정으로
+잰다: 예산 계산이 순수 함수(`--timeout-ms 60000` → 70초)이고, 전송이 그 예산을 실제로 쓴다(짧은
+예산은 끊기고 긴 예산은 잇는다).
+
+**D-A-2 — `/api/commands` 를 지나는 `dmctl` 명령은 전부 `delivered` 를 판정한다.** (P6, FBE-02)
+`dmctlPost`·`dmctlSend` 가 응답의 `delivered`·`timedOut` 을 읽는다.
+  이전 동작: 브라우저가 없어도 `{"ok":true,"delivered":0}` 를 찍고 exit 0
+  새  동작: `delivered==0` 이면 `detach` 와 같은 문구("구독 중인 브라우저가 없습니다 — 페이지를
+            새로고침하세요")로 **exit 1**. 생성 명령이 `timedOut` 이면 "브라우저가 결과를 답하지
+            않았다 — 만들어지지 않았을 수 있다. list-workspace 로 확인하라" 로 **exit 1**. 본문은
+            둘 다 stdout 에 그대로 남는다(스크립트가 읽던 것을 빼앗지 않는다)
+  이유:     헬프의 팀 구성 절차(`new-tab` → `run member --at <새 uuid>`)가 exit 0 을 "만들어졌다"
+            로 읽는다. 같은 종단의 `detach` 는 이미 이렇게 판정한다
+`open-url` 은 자기 경로(`where=local` 이면 부른 셸이 연다)라 대상이 아니다.
+
+**D-A-3 — `closedTabs[].closed` 는 방송 결과다.** (P6, FBE-04) `closeRunTabs` 가 `broadcastLayout`
+의 반환(구독자 수)을 `closed` 에 싣고 `delivered` 도 함께 낸다. `closedTabIDs` 는 `closed==true`
+만 모으므로 브라우저가 없으면 표식 해제(`markWorkspaceRunExcept`)가 그 탭을 건너뛰지 않는다 —
+남은 탭에 죽은 Run 의 `runId` 가 붙지 않는다. 정리는 계속한다(attach/detach 처럼 503 으로 멈추지
+않는다) — 정리는 조건이 아니고, 거짓 보고만 없앤다.
+
+**D-A-4 — codex 의 터미널 표면은 실측대로 `argv` · `--model` 이다.** (P6, FBE-06·14 — 사용자 결정
+2026-09-14 "선언 정정 + 안내 코드") codex 0.154.0 `--help`: `codex [OPTIONS] [PROMPT]` ·
+`-m, --model <MODEL>`. P0 의 "미확인 — 보수적으로 `stdin-after-start`" 는 실측으로 소멸한다.
+  이전 동작: `dmctl run launch --member <codex>` 가 `codex` 한 줄 — 프리앰블·모델 없음
+  새  동작: `codex --model <m> '<프리앰블>'` — claude·omp 와 같은 한 줄
+  이유:     실측. 헬프의 3단계 절차가 이 전제 위에 있었고 codex 만 조용히 어긋났다
+어댑터 계약의 다른 값(`PromptStdinAfterStart` · 빈 `ModelFlag`)은 남으므로 `runSubLaunch` 가 그것을
+호출자에게 **말한다**: 주입이 argv 가 아니면 stderr 로 "기동줄에 프리앰블이 실리지 않는다 — `wait
+--for ready` 뒤 `run launch --text | send-input --execute -`" 를, `--model` 을 줬는데 플래그가 없으면
+"이 에이전트의 모델 플래그를 모른다 — 생략했다" 를 낸다. 종료 코드는 0 이다(기동줄은 유효하다).
+헬프의 3단계 절차에 그 분기를 적는다. 프로토콜 표면(`codex_proto.go`)은 건드리지 않는다.
+
+**D-A-5 — `status --member` 는 `wait --member` 와 같은 해석이다.** (P6, FBE-13) `parseStatusFlags` 의
+`--member` 게이트를 푼다. 해석(`memberToolID`)은 둘이 같은 함수이며 예산은 D-A-1 의 preamble 것이다.
+
+**D-A-6 — `run delete` · `run graph` 는 API 한 번이다.** (P6, FBE-15) `DELETE /api/runs/{id}` ·
+`GET /api/runs/{id}/graph`. `delete` 는 close 와 달리 미보고 검사 없이 **레코드를 지운다**(UI 의
+삭제와 같은 뜻, FR-DEL-8~11) — 헬프가 그 차이를 적는다. `graph` 는 `--json` 이 아니면 멤버·간선·
+타임라인을 줄로 낸다. FUI-23(Run 시작이 UI 에 없다)은 기록만 — 팀 구성은 스킬의 것이다.
+
+**D-A-7 — 없는 `--cwd` 는 400 이다.** (P6, FBE-16) 검사 자리는 `apiToolsCreate`(HTTP 종단) —
+샌드박스가 아닌 창(`sandbox` 없음)에서 `cwd` 가 주어졌는데 디렉터리가 아니면 `tool_cwd_missing`
+400. 샌드박스는 종전대로 배치기가 판정한다(FR-SBX-41). `toolhub` 의 홈 폴백(`tool.go`)은 **남긴다**
+— 그것은 되살림(`Restore`)의 길이며, tools.json 에 적힌 cwd 가 사라진 도구를 되살릴 때 홈으로
+떨어지는 것이 맞다. `cwdTool` 로 물려받은 cwd 도 같은 검사를 지난다.
+  이전 동작: `dmctl new-window --cwd /없는/경로` → 새 창이 홈에서 뜨고 exit 0
+  새  동작: 도구 생성이 400, 브라우저가 echo 하지 않아 `timedOut` → D-A-2 로 exit 1
+  이유:     `manager.go` 의 주석("조용히 걸러 내면 왜 안 붙었는지 알 수 없다")이 이미 이 뜻이다
+
+**D-A-8 — 붙여넣기 본문의 종료 마커와 엔벨로프 구분자는 서버가 치환한다.** (P6, FBE-18)
+`wrapPaste` 는 본문의 `ESC[201~` 를 제거한다(모드가 켜져 있을 때만 — 꺼져 있으면 마커가 뜻이
+없다). `apiToolMessage` 는 본문의 `[DONGMINAL-AGENT-MSG` → `[\DONGMINAL-AGENT-MSG`,
+`[/DONGMINAL-AGENT-MSG` → `[\/DONGMINAL-AGENT-MSG` 로 바꾼다 — 역슬래시 하나가 "인용" 의 표식이고,
+헤더의 정확한 바이트열은 서버가 만든 것 하나뿐이 된다. 04-Sec P0-1/2 는 Origin/CSRF 라 M2 가 이것을
+다루지 않았다 — 여기서 닫는다. `agent-context` 본문은 바꾸지 않는다(FR-CTX-3 최소, 훅 표면 불변 V-11).
+
+**D-A-9 — 격리 기동은 두 경로가 같은 안내를 내고 같은 도구 홈을 심는다.** (P6, FBE-09·10)
+`announceIsolated`(격리 홈 · 도구 셸의 홈 · 내리는 법) 하나를 `startDetached` 와 `--foreground` 가
+함께 부르고, `ensureIsolatedToolHome` 하나가 두 경로의 도구 홈을 만든다. 헬프의 `--isolated` 가 도구
+홈 상실을 적는다.
+  이전 동작: `--isolated --foreground` 는 임시 홈 경로를 끝내 알리지 않았고(안내가 `startDetached`
+            안에만), 도구 셸은 **사용자 홈**에서 떴다(`prepareServerCmd` 만 도구 홈을 심었다)
+  새  동작: 전경에서도 같은 안내와 같은 격리
+  이유:     "자동으로 지우지 않습니다" 인데 경로를 모르면 지울 수 없다. 격리의 뜻이 모드에 따라
+            달라선 안 된다
+FBE-11(`termReset`)은 TERMINAL_RESUME FR-TRS-12 가 이미 닫았다 — `buildReplay` 하나를 두 모드가 쓰고
+`termReset` 은 전량 재생 때만 나간다. 판정표에 "이미 해소" 로 적는다.
+
 **D-C-1 — 에이전트 탭은 `type:"agent"` + `toolId` 다.** (P3) 탭 레코드가 종류를 들어야 브라우저가
 목록을 받기 전에도 어느 뷰를 그릴지 안다. `toolId` 를 보는 코드(닫기·복원·백그라운드·`dmctl
 list-workspace`)는 그대로 닿고, `type==='terminal'` 을 묻던 자리 중 뜻이 "도구가 있는 탭" 이던
@@ -1378,6 +1452,7 @@ PTY 화면 갱신보다 작다). **다른 것 둘**:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-14 | **P6 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-11, 전량 e2e 는 §1-12. 착수 실측(드리프트 셋 초록) 뒤 재감사 — FBE-11 은 이미 해소(FR-TRS-12), codex 표면은 실측이 전제를 뒤집음(0.154.0 `[PROMPT]`·`--model`). D-A-1~9 신설: `shared/runwait` 예산(D-A-1) · `dmctlDelivery` exit 1(D-A-2, 동작 변경) · `closedTabs[].closed` 는 방송 결과(D-A-3) · codex 터미널 표면 argv·`--model` + `launchNotes`(D-A-4, 사용자 결정) · `status --member`(D-A-5) · `run delete`·`run graph`(D-A-6) · 없는 `cwd` 400 `tool_cwd_missing`(D-A-7) · `wrapPaste`·`quoteEnvelope`(D-A-8) · 격리 기동 안내·전경 도구 홈(D-A-9, 동작 변경). §3.2 ⑥ 의 `FBE-09~11` 은 P6 가 닫았다(인계서가 그것을 P6 DoD 로 들었다) |
 | 2026-09-14 | **P5 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-9, 전량 e2e 는 §1-10. 세션이 프로세스보다 오래 산다(D-C-11 — `Dormant` hibernated·error, 같은 `toolId` 로 재개 `ReuseID`) · 디스크 `agents/<toolId>.jsonl`+`agents.json`(D-C-12·14) · 요약 스냅샷은 버려진 이벤트의 접힘(D-C-13) · `EvExit` 사유 + stderr 꼬리 `ExitInfo`(D-C-15, 데몬 `exit` push 가 실제 code·stderr 를 싣는다) · 신원 없는 도구는 휴면 불가, claude `initialize` 응답이 `idle`(D-C-16) · 휴면 세션은 `/api/state.tools` 에 합쳐진다(D-C-17). HTTP `hibernate`·`resume`, 오류 코드 셋. P4 발견 둘 해소(가짜 claude 의 init 시점 · codex rejoin). 발견: 틈 되메움이 readLoop 안의 RPC 였다(§2-30, 비동기로) |
 | 2026-09-14 | **P5 착수.** 드리프트 잡 셋 초록. §3.4.4 P5 착수 실측(omp 접두 무제한·모호하면 조용히 고른다 · codex `thread/resume` 이 살아 있는 thread 를 rejoin 한다 · 재 `initialize` 는 `Already initialized`). D-C-11~17 — 휴면·오류는 세션의 상태, 같은 `toolId` 로 재개(`ReuseID`) · 디스크 JSONL(SSE 와 같은 줄)+`agents.json` · 스냅샷은 버려진 이벤트의 접힘 · `EvExit` 가 사유를 든다 · 신원 없는 도구는 휴면 불가(claude 첫 턴 전) · 휴면 도구는 목록에 합쳐진다 |
 | 2026-09-13 | **P4 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-7, 전량 e2e 는 §1-8. codex·omp 어댑터가 같은 `Proto` 구조체에 들어갔다(FR-U-2 첫 판정 — §9.3 ③ P4 판정). §2.3.3 에 P4 재실측 표. D-U-5 의 대조 잡(`drift_test.go`, 사건 주기). F-4 의 설정 키 `agentApprovalMode`. `Handshake` 가 LaunchOpts 를 받는다 · `LaunchOpts.Approval` · `Question.FreeText`. 가짜 에이전트가 세 프로토콜을 말한다 (argv 모양으로 고른다). P4 발견 둘: claude 의 `system:init` 은 첫 프롬프트 뒤(§2-28) · codex 되살림은 thread 를 잃는다(P5) |

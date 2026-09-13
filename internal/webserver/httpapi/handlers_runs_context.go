@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"dongminal/internal/shared/runwait"
 	"dongminal/internal/webserver/domain/run"
 )
 
@@ -38,13 +39,15 @@ import (
 //
 // 나머지 절반은 시한을 늘려도 남는다. 그쪽은 FR-RUN-4 가 맡는다 — 늦게 온 요약도
 // 후임의 프리앰블에 실린다.
-const handoffWaitDefault = 180 * time.Second
+//
+// 값은 `shared/runwait` 의 것이다 (M8 D-A-1) — `dmctl` 이 같은 수로 예산을 잡는다.
+const handoffWaitDefault = runwait.HandoffWaitDefault
 
 // handoffPreambleWait 는 **프리앰블이** 늦은 요약을 기다리는 상한이다 (FR-RUN-4).
 //
 // 승계보다 짧다. 여기 오기까지 이미 승계의 시한만큼 기다렸으므로, 같은 길이를 한
 // 번 더 주면 조정자의 한 명령이 6분을 먹는다.
-const handoffPreambleWait = 90 * time.Second
+const handoffPreambleWait = runwait.PreambleWait
 
 // handoffPollInterval 은 요약이 도착했는지 되짚어 보는 간격이다.
 const handoffPollInterval = 250 * time.Millisecond

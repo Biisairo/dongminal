@@ -276,3 +276,97 @@ func TestDmctlRun_HelpAndDispatch(t *testing.T) {
 		t.Fatal("`dmctl run` 이 디스패치되지 않는다")
 	}
 }
+
+// ── M8_UNIFIED_SRS D-A-6 (FBE-15): run delete · run graph ──
+//
+// API(`DELETE /api/runs/{id}` · `GET /api/runs/{id}/graph`)는 있었고 CLI 만 없었다 —
+// UI 와 반대 방향의 같은 격차(FUI-04·23).
+
+func TestDmctlRunDelete_CallsDeleteAPI(t *testing.T) {
+	ts, calls := runStub(t, map[string]string{
+		"/api/runs/r-1": `{"id":"r-1","short":"r1","state":"closed","worktrees":[],"residue":0}`,
+	})
+	pointDmctlAtServer(t, ts, "tool-a")
+
+	var out bytes.Buffer
+	if code := runDmctlRun([]string{"delete", "--run", "r-1"}, &out, io.Discard); code != 0 {
+		t.Fatalf("exit = %d (%s)", code, out.String())
+	}
+	if len(*calls) != 1 || (*calls)[0].Method != http.MethodDelete || (*calls)[0].Path != "/api/runs/r-1" {
+		t.Fatalf("요청 = %+v, want DELETE /api/runs/r-1", *calls)
+	}
+	if !strings.Contains(out.String(), "deleted") || !strings.Contains(out.String(), "run=r-1") {
+		t.Fatalf("출력이 어긋난다: %q", out.String())
+	}
+}
+
+func TestDmctlRunDelete_ReportsResidue(t *testing.T) {
+	ts, _ := runStub(t, map[string]string{
+		"/api/runs/r-1": `{"id":"r-1","short":"r1","state":"closed","residue":1,
+		  "worktrees":[{"path":"/tmp/wt","branch":"run/x","removed":false,"residue":"dirty"}]}`,
+	})
+	pointDmctlAtServer(t, ts, "tool-a")
+
+	var out bytes.Buffer
+	if code := runDmctlRun([]string{"delete", "--run", "r-1"}, &out, io.Discard); code != 0 {
+		t.Fatalf("exit = %d (%s)", code, out.String())
+	}
+	if !strings.Contains(out.String(), "/tmp/wt") || !strings.Contains(out.String(), "dirty") {
+		t.Fatalf("잔여물을 보고하지 않는다: %q", out.String())
+	}
+}
+
+func TestDmctlRunDelete_RequiresRun(t *testing.T) {
+	var errb bytes.Buffer
+	if code := runDmctlRun([]string{"delete"}, io.Discard, &errb); code != 2 {
+		t.Fatalf("exit = %d, want 2", code)
+	}
+	if !strings.Contains(errb.String(), "--run") {
+		t.Fatalf("무엇이 빠졌는지 말하지 않는다: %q", errb.String())
+	}
+}
+
+func TestDmctlRunGraph_PrintsMembersEdgesTimeline(t *testing.T) {
+	ts, calls := runStub(t, map[string]string{
+		"/api/runs/r-1/graph": `{"runId":"r-1","short":"r1","objective":"목적","state":"open","isolation":"none",
+		  "createdAt":1,"members":[{"id":"m-1","role":"writer","agent":"claude","toolId":"t-1","state":"working"}],
+		  "edges":[{"from":"m-1","to":"m-2","count":3,"lastAt":5}],
+		  "messages":[],"timeline":[{"at":7,"kind":"member_added","memberId":"m-1"}]}`,
+	})
+	pointDmctlAtServer(t, ts, "tool-a")
+
+	var out bytes.Buffer
+	if code := runDmctlRun([]string{"graph", "--run", "r-1"}, &out, io.Discard); code != 0 {
+		t.Fatalf("exit = %d (%s)", code, out.String())
+	}
+	if len(*calls) != 1 || (*calls)[0].Method != http.MethodGet || (*calls)[0].Path != "/api/runs/r-1/graph" {
+		t.Fatalf("요청 = %+v, want GET /api/runs/r-1/graph", *calls)
+	}
+	for _, want := range []string{"run=r-1", "role=writer", "m-1 -> m-2", "count=3", "member_added"} {
+		if !strings.Contains(out.String(), want) {
+			t.Fatalf("출력에 %q 가 없다: %q", want, out.String())
+		}
+	}
+}
+
+func TestDmctlRunGraph_JSONPassesThrough(t *testing.T) {
+	ts, _ := runStub(t, map[string]string{"/api/runs/r-1/graph": `{"runId":"r-1","members":[],"edges":[],"timeline":[]}`})
+	pointDmctlAtServer(t, ts, "tool-a")
+
+	var out bytes.Buffer
+	if code := runDmctlRun([]string{"graph", "--run", "r-1", "--json"}, &out, io.Discard); code != 0 {
+		t.Fatalf("exit = %d", code)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil || got["runId"] != "r-1" {
+		t.Fatalf("--json 이 서버 응답을 그대로 내지 않는다: %q", out.String())
+	}
+}
+
+func TestDmctlRunHelp_ListsDeleteAndGraph(t *testing.T) {
+	for _, want := range []string{"dmctl run delete", "dmctl run graph"} {
+		if !strings.Contains(dmctlRunHelp, want) || !strings.Contains(dmctlHelp, want) {
+			t.Fatalf("헬프에 %q 가 없다", want)
+		}
+	}
+}

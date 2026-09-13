@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"dongminal/internal/webserver/httpreq"
 	"strconv"
@@ -145,7 +146,7 @@ func (s *Server) apiToolMessage(w http.ResponseWriter, r *http.Request) {
 	sender := envelopeSender(fromToolID)
 	envelope := fmt.Sprintf(
 		"[DONGMINAL-AGENT-MSG from=%s to=%s ts=%s]\n%s\n[/DONGMINAL-AGENT-MSG]",
-		sender, toolID, time.Now().Format("15:04:05"), body.Message,
+		sender, toolID, time.Now().Format("15:04:05"), quoteEnvelope(body.Message),
 	)
 	if err := s.ToolIO.SendPaste(toolID, []byte(envelope), true); err != nil {
 		writeToolIOError(w, http.StatusInternalServerError, err.Error())
@@ -159,6 +160,18 @@ func (s *Server) apiToolMessage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"toolId": toolID, "from": sender, "to": toolID, "len": len(body.Message),
 	})
+}
+
+// quoteEnvelope 는 본문 안의 엔벨로프 구분자를 **인용**한다 (M8_UNIFIED_SRS D-A-8,
+// 10-func-backend FBE-18). `from` 은 서버가 정하지만 본문에 심은 가짜 헤더는 수신
+// 에이전트가 구분할 수 없었다 — 발신자가 다른 멤버를 사칭하는 길이다. 역슬래시
+// 하나가 인용의 표식이고, 정확한 바이트열의 헤더는 서버가 만든 것 하나뿐이 된다.
+func quoteEnvelope(msg string) string {
+	r := strings.NewReplacer(
+		"[/DONGMINAL-AGENT-MSG", "[\\/DONGMINAL-AGENT-MSG",
+		"[DONGMINAL-AGENT-MSG", "[\\DONGMINAL-AGENT-MSG",
+	)
+	return r.Replace(msg)
 }
 
 // resolveSender resolves the envelope's `from` party to a tool uuid under the

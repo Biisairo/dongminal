@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -19,9 +18,11 @@ import (
 const dmctlStatusHelp = `dmctl status — 도구에서 도는 에이전트의 현재 상태
 
 사용법:
-  dmctl status [--at <uuid>] [--json]
+  dmctl status (--at <uuid> | --member <uuid>) [--json]
 
   --at <uuid>, -l <uuid>   대상 도구. 생략 시 현재 셸이 속한 도구.
+  --member <uuid>          Run 멤버로 지목한다. 헤드리스 멤버는 탭 uuid 가 없으므로
+                           이것이 유일한 지목 수단이다. --at 과 배타 (wait 와 같다).
   --json                   서버 응답 JSON 을 그대로 낸다.
 
 state 는 에이전트 훅이 보고한 값이다:
@@ -116,13 +117,15 @@ func parseStatusFlags(cmd string, args []string, wantCond bool, stdout, stderr i
 			f.cond, step = v, n
 		case wantCond && strings.HasPrefix(a, "--for="):
 			f.cond = a[len("--for="):]
-		case wantCond && a == "--member":
+		// M8 D-A-5 (FBE-13): --member 는 status 도 받는다 — 헤드리스 멤버는 탭 uuid 가
+		// 없어 이것이 유일한 지목 수단이고, 종전에는 wait 만 그 문을 열어 두었다.
+		case a == "--member":
 			v, n, ok := take(i, a)
 			if !ok {
 				return f, 2, false
 			}
 			f.member, step = v, n
-		case wantCond && strings.HasPrefix(a, "--member="):
+		case strings.HasPrefix(a, "--member="):
 			f.member = a[len("--member="):]
 		case wantCond && (a == "--timeout-ms" || strings.HasPrefix(a, "--timeout-ms=")):
 			raw := ""
@@ -176,6 +179,13 @@ func runDmctlStatus(args []string, stdout, stderr io.Writer) int {
 	f, code, ok := parseStatusFlags("status", args, false, stdout, stderr)
 	if !ok {
 		return code
+	}
+	if f.member != "" {
+		toolID, rc := memberToolID(f.member, stderr)
+		if rc != 0 {
+			return rc
+		}
+		f.target = toolID
 	}
 	q := url.Values{}
 	q.Set("id", f.target)
@@ -289,23 +299,7 @@ const (
 // statusGet performs the GET and maps transport/HTTP failures to exit codes.
 // timeout<=0 uses the shared short-lived client.
 func statusGet(fullURL, apiPath string, timeout time.Duration, stderr io.Writer) ([]byte, int) {
-	var (
-		status int
-		body   []byte
-		err    error
-	)
-	if timeout > 0 {
-		client := &http.Client{Timeout: timeout}
-		var resp *http.Response
-		resp, err = client.Get(fullURL)
-		if err == nil {
-			defer resp.Body.Close()
-			status = resp.StatusCode
-			body, err = io.ReadAll(resp.Body)
-		}
-	} else {
-		status, body, err = httpGet(fullURL)
-	}
+	status, body, err := httpGetWithin(fullURL, timeout)
 	if err != nil {
 		fmt.Fprintf(stderr, "dmctl: %v\n", err)
 		return nil, 1

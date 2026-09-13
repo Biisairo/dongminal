@@ -419,6 +419,7 @@ I18N.register('ko', {
   'err.save_failed': '저장하지 못했습니다.',
   'err.stale_revision': '들고 있던 판이 서버의 현재 판보다 뒤졌습니다.',
   'err.streaming_unsupported': '이 연결에서 스트리밍을 쓸 수 없습니다.',
+  'err.tool_cwd_missing': '지목한 작업 디렉터리가 없거나 디렉터리가 아닙니다 — 존재하는 디렉터리의 절대경로를 주세요.',
   'err.tool_not_found': '그 도구가 없습니다 — 이미 닫혔거나 다른 인스턴스의 것입니다.',
   'err.tools_unavailable': '도구 계층이 아직 서지 않았습니다.',
   'err.unknown_action': '모르는 명령입니다.',

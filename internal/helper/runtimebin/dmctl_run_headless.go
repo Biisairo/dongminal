@@ -57,7 +57,8 @@ func runSubDetach(f runFlags, stdout, stderr io.Writer) int {
 func memberToolID(memberID string, stderr io.Writer) (string, int) {
 	q := url.Values{}
 	q.Set("member", memberID)
-	raw, code := runGet("/api/runs/preamble?"+q.Encode(), stderr)
+	// 이 종단은 늦은 인수인계를 기다려 준다 (FR-RUN-4) — 그 상한만큼의 예산이다 (M8 D-A-1).
+	raw, code := runGetWithin("/api/runs/preamble?"+q.Encode(), preambleBudget, stderr)
 	if code != 0 {
 		return "", code
 	}

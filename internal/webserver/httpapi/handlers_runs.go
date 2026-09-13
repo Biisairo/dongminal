@@ -630,10 +630,14 @@ func (s *Server) markWorkspaceRunExcept(rec run.Record, tabID, runID string, ski
 	dmlog.Infof(nil, "[run] workspace 표식 포기 — 동시 편집으로 3회 stale (runId=%s)", runID)
 }
 
-// closedTabIDs 는 정리가 닫은 탭의 uuid 집합이다 (FR-RUN-6d).
+// closedTabIDs 는 정리가 **실제로 닫은** 탭의 uuid 집합이다 (FR-RUN-6d). 방송이
+// 아무 데도 가지 않은 탭은 남아 있으므로 표식 해제 대상이다 (M8 D-A-3).
 func closedTabIDs(closed []map[string]any) map[string]bool {
 	out := map[string]bool{}
 	for _, c := range closed {
+		if ok, _ := c["closed"].(bool); !ok {
+			continue
+		}
 		if id, _ := c["tabId"].(string); id != "" {
 			out[id] = true
 		}

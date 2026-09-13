@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"dongminal/internal/shared/toolhub"
+	"dongminal/internal/webserver/apierr"
+	"net/url"
 	"strconv"
 
 	"bytes"
@@ -607,13 +609,56 @@ func TestHandleAPI_ToolsCreate_ExplicitCwdWins(t *testing.T) {
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	resp := mustPost(t, ts.URL+"/api/tools?cwd=/explicit&cwdTool=ref", "application/json", nil)
+	explicit := t.TempDir()
+	resp := mustPost(t, ts.URL+"/api/tools?cwd="+url.QueryEscape(explicit)+"&cwdTool=ref", "application/json", nil)
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		t.Fatalf("status=%d", resp.StatusCode)
 	}
-	if pm.lastCwd != "/explicit" {
-		t.Fatalf("created tool cwd=%q want %q", pm.lastCwd, "/explicit")
+	if pm.lastCwd != explicit {
+		t.Fatalf("created tool cwd=%q want %q", pm.lastCwd, explicit)
+	}
+}
+
+// M8_UNIFIED_SRS D-A-7 (FBE-16): 없는 `cwd` 는 **400** 이다.
+//
+// 종전에는 toolhub 가 조용히 홈으로 폴백해 `dmctl new-window --cwd /없는/경로` 가 홈에서
+// 뜬 창과 exit 0 을 냈다. 샌드박스 창은 종전대로 배치기가 판정한다 (FR-SBX-41).
+func TestHandleAPI_ToolsCreate_MissingCwdIs400(t *testing.T) {
+	pm := newFakePaneHub()
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	missing := filepath.Join(t.TempDir(), "does-not-exist")
+	resp := mustPost(t, ts.URL+"/api/tools?cwd="+url.QueryEscape(missing), "application/json", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status=%d want 400", resp.StatusCode)
+	}
+	if got := resp.Header.Get(apierr.CodeHeader); got != apierr.CodeToolCwdMissing {
+		t.Fatalf("code=%q want %q", got, apierr.CodeToolCwdMissing)
+	}
+	if len(pm.created) != 0 {
+		t.Fatalf("400 인데 도구를 만들었다 (%v)", pm.created)
+	}
+}
+
+// 파일을 cwd 로 주는 것도 같은 거절이다 — 디렉터리가 아니다.
+func TestHandleAPI_ToolsCreate_FileCwdIs400(t *testing.T) {
+	pm := newFakePaneHub()
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	file := filepath.Join(t.TempDir(), "f.txt")
+	if err := os.WriteFile(file, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	resp := mustPost(t, ts.URL+"/api/tools?cwd="+url.QueryEscape(file), "application/json", nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status=%d want 400", resp.StatusCode)
 	}
 }
 

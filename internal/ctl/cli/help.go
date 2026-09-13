@@ -55,6 +55,8 @@ func usageStart() string {
                     도구 안에서 쓰면 대리 프로세스가 이어서 수행하고
                     출력은 $DONGMINAL_HOME/restart.log 에 남는다
   --isolated        임시 홈 + 비어 있는 포트로 띄운다. 운영 인스턴스를 건드리지 않는다
+                    도구 셸도 그 아래의 빈 홈(tool-home)에서 뜬다 — 사용자 rc·
+                    git config·자격증명이 없다. 기동 출력이 두 경로를 찍는다
   --foreground      터미널을 점유하며 실행한다 (^C 로 정지)
 ` + commonFlags + `
 

@@ -32,6 +32,7 @@ const (
 	// ── 도구 ──
 	CodeToolNotFound    = "tool_not_found"
 	CodeToolsUnready    = "tools_unavailable"
+	CodeToolCwdMissing  = "tool_cwd_missing" // M8 D-A-7 — 없는 cwd 는 홈으로 폴백하지 않는다
 	CodeSandboxUnready  = "sandbox_unavailable"
 	CodeStreamUnsupport = "streaming_unsupported"
 
@@ -76,7 +77,7 @@ const (
 var coreCodes = []string{
 	CodeBadRequest, CodeNotFound, CodeForbidden, CodeInternal, CodeConflict, CodeNotAllowed,
 	CodeInvalidJSON, CodeMissingArg, CodeBodyTooBig,
-	CodeToolNotFound, CodeToolsUnready, CodeSandboxUnready, CodeStreamUnsupport,
+	CodeToolNotFound, CodeToolsUnready, CodeToolCwdMissing, CodeSandboxUnready, CodeStreamUnsupport,
 	CodeWorkUnready, CodeStaleRev, CodeIfMatchRequired, CodeSaveFailed,
 	CodeNotAFile, CodeNotAnImage, CodeAbsPathNeeded, CodeFileChanged,
 	CodeAccessUnready, CodeHostRejected,

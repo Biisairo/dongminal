@@ -48,6 +48,7 @@ var CodeDoc = map[string]Doc{
 	CodeAgentDormant:     {"이 에이전트는 휴면·오류 상태라 프로세스가 없습니다.", "재개한 뒤 다시 시도하세요 — POST /api/agent/resume."},
 	CodeAgentNotDormant:  {"이 에이전트는 활성 상태라 재개할 것이 없습니다.", "휴면하려면 POST /api/agent/hibernate 를 먼저 부르세요."},
 	CodeSandboxUnready:   {"샌드박스 런타임을 쓸 수 없습니다.", "컨테이너 런타임(docker)이 설치되어 실행 중인지 확인하세요."},
+	CodeToolCwdMissing:   {"지목한 작업 디렉터리가 없거나 디렉터리가 아닙니다.", "존재하는 디렉터리의 절대경로를 주세요 — 홈으로 조용히 떨어지지 않습니다."},
 	CodeStreamUnsupport:  {"이 연결에서 스트리밍을 쓸 수 없습니다.", "중간의 프록시가 버퍼링하고 있지 않은지 보세요. 이 제품은 리버스 프록시를 지원하지 않습니다."},
 
 	// ── 워크스페이스·설정 ──

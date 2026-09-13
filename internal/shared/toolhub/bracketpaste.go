@@ -144,13 +144,18 @@ func (m *ToolManager) SendPaste(id string, text []byte, submit bool) error {
 
 // wrapPaste 는 모드가 켜져 있을 때만 감싼다. 꺼져 있으면 **원문 그대로** 다
 // (FR-BPW-2) — 켠 적 없는 셸에 마커를 보내면 그것이 명령줄에 글자로 들어간다.
+//
+// 감쌀 때는 본문 안의 **종료 마커를 제거한다** (M8_UNIFIED_SRS D-A-8, 10-func-backend
+// FBE-18). `read-output | dmctl msg -` 는 ANSI 를 그대로 나르므로 본문에 `ESC[201~`
+// 이 올 수 있고, 그러면 수신 셸이 구간을 조기 종료해 나머지를 타이핑으로 읽는다.
 func wrapPaste(text []byte, bracketed bool) []byte {
 	if !bracketed {
 		return text
 	}
-	out := make([]byte, 0, len(pasteBegin)+len(text)+len(pasteEnd))
+	body := bytes.ReplaceAll(text, pasteEnd, nil)
+	out := make([]byte, 0, len(pasteBegin)+len(body)+len(pasteEnd))
 	out = append(out, pasteBegin...)
-	out = append(out, text...)
+	out = append(out, body...)
 	out = append(out, pasteEnd...)
 	return out
 }

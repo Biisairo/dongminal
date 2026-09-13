@@ -42,7 +42,7 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | `dmctl read-output [--at <uuid>] [--bytes N]` | 같은 자리를 **raw 바이트**로 읽습니다 — ANSI 를 포함합니다 (기본 8192바이트). 색·커서 이동까지 봐야 할 때만 쓰세요 |
 | `dmctl send-input --at <uuid> [--execute] <텍스트>` | 그 도구의 **셸에 입력**을 넣습니다. `--execute` 면 Enter 까지 칩니다. 텍스트 자리에 `-` 를 주거나 생략하면 stdin 을 읽습니다 |
 | `dmctl msg --to <uuid> [--from <uuid>] <메시지>` | 그 도구의 **에이전트에게** 신뢰 엔벨로프로 메시지를 보냅니다. `send-input` 과 다릅니다 — 이쪽은 상대가 에이전트임을 전제하고 봉투를 씌웁니다 |
-| `dmctl status [--at <uuid>] [--json]` | 그 도구의 에이전트 상태(`idle`/`working`/`waiting`/`done`) |
+| `dmctl status [--at <uuid> \| --member <uuid>] [--json]` | 그 도구의 에이전트 상태(`idle`/`working`/`waiting`/`done`). `--member` 는 헤드리스 멤버를 지목한다 (`wait` 와 같다) |
 | `dmctl wait [--at <uuid>] --for ready\|done [--timeout-ms N]` | 그 상태가 될 때까지 기다립니다. 서버가 long-poll 로 잡아 주므로 폴링 루프를 짜지 마세요 |
 
 #### 에이전트 훅에서 부르는 것
@@ -71,6 +71,8 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | `dmctl run launch --member <uuid> [--model <m>]` | 그 팀원의 **기동줄**(프리앰블 포함)을 낸다 |
 | `dmctl run report --outcome succeeded\|failed --summary <3문장>` | 자기 몫의 결과를 보고한다 |
 | `dmctl run status [--run <uuid>]` · `dmctl run list` · `dmctl run close --run <uuid>` | 조회와 종료 |
+| `dmctl run delete --run <uuid>` | 레코드를 지운다 — close 와 달리 미보고 검사 없이 (웹 UI 의 삭제와 같다). 잔여물은 보고한다 |
+| `dmctl run graph --run <uuid> [--json]` | 멤버·메시지 간선·타임라인 — 대시보드가 그리는 그것 |
 
 각 서브커맨드의 상세는 `dmctl run <서브커맨드> --help` 로 봅니다.
 여러 에이전트를 팀으로 묶는 절차는 `/dongminal:team` 스킬에 있습니다.
@@ -129,6 +131,7 @@ NEW=$(dmctl split-v --at "$UUID" -n | jq -r '.newTabs[0].uuid')  # 새로 생긴
 - `newTabs` 각 원소는 `{uuid, toolId}` — uuid→toolId 재조회 불필요.
 - `newWindow` 은 `newWindows`/`newPanes`/`newTabs` 각 1개.
 - 구독 브라우저가 없거나(`delivered=0`) 응답이 늦으면 `timedOut: true` + 빈 배열 — 명령 자체는 broadcast 됨. 이 경우 `list-workspace` 로 확인.
+- **`dmctl` 은 그 둘을 실패로 본다** — `delivered=0` 이면 "구독 중인 브라우저가 없습니다" 와 exit 1, 생성 명령이 `timedOut` 이면 "만들어지지 않았을 수 있습니다" 와 exit 1. 본문은 그대로 stdout 에 남는다. 비생성 명령도 `delivered=0` 은 exit 1 이다 (`detach` 와 같은 판정).
 - 비생성 명령(`focus`/`close*`/`rename*`/`tool-*` 등)은 이 필드들이 없다 (기존 응답 그대로).
 
 ### 허용된 action (서버 화이트리스트)

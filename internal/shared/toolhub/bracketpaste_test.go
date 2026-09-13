@@ -135,3 +135,20 @@ func TestWrapPaste_UsesPasteMarkersNotModeSignals(t *testing.T) {
 		t.Fatalf("마커가 틀렸다: %q", out)
 	}
 }
+
+// M8_UNIFIED_SRS D-A-8 (FBE-18 전반): 본문 안의 **종료 마커**는 제거된다.
+//
+// `read-output | dmctl msg -` 는 ANSI 를 그대로 나르므로 본문에 `ESC[201~` 이 올 수
+// 있고, 그러면 수신 셸이 붙여넣기 구간을 조기 종료해 나머지를 타이핑으로 읽는다.
+// 모드가 꺼져 있으면 마커에 뜻이 없으므로 원문 그대로다 (FR-BPW-2).
+func TestWrapPaste_StripsEndMarkerInsideBody(t *testing.T) {
+	text := []byte("a\x1b[201~rm -rf /\x1b[201~b")
+	on := wrapPaste(text, true)
+	want := []byte("\x1b[200~arm -rf /b\x1b[201~")
+	if !bytes.Equal(on, want) {
+		t.Fatalf("got %q, want %q", on, want)
+	}
+	if off := wrapPaste(text, false); !bytes.Equal(off, text) {
+		t.Fatalf("모드가 꺼졌는데 본문을 고쳤다: %q", off)
+	}
+}

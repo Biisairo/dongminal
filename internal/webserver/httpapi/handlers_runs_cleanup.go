@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/agentadapter"
+	"dongminal/internal/shared/runwait"
 	"dongminal/internal/webserver/domain/run"
 )
 
@@ -30,7 +31,7 @@ const (
 	//
 	// 넘겨도 닫는다. 응답하지 않는 에이전트를 이유로 정리가 멎으면 그 Run 은
 	// 영영 화면에 남는다 — 승계가 무응답 멤버를 다루는 것과 같은 판단이다.
-	exitSettleTimeout = 20 * time.Second
+	exitSettleTimeout = runwait.ExitSettle
 	exitPollInterval  = 250 * time.Millisecond
 )
 
@@ -79,22 +80,28 @@ func (s *Server) closeRunTabs(ctx context.Context, rec run.Record, keep bool) []
 
 	// ② 탭을 닫는다. 좌표가 아니라 uuid 를 싣는다 — 브라우저의 `closeTab` 이
 	//    `location` 을 그렇게 해석한다 (app-cmd.js `_resolveLocation`).
+	//
+	// `closed` 는 **방송 결과**다 (M8_UNIFIED_SRS D-A-3, 10-func-backend FBE-04).
+	// 종전에는 반환값을 버리고 `true` 를 고정했다 — 브라우저가 없으면 아무 데도
+	// 가지 않은 방송이 "닫았다" 로 보고됐고, `closedTabIDs` 가 그 탭을 표식 해제에서
+	// 빼 지워진 Run 의 `runId` 가 남은 탭에 영구히 붙었다. 정리는 계속한다 —
+	// attach/detach 처럼 멈추지 않는다. 정리는 조건이 아니고 거짓 보고만 없앤다.
 	for i := range targets {
 		targets[i].exited = s.Tools == nil || !s.Tools.Busy(targets[i].toolID)
 		// `force` 인 이유는 위에서 이미 종료를 청하고 기다렸기 때문이다 —
 		// 그러고도 도는 프로세스에 확인창이 뜨면 무인 정리가 멎는다 (FR-RUN-6).
-		s.broadcastLayout("closeTab", map[string]any{"location": targets[i].tabID, "force": true})
+		n := s.broadcastLayout("closeTab", map[string]any{"location": targets[i].tabID, "force": true})
 		out = append(out, map[string]any{
 			"memberId": targets[i].memberID, "role": targets[i].role,
-			"tabId": targets[i].tabID, "closed": true, "exited": targets[i].exited,
+			"tabId": targets[i].tabID, "closed": n > 0, "delivered": n, "exited": targets[i].exited,
 		})
 	}
 
 	// ③ FR-RUN-7: 전용 창에 남은 **빈 탭**. 멤버가 결속되지 않은 채 셸만 도는
 	//    자리이며, 조정자가 만들었으나 쓰이지 않은 탭이 그것이다.
 	for _, e := range s.emptyRunTabs(rec) {
-		s.broadcastLayout("closeTab", map[string]any{"location": e, "force": true})
-		out = append(out, map[string]any{"tabId": e, "closed": true, "empty": true})
+		n := s.broadcastLayout("closeTab", map[string]any{"location": e, "force": true})
+		out = append(out, map[string]any{"tabId": e, "closed": n > 0, "delivered": n, "empty": true})
 	}
 	return out
 }

@@ -6,6 +6,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/agentadapter"
 )
 
 // 묶음 P 의 CLI 절반 — 프리앰블 전달 (RUN_ORCHESTRATION_SRS FR-PRE-1/8).
@@ -71,8 +73,9 @@ func TestDmctlRunLaunch_TextPrintsPreambleOnly(t *testing.T) {
 	}
 }
 
-// FR-ADP-1: 프롬프트를 위치 인자로 받지 않는 에이전트는 기동줄에 프리앰블을
-// 싣지 않는다. 그 사실을 호출자가 알 수 있어야 두 단계로 나눠 보낸다.
+// FR-ADP-1: 주입 방식은 `--json` 에 노출된다 — 호출자가 두 단계로 나눠 보낼지 여기서
+// 안다. codex 는 D-A-4 로 argv 가 됐으므로 이 테스트의 표본은 어댑터 값이 아니라
+// 노출 여부다.
 func TestDmctlRunLaunch_JSONExposesPromptInjectionMode(t *testing.T) {
 	preambleStub(t, "codex")
 
@@ -89,11 +92,11 @@ func TestDmctlRunLaunch_JSONExposesPromptInjectionMode(t *testing.T) {
 	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
 		t.Fatalf("JSON 이 아니다: %v (%s)", err, out.String())
 	}
-	if got.PromptInjection != "stdin-after-start" {
+	if got.PromptInjection != string(agentadapter.PromptArgv) {
 		t.Fatalf("주입 방식이 노출되지 않았다: %+v", got)
 	}
-	if strings.Contains(got.Launch, "dmctl run report") {
-		t.Fatalf("argv 로 받지 않는 에이전트인데 기동줄에 프롬프트가 실렸다: %q", got.Launch)
+	if !strings.Contains(got.Launch, "dmctl run report") {
+		t.Fatalf("argv 인데 기동줄에 프롬프트가 없다: %q", got.Launch)
 	}
 	if !strings.Contains(got.Preamble, "dmctl run report") {
 		t.Fatalf("프리앰블이 따로 제공되지 않았다: %+v", got)
@@ -213,4 +216,60 @@ type blockingReader struct{ t *testing.T }
 func (b *blockingReader) Read([]byte) (int, error) {
 	b.t.Fatal("stdin 을 지목하지 않았는데 읽었다")
 	return 0, io.EOF
+}
+
+// ── M8_UNIFIED_SRS D-A-4 (FBE-06·14) ──
+//
+// codex 의 터미널 표면이 실측(0.154.0 `--help`: `codex [OPTIONS] [PROMPT]` · `-m, --model`)으로
+// argv·`--model` 이 됐다. 기동줄은 claude 와 같은 한 줄이고, stderr 에 안내가 없다.
+func TestDmctlRunLaunch_CodexCarriesPreambleAndModel(t *testing.T) {
+	preambleStub(t, "codex")
+
+	var out, errb bytes.Buffer
+	if code := runDmctlRun([]string{"launch", "--member", "m-1", "--model", "o3"}, &out, &errb); code != 0 {
+		t.Fatalf("exit = %d (%s)", code, errb.String())
+	}
+	line := out.String()
+	if !strings.HasPrefix(line, "codex --model o3 '") {
+		t.Fatalf("기동줄이 아니다: %q", line)
+	}
+	if !strings.Contains(line, "dmctl run report --run run-1 --member m-1") {
+		t.Fatalf("프리앰블이 실리지 않았다: %q", line)
+	}
+	if errb.Len() != 0 {
+		t.Fatalf("argv 주입인데 안내가 나갔다: %q", errb.String())
+	}
+}
+
+// 어댑터 계약의 다른 값은 남는다 — 그 값을 든 에이전트에서는 호출자에게 **말한다**.
+// `adapter.go` 의 "호출자가 준비완료를 기다렸다가 별도로 붙여넣어야 한다" 의 그 호출자가
+// 이 명령이며, 종전에는 아무 신호도 없었다. 종료 코드는 0 — 기동줄은 유효하다.
+func TestLaunchNotes_StdinAfterStartAndUnknownModel(t *testing.T) {
+	a := agentadapter.Adapter{ID: "x", PromptInjection: agentadapter.PromptStdinAfterStart}
+	notes := launchNotes(a, "m-1", "tab-b", "sonnet")
+	if len(notes) != 2 {
+		t.Fatalf("안내 = %d건, want 2 (프리앰블 · 모델): %q", len(notes), notes)
+	}
+	for _, want := range []string{"wait --at tab-b --for ready", "run launch --member m-1 --text", "send-input --at tab-b --execute -"} {
+		if !strings.Contains(notes[0], want) {
+			t.Fatalf("프리앰블 안내에 %q 가 없다: %q", want, notes[0])
+		}
+	}
+	if !strings.Contains(notes[1], "sonnet") || !strings.Contains(notes[1], "생략") {
+		t.Fatalf("모델 안내가 어긋난다: %q", notes[1])
+	}
+
+	argv := agentadapter.Adapter{ID: "y", PromptInjection: agentadapter.PromptArgv, ModelFlag: "--model"}
+	if got := launchNotes(argv, "m-1", "tab-b", "sonnet"); len(got) != 0 {
+		t.Fatalf("argv·모델 플래그가 있는데 안내가 나갔다: %q", got)
+	}
+	if got := launchNotes(argv, "m-1", "tab-b", ""); len(got) != 0 {
+		t.Fatalf("모델을 주지 않았는데 안내가 나갔다: %q", got)
+	}
+}
+
+func TestDmctlRunHelp_ExplainsStdinAfterStartBranch(t *testing.T) {
+	if !strings.Contains(dmctlRunHelp, "stdin-after-start") || !strings.Contains(dmctlRunHelp, "--text") {
+		t.Fatal("헬프의 3단계 절차에 argv 가 아닌 에이전트의 분기가 없다")
+	}
 }
