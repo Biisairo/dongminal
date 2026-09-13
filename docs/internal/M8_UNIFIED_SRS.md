@@ -215,6 +215,15 @@ codex 는 세 에이전트 중 **가장 크게 올라간다** — `thread/starte
 파일을 뒤에서부터 훑어 얻는 값(`FR-AAC-10~13`)과 `ContextWindow` 가 모델
 이름으로 추측하는 값(`FR-AAC-20`)이 `result.modelUsage` 한 자리에 있다.
 
+**2.1.270 재실측 (2026-09-13, P0)** — 위 표에 더해: `system:status`(`requesting` ·
+`permissionMode` · `compact_result`) · `system:permission_denied` · `system:compact_boundary`
+(`compact_metadata{pre_tokens,post_tokens,…}`) · `conversation_reset{new_conversation_id}`
+(`/clear` — **세션 id 가 바뀐다**) · `control_request`/`control_response`(승인 `can_use_tool`
+과 호스트→CLI 제어 `initialize·set_model·set_permission_mode·set_max_thinking_tokens·
+mcp_status·interrupt`) · `user`(도구 결과·`<local-command-stdout>`) · `init.capabilities/
+terminal_slash_commands/messaging_socket_path` · `result.terminal_reason/stop_reason`.
+전부 §9.3 ⑥ F-2.
+
 #### 2.3.5 전경 프로세스 이름은 이미 있다
 
 `hub/foreground.go` 가 2 초 주기(`ForegroundInterval`)로 전경 프로그램 이름을
@@ -407,7 +416,7 @@ codex 는 세 에이전트 중 **가장 크게 올라간다** — `thread/starte
 **그대로**다 (FR-U-2·3). 소비자는 `Adapter.Proto()` 가 참일 때만 에이전트 도구를
 띄운다.
 
-**FR-APS-10** (추가, §9.2 R-c) claude 의 승인 요청은 `--permission-prompt-tool` 이
+**FR-APS-10** (추가, §9.2 R-c) **⚠ P0 실측과 충돌 — §9.3 ⑥ F-1, 정정 대기.** claude 의 승인 요청은 `--permission-prompt-tool` 이
 요구하는 **MCP 도구**로 온다. dongminal 이 그 도구를 노출하는 MCP 서버를 하나 든다
 — 어댑터의 `LaunchProto` 가 그 주소를 인자로 싣고, 서버는 그 호출을 FR-APS-5 의
 승인 요청으로 올린다. 이것은 실측 항목이 아니라 **범위 항목**이다.
@@ -451,6 +460,26 @@ codex 는 세 에이전트 중 **가장 크게 올라간다** — `thread/starte
 도구의 뷰가 axe 표면 등록부에 들며(`FR-A11Y-13`), 승인 다이얼로그는 `UIKit.dialogOpen`
 의 트랩·복귀를 지나고, 승인 요청의 도착은 라이브 리전으로 읽히며(`FR-A11Y-19`),
 문구는 카탈로그 키다.
+
+**FR-AGT-11** (추가, P0 사용자 요구 2026-09-13 — *"omp 는 여러 방식으로 로그인이 가능한데
+이걸 다 사용할 수 있어야 해, 모델 변경이라거나"*) **프로토콜이 주는 로그인·모델 전환은
+UI 로 노출한다.** 어댑터의 `Proto.Control`(§9.3 ③) 이 지원하는 것 — 로그인 공급자 목록과
+로그인 흐름(omp `get_login_providers`·`login` → `open_url`·`input`; codex `account/login/*`),
+모델 목록과 전환(omp `get_available_models`·`set_model`·`cycle_model`; claude `initialize.models`·
+`set_model`; codex `model/list`·`turn/start.model`), 권한 모드·사고 예산 — 을 에이전트 도구의
+메뉴에 낸다. 어댑터가 주지 않는 것(claude 로그인)은 FR-AGT-10 의 TUI 출구다. 선택지는
+프로토콜이 준 것 그대로다 (FR-AGT-5 와 같은 규약).
+
+**FR-AGT-12** (추가, P0 사용자 요구 2026-09-13 — *"에이전트 화면 동시 접근에 대해서는
+터미널과 같은 동작으로 한쪽만 컨트롤하도록 블로킹하기"*) **동시 접근은 창 포커스 소유를
+그대로 지난다.** 에이전트 도구의 뷰는 터미널 도구와 같은 규약 — 창마다 소유자 하나
+(last-focus-wins, `FR-XDF-2/3`, `POST /api/focus/claim` → SSE `window_focus`, `FR-XDF-5/6`) —
+아래 선다. 소유자가 아닌 브라우저는 `.pn-dimmed`("클릭하여 포커스") 로 **보기만** 하며
+프롬프트·승인 응답·제어(FR-AGT-11)를 보내지 못한다; 클릭하면 소유권을 가져온다.
+새 기계를 만들지 않는다 — `app-focus.js` 의 `_windowFocusOwner`·`applyFocusOverlay` 가
+에이전트 도구의 pane 에도 그대로 적용된다 (FR-AGT-7 의 "종류를 묻지 않는 코드" 에 든다).
+서버가 소유자 아닌 클라이언트의 승인 응답을 거절할지는 P3 에서 정한다 — 터미널은
+지금 클라이언트만 막는다.
 
 **FR-AGT-10** (추가, FR-U-4) **TUI 출구.** 에이전트 도구의 탭 메뉴에 "터미널로
 열기" 가 있다 — 같은 세션 신원으로 터미널 탭을 열고(`claude --resume <id>` 류, 어댑터의
@@ -599,7 +628,7 @@ M7 의 형식으로 인계한다.
 FR-AAL-10·11·12·20·21·22·30 · FR-AHR-1~5 · R-3 의 "훅 제거를 마지막에" · R-6 · V-4 ·
 V-7 · AS-3.
 
-**D-U-4 — 에이전트 도구는 새 도구 종류다.** (원문 D-4, 사용자 선택 2026-09-12 유지)
+**D-U-4 — 에이전트 도구는 새 도구 종류다.** (원문 D-4, 사용자 선택 2026-09-12 유지) **⚠ P0 판정은 "전송만 다른 변형 + `Kind`" — §9.3 ⑤, 사용자 확인 대기.**
 기존 터미널 도구에 뷰를 토글하는 안은 PTY 없는 세션에 PTY 도구의 껍데기를 씌운다.
 다만 D-U-2 가 그 위에 선다 — 종류가 달라도 **소비자 길은 같다**(FR-AGT-8).
 P0 가 "종류" 와 "전송만 다른 변형" 중 어느 쪽이 `ToolHub` 인터페이스(`GO-46`)에
@@ -783,20 +812,28 @@ claude `--resume`, codex `thread/resume` 는 문서·플래그로 확인했고, 
 채우지 않고 비워 둔다 — 틀린 플래그는 기동 자체를 깨뜨리므로 없는 것보다
 나쁘다"* 고 적은 것과 같은 규약이다.
 
-| # | 확인할 것 |
-|---|---|
-| U-1 | omp `--mode rpc-ui` 의 실제 프레임 형식과 `extension_ui_request` 의 payload (R-5) |
-| U-2 | codex app-server 의 한 프로세스가 여러 thread 를 드는가 (AS-1) |
-| U-3 | claude `--permission-prompt-tool` 이 MCP 툴을 요구하는가, 그 호출 규약은 무엇인가 |
-| U-4 | 세 프로토콜 각각의 세션 재개 절차와 재개 시 이벤트 로그가 어디부터 오는가 (`FR-ABG-10`) |
-| U-5 | omp 의 사용량·컨텍스트 창이 프레임에 실리는가 (`FR-AGT-6`) |
-| U-6 | claude `--bg`/`claude attach` 가 `FR-ABG-10` 의 휴면에 쓸 수 있는가 |
-| U-7 | 세 프로토콜의 종료 절차 — `ExitCommand` 를 대신할 것이 무엇인가 |
-| U-8 | 데몬 모드에서 파이프 3개를 IPC 로 중계하는 비용 (`FR-AGT-3`, `NFR-3`) |
+**P0 스파이크 실측 (2026-09-13).** 바이너리: claude **2.1.270** · codex **0.154.0**
+(bunx 캐시, 전역 설치 없음) · omp **17.4.0**. 프레임 원본은 `/tmp/m8-spike/*.jsonl`
+(저장소 밖, NFR-C-1). 라이브 모델 턴은 **claude 만** 돌았다 — codex 는 저장된
+ChatGPT 토큰이 만료(`2026-04-03`)·refresh 거부, omp 는 등록된 키 둘(xiaomi·deepseek)이
+401. 사용자 결정: *"코덱스는 지금 사용 안 하고 있다. 다 그냥 진행"* — 그 둘의
+턴 의존 칸은 **미확인 — 자격증명 없음** 으로 남기고 스키마·소스·무모델 실측으로
+채웠다. 세 에이전트 모두 TUI 와 프로토콜 모드가 **같은 자격증명 저장소**를 쓴다
+(claude `~/.claude`+키체인 · codex `~/.codex/auth.json` · omp `~/.omp/agent/agent.db`)
+— 그러므로 위 401 은 TUI 로 띄워도 같다.
 
----
-| U-9 | **기능 대조표** — 세 에이전트 × TUI 기능(로그인·설정·모델 선택[기동/세션 중]·권한/plan 모드 전환·슬래시 명령·스킬/플러그인·`/compact`·`/clear`) × (프로토콜 / 파일 / TUI 출구). FR-U-4 의 근거 |
-| U-10 | 세 TUI 가 내는 알림 시퀀스(claude `preferredNotifChannel=terminal_bell`, codex `tui.notifications`, omp) — D-U-3 의 선택지 C 를 보조 채널로 둘 수 있는가 |
+| # | 확인할 것 | 결과 |
+|---|---|---|
+| U-1 | omp `--mode rpc-ui` 의 실제 프레임 형식과 `extension_ui_request` 의 payload (R-5) | **확인.** stdio NDJSON. 기동 즉시 `{type:"ready",protocolVersion:1,supportedProtocolVersions:[1,2],maxFrameBytes:1048576,…}` → `available_commands_update{commands[]}`. 명령은 `{id?,type,…}`, 응답 `{id,type:"response",command,success,data\|error}`. 세션 이벤트 `agent_start/turn_start/message_start/message_update/message_end/turn_end/agent_end{isTerminal}/tool_execution_*`. **승인**은 `tools/approval.ts`→`extensibility/extensions/wrapper.ts:332` `uiContext.select(prompt, ["Approve","Deny"])` 가 rpc-ui 에서 `{type:"extension_ui_request",id,method:"select",title:"Allow tool: bash\n…",options:["Approve","Deny"]}` 로 나가고 호스트가 `{type:"extension_ui_response",id,value:"Approve"}` 로 답한다 (소스 확인, 라이브 왕복은 미확인 — 자격증명 없음). `--mode rpc`(hasUI=false)에서는 승인이 **오류로 실패**한다(`wrapper.ts:307`) — rpc-ui 가 필수. 기본 `tools.approvalMode` 는 **yolo** — 에이전트 도구는 `--approval-mode always-ask\|write` 를 실어야 승인 요청이 생긴다. 라이브로 본 UI 요청: `setWidget`(autoresearch, 무시 가능) · `open_url`·`notify`·`input`(로그인 흐름). 슬래시 명령은 `prompt{message:"/model"}` 로 보내면 `command_output{text}` + `response{data.agentInvoked:false}` (라이브). |
+| U-2 | codex app-server 의 한 프로세스가 여러 thread 를 드는가 (AS-1) | **확인 — 든다.** 한 stdio 프로세스에서 `thread/start` 둘 → 서로 다른 `thread.id`, 둘 다 `turn/start` 가 `inProgress` 로 받아들여지고 `thread/status/changed`·`turn/started`·`item/*`·`turn/completed` 가 **`threadId` 를 실어** 병렬로 왔다. `thread/list` 가 둘을 낸다. AS-1 은 codex 에서 거짓이지만 **한 프로세스 = 한 도구** 로 쓰는 것을 막지 않는다 (어댑터가 thread 하나만 쓰면 된다). |
+| U-3 | claude `--permission-prompt-tool` 이 MCP 툴을 요구하는가, 그 호출 규약은 무엇인가 | **확인 — MCP 서버가 필요 없다.** `--permission-prompt-tool stdio`(헬프에 없는 숨은 값, 2.1.270 동작) 를 주면 승인이 stdout 의 `{type:"control_request",request_id,request:{subtype:"can_use_tool",tool_name,input,description,permission_suggestions[],blocked_path?,tool_use_id,requires_user_interaction?}}` 로 오고, stdin 으로 `{type:"control_response",response:{subtype:"success",request_id,response:{behavior:"allow",updatedInput}}}`(거부는 `behavior:"deny",message`) 를 보내면 그 한 프레임으로 도구가 실행됐다(파일 생성 확인). `permission_suggestions` 가 TUI 의 "항상 허용/디렉터리 추가/모드 전환" 선택지를 그대로 싣는다(FR-AGT-5 의 근거). `--permission-prompts host` 만 주고 이 플래그가 없으면 요청 없이 **자동 거부** — `system:permission_denied` 프레임과 `result.permission_denials[]`. `ExitPlanMode`·`AskUserQuestion` 도 같은 `can_use_tool` 로 온다(후자는 이 플래그가 있어야 `tools` 목록에 나타난다). **FR-APS-10 과 충돌 — §9.3 ⑥.** |
+| U-4 | 세 프로토콜 각각의 세션 재개 절차와 재개 시 이벤트 로그가 어디부터 오는가 (`FR-ABG-10`) | **확인 (셋 다 이력을 재생하지 않는다 — 새 이벤트만 온다).** claude: `-p --resume <session_id>` → 같은 `session_id` 로 `system:init` 부터, 이전 대화는 프레임으로 오지 않으나 모델은 기억한다(첫 메시지를 인용). 이력은 `~/.claude/projects/<cwd>/<id>.jsonl`(FR-AGT-6 이 읽지 않는 파일). `--fork-session` 으로 새 id 분기 가능. codex: `thread/resume{threadId}` → `thread/status/changed{idle}` + 응답의 `thread` 메타, 이력은 `thread/turns/list`·`thread/items/list` 로 **페이지 조회**(`includeTurns` 전량 하이드레이션은 deprecationNotice). omp: `--mode rpc-ui --resume <id prefix>` → `ready` 부터 같은 `sessionId`, 이력은 `get_messages`/`get_messages_page` 로 조회. **결론**: FR-ABG-4 의 재생 원천은 **우리 이벤트 로그**뿐이며, 재개는 세 어댑터 모두 "인자 하나(id)" 로 성립한다. |
+| U-5 | omp 의 사용량·컨텍스트 창이 프레임에 실리는가 (`FR-AGT-6`) | **확인 — 실린다.** `get_state.contextUsage{tokens,contextWindow,percent}`(라이브: 15,685/1,048,576) · `get_session_stats{tokens{input,output,reasoning,cacheRead,cacheWrite,total},cost,contextUsage}` · `message_end.message.usage{input,output,cacheRead,cacheWrite,totalTokens,cost{…}}`(라이브, 오류 턴이라 0). `model_changed` 이벤트가 모델의 `contextWindow` 를 든다. |
+| U-6 | claude `--bg`/`claude attach` 가 `FR-ABG-10` 의 휴면에 쓸 수 있는가 | **확인 — 쓸 수 없다(반대 방향).** `--bg` 는 `claude daemon run` + `bg-pty-host`(200×50 PTY) 를 띄워 **TUI 를 숨은 PTY 에 살려 두는** 기계다 — 프로세스가 사라지는 휴면이 아니라 dongminal 의 백그라운드 터미널 도구와 같은 자리. `claude stop <id>` 뒤 `--resume` 이 되므로 휴면의 실체는 **`--resume` 하나**다. 부수 발견: `claude agents --json` 이 **대화형 세션까지** `status: busy\|idle` 로 낸다 — 훅 없는 터미널 도구의 보조 신호 후보 (U-10 에 적음). |
+| U-7 | 세 프로토콜의 종료 절차 — `ExitCommand` 를 대신할 것이 무엇인가 | **확인 — 셋 다 stdin EOF.** claude: `control_request{subtype:"interrupt"}` → `control_response{still_queued:[]}` + `result{subtype:"error_during_execution",terminal_reason:"aborted_streaming"}` 가 **0.01s**, 그 뒤 stdin 닫으면 **0.84s** 에 종료. codex: `turn/interrupt{threadId,turnId}` 가 있고 stdin 닫으면 **0.06s** 에 exit 0. omp: `abort` 명령이 있고 stdin 닫으면 열린 UI 요청을 거절·세션 dispose 후 exit 0 (**0.05s**, 문서 그대로). **주의**: omp 가 로그인 `input` 대기 중에 stdin 을 닫으면 `input` 재요청이 폭주했다(1,162회, 종료 5s 초과) — 호스트는 열린 요청에 `{cancelled:true}` 로 답한 뒤 닫아야 한다. |
+| U-8 | 데몬 모드에서 파이프 3개를 IPC 로 중계하는 비용 (`FR-AGT-3`, `NFR-3`) | **확인 — 같은 길로 간다. §9.3 ④.** |
+| U-9 | **기능 대조표** | **§9.3 ①.** |
+| U-10 | 세 TUI 가 내는 알림 시퀀스 | **확인.** claude: `preferredNotifChannel` ∈ `auto·iterm2(OSC 9)·iterm2_with_bell·kitty(OSC 99)·ghostty(OSC 777)·terminal_bell(BEL)·notifications_disabled`; 발화는 `idle_prompt`("Claude is waiting for your input") — 턴 완료 후 `messageIdleNotifThresholdMs`(기본 60,000) 경과·그 사이 키 입력 없음·다이얼로그 없음, 그리고 승인 프롬프트. PTY 실측: `iterm2_with_bell` + 승인 프롬프트에서 `OSC 9;Claude is waiting for your input` 포착(2초 임계값). `terminal_bell` 두 회차는 BEL 미포착(포커스 이탈 키가 "상호작용" 으로 읽혀 억제된 것으로 보임 — 조건은 바이너리에서 읽었고 발화는 미재현). 제목 OSC 0 에 상태 글리프(✳·◐·◑)가 실려 "working" 을 말한다. codex: `tui.notification_method` ∈ `osc9·bel`(`codex_tui::notifications::osc9`), 조건 `tui.notifications`/`notification_condition`. omp: `completion.notify`(기본 on)·`ask.notify`(on)·`error.notify`(off) → `TERMINAL.sendNotification` → 터미널 감지에 따라 OSC 9(iterm2·wezterm·ghostty·warp)·OSC 99(kitty)·**BEL(그 외 — dongminal 은 `TERM=xterm-256color` 만 주므로 여기)**; tmux 안에서는 DCS 패스스루 + BEL. dongminal 의 L1 은 OSC 9(9;4 제외)·99·777;notify 를 이미 잡고 BEL 은 `DONGMINAL_ATTENTION_BELL=1` 옵트인이다 — **선택지 C 는 세 TUI 모두에서 보조 채널로 성립**하되 omp 는 BEL 옵트인 또는 `TERM_PROGRAM` 힌트가 필요하다. |
 
 ### 9.2 초안 검토에서 나온 정정 (R-a~R-k) — 이 문서에 반영된 상태
 
@@ -824,9 +861,233 @@ R-j → FR-U-4·FR-AGT-10 · R-k → D-U-3.
 
 ---
 
+### 9.3 P0 스파이크 산출물 (2026-09-13)
+
+> §4 P0 행의 ①~⑤. 실측 근거는 §9.1. 코드는 한 줄도 고치지 않았다.
+
+#### ① 기능 대조표 (U-9) — FR-U-4 의 근거
+
+**길**: **P** = 프로토콜 프레임/명령으로 된다 · **F** = 파일(설정·자산)로 기동 전에 정한다 ·
+**T** = TUI 출구(같은 세션을 터미널 탭으로)로만 된다 · **—** = 그 에이전트에 그 기능이 없다.
+괄호 안은 근거. "미확인" 은 자격증명이 없어 라이브로 못 본 것.
+
+| 기능 | claude 2.1.270 | codex 0.154.0 | omp 17.4.0 |
+|---|---|---|---|
+| 로그인 (인증 자체) | **T** — `/login` 은 TUI 전용. `claude setup-token` 으로 장기 토큰은 CLI. 프로토콜 모드는 TUI 와 같은 저장소를 읽는다(라이브) | **P** — `account/login/start`(ChatGPT 브라우저·API 키)·`account/login/cancel`·`account/logout`·`account/read`; 완료는 `account/login/completed` 알림 | **P** — `get_login_providers`(63 공급자, `authenticated` 플래그) · `login{providerId}` → `open_url`·`notify`·`input`(인증 코드) UI 요청 (라이브, anthropic 흐름 관찰) |
+| 설정 파일·설정 값 | **F** `~/.claude/settings.json` + `--settings <json>`(기동 인자, 세션 스코프). 세션 중 `/config key=value` 가 **P** 로 된다(라이브: 사용법 응답) | **F** `~/.codex/config.toml` + `-c key=value`. **P** `config/read`·`config/value/write`·`config/batchWrite`(라이브 read) | **F** `~/.omp/agent/config.yml` + `--config <overlay>`. **P** `config_update` 프레임·`/settings` 류 builtin 명령(미확인 라이브) |
+| 모델 선택 — 기동 시 | **P** `--model` (라이브) | **P** `thread/start.model`·`turn/start.model` | **P** `--model`(퍼지) (라이브) |
+| 모델 선택 — 세션 중 | **P** `control_request{set_model}` → `success`(라이브, `/model` 이 "Sonnet 5 (this session only)" 확인). 목록은 `initialize` 응답 `models[]` | **P** `model/list`(라이브, `gpt-6-astra` 등) + 다음 `turn/start.model`. 턴 중 전환 미확인 | **P** `set_model{provider,modelId}`·`cycle_model`·`get_available_models` → `model_changed` 이벤트 (라이브) |
+| 권한/plan 모드 전환 | **P** `--permission-mode` 기동 · `control_request{set_permission_mode}` 세션 중 → `system:status{permissionMode}` (라이브, plan 전환 뒤 ExitPlanMode 가 `can_use_tool` 로 옴) | **P** `thread/start.approvalPolicy`(`untrusted·on-request·never·granular`)·`sandbox` · `turn/start.approvalPolicy`(이후 턴에도 적용) | **P** `--approval-mode always-ask\|write\|yolo` 기동. 세션 중 전환은 `/settings` builtin 경유 — 미확인 |
+| 슬래시 명령 | **P 일부** — `prompt` 로 `/model`·`/compact`·`/clear`·`/context`·`/cost`·`/config` 가 `assistant{model:"<synthetic>"}` + `result` 로 답한다(라이브). `/status` 는 "isn't available in this environment"; `init.terminal_slash_commands`(`doctor·color·reload-plugins`) 는 **T** | **P** `turn/start` 입력 `/status` 가 userMessage 로 실렸다(미확인 — 모델 앞에서 실패). TUI 전용 명령 목록은 미확인 → **T** 로 둔다 | **P** `prompt{message:"/…"}` → `command_output` (라이브: `/model`·`/context`·`/usage`·`/compact`). `available_commands_update` 가 55개 명령(builtin·skill·extension·custom·file)을 든다 |
+| 스킬·플러그인 | **F** `--plugin-dir`·`--settings`(지금 `PolicyInjection` 그대로). **P** `init.skills·plugins·agents·slash_commands` 목록, `Skill` 도구 호출은 프레임으로 관찰 가능 | **P** `skills/list`·`plugin/list`·`plugin/install`·`hooks/list`·`marketplace/*` | **F** `--hook`·`--plugin-dir`·`-e`. **P** `available_commands_update` 에 `skill:*` 가 실린다(라이브) |
+| `/compact` | **P** `prompt "/compact"` → `system:status{compact_result}`·`system:compact_boundary{compact_metadata{pre_tokens,post_tokens,…}}`·새 `system:init`·요약 `user` 메시지 (라이브) | **P** `thread/compact/start` → `thread/compacted` 알림 | **P** `compact{customInstructions?}` 명령 또는 `prompt "/compact"` → `command_output` (라이브: "Nothing to compact") |
+| `/clear` (새 대화) | **P** `prompt "/clear"` → `conversation_reset{new_conversation_id}` + 새 `system:init` — **세션 id 가 바뀐다**(라이브: `09142f1e…`→`d222a4ac…`). 어댑터가 이 프레임에서 신원을 갱신해야 한다 | **P** `thread/start` 를 새로 (한 프로세스가 여러 thread) | **P** `new_session{parentSession?}` |
+| MCP 서버 | **P** `init.mcp_servers[{name,status}]`·`control_request{mcp_status}`(config 포함, 라이브)·`mcp_set_servers`. 추가 자체는 **F**(`--mcp-config`) | **P** `mcpServerStatus/list`·`config/mcpServer/reload`·`mcpServer/oauth/login`·`mcpServer/tool/call` | **F** `mcp-config.md`. **P** `notice`(xd:// 마운트 목록, 라이브) |
+| 승인 응답 | **P** `can_use_tool` ↔ `control_response`(라이브 왕복) | **P** `item/commandExecution/requestApproval`·`item/fileChange/requestApproval`·`item/permissions/requestApproval`·`item/tool/requestUserInput` ↔ `{decision: accept\|acceptForSession\|acceptWithExecpolicyAmendment\|decline\|cancel}`(스키마) | **P** `extension_ui_request{select,["Approve","Deny"]}` ↔ `extension_ui_response{value}`(소스) |
+| 사용량·컨텍스트 창 | **P** `result.modelUsage[m].contextWindow`·`usage`·`rate_limit_event`(라이브) | **P** `thread/tokenUsage/updated`·`account/rateLimits/read`(라이브: 401)·`account/usage/read` | **P** `get_state.contextUsage`·`get_session_stats`·`message_end.usage`(라이브) |
+| 진행 중 개입 | **P** `interrupt`(라이브) · 큐잉된 사용자 메시지 | **P** `turn/interrupt`·`turn/steer` | **P** `steer`·`follow_up`·`abort`·`abort_and_prompt` |
+
+**FR-U-4 의 결론**: TUI 출구가 **필수인** 칸은 claude 의 로그인·터미널 전용 명령 셋뿐이다.
+나머지는 프로토콜이 주거나 파일로 기동 전에 정한다. 그래도 TUI 출구는 남긴다 —
+"프로토콜이 없는 것" 이 아니라 **"사용자가 TUI 로 하고 싶은 것"** 을 위해서다 (사용자
+요구 2026-09-13).
+
+**사용자 요구 (2026-09-13, P0 중)**: *"omp 는 여러 방식으로 로그인이 가능한데 이걸 다
+사용할 수 있어야 해 — 모델 변경이라거나 그런 거."* → 에이전트 도구는 프로토콜이 주는
+로그인 공급자 목록·로그인 흐름(`open_url`·`input`)·모델 목록·모델 전환을 **UI 로 노출**한다.
+**FR-AGT-11** 로 §3.4.2 에 더했다.
+
+**사용자 요구 (2026-09-13, P0 중, 둘째)**: *"에이전트 화면 동시 접근에 대해서는 터미널과
+같은 동작으로 한쪽만 컨트롤하도록 블로킹하기."* → 창 포커스 소유(`FR-XDF-*`, `.pn-dimmed`)를
+에이전트 도구 뷰가 그대로 지난다. **FR-AGT-12** 로 §3.4.2 에 더했다.
+
+#### ② 가짜 에이전트 픽스처 판정 (V-12)
+
+**가능하다.** 세 표면이 전부 "stdin 한 줄 → stdout 여러 줄" 의 JSONL 이고 상태가
+작다(codex 는 `threadId`·`turnId`, omp 는 요청 `id`, claude 는 `request_id`). 픽스처는
+**Go 테스트 바이너리의 서브커맨드 하나**(`fakeagent claude|codex|omp <시나리오>`)로,
+`gittest` 픽스처와 같은 지위로 `internal/shared/agentadapter/fakeagent` 에 둔다.
+시나리오는 실측 파일(`/tmp/m8-spike/*.jsonl`)에서 **형태만** 옮긴 것(내용은 `PONG`
+류로 치환, NFR-C-1): 한 턴 · 승인 열림 · 승인 뒤 도구 결과 · 재개(`--resume`/
+`thread/resume`/`--resume`) · 프로세스 즉사(V-8) · 큰 프레임(omp `rpc_chunk`).
+
+| 검증 | 픽스처로 | 실제 바이너리로 |
+|---|---|---|
+| V-1 공통 이벤트 | 형태 (CI) | 드리프트 (야간 잡 — claude 만 자격증명이 있다) |
+| V-2 승인 왕복 | ✅ | — |
+| V-3 재생 | ✅ | — |
+| V-5 무동작 | ✅ (PTY 없음이 곧 픽스처) | — |
+| V-6 혼합 배치 | ✅ | — |
+| V-8 끊김 | ✅ (시나리오가 자기를 죽인다) | — |
+
+전제: 어댑터의 `Proto.Launch` 가 **실행 파일 경로를 주입받는다**(등록부의 `DetectCmd`
+가 아니라 옵션으로) — 그래야 e2e 가 `PATH` 를 건드리지 않고 픽스처를 꽂는다.
+`check-agent-names` 는 픽스처 코드까지 덮는다(에이전트 이름은 서브커맨드 인자로만).
+
+#### ③ `Adapter` 프로토콜 필드 시안 (FR-APS-9 · FR-U-2)
+
+**셋이 한 구조체에 든다.** 차이는 전부 함수 안에서 끝난다 — 갈라야 할 에이전트는
+없다. 판정 근거: 세 표면의 차이는 (a) 핸드셰이크 유무(codex `initialize`/`initialized`,
+omp `negotiate_protocol` 선택) (b) 서버→클라 **요청**의 id 자리(claude `request_id`,
+codex JSON-RPC `id`, omp `extension_ui_request.id`) (c) 도구 상태(codex `threadId`)
+뿐이고 셋 다 `ProtoState` 하나로 닫힌다.
+
+```go
+// Proto 는 프로토콜 표면의 선언이다 (FR-APS-9). Adapter.Proto 가 nil 이면 이
+// 에이전트는 에이전트 도구로 뜰 수 없다 — 소비자는 그것을 부재로 받는다 (FR-APS-4).
+type Proto struct {
+	// Launch 는 프로토콜 모드 기동 argv 다. 프롬프트는 싣지 않는다 — 입력은
+	// Prompt 가 프레임으로 만든다. opts.Bin 이 실행 파일이다 (② 의 전제).
+	Launch func(opts LaunchOpts) []string
+	// Handshake 는 기동 직후 호스트가 먼저 보내는 프레임들이다. nil 이면 없다.
+	Handshake func(st *ProtoState) [][]byte
+	// Decode 는 stdout 한 줄을 공통 이벤트로 옮긴다. ok=false 는 "모르는 프레임" —
+	// 호출자가 원문을 이벤트 로그에 남기고 부재로 올린다 (FR-APS-8). st 는 갱신된다
+	// (세션 신원 · codex threadId/turnId · 열린 요청).
+	Decode func(line []byte, st *ProtoState) (evs []Event, ok bool)
+	// Prompt 는 사용자 입력을 프레임으로 만든다. 슬래시 명령도 여기로 간다.
+	Prompt func(text string, st *ProtoState) [][]byte
+	// Approve 는 열린 승인 요청에 대한 답이다. choice 는 요청이 준 선택지 중
+	// 하나 그대로다 (FR-AGT-5) — 어댑터가 그것을 프레임으로 옮긴다.
+	Approve func(req ApprovalRequest, choice string, st *ProtoState) ([]byte, error)
+	// Cancel 은 열린 요청을 답 없이 닫는 프레임이다. 종료 직전에 보낸다 (U-7 omp).
+	Cancel func(req ApprovalRequest, st *ProtoState) []byte
+	// Interrupt 는 진행 중 턴을 멈춘다. nil 이면 그 에이전트에 없다.
+	Interrupt func(st *ProtoState) []byte
+	// Control 은 세션 중 설정 변경(모델·권한 모드·사고 예산)이다 (FR-AGT-11).
+	// 어댑터가 지원하는 키만 받고 나머지는 ErrUnsupported 다.
+	Control func(op ControlOp, st *ProtoState) ([]byte, error)
+	// TUIResume 은 TUI 출구의 기동 argv 다 (FR-AGT-10) — 같은 세션을 터미널 탭에서.
+	TUIResume func(sessionID string) []string
+}
+
+// 종료(U-7)는 필드가 아니라 규약이다: 열린 요청을 Cancel 로 닫고 stdin 을 닫는다.
+// 셋 다 그것으로 정중히 끝난다. Exit 필드를 두지 않는 이유는 "없는 것을 선언
+// 테이블로 두지 않는다" (D-U-6) 와 같다.
+
+type LaunchOpts struct {
+	Bin, Cwd, Model string
+	Resume          string // 세션 신원. 비어 있으면 새 세션
+	Approval        string // 승인 정책 — omp 는 기본이 yolo 라 반드시 싣는다 (§9.1 U-1)
+}
+
+// ProtoState 는 도구 하나의 프로토콜 상태다. 어댑터만 읽고 쓴다.
+type ProtoState struct {
+	SessionID string
+	Open      map[string]ApprovalRequest // 열린 요청 (FR-APS-5)
+	Ext       any                        // 어댑터 사적 상태 (codex: threadId·turnId·JSON-RPC id 카운터)
+}
+
+type ApprovalRequest struct {
+	ID      string   // 프로토콜의 id 그대로 (답에 되돌린다)
+	Tool    string
+	Detail  string   // 명령·경로 (FR-AAL-4)
+	Options []string // 프로토콜이 준 선택지 그대로 (FR-AGT-5)
+	Raw     json.RawMessage
+}
+
+// Event 는 공통 이벤트다 (FR-APS-2·3). Kind 만 열거하고 활동 어휘는 여기서 파생한다:
+// session→idle · turn_start→working · approval_open→waiting · turn_end→done · exit→ended.
+type Event struct {
+	Kind EventKind // session · turn_start · turn_end · text_delta · thinking_delta ·
+	               // tool_start · tool_end · approval_open · approval_closed · usage ·
+	               // status(모델·권한모드) · reset(신원 교체, claude /clear) · error · raw
+	// 이하 Kind 별 값 — 없는 것은 영값이 아니라 부재다 (FR-APS-4)
+	SessionID string
+	Text      string
+	Tool      string
+	Detail    string
+	Approval  *ApprovalRequest
+	Usage     *ProtoUsage // Tokens·ContextWindow·CostUSD·Model — 전사본을 읽지 않는다 (FR-AGT-6)
+	Raw       json.RawMessage
+}
+```
+
+세 에이전트의 필드별 매핑(요약): `Launch` — claude `-p --output-format stream-json
+--input-format stream-json --include-partial-messages --verbose --permission-prompt-tool
+stdio [--resume id]` · codex `app-server` · omp `--mode rpc-ui --approval-mode <a>
+[--resume id]`. `Handshake` — codex `initialize`+`initialized`+`thread/start|resume` · omp
+`negotiate_protocol 2`(선택) · claude 없음(`initialize` 는 선택이며 `models`·`commands` 를
+준다). `Approve` — claude `control_response` · codex JSON-RPC result `{decision}` · omp
+`extension_ui_response{value}`. `Interrupt` — claude `interrupt` · codex `turn/interrupt` ·
+omp `abort`. `Control` — claude `set_model`·`set_permission_mode`·`set_max_thinking_tokens` ·
+codex 다음 `turn/start` 의 `model`·`approvalPolicy` · omp `set_model`·`set_thinking_level`.
+`TUIResume` — `claude --resume <id>` · `codex resume <id>` · `omp --resume <id>`.
+
+터미널 표면의 필드(`Launch`·`HookParse`·`InstallAssets`·`ParseUsage`·`ContextWindow`·
+`Readiness`·`Signals`)는 **그대로**다 (FR-U-3). `Adapter` 에 `Proto *Proto` 하나가 는다.
+두 표면이 한 파일(`claude.go` 등)에 나란히 놓이므로 R-8 의 완화(같은 표에서 도는
+단위 테스트)가 성립한다.
+
+#### ④ 데몬 파이프 중계의 설계 선택 (U-8 · §9.2 R-g)
+
+**같은 길로 간다 — 조건 둘.** 지금의 길: 데몬 `readPTY` → `outbuf.Stream.Feed`(절대
+오프셋 `end`) → `panedConn.pushOutputData{event:"output",tool,data(base64),end}`
+(**droppable**) → 서버 `toolclient.handlePush` → `OnOutput` 한 번 + WS 구독자 fan-out.
+쓰기는 `write{id,data(base64)}` RPC. 재접속은 `snapshot{id,since}` 가 링에서 `since`
+이후를 준다.
+
+에이전트 프로세스의 stdout 도 바이트열이고 해석(`Proto.Decode`)은 서버가 하므로 이
+길이 그대로 맞는다. 비용은 PTY 와 같다(base64 4/3 + JSON 봉투; AS-4 의 20 프레임/턴은
+PTY 화면 갱신보다 작다). **다른 것 둘**:
+
+1. **드롭 정책.** PTY 청크는 떨어져도 화면이 자기치유하지만(다음 `snapshot`), 프로토콜
+   프레임 하나가 떨어지면 승인 요청이 사라진다. 그래서 에이전트 도구의 `output` 은
+   `enqueue(…, droppable=false)` — `exit` 이벤트와 같은 등급. 막히는 것은 그 도구의
+   read 고루틴 하나이고, 그것은 파이프를 통해 에이전트에 역압을 준다. NFR-C-3 와의
+   충돌은 "죽은 dongminal" 에서만 생기며 그때는 도구가 멈추는 것이 맞다(오류 상태,
+   FR-ABG-20). 보조로 서버가 `end` 의 틈을 보면(`prev.end+len(data) != end`)
+   `snapshot{since}` 로 메운다 — 링(`outbuf` max)이 그 틈보다 크면 회복된다.
+2. **줄 경계와 stderr.** 청크는 줄과 무관하므로 서버가 도구마다 줄 버퍼를 든다
+   (omp 는 1 MiB 프레임 상한, `rpc_chunk` 재조립도 서버). stderr 는 PTY 에 없던
+   스트림이다 — 데몬이 작은 링에 모아 `snapshot` 으로 주거나 `output` 에
+   `stream:"stderr"` 를 붙여 민다. **후자**를 권한다 — 연결 끊김(FR-ABG-20)의 이유가
+   stderr 에 있다(codex 의 401 이 그랬다).
+
+`create` RPC 에 `kind`·`argv` 가 더해지고(⑤), `resize`·`paste` 는 그 종류에서 무동작을
+답한다(FR-AGT-2). 이것이 P1 ④ `GO-46`(`ToolHub` 인터페이스) 설계에 들어간다:
+**인터페이스는 바이트 지향으로 유지**하고, 종류가 갈리는 메서드는 없다.
+
+#### ⑤ D-U-4 판정 — 새 종류 vs 전송만 다른 변형
+
+**판정: 전송만 다른 변형 + `Kind` 표식.** `ToolHub`·데몬·`toolclient` 의 길이 전부
+바이트 지향이고(④), `NewDetachedTool` 의 `term == nil` 계약이 이미 "전송이 없는 Tool"
+을 지나고 있다. 종류가 실제로 갈리는 자리는 셋뿐이다: (a) 서버의 해석층 —
+`Proto.Decode` → 이벤트 로그 → 열린 요청 큐 → L1 알람 (b) 브라우저의 뷰 — xterm 대신
+대화 뷰 (c) 전송이 필요한 호출(리사이즈·붙여넣기·전경 프로세스 폴링) 의 무동작.
+(c) 는 `platform.Terminal` 자리에 `pipeTransport` 를 두면 인터페이스 안에서 끝난다.
+
+그러므로 `GO-46` 에 싼 쪽은 **변형**이다 — 새 종류로 두면 `ToolHub` 인터페이스가
+종류별 메서드를 갖게 되고 소비자가 종류를 묻는 자리가 (a)(b)(c) 밖으로 샌다
+(FR-AGT-8 위반). D-U-4 는 이렇게 **정정을 제안**한다: *"에이전트 도구는 `Tool.Kind =
+agent` 인 변형이다. 배치·영속·복원·포커스·백그라운드·데몬 중계는 바이트 길을
+공유하고, 종류를 묻는 코드는 해석층·뷰·전송 호출 셋에 한정된다."* **사용자 확인
+대기** (D-U-4 본문의 "정정될 수 있다" 조항).
+
+#### ⑥ 스펙과 실측의 충돌 — 플래그 (멈추고 사용자 판단)
+
+| # | 자리 | 실측 | 제안 |
+|---|---|---|---|
+| F-1 | **FR-APS-10** "claude 승인은 MCP 도구로 온다 — MCP 서버를 하나 든다" | **거짓.** `--permission-prompt-tool stdio` 가 승인을 stdio `control_request` 로 보낸다. MCP 서버는 필요 없다 (U-3 라이브 왕복) | FR-APS-10 을 *"claude 의 승인 요청은 stdio 제어 프레임(`can_use_tool`)으로 온다; 어댑터의 `Launch` 가 `--permission-prompt-tool stdio` 를 싣는다. MCP 서버는 두지 않는다"* 로 정정. R-c 의 "범위 항목" 도 해소. **단, 숨은 플래그다**(헬프에 없음) — R-2 에 "2.1.270 실측, 비공개" 를 적는다 |
+| F-2 | §2.3.4 표 (2.1.269) | 2.1.270 에 프레임이 늘었다: `system:status{status:"requesting"\|permissionMode\|compact_result}`·`system:permission_denied`·`system:compact_boundary`·`conversation_reset`·`control_request/control_response`·`user`(tool_result·`<local-command-stdout>`)·`init.capabilities/terminal_slash_commands/messaging_socket_path`·`result.terminal_reason/stop_reason/queued_turn_count` | §2.3.4 에 "2.1.270 추가" 행을 더한다. FR-APS-3 의 최소 목록에 **신원 교체(reset)** 를 더한다 (`/clear` 가 세션 id 를 바꾼다) |
+| F-3 | AS-1 "한 프로세스가 한 세션" | codex 는 한 프로세스가 여러 thread 를 든다 (U-2) | AS-1 을 *"한 프로세스를 한 도구로 쓴다 — 다중화는 쓰지 않는다"* 로 고쳐 적는다. 설계는 안 바뀐다 |
+| F-4 | omp 승인 (§2.3.3 "`extension_ui_request` 프레임을 호스트가 답한다") | 맞다 — 그러나 **기본 `approvalMode` 가 yolo** 라 인자 없이 띄우면 승인 요청이 **한 번도 안 온다**, 그리고 `--mode rpc` 는 승인이 오류다 | `Proto.Launch` 가 `--mode rpc-ui --approval-mode <정책>` 을 **반드시** 싣는다. 정책 값은 설정 키(`SETTINGS_SCHEMA`·`SETTINGS_ACCESS` 둘 다) — P3/P4 에서 |
+| F-5 | §2.3.2 "codex 는 사실상 침묵한다" (터미널 표면) | codex 0.154.0 은 `hooks` 기능이 **stable** 이고 claude 와 같은 훅 이벤트(`SessionStart·UserPromptSubmit·PreToolUse·PermissionRequest·PostToolUse·PreCompact·Stop·SessionEnd·SubagentStart/Stop·Interrupt`)를 `~/.codex/hooks.json` 으로 받는다(바이너리 문자열 + 사용자 홈의 파일). **터미널 표면의 사실이라 이 문서의 범위 밖**(FR-U-3) | 기록만. `codexAdapter` 의 훅 표면 확장은 별도 문서(후속). §2.3.2 표에 각주 하나 |
+| F-6 | U-6 의 전제 "`--bg` 가 휴면 후보" | 반대다 — TUI 를 숨은 PTY 에 살려 두는 기계 | FR-ABG-10 의 재개 열은 `--resume` 하나. `--bg` 는 비목표(§7)에 적는다 |
+
+#### ⑦ 이 세션이 만든 부작용과 남긴 것
+
+- codex app-server 가 `~/.codex/config.toml` 에 `[projects."/private/tmp/m8-spike/cwd"] trust_level="trusted"` 를 **스스로 썼다** — 되돌렸다. P3/P4 의 어댑터는 이 부작용을 안다(cwd 마다 신뢰 항목이 사용자 설정에 남는다; R-e 의 규약).
+- claude `--bg` 가 `claude daemon run` 을 남겼다(`/tmp/cc-daemon-501/…`) — `stop`·`rm` 뒤에도 데몬 프로세스는 남는다. 우리가 쓰지 않으므로 무관.
+- omp 세션 파일 둘·claude 세션 파일 다섯이 `/private/tmp/m8-spike/cwd` 프로젝트 아래 남았다 (사용자 홈, 내용은 `PONG` 류).
+- 실측 드라이버 `/tmp/m8-spike/drive.py`(stdio JSONL)·`ptycap.py`(PTY 캡처) — 픽스처(②)와 야간 잡의 출발점. 저장소에 넣지 않았다.
+
+---
+
 ## 10. 변경 기록
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-13 | **P0 스파이크 완료.** §9.1 표를 실측으로 채우고 §9.3(산출물 ①~⑤·충돌 플래그 ⑥·부작용 ⑦)을 신설. FR-AGT-11·FR-AGT-12 추가(사용자 요구 둘). FR-APS-10·D-U-4 에 충돌 표식 — 사용자 판단 대기. 진행 기록 `production/M8_PROGRESS.md` |
 | 2026-09-13 | 사용자 승인 → `승인·구현중`. 첫 단계 P0 스파이크는 `production/M8_NEXT_SESSION.md` 가 안내한다 |
 | 2026-09-13 | 초안. 로드맵 §M8·§M9·§M10 과 `AGENT_PROTOCOL_SURFACE_SRS` 를 흡수해 **하나의 일정** 으로 (D-U-1). 사용자 결정 둘 — 어댑터가 인터페이스(D-U-2) · 병행(D-U-3). 원문의 묶음 H 와 묶음 A 삭제 조항 폐기. 추가 요구: FR-U-1~7 · FR-APS-9·10 · FR-AGT-8·9·10 · FR-ABG-21 · FR-B-1~10 · V-10~13 |
