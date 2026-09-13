@@ -384,3 +384,17 @@ func TestCodexProto_Unknown(t *testing.T) {
 		}
 	}
 }
+
+// P5 D-C-14 (실측): 살아 있는 프로세스에 핸드셰이크를 다시 보내면 `initialize` 만 "Already
+// initialized" 로 거절된다 — 그 한 오류는 부재다. 다른 오류는 그대로 EvError 다.
+func TestCodexProto_ReinitializeIsQuiet(t *testing.T) {
+	p, st := codexProtoOf(t)
+	p.Handshake(LaunchOpts{Cwd: "/w", Resume: codexTID}, st)
+	if evs := decode1(t, p, st, `{"error":{"code":-32600,"message":"Already initialized"},"id":"dm-1"}`); len(evs) != 0 {
+		t.Fatalf("재 initialize 의 거절은 이벤트가 아니다: %+v", evs)
+	}
+	evs := decode1(t, p, st, `{"error":{"code":-32600,"message":"no rollout found for thread id x"},"id":"dm-2"}`)
+	if kinds(evs) != "error" || !strings.Contains(evs[0].Text, "thread/resume") {
+		t.Fatalf("다른 오류는 그대로: %+v", evs)
+	}
+}

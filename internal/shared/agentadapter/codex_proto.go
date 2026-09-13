@@ -254,6 +254,12 @@ func codexDecodeResponse(fr codexFrame, x *codexExt, st *ProtoState) ([]Event, b
 	}
 	delete(x.pending, key)
 	if fr.Error != nil {
+		// 살아 있는 프로세스에 핸드셰이크를 다시 보내면(서버 재시동의 채택, D-C-14) `initialize` 만
+		// "Already initialized" 로 거절된다 — 그 뒤 `thread/resume`·`model/list` 는 정상이다 (P5
+		// 실측). 그 한 오류는 부재다.
+		if p.method == "initialize" && strings.Contains(fr.Error.Message, "Already initialized") {
+			return nil, true
+		}
 		return []Event{{Kind: EvError, SessionID: st.SessionID, Text: p.method + ": " + fr.Error.Message}}, true
 	}
 	switch p.method {

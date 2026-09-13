@@ -12,6 +12,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -231,16 +232,24 @@ func TestPanedPushOutputCarriesKind(t *testing.T) {
 func TestPanedPushExit(t *testing.T) {
 	var buf bytes.Buffer
 	pc := &panedConn{encoder: json.NewEncoder(&buf)}
-	pc.pushExit("1", 0)
+	// M8_UNIFIED_SRS D-C-15: exit push 는 종료 코드와 stderr 꼬리를 든다.
+	pc.pushExit("1", toolhub.ExitInfo{Code: 1, Stderr: []string{"401", "boom"}})
 
 	var ev struct {
-		Event string `json:"event"`
-		Tool  string `json:"tool"`
-		Code  int    `json:"code"`
+		Event  string   `json:"event"`
+		Tool   string   `json:"tool"`
+		Code   int      `json:"code"`
+		Stderr []string `json:"stderr"`
 	}
 	json.Unmarshal(bytes.TrimRight(buf.Bytes(), "\n"), &ev)
-	if ev.Event != "exit" || ev.Tool != "1" {
+	if ev.Event != "exit" || ev.Tool != "1" || ev.Code != 1 || len(ev.Stderr) != 2 || ev.Stderr[1] != "boom" {
 		t.Fatalf("ev=%+v", ev)
+	}
+	// 터미널 도구(영값)는 종전 모양 그대로 — stderr 필드가 없다.
+	buf.Reset()
+	pc.pushExit("2", toolhub.ExitInfo{})
+	if strings.Contains(buf.String(), "stderr") {
+		t.Fatalf("영값에 stderr 가 실렸다: %s", buf.String())
 	}
 }
 

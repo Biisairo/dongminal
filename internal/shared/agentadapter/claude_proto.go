@@ -261,7 +261,7 @@ func claudeDecode(line []byte, st *ProtoState) ([]Event, bool) {
 	case "control_request":
 		return claudeDecodeControlRequest(fr, st)
 	case "control_response":
-		return claudeDecodeControlResponse(fr, x)
+		return claudeDecodeControlResponse(fr, x, st)
 	case "conversation_reset":
 		if fr.NewConv == "" {
 			return nil, false
@@ -512,7 +512,7 @@ func claudeSuggestionLabel(raw json.RawMessage) string {
 
 // claudeDecodeControlResponse 는 우리가 보낸 제어의 답이다. 대기표에 없는 request_id
 // 는 모르는 프레임이다 (FR-APS-8).
-func claudeDecodeControlResponse(fr claudeFrame, x *claudeExt) ([]Event, bool) {
+func claudeDecodeControlResponse(fr claudeFrame, x *claudeExt, st *ProtoState) ([]Event, bool) {
 	var resp struct {
 		Subtype   string          `json:"subtype"`
 		RequestID string          `json:"request_id"`
@@ -553,7 +553,11 @@ func claudeDecodeControlResponse(fr claudeFrame, x *claudeExt) ([]Event, bool) {
 		if r.Account != nil {
 			s.Account = strings.TrimSpace(r.Account.Email + " " + r.Account.Subscription)
 		}
-		return []Event{{Kind: EvStatus, Status: s}}, true
+		// EvSession 인데 SessionID 가 빈 이유 (M8_UNIFIED_SRS D-C-16): 실제 claude 의
+		// `system:init` 은 첫 프롬프트 뒤에 온다 — 첫 턴 전에는 신원이 없다. 그러나 이
+		// 응답이 왔으면 프롬프트를 받을 준비는 됐다(`idle`). 신원은 부재로 둔다 (FR-APS-4);
+		// 재개(`--resume`)로 띄웠으면 호출자가 이미 안다.
+		return []Event{{Kind: EvSession, SessionID: st.SessionID, Status: s}}, true
 	case "set_model":
 		return []Event{{Kind: EvStatus, Status: &ProtoStatus{Model: p.value}}}, true
 	case "set_permission_mode":

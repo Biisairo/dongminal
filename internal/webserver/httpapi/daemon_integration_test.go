@@ -50,7 +50,7 @@ func TestDaemonFullFlow(t *testing.T) {
 	tracker := hub.NewAttnTracker(cmdHub, 500) // 500ms idle threshold for fast test
 
 	// Wire exit → activity cleanup
-	pc.SetOnExit(func(toolID string, code int) {
+	pc.SetOnExit(func(toolID string, info toolhub.ExitInfo) {
 		tracker.SetActivity(toolID, "ended", "", "")
 	})
 

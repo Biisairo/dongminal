@@ -711,7 +711,8 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .agp-head .agp-agent{color:var(--text-bright);font-weight:600}
 .agp-head .agp-state[data-state=working]{color:var(--accent-text)}
 .agp-head .agp-state[data-state=waiting]{color:var(--attn-text)}
-.agp-head .agp-state[data-state=ended]{color:var(--danger-text)}
+.agp-head .agp-state[data-state=ended],.agp-head .agp-state[data-state=error]{color:var(--danger-text)}
+.agp-head .agp-state[data-state=hibernated]{color:var(--text-muted)}
 .agp-head .agp-open{color:var(--attn-text)}
 .agp-head .agp-spacer{flex:1}
 .agp-log{flex:1;overflow:auto;padding:8px 12px;display:flex;flex-direction:column;gap:8px;font-size:var(--fs-md);line-height:1.5}
@@ -730,6 +731,9 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .agp-line{font-size:var(--fs-sm);color:var(--text-hint);text-align:center}
 .agp-line.agp-err{color:var(--danger-text)}
 .agp-line.agp-exit{color:var(--text-muted);padding:6px;border:1px dashed var(--border);border-radius:var(--ui-radius)}
+/* M8 P5 (FR-ABG-10·20): 휴면·오류 줄 — 재개 버튼이 함께 놓인다 */
+.agp-line.agp-dormant{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;padding:8px;border:1px dashed var(--border);border-radius:var(--ui-radius);color:var(--text-muted)}
+.agp-line.agp-dormant[data-dormant="error"]{border-color:var(--danger-text);color:var(--danger-text)}
 .agp-raw{font-size:var(--fs-xs);color:var(--text-hint)}
 .agp-raw pre{margin:2px 0;white-space:pre-wrap;word-break:break-all}
 .agp-input{flex:0 0 auto;border-top:1px solid var(--border);padding:6px 8px;display:flex;flex-direction:column;gap:4px}

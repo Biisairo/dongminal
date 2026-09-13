@@ -301,7 +301,11 @@ Object.assign(App.prototype, {
     // 사실로 받으면 도구·pane·창이 차례로 지워진다.
     const live=known?new Set(serverIds):TOOLS_ALL_LIVE;
     const nameOf=new Map((serverPanes||[]).map(p=>[p.id,p.name]));
+    // M8_UNIFIED_SRS D-U-4 (b)·D-C-17: 에이전트 도구는 xterm 을 세우지 않는다 — 뷰는 탭이
+    // 그려질 때 선다(`mkAgent`). 휴면·오류 세션은 프로세스가 없어 WS 를 붙일 것도 없다.
+    const agentIds=new Set((serverPanes||[]).filter(p=>p&&p.kind==='agent').map(p=>p.id));
     for(const id of serverIds){
+      if(agentIds.has(id)) continue;
       if(!this.tools.has(id)) this.mkTool(id, nameOf.get(id)||id);
     }
     // FR-ATL-7: 서버가 모르는 도구는 죽은 도구다. 이름을 지우는 `_fgApply` 와

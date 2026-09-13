@@ -413,6 +413,7 @@ dongminal config validate      # 설정 파일을 스키마에 대조 (불일치
 | `access.json` | 접속 허용 목록 | ✅ |
 | `runs.json` | Run(오케스트레이션) 기록 | ✅ |
 | `tools.json` | 도구의 이름·작업 폴더 | ✅ |
+| `agents.json` · `agents/` | 에이전트 도구의 세션 레코드(어댑터·세션 id·휴면 상태)와 이벤트 로그 — 휴면·재개와 대화 복원의 근거 | ✅ |
 | `server.json` | 서버 기동값 | ✅ |
 | `sandbox.json` | 샌드박스 프로파일 | ✅ |
 | `notes/` | 메모장 | ✅ |

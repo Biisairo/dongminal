@@ -44,6 +44,9 @@ var CodeDoc = map[string]Doc{
 	CodeAgentNoSession:   {"그 도구에 에이전트 세션이 없습니다.", "에이전트 도구가 아니거나 이미 끝난 도구입니다. 목록을 다시 받으세요."},
 	CodeApprovalNotOpen:  {"그 승인 요청은 열려 있지 않습니다.", "이미 답했거나 에이전트가 거둔 요청입니다. 화면을 새로 고쳐 열린 요청을 확인하세요."},
 	CodeAgentUnsupported: {"이 에이전트는 그 제어를 지원하지 않습니다.", "메뉴에 보이는 제어만 쓰세요 — 없는 것은 어댑터가 주지 않는 것입니다."},
+	CodeAgentNoIdentity:  {"세션 신원이 아직 없어 휴면할 수 없습니다.", "첫 턴을 보낸 뒤 휴면하세요 — 그때 에이전트가 세션 id 를 냅니다."},
+	CodeAgentDormant:     {"이 에이전트는 휴면·오류 상태라 프로세스가 없습니다.", "재개한 뒤 다시 시도하세요 — POST /api/agent/resume."},
+	CodeAgentNotDormant:  {"이 에이전트는 활성 상태라 재개할 것이 없습니다.", "휴면하려면 POST /api/agent/hibernate 를 먼저 부르세요."},
 	CodeSandboxUnready:   {"샌드박스 런타임을 쓸 수 없습니다.", "컨테이너 런타임(docker)이 설치되어 실행 중인지 확인하세요."},
 	CodeStreamUnsupport:  {"이 연결에서 스트리밍을 쓸 수 없습니다.", "중간의 프록시가 버퍼링하고 있지 않은지 보세요. 이 제품은 리버스 프록시를 지원하지 않습니다."},
 

@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"os/user"
 	"path/filepath"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -126,6 +128,12 @@ type Tool struct {
 	activity   atomic.Pointer[ActivityState]
 	onActivity func(id, state, tool, detail string)
 
+	// stderrTail 은 파이프 전송의 stderr 마지막 줄들이다 (M8_UNIFIED_SRS D-C-15) —
+	// 연결 끊김의 사유가 여기 있다(codex 의 401 이 그랬다). PTY 도구에는 없다(nil).
+	// exitCode 는 kill() 이 수확한 종료 코드다. 둘이 ExitInfo 로 나간다.
+	stderrTail *stderrTail
+	exitCode   atomic.Int32
+
 	// bracketed paste 모드 (BRACKETED_PASTE_SRS FR-BPT-1/4). bpCarryBuf 는
 	// attnCarry 와 같이 readPTY 고루틴만 만지므로 잠금이 없다. 원자값 쪽은
 	// 입력 경로가 읽는다.
@@ -214,6 +222,71 @@ type ToolHooks struct {
 	// 모드에서는 그 물음이 readLoop 안의 RPC 가 되어 자기 응답을 기다리다 시한에
 	// 걸린다 — 청크의 출처가 종류를 아는 자리이므로 여기서 실어 보낸다.
 	OnOutput func(id string, kind ToolKind, data []byte, end int64)
+}
+
+// ExitInfo 는 도구 프로세스가 끝난 사정이다 (M8_UNIFIED_SRS D-C-15 · FR-ABG-20). Code 는
+// 종료 코드(신호로 죽었으면 -1, 모르면 0), Stderr 는 파이프 stderr 의 마지막 줄들이다 —
+// PTY 도구는 비어 있다. 두 모드가 같은 모양을 나른다: 직접 모드는 ExitObserver 의 인자,
+// 데몬 모드는 `exit` push 의 `code`·`stderr`.
+type ExitInfo struct {
+	Code   int      `json:"code"`
+	Stderr []string `json:"stderr,omitempty"`
+}
+
+// String 은 사람이 읽을 한 줄이다 — 뷰가 그대로 보인다. 비어 있으면 "".
+func (e ExitInfo) String() string {
+	if e.Code == 0 && len(e.Stderr) == 0 {
+		return ""
+	}
+	s := fmt.Sprintf("exit %d", e.Code)
+	if len(e.Stderr) > 0 {
+		s += ": " + strings.Join(e.Stderr, " | ")
+	}
+	return s
+}
+
+// ExitInfo 는 이 도구의 종료 사정이다. 끝나기 전에 부르면 Code 는 0 이고 Stderr 는 지금까지의 꼬리다.
+func (p *Tool) ExitInfo() ExitInfo {
+	info := ExitInfo{Code: int(p.exitCode.Load())}
+	if p.stderrTail != nil {
+		info.Stderr = p.stderrTail.lines()
+	}
+	return info
+}
+
+// stderrTail 은 마지막 stderrTailLines 줄(합쳐 stderrTailBytes 이내)을 든다. StartPipe 의
+// 읽기 고루틴이 쓰고 ExitInfo 가 읽는다.
+type stderrTail struct {
+	mu   sync.Mutex
+	buf  []string
+	size int
+}
+
+const (
+	stderrTailLines = 8
+	stderrTailBytes = 2048
+)
+
+func newStderrTail() *stderrTail { return &stderrTail{} }
+
+func (t *stderrTail) add(line string) {
+	if len(line) > stderrTailBytes {
+		line = line[:stderrTailBytes]
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.buf = append(t.buf, line)
+	t.size += len(line)
+	for len(t.buf) > stderrTailLines || (t.size > stderrTailBytes && len(t.buf) > 1) {
+		t.size -= len(t.buf[0])
+		t.buf = t.buf[1:]
+	}
+}
+
+func (t *stderrTail) lines() []string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return append([]string(nil), t.buf...)
 }
 
 // NewDetachedTool은 PTY 없이 훅만 배선된 Tool 을 만든다. 셸을 띄우지 않으므로
@@ -334,12 +407,15 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 	}
 	var term platform.Terminal
 	var err error
+	var tail *stderrTail
 	if place != nil && place.Pipe {
 		// FR-AGT-2·3: 에이전트 도구 — 파이프가 PTY 를 대신할 뿐 소유 구조는 같다.
-		// stderr 는 로그로 (D-C-6).
+		// stderr 는 로그로 (D-C-6), 그리고 마지막 줄들은 종료 사유로 (D-C-15).
 		spec.Pipe = true
+		tail = newStderrTail()
 		term, err = platform.StartPipe(spec, func(line string) {
 			dmlog.Infof(nil, "[tool %s] stderr: %s", id, line)
+			tail.add(line)
 		})
 	} else {
 		term, err = platform.Current().PTY.Start(spec, cols, rows)
@@ -356,6 +432,7 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 	}
 	if place != nil && place.Pipe {
 		p.Kind = KindAgent
+		p.stderrTail = tail
 	}
 	// Set the base exit callback before readPTY starts (race-free).
 	relay := &toolRelay{onExit: onExit}
@@ -927,6 +1004,12 @@ func (p *Tool) kill() {
 			}
 			if werr != nil {
 				dmlog.Infof(nil, "[tool %s] wait: %v", p.ID, werr)
+				var ee *exec.ExitError
+				if errors.As(werr, &ee) {
+					p.exitCode.Store(int32(ee.ExitCode()))
+				} else {
+					p.exitCode.Store(-1)
+				}
 			}
 		}
 		if p.stream != nil {

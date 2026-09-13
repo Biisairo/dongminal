@@ -41,6 +41,8 @@ func (s *Server) apiToolKill(w http.ResponseWriter, r *http.Request) {
 	// 유예는 도구가 있는 프로세스에서 기다린다 — 직접 모드는 여기, 데몬 모드는
 	// 데몬이다 (FBE-05/12). 종전에는 이 자리에서 pid 를 보고 기다렸는데, 데몬
 	// 모드의 Get 은 pid 없는 합성 Tool 을 주므로 유예가 통째로 건너뛰어졌다.
+	// M8_UNIFIED_SRS D-C-11: 에이전트 도구의 kill 은 닫기다 — 세션도 함께 잊는다.
+	s.AgentForget(body.ToolID)
 	if err := s.tools(r).Terminate(body.ToolID, s.limits.toolKillGrace); err != nil {
 		httpErr(w, "toolId="+body.ToolID+" 존재하지 않음", http.StatusNotFound, apierr.CodeToolNotFound)
 		return

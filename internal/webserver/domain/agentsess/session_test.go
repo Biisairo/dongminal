@@ -25,7 +25,10 @@ import (
 func fakeProto() *agentadapter.Proto {
 	return &agentadapter.Proto{
 		Launch: func(o agentadapter.LaunchOpts) []string { return []string{o.Bin} },
-		Handshake: func(_ agentadapter.LaunchOpts, st *agentadapter.ProtoState) [][]byte {
+		Handshake: func(o agentadapter.LaunchOpts, st *agentadapter.ProtoState) [][]byte {
+			if o.Resume != "" {
+				return [][]byte{[]byte(`{"hs":1,"resume":"` + o.Resume + `"}`)}
+			}
 			return [][]byte{[]byte(`{"hs":1}`)}
 		},
 		Decode: func(line []byte, st *agentadapter.ProtoState) ([]agentadapter.Event, bool) {
@@ -271,23 +274,30 @@ func TestSession_ReplayAndCap(t *testing.T) {
 	}
 }
 
-// D-C-2 "틈": 청크 사이가 비면 스냅샷으로 되메운다. 겹치면 겹친 만큼 버린다.
+// D-C-2 "틈": 청크 사이가 비면 스냅샷으로 되메운다 — **비동기로** (P5: 이 자리는 데몬 모드의
+// readLoop 안이라 동기 RPC 를 걸 수 없다). 그 청크는 버리고 스냅샷이 대신 가져온다. 겹치면 겹친
+// 만큼 버린다.
 func TestSession_GapAndOverlap(t *testing.T) {
 	m, f := newMgr(t)
 	openFake(t, m)
 	a := `{"k":"txt","t":"a"}` + "\n"
 	b := `{"k":"txt","t":"b"}` + "\n"
 	c := `{"k":"txt","t":"c"}` + "\n"
+	f.mu.Lock()
 	f.snap, f.snapEnd = []byte(a+b+c), int64(len(a+b+c))
+	f.mu.Unlock()
 	feed(m, a, int64(len(a)))
-	// b 를 건너뛰고 c 가 온다 → 스냅샷에서 b 를 채운다.
+	// b 를 건너뛰고 c 가 온다 → 스냅샷에서 b·c 를 채운다 (c 청크 자체는 버려진다).
 	feed(m, c, int64(len(a+b+c)))
+	waitFor(t, "되메움", func() bool { f.mu.Lock(); defer f.mu.Unlock(); return len(f.events) == 3 })
 	// 겹침: a 가 다시 온다 → 버린다.
 	feed(m, a, int64(len(a)))
 	var texts []string
+	f.mu.Lock()
 	for _, e := range f.events {
 		texts = append(texts, e.Ev.Text)
 	}
+	f.mu.Unlock()
 	if strings.Join(texts, "") != "abc" {
 		t.Fatalf("순서·중복: %v", texts)
 	}
@@ -304,19 +314,24 @@ func TestSession_OpenResyncsFromSnapshot(t *testing.T) {
 	}
 }
 
-// FR-ABG-20 의 앞부분 (P3 몫): 프로세스가 끝나면 exit 이벤트와 ended 활동, 세션은 닫힌다.
+// FR-ABG-20: 프로세스가 끝나면 exit 이벤트와 ended 활동. 세션은 **남는다** — 오류 상태다
+// (P5 D-C-11; P3 는 여기서 세션을 지웠다). 신원이 없으면 재개할 길도 없다.
 func TestSession_Exit(t *testing.T) {
 	m, f := newMgr(t)
 	openFake(t, m)
-	m.Exit("tool-1")
+	m.Exit("tool-1", toolhub.ExitInfo{})
 	if kindsOf(f.events) != "exit" || f.activity[len(f.activity)-1] != "ended" {
 		t.Fatalf("%s %v", kindsOf(f.events), f.activity)
 	}
-	if m.Get("tool-1") != nil {
-		t.Fatal("끝난 세션이 남았다")
+	s := m.Get("tool-1")
+	if s == nil {
+		t.Fatal("끝난 세션이 사라졌다")
 	}
-	if m.Feed("tool-1", []byte("x"), 1) {
-		t.Fatal("끝난 세션이 바이트를 받았다")
+	if st := s.State(); st.Dormant != DormantError || st.Resumable {
+		t.Fatalf("신원 없는 죽음: %+v", st)
+	}
+	if !m.Feed("tool-1", []byte("x"), 1) {
+		t.Fatal("끝난 세션의 바이트가 터미널 경로로 샜다")
 	}
 }
 

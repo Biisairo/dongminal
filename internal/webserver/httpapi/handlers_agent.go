@@ -15,14 +15,16 @@ import (
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/toolhub"
+	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/agentsess"
 )
 
-// 에이전트 도구의 HTTP 표면 (M8_UNIFIED_SRS 묶음 P·T — FR-APS-5·6 · FR-AGT-4·8·10·11).
+// 에이전트 도구의 HTTP 표면 (M8_UNIFIED_SRS 묶음 P·T·B — FR-APS-5·6 · FR-AGT-4·8·10·11 ·
+// FR-ABG-10·20).
 //
 // 생성은 `POST /api/tools?kind=agent&agent=<id>` — 터미널 도구와 **같은 종단**을
-// 지난다 (FR-AGT-8). 그 뒤의 프롬프트·승인·제어·재생은 `/api/agent/*` 다. 이 파일은
+// 지난다 (FR-AGT-8). 그 뒤의 프롬프트·승인·제어·재생·휴면·재개는 `/api/agent/*` 다. 이 파일은
 // 에이전트 이름을 모른다 — 어댑터 id 는 요청이 실어 오고 등록부가 판정한다 (FR-U-1).
 
 // agentMgr 는 해석층이다. 늦게 세우는 이유는 테스트가 `&Server{Deps: …}` 로 서버를
@@ -33,6 +35,7 @@ func (s *Server) agentMgr() *agentsess.Manager {
 			Sink:     agentSink{s: s},
 			Write:    func(id string, data []byte) error { return s.Tools.Write(id, data) },
 			Snapshot: func(id string) (toolhub.ToolSnapshot, error) { return s.Tools.SnapshotTool(id) },
+			DataDir:  s.cfg.DataDir,
 		})
 	})
 	return s.agents
@@ -75,31 +78,64 @@ func (s *Server) AgentOutput(toolID string, kind toolhub.ToolKind, data []byte, 
 	return true
 }
 
-// AgentExit 은 도구의 죽음이다 — 세션을 닫는다.
-func (s *Server) AgentExit(toolID string) {
-	s.agentMgr().Exit(toolID)
+// AgentExit 은 도구의 죽음이다 — 세션은 남고 오류·휴면 상태가 된다 (D-C-11·15). info 는
+// 종료 코드와 stderr 꼬리다.
+func (s *Server) AgentExit(toolID string, info toolhub.ExitInfo) {
+	s.agentMgr().Exit(toolID, info)
 }
 
-// AgentAdoptExisting 은 이미 살아 있는 에이전트 도구에 세션을 세운다 — 데몬 모드의
-// 서버 재시동이 그 경우다 (D-C-5: 도구는 데몬의 것이라 살아남는다). 어댑터는
-// ToolInfo.Agent 가 말한다.
-func (s *Server) AgentAdoptExisting() {
+// AgentForget 은 사용자의 닫기다 — 세션·레코드·로그를 지운다. 도구를 지우는 길
+// (`DELETE /api/tools/<id>`·백그라운드 kill)이 **먼저** 부른다: 그래야 뒤따르는 exit 이
+// 오류 상태를 만들지 않는다.
+func (s *Server) AgentForget(toolID string) {
+	s.agentMgr().Forget(toolID)
+}
+
+// AgentRestore 는 부팅이다 (D-C-14). 레코드마다 — 도구가 살아 있으면(데몬 모드, D-C-5)
+// `Resume` 으로 채택하고, 없으면 오류 상태로 되살린다. 어느 탭도 참조하지 않는 레코드는
+// 버린다 — 판정은 `LoadAll` 과 같은 `workspace.ReferencedToolIDs` 다. 레코드 없이 살아
+// 있는 에이전트 도구(옛 판이 남긴 것)는 종전대로 빈 옵션으로 채택한다.
+func (s *Server) AgentRestore() {
 	if s.Tools == nil {
 		return
 	}
+	alive := map[string]toolhub.ToolInfo{}
 	for _, ti := range s.Tools.List() {
-		if ti.Kind != toolhub.KindAgent {
+		if ti.Kind == toolhub.KindAgent {
+			alive[ti.ID] = ti
+		}
+	}
+	refs := map[string]struct{}{}
+	if s.Work != nil {
+		raw, _ := s.Work.Snapshot()
+		if r, err := workspace.ReferencedToolIDs(raw); err == nil {
+			refs = r
+		}
+	}
+	m := s.agentMgr()
+	m.Restore(
+		func(id string) bool { _, ok := alive[id]; return ok },
+		func(id string) bool { _, ok := refs[id]; return ok },
+	)
+	for id, ti := range alive {
+		if m.Get(id) != nil {
 			continue
 		}
 		ad, err := agentadapter.Get(ti.Agent)
 		if err != nil || ad.Proto == nil {
-			dmlog.Warnf(nil, "[agent %s] 어댑터 %q 를 되살리지 못했다: %v", ti.ID, ti.Agent, err)
+			dmlog.Warnf(nil, "[agent %s] 어댑터 %q 를 되살리지 못했다: %v", id, ti.Agent, err)
 			continue
 		}
-		if _, err := s.agentMgr().Open(ti.ID, ad, agentadapter.LaunchOpts{}); err != nil {
-			dmlog.Warnf(nil, "[agent %s] open: %v", ti.ID, err)
+		if _, err := m.Open(id, ad, agentadapter.LaunchOpts{}); err != nil {
+			dmlog.Warnf(nil, "[agent %s] open: %v", id, err)
 		}
 	}
+}
+
+// agentToolsList 는 `/api/state` 의 도구 목록이다 (D-C-17) — toolhub 의 목록에 휴면·오류
+// 세션을 합친다. 그래야 브라우저의 `clean()` 이 그 탭을 살려 둔다.
+func (s *Server) agentToolsList(tools []toolhub.ToolInfo) []toolhub.ToolInfo {
+	return append(tools, s.agentMgr().Dormant()...)
 }
 
 // resolveAgentBin 은 실행 파일이다 (D-C-7): `DONGMINAL_AGENT_BIN_DIR/<DetectCmd>` 가
@@ -194,18 +230,108 @@ func (s *Server) agentSession(w http.ResponseWriter, toolID string) *agentsess.S
 	return sess
 }
 
-// apiAgentEvents 는 재생이다 (D-C-3): `?tool=&since=` → 상태 + since 뒤의 이벤트.
+// apiAgentEvents 는 재생이다 (D-C-3): `?tool=&since=` → 상태 + since 뒤의 이벤트. 잘렸으면
+// 요약 스냅샷이 함께 온다 (D-C-13).
 func (s *Server) apiAgentEvents(w http.ResponseWriter, r *http.Request) {
 	sess := s.agentSession(w, r.URL.Query().Get("tool"))
 	if sess == nil {
 		return
 	}
 	since, _ := strconv.ParseInt(r.URL.Query().Get("since"), 10, 64)
-	evs, truncated := sess.Events(since)
+	evs, truncated, snap := sess.Replay(since)
 	if evs == nil {
 		evs = []agentsess.Logged{}
 	}
-	writeJSON(w, map[string]any{"state": sess.State(), "events": evs, "truncated": truncated})
+	out := map[string]any{"state": sess.State(), "events": evs, "truncated": truncated}
+	if snap != nil {
+		out["snapshot"] = snap
+	}
+	writeJSON(w, out)
+}
+
+// apiAgentHibernate 는 명시적 휴면이다 (FR-ABG-10·11). 프로세스를 끝내고(`Terminate`) 그 exit
+// 관측이 세션을 휴면으로 마감한다 — 신원이 없으면 409 (D-C-16).
+func (s *Server) apiAgentHibernate(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ToolID string `json:"toolId"`
+	}
+	if !decodeJSONBody(w, r, &body) {
+		return
+	}
+	sess := s.agentSession(w, body.ToolID)
+	if sess == nil {
+		return
+	}
+	tools := s.tools(r)
+	err := s.agentMgr().Hibernate(body.ToolID, func() error {
+		if err := tools.Terminate(body.ToolID, s.limits.toolKillGrace); err != nil && !errors.Is(err, toolhub.ErrToolNotFound) {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		s.agentErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+// apiAgentResume 은 재개다 (FR-ABG-10) — 같은 toolId 로 새 프로세스를 세운다 (D-C-11,
+// `Placement.ReuseID`). 기동 옵션은 레코드의 것 + 실행 파일이다.
+func (s *Server) apiAgentResume(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ToolID string `json:"toolId"`
+	}
+	if !decodeJSONBody(w, r, &body) {
+		return
+	}
+	sess := s.agentSession(w, body.ToolID)
+	if sess == nil {
+		return
+	}
+	st := sess.State()
+	if st.Dormant == "" {
+		httpErr(w, "agent not dormant", http.StatusConflict, apierr.CodeAgentNotDormant)
+		return
+	}
+	if !st.Resumable {
+		httpErr(w, "agent has no session identity", http.StatusConflict, apierr.CodeAgentNoIdentity)
+		return
+	}
+	ad, err := agentadapter.Get(st.Agent)
+	if err != nil || ad.Proto == nil {
+		httpErr(w, "unknown agent", http.StatusBadRequest, apierr.CodeAgentUnknown)
+		return
+	}
+	bin, err := resolveAgentBin(ad)
+	if err != nil {
+		httpErr(w, "agent binary not found", http.StatusNotFound, apierr.CodeAgentBinMissing)
+		return
+	}
+	opts := sess.ResumeOpts()
+	opts.Bin = bin
+	tool, err := s.tools(r).Create(opts.Cwd, 0, 0, toolhub.Placement{
+		Kind: toolhub.KindAgent, Argv: ad.Proto.Launch(opts), Agent: ad.ID, ReuseID: body.ToolID,
+	})
+	if err != nil {
+		if errors.Is(err, toolhub.ErrToolCap) {
+			fail(w, http.StatusTooManyRequests, err.Error(), nil)
+			return
+		}
+		fail(w, http.StatusInternalServerError, "도구를 만들지 못했습니다", err)
+		return
+	}
+	if tool.ID != body.ToolID {
+		// 옛 데몬이 reuseId 를 모른다 — 새 신원으로는 탭을 이을 수 없다. 방금 띄운 것을 거둔다.
+		_ = s.tools(r).Delete(tool.ID)
+		fail(w, http.StatusInternalServerError, "도구를 만들지 못했습니다", errors.New("daemon ignored reuseId"))
+		return
+	}
+	if err := s.agentMgr().Reopen(body.ToolID, opts); err != nil {
+		s.agentErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]string{"id": tool.ID, "name": tool.Name, "kind": string(toolhub.KindAgent), "agent": ad.ID})
 }
 
 func (s *Server) apiAgentPrompt(w http.ResponseWriter, r *http.Request) {
@@ -318,6 +444,12 @@ func (s *Server) agentErr(w http.ResponseWriter, err error) {
 		httpErr(w, "unsupported", http.StatusBadRequest, apierr.CodeAgentUnsupported)
 	case errors.Is(err, agentsess.ErrNoSession):
 		httpErr(w, "agent session not found", http.StatusNotFound, apierr.CodeAgentNoSession)
+	case errors.Is(err, agentsess.ErrNoIdentity):
+		httpErr(w, "agent has no session identity", http.StatusConflict, apierr.CodeAgentNoIdentity)
+	case errors.Is(err, agentsess.ErrDormant):
+		httpErr(w, "agent dormant", http.StatusConflict, apierr.CodeAgentDormant)
+	case errors.Is(err, agentsess.ErrNotDormant):
+		httpErr(w, "agent not dormant", http.StatusConflict, apierr.CodeAgentNotDormant)
 	default:
 		fail(w, http.StatusBadRequest, err.Error(), err)
 	}

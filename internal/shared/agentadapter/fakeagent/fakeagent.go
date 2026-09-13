@@ -15,6 +15,10 @@
 //	DIE      → 턴을 끝내지 않고 exit 1 (V-8)
 //	/…       → 로컬 명령의 답; /clear 는 신원 교체
 //	그 밖    → PONG
+//
+// claude 판의 `system:init` 은 실제와 같이 **첫 프롬프트 뒤**에 온다 (§2-28 · D-C-16) —
+// 첫 턴 전의 `idle` 은 `initialize` 응답에서 파생한다. `--resume <id>` 는 세 판 다 이력
+// 없이 그 id 로 신원만 되돌린다 (U-4).
 package fakeagent
 
 import (
@@ -77,7 +81,8 @@ func claudeMain(args []string, stdin io.Reader, stdout io.Writer) int {
 			}
 		}
 	}
-	a.init()
+	// `system:init` 은 여기서 내지 않는다 — 실제 claude 는 첫 `user` 프레임 뒤에 낸다
+	// (M8_PROGRESS §2-28 · D-C-16). 첫 프롬프트가 handle 에서 그것을 낸다. `--resume` 도 같다.
 	a.lines = readLines(stdin)
 	for line := range a.lines {
 		if code, exit := a.handle(line); exit {
@@ -94,6 +99,7 @@ type agent struct {
 	model    string
 	permMode string
 	resumed  bool
+	inited   bool
 	seq      int
 }
 
@@ -148,6 +154,10 @@ func (a *agent) handle(line []byte) (int, bool) {
 	case "user":
 		var text string
 		_ = json.Unmarshal(fr.Message.Content, &text)
+		if !a.inited {
+			a.inited = true
+			a.init()
+		}
 		return a.turn(text)
 	}
 	return 0, false

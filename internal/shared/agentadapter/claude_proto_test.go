@@ -300,8 +300,13 @@ func TestClaudeProto_HandshakeAndControl(t *testing.T) {
 		t.Fatal("request_id 가 없다")
 	}
 	evs := decode1(t, p, st, `{"type":"control_response","response":{"subtype":"success","request_id":"`+req.RequestID+`","response":{"commands":[{"name":"compact","description":"d"}],"models":[{"value":"default","displayName":"Default","description":"D"},{"value":"sonnet","displayName":"Sonnet","description":"S"}],"account":{"email":"e@x","subscriptionType":"Max"},"current_permission_mode":"default","session_state":"idle"}}}`)
-	if kinds(evs) != "status" {
-		t.Fatalf("initialize 응답: %s", kinds(evs))
+	// P5 D-C-16: initialize 응답은 "떴다, 신원은 아직 모른다" — EvSession(SessionID 빈) 이다.
+	// 실제 claude 의 `system:init` 은 첫 프롬프트 뒤에 오므로, 이것이 첫 턴 전의 `idle` 이다.
+	if kinds(evs) != "session" || evs[0].SessionID != "" {
+		t.Fatalf("initialize 응답: %s %+v", kinds(evs), evs)
+	}
+	if a, ok := evs[0].Activity(); !ok || a != "idle" {
+		t.Fatal("핸드셰이크 응답이 idle 로 읽혀야 dmctl wait --for ready 가 첫 턴 전에 답한다")
 	}
 	stt := evs[0].Status
 	if len(stt.Models) != 2 || stt.Models[1].Value != "sonnet" || len(stt.Commands) != 1 || stt.Commands[0] != "compact" || stt.PermissionMode != "default" || stt.Account == "" {

@@ -16,6 +16,7 @@ Browser (xterm.js)                    ┌─ ② dongminald ──────�
                             ├ settings.json
                             ├ workspace.json   (schemaVersion 2)
                             ├ tools.json
+                            ├ agents.json · agents/*.jsonl   (에이전트 세션 레코드·이벤트 로그)
                             └ bin/ ──▶ ① dmctl / edit / download / detach
                                        (같은 바이너리의 multi-call symlink)
 
@@ -535,6 +536,24 @@ id="sb-panel-…">`) 하나를 두면 끝이다. 아래 넷이 그 배열에서 
 (`Question.FreeText` 가 글 입력)이다. 세 차이가 함수 안에서 끝나므로 `Handshake` 가 `LaunchOpts` 를
 받는 것 하나가 소비자에 보이는 전부다. 계약 드리프트는 `drift_test.go`(`-tags agentdrift`)가 실제
 바이너리로 잰다 — CI 밖, 단계 착수마다 (D-U-5).
+
+**세션은 프로세스보다 오래 산다** (묶음 B, P5 — D-C-11~17). 프로세스의 끝은 세션을 지우지 않는다:
+세션은 `Dormant`(`hibernated` 명시적 휴면 · `error` 죽음·서버 재시동) 상태로 남고, `EvExit` 가 그
+사유(`Text: hibernated|closed|died` · `Detail: exit <code>: <stderr 꼬리>`)를 든다 — stderr 꼬리는
+파이프를 든 `toolhub.Tool` 이 모아 `ExitInfo` 로 낸다(직접 모드 `ExitObserver` · 데몬 `exit` push).
+지우는 것은 사용자의 닫기(`DELETE /api/tools/<id>` → `Forget`) 하나다. 재개(`POST /api/agent/resume`)는
+**같은 `toolId`** 로 새 프로세스를 세운다(`Placement.ReuseID`, 데몬 `create.reuseId`) — 탭의 신원이
+`toolId` 이므로 교체를 워크스페이스로 흘리지 않는다; 세션은 오프셋만 0 으로 되돌리고 seq 는 잇는다.
+디스크: `agents/<toolId>.jsonl`(SSE 와 같은 줄 `Logged`, 링에서 버려진 수가 상한에 이르면 `{snap}` +
+링으로 압축) · `agents.json`(레코드 — 어댑터·신원·cwd·기동 옵션·상태; 활성 세션도 있다). 잘린 앞은
+**버려진 이벤트의 접힘**인 요약 스냅샷 하나(마지막 assistant 메시지·열린 요청·사용량·status)로 재생
+응답에 실린다 (FR-ABG-21). 부팅(`AgentRestore`)은 레코드마다 — 도구가 데몬에 살아 있으면 `Resume` 으로
+채택(codex 는 살아 있는 thread 를 rejoin 한다) · 없으면 오류 상태로 되살림 · 신원이 없거나 어느 탭도
+참조하지 않으면 버린다. 휴면·오류 세션은 toolhub 에 없으므로 `/api/state.tools` 가 `dormant` 표식으로
+합친다 — 브라우저의 `clean()` 이 그 탭을 살려 두는 근거다. claude 의 세션 신원은 첫 프롬프트 뒤에
+오므로(§2-28) 첫 턴 전에는 휴면할 수 없다(409 `agent_no_identity`); 활동 `idle` 은 `initialize` 응답이
+낸다. 틈 되메움(`SnapshotTool`)은 **비동기**다 — 데몬 모드에서 그 자리는 readLoop 안이라 동기 RPC 가
+연결을 떨어뜨린다.
 
 ## 오케스트레이션 다이어그램
 

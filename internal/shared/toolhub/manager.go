@@ -99,7 +99,7 @@ type ToolManager struct {
 	attnClear      func(id string)
 	activityNotify func(id, state, tool, detail string)
 	outputObserver func(id string, kind ToolKind, data []byte, end int64)
-	exitObserver   func(id string)
+	exitObserver   func(id string, info ExitInfo)
 
 	// background는 탭에서 떼어내 백그라운드로 보낸 도구의 전환 시각(unix
 	// nanos)을 담는다. 런타임 전용 — tools.json 에 기재하지 않으므로 데몬
@@ -171,8 +171,9 @@ func (m *ToolManager) SetOutputObserver(f func(id string, kind ToolKind, data []
 }
 
 // SetExitObserver 는 도구의 죽음을 받는 관측자다 — 직접 모드의 에이전트 해석층이
-// 세션을 닫는 자리 (D-C-2). 데몬 모드의 짝은 ToolClient.SetOnExit.
-func (m *ToolManager) SetExitObserver(f func(id string)) {
+// 세션을 오류·휴면 상태로 옮기는 자리 (D-C-2·D-C-15). info 는 종료 코드와 stderr 꼬리다.
+// 데몬 모드의 짝은 ToolClient.SetOnExit.
+func (m *ToolManager) SetExitObserver(f func(id string, info ExitInfo)) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.exitObserver = f
@@ -397,6 +398,11 @@ type Placement struct {
 	Argv  []string
 	Agent string
 
+	// ReuseID 는 **이 id 로** 등록하라는 뜻이다 — 휴면·오류 세션의 재개가 같은 도구
+	// 신원으로 새 프로세스를 세우는 길 (M8_UNIFIED_SRS D-C-11; `Restore(id, …)` 와
+	// 같은 근거). 비어 있으면 새 uuid 다. 그 id 가 이미 살아 있으면 ErrToolExists.
+	ReuseID string
+
 	// 아래 둘은 **ToolManager 가 채운다.** 호출자는 건드리지 않는다 — 도구
 	// 식별자는 여기서 만들어지고, 작업 디렉터리는 Create 의 인자이므로 바깥에서
 	// 다시 실어 보낼 이유가 없다.
@@ -420,6 +426,9 @@ const ToolCap = 256
 // 서버 결함으로 읽고 재시도하며, 재시도가 곧 이 상황을 만든 것이다.
 var ErrToolCap = errors.New("도구 수가 상한에 이르렀다")
 
+// ErrToolExists 는 `Placement.ReuseID` 가 살아 있는 도구를 가리킨다 — 재개할 것이 없다.
+var ErrToolExists = errors.New("tool_exists")
+
 func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*Tool, error) {
 	// FR-UNI-7: toolId 는 uuid 다. 카운터는 영속되지 않아 모든 도구가 닫힌 상태로
 	// 재기동하면 "1" 부터 재사용됐다 (SRS §2.7 (3)).
@@ -427,7 +436,10 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 	//
 	// 배치보다 **먼저** 만든다. 컨테이너 안 도구도 자기 식별자를 환경으로 받아야
 	// dmctl 이 자신을 서버에 알릴 수 있다 (FR-SBX-16).
-	id := uuid.NewString()
+	id := place.ReuseID
+	if id == "" {
+		id = uuid.NewString()
+	}
 	// 작업 디렉터리는 **그대로** 넘긴다. 실재 여부의 판정과 사유 보고는 배치기가
 	// 한다 (FR-SBX-41) — 여기서 조용히 걸러 내면 사용자가 고른 폴더가 왜 안
 	// 붙었는지 알 수 없다.
@@ -453,6 +465,10 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 		m.mu.Unlock()
 		dmlog.Infof(nil, "[tool] 상한 초과로 생성을 거절한다 (cap=%d)", ToolCap)
 		return nil, ErrToolCap
+	}
+	if _, live := m.tools[id]; live {
+		m.mu.Unlock()
+		return nil, ErrToolExists
 	}
 	m.pending++
 	hooks := m.attnHooks()
@@ -491,13 +507,18 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 // 레지스트리에서 지우고 위층(workspace)에 알린다. invalidator 는 SetInvalidator
 // 가 잠금으로 쓰므로 **잠금으로 읽는다** (M8 `GO-30`) — 종전의 클로저는 맨 읽기였다.
 func (m *ToolManager) toolExited(toolID string) {
+	// 종료 사유는 지우기 전에 집는다 (D-C-15) — 지운 뒤에는 Tool 이 없다.
+	var info ExitInfo
+	if p := m.Get(toolID); p != nil {
+		info = p.ExitInfo()
+	}
 	m.Delete(toolID)
 	m.mu.RLock()
 	f := m.invalidator
 	ex := m.exitObserver
 	m.mu.RUnlock()
 	if ex != nil {
-		ex(toolID)
+		ex(toolID, info)
 	}
 	if f != nil {
 		f(toolID)

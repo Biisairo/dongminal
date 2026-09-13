@@ -518,9 +518,9 @@ func serve(home, host, port string) int {
 			// FR-ATL-3: 활동만 내리고 주의를 남기면 죽은 도구의 알람이 배지에
 			// 남는다. 두 레이어를 같은 콜백에서 함께 정리한다 — Forget 이
 			// 주의 해제(에지)와 상태 폐기를 한 번에 한다.
-			panedClient.SetOnExit(func(toolID string, code int) {
+			panedClient.SetOnExit(func(toolID string, info toolhub.ExitInfo) {
 				if srvRef != nil {
-					srvRef.AgentExit(toolID)
+					srvRef.AgentExit(toolID, info)
 				}
 				attnTracker.SetActivity(toolID, "ended", "", "")
 				attnTracker.Forget(toolID)
@@ -564,7 +564,8 @@ func serve(home, host, port string) int {
 	}
 	// M8_UNIFIED_SRS D-C-2: 에이전트 도구의 해석층 배선. 직접 모드는 ToolManager 의
 	// 출력 관측자·종료 관측자, 데몬 모드는 위 push 콜백의 늦은 포인터다. 그 뒤
-	// 이미 살아 있는 에이전트 도구(데몬이 든 것)에 세션을 세운다.
+	// 레코드(agents.json)로 세션을 되살린다 — 살아 있는 도구(데몬이 든 것)는 채택,
+	// 없는 것은 오류 상태 (D-C-14).
 	if bd.bindServer != nil {
 		bd.bindServer(srv)
 	}
@@ -574,7 +575,7 @@ func serve(home, host, port string) int {
 		})
 		bd.pm.SetExitObserver(srv.AgentExit)
 	}
-	srv.AgentAdoptExisting()
+	srv.AgentRestore()
 
 	ctx, stop := signal.NotifyContext(context.Background(), platform.Current().Process.ShutdownSignals()...)
 	defer stop()

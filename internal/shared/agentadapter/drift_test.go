@@ -99,7 +99,8 @@ loop:
 				if e.Kind == EvSession && e.SessionID != "" {
 					sawSession = true
 				}
-				if e.Kind == EvStatus && e.Status != nil && len(e.Status.Models) > 0 {
+				// 모델 목록은 status 또는 session(claude 의 initialize 응답 — D-C-16)에 실린다.
+				if e.Status != nil && len(e.Status.Models) > 0 {
 					sawModels = true
 				}
 				if e.Kind == EvError {

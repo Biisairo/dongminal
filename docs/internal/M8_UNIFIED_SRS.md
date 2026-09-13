@@ -671,6 +671,16 @@ UI 로 노출한다.** 어댑터의 `Proto.Control`(§9.3 ③) 이 지원하는 
 요청 + 사용량)로 대체되고, UI 가 "이전 기록은 잘렸다" 를 표시한다. V-3 의
 "빠짐없이" 는 **상한 안에서** 빠짐없이다.
 
+**P5 착수 실측 (2026-09-14, codex 0.154.0 · omp 17.4.0 — 자격증명 없음, 무모델 프레임. 드라이버
+P0 의 것, 원본 `/tmp/m8-spike/p5/*.jsonl`).** 드리프트 잡(`-tags agentdrift`) 셋 초록이 먼저였다.
+
+| 물음 | 결과 | 뜻 |
+|---|---|---|
+| omp `--resume` 의 접두 길이 | **길이 제한이 없다** — `0`·`01`·`01a0`·8·13·36자 전부 같은 세션에 닿았다. 접두가 여러 세션에 맞으면 **조용히 하나를 고른다**(세션 둘인 cwd 에서 `0` → 최근 것). 다른 cwd 의 세션에도 닿는다(전역 탐색). 없는 id 는 exit 1 + stderr `Session "…" not found.` | 우리는 `get_state` 가 준 **전체 id** 만 싣는다 — 접두 규칙은 쓰지 않는다 |
+| codex `thread/resume` 이 **살아 있는(loaded) thread** 를 rejoin 하는가 | **한다.** 같은 프로세스에서 `thread/resume{T}` 를 두 번 보내면 둘 다 같은 `thread.id` 로 답하고 새 thread 가 서지 않는다(`thread/list` 개수 불변). **턴이 `inProgress` 인 동안**에도 같은 id 로 답한다(status `active`). 단 **아직 rollout 파일이 없는 thread**(`thread/start` 직후, 첫 턴 전)는 `error{"no rollout found for thread id …"}` | P4 발견("되살림이 thread 를 잃는다")의 해법: 신원을 레코드에 남기고 되살릴 때 `Resume=threadId` 로 핸드셰이크한다 (D-C-14). 첫 턴 전의 thread 는 잃어도 잃는 것이 없다 |
+| 살아 있는 codex 프로세스에 `initialize` 를 다시 보내면 | `error{-32600,"Already initialized"}` — 그 뒤의 `thread/resume`·`model/list` 는 정상 | 어댑터가 그 한 오류를 부재(`nil,true`)로 읽는다 — 되살림 핸드셰이크의 잡음이다 (D-C-14) |
+| codex `config.toml` 부작용 | 없음 (`approvalPolicy`·`sandbox` 를 싣지 않았다) | R-e 규약 유지 |
+
 #### 3.4.5 비기능 (NFR)
 
 **NFR-C-1** 프레임의 **내용을 서버 밖으로 내보내지 않는다.** `AGENT_ADAPTER_COMPLETION_SRS` NFR-4 의 규약을
@@ -852,6 +862,65 @@ relay)는 `Tool.Kind` 를 이미 알고 있으므로 싣는 데 비용이 없다
 `DIE` 면 `result` 없이 `exit 1` · 그 밖은 `PONG`. `--resume <id>` 는 그 id 로 `system:init`. 설정
 파일도 환경변수도 없다 — 서버는 그것을 어떤 에이전트와도 같게 다룬다.
 
+
+**D-C-11 — 세션은 프로세스보다 오래 산다: 휴면·오류는 세션의 상태이고, 도구 신원은 재개를 넘어
+같다.** (P5) `agentsess.Session` 에 `Dormant`(`""` 활성 · `hibernated` 휴면 · `error` 오류)가 생긴다.
+프로세스의 끝은 세션을 지우지 않는다 — 지우는 것은 **사용자의 닫기**(`DELETE /api/tools/<id>` →
+`Forget`) 하나다. 재개는 **같은 `toolId`** 로 새 프로세스를 세운다(`Placement.ReuseID` — toolhub 가
+그 id 로 등록한다, `Restore(id, …)` 와 같은 길; 데몬 `create` RPC 에 `reuseId`). 이유: 탭의 신원이
+`toolId` 다 (D-C-1). id 를 바꾸면 그 교체가 워크스페이스를 타고 모든 브라우저에 가야 하고, FR-ABG-4 가
+피한 "재접속" 류의 문제가 되돌아온다. 대신 세션은 절대 오프셋(`seen`)을 재개마다 0 으로 되돌린다 —
+새 프로세스의 스트림은 새 좌표계다.
+
+**D-C-12 — 디스크 형식은 SSE 와 같은 줄이다.** (FR-ABG-2 · NFR-C-2) `<DataDir>/agents/<toolId>.jsonl`
+— 한 줄이 `Logged{seq,at,ev}` 그대로(와이어의 `agent_event.args` 와 같은 모양) 또는 `{"snap":Snapshot}`.
+이벤트마다 append. **압축**은 링에서 버려진 수가 `LogCap` 에 이르거나 파일이 8 MiB 를 넘을 때 —
+`{snap}` 한 줄 + 링의 내용으로 다시 쓴다(원자적, `WriteStateFile`). 그래서 파일은 `2×LogCap` 이벤트
++ 스냅샷 하나를 넘지 않는다. 읽을 때(재시동 뒤) 마지막 `snap` 뒤의 이벤트가 링이 되고, 파싱되지 않는
+꼬리 줄(쓰다 끊긴 것)은 버린다. `DataDir` 이 비면 디스크가 없고 P3 의 메모리 링만 있다(테스트).
+휴면 레코드는 `<DataDir>/agents.json` (D-C-14). `tools.json` 은 그대로 셸의 것이다 — D-C-5 는 유지된다.
+
+**D-C-13 — 요약 스냅샷은 잘린 이벤트의 접힘이다.** (FR-ABG-21) `Snapshot{seq, sessionId, status, usage,
+open[], lastMessage}` 는 링에서 **버려진 이벤트를 차례로 접은 것**이다 — 지금 상태의 복사가 아니다.
+그래야 스냅샷 + 남은 이벤트 = 전량과 같은 뜻이 되고, 마지막 assistant 메시지가 두 번 그려지지 않는다.
+재생 응답은 `{state, events, truncated, snapshot?}` 이고 `snapshot` 은 `truncated` 일 때만 있다. 뷰는
+"이전 기록은 잘렸다" 아래에 `lastMessage` 를 assistant 메시지로 한 번 그린 뒤 이벤트를 이어 붙인다.
+`since>0` 인 이어 붙이기 요청이 잘린 자리를 가리켜도 같은 모양이다.
+
+**D-C-14 — 휴면 레코드와 되살림.** (FR-ABG-10 · P4 발견) `agents.json` 의 레코드 = `{toolId, agent,
+name, sessionId, cwd, approval, permissionMode, model, dormant, reason, at, lastSeq}`. 세션이 열릴 때
+쓰고, 신원(`session`·`reset`)·권한 모드·모델·`dormant` 가 바뀔 때마다 다시 쓴다 — 활성 세션도 레코드가
+있다. 그래서 서버가 죽어도 되살릴 근거가 남는다. **부팅**(`AgentRestore`): 레코드마다 — 도구가 목록에
+살아 있으면(데몬 모드) `Resume=sessionId` 로 `Open` 한다 → codex 는 살아 있는 thread 를 **rejoin**
+하고(P5 실측) 새 thread 를 세우지 않는다, claude·omp 의 핸드셰이크는 무해하다 · 도구가 없으면
+`dormant=error, reason=server_restart` 로 세션을 디스크 로그에서 되살린다 · **신원이 없거나 어느 탭도
+참조하지 않는 레코드는 버린다**(되살릴 것도 보일 자리도 없다 — `workspace.ReferencedToolIDs` 가 그
+판정, `LoadAll` 과 같은 근거). 재개의 `LaunchOpts` = `{Cwd, Resume: sessionId, Approval, PermissionMode:
+마지막 status 의 것}` — `Model` 은 싣지 않는다(셋 다 세션이 기억한다, U-4). codex 어댑터는 살아 있는
+프로세스가 `initialize` 에 내는 `Already initialized` 오류를 부재로 읽는다.
+
+**D-C-15 — 오류 상태는 `EvExit` 가 말한다 — 새 이벤트 종류가 아니다.** (FR-ABG-20 · D-C-6) `EvExit{Text:
+"hibernated"|"closed"|"died", Detail: "exit <code>: <stderr 마지막 줄들>", IsError: died}`. 사유는
+서버가 안다: 휴면 절차 중이면 `hibernated`, 사용자가 닫는 중이면 `closed`, 그 밖은 `died`(오류 상태 —
+`idle` 로 읽지 않는다, 활동은 `ended`). stderr 꼬리(마지막 8줄, 2 KiB)는 파이프를 든 toolhub 의 `Tool` 이
+모으고 종료와 함께 나온다 — 직접 모드 `ExitObserver(id, ExitInfo)`, 데몬 모드 `exit` push 의
+`code`·`stderr[]`(옛 데몬은 비어 온다 — 사유 없는 오류 상태). dmlog 에 남기는 것(D-C-6)은 그대로다.
+공통 어휘가 바뀌지 않으므로 소비자가 바뀌는 자리는 뷰의 `exit` 분기 하나다.
+
+**D-C-16 — 신원 없는 도구는 휴면하지 않는다.** (P4 발견 §2-28) 실제 claude 의 `system:init` 은 첫
+프롬프트 뒤에 온다 — 첫 턴 전에는 되살릴 id 가 없다. `POST /api/agent/hibernate` 는 그때 409
+`agent_no_identity` 다. 활동 `idle` 은 신원이 아니라 **핸드셰이크 응답**에서 파생한다: claude 어댑터는
+`initialize` 응답을 `EvSession{SessionID:""}` 로 낸다("떴다, 신원은 아직 모른다" — FR-APS-4 의 부재) —
+`dmctl wait --for ready` 가 첫 턴 전에도 답을 얻는다. 가짜 claude 도 실제에 맞춘다: `system:init` 은 첫
+`user` 프레임 뒤. `--resume` 은 세 판 다 이력 없이 신원만 되돌린다 (U-4).
+
+**D-C-17 — 휴면·오류 도구는 목록에 있다.** (FR-ABG-4 의 전제) `/api/state.tools` 는 toolhub 의 목록에
+휴면·오류 세션을 `ToolInfo{id, name, kind:"agent", agent, dormant}` 로 **합친다** — 그래야 브라우저의
+`clean()` 이 탭을 살려 두고 재개 버튼이 놓일 자리가 있다. 해석층 밖의 목록 소비자(whoami·diag·경계)는
+toolhub 목록을 그대로 본다. 브라우저의 `_applyRemoteWorkspace` 는 `kind:"agent"` 에 `mkTool` 을 부르지
+않는다(P3 의 잠복 결함 — 살아 있는 에이전트 도구에 숨은 xterm 이 붙어 있었다). HTTP: `POST
+/api/agent/hibernate{toolId}` · `POST /api/agent/resume{toolId}` → `{id,name}`. 휴면은 뷰의 메뉴에서만
+(FR-ABG-11 명시적) — 탭 메뉴(FR-CMU-8)는 그대로다.
 ---
 
 ## 6. 검증
@@ -1309,6 +1378,8 @@ PTY 화면 갱신보다 작다). **다른 것 둘**:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-14 | **P5 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-9, 전량 e2e 는 §1-10. 세션이 프로세스보다 오래 산다(D-C-11 — `Dormant` hibernated·error, 같은 `toolId` 로 재개 `ReuseID`) · 디스크 `agents/<toolId>.jsonl`+`agents.json`(D-C-12·14) · 요약 스냅샷은 버려진 이벤트의 접힘(D-C-13) · `EvExit` 사유 + stderr 꼬리 `ExitInfo`(D-C-15, 데몬 `exit` push 가 실제 code·stderr 를 싣는다) · 신원 없는 도구는 휴면 불가, claude `initialize` 응답이 `idle`(D-C-16) · 휴면 세션은 `/api/state.tools` 에 합쳐진다(D-C-17). HTTP `hibernate`·`resume`, 오류 코드 셋. P4 발견 둘 해소(가짜 claude 의 init 시점 · codex rejoin). 발견: 틈 되메움이 readLoop 안의 RPC 였다(§2-30, 비동기로) |
+| 2026-09-14 | **P5 착수.** 드리프트 잡 셋 초록. §3.4.4 P5 착수 실측(omp 접두 무제한·모호하면 조용히 고른다 · codex `thread/resume` 이 살아 있는 thread 를 rejoin 한다 · 재 `initialize` 는 `Already initialized`). D-C-11~17 — 휴면·오류는 세션의 상태, 같은 `toolId` 로 재개(`ReuseID`) · 디스크 JSONL(SSE 와 같은 줄)+`agents.json` · 스냅샷은 버려진 이벤트의 접힘 · `EvExit` 가 사유를 든다 · 신원 없는 도구는 휴면 불가(claude 첫 턴 전) · 휴면 도구는 목록에 합쳐진다 |
 | 2026-09-13 | **P4 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-7, 전량 e2e 는 §1-8. codex·omp 어댑터가 같은 `Proto` 구조체에 들어갔다(FR-U-2 첫 판정 — §9.3 ③ P4 판정). §2.3.3 에 P4 재실측 표. D-U-5 의 대조 잡(`drift_test.go`, 사건 주기). F-4 의 설정 키 `agentApprovalMode`. `Handshake` 가 LaunchOpts 를 받는다 · `LaunchOpts.Approval` · `Question.FreeText`. 가짜 에이전트가 세 프로토콜을 말한다 (argv 모양으로 고른다). P4 발견 둘: claude 의 `system:init` 은 첫 프롬프트 뒤(§2-28) · codex 되살림은 thread 를 잃는다(P5) |
 | 2026-09-13 | **P3 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-5, 전량 e2e 는 §1-6. 묶음 P(`Adapter.Proto`·claude 구현·가짜 에이전트)·T(`Kind=agent` 변형·파이프 전송·`/api/agent/*`·`AgentPane`·TUI 출구)·A(활동 보고 한 자리·L2 idle 제외). **D-C-10** 신설 — 종류는 청크에 실려 온다(데몬 readLoop 의 자기 RPC, §2-25). 둘째 세션이 잡은 뷰 결함 둘(재생 비행 중 SSE·열린 요청 이중 계수, §2-26). V-11 확인: 훅 표면 diff 0 · `claude.go` 3줄 |
 | 2026-09-13 | **P3 중 사용자 지시.** FR-AGT-4a — Esc 인터럽트 · ↑↓ 프롬프트 히스토리 · 슬래시 자동완성 · Shift+Tab 권한 모드 순환 |

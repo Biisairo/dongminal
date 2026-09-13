@@ -5,7 +5,7 @@
 
 ---
 
-## 1. 어디까지 왔나 (2026-09-13, 여섯 번째 세션 — **P4 완료**)
+## 1. 어디까지 왔나 (2026-09-14, 일곱 번째 세션 — **P5 완료**)
 
 | 단계 | 상태 |
 |---|---|
@@ -14,7 +14,8 @@
 | **P2** B 국제화 | **완료** — 아래 §1-3 표. 사용자 결정 FR-B-1(안 A) · 카탈로그 915키(ko·en 전수) · 게이트 `check-i18n.mjs`(35번째) · 전량 e2e §1-4 |
 | **P3** C-a 묶음 P+T (claude) | **완료** — 아래 §1-5 표. Go `-race -shuffle` 초록 · `make gates` 초록 · `agent-tool.spec.ts` 7/7(3회 반복 21/21) · 전량 e2e §1-6. 두 세션(첫 세션이 Go·뷰, 둘째 세션이 e2e 4건의 원인 둘 = §2-25·§2-26) |
 | **P4** C-b codex·omp 어댑터 | **완료** — 아래 §1-7 표. 실측 먼저(스펙 §2.3.3 P4 표) · FR-U-2 첫 판정 "한 구조체에 든다" · `codex_proto.go`·`omp_proto.go` + R-8 표 · 가짜가 세 프로토콜을 말한다 · `agent-tool.spec.ts` 13/13 · 대조 잡 `drift_test.go`(실제 바이너리 셋 초록) · 전량 e2e §1-8 |
-| P5~P7 | 착수 전 — P5 착수 프롬프트는 `M8_NEXT_SESSION.md` |
+| **P5** C-c 묶음 B 휴면·재생·오류 | **완료** — 아래 §1-9 표. 착수 실측 먼저(드리프트 셋 초록 · omp 접두 · codex rejoin, 스펙 §3.4.4 P5 표) · D-C-11~17 · 세션은 프로세스보다 오래 산다(같은 `toolId` 로 재개) · 디스크 JSONL+`agents.json` · 요약 스냅샷 · `EvExit` 사유 · `agent-tool.spec.ts` 16/16 · 전량 e2e §1-10 |
+| P6~P7 | 착수 전 — P6 착수 프롬프트는 `M8_NEXT_SESSION.md` |
 
 **사용자 판단 셋은 착수 시 해소됐다** (2026-09-13): FR-APS-10 정정(stdio 제어 프레임,
 MCP 서버 없음) · D-U-4 정정(변형 + `Kind`) · FR-AGT-11·12 확정. 스펙 본문과 §9.3 ⑤⑥,
@@ -148,6 +149,32 @@ omp 17.4.0 을 다시 띄웠고(자격증명 없음 — 무모델 프레임), �
 | ① 코드 완료 직후 | **무효** — 두 실행이 겹쳤다 | `&` 로 띄운 첫 `make e2e` 의 서브셸이 죽지 않고 살아남아 둘째와 나란히 돌았고(`xargs -P 4` 둘), 서로의 `test-results/*/traces` 와 `/tmp/dongminal-e2e-*` 홈을 지웠다(ENOENT 폭주, 초반 샤드마다 `waitForInit` 15s 시한). 그 사이에 드리프트 잡(`go test -tags agentdrift`)도 두 번 돌렸다. 판정 불가 — 둘 다 죽이고 청소한 뒤 다시 |
 | ② 단독 실행 | **unexpected 0** · flaky 4 | 1,657 통과 · 8샤드 각 4.1~4.5분. flaky 넷은 전부 M7 §5-5 군집·그 이웃(`git-commit` E13 · `git-history` H6·H22 · `slot-view-state` TC-SVS-53) — P1·P2·P3 의 표에도 같은 스펙들이 있다. 에이전트 도구 13건은 재시도 없이 통과. `make e2e-rebalance` 로 시간표 갱신(8샤드 400~401s, 불균형 1.00배) |
 
+### 1-9. P5 항목별 판정
+
+**실측이 먼저였다**: 드리프트 잡 셋 초록(claude 2.1.270 · codex 0.154.0 · omp 17.4.0) → omp `--resume` 접두·
+codex `thread/resume` rejoin·재 `initialize` 를 드라이버로 봤다 (스펙 §3.4.4 "P5 착수 실측"). 자격증명 없음 —
+사용자에게 묻지 않았다.
+
+| 묶음 | 항목 | 판정 | 어디에 |
+|---|---|---|---|
+| B | FR-ABG-2 이벤트 로그 디스크 영속 · NFR-C-2 | **해소** — `agents/<toolId>.jsonl`, 한 줄 = `Logged`(SSE 와 같은 모양). 이벤트마다 append, 버려진 수 ≥ LogCap 또는 8 MiB 면 `{snap}`+링으로 압축 (D-C-12). 파싱 안 되는 꼬리는 버린다 | `agentsess/disk.go` · `TestDisk_AppendCompactRestore` |
+| B | FR-ABG-4 재생 복원 · FR-ABG-21 요약 스냅샷 | **해소** — `Snapshot` 은 **버려진 이벤트의 접힘**(seq·신원·status·usage·열린 요청·마지막 assistant 메시지). 재생 `{state, events, truncated, snapshot?}` — 잘렸을 때만. 뷰는 "잘렸다" 아래 `lastMessage` 를 한 번 그린다 (D-C-13) | `dormant.go` `Snapshot.fold` · `TestDormant_SnapshotFold` · `TestAgentAPI_ReplaySnapshotShape` · `agent-pane.js resync` |
+| B | FR-ABG-10 휴면 · FR-ABG-11 명시적 | **해소** — `POST /api/agent/hibernate` (뷰 메뉴 `휴면`) → `Terminate` → exit 관측이 `hibernated` 로 마감(3초 시한 뒤 자체 마감). 세션은 남고 `Dormant=hibernated`. 재개 `POST /api/agent/resume` → **같은 toolId**(`Placement.ReuseID`, 데몬 `create.reuseId`) 로 새 프로세스 → `Reopen`(어댑터 상태 새로, 신원 preset, 오프셋 0, seq 이어짐) (D-C-11) | `dormant.go` · `handlers_agent.go` · `TestDormant_*` · `TestAgentAPI_HibernateResume` · e2e TC-AGT-11·12 |
+| B | FR-ABG-20 오류 상태 (+stderr 사유) | **해소** — 프로세스가 죽으면 `Dormant=error`, `EvExit{Text:died, Detail:"exit N: <stderr 꼬리>", IsError}` (D-C-15). stderr 꼬리(8줄·2 KiB)는 `toolhub.Tool.stderrTail` → `ExitInfo` — 직접 모드 `ExitObserver(id, info)`, 데몬 `exit` push `{code, stderr[]}`(종전 `code:0` 고정을 실제 값으로). 뷰: `data-state=error` + 사유 줄 + 재개 버튼(신원 있을 때). 활동은 `ended` — idle 로 읽히지 않는다 | `toolhub/tool.go` · `paned.go pushExit` · `client.go` · `TestDormant_ExitBecomesError` · `TestAgentAPI_ExitAndErrors` · e2e TC-AGT-7·10 |
+| B | 휴면 레코드 · 되살림 (D-C-5 의 제외를 푸는 자리) | **해소** — `agents.json` 레코드(어댑터·이름·신원·cwd·approval·permissionMode·model·dormant·reason·lastSeq). 세션이 열릴 때·신원/모드/모델이 바뀔 때·상태가 바뀔 때 다시 쓴다(잠금 밖 `flushRecord`). 부팅 `AgentRestore`: 살아 있으면 `Resume` 채택 · 없으면 `error/server_restart` · 신원 없거나 참조 없는 레코드는 버림(`workspace.ReferencedToolIDs`) (D-C-14). `tools.json` 은 그대로 셸의 것 | `disk.go` · `dormant.go Restore` · `TestDisk_Restore*` · `TestAgentAPI_RestoreAfterRestart` · `TestAgentAPI_DaemonHibernateResume` |
+| B | 목록 표면 (탭이 살아남는 근거) | **해소** — `/api/state.tools` 가 휴면·오류 세션을 `ToolInfo{kind:agent, dormant}` 로 합친다 (D-C-17). 브라우저 `_applyRemoteWorkspace` 는 `kind:agent` 에 `mkTool` 을 부르지 않는다 — P3 의 잠복 결함(살아 있는 에이전트 도구에 숨은 xterm WS) 도 함께 닫혔다. 닫기(`DELETE /api/tools/<id>`·백그라운드 kill)가 `Forget` 을 먼저 부른다 | `handlers_api.go` · `app-cmd.js` · `stateToolIDs` 단정 |
+| B | D-C-16 신원 없는 도구 | **해소** — claude 의 `system:init` 은 첫 프롬프트 뒤(§2-28). 휴면은 409 `agent_no_identity`, 메뉴 항목은 사유와 함께 비활성. `idle` 은 `initialize` 응답(`EvSession{SessionID:""}`)이 낸다 — `dmctl wait --for ready` 는 첫 턴 전에 답한다. 가짜 claude 도 첫 `user` 프레임 뒤에 init (`--resume` 도 같다). 드리프트 잡의 모델 목록 판정을 kind 무관으로 | `claude_proto.go` · `fakeagent.go` · `drift_test.go` · e2e TC-AGT-6·11 |
+| P | codex 되살림이 thread 를 잃는다 (P4 발견) | **해소** — 레코드의 `Resume=threadId` 로 핸드셰이크 → 살아 있는 thread 를 **rejoin**(실측). 재 `initialize` 의 "Already initialized" 는 어댑터가 부재로 읽는다 | `codex_proto.go` · `TestCodexProto_ReinitializeIsQuiet` |
+| — | (발견) 틈 되메움이 readLoop 안의 RPC 였다 | **고침** — §2-30. `feedLocked` 의 틈 → `scheduleResync`(고루틴) · 그 청크는 버리고 스냅샷이 대신 가져온다 | `session.go` · `TestSession_GapAndOverlap` |
+| — | 오류 코드 셋 · 문구 15키 · CSS 휴면 줄 · 홈 구성표(`agents.json`·`agents/` — backup 대상) | **해소** | `apierr` · `ko.js`·`en.js` · `style.css` · `homelayout.go` |
+| V | V-3 · V-8 · V-9(데몬 모드 휴면·재개·채택) · V-11 | Go(agentsess 22 · httpapi AgentAPI 13) · e2e 16/16 (2회 반복 32/32) · V-11: `git diff` 에 `claude.go`·`codex.go`·`omp.go`·훅 e2e 0줄 | |
+
+### 1-10. 전량 e2e (P5 판정)
+
+| 회차 | 결과 | 비고 |
+|---|---|---|
+| ① 코드 완료 직후 | **unexpected 0** · flaky 1 | 1,663 통과 · 8샤드 각 3.8~4.5분 · 단독 실행(`pgrep` 0 확인 뒤 `run_in_background` 하나). flaky 하나는 `git-observe-revive` TC-GOR-3 — P3 ② 와 같은 §5-5 군집. 에이전트 도구 16건은 재시도 없이 통과. `make e2e-rebalance` 로 시간표 갱신(8샤드 395~397s, 불균형 1.00배) |
+
 ### 1-6. 전량 e2e (P3 판정)
 
 | 회차 | 결과 | 비고 |
@@ -249,6 +276,41 @@ omp 는 `Approve`·`Deny` 가 `allow`·`deny` 자리다. 그래서 다이얼로�
 세션 id 가 비고 활동이 `idle` 로 서지 않는다 (`dmctl wait --for ready` 는 첫 턴 뒤에 답한다). codex·omp
 는 핸드셰이크 응답에서 신원이 온다. 드리프트 잡은 이 사실을 표(`driftSessionAtHandshake`)로 들고,
 고치는 일은 P5(세션 신원·재개·휴면)의 몫이다 — 가짜를 실제에 맞추는 것도 그때.
+
+### 2-29. (P5) 세션이 프로세스보다 오래 살자 "종료" 가 셋으로 갈렸다
+
+P3 의 `Exit` 는 세션을 지웠다 — 프로세스 = 세션이었다. 휴면(FR-ABG-10)은 그 등식을 깬다: 프로세스가
+없어도 세션(신원·로그·탭)은 남아야 한다. 그러자 "프로세스가 끝났다" 가 한 가지가 아니었다 — 우리가 끝냈다
+(휴면) · 사용자가 닫았다(닫기) · 저 혼자 죽었다(오류). 셋을 새 이벤트 종류로 나누지 않고 `EvExit.Text` 에
+실었다 (D-C-15) — 공통 어휘가 바뀌면 소비자 셋(해석층·뷰·전송)이 다 바뀌는데, 갈리는 자리는 뷰의 `exit` 분기
+하나였다. 사유의 출처는 프로세스가 아니라 **서버가 무엇을 하던 중이었나**다(휴면 절차 중 `pending`, 닫기는
+`Forget` 이 먼저) — 종료 코드는 데몬 push 가 `0` 으로 고정하고 있었고(이번에 실제 값으로), 그것으로 뜻을
+가르면 옛 데몬에서 틀린다. 종료 코드·stderr 꼬리는 **부가 정보**(Detail)다.
+
+같은 toolId 로 재개하기로 한 것(D-C-11)이 가장 많은 것을 아꼈다: 탭·워크스페이스·다른 브라우저·`clean()`
+전부 손대지 않았고, toolhub 는 `Restore(id, …)` 가 이미 있던 자리에 `ReuseID` 하나를 더했다. 대신 세션은
+"새 프로세스 = 새 좌표계" 를 알아야 했다 — `seen` 을 0 으로, 어댑터 상태를 새로, 신원은 레코드에서 preset.
+휴면 뒤 재개 응답보다 SSE 가 먼저 오는 경합이 e2e 에서 바로 나왔다(`_revive` 가 idle 을 지웠다) — 응답
+쪽은 "아직 휴면이면" 만 되살린다.
+
+### 2-30. (P5) 틈 되메움이 readLoop 안의 RPC 였다 — §2-25 의 형제
+
+P3 의 `feedLocked` 는 틈(start > seen)을 보면 그 자리에서 `Snapshot` 을 불렀다. 직접 모드에서는 함수 호출이고
+데몬 모드에서는 **RPC** 인데, 그 호출 자리는 ToolClient 의 readLoop 안이다 — 응답을 읽을 고루틴이 자기
+응답을 기다린다. P3·P4 에서 안 보인 이유는 새 도구의 스트림이 0 부터라 틈이 없었기 때문이고, P5 의 되살림
+(서버 재시동 → 살아 있는 도구를 `seen=0` 으로 채택 → 핸드셰이크 응답이 `resync` 보다 먼저 도착)이 그 틈을
+처음 만들었다. `-race` 로 돌리면 5회 중 4~5회, 없이 돌리면 드물게 — 5초 시한 뒤 연결이 떨어지고 그 뒤의
+모든 RPC 가 400 이었다. 고침: 틈은 **고루틴**이 메운다(`scheduleResync`, 한 번만), 그 청크는 버린다 —
+스냅샷이 그것을 포함해 seen 뒤를 전부 가져온다. D-C-10 이 말한 규칙("입구는 RPC 를 걸지 않는다")이 되묻기
+하나에만 적용된 채 되메우기에는 비어 있었다.
+
+### 2-31. (P5) 스냅샷은 "지금" 이 아니라 "버려진 것" 이어야 했다
+
+FR-ABG-21 의 첫 독해는 "잘렸으면 지금 상태의 요약을 앞에 붙인다" 였다. 그러면 마지막 assistant 메시지가
+남은 이벤트에도 있을 때 두 번 그려지고, 열린 요청은 재생과 상태가 겹쳐 두 번 세어진다(P3 §2-26 이 이미 겪은
+것). 스냅샷을 **링에서 버려지는 이벤트를 차례로 접은 것**으로 정하자(D-C-13) 스냅샷 + 남은 이벤트 = 전량과
+같은 뜻이 되고, 디스크 압축(`{snap}` + 링)이 그 정의 그대로 파일의 모양이 됐다. 재시동 뒤 되살림도 같은
+접기(스냅샷 먼저, 남은 이벤트 위에)로 상태를 만든다.
 
 ### 2-14. (P2) 감사는 주석을 셌고, "6곳" 은 이미 0 이었다
 

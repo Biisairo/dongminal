@@ -126,6 +126,8 @@ var apiRoutes = []apiRoute{
 	httproute.Post("/api/agent/control", (*Server).apiAgentControl),
 	httproute.Post("/api/agent/interrupt", (*Server).apiAgentInterrupt),
 	httproute.Get("/api/agent/tui-line", (*Server).apiAgentTUILine),
+	httproute.Post("/api/agent/hibernate", (*Server).apiAgentHibernate),
+	httproute.Post("/api/agent/resume", (*Server).apiAgentResume),
 	httproute.Get("/api/focus", (*Server).apiFocusGet),
 	httproute.Post("/api/focus/claim", (*Server).apiFocusClaim),
 	httproute.Get("/api/sandbox/profiles", (*Server).apiSandboxProfiles),
@@ -247,6 +249,9 @@ func (s *Server) apiStateGet(w http.ResponseWriter, r *http.Request) {
 		json.Unmarshal(rawWS, &ws)
 	}
 	tools, known := s.Tools.ListOK()
+	// M8_UNIFIED_SRS D-C-17: 휴면·오류 에이전트 세션은 프로세스가 없어 toolhub 에 없다 —
+	// 여기서 합쳐야 브라우저가 그 탭을 살려 둔다.
+	tools = s.agentToolsList(tools)
 	w.Header().Set("ETag", strconv.FormatUint(rev, 10))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -313,6 +318,9 @@ func (s *Server) apiToolBusy(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) apiToolDelete(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/api/tools/")
+	// M8_UNIFIED_SRS D-C-11: 닫기는 에이전트 세션을 지우는 유일한 길이다 — 도구를 지우기
+	// **전에** 잊어야 뒤따르는 exit 이 오류 상태를 만들지 않는다. 에이전트 도구가 아니면 무해하다.
+	s.AgentForget(id)
 	if s.Tools != nil {
 		// `GO-8`: 오류를 **명시로** 무시한다. 이 경로에서 "이미 없다" 는 정상이며
 		// (목록이 앞서 걷혔거나 사용자가 두 번 눌렀다) 치울 것이 없다는 뜻이다.

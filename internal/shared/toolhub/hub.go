@@ -22,6 +22,10 @@ type ToolInfo struct {
 	// 때 어느 어댑터인지 아는 유일한 자리다.
 	Kind  ToolKind `json:"kind,omitempty"`
 	Agent string   `json:"agent,omitempty"`
+	// Dormant 는 프로세스 없는 에이전트 세션의 상태다 (M8_UNIFIED_SRS D-C-17 — `hibernated`·
+	// `error`). toolhub 의 목록에는 없다; 서버가 `/api/state` 에서 해석층의 것을 합칠 때만
+	// 채워진다. 브라우저의 `clean()` 이 그 탭을 살려 두는 근거다.
+	Dormant string `json:"dormant,omitempty"`
 }
 
 // ToolKind 는 도구의 종류다. 종류가 갈리는 코드는 셋에 한정된다 (D-U-4):

@@ -64,7 +64,7 @@ type ToolClient struct {
 	// FR-TAN-9). 데몬은 변화만 밀므로 같은 값이 되풀이되지 않는다. nil 이면
 	// 끈다 — 같은 이름이 List() 응답에도 실리므로 잃는 것은 없다.
 	onOutput     func(toolID string, kind toolhub.ToolKind, data []byte, end int64)
-	onExit       func(toolID string, code int)
+	onExit       func(toolID string, info toolhub.ExitInfo)
 	onForeground func(toolID, name string)
 	earlyPushes  []earlyPush
 
@@ -92,7 +92,7 @@ type DaemonInfo = toolhub.DaemonInfo
 // earlyPush 는 배선 전에 도착한 exit 다 — exit 만 버퍼한다 (SetOnExit 참조).
 type earlyPush struct {
 	tool string
-	code int
+	info toolhub.ExitInfo
 }
 
 // SetOnOutput 은 output 콜백을 잠금 안에서 건다. 배선 전에 도착한 output 은
@@ -107,7 +107,10 @@ func (pc *ToolClient) SetOnOutput(cb func(toolID string, kind toolhub.ToolKind, 
 // SetOnExit 은 exit 콜백을 잠금 안에서 걸고, 배선 전에 도착해 버퍼된 exit 를
 // **그 자리에서 재생**한다. exit 하나를 놓치면 죽은 도구의 활동·주의가 배지에
 // 남으므로(FR-ATL-3) output 과 달리 버퍼가 있다.
-func (pc *ToolClient) SetOnExit(cb func(toolID string, code int)) {
+//
+// info 는 데몬이 `exit` push 에 실은 종료 코드와 stderr 꼬리다 (M8_UNIFIED_SRS D-C-15).
+// 옛 데몬은 `code:0` 만 보낸다 — 그때 사유는 비어 온다.
+func (pc *ToolClient) SetOnExit(cb func(toolID string, info toolhub.ExitInfo)) {
 	pc.mu.Lock()
 	pc.onExit = cb
 	pushes := pc.earlyPushes
@@ -117,7 +120,7 @@ func (pc *ToolClient) SetOnExit(cb func(toolID string, code int)) {
 		return
 	}
 	for _, p := range pushes {
-		cb(p.tool, p.code)
+		cb(p.tool, p.info)
 	}
 }
 
@@ -404,8 +407,9 @@ func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 		}
 	case "exit":
 		var ev struct {
-			Tool string `json:"tool"`
-			Code int    `json:"code"`
+			Tool   string   `json:"tool"`
+			Code   int      `json:"code"`
+			Stderr []string `json:"stderr"`
 		}
 		if err := json.Unmarshal(raw, &ev); err != nil {
 			return
@@ -426,11 +430,11 @@ func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 		pc.mu.Lock()
 		onExit := pc.onExit
 		if onExit == nil {
-			pc.earlyPushes = append(pc.earlyPushes, earlyPush{tool: ev.Tool, code: ev.Code})
+			pc.earlyPushes = append(pc.earlyPushes, earlyPush{tool: ev.Tool, info: toolhub.ExitInfo{Code: ev.Code, Stderr: ev.Stderr}})
 		}
 		pc.mu.Unlock()
 		if onExit != nil {
-			onExit(ev.Tool, ev.Code)
+			onExit(ev.Tool, toolhub.ExitInfo{Code: ev.Code, Stderr: ev.Stderr})
 		}
 	}
 }
@@ -684,6 +688,9 @@ func (pc *ToolClient) Create(cwd string, cols, rows uint16, place toolhub.Placem
 		// M8_UNIFIED_SRS §9.3 ④: 에이전트 도구의 종류·argv·어댑터 id. 프로세스를
 		// 세우는 것은 데몬이므로 값만 실어 보낸다 — 프로파일·명령과 같은 방향이다.
 		"kind": string(place.Kind), "argv": place.Argv, "agent": place.Agent,
+		// M8_UNIFIED_SRS D-C-11: 재개는 같은 도구 신원이다. 옛 데몬은 모르는 필드를 버리고 새
+		// id 를 주며, 호출자(apiAgentResume)가 그 어긋남을 본다.
+		"reuseId": place.ReuseID,
 	})
 	if err != nil {
 		return nil, err

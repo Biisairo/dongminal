@@ -9,8 +9,9 @@ import { test, expect, waitForInit, waitSettled } from './fixtures';
  * 에 놓는다, D-C-7·9) — 시나리오는 프롬프트 본문이 고른다.
  *
  * 어댑터 id `claude`·`codex`·`omp` 는 등록부의 것이다. e2e 는 Go 를 읽지 못하므로 여기
- * 적는다. 앞의 일곱은 claude 로 뷰의 전부를 재고, 뒤의 행렬(P4)은 나머지 두 프로토콜이
- * **같은 뷰**에서 같은 시나리오를 도는지 잰다 (FR-U-2 — 소비자 쪽은 달라지지 않는다).
+ * 적는다. 앞의 여덟은 claude 로 뷰의 전부를 재고(TC-AGT-11 이 P5 의 휴면·재개), 뒤의 행렬(P4·P5)은
+ * 나머지 두 프로토콜이 **같은 뷰**에서 같은 시나리오를 도는지 잰다 (FR-U-2 — 소비자 쪽은
+ * 달라지지 않는다).
  */
 const AGENT = 'claude';
 const MENU_ITEM = `.ui-menu .ui-menu-item[data-id="agent:${AGENT}"]`;
@@ -181,6 +182,10 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
   test('TC-AGT-6: TUI 출구 — 같은 세션을 터미널 탭에서 (FR-AGT-10, V-10)', async ({ page }) => {
     await waitForInit(page);
     const pane = await openAgentTab(page);
+    // D-C-16: 세션 신원은 첫 턴 뒤에 온다 (실제 claude 의 `system:init` 시점) — 첫 턴 전에는 없다.
+    expect(await pane.getAttribute('data-sessionid')).toBeFalsy();
+    await send(pane, 'say PONG');
+    await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
     const sid = await pane.getAttribute('data-sessionid');
     expect(sid).toBeTruthy();
     const tab = page.locator('#area .pn.focused .pn-tab.active');
@@ -194,17 +199,65 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     await expect(page.locator('#area .pn.focused .tp.vis .xterm-rows')).toContainText('--resume ' + sid, { timeout: 15000 });
   });
 
-  test('TC-AGT-7: 프로세스가 죽으면 종료 상태로 보이고 입력이 막힌다 (V-8 P3 몫)', async ({ page }) => {
+  test('TC-AGT-7: 프로세스가 죽으면 오류 상태 — 사유가 보이고 입력이 막히고, 재개가 된다 (V-8, FR-ABG-20)', async ({ page }) => {
     await waitForInit(page);
     const pane = await openAgentTab(page);
     await send(pane, 'DIE');
-    await expect(pane).toHaveAttribute('data-state', 'ended', { timeout: 15000 });
-    await expect(pane.locator('.agp-line.agp-exit')).toBeVisible();
+    // P5 D-C-11·15: 죽음은 `ended` 가 아니라 오류 상태다 — idle 로 읽히지 않는다.
+    await expect(pane).toHaveAttribute('data-state', 'error', { timeout: 15000 });
+    await expect(pane.locator('.agp-line.agp-err', { hasText: 'exit 1' })).toBeVisible();
+    const row = pane.locator('.agp-line.agp-dormant[data-dormant="error"]');
+    await expect(row).toBeVisible();
     await expect(pane.locator('.agp-ta')).toBeDisabled();
+    // 신원이 있으므로(DIE 앞의 init) 재개 버튼이 있다 — 재개하면 같은 세션이 이어진다.
+    const sid = await pane.getAttribute('data-sessionid');
+    expect(sid).toBeTruthy();
+    await row.locator('.agp-resume').click();
+    await expect(pane).toHaveAttribute('data-state', 'idle', { timeout: 15000 });
+    await expect(pane.locator('.agp-ta')).toBeEnabled();
+    await send(pane, 'say PONG');
+    await expect(pane.locator('.agp-msg.agp-assistant .agp-body').last()).toHaveText('PONG', { timeout: 15000 });
+    expect(await pane.getAttribute('data-sessionid')).toBe(sid);
     // 탭은 닫힌다 — 같은 닫기 길 (FR-AGT-7).
     const before = await page.locator('#area .pn.focused .pn-tab').count();
     await page.locator('#area .pn.focused .pn-tab.active .pn-tab-x').click();
     await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before - 1, { timeout: 10000 });
+  });
+
+  test('TC-AGT-11: 휴면 — 첫 턴 전엔 막히고, 휴면 뒤 새로고침에도 탭이 남고, 재개하면 같은 세션 (FR-ABG-4·10·11, V-3)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    // D-C-16: 신원이 없으면 휴면 메뉴가 비활성이다.
+    await pane.locator('.agp-menu-btn').click();
+    await expect(page.locator('.ui-menu.agp-menu .ui-menu-item[data-id="hibernate"]')).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await send(pane, 'say PONG');
+    await expect(pane.locator('.agp-msg.agp-assistant .agp-body').last()).toHaveText('PONG', { timeout: 15000 });
+    await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
+    const sid = await pane.getAttribute('data-sessionid');
+    expect(sid).toBeTruthy();
+    await pane.locator('.agp-menu-btn').click();
+    await page.locator('.ui-menu.agp-menu .ui-menu-item[data-id="hibernate"]').click();
+    await expect(pane).toHaveAttribute('data-state', 'hibernated', { timeout: 15000 });
+    await expect(pane.locator('.agp-line.agp-dormant[data-dormant="hibernated"] .agp-resume')).toBeVisible();
+    await expect(pane.locator('.agp-ta')).toBeDisabled();
+    // FR-ABG-4: 새로고침 — 휴면 도구는 목록에 남아(D-C-17) 탭이 살고, 재생이 대화를 되살린다.
+    await waitSettled(page);
+    await page.reload();
+    await waitForInit(page, { readyFor: { selector: AGENT_PANE_READY } });
+    const pane2 = page.locator('#area .pn.focused .agent-pane.vis');
+    await expect(pane2).toHaveAttribute('data-state', 'hibernated', { timeout: 15000 });
+    await expect(pane2.locator('.agp-msg.agp-user .agp-body')).toHaveText('say PONG');
+    await expect(pane2.locator('.agp-msg.agp-assistant .agp-body').last()).toHaveText('PONG');
+    // 재개 — 같은 탭, 같은 세션. 이력은 우리 로그가 이미 그렸고 새 이벤트가 이어진다.
+    await pane2.locator('.agp-line.agp-dormant .agp-resume').click();
+    await expect(pane2).toHaveAttribute('data-state', 'idle', { timeout: 15000 });
+    await expect(pane2.locator('.agp-ta')).toBeEnabled();
+    await send(pane2, 'say PONG again');
+    await expect(pane2.locator('.agp-msg.agp-assistant .agp-body').last()).toHaveText('PONG', { timeout: 15000 });
+    expect(await pane2.getAttribute('data-sessionid')).toBe(sid);
+    await expect(pane2.locator('.agp-msg.agp-user .agp-body')).toHaveCount(2);
+    expect(await axeViolations(page)).toEqual([]);
   });
 });
 
@@ -273,8 +326,26 @@ for (const { agent, tool, choices } of OTHERS) {
       await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
       await expect(pane.locator('.agp-msg.agp-assistant .agp-body').last()).not.toContainText('slow done');
       await send(pane, 'DIE');
-      await expect(pane).toHaveAttribute('data-state', 'ended', { timeout: 15000 });
+      // P5: 죽음은 오류 상태다 — 재개 버튼이 있다 (신원은 핸드셰이크에서 왔다).
+      await expect(pane).toHaveAttribute('data-state', 'error', { timeout: 15000 });
       await expect(pane.locator('.agp-ta')).toBeDisabled();
+      await expect(pane.locator('.agp-line.agp-dormant[data-dormant="error"] .agp-resume')).toBeVisible();
+    });
+
+    test(`TC-AGT-12/${agent}: 휴면·재개 — 같은 세션 신원 (FR-ABG-10)`, async ({ page }) => {
+      await waitForInit(page);
+      const pane = await openAgentTab(page, agent);
+      // codex·omp 는 핸드셰이크에서 신원이 오므로 첫 턴 전에도 휴면할 수 있다.
+      const sid = await pane.getAttribute('data-sessionid');
+      expect(sid).toBeTruthy();
+      await pane.locator('.agp-menu-btn').click();
+      await page.locator('.ui-menu.agp-menu .ui-menu-item[data-id="hibernate"]').click();
+      await expect(pane).toHaveAttribute('data-state', 'hibernated', { timeout: 15000 });
+      await pane.locator('.agp-line.agp-dormant .agp-resume').click();
+      await expect(pane).toHaveAttribute('data-state', 'idle', { timeout: 15000 });
+      await send(pane, 'say PONG');
+      await expect(pane.locator('.agp-msg.agp-assistant .agp-body').last()).toHaveText('PONG', { timeout: 15000 });
+      expect(await pane.getAttribute('data-sessionid')).toBe(sid);
     });
   });
 }

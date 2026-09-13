@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"dongminal/internal/shared/agentadapter"
@@ -23,11 +24,15 @@ import (
 	"dongminal/internal/shared/toolhub"
 )
 
-// ErrNoSession 은 그 도구에 세션이 없다 — 에이전트 도구가 아니거나 이미 끝났다.
+// ErrNoSession 은 그 도구에 세션이 없다 — 에이전트 도구가 아니거나 닫혔다.
 var ErrNoSession = errors.New("agent_session_not_found")
 
 // DefaultLogCap 은 도구마다의 이벤트 로그 상한이다 (NFR-C-2, P3 값).
 const DefaultLogCap = 4096
+
+// DefaultExitWait 는 휴면 절차가 프로세스의 exit 관측을 기다리는 상한이다 (D-C-15). 그 안에
+// 오지 않으면(옛 데몬·경합) 휴면으로 마감한다 — stop 이 이미 성공한 뒤다.
+const DefaultExitWait = 3 * time.Second
 
 // Logged 는 로그의 한 줄이다. Seq 는 1 부터 단조 증가하며 잘려도 이어진다.
 type Logged struct {
@@ -55,6 +60,13 @@ type Deps struct {
 	Snapshot func(id string) (toolhub.ToolSnapshot, error)
 	// LogCap 은 로그 상한. 0 이면 DefaultLogCap.
 	LogCap int
+	// DataDir 은 디스크 로그·휴면 레코드의 자리다 (D-C-12·14). 비면 디스크가 없다.
+	DataDir string
+	// ExitWait 는 휴면 절차의 exit 대기 상한. 0 이면 DefaultExitWait.
+	ExitWait time.Duration
+	// Adapter 는 레코드의 어댑터 id 를 어댑터로 — 부팅(Restore)이 쓴다. nil 이면 등록부
+	// (`agentadapter.Get`). 테스트가 장난감 어댑터를 꽂는 자리다.
+	Adapter func(id string) (agentadapter.Adapter, error)
 }
 
 // Manager 는 도구 → 세션이다.
@@ -68,6 +80,12 @@ type Manager struct {
 func New(d Deps) *Manager {
 	if d.LogCap <= 0 {
 		d.LogCap = DefaultLogCap
+	}
+	if d.ExitWait <= 0 {
+		d.ExitWait = DefaultExitWait
+	}
+	if d.Adapter == nil {
+		d.Adapter = agentadapter.Get
 	}
 	return &Manager{deps: d, sess: map[string]*Session{}}
 }
@@ -85,18 +103,28 @@ func (m *Manager) Open(toolID string, ad agentadapter.Adapter, opts agentadapter
 		m.mu.Unlock()
 		return s, nil
 	}
-	s := &Session{toolID: toolID, ad: ad, st: agentadapter.NewProtoState(), mgr: m, firstSeq: 1}
+	s := &Session{toolID: toolID, ad: ad, st: agentadapter.NewProtoState(), mgr: m, firstSeq: 1, opts: opts, at: time.Now().UnixMilli()}
+	s.st.SessionID = opts.Resume
 	m.sess[toolID] = s
 	m.mu.Unlock()
-	if ad.Proto.Handshake != nil {
-		for _, fr := range ad.Proto.Handshake(opts, s.st) {
-			if err := m.write(toolID, fr); err != nil {
-				dmlog.Warnf(nil, "[agent %s] handshake write: %v", toolID, err)
+	s.handshake(opts)
+	m.saveRecords()
+	return s, nil
+}
+
+// handshake 는 어댑터의 첫 프레임들을 보내고 지금까지의 출력을 되메운다 — 열 때와 재개 때.
+func (s *Session) handshake(opts agentadapter.LaunchOpts) {
+	if s.ad.Proto.Handshake != nil {
+		s.mu.Lock()
+		frames := s.ad.Proto.Handshake(opts, s.st)
+		s.mu.Unlock()
+		for _, fr := range frames {
+			if err := s.mgr.write(s.toolID, fr); err != nil {
+				dmlog.Warnf(nil, "[agent %s] handshake write: %v", s.toolID, err)
 			}
 		}
 	}
 	s.resync()
-	return s, nil
 }
 
 // Get 은 세션이다. 없으면 nil.
@@ -115,24 +143,6 @@ func (m *Manager) Feed(toolID string, data []byte, end int64) bool {
 	}
 	s.feed(data, end)
 	return true
-}
-
-// Exit 은 도구 프로세스의 끝이다 — exit 이벤트와 `ended` 활동, 세션은 닫힌다.
-// 세션이 없으면 아무 일도 없다.
-func (m *Manager) Exit(toolID string) {
-	m.mu.Lock()
-	s, ok := m.sess[toolID]
-	if ok {
-		delete(m.sess, toolID)
-	}
-	m.mu.Unlock()
-	if !ok {
-		return
-	}
-	s.mu.Lock()
-	s.exited = true
-	s.emit(agentadapter.Event{Kind: agentadapter.EvExit})
-	s.mu.Unlock()
 }
 
 // ToolIDs 는 열린 세션의 도구들이다 (테스트·진단).
@@ -169,14 +179,43 @@ type Session struct {
 	// skipLine 은 틈을 되메우지 못해 다음 줄바꿈까지를 버리는 중이라는 뜻이다 —
 	// 반 토막 줄을 해석하면 없는 오류를 만든다.
 	skipLine bool
-	exited   bool
+	// resyncing 은 틈을 메울 고루틴이 떠 있다는 뜻이다 — 둘을 띄우지 않는다.
+	resyncing bool
 
 	log      []Logged
 	firstSeq int64
 	nextSeq  int64
+	// snap 은 링에서 버려진 이벤트의 접힘이다 (D-C-13). 처음 버릴 때 선다.
+	snap *Snapshot
+	// droppedSinceCompact·logBytes 는 디스크 로그의 압축 조건이다 (D-C-12).
+	droppedSinceCompact int
+	logBytes            int64
 
 	status agentadapter.ProtoStatus
 	usage  agentadapter.ProtoUsage
+
+	// opts 는 기동에 쓴 것이다 — 재개 옵션·레코드의 근거. at 은 세션이 선 시각.
+	opts agentadapter.LaunchOpts
+	at   int64
+	// dormant 는 프로세스 없는 상태다 (D-C-11): "" 활성 · DormantHibernated · DormantError.
+	// reason 은 그 사유(exit 의 Detail 또는 ReasonServerRestart). pending 은 지금 진행 중인
+	// 절차가 exit 에 붙일 사유다 — 휴면 중이면 ExitHibernated. exitWait 는 그 절차가 exit 를
+	// 기다리는 채널이다.
+	dormant  string
+	reason   string
+	pending  string
+	exitWait chan struct{}
+	// recordDirty 는 레코드를 다시 써야 한다는 표시다 — emit 이 세우고 flushRecord 가 내린다.
+	// recordKey 는 마지막으로 표시를 세운 근거다.
+	recordDirty atomic.Bool
+	recordKey   string
+}
+
+// flushRecord 는 표시가 섰으면 레코드를 다시 쓴다. s.mu 밖에서 부른다.
+func (s *Session) flushRecord() {
+	if s.recordDirty.CompareAndSwap(true, false) {
+		s.mgr.saveRecords()
+	}
 }
 
 // State 는 지금의 합쳐진 상태다 — 재생 응답에 함께 실린다.
@@ -191,7 +230,14 @@ type State struct {
 	// Controls 는 이 어댑터가 주는 제어의 유무다 (FR-AGT-11, FR-APS-4 — 없는 것은
 	// 메뉴에 나타나지 않는다).
 	Controls Controls `json:"controls"`
-	Exited   bool     `json:"exited,omitempty"`
+	// Exited 는 프로세스가 없다는 뜻이다 — Dormant 가 비어 있지 않은 것과 같다 (P3 의 이름).
+	Exited bool `json:"exited,omitempty"`
+	// Dormant·Reason·Resumable 은 휴면·오류 상태다 (D-C-11·15). Resumable 은 신원이 있어
+	// 재개가 가능하다는 뜻 — 뷰는 그때만 재개 버튼을 놓는다 (FR-ABG-20 "재개가 가능하면").
+	Dormant   string `json:"dormant,omitempty"`
+	Reason    string `json:"reason,omitempty"`
+	Resumable bool   `json:"resumable,omitempty"`
+	Cwd       string `json:"cwd,omitempty"`
 }
 
 // Controls 는 어댑터가 준 제어 표면의 유무다.
@@ -238,33 +284,42 @@ func (s *Session) State() State {
 		Status: s.status, Usage: s.usage, Open: s.openLocked(),
 		PermissionModes: p.PermissionModes,
 		Controls:        Controls{Interrupt: p.Interrupt != nil, Control: p.Control != nil, TUIResume: p.TUIResume != nil},
-		Exited:          s.exited,
+		Exited:          s.dormant != "",
+		Dormant:         s.dormant, Reason: s.reason, Resumable: s.dormant != "" && s.st.SessionID != "",
+		Cwd: s.opts.Cwd,
 	}
 }
 
 // Events 는 since 뒤의 로그다 (D-C-3). truncated 는 since 가 가리키는 자리가 이미
-// 잘렸다는 뜻 — 브라우저는 그때 "이전 기록은 잘렸다" 를 보인다 (FR-ABG-21 의 P3 몫).
+// 잘렸다는 뜻 — 브라우저는 그때 "이전 기록은 잘렸다" 를 보인다 (FR-ABG-21).
 func (s *Session) Events(since int64) (evs []Logged, truncated bool) {
+	evs, truncated, _ = s.Replay(since)
+	return evs, truncated
+}
+
+// Replay 는 Events 에 요약 스냅샷을 더한 것이다 (D-C-13) — snap 은 truncated 일 때만 있다.
+func (s *Session) Replay(since int64) (evs []Logged, truncated bool, snap *Snapshot) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// since 는 "이것까지 보았다" 다. 다음은 since+1 이고, 그것이 firstSeq 앞이면 잘렸다.
 	if since+1 < s.firstSeq {
 		truncated = true
+		snap = s.snap.clone()
 	}
 	for _, le := range s.log {
 		if le.Seq > since {
 			evs = append(evs, le)
 		}
 	}
-	return evs, truncated
+	return evs, truncated, snap
 }
 
 // Prompt 는 사용자 입력이다 (FR-AAL-2 — 표시를 세우는 것은 우리가 보낸 입력이다).
 func (s *Session) Prompt(text string) error {
 	s.mu.Lock()
-	if s.exited {
+	if s.dormant != "" {
 		s.mu.Unlock()
-		return ErrNoSession
+		return ErrDormant
 	}
 	frames := s.ad.Proto.Prompt(text, s.st)
 	s.emit(agentadapter.Event{Kind: agentadapter.EvUser, Text: text})
@@ -342,12 +397,13 @@ func (s *Session) TUIResume() []string {
 // feed 는 청크 하나다. 절대 오프셋 위에서 겹침을 버리고 틈을 되메운다 (D-C-2).
 func (s *Session) feed(data []byte, end int64) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.feedLocked(data, end, true)
+	s.mu.Unlock()
+	s.flushRecord()
 }
 
 func (s *Session) feedLocked(data []byte, end int64, mayResync bool) {
-	if s.exited || len(data) == 0 {
+	if s.dormant != "" || len(data) == 0 {
 		return
 	}
 	start := end - int64(len(data))
@@ -357,8 +413,12 @@ func (s *Session) feedLocked(data []byte, end int64, mayResync bool) {
 		return
 	}
 	if start > s.seen && mayResync {
-		// 틈 — 스냅샷으로 되메운다. 그 뒤 이 청크는 겹침으로 읽힌다.
-		s.resyncLocked()
+		// 틈 — 스냅샷으로 되메운다. **비동기로** (P5): 이 함수는 데몬 모드에서 ToolClient 의
+		// readLoop 안이고 Snapshot 은 그 readLoop 이 응답을 읽어야 끝나는 RPC 다 — 여기서
+		// 부르면 §2-25 와 같은 5초 정체 뒤 연결이 떨어진다 (되살림 뒤 첫 청크가 그 자리였다).
+		// 이 청크는 버린다 — 스냅샷이 이것을 포함해 seen 뒤를 전부 가져온다.
+		s.scheduleResync()
+		return
 	}
 	if start > s.seen {
 		// 되메우지 못한 틈 — 원문으로 남기고 다음 줄바꿈까지 버린다 (FR-APS-8).
@@ -377,22 +437,30 @@ func (s *Session) feedLocked(data []byte, end int64, mayResync bool) {
 	s.seen = end
 }
 
-// resync 는 스냅샷으로 seen 뒤를 되메운다 — 열 때, 틈이 보일 때.
+// resync 는 스냅샷으로 seen 뒤를 되메운다 — 열 때(동기), 틈이 보일 때(scheduleResync 의
+// 고루틴). 스냅샷은 잠금 밖에서 받는다 — 데몬 모드에서는 RPC 다.
 func (s *Session) resync() {
+	var snap toolhub.ToolSnapshot
+	var err error
+	if s.mgr.deps.Snapshot != nil {
+		snap, err = s.mgr.deps.Snapshot(s.toolID)
+	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.resyncLocked()
+	s.resyncing = false
+	if err == nil && len(snap.Data) > 0 {
+		s.feedLocked(snap.Data, snap.End, false)
+	}
+	s.mu.Unlock()
+	s.flushRecord()
 }
 
-func (s *Session) resyncLocked() {
-	if s.mgr.deps.Snapshot == nil {
+// scheduleResync 는 되메움을 한 번만 띄운다. s.mu 아래.
+func (s *Session) scheduleResync() {
+	if s.resyncing || s.mgr.deps.Snapshot == nil {
 		return
 	}
-	snap, err := s.mgr.deps.Snapshot(s.toolID)
-	if err != nil || len(snap.Data) == 0 {
-		return
-	}
-	s.feedLocked(snap.Data, snap.End, false)
+	s.resyncing = true
+	go s.resync()
 }
 
 // consume 은 줄을 자른다. 마지막 미완 줄은 다음 청크를 기다린다.
@@ -440,11 +508,30 @@ func (s *Session) emit(ev agentadapter.Event) {
 	s.nextSeq++
 	le := Logged{Seq: s.nextSeq, At: time.Now().UnixMilli(), Ev: ev}
 	s.log = append(s.log, le)
+	s.appendLog(le)
 	if over := len(s.log) - s.mgr.deps.LogCap; over > 0 {
+		// 버려지는 것은 스냅샷으로 접힌다 (D-C-13) — 지금 상태의 복사가 아니다.
+		if s.snap == nil {
+			s.snap = &Snapshot{}
+		}
+		for _, d := range s.log[:over] {
+			s.snap.fold(d)
+		}
+		s.droppedSinceCompact += over
 		s.log = append([]Logged(nil), s.log[over:]...)
 		s.firstSeq = s.log[0].Seq
+		if s.droppedSinceCompact >= s.mgr.deps.LogCap || s.logBytes > diskLogMaxBytes {
+			s.compactLog()
+		}
 	}
 	s.mgr.deps.Sink.Event(s.toolID, le)
+	// 레코드의 근거(신원·권한 모드·모델)가 바뀌었으면 표시만 세운다 (D-C-14) — 쓰는 것은 잠금을
+	// 놓은 뒤 flushRecord 다 (saveRecords 가 다른 세션의 잠금을 잡는다). 신원은 어댑터가 Decode
+	// 안에서 st 에 쓰므로 이벤트 전후가 아니라 **마지막으로 적은 값**과 견준다.
+	if k := s.st.SessionID + "\x00" + s.status.PermissionMode + "\x00" + s.status.Model; k != s.recordKey {
+		s.recordKey = k
+		s.recordDirty.Store(true)
+	}
 	if state, ok := ev.Activity(); ok {
 		tool, detail := "", ""
 		if ev.Kind == agentadapter.EvApprovalOpen {
@@ -456,42 +543,52 @@ func (s *Session) emit(ev agentadapter.Event) {
 
 // merge 는 status·usage 의 채워진 값만 덮는다 (FR-APS-4 — 빈 값은 부재다).
 func (s *Session) merge(ev agentadapter.Event) {
-	if st := ev.Status; st != nil {
-		if st.Model != "" {
-			s.status.Model = st.Model
-		}
-		if st.PermissionMode != "" {
-			s.status.PermissionMode = st.PermissionMode
-		}
-		if len(st.Models) > 0 {
-			s.status.Models = st.Models
-		}
-		if len(st.Commands) > 0 {
-			s.status.Commands = st.Commands
-		}
-		if st.Account != "" {
-			s.status.Account = st.Account
-		}
-	}
-	if u := ev.Usage; u != nil {
-		if u.Tokens > 0 {
-			s.usage.Tokens = u.Tokens
-		}
-		if u.OutputTokens > 0 {
-			s.usage.OutputTokens = u.OutputTokens
-		}
-		if u.ContextWindow > 0 {
-			s.usage.ContextWindow = u.ContextWindow
-		}
-		if u.CostUSD > 0 {
-			s.usage.CostUSD = u.CostUSD
-		}
-		if u.Model != "" {
-			s.usage.Model = u.Model
-		}
-	}
+	mergeStatus(&s.status, ev.Status)
+	mergeUsage(&s.usage, ev.Usage)
 	if ev.Kind == agentadapter.EvReset && ev.SessionID != "" {
 		s.st.SessionID = ev.SessionID
+	}
+}
+
+func mergeStatus(dst *agentadapter.ProtoStatus, st *agentadapter.ProtoStatus) {
+	if st == nil {
+		return
+	}
+	if st.Model != "" {
+		dst.Model = st.Model
+	}
+	if st.PermissionMode != "" {
+		dst.PermissionMode = st.PermissionMode
+	}
+	if len(st.Models) > 0 {
+		dst.Models = st.Models
+	}
+	if len(st.Commands) > 0 {
+		dst.Commands = st.Commands
+	}
+	if st.Account != "" {
+		dst.Account = st.Account
+	}
+}
+
+func mergeUsage(dst *agentadapter.ProtoUsage, u *agentadapter.ProtoUsage) {
+	if u == nil {
+		return
+	}
+	if u.Tokens > 0 {
+		dst.Tokens = u.Tokens
+	}
+	if u.OutputTokens > 0 {
+		dst.OutputTokens = u.OutputTokens
+	}
+	if u.ContextWindow > 0 {
+		dst.ContextWindow = u.ContextWindow
+	}
+	if u.CostUSD > 0 {
+		dst.CostUSD = u.CostUSD
+	}
+	if u.Model != "" {
+		dst.Model = u.Model
 	}
 }
 

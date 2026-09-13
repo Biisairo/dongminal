@@ -121,6 +121,44 @@ func (c *sseCapture) kinds(toolID string) []string {
 	return out
 }
 
+// last 는 그 도구의 want 종류 마지막 이벤트 본문이다. 없으면 nil.
+func (c *sseCapture) last(toolID, want string) map[string]any {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var out map[string]any
+	for _, ev := range c.events {
+		if ev["action"] != "agent_event" {
+			continue
+		}
+		args, _ := ev["args"].(map[string]any)
+		e, _ := args["ev"].(map[string]any)
+		if args["toolId"] == toolID && e["kind"] == want {
+			out = e
+		}
+	}
+	return out
+}
+
+// stateToolIDs 는 `/api/state` 의 도구 id 들이다 — D-C-17 의 합친 목록.
+func stateToolIDs(t *testing.T, s *Server) []string {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	s.apiStateGet(rec, apiTestRequest(http.MethodGet, "/api/state", nil))
+	var resp struct {
+		Tools []struct {
+			ID      string `json:"id"`
+			Kind    string `json:"kind"`
+			Dormant string `json:"dormant"`
+		} `json:"tools"`
+	}
+	json.Unmarshal(rec.Body.Bytes(), &resp)
+	var ids []string
+	for _, ti := range resp.Tools {
+		ids = append(ids, ti.ID)
+	}
+	return ids
+}
+
 func waitAgent(t *testing.T, what string, cond func() bool) {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
@@ -185,6 +223,10 @@ func agentPost(t *testing.T, s *Server, path, body string) (int, string) {
 		s.apiAgentControl(rec, req)
 	case "/api/agent/interrupt":
 		s.apiAgentInterrupt(rec, req)
+	case "/api/agent/hibernate":
+		s.apiAgentHibernate(rec, req)
+	case "/api/agent/resume":
+		s.apiAgentResume(rec, req)
 	}
 	return rec.Code, rec.Header().Get("X-Error-Code")
 }
@@ -217,8 +259,9 @@ func has(list []string, want string) bool {
 	return false
 }
 
-// V-1 (형태) · FR-AGT-8: 같은 Create 종단, 세션 신원이 서고 `idle` 이 보고된다
-// (`dmctl wait --for ready` 가 답을 얻는 길).
+// V-1 (형태) · FR-AGT-8: 같은 Create 종단, 핸드셰이크 응답이 `idle` 로 보고되고
+// (`dmctl wait --for ready` 가 답을 얻는 길 — D-C-16: 첫 턴 전에는 신원이 없다), 첫 턴 뒤에
+// 세션 신원이 선다.
 func TestAgentAPI_CreateAndSession(t *testing.T) {
 	s, m, sse := directAgentServer(t)
 	id := createAgent(t, s, "&model=fake-x")
@@ -226,20 +269,25 @@ func TestAgentAPI_CreateAndSession(t *testing.T) {
 	if tool == nil || tool.Kind != toolhub.KindAgent {
 		t.Fatal("에이전트 도구가 목록에 없다")
 	}
+	waitAgent(t, "idle 활동", func() bool { a := tool.Activity(); return a != nil && a.State == "idle" })
+	waitAgent(t, "SSE session", func() bool { return has(sse.kinds(id), "session") })
+	st, _, _ := agentEvents(t, s, id, 0)
+	if sid, _ := st["sessionId"].(string); sid != "" {
+		t.Fatalf("첫 턴 전에는 신원이 없다 (D-C-16): %v", st)
+	}
+	agentPost(t, s, "/api/agent/prompt", `{"toolId":"`+id+`","text":"say PONG"}`)
 	waitAgent(t, "session", func() bool {
 		st, _, _ := agentEvents(t, s, id, 0)
 		return st["sessionId"] != nil && st["sessionId"] != ""
 	})
 	st, kinds, _ := agentEvents(t, s, id, 0)
-	if !has(kinds, "session") || !has(kinds, "status") {
+	if !has(kinds, "session") || !has(kinds, "user") {
 		t.Fatalf("재생: %v", kinds)
 	}
 	status, _ := st["status"].(map[string]any)
 	if status["model"] != "fake-x" || status["models"] == nil {
 		t.Fatalf("상태: %v", st)
 	}
-	waitAgent(t, "idle 활동", func() bool { a := tool.Activity(); return a != nil && a.State == "idle" })
-	waitAgent(t, "SSE session", func() bool { return has(sse.kinds(id), "session") })
 	// 터미널 도구의 종단은 그대로다 — 종류 없는 생성은 셸이다.
 	rec := httptest.NewRecorder()
 	s.apiToolsCreate(rec, apiTestRequest(http.MethodPost, "/api/tools", nil))
@@ -364,7 +412,8 @@ func TestAgentAPI_QuestionInterruptControl(t *testing.T) {
 	}
 }
 
-// V-8 (P3 몫) · FR-ABG-20 앞부분: 프로세스가 죽으면 exit 이벤트·ended 활동, 세션은 없다.
+// V-8 · FR-ABG-20: 프로세스가 죽으면 exit 이벤트(사유 died)·ended 활동, 세션은 **오류 상태로
+// 남는다** (P5 D-C-11·15) — 프롬프트는 409, 닫기(DELETE)가 세션을 지운다.
 func TestAgentAPI_ExitAndErrors(t *testing.T) {
 	s, m, sse := directAgentServer(t)
 	id := createAgent(t, s, "")
@@ -372,12 +421,32 @@ func TestAgentAPI_ExitAndErrors(t *testing.T) {
 	waitAgent(t, "idle", func() bool { a := tool.Activity(); return a != nil && a.State == "idle" })
 	agentPost(t, s, "/api/agent/prompt", `{"toolId":"`+id+`","text":"DIE"}`)
 	waitAgent(t, "exit", func() bool { return has(sse.kinds(id), "exit") })
-	waitAgent(t, "세션 소멸", func() bool { return s.agentMgr().Get(id) == nil })
+	waitAgent(t, "오류 상태", func() bool { st, _, _ := agentEvents(t, s, id, 0); return st["dormant"] == "error" })
+	st, _, _ := agentEvents(t, s, id, 0)
+	if st["exited"] != true || st["resumable"] != true {
+		t.Fatalf("오류 상태: %v", st)
+	}
+	if ev := sse.last(id, "exit"); ev["text"] != "died" || ev["isError"] != true || !strings.Contains(ev["detail"].(string), "exit 1") {
+		t.Fatalf("exit 이벤트의 사유 (D-C-15): %v", ev)
+	}
+	if code, ec := agentPost(t, s, "/api/agent/prompt", `{"toolId":"`+id+`","text":"x"}`); code != 409 || ec != "agent_dormant" {
+		t.Fatalf("죽은 세션에 프롬프트: %d %s", code, ec)
+	}
+	// D-C-17: 휴면·오류 세션은 /api/state 의 목록에 합쳐진다.
+	if !has(stateToolIDs(t, s), id) {
+		t.Fatal("오류 상태의 에이전트 도구가 목록에 없다")
+	}
+	// 닫기가 세션을 지운다.
+	rec := httptest.NewRecorder()
+	s.apiToolDelete(rec, apiTestRequest(http.MethodDelete, "/api/tools/"+id, nil))
+	if s.agentMgr().Get(id) != nil || has(stateToolIDs(t, s), id) {
+		t.Fatal("닫은 뒤에도 세션이 남았다")
+	}
 	if code, ec := agentPost(t, s, "/api/agent/prompt", `{"toolId":"`+id+`","text":"x"}`); code != 404 || ec != "agent_session_not_found" {
-		t.Fatalf("죽은 세션: %d %s", code, ec)
+		t.Fatalf("닫은 세션: %d %s", code, ec)
 	}
 	// FR-APS-4 · FR-U-1: 모르는 에이전트와 프로토콜 표면이 없는 에이전트는 코드로 거절된다.
-	rec := httptest.NewRecorder()
+	rec = httptest.NewRecorder()
 	s.apiToolsCreate(rec, apiTestRequest(http.MethodPost, "/api/tools?kind=agent&agent=nope", nil))
 	if rec.Code != 400 || rec.Header().Get("X-Error-Code") != "unknown_agent" {
 		t.Fatalf("unknown: %d %s", rec.Code, rec.Header().Get("X-Error-Code"))
@@ -454,8 +523,8 @@ func TestAgentAPI_DaemonMode(t *testing.T) {
 		}
 		tracker.FeedOutput(toolID, data)
 	})
-	pc.SetOnExit(func(toolID string, code int) {
-		s.AgentExit(toolID)
+	pc.SetOnExit(func(toolID string, info toolhub.ExitInfo) {
+		s.AgentExit(toolID, info)
 		tracker.SetActivity(toolID, "ended", "", "")
 		tracker.Forget(toolID)
 	})
@@ -479,9 +548,9 @@ func TestAgentAPI_DaemonMode(t *testing.T) {
 	waitAgent(t, "turn_end", func() bool { return has(sse.kinds(id), "turn_end") })
 	waitAgent(t, "done", func() bool { a := tracker.Activity(id); return a != nil && a.State == "done" })
 
-	// 서버 재시동의 자리: 새 서버가 살아 있는 에이전트 도구를 되찾는다 (AgentAdoptExisting).
+	// 서버 재시동의 자리: 새 서버가 살아 있는 에이전트 도구를 되찾는다 (AgentRestore — 레코드 없이도 채택한다).
 	s2 := &Server{Deps: Deps{Tools: pc, Commands: cmdHub, AttnTracker: tracker}}
-	s2.AgentAdoptExisting()
+	s2.AgentRestore()
 	if s2.agentMgr().Get(id) == nil {
 		t.Fatal("살아 있는 에이전트 도구에 세션이 서지 않았다")
 
@@ -599,7 +668,8 @@ func TestAgentAPI_AllProtocols(t *testing.T) {
 			}
 			agentPost(t, s, "/api/agent/prompt", `{"toolId":"`+tid+`","text":"DIE"}`)
 			waitAgent(t, "exit", func() bool { return has(sse.kinds(tid), "exit") })
-			waitAgent(t, "세션 소멸", func() bool { return s.agentMgr().Get(tid) == nil })
+			// P5 D-C-11: 죽음은 오류 상태다 — 세션은 남고 재개할 수 있다 (신원이 있다).
+			waitAgent(t, "오류 상태", func() bool { st := agentStateOf(t, s, tid); return st["dormant"] == "error" && st["resumable"] == true })
 		})
 	}
 }

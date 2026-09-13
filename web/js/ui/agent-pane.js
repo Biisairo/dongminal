@@ -6,7 +6,9 @@
  * 과 같은 손잡이(`el`·`destroy`·`_slot`)만 낸다.
  *
  * 상태의 원천은 서버의 이벤트 로그다 (D-C-3): 열 때 `GET /api/agent/events` 로 재생하고
- * 라이브는 SSE `agent_event` 를 `seq` 로 이어 붙인다. 틈이 보이면 다시 받는다.
+ * 라이브는 SSE `agent_event` 를 `seq` 로 이어 붙인다. 틈이 보이면 다시 받는다. 잘린 앞은
+ * 요약 스냅샷 하나다 (FR-ABG-21). 프로세스가 없는 상태(휴면·오류, D-C-11)는 입력을 막고 재개
+ * 버튼을 놓는다 — 같은 toolId 가 이어진다.
  * 문구는 전부 카탈로그 키다 (FR-U-5 · FR-B-10).
  */
 class AgentPane {
@@ -86,9 +88,18 @@ class AgentPane {
       return;
     }
     const d=r.data||{};
-    if(d.truncated&&this.seq===0) this._line('agp-note',t('agent.truncated'));
+    // FR-ABG-21 · D-C-13: 잘린 앞부분은 요약 스냅샷 하나 — 마지막 assistant 메시지를 한 번 그린다.
+    if(d.truncated&&this.seq===0){
+      this._line('agp-note',t('agent.truncated'));
+      if(d.snapshot&&d.snapshot.lastMessage){ this._message(d.snapshot.lastMessage); this._endLive() }
+    }
     if(d.state) this._applyState(d.state);
     for(const le of (d.events||[])) this._apply(le,true);
+    // D-C-11·15: 프로세스가 없으면 휴면 또는 오류 — 이벤트 뒤에 놓아야 재개 버튼이 맨 아래다.
+    // 재개할 수 있으면 그 길을 놓는다 (FR-ABG-20).
+    const st=d.state||{};
+    if(st.dormant) this._dormantState(st.dormant,st.reason||'',!!st.resumable);
+    else if(this._dormant) this._revive();
     for(const a of pend) this.onEvent(a);
     this._scrollEnd();
   }
@@ -112,16 +123,18 @@ class AgentPane {
     this._setUsage(st.usage||{});
     this._openIds=new Set((st.open||[]).map(o=>o.id));
     this._renderOpen();
-    if(st.exited) this._exited();
-    // 열린 요청은 그대로 보인다 (FR-ABG-5).
+    if(st.sessionId) this._sessionLine(st.sessionId);
+    // 열린 요청은 그대로 보인다 (FR-ABG-5) — 프로세스가 없으면 답할 곳이 없으니 열지 않는다.
     const open=st.open||[];
-    if(open.length&&!this._dialog) this._openApproval(open[0]);
+    if(open.length&&!this._dialog&&!st.dormant) this._openApproval(open[0]);
     this.stopBtn.hidden=!(st.controls&&st.controls.interrupt);
   }
 
   _apply(le,replay){
     const ev=le.ev||{};
     this.seq=le.seq;
+    // 휴면·오류 뒤에 라이브로 exit 아닌 이벤트가 오면 재개된 것이다 (다른 브라우저가 재개했을 때).
+    if(!replay&&this._dormant&&ev.kind!=='exit') this._revive();
     switch(ev.kind){
       case 'session': this._setState('idle'); if(ev.status) {this._setModel(ev.status.model); this._setPerm(ev.status.permissionMode)} this._sessionLine(ev.sessionId); break;
       case 'user': this._endLive(); this._msg('agp-user',ev.text||''); this._pushHistory(ev.text||''); break;
@@ -138,7 +151,7 @@ class AgentPane {
       case 'status': if(ev.status){ this._setModel(ev.status.model); this._setPerm(ev.status.permissionMode); if(ev.status.models&&this.state) this.state.status=Object.assign({},this.state.status,{models:ev.status.models}); if(ev.status.commands&&this.state) this.state.status=Object.assign({},this.state.status,{commands:ev.status.commands}); if(ev.status.compacted) this._line('agp-note',t('agent.compacted')) } break;
       case 'reset': this._line('agp-note',t('agent.reset',{sid:(ev.sessionId||'').slice(0,8)})); break;
       case 'error': this._line('agp-note agp-err',t('agent.error',{text:(ev.tool?ev.tool+': ':'')+(ev.text||'')})); break;
-      case 'exit': this._exited(); break;
+      case 'exit': this._exit(ev,replay); break;
       case 'raw': this._raw(ev); break;
     }
   }
@@ -147,7 +160,7 @@ class AgentPane {
 
   _setState(st){
     this._activity=st;
-    const key={idle:'agent.state_idle',working:'agent.state_working',waiting:'agent.state_waiting',done:'agent.state_done',ended:'agent.state_ended'}[st];
+    const key={idle:'agent.state_idle',working:'agent.state_working',waiting:'agent.state_waiting',done:'agent.state_done',ended:'agent.state_ended',hibernated:'agent.state_hibernated',error:'agent.state_error'}[st];
     this.stateEl.textContent=key?t(key):'';
     this.stateEl.dataset.state=st||'';
     this.el.dataset.state=st||'';
@@ -256,8 +269,70 @@ class AgentPane {
     if(this._ended) return; this._ended=true;
     this._endLive(); this._setState('ended');
     this._line('agp-note agp-exit',t('agent.exited'));
+    this._disableInput();
+  }
+  _disableInput(){
     this.ta.disabled=true; this.sendBtn.disabled=true; this.stopBtn.disabled=true;
     if(this._dialog) this._dialog.close();
+  }
+
+  /**
+   * exit 이벤트 — 사유가 갈린다 (D-C-15): hibernated → 휴면, died → 오류(사유 포함), closed → 종료.
+   * 재생 중이면 상태는 뒤따르는 `_applyState` 가 세우므로 줄만 남긴다.
+   */
+  _exit(ev,replay){
+    const reason=ev.text||'';
+    if(reason==='closed'){ this._exited(); return }
+    const kind=reason==='hibernated'?'hibernated':'error';
+    this._endLive();
+    if(kind==='error') this._line('agp-note agp-err',t('agent.died',{reason:ev.detail||''}));
+    else this._line('agp-note agp-exit',t('agent.hibernated_line'));
+    if(!replay){
+      const sid=this.el.dataset.sessionid||(this.state&&this.state.sessionId);
+      this._dormantState(kind,ev.detail||'',!!sid);
+    }
+  }
+
+  /** 휴면·오류 상태 — 입력을 막고, 재개할 수 있으면 버튼을 놓는다 (FR-ABG-10·20). */
+  _dormantState(kind,reason,resumable){
+    this._dormant=kind; this._ended=true;
+    this._endLive(); this._setState(kind);
+    this._disableInput();
+    if(this._resumeRow) this._resumeRow.remove();
+    const row=document.createElement('div'); row.className='agp-line agp-note agp-dormant'; row.dataset.dormant=kind;
+    const msg=document.createElement('span');
+    msg.textContent=kind==='hibernated'?t('agent.hibernated_note'):t('agent.error_note',{reason:reason===''?t('agent.reason_unknown'):(reason==='server_restart'?t('agent.reason_server_restart'):reason)});
+    row.appendChild(msg);
+    if(resumable){
+      const b=UIKit.button({label:t('agent.resume'),kind:'primary',size:'sm',cls:'agp-resume',onClick:()=>this.resume()});
+      row.appendChild(b);
+    }else{
+      const hint=document.createElement('span'); hint.className='agp-dormant-hint'; hint.textContent=t('agent.not_resumable'); row.appendChild(hint);
+    }
+    this.log.appendChild(row); this._resumeRow=row;
+    this._scrollEnd();
+  }
+
+  /** 재개됐다 — 입력을 다시 열고 상태 줄을 비운다. 이벤트가 상태를 다시 세운다. */
+  _revive(){
+    this._dormant=null; this._ended=false;
+    if(this._resumeRow){ this._resumeRow.remove(); this._resumeRow=null }
+    this.ta.disabled=false; this.sendBtn.disabled=false; this.stopBtn.disabled=false;
+    this._setState('');
+    this._line('agp-note',t('agent.resumed_line'));
+  }
+
+  async hibernate(){
+    if(this._dormant||!this._canControl()) return;
+    const r=await apiPost('/api/agent/hibernate',{toolId:this.id});
+    if(!r.ok) Toast.show(apiErrText(r,t('agent.hibernate')),'err');
+  }
+  async resume(){
+    if(!this._dormant||!this._canControl()) return;
+    const r=await apiPost('/api/agent/resume',{toolId:this.id});
+    if(!r.ok){ Toast.show(apiErrText(r,t('agent.resume')),'err'); return }
+    // 응답보다 SSE 가 먼저 왔으면 이미 되살아났다 — 그때 다시 비우면 그 상태(idle)를 지운다.
+    if(this._dormant) this._revive();
   }
 
   // ── 입력 (FR-AGT-4a) ──
@@ -353,6 +428,9 @@ class AgentPane {
       }});
     }
     if(ctl.interrupt) items.push({sep:true},{id:'interrupt',label:t('agent.interrupt'),disabled:this._ended,onClick:()=>this.interrupt()});
+    // FR-ABG-10·11: 휴면은 명시적이다 — 신원이 있을 때만 (D-C-16). 휴면·오류면 재개.
+    if(this._dormant) items.push({sep:true},{id:'resume',label:t('agent.resume'),disabled:st.resumable?false:t('agent.not_resumable'),onClick:()=>this.resume()});
+    else items.push({sep:true},{id:'hibernate',label:t('agent.hibernate'),disabled:(st.sessionId||this.el.dataset.sessionid)?false:t('err.agent_no_identity'),onClick:()=>this.hibernate()});
     if(ctl.tuiResume) items.push({sep:true},{id:'tui',label:t('agent.open_terminal'),onClick:()=>this.app.agentOpenTerminal(this.id)});
     if(!items.length) return;
     UIKit.menu(items,{at:{x:e.clientX||0,y:e.clientY||0},cls:'agp-menu'});

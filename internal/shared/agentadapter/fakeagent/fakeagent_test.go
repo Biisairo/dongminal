@@ -95,16 +95,18 @@ func (r *run) until(t *testing.T, want agentadapter.EventKind) (kinds []string, 
 
 func TestFake_PongTurn(t *testing.T) {
 	r := start(t, "-p", "--output-format", "stream-json", "--model", "fake-x")
+	// D-C-16: 기동 즉시 오는 것은 없다 — initialize 응답이 첫 이벤트(session, 신원 없음)다.
+	r.send(r.proto.Handshake(agentadapter.LaunchOpts{}, r.st)...)
 	kinds, ev := r.until(t, agentadapter.EvSession)
+	if ev.SessionID != "" || len(ev.Status.Models) != 2 || len(ev.Status.Commands) != 3 {
+		t.Fatalf("initialize 응답: %v %+v", kinds, ev)
+	}
+	r.send(r.proto.Prompt("say PONG", r.st)...)
+	// `system:init` 은 첫 프롬프트 뒤 — 신원과 모델이 그때 온다 (§2-28).
+	kinds, ev = r.until(t, agentadapter.EvSession)
 	if ev.SessionID == "" || ev.Status.Model != "fake-x" {
 		t.Fatalf("init: %+v", ev)
 	}
-	r.send(r.proto.Handshake(agentadapter.LaunchOpts{}, r.st)...)
-	_, ev = r.until(t, agentadapter.EvStatus)
-	if len(ev.Status.Models) != 2 || len(ev.Status.Commands) != 3 {
-		t.Fatalf("initialize 응답: %+v", ev.Status)
-	}
-	r.send(r.proto.Prompt("say PONG", r.st)...)
 	kinds, ev = r.until(t, agentadapter.EvTurnEnd)
 	joined := strings.Join(kinds, ",")
 	for _, want := range []string{"turn_start", "usage", "text_delta", "message", "turn_end"} {
@@ -119,7 +121,6 @@ func TestFake_PongTurn(t *testing.T) {
 
 func TestFake_ApproveRoundTrip(t *testing.T) {
 	r := start(t)
-	r.until(t, agentadapter.EvSession)
 	r.send(r.proto.Prompt("APPROVE please", r.st)...)
 	_, ev := r.until(t, agentadapter.EvApprovalOpen)
 	req := ev.Approval
@@ -140,7 +141,6 @@ func TestFake_ApproveRoundTrip(t *testing.T) {
 
 func TestFake_Question(t *testing.T) {
 	r := start(t)
-	r.until(t, agentadapter.EvSession)
 	r.send(r.proto.Prompt("QUESTION", r.st)...)
 	_, ev := r.until(t, agentadapter.EvApprovalOpen)
 	if ev.Approval.Kind != agentadapter.ApprovalQuestion || len(ev.Approval.Questions) != 1 {
@@ -159,7 +159,6 @@ func TestFake_Question(t *testing.T) {
 
 func TestFake_InterruptAndDie(t *testing.T) {
 	r := start(t)
-	r.until(t, agentadapter.EvSession)
 	r.send(r.proto.Prompt("SLOW", r.st)...)
 	r.until(t, agentadapter.EvTextDelta)
 	r.send(r.proto.Interrupt(r.st))
@@ -180,10 +179,13 @@ func TestFake_InterruptAndDie(t *testing.T) {
 
 func TestFake_ResumeAndClear(t *testing.T) {
 	r := start(t, "--resume", "sess-fixed")
+	// U-4: 재개도 이력을 주지 않는다 — 신원만, 그리고 그것도 첫 프롬프트 뒤에 (§2-28).
+	r.send(r.proto.Prompt("say PONG", r.st)...)
 	_, ev := r.until(t, agentadapter.EvSession)
 	if ev.SessionID != "sess-fixed" {
 		t.Fatalf("resume 신원: %q", ev.SessionID)
 	}
+	r.until(t, agentadapter.EvTurnEnd)
 	r.send(r.proto.Prompt("/clear", r.st)...)
 	_, ev = r.until(t, agentadapter.EvReset)
 	if ev.SessionID == "" || ev.SessionID == "sess-fixed" || r.st.SessionID != ev.SessionID {

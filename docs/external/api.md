@@ -10,7 +10,7 @@
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| GET | `/api/state` | `{ tools, workspace }` 스냅샷. 응답 헤더 `ETag: <rev>` 포함 |
+| GET | `/api/state` | `{ tools, workspace }` 스냅샷. 응답 헤더 `ETag: <rev>` 포함. `tools` 에는 휴면·오류 상태의 에이전트 도구(`kind:"agent"`, `dormant:"hibernated"\|"error"` — 프로세스 없음)도 든다 |
 | GET | `/api/whoami?toolId=<id>` | 요청자의 도구 식별 정보. `toolId` 생략 시 remoteAddr → PID 부모 체인으로 역추적 |
 | GET | `/api/workspace` | workspace.json raw (`schemaVersion: 2`). ETag 헤더 포함 |
 | PUT | `/api/workspace` | workspace 저장. `If-Match: <rev>` 로 낙관적 동시성 제어. stale 시 409 + 최신 `ETag` 반환 |
@@ -53,12 +53,14 @@
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
 | GET | `/api/agents` | 등록부의 에이전트 목록 `[{ id, proto, available }]` — `proto` 는 프로토콜 표면이 있는가, `available` 은 실행 파일이 있는가. 둘 다 참이어야 띄울 수 있다 |
-| GET | `/api/agent/events?tool=&since=` | 상태와 이벤트 로그 재생 `{ state, events: [{ seq, at, ev }], truncated }`. `since` 는 마지막으로 본 `seq`. 라이브는 SSE `agent_event` |
+| GET | `/api/agent/events?tool=&since=` | 상태와 이벤트 로그 재생 `{ state, events: [{ seq, at, ev }], truncated, snapshot? }`. `since` 는 마지막으로 본 `seq`. 잘렸으면(`truncated`) `snapshot`(`{ seq, sessionId, status, usage, open, lastMessage }`)이 잘린 앞부분의 요약이다. `state.dormant` 가 `hibernated`·`error` 면 프로세스가 없다 — `resumable` 이면 재개할 수 있다. 라이브는 SSE `agent_event` |
 | POST | `/api/agent/prompt` | `{ toolId, text }` — 프롬프트 한 턴 |
 | POST | `/api/agent/approve` | `{ toolId, id, choice, answers }` — 열린 승인·질문에 답한다. `choice` 는 프로토콜이 준 선택지(`allow`·`deny`·`suggestion:<n>`), `answers` 는 질문의 `{질문: 라벨}` (선택지 없는 질문 `freeText` 는 글 그대로) |
 | POST | `/api/agent/control` | `{ toolId, kind, value }` — 세션 중 제어. `kind` 는 프로토콜의 것 그대로 (claude: `set_model`·`set_permission_mode`·`set_max_thinking_tokens` · codex: `set_model`·`set_permission_mode` — 다음 턴부터 · omp: `set_model`(`provider/modelId`)·`set_thinking_level`). 없는 제어는 400 `agent_unsupported` |
 | POST | `/api/agent/interrupt` | `{ toolId }` — 진행 중인 턴을 끊는다 (Esc) |
 | GET | `/api/agent/tui-line` | `{ line, sessionId }` — 같은 세션을 터미널(TUI)에서 이어 갈 한 줄 명령 |
+| POST | `/api/agent/hibernate` | `{ toolId }` — 휴면: 프로세스를 끝내고 세션 신원만 남긴다. 탭은 그대로다. 세션 신원이 아직 없으면(첫 턴 전) 409 `agent_no_identity`, 이미 휴면·오류면 409 `agent_dormant` |
+| POST | `/api/agent/resume` | `{ toolId }` → `{ id, name, kind, agent }` — 휴면·오류 세션을 **같은 toolId** 로 재개한다 (claude `--resume` · codex `thread/resume` · omp `--resume`). 이력은 우리 이벤트 로그가 재생한다. 활성이면 409 `agent_not_dormant`, 신원이 없으면 409 `agent_no_identity` |
 
 ### 주의 알림 · 활동
 

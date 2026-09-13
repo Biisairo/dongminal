@@ -212,13 +212,15 @@ func (pc *panedConn) create(req *toolipc.PanedRequest) interface{} {
 		Kind  string   `json:"kind"`
 		Argv  []string `json:"argv"`
 		Agent string   `json:"agent"`
+		// M8_UNIFIED_SRS D-C-11: 휴면·오류 세션의 재개 — 같은 도구 신원으로 다시 세운다.
+		ReuseID string `json:"reuseId"`
 	}
 	if err := json.Unmarshal(req.Params, &p); err != nil {
 		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32602, Message: err.Error()}}
 	}
 	tool, err := pc.pm.Create(p.Cwd, p.Cols, p.Rows,
 		toolhub.Placement{WindowUUID: p.Window, Profile: p.Profile, Command: p.Command, Work: p.Work,
-			Kind: toolhub.ToolKind(p.Kind), Argv: p.Argv, Agent: p.Agent})
+			Kind: toolhub.ToolKind(p.Kind), Argv: p.Argv, Agent: p.Agent, ReuseID: p.ReuseID})
 	if err != nil {
 		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: -32603, Message: err.Error()}}
 	}
@@ -419,13 +421,17 @@ func (pc *panedConn) backgroundList(req *toolipc.PanedRequest) interface{} {
 
 // ── Push events ────────────────────────────────────────────────────────
 
-// pushExit notifies dongminal that a tool exited. code is currently always 0:
-// the readPTY exit path does not capture the shell's real exit status, and the
-// frontend only needs the exit signal (not the code) to tear down the tool.
-func (pc *panedConn) pushExit(toolID string, code int) {
-	pc.enqueue(map[string]interface{}{
-		"event": "exit", "tool": toolID, "code": code,
-	}, false)
+// pushExit notifies dongminal that a tool exited. info 는 종료 코드와 파이프 stderr 의
+// 꼬리다 (M8_UNIFIED_SRS D-C-15) — 에이전트 도구의 오류 상태가 그 사유를 보인다.
+// 터미널 도구는 둘 다 영값이고, 프런트엔드는 종전대로 신호만 쓴다.
+func (pc *panedConn) pushExit(toolID string, info toolhub.ExitInfo) {
+	ev := map[string]interface{}{
+		"event": "exit", "tool": toolID, "code": info.Code,
+	}
+	if len(info.Stderr) > 0 {
+		ev["stderr"] = info.Stderr
+	}
+	pc.enqueue(ev, false)
 }
 
 // pushForeground notifies dongminal that a tool's foreground process name
@@ -579,7 +585,7 @@ func (ps *PanedServer) Accept() error {
 					c := ps.currConn
 					ps.mu.Unlock()
 					if c != nil {
-						c.pushExit(toolID, 0)
+						c.pushExit(toolID, p.ExitInfo())
 					}
 					if baseExit != nil {
 						baseExit(toolID)

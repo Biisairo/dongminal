@@ -632,7 +632,7 @@ func TestToolClientSetCbRace(t *testing.T) {
 		default:
 		}
 	})
-	pc.SetOnExit(func(toolID string, code int) { exited <- code })
+	pc.SetOnExit(func(toolID string, info toolhub.ExitInfo) { exited <- info.Code })
 
 	select {
 	case code := <-exited:
@@ -675,7 +675,7 @@ func TestToolClientEarlyExitReplay(t *testing.T) {
 	}
 
 	exited := make(chan int, 1)
-	pc.SetOnExit(func(toolID string, code int) { exited <- code })
+	pc.SetOnExit(func(toolID string, info toolhub.ExitInfo) { exited <- info.Code })
 	select {
 	case code := <-exited:
 		if code != 7 {
