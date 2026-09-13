@@ -745,6 +745,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .agp-q{border:1px solid var(--border);border-radius:var(--ui-radius);padding:6px 10px;display:flex;flex-direction:column;gap:4px}
 .agp-q legend{color:var(--text-bright);padding:0 4px}
 .agp-q-opt{display:flex;gap:6px;align-items:baseline;cursor:pointer}
+.agp-q-text{font:inherit;font-size:var(--fs-md);padding:4px 8px;color:var(--text);background:var(--bg);border:1px solid var(--border);border-radius:var(--ui-radius)}
 .pn-dimmed .agent-pane .agp-input{opacity:.5}
 
 /* ── Settings button ── */

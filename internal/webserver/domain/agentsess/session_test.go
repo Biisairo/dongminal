@@ -24,8 +24,10 @@ import (
 //	그 밖                              → 모르는 프레임
 func fakeProto() *agentadapter.Proto {
 	return &agentadapter.Proto{
-		Launch:    func(o agentadapter.LaunchOpts) []string { return []string{o.Bin} },
-		Handshake: func(st *agentadapter.ProtoState) [][]byte { return [][]byte{[]byte(`{"hs":1}`)} },
+		Launch: func(o agentadapter.LaunchOpts) []string { return []string{o.Bin} },
+		Handshake: func(_ agentadapter.LaunchOpts, st *agentadapter.ProtoState) [][]byte {
+			return [][]byte{[]byte(`{"hs":1}`)}
+		},
 		Decode: func(line []byte, st *agentadapter.ProtoState) ([]agentadapter.Event, bool) {
 			var fr struct{ K, Sid, ID, T string }
 			if err := json.Unmarshal(line, &fr); err != nil {
@@ -123,7 +125,7 @@ func newMgr(t *testing.T) (*Manager, *fakeSink) {
 func openFake(t *testing.T, m *Manager) *Session {
 	t.Helper()
 	ad := agentadapter.Adapter{ID: "fake", Proto: fakeProto()}
-	s, err := m.Open("tool-1", ad)
+	s, err := m.Open("tool-1", ad, agentadapter.LaunchOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -356,7 +358,7 @@ func TestSession_StateMerges(t *testing.T) {
 		}
 		return nil, false
 	}
-	s, err := m.Open("tool-1", ad)
+	s, err := m.Open("tool-1", ad, agentadapter.LaunchOpts{})
 	if err != nil {
 		t.Fatal(err)
 	}

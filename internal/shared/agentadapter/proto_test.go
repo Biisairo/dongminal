@@ -5,11 +5,11 @@ import "testing"
 // M8_UNIFIED_SRS R-8 — 두 표면이 **같은 표**에서 돈다. 어댑터마다 프로토콜 표면의
 // 유무를 여기 선언하고 실제와 대조한다 — 한쪽만 고쳐진 채 지나가지 않게.
 //
-// P3 는 claude 한정이다 (§4). codex·omp 는 P4 가 채우며, 그때 이 표의 값이 바뀐다.
+// P3 가 claude, P4 가 codex·omp 를 채웠다 (§4). 어댑터를 더하면 여기 한 줄이 는다.
 var protoSurface = map[string]bool{
 	"claude": true,
-	"codex":  false,
-	"omp":    false,
+	"codex":  true,
+	"omp":    true,
 }
 
 func TestProto_SurfaceTable(t *testing.T) {

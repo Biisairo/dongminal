@@ -54,6 +54,8 @@ Object.assign(App.prototype, {
     if(win&&win.id) q+='&window='+encodeURIComponent(win.id);
     if(opts&&opts.model) q+='&model='+encodeURIComponent(opts.model);
     if(opts&&opts.resume) q+='&resume='+encodeURIComponent(opts.resume);
+    // F-4: 승인 정책은 설정이다. 어댑터가 자기 어휘로 싣거나 무시한다.
+    if(agentApprovalMode) q+='&approval='+encodeURIComponent(agentApprovalMode);
     const r=await apiPost('/api/tools?kind=agent'+q);
     if(!r.ok){ Toast.show(apiErrText(r,t('agent.create_fail')),'err'); return null }
     return r.data;

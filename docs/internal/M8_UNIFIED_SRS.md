@@ -210,6 +210,28 @@ codex 는 세 에이전트 중 **가장 크게 올라간다** — `thread/starte
 `item/completed` 와 델타, `thread/resume`·`thread/fork`, `turn/steer`(진행 중
 개입) 가 전부 들어온다. §2.2 에서 유일하게 ✅ 하나였던 자리다.
 
+**P4 재실측 (2026-09-13, codex 0.154.0 · omp 17.4.0 — 자격증명 없음, 무모델 프레임).** 드라이버는
+P0 의 것(`/tmp/m8-spike/drive.py`), 원본은 `/tmp/m8-spike/p4/*.jsonl`. 턴 의존 칸은 P0 과
+같이 **미확인 — 자격증명 없음** 이며 그 칸은 스키마(codex `generate-json-schema`)·소스(omp
+`rpc-types.ts`·`wrapper.ts`·`pi-ai/types.ts`)로 채웠다. `drift_test.go`(`-tags agentdrift`)가
+아래 "실측" 칸을 실제 바이너리로 다시 잰다.
+
+| 프레임 | codex `app-server` (JSON-RPC 2.0) | omp `--mode rpc-ui` (NDJSON) | 근거 |
+|---|---|---|---|
+| 기동·핸드셰이크 | `initialize`→`initialized`→`thread/start{cwd,model?,approvalPolicy?}` 를 **응답을 기다리지 않고 한 번에** 보내도 순서대로 처리된다. 요청 id 는 문자열이어도 된다 (`"dm-1"`). 빈 줄은 무시된다 | 기동 즉시 `ready{protocolVersion:1,supportedProtocolVersions:[1,2],maxFrameBytes:1048576}` → `extension_ui_request{setWidget}` → `available_commands_update{commands[]}`. `negotiate_protocol 2` 는 선택 — 안 하면 큰 프레임을 omp 가 줄여서(compact·shrink·overflow) 보낸다 | 실측 |
+| 세션 신원·모델 | `thread/start` 응답 `{thread{id,model,status,path},model,approvalPolicy,sandbox{type}}` — `cwd` 를 안 실으면 프로세스 cwd, `approvalPolicy` 를 안 실으면 설정 기본(`on-request`, sandbox `readOnly`). **부작용 없음** — `approvalPolicy`·`sandbox` 를 싣지 않으면 `~/.codex/config.toml` 에 신뢰 항목이 쓰이지 않는다 (P0 의 §9.3 ⑦ 부작용은 그 인자를 실었을 때였다) | `get_state` 응답 `data{sessionId,model{id,provider,name,contextWindow},contextUsage{tokens,contextWindow,percent},thinkingLevel,isStreaming}` | 실측 |
+| 모델 목록 | `model/list` 응답 `data[{id,model,displayName,description,hidden,supportedReasoningEfforts[]}]` — **자격증명 없이도 온다** (원격 갱신 실패는 stderr 401 로만) | `get_available_models` 응답 `data.models[{id,name,provider,contextWindow,…}]` (11개). `set_model{provider,modelId}` 응답이 모델 객체, 없는 모델은 `success:false,error:"Model not found: p/m"` | 실측 |
+| 턴 | `turn/start{threadId,input[{type:text,text}],model?,approvalPolicy?}` → 응답 `{turn{id,status:inProgress}}` → `thread/status/changed{active}` → `turn/started` → `item/started·completed{userMessage}` → (모델 없음: `thread/status/changed{systemError}` · `error{error{message,codexErrorInfo:unauthorized},willRetry:false}` · `turn/completed{turn{status:failed,error{message}}}`). `turn/start` 의 `model` 은 세션 파일에 남아 재개 때 `warning` 알림으로 되읽힌다 | `prompt{message}` → 즉시 `response{success}` → `agent_start` → `turn_start` → `message_start/end{role:user}` → `message_start{role:assistant}` → (모델 없음: `message_end{stopReason:"error",errorStatus:401,errorMessage}` · `turn_end` · `agent_end{messages[]}`). 스트리밍 중의 `prompt` 는 `streamingBehavior` 가 있어야 받는다 | 실측 (오류 턴) |
+| 텍스트·추론 델타 | `item/agentMessage/delta{delta,itemId}` · `item/reasoning/summaryTextDelta{delta,summaryIndex}` · `item/reasoning/textDelta` · 완료 `item/completed{item{type:agentMessage,text}}` | `message_update{assistantMessageEvent{type:text_delta\|thinking_delta\|toolcall_end{toolCall{id,name,arguments}},delta}}` · `message_end{message{role:assistant,content[{text}\|{thinking}\|{toolCall}],usage{input,output,cacheRead,cacheWrite,cost{total}},stopReason,model,provider}}` | 미확인 — 자격증명 없음 (스키마·소스) |
+| 도구 호출·결과 | `item/started·completed{item{type:commandExecution,id,command,cwd,status,exitCode,aggregatedOutput}}` · `fileChange{changes[{path,kind,diff}],status}` · `mcpToolCall{server,tool,status,error}` · `contextCompaction` | `tool_execution_start{toolCallId,toolName,args}` · `tool_execution_end{toolCallId,toolName,result,isError}` · `message_end{message{role:toolResult,toolCallId,toolName,content[],isError}}` | 미확인 (스키마·소스) |
+| **승인 요청** | 서버→클라 요청 `{id,method:"item/commandExecution/requestApproval",params{itemId,command,cwd,reason,proposedExecpolicyAmendment[],threadId,turnId}}` — 답 `{id,result{decision:"accept"\|"acceptForSession"\|{acceptWithExecpolicyAmendment{execpolicy_amendment[]}}\|"decline"\|"cancel"}}` · `item/fileChange/requestApproval{itemId,reason,grantRoot}` (같은 decision) · `item/permissions/requestApproval{permissions,reason}` — 답 `{permissions,scope:turn\|session}` · `item/tool/requestUserInput{questions[{id,header,question,options[{label,description}]?}]}` — 답 `{answers{<id>{answers[]}}}`. 우리가 답하지 않고 닫히면 `serverRequest/resolved{requestId}`. `id` 는 숫자일 수 있다 — 그대로 되돌린다 | `extension_ui_request{id,method:"select",title:"Allow tool: <name>\n<details>",options:["Approve","Deny"]}` — 답 `extension_ui_response{id,value:"Approve"\|"Deny"}`. 승인 아닌 위젯도 같은 프레임: `select`(일반 선택 — `ask` 도구가 이것) · `confirm{title,message}`→`{confirmed}` · `input{title,placeholder?}`·`editor{title,prefill?}`→`{value}` · `notify{message,notifyType}`·`open_url{url}`·`setWidget`·`setStatus`·`setTitle`·`set_editor_text`(답 없음). 취소는 `{cancelled:true}` | 미확인 — 자격증명 없음 (스키마 · `wrapper.ts:332`·`rpc-types.ts:373`·`ask.ts:521`) |
+| 사용량 | `thread/tokenUsage/updated{tokenUsage{last{inputTokens,cachedInputTokens,outputTokens,…},total{…},modelContextWindow}}`. 비용은 없다 | `message_end.message.usage{input,output,cacheRead,cacheWrite,totalTokens,cost{total}}` · `get_state.contextUsage` (라이브: 15,685/1,048,576) · `get_session_stats` | 실측(omp) · 스키마(codex) |
+| 세션 중 제어 | **없다** — 모델·정책은 다음 `turn/start{model,approvalPolicy}` 의 것 ("이후 턴에도 적용"). 반영은 `thread/settings/updated{threadSettings{model,approvalPolicy,…}}` | `set_model{provider,modelId}` · `set_thinking_level{level}` (`high` 성공) · `/model` 프롬프트 → `command_output{text:"Current model: p/m"}` + `response{data.agentInvoked:false}`; 슬래시 명령이 설정을 바꾸면 `config_update{model,thinkingLevel}`. 승인 정책의 세션 중 전환은 **없다** | 실측 |
+| 인터럽트 | `turn/interrupt{threadId,turnId}` — 진행 중 턴이 없으면 `error{code:-32600,message:"no active turn to interrupt"}` | `abort` → `response{success}` (진행 중이 아니어도 성공) | 실측 |
+| 재개 | `thread/resume{threadId}` → `thread/status/changed{idle}` + 응답의 `thread` 메타 + `deprecationNotice`(전량 하이드레이션) + 모델이 다르면 `warning`. 잘못된 id 는 `error{"invalid session id…"}`. **주의**: 이미 살아 있는 프로세스에 `thread/start` 를 다시 보내면 새 thread 가 선다 — 서버 재시동의 되살림(AgentAdoptExisting)은 그 프로세스의 thread 를 잃는다 (P5 의 휴면·재개에서 신원을 디스크에 남겨야 한다) | `--resume <id 접두>` → `ready` 부터 같은 `sessionId`(`get_state`). 없는 id 는 **exit 1** + stderr `Session "…" not found.` | 실측 |
+| 종료 | stdin EOF → exit 0, **0.04~0.07s** | stdin EOF → exit 0, **0.01~0.06s** | 실측 (드라이버·drift_test) |
+| 알려진 알림(무시) | `remoteControl/status/changed` · `mcpServer/startupStatus/updated` · `thread/goal/cleared` · `deprecationNotice` · `warning` · `account/*` — 90여 종이 스키마에 있다 | `notice{level,message}`(xd:// 마운트) · `model_changed`(본문 없음) · `thinking_level_changed` · `setWidget{autoresearch}` | 실측 |
+
 #### 2.3.4 claude stream-json 실측 (claude 2.1.269, 2026-09-12)
 
 실제로 실행해 프레임을 받았다. 훅 표면이 내지 못하던 것이 여기 있다:
@@ -727,8 +749,17 @@ V-7 · AS-3.
 
 **D-U-5 — codex app-server 를 채택한다.** (원문 D-2, 근거 정정) 원문은 "훅을 지우면
 codex 가 침묵하므로 강제" 였다. 병행에서는 그 근거가 사라지지만 결론은 같다 —
-codex 의 프로토콜 표면은 app-server 뿐이다. experimental 딱지는 R-1 로 관리하고
-대조 잡의 주기는 P4 에서 정한다.
+codex 의 프로토콜 표면은 app-server 뿐이다. experimental 딱지는 R-1 로 관리한다.
+
+**대조 잡 (P4 결정, 2026-09-13)**: `internal/shared/agentadapter/drift_test.go` — 빌드 태그
+`agentdrift` 로 CI 밖에 있다. 어댑터의 `Launch`·`Handshake` 로 **실제 바이너리**(PATH 또는
+`DONGMINAL_AGENT_BIN_DIR`)를 띄워 세션 신원·모델 목록이 어댑터의 `Decode` 로 읽히는지,
+핸드셰이크 동안 모르는 프레임이 없는지, stdin EOF 로 끝나는지를 잰다 — 무모델 프레임뿐이다
+(자격증명을 묻지 않는다). **주기는 야간이 아니라 사건이다**: M8 의 단계 착수마다 1회 ·
+에이전트 바이너리의 판이 오를 때 · 어댑터 파일을 고칠 때. 로컬에 스케줄러가 없고 자격증명이
+없어 야간에 돌려도 얻는 것이 같다. 실행: `go test -tags agentdrift -run TestDrift -v
+./internal/shared/agentadapter/`. P4 결과: 셋 다 초록 (claude 는 `system:init` 이 첫 프롬프트
+뒤에 오므로 핸드셰이크 판정에서 세션 신원을 요구하지 않는다 — `driftSessionAtHandshake`).
 
 **D-U-6 — `Signals` 같은 선언 테이블을 다시 만들지 않는다.** (원문 D-3 그대로) 없는
 이벤트는 부재로 (FR-APS-4).
@@ -955,9 +986,9 @@ P1 만 끝나도 Go 부채가, P2 만 끝나도 i18n 이 가치다. 인계는 M7
 
 ### 8.2 축 C 의 가정
 
-**AS-1** 세 프로토콜 모두 **한 프로세스가 한 세션**을 든다. 한 프로세스에 여러
-세션을 다중화하는 모델은 가정하지 않는다. (codex 의 thread 모델은 여러 thread 를
-허용하는 것으로 보이나, 확인하지 않았다 — §9.1)
+**AS-1** (P4 정정, §9.3 ⑥ F-3) **한 프로세스를 한 도구로 쓴다 — 다중화는 쓰지 않는다.**
+codex 는 한 프로세스가 여러 thread 를 들 수 있으나(§9.1 U-2 실측) 어댑터는 thread 하나만
+쓴다. claude·omp 는 한 프로세스가 한 세션이다.
 
 **AS-2** 프로토콜 표면에서도 세션 신원이 디스크에 남아 **재개가 가능하다.**
 claude `--resume`, codex `thread/resume` 는 문서·플래그로 확인했고, omp 는
@@ -1194,6 +1225,22 @@ Answers}` 로 승인(`allow`·`deny`·`suggestion:<i>`)과 질문 답변(`answer
 두 표면이 한 파일(`claude.go` 등)에 나란히 놓이므로 R-8 의 완화(같은 표에서 도는
 단위 테스트)가 성립한다.
 
+**P4 판정 (2026-09-13) — FR-U-2 첫 판정: 셋이 한 구조체에 든다.** GUI 용 어댑터를 따로 두지
+않았다. 시안에서 더 움직인 것 셋: ① `Handshake(opts LaunchOpts, st)` — codex 의 cwd·모델·재개는
+기동 인자가 아니라 `thread/start|resume` 요청의 것이라 핸드셰이크가 LaunchOpts 를 받는다
+(소비자 `agentsess.Open` 이 기동에 쓴 opts 를 그대로 넘긴다 — 한 인자). ② `LaunchOpts.Approval` —
+승인 정책(F-4), 어댑터 어휘 그대로; omp 만 싣고(`--approval-mode`, 비면 `always-ask`) 나머지는
+무시한다. 값은 브라우저 설정 `agentApprovalMode`(`SETTINGS_SCHEMA`·`SETTINGS_ACCESS`) 가 생성
+쿼리 `approval` 로 싣는다. ③ `Question.FreeText` — 선택지 없는 질문(omp `input`·`editor`, codex 의
+선택지 없는 `requestUserInput`). `ApprovalRequest.Kind` 두 값으로 omp 의 위젯이 전부 들어갔다:
+`select["Approve","Deny"]`+`Allow tool:` 제목 → permission · 그 밖의 `select`·`input`·`editor` →
+question · `confirm` → permission(Yes/No) · `notify`·`open_url` → 본문(`user`) · 나머지 위젯은
+무시. codex 의 서버 요청 넷(`commandExecution`·`fileChange`·`permissions`·`requestUserInput`)이
+승인·질문으로 들어가고, 선택지는 codex 의 decision 그대로(`accept`·`decline`·`acceptForSession`·
+`acceptWithExecpolicyAmendment`·`cancel`)다. codex 의 `Control` 은 보낼 프레임이 없어 빈
+프레임(빈 줄, codex 가 무시)을 돌려주고 다음 `turn/start` 에 싣는다 — `PermissionModes` 는
+`untrusted·on-request·never`. omp 는 `PermissionModes` 가 비어 있다(세션 중 전환 없음).
+
 #### ④ 데몬 파이프 중계의 설계 선택 (U-8 · §9.2 R-g)
 
 **같은 길로 간다 — 조건 둘.** 지금의 길: 데몬 `readPTY` → `outbuf.Stream.Feed`(절대
@@ -1262,6 +1309,7 @@ PTY 화면 갱신보다 작다). **다른 것 둘**:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-13 | **P4 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-7, 전량 e2e 는 §1-8. codex·omp 어댑터가 같은 `Proto` 구조체에 들어갔다(FR-U-2 첫 판정 — §9.3 ③ P4 판정). §2.3.3 에 P4 재실측 표. D-U-5 의 대조 잡(`drift_test.go`, 사건 주기). F-4 의 설정 키 `agentApprovalMode`. `Handshake` 가 LaunchOpts 를 받는다 · `LaunchOpts.Approval` · `Question.FreeText`. 가짜 에이전트가 세 프로토콜을 말한다 (argv 모양으로 고른다). P4 발견 둘: claude 의 `system:init` 은 첫 프롬프트 뒤(§2-28) · codex 되살림은 thread 를 잃는다(P5) |
 | 2026-09-13 | **P3 완료.** 항목별 판정은 `production/M8_PROGRESS.md` §1-5, 전량 e2e 는 §1-6. 묶음 P(`Adapter.Proto`·claude 구현·가짜 에이전트)·T(`Kind=agent` 변형·파이프 전송·`/api/agent/*`·`AgentPane`·TUI 출구)·A(활동 보고 한 자리·L2 idle 제외). **D-C-10** 신설 — 종류는 청크에 실려 온다(데몬 readLoop 의 자기 RPC, §2-25). 둘째 세션이 잡은 뷰 결함 둘(재생 비행 중 SSE·열린 요청 이중 계수, §2-26). V-11 확인: 훅 표면 diff 0 · `claude.go` 3줄 |
 | 2026-09-13 | **P3 중 사용자 지시.** FR-AGT-4a — Esc 인터럽트 · ↑↓ 프롬프트 히스토리 · 슬래시 자동완성 · Shift+Tab 권한 모드 순환 |
 | 2026-09-13 | **P3 착수.** §2.3.4 P3 재실측(같은 판 · `AskUserQuestion` payload · `updatedPermissions` 적용 확인). FR-AGT-4 에 **질문 답변** 추가(사용자 지시). FR-AGT-12 의 P3 결정(D-C-4). NFR-C-2 값. D-C-1~9. §9.3 ③ 실제 모양 |

@@ -288,7 +288,7 @@ func TestClaudeProto_Question(t *testing.T) {
 // FR-AGT-11: 핸드셰이크(initialize)와 제어. 응답은 대기표로 짝짓는다.
 func TestClaudeProto_HandshakeAndControl(t *testing.T) {
 	p, st := protoOf(t)
-	hs := p.Handshake(st)
+	hs := p.Handshake(LaunchOpts{}, st)
 	if len(hs) != 1 || !strings.Contains(string(hs[0]), `"subtype":"initialize"`) {
 		t.Fatalf("handshake: %q", hs)
 	}

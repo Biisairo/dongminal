@@ -522,7 +522,19 @@ id="sb-panel-…">`) 하나를 두면 끝이다. 아래 넷이 그 배열에서 
 `done`·`ended`)은 공통 이벤트에서 파생해 `activity/set` 과 **같은 함수**를 지난다 — 그래서 알람·
 활동 패널·`dmctl wait --for ready` 가 그대로 선다. 승인·질문은 한 통로(`ApprovalRequest.Kind`) —
 서버는 대신 답하지 않으며, 선택지는 프로토콜이 준 것 그대로다 (FR-APS-5·6). 에이전트 지식은
-전부 어댑터의 `Proto` 구현(`claude_proto.go`)에 있고, 해석층·HTTP·뷰는 에이전트 이름을 모른다.
+전부 어댑터의 `Proto` 구현에 있고, 해석층·HTTP·뷰는 에이전트 이름을 모른다.
+
+어댑터는 셋이고 한 구조체에 든다 (FR-U-2, P4 판정). `claude_proto.go` — stream-json 양방향, 승인은
+`control_request{can_use_tool}` ↔ `control_response`. `codex_proto.go` — `app-server` 의 JSON-RPC 2.0:
+핸드셰이크(`initialize`·`initialized`·`thread/start|resume`·`model/list`)를 응답을 기다리지 않고 한
+번에 보내고, 서버→클라 **요청**(`item/*/requestApproval`·`item/tool/requestUserInput`)에 JSON-RPC
+응답으로 답한다; 한 프로세스가 여러 thread 를 들 수 있어도 한 도구는 thread 하나다(F-3); 세션 중
+제어는 없어 다음 `turn/start` 에 싣는다. `omp_proto.go` — `--mode rpc-ui` 의 NDJSON: 기본 승인
+정책이 yolo 라 `--approval-mode` 를 반드시 싣고(설정 `agentApprovalMode`, F-4), 승인·질문·로그인
+입력이 전부 `extension_ui_request` 라 `select["Approve","Deny"]` 만 permission 이고 나머지는 question
+(`Question.FreeText` 가 글 입력)이다. 세 차이가 함수 안에서 끝나므로 `Handshake` 가 `LaunchOpts` 를
+받는 것 하나가 소비자에 보이는 전부다. 계약 드리프트는 `drift_test.go`(`-tags agentdrift`)가 실제
+바이너리로 잰다 — CI 밖, 단계 착수마다 (D-U-5).
 
 ## 오케스트레이션 다이어그램
 

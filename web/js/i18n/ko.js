@@ -842,6 +842,8 @@ I18N.register('ko', {
   'html.focus_edge_hint': '이 브라우저 창이 키를 받지 않는 동안 화면 가장자리에 옅은 띠를 그립니다. 0 으로 내리면 그리지 않습니다. 세기는 옮기는 동안 화면에 그대로 미리 보입니다. 색은 그 자리에 있는 색의 반대값이라 어느 테마에서나 눈에 띄고, 화면 안쪽은 건드리지 않아 글을 읽는 데는 지장이 없습니다. 창을 여러 개 띄웠을 때 어느 쪽에 키가 가는지 눌러 보지 않고 알기 위한 것입니다.',
   'html.locale': '언어',
   'html.locale_hint': '화면의 언어입니다. 바꾸면 페이지를 다시 엽니다. 터미널 안의 출력과 서버 로그는 바뀌지 않습니다.',
+  'html.agent_approval': '에이전트 승인 정책',
+  'html.agent_approval_hint': '다음에 띄우는 에이전트 도구의 승인 정책입니다 (always-ask · write · yolo). 정책을 기동 인자로 받는 에이전트에만 실리고, 이미 뜬 도구는 바뀌지 않습니다.',
   'html.mode_auto': 'Auto (뷰포트 기준)',
   'html.mode_desktop': 'Desktop (강제)',
   'html.mode_hint': '\'Auto\' 모드에서 창 너비가 Breakpoint보다 작으면 모바일 레이아웃으로 전환됩니다.',

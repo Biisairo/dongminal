@@ -3,14 +3,17 @@
 // 서버는 `DONGMINAL_AGENT_BIN_DIR` 에서 `DetectCmd` 이름의 파일을 먼저 찾으므로
 // (D-C-7) 픽스처는 그 이름으로 놓인다.
 //
-// 프레임의 **형태**는 2.1.270 실측(§2.3.4)에서 옮겼고 내용은 PONG 류다 (NFR-C-1).
-// 시나리오는 프롬프트 본문이 고른다 (D-C-9):
+// **세 프로토콜을 말한다** (§9.2 R-a — e2e 가 셋을 잰다). 어느 것을 말할지는 argv 의
+// 모양이 고른다 — 이름이 아니다: `app-server` 가 있으면 JSON-RPC(codex 판, fake_codex.go),
+// `--mode rpc-ui` 가 있으면 NDJSON(omp 판, fake_omp.go), 그 밖은 stream-json(claude 판,
+// 이 파일). 프레임의 **형태**는 실측(§2.3.4 · M8_PROGRESS §2-27)에서 옮겼고 내용은 PONG
+// 류다 (NFR-C-1). 시나리오는 세 판이 같고 프롬프트 본문이 고른다 (D-C-9):
 //
-//	APPROVE  → can_use_tool(Bash) 를 열고 답을 기다린 뒤 도구 결과와 DONE
-//	QUESTION → can_use_tool(AskUserQuestion) 을 열고 답한 라벨을 되읊는다
+//	APPROVE  → 도구 승인을 열고 답을 기다린 뒤 도구 결과와 DONE
+//	QUESTION → 선택형 질문을 열고 답한 라벨을 되읊는다
 //	SLOW     → 델타를 천천히 낸다 — interrupt 가 끊을 자리
-//	DIE      → result 없이 exit 1 (V-8)
-//	/…       → 로컬 명령의 답 (assistant model "<synthetic>"); /clear 는 신원 교체
+//	DIE      → 턴을 끝내지 않고 exit 1 (V-8)
+//	/…       → 로컬 명령의 답; /clear 는 신원 교체
 //	그 밖    → PONG
 package fakeagent
 
@@ -26,6 +29,33 @@ import (
 
 // Main 은 argv(프로그램 이름 제외)로 한 프로세스를 돈다. 종료 코드를 돌려준다.
 func Main(args []string, stdin io.Reader, stdout io.Writer) int {
+	for i, a := range args {
+		switch {
+		case a == "app-server":
+			return codexMain(args, stdin, stdout)
+		case a == "--mode" && i+1 < len(args) && args[i+1] == "rpc-ui":
+			return ompMain(args, stdin, stdout)
+		}
+	}
+	return claudeMain(args, stdin, stdout)
+}
+
+// readLines 는 stdin 을 줄 채널로 — 세 판이 같이 쓴다.
+func readLines(stdin io.Reader) chan []byte {
+	lines := make(chan []byte, 64)
+	go func() {
+		sc := bufio.NewScanner(stdin)
+		sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
+		for sc.Scan() {
+			lines <- append([]byte(nil), sc.Bytes()...)
+		}
+		close(lines)
+	}()
+	return lines
+}
+
+// claudeMain 은 stream-json 판이다.
+func claudeMain(args []string, stdin io.Reader, stdout io.Writer) int {
 	a := &agent{out: stdout, model: "fake-model-1", permMode: "default", sid: newID("sess")}
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
@@ -48,17 +78,8 @@ func Main(args []string, stdin io.Reader, stdout io.Writer) int {
 		}
 	}
 	a.init()
-	lines := make(chan []byte, 64)
-	go func() {
-		sc := bufio.NewScanner(stdin)
-		sc.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
-		for sc.Scan() {
-			lines <- append([]byte(nil), sc.Bytes()...)
-		}
-		close(lines)
-	}()
-	a.lines = lines
-	for line := range lines {
+	a.lines = readLines(stdin)
+	for line := range a.lines {
 		if code, exit := a.handle(line); exit {
 			return code
 		}

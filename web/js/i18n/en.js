@@ -849,6 +849,8 @@ I18N.register('en', {
   'html.focus_edge_hint': 'Draws a faint band along the screen edge while this browser window is not receiving keys. Set to 0 to draw nothing. The strength previews live while dragging. The colour is the inverse of what is underneath, so it stands out in any theme, and the inside of the screen is untouched so reading is unaffected. It is for knowing which of several windows gets your keys without pressing one.',
   'html.locale': 'Language',
   'html.locale_hint': 'The language of the screen. Changing it reopens the page. Output inside terminals and server logs do not change.',
+  'html.agent_approval': 'Agent approval policy',
+  'html.agent_approval_hint': 'Approval policy for the next agent tool you open (always-ask · write · yolo). Only agents that take a policy at launch receive it; tools already running do not change.',
   'html.mode_auto': 'Auto (by viewport)',
   'html.mode_desktop': 'Desktop (forced)',
   'html.mode_hint': 'In \'Auto\' mode the mobile layout is used when the window is narrower than the breakpoint.',

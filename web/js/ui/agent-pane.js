@@ -378,6 +378,14 @@ class AgentPane {
       for(const [qi,q] of (req.questions||[]).entries()){
         const fs=document.createElement('fieldset'); fs.className='agp-q';
         const lg=document.createElement('legend'); lg.textContent=(q.header?q.header+' — ':'')+q.question; fs.appendChild(lg);
+        if(q.freeText){
+          // 선택지 없는 질문 — 글로 답한다 (P4: omp 의 input·editor, codex 의 선택지 없는 질문).
+          const inp=document.createElement('input'); inp.type='text'; inp.className='agp-q-text'; inp.setAttribute('aria-label',q.question);
+          inp.addEventListener('input',()=>{ answers[q.question]=inp.value });
+          answers[q.question]='';
+          fs.appendChild(inp); body.appendChild(fs); fields.push(fs);
+          continue;
+        }
         for(const [oi,o] of (q.options||[]).entries()){
           const lab=document.createElement('label'); lab.className='agp-q-opt';
           const inp=document.createElement('input'); inp.type=q.multiSelect?'checkbox':'radio'; inp.name='agp-q-'+this.id+'-'+qi; inp.value=o.label;

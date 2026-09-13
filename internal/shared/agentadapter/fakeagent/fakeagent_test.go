@@ -24,7 +24,14 @@ type run struct {
 
 func start(t *testing.T, args ...string) *run {
 	t.Helper()
-	ad, err := agentadapter.Get("claude")
+	return startAs(t, "claude", args...)
+}
+
+// startAs 는 어댑터 id 의 Decode 로 읽는다 — 가짜가 어느 프로토콜을 말할지는 args 의
+// 모양이 고른다 (fakeagent.Main).
+func startAs(t *testing.T, id string, args ...string) *run {
+	t.Helper()
+	ad, err := agentadapter.Get(id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +99,7 @@ func TestFake_PongTurn(t *testing.T) {
 	if ev.SessionID == "" || ev.Status.Model != "fake-x" {
 		t.Fatalf("init: %+v", ev)
 	}
-	r.send(r.proto.Handshake(r.st)...)
+	r.send(r.proto.Handshake(agentadapter.LaunchOpts{}, r.st)...)
 	_, ev = r.until(t, agentadapter.EvStatus)
 	if len(ev.Status.Models) != 2 || len(ev.Status.Commands) != 3 {
 		t.Fatalf("initialize 응답: %+v", ev.Status)
@@ -181,5 +188,103 @@ func TestFake_ResumeAndClear(t *testing.T) {
 	_, ev = r.until(t, agentadapter.EvReset)
 	if ev.SessionID == "" || ev.SessionID == "sess-fixed" || r.st.SessionID != ev.SessionID {
 		t.Fatalf("reset 은 신원을 바꾼다: %+v st=%s", ev, r.st.SessionID)
+	}
+}
+
+// 세 프로토콜 판이 같은 시나리오를 돈다 (§9.2 R-a). 기동 argv 는 그 어댑터의 Launch 가
+// 만든 것 그대로 — 가짜는 그 모양으로 판을 고른다.
+func launchOf(t *testing.T, id string, o agentadapter.LaunchOpts) (*agentadapter.Proto, []string) {
+	t.Helper()
+	ad, err := agentadapter.Get(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	o.Bin = "fake"
+	return ad.Proto, ad.Proto.Launch(o)[1:]
+}
+
+func TestFake_AllProtocols(t *testing.T) {
+	for _, id := range []string{"codex", "omp"} {
+		t.Run(id, func(t *testing.T) {
+			p, argv := launchOf(t, id, agentadapter.LaunchOpts{Model: "fake/fake-x"})
+			r := startAs(t, id, argv...)
+			r.send(p.Handshake(agentadapter.LaunchOpts{Cwd: "/w", Model: "fake/fake-x"}, r.st)...)
+			_, ev := r.until(t, agentadapter.EvSession)
+			if ev.SessionID == "" || ev.Status == nil || ev.Status.Model == "" {
+				t.Fatalf("session: %+v", ev)
+			}
+			_, ev = r.until(t, agentadapter.EvStatus)
+			for ev.Status == nil || len(ev.Status.Models) == 0 {
+				_, ev = r.until(t, agentadapter.EvStatus)
+			}
+			if len(ev.Status.Models) != 2 {
+				t.Fatalf("models: %+v", ev.Status)
+			}
+			r.send(p.Prompt("say PONG", r.st)...)
+			kinds, ev := r.until(t, agentadapter.EvTurnEnd)
+			joined := strings.Join(kinds, ",")
+			for _, want := range []string{"turn_start", "text_delta", "message", "usage", "turn_end"} {
+				if !strings.Contains(joined, want) {
+					t.Fatalf("PONG 턴에 %s 가 없다: %s", want, joined)
+				}
+			}
+			if ev.IsError {
+				t.Fatalf("성공 턴이 오류로 읽혔다: %+v", ev)
+			}
+			// 승인 왕복 (V-2).
+			r.send(p.Prompt("APPROVE please", r.st)...)
+			_, ev = r.until(t, agentadapter.EvApprovalOpen)
+			req := ev.Approval
+			if req.Kind != agentadapter.ApprovalPermission || req.Tool == "" || len(req.Options) < 2 || req.Options[0].ID != agentadapter.ChoiceAllow {
+				t.Fatalf("승인 요청: %+v", req)
+			}
+			frame, err := p.Approve(*req, agentadapter.Decision{Choice: agentadapter.ChoiceAllow}, r.st)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r.send(frame)
+			kinds, _ = r.until(t, agentadapter.EvTurnEnd)
+			joined = strings.Join(kinds, ",")
+			if !strings.Contains(joined, "tool_end") || !strings.Contains(joined, "text_delta") {
+				t.Fatalf("도구 결과 · 본문이 있어야 한다: %s", joined)
+			}
+			if len(r.st.Open) != 0 {
+				t.Fatalf("열린 요청이 남았다: %d", len(r.st.Open))
+			}
+			// 질문 (FR-AGT-4).
+			r.send(p.Prompt("QUESTION", r.st)...)
+			_, ev = r.until(t, agentadapter.EvApprovalOpen)
+			if ev.Approval.Kind != agentadapter.ApprovalQuestion || len(ev.Approval.Questions) != 1 || len(ev.Approval.Questions[0].Options) != 2 {
+				t.Fatalf("질문: %+v", ev.Approval)
+			}
+			frame, err = p.Approve(*ev.Approval, agentadapter.Decision{Answers: map[string]string{"Pick a color": "Blue"}}, r.st)
+			if err != nil {
+				t.Fatal(err)
+			}
+			r.send(frame)
+			_, ev = r.until(t, agentadapter.EvTextDelta)
+			if ev.Text != "Blue" {
+				t.Fatalf("답한 라벨을 되읊어야 한다: %q", ev.Text)
+			}
+			r.until(t, agentadapter.EvTurnEnd)
+			// 인터럽트 (FR-AGT-4a) 와 죽음 (V-8).
+			r.send(p.Prompt("SLOW", r.st)...)
+			r.until(t, agentadapter.EvTextDelta)
+			r.send(p.Interrupt(r.st))
+			kinds, ev = r.until(t, agentadapter.EvTurnEnd)
+			joined = strings.Join(kinds, ",")
+			if strings.Contains(joined, "slow done") || strings.Count(joined, "text_delta") >= 50 {
+				t.Fatalf("인터럽트가 끊지 못했다: %s", joined)
+			}
+			r.send(p.Prompt("DIE", r.st)...)
+			select {
+			case code := <-r.exited:
+				if code != 1 {
+					t.Fatalf("exit=%d", code)
+				}
+			case <-time.After(5 * time.Second):
+				t.Fatal("DIE 가 끝나지 않았다")
+			}
+		})
 	}
 }

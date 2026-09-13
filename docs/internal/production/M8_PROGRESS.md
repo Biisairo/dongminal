@@ -5,7 +5,7 @@
 
 ---
 
-## 1. 어디까지 왔나 (2026-09-13, 다섯 번째 세션 — **P3 완료**)
+## 1. 어디까지 왔나 (2026-09-13, 여섯 번째 세션 — **P4 완료**)
 
 | 단계 | 상태 |
 |---|---|
@@ -13,7 +13,8 @@
 | **P1** A ①~④ + `TEST-8` | **완료** — 아래 §1-1 표. `go test -race -shuffle=on -count=1 ./...` 통과 · `make gates` 초록 · 전량 e2e unexpected 0 (§1-2) |
 | **P2** B 국제화 | **완료** — 아래 §1-3 표. 사용자 결정 FR-B-1(안 A) · 카탈로그 915키(ko·en 전수) · 게이트 `check-i18n.mjs`(35번째) · 전량 e2e §1-4 |
 | **P3** C-a 묶음 P+T (claude) | **완료** — 아래 §1-5 표. Go `-race -shuffle` 초록 · `make gates` 초록 · `agent-tool.spec.ts` 7/7(3회 반복 21/21) · 전량 e2e §1-6. 두 세션(첫 세션이 Go·뷰, 둘째 세션이 e2e 4건의 원인 둘 = §2-25·§2-26) |
-| P4~P7 | 착수 전 — P4 착수 프롬프트는 `M8_NEXT_SESSION.md` |
+| **P4** C-b codex·omp 어댑터 | **완료** — 아래 §1-7 표. 실측 먼저(스펙 §2.3.3 P4 표) · FR-U-2 첫 판정 "한 구조체에 든다" · `codex_proto.go`·`omp_proto.go` + R-8 표 · 가짜가 세 프로토콜을 말한다 · `agent-tool.spec.ts` 13/13 · 대조 잡 `drift_test.go`(실제 바이너리 셋 초록) · 전량 e2e §1-8 |
+| P5~P7 | 착수 전 — P5 착수 프롬프트는 `M8_NEXT_SESSION.md` |
 
 **사용자 판단 셋은 착수 시 해소됐다** (2026-09-13): FR-APS-10 정정(stdio 제어 프레임,
 MCP 서버 없음) · D-U-4 정정(변형 + `Kind`) · FR-AGT-11·12 확정. 스펙 본문과 §9.3 ⑤⑥,
@@ -120,6 +121,33 @@ R-2 에 반영했고 `decisions.md` 를 다시 만들었다.
 | — | (발견) 뷰의 재생 경합 · 열린 요청 수 이중 계수 | **해소** — §2-26. `_pending` 버퍼 · `_openIds` 집합 | `agent-pane.js` |
 | V | V-1·2·5·6·8·9·12·13 | Go 테스트 · V-3·V-10 e2e · V-11 `git diff` 로 확인(훅 표면 diff 0, `claude.go` 3줄) | |
 
+### 1-7. P4 항목별 판정
+
+**규약대로 실측이 먼저였다** (R-5 · §9.1 "추측해 채우지 않는다"): P0 드라이버로 codex 0.154.0 ·
+omp 17.4.0 을 다시 띄웠고(자격증명 없음 — 무모델 프레임), 표는 스펙 §2.3.3 "P4 재실측". 사용자에게
+자격증명을 묻지 않았다 (P0 결정).
+
+| 묶음 | 항목 | 판정 | 어디에 |
+|---|---|---|---|
+| U | FR-U-2 첫 판정 — 둘 다 `Proto` 한 구조체에 드는가 | **든다** — GUI 용 어댑터 없음. 계약이 움직인 곳 셋: `Handshake(opts, st)` · `LaunchOpts.Approval` · `Question.FreeText` (스펙 §9.3 ③ P4 판정) | `proto.go` |
+| P | codex 어댑터 (FR-APS-1~9 · F-3) | **해소** — `app-server` 하나 + 핸드셰이크 넷(initialize·initialized·thread/start\|resume·model/list, 파이프라인) · thread 하나 · 서버 요청 넷(command·fileChange·permissions·requestUserInput)이 승인·질문 · JSON-RPC id 원문 되돌림 · `serverRequest/resolved` 로 닫힘 · `Control` 은 다음 turn/start(빈 프레임) · `PermissionModes` untrusted·on-request·never | `codex_proto.go` · `codex_proto_test.go`(7) |
+| P | omp 어댑터 (FR-APS-1~9 · F-4) | **해소** — `--mode rpc-ui --approval-mode <정책\|always-ask>` 반드시 · `get_state`·`get_available_models` 핸드셰이크 · `agent_start/end{isTerminal}` 이 공통 턴 · `extension_ui_request` 전부(`select`·`confirm`·`input`·`editor`·`notify`·`open_url`·위젯) 가 Kind 둘로 · `Cancel` 있음(U-7) · `set_model{provider/modelId}`·`set_thinking_level` · 판 1(rpc_chunk 안 씀) | `omp_proto.go` · `omp_proto_test.go`(7) |
+| P | F-4 설정 키 | **해소** — `agentApprovalMode`(string, def `always-ask`, Display ▸ 에이전트 승인 정책) `SETTINGS_SCHEMA`·`SETTINGS_ACCESS`·`helpers`·`index.html`·ko/en 둘 · 생성 쿼리 `approval` → `LaunchOpts.Approval`. TC-CFG-4 24→25 | `settings-schema.js` · `app-settings*.js` · `handlers_agent.go` |
+| P | R-8 표 (두 표면 한 표) | **해소** — `protoSurface` 셋 다 true. `codex.go`·`omp.go` 는 `Proto:` 두 줄씩 (V-11: 훅 표면 diff 0) | `proto_test.go` |
+| P | 가짜 에이전트 세 프로토콜 (§9.2 R-a · V-12) | **해소** — argv 모양으로 판을 고른다(`app-server`→JSON-RPC · `--mode rpc-ui`→NDJSON · 그 밖→stream-json), 이름 리터럴 없음. 시나리오 다섯이 세 판 같다. `TestFake_AllProtocols` · `TestAgentAPI_AllProtocols`(HTTP 표면에서 셋) · e2e TC-AGT-8~10 × codex·omp | `fakeagent/fake_codex.go`·`fake_omp.go` · `agent_api_test.go` · `agent-tool.spec.ts` |
+| T | 뷰 (FR-U-2 "소비자는 달라지지 않는다") | **한 자리** — 선택지 없는 질문의 글 입력(`agp-q-text`, `Question.FreeText`). 그 밖의 뷰·해석층·HTTP 는 어댑터를 모른 채 그대로 — 매개변수 하나(`approval`) 와 `Open(…, opts)` 통과뿐 | `agent-pane.js` · `app-agent-tool.js` · `session.go` |
+| — | D-U-5 대조 잡의 주기 | **결정** — `drift_test.go`(`-tags agentdrift`, CI 밖). 주기는 사건(단계 착수·바이너리 판 오름·어댑터 수정). P4 실행: claude·codex·omp 셋 초록 (세션·모델 목록·모르는 프레임 0·EOF 종료 0.01~0.6s) | 스펙 D-U-5 |
+| — | (발견) claude `system:init` 은 첫 프롬프트 뒤 | **기록** — §2-28. 가짜(P3)는 기동 즉시 낸다 — 드리프트 잡이 잡았다. 고치는 자리는 P5(세션 신원·재개)와 함께 | `drift_test.go` `driftSessionAtHandshake` |
+| — | (발견) codex 되살림은 thread 를 잃는다 | **P5** — 살아 있는 프로세스에 핸드셰이크를 다시 보내면 새 thread. 신원을 디스크에 남기는 P5 의 휴면·재개에서 | 스펙 §2.3.3 P4 표 "재개" |
+| V | V-1(형태)·V-2·V-8·V-12·V-13 | Go 테스트(agentadapter 22 · fakeagent 6 · httpapi AgentAPI 8) · V-1(드리프트) `drift_test` · e2e 13/13 · V-11 `git diff` (codex.go·omp.go 2줄씩) | |
+
+### 1-8. 전량 e2e (P4 판정)
+
+| 회차 | 결과 | 비고 |
+|---|---|---|
+| ① 코드 완료 직후 | **무효** — 두 실행이 겹쳤다 | `&` 로 띄운 첫 `make e2e` 의 서브셸이 죽지 않고 살아남아 둘째와 나란히 돌았고(`xargs -P 4` 둘), 서로의 `test-results/*/traces` 와 `/tmp/dongminal-e2e-*` 홈을 지웠다(ENOENT 폭주, 초반 샤드마다 `waitForInit` 15s 시한). 그 사이에 드리프트 잡(`go test -tags agentdrift`)도 두 번 돌렸다. 판정 불가 — 둘 다 죽이고 청소한 뒤 다시 |
+| ② 단독 실행 | **unexpected 0** · flaky 4 | 1,657 통과 · 8샤드 각 4.1~4.5분. flaky 넷은 전부 M7 §5-5 군집·그 이웃(`git-commit` E13 · `git-history` H6·H22 · `slot-view-state` TC-SVS-53) — P1·P2·P3 의 표에도 같은 스펙들이 있다. 에이전트 도구 13건은 재시도 없이 통과. `make e2e-rebalance` 로 시간표 갱신(8샤드 400~401s, 불균형 1.00배) |
+
 ### 1-6. 전량 e2e (P3 판정)
 
 | 회차 | 결과 | 비고 |
@@ -196,6 +224,31 @@ commands 병합이 떨어졌다. 뒤이어 앉은 서버 상태는 그 status **
 틈도 없어 다시 묻지 않았다 (trace: events 응답 `commands=None nev=0` 하나뿐). `AgentPane` 은 이제
 비행 중의 SSE 를 `_pending` 에 잡아 두었다가 재생 뒤에 `onEvent` 로 이어 붙인다 — 틈이면 그 자리에서
 다시 재생한다.
+
+### 2-27. (P4) 두 프로토콜의 차이는 전부 함수 안에서 끝났다 — 계약이 움직인 곳은 셋
+
+실측이 먼저였다. codex 는 응답을 기다리지 않고 `initialize`·`initialized`·`thread/start` 를 한 줄씩 이어
+보내도 순서대로 처리했고(핸드셰이크가 한 번의 `[][]byte` 로 끝난다), 빈 줄을 무시했다(세션 중 제어가
+없는 codex 의 `Control` 이 빈 프레임을 돌려줄 수 있는 근거). omp 는 `--resume` 에 없는 id 를 주면
+exit 1 이고, `set_model` 의 응답이 모델 객체라 상태 갱신이 거기서 난다. 세 표면의 차이가 `Proto` 의
+함수 안에서 끝난다는 P0 의 판정(§9.3 ③)은 맞았고, 시안에서 움직인 것은 셋뿐이다: `Handshake` 가
+`LaunchOpts` 를 받는다(codex 의 cwd·모델·재개는 요청의 것) · `LaunchOpts.Approval`(F-4) ·
+`Question.FreeText`(omp 의 `input`). 소비자는 `Open` 에 이미 가진 opts 를 넘기고, 생성 쿼리에 `approval`
+하나가 늘었고, 뷰는 글 입력 한 종류를 더 그린다 — 어댑터 이름은 어디에도 없다.
+
+승인 선택지는 프로토콜 것 그대로다 (FR-AGT-5): codex 는 `accept`·`decline` 을 `allow`·`deny` 자리에,
+`acceptForSession`·`acceptWithExecpolicyAmendment`·`cancel` 을 제안 자리에 두고 Raw 가 decision 원문이다.
+omp 는 `Approve`·`Deny` 가 `allow`·`deny` 자리다. 그래서 다이얼로그 하나가 셋을 그린다 — e2e 는 선택지
+수(5·2)와 도구 이름(`commandExecution`·`bash`)만 다르다.
+
+### 2-28. (P4) 대조 잡이 첫 실행에서 P3 의 가짜와 실제의 어긋남을 잡았다
+
+`drift_test.go` 를 실제 바이너리 셋으로 돌리자 claude 만 "세션 신원이 오지 않았다" 로 실패했다. P0 의
+원본(`claude-ctl.jsonl`)을 다시 보니 `system:init` 은 **첫 `user` 프레임 뒤**(SessionStart 훅 뒤)에
+온다 — 기동 즉시가 아니다. P3 의 가짜는 기동 즉시 낸다. 뜻: 실제 claude 에서는 첫 프롬프트 전까지
+세션 id 가 비고 활동이 `idle` 로 서지 않는다 (`dmctl wait --for ready` 는 첫 턴 뒤에 답한다). codex·omp
+는 핸드셰이크 응답에서 신원이 온다. 드리프트 잡은 이 사실을 표(`driftSessionAtHandshake`)로 들고,
+고치는 일은 P5(세션 신원·재개·휴면)의 몫이다 — 가짜를 실제에 맞추는 것도 그때.
 
 ### 2-14. (P2) 감사는 주석을 셌고, "6곳" 은 이미 0 이었다
 

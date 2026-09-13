@@ -25,8 +25,10 @@ type Proto struct {
 	// Launch 는 프로토콜 모드 기동 argv 다. 프롬프트는 싣지 않는다 — 입력은
 	// Prompt 가 프레임으로 만든다. opts.Bin 이 실행 파일이다 (§9.3 ② 의 전제).
 	Launch func(opts LaunchOpts) []string
-	// Handshake 는 기동 직후 호스트가 먼저 보내는 프레임들이다. nil 이면 없다.
-	Handshake func(st *ProtoState) [][]byte
+	// Handshake 는 기동 직후 호스트가 먼저 보내는 프레임들이다. nil 이면 없다. opts 는
+	// Launch 가 받은 것과 같다 — 기동 인자에 실리지 않는 것(codex 의 cwd·모델·재개는
+	// `thread/start|resume` 요청의 것이다)이 여기서 프레임이 된다.
+	Handshake func(opts LaunchOpts, st *ProtoState) [][]byte
 	// Decode 는 stdout 한 줄을 공통 이벤트로 옮긴다. ok=false 는 "모르는 프레임" —
 	// 호출자가 원문을 이벤트 로그에 남기고 부재로 올린다 (FR-APS-8). st 는 갱신된다
 	// (세션 신원 · 열린 요청 · 어댑터 사적 상태). 아는 프레임인데 이벤트가 없으면
@@ -60,6 +62,11 @@ type LaunchOpts struct {
 	Resume string
 	// PermissionMode 는 기동 시 권한 모드다. 비어 있으면 에이전트의 기본.
 	PermissionMode string
+	// Approval 은 기동 시 승인 정책이다 — 어댑터의 어휘 그대로 (§9.3 ⑥ F-4). 비어
+	// 있으면 어댑터가 **안전한 쪽**을 고른다: 기본이 무승인(yolo)인 에이전트는 인자
+	// 없이 띄우면 승인 요청이 한 번도 오지 않으므로, 그 어댑터는 이 값을 반드시 싣는다.
+	// 정책을 기동 인자로 받지 않는 에이전트는 무시한다 (FR-APS-4 — 부재).
+	Approval string
 }
 
 // ProtoState 는 도구 하나의 프로토콜 상태다. 어댑터만 읽고 쓴다.
@@ -78,7 +85,8 @@ func NewProtoState() *ProtoState {
 
 // ControlOp 는 세션 중 제어 하나다 (FR-AGT-11).
 type ControlOp struct {
-	// Kind 는 제어의 종류 — `set_model` · `set_permission_mode` · `set_max_thinking_tokens`.
+	// Kind 는 제어의 종류 — `set_model` · `set_permission_mode` · `set_max_thinking_tokens` ·
+	// `set_thinking_level`. 어댑터마다 받는 것이 다르다 (FR-APS-4).
 	Kind  string
 	Value string
 }
@@ -131,6 +139,9 @@ type Question struct {
 	Header      string           `json:"header,omitempty"`
 	Options     []QuestionOption `json:"options"`
 	MultiSelect bool             `json:"multiSelect,omitempty"`
+	// FreeText 는 선택지 없이 글로 답하는 질문이다 (omp `input`·`editor` UI 요청).
+	// 답은 Decision.Answers[Question] 그대로다.
+	FreeText bool `json:"freeText,omitempty"`
 }
 
 // QuestionOption 은 질문의 선택지 하나다.
@@ -156,7 +167,7 @@ const (
 	EvTurnEnd        EventKind = "turn_end"        // 턴 종료 — Text 는 종료 사유
 	EvTextDelta      EventKind = "text_delta"      // 본문 증분
 	EvThinkingDelta  EventKind = "thinking_delta"  // 추론 증분
-	EvMessage        EventKind = "message"         // 에이전트 메시지 스냅샷 (Message = content 블록들)
+	EvMessage        EventKind = "message"         // 에이전트 메시지 스냅샷 (Message = content 블록들 — 아래 어휘)
 	EvUser           EventKind = "user"            // 사용자 쪽 텍스트 (우리가 보낸 프롬프트 · 로컬 명령 출력)
 	EvToolStart      EventKind = "tool_start"      // 도구 호출 시작
 	EvToolEnd        EventKind = "tool_end"        // 도구 결과
@@ -172,6 +183,10 @@ const (
 
 // Event 는 공통 이벤트다. Kind 별 값만 채워지고, 없는 것은 영값이 아니라 부재다
 // (FR-APS-4) — 포인터·omitempty 가 그 뜻을 와이어에 남긴다.
+//
+// Message 는 블록 배열이며 어휘는 셋이다 — `{type:"text",text}` · `{type:"thinking",
+// thinking}` · `{type:"tool_use",id,name,input}`. 어댑터가 자기 프로토콜의 블록을 이
+// 셋으로 옮긴다 (FR-APS-7) — 뷰는 이 셋만 그린다.
 type Event struct {
 	Kind      EventKind        `json:"kind"`
 	SessionID string           `json:"sessionId,omitempty"`

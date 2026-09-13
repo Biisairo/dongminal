@@ -96,7 +96,7 @@ func (s *Server) AgentAdoptExisting() {
 			dmlog.Warnf(nil, "[agent %s] 어댑터 %q 를 되살리지 못했다: %v", ti.ID, ti.Agent, err)
 			continue
 		}
-		if _, err := s.agentMgr().Open(ti.ID, ad); err != nil {
+		if _, err := s.agentMgr().Open(ti.ID, ad, agentadapter.LaunchOpts{}); err != nil {
 			dmlog.Warnf(nil, "[agent %s] open: %v", ti.ID, err)
 		}
 	}
@@ -134,9 +134,11 @@ func (s *Server) createAgentTool(w http.ResponseWriter, r *http.Request, cwd str
 		httpErr(w, "agent binary not found", http.StatusNotFound, apierr.CodeAgentBinMissing)
 		return
 	}
-	argv := ad.Proto.Launch(agentadapter.LaunchOpts{
-		Bin: bin, Cwd: cwd, Model: q.Get("model"), Resume: q.Get("resume"), PermissionMode: q.Get("permissionMode"),
-	})
+	opts := agentadapter.LaunchOpts{
+		Bin: bin, Cwd: cwd, Model: q.Get("model"), Resume: q.Get("resume"),
+		PermissionMode: q.Get("permissionMode"), Approval: q.Get("approval"),
+	}
+	argv := ad.Proto.Launch(opts)
 	tool, err := s.tools(r).Create(cwd, cols, rows, toolhub.Placement{
 		WindowUUID: q.Get("window"), Kind: toolhub.KindAgent, Argv: argv, Agent: ad.ID,
 	})
@@ -148,7 +150,7 @@ func (s *Server) createAgentTool(w http.ResponseWriter, r *http.Request, cwd str
 		fail(w, http.StatusInternalServerError, "도구를 만들지 못했습니다", err)
 		return
 	}
-	if _, err := s.agentMgr().Open(tool.ID, ad); err != nil {
+	if _, err := s.agentMgr().Open(tool.ID, ad, opts); err != nil {
 		fail(w, http.StatusInternalServerError, "도구를 만들지 못했습니다", err)
 		return
 	}

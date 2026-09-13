@@ -8,7 +8,9 @@ import { test, expect, waitForInit, waitSettled } from './fixtures';
  * FR-AGT-1·4·4a·5·7·9·10·12). 에이전트는 가짜다 (`global-setup` 이 `DONGMINAL_AGENT_BIN_DIR`
  * 에 놓는다, D-C-7·9) — 시나리오는 프롬프트 본문이 고른다.
  *
- * 어댑터 id `claude` 는 등록부의 것이다. e2e 는 Go 를 읽지 못하므로 여기 적는다.
+ * 어댑터 id `claude`·`codex`·`omp` 는 등록부의 것이다. e2e 는 Go 를 읽지 못하므로 여기
+ * 적는다. 앞의 일곱은 claude 로 뷰의 전부를 재고, 뒤의 행렬(P4)은 나머지 두 프로토콜이
+ * **같은 뷰**에서 같은 시나리오를 도는지 잰다 (FR-U-2 — 소비자 쪽은 달라지지 않는다).
  */
 const AGENT = 'claude';
 const MENU_ITEM = `.ui-menu .ui-menu-item[data-id="agent:${AGENT}"]`;
@@ -16,13 +18,14 @@ const MENU_ITEM = `.ui-menu .ui-menu-item[data-id="agent:${AGENT}"]`;
 // 에이전트 탭이면 그것은 서지 않는다 (InitOpts.readyFor).
 const AGENT_PANE_READY = '#area .pn.focused .agent-pane.vis';
 
-async function openAgentTab(page: Page) {
+async function openAgentTab(page: Page, agent = AGENT) {
+  const item = `.ui-menu .ui-menu-item[data-id="agent:${agent}"]`;
   const before = await page.locator('#area .pn.focused .pn-tab').count();
   await page.locator('#area .pn.focused .pn-tab-add').click({ button: 'right' });
-  await expect(page.locator(MENU_ITEM)).toBeVisible({ timeout: 10000 });
+  await expect(page.locator(item)).toBeVisible({ timeout: 10000 });
   const [resp] = await Promise.all([
     page.waitForResponse((r) => r.url().includes('/api/tools?kind=agent') && r.request().method() === 'POST'),
-    page.locator(MENU_ITEM).click(),
+    page.locator(item).click(),
   ]);
   expect(resp.status()).toBe(200);
   await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
@@ -204,3 +207,74 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before - 1, { timeout: 10000 });
   });
 });
+
+/**
+ * P4 · §9.2 R-a: 나머지 두 프로토콜. 승인 선택지의 수와 도구 이름은 프로토콜이 준 그대로다
+ * (FR-AGT-5) — codex 는 accept·decline·acceptForSession·amendment·cancel 다섯, omp 는
+ * Approve·Deny 둘. 그 밖의 뷰 동작은 셋이 같아야 한다.
+ */
+const OTHERS = [
+  { agent: 'codex', tool: 'commandExecution', choices: 5 },
+  { agent: 'omp', tool: 'bash', choices: 2 },
+];
+
+for (const { agent, tool, choices } of OTHERS) {
+  test.describe(`에이전트 도구 — ${agent} (M8 P4)`, () => {
+    test(`TC-AGT-8/${agent}: 한 턴 · 사용량 · 모델 (FR-AGT-1·6)`, async ({ page }) => {
+      await waitForInit(page);
+      const pane = await openAgentTab(page, agent);
+      await expect(page.locator('#area .pn.focused .pn-tab.active .pn-tab-label')).toHaveText(agent);
+      await send(pane, 'say PONG');
+      await expect(pane.locator('.agp-msg.agp-user .agp-body')).toHaveText('say PONG');
+      await expect(pane.locator('.agp-msg.agp-assistant .agp-body').last()).toHaveText('PONG', { timeout: 15000 });
+      await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
+      await expect(pane.locator('.agp-ctx')).toContainText('%');
+      await expect(pane.locator('.agp-model')).toContainText('fake-model-1');
+      expect(await axeViolations(page)).toEqual([]);
+    });
+
+    test(`TC-AGT-9/${agent}: 승인 다이얼로그 — 선택지는 프로토콜 것 그대로 (V-2, FR-AGT-5)`, async ({ page }) => {
+      await waitForInit(page);
+      const pane = await openAgentTab(page, agent);
+      await send(pane, 'please APPROVE this');
+      const dlg = page.locator('.ui-modal.agp-modal .ui-modal-box');
+      await expect(dlg).toBeVisible({ timeout: 15000 });
+      await expect(dlg.locator('.ui-modal-title')).toContainText(tool);
+      await expect(dlg.locator('.agp-appr-in')).toContainText('touch fake.txt');
+      await expect(dlg.locator('.agp-choice')).toHaveCount(choices);
+      await expect(page.locator('#toast-host')).toContainText(tool);
+      await expect(pane).toHaveAttribute('data-state', 'waiting');
+      await expect(pane.locator('.agp-open')).toContainText('1');
+      expect(await axeViolations(page)).toEqual([]);
+      await dlg.locator('.agp-choice[data-choice="allow"]').click();
+      await expect(page.locator('.ui-modal.agp-modal')).toBeHidden({ timeout: 10000 });
+      await expect(pane.locator('.agp-msg.agp-assistant .agp-body').last()).toHaveText('DONE', { timeout: 15000 });
+      await expect(pane.locator('.agp-tool .agp-tool-res').first()).toBeVisible();
+      await expect(pane.locator('.agp-open')).toHaveText('');
+      await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
+    });
+
+    test(`TC-AGT-10/${agent}: 질문 답변 · Esc 인터럽트 · 죽음 (FR-AGT-4·4a, V-8)`, async ({ page }) => {
+      await waitForInit(page);
+      const pane = await openAgentTab(page, agent);
+      await send(pane, 'QUESTION');
+      const dlg = page.locator('.ui-modal.agp-modal .ui-modal-box');
+      await expect(dlg).toBeVisible({ timeout: 15000 });
+      await expect(dlg.locator('.agp-q legend')).toContainText('Pick a color');
+      await expect(dlg.locator('.agp-q input')).toHaveCount(2);
+      await dlg.locator('.agp-q input[value="Blue"]').check();
+      await dlg.locator('.ui-modal-foot .ui-btn-primary').click();
+      await expect(dlg).toBeHidden({ timeout: 10000 });
+      await expect(pane.locator('.agp-msg.agp-assistant .agp-body').last()).toHaveText('Blue', { timeout: 15000 });
+      await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
+      await send(pane, 'SLOW');
+      await expect(pane.locator('.agp-msg.agp-live .agp-body')).toContainText('tick', { timeout: 15000 });
+      await pane.locator('.agp-ta').press('Escape');
+      await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
+      await expect(pane.locator('.agp-msg.agp-assistant .agp-body').last()).not.toContainText('slow done');
+      await send(pane, 'DIE');
+      await expect(pane).toHaveAttribute('data-state', 'ended', { timeout: 15000 });
+      await expect(pane.locator('.agp-ta')).toBeDisabled();
+    });
+  });
+}

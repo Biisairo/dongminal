@@ -91,7 +91,7 @@ func claudeControlRequest(st *ProtoState, subtype, value string, body map[string
 
 // claudeHandshake 는 `initialize` 하나다 — 모델 목록·명령 목록·계정·권한 모드를 준다
 // (FR-AGT-11). 실측한 모양 그대로 `hooks:{}` 를 싣는다.
-func claudeHandshake(st *ProtoState) [][]byte {
+func claudeHandshake(_ LaunchOpts, st *ProtoState) [][]byte {
 	return [][]byte{claudeControlRequest(st, "initialize", "", map[string]any{"hooks": map[string]any{}})}
 }
 

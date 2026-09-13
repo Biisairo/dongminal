@@ -74,8 +74,9 @@ func New(d Deps) *Manager {
 
 // Open 은 도구에 세션을 세운다. 핸드셰이크를 보내고 지금까지의 출력을 스냅샷으로
 // 되메운다 — 세션이 붙기 전에 나온 첫 프레임을 놓치지 않기 위해서다 (D-C-2).
-// 이미 있으면 그것을 돌려준다.
-func (m *Manager) Open(toolID string, ad agentadapter.Adapter) (*Session, error) {
+// 이미 있으면 그것을 돌려준다. opts 는 기동에 쓴 것 그대로다 — 핸드셰이크가 그것을
+// 프레임으로 옮기는 어댑터가 있다 (P4 codex).
+func (m *Manager) Open(toolID string, ad agentadapter.Adapter, opts agentadapter.LaunchOpts) (*Session, error) {
 	if ad.Proto == nil {
 		return nil, fmt.Errorf("%s: 프로토콜 표면이 없다 (FR-APS-4)", ad.ID)
 	}
@@ -88,7 +89,7 @@ func (m *Manager) Open(toolID string, ad agentadapter.Adapter) (*Session, error)
 	m.sess[toolID] = s
 	m.mu.Unlock()
 	if ad.Proto.Handshake != nil {
-		for _, fr := range ad.Proto.Handshake(s.st) {
+		for _, fr := range ad.Proto.Handshake(opts, s.st) {
 			if err := m.write(toolID, fr); err != nil {
 				dmlog.Warnf(nil, "[agent %s] handshake write: %v", toolID, err)
 			}

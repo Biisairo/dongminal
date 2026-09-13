@@ -57,6 +57,28 @@ func fakeAgentBinDir(t *testing.T, ad agentadapter.Adapter) string {
 	return dir
 }
 
+// fakeAgentBinDirAll 은 프로토콜 표면이 있는 모든 어댑터의 이름으로 가짜를 놓는다.
+func fakeAgentBinDirAll(t *testing.T) string {
+	t.Helper()
+	var dir string
+	for _, id := range agentadapter.IDs() {
+		ad, _ := agentadapter.Get(id)
+		if ad.Proto == nil {
+			continue
+		}
+		if dir == "" {
+			dir = fakeAgentBinDir(t, ad)
+			continue
+		}
+		self, _ := os.Executable()
+		script := "#!/bin/sh\n" + fakeAgentEnv + "=1 exec '" + self + "' \"$@\"\n"
+		if err := os.WriteFile(filepath.Join(dir, ad.DetectCmd), []byte(script), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
 // sseCapture 는 CommandHub 의 방송을 모은다.
 type sseCapture struct {
 	mu     sync.Mutex
@@ -113,11 +135,11 @@ func waitAgent(t *testing.T, what string, cond func() bool) {
 // claudeID 는 검증 대상 어댑터다 — 이 테스트만 이름을 안다 (테스트는 게이트 밖).
 const claudeID = "claude"
 
-// directAgentServer 는 직접 모드 배선이다 (main.go 의 것과 같다).
+// directAgentServer 는 직접 모드 배선이다 (main.go 의 것과 같다). 가짜는 등록부의
+// 모든 어댑터 이름으로 놓인다 — 세 프로토콜을 같은 바이너리가 말한다.
 func directAgentServer(t *testing.T) (*Server, *toolhub.ToolManager, *sseCapture) {
 	t.Helper()
-	ad, _ := agentadapter.Get(claudeID)
-	fakeAgentBinDir(t, ad)
+	fakeAgentBinDirAll(t)
 	m := toolhub.NewToolManager(t.TempDir(), nil)
 	t.Cleanup(m.StopSaving)
 	cmdHub := hub.NewCommandHub()
@@ -131,14 +153,19 @@ func directAgentServer(t *testing.T) (*Server, *toolhub.ToolManager, *sseCapture
 
 func createAgent(t *testing.T, s *Server, query string) string {
 	t.Helper()
+	return createAgentAs(t, s, claudeID, query)
+}
+
+func createAgentAs(t *testing.T, s *Server, agent, query string) string {
+	t.Helper()
 	rec := httptest.NewRecorder()
-	s.apiToolsCreate(rec, apiTestRequest(http.MethodPost, "/api/tools?kind=agent&agent="+claudeID+query, nil))
+	s.apiToolsCreate(rec, apiTestRequest(http.MethodPost, "/api/tools?kind=agent&agent="+agent+query, nil))
 	if rec.Code != 200 {
 		t.Fatalf("create: %d %s %s", rec.Code, rec.Header().Get("X-Error-Code"), rec.Body.String())
 	}
 	var resp map[string]string
 	json.Unmarshal(rec.Body.Bytes(), &resp)
-	if resp["kind"] != "agent" || resp["agent"] != claudeID || resp["id"] == "" {
+	if resp["kind"] != "agent" || resp["agent"] != agent || resp["id"] == "" {
 		t.Fatalf("응답: %v", resp)
 	}
 	t.Cleanup(func() { _ = s.Tools.Delete(resp["id"]) })
@@ -511,5 +538,68 @@ func TestAgentAPI_DaemonTermChunkNoStall(t *testing.T) {
 	}
 	if d := time.Since(started); d > 2*time.Second {
 		t.Fatalf("청크 뒤의 RPC 가 %v 걸렸다 — readLoop 이 자기 RPC 를 기다렸다", d)
+	}
+}
+
+// P4 · §9.2 R-a: 프로토콜 표면이 있는 어댑터 전부가 같은 HTTP 표면에서 같은 시나리오를
+// 돈다 — 세션 신원·idle · 승인 왕복(waiting→done, 알람) · 죽음(exit). 소비자 쪽은 어댑터를
+// 모른다 (FR-U-1·2).
+func TestAgentAPI_AllProtocols(t *testing.T) {
+	for _, id := range agentadapter.IDs() {
+		ad, _ := agentadapter.Get(id)
+		if ad.Proto == nil || id == claudeID {
+			continue
+		}
+		t.Run(id, func(t *testing.T) {
+			s, m, sse := directAgentServer(t)
+			tid := createAgentAs(t, s, id, "")
+			tool := m.Get(tid)
+			waitAgent(t, "idle", func() bool { a := tool.Activity(); return a != nil && a.State == "idle" })
+			st, kinds, _ := agentEvents(t, s, tid, 0)
+			if st["sessionId"] == nil || st["sessionId"] == "" || !has(kinds, "session") {
+				t.Fatalf("세션: %v %v", st, kinds)
+			}
+			waitAgent(t, "models", func() bool {
+				st, _, _ := agentEvents(t, s, tid, 0)
+				status, _ := st["status"].(map[string]any)
+				return status["models"] != nil
+			})
+			agentPost(t, s, "/api/agent/prompt", `{"toolId":"`+tid+`","text":"please APPROVE this"}`)
+			waitAgent(t, "approval_open", func() bool { return has(sse.kinds(tid), "approval_open") })
+			a := tool.Activity()
+			if a == nil || a.State != "waiting" || a.Tool == "" || !strings.Contains(a.Detail, "touch") {
+				t.Fatalf("waiting 활동에 내용이 실려야 한다 (FR-AAL-4): %+v", a)
+			}
+			if !tool.Attention() {
+				t.Fatal("열린 승인 요청은 알람이다 (FR-AAL-3)")
+			}
+			st, _, _ = agentEvents(t, s, tid, 0)
+			open, _ := st["open"].([]any)
+			if len(open) != 1 {
+				t.Fatalf("열린 요청: %v", st["open"])
+			}
+			req := open[0].(map[string]any)
+			opts, _ := req["options"].([]any)
+			if len(opts) < 2 || opts[0].(map[string]any)["id"] != "allow" {
+				t.Fatalf("선택지: %v", opts)
+			}
+			tool.Attend()
+			if code, _ := agentPost(t, s, "/api/agent/approve", `{"toolId":"`+tid+`","id":"`+req["id"].(string)+`","choice":"allow"}`); code != 200 {
+				t.Fatalf("approve: %d", code)
+			}
+			waitAgent(t, "turn_end", func() bool { return has(sse.kinds(tid), "turn_end") })
+			for _, want := range []string{"approval_closed", "tool_end", "text_delta", "message", "usage", "turn_end"} {
+				if !has(sse.kinds(tid), want) {
+					t.Fatalf("승인 뒤 %s 가 없다: %v", want, sse.kinds(tid))
+				}
+			}
+			waitAgent(t, "done", func() bool { a := tool.Activity(); return a != nil && a.State == "done" })
+			if !tool.Attention() {
+				t.Fatal("사용자 프롬프트로 시작한 턴의 끝은 알람이다 (FR-AAL-2)")
+			}
+			agentPost(t, s, "/api/agent/prompt", `{"toolId":"`+tid+`","text":"DIE"}`)
+			waitAgent(t, "exit", func() bool { return has(sse.kinds(tid), "exit") })
+			waitAgent(t, "세션 소멸", func() bool { return s.agentMgr().Get(tid) == nil })
+		})
 	}
 }

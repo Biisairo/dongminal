@@ -323,7 +323,7 @@ CI 가 잡습니다 (`scripts/check-env-docs.sh`) — 문서는 조용히 낡으
 | `DONGMINAL_TOOL_HOME` | 사용자 홈 | 도구 셸이 자기 `HOME` 으로 여길 곳. 비면 사용자 홈입니다. 검사·격리 기동이 도구 셸을 사용자 홈에서 떼어내는 자리입니다 |
 | `DONGMINAL_HISTFILE` | `<home>/tool-history/…` | 도구 셸이 쓸 히스토리 파일. macOS `/etc/zshrc` 가 `HISTFILE` 을 무조건 덮으므로, 값은 서버가 정하고 zdotdir 의 rc 가 이 변수로 되살립니다 |
 | `DONGMINAL_SHELL` | 로그인 셸 | 도구 셸로 띄울 프로그램을 강제합니다. 비면 플랫폼 계층이 고릅니다 |
-| `DONGMINAL_AGENT_BIN_DIR` | (없음) | 에이전트 도구의 실행 파일을 **먼저** 찾을 디렉터리. 거기에 에이전트 이름(예: `claude`)의 파일이 있으면 그것을, 없으면 `PATH` 를 씁니다. 검사가 가짜 에이전트를 꽂는 자리입니다 |
+| `DONGMINAL_AGENT_BIN_DIR` | (없음) | 에이전트 도구의 실행 파일을 **먼저** 찾을 디렉터리. 거기에 에이전트 이름(`claude`·`codex`·`omp`)의 파일이 있으면 그것을, 없으면 `PATH` 를 씁니다. 검사가 가짜 에이전트를 꽂는 자리입니다 |
 
 ### 동작 조정
 

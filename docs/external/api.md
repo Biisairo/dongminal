@@ -45,16 +45,18 @@
 ### 에이전트 도구 (프로토콜 표면)
 
 터미널 대신 **프레임**으로 대화하는 에이전트 도구다 (`M8_UNIFIED_SRS` 묶음 P·T). 생성은
-터미널과 같은 종단 `POST /api/tools?kind=agent&agent=<id>&cwd=&cwdTool=&model=&permissionMode=&resume=`
-이고, 응답 `{ id, name, kind: "agent", agent }`. 그 뒤가 아래다 — `tool`/`toolId` 는 도구 id.
+터미널과 같은 종단 `POST /api/tools?kind=agent&agent=<id>&cwd=&cwdTool=&model=&permissionMode=&approval=&resume=`
+이고, 응답 `{ id, name, kind: "agent", agent }`. `permissionMode`·`approval` 은 어댑터의 어휘 그대로다
+(`approval` 은 기동 승인 정책 — 설정 `agentApprovalMode` 가 싣고, 정책을 기동 인자로 받지 않는
+에이전트는 무시한다). 그 뒤가 아래다 — `tool`/`toolId` 는 도구 id.
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
 | GET | `/api/agents` | 등록부의 에이전트 목록 `[{ id, proto, available }]` — `proto` 는 프로토콜 표면이 있는가, `available` 은 실행 파일이 있는가. 둘 다 참이어야 띄울 수 있다 |
 | GET | `/api/agent/events?tool=&since=` | 상태와 이벤트 로그 재생 `{ state, events: [{ seq, at, ev }], truncated }`. `since` 는 마지막으로 본 `seq`. 라이브는 SSE `agent_event` |
 | POST | `/api/agent/prompt` | `{ toolId, text }` — 프롬프트 한 턴 |
-| POST | `/api/agent/approve` | `{ toolId, id, choice, answers }` — 열린 승인·질문에 답한다. `choice` 는 프로토콜이 준 선택지(`allow`·`deny`·`suggestion:<n>`), `answers` 는 질문의 `{질문: 라벨}` |
-| POST | `/api/agent/control` | `{ toolId, kind, value }` — 세션 중 제어. `kind` 는 프로토콜의 것 그대로 (claude: `set_model`·`set_permission_mode`·`set_max_thinking_tokens`) |
+| POST | `/api/agent/approve` | `{ toolId, id, choice, answers }` — 열린 승인·질문에 답한다. `choice` 는 프로토콜이 준 선택지(`allow`·`deny`·`suggestion:<n>`), `answers` 는 질문의 `{질문: 라벨}` (선택지 없는 질문 `freeText` 는 글 그대로) |
+| POST | `/api/agent/control` | `{ toolId, kind, value }` — 세션 중 제어. `kind` 는 프로토콜의 것 그대로 (claude: `set_model`·`set_permission_mode`·`set_max_thinking_tokens` · codex: `set_model`·`set_permission_mode` — 다음 턴부터 · omp: `set_model`(`provider/modelId`)·`set_thinking_level`). 없는 제어는 400 `agent_unsupported` |
 | POST | `/api/agent/interrupt` | `{ toolId }` — 진행 중인 턴을 끊는다 (Esc) |
 | GET | `/api/agent/tui-line` | `{ line, sessionId }` — 같은 세션을 터미널(TUI)에서 이어 갈 한 줄 명령 |
 

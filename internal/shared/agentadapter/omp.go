@@ -67,6 +67,8 @@ var ompAdapter = Adapter{
 	Readiness: Readiness{Hooks: true},
 	// `/exit` 은 "Exit the application" 이며 `/quit` 과 같은 종료 경로다 (실측).
 	ExitCommand: "/exit",
+	// 프로토콜 표면 (M8 P4) — `--mode rpc-ui`, omp_proto.go.
+	Proto: &ompProto,
 }
 
 // OmpMemberConfigFile 은 멤버의 `dmctl` 사전 허용을 담은 오버레이의 파일명이다.

@@ -1,5 +1,5 @@
 import { execFileSync } from 'child_process';
-import { mkdirSync, readdirSync, rmSync, statSync } from 'fs';
+import { copyFileSync, mkdirSync, readdirSync, rmSync, statSync } from 'fs';
 import { basename } from 'path';
 
 import { join } from 'path';
@@ -72,12 +72,15 @@ function buildServer() {
   /**
    * M8_UNIFIED_SRS V-12 · D-C-7·9: 가짜 에이전트. 서버는 `DONGMINAL_AGENT_BIN_DIR` 에서
    * 어댑터의 `DetectCmd` 이름을 먼저 찾으므로 그 이름으로 놓는다 — 이름은 등록부의
-   * 것(`claude`)이고, 이 파일이 그것을 아는 유일한 e2e 자리다. `fixtures.ts` 가 그
-   * 디렉터리를 서버에 준다.
+   * 것이고, 이 파일과 `agent-tool.spec.ts` 가 그것을 아는 e2e 자리다. 한 바이너리가
+   * 세 프로토콜을 말하며(argv 의 모양으로 고른다) 이름마다 복사한다. `fixtures.ts` 가
+   * 그 디렉터리를 서버에 준다.
    */
   mkdirSync(E2E_AGENT_BIN_DIR, { recursive: true });
-  execFileSync('go', ['build', '-o', join(E2E_AGENT_BIN_DIR, 'claude' + (isWin ? '.exe' : '')),
-    './internal/shared/agentadapter/fakeagent/cmd'], { stdio: ['ignore', 'ignore', 'inherit'] });
+  const ext = isWin ? '.exe' : '';
+  const fake = join(E2E_AGENT_BIN_DIR, 'claude' + ext);
+  execFileSync('go', ['build', '-o', fake, './internal/shared/agentadapter/fakeagent/cmd'], { stdio: ['ignore', 'ignore', 'inherit'] });
+  for (const name of ['codex', 'omp']) copyFileSync(fake, join(E2E_AGENT_BIN_DIR, name + ext));
 }
 
 async function globalSetup() {

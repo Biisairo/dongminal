@@ -38,6 +38,8 @@ var codexAdapter = Adapter{
 	// FR-AAC-31: 활동 훅이 없으므로 활동은 이 한 번의 notify 에서 파생한다.
 	ActivityFromNotify: true,
 	ExitCommand:        "", // 미확인
+	// 프로토콜 표면 (M8 P4) — `app-server`, codex_proto.go.
+	Proto: &codexProto,
 }
 
 // parseCodexHook maps a Codex notify event to an activity report. Codex's
