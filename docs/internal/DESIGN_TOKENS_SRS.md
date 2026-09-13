@@ -38,6 +38,7 @@
 - 글자 크기 토큰 5종 · z-index 계층 토큰 5종 · 백드롭·그림자 토큰 (§3.3·§3.4)
 - 하드코딩 금지 게이트 · 미정의 커스텀 프로퍼티 게이트 · 포커스 짝 게이트 (§3.6)
 - `style-kit.css` D-5 **과도기 클래스의 종료 조건** (§3.7)
+- 모달 골격 7벌의 **`.ui-modal` 수렴** — 오버레이·상자의 겉모습 (§3.9, `UX-16` 의 나머지 절반)
 - 테마 54종 팔레트의 **원본 값 보존** — 파생은 팔레트를 고치지 않는다
 
 **비포함**
@@ -178,6 +179,40 @@ e2e 가 짚는 것이 **도메인 클래스**(`.sbl-item`·`.pn-tab`)이고 CSS 
 
 남은 절반은 **캐스케이드**다. 그것은 여전히 사실이고, 그래서 D-5 를 철회하는
 것이 아니라 **끝나는 조건을 준다** (§3.7).
+
+---
+
+### 2.8 모달 골격 7벌 · 버튼 외형 (실측 2026-09-13, 다섯째 세션)
+
+**오버레이 여섯이 같은 8선언을 각자 들고 있다.** `#modal-overlay` ·
+`.confirm-overlay` · `.bg-modal` · `.runs-modal` · `.gc-modal` · `.git-dialog` 의
+본문은 전부 `position:fixed;inset:0;z-index:var(--z-modal);background:var(--backdrop);
+backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center` 다
+(`#modal-overlay` 만 `display:none` + `.open{display:flex}`). `.ui-modal` 은 그중
+`backdrop-filter` 가 없다 — 일곱째가 여섯과 다른 자리는 그 하나뿐이다.
+
+**상자 여섯도 겉모습이 같다.** `.confirm-box` · `.bg-box` · `.runs-box` · `.gc-box` ·
+`.git-dialog-box` · `#modal` 은 전부 `background:var(--bg);border:1px solid
+var(--border);border-radius:8px;box-shadow:var(--shadow-2)` 위에 자기 치수를 얹는다
+(`#modal` 만 반경 10px · `.gc-box` 만 테두리가 `--danger`). `.ui-modal-box` 는
+`--sidebar-bg` · 6px 다 — **키트가 소수**다.
+
+**`.tbtn` 은 키트 없이 쓰이는 자리가 아홉이다.** `index.html` 의 열셋은 `ui-btn`
+과 병기지만 `term-pane.js:769` · `app-statusbar.js:250·262·264` · `runs-panel.js:
+198·210·234·241·813` 은 `.tbtn` 만 붙인다 — 그 자리에서 `.tbtn` 을 비우면 버튼이
+맨몸이 된다. 병기가 먼저다.
+
+**옛 버튼 클래스는 열한 종이 아니라 서른 남짓이다.** `UI_KIT_SRS` §2.1 의 열한
+종에 더해, 키트 이전 뒤에 병기된 채 자기 외형을 **그대로 들고 있는** 것들이 있다
+— `.modal-close` 17 · `.drawer-close` 17 · `.fe-find-*` 16×3 · `.gc-go/.gc-cancel`
+14×2 · `.git-dialog-go/-cancel/-opt` 15·15·16. 병기는 됐는데 선언이 남아 있으니
+키트가 그리고 옛 규칙이 다시 덮는다 — 두 벌이 한 요소 위에 있다. §7 이 그
+전수다.
+
+**탭은 이 문서의 이번 범위 밖이다.** `.pn-tab` 43 · `.sb-tab` 35 · `.mtab` 13 ·
+`.ed-side-tab` 16 — 로드맵 §M7 DoD 에 탭 수렴 항목이 없고, `.pn-tab` 은 e2e 43
+파일이 짚는 도메인 훅이다. §7 에 행으로 남겨 D-5 가 아직 닫히지 않았음을 말하게
+한다.
 
 ---
 
@@ -485,8 +520,46 @@ D-TOK-8 이 지목한 "누가 위인가를 값으로 적은 자리" 다. 같은 
 | FR-TOK-35 | 과도기 클래스(`.tbtn`·`.mtbtn`·`.preset-btn` 등)는 **CSS 선언이 0개가 되는 시점**에 과도기를 끝낸다. 그 시점 판정은 사람이 아니라 **파일이 말한다**: 규칙 본문이 비었는가. | 필수 |
 | FR-TOK-36 | 선언이 빈 클래스는 셋 중 하나로 처리한다 — ① e2e·JS 가 그 이름을 짚지 않으면 **HTML 에서도 제거** ② 짚으면 **빈 규칙을 남기지 않고** HTML 의 클래스만 남긴다(CSS 규칙 자체를 지운다) ③ 캐스케이드 순서 때문에 규칙이 필요하면 **그 이유를 주석으로 적고** 남긴다. ③ 은 근거를 적을 수 있을 때만이다. | 필수 |
 | FR-TOK-37 | **①/② 를 가르는 판정은 grep 이 아니라 검사다.** 이름을 지우고 전량 e2e 를 돌린다 — M6 §4-A-3 이 정확히 이 부류에서 무너졌다(격리 하네스가 `git-*` 표적 검증을 통과하고 전량에서 죽었다). | 필수 |
-| FR-TOK-38 | 한 표면씩 끝낸다. 상단바 → 설정 모달 → 사이드바 → git 순이며, **표면마다 전량 e2e 를 한 번 돈다.** 겹쳐 돌리지 않고, 도는 동안 `web/js`·CSS 를 고치지 않는다 (M6 실행 규약). | 필수 |
+| FR-TOK-38 | 한 표면씩 끝낸다. 상단바 → 설정 모달 → 확인창·상자 → 편집기·탐색기 → git 순이며(§7 의 실측이 사이드바에는 옛 버튼이 없고 확인창·편집기에 있음을 드러내 초안의 순서를 고쳤다), **표면마다 전량 e2e 를 한 번 돈다.** 겹쳐 돌리지 않고, 도는 동안 `web/js`·CSS 를 고치지 않는다 (M6 실행 규약). | 필수 |
 | FR-TOK-39 | 과도기가 끝난 클래스 목록이 `style-kit.css` 머리말에서 **줄어든다.** D-5 의 문장은 남되 "남은 것" 이 이 문서 §7 의 표로 대체되고, 표가 비면 D-5 가 닫힌다. | 필수 |
+
+### 3.9 모달 골격의 수렴 — `UX-16` 의 나머지 절반
+
+| ID | 요구 | 등급 |
+|---|---|---|
+| FR-TOK-40 | 오버레이 일곱이 **`.ui-modal` 한 벌** 위에 선다. 옛 오버레이 여섯은 `ui-modal` 을 **함께 붙이고**(D-5), 자기 오버레이 규칙의 선언이 **0** 이 된다. `#modal-overlay` 의 `display:none`/`.open{display:flex}` 는 켜고 끄는 상태이지 외형이 아니므로 남는다 (FR-TOK-36 ③, 근거 주석). | 필수 |
+| FR-TOK-41 | `.ui-modal` 이 `backdrop-filter:blur(2px)` 를 갖는다 — 여섯이 갖고 하나가 없던 것을 **다수 쪽으로** 접는다. 키트 모달 셋(open-url · ACL 경고 · 편집 충돌)의 백드롭이 흐려지는 것이 이 변경의 유일한 화면 차이다. | 필수 |
+| FR-TOK-42 | 상자 여섯이 `.ui-modal-box` 를 **함께 붙이고**, 겉모습(배경·테두리·반경·그림자·`display:flex;flex-direction:column`)은 키트에서 받는다. **키트의 값을 다수값으로 고친다** — `background:var(--bg)` · `border-radius:8px` (사용자 결정 2026-09-13, D-TOK-10). `#modal` 의 10px 도 8px 로 간다. | 필수 |
+| FR-TOK-43 | 상자 클래스에 **남는 선언은 치수와 뜻뿐**이다 — `min/max-width`·`max-height`·`padding`·`overflow`·`.gc-box` 의 `border-color:var(--danger)`(파괴적임을 테두리로 먼저 알린다). 아래 사상표가 각 상자의 잔여를 **열거**한다. 열거에 없는 선언이 남아 있으면 이 표를 고치거나 선언을 지운다. | 필수 |
+| FR-TOK-44 | DOM 을 재구성하지 않는다. 옛 상자의 머리·본문·버튼줄(`.confirm-msg`·`.gc-head`·`.git-dialog-actions` …)은 그대로다 — e2e 가 짚는 이름이고, 그 안의 규칙은 상자 골격이 아니라 내용의 배치다. 접는 것은 **오버레이와 상자의 겉모습**까지다. | 필수 |
+| FR-TOK-45 | 접근성 계약(`UIKit.dialogOpen`)을 옛 다섯에 **넓히지 않는다.** D-A11Y-7 이 골격과 계약을 독립으로 뒀고, 로드맵 §M7 DoD 의 `role="dialog"` 항목은 설정 모달·`UIKit.modal` 이 범위다. 다섯에 계약을 주는 것은 접근성 SRS 의 변경이며 이 묶음의 비목표다 (§8). | 필수 |
+
+**사상표 — 오버레이 (FR-TOK-40)**
+
+| 골격 | 만드는 곳 | e2e 가 짚는 이름 | 처리 |
+|---|---|---|---|
+| `#modal-overlay` | `index.html:232` | `#modal-overlay`(15 파일) | `ui-modal` 병기 · 규칙은 `display:none`/`.open` 만 남는다 (③) |
+| `.confirm-overlay` | `app-tool.js:20·82·214·384` · `app-editor-file.js:157` | `.confirm-overlay`(13) | 다섯 자리 전부 병기 · 규칙 삭제 |
+| `.bg-modal` | `app-statusbar.js` | `#bg-modal`(5) | 병기 · 규칙 삭제 |
+| `.runs-modal` | `runs-panel.js` | `.runs-modal`(2) | 병기 · 규칙 삭제 |
+| `.gc-modal` | `git/confirm.js` | `#git-confirm .gc-box`(24) — 오버레이 이름은 짚지 않는다 | 병기 · 규칙 삭제 |
+| `.git-dialog` | `git/dialog.js` | `.git-dialog`(4) | 병기 · 오버레이 규칙 삭제. `style-git-views.css` 의 `.git-dialog` 3선언은 오버레이가 아니라 하위 배치 — 그대로 |
+| `.ui-modal` | `ui-kit.js` | `.ui-modal.acl-confirm` 등 | `backdrop-filter` 를 얻는다 (FR-TOK-41) |
+
+**사상표 — 상자 (FR-TOK-42·43)**
+
+| 상자 | 착수 시 선언 | 키트가 가져가는 것 | 남는 것 |
+|---|---|---|---|
+| `#modal` | 8 | bg·border·radius(10→8)·shadow·display·flex-direction | `width:min(760px,94vw)`·`height:min(80vh,720px)`·`overflow:hidden` (FR-UIK-12~14) |
+| `.confirm-box` | 6 | bg·border·radius·shadow | `padding:20px 24px`·`min-width:280px` — 머리 없는 상자다 |
+| `.bg-box` | 9 | bg·border·radius·shadow | `min-width`·`max-width`·`max-height`·`overflow-y`·`padding:4px`·`font-size` |
+| `.runs-box` | 9 | 같음 | `min-width:360px`·`max-width`·`max-height`·`overflow-y`·`padding:4px`·`font-size` |
+| `.gc-box` | 9 | bg·radius·shadow·display·flex-direction | `min/max-width`·`max-height`·`border-color:var(--danger)`·`font-size`·`color` |
+| `.git-dialog-box` | 11 | bg·border·radius·shadow·display·flex-direction | `gap`·`padding`·`min/max-width`·`max-height`·`color`·`font-size` |
+
+`.ui-modal-box` 의 `min-width:280px;max-width:90vw;max-height:82vh` 는 옛 상자가
+자기 값으로 덮는다 — 그것이 "치수는 남는다" 의 뜻이다. 키트는 **없을 때의 값**을
+준다.
 
 ### 3.8 비기능
 
@@ -601,6 +674,29 @@ D-TOK-8 이 지목한 "누가 위인가를 값으로 적은 자리" 다. 같은 
   `#attn-edge` 501 은 "이 둘 중 누가 위인가" 를 값으로 적은 자리다. 같은 층이면
   DOM 순서가 답이고, DOM 순서로 답할 수 없으면 **층이 다른 것**이다.
 
+**D-TOK-10: 상자의 겉모습은 다수값이 진실이다 — 키트를 고친다.**
+
+  (사용자 결정 2026-09-13)
+  `.ui-modal-box` 는 `--sidebar-bg` · 6px 인데 옛 상자 여섯은 전부 `--bg` · 8px 다
+  (§2.8). 세 갈래가 있었다: ① 키트를 다수값으로 고친다 — 옛 여섯의 화면은
+  그대로이고 키트 모달 셋만 바뀐다. ② 키트 값이 진실 — 설정·확인창·git
+  다이얼로그 등 자주 보는 화면 전부가 바뀐다. ③ 구조만 접고 겉모습은 각자 —
+  선언이 0 이 되지 않아 D-5 가 닫히지 않는다. **①** 을 택했다: 변경 표면이 가장
+  작고, 키트가 "표준" 인 이유는 값이 아니라 **한 자리**라는 데 있다.
+
+**D-TOK-11: 과도기 클래스의 "0" 은 외형의 0 이고, 이름을 키로 쓰는 배치 규칙은
+옮긴다.**
+
+  (실측 2026-09-13)
+  `.tbtn` 의 18선언 중 열넷은 외형(`padding`·`border`·`background`·`color`·
+  `:hover`)이고 넷은 **이름을 훅으로 쓰는 배치**다 — `.slot-ctl .tbtn{min-width}`
+  · `body.mobile .tp-ov-acts .tbtn{min-height:var(--touch-min)}`. `.mtbtn` 도
+  같다(`body.mobile .mtbtn.mobile-only{display}` · `body.mobile .mtbtn{44px}`).
+  후자는 키트가 소유할 것이 아니지만 옛 이름 위에 서 있는 한 그 이름을 지울 수
+  없다. 그래서 **키트 선택자 또는 담는 쪽 선택자로 옮긴다** — `.slot-ctl .ui-btn`
+  · `body.mobile .ui-btn.mobile-only`. 옮기고 나면 옛 이름의 규칙은 문자 그대로
+  0 이고 FR-TOK-35 는 그대로 참이다. 옮길 수 없는 것이 나오면 그때 ③ 이다.
+
 ---
 
 ## 5. 검증
@@ -639,6 +735,8 @@ D-TOK-8 이 지목한 "누가 위인가를 값으로 적은 자리" 다. 같은 
 | TC-TOK-18 | `.tc-copy` 가 컨텍스트 메뉴와 **같은 층**(`--z-popover`)이고 DOM 순서대로 겹친다 · `.ed-find` 는 모달 층이므로 메뉴가 그 **위**에 뜬다 (초안은 `.ed-find` 를 찾기 줄로 오독했다 — §3.4) |
 | TC-TOK-19 | e2e 전량 unexpected 0 — 과도기 표면마다 1회 (FR-TOK-38) |
 | TC-TOK-20 | `themes.js` 의 `ui` 값이 착수 전과 **바이트 단위로 같다** (FR-TOK-16) |
+| TC-TOK-21 | **모달 골격이 한 벌이다** (FR-TOK-40~42, e2e `a11y-dialog.spec.ts`): 일곱을 차례로 열고 — 설정(`#modal-overlay`) · 확인창(`app._notify`) · 백그라운드(`#bg-btn`) · Runs(`#runs-btn`) · git 확인창(`GitConfirm.open`) · git 다이얼로그(`GitDialog`) · 키트(`UIKit.modal`) — 열린 오버레이가 ① `ui-modal` 클래스를 갖고 ② 계산된 `background-color` 가 `--backdrop` 의 값이며 ③ `backdrop-filter` 가 `blur(2px)` 이고 ④ 상자가 `ui-modal-box` 를 갖고 그 `border-radius` 가 8px · `background-color` 가 `--bg` 의 값임을 단정한다. 착수 시 RED: `#modal-overlay` 부터 ① 에서 죽는다 |
+| TC-TOK-22 | **잔여표 재측정** (FR-TOK-35·39, 절차): 표면 하나를 끝낼 때마다 §7 의 그 표면 행을 다시 세어(선택자 본문의 선언 수) 0 이면 행을 지운다. 0 이 아닌데 지우면 그 커밋이 거짓이다 |
 
 ### 5.4 사람이 보는 것 (기록으로 남긴다)
 
@@ -667,9 +765,115 @@ D-TOK-8 이 지목한 "누가 위인가를 값으로 적은 자리" 다. 같은 
 
 > FR-TOK-35~39. **이 표가 비면 `style-kit.css` 의 D-5 가 닫힌다.**
 
-| 클래스 | 표면 | 선언 수 | 상태 |
-|---|---|---|---|
-| (착수 시 채운다 — `style.css`·`style-git.css` 의 옛 버튼·탭·상자 규칙) | | | |
+실측 2026-09-13 (다섯째 세션 착수). 선언 수는 그 이름이 든 선택자의 본문
+선언을 센 것이다 — 여러 이름이 한 선택자에 묶인 규칙(`.git-remote-btn,
+.git-commit-btn,.git-files-mode{…}`)은 이름마다 센다. "병기" 는 그 이름이 붙는
+자리 전부에 키트 클래스가 함께 있는가다. "e2e" 는 그 이름을 짚는 스펙 파일 수
+— **처리 ①/② 의 판정은 이 수가 아니라 전량 검사다** (FR-TOK-37); 이 열은
+어느 쪽이 나올지의 **예상**일 뿐이다.
+
+표면 순서는 FR-TOK-38. 한 표면의 행이 전부 0 이 되면 그 행들을 지우고 전량을
+한 번 돈다.
+
+### 7.1 상단바 (`index.html` · 상태바 · Runs · 터미널 종료 오버레이) — **끝났다** (2026-09-13)
+
+`.tbtn` 18 → 0 · `.mtbtn` 18 → 0. HTML 의 이름은 남긴다 — 기준선 JSON
+(`e2e/baseline/ui-layout.json`)이 클래스 목록을 키로 짚고, 그 기준선은 통째로 다시
+뜰 수 없다 (`UI_LAYOUT_DEFAULTS_SRS` §9, FR-LAY-51). 그러므로 **②** 다. JS 의
+아홉(`term-pane`·`app-statusbar`·`runs-panel`)은 아무도 짚지 않아 **①** — 이름을
+떼고 `ui-btn ui-btn-sm`(확인의 `예` 는 `ui-btn-danger`)을 붙였다. 배치 넷은
+D-TOK-11 로 옮겼다: `.slot-ctl .tbtn{min-width:22px}` → `ui-btn-sm` ·
+`body.mobile .tp-ov-acts .tbtn` → `.ui-btn` · `body.mobile .mtbtn.mobile-only` →
+`#topbar .ui-btn.mobile-only` · `body.mobile .mtbtn{44px}` → 이미 있던
+`body.mobile .ui-btn`/`.ui-btn-icon` 하한이 대신한다. `#agents-toggle` 의 색 규칙은
+`.ui-btn-attn` 과 글자 그대로 같아 `.open` 상태만 남겼다. `.runs-*`·`.bg-*` 의
+도메인 규칙에서 키트와 같은 선언(padding·기본색·위험색)을 지웠고 hover 에서만
+붉어지는 `.runs-del`·`.bg-kill` 은 뜻이 다르므로 남겼다.
+
+### 7.2 설정 모달 (+ 드로어 닫기) — **끝났다** (2026-09-13)
+
+`.modal-close` 17 · `.preset-btn` 18 · `.preset-save` 13 · `.ds-toggle` 13 · `.sbx-del`
+12 · `.sc-rst` 16 · `.drawer-close` 17 → 전부 0.
+- `.modal-close`: 자기 치수 24px 와 그 파생 규칙을 버리고 키트 26px 로 (②, 기준선
+  키 불변). hover 의 붉은색(`--danger-text`)은 키트 ghost 의 hover 로 — 닫기는
+  파괴적이지 않다.
+- `.preset-btn`: 이름을 뗐다 (①). 삭제의 hover 위험색은 도메인 이름 `.preset-del`
+  에 남는다 (`.runs-del`·`.bg-kill` 과 같은 규약, ③ 이 아니라 다른 이름이다).
+- `.preset-save`: `ui-btn ui-btn-lg` 로 갈아 끼우고 배치(`margin-top`·`width:100%`)는
+  `#preset-save` 에 (D-TOK-11). 기준선 키 `button.preset-save` → `button.ui-btn.ui-btn-lg`,
+  `display` inline-block → inline-flex (`UI_LAYOUT_DEFAULTS_SRS` §9).
+- `.ds-toggle`: 열넷에 `ui-btn` 병기, 이름은 기준선이 짚어 남는다 (②). `min-width:78px`
+  (FR-WSL-81 의 값 토글)은 그 토글이 더는 만들어지지 않아 함께 갔다. 기준선 키
+  `button.ds-toggle` → `.ui-btn`, `display` block → flex.
+- `.sbx-del`·`.sc-rst`: 전량 ③ 이 이름 없이도 통과한 뒤 `cls` 에서 뗐다 (①) —
+  JS 가 만들기만 하고 아무도 짚지 않는다.
+- `.drawer-close`: 자리·가시성을 `#drawer-close` 로 옮겼다 (D-TOK-11). 이름은
+  `app-mobile.js` 의 `querySelector` 와 기준선이 짚어 남는다 (②).
+
+### 7.3 확인창·상자·토스트 — **끝났다** (2026-09-13)
+
+`.confirm-overlay`·`.bg-modal`·`.runs-modal` 8×3 (§3.9) · `.confirm-btns button` 7 ·
+`.confirm-ok/-save/-bg/-cancel` 4·4·3·4 · `.git-undo-btn` 8 → 전부 0. 이름은 e2e 가
+짚어 남는다 (②).
+- **역할 색은 이름이 아니라 뜻이 고른다** (이전/새/이유): 종전 `.confirm-ok` 는
+  어디서나 붉었다 — 오류 알림의 `확인`, 런타임의 `실행`, 샌드박스 프로파일 선택지
+  까지. 새 동작: 파괴적 닫기·삭제만 `ui-btn-danger`, `확인`·`실행`·선택지·저장·
+  백그라운드는 `ui-btn-primary`, 취소는 기본. 이유: 붉은색은 "되돌릴 수 없다" 의
+  신호이고 오류 알림의 확인은 그것이 아니다. `background-ui` TC-BGU-2 가 요구하는
+  세 역할의 글자색 구분(FR-BGU-1)은 그대로 성립한다 — 첫 판에서 백그라운드를
+  기본으로 뒀다가 취소와 겹쳐 빨개졌고, `primary` 로 고쳤다 (종전 색과 같다).
+- `Toast` 의 action 버튼이 `ui-btn ui-btn-sm ui-btn-primary` 를 붙인다 — git 커밋
+  Undo 와 창 닫기 Undo 가 함께 갔다.
+
+### 7.4 편집기·탐색기 — **끝났다** (2026-09-13)
+
+`.fe-find-prev/next/close` 16×3 · `.fe-offer-x` 2 · `.fe-dd-peek-close` 10 ·
+`.fe-dd-peek-act` 11 · `.ed-side-act` 15 · `.ed-head-btn` 23 → 전부 0. 이름은 모두
+남겼다 (②) — JS 가 `querySelector`/`closest` 로 짚고(`.ed-head-btn`·`.fe-dd-peek-act`)
+e2e 가 셋을 짚는다(`.ed-side-act`). 지우는 것보다 남기는 것이 싸고, 남은 이름은
+훅이지 외형이 아니다.
+- `.ed-side-act`: `--git-hit` 30px 하한과 그 값에서 따로 파생하던 아이콘 규칙을
+  버리고 `ui-btn-lg`(`--ui-btn-h-lg`=30px)로. 줄을 나눠 채우는 `flex:1 1` 은
+  `.ed-side-acts>.ui-btn` 에 (D-TOK-11).
+- `.ed-head-btn`: `ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm` 병기. 자기 경로 SVG
+  (`EDITOR_HEAD_ICONS`)의 치수는 `.ed-head .ui-btn svg` 에 — 스프라이트가 아니라
+  `.ui-icon` 의 파생을 받지 않는다.
+- `.fe-find-*` 셋: `ui-btn-sm`(22px) 로 자기 높이를 지켰다. `.fe-find-opt` 는 `.on`
+  상태를 가진 글자 토글이라 자기 규칙으로 남는다 — 이 표의 행이 아니다.
+- `.fe-offer`: `button` 요소 선택자로 걸린 외형이 ghost 닫기까지 덮고 있었다.
+  설치 `ui-btn-primary` · 설정 기본 · 닫기 ghost 로 셋 다 키트에 올리고 그 규칙을
+  지웠다.
+- `.fe-dd-peek-close` 의 `margin-left:auto` 는 `.fe-dd-peek-bar>.ui-btn-icon` 에.
+
+### 7.5 git
+
+**끝난 것** (2026-09-13): `.gc-modal`·`.git-dialog` 오버레이 8·8 (§3.9) · `.gc-go`·
+`.gc-cancel`·`.gc-copy` 14·14·10 · `.git-dialog-go`·`-cancel`·`-copy`·`-opt`
+15·15·11·16 → 0. 이름은 e2e 가 짚어 남는다 (②). `.gc-cancel` 은 `primary`
+(FR-GIT-97: 기본 선택지는 취소), `.gc-go` 는 파괴적이면 `danger`, 1단계 확인(soft)
+이면 `primary` — 종전에 CSS `.gc-box.soft .gc-go` 가 하던 일을 `_paint` 가
+등급 토글로 한다. `.git-dialog-opt` 의 `.danger` 는 `dialog.js` 가 이미 `ui-btn-danger`
+를 함께 붙이고 있어 CSS 만 지웠다. 모바일의 큰 글자·여백은 `.gc-actions>.ui-btn`·
+`.git-dialog-actions>.ui-btn`·`.git-dialog-opts>.ui-btn` 에 (D-TOK-11; 키트의
+`height:26px` 를 `auto` 로 풀어야 `padding:12px` 가 산다).
+
+**남은 것** — git 패널 본체. 병기가 없고 상태(`.active`·`[data-act=abort]`·묶인
+모서리·hover 에만 드러남)가 붙어 있어 한 표면으로 따로 간다:
+
+| 클래스 | 선언 | 병기 | e2e | 예상 처리 |
+|---|---|---|---|---|
+| `.git-remote-btn` · `.git-commit-btn` · `.git-files-mode` | 22 · 12 · 19 | **아니다** | 6 · 2 · 6 | 병기 → ② |
+| `.git-init-btn` | 9 | **아니다** | 1 | 병기 → ② |
+| `.git-file-act` · `.git-op-act` · `.git-wt-act` · `.git-sub-act` · `.git-hunk-act` | 24 · 17 · 16 · 18 · 15 | **아니다** | 8 · 2 · 2 · 1 · 2 | 병기 → ② |
+
+### 7.6 탭 — 이번 범위 밖 (§2.8)
+
+| 클래스 | 선언 | 병기 | e2e | 비고 |
+|---|---|---|---|---|
+| `.pn-tab` | 43 | 아니다 | 43 | 도메인 훅. `UI_KIT_SRS` §2.2 의 다섯 종 수렴은 로드맵에 항목이 없다 |
+| `.sb-tab` | 35 | 전부 (`UIKit.tab` cls) | 9 | `style-git-views.css` 28 은 레일 배치 |
+| `.mtab` | 13 | 아니다 | 22 | |
+| `.ed-side-tab` | 16 | 아니다 | 6 | |
 
 채우는 방법: 키트 클래스와 **함께 붙는** 옛 클래스를 열거하고, 각각의 CSS 선언
 수를 센다. 선언 수가 0 이 되면 FR-TOK-36 의 ①/②/③ 중 하나로 처리하고 행을
@@ -686,6 +890,8 @@ D-TOK-8 이 지목한 "누가 위인가를 값으로 적은 자리" 다. 같은 
 5. **터미널 ANSI 팔레트·Monaco 테마.** 각자 파생을 갖는다.
 6. **CSS 파일 분할·재배치.** 선언을 옮기지 않고 **값만** 토큰으로 바꾼다.
 7. **`!important` 도입.** `UI_KIT_SRS` FR-UIK-11 이 키트에 금지했고 그대로다.
+8. **옛 모달 다섯에 접근성 계약(`UIKit.dialogOpen`)을 주는 것.** FR-TOK-45 · D-A11Y-7. 골격 수렴은 CSS·DOM 의 일이고 계약은 접근성 SRS 의 일이다 — 섞으면 전량이 빨개졌을 때 어느 쪽의 회귀인지 말할 수 없다.
+9. **탭 다섯 종의 수렴.** §2.8 · §7.6. 로드맵 §M7 에 항목이 없다.
 
 ---
 
@@ -707,6 +913,8 @@ D-TOK-8 이 지목한 "누가 위인가를 값으로 적은 자리" 다. 같은 
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-13 | **§3.9·§7 구현** (`UX-16` 나머지 · `⑤` 표면 넷 · `UX-17`). 오버레이 여섯 → `.ui-modal` 한 벌, 상자 여섯 → `.ui-modal-box` 위에 치수만. §7.1~7.4 와 7.5 의 다이얼로그 절반이 **선언 0** — 옛 클래스 서른. 판정 자 `scripts/count-css-class-decls.mjs`(TC-TOK-22). 전량 다섯 회차(M7_PROGRESS §4) unexpected 는 전부 V169(HEAD 에서도 죽는다) 또는 §5-5 군집. **기준선 JSON 이 클래스 목록을 키로 쓴다** — 병기로 키가 바뀐 마흔 행을 손으로 옮겼다 (`UI_LAYOUT_DEFAULTS_SRS` §9). 역할 색을 뜻으로 다시 붙였다 (§7.3, 이전/새/이유). 남은 것: §7.5 git 패널 본체 아홉 · §7.6 탭 넷 |
+| 2026-09-13 | **§3.9 신설** (`UX-16` 나머지 절반 — FR-TOK-40~45, D-TOK-10·11). §2.8 실측: 오버레이 여섯이 같은 8선언, 상자 여섯이 `--bg`·8px 로 키트(`--sidebar-bg`·6px)가 소수 — 사용자 결정으로 **키트를 다수값으로** 고친다. `.tbtn` 은 키트 없이 쓰이는 자리가 아홉. **§7 잔여표를 처음 채웠다** — 옛 버튼·오버레이 서른 남짓, 탭 넷은 범위 밖 행. FR-TOK-38 의 표면 순서를 실측에 맞춰 고쳤다(사이드바에는 옛 버튼이 없다). TC-TOK-21·22 |
 | 2026-09-13 | FR-TOK-6·7·29 구현 (`UX-14`·`UX-15`). `:root` 밖 색 리터럴 **116 → 0**. 사상표는 §3.1. **116 중 52 는 색이 아니었다** — `mask-image` 의 알파다(FR-TOK-29a 신설). 백드롭 둘·그림자 전역 값 둘은 사용자 결정. **FR-TOK-7 의 구분선 문장을 실측으로 정정했다**: `--border` 는 54/54, `--border-strong` 은 36/54 가 3:1 미달이라 초안의 첫 선택지가 자기 요구를 만족시키지 못한다 — 이 구분선은 장식용이므로 3:1 대상이 아니고 `var(--border)` 가 답이다. 게이트는 `scripts/check-hardcoded-color.mjs`, 탐침 **일곱**(검출 넷 + 오탐 셋, FR-TOK-29b). TC-TOK-16 을 `e2e/theme.spec.ts` 에 구현했다 — `check-css-vars` 가 OR 라서 못 잡는 자리(FR-TOK-28b 신설)를 그것이 잡는다 |
 | 2026-09-13 | FR-TOK-21·22·23·31 구현 (`UX-16`). z-index **44선언 28값 → 여섯 층 · 43선언** (100/200/300/400/500/600). 사상표는 §3.4. 구현이 초안의 **다섯**을 고쳤다 — `.pn.attn::after`·`#mobile-keybar`·`#boot` 는 쌓임 문맥·DOM 순서를 따라가 보니 층이 달랐고, `.git-head`(실은 `position:relative`)·`.git-commit` 은 **전량 e2e 가** 잡았다. `.git-commit` 의 선언은 지웠다 — 메뉴를 들어올리려 상자에 걸린 값이었고, 메뉴가 `--z-popover` 를 직접 쓰면 필요 없다. `.file-editor` 의 세 겹은 DOM 순서가 답하지 못해 **보일 때 맨 뒤로 옮기는** 규약을 세웠다(사용자 결정). `#focus-edge`/`#attn-edge` 의 ±1 은 `index.html` 의 순서로 옮겼다. 게이트는 `scripts/check-z-index.mjs` — 리터럴 0 과 **층에 대한 산술 0**(이름을 붙인 ±1). 탐침 `z-index:42` · `calc(var(--z-modal) + 1)` 둘로 검출 확인. Makefile·`verify.yml` 둘 다 |
 | 2026-09-13 | FR-TOK-18·19·20·32 구현 (`UX-18`). 글자 크기 **12종 → 다섯**. 사상표는 §3.3. 값은 사용자 결정(`13px`→`14px`, 내리지 않고 올린다). `--sb-rail-fs` 가 `var(--fs-xs)` 가 됐고 `--ui-font` 가 `var(--fs-sm)` 을 가리킨다. 게이트는 `scripts/check-font-size.mjs` — **종수를 세지 않고 px 리터럴을 0 으로** 잰다(종수 조건은 한 줄 고쳐 통과할 수 있다). 탐침 `font-size:13px` 로 검출 확인. Makefile·`verify.yml` 둘 다에 넣었다. **회귀 1건**: `UI_LAYOUT_DEFAULTS_SRS` 의 계산값 기준선에서 `#add-sandbox-window` 의 `inset` 이 1.73px 움직였다 — `10px`→11px 의 직접 귀결이고 그 문서 §9 에 이전/새/이유를 적었다 |
