@@ -603,6 +603,19 @@ const RELOAD_BUSY_TITLE='다시 가져오는 중…';
 const PRESET_PANEL_ID='panel-presets';
 const PRESET_MSG_CLASS='preset-msg';
 const PRESET_SAVE_NO_PLAIN='저장할 일반 창이 없습니다 — 터미널 창을 열고 다시 시도하세요';
+// CONTEXT_MENU_UNIFY_SRS FR-CMU-8·10: 탭·터미널 본문의 컨텍스트 메뉴 문구.
+const TAB_MENU_NEW='새 탭';
+const TAB_MENU_RENAME='이름 변경';
+const TAB_MENU_CLOSE='탭 닫기';
+const TAB_MENU_RENAME_GIT_NO='git 뷰 탭의 이름은 뷰가 정합니다';
+const TAB_MENU_NEW_NO='이 창에는 새 탭을 둘 수 없습니다';
+const TERM_MENU_COPY='복사';
+const TERM_MENU_PASTE='붙여넣기';
+const TERM_MENU_SELECT_ALL='모두 선택';
+const TERM_MENU_FIND='찾기';
+const TERM_MENU_COPY_NO='선택한 글자가 없습니다';
+const TERM_MENU_PASTE_NO='이 브라우저에서는 클립보드를 읽을 수 없습니다 — Ctrl/Cmd+V 를 쓰세요';
+const TERM_MENU_PASTE_DENIED='클립보드 읽기가 거절됐습니다';
 // 로드맵 M7 `FUI-25`: 삭제의 인라인 확인 문구와 로드 실패 알림.
 const PRESET_DEL_Q='삭제? 되돌릴 수 없다.';
 const PRESET_LOAD_FAIL='프리셋을 불러오지 못했습니다: %s';

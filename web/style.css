@@ -1291,6 +1291,18 @@ body.mobile .pn-drop-indicator{display:none !important}
    판정은 이 파일이 아니라 `e2e/touch-targets.spec.ts` 가 한다. 그것이 모바일
    뷰포트에서 DOM 을 훑으므로, 여기 빠진 자리가 있으면 검사가 말한다. */
 body.mobile .ui-btn{min-height:var(--touch-min)}
+/* 설정의 체크박스도 손가락 크기다 (FR-A11Y-27). 네이티브 상자를 키우면 흉하므로
+   히트 영역만 44 로 두고 표식은 안에 그린다 — `UX-19` 의 추종 스위치가 Theme 탭에
+   서면서 TC-A11Y-13b 가 14px 를 잡았다. */
+body.mobile .display-settings input[type=checkbox]{
+  appearance:none;width:var(--touch-min);height:var(--touch-min);margin:0;flex:0 0 auto;
+  display:inline-grid;place-content:center;cursor:pointer;
+}
+body.mobile .display-settings input[type=checkbox]::before{
+  content:'';width:18px;height:18px;border-radius:var(--ui-radius);
+  border:1px solid var(--border-strong);background:var(--bg);
+}
+body.mobile .display-settings input[type=checkbox]:checked::before{background:var(--accent);border-color:var(--accent)}
 /* 아이콘 버튼은 글자가 폭을 벌어 주지 않는다 — 가로도 받아야 한다. */
 body.mobile .ui-btn-icon{min-width:var(--touch-min)}
 /* 닫기는 자기 크기를 토큰으로 갖는다 — 아이콘도 그 비율로 함께 큰다. */

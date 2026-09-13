@@ -344,3 +344,53 @@ test.describe('17단계 — 컨텍스트 메뉴 프레임워크', () => {
     expect(git(repo, 'status', '--porcelain')).toBe('');
   });
 });
+
+// CONTEXT_MENU_UNIFY_SRS — TC-CMU-2 (M7 `UX-26`·`FUI-26`). `GitMenu` 를 거치지 않고
+// `UIKit.menu` 자체가 사유·키 이동을 갖는다 — 두 벌이 하나가 됐다는 증거는
+// 키트 쪽에서 재야 한다.
+test.describe('UIKit.menu — 키 이동과 비활성 사유 (FR-CMU-1·2·4)', () => {
+  const openKit = (page: Page) => page.evaluate(() => {
+    const w = window as any; w.__kitRan = [];
+    const K = new Function('return UIKit')();
+    K.menu([
+      { id: 'a', label: '항목 A', onClick: () => w.__kitRan.push('a') },
+      { id: 'b', label: '항목 B', onClick: () => w.__kitRan.push('b') },
+      { sep: true },
+      { id: 'off', label: '막힌 항목', disabled: '막힌 사유', onClick: () => w.__kitRan.push('off') },
+      { id: 'c', label: '항목 C', onClick: () => w.__kitRan.push('c') },
+    ], { at: { x: 120, y: 120 }, cls: 'tc-cmu' });
+  });
+  const kit = (page: Page) => page.locator('.ui-menu.tc-cmu');
+  const kitItems = (page: Page) => kit(page).locator('.ui-menu-item');
+
+  test('TC-CMU-2: 문자열 disabled 가 title 이고 ↑↓ Enter 가 비활성을 건너뛴다', async ({ page }) => {
+    await waitForInit(page);
+    await openKit(page);
+    await expect(kit(page)).toBeVisible();
+    await expect(kit(page)).toHaveAttribute('role', 'menu');
+    const off = kitItems(page).filter({ hasText: '막힌 항목' });
+    await expect(off).toHaveClass(/disabled/);
+    await expect(off).toHaveAttribute('title', '막힌 사유');
+    await expect(off).toHaveAttribute('aria-disabled', 'true');
+    await page.keyboard.press('ArrowDown');
+    await expect(kitItems(page).nth(0)).toHaveClass(/active/);
+    await expect(kitItems(page).nth(0)).toBeFocused();
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await expect(kitItems(page).nth(3)).toHaveClass(/active/);
+    await page.keyboard.press('ArrowUp');
+    await expect(kitItems(page).nth(1)).toHaveClass(/active/);
+    await page.keyboard.press('Enter');
+    await expect(kit(page)).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).__kitRan)).toEqual(['b']);
+  });
+
+  test('TC-CMU-6: GitMenu 는 키트 위에 선다 — 같은 DOM, 옛 이름은 병기', async ({ page }) => {
+    await waitForInit(page);
+    await declareFakeKind(page);
+    await openFake(page);
+    await expect(menu(page)).toHaveClass(/ui-menu/);
+    await expect(items(page).first()).toHaveClass(/ui-menu-item/);
+    await expect(menu(page).locator('.git-menu-sep')).toHaveClass(/ui-menu-sep/);
+  });
+});

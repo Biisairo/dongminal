@@ -213,3 +213,23 @@ test.describe('Terminal features', () => {
     expect(result.dropDelta).toBe(5);
   });
 });
+
+// CONTEXT_MENU_UNIFY_SRS — TC-CMU-5 (M7 `FUI-17`).
+test.describe('터미널 본문 메뉴 (FR-CMU-10)', () => {
+  test('TC-CMU-5: 우클릭 메뉴 — 선택이 없으면 복사가 비활성이고 사유가 있다', async ({ page }) => {
+    await waitForInit(page);
+    await waitShellReady(page);
+    await page.click('#area .pn.focused .xterm-screen', { button: 'right' });
+    const m = page.locator('.ui-menu.term-menu');
+    await expect(m).toBeVisible();
+    const copy = m.locator('.ui-menu-item[data-id="copy"]');
+    await expect(copy).toHaveClass(/disabled/);
+    expect((await copy.getAttribute('title')) || '').not.toBe('');
+    await m.locator('.ui-menu-item[data-id="selectAll"]').click();
+    await expect(m).toHaveCount(0);
+    await page.click('#area .pn.focused .xterm-screen', { button: 'right' });
+    await expect(page.locator('.ui-menu.term-menu .ui-menu-item[data-id="copy"]')).not.toHaveClass(/disabled/);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.ui-menu.term-menu')).toHaveCount(0);
+  });
+});

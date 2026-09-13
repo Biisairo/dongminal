@@ -757,6 +757,45 @@ auto}` → `.fe-dd-peek-bar>.ui-btn-icon`. 옮기고 나면 옛 이름의 규칙
 
 ---
 
+## 2k. 같은 세션 — P2 열 (작은 여섯 · `UX-19` · 메뉴 묶음)
+
+### 2k-1. 작은 여섯은 각자 한 줄이다
+
+| 항목 | 무엇 | 어디 |
+|---|---|---|
+| `UX-22` | `Ctrl+Shift+/` 가 설정 ▸ Shortcuts 를 연다. 기본값·라벨·그룹(`도움말`)·문서 넷을 한 벌로 — `check-shortcuts-docs` 가 그것을 지킨다 | `helpers.js` · `app.js` · `app-settings-keys.js` · `shortcuts.md` |
+| `UX-23` | `draggable` 속성이 곧 선택자다 — `.pn-tab`·`.sbl-item`·`.ed-row` 에 `cursor:grab`, 누르면 `grabbing` | `style.css` |
+| `UX-24` | 렌더러가 `data-overflow`(left/right/both)를 세우고 CSS 가 가장자리를 `mask-image` 로 흐린다. 세로 휠이 가로로 구른다 | `renderer.js _makePane`·`_rTabs` |
+| `FUI-22` | 알림 항목마다 `×` — `_attnClear(toolId,false)` 로 서버에도 알린다 | `app-attn.js` |
+| `FUI-25` | 삭제는 인라인 `삭제? 예 아니오`(Runs·bg 와 같은 규약), 로드 실패는 `_notify` | `app-presets.js` |
+| `FUI-27` | 드로어 머리에 `Runs`·`Agents` — 버튼과 같은 함수. 모바일의 에이전트 패널은 옆이 아니라 **위**에 선다 | `app-mobile.js` · `style.css` |
+
+`FUI-27` 의 첫 판이 기준선 키를 밀었다 — `#m-drawer-acts` 가 `div.mobile-only` 라
+`#mobile-keybar` 와 같은 키가 됐고 첫 것이 이기므로 키바의 행이 드로어의 값으로
+읽혔다 (70개 차이). 클래스 하나(`m-drawer-acts`)로 키를 갈랐다 — 배운 것 35 의
+두 번째 모양이다: **키가 바뀌는 것뿐 아니라 키가 겹치는 것**도 조용하다.
+
+### 2k-2. `UX-19` — 슬롯 둘과 두 맵 캐시 (`SYSTEM_THEME_FOLLOW_SRS`)
+
+`themeName` 을 없애지 않는다 (D-STF-1) — 세 이름이 공존하고 스위치가 고른다.
+`applyThemeObj` 를 `themeVarsOf`(순수)와 적용으로 갈라 반대 모드의 맵을 화면에
+닿지 않고 계산했고, 선주입은 `dm.themeFollow` 가 켜져 있으면 `matchMedia` 로
+`.dark`/`.light` 중 하나를 **고르기만** 한다 (D-STF-2). 첫 페인트 측정은 요소가
+아니라 `CSSStyleDeclaration.prototype.setProperty` 를 가로챈다 — init 스크립트가
+도는 시점에는 문서가 없다. 설정 서술자 20 → 23 (TC-CFG-4 의 기대값을 고쳤다).
+
+### 2k-3. 메뉴는 한 벌이 됐다 (`CONTEXT_MENU_UNIFY_SRS`)
+
+`UIKit.menu` 가 `GitMenu` 의 것을 받았다 — ↑↓ Enter Home End · 문자열 `disabled`
+= `title` · `cur` · `role=menu`/`menuitem` · 스크롤·리사이즈 닫힘 · 활성 항목의
+포커스와 닫힐 때 복귀. `GitMenu.openList` 는 항목 표를 번역해 `UIKit.menu` 를
+부르는 **어댑터**이고 확인 게이트 `_pick` 만 남았다 (D-CMU-1). 옛 이름
+`git-menu*` 는 `itemCls`/`sepCls` 로 병기해 e2e 27·25 파일이 그대로 통과한다.
+`style-git.css` 의 메뉴 규칙은 `.cur` 하나로 줄었다. 그 위에 셋 — 탭(`FUI-08`) ·
+탐색기 빈 여백(`FUI-12`) · 터미널 본문(`FUI-17`) — 은 `UIKit.menu` 를 직접 쓴다.
+
+---
+
 ## 3. 탐침 기록 (FR-TOK-33 · FR-A11Y-25)
 
 | 탐침 | 결과 |
@@ -821,6 +860,7 @@ auto}` → `.fe-dd-peek-bar>.ui-btn-icon`. 옮기고 나면 옛 이름의 규칙
 | ④ 편집기·탐색기(`.fe-find-*`·`.fe-offer-*`·`.fe-dd-peek-*`·`.ed-side-act`·`.ed-head-btn`) 뒤 | unexpected 1 · flaky 2 | `slot-view-state` TC-SVS-5 — §5-5 의 칸별 상태 군집. **단독 반복 3회(TC-SVS-4·5, 48항목) 전부 통과.** flaky 둘(TC-SVS-4 · `editor-save` TC-ESV-3)은 넷째 세션 명단의 이름. 표적 236건 통과 |
 | ⑤ 확인창·토스트·git 다이얼로그(`.confirm-*`·`.git-undo-btn`·`.gc-*`·`.git-dialog-*`) 뒤 | unexpected 1 · flaky 3 | V169 (①과 같다) · flaky 셋은 TC-ESV-3 · TC-GOR-1(군집) · `sidebar-collapse` SBC7 — 새 이름, **단독 3회 반복 통과.** 표적 200건 통과. 첫 판의 TC-BGU-2 는 표적에서 잡아 고쳤다 (§2j-4) |
 | ⑥ git 패널 본체(`.git-remote-btn`·`.git-commit-btn`·`.git-files-mode`·`.git-init-btn`·`.git-*-act`) 뒤 | **unexpected 0** · flaky 4 | 넷 다 §5-5 군집(`bg-kill-touch` TC-BGK-12t · `git-refresh-lifecycle` V-GRF-1 · `repo-diff-edit` E3 · `slot-view-state` TC-SVS-21). 표적: git 스펙 43파일 504건 전부 통과 (V169 포함) |
+| ⑦ P2 열(작은 여섯·`UX-19`·메뉴 묶음) 뒤 | unexpected 1 · flaky 3 | **진짜 회귀** — `touch-targets` TC-A11Y-13b: `UX-19` 의 추종 체크박스가 Theme 탭에 서자 파생 검사가 14px 를 잡았다 (배운 것 33 의 재현: 역할 있는 컨트롤을 더하면 옆의 검사가 저절로 잰다). 모바일 설정 체크박스 전부에 44px 히트 영역을 줬다(표식은 안에 그린다). flaky 셋은 `git-repo-missing` M3 · `git-improve` V138 · TC-GOR-1 — 군집 |
 
 **2026-09-13 (네 번째 세션, `UX-4`·`UX-2`·`UX-25`·`G7-1`) — 아홉 회차**
 

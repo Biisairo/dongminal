@@ -342,85 +342,31 @@ class GitMenu {
   static openList(items,kind,target,ev){
     GitMenu.close();
     if(!items||!items.length) return;
-    const m=document.createElement('div');
-    m.className='git-menu'; m.dataset.kind=kind;
-    for(const it of items){
-      if(it.sep){
-        const s=document.createElement('div'); s.className='git-menu-sep';
-        m.appendChild(s); continue;
-      }
-      const b=document.createElement('div');
-      b.className='git-menu-item'; b.dataset.id=it.id;
-      b.textContent=it.label;
-      // disabled 는 사유를 title 에 보인다 — 왜 못 누르는지 보이지 않으면
-      // 사용자는 고장으로 읽는다.
+    /**
+     * CONTEXT_MENU_UNIFY_SRS FR-CMU-6 / D-CMU-1: **어댑터**다. 항목 표의 어휘
+     * (`run`·`disabled(target)`·`tip`·`cur`)를 키트 항목으로 옮기고 `UIKit.menu` 를
+     * 부른다 — DOM·키 이동·닫힘은 키트의 것이다. 옛 이름(`git-menu*`)은 함께
+     * 붙는다 (FR-CMU-5, e2e 가 짚는다). 확인 게이트 `_pick` 만 여기 남는다.
+     */
+    const kit=items.map(it=>{
+      if(it.sep) return {sep:true};
       const why=it.disabled?(it.disabled(target)||''):'';
-      // 지금 서 있는 자리를 표시한다 (FR-GIT-282) — 표시가 없으면 목록이 자기
-      // 위치를 알려 주지 못한다.
-      if(it.cur) b.classList.add('cur');
-      // 툴팁은 `tip` 이다 — `title` 은 확인 다이얼로그의 제목으로 이미 쓰인다.
-      if(it.tip&&!why) b.title=it.tip;
-      if(why){b.classList.add('disabled'); b.title=why}
-      else b.addEventListener('click',()=>GitMenu._pick(it,target));
-      m.appendChild(b);
-    }
-    document.body.appendChild(m);
-    // 화면 경계에서 위치를 뒤집는다.
-    const x=(ev&&ev.clientX)||0, y=(ev&&ev.clientY)||0;
-    const w=m.offsetWidth, h=m.offsetHeight;
-    m.style.left=Math.max(0,x+w>window.innerWidth?x-w:x)+'px';
-    m.style.top=Math.max(0,y+h>window.innerHeight?y-h:y)+'px';
-    // 항목을 함께 쥔다 — `openList` 는 `GIT_MENUS` 에 없는 목록도 받으므로
-    // (Editor 탐색기의 조작 메뉴가 그렇다) 키보드 실행이 그 표를 되짚을 수 없다.
-    GitMenu._cur={el:m,target,i:-1,items};
-    // 이 메뉴를 띄운 contextmenu 는 이미 지나갔으므로 지금 붙여도 자기 이벤트로
-    // 닫히지 않는다. Esc·바깥 클릭·스크롤·리사이즈로 닫힌다.
-    GitMenu._off=e=>{if(!m.contains(e.target))GitMenu.close()};
-    GitMenu._key=e=>GitMenu._onKey(e);
-    GitMenu._away=()=>GitMenu.close();
-    document.addEventListener('mousedown',GitMenu._off,true);
-    document.addEventListener('keydown',GitMenu._key,true);
-    window.addEventListener('scroll',GitMenu._away,true);
-    window.addEventListener('resize',GitMenu._away,true);
+      return {
+        id:it.id,label:it.label,cur:!!it.cur,
+        // 사유가 있으면 그것이 title 이고, 없으면 툴팁(`tip`)이다 — `title` 은
+        // 확인 다이얼로그의 제목으로 이미 쓰인다.
+        disabled:why||false,title:why?'':(it.tip||''),
+        onClick:()=>GitMenu._pick(it,target),
+      };
+    });
+    const m=UIKit.menu(kit,{
+      at:{x:(ev&&ev.clientX)||0,y:(ev&&ev.clientY)||0},
+      cls:'git-menu',itemCls:'git-menu-item',sepCls:'git-menu-sep',
+    });
+    m.dataset.kind=kind;
   }
 
-  static close(){
-    const c=GitMenu._cur; if(!c) return;
-    GitMenu._cur=null;
-    c.el.remove();
-    document.removeEventListener('mousedown',GitMenu._off,true);
-    document.removeEventListener('keydown',GitMenu._key,true);
-    window.removeEventListener('scroll',GitMenu._away,true);
-    window.removeEventListener('resize',GitMenu._away,true);
-  }
-
-  // ↑/↓ 이동, Enter 실행, Esc 닫힘. disabled 항목은 건너뛴다 — 멈춰 서면 사용자는
-  // 키보드가 고장난 것으로 읽는다.
-  static _onKey(e){
-    const c=GitMenu._cur; if(!c) return;
-    if(e.key==='Escape'){e.preventDefault();e.stopPropagation();GitMenu.close();return}
-    if(e.key==='ArrowDown'||e.key==='ArrowUp'){
-      e.preventDefault(); e.stopPropagation();
-      const list=[...c.el.querySelectorAll('.git-menu-item:not(.disabled)')];
-      if(!list.length) return;
-      const all=[...c.el.querySelectorAll('.git-menu-item')];
-      const cur=list.indexOf(all[c.i]);
-      const next=e.key==='ArrowDown'
-        ?(cur+1)%list.length
-        :(cur<=0?list.length-1:cur-1);
-      c.i=all.indexOf(list[next]);
-      for(const el of all) el.classList.toggle('active',el===list[next]);
-      return;
-    }
-    if(e.key==='Enter'){
-      e.preventDefault(); e.stopPropagation();
-      const all=[...c.el.querySelectorAll('.git-menu-item')];
-      const el=all[c.i]; if(!el||el.classList.contains('disabled')) return;
-      const items=(c.items||[]).filter(x=>!x.sep);
-      const it=items.find(x=>x.id===el.dataset.id);
-      if(it) GitMenu._pick(it,c.target);
-    }
-  }
+  static close(){UIKit.closeMenu()}
 
   /**
    * 실행 전 확인은 여기 한 곳에만 있다 (계약 §4.2) — 항목이 확인 코드를 따로
@@ -447,7 +393,6 @@ class GitMenu {
   }
 }
 
-GitMenu._cur=null;
 
 // 고전 스크립트의 class·const 선언은 window 의 속성이 되지 않는다 — GitPanel 과
 // e2e 가 창 밖에서 부르므로 명시적으로 붙인다 (git-confirm.js 와 같은 규약).

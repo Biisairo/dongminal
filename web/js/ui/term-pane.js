@@ -29,6 +29,28 @@ class TerminalTool {
     this.el.addEventListener('dragover',e=>{e.preventDefault();if([...e.dataTransfer.types].includes('Files')){e.stopPropagation();this.el.classList.add('dragover')}});
     this.el.addEventListener('dragleave',()=>this.el.classList.remove('dragover'));
     /**
+     * CONTEXT_MENU_UNIFY_SRS FR-CMU-10 (`FUI-17`): 본문의 컨텍스트 메뉴. 복사는
+     * `TermClipboard.write`(세 단 폴백), 붙여넣기는 xterm 의 `paste`. 못 하는 것은
+     * 감추지 않고 사유를 든다 — 권한이 없는 붙여넣기는 조용히 실패하지 않는다
+     * (D-CMU-3).
+     */
+    this.el.addEventListener('contextmenu',e=>{
+      if(!this.term||this._exited) return;
+      e.preventDefault(); e.stopPropagation();
+      const sel=this.term.hasSelection()?this.term.getSelection():'';
+      const canRead=!!(navigator.clipboard&&navigator.clipboard.readText);
+      UIKit.menu([
+        {id:'copy',label:TERM_MENU_COPY,disabled:sel?false:TERM_MENU_COPY_NO,onClick:()=>TermClipboard.write(sel,this.id)},
+        {id:'paste',label:TERM_MENU_PASTE,disabled:canRead?false:TERM_MENU_PASTE_NO,onClick:()=>{
+          navigator.clipboard.readText().then(t=>{if(t)this.term.paste(t)},()=>Toast.show(TERM_MENU_PASTE_DENIED,'err'));
+        }},
+        {id:'selectAll',label:TERM_MENU_SELECT_ALL,onClick:()=>this.term.selectAll()},
+        {sep:true},
+        {id:'find',label:TERM_MENU_FIND,onClick:()=>{if(window.app&&app.toggleSearch)app.toggleSearch()}},
+        {id:'newTab',label:TAB_MENU_NEW,onClick:()=>{if(window.app&&app.addTabFocused)app.addTabFocused()}},
+      ],{at:{x:e.clientX,y:e.clientY},cls:'term-menu'});
+    });
+    /**
      * TERMINAL_FOLDER_DROP_SRS FR-TFD-10: **폴더도 받는다.**
      *
      * `dataTransfer.files` 만 보면 폴더는 오지 않거나 크기 0 의 실패가 된다 —

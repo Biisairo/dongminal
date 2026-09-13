@@ -220,3 +220,17 @@ test.describe('탭 줄 — 끌 수 있음이 보이고 넘침이 보인다 (UX-2
     await expect.poll(() => bar.evaluate((e) => e.scrollLeft), { timeout: 5000 }).toBeGreaterThan(0);
   });
 });
+
+// CONTEXT_MENU_UNIFY_SRS — TC-CMU-3 (M7 `FUI-08`).
+test.describe('탭 컨텍스트 메뉴 (FR-CMU-8)', () => {
+  test('TC-CMU-3: 우클릭이 셋을 보이고 이름 변경이 입력을 연다', async ({ page }) => {
+    await waitForInit(page);
+    await makeTabs(page);
+    await page.locator(TAB).last().click({ button: 'right' });
+    const m = page.locator('.ui-menu.tab-menu');
+    await expect(m).toBeVisible();
+    await expect(m.locator('.ui-menu-item')).toHaveText(['새 탭', '이름 변경', '탭 닫기']);
+    await m.locator('.ui-menu-item[data-id="rename"]').click();
+    await expect(page.locator(TABS + ' .rename-input')).toHaveCount(1);
+  });
+});

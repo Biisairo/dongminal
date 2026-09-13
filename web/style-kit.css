@@ -153,8 +153,12 @@
   display:flex;align-items:center;gap:7px;
   padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap;
 }
-.ui-menu-item:hover{background:var(--accent-hover);color:var(--accent-text)}
-.ui-menu-item.disabled{opacity:.4;pointer-events:none}
+.ui-menu-item:hover,.ui-menu-item.active{background:var(--accent-hover);color:var(--accent-text)}
+.ui-menu-item:focus-visible{outline:1px solid var(--focus-ring);outline-offset:-1px}
+/* FR-CMU-1: 비활성은 **사유를 보여야** 하므로 포인터를 막지 않는다 — `title` 은
+   hover 에서 뜬다. 글자에 `opacity` 를 걸지 않는다 (배운 것 32) — 파생 토큰이다. */
+.ui-menu-item.disabled{color:var(--text-hint);cursor:not-allowed}
+.ui-menu-item.disabled:hover{background:transparent;color:var(--text-hint)}
 .ui-menu-item.danger{color:var(--danger-text)}
 .ui-menu-item.danger:hover{background:var(--danger-subtle);color:var(--danger-text)}
 .ui-menu-sep{height:1px;margin:3px 6px;background:var(--border)}

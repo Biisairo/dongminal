@@ -675,20 +675,9 @@ body.mobile .git-head-remote{gap:2px}
 /* FR-GIT-42: 다음 덩어리를 이어 그릴 지점 */
 .git-file-more{padding:3px 8px;font-size:var(--fs-sm);color:var(--text-hint)}
 
-/* FR-GIT-146: 컨텍스트 메뉴 프레임워크. 대상 종류별 항목 집합이 이 골격을 공유한다 */
-.git-menu{
-  position:fixed;z-index:var(--z-popover);min-width:160px;padding:3px;
-  background:var(--bg);border:1px solid var(--border);border-radius:6px;
-  box-shadow:var(--shadow-2);font-size:var(--fs-md);color:var(--text);
-}
-.git-menu-item{padding:5px 10px;border-radius:3px;cursor:pointer;white-space:nowrap}
-.git-menu-item:hover,.git-menu-item.active{background:var(--accent-subtle);color:var(--text-bright)}
-/* 왜 못 누르는지는 title 이 말한다 — 색만으로는 사용자가 고장으로 읽는다 */
-/* FR-GIT-282: 지금 서 있는 자리 */
+/* FR-GIT-146: 컨텍스트 메뉴. 골격은 `.ui-menu` 다 (CONTEXT_MENU_UNIFY_SRS FR-CMU-7)
+   — 여기 남는 것은 FR-GIT-282 "지금 서 있는 자리" 하나다. */
 .git-menu-item.cur{color:var(--accent-text);font-weight:500}
-.git-menu-item.disabled{color:var(--text-hint);cursor:not-allowed}
-.git-menu-item.disabled:hover{background:transparent;color:var(--text-hint)}
-.git-menu-sep{height:1px;margin:3px 6px;background:var(--border)}
 
 body.mobile .git-file,body.mobile .git-dir{padding-top:5px;padding-bottom:5px}
 /* 모바일에는 hover 가 없다 — 인라인 동작을 늘 보인다 */

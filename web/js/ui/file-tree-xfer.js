@@ -173,6 +173,22 @@ Object.assign(FileTree.prototype, {
 
   _onCtx(e){
     const row=e.target.closest('.ed-row');
+    // CONTEXT_MENU_UNIFY_SRS FR-CMU-9 (`FUI-12`): 행 밖의 여백 — 자리는 루트다.
+    // 행 메뉴의 같은 항목과 **같은 함수**를 부른다.
+    if(!row&&this.list.contains(e.target)){
+      e.preventDefault();
+      if(this._edit) this.cancelEdit();
+      const dir=this.root;
+      UIKit.menu([
+        {id:'newFile',label:EDITOR_MENU_NEW_FILE,onClick:()=>this.startCreate(false,dir)},
+        ...(this._noDirs()?[]:[{id:'newDir',label:EDITOR_MENU_NEW_DIR,onClick:()=>this.startCreate(true,dir)}]),
+        {id:'upload',label:EDITOR_MENU_UPLOAD,onClick:()=>this.pickUpload(dir)},
+        {id:'uploadDir',label:EDITOR_MENU_UPLOAD_DIR,onClick:()=>this.pickUpload(dir,true)},
+        {sep:true},
+        {id:'paste',label:EDITOR_MENU_PASTE,disabled:this.app.edClipGet()?false:EDITOR_PASTE_NONE,onClick:()=>this.doPasteInto(dir)},
+      ],{at:{x:e.clientX,y:e.clientY},cls:'edfs-blank-menu'});
+      return;
+    }
     if(!row||!this.list.contains(row)||row.classList.contains('ed-edit')) return;
     e.preventDefault();
     const p=row.dataset.path,kind=row.dataset.kind;

@@ -788,3 +788,21 @@ test.describe('묶음 S — 다중 선택 (FR-EMS-1~25)', () => {
     expect(seen[0]).toBe(j(R, 'src', 'deep'));
   });
 });
+
+// CONTEXT_MENU_UNIFY_SRS — TC-CMU-4 (M7 `FUI-12`).
+test.describe('탐색기 빈 여백 메뉴 (FR-CMU-9)', () => {
+  test('TC-CMU-4: 행 밖 우클릭이 메뉴를 열고 새 파일이 루트에 생긴다', async ({ page, request }) => {
+    const R = mkRoot('cmu4');
+    await enterExplorer(page, request, R);
+    const list = page.locator('.ed-tree');
+    const box = await list.boundingBox();
+    // 목록의 맨 아래 여백 — 행이 없는 자리.
+    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height - 4, { button: 'right' });
+    const m = page.locator('.ui-menu.edfs-blank-menu');
+    await expect(m).toBeVisible();
+    await m.locator('.ui-menu-item[data-id="newFile"]').click();
+    await input(page).fill('blank.txt');
+    await input(page).press('Enter');
+    await expect(row(page, j(R, 'blank.txt'))).toBeVisible({ timeout: 10000 });
+  });
+});

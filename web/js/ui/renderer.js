@@ -1092,6 +1092,24 @@ class Renderer {
       if(e.target.classList.contains('pn-tab-x')) app.closeTab(c.pane.id,c.tab.id,null,{slot:c.slot});
       else app.switchTab(c.pane.id,c.tab.id,c.slot);
     });
+    /**
+     * CONTEXT_MENU_UNIFY_SRS FR-CMU-8 (`FUI-08`): 탭의 컨텍스트 메뉴. 항목마다
+     * 이미 있는 길을 부른다 — 더블클릭·`×`·`+` 와 같은 함수다. 못 하는 것은
+     * 감추지 않고 사유를 든다 (FR-CMU-1).
+     */
+    t.addEventListener('contextmenu',e=>{
+      const c=ctx(); if(!c.pane||!c.tab) return;
+      e.preventDefault(); e.stopPropagation();
+      const aw=app.aw();
+      const noNew=app.isGitWin(aw)||app.isEditorWin(aw);
+      const label=t.querySelector('.pn-tab-label');
+      UIKit.menu([
+        {id:'new',label:TAB_MENU_NEW,disabled:noNew?TAB_MENU_NEW_NO:false,onClick:()=>app.addTab(c.pane.id,'terminal')},
+        {id:'rename',label:TAB_MENU_RENAME,disabled:c.tab.type===TAB_TYPE_GIT?TAB_MENU_RENAME_GIT_NO:false,
+          onClick:()=>{if(c.tab.preview) app.pinPreviewTab(c.tab); if(label) app.renameTab(c.tab,label)}},
+        {id:'close',label:TAB_MENU_CLOSE,onClick:()=>app.closeTab(c.pane.id,c.tab.id,null,{slot:c.slot})},
+      ],{at:{x:e.clientX,y:e.clientY},cls:'tab-menu'});
+    });
     // FR-RTU-42: 탭 자체의 더블클릭이 고정한다.
     t.addEventListener('dblclick',e=>{
       const c=ctx(); if(!c.tab||!c.tab.preview) return;
