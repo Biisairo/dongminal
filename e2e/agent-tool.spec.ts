@@ -381,6 +381,43 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     await expect(pane.locator('.agp-limbar')).toBeVisible({ timeout: 10000 });
   });
 
+  /**
+   * V-M9-37 (M9_SRS FR-M9-37 / M9-B19): **탭을 옮기지 않아도 진입점이 선다.**
+   *
+   * 사용자가 겪은 그대로다 (접수 2026-09-14 — *"여전히 버튼은 없어"*). 셸에서
+   * `claude` 를 띄우는 순간 **그 탭은 이미 보이는 중**이므로 이동이 일어나지 않는다.
+   * 갱신 계기를 이동으로만 두면 버튼은 영영 서지 않는다 — 서버·훅·자산이 모두
+   * 새것이고 신원도 잡혀 있는데 **화면만 그 사실을 모르는** 상태가 된다.
+   *
+   * 그래서 **활동 신호**가 계기다: 그것이 오면 "여기서 에이전트가 돈다" 는 뜻이다.
+   */
+  test('V-M9-37 (FR-M9-37): 탭을 옮기지 않아도 활동 신호로 진입점이 선다', async ({ page }) => {
+    await waitForInit(page);
+    const term = page.locator('#area .pn.focused .tp.vis');
+    await expect(term).toBeVisible({ timeout: 10000 });
+    const toolId = await term.getAttribute('data-toolid');
+    expect(toolId).toBeTruthy();
+    await expect(term.locator('.tp-lift')).toBeHidden();
+
+    // 훅 둘을 흉내 낸다 — 신원은 context 종단, 활동은 activity 종단이다.
+    // **별도 종단인 것이 규약이다** (NFR-CBG-2): 둘의 실패가 서로를 막으면 안 된다.
+    const codes = await page.evaluate(async (id) => {
+      const post = (p: string, b: unknown) => fetch(p, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(b),
+      }).then((r) => r.status);
+      const a = await post('/api/runs/context',
+        { toolId: id, agent: 'claude', sessionId: 'sid-live', bytes: 10 });
+      const b = await post('/api/tools/activity/set',
+        { toolId: id, agent: 'claude', state: 'working', tool: 'Bash', detail: '' });
+      return [a, b];
+    }, toolId);
+    expect(codes, `종단 응답: ${codes}`).toEqual([200, 200]);
+
+    // **탭을 옮기지 않았다.** 그래도 선다.
+    await expect(term.locator('.tp-lift')).toBeVisible({ timeout: 10000 });
+  });
+
   test('TC-AGT-7: 프로세스가 죽으면 오류 상태 — 사유가 보이고 입력이 막히고, 재개가 된다 (V-8, FR-ABG-20)', async ({ page }) => {
     await waitForInit(page);
     const pane = await openAgentTab(page);
