@@ -32,19 +32,6 @@ class TerminalTool {
     // FR-B-6 (UX-11): 드롭 안내는 DOM 텍스트다. `.dragover` 일 때만 CSS 가 보인다.
     const drop=document.createElement('div'); drop.className='tp-drop-hint'; drop.textContent=DROP_FILES_HINT;
     this.el.appendChild(drop);
-    /**
-     * M9_SRS FR-M9-33·36 (M9-B15·B17): **셸에서 도는 에이전트를 GUI 로 올리는
-     * 진입점.** 접수한 말이 *"어떤 경로에서 여는 건지도 모르고, 어떻게 여는지도
-     * 알기 힘들다"* 였으므로 보이는 자리에 둔다.
-     *
-     * 터미널에는 머리 줄이 없으므로 **떠 있는 버튼**이고(사용자 결정 2026-09-14),
-     * **조건이 설 때만 보인다** — 그 탭에서 에이전트가 돌고 세션 신원이 잡힐 때다.
-     * 늘 보이면 아무 셸에서나 눌러 실패하고, 그때 "모른다" 가 "고장" 으로 읽힌다.
-     */
-    this.liftBtn=UIKit.button({label:t('term.lift_to_agent'),title:t('term.lift_to_agent_title'),
-      kind:'ghost',size:'sm',cls:'tp-lift',onClick:()=>app.agentLiftFromTerminal(this.id)});
-    this.liftBtn.hidden=true;
-    this.el.appendChild(this.liftBtn);
     // Drag & drop upload
     // FR-M9-30: 아래 `drop` 과 **같은 판정**이다. 두 문장이 갈리면 그 차이가 곧 결함이다.
     this.el.addEventListener('dragover',e=>{e.preventDefault();if(isFileDrag(e)){e.stopPropagation();this.el.classList.add('dragover')}});
@@ -243,10 +230,35 @@ class TerminalTool {
    * 없기 때문이다.
    */
   async refreshLift(){
-    if(!this.liftBtn||!this.el||!this.el.isConnected) return;
+    if(!this.el||!this.el.isConnected) return;
     const r=await apiGet('/api/agent/session',{query:{tool:this.id}});
-    if(!this.liftBtn) return;
-    this.liftBtn.hidden=!(r.ok&&r.data&&r.data.sessionId);
+    if(!this.el||!this.el.isConnected) return;
+    if(!(r.ok&&r.data&&r.data.sessionId)){
+      if(this.liftBtn) this.liftBtn.hidden=true;
+      return;
+    }
+    /**
+     * **버튼은 여기서 처음 만들어진다** — 생성자가 아니다.
+     *
+     *   이전 동작: 생성자가 `UIKit.button` 을 불렀다
+     *   새  동작: 조건이 처음 설 때 만든다
+     *   이유:     `term-pane.js` 를 **홀로 싣는 검사가 둘** 있다
+     *             (`e2e/reconnect-storm.spec.ts` 의 합성 페이지 · `web/js/test/`
+     *             의 node 단위). 둘 다 전역을 손으로 세우므로 생성자에 전역을
+     *             하나 더 쓰면 그 자리에서 `UIKit is not defined` 로 터진다 —
+     *             실제로 전량 e2e 5건과 단위 25건이 그렇게 떨어졌다
+     *             (`M9_PROGRESS` §2-25). 하네스마다 한 줄을 더하는 것보다
+     *             **의존을 만드는 자리를 옮기는 쪽**이 싸다
+     *
+     * 그리고 이 지연은 설계와도 맞는다 — 조건이 서지 않는 터미널에는 이 버튼이
+     * 숨는 것이 아니라 **아예 없다**.
+     */
+    if(!this.liftBtn){
+      this.liftBtn=UIKit.button({label:t('term.lift_to_agent'),title:t('term.lift_to_agent_title'),
+        kind:'ghost',size:'sm',cls:'tp-lift',onClick:()=>app.agentLiftFromTerminal(this.id)});
+      this.el.appendChild(this.liftBtn);
+    }
+    this.liftBtn.hidden=false;
   }
 
   _sendText(s){
