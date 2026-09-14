@@ -135,7 +135,27 @@ class Renderer {
       // 스크롤백이 없거나 크기가 아직 없다. 전자는 맞출 것이 없고 후자는 아직
       // 잴 수 없다 — 둘을 가르는 값이 없으므로 한 프레임 뒤에 다시 묻는다.
       if(span<=0||room<=0) return false;
-      const want=Math.round(room*buf.viewportY/span);
+      /**
+       * FR-M9-29: **행 높이는 요소에서 낸다.** `room/span` 이 아니다.
+       *
+       *   이전 동작: `room * ydisp / span` — 즉 스크롤 영역이 `span` 줄에
+       *             대응한다고 **가정**했다
+       *   새  동작: 행 높이는 `clientHeight / rows` 이고, 그것으로 자리를 낸다
+       *   이유:     영역이 낡아 있으면 그 가정이 거짓이고, 그러면 이 함수가
+       *             **스스로 `ydisp` 를 망가뜨린다.** 사용자 로그가 그 자리다 —
+       *             바닥(`ydisp=1508`)을 맞추려 `scrollTop` 을 최대(27721)로
+       *             썼고, 낡은 영역에서 그 픽셀은 `1459` 줄이라 xterm 이
+       *             `ydisp` 를 거기로 끌어내렸다
+       *
+       * 위의 흔들기가 영역을 되살리므로 여기 오면 대개 둘이 같다. 그래도 요소
+       * 쪽을 쓰는 것은 **가정을 하나 줄이는 것**이고, 흔들기가 듣지 않는 판에서
+       * 이 함수가 가해자가 되지 않게 한다.
+       */
+      const rh=vp.clientHeight/p.term.rows;
+      if(!(rh>0)) return false;
+      // 영역이 낡아 짧으면 그 안에서만 움직일 수 있다 — 넘겨 쓰면 브라우저가
+      // 잘라내고, 잘린 값이 다시 `ydisp` 로 되읽힌다.
+      const want=Math.min(Math.round(rh*buf.viewportY),room);
       // 반올림 한 칸의 차이로 대입하지 않는다. 대입은 scroll 이벤트를 내고,
       // 그 이벤트가 xterm 의 `_lastScrollTop` 을 실값으로 되돌려 자가회복까지
       // 정상화한다 — 없는 차이에 그 일을 시킬 이유는 없다.
@@ -159,7 +179,32 @@ class Renderer {
     try{
       const buf=p.term.buffer.active;
       if(rec.alt||buf.type==='alternate') return;
-      if(rec.atBottom){ p.term.scrollToBottom(); this._syncAfterRestore(p); return }
+      if(rec.atBottom){
+        /**
+         * M9_SRS FR-M9-29 (M9-B2): **바닥 갈래도 흔든다.**
+         *
+         *   이전 동작: `scrollToBottom()` 하나. `ydisp === ybase` 면 그것은
+         *             `scrollLines(0)` 이라 xterm 안에서 즉시 반환하고, 그래서
+         *             `Viewport.syncScrollArea` 가 **돌 계기가 없다**
+         *   새  동작: 한 줄 올렸다 내린다. 진짜 스크롤이므로 `onScroll` 이 나고
+         *             xterm 이 스크롤 영역을 다시 잰다
+         *   이유:     요소가 떨어져 있는 동안 버퍼가 자라면 `.xterm-scroll-area`
+         *             의 높이가 **낡은 길이**로 남는다. 사용자 로그의 산수가
+         *             그것을 확정했다 (2026-09-14): 영역 `28652px` = 낡은 길이
+         *             `1508` × 행높이 `19.0` 인데 버퍼는 `1557` 줄이었고, 그래서
+         *             스크롤바를 끝까지 내려도 `27721/19 = 1459` — **정확히 한
+         *             화면(49줄) 위**에서 멎었다. 접수한 말이 그것이다
+         *
+         * 이것이 사용자가 찾아낸 회피법("살짝 올렸다 내리면 내려간다")과 같은
+         * 동작이다 — 없던 것은 그 한 번이었다.
+         *
+         * 중간 스크롤 갈래에는 이 흔들기가 **이미 있었다** (아래 `scrollToLine`
+         * 두 줄, FR-VSR-22). 바닥 갈래만 빠져 있었고, 그 갈래가 곧 "터미널을
+         * 보던 대로 두고 나갔다 오는" 가장 흔한 경우다.
+         */
+        p.term.scrollToBottom();
+        this._syncAfterRestore(p,true); return;
+      }
       const max=Math.max(0,buf.length-p.term.rows);
       const target=Math.min(Math.max(0,rec.y),max);
       // xterm 은 `scrollToLine(ydisp)` 를 무시하므로(early return) 한 번 흔들어
@@ -199,9 +244,35 @@ class Renderer {
    * rAF 를 금한 것과 같은 이유이며, 이 한 프레임은 그 조항이 이미 예외로 둔
    * 자리다 — `§7.1` 의 "방금 붙은 요소에는 크기가 없다").
    */
-  _syncAfterRestore(p){
-    if(this._syncViewportScroll(p)) return;
-    TIMERS.frame(()=>this._syncViewportScroll(p),{owner:this,label:'term-scroll-sync'});
+  _syncAfterRestore(p,nudge){
+    const go=()=>{
+      // FR-M9-29: **흔들기는 크기가 생긴 자리에서 한다.** 크기 없는 프레임에
+      // 흔들면 xterm 이 영역을 0 으로 다시 재고, 그 0 이 그대로 남는다 (실측:
+      // 이 검사가 5회 중 1회 흔들렸다).
+      if(nudge) this._nudgeScrollArea(p);
+      return this._syncViewportScroll(p);
+    };
+    if(go()) return;
+    TIMERS.frame(go,{owner:this,label:'term-scroll-sync'});
+  }
+
+  /**
+   * FR-M9-29: xterm 이 **스크롤 영역을 다시 재게** 한다.
+   *
+   * `ydisp === ybase` 면 `scrollToBottom()` 은 `scrollLines(0)` 이라 즉시
+   * 반환하고, 그러면 `Viewport.syncScrollArea` 가 돌 계기가 없다. 한 줄
+   * 올렸다 내리는 것이 그 계기다 — 사용자가 찾아낸 회피법과 같은 동작이다.
+   *
+   * 올릴 자리가 없으면(맨 위) 하지 않는다. 그때는 스크롤백이 없다는 뜻이고
+   * 다시 잴 영역도 없다.
+   */
+  _nudgeScrollArea(p){
+    try{
+      const buf=p.term.buffer.active;
+      if(buf.type==='alternate'||buf.viewportY<=0) return;
+      p.term.scrollLines(-1);
+      p.term.scrollToBottom();
+    }catch{}
   }
 
   render(){
@@ -265,9 +336,23 @@ class Renderer {
     const app=this.app;
     // git 뷰 — 사이드의 Changes 와 본문의 여섯 (FR-SCR-3).
     //
-    // **탐색기와 터미널은 여기 없다.** 둘은 이미 자기 대비를 갖고 있다 —
-    // `FileTree.mount` 의 `_scrollY`(FR-EDT-68)와 `_rLayout` 의
-    // `.xterm-viewport`. 같은 일을 두 벌로 하면 어느 쪽이 이겼는지 말할 수 없다.
+    // **탐색기는 여기 없다** — `FileTree.mount` 의 `_scrollY`(FR-EDT-68)가 자기
+    // 대비를 갖는다. 같은 일을 두 벌로 하면 어느 쪽이 이겼는지 말할 수 없다.
+    //
+    // **터미널은 이제 여기 있다** (M9_SRS FR-M9-28 / M9-B2).
+    //
+    //   이전 동작: 터미널만 `_mountTabBody` 의 이동 갈래에서 갈무리했다 —
+    //             즉 **요소가 떨어진 뒤**다. `_hideOthers` 가 `c.remove()` 로
+    //             먼저 떼고, 그 뒤에 `_grabScroll` 이 `viewportY` 를 읽었다
+    //             (실측: `grab … conn=false vis=false`)
+    //   새  동작: 편집기와 **같은 시점**에, 문서에 붙어 보이는 동안 읽는다
+    //   이유:     떼는 자리는 셋이고(`_hideOthers`·`_domGC`·`_place`) 그 셋보다
+    //             앞선 유일한 공통 시점이 여기다 — FR-VSR-2 가 편집기에 대해
+    //             세운 그 규약이며, **터미널만 그 밖에 있었다**
+    //
+    // 종전 주석은 "터미널은 이미 자기 대비를 갖고 있다" 였다. 대비는 있었으나
+    // **자리가 틀렸다** — 그 문장이 이 결함을 여덟 달 가려 준 자리다.
+    this._keepTermScroll();
     if(app.gitPanels) for(const p of app.gitPanels.values()) for(const el of p._els.values()) take(el);
     // VIEW_SCROLL_RESTORE_SRS FR-VSR-2 / D-2: **편집기 탭은 훑기로 잡히지 않는다** —
     // Monaco 의 스크롤은 DOM `scrollTop` 이 아니라 인스턴스가 든 값이다. 그래서
@@ -277,6 +362,37 @@ class Renderer {
     // `_hideOthers`, 창·칸 전환은 `_domGC`, 배치 변경은 `_place`. 셋에 각각 훅을
     // 걸면 넷째 자리가 생길 때 조용히 빠진다. 이 시점은 그 셋보다 앞선다.
     if(app.fileEditors) for(const v of app.fileEditors.values()) if(v&&v.keepView) v.keepView();
+  }
+
+  /**
+   * M9_SRS FR-M9-28 (M9-B2): **떼기 전의 터미널 자리.**
+   *
+   * 문서에 붙어 **보이는**(`isConnected` + `.vis`) 터미널만 잰다 — 그 둘이
+   * 아니면 `viewportY` 는 사용자가 본 자리가 아니다. 판정은 FR-VSR-2 의 것과
+   * 같은 문장이다.
+   *
+   * 보이지 않는 터미널을 적지 않는 것이 요점이다. 슬롯 둘이 같은 도구를 그릴 때
+   * 한쪽만 보일 수 있고, 그때 안 보이는 쪽의 값으로 덮으면 보이는 쪽이 튄다.
+   */
+  _keepTermScroll(){
+    const m=this._termKeep=new Map();
+    const app=this.app;
+    if(!app.tools) return;
+    for(const [id,p] of app.tools){
+      if(!p||!p.el||!p.el.isConnected||!p.el.classList.contains('vis')) continue;
+      m.set(id,this._grabScroll(p));
+    }
+  }
+
+  /**
+   * 그 도구의 **떼기 전** 기록. 없으면 지금 읽는다 — 렌더 머리에 보이지 않았던
+   * 터미널이 이번 그리기에서 처음 서는 경우이며, 그때는 되돌릴 앞자리가 없다.
+   */
+  _termScrollOf(p){
+    const rec=this._termKeep&&this._termKeep.get(p.id);
+    // `rec.p` 는 그 순간의 인스턴스다. 같은 id 로 다시 만들어졌으면 남의 자리다.
+    if(rec&&rec.p===p) return rec;
+    return this._grabScroll(p);
   }
 
   _restoreScroll(){
@@ -953,7 +1069,8 @@ class Renderer {
     if(el.parentNode!==body){
       // FR-PDR-10: **여기가 유일한 이동이다.** 그리고 이동한 것만 사후 처리를
       // 받는다 — 자리를 지킨 위젯에는 어떤 스크롤 API 도 닿지 않는다.
-      if(term) this._moved.push(this._grabScroll(term));
+      // FR-M9-28: **떼기 전에** 잰 것을 쓴다. 여기서 읽으면 이미 떨어진 뒤다.
+      if(term) this._moved.push(this._termScrollOf(term));
       body.appendChild(el);
       moved=true;
     }
