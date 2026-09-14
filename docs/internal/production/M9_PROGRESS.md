@@ -368,3 +368,4 @@ window.EventSource = function(){ throw new Error('offline') };
 | 단계 | 커밋 |
 |---|---|
 | P1 | `e604cb5` |
+| P2 | `2d10e86` |
