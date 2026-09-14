@@ -231,7 +231,7 @@ func (s *Server) createAgentTool(w http.ResponseWriter, r *http.Request, cwd str
 	// 세션을 못 여는 이유가 되면 안 된다 (NFR-CBG-2 와 같은 근거).
 	hist := agentsess.History{}
 	if opts.Resume != "" {
-		hist = agentsess.LoadHistory(ad, s.transcriptFor(opts.Resume), agentsess.HistoryTailMax)
+		hist = agentsess.LoadHistory(ad, s.transcriptFor(opts.Resume, ad.ID), agentsess.HistoryTailMax)
 	}
 	if _, err := s.agentMgr().OpenWithHistory(tool.ID, ad, opts, hist); err != nil {
 		fail(w, http.StatusInternalServerError, "도구를 만들지 못했습니다", err)

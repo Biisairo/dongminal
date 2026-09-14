@@ -200,6 +200,68 @@ func TestMigrationSkill_CarriesTheHandoffProcedure(t *testing.T) {
 	}
 }
 
+// V-M9-42 (M9_SRS FR-M9-42 / M9-B24): **사용자가 실물에서 만난 증상 넷을 막는가.**
+//
+// 위 테스트는 절차의 **명령**이 있는지를 센다. 이것은 그 명령들이 **옳은 순서로,
+// 옳은 값으로** 불리도록 문서가 말하는지를 센다 — 증상 넷은 전부 "명령은 있었는데
+// 어떻게 쓰는지가 없거나 틀렸다" 였다.
+func TestMigrationSkill_GuardsTheFourSymptoms(t *testing.T) {
+	body := skillDocs(t)[path.Join("agentplugin", "skills", "migration", "SKILL.md")]
+	if body == "" {
+		t.Fatal("migration/SKILL.md 를 찾지 못했다")
+	}
+	symptoms := []struct{ name, needle string }{
+		// ② 포커스 칸에 탭이 섰다. `--at` 없이 부르면 **포커스 칸**이다 —
+		// 부르는 쪽의 칸이 아니다 (`app-cmd.js` 의 `rid=this.focused`).
+		{"자기 칸에 연다", "dmctl new-tab -n --at"},
+		{"--at 없으면 포커스 칸이라는 사실", "포커스 칸"},
+		// ④ 엉뚱한 탭이 닫혔다. 식별자가 둘이고 쓰는 자리가 다르다.
+		{"식별자 표 — 탭 uuid", "탭 uuid"},
+		{"식별자 표 — 도구 id", "toolId"},
+		{"칸 uuid 는 --at 이 받지 않는다", "paneUuid"},
+		// ③ 엔벨로프가 안 닿았다. `ready` 는 "떴다" 일 뿐이다.
+		{"ready 의 한계", "입력을 받을 준비"},
+		{"둘째 관문", "read-screen"},
+		{"보낸 뒤 검증", "dmctl status --at"},
+		// ① 열지도 않고 닫으려 했다.
+		{"닫기의 전제", "확인한 뒤에만"},
+		{"막히면 닫지 않는다", "닫지 말고 사용자에게"},
+	}
+	for _, sx := range symptoms {
+		if !strings.Contains(body, sx.needle) {
+			t.Errorf("migration/SKILL.md 가 증상을 막지 못한다 — %s (%q)", sx.name, sx.needle)
+		}
+	}
+	// **닫기는 확인 뒤에 온다.** 순서가 곧 규약이므로 문서에서의 순서로 잰다 —
+	// 닫기 절이 확인 절보다 앞에 오면 읽는 쪽이 그 순서로 실행한다.
+	verify := strings.Index(body, "dmctl status --at")
+	closeTab := strings.LastIndex(body, "dmctl close-tab")
+	if verify < 0 || closeTab < 0 || verify > closeTab {
+		t.Errorf("확인이 닫기보다 뒤에 있다 — 순서가 규약이다 (verify=%d close=%d)", verify, closeTab)
+	}
+}
+
+// V-M9-43 (M9_SRS FR-M9-43 / M9-B24): **에이전트와 표면이 옵션이다.**
+//
+// 기본값은 `claude` · `cli` 다 — 아무 말 없이 부르면 지금과 같은 동작이며, 그
+// 사실이 문서에 있어야 스킬이 사용자에게 되묻지 않는다.
+func TestMigrationSkill_CarriesAgentAndSurfaceOptions(t *testing.T) {
+	body := skillDocs(t)[path.Join("agentplugin", "skills", "migration", "SKILL.md")]
+	if body == "" {
+		t.Fatal("migration/SKILL.md 를 찾지 못했다")
+	}
+	for _, needle := range []string{"claude", "cli", "gui", "--agent"} {
+		if !strings.Contains(body, needle) {
+			t.Errorf("migration/SKILL.md 에 표면 옵션이 없다 (%q)", needle)
+		}
+	}
+	// gui 갈래는 기동줄을 치지 않는다 — 탭 자체가 그 에이전트다. 그 구분이 없으면
+	// 에이전트 도구에 `claude` 를 타이핑하는 길이 열린다.
+	if !strings.Contains(body, "gui 로 열었으면 이 단계는 없다") {
+		t.Error("migration/SKILL.md 가 gui 갈래에서 기동줄을 건너뛰라고 말하지 않는다")
+	}
+}
+
 // M9-B6 / FR-M9-6: `team` 은 오케스트레이션 전용이다 — 인수인계를 자기 일로
 // 말하지 않는다. 두 스킬의 모양이 닮아 경계가 흐려지면 인계가 팀으로 흘러가고,
 // 그러면 넘기는 쪽이 조정자로 살아 있어야 해서 정작 닫지 못한다.

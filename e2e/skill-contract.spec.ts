@@ -104,6 +104,42 @@ test.describe('스킬이 부르는 접합면 (라이브)', () => {
     await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
   });
 
+  /**
+   * V-M9-43 (M9_SRS FR-M9-43 / M9-B24): **인계가 열 표면을 `--agent` 가 가른다.**
+   *
+   * 접수한 말: *"tui, gui 중 뭘로열지도 옵션으로 받을 수 있으면 좋을꺼같아."*
+   * `cli` 갈래는 이미 있었다(터미널 탭 + 기동줄). 없던 것은 `gui` — `/api/commands`
+   * 의 `newTab` 이 **언제나** 터미널을 만들고 있었다.
+   *
+   * **`-n` 이 지켜지는지도 함께 잰다.** 인계는 사용자가 보고 있는 자리를 빼앗지
+   * 않아야 하고, 에이전트 갈래는 그 보장이 터미널 갈래와 같아야 한다 (FR-RST-4).
+   */
+  test('V-M9-43 (FR-M9-43): newTab 에 agent 를 주면 에이전트 도구 탭이 서고, -n 이 포커스를 지킨다', async ({ page, request }) => {
+    const { uuid } = await firstTab(request);
+    const focusBefore = await windowFocusMap(request);
+
+    const r = await request.post('/api/commands', {
+      data: { action: 'newTab', args: { location: uuid, keepFocus: true, agent: 'claude' } },
+    });
+    expect(r.status(), `newTab --agent 가 ${r.status()} 로 거부됐다`).toBe(200);
+    const body = await r.json();
+    expect(body.delivered, '구독 중인 브라우저가 없다').toBeGreaterThan(0);
+    expect(body.timedOut, '브라우저가 결과를 답하지 않았다 — 탭이 만들어지지 않았다').toBeFalsy();
+    expect(body.newTabs?.[0]?.uuid, 'newTabs[0].uuid 가 없다 — 인계의 캡처가 깨진다').toBeTruthy();
+    const toolId: string = body.newTabs[0].toolId;
+    expect(toolId, 'newTabs[0].toolId 가 없다').toBeTruthy();
+
+    // **에이전트 도구다** — 터미널이 아니다. 진실은 서버의 도구 목록이다.
+    await expect.poll(async () => {
+      const state = await (await request.get('/api/state')).json();
+      const tool = (state.tools || []).find((t: any) => t.id === toolId);
+      return tool?.kind;
+    }, { timeout: 15000 }).toBe('agent');
+
+    // `-n` 은 보고 있는 탭을 바꾸지 않는다 (FR-RST-4).
+    expect(await windowFocusMap(request), '-n 인데 보고 있는 탭이 바뀌었다').toEqual(focusBefore);
+  });
+
   // 스킬의 "식별자는 항상 UUID" 원칙의 서버측 근거.
   test('좌표 location 은 거부된다', async ({ request }) => {
     const r = await request.post('/api/commands', {

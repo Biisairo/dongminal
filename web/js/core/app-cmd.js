@@ -549,6 +549,18 @@ Object.assign(App.prototype, {
     }
     if(action==='newTab'){
       const opts={name:args.name,keepFocus:!!args.keepFocus};
+      /**
+       * M9_SRS FR-M9-43 (M9-B24): **표면은 플래그 하나가 가른다.**
+       *
+       * `--agent <id>` 가 오면 그 탭은 에이전트 도구이고, 없으면 터미널이다.
+       * `--kind` 를 따로 두지 않는 이유는 두 플래그가 서로를 부정할 수 있는
+       * 조합(`--kind terminal --agent claude`)을 만들지 않기 위해서다.
+       *
+       * 모르는 id 는 **종단이 거절한다** (`/api/tools?kind=agent` → 400) — 여기서
+       * 목록을 다시 확인하지 않는다. 그 목록의 진실은 등록부 한 곳이다 (FR-U-1).
+       */
+      const kind=args.agent?'agent':'terminal';
+      if(args.agent) opts.agent=String(args.agent);
       let rid=null;
       if(args.location){
         const tgt=this._resolveLocation(args.location);
@@ -563,7 +575,7 @@ Object.assign(App.prototype, {
       }else{
         rid=this.focused;
       }
-      if(rid) this.addTab(rid,'terminal',opts).then((tab)=>{
+      if(rid) this.addTab(rid,kind,opts).then((tab)=>{
         if(args.reqId&&tab) this._echoResult(args.reqId,{newTabs:[tab]});
       }).catch(err=>this._notify(t('core.open_tab_fail')+' — '+((err&&err.message)||err)));
       return;

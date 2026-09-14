@@ -83,6 +83,41 @@ func TestAgentAPI_LiftWithoutTranscriptSaysSo(t *testing.T) {
 	}
 }
 
+// V-M9-41 (M9_SRS FR-M9-41): **세션 id 는 어느 에이전트의 것인지 말하지 않는다.**
+//
+// 전사본의 형식은 에이전트마다 다르다 (`ParseHistory` 가 어댑터에 있는 이유가 그것이다).
+// 그런데 세션 id 는 그 형식을 말하지 않는 값이라, id 만으로 경로를 고르면 **다른
+// 에이전트의 전사본**을 이 어댑터의 파서에 넘기는 길이 열린다.
+//
+// 올리기 경로에서는 `agent` 와 `resume` 이 같은 응답에서 함께 오므로 실제로는
+// 어긋나지 않는다. 그것은 **호출자의 예의**이지 이 함수의 보장이 아니다 — 보장을
+// 여기 세운다.
+func TestAgentAPI_HistoryNeedsTheAgentToMatch(t *testing.T) {
+	s, _, _ := directAgentServer(t)
+	tp := writeTranscriptFile(t, `{"type":"user","message":{"content":"남의 기록"}}`)
+	// 같은 세션 id 를 **다른 에이전트**가 들고 있다.
+	s.noteAgentSession("term-other", "sid-shared", "codex", tp)
+
+	id := createAgent(t, s, "&resume=sid-shared")
+	st, kinds, _ := agentEvents(t, s, id, 0)
+	if st["history"] != "unavailable" {
+		t.Fatalf("남의 전사본을 읽었다고 했다: %v", st["history"])
+	}
+	for _, k := range kinds {
+		if k == "user" || k == "message" {
+			t.Fatalf("다른 에이전트의 기록이 화면에 실렸다: %v", kinds)
+		}
+	}
+
+	// 같은 에이전트가 들고 있으면 읽는다 — 막는 것은 어긋남뿐이다.
+	s.noteAgentSession("term-mine", "sid-mine", claudeID, tp)
+	id2 := createAgent(t, s, "&resume=sid-mine")
+	st2, kinds2, _ := agentEvents(t, s, id2, 0)
+	if st2["history"] != "loaded" || len(kinds2) == 0 || kinds2[0] != "user" {
+		t.Fatalf("같은 에이전트의 기록을 읽지 못했다: %v %v", st2["history"], kinds2)
+	}
+}
+
 // V-M9-41 (NFR-4 개정): **경로는 서버 안에서만 산다.**
 //
 // `/api/agent/session` 은 올리기의 재료를 주는 자리이고, 프론트는 그 답으로 버튼을

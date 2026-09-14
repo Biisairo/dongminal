@@ -17,7 +17,10 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
                                          # -n: 백그라운드 생성 (포커스 유지)
                                          # --sandbox: 그 창의 도구를 컨테이너 안에서 실행
                                          # --workdir: 샌드박스 창의 작업 폴더
-  dmctl new-tab [--name <이름>] [-n] [--at <uuid>]
+  dmctl new-tab [--name <이름>] [-n] [--at <uuid>] [--agent <id>]
+                                         # --at: 그 **탭**이 속한 칸에 연다 (칸 uuid 가 아니다).
+                                         #       생략하면 포커스 칸이다 — 부르는 쪽이 아니다
+                                         # --agent: 터미널 대신 에이전트 도구 탭 (예: claude)
   dmctl split-h [N]      # 가로 분할. N 지정 시 N 개로 균등 분할 (기본 2)
   dmctl split-v [N]      # 세로 분할. N 지정 시 N 개로 균등 분할 (기본 2)
   dmctl focus <uuid>     # uuid = list-workspace 의 uuid 컬럼 값 (좌표/라벨/toolId 거부)
@@ -322,6 +325,11 @@ type dmctlParsed struct {
 	// M9_SRS FR-M9-4: 닫기의 답을 미리 준다. 둘은 배타다 (D-M9-4).
 	force      bool
 	background bool
+	// M9_SRS FR-M9-43: 새 탭을 **에이전트 도구**로 연다 (M9-B24 추가 요구).
+	// 빈 값이면 터미널 탭이다 — `--kind` 를 따로 두지 않는 것이 요점이며, 두
+	// 플래그가 서로를 부정하는 조합(`--kind terminal --agent claude`)을 애초에
+	// 만들지 않는다.
+	agent string
 }
 
 func (p dmctlParsed) buildArgs() map[string]any {
@@ -354,6 +362,11 @@ func (p dmctlParsed) buildArgs() map[string]any {
 	// 다른 인자다 — 저쪽은 샌드박스 컨테이너 안의 자리를 말한다.
 	if p.cwd != "" {
 		out["cwd"] = p.cwd
+	}
+	// FR-M9-43: 없으면 **싣지 않는다.** 빈 값을 실으면 받는 쪽이 "에이전트가 빈
+	// 에이전트 탭" 으로 읽는다 (FR-CBG-5 의 규약).
+	if p.agent != "" {
+		out["agent"] = p.agent
 	}
 	return out
 }
@@ -391,6 +404,16 @@ func parseDmctlFlags(args []string) (dmctlParsed, error) {
 		// 되돌린다. rename-tab 전용이며 이름과 함께 쓰지 않는다.
 		case a == "--auto":
 			p.auto = true
+		// FR-M9-43: new-tab 전용. 그 탭을 에이전트 도구로 연다 (M9-B24).
+		case a == "--agent":
+			if i+1 >= len(args) {
+				return p, fmt.Errorf("flag %s requires value", a)
+			}
+			p.agent = args[i+1]
+			i += 2
+			continue
+		case len(a) > 8 && a[:8] == "--agent=":
+			p.agent = a[8:]
 		// FR-SBX-11: new-window 전용. 그 창의 모든 도구가 대응 컨테이너 안에서 돈다.
 		case a == "--sandbox":
 			if i+1 >= len(args) {

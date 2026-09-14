@@ -217,14 +217,26 @@ func (s *Server) noteAgentSession(toolID, sessionID, agent, transcript string) {
 // **도구가 아니라 세션으로 찾는 이유**: 올리기는 셸의 세션을 **새 `toolId`** 로
 // 여는 일이라, 여는 쪽의 도구에는 신원이 없다. 아는 것은 재개할 세션 id 하나이며
 // 그것이 두 자리를 잇는 유일한 값이다.
-func (s *Server) transcriptFor(sessionID string) string {
-	if sessionID == "" {
+//
+// **에이전트도 함께 맞춰야 한다** (사용자 지적 2026-09-14 — *"id 만 보고 어떤
+// 에이전트에서 가져올지 확인이 되나?"*). 세션 id 는 **형식을 말하지 않는 값**이고,
+// 전사본의 형식은 에이전트마다 다르다 (`ParseHistory` 가 어댑터에 있는 이유가 그것이다).
+// id 만으로 고르면 다른 에이전트의 전사본을 이 어댑터의 파서에 넘기는 길이 열린다.
+//
+// 올리기 경로에서는 `agent` 와 `resume` 이 같은 응답(`/api/agent/session`)에서 함께
+// 오므로 실제로는 어긋나지 않는다. 그것은 **호출자의 예의**이지 이 함수의 보장이
+// 아니며, 보장은 여기 있어야 한다.
+//
+// 보고에 에이전트가 없으면 **맞춰 볼 수 없으므로 쓰지 않는다** — 모르는 것을 "맞다"
+// 로 읽지 않는다 (FR-CBG-5).
+func (s *Server) transcriptFor(sessionID, agentID string) string {
+	if sessionID == "" || agentID == "" {
 		return ""
 	}
 	out := ""
 	s.agentSessions.Range(func(_, v any) bool {
 		info, _ := v.(*AgentSessionInfo)
-		if info != nil && info.SessionID == sessionID && info.TranscriptPath != "" {
+		if info != nil && info.SessionID == sessionID && info.Agent == agentID && info.TranscriptPath != "" {
 			out = info.TranscriptPath
 			return false
 		}
