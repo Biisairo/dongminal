@@ -293,26 +293,36 @@ test.describe('Pane scroll preserve regression', () => {
    * `round(scrollTop / rowHeight) - ydisp` 가 큰 음수라 최상단으로 튄다.
    */
   /**
-   * V-M9-29 (M9_SRS FR-M9-29 / M9-B2): **떨어져 있는 동안 자란 버퍼도 끝까지 내려간다.**
+   * V-M10-6 (M10_SRS FR-M10-3 · D-M10-4 — 옛 이름 V-M9-29): **복원의 바닥 갈래가
+   * xterm 을 실제로 흔든다.**
    *
-   * 사용자 `?diag=1` 로그의 산수가 이 결함을 확정했다 (2026-09-14,
-   * `M9_PROGRESS` §1-14). `.xterm-scroll-area` 의 높이가 **낡은 버퍼 길이**로
-   * 남아, 스크롤바를 끝까지 내려도 **정확히 한 화면 위**에서 멎었다 —
-   * 영역 `28652px` = 낡은 길이 `1508` × 행높이 `19.0`, 버퍼는 `1557` 줄.
+   * 원래 결함은 이것이다 (M9-B2, 사용자 `?diag=1` 로그의 산수가 확정했다 —
+   * `M9_PROGRESS` §1-14): `.xterm-scroll-area` 의 높이가 **낡은 버퍼 길이**로 남아
+   * 스크롤바를 끝까지 내려도 **정확히 한 화면 위**에서 멎었다 — 영역 `28652px` =
+   * 낡은 길이 `1508` × 행높이 `19.0`, 버퍼는 `1557` 줄.
    *
-   * **재는 것은 `ydisp` 가 아니라 스크롤 영역이다.** `ydisp` 만 보면 그것을
-   * 되돌리는 아무 경로에나 초록을 준다 (`M9_PROGRESS` §2-12) — 이 결함에서
-   * `ydisp` 는 **옳은 값(바닥)이었고**, 갈 수 없는 것이 그 아래였다.
+   * **이 검사는 그 증상을 재지 않는다.** 재려다 **네 번 미끄러졌다** — 첫 판은
+   * 버퍼를 키우지 않아서, 둘째 판은 *다른 창의* 터미널을 키워서, 셋째 판은
+   * 조건을 다 맞췄는데도, 그리고 2026-09-15 의 실측에서 `_nudgeScrollArea` 에
+   * `if(1) return;` 프로브를 넣어도 `1 passed` 였다. 영역 높이는 **브라우저의
+   * 레이아웃 결과**이고, 헤드리스에서 그것이 낡는 조건이 실물과 같다는 보장이
+   * 없다 (`M9_PROGRESS` §2-22 · `M10_SRS` §2.4).
    *
-   * **조건은 "떨어져 있는 동안 버퍼가 자란다" 이다.** 이 조항의 첫 검사는 그냥
-   * 창을 왕복하기만 했고 **깨진 코드에서도 초록이었다** — 자라지 않으면 영역이
-   * 낡을 일이 없기 때문이다 (§2-4 가 말한 자리를 한 번 더 밟았다).
+   * 그래서 재는 대상을 조항이 **명시한 수단**으로 옮긴다 (D-M10-4). FR-M9-29 는
+   * "무엇이 되어야 한다" 만이 아니라 그 방법까지 적었다 — *"한 줄 올렸다 내린다.
+   * 진짜 스크롤이므로 `onScroll` 이 나고 xterm 이 스크롤 영역을 다시 잰다."*
+   * 그 `onScroll` 이 복원의 **바닥 갈래**에서 나는가가 이 검사의 전부다.
    *
-   * 행 높이는 **요소에서** 낸다 (`clientHeight / rows`) — 영역에서 내면
-   * (`scrollHeight / length`) 낡은 영역이 분자와 분모에 함께 들어가 언제나
-   * 맞는 답이 나온다. 그것이 이 결함을 숨기던 산수다.
+   * `M9_PROGRESS` §2-12("증상을 재라")의 **예외**인 것이 요점이다. 그 규칙은
+   * 증상을 재는 검사가 *아무 경로에나* 초록을 준다는 것인데, 여기서는 *아무
+   * 경로도 없는데* 초록을 줬다. 증상 판정을 남기지 않고 **지우는** 이유도
+   * 그것이다 — 두 판정이 함께 있으면 초록의 출처가 흐려지고, 다음 사람은 통과한
+   * 검사를 "증상이 없다" 로 읽는다 (§2-22 에서 실제로 그렇게 읽혔다).
+   *
+   * **조건은 그대로 "떨어져 있는 동안 버퍼가 자란다" 이다.** 그것이 없으면 복원이
+   * 흔들 이유도 없다.
    */
-  test('V-M9-29 (FR-M9-29): 떨어져 있는 동안 버퍼가 자라도 스크롤 영역이 따라온다',
+  test('V-M10-6 (FR-M10-3): 떨어져 있는 동안 버퍼가 자라면 복원이 xterm 을 흔든다',
     async ({ page }) => {
       await waitForInit(page, { clearLocalStorage: true });
       await addWindow(page);
@@ -341,24 +351,52 @@ test.describe('Pane scroll preserve regression', () => {
         for (let i = 0; i < k; i++) p.term.write('vsr-' + i + '\r\n');
       }, { id: toolId, k: n });
 
-      /** 그 도구의 스크롤 영역. 행 높이는 **요소**가 준다 — 낡을 수 있는 영역이 아니라. */
-      const area = () => page.evaluate((id) => {
+      const bufLen = () => page.evaluate((id) => {
         const p = (window as any).app.tools.get(id);
-        const v = p && p.el ? p.el.querySelector('.xterm-viewport') : null;
-        if (!p || !p.term || !v || !v.clientHeight) return null;
-        const b = p.term.buffer.active;
-        const rh = v.clientHeight / p.term.rows;
-        return { areaRows: Math.round(v.scrollHeight / rh),
-          maxLine: Math.round((v.scrollHeight - v.clientHeight) / rh),
-          len: b.length, base: b.baseY };
+        return p && p.term ? p.term.buffer.active.length : 0;
       }, toolId);
 
-      await grow(300);
-      await expect.poll(async () => { const m = await area(); return m ? m.len - m.areaRows : -1 },
-        { timeout: 10000, message: '왕복 전부터 영역이 틀렸다' }).toBe(0);
+      /**
+       * 복원이 xterm 을 **실제로 흔들었는가.** `onScroll` 은 `ydisp` 가 옮겨질
+       * 때만 나므로, `scrollToBottom()` 이 `scrollLines(0)` 으로 즉시 반환하는
+       * 갈래에서는 **한 번도 나지 않는다** — 그것이 이 결함이었다.
+       *
+       * 복원 **직전**에 센다. 떨어져 있는 동안 출력이 만든 자동 스크롤은 이
+       * 조항의 것이 아니다.
+       */
+      const armScrollProbe = () => page.evaluate((id) => {
+        const w = window as any;
+        const p = w.app.tools.get(id);
+        if (w.__vsrOff) { try { w.__vsrOff.dispose() } catch { /* 이미 떼였다 */ } }
+        w.__vsrTrace = [];
+        w.__vsrOff = p.term.onScroll(() => {
+          const b = p.term.buffer.active;
+          w.__vsrTrace.push({ y: b.viewportY, b: b.baseY });
+        });
+      }, toolId);
 
-      // **조건**: 떠나 있는 동안 그 도구의 버퍼가 자란다. 이것이 없으면 영역이
-      // 낡을 일이 없고 결함도 나타나지 않는다.
+      /**
+       * 흔들기의 **고유한 궤적**: `scrollLines(-1)` 이 `ydisp` 를 `ybase-1` 로
+       * 내리고 `scrollToBottom()` 이 되돌린다.
+       *
+       * 발화 **수**로는 가를 수 없다 — 실측(2026-09-15)에서 고침이 없어도 발화가
+       * 하나 있었다(`{y:0,b:0}`). 그 자리에 `fires >= 1` 을 두면 그 잡음이 초록을
+       * 준다. 궤적은 갈린다:
+       *
+       *   고침 있음: `387/388` → `388/388` → `0/0`
+       *   고침 없음: `0/0`
+       *
+       * `ybase > 0` 을 함께 묻는 것이 그 잡음을 거르는 자리다.
+       */
+      const nudged = () => page.evaluate(() =>
+        ((window as any).__vsrTrace || []).some((t: any) => t.b > 0 && t.y === t.b - 1));
+
+      await grow(300);
+      const grown = await bufLen();
+      expect(grown, '버퍼가 자라지 않았다 — 조건이 서지 않는다').toBeGreaterThan(300);
+
+      // **조건**: 떠나 있는 동안 그 도구의 버퍼가 자란다. 이것이 없으면 복원이
+      // 흔들 이유도 없다.
       const ids = await page.evaluate(() => {
         const a = (window as any).app;
         const other = a.ws.windows.find((w: any) => w.id !== a.ws.activeWindow);
@@ -372,19 +410,20 @@ test.describe('Pane scroll preserve regression', () => {
       }, toolId), { timeout: 10000, message: '그 도구가 떨어지지 않았다' }).toBe(true);
 
       await grow(120);
+      expect(await bufLen(), '떨어져 있는 동안 버퍼가 자라지 않았다').toBeGreaterThan(grown);
+
+      await armScrollProbe();
       await page.evaluate((id) => (window as any).app.switchWindow(id), ids.cur);
       await expect.poll(async () => page.evaluate((id) => {
         const p = (window as any).app.tools.get(id);
         return !!p && p.el.classList.contains('vis') && p.el.isConnected;
       }, toolId), { timeout: 10000, message: '그 도구가 돌아오지 않았다' }).toBe(true);
 
-      // 영역이 **자란 버퍼**를 안다. 고침이 없으면 여기서 한 화면이 모자란다.
-      await expect
-        .poll(async () => { const m = await area(); return m ? m.len - m.areaRows : -1 },
-          { timeout: 10000, message: '스크롤 영역이 버퍼보다 짧다 — 그만큼 못 내려간다' })
-        .toBe(0);
-      const after = await area();
-      expect(after!.maxLine, '끝까지 내려도 바닥에 닿지 않는다').toBe(after!.base);
+      // 여기가 판정이다. 흔들기가 없으면 `scrollToBottom()` 은 바닥에서 아무
+      // 일도 하지 않고, `ydisp` 가 `ybase-1` 을 지나는 일도 없다.
+      await expect.poll(nudged,
+        { timeout: 10000, message: '복원이 xterm 을 흔들지 않았다 — 스크롤 영역을 다시 잴 계기가 없다' })
+        .toBe(true);
     });
 
   test('V-VSR-12 (FR-VSR-24): 맨 아래에 붙은 채 왕복해도 DOM 스크롤이 ydisp 와 일치한다',
