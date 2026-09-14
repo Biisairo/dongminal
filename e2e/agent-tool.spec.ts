@@ -317,6 +317,35 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
       '터미널 도구가 사라졌다 — D-M9-20 은 탭을 남긴다').toBeVisible({ timeout: 10000 });
   });
 
+  /**
+   * V-M9-35 (M9_SRS FR-M9-35 / M9-B16 의 ③): **그 도구의 cwd 와 저장소.**
+   *
+   * 접수한 말에 *"path, branch, upstream"* 이 있었고, 이 셋은 **프로토콜이 준 것이
+   * 아니라 도구의 것**이다. 그래서 재는 것이 값 자체가 아니라 **출처의 구분**이다 —
+   * `title` 이 "에이전트가 보고한 값이 아니다" 를 말하고, 경로를 함께 싣는다.
+   * 그 문장이 없으면 사용자는 이 값을 에이전트가 말한 것으로 읽는다.
+   *
+   * 저장소가 아닌 cwd 에서는 `agp-repo` 가 **빈다** — `-` 나 `unknown` 으로 채우지
+   * 않는다 (FR-CBG-5). 그 갈래는 값의 유무가 환경에 달렸으므로, 여기서는 "채워져
+   * 있다면 git 이 준 모양이다" 까지만 고정한다.
+   */
+  test('V-M9-35 (FR-M9-35): 그 도구의 cwd 가 서고 출처를 title 이 말한다', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    const cwd = pane.locator('.agp-cwd');
+    await expect(cwd).not.toBeEmpty({ timeout: 10000 });
+    const title = (await cwd.getAttribute('title')) || '';
+    // 문구 + 줄바꿈 + 절대 경로. 경로만 있으면 출처를 말하지 못한다.
+    expect(title, `cwd title: ${title}`).toContain('\n');
+    expect(title.split('\n')[1] || '', `cwd title: ${title}`).toMatch(/^[/~]/);
+    // 저장소 갈래: 비었거나, git 이 준 이름이다 (대체값을 넣지 않는다).
+    const repo = ((await pane.locator('.agp-repo').textContent()) || '').trim();
+    if (repo) {
+      expect(repo, `repo: ${repo}`).not.toBe('-');
+      expect((await pane.locator('.agp-repo').getAttribute('title')) || '').toContain('\n');
+    }
+  });
+
   test('TC-AGT-7: 프로세스가 죽으면 오류 상태 — 사유가 보이고 입력이 막히고, 재개가 된다 (V-8, FR-ABG-20)', async ({ page }) => {
     await waitForInit(page);
     const pane = await openAgentTab(page);

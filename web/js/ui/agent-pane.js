@@ -31,6 +31,16 @@ class AgentPane {
     // 상태 줄 — 라벨 · 활동 · 모델 · 권한 모드 · 컨텍스트 · 비용 · 메뉴
     const head=document.createElement('div'); head.className='agp-head';
     this.lblEl=document.createElement('span'); this.lblEl.className='agp-agent'; this.lblEl.textContent=this.name;
+    /**
+     * M9_SRS FR-M9-35 (M9-B16 의 ③, 사용자 결정): **그 도구의 cwd 와 저장소.**
+     *
+     * 접수한 말에 *"path, branch, upstream"* 이 들어 있다. 값은 있었으나 **다른
+     * 길에서 온다** — 프로토콜이 아니라 도구의 것이다. 그래서 사용량과 같은 묶음이
+     * 아니라 이름 옆에 서고, 출처는 `title` 이 말한다. 섞어 그리면 "에이전트가
+     * 보고한 값" 으로 읽힌다.
+     */
+    this.cwdEl=document.createElement('span'); this.cwdEl.className='agp-cwd';
+    this.repoEl=document.createElement('span'); this.repoEl.className='agp-repo';
     this.stateEl=document.createElement('span'); this.stateEl.className='agp-state';
     this.modelEl=document.createElement('span'); this.modelEl.className='agp-model';
     this.permEl=document.createElement('span'); this.permEl.className='agp-perm';
@@ -56,7 +66,7 @@ class AgentPane {
       cls:'agp-tui-btn',onClick:()=>this.app.agentOpenTerminal(this.id)});
     this.tuiBtn.hidden=true;
     this.menuBtn=UIKit.button({icon:'menu',title:t('agent.menu_title'),kind:'ghost',size:'sm',cls:'agp-menu-btn',onClick:e=>this._openMenu(e)});
-    for(const x of [this.lblEl,this.stateEl,this.modelEl,this.permEl,this.ctxEl,this.costEl,this.limitsEl,this.openEl,sp,this.tuiBtn,this.menuBtn]) head.appendChild(x);
+    for(const x of [this.lblEl,this.cwdEl,this.repoEl,this.stateEl,this.modelEl,this.permEl,this.ctxEl,this.costEl,this.limitsEl,this.openEl,sp,this.tuiBtn,this.menuBtn]) head.appendChild(x);
     el.appendChild(head);
 
     // 대화
@@ -148,6 +158,7 @@ class AgentPane {
     // FR-M9-36: 우클릭 메뉴와 **같은 조건**이다 (아래 `_openMenu` 의 `ctl.tuiResume`).
     // 두 자리가 다른 문장으로 답하면 그 차이가 곧 결함이다 (§2-21).
     this.tuiBtn.hidden=!(st.controls&&st.controls.tuiResume);
+    this._refreshOrigin();
   }
 
   _apply(le,replay){
@@ -255,6 +266,37 @@ class AgentPane {
       default: return (l&&(l.label||l.kind))||'';
     }
   }
+  /**
+   * FR-M9-35: 그 도구의 cwd 와 그것이 속한 저장소의 branch·upstream.
+   *
+   * **`source` 를 본다.** 두 종단 모두 도구를 모르면 **서버의 cwd 로 폴백**하고
+   * 그 사실을 `source` 에 싣는다 (FR-ETR-31). 그것을 무시하면 남의 경로를
+   * 사용자의 것으로 채우게 된다 — 조항이 그 사실을 응답에 넣은 이유가 그것이다.
+   *
+   * 저장소가 아니거나 cwd 를 모르면 **빈 채로 둔다.** `-` 나 `unknown` 으로 채우면
+   * 그것이 값으로 읽힌다 (FR-CBG-5).
+   */
+  async _refreshOrigin(){
+    if(this._destroyed) return;
+    const c=await apiGet('/api/cwd',{query:{tool:this.id}});
+    const cd=(c.ok&&c.data)||{};
+    const cwd=cd.source==='tool'?(cd.cwd||''):'';
+    if(this._destroyed) return;
+    this.cwdEl.textContent=cwd?pathBase(cwd):'';
+    this.cwdEl.title=cwd?t('agent.cwd_title')+'\n'+cwd:'';
+    this.repoEl.textContent=''; this.repoEl.title='';
+    if(!cwd) return;
+    const at=await apiGet('/api/git/repo-at',{query:{tool:this.id}});
+    const d=(at.ok&&at.data)||{};
+    if(this._destroyed||d.source!=='tool'||!d.isRepo||!d.path) return;
+    const st=await apiGet('/api/git/status',{query:{repo:d.path}});
+    const g=(st.ok&&st.data)||{};
+    if(this._destroyed||!g.branch) return;
+    // 값은 git 의 것이다 — 번역하지 않는다. 문구는 `title` 에만 있다.
+    this.repoEl.textContent=g.upstream?g.branch+' → '+g.upstream:g.branch;
+    this.repoEl.title=t('agent.repo_title')+'\n'+d.path;
+  }
+
   _renderOpen(){ const n=this._openIds.size; this.openEl.textContent=n>0?t('agent.open_requests',{n}):''; }
   _sessionLine(sid){ if(sid) this.el.dataset.sessionid=sid }
 
