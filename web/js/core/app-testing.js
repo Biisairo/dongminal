@@ -60,6 +60,9 @@ const APP_TESTING_NAMES = [
   '_edQuickOpen', '_edReconcile', 'edRemove', 'edRootOf', '_edSearchOpen', '_edSearchRoot',
   'edSetSide', 'edStores', '_edTrees', '_edVisibleTrees', 'edWindowFor', 'edWindows',
   // 같은 구멍 (FR-FMB-45a). 사이드의 **폭**은 탭 선택과 다른 축이다 (REPO_SIDE_WIDTH_SRS).
+  // M9_SRS FR-M9-24: 보던 자리의 기록. 검사가 재는 것은 **자리 셋**과 두 더미의
+  // 길이다 — 화면만 보면 "돌아갔다" 와 "새로 갔다" 를 가를 수 없다.
+  '_navPlace', '_navCounts',
   'edEnsurePane', '_edGitInterval', 'edSideOf', 'edSideWidth',
   'edSetSideWidth', '_edMigrateSideWidth', 'edStore', 'edTree',
 

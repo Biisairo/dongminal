@@ -651,6 +651,10 @@ I18N.register('en', {
   'git.img_fail': 'Could not load the image',
   'git.img_as_text': 'As text',
   'git.img_as_image': 'As image',
+
+  'shortcut.focus_back': 'Go back to previous place',
+  'shortcut.focus_forward': 'Go forward',
+  'keys.group_focus_nav': 'Navigation',
   'git.loading_hint': 'Loading…',
   'git.menu.branch_from': 'Create branch here…',
   'git.menu.copy_branch_name': 'Copy branch name',

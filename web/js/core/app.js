@@ -378,6 +378,8 @@ class App {
 
   executeAction(action){
     const map={
+      // FR-M9-24·25: 마우스 4·5번 버튼과 **같은 함수**를 부른다 (FR-M9-26).
+      focusBack:()=>this.navBack(),focusForward:()=>this.navForward(),
       windowNext:()=>this.switchWindowNext(),windowPrev:()=>this.switchWindowPrev(),
       tabNext:()=>this.switchTabNext(),tabPrev:()=>this.switchTabPrev(),
       paneUp:()=>this.paneNavigate('up'),paneDown:()=>this.paneNavigate('down'),

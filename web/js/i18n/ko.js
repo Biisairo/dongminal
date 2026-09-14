@@ -645,6 +645,10 @@ I18N.register('ko', {
   'git.img_fail': '그림을 불러오지 못했습니다',
   'git.img_as_text': '텍스트로',
   'git.img_as_image': '그림으로',
+
+  'shortcut.focus_back': '보던 자리로 뒤로',
+  'shortcut.focus_forward': '보던 자리로 앞으로',
+  'keys.group_focus_nav': '보던 자리',
   'git.loading_hint': '불러오는 중…',
   'git.menu.branch_from': '여기서 브랜치 생성…',
   'git.menu.copy_branch_name': '브랜치 이름 복사',

@@ -370,11 +370,22 @@ const SHORTCUT_DEFAULTS={
   // 로드맵 M7 `UX-22`: 단축키 **목록으로 가는 키.** 목록은 설정 안에 있었지만
   // 거기 닿는 키가 없었다 — 키를 모르는 사람이 키 목록을 찾는 길이 마우스뿐이면
   // 목록은 이미 아는 사람만 본다. `?` 의 관용이며 `Ctrl+Shift` 는 이 앱의 관용이다.
+  /**
+   * M9_SRS FR-M9-25: **보던 자리 오가기.**
+   *
+   * `Ctrl+Shift` 는 이 앱의 관용이고 `,`·`.` 는 `<`·`>` 의 자리라 방향을 그대로
+   * 말한다. 화살표를 쓰지 않는 것은 `Ctrl+Shift+화살표` 가 pane 이동의 것이기
+   * 때문이고, `Mod+Alt+화살표` 를 쓰지 않는 것은 macOS 의 Chrome 이 그것을
+   * **브라우저 탭 전환**으로 이미 쓰기 때문이다 (사용자 결정 2026-09-14).
+   */
+  focusBack:'Ctrl+Shift+Comma',
+  focusForward:'Ctrl+Shift+Period',
   shortcutsHelp:'Ctrl+Shift+Slash',
 };
 const SHORTCUT_LABELS={
   // GIT_SIDEBAR_TABS_SRS FR-SBT-31·33: 이 키는 **활성 사이드바 탭의 목록**을 순회한다
   // (Windows 탭이면 창, Git 탭이면 리포). 모드 의존이 되었으므로 설명이 따라간다.
+  focusBack:t('shortcut.focus_back'),focusForward:t('shortcut.focus_forward'),
   windowNext:t('shortcut.window_next'),windowPrev:t('shortcut.window_prev'),
   tabNext:t('shortcut.tab_next'),tabPrev:t('shortcut.tab_prev'),
   paneUp:'Pane ↑',paneDown:'Pane ↓',paneLeft:'Pane ←',paneRight:'Pane →',

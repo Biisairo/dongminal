@@ -536,6 +536,9 @@ const WINDOW_TYPE_EDITOR='editor';
 // EDITOR_GIT_UX_SRS 묶음 V — 열 수 있는 형식인가.
 const FILE_PROBE_API='/api/file/probe';
 const FILE_RAW_API='/api/file/raw';
+// M9_SRS FR-M9-24: 보던 자리의 기록 상한 (사용자 결정 2026-09-14). 넘으면 오래된
+// 쪽부터 버린다 — 무한히 쌓으면 그 자체가 새는 자리다.
+const FOCUS_NAV_MAX=100;
 const FILE_KIND_TEXT='text';
 const FILE_KIND_IMAGE='image';
 const FILE_KIND_BINARY='binary';

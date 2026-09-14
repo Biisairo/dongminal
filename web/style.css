@@ -159,6 +159,28 @@
 }
 
 html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:-apple-system,sans-serif;color:var(--text);font-size:var(--fs-lg)}
+
+/* ── 선택은 기본이 아니라 예외다 (M9_SRS FR-M9-27 · D-M9-19) ──
+   UI 껍데기의 글자는 읽는 것이지 가져가는 것이 아니고, 더블클릭이 낱말을 무는
+   것이 제스처와 겹친다 (FR-GIT-52·222 가 Git 창에서 이미 겪은 자리다).
+   종전에는 `#sidebar` 와 `.git-view` 가 각자 이 규칙을 들고 있었다 — 그 둘을
+   뿌리로 올리고 예외를 **한 덩어리**로 모은다. 표면마다 자기 예외를 적기
+   시작하면 "여기는 왜 되고 저기는 왜 안 되는가" 에 답할 자리가 사라진다. */
+body{user-select:none;-webkit-user-select:none}
+/* 예외 — **복사가 목적인 자리**. 새 표면이 복사를 필요로 하면 여기 한 줄을
+   더하는 일이고, 그 한 줄이 곧 "이 자리는 가져가는 글이다" 라는 선언이다. */
+.xterm,
+.monaco-editor,
+.git-diff-host,
+.git-job-log,
+.git-job-tail,
+.git-job-auth-cmd,
+.git-con-detail,
+.git-hist-d-body,
+.doc-render,
+input,
+textarea,
+[contenteditable]{user-select:text;-webkit-user-select:text}
 #app{display:flex;width:100%;height:100%}
 
 /* ── Sidebar ── */

@@ -23,6 +23,8 @@
 | 이전 항목 (활성 탭 기준) | `Ctrl+Shift+[` |
 | 다음 탭 | `Ctrl+Tab` |
 | 이전 탭 | `Ctrl+Shift+Tab` |
+| 보던 자리로 뒤로 | `Ctrl+Shift+,` |
+| 보던 자리로 앞으로 | `Ctrl+Shift+.` |
 | Pane ↑ | `Ctrl+Shift+↑` |
 | Pane ↓ | `Ctrl+Shift+↓` |
 | Pane ← | `Ctrl+Shift+←` |

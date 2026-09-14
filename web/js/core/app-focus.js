@@ -42,6 +42,99 @@ Object.assign(App.prototype, {
     }
     this.agentsRender(); // 외부 포커스 변경도 카드 .focused 에 즉시 반영(render 미경유 경로 포함)
     this._persistFocusedPanes();
+    // M9_SRS FR-M9-24: **보던 자리의 기록은 여기 한 자리에서 난다.** 창 전환도
+    // 탭 전환도 칸 포커스도 전부 이 함수를 지난다 — 진입점마다 적으면 한쪽만
+    // 고쳐진다 (이 저장소가 반복해 겪은 형태다).
+    this._navNote();
+  },
+
+  // ── 보던 자리 오가기 (M9_SRS FR-M9-24 · D-M9-17) ──────────
+
+  /**
+   * 지금 자리. **(창, 칸, 탭) 셋**이다 (D-M9-17).
+   *
+   * 탭까지 보는 것은 같은 칸 안의 탭 전환이 사용자에게는 "다른 도구로 갔다" 이기
+   * 때문이다 — 창·칸만으로는 그것을 되돌릴 수 없다. 커서는 이 밖이다: 편집기
+   * 안의 점프는 `_lspBack`(FR-LSP-27)이 자기 스택으로 갖고 있고 성격이 다르다.
+   */
+  _navPlace(){
+    const s=this.aw(); if(!s||!s.layout) return null;
+    const rid=this.focused; if(!rid) return null;
+    const pn=findPane(s.layout,rid); if(!pn) return null;
+    return {win:s.id,pane:rid,tab:this.paneTab(pn,this.slotFocused())||null};
+  },
+
+  _navSame(a,b){ return !!a&&!!b&&a.win===b.win&&a.pane===b.pane&&a.tab===b.tab },
+
+  /**
+   * 자리가 바뀌었으면 **앞 자리를** 기록에 넣는다.
+   *
+   * 오가는 중에는 적지 않는다 (`_navMoving`) — 그러지 않으면 뒤로 한 번이 새
+   * 기록을 만들어 앞으로가 영영 서지 않는다.
+   */
+  _navNote(){
+    if(this._navMoving) return;
+    const p=this._navPlace();
+    if(!p||this._navSame(p,this._navCur)) return;
+    if(this._navCur){
+      this._navBack=this._navBack||[];
+      this._navBack.push(this._navCur);
+      // 무한히 쌓으면 그 자체가 새는 자리다 (`_lspBack` 과 같은 근거).
+      while(this._navBack.length>FOCUS_NAV_MAX) this._navBack.shift();
+      // 새 자리로 간 순간 앞길은 사라진다 — 브라우저 히스토리와 같은 규약이다.
+      this._navFwd=[];
+    }
+    this._navCur=p;
+  },
+
+  /** 그 자리가 아직 있는가. 창·칸·탭 셋 다 있어야 갈 수 있다. */
+  _navAlive(p){
+    if(!p) return false;
+    const s=this.ws.windows.find(x=>x&&x.id===p.win); if(!s||!s.layout) return false;
+    const pn=findPane(s.layout,p.pane); if(!pn) return false;
+    return !p.tab||(pn.tabs||[]).some(t=>t&&t.id===p.tab);
+  },
+
+  /**
+   * 그 자리로 간다. 창이 다르면 창부터 옮기고, 그 다음 칸·탭이다 —
+   * `switchTab` 이 비활성 창의 칸도 다루지만 사용자가 보는 창이 따라가야 한다.
+   */
+  _navGo(p){
+    this._navMoving=true;
+    try{
+      if(this.ws.activeWindow!==p.win) this.switchWindow(p.win);
+      if(p.tab) this.switchTab(p.pane,p.tab);
+      else this.setFocusState(p.pane);
+      this._navCur=this._navPlace()||p;
+    } finally { this._navMoving=false }
+  },
+
+  /**
+   * 뒤로·앞으로. `d` 는 -1(뒤로)·+1(앞으로)다.
+   *
+   * **사라진 자리는 건너뛴다** (FR-M9-24). 창을 닫거나 탭을 지운 뒤에도 기록은
+   * 남아 있고, 그 자리로 가려 들면 아무 일도 일어나지 않은 채 기록만 줄어든다 —
+   * 사용자에게는 "키가 안 듣는다" 로 보인다.
+   */
+  _navMove(d){
+    const from=d<0?(this._navBack=this._navBack||[]):(this._navFwd=this._navFwd||[]);
+    const to=d<0?(this._navFwd=this._navFwd||[]):(this._navBack=this._navBack||[]);
+    while(from.length){
+      const p=from.pop();
+      if(!this._navAlive(p)) continue;
+      if(this._navCur) to.push(this._navCur);
+      this._navGo(p);
+      return true;
+    }
+    return false;
+  },
+
+  navBack(){ return this._navMove(-1) },
+  navForward(){ return this._navMove(1) },
+
+  /** 두 더미의 길이. 검사가 "돌아갔다" 와 "새로 갔다" 를 가르는 근거다. */
+  _navCounts(){
+    return {back:(this._navBack||[]).length,fwd:(this._navFwd||[]).length};
   },
 
   // Persist per-window focusedPane map to sessionStorage so a refresh

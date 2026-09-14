@@ -100,6 +100,15 @@ Object.assign(App.prototype, {
     const m=this._slotTabMap(i);
     if(m){ m[pn.id]=tid; this._slotsPersist() }
     if(!this._slots||i===this.slotFocused()) pn.activeTab=tid;
+    /**
+     * M9_SRS FR-M9-24: **탭이 바뀐 사실은 여기서만 온전하다.**
+     *
+     * `setFocusState` 하나로 충분할 줄 알았으나 아니었다 — 탭을 **새로 만드는**
+     * 길은 이미 포커스인 칸에 탭을 얹으므로 그 함수를 지나지 않는다 (실측:
+     * `+` 로 탭을 둘 만들어도 기록이 0 이었다). 창·칸의 변화는 저쪽이, 탭의
+     * 변화는 이쪽이 말한다. 둘 다 같은 `_navNote` 를 부르므로 판정은 한 벌이다.
+     */
+    this._navNote();
   },
 
   // FR-SVS-3: 칸이 창을 받으면 그 창의 pane 마다 **그 순간의 활성 탭**으로

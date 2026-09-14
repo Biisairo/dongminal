@@ -152,6 +152,33 @@ class InputBinding {
       }
       this._blockBrowserDefault(e);
     },true);
+    /**
+     * M9_SRS FR-M9-26 / D-M9-18: **마우스 4·5번 버튼이 보던 자리를 오간다.**
+     *
+     * `MouseEvent.button` 의 `3`(뒤로)·`4`(앞으로)다. 단축키와 **같은 함수**를
+     * 부른다 (`executeAction`) — 진입점이 둘로 갈리면 한쪽만 고쳐진다.
+     *
+     * **막는 것은 `mousedown` 에서다.** 브라우저는 그 시점에 히스토리 이동을
+     * 결정하므로 `auxclick`·`mouseup` 에서 막으면 이미 떠난 뒤다 — 순서가 곧
+     * 방어다. `auxclick` 에도 함께 거는 것은 그 이벤트로 한 번 더 도는 판을
+     * 덮기 위해서이며, 그때는 동작을 두 번 실행하지 않는다(막기만 한다).
+     *
+     * 설정 스위치를 두지 않는다 (사용자 결정). 이 화면에서 브라우저의 뒤로가기가
+     * 할 일은 **이탈** 하나뿐이라 되돌릴 값이 없다.
+     *
+     * **Safari 는 이 두 버튼을 이벤트로 내보내지 않는다** — 스와이프 제스처로
+     * 먹는다. 그쪽에는 막을 대상 자체가 오지 않으며, 남는 길은 단축키다.
+     */
+    const navBtn={3:'focusBack',4:'focusForward'};
+    window.addEventListener('mousedown',e=>{
+      const action=navBtn[e.button];
+      if(!action) return;
+      e.preventDefault();
+      this.app.executeAction(action);
+    },true);
+    // 같은 버튼의 두 번째 계기. 여기서는 **막기만 한다** — 실행은 위가 이미 했다.
+    window.addEventListener('auxclick',e=>{ if(navBtn[e.button]) e.preventDefault() },true);
+
     const si=document.getElementById('search-input');
     si.addEventListener('input',()=>this.app.doSearch('next'));
     si.addEventListener('keydown',e=>{
