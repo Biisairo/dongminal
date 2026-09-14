@@ -255,4 +255,4 @@ window.EventSource = function(){ throw new Error('offline') };
 
 | 단계 | 커밋 |
 |---|---|
-| P1 | (기록 예정) |
+| P1 | `e604cb5` |
