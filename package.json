@@ -3,7 +3,7 @@
   "private": true,
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
-    "@playwright/test": "^1.59.0",
+    "@playwright/test": "^1.63.0",
     "@types/node": "22.20.2",
     "eslint": "10.10.0",
     "globals": "17.12.0",
