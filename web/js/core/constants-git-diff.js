@@ -72,6 +72,31 @@ const GIT_PREVIEW_INLINE_BREAKPOINT=560;
 // 서버의 DiffSide.kind (FR-GIT-45~48). text 와 absent 만 본문을 그린다 —
 // absent 는 빈 내용으로 다뤄야 추가·삭제 파일의 diff 가 성립한다.
 const GIT_DIFF_DRAWABLE=new Set(['text','absent']);
+/**
+ * M9_SRS FR-M9-20·21 — **그림으로 볼 수 있는 diff.**
+ *
+ * 서버가 `imageMime` 을 채우면 그 diff 는 그림으로 볼 수 있다. 판정은 서버의
+ * 내용 판정 하나이며(D-M9-13 · `mimeprobe`) 여기서 확장자를 다시 보지 않는다 —
+ * 두 판정이 갈리면 화면과 종단이 서로 다른 답을 준다.
+ *
+ * 바이트는 `diff-content` 에 실려 오지 않는다 (D-M9-14). `<img src>` 가 이
+ * 종단을 그대로 걸고, 브라우저의 이미지 캐시와 조건부 요청이 그 위에서 공짜로
+ * 돈다.
+ */
+const GIT_BLOB_API='/api/git/blob';
+const GIT_IMG_SIDE_ORIGINAL='original';
+const GIT_IMG_SIDE_MODIFIED='modified';
+// D-M9-12: 나란히가 기본이고 겹쳐 보기는 전환이다. 좌우는 "이게 무엇인가" 에,
+// 겹쳐 보기는 "어디가 달라졌는가" 에 답한다 — 물음이 둘이라 하나를 고를 수 없다.
+const GIT_IMG_MODE_SIDE='side';
+const GIT_IMG_MODE_OVER='over';
+const GIT_IMG_MODE_LABEL={side:t('git.img_mode_side'),over:t('git.img_mode_over')};
+const GIT_IMG_SIDE_LABEL={original:t('git.img_before'),modified:t('git.img_after')};
+const GIT_IMG_ABSENT=t('git.img_absent');
+const GIT_IMG_FAIL=t('git.img_fail');
+// SVG 는 이미지이면서 문서다 — 텍스트 diff 와 그림 보기를 둘 다 갖는다 (D-M9-12).
+const GIT_IMG_AS_TEXT=t('git.img_as_text');
+const GIT_IMG_AS_IMAGE=t('git.img_as_image');
 // 보기 모드와 공백무시는 기기별 취향이다 (§3.3).
 const GIT_DIFF_SIDE_KEY='gitDiffSideBySide';
 const GIT_DIFF_WS_KEY='gitDiffIgnoreWs';

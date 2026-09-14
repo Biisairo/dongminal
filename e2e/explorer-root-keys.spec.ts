@@ -255,10 +255,17 @@ test.describe('묶음 C — 만든 파일은 즉시 연다 (FR-EXR-20~24)', () =
     });
 });
 
-// ── 묶음 D — 메모장에서는 폴더를 만들 수 없다 (U-16) ──────
+// ── 묶음 D — 메모장은 다른 explorer 와 같다 (M9_SRS FR-M9-22·23) ──────
+//
+// **폐기 기록.** 이 자리에는 `V-EXR-30~33`(메모장의 폴더 금지, 사용자 요구 `U-16`)이
+// 있었다 — 새 폴더 버튼 없음 · 우클릭 `newDir` 없음 · `startCreate(true)` 무동작 ·
+// 파일 생성만 허용. 2026-09-14 사용자 결정(D-M9-15)이 `U-16` 을 되돌렸고
+// `EXPLORER_ROOT_KEYS_SRS` 묶음 D(FR-EXR-30~35)가 함께 폐기됐다. 지우기만 하면
+// 다음 사람이 "메모장에 폴더가 있어도 되는가" 를 처음부터 다시 묻게 되므로,
+// **금지가 있었다는 사실과 그것이 왜 사라졌는지**를 여기 남긴다.
 
-test.describe('묶음 D — 메모장의 폴더 금지 (FR-EXR-30~35)', () => {
-  test('V-EXR-30 (FR-EXR-31): 메모장에는 새 폴더 버튼이 없다. 다른 루트에는 있다',
+test.describe('묶음 D — 메모장은 다른 explorer 와 같다 (FR-M9-22·23)', () => {
+  test('V-M9-23a (FR-M9-23): 메모장에도 새 폴더 버튼이 있다',
     async ({ page, request }) => {
       const root = mkRoot('d1');
       await enterExplorer(page, request, root);
@@ -268,10 +275,11 @@ test.describe('묶음 D — 메모장의 폴더 금지 (FR-EXR-30~35)', () => {
       expect(notes, '메모 루트가 없다').toBeTruthy();
       await openExplorerAt(page, notes);
       await expect(page.locator('.ed-explorer .ed-head-new-file')).toHaveCount(1);
-      await expect(page.locator('.ed-explorer .ed-head-new-dir')).toHaveCount(0);
+      // 종전에는 0 이었다 (FR-EXR-31, 폐기).
+      await expect(page.locator('.ed-explorer .ed-head-new-dir')).toHaveCount(1);
     });
 
-  test('V-EXR-31 (FR-EXR-32): 메모장의 우클릭 메뉴에 newDir 이 없다',
+  test('V-M9-23b (FR-M9-23): 메모장의 우클릭 메뉴에 newDir 이 있다',
     async ({ page, request }) => {
       const root = mkRoot('d2');
       await enterExplorer(page, request, root);
@@ -287,35 +295,31 @@ test.describe('묶음 D — 메모장의 폴더 금지 (FR-EXR-30~35)', () => {
       await made.click({ button: 'right' });
       await expect(page.locator('.git-menu')).toBeVisible();
       await expect(page.locator('.git-menu .git-menu-item[data-id="newFile"]')).toHaveCount(1);
-      await expect(page.locator('.git-menu .git-menu-item[data-id="newDir"]')).toHaveCount(0);
+      // 종전에는 0 이었다 (FR-EXR-32, 폐기).
+      await expect(page.locator('.git-menu .git-menu-item[data-id="newDir"]')).toHaveCount(1);
     });
 
-  test('V-EXR-32 (FR-EXR-30): 메모장에서 startCreate(true) 는 입력을 열지 않는다',
+  test('V-M9-23c (FR-M9-23): 메모장에서 폴더가 실제로 만들어진다',
     async ({ page, request }) => {
       const root = mkRoot('d3');
       await enterExplorer(page, request, root);
       const notes = await notesRoot(page);
       await openExplorerAt(page, notes);
-      await page.waitForFunction(() => {
-        const a = (window as any).app;
-        return !!a.testing.edTree(a.testing.aw());
-      }, undefined, { timeout: 10000 });
 
+      // 재는 것은 **서버가 받아들이는가** 다 (FR-EXR-33 이 거부하던 자리).
+      // 화면의 버튼만 되살리고 서버를 그대로 두면 여기서 걸린다.
+      const name = 'm9dir-' + Date.now();
       await page.evaluate(() => {
         const a = (window as any).app;
         a.testing.edTree(a.testing.aw()).startCreate(true);
       });
-      await expect(input(page)).toHaveCount(0);
-
-      // 파일 쪽은 그대로 열린다 — 막은 것은 dir 하나다 (FR-EXR-34).
-      await page.evaluate(() => {
-        const a = (window as any).app;
-        a.testing.edTree(a.testing.aw()).startCreate(false);
-      });
       await expect(input(page)).toBeVisible();
+      await input(page).fill(name);
+      await input(page).press('Enter');
+      await expect(row(page, j(notes, name))).toBeVisible({ timeout: 10000 });
     });
 
-  test('V-EXR-33 (FR-EXR-34): 메모장에서 파일은 그대로 만들어진다',
+  test('V-M9-23d (FR-M9-23): 메모장에서 파일도 그대로 만들어진다',
     async ({ page, request }) => {
       const root = mkRoot('d4');
       await enterExplorer(page, request, root);
@@ -326,6 +330,38 @@ test.describe('묶음 D — 메모장의 폴더 금지 (FR-EXR-30~35)', () => {
       await input(page).fill(name);
       await input(page).press('Enter');
       await expect(row(page, j(notes, name))).toBeVisible({ timeout: 10000 });
+    });
+
+  // FR-M9-22: 고정 행은 저장소가 아니다 — Changes 는 언제나 빈 표면이다.
+  //
+  // **재는 것은 탭의 수와 정체다.** "Changes 가 안 보인다" 만 재면 그것을 숨기는
+  // 아무 경로에나 초록을 준다 (M9_PROGRESS §2-12) — 기본 side 가 Explorer 로
+  // 떨어졌는지, 저장소 창에서는 둘이 그대로인지를 함께 본다.
+  test('V-M9-22 (FR-M9-22): 고정 행에는 Explorer 탭만 선다. 저장소 창에는 둘 다',
+    async ({ page, request }) => {
+      const root = mkRoot('d5');
+      await enterExplorer(page, request, root);
+
+      const tabs = page.locator('#area .ed-win .ed-side .ed-side-tab:not([hidden])');
+      const notes = await notesRoot(page);
+      await openExplorerAt(page, notes);
+      await expect(tabs, '메모장에 탭이 하나가 아니다').toHaveCount(1);
+      await expect(tabs.first()).toHaveAttribute('data-side', 'explorer');
+      expect(await page.evaluate(() => {
+        const a = (window as any).app;
+        return a.testing.edSideOf(a.testing.aw());
+      }), '메모장의 기본 side 가 explorer 가 아니다').toBe('explorer');
+
+      const home = await page.evaluate(() => (window as any).app.testing.edHome() as string);
+      expect(home, '홈 루트가 없다').toBeTruthy();
+      await openExplorerAt(page, home);
+      await expect(tabs, '홈에 탭이 하나가 아니다').toHaveCount(1);
+      await expect(tabs.first()).toHaveAttribute('data-side', 'explorer');
+
+      // 저장소가 아닌 **일반** 루트는 건드리지 않는다 — 그쪽은 `git init` 하면
+      // Changes 가 뜻을 갖는다. 가르는 것은 "고정 행인가" 다.
+      await openExplorerAt(page, root);
+      await expect(tabs, '일반 루트의 탭이 줄었다').toHaveCount(2);
     });
 });
 

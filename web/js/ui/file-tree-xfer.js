@@ -181,7 +181,8 @@ Object.assign(FileTree.prototype, {
       const dir=this.root;
       UIKit.menu([
         {id:'newFile',label:EDITOR_MENU_NEW_FILE,onClick:()=>this.startCreate(false,dir)},
-        ...(this._noDirs()?[]:[{id:'newDir',label:EDITOR_MENU_NEW_DIR,onClick:()=>this.startCreate(true,dir)}]),
+        // FR-M9-23: 여백 메뉴도 행 메뉴와 같다 — 가림이 폐기됐다.
+        {id:'newDir',label:EDITOR_MENU_NEW_DIR,onClick:()=>this.startCreate(true,dir)},
         {id:'upload',label:EDITOR_MENU_UPLOAD,onClick:()=>this.pickUpload(dir)},
         {id:'uploadDir',label:EDITOR_MENU_UPLOAD_DIR,onClick:()=>this.pickUpload(dir,true)},
         {sep:true},
@@ -206,10 +207,8 @@ Object.assign(FileTree.prototype, {
     const dir=kind==='dir'?p:this._parent(p);
     GitMenu.openList([
       {id:'newFile',label:EDITOR_MENU_NEW_FILE,run:()=>this.startCreate(false,dir)},
-      // FR-EXR-32: 메모장에는 이 항목을 두지 않는다 — 툴바 버튼과 같은 근거다
-      // (FR-EXR-31). 막는 것은 `startCreate` 가 하고, 보이지 않게 하는 것은 여기다.
-      ...(this._noDirs()?[]:[
-        {id:'newDir',label:EDITOR_MENU_NEW_DIR,run:()=>this.startCreate(true,dir)}]),
+      // FR-M9-23: 메모장에서도 보인다 — FR-EXR-32 의 가림은 폐기됐다.
+      {id:'newDir',label:EDITOR_MENU_NEW_DIR,run:()=>this.startCreate(true,dir)},
       // FR-FTR-18: 업로드가 가는 자리도 같은 규칙이다 — 폴더면 그 안, 아니면 형제.
       {id:'upload',label:EDITOR_MENU_UPLOAD,run:()=>this.pickUpload(dir)},
       // FR-ETR-23: 폴더 업로드는 별개의 항목이다 — 한 input 이 두 모드를 겸할 수

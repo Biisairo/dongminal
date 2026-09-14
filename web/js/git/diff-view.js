@@ -138,6 +138,20 @@ class GitDiffView {
     // 닿아서는 안 된다 (FR-GIT-54·145).
     if((q.oid||'')!==(target.oid||'')||(q.parentOid||'')!==(target.parentOid||'')) return;
     const a=d.body.original||{},b=d.body.modified||{};
+    const mime=d.body.imageMime||'';
+    /**
+     * M9_SRS FR-M9-20: **그림으로 볼 수 있으면 그림으로 보인다.**
+     *
+     * 갈래가 둘이다. 그릴 수 없는 종류(이진 그림)는 여기서 끝나고, 그릴 수 있는
+     * 그림(SVG)은 텍스트 diff 를 그린 뒤 **전환**을 얹는다 — SVG 는 이미지이면서
+     * 문서인 유일한 형식이고 두 물음이 다 선다 (D-M9-12).
+     *
+     * `_refused` 를 세우지 않는다. 폴링이 다시 받으면 그때 `<img>` 의 주소도 함께
+     * 새로 서고, 그것이 "바깥에서 바뀐 그림" 이 화면에 오는 유일한 길이다.
+     */
+    if(mime&&!GIT_DIFF_DRAWABLE.has(a.kind)){
+      this._drawImage(target,mime,a,b); return;
+    }
     // 한쪽이라도 본문이 없으면 에디터를 만들지 않고 서버가 준 사유를 보인다
     // (FR-GIT-46·47·48).
     if(!GIT_DIFF_DRAWABLE.has(a.kind)||!GIT_DIFF_DRAWABLE.has(b.kind)){
@@ -146,7 +160,116 @@ class GitDiffView {
       this._refused=true;
       this.clear(d.body.note||GIT_DIFF_LOAD_FAIL,gitBlobMetaLines(a,b)); return;
     }
+    if(mime&&this._imgMode){this._drawImage(target,mime,a,b); return}
     this._draw(target.path,a.content||'',b.content||'',d.body.note||'',target);
+    if(mime) this._addImageToggle(target,mime,a,b);
+  }
+
+  // ── 그림 보기 (M9_SRS FR-M9-20 · D-M9-12·13) ──────────────
+
+  /** 한쪽의 바이트를 가리키는 주소. `<img src>` 가 이것을 그대로 건다. */
+  _blobURL(target,side){
+    let u=GIT_BLOB_API+'?repo='+encodeURIComponent(target.repo)+
+      '&axis='+encodeURIComponent(target.axis)+'&path='+encodeURIComponent(target.path)+
+      '&side='+encodeURIComponent(side);
+    if(target.origPath) u+='&origPath='+encodeURIComponent(target.origPath);
+    if(target.oid) u+='&oid='+encodeURIComponent(target.oid);
+    if(target.parentOid) u+='&parentOid='+encodeURIComponent(target.parentOid);
+    return u;
+  }
+
+  /**
+   * 두 판을 그린다.
+   *
+   * **`<img>` 로만 그린다** — SVG 도 그렇다 (D-M9-13 / FR-DRV-14·23). 인라인
+   * `<svg>` 로 넣으면 그 안의 스크립트가 돈다.
+   *
+   * 크기(px)와 용량을 각 판에 적는 것이 이 화면의 절반이다 — 같은 그림처럼 보이는
+   * 두 판을 가르는 것이 대개 그 둘이다.
+   */
+  _drawImage(target,mime,a,b){
+    this._dropEditor();
+    this._setNote('');
+    const mode=this._imgMode||GIT_IMG_MODE_SIDE;
+    this._imgMode=mode;
+    this._host.textContent='';
+    const wrap=document.createElement('div');
+    wrap.className='git-img-diff mode-'+mode;
+    wrap.appendChild(this._imgBar(target,mime,a,b));
+    const body=document.createElement('div');
+    body.className='git-img-body';
+    for(const side of [GIT_IMG_SIDE_ORIGINAL,GIT_IMG_SIDE_MODIFIED]){
+      body.appendChild(this._imgPane(target,side,side===GIT_IMG_SIDE_ORIGINAL?a:b));
+    }
+    wrap.appendChild(body);
+    this._host.appendChild(wrap);
+  }
+
+  _imgBar(target,mime,a,b){
+    const bar=document.createElement('div');
+    bar.className='git-img-bar';
+    for(const m of [GIT_IMG_MODE_SIDE,GIT_IMG_MODE_OVER]){
+      const btn=document.createElement('button');
+      btn.className='git-img-mode'+(this._imgMode===m?' active':'');
+      btn.dataset.mode=m; btn.textContent=GIT_IMG_MODE_LABEL[m];
+      btn.addEventListener('click',()=>{
+        if(this._imgMode===m) return;
+        this._imgMode=m;
+        this._drawImage(target,mime,a,b);
+      });
+      bar.appendChild(btn);
+    }
+    // SVG 는 텍스트 diff 도 갖는다 — 돌아갈 길을 같은 줄에 둔다.
+    if(GIT_DIFF_DRAWABLE.has(a.kind)&&GIT_DIFF_DRAWABLE.has(b.kind)){
+      const back=document.createElement('button');
+      back.className='git-img-as-text';
+      back.textContent=GIT_IMG_AS_TEXT;
+      // **다시 받지 않는다.** `show()` 를 부르면 stale 가드의 토큰이 없어
+      // 그 호출이 자기 세대에 걸러지고(실측), 무엇보다 우리가 이미 두 벌의
+      // 본문을 손에 들고 있다 — 같은 것을 다시 묻는 것은 왕복 하나를 버리는 일이다.
+      back.addEventListener('click',()=>{
+        this._imgMode=null;
+        this._draw(target.path,a.content||'',b.content||'','',target);
+        this._addImageToggle(target,mime,a,b);
+      });
+      bar.appendChild(back);
+    }
+    return bar;
+  }
+
+  _imgPane(target,side,meta){
+    const pane=document.createElement('div');
+    pane.className='git-img-pane git-img-'+side;
+    pane.dataset.side=side;
+    const head=document.createElement('div');
+    head.className='git-img-head'; head.textContent=GIT_IMG_SIDE_LABEL[side];
+    pane.appendChild(head);
+    if(meta&&meta.kind==='absent'){
+      // 추가·삭제다 — 없는 쪽을 빈 그림으로 그리면 "검은 그림" 으로 읽힌다.
+      const none=document.createElement('div');
+      none.className='git-img-none'; none.textContent=GIT_IMG_ABSENT;
+      pane.appendChild(none);
+      return pane;
+    }
+    const img=document.createElement('img');
+    img.className='git-img'; img.alt='';
+    const foot=document.createElement('div');
+    foot.className='git-img-meta';
+    img.addEventListener('load',()=>{
+      // 크기는 **브라우저가 읽은 값**이다 — 서버가 다시 세지 않는다.
+      const dim=img.naturalWidth+'\u00d7'+img.naturalHeight;
+      foot.textContent=meta&&meta.size?dim+GIT_META_SEP+gitFmtBytes(meta.size):dim;
+    });
+    img.addEventListener('error',()=>{ foot.textContent=GIT_IMG_FAIL });
+    img.src=this._blobURL(target,side);
+    pane.appendChild(img); pane.appendChild(foot);
+    return pane;
+  }
+
+  /** 텍스트 diff 위에 "그림으로" 를 얹는다 (SVG 의 갈래). */
+  _addImageToggle(target,mime,a,b){
+    this._setNote('',null,[{label:GIT_IMG_AS_IMAGE,title:GIT_IMG_AS_IMAGE,
+      run:()=>{ this._imgMode=GIT_IMG_MODE_SIDE; this._drawImage(target,mime,a,b) }}]);
   }
 
   // 본문 대신 안내를 보인다. 에디터와 모델은 함께 버린다 (FR-GIT-56).
@@ -157,14 +280,23 @@ class GitDiffView {
   clear(message,meta,acts){
     this._seq++;
     this._setNote(message||'',meta,acts);
-    // 에디터를 버리기 **전에** 알린다 — 받은 쪽이 위젯을 떼야 하고, dispose 된
-    // 에디터에는 뗄 수도 없다 (FR-GIT-56).
+    this._dropEditor();
+    this._host.innerHTML='';
+  }
+
+  /**
+   * 에디터와 모델을 버린다. `clear` 와 그림 보기(FR-M9-20)가 함께 쓴다 — 그림을
+   * 그리는 자리도 Monaco 를 먼저 내려야 하고, 두 벌로 적으면 한쪽만 고쳐진다.
+   *
+   * 에디터를 버리기 **전에** 알린다 — 받은 쪽이 위젯을 떼야 하고, dispose 된
+   * 에디터에는 뗄 수도 없다 (FR-GIT-56).
+   */
+  _dropEditor(){
     if(this._editor&&this.onEditor) this.onEditor(null);
     if(this._editor){this._editor.dispose();this._editor=null}
     this._dropModels(this._orig,this._mod);
     this._orig=null; this._mod=null;
     this._drawnKey=null;
-    this._host.innerHTML='';
   }
 
   setSideBySide(on){ // FR-GIT-51

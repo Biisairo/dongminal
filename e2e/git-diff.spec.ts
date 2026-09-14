@@ -291,6 +291,93 @@ test.describe('묶음 F — Diff 뷰', () => {
     await expect(diffEditor(page)).toHaveCount(0);
   });
 
+  // ── 그림 diff (M9_SRS FR-M9-20 · D-M9-12) ──────────────
+  //
+  // **재는 것은 "그림이 실제로 그려졌는가" 다.** `<img>` 가 섰는지만 보면 주소가
+  // 404 여도 초록이 된다 — 그래서 `naturalWidth` 를 본다. 그 값은 브라우저가
+  // 바이트를 **디코드했을 때만** 0 이 아니다 (M9_PROGRESS §2-12).
+  const imgDiff = (page: Page) => diff(page).locator('.git-img-diff');
+  const imgOf = (page: Page, side: string) =>
+    imgDiff(page).locator(`.git-img-pane[data-side="${side}"] .git-img`);
+  const decoded = (page: Page, side: string) =>
+    imgOf(page, side).evaluate((el) => (el as HTMLImageElement).naturalWidth);
+
+  test('V-M9-20a (FR-M9-20): 이진 그림은 두 판이 그림으로 뜨고 크기·용량이 적힌다',
+    async ({ page }) => {
+      const repo = fx('images');
+      await waitForInit(page);
+      await openGit(page, repo);
+
+      const r = row(page, 'working', 'pic.png');
+      await expect(r).toBeVisible({ timeout: 10000 });
+      await r.click();
+
+      await expect(imgDiff(page)).toBeVisible({ timeout: 20000 });
+      // 종전에는 "바이너리 파일입니다" 로 끝났다 — Monaco 도 서지 않는다.
+      await expect(diffEditor(page)).toHaveCount(0);
+
+      // 두 판 모두 **디코드**된다. 1x1 → 2x2 이므로 값이 서로 다르다.
+      await expect.poll(() => decoded(page, 'original'), { timeout: 20000 }).toBe(1);
+      await expect.poll(() => decoded(page, 'modified'), { timeout: 20000 }).toBe(2);
+
+      // 크기(px)와 용량이 각 판에 적힌다 — 같아 보이는 두 판을 가르는 것이 그 둘이다.
+      await expect(imgDiff(page).locator('.git-img-pane[data-side="original"] .git-img-meta'))
+        .toContainText('1\u00d71', { timeout: 10000 });
+      await expect(imgDiff(page).locator('.git-img-pane[data-side="modified"] .git-img-meta'))
+        .toContainText('2\u00d72');
+    });
+
+  test('V-M9-20b (D-M9-12): 나란히가 기본이고 겹쳐로 전환된다', async ({ page }) => {
+    const repo = fx('images');
+    await waitForInit(page);
+    await openGit(page, repo);
+    await row(page, 'working', 'pic.png').click();
+    await expect(imgDiff(page)).toBeVisible({ timeout: 20000 });
+
+    // 기본은 나란히다 — 이진 diff 를 여는 손이 먼저 묻는 것은 "이게 뭐였지" 다.
+    await expect(imgDiff(page)).toHaveClass(/mode-side/);
+    await expect(imgDiff(page).locator('.git-img-mode.active')).toHaveCount(1);
+
+    await imgDiff(page).locator('.git-img-mode[data-mode="over"]').click();
+    await expect(imgDiff(page)).toHaveClass(/mode-over/);
+    // 겹쳐도 두 판이 **살아 있다** — 하나를 지우면 그것은 겹침이 아니다.
+    await expect(imgOf(page, 'original')).toBeVisible();
+    await expect.poll(() => decoded(page, 'modified'), { timeout: 20000 }).toBe(2);
+  });
+
+  test('V-M9-20c (D-M9-12): SVG 는 텍스트 diff 와 그림 보기를 둘 다 갖는다',
+    async ({ page }) => {
+      const repo = fx('images');
+      await waitForInit(page);
+      await openGit(page, repo);
+      await row(page, 'working', 'vec.svg').click();
+
+      // SVG 의 kind 는 `text` 그대로이므로 텍스트 diff 가 먼저 선다.
+      await expect(diffEditor(page)).toHaveCount(1, { timeout: 20000 });
+      const toGraphic = diff(page).locator('.git-diff-note-act');
+      await expect(toGraphic).toHaveCount(1);
+
+      await toGraphic.click();
+      await expect(imgDiff(page)).toBeVisible({ timeout: 20000 });
+      await expect(diffEditor(page)).toHaveCount(0);
+      // `<img>` 로만 그린다 (D-M9-13) — 인라인 `<svg>` 는 자기 안의 스크립트를 돌린다.
+      await expect(imgDiff(page).locator('svg')).toHaveCount(0);
+      await expect.poll(() => decoded(page, 'modified'), { timeout: 20000 }).toBe(16);
+
+      // 돌아갈 길이 같은 줄에 있다.
+      await imgDiff(page).locator('.git-img-as-text').click();
+      await expect(diffEditor(page)).toHaveCount(1, { timeout: 20000 });
+    });
+
+  test('V-M9-20d (FR-M9-20): 그림이 아닌 이진은 종전 안내 그대로다', async ({ page }) => {
+    const repo = fx('blobs');
+    await waitForInit(page);
+    await openGit(page, repo);
+    await row(page, 'working', 'bin.dat').click();
+    await expect(diff(page).locator('.git-diff-note')).toContainText('바이너리', { timeout: 20000 });
+    await expect(imgDiff(page)).toHaveCount(0);
+  });
+
   test('D10 (V10): 새로 만든 파일과 지운 파일이 각각 그려진다', async ({ page }) => {
     const repo = copyFx('basic', 'd10');
     await waitForInit(page);

@@ -27,6 +27,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"dongminal/internal/webserver/domain/git/core"
 )
 
 // Config carries process-level knobs.
@@ -264,6 +266,14 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		// UX_BATCH5_SRS FR-SUB-1: 서브모듈 Manager 는 **Git 이 있을 때만** 선다.
 		// 저장소가 없는 배선에서는 물을 대상이 없고, nil 이면 그 표면이 503 이다
 		// (UserWorktrees 와 같은 규약).
+		// M9_SRS FR-M9-21 / D-M9-16: **그림 전용 git 실행기.**
+		//
+		// 공용 `deps.Git` 의 Service 는 출력 상한이 서비스 전체에 하나이고
+		// (1MiB, FR-GIT-6) 그것으로는 흔한 스크린샷 하나가 상한에 걸린다.
+		// 그림이 지나는 자리만 파일 종단과 **같은 상한**(`fileReadMaxBytes`)을
+		// 쓴다 — 두 종단이 같은 그림에 다른 답을 주면 사용자는 어느 쪽이
+		// 맞는지 알 수 없다.
+		Images:          core.New(core.WithMaxOutput(int(fileReadMaxBytes))),
 		Submodules:      submoduleManager(deps.Git),
 		UserWorktrees:   deps.UserWorktrees,
 		RunWorktreeRoot: runWorktreeRoot,

@@ -109,6 +109,7 @@ internal/
     pollwait/            #   ①③④ — "조건이 설 때까지 묻는" 대기 한 벌 (요청 경로·데몬 소켓·start/stop, M8 D-A-15)
     sandbox/             #   ②③  — Window 하나의 컨테이너 생명주기 + 그 안의 실행 명세
     sandboxplace/        #   ②③  — 샌드박스 프로파일 → 실행 명세 배선 (toolhub 와 sandbox 를 잇는다)
+    mimeprobe/           #   ②③  — 바이트 앞머리로 그림인지 (파일 종단·git 블롭 종단이 같은 한 벌, M9 FR-M9-21)
     diagtail/            #   ②③  — 실행 진단 문자열의 절단 규칙 하나 (상한은 표면마다)
     serverconf/          #   ③④  — 서버 기동값 네 계층 (플래그 > 환경 > server.json > 기본)
     settingsschema/      #   ③④  — settings-schema.js 를 같은 바이트로 읽는다 (표는 JS 가 원천)

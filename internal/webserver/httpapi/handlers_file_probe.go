@@ -10,6 +10,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"dongminal/internal/shared/mimeprobe"
 )
 
 // /api/file/{probe,raw} — 편집기가 "이 파일을 열 수 있는가"를 묻는 자리
@@ -62,55 +64,12 @@ func probeFile(f *os.File) (kind, mime string, head []byte, err error) {
 	}
 }
 
-// looksLikeSVG 는 **내용으로** SVG 를 판정한다 (FR-DRV-24 ①).
+// looksLikeSVG 는 판정을 `mimeprobe` 에 맡긴다.
 //
-// 확장자를 믿지 않는 근거는 FR-EVW-2 와 같고, 여기서는 더 무겁다 — 이 판정이
-// 참이면 그 바이트가 `image/svg+xml` 로 우리 출처에서 나간다. `.svg` 로 이름만
-// 바꾼 HTML 이 통과하면 확장자 하나가 저장형 XSS 의 길이 된다.
-//
-// XML 선언·주석·DOCTYPE 을 건너뛰고 **루트 요소가 `<svg`인지**를 본다. 대문자를
-// 받지 않는 것은 XML 이 대소문자를 가리기 때문이다 — `<SVG` 는 SVG 가 아니며,
-// 그것을 받아 주는 쪽은 HTML 파서다.
-func looksLikeSVG(head []byte) bool {
-	b := bytes.TrimLeft(head, "\xef\xbb\xbf \t\r\n")
-	for len(b) > 0 {
-		switch {
-		case bytes.HasPrefix(b, []byte("<?")):
-			i := bytes.Index(b, []byte("?>"))
-			if i < 0 {
-				return false
-			}
-			b = b[i+2:]
-		case bytes.HasPrefix(b, []byte("<!--")):
-			i := bytes.Index(b, []byte("-->"))
-			if i < 0 {
-				return false
-			}
-			b = b[i+3:]
-		case bytes.HasPrefix(b, []byte("<!")):
-			i := bytes.IndexByte(b, '>')
-			if i < 0 {
-				return false
-			}
-			b = b[i+1:]
-		default:
-			if !bytes.HasPrefix(b, []byte("<svg")) {
-				return false
-			}
-			// `<svgfoo` 를 배제한다 — 요소 이름은 여기서 끝나야 한다.
-			if len(b) == 4 {
-				return true
-			}
-			switch b[4] {
-			case ' ', '\t', '\r', '\n', '>', '/':
-				return true
-			}
-			return false
-		}
-		b = bytes.TrimLeft(b, " \t\r\n")
-	}
-	return false
-}
+// **판정이 두 벌이면 한쪽만 고쳐진다** — 이 판정이 참이면 그 바이트가
+// `image/svg+xml` 로 우리 출처에서 나가고, git 블롭 종단(FR-M9-21)이 같은 일을
+// 한다. 그래서 함수 하나가 두 자리를 먹인다 (M9_SRS FR-M9-21).
+func looksLikeSVG(head []byte) bool { return mimeprobe.LooksLikeSVG(head) }
 
 // openRegularFile 은 절대경로의 **일반 파일**을 연다. 두 종단이 같은 가드를
 // 딛는다 — 경로 검사가 갈리면 한쪽만 디렉터리를 읽으려 든다.

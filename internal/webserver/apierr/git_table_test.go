@@ -88,6 +88,8 @@ var gitTableCases = []struct {
 	// gitDiffError
 	{query.ErrDiffBothAbsent, http.StatusNotFound, CodeNotFound},
 	{query.ErrDiffAxis, http.StatusBadRequest, CodeBadRequest},
+	{query.ErrDiffSide, http.StatusBadRequest, CodeBadRequest},
+	{query.ErrDiffTooLarge, http.StatusRequestEntityTooLarge, CodeTooLarge},
 
 	// gitHistoryError
 	{query.ErrLogOrder, http.StatusBadRequest, CodeBadRequest},

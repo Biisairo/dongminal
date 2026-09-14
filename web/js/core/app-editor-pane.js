@@ -72,13 +72,38 @@ Object.assign(App.prototype, {
 
   // 폭과 같은 규약으로 **워크스페이스**에 산다 — 창마다 따로이고 새로고침을
   // 넘는다. 모르는 값은 기본으로 떨어뜨린다 (옛 워크스페이스에는 이 키가 없다).
+  /**
+   * M9_SRS FR-M9-22 / D-M9-15: **고정 행은 저장소가 아니다.**
+   *
+   * `~`·메모장·플러그인 선언(`edFixed`)은 git 저장소가 아니므로 `Changes` 가
+   * 언제나 빈 표면이고, 비어 있는 표면은 고장으로 읽힌다. 그 창에서는 탭이
+   * Explorer 하나다.
+   *
+   * **가르는 것은 "고정 행인가" 이지 "저장소인가" 가 아니다.** 사용자가 더한
+   * 일반 루트도 지금은 저장소가 아닐 수 있지만 그쪽은 `git init` 하면 Changes 가
+   * 뜻을 갖는다 — 고정 행 셋은 그렇게 되지 않는다.
+   */
+  edSideFixed(s){
+    const root=this.edRootOf(s);
+    return !!root&&this.edFixed().some(e=>e.path===root);
+  },
+
+  // 그 창에서 **설 수 있는** 탭. 화면과 판정이 같은 자리에서 온다 — 둘로 나뉘면
+  // 한쪽만 고쳐진다.
+  edSideTabs(s){
+    return this.edSideFixed(s)?REPO_SIDE_TABS.filter(d=>d.id===REPO_SIDE_EXPLORER):REPO_SIDE_TABS;
+  },
+
   edSideOf(s){
+    const tabs=this.edSideTabs(s);
     const v=s&&s.editor&&s.editor.side;
-    return REPO_SIDE_TABS.some(d=>d.id===v)?v:REPO_SIDE_DEFAULT;
+    if(tabs.some(d=>d.id===v)) return v;
+    // 기본은 Changes 지만(FR-DSP-1) 그것이 설 수 없는 창에서는 남은 하나다.
+    return tabs.some(d=>d.id===REPO_SIDE_DEFAULT)?REPO_SIDE_DEFAULT:tabs[0].id;
   },
 
   edSetSide(s,id){
-    if(!s||!REPO_SIDE_TABS.some(d=>d.id===id)) return;
+    if(!s||!this.edSideTabs(s).some(d=>d.id===id)) return;
     if(!s.editor) s.editor={};
     if(s.editor.side===id) return;
     s.editor.side=id;

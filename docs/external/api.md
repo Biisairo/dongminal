@@ -262,6 +262,7 @@
 | POST | `/api/git/commit` | 커밋 |
 | POST | `/api/git/undo-last` | 마지막 커밋 되돌리기 (창이 지나면 거절) |
 | GET | `/api/git/diff-content` | diff 본문 |
+| GET | `/api/git/blob` | diff 한쪽의 **원본 바이트** — 그림만 내보낸다 (`<img src>` 가 건다) |
 | GET | `/api/git/file-head` | HEAD 판의 파일 내용 |
 | GET | `/api/git/blame` | 줄별 마지막 변경자 |
 | GET | `/api/git/log` | 커밋 기록 |

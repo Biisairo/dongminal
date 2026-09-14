@@ -759,8 +759,14 @@ class Renderer {
       }
       return b;
     });
+    // FR-M9-22: 설 수 없는 탭은 **숨긴다** — 없앴다 만들면 그 위의 손이 클릭을
+    // 잃는다 (FR-GRF-14, 새로고침 버튼과 같은 처리다).
+    const allowed=new Set(app.edSideTabs(s).map(d=>d.id));
     for(const t of bar.children)
-      if(t.dataset&&t.dataset.side) t.classList.toggle('active',t.dataset.side===active);
+      if(t.dataset&&t.dataset.side){
+        t.hidden=!allowed.has(t.dataset.side);
+        t.classList.toggle('active',t.dataset.side===active);
+      }
     /**
      * GIT_CHANGES_CONTROLS_SRS FR-GCC-10 / D-7·D-8: 새로고침은 **창의 최상단**,
      * 탭 줄의 오른쪽 여백에 선다.

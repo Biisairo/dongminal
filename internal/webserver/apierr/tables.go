@@ -77,6 +77,10 @@ var Git = Table{
 	{query.ErrRevNotFound, http.StatusNotFound, CodeNotFound},
 	{query.ErrDiffBothAbsent, http.StatusNotFound, CodeNotFound},
 	{query.ErrDiffAxis, http.StatusBadRequest, CodeBadRequest},
+	// M9_SRS FR-M9-21: 그림 종단의 둘. side 가 틀린 것은 400 이고, 상한을 넘은
+	// 것은 413 이다 — 잘린 그림을 200 으로 주면 브라우저가 깨진 그림을 그린다.
+	{query.ErrDiffSide, http.StatusBadRequest, CodeBadRequest},
+	{query.ErrDiffTooLarge, http.StatusRequestEntityTooLarge, CodeTooLarge},
 	{query.ErrDiffPath, http.StatusBadRequest, CodeBadRequest},
 	{query.ErrUnsafeRev, http.StatusBadRequest, CodeBadRequest},
 	{query.ErrLogOrder, http.StatusBadRequest, CodeBadRequest},

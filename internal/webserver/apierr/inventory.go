@@ -27,6 +27,7 @@ var Inventory = []error{
 
 	// domain/git/query
 	query.ErrDiffAxis, query.ErrDiffPath, query.ErrDiffBothAbsent, query.ErrDiffTruncated,
+	query.ErrDiffSide, query.ErrDiffTooLarge,
 	query.ErrNoRemote, query.ErrBlameTruncated, query.ErrBlameParse, query.ErrBlamePathNotFound,
 	query.ErrLogOrder, query.ErrUnsafeRev, query.ErrRevNotFound, query.ErrCommitParent,
 

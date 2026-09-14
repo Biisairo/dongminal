@@ -172,18 +172,6 @@ class FileTree {
   // reconcile 이 서명으로 걸러 실제 DOM 변경은 일어나지 않는다.
   _paintAll(){ this.store.paintAll() }
 
-  /**
-   * FR-EXR-30: 이 루트에서는 폴더를 만들 수 없다 — 메모장이다.
-   *
-   * 루트 판정은 `app-editor.js:50` 이 이름을 가르는 데 쓰는 것과 같은 것이다.
-   * 새 판정을 만들지 않는다. 루트는 인스턴스 수명 동안 불변이므로
-   * (`app-editor.js:535` 가 바뀌면 버린다) 머리를 만들 때 물어도 된다.
-   */
-  _noDirs(){
-    const notes=this.app.edNotes();
-    return !!notes&&this.root===notes;
-  }
-
   _head(){
     const h=document.createElement('div'); h.className='ed-head';
     const n=document.createElement('span'); n.className='ed-head-name';
@@ -193,10 +181,10 @@ class FileTree {
     // 선택이 정한다 (FR-EDT-81) — 버튼은 그 규칙을 다시 적지 않는다.
     h.appendChild(this._headBtn('ed-head-new-file',EDITOR_TREE_NEW_FILE,
       EDITOR_TREE_NEW_FILE_TITLE,()=>this.startCreate(false)));
-    // FR-EXR-31: 메모장에는 이 버튼을 두지 않는다. 눌러도 아무 일이 없는 버튼은
-    // 고장으로 읽힌다 — `+` 자리를 Editor·Git 창에서 빼는 것과 같은 근거다
-    // (FR-EDT-54).
-    if(!this._noDirs()) h.appendChild(this._headBtn('ed-head-new-dir',EDITOR_TREE_NEW_DIR,
+    // **메모장도 이 버튼을 든다** (M9_SRS FR-M9-23). 종전에는 `_noDirs()` 로
+    // 뺐다 (FR-EXR-31, 폐기) — 그 조항의 근거("눌러도 아무 일이 없는 버튼은
+    // 고장으로 읽힌다")는 살아 있으나, 이제 눌리면 실제로 만들어진다.
+    h.appendChild(this._headBtn('ed-head-new-dir',EDITOR_TREE_NEW_DIR,
       EDITOR_TREE_NEW_DIR_TITLE,()=>this.startCreate(true)));
     h.appendChild(this._headBtn('ed-head-refresh',EDITOR_TREE_REFRESH,
       EDITOR_TREE_REFRESH_TITLE,()=>this.refresh()));

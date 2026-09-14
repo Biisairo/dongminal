@@ -10,10 +10,9 @@
  */
 Object.assign(FileTree.prototype, {
   startCreate(isDir,at){
-    // FR-EXR-30: 메모장에는 폴더가 없다. 진입점마다 막으면 한쪽만 고쳐지므로
-    // (이 저장소가 여러 번 겪은 형태다) **여기 한 번**에서 막는다 — 앞으로 생길
-    // 진입점도 자동으로 덮인다. 버튼·메뉴를 감추는 것은 그와 별개다 (D-5).
-    if(isDir&&this._noDirs()) return;
+    // **메모장의 폴더 금지는 폐기됐다** (M9_SRS FR-M9-23 / D-M9-15, 사용자 결정
+    // 2026-09-14). 여기 `if(isDir&&this._noDirs()) return` 이 있었다 —
+    // `EXPLORER_ROOT_KEYS_SRS` FR-EXR-30. 메모장은 다른 루트와 같다.
     const d=at||this._targetDir();
     this._clearErr();
     // 입력 행이 그 폴더 안에 보이려면 폴더가 펼쳐져 있어야 한다.

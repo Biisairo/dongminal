@@ -142,6 +142,23 @@ printf '\x00changed\n' >> "$d/bin.dat"
 printf 'tail\n' >> "$d/huge.txt"
 say blobs "바이너리 + LFS 포인터 + 1MB 초과 텍스트"
 
+# ── 6b. 그림 — M9_SRS FR-M9-20·21, V-M9-20 ──
+#
+# **실제로 디코드되는 바이트여야 한다.** `<img>` 가 그리지 못하면 크기(px)를 읽을
+# 수 없고, 그러면 이 화면이 재려는 것의 절반이 사라진다.
+d=$(init images)
+# 1x1 PNG (base64). 판정은 내용이므로(mimeprobe) 확장자는 근거가 아니다.
+printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' | base64 -d > "$d/pic.png"
+cat > "$d/vec.svg" <<'SVG'
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8"/></svg>
+SVG
+git -C "$d" add -A; git -C "$d" commit -qm "images"
+# 2x2 PNG — 크기가 달라져야 "무엇이 바뀌었는가" 가 두 판의 차이로 보인다.
+printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEklEQVR42mNk+M+ADzAOSQUAMs4B/2Q0V5AAAAAASUVORK5CYII=' | base64 -d > "$d/pic.png"
+printf '<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"><rect width="16" height="16"/></svg>\n' > "$d/vec.svg"
+say images "그림 diff (PNG 이진 · SVG 텍스트)"
+
 # ── 7. 대량 변경 파일 — FR-GIT-42, V25 ──
 d=$(init many-files)
 mkdir -p "$d/src"

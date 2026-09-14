@@ -68,13 +68,18 @@ type DiffSide struct {
 
 // DiffContent 는 한 축의 양쪽 전체 내용이다.
 type DiffContent struct {
-	Repo     string   `json:"repo"`
-	Axis     string   `json:"axis"`
-	Path     string   `json:"path"`
-	OrigPath string   `json:"origPath"`
-	Original DiffSide `json:"original"`
-	Modified DiffSide `json:"modified"`
-	Note     string   `json:"note,omitempty"` // 양쪽 중 하나라도 text 가 아니면 채운다
+	Repo     string `json:"repo"`
+	Axis     string `json:"axis"`
+	Path     string `json:"path"`
+	OrigPath string `json:"origPath"`
+	// M9_SRS FR-M9-20: **그림으로 볼 수 있으면** 그 MIME 이 여기 선다. 비어 있으면
+	// 아니다. side 의 `kind` 는 건드리지 않는다 — 이진은 그대로 `binary`, SVG 는
+	// 그대로 `text` 이고 이것은 **그 위에 얹히는 한 겹**이다. 그래서 SVG 는 텍스트
+	// diff 와 그림 보기를 둘 다 갖는다 (D-M9-12).
+	ImageMime string   `json:"imageMime,omitempty"`
+	Original  DiffSide `json:"original"`
+	Modified  DiffSide `json:"modified"`
+	Note      string   `json:"note,omitempty"` // 양쪽 중 하나라도 text 가 아니면 채운다
 }
 
 // DiffContentOf 는 축과 경로를 받아 양쪽 전체 내용을 준다 (FR-GIT-44).

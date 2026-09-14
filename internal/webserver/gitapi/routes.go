@@ -24,6 +24,8 @@ var routes = []route{
 	httproute.Get("/api/git/status", (*GitServer).apiGitStatus),
 	httproute.Get("/api/git/signature", (*GitServer).apiGitSignature),
 	httproute.Get("/api/git/diff-content", (*GitServer).apiGitDiffContent),
+	// M9_SRS FR-M9-21: diff 한쪽의 **원본 바이트** — `<img src>` 가 건다.
+	httproute.Get("/api/git/blob", (*GitServer).apiGitBlob),
 	httproute.Get("/api/git/preflight", (*GitServer).apiGitPreflight),
 	httproute.Get("/api/git/policy", (*GitServer).apiGitPolicy),
 	httproute.Get("/api/git/recovery", (*GitServer).apiGitRecovery),

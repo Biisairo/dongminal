@@ -11,6 +11,8 @@ import (
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/submodule"
 	"dongminal/internal/webserver/domain/worktree"
+
+	"dongminal/internal/webserver/domain/git/core"
 )
 
 // WorkspaceStore는 핀 목록을 읽고 쓰기 위한 최소 표면이다 (git_pins.go).
@@ -49,6 +51,17 @@ type GitServer struct {
 	Work     WorkspaceStore
 	Commands Broadcaster
 	Tools    ToolLocator
+
+	// Images 는 **그림 전용** git 실행기다 (M9_SRS FR-M9-21 / D-M9-16).
+	//
+	// 공용 `Git.Service()` 의 출력 상한은 서비스 전체에 하나이고(1MiB,
+	// FR-GIT-6) 그것으로는 흔한 스크린샷 하나가 상한에 걸린다. `WithMaxOutput`
+	// 을 크게 준 Service 를 따로 받아 blob 종단과 `imageMime` 판정만 그것을 쓴다.
+	//
+	// **nil 이면 그림 갈래가 서지 않는다** — `imageMime` 은 언제나 비고 blob
+	// 종단은 503 이다. 주입하지 않은 판이 조용히 공용 서비스로 떨어져 1MiB 에서
+	// 잘리는 것보다, 없다고 말하는 쪽이 낫다.
+	Images *core.Service
 
 	// RepoGuard 는 `repo` 가 허용 루트 안인가다 (FILE_API_BOUNDARY_SRS FR-FAB-14,
 	// `SEC-15`). 판정 대상은 요청 문자열이 아니라 **푼 저장소 루트**다.
