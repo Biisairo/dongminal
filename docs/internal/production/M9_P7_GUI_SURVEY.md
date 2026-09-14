@@ -148,6 +148,33 @@ M9-B16 이 말한 셋(*"context window 사용량, 주간, 5시간 사용량"*)�
 | **5시간 롤링 한도** | 플랜 사용량. CLI 의 `/usage`·`/status`, 웹의 Settings ▸ Usage | **안 받는다** |
 | **주간 한도** | 같음 | **안 받는다** |
 
+### 3.1 사용자가 든 항목별 실측 (2026-09-14)
+
+접수한 말: *"다양한 편의기능(context window, usage, path, branch, upstream, cache hit,
+agent version, permission mode, model, effort level 등)"*. **각각 지금 오는지를 코드에서
+직접 쟀다** — 추측으로 적으면 없는 것을 약속하게 된다.
+
+| 항목 | 지금 오는가 | 자리 / 사유 |
+|---|---|---|
+| **context window** | ✅ **오고 그린다** | `ProtoUsage.ContextWindow` · `agent-pane.js` 의 `agent.ctx` |
+| **usage (토큰·비용)** | ✅ **온다** | `ProtoUsage.Tokens/OutputTokens/CostUSD`. 비용은 이미 그린다 |
+| **model** | ✅ 온다 | `init` 프레임의 `model` → `ProtoStatus.Model` · `ProtoUsage.Model` |
+| **permission mode** | ✅ 온다 | `init` 프레임의 `permissionMode` → `ProtoStatus.PermissionMode` |
+| **cache hit** | ⚠️ **파싱은 하는데 버린다** | `claudeUsage.CacheWrite/CacheRead` 를 읽지만 `context()` 가 `Input+CacheWrite+CacheRead` 로 **합쳐** `Tokens` 하나로 낸다. `ProtoUsage` 에 필드 둘을 더하면 끝 — **가장 값싼 항목** |
+| **path (cwd)** | ✅ 있다 (다른 길) | `GET /api/cwd?tool=` — 프로토콜이 아니라 도구의 것이다 |
+| **branch · upstream** | ✅ 있다 (다른 길) | git 관측의 것 — `gitPanel.statusOf()`. **에이전트가 아니라 그 도구의 cwd 가 속한 저장소**에서 온다. 그 둘을 잇는 자리가 지금은 없다 |
+| **agent version** | ❌ **안 온다** | `claudeFrame` 에 version 필드가 없다. `init` 이 싣는 것은 `session_id`·`model`·`permissionMode` 뿐이다. 받으려면 **프레임 밖**(기동 시 `claude --version` 등)이고 그것은 새 요구다 |
+| **effort level** | ❌ **상태로는 안 온다** | 제어(`set_max_thinking_tokens`)로 **보낼 수는 있다**. 지금 값을 **되읽는** 길이 없다 — 보낸 값을 우리가 기억하는 것과 에이전트의 실제 값은 다르다 |
+| **5시간 · 주간 한도** | ❌ 안 온다 | §3 본문 — CLI 의 `/usage`·웹 Settings 의 것이다 |
+
+**세 갈래로 갈린다.** ① **이미 온다** — 그리는 일만 남았다 ② **오는데 버린다**(cache) —
+어댑터 한 줄 ③ **다른 길에서 온다**(cwd·branch·upstream) — 에이전트의 것이 아니라 **그
+도구의 것**이고, 에이전트 화면에 얹으려면 그 둘을 잇는 자리를 새로 정해야 한다
+④ **안 온다**(version·effort·플랜 한도) — 받으려면 프로토콜 밖이며 **새 요구**다.
+
+**스펙을 쓸 때 이 넷을 섞지 마라.** 한 줄짜리와 새 요구가 같은 FR 에 들어가면 그 FR 은
+끝나지 않는다.
+
 세 가지 사실을 못박아 둔다.
 
 1. **컨텍스트 채움과 플랜 사용량은 다른 것이다.** 상태줄이 보여 주는 것은 앞의 것이고,
