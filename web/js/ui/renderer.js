@@ -1075,6 +1075,9 @@ class Renderer {
       moved=true;
     }
     el.classList.add('vis');
+    // M9_SRS FR-M9-33: 보이게 될 때 올리기 조건을 다시 묻는다 — 떠나 있는 동안
+    // 그 셸에서 에이전트가 떴을 수 있고, 반대로 끝났을 수도 있다.
+    if(term&&term.refreshLift) term.refreshLift();
     // FR-VSR-3: 편집기 탭의 시선은 **붙은 뒤에** 되돌린다. 이동하지 않은 경로에서는
     // 부르지 않는다 — 화면을 만지는 쪽의 조건은 좁아야 한다 (FR-PDR-10 의 규약).
     if(moved&&at.type==='editor'){

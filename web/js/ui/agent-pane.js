@@ -45,8 +45,18 @@ class AgentPane {
     this.limitsEl.title=t('agent.limits_title'); this.limitsEl.hidden=true;
     this.openEl=document.createElement('span'); this.openEl.className='agp-open';
     const sp=document.createElement('span'); sp.className='agp-spacer';
+    /**
+     * M9_SRS FR-M9-36 (M9-B17): **보이는 진입점.** 접수한 말이 *"이 방식은 어떤
+     * 경로에서 여는 건지도 모르고, 어떻게 여는지도 알기 힘들다"* 였다. 우클릭 둘은
+     * 그대로 두고(`agent-pane` 메뉴 · 탭 메뉴) 여기에 하나를 **더한다.**
+     *
+     * 어댑터가 TUI 출구를 주지 않으면 서지 않는다 — `_applyState` 가 그 판정을 한다.
+     */
+    this.tuiBtn=UIKit.button({icon:'terminal',title:t('agent.open_terminal'),kind:'ghost',size:'sm',
+      cls:'agp-tui-btn',onClick:()=>this.app.agentOpenTerminal(this.id)});
+    this.tuiBtn.hidden=true;
     this.menuBtn=UIKit.button({icon:'menu',title:t('agent.menu_title'),kind:'ghost',size:'sm',cls:'agp-menu-btn',onClick:e=>this._openMenu(e)});
-    for(const x of [this.lblEl,this.stateEl,this.modelEl,this.permEl,this.ctxEl,this.costEl,this.limitsEl,this.openEl,sp,this.menuBtn]) head.appendChild(x);
+    for(const x of [this.lblEl,this.stateEl,this.modelEl,this.permEl,this.ctxEl,this.costEl,this.limitsEl,this.openEl,sp,this.tuiBtn,this.menuBtn]) head.appendChild(x);
     el.appendChild(head);
 
     // 대화
@@ -135,6 +145,9 @@ class AgentPane {
     const open=st.open||[];
     if(open.length&&!this._dialog&&!st.dormant) this._openApproval(open[0]);
     this.stopBtn.hidden=!(st.controls&&st.controls.interrupt);
+    // FR-M9-36: 우클릭 메뉴와 **같은 조건**이다 (아래 `_openMenu` 의 `ctl.tuiResume`).
+    // 두 자리가 다른 문장으로 답하면 그 차이가 곧 결함이다 (§2-21).
+    this.tuiBtn.hidden=!(st.controls&&st.controls.tuiResume);
   }
 
   _apply(le,replay){

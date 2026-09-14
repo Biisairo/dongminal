@@ -1059,6 +1059,8 @@ I18N.register('ko', {
   // ── term ──
   'term.conn_error': '연결 오류',
   'term.disconnected': '연결 끊김',
+  'term.lift_to_agent': '에이전트로',
+  'term.lift_to_agent_title': '이 세션을 에이전트 GUI 로 엽니다 — 터미널 탭은 남고 셸의 에이전트만 끝냅니다',
   'term.reconnect': '다시 연결',
   'term.reconnecting': '재연결 중...',
   'term.soft_reload': '내부 새로고침...',

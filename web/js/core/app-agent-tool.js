@@ -53,6 +53,9 @@ Object.assign(App.prototype, {
     else if(cwdTool) q+='&cwdTool='+encodeURIComponent(cwdTool);
     if(win&&win.id) q+='&window='+encodeURIComponent(win.id);
     if(opts&&opts.model) q+='&model='+encodeURIComponent(opts.model);
+    // FR-M9-33: 세션을 이어받아 띄운다 (`LaunchOpts.Resume`). 종단은 이 질의를
+    // 이미 받고 있었다 — 없던 것은 그것을 쓰는 쪽이다.
+    if(opts&&opts.resume) q+='&resume='+encodeURIComponent(opts.resume);
     // F-4: 승인 정책은 설정이다. 어댑터가 자기 어휘로 싣거나 무시한다.
     if(agentApprovalMode) q+='&approval='+encodeURIComponent(agentApprovalMode);
     const r=await apiPost('/api/tools?kind=agent'+q);
@@ -90,6 +93,34 @@ Object.assign(App.prototype, {
    * 닫기는 `force` 로 지난다. 이것은 닫기가 아니라 **전환**이고, 그 세션은 방금 연
    * 터미널에서 이어진다 — 여기서 "정말 닫을까요" 를 묻는 것은 물음이 아니라 방해다.
    */
+  /**
+   * M9_SRS FR-M9-33 (M9-B15) — **CLI → GUI.** `FR-AGT-10` 의 남은 절반이다.
+   *
+   * 셸에서 도는 에이전트를 에이전트 도구로 올린다. 신원은 활동 훅이 실어 온 것이며
+   * (FR-M9-32) 우리가 띄운 탭이든 사용자가 손으로 친 `claude` 든 같다.
+   *
+   * **터미널 탭은 남는다** (D-M9-20, 사용자 결정). `agentOpenTerminal` 과 대칭이
+   * 아니며 그것이 의도다 — 에이전트 탭은 그 세션의 표면 하나뿐이지만 터미널 탭에는
+   * **사용자의 셸**이 살고, 닫으면 히스토리·cwd·돌던 다른 일이 함께 사라진다.
+   *
+   * 셸 쪽 에이전트는 끝낸다. 예의가 아니라 **전제**다 — 같은 세션을 두 프로세스가
+   * `--resume` 으로 동시에 열면 충돌한다. 그 지시(`exitCommand`)는 어댑터의 것이며
+   * 서버가 실어 준다; 모르면 보내지 않는다 (추측해 `/exit` 를 적지 않는다).
+   */
+  async agentLiftFromTerminal(toolId){
+    const r=await apiGet('/api/agent/session',{query:{tool:toolId}});
+    if(!r.ok||!r.data||!r.data.sessionId){ Toast.show(apiErrText(r,t('term.lift_to_agent')),'err'); return }
+    const info=r.data;
+    const loc=this.findToolLocation(toolId);
+    const paneId=(loc&&loc.pane&&loc.pane.id)||this.focused;
+    const c=await apiGet('/api/cwd',{query:{tool:toolId}});
+    const cwd=(c.ok&&c.data&&c.data.cwd)||undefined;
+    // 먼저 끝내고 연다. 순서가 바뀌면 두 프로세스가 같은 세션을 겹쳐 잡는다.
+    if(info.exitCommand) await apiPost('/api/tools/input',{id:toolId,text:info.exitCommand,execute:true});
+    await this.addTab(paneId,'agent',{agent:info.agent,resume:info.sessionId,cwd,
+      windowId:loc&&loc.win?loc.win.id:undefined});
+  },
+
   async agentOpenTerminal(toolId){
     const r=await apiGet('/api/agent/tui-line',{query:{tool:toolId}});
     if(!r.ok||!r.data||!r.data.line){ Toast.show(apiErrText(r,t('agent.open_terminal')),'err'); return }

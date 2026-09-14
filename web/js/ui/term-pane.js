@@ -32,6 +32,19 @@ class TerminalTool {
     // FR-B-6 (UX-11): 드롭 안내는 DOM 텍스트다. `.dragover` 일 때만 CSS 가 보인다.
     const drop=document.createElement('div'); drop.className='tp-drop-hint'; drop.textContent=DROP_FILES_HINT;
     this.el.appendChild(drop);
+    /**
+     * M9_SRS FR-M9-33·36 (M9-B15·B17): **셸에서 도는 에이전트를 GUI 로 올리는
+     * 진입점.** 접수한 말이 *"어떤 경로에서 여는 건지도 모르고, 어떻게 여는지도
+     * 알기 힘들다"* 였으므로 보이는 자리에 둔다.
+     *
+     * 터미널에는 머리 줄이 없으므로 **떠 있는 버튼**이고(사용자 결정 2026-09-14),
+     * **조건이 설 때만 보인다** — 그 탭에서 에이전트가 돌고 세션 신원이 잡힐 때다.
+     * 늘 보이면 아무 셸에서나 눌러 실패하고, 그때 "모른다" 가 "고장" 으로 읽힌다.
+     */
+    this.liftBtn=UIKit.button({label:t('term.lift_to_agent'),title:t('term.lift_to_agent_title'),
+      kind:'ghost',size:'sm',cls:'tp-lift',onClick:()=>app.agentLiftFromTerminal(this.id)});
+    this.liftBtn.hidden=true;
+    this.el.appendChild(this.liftBtn);
     // Drag & drop upload
     // FR-M9-30: 아래 `drop` 과 **같은 판정**이다. 두 문장이 갈리면 그 차이가 곧 결함이다.
     this.el.addEventListener('dragover',e=>{e.preventDefault();if(isFileDrag(e)){e.stopPropagation();this.el.classList.add('dragover')}});
@@ -217,6 +230,24 @@ class TerminalTool {
   }
 
   // ── 입력 (MOBILE_TUI_INPUT_SCROLL_SRS §3.1 / §3.5) ──
+
+  /**
+   * M9_SRS FR-M9-33: **이 탭에서 올릴 수 있는가**를 서버에 묻는다.
+   *
+   * 판정은 서버의 것이다 (`GET /api/agent/session`) — 프론트가 "에이전트처럼 보이는
+   * 출력" 으로 짐작하면 그것이 곧 화면 fingerprint 이고, `FR-SKL-2` 가 team 스킬에서
+   * 지운 그 방식이다. 신원을 모르면 404 이며 그때 버튼은 서지 않는다.
+   *
+   * 묻는 계기는 **보이게 될 때**다 (renderer 의 이동 갈래). 폴링하지 않는 이유는
+   * 이 답이 사람이 셸에 무엇을 치는가에 달렸고, 그 사이 그 탭은 어차피 화면에
+   * 없기 때문이다.
+   */
+  async refreshLift(){
+    if(!this.liftBtn||!this.el||!this.el.isConnected) return;
+    const r=await apiGet('/api/agent/session',{query:{tool:this.id}});
+    if(!this.liftBtn) return;
+    this.liftBtn.hidden=!(r.ok&&r.data&&r.data.sessionId);
+  }
 
   _sendText(s){
     if(!s) return;

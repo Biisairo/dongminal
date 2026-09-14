@@ -1071,6 +1071,8 @@ I18N.register('en', {
   // ── term ──
   'term.conn_error': 'Connection error',
   'term.disconnected': 'Disconnected',
+  'term.lift_to_agent': 'To agent',
+  'term.lift_to_agent_title': 'Open this session in the agent GUI — the terminal tab stays; only the agent in the shell exits',
   'term.reconnect': 'Reconnecting',
   'term.reconnecting': 'Reconnecting...',
   'term.soft_reload': 'Soft reload...',

@@ -188,6 +188,12 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
     const sid = await pane.getAttribute('data-sessionid');
     expect(sid).toBeTruthy();
+    /**
+     * V-M9-36 (FR-M9-36 / M9-B17): **보이는 진입점이 머리에 선다.** 접수한 말이
+     * *"어떤 경로에서 여는 건지도 모르고, 어떻게 여는지도 알기 힘들다"* 였다.
+     * 우클릭은 그대로 두고 더하는 것이므로, 아래 우클릭 경로도 그대로 잰다.
+     */
+    await expect(pane.locator('.agp-tui-btn')).toBeVisible();
     const tabs = page.locator('#area .pn.focused .pn-tab');
     const tab = page.locator('#area .pn.focused .pn-tab.active');
     const before = await tabs.count();
@@ -249,6 +255,66 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     expect(text, `모르는 주기가 사라졌다: ${text}`).toContain('opus_weekly');
     // 짧은 주기가 먼저다 — 44%(five_hour) 가 2%(opus_weekly) 앞에 있다.
     expect(text.indexOf('44%')).toBeLessThan(text.indexOf('opus_weekly'));
+  });
+
+  /**
+   * V-M9-33 · V-M9-36 (M9_SRS FR-M9-33·36 / M9-B15·B17): **CLI → GUI 올리기.**
+   *
+   * `FR-AGT-10` 이 *"반대 방향도 같은 Resume 으로 가능해야 한다 — P0 스파이크가
+   * 확인한다"* 로 남겨 둔 절반이다. 그 스파이크는 돌지 않았고 이 검사가 대신한다.
+   *
+   * 훅을 **흉내 낸다** — 실측(2026-09-14)에서 dongminal 셸이 `claude` 를 래핑해
+   * Run 밖의 탭에서도 활동 훅이 돌고 `sessionId` 를 이 종단으로 보낸다. e2e 의
+   * 터미널에는 진짜 에이전트가 없으므로 그 한 걸음만 대신한다.
+   *
+   * **재는 것 셋**: ① 신원이 오기 전에는 버튼이 없다 ② 오면 선다(보이게 될 때 묻는다)
+   * ③ 누르면 에이전트 탭이 서고 **터미널 탭은 남는다** — ③ 이 D-M9-20 이고,
+   * `agentOpenTerminal`(탭을 닫는다)과 **대칭이 아닌 것이 의도**다.
+   */
+  test('V-M9-33/36 (FR-M9-33·36): 셸의 세션을 GUI 로 올리고 터미널 탭은 남는다', async ({ page }) => {
+    await waitForInit(page);
+    const term = page.locator('#area .pn.focused .tp.vis');
+    await expect(term).toBeVisible({ timeout: 10000 });
+    const toolId = await term.getAttribute('data-toolid');
+    expect(toolId, '터미널 도구가 없다').toBeTruthy();
+
+    // ① 신원이 오기 전에는 진입점이 없다.
+    await expect(term.locator('.tp-lift')).toBeHidden();
+
+    // 활동 훅이 신원을 실어 온다 (FR-M9-32 의 경로).
+    const posted = await page.evaluate(async (id) => {
+      const r = await fetch('/api/runs/context', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ toolId: id, agent: 'claude', sessionId: 'sid-lift-e2e', bytes: 10 }),
+      });
+      return r.status;
+    }, toolId);
+    expect(posted, '훅 종단이 받지 않았다').toBe(200);
+
+    // ② 보이게 될 때 묻는다 — 탭을 하나 더 만들고 돌아온다 (실제 사용자 경로다).
+    const tabs = page.locator('#area .pn.focused .pn-tab');
+    const before = await tabs.count();
+    await page.locator('#area .pn.focused .pn-tab-add').click();
+    await expect(tabs).toHaveCount(before + 1, { timeout: 10000 });
+    const termIdx = before - 1;
+    await tabs.nth(termIdx).click();
+    const lift = page.locator(`#area .pn.focused .tp.vis[data-toolid="${toolId}"] .tp-lift`);
+    await expect(lift).toBeVisible({ timeout: 10000 });
+
+    // ③ 올린다.
+    const after = await tabs.count();
+    await lift.click();
+    // 에이전트 탭이 **더해진다** — 터미널 탭을 대신하는 것이 아니다.
+    await expect(tabs, '에이전트 탭이 서지 않았다').toHaveCount(after + 1, { timeout: 15000 });
+    await expect(page.locator(AGENT_PANE_READY)).toBeVisible({ timeout: 15000 });
+    /**
+     * **터미널 탭은 남는다** (D-M9-20). 비활성 탭의 DOM 은 떼어지므로(`_hideOthers`)
+     * 요소의 존재로는 잴 수 없다 — **돌아가서** 그 도구가 그대로인지 본다. 이것이
+     * 사용자가 실제로 겪는 경로이기도 하다.
+     */
+    await tabs.nth(termIdx).click();
+    await expect(page.locator(`#area .pn.focused .tp.vis[data-toolid="${toolId}"]`),
+      '터미널 도구가 사라졌다 — D-M9-20 은 탭을 남긴다').toBeVisible({ timeout: 10000 });
   });
 
   test('TC-AGT-7: 프로세스가 죽으면 오류 상태 — 사유가 보이고 입력이 막히고, 재개가 된다 (V-8, FR-ABG-20)', async ({ page }) => {

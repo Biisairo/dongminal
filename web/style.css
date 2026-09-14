@@ -976,6 +976,9 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 #search-count{color:var(--text-hint);font-size:var(--fs-sm);min-width:40px;text-align:center}
 
 /* ── Drag & Drop ── */
+/* M9_SRS FR-M9-36: 올리기 진입점. 조건이 설 때만 `hidden` 이 풀린다 — 평소 터미널
+   위에는 아무것도 없다. 출력을 가리는 면적을 줄이려 아이콘 하나다. */
+.tp>.tp-lift{position:absolute;top:4px;right:4px;z-index:var(--z-raised)}
 .tp>.tp-drop-hint{display:none}
 .tp.dragover>.tp-drop-hint{
   position:absolute;inset:0;
