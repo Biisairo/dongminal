@@ -67,6 +67,75 @@ M9-B14·15 가 설 수 있는 근거가 그것이다.
 **우리에게 없고 그들에게 있는 가장 큰 것은 "세션이 여럿일 때의 조감"** 이다. 다만
 그것은 M9-B16 의 요구("정보를 전부 표시")와 **다른 요구**이므로, 스펙을 쓸 때 섞지 마라.
 
+### 2.2 **같은 transport 를 쓰는 구현들** (사용자 조사 2026-09-14)
+
+사용자가 모아 준 것이며, **출처의 성격이 둘로 갈린다** — 그 구분을 지운 채 인용하지 마라.
+
+> **공식 아키텍처 문서가 아니다.** Claude Desktop 에 대한 아래 관찰은 **공개 이슈에
+> 올라온 프로세스 인자 캡처**에 기반한다. 공식 문서가 말하는 것은 "Code 탭이 Claude Code 를
+> GUI 로 쓴다"(병렬 세션·파일 편집기·터미널·diff 검토)까지이고, **argv 는 관찰이다.**
+> 버전에 따라 달라질 수 있으므로 **계약으로 삼지 마라.**
+
+| 구현 | 방식 | 우리와의 거리 |
+|---|---|---|
+| **Claude Desktop — Code 탭** (공식) | Claude Code CLI + JSON stream (**argv 는 관찰**) | ★★★★★ |
+| **sugyan/claude-code-webui** | `claude -p --output-format stream-json` + Web UI | ★★★★☆ — **유지보수 중단 명시.** 제품이 아니라 **읽을 것** |
+| **TeamADAPT/claude-code-ui** | Claude CLI + WebSocket + Web UI | ★★★★☆ — 완성된 Web UI 구조 (세션·탐색기·Git·터미널) |
+| **markes76/claude-code-gui** | Claude CLI + Electron + structured stream | ★★★★☆ — `CLAUDE.md`·memory·MCP·skills·agents·hooks·permissions 를 **전부 GUI 화** |
+| **Coide** | Claude CLI + Electron + **node-pty (진짜 TTY)** | ★★★☆☆ — **접근이 다르다**(아래) |
+| **Claude Console** | CLI 를 PTY 로 돌리고 **터미널 출력 파싱** | ★★☆☆☆ |
+
+#### 우리는 이미 그 자리에 있다 (실측)
+
+`agentadapter/claude_proto.go:65` 의 기동 argv 는 **한 글자도 다르지 않다**:
+
+```
+claude -p --output-format stream-json --input-format stream-json \
+       --include-partial-messages --verbose --permission-prompt-tool stdio
+```
+
+즉 관찰된 Claude Desktop 과 **같은 transport** 다. **그래서 P7 에서 transport 는 물음이
+아니다** — 정해져 있다. P7 이 답할 것은 **표면**(무엇을 보이는가)과 **왕래**(CLI ↔ GUI)다.
+
+#### JSONL 과 PTY 파싱의 갈림 — 이미 지난 결정
+
+`Coide`·`Claude Console` 계열은 `node-pty` 로 **진짜 TTY** 를 띄우고 그 출력을 판다.
+그쪽은 ANSI escape · 터미널 repaint · spinner · `(y/n)` · 커서 이동 · 색 코드까지 해석해야
+하고, 그 위에서 **GUI 상태와 에이전트 상태를 맞추는 일이 훨씬 어렵다.**
+
+우리는 JSONL 쪽이고 그 선택은 `AGENT_PROTOCOL_SURFACE_SRS` 가 이미 내렸다 —
+*"에이전트를 터미널 화면이 아니라 프로토콜로 붙인다"*. **이 문서는 그 결정을 다시 열지
+않는다.** 다만 한 가지가 새로 보인다: **우리는 둘 다 갖고 있다.** 터미널 도구는 PTY 이고
+에이전트 도구는 JSONL 이며, `FR-AGT-10` 의 왕래는 **그 둘 사이를 오가는 일**이다 —
+바깥 구현 중 그 둘을 한 워크스페이스에 나란히 둔 것은 보이지 않는다.
+
+#### 층 나누기 — 우리 것과 대조
+
+사용자가 권한 층 나누기는 이렇다:
+
+```
+GUI → ClaudeSession ─┬ MessageStream (assistant · delta · result)
+                     ├ ToolStream    (tool_use · tool_result)
+                     └ ControlStream (permission request/response)
+        → ClaudeProcessTransport (stdin/stdout JSONL)
+```
+
+**우리 것이 그 모양이다** — 다만 스트림을 셋으로 가르지 않고 `ProtoEvent` **한 줄기**로
+낸다 (`EvTextDelta`·`EvToolStart/End`·`EvApprovalOpen/Closed`·`EvUsage`·`EvStatus`…).
+`agentadapter` 가 `ClaudeProcessTransport` 이고, 어댑터 등록부가 **와이어가 바뀌어도 GUI 를
+건드리지 않는** 그 격리다.
+
+**`--permission-prompt-tool stdio` 를 공개 계약처럼 다루지 마라.** 헬프에 없고, 버전별로
+permission·control 프로토콜 회귀가 있었다. 우리 코드의 주석이 이미 그것을 적고 있다
+(`claude_proto.go:62`) — **그 사실을 지우지 마라.**
+
+#### 읽는 순서 (사용자 권고)
+
+① 공식 Agent SDK 의 subprocess transport — 프로토콜을 이해하는 데 가장 좋다
+② `sugyan/claude-code-webui` — **가장 단순한** GUI 연결 구조
+③ `TeamADAPT/claude-code-ui` — 완성된 Web UI 구조
+④ `Coide` — 고급 IDE UX (접근은 다르지만 **화면**은 참고 가치가 높다)
+
 ## 3. 사용량의 경계 — 프로토콜이 주는 것과 주지 않는 것
 
 M9-B16 이 말한 셋(*"context window 사용량, 주간, 5시간 사용량"*)은 **출처가 다르다.**
@@ -131,6 +200,8 @@ M9-B16 이 말한 셋(*"context window 사용량, 주간, 5시간 사용량"*)�
 할지는 사용자 결정과 실측이 정한다. 특히:
 
 - §2 의 도구 표를 **요구로 옮기지 마라.** 칸반·목업 같은 것은 접수한 말에 없다
+- **§2.2 의 Claude Desktop argv 는 관찰이지 문서가 아니다.** 우리 argv 와 같다는 것은
+  "같은 방향" 의 근거이지 "공식 계약" 의 근거가 아니다. 버전이 바꾸면 우리만 따라간다
 - **아키텍처는 더더욱 옮기지 마라** (§2.0). 우리는 Claude Code 를 **그대로 돌리고 그리는**
   쪽이고, 자기 에이전트를 만드는 도구들과 자리가 다르다. 그 도구들이 쉬워 보이는 일 중
   일부는 자기 런타임을 가졌기 때문에 쉬운 것이며, 우리에게는 **프로토콜이 주는 만큼**이
