@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, waitRows, openRowMenu, gitFixture, cleanGitFixture, rmTree } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, clickGitView, openGit, waitRows, openRowMenu, gitFixture, cleanGitFixture, rmTree } from './fixtures';
 import { TMP, tmpPath, realPath } from './osenv';
 
 // GIT_ACTIONS_SRS §3.2 · §3.5 — 묶음 B 브랜치 동작 (FR-GIT-253~259 · 268).
@@ -81,35 +81,21 @@ function repoWithDivergedSide(tag: string) {
   return dir;
 }
 
+/**
+ * 둘 다 **`openGit` 에 위임한다** (M9_SRS FR-M9-16).
+ *
+ * 종전에는 같은 걸음을 여기서 다시 적었고, 그래서 `openGit` 이 배운 셋을 받지
+ * 못했다 — 뷰가 설 때까지 다시 여는 `toPass` 골격 · 사이드가 섰는가 · **첫 관측이
+ * 닿았는가**. 같은 복사본이 `git-history` 에서 H4 를 흔들었다 (`M9_PROGRESS` §2-17).
+ */
 async function openBranches(page: Page, repo: string) {
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
-  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
-  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
-  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
-  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
-  await page.evaluate(() => {
-    const a = (window as any).app;
-    a.testing.edSetSide(a.testing.aw(), 'changes');
-    const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
-  });
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
+  await openGit(page, repo);
   await clickGitView(page, 'branches');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-branches/);
 }
 
 async function openChanges(page: Page, repo: string) {
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
-  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
-  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
-  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
-  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
-  await page.evaluate(() => {
-    const a = (window as any).app;
-    a.testing.edSetSide(a.testing.aw(), 'changes');
-    const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
-  });
+  await openGit(page, repo);
   await expect(page.locator('#area .ed-side .git-view.git-changes')).toBeVisible({ timeout: 10000 });
 }
 
@@ -380,7 +366,10 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await mergeBox(page).locator('.gbm-go').click();
 
     // squash 는 커밋을 만들지 않고 index 에만 얹는다 — HEAD 가 그대로여야 한다.
-    await expect.poll(() => git(repo, 'status', '--porcelain'), { timeout: 20000 }).not.toBe('');
+    // 45초는 `fixtures.ts` 의 첫 관측 상한과 **같은 근거**다 (M9_SRS FR-M9-16) —
+    // 서버의 git 작업이 다른 워커의 git 과 자리를 다툰다. 20초에서 전량 회차가
+    // 걸렸다.
+    await expect.poll(() => git(repo, 'status', '--porcelain'), { timeout: 45000 }).not.toBe('');
     expect(git(repo, 'rev-parse', 'HEAD')).toBe(before);
   });
 

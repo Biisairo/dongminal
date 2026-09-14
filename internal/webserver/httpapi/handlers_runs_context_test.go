@@ -315,6 +315,7 @@ func TestApiRunSucceed_TimeoutSucceedsWithoutSummary(t *testing.T) {
 func TestApiRunSucceed_WaitsForTheHandoffItAskedFor(t *testing.T) {
 	s, _, io, _, m := ctxServer(t)
 
+	// ④ 자극 — 이 일이 **요청이 기다리는 중에** 일어나게 하는 지연이다.
 	go func() {
 		time.Sleep(150 * time.Millisecond)
 		who := s.WhoAmI.(*fakeWhoAmI)
@@ -519,6 +520,7 @@ func TestApiRunSucceed_CancelledRequestStopsWaitingAndDoesNotSucceed(t *testing.
 		defer close(done)
 		s.Handler().ServeHTTP(httptest.NewRecorder(), req)
 	}()
+	// ④ 자극 — 끊기가 **승계가 기다리는 중에** 들어오게 하는 지연이다.
 	time.Sleep(100 * time.Millisecond)
 	cancel()
 	select {

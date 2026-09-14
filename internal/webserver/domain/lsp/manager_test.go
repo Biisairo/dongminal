@@ -228,6 +228,8 @@ func TestManager_SweepStopsIdle(t *testing.T) {
 	if svc.SessionCount() != 1 {
 		t.Fatalf("세션이 서지 않았다: %d", svc.SessionCount())
 	}
+	// ④ 자극 — idle 문턱(1ms)을 **넘기는** 시간이다. 넘김 자체가 조건이라
+	// 되물을 사실이 없다.
 	time.Sleep(20 * time.Millisecond)
 	svc.Sweep()
 	if svc.SessionCount() != 0 {

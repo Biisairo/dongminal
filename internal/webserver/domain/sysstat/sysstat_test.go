@@ -288,6 +288,8 @@ func TestSampler_StopsOnChannelClose(t *testing.T) {
 	}
 	close(stop)
 
+	// ③ 관측 창 — 멈춘 뒤에 샘플링이 **더 돌지 않음**을 잰다. 앞의 30ms 는
+	// 마지막 표본이 끝나기를 두는 자리이고, 뒤의 60ms 가 그 창이다.
 	time.Sleep(30 * time.Millisecond)
 	after := r.callCount()
 	time.Sleep(60 * time.Millisecond)

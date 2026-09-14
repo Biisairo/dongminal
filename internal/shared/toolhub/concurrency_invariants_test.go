@@ -124,6 +124,7 @@ func TestTool_BroadcastAddRemoveRace(t *testing.T) {
 		}()
 	}
 
+	// ④ 자극 — 방송과 구독이 겹쳐 도는 창이다 (경쟁 소킹).
 	time.Sleep(200 * time.Millisecond)
 	close(stop)
 	wg.Wait()

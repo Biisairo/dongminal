@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openRowMenu, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, clickGitView, openGit, openRowMenu, gitFixture, cleanGitFixture } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 /**
@@ -31,19 +31,17 @@ test.afterAll(() => {
 const fx = (name: string) => realPath(join(FIXTURES, name));
 
 const copyFx = makeCopyFx(FIXTURES);
+/**
+ * **`openGit` 에 위임한다** (M9_SRS FR-M9-16).
+ *
+ * 종전에는 같은 걸음을 여기서 다시 적었고, 그 사이 `openGit` 이 배운 셋을 하나도
+ * 받지 못했다 — ① 뷰가 실제로 설 때까지 다시 여는 `toPass` 골격(FR-DRC-19) ②
+ * 사이드가 섰는가의 단정 ③ **첫 관측이 닿았는가**(45초). 특히 ③ 이 없으면 관측이
+ * 아직인 패널 위에서 History 의 적재를 기다리게 되고, 전량에서 H4 가 `loadedCount`
+ * **0** 을 30초 내내 본 자리가 그것이다.
+ */
 async function openHistory(page: Page, repo: string) {
-  await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
-  // REPO_TAB_UNIFY_SRS: 창의 모양이 바뀌었다 — `Changes` 는 **사이드**에 살고
-  // 나머지 여섯 뷰는 **본문 탭**으로 필요할 때 열린다 (FR-RTU-30·32). 스펙들이
-  // "탭을 클릭한다" 로 뷰를 고르므로 여기서 여섯을 미리 세운다.
-  await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
-  await page.evaluate(() => {
-    const a = (window as any).app;
-    a.testing.edSetSide(a.testing.aw(), 'changes');
-    const p = a.gitPanel;
-    for (const v of ['diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules']) p.openView(v);
-  });
-  await expect(page.locator('#area .pn-tab[data-git-view]')).toHaveCount(GIT_VIEW_TABS);
+  await openGit(page, repo);
   await clickGitView(page, 'history');
   await expect(page.locator('#area .pn-body .git-view.vis')).toHaveClass(/git-history/);
 }
@@ -100,7 +98,10 @@ async function waitLoaded(page: Page, min: number) {
   // 같은 기계에서 도는 다른 워커의 관측과 자리를 다툰다 — 20초에서 한 회차에
   // 하나꼴로 걸렸다(실측). 재는 것은 "목록이 서는가" 이지 "몇 초에 서는가" 가
   // 아니다.
-  await expect.poll(() => loadedCount(page), { timeout: 30000 }).toBeGreaterThanOrEqual(min);
+  // 45초는 `fixtures.ts` 의 첫 관측 상한과 **같은 근거**다 (M9_SRS FR-M9-16) —
+  // 30초에서 전량 회차의 H4 가 걸렸다. 성공하면 즉시 통과하므로 늘리는 비용은
+  // 실패할 때뿐이다.
+  await expect.poll(() => loadedCount(page), { timeout: 45000 }).toBeGreaterThanOrEqual(min);
 }
 
 // 고정 행 높이는 constants.js 가 정하고 목록이 CSS 변수로 싣는다 — 테스트가
@@ -229,6 +230,10 @@ test.describe('16단계 — History 탭', () => {
     await expect(refs.locator('.git-ref[data-ref="refs/heads/main"] .git-ref-ab')).toHaveText(/↑1/);
     await expect(refs.locator('.git-ref[data-ref="refs/heads/no-upstream"] .git-ref-ab')).toHaveText('');
 
+    // 기준값은 **목록이 실린 뒤**에 읽는다 (M9_SRS FR-M9-16). `openHistory` 가
+    // 기다리는 것은 뷰가 섰는가까지이고 커밋이 왔는가는 그 뒤다 — 전량에서 이
+    // 줄이 `0` 을 읽어 아래 `toBeLessThan(0)` 이 `Received: 1` 로 떨어졌다.
+    await waitLoaded(page, 1);
     const all = await loadedCount(page);
     await refs.locator('.git-ref[data-ref="refs/remotes/origin/main"]').click();
     await expect(refs.locator('.git-ref[data-ref="refs/remotes/origin/main"]')).toHaveClass(/sel/);

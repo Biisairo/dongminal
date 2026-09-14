@@ -3,6 +3,7 @@ package pollwait
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 )
@@ -32,12 +33,18 @@ func TestUntil_TimesOutWithoutSleepingPastMax(t *testing.T) {
 
 func TestUntil_StopsWhenContextIsCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	polls := 0
+	// **첫 물음이 지났는가** 를 본다 (M9_SRS FR-M9-14 ①). 취소는 대기 중에
+	// 들어와야 뜻이 있고, 고정 대기는 그 사실을 말해 주지 않는다.
+	polled := make(chan struct{})
+	var once sync.Once
 	done := make(chan error, 1)
 	go func() {
-		done <- Until(ctx, time.Minute, time.Minute, func() bool { polls++; return false })
+		done <- Until(ctx, time.Minute, time.Minute, func() bool {
+			once.Do(func() { close(polled) })
+			return false
+		})
 	}()
-	time.Sleep(20 * time.Millisecond)
+	<-polled
 	start := time.Now()
 	cancel()
 	select {

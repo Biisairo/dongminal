@@ -817,9 +817,14 @@ export async function openGit(page: any, repo: string) {
   // `git-live-triggers` TC-GLW-3·5 · `git-polling` P4. 같은 근거로 상한을 45초로
   // 올린 자리가 이미 있다 (`git-repo-missing.spec.ts` 의 `MISSING_WAIT_MS`,
   // 20→45). 성공하면 즉시 통과하므로 늘리는 비용은 실패할 때뿐이다.
+  //
+  // **45초도 모자랐다** (M9_SRS FR-M9-16). P3 전량 회차에서 `git-observe-revive`
+  // TC-GLR-1 이 이 자리에서 45초를 다 썼다. 같은 근거를 한 번 더 적용한다 —
+  // 재는 것은 "관측이 닿는가" 이지 "몇 초에 닿는가" 가 아니고, 성공하면 즉시
+  // 통과하므로 늘리는 비용은 실패할 때뿐이다.
   await page.waitForFunction(
     () => !!(window as any).app?.gitPanel?.statusOf(),
-    undefined, { timeout: 45000 });
+    undefined, { timeout: 60000 });
 }
 
 /**

@@ -375,10 +375,21 @@ test.describe('묶음 T — 단축키 (FR-SBT-26~33)', () => {
 
     // 순회의 순서는 `items` 뒤에 `fixed` 를 이어 붙인 것이다 (FR-RTU-8) — 화면의
     // 두 컨테이너가 그 순서를 그대로 그린다.
-    const order = await page.evaluate(() => [
+    const readOrder = () => page.evaluate(() => [
       ...document.querySelectorAll('#repo-entries .ed-entry'),
       ...document.querySelectorAll('#repo-root .ed-entry'),
     ].map((e) => (e as HTMLElement).dataset.edRoot!));
+    // **목록이 선 뒤에** 순서를 읽는다 (M9_SRS FR-M9-16). 워크스페이스 적용이
+    // 아직 남아 있으면 한 행이 뒤늦게 들어오고, 그러면 아래 순회의 예측이
+    // 통째로 어긋난다 — 전량에서 이 검사가 예측하지 못한 루트를 보았다.
+    // 두 번 연속 같은 목록을 읽으면 선 것으로 본다.
+    let order = await readOrder();
+    await expect.poll(async () => {
+      const now = await readOrder();
+      const same = JSON.stringify(now) === JSON.stringify(order);
+      order = now;
+      return same;
+    }, { timeout: 15000 }).toBe(true);
     expect(order.length, '순회할 행이 둘 이상이어야 한다').toBeGreaterThan(1);
     expect(order).toContain(a);
 

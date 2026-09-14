@@ -187,35 +187,30 @@ func TestDaemonAttentionDetection(t *testing.T) {
 	oscNotify := []byte("\x1b]9;done\x07")
 	tracker.FeedOutput("test-tool", oscNotify)
 
-	time.Sleep(50 * time.Millisecond)
-
-	sseMu.Lock()
-	hasAttention := false
-	for _, ev := range attentionEvents {
-		if ev == "tool_attention" {
-			hasAttention = true
+	// 방송은 비동기다 — **사건이 왔는가**를 묻는다 (M9_SRS FR-M9-14 ①).
+	waitUntil(t, "tool_attention SSE 사건", func() bool {
+		sseMu.Lock()
+		defer sseMu.Unlock()
+		for _, ev := range attentionEvents {
+			if ev == "tool_attention" {
+				return true
+			}
 		}
-	}
-	sseMu.Unlock()
-
-	if !hasAttention {
-		t.Fatal("expected tool_attention SSE event for OSC 9")
-	}
+		return false
+	})
 
 	// Clear attention
 	tracker.Attend("test-tool")
-	time.Sleep(50 * time.Millisecond)
-	sseMu.Lock()
-	hasClear := false
-	for _, ev := range attentionEvents {
-		if ev == "tool_attention_clear" {
-			hasClear = true
+	waitUntil(t, "tool_attention_clear SSE 사건", func() bool {
+		sseMu.Lock()
+		defer sseMu.Unlock()
+		for _, ev := range attentionEvents {
+			if ev == "tool_attention_clear" {
+				return true
+			}
 		}
-	}
-	sseMu.Unlock()
-	if !hasClear {
-		t.Fatal("expected tool_attention_clear SSE event")
-	}
+		return false
+	})
 }
 
 // TestDaemonReconnectPreservesTools verifies that tools survive
@@ -242,7 +237,8 @@ func TestDaemonReconnectPreservesTools(t *testing.T) {
 	defer ps.Close()
 
 	// First dongminal connection
-	go func() { ps.Accept() }()
+	acc1 := make(chan error, 1)
+	go func() { acc1 <- ps.Accept() }()
 	pc1, err := toolclient.DialToolClient(sockPath)
 	if err != nil {
 		t.Fatalf("Dial1: %v", err)
@@ -262,7 +258,10 @@ func TestDaemonReconnectPreservesTools(t *testing.T) {
 
 	// Simulate dongminal restart: close client, accept new connection
 	pc1.Close()
-	time.Sleep(100 * time.Millisecond)
+	// **서버가 앞 연결을 놓은 사실**을 본다 — `Accept` 는 그 연결이 끝나야
+	// 돌아온다 (M9_SRS FR-M9-14 ①). 고정 대기는 빠른 기계에서 낭비이고 느린
+	// 기계에서 거짓 실패다.
+	<-acc1
 
 	// Second dongminal connects
 	go func() { ps.Accept() }()
@@ -431,12 +430,10 @@ func TestDaemonToolCreateDeleteLifecycle(t *testing.T) {
 		ids = append(ids, m.ID)
 	}
 	pc.Delete(ids[1])
-	time.Sleep(100 * time.Millisecond)
 
-	// List should show 2
-	if len(pc.List()) != 2 {
-		t.Fatalf("expected 2 tools after delete, got %d", len(pc.List()))
-	}
+	// 삭제는 소켓 너머에서 도는 일이다 — **목록이 줄었는가**를 묻는다
+	// (M9_SRS FR-M9-14 ①).
+	waitUntil(t, "삭제가 목록에 반영되기", func() bool { return len(pc.List()) == 2 })
 }
 
 // TestDaemonPanedServerSocketCleanup verifies that Listen removes stale
@@ -802,7 +799,14 @@ func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
 		t.Fatalf("create: %v", err)
 	}
 	// NOTE: deliberately NOT subscribing any output channel.
-	time.Sleep(200 * time.Millisecond)
+	//
+	// 셸이 **입력을 먹을 만큼 섰는가**를 묻는다 (M9_SRS FR-M9-14 ①). 구독을
+	// 걸지 않는 것이 이 검사의 조건이므로 출력 채널로는 볼 수 없고, 관리자의
+	// 스냅샷이 같은 사실을 준다.
+	waitUntil(t, "셸의 첫 출력", func() bool {
+		snap, _ := pm.SnapshotTool(tool.ID)
+		return len(snap.Data) > 0
+	})
 	// Emit an OSC 9 notification from the shell.
 	if err := pc.Write(tool.ID, []byte("printf '\\033]9;done\\007'\n")); err != nil {
 		t.Fatalf("write: %v", err)

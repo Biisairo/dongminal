@@ -20,6 +20,7 @@ func TestTerminateWait_ReturnsEarlyOnExit(t *testing.T) {
 	defer m.Delete(tl.ID)
 
 	go func() {
+		// ④ 자극 — 종료가 **대기 중에** 들어오게 하는 지연이다.
 		time.Sleep(50 * time.Millisecond)
 		m.Delete(tl.ID) // 도구가 스스로 끝난 것과 같은 자리 — done 이 닫힌다
 	}()

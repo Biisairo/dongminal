@@ -54,6 +54,7 @@ func TestDarwinReader_CPUTicksMonotonic(t *testing.T) {
 	if first.Total() == 0 {
 		t.Fatal("Total()=0 — tick 을 못 읽었다")
 	}
+	// ④ 자극 — 두 번째 읽기가 **다른 tick** 을 보도록 벌린다.
 	time.Sleep(50 * time.Millisecond)
 	second, err := r.CPUTicks()
 	if err != nil {

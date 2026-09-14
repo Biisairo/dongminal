@@ -78,6 +78,7 @@ func TestExec_CallerCancelIsErrCanceled(t *testing.T) {
 	s := New(WithRunner(runner), WithTimeout(10*time.Second))
 
 	ctx, cancel := context.WithCancel(context.Background())
+	// ④ 자극 — 취소가 **git 이 도는 중에** 들어오게 하는 지연이다.
 	go func() { time.Sleep(20 * time.Millisecond); cancel() }()
 	_, err := s.Exec(ctx, absTmpRepo, "status")
 	if !errors.Is(err, ErrCanceled) {

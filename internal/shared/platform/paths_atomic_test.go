@@ -69,6 +69,7 @@ func watchDst(path string) (stop func() int) {
 			if _, err := os.Lstat(path); err != nil && os.IsNotExist(err) {
 				misses++
 			}
+			// ② 표본 간격 — 위 루프가 "없어진 적이 있는가" 를 되묻는 주기다.
 			time.Sleep(observeGap)
 		}
 	}()

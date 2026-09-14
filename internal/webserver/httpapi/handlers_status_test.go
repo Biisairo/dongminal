@@ -112,6 +112,8 @@ func TestApiToolStatusWait_ReadyOnTransition(t *testing.T) {
 	s, _, p := statusServer(t)
 	p.SetActivity("working", "", "")
 
+	// ④ 자극 — 전이가 **대기가 걸린 뒤에** 일어나게 하는 지연이다. 재는 것이
+	// 전이 시점의 해제이므로 그 순서가 검사의 조건이다.
 	go func() {
 		time.Sleep(120 * time.Millisecond)
 		p.SetActivity("idle", "", "")
@@ -228,6 +230,7 @@ func TestApiToolStatusWait_ToolDisappears(t *testing.T) {
 	p.SetActivity("working", "", "")
 	io := s.ToolIO.(*fakeToolIO)
 
+	// ④ 자극 — 사라짐이 **대기가 걸린 뒤에** 일어나게 하는 지연이다.
 	go func() {
 		time.Sleep(120 * time.Millisecond)
 		io.setHas("p1", false)

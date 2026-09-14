@@ -302,7 +302,10 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
     await openWorktrees(page, repo);
 
     const row = wtRows(page).filter({ hasText: 'v150-remove' });
-    await expect(row, '만든 worktree 행이 안 보인다').toHaveCount(1, { timeout: 15000 });
+    // 45초는 `fixtures.ts` 의 첫 관측 상한과 **같은 근거**다 (M9_SRS FR-M9-16).
+    // `openGit` 이 기다려 주는 것은 **status** 이고 Worktrees 목록은 **다른
+    // 요청**이다 — 전량에서 이 자리가 15초에 걸렸다.
+    await expect(row, '만든 worktree 행이 안 보인다').toHaveCount(1, { timeout: 45000 });
     await row.hover();
     await row.locator('.git-wt-act[data-act="remove"]').click();
 

@@ -153,6 +153,7 @@ func TestToolManager_RLockReadPaths(t *testing.T) {
 			}
 		}()
 	}
+	// ④ 자극 — 읽는 고루틴들이 겹쳐 도는 창이다 (경쟁 소킹).
 	time.Sleep(20 * time.Millisecond)
 	close(stop)
 	wg.Wait()

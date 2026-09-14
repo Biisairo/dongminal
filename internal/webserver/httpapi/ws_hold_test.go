@@ -180,6 +180,10 @@ func TestHoldMissReleasesSlot(t *testing.T) {
 // 남았다. 그러면 닫힌 탭이 10분씩 자리를 먹고 상한(64)이 차서 방어가 무력해진다.
 // 읽기만이 절단을 알려준다.
 func TestHoldMissReleasesWhenPeerDisconnects(t *testing.T) {
+	// 붙잡기에 **들어갔다**는 사실 (M9_SRS FR-M9-14 ①). 고정 대기로는 그 사실을
+	// 알 수 없고, 들어가기 전에 끊으면 이 검사가 절단 경로를 지나지 않은 채
+	// 초록이 된다.
+	held := make(chan struct{})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, err := toolhub.Upgrader.Upgrade(w, r, nil)
 		if err != nil {
@@ -195,6 +199,7 @@ func TestHoldMissReleasesWhenPeerDisconnects(t *testing.T) {
 			s.holdMiss(context.Background(), "tool-a", nil)
 		}
 		start := time.Now()
+		close(held)
 		s.holdMiss(context.Background(), "tool-a", conn)
 		if el := time.Since(start); el > 5*time.Second {
 			t.Errorf("피어가 끊었는데 %v 를 붙잡았다 — FR-CNR-6 위반", el)
@@ -206,8 +211,7 @@ func TestHoldMissReleasesWhenPeerDisconnects(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	// 붙잡기가 자리를 잡을 시간을 준 뒤 끊는다.
-	time.Sleep(100 * time.Millisecond)
+	<-held
 	c.Close()
 	// 핸들러가 끝나기를 기다린다 — Close() 가 그것을 기다려 준다.
 }

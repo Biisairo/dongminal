@@ -36,13 +36,23 @@ async function settled(page: Page) {
 }
 
 /**
- * 폴링은 **켜 둔 채** 관측만 낡힌다. 워치독의 검사 문턱도 연다 — 방금 그린 직후라
- * 닫혀 있고, 재려는 것은 문턱이 아니라 되살리기다 (TC-GLR-1 과 같은 준비).
+ * 폴링은 **켜 둔 채** 관측만 낡힌다. 워치독의 문턱도 연다 — 재려는 것은 문턱이
+ * 아니라 되살리기다 (TC-GLR-1 과 같은 준비).
+ *
+ * **문턱은 둘이다** (M9_SRS FR-M9-16).
+ *   `app.testing.gitWdAt` `gitWatchdogAll` 의 1초 검사 간격 (`app-git.js:70`)
+ *   `p._wdTryAt`           되살리기 **시도**의 주기 문턱 30초 (`panel-poll.js:408`)
+ * 종전에는 앞의 것만 열었다. 뒤의 것은 적재 중 첫 관측이 워치독 갈래로 들어온
+ * 회차에 이미 닫혀 있고(`:432` 가 그때 찍는다), 그러면 `ask` 가 거짓이라
+ * `_pollOn` 이 참인 이 준비에서 워치독이 **요청 없이 물러난다** — status 0건.
+ * 그것이 전량에서 TC-GOR-1 이 흔들린 자리이며, `p._wdTryAt = Date.now()` 를
+ * 넣어 그 실패를 그대로 재현해 확인했다 (`Received: 0`, 같은 줄).
  */
 async function staleButPolling(page: Page) {
   await page.evaluate(`(() => {${PANEL}
     p._lastObsAt = Date.now() - 5 * 60 * 1000;
     window.app.testing.gitWdAt = 0;
+    p._wdTryAt = 0;
   })()`);
   expect((await panelState(page)).pollOn, '폴링이 켜져 있어야 이 검사가 성립한다').toBe(true);
 }
@@ -193,6 +203,7 @@ test.describe('GIT_OBSERVE_REVIVE — 폴링 여부는 관측기가 정한다', 
       p._lastObsAt = Date.now() - 5 * 60 * 1000;
       p._pollOk = () => false;
       window.app.testing.gitWdAt = 0;
+      p._wdTryAt = 0;                       // 문턱 둘 (staleButPolling 의 근거)
       return p._watchdog();
     })()`);
 
@@ -226,7 +237,8 @@ test.describe('묶음 B — 자동 갱신은 스스로 되살아난다', () => {
     // 계기가 새어 폴링이 멎은 상태를 만든다 — 관측도 낡혀 둔다.
     // 워치독의 검사 문턱(GIT_WATCHDOG_CHECK_MS)을 연다 — 방금 그린 직후라 그
     // 문턱이 닫혀 있고, 이 검사가 재려는 것은 문턱이 아니라 되살리기다.
-    await page.evaluate(`(() => {${PANEL} p._stop(); p._lastObsAt = Date.now() - 5 * 60 * 1000; window.app.testing.gitWdAt = 0 })()`);
+    // 문턱 둘을 함께 연다 — 근거는 `staleButPolling`.
+    await page.evaluate(`(() => {${PANEL} p._stop(); p._lastObsAt = Date.now() - 5 * 60 * 1000; window.app.testing.gitWdAt = 0; p._wdTryAt = 0 })()`);
     expect((await panelState(page)).pollOn).toBe(false);
 
     // 워치독의 계기는 이미 도는 것에 얹혀 있다 (D-4).
@@ -245,7 +257,8 @@ test.describe('묶음 B — 자동 갱신은 스스로 되살아난다', () => {
     await expect.poll(async () => (await panelState(page)).lastObsAt, { timeout: 15000 })
       .toBeGreaterThan(0);
 
-    await page.evaluate(`(() => {${PANEL} p._stop(); p._lastObsAt = Date.now() - 5 * 60 * 1000; window.app.testing.gitWdAt = 0 })()`);
+    // 문턱 둘을 함께 연다 — 근거는 `staleButPolling`.
+    await page.evaluate(`(() => {${PANEL} p._stop(); p._lastObsAt = Date.now() - 5 * 60 * 1000; window.app.testing.gitWdAt = 0; p._wdTryAt = 0 })()`);
     await page.evaluate('window.app.render()');
     await expect.poll(async () => (await panelState(page)).pollOn, { timeout: 10000 }).toBe(true);
 
@@ -273,6 +286,7 @@ test.describe('묶음 B — 자동 갱신은 스스로 되살아난다', () => {
       const orig = p._pollOk.bind(p);
       p._pollOk = () => false;
       window.app.testing.gitWdAt = 0;
+      p._wdTryAt = 0;
       const r = p._watchdog();
       p._pollOk = orig;
       return r;

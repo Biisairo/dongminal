@@ -19,6 +19,7 @@ func TestCommandHub_AwaitDelivers(t *testing.T) {
 	go func() {
 		// 구독자 채널을 비워 broadcast 가 막히지 않게.
 		<-sub.Messages()
+		// ④ 자극 — 결과가 **기다리는 중에** 오게 하는 지연이다 (M9_SRS FR-M9-14).
 		time.Sleep(10 * time.Millisecond)
 		h.DeliverResult(reqId, want)
 	}()

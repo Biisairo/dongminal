@@ -409,10 +409,22 @@ test.describe('묶음 K — I3 새로고침 (FR-GIT-238)', () => {
     const before = { ...seen };
     await btn.click();
 
-    await expect.poll(() => seen.status > before.status, { timeout: 10000 }).toBe(true);
-    expect(seen.log, 'History(/api/git/log)가 다시 요청되지 않았다').toBeGreaterThan(before.log);
-    expect(seen.refs, 'Branches(/api/git/refs)가 다시 요청되지 않았다').toBeGreaterThan(before.refs);
-    expect(seen.records, 'Console(/api/git/records)이 다시 요청되지 않았다').toBeGreaterThan(before.records);
+    // **넷은 따로 나가는 요청이다** (M9_SRS FR-M9-16). 종전에는 `status` 하나만
+    // 기다리고 나머지 셋을 그 자리에서 동기로 쟀다 — 하나가 왔다는 것이 나머지가
+    // 왔다는 뜻은 아니다. 전량에서 `log` 가 `0` 으로 떨어진 자리가 그것이다.
+    // 재는 것은 "넷이 다시 요청되는가" 이지 "같은 틱에 나가는가" 가 아니다.
+    const again: [keyof typeof seen, string][] = [
+      ['status', 'status(/api/git/status)'],
+      ['log', 'History(/api/git/log)'],
+      ['refs', 'Branches(/api/git/refs)'],
+      ['records', 'Console(/api/git/records)'],
+    ];
+    for (const [k, label] of again) {
+      await expect
+        .poll(() => seen[k] - before[k],
+          { timeout: 10000, message: label + '가 다시 요청되지 않았다' })
+        .toBeGreaterThan(0);
+    }
   });
 
   test('V139 (FR-GIT-238): 받는 동안 두 번 눌러도 요청이 두 벌 나가지 않고, 실패하면 사유가 보인다', async ({ page }) => {

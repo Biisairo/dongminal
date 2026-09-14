@@ -225,7 +225,9 @@ func startFakePaned(t *testing.T, handler func(toolipc.PanedRequest) interface{}
 			enc.Encode(resp)
 		}
 	}()
-	time.Sleep(10 * time.Millisecond)
+	// 고정 대기가 없다 (M9_SRS FR-M9-14 ①). 소켓은 `Listen` 이 **돌아온 순간**
+	// 이미 묶여 있고, 붙는 쪽은 커널의 대기열에 들어간다 — 받는 고루틴이
+	// `Accept` 에 닿았는지는 기다릴 사실이 아니다.
 	return sockPath
 }
 
@@ -264,7 +266,19 @@ func TestToolClientAutoReconnect(t *testing.T) {
 
 	// Kill the daemon → client connection drops, supervisor starts redialing.
 	ps1.Close()
-	time.Sleep(150 * time.Millisecond)
+	// **도구가 디스크에 남았는가** (M9_SRS FR-M9-14 ①).
+	//
+	// 종전의 고정 대기 150ms 가 재던 것이 이것이다 — 이름은 "재다이얼을 시작할
+	// 시간" 이었지만 실제로 그 값이 지키던 사실은 저장이었다. 대체 데몬은
+	// `tools.json` 으로 도구를 되살리고, 아래 `pc.List()` 가 비지 않는 근거가
+	// 그것이다. 끊김 인지를 대신 기다리자 저장 전에 pm2 가 서서 **재접속은
+	// 됐는데 목록이 영영 비었다** (실측 5/5 실패).
+	for deadline := time.Now().Add(5 * time.Second); len(allToolIDs(dataDir)) == 0 && time.Now().Before(deadline); {
+		time.Sleep(5 * time.Millisecond)
+	}
+	if len(allToolIDs(dataDir)) == 0 {
+		t.Fatal("도구가 디스크에 남지 않아 대체 데몬이 되살릴 것이 없다")
+	}
 
 	// Bring up a replacement daemon on the same socket.
 	pm2 := toolhub.NewToolManager(dataDir, nil)

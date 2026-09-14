@@ -151,6 +151,7 @@ func TestDiagSnapshotLoopStopsWithContext(t *testing.T) {
 	done := make(chan struct{})
 	go func() { s.runDiagSnapshots(ctx, 10*time.Millisecond); close(done) }()
 
+	// ④ 자극 — 취소가 **루프가 도는 중에** 들어오게 하는 지연이다.
 	time.Sleep(30 * time.Millisecond)
 	cancel()
 	select {
@@ -169,6 +170,8 @@ func TestDiagSnapshotLoopWritesPeriodically(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() { s.runDiagSnapshots(ctx, 10*time.Millisecond); close(done) }()
+	// ④ 자극 — 주기(10ms)를 **여러 번 겪게** 하는 창이다. 로그는 고루틴이
+	// 끝난 뒤에만 읽으므로(아래 `<-done`) 도는 동안 물을 수가 없다.
 	time.Sleep(120 * time.Millisecond)
 	cancel()
 	// **끝난 것을 확인한 뒤에 읽는다.** cancel 은 종료를 요청할 뿐 기다리지

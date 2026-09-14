@@ -112,6 +112,7 @@ func TestStartForegroundPollStops(t *testing.T) {
 	stop := make(chan struct{})
 	StartForegroundPoll(h, stop)
 	close(stop)
+	// ③ 관측 창 — 멈춘 뒤 한 주기를 넘겨 **더 돌지 않음**을 잰다.
 	time.Sleep(ForegroundInterval + 200*time.Millisecond)
 	if got := h.calls.Load(); got != 0 {
 		t.Fatalf("정지 후 List 호출=%d — 0 이어야 한다", got)

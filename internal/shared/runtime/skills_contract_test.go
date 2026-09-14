@@ -159,3 +159,54 @@ func TestTeamSkill_CarriesIsolationRules(t *testing.T) {
 		}
 	}
 }
+
+// V-M9-6 (M9_SRS FR-M9-6): `migration` 스킬이 인수인계 절차를 실제로 담고 있는지.
+//
+// 이 스킬이 자동화하는 것은 M8·M9 의 **단계 종료 절차 3·4** 이고, 그 절차는
+// 순서가 곧 규약이다 — 준비완료를 확인하기 전에 보낸 엔벨로프는 셸의 입력줄에
+// 문자열로 남는다. 되돌아가면 여기서 걸린다.
+func TestMigrationSkill_CarriesTheHandoffProcedure(t *testing.T) {
+	body := skillDocs(t)[path.Join("agentplugin", "skills", "migration", "SKILL.md")]
+	if body == "" {
+		t.Fatal("migration/SKILL.md 를 찾지 못했다")
+	}
+	required := []struct{ name, needle string }{
+		{"지금 pane 에 새 탭 (D-M9-6)", "dmctl new-tab -n"},
+		{"탭 이름", "dmctl rename-tab"},
+		{"에이전트 기동", "dmctl send-input"},
+		{"Barrier (FR-SKL-2)", "dmctl wait"},
+		{"준비완료 조건", "--for ready"},
+		{"엔벨로프 (인계 두 벌 중 하나)", "dmctl msg --to"},
+		{"착수 확인", "dmctl status --at"},
+		{"자기 탭 닫기", "dmctl close-tab"},
+		{"wait 실패의 갈래", "dmctl read-screen"},
+	}
+	for _, r := range required {
+		if !strings.Contains(body, r.needle) {
+			t.Errorf("migration/SKILL.md 에 %s 가 없다 (%q)", r.name, r.needle)
+		}
+	}
+	// D-M9-6: 인계는 문서와 엔벨로프 **두 벌**이다. 한 벌로 줄면 메시지 길이에
+	// 매이고 인계 기록이 남지 않는다.
+	for _, needle := range []string{"두 벌", "문서의 경로는 이 스킬이 정하지 않는다"} {
+		if !strings.Contains(body, needle) {
+			t.Errorf("migration/SKILL.md 에 D-M9-6 의 조항이 없다 (%q)", needle)
+		}
+	}
+}
+
+// M9-B6 / FR-M9-6: `team` 은 오케스트레이션 전용이다 — 인수인계를 자기 일로
+// 말하지 않는다. 두 스킬의 모양이 닮아 경계가 흐려지면 인계가 팀으로 흘러가고,
+// 그러면 넘기는 쪽이 조정자로 살아 있어야 해서 정작 닫지 못한다.
+func TestTeamSkill_DefersHandoffToMigration(t *testing.T) {
+	body := skillDocs(t)[path.Join("agentplugin", "skills", "team", "SKILL.md")]
+	if body == "" {
+		t.Fatal("team/SKILL.md 를 찾지 못했다")
+	}
+	if !strings.Contains(body, "오케스트레이션 전용") {
+		t.Error("team/SKILL.md 가 자기를 오케스트레이션 전용으로 못박지 않는다 (M9-B6)")
+	}
+	if !strings.Contains(body, "migration") {
+		t.Error("team/SKILL.md 가 인수인계를 migration 에 넘기지 않는다 (M9-B6)")
+	}
+}

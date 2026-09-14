@@ -89,6 +89,7 @@ func TestSnapCacheSingleFlight(t *testing.T) {
 			mu.Lock()
 			calls++
 			mu.Unlock()
+			// ④ 자극 — 뒤따르는 20개가 **적재 중에** 들어오도록 느리게 돈다.
 			time.Sleep(10 * time.Millisecond)
 			return []procEntry{{pid: 1}}, nil
 		},

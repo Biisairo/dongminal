@@ -37,6 +37,43 @@ func runtimeReady(t *testing.T) string {
 	return dockerPath
 }
 
+// 셸이 준 명령을 **실행할 때까지** 기다린다 (M9_SRS FR-M9-13).
+//
+// 고정 대기 700·700·900·900ms 와 500ms 하나를 대신한다 (M9-A5). 재던 것은
+// "몇 밀리초가 지났는가" 였고 알아야 하는 것은 "이 셸이 내가 친 것을 실행하는가"
+// 다 — 컨테이너의 첫 기동은 이미지 적재·크로스 빌드가 끼는 회차에서만 늦고,
+// 그런 회차에 고정 대기는 짧고 나머지 회차에는 길다.
+//
+// 표식을 `dm""-<이름>` 으로 치는 것은 **되울림과 실행을 가르기 위해서다.** PTY 는
+// 입력을 그대로 되울리므로 따옴표가 남은 줄이 먼저 보인다. 셸이 파싱해 실행한
+// 출력에만 따옴표가 빠진 `dm-<이름>` 이 나오고, 그 둘을 가르지 못하면 아직 셸이
+// 없는데도 준비됐다고 읽는다.
+func runWait(t *testing.T, tool *toolhub.Tool, cmd, name string, timeout time.Duration) {
+	t.Helper()
+	if err := tool.Write([]byte(cmd + "; echo dm\"\"-" + name + "\n")); err != nil {
+		t.Fatalf("%s: write: %v", name, err)
+	}
+	for deadline := time.Now().Add(timeout); time.Now().Before(deadline); {
+		blob, _ := tool.Stream().Snapshot()
+		if strings.Contains(string(blob), "dm-"+name) {
+			return
+		}
+		// **폴링 간격**이다 — 조건 대기가 아니다 (FR-M9-14 ②).
+		time.Sleep(50 * time.Millisecond)
+	}
+	blob, _ := tool.Stream().Snapshot()
+	t.Fatalf("%s 가 %s 안에 끝나지 않았습니다:\n%s", name, timeout, blob)
+}
+
+// 셸이 설 때까지의 상한. 컨테이너의 첫 기동에는 이미지 적재가 끼고, dev
+// 프로파일에는 헬퍼의 크로스 빌드까지 낀다 — 그 둘이 이 값의 근거다.
+const shellReadyWait = 60 * time.Second
+
+func waitShellReady(t *testing.T, tool *toolhub.Tool) {
+	t.Helper()
+	runWait(t, tool, ":", "ready", shellReadyWait)
+}
+
 func TestEndToEnd_ToolRunsInsideContainer(t *testing.T) {
 	dockerPath := runtimeReady(t)
 
@@ -58,7 +95,7 @@ func TestEndToEnd_ToolRunsInsideContainer(t *testing.T) {
 	}
 	t.Cleanup(func() { pm.Delete(tool.ID) })
 
-	time.Sleep(700 * time.Millisecond)
+	waitShellReady(t, tool)
 	// 컨테이너 안에서 도는지는 게스트의 정체로 확인한다. 호스트는 macOS·Windows
 	// 일 수 있고 그때 이 파일 자체가 없다.
 	if err := tool.Write([]byte("cat /etc/os-release | head -1\n")); err != nil {
@@ -104,9 +141,11 @@ func TestEndToEnd_TabsShareOneContainer(t *testing.T) {
 	}
 	t.Cleanup(func() { pm.Delete(b.ID) })
 
-	time.Sleep(700 * time.Millisecond)
-	a.Write([]byte("echo shared-by-A > /tmp/shared.txt\n"))
-	time.Sleep(500 * time.Millisecond)
+	waitShellReady(t, a)
+	waitShellReady(t, b)
+	// B 가 읽기 전에 A 의 쓰기가 **끝나** 있어야 한다 — 두 탭이 한 컨테이너를
+	// 쓰는지 재는 것이지 누가 먼저 끝나는지 재는 것이 아니다.
+	runWait(t, a, "echo shared-by-A > /tmp/shared.txt", "wrote", 10*time.Second)
 	b.Write([]byte("cat /tmp/shared.txt\n"))
 
 	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); {
@@ -152,7 +191,7 @@ func TestEndToEnd_DevProfileCarriesHelper(t *testing.T) {
 	}
 	t.Cleanup(func() { pm.Delete(tool.ID) })
 
-	time.Sleep(900 * time.Millisecond)
+	waitShellReady(t, tool)
 	// 헬퍼가 PATH 에 있고, 서버 주소가 심겨 있어야 한다.
 	if err := tool.Write([]byte("command -v dmctl; echo HOST=$DONGMINAL_HOST; pwd\n")); err != nil {
 		t.Fatalf("write: %v", err)
@@ -212,7 +251,7 @@ func TestEndToEnd_BaseAndDynamicMounts(t *testing.T) {
 	}
 	t.Cleanup(func() { pm.Delete(tool.ID) })
 
-	time.Sleep(900 * time.Millisecond)
+	waitShellReady(t, tool)
 	// 작업 폴더는 /work 에, 기본 마운트는 /shared 에 — 서로 다른 자리다.
 	if err := tool.Write([]byte("cat /work/work.txt; cat /shared/base.txt\n")); err != nil {
 		t.Fatalf("write: %v", err)

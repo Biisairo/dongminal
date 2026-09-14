@@ -71,10 +71,22 @@ test.describe('FR-BGK-2: 터치로 종료 목표에 닿는다', () => {
 
     const btn = row.locator('.bg-kill');
     await expect(btn).toBeVisible();
-    expect(await btn.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
-    const box = await btn.boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.height, '터치 타깃이 너무 낮다').toBeGreaterThanOrEqual(32);
+    /**
+     * **재는 것과 단언을 한 묶음으로 본다** (DRIFT_RECLAIM_SRS FR-DRC-18).
+     *
+     * M9_SRS FR-M9-11 이 `bg-kill.spec.ts` TC-BGK-12 에서 고친 자리가 **여기에도
+     * 있었다.** P2 전량이 이 줄로 흔들렸다 — `boundingBox()` 가 `null`(전량 회차
+     * 실측), 즉 `toBeVisible()` 을 통과한 그 요소가 다음 관측에서는 문서에 없다.
+     * 목록의 재렌더는 앱의 정상 동작이고 떨어진 요소가 빈손을 주는 것도 규약이다.
+     */
+    await expect
+      .poll(async () => btn.evaluate((el) => getComputedStyle(el).opacity),
+        { timeout: 10000, message: '종료 버튼이 투명하다' })
+      .toBe('1');
+    await expect
+      .poll(async () => (await btn.boundingBox())?.height ?? 0,
+        { timeout: 10000, message: '터치 타깃이 너무 낮다' })
+      .toBeGreaterThanOrEqual(32);
 
     await btn.tap();
     await expect(row.locator('.bg-confirm')).toBeVisible();

@@ -49,6 +49,7 @@ func TestCommandHub_AddRemoveBroadcastRace(t *testing.T) {
 		}()
 	}
 
+	// ④ 자극 — add/remove/Broadcast 가 겹쳐 도는 창이다 (경쟁 소킹).
 	time.Sleep(200 * time.Millisecond)
 	close(stop)
 	wg.Wait()

@@ -253,6 +253,7 @@ func TestRunBudget_SucceedFollowsTimeout(t *testing.T) {
 // 사실을 밀리초로 잰다.
 func TestRunPostWithin_UsesBudget(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// ④ 자극 — **느린 서버**를 흉내 낸다. 예산보다 오래 끄는 것이 조건이다.
 		time.Sleep(300 * time.Millisecond)
 		w.Write([]byte(`{"ok":true}`))
 	}))

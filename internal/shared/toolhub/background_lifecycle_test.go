@@ -105,6 +105,7 @@ func TestCreate_NoCommandKeepsShell(t *testing.T) {
 	// `t.TempDir()` 을 붙들어 정리(RemoveAll)가 실패하고, 그 실패가 곧 검사의
 	// 실패다 (CI 실측). defer 는 TempDir 의 cleanup 보다 먼저 돈다.
 	defer m.Delete(p.ID)
+	// ③ 관측 창 — 셸이 **죽지 않음**을 잰다. 죽음에는 기다릴 사실이 없다.
 	time.Sleep(400 * time.Millisecond)
 	if !m.IsLive(p.ID) {
 		t.Fatal("셸이 곧바로 죽었다")

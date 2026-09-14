@@ -102,13 +102,19 @@ type slowPersister struct {
 
 func (s *slowPersister) Read() ([]byte, error) { return s.inner.Read() }
 func (s *slowPersister) Write(b []byte) error {
+	// ④ 자극 — 느린 디스크를 흉내 내는 주입 지연이다. 기다리는 것이 아니라
+	// 재려는 상황을 만드는 값이다 (M9_SRS FR-M9-14).
 	time.Sleep(s.delay)
 	return s.inner.Write(b)
 }
 
 // gatedPersister blocks every Write on release. Useful for coalescing tests.
 type gatedPersister struct {
-	mu      sync.Mutex
+	mu sync.Mutex
+	// entered 는 **Write 에 들어온** 횟수다. wrote 는 문이 열린 뒤에야 오르므로
+	// "쓰기가 첫 뭉치를 집어 막혔는가" 를 그 값으로는 물을 수 없다
+	// (M9_SRS FR-M9-14 ①).
+	entered int
 	data    []byte
 	wrote   int
 	release chan struct{}
@@ -120,12 +126,20 @@ func newGatedPersister() *gatedPersister {
 
 func (g *gatedPersister) Read() ([]byte, error) { return nil, os.ErrNotExist }
 func (g *gatedPersister) Write(b []byte) error {
+	g.mu.Lock()
+	g.entered++
+	g.mu.Unlock()
 	<-g.release
 	g.mu.Lock()
 	g.data = append([]byte(nil), b...)
 	g.wrote++
 	g.mu.Unlock()
 	return nil
+}
+func (g *gatedPersister) entries() int {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.entered
 }
 func (g *gatedPersister) writes() int {
 	g.mu.Lock()
@@ -181,7 +195,8 @@ func TestSaveCoalescing(t *testing.T) {
 	// Let writer pick up the first blob and block on release. At most one more
 	// blob may be queued behind it (latest-wins); the rest must have been
 	// dropped.
-	time.Sleep(20 * time.Millisecond)
+	waitFor(t, func() bool { return store.entries() > 0 }, 5*time.Second,
+		"쓰기가 첫 뭉치를 집어 문에서 막히기")
 
 	close(store.release)
 	if err := m.Close(); err != nil {
@@ -457,6 +472,7 @@ func TestSnapshotConcurrentCoherence(t *testing.T) {
 			}
 		}()
 	}
+	// ④ 자극 — 고루틴들이 **실제로 겹쳐 도는** 창이다. 조건이 따로 없다.
 	time.Sleep(50 * time.Millisecond)
 	close(stop)
 	wg.Wait()
