@@ -95,6 +95,18 @@ func New(d Deps) *Manager {
 // 이미 있으면 그것을 돌려준다. opts 는 기동에 쓴 것 그대로다 — 핸드셰이크가 그것을
 // 프레임으로 옮기는 어댑터가 있다 (P4 codex).
 func (m *Manager) Open(toolID string, ad agentadapter.Adapter, opts agentadapter.LaunchOpts) (*Session, error) {
+	return m.OpenWithHistory(toolID, ad, opts, History{})
+}
+
+// OpenWithHistory 는 Open 에 **이미 읽어 둔 기록**을 더한 것이다 (M9_SRS FR-M9-41).
+//
+// 심는 자리가 핸드셰이크 **앞**인 것이 요점이다. 뒤에 심으면 새 세션의 첫 프레임이
+// 먼저 seq 를 가져가 과거가 현재 뒤에 그려진다 — 화면이 시간을 거꾸로 말한다.
+//
+// 기록을 **읽는** 일이 여기 없는 이유: 어느 파일을 읽을지 아는 것은 세션 신원을
+// 들고 있는 층이고(`AgentSessionInfo`), 이 층은 그 신원의 출처를 모른다. 읽어 온
+// 것을 받기만 한다.
+func (m *Manager) OpenWithHistory(toolID string, ad agentadapter.Adapter, opts agentadapter.LaunchOpts, hist History) (*Session, error) {
 	if ad.Proto == nil {
 		return nil, fmt.Errorf("%s: 프로토콜 표면이 없다 (FR-APS-4)", ad.ID)
 	}
@@ -107,6 +119,11 @@ func (m *Manager) Open(toolID string, ad agentadapter.Adapter, opts agentadapter
 	s.st.SessionID = opts.Resume
 	m.sess[toolID] = s
 	m.mu.Unlock()
+	if hist.Asked {
+		s.mu.Lock()
+		s.seedHistory(hist)
+		s.mu.Unlock()
+	}
 	s.handshake(opts)
 	m.saveRecords()
 	return s, nil
@@ -207,6 +224,13 @@ type Session struct {
 	exitWait chan struct{}
 	// dormantAt 은 dormant 가 선 시각(ms)이다 — Reap 의 유예가 이것을 잰다 (D-A-23).
 	dormantAt int64
+	// history 는 **기록을 물었는가와 그 답**이다 (FR-M9-41): "" 묻지 않았다 ·
+	// HistoryLoaded · HistoryUnavailable. 셋째 값이 있어야 "읽을 것이 없었다" 와
+	// "읽지 못했다" 가 갈린다 (FR-CBG-5 의 규약).
+	// histTruncated 는 전사본의 앞을 잘라 읽었다는 뜻이다 — 링이 버린 것과 출처가
+	// 다르지만 사용자에게 뜻하는 바는 같다 ("이전 기록은 잘렸다").
+	history       string
+	histTruncated bool
 	// recordDirty 는 레코드를 다시 써야 한다는 표시다 — emit 이 세우고 flushRecord 가 내린다.
 	// recordKey 는 마지막으로 표시를 세운 근거다.
 	recordDirty atomic.Bool
@@ -240,6 +264,9 @@ type State struct {
 	Reason    string `json:"reason,omitempty"`
 	Resumable bool   `json:"resumable,omitempty"`
 	Cwd       string `json:"cwd,omitempty"`
+	// History 는 이 세션을 열 때 기록을 물었는가와 그 답이다 (FR-M9-41). 빈 값은
+	// **묻지 않았다** — 재개가 아닌 세션의 빈 화면은 정상이라 문장을 붙이지 않는다.
+	History string `json:"history,omitempty"`
 }
 
 // Controls 는 어댑터가 준 제어 표면의 유무다.
@@ -288,7 +315,8 @@ func (s *Session) State() State {
 		Controls:        Controls{Interrupt: p.Interrupt != nil, Control: p.Control != nil, TUIResume: p.TUIResume != nil},
 		Exited:          s.dormant != "",
 		Dormant:         s.dormant, Reason: s.reason, Resumable: s.dormant != "" && s.st.SessionID != "",
-		Cwd: s.opts.Cwd,
+		Cwd:     s.opts.Cwd,
+		History: s.history,
 	}
 }
 
@@ -304,7 +332,9 @@ func (s *Session) Replay(since int64) (evs []Logged, truncated bool, snap *Snaps
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	// since 는 "이것까지 보았다" 다. 다음은 since+1 이고, 그것이 firstSeq 앞이면 잘렸다.
-	if since+1 < s.firstSeq {
+	// FR-M9-41: 전사본의 앞을 잘라 읽었으면 링이 버린 것이 없어도 잘린 것이다.
+	// 출처는 둘이지만 사용자가 읽을 문장은 하나다 — "이전 기록은 잘렸다".
+	if since+1 < s.firstSeq || s.histTruncated {
 		truncated = true
 		snap = s.snap.clone()
 	}

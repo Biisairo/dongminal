@@ -87,6 +87,7 @@ I18N.register('en', {
   'agent.tool_result': 'Result',
   'agent.tool_result_error': 'Error result',
   'agent.truncated': 'Earlier history was truncated',
+  'agent.history_unavailable': 'Could not load this session\u2019s earlier history \u2014 the conversation continues',
   'agent.turn_aborted': 'Turn interrupted',
   'agent.turn_error': 'Turn ended with an error: {reason}',
   'agent.user_label': 'You',

@@ -36,6 +36,7 @@ var claudeAdapter = Adapter{
 	// 쪽도 "누구의 것인가" 를 묻지 않았다.
 	InstallAssets: installClaudeAssets,
 	ParseUsage:    claudeParseUsage,
+	ParseHistory:  claudeParseHistory,
 	ContextWindow: claudeContextWindow,
 	// FR-AEV-2·3: claude 는 아홉을 **전부** 낸다. 이 저장소가 검증한 유일한
 	// 에이전트이며, 다른 선언은 이것과의 차이로 읽힌다.

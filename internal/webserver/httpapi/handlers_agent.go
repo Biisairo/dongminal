@@ -222,7 +222,18 @@ func (s *Server) createAgentTool(w http.ResponseWriter, r *http.Request, cwd str
 		fail(w, http.StatusInternalServerError, "도구를 만들지 못했습니다", err)
 		return
 	}
-	if _, err := s.agentMgr().Open(tool.ID, ad, opts); err != nil {
+	// M9_SRS FR-M9-41 (M9-B23): **재개로 여는 도구는 기록을 안고 열린다.**
+	//
+	// 재개가 아니면 묻지 않는다 — 새 세션의 빈 화면은 정상이고, 그때 "기록을
+	// 가져오지 못했다" 를 말하면 없는 결함을 말하는 것이다.
+	//
+	// 읽기가 실패해도 도구는 선다. 기록은 화면의 재료일 뿐이며, 그것을 못 읽은 것이
+	// 세션을 못 여는 이유가 되면 안 된다 (NFR-CBG-2 와 같은 근거).
+	hist := agentsess.History{}
+	if opts.Resume != "" {
+		hist = agentsess.LoadHistory(ad, s.transcriptFor(opts.Resume), agentsess.HistoryTailMax)
+	}
+	if _, err := s.agentMgr().OpenWithHistory(tool.ID, ad, opts, hist); err != nil {
 		fail(w, http.StatusInternalServerError, "도구를 만들지 못했습니다", err)
 		return
 	}

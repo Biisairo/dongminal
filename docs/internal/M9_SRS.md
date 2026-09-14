@@ -56,6 +56,9 @@ M8 에서 **결정으로 닫혀** M9 범위가 아닌 것(다시 열려면 사�
 | M9-B21 | **권한 모드 목록이 낡았다** (사용자, 2026-09-14) — *"permission mode 에도 auto 모드가 없어"*. 우리 선언은 셋(`default`·`acceptEdits`·`plan`)인데 실측한 CLI 는 **여섯**이다 — `acceptEdits`·`auto`·`bypassPermissions`·`manual`·`dontAsk`·`plan`. `default` 는 지금 CLI 가 받지 않는다 | `claude_proto.go:29` `PermissionModes` | S |
 | M9-B22 | **컨텍스트 창을 바로 본다** (사용자, 2026-09-14) — *"특히 context window 는 bar 가 차는 모양으로도 같이 보고싶어. 실제 내 화면처럼"*. 숫자와 **함께**다(대신이 아니다). 참조 구현은 `claude-dashboard` 의 `renderProgressBar` | `agent-pane.js` · `style.css` | S~M |
 | M9-B23 | **올린 세션의 기록이 비어 있다** (사용자, 2026-09-14 — P8 실물) — *"세션 기록이 그대로 넘어가야하는데 아무것도 안보인다. 처음키는것과 같다. 기록을 그대로 띄어야한다"*. 화면은 **우리 이벤트 로그**를 재생하는데(`sess.Replay`) 올리기는 새 `toolId` 라 그 로그가 비어 있다. **실측: 에이전트는 이것을 해주지 않는다** — `--resume` 은 컨텍스트만 잇고(모델은 과거를 기억한다) 과거 대화를 스트림에 재생하지 않는다(7줄) | `agentadapter`(기록 파서를 **계약으로** — 사용자 지적) · `agentsess` · SessionStart 훅(`transcript_path`) | M~L |
+| M9-B24 | **`migration` 스킬의 절차가 실물에서 서지 않는다** (사용자, 2026-09-14 — FR-M9-41 중 접수) — *"dongminal migration 에서 과정을 더 자세하게 적어줘야한다. 어디서 탭을 열고 어떻게 agent 를 키고 어떻게 이전문서를 전달하고 어떻게 닫는지 하나하나 세세하게알려줘야한다. 실제로 동작해보니 제대로 작동하지 않았다."* 지시는 **FR-M9-41 다음, P4 앞**이다 | `.claude/skills/dongminal/migration/` · `dmctl` 의 탭 명령 | S~M |
+| M9-B25 | **에이전트 입력창에서 탭 닫기 단축키가 브라우저로 샌다** (사용자, 2026-09-14 — FR-M9-41 중 접수) — *"gui agent 의 텍스트박스를 클릭한 상태에서 탭 닫기 단축키를 누르면 브라우저 단축키가 적용된다(현재의 경우 cmd + opt + shift + w 여서 보이는 모든 브라우저를 닫는다)"*. **피해가 큰 결함이다** — 작업 중인 창 전부가 닫힌다. 터미널(xterm)에서는 나지 않으므로 `.agp-ta` 의 키 경로가 단축키 층에 닿지 않는 것이 원인 후보 | `agent-pane.js`(`.agp-ta`) · 단축키 층(`keys`·`preventDefault`) | S~M |
+| M9-B26 | **스킬이 아닌 `/` 명령을 GUI 에서 제어할 수 없다** (사용자, 2026-09-14 — FR-M9-41 중 접수) — *"단순 스킬이 아닌 / 명령어들의 경우 컨트롤 할 수 없다. 해당 컨트롤 기능도 넣을 수 있으면 좋겠다(config, model 등의 명령어)"*. `/config`·`/model` 류는 TUI 를 여는 명령이라 프롬프트로 보내도 화면이 없다. **`initialize` 응답이 `commands` 와 `available_output_styles`·`output_style`·`fast_mode_state` 를 이미 싣는다**(P8 실측) — 제어 표면(`Proto.Control`)으로 갈 수 있는 것과 못 가는 것을 먼저 가른다 | `claude_proto.go`(`Control`·`ProtoStatus.Commands`) · `agent-pane.js` | M |
 
 ### 2.3 재감사 (2026-09-14, M9 P1 착수 세션 — 실측)
 
@@ -758,6 +761,30 @@ P7 직후 사용자가 실물에서 넷을 접수했다. 둘은 **P7 이 만든 
   그대로 초록이다
 - 검증: V-M9-41 — 어댑터 파서(Go 단위) · 올리기 뒤 화면(e2e) · 부재 갈래 · 카나리아 회귀
 
+> **구현 (2026-09-14).** 층 다섯이며 화면에는 새 길을 내지 않았다.
+>
+> | 층 | 자리 | 하는 일 |
+> |---|---|---|
+> | 훅 | `dmctl_agentcontext.go` · `dmctl_activity.go` | `transcript_path` 를 `transcriptPath` 로 함께 보낸다 (**내용은 아니다**, D-M9-25). **두 자리 모두** — 계기가 둘이다 |
+> | 보관 | `AgentSessionInfo.TranscriptPath` (`json:"-"`) | 신원 옆에 메모리로만. 빈 경로가 있던 경로를 지우지 않는다 (FR-CBG-5) |
+> | 어댑터 | `Adapter.ParseHistory` · `claudeParseHistory` | 한 줄의 뜻. `user`·`assistant` 만 통과하고 살림살이 줄은 모르는 줄이다 (D-M9-24) |
+> | 읽기 | `agentsess.LoadHistory` · `HistoryTailMax`(1MiB) | 꼬리만 읽고 반 토막 난 첫 줄을 버린다. 실패는 오류가 아니라 **모름** |
+> | 심기 | `Manager.OpenWithHistory` → `Session.seedHistory` | **핸드셰이크 앞**에 심는다. `emit` 이 아니다 — 활동·`merge`·싱크를 타지 않는다 |
+>
+> **왜 `emit` 이 아닌가**: ① 지난 턴이 활동을 파생하면 끝난 일이 "도는 중" 으로
+> 보인다 ② 과거의 모델·토큰이 `merge` 로 현재를 덮으면 하단 대시보드가 지난 값을
+> 지금으로 말한다 ③ 이 시점에 붙은 브라우저가 없고, 붙으면 재생으로 받는다.
+>
+> **화면은 두 문장뿐이다.** 잘림은 기존 `truncated`(FR-ABG-21)에 얹었다 — 전사본의
+> 앞을 자른 것과 링이 버린 것은 출처가 다르나 사용자가 읽을 문장은 하나다. 부재는
+> `State.History`(`"" | loaded | unavailable`) 로 나가고 `agent-pane.js` 가 `seq===0`
+> 일 때 한 줄 낸다. **빈 값이 셋째 값인 것이 요점이다** — 재개가 아닌 세션의 빈
+> 화면은 정상이고 거기에 문장을 붙이면 없는 결함을 말하는 것이다.
+>
+> **경로를 프론트에 주지 않는다.** 서버가 `resume` 의 세션 id 로 `agentSessions` 를
+> 되짚어 스스로 찾는다 (`transcriptFor`) — 브라우저는 파일을 열지 않으므로 알 이유가
+> 없고, 질의 파라미터를 하나 더 두면 그 경로가 주소창에 남는다.
+
 ## 4. 일정 (단계)
 
 | 단계 | 범위 | 근거 |
@@ -999,6 +1026,47 @@ stdin 의 `rate_limits` 를 **우선** 쓰고 OAuth API(`api.anthropic.com/api/o
 받아 화면이 포맷한다 — 이름이 기계적으로 일관되지만 에이전트가 쓰는 이름(예: "Opus 주간")을
 그대로 보여주지 못한다.
 
+**D-M9-24 — 기록 파서는 `ParseUsage` 의 옆자리다. 어댑터가 아는 것은 한 줄의 뜻뿐이다.**
+(FR-M9-41, 사용자 지적 2026-09-14 — *"모든 에이전트가 이건 당연히 해줘야하는거 아닌가?"*)
+`Adapter.ParseHistory(line string) ([]Event, bool)` 다. 착수 문서의 스케치는
+`ParseHistory(path, n)` 이었고, **파일을 통째로 어댑터에 넘기지 않는 쪽**을 골랐다.
+
+이유는 그 분업이 이미 서 있기 때문이다 (`AGENT_ADAPTER_COMPLETION_SRS` FR-AAC-11):
+*"줄을 고르고·자르고·뒤에서부터 훑는 것은 호출자의 몫이다 — 그것은 파일 다루는 법이고
+어느 에이전트에게나 같다."* 경로를 넘기면 어댑터마다 꼬리 자르기·상한·오류 처리가
+한 벌씩 생기고, 그 셋은 에이전트의 성질이 아니다.
+
+한 줄이 이벤트 **여럿**이 될 수 있어 배열을 돌려준다 — 도구 결과가 여럿 담긴 `user`
+줄이 실제로 그렇다.
+
+**`claudeDecode` 를 그대로 부르지 않는다.** 그것은 `ProtoState` 를 고친다
+(`claudeExtOf` · `st.SessionID` · `st.Open`). 과거를 읽다가 과거의 신원이 현재를 덮으면
+재개한 세션이 자기가 누구인지 잃는다. 겹치는 것은 **형식**이지 부작용이 아니다.
+
+고려한 대안: `Decode` 를 재사용하고 상태를 버리는 복사본에 쓴다 — 복사본을 만드는
+규약이 새로 필요하고, 전사본에만 있는 줄(`attachment`·`file-history-snapshot`)을
+"모르는 프레임" 으로 화면에 흘린다.
+
+**D-M9-25 — 훅은 전사본의 *경로* 를 보낸다. *내용* 은 여전히 보내지 않는다.**
+(FR-M9-41 — `UX_BATCH6_SRS` FR-CTX-3 개정)
+  이전 동작: 훅은 크기·토큰·세션 id 만 보냈다. 경로조차 보내지 않았고, 그 근거가
+            *"서버는 그 파일을 열 이유가 없다"* 였다
+  새  동작: `transcriptPath` 를 함께 보낸다. 서버는 그것을 `AgentSessionInfo` 에
+            **메모리로만** 들고, 올리기가 그 파일을 읽는다
+  이유:     이유가 생겼다. 올린 세션의 화면을 채우려면 기록을 읽어야 하고, 기록의
+            자리를 아는 것은 훅뿐이다 (에이전트마다 다르다)
+
+**바뀌지 않는 둘**이 이 결정의 경계다. ① **훅은 내용을 싣지 않는다** — 잠금장치는
+`dmctl_activity_context_test.go` 의 카나리아이며, 지키는 대상이 "경로와 내용" 에서
+**"내용"** 으로 좁혀졌을 뿐 사라지지 않았다 ② **`runs.json` 에 내용도 경로도 적히지
+않는다** — 경로는 `ContextObservation` 에 들지 않으므로 기록으로 가는 길이 없고,
+`AgentSessionInfo.TranscriptPath` 는 `json:"-"` 라 응답으로도 나가지 않는다
+(V-CBG-11 의 서버 쪽 카나리아가 그대로 초록이다).
+
+**두 훅이 같은 것을 싣는다.** `SessionStart` 하나로는 모자란다 — 그 훅은 세션이
+시작될 때만 나므로, 서버가 다시 선 뒤에는 이미 도는 세션의 경로를 아무도 말하지
+않는다. 신원을 채우는 계기가 둘인 것과 같은 이유다 (FR-M9-37 의 P8 기록).
+
 ## 6. 검증
 
 - `go test -race -shuffle=on -count=1 ./...` · `make gates` · `make unit` · `make e2e` → `unexpected 0` → `make e2e-rebalance`
@@ -1042,3 +1110,4 @@ stdin 의 `rate_limits` 를 **우선** 쓰고 OAuth API(`api.anthropic.com/api/o
 | 2026-09-14 | **P6b 의 수정이 유실됐다가 복원됐다** (사용자 접수 — *"여전히 똑같이 한 페이지 위에서 고정되는 문제야"*, 원인 지목도 사용자 — *"지금 스태시된 거 아니야?"*). 커밋 `70c1eea` 에 `web/js/ui/renderer.js` 가 **없었다** — RED 를 보려고 `git stash push` 한 뒤 `pop` 하지 않고 커밋했고, FR-M9-28·29 의 실제 수정(바닥 갈래 흔들기 `_nudgeScrollArea` · 행 높이를 요소에서 · `_keepTermScroll`)이 stash 에 갇혔다. blob 해시가 HEAD 와 같아(`3487ced`) 충돌 없이 복원(`91f9d9d`). **함께 드러난 것**: 복원 전에 `V-M9-29` 를 돌렸더니 6/6 초록이었다 — 그 검사는 지켜야 할 코드가 통째로 없어도 통과하며, 같은 자리를 이미 세 번 밟았다. 재는 대상을 다시 정하는 것은 후속이다 (`M9_PROGRESS` §2-22) |
 | 2026-09-14 | **P7 스펙 확정** (M9-B14~17). 실측 넷이 범위를 정했다: ① dongminal 셸이 `claude` 를 래핑하므로 **Run 과 무관한 탭의 에이전트에도 활동 훅이 붙는다**(`ps` 로 argv 확인) ② 그래서 **세션 id 는 이미 서버에 도착하고**, `ObserveContext` 가 Run 멤버가 아니라는 이유로 버린다(실측 당시 `/api/runs` 는 `{"runs":[]}`) ③ `Signals.Session` 은 claude·omp 참, **codex 는 선언 없음** ④ `ExitCommand` 가 이미 `/exit` 로 선언돼 있다. 즉 M9-B15 의 모르는 것은 **새 관측 장치가 아니라 앉을 자리의 문제**이며, `M9_P7_GUI_SURVEY` §4 의 두 길 중 "나중에 묻는다" 가 이미 열려 있다. FR-M9-31~36 · D-M9-20~22 · 비목표 3항 신설. 사용자 결정 셋(2026-09-14): CLI→GUI 는 **탭을 남기고 셸의 에이전트만 끝낸다** · cwd·branch·upstream 을 **포함한다** · 진입점은 **양쪽 패널 머리에 버튼**(우클릭 둘은 유지) |
 | 2026-09-14 | **P7 완료** (M9-B14~17). 스펙이 없던 단계였고 착수의 첫 일이 그것이었다. **실측이 범위를 두 번 바꿨다**: ① 셸의 세션 id 는 *"모른다"* 가 아니라 **이미 서버에 도착하고 있었다**(dongminal 셸이 `claude` 를 래핑해 Run 밖 탭에도 훅이 붙고, `ObserveContext` 가 버렸다) ② 플랜 사용량은 *"프로토콜이 주지 않는다"*(D-M9-22 첫 판)가 아니라 **`rate_limit_event` 로 온다**(어댑터가 `return nil, true` 로 알아본 뒤 버렸다). FR-M9-31(제자리 전환 — 탭 수가 그대로이고 자리가 유지된다) · FR-M9-32(Run 과 무관하게 도구 단위로 세션 신원) · FR-M9-33(`GET /api/agent/session` + 올리기; **터미널 탭은 남는다**) · FR-M9-34(`ProtoUsage` 가 절대값·비율을 모두 받고 플랜 한도는 **가변 목록** — `Limits []ProtoLimit`; cache 둘과 omp `percent` 도 함께 받는다) · FR-M9-35(cwd·branch·upstream, 출처를 `title` 이 말한다) · FR-M9-36(우클릭 둘 유지 + 에이전트 머리 아이콘 · 터미널 떠 있는 버튼). 새 검증: V-M9-31·32(2)·33·34(Go 3 + e2e)·35·36. 사용자 결정 넷 — D-M9-20(탭을 남긴다) · D-M9-21(codex 에는 진입점을 세우지 않는다) · D-M9-22(**뒤집혔다** — 프로토콜이 준다, OAuth API 는 비목표) · D-M9-23(주기 이름은 자유 문자열). 함께: **P6b 의 수정이 stash 에 갇혀 있던 것을 복원**(`91f9d9d`) — 그 검사는 수정이 없어도 초록이었다(`M9_PROGRESS` §2-22) |
+| 2026-09-14 | **FR-M9-41 완료** (M9-B23 — P8 잔여). 접수: *"세션 기록이 그대로 넘어가야하는데 아무것도 안보인다. 처음키는것과 같다."* **실측이 범위를 정했다** — `--resume` 한 세션은 과거를 알지만(암호를 답했다) 스트림에 재생하지 않는다(새 턴 7줄). 즉 에이전트는 이 일을 해주지 않으므로 기록은 우리가 읽는다. 층 다섯: 훅이 `transcriptPath` 를 싣고(**두 자리 모두** — `SessionStart` 하나로는 서버 재시작 뒤 이미 도는 세션을 못 잡는다) → `AgentSessionInfo` 가 메모리로만 들고 → `Adapter.ParseHistory` 가 한 줄의 뜻을 말하고 → `agentsess.LoadHistory` 가 꼬리 1MiB 를 읽고 → `OpenWithHistory` 가 **핸드셰이크 앞에** 심는다. `emit` 을 쓰지 않는다(활동·`merge`·싱크를 타면 지난 턴이 현재를 덮는다). 화면은 새 길 없이 기존 재생 경로 그대로이고, 문장은 둘 — 잘림은 기존 `truncated`, 부재는 `State.History` 의 셋째 값. **NFR-4 를 개정했다** (D-M9-25 · `UX_BATCH6_SRS` FR-CTX-3): 경로는 보내고 내용은 보내지 않는다. 카나리아 둘은 지키는 대상이 좁혀졌을 뿐 살아 있다. 새 결정 D-M9-24(파서는 `ParseUsage` 의 옆자리 — 한 줄 계약)·D-M9-25. 새 검증 V-M9-41 — Go 단위 8 + e2e 2, **RED 를 stash 로 확인**(제품 소스 13개를 빼고 e2e 둘이 떨어졌다) |

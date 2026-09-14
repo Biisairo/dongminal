@@ -582,6 +582,44 @@ func TestApiRunContext_EmptySessionDoesNotEraseIdentity(t *testing.T) {
 	}
 }
 
+// V-M9-41 (M9_SRS FR-M9-41 / M9-B23): **기록의 자리도 신원과 함께 남는다.**
+//
+// 올린 세션의 화면을 채우려면 서버가 그 세션의 전사본을 읽어야 하고, 어느 파일인지
+// 아는 것은 훅뿐이다. 그래서 경로는 신원 옆에 선다 — 다만 **내용은 오지 않고**,
+// 경로도 `runs.json` 에 적히지 않으며 응답으로도 나가지 않는다 (NFR-4 개정).
+//
+// 빈 경로가 있던 경로를 지우지 않는 것은 `sessionId` 와 같은 규약이다 (FR-CBG-5).
+func TestApiRunContext_KeepsTranscriptPathBesideIdentity(t *testing.T) {
+	s, store, _, _, _ := ctxServer(t)
+	who := s.WhoAmI.(*fakeWhoAmI)
+	who.toolID = "tool-hist"
+	const tp = "/tmp/hist/sid-hist.jsonl"
+	code, out := postRun(t, s, "/api/runs/context",
+		`{"toolId":"tool-hist","agent":"claude","sessionId":"sid-hist","transcriptPath":"`+tp+`","bytes":10}`)
+	if code != 200 {
+		t.Fatalf("상태: %d %v", code, out)
+	}
+	got := s.AgentSession("tool-hist")
+	if got == nil || got.TranscriptPath != tp {
+		t.Fatalf("전사본 경로가 신원 옆에 남지 않았다: %+v", got)
+	}
+	// 경로를 말하지 않은 다음 보고가 있던 것을 지우지 않는다.
+	postRun(t, s, "/api/runs/context", `{"toolId":"tool-hist","agent":"claude","sessionId":"sid-hist","compacted":true}`)
+	if got := s.AgentSession("tool-hist"); got == nil || got.TranscriptPath != tp {
+		t.Fatalf("말하지 않은 것이 말한 것을 지웠다: %+v", got)
+	}
+	// 경로는 응답에도 기록에도 나가지 않는다 — 그것은 서버가 로컬에서 쓰는 값이다.
+	raw, _ := json.Marshal(out)
+	if strings.Contains(string(raw), tp) {
+		t.Fatalf("전사본 경로가 응답으로 샜다: %s", raw)
+	}
+	_ = store
+	blob, err := os.ReadFile(filepath.Join(os.Getenv("DONGMINAL_TEST_RUNS_DIR"), "runs.json"))
+	if err == nil && strings.Contains(string(blob), tp) {
+		t.Fatalf("전사본 경로가 기록에 남았다 (NFR-4):\n%s", blob)
+	}
+}
+
 // V-M9-33 (M9_SRS FR-M9-33 / M9-B15): **올릴 수 있는지를 서버가 말한다.**
 //
 // 프론트는 이 답으로 진입점을 세울지 정한다 — 신원을 모르면 **버튼 자체가 서지

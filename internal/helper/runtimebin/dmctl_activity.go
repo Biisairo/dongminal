@@ -80,10 +80,15 @@ const contextObservePath = "/api/runs/context"
 
 // reportContext 는 이 훅이 실어 온 컨텍스트 신호를 서버에 넘긴다 (FR-CBG-1~4).
 //
-// **보내는 것은 숫자와 식별자뿐이다** — transcript 의 바이트 수, 세션 id, 그리고
-// 압축이 일어났다는 사실. 파일 내용은 어떤 형태로도 이 페이로드에 들어가지 않고
-// (NFR-4), 경로조차 보내지 않는다 — 서버는 그 파일을 열 이유가 없다. 그 사실은
-// dmctl_activity_context_test.go 가 카나리아로 고정한다 (V-CBG-11).
+// **보내는 것은 숫자와 식별자, 그리고 전사본 경로다.** 파일 내용은 어떤 형태로도
+// 이 페이로드에 들어가지 않는다 (NFR-4) — 그 사실은 dmctl_activity_context_test.go 가
+// 카나리아로 고정한다 (V-CBG-11).
+//
+// 경로는 M9_SRS FR-M9-41 (2026-09-14) 이 더했다. 종전에는 *"서버는 그 파일을 열
+// 이유가 없다"* 였고 이제 있다 — 올린 세션의 기록을 서버가 읽는다. **`SessionStart`
+// 훅만으로는 모자란다**: 그 훅은 세션이 시작될 때만 나므로 서버가 다시 선 뒤에는
+// 이미 도는 세션의 경로를 아무도 말하지 않는다. 신원을 채우는 두 계기가 같은 것을
+// 실어야 한 쪽에서만 기록이 보이는 일이 없다.
 //
 // 신호가 하나도 없으면 아무것도 보내지 않는다. 관측하지 못한 것을 0 으로
 // 보내면 서버가 그것을 값으로 읽는다 — 모르는 것은 모르는 채로 둔다 (FR-CBG-5).
@@ -103,6 +108,9 @@ func reportContext(a agentadapter.Adapter, rep agentadapter.Report, toolID strin
 	}
 	if rep.SessionID != "" {
 		body["sessionId"] = rep.SessionID
+	}
+	if rep.Transcript != "" {
+		body["transcriptPath"] = rep.Transcript
 	}
 	if size, ok := transcriptSize(rep.Transcript); ok {
 		body["bytes"] = size

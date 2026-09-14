@@ -147,6 +147,15 @@ class AgentPane {
       return;
     }
     const d=r.data||{};
+    /**
+     * M9_SRS FR-M9-41 (M9-B23): **기록을 가져오지 못했으면 그렇게 말한다.**
+     *
+     * 접수한 말이 *"세션 기록이 그대로 넘어가야하는데 아무것도 안보인다"* 였다.
+     * 조용히 빈 화면은 "세션이 안 이어졌다" 로 읽힌다 — 실제로는 이어져 있고
+     * 그리지 못한 것이 재료뿐인데도 그렇다. 그래서 부재를 문장으로 낸다
+     * (FR-APS-4). 빈 값은 **묻지 않았다**(재개가 아니다)이므로 아무것도 내지 않는다.
+     */
+    if(this.seq===0&&(d.state||{}).history==='unavailable') this._line('agp-note',t('agent.history_unavailable'));
     // FR-ABG-21 · D-C-13: 잘린 앞부분은 요약 스냅샷 하나 — 마지막 assistant 메시지를 한 번 그린다.
     if(d.truncated&&this.seq===0){
       this._line('agp-note',t('agent.truncated'));

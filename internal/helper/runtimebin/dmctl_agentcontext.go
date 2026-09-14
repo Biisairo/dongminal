@@ -21,7 +21,8 @@ import (
 const dmctlAgentContextHelp = `dmctl agent-context [<agent>]
   dongminal 세션에 상시 주입되는 컨텍스트를 에이전트의 세션 시작 훅 형식(JSON)으로
   JSON 으로 출력한다. agent-plugin/hooks/hooks.json 이 호출한다.
-  stdin 의 세션 신원(session_id)을 서버에 알린다 (M9_SRS FR-M9-37).
+  stdin 의 세션 신원(session_id)과 전사본 경로(transcript_path)를 서버에 알린다
+  (M9_SRS FR-M9-37 · FR-M9-41). 전사본의 내용은 보내지 않는다.
   훅으로 돌기 때문에 어떤 실패에서도 0 으로 종료한다.
 `
 
@@ -59,8 +60,14 @@ const agentContextText = `이 세션은 dongminal 워크스페이스의 도구(�
 // (`claude --resume …` 가 도는데 서버는 `no agent session`), 그래서 올리기 진입점이
 // 서지 않았다.
 //
-// 보내는 것은 **식별자 둘뿐**이다 — 세션 id 와 어느 에이전트인가. 전사본 경로도 내용도
-// 보내지 않는다 (NFR-4, `reportContext` 와 같은 규약).
+// 보내는 것은 **식별자 둘과 전사본 경로**다 — 세션 id · 어느 에이전트인가 · 그 세션의
+// 기록이 어디 있는가. **내용은 보내지 않는다** (NFR-4, `reportContext` 와 같은 규약).
+//
+// 경로를 더한 것은 M9_SRS FR-M9-41 의 개정이다 (2026-09-14). 종전의 근거는 *"서버는
+// 그 파일을 열 이유가 없다"* 였고 이제 이유가 생겼다 — 올린 세션의 화면을 채우려면
+// 서버가 그 기록을 읽어야 한다. 서버가 **로컬** 파일을 여는 것과 훅이 내용을 실어
+// 보내는 것은 다른 일이며, 바뀌지 않는 둘은 그대로다: 훅은 내용을 싣지 않는다,
+// `runs.json` 에 내용이 적히지 않는다.
 //
 // 어떤 실패에서도 조용하다. 이 훅의 본래 일(컨텍스트 주입)이 신원 보고 때문에 막히면
 // 안 된다 — 둘의 실패는 서로를 가리지 않는다 (NFR-CBG-2 와 같은 근거).
@@ -74,7 +81,8 @@ func noteSessionIdentity(agent string, stdin io.Reader) {
 		return
 	}
 	var ev struct {
-		SessionID string `json:"session_id"`
+		SessionID  string `json:"session_id"`
+		Transcript string `json:"transcript_path"`
 	}
 	if err := json.Unmarshal(data, &ev); err != nil || ev.SessionID == "" {
 		return
@@ -82,6 +90,9 @@ func noteSessionIdentity(agent string, stdin io.Reader) {
 	body := map[string]any{"toolId": toolID, "sessionId": ev.SessionID}
 	if agent != "" {
 		body["agent"] = agent
+	}
+	if ev.Transcript != "" {
+		body["transcriptPath"] = ev.Transcript
 	}
 	httpPostJSON(baseURL()+contextObservePath, body)
 }

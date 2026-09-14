@@ -157,9 +157,11 @@ func TestReportContext_NeverSendsTranscriptContent(t *testing.T) {
 	if strings.Contains(all, canary) {
 		t.Fatalf("transcript 내용이 서버로 흘렀다 (NFR-4). 전송된 것:\n%s", all)
 	}
-	// 경로 자체도 보낼 이유가 없다 — 서버는 그 파일을 열지 않는다.
-	if strings.Contains(all, path) {
-		t.Fatalf("transcript 경로가 서버로 흘렀다: %s", all)
+	// **경로는 간다** (NFR-4 개정 2026-09-14, M9_SRS FR-M9-41). 서버가 올린 세션의
+	// 기록을 읽을 이유가 생겼고, 서버가 로컬 파일을 여는 것과 훅이 내용을 보내는
+	// 것은 다른 일이다. 잠금장치가 지키는 것은 **내용**이며 그것은 위에서 쟀다.
+	if !strings.Contains(all, `"transcriptPath":`) {
+		t.Fatalf("전사본 경로가 실리지 않았다 (FR-M9-41): %s", all)
 	}
 
 	got := cap.lastContext(t)
@@ -274,9 +276,11 @@ func TestTranscriptSize_StatsOnly(t *testing.T) {
 func TestAgentContext_SessionStartCarriesIdentity(t *testing.T) {
 	cap := startCapture(t, "tool-ctx")
 	var out, errb strings.Builder
+	tp := writeTranscript(t, `{"type":"user","message":{"content":"x"}}`+"\n")
 	if code := runDmctlAgentContext([]string{"claude"}, hookJSON(t, map[string]any{
 		"hook_event_name": "SessionStart",
 		"session_id":      "s-start",
+		"transcript_path": tp,
 		"cwd":             "/tmp",
 	}), &out, &errb); code != 0 {
 		t.Fatalf("훅은 항상 0 으로 끝난다, got %d", code)
@@ -296,9 +300,44 @@ func TestAgentContext_SessionStartCarriesIdentity(t *testing.T) {
 			t.Fatalf("보고에 %s 가 없다: %s", want, got[0])
 		}
 	}
-	// NFR-4: 식별자 둘뿐이다 — 경로도 내용도 실리지 않는다.
-	if strings.Contains(got[0], "/tmp") || strings.Contains(got[0], "transcript") {
-		t.Fatalf("식별자 밖의 것이 실렸다: %s", got[0])
+	// V-M9-41 (NFR-4 개정 2026-09-14, M9_SRS FR-M9-41): **경로는 싣고 내용은 싣지
+	// 않는다.** 종전에는 경로조차 보내지 않았고 그 근거가 *"서버는 그 파일을 열
+	// 이유가 없다"* 였다 — 이제 이유가 생겼다(올린 세션의 기록을 서버가 읽는다).
+	// 바뀌지 않는 둘: **훅은 내용을 실어 보내지 않는다**, **`runs.json` 에 내용이
+	// 적히지 않는다**.
+	if !strings.Contains(got[0], `"transcriptPath":`) {
+		t.Fatalf("전사본 경로가 실리지 않았다 (FR-M9-41): %s", got[0])
+	}
+	// 경로 밖의 것은 여전히 실리지 않는다 — cwd 는 이 보고의 것이 아니다.
+	if strings.Contains(got[0], `"/tmp"`) {
+		t.Fatalf("식별자·경로 밖의 것이 실렸다: %s", got[0])
+	}
+}
+
+// V-M9-41 / NFR-4 (개정) — **경로가 가도 내용은 가지 않는다.**
+//
+// 잠금장치의 자리가 옮겨진 것이 아니라 좁혀졌다. 카나리아를 전사본에 심고,
+// `SessionStart` 훅이 서버로 보낸 **모든 바이트**에서 그것이 나오지 않음을 본다.
+func TestAgentContext_SessionStartSendsPathNotContent(t *testing.T) {
+	const canary = "CANARY-SECRET-DO-NOT-TRANSMIT"
+	tp := writeTranscript(t, `{"type":"user","message":{"content":"`+canary+`"}}`+"\n")
+	cap := startCapture(t, "tool-ctx")
+	var out, errb strings.Builder
+	runDmctlAgentContext([]string{"claude"}, hookJSON(t, map[string]any{
+		"hook_event_name": "SessionStart",
+		"session_id":      "s-start",
+		"transcript_path": tp,
+	}), &out, &errb)
+
+	got := cap.lastContext(t)
+	if got["transcriptPath"] != tp {
+		t.Fatalf("경로가 그대로 가지 않았다: %v", got["transcriptPath"])
+	}
+	cap.mu.Lock()
+	all := strings.Join(append(append([]string{}, cap.activity...), cap.context...), "\n")
+	cap.mu.Unlock()
+	if strings.Contains(all, canary) {
+		t.Fatalf("transcript 내용이 서버로 흘렀다 (NFR-4):\n%s", all)
 	}
 }
 

@@ -636,3 +636,41 @@ func claudeDecodeControlResponse(fr claudeFrame, x *claudeExt, st *ProtoState) (
 	// interrupt · set_max_thinking_tokens: 성공이면 알릴 것이 없다.
 	return nil, true
 }
+
+// claudeParseHistory 는 전사본 JSONL 한 줄의 뜻이다 (M9_SRS FR-M9-41).
+//
+// **스트림과 전사본은 형식이 겹친다** (실측 2026-09-14): 전사본의 `user`·`assistant`
+// 줄은 `message` 아래에 스트림과 같은 모양의 content 를 싣는다. 그래서 여기서 하는
+// 일은 옮기는 것이 아니라 **고르는 것**이다 — 그 둘만 통과시키고 나머지는 모르는
+// 줄로 둔다.
+//
+// `claudeDecode` 를 그대로 부르지 않는 이유는 그것이 `ProtoState` 를 **고치기**
+// 때문이다 (`claudeExtOf`·`st.SessionID`·`st.Open`). 기록을 읽는 일은 살아 있는
+// 세션의 상태를 건드리지 않아야 한다 — 과거의 신원이 현재를 덮으면 재개한 세션이
+// 자기가 누구인지 잃는다.
+//
+// 통과시키지 않는 것들 (실측한 전사본의 나머지): `attachment` · `file-history-snapshot` ·
+// `summary` · `system` · `queue-operation` · `cost-state`. 살림살이는 대화가 아니다.
+func claudeParseHistory(line string) ([]Event, bool) {
+	var fr claudeFrame
+	if err := json.Unmarshal([]byte(line), &fr); err != nil {
+		return nil, false
+	}
+	switch fr.Type {
+	case "assistant":
+		var m struct {
+			Content json.RawMessage `json:"content"`
+		}
+		if err := json.Unmarshal(fr.Message, &m); err != nil || len(m.Content) == 0 {
+			return nil, false
+		}
+		return []Event{{Kind: EvMessage, Message: m.Content}}, true
+	case "user":
+		evs, ok := claudeDecodeUser(fr)
+		if !ok || len(evs) == 0 {
+			return nil, false
+		}
+		return evs, true
+	}
+	return nil, false
+}

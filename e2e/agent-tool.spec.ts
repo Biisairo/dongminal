@@ -1,3 +1,7 @@
+import { mkdtempSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+
 import AxeBuilder from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
@@ -315,6 +319,104 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     await tabs.nth(termIdx).click();
     await expect(page.locator(`#area .pn.focused .tp.vis[data-toolid="${toolId}"]`),
       '터미널 도구가 사라졌다 — D-M9-20 은 탭을 남긴다').toBeVisible({ timeout: 10000 });
+  });
+
+  /**
+   * V-M9-41 (M9_SRS FR-M9-41 / M9-B23): **올린 세션은 기록을 그대로 띄운다.**
+   *
+   * 접수한 말: *"세션 기록이 그대로 넘어가야하는데 아무것도 안보인다. 처음키는것과
+   * 같다."* 세션 자체는 이어진다 — 비는 것은 **그릴 재료**다. 화면은 우리 이벤트
+   * 로그를 재생하는데 올리기는 새 `toolId` 라 그 로그가 비어 있었다.
+   *
+   * 훅을 **흉내 낸다** (위 V-M9-33/36 과 같은 근거) — 다만 이번에는 `transcriptPath`
+   * 를 함께 싣는다. 전사본은 이 컴퓨터의 파일이므로 e2e 가 직접 놓는다; 형식은
+   * claude 어댑터가 아는 그것이다 (실측 2026-09-14).
+   *
+   * **재는 것 둘**: ① 올린 뒤 과거 대화가 화면에 선다 ② 기록이 없으면 **그 사실이
+   * 문장으로** 보인다 — 조용히 비면 사용자는 세션이 안 이어진 줄 안다.
+   */
+  test('V-M9-41 (FR-M9-41): 올린 세션의 기록이 화면에 선다', async ({ page }) => {
+    const dir = mkdtempSync(join(tmpdir(), 'dm-hist-'));
+    const tp = join(dir, 'sid-hist-e2e.jsonl');
+    writeFileSync(tp, [
+      JSON.stringify({ type: 'user', message: { content: '과거의 물음' } }),
+      JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: '과거의 답' }] } }),
+      JSON.stringify({ type: 'attachment', content: { type: 'ai-title' } }),
+      '',
+    ].join('\n'));
+
+    await waitForInit(page);
+    const term = page.locator('#area .pn.focused .tp.vis');
+    await expect(term).toBeVisible({ timeout: 10000 });
+    const toolId = await term.getAttribute('data-toolid');
+    expect(toolId, '터미널 도구가 없다').toBeTruthy();
+
+    const posted = await page.evaluate(async ([id, path]) => {
+      const r = await fetch('/api/runs/context', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ toolId: id, agent: 'claude', sessionId: 'sid-hist-e2e', transcriptPath: path, bytes: 10 }),
+      });
+      return r.status;
+    }, [toolId, tp]);
+    expect(posted, '훅 종단이 받지 않았다').toBe(200);
+
+    const tabs = page.locator('#area .pn.focused .pn-tab');
+    const before = await tabs.count();
+    await page.locator('#area .pn.focused .pn-tab-add').click();
+    await expect(tabs).toHaveCount(before + 1, { timeout: 10000 });
+    await tabs.nth(before - 1).click();
+    const lift = page.locator(`#area .pn.focused .tp.vis[data-toolid="${toolId}"] .tp-lift`);
+    await expect(lift).toBeVisible({ timeout: 10000 });
+    await lift.click();
+
+    const pane = page.locator('#area .pn.focused .agent-pane.vis');
+    await expect(pane).toBeVisible({ timeout: 15000 });
+    // ① 과거가 그대로 선다 — 사용자의 물음과 에이전트의 답 둘 다.
+    await expect(pane.locator('.agp-msg.agp-user .agp-body'),
+      '올린 세션의 과거 물음이 보이지 않는다').toHaveText('과거의 물음', { timeout: 15000 });
+    await expect(pane.locator('.agp-msg.agp-assistant .agp-body').first(),
+      '올린 세션의 과거 답이 보이지 않는다').toContainText('과거의 답', { timeout: 15000 });
+    // 기록을 읽었으면 "가져오지 못했다" 를 말하지 않는다.
+    // 없음을 재는 관측 창이다 — 요소 자체가 없을 수 있으므로 개수로 잰다.
+    await expect(pane.locator('.agp-note', { hasText: '가져오지 못' }),
+      '기록을 읽었는데 못 읽었다고 말했다').toHaveCount(0);
+  });
+
+  /**
+   * V-M9-41 ③ (FR-M9-41 / FR-APS-4): **부재가 뜻이다.**
+   *
+   * 기록을 읽지 못한 채로 올리면 화면은 비지만, 그 빈 화면이 "세션이 안 이어졌다"
+   * 로 읽혀서는 안 된다. 그래서 문장 하나를 낸다.
+   */
+  test('V-M9-41 (FR-M9-41): 기록을 가져오지 못하면 그 사실을 말한다', async ({ page }) => {
+    await waitForInit(page);
+    const term = page.locator('#area .pn.focused .tp.vis');
+    await expect(term).toBeVisible({ timeout: 10000 });
+    const toolId = await term.getAttribute('data-toolid');
+
+    // 신원만 있고 전사본은 없다 — 서버가 다시 선 뒤 활동 훅만 닿은 자리다.
+    const posted = await page.evaluate(async (id) => {
+      const r = await fetch('/api/runs/context', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ toolId: id, agent: 'claude', sessionId: 'sid-nohist-e2e', bytes: 10 }),
+      });
+      return r.status;
+    }, toolId);
+    expect(posted).toBe(200);
+
+    const tabs = page.locator('#area .pn.focused .pn-tab');
+    const before = await tabs.count();
+    await page.locator('#area .pn.focused .pn-tab-add').click();
+    await expect(tabs).toHaveCount(before + 1, { timeout: 10000 });
+    await tabs.nth(before - 1).click();
+    const lift = page.locator(`#area .pn.focused .tp.vis[data-toolid="${toolId}"] .tp-lift`);
+    await expect(lift).toBeVisible({ timeout: 10000 });
+    await lift.click();
+
+    const pane = page.locator('#area .pn.focused .agent-pane.vis');
+    await expect(pane).toBeVisible({ timeout: 15000 });
+    await expect(pane.locator('.agp-note').first(),
+      '기록을 못 읽은 사실이 조용히 삼켜졌다').toContainText('가져오지 못', { timeout: 15000 });
   });
 
   /**

@@ -88,6 +88,7 @@ I18N.register('ko', {
   'agent.tool_result': '결과',
   'agent.tool_result_error': '오류 결과',
   'agent.truncated': '이전 기록은 잘렸습니다',
+  'agent.history_unavailable': '이 세션의 이전 기록을 가져오지 못했습니다 — 대화는 이어집니다',
   'agent.turn_aborted': '턴이 중단되었습니다',
   'agent.turn_error': '턴이 오류로 끝났습니다: {reason}',
   'agent.user_label': '나',
