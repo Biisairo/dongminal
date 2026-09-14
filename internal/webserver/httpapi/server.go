@@ -5,28 +5,22 @@
 package httpapi
 
 import (
-	"dongminal/internal/shared/dmlog"
-	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/gitapi"
 
 	"dongminal/internal/webserver/hub"
 
-	"bufio"
 	"context"
+	"io/fs"
+	"net/http"
+	"path/filepath"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"dongminal/internal/webserver/domain/ext"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/submodule"
 	"dongminal/internal/webserver/domain/wsentry"
-	"fmt"
-	"io/fs"
-	"net"
-	"net/http"
-	"path/filepath"
-	"runtime/debug"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 
 	"dongminal/internal/webserver/domain/git/core"
 )
@@ -170,90 +164,6 @@ type Server struct {
 	// 서버 수명이다. 프로세스가 다시 서면 비지만, 훅이 다음 보고에서 다시 채운다 —
 	// 그 사이는 "모른다" 이고 그때 진입점은 서지 않는다 (FR-M9-33 의 DoD).
 	agentSessions sync.Map // toolID → *AgentSessionInfo
-}
-
-// AgentSessionInfo 는 그 도구에서 도는 에이전트의 신원이다 (FR-M9-32).
-//
-// Agent 를 함께 드는 이유는 **어댑터를 골라야 하기 때문이다** — 세션 id 만으로는
-// `claude --resume` 인지 `codex resume` 인지 알 수 없다.
-type AgentSessionInfo struct {
-	SessionID string `json:"sessionId"`
-	Agent     string `json:"agent,omitempty"`
-	UpdatedAt int64  `json:"updatedAt,omitempty"`
-	// TranscriptPath 는 그 세션의 기록이 있는 **로컬 파일**이다 (M9_SRS FR-M9-41).
-	//
-	// 훅만이 이것을 안다 — 자리도 형식도 에이전트마다 다르다. 올리기가 그 파일을
-	// 읽어 화면을 채운다 (`agentsess.LoadHistory`).
-	//
-	// **와이어로 나가지 않는다**: `json:"-"` 가 그 규약의 첫 방벽이다. 이 구조체는
-	// 서버 안에서만 살지만, 누군가 이것을 응답에 실으면 경로가 브라우저로 샌다.
-	TranscriptPath string `json:"-"`
-}
-
-// noteAgentSession 은 훅이 실어 온 신원을 붙든다 (FR-M9-32).
-//
-// **빈 세션 id 는 아무것도 하지 않는다.** 활동 훅은 신원 없이도 오며(압축·바이트만
-// 실은 보고), 그때 빈 값으로 덮으면 "모른다" 가 "없다" 가 된다 — FR-CBG-5 가 막으려는
-// 바로 그 치환이다.
-func (s *Server) noteAgentSession(toolID, sessionID, agent, transcript string) {
-	if toolID == "" || sessionID == "" {
-		return
-	}
-	// FR-M9-41: 경로를 말하지 않은 보고가 있던 경로를 지우지 않는다 — 세션 id 와
-	// 같은 규약이다. 압축만 실은 보고에도 신원은 오지만 경로는 오지 않는다.
-	if transcript == "" {
-		if prev := s.AgentSession(toolID); prev != nil && prev.SessionID == sessionID {
-			transcript = prev.TranscriptPath
-		}
-	}
-	s.agentSessions.Store(toolID, &AgentSessionInfo{
-		SessionID: sessionID, Agent: agent, UpdatedAt: time.Now().UnixNano(),
-		TranscriptPath: transcript,
-	})
-}
-
-// transcriptFor 는 그 세션 신원의 전사본 경로다 (FR-M9-41). 모르면 빈 문자열.
-//
-// **도구가 아니라 세션으로 찾는 이유**: 올리기는 셸의 세션을 **새 `toolId`** 로
-// 여는 일이라, 여는 쪽의 도구에는 신원이 없다. 아는 것은 재개할 세션 id 하나이며
-// 그것이 두 자리를 잇는 유일한 값이다.
-//
-// **에이전트도 함께 맞춰야 한다** (사용자 지적 2026-09-14 — *"id 만 보고 어떤
-// 에이전트에서 가져올지 확인이 되나?"*). 세션 id 는 **형식을 말하지 않는 값**이고,
-// 전사본의 형식은 에이전트마다 다르다 (`ParseHistory` 가 어댑터에 있는 이유가 그것이다).
-// id 만으로 고르면 다른 에이전트의 전사본을 이 어댑터의 파서에 넘기는 길이 열린다.
-//
-// 올리기 경로에서는 `agent` 와 `resume` 이 같은 응답(`/api/agent/session`)에서 함께
-// 오므로 실제로는 어긋나지 않는다. 그것은 **호출자의 예의**이지 이 함수의 보장이
-// 아니며, 보장은 여기 있어야 한다.
-//
-// 보고에 에이전트가 없으면 **맞춰 볼 수 없으므로 쓰지 않는다** — 모르는 것을 "맞다"
-// 로 읽지 않는다 (FR-CBG-5).
-func (s *Server) transcriptFor(sessionID, agentID string) string {
-	if sessionID == "" || agentID == "" {
-		return ""
-	}
-	out := ""
-	s.agentSessions.Range(func(_, v any) bool {
-		info, _ := v.(*AgentSessionInfo)
-		if info != nil && info.SessionID == sessionID && info.Agent == agentID && info.TranscriptPath != "" {
-			out = info.TranscriptPath
-			return false
-		}
-		return true
-	})
-	return out
-}
-
-// AgentSession 은 그 도구의 세션 신원이다. 모르면 nil 이다 — 빈 구조체를 돌려주면
-// 받는 쪽이 "신원이 빈 세션" 으로 읽는다.
-func (s *Server) AgentSession(toolID string) *AgentSessionInfo {
-	v, ok := s.agentSessions.Load(toolID)
-	if !ok {
-		return nil
-	}
-	info, _ := v.(*AgentSessionInfo)
-	return info
 }
 
 // serverLimits 는 서버 하나의 상한·유예다. const 가 아닌 것은 테스트가 낮춰
@@ -486,142 +396,6 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 	}
 }
 
-// --- HTTP recover middleware ------------------------------------------------
-
-// recoverMiddleware 는 핸들러의 패닉을 500 으로 바꾸고 스택과 함께 남긴다
-// (FR-CAF-5).
-//
-// **왜 필요한가.** `net/http` 는 패닉을 잡아 그 연결만 끊는다. 서버는 살아남지만
-// 브라우저는 아무 응답도 받지 못하고, 남는 것은 스택뿐이다 — 사용자에게는
-// "한번씩 안 된다" 로 보인다. WS 경로는 이미 recover 를 쓰고 있었고
-// (handlers_ws.go:229·299) HTTP 경로에만 그물이 없었다.
-//
-// 두 가지를 하지 않는다:
-//
-//	① 이미 시작된 응답의 헤더를 건드리지 않는다 (FR-CAF-6). SSE·WS 가 그 처지다.
-//	② `http.ErrAbortHandler` 를 삼키지 않는다 (FR-CAF-7). 그것은 패닉의 모양을
-//	   빌린 약속된 값이며, 뜻은 "조용히 끊어라" 다.
-func recoverMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			v := recover()
-			if v == nil {
-				return
-			}
-			if v == http.ErrAbortHandler {
-				panic(v)
-			}
-			dmlog.Errorf(nil, "http panic %s %s: %v\n%s", r.Method, r.URL.Path, v, debug.Stack())
-			if rw, ok := w.(*responseWriter); ok && rw.wrote {
-				return
-			}
-			httpErr(w, "internal error", http.StatusInternalServerError, apierr.CodeInternal)
-		}()
-		next.ServeHTTP(w, r)
-	})
-}
-
-// --- HTTP logging middleware ------------------------------------------------
-
-func loggingMiddleware(next http.Handler) http.Handler {
-	return loggingMiddlewareFor(nil, next)
-}
-
-// loggingMiddlewareFor 는 로그와 함께 **마지막 요청 시각**을 새긴다
-// (FR-CNR-11). srv 가 nil 이면 새기지 않는다 — 서버 없이 쓰는 테스트가 있다.
-//
-// 새기는 자리가 `shouldLogRequest` **바깥**인 것이 요점이다. 핫패스 필터로
-// 로그에서 빠지는 `/api/ping` 도 "요청이 왔다" 는 사실은 같으며, 진단이 가르려는
-// 것이 정확히 그 사실이다 (§2.3).
-func loggingMiddlewareFor(srv *Server, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		if srv != nil {
-			srv.lastReq.Store(start.UnixNano())
-		}
-		rw := &responseWriter{ResponseWriter: w, status: 200}
-		next.ServeHTTP(rw, r)
-		if shouldLogRequest(r.URL.Path, rw.status) {
-			// FR-OBS-9: 접근 로그가 요청 ID 를 싣는다 — 이 줄과 핸들러가 남긴
-			// 줄과 데몬 RPC 줄이 같은 값으로 묶인다.
-			dmlog.Infof(r.Context(), "http %s %s %d %s addr=%s",
-				r.Method, r.URL.Path, rw.status, time.Since(start).Round(time.Millisecond), r.RemoteAddr)
-		}
-	})
-}
-
-// shouldLogRequest filters high-frequency hot-path endpoints from the access
-// log. Errors (status>=400) always log so failures stay observable. Split
-// tools / tool-delete flows hammer /api/workspace and /api/tools dozens of
-// times per second; logging each one caused hundreds of ms of keyboard-input
-// lag (H5).
-func shouldLogRequest(path string, status int) bool {
-	if status >= 400 {
-		return true
-	}
-	switch path {
-	case "/api/ping", "/api/stats":
-		return false
-	}
-	if strings.HasPrefix(path, "/api/workspace") || strings.HasPrefix(path, "/api/tools") {
-		return false
-	}
-	return true
-}
-
-type responseWriter struct {
-	http.ResponseWriter
-	status int
-	// wrote 는 **응답이 이미 시작됐는가** 다. 그물(recoverMiddleware)이 이것을
-	// 읽는다 — 헤더가 나간 뒤의 패닉에 500 을 덧쓰면 상태가 뒤집히거나
-	// `superfluous WriteHeader` 만 남는다 (FR-CAF-6). SSE 와 하이재킹된 WS 가
-	// 정확히 그 처지다.
-	wrote bool
-}
-
-func (rw *responseWriter) WriteHeader(status int) {
-	if rw.wrote {
-		return
-	}
-	rw.wrote = true
-	rw.status = status
-	rw.ResponseWriter.WriteHeader(status)
-}
-
-// Write 는 헤더를 명시적으로 쓰지 않고 본문부터 내보내는 핸들러를 위한 것이다 —
-// 그 경우에도 응답은 시작된 것이며(net/http 가 200 을 먼저 보낸다), 그물은 그
-// 사실을 알아야 한다.
-func (rw *responseWriter) Write(b []byte) (int, error) {
-	rw.wrote = true
-	return rw.ResponseWriter.Write(b)
-}
-
-func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	if h, ok := rw.ResponseWriter.(http.Hijacker); ok {
-		// 하이재킹된 뒤로 이 ResponseWriter 는 쓸 수 없다. 그물이 여기에
-		// 헤더를 쓰면 패닉이 하나 더 난다.
-		rw.wrote = true
-		return h.Hijack()
-	}
-	return nil, nil, fmt.Errorf("ResponseWriter does not implement http.Hijacker")
-}
-
-func (rw *responseWriter) Flush() {
-	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
-		f.Flush()
-	}
-}
-
-// assetVersion 은 지금 서빙하는 자산의 판을 준다. 모르면 빈 문자열이다.
-//
-// ASSET_VERSION_SINGLE_SOURCE_SRS FR-AVS-3: 판을 아는 자리는 **하나**다. 문서에 넣는
-// 값과 인사에 싣는 값이 여기서 함께 나온다.
-//
-// 종전에는 서빙되는 `index.html` 을 되읽어 `?v=` 를 정규식으로 긁었다. 그때는 문서가
-// 판을 손으로 적었고, 손으로 적은 상수와 갈라지는 것을 막을 길이 그것뿐이었다
-// (RELOAD_CONTINUITY_SRS FR-RLC-21). 이제 문서를 **쓰는 쪽**이 여기이므로 갈릴 수가
-// 없다 — 되읽는 것은 같은 값을 두 번 만드는 일이며, 깨질 정규식을 하나 더 두는 것이다.
-//
 // 판을 모르는 경우는 정적 자산이 아예 없는 구성 하나다 (FR-AVS-10).
 func (s *Server) assetVersion() string {
 	s.assetVerOnce.Do(func() {
