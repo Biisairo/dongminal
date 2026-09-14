@@ -346,6 +346,41 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     }
   });
 
+  /**
+   * V-M9-39 · V-M9-40 (M9_SRS FR-M9-39·40 / M9-B20·B22): **하단 대시보드와 바.**
+   *
+   * 접수한 말: *"채팅 하단에 보기 좋게 대시보드로 되어있으면 좋겠고"* ·
+   * *"context window 는 bar 가 차는 모양으로도 같이 보고싶어"*. 중복을 어떻게 할지
+   * 물었을 때 답은 *"상단에것을 없애고 전부 하단으로 내린다"* 였다 — 그래서 **머리에
+   * 없다**는 것도 함께 잰다. 옮기지 않고 더하기만 하면 같은 값이 두 자리에 선다.
+   *
+   * 바는 **모르면 그리지 않는다** (FR-CBG-5). 첫 턴 전에는 사용량이 오지 않았으므로
+   * 없어야 하고, 0% 짜리 빈 바로 채우면 "안 썼다" 로 읽힌다.
+   */
+  test('V-M9-39/40 (FR-M9-39·40): 상태는 하단 대시보드에 서고 바가 함께 찬다', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    // 머리에서 사라졌다 — 남는 것은 이름·상태·버튼이다.
+    for (const cls of ['.agp-ctx', '.agp-model', '.agp-perm', '.agp-cost', '.agp-cwd']) {
+      expect(await pane.locator(`.agp-head ${cls}`).count(), `머리에 ${cls} 가 남았다`).toBe(0);
+      expect(await pane.locator(`.agp-dash ${cls}`).count(), `하단에 ${cls} 가 없다`).toBe(1);
+    }
+    // 첫 턴 전 — 사용량을 모르므로 바가 없다.
+    await expect(pane.locator('.agp-ctxbar')).toBeHidden();
+    await send(pane, 'say PONG');
+    await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
+    // 컨텍스트 바가 찬다. **값이므로** 이름과 수치를 함께 단다.
+    const bar = pane.locator('.agp-ctxbar');
+    await expect(bar).toBeVisible({ timeout: 10000 });
+    await expect(bar).toHaveAttribute('aria-label', /\S/);
+    const now = Number(await bar.getAttribute('aria-valuenow'));
+    expect(Number.isFinite(now) && now >= 0 && now <= 100, `valuenow=${now}`).toBe(true);
+    // 숫자는 **그대로 남는다** — 바는 대신이 아니라 함께다.
+    await expect(pane.locator('.agp-dash .agp-ctx')).not.toBeEmpty();
+    // 플랜 한도 바도 선다 (fakeagent 가 `rate_limit_event` 를 낸다).
+    await expect(pane.locator('.agp-limbar')).toBeVisible({ timeout: 10000 });
+  });
+
   test('TC-AGT-7: 프로세스가 죽으면 오류 상태 — 사유가 보이고 입력이 막히고, 재개가 된다 (V-8, FR-ABG-20)', async ({ page }) => {
     await waitForInit(page);
     const pane = await openAgentTab(page);

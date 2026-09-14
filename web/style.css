@@ -978,6 +978,21 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 /* ── Drag & Drop ── */
 /* M9_SRS FR-M9-36: 올리기 진입점. 조건이 설 때만 `hidden` 이 풀린다 — 평소 터미널
    위에는 아무것도 없다. 출력을 가리는 면적을 줄이려 아이콘 하나다. */
+/* ── 에이전트 대시보드 (M9_SRS FR-M9-39·40 / M9-B20·B22) ──
+   머리에 늘어서던 값들이 여기로 내려왔다. 값이 없는 항목은 `:empty` 로 사라지므로
+   빈 자리가 남지 않는다 — "모른다" 를 빈 칸으로 보이지 않게 하는 자리다. */
+.agp-dash{
+  display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;
+  padding:4px 8px;border-top:1px solid var(--border);
+  font-size:var(--fs-xs);color:var(--text-hint);
+}
+.agp-dash>span:empty{display:none}
+/* 바는 값이다 — `role=progressbar` 가 붙어 있고 폭이 비율이다 (FR-M9-40). */
+.agp-bar{flex:0 0 auto;width:72px;height:6px;border-radius:3px;background:var(--border);overflow:hidden}
+.agp-bar-fill{height:100%;width:0;background:var(--accent)}
+/* 한도는 계정 전체의 것이라 컨텍스트와 **다른 색**이다 — 나란히 두어도 섞이지 않는다. */
+.agp-limbar>.agp-bar-fill{background:var(--attn)}
+
 .tp>.tp-lift{position:absolute;top:4px;right:4px;z-index:var(--z-raised)}
 .tp>.tp-drop-hint{display:none}
 .tp.dragover>.tp-drop-hint{

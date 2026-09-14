@@ -596,10 +596,22 @@ func TestApiAgentSessionOf(t *testing.T) {
 	who := s.WhoAmI.(*fakeWhoAmI)
 	who.toolID = "tool-lift"
 
-	// 신원이 오기 전에는 404 — 진입점이 서지 않는 상태다.
-	code, _ := getRun(t, s, "/api/agent/session?tool=tool-lift")
-	if code != 404 {
-		t.Fatalf("신원이 없는데 200 을 냈다: %d", code)
+	/**
+	 * 신원이 오기 전에는 `liftable:false` 다 — **오류가 아니다** (FR-M9-37).
+	 *
+	 * 대부분의 터미널에는 에이전트가 돌지 않는다. 그 정상 상태를 404 로 내면
+	 * 브라우저 콘솔이 오류로 쌓이고, 사용자가 그것을 고장으로 읽는다
+	 * (접수 2026-09-14). 오류 코드는 **종단이 없을 때**의 것이다.
+	 */
+	code, out0 := getRun(t, s, "/api/agent/session?tool=tool-lift")
+	if code != 200 {
+		t.Fatalf("신원 없음은 오류가 아니다: %d %v", code, out0)
+	}
+	if out0["liftable"] != false {
+		t.Fatalf("올릴 수 없다고 말해야 한다: %v", out0)
+	}
+	if _, ok := out0["sessionId"]; ok {
+		t.Fatalf("없는 신원을 빈 값으로라도 실어 보내지 않는다: %v", out0)
 	}
 
 	postRun(t, s, "/api/runs/context",
@@ -609,7 +621,7 @@ func TestApiAgentSessionOf(t *testing.T) {
 	if code != 200 {
 		t.Fatalf("신원이 있는데 %d: %v", code, out)
 	}
-	if out["sessionId"] != "sid-lift" || out["agent"] != "claude" {
+	if out["liftable"] != true || out["sessionId"] != "sid-lift" || out["agent"] != "claude" {
 		t.Fatalf("신원: %v", out)
 	}
 	// 어댑터가 아는 종료 지시가 함께 온다 (claude 는 `/exit`).

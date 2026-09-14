@@ -138,7 +138,7 @@ func runDmctlSpecial(cmd string, rest []string, stdout, stderr io.Writer) (int, 
 	case "activity":
 		return runDmctlActivity(rest, os.Stdin, stdout, stderr), true
 	case "agent-context":
-		return runDmctlAgentContext(rest, stdout, stderr), true
+		return runDmctlAgentContext(rest, os.Stdin, stdout, stderr), true
 	case "read-screen", "read-output":
 		return runDmctlRead(cmd, rest, stdout, stderr), true
 	case "send-input":

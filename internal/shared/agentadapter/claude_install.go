@@ -84,8 +84,10 @@ func writeClaudePluginHooks(s InstallSpec) error {
 			"SessionStart": []any{map[string]any{
 				"matcher": "",
 				"hooks": []any{map[string]any{
-					"type":    "command",
-					"command": s.HookCommand("agent-context"),
+					"type": "command",
+					// FR-M9-37: 어느 에이전트의 세션인지 함께 말한다 — 신원만으로는
+					// `claude --resume` 인지 알 수 없고, 올리려면 어댑터를 골라야 한다.
+					"command": s.HookCommand("agent-context", claudeID),
 				}},
 			}},
 		},

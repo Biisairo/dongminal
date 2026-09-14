@@ -506,3 +506,27 @@ func TestClaudeProto_CacheTokensSurface(t *testing.T) {
 		t.Fatalf("출력 토큰: %d", u.OutputTokens)
 	}
 }
+
+// V-M9-38 (M9_SRS FR-M9-38 / M9-B21): **순환 목록은 실측한 값이다.**
+//
+// 접수한 말이 *"permission mode 에도 auto 모드가 없어"* 였고, 실측에서 그 세션의
+// **현재 모드가 `auto`** 였다 (`initialize` 응답의 `current_permission_mode`).
+// 순환 목록에 없는 값이 현재값이면 사용자는 그 모드로 **돌아갈 수 없다**.
+func TestClaudeProto_PermissionModesCoverCLI(t *testing.T) {
+	p, _ := protoOf(t)
+	have := map[string]bool{}
+	for _, m := range p.PermissionModes {
+		have[m] = true
+	}
+	// `claude --help` 의 choices 여섯 + 실측에서 받아들인 `default`.
+	for _, want := range []string{"default", "acceptEdits", "auto", "plan",
+		"bypassPermissions", "dontAsk", "manual"} {
+		if !have[want] {
+			t.Fatalf("순환 목록에 %q 가 없다: %v", want, p.PermissionModes)
+		}
+	}
+	// 중복이 있으면 순환이 같은 자리를 두 번 지난다.
+	if len(have) != len(p.PermissionModes) {
+		t.Fatalf("중복: %v", p.PermissionModes)
+	}
+}

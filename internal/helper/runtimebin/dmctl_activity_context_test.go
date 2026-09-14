@@ -262,3 +262,61 @@ func TestTranscriptSize_StatsOnly(t *testing.T) {
 		t.Fatal("없는 파일을 측정했다고 했다")
 	}
 }
+
+// V-M9-37 (M9_SRS FR-M9-37 / M9-B19): **세션 신원은 세션이 시작될 때 잡힌다.**
+//
+// 종전에는 활동 훅(`PostToolUse`·`Notification`·`PreCompact`)만이 신원을 실었다.
+// 그 훅들은 세션이 **무언가를 할 때** 나므로, 띄우고 턴을 돌리지 않은 세션은 영영
+// 신원이 없었다 — 실측에서 사용자의 탭이 그 상태였고(`claude --resume …` 가 도는데
+// 서버는 `no agent session`), 그래서 올리기 진입점이 서지 않았다.
+//
+// `SessionStart` 훅은 **무조건** 발화한다. 그것이 이 자리의 값이다.
+func TestAgentContext_SessionStartCarriesIdentity(t *testing.T) {
+	cap := startCapture(t, "tool-ctx")
+	var out, errb strings.Builder
+	if code := runDmctlAgentContext([]string{"claude"}, hookJSON(t, map[string]any{
+		"hook_event_name": "SessionStart",
+		"session_id":      "s-start",
+		"cwd":             "/tmp",
+	}), &out, &errb); code != 0 {
+		t.Fatalf("훅은 항상 0 으로 끝난다, got %d", code)
+	}
+	// 본래의 일(컨텍스트 주입)은 그대로다 — 신원 보고가 그것을 가리면 안 된다.
+	if !strings.Contains(out.String(), "additionalContext") {
+		t.Fatalf("주입 페이로드가 사라졌다: %s", out.String())
+	}
+	cap.mu.Lock()
+	got := append([]string(nil), cap.context...)
+	cap.mu.Unlock()
+	if len(got) != 1 {
+		t.Fatalf("신원 보고가 한 번 가야 한다: %v", got)
+	}
+	for _, want := range []string{`"sessionId":"s-start"`, `"toolId":"tool-ctx"`, `"agent":"claude"`} {
+		if !strings.Contains(got[0], want) {
+			t.Fatalf("보고에 %s 가 없다: %s", want, got[0])
+		}
+	}
+	// NFR-4: 식별자 둘뿐이다 — 경로도 내용도 실리지 않는다.
+	if strings.Contains(got[0], "/tmp") || strings.Contains(got[0], "transcript") {
+		t.Fatalf("식별자 밖의 것이 실렸다: %s", got[0])
+	}
+}
+
+// V-M9-37: **신원이 없으면 아무것도 보내지 않는다.** 빈 값을 보내면 받는 쪽이
+// "신원이 빈 세션" 으로 읽고, 그것은 "모른다" 와 다르다 (FR-CBG-5).
+func TestAgentContext_NoIdentityIsSilent(t *testing.T) {
+	cap := startCapture(t, "tool-ctx")
+	var out, errb strings.Builder
+	runDmctlAgentContext([]string{"claude"}, hookJSON(t, map[string]any{
+		"hook_event_name": "SessionStart",
+	}), &out, &errb)
+	cap.mu.Lock()
+	n := len(cap.context)
+	cap.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("신원이 없는데 보고했다: %v", cap.context)
+	}
+	if !strings.Contains(out.String(), "additionalContext") {
+		t.Fatalf("주입은 그대로여야 한다: %s", out.String())
+	}
+}

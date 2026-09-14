@@ -53,6 +53,10 @@ class AgentPane {
      */
     this.limitsEl=document.createElement('span'); this.limitsEl.className='agp-limits';
     this.limitsEl.title=t('agent.limits_title'); this.limitsEl.hidden=true;
+    // FR-M9-34 가 나르기 시작한 값 — 그리는 자리는 여기다.
+    this.cacheEl=document.createElement('span'); this.cacheEl.className='agp-cache';
+    // 세션 신원은 종전에 `dataset` 에만 있었다 (화면에 없었다).
+    this.sessEl=document.createElement('span'); this.sessEl.className='agp-sess';
     this.openEl=document.createElement('span'); this.openEl.className='agp-open';
     const sp=document.createElement('span'); sp.className='agp-spacer';
     /**
@@ -66,7 +70,16 @@ class AgentPane {
       cls:'agp-tui-btn',onClick:()=>this.app.agentOpenTerminal(this.id)});
     this.tuiBtn.hidden=true;
     this.menuBtn=UIKit.button({icon:'menu',title:t('agent.menu_title'),kind:'ghost',size:'sm',cls:'agp-menu-btn',onClick:e=>this._openMenu(e)});
-    for(const x of [this.lblEl,this.cwdEl,this.repoEl,this.stateEl,this.modelEl,this.permEl,this.ctxEl,this.costEl,this.limitsEl,this.openEl,sp,this.tuiBtn,this.menuBtn]) head.appendChild(x);
+    /**
+     * M9_SRS FR-M9-39 (M9-B20, 사용자 결정 2026-09-14): **머리에는 셋만 남는다.**
+     *
+     *   이전 동작: 값 열 개가 머리에 한 줄로 늘어섰다 — 좁고, 늘어날수록 읽기 어렵다
+     *   새  동작: 이름·상태·(버튼) 만 남기고 **전부 하단 대시보드로 내린다**
+     *   이유:     접수한 말이 *"채팅 하단에 보기 좋게 대시보드로"* 이고, 중복을
+     *             어떻게 할지 물었을 때 *"상단에것을 없애고 전부 하단으로 내린다"*
+     *             였다. 같은 값이 두 자리에 서지 않는다
+     */
+    for(const x of [this.lblEl,this.stateEl,sp,this.tuiBtn,this.menuBtn]) head.appendChild(x);
     el.appendChild(head);
 
     // 대화
@@ -89,6 +102,25 @@ class AgentPane {
     row.appendChild(this.stopBtn); row.appendChild(this.sendBtn);
     inp.appendChild(row);
     el.appendChild(inp);
+
+    /**
+     * FR-M9-39·40: **채팅 하단의 대시보드.** 참조는 사용자 화면의 `claude-dashboard`
+     * (statusline) 이며 자리도 같다 — 대화와 입력 **아래**다.
+     *
+     * 담는 것은 **우리가 실제로 가진 값**이다. 없는 것은 추정으로 채우지 않으며
+     * (D-M9-22 의 근거가 여기에도 선다), 값이 없는 항목은 자리를 차지하지 않는다 —
+     * 각 갱신 함수가 빈 문자열을 쓰면 `:empty` 로 사라진다.
+     */
+    const dash=document.createElement('div'); dash.className='agp-dash';
+    // 바 둘은 **출처가 다르다** (FR-M9-34): 컨텍스트는 이 대화의 채움, 한도는 계정
+    // 전체. 이름과 단위를 다르게 두는 규약이 여기서도 선다.
+    this.ctxBar=this._mkBar('agp-ctxbar',t('agent.ctx_bar_label'));
+    this.limBar=this._mkBar('agp-limbar',t('agent.limit_bar_label'));
+    dash.appendChild(this.ctxBar.el); dash.appendChild(this.ctxEl);
+    dash.appendChild(this.limBar.el); dash.appendChild(this.limitsEl);
+    for(const x of [this.costEl,this.cacheEl,this.modelEl,this.permEl,
+      this.cwdEl,this.repoEl,this.sessEl,this.openEl]) dash.appendChild(x);
+    el.appendChild(dash);
     this._setState('');
   }
 
@@ -211,6 +243,41 @@ class AgentPane {
   }
   _setModel(m){ if(m){ this._model=m; this.modelEl.textContent=t('agent.model_current',{model:m}) } }
   _setPerm(p){ if(p){ this._perm=p; this.permEl.textContent=t('agent.perm_mode_current',{mode:p}) } }
+  /**
+   * M9_SRS FR-M9-40 (M9-B22): **바는 장식이 아니라 값이다.**
+   *
+   * 접수한 말: *"context window 는 bar 가 차는 모양으로도 같이 보고싶어."*
+   * **숫자와 함께**이므로 옆의 텍스트는 그대로 남는다.
+   *
+   * `role="progressbar"` 와 `aria-valuenow` 를 다는 이유가 그것이다 — 화면을 보지
+   * 않는 사람에게도 이 요소는 값이어야 한다.
+   */
+  _mkBar(cls,label){
+    const el=document.createElement('div'); el.className='agp-bar '+cls;
+    el.setAttribute('role','progressbar');
+    // **이름이 있어야 값이다.** `role` 과 수치만 달면 화면을 보지 않는 사람에게는
+    // "무엇의" 비율인지가 없다 — 접근성 검사가 그 누락을 잡았다(TC-AGT-5 외 5건).
+    el.setAttribute('aria-label',label);
+    el.setAttribute('aria-valuemin','0'); el.setAttribute('aria-valuemax','100');
+    el.hidden=true;
+    const fill=document.createElement('div'); fill.className='agp-bar-fill';
+    el.appendChild(fill);
+    return {el,fill};
+  }
+
+  /**
+   * FR-M9-40: **모르면 그리지 않는다.** 0% 짜리 빈 바는 "안 썼다" 로 읽히고 그것은
+   * "모른다" 와 다르다 (FR-CBG-5). 0 은 값이므로 그린다 — 가르는 것은 숫자인가다.
+   */
+  _setBar(bar,ratio){
+    const ok=typeof ratio==='number'&&isFinite(ratio)&&ratio>=0;
+    bar.el.hidden=!ok;
+    if(!ok) return;
+    const pct=Math.min(100,Math.round(ratio*100));
+    bar.fill.style.width=pct+'%';
+    bar.el.setAttribute('aria-valuenow',String(pct));
+  }
+
   _setUsage(u){
     this._usage=Object.assign({},this._usage||{},Object.fromEntries(Object.entries(u).filter(([,v])=>v)));
     const x=this._usage;
@@ -228,6 +295,13 @@ class AgentPane {
       this.ctxEl.textContent=t('agent.ctx_ratio',{pct:Math.round(x.contextRatio*100)});
     }
     if(x.costUSD) this.costEl.textContent=t('agent.cost',{cost:x.costUSD.toFixed(4)});
+    // FR-M9-40: 컨텍스트 바 — 절대값을 알면 그것으로, 아니면 비율로.
+    this._setBar(this.ctxBar,
+      (x.tokens&&x.contextWindow)?x.tokens/x.contextWindow
+        :(typeof x.contextRatio==='number'?x.contextRatio:null));
+    // FR-M9-34 가 나르기 시작한 cache 를 그린다.
+    this.cacheEl.textContent=(x.cacheRead||x.cacheWrite)
+      ? t('agent.cache',{read:fmtTokens(x.cacheRead||0),write:fmtTokens(x.cacheWrite||0)}) : '';
     this._renderLimits(x.limits);
   }
 
@@ -241,6 +315,14 @@ class AgentPane {
   _renderLimits(limits){
     const list=Array.isArray(limits)?limits:[];
     this.limitsEl.hidden=list.length===0;
+    /**
+     * FR-M9-40: 한도 바는 **가장 임박한 것 하나**다 (목록은 `ResetAt` 오름차순이므로
+     * 첫 항목). 주기마다 바를 그리면 하단이 바로 가득 차고, 그때 컨텍스트 바와
+     * 구별되지 않는다 — 나머지 주기는 옆의 텍스트가 말한다.
+     */
+    const head=list[0];
+    this._setBar(this.limBar, head&&typeof head.ratio==='number'?head.ratio
+      :(head&&head.total?(head.used||0)/head.total:null));
     this.limitsEl.textContent=list.map(l=>{
       const name=this._limitLabel(l);
       // 총량을 주는 어댑터와 비율만 주는 어댑터가 다른 문장을 쓴다.
@@ -298,7 +380,13 @@ class AgentPane {
   }
 
   _renderOpen(){ const n=this._openIds.size; this.openEl.textContent=n>0?t('agent.open_requests',{n}):''; }
-  _sessionLine(sid){ if(sid) this.el.dataset.sessionid=sid }
+  _sessionLine(sid){
+    if(!sid) return;
+    this.el.dataset.sessionid=sid;
+    // FR-M9-39: 종전에는 `dataset` 에만 있어 화면에 없었다. 전체 uuid 는 자리를
+    // 먹으므로 앞 여덟 자만 — 되짚을 때 쓰는 것은 그 접두다.
+    this.sessEl.textContent=t('agent.session_label',{sid:sid.slice(0,8)});
+  }
 
   // ── 대화 렌더 ──
 

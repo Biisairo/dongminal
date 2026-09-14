@@ -109,7 +109,7 @@ Object.assign(App.prototype, {
    */
   async agentLiftFromTerminal(toolId){
     const r=await apiGet('/api/agent/session',{query:{tool:toolId}});
-    if(!r.ok||!r.data||!r.data.sessionId){ Toast.show(apiErrText(r,t('term.lift_to_agent')),'err'); return }
+    if(!r.ok||!r.data||!r.data.liftable){ Toast.show(apiErrText(r,t('term.lift_to_agent')),'err'); return }
     const info=r.data;
     const loc=this.findToolLocation(toolId);
     const paneId=(loc&&loc.pane&&loc.pane.id)||this.focused;

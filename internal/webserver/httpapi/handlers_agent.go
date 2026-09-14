@@ -487,10 +487,14 @@ func (s *Server) apiAgentTUILine(w http.ResponseWriter, r *http.Request) {
 func (s *Server) apiAgentSessionOf(w http.ResponseWriter, r *http.Request) {
 	info := s.AgentSession(r.URL.Query().Get("tool"))
 	if info == nil || info.SessionID == "" {
-		httpErr(w, "no agent session for tool", http.StatusNotFound, apierr.CodeAgentNoIdentity)
+		// FR-M9-37: **신원 없음은 정상이다.** 대부분의 터미널에는 에이전트가 돌지
+		// 않으며, 그것을 404 로 내면 브라우저 콘솔이 오류로 쌓인다 (사용자 접수
+		// 2026-09-14 — *"이 오류도 계속 뜨고있어"*). 오류 코드는 **종단이 없을 때**의
+		// 것이지 "물어본 것이 없을 때" 의 것이 아니다.
+		writeJSON(w, map[string]any{"liftable": false})
 		return
 	}
-	out := map[string]string{"sessionId": info.SessionID, "agent": info.Agent}
+	out := map[string]any{"liftable": true, "sessionId": info.SessionID, "agent": info.Agent}
 	// 어댑터를 모르면 종료 지시도 모른다 — 빈 채로 둔다. 받는 쪽이 그때 끝내지
 	// 않을지 정한다 (추측해 `/exit` 를 적지 않는다).
 	if ad, err := agentadapter.Get(info.Agent); err == nil {

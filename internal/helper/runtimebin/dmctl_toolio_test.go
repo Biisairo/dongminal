@@ -403,7 +403,7 @@ func TestDmctlOpenEditor_RequiresAtAndPath(t *testing.T) {
 
 func TestDmctlAgentContext_EmitsSessionStartJSON(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	if rc := runDmctlAgentContext(nil, &stdout, &stderr); rc != 0 {
+	if rc := runDmctlAgentContext(nil, strings.NewReader(""), &stdout, &stderr); rc != 0 {
 		t.Fatalf("rc=%d want 0", rc)
 	}
 	var payload struct {
@@ -435,7 +435,7 @@ func TestDmctlAgentContext_EmitsSessionStartJSON(t *testing.T) {
 func TestDmctlAgentContext_AlwaysZeroWithoutServer(t *testing.T) {
 	t.Setenv("DONGMINAL_PORT", "1")
 	var stdout, stderr bytes.Buffer
-	if rc := runDmctlAgentContext(nil, &stdout, &stderr); rc != 0 {
+	if rc := runDmctlAgentContext(nil, strings.NewReader(""), &stdout, &stderr); rc != 0 {
 		t.Fatalf("rc=%d want 0", rc)
 	}
 }
@@ -467,7 +467,9 @@ func TestDmctlSubcommandHelp(t *testing.T) {
 		}},
 		{"msg", func(a []string, o, e io.Writer) int { return runDmctlMsg(a, strings.NewReader(""), o, e) }},
 		{"open-editor", runDmctlOpenEditor},
-		{"agent-context", runDmctlAgentContext},
+		{"agent-context", func(a []string, o, e io.Writer) int {
+			return runDmctlAgentContext(a, strings.NewReader(""), o, e)
+		}},
 	}
 	for _, c := range cases {
 		var stdout, stderr bytes.Buffer

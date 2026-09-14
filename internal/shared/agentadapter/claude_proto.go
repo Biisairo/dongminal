@@ -26,7 +26,24 @@ var claudeProto = Proto{
 	TUIResume: func(sessionID string) []string { return []string{"claude", "--resume", sessionID} },
 	// TUI 의 Shift+Tab 순서다 (FR-AGT-4a). `bypassPermissions` 는 설정으로 켜야 나타나는
 	// 값이라 순환에 두지 않는다 — 실을 수 있는 값은 `--permission-mode` 의 선택지다.
-	PermissionModes: []string{"default", "acceptEdits", "plan"},
+	/**
+	 * M9_SRS FR-M9-38 (M9-B21, 사용자 접수 2026-09-14 — *"permission mode 에도 auto
+	 * 모드가 없어"*): **실측한 목록이다.**
+	 *
+	 *   이전 동작: `default`·`acceptEdits`·`plan` 셋
+	 *   새  동작: CLI 가 받는 일곱
+	 *   이유:     실측에서 그 세션의 **현재 모드가 `auto`** 였다(`initialize` 응답의
+	 *             `current_permission_mode`). 순환 목록에 없는 값이 현재값이면
+	 *             사용자는 그 모드로 **돌아갈 수 없다**
+	 *
+	 * 출처는 `claude --help` 의 choices 여섯이고, `default` 를 앞에 더했다 — choices
+	 * 에는 없으나 **실측에서 받아들였다**(`--permission-mode default` 로 기동 성공).
+	 *
+	 * **프로토콜은 이 목록을 주지 않는다.** `initialize` 응답이 주는 것은 현재값
+	 * 하나이며(실측), 그래서 이것은 선언이다 — 에이전트가 값을 바꾸면 여기가 낡는다.
+	 */
+	PermissionModes: []string{"default", "acceptEdits", "auto", "plan",
+		"bypassPermissions", "dontAsk", "manual"},
 }
 
 // claudeExt 는 이 어댑터의 사적 상태다 (ProtoState.Ext).

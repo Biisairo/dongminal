@@ -163,8 +163,15 @@ agent version, permission mode, model, effort level 등)"*. **각각 지금 오�
 | **cache hit** | ⚠️ **파싱은 하는데 버린다** | `claudeUsage.CacheWrite/CacheRead` 를 읽지만 `context()` 가 `Input+CacheWrite+CacheRead` 로 **합쳐** `Tokens` 하나로 낸다. `ProtoUsage` 에 필드 둘을 더하면 끝 — **가장 값싼 항목** |
 | **path (cwd)** | ✅ 있다 (다른 길) | `GET /api/cwd?tool=` — 프로토콜이 아니라 도구의 것이다 |
 | **branch · upstream** | ✅ 있다 (다른 길) | git 관측의 것 — `gitPanel.statusOf()`. **에이전트가 아니라 그 도구의 cwd 가 속한 저장소**에서 온다. 그 둘을 잇는 자리가 지금은 없다 |
-| **agent version** | ❌ **안 온다** | `claudeFrame` 에 version 필드가 없다. `init` 이 싣는 것은 `session_id`·`model`·`permissionMode` 뿐이다. 받으려면 **프레임 밖**(기동 시 `claude --version` 등)이고 그것은 새 요구다 |
-| **effort level** | ❌ **상태로는 안 온다** | 제어(`set_max_thinking_tokens`)로 **보낼 수는 있다**. 지금 값을 **되읽는** 길이 없다 — 보낸 값을 우리가 기억하는 것과 에이전트의 실제 값은 다르다 |
+| **agent version** | ❌ **안 온다** | `claudeFrame` 에 version 필드가 없다. 받으려면 **프레임 밖**이고 그것은 새 요구다. (statusline stdin 에는 있으나 그 길은 `-p` 에서 닫혀 있다 — P8 실측) |
+| **effort level** | ⚠️ **개정됨 (P8 실측 2026-09-14)** | *"상태로는 안 온다"* 가 **틀렸다.** `initialize` 응답의 `models[]` 가 `supportsEffort` 와 `supportedEffortLevels`(`low·medium·high·xhigh·max`)를 싣는다. 다만 그것은 **모델이 무엇을 지원하는가**이고 *현재 값*은 여전히 되읽을 길이 없다 |
+
+> **§3.1 은 두 번 틀렸다** (P7·P8 실측). 플랜 한도는 `rate_limit_event` 로 오고
+> (D-M9-22 개정), effort 지원 목록은 `initialize` 가 준다. 두 번 다 원인이 같다 —
+> **프레임을 세지 않고 문서에서 추론했다** (`M9_PROGRESS` §2-23). `initialize` 는
+> 이 표가 적은 것보다 훨씬 많이 싣는다: `account`(구독 종류) · `output_style` ·
+> `available_output_styles` · `fast_mode_state` · `session_state` · `agents` ·
+> `commands`. 다음에 "온다/안 온다" 를 적을 때는 **그 응답을 먼저 덤프하라**.
 | **5시간 · 주간 한도** | ❌ 안 온다 | §3 본문 — CLI 의 `/usage`·웹 Settings 의 것이다 |
 
 **세 갈래로 갈린다.** ① **이미 온다** — 그리는 일만 남았다 ② **오는데 버린다**(cache) —

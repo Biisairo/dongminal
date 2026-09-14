@@ -233,7 +233,9 @@ class TerminalTool {
     if(!this.el||!this.el.isConnected) return;
     const r=await apiGet('/api/agent/session',{query:{tool:this.id}});
     if(!this.el||!this.el.isConnected) return;
-    if(!(r.ok&&r.data&&r.data.sessionId)){
+    // FR-M9-37: 신원이 없는 것은 **정상 응답**이다 (`liftable:false`). 오류가 아니므로
+    // `r.ok` 이고, 판정은 그 필드가 한다.
+    if(!(r.ok&&r.data&&r.data.liftable)){
       if(this.liftBtn) this.liftBtn.hidden=true;
       return;
     }
