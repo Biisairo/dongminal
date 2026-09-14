@@ -394,6 +394,11 @@ func (pc *panedConn) snapshot(req *toolipc.PanedRequest) interface{} {
 		"retained":       snap.Retained,
 		"end":            snap.End,
 		"resumed":        snap.Resumed,
+		// FR-M9-3 ①: 크기를 함께 싣는다. 받는 쪽은 PTY 가 다른 프로세스에 있어
+		// 이것 없이는 접속 직후의 폭을 알 길이 없다. 필드를 모르는 옛 웹서버는
+		// 0 으로 읽고 통보하지 않는다 — 지금 동작과 같다.
+		"cols": snap.Cols,
+		"rows": snap.Rows,
 	}}
 }
 
@@ -465,6 +470,17 @@ func (pc *panedConn) pushForeground(toolID, name string) {
 	}, true)
 }
 
+// pushSize 는 `size` push 다 — PTY 크기가 **바뀌었다** (M9_SRS FR-M9-3 ②).
+//
+// droppable 이 아니다. 크기 통보를 잃으면 그 클라이언트는 어긋난 폭으로 계속
+// 읽으며 스스로 낫지 않는다 — `fg` 처럼 다음 폴링이 메워 주는 값이 아니다.
+// 다음에 이 값을 다시 말하는 자리는 **다음 접속의 snapshot** 뿐이다.
+func (pc *panedConn) pushSize(toolID string, cols, rows uint16) {
+	pc.enqueue(map[string]interface{}{
+		"event": "size", "tool": toolID, "cols": cols, "rows": rows,
+	}, false)
+}
+
 // end 는 이 청크의 끝 절대 오프셋이다 (TERMINAL_RESUME_SRS FR-TRS-15). 받는 쪽이
 // 스냅샷과 겹치는 앞부분을 정확히 잘라내는 근거다.
 //
@@ -529,6 +545,17 @@ func NewPanedServer(pm *toolhub.ToolManager, sockPath, pidPath string) *PanedSer
 		ps.mu.Unlock()
 		if c != nil {
 			c.pushForeground(toolID, name)
+		}
+	})
+	// PTY 를 소유한 것이 데몬이므로 크기가 바뀐 것을 아는 자리도 여기다
+	// (FR-M9-3 ②). 직접 모드에서는 이 배선이 없고 `Tool.broadcast` 가 같은
+	// 일을 그 프로세스 안에서 끝낸다 — **두 모드가 같은 바이트를 낸다**.
+	pm.SetResizeNotifier(func(toolID string, cols, rows uint16) {
+		ps.mu.Lock()
+		c := ps.currConn
+		ps.mu.Unlock()
+		if c != nil {
+			c.pushSize(toolID, cols, rows)
 		}
 	})
 	return ps

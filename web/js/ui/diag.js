@@ -193,6 +193,70 @@
   setInterval(watchScroll,1000);
 
   /**
+   * M9-B2: **떨어져 있는 동안**의 `ydisp` 를 본다.
+   *
+   * `term.onScroll` 은 xterm 이 스스로 옮길 때만 난다. 요소가 문서에서 떨어진 뒤
+   * `Buffer.resize`·리플로우가 `ydisp` 를 직접 대입하는 경로는 이벤트를 내지
+   * 않으므로, 접수한 로그에는 `174 → 96` 의 **구간이 통째로 비어 있었다**.
+   * 폴링만이 그 구간을 본다 — 그리고 `conn`·`vis` 가 그때 이 요소가 어디
+   * 있었는지 말한다.
+   *
+   * 바닥 추종(`vY===baseY` 로 함께 오른 것)은 적지 않는다. 그것은 정상이고,
+   * 적으면 조용한 구간이 그 줄에 묻힌다.
+   */
+  const seen=new WeakMap();
+  setInterval(()=>{
+    const a=window.app;
+    if(!a||!a.tools) return;
+    for(const [id,p] of a.tools){
+      if(!p||!p.term) continue;
+      let b; try{b=p.term.buffer.active}catch{continue}
+      const prev=seen.get(p);
+      const now={v:b.viewportY,base:b.baseY,len:b.length,rows:p.term.rows};
+      seen.set(p,now);
+      if(!prev||prev.v===now.v) continue;
+      if(now.v===now.base&&prev.v===prev.base) continue; // 바닥 추종
+      put('ydisp '+String(id).slice(0,8)+' '+prev.v+'->'+now.v
+        +' base='+prev.base+'->'+now.base+' len='+prev.len+'->'+now.len
+        +' rows='+prev.rows+'->'+now.rows
+        +' conn='+p.el.isConnected+' vis='+p.el.classList.contains('vis'));
+    }
+  },200);
+
+  /**
+   * M9-B2: 갈무리와 복원이 **무엇을 쥐고 무엇으로 되돌렸는지**.
+   *
+   * 접수한 로그에서 복원의 흔들기 두 줄(`renderer.js:180`)은 보였지만 그것이
+   * 어떤 `rec` 를 딛는지는 보이지 않았다. 여기가 그 한 줄이다.
+   */
+  const hookRenderer=()=>{
+    const r=window.app&&window.app.renderer;
+    if(!r||r.__diagGrab) return;
+    const g=r._grabScroll.bind(r), s=r._restoreScrollOf.bind(r);
+    r._grabScroll=(p)=>{
+      const rec=g(p);
+      try{
+        const b=p.term&&p.term.buffer.active;
+        put('grab '+String(p.id).slice(0,8)+' y='+rec.y+' atBottom='+rec.atBottom+' alt='+rec.alt
+          +' base='+(b?b.baseY:'?')+' len='+(b?b.length:'?')+' rows='+(p.term?p.term.rows:'?')
+          +' conn='+p.el.isConnected+' vis='+p.el.classList.contains('vis'));
+      }catch{}
+      return rec;
+    };
+    r._restoreScrollOf=(rec)=>{
+      try{
+        const p=rec&&rec.p, b=p&&p.term&&p.term.buffer.active;
+        put('restore '+String(p&&p.id).slice(0,8)+' y='+(rec&&rec.y)+' atBottom='+(rec&&rec.atBottom)
+          +' now='+(b?b.viewportY:'?')+' base='+(b?b.baseY:'?')+' len='+(b?b.length:'?')
+          +' vis='+(p?p.el.classList.contains('vis'):'?'));
+      }catch{}
+      return s(rec);
+    };
+    r.__diagGrab=true;
+  };
+  setInterval(hookRenderer,1000);
+
+  /**
    * OBSERVABILITY_SRS FR-OBS-18: 잡히지 않은 오류를 여기서 본다.
    *
    * 기록은 `error-log.js` 가 **언제나** 쥐고 있다 — 진단을 켜야만 걸리는 훅은

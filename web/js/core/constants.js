@@ -21,7 +21,10 @@
 // SEQ 는 서버가 **좌표**를 통보하는 프레임이다 (TERMINAL_RESUME_SRS FR-TRS-6).
 // 페이로드 9 바이트 — 오프셋 8(빅엔디언) + 전량 재생 여부 1. 재접속의 `since` 가
 // 이 값에서 나온다.
-const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,TOOLID:3,SEQ:4};
+// SIZE 는 서버가 **PTY 의 크기**를 통보하는 프레임이다 (M9_SRS FR-M9-3).
+// 페이로드 4 바이트 — cols 2 + rows 2, 빅엔디언. 크기의 주인이 아닌 창은 이 값을
+// 따르고 자기 `fit()` 결과를 PTY 에 보내지 않는다 (D-M9-3).
+const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,TOOLID:3,SEQ:4,SIZE:5};
 const enc=new TextEncoder(), dec=new TextDecoder();
 // PAGE_TITLE_SRS FR-PGT-7: 설정이 비었을 때 쓰는 페이지 제목.
 const DEFAULT_PAGE_TITLE='Dongminal';

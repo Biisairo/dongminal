@@ -12,6 +12,10 @@ class TerminalTool {
     // FR-RCS-1: 도구가 사라졌다는 서버의 통보(OP.EXIT)를 받았는가. 서면 재연결을
     // 영구히 멈춘다. FR-RCS-3 의 healthy 타이머는 "이 연결이 유효했는가"의 근거다.
     this._exited=false; this._healthyTimer=null;
+    // M9_SRS FR-M9-3: 서버가 통보한 **PTY 의 크기**. 0 은 "아직 모른다" 이며,
+    // 그때는 종전대로 자기 `fit()` 이 화면을 정한다 — 옛 서버에 붙은 탭의 동작이
+    // 그대로여야 한다 (FR-TRS-9 와 같은 규약).
+    this._ptyCols=0; this._ptyRows=0;
     this._sendQueue=[]; this._sendQueueMax=64; this._sendDropCount=0;
     this._decoder=new TextDecoder('utf-8',{fatal:false}); this._outputBuf=''; this._flushScheduled=false; this._carryTimer=null;
     // TERMINAL_RESUME_SRS FR-TRS-7: `_seq` 는 **마지막으로 본 바이트 오프셋**이고
@@ -527,6 +531,7 @@ class TerminalTool {
   _onOp(d){
     if(d[0]===OP.OUTPUT){ this._handleOutput(d.subarray(1)); }
     else if(d[0]===OP.SEQ){ this._onSeq(d.subarray(1)); }
+    else if(d[0]===OP.SIZE){ this._onSize(d.subarray(1)); }
     else if(d[0]===OP.TOOLID){ this.id=dec.decode(d.subarray(1)); this.el.dataset.toolid=this.id; }
     else if(d[0]===OP.EXIT){ this._markExited(); }
     else if(d[0]===OP.ERROR){ this.write('\r\n\x1b[31m'+dec.decode(d.subarray(1))+'\x1b[0m\r\n'); }
@@ -723,7 +728,59 @@ class TerminalTool {
     try{this._decoder=new TextDecoder('utf-8',{fatal:false});this._outputBuf=''}catch{}
   }
   write(s){if(this.term)try{this.term.write(s)}catch{}else this._buf.push(s)}
-  doFit(){if(this.fit)try{this.fit.fit()}catch{}}
+  /**
+   * FR-M9-3: **크기의 주인이 아닌 창은 PTY 를 따른다** (D-M9-3).
+   *
+   * 주인은 `resizeCheck` 가 이미 가른다 (FR-WSL-14 — 슬롯까지 묻는다). 없던 것은
+   * 판정이 아니라 **그 사실을 나머지에게 말하는 길**이었고, 이 값이 그것이다.
+   *
+   * 크기를 아직 못 받았으면 따르지 않는다 — 옛 서버에 붙은 탭은 종전대로 돈다.
+   */
+  _followsPty(){
+    if(!(this._ptyCols>0&&this._ptyRows>0)) return false;
+    if(!window.app||!window.app.resizeCheck) return false;
+    return !window.app.resizeCheck(this.id,this._slot);
+  }
+
+  /**
+   * FR-M9-3: 받은 크기로 xterm 을 세운다. 남는 폭은 여백이다.
+   *
+   * 주인에게는 하지 않는다 — 그쪽의 진실은 자기 `fit()` 이고, 그 결과가 PTY 로
+   * 가서 다시 이 통보가 되어 돌아온다. 주인까지 따르게 하면 그 고리가 자기를
+   * 먹는다.
+   */
+  _applyPtySize(){
+    if(!this.term||!this._followsPty()) return;
+    if(this.term.cols===this._ptyCols&&this.term.rows===this._ptyRows) return;
+    try{this.term.resize(this._ptyCols,this._ptyRows)}catch{}
+  }
+
+  /**
+   * FR-M9-3: 서버가 통보한 PTY 크기 (4 바이트 — cols 2 + rows 2, 빅엔디언).
+   *
+   * 0 은 "모른다" 이고 서버는 그것을 보내지 않는다. 그래도 막는 것은, 0 을 그대로
+   * 쓰면 `term.resize(0,0)` 이 화면을 잃기 때문이다.
+   */
+  _onSize(p){
+    if(!p||p.length<4) return;
+    const dv=new DataView(p.buffer,p.byteOffset,p.length);
+    const cols=dv.getUint16(0,false), rows=dv.getUint16(2,false);
+    if(!(cols>0&&rows>0)) return;
+    this._ptyCols=cols; this._ptyRows=rows;
+    this._applyPtySize();
+  }
+
+  /**
+   * FR-M9-3: 비소유자의 `fit()` 은 **자기 폭으로 되돌리는 일**이다.
+   *
+   * `doFit` 은 렌더·레이아웃·키보드 등 여러 자리가 조건 없이 부른다. 그 전부에
+   * 판정을 심는 대신 여기 하나에 둔다 — 판정 자리가 둘이면 한쪽만 고쳐진다.
+   * 소유자의 동작은 종전과 완전히 같다.
+   */
+  doFit(){
+    if(this._followsPty()){ this._applyPtySize(); return }
+    if(this.fit)try{this.fit.fit()}catch{}
+  }
   focus(){if(this.term)try{this.term.focus()}catch{}}
   _reconnect(){
     if(this._destroyed||this._exited) return;

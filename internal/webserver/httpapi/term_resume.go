@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"dongminal/internal/shared/outbuf"
+	"dongminal/internal/shared/toolhub"
 )
 
 // 재접속은 이어 붙이는 것이지 다시 뿌리는 것이 아니다 (TERMINAL_RESUME_SRS).
@@ -93,6 +94,23 @@ func seqPayload(offset int64, full bool) []byte {
 		p[8] = 1
 	}
 	return p
+}
+
+// sendSize 는 접속 직후의 크기 통보다 (M9_SRS FR-M9-3 ①).
+//
+// **두 모드가 이 함수 하나를 함께 쓴다** — direct 는 `tool.Size()` 로, daemon 은
+// 스냅샷이 실어 온 값으로 부른다. 값을 받는 모양인 것은 daemon 쪽의 PTY 가 다른
+// 프로세스에 있어 여기서 물을 수 없기 때문이다 (`buildReplay` 가 두 모드를
+// 함께 쓰는 것과 같은 근거, FR-TRS-12).
+//
+// 크기를 모르면 **보내지 않는다.** 0×0 을 보내면 받는 쪽이 `term.resize(0,0)` 로
+// 화면을 잃는다 — 모르는 것을 값으로 말하지 않는 것이 이 자리의 규약이다.
+// 실패는 삼킨다: 죽은 소켓은 바로 뒤의 재생이 다시 만나고, 그쪽이 판정한다.
+func sendSize(conn *toolhub.SafeConn, cols, rows uint16) {
+	if cols == 0 || rows == 0 {
+		return
+	}
+	_ = conn.Send(toolhub.OpSize, toolhub.SizePayload(cols, rows))
 }
 
 // trimOverlap 은 이미 보낸 구간과 겹치는 라이브 청크의 앞부분을 잘라낸다

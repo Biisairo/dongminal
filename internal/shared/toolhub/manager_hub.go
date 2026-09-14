@@ -80,6 +80,13 @@ type ToolSnapshot struct {
 	// Resumed 는 요청한 since 에서 **이어 붙였는가** 다. false 면 전량 재생이고,
 	// 그때만 받는 쪽이 화면을 지운다 (FR-TRS-10).
 	Resumed bool
+	// Cols·Rows 는 **지금 PTY 의 크기**다 (M9_SRS FR-M9-3 ①). 접속 직후의 크기
+	// 통보가 이 값을 쓴다 — 데몬 모드에서는 PTY 가 다른 프로세스에 있고
+	// `Get(id)` 이 주는 합성 Tool 은 크기를 모르므로, **이미 접속마다 도는 이
+	// RPC 에 실어 오는 것**이 왕복을 늘리지 않는 유일한 길이다. 읽지 못했으면
+	// 0 이고, 0 은 "모른다" 이므로 통보하지 않는다.
+	Cols uint16
+	Rows uint16
 }
 
 // SnapshotTool returns the outbuf snapshot of the named tool.
@@ -103,9 +110,13 @@ func (m *ToolManager) SnapshotToolSince(id string, since int64) (ToolSnapshot, e
 	if s == nil {
 		return ToolSnapshot{}, nil
 	}
+	// 크기는 두 갈래가 함께 싣는다 — 이어 붙였든 전량이든 받는 쪽이 물어야 하는
+	// 것은 같다 (FR-M9-3 ①).
+	cols, rows, _ := p.Size()
 	if since >= 0 {
 		if data, end, ok := s.Since(since); ok {
-			return ToolSnapshot{Data: data, TotalBytesIn: end, Retained: len(data), End: end, Resumed: true}, nil
+			return ToolSnapshot{Data: data, TotalBytesIn: end, Retained: len(data), End: end, Resumed: true,
+				Cols: cols, Rows: rows}, nil
 		}
 	}
 	data, stats := s.Snapshot()
@@ -115,6 +126,8 @@ func (m *ToolManager) SnapshotToolSince(id string, since int64) (ToolSnapshot, e
 		TotalBytesDrop: stats.TotalBytesDrop,
 		Retained:       stats.Retained,
 		End:            stats.TotalBytesIn,
+		Cols:           cols,
+		Rows:           rows,
 	}, nil
 }
 

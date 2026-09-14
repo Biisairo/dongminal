@@ -45,7 +45,15 @@ const KindAgent ToolKind = "agent"
 type OutChunk struct {
 	Data []byte
 	End  int64
+	// Size 가 nil 이 아니면 이 조각은 출력이 아니라 **크기 통보**다
+	// (M9_SRS FR-M9-3 ②). 출력과 **같은 채널**로 나르는 것은 순서 때문이다 —
+	// 크기가 바뀐 뒤의 출력은 새 폭 기준이므로, 두 채널로 나누면 그 둘이 경쟁해
+	// 어긋난 폭으로 해석된다. 그 어긋남이 바로 이 요구가 없애려는 것이다.
+	Size *TermSize
 }
+
+// TermSize 는 PTY 의 크기다 (FR-M9-3).
+type TermSize struct{ Cols, Rows uint16 }
 
 // DaemonHub 는 바이트 길이 **프로세스 경계를 건너는** 허브가 더 갖는 표면이다
 // (M8 `GO-46`). 직접 모드에는 없다 — 그쪽은 Tool 이 같은 프로세스에 있어

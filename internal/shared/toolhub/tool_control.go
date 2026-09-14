@@ -139,24 +139,67 @@ func (p *Tool) Write(data []byte) error {
 
 // Resize is the exported wrapper around the unexported resize for
 // ToolManager delegation. It calls pty.Setsize on the PTY master.
+//
+// **크기가 실제로 바뀌었으면 붙어 있는 클라이언트에게 통보한다**
+// (M9_SRS FR-M9-3). 비소유자는 PTY 폭을 알 길이 없어 같은 바이트를 자기 폭으로
+// 해석했고, 그것이 위쪽 글이 깨지던 자리다 (D-M9-3).
+//
+// 통보는 `tmu` **밖**이다 — `broadcast` 는 `cmu` 를 잡으므로 락 안에서 부르면
+// `tmu → cmu` 라는 새 순서가 생긴다. 이 파일은 그런 자리를 만들지 않는다.
 func (p *Tool) Resize(cols, rows uint16) error {
-	return p.resize(cols, rows)
+	changed, err := p.resize(cols, rows)
+	if err != nil {
+		return err
+	}
+	// 바뀌지 않았으면 말하지 않는다 — `resendWindowSizes` 가 창 전환마다 같은
+	// 값을 보내므로(`app-focus.js`), 여기서 거르지 않으면 전환마다 모든
+	// 클라이언트가 같은 프레임을 받는다. `SetForegroundNotifier` 와 같은 규약이다.
+	if changed {
+		p.notifySize(cols, rows)
+	}
+	return nil
 }
 
-func (p *Tool) resize(c, r uint16) error {
+// notifySize 는 크기를 **붙어 있는 클라이언트**와 **훅**에 알린다 (FR-M9-3).
+//
+// 두 길인 이유는 배선이 둘이기 때문이다. 직접 모드에서는 브라우저 소켓이 이
+// 프로세스에 있으므로 `broadcast` 가 곧 통보다. 데몬 모드에서는 PTY 가 데몬에
+// 있고 브라우저는 웹서버에 있으므로 `cls` 가 비어 있다 — 그쪽은 훅이 IPC push 로
+// 잇는다. **두 모드가 같은 바이트를 낸다** (FR-TRS-12 의 규약).
+func (p *Tool) notifySize(cols, rows uint16) {
+	p.broadcast(append([]byte{OpSize}, SizePayload(cols, rows)...))
+	if h := p.onSize; h != nil {
+		h(p.ID, cols, rows)
+	}
+}
+
+// resize 는 PTY 크기를 바꾸고 **그것이 변화였는지**를 함께 답한다.
+//
+// 이전 크기를 락 안에서 읽는 이유는 판정과 적용이 갈리면 안 되기 때문이다 —
+// 밖에서 읽으면 두 resize 사이에 끼어 "안 바뀌었다" 를 잘못 낼 수 있다.
+func (p *Tool) resize(c, r uint16) (changed bool, err error) {
 	if p.term == nil {
-		return fmt.Errorf("tool %s: 터미널이 없다", p.ID)
+		return false, fmt.Errorf("tool %s: 터미널이 없다", p.ID)
 	}
 	p.tmu.Lock()
 	defer p.tmu.Unlock()
 	// 이미 닫힌 터미널의 크기를 고치는 것은 오류이지 경쟁이 아니다. 사라지는
 	// 도구에 늦게 도착한 요청은 정상적으로 일어난다 — 거절하고 끝낸다.
 	if p.termClosed {
-		return fmt.Errorf("tool %s: 터미널이 닫혔다", p.ID)
+		return false, fmt.Errorf("tool %s: 터미널이 닫혔다", p.ID)
 	}
-	err := p.term.Resize(c, r)
-	if err != nil {
+	// 읽지 못하면 **바뀐 것으로 친다.** 모르는 것을 "같다" 로 읽으면 통보가
+	// 조용히 사라지고, 그 침묵은 화면이 깨진 뒤에야 보인다.
+	oc, or, ok := p.sizeLocked()
+	if err := p.term.Resize(c, r); err != nil {
 		dmlog.Errorf(nil, "[tool %s] resize error cols=%d rows=%d: %v", p.ID, c, r, err)
+		return false, err
 	}
-	return err
+	return !ok || oc != c || or != r, nil
+}
+
+// sizeLocked 는 `tmu` 를 **이미 쥔 채** 크기를 읽는다.
+func (p *Tool) sizeLocked() (cols, rows uint16, ok bool) {
+	c, r, err := p.term.Size()
+	return c, r, err == nil
 }

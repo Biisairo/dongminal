@@ -92,6 +92,36 @@ Object.assign(App.prototype, {
     bus.subscribe('agent_event',a=>this._onAgentEvent(a),{owner:'app'});
     bus.subscribe('sse:open',()=>this._agentResyncAll(),{owner:'app'});
 
+    /**
+     * FR-M9-10 (D-M9-8): **끊겼던 동안의 삭제는 다시 붙어도 오지 않는다.**
+     *
+     * `workspace_changed` 는 사건이고 SSE 는 변화만 나른다 — 구독이 끊겨 있던
+     * 구간의 사건은 재생되지 않으므로, 다시 붙어(`readyState===1`) 정상으로
+     * 보이는 클라이언트가 **지워진 탭을 영영 들고 있다.** 실측이 그것이다:
+     * 클라 3탭 / 서버 1탭, `visibilitychange`·`focus`·`online`·SSE 재연결
+     * 뒤로 14초까지 수렴하지 않았다 (M9_SRS §2.3 M9-B9).
+     *
+     * 그 구간을 메우는 길은 상태를 **통째로 다시 받는 것** 하나다. 터미널은
+     * `OpSeq` 로 좌표를 들고 이어 붙일 수 있지만 워크스페이스에는 그런 좌표가
+     * 없다. 사건 재생을 넣지 않는 이유가 그것이다.
+     *
+     * **rev 를 주지 않는다.** 무엇을 놓쳤는지 모르므로 "낡았다" 로 걸러지면 안
+     * 되고, `_onWorkspaceChanged` 는 rev 없는 호출을 이미 그렇게 규정한다
+     * (FR-WSC-17). 비행 중 유예·ETag 추월 방어도 그 함수가 이미 든다 — 여기서
+     * 다시 세우면 판정이 두 벌이 된다.
+     *
+     * **주기 폴링을 더하지 않는다** (D-M9-8). 메울 구간이 있는 순간은 재연결
+     * 하나이며, 그 밖의 시각에 묻는 것은 답을 이미 아는 물음이다.
+     *
+     * **`gen>1` — 최초 연결은 아니다.** 요구는 "끊겼다 **다시** 붙으면" 이고
+     * (FR-M9-10), 첫 연결에는 메울 구간이 없다: 부팅이 방금 `/api/state` 로
+     * 받았다. 거기서 한 번 더 받으면 **그 사이의 로컬 변경을 덮는다** — 전량
+     * e2e 가 그것을 잡았다(`session.spec.ts` "rename via double-click" 6/6 실패).
+     * 이름을 고치는 중에 워크스페이스가 다시 그려져 편집하던 행이 사라졌다.
+     * `_gen` 은 `connect()` 마다 오르므로 첫 연결이 1 이다 (`event-bus.js`).
+     */
+    bus.subscribe('sse:open',(a)=>{ if(a&&a.gen>1) this._onWorkspaceChanged() },{owner:'app'});
+
     // FR-RVZ-16: Run 이 바뀌었다. 열려 있는 그 Run 의 탭만 /graph 를 다시 부른다 —
     // 폴링하지 않으며, 열린 Run 탭이 없으면 아무 요청도 나가지 않는다.
     bus.subscribe('run_changed',a=>this._onRunChanged(a),{owner:'app'});

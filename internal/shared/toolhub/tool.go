@@ -100,6 +100,11 @@ type Tool struct {
 	allowBell        bool
 	onAttention      func(id, reason string)
 	onAttentionClear func(id string)
+	// onSize 는 PTY 크기가 **바뀌었을 때만** 불린다 (M9_SRS FR-M9-3). 데몬
+	// 모드에서 이것을 IPC push 로 잇는 것이 PanedServer 이며, 직접 모드에서는
+	// 걸리지 않는다 — 그쪽은 `broadcast` 가 같은 일을 이 프로세스 안에서 끝낸다.
+	// StartTool 이 readPTY 앞에서 한 번 세운다(경쟁 없음) — onAttention 과 같다.
+	onSize func(id string, cols, rows uint16)
 
 	// relay carries the exit/output callbacks. Stored atomically so the
 	// readPTY goroutine reads them without racing daemon-mode wiring
@@ -175,6 +180,9 @@ type ToolHooks struct {
 	// 모드에서는 그 물음이 readLoop 안의 RPC 가 되어 자기 응답을 기다리다 시한에
 	// 걸린다 — 청크의 출처가 종류를 아는 자리이므로 여기서 실어 보낸다.
 	OnOutput func(id string, kind ToolKind, data []byte, end int64)
+	// OnSize 는 PTY 크기가 바뀌었을 때 불린다 (M9_SRS FR-M9-3). 데몬 모드에서만
+	// 걸린다 — 직접 모드의 통보는 `Tool.broadcast` 가 이 프로세스 안에서 끝낸다.
+	OnSize func(id string, cols, rows uint16)
 }
 
 // ExitInfo 는 이 도구의 종료 사정이다. 끝나기 전에 부르면 Code 는 0 이고 Stderr 는 지금까지의 꼬리다.
@@ -318,6 +326,7 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 		p.onAttentionClear = hooks.OnAttentionClear
 		p.onActivity = hooks.OnActivity
 		p.allowBell = hooks.AllowBell
+		p.onSize = hooks.OnSize
 	}
 	// **뜬 자리를 기억한다** (WINDOWS_TOOL_CWD_SRS FR-WTC-6).
 	//

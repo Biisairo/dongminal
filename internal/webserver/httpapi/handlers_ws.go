@@ -116,6 +116,12 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remo
 
 	_ = conn.Send(toolhub.OpToolID, []byte(tool.ID))
 
+	// FR-M9-3 ①: 크기는 **재생보다 앞**이다. 재생 바이트는 PTY 폭 기준으로 쓰인
+	// 이스케이프를 담고 있으므로, 그것을 해석하기 전에 폭이 맞아야 한다.
+	if cols, rows, ok := tool.Size(); ok {
+		sendSize(conn, cols, rows)
+	}
+
 	data, full := directReplay(tool.Stream(), since, regOff)
 	if payload := buildReplay(data, full); len(payload) > 0 {
 		if err := conn.Send(toolhub.OpOutput, payload); err != nil {
@@ -165,6 +171,9 @@ func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, pc toolhub.DaemonHub, to
 	full := !snap.Resumed
 	dmlog.Infof(nil, "[ws-daemon] replay tool=%s len=%d end=%d full=%v since=%d",
 		toolID, len(snap.Data), snap.End, full, since)
+	// FR-M9-3 ①: direct 모드와 **같은 자리**다 — 재생보다 앞. 두 모드가 같은
+	// 바이트를 같은 순서로 보내야 어느 쪽이 맞는지 물을 수 있다 (FR-TRS-12).
+	sendSize(conn, snap.Cols, snap.Rows)
 	if payload := buildReplay(snap.Data, full); len(payload) > 0 {
 		if err := conn.Send(toolhub.OpOutput, payload); err != nil {
 			dmlog.Errorf(nil, "[tool %s] replay send error: %v", toolID, err)
@@ -271,6 +280,16 @@ func relayOutput(conn *toolhub.SafeConn, toolID string, outputCh <-chan toolhub.
 	for {
 		select {
 		case chunk := <-outputCh:
+			// FR-M9-3 ②: 크기 조각은 출력이 아니다. 같은 채널로 오는 이유는
+			// **순서** 때문이며(hub.go 의 OutChunk 참조), 여기서 갈라 그대로 낸다.
+			if chunk.Size != nil {
+				if err := conn.Send(toolhub.OpSize, toolhub.SizePayload(chunk.Size.Cols, chunk.Size.Rows)); err != nil {
+					dmlog.Infof(nil, "[tool %s] size relay stopped addr=%s: %v", toolID, conn.RemoteAddr(), err)
+					conn.Close()
+					return
+				}
+				continue
+			}
 			// FR-TRS-16: 재생으로 이미 보낸 구간은 잘라낸다. 오프셋은 고정이다 —
 			// 그 자리를 지난 청크는 이 함수가 손대지 않고 그대로 나간다.
 			data := trimOverlap(chunk.Data, chunk.End, sent)

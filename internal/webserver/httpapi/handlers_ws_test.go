@@ -94,6 +94,18 @@ func TestHandleWS_ExistingTool(t *testing.T) {
 		t.Fatalf("expected toolhub.OpToolID, got 0x%02x", msg[0])
 	}
 
+	// 다음은 크기 통보다 (M9_SRS FR-M9-3 ①) — **재생보다 앞**이다. 재생 바이트는
+	// PTY 폭 기준으로 쓰인 이스케이프를 담으므로 그것을 해석하기 전에 폭이 맞아야
+	// 한다. 순서를 여기서 못박는 이유는 그 앞뒤가 바뀌면 증상이 조용하기 때문이다.
+	ws.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_, msg, err = ws.ReadMessage()
+	if err != nil {
+		t.Fatalf("read size: %v", err)
+	}
+	if len(msg) == 0 || msg[0] != toolhub.OpSize {
+		t.Fatalf("expected toolhub.OpSize, got op=0x%02x", msg[0])
+	}
+
 	// Next message should be toolhub.OpOutput (snapshot).
 	ws.SetReadDeadline(time.Now().Add(5 * time.Second))
 	mt, msg, err := ws.ReadMessage()

@@ -346,6 +346,52 @@ func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 		pc.pushForeground(raw)
 	case "exit":
 		pc.pushExit(raw)
+	case "size":
+		pc.pushSize(raw)
+	}
+}
+
+// pushSize 는 `size` push 다 — PTY 크기가 바뀌었다 (M9_SRS FR-M9-3 ②).
+//
+// **출력과 같은 채널로 보낸다.** 크기가 바뀐 뒤의 출력은 새 폭 기준이므로, 채널을
+// 나누면 둘이 경쟁해 어긋난 폭으로 해석되는 창이 생긴다 — 그 어긋남이 이 요구가
+// 없애려는 것 자체다. `readLoop` 한 고루틴이 push 를 순서대로 처리하므로 이
+// 채널에 들어가는 순서가 곧 데몬이 낸 순서다.
+//
+// **`output` 과 같이 떨어뜨린다** — 막으면 `readLoop` 가 서고, 그 루프는 모든
+// 도구의 push 를 나른다. 느린 브라우저 하나가 나머지 전부를 멎게 하는 자리를
+// 만들지 않는다(pushOutput 이 default 를 쓰는 것과 같은 근거).
+//
+// 대가는 기록해 둔다: 크기 통보를 잃은 클라이언트는 **어긋난 채로 남고 스스로
+// 낫지 않는다.** 출력 청크와 달리 다음 청크가 메워 주지 않으며, 그 값을 다시
+// 말하는 자리는 다음 접속의 snapshot 뿐이다. 그래서 떨어뜨림을 조용히 세지 않고
+// **한 건도 남김없이** 로그로 올린다 — output 쪽은 256건마다 한 줄이다.
+func (pc *ToolClient) pushSize(raw json.RawMessage) {
+	var ev struct {
+		Tool string `json:"tool"`
+		Cols uint16 `json:"cols"`
+		Rows uint16 `json:"rows"`
+	}
+	if err := json.Unmarshal(raw, &ev); err != nil {
+		return
+	}
+	if ev.Cols == 0 || ev.Rows == 0 {
+		return
+	}
+	pc.invalidateList()
+	sz := &toolhub.TermSize{Cols: ev.Cols, Rows: ev.Rows}
+	var dropped int64
+	pc.subMu.RLock()
+	for ch := range pc.subbers[ev.Tool] {
+		select {
+		case ch <- OutChunk{Size: sz}:
+		default:
+			dropped = pc.dropped.Add(1)
+		}
+	}
+	pc.subMu.RUnlock()
+	if dropped > 0 {
+		dmlog.Warnf(nil, "toolclient: WS size push dropped tool=%s cols=%d rows=%d (slow browser?)", ev.Tool, ev.Cols, ev.Rows)
 	}
 }
 
@@ -872,6 +918,10 @@ func (pc *ToolClient) SnapshotToolSince(id string, since int64) (toolhub.ToolSna
 	retained, _ := resp["retained"].(float64)
 	end, _ := resp["end"].(float64)
 	resumed, _ := resp["resumed"].(bool)
+	// FR-M9-3 ①: 크기. 옛 데몬은 이 필드를 보내지 않으므로 0 이 되고, 0 은
+	// "모른다" 라 통보하지 않는다 — 그때의 동작은 이 요구가 없던 때와 같다.
+	cols, _ := resp["cols"].(float64)
+	rows, _ := resp["rows"].(float64)
 	return toolhub.ToolSnapshot{
 		Data:           data,
 		TotalBytesIn:   int64(totalIn),
@@ -879,6 +929,8 @@ func (pc *ToolClient) SnapshotToolSince(id string, since int64) (toolhub.ToolSna
 		Retained:       int(retained),
 		End:            int64(end),
 		Resumed:        resumed,
+		Cols:           uint16(cols),
+		Rows:           uint16(rows),
 	}, nil
 }
 

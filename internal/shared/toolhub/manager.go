@@ -114,6 +114,11 @@ type ToolManager struct {
 	fgFlight sync.Mutex
 	fgCache  map[string]fgEntry
 	fgNotify func(id, name string)
+
+	// 크기 통보 (M9_SRS FR-M9-3). `fgNotify` 와 같은 모양이고 같은 이유로
+	// 잠금 아래 있다 — 데몬의 PanedServer 가 연결마다 다시 걸기 때문이다.
+	szMu     sync.Mutex
+	szNotify func(id string, cols, rows uint16)
 }
 
 // BackgroundEntry는 백그라운드 도구 한 건의 조회 결과다 (FR-BG-6).
@@ -179,12 +184,37 @@ func (m *ToolManager) SetExitObserver(f func(id string, info ExitInfo)) {
 	m.exitObserver = f
 }
 
+// attnHooks 는 StartTool 이 거는 훅 묶음이다.
+//
+// **크기 통보는 주의 배선과 무관하게 언제나 실린다** (FR-M9-3) — 주의 훅이 하나도
+// 없어도 PTY 크기는 말해야 한다. 그래서 이 함수는 더 이상 nil 을 돌려주지 않는다.
+// 받는 쪽(`StartTool`)은 필드마다 nil 을 견디므로 빈 훅이 실리는 것은 무동작이다.
 func (m *ToolManager) attnHooks() *ToolHooks {
 	if m.attnNotify == nil && m.attnClear == nil && m.activityNotify == nil && m.outputObserver == nil {
-		return nil
+		return &ToolHooks{OnSize: m.sizeNotify}
 	}
 	return &ToolHooks{OnAttention: m.attnNotify, OnAttentionClear: m.attnClear, OnActivity: m.activityNotify,
-		AllowBell: m.allowBell, OnOutput: m.outputObserver}
+		AllowBell: m.allowBell, OnOutput: m.outputObserver, OnSize: m.sizeNotify}
+}
+
+// SetResizeNotifier 는 PTY 크기가 **바뀌었을 때만** 불리는 콜백을 건다
+// (FR-M9-3). 데몬 모드에서는 PanedServer 가 이것을 IPC push 로 잇는다.
+// 직접 모드는 걸지 않는다 — 그쪽의 통보는 `Tool.broadcast` 가 끝낸다.
+func (m *ToolManager) SetResizeNotifier(notify func(id string, cols, rows uint16)) {
+	m.szMu.Lock()
+	m.szNotify = notify
+	m.szMu.Unlock()
+}
+
+// sizeNotify 는 **호출 시점에** 걸려 있는 알림자에게 넘긴다. 도구가 뜰 때
+// 알림자가 아직 없어도(데몬 연결 전) 나중에 걸린 것이 동작하는 이유다.
+func (m *ToolManager) sizeNotify(id string, cols, rows uint16) {
+	m.szMu.Lock()
+	notify := m.szNotify
+	m.szMu.Unlock()
+	if notify != nil {
+		notify(id, cols, rows)
+	}
 }
 
 // ActivitySnapshot returns the current activity of every tool that has reported

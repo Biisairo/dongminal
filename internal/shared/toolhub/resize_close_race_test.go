@@ -35,7 +35,7 @@ func TestResizeDuringDelete_NoRace(t *testing.T) {
 			default:
 			}
 			// 오류는 정상이다 — 도구가 사라진 뒤의 요청이 거절되는 것이 규약이다.
-			_ = p.resize(uint16(80+i%10), 24)
+			_, _ = p.resize(uint16(80+i%10), 24)
 		}
 	}()
 

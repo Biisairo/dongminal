@@ -27,7 +27,22 @@ const (
 	// 오프셋 8(빅엔디언) + 전량 재생 여부 1. 이 op 를 모르는 옛 클라이언트는
 	// 조용히 버린다(FR-TRS-9). 기존 op 의 뜻과 형식은 바꾸지 않는다.
 	OpSeq byte = 0x04
+	// OpSize 는 서버가 클라이언트에게 **PTY 의 크기**를 통보하는 프레임이다
+	// (M9_SRS FR-M9-3). 페이로드는 4 바이트 — cols 2 + rows 2, 빅엔디언.
+	// ① 접속 직후 재생·OpSeq 앞에 한 번, ② 크기가 바뀔 때마다 그 도구의 모든
+	// 클라이언트에게. 이 op 를 모르는 옛 클라이언트는 조용히 버린다
+	// (OpSeq 와 같은 규약, FR-TRS-9).
+	//
+	// 크기의 주인은 한 창뿐이고(FR-XDF·FR-WSL-14) 없던 것은 그 사실을
+	// **나머지에게 말하는 길**이었다 — 비소유자는 PTY 폭을 알 길이 없어 같은
+	// 바이트를 자기 폭으로 해석했고, 그것이 위쪽 글이 깨지던 자리다 (D-M9-3).
+	OpSize byte = 0x05
 )
+
+// SizePayload 는 `OpSize` 의 4 바이트다 (FR-M9-3).
+func SizePayload(cols, rows uint16) []byte {
+	return []byte{byte(cols >> 8), byte(cols), byte(rows >> 8), byte(rows)}
+}
 
 const (
 	writeWait  = 10 * time.Second
