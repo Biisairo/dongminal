@@ -581,3 +581,39 @@ func TestApiRunContext_EmptySessionDoesNotEraseIdentity(t *testing.T) {
 		t.Fatalf("신원이 지워졌다: %+v", got)
 	}
 }
+
+// V-M9-33 (M9_SRS FR-M9-33 / M9-B15): **올릴 수 있는지를 서버가 말한다.**
+//
+// 프론트는 이 답으로 진입점을 세울지 정한다 — 신원을 모르면 **버튼 자체가 서지
+// 않는다**(FR-M9-33 의 DoD). 눌렀는데 실패하는 버튼은 "모른다" 를 "고장" 으로
+// 보이게 한다.
+//
+// `exitCommand` 를 함께 주는 이유: 올리기 전에 셸 쪽 에이전트를 끝내야 하고
+// (같은 세션을 두 프로세스가 `--resume` 으로 열면 충돌한다, D-M9-20), 그 지시는
+// **어댑터의 것**이다. 프론트가 `/exit` 를 적으면 그 지식이 두 벌이 된다.
+func TestApiAgentSessionOf(t *testing.T) {
+	s, _, _, _, _ := ctxServer(t)
+	who := s.WhoAmI.(*fakeWhoAmI)
+	who.toolID = "tool-lift"
+
+	// 신원이 오기 전에는 404 — 진입점이 서지 않는 상태다.
+	code, _ := getRun(t, s, "/api/agent/session?tool=tool-lift")
+	if code != 404 {
+		t.Fatalf("신원이 없는데 200 을 냈다: %d", code)
+	}
+
+	postRun(t, s, "/api/runs/context",
+		`{"toolId":"tool-lift","agent":"claude","sessionId":"sid-lift","bytes":10}`)
+
+	code, out := getRun(t, s, "/api/agent/session?tool=tool-lift")
+	if code != 200 {
+		t.Fatalf("신원이 있는데 %d: %v", code, out)
+	}
+	if out["sessionId"] != "sid-lift" || out["agent"] != "claude" {
+		t.Fatalf("신원: %v", out)
+	}
+	// 어댑터가 아는 종료 지시가 함께 온다 (claude 는 `/exit`).
+	if out["exitCommand"] != "/exit" {
+		t.Fatalf("종료 지시가 어댑터에서 오지 않았다: %v", out)
+	}
+}

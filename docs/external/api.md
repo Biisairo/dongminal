@@ -59,6 +59,7 @@
 | POST | `/api/agent/control` | `{ toolId, kind, value }` — 세션 중 제어. `kind` 는 프로토콜의 것 그대로 (claude: `set_model`·`set_permission_mode`·`set_max_thinking_tokens` · codex: `set_model`·`set_permission_mode` — 다음 턴부터 · omp: `set_model`(`provider/modelId`)·`set_thinking_level`). 없는 제어는 400 `agent_unsupported` |
 | POST | `/api/agent/interrupt` | `{ toolId }` — 진행 중인 턴을 끊는다 (Esc) |
 | GET | `/api/agent/tui-line` | `{ line, sessionId }` — 같은 세션을 터미널(TUI)에서 이어 갈 한 줄 명령 |
+| GET | `/api/agent/session` | `?tool=<toolId>` → `{ sessionId, agent, exitCommand }` — **그 터미널 탭에서 도는** 에이전트의 신원 (`tui-line` 의 반대 방향). 신원은 활동 훅이 실어 온 것이며 우리가 띄운 도구든 사용자가 손으로 친 것이든 같다. 모르면 404 `agent_no_identity` — 그때 올리기 진입점은 서지 않는다. `exitCommand` 는 어댑터가 아는 정중한 종료 지시이고, 어댑터를 모르면 빈 값이다 |
 | POST | `/api/agent/hibernate` | `{ toolId }` — 휴면: 프로세스를 끝내고 세션 신원만 남긴다. 탭은 그대로다. 세션 신원이 아직 없으면(첫 턴 전) 409 `agent_no_identity`, 이미 휴면·오류면 409 `agent_dormant` |
 | POST | `/api/agent/resume` | `{ toolId }` → `{ id, name, kind, agent }` — 휴면·오류 세션을 **같은 toolId** 로 재개한다 (claude `--resume` · codex `thread/resume` · omp `--resume`). 이력은 우리 이벤트 로그가 재생한다. 활성이면 409 `agent_not_dormant`, 신원이 없으면 409 `agent_no_identity` |
 

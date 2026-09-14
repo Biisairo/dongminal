@@ -471,6 +471,34 @@ func (s *Server) apiAgentTUILine(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"line": agentsess.TUIResumeLine(argv, platform.Current().Shell.Quote), "sessionId": sess.SessionID()})
 }
 
+// apiAgentSessionOf 는 **터미널 탭에서 도는** 에이전트의 신원이다
+// (M9_SRS FR-M9-33 / M9-B15 — `FR-AGT-10` 의 남은 절반).
+//
+// `apiAgentTUILine` 의 대칭이다. 저쪽은 에이전트 도구의 세션을 셸에서 열 한 줄을
+// 주고, 이쪽은 셸에서 도는 세션을 에이전트 도구로 올릴 재료를 준다.
+//
+// 신원은 활동 훅이 실어 온 것이다 (FR-M9-32) — 우리가 띄운 도구든 사용자가 손으로
+// 친 `claude` 든 같다. **모르면 404 다**: 프론트는 이 답으로 진입점을 세울지
+// 정하며, 눌렀는데 실패하는 버튼은 "모른다" 를 "고장" 으로 보이게 한다.
+//
+// `exitCommand` 를 함께 주는 이유는 그 지시가 **어댑터의 것**이기 때문이다.
+// 올리기 전에 셸 쪽을 끝내야 하고(같은 세션을 두 프로세스가 `--resume` 으로 열면
+// 충돌한다, D-M9-20), 프론트가 `/exit` 를 적으면 그 지식이 두 벌이 된다.
+func (s *Server) apiAgentSessionOf(w http.ResponseWriter, r *http.Request) {
+	info := s.AgentSession(r.URL.Query().Get("tool"))
+	if info == nil || info.SessionID == "" {
+		httpErr(w, "no agent session for tool", http.StatusNotFound, apierr.CodeAgentNoIdentity)
+		return
+	}
+	out := map[string]string{"sessionId": info.SessionID, "agent": info.Agent}
+	// 어댑터를 모르면 종료 지시도 모른다 — 빈 채로 둔다. 받는 쪽이 그때 끝내지
+	// 않을지 정한다 (추측해 `/exit` 를 적지 않는다).
+	if ad, err := agentadapter.Get(info.Agent); err == nil {
+		out["exitCommand"] = ad.ExitCommand
+	}
+	writeJSON(w, out)
+}
+
 // agentErr 는 해석층의 오류를 코드로 옮긴다 (D-B-3: 문장은 프론트의 것이다).
 func (s *Server) agentErr(w http.ResponseWriter, err error) {
 	switch {
