@@ -1,6 +1,10 @@
 # SRS: e2e 는 공개 계약만 본다 — IEEE 29148
 
-> **문서 상태**: 초안
+> **문서 상태**: 승인·구현완료
+>
+> 근거(2026-09-15 전수조사): `web/js/core/app-testing.js` 가 계약 이름을 들고 서 있고
+> `scripts/check-e2e-private.sh` 가 `make gates` 에서 **"내부 직접 접근 0곳"** 으로 초록이다.
+> 예외 목록(`ALLOW`)은 비어 있다 — FR-ATC-11·12 가 그 파일에 인용돼 있다.
 
 ## 1. 개요 (Introduction)
 
