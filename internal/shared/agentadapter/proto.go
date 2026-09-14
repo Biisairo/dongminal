@@ -204,13 +204,47 @@ type Event struct {
 
 // ProtoUsage 는 프레임이 말한 사용량이다 (FR-AGT-6 — 전사본을 읽지 않는다).
 // 0 은 "모른다" 가 아니라 부재다 — 값이 없는 필드는 omitempty 로 빠진다.
+//
+// M9_SRS FR-M9-34 (사용자 지시 2026-09-14): **사용량의 모양은 에이전트마다 다르다.**
+// *"사용량은 어떤 건 5시간/7주일, 어떤 건 1달 이렇게 되고, context window 도 어떤 건
+// 사용토큰/총토큰, 어떤 건 % 로만 주니까."* 그래서 이 구조는 **절대값과 비율을 모두**
+// 받고, 플랜 한도는 **주기가 가변인 목록**으로 받는다. 어댑터는 자기가 아는 것만 채운다.
 type ProtoUsage struct {
 	// Tokens 는 마지막 요청의 입력 컨텍스트다 (input + cache_creation + cache_read).
-	Tokens        int64   `json:"tokens,omitempty"`
-	OutputTokens  int64   `json:"outputTokens,omitempty"`
-	ContextWindow int64   `json:"contextWindow,omitempty"`
-	CostUSD       float64 `json:"costUSD,omitempty"`
-	Model         string  `json:"model,omitempty"`
+	Tokens        int64 `json:"tokens,omitempty"`
+	OutputTokens  int64 `json:"outputTokens,omitempty"`
+	ContextWindow int64 `json:"contextWindow,omitempty"`
+	// ContextRatio 는 **창 크기를 모르고 비율만 아는** 어댑터의 자리다 (0.0~1.0).
+	// 단위는 `run.ContextState.ContextRatio` 와 같다 — 두 벌이 되면 어느 쪽이 100 을
+	// 뜻하는지 호출부마다 달라진다. 퍼센트로 주는 와이어는 **어댑터가 나눈다.**
+	ContextRatio float64 `json:"contextRatio,omitempty"`
+	// CacheRead·CacheWrite 는 종전에 **파싱하고 버리던** 값이다 (FR-M9-34).
+	// `Tokens` 는 이 둘을 합산한 채로 두므로 뜻이 바뀌지 않는다.
+	CacheRead  int64   `json:"cacheRead,omitempty"`
+	CacheWrite int64   `json:"cacheWrite,omitempty"`
+	CostUSD    float64 `json:"costUSD,omitempty"`
+	Model      string  `json:"model,omitempty"`
+	// Limits 는 플랜 한도다. **주기가 에이전트마다 다르므로 목록이다** — 5시간·주간·
+	// 월간, 그 밖. 빈 목록은 "한도를 말하지 않는 에이전트" 이고 0% 가 아니다.
+	Limits []ProtoLimit `json:"limits,omitempty"`
+}
+
+// ProtoLimit 은 플랜 한도 하나다 (FR-M9-34).
+//
+// 채워지는 조합이 에이전트마다 다르다 — claude 의 `rate_limit_event` 는 `Ratio` 와
+// `ResetAt` 만 주고 총량을 주지 않는다. 총량을 주는 에이전트는 `Used`·`Total` 을
+// 채운다. **비어 있는 것은 부재다** (FR-CBG-5: 모른다 ≠ 0).
+type ProtoLimit struct {
+	// Kind 는 주기의 이름이며 **어댑터가 정한다** (D-M9-23). 화면은 아는 것만
+	// 번역하고 모르는 것은 Label 을 그대로 보인다 — 열거로 굳히면 새 주기를 쓰는
+	// 에이전트의 값이 조용히 사라진다.
+	Kind string `json:"kind"`
+	// Label 은 화면이 Kind 를 모를 때 쓸 표시 이름이다. 비어 있으면 Kind 를 쓴다.
+	Label   string  `json:"label,omitempty"`
+	Used    float64 `json:"used,omitempty"`
+	Total   float64 `json:"total,omitempty"`
+	Ratio   float64 `json:"ratio,omitempty"`
+	ResetAt int64   `json:"resetAt,omitempty"`
 }
 
 // ProtoStatus 는 세션의 설정 상태다 (FR-AGT-11). 비어 있는 필드는 "이 이벤트가 그것을

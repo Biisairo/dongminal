@@ -319,6 +319,15 @@ func ompDecodeResponse(fr ompFrame, x *ompExt, st *ProtoState) ([]Event, bool) {
 			ContextUsage *struct {
 				Tokens        int64 `json:"tokens"`
 				ContextWindow int64 `json:"contextWindow"`
+				// M9_SRS FR-M9-34: omp 는 **비율도 함께** 준다. 종전에는 읽지 않았다.
+				// 창 크기를 모르는 판에서는 이것만이 컨텍스트를 말할 수 있다.
+				//
+				// **단위가 claude 와 다르다** — 여기는 퍼센트(0~100)이고 claude 의
+				// `utilization` 은 비율(0~1)이다. 실측: `tokens 15685 / window 1048576`
+				// 인 프레임의 `percent` 가 `1.5` 다. 계약은 `ProtoUsage.ContextRatio`
+				// 하나(0.0~1.0)이므로 **맞추는 일은 어댑터가 한다** — 그것이 어댑터가
+				// 있는 이유이며, 두 단위를 위로 흘리면 화면이 에이전트를 알아야 한다.
+				Percent float64 `json:"percent"`
 			} `json:"contextUsage"`
 		}
 		if err := json.Unmarshal(fr.Data, &d); err != nil || d.SessionID == "" {
@@ -328,7 +337,8 @@ func ompDecodeResponse(fr ompFrame, x *ompExt, st *ProtoState) ([]Event, bool) {
 		evs := []Event{{Kind: EvSession, SessionID: d.SessionID, Status: ompModelStatus(d.Model, d.SessionID).Status}}
 		if d.ContextUsage != nil {
 			evs = append(evs, Event{Kind: EvUsage, SessionID: d.SessionID,
-				Usage: &ProtoUsage{Tokens: d.ContextUsage.Tokens, ContextWindow: d.ContextUsage.ContextWindow}})
+				Usage: &ProtoUsage{Tokens: d.ContextUsage.Tokens, ContextWindow: d.ContextUsage.ContextWindow,
+					ContextRatio: d.ContextUsage.Percent / 100}})
 		}
 		return evs, true
 	case "get_available_models":

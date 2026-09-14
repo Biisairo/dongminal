@@ -577,12 +577,17 @@ GUI → CLI 한쪽이고, 선 절반도 모양이 어긋났으며(탭이 하나 
   (`AGENT_PROTOCOL_SURFACE_SRS`). 사용량의 **모양**이 에이전트마다 다르다는 사실이
   그 격리를 지금 처음 시험한다
 
+**비율의 단위는 `0.0~1.0` 이다** — `run.ContextState.ContextRatio` 가 이미 그 규약이고
+(`vocabulary.go:104`), 두 벌이 되면 어느 쪽이 100 을 뜻하는지 호출부마다 달라진다.
+어댑터가 단위를 맞춘다: claude 스트림은 `utilization:0.44` 로 그대로, claude-hud 류의
+`used_percentage:6` 은 나누어 싣는다.
+
 구조 (필드가 비면 **부재**다 — 0 을 "없음" 으로도 "0%" 로도 읽지 않는다, FR-CBG-5):
 
 ```go
 type ProtoUsage struct {
     Tokens, OutputTokens, ContextWindow int64   // 절대값을 아는 어댑터
-    ContextPercent float64                      // 비율만 아는 어댑터
+    ContextRatio float64                        // 비율만 아는 어댑터 (0.0~1.0)
     CacheRead, CacheWrite int64                 // 오는데 버리던 값 (이전 동작 ②)
     CostUSD float64
     Model   string
@@ -593,7 +598,7 @@ type ProtoLimit struct {
     Kind    string   // "five_hour" · "seven_day" · "monthly" · 그 밖 (어댑터가 정한다)
     Label   string   // Kind 를 화면이 모를 때 쓸 표시 이름
     Used, Total float64
-    Percent float64  // 총량 없이 비율만 주는 경우 (claude 가 그렇다)
+    Ratio   float64  // 총량 없이 비율만 주는 경우 (claude 가 그렇다). 0.0~1.0
     ResetAt int64    // unix 초. 0 이면 모름
 }
 ```
@@ -605,10 +610,15 @@ type ProtoLimit struct {
 - **컨텍스트 채움과 플랜 사용량을 한 이름·한 단위로 두지 않는다**: 둘은 출처가 다르고,
   나란히 두면 사용자가 같은 것으로 읽는다. 그리고 플랜 수치는 이 도구가 쓴 양이 아니다
   (Claude Code·claude.ai 가 함께 쓴다) — 그 사실을 화면이 말한다
-- DoD: ① `rate_limit_event` 가 `Limits` 로 나온다 ② cache 두 값이 화면까지 온다
-  ③ 합산 `Tokens` 의 뜻은 그대로다(기존 컨텍스트 % 가 바뀌지 않는다) ④ **비율만 주는
-  가짜 어댑터**로도 컨텍스트가 그려진다 ⑤ `Limits` 가 빈 어댑터에서 그 자리가 **서지 않는다**
-- 검증: V-M9-34 — 위 다섯. ④는 `fakeagent` 가 비율만 내는 갈래를 갖는다
+- DoD: ① `rate_limit_event` 가 `Limits` 로 나오고 **순서가 결정적이다**(map 순회는
+  무작위다 — `ResetAt` 오름차순) ② cache 두 값이 화면까지 온다 ③ 합산 `Tokens` 의 뜻은
+  그대로다(기존 컨텍스트 % 가 바뀌지 않는다) ④ **비율만 주는 어댑터**로도 컨텍스트가
+  그려진다 ⑤ `Limits` 가 빈 동안 그 자리가 **서지 않는다** ⑥ **화면이 모르는 주기가
+  이름 그대로 선다**(D-M9-23 — 이것이 없으면 열거로 굳힌 구현과 구별되지 않는다)
+- 검증: V-M9-34 — ①②③은 Go 단위(`claude_proto_test.go`), ④는 omp 의
+  `contextUsage.percent` 갈래(`omp_proto_test.go` — **단위가 퍼센트라 어댑터가 나눈다**),
+  ⑤⑥은 e2e(`agent-tool.spec.ts`). `fakeagent` 가 네 창을 내며 그 중 하나
+  (`opus_weekly`)는 **카탈로그에 없다**
 
 **FR-M9-35 — 그 도구의 cwd 와 저장소를 에이전트 화면에 얹는다.** (M9-B16 의 ③ — 사용자 결정)
 접수한 말에 *"path, branch, upstream"* 이 들어 있다.

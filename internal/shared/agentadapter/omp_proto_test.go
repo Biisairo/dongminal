@@ -347,3 +347,35 @@ func TestOmpProto_Unknown(t *testing.T) {
 		}
 	}
 }
+
+// V-M9-34 (M9_SRS FR-M9-34): **비율만 아는 어댑터.**
+//
+// omp 의 `contextUsage` 는 `percent` 를 함께 주는데 종전에는 읽지 않았다. 창 크기를
+// 모르는 판에서는 **그것만이 컨텍스트를 말할 수 있고**, 화면은 `tokens` 가 없으면
+// 아무것도 그리지 않았다 — 그 자리가 영영 비었다.
+func TestOmpProto_ContextRatioOnly(t *testing.T) {
+	p, st := ompProtoOf(t)
+	// 응답은 **대기표에 있는 id** 라야 아는 프레임이다 — 핸드셰이크가 그 표를 만든다.
+	p.Handshake(LaunchOpts{}, st)
+	decode1(t, p, st, `{"type":"ready","protocolVersion":1,"supportedProtocolVersions":[1],"maxFrameBytes":1048576}`)
+	// **단위는 퍼센트다** (0~100) — 실측 프레임의 `tokens/window` 가 그것을 말한다.
+	// 계약(`ContextRatio`)은 0.0~1.0 이므로 어댑터가 나눈다.
+	evs := decode1(t, p, st, `{"id":"dm-1","type":"response","command":"get_state","success":true,`+
+		`"data":{"sessionId":"s-1","contextUsage":{"percent":55}}}`)
+	var u *ProtoUsage
+	for _, e := range evs {
+		if e.Kind == EvUsage {
+			u = e.Usage
+		}
+	}
+	if u == nil {
+		t.Fatalf("비율만 와도 사용량 이벤트가 서야 한다: %v", evs)
+	}
+	if u.ContextRatio != 0.55 {
+		t.Fatalf("비율: %+v", u)
+	}
+	// 모르는 것은 0 으로 채우지 않는다 (FR-CBG-5).
+	if u.Tokens != 0 || u.ContextWindow != 0 {
+		t.Fatalf("오지 않은 절대값이 채워졌다: %+v", u)
+	}
+}

@@ -222,6 +222,35 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     expect(idxAfter, '터미널 탭이 옛 에이전트 탭의 자리에 서지 않았다').toBe(idxBefore);
   });
 
+  /**
+   * V-M9-34 (M9_SRS FR-M9-34 / M9-B16): **플랜 한도가 주기별로 선다.**
+   *
+   * 이 값은 `rate_limit_event` 로 **이미 오고 있었고** 어댑터가 알아본 뒤 버렸다
+   * (`claude_proto.go` — `return nil, true`). D-M9-22 의 첫 판이 "프로토콜이 주지
+   * 않는다" 를 적은 자리이며, 실측이 그것을 반증했다 (`M9_PROGRESS` §2-23).
+   *
+   * **재는 것 셋**: ① 주기가 여럿 선다 ② 짧은 주기가 먼저다(`resetsAt` 오름차순 —
+   * map 순회는 무작위라 정렬이 없으면 회차마다 흔들린다) ③ **화면이 모르는 주기는
+   * 이름 그대로 선다** (D-M9-23). ③ 이 핵심이다 — 열거로 굳힌 구현에서는 그 창이
+   * 조용히 사라지고, 그것이 `Signals` 가 막으려던 실패와 같은 종류다.
+   */
+  test('V-M9-34 (FR-M9-34): 플랜 한도가 주기별로 서고 모르는 주기는 이름 그대로', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    const limits = pane.locator('.agp-limits');
+    // 첫 턴 전에는 한도가 오지 않았다 — 그때 자리가 서면 "0%" 로 읽힌다 (FR-CBG-5).
+    await expect(limits).toBeHidden();
+    await send(pane, 'say PONG');
+    await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
+    await expect(limits).toBeVisible({ timeout: 10000 });
+    const text = (await limits.textContent()) || '';
+    // 아는 주기는 번역되고 모르는 주기는 어댑터가 준 이름이 그대로 선다.
+    expect(text, `한도 줄: ${text}`).toContain('44%');
+    expect(text, `모르는 주기가 사라졌다: ${text}`).toContain('opus_weekly');
+    // 짧은 주기가 먼저다 — 44%(five_hour) 가 2%(opus_weekly) 앞에 있다.
+    expect(text.indexOf('44%')).toBeLessThan(text.indexOf('opus_weekly'));
+  });
+
   test('TC-AGT-7: 프로세스가 죽으면 오류 상태 — 사유가 보이고 입력이 막히고, 재개가 된다 (V-8, FR-ABG-20)', async ({ page }) => {
     await waitForInit(page);
     const pane = await openAgentTab(page);

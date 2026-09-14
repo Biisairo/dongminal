@@ -429,3 +429,80 @@ func TestClaudeProto_PromptAndResume(t *testing.T) {
 		t.Fatal("claude 에는 Cancel 이 없다 — 없는 것을 선언하지 않는다 (D-U-6)")
 	}
 }
+
+// V-M9-34 (M9_SRS FR-M9-34 / M9-B16): **플랜 한도는 프로토콜이 준다.**
+//
+// 이 프레임은 실측에서 그대로 가져온 것이다 (2026-09-14,
+// `claude -p --output-format stream-json --verbose`). 종전에는
+// `case "rate_limit_event": return nil, true` 로 **알아본 뒤 버렸다** — 그래서
+// D-M9-22 가 "프로토콜이 주지 않는다" 를 적었고, 그 문장이 틀렸다
+// (`M9_PROGRESS` §2-23).
+//
+// `unifiedWindows` 는 **키가 가변**이고 값은 **총량 없이 비율만** 준다. 그래서
+// `Limits` 는 목록이고 `Ratio` 는 0.0~1.0 이다 (사용자 지시 2026-09-14).
+func TestClaudeProto_RateLimitEvent(t *testing.T) {
+	p, st := protoOf(t)
+	const line = `{"type":"rate_limit_event","rate_limit_info":{"status":"allowed",` +
+		`"resetsAt":1789383600,"rateLimitType":"five_hour","overageStatus":"rejected",` +
+		`"isUsingOverage":false,"unifiedWindows":{` +
+		`"five_hour":{"utilization":0.44,"resetsAt":1789383600},` +
+		`"seven_day":{"utilization":0.17,"resetsAt":1789822800}}},` +
+		`"session_id":"sid-rl"}`
+	evs := decode1(t, p, st, line)
+	if kinds(evs) != "usage" {
+		t.Fatalf("rate_limit_event 는 사용량이다: %s", kinds(evs))
+	}
+	u := evs[0].Usage
+	if u == nil || len(u.Limits) != 2 {
+		t.Fatalf("두 창이 와야 한다: %+v", u)
+	}
+	// 짧은 주기가 먼저다 — `ResetAt` 오름차순. map 순회는 무작위이므로 **정렬이
+	// 없으면 이 단정이 회차마다 흔들린다**. 흔들리는 검사는 결함이다 (§2-18).
+	if u.Limits[0].Kind != "five_hour" || u.Limits[0].Ratio != 0.44 ||
+		u.Limits[0].ResetAt != 1789383600 {
+		t.Fatalf("five_hour: %+v", u.Limits[0])
+	}
+	if u.Limits[1].Kind != "seven_day" || u.Limits[1].Ratio != 0.17 ||
+		u.Limits[1].ResetAt != 1789822800 {
+		t.Fatalf("seven_day: %+v", u.Limits[1])
+	}
+	// 총량을 모르는 것을 0 으로 읽지 않는다 (FR-CBG-5).
+	if u.Limits[0].Total != 0 || u.Limits[0].Used != 0 {
+		t.Fatalf("총량은 오지 않았으므로 비어 있어야 한다: %+v", u.Limits[0])
+	}
+	if evs[0].SessionID != "sid-rl" {
+		t.Fatalf("세션 신원: %q", evs[0].SessionID)
+	}
+	// 같은 줄을 여러 번 디코드해도 순서가 같다 (map 순회 무작위성).
+	for i := 0; i < 20; i++ {
+		again := decode1(t, p, NewProtoState(), line)
+		if again[0].Usage.Limits[0].Kind != "five_hour" {
+			t.Fatalf("%d 회차에 순서가 흔들렸다: %+v", i, again[0].Usage.Limits)
+		}
+	}
+}
+
+// V-M9-34: **cache 는 오는데 버리던 값이다.** `context()` 가 합산해 `Tokens`
+// 하나로 내는 것은 그대로 두고(기존 컨텍스트 % 가 바뀌면 안 된다), 두 값을
+// 따로도 싣는다.
+func TestClaudeProto_CacheTokensSurface(t *testing.T) {
+	p, st := protoOf(t)
+	const line = `{"type":"result","subtype":"success","session_id":"sid-c",` +
+		`"usage":{"input_tokens":10,"cache_creation_input_tokens":200,` +
+		`"cache_read_input_tokens":3000,"output_tokens":7},"total_cost_usd":0.5}`
+	evs := decode1(t, p, st, line)
+	if len(evs) == 0 || evs[0].Usage == nil {
+		t.Fatalf("사용량이 없다: %s", kinds(evs))
+	}
+	u := evs[0].Usage
+	if u.CacheWrite != 200 || u.CacheRead != 3000 {
+		t.Fatalf("cache 두 값이 실려야 한다: %+v", u)
+	}
+	// 합산의 뜻은 바뀌지 않는다 — 10 + 200 + 3000.
+	if u.Tokens != 3210 {
+		t.Fatalf("합산 Tokens 의 뜻이 바뀌었다: %d", u.Tokens)
+	}
+	if u.OutputTokens != 7 {
+		t.Fatalf("출력 토큰: %d", u.OutputTokens)
+	}
+}

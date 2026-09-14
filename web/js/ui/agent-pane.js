@@ -36,10 +36,17 @@ class AgentPane {
     this.permEl=document.createElement('span'); this.permEl.className='agp-perm';
     this.ctxEl=document.createElement('span'); this.ctxEl.className='agp-ctx';
     this.costEl=document.createElement('span'); this.costEl.className='agp-cost';
+    /**
+     * M9_SRS FR-M9-34: **플랜 한도는 컨텍스트 채움과 다른 자리에 선다.**
+     * 둘은 출처가 다르고(하나는 이 대화, 하나는 계정 전체), 나란히 같은 모양으로
+     * 두면 사용자가 같은 것으로 읽는다. 그래서 이름을 주기로 달고 사유를 title 에 둔다.
+     */
+    this.limitsEl=document.createElement('span'); this.limitsEl.className='agp-limits';
+    this.limitsEl.title=t('agent.limits_title'); this.limitsEl.hidden=true;
     this.openEl=document.createElement('span'); this.openEl.className='agp-open';
     const sp=document.createElement('span'); sp.className='agp-spacer';
     this.menuBtn=UIKit.button({icon:'menu',title:t('agent.menu_title'),kind:'ghost',size:'sm',cls:'agp-menu-btn',onClick:e=>this._openMenu(e)});
-    for(const x of [this.lblEl,this.stateEl,this.modelEl,this.permEl,this.ctxEl,this.costEl,this.openEl,sp,this.menuBtn]) head.appendChild(x);
+    for(const x of [this.lblEl,this.stateEl,this.modelEl,this.permEl,this.ctxEl,this.costEl,this.limitsEl,this.openEl,sp,this.menuBtn]) head.appendChild(x);
     el.appendChild(head);
 
     // 대화
@@ -183,12 +190,57 @@ class AgentPane {
   _setUsage(u){
     this._usage=Object.assign({},this._usage||{},Object.fromEntries(Object.entries(u).filter(([,v])=>v)));
     const x=this._usage;
+    /**
+     * M9_SRS FR-M9-34 (사용자 지시 2026-09-14): **에이전트마다 모양이 다르다.**
+     * 절대값(사용토큰/총토큰)을 주는 어댑터와 **비율만** 주는 어댑터가 둘 다 있다.
+     * 종전에는 `x.tokens` 가 없으면 **아무것도 그리지 않았다** — 비율만 아는
+     * 어댑터에서 이 자리가 영영 비었다.
+     */
     if(x.tokens){
       this.ctxEl.textContent=x.contextWindow
         ? t('agent.ctx',{pct:Math.round(x.tokens/x.contextWindow*100),tokens:fmtTokens(x.tokens),window:fmtTokens(x.contextWindow)})
         : t('agent.ctx_unknown',{tokens:fmtTokens(x.tokens)});
+    }else if(x.contextRatio){
+      this.ctxEl.textContent=t('agent.ctx_ratio',{pct:Math.round(x.contextRatio*100)});
     }
     if(x.costUSD) this.costEl.textContent=t('agent.cost',{cost:x.costUSD.toFixed(4)});
+    this._renderLimits(x.limits);
+  }
+
+  /**
+   * FR-M9-34: 플랜 한도 목록. **주기의 수와 이름이 에이전트마다 다르므로** 목록을
+   * 그대로 훑는다.
+   *
+   * 비어 있으면 **자리가 서지 않는다** — 한도를 말하지 않는 에이전트에서 빈 칸이
+   * 보이면 "0%" 나 "고장" 으로 읽힌다 (FR-CBG-5: 모른다 ≠ 괜찮다).
+   */
+  _renderLimits(limits){
+    const list=Array.isArray(limits)?limits:[];
+    this.limitsEl.hidden=list.length===0;
+    this.limitsEl.textContent=list.map(l=>{
+      const name=this._limitLabel(l);
+      // 총량을 주는 어댑터와 비율만 주는 어댑터가 다른 문장을 쓴다.
+      return l.total
+        ? t('agent.limit_abs',{name,used:fmtTokens(l.used||0),total:fmtTokens(l.total)})
+        : t('agent.limit_pct',{name,pct:Math.round((l.ratio||0)*100)});
+    }).join(' · ');
+  }
+
+  /**
+   * D-M9-23 (사용자 결정): **주기 이름은 자유 문자열이다.** 아는 것만 번역하고
+   * 모르는 것은 어댑터가 준 `label` 을 그대로 쓴다 — 열거로 굳히면 새 주기를 쓰는
+   * 에이전트의 값이 조용히 사라진다.
+   *
+   * 카탈로그 밖의 문자열이 화면에 서는 자리이며, 그 사유가 이것이다: 그 문자열은
+   * 우리 문구가 아니라 **에이전트가 준 데이터**다 (모델 이름·명령 목록과 같은 자격).
+   */
+  _limitLabel(l){
+    switch(l&&l.kind){
+      case 'five_hour': return t('agent.limit_five_hour');
+      case 'seven_day': return t('agent.limit_seven_day');
+      case 'monthly': return t('agent.limit_monthly');
+      default: return (l&&(l.label||l.kind))||'';
+    }
   }
   _renderOpen(){ const n=this._openIds.size; this.openEl.textContent=n>0?t('agent.open_requests',{n}):''; }
   _sessionLine(sid){ if(sid) this.el.dataset.sessionid=sid }

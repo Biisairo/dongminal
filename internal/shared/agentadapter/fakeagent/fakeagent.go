@@ -218,6 +218,7 @@ func (a *agent) turn(text string) (int, bool) {
 	default:
 		a.text("PONG")
 	}
+	a.rateLimit()
 	a.result(false, "completed")
 	return 0, false
 }
@@ -380,6 +381,24 @@ func (a *agent) local(cmd string) {
 		"message": map[string]any{"model": "<synthetic>", "id": newID("msg"), "type": "message", "role": "assistant",
 			"content": []map[string]any{{"type": "text", "text": "ok: " + cmd}}}})
 	a.result(false, "completed")
+}
+
+// rateLimit 은 실측한 `rate_limit_event` 를 그대로 흉내 낸다 (M9_SRS FR-M9-34).
+//
+// `unifiedWindows` 는 **키가 가변**이고 값은 **총량 없이 비율만** 준다 — 그 모양이
+// 곧 `ProtoLimit` 이 목록인 이유다. 여기 셋째 창(`monthly`)을 함께 두는 이유는
+// **우리가 아는 둘만으로는 가변성이 검사되지 않기** 때문이다.
+func (a *agent) rateLimit() {
+	a.emit(map[string]any{"type": "rate_limit_event",
+		"rate_limit_info": map[string]any{"status": "allowed", "rateLimitType": "five_hour",
+			"unifiedWindows": map[string]any{
+				"five_hour": map[string]any{"utilization": 0.44, "resetsAt": 1789383600},
+				"seven_day": map[string]any{"utilization": 0.17, "resetsAt": 1789822800},
+				"monthly":   map[string]any{"utilization": 0.05, "resetsAt": 1792414800},
+				// **화면이 모르는 주기** (D-M9-23). 카탈로그에 없으므로 이름이 그대로
+				// 서야 한다 — 열거로 굳힌 구현에서는 이 창이 조용히 사라진다.
+				"opus_weekly": map[string]any{"utilization": 0.02, "resetsAt": 1792500000},
+			}}})
 }
 
 func (a *agent) result(isErr bool, reason string) {

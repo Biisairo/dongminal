@@ -194,9 +194,49 @@ type claudeFrame struct {
 	Result     string                      `json:"result"`
 	CostUSD    float64                     `json:"total_cost_usd"`
 	Usage      *claudeUsage                `json:"usage"`
+	RateLimit  *claudeRateLimit            `json:"rate_limit_info"`
 	ModelUsage map[string]claudeModelUsage `json:"modelUsage"`
 	TermReason string                      `json:"terminal_reason"`
 	StopReason string                      `json:"stop_reason"`
+}
+
+// claudeRateLimit 은 `rate_limit_event` 가 싣는 플랜 한도다 (M9_SRS FR-M9-34).
+//
+// **`unifiedWindows` 는 키가 가변이다** — 지금 오는 것은 `five_hour`·`seven_day` 이나
+// 그 목록이 계약은 아니다. 그래서 map 으로 받고 `ProtoLimit` 목록으로 옮긴다.
+// 값은 **총량 없이 비율만** 준다 (`utilization` 0.0~1.0).
+//
+// 종전에는 이 프레임을 `return nil, true` 로 **알아본 뒤 버렸다.** 그래서 D-M9-22 가
+// "프로토콜이 주지 않는다" 를 적었고 그 문장이 틀렸다 (`M9_PROGRESS` §2-23).
+type claudeRateLimit struct {
+	Windows map[string]claudeRateWindow `json:"unifiedWindows"`
+}
+
+type claudeRateWindow struct {
+	Utilization float64 `json:"utilization"`
+	ResetsAt    int64   `json:"resetsAt"`
+}
+
+// limits 는 가변 키의 map 을 **결정적 순서의** 목록으로 옮긴다.
+//
+// 정렬이 없으면 map 순회의 무작위성이 그대로 화면 순서가 되어, 같은 값이 매번 다른
+// 자리에 선다. 짧은 주기가 먼저다(`ResetAt` 오름차순) — 사용자가 먼저 볼 것이 그것이다.
+// 같은 시각이면 이름으로 가른다.
+func (rl *claudeRateLimit) limits() []ProtoLimit {
+	if rl == nil || len(rl.Windows) == 0 {
+		return nil
+	}
+	out := make([]ProtoLimit, 0, len(rl.Windows))
+	for kind, w := range rl.Windows {
+		out = append(out, ProtoLimit{Kind: kind, Ratio: w.Utilization, ResetAt: w.ResetsAt})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].ResetAt != out[j].ResetAt {
+			return out[i].ResetAt < out[j].ResetAt
+		}
+		return out[i].Kind < out[j].Kind
+	})
+	return out
 }
 
 type claudeUsage struct {
@@ -246,6 +286,9 @@ func claudeDecode(line []byte, st *ProtoState) ([]Event, bool) {
 		u := &ProtoUsage{Tokens: fr.Usage.context(), CostUSD: fr.CostUSD}
 		if fr.Usage != nil {
 			u.OutputTokens = fr.Usage.Output
+			// FR-M9-34: 오는데 버리던 둘. `Tokens` 는 이 둘을 합산한 채로 두므로
+			// 기존 컨텍스트 % 의 뜻이 바뀌지 않는다.
+			u.CacheRead, u.CacheWrite = fr.Usage.CacheRead, fr.Usage.CacheWrite
 		}
 		if name, mu, ok := claudePickModelUsage(fr.ModelUsage); ok {
 			u.Model, u.ContextWindow = name, mu.ContextWindow
@@ -269,7 +312,15 @@ func claudeDecode(line []byte, st *ProtoState) ([]Event, bool) {
 		st.SessionID = fr.NewConv
 		return []Event{{Kind: EvReset, SessionID: fr.NewConv}}, true
 	case "rate_limit_event":
-		return nil, true
+		// FR-M9-34: 종전에는 여기서 버렸다. 한도를 말하지 않는 판(빈 창 목록)에서는
+		// **아무것도 내지 않는다** — 빈 목록을 이벤트로 내면 받는 쪽이 "한도가 0" 과
+		// "한도를 모른다" 를 가르지 못한다 (FR-CBG-5).
+		lim := fr.RateLimit.limits()
+		if len(lim) == 0 {
+			return nil, true
+		}
+		return []Event{{Kind: EvUsage, SessionID: fr.SessionID,
+			Usage: &ProtoUsage{Limits: lim}}}, true
 	}
 	return nil, false
 }
@@ -335,8 +386,10 @@ func claudeDecodeStream(fr claudeFrame, x *claudeExt) ([]Event, bool) {
 			evs = append(evs, Event{Kind: EvTurnStart, SessionID: fr.SessionID})
 		}
 		if ev.Message != nil && ev.Message.Usage != nil {
+			mu := ev.Message.Usage
 			evs = append(evs, Event{Kind: EvUsage, SessionID: fr.SessionID,
-				Usage: &ProtoUsage{Tokens: ev.Message.Usage.context(), Model: ev.Message.Model}})
+				Usage: &ProtoUsage{Tokens: mu.context(), Model: ev.Message.Model,
+					CacheRead: mu.CacheRead, CacheWrite: mu.CacheWrite}})
 		}
 		return evs, true
 	case "content_block_start":
