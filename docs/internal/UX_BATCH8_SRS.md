@@ -168,8 +168,20 @@ FR-WSL-50 의 뜻은 지켜지지만, 그 값이 키트의 `--ui-gap`(6px)보다
 
 ### 4.3 묶음 C — 미니맵
 
-- **FR-MMP-2** `minimap.size` 는 `'fill'` 이다 — **편집기와 diff 둘 다** (FR-MMP-1
-  이 규정한 표면 그대로). **FR-MMP-1 을 개정한다.**
+- **FR-MMP-2** `minimap.size` 는 `'fill'` 이다 — **편집기** (FR-MMP-1 이 규정한 표면
+  그대로). **FR-MMP-1 을 개정한다.**
+
+  > **개정 (M9 P1, 2026-09-14 — `M9_SRS` FR-M9-5 / D-M9-5, 사용자 결정).**
+  > **diff 는 빠진다.** 이 조항은 "편집기와 diff 둘 다" 였고 `GIT_DIFF_OPTIONS` 에
+  > `minimap:{size:'fill'}` 을 두었는데, **그 값은 diff 에서 한 번도 효력이 없었다** —
+  > `createDiffEditor` 의 미니맵 기본값이 `enabled:false` 이고 `size` 는 켜진 미니맵의
+  > 좌표계를 정하는 값이다 (실측: diff 의 `minimap.enabled === false`·`minimapWidth 0`).
+  >
+  > 이전 동작: diff 옵션에 `size:'fill'` 이 있었고 아무 일도 하지 않았다
+  > 새  동작: diff 는 `minimap:{enabled:false}` 를 **명시**한다. 자리를 60~80px 내주면
+  >           좁은 칸의 두 쪽 본문이 읽히지 않는다는 것이 그 결정의 근거다
+  > 이유:     없는 것을 없다고 적어야 다음 사람이 같은 착각을 하지 않는다. 겹침의
+  >           실체는 미니맵이 아니라 편집기 안의 개요 눈금이었고 그것은 FR-M9-5 가 껐다
 - **FR-MMP-3** 문서 길이와 무관하게 미니맵 슬라이더와 스크롤바 슬라이더의 `top` 과
   `height` 가 같다.
 
@@ -225,7 +237,8 @@ FR-WSL-50 의 뜻은 지켜지지만, 그 값이 키트의 `--ui-gap`(6px)보다
 | V-CLG-2 | FR-CLG-2 | `저장 후 닫기` 뒤 디스크 내용이 편집 내용과 같고 창이 사라진다 |
 | V-CLG-3 | FR-CLG-5·6 | dirty 만 있고 도구가 없을 때 `beforeunload` 가 막는다. 스위치를 끄면 막지 않는다 |
 | V-GAP-1 | FR-GAP-1·2 | 두 표면의 실제 간격이 `--ui-gap` 이상이다 |
-| V-MMP-2 | FR-MMP-2·3 | **짧은 문서**(400줄)에서 두 슬라이더의 `top`·`height` 가 같고, 옵션이 `'fill'` 이다 |
+| V-MMP-2 | FR-MMP-2·3 | **짧은 문서**(400줄)에서 두 슬라이더의 `top`·`height` 가 같고, 편집기의 옵션이 `'fill'` 이다 |
+| V-MMP-2b | FR-MMP-2 (M9 개정) | diff 의 미니맵은 **꺼져 있고 그것이 명시돼 있다** — `M9_SRS` FR-M9-5 |
 | V-DRB-1 | FR-DRB-1·2·3 | 버튼의 글자가 `미리보기` 뿐이고, 폭이 그것을 담고, 오른쪽 변이 미니맵 왼쪽 변을 넘지 않는다 |
 | V-SCR-1 | FR-SCR-2 | `.dr-body` 가 공통 스크롤 표면을 쓴다 |
 
@@ -242,3 +255,11 @@ FR-WSL-50 의 뜻은 지켜지지만, 그 값이 키트의 `--ui-gap`(6px)보다
 - 미리보기 버튼을 **탭바로** 옮기는 것. 자리는 편집기 오버레이로 남는다 — 탭바는
   모든 탭 타입이 지나는 렌더 경로다 (FR-DRV-3 의 근거, D-5 는 그 안에서의 이동이다)
 - 미니맵의 `scale`·`showSlider` 변경. 접수한 것은 **좌표계**다
+
+---
+
+## 변경 기록 (개정)
+
+| 날짜 | 내용 |
+|---|---|
+| 2026-09-14 | **M9 P1** — `FR-MMP-2` 개정: **diff 가 빠진다** (`M9_SRS` FR-M9-5 / D-M9-5, 사용자 결정). `GIT_DIFF_OPTIONS` 의 미니맵 `size` 값은 `createDiffEditor` 의 기본값(`enabled:false`) 때문에 **한 번도 효력이 없었다** — 실측 `minimap.enabled === false`·`minimapWidth 0`. diff 는 `minimap:{enabled:false}` 를 명시하고 편집기 안 개요 눈금(`overviewRulerLanes:0`)을 끈다. 편집기 쪽 값은 그대로. `V-MMP-2b` 가 새 계약을 잰다 |

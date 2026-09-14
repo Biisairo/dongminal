@@ -454,4 +454,51 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     await expect(page.locator('.fe-find.vis:visible')).toHaveCount(0);
     await expect(monacoWidget(page)).toHaveCount(0);
   });
+
+  /**
+   * M9_SRS FR-M9-9 / V-M9-9 — **일치는 개요 눈금과 미니맵에도 찍힌다.**
+   *
+   * 접수 — "파일에서 글자 검색 시 결과 위치가 미니맵과 스크롤에 보이면 좋겠다".
+   * 종전에는 장식이 `className` 하나뿐이라 보이는 화면 안에서만 표시됐다. "3/4"
+   * 라는 수는 있는데 나머지가 어디인지 알 길이 없었다.
+   *
+   * **장식으로 잰다.** 눈금은 canvas 라 DOM 으로는 셀 수 없고, 색을 픽셀로 재면
+   * 테마에 매인다. 장식의 `options` 는 `_findPaint` 가 만든 바로 그 값이다.
+   */
+  test('일치가 개요 눈금과 미니맵에 찍힌다 (FR-M9-9)', async ({ page, request }) => {
+    await enter(page, request);
+    await openFile(page, 'find.txt');
+    await openFind(page);
+    await q(page).fill('needle');
+    // 105행의 일치는 화면 밖이다 — 눈금이 필요한 이유가 그것이다 (FR-EFP-15).
+    await expect(count(page)).toHaveText(/\/\s*4$/, { timeout: 5000 });
+
+    const decos = () => page.evaluate(() => {
+      const ed = (window as any).app.testing.edActiveEditor()?._editor;
+      const all = ed?.getModel()?.getAllDecorations() ?? [];
+      const hits = all.filter((d: any) => /fe-find-hit/.test(d.options?.className ?? ''));
+      return {
+        n: hits.length,
+        ruler: hits.filter((d: any) => !!d.options?.overviewRuler?.color).length,
+        minimap: hits.filter((d: any) => !!d.options?.minimap?.color).length,
+        // 현재 일치는 다른 색을 받는다 (FR-EFP-14 의 두 겹과 같은 구분).
+        rulerColors: [...new Set(hits.map((d: any) => JSON.stringify(d.options?.overviewRuler?.color)))].length,
+        curLine: hits.filter((d: any) => /fe-find-hit-cur/.test(d.options.className))
+          .map((d: any) => d.range.startLineNumber)[0] ?? -1,
+      };
+    });
+
+    const first = await decos();
+    expect(first.n, '찾기 장식이 없다').toBe(4);
+    expect(first.ruler, '눈금 장식이 붙지 않았다').toBe(first.n);
+    expect(first.minimap, '미니맵 장식이 붙지 않았다').toBe(first.n);
+    expect(first.rulerColors, '현재 일치와 나머지가 눈금에서 같은 색이다').toBe(2);
+
+    // 다음으로 옮기면 **현재 일치만** 따라 옮겨간다 — 수는 그대로다.
+    await page.keyboard.press('Enter');
+    await expect.poll(async () => (await decos()).curLine).not.toBe(first.curLine);
+    const moved = await decos();
+    expect(moved.ruler).toBe(moved.n);
+    expect(moved.rulerColors).toBe(2);
+  });
 });

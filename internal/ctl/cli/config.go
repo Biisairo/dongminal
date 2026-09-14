@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/serverconf"
 	"dongminal/internal/shared/settingsschema"
 )
@@ -206,14 +207,27 @@ func configExit(o ConfigOpts, rep configReport) int {
 	return 0
 }
 
-// exposeFlagHost 는 `--expose` 를 호스트의 **플래그 계층**으로 옮긴다.
+// startFlagHost 는 기동 옵션을 호스트의 **플래그 계층**으로 옮긴다.
 //
 // 플래그로 다루는 이유는 우선순위 때문이다 (FR-CFG-13). `--expose` 를 치고도
 // `server.json` 의 `host` 가 이기면 사용자는 자기가 방금 준 명령이 무시되는 것을
-// 본다. 주지 않았으면 빈 문자열이고 그것은 "정하지 않음" 이라 다음 계층으로 간다.
-func exposeFlagHost(o StartOpts) string {
+// 본다. 아무것도 정하지 않았으면 빈 문자열이고 그것은 "정하지 않음" 이라 다음
+// 계층(환경변수 → 파일 → 기본값)으로 간다.
+//
+// M9_SRS FR-M9-2 / D-M9-2: **격리도 이 계층에 값을 낸다.** 도구 셸은
+// `DONGMINAL_HOST` 를 물려받으므로, 노출로 떠 있는 인스턴스의 탭에서
+// `start --isolated` 를 치면 검사용 인스턴스가 0.0.0.0 에 열렸다.
+//
+//	이전 동작: 격리 기동이 물려받은 `DONGMINAL_HOST` 를 그대로 썼다
+//	새  동작: `--expose` 를 함께 주지 않는 한 `dmenv.DefaultHost`
+//	이유:     격리의 뜻은 "운영을 건드리지 않는다" 이고, 그 수명 동안 밖에서
+//	          닿을 이유가 없다. 명시(`--expose`)가 상속을 이긴다
+func startFlagHost(o StartOpts) string {
 	if o.Expose {
 		return ExposeHost
+	}
+	if o.Isolated {
+		return dmenv.DefaultHost
 	}
 	return ""
 }

@@ -4,6 +4,20 @@
  * class App 본문에서 옮겨온 메서드 7개. 본문은 수정하지 않았다 (FR-APP-3).
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
+/**
+ * M9_SRS FR-M9-4: 원격 닫기 명령의 인자를 `closeTab`·`delWindow` 의 opts 로 옮긴다.
+ *
+ * 두 자리가 같은 규칙을 쓰므로 함수로 둔다 — 손으로 옮겨 적으면 한쪽만 고쳐진다.
+ * `keepTool` 은 `force` 없이 오지 않는다(`dmctl` 이 둘을 함께 싣는다). 그래도 여기서
+ * 함께 세우는 것은, 답을 준 요청이 확인창을 만나면 무인 정리가 그 자리에서 멎기 때문이다.
+ */
+function _closeOpts(args){
+  if(!args||(!args.force&&!args.keepTool)) return undefined;
+  const o={force:true};
+  if(args.keepTool) o.keepTool=true;
+  return o;
+}
+
 Object.assign(App.prototype, {
   /**
    * FR-RSF-1: 복원 비행(飛行) 규약 — 요청이 떠난 시점부터 응답을 적용할 때까지.
@@ -564,13 +578,30 @@ Object.assign(App.prototype, {
       this._restoreTool(args.toolId,opts);
       return;
     }
+    /**
+     * M9_SRS FR-M9-4: `closeWindow` 도 답을 미리 받는다.
+     *
+     * 자리를 지목하지 않은 `closeWindow` 는 아래 공통 경로에서 `executeAction` 이
+     * **활성 창**을 닫는다 — 그 길에 opts 를 실을 자리가 없어 여기서 가른다.
+     * 지목했으면 `_focusLocation` 으로 그 창을 활성으로 만든 뒤 같은 함수를 부른다
+     * (좌표 해석은 한 벌이다).
+     */
+    if(action==='closeWindow' && (args.force||args.keepTool)){
+      if(args.location) this._focusLocation(args.location);
+      this.closeWindowActive(_closeOpts(args));
+      return;
+    }
     if(action==='closeTab' && args.location){
       const tgt=this._resolveLocation(args.location);
       if(tgt && tgt.paneId && tgt.tabId){
         // UX_BATCH6_SRS FR-RUN-6: `force` 는 확인창을 건너뛴다. 서버가 이미
         // 에이전트에게 종료를 청하고 기다린 뒤이며, 사용자의 결정은 그 명령을
         // 부른 순간에 있었다.
-        this.closeTab(tgt.paneId, tgt.tabId, tgt.windowId, args.force?{force:true}:undefined);
+        //
+        // M9_SRS FR-M9-4: `keepTool` 은 그 답이 "백그라운드로 보내기" 일 때다
+        // (`dmctl close-tab --background`). `force` 없이 오지 않는다 — 답을 준
+        // 요청이 확인창을 만나면 그 자리에서 멎는다.
+        this.closeTab(tgt.paneId, tgt.tabId, tgt.windowId, _closeOpts(args));
         return;
       }
       /**

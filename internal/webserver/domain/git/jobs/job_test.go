@@ -569,6 +569,38 @@ func TestJob_OnDoneRunsBeforeDoneIsPublished(t *testing.T) {
 	}
 }
 
+/**
+ * M9_SRS FR-M9-18 (P1 이 `-race -shuffle` 에서 잡은 것): **기록도 끝이 공개되기
+ * 전에 쓴다.**
+ *
+ * 바로 위 `TestJob_OnDoneRunsBeforeDoneIsPublished` 가 훅에 대해 세운 규칙과 같은
+ * 자리이고 같은 사유다 — `done` 을 본 쪽이 곧바로 기록을 물으면 아직 없었다.
+ * Console 이 "무엇이 돌았는가" 에 답하는 근거가 그 기록이다 (FR-GXU-1 · D-A-27).
+ *
+ * 훅 안에서 재는 이유는 **그 순간이 유일하게 결정적인 자리**이기 때문이다. 밖에서
+ * `Done` 을 기다렸다 세면 창이 좁아 12회 중 3회만 걸렸다(실측) — 그런 검사는 결함이
+ * 있어도 대개 초록이다.
+ */
+func TestJob_RecordIsWrittenBeforeDoneIsPublished(t *testing.T) {
+	svc := jobSvc()
+	seen := make(chan int, 1)
+	j := NewJobs(svc,
+		WithJobRunner(func(context.Context, string, []string, func(string, string)) (int, error) { return 0, nil }),
+		WithOnDone(func(*Job) { seen <- len(svc.Records(5)) }),
+	)
+	if _, err := j.Start(jobRepo, "fetch", jobFetchSpec()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	select {
+	case n := <-seen:
+		if n != 1 {
+			t.Fatalf("훅이 불릴 때 기록 %d개 — 끝이 공개되기 전에 기록이 있어야 한다", n)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("완료 훅이 불리지 않았다")
+	}
+}
+
 // M8 D-A-27 (FBE-08): 인가를 호출자가 지는 작업 — `submodule update` 가 이 길로
 // 온다. 허용 목록 대신 사유를 요구하고, 기록은 Unguarded 표식과 사유를 든다.
 // 취소·구독·같은 리포 배타는 원격 작업과 같은 기계장치다.

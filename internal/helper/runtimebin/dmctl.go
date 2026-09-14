@@ -21,8 +21,10 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl split-h [N]      # 가로 분할. N 지정 시 N 개로 균등 분할 (기본 2)
   dmctl split-v [N]      # 세로 분할. N 지정 시 N 개로 균등 분할 (기본 2)
   dmctl focus <uuid>     # uuid = list-workspace 의 uuid 컬럼 값 (좌표/라벨/toolId 거부)
-  dmctl close-tab
-  dmctl close-window
+  dmctl close-tab [--at <uuid>] [--force | --background]
+  dmctl close-window [--at <uuid>] [--force | --background]
+                                         # 프로세스가 도는 탭은 브라우저가 확인창을 띄운다.
+                                         # --force: 그냥 닫는다 · --background: 도구를 살리고 탭만 지운다
   dmctl window-next / window-prev
   dmctl tab-next / tab-prev
   dmctl tool-up / tool-down / tool-left / tool-right
@@ -167,6 +169,15 @@ func runDmctlWithFlags(cmd string, parsed dmctlParsed, stdout, stderr io.Writer)
 		return runDmctlFocus(cmd, &parsed, stdout, stderr)
 	case "rename-tab", "rename-window":
 		return runDmctlRename(cmd, &parsed, stdout, stderr)
+	case "close-tab", "close-window":
+		return runDmctlClose(cmd, &parsed, stdout, stderr)
+	}
+
+	// FR-M9-4: 두 플래그는 닫기의 것이다. 다른 명령이 조용히 받으면 사용자는
+	// 들은 줄 안다 — 받지 않는다는 사실을 그 자리에서 말한다.
+	if parsed.force || parsed.background {
+		fmt.Fprintf(stderr, "--force·--background 는 close-tab·close-window 에만 쓴다 (%s)\n", cmd)
+		return 2
 	}
 
 	action, ok := dmctlSimpleActions[cmd]
@@ -206,6 +217,32 @@ func runDmctlSplit(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) in
 		parsed.count = &n
 	}
 	return dmctlPost(action, parsed.buildArgs(), stdout, stderr)
+}
+
+// runDmctlClose 는 `close-tab`·`close-window` 다 (M9_SRS FR-M9-4 / D-M9-4).
+//
+// 프로세스가 도는 탭을 닫으면 브라우저가 확인창을 띄운다 (FR-BG-3) — 그 탭에는
+// 셸 프롬프트가 없어 detach 를 칠 수 없고, 바로 그 탭이 창을 띄우는 탭이다.
+// dmctl 로 닫는 쪽에는 그 창에 답할 손이 없으므로, **답을 미리 싣는다.**
+//
+//	--force      → `force:true`     그냥 닫는다 (app-cmd.js 가 이미 받는 길, FR-RUN-6)
+//	--background → `keepTool:true`  도구를 살리고 탭만 지운다 (`detachTab` 과 같은 길, FR-BG-2)
+//
+// `--background` 도 `force` 를 함께 싣는다 — 답을 준 요청이 확인창을 만나면 그
+// 자리에서 멎는다. 플래그가 없으면 아무것도 싣지 않으므로 기존 호출의 동작이 같다.
+func runDmctlClose(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) int {
+	if parsed.force && parsed.background {
+		fmt.Fprintln(stderr, "--force 와 --background 는 함께 쓸 수 없다 (닫기의 답은 하나다)")
+		return 2
+	}
+	args := parsed.buildArgs()
+	if parsed.force || parsed.background {
+		args["force"] = true
+	}
+	if parsed.background {
+		args["keepTool"] = true
+	}
+	return dmctlPost(dmctlSimpleActions[cmd], args, stdout, stderr)
 }
 
 func runDmctlFocus(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) int {
@@ -282,6 +319,9 @@ type dmctlParsed struct {
 	workdir    string
 	cwd        string
 	positional string
+	// M9_SRS FR-M9-4: 닫기의 답을 미리 준다. 둘은 배타다 (D-M9-4).
+	force      bool
+	background bool
 }
 
 func (p dmctlParsed) buildArgs() map[string]any {
@@ -382,6 +422,12 @@ func parseDmctlFlags(args []string) (dmctlParsed, error) {
 			continue
 		case len(a) > 6 && a[:6] == "--cwd=":
 			p.cwd = a[6:]
+		// M9_SRS FR-M9-4: close-tab·close-window 전용. 브라우저가 이미 받는 두 답
+		// (`force`·`keepTool`)을 dmctl 이 보낼 수 있게 한다.
+		case a == "--force":
+			p.force = true
+		case a == "--background":
+			p.background = true
 		case a == "-h" || a == "--help":
 			// caller handles top-level help; ignore here
 		case a == "--":

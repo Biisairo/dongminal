@@ -372,6 +372,56 @@ test.describe('묶음 F — Diff 뷰', () => {
   });
 
   // ── D12 — FR-GIT-47: LFS 포인터는 포인터임과 메타를 보인다 ──
+  /**
+   * M9_SRS FR-M9-5 / V-M9-5 — **본문이 개요 눈금 아래로 들어가지 않는다.**
+   *
+   * 접수 — "스크롤 미니맵 영역에 텍스트가 겹치는데 미니맵은 보이지 않는다".
+   * 실측으로 diff 의 미니맵은 애초에 꺼져 있었고(`minimap.enabled === false`,
+   * 폭 0), 겹치던 것은 편집기 **안**의 `decorationsOverviewRuler` 14px 이었다.
+   *
+   * 변경 위치를 잃지 않는 것이 이 검사의 절반이다 — diff **자신의** 눈금
+   * (`renderOverviewRuler`, FR-DOR-1)은 살아 있어야 하고, 그것은 본문 **밖**에 선다.
+   */
+  test('D14 (FR-M9-5): 미니맵은 꺼져 있고 본문이 개요 눈금과 겹치지 않는다', async ({ page }) => {
+    const repo = fx('basic');
+    await waitForInit(page);
+    await openGit(page, repo);
+    await row(page, 'working', 'tracked.txt').click();
+    await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
+
+    const got = await page.evaluate(() => {
+      const v = (window as any).app.gitPanel._diffView;
+      const ed = v && v._editor;
+      if (!ed) return null;
+      const m = ed.getModifiedEditor();
+      const li = m.getLayoutInfo();
+      const host = m.getDomNode() as HTMLElement;
+      const box = (el: Element | null) => (el ? el.getBoundingClientRect().width : -1);
+      const dr = document.querySelector('.diffOverviewRuler');
+      return {
+        minimapEnabled: m.getOption((window as any).monaco.editor.EditorOption.minimap).enabled,
+        minimapWidth: li.minimap.minimapWidth,
+        innerRulerW: box(host.querySelector('.decorationsOverviewRuler')),
+        editorRight: host.getBoundingClientRect().right,
+        diffRulerLeft: dr ? dr.getBoundingClientRect().left : -1,
+        diffRulerW: box(dr),
+      };
+    });
+    expect(got, 'diff 편집기를 찾지 못했다').not.toBeNull();
+
+    // 미니맵은 없다 — 그리고 그것이 **의도**라는 것을 옵션이 말한다 (D-M9-5).
+    expect(got!.minimapEnabled, 'diff 에 미니맵이 켜졌다').toBe(false);
+    expect(got!.minimapWidth).toBe(0);
+
+    // 편집기 안의 눈금은 폭이 0 이다 — 본문 위에 서던 것이 그것이다.
+    expect(got!.innerRulerW, '편집기 안 개요 눈금이 아직 본문을 덮는다').toBeLessThanOrEqual(0);
+
+    // diff 자신의 눈금은 살아 있고 본문 **밖**에 선다 (FR-DOR-1 을 잃지 않았다).
+    expect(got!.diffRulerW, 'diff 개요 눈금이 사라졌다').toBeGreaterThan(0);
+    expect(got!.diffRulerLeft, 'diff 눈금이 본문 위에 선다')
+      .toBeGreaterThanOrEqual(got!.editorRight - 1);
+  });
+
   test('D12 (V10·FR-GIT-47): LFS 포인터가 oid 와 실제 크기를 보인다', async ({ page }) => {
     const repo = copyFx('blobs', 'd12');
     // 커밋된 포인터와 **다른** 포인터를 워킹 트리에 둔다 — 양쪽 메타가 갈리는

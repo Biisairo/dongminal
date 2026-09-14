@@ -23,8 +23,8 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | `dmctl split-h [N]` | 가로 분할. N 지정 시 N 개로 균등 분할 (기본 2) |
 | `dmctl split-v [N]` | 세로 분할. 동일 |
 | `dmctl focus <uuid>` | 특정 탭으로 포커스. **uuid 만 허용** (`list-workspace` 의 `uuid=` 컬럼). 좌표/라벨/toolId 는 400 거부 |
-| `dmctl close-tab` | 현재 탭 닫기 |
-| `dmctl close-window` | 현재 창 닫기 |
+| `dmctl close-tab` | 현재 탭 닫기. 확인창의 답은 `--force` 또는 `--background` 로 미리 준다 |
+| `dmctl close-window` | 현재 창 닫기. 확인창의 답은 `--force` 또는 `--background` 로 미리 준다 |
 | `dmctl window-next` / `window-prev` | 창 이동 |
 | `dmctl tab-next` / `tab-prev` | 탭 이동 |
 | `dmctl tool-up` / `tool-down` / `tool-left` / `tool-right` | 방향키식 분할 칸 포커스 이동 (action 은 `paneUp`/`paneDown`/`paneLeft`/`paneRight`) |
@@ -94,6 +94,8 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | 플래그 | 설명 |
 |--------|------|
 | `--at <uuid>` / `-l <uuid>` | 대상 탭 지정. 미지정 시 현재 포커스. **uuid 만 허용** — `list-workspace` 의 `uuid=` 컬럼 값. 좌표/라벨/toolId 는 거부 |
+| `--force` | 닫기 전용. 실행 중인 프로세스가 있어도 **확인창 없이** 닫고 도구를 종료한다. 브라우저의 "그냥 닫기" 와 같다 |
+| `--background` | 닫기 전용. 확인창 없이 닫되 **도구는 살려 배경으로** 보낸다. 브라우저의 "백그라운드로 보내기" 와 같다. `--force` 와 함께 쓸 수 없다 |
 | `--no-focus` / `-n` | 실행 전후로 사용자 포커스를 옮기지 않음. `split-h/v` 후 새 분할 칸으로 포커스가 튀지 않음. `close-tab` 등에도 동일 적용 |
 | `-h` / `--help` | 도움말 |
 

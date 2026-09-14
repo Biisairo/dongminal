@@ -96,6 +96,9 @@ function monacoTheme() {
     const bg = style.getPropertyValue('--bg').trim();
     const fg = style.getPropertyValue('--text').trim();
     const accent = style.getPropertyValue('--accent').trim();
+    // M9_SRS FR-M9-9: 현재 일치를 다른 색으로 찍는 데 쓴다. 없으면 전경색이다 —
+    // 없는 색을 발명하지 않는다 (아래 add·del 과 같은 규약).
+    const bright = style.getPropertyValue('--text-bright').trim() || fg;
     if (!bg || !fg) return MONACO_THEME_FALLBACK;
 
     const [br, gr, bb] = monacoRGB(bg);
@@ -128,6 +131,21 @@ function monacoTheme() {
         'diffEditorGutter.removedLineBackground': monacoMix(del, bg, MONACO_DIFF_LINE_MIX),
         'diffEditorOverview.insertedForeground': add,
         'diffEditorOverview.removedForeground': del,
+        /**
+         * M9_SRS FR-M9-9: **찾기 일치의 색은 여기서 온다.**
+         *
+         * 접수 — "파일에서 글자 검색 시 결과 위치가 미니맵과 스크롤에 보이면 좋겠다".
+         * 장식은 `file-editor-find.js` 의 `_findPaint` 가 붙이고 색은 이 매핑이 준다.
+         * 거기서 색을 다시 정하면 테마를 바꿔도 이 표식만 따라오지 않는다
+         * (`diffEditor.*` 가 그랬던 자리, FR-GIT-119).
+         *
+         * 현재 일치가 다른 키를 쓰는 이유는 본문의 두 겹과 같다 (FR-EFP-14) —
+         * 둘이 같은 색이면 이전/다음이 무엇을 옮겼는지 눈금에서 보이지 않는다.
+         */
+        'editorOverviewRuler.findMatchForeground': accent || fg,
+        'editorOverviewRuler.rangeHighlightForeground': bright,
+        'minimap.findMatchHighlight': accent || fg,
+        'minimap.selectionHighlight': bright,
       },
     });
     return MONACO_THEME;

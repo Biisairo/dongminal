@@ -223,18 +223,39 @@ Object.assign(FileEditor.prototype, {
   /**
    * FR-EFP-14: 모든 일치를 하이라이트하고 현재 일치는 **그 위에 한 겹 더** 얹는다.
    * 둘이 같은 표시를 받으면 이전/다음이 무엇을 옮겼는지 보이지 않는다.
+   *
+   * M9_SRS FR-M9-9: 같은 장식이 **개요 눈금과 미니맵**에도 찍힌다.
+   *
+   *   이전 동작: `className` 하나뿐이라 일치가 **보이는 화면 안**에만 표시됐다 —
+   *             "3/29" 라는 수는 있는데 나머지 스물여섯이 어디인지 알 길이 없었다
+   *   새  동작: 문서 전체의 일치 위치가 눈금과 미니맵에 색으로 선다
+   *   이유:     접수 — "파일에서 글자 검색 시 결과 위치가 미니맵과 스크롤에 보이면
+   *             좋겠다". 스크롤 없이 분포를 보는 것이 찾기의 절반이다
+   *
+   * 눈금의 레인은 `Right` 다 — 왼쪽·가운데는 Monaco 가 오류·선택 표시에 쓰므로
+   * 그 위에 겹치면 어느 쪽 표식인지 알 수 없다. 색은 `monacoTheme()` 의 매핑에서
+   * 온다 (여기서 정하지 않는다).
    */
   _findPaint() {
     if (!this._editor) return;
     if (!this._findDecos) this._findDecos = this._editor.createDecorationsCollection([]);
-    this._findDecos.set((this._findHits || []).map((range, i) => ({
-      range,
-      options: {
-        className: i === this._findCur
-          ? ED_FIND_HIT_CLASS + ' ' + ED_FIND_HIT_CUR_CLASS
-          : ED_FIND_HIT_CLASS,
-      },
-    })));
+    this._findDecos.set((this._findHits || []).map((range, i) => {
+      const cur = i === this._findCur;
+      return {
+        range,
+        options: {
+          className: cur ? ED_FIND_HIT_CLASS + ' ' + ED_FIND_HIT_CUR_CLASS : ED_FIND_HIT_CLASS,
+          overviewRuler: {
+            color: { id: cur ? ED_FIND_RULER_COLOR_CUR : ED_FIND_RULER_COLOR },
+            position: monaco.editor.OverviewRulerLane.Right,
+          },
+          minimap: {
+            color: { id: cur ? ED_FIND_MINIMAP_COLOR_CUR : ED_FIND_MINIMAP_COLOR },
+            position: monaco.editor.MinimapPosition.Inline,
+          },
+        },
+      };
+    }));
   },
 
   // FR-EFP-19: 끝에서 돌아 감는다 — 마지막 다음은 처음이다.

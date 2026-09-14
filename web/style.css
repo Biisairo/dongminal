@@ -1306,6 +1306,27 @@ body.mobile #window-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;wh
   -webkit-overflow-scrolling:touch;
 }
 #mobile-keybar::-webkit-scrollbar{height:0}
+/* M9_SRS FR-M9-8 / D-M9-7: 가려진 키가 있다는 표식.
+   스크롤바를 되살리지 않는 이유는 그것이 손가락 폭의 스트립 위에서 키를 가리기
+   때문이다. 그림자는 `pointer-events:none` 이라 키를 가리지도 먹지도 않는다.
+   어느 쪽이 가려졌는지는 `app-mobile.js` 의 `_mkbOverflowWatch` 가
+   `data-overflow` 로 적는다. */
+/* 가로 스크롤 상자 안에서 `position:absolute` 는 **내용과 함께 밀린다** —
+   보이는 끝이 아니라 스크롤 원점에 선다. 키바는 flex 이므로 두 의사요소가 곧
+   flex 항목이고, `position:sticky` 가 그것을 보이는 끝에 붙인다. 음수 마진으로
+   자리를 차지하지 않게 해 키의 수를 줄이지 않는다. */
+#mobile-keybar::before,#mobile-keybar::after{
+  content:'';position:sticky;flex:0 0 18px;width:18px;align-self:stretch;
+  /* 키 위에 뜬다. 키바 자신이 쌓임 문맥을 만들므로(position:fixed + z-index)
+     이 값은 그 안에서만 뜻이 있다 — 형제인 버튼들보다 위라는 말이다. */
+  pointer-events:none;opacity:0;transition:opacity .12s;z-index:var(--z-raised);
+}
+#mobile-keybar::before{left:0;margin-right:-18px;background:linear-gradient(to right,var(--sidebar-bg),transparent)}
+#mobile-keybar::after{right:0;margin-left:-18px;background:linear-gradient(to left,var(--sidebar-bg),transparent)}
+#mobile-keybar[data-overflow="left"]::before,
+#mobile-keybar[data-overflow="both"]::before{opacity:1}
+#mobile-keybar[data-overflow="right"]::after,
+#mobile-keybar[data-overflow="both"]::after{opacity:1}
 .mkb-btn{
   /* manipulation: 더블탭 확대를 끊어 모디파이어 더블탭(lock)과 충돌하지 않게
      한다. 수평 팬(키바 슬라이드)은 그대로 허용된다. */
@@ -1381,7 +1402,14 @@ body.mobile .pn-tab[data-git-view]{padding:0 6px;font-size:var(--fs-md)}
    탭 자신의 가운데가 그 위로 들어온다: 실측으로 `history` 탭의 중심 x=130 이
    `×`[128..172] 안이었고, **탭을 누르면 탭이 닫혔다.** 세로는 줄 높이만큼
    받으므로 손가락이 실제로 빗나가는 축은 이미 덮인다. */
-body.mobile .pn-tab-x{opacity:1;width:18px;height:var(--touch-min)}
+/* M9_SRS FR-M9-7: 세로 44 를 받은 상자 **안에서** 아이콘을 가운데에 둔다.
+   종전에는 정렬이 없어 아이콘이 상자 위쪽에 붙었다 — 실측 390px 에서 탭 중심
+   y=68 · 라벨 중심 y=68 인데 `×` 아이콘 중심은 y=52.5 (15.5px 위). 폭 18 은
+   그대로다 (위 E-4 의 근거). */
+body.mobile .pn-tab-x{
+  opacity:1;width:18px;height:var(--touch-min);
+  display:flex;align-items:center;justify-content:center;
+}
 body.mobile .pn-tab-add{width:var(--touch-min);font-size:var(--fs-xl)}
 /* 이 셋은 `#id` 로 `min-height` 를 따로 들고 있어 `.ui-btn` 의 하한이 닿지
    않는다 — 같은 자리에서 함께 올린다. */

@@ -475,6 +475,32 @@ func (j *Jobs) finish(st *jobState, exit int, runErr error, dur time.Duration) {
 		}
 	}
 
+	// 기록은 **지운 argv** 로 남는다 (FR-GIT-104). 파괴적 선언은 호출자가 준
+	// spec 을 그대로 옮긴다 (I5).
+	//
+	// M9_SRS FR-M9-18: **기록도 끝이 공개되기 전에 쓴다.** 아래 훅과 같은 규칙이고
+	// 같은 사유다 (FR-GIT-107).
+	//
+	//   이전 동작: `st.job = final` 로 Done 을 공개한 **뒤**에 기록을 썼다
+	//   새  동작: 공개 전에 쓴다
+	//   이유:     `done` 을 본 쪽이 곧바로 기록을 물으면 아직 없었다. Console 이
+	//             "무엇이 돌았는가" 에 답하는 근거가 그 기록이다 (FR-GXU-1 · D-A-27).
+	//             M8 이 훅에서 고친 창을 기록이 그대로 들고 있었고, `-race -shuffle`
+	//             이 12회 중 3회 잡았다 (M9 P1 실측)
+	var recErr error
+	if final.Err != "" {
+		recErr = errors.New(final.Err)
+	}
+	out := core.Output{Stderr: tail, ExitCode: exit, DurationMs: dur.Milliseconds()}
+	if st.unguarded != "" {
+		// 인가를 건너뛴 실행은 그 표식과 사유로 남는다 (D-A-27) — Console 이 그것으로
+		// "왜 화이트리스트를 지나지 않았는가" 에 답한다 (FR-GXU-1).
+		j.svc.RecordUnguarded(final.Repo, core.UnguardedSpec{Argv: final.Argv, Reason: st.unguarded}, out, recErr)
+	} else {
+		j.svc.RecordWrite(final.Repo,
+			core.WriteSpec{Argv: final.Argv, Destructive: st.spec.Destructive, Stdin: st.spec.Stdin}, out, recErr)
+	}
+
 	// 훅은 **끝이 공개되기 전에** 돈다 (FR-GIT-107). Done 을 세우고 구독자를
 	// 닫은 뒤에 부르면, 그 사이에 `done` 을 본 쪽이 status 를 물어 만료되지 않은
 	// 캐시를 받는다 — `-race -shuffle` 전량에서 실제로 잡힌 창이다 (M8 P1 ②).
@@ -494,22 +520,6 @@ func (j *Jobs) finish(st *jobState, exit int, runErr error, dur time.Duration) {
 		sub.close()
 	}
 	j.mu.Unlock()
-
-	// 기록은 **지운 argv** 로 남는다 (FR-GIT-104). 파괴적 선언은 호출자가 준
-	// spec 을 그대로 옮긴다 (I5).
-	var recErr error
-	if final.Err != "" {
-		recErr = errors.New(final.Err)
-	}
-	out := core.Output{Stderr: tail, ExitCode: exit, DurationMs: dur.Milliseconds()}
-	if st.unguarded != "" {
-		// 인가를 건너뛴 실행은 그 표식과 사유로 남는다 (D-A-27) — Console 이 그것으로
-		// "왜 화이트리스트를 지나지 않았는가" 에 답한다 (FR-GXU-1).
-		j.svc.RecordUnguarded(final.Repo, core.UnguardedSpec{Argv: final.Argv, Reason: st.unguarded}, out, recErr)
-		return
-	}
-	j.svc.RecordWrite(final.Repo,
-		core.WriteSpec{Argv: final.Argv, Destructive: st.spec.Destructive, Stdin: st.spec.Stdin}, out, recErr)
 }
 
 // sweepLocked 는 보존 기간이 지난 작업을 버린다. 진행 중인 것은 건드리지 않는다.

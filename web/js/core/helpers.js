@@ -128,6 +128,33 @@ function pathRel(root,p){
   return s.slice(cut).replace(/\\/g,'/');
 }
 
+/**
+ * `root` 기준의 상대경로. **사람이 붙여넣을 값이다** (M9_SRS FR-M9-19 / D-M9-10).
+ *
+ * 위 `pathRel` 과 **다른 함수**인 이유가 셋이다. 저쪽은 git 의 키를 만든다:
+ *   ① 구분자를 `/` 로 굳힌다 — git 이 어느 OS 에서도 그렇게 답하기 때문이다.
+ *      이쪽은 **그 경로의 구분자를 지킨다** (`pathSep`). 사람이 붙여넣는 자리는
+ *      그 OS 의 셸·편집기이고, 거기서 `C:\a\b` 를 `C:/a/b` 로 주면 틀린 값이다
+ *   ② 루트 밖을 거르지 않는다 — 키를 만들 때는 호출자가 이미 아래임을 안다.
+ *      이쪽은 사용자의 우클릭에서 오므로 `pathUnder` 로 **먼저 묻는다**. 아니면
+ *      절대를 그대로 준다 (`/a/bc` 가 `/a/b` 아래로 잡히던 함정도 그 판정이 막는다)
+ *   ③ 루트 자신에 `''` 를 준다. 빈 문자열은 붙여넣을 것이 없다는 뜻이 되므로
+ *      여기서는 **그 이름**(`pathBase`)이다
+ *
+ * 둘을 한 함수로 합치지 않는다 — 합치면 플래그가 셋 붙고, 그 플래그를 잘못 준
+ * 자리는 조용히 틀린다.
+ */
+function pathRelative(root,p){
+  const s=String(p==null?'':p);
+  const r=String(root==null?'':root);
+  if(!r||!s) return s;
+  if(!pathUnder(r,s)) return s;
+  const sep=pathSep(s);
+  const base=r.endsWith(sep)?r.slice(0,-sep.length):r;
+  if(s===base||s===r) return pathBase(s);
+  return s.slice(base.length+sep.length);
+}
+
 // ── HTML escaping ──
 
 // escHtml 은 문자열을 HTML 에 넣기 전에 무해하게 만든다 (FR-CAF-17).

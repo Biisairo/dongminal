@@ -90,7 +90,7 @@ func RunUninstall(o UninstallOpts, stdout, stderr io.Writer) int {
 	}
 	if !o.Yes {
 		// 되돌릴 수 없는 동작이다. **기본값은 하지 않는 것**이고, 되돌리는 길의
-		// 이름이 곧 경고다 (`--insecure-no-acl` 과 같은 규약).
+		// 이름이 곧 경고다.
 		fmt.Fprintln(stderr, "\n지우려면 --yes 를 함께 주세요. 되돌릴 수 없습니다.")
 		fmt.Fprintln(stderr, "먼저 백업하려면: dongminal backup --out <파일.zip>")
 		return 1

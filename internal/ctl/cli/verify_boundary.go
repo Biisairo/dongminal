@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -106,37 +105,4 @@ func (s *verifySession) staticSecurityHeaders() (string, error) {
 		}
 	}
 	return "CSP · X-Frame-Options · nosniff", nil
-}
-
-// exposeGateBlocks 는 **실제 기동을 돌려** 노출 게이트를 확인한다
-// (REQUEST_GATE_SRS FR-RQG-20).
-//
-// 격리 홈을 새로 하나 더 잡는다 — 그 자리에는 `access.json` 이 없으므로 거부가
-// 정답이다. 거부되면 아무것도 뜨지 않는다. 만에 하나 통과하면 그때는 LAN 에 무인증
-// 서버가 선 것이므로, 실패로 적기 **전에** 정리부터 한다.
-func (s *verifySession) exposeGateBlocks() (string, error) {
-	home, port, err := resolveStartTarget(StartOpts{Isolated: true})
-	if err != nil {
-		return "", fmt.Errorf("격리 대상 준비 실패: %w", err)
-	}
-	if err := guardIsolated(home, port, userHomeDir()); err != nil {
-		return "", fmt.Errorf("격리 가드: %w", err)
-	}
-	defer os.RemoveAll(home)
-
-	exe, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("실행 파일 경로 확인 실패: %w", err)
-	}
-	cmd := exec.Command(exe, "start", "--expose", "--home", home, "--port", port)
-	cmd.Env = append(os.Environ(), EnvHome+"="+home, EnvPort+"="+port)
-	out, runErr := cmd.CombinedOutput()
-	if runErr == nil {
-		// 떴다는 뜻이다. 남겨 두면 이 검사가 곧 사고가 된다.
-		if pid, alive := daemonPID(home); alive {
-			stopVerifyPID(pid)
-		}
-		return "", fmt.Errorf("허용 목록이 없는데 노출 기동이 통과했다: %s", out)
-	}
-	return "허용 목록 없이 노출 기동 → 거부", nil
 }

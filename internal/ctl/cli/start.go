@@ -46,7 +46,7 @@ func RunStart(o StartOpts, serve Serve, stdout, stderr io.Writer) int {
 	var host string
 	conf := serverconf.Resolve(serverconf.Inputs{
 		Home:           home,
-		FlagHost:       exposeFlagHost(o),
+		FlagHost:       startFlagHost(o),
 		FlagPort:       port,
 		DefaultLogFile: defaultLogFile(),
 	})
@@ -64,26 +64,19 @@ func RunStart(o StartOpts, serve Serve, stdout, stderr io.Writer) int {
 	host = conf.Host.Value
 	port = conf.Port.Value
 
-	// REQUEST_GATE_SRS FR-RQG-20: **노출하면서 허용 목록이 꺼져 있으면 서지 않는다.**
+	// M9_SRS FR-M9-1 / D-M9-1: **노출 게이트는 없다.**
 	//
-	// 원격 접속이 이 제품이 존재하는 이유이고 기본 사용 형태다. "기본이
-	// 127.0.0.1 이니 노출 경로의 결함은 낮은 등급" 이라는 추론을 하지 않는다 —
-	// 인증이 아직 없는 동안 노출은 무인증 셸을 네트워크에 여는 것과 같다.
+	// 여기에 REQUEST_GATE_SRS FR-RQG-20 의 게이트가 있었다 — 노출인데 허용 목록이
+	// 없거나·꺼져 있거나·비어 있으면 `exposeACLBlocked` 의 사유를 찍고 exit 1.
 	//
-	// 되돌리는 길을 하나 남긴다. 그 이름이 곧 경고이며, 잊고 켜 둔 사람이
-	// 자기 명령줄에서 그것을 본다.
+	//   이전 동작: 셋 중 하나면 기동하지 않았다. 되돌리는 길은 `--insecure-no-acl` 하나
+	//   새  동작: `--expose` 는 허용 목록의 상태와 무관하게 뜬다
+	//   이유:     사용자 결정 (2026-09-14). 접수한 말은 "IP 필터가 꺼져 있는데도 IP
+	//             등록을 요구한다" 이고, 그 읽기에서 꺼진 필터는 곧 제한 없음이다
 	//
-	// **판정은 `dmenv.IsExposedHost` 한 벌이다** (TLS-2). 종전의
-	// `host != DefaultHost` 는 `::1`·`localhost` 바인드까지 허용 목록을
-	// 강제했다 — 밖에서 닿지 않는 주소인데 문을 잠그라고 요구한 것이다.
-	if dmenv.IsExposedHost(host) && !o.InsecureNoACL {
-		if reason := exposeACLBlocked(home); reason != "" {
-			fmt.Fprintf(stderr, "노출(%s) 상태인데 %s\n", host, reason)
-			fmt.Fprintln(stderr, "Settings ▸ Access 에서 허용 목록을 켜고 출발지를 넣으세요.")
-			fmt.Fprintln(stderr, "그대로 진행하려면: --insecure-no-acl (권장하지 않습니다)")
-			return 1
-		}
-	}
+	// **대가는 D-M9-1 이 적는다** — 인증이 아직 없으므로, 허용 목록을 켜지 않고
+	// 노출하면 같은 망의 누구나 이 서버의 셸과 파일에 닿는다. 그 판단은 이제
+	// 사용자의 것이며, 화면의 노출 표시(`dmenv.ExposureLabel`)가 그것을 말한다.
 
 	// 04-secops P1-6: 홈은 **0700** 이다. 그 안에 `settings.json`·`access.json`·
 	// `workspace.json`·`paned.sock` 이 산다 — 같은 호스트의 다른 UID 가 소켓에

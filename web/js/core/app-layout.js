@@ -174,7 +174,15 @@ Object.assign(App.prototype, {
 
   async addWindow(opts){await this._mkWindow(opts||{});this.render()},
 
-  async delWindow(sid){
+  /**
+   * M9_SRS FR-M9-4: `opts.force` 는 **이미 물었다**는 뜻이다 (탭 쪽 FR-RUN-6 과
+   * 같은 규약). `dmctl close-window --force|--background` 가 그 길로 오며, 답을
+   * 이미 준 요청이 확인창을 만나면 그 자리에서 멎는다.
+   *
+   * `opts.keepTool` 은 그 답이 "백그라운드로 보내기" 일 때다 — 도는 도구를 죽이지
+   * 않고 배경으로 옮긴다.
+   */
+  async delWindow(sid,opts={}){
     const i=this.ws.windows.findIndex(s=>s.id===sid);
     if(i<0) return;
     // FR-WSL-6: 슬롯 정리는 창을 실제로 지우기 **전에** 예약해 두지 않는다 —
@@ -195,7 +203,7 @@ Object.assign(App.prototype, {
      * 도구를 어떻게 할지 물을 일 자체가 없다. 워크스페이스는 답을 받은 뒤에야
      * 바뀐다 (NFR-2) — 이 위의 `findIndex` 는 읽기일 뿐이다.
      */
-    if(this._edWinDirty&&this._edWinDirty(s)){
+    if(this._edWinDirty&&this._edWinDirty(s)&&!opts.force){
       const r=await this._confirmClose(CLOSE_DIRTY_MSG,{saveBtn:true});
       if(!r) return;
       // FR-EXC-13a: 하나라도 저장하지 못했으면 창을 닫지 않는다 — 탭 하나의
@@ -208,13 +216,18 @@ Object.assign(App.prototype, {
     // "실행 중인 프로세스"이고, 한가하면 그냥 종료한다는 FR-BG-1 의 기본과
     // 일관되어야 한다 — 한가한 셸까지 보존하면 백그라운드가 쓰레기로 찬다.
     let keep=new Set();
-    if(busyChecks.some(Boolean)){
+    // FR-M9-4: 답을 이미 받은 요청은 묻지 않는다. `keepTool` 이면 그 답이
+    // "백그라운드" 이므로 busy 인 도구를 살린다 — 확인창의 `background` 와 같은 집합이다.
+    const asked0=busyChecks.some(Boolean);
+    if(asked0&&!opts.force){
       const r=await this._confirmClose(t('core.q_close_window'),
         {bgBtn:true,bgLabel:t('core.bg_running_only')});
       if(!r) return;
       if(r==='background'){
         for(let i=0;i<pids.length;i++) if(busyChecks[i]) keep.add(pids[i]);
       }
+    }else if(asked0&&opts.keepTool){
+      for(let i=0;i<pids.length;i++) if(busyChecks[i]) keep.add(pids[i]);
     }
     /**
      * WINDOW_CLOSE_UNDO_SRS FR-WCU-1·3·5 (`UX-2`): **묻지 않은 닫기는 되돌릴 수 있다.**
@@ -229,7 +242,9 @@ Object.assign(App.prototype, {
      *
      * 확인을 **지난** 닫기는 종전대로 최종이다 (D-WCU-2) — 안전망은 길마다 하나.
      */
-    const asked=busyChecks.some(Boolean);
+    // 확인을 **지난** 닫기는 최종이다 (D-WCU-2). `--force`·`--background` 로 답을
+    // 미리 준 것도 같다 — 사용자의 결정은 그 명령을 친 순간에 있었다 (FR-M9-4).
+    const asked=asked0;
     if(!asked){
       this._winUndoFinal();
       for(const pid of pids) this._setToolBackground(pid,true);
@@ -937,7 +952,7 @@ Object.assign(App.prototype, {
     const pn=findPane(s.layout,this.focused);if(!pn)return;
     this.closeTab(pn.id,this.paneTab(pn));
   },
-  closeWindowActive(){this.delWindow(this.ws.activeWindow)},
+  closeWindowActive(opts){this.delWindow(this.ws.activeWindow,opts||{})},
 
   /**
    * SIDEBAR_COLLAPSE_SRS 묶음 SBC — 사이드바 접기.

@@ -345,6 +345,15 @@ Object.assign(App.prototype, {
       });
       bar.appendChild(b);
     }
+    // M9_SRS FR-M9-8 / D-M9-7: **가려진 키가 있다는 것을 보인다.**
+    //
+    // 키바는 한 줄에 열아홉이 서는 가로 스크롤 스트립이고(ACCESSIBILITY_BASELINE_SRS
+    // E-3), `::-webkit-scrollbar{height:0}` 이라 더 있다는 표시가 없었다 — 390px
+    // 에서 내용 폭이 830px 이고 열 개가 화면 밖이다 (M9_SRS §2.3 B7 ②).
+    //
+    // 키 수를 줄이거나 두 줄로 펴면 E-3 의 근거(닿는 키의 수를 지킨다)를 다시 열어야
+    // 한다. 표식만 더하면 그 결정을 건드리지 않는다.
+    this._mkbOverflowWatch(bar);
     // visualViewport tracking — keyboard up/down detection
     if(window.visualViewport){
       const vv=window.visualViewport;
@@ -353,6 +362,30 @@ Object.assign(App.prototype, {
       vv.addEventListener('scroll', apply);
       apply();
     }
+  },
+
+  /**
+   * FR-M9-8: 키바의 가려짐을 `data-overflow` 로 말한다 — `none`·`right`·`left`·`both`.
+   *
+   * 값을 DOM 에 두는 이유는 그림자를 CSS 가 그리고 검사가 그 사실을 읽을 수 있어야
+   * 하기 때문이다. 순수 CSS 로도 그릴 수 있지만(배경 `local`/`scroll` 겹치기) 그때는
+   * "지금 무엇이 가려졌는가" 를 아무도 물을 수 없다.
+   */
+  _mkbOverflowWatch(bar){
+    const apply=()=>{
+      // 1px 여유는 소수 픽셀 폭에서 끝이 끝으로 읽히지 않는 것을 막는다.
+      const left=bar.scrollLeft>1;
+      const right=bar.scrollLeft+bar.clientWidth<bar.scrollWidth-1;
+      bar.dataset.overflow=left?(right?'both':'left'):(right?'right':'none');
+    };
+    bar.addEventListener('scroll',apply,{passive:true});
+    // 폭은 회전·키보드·글꼴로 바뀐다. 그때마다 다시 잰다.
+    if(typeof ResizeObserver!=='undefined'){
+      if(this._mkbRO) this._mkbRO.disconnect();
+      this._mkbRO=new ResizeObserver(apply);
+      this._mkbRO.observe(bar);
+    }
+    apply();
   },
 
   // FR-MTI-12/20: 뷰포트 변화마다 fit 하면 PTY SIGWINCH 가 이벤트 수만큼 나가고

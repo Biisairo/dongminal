@@ -260,7 +260,9 @@ func verifyChecks() []verifyCheck {
 		verifyCheck{Section: "경계", Name: "상대경로 400", Run: wantStatus(http.StatusBadRequest, at("/api/file/read?path=relative.txt"))},
 		verifyCheck{Section: "경계", Name: "읽기 상한 초과 413", Run: (*verifySession).fileOverLimitIs413},
 		verifyCheck{Section: "경계", Name: "정적 응답의 보안 헤더", Run: (*verifySession).staticSecurityHeaders},
-		verifyCheck{Section: "경계", Name: "노출 ACL 게이트", Run: (*verifySession).exposeGateBlocks},
+		// 여기 "노출 ACL 게이트" 가 있었다 — 허용 목록 없이 `--expose` 하면 기동이
+		// **거부되는가** 를 실물로 물었다. M9 가 그 게이트를 없앴으므로(FR-M9-1 /
+		// D-M9-1) 이 검사가 물을 사실이 사라졌다. 남겨 두면 언제나 실패한다.
 	)
 	return checks
 }

@@ -281,15 +281,24 @@ test.describe('FR-BGK-2·12: 모바일 배치와 Run 소속', () => {
 
     const btn = row(page, a).locator('.bg-kill');
     await expect(btn).toBeVisible();
-    expect(await btn.evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
     /**
      * **재는 것과 단언을 한 묶음으로 본다** (DRIFT_RECLAIM_SRS FR-DRC-18).
      *
-     * `toBeVisible()` 이 통과한 뒤에도 `boundingBox()` 가 `null` 로 올 수 있다 —
-     * 그 사이에 목록이 다시 그려져 방금 본 요소가 교체되면 그 요소는 더 이상
-     * 화면에 없다. 재렌더는 앱의 정상 동작이므로 견디는 쪽은 테스트다.
-     * 전량 회차에서 이 자리가 `expect(box).not.toBeNull()` 로 두 번 걸렸다.
+     * `toBeVisible()` 이 통과한 뒤에도 그 다음 관측이 빈손으로 올 수 있다 — 그
+     * 사이에 목록이 다시 그려져 방금 본 요소가 교체되면 그 요소는 더 이상 화면에
+     * 없다. 재렌더는 앱의 정상 동작이므로 견디는 쪽은 테스트다.
+     *
+     * M9_SRS FR-M9-11: **이 규약이 아래 `boundingBox` 에만 있었다.** 바로 여기
+     * 불투명도 단정은 `btn.evaluate(... getComputedStyle)` 한 번으로 끝냈고,
+     * 떨어진 요소의 `getComputedStyle` 은 값이 아니라 **빈 문자열**을 준다.
+     * `--repeat-each=8 --workers=1` 이 3/8 로 재현했다(실패는 전부
+     * `Expected "1" / Received ""`). 제품은 고치지 않는다 — 재렌더도, 빈 문자열도
+     * 규약대로다 (M9_SRS §2.3 A3).
      */
+    await expect
+      .poll(async () => btn.evaluate((el) => getComputedStyle(el).opacity),
+        { timeout: 10000, message: '종료 버튼이 투명하다' })
+      .toBe('1');
     await expect
       .poll(async () => (await btn.boundingBox())?.height ?? 0,
         { timeout: 10000, message: '터치 타깃이 너무 낮다' })

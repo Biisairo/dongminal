@@ -104,13 +104,32 @@ test('V-MMP-2: 짧은 문서에서도 미니맵이 스크롤바와 같은 자리
   }
 });
 
-// V-MMP-2b (FR-MMP-2): diff 도 같은 값을 딛는다.
-//
-// 좌표 일치는 위에서 이미 쟀다 — 두 표면은 같은 Monaco 규칙 위에 서므로 여기서
-// 재는 것은 **옵션이 갈라지지 않았는가** 다. diff 는 짧은 것이 흔해서(한 파일의
-// 몇 줄) `'fit'` 이 아무것도 하지 않는 구간에 가장 자주 놓인다.
-test('V-MMP-2b: diff 편집기의 미니맵도 fill 이다', async ({ page }) => {
+/**
+ * V-MMP-2b — **diff 의 미니맵은 꺼져 있고, 그것이 명시돼 있다.**
+ *
+ * 종전에는 "diff 도 `size:'fill'` 을 딛는다" 를 쟀다 (FR-MMP-2 의 원문: "편집기와
+ * diff 둘 다"). **그 값은 diff 에서 한 번도 효력이 없었다** — `createDiffEditor` 의
+ * 미니맵 기본값이 `enabled:false` 이고 `size` 는 켜진 미니맵의 값이다. 실측으로
+ * diff 의 `minimap.enabled === false`·`minimapWidth 0` 이었다.
+ *
+ * 개정: M9_SRS FR-M9-5 / D-M9-5 (사용자 결정 2026-09-14) — diff 는 미니맵을 끈 채로
+ * 두고 그것을 **명시**한다. 이 검사가 재는 것도 그 명시다. 꺼져 있다는 사실이
+ * 우연이 아니라 적힌 것이어야, 다음 사람이 `size` 를 다시 얹지 않는다.
+ *
+ * 본문이 눈금과 겹치지 않는다는 쪽은 `git-diff.spec.ts` D14 가 잰다 — 거기에는
+ * 실제 저장소와 diff 가 있다.
+ */
+test('V-MMP-2b: diff 편집기의 미니맵은 명시적으로 꺼져 있다', async ({ page }) => {
   await waitForInit(page);
-  const size = await page.evaluate(() => GIT_DIFF_OPTIONS.minimap.size);
-  expect(size, 'diff 옵션이 편집기와 갈라졌다').toBe('fill');
+  const got = await page.evaluate(() => ({
+    enabled: GIT_DIFF_OPTIONS.minimap.enabled,
+    size: GIT_DIFF_OPTIONS.minimap.size,
+    lanes: GIT_DIFF_OPTIONS.overviewRulerLanes,
+    diffRuler: GIT_DIFF_OPTIONS.renderOverviewRuler,
+  }));
+  expect(got.enabled, 'diff 의 미니맵이 명시적으로 꺼져 있지 않다').toBe(false);
+  expect(got.size, '꺼진 미니맵에 죽은 `size` 가 남아 있다').toBeUndefined();
+  // FR-M9-5: 겹치던 것은 편집기 **안**의 눈금이다. diff 자신의 눈금은 남는다.
+  expect(got.lanes, '편집기 안 개요 눈금이 아직 켜져 있다').toBe(0);
+  expect(got.diffRuler, 'diff 의 개요 눈금까지 껐다 (FR-DOR-1 을 잃는다)').toBe(true);
 });

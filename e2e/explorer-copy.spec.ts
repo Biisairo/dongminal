@@ -266,4 +266,50 @@ test.describe('FUI-11 — 탐색기의 잘라내기', () => {
     await expect(row(page, j(A, 'docs'))).toBeVisible({ timeout: 10000 });
     await expect(row(page, j(A, 'top.txt'))).toHaveCount(0);
   });
+
+  /**
+   * M9_SRS FR-M9-19 / V-M9-19b (사용자 요구 2026-09-14) — **경로 복사 둘.**
+   *
+   * 단위(`web/js/test/path-relative.test.mjs`)가 `pathRelative` 의 문자열 규칙을
+   * 이미 잰다. 여기서 재는 것은 그 위의 것이다 — 메뉴에 있는가, 파일과 폴더
+   * 둘 다에서 서는가, 눌렀을 때 **클립보드에 실제로 들어가는가.**
+   *
+   * 클립보드를 `navigator.clipboard.readText` 로 읽으므로 권한을 먼저 준다
+   * (`explorer-transfer-ignore.spec.ts` ET12 와 같은 벌).
+   */
+  test('C9 (V-M9-19b / FR-M9-19): 파일·폴더의 절대·상대 경로가 클립보드로 간다',
+    async ({ page, request, context }) => {
+      await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+      const R = mkRoot('c9');
+      await enterExplorer(page, request, R);
+
+      // 한 겹 아래의 파일을 쓴다 — 루트 바로 밑이면 상대와 이름이 같아져 이 검사가
+      // "상대인가" 를 묻지 못한다. 그래서 `src` 를 펼친다 (C6 과 같은 길).
+      await row(page, j(R, 'src')).click();
+      await expect(row(page, j(R, 'src', 'a.txt'))).toBeVisible({ timeout: 10000 });
+
+      // 두 항목이 자기 구획에 함께 선다.
+      await openMenu(page, j(R, 'src', 'a.txt'));
+      await expect(menuItem(page, 'copyAbsPath')).toBeVisible();
+      await expect(menuItem(page, 'copyRelPath')).toBeVisible();
+      await page.keyboard.press('Escape');
+
+      const clip = () => page.evaluate(() => navigator.clipboard.readText());
+
+      // 절대는 서버가 준 경로 그대로다.
+      await ctx(page, j(R, 'src', 'a.txt'), 'copyAbsPath');
+      await expect.poll(clip, { timeout: 10000 }).toBe(j(R, 'src', 'a.txt'));
+
+      // 상대의 기준은 **이 탐색기 루트**다 (D-M9-10). 구분자는 그 경로의 것이므로
+      // 기대값도 `path.join` 으로 만든다 — Windows 에서 `/` 를 박으면 거짓 실패다.
+      await ctx(page, j(R, 'src', 'a.txt'), 'copyRelPath');
+      await expect.poll(clip, { timeout: 10000 }).toBe(j('src', 'a.txt'));
+
+      // 폴더에서도 선다 — 요구는 "파일/폴더" 였다.
+      await ctx(page, j(R, 'docs'), 'copyRelPath');
+      await expect.poll(clip, { timeout: 10000 }).toBe('docs');
+
+      await ctx(page, j(R, 'docs'), 'copyAbsPath');
+      await expect.poll(clip, { timeout: 10000 }).toBe(j(R, 'docs'));
+    });
 });

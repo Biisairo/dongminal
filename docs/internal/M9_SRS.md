@@ -1,8 +1,8 @@
 # M9 — M8 이 남긴 것 + 추가 이슈
 
-> **문서 상태**: 초안
+> **문서 상태**: 승인·구현중
 
-- 문서 상태: **초안** (2026-09-14) — §2 확정(M8 유산 7 + 사용자 이슈 9). §3~§5 는 착수 세션이 재감사 뒤 채운다
+- 문서 상태: **승인** (2026-09-14) — §2 확정 · §2.3 재감사 실측 · §3~§5·§7 확정. 구현은 §4 의 P1~P4
 - 선행: M8 완료 (`fc6db80`)
 - 형식: IEEE 29148 (요구 → 결정 → 검증). 규약은 `M8_UNIFIED_SRS` 와 같다 — Spec → Test → Code,
   단계마다 전량 e2e `unexpected 0`, 동작 변경은 이전/새/이유
@@ -43,29 +43,315 @@ M8 에서 **결정으로 닫혀** M9 범위가 아닌 것(다시 열려면 사�
 | M9-B8 | **파일 검색 결과를 미니맵·스크롤바에 표시** — 파일에서 글자 검색 시 결과 위치가 미니맵과 스크롤에 보이면 좋겠다 | 편집기 찾기 패널(`EDITOR_FIND_PANEL_SRS`) · Monaco `findMatchHighlight` overview ruler/minimap 장식 | S~M |
 | M9-B9 | **고아 탭·빈 창** — 도구만 지워지고 탭이 남거나, 탭이 다 지워지고 창만 남는 문제 | 탭/도구 수명(FR-EM-14 · workspace `clean()`) · 탭 닫기 경로 · 마지막 탭 닫힘의 창 제거 · 409 재채택(FR-RUN-6d 사례) | M |
 
+### 2.3 재감사 (2026-09-14, M9 P1 착수 세션 — 실측)
+
+측정 환경: `go build ./cmd/dongminal` 의 현재 바이너리 · 격리 인스턴스
+(`DONGMINAL_HOST=127.0.0.1 dongminal start --isolated --port 39321`) · Playwright(데스크톱 1440×900,
+모바일 390×844) · 임시 저장소 `/tmp/m9-diffrepo`(200줄, 29곳 변경).
+
+| ID | 재감사 판정 | 실측 |
+|---|---|---|
+| M9-A1 | **수치 확인** | `.Service()` 총 90곳 = gitapi 비테스트 **72** + gitapi 테스트 16 + httpapi 2. `Git *store.Store` 선언은 `httpapi/deps.go:150`·`gitapi/gitapi.go:48` 둘 |
+| M9-A2 | **미착수** (전량 e2e 3회가 근거이므로 단계 말에 잰다) | — |
+| M9-A3 | **재현 3/8 · 원인 확정 — 제품이 아니라 테스트의 결함** | `--repeat-each=8 --workers=1` 로 3회 흔들렸다. 실패 지점은 `bg-kill.spec.ts:284` `getComputedStyle(el).opacity` 가 `""`(빈 문자열). 빈 값은 **요소가 문서에서 떨어진 것**이고, 바로 아래 `boundingBox` 단정이 이미 같은 사유로 `expect.poll` 을 쓴다(FR-DRC-18 주석). 같은 재렌더가 한 줄 위의 단정에는 적용되지 않았다 |
+| M9-A4 | **조건 미충족 확인 — 병렬 도입 불필요** | `go test -race -shuffle=on -count=1 ./...` = **82초**(wall), 96% CPU. 패키지 시간 합 286초이므로 패키지 간 병렬은 이미 돈다. 최장 패키지 `httpapi` 61.7초. `t.Parallel()` 도입 패키지는 여전히 0 |
+| M9-A5 | **수치 확인** | `sandboxplace/e2e_test.go` 의 `time.Sleep` 9곳 — 그중 고정 대기 넷은 700·700·900·900ms(61·107·155·215줄), 500ms 하나(109줄), 폴링 간격 넷(150·150·200·200ms) |
+| M9-A6 | **수치 확인 (98 그대로)** | 상위: `sandboxplace/e2e_test.go` 9 · `httpapi/daemon_integration_test.go` 8 · `toolclient/client_test.go` 7 · `handlers_runs_headless_test.go` 5 · `workspace/manager_test.go` 5 |
+| M9-A7 | **수치 확인 (비테스트 20 그대로)** | `toolclient/client.go` 893 · `dmctl_run.go` 794 · `workspace/manager.go` 742 · `toolhub/manager.go` 711 · `run/store.go` 705 · `git/jobs/job.go` 674 · `codex_proto.go` 647 · `ipc/paned.go` 640 · `agentsess/session.go` 628 · `git/write/branch.go` 612 · `omp_proto.go` 610 · `httpapi/access.go` 606 · `hub/gitwatch.go` 586 · `claude_proto.go` 568 · `run/store_context.go` 551 · `httpapi/server.go` 550 · `gitapi/handlers_git.go` 550 · `httpapi/handlers_api.go` 544 · `lsp/session.go` 527 · `git/query/diff.go` 511 |
+| M9-B1 | **재현 — 그런데 경고가 아니라 기동 거부다** | 빈 홈에 `start --expose` → `노출(0.0.0.0) 상태인데 허용 목록이 아직 없습니다.` + exit 1. 세 사유(`없다`·`꺼져 있다`·`켜져 있으나 항목 없다`)가 모두 같은 거부로 끝난다 (`cli/expose_gate.go`, REQUEST_GATE_SRS FR-RQG-20). **새 발견**: 도구 셸은 `DONGMINAL_HOST=0.0.0.0` 을 물려받으므로 `--isolated` 만 줘도 이 게이트에 걸린다 |
+| M9-B2 | **재현 실패 — 조건 좁힘** | 셸 도구에서는 재현되지 않았다. ① 탭 전환(숨김 중 출력 300줄) → 복귀: `viewportY===baseY` ② 소켓 강제 종료 → 델타 재개(400줄): `viewportY===baseY` ③ DOM 렌더러(canvas 없음), `viewport.scrollTop+clientHeight===scrollHeight`. 남은 조건: **TUI(claude code)** · 전량 재생 · `_restoreScrollOf` 가 `vis` 아닌 순간에 도는 경로(`renderer.js:158`). VIEW_SCROLL_RESTORE_SRS 가 같은 증상을 이미 두 번 고친 자리다 |
+| M9-B3 | **재현 — 기전 확정** | 같은 도구를 **폭이 다른 두 클라이언트**가 볼 때. 모바일(44열)이 포커스 소유자가 되어 PTY 를 44열로 잡은 뒤 그 폭 기준 이스케이프(zsh 줄편집기·TUI 재그리기)가 나가고, 데스크톱(151열) 클라이언트는 그것을 자기 폭으로 해석한다. 실측: 모바일에는 19줄이 온전한데 데스크톱에는 **앞 4줄이 사라지고** 명령 중간(`e; echo DONE=$W`)에서 시작했다. 와이어에는 서버→클라이언트 **크기 통보 op 가 없다**(`toolhub/conn.go`: Output·Error·Exit·ToolID·Seq 다섯뿐) — 비소유자는 PTY 폭을 알 길이 없다 |
+| M9-B4 | **코드 확인 — 브라우저는 이미 받고 dmctl 만 못 보낸다** | `app-cmd.js:573` 가 `args.force` 를 받아 확인창을 건너뛴다(FR-RUN-6). 백그라운드 보내기는 `closeTab(...,{keepTool:true})`(`detachTab` 이 쓰는 길). `dmctl` 의 `buildArgs`(`dmctl.go:286`)에 `force`·`keepTool` 이 없다 |
+| M9-B5 | **재현 — 미니맵은 애초에 꺼져 있다** | Monaco 실측: diff 의 `minimap.enabled === false`, `minimapWidth 0`. `GIT_DIFF_OPTIONS.minimap={size:'fill'}` 는 `enabled` 를 켜지 않으므로 **diff 에서는 죽은 옵션**이다(FR-MMP-2 의 의도가 닿지 않았다). 겹침의 실체는 미니맵이 아니라 **개요 눈금+세로 스크롤바 14px**: 수정 쪽 편집기 `contentWidth 469`(x 939~1408)인데 눈금·스크롤바가 x 1394~1408 을 덮고 본문 `view-line` 은 x 1438 까지 간다 |
+| M9-B6 | **설계 대상 — 재현 없음** | 스킬은 `internal/shared/runtime/agentplugin/skills/{team,workflow}` 둘. `team/SKILL.md` 는 "항상 새 팀, 전용 창" 을 절대 원칙 1로 든다 — 인수인계와 목적이 다르다. 본이 될 절차는 M8/M9 단계 종료 절차 3·4 |
+| M9-B7 | **재현 — 결함 둘** | ① **탭 닫기 × 의 세로 어긋남**: `body.mobile .pn-tab-x{height:var(--touch-min)}` 인데 가운데 정렬이 없어 아이콘이 상자 위쪽에 붙는다. 실측 390px 에서 탭 중심 y=68 · 라벨 중심 y=68 · **× 아이콘 중심 y=52.5**(15.5px 위). ② **모바일 키바의 가로 넘침**: `#mobile-keybar` `scrollWidth 830` vs `clientWidth 390` — `←·→·|·~·/·-·Home·End·PgUp·PgDn` 열이 화면 밖. 가로 스크롤은 설계(ACCESSIBILITY_BASELINE_SRS E-3, 사용자 결정 2026-09-13)지만 `::-webkit-scrollbar{height:0}` 이라 **더 있다는 표시가 없다** |
+| M9-B8 | **코드 확인 — 장식이 본문에만 붙는다** | `file-editor-find.js:229` `_findPaint` 의 `options` 가 `className` 하나뿐. `overviewRuler`·`minimap` 장식 옵션이 없어 눈금·미니맵에 일치가 찍히지 않는다. 편집기 쪽 미니맵은 켜져 있다(`file-editor.js:415`) |
+| M9-B9 | **부분 재현 — 조건 좁힘** | ① 도구가 스스로 끝나면(`exit`) 탭은 남지만 그것은 **설계**다 — `_markExited` 가 "닫기/새 셸" 출구를 단 오버레이를 띄운다(FUI-14). 새로고침하면 그 탭은 사라진다(실측: 2탭 → 1탭). ② **빈 창은 실재한다** — 에디터 창 `~`·`메모장` 이 탭 0으로 목록에 남는다. 이것도 설계다(FR-EDT-52·55·56: 창의 수명은 행의 수명). 사용자가 본 것이 ①②인지 셋째 경로인지 확정하지 못했다 |
+
+
 ## 3. 요구사항
 
-(§2 확정 후 작성. 항목마다 FR-M9-n · DoD · 검증)
+각 요구는 §2.3 의 실측 위에 선다. DoD 는 "무엇이 초록이면 끝났는가" 이고, 검증은 그것을 재는 자리다.
+
+### 3.1 축 S — 사용자 이슈 (M9-B)
+
+**FR-M9-1 — `--expose` 는 허용 목록을 요구하지 않는다.** (M9-B1, D-M9-1)
+`cli/expose_gate.go` 의 `exposeACLBlocked` 과 `start.go` 의 호출을 지운다. `--insecure-no-acl` 은
+받아 두되 아무것도 하지 않는 플래그가 되지 않도록 **함께 지운다**(옵션 파서·헬프·테스트).
+`REQUEST_GATE_SRS` FR-RQG-20 을 철회로 표시하고 그 자리에 사유를 적는다.
+- DoD: 빈 홈에서 `dongminal start --expose` 가 exit 0 으로 뜬다 · `expose_gate_test.go` 는 철회와 함께
+  사라지고 `dmenv.ExposureLabel` 을 재는 부분만 남는다 · `--insecure-no-acl` 이 헬프·`commands.md`
+  에서 사라진다
+- 검증: V-M9-1 `cli` 단위 테스트(빈 홈·꺼진 목록·항목 없는 목록 셋이 모두 기동)
+
+**FR-M9-2 — `--isolated` 는 호스트를 물려받지 않는다.** (M9-B1 재감사의 새 발견, D-M9-2)
+격리 기동은 `DONGMINAL_HOST` 를 무시하고 `127.0.0.1` 에 붙는다. 격리의 뜻은 "운영을 건드리지
+않는다" 이고, 도구 셸이 물려준 `0.0.0.0` 을 따라 0.0.0.0 에 여는 것은 그 뜻에 반한다.
+`--expose` 를 함께 주면 그때는 노출한다 — 명시가 상속을 이긴다.
+- 이전 동작: 도구 셸 안에서 `start --isolated` 가 `DONGMINAL_HOST=0.0.0.0` 을 물려받아 0.0.0.0 에 떴다
+- 새  동작: `--expose` 를 함께 주지 않으면 `127.0.0.1`
+- 이유: 격리 인스턴스는 검사용이고 그 수명 동안 밖에서 닿을 이유가 없다
+- DoD·검증: V-M9-2 `DONGMINAL_HOST=0.0.0.0` 환경에서 `ParseStart(["--isolated"])` 의 호스트가 기본값
+
+**FR-M9-3 — PTY 크기는 서버가 통보하고 비소유자가 따른다.** (M9-B3, D-M9-3)
+와이어에 `OpSize`(서버→클라이언트)를 더한다. 페이로드는 4바이트 — cols 2 + rows 2, 빅엔디언.
+① 접속 직후 재생·`OpSeq` 앞에 한 번, ② PTY 크기가 바뀔 때마다 그 도구의 모든 클라이언트에게.
+브라우저는 `resizeCheck` 가 거짓인 패널(크기의 주인이 아닌 창)에서 받은 크기로
+`term.resize(cols,rows)` 를 부르고 그 뒤로 자기 `fit()` 결과를 PTY 에 보내지 않는다. 남는 폭은 여백이다.
+- 이전 동작: 비소유자는 PTY 폭을 알 길이 없어 자기 폭으로 해석했다 — 폭 기준 이스케이프가 어긋나
+  위쪽 글이 깨지거나 사라졌다 (§2.3 M9-B3)
+- 새  동작: 모든 클라이언트의 xterm 이 PTY 와 같은 cols/rows 로 선다
+- 이유: 같은 바이트를 다른 좌표계로 읽으면 그 해석은 틀린다. 소유는 이미 한 창에 있다(FR-XDF) —
+  없던 것은 그 사실을 **나머지에게 말하는 길**이다
+- DoD: 폭이 다른 두 클라이언트가 같은 도구를 볼 때 두 xterm 의 `cols`·`rows` 가 같다 ·
+  `OpSize` 를 모르는 옛 클라이언트는 조용히 버린다(`OpSeq` 와 같은 규약, FR-TRS-9)
+- 검증: V-M9-3a Go — 크기 변경이 모든 클라이언트에 `OpSize` 로 나간다 · V-M9-3b e2e — 두 문맥(390px·
+  1440px)이 같은 도구를 열면 `cols` 가 같고, 넓은 쪽에서 본 앞 4줄이 좁은 쪽과 일치한다
+
+**FR-M9-4 — `dmctl close-tab`·`close-window` 는 답을 미리 준다.** (M9-B4, D-M9-4)
+두 명령이 `--force`(그냥 닫기)와 `--background`(백그라운드로 보내기)를 받는다. 둘은 함께 쓸 수 없다.
+`--force` 는 원격 명령 인자 `force:true` 로, `--background` 는 `keepTool:true` 로 간다 — 브라우저가
+이미 받는 두 길이다. 플래그가 없으면 지금과 같이 확인창이 뜬다.
+- DoD: `dmctl close-tab --at <uuid> --force` 가 실행 중인 프로세스가 있어도 팝업 없이 닫는다 ·
+  `--background` 는 도구를 살리고 탭만 지운다 · 둘을 함께 주면 exit 2 · `commands.md` 갱신
+  (`check-commands-docs` 초록)
+- 검증: V-M9-4 `runtimebin` 단위 — 두 플래그가 각각 `force`/`keepTool` 로 실리고 함께 주면 거부
+
+**FR-M9-5 — diff 의 본문은 눈금·스크롤바 아래로 들어가지 않는다.** (M9-B5, D-M9-5)
+`GIT_DIFF_OPTIONS` 의 `minimap:{size:'fill'}` 을 `minimap:{enabled:false}` 로 **명시**하고(diff 에서
+`size` 는 켜지지 않은 미니맵의 죽은 옵션이었다), **편집기 안의 개요 눈금을 끈다**
+(`overviewRulerLanes:0`). 변경 위치는 diff 자신의 눈금(`renderOverviewRuler:true` 의
+`diffOverviewRuler`)이 이미 그리고 그것은 본문 **밖**에 선다 — 겹치던 것은 편집기 **안**의
+`decorationsOverviewRuler` 였다. 편집기(`file-editor.js`)의 미니맵은 그대로 켜 둔다.
+- 이전 동작: 수정 쪽 본문이 x 939~1408 인데 편집기 안 눈금이 x 1394~1408 을 덮었다
+- 새  동작: 편집기 안 눈금의 폭이 0. 변경 표식은 x 1408~1423 의 diff 눈금에만 남는다 (실측)
+- 이유: 접수 — "미니맵 영역에 텍스트가 겹치는데 미니맵은 보이지 않는다"
+- **남는 겹침(기록)**: 세로 스크롤바 14px. Monaco 가 본문 위에 띄우는 오버레이이고 편집기 탭·
+  VS Code 도 같다. Monaco 에 그 폭을 본문에서 빼는 옵션이 없다 — 비우려면 스크롤바를 없애야 하고
+  그것은 끄는 것이 아니라 잃는 것이다
+- DoD·검증: V-M9-5 e2e — diff 편집기의 `decorationsOverviewRuler` 폭이 0 이고, diff 눈금
+  (`.diffOverviewRuler`)은 살아 있으며 그 왼쪽 끝이 편집기의 오른쪽 끝 이상이다
+
+**FR-M9-6 — `migration` 스킬.** (M9-B6, D-M9-6)
+`internal/shared/runtime/agentplugin/skills/migration/SKILL.md` 를 새로 만든다. 하는 일은 하나다 —
+**지금 pane 에 새 탭을 열고 에이전트를 띄운 뒤 이번 세션의 일을 잇게 한다.** 인계는 **두 벌**이다:
+① 이어갈 일을 문서 한 장으로 쓴다(경로는 진행 중인 작업이 정한다. 규약이 이미 있으면 그것을 쓴다),
+② 새 탭에는 `dmctl msg` 엔벨로프로 "그 문서를 읽고 진행하라" 는 짧은 지시만 보낸다.
+절차의 본은 M8·M9 의 단계 종료 절차 3·4 다(`new-tab -n` → `rename-tab` → `send-input --execute` →
+`wait --for ready` → `msg --to <toolId>` → `status` 확인 → 자기 탭 닫기).
+함께: `team/SKILL.md` 의 머리에 **"이 스킬은 오케스트레이션 전용이다 — 인수인계는 `migration`"** 을
+못박는다.
+- DoD: 스킬이 플러그인 목록에 뜬다 · `check-agent-names` 초록 · `team` 의 설명이 인수인계를 자기 일로
+  말하지 않는다 · `migration/evals/test-scenarios.md` 에 시나리오 셋(문서 있음·없음·`wait` 실패)
+- 검증: V-M9-6 스킬 파일의 존재·프런트매터·게이트
+
+**FR-M9-7 — 모바일 탭의 닫기 표식은 탭의 가운데에 선다.** (M9-B7 ①)
+`body.mobile .pn-tab-x` 가 `display:flex;align-items:center;justify-content:center` 를 든다. 폭 18px 은
+그대로다(E-4 의 근거 — 44 로 넓히면 탭의 중심이 × 안으로 들어온다).
+- 이전 동작: 390px 에서 탭 중심 y=68 · × 아이콘 중심 y=52.5 (15.5px 위)
+- 새  동작: 셋의 중심이 같다
+- DoD·검증: V-M9-7 e2e — 모바일 폭에서 `.pn-tab-x` 안 아이콘의 세로 중심과 `.pn-tab` 의 세로 중심의
+  차가 2px 이내
+
+**FR-M9-8 — 모바일 키바는 더 있다는 것을 보인다.** (M9-B7 ②, D-M9-7)
+가로 스크롤은 그대로다(ACCESSIBILITY_BASELINE_SRS E-3, 사용자 결정 2026-09-13). 오른쪽 끝(그리고
+스크롤한 뒤에는 왼쪽 끝)에 **가려짐 표식**을 둔다 — 스크롤 위치에 따라 나타나고 사라지는 그림자 띠.
+표식은 `pointer-events:none` 이라 키를 가리지 않는다.
+- DoD·검증: V-M9-8 e2e — 390px 에서 키바의 `scrollLeft===0` 이면 오른쪽 표식만, 끝까지 밀면 왼쪽
+  표식만, 그 사이에서는 둘 다
+
+**FR-M9-9 — 찾기 일치는 개요 눈금과 미니맵에 찍힌다.** (M9-B8)
+`file-editor-find.js` 의 `_findPaint` 가 장식에 `overviewRuler`(위치 `Right`)와 `minimap` 을 더한다.
+현재 일치는 다른 색을 받는다 — 본문의 두 겹(`ED_FIND_HIT_CLASS`/`_CUR_CLASS`)과 같은 구분이다.
+색은 Monaco 테마 매핑에서 온다(`monacoTheme()`), 여기서 다시 정하지 않는다.
+- DoD·검증: V-M9-9 e2e — 200줄 파일에서 29개 일치를 찾으면 개요 눈금의 장식 수가 일치 수와 같고,
+  이전/다음으로 옮기면 현재 일치의 장식만 색이 다르다
+
+**FR-M9-10 — 끊겼던 클라이언트는 복귀할 때 워크스페이스를 다시 받는다.** (M9-B9, D-M9-8)
+명령 SSE 가 **끊겼다 다시 붙으면** 클라이언트는 그 자리에서 워크스페이스를 다시 받아 적용한다.
+지금은 다시 붙어도(`readyState===1`) 끊긴 동안의 변경을 영영 받지 못한다.
+- 이전 동작: 잠들었던 기기가 깨어나면 지워진 탭이 그대로 남았다 — 실측 클라 3탭 / 서버 1탭,
+  `visibilitychange`·`focus`·`online`·SSE 재연결 뒤 14초까지 수렴하지 않았다
+- 새  동작: 재연결 직후 한 번 다시 받아 서버의 판으로 맞춘다
+- 이유: 삭제는 **사건**이라 SSE 로만 오고, 끊긴 구간의 사건은 재생되지 않는다. 그 구간을 메우는
+  것은 상태를 통째로 다시 받는 것뿐이다
+- DoD: 재연결 뒤 클라이언트의 탭 집합이 서버와 같다 · 다시 받기는 **재연결에만** 걸린다(주기 폴링을
+  더하지 않는다)
+- 검증: V-M9-10 e2e — 두 문맥 중 하나의 SSE 를 끊고 다른 쪽에서 탭을 지운 뒤 되살리면 수렴한다
+
+**FR-M9-19 — 탐색기의 우클릭이 경로를 복사한다.** (사용자 요구 2026-09-14, D-M9-10)
+탐색기(`.ed-tree`)에서 파일·폴더를 우클릭하면 **절대 경로 복사**와 **상대 경로 복사**가
+있다. 상대는 **그 탐색기 루트**에 대한 것이다 — 트리가 아는 기준은 그것 하나이고
+(`pathUnder`·`_reveal` 이 이미 그것을 딛는다) 다른 기준을 새로 만들면 판정이 두 벌이 된다.
+
+- 대상은 **우클릭한 행 하나**다. 다중 선택 중에 열어도 그 행이다 — `download`·`copy` 등
+  기존 항목이 모두 그러므로(`p` 하나) 여기만 다르면 그것이 놀람이다
+- 자리는 `download` 와 `copy`(파일 클립보드) **사이의 자기 구획**이다. `copy` 옆에 붙이면
+  사용자가 `copy` 를 경로 복사로 읽는다 — 둘은 **다른 클립보드**를 쓴다
+- 쓰기는 `TermClipboard.write` 한 벌이다 (FR-ETR-40 의 3단 폴백). 새 복사 경로를 만들지 않는다
+- 여백(루트) 메뉴에는 두지 않는다 — 요구는 "파일/폴더 우클릭" 이고, 루트의 상대 경로는
+  자기 자신이라 뜻이 없다
+- 구분자는 그 경로의 것이다 — Windows 의 `C:\\a\\b` 는 `\\` 로 남는다 (`pathSep` 의 규약)
+- DoD: 두 항목이 파일과 폴더 모두에서 뜨고, 클립보드에 각각 절대·상대가 들어간다 ·
+  새 문구는 ko·en 둘 다 (`check-i18n.mjs`) · 루트 자신을 우클릭하면 상대는 빈 문자열이
+  아니라 그 이름이다(트리에 루트 행이 없으므로 이 경우는 나지 않는다 — 단위 검사로만 고정)
+- 검증: V-M9-19a 단위 — `pathRelative` 가 POSIX·Windows·루트 자신·바깥 경로를 가른다 ·
+  V-M9-19b e2e — 파일과 폴더에서 두 항목을 눌러 클립보드 값을 잰다
+
+### 3.2 축 T — M8 유산 (M9-A)
+
+**FR-M9-11 — TC-BGK-12 의 첫 단정도 재렌더를 견딘다.** (M9-A3)
+`bg-kill.spec.ts:284` 의 `expect(await btn.evaluate(...opacity)).toBe('1')` 을 `expect.poll` 로 바꾼다 —
+바로 아래 `boundingBox` 단정이 이미 같은 사유로 쓰는 형식이다(FR-DRC-18). 제품은 고치지 않는다:
+목록의 재렌더는 정상 동작이고, 떨어진 요소의 `getComputedStyle` 이 빈 문자열을 주는 것도 규약이다.
+- DoD·검증: V-M9-11 `--repeat-each=16 --workers=1` 이 flaky 0
+
+**FR-M9-12 — GO-42 는 열지 않는다.** (M9-A4, D-M9-9)
+`t.Parallel()` 을 들이지 않는다. 따라서 전역 테스트 훅 다섯과 `clientWithin` 의 필드 주입도 하지
+않는다 — D-A-22 를 그대로 잇는다. 근거는 실측이다(§2.3 M9-A4).
+
+**FR-M9-13 — `sandboxplace` 의 고정 대기는 폴링으로.** (M9-A5)
+`e2e_test.go` 의 700·700·900·900ms 넷과 500ms 하나를 `pollwait` 류의 조건 대기로 바꾼다. 폴링
+간격 넷(150·150·200·200ms)은 그대로다 — 그것이 대기의 형태다(§2-37 ②).
+- DoD: 컨테이너 런타임이 있는 호스트에서 그 테스트가 초록. 없으면 Skip 이 **이름을 남긴다**(D-A-21 의 형식)
+- 검증: V-M9-13 해당 패키지 단위 테스트
+
+**FR-M9-14 — Go 테스트 `time.Sleep` 98 을 셋으로 가른다.** (M9-A6)
+① 조건 대기 ② 폴링 간격 ③ 부정 단정의 관측 창. ①만 옮긴다. 분류 결과를 `M9_PROGRESS` 에 표로
+남긴다 — 세는 것은 개수가 아니라 종류다(§2-37).
+- DoD: ① 이 0 · ②③ 은 각각 왜 그런지가 한 줄로 붙어 있다
+- 검증: V-M9-14 `go test -race -shuffle=on -count=1 ./...` 초록
+
+**FR-M9-15 — 500줄 초과 Go 파일 20 을 줄인다.** (M9-A7)
+분리는 **이동만**이다(D-A-10). 판정은 "같은 테스트가 그대로 초록".
+- DoD: 비테스트 500줄 초과가 **10 이하** · `go vet` 무경고 · 새 테스트 0(이동에는 테스트를 쓰지 않는다)
+- 검증: V-M9-15 전량 `-race -shuffle`
+
+**FR-M9-16 — §5-5 flaky 군집.** (M9-A2)
+`git-*` 의 관측 주기 대기와 `slot-*` 의 그리기 대기 두 헬퍼가 "요청이 왔는가" 를 기다리는지
+"화면이 반영했는가" 를 기다리는지 판정하고 뒤쪽으로 맞춘다. **군집에 넣기 전에 `--repeat-each`
+로 재현한다**(§2-39) — 재현되는 것은 결함이고 군집이 아니다.
+- DoD·검증: V-M9-16 전량 e2e **3회 연속 flaky 0**
+
+**FR-M9-18 — 작업의 기록도 끝이 공개되기 전에 쓴다.** (P1 이 `-race -shuffle` 에서 잡은 것)
+`jobs.Jobs.finish` 가 `st.job = final`(Done 공개) **뒤에** `RecordWrite`/`RecordUnguarded` 를
+불렀다. M8 P1 ②가 같은 함수에서 **훅**에 대해 세운 규칙(FR-GIT-107)이 기록에는 적용되지
+않은 채였다. 순서를 `기록 → 훅 → 공개` 로 바꾼다.
+- 이전 동작: `done` 을 본 쪽이 곧바로 기록을 물으면 없을 수 있었다 —
+  `go test -race -shuffle=on ./internal/webserver/domain/git/jobs/` 가 **12회 중 3회** 실패
+  (`TestJobStartUnguarded_RecordsReasonAndSharesMachinery`, `기록: []`)
+- 새  동작: 공개 전에 쓴다. 같은 명령 15회 연속 초록
+- 이유: Console 이 "무엇이 돌았는가" 에 답하는 근거가 그 기록이다 (FR-GXU-1 · D-A-27).
+  한 함수 안의 같은 창을 한 번에 닫는다
+- **이것은 M8 이 "초록" 이라 적은 명령이 실은 흔들리고 있었다는 뜻이다** — 한 번의 초록은
+  그 회차의 사실일 뿐이다 (M9_PROGRESS §2-7)
+- DoD·검증: V-M9-18 `TestJob_RecordIsWrittenBeforeDoneIsPublished` — **훅 안에서** 기록 수를
+  센다(그 순간이 유일하게 결정적인 자리다) · 패키지 `-shuffle` 15회 연속 초록
+
+**FR-M9-17 — GO-44 `Git *store.Store` 좁히기.** (M9-A1)
+선행은 GO-39(git 실행기 통합)다. 이 단계는 **선행의 모양을 정하는 것**까지를 범위로 하고, 좁힘
+자체는 그 모양이 서는지에 달렸다 — 서지 않으면 다시 사유와 함께 남긴다.
+- DoD: `gitapi` 가 구체 `*core.Service` 를 직접 부르는 자리가 72 → 0, **또는** 왜 서지 않는지가
+  D-M9-… 로 적힌다
+- 검증: V-M9-17 `gitapi` 패키지가 `git/core` 를 import 하지 않는다(게이트 또는 테스트)
 
 ## 4. 일정 (단계)
 
-(§2.2 확정 후 작성. 재감사 → 단계별 Spec→Test→Code → 전량 e2e)
+| 단계 | 범위 | 근거 |
+|---|---|---|
+| **P1** | 재감사(§2.3) · 스펙 확정(§3~§5·§7) · **작은 확정 건 여덟** — FR-M9-1·2(expose 게이트 삭제·격리 호스트) · FR-M9-4(dmctl 플래그) · FR-M9-5(diff 폭) · FR-M9-7·8(모바일 둘) · FR-M9-9(찾기 장식) · FR-M9-11(TC-BGK-12) · FR-M9-12(GO-42 결정) · FR-M9-18(구현 중 발견) · FR-M9-19(탐색기 경로 복사, 사용자 요구) | 전부 S. 서로 닿지 않아 한 단계에 들어간다 |
+| **P2** | FR-M9-3(`OpSize`) · FR-M9-10(재연결 재수신) · M9-B2 의 남은 조건 추적 | 셋 다 "떨어져 있던 동안 무엇을 놓쳤는가" 한 축이다 |
+| **P3** | FR-M9-6(`migration` 스킬) · FR-M9-13·14(고정 대기) · FR-M9-16(§5-5 군집, 전량 3회) | 테스트 결정성 + 스킬 |
+| **P4** | FR-M9-15(500줄) · FR-M9-17(GO-44) | 구조. 앞 단계가 건드린 파일이 정리된 뒤에 온다 |
+
+각 단계는 Spec → Test → Code 이고, 끝마다 `go test -race -shuffle=on -count=1 ./...` ·
+`make gates` · `make unit` · `make e2e`(`unexpected 0`) · `make e2e-rebalance`.
 
 ## 5. 설계 결정
 
-(D-M9-n)
+**D-M9-1 — 노출 게이트를 없앤다.** (FR-M9-1, 사용자 결정 2026-09-14)
+`--expose` 는 허용 목록과 무관하게 뜬다. `--insecure-no-acl` 도 함께 사라진다 — 게이트가 없으면
+그것을 되돌리는 플래그도 뜻이 없다.
+  이전 동작: 허용 목록이 없거나 꺼져 있거나 비어 있으면 exit 1
+  새  동작: 언제나 기동. 허용 목록은 `Settings ▸ Access` 에서 켜는 선택이다
+  이유:     사용자 결정. 접수한 말은 "IP 필터가 꺼져 있는데도 IP 등록을 요구한다" 이고, 그 읽기에서
+            꺼진 필터는 곧 제한 없음이다
+  **대가(기록):** 인증이 아직 없으므로, 허용 목록을 켜지 않고 `--expose` 로 띄우면 **같은 네트워크의
+  누구나 이 서버의 셸과 파일에 닿는다.** FR-RQG-20 이 막던 것이 바로 그것이고, 이 결정은 그 방어를
+  사용자의 손으로 옮긴다. 되돌리려면 이 결정을 다시 연다.
+
+**D-M9-2 — 격리는 호스트를 상속하지 않는다.** (FR-M9-2) §3.1 참조.
+
+**D-M9-3 — 크기의 진실은 PTY 이고, 서버가 그것을 말한다.** (FR-M9-3, 사용자 결정 2026-09-14
+"언제나 소유자를 따라가야 한다")
+사용자의 판정은 "비소유자는 소유자를 따라간다" 이고, 실측은 **따라갈 수단이 없다**는 것이었다 —
+`toolhub/conn.go` 의 서버→클라이언트 op 는 Output·Error·Exit·ToolID·Seq 다섯뿐이다. 그래서 이
+결정이 더하는 것은 정책이 아니라 **통보**다. 대안이었던 "돌아온 기기가 소유권을 가져간다" 는
+현재 화면만 고치고 위쪽 스크롤백은 옛 폭으로 남기므로 접수한 증상("위쪽 글")을 풀지 못한다.
+
+**D-M9-4 — `--force` 와 `--background` 는 따로 선다.** (FR-M9-4, 사용자 결정 2026-09-14)
+한 플래그에 값을 받는 형식(`--if-busy=…`)이 아니라 두 플래그다. 이름이 곧 뜻이고 `--force` 는
+관용어다. 기본은 바꾸지 않는다 — 플래그 없는 기존 호출의 동작이 그대로여야 한다.
+
+**D-M9-5 — diff 의 미니맵은 끈 채로, 본문 폭만 확보한다.** (FR-M9-5, 사용자 결정 2026-09-14)
+diff 는 좁은 칸에서 두 쪽을 나란히 두므로 미니맵에 60~80px 을 내주면 본문이 읽히지 않는다.
+`GIT_DIFF_OPTIONS` 의 `minimap:{size:'fill'}` 은 **diff 에서 한 번도 효력이 없던 죽은 옵션**이었다 —
+`createDiffEditor` 의 미니맵 기본값이 `enabled:false` 이기 때문이다. 의도를 `enabled:false` 로
+명시해 다음 사람이 같은 착각을 하지 않게 한다.
+
+**D-M9-6 — 인계는 문서와 엔벨로프 두 벌이다.** (FR-M9-6, 사용자 결정 2026-09-14)
+긴 맥락은 문서가, "그 문서를 읽어라" 는 짧은 지시는 엔벨로프가 나른다. 엔벨로프 하나에 다 담으면
+메시지 길이에 매이고 인계 기록이 남지 않는다. 문서의 **경로는 스킬이 정하지 않는다** — 진행 중인
+작업에 규약이 있으면 그것을 쓰고, 없으면 스킬이 한 장을 만든다.
+
+**D-M9-7 — 키바는 좁히지 않고 가려짐을 보인다.** (FR-M9-8, 사용자 결정 2026-09-14)
+키 수를 줄이거나 두 줄로 펴면 E-3 의 근거(폭 44 면제 — 닿는 키의 수를 지키는 것)를 다시 열어야
+한다. 표식만 더하면 그 결정을 건드리지 않고 "더 있다" 만 말한다.
+
+**D-M9-8 — 재연결은 상태를 다시 받는다.** (FR-M9-10)
+사건 스트림에 "놓친 사건 재생" 을 넣지 않는다. 터미널은 `OpSeq` 로 좌표를 들고 이어 붙일 수 있지만
+워크스페이스는 그런 좌표가 없고, 통째로 다시 받는 것이 한 번의 요청으로 끝난다. 주기 폴링은 더하지
+않는다 — 메울 구간이 있는 순간은 **재연결** 하나다.
+
+**D-M9-10 — 상대의 기준은 탐색기 루트이고, 경로 복사는 파일 클립보드와 다른 구획에 선다.**
+(FR-M9-19, 사용자 요구 2026-09-14)
+기준 후보는 셋이었다 — 탐색기 루트 · 워크스페이스 cwd · git 저장소 뿌리. 트리가 아는 것은
+**루트 하나**이고 펼침·이동 금지·창 고르기가 전부 그것을 딛는다(`pathUnder`). 다른 기준을
+들이면 같은 행이 어느 메뉴에서 열렸느냐에 따라 다른 문자열을 주게 된다.
+
+메뉴에서 `copy`(파일 클립보드) 옆이 아니라 **구분선 위**에 두는 것은 두 동사가 같은 낱말을
+쓰기 때문이다. `copy` 는 붙여넣기가 받는 **파일**을 담고 경로 복사는 **텍스트**를 담는다 —
+나란히 두면 사용자는 `복사` 를 눌러 놓고 경로가 들어온 줄 안다.
+
+**D-M9-9 — `t.Parallel()` 은 들이지 않는다.** (FR-M9-12)
+`go test -race -shuffle=on -count=1 ./...` 가 82초다. 패키지 시간 합이 286초이므로 패키지 간 병렬은
+이미 돌고 있고, 최장 패키지(`httpapi` 61.7초)를 쪼개 얻을 수 있는 것은 수십 초다. 그 대가로
+전역 훅 다섯과 `clientWithin` 을 필드로 옮겨야 하며, 그것은 D-A-22 가 "조건이 서면" 이라고 미뤄 둔
+일이다. 조건이 서지 않았다.
 
 ## 6. 검증
 
 - `go test -race -shuffle=on -count=1 ./...` · `make gates` · `make unit` · `make e2e` → `unexpected 0` → `make e2e-rebalance`
-- M9-A2 는 전량 3회 연속 flaky 0
+- M9-A2(FR-M9-16)는 전량 3회 연속 flaky 0
 
 ## 7. 비목표
 
-- M8 에서 결정으로 닫힌 셋(§2.1 끝)
+- M8 에서 결정으로 닫힌 셋 — 서버 오류 본문의 한국어 9곳 동결(D-ERR-2) · 레코드 없는 옛 에이전트
+  도구 이행 경로 · `migrate` 의 `agents.json`
+- `t.Parallel()` 도입과 그에 딸린 훅 필드 주입 (D-M9-9)
+- 인증 — 노출 게이트를 없애도(D-M9-1) 그 자리에 인증을 세우지 않는다. 그것은 별도 마일스톤이다
+- diff 의 미니맵 (D-M9-5)
+- 모바일 키바의 키 구성·폭 (D-M9-7)
+- `exit` 한 탭의 자동 닫힘과 탭 0 인 에디터 창의 자동 제거 — 둘 다 설계이고(FUI-14·FR-EDT-52),
+  사용자가 지목한 것은 셋째 경로였다(§2.3 M9-B9)
 
 ## 10. 변경 기록
 
 | 날짜 | 내용 |
 |---|---|
 | 2026-09-14 | 초안 — M8 P7 이 남긴 것(M9-A1~A7) + 사용자 이슈 9건(M9-B1~B9) |
+| 2026-09-14 | **P1 재감사·스펙 확정.** §2.3 재감사 16항목 실측 — 재현 B1·B3·B5·B7·B9·A3, 재현 실패 B2(조건 좁힘), 수치 확인 A1·A5·A6·A7, 결정 A4. §3 요구 FR-M9-1~17 · §4 단계 P1~P4 · §5 결정 D-M9-1~9 · §7 비목표 신설. 사용자 결정 일곱(2026-09-14): 노출 게이트 삭제 · 비소유자는 소유자 크기를 따른다 · dmctl `--force`/`--background` · diff 미니맵은 끈 채 본문 폭 확보 · 인계는 문서+엔벨로프 · 키바는 가려짐 표식 · 고아 탭은 "다른 기기·dmctl 로 지운 것이 내 화면에 남는 것" |
+| 2026-09-14 | **P1 구현 완료.** 판정은 `production/M9_PROGRESS.md` §1-2, 전량 e2e 는 §1-3. FR-M9-1(노출 게이트 삭제 — `REQUEST_GATE_SRS` FR-RQG-20 철회, `--insecure-no-acl` 제거, 남은 위험 기록) · FR-M9-2(격리는 호스트를 상속하지 않는다, `startFlagHost`) · FR-M9-4(dmctl `--force`/`--background` + 브라우저 `_closeOpts`·`delWindow(sid,opts)`) · FR-M9-5(diff `minimap:{enabled:false}` 명시 + `overviewRulerLanes:0`; 남는 겹침은 스크롤바 14px 로 기록) · FR-M9-7(모바일 `×` 가운데 정렬) · FR-M9-8(키바 `data-overflow` + sticky 그림자) · FR-M9-9(찾기 일치를 눈금·미니맵에, 색은 `monacoTheme()` 네 키) · FR-M9-11(TC-BGK-12 `expect.poll`, 16/16) · FR-M9-12(GO-42 는 열지 않는다). 새 검증: V-M9-4a·4b·5·7·8·9 |
+| 2026-09-14 | **P1 전량 e2e 가 잡은 것.** ① `editor-minimap.spec.ts` V-MMP-2b 가 diff 의 `minimap.size` 를 `'fill'` 로 못박고 있었다 — FR-M9-5 가 그 계약을 바꿨는데 **그 검증을 같이 고치지 않았다.** 검사를 새 계약(꺼져 있음이 명시돼 있는가 · 편집기 안 눈금 0 · diff 눈금은 살아 있음)으로 다시 쓰고 `UX_BATCH8_SRS` FR-MMP-2 를 개정했다(diff 가 그 조항에서 빠진다, 이전/새/이유). ② `TC-AGT-11` 은 전량에서 `page.goto` 가 `ERR_INVALID_HTTP_RESPONSE` 로 한 번 떨어졌다 — `--repeat-each=8` 단독은 8/8 초록이라 §5-5 군집(FR-M9-16, P3)의 이웃으로 적는다 |
+| 2026-09-14 | **FR-M9-19 구현** (작업 중 접수한 사용자 요구). 탐색기 우클릭에 `절대 경로 복사`·`상대 경로 복사`. `helpers.js` 에 `pathRelative` 신설 — 기존 `pathRel` 은 git 의 키(구분자를 `/` 로 굳히고 루트 자신에 `''`)라 **다른 함수**이며, 합치지 않은 이유를 그 자리에 적었다. 쓰기는 `TermClipboard.write` 한 벌(FR-ETR-40), 성공만 토스트로 말한다(실패는 수동 복사창이 이미 말한다). 검증 V-M9-19a 단위 7건 · V-M9-19b `explorer-copy.spec.ts` C9 |
+| 2026-09-14 | **P1 완료.** 전량 e2e 4회차 — ①은 무효(전량 중 소스 수정), ②가 V-MMP-2b 를 잡았고, ③·④가 **unexpected 0**(④: failed 0 · did not run 0 · 1666 passed). ④의 flaky 다섯은 전부 M9-A2 가 지목한 `git-*` 관측 주기 대기 — 판정은 P3(FR-M9-16). `make e2e-rebalance` 초록(158스펙 3665s, 불균형 1.00배). 판정표는 `production/M9_PROGRESS.md` §1-2·§1-3 |

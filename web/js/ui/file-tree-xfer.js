@@ -221,6 +221,18 @@ Object.assign(FileTree.prototype, {
         disabled:()=>kind==='link'?EDITOR_DOWNLOAD_LINK_NO:'',
         run:()=>this.download(p)},
       {sep:true},
+      /**
+       * M9_SRS FR-M9-19 (사용자 요구 2026-09-14): **경로 복사 둘.**
+       *
+       * 대상은 **우클릭한 행 하나**다 — 위 `download`·아래 `copy` 와 같은 규약이며,
+       * 여럿 고른 채 열어도 그 행이다.
+       *
+       * 자기 구획인 이유는 D-M9-10 이다: 아래 `copy` 는 **파일 클립보드**이고 이것은
+       * **텍스트 클립보드**다. 나란히 두면 사용자가 둘을 같은 것으로 읽는다.
+       */
+      {id:'copyAbsPath',label:EDITOR_MENU_COPY_ABS_PATH,run:()=>this.copyPath(p,false)},
+      {id:'copyRelPath',label:EDITOR_MENU_COPY_REL_PATH,run:()=>this.copyPath(p,true)},
+      {sep:true},
       // FR-WBR-70: 복사·붙여넣기·복제. 붙여넣는 자리는 만들기와 같은 규칙이
       // 정한다 — 폴더면 그 안, 아니면 그 형제 (`dir` 이 그것이다).
       {id:'copy',label:EDITOR_MENU_COPY,run:()=>this.app.edClipSet(this.root,p)},
@@ -237,6 +249,24 @@ Object.assign(FileTree.prototype, {
       // 메뉴의 일반 확인(GitDialog)으로는 FR-EDT-83·84 를 만족하지 못한다.
       {id:'delete',label:EDITOR_MENU_DELETE,run:()=>this.doDelete(p)},
     ],'edfs',p,e);
+  },
+
+  /**
+   * FR-M9-19: 그 행의 경로를 클립보드에 담는다. `rel` 이면 **이 탐색기 루트** 기준이다.
+   *
+   * 쓰기는 `TermClipboard.write` 한 벌이다 (FR-ETR-40 의 3단 폴백) — 이 앱에서
+   * 클립보드에 쓰는 길은 그것 하나이고, 새 길을 내면 secure context 밖에서 한쪽만
+   * 동작한다. `toolId` 는 넘기지 않는다: 그 인자는 "지금 그 터미널을 보고 있는가"
+   * 게이트를 켜는 것이고(FR-ETR-44), 여기는 사용자가 방금 누른 메뉴다.
+   *
+   * **성공했을 때만 말한다.** 클립보드는 눈에 보이지 않아 조용하면 눌린 것인지 알
+   * 수 없으므로 성공에는 토스트가 필요하다. 거짓이 돌아오는 경우는 3단으로 내려가
+   * **수동 복사창이 이미 떠 있는** 때뿐이므로(`_watchedHere` 는 `toolId` 없이 언제나
+   * 참이다) 거기에 오류를 겹치면 같은 일을 두 번 말하는 것이 된다.
+   */
+  async copyPath(p,rel){
+    const text=rel?pathRelative(this.root,p):p;
+    if(await TermClipboard.write(text)) Toast.show(EDITOR_PATH_COPIED);
   },
 
   /**

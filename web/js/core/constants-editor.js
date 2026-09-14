@@ -106,6 +106,16 @@ const ED_FIND_HIT_CUR_CLASS='fe-find-hit-cur';
 // FR-EFP-20: 단어 단위의 경계. Monaco 의 기본 구분자와 같은 값이며, 켜지 않았을
 // 때는 `null` 을 넘겨 경계를 보지 않게 한다.
 const ED_FIND_WORD_SEPARATORS='`~!@#$%^&*()-=+[{]}\\|;:\'",.<>/?';
+/**
+ * M9_SRS FR-M9-9: 찾기 일치가 **개요 눈금과 미니맵**에 찍힐 때 쓰는 테마 색 키.
+ *
+ * 값이 색이 아니라 **키**인 이유는 `monacoTheme()` 이 색의 주인이기 때문이다 —
+ * 테마를 바꾸면 이 표식도 함께 바뀐다.
+ */
+const ED_FIND_RULER_COLOR='editorOverviewRuler.findMatchForeground';
+const ED_FIND_RULER_COLOR_CUR='editorOverviewRuler.rangeHighlightForeground';
+const ED_FIND_MINIMAP_COLOR='minimap.findMatchHighlight';
+const ED_FIND_MINIMAP_COLOR_CUR='minimap.selectionHighlight';
 // 한 문서에서 셀 일치의 상한. 넘으면 Monaco 가 거기서 끊는다 — 수십만 건을 세는
 // 동안 화면이 멎는 것보다 낫다.
 const ED_FIND_MAX_HITS=20000;
@@ -401,6 +411,17 @@ const EDITOR_MENU_CUT=t('editor.menu_cut');
 const EDITOR_MENU_UPLOAD=t('editor.menu_upload');
 const EDITOR_MENU_UPLOAD_DIR=t('editor.menu_upload_dir');
 const EDITOR_MENU_DOWNLOAD=t('editor.menu_download');
+/**
+ * M9_SRS FR-M9-19 / D-M9-10: 탐색기의 **경로 복사** 둘.
+ *
+ * `EDITOR_MENU_COPY`(파일 클립보드)와 **다른 구획**에 선다. 둘은 같은 낱말을
+ * 쓰지만 담는 것이 다르다 — 저쪽은 붙여넣기가 받는 파일이고 이쪽은 텍스트다.
+ * 나란히 두면 사용자는 `복사` 를 눌러 놓고 경로가 들어온 줄 안다.
+ */
+const EDITOR_MENU_COPY_ABS_PATH=t('editor.menu_copy_abs_path');
+const EDITOR_MENU_COPY_REL_PATH=t('editor.menu_copy_rel_path');
+// 성공만 말한다 — 실패는 `TermClipboard` 의 수동 복사창이 그 자리에서 말한다.
+const EDITOR_PATH_COPIED=t('editor.path_copied');
 const EDITOR_DOWNLOAD_LINK_NO=t('editor.download_link_no');
 const EDITOR_UPLOAD_FAIL=t('editor.upload_fail');
 
