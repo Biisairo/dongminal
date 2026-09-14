@@ -178,7 +178,12 @@ func TestMigrationSkill_CarriesTheHandoffProcedure(t *testing.T) {
 		{"준비완료 조건", "--for ready"},
 		{"엔벨로프 (인계 두 벌 중 하나)", "dmctl msg --to"},
 		{"착수 확인", "dmctl status --at"},
+		// **`--force` 까지 센다** (사용자 지시 2026-09-14). 인계의 마지막 명령은
+		// 자기 탭을 닫는 것이고, 그 탭에는 방금까지 에이전트가 돌고 있었다 —
+		// 확인창이 뜨면 **그 창에 답할 사람이 이미 없다.** 플래그가 조용히
+		// 빠지면 인계가 그 자리에서 멎고, 멎었다는 사실조차 아무도 보지 못한다.
 		{"자기 탭 닫기", "dmctl close-tab"},
+		{"확인창 없이 닫기", "--force"},
 		{"wait 실패의 갈래", "dmctl read-screen"},
 	}
 	for _, r := range required {
