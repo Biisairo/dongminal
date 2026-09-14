@@ -188,15 +188,38 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
     const sid = await pane.getAttribute('data-sessionid');
     expect(sid).toBeTruthy();
+    const tabs = page.locator('#area .pn.focused .pn-tab');
     const tab = page.locator('#area .pn.focused .pn-tab.active');
-    const before = await page.locator('#area .pn.focused .pn-tab').count();
+    const before = await tabs.count();
+    /**
+     * V-M9-31 (M9_SRS FR-M9-31 / M9-B14): **전환은 제자리에서 일어난다.**
+     *
+     *   이전 계약: `toHaveCount(before + 1)` — 터미널 탭이 하나 **더** 생기고
+     *             에이전트 탭이 남는다. 그것이 접수한 말로 "자연스럽지 못하다"
+     *             인 자리였다 (`M9_SRS` §2.2 M9-B14)
+     *   새  계약: 탭 수가 **그대로**이고, 터미널 탭이 **옛 에이전트 탭의 자리**에
+     *             선다
+     *
+     * **자리를 함께 재는 이유**: 탭 수만 재면 "둘 다 생기고 엉뚱한 하나가 닫힘"
+     * 에도 초록이 난다 (`M9_PROGRESS` §2-12 — 증상을 재는 검사).
+     */
+    const idxBefore = await tab.evaluate(
+      (el) => [...(el.parentElement as HTMLElement).children].indexOf(el));
     await tab.click({ button: 'right' });
     await expect(page.locator('.ui-menu .ui-menu-item[data-id="agent-tui"]')).toBeVisible();
     await page.locator('.ui-menu .ui-menu-item[data-id="agent-tui"]').click();
-    await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
-    // 새 터미널 탭에 `--resume <sid>` 가 타이핑됐다.
+    /**
+     * **먼저 전환이 끝난 것을 본다.** 탭 수부터 재면 터미널 탭이 서기도 전에
+     * `toHaveCount(before)` 가 즉시 참이 되어, **아무 일도 일어나지 않은 상태**에
+     * 초록을 준다 (이 검사를 고치는 첫 판이 그랬다 — §2-12 를 한 번 더 밟았다).
+     */
     await expect(page.locator('#area .pn.focused .tp.vis')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('#area .pn.focused .tp.vis .xterm-rows')).toContainText('--resume ' + sid, { timeout: 15000 });
+    // 그 다음에야 자리와 수가 뜻을 갖는다 (FR-M9-31).
+    await expect(tabs).toHaveCount(before, { timeout: 10000 });
+    const idxAfter = await page.locator('#area .pn.focused .pn-tab.active').evaluate(
+      (el) => [...(el.parentElement as HTMLElement).children].indexOf(el));
+    expect(idxAfter, '터미널 탭이 옛 에이전트 탭의 자리에 서지 않았다').toBe(idxBefore);
   });
 
   test('TC-AGT-7: 프로세스가 죽으면 오류 상태 — 사유가 보이고 입력이 막히고, 재개가 된다 (V-8, FR-ABG-20)', async ({ page }) => {

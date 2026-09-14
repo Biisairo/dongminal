@@ -75,6 +75,20 @@ Object.assign(App.prototype, {
   /**
    * FR-AGT-10 TUI 출구 — 같은 세션을 터미널 탭에서. 서버가 준 한 줄을 새 터미널
    * 탭의 셸에 넣는다; 그 탭의 에이전트는 훅으로 관측된다 (병행).
+   *
+   * M9_SRS FR-M9-31 (M9-B14): **전환은 제자리에서 일어난다.**
+   *
+   *   이전 동작: `addTab` 만 했다 — 터미널 탭이 하나 **더** 생기고 에이전트 탭이
+   *             남았다. 사용자의 말로 *"자연스럽지 못하다"* 인 자리다
+   *   새  동작: 새 터미널 탭을 **옛 에이전트 탭의 자리**로 옮기고 그 탭을 닫는다
+   *   이유:     세션은 하나인데 표면이 둘 남으면 어느 쪽이 살아 있는지 화면이
+   *             말하지 못한다. 남은 에이전트 도구는 세션을 놓은 껍데기가 된다
+   *
+   * **반대 방향은 대칭이 아니다** (D-M9-20). 터미널 → 에이전트에서는 탭을 남긴다 —
+   * 그 탭에는 사용자의 셸이 살기 때문이다.
+   *
+   * 닫기는 `force` 로 지난다. 이것은 닫기가 아니라 **전환**이고, 그 세션은 방금 연
+   * 터미널에서 이어진다 — 여기서 "정말 닫을까요" 를 묻는 것은 물음이 아니라 방해다.
    */
   async agentOpenTerminal(toolId){
     const r=await apiGet('/api/agent/tui-line',{query:{tool:toolId}});
@@ -86,5 +100,10 @@ Object.assign(App.prototype, {
     const made=await this.addTab(paneId,'terminal',{windowId:loc&&loc.win?loc.win.id:undefined,cwd});
     if(!made||!made.toolId) return;
     await apiPost('/api/tools/input',{id:made.toolId,text:r.data.line,execute:true});
+    // 옛 탭을 못 찾았으면 여기서 끝난다 — 그때는 더할 것이 없고, 새 탭은 이미 섰다.
+    if(!loc||!loc.tab) return;
+    // 자리부터 옮기고 닫는다. 순서가 바뀌면 옛 탭이 사라진 뒤라 기준이 없다.
+    this.moveTabToPane(paneId,made.uuid,paneId,loc.tab.id,true);
+    await this.closeTab(paneId,loc.tab.id,loc.win&&loc.win.id,{force:true});
   },
 });
