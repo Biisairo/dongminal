@@ -449,6 +449,74 @@ flaky 셋은 **전부 git 관측 주기 계열**이다 — P3·P7 이 꼬리로 
 `go test -race -shuffle=on` 초록 · `make e2e-rebalance` 1.00배.
 
 
+### 1-19. P10 판정 (입력창의 단축키와 `/` 명령, M9-B25·B26)
+
+| 요구 | 판정 | 어디에 |
+|---|---|---|
+| FR-M9-44 | **해소** — 한 `return` 이 두 일을 함께 하던 것을 갈랐다. 차단은 언제나 하고, 단축키는 **자기 편집을 스스로 하는 표면**에서만 돈다 | `input-binding.js` · `constants.js` |
+| FR-M9-45 | **해소** — `ProtoCommand{Name,Description,ArgumentHint}`. 제안이 인자 문법과 설명을 함께 보인다 | `proto.go` · `claude_proto.go` · `agent-pane.js` |
+| FR-M9-46 | **해소** — `manual` 을 뺐다. 여섯이다 | `claude_proto.go` |
+
+**FR-M9-44 — 면제가 자기 근거보다 넓었다.** `FR-KEY-5` 는 *"복사·붙여넣기·전체선택이
+살아야 한다"* 를 근거로 입력 요소를 **통째로** 면제했는데, 그 셋은 이미
+`KEY_BLOCK_EXEMPT_MOD` 가 따로 지킨다. 그 틈으로 앱이 쓰지 않는 조합이 브라우저로
+내려갔고, 사용자의 `Cmd+Opt+Shift+W` 가 **보이는 창을 전부 닫았다.**
+
+고친 모양은 셋이다: ① 차단은 언제나 — 글자를 치는 자리에서는 `KeyZ`·`KeyY` 를 더
+봐준다(네이티브 undo) ② `.agp-ta` 는 xterm 도우미와 **같은 자격**으로 단축키를 받는다
+③ Monaco 는 받지 않는다 — 그 안쪽은 `file-editor.js` 가 배선한다(FR-EKB-1).
+
+**FR-M9-45 — 스펙 초안이 실측에 뒤집혔다.** 초안은 명령을 세 갈래로 갈랐고 ③ 을
+*"TUI 를 여는 것"* 으로 적었다. **그런 갈래가 없다** — `-p` 모드의 `/config` 는 화면을
+그리는 대신 `Usage: /config key=value` 를 텍스트로 답한다 (§3-8).
+
+| 잰 것 | 결과 |
+|---|---|
+| `initialize` 최상위 키 | **18개** (`account`·`agents`·`available_output_styles`·`commands`·`current_permission_mode`·`fast_mode_state`·`models`·`output_style`·`session_state` …) |
+| `commands` 개수·모양 | **68개** · `name`·`description`·`argumentHint`·`aliases`. **힌트가 23/68** — `/config key=value` · `/effort <low\|medium\|high\|xhigh\|max\|ultracode\|auto>` |
+| 제어 subtype (후보 16 전수) | 받는 것은 `initialize`·`interrupt`·`set_model`·`set_permission_mode`·`set_max_thinking_tokens`(+`mcp_message`) **뿐** |
+
+**그래서 빈 자리는 통로가 아니라 말이었다.** 통로(프롬프트)는 이미 통하고 제안 목록도
+이미 있었다. 없던 것은 **무엇을 넣어야 하는가**이고, 그 답은 프로토콜이 이미 보내는데
+우리가 **이름만 남기고 버리고 있었다** — §2-24 가 적은 그 함정을 또 밟았다.
+
+**FR-M9-46 — 선언이 실측을 앞질렀다.** 제어 subtype 을 찌르다가 드러났다:
+`set_permission_mode` 의 오류 문안이 허용 목록 **여섯**을 그대로 뱉는데 우리 선언은
+**일곱**이었다. 일곱째 `manual` 은 `claude --help` 의 choices 에는 있으나 **세션 중
+제어로는 받지 않는다** — 기동 인자로 받는 것과 세션 중 바꾸는 것이 같은 목록이라는
+보장이 없었다. 순환에 남겨 두면 그 차례에서 제어가 오류로 돌아온다.
+
+검증 — Go 단위 3(명령 힌트 파싱 · 권한 모드 둘) · e2e 3(입력창 단축키 둘 ·
+`/` 제안 하나). **RED 를 셋 다 stash 로 확인했다.**
+
+**전량이 또 한 번 잡았다** (§2-13 과 같은 자리). 첫 회차가 `unexpected 1` 이었고,
+깨진 것은 **내가 바꾼 계약을 딛고 있던 기존 검사**다 — `TC-AGT-4` 가 제안 항목의
+**전체 텍스트**를 `'/compact'` 로 못박고 있었는데, 힌트가 붙으면서
+`'/compact<optional instructions>'` 가 됐다.
+
+규약이 이미 적혀 있었다 — *"계약을 바꾸면 그 값을 `grep` 해라 — 파일이 아니라
+**값**이다"*. `agp-sugg-item` 을 그렸으면 그것을 읽는 자리를 먼저 셌어야 했다.
+새 검사는 **이름을 `.agp-sugg-name` 으로** 잰다: 항목 전체로 재면 힌트가 붙는 순간
+깨지고, 그것은 결함이 아니라 새 계약이다.
+
+**전량 e2e (2회차 — 판정)**
+
+| 판정 | 값 |
+|---|---|
+| **unexpected** | **0** (8샤드 전부) |
+| passed | **1700** |
+| flaky | 1 — `git-refresh-lifecycle` V-GRF-1 (P8·P9 에도 나온 그 이름) |
+
+1회차는 `unexpected 1`(`TC-AGT-4`) 이었고 그것이 위의 계약 회귀다. `make` 종료 코드
+2 는 병렬 하네스가 flaky 를 실패로 올린 것이며, 판정은 `unexpected 0` 이다 (D-M9-11).
+`go test -race -shuffle=on` 초록 · `make gates` 초록 · `make unit` 163/163 ·
+`make e2e-rebalance` 1.00배.
+
+**`git-refresh-lifecycle` V-GRF-1 은 세 회차 연속이다** (P8·P9·P10). D-M9-11 이
+*"회차마다 달라지면 붙잡지 않는다"* 이고 이것은 **달라지지 않았다** — 다음 회차에 또
+나오면 결함으로 다루고 그 자리를 연다. 이름을 여기 박아 둔다.
+
+
 ## 2. 배운 것
 
 ### 2-1. (P1) "경고" 라 불린 것이 기동 거부였다
@@ -1006,6 +1074,82 @@ new-tab -n"` 이라는 **문자열의 존재**였고, 그 문자열이 말하는
 교훈: **다른 요구가 만든 신호에 자기 관문을 걸면, 그 요구가 바뀔 때 관문이 조용히
 열린다.** 고친 방법은 신호를 되돌리는 것이 아니라 **관문을 하나 더 두는 것**이다 —
 그리고 보낸 뒤에 **닿았는지 검증**하는 것. 완벽한 배리어보다 검증과 재시도가 싸다.
+
+
+### 3-7. 프로토콜의 **제어 표면**을 전수로 재기 (P10 이 쓴 것)
+
+*"이 명령을 제어로 보낼 수 있는가"* 는 문서가 아니라 **CLI 가 답한다.** 모르는
+subtype 을 찔러 보면 오류 문안이 그 자리의 진실을 말한다.
+
+```
+cd /tmp && { printf '%s\n' '{"type":"control_request","request_id":"r1","request":{"subtype":"initialize","hooks":{}}}'; sleep 3
+for st in set_output_style set_effort set_fast_mode 아무이름; do
+  printf '{"type":"control_request","request_id":"p-%s","request":{"subtype":"%s"}}\n' "$st" "$st"
+done
+sleep 10; } | claude -p --output-format stream-json --input-format stream-json --verbose \
+    --permission-prompt-tool stdio > probe.jsonl
+```
+
+`control_response` 의 `error` 를 읽는다. 셋으로 갈린다 —
+**`Unsupported control request subtype: …`**(없다) · **다른 오류 문안**(받는데 인자가
+틀렸다) · **오류 없음**(받는다). 둘째가 가장 값지다: 인자가 틀렸다는 문안이
+**허용 목록을 그대로 뱉는다.** FR-M9-46 이 그렇게 나왔다 —
+
+```
+Cannot set permission mode: must be one of acceptEdits, auto, bypassPermissions, default, dontAsk, plan
+```
+
+**`initialize` 응답도 같은 방법으로 통째로 덤프한다.** §3.1 이 두 번 틀린 이유가
+"덤프하지 않고 추론한 것" 이었다 (§2-23).
+
+```
+python3 -c "import json;[print(sorted(json.loads(l)['response']['response'].keys())) \
+  for l in open('probe.jsonl') if json.loads(l).get('type')=='control_response']"
+```
+
+### 3-8. `/` 명령이 stream-json 모드에서 무엇을 하는지 재기 (P10 이 쓴 것)
+
+`user` 프레임에 `/명령` 을 그대로 실어 보내고 답을 본다. **모델 호출이 없는 명령을
+고른다** (`/context`·`/config`) — 자격증명과 토큰을 쓰지 않는다.
+
+```
+printf '%s\n' '{"type":"user","message":{"role":"user","content":"/config"}}'
+```
+
+P10 의 결과: **TUI 를 여는 갈래는 없다.** `/config` 는 화면을 그리는 대신
+`Usage: /config key=value` 와 설정 키 목록을 **텍스트로** 답했다. 그래서 스펙 초안의
+③ 갈래("TUI 라 그릴 자리가 없다")가 통째로 사라졌다.
+
+
+### 2-31. (P10) **버리고 있던 것을 또 찾았다 — 세 번째다**
+
+P7 은 `rate_limit_event` 를 `return nil, true` 로 알아보고 버렸고, P8 은 `initialize`
+응답의 절반을 읽지 않았으며, P10 은 `commands[]` 의 `description`·`argumentHint` 를
+**파싱조차 하지 않고** 이름만 남기고 있었다. 세 번 다 모양이 같다 —
+
+> 프레임은 **이미 오고 있었고**, 우리 타입이 그것을 담을 자리를 갖지 않았다.
+
+그리고 세 번 다 그 사실이 **사용자의 접수로** 드러났다("정보가 너무 없다",
+"컨트롤 할 수 없다"). 우리 쪽에서 먼저 안 적이 없다.
+
+**방법이 있다** (§3-7): 새 기능을 얹기 전에 **응답을 통째로 덤프하고 키를 센다.**
+"이것이 오는가" 를 문서나 코드에서 추론하지 않는다 — 5초면 답이 나온다. 이 세션은
+그 5초로 스펙 한 조항(FR-M9-45)을 통째로 다시 썼고, 덤으로 결함 하나(FR-M9-46)를
+주웠다.
+
+### 2-32. (P10) **면제는 자기 근거보다 넓어지기 쉽다**
+
+`FR-KEY-5` 는 근거를 정직하게 적어 두었다 — *"복사·붙여넣기·전체선택이 살아야
+한다"*. 그런데 **구현은 입력 요소를 통째로 면제**했다. 근거가 말한 것은 조합 셋인데
+면제한 것은 표면 전부였고, 그 차이가 정확히 결함의 크기였다.
+
+같은 파일에 이미 **조합 단위 예외 집합**(`KEY_BLOCK_EXEMPT_MOD`)이 있었다는 것이
+이 교훈의 날이다 — 좁은 도구가 옆에 있는데도 넓은 칼을 썼다.
+
+**조항에 근거를 적었으면, 검사는 그 근거의 크기를 재야 한다.** "입력 요소에서
+차단하지 않는다" 를 재면 통과하지만, "복사·붙여넣기가 산다" 를 재면 그 이상을
+면제한 것이 드러나지 않는다. 새 검사는 **양쪽을 다 잰다** — 편집 조합이 사는지와,
+편집이 아닌 조합이 브라우저로 내려가지 **않는지**.
 
 
 ## 3. 실측 방법 (다음 세션이 그대로 쓸 것)

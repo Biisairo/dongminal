@@ -276,6 +276,17 @@ const WS_SAVE_BACKOFF_MAX_MS=2000;
 
 const KEY_BLOCK_EXEMPT_BARE=new Set(['F5','F11','F12']);
 const KEY_BLOCK_EXEMPT_MOD=new Set(['KeyC','KeyV','KeyX','KeyA','KeyI','KeyJ','KeyR']);
+/**
+ * M9_SRS FR-M9-44 (M9-B25): **글자를 치는 자리에서만 더 봐주는 조합.**
+ *
+ * 되돌리기·다시하기다. 종전에는 입력 요소를 **통째로** 면제해서(`FR-KEY-5` 원안)
+ * 이 구멍이 보이지 않았다 — 이제 차단이 그 자리에도 닿으므로, 네이티브 편집이
+ * 잃으면 안 되는 것을 여기 적는다.
+ *
+ * 위의 `KEY_BLOCK_EXEMPT_MOD` 와 합쳐 쓴다 (복사·붙여넣기·잘라내기·전체선택은
+ * 거기 이미 있다).
+ */
+const KEY_BLOCK_EXEMPT_TEXT=new Set(['KeyZ','KeyY']);
 
 
 // Built-in hotkeys are not user-rebindable and may match modifier variants

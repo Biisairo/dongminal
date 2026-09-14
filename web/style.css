@@ -770,6 +770,9 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   border:1px solid var(--border);border-radius:var(--ui-radius);min-height:2.6em;max-height:40vh}
 .agp-ta:focus-visible{outline:2px solid var(--focus-ring);outline-offset:1px}
 .agp-sugg{display:flex;flex-wrap:wrap;gap:4px}
+/* FR-M9-45: 이름과 인자 문법은 **다른 것**이다 — 같은 무게로 그리면 어디까지가
+   명령인지 읽히지 않는다. 힌트는 흐리게, 이름은 그대로. */
+.agp-sugg-hint{margin-left:6px;opacity:.65;font-family:var(--mono)}
 .agp-appr{display:flex;flex-direction:column;gap:8px;min-width:320px;max-width:70vw}
 .agp-appr-desc{color:var(--text-muted)}
 .agp-appr-in{margin:0;padding:8px;font-family:var(--mono);font-size:var(--fs-sm);white-space:pre-wrap;word-break:break-all;

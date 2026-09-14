@@ -80,7 +80,7 @@ func TestOmpProto_HandshakeState(t *testing.T) {
 		t.Fatalf("models: %+v", evs)
 	}
 	evs = decode1(t, p, st, `{"type":"available_commands_update","commands":[{"name":"compact","source":"builtin"},{"name":"model","source":"builtin"}]}`)
-	if kinds(evs) != "status" || strings.Join(evs[0].Status.Commands, ",") != "compact,model" {
+	if kinds(evs) != "status" || cmdNames(evs[0].Status.Commands) != "compact,model" {
 		t.Fatalf("commands: %+v", evs)
 	}
 	// 대기표에 없는 응답 — unknown command 는 id 없이 온다 (실측).
@@ -378,4 +378,13 @@ func TestOmpProto_ContextRatioOnly(t *testing.T) {
 	if u.Tokens != 0 || u.ContextWindow != 0 {
 		t.Fatalf("오지 않은 절대값이 채워졌다: %+v", u)
 	}
+}
+
+// cmdNames 는 명령 목록의 이름만 이어 붙인다 — omp 는 이름뿐이다 (FR-M9-45).
+func cmdNames(cs []ProtoCommand) string {
+	out := make([]string, 0, len(cs))
+	for _, c := range cs {
+		out = append(out, c.Name)
+	}
+	return strings.Join(out, ",")
 }

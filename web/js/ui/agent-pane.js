@@ -585,17 +585,35 @@ class AgentPane {
     this.ta.selectionStart=this.ta.selectionEnd=this.ta.value.length;
     return true;
   }
+  /**
+   * M9_SRS FR-M9-45 (M9-B26): **`/` 명령은 이름만이 아니다.**
+   *
+   * 접수한 말: *"단순 스킬이 아닌 / 명령어들의 경우 컨트롤 할 수 없다 …
+   * (config, model 등의 명령어)"*.
+   *
+   *   이전 동작: 이름만 보였다 — `/config` 하나. 무엇을 넣어야 하는지 알 길이 없다
+   *   새  동작: **인자 문법과 한 줄 설명**을 함께 보인다 (`/config key=value`)
+   *   이유:     못 하는 것은 명령을 **보내는** 일이 아니라 **무엇을 보낼지 아는**
+   *             일이다. 그 답은 프로토콜이 이미 보내는데 우리가 버리고 있었다
+   *
+   * 인자를 받지 않는 명령은 **그 자리를 비운다** — 빈 힌트를 `<args>` 로 채우면
+   * 없는 문법을 지어내는 것이다 (FR-CBG-5). 힌트가 없으면 고른 뒤 공백도 붙이지
+   * 않는다: 인자가 없는 명령 뒤의 공백은 사용자가 지워야 할 것이다.
+   */
   _suggest(){
     const v=this.ta.value;
     const cmds=(this.state&&this.state.status&&this.state.status.commands)||[];
     if(!v.startsWith('/')||v.includes(' ')||v.includes('\n')||!cmds.length){ this.sugg.hidden=true; this.sugg.textContent=''; return }
     const q=v.slice(1).toLowerCase();
-    const hits=cmds.filter(c=>c.toLowerCase().startsWith(q)).slice(0,8);
+    const hits=cmds.filter(c=>c&&c.name&&c.name.toLowerCase().startsWith(q)).slice(0,8);
     this.sugg.textContent='';
-    if(!hits.length||(hits.length===1&&hits[0]===q)){ this.sugg.hidden=true; return }
+    if(!hits.length||(hits.length===1&&hits[0].name===q&&!hits[0].argumentHint)){ this.sugg.hidden=true; return }
     for(const c of hits){
-      const b=document.createElement('button'); b.type='button'; b.className='ui-btn ui-btn-sm ui-btn-ghost agp-sugg-item'; b.textContent='/'+c;
-      b.addEventListener('click',()=>{ this.ta.value='/'+c+' '; this.sugg.hidden=true; this.ta.focus() });
+      const b=document.createElement('button'); b.type='button'; b.className='ui-btn ui-btn-sm ui-btn-ghost agp-sugg-item';
+      const nm=document.createElement('span'); nm.className='agp-sugg-name'; nm.textContent='/'+c.name; b.appendChild(nm);
+      if(c.argumentHint){ const h=document.createElement('span'); h.className='agp-sugg-hint'; h.textContent=c.argumentHint; b.appendChild(h) }
+      if(c.description){ b.title=c.description }
+      b.addEventListener('click',()=>{ this.ta.value='/'+c.name+(c.argumentHint?' ':''); this.sugg.hidden=true; this.ta.focus() });
       this.sugg.appendChild(b);
     }
     this.sugg.hidden=false;

@@ -309,7 +309,7 @@ func TestClaudeProto_HandshakeAndControl(t *testing.T) {
 		t.Fatal("핸드셰이크 응답이 idle 로 읽혀야 dmctl wait --for ready 가 첫 턴 전에 답한다")
 	}
 	stt := evs[0].Status
-	if len(stt.Models) != 2 || stt.Models[1].Value != "sonnet" || len(stt.Commands) != 1 || stt.Commands[0] != "compact" || stt.PermissionMode != "default" || stt.Account == "" {
+	if len(stt.Models) != 2 || stt.Models[1].Value != "sonnet" || len(stt.Commands) != 1 || stt.Commands[0].Name != "compact" || stt.PermissionMode != "default" || stt.Account == "" {
 		t.Fatalf("status: %+v", stt)
 	}
 	// 모르는 request_id 의 응답은 모르는 프레임이다 (FR-APS-8).
@@ -518,12 +518,30 @@ func TestClaudeProto_PermissionModesCoverCLI(t *testing.T) {
 	for _, m := range p.PermissionModes {
 		have[m] = true
 	}
-	// `claude --help` 의 choices 여섯 + 실측에서 받아들인 `default`.
+	/**
+	 * **개정 (M9_SRS FR-M9-46, 실측 2026-09-14): `manual` 이 빠졌다.**
+	 *
+	 * 종전에는 `claude --help` 의 choices 여섯 + 실측으로 확인한 `default` 로
+	 * 일곱을 셌다. 그런데 **기동 인자로 받는 것과 세션 중 제어로 받는 것이
+	 * 같다는 보장이 없었다** — `set_permission_mode` 에 모르는 값을 넣으면 오류
+	 * 문안이 허용 목록을 그대로 뱉는다:
+	 *
+	 *   Cannot set permission mode: must be one of acceptEdits, auto,
+	 *   bypassPermissions, default, dontAsk, plan
+	 *
+	 * `manual` 이 없다. 순환에 남겨 두면 그 차례에서 제어가 오류로 돌아온다.
+	 * 이 목록의 진실은 그 오류 문안이며, 낡으면 같은 방법으로 다시 잰다.
+	 */
 	for _, want := range []string{"default", "acceptEdits", "auto", "plan",
-		"bypassPermissions", "dontAsk", "manual"} {
+		"bypassPermissions", "dontAsk"} {
 		if !have[want] {
 			t.Fatalf("순환 목록에 %q 가 없다: %v", want, p.PermissionModes)
 		}
+	}
+	// **CLI 가 거절하는 값을 두지 않는다** (FR-M9-46). 순환이 오류를 지나면
+	// 사용자는 그 자리에서 멈춘 것으로 읽는다.
+	if have["manual"] {
+		t.Fatalf("CLI 가 거절하는 manual 이 순환 목록에 있다: %v", p.PermissionModes)
 	}
 	// 중복이 있으면 순환이 같은 자리를 두 번 지난다.
 	if len(have) != len(p.PermissionModes) {

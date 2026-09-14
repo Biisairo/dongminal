@@ -250,12 +250,28 @@ type ProtoLimit struct {
 // ProtoStatus 는 세션의 설정 상태다 (FR-AGT-11). 비어 있는 필드는 "이 이벤트가 그것을
 // 말하지 않았다" 다 — 소비자는 채워진 것만 덮어쓴다.
 type ProtoStatus struct {
-	Model          string        `json:"model,omitempty"`
-	PermissionMode string        `json:"permissionMode,omitempty"`
-	Models         []ModelChoice `json:"models,omitempty"`
-	Commands       []string      `json:"commands,omitempty"`
-	Account        string        `json:"account,omitempty"`
-	Compacted      bool          `json:"compacted,omitempty"`
+	Model          string         `json:"model,omitempty"`
+	PermissionMode string         `json:"permissionMode,omitempty"`
+	Models         []ModelChoice  `json:"models,omitempty"`
+	Commands       []ProtoCommand `json:"commands,omitempty"`
+	Account        string         `json:"account,omitempty"`
+	Compacted      bool           `json:"compacted,omitempty"`
+}
+
+// ProtoCommand 은 그 에이전트가 받는 `/` 명령 하나다 (M9_SRS FR-M9-45 / M9-B26).
+//
+// **이름만으로는 쓸 수 없다.** 사용자가 못 하는 것은 명령을 보내는 일이 아니라
+// **무엇을 보낼지 아는** 일이다 — `/config` 만 보고 `key=value` 를 알 길이 없다.
+// 그 답은 프로토콜이 이미 보내는데(실측 2026-09-14: `initialize` 의 68개 중 23개가
+// 인자 문법을 싣는다) 종전에는 이름만 남기고 버렸다.
+type ProtoCommand struct {
+	Name string `json:"name"`
+	// Description 은 한 줄 설명이다.
+	Description string `json:"description,omitempty"`
+	// ArgumentHint 는 인자의 문법 그대로다 — `key=value` · `<low|medium|high>` ·
+	// `[on|off]`. **빈 값은 "인자를 받지 않는다"** 이고, 그때 화면은 그 자리를
+	// 비운다. `<args>` 로 채우면 없는 문법을 지어내는 것이다 (FR-CBG-5).
+	ArgumentHint string `json:"argumentHint,omitempty"`
 }
 
 // ModelChoice 는 프로토콜이 준 모델 선택지 하나다 (FR-AGT-11 — 그대로 낸다).

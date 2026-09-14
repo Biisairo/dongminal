@@ -43,7 +43,7 @@ var claudeProto = Proto{
 	 * 하나이며(실측), 그래서 이것은 선언이다 — 에이전트가 값을 바꾸면 여기가 낡는다.
 	 */
 	PermissionModes: []string{"default", "acceptEdits", "auto", "plan",
-		"bypassPermissions", "dontAsk", "manual"},
+		"bypassPermissions", "dontAsk"},
 }
 
 // claudeExt 는 이 어댑터의 사적 상태다 (ProtoState.Ext).
@@ -603,11 +603,12 @@ func claudeDecodeControlResponse(fr claudeFrame, x *claudeExt, st *ProtoState) (
 	switch p.subtype {
 	case "initialize":
 		var r struct {
-			Commands []struct {
-				Name string `json:"name"`
-			} `json:"commands"`
-			Models  []ModelChoice `json:"models"`
-			Account *struct {
+			// FR-M9-45: **이름만 받던 자리다.** `description`·`argumentHint` 가
+			// 함께 오는 것을 실측으로 확인했고(2026-09-14), 그것이 화면에서
+			// "무엇을 넣어야 하는가" 를 말한다.
+			Commands []ProtoCommand `json:"commands"`
+			Models   []ModelChoice  `json:"models"`
+			Account  *struct {
 				Email        string `json:"email"`
 				Subscription string `json:"subscriptionType"`
 			} `json:"account"`
@@ -616,10 +617,7 @@ func claudeDecodeControlResponse(fr claudeFrame, x *claudeExt, st *ProtoState) (
 		if err := json.Unmarshal(resp.Response, &r); err != nil {
 			return nil, false
 		}
-		s := &ProtoStatus{Models: r.Models, PermissionMode: r.PermMode}
-		for _, c := range r.Commands {
-			s.Commands = append(s.Commands, c.Name)
-		}
+		s := &ProtoStatus{Models: r.Models, PermissionMode: r.PermMode, Commands: r.Commands}
 		if r.Account != nil {
 			s.Account = strings.TrimSpace(r.Account.Email + " " + r.Account.Subscription)
 		}

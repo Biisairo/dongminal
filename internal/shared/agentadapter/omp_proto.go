@@ -390,7 +390,10 @@ func ompCommandsStatus(raw json.RawMessage, sid string) ([]Event, bool) {
 	}
 	s := &ProtoStatus{}
 	for _, c := range cs {
-		s.Commands = append(s.Commands, c.Name)
+		// M9_SRS FR-M9-45: omp 의 명령 목록은 **이름뿐**이다 (실측한 프레임에
+		// 설명·인자 문법이 없다). 없는 것을 지어내지 않는다 (FR-APS-4) — 화면은
+		// 빈 힌트를 그리지 않으므로 종전과 같은 모양으로 선다.
+		s.Commands = append(s.Commands, ProtoCommand{Name: c.Name})
 	}
 	return []Event{{Kind: EvStatus, SessionID: sid, Status: s}}, true
 }

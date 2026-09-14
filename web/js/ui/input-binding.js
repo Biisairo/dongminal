@@ -130,8 +130,31 @@ class InputBinding {
         this.app.saveSettings();
         return;
       }
+      /**
+       * M9_SRS FR-M9-44 (M9-B25): **한 `return` 이 두 일을 함께 하고 있었다.**
+       *
+       *   이전 동작: 입력 요소에 포커스가 있으면 그 키는 **통째로** 브라우저의
+       *             것이었다 — 앱 단축키도 돌지 않고 브라우저 기본도 막지 않았다
+       *   새  동작: 둘을 가른다. 차단은 **언제나** 하고(글자를 치는 자리에서는
+       *             편집 조합만 예외), 단축키는 **자기 편집을 스스로 하는 표면**
+       *             에서만 돈다
+       *   이유:     접수한 말 — *"gui agent 의 텍스트박스를 클릭한 상태에서 탭
+       *             닫기 단축키를 누르면 … 보이는 모든 브라우저를 닫는다"*.
+       *             `FR-KEY-5` 의 근거는 복사·붙여넣기·전체선택이었고 그 셋은 이미
+       *             `KEY_BLOCK_EXEMPT_MOD` 가 지킨다 — 면제가 근거보다 넓었다
+       */
       const ae=document.activeElement;
-      if(ae.tagName==='INPUT'||(ae.tagName==='TEXTAREA'&&!ae.classList.contains('xterm-helper-textarea')))return;
+      const inText=!!ae&&(ae.tagName==='INPUT'||(ae.tagName==='TEXTAREA'&&!ae.classList.contains('xterm-helper-textarea')));
+      /**
+       * 앱 단축키를 낼 자리인가. 글자를 받는 표면 중 **편집을 스스로 하는** 것만
+       * 참이다 — xterm 의 도우미 textarea(위 조건에서 이미 빠진다)와 에이전트
+       * 입력창. 터미널에서 되는 탭 닫기가 에이전트 패널에서 안 되면 그 차이가
+       * 곧 결함이다 (M9_PROGRESS §2-21).
+       *
+       * **Monaco 의 입력 영역은 빠진다.** 그 안쪽은 `file-editor.js` 가 따로
+       * 배선하며(FR-EKB-1), 여기서 함께 열면 편집기 키가 두 곳에서 판정된다.
+       */
+      if(inText&&!ae.classList.contains('agp-ta')){ this._blockBrowserDefault(e,true); return }
       // EDITOR_GIT_UX_SRS FR-EKB-1: Monaco **밖**(탐색기·탭바)에서 누른 경우다.
       // 안쪽은 위의 activeElement 게이트에 걸려 여기 오지 않으므로 file-editor.js
       // 가 같은 함수를 따로 건다. FR-EKB-2: cmd+p 는 브라우저의 인쇄라 반드시 막는다.
@@ -150,7 +173,7 @@ class InputBinding {
         if(ED_CAPTURE_ACTIONS[action]) continue;
         if(matchShortcut(e,key)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(action);return}
       }
-      this._blockBrowserDefault(e);
+      this._blockBrowserDefault(e,inText);
     },true);
     /**
      * M9_SRS FR-M9-26 / D-M9-18: **마우스 4·5번 버튼이 보던 자리를 오간다.**
@@ -220,8 +243,12 @@ class InputBinding {
    *
    * **`preventDefault` 만 한다** (FR-KEY-3). 전파를 멈추면 xterm 이 키를 받지 못해
    * 터미널이 죽는다 — 막으려는 것은 브라우저이지 앱이 아니다.
+   *
+   * M9_SRS FR-M9-44 (FR-KEY-5 개정): `inText` 는 **글자를 치는 자리**라는 뜻이다.
+   * 그때는 네이티브 편집이 잃으면 안 되는 조합을 더 봐준다 — 종전에는 그 자리를
+   * 통째로 면제해서 이 구분이 필요 없었고, 그 면제가 곧 결함이었다.
    */
-  _blockBrowserDefault(e){
+  _blockBrowserDefault(e,inText){
     if(!blockBrowserKeys) return;
     if(KEY_BLOCK_EXEMPT_BARE.has(e.code)) return;
     // FR-KEY-2: 수식키 없는 키는 대상이 아니다. 터미널에 그냥 글자를 치는 것을
@@ -229,6 +256,7 @@ class InputBinding {
     if(!e.ctrlKey&&!e.metaKey) return;
     if(MOD_CODES.has(e.code)) return;
     if(KEY_BLOCK_EXEMPT_MOD.has(e.code)) return;
+    if(inText&&KEY_BLOCK_EXEMPT_TEXT.has(e.code)) return;
     e.preventDefault();
   }
 }

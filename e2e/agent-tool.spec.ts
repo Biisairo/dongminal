@@ -149,9 +149,16 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     await expect(ta).toHaveValue('SLOW');
     await ta.press('ArrowDown');
     await expect(ta).toHaveValue('');
-    // 슬래시: 목록은 initialize 의 commands 다.
+    /**
+     * 슬래시: 목록은 initialize 의 commands 다.
+     *
+     * **M9_SRS FR-M9-45 로 계약이 바뀌었다** — 항목은 이름 하나가 아니라 이름과
+     * 인자 문법 둘이다. 그래서 이름은 `.agp-sugg-name` 으로 잰다. 항목 전체의
+     * 텍스트로 재면 힌트가 붙는 순간 이 검사가 깨지고, 그것은 결함이 아니라
+     * 새 계약이다 (V-M9-45 가 힌트 쪽을 잰다).
+     */
     await ta.fill('/co');
-    await expect(pane.locator('.agp-sugg .agp-sugg-item')).toHaveText(['/compact']);
+    await expect(pane.locator('.agp-sugg .agp-sugg-item .agp-sugg-name')).toHaveText(['/compact']);
     await pane.locator('.agp-sugg .agp-sugg-item').click();
     await expect(ta).toHaveValue('/compact ');
     await ta.fill('/clear');
@@ -670,3 +677,45 @@ for (const { agent, tool, choices } of OTHERS) {
     });
   });
 }
+
+/**
+ * V-M9-45 (M9_SRS FR-M9-45 / M9-B26): **`/` 제안은 무엇을 넣어야 하는지 말한다.**
+ *
+ * 접수한 말: *"단순 스킬이 아닌 / 명령어들의 경우 컨트롤 할 수 없다 … (config,
+ * model 등의 명령어)"*. 못 하는 것은 명령을 **보내는** 일이 아니라 **무엇을 보낼지
+ * 아는** 일이었다 — 제안이 이름 하나만 보였다.
+ *
+ * 실측(2026-09-14)에서 `initialize` 는 명령마다 `description` 과 `argumentHint` 를
+ * 함께 싣는데 우리가 이름만 남기고 버렸다. 재는 것은 그 둘이 화면에 서는지와,
+ * **인자를 받지 않는 명령에는 그 자리가 비는지**다 (FR-CBG-5).
+ */
+test.describe('에이전트 `/` 명령 제안 (M9-B26)', () => {
+  test('V-M9-45 (FR-M9-45): 제안이 인자 문법과 설명을 함께 보인다', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    const ta = pane.locator('.agp-ta');
+    await ta.click();
+    await ta.fill('/m');
+
+    const sugg = pane.locator('.agp-sugg .agp-sugg-item');
+    await expect(sugg).toHaveCount(1, { timeout: 10000 });
+    await expect(sugg.locator('.agp-sugg-name')).toHaveText('/model');
+    // 인자 문법이 그대로 선다 — 이것이 없으면 무엇을 칠지 알 수 없다.
+    await expect(sugg.locator('.agp-sugg-hint'), '인자 문법이 보이지 않는다').toHaveText('<model>');
+    // 설명은 툴팁이다 — 목록을 길게 만들지 않으면서 뜻을 말한다.
+    await expect(sugg).toHaveAttribute('title', 'Set the AI model');
+
+    // 골라 넣으면 인자를 칠 자리가 열린다.
+    await sugg.click();
+    await expect(ta).toHaveValue('/model ');
+
+    // **인자를 받지 않는 명령에는 그 자리가 없다.** 빈 힌트를 지어내지 않는다.
+    await ta.fill('/cl');
+    const bare = pane.locator('.agp-sugg .agp-sugg-item');
+    await expect(bare).toHaveCount(1, { timeout: 10000 });
+    await expect(bare.locator('.agp-sugg-name')).toHaveText('/clear');
+    await expect(bare.locator('.agp-sugg-hint'), '없는 인자 문법을 지어냈다').toHaveCount(0);
+    await bare.click();
+    await expect(ta, '인자가 없는데 공백을 붙였다').toHaveValue('/clear');
+  });
+});

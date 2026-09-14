@@ -170,7 +170,14 @@ func (a *agent) control(id, subtype, model, mode string) {
 	switch subtype {
 	case "initialize":
 		ok(map[string]any{
-			"commands": []map[string]any{{"name": "compact", "description": "compact"}, {"name": "clear", "description": "clear"}, {"name": "model", "description": "model"}},
+			// M9_SRS FR-M9-45: 실측한 모양 그대로 `argumentHint` 를 싣는다 — 68개 중
+			// 23개가 인자 문법을 말하고 나머지는 그 자리가 빈다. **둘 다 흉내 낸다**:
+			// 화면이 "인자를 받는 것" 과 "받지 않는 것" 을 갈라 그려야 한다.
+			"commands": []map[string]any{
+				{"name": "compact", "description": "Free up context", "argumentHint": "<optional instructions>"},
+				{"name": "clear", "description": "Start a new session"},
+				{"name": "model", "description": "Set the AI model", "argumentHint": "<model>"},
+			},
 			"models": []map[string]any{
 				{"value": "default", "displayName": "Default (fake)", "description": "fake default"},
 				{"value": "fast", "displayName": "Fast (fake)", "description": "fake fast"},
