@@ -533,3 +533,51 @@ func TestApiRunSucceed_CancelledRequestStopsWaitingAndDoesNotSucceed(t *testing.
 		t.Fatalf("끊긴 요청이 승계를 이었다: %d명", len(cur.Members))
 	}
 }
+
+// V-M9-32 (M9_SRS FR-M9-32 / M9-B15): **Run 밖의 도구도 세션 신원을 남긴다.**
+//
+// 실측(2026-09-14)이 이 조항의 전부다 — dongminal 셸이 `claude` 를 래핑하므로
+// **Run 과 무관한 탭의 에이전트에도 활동 훅이 붙고**, 그 훅은 `sessionId` 를 이미
+// 여기까지 실어 온다. 종전에는 `ObserveContext` 가 멤버가 아니라는 이유로 버렸고
+// (`observed:false`), 그래서 `FR-AGT-10` 의 반대 방향이 설 자리가 없었다.
+//
+// **`observed:false` 는 그대로다.** 그것은 "Run 에 앉히지 못했다" 는 사실이고
+// 참이다. 이 조항이 더하는 것은 그 사실과 **무관하게** 도구 단위로 신원을 붙드는
+// 것이다 — 둘을 한 값으로 묶으면 다시 하나가 다른 하나를 삼킨다.
+func TestApiRunContext_NonMemberStillKeepsSessionIdentity(t *testing.T) {
+	s, _, _, _, _ := ctxServer(t)
+	who := s.WhoAmI.(*fakeWhoAmI)
+	who.toolID = "tool-free"
+	code, out := postRun(t, s, "/api/runs/context",
+		`{"toolId":"tool-free","agent":"claude","sessionId":"sid-free","bytes":1234}`)
+	if code != 200 {
+		t.Fatalf("상태: %d %v", code, out)
+	}
+	// Run 에는 앉지 못했다 — 그 사실은 바뀌지 않는다.
+	if out["observed"] != false {
+		t.Fatalf("멤버가 아닌데 Run 에 앉았다: %v", out)
+	}
+	got := s.AgentSession("tool-free")
+	if got == nil || got.SessionID != "sid-free" {
+		t.Fatalf("Run 밖의 세션 신원이 남지 않았다: %+v", got)
+	}
+	if got.Agent != "claude" {
+		t.Fatalf("어느 에이전트인지도 남아야 한다 (어댑터를 골라야 한다): %+v", got)
+	}
+}
+
+// V-M9-32: **말하지 않은 것이 말한 것을 지우지 않는다.**
+//
+// 활동 훅은 `sessionId` 없이도 온다(압축·바이트만 실은 보고). 그때 신원을 빈 값으로
+// 덮으면 "모른다" 가 "없다" 가 된다 — FR-CBG-5 가 막으려는 바로 그 치환이다.
+func TestApiRunContext_EmptySessionDoesNotEraseIdentity(t *testing.T) {
+	s, _, _, _, _ := ctxServer(t)
+	who := s.WhoAmI.(*fakeWhoAmI)
+	who.toolID = "tool-keep"
+	postRun(t, s, "/api/runs/context", `{"toolId":"tool-keep","agent":"claude","sessionId":"sid-keep","bytes":10}`)
+	postRun(t, s, "/api/runs/context", `{"toolId":"tool-keep","agent":"claude","compacted":true}`)
+	got := s.AgentSession("tool-keep")
+	if got == nil || got.SessionID != "sid-keep" {
+		t.Fatalf("신원이 지워졌다: %+v", got)
+	}
+}

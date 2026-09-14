@@ -161,6 +161,10 @@ func (s *Server) apiRunContext(w http.ResponseWriter, r *http.Request) {
 		obs.Tokens, obs.HasTokens = *body.Tokens, true
 	}
 	sender := s.callerToolID(r, body.ToolID)
+	// M9_SRS FR-M9-32: **Run 에 앉는지와 무관하게** 신원을 붙든다. 아래 `found` 는
+	// "Run 에 앉혔는가" 이고 그 답이 거짓이어도 이 도구에서 에이전트가 돌고 있다는
+	// 사실은 참이다 — 둘을 한 값으로 묶으면 하나가 다른 하나를 삼킨다.
+	s.noteAgentSession(sender, body.SessionID, body.Agent)
 	m, entered, found := s.Runs.ObserveContext(sender, obs, s.contextPolicy())
 	if !found {
 		writeJSON(w, map[string]any{"observed": false})

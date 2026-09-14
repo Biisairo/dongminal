@@ -156,6 +156,55 @@ type Server struct {
 	// contextNotices 는 이미 보낸 컨텍스트 통지를 기억한다 (FR-CBG-7). 서버
 	// 수명이지 프로세스 수명이 아니다.
 	contextNotices contextNoticeLog
+
+	// agentSessions 는 **도구 단위** 세션 신원이다 (M9_SRS FR-M9-32 / M9-B15).
+	//
+	// Run 의 것(`ContextState.SessionID`)과 **따로 사는 이유**: 활동 훅은 Run 과
+	// 무관한 에이전트 전부에서 돈다(dongminal 셸이 `claude` 를 래핑하므로 사용자가
+	// 손으로 띄운 탭도 포함이다). 종전에는 그 신원이 `ObserveContext` 에서
+	// `found=false` 로 버려졌고, 그래서 `FR-AGT-10` 의 반대 방향이 설 자리가 없었다.
+	//
+	// `AttnTracker` 에 두지 않는 이유는 그것이 **daemon 모드 전용**이라서다 —
+	// 모드에 따라 신원이 사라지면 그 위에 선 기능이 모드에 따라 사라진다.
+	//
+	// 서버 수명이다. 프로세스가 다시 서면 비지만, 훅이 다음 보고에서 다시 채운다 —
+	// 그 사이는 "모른다" 이고 그때 진입점은 서지 않는다 (FR-M9-33 의 DoD).
+	agentSessions sync.Map // toolID → *AgentSessionInfo
+}
+
+// AgentSessionInfo 는 그 도구에서 도는 에이전트의 신원이다 (FR-M9-32).
+//
+// Agent 를 함께 드는 이유는 **어댑터를 골라야 하기 때문이다** — 세션 id 만으로는
+// `claude --resume` 인지 `codex resume` 인지 알 수 없다.
+type AgentSessionInfo struct {
+	SessionID string `json:"sessionId"`
+	Agent     string `json:"agent,omitempty"`
+	UpdatedAt int64  `json:"updatedAt,omitempty"`
+}
+
+// noteAgentSession 은 훅이 실어 온 신원을 붙든다 (FR-M9-32).
+//
+// **빈 세션 id 는 아무것도 하지 않는다.** 활동 훅은 신원 없이도 오며(압축·바이트만
+// 실은 보고), 그때 빈 값으로 덮으면 "모른다" 가 "없다" 가 된다 — FR-CBG-5 가 막으려는
+// 바로 그 치환이다.
+func (s *Server) noteAgentSession(toolID, sessionID, agent string) {
+	if toolID == "" || sessionID == "" {
+		return
+	}
+	s.agentSessions.Store(toolID, &AgentSessionInfo{
+		SessionID: sessionID, Agent: agent, UpdatedAt: time.Now().UnixNano(),
+	})
+}
+
+// AgentSession 은 그 도구의 세션 신원이다. 모르면 nil 이다 — 빈 구조체를 돌려주면
+// 받는 쪽이 "신원이 빈 세션" 으로 읽는다.
+func (s *Server) AgentSession(toolID string) *AgentSessionInfo {
+	v, ok := s.agentSessions.Load(toolID)
+	if !ok {
+		return nil
+	}
+	info, _ := v.(*AgentSessionInfo)
+	return info
 }
 
 // serverLimits 는 서버 하나의 상한·유예다. const 가 아닌 것은 테스트가 낮춰
