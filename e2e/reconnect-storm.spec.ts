@@ -26,6 +26,11 @@ const TERM_PANE_JS = join(process.cwd(), 'web', 'js', 'ui', 'term-pane.js');
 // 순수 함수를 쓴다. 이 하네스는 전역을 손으로 세우므로 **같은 변경에서** 여기
 // 한 줄이 늘어야 한다 — 격리가 이 검사의 값이고, 그래서 값을 치르는 자리다.
 const DROP_ENTRIES_JS = join(process.cwd(), 'web', 'js', 'ui', 'drop-entries.js');
+// M9_SRS FR-M9-36: `term-pane.js` 의 생성자가 올리기 버튼을 `UIKit.button` 으로
+// 만든다. 위 한 줄과 **같은 규약**이다 — 격리가 이 검사의 값이고, 전역을 하나 더
+// 쓰기 시작하면 그 값을 여기서 치른다. 치르지 않으면 `UIKit is not defined` 로
+// 그 자리에서 터지며, 전량 e2e 가 그것을 잡았다.
+const UI_KIT_JS = join(process.cwd(), 'web', 'js', 'ui', 'ui-kit.js');
 // EVENT_TIMER_HUB_SRS INV-1: `TermPane` 의 타이머는 전역 `TIMERS` 를 지난다.
 // 재는 것은 바뀌지 않는다 — 백오프·종단 판정은 여전히 이 클래스의 것이다.
 const TIMER_HUB_JS = join(process.cwd(), 'web', 'js', 'core', 'timer-hub.js');
@@ -77,6 +82,7 @@ async function loadTermPane(page: Page) {
   await page.addScriptTag({ path: TIMER_HUB_JS });
   await page.addScriptTag({ path: API_JS });
   await page.addScriptTag({ path: DROP_ENTRIES_JS });
+  await page.addScriptTag({ path: UI_KIT_JS });
   await page.addScriptTag({ path: TERM_PANE_JS });
   // `class` 선언은 전역 렉시컬 환경에 들어가고 window 에는 붙지 않는다
   // (repaint.js 의 `function` 선언과 다른 점). 이름으로 꺼내 올려둔다.
