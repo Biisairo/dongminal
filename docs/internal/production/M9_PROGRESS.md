@@ -322,6 +322,28 @@ TC-GOR-4 도 `openGit` 의 첫 관측 60초다. 넷 다 지난 회차와 **다�
 cwd·branch·upstream 을 포함한다 · 진입점은 양쪽에(터미널은 떠 있는 버튼) ·
 사용량은 **에이전트마다 다른 모양**을 담는다(D-M9-23).
 
+**전량 e2e — 세 회차** (`unexpected` 가 판정이다, D-M9-11)
+
+| 회차 | unexpected | flaky | 뜻 |
+|---|---|---|---|
+| ① | **5** | 4 | **내가 만든 회귀** — `reconnect-storm` 5건이 `UIKit is not defined`. 격리 하네스가 잡았다 (§2-25) |
+| ② | **0** | 4 | `git-changes` V78 · `slot-view-state` TC-SVS-51 · `git-repaint` V106 · `git-worktrees` V169 |
+| ③ (최종) | **0** | 2 | `git-submodule-notice` N5 · `git-history` H15 |
+
+`go test -race -shuffle=on -count=1 ./...` 초록 · `make gates` 초록 ·
+`make unit` **163/163** · 직후 `make e2e-rebalance` 초록(불균형 1.00배).
+
+**꼬리에서 이름을 둘 넘긴다** (D-M9-11 — 회차마다 달라지면 붙잡지 않되 **세는 일은
+그만두지 않는다**):
+
+- **`git-changes` V78** — ①②에 **연속**으로 나왔다(③에는 없다). 같은 이름이 두 번이므로
+  다음 회차에 또 나오면 결함이다
+- **`git-worktrees` V169** — P3 ③회차가 *"다음 회차에 이 중 하나가 또 나오면 그것은
+  결함이다"* 로 이름을 박아 둔 넷 중 하나이고, ②에서 나왔다
+
+세 회차의 flaky 열 건 중 겹치는 이름은 **`git-changes` V78 하나뿐**이다. 나머지는
+여전히 부하가 만드는 분포의 꼬리로 읽힌다.
+
 
 ## 2. 배운 것
 
