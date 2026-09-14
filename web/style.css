@@ -993,7 +993,15 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 /* 한도는 계정 전체의 것이라 컨텍스트와 **다른 색**이다 — 나란히 두어도 섞이지 않는다. */
 .agp-limbar>.agp-bar-fill{background:var(--attn)}
 
-.tp>.tp-lift{position:absolute;top:4px;right:4px;z-index:var(--z-raised)}
+/* 모양은 편집기의 미리보기 버튼(`.fe-render`)과 **같다** — 사용자 지시 2026-09-14.
+   `ghost` 기본값은 터미널 배경 위에서 너무 흐렸다. 테두리로 서고 hover 에 반전한다. */
+.tp>.tp-lift{
+  position:absolute;top:4px;right:4px;z-index:var(--z-raised);
+  height:22px;padding:0 8px;border:1px solid var(--accent);border-radius:4px;
+  background:var(--bg);color:var(--accent-text);font-size:var(--fs-sm);line-height:1;
+  white-space:nowrap;opacity:1;transition:background .12s,color .12s;
+}
+.tp>.tp-lift:hover{background:var(--accent);color:var(--bg)}
 .tp>.tp-drop-hint{display:none}
 .tp.dragover>.tp-drop-hint{
   position:absolute;inset:0;
