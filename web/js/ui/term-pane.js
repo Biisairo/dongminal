@@ -33,7 +33,8 @@ class TerminalTool {
     const drop=document.createElement('div'); drop.className='tp-drop-hint'; drop.textContent=DROP_FILES_HINT;
     this.el.appendChild(drop);
     // Drag & drop upload
-    this.el.addEventListener('dragover',e=>{e.preventDefault();if([...e.dataTransfer.types].includes('Files')){e.stopPropagation();this.el.classList.add('dragover')}});
+    // FR-M9-30: 아래 `drop` 과 **같은 판정**이다. 두 문장이 갈리면 그 차이가 곧 결함이다.
+    this.el.addEventListener('dragover',e=>{e.preventDefault();if(isFileDrag(e)){e.stopPropagation();this.el.classList.add('dragover')}});
     this.el.addEventListener('dragleave',()=>this.el.classList.remove('dragover'));
     /**
      * CONTEXT_MENU_UNIFY_SRS FR-CMU-10 (`FUI-17`): 본문의 컨텍스트 메뉴. 복사는
@@ -71,9 +72,26 @@ class TerminalTool {
      * 한 가지 사실을 두 벌로 적으면 한쪽만 바뀐다.
      */
     this.el.addEventListener('drop',e=>{
-      const hasFiles=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length;
-      const hasItems=e.dataTransfer&&e.dataTransfer.items&&e.dataTransfer.items.length;
-      if(!hasFiles&&!hasItems) return;
+      /**
+       * M9_SRS FR-M9-30 (사용자 접수 2026-09-14): **판정은 `dragover` 와 같은
+       * 문장이어야 한다.**
+       *
+       *   이전 동작: `files` 나 `items` 가 하나라도 있으면 파일 드롭으로 보고
+       *             `stopPropagation()` 했다
+       *   새  동작: `types` 에 `Files` 가 있을 때만. 바로 위 `dragover` 가 쓰는
+       *             그 판정이다
+       *   이유:     **탭 드래그에도 `items` 가 실리는 판이 있다.** 그때 터미널이
+       *             그 드롭을 삼켜 `.pn-body` 의 drop 이 영영 돌지 않고, 분할이
+       *             조용히 사라진다. 사용자 콘솔 로그가 그 자리다 —
+       *             `ZONE right` · `DROP` 발생 · `app.drag='tab'` 인데
+       *             `splitPaneWithTab` 은 불리지 않았다
+       *
+       * 두 핸들러가 같은 물음에 다른 문장으로 답하면 그 차이가 곧 결함이다.
+       * 파일·폴더 드롭은 둘 다 `types` 에 `Files` 를 싣는다 (폴더는 `items` 의
+       * `webkitGetAsEntry` 로 읽지만 `types` 는 같다).
+       */
+      if(!isFileDrag(e)) return;
+      const hasFiles=e.dataTransfer.files&&e.dataTransfer.files.length;
       e.preventDefault();e.stopPropagation();
       this.el.classList.remove('dragover');
       walkDrop(e,EDITOR_UPLOAD_MAX_ENTRIES).then(r=>{

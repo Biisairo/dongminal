@@ -445,10 +445,9 @@ Object.assign(FileTree, {
   },
 
   // 바깥에서 온 파일인가. 내부 이동은 `text/plain` 만 싣는다.
-  _isFileDrag(e){
-    const t=e.dataTransfer&&e.dataTransfer.types;
-    return !!t&&[...t].includes('Files');
-  },
+  // FR-M9-30: 판정은 `drop-entries.js` 한 벌이다 — 터미널이 같은 물음에 다른
+  // 문장으로 답하다 드롭을 삼킨 자리가 있었다. 이름은 남긴다(부르는 자리가 둘).
+  _isFileDrag(e){ return isFileDrag(e) },
 
   /**
    * 드롭된 최상위 entry 들. 본체는 `ui/drop-entries.js` 의 `dropEntries` 다 —

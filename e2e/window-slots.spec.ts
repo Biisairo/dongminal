@@ -827,6 +827,61 @@ test.describe('묶음 C — 창 닫기의 활성 창 (FR-CLS-*)', () => {
 
 // ── 묶음 M — 탭의 창 간 이동 ──
 
+/**
+ * 묶음 D — **드롭이 삼켜지지 않는다** (M9_SRS FR-M9-30, 사용자 접수 2026-09-14).
+ *
+ * 접수한 말: *"드래그 드랍 분할이 안먹힌다 — 표시는 뜨는데 놓으면 아무 일도
+ * 안 생긴다."* 사용자 콘솔 로그가 자리를 지목했다: `ZONE right` 이고 `DROP` 이
+ * 났고 `app.drag.type==='tab'` 인데 `splitPaneWithTab` 이 **불리지 않았다.**
+ *
+ * 터미널의 `drop` 이 *"`files` 나 `items` 가 있으면 파일 드롭"* 으로 판정해
+ * 탭 드래그까지 삼키고 `stopPropagation()` 했다 — 바로 위 `dragover` 는
+ * `types.includes('Files')` 라는 옳은 판정을 쓰고 있었고, **두 문장의 차이가
+ * 곧 결함이었다.**
+ */
+test.describe('묶음 D — 드롭이 삼켜지지 않는다 (FR-M9-30)', () => {
+  test('V-M9-30: items 가 실린 탭 드롭이 터미널 위에서도 분할한다', async ({ page }) => {
+    await waitForInit(page);
+    await page.evaluate(async () => { const a = (window as any).app; await a.addTab(a.focused, 'terminal') });
+    await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(2, { timeout: 15000 });
+
+    const panes = () => page.locator('#area .pn').count();
+    expect(await panes()).toBe(1);
+
+    const dropped = await page.evaluate(() => {
+      const a = (window as any).app;
+      const pane = document.querySelector('#area .pn.focused') as HTMLElement;
+      const body = pane.querySelector('.pn-body') as HTMLElement;
+      // **터미널 요소 위에 놓는다.** 그 위가 아니면 삼킬 사람이 없다.
+      const tgt = body.querySelector('.tp');
+      if (!tgt) return 'no-terminal';
+      const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
+      const find = (m: any, id: string): any => {
+        if (!m) return null;
+        if (m.type === 'pane' && m.id === id) return m;
+        if (m.children) for (const c of m.children) { const r = find(c, id); if (r) return r }
+        return null;
+      };
+      const pn = find(s.layout, a.focused);
+      a.drag = { type: 'tab', srcPaneId: pn.id, tabId: pn.tabs[0].id };
+      // **조건**: `items` 는 실려 있고 파일은 없다. 이것이 없으면 재현되지 않는다.
+      const dt = new DataTransfer();
+      dt.setData('text/plain', 'x');
+      const rect = body.getBoundingClientRect();
+      tgt.dispatchEvent(new DragEvent('drop', {
+        bubbles: true, cancelable: true, dataTransfer: dt,
+        clientX: rect.left + rect.width * 0.05,   // 왼쪽 25% 안 — `left` 구역
+        clientY: rect.top + rect.height / 2,
+      }));
+      return 'ok';
+    });
+    expect(dropped, '터미널 요소가 없어 재현 조건이 서지 않았다').toBe('ok');
+
+    // 분할이 실제로 일어난다. 삼켜지면 1 그대로다.
+    await expect.poll(panes, { timeout: 10000, message: '드롭이 삼켜져 분할이 오지 않았다' }).toBe(2);
+  });
+});
+
 test.describe('묶음 M — 탭을 다른 창으로 (FR-MOV-*)', () => {
   /**
    * V-MOV-1: **실제 드래그 제스처**로 잰다.

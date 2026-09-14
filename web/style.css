@@ -181,6 +181,12 @@ body{user-select:none;-webkit-user-select:none}
 input,
 textarea,
 [contenteditable]{user-select:text;-webkit-user-select:text}
+/* **끌 수 있는 것은 끌 수 있어야 한다** (M9_SRS FR-M9-27 보강, 2026-09-14 접수).
+   WebKit 에서 `-webkit-user-select:none` 은 네이티브 드래그를 함께 막는다 —
+   `draggable` 이 참이어도 `dragstart` 가 나지 않는다. Chromium 은 이 값을
+   기본으로 `element` 로 두므로 영향이 없고(실측), 그래서 이 한 줄이 없으면
+   판마다 다르게 동작한다. 선택을 막는 것과 끌기를 막는 것은 다른 일이다. */
+[draggable="true"]{-webkit-user-drag:element}
 #app{display:flex;width:100%;height:100%}
 
 /* ── Sidebar ── */

@@ -161,6 +161,20 @@ async function scrollUp(page, lines: number) {
   await paneUntil(page, (s) => !!s && s.viewportY < from, '위로 굴렸는데 자리가 그대로다');
 }
 
+/** 창을 갔다 온다. `view-scroll-restore.spec.ts` 의 `winRoundTrip` 과 같은 골격이다. */
+async function winRoundTripHere(page) {
+  const ids = await page.evaluate(() => {
+    const a = (window as any).app;
+    const other = a.ws.windows.find((w: any) => w.id !== a.ws.activeWindow);
+    return { cur: a.ws.activeWindow, other: other ? other.id : '' };
+  });
+  expect(ids.other, '왕복할 다른 창이 없다').not.toBe('');
+  await page.evaluate((id) => (window as any).app.switchWindow(id), ids.other);
+  await paneUntil(page, (s) => !!s, '다른 창이 서지 않았다');
+  await page.evaluate((id) => (window as any).app.switchWindow(id), ids.cur);
+  await paneUntil(page, (s) => !!s, '돌아온 창이 서지 않았다');
+}
+
 function rowHeightOf(st: any) {
   const span = st.bufferLen - st.rows;
   const room = st.scrollHeight - st.clientHeight;
@@ -278,6 +292,101 @@ test.describe('Pane scroll preserve regression', () => {
    * 그래서 휠을 올리면 브라우저가 이벤트를 내지 않고(이미 `0`), 내리면
    * `round(scrollTop / rowHeight) - ydisp` 가 큰 음수라 최상단으로 튄다.
    */
+  /**
+   * V-M9-29 (M9_SRS FR-M9-29 / M9-B2): **떨어져 있는 동안 자란 버퍼도 끝까지 내려간다.**
+   *
+   * 사용자 `?diag=1` 로그의 산수가 이 결함을 확정했다 (2026-09-14,
+   * `M9_PROGRESS` §1-14). `.xterm-scroll-area` 의 높이가 **낡은 버퍼 길이**로
+   * 남아, 스크롤바를 끝까지 내려도 **정확히 한 화면 위**에서 멎었다 —
+   * 영역 `28652px` = 낡은 길이 `1508` × 행높이 `19.0`, 버퍼는 `1557` 줄.
+   *
+   * **재는 것은 `ydisp` 가 아니라 스크롤 영역이다.** `ydisp` 만 보면 그것을
+   * 되돌리는 아무 경로에나 초록을 준다 (`M9_PROGRESS` §2-12) — 이 결함에서
+   * `ydisp` 는 **옳은 값(바닥)이었고**, 갈 수 없는 것이 그 아래였다.
+   *
+   * **조건은 "떨어져 있는 동안 버퍼가 자란다" 이다.** 이 조항의 첫 검사는 그냥
+   * 창을 왕복하기만 했고 **깨진 코드에서도 초록이었다** — 자라지 않으면 영역이
+   * 낡을 일이 없기 때문이다 (§2-4 가 말한 자리를 한 번 더 밟았다).
+   *
+   * 행 높이는 **요소에서** 낸다 (`clientHeight / rows`) — 영역에서 내면
+   * (`scrollHeight / length`) 낡은 영역이 분자와 분모에 함께 들어가 언제나
+   * 맞는 답이 나온다. 그것이 이 결함을 숨기던 산수다.
+   */
+  test('V-M9-29 (FR-M9-29): 떨어져 있는 동안 버퍼가 자라도 스크롤 영역이 따라온다',
+    async ({ page }) => {
+      await waitForInit(page, { clearLocalStorage: true });
+      await addWindow(page);
+
+      // **도구를 id 로 붙든다.** 창을 떠난 뒤에도 그 도구를 키워야 하는데,
+      // `fillScrollback` 은 *지금 포커스된 창*의 터미널을 키운다 — 이 검사의
+      // 첫 판에서 그것이 다른 창의 터미널을 키웠고, 그래서 **깨진 코드에서도
+      // 초록**이었다 (§2-4 를 또 밟았다).
+      const toolId = await page.evaluate(() => {
+        const a = (window as any).app;
+        const s = a.ws.windows.find((x: any) => x.id === a.ws.activeWindow);
+        const find = (m: any, id: string): any => {
+          if (!m) return null;
+          if (m.type === 'pane' && m.id === id) return m;
+          if (m.children) for (const c of m.children) { const r = find(c, id); if (r) return r }
+          return null;
+        };
+        const pn = find(s.layout, a.focused);
+        const tab = pn ? pn.tabs.find((t: any) => t.id === pn.activeTab) : null;
+        return tab ? tab.toolId : '';
+      });
+      expect(toolId, '잴 도구가 없다').not.toBe('');
+
+      const grow = (n: number) => page.evaluate(({ id, k }) => {
+        const p = (window as any).app.tools.get(id);
+        for (let i = 0; i < k; i++) p.term.write('vsr-' + i + '\r\n');
+      }, { id: toolId, k: n });
+
+      /** 그 도구의 스크롤 영역. 행 높이는 **요소**가 준다 — 낡을 수 있는 영역이 아니라. */
+      const area = () => page.evaluate((id) => {
+        const p = (window as any).app.tools.get(id);
+        const v = p && p.el ? p.el.querySelector('.xterm-viewport') : null;
+        if (!p || !p.term || !v || !v.clientHeight) return null;
+        const b = p.term.buffer.active;
+        const rh = v.clientHeight / p.term.rows;
+        return { areaRows: Math.round(v.scrollHeight / rh),
+          maxLine: Math.round((v.scrollHeight - v.clientHeight) / rh),
+          len: b.length, base: b.baseY };
+      }, toolId);
+
+      await grow(300);
+      await expect.poll(async () => { const m = await area(); return m ? m.len - m.areaRows : -1 },
+        { timeout: 10000, message: '왕복 전부터 영역이 틀렸다' }).toBe(0);
+
+      // **조건**: 떠나 있는 동안 그 도구의 버퍼가 자란다. 이것이 없으면 영역이
+      // 낡을 일이 없고 결함도 나타나지 않는다.
+      const ids = await page.evaluate(() => {
+        const a = (window as any).app;
+        const other = a.ws.windows.find((w: any) => w.id !== a.ws.activeWindow);
+        return { cur: a.ws.activeWindow, other: other ? other.id : '' };
+      });
+      expect(ids.other, '왕복할 다른 창이 없다').not.toBe('');
+      await page.evaluate((id) => (window as any).app.switchWindow(id), ids.other);
+      await expect.poll(async () => page.evaluate((id) => {
+        const p = (window as any).app.tools.get(id);
+        return !!p && !p.el.classList.contains('vis');
+      }, toolId), { timeout: 10000, message: '그 도구가 떨어지지 않았다' }).toBe(true);
+
+      await grow(120);
+      await page.evaluate((id) => (window as any).app.switchWindow(id), ids.cur);
+      await expect.poll(async () => page.evaluate((id) => {
+        const p = (window as any).app.tools.get(id);
+        return !!p && p.el.classList.contains('vis') && p.el.isConnected;
+      }, toolId), { timeout: 10000, message: '그 도구가 돌아오지 않았다' }).toBe(true);
+
+      // 영역이 **자란 버퍼**를 안다. 고침이 없으면 여기서 한 화면이 모자란다.
+      await expect
+        .poll(async () => { const m = await area(); return m ? m.len - m.areaRows : -1 },
+          { timeout: 10000, message: '스크롤 영역이 버퍼보다 짧다 — 그만큼 못 내려간다' })
+        .toBe(0);
+      const after = await area();
+      expect(after!.maxLine, '끝까지 내려도 바닥에 닿지 않는다').toBe(after!.base);
+    });
+
   test('V-VSR-12 (FR-VSR-24): 맨 아래에 붙은 채 왕복해도 DOM 스크롤이 ydisp 와 일치한다',
     async ({ page }) => {
       await waitForInit(page, { clearLocalStorage: true });
