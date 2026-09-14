@@ -410,10 +410,15 @@ Object.assign(App.prototype, {
       // Send resize even if pane is hidden — the dimensions were set when
       // it was last visible and are still valid. This avoids a visible
       // glitch where the PTY renders at the wrong size for one frame.
-      if(!p||!p.term||!p.term.cols||!p.term.rows) continue;
+      if(!p||!p.term) continue;
+      // FR-M10-1: 보내는 값은 `term.cols` 가 아니라 pane 이 답하는 **자기 크기**다.
+      // 비소유 동안 `term.cols` 는 PTY 폭으로 덮여 있고(FR-M9-3), 그것을 되보내면
+      // 되찾아도 PTY 가 그대로다 — 그것이 M10-B1 이었다 (M10_SRS §2.2).
+      const sz=p.ptySize&&p.ptySize();
+      if(!sz) continue;
       const m=new Uint8Array(5);m[0]=0x01;
-      new DataView(m.buffer).setUint16(1,p.term.cols,false);
-      new DataView(m.buffer).setUint16(3,p.term.rows,false);
+      new DataView(m.buffer).setUint16(1,sz.cols,false);
+      new DataView(m.buffer).setUint16(3,sz.rows,false);
       p._send(m);
     }
   },

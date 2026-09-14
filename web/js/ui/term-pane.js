@@ -24,6 +24,11 @@ class TerminalTool {
     // `_seqLive` 가 따로 있는 이유: 재생분(스냅샷·델타)은 좌표 통보 **앞에** 오므로
     // 세면 안 된다 (FR-TRS-8). 통보를 받은 뒤의 OpOutput 만이 라이브 PTY 바이트다.
     this._seq=-1; this._seqLive=false;
+    // M10_SRS FR-M10-1: **소유자로서 마지막으로 잰 자기 크기.** `term.cols` 와 따로
+    // 두는 이유는 그 칸에 두 진실이 담기기 때문이다 — 비소유가 되면 `_applyPtySize`
+    // 가 `term.cols` 를 PTY 폭으로 덮고, 그러면 되찾을 때 되보낼 자기 폭이 없다
+    // (D-M10-1). 0 은 "소유자였던 적이 없다" 이고 그때는 `term` 의 값을 쓴다.
+    this._ownCols=0; this._ownRows=0;
     this.el=document.createElement('div');
     this.el.className='tp'; this.el.dataset.toolid=id;
     this.box=document.createElement('div');
@@ -747,8 +752,11 @@ class TerminalTool {
    *
    * 붙었는지가 아니라 **시도했는지**를 답한다 — 부르는 쪽은 센 수를 보일 뿐이다.
    */
-  reconnectNow(){
+  reconnectNow(opts){
     if(this._destroyed||this._exited) return false;
+    // FR-M10-2: `quiet` 는 **우리가 거는 갱신**이다 — 사용자가 고른 일이 아니므로
+    // "다시 연결" 화면을 띄우지 않는다. 연결 자체의 절차는 완전히 같다.
+    const quiet=!!(opts&&opts.quiet);
     this._clearHealthy();
     this._reconnectPending=false;
     // 옛 소켓의 콜백을 먼저 끊는다 — 살려 두면 close 가 `_scheduleReconnect` 를
@@ -762,8 +770,8 @@ class TerminalTool {
     // 사용자가 부른 재연결이므로 즉시 시도한다 — 백오프는 실패가 이어질 때의 것이다.
     this._retryDelay=0;
     this._resetDecoderIfNoResume();
-    this._reconnecting=true;
-    this._showOverlay(t('term.reconnect'), t('term.soft_reload'));
+    this._reconnecting=!quiet;
+    if(!quiet) this._showOverlay(t('term.reconnect'), t('term.soft_reload'));
     this.connect();
     return true;
   }
@@ -815,7 +823,12 @@ class TerminalTool {
   _applyPtySize(){
     if(!this.term||!this._followsPty()) return;
     if(this.term.cols===this._ptyCols&&this.term.rows===this._ptyRows) return;
+    const had=this.term.cols;
     try{this.term.resize(this._ptyCols,this._ptyRows)}catch{}
+    // FR-M10-2: 폭이 바뀌었으면 스크롤백은 **옛 폭의 그림**이다. xterm 의 리플로우는
+    // 줄바꿈만 되돌리고 절대 좌표로 그려진 것은 되돌리지 못한다 — 그것을 새 폭으로
+    // 다시 파싱하는 길은 전량 재생뿐이다 (M10_SRS §2.3).
+    if(this.term.cols!==had) this._refreshForWidth();
   }
 
   /**
@@ -843,6 +856,50 @@ class TerminalTool {
   doFit(){
     if(this._followsPty()){ this._applyPtySize(); return }
     if(this.fit)try{this.fit.fit()}catch{}
+    // FR-M10-1: 여기가 **자기 폭이 정해지는 유일한 자리**다. 소유자로서 잰 값만
+    // 기록한다 — 비소유자의 경로는 위에서 이미 돌아갔다.
+    if(this.term&&this.term.cols>0){ this._ownCols=this.term.cols; this._ownRows=this.term.rows }
+  }
+
+  /**
+   * FR-M10-1: 소유자가 PTY 에 보낼 **자기 크기**.
+   *
+   * `resendWindowSizes` 가 `term.cols` 를 그대로 보내던 것이 M10-B1 이었다 — 비소유
+   * 동안 그 칸이 PTY 폭으로 덮여 있어, 되찾아도 물려받은 폭이 되돌아갔다 (§2.2).
+   *
+   * 보이는 pane 은 상자가 있으므로 **다시 잰다**. 숨은 pane 은 상자가 0 이라 `fit`
+   * 을 걸면 폭을 잃으므로 기억한 값을 쓴다 — 그것이 `_ownCols` 가 있는 이유다.
+   *
+   * 폭이 바뀌었으면 전량 재생을 건다 (FR-M10-2). **이 자리에만 건다** — `doFit` 에
+   * 걸면 창을 드래그할 때마다 tail 을 통째로 다시 받는다 (D-M10-3).
+   */
+  ptySize(){
+    if(!this.term) return null;
+    const had=this.term.cols;
+    if(this.el&&this.el.classList.contains('vis')) this.doFit();
+    const cols=this._ownCols>0?this._ownCols:this.term.cols;
+    const rows=this._ownRows>0?this._ownRows:this.term.rows;
+    if(!(cols>0&&rows>0)) return null;
+    if(cols!==had) this._refreshForWidth();
+    return {cols,rows};
+  }
+
+  /**
+   * FR-M10-2: 스크롤백을 **지금 폭으로 다시 그린다.**
+   *
+   * 좌표를 버리면 다음 접속의 `since` 가 없고, 서버는 그것을 전량 재생으로 읽는다
+   * (FR-TRS-3). 전량 재생은 `termHardClear` 로 화면과 **스크롤백까지**(`\x1b[3J`)
+   * 지운 뒤 tail 을 되뿌리므로, 받는 xterm 이 그것을 지금 폭으로 다시 파싱한다.
+   * 사용자가 새로고침으로 하던 일이 이것이다 (M10_SRS §2.3).
+   *
+   * 와이어에 "재생 요청" op 를 더하지 않은 이유는 동시성이다 — `relayOutput` 이
+   * `sent` 오프셋으로 겹침을 자르는 중에 재생을 끼우면 그 오프셋을 되감아야 한다
+   * (D-M10-2). 소켓을 다시 열면 서버는 **새 연결**로 다루므로 그 물음이 없다.
+   */
+  _refreshForWidth(){
+    if(this._destroyed||this._exited||!this.ws) return false;
+    this._seq=-1; this._seqLive=false;
+    return this.reconnectNow({quiet:true});
   }
   focus(){if(this.term)try{this.term.focus()}catch{}}
   _reconnect(){
