@@ -279,9 +279,24 @@ fingerprint 는 `FR-SKL-2` 가 이미 지운 방식이다.
 가짜 에이전트로 한 턴을 돌리면 `agp-ctx`·`agp-model` 이 채워지므로(TC-AGT-8), 빈
 것은 **턴 전에는 그 값이 없기 때문**이다. 닫을 수 있는 것과 없는 것이 갈린다:
 
-- **닫을 수 있다** — 현재 모델. `initialize` 응답을 읽는 자리(`claude_decode.go:358`)가
-  `Models`·`PermissionMode`·`Commands` 만 담고 **현재 모델을 담지 않는다**. 우리가
-  띄울 때 준 값(`LaunchOpts.Model`)도 화면으로 돌아오지 않는다
+**`initialize` 응답의 원문을 찍어 확정했다** (임시 프로브, 2026-09-15 — 되돌린 것을
+`grep -c TEMP-PROBE` = 0 으로 확인). 그 응답이 실제로 담은 것:
+
+| 키 | 값 (실측) |
+|---|---|
+| `current_permission_mode` | `"auto"` — **그리고 있다** |
+| `account` | `{email, organization, subscriptionType, apiProvider}` — **어댑터가 `ProtoStatus.Account` 로 나르는데 화면이 버린다** |
+| `models` | 선택지 목록. 항목마다 `value`·`resolvedModel`·`displayName` |
+| `session_state`·`output_style`·`pid` | 있다 |
+| **현재 모델** | **없다.** 스칼라 필드가 아예 없다 |
+| 비용·토큰·한도 | **없다** |
+
+그래서 갈래가 셋이다:
+
+- **닫을 수 있다 ①** — **계정·플랜.** 프로토콜이 주고 어댑터가 나르는데 `_mergeStatus`
+  가 `Account` 를 쓰지 않아 화면에 서지 않는다. 그리는 자리를 더하면 끝난다
+- **닫을 수 있다 ②** — **현재 모델**, 단 우리가 띄울 때 준 값이 있을 때만
+  (`LaunchOpts.Model`). 그것이 없으면 에이전트의 기본이고, 응답에 그 이름이 없다
 - **닫을 수 없다** — 비용·토큰·한도. 턴이 없으면 프로토콜에 그 수가 없고,
   `FR-M9-40`·`FR-CBG-5` 가 *"모르면 그리지 않는다"* 로 이미 정했다
 
