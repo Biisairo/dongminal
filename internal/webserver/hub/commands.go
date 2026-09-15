@@ -72,8 +72,10 @@ func IsCreatingAction(action string) bool { return creatingActions[action] }
 // openEditorTab and restoreTool allocate a tab id without taking part in the
 // reqId echo protocol.
 //
-// Everything else stays ungated — focus is per-client by definition, and the
-// remaining mutations are idempotent across clients.
+// M11_SRS FR-M11-10 이 이 목록을 넓혔다. 종전 문장은 *"Everything else stays
+// ungated — focus is per-client by definition, and the remaining mutations are
+// idempotent across clients"* 였고, **뒷부분이 틀렸다**: 트리는 수렴하지만 시선은
+// 수렴하지 않는다. 지금 게이팅 밖에 남는 것은 `renameTab`·`renameWindow` 뿐이다.
 var singleExecutorActions = map[string]bool{
 	"newWindow":     true,
 	"newTab":        true,
@@ -84,6 +86,32 @@ var singleExecutorActions = map[string]bool{
 	// VIEWER_URL_OPEN_SRS FR-VUO-16: 엔티티를 만들지는 않지만 **한 곳에서만**
 	// 열려야 한다. 게이팅하지 않으면 붙어 있는 기기마다 같은 URL 이 열린다.
 	"openUrl": true,
+
+	// M11_SRS FR-M11-10 (M11-B9): **시선을 옮기는 명령도 한 곳에서만 돈다.**
+	//
+	// 종전 근거는 위 문단의 *"the remaining mutations are idempotent across
+	// clients"* 였다. **트리는 그렇지만 시선은 그렇지 않다** — 실측에서 한 기기가
+	// 낸 `window-next` 하나가 두 브라우저를 함께 옮겼고, `close-window` 는 그 창을
+	// 보지도 않던 쪽까지 끌고 갔다 (SRS §2.7). `openUrl` 과 같은 성질이다.
+	//
+	// 지우는 셋(`closeTab`·`closeWindow`·`detachTab`)이 여기 드는 이유는 **시선
+	// 부작용** 때문이다. 나머지는 `workspace_changed` 로 트리만 따라가며, 그 경로는
+	// 이미 로컬 `activeWindow` 를 보존한다 (`app-cmd.js`).
+	//
+	// `renameTab`·`renameWindow` 는 **들지 않는다** — 순수 데이터이고 시선을
+	// 건드리지 않는다. 좁히면 지명된 클라이언트가 없을 때 이름이 영영 안 바뀐다.
+	"focus":       true,
+	"closeTab":    true,
+	"closeWindow": true,
+	"detachTab":   true,
+	"windowNext":  true,
+	"windowPrev":  true,
+	"tabNext":     true,
+	"tabPrev":     true,
+	"paneUp":      true,
+	"paneDown":    true,
+	"paneLeft":    true,
+	"paneRight":   true,
 }
 
 // IsSingleExecutorAction reports whether action must run on one client only.

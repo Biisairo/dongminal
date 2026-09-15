@@ -94,11 +94,41 @@ func TestCommandPost_NoExecutorForNonCreatingActions(t *testing.T) {
 	srv.Focus.Attach("cliA")
 	srv.Focus.Claim("cliA", "W1")
 
-	for _, action := range []string{"focus", "closeTab", "tabNext", "renameTab", "detachTab"} {
+	// M11_SRS FR-M11-10 (M11-B9): **이 목록이 둘로 줄었다.**
+	//
+	//   이전: focus·closeTab·tabNext·detachTab 도 지명 없이 나갔다
+	//   새로: 그 넷은 **시선을 옮기므로** 지명된다 — 지명이 없으면 붙어 있는
+	//         브라우저 전부가 수행하고, 실측에서 `window-next` 하나가 두 브라우저를
+	//         함께 옮겼다 (SRS §2.7)
+	//   이유: 종전 근거였던 "나머지 변경은 클라이언트 간 idempotent 하다" 는 트리에만
+	//         성립한다. 시선은 수렴하지 않는다
+	//
+	// 남는 것은 **순수 데이터 변경**뿐이다. 그 둘은 시선을 건드리지 않으며, 좁히면
+	// 지명된 클라이언트가 없을 때 이름이 영영 안 바뀐다.
+	for _, action := range []string{"renameTab", "renameWindow"} {
 		postCmd(t, ts, `{"action":`+testpath.JSONQuote(action)+`,"args":{"name":"n","toolId":"1"}}`)
 		m := nextPayload(t, sub, action)
 		if _, ok := m["execClientId"]; ok {
 			t.Fatalf("action=%s 가 execClientId 를 실었다 — 전 클라이언트가 수행해야 한다", action)
+		}
+	}
+}
+
+// V-M11-23 (M11_SRS FR-M11-10): 시선을 옮기는 명령은 **지명을 달고** 나간다.
+// 위 검사와 짝이다 — 한쪽만 두면 목록이 어느 방향으로 어긋나도 잡히지 않는다.
+func TestCommandPost_ExecutorForViewMovingActions(t *testing.T) {
+	srv, ts, sub := execSetup(t)
+	srv.Focus.Attach("cliA")
+	srv.Focus.Claim("cliA", "W1")
+
+	for _, action := range []string{"focus", "closeTab", "closeWindow", "detachTab",
+		"windowNext", "windowPrev", "tabNext", "tabPrev",
+		"paneUp", "paneDown", "paneLeft", "paneRight"} {
+		postCmd(t, ts, `{"action":`+testpath.JSONQuote(action)+`,"args":{"name":"n","toolId":"1"}}`)
+		m := nextPayload(t, sub, action)
+		if got, _ := m["execClientId"].(string); got != "cliA" {
+			t.Fatalf("action=%s 의 execClientId=%q want %q — 지명이 없으면 모든 브라우저가 화면을 옮긴다 (M11-B9)",
+				action, got, "cliA")
 		}
 	}
 }

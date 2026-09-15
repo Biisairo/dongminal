@@ -629,8 +629,19 @@ Object.assign(App.prototype, {
      * (좌표 해석은 한 벌이다).
      */
     if(action==='closeWindow' && (args.force||args.keepTool)){
+      /**
+       * M11_SRS FR-M11-11 (M11-B9 의 둘째): **`-n` 은 이 갈래에서도 지켜진다.**
+       *
+       *   이전 동작: 지목한 창을 활성으로 만든 뒤 닫는다 — 아래 공통 경로의
+       *             복원 블록을 지나지 않아 `keepFocus` 가 통째로 무시됐다
+       *   새  동작: 공통 경로와 **같은 함수**로 시선을 되돌린다
+       *   이유:     `-n` 은 "명령 전후로 사용자 포커스를 이동시키지 않는다" 는
+       *             약속이고, 한 갈래만 지키지 않으면 없는 것과 같다
+       */
+      const back=this._viewMark(args,keepFocus);
       if(args.location) this._focusLocation(args.location);
-      this.closeWindowActive(_closeOpts(args));
+      Promise.resolve(this.closeWindowActive(_closeOpts(args)))
+        .then(()=>this._viewRestore(back));
       return;
     }
     if(action==='closeTab' && args.location){
@@ -663,27 +674,42 @@ Object.assign(App.prototype, {
       console.warn('[cmd] closeTab: 대상 없음',args.location);
       return;
     }
-    let savedWindow=null, savedFocused=null;
-    if(args.location && keepFocus){
-      savedWindow=this.ws.activeWindow;
-      savedFocused=this.focused;
-    }
+    const back=this._viewMark(args,keepFocus);
     if(args.location) this._focusLocation(args.location);
-    const result=this.executeAction(action);
-    Promise.resolve(result).then(()=>{
-      if(savedWindow==null) return;
-      if(this.ws.activeWindow!==savedWindow && this.ws.windows.some(x=>x.id===savedWindow)){
-        const cur=this.aw(); if(cur) cur.focusedPane=this.focused;
-        this.ws.activeWindow=savedWindow;
-        try{sessionStorage.setItem('activeWindow', savedWindow)}catch{}
-        this._focusWindow(savedWindow);
-      }
-      const a=this.aw();
-      if(a&&savedFocused&&findPane(a.layout,savedFocused)){
-        this.setFocusState(savedFocused, a);
-      }
-      this.save(); this.render();
-    });
+    Promise.resolve(this.executeAction(action)).then(()=>this._viewRestore(back));
+  },
+
+  /**
+   * FR-M11-11: **되돌릴 자리를 적는다.** `location` 을 지목한 명령이 `keepFocus`
+   * 와 함께 올 때만 적는다 — 지목이 없으면 그 명령은 애초에 활성 자리를 대상으로
+   * 하므로 되돌릴 "다른 자리" 가 없다.
+   */
+  _viewMark(args,keepFocus){
+    if(!(args&&args.location&&keepFocus)) return null;
+    return {win:this.ws.activeWindow, pane:this.focused};
+  },
+
+  /**
+   * FR-M11-11: 적어 둔 자리로 시선을 되돌린다.
+   *
+   * **두 호출처가 이 함수 하나를 함께 쓴다** — 종전에는 공통 경로에만 있었고
+   * `closeWindow` 의 `force` 갈래가 그것을 지나지 않았다. 두 벌로 두면 한쪽만
+   * 고쳐진다 (이 저장소가 여러 번 겪은 자리).
+   *
+   * 창이 사라졌으면 되돌리지 않는다 — 없는 창으로 갈 수는 없고, 그때의 폴백은
+   * 닫기가 이미 세운 것이 옳다.
+   */
+  _viewRestore(back){
+    if(!back) return;
+    if(this.ws.activeWindow!==back.win && this.ws.windows.some(x=>x.id===back.win)){
+      const cur=this.aw(); if(cur) cur.focusedPane=this.focused;
+      this.ws.activeWindow=back.win;
+      try{sessionStorage.setItem('activeWindow', back.win)}catch{}
+      this._focusWindow(back.win);
+    }
+    const a=this.aw();
+    if(a&&back.pane&&findPane(a.layout,back.pane)) this.setFocusState(back.pane,a);
+    this.save(); this.render();
   },
 
   /**
