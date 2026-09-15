@@ -35,7 +35,18 @@ func identityServer(t *testing.T) *Server {
 	var mu sync.Mutex
 	var events []string
 	m.Adopt(newActivityPane("9", &mu, &events))
+	// FR-M11-12: 검사의 도구에는 전경 프로세스가 없다. 이 파일이 재는 것은 **신원의
+	// 수명**이므로, 도는가의 판정은 참으로 고정한다 — 그 판정 자체는 아래 둘이 잰다.
+	setBusyProbe(t, func(*Server, string) bool { return true })
 	return &Server{Deps: Deps{Tools: m}}
+}
+
+// setBusyProbe 는 `agentToolBusy` 를 검사 동안 갈아 끼우고 끝나면 되돌린다.
+func setBusyProbe(t *testing.T, fn func(*Server, string) bool) {
+	t.Helper()
+	prev := agentToolBusy
+	agentToolBusy = fn
+	t.Cleanup(func() { agentToolBusy = prev })
 }
 
 func TestActivitySet_CarriesSessionIdentity(t *testing.T) {
@@ -129,5 +140,39 @@ func TestAgentSession_RestartBecomesLiftableAgain(t *testing.T) {
 	m := liftable(t, s, "9")
 	if m["liftable"] != true || m["sessionId"] != "sess-2" {
 		t.Fatalf("다시 띄운 세션을 올릴 수 없다: %v", m)
+	}
+}
+
+// V-M11-28·29 (M11_SRS FR-M11-12): **아무것도 돌지 않는 도구는 올릴 수 없다.**
+//
+// `ended` 는 훅이 내는 신호이므로 에이전트가 그것을 내지 못하고 죽으면 서지 않는다.
+// 운영 실측에서 전경 프로세스가 없는 도구가 `liftable:true` 였고, 화면에는 진입점이
+// 그대로 남았다 — 접수한 *"껐는데도 안 사라져"* 의 남은 절반이다.
+
+func TestAgentSession_IdleToolIsNotLiftable(t *testing.T) {
+	s := identityServer(t)
+	activitySet(t, s, `{"toolId":"9","agent":"claude","state":"idle","sessionId":"sess-1"}`)
+	if liftable(t, s, "9")["liftable"] != true {
+		t.Fatal("도는 세션을 올릴 수 없다고 답했다")
+	}
+
+	// `ended` 없이 사라진다 — 전경 프로세스만 비었다.
+	setBusyProbe(t, func(*Server, string) bool { return false })
+	if got := liftable(t, s, "9")["liftable"]; got != false {
+		t.Fatalf("셸이 프롬프트에 서 있는데 올릴 수 있다고 답했다: %v", got)
+	}
+	// 신원 자체는 남는다 — 올리기가 전사본을 읽는다 (FR-M9-41).
+	if info := s.AgentSession("9"); info == nil || info.SessionID != "sess-1" {
+		t.Fatalf("전경이 비었다고 신원을 지웠다: %+v", info)
+	}
+}
+
+func TestAgentSession_UnknownBusyDoesNotBlock(t *testing.T) {
+	// 도구 등록부가 없으면 **막지 않는다** — 모르는 것을 "없다" 로 바꾸지 않는다.
+	setBusyProbe(t, func(sv *Server, id string) bool { return sv == nil || sv.Tools == nil })
+	s := &Server{}
+	s.noteAgentSession("9", "sess-1", "claude", "")
+	if liftable(t, s, "9")["liftable"] != true {
+		t.Fatal("모르는 것을 근거로 진입점을 지웠다 (FR-CBG-5)")
 	}
 }

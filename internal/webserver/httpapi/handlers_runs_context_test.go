@@ -633,6 +633,10 @@ func TestApiAgentSessionOf(t *testing.T) {
 	s, _, _, _, _ := ctxServer(t)
 	who := s.WhoAmI.(*fakeWhoAmI)
 	who.toolID = "tool-lift"
+	// M11_SRS FR-M11-12: 올릴 수 있는가는 이제 **신원 + 전경 프로세스** 둘이 정한다.
+	// 이 검사가 재는 것은 신원 쪽이므로 전경은 참으로 고정한다 — 전경 판정 자체는
+	// `activity_identity_test.go` 의 V-M11-28·29 가 잰다.
+	setBusyProbe(t, func(*Server, string) bool { return true })
 
 	/**
 	 * 신원이 오기 전에는 `liftable:false` 다 — **오류가 아니다** (FR-M9-37).

@@ -482,6 +482,24 @@ func (s *Server) apiAgentTUILine(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"line": agentsess.TUIResumeLine(argv, platform.Current().Shell.Quote), "sessionId": sess.SessionID()})
 }
 
+// agentToolBusy 는 그 도구에서 **무언가가 돌고 있는가**다 (FR-M11-12).
+//
+// 전경 프로세스의 유무로 답한다 — 이름을 맞춰 보지 않는다. 화면이나 프로세스
+// 이름으로 "에이전트처럼 보이는가" 를 짐작하는 것은 `FR-SKL-2` 가 지운 방식이고,
+// 여기서 되살릴 이유가 없다.
+//
+// **모르면 막지 않는다.** 도구 등록부가 없으면(검사·열화 경로) 종전대로 신원만
+// 보고 답한다 — 모르는 것을 "없다" 로 바꾸지 않는다 (FR-CBG-5).
+//
+// var 인 것은 검사가 갈아 끼우기 위해서다. 같은 관용구가 `toolhub` 의
+// `toolBusyProbe`·`attnBusyProbe` 에 이미 있다.
+var agentToolBusy = func(s *Server, toolID string) bool {
+	if s == nil || s.Tools == nil {
+		return true
+	}
+	return s.Tools.Busy(toolID)
+}
+
 // apiAgentSessionOf 는 **터미널 탭에서 도는** 에이전트의 신원이다
 // (M9_SRS FR-M9-33 / M9-B15 — `FR-AGT-10` 의 남은 절반).
 //
@@ -496,10 +514,16 @@ func (s *Server) apiAgentTUILine(w http.ResponseWriter, r *http.Request) {
 // 올리기 전에 셸 쪽을 끝내야 하고(같은 세션을 두 프로세스가 `--resume` 으로 열면
 // 충돌한다, D-M9-20), 프론트가 `/exit` 를 적으면 그 지식이 두 벌이 된다.
 func (s *Server) apiAgentSessionOf(w http.ResponseWriter, r *http.Request) {
-	info := s.AgentSession(r.URL.Query().Get("tool"))
+	toolID := r.URL.Query().Get("tool")
+	info := s.AgentSession(toolID)
 	// FR-M11-9: **끝난 세션은 올릴 수 없다.** 레코드는 남지만(전사본을 읽어야
 	// 한다, FR-M9-41) 진입점은 사라져야 한다 — 접수한 *"껐는데도 안 사라져"* 다.
-	if info == nil || info.SessionID == "" || info.Ended {
+	//
+	// FR-M11-12: 그리고 **아무것도 돌지 않는 도구도 올릴 수 없다.** `ended` 는
+	// 훅이 내는 신호이므로 에이전트가 그것을 내지 못하고 죽으면 서지 않는다 —
+	// 운영 실측에서 전경 프로세스가 없는 도구가 `liftable:true` 였다. 전경이
+	// 비었다는 것은 그 셸이 프롬프트에 서 있다는 뜻이고, 거기에 올릴 세션은 없다.
+	if info == nil || info.SessionID == "" || info.Ended || !agentToolBusy(s, toolID) {
 		// FR-M9-37: **신원 없음은 정상이다.** 대부분의 터미널에는 에이전트가 돌지
 		// 않으며, 그것을 404 로 내면 브라우저 콘솔이 오류로 쌓인다 (사용자 접수
 		// 2026-09-14 — *"이 오류도 계속 뜨고있어"*). 오류 코드는 **종단이 없을 때**의
