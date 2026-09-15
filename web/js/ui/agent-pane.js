@@ -45,7 +45,6 @@ class AgentPane {
     this.modelEl=document.createElement('span'); this.modelEl.className='agp-model';
     this.permEl=document.createElement('span'); this.permEl.className='agp-perm';
     this.ctxEl=document.createElement('span'); this.ctxEl.className='agp-ctx';
-    this.costEl=document.createElement('span'); this.costEl.className='agp-cost';
     /**
      * M11_SRS FR-M11-6 (M11-B3): **계정·플랜.** 프로토콜이 `initialize` 에 실어
      * 주고 어댑터가 `ProtoStatus.Account` 로 날라 왔는데 **화면이 버리고 있었다** —
@@ -58,7 +57,7 @@ class AgentPane {
      * 두면 사용자가 같은 것으로 읽는다. 그래서 이름을 주기로 달고 사유를 title 에 둔다.
      */
     this.limitsEl=document.createElement('span'); this.limitsEl.className='agp-limits';
-    this.limitsEl.title=t('agent.limits_title'); this.limitsEl.hidden=true;
+    this.limitsEl.title=t('agent.limits_title');
     // FR-M9-34 가 나르기 시작한 값 — 그리는 자리는 여기다.
     this.cacheEl=document.createElement('span'); this.cacheEl.className='agp-cache';
     // 세션 신원은 종전에 `dataset` 에만 있었다 (화면에 없었다).
@@ -103,7 +102,7 @@ class AgentPane {
     this.ta=document.createElement('textarea'); this.ta.className='agp-ta ui-scroll'; this.ta.rows=2;
     this.ta.placeholder=t('agent.prompt_placeholder'); this.ta.setAttribute('aria-label',t('agent.input_label'));
     this.ta.addEventListener('keydown',e=>this._onKey(e));
-    this.ta.addEventListener('input',()=>this._suggest());
+    this.ta.addEventListener('input',()=>{ this._suggest(); this._growInput() });
     row.appendChild(this.ta);
     this.stopBtn=UIKit.button({icon:'x',title:t('agent.interrupt'),kind:'ghost',cls:'agp-stop',onClick:()=>this.interrupt()});
     this.sendBtn=UIKit.button({icon:'play',title:t('agent.send'),kind:'primary',cls:'agp-send',onClick:()=>this.send()});
@@ -123,12 +122,14 @@ class AgentPane {
     // 바 둘은 **출처가 다르다** (FR-M9-34): 컨텍스트는 이 대화의 채움, 한도는 계정
     // 전체. 이름과 단위를 다르게 두는 규약이 여기서도 선다.
     this.ctxBar=this._mkBar('agp-ctxbar',t('agent.ctx_bar_label'));
-    this.limBar=this._mkBar('agp-limbar',t('agent.limit_bar_label'));
     dash.appendChild(this.ctxBar.el); dash.appendChild(this.ctxEl);
-    dash.appendChild(this.limBar.el); dash.appendChild(this.limitsEl);
-    for(const x of [this.costEl,this.cacheEl,this.modelEl,this.permEl,
+    // FR-M11-19 개정 (M11-B30): 게이지는 **주기 칸 안**에 산다 (`_mkLimitCell`).
+    // FR-M11-33 (M11-B31): **비용은 그리지 않는다** — 자리와 값 모두 없앴다.
+    dash.appendChild(this.limitsEl);
+    for(const x of [this.cacheEl,this.modelEl,this.permEl,
       this.acctEl,this.cwdEl,this.repoEl,this.sessEl,this.openEl]) dash.appendChild(x);
     el.appendChild(dash);
+    this._dashUnknown();
     this._setState('');
   }
 
@@ -187,8 +188,10 @@ class AgentPane {
     const seq=Number(a.seq)||0;
     if(seq<=this.seq) return;
     if(seq!==this.seq+1){ this.resync(); return }
+    // FR-M11-26: **넣기 전에** 바닥이었는지 묻고, 그랬을 때만 따라간다.
+    const stick=this._atBottom();
     this._apply({seq,at:a.at,ev:a.ev},false);
-    this._scrollEnd();
+    if(stick) this._scrollEnd();
   }
 
   _applyState(st){
@@ -272,6 +275,33 @@ class AgentPane {
    * `role="progressbar"` 와 `aria-valuenow` 를 다는 이유가 그것이다 — 화면을 보지
    * 않는 사람에게도 이 요소는 값이어야 한다.
    */
+  /**
+   * FR-M11-16 (M11-B13): **자리는 항상 선다 — 값이 없으면 모름을 적는다.**
+   *
+   * 접수: *"첫 메세지를 보내기전에는 기본값 설정하고 이후 맞추면 되잖아. 없애지 말고
+   * 모르는걸로 해서 보여줘."* **앞선 결정의 번복**이다 (*"있는 것만 더 그린다"*).
+   *
+   * 여기가 그 규약이 사는 **한 자리**다 — 각 세터는 값이 오면 덮어쓸 뿐이고, 값이
+   * 오지 않는 자리는 여기서 적은 문구가 그대로 남는다. `initialize` 응답에 비용·
+   * 토큰·한도의 수가 **아예 없으므로**(M11_SRS §2.5) 그 넷은 첫 턴까지 이 문구다.
+   *
+   * 0 으로 채우지 않는다 — **모름을 모름이라고 적는 것**이며 `FR-CBG-5` 그대로다.
+   * 열린 요청은 **세어서 아는 값**이므로 여기서도 0 으로 적는다.
+   */
+  _dashUnknown(){
+    const u=t('core.unknown_paren');
+    this.ctxEl.textContent=t('agent.ctx_unknown',{tokens:u});
+    this.cacheEl.textContent=t('agent.cache_unknown');
+    this._renderLimits([]);
+    this.modelEl.textContent=t('agent.model_current',{model:u});
+    this.permEl.textContent=t('agent.perm_mode_current',{mode:u});
+    this.acctEl.textContent=t('agent.account',{account:u});
+    this.sessEl.textContent=t('agent.session_label',{sid:u});
+    this.cwdEl.textContent=t('agent.cwd_unknown');
+    this.repoEl.textContent=t('agent.repo_unknown');
+    this.openEl.textContent=t('agent.open_requests',{n:0});
+  }
+
   _mkBar(cls,label){
     const el=document.createElement('div'); el.className='agp-bar '+cls;
     el.setAttribute('role','progressbar');
@@ -279,20 +309,26 @@ class AgentPane {
     // "무엇의" 비율인지가 없다 — 접근성 검사가 그 누락을 잡았다(TC-AGT-5 외 5건).
     el.setAttribute('aria-label',label);
     el.setAttribute('aria-valuemin','0'); el.setAttribute('aria-valuemax','100');
-    el.hidden=true;
     const fill=document.createElement('div'); fill.className='agp-bar-fill';
     el.appendChild(fill);
     return {el,fill};
   }
 
   /**
-   * FR-M9-40: **모르면 그리지 않는다.** 0% 짜리 빈 바는 "안 썼다" 로 읽히고 그것은
-   * "모른다" 와 다르다 (FR-CBG-5). 0 은 값이므로 그린다 — 가르는 것은 숫자인가다.
+   * FR-M11-16 (M11-B13): **트랙은 항상 서고, 모르면 값을 달지 않는다.**
+   *
+   *   이전: 모르면 바를 **숨겼다** (`hidden`) — FR-M9-40 의 *"모르면 그리지 않는다"*
+   *   새로: 트랙은 서고, 채움이 0 폭이며 `aria-valuenow` 가 **없다**
+   *   이유: 접수는 *"없애지 말고 모르는걸로 해서 보여줘"* 다. 화면에서 채움 0 은 실제
+   *         0% 와 같아 보이며 **그것을 알고 고른 결정**이다 (사용자 2026-09-15) —
+   *         가르는 자리를 **읽히는 쪽**에 둔다. `aria-valuenow` 가 없으면
+   *         indeterminate 이고, 0 이면 "0%" 다. `FR-CBG-5` 는 그대로 지켜진다.
+   *
+   * 0 은 여전히 값이다 — 가르는 것은 숫자인가다.
    */
   _setBar(bar,ratio){
     const ok=typeof ratio==='number'&&isFinite(ratio)&&ratio>=0;
-    bar.el.hidden=!ok;
-    if(!ok) return;
+    if(!ok){ bar.fill.style.width='0'; bar.el.removeAttribute('aria-valuenow'); return }
     const pct=Math.min(100,Math.round(ratio*100));
     bar.fill.style.width=pct+'%';
     bar.el.setAttribute('aria-valuenow',String(pct));
@@ -314,14 +350,14 @@ class AgentPane {
     }else if(x.contextRatio){
       this.ctxEl.textContent=t('agent.ctx_ratio',{pct:Math.round(x.contextRatio*100)});
     }
-    if(x.costUSD) this.costEl.textContent=t('agent.cost',{cost:x.costUSD.toFixed(4)});
     // FR-M9-40: 컨텍스트 바 — 절대값을 알면 그것으로, 아니면 비율로.
     this._setBar(this.ctxBar,
       (x.tokens&&x.contextWindow)?x.tokens/x.contextWindow
         :(typeof x.contextRatio==='number'?x.contextRatio:null));
     // FR-M9-34 가 나르기 시작한 cache 를 그린다.
     this.cacheEl.textContent=(x.cacheRead||x.cacheWrite)
-      ? t('agent.cache',{read:fmtTokens(x.cacheRead||0),write:fmtTokens(x.cacheWrite||0)}) : '';
+      ? t('agent.cache',{read:fmtTokens(x.cacheRead||0),write:fmtTokens(x.cacheWrite||0)})
+      : t('agent.cache_unknown');
     this._renderLimits(x.limits);
   }
 
@@ -329,27 +365,45 @@ class AgentPane {
    * FR-M9-34: 플랜 한도 목록. **주기의 수와 이름이 에이전트마다 다르므로** 목록을
    * 그대로 훑는다.
    *
-   * 비어 있으면 **자리가 서지 않는다** — 한도를 말하지 않는 에이전트에서 빈 칸이
-   * 보이면 "0%" 나 "고장" 으로 읽힌다 (FR-CBG-5: 모른다 ≠ 괜찮다).
+   * FR-M11-16 (M11-B13): 비어 있으면 **모름이라고 적는다.** 종전에는 자리를 숨겼고
+   * (`hidden`), 그 빈 자리가 *"그런 항목이 아예 없다"* 로 읽힌 것이 접수였다. 빈 칸을
+   * 두는 것과는 다르다 — 빈 칸은 "0%" 나 "고장" 으로 읽히지만 **모름은 모름으로
+   * 읽힌다** (FR-CBG-5: 모른다 ≠ 괜찮다).
    */
   _renderLimits(limits){
     const list=Array.isArray(limits)?limits:[];
-    this.limitsEl.hidden=list.length===0;
-    /**
-     * FR-M9-40: 한도 바는 **가장 임박한 것 하나**다 (목록은 `ResetAt` 오름차순이므로
-     * 첫 항목). 주기마다 바를 그리면 하단이 바로 가득 차고, 그때 컨텍스트 바와
-     * 구별되지 않는다 — 나머지 주기는 옆의 텍스트가 말한다.
-     */
-    const head=list[0];
-    this._setBar(this.limBar, head&&typeof head.ratio==='number'?head.ratio
-      :(head&&head.total?(head.used||0)/head.total:null));
-    this.limitsEl.textContent=list.map(l=>{
-      const name=this._limitLabel(l);
-      // 총량을 주는 어댑터와 비율만 주는 어댑터가 다른 문장을 쓴다.
-      return l.total
+    this.limitsEl.textContent='';
+    // **주기를 모르면 개수도 모른다** — 칸 하나만 세우고 값은 달지 않는다 (FR-M11-16).
+    for(const l of (list.length?list:[null])) this.limitsEl.appendChild(this._mkLimitCell(l));
+  }
+
+  /**
+   * FR-M11-19 개정 (M11-B30): **주기 하나가 한 칸이다** — 이름·수치·게이지가 함께 든다.
+   *
+   * 접수: *"5시간옆에 5시간 게이지를 주간 옆에 주간게이지를 넣어야한다."* 첫 구현은
+   * 게이지를 한 칸에 몰아 두고 수치는 그 옆에 따로 두었다 — `aria-label` 은 어느
+   * 주기인지 말하지만 그것은 **읽히는 쪽**이고, 보는 쪽에는 이을 근거가 없었다.
+   *
+   * **원본은 게이지를 컨텍스트에만 둔다** (§2.10 (1) 실측 — 한도는 `5h: 24% (3h11m)`
+   * 처럼 글로만 말한다). 게이지를 더하는 것은 사용자 결정이며(*"limit 에 추가한건
+   * 좋은거같아"*), `D-M11-3` 이 말한 **더하는 편의**다 — 원본의 글을 지우지 않는다.
+   */
+  _mkLimitCell(l){
+    const cell=document.createElement('span'); cell.className='agp-limit';
+    const txt=document.createElement('span'); txt.className='agp-limit-txt';
+    const name=l?this._limitLabel(l):'';
+    // 총량을 주는 어댑터와 비율만 주는 어댑터가 다른 문장을 쓴다.
+    txt.textContent=l
+      ? (l.total
         ? t('agent.limit_abs',{name,used:fmtTokens(l.used||0),total:fmtTokens(l.total)})
-        : t('agent.limit_pct',{name,pct:Math.round((l.ratio||0)*100)});
-    }).join(' · ');
+        : t('agent.limit_pct',{name,pct:Math.round((l.ratio||0)*100)}))
+      : t('agent.limits_unknown');
+    const bar=this._mkBar('agp-limbar',
+      l?t('agent.limit_bar_label_of',{name}):t('agent.limit_bar_label'));
+    cell.appendChild(txt); cell.appendChild(bar.el);
+    this._setBar({el:bar.el,fill:bar.fill},
+      l?(typeof l.ratio==='number'?l.ratio:(l.total?(l.used||0)/l.total:null)):null);
+    return cell;
   }
 
   /**
@@ -384,22 +438,42 @@ class AgentPane {
     const cd=(c.ok&&c.data)||{};
     const cwd=cd.source==='tool'?(cd.cwd||''):'';
     if(this._destroyed) return;
-    this.cwdEl.textContent=cwd?pathBase(cwd):'';
+    // FR-M11-35 (M11-B33): **경로 그대로.** 마지막 칸만으로는 같은 이름의 폴더를
+    // 가리지 못하고, `title` 은 가리켜야 보이므로 "적혀 있다" 가 아니다.
+    this.cwdEl.textContent=cwd||t('agent.cwd_unknown');
     this.cwdEl.title=cwd?t('agent.cwd_title')+'\n'+cwd:'';
-    this.repoEl.textContent=''; this.repoEl.title='';
+    this.repoEl.textContent=t('agent.repo_unknown'); this.repoEl.title='';
     if(!cwd) return;
     const at=await apiGet('/api/git/repo-at',{query:{tool:this.id}});
     const d=(at.ok&&at.data)||{};
-    if(this._destroyed||d.source!=='tool'||!d.isRepo||!d.path) return;
+    if(this._destroyed) return;
+    /**
+     * **아는 '아님' 은 모름이 아니다** — `FR-CBG-5` 의 반대 방향이다 (FR-M11-16).
+     * 그 작업 폴더가 저장소가 아니라는 것을 우리가 **안다면** 그렇게 적는다. 물어보지
+     * 못한 경우(응답이 이 도구의 것이 아니거나 경로가 없다)만 모름으로 남는다.
+     */
+    if(d.source==='tool'&&d.isRepo===false){ this.repoEl.textContent=t('agent.repo_none'); return }
+    if(d.source!=='tool'||!d.isRepo||!d.path) return;
     const st=await apiGet('/api/git/status',{query:{repo:d.path}});
-    const g=(st.ok&&st.data)||{};
+    /**
+     * FR-M11-34 (M11-B32): **`branch` 는 `status` 안에 있다.** 종전에는 한 겹 위를
+     * 읽어 `!g.branch` 에서 **언제나** 되돌아섰다. 그 갈래가 빈 문자열을 남기면
+     * `:empty` 가 자리를 지웠으므로 화면에 아무것도 없어 아무도 몰랐고, `FR-M11-16`
+     * 이 자리를 세우자 *"알 수 없음"* 으로 드러났다 (실측: 운영 `/api/git/status`).
+     */
+    const g=(st.ok&&st.data&&st.data.status)||{};
     if(this._destroyed||!g.branch) return;
     // 값은 git 의 것이다 — 번역하지 않는다. 문구는 `title` 에만 있다.
     this.repoEl.textContent=g.upstream?g.branch+' → '+g.upstream:g.branch;
     this.repoEl.title=t('agent.repo_title')+'\n'+d.path;
   }
 
-  _renderOpen(){ const n=this._openIds.size; this.openEl.textContent=n>0?t('agent.open_requests',{n}):''; }
+  /**
+   * FR-M11-16: **세어서 아는 0 은 0 으로 적는다.** 이 수는 프로토콜이 주는 것이 아니라
+   * 우리가 세는 것이므로 모름이 아니다 — 모름으로 덮으면 `FR-CBG-5` 를 반대편에서
+   * 어긴다. 종전에는 0 일 때 자리를 비웠다.
+   */
+  _renderOpen(){ const n=this._openIds.size; this.openEl.textContent=t('agent.open_requests',{n}); }
   _sessionLine(sid){
     if(!sid) return;
     this.el.dataset.sessionid=sid;
@@ -412,21 +486,127 @@ class AgentPane {
 
   _scrollEnd(){ this.log.scrollTop=this.log.scrollHeight }
 
+  /**
+   * FR-M11-26 (M11-B24): **바닥을 보고 있는가.**
+   *
+   * 접수: *"새 글이 있으면 무조건 스크롤을 아래로 내린다. 현재위치 고정해야한다.
+   * 스크롤은 사용자만 조작한다."* 사용자 결정(§2.6b)은 **바닥 판정**이다 — 바닥에
+   * 붙어 있으면 따라가고, 한 칸이라도 올렸으면 그 자리를 지킨다.
+   *
+   * **붙기 전에 물어야 한다.** 새 내용이 들어간 뒤에 재면 아래가 이미 늘어나 있어
+   * 언제나 "바닥이 아니다" 가 된다.
+   */
+  _atBottom(){
+    const el=this.log;
+    return el.scrollHeight-el.scrollTop-el.clientHeight<=AGENT_BOTTOM_SLACK_PX;
+  }
+
+  /**
+   * FR-M11-17 (M11-B14): **떼기 전의 대화 자리.**
+   *
+   * 접수: *"gui 에서 다른곳에 다녀오면 스크롤이 최상단으로 이동해. 유지해야해."*
+   * 요소가 문서에서 떨어지면 브라우저가 `scrollTop` 을 버리므로, 돌아왔을 때 0 이다.
+   *
+   * **규약은 이미 있었고 이 자리만 쓰지 않았다** — `_keepScroll()` 은 git 패널을
+   * 훑고, 터미널은 `_keepTermScroll()` 로, 편집기는 `keepView()` 로 갈무리하는데
+   * 에이전트 패널이 그 셋 어디에도 없었다. 이름과 판정 문장을 편집기의 것과 같게
+   * 둔다 (FR-VSR-2) — 새 관용구를 만들면 두 벌이 되고, 두 벌은 한쪽만 고쳐진다.
+   *
+   * **떼기 전에** 불려야 한다. 계기는 render 머리의 `_keepScroll()` 하나이며, 떼는
+   * 자리 셋(`_hideOthers`·`_domGC`·`_place`)보다 앞선 유일한 시점이다.
+   */
+  keepView(){
+    if(!this.el.isConnected||!this.el.classList.contains('vis')) return;
+    this._logY=this.log.scrollTop;
+  }
+
+  /**
+   * FR-M11-17: 적어 둔 자리를 되돌린다. **붙은 뒤에** 불린다.
+   *
+   * 적어 둔 것이 없으면 아무것도 하지 않는다 — 처음 열린 패널이 스스로 잡은 자리를
+   * 덮지 않는다 (편집기의 `restoreView` 와 같은 근거).
+   */
+  restoreView(){
+    if(typeof this._logY!=='number') return;
+    this.log.scrollTop=this._logY;
+  }
+
   _line(cls,text){
     const d=document.createElement('div'); d.className='agp-line '+cls; d.textContent=text; this.log.appendChild(d); return d;
   }
   _msg(cls,text){
     const d=document.createElement('div'); d.className='agp-msg '+cls;
     const who=document.createElement('div'); who.className='agp-who'; who.textContent=cls==='agp-user'?t('agent.user_label'):this.name;
-    const body=document.createElement('div'); body.className='agp-body'; body.textContent=text;
+    who.appendChild(this._mkRawToggle(d));
+    const body=this._mkBody(text);
     d.appendChild(who); d.appendChild(body); this.log.appendChild(d); return d;
+  }
+
+  /**
+   * FR-M11-23 (M11-B21): **출력은 md 로 그린다.**
+   *
+   * 접수: *"출력그 그냥 줄글로 나오는데 md 에 맞춰서 보여주면 좋겠다. 출력이 주로
+   * md 다."* 원본도 md 를 **렌더한다** — 표를 박스 드로잉으로 그린다 (§2.10 (8)).
+   *
+   * **손을 새로 만들지 않는다.** `doc-render.js` 가 이미 `markdown-it` 을 세우고
+   * `DOMPurify` 훅을 걸어 두었다 (FR-DRV-13b·20). 여기 오는 문자열은 **에이전트가
+   * 준 것**이므로 정화를 지나지 않는 경로를 만들지 않는다.
+   *
+   * 원문은 `dataset.raw` 에 남는다 — 토글이 그것을 되돌린다.
+   */
+  _mkBody(text){
+    const body=document.createElement('div'); body.className='agp-body';
+    this._paintBody(body,text||'');
+    return body;
+  }
+
+  _paintBody(body,text){
+    body.dataset.raw=text;
+    const raw=body.closest('.agp-msg')&&body.closest('.agp-msg').dataset.raw==='1';
+    if(raw||!text||typeof docRenderLibsReady!=='function'||!docRenderLibsReady()){
+      body.textContent=text; return
+    }
+    docPurifyHook();
+    let html='';
+    // 흐름 제어에 try/catch 를 쓰지 않는다 — 여기 catch 는 **라이브러리의 실패**를
+    // 받는 자리이고, 그때는 원문을 그대로 보이는 것이 맞다.
+    try{ html=DOMPurify.sanitize(docMarkdown().render(text),{ADD_ATTR:['target']}) }
+    catch(e){ body.textContent=text; return }
+    body.innerHTML=html;
+  }
+
+  /**
+   * FR-M11-23: **원문 토글.** md 가 아닌 출력(로그·표·ASCII 아트)이 왔을 때 되돌릴
+   * 길이 없으면 사용자는 깨진 화면만 본다 — 사용자 결정(§2.6b)이 이 짝을 요구했다.
+   */
+  _mkRawToggle(msgEl){
+    const b=document.createElement('button');
+    b.className='agp-raw-toggle'; b.type='button';
+    b.textContent=t('agent.show_raw'); b.title=t('agent.show_raw');
+    b.addEventListener('click',()=>{
+      const on=msgEl.dataset.raw==='1';
+      msgEl.dataset.raw=on?'':'1';
+      b.textContent=on?t('agent.show_raw'):t('agent.show_rendered');
+      b.title=b.textContent;
+      for(const el of msgEl.querySelectorAll('.agp-body')) this._paintBody(el,el.dataset.raw||'');
+    });
+    return b;
   }
   _ensureLive(){
     if(this._live) return this._live;
     const d=this._msg('agp-assistant agp-live','');
     this._live=d; return d;
   }
-  _liveText(s){ const d=this._ensureLive(); d.querySelector('.agp-body').textContent+=s }
+  /**
+   * 스트리밍 중에는 **글자를 그대로 잇는다.** 조각마다 md 를 다시 그리면 반쯤 닫힌
+   * 문법이 매번 다르게 해석되어 화면이 떨린다. 완성된 모양은 `_message()` 의
+   * 스냅샷이 그린다 — 진실은 스냅샷이다.
+   */
+  _liveText(s){
+    const b=this._ensureLive().querySelector('.agp-body');
+    b.dataset.raw=(b.dataset.raw||'')+s;
+    b.textContent=b.dataset.raw;
+  }
   _liveThinking(s){
     const d=this._ensureLive();
     if(!this._liveThink){
@@ -458,13 +638,13 @@ class AgentPane {
         const pre=document.createElement('div'); pre.className='agp-think-body'; pre.textContent=b.thinking; det.appendChild(pre);
         d.appendChild(det);
       }else if(b.type==='text'){
-        const body=document.createElement('div'); body.className='agp-body'; body.textContent=b.text||''; d.appendChild(body); hasBody=true;
+        d.appendChild(this._mkBody(b.text||'')); hasBody=true;
       }else if(b.type==='tool_use'){
         const card=this._toolCard(b.id,b.name,b.input);
         if(card.parentNode!==d) d.appendChild(card);
       }
     }
-    if(!hasBody){ const body=document.createElement('div'); body.className='agp-body'; d.appendChild(body) }
+    if(!hasBody) d.appendChild(this._mkBody(''));
   }
   /**
    * FR-M11-4: **도구 카드는 접힌 채 선다.**
@@ -478,21 +658,78 @@ class AgentPane {
     let card=useId?this._toolCards.get(useId):null;
     if(!card){
       card=document.createElement('details'); card.className='agp-tool';
-      const h=document.createElement('summary'); h.className='agp-tool-head'; h.textContent=t('agent.tool_call',{tool:tool||''});
+      const h=document.createElement('summary'); h.className='agp-tool-head';
+      // 머리는 **제목과 엿보기 둘**로 나뉜다 — 한 덩이로 두면 하나를 고칠 때
+      // 다른 하나가 지워진다 (`textContent` 는 자식을 통째로 바꾼다).
+      const ttl=document.createElement('span'); ttl.className='agp-tool-title';
+      ttl.textContent=this._toolHead(tool,input);
+      h.appendChild(ttl);
       card.appendChild(h);
       if(useId) this._toolCards.set(useId,card);
       const host=this._live||this.log; host.appendChild(card);
     }
     if(input&&!card.querySelector('.agp-tool-in')){
       const pre=document.createElement('pre'); pre.className='agp-tool-in ui-scroll'; pre.textContent=agentDetail(tool,input); card.appendChild(pre);
+      /**
+       * **인자는 늦게 온다.** `content_block_start` 가 빈 `input` 으로 카드를 먼저
+       * 세우고, 실제 인자는 그 뒤 스냅샷에 실린다 — 그때 머리를 갱신하지 않으면
+       * 도구 이름만 남아 같은 도구가 여러 번 설 때 어느 것이 무엇인지 가릴 수 없다
+       * (FR-M11-27).
+       */
+      const ttl=card.querySelector('.agp-tool-title');
+      if(ttl&&tool) ttl.textContent=this._toolHead(tool,input);
     }
     return card;
   }
+  /**
+   * FR-M11-27 (M11-B25): **머리는 무엇을 했는지 말한다.**
+   *
+   * 원본은 `Bash(sed -i '' 's/world/WORLD/g' sample.txt && cat …)` 처럼 **인자를 잘라
+   * 싣는다** (§2.10 (2)). 도구 이름만 있으면 같은 도구가 여러 번 설 때 어느 것이
+   * 무엇인지 가릴 수 없다.
+   */
+  _toolHead(tool,input){
+    const name=t('agent.tool_call',{tool:tool||''});
+    const arg=input?String(agentDetail(tool,input)||'').replace(/\s+/g,' ').trim():'';
+    if(!arg) return name;
+    const cut=arg.length>AGENT_TOOL_HEAD_ARG_MAX
+      ? arg.slice(0,AGENT_TOOL_HEAD_ARG_MAX)+'…' : arg;
+    return name+' ('+cut+')';
+  }
+
+  /**
+   * FR-M11-27 (M11-B25): **접힌 채로도 무엇인지 보인다.**
+   *
+   * 접수: *"접히는 출력에서 요약정도(앞뒤 일부를 보이거나하는등)은 해줘라 뭔지는
+   * 알아야지. n 줄 이내면 그냥 출력해도좋다."* 사용자 결정(§2.6b)이 그 수를 정했다 —
+   * **5줄 이내는 그대로, 넘으면 앞뒤 2줄씩**.
+   *
+   * **끝줄을 함께 보이는 것이 요점이다.** 도구 출력은 결론이 끝에 있는 경우가 많아
+   * 앞만 보이면 성패를 모른다.
+   */
+  _peekText(text){
+    const lines=String(text||'').replace(/\s+$/,'').split('\n');
+    if(lines.length<=AGENT_PEEK_FULL_LINES) return lines.join('\n');
+    const n=AGENT_PEEK_EDGE_LINES;
+    const head=lines.slice(0,n), tail=lines.slice(-n);
+    const hidden=lines.length-n*2;
+    return head.join('\n')+'\n'+t('agent.peek_more',{n:hidden})+'\n'+tail.join('\n');
+  }
+
   _toolResult(useId,text,isErr){
     const card=this._toolCard(useId,'',null);
     const h=document.createElement('div'); h.className='agp-tool-res-head'+(isErr?' agp-err':''); h.textContent=isErr?t('agent.tool_result_error'):t('agent.tool_result');
     const pre=document.createElement('pre'); pre.className='agp-tool-res ui-scroll'; pre.textContent=text;
     card.appendChild(h); card.appendChild(pre);
+    /**
+     * FR-M11-27: 접힌 채로 보이는 엿보기. **`summary` 안에 산다** — `details` 는
+     * 닫히면 `summary` 밖의 자식을 숨기므로, 카드에 그냥 붙이면 접힌 상태에서
+     * 보이지 않는다 (그것이 이 검사가 처음 잡은 것이다). 펼치면 CSS 가 물린다.
+     */
+    const head=card.querySelector('.agp-tool-head');
+    let peek=head&&head.querySelector('.agp-tool-peek');
+    if(head&&!peek){ peek=document.createElement('span'); peek.className='agp-tool-peek'; head.appendChild(peek) }
+    if(peek) peek.textContent=this._peekText(text);
     // FR-M11-4: **오류는 펼친 채 선다.** 읽으라고 있는 것을 접으면 접수한 증상이
     // 그대로 돌아온다 — 무엇이 잘못됐는지 한 번 더 눌러야 보인다.
     if(isErr) card.open=true;
@@ -583,8 +820,69 @@ class AgentPane {
     const pn=this.el.closest('.pn');
     return !(pn&&pn.classList.contains('pn-dimmed'));
   }
+  /**
+   * FR-M11-22 (M11-B20): **좌우 이동은 터미널과 같은 손이다.**
+   *
+   * 접수는 *"ctrl + 좌우화살표"* 로 왔고 **사용자가 `cmd` 로 정정했다.** 같은 화면의
+   * 두 입력이 다른 손을 쓰면 그 자체가 결함이므로, `term-pane.js` 가 세운 규약을
+   * 그대로 쓴다 — `Cmd+좌우`는 줄 처음·끝, `Alt+좌우`는 단어 이동이다.
+   *
+   * macOS 의 `Ctrl+좌우` 는 **OS 가 가져간다** — 붙여도 서지 않으므로 두지 않는다.
+   *
+   * 브라우저가 이것을 스스로 하는 자리도 있으나(플랫폼·엔진마다 다르다) **여기서
+   * 정한다**: 터미널과 같은지가 요구이고, 그 답을 환경에 맡길 수 없다.
+   */
+  _moveCaret(toEnd,byWord){
+    const v=this.ta.value, at=this.ta.selectionStart;
+    let i;
+    if(byWord){
+      // **단어의 시작·끝으로 간다.** 사이의 공백을 먼저 건너뛰고 그 단어를 지난다 —
+      // 공백까지 삼키면 캐럿이 단어 앞 빈칸에 서고, 그것은 한 칸 모자란 자리다.
+      if(toEnd){
+        const m=/^\s*\S+/.exec(v.slice(at));
+        i=at+(m?m[0].length:0);
+      }else{
+        const m=/\S+\s*$/.exec(v.slice(0,at));
+        i=at-(m?m[0].length:0);
+      }
+    }else{
+      // 줄의 처음·끝 — 여러 줄 입력이므로 **그 줄**이다 (터미널의 Ctrl-A·Ctrl-E 와 같다).
+      const nl=toEnd?v.indexOf('\n',at):v.lastIndexOf('\n',at-1);
+      i=toEnd?(nl<0?v.length:nl):(nl<0?0:nl+1);
+    }
+    this.ta.setSelectionRange(i,i);
+  }
+
+  /**
+   * FR-M11-21 (M11-B19): **입력창은 내용 따라 자라고, 패널의 1/3 에서 멈춘다.**
+   *
+   * 접수: *"gui 입력창 크기가 고정인데 너무 작다. 탭 크기의 1/3 까지는 커지게 하고
+   * 그 이후로 스크롤."* 두 줄 고정으로는 긴 프롬프트의 앞을 볼 수 없고, 상한이
+   * 없으면 반대로 대화가 밀려난다 — **사용자가 그 상한을 지정했다.**
+   *
+   * 재기 전에 `height` 를 비우는 것이 요점이다. 그러지 않으면 `scrollHeight` 가
+   * **지금 높이에 갇혀** 줄을 지워도 줄어들지 않는다.
+   */
+  _growInput(){
+    const el=this.ta;
+    if(!el.isConnected) return;
+    const cap=Math.max(0,Math.round(this.el.clientHeight*AGENT_INPUT_MAX_RATIO));
+    el.style.height='auto';
+    const want=el.scrollHeight;
+    const h=cap?Math.min(want,cap):want;
+    el.style.height=h+'px';
+    // 상한에 닿았을 때만 스크롤이 선다 — 그 전에는 내용이 전부 보인다.
+    el.style.overflowY=(cap&&want>cap)?'auto':'hidden';
+  }
+
   _onKey(e){
     if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){ e.preventDefault(); this.send(); return }
+    // FR-M11-22: 터미널과 같은 규약. 수식키 조합이 겹치지 않게 **하나만** 눌린 것을 본다.
+    if((e.key==='ArrowLeft'||e.key==='ArrowRight')&&!e.shiftKey){
+      const toEnd=e.key==='ArrowRight';
+      if(e.metaKey&&!e.ctrlKey&&!e.altKey){ e.preventDefault(); this._moveCaret(toEnd,false); return }
+      if(e.altKey&&!e.ctrlKey&&!e.metaKey){ e.preventDefault(); this._moveCaret(toEnd,true); return }
+    }
     if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); this.interrupt(); return }
     if(e.key==='Tab'&&e.shiftKey){ e.preventDefault(); this.cyclePermission(); return }
     if(e.key==='Tab'&&!this.sugg.hidden){ e.preventDefault(); const b=this.sugg.querySelector('button'); if(b) b.click(); return }
@@ -644,7 +942,7 @@ class AgentPane {
   async send(){
     const text=this.ta.value.trim();
     if(!text||this._ended||!this._canControl()) return;
-    this.ta.value=''; this.sugg.hidden=true; this._histIdx=-1;
+    this.ta.value=''; this.sugg.hidden=true; this._histIdx=-1; this._growInput();
     const r=await apiPost('/api/agent/prompt',{toolId:this.id,text});
     if(!r.ok){ Toast.show(apiErrText(r,t('agent.send')),'err'); this.ta.value=text }
   }

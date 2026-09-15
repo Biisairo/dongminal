@@ -113,7 +113,13 @@ class TerminalTool {
   }
   open() {
     if(this._opened) return; this._opened=true;
-    this.term=new Terminal(TOPTS);
+    /**
+     * FR-M11-15 (M11-B16): **글꼴 크기는 한 자리에서 온다** — CSS 토큰 `--fs-lg` 다.
+     * `.agp-dash` 도 그것을 쓰므로 둘이 갈라지지 않는다. 읽는 손은 `file-editor.js`
+     * 가 이미 쓰는 그것이며, 여기서는 **DOM 이 선 뒤**라 값이 있다.
+     */
+    const fs=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs-lg'));
+    this.term=new Terminal(fs?Object.assign({},TOPTS,{fontSize:fs}):TOPTS);
     this.fit=new FitAddon.FitAddon();
     this.term.loadAddon(this.fit);
     try{this.term.loadAddon(new WebLinksAddon.WebLinksAddon((_e,uri)=>{

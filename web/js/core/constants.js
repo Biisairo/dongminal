@@ -142,6 +142,26 @@ const AGENT_STATE_ICON={working:'●',done:'✓',waiting:'…',idle:'○'};
  * `EXIT_MS` 는 사라지기를 기다리는 상한이고, `POLL_MS` 가 그 사이의 걸음이다.
  * 판정의 원천은 활동 등록부다 (`_activity` — `ended` 면 항목이 지워진다).
  */
+/**
+ * FR-M11-26 (M11-B24): **바닥 판정의 여유.** 소수점 스크롤·테두리 때문에
+ * `scrollHeight - scrollTop - clientHeight` 가 정확히 0 이 되지 않는다. 이만큼
+ * 안이면 "바닥을 보고 있다" 로 친다.
+ */
+const AGENT_BOTTOM_SLACK_PX=4;
+/**
+ * FR-M11-21 (M11-B19): **입력창이 자랄 수 있는 몫.** 접수가 그 상한을 지정했다 —
+ * *"탭 크기의 1/3 까지는 커지게 하고 그 이후로 스크롤"*.
+ */
+const AGENT_INPUT_MAX_RATIO=1/3;
+/**
+ * FR-M11-27 (M11-B25): **접힌 출력의 엿보기.** 사용자 결정(§2.6b) — 5줄 이내는
+ * 그대로 보이고, 넘으면 **앞뒤 2줄씩**이다. 도구 출력은 끝줄에 결론이 있는 경우가
+ * 많아 앞만 보이면 성패를 모른다.
+ */
+const AGENT_PEEK_FULL_LINES=5;
+const AGENT_PEEK_EDGE_LINES=2;
+/** 도구 머리에 담는 인자의 길이 — 원본은 `Bash(sed -i '' 's/…)` 처럼 잘라 싣는다. */
+const AGENT_TOOL_HEAD_ARG_MAX=48;
 const AGENT_LIFT_INTERRUPT_MS=400;
 const AGENT_LIFT_EXIT_MS=8000;
 const AGENT_LIFT_POLL_MS=250;
@@ -377,7 +397,10 @@ const SEARCH_BAD_REGEX=t('core.search_bad_regex');
 // TOPTS theme is set after THEMES loads (see themes.js)
 var TOPTS={
   scrollback:TERM_SCROLLBACK_LINES,cursorBlink:true,cursorStyle:'block',
-  fontSize:14,lineHeight:1.2,allowProposedApi:true,logLevel:'off',
+  // FR-M11-15 (M11-B16): **`fontSize` 는 여기 없다.** 터미널과 에이전트 GUI 하단이
+  // 같은 크기여야 한다는 접수이고, 같은 수를 두 자리에 적으면 한쪽만 바뀐다.
+  // 진실은 CSS 토큰 `--fs-lg` 이며 `term-pane.js` 가 생성 시점에 읽는다.
+  lineHeight:1.2,allowProposedApi:true,logLevel:'off',
   fontFamily:"'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace",
   theme:null,
 };

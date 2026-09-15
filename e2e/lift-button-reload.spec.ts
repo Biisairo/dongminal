@@ -1,4 +1,4 @@
-import { test, expect, waitForInit, JSON_HDR } from './fixtures';
+import { test, expect, waitForInit, keepToolBusy, JSON_HDR } from './fixtures';
 
 /**
  * M11_SRS FR-M11-13 (M11-B10) — **새로고침해도 '에이전트로' 가 서 있다.**
@@ -17,14 +17,6 @@ const LIFT = '#area .pn.focused .tp-lift';
 // 보이므로, 명령이 도는 터미널에서는 서지 않는다. 화면이 섰다는 사실은 행이 말한다.
 const READY = { readyFor: { selector: '#area .pn.focused .xterm-rows' } };
 
-/** 그 도구에서 무언가가 돌게 한다 — 전경이 비면 올릴 수 없다 (FR-M11-12). */
-async function keepBusy(page) {
-  await page.evaluate(() => {
-    const p = [...(window as any).app.tools.values()][0] as any;
-    p._sendText('sleep 300\r');
-  });
-}
-
 const focusedToolId = (page) =>
   page.evaluate(() => [...(window as any).app.tools.values()][0].id as string);
 
@@ -41,7 +33,7 @@ test.describe('M11 — 올리기 진입점의 수명 (FR-M11-13)', () => {
   test.fixme('V-M11-30: 새로고침 뒤에도 에이전트로 버튼이 선다 (FR-M11-13)', async ({ page, request }) => {
     await waitForInit(page);
     const toolId = await focusedToolId(page);
-    await keepBusy(page);
+    await keepToolBusy(page);
 
     // 훅이 하는 일과 같은 보고 — 신원이 활동과 함께 온다 (FR-M11-8).
     const r = await request.post('/api/tools/activity/set', {

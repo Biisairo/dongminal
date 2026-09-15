@@ -362,6 +362,10 @@ class Renderer {
     // `_hideOthers`, 창·칸 전환은 `_domGC`, 배치 변경은 `_place`. 셋에 각각 훅을
     // 걸면 넷째 자리가 생길 때 조용히 빠진다. 이 시점은 그 셋보다 앞선다.
     if(app.fileEditors) for(const v of app.fileEditors.values()) if(v&&v.keepView) v.keepView();
+    // FR-M11-17 (M11-B14): **에이전트 패널도 여기 있다.** 대화(`agp-log`)의 자리는
+    // DOM `scrollTop` 이지만 요소가 떨어지면 브라우저가 그것을 버리므로, 훑기로
+    // 잡히는 시점이 없다 — 편집기와 같은 이유로 위젯에게 갈무리를 맡긴다.
+    if(app.agentPanes) for(const v of app.agentPanes.values()) if(v&&v.keepView) v.keepView();
   }
 
   /**
@@ -1088,6 +1092,11 @@ class Renderer {
     // 부르지 않는다 — 화면을 만지는 쪽의 조건은 좁아야 한다 (FR-PDR-10 의 규약).
     if(moved&&at.type==='editor'){
       const view=this.app.fileEditors.get(this.app.slotKey(at.id,slot));
+      if(view&&view.restoreView) view.restoreView();
+    }
+    // FR-M11-17: 에이전트 대화의 자리도 **붙은 뒤에** 되돌린다 — 같은 규약이다.
+    if(moved&&at.type==='agent'&&at.toolId&&this.app.agentPanes){
+      const view=this.app.agentPanes.get(this.app.slotKey(at.toolId,slot));
       if(view&&view.restoreView) view.restoreView();
     }
     this._mounted.add(el);

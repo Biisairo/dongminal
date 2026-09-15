@@ -5,7 +5,7 @@ import { join } from 'path';
 import AxeBuilder from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, waitSettled } from './fixtures';
+import { test, expect, waitForInit, waitSettled, keepToolBusy } from './fixtures';
 
 /**
  * M8_UNIFIED_SRS 묶음 T — 에이전트 도구의 브라우저 몫 (V-2·V-3·V-5·V-6·V-10·V-12,
@@ -68,7 +68,6 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
     // 사용량·컨텍스트 창·비용은 프레임에서 온다 (FR-AGT-6).
     await expect(pane.locator('.agp-ctx')).toContainText('%');
-    await expect(pane.locator('.agp-cost')).toContainText('0.0010');
     await expect(pane.locator('.agp-model')).toContainText('fake-model-1');
     // FR-AGT-7: 같은 칸에 터미널 탭이 섞여도 배치·전환이 된다 (V-6).
     await page.locator('#area .pn.focused .pn-tab-add').click();
@@ -111,7 +110,8 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     await expect(pane2.locator('.agp-msg.agp-assistant .agp-body').last()).toHaveText('DONE', { timeout: 15000 });
     await expect(pane2.locator('.agp-perm')).toContainText('acceptEdits');
     await expect(pane2.locator('.agp-tool .agp-tool-res')).toContainText('completed');
-    await expect(pane2.locator('.agp-open')).toHaveText('');
+    // FR-M11-16: 다 끝나면 **0 으로 적힌다** — 세어서 아는 값이라 모름이 아니다.
+    await expect(pane2.locator('.agp-open')).toContainText('0');
   });
 
   test('TC-AGT-3: 질문 답변 — 선택형 질문이 다이얼로그로 오고 답이 되읊힌다 (FR-AGT-4)', async ({ page }) => {
@@ -255,11 +255,17 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     await waitForInit(page);
     const pane = await openAgentTab(page);
     const limits = pane.locator('.agp-limits');
-    // 첫 턴 전에는 한도가 오지 않았다 — 그때 자리가 서면 "0%" 로 읽힌다 (FR-CBG-5).
-    await expect(limits).toBeHidden();
+    /**
+     * **계약이 바뀌었다** (FR-M11-16 / M11-B13): 첫 턴 전에도 자리는 **서고 모름이라고
+     * 적는다**. 종전에는 숨겼고, 그 빈 자리가 *"그런 항목이 아예 없다"* 로 읽힌 것이
+     * 접수였다. `FR-CBG-5` 는 그대로다 — 숨기는 대신 **모름을 말한다**.
+     */
+    await expect(limits).toBeVisible();
+    await expect(limits).toContainText('알 수 없음');
     await send(pane, 'say PONG');
     await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
-    await expect(limits).toBeVisible({ timeout: 10000 });
+    // 값이 오면 그 자리가 채워진다.
+    await expect(limits).toContainText('44%', { timeout: 10000 });
     const text = (await limits.textContent()) || '';
     // 아는 주기는 번역되고 모르는 주기는 어댑터가 준 이름이 그대로 선다.
     expect(text, `한도 줄: ${text}`).toContain('44%');
@@ -288,6 +294,10 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     await expect(term).toBeVisible({ timeout: 10000 });
     const toolId = await term.getAttribute('data-toolid');
     expect(toolId, '터미널 도구가 없다').toBeTruthy();
+
+    // 전경이 비면 올릴 수 없다 (FR-M11-12). 훅은 흉내 내지만 이 셸 자신은
+    // 프롬프트에 서 있으므로, 에이전트가 채울 자리를 여기서 대신 채운다.
+    await keepToolBusy(page, toolId);
 
     // ① 신원이 오기 전에는 진입점이 없다.
     await expect(term.locator('.tp-lift')).toBeHidden();
@@ -358,6 +368,10 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     const toolId = await term.getAttribute('data-toolid');
     expect(toolId, '터미널 도구가 없다').toBeTruthy();
 
+    // 전경이 비면 올릴 수 없다 (FR-M11-12). 훅은 흉내 내지만 이 셸 자신은
+    // 프롬프트에 서 있으므로, 에이전트가 채울 자리를 여기서 대신 채운다.
+    await keepToolBusy(page, toolId);
+
     const posted = await page.evaluate(async ([id, path]) => {
       const r = await fetch('/api/runs/context', {
         method: 'POST', headers: { 'content-type': 'application/json' },
@@ -401,6 +415,10 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     await expect(term).toBeVisible({ timeout: 10000 });
     const toolId = await term.getAttribute('data-toolid');
 
+    // 전경이 비면 올릴 수 없다 (FR-M11-12). 훅은 흉내 내지만 이 셸 자신은
+    // 프롬프트에 서 있으므로, 에이전트가 채울 자리를 여기서 대신 채운다.
+    await keepToolBusy(page, toolId);
+
     // 신원만 있고 전사본은 없다 — 서버가 다시 선 뒤 활동 훅만 닿은 자리다.
     const posted = await page.evaluate(async (id) => {
       const r = await fetch('/api/runs/context', {
@@ -434,23 +452,32 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
    * `title` 이 "에이전트가 보고한 값이 아니다" 를 말하고, 경로를 함께 싣는다.
    * 그 문장이 없으면 사용자는 이 값을 에이전트가 말한 것으로 읽는다.
    *
-   * 저장소가 아닌 cwd 에서는 `agp-repo` 가 **빈다** — `-` 나 `unknown` 으로 채우지
-   * 않는다 (FR-CBG-5). 그 갈래는 값의 유무가 환경에 달렸으므로, 여기서는 "채워져
-   * 있다면 git 이 준 모양이다" 까지만 고정한다.
+   * **저장소 갈래의 계약이 바뀌었다** (FR-M11-16 / M11-B13): 자리는 **항상 서고**
+   * 셋 중 하나를 말한다 — git 이 준 이름 · *저장소 아님*(아는 '아님') · *알 수
+   * 없음*(묻지 못했다). `-` 같은 대체값으로 채우지 않는 것은 그대로다 (FR-CBG-5).
+   * 값의 유무가 환경에 달렸으므로, 여기서는 "이름이 섰다면 git 이 준 모양이다"
+   * 까지만 고정한다.
    */
   test('V-M9-35 (FR-M9-35): 그 도구의 cwd 가 서고 출처를 title 이 말한다', async ({ page }) => {
     await waitForInit(page);
     const pane = await openAgentTab(page);
     const cwd = pane.locator('.agp-cwd');
-    await expect(cwd).not.toBeEmpty({ timeout: 10000 });
+    /**
+     * **기다리는 신호가 바뀌었다** (FR-M11-16): 자리는 처음부터 서 있고 모름이 적혀
+     * 있으므로, *"비어 있지 않다"* 는 더 이상 **값이 도착했다**는 뜻이 아니다. 출처를
+     * 말하는 `title` 이 서는 것이 그 신호다.
+     */
+    await expect(cwd).toHaveAttribute('title', /\n/, { timeout: 10000 });
     const title = (await cwd.getAttribute('title')) || '';
     // 문구 + 줄바꿈 + 절대 경로. 경로만 있으면 출처를 말하지 못한다.
     expect(title, `cwd title: ${title}`).toContain('\n');
     expect(title.split('\n')[1] || '', `cwd title: ${title}`).toMatch(/^[/~]/);
-    // 저장소 갈래: 비었거나, git 이 준 이름이다 (대체값을 넣지 않는다).
+    // 저장소 갈래: 자리는 서고, 셋 중 하나다 (대체값을 넣지 않는다).
     const repo = ((await pane.locator('.agp-repo').textContent()) || '').trim();
-    if (repo) {
-      expect(repo, `repo: ${repo}`).not.toBe('-');
+    expect(repo, '저장소 자리가 비었다 — 자리는 항상 선다 (FR-M11-16)').not.toBe('');
+    expect(repo, `repo: ${repo}`).not.toBe('-');
+    if (!repo.includes('알 수 없음') && !repo.includes('저장소 아님')) {
+      // git 이 준 이름이면 출처를 title 이 말한다.
       expect((await pane.locator('.agp-repo').getAttribute('title')) || '').toContain('\n');
     }
   });
@@ -463,19 +490,21 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
    * 물었을 때 답은 *"상단에것을 없애고 전부 하단으로 내린다"* 였다 — 그래서 **머리에
    * 없다**는 것도 함께 잰다. 옮기지 않고 더하기만 하면 같은 값이 두 자리에 선다.
    *
-   * 바는 **모르면 그리지 않는다** (FR-CBG-5). 첫 턴 전에는 사용량이 오지 않았으므로
-   * 없어야 하고, 0% 짜리 빈 바로 채우면 "안 썼다" 로 읽힌다.
+   * **바의 계약이 바뀌었다** (FR-M11-16 / M11-B13): 첫 턴 전에도 **트랙은 선다**.
+   * 종전에는 숨겼고 그 빈 자리가 *"그런 항목이 없다"* 로 읽혔다. 모름과 0% 를 가르는
+   * 자리는 이제 **`aria-valuenow`** 다 — 없으면 모름이다 (V-M11-33 이 그 짝이다).
    */
   test('V-M9-39/40 (FR-M9-39·40): 상태는 하단 대시보드에 서고 바가 함께 찬다', async ({ page }) => {
     await waitForInit(page);
     const pane = await openAgentTab(page);
     // 머리에서 사라졌다 — 남는 것은 이름·상태·버튼이다.
-    for (const cls of ['.agp-ctx', '.agp-model', '.agp-perm', '.agp-cost', '.agp-cwd']) {
+    for (const cls of ['.agp-ctx', '.agp-model', '.agp-perm', '.agp-cwd']) {
       expect(await pane.locator(`.agp-head ${cls}`).count(), `머리에 ${cls} 가 남았다`).toBe(0);
       expect(await pane.locator(`.agp-dash ${cls}`).count(), `하단에 ${cls} 가 없다`).toBe(1);
     }
-    // 첫 턴 전 — 사용량을 모르므로 바가 없다.
-    await expect(pane.locator('.agp-ctxbar')).toBeHidden();
+    // 첫 턴 전 — 트랙은 서 있되 **값이 없다** (FR-M11-16).
+    await expect(pane.locator('.agp-ctxbar')).toBeVisible();
+    await expect(pane.locator('.agp-ctxbar')).not.toHaveAttribute('aria-valuenow', /.*/);
     await send(pane, 'say PONG');
     await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
     // 컨텍스트 바가 찬다. **값이므로** 이름과 수치를 함께 단다.
@@ -487,7 +516,8 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     // 숫자는 **그대로 남는다** — 바는 대신이 아니라 함께다.
     await expect(pane.locator('.agp-dash .agp-ctx')).not.toBeEmpty();
     // 플랜 한도 바도 선다 (fakeagent 가 `rate_limit_event` 를 낸다).
-    await expect(pane.locator('.agp-limbar')).toBeVisible({ timeout: 10000 });
+    // FR-M11-19: **주기마다 하나**이므로 여럿이다 — 개수는 V-M11-36 이 잰다.
+    await expect(pane.locator('.agp-limbar').first()).toBeVisible({ timeout: 10000 });
   });
 
   /**
@@ -506,6 +536,11 @@ test.describe('에이전트 도구 (M8 묶음 T)', () => {
     await expect(term).toBeVisible({ timeout: 10000 });
     const toolId = await term.getAttribute('data-toolid');
     expect(toolId).toBeTruthy();
+
+    // 전경이 비면 올릴 수 없다 (FR-M11-12). 훅은 흉내 내지만 이 셸 자신은
+    // 프롬프트에 서 있으므로, 에이전트가 채울 자리를 여기서 대신 채운다.
+    await keepToolBusy(page, toolId);
+
     await expect(term.locator('.tp-lift')).toBeHidden();
 
     // 훅 둘을 흉내 낸다 — 신원은 context 종단, 활동은 activity 종단이다.
@@ -633,7 +668,7 @@ for (const { agent, tool, choices } of OTHERS) {
       // FR-M11-4: 도구 카드는 **접힌 채 선다** — 결과를 보려면 편다.
       await pane.locator('.agp-tool').first().locator('.agp-tool-head').click();
       await expect(pane.locator('.agp-tool .agp-tool-res').first()).toBeVisible();
-      await expect(pane.locator('.agp-open')).toHaveText('');
+      await expect(pane.locator('.agp-open')).toContainText('0');
       await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
     });
 
@@ -781,6 +816,419 @@ test.describe('에이전트 GUI 의 읽힘 (M11)', () => {
     // 화면이 버리고 있었다 — 접수한 하단이 비어 보인 까닭의 하나다 (M11-B3).
     await expect(pane.locator('.agp-acct')).toContainText('fake@example', { timeout: 15000 });
     await expect(pane.locator('.agp-acct')).toContainText('Fake');
+  });
+
+  /**
+   * M11_SRS FR-M11-16 (M11-B13) — **하단은 자리를 세우고 모름을 말한다.**
+   *
+   * 접수: *"첫 메세지를 보내기전에는 기본값 설정하고 이후 맞추면 되잖아. 없애지 말고
+   * 모르는걸로 해서 보여줘."* **앞선 결정의 번복이다** — 그때는 *"있는 것만 더
+   * 그린다"* 였다.
+   *
+   * 빈 자리를 `:empty` 로 지우던 종전 동작이 *"그런 항목이 아예 없다"* 로 읽힌 것이
+   * 접수의 내용이다. `FR-CBG-5`(모른다 ≠ 0)는 그대로다 — 0 으로 채우는 것이 아니라
+   * **모름을 모름이라고 적는다**.
+   */
+  test('V-M11-32: 턴 전에도 하단이 자리를 세우고 모름을 말한다 (FR-M11-16)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    await expect(pane.locator('.agp-acct')).toContainText('fake@example', { timeout: 15000 });
+
+    // **한 턴도 돌리지 않는다.** 아홉 자리가 모두 서 있어야 한다.
+    for (const cls of ['.agp-ctx', '.agp-limits', '.agp-cache',
+      '.agp-model', '.agp-perm', '.agp-acct', '.agp-sess', '.agp-cwd']) {
+      await expect(pane.locator(cls), `${cls} 의 자리가 서지 않았다`).toBeVisible();
+      await expect(pane.locator(cls), `${cls} 가 비어 있다 — 빈 자리는 "항목이 없다" 로 읽힌다`)
+        .not.toBeEmpty();
+    }
+    // `initialize` 응답에 **수가 아예 없는** 넷은 모름이라고 적혀 있어야 한다 (§2.5).
+    for (const cls of ['.agp-ctx', '.agp-limits', '.agp-cache']) {
+      await expect(pane.locator(cls), `${cls} 가 모름을 말하지 않는다`)
+        .toContainText('알 수 없음');
+    }
+  });
+
+  test('V-M11-33: 모를 때 바는 서 있되 valuenow 가 없다 (FR-M11-16 · FR-CBG-5)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    await expect(pane.locator('.agp-acct')).toContainText('fake@example', { timeout: 15000 });
+
+    // 트랙은 선다 — 자리를 지우지 않는 것이 접수다.
+    await expect(pane.locator('.agp-ctxbar')).toBeVisible();
+    await expect(pane.locator('.agp-limbar')).toBeVisible();
+    /**
+     * **그러나 값은 없다.** 화면상 채움 0 은 실제 0% 와 같아 보이고, 그것을 알고 고른
+     * 결정이다 (사용자 2026-09-15). 가르는 자리는 **읽히는 쪽**이다 — `aria-valuenow`
+     * 가 없으면 indeterminate 이고, 0 이면 "0%" 다.
+     */
+    await expect(pane.locator('.agp-ctxbar')).not.toHaveAttribute('aria-valuenow', /.*/);
+    await expect(pane.locator('.agp-limbar')).not.toHaveAttribute('aria-valuenow', /.*/);
+
+    // 한 턴 돌리면 값이 오고, 그때 달린다.
+    await send(pane, 'hello');
+    await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
+    await expect(pane.locator('.agp-ctxbar')).toHaveAttribute('aria-valuenow', /^\d+$/, { timeout: 15000 });
+  });
+
+  /**
+   * **반대 방향을 지키는 짝이다.** 자리를 세우는 규약이 "모르는 것" 을 넘어 "아는 0"
+   * 까지 모름으로 덮으면, 그것은 `FR-CBG-5` 를 반대편에서 어기는 것이다. 열린 요청
+   * 수는 **우리가 세는 값**이므로 0 은 0 이다.
+   */
+  /**
+   * M11_SRS FR-M11-15 (M11-B12 · B16) — **하단의 글꼴은 터미널과 같은 상수에서 온다.**
+   *
+   * 접수는 두 번 왔고(*"너무 작아"* → *"2배로 키워라"*), 터미널 기본값을 보인 뒤의
+   * 지시가 *"거기에 맞추자. 터미널 기본값과 같은 상수를 사용"* 이다.
+   *
+   * **재는 것은 수가 아니라 같음이다.** 18 이나 14 를 적어 두면 한쪽이 바뀔 때 이
+   * 검사가 그 사실을 놓친다 — 두 자리가 **한 상수**를 쓰는지가 요구다.
+   */
+  /**
+   * M11_SRS FR-M11-33 (M11-B31) · FR-M11-19 개정 (M11-B30) — **없앤 자리와 이은 자리.**
+   *
+   * 비용은 사용자 결정으로 **자리째** 없앴다 — 못 구해서가 아니다. 한도는 반대로
+   * 주기마다 **한 칸**에 이름·수치·게이지가 함께 들어야 한다 (*"5시간옆에 5시간
+   * 게이지를"*). 게이지가 칸 밖에 있으면 어느 주기의 것인지 눈으로 이어지지 않는다.
+   */
+  test('V-M11-38/41: 주기마다 한 칸에 게이지가 들고, 비용 자리는 없다', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    await send(pane, 'say PONG');
+    await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
+    await expect(pane.locator('.agp-limits')).toContainText('44%', { timeout: 10000 });
+
+    // FR-M11-33: 비용은 **요소 자체가 서지 않는다**.
+    expect(await pane.locator('.agp-cost').count(), '비용 자리가 남았다').toBe(0);
+
+    // FR-M11-19 개정: 게이지는 **주기 칸 안**에 있다.
+    const cells = pane.locator('.agp-limit');
+    const n = await cells.count();
+    expect(n, '주기 칸이 서지 않았다').toBeGreaterThan(1);
+    expect(await pane.locator('.agp-limit .agp-limbar').count(),
+      '게이지가 주기 칸 밖에 있다 — 어느 주기의 것인지 이어지지 않는다').toBe(n);
+    // 칸마다 이름·수치가 함께 든다.
+    for (const txt of await cells.locator('.agp-limit-txt').allTextContents()) {
+      expect(txt.trim(), `빈 칸: ${txt}`).not.toBe('');
+    }
+  });
+
+  test('V-M11-35: 하단 글꼴이 터미널과 같다 (FR-M11-15)', async ({ page }) => {
+    await waitForInit(page);
+    /**
+     * **터미널을 먼저 잰다.** 에이전트 탭을 열면 그 터미널의 DOM 은 떼어지므로
+     * (`_hideOthers`) 나중에는 물어볼 대상이 없다.
+     */
+    const termFs = await page.locator('#area .pn.focused .xterm .xterm-rows')
+      .first().evaluate((n) => parseFloat(getComputedStyle(n).fontSize));
+
+    const pane = await openAgentTab(page);
+    await expect(pane.locator('.agp-acct')).toContainText('fake@example', { timeout: 15000 });
+    const dashFs = await pane.locator('.agp-dash').evaluate((n) =>
+      parseFloat(getComputedStyle(n).fontSize));
+
+    expect(termFs, `터미널 글꼴: ${termFs}`).toBeGreaterThan(0);
+    expect(dashFs, `하단 ${dashFs} · 터미널 ${termFs}`).toBe(termFs);
+    // 종전은 `--fs-xs`(9px) 였다 — 접수는 그것이 읽히지 않는다는 말이었다.
+    expect(dashFs, `하단 글꼴이 그대로다: ${dashFs}`).toBeGreaterThan(9);
+  });
+
+  /**
+   * M11_SRS FR-M11-19 (M11-B17) — **한도 게이지는 전부이거나 전무다.**
+   *
+   * 접수: *"게이지를 보여줄거면 1달/5시간 모두 보여주거나 모두 안보여주는쪽으로
+   * 해라."* `FR-M9-40` 은 *"가장 임박한 것 하나"* 였고, 그 결과 옆의 텍스트는 두
+   * 주기를 말하는데 게이지는 하나만 서는 화면이 되었다.
+   */
+  test('V-M11-36: 한도 바가 주기 수만큼 선다 (FR-M11-19)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    await send(pane, 'say PONG');
+    await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
+    await expect(pane.locator('.agp-limits')).toContainText('44%', { timeout: 10000 });
+    /**
+     * **개수를 박지 않는다.** 접수의 내용은 *"텍스트는 여러 주기를 말하는데 게이지는
+     * 하나"* 라는 **비대칭**이므로, 재는 것도 그 둘의 일치여야 한다. 수를 적어 두면
+     * 어댑터가 주기를 하나 더 낼 때 이 검사가 그 비대칭을 놓친다.
+     */
+    const periods = await pane.locator('.agp-limit').count();
+    expect(periods, '한도 줄이 주기를 말하지 않는다').toBeGreaterThan(1);
+
+    const bars = pane.locator('.agp-limbar');
+    await expect(bars, `주기는 ${periods} 인데 게이지가 그 수만큼 서지 않았다`).toHaveCount(periods);
+    // **각 바가 자기 주기를 말한다** — 이름이 없으면 하나만 선 것과 다를 바 없다.
+    const labels = await bars.evaluateAll((ns) => ns.map((n) => n.getAttribute('aria-label') || ''));
+    expect(new Set(labels).size, `바 이름이 겹친다: ${labels}`).toBe(periods);
+    for (const l of labels) expect(l, `빈 이름: ${labels}`).not.toBe('');
+    // 값도 각자 달린다.
+    const nows = await bars.evaluateAll((ns) => ns.map((n) => n.getAttribute('aria-valuenow')));
+    for (const v of nows) expect(v, `valuenow: ${nows}`).toMatch(/^\d+$/);
+  });
+
+  test('V-M11-37: 모를 때는 바 하나가 서고 값이 없다 (FR-M11-19 · FR-M11-16)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    await expect(pane.locator('.agp-acct')).toContainText('fake@example', { timeout: 15000 });
+    // **주기를 모르면 개수도 모른다** — 자리는 하나만 세우고 값은 달지 않는다.
+    await expect(pane.locator('.agp-limbar')).toHaveCount(1);
+    await expect(pane.locator('.agp-limbar')).not.toHaveAttribute('aria-valuenow', /.*/);
+  });
+
+  /**
+   * M11_SRS FR-M11-17 (M11-B14) — **다른 탭에 다녀와도 대화는 그 자리다.**
+   *
+   * 접수: *"gui 에서 다른곳에 다녀오면 스크롤이 최상단으로 이동해. 유지해야해."*
+   * 요소가 문서에서 떨어지면 브라우저가 `scrollTop` 을 버리므로 돌아왔을 때 0 이다.
+   *
+   * **맨 위로 올려 두고 재면 안 된다** — 고침이 없어도 0 이 되어 초록이 된다
+   * (M11_PROGRESS §2-3 이 두 번 겪은 함정이다). 그래서 **중간**으로 올린다.
+   */
+  /**
+   * M11_SRS FR-M11-26 (M11-B24) — **바닥에 있을 때만 따라간다.**
+   *
+   * 접수: *"새 글이 있으면 무조건 스크롤을 아래로 내린다. 현재위치 고정해야한다."*
+   * 사용자 결정(§2.6b)은 **바닥 판정**이다 — 최신을 보던 사람은 계속 최신을 보고,
+   * 올려서 읽던 사람은 끌려가지 않는다.
+   *
+   * **둘 다 재야 한다.** 따라가는 쪽만 재면 "아무것도 안 함" 도 초록이고, 지키는
+   * 쪽만 재면 "영영 안 따라감" 도 초록이다.
+   */
+  test('V-M11-48: 바닥이면 따라가고, 올려 두었으면 그 자리다 (FR-M11-26)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    const log = pane.locator('.agp-log');
+
+    for (let i = 0; i < 6; i++) {
+      await send(pane, `say PONG ${i}`);
+      await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
+    }
+    const room = await log.evaluate((n) => n.scrollHeight - n.clientHeight);
+    expect(room, '대화가 스크롤될 만큼 길지 않다').toBeGreaterThan(40);
+
+    // ① **올려 두면 지킨다.** 중간으로 올린다 — 맨 위(0)는 고침 없이도 0 이라 못 가른다.
+    const mid = Math.floor(room / 2);
+    await log.evaluate((n, y) => { n.scrollTop = y; }, mid);
+    await send(pane, 'say PONG again');
+    await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
+    expect(await log.evaluate((n) => n.scrollTop),
+      '읽는 중에 새 글이 와서 끌려갔다 (M11-B24)').toBe(mid);
+
+    // ② **바닥이면 따라간다.** 최신을 보던 사람까지 멈추면 그것도 결함이다.
+    await log.evaluate((n) => { n.scrollTop = n.scrollHeight; });
+    await send(pane, 'say PONG last');
+    await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
+    const gap = await log.evaluate((n) => n.scrollHeight - n.scrollTop - n.clientHeight);
+    expect(gap, `바닥을 보고 있었는데 새 글을 따라가지 않았다 (gap=${gap})`).toBeLessThanOrEqual(4);
+  });
+
+  /**
+   * M11_SRS FR-M11-36 (M11-B34) — **에이전트의 내용은 선택·복사된다.**
+   *
+   * 전역 `body{user-select:none}` 을 터미널만 xterm 안에서 되살리고 있었다. 조작
+   * 자리(버튼·탭)는 **그대로 막혀 있어야 한다** — 드래그가 그쪽의 뜻이다.
+   */
+  test('V-M11-42: 대화는 선택되고 조작 자리는 막혀 있다 (FR-M11-36)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    await send(pane, 'say PONG');
+    await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
+
+    const us = (sel: string) => pane.locator(sel).first()
+      .evaluate((n) => getComputedStyle(n).userSelect || getComputedStyle(n).webkitUserSelect);
+    expect(await us('.agp-log'), '대화를 선택할 수 없다 — 복사가 막힌다').toBe('text');
+    expect(await us('.agp-dash'), '하단 값을 선택할 수 없다').toBe('text');
+    // 조작 자리는 그대로 막혀 있다.
+    expect(await pane.locator('.agp-send, .agp-stop').first()
+      .evaluate((n) => getComputedStyle(n).userSelect || getComputedStyle(n).webkitUserSelect),
+    '버튼까지 선택된다 — 드래그가 그쪽의 뜻이다').not.toBe('text');
+  });
+
+  /**
+   * M11_SRS FR-M11-22 (M11-B20) — **좌우 이동이 터미널과 같다.**
+   *
+   * 접수는 *"ctrl + 좌우화살표"* 로 왔고 사용자가 **`cmd` 로 정정했다**. 터미널은
+   * `Cmd+좌우`=줄 처음·끝, `Alt+좌우`=단어 이동이다 (`term-pane.js`). macOS 의
+   * `Ctrl+좌우` 는 OS 가 가져가므로 두지 않는다.
+   */
+  test('V-M11-45: Cmd·Alt 좌우가 터미널과 같은 일을 한다 (FR-M11-22)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    const ta = pane.locator('.agp-ta');
+    await ta.click();
+    const text = 'hello world\nsecond line';
+    await ta.fill(text);
+    const head = text.indexOf('\n') + 1;   // 둘째 줄의 시작
+    const at = () => ta.evaluate((n: HTMLTextAreaElement) => n.selectionStart);
+
+    // Cmd+← : **그 줄**의 처음 (여러 줄이므로 문서 처음이 아니다)
+    await ta.press('Meta+ArrowLeft');
+    expect(await at(), 'Cmd+← 가 줄 처음으로 가지 않았다').toBe(head);
+    // Cmd+→ : 그 줄의 끝
+    await ta.press('Meta+ArrowRight');
+    expect(await at(), 'Cmd+→ 가 줄 끝으로 가지 않았다').toBe(text.length);
+    // Alt+← : 한 단어 앞 ('line' 의 시작)
+    await ta.press('Alt+ArrowLeft');
+    expect(await at(), 'Alt+← 가 단어 단위로 움직이지 않았다').toBe(text.lastIndexOf('line'));
+  });
+
+  /**
+   * M11_SRS FR-M11-21 (M11-B19) — **입력창은 자라고 1/3 에서 멈춘다.**
+   *
+   * 접수가 상한을 지정했다 — *"탭 크기의 1/3 까지는 커지게 하고 그 이후로 스크롤"*.
+   * **둘 다 재야 한다**: 자라지 않으면 접수 그대로이고, 끝없이 자라면 대화가 밀린다.
+   */
+  test('V-M11-44: 입력창이 자라고 패널의 1/3 에서 멈춘다 (FR-M11-21)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    const ta = pane.locator('.agp-ta');
+    const h = () => ta.evaluate((n) => n.clientHeight);
+
+    const before = await h();
+    await ta.click();
+    await ta.fill('one\ntwo\nthree\nfour\nfive');
+    const grown = await h();
+    expect(grown, `자라지 않았다 (${before} → ${grown})`).toBeGreaterThan(before);
+
+    // 아주 길게 — 상한에 닿아야 한다.
+    await ta.fill('x\n'.repeat(60));
+    const capped = await h();
+    const paneH = await pane.evaluate((n) => n.clientHeight);
+    expect(capped, `1/3 을 넘었다 (${capped} > ${paneH}/3)`).toBeLessThanOrEqual(Math.round(paneH / 3) + 2);
+    expect(await ta.evaluate((n) => getComputedStyle(n).overflowY),
+      '상한에 닿았는데 스크롤이 서지 않았다').toBe('auto');
+
+    // 비우면 되돌아간다 — `height` 를 비우고 다시 재지 않으면 갇힌다.
+    await ta.fill('');
+    expect(await h(), '지웠는데 줄어들지 않았다').toBeLessThan(capped);
+  });
+
+  /**
+   * M11_SRS FR-M11-23 (M11-B21) — **md 로 그리되 원문으로 되돌 수 있다.**
+   *
+   * 원본도 md 를 **렌더한다** (§2.10 (8) — 표를 박스 드로잉으로 그렸다). 다만 출력이
+   * 늘 md 인 것은 아니므로(로그·표·ASCII 아트) **되돌릴 길**을 함께 둔다 — 사용자
+   * 결정(§2.6b)이 그 짝을 요구했다.
+   *
+   * **정화를 지나는지도 잰다.** 여기 오는 문자열은 에이전트가 준 것이다.
+   */
+  test('V-M11-46: 출력이 md 로 그려지고 원문 토글이 되돌린다 (FR-M11-23)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    await send(pane, 'MARKDOWN please');
+    await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
+
+    const body = pane.locator('.agp-msg.agp-assistant .agp-body').last();
+    // ① md 가 **요소**가 되었다 — 글자로 남지 않았다.
+    await expect(body.locator('h1')).toHaveText('Title', { timeout: 15000 });
+    await expect(body.locator('li')).toHaveCount(2);
+    await expect(body.locator('table td')).toHaveCount(2);
+    expect(await body.textContent(), 'md 기호가 글자로 남았다').not.toContain('# Title');
+
+    // ② 원문 토글이 되돌린다.
+    const msg = pane.locator('.agp-msg.agp-assistant').last();
+    await msg.locator('.agp-raw-toggle').click();
+    expect(await body.textContent(), '원문으로 돌아가지 않았다').toContain('# Title');
+    expect(await body.locator('h1').count(), '원문인데 요소가 남았다').toBe(0);
+
+    // ③ 다시 누르면 md 다 — 왕복한다.
+    await msg.locator('.agp-raw-toggle').click();
+    await expect(body.locator('h1')).toHaveText('Title');
+  });
+
+  /**
+   * M11_SRS FR-M11-27 (M11-B25) — **접힌 채로도 무엇인지 보인다.**
+   *
+   * 접수: *"접히는 출력에서 요약정도는 해줘라 뭔지는 알아야지. n 줄 이내면 그냥
+   * 출력해도좋다."* 사용자 결정(§2.6b): **5줄 이내는 그대로, 넘으면 앞뒤 2줄씩**.
+   *
+   * **끝줄이 보이는지가 요점이다** — 도구 출력은 결론이 끝에 있다. 앞만 보이는
+   * 구현도 "요약이 있다" 는 말은 만족시키므로, 그것을 가르는 단언을 둔다.
+   */
+  test('V-M11-49: 접힌 도구가 앞뒤와 남은 줄 수를 보인다 (FR-M11-27)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    await send(pane, 'LONGTOOL please');
+    const dlg = page.locator('.ui-modal.agp-modal .ui-modal-box');
+    await expect(dlg).toBeVisible({ timeout: 15000 });
+    await dlg.locator('.agp-choice[data-choice="allow"]').click();
+
+    const card = pane.locator('.agp-tool').first();
+    await expect(card).toBeVisible({ timeout: 15000 });
+    // 머리가 **무엇을 했는지** 말한다 — 인자를 담는다 (원본의 `Bash(seq 1 40)`).
+    await expect(card.locator('.agp-tool-head')).toContainText('seq 1 40');
+
+    const peek = card.locator('.agp-tool-peek');
+    await expect(peek).toBeVisible({ timeout: 15000 });
+    const text = (await peek.textContent()) || '';
+    expect(text, `앞이 안 보인다: ${text}`).toContain('line-01');
+    expect(text, `**끝이 안 보인다** — 결론은 끝에 있다: ${text}`).toContain('line-40');
+    expect(text, `남은 줄 수를 말하지 않는다: ${text}`).toMatch(/36/);
+    // 가운데는 접혔다.
+    expect(text, `접히지 않았다: ${text}`).not.toContain('line-20');
+
+    // 펼치면 전문이 서고 엿보기는 물러난다 — 같은 글이 두 번 서지 않는다.
+    await card.locator('.agp-tool-head').click();
+    await expect(card.locator('.agp-tool-res')).toContainText('line-20');
+    await expect(peek).toBeHidden();
+  });
+
+  /**
+   * 짧은 출력은 **접지 않는다** — *"n 줄 이내면 그냥 출력해도좋다"*. 접는 쪽만 재면
+   * "언제나 접음" 도 초록이다.
+   */
+  test('V-M11-49b: 짧은 출력은 그대로 보인다 (FR-M11-27)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    await send(pane, 'please APPROVE this');
+    const dlg = page.locator('.ui-modal.agp-modal .ui-modal-box');
+    await expect(dlg).toBeVisible({ timeout: 15000 });
+    await dlg.locator('.agp-choice[data-choice="allow"]').click();
+
+    const peek = pane.locator('.agp-tool').first().locator('.agp-tool-peek');
+    await expect(peek).toBeVisible({ timeout: 15000 });
+    expect((await peek.textContent()) || '', '짧은 출력을 접었다').not.toMatch(/줄 더|more lines/);
+  });
+
+  test('V-M11-51: 다른 탭에 다녀와도 대화 스크롤이 그 자리다 (FR-M11-17)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    const log = pane.locator('.agp-log');
+
+    // 스크롤이 생길 만큼 쌓는다 — 긴 출력을 내는 시나리오가 없으므로 턴을 돈다.
+    for (let i = 0; i < 6; i++) {
+      await send(pane, `say PONG ${i}`);
+      await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
+    }
+    const room = await log.evaluate((n) => n.scrollHeight - n.clientHeight);
+    expect(room, '대화가 스크롤될 만큼 길지 않다 — 이 검사는 그때 아무것도 재지 못한다')
+      .toBeGreaterThan(40);
+
+    // **중간**으로 올린다. 사용자가 과거를 읽는 자리다.
+    const mid = Math.floor(room / 2);
+    await log.evaluate((n, y) => { n.scrollTop = y; }, mid);
+    await expect.poll(() => log.evaluate((n) => n.scrollTop), { timeout: 5000 }).toBe(mid);
+
+    // 다른 탭을 만들어 다녀온다 — 접수한 그 경로다.
+    const tabs = page.locator('#area .pn.focused .pn-tab');
+    const n = await tabs.count();
+    await page.locator('#area .pn.focused .pn-tab-add').click();
+    await expect(tabs).toHaveCount(n + 1, { timeout: 10000 });
+    await tabs.nth(n - 1).click();
+    await expect(pane).toBeVisible({ timeout: 10000 });
+
+    expect(await log.evaluate((el) => el.scrollTop),
+      '다른 곳에 다녀오니 대화가 맨 위로 갔다 (M11-B14)').toBe(mid);
+  });
+
+  test('V-M11-34: 아는 0 은 0 으로 적는다 (FR-M11-16 · FR-CBG-5)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    await expect(pane.locator('.agp-acct')).toContainText('fake@example', { timeout: 15000 });
+
+    await expect(pane.locator('.agp-open')).toBeVisible();
+    await expect(pane.locator('.agp-open')).toContainText('0');
+    await expect(pane.locator('.agp-open'),
+      '세어서 아는 0 을 모름으로 덮었다').not.toContainText('알 수 없음');
   });
 
   test('V-M11-8: 도구 사용은 접힌 채 서고 눌러야 펴진다 (FR-M11-4)', async ({ page }) => {

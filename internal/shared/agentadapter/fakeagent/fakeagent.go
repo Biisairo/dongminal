@@ -216,6 +216,18 @@ func (a *agent) turn(text string) (int, bool) {
 			[]map[string]any{{"type": "setMode", "mode": "acceptEdits", "destination": "session"}}, "DONE")
 	case strings.Contains(text, "QUESTION"):
 		a.questionTurn()
+	case strings.Contains(text, "LONGTOOL"):
+		// 40줄 — `AGENT_PEEK_FULL_LINES`(5) 를 넘으므로 앞뒤만 보여야 한다.
+		lines := make([]string, 0, 40)
+		for i := 1; i <= 40; i++ {
+			lines = append(lines, fmt.Sprintf("line-%02d", i))
+		}
+		a.toolTurnOut("Bash", map[string]any{"command": "seq 1 40", "description": "long output"},
+			nil, "DONE", strings.Join(lines, "\n"))
+	case strings.Contains(text, "MARKDOWN"):
+		// M11_SRS FR-M11-23 (M11-B21): 출력은 md 로 그려진다. 원본이 그렇게 하며
+		// (§2.10 (8) — 표를 박스로 그린다), 그것을 재려면 md 를 내는 턴이 있어야 한다.
+		a.text("# Title\n\n- one\n- two\n\n| a | b |\n| --- | --- |\n| 1 | 2 |\n")
 	case strings.Contains(text, "SLOW"):
 		if a.slowText() {
 			// 인터럽트로 끊겼다 — aborted result.
@@ -308,7 +320,14 @@ func (a *agent) awaitResponse(id string) (map[string]any, bool) {
 	return nil, false
 }
 
+// toolTurn 은 결과가 짧은 보통의 도구 턴이다.
 func (a *agent) toolTurn(tool string, input map[string]any, suggestions []map[string]any, finalText string) {
+	a.toolTurnOut(tool, input, suggestions, finalText, "("+tool+" completed with no output)")
+}
+
+// toolTurnOut 은 **결과 본문을 고른다** — M11_SRS FR-M11-27 (M11-B25) 의 접힘 요약은
+// 결과가 길 때만 갈리므로, 그것을 재려면 긴 출력을 내는 턴이 있어야 한다.
+func (a *agent) toolTurnOut(tool string, input map[string]any, suggestions []map[string]any, finalText, out string) {
 	toolUse := newID("toolu")
 	a.emit(map[string]any{"type": "stream_event", "parent_tool_use_id": nil,
 		"event": map[string]any{"type": "content_block_start", "index": 0, "content_block": map[string]any{"type": "tool_use", "id": toolUse, "name": tool, "input": map[string]any{}}}})
@@ -338,7 +357,7 @@ func (a *agent) toolTurn(tool string, input map[string]any, suggestions []map[st
 		}
 	}
 	a.emit(map[string]any{"type": "user", "parent_tool_use_id": nil, "message": map[string]any{"role": "user",
-		"content": []map[string]any{{"tool_use_id": toolUse, "type": "tool_result", "content": "(" + tool + " completed with no output)", "is_error": false}}},
+		"content": []map[string]any{{"tool_use_id": toolUse, "type": "tool_result", "content": out, "is_error": false}}},
 		"tool_use_result": map[string]any{"stdout": "", "stderr": ""}})
 	a.emit(map[string]any{"type": "system", "subtype": "status", "status": "requesting"})
 	a.messageStart()

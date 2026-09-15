@@ -57,6 +57,37 @@ function shape(page: Page) {
   });
 }
 
+/** 그 클라이언트가 지금 보고 있는 Pane 의 id. */
+const focusedOf = (page: Page) => page.evaluate(() => (window as any).app.focused as string);
+
+/** **활성 창 안의** Pane id 들 — 다른 창의 Pane 은 시선 판정에 끼지 않는다. */
+const activePanes = (page: Page) => page.evaluate(() => {
+  const app = (window as any).app;
+  const w = app.ws.windows.find((x: any) => x.id === app.ws.activeWindow);
+  const out: string[] = [];
+  const walk = (n: any) => {
+    if (!n) return;
+    if (n.type === 'pane') out.push(n.id);
+    for (const c of n.children || []) walk(c);
+  };
+  walk(w?.layout);
+  return out;
+});
+
+/** 그 탭을 품은 Pane 의 id (활성 창 안). */
+const ownerPane = (page: Page, tabId: string) => page.evaluate((tid) => {
+  const app = (window as any).app;
+  const w = app.ws.windows.find((x: any) => x.id === app.ws.activeWindow);
+  let owner: string | null = null;
+  const walk = (n: any) => {
+    if (!n) return;
+    if (n.type === 'pane' && (n.tabs || []).some((t: any) => t.id === tid)) owner = n.id;
+    for (const c of n.children || []) walk(c);
+  };
+  walk(w?.layout);
+  return owner;
+}, tabId);
+
 const toolCount = async (request: any) =>
   ((await (await request.get('/api/state')).json()).tools || []).length;
 
@@ -191,16 +222,29 @@ test.describe('묶음 X — 생성 명령은 한 클라이언트만 수행한다
     await A.ctx.close(); await B.ctx.close();
   });
 
-  test('TC-SXE-7: focus 는 게이팅되지 않는다 — 두 클라이언트 모두 수행한다', async ({ browser, request }) => {
+  /**
+   * **계약이 바뀌었다** (M11_SRS FR-M11-10 · 커밋 `007dc96`).
+   *
+   *   이전: focus 는 게이팅되지 않는다 — 붙어 있는 클라이언트 **모두** 수행한다
+   *   지금: `focus` 도 지명 목록에 든다 — **한 곳에서만** 돈다
+   *   이유: 종전 근거는 *"focus is per-client by definition"* 이었다. 그 말이 참인
+   *         것은 **로컬 조작**일 때다. `/api/commands` 로 온 focus 는 남의 기기에서
+   *         낸 명령이고, 게이팅하지 않으면 붙어 있는 모든 브라우저의 시선을 함께
+   *         끌고 간다 (접수 M11-B9 — *"화면이 막 맘대로 바껴"*).
+   *
+   * **둘을 target 이 아닌 Pane 에 함께 세운다.** 실행자가 이미 그 자리에 있으면
+   * 게이팅이 없어도 초록이 된다 (M11_PROGRESS §2-2 — 두 번 겪은 함정이다).
+   */
+  test('TC-SXE-7: focus 는 지명된 클라이언트에서만 돈다 (FR-M11-10)', async ({ browser, request }) => {
     const A = await newClient(browser);
     const B = await newClient(browser);
     await sseReady(A.page, B.page);
 
     // 분할해 Pane 을 2개로 만든 뒤, 두 번째 Pane 의 탭을 대상으로 focus 를 보낸다.
     await request.post('/api/commands', { data: { action: 'splitV', args: {} } });
-    await expect.poll(async () => (await shape(A.page)).panes.length, { timeout: 10000 })
+    await expect.poll(async () => (await activePanes(A.page)).length, { timeout: 10000 })
       .toBeGreaterThanOrEqual(2);
-    await expect.poll(async () => (await shape(B.page)).panes.length, { timeout: 10000 })
+    await expect.poll(async () => (await activePanes(B.page)).length, { timeout: 10000 })
       .toBeGreaterThanOrEqual(2);
 
     const st = await (await request.get('/api/state')).json();
@@ -214,25 +258,30 @@ test.describe('묶음 X — 생성 명령은 한 클라이언트만 수행한다
       walk(w.layout);
     }
     const target = tabs[tabs.length - 1];
+
+    const owner = await ownerPane(A.page, target.id);
+    expect(owner, 'target 탭을 품은 Pane 을 찾지 못했다').toBeTruthy();
+    const away = (await activePanes(A.page)).find((id) => id !== owner);
+    expect(away, 'target 이 아닌 Pane 이 없다').toBeTruthy();
+
+    // 둘 다 target 이 **아닌** 자리에 세운다. 지명은 `FocusRegistry.Executor()` 가
+    // 고르며 **가장 최근에 주장한** 클라이언트다 — 그래서 B 가 실행자다.
+    for (const p of [A.page, B.page]) {
+      await p.evaluate((id) => (window as any).app.setFocus(id), away);
+    }
+    await expect.poll(() => focusedOf(A.page), { timeout: 10000 }).toBe(away);
+    await expect.poll(() => focusedOf(B.page), { timeout: 10000 }).toBe(away);
+    await B.page.evaluate(() => (window as any).app.setFocus((window as any).app.focused));
+
     const r = await request.post('/api/commands', { data: { action: 'focus', args: { location: target.id } } });
     expect(r.status()).toBe(200);
 
-    // 두 클라이언트 모두 자기 뷰의 포커스를 그 탭이 있는 Pane 으로 옮겨야 한다.
-    for (const [name, p] of [['A', A.page], ['B', B.page]] as const) {
-      await expect.poll(() => p.evaluate((tid) => {
-        const app = (window as any).app;
-        const w = app.ws.windows.find((x: any) => x.id === app.ws.activeWindow);
-        let owner: string | null = null;
-        const walk = (n: any) => {
-          if (!n) return;
-          if (n.type === 'pane' && (n.tabs || []).some((t: any) => t.id === tid)) owner = n.id;
-          for (const c of n.children || []) walk(c);
-        };
-        walk(w?.layout);
-        return owner !== null && app.focused === owner;
-      }, target.id), { timeout: 10000 }).toBe(true);
-      void name;
-    }
+    // 지명된 B 만 그 Pane 으로 옮겨간다.
+    await expect.poll(() => focusedOf(B.page), { timeout: 10000 }).toBe(owner);
+    // A 는 **그대로여야 한다**. 방송은 둘에게 이미 갔으므로 여기서는 기다리지 않고
+    // 잰다 — 기다리면 "아직 안 온 것" 과 "오지 않는 것" 이 섞인다 (V-M11-25 와 같은 손).
+    expect(await focusedOf(A.page),
+      'A 는 명령을 내지도 받지도 않았는데 시선이 옮겨졌다 (M11-B9)').toBe(away);
 
     await A.ctx.close(); await B.ctx.close();
   });

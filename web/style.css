@@ -181,6 +181,12 @@ body{user-select:none;-webkit-user-select:none}
 input,
 textarea,
 [contenteditable]{user-select:text;-webkit-user-select:text}
+/* FR-M11-36 (M11-B34): **에이전트의 읽는 영역은 선택·복사된다.**
+   접수: *"터미널만 텍스트 선택이 가능한 상황인데 agent 의 내용들은 복사 가능해야한다."*
+   위의 전역 `user-select:none` 은 그대로 둔다 — 조작 자리(버튼·탭)에서는 드래그가
+   그쪽의 뜻이다. 되살리는 것은 **읽는 자리 셋**뿐이며, 터미널이 xterm 안에서 하는
+   일과 같은 예외다. */
+.agp-log,.agp-dash,.agp-modal .ui-modal-box{user-select:text;-webkit-user-select:text}
 /* **끌 수 있는 것은 끌 수 있어야 한다** (M9_SRS FR-M9-27 보강, 2026-09-14 접수).
    WebKit 에서 `-webkit-user-select:none` 은 네이티브 드래그를 함께 막는다 —
    `draggable` 이 참이어도 `dragstart` 가 나지 않는다. Chromium 은 이 값을
@@ -766,6 +772,10 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .agp-tool-head{cursor:pointer}
 .agp-tool:not([open])>.agp-tool-head{border-bottom:0}
 .agp-tool-res-head.agp-err{color:var(--danger-text)}
+/* FR-M11-27 (M11-B25): 접힌 채로 보이는 엿보기 — 펼치면 본문이 그 자리를 대신한다. */
+.agp-tool-peek{display:block;margin:2px 0 0;font-family:var(--mono);white-space:pre-wrap;
+  color:var(--text-hint);word-break:break-all;font-size:var(--fs-md)}
+.agp-tool[open] .agp-tool-peek{display:none}
 .agp-tool-in,.agp-tool-res{margin:0;padding:6px 8px;font-family:var(--mono);white-space:pre-wrap;word-break:break-all;max-height:240px;overflow:auto}
 .agp-line{font-size:var(--fs-sm);color:var(--text-hint);text-align:center}
 .agp-line.agp-err{color:var(--danger-text)}
@@ -775,6 +785,25 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .agp-line.agp-dormant[data-dormant="error"]{border-color:var(--danger-text);color:var(--danger-text)}
 .agp-raw{font-size:var(--fs-xs);color:var(--text-hint)}
 .agp-raw pre{margin:2px 0;white-space:pre-wrap;word-break:break-all}
+/* FR-M11-23 (M11-B21): **md 로 그린 본문.** 문서 뷰(`doc-render`)와 같은 손으로
+   그리지만 대화 안이므로 여백을 줄인다 — 블록마다 한 줄을 띄우면 대화가 흩어진다. */
+.agp-body>*:first-child{margin-top:0}
+.agp-body>*:last-child{margin-bottom:0}
+.agp-body p{margin:.35em 0}
+.agp-body ul,.agp-body ol{margin:.35em 0;padding-left:1.4em}
+.agp-body pre{margin:.4em 0;padding:6px 8px;border-radius:4px;background:var(--bg);overflow:auto}
+.agp-body code{font-family:var(--mono);font-size:var(--fs-md)}
+.agp-body table{border-collapse:collapse;margin:.4em 0}
+.agp-body th,.agp-body td{border:1px solid var(--border);padding:2px 6px}
+.agp-body blockquote{margin:.35em 0;padding-left:8px;border-left:2px solid var(--border);color:var(--text-hint)}
+/* 원문 토글 — 이름 줄의 오른쪽 끝에 조용히 선다. */
+.agp-raw-toggle{
+  margin-left:6px;padding:0 5px;border:1px solid var(--border);border-radius:3px;
+  background:transparent;color:var(--text-hint);font:inherit;font-size:var(--fs-sm);cursor:pointer;
+}
+.agp-raw-toggle:hover{color:var(--text);border-color:var(--accent-border)}
+/* 원문 보기에서는 줄바꿈과 공백을 그대로 지킨다 — 그것이 "원문" 의 뜻이다. */
+.agp-msg[data-raw="1"] .agp-body{white-space:pre-wrap;font-family:var(--mono)}
 .agp-input{flex:0 0 auto;border-top:1px solid var(--border);padding:6px 8px;display:flex;flex-direction:column;gap:4px}
 .agp-input-row{display:flex;gap:6px;align-items:flex-end}
 .agp-ta{flex:1;resize:none;font:inherit;font-size:var(--fs-md);padding:6px 8px;color:var(--text);background:var(--bg);
@@ -993,14 +1022,29 @@ kbd{background:var(--border);border:1px solid var(--accent-border);border-radius
 /* M9_SRS FR-M9-36: 올리기 진입점. 조건이 설 때만 `hidden` 이 풀린다 — 평소 터미널
    위에는 아무것도 없다. 출력을 가리는 면적을 줄이려 아이콘 하나다. */
 /* ── 에이전트 대시보드 (M9_SRS FR-M9-39·40 / M9-B20·B22) ──
-   머리에 늘어서던 값들이 여기로 내려왔다. 값이 없는 항목은 `:empty` 로 사라지므로
-   빈 자리가 남지 않는다 — "모른다" 를 빈 칸으로 보이지 않게 하는 자리다. */
+   머리에 늘어서던 값들이 여기로 내려왔다.
+
+   **자리는 항상 선다** (FR-M11-16 / M11-B13). 종전에는 값이 없는 항목을 `:empty` 로
+   지웠는데, 그 빈 자리가 *"그런 항목이 아예 없다"* 로 읽힌 것이 접수였다. 지금은
+   `_dashUnknown()` 이 모든 자리에 모름을 적으므로 지울 것이 없다. */
 .agp-dash{
   display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;
   padding:4px 8px;border-top:1px solid var(--border);
-  font-size:var(--fs-xs);color:var(--text-hint);
+  /* FR-M11-15 (M11-B12·B16): **터미널과 같은 크기다.** 종전 `--fs-xs`(9px)는 읽히지
+     않았고, 기준은 터미널이다 — 그쪽도 이 토큰을 읽는다 (`term-pane.js`). */
+  font-size:var(--fs-lg);color:var(--text-hint);
 }
-.agp-dash>span:empty{display:none}
+/* FR-M11-20 (M11-B18): **항목은 눈으로 갈린다.**
+   원본은 `│` 문자를 구분자로 쓴다 (§2.10 (1) 실측 — `◆ Opus(H) │ ░░░ │ 3% │ …`).
+   여기서는 같은 일을 **테두리**로 한다: 문자로 두면 i18n 카탈로그 밖의 글자가 되고
+   선택·복사에 섞인다. 첫 항목에는 선이 서지 않는다. */
+.agp-dash>*{padding-left:10px;border-left:1px solid var(--border)}
+.agp-dash>*:first-child{padding-left:0;border-left:0}
+/* 주기 한 칸 — 이름·수치와 그 게이지가 함께 든다 (FR-M11-19 개정). */
+.agp-limits{display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap}
+.agp-limit{display:inline-flex;align-items:center;gap:5px}
+/* 칸 **안**의 게이지는 자기 몫의 선을 긋지 않는다. */
+.agp-limit>*{border-left:0;padding-left:0}
 /* 바는 값이다 — `role=progressbar` 가 붙어 있고 폭이 비율이다 (FR-M9-40). */
 .agp-bar{flex:0 0 auto;width:72px;height:6px;border-radius:3px;background:var(--border);overflow:hidden}
 .agp-bar-fill{height:100%;width:0;background:var(--accent)}

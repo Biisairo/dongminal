@@ -739,6 +739,35 @@ export async function waitShellReady(page: any, sel = '#area .pn.focused .xterm-
 }
 
 /**
+ * 그 도구에서 **무언가가 돌게 한다** — 전경이 비면 올릴 수 없다 (FR-M11-12).
+ *
+ * e2e 의 터미널에는 진짜 에이전트가 없다. 검사들은 훅이 하는 보고만 흉내 내는데
+ * (`/api/runs/context`·`/api/tools/activity/set`), 그 셸 자신은 프롬프트에 서 있다.
+ * 실제 사용에서 전경을 채우는 것은 에이전트 프로세스이고, 여기서는 그 자리를
+ * 잠자는 명령 하나로 대신한다 — 무엇이 도는지는 상관이 없다. 서버는 이름을 맞춰
+ * 보지 않으므로(FR-SKL-2) **돌고 있다는 사실**만 있으면 된다.
+ *
+ * **선 것을 확인하고 돌아온다.** 진입점을 묻는 계기는 탭 이동과 활동 신호뿐이고
+ * 되풀이되지 않는다 (M11-B10 이 같은 자리다) — 늦게 서면 그 계기를 이미 지나쳐
+ * 버튼이 영영 서지 않는다. 묻는 종단은 서버가 `liftable` 을 낼 때 보는 것과
+ * **같은 `Tools.Busy`** 다.
+ */
+export async function keepToolBusy(page: any, toolId?: string | null): Promise<string> {
+  const id = await page.evaluate((t: string | null | undefined) => {
+    const app = (window as any).app;
+    const p = t ? app.tools.get(t) : [...app.tools.values()][0];
+    p._sendText('sleep 300\r');
+    return p.id as string;
+  }, toolId);
+  await expect
+    .poll(() => page.evaluate((t: string) => fetch(`/api/tools/${t}/busy`)
+      .then((r: any) => r.json()).then((j: any) => !!j.busy), id),
+    { timeout: 15000, message: '전경 프로세스가 서지 않았다 (FR-M11-12)' })
+    .toBe(true);
+  return id;
+}
+
+/**
  * 그 저장소의 Repo 창을 열고 git 뷰를 화면에 세운다 (FR-EHR-4).
  *
  * **창의 모양이 바뀌었다** (REPO_TAB_UNIFY_SRS).
