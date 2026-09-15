@@ -50,19 +50,36 @@ func claudeDecodeFrame(fr claudeFrame, st *ProtoState) ([]Event, bool) {
 		if err := json.Unmarshal(fr.Message, &m); err != nil {
 			return nil, false
 		}
-		return []Event{{Kind: EvMessage, SessionID: fr.SessionID, Message: m.Content}}, true
+		// FR-M12-1~3: 블록을 공통 어휘로 옮긴다 — 브라우저가 claude 의 입력 키를
+		// 알지 않아도 되게 한다.
+		return []Event{{Kind: EvMessage, SessionID: fr.SessionID, Message: claudeAnnotateBlocks(m.Content)}}, true
 	case "user":
 		return claudeDecodeUser(fr)
 	case "result":
 		x.inTurn = false
-		u := &ProtoUsage{Tokens: fr.Usage.context(), CostUSD: fr.CostUSD}
+		/**
+		 * M12_SRS FR-M12-11 (V-M12-27): **컨텍스트는 마지막 요청의 것이다.**
+		 *
+		 * 최상위 `usage` 는 **턴 안의 요청들을 합한 값**이라 컨텍스트로 쓸 수 없다
+		 * (실측 2026-09-16: 도구 셋을 쓴 턴에서 합 103574 · 순간 26051). 긴 세션에서
+		 * 그 합이 창을 훌쩍 넘고, 접수한 *"462%"* 가 그 몫이다.
+		 *
+		 * **캐시도 같은 요청의 것을 싣는다** — 그래야 `Tokens = Input+CacheWrite+
+		 * CacheRead` 가 화면에서 성립한다. 한쪽만 옮기면 나란히 적힌 수가 서로를
+		 * 부정한다.
+		 *
+		 * **출력과 비용은 턴의 합이 옳다**: 그것은 *이 턴이 얼마를 썼나* 이지
+		 * *지금 컨텍스트가 얼마인가* 가 아니다. 둘을 같은 규칙으로 밀지 않는다.
+		 */
+		last := fr.Usage.last()
+		u := &ProtoUsage{Tokens: last.context(), CostUSD: fr.CostUSD}
+		if last != nil {
+			u.CacheRead, u.CacheWrite = last.CacheRead, last.CacheWrite
+		}
 		if fr.Usage != nil {
 			u.OutputTokens = fr.Usage.Output
-			// FR-M9-34: 오는데 버리던 둘. `Tokens` 는 이 둘을 합산한 채로 두므로
-			// 기존 컨텍스트 % 의 뜻이 바뀌지 않는다.
-			u.CacheRead, u.CacheWrite = fr.Usage.CacheRead, fr.Usage.CacheWrite
 		}
-		if name, mu, ok := claudePickModelUsage(fr.ModelUsage); ok {
+		if name, mu, ok := claudePickModelUsage(fr.ModelUsage, x.model); ok {
 			u.Model, u.ContextWindow = name, mu.ContextWindow
 		}
 		reason := fr.TermReason
@@ -102,6 +119,10 @@ func claudeDecodeSystem(fr claudeFrame, x *claudeExt, st *ProtoState) ([]Event, 
 	case "init":
 		if fr.SessionID != "" {
 			st.SessionID = fr.SessionID
+		}
+		// FR-M12-6: `modelUsage` 의 키와 같은 이름이 여기서만 온다.
+		if fr.Model != "" {
+			x.model = fr.Model
 		}
 		return []Event{{Kind: EvSession, SessionID: fr.SessionID,
 			Status: &ProtoStatus{Model: fr.Model, PermissionMode: fr.PermMode}}}, true
@@ -159,6 +180,11 @@ func claudeDecodeStream(fr claudeFrame, x *claudeExt) ([]Event, bool) {
 		if !x.inTurn {
 			x.inTurn = true
 			evs = append(evs, Event{Kind: EvTurnStart, SessionID: fr.SessionID})
+		}
+		// FR-M12-6: `init` 이 아직 안 왔으면 이 이름이라도 들고 있는다 — 정본 이름이라
+		// `canonicalModel` 로 되짚는다. **키 이름을 덮지 않는다**: init 쪽이 더 정확하다.
+		if ev.Message != nil && ev.Message.Model != "" && x.model == "" {
+			x.model = ev.Message.Model
 		}
 		if ev.Message != nil && ev.Message.Usage != nil {
 			mu := ev.Message.Usage
@@ -287,18 +313,55 @@ func claudeResultText(raw json.RawMessage) string {
 	return strings.Join(parts, "\n")
 }
 
-// claudePickModelUsage 는 `result.modelUsage` 에서 대표 항목을 고른다 — 보통 하나다.
-// 둘 이상이면 이름순 첫 것이다 (결정적).
-func claudePickModelUsage(m map[string]claudeModelUsage) (string, claudeModelUsage, bool) {
+// claudePickModelUsage 는 `result.modelUsage` 에서 **이 세션의 모델**을 고른다
+// (M12_SRS FR-M12-6 / V-M12-15~17).
+//
+// **종전 주석은 *"보통 하나다"* 였고 그것이 틀렸다** (실측 2026-09-16): claude Code 가
+// 제목 생성 등에 haiku 를 함께 쓰므로 항목이 거의 언제나 **둘**이다.
+//
+//	claude-haiku-4-5-20251001  contextWindow  200000
+//	claude-opus-5[1m]          contextWindow 1000000
+//
+// 종전 코드는 사전순 첫 항목을 골랐고(`h` < `o`), 그래서 **opus 대화의 토큰을 haiku 의
+// 창으로 나누었다** — 접수한 *"300% 넘게"* 가 그 몫이다. 분자(`usage`)는 턴별이라
+// 옳았고 틀린 것은 분모다.
+//
+// 되짚는 손이 둘인 것은 이름이 자리마다 다르기 때문이다 — `init` 은 키와 같은
+// `claude-opus-5[1m]`, `message_start` 는 정본 `claude-opus-5` 를 준다.
+//
+// **못 찾으면 고르지 않는다** (D-M12-3): 남의 창으로 그리느니 창을 비운다. 그때
+// 화면은 토큰만 적는다 (`agent.ctx_unknown`) — 그것이 300% 보다 정확하다.
+func claudePickModelUsage(m map[string]claudeModelUsage, model string) (string, claudeModelUsage, bool) {
 	if len(m) == 0 {
 		return "", claudeModelUsage{}, false
 	}
+	if model == "" {
+		// 세션 모델을 아직 모른다 (`init` 전). 항목이 하나뿐이면 그것이 그 턴의
+		// 전부이므로 고르고, 여럿이면 **고르지 않는다** — 사전순으로 집던 종전
+		// 동작이 곧 이 결함이었다.
+		if len(m) == 1 {
+			for k, v := range m {
+				return k, v, true
+			}
+		}
+		return "", claudeModelUsage{}, false
+	}
+	if v, ok := m[model]; ok {
+		return model, v, true
+	}
+	// 키가 안 맞으면 정본 이름으로 되짚는다. 여러 항목이 같은 정본을 말할 수는
+	// 없으나(판마다 키가 다르다) 순서를 고정해 결정적으로 고른다.
 	names := make([]string, 0, len(m))
 	for k := range m {
 		names = append(names, k)
 	}
 	sort.Strings(names)
-	return names[0], m[names[0]], true
+	for _, k := range names {
+		if m[k].CanonicalModel == model {
+			return k, m[k], true
+		}
+	}
+	return "", claudeModelUsage{}, false
 }
 
 // claudeDecodeControlRequest 는 CLI→호스트 요청이다. 아는 것은 `can_use_tool` 하나
@@ -414,7 +477,9 @@ func claudeDecodeControlResponse(fr claudeFrame, x *claudeExt, st *ProtoState) (
 		if err := json.Unmarshal(resp.Response, &r); err != nil {
 			return nil, false
 		}
-		s := &ProtoStatus{Models: r.Models, PermissionMode: r.PermMode, Commands: r.Commands}
+		// FR-M12-4: 고르는 화면이 서는 명령에 **선언을 단다.** 종전에는 그 사실이
+		// 화면의 정규식에 적혀 있었다 (누수 L5).
+		s := &ProtoStatus{Models: r.Models, PermissionMode: r.PermMode, Commands: claudeAttachForms(r.Commands)}
 		if r.Account != nil {
 			s.Account = strings.TrimSpace(r.Account.Email + " " + r.Account.Subscription)
 		}
@@ -459,7 +524,8 @@ func claudeParseHistory(line string) ([]Event, bool) {
 		if err := json.Unmarshal(fr.Message, &m); err != nil || len(m.Content) == 0 {
 			return nil, false
 		}
-		return []Event{{Kind: EvMessage, Message: m.Content}}, true
+		// 재생(전사본)도 같은 어휘여야 한다 — 두 길이 다른 것을 주면 화면이 갈린다.
+		return []Event{{Kind: EvMessage, Message: claudeAnnotateBlocks(m.Content)}}, true
 	case "user":
 		evs, ok := claudeDecodeUser(fr)
 		if !ok || len(evs) == 0 {

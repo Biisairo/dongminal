@@ -153,6 +153,16 @@ func (a *ompAgent) turn(text string) (int, bool) {
 		if !a.questionTurn() {
 			return 0, false
 		}
+	case strings.Contains(text, "TOOLARG"):
+		// M12_SRS V-M12-3: omp 도 도구 시작 프레임이 인자를 들고 있다.
+		tid := newID("tc")
+		a.emit(map[string]any{"type": "tool_execution_start", "sessionId": a.sid,
+			"toolName": "shell", "toolCallId": tid, "args": map[string]any{"command": "seq 1 3"}})
+		a.assistant("", map[string]any{"type": "toolCall", "id": tid, "name": "shell",
+			"arguments": map[string]any{"command": "seq 1 3"}})
+		a.emit(map[string]any{"type": "tool_execution_end", "sessionId": a.sid,
+			"toolName": "shell", "toolCallId": tid, "result": "1\n2\n3", "isError": false})
+		a.assistant("TOOLDONE", nil)
 	case strings.Contains(text, "SLOW"):
 		a.slow()
 	default:

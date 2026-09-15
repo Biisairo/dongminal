@@ -554,3 +554,246 @@ func TestClaudeProto_PermissionModesCoverCLI(t *testing.T) {
 		t.Fatalf("중복: %v", p.PermissionModes)
 	}
 }
+
+// V-M12-15·16·17 (M12_SRS FR-M12-6): **창은 그 세션의 모델의 것이다.**
+//
+// 접수: *"지금 300% 넘게 쓰고있으니까 말이야."* 실측(§2.3)이 원인을 갈랐다 —
+// `result.usage` 는 **턴별이라 분자는 옳고**, 틀린 것은 분모다. `modelUsage` 에
+// 항목이 **둘**이고(claude Code 가 제목 생성 등에 haiku 를 쓴다) 사전순 첫 항목이
+// haiku 다. 그 창(200k)으로 opus 대화(최대 1M)를 나누면 100 을 크게 넘는다.
+//
+// 아래 프레임은 2026-09-16 실측에서 **형태만** 옮긴 것이다 (NFR-C-1).
+func TestClaudeProto_ModelUsagePicksSessionModel(t *testing.T) {
+	const initLine = `{"type":"system","subtype":"init","session_id":"sid-m",` +
+		`"model":"claude-opus-5[1m]","permissionMode":"bypassPermissions"}`
+	const resultLine = `{"type":"result","subtype":"success","session_id":"sid-m",` +
+		`"usage":{"input_tokens":2,"cache_creation_input_tokens":25698,` +
+		`"cache_read_input_tokens":0,"output_tokens":3},` +
+		`"modelUsage":{` +
+		`"claude-haiku-4-5-20251001":{"contextWindow":200000,"costUSD":0.002},` +
+		`"claude-opus-5[1m]":{"contextWindow":1000000,"costUSD":0.257}}}`
+
+	usageOf := func(t *testing.T, evs []Event) *ProtoUsage {
+		t.Helper()
+		for _, e := range evs {
+			if e.Kind == EvUsage && e.Usage != nil {
+				return e.Usage
+			}
+		}
+		t.Fatalf("사용량 이벤트가 없다: %s", kinds(evs))
+		return nil
+	}
+
+	// V-M12-15: `init` 이 말한 세션 모델의 키를 고른다.
+	t.Run("키가 맞으면 그것", func(t *testing.T) {
+		p, st := protoOf(t)
+		decode1(t, p, st, initLine)
+		u := usageOf(t, decode1(t, p, st, resultLine))
+		if u.ContextWindow != 1000000 {
+			t.Errorf("창=%d, 기대 1000000 — haiku 의 창으로 opus 대화를 나누면 300%% 가 된다", u.ContextWindow)
+		}
+		if u.Model != "claude-opus-5[1m]" {
+			t.Errorf("모델=%q, 기대 %q", u.Model, "claude-opus-5[1m]")
+		}
+		// 분자는 종전 그대로다 — 2 + 25698 + 0.
+		if u.Tokens != 25700 {
+			t.Errorf("토큰=%d, 기대 25700 (분자의 뜻은 바뀌지 않는다)", u.Tokens)
+		}
+	})
+
+	// V-M12-16: `message_start` 는 **정본 이름**(`claude-opus-5`)을 준다 — 키와 다르다.
+	// 그때는 `canonicalModel` 로 되짚는다.
+	t.Run("키가 안 맞으면 canonicalModel 로", func(t *testing.T) {
+		p, st := protoOf(t)
+		decode1(t, p, st, `{"type":"stream_event","session_id":"sid-m","event":{"type":"message_start",`+
+			`"message":{"model":"claude-opus-5","usage":{"input_tokens":2,`+
+			`"cache_creation_input_tokens":25698,"cache_read_input_tokens":0,"output_tokens":1}}}}`)
+		u := usageOf(t, decode1(t, p, st, `{"type":"result","subtype":"success","session_id":"sid-m",`+
+			`"usage":{"input_tokens":2,"cache_creation_input_tokens":25698,"cache_read_input_tokens":0,"output_tokens":3},`+
+			`"modelUsage":{`+
+			`"claude-haiku-4-5-20251001":{"contextWindow":200000,"canonicalModel":"claude-haiku-4-5"},`+
+			`"claude-opus-5[1m]":{"contextWindow":1000000,"canonicalModel":"claude-opus-5"}}}`))
+		if u.ContextWindow != 1000000 {
+			t.Errorf("창=%d, 기대 1000000 (canonicalModel 로 되짚는다)", u.ContextWindow)
+		}
+	})
+
+	// V-M12-17: 둘 다 못 찾으면 **싣지 않는다.** 남의 창으로 그리지 않는다 (D-M12-3).
+	t.Run("못 고르면 비운다", func(t *testing.T) {
+		p, st := protoOf(t)
+		decode1(t, p, st, `{"type":"system","subtype":"init","session_id":"sid-m","model":"claude-sonnet-5"}`)
+		u := usageOf(t, decode1(t, p, st, `{"type":"result","subtype":"success","session_id":"sid-m",`+
+			`"usage":{"input_tokens":2,"cache_creation_input_tokens":25698,"cache_read_input_tokens":0,"output_tokens":3},`+
+			`"modelUsage":{"claude-haiku-4-5-20251001":{"contextWindow":200000}}}`))
+		if u.ContextWindow != 0 {
+			t.Errorf("창=%d, 기대 0 — 모르는 것을 남의 값으로 말하지 않는다 (FR-CBG-5)", u.ContextWindow)
+		}
+		if u.Model != "" {
+			t.Errorf("모델=%q, 기대 빈 값", u.Model)
+		}
+		// 분자는 여전히 온다 — 화면이 `agent.ctx_unknown` 으로 토큰만 적는다.
+		if u.Tokens != 25700 {
+			t.Errorf("토큰=%d, 기대 25700", u.Tokens)
+		}
+	})
+
+	// 항목이 하나면 종전과 같다 — 그 하나가 세션 모델이 아니어도 고른다.
+	// 실측에서 둘인 것이 흔하나, 하나뿐이면 그것이 그 턴의 전부다.
+	t.Run("항목이 하나면 그것", func(t *testing.T) {
+		p, st := protoOf(t)
+		decode1(t, p, st, initLine)
+		u := usageOf(t, decode1(t, p, st, `{"type":"result","subtype":"success","session_id":"sid-m",`+
+			`"usage":{"input_tokens":2,"cache_creation_input_tokens":25698,"cache_read_input_tokens":0,"output_tokens":3},`+
+			`"modelUsage":{"claude-opus-5[1m]":{"contextWindow":1000000}}}`))
+		if u.ContextWindow != 1000000 {
+			t.Errorf("창=%d, 기대 1000000", u.ContextWindow)
+		}
+	})
+}
+
+// V-M12-9·10 (M12_SRS FR-M12-4) — **고르는 화면은 선언으로 선다.**
+//
+// 접수: *"여전히 /model, /config 같은 tui 들은 사용이 불가"* (M11-B11). **막힌 것은
+// 명령이 아니다** — 원본 TUI 에서 인자 없는 그 둘은 선택 화면을 띄우는데 프로토콜은
+// 사용법 텍스트를 돌려줄 뿐이다 (실측 M11_SRS §2.11 (5)).
+//
+// 종전에는 그 사실이 **화면의 정규식**에 적혀 있었다 (`AGENT_PICK_CMD_RE`, 누수 L5).
+// 적을 자리가 계약에 없었기 때문이다. 이제 어댑터가 선언한다.
+func TestClaudeProto_CommandForms(t *testing.T) {
+	p, st := protoOf(t)
+	// 대기표는 Handshake 가 세운다 — `initialize` 응답은 request_id 만 되돌린다.
+	p.Handshake(LaunchOpts{Bin: "claude"}, st)
+
+	forms := map[string]*CommandForm{}
+	evs := decode1(t, p, st, `{"type":"control_response","response":{"subtype":"success","request_id":"dm-1","response":{"commands":[`+
+		`{"name":"model","description":"Set the AI model","argumentHint":"<model>"},`+
+		`{"name":"config","description":"Open config","argumentHint":"key=value"},`+
+		`{"name":"compact","description":"Free up context"}]}}}`)
+	for _, e := range evs {
+		if e.Status == nil {
+			continue
+		}
+		for _, c := range e.Status.Commands {
+			forms[c.Name] = c.Form
+		}
+	}
+	if len(forms) != 3 {
+		t.Fatalf("명령 셋이어야 한다: %v", forms)
+	}
+	// `/model` — 이미 들고 있는 목록으로 곧바로 서고, 고른 값은 **제어로** 간다.
+	// 그래야 메뉴의 모델 고르기와 **같은 손**이 된다 (누수 L7).
+	m := forms["model"]
+	if m == nil || m.Kind != "models" {
+		t.Fatalf("/model 의 폼: %+v", m)
+	}
+	if m.AwaitResponse {
+		t.Error("/model 은 물을 것이 없다 — 목록을 이미 들고 있다")
+	}
+	if m.Control != "set_model" {
+		t.Errorf("/model 은 제어로 가야 한다 (메뉴와 같은 손): %q", m.Control)
+	}
+	// `/config` — 키·선택지는 **응답이 준다.** 우리가 목록을 지어내지 않는다.
+	c := forms["config"]
+	if c == nil || c.Kind != "keyvalue" || !c.AwaitResponse {
+		t.Fatalf("/config 의 폼: %+v", c)
+	}
+	if c.Control != "" {
+		t.Errorf("/config 에는 대응하는 제어가 없다 — 슬래시 명령으로 간다: %q", c.Control)
+	}
+	// 나머지는 평범한 명령이다 — 모든 명령에 폼을 달지 않는다.
+	if forms["compact"] != nil {
+		t.Errorf("/compact 에 폼이 달렸다: %+v", forms["compact"])
+	}
+}
+
+// V-M12-10: `/config` 응답 텍스트 → 폼의 줄들. 파싱은 결정적이다
+// (실측 M11_SRS §2.11 (5)).
+func TestClaudeProto_CommandFormFill(t *testing.T) {
+	p, _ := protoOf(t)
+	if p.CommandFormFill == nil {
+		t.Fatal("claude 는 `/config` 폼을 채울 수 있어야 한다")
+	}
+	const resp = "Usage: /config key=value [key=value ...]\n" +
+		"  theme=dark|light|auto\n" +
+		"  verbose=true|false\n" +
+		"Some trailing prose that is not a key.\n"
+	got := p.CommandFormFill("config", resp)
+	if len(got) != 2 {
+		t.Fatalf("줄 둘이어야 한다: %+v", got)
+	}
+	if got[0].Key != "theme" || len(got[0].Values) != 3 || got[0].Values[0] != "dark" {
+		t.Errorf("첫 줄: %+v", got[0])
+	}
+	if got[1].Key != "verbose" || len(got[1].Values) != 2 {
+		t.Errorf("둘째 줄: %+v", got[1])
+	}
+	// **모양이 아니면 빈 목록이다** — 그때 화면은 폼을 열지 않고 텍스트가 그대로 선다.
+	if n := len(p.CommandFormFill("config", "그냥 글입니다")); n != 0 {
+		t.Errorf("모양이 아닌 응답에서 %d 줄이 나왔다", n)
+	}
+	// 모르는 명령에는 채울 것이 없다.
+	if n := len(p.CommandFormFill("compact", resp)); n != 0 {
+		t.Errorf("모르는 명령에서 %d 줄이 나왔다", n)
+	}
+}
+
+// V-M12-27 (M12_SRS FR-M12-11): **`result.usage` 는 턴 안의 요청들을 합한 값이다.**
+//
+// **접수자의 가설이 옳았다** (*"누적과 순간이 섞였는지부터 의심하라"*). 앞선 실측이
+// 그것을 반증한 것으로 읽힌 까닭은 **잰 턴이 도구를 쓰지 않아 요청이 하나뿐**이었기
+// 때문이다 — 그때는 합과 순간이 같은 수다.
+//
+// 도구를 세 번 쓰는 턴을 재니 갈렸다 (2026-09-16, 실측):
+//
+//	usage            input 8  cache_creation 26049  cache_read 77517  → 103574  (합)
+//	iterations[-1]   input 2  cache_creation   105  cache_read 25944  →  26051  (순간)
+//
+// `ProtoUsage.Tokens` 의 뜻은 **"마지막 요청의 입력 컨텍스트"** 이므로 합을 실으면
+// 계약을 어기는 것이고, 긴 세션에서 그 수가 창을 훌쩍 넘는다 (접수한 462%).
+func TestClaudeProto_ResultUsageIsPerTurnSum(t *testing.T) {
+	p, st := protoOf(t)
+	// 형태만 옮긴 실측 프레임이다 (NFR-C-1).
+	const line = `{"type":"result","subtype":"success","session_id":"sid-u",` +
+		`"usage":{"input_tokens":8,"cache_creation_input_tokens":26049,` +
+		`"cache_read_input_tokens":77517,"output_tokens":230,` +
+		`"iterations":[{"input_tokens":2,"output_tokens":5,` +
+		`"cache_read_input_tokens":25944,"cache_creation_input_tokens":105,"type":"message"}]}}`
+	var u *ProtoUsage
+	for _, e := range decode1(t, p, st, line) {
+		if e.Kind == EvUsage {
+			u = e.Usage
+		}
+	}
+	if u == nil {
+		t.Fatal("사용량 이벤트가 없다")
+	}
+	if u.Tokens != 26051 {
+		t.Errorf("Tokens=%d, 기대 26051 (마지막 요청의 입력 컨텍스트) — 합(103574)을 실으면 창을 넘는다", u.Tokens)
+	}
+	// 캐시도 같은 요청의 것이어야 `Tokens = Input+CacheWrite+CacheRead` 가 성립한다.
+	if u.CacheRead != 25944 || u.CacheWrite != 105 {
+		t.Errorf("cache=%d/%d, 기대 25944/105 — Tokens 와 같은 요청의 값이어야 한다", u.CacheRead, u.CacheWrite)
+	}
+	// **출력과 비용은 턴의 합이 옳다** — 그것은 *이 턴이 얼마를 썼나* 이지
+	// *지금 컨텍스트가 얼마인가* 가 아니다. 둘을 같은 규칙으로 밀지 않는다.
+	if u.OutputTokens != 230 {
+		t.Errorf("OutputTokens=%d, 기대 230 (턴의 합)", u.OutputTokens)
+	}
+}
+
+// `iterations` 가 없는 프레임은 종전대로 최상위 값을 쓴다 — 그때는 요청이 하나다.
+func TestClaudeProto_ResultUsageWithoutIterations(t *testing.T) {
+	p, st := protoOf(t)
+	const line = `{"type":"result","subtype":"success","session_id":"sid-u",` +
+		`"usage":{"input_tokens":2,"cache_creation_input_tokens":25698,` +
+		`"cache_read_input_tokens":0,"output_tokens":3}}`
+	var u *ProtoUsage
+	for _, e := range decode1(t, p, st, line) {
+		if e.Kind == EvUsage {
+			u = e.Usage
+		}
+	}
+	if u == nil || u.Tokens != 25700 {
+		t.Fatalf("Tokens: %+v, 기대 25700", u)
+	}
+}

@@ -177,6 +177,13 @@ func (a *agent) control(id, subtype, model, mode string) {
 				{"name": "compact", "description": "Free up context", "argumentHint": "<optional instructions>"},
 				{"name": "clear", "description": "Start a new session"},
 				{"name": "model", "description": "Set the AI model", "argumentHint": "<model>"},
+				// M12_SRS FR-M12-4: **`config` 가 목록에 있어야 폼이 선다.**
+				//
+				// 종전에는 화면이 `/model`·`/config` 라는 이름을 정규식으로 알았으므로
+				// 목록에 없어도 폼이 섰다 (누수 L5). 지금은 어댑터의 선언을 보므로
+				// **목록에 없으면 평범한 명령**이다 — 실측한 `initialize` 는 이 명령을
+				// 싣는다(68개 중 하나). 흉내가 원본보다 적으면 검사가 헛돈다.
+				{"name": "config", "description": "Open config", "argumentHint": "key=value"},
 			},
 			"models": []map[string]any{
 				{"value": "default", "displayName": "Default (fake)", "description": "fake default"},
@@ -356,6 +363,12 @@ func (a *agent) text(s string) {
 }
 
 // slowText 는 델타를 천천히 낸다. 사이에 interrupt 가 오면 true.
+// fakeInterruptResultDelay 는 끊김의 응답과 `result` 사이의 틈이다 (FR-M12-12).
+//
+// 실제 claude 에서 그 둘은 같은 순간이 아니다. 값은 **검사가 순서를 가를 수 있을
+// 만큼**이면 되고, 그 이상 늘리면 e2e 가 그만큼 느려진다.
+const fakeInterruptResultDelay = 300 * time.Millisecond
+
 func (a *agent) slowText() bool {
 	a.emit(map[string]any{"type": "stream_event", "parent_tool_use_id": nil,
 		"event": map[string]any{"type": "content_block_start", "index": 0, "content_block": map[string]any{"type": "text", "text": ""}}})
@@ -371,6 +384,16 @@ func (a *agent) slowText() bool {
 				}
 				_ = json.Unmarshal(line, &fr)
 				a.emit(map[string]any{"type": "control_response", "response": map[string]any{"subtype": "success", "request_id": fr.RequestID, "response": map[string]any{"still_queued": []any{}}}})
+				/**
+				 * M12_SRS FR-M12-12 (V-M12-28): **끊김의 응답과 턴의 끝은 다른 순간이다.**
+				 *
+				 * 실제 claude 는 `control_response` 를 곧바로 내고 `result` 는 그 뒤에
+				 * 낸다 — 돌던 요청이 실제로 접히는 데 시간이 걸린다. 종전 흉내는 둘을
+				 * **같은 순간**에 내어, 큐가 끊김보다 먼저 서는 접수를 재현하지 못했다.
+				 *
+				 * 흉내가 원본보다 빠르면 검사가 헛돈다 (M12_PROGRESS §2-6 과 같은 부류).
+				 */
+				time.Sleep(fakeInterruptResultDelay)
 				return true
 			}
 		case <-time.After(100 * time.Millisecond):

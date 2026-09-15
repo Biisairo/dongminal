@@ -1,11 +1,12 @@
 package agentadapter
 
 import (
+	"encoding/json"
 	"path/filepath"
-
-	"dongminal/internal/shared/testpath"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // OMP_AGENT_SUPPORT_SRS §5.1 — 선언과 파서의 검증 V-OMP-1~8.
@@ -192,5 +193,83 @@ func TestLaunchLine_TokenlessAdaptersNeedNoPaths(t *testing.T) {
 		if _, err := ad.LaunchLine("", "haiku", "안녕"); err != nil {
 			t.Fatalf("%s 는 런타임 경로가 필요 없다: %v", id, err)
 		}
+	}
+}
+
+// V-M12-1 (M12_SRS FR-M12-1): omp 의 `tool_use` 블록도 **detail 을 싣는다.**
+//
+// 종전에는 `input` 만 실었고 화면이 그것을 파싱했다 — 그 파싱은 claude 의 키를
+// 알았으므로 omp 에서는 아무것도 뽑지 못했다 (누수 L1·L2).
+func TestOmpProto_ToolBlockDetail(t *testing.T) {
+	p, st := ompProtoOf(t)
+	evs := decode1(t, p, st, `{"type":"message_end","sessionId":"s1","message":{"role":"assistant","content":[`+
+		`{"type":"toolCall","id":"tc-1","name":"shell","arguments":{"command":"echo hi"}}]}}`)
+	var bs []struct {
+		Type   string `json:"type"`
+		Detail string `json:"detail"`
+	}
+	found := false
+	for _, e := range evs {
+		if e.Kind != EvMessage || len(e.Message) == 0 {
+			continue
+		}
+		if err := json.Unmarshal(e.Message, &bs); err != nil {
+			t.Fatalf("블록: %v", err)
+		}
+		for _, b := range bs {
+			if b.Type != "tool_use" {
+				continue
+			}
+			found = true
+			if b.Detail != "echo hi" {
+				t.Errorf("detail=%q, 기대 %q", b.Detail, "echo hi")
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("tool_use 블록이 없다: %s", kinds(evs))
+	}
+}
+
+// V-M12-7 (M12_SRS L8 / §2.2) — **omp 의 명령 목록은 이름뿐이 아니다.**
+//
+// 종전 주석은 *"실측한 프레임에 설명·인자 문법이 없다"* 였고 **그것이 틀렸다.**
+// 2026-09-16 에 omp 17.4.0 을 `--mode rpc-ui` 로 띄워 기동 직후 밀려오는
+// `available_commands_update` 를 원문으로 받았다 — 명령 56개이고 `description` 과
+// `input.hint` 가 둘 다 실려 있다. 아래는 그 프레임에서 **형태만** 옮긴 것이다.
+//
+// 값이 오는데 안 읽는 것은 값이 없는 것과 다르다 (D-M12-2).
+func TestOmpProto_CommandsCarryHintAndDescription(t *testing.T) {
+	p, st := ompProtoOf(t)
+	evs := decode1(t, p, st, `{"type":"available_commands_update","commands":[`+
+		`{"name":"fast","description":"Toggle fast mode","input":{"hint":"[on|off|status]"},`+
+		`"subcommands":[{"name":"on","description":"Enable fast mode"}],"source":"builtin"},`+
+		`{"name":"model","aliases":["models"],"description":"Show current model selection","source":"builtin"},`+
+		`{"name":"context","source":"builtin"}]}`)
+	var cmds []ProtoCommand
+	for _, e := range evs {
+		if e.Kind == EvStatus && e.Status != nil && len(e.Status.Commands) > 0 {
+			cmds = e.Status.Commands
+		}
+	}
+	if len(cmds) != 3 {
+		t.Fatalf("명령 셋이어야 한다: %+v", cmds)
+	}
+	if cmds[0].Name != "fast" || cmds[0].Description != "Toggle fast mode" {
+		t.Errorf("설명이 버려졌다: %+v", cmds[0])
+	}
+	if cmds[0].ArgumentHint != "[on|off|status]" {
+		t.Errorf("인자 문법이 버려졌다: %q", cmds[0].ArgumentHint)
+	}
+	if cmds[1].Description != "Show current model selection" {
+		t.Errorf("설명: %+v", cmds[1])
+	}
+	// **인자를 받지 않는 명령은 그 자리를 비운다** — 없는 문법을 지어내지 않는다
+	// (FR-CBG-5). 화면은 빈 힌트를 그리지 않는다.
+	if cmds[1].ArgumentHint != "" || cmds[2].ArgumentHint != "" {
+		t.Errorf("없는 문법을 지어냈다: %q %q", cmds[1].ArgumentHint, cmds[2].ArgumentHint)
+	}
+	if cmds[2].Description != "" {
+		t.Errorf("없는 설명을 지어냈다: %q", cmds[2].Description)
 	}
 }

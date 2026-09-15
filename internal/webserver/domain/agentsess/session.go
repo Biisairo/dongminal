@@ -278,6 +278,16 @@ type Controls struct {
 	// (M11_SRS FR-M11-30 / M11-B28). 화면은 이 값이 참일 때만 붙여넣기를 받는다 —
 	// 받지 못하는 어댑터에서 붙일 수 있는 척하면 바이트가 조용히 사라진다.
 	Attachments bool `json:"attachments"`
+	// Cancel 은 열린 승인 요청을 **답 없이** 닫을 수 있는가다 (M12_SRS FR-M12-5).
+	//
+	// 종전에는 화면이 모달을 닫을 때 언제나 거절을 보냈고, 그 근거가 *"claude 에는
+	// 답 없이 닫는 프레임이 없다"* 였다 (M11_SRS FR-M11-41). **claude 의 사정이 모든
+	// 에이전트의 동작이 된 자리다** — `ompProto.Cancel` 은 있는데 부르는 곳이 없었다.
+	//
+	// 거절과 취소는 다르다: 거절은 *"하지 마라"* 이고 취소는 *"묻지 않은 것으로
+	// 하라"* 다. 능력이 있는 어댑터에서 뒤엣것을 앞엣것으로 옮기면 사용자가 하지
+	// 않은 결정이 기록에 남는다.
+	Cancel bool `json:"cancel"`
 }
 
 // SessionID 는 프로토콜의 세션 신원이다. 비어 있으면 아직 모른다.
@@ -331,7 +341,7 @@ func (s *Session) State() State {
 		Status: status, Usage: s.usage, Open: s.openLocked(),
 		PermissionModes: p.PermissionModes,
 		Controls: Controls{Interrupt: p.Interrupt != nil, Control: p.Control != nil,
-			TUIResume: p.TUIResume != nil, Attachments: p.Attachments},
+			TUIResume: p.TUIResume != nil, Attachments: p.Attachments, Cancel: p.Cancel != nil},
 		Exited:  s.dormant != "",
 		Dormant: s.dormant, Reason: s.reason, Resumable: s.dormant != "" && s.st.SessionID != "",
 		Cwd:     s.opts.Cwd,
@@ -412,6 +422,31 @@ func (s *Session) Approve(id string, d agentadapter.Decision) error {
 	return s.mgr.write(s.toolID, frame)
 }
 
+// Cancel 은 열린 요청을 **답 없이** 닫는다 (M12_SRS FR-M12-5). 어댑터에 그 능력이
+// 없으면 ErrUnsupported — 부르는 쪽은 `Controls.Cancel` 을 보고 고른다.
+//
+// 거절(`Approve` 의 `deny`)과 다른 일이다: 거절은 *"하지 마라"* 이고 취소는
+// *"묻지 않은 것으로 하라"* 다. 닫힘 이벤트의 사유가 그것을 말한다.
+func (s *Session) Cancel(id string) error {
+	s.mu.Lock()
+	if s.ad.Proto.Cancel == nil {
+		s.mu.Unlock()
+		return agentadapter.ErrUnsupported
+	}
+	req, ok := s.st.Open[id]
+	if !ok {
+		s.mu.Unlock()
+		return agentadapter.ErrNotOpen
+	}
+	frame := s.ad.Proto.Cancel(req, s.st)
+	delete(s.st.Open, id)
+	s.emit(agentadapter.Event{Kind: agentadapter.EvApprovalClosed, Text: "cancelled",
+		Approval: &agentadapter.ApprovalRequest{ID: id, Kind: req.Kind, Tool: req.Tool}})
+	s.mgr.deps.Sink.Activity(s.toolID, "working", "", "", false)
+	s.mu.Unlock()
+	return s.mgr.write(s.toolID, frame)
+}
+
 // Control 은 세션 중 제어다 (FR-AGT-11). 어댑터에 없으면 ErrUnsupported.
 func (s *Session) Control(op agentadapter.ControlOp) error {
 	s.mu.Lock()
@@ -447,6 +482,20 @@ func (s *Session) TUIResume() []string {
 		return nil
 	}
 	return s.ad.Proto.TUIResume(s.st.SessionID)
+}
+
+// CommandFormFill 은 명령의 응답 텍스트를 폼의 줄들로 옮긴다 (M12_SRS FR-M12-4).
+//
+// 화면은 명령 이름을 모르고 `ProtoCommand.Form` 선언만 본다 — 응답을 읽는 일은
+// 자기 출력 형식을 아는 어댑터의 것이다 (누수 L6). 그 어댑터에 그런 명령이 없으면
+// 빈 목록이고, 그때 화면은 폼을 열지 않는다.
+func (s *Session) CommandFormFill(name, response string) []agentadapter.FormField {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.ad.Proto.CommandFormFill == nil {
+		return nil
+	}
+	return s.ad.Proto.CommandFormFill(name, response)
 }
 
 // TUIResumeLine 은 TUIResume argv 를 셸에 타이핑할 한 줄로 — 인용은 quote 가 한다

@@ -107,13 +107,39 @@ func (s *Server) apiToolInput(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.ToolIO.SendPaste(toolID, []byte(body.Text), body.Execute); err != nil {
+	if err := s.deliverToTool(toolID, body.Text, body.Execute); err != nil {
 		writeToolIOError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	dmlog.Infof(nil, "[toolio] input tool=%s id=%s execute=%v textLen=%d",
 		toolID, body.ID, body.Execute, len(body.Text))
 	writeJSON(w, map[string]any{"toolId": toolID, "len": len(body.Text), "execute": body.Execute})
+}
+
+// deliverToTool 은 **도구에 글을 넣는 한 문**이다 (M12_SRS FR-M12-8 / V-M12-19~21).
+//
+// 종전에는 부르는 자리마다 `ToolIO.SendPaste` 를 직접 불렀고, 그 함수는 에이전트
+// 도구에서 **무동작으로 성공**한다 (`toolhub/bracketpaste.go` — 프레임이 아닌 바이트는
+// 에이전트를 깨뜨리므로 그 무동작 자체는 옳다, FR-AGT-2). 그래서 `dmctl msg --to
+// <gui toolId>` 가 *"전송 완료"* 를 내고 메시지가 사라졌다 — M11 의 인계가 그렇게
+// 두 번 사라졌고, 그것이 이 요구를 낳았다.
+//
+// 그 자리의 주석은 *"입력은 해석층의 프롬프트 경로로 간다"* 라 적혀 있었는데 **그
+// 경로로 보내는 코드가 없었다.** 여기가 그 코드다.
+//
+// **문을 하나로 두는 것이 요점이다.** 다섯 자리가 각자 갈래를 두면 한쪽만 고쳐진다 —
+// 이 저장소가 같은 값을 여러 번 치른 부류다.
+//
+// 세션이 있는 것이 곧 에이전트 도구라는 판정이다. 휴면 세션도 관리자에 남으므로
+// (기록을 지우지 않는다) 깨어 있는지와 무관하게 이 길로 간다 — 보낼 수 없으면
+// `Prompt` 가 오류를 낸다. **조용한 성공으로 답하지 않는 것**이 이 변경의 전부다.
+func (s *Server) deliverToTool(toolID, text string, submit bool) error {
+	if sess := s.agentMgr().Get(toolID); sess != nil {
+		// 에이전트에게는 `submit` 이라는 개념이 없다 — 프롬프트는 프레임 하나이고
+		// 그 자체가 제출이다 (FR-APS-4: 없는 것은 옮기지 않는다).
+		return sess.Prompt(text)
+	}
+	return s.ToolIO.SendPaste(toolID, []byte(text), submit)
 }
 
 // apiToolMessage implements POST /api/tools/message (FR-API-3). The envelope is
@@ -148,7 +174,7 @@ func (s *Server) apiToolMessage(w http.ResponseWriter, r *http.Request) {
 		"[DONGMINAL-AGENT-MSG from=%s to=%s ts=%s]\n%s\n[/DONGMINAL-AGENT-MSG]",
 		sender, toolID, time.Now().Format("15:04:05"), quoteEnvelope(body.Message),
 	)
-	if err := s.ToolIO.SendPaste(toolID, []byte(envelope), true); err != nil {
+	if err := s.deliverToTool(toolID, envelope, true); err != nil {
 		writeToolIOError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

@@ -250,3 +250,117 @@ func claudeParseUsage(line string) (Usage, bool) {
 	}
 	return Usage{Tokens: total, Model: rec.Message.Model}, true
 }
+
+/*
+도구 표면 — **무엇을 했는지는 어댑터가 말한다** (M12_SRS FR-M12-1~3).
+
+종전에는 `assistant` 프레임의 `content` 를 **원문 그대로** 올려 보냈고, 그래서 브라우저가
+`command`·`file_path`·`old_string`·`run_in_background` 라는 **claude 의 입력 키를 알아야**
+했다 (누수 L1·L3·L4). 그 앎은 claude 에만 맞았으므로 codex·omp 의 화면은 같은 자리가
+비었다 (L2).
+
+여기서 옮기는 것은 **읽는 자리**이고 값이 아니다 — `input` 원문은 그대로 실려 간다.
+*/
+
+// claudeAnnotateBlocks 는 `content` 블록들을 공통 어휘로 옮긴다 (FR-M12-1~3).
+//
+// `tool_use` 에 `detail`·`edit`·`background` 를 덧붙인다. 나머지 블록(`text`·`thinking`)
+// 은 손대지 않는다 — 옮길 것이 없다.
+//
+// **읽을 수 없으면 원문을 그대로 돌려준다.** 모르는 모양을 고치려다 버리는 것보다
+// 손대지 않고 넘기는 쪽이 낫다 (FR-APS-8 과 같은 근거).
+func claudeAnnotateBlocks(content json.RawMessage) json.RawMessage {
+	var blocks []map[string]any
+	if len(content) == 0 || json.Unmarshal(content, &blocks) != nil {
+		return content
+	}
+	changed := false
+	for _, b := range blocks {
+		if t, _ := b["type"].(string); t != "tool_use" {
+			continue
+		}
+		name, _ := b["name"].(string)
+		in, _ := json.Marshal(b["input"])
+		if d := claudeToolView(name, in); d.detail != "" || d.edit != nil || d.background {
+			if d.detail != "" {
+				b["detail"] = d.detail
+			}
+			if d.edit != nil {
+				b["edit"] = d.edit
+			}
+			if d.background {
+				b["background"] = true
+			}
+			changed = true
+		}
+	}
+	if !changed {
+		return content
+	}
+	out, err := json.Marshal(blocks)
+	if err != nil {
+		return content
+	}
+	return out
+}
+
+// claudeToolView 는 도구 입력에서 화면이 쓸 셋을 읽는다.
+type claudeToolViewResult struct {
+	detail     string
+	edit       *ToolEdit
+	background bool
+}
+
+func claudeToolView(tool string, input json.RawMessage) claudeToolViewResult {
+	var m map[string]any
+	if len(input) == 0 || json.Unmarshal(input, &m) != nil {
+		return claudeToolViewResult{}
+	}
+	out := claudeToolViewResult{detail: claudeToolDetail(tool, input)}
+	// **모르는 도구도 보일 것이 있어야 한다.** 종전에 화면의 `agentDetail` 이
+	// 마지막 갈래로 하던 일이며, 그 모양을 잃으면 MCP 도구의 카드가 이름만 남는다.
+	if out.detail == "" && len(m) > 0 {
+		if pretty, err := json.MarshalIndent(m, "", "  "); err == nil {
+			out.detail = string(pretty)
+		}
+	}
+	// FR-M11-50: **입력이 스스로 말하는 사실**이다 — 추정하지 않는다.
+	out.background, _ = m["run_in_background"].(bool)
+	out.edit = claudeToolEdit(tool, m)
+	return out
+}
+
+// claudeToolEdit 은 편집 도구의 입력을 공통 어휘로 (FR-M12-2 / FR-M11-37).
+//
+// **아는 도구만 옮긴다** — 모르는 도구의 입력을 diff 로 읽으면 없는 변경을 그린다.
+// 줄번호는 달지 않는다: 그 값은 파일 내용을 알아야 나오고 프로토콜은 주지 않는다
+// (D-M11-4).
+func claudeToolEdit(tool string, m map[string]any) *ToolEdit {
+	file, _ := m["file_path"].(string)
+	if file == "" {
+		return nil
+	}
+	split := func(s string) []string {
+		if s == "" {
+			return nil
+		}
+		return strings.Split(s, "\n")
+	}
+	switch tool {
+	case "Edit":
+		old, ok1 := m["old_string"].(string)
+		neo, ok2 := m["new_string"].(string)
+		if !ok1 || !ok2 {
+			return nil
+		}
+		return &ToolEdit{File: file, Removed: split(old), Added: split(neo)}
+	case "Write":
+		c, ok := m["content"].(string)
+		if !ok {
+			return nil
+		}
+		// 새로 쓰는 것이므로 지워진 줄이 없다.
+		return &ToolEdit{File: file, Added: split(c)}
+	}
+	return nil
+}

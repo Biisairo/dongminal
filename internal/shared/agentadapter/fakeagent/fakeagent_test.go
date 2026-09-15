@@ -98,8 +98,27 @@ func TestFake_PongTurn(t *testing.T) {
 	// D-C-16: 기동 즉시 오는 것은 없다 — initialize 응답이 첫 이벤트(session, 신원 없음)다.
 	r.send(r.proto.Handshake(agentadapter.LaunchOpts{}, r.st)...)
 	kinds, ev := r.until(t, agentadapter.EvSession)
-	if ev.SessionID != "" || len(ev.Status.Models) != 2 || len(ev.Status.Commands) != 3 {
+	if ev.SessionID != "" || len(ev.Status.Models) != 2 || len(ev.Status.Commands) == 0 {
 		t.Fatalf("initialize 응답: %v %+v", kinds, ev)
+	}
+	/**
+	 * **계약이 바뀌었다** (M12_SRS FR-M12-4, 2026-09-16): 종전에는 명령 **수**(3)를
+	 * 박았고, `config` 를 흉내에 더하자 떨어졌다.
+	 *
+	 * 수를 박으면 흉내가 원본에 가까워질 때마다 검사가 떨어진다. 재려던 것은 수가
+	 * 아니라 **고르는 화면이 서는 명령에 선언이 달리는가**이므로 그것을 잰다.
+	 */
+	forms := map[string]*agentadapter.CommandForm{}
+	for _, c := range ev.Status.Commands {
+		forms[c.Name] = c.Form
+	}
+	for _, name := range []string{"model", "config"} {
+		if forms[name] == nil {
+			t.Fatalf("%q 에 고르는 화면 선언이 없다: %+v", name, ev.Status.Commands)
+		}
+	}
+	if forms["compact"] != nil {
+		t.Fatalf("평범한 명령에 선언이 달렸다: %+v", forms["compact"])
 	}
 	r.send(r.proto.Prompt("say PONG", nil, r.st)...)
 	// `system:init` 은 첫 프롬프트 뒤 — 신원과 모델이 그때 온다 (§2-28).

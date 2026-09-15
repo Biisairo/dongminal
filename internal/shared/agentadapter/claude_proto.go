@@ -3,6 +3,7 @@ package agentadapter
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,9 +22,10 @@ var claudeProto = Proto{
 	Approve:   claudeApprove,
 	// Cancel 은 없다 — claude 는 열린 요청을 답 없이 닫는 프레임이 없다. stdin EOF 가
 	// 곧 종료다 (§9.1 U-7). 없는 것을 빈 함수로 두지 않는다 (D-U-6).
-	Interrupt: claudeInterrupt,
-	Control:   claudeControl,
-	TUIResume: func(sessionID string) []string { return []string{"claude", "--resume", sessionID} },
+	Interrupt:       claudeInterrupt,
+	Control:         claudeControl,
+	TUIResume:       func(sessionID string) []string { return []string{"claude", "--resume", sessionID} },
+	CommandFormFill: claudeCommandFormFill,
 	// TUI 의 Shift+Tab 순서다 (FR-AGT-4a). `bypassPermissions` 는 설정으로 켜야 나타나는
 	// 값이라 순환에 두지 않는다 — 실을 수 있는 값은 `--permission-mode` 의 선택지다.
 	/**
@@ -57,6 +59,13 @@ type claudeExt struct {
 	// inTurn 은 턴이 진행 중인가다. `status:requesting` 은 모델 요청마다 오므로
 	// 첫 것만 turn_start 다 — 턴의 끝은 `result` 하나다.
 	inTurn bool
+	// model 은 **이 세션이 도는 모델**이다 (M12_SRS FR-M12-6).
+	//
+	// `result.modelUsage` 에서 어느 항목이 이 대화의 것인지는 이 값으로만 가릴 수
+	// 있다. 두 자리에서 온다: `init` 은 키와 같은 이름(`claude-opus-5[1m]`)을,
+	// `message_start` 는 정본 이름(`claude-opus-5`)을 준다 — 그래서 되짚는 손도
+	// 둘이다 (`claudePickModelUsage`).
+	model string
 }
 
 type claudePending struct {
@@ -296,6 +305,29 @@ type claudeUsage struct {
 	CacheWrite int64 `json:"cache_creation_input_tokens"`
 	CacheRead  int64 `json:"cache_read_input_tokens"`
 	Output     int64 `json:"output_tokens"`
+	// Iterations 는 **그 턴의 마지막 요청**이다 (M12_SRS FR-M12-11, 실측 2026-09-16).
+	//
+	// `result` 의 최상위 `usage` 는 **턴 안의 요청들을 합한 값**이다. 도구를 세 번
+	// 쓰는 턴을 재니 갈렸다:
+	//
+	//	usage           input 8  cache_creation 26049  cache_read 77517  → 103574
+	//	iterations[-1]  input 2  cache_creation   105  cache_read 25944  →  26051
+	//
+	// 그래서 컨텍스트를 말할 때는 이쪽을 쓴다 — 합은 *이 턴이 얼마를 썼나* 이지
+	// *지금 컨텍스트가 얼마인가* 가 아니다.
+	Iterations []claudeUsage `json:"iterations"`
+}
+
+// last 는 컨텍스트를 말하는 요청이다 — `iterations` 의 마지막, 없으면 자기 자신
+// (요청이 하나뿐인 턴).
+func (u *claudeUsage) last() *claudeUsage {
+	if u == nil {
+		return nil
+	}
+	if n := len(u.Iterations); n > 0 {
+		return &u.Iterations[n-1]
+	}
+	return u
 }
 
 func (u *claudeUsage) context() int64 {
@@ -308,4 +340,85 @@ func (u *claudeUsage) context() int64 {
 type claudeModelUsage struct {
 	CostUSD       float64 `json:"costUSD"`
 	ContextWindow int64   `json:"contextWindow"`
+	// CanonicalModel 은 판 표식이 빠진 이름이다 — `claude-opus-5[1m]` 의 정본은
+	// `claude-opus-5` 다. `message_start` 가 주는 이름이 이쪽이라 되짚는 데 쓴다
+	// (M12_SRS FR-M12-6, 실측 2026-09-16).
+	CanonicalModel string `json:"canonicalModel"`
+}
+
+/*
+고르는 화면 (M12_SRS FR-M12-4 / V-M12-9·10).
+
+접수: *"여전히 /model, /config 같은 tui 들은 사용이 불가"* (M11-B11). **막힌 것은
+명령이 아니다** — 둘 다 정상 응답하고 `init` 이 말하는 TUI 전용 명령에도 없다
+(실측 M11_SRS §2.11 (5)). 막힌 것은 **고를 자리**다: 원본 TUI 에서 인자 없는
+`/model` 은 선택 화면을 띄우는데 프로토콜은 사용법 텍스트를 돌려줄 뿐이다.
+
+종전에는 그 사실이 **화면의 정규식**(`AGENT_PICK_CMD_RE`)과 **화면의 파서**
+(`key=a|b|c`)에 적혀 있었다 (누수 L5·L6). 적을 자리가 계약에 없었기 때문이다.
+*/
+
+// claudeCommandForms 는 고르는 화면이 서는 명령들이다.
+//
+// **둘뿐이고 실측한 것이다** — `initialize` 가 주는 68개 중 인자 없이 선택 화면을
+// 띄우는 것이 이 둘이다. 목록을 늘리려면 같은 방법으로 재고 여기에 적는다.
+var claudeCommandForms = map[string]CommandForm{
+	// 선택지는 `ProtoStatus.Models` 가 이미 준다 — 물을 것이 없다.
+	//
+	// **`Control` 이 이 변경의 요점이다**: 종전에는 고른 값이 `/model <v>` 라는
+	// **프롬프트 문자열**로 나갔고, 같은 일을 하는 메뉴는 `set_model` 제어로 나갔다.
+	// 한 일에 손이 둘이면 한쪽만 고쳐진다 (누수 L7).
+	"model": {Kind: "models", Control: "set_model"},
+	// 키와 선택지는 **응답이 준다** — 우리가 목록을 지어내지 않는다. 대응하는
+	// 제어가 없으므로 고른 값은 슬래시 명령으로 간다.
+	"config": {Kind: "keyvalue", AwaitResponse: true},
+}
+
+// claudeAttachForms 는 명령 목록에 선언을 단다.
+func claudeAttachForms(cmds []ProtoCommand) []ProtoCommand {
+	for i := range cmds {
+		if f, ok := claudeCommandForms[cmds[i].Name]; ok {
+			form := f
+			cmds[i].Form = &form
+		}
+	}
+	return cmds
+}
+
+// claudeConfigKeyRe 는 `/config` 응답의 한 줄이다 — 들여쓴 `key=a|b|c`.
+//
+// 실측(M11_SRS §2.11 (5))에서 그 응답은 사용법 한 줄과 **들여쓴 키 목록**이다.
+// 들여쓰기를 요구하는 것이 산문과 가르는 손이며, 그러지 않으면 본문의 아무 `=` 나
+// 키로 읽는다.
+var claudeConfigKeyRe = regexp.MustCompile(`^\s+([A-Za-z][\w.]*)=(\S.*)$`)
+
+// claudeCommandFormFill 은 `/config` 응답 텍스트를 폼의 줄들로 옮긴다.
+//
+// **모양이 아니면 빈 목록이다.** 그때 화면은 폼을 열지 않고 응답 텍스트가 그대로
+// 선다 — 감춘 채 아무것도 열지 않으면 명령이 사라진 것으로 읽힌다 (FR-M11-40).
+//
+// **현재값은 되읽지 않는다**: 응답이 주는 것은 키와 선택지뿐이고, 보낸 값을
+// *현재값* 으로 적으면 실패했을 때 그것이 거짓이 된다 (M11_SRS §7 의 갭).
+func claudeCommandFormFill(name, response string) []FormField {
+	if f, ok := claudeCommandForms[name]; !ok || f.Kind != "keyvalue" {
+		return nil
+	}
+	var out []FormField
+	for _, line := range strings.Split(response, "\n") {
+		m := claudeConfigKeyRe.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
+		var vals []string
+		for _, v := range strings.Split(m[2], "|") {
+			if v = strings.TrimSpace(v); v != "" {
+				vals = append(vals, v)
+			}
+		}
+		if len(vals) == 0 {
+			continue
+		}
+		out = append(out, FormField{Key: m[1], Values: vals})
+	}
+	return out
 }

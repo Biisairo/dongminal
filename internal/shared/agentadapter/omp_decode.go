@@ -192,17 +192,41 @@ func ompModelStatus(raw json.RawMessage, sid string) Event {
 
 func ompCommandsStatus(raw json.RawMessage, sid string) ([]Event, bool) {
 	var cs []struct {
-		Name string `json:"name"`
+		Name        string `json:"name"`
+		Description string `json:"description"`
+		Input       *struct {
+			Hint string `json:"hint"`
+		} `json:"input"`
 	}
 	if err := json.Unmarshal(raw, &cs); err != nil {
 		return nil, false
 	}
 	s := &ProtoStatus{}
 	for _, c := range cs {
-		// M9_SRS FR-M9-45: omp 의 명령 목록은 **이름뿐**이다 (실측한 프레임에
-		// 설명·인자 문법이 없다). 없는 것을 지어내지 않는다 (FR-APS-4) — 화면은
-		// 빈 힌트를 그리지 않으므로 종전과 같은 모양으로 선다.
-		s.Commands = append(s.Commands, ProtoCommand{Name: c.Name})
+		/*
+		   M12_SRS L8 (§2.2) — **종전 주석이 틀렸다.**
+
+		     그때 적은 것: *"omp 의 명령 목록은 이름뿐이다 (실측한 프레임에
+		                    설명·인자 문법이 없다)"*
+		     실제:         `description` 과 `input.hint` 가 **둘 다 온다**
+		                    (2026-09-16 실측, omp 17.4.0 · 명령 56개)
+
+		   그래서 `M9_SRS FR-M9-45` 가 claude 에서 푼 문제(*"무엇을 보낼지 알 길이
+		   없다"*)가 omp 에만 그대로 남아 있었다. 값은 오고 있었고 읽지 않았다 —
+		   **값이 없는 것과 값을 안 읽는 것은 다르게 고친다** (D-M12-2).
+
+		   `subcommands`·`aliases` 는 옮기지 않는다: `ProtoCommand` 에 그 어휘가 없고
+		   `input.hint` 가 같은 내용을 문법으로 이미 말한다 (`[on|off|status]`).
+		   없는 계약을 이 변경에서 만들지 않는다 (FR-APS-4).
+
+		   인자를 받지 않는 명령은 그 자리를 **비운다** — 빈 힌트를 `<args>` 로 채우면
+		   없는 문법을 지어내는 것이다 (FR-CBG-5).
+		*/
+		pc := ProtoCommand{Name: c.Name, Description: c.Description}
+		if c.Input != nil {
+			pc.ArgumentHint = c.Input.Hint
+		}
+		s.Commands = append(s.Commands, pc)
 	}
 	return []Event{{Kind: EvStatus, SessionID: sid, Status: s}}, true
 }
@@ -308,7 +332,13 @@ func ompBlocks(raw json.RawMessage) json.RawMessage {
 		case "thinking":
 			out = append(out, map[string]any{"type": "thinking", "thinking": it.Thinking})
 		case "toolCall":
-			out = append(out, map[string]any{"type": "tool_use", "id": it.ID, "name": it.Name, "input": it.Arguments})
+			// M12_SRS FR-M12-1: `detail` 은 **어댑터가 읽어 준다.** 도구 시작 프레임과
+			// 같은 손을 쓴다 — 두 자리가 다른 값을 말하면 그 차이가 곧 결함이다.
+			b := map[string]any{"type": "tool_use", "id": it.ID, "name": it.Name, "input": it.Arguments}
+			if d := ompArgsDetail(it.Arguments); d != "" {
+				b["detail"] = d
+			}
+			out = append(out, b)
 		}
 	}
 	if len(out) == 0 {

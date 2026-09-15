@@ -67,7 +67,7 @@ func (s *Server) closeRunTabs(ctx context.Context, rec run.Record, keep bool) []
 		// 에이전트가 이미 끝난 탭이 그 경우다.
 		if cmd := exitCommandFor(m.Agent); cmd != "" && s.ToolIO != nil &&
 			s.Tools != nil && s.Tools.Busy(m.ToolID) {
-			if err := s.ToolIO.SendPaste(m.ToolID, []byte(cmd), true); err != nil {
+			if err := s.deliverToTool(m.ToolID, cmd, true); err != nil {
 				dmlog.Errorf(nil, "[run] close 정리: 종료 명령 실패 member=%s tool=%s: %v", m.ID, m.ToolID, err)
 			}
 		}

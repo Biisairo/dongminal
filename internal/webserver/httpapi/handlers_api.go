@@ -125,6 +125,8 @@ var apiRoutes = []apiRoute{
 	httproute.Post("/api/agent/approve", (*Server).apiAgentApprove),
 	httproute.Post("/api/agent/control", (*Server).apiAgentControl),
 	httproute.Post("/api/agent/interrupt", (*Server).apiAgentInterrupt),
+	httproute.Post("/api/agent/command-form", (*Server).apiAgentCommandForm),
+	httproute.Post("/api/agent/cancel", (*Server).apiAgentCancel),
 	httproute.Get("/api/agent/tui-line", (*Server).apiAgentTUILine),
 	// M9_SRS FR-M9-33: TUI 출구의 **반대 방향**. 그 터미널 탭에서 도는 에이전트를
 	// 에이전트 도구로 올릴 수 있는지를 답한다.

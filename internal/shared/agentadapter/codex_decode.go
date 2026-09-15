@@ -314,8 +314,13 @@ func codexDecodeItem(fr codexFrame, x *codexExt, sid string) ([]Event, bool) {
 		return []Event{{Kind: EvToolEnd, SessionID: sid, Tool: it.Type, ToolUseID: it.ID, Text: it.Output, IsError: isErr}}, true
 	case "fileChange":
 		if started {
-			x.items[it.ID] = codexItem{kind: it.Type, detail: codexChangePaths(it.Changes), changes: it.Changes}
-			return []Event{{Kind: EvToolStart, SessionID: sid, Tool: it.Type, ToolUseID: it.ID, Detail: codexChangePaths(it.Changes)}}, true
+			paths := codexChangePaths(it.Changes)
+			x.items[it.ID] = codexItem{kind: it.Type, detail: paths, changes: it.Changes}
+			// M12_SRS FR-M12-2: 편집이라는 **사실**은 옮기고, 줄은 옮기지 않는다 —
+			// codex 의 `changes` 는 경로만 준다 (D-M11-4: 주지 않는 값은 지어내지
+			// 않는다). 화면은 `Added`·`Removed` 가 빈 것을 보고 파일 이름만 적는다.
+			return []Event{{Kind: EvToolStart, SessionID: sid, Tool: it.Type, ToolUseID: it.ID,
+				Detail: paths, Edit: &ToolEdit{File: paths}}}, true
 		}
 		delete(x.items, it.ID)
 		return []Event{{Kind: EvToolEnd, SessionID: sid, Tool: it.Type, ToolUseID: it.ID, Text: it.Status, IsError: it.Status == "failed"}}, true

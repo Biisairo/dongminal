@@ -236,7 +236,7 @@ func (s *Server) notifyContextAlert(m run.Member, level string) {
 	envelope := fmt.Sprintf(
 		"[DONGMINAL-AGENT-MSG from=dongminal-server to=%s ts=%s]\n%s\n[/DONGMINAL-AGENT-MSG]",
 		rec.CoordinatorToolID, time.Now().Format("15:04:05"), body)
-	if err := s.ToolIO.SendPaste(rec.CoordinatorToolID, []byte(envelope), true); err != nil {
+	if err := s.deliverToTool(rec.CoordinatorToolID, envelope, true); err != nil {
 		// 통지 실패는 로그로 끝난다. Run 은 그대로 살아 있다.
 		dmlog.Errorf(nil, "[run] context-alert 전달 실패 run=%s member=%s: %v", rec.Short, m.ID, err)
 		return
@@ -406,7 +406,7 @@ func (s *Server) requestHandoff(ctx context.Context, rec run.Record, prev run.Me
 	envelope := fmt.Sprintf(
 		"[DONGMINAL-AGENT-MSG from=dongminal-server to=%s ts=%s]\n%s\n[/DONGMINAL-AGENT-MSG]",
 		prev.ID, time.Now().Format("15:04:05"), ask)
-	if err := s.ToolIO.SendPaste(prev.ToolID, []byte(envelope), true); err != nil {
+	if err := s.deliverToTool(prev.ToolID, envelope, true); err != nil {
 		dmlog.Errorf(nil, "[run] handoff 요청 실패 run=%s member=%s: %v", rec.Short, prev.ID, err)
 		return baseline, false
 	}

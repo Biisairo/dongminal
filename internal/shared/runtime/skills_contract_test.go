@@ -322,3 +322,40 @@ func TestTeamSkill_DefersHandoffToMigration(t *testing.T) {
 		t.Error("team/SKILL.md 가 인수인계를 migration 에 넘기지 않는다 (M9-B6)")
 	}
 }
+
+// M12_SRS FR-M12-9 (V-M12-22 의 문서 쪽) — **gui 갈래가 실제로 gui 를 말한다.**
+//
+// 명령서 3단계는 `--agent` 로 gui 탭을 열라 하는데, 6·8단계의 진단은 **PTY 를
+// 전제**했다 (`read-screen` · *"입력줄에 문자열로 남아 있다"*). 에이전트 도구에는
+// 화면도 입력줄도 없으므로 그 갈래는 gui 에서 따라갈 수 없다.
+//
+// 그리고 9단계는 8이 `working` 을 확인한 뒤에도 사용자에게 되물었다 — 판정의
+// 근거가 훅 상태이므로 그것이 섰으면 물을 것이 남아 있지 않다.
+func TestMigrationCommand_GUIBranchAndCloseWithoutAsking(t *testing.T) {
+	body := commandDocs(t)[path.Join("agentplugin", "commands", "migration.md")]
+	if body == "" {
+		t.Fatal("commands/migration.md 를 찾지 못했다")
+	}
+	required := []struct{ name, needle string }{
+		// gui 의 둘째 관문은 화면이 아니라 `live=true` 다.
+		{"gui 의 준비 판정", "live=true"},
+		{"gui 에 read-screen 을 쓰지 말라는 말", "`read-screen` 을 쓰지 마라"},
+		// gui 의 배달 진단은 이벤트 로그다 — 이 SRS 를 낳은 결함의 자리다.
+		{"gui 의 배달 진단", "/api/agent/events"},
+		// 9단계: 확인이 섰으면 되묻지 않는다.
+		{"되묻지 않는다", "되묻지 않는다"},
+	}
+	for _, r := range required {
+		if !strings.Contains(body, r.needle) {
+			t.Errorf("commands/migration.md 에 %s 가 없다 (%q)", r.name, r.needle)
+		}
+	}
+	// **멈추는 갈래는 지우지 않았다** — 절대 원칙 5 의 나머지 절반이다.
+	// 확인하지 못했을 때 닫지 않는 것이 이 명령의 안전장치이고, 되묻기를 없앤 것이
+	// 그것까지 없앤 것으로 읽히면 안 된다.
+	for _, needle := range []string{"닫지 말고 사용자에게 말한다", "세 번 시도해도"} {
+		if !strings.Contains(body, needle) {
+			t.Errorf("commands/migration.md 에서 멈추는 갈래가 사라졌다 (%q)", needle)
+		}
+	}
+}

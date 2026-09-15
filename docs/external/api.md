@@ -58,6 +58,8 @@
 | POST | `/api/agent/approve` | `{ toolId, id, choice, answers }` — 열린 승인·질문에 답한다. `choice` 는 프로토콜이 준 선택지(`allow`·`deny`·`suggestion:<n>`), `answers` 는 질문의 `{질문: 라벨}` (선택지 없는 질문 `freeText` 는 글 그대로) |
 | POST | `/api/agent/control` | `{ toolId, kind, value }` — 세션 중 제어. `kind` 는 프로토콜의 것 그대로 (claude: `set_model`·`set_permission_mode`·`set_max_thinking_tokens` · codex: `set_model`·`set_permission_mode` — 다음 턴부터 · omp: `set_model`(`provider/modelId`)·`set_thinking_level`). 없는 제어는 400 `agent_unsupported` |
 | POST | `/api/agent/interrupt` | `{ toolId }` — 진행 중인 턴을 끊는다 (Esc) |
+| POST | `/api/agent/cancel` | `{ toolId, id }` — 열린 승인·질문을 **답 없이** 닫는다. 거절(*"하지 마라"*)과 다른 일이며 (*"묻지 않은 것으로 하라"*), 그 능력이 있는 어댑터에서만 쓴다 — `state.controls.cancel` 이 그것을 말한다 (omp 만 참). 없으면 400 `agent_unsupported`, 이미 닫힌 요청이면 400 |
+| POST | `/api/agent/command-form` | `{ toolId, name, response }` → `{ fields: [{ key, values }] }` — 인자 없이 **고르는 화면**을 여는 명령(`state.status.commands[].form`)의 응답 텍스트를 폼의 줄들로 옮긴다. 읽는 일은 자기 출력 형식을 아는 어댑터가 한다. **빈 목록은 오류가 아니다** — 응답이 그 모양이 아니었다는 뜻이고, 그때 화면은 폼을 열지 않고 텍스트가 그대로 선다 |
 | GET | `/api/agent/tui-line` | `{ line, sessionId }` — 같은 세션을 터미널(TUI)에서 이어 갈 한 줄 명령 |
 | GET | `/api/agent/session` | `?tool=<toolId>` → `{ sessionId, agent, exitCommand }` — **그 터미널 탭에서 도는** 에이전트의 신원 (`tui-line` 의 반대 방향). 신원은 활동 훅이 실어 온 것이며 우리가 띄운 도구든 사용자가 손으로 친 것이든 같다. 모르면 404 `agent_no_identity` — 그때 올리기 진입점은 서지 않는다. `exitCommand` 는 어댑터가 아는 정중한 종료 지시이고, 어댑터를 모르면 빈 값이다 |
 | POST | `/api/agent/hibernate` | `{ toolId }` — 휴면: 프로세스를 끝내고 세션 신원만 남긴다. 탭은 그대로다. 세션 신원이 아직 없으면(첫 턴 전) 409 `agent_no_identity`, 이미 휴면·오류면 409 `agent_dormant` |

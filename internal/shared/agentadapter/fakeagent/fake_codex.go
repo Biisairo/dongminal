@@ -155,6 +155,25 @@ func (a *codexAgent) turn(id json.RawMessage, text string) (int, bool) {
 		if !a.questionTurn(turnID) {
 			return 0, false
 		}
+	case strings.Contains(text, "TOOLARG"):
+		// M12_SRS V-M12-3: **인자가 도구 시작 프레임에 이미 있다** — claude 와 달리
+		// 늦게 오지 않는다. 화면이 그것을 그리는지 재려면 이 턴이 있어야 한다.
+		cid := a.nextItem()
+		a.item("item/started", cid, map[string]any{"type": "commandExecution", "id": cid,
+			"command": "seq 1 3", "cwd": mustCwd(), "status": "inProgress", "commandActions": []any{}}, turnID)
+		a.item("item/completed", cid, map[string]any{"type": "commandExecution", "id": cid,
+			"command": "seq 1 3", "status": "completed", "exitCode": 0, "aggregatedOutput": "1\n2\n3"}, turnID)
+		a.message(turnID, "TOOLDONE")
+	case strings.Contains(text, "EDITDIFF"):
+		// V-M12-5: codex 는 **경로만** 준다 — 줄을 주지 않는다 (D-M11-4). 화면이
+		// 머리만 그리고 몸을 세우지 않는지가 그 사실의 검사다.
+		fid := a.nextItem()
+		changes := []map[string]any{{"path": "/w/sample.txt", "kind": "update"}}
+		a.item("item/started", fid, map[string]any{"type": "fileChange", "id": fid,
+			"changes": changes, "status": "inProgress"}, turnID)
+		a.item("item/completed", fid, map[string]any{"type": "fileChange", "id": fid,
+			"changes": changes, "status": "completed"}, turnID)
+		a.message(turnID, "EDITED")
 	case strings.Contains(text, "SLOW"):
 		if a.slow(turnID) {
 			status = "interrupted"

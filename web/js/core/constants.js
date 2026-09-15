@@ -168,13 +168,13 @@ const AGENT_PEEK_FULL_LINES=5;
  * 아니라 여기 산다.
  */
 const AGENT_QUEUE_MARK='\u276f';
-/**
- * FR-M11-14 (M11-B11): **인자 없는** `/model`·`/config` — 고르는 화면이 서는 자리다.
- * 인자가 있으면 사용자가 이미 고른 것이므로 가로채지 않는다.
+/*
+ * **지웠다 — `AGENT_PICK_CMD_RE` · `AGENT_CONFIG_CMD_RE`** (M12_SRS FR-M12-4).
+ *
+ * 그 둘은 `/model`·`/config` 라는 **claude 의 명령 이름**을 화면에 박아 두었다
+ * (누수 L5). 지금은 어댑터가 `ProtoCommand.form` 으로 선언하고 화면은 이름을
+ * 모른다 — `agent-pane.js` 의 `_formOf` 가 그 선언을 찾는 한 자리다.
  */
-const AGENT_PICK_CMD_RE=/^\/(model|config)\s*$/;
-/** 그중 `/config` — 답을 기다릴지 가르는 자리이며 위 규칙과 한 벌이다. */
-const AGENT_CONFIG_CMD_RE=/^\/config\s*$/;
 /**
  * FR-M11-44 (M11-B44): `Ctrl+C` 두 번을 **한 손짓으로 볼 창**이다. 원본 TUI 도 첫 번과
  * 둘째 사이에 시한을 둔다 — 시한이 없으면 한참 뒤의 한 번이 나가기가 된다.
@@ -189,6 +189,14 @@ const AGENT_SUGG_MAX=10;
 const AGENT_BUSY_TICK_MS=1000;
 /** 도구 머리에 담는 인자의 길이 — 원본은 `Bash(sed -i '' 's/…)` 처럼 잘라 싣는다. */
 const AGENT_TOOL_HEAD_ARG_MAX=48;
+/**
+ * FR-M12-12: **끊고 나서 턴이 실제로 끝나기를 기다리는 상한.**
+ *
+ * `/api/agent/interrupt` 의 응답은 *"끊는 프레임을 썼다"* 이지 *"턴이 끝났다"* 가
+ * 아니다 — `turn_end` 는 에이전트의 `result` 가 와야 난다. 넘기면 **그래도 보낸다**:
+ * 사용자가 쓴 글을 잃는 것이 순서가 뒤집히는 것보다 나쁘다.
+ */
+const AGENT_INTERRUPT_SETTLE_MS=4000;
 const AGENT_LIFT_INTERRUPT_MS=400;
 const AGENT_LIFT_EXIT_MS=8000;
 const AGENT_LIFT_POLL_MS=250;

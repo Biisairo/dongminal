@@ -58,6 +58,12 @@ type Proto struct {
 	// PermissionModes 는 `set_permission_mode` 가 받는 값의 순환 순서다 (FR-AGT-4a,
 	// Shift+Tab). 비어 있으면 그 에이전트에 순환이 없다 — 메뉴에도 나타나지 않는다.
 	PermissionModes []string
+	// CommandFormFill 은 명령의 응답 텍스트를 폼의 줄들로 옮긴다 (M12_SRS FR-M12-4).
+	//
+	// `Form.AwaitResponse` 인 명령에만 쓰인다. nil 이면 그 에이전트에 그런 명령이
+	// 없다. **모양이 아니면 빈 목록이다** — 그때 화면은 폼을 열지 않고 응답 텍스트가
+	// 그대로 선다 (FR-M11-40 의 *"가로채지 못한 경우는 그대로 선다"*).
+	CommandFormFill func(name, response string) []FormField
 	// Attachments 는 프롬프트에 **이미지를 실을 수 있는가**다 (FR-M11-30 / M11-B28).
 	//
 	// claude 만 참이다 — **실측으로 확인한 것만 둔다** (§2.11 (4): 8×8 빨강 PNG 를
@@ -207,15 +213,33 @@ const (
 // (FR-APS-4) — 포인터·omitempty 가 그 뜻을 와이어에 남긴다.
 //
 // Message 는 블록 배열이며 어휘는 셋이다 — `{type:"text",text}` · `{type:"thinking",
-// thinking}` · `{type:"tool_use",id,name,input}`. 어댑터가 자기 프로토콜의 블록을 이
-// 셋으로 옮긴다 (FR-APS-7) — 뷰는 이 셋만 그린다.
+// thinking}` · `{type:"tool_use",id,name,input,detail?,edit?,background?}`. 어댑터가
+// 자기 프로토콜의 블록을 이 셋으로 옮긴다 (FR-APS-7) — 뷰는 이 셋만 그린다.
+//
+// M12_SRS FR-M12-1~3: `tool_use` 의 뒤 셋은 **어댑터가 읽어 준 것**이다.
+//
+// 종전에는 `input` 만 실었고, 그래서 브라우저가 `command`·`file_path`·`old_string`·
+// `run_in_background` 라는 **claude 의 입력 키를 알아야** 했다 (누수 L1·L3·L4).
+// 값은 같고 읽는 자리만 옮겼다 — 읽는 일은 자기 프로토콜을 아는 쪽의 것이다.
+//
+// **`input` 은 그대로 간다**: 도구 카드와 승인 다이얼로그가 원문을 보이는 것은
+// 종전 계약이다 (FR-AGT-5). 바뀐 것은 **뽑아 쓰는 일을 누가 하는가**다.
+//
+// 이 셋이 `Event` 에도 같은 이름으로 있는 이유는 **프로토콜마다 입력이 드러나는
+// 시점이 다르기 때문**이다: claude 는 `content_block_start` 에 빈 `input` 을 주고
+// 실제 인자는 뒤의 스냅샷에 실으므로 블록이 임자이고, codex·omp 는 도구 시작
+// 프레임이 이미 인자를 들고 있으므로 `EvToolStart` 가 임자다.
 type Event struct {
 	Kind      EventKind `json:"kind"`
 	SessionID string    `json:"sessionId,omitempty"`
 	Text      string    `json:"text,omitempty"`
 	Tool      string    `json:"tool,omitempty"`
 	ToolUseID string    `json:"toolUseId,omitempty"`
-	Detail    string    `json:"detail,omitempty"`
+	// Detail 은 이 도구 호출이 **무엇을 하는가**다 — 명령·경로·패턴 (M12_SRS FR-M12-1).
+	// 빈 값은 부재다: 그 도구에서 뽑을 것이 없거나 **아직 인자가 오지 않았다**
+	// (claude 의 `content_block_start` 가 그렇다 — 그때는 블록이 임자다).
+	// `EvToolStart`·`EvApprovalOpen` 이 쓴다.
+	Detail string `json:"detail,omitempty"`
 	// ParentToolUseID 는 **이 이벤트가 누구의 것인가**다 (M11_SRS FR-M11-49 / M11-B49).
 	//
 	// 비어 있으면 본 대화의 것이고, 값이 있으면 그 `Agent` 도구 호출 **안에서** 일어난
@@ -228,13 +252,37 @@ type Event struct {
 	// 모두 빈 문자열이고 `estimated_tokens` 만 온다). 원본 TUI 가 `thought for 2s` 로
 	// 시간만 말하는 것이 그 때문이며, 우리가 화면에 적을 수 있는 유일한 수치가 이것이다.
 	// 0 은 부재다 — 내용을 주는 어댑터(codex·omp)는 이 값을 싣지 않는다.
-	ThinkingTokens int64            `json:"thinkingTokens,omitempty"`
-	IsError        bool             `json:"isError,omitempty"`
-	Approval       *ApprovalRequest `json:"approval,omitempty"`
-	Usage          *ProtoUsage      `json:"usage,omitempty"`
-	Status         *ProtoStatus     `json:"status,omitempty"`
-	Message        json.RawMessage  `json:"message,omitempty"`
-	Raw            json.RawMessage  `json:"raw,omitempty"`
+	ThinkingTokens int64 `json:"thinkingTokens,omitempty"`
+	IsError        bool  `json:"isError,omitempty"`
+	// Edit 은 이 호출이 **파일을 고치는가**다 (M12_SRS FR-M12-2). nil 이면 편집이
+	// 아니거나 그 어댑터가 편집을 구조로 주지 않는다.
+	Edit *ToolEdit `json:"edit,omitempty"`
+	// Background 는 이 호출이 **백그라운드로 도는가**다 (FR-M12-3). 그 개념이 없는
+	// 어댑터는 세우지 않는다 (FR-APS-4).
+	Background bool             `json:"background,omitempty"`
+	Approval   *ApprovalRequest `json:"approval,omitempty"`
+	Usage      *ProtoUsage      `json:"usage,omitempty"`
+	Status     *ProtoStatus     `json:"status,omitempty"`
+	Message    json.RawMessage  `json:"message,omitempty"`
+	Raw        json.RawMessage  `json:"raw,omitempty"`
+}
+
+// ToolEdit 은 이 도구 호출이 파일에 가하는 변경이다 (M12_SRS FR-M12-2 / FR-M11-37).
+//
+// **재료는 결과가 아니라 입력이다** (실측 M11_SRS §2.11 (3)): claude 의 `tool_result` 는
+// *"has been updated successfully"* 한 줄뿐이고, 원본 TUI 가 보이는 diff 는 `tool_use` 의
+// 입력에서 스스로 만든 것이다.
+//
+// **줄번호는 없다** — 그 값은 파일 내용을 알아야 나오고 프로토콜은 주지 않는다
+// (D-M11-4 · FR-CBG-5).
+//
+// `Added`·`Removed` 가 **둘 다 비어 있는 것은 부재가 아니라 사실**이다: codex 의
+// `fileChange` 는 바뀌는 경로만 주고 줄을 주지 않으므로 `File` 만 채워진다. 화면은
+// 그때 파일 이름만 적는다 — 줄을 지어내지 않는다.
+type ToolEdit struct {
+	File    string   `json:"file"`
+	Added   []string `json:"added,omitempty"`
+	Removed []string `json:"removed,omitempty"`
 }
 
 // ProtoUsage 는 프레임이 말한 사용량이다 (FR-AGT-6 — 전사본을 읽지 않는다).
@@ -307,6 +355,52 @@ type ProtoCommand struct {
 	// `[on|off]`. **빈 값은 "인자를 받지 않는다"** 이고, 그때 화면은 그 자리를
 	// 비운다. `<args>` 로 채우면 없는 문법을 지어내는 것이다 (FR-CBG-5).
 	ArgumentHint string `json:"argumentHint,omitempty"`
+	// Form 은 이 명령이 **고르는 화면으로 서는가**다 (M12_SRS FR-M12-4). nil 이면
+	// 평범한 명령이고 글자 그대로 나간다.
+	//
+	// 종전에는 화면이 `/model`·`/config` 라는 **이름을 알았다** (`AGENT_PICK_CMD_RE`,
+	// 누수 L5). 원본 TUI 에서 인자 없는 그 둘은 선택 화면을 띄우는데 프로토콜은
+	// 사용법 텍스트를 돌려줄 뿐이라, 화면이 그 사실을 어딘가에 적어야 했다. 적을
+	// 자리가 계약에 없어 **이름으로 적혔다.**
+	//
+	// 그 자리를 여기 둔다 — 화면은 이름을 모르고 선언만 본다.
+	Form *CommandForm `json:"form,omitempty"`
+}
+
+// CommandForm 은 인자 없는 명령이 여는 고르는 화면의 선언이다 (M12_SRS FR-M12-4).
+type CommandForm struct {
+	// Kind 는 폼의 종류다.
+	//
+	//   `models`   — 모델 하나를 고른다. 선택지는 `ProtoStatus.Models` 가 이미 준다
+	//   `keyvalue` — 키마다 값을 고른다. 선택지는 **응답이 준다** (AwaitResponse)
+	//
+	// 화면이 모르는 종류면 폼을 열지 않는다 — 명령이 글자 그대로 나가고 그 답이
+	// 대화에 선다 (종전 동작). 모르는 것을 지어내지 않는다 (FR-CBG-5).
+	Kind string `json:"kind"`
+	// AwaitResponse 는 **보내 두고 답이 와야** 폼을 채울 수 있는가다. 거짓이면
+	// 이미 들고 있는 값으로 곧바로 서고 명령은 나가지 않는다.
+	AwaitResponse bool `json:"awaitResponse,omitempty"`
+	// Control 은 고른 값을 보낼 **제어의 종류**다 (`set_model`).
+	//
+	// `Kind:"models"` 에는 **반드시 있어야 한다** — 없으면 화면이 폼을 열지 않고
+	// 명령이 글자 그대로 나간다(종전 동작). 문자열로 되돌리는 갈래를 두지 않는 이유가
+	// 누수 L7 이다: 같은 일을 하는 손이 메뉴(`control`)와 폼(프롬프트 문자열)으로
+	// 갈려 있었고, codex 처럼 슬래시 명령이 없는 에이전트에서는 뒤쪽이 그냥
+	// 프롬프트로 샜다. 갈래를 남기면 그 모양이 되돌아온다.
+	//
+	// `Kind:"keyvalue"` 는 비운다 — 대응하는 제어가 없고 슬래시 명령이 그 자체로
+	// 인자를 받는다 (`/config key=value`).
+	Control string `json:"control,omitempty"`
+}
+
+// FormField 는 `keyvalue` 폼의 한 줄이다 — 키 하나와 그 선택지들 (FR-M12-4).
+//
+// 응답 텍스트를 이 모양으로 옮기는 일은 **어댑터가 한다** (`Proto.CommandFormFill`).
+// 종전에는 화면이 `key=a|b|c` 를 파싱했고, 그것은 claude `/config` 의 **출력 형식**
+// 이다 (누수 L6).
+type FormField struct {
+	Key    string   `json:"key"`
+	Values []string `json:"values"`
 }
 
 // ModelChoice 는 프로토콜이 준 모델 선택지 하나다 (FR-AGT-11 — 그대로 낸다).

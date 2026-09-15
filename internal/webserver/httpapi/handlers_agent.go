@@ -495,6 +495,66 @@ func (s *Server) apiAgentTUILine(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"line": agentsess.TUIResumeLine(argv, platform.Current().Shell.Quote), "sessionId": sess.SessionID()})
 }
 
+// apiAgentCancel 은 `POST /api/agent/cancel` 이다 (M12_SRS FR-M12-5).
+//
+// 열린 요청을 **답 없이** 닫는다. 능력이 없는 어댑터에서는 400 이고, 화면은 그
+// 갈래를 `Controls.Cancel` 로 미리 안다 — 여기서 거절로 **대신하지 않는다**:
+// 사용자가 하지 않은 결정을 서버가 지어내는 일이 된다 (FR-APS-6).
+func (s *Server) apiAgentCancel(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ToolID string `json:"toolId"`
+		ID     string `json:"id"`
+	}
+	if !decodeJSONBody(w, r, &body) {
+		return
+	}
+	sess := s.agentSession(w, body.ToolID)
+	if sess == nil {
+		return
+	}
+	if body.ID == "" {
+		httpErr(w, "id required", http.StatusBadRequest, apierr.CodeMissingArg)
+		return
+	}
+	if err := sess.Cancel(body.ID); err != nil {
+		s.agentErr(w, err)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+// apiAgentCommandForm 은 `POST /api/agent/command-form` 이다 (M12_SRS FR-M12-4).
+//
+// 고르는 화면이 서는 명령의 **응답 텍스트**를 어댑터에게 넘기고 폼의 줄들을 받는다.
+// 종전에는 화면이 `key=a|b|c` 를 직접 파싱했고, 그것은 claude `/config` 의 출력
+// 형식이다 (누수 L6) — 그 형식이 바뀌면 브라우저를 고쳐야 했다.
+//
+// **빈 목록은 오류가 아니다**: 응답이 그 모양이 아니었다는 뜻이고, 그때 화면은 폼을
+// 열지 않고 텍스트가 그대로 선다 (FR-M11-40).
+func (s *Server) apiAgentCommandForm(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		ToolID   string `json:"toolId"`
+		Name     string `json:"name"`
+		Response string `json:"response"`
+	}
+	if !decodeJSONBody(w, r, &body) {
+		return
+	}
+	sess := s.agentSession(w, body.ToolID)
+	if sess == nil {
+		return
+	}
+	if body.Name == "" {
+		httpErr(w, "name required", http.StatusBadRequest, apierr.CodeMissingArg)
+		return
+	}
+	fields := sess.CommandFormFill(body.Name, body.Response)
+	if fields == nil {
+		fields = []agentadapter.FormField{}
+	}
+	writeJSON(w, map[string]any{"fields": fields})
+}
+
 // agentToolBusy 는 그 도구에서 **무언가가 돌고 있는가**다 (FR-M11-12).
 //
 // 전경 프로세스의 유무로 답한다 — 이름을 맞춰 보지 않는다. 화면이나 프로세스
