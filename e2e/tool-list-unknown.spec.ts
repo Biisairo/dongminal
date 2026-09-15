@@ -23,6 +23,29 @@ const addWindow = (page: Page) =>
 
 // 열린 WebSocket 을 센다. term-pane 은 자기 소켓을 `ws` 에 들고 있으므로 재연결이
 // 일어나면 인스턴스가 갈린다 — 그 사실을 id 로 표시해 두고 뒤에 비교한다.
+/**
+ * **표를 붙이기 전에 소켓이 다 열린 것을 본다.**
+ *
+ * `markSockets` 는 `p.ws` 가 있는 pane 에만 표를 붙이고, `socketsReplaced` 는 표가
+ * 없는 pane 을 **교체된 것으로 센다.** 그래서 표를 붙이는 순간 아직 소켓이 없는
+ * pane 이 있으면 그 pane 은 영영 표를 못 받고, 나중에 소켓이 열리는 것만으로
+ * "다시 붙었다" 가 된다 — 제품은 아무 일도 하지 않았는데.
+ *
+ * 그 자리는 바로 앞의 `slotOpen(1, …)` 이다. 칸 1 인스턴스는 그때 소켓을 새로
+ * 열고, 부하가 있으면 그 연결이 표보다 늦는다 (2026-09-15 전량 회차에서 966ms 만에
+ * 실패했다 — 타임아웃이 아니라 경합이다).
+ */
+async function waitSocketsOpen(page: Page) {
+  await expect
+    .poll(() => page.evaluate(() => {
+      const tools = [...(window as any).app.tools.values()].filter(Boolean);
+      if (!tools.length) return -1;
+      // `readyState === 1` 이 OPEN 이다. 여는 중(0)도 표를 못 받는다.
+      return tools.filter((p: any) => !p.ws || p.ws.readyState !== 1).length;
+    }), { timeout: 15000, message: '소켓이 전부 열리지 않았다 — 표 없는 pane 이 교체로 세어진다' })
+    .toBe(0);
+}
+
 async function markSockets(page: Page) {
   await page.evaluate(() => {
     let n = 0;
@@ -78,6 +101,7 @@ test.describe('묶음 L — 도구 목록을 모를 때 하지 않는 일', () =
     const wins0 = await windowCount(page);
     expect(keys0.length).toBeGreaterThan(0);
 
+    await waitSocketsOpen(page);
     await markSockets(page);
     await stubState(page, { known: false, tools: [] });
     await applyState(page);
@@ -154,6 +178,7 @@ test.describe('묶음 M — 죽은 도구 청소와 슬롯 키', () => {
     const slotted = keys.filter((k: string) => k.includes('@1'));
     expect(slotted.length, '칸 1 인스턴스가 서지 않았다 — 전제가 깨졌다').toBeGreaterThan(0);
 
+    await waitSocketsOpen(page);
     await markSockets(page);
     await applyState(page);
 

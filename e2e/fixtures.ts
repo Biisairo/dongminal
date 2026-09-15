@@ -833,9 +833,39 @@ export async function openGit(page: any, repo: string) {
   // `git status` 한 바퀴가 10,000 커밋 저장소(`many-commits`)에서 몇 초인지는
   // **아직 재지 않았다.** 그것을 재기 전에 이 수를 다시 올리지 마라. 올리면 다음
   // 회차가 그 수도 넘기고, 그때는 무엇이 느린지 아무도 모르는 채로 남는다.
-  await page.waitForFunction(
-    () => !!(window as any).app?.gitPanel?.statusOf(),
-    undefined, { timeout: 60000 });
+  //
+  // **실측 (2026-09-15, M10_SRS §2.7)**: 단독 실행에서 `openGit` 한 번은 **82ms** 이고
+  // `git/status` 응답은 56ms 다. 그리고 `many-commits`(10,000 커밋)와 `basic`(작은
+  // 저장소)이 **차이가 없다**(82 vs 88ms). 그러므로 위 주석의 진단 둘은 틀렸다 —
+  // git 도(`git status` 10ms), 픽스처의 크기도 이 대기를 60초로 만들지 않는다.
+  //
+  // 82ms 가 60,000ms 가 되는 것은 **730배**이고, 그 수는 경합으로 설명되지 않는다.
+  // 느려진 것이 아니라 **서지 않는 것**이다. 그래서 실패할 때 무엇이 서지 않았는지를
+  // 남긴다 — 이 자리는 전량에서만 걸리므로 재현이 아니라 **기록**이 원인을 준다
+  // (M9-B2 를 닫은 것이 재현이 아니라 사용자 로그의 산수였다).
+  try {
+    await page.waitForFunction(
+      () => !!(window as any).app?.gitPanel?.statusOf(),
+      undefined, { timeout: 60000 });
+  } catch (e) {
+    const why = await page.evaluate(() => {
+      const a = (window as any).app;
+      const p = a?.gitPanel;
+      return {
+        hasApp: !!a,
+        hasPanel: !!p,
+        panelRepo: p?.repo ?? null,
+        activeWindow: a?.ws?.activeWindow ?? null,
+        focused: a?.focused ?? null,
+        gitMissing: p?._gitMissing ?? null,
+        pollOn: p?._pollOn ?? null,
+        stPoll: !!p?._stPoll,
+        sse: a?.bus?._es?.readyState ?? null,
+        winCount: a?.ws?.windows?.length ?? null,
+      };
+    }).catch(() => null);
+    throw new Error(`첫 관측이 60초 안에 서지 않았다 — repo=${repo}\n진단: ${JSON.stringify(why)}\n${e}`);
+  }
 }
 
 /**

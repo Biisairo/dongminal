@@ -36,9 +36,21 @@ type fakeSigner struct {
 	calls    int
 	sigCalls int
 	mu       sync.Mutex
+
+	// GIT_DETECT_TIER_SRS V-GDT-5·6 — 관측의 **시간**을 검사가 쥔다.
+	//
+	// `hook` 은 관측이 시작된 순간 불린다. 거기서 막으면 "그 저장소가 느리다" 가
+	// 되고, 그동안 다른 저장소가 함께 시작되는지가 병렬의 관측 가능한 표면이다.
+	// `nil` 이면 아무 일도 없다 — 다른 검사는 이 필드를 모른다.
+	hook func(ctx context.Context, repo string)
 }
 
-func (f *fakeSigner) Signature(_ context.Context, repo string) (query.Signature, error) {
+func (f *fakeSigner) Signature(ctx context.Context, repo string) (query.Signature, error) {
+	// 훅은 **잠그기 전에** 부른다. 뮤텍스를 쥔 채 막으면 병렬이어도 다른 저장소가
+	// 들어오지 못해, 재려던 것을 검사가 스스로 막는다.
+	if f.hook != nil {
+		f.hook(ctx, repo)
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.sigCalls++
@@ -744,5 +756,84 @@ func TestGitWatch_QuietRepoCost(t *testing.T) {
 	if sig.calls != want {
 		t.Fatalf("아무 변화 없는 저장소에서 git status 가 %d 회 돌았다 (기대 %d) — "+
 			"NFR-GDT-1 은 60 → 15 이하다", sig.calls, want)
+	}
+}
+
+// V-GDT-5 (GIT_DETECT_TIER_SRS FR-GDT-8): **느린 저장소가 다른 저장소의 감지를 막지
+// 않는다.**
+//
+// 종전에는 한 고루틴이 차례로 관측했고, 저장소 하나가 3초 걸리면 그 회차 전체가
+// 3초를 넘겼다 — `time.Ticker` 는 밀린 틱을 버리므로 **다른 저장소의 감지가 함께
+// 늦어졌다**.
+//
+// 재는 방식이 요점이다. **전부를 막아 놓고 몇이 시작되는지 센다** — 하나만 느리게
+// 하면 그것이 마지막에 스케줄될 때 순차 구현도 통과한다(맵 순회 순서는 보장되지
+// 않는다). 순차라면 첫 관측에서 멎으므로 하나밖에 오지 않는다.
+func TestGitWatch_SlowRepoDoesNotBlockOthers(t *testing.T) {
+	repos := []string{"/a", "/b", "/c"}
+	sig := &fakeSigner{sigs: map[string]string{"/a": "1", "/b": "1", "/c": "1"}}
+	started := make(chan string, len(repos))
+	gate := make(chan struct{})
+	sig.hook = func(_ context.Context, repo string) {
+		started <- repo
+		<-gate // 전부 여기서 멎는다
+	}
+	br := &fakeBroker{}
+	w := newWatcher(sig, br)
+	for _, r := range repos {
+		note(t, w, sig, r)
+	}
+
+	done := make(chan struct{})
+	go func() { defer close(done); w.Tick(context.Background()) }()
+
+	// 셋이 **동시에** 관측에 들어가야 한다. `GitWatchParallel`(4) 안이므로 셋 다 뜬다.
+	for i := 0; i < len(repos); i++ {
+		select {
+		case <-started:
+		case <-time.After(5 * time.Second):
+			close(gate)
+			<-done
+			t.Fatalf("회차가 순차로 돈다 — %d개만 시작됐다 (FR-GDT-8)", i)
+		}
+	}
+	close(gate)
+	<-done
+}
+
+// V-GDT-6 (GIT_DETECT_TIER_SRS FR-GDT-9·10 / `GO-33`): **회차에 시한이 있고 종료가
+// 그것을 취소한다.**
+//
+// 두 가지를 잰다. 이미 끝난 컨텍스트로 부르면 **관측을 시작하지 않는다**(회차 앞의
+// 가드), 그리고 넘긴 컨텍스트가 **관측까지 전달된다**(전달되지 않으면 시한이 걸려도
+// 이미 뜬 git 이 끝까지 돈다 — `GO-33` 이 지적한 그 줄이다).
+func TestGitWatch_RoundHonoursContext(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
+	br := &fakeBroker{}
+	w := newWatcher(sig, br)
+	note(t, w, sig, "/r")
+
+	// ① 이미 취소된 컨텍스트 — 한 번도 관측하지 않는다.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	before := sig.sigCalls
+	if n := w.Tick(ctx); n != 0 {
+		t.Errorf("취소된 회차가 %d건을 방송했다", n)
+	}
+	if sig.sigCalls != before {
+		t.Errorf("취소된 회차가 관측했다: %d → %d (FR-GDT-9)", before, sig.sigCalls)
+	}
+
+	// ② 살아 있는 컨텍스트는 **관측까지 닿는다.**
+	var seen context.Context
+	sig.hook = func(c context.Context, _ string) { seen = c }
+	live, cancelLive := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelLive()
+	w.Tick(live)
+	if seen == nil {
+		t.Fatal("관측이 컨텍스트를 받지 못했다 — 시한이 걸려도 멈출 길이 없다 (`GO-33`)")
+	}
+	if _, ok := seen.Deadline(); !ok {
+		t.Error("관측이 받은 컨텍스트에 시한이 없다 (FR-GDT-9)")
 	}
 }

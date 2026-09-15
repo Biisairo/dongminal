@@ -6,9 +6,11 @@
 > (`sync.WaitGroup` + `GitWatchParallel` 세마포어), 회차 시한과 종료 취소는 `:578`
 > (`context.WithTimeout(root, GitWatchRoundTimeout)`)이다.
 >
-> **다만 검증 갭이 남는다 — `V-GDT-5`·`V-GDT-6` 의 전용 Go 단위 검사가 없다.** 기능은
-> 있으나 그것을 재는 검사가 없으므로, 병렬이 순차로 퇴행하거나 시한 배선이 끊겨도
-> 아무것도 빨개지지 않는다. 있다고 적지 않기 위해 여기 남긴다.
+> **검증 갭도 닫혔다 (2026-09-15)** — `V-GDT-5`·`V-GDT-6` 의 Go 단위 검사가
+> `hub/gitwatch_test.go` 에 섰다(`TestGitWatch_SlowRepoDoesNotBlockOthers` ·
+> `TestGitWatch_RoundHonoursContext`). **둘 다 퇴행을 실제로 잡는 것을 프로브로
+> 확인했다** — `GitWatchParallel` 을 1 로 낮추면 전자가, 관측에 넘기는 컨텍스트를
+> 끊으면 후자가 실패한다.
 
 ## 1. 개요 (Introduction)
 
