@@ -304,13 +304,27 @@ func (s *Session) openLocked() []agentadapter.ApprovalRequest {
 }
 
 // State 는 합쳐진 상태 스냅샷이다.
+//
+// M11_SRS FR-M11-6 (M11-B3): **기동 옵션이 진실의 한 겹이다.** 프로토콜이 현재
+// 모델을 말해 주는 것은 `set_model` 이나 첫 턴의 프레임이고, `initialize` 응답에는
+// 그 스칼라가 아예 없다(실측 — SRS §2.5). 그래서 턴을 돌리기 전에는 우리가 **띄울
+// 때 준 값**이 아는 것의 전부이며, `recordLocked` 는 이미 같은 사다리를 쓴다.
+//
+// 모르는 것을 지어내지는 않는다 — 옵션도 비어 있으면 빈 채로 둔다 (FR-CBG-5).
 func (s *Session) State() State {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	p := s.ad.Proto
+	status := s.status
+	if status.Model == "" {
+		status.Model = s.opts.Model
+	}
+	if status.PermissionMode == "" {
+		status.PermissionMode = s.opts.PermissionMode
+	}
 	return State{
 		ToolID: s.toolID, Agent: s.ad.ID, SessionID: s.st.SessionID,
-		Status: s.status, Usage: s.usage, Open: s.openLocked(),
+		Status: status, Usage: s.usage, Open: s.openLocked(),
 		PermissionModes: p.PermissionModes,
 		Controls:        Controls{Interrupt: p.Interrupt != nil, Control: p.Control != nil, TUIResume: p.TUIResume != nil},
 		Exited:          s.dormant != "",

@@ -47,6 +47,12 @@ class AgentPane {
     this.ctxEl=document.createElement('span'); this.ctxEl.className='agp-ctx';
     this.costEl=document.createElement('span'); this.costEl.className='agp-cost';
     /**
+     * M11_SRS FR-M11-6 (M11-B3): **계정·플랜.** 프로토콜이 `initialize` 에 실어
+     * 주고 어댑터가 `ProtoStatus.Account` 로 날라 왔는데 **화면이 버리고 있었다** —
+     * 접수한 하단이 비어 보인 까닭의 하나다. 턴 전에도 아는 값이다.
+     */
+    this.acctEl=document.createElement('span'); this.acctEl.className='agp-acct';
+    /**
      * M9_SRS FR-M9-34: **플랜 한도는 컨텍스트 채움과 다른 자리에 선다.**
      * 둘은 출처가 다르고(하나는 이 대화, 하나는 계정 전체), 나란히 같은 모양으로
      * 두면 사용자가 같은 것으로 읽는다. 그래서 이름을 주기로 달고 사유를 title 에 둔다.
@@ -121,7 +127,7 @@ class AgentPane {
     dash.appendChild(this.ctxBar.el); dash.appendChild(this.ctxEl);
     dash.appendChild(this.limBar.el); dash.appendChild(this.limitsEl);
     for(const x of [this.costEl,this.cacheEl,this.modelEl,this.permEl,
-      this.cwdEl,this.repoEl,this.sessEl,this.openEl]) dash.appendChild(x);
+      this.acctEl,this.cwdEl,this.repoEl,this.sessEl,this.openEl]) dash.appendChild(x);
     el.appendChild(dash);
     this._setState('');
   }
@@ -189,7 +195,7 @@ class AgentPane {
     this.state=st;
     if(st.agent&&!this.name){this.name=st.agent; this.lblEl.textContent=st.agent}
     const s=st.status||{};
-    this._setModel(s.model); this._setPerm(s.permissionMode);
+    this._setModel(s.model); this._setPerm(s.permissionMode); this._setAccount(s.account);
     this._setUsage(st.usage||{});
     this._openIds=new Set((st.open||[]).map(o=>o.id));
     this._renderOpen();
@@ -247,13 +253,16 @@ class AgentPane {
    */
   _mergeStatus(st){
     if(!st) return;
-    this._setModel(st.model); this._setPerm(st.permissionMode);
+    this._setModel(st.model); this._setPerm(st.permissionMode); this._setAccount(st.account);
     if(!this.state) return;
     if(st.models) this.state.status=Object.assign({},this.state.status,{models:st.models});
     if(st.commands) this.state.status=Object.assign({},this.state.status,{commands:st.commands});
   }
   _setModel(m){ if(m){ this._model=m; this.modelEl.textContent=t('agent.model_current',{model:m}) } }
   _setPerm(p){ if(p){ this._perm=p; this.permEl.textContent=t('agent.perm_mode_current',{mode:p}) } }
+  // FR-M11-6: 어댑터가 합친 한 줄을 그대로 낸다 — 모델 이름·명령 목록과 같은 자격의
+  // **에이전트가 준 데이터**이므로 카탈로그 밖 문자열이다 (D-M9-23 과 같은 근거).
+  _setAccount(a){ if(a){ this._account=a; this.acctEl.textContent=t('agent.account',{account:a}) } }
   /**
    * M9_SRS FR-M9-40 (M9-B22): **바는 장식이 아니라 값이다.**
    *

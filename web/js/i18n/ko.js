@@ -25,6 +25,7 @@ I18N.register('ko', {
   'agent.answer': '답하기',
   'agent.approval_arrived': '{agent}: 승인 요청 — {tool}',
   'agent.approval_title': '승인 요청 — {tool}',
+  'agent.account': '계정 {account}',
   'agent.cache': '캐시 읽기 {read} · 쓰기 {write}',
   'agent.choice_allow': '허용',
   'agent.choice_deny': '거부',

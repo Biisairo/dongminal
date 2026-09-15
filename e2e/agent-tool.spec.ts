@@ -774,6 +774,15 @@ test.describe('에이전트 GUI 의 읽힘 (M11)', () => {
     expect(colors.size, '말한 사람이 색으로 갈리지 않는다').toBe(3);
   });
 
+  test('V-M11-15: 턴 전에도 계정·플랜이 하단에 선다 (FR-M11-6)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    // **한 턴도 돌리지 않는다.** 이 값은 `initialize` 응답이 주고 어댑터가 나르는데
+    // 화면이 버리고 있었다 — 접수한 하단이 비어 보인 까닭의 하나다 (M11-B3).
+    await expect(pane.locator('.agp-acct')).toContainText('fake@example', { timeout: 15000 });
+    await expect(pane.locator('.agp-acct')).toContainText('Fake');
+  });
+
   test('V-M11-8: 도구 사용은 접힌 채 서고 눌러야 펴진다 (FR-M11-4)', async ({ page }) => {
     await waitForInit(page);
     const pane = await openAgentTab(page);

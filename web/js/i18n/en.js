@@ -24,6 +24,7 @@ I18N.register('en', {
   'agent.answer': 'Answer',
   'agent.approval_arrived': '{agent}: approval requested — {tool}',
   'agent.approval_title': 'Approval — {tool}',
+  'agent.account': 'Account {account}',
   'agent.cache': 'Cache read {read} · write {write}',
   'agent.choice_allow': 'Allow',
   'agent.choice_deny': 'Deny',
