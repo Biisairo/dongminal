@@ -897,8 +897,20 @@ class TerminalTool {
    * (D-M10-2). 소켓을 다시 열면 서버는 **새 연결**로 다루므로 그 물음이 없다.
    */
   _refreshForWidth(){
-    if(this._destroyed||this._exited||!this.ws) return false;
+    if(this._destroyed||this._exited) return false;
+    // FR-M11-1: **좌표 버리기가 소켓 판정보다 앞선다.** 폭이 바뀐 것은 화면의
+    // 사실이고 전송로의 사실이 아니다 — 재접속 대기·백오프 구간에서 물러나며
+    // 좌표를 들고 있으면, 뒤이어 붙는 쪽이 `since` 를 달고 **델타**를 받는다
+    // (`_wsURL`). 그러면 옛 폭의 그림은 영영 지워지지 않고, 폭은 이미 바뀌어
+    // 있어 다음 `ptySize()` 도 `cols!==had` 를 보지 못한다 (M11_SRS §2.4c·d).
     this._seq=-1; this._seqLive=false;
+    // 좌표를 버렸으므로 재개할 자리가 없다 — 반쪽 멀티바이트를 끊는다 (FR-TRS-4).
+    // `reconnectNow` 안의 같은 판정은 아래 갈래에서만 지나간다.
+    this._resetDecoderIfNoResume();
+    // 소켓이 없으면 **여기서 멈춘다.** 새로 걸지 않는 이유는 그 자리에 이미
+    // 재접속이 백오프로 돌고 있기 때문이다 — 하나를 더 걸면 두 벌이 된다
+    // (D-M11-1). 반환값의 뜻은 종전대로 "지금 다시 붙였는가" 다.
+    if(!this.ws) return false;
     return this.reconnectNow({quiet:true});
   }
   focus(){if(this.term)try{this.term.focus()}catch{}}

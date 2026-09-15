@@ -215,3 +215,72 @@ test('비소유자의 doFit 은 여전히 fit 하지 않는다 (FR-M9-3 을 되�
   assert.equal(h.p.fitCalls, before, 'D-M10-1 을 어겼다 — 따라가기는 비소유일 때의 규약이다');
   assert.equal(h.p.term.cols, 44);
 });
+
+// ── FR-M11-1: 폭이 바뀐 사실은 소켓보다 오래 산다 ─────────────────────────
+//
+// `!this.ws` 로 물러날 때 좌표를 그대로 두면, 뒤이은 재접속이 `since` 를 달고
+// 붙어 **델타**를 받는다. 옛 폭의 그림은 지워지지 않는다 — 그것이 M11-B1 이고,
+// 서버 재시작·절전·망 전환이 그 구간을 만든다 (M11_SRS §2.4c·§2.4d).
+
+test('V-M11-1: 소켓이 없어도 폭이 바뀌면 좌표를 버린다', () => {
+  const h = pane({ owner: true });
+  h.p._seq = 4096;
+  h.p._seqLive = true;
+  h.p.ws = null;
+  h.p.reconnectNow = () => { throw new Error('소켓이 없는데 다시 붙이려 했다 (D-M11-1)') };
+  assert.equal(h.p._refreshForWidth(), false, '반환값의 뜻은 "지금 다시 붙였는가" 다');
+  assert.equal(h.p._seq, -1, '좌표를 들고 있으면 다음 접속이 델타가 된다 — M11-B1 의 자리다');
+  assert.equal(h.p._seqLive, false);
+});
+
+test('V-M11-2: 좌표를 버리는 갈래는 디코더 판정을 지난다', () => {
+  const h = pane({ owner: true });
+  h.p._seq = 4096;
+  h.p._outputBuf = '반쪽';
+  h.p.ws = null;
+  h.p._refreshForWidth();
+  assert.equal(h.p._outputBuf, '', '반쪽 멀티바이트가 전량 재생의 첫 바이트에 이어 붙는다 (FR-TRS-4)');
+});
+
+test('V-M11-3: 종료·파괴된 pane 은 좌표조차 버리지 않는다', () => {
+  for (const flag of ['_exited', '_destroyed']) {
+    const h = pane({ owner: true });
+    h.p._seq = 4096;
+    h.p._seqLive = true;
+    h.p.ws = null;
+    h.p[flag] = true;
+    assert.equal(h.p._refreshForWidth(), false);
+    assert.equal(h.p._seq, 4096, `${flag} 인데 좌표를 건드렸다`);
+    assert.equal(h.p._seqLive, true);
+  }
+});
+
+test('V-M11-4: 소켓이 있을 때의 동작은 종전과 같다', () => {
+  const h = pane({ owner: true });
+  h.p._seq = 4096;
+  h.p._seqLive = true;
+  h.p.ws = { close() {} };
+  let opts = null;
+  h.p.reconnectNow = (o) => { opts = o; return true };
+  assert.equal(h.p._refreshForWidth(), true);
+  assert.equal(h.p._seq, -1);
+  assert.equal(h.p._seqLive, false);
+  assert.ok(opts && opts.quiet === true);
+});
+
+test('V-M11-5: 되찾기가 소켓 없이 폭 전환을 만나면 다음 접속에 since 가 없다', () => {
+  const h = pane({ owner: true });
+  h.p.doFit();                          // 소유자로서 자기 폭 151 을 잰다
+  h.release();
+  h.p._onOp(sizeFrame(h.OP, 44, 20));   // 좁은 쪽이 소유 → 44 를 따라간다
+  h.p._seq = 4096;                      // 여기까지 델타로 이어 붙고 있었다
+  h.p._seqLive = true;
+  h.hide();                             // 숨은 pane — doFit 을 돌리지 않는다
+  h.claim();                            // 포커스가 돌아온다
+  h.p.ws = null;                        // 그런데 소켓은 재접속 중이다
+  h.p.reconnectNow = () => { throw new Error('백오프가 도는 중에 하나를 더 걸었다') };
+  h.ctx.location = { protocol: 'http:', host: 'h' };
+  const s = h.p.ptySize();
+  assert.equal(s.cols, 151, '되찾은 폭이 자기 폭이어야 한다 (FR-M10-1)');
+  assert.ok(!/since=/.test(h.p._wsURL()), 'since 를 달고 붙으면 델타가 와서 옛 폭의 그림이 남는다 (M11-B1)');
+});
