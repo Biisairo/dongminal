@@ -53,6 +53,7 @@ I18N.register('en', {
   'agent.limits_title': 'Plan usage — the account total, not what this tool used',
   'agent.menu_title': 'Agent menu',
   'agent.model': 'Model',
+  'agent.lift_still_running': 'Still running — end the agent in the shell first',
   'agent.model_current': 'Model: {model}',
   'agent.no_agents': 'No agent can be launched — not on PATH or no protocol surface',
   'agent.not_resumable': 'No session identity — cannot resume. Close the tab.',

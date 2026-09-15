@@ -54,6 +54,7 @@ I18N.register('ko', {
   'agent.limits_title': '플랜 사용량 — 이 도구가 쓴 양이 아니라 계정 전체의 사용량입니다',
   'agent.menu_title': '에이전트 메뉴',
   'agent.model': '모델',
+  'agent.lift_still_running': '아직 끝나지 않았습니다 — 셸의 에이전트를 먼저 끝내세요',
   'agent.model_current': '모델: {model}',
   'agent.no_agents': '띄울 수 있는 에이전트가 없습니다 — PATH 에 없거나 프로토콜 표면이 없습니다',
   'agent.not_resumable': '세션 신원이 없어 재개할 수 없습니다. 탭을 닫으세요.',

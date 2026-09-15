@@ -116,9 +116,48 @@ Object.assign(App.prototype, {
     const c=await apiGet('/api/cwd',{query:{tool:toolId}});
     const cwd=(c.ok&&c.data&&c.data.cwd)||undefined;
     // 먼저 끝내고 연다. 순서가 바뀌면 두 프로세스가 같은 세션을 겹쳐 잡는다.
-    if(info.exitCommand) await apiPost('/api/tools/input',{id:toolId,text:info.exitCommand,execute:true});
+    //
+    // M11_SRS FR-M11-5 (M11-B2): **끝난 것을 보고 연다.**
+    //
+    //   이전 동작: 종료 명령을 넣고 **답을 기다리지 않은 채** GUI 를 열었다.
+    //             에이전트가 턴 중이면 그 한 줄은 입력창에 얹힐 뿐이고, 그래서
+    //             접수한 말대로 *"gui 탭도 켜지고 에이전트도 살아서 돌아가고있다"*
+    //   새  동작: 턴 중이면 먼저 끊고, 종료 명령을 넣고, **사라지기를 기다린다.**
+    //             시한 안에 사라지지 않으면 **GUI 를 열지 않는다**
+    //   이유:     둘을 다 여는 것보다 하나도 안 여는 쪽이 낫다 — 같은 세션을 두
+    //             프로세스가 `--resume` 으로 잡으면 충돌한다 (D-M9-20 과 같은 근거)
+    if(info.exitCommand&&!await this._endShellAgent(toolId,info.exitCommand)){
+      Toast.show(t('agent.lift_still_running'),'err');
+      return;
+    }
     await this.addTab(paneId,'agent',{agent:info.agent,resume:info.sessionId,cwd,
       windowId:loc&&loc.win?loc.win.id:undefined});
+  },
+
+  /**
+   * FR-M11-5: 셸 쪽 에이전트를 끝내고 **사라진 것을 확인한다.**
+   *
+   * 판정의 원천은 활동 등록부다 — `SessionEnd` 훅이 `ended` 를 보내면
+   * `_onToolActivity` 가 그 항목을 지운다. 화면 출력으로 짐작하지 않는 것은
+   * `refreshLift` 와 같은 근거다 (fingerprint 금지, FR-SKL-2).
+   *
+   * 애초에 활동이 없으면 기다릴 것도 없다 — 그때는 종료 명령만 넣고 지나간다.
+   */
+  async _endShellAgent(toolId,exitCommand){
+    const act=this._activity&&this._activity.get(toolId);
+    // 턴 중이면 종료 명령이 입력창에 얹힌다. 먼저 끊는다 (ESC — TUI 의 인터럽트).
+    if(act&&act.state==='working'){
+      await apiPost('/api/tools/input',{id:toolId,text:'\u001b'});
+      await new Promise(done=>TIMERS.after(AGENT_LIFT_INTERRUPT_MS,done,{label:'agent-lift-interrupt'}));
+    }
+    await apiPost('/api/tools/input',{id:toolId,text:exitCommand,execute:true});
+    if(!this._activity||!this._activity.has(toolId)) return true;
+    const until=Date.now()+AGENT_LIFT_EXIT_MS;
+    while(Date.now()<until){
+      await new Promise(done=>TIMERS.after(AGENT_LIFT_POLL_MS,done,{label:'agent-lift-wait'}));
+      if(!this._activity.has(toolId)) return true;
+    }
+    return false;
   },
 
   async agentOpenTerminal(toolId){

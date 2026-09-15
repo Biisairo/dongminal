@@ -134,6 +134,18 @@ var agentsPollInterval=AGENTS_POLL_DEFAULT;
 // 상태별 글꼴 기호(이모지 아님) — 색(.ag-state.<state>)과 함께 상태를 구분.
 const AGENT_STATE_ICON={working:'●',done:'✓',waiting:'…',idle:'○'};
 
+/**
+ * M11_SRS FR-M11-5: 셸에서 도는 에이전트를 **끝내고 기다리는** 시한 (M11-B2).
+ *
+ * `INTERRUPT_MS` 는 끊기(ESC)와 종료 명령 사이의 틈이다 — 붙여 보내면 TUI 가
+ * 인터럽트를 소화하기 전에 `/exit` 가 입력창에 얹힌다.
+ * `EXIT_MS` 는 사라지기를 기다리는 상한이고, `POLL_MS` 가 그 사이의 걸음이다.
+ * 판정의 원천은 활동 등록부다 (`_activity` — `ended` 면 항목이 지워진다).
+ */
+const AGENT_LIFT_INTERRUPT_MS=400;
+const AGENT_LIFT_EXIT_MS=8000;
+const AGENT_LIFT_POLL_MS=250;
+
 // 모바일 키바 제스처 상수 (USER_CHECKLIST_FIXES_SRS FR-MTB-2/4/5).
 // TAP_SLOP: 이 거리를 넘으면 탭이 아니라 스크롤로 넘긴다.
 // GHOST_CLICK: touchend 처리 후 이 시간 안에 오는 click 은 합성분으로 본다.
