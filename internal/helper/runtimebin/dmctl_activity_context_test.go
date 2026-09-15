@@ -359,3 +359,33 @@ func TestAgentContext_NoIdentityIsSilent(t *testing.T) {
 		t.Fatalf("주입은 그대로여야 한다: %s", out.String())
 	}
 }
+
+// V-M11-16 (M11_SRS FR-M11-7 / M11-B7): **세션 id 만으로도 관측이 나간다.**
+//
+// `SessionStart` 는 전사본이 아직 없는 자리다 — 그 파일은 첫 프롬프트에야 생긴다.
+// 종전의 판정이 전사본과 압축만 보아서, 신원을 들고도 조용히 돌아섰고 올리기
+// 진입점이 첫 프롬프트까지 서지 않았다 (사용자 확인 2026-09-15).
+func TestReportContext_SessionStartCarriesIdentityWithoutTranscript(t *testing.T) {
+	cap := startCapture(t, "tool-1")
+	var out, errb strings.Builder
+	runDmctlActivity([]string{"claude"}, hookJSON(t, map[string]any{
+		"hook_event_name": "SessionStart",
+		"session_id":      "sess-abc",
+		"source":          "startup",
+	}), &out, &errb)
+
+	got := cap.lastContext(t)
+	if got["sessionId"] != "sess-abc" {
+		t.Fatalf("전사본이 없다고 신원을 버렸다 — 올리기가 첫 프롬프트까지 선다: %v", got)
+	}
+	if got["agent"] != "claude" {
+		t.Fatalf("어댑터를 말하지 않으면 서버가 재개 명령을 고를 수 없다: %v", got)
+	}
+	// 없는 것은 그대로 없어야 한다 (FR-CBG-5).
+	if _, ok := got["transcriptPath"]; ok {
+		t.Fatalf("없는 경로를 지어냈다: %v", got)
+	}
+	if _, ok := got["bytes"]; ok {
+		t.Fatalf("재지 못한 크기를 지어냈다: %v", got)
+	}
+}

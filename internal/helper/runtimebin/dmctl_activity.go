@@ -92,8 +92,13 @@ const contextObservePath = "/api/runs/context"
 //
 // 신호가 하나도 없으면 아무것도 보내지 않는다. 관측하지 못한 것을 0 으로
 // 보내면 서버가 그것을 값으로 읽는다 — 모르는 것은 모르는 채로 둔다 (FR-CBG-5).
+//
+// M11_SRS FR-M11-7 (M11-B7): **세션 id 도 신호다.** 종전의 판정은 전사본과 압축만
+// 보았고, 그래서 `SessionStart` 처럼 **전사본이 아직 없는** 훅은 신원을 들고도
+// 조용히 돌아섰다. 그 파일은 첫 프롬프트에야 생기므로, 사용자가 본 그대로
+// *"첫 프롬프트를 보내면 나와"* 였다 — 올리기 진입점이 그때까지 서지 않는다.
 func reportContext(a agentadapter.Adapter, rep agentadapter.Report, toolID string) {
-	if rep.Transcript == "" && !rep.Compacted {
+	if rep.Transcript == "" && !rep.Compacted && rep.SessionID == "" {
 		return
 	}
 	// AGENT_ADAPTER_COMPLETION_SRS FR-AAC-23: **누가 보고했는지 함께 말한다.**
