@@ -26,6 +26,15 @@ type AgentSessionInfo struct {
 	// **와이어로 나가지 않는다**: `json:"-"` 가 그 규약의 첫 방벽이다. 이 구조체는
 	// 서버 안에서만 살지만, 누군가 이것을 응답에 실으면 경로가 브라우저로 샌다.
 	TranscriptPath string `json:"-"`
+	// Ended 는 그 세션이 **끝났다**는 표시다 (M11_SRS FR-M11-9 / M11-B7 의 뒷면).
+	//
+	// **지우지 않고 표시하는 이유**는 올리기가 끝난 세션의 전사본을 읽기 때문이다
+	// (FR-M9-41). `agentLiftFromTerminal` 은 셸 쪽을 **먼저 끝내고** 그 세션을 GUI
+	// 로 여는데(FR-M11-5), 그때 지워 버리면 `transcriptFor` 가 경로를 잃어 올린
+	// 화면이 빈 채로 선다.
+	//
+	// 그러므로 이 값은 **올릴 수 있는가**만 가른다. 되짚기는 종전대로다.
+	Ended bool `json:"-"`
 }
 
 // noteAgentSession 은 훅이 실어 온 신원을 붙든다 (FR-M9-32).
@@ -48,6 +57,30 @@ func (s *Server) noteAgentSession(toolID, sessionID, agent, transcript string) {
 		SessionID: sessionID, Agent: agent, UpdatedAt: time.Now().UnixNano(),
 		TranscriptPath: transcript,
 	})
+}
+
+// endAgentSession 은 그 도구의 세션이 끝났다고 표시한다 (FR-M11-9).
+//
+// 접수는 *"껐는데도 안 사라져"* 다. 신원을 붙드는 자리는 있었으나 **놓는 자리가
+// 없었고**, 종전에는 신원이 애초에 잡히지 않아 그 사실이 드러나지 않았다
+// (M11-B7 을 고치면서 드러났다).
+//
+// **레코드를 지우지 않는다** — `transcriptFor` 가 끝난 세션의 경로로 올린 화면을
+// 채운다 (FR-M9-41). 바뀌는 것은 "올릴 수 있는가" 하나다.
+//
+// 모르는 도구는 아무것도 하지 않는다 — 없는 신원을 "끝난 신원" 으로 만들지 않는다.
+func (s *Server) endAgentSession(toolID string) {
+	if toolID == "" {
+		return
+	}
+	prev := s.AgentSession(toolID)
+	if prev == nil || prev.Ended {
+		return
+	}
+	next := *prev
+	next.Ended = true
+	next.UpdatedAt = time.Now().UnixNano()
+	s.agentSessions.Store(toolID, &next)
 }
 
 // transcriptFor 는 그 세션 신원의 전사본 경로다 (FR-M9-41). 모르면 빈 문자열.

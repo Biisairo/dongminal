@@ -177,6 +177,12 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 	// **방송보다 먼저다.** 순서가 이 두 줄의 전부이며, 뒤집으면 M11-B7 이 돌아온다.
 	// 빈 값은 아무것도 하지 않는다 (`noteAgentSession` — 모른다를 없다로 만들지 않는다).
 	s.noteAgentSession(req.ToolID, req.SessionID, req.Agent, "")
+	// FR-M11-9: 끝남도 **같은 요청**에서 표시한다. 방송 뒤에 표시하면 받는 쪽이
+	// `ended` 를 계기로 되물을 때 아직 "올릴 수 있다" 가 나온다 — FR-M11-8 이
+	// 고친 것과 같은 순서 문제가 반대편에서 되살아난다.
+	if req.State == "ended" {
+		s.endAgentSession(req.ToolID)
+	}
 	s.reportActivity(req.ToolID, req.State, req.Tool, req.Detail, req.UserPrompt, agentReportsUserTurn(req.Agent))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"ok": true})

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -74,5 +75,59 @@ func TestActivitySet_DoesNotEraseKnownIdentity(t *testing.T) {
 
 	if info := s.AgentSession("9"); info == nil || info.SessionID != "sess-1" {
 		t.Fatalf("뒤따른 보고가 신원을 지웠다: %+v", info)
+	}
+}
+
+// V-M11-20·21·22 (M11_SRS FR-M11-9): **끝난 세션은 올릴 수 없다 — 그러나 지우지는 않는다.**
+//
+// 접수는 *"껐는데도 안 사라져"* 다. 붙드는 자리는 있었으나 놓는 자리가 없었다.
+// 레코드를 지우지 않는 것이 요점이다 — 올리기가 **끝난** 세션의 전사본을 읽어
+// 화면을 채운다 (FR-M9-41 · FR-M11-5 가 셸 쪽을 먼저 끝내는 것이 그 순서다).
+
+func liftable(t *testing.T, s *Server, toolID string) map[string]any {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	s.apiAgentSessionOf(rec, apiTestRequest(http.MethodGet, "/api/agent/session?tool="+toolID, nil))
+	var m map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &m); err != nil {
+		t.Fatalf("응답이 JSON 이 아니다: %q", rec.Body.String())
+	}
+	return m
+}
+
+func TestAgentSession_EndedIsNotLiftable(t *testing.T) {
+	s := identityServer(t)
+	activitySet(t, s, `{"toolId":"9","agent":"claude","state":"idle","sessionId":"sess-1"}`)
+	if liftable(t, s, "9")["liftable"] != true {
+		t.Fatal("도는 세션을 올릴 수 없다고 답했다")
+	}
+
+	activitySet(t, s, `{"toolId":"9","agent":"claude","state":"ended","sessionId":"sess-1"}`)
+	if got := liftable(t, s, "9")["liftable"]; got != false {
+		t.Fatalf("껐는데 진입점이 남는다 — 접수한 증상이다: %v", got)
+	}
+}
+
+func TestAgentSession_EndedKeepsTranscriptForLift(t *testing.T) {
+	s := identityServer(t)
+	// 전사본 경로는 관측 종단이 싣는다 — 여기서는 같은 함수를 직접 부른다.
+	s.noteAgentSession("9", "sess-1", "claude", "/tmp/sess-1.jsonl")
+	activitySet(t, s, `{"toolId":"9","agent":"claude","state":"ended","sessionId":"sess-1"}`)
+
+	if got := s.transcriptFor("sess-1", "claude"); got != "/tmp/sess-1.jsonl" {
+		t.Fatalf("끝났다고 경로를 잃으면 올린 화면이 빈 채로 선다 (FR-M9-41): %q", got)
+	}
+}
+
+func TestAgentSession_RestartBecomesLiftableAgain(t *testing.T) {
+	s := identityServer(t)
+	activitySet(t, s, `{"toolId":"9","agent":"claude","state":"idle","sessionId":"sess-1"}`)
+	activitySet(t, s, `{"toolId":"9","agent":"claude","state":"ended","sessionId":"sess-1"}`)
+	// 같은 도구에서 새 세션이 선다.
+	activitySet(t, s, `{"toolId":"9","agent":"claude","state":"idle","sessionId":"sess-2"}`)
+
+	m := liftable(t, s, "9")
+	if m["liftable"] != true || m["sessionId"] != "sess-2" {
+		t.Fatalf("다시 띄운 세션을 올릴 수 없다: %v", m)
 	}
 }

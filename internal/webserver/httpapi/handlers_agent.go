@@ -497,7 +497,9 @@ func (s *Server) apiAgentTUILine(w http.ResponseWriter, r *http.Request) {
 // 충돌한다, D-M9-20), 프론트가 `/exit` 를 적으면 그 지식이 두 벌이 된다.
 func (s *Server) apiAgentSessionOf(w http.ResponseWriter, r *http.Request) {
 	info := s.AgentSession(r.URL.Query().Get("tool"))
-	if info == nil || info.SessionID == "" {
+	// FR-M11-9: **끝난 세션은 올릴 수 없다.** 레코드는 남지만(전사본을 읽어야
+	// 한다, FR-M9-41) 진입점은 사라져야 한다 — 접수한 *"껐는데도 안 사라져"* 다.
+	if info == nil || info.SessionID == "" || info.Ended {
 		// FR-M9-37: **신원 없음은 정상이다.** 대부분의 터미널에는 에이전트가 돌지
 		// 않으며, 그것을 404 로 내면 브라우저 콘솔이 오류로 쌓인다 (사용자 접수
 		// 2026-09-14 — *"이 오류도 계속 뜨고있어"*). 오류 코드는 **종단이 없을 때**의
