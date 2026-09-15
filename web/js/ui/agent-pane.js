@@ -83,7 +83,9 @@ class AgentPane {
     el.appendChild(head);
 
     // 대화
-    this.log=document.createElement('div'); this.log.className='agp-log';
+    // FR-M11-2: 스크롤 규약은 `ui-scroll` 하나다 (`style-kit.css`). GUI 만 그것을
+    // 쓰지 않아 브라우저 기본 스크롤바가 서 있었다 — 새 모양을 만들지 않는다.
+    this.log=document.createElement('div'); this.log.className='agp-log ui-scroll';
     this.log.setAttribute('role','log'); this.log.setAttribute('aria-label',t('agent.view_label'));
     el.appendChild(this.log);
 
@@ -92,7 +94,7 @@ class AgentPane {
     this.sugg=document.createElement('div'); this.sugg.className='agp-sugg'; this.sugg.hidden=true;
     inp.appendChild(this.sugg);
     const row=document.createElement('div'); row.className='agp-input-row';
-    this.ta=document.createElement('textarea'); this.ta.className='agp-ta'; this.ta.rows=2;
+    this.ta=document.createElement('textarea'); this.ta.className='agp-ta ui-scroll'; this.ta.rows=2;
     this.ta.placeholder=t('agent.prompt_placeholder'); this.ta.setAttribute('aria-label',t('agent.input_label'));
     this.ta.addEventListener('keydown',e=>this._onKey(e));
     this.ta.addEventListener('input',()=>this._suggest());
@@ -455,25 +457,37 @@ class AgentPane {
     }
     if(!hasBody){ const body=document.createElement('div'); body.className='agp-body'; d.appendChild(body) }
   }
+  /**
+   * FR-M11-4: **도구 카드는 접힌 채 선다.**
+   *
+   *   이전 동작: 입력과 결과가 항상 펼쳐져 화면을 먹는다
+   *   새  동작: `details`/`summary` 로 서고 기본이 접힘. 머리에 도구 이름이 남는다
+   *   이유:     대화를 읽는 것이 목적이다. `agp-raw` 가 이미 같은 관용구를 쓰므로
+   *             새 모양이 아니다 — 오류만 예외로 펼친다 (`_toolResult`)
+   */
   _toolCard(useId,tool,input){
     let card=useId?this._toolCards.get(useId):null;
     if(!card){
-      card=document.createElement('div'); card.className='agp-tool';
-      const h=document.createElement('div'); h.className='agp-tool-head'; h.textContent=t('agent.tool_call',{tool:tool||''});
+      card=document.createElement('details'); card.className='agp-tool';
+      const h=document.createElement('summary'); h.className='agp-tool-head'; h.textContent=t('agent.tool_call',{tool:tool||''});
       card.appendChild(h);
       if(useId) this._toolCards.set(useId,card);
       const host=this._live||this.log; host.appendChild(card);
     }
     if(input&&!card.querySelector('.agp-tool-in')){
-      const pre=document.createElement('pre'); pre.className='agp-tool-in'; pre.textContent=agentDetail(tool,input); card.appendChild(pre);
+      const pre=document.createElement('pre'); pre.className='agp-tool-in ui-scroll'; pre.textContent=agentDetail(tool,input); card.appendChild(pre);
     }
     return card;
   }
   _toolResult(useId,text,isErr){
     const card=this._toolCard(useId,'',null);
     const h=document.createElement('div'); h.className='agp-tool-res-head'+(isErr?' agp-err':''); h.textContent=isErr?t('agent.tool_result_error'):t('agent.tool_result');
-    const pre=document.createElement('pre'); pre.className='agp-tool-res'; pre.textContent=text;
+    const pre=document.createElement('pre'); pre.className='agp-tool-res ui-scroll'; pre.textContent=text;
     card.appendChild(h); card.appendChild(pre);
+    // FR-M11-4: **오류는 펼친 채 선다.** 읽으라고 있는 것을 접으면 접수한 증상이
+    // 그대로 돌아온다 — 무엇이 잘못됐는지 한 번 더 눌러야 보인다.
+    if(isErr) card.open=true;
+    card.dataset.res=isErr?'err':'ok';
     this._endLive();
   }
   _raw(ev){
@@ -683,7 +697,7 @@ class AgentPane {
     const isQ=req.kind==='question';
     if(!isQ){
       if(req.description){ const p=document.createElement('div'); p.className='agp-appr-desc'; p.textContent=req.description; body.appendChild(p) }
-      const pre=document.createElement('pre'); pre.className='agp-appr-in'; pre.textContent=agentDetail(req.tool,req.input); body.appendChild(pre);
+      const pre=document.createElement('pre'); pre.className='agp-appr-in ui-scroll'; pre.textContent=agentDetail(req.tool,req.input); body.appendChild(pre);
     }
     const answers={};
     const fields=[];

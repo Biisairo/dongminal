@@ -744,16 +744,27 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .agp-head .agp-open{color:var(--attn-text)}
 .agp-head .agp-spacer{flex:1}
 .agp-log{flex:1;overflow:auto;padding:8px 12px;display:flex;flex-direction:column;gap:8px;font-size:var(--fs-md);line-height:1.5}
-.agp-msg{max-width:100%;padding:6px 10px;border-radius:var(--ui-radius);border:1px solid var(--border);background:var(--sidebar-bg)}
-.agp-msg.agp-user{align-self:flex-end;background:var(--accent-subtle);border-color:var(--accent-border)}
+/* FR-M11-3: **말한 사람이 색으로 갈린다.** 바탕이 아니라 왼쪽 띠 하나다 —
+   바탕을 칠하면 대비가 무너지고, 필요한 것은 채도가 아니라 경계다.
+   색은 전부 토큰에서 온다 (`hardcoded-color` 게이트). */
+.agp-msg{max-width:100%;padding:6px 10px;border-radius:var(--ui-radius);border:1px solid var(--border);background:var(--sidebar-bg);
+  border-left:3px solid var(--text-dim)}
+.agp-msg.agp-user{align-self:flex-end;background:var(--accent-subtle);border-color:var(--accent-border);
+  border-left-color:var(--accent)}
 .agp-msg.agp-live{border-style:dashed}
 .agp-who{font-size:var(--fs-xs);color:var(--text-hint);margin-bottom:2px}
 .agp-body{white-space:pre-wrap;word-break:break-word}
 .agp-think{font-size:var(--fs-sm);color:var(--text-muted);margin:4px 0}
 .agp-think summary{cursor:pointer}
-.agp-think-body{white-space:pre-wrap;padding:4px 8px;border-left:2px solid var(--border)}
-.agp-tool{margin:6px 0;border:1px solid var(--border);border-radius:var(--ui-radius);background:var(--bg);font-size:var(--fs-sm)}
+.agp-think-body{white-space:pre-wrap;padding:4px 8px;border-left:3px solid var(--text-muted)}
+/* FR-M11-4: 도구 카드는 `details` 다. 접힌 머리만 보이므로 아래 테두리는 펼쳤을
+   때만 선다 — 접힌 카드에 밑줄이 남으면 빈 줄로 읽힌다. */
+.agp-tool{margin:6px 0;border:1px solid var(--border);border-radius:var(--ui-radius);background:var(--bg);font-size:var(--fs-sm);
+  border-left:3px solid var(--attn)}
+.agp-tool[data-res=err]{border-left-color:var(--danger)}
 .agp-tool-head,.agp-tool-res-head{padding:3px 8px;color:var(--text-muted);border-bottom:1px solid var(--border)}
+.agp-tool-head{cursor:pointer}
+.agp-tool:not([open])>.agp-tool-head{border-bottom:0}
 .agp-tool-res-head.agp-err{color:var(--danger-text)}
 .agp-tool-in,.agp-tool-res{margin:0;padding:6px 8px;font-family:var(--mono);white-space:pre-wrap;word-break:break-all;max-height:240px;overflow:auto}
 .agp-line{font-size:var(--fs-sm);color:var(--text-hint);text-align:center}

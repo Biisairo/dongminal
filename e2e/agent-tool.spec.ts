@@ -630,6 +630,8 @@ for (const { agent, tool, choices } of OTHERS) {
       await dlg.locator('.agp-choice[data-choice="allow"]').click();
       await expect(page.locator('.ui-modal.agp-modal')).toBeHidden({ timeout: 10000 });
       await expect(pane.locator('.agp-msg.agp-assistant .agp-body').last()).toHaveText('DONE', { timeout: 15000 });
+      // FR-M11-4: 도구 카드는 **접힌 채 선다** — 결과를 보려면 편다.
+      await pane.locator('.agp-tool').first().locator('.agp-tool-head').click();
       await expect(pane.locator('.agp-tool .agp-tool-res').first()).toBeVisible();
       await expect(pane.locator('.agp-open')).toHaveText('');
       await expect(pane).toHaveAttribute('data-state', 'done', { timeout: 15000 });
@@ -717,5 +719,76 @@ test.describe('에이전트 `/` 명령 제안 (M9-B26)', () => {
     await expect(bare.locator('.agp-sugg-hint'), '없는 인자 문법을 지어냈다').toHaveCount(0);
     await bare.click();
     await expect(ta, '인자가 없는데 공백을 붙였다').toHaveValue('/clear');
+  });
+});
+
+
+/**
+ * M11_SRS FR-M11-2·3·4 — 에이전트 GUI 를 읽을 수 있게 만든다 (M11-B4·B5·B6).
+ *
+ * 셋 다 **뷰의 계약**이며 가짜 에이전트 한 턴으로 전부 선다. 재는 것은 모양이
+ * 아니라 규약이다 — 어느 표면이 앱의 스크롤을 쓰는가 · 말한 사람이 갈리는가 ·
+ * 도구 본문이 접혀 있는가.
+ */
+test.describe('에이전트 GUI 의 읽힘 (M11)', () => {
+  test('V-M11-6: GUI 안의 스크롤 표면은 앱의 규약을 쓴다 (FR-M11-2)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    // 대화와 입력은 언제나 있다.
+    await expect(pane.locator('.agp-log')).toHaveClass(/\bui-scroll\b/);
+    await expect(pane.locator('.agp-ta')).toHaveClass(/\bui-scroll\b/);
+    // 도구 카드의 본문은 한 턴을 돌려야 선다.
+    await send(pane, 'please APPROVE this');
+    const dlg = page.locator('.ui-modal.agp-modal .ui-modal-box');
+    await expect(dlg).toBeVisible({ timeout: 15000 });
+    await expect(dlg.locator('.agp-appr-in')).toHaveClass(/\bui-scroll\b/);
+    await dlg.locator('.agp-choice[data-choice="allow"]').click();
+    await expect(pane.locator('.agp-tool .agp-tool-res').first()).toHaveClass(/\bui-scroll\b/, { timeout: 15000 });
+  });
+
+  test('V-M11-7: 말한 사람이 왼쪽 띠로 갈린다 (FR-M11-3)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    // 도구 카드까지 서야 한다 — 종전에 **에이전트 말과 도구 카드가 같은 테두리**였고,
+    // 그 둘이 갈리지 않는 것이 접수한 "단조롭다" 의 알맹이다.
+    await send(pane, 'please APPROVE this');
+    const dlg = page.locator('.ui-modal.agp-modal .ui-modal-box');
+    await expect(dlg).toBeVisible({ timeout: 15000 });
+    await dlg.locator('.agp-choice[data-choice="allow"]').click();
+    await expect(pane.locator('.agp-tool').first()).toBeVisible({ timeout: 15000 });
+    await expect(pane.locator('.agp-msg.agp-assistant .agp-body').last()).toHaveText('DONE', { timeout: 15000 });
+
+    const stripe = (sel: string) => pane.locator(sel).first().evaluate((n) => {
+      const cs = getComputedStyle(n);
+      return { color: cs.borderLeftColor, width: parseFloat(cs.borderLeftWidth) };
+    });
+    const user = await stripe('.agp-msg.agp-user');
+    const asst = await stripe('.agp-msg.agp-assistant');
+    const tool = await stripe('.agp-tool');
+    // 띠는 **보이는 굵기**여야 한다. 1px 테두리는 이미 있었고 그것으로는 갈리지 않았다.
+    for (const [name, x] of Object.entries({ user, asst, tool })) {
+      expect(x.width, `${name} 의 왼쪽 띠가 얇다`).toBeGreaterThanOrEqual(3);
+    }
+    // 셋이 서로 다른 색이어야 한다.
+    const colors = new Set([user.color, asst.color, tool.color]);
+    expect(colors.size, '말한 사람이 색으로 갈리지 않는다').toBe(3);
+  });
+
+  test('V-M11-8: 도구 사용은 접힌 채 서고 눌러야 펴진다 (FR-M11-4)', async ({ page }) => {
+    await waitForInit(page);
+    const pane = await openAgentTab(page);
+    await send(pane, 'please APPROVE this');
+    const dlg = page.locator('.ui-modal.agp-modal .ui-modal-box');
+    await expect(dlg).toBeVisible({ timeout: 15000 });
+    await dlg.locator('.agp-choice[data-choice="allow"]').click();
+    const card = pane.locator('.agp-tool').first();
+    await expect(card).toBeVisible({ timeout: 15000 });
+    // `details` 여야 하고, 접혀 있어야 한다.
+    expect(await card.evaluate((n) => n.tagName)).toBe('DETAILS');
+    await expect(card).not.toHaveAttribute('open', /.*/);
+    await expect(pane.locator('.agp-tool .agp-tool-res').first()).toBeHidden();
+    // 머리를 누르면 펴진다.
+    await card.locator('.agp-tool-head').click();
+    await expect(pane.locator('.agp-tool .agp-tool-res').first()).toBeVisible();
   });
 });
