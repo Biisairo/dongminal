@@ -16,10 +16,25 @@ import (
 // skillDocs reads every markdown/script under the embedded skills tree.
 func skillDocs(t *testing.T) map[string]string {
 	t.Helper()
+	return pluginDocs(t, "skills")
+}
+
+// commandDocs 는 임베드된 **명령** 트리다 (M10_SRS FR-M10-6).
+//
+// `migration` 은 스킬이 아니라 명령이다 — 되돌릴 수 없는 절차이므로 모델이 스스로
+// 발동해서는 안 된다 (D-M10-8). 트리가 갈렸으므로 읽는 자리도 갈린다.
+func commandDocs(t *testing.T) map[string]string {
+	t.Helper()
+	return pluginDocs(t, "commands")
+}
+
+// pluginDocs 는 플러그인 트리 하나를 통째로 읽는다.
+func pluginDocs(t *testing.T, sub string) map[string]string {
+	t.Helper()
 	out := map[string]string{}
 	// embed.FS 의 경로는 **언제나 슬래시**다 (io/fs 규약). filepath.Join 은
 	// Windows 에서 `agentplugin\skills` 를 만들어 트리를 찾지 못한다.
-	root := path.Join("agentplugin", "skills")
+	root := path.Join("agentplugin", sub)
 	err := fs.WalkDir(agentPluginFS, root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
@@ -32,10 +47,10 @@ func skillDocs(t *testing.T) map[string]string {
 		return nil
 	})
 	if err != nil {
-		t.Fatalf("스킬 트리 순회 실패: %v", err)
+		t.Fatalf("%s 트리 순회 실패: %v", sub, err)
 	}
 	if len(out) == 0 {
-		t.Fatal("임베드된 스킬 문서가 0건이다 — embed 경로가 깨졌다")
+		t.Fatalf("임베드된 %s 문서가 0건이다 — embed 경로가 깨졌다", sub)
 	}
 	return out
 }
@@ -160,15 +175,16 @@ func TestTeamSkill_CarriesIsolationRules(t *testing.T) {
 	}
 }
 
-// V-M9-6 (M9_SRS FR-M9-6): `migration` 스킬이 인수인계 절차를 실제로 담고 있는지.
+// V-M9-6 · V-M10-10 (M9_SRS FR-M9-6 · M10_SRS FR-M10-6): `migration` **명령**이
+// 인수인계 절차를 실제로 담고 있는지.
 //
 // 이 스킬이 자동화하는 것은 M8·M9 의 **단계 종료 절차 3·4** 이고, 그 절차는
 // 순서가 곧 규약이다 — 준비완료를 확인하기 전에 보낸 엔벨로프는 셸의 입력줄에
 // 문자열로 남는다. 되돌아가면 여기서 걸린다.
-func TestMigrationSkill_CarriesTheHandoffProcedure(t *testing.T) {
-	body := skillDocs(t)[path.Join("agentplugin", "skills", "migration", "SKILL.md")]
+func TestMigrationCommand_CarriesTheHandoffProcedure(t *testing.T) {
+	body := commandDocs(t)[path.Join("agentplugin", "commands", "migration.md")]
 	if body == "" {
-		t.Fatal("migration/SKILL.md 를 찾지 못했다")
+		t.Fatal("commands/migration.md 를 찾지 못했다")
 	}
 	required := []struct{ name, needle string }{
 		{"지금 pane 에 새 탭 (D-M9-6)", "dmctl new-tab -n"},
@@ -188,14 +204,43 @@ func TestMigrationSkill_CarriesTheHandoffProcedure(t *testing.T) {
 	}
 	for _, r := range required {
 		if !strings.Contains(body, r.needle) {
-			t.Errorf("migration/SKILL.md 에 %s 가 없다 (%q)", r.name, r.needle)
+			t.Errorf("commands/migration.md 에 %s 가 없다 (%q)", r.name, r.needle)
 		}
 	}
 	// D-M9-6: 인계는 문서와 엔벨로프 **두 벌**이다. 한 벌로 줄면 메시지 길이에
 	// 매이고 인계 기록이 남지 않는다.
-	for _, needle := range []string{"두 벌", "문서의 경로는 이 스킬이 정하지 않는다"} {
+	for _, needle := range []string{"두 벌", "문서의 경로는 이 명령이 정하지 않는다"} {
 		if !strings.Contains(body, needle) {
-			t.Errorf("migration/SKILL.md 에 D-M9-6 의 조항이 없다 (%q)", needle)
+			t.Errorf("commands/migration.md 에 D-M9-6 의 조항이 없다 (%q)", needle)
+		}
+	}
+}
+
+// V-M10-11 (M10_SRS FR-M10-6): **`commands/` 에는 명령만 있다.**
+//
+// 그 디렉터리의 `.md` 는 **전부 슬래시 명령이 된다.** 참조 문서나 eval 을 곁에 두면
+// `/dongminal:test-scenarios` 같은 것이 생기고, 사용자는 그것이 명령인 줄 알고 부른다.
+// `migration` 의 eval 이 `docs/internal/migration-eval.md` 로 간 이유가 그것이다.
+//
+// 명령의 표식은 **frontmatter 의 `description`** 이다 — 그것이 없으면 목록에 이름만
+// 뜨고 무엇을 하는 것인지 아무도 모른다.
+func TestCommandsTree_HoldsOnlyCommands(t *testing.T) {
+	docs := commandDocs(t)
+	for p, body := range docs {
+		if !strings.HasSuffix(p, ".md") {
+			t.Errorf("commands/ 에 `.md` 아닌 파일이 있다: %s", p)
+			continue
+		}
+		if path.Dir(p) != path.Join("agentplugin", "commands") {
+			t.Errorf("commands/ 아래에 하위 디렉터리가 있다: %s — 그 안의 .md 도 명령이 된다", p)
+		}
+		if !strings.HasPrefix(body, "---\n") {
+			t.Errorf("%s 에 frontmatter 가 없다 — 명령이 아니라면 이 트리에 두지 않는다", p)
+			continue
+		}
+		head := body[:strings.Index(body[4:], "---")+4]
+		if !strings.Contains(head, "description:") {
+			t.Errorf("%s 의 frontmatter 에 description 이 없다 — 목록에서 무엇인지 알 수 없다", p)
 		}
 	}
 }
@@ -205,10 +250,10 @@ func TestMigrationSkill_CarriesTheHandoffProcedure(t *testing.T) {
 // 위 테스트는 절차의 **명령**이 있는지를 센다. 이것은 그 명령들이 **옳은 순서로,
 // 옳은 값으로** 불리도록 문서가 말하는지를 센다 — 증상 넷은 전부 "명령은 있었는데
 // 어떻게 쓰는지가 없거나 틀렸다" 였다.
-func TestMigrationSkill_GuardsTheFourSymptoms(t *testing.T) {
-	body := skillDocs(t)[path.Join("agentplugin", "skills", "migration", "SKILL.md")]
+func TestMigrationCommand_GuardsTheFourSymptoms(t *testing.T) {
+	body := commandDocs(t)[path.Join("agentplugin", "commands", "migration.md")]
 	if body == "" {
-		t.Fatal("migration/SKILL.md 를 찾지 못했다")
+		t.Fatal("commands/migration.md 를 찾지 못했다")
 	}
 	symptoms := []struct{ name, needle string }{
 		// ② 포커스 칸에 탭이 섰다. `--at` 없이 부르면 **포커스 칸**이다 —
@@ -229,7 +274,7 @@ func TestMigrationSkill_GuardsTheFourSymptoms(t *testing.T) {
 	}
 	for _, sx := range symptoms {
 		if !strings.Contains(body, sx.needle) {
-			t.Errorf("migration/SKILL.md 가 증상을 막지 못한다 — %s (%q)", sx.name, sx.needle)
+			t.Errorf("commands/migration.md 가 증상을 막지 못한다 — %s (%q)", sx.name, sx.needle)
 		}
 	}
 	// **닫기는 확인 뒤에 온다.** 순서가 곧 규약이므로 문서에서의 순서로 잰다 —
@@ -245,20 +290,20 @@ func TestMigrationSkill_GuardsTheFourSymptoms(t *testing.T) {
 //
 // 기본값은 `claude` · `cli` 다 — 아무 말 없이 부르면 지금과 같은 동작이며, 그
 // 사실이 문서에 있어야 스킬이 사용자에게 되묻지 않는다.
-func TestMigrationSkill_CarriesAgentAndSurfaceOptions(t *testing.T) {
-	body := skillDocs(t)[path.Join("agentplugin", "skills", "migration", "SKILL.md")]
+func TestMigrationCommand_CarriesAgentAndSurfaceOptions(t *testing.T) {
+	body := commandDocs(t)[path.Join("agentplugin", "commands", "migration.md")]
 	if body == "" {
-		t.Fatal("migration/SKILL.md 를 찾지 못했다")
+		t.Fatal("commands/migration.md 를 찾지 못했다")
 	}
 	for _, needle := range []string{"claude", "cli", "gui", "--agent"} {
 		if !strings.Contains(body, needle) {
-			t.Errorf("migration/SKILL.md 에 표면 옵션이 없다 (%q)", needle)
+			t.Errorf("commands/migration.md 에 표면 옵션이 없다 (%q)", needle)
 		}
 	}
 	// gui 갈래는 기동줄을 치지 않는다 — 탭 자체가 그 에이전트다. 그 구분이 없으면
 	// 에이전트 도구에 `claude` 를 타이핑하는 길이 열린다.
 	if !strings.Contains(body, "gui 로 열었으면 이 단계는 없다") {
-		t.Error("migration/SKILL.md 가 gui 갈래에서 기동줄을 건너뛰라고 말하지 않는다")
+		t.Error("commands/migration.md 가 gui 갈래에서 기동줄을 건너뛰라고 말하지 않는다")
 	}
 }
 

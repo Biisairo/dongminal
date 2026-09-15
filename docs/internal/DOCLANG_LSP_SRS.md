@@ -1,8 +1,22 @@
 # SRS: 문서 언어의 코드 탐색 (Markdown · SVG · YAML · JSON · HTML · CSS) — IEEE 29148
 
-> **문서 상태**: 초안
+> **문서 상태**: 폐기
 >
-> 근거: 묶음 A·B 는 `EDITOR_LSP_SRS` 가 덮었고(§1 머리말), 남은 고유분(묶음 C·D)은 구현되지 않았다
+> **폐기 (2026-09-15 사용자 결정 — `M10_SRS` FR-M10-7 · D-M10-9).** 이 문서에 살아 있는
+> 요구가 더 없다.
+>
+> - **묶음 A·B** (FR-DLS-1~10) — [`LSP_PLUGIN_SRS`](./LSP_PLUGIN_SRS.md) 가 덮었다.
+>   동봉 대상 9종에 `vscode-langservers-extracted`(markdown) · `yaml-language-server` ·
+>   `svg-language-server` 가 들어 있다
+> - **묶음 C** (FR-DLS-11·12, 언어 목록을 한 자리로) — **폐기.** 사용자에게 보이는
+>   변화가 없는 정리이고, 지금의 두 자리가 실제로 어긋난 적이 없다
+> - **묶음 D** (FR-DLS-13·14, 문서 심볼) — **폐기.** 로드맵 §4-3-D 의 판정이 그대로
+>   선다 — *"진단·호버·정의이동은 동작한다. 아웃라인 부재는 편의 격차이지 프로덕션
+>   결격이 아니다."*
+> - **FR-DLS-15**(문서 링크)는 애초에 §8 Q-3 이 닫았다 — 렌더 뷰의 것이다
+> - **FR-DLS-16**(자동완성)은 애초에 비목표다
+>
+> 되살리려면 이 결정을 먼저 연다. 아래 본문은 그때의 요구 기록이다.
 
 > **소유 주의.** 이 문서가 다루는 코드(`internal/webserver/domain/lsp`,
 > `web/js/core/app-lsp.js`, `constants-editor.js`)는 **다른 세션이 진행 중인 영역**이다

@@ -28,7 +28,11 @@ func TestInstallAgentPlugin_Layout(t *testing.T) {
 		"skills/team/SKILL.md":               0o644,
 		"skills/workflow/SKILL.md":           0o644,
 		"skills/team/scripts/plan_layout.py": 0o755,
-		"hooks/hooks.json":                   0o644,
+		// M10_SRS FR-M10-6: `migration` 은 **명령**이다. 트리가 갈렸으므로 전개도
+		// 따로 확인한다 — `//go:embed all:agentplugin` 이 디렉터리 전체를 담지만,
+		// 담기는 것과 **설치 트리에 서는 것**은 다른 일이다.
+		"commands/migration.md": 0o644,
+		"hooks/hooks.json":      0o644,
 	}
 	for rel, wantMode := range want {
 		info, err := os.Stat(filepath.Join(plugin, rel))
@@ -78,6 +82,7 @@ func TestInstallAgentPlugin_SkillNames(t *testing.T) {
 	for rel, wantName := range map[string]string{
 		"skills/team/SKILL.md":     "name: team",
 		"skills/workflow/SKILL.md": "name: workflow",
+		"commands/migration.md":    "argument-hint:",
 	} {
 		blob, err := os.ReadFile(filepath.Join(AgentPluginDir(dir), rel))
 		if err != nil {
