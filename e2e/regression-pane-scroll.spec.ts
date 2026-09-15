@@ -357,6 +357,18 @@ test.describe('Pane scroll preserve regression', () => {
       }, toolId);
 
       /**
+       * **`write` 는 비동기다.** 넣자마자 길이를 재면 아직 안 자란 순간을 만난다 —
+       * 같은 파일의 `fillScrollback` 이 그 교훈을 주석으로 들고 있는데(“다 들어오고,
+       * 바닥에 붙고, 뷰포트가 따라온 것까지 본다”) 이 검사의 첫 판이 그것을 빠뜨려
+       * 3워커 회차에서 1.5초 만에 흔들렸다 (2026-09-15 실측).
+       *
+       * **넣은 줄 수로 세지 않는다.** xterm 은 화면에 이미 있던 빈 줄을 재사용하므로
+       * `before + n` 은 영영 오지 않는다 — 자랐는가만 본다.
+       */
+      const grownPast = (before: number, why: string) =>
+        expect.poll(bufLen, { timeout: 10000, message: why }).toBeGreaterThan(before);
+
+      /**
        * 복원이 xterm 을 **실제로 흔들었는가.** `onScroll` 은 `ydisp` 가 옮겨질
        * 때만 나므로, `scrollToBottom()` 이 `scrollLines(0)` 으로 즉시 반환하는
        * 갈래에서는 **한 번도 나지 않는다** — 그것이 이 결함이었다.
@@ -391,9 +403,28 @@ test.describe('Pane scroll preserve regression', () => {
       const nudged = () => page.evaluate(() =>
         ((window as any).__vsrTrace || []).some((t: any) => t.b > 0 && t.y === t.b - 1));
 
+      /**
+       * **재생이 끝난 뒤에 넣는다.** `grow` 는 `term.write` 로 **클라이언트에만**
+       * 줄을 넣으므로, 그 뒤에 도착한 전량 재생의 `hard clear`(`\x1b[3J`, 스크롤백까지
+       * 지운다 — `term_resume.go` FR-TRS-10)가 그 줄들을 통째로 지운다.
+       *
+       * 3워커 회차에서 이 검사가 흔들린 자리가 정확히 그것이다 (2026-09-15 실측):
+       * 길이가 `301 → 121` 이었다 — 자라지 않은 것이 아니라 **비워지고 120 만 다시
+       * 들어간 것**이다.
+       *
+       * `_seqLive` 는 좌표 통보(`OpSeq`)를 받았다는 뜻이고, 그 통보는 재생 **뒤**에
+       * 온다 (FR-TRS-8). 그래서 이 값이 참이면 지울 것이 더 오지 않는다.
+       */
+      await expect.poll(() => page.evaluate((id) => {
+        const p = (window as any).app.tools.get(id);
+        return !!(p && p._seqLive);
+      }, toolId), { timeout: 15000, message: '재생이 끝나지 않았다 — 지금 넣으면 hard clear 가 지운다' })
+        .toBe(true);
+
+      const start = await bufLen();
       await grow(300);
+      await grownPast(start, '버퍼가 자라지 않았다 — 조건이 서지 않는다');
       const grown = await bufLen();
-      expect(grown, '버퍼가 자라지 않았다 — 조건이 서지 않는다').toBeGreaterThan(300);
 
       // **조건**: 떠나 있는 동안 그 도구의 버퍼가 자란다. 이것이 없으면 복원이
       // 흔들 이유도 없다.
@@ -410,7 +441,7 @@ test.describe('Pane scroll preserve regression', () => {
       }, toolId), { timeout: 10000, message: '그 도구가 떨어지지 않았다' }).toBe(true);
 
       await grow(120);
-      expect(await bufLen(), '떨어져 있는 동안 버퍼가 자라지 않았다').toBeGreaterThan(grown);
+      await grownPast(grown, '떨어져 있는 동안 버퍼가 자라지 않았다');
 
       await armScrollProbe();
       await page.evaluate((id) => (window as any).app.switchWindow(id), ids.cur);

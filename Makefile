@@ -91,9 +91,31 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@node scripts/check-i18n.mjs
 	@echo "gates ok"
 
-# 한 번에 도는 샤드 수. 샤드 하나가 워커 2개(= 인스턴스 2개)를 띄우므로 이 값이
-# 곧 동시 서버 수의 절반이다 — 기계가 감당하는 선에서 올린다.
-E2E_JOBS ?= 4
+# ── 전량 e2e 의 용량 (M10_SRS FR-M10-5 · D-M10-6) ───────────────────────────
+#
+# **동시 워커 수는 여기 한 자리에서 정해진다.**
+#
+# 종전에는 두 값이 다른 파일에 있었다 — 이 파일의 `E2E_JOBS`(4)와
+# `playwright.config.ts` 의 `E2E_WORKERS`(2). 어느 한쪽을 고쳐도 **곱은 아무도 보지
+# 않았고**, 그래서 동시 워커가 8 인 채로 남았다. `E2E_PARALLEL_SRS D-6` 은 이 기계
+# (10코어)에서 5워커를 *"6~8 실패 — 전부 부하성 타임아웃"* 으로 기각했는데 그보다 위다.
+#
+# 실측(2026-09-15, 같은 커밋에서 세 회차):
+#
+#   동시 8 → flaky 5 (전부 부하성 타임아웃, 전부 git 계층)
+#   동시 4 → flaky 1 (논리 경합만)
+#   동시 3 → flaky 1 (논리 경합만) · 벽시계 19.1분 — 8샤드를 3개씩 **3배치**로 돈다
+#
+# 그래서 상한은 `올림(코어/3)` 이다. 이 기계에서 4 이고, 부하성이 0 이면서 2배치로
+# 끝나는 점이다. `V-EPL-1` 이 정한 순서를 그대로 따른다 — **초록이 아니면 워커를
+# 줄이는 것이 먼저다.** 대기 상한을 늘리는 길은 이미 20→30→45초를 지나 60초에서
+# 걸렸다 (D-M10-6).
+E2E_CORES := $(shell sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)
+E2E_CAP   := $(shell expr \( $(shell sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4) + 2 \) / 3)
+# 한 번에 도는 샤드 수. 곱이 상한을 넘지 않는 선에서 올린다.
+E2E_JOBS ?= $(E2E_CAP)
+# 샤드 하나가 띄우는 워커 수(= 인스턴스 수). 샤드 실행에 `PW_WORKERS` 로 간다.
+E2E_WORKERS ?= 1
 
 e2e:  ## e2e 전량 — **CI 와 같은 분할**(8샤드)을 **병렬**로 돈다
 	@# 로컬이 한 프로세스로 1500항목을 도는 동안 CI 는 8조각을 각자 새 러너에서
@@ -126,8 +148,16 @@ e2e:  ## e2e 전량 — **CI 와 같은 분할**(8샤드)을 **병렬**로 돈�
 	@# 새로 만든다. 시간표를 손으로 적으면 조용히 낡는다.
 	@# 본문은 `scripts/e2e-shard-run.sh` 에 있다 — macOS 의 `xargs -I` 가 치환 뒤
 	@# 줄 길이를 255바이트로 묶어서, 인라인으로 두면 조금만 길어져도 멎는다.
-	@seq 1 8 | xargs -P $(E2E_JOBS) -I{} scripts/e2e-shard-run.sh {} 8
-	@echo "e2e ok — 8샤드 전부"
+	@# FR-M10-5: **곱을 먼저 본다.** 넘으면 시작하지 않는다 — 부하성 타임아웃으로
+	@# 흔들린 회차는 그 자체로 한 시간이고, 그 뒤에 "워커를 줄여라" 를 알게 된다.
+	@tot=$$(expr $(E2E_JOBS) \* $(E2E_WORKERS)); \
+	 if [ "$$tot" -gt "$(E2E_CAP)" ]; then \
+	   echo "동시 워커 $$tot = 샤드 $(E2E_JOBS) × 워커 $(E2E_WORKERS) — 상한 $(E2E_CAP) 을 넘습니다 (코어 $(E2E_CORES), M10_SRS FR-M10-5)"; \
+	   echo "  부하성 flaky 가 납니다. E2E_JOBS 나 E2E_WORKERS 를 줄이세요 (E2E_PARALLEL_SRS D-6 · V-EPL-1)."; \
+	   exit 1; \
+	 fi
+	@PW_WORKERS=$(E2E_WORKERS) sh -c 'seq 1 8 | xargs -P $(E2E_JOBS) -I{} scripts/e2e-shard-run.sh {} 8'
+	@echo "e2e ok — 8샤드 전부 (동시 워커 $(E2E_JOBS)×$(E2E_WORKERS), 상한 $(E2E_CAP))"
 
 e2e-rebalance:  ## 마지막 전량 실행의 시간으로 샤드 분할을 다시 맞춘다
 	@node scripts/e2e-timings.mjs

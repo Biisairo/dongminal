@@ -62,6 +62,12 @@ export const E2E_PORT0 = parseInt(process.env.E2E_PORT_BASE || '', 10) || 58147;
  * 빨개지지 않는다. 반대로 맞추면 러너가 못 견딘다.
  *
  * `PW_WORKERS` 로 덮을 수 있다 — 흔들림을 가릴 때 `1` 로 두고 재현하는 자리다.
+ *
+ * **이 값은 단독 실행(`npx playwright test`)의 것이다** (M10_SRS FR-M10-5).
+ * 로컬 전량(`make e2e`)은 샤드를 여럿 띄우므로 **동시 워커가 이 값의 배수**가 되고,
+ * 그 곱을 아무도 보지 않아 8 이 된 채로 남아 있었다 — 부하성 flaky 의 원인이다.
+ * 이제 그 곱은 `Makefile` 한 자리에서 정해지고(`E2E_JOBS × E2E_WORKERS ≤ ⌈코어/3⌉`)
+ * 샤드에는 `PW_WORKERS` 로 내려온다. **여기를 고칠 때는 그 상한을 함께 보라.**
  */
 const E2E_WORKERS = 2;
 
