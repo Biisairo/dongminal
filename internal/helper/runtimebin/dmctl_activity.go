@@ -67,6 +67,22 @@ func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 	// 턴이 아니었다" 로 읽으면 그 에이전트는 한 번도 울지 않는다.
 	body := map[string]any{"toolId": toolID, "agent": adapter.ID, "state": rep.State,
 		"tool": rep.Tool, "detail": rep.Detail, "userPrompt": rep.UserPrompt}
+	// M11_SRS FR-M11-8 (M11-B7): **신원은 활동과 같은 요청에 실린다.**
+	//
+	// 활동 보고는 브라우저로 방송되고 받는 쪽은 그것을 계기로 "이 도구를 올릴 수
+	// 있는가" 를 **즉시 되묻는다** (`_noteLiftable`). 신원이 별도 POST 로 뒤따르면
+	// 그 물음이 언제나 한 왕복 빠르고, 답은 "모른다" 가 된다 — 그 뒤로는 다음
+	// 훅(첫 프롬프트)까지 아무도 다시 묻지 않는다.
+	//
+	// 같은 판단이 이미 서 있다 (`reportActivity` 의 D-1): *"dmctl 이 한 번 더
+	// POST 하면 왕복이 늘고 두 요청의 순서가 다시 문제가 된다. 한 요청 안에서는
+	// 순서가 확정된다."* 알람이 그 근거로 서버 파생을 골랐고, 신원도 같은 자리다.
+	//
+	// **관측 레이어는 옮기지 않는다.** 크기·토큰·전사본 경로는 그대로
+	// `/api/runs/context` 로 간다 — 그쪽은 활동과 직교하는 별개 레이어다.
+	if rep.SessionID != "" {
+		body["sessionId"] = rep.SessionID
+	}
 	httpPostJSON(baseURL()+"/api/tools/activity/set", body)
 	reportContext(adapter, rep, toolID)
 	return 0

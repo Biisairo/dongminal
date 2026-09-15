@@ -389,3 +389,50 @@ func TestReportContext_SessionStartCarriesIdentityWithoutTranscript(t *testing.T
 		t.Fatalf("재지 못한 크기를 지어냈다: %v", got)
 	}
 }
+
+// V-M11-19 (M11_SRS FR-M11-8 / M11-B7): **활동 보고가 신원을 함께 싣는다.**
+//
+// 관측 레이어(`/api/runs/context`)는 그대로 둔 채, 활동 쪽에 식별자 하나만 얹는다 —
+// 받는 쪽이 활동 방송을 계기로 되묻기 때문이다.
+func TestActivity_BodyCarriesSessionIdentity(t *testing.T) {
+	cap := startCapture(t, "tool-1")
+	var out, errb strings.Builder
+	runDmctlActivity([]string{"claude"}, hookJSON(t, map[string]any{
+		"hook_event_name": "SessionStart",
+		"session_id":      "sess-abc",
+		"source":          "startup",
+	}), &out, &errb)
+
+	cap.mu.Lock()
+	defer cap.mu.Unlock()
+	if len(cap.activity) == 0 {
+		t.Fatal("활동 보고가 전송되지 않았다")
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(cap.activity[len(cap.activity)-1]), &m); err != nil {
+		t.Fatalf("활동 페이로드가 JSON 이 아니다: %v", err)
+	}
+	if m["sessionId"] != "sess-abc" {
+		t.Fatalf("신원이 활동과 같은 요청에 오지 않는다 — 되묻는 쪽이 한 왕복 빠르다: %v", m)
+	}
+	if m["agent"] != "claude" {
+		t.Fatalf("어댑터를 말하지 않으면 재개 명령을 고를 수 없다: %v", m)
+	}
+}
+
+// 신원을 말하지 않는 훅은 그 필드를 **아예 싣지 않는다** (FR-CBG-5).
+func TestActivity_BodyOmitsEmptySession(t *testing.T) {
+	cap := startCapture(t, "tool-1")
+	var out, errb strings.Builder
+	runDmctlActivity([]string{"claude"}, hookJSON(t, map[string]any{
+		"hook_event_name": "Stop",
+	}), &out, &errb)
+
+	cap.mu.Lock()
+	defer cap.mu.Unlock()
+	var m map[string]any
+	json.Unmarshal([]byte(cap.activity[len(cap.activity)-1]), &m)
+	if _, ok := m["sessionId"]; ok {
+		t.Fatalf("빈 신원을 값으로 실었다: %v", m)
+	}
+}
