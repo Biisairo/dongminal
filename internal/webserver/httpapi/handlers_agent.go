@@ -381,12 +381,25 @@ func (s *Server) apiAgentResume(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"id": tool.ID, "name": tool.Name, "kind": string(toolhub.KindAgent), "agent": ad.ID})
 }
 
+// agentPromptMaxBytes 는 프롬프트 본문의 상한이다 (M11_SRS FR-M11-30 / M11-B28).
+//
+// 기본 상한 1 MiB 로는 **붙여넣은 이미지가 들어가지 않는다**: base64 는 원본의 약 4/3
+// 이므로 768 KB 남짓이 한계이고, 화면 캡처는 대개 그보다 크다. 그 상태에서는 접수한
+// 기능이 413 으로만 끝난다.
+//
+// 8 MiB 는 실제 이미지 한 장(과 글)이 넉넉히 들어가는 크기이며, **여전히 상한이다** —
+// "메모리를 요청이 정한다" 로 돌아가지 않는다 (FR-RQG-14). 넘으면 413 이고 화면은 그
+// 사실을 토스트로 말한다: 조용히 버리지 않는다.
+const agentPromptMaxBytes int64 = 8 << 20
+
 func (s *Server) apiAgentPrompt(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		ToolID string `json:"toolId"`
 		Text   string `json:"text"`
+		// M11_SRS FR-M11-30 (M11-B28): 붙여넣은 이미지. 없으면 종전과 같은 프레임이다.
+		Attachments []agentadapter.Attachment `json:"attachments"`
 	}
-	if !decodeJSONBody(w, r, &body) {
+	if !decodeJSONBody(w, r, &body, agentPromptMaxBytes) {
 		return
 	}
 	sess := s.agentSession(w, body.ToolID)
@@ -397,7 +410,7 @@ func (s *Server) apiAgentPrompt(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "text required", http.StatusBadRequest, apierr.CodeMissingArg)
 		return
 	}
-	if err := sess.Prompt(body.Text); err != nil {
+	if err := sess.Prompt(body.Text, body.Attachments...); err != nil {
 		s.agentErr(w, err)
 		return
 	}

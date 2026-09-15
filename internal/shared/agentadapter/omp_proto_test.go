@@ -92,7 +92,7 @@ func TestOmpProto_HandshakeState(t *testing.T) {
 // 턴: prompt 응답 → agent_start → 델타 → message_end(사용량) → agent_end (isTerminal).
 func TestOmpProto_Turn(t *testing.T) {
 	p, st := ompReady(t)
-	frames := p.Prompt("say PONG", st)
+	frames := p.Prompt("say PONG", nil, st)
 	var cmd struct {
 		ID, Type, Message string
 		Streaming         string `json:"streamingBehavior"`
@@ -109,7 +109,7 @@ func TestOmpProto_Turn(t *testing.T) {
 		t.Fatalf("agent_start: %v", kinds(evs))
 	}
 	// 스트리밍 중의 프롬프트는 steer 다.
-	if fr := p.Prompt("more", st); !strings.Contains(string(fr[0]), `"streamingBehavior":"steer"`) {
+	if fr := p.Prompt("more", nil, st); !strings.Contains(string(fr[0]), `"streamingBehavior":"steer"`) {
 		t.Fatalf("steer: %s", fr[0])
 	}
 	for _, line := range []string{`{"type":"turn_start"}`, `{"type":"message_start","message":{"role":"user","content":[{"type":"text","text":"say PONG"}]}}`,
@@ -150,7 +150,7 @@ func TestOmpProto_Turn(t *testing.T) {
 	if a, _ := evs[0].Activity(); a != "done" {
 		t.Fatalf("→ done, got %q", a)
 	}
-	if fr := p.Prompt("after", st); strings.Contains(string(fr[0]), "steer") {
+	if fr := p.Prompt("after", nil, st); strings.Contains(string(fr[0]), "steer") {
 		t.Fatalf("턴 뒤의 프롬프트는 보통 프롬프트다: %s", fr[0])
 	}
 	// 오류 턴 (실측: 401) — message_end 가 stopReason:error 를 든다.

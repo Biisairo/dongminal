@@ -106,7 +106,7 @@ func TestCodexProto_SessionAndModels(t *testing.T) {
 // 턴: turn/start 응답 → turn/started → 델타·item → tokenUsage → turn/completed.
 func TestCodexProto_Turn(t *testing.T) {
 	p, st := codexReady(t)
-	frames := p.Prompt("say PONG", st)
+	frames := p.Prompt("say PONG", nil, st)
 	if len(frames) != 1 {
 		t.Fatalf("prompt 는 프레임 하나: %d", len(frames))
 	}
@@ -321,11 +321,11 @@ func TestCodexProto_ControlInterruptResume(t *testing.T) {
 	if _, err := p.Control(ControlOp{Kind: "set_max_thinking_tokens", Value: "1"}, st); err != ErrUnsupported {
 		t.Fatalf("없는 제어는 ErrUnsupported: %v", err)
 	}
-	frames := p.Prompt("next", st)
+	frames := p.Prompt("next", nil, st)
 	if !strings.Contains(string(frames[0]), `"model":"gpt-6-astra"`) || !strings.Contains(string(frames[0]), `"approvalPolicy":"never"`) {
 		t.Fatalf("다음 turn/start 에 실린다: %s", frames[0])
 	}
-	frames = p.Prompt("after", st)
+	frames = p.Prompt("after", nil, st)
 	if strings.Contains(string(frames[0]), `"model"`) {
 		t.Fatalf("한 번 실은 재정의는 지운다 (codex 가 이후 턴에도 적용한다): %s", frames[0])
 	}

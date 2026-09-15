@@ -101,7 +101,7 @@ func TestFake_PongTurn(t *testing.T) {
 	if ev.SessionID != "" || len(ev.Status.Models) != 2 || len(ev.Status.Commands) != 3 {
 		t.Fatalf("initialize 응답: %v %+v", kinds, ev)
 	}
-	r.send(r.proto.Prompt("say PONG", r.st)...)
+	r.send(r.proto.Prompt("say PONG", nil, r.st)...)
 	// `system:init` 은 첫 프롬프트 뒤 — 신원과 모델이 그때 온다 (§2-28).
 	kinds, ev = r.until(t, agentadapter.EvSession)
 	if ev.SessionID == "" || ev.Status.Model != "fake-x" {
@@ -121,7 +121,7 @@ func TestFake_PongTurn(t *testing.T) {
 
 func TestFake_ApproveRoundTrip(t *testing.T) {
 	r := start(t)
-	r.send(r.proto.Prompt("APPROVE please", r.st)...)
+	r.send(r.proto.Prompt("APPROVE please", nil, r.st)...)
 	_, ev := r.until(t, agentadapter.EvApprovalOpen)
 	req := ev.Approval
 	if req.Kind != agentadapter.ApprovalPermission || req.Tool != "Bash" || len(req.Options) != 3 {
@@ -141,7 +141,7 @@ func TestFake_ApproveRoundTrip(t *testing.T) {
 
 func TestFake_Question(t *testing.T) {
 	r := start(t)
-	r.send(r.proto.Prompt("QUESTION", r.st)...)
+	r.send(r.proto.Prompt("QUESTION", nil, r.st)...)
 	_, ev := r.until(t, agentadapter.EvApprovalOpen)
 	if ev.Approval.Kind != agentadapter.ApprovalQuestion || len(ev.Approval.Questions) != 1 {
 		t.Fatalf("질문: %+v", ev.Approval)
@@ -159,14 +159,14 @@ func TestFake_Question(t *testing.T) {
 
 func TestFake_InterruptAndDie(t *testing.T) {
 	r := start(t)
-	r.send(r.proto.Prompt("SLOW", r.st)...)
+	r.send(r.proto.Prompt("SLOW", nil, r.st)...)
 	r.until(t, agentadapter.EvTextDelta)
 	r.send(r.proto.Interrupt(r.st))
 	_, ev := r.until(t, agentadapter.EvTurnEnd)
 	if !ev.IsError || ev.Text != "aborted_streaming" {
 		t.Fatalf("인터럽트된 턴: %+v", ev)
 	}
-	r.send(r.proto.Prompt("DIE", r.st)...)
+	r.send(r.proto.Prompt("DIE", nil, r.st)...)
 	select {
 	case code := <-r.exited:
 		if code != 1 {
@@ -180,13 +180,13 @@ func TestFake_InterruptAndDie(t *testing.T) {
 func TestFake_ResumeAndClear(t *testing.T) {
 	r := start(t, "--resume", "sess-fixed")
 	// U-4: 재개도 이력을 주지 않는다 — 신원만, 그리고 그것도 첫 프롬프트 뒤에 (§2-28).
-	r.send(r.proto.Prompt("say PONG", r.st)...)
+	r.send(r.proto.Prompt("say PONG", nil, r.st)...)
 	_, ev := r.until(t, agentadapter.EvSession)
 	if ev.SessionID != "sess-fixed" {
 		t.Fatalf("resume 신원: %q", ev.SessionID)
 	}
 	r.until(t, agentadapter.EvTurnEnd)
-	r.send(r.proto.Prompt("/clear", r.st)...)
+	r.send(r.proto.Prompt("/clear", nil, r.st)...)
 	_, ev = r.until(t, agentadapter.EvReset)
 	if ev.SessionID == "" || ev.SessionID == "sess-fixed" || r.st.SessionID != ev.SessionID {
 		t.Fatalf("reset 은 신원을 바꾼다: %+v st=%s", ev, r.st.SessionID)
@@ -222,7 +222,7 @@ func TestFake_AllProtocols(t *testing.T) {
 			if len(ev.Status.Models) != 2 {
 				t.Fatalf("models: %+v", ev.Status)
 			}
-			r.send(p.Prompt("say PONG", r.st)...)
+			r.send(p.Prompt("say PONG", nil, r.st)...)
 			kinds, ev := r.until(t, agentadapter.EvTurnEnd)
 			joined := strings.Join(kinds, ",")
 			for _, want := range []string{"turn_start", "text_delta", "message", "usage", "turn_end"} {
@@ -234,7 +234,7 @@ func TestFake_AllProtocols(t *testing.T) {
 				t.Fatalf("성공 턴이 오류로 읽혔다: %+v", ev)
 			}
 			// 승인 왕복 (V-2).
-			r.send(p.Prompt("APPROVE please", r.st)...)
+			r.send(p.Prompt("APPROVE please", nil, r.st)...)
 			_, ev = r.until(t, agentadapter.EvApprovalOpen)
 			req := ev.Approval
 			if req.Kind != agentadapter.ApprovalPermission || req.Tool == "" || len(req.Options) < 2 || req.Options[0].ID != agentadapter.ChoiceAllow {
@@ -254,7 +254,7 @@ func TestFake_AllProtocols(t *testing.T) {
 				t.Fatalf("열린 요청이 남았다: %d", len(r.st.Open))
 			}
 			// 질문 (FR-AGT-4).
-			r.send(p.Prompt("QUESTION", r.st)...)
+			r.send(p.Prompt("QUESTION", nil, r.st)...)
 			_, ev = r.until(t, agentadapter.EvApprovalOpen)
 			if ev.Approval.Kind != agentadapter.ApprovalQuestion || len(ev.Approval.Questions) != 1 || len(ev.Approval.Questions[0].Options) != 2 {
 				t.Fatalf("질문: %+v", ev.Approval)
@@ -270,7 +270,7 @@ func TestFake_AllProtocols(t *testing.T) {
 			}
 			r.until(t, agentadapter.EvTurnEnd)
 			// 인터럽트 (FR-AGT-4a) 와 죽음 (V-8).
-			r.send(p.Prompt("SLOW", r.st)...)
+			r.send(p.Prompt("SLOW", nil, r.st)...)
 			r.until(t, agentadapter.EvTextDelta)
 			r.send(p.Interrupt(r.st))
 			kinds, ev = r.until(t, agentadapter.EvTurnEnd)
@@ -278,7 +278,7 @@ func TestFake_AllProtocols(t *testing.T) {
 			if strings.Contains(joined, "slow done") || strings.Count(joined, "text_delta") >= 50 {
 				t.Fatalf("인터럽트가 끊지 못했다: %s", joined)
 			}
-			r.send(p.Prompt("DIE", r.st)...)
+			r.send(p.Prompt("DIE", nil, r.st)...)
 			select {
 			case code := <-r.exited:
 				if code != 1 {

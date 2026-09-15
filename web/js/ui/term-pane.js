@@ -241,9 +241,22 @@ class TerminalTool {
    * 없기 때문이다.
    */
   async refreshLift(){
-    if(!this.el||!this.el.isConnected) return;
+    /**
+     * M11_SRS FR-M11-13 (M11-B10): **아직 붙지 않은 것과 사라진 것은 다르다.**
+     *
+     *   이전 동작: `!this.el.isConnected` 로 물러났다 — **첫 렌더에서 언제나** 참이다
+     *              (`_buildPane` 은 pane 을 만들어 **돌려줄 뿐**이고, 문서에 붙이는
+     *              것은 그 뒤다). 그 뒤로 묻는 계기가 없어 버튼이 영영 서지 않았다
+     *   새  동작: 이 파일이 이미 쓰는 관용구(`_destroyed||_exited`)로 판정한다
+     *   이유:     한 조건에 두 뜻이 얹혀 있었다. 막으려던 것은 *사라진 도구에 묻지
+     *             않는다* 이고, *아직 붙지 않았다* 는 곧 붙을 것이라는 뜻이다
+     *
+     * 실측(2026-09-15): 새로고침 뒤 서버는 `liftable:true` 인데 이 요청이 **0건**
+     * 이었고, 손으로 부르면 버튼이 섰다.
+     */
+    if(this._destroyed||this._exited||!this.el) return;
     const r=await apiGet('/api/agent/session',{query:{tool:this.id}});
-    if(!this.el||!this.el.isConnected) return;
+    if(this._destroyed||this._exited||!this.el) return;
     // FR-M9-37: 신원이 없는 것은 **정상 응답**이다 (`liftable:false`). 오류가 아니므로
     // `r.ok` 이고, 판정은 그 필드가 한다.
     if(!(r.ok&&r.data&&r.data.liftable)){

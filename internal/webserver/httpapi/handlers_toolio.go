@@ -188,10 +188,19 @@ func quoteEnvelope(msg string) string {
 // 같은 세 줄이 열두 자리에 있었다. 세 줄이라 사소해 보이지만 **사유 문구와 상태
 // 코드가 그 열두 벌에 각각 있었다** — 한 곳만 400 이 아닌 값으로 바뀌어도 그 사실을
 // 아무것도 알려주지 않는다.
-func decodeJSONBody(w http.ResponseWriter, r *http.Request, body any) bool {
+//
+// M11_SRS FR-M11-30 (M11-B28): `limit` 은 **이 종단만** 다른 상한을 쓸 때 준다. 기본
+// (0)은 `httpreq.DefaultLimit`(1 MiB)이며, 그 값은 *"JSON 종단이 다루는 것보다 한참
+// 크다"* 를 근거로 정해졌다 — 이미지가 실리는 프롬프트는 그 전제 밖이다. 상한을
+// 전역으로 올리지 않는 이유가 그것이다: 나머지 열일곱 종단의 전제는 그대로 참이다.
+func decodeJSONBody(w http.ResponseWriter, r *http.Request, body any, limit ...int64) bool {
+	var lim int64
+	if len(limit) > 0 {
+		lim = limit[0]
+	}
 	// 종전에는 `json.NewDecoder(r.Body)` 로 **무제한** 스트림 디코드를 했다 —
 	// 본문 하나가 서버 메모리를 정했다 (REQUEST_GATE_SRS FR-RQG-14).
-	raw, err := httpreq.Read(w, r, 0)
+	raw, err := httpreq.Read(w, r, lim)
 	if err != nil {
 		writeToolIOError(w, httpreq.Status(err), "본문을 읽지 못했다: "+err.Error())
 		return false

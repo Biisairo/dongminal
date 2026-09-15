@@ -130,8 +130,45 @@ Object.assign(App.prototype, {
       Toast.show(t('agent.lift_still_running'),'err');
       return;
     }
-    await this.addTab(paneId,'agent',{agent:info.agent,resume:info.sessionId,cwd,
+    /**
+     * M11_SRS FR-M11-43 (M11-B43): **이름을 잇고 원래 자리를 비운다.**
+     *
+     *   이전 동작: 새 탭이 어댑터 이름(`claude`)으로 서고 **원래 터미널 탭이 남았다** —
+     *             같은 세션이 두 자리에 보이고 하나는 이미 끝난 셸이다
+     *   새  동작: 원래 탭의 **이름을 물려받고**, 원래 탭은 **닫는다**
+     *   이유:     올리기는 *옮기는 일*이지 *복제하는 일*이 아니다. 남은 빈 탭은
+     *             사용자가 손수 닫아야 할 것이다
+     *
+     * **`agentOpenTerminal` 의 손을 그대로 쓴다** — 나가는 방향이 이미 자리를 옮기고
+     * 옛 탭을 닫는다. 두 방향이 같은 규약을 쓰는 것이 요점이며, 새 손을 만들지 않는다.
+     */
+    const made=await this.addTab(paneId,'agent',{agent:info.agent,resume:info.sessionId,cwd,
+      name:loc&&loc.tab?loc.tab.name:undefined,
       windowId:loc&&loc.win?loc.win.id:undefined});
+    // **여는 데 실패하면 원래 탭을 닫지 않는다** — 그때 닫으면 돌아갈 자리가 사라진다.
+    if(!made||!made.uuid||!loc||!loc.tab) return;
+    // 자리부터 옮기고 닫는다. 순서가 바뀌면 옛 탭이 사라진 뒤라 기준이 없다.
+    this.moveTabToPane(paneId,made.uuid,paneId,loc.tab.id,true);
+    await this.closeTab(paneId,loc.tab.id,loc.win&&loc.win.id,{force:true});
+    this._showLiftedTab(made);
+  },
+
+  /**
+   * FR-M11-43: **닫은 뒤에 새 자리를 보인다.**
+   *
+   *   이전 동작: `moveTabToPane` 이 새 탭을 활성으로 세우고 **그 뒤** `closeTab` 이
+   *              옛 탭을 닫으면서 활성을 다시 골랐다 — 고른 것이 새 탭이 아니라
+   *              **옆에 있던 다른 탭**이었다 (실측: 올렸는데 터미널 탭이 보인다)
+   *   새  동작: 닫기까지 끝난 뒤 한 번 더 세운다
+   *   이유:     마지막에 활성을 정하는 것이 닫기이므로, 그보다 뒤여야 이긴다
+   *
+   * 두 방향이 같은 손을 쓴다 — 올리기와 나가기가 같은 결함을 갖고 있었다.
+   */
+  _showLiftedTab(made){
+    if(!made||!made.toolId) return;
+    const at=this.findToolLocation(made.toolId);
+    if(at&&at.pane) this.paneTabSet(at.pane,made.uuid);
+    this.render();
   },
 
   /**
@@ -167,7 +204,9 @@ Object.assign(App.prototype, {
     const paneId=(loc&&loc.pane&&loc.pane.id)||this.focused;
     const c=await apiGet('/api/cwd',{query:{tool:toolId}});
     const cwd=(c.ok&&c.data&&c.data.cwd)||undefined;
-    const made=await this.addTab(paneId,'terminal',{windowId:loc&&loc.win?loc.win.id:undefined,cwd});
+    // FR-M11-43 과 대칭이다 — 나가는 자리도 이름을 잇는다.
+    const made=await this.addTab(paneId,'terminal',{windowId:loc&&loc.win?loc.win.id:undefined,cwd,
+      name:loc&&loc.tab?loc.tab.name:undefined});
     if(!made||!made.toolId) return;
     await apiPost('/api/tools/input',{id:made.toolId,text:r.data.line,execute:true});
     // 옛 탭을 못 찾았으면 여기서 끝난다 — 그때는 더할 것이 없고, 새 탭은 이미 섰다.
@@ -175,5 +214,6 @@ Object.assign(App.prototype, {
     // 자리부터 옮기고 닫는다. 순서가 바뀌면 옛 탭이 사라진 뒤라 기준이 없다.
     this.moveTabToPane(paneId,made.uuid,paneId,loc.tab.id,true);
     await this.closeTab(paneId,loc.tab.id,loc.win&&loc.win.id,{force:true});
+    this._showLiftedTab(made);
   },
 });

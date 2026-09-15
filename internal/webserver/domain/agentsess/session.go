@@ -274,6 +274,10 @@ type Controls struct {
 	Interrupt bool `json:"interrupt"`
 	Control   bool `json:"control"`
 	TUIResume bool `json:"tuiResume"`
+	// Attachments 는 이 어댑터가 **프롬프트에 이미지를 실을 수 있는가**다
+	// (M11_SRS FR-M11-30 / M11-B28). 화면은 이 값이 참일 때만 붙여넣기를 받는다 —
+	// 받지 못하는 어댑터에서 붙일 수 있는 척하면 바이트가 조용히 사라진다.
+	Attachments bool `json:"attachments"`
 }
 
 // SessionID 는 프로토콜의 세션 신원이다. 비어 있으면 아직 모른다.
@@ -326,9 +330,10 @@ func (s *Session) State() State {
 		ToolID: s.toolID, Agent: s.ad.ID, SessionID: s.st.SessionID,
 		Status: status, Usage: s.usage, Open: s.openLocked(),
 		PermissionModes: p.PermissionModes,
-		Controls:        Controls{Interrupt: p.Interrupt != nil, Control: p.Control != nil, TUIResume: p.TUIResume != nil},
-		Exited:          s.dormant != "",
-		Dormant:         s.dormant, Reason: s.reason, Resumable: s.dormant != "" && s.st.SessionID != "",
+		Controls: Controls{Interrupt: p.Interrupt != nil, Control: p.Control != nil,
+			TUIResume: p.TUIResume != nil, Attachments: p.Attachments},
+		Exited:  s.dormant != "",
+		Dormant: s.dormant, Reason: s.reason, Resumable: s.dormant != "" && s.st.SessionID != "",
 		Cwd:     s.opts.Cwd,
 		History: s.history,
 	}
@@ -361,13 +366,17 @@ func (s *Session) Replay(since int64) (evs []Logged, truncated bool, snap *Snaps
 }
 
 // Prompt 는 사용자 입력이다 (FR-AAL-2 — 표시를 세우는 것은 우리가 보낸 입력이다).
-func (s *Session) Prompt(text string) error {
+//
+// M11_SRS FR-M11-30 (M11-B28): `atts` 는 딸려 가는 이미지다. **대화에 남는 것은 글**
+// 이며(`EvUser` 의 `Text`), 그 글에 원본과 같이 `[Image #1]` 이 적혀 온다 (§2.10 (6))
+// — 바이트를 이벤트 로그에 넣지 않는다: 로그는 재생되는 것이고 그 크기는 상한을 먹는다.
+func (s *Session) Prompt(text string, atts ...agentadapter.Attachment) error {
 	s.mu.Lock()
 	if s.dormant != "" {
 		s.mu.Unlock()
 		return ErrDormant
 	}
-	frames := s.ad.Proto.Prompt(text, s.st)
+	frames := s.ad.Proto.Prompt(text, atts, s.st)
 	s.emit(agentadapter.Event{Kind: agentadapter.EvUser, Text: text})
 	s.mgr.deps.Sink.Activity(s.toolID, "working", "", "", true)
 	s.mu.Unlock()

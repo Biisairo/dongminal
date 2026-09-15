@@ -224,6 +224,39 @@ func (a *agent) turn(text string) (int, bool) {
 		}
 		a.toolTurnOut("Bash", map[string]any{"command": "seq 1 40", "description": "long output"},
 			nil, "DONE", strings.Join(lines, "\n"))
+	case strings.Contains(text, "THINKTOKENS"):
+		// M11_SRS FR-M11-28 (M11-B26): **claude 는 추론 내용을 주지 않는다**
+		// (실측 §2.11 (1) — `thinking` 이 빈 문자열이고 `estimated_tokens` 만 온다).
+		// 그 모양을 그대로 흉내 내야 화면의 *시간·토큰* 갈래가 재어진다.
+		a.thinking("", 120)
+		a.text("THOUGHT")
+	case strings.Contains(text, "THINKTEXT"):
+		// 내용을 주는 어댑터(codex·omp)의 모양 — 같은 이벤트에 글자가 실린다.
+		a.thinking("한 줄 생각\n두 줄 생각", 0)
+		a.text("THOUGHT")
+	case strings.Contains(text, "SPLIT"):
+		// FR-M11-24 (M11-B22): **말 → 도구 → 말.** 앞말이 지워지지 않는지를 재려면
+		// 한 턴 안에 말 블록이 둘이어야 한다 (§2.11 (2) 의 경계 그대로).
+		a.text("FIRST")
+		a.toolTurnNoAsk("Bash", map[string]any{"command": "echo hi"}, "hi")
+		a.text("SECOND")
+	case strings.Contains(text, "EDITDIFF"):
+		// FR-M11-37 (M11-B36): diff 의 재료는 **도구 입력**이다 (§2.11 (3) — 결과에는
+		// "updated successfully" 한 줄뿐이다).
+		a.toolTurnNoAsk("Edit", map[string]any{
+			"file_path": "/w/sample.txt", "old_string": "world", "new_string": "WORLD\nplus", "replace_all": false},
+			"The file /w/sample.txt has been updated successfully.")
+		a.text("EDITED")
+	case strings.Contains(text, "SUBAGENT"):
+		// M11_SRS FR-M11-49 (M11-B49): 서브에이전트의 진행은 **같은 스트림**으로 오고
+		// `parent_tool_use_id` 만이 그것을 가른다 (실측 §2.13). 그 모양 그대로다.
+		a.subagentTurn()
+	case strings.Contains(text, "BGTOOL"):
+		// FR-M11-50 (M11-B50): `run_in_background` 는 **평범한 도구 호출**이고, 결과가
+		// ID·경로를 **글로** 준다 — 우리가 아는 것은 입력이 말하는 사실 하나다.
+		a.toolTurnNoAsk("Bash", map[string]any{"command": "sleep 2; echo BG", "run_in_background": true},
+			"Command running in background with ID: bg-1. Output is being written to: /tmp/bg-1.output.")
+		a.text("BGSTARTED")
 	case strings.Contains(text, "MARKDOWN"):
 		// M11_SRS FR-M11-23 (M11-B21): 출력은 md 로 그려진다. 원본이 그렇게 하며
 		// (§2.10 (8) — 표를 박스로 그린다), 그것을 재려면 md 를 내는 턴이 있어야 한다.
@@ -247,6 +280,69 @@ func (a *agent) messageStart() {
 		"event": map[string]any{"type": "message_start", "message": map[string]any{
 			"model": a.model, "id": newID("msg"), "type": "message", "role": "assistant", "content": []any{},
 			"usage": map[string]any{"input_tokens": 10, "cache_creation_input_tokens": 100, "cache_read_input_tokens": 1000, "output_tokens": 1}}}})
+}
+
+// subagentTurn 은 `Agent` 도구 하나와 **그 안에서 도는** 서브에이전트다.
+//
+// 실측한 모양 그대로다 (§2.13): 부모는 평범한 `tool_use` 이고, 서브에이전트의 프롬프트·
+// 도구·결과가 같은 스트림에 `parent_tool_use_id` 를 달고 섞여 온다.
+func (a *agent) subagentTurn() {
+	parent := newID("toolu")
+	a.emit(map[string]any{"type": "stream_event", "parent_tool_use_id": nil,
+		"event": map[string]any{"type": "content_block_start", "index": 0, "content_block": map[string]any{"type": "tool_use", "id": parent, "name": "Agent", "input": map[string]any{}}}})
+	a.assistant([]map[string]any{{"type": "tool_use", "id": parent, "name": "Agent",
+		"input": map[string]any{"description": "세어 보기", "subagent_type": "general-purpose", "prompt": "SUBPROMPT"}}})
+
+	// 여기부터가 **자식의 것**이다 — 부모의 대화가 아니다.
+	a.emit(map[string]any{"type": "user", "parent_tool_use_id": parent,
+		"message": map[string]any{"role": "user", "content": "SUBPROMPT"}})
+	childTool := newID("toolu")
+	a.emit(map[string]any{"type": "stream_event", "parent_tool_use_id": parent,
+		"event": map[string]any{"type": "content_block_start", "index": 0, "content_block": map[string]any{"type": "tool_use", "id": childTool, "name": "Bash", "input": map[string]any{}}}})
+	a.emit(map[string]any{"type": "assistant", "parent_tool_use_id": parent, "request_id": newID("req"),
+		"message": map[string]any{"model": a.model, "id": newID("msg"), "type": "message", "role": "assistant",
+			"content": []map[string]any{{"type": "tool_use", "id": childTool, "name": "Bash", "input": map[string]any{"command": "wc -l a.txt"}}}}})
+	a.emit(map[string]any{"type": "user", "parent_tool_use_id": parent,
+		"message": map[string]any{"role": "user", "content": []map[string]any{
+			{"tool_use_id": childTool, "type": "tool_result", "content": "3 a.txt", "is_error": false}}}})
+
+	// 부모가 받는 결과 — 이것은 다시 **부모의 것**이다.
+	a.emit(map[string]any{"type": "user", "parent_tool_use_id": nil, "message": map[string]any{"role": "user",
+		"content": []map[string]any{{"tool_use_id": parent, "type": "tool_result", "content": "SUBDONE", "is_error": false}}}})
+	a.emit(map[string]any{"type": "system", "subtype": "status", "status": "requesting"})
+	a.messageStart()
+	a.text("PARENTDONE")
+}
+
+// thinking 은 추론 블록 하나다. **실측한 순서 그대로** — `content_block_start(thinking)`
+// → `thinking_delta` → `signature_delta` → `assistant[thinking]` → `content_block_stop`
+// (M11_SRS §2.11 (1)).
+//
+// `body` 가 비면 claude 판이다: 델타의 글자가 없고 `estimated_tokens` 만 움직이며,
+// 스냅샷의 `thinking` 도 **빈 채로** 온다 (signature 만 실린다).
+func (a *agent) thinking(body string, tokens int64) {
+	a.emit(map[string]any{"type": "stream_event", "parent_tool_use_id": nil,
+		"event": map[string]any{"type": "content_block_start", "index": 0, "content_block": map[string]any{"type": "thinking", "thinking": ""}}})
+	a.emit(map[string]any{"type": "stream_event", "parent_tool_use_id": nil,
+		"event": map[string]any{"type": "content_block_delta", "index": 0,
+			"delta": map[string]any{"type": "thinking_delta", "thinking": body, "estimated_tokens": tokens}}})
+	a.emit(map[string]any{"type": "stream_event", "parent_tool_use_id": nil,
+		"event": map[string]any{"type": "content_block_delta", "index": 0,
+			"delta": map[string]any{"type": "signature_delta", "signature": "CAIStw0K"}}})
+	a.assistant([]map[string]any{{"type": "thinking", "thinking": body, "signature": "CAIStw0K"}})
+	a.emit(map[string]any{"type": "stream_event", "parent_tool_use_id": nil, "event": map[string]any{"type": "content_block_stop", "index": 0}})
+}
+
+// toolTurnNoAsk 는 **승인을 묻지 않는 도구 턴**이다 — 권한 모드가 이미 허용한 경우이며
+// 실제로 대부분의 턴이 이 모양이다. 승인 흐름은 `toolTurnOut` 이 잰다.
+func (a *agent) toolTurnNoAsk(tool string, input map[string]any, out string) {
+	toolUse := newID("toolu")
+	a.emit(map[string]any{"type": "stream_event", "parent_tool_use_id": nil,
+		"event": map[string]any{"type": "content_block_start", "index": 0, "content_block": map[string]any{"type": "tool_use", "id": toolUse, "name": tool, "input": map[string]any{}}}})
+	a.assistant([]map[string]any{{"type": "tool_use", "id": toolUse, "name": tool, "input": input}})
+	a.emit(map[string]any{"type": "user", "parent_tool_use_id": nil, "message": map[string]any{"role": "user",
+		"content": []map[string]any{{"tool_use_id": toolUse, "type": "tool_result", "content": out, "is_error": false}}},
+		"tool_use_result": map[string]any{"stdout": "", "stderr": ""}})
 }
 
 func (a *agent) text(s string) {
@@ -396,7 +492,24 @@ func (a *agent) questionTurn() {
 	a.text(picked)
 }
 
+// local 은 슬래시 명령이다.
+//
+// M11_SRS FR-M11-14 (M11-B11): `/model`·`/config` 는 **막히지 않았다** — 프로토콜이
+// 사용법·선택지 **텍스트**로 답한다 (실측 §2.11 (5)). 그 모양을 그대로 흉내 내야
+// 화면이 그것을 고르는 화면으로 펴는지가 재어진다.
 func (a *agent) local(cmd string) {
+	switch {
+	case strings.HasPrefix(cmd, "/model"):
+		a.localText("Current model: `" + a.model + "` (default)\n" +
+			"Usage: /model <name>. Available: sonnet, opus, haiku, or a full model ID.")
+		return
+	case strings.HasPrefix(cmd, "/config"):
+		a.localText("Usage: /config key=value [key=value ...]\n" +
+			"  autoCompact=true|false\n" +
+			"  editor=normal|vim\n" +
+			"  theme=auto|dark|light")
+		return
+	}
 	if strings.HasPrefix(cmd, "/clear") {
 		old := a.sid
 		a.sid = newID("sess")
@@ -406,6 +519,14 @@ func (a *agent) local(cmd string) {
 	a.emit(map[string]any{"type": "assistant", "parent_tool_use_id": nil, "request_id": newID("req"),
 		"message": map[string]any{"model": "<synthetic>", "id": newID("msg"), "type": "message", "role": "assistant",
 			"content": []map[string]any{{"type": "text", "text": "ok: " + cmd}}}})
+	a.result(false, "completed")
+}
+
+// localText 는 슬래시 명령의 답 한 덩이다 — 실제로 `result` 까지 같은 글이 온다.
+func (a *agent) localText(text string) {
+	a.emit(map[string]any{"type": "assistant", "parent_tool_use_id": nil, "request_id": newID("req"),
+		"message": map[string]any{"model": "<synthetic>", "id": newID("msg"), "type": "message", "role": "assistant",
+			"content": []map[string]any{{"type": "text", "text": text}}}})
 	a.result(false, "completed")
 }
 

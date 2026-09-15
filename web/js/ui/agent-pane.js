@@ -16,11 +16,14 @@ class AgentPane {
     this.app=app; this.id=id; this.name=name||'';
     this._slot=0;
     this.seq=0; this.state=null; this._destroyed=false;
-    this._live=null;      // 진행 중 델타가 쌓이는 요소
-    this._liveThink=null;
+    this._live=null;      // 진행 중 턴의 말 컨테이너 (FR-M11-24)
+    this._liveBody=null;  // 그 안에서 지금 열린 말 블록
+    this._think=null;     // 지금 열린 추론 (FR-M11-28)
     this._toolCards=new Map(); // toolUseId → 카드
     this._dialog=null;    // 열린 승인 다이얼로그 {id, close}
     this._history=[]; this._histIdx=-1; this._draft='';
+    this._queue=[];       // 턴 중에 쌓인 프롬프트 (FR-M11-29 · D-M11-6 — 화면의 것이다)
+    this._atts=[];        // 붙여넣은 이미지 (FR-M11-30)
     this._loading=null;
     this._pending=null;   // 재생이 비행 중일 때 도착한 SSE — 재생 뒤에 이어 붙인다
     this._openIds=new Set(); // 열린 요청의 id — 개수는 이 집합의 크기다 (재생과 상태가 겹쳐도 한 번)
@@ -92,17 +95,69 @@ class AgentPane {
     // 쓰지 않아 브라우저 기본 스크롤바가 서 있었다 — 새 모양을 만들지 않는다.
     this.log=document.createElement('div'); this.log.className='agp-log ui-scroll';
     this.log.setAttribute('role','log'); this.log.setAttribute('aria-label',t('agent.view_label'));
-    el.appendChild(this.log);
+    /**
+     * FR-M11-42: **클릭한 자리가 포커스를 받아야 키가 패널을 지난다.**
+     *
+     * `div` 는 기본적으로 포커스를 받지 못한다 — 대화를 클릭하면 포커스가 `body` 에
+     * 남고, 그러면 `Esc` 의 이벤트 경로에 이 패널이 **아예 들어오지 않는다** (실측:
+     * 핸들러를 패널에 걸고도 요청이 0건이었다).
+     *
+     * `tabindex="-1"` 은 **탭 순회에 넣지 않으면서** 클릭·프로그램 포커스만 받게 한다.
+     * 스크롤 영역이 포커스를 받는 것은 키보드 접근성 쪽에서도 권장되는 모양이다.
+     */
+    this.log.tabIndex=-1;
+    /**
+     * FR-M11-39 (M11-B39): **바닥으로 돌아가는 손.**
+     *
+     * 스크롤이 자동으로 끌려가지 않는 것이 `FR-M11-26` 의 요구인데, 그러면 긴 대화에서
+     * 내려오는 품이 곧 다음 접수가 된다. **바닥이 아닐 때만** 서고 누르면 내려간다 —
+     * 늘 떠 있으면 그것이 대화를 가린다.
+     *
+     * 대화 위에 뜨므로 감싸는 자리가 하나 필요하다.
+     */
+    const logWrap=document.createElement('div'); logWrap.className='agp-log-wrap';
+    logWrap.appendChild(this.log);
+    this.botBtn=UIKit.button({icon:'chevron-down',title:t('agent.to_bottom'),kind:'ghost',size:'sm',
+      cls:'agp-to-bottom',onClick:()=>this._scrollEnd()});
+    this.botBtn.hidden=true;
+    logWrap.appendChild(this.botBtn);
+    this.log.addEventListener('scroll',()=>this._syncBottomBtn());
+    el.appendChild(logWrap);
 
     // 입력
     const inp=document.createElement('div'); inp.className='agp-input';
+    /**
+     * FR-M11-29 (M11-B27 · B15 · B35): **쌓인 프롬프트는 보인다.**
+     *
+     * 원본은 대기 중인 것을 입력창 **위에** `❯ <본문>` 으로 줄줄이 세운다
+     * (§2.10 (5) 실측) — 무엇이 기다리는지 화면이 언제나 말한다. 자리가 여기인 것도
+     * 원본 그대로다: 다음에 나갈 것들이 입력창에 잇닿아 선다.
+     */
+    this.queueEl=document.createElement('div'); this.queueEl.className='agp-queue'; this.queueEl.hidden=true;
+    this.queueEl.setAttribute('role','list'); this.queueEl.setAttribute('aria-label',t('agent.queue_label'));
+    inp.appendChild(this.queueEl);
     this.sugg=document.createElement('div'); this.sugg.className='agp-sugg'; this.sugg.hidden=true;
     inp.appendChild(this.sugg);
     const row=document.createElement('div'); row.className='agp-input-row';
     this.ta=document.createElement('textarea'); this.ta.className='agp-ta ui-scroll'; this.ta.rows=2;
     this.ta.placeholder=t('agent.prompt_placeholder'); this.ta.setAttribute('aria-label',t('agent.input_label'));
     this.ta.addEventListener('keydown',e=>this._onKey(e));
+    /**
+     * FR-M11-42 (M11-B42 · B47): **끊는 키는 패널 전체에서 산다.**
+     *
+     * 접수: *"뭔가 특정 동작을 하는중에 interrupt 가 안되는거같아"* · *"esc는 포커스하면
+     * 걸리게"*. 실측(§2.12)이 갈랐다 — 동작의 종류가 아니라 **포커스**였다: 핸들러가
+     * `this.ta` 하나에만 걸려 있어 도구가 도는 동안 대화를 클릭하면 그때부터 키가
+     * 닿지 않는다.
+     *
+     * **글자를 만지는 키는 옮기지 않는다** (좌우 이동·이력·자동완성). 끊기는 *지금 도는
+     * 것*에 대한 명령이라 입력창의 상태와 무관하고, 캐럿을 옮기는 키는 캐럿이 있는
+     * 곳의 일이다 — 둘을 한 자리에 두었던 것이 결함이다.
+     */
+    el.addEventListener('keydown',e=>this._onPaneKey(e));
     this.ta.addEventListener('input',()=>{ this._suggest(); this._growInput() });
+    // FR-M11-30 (M11-B28): 원본과 같은 손 — 붙여넣기다 (§2.10 (6)).
+    this.ta.addEventListener('paste',e=>this._onPaste(e));
     row.appendChild(this.ta);
     this.stopBtn=UIKit.button({icon:'x',title:t('agent.interrupt'),kind:'ghost',cls:'agp-stop',onClick:()=>this.interrupt()});
     this.sendBtn=UIKit.button({icon:'play',title:t('agent.send'),kind:'primary',cls:'agp-send',onClick:()=>this.send()});
@@ -192,6 +247,8 @@ class AgentPane {
     const stick=this._atBottom();
     this._apply({seq,at:a.at,ev:a.ev},false);
     if(stick) this._scrollEnd();
+    // 따라가지 않았으면 바닥에서 멀어진 것이다 — 돌아갈 손이 그때 선다 (FR-M11-39).
+    else this._syncBottomBtn();
   }
 
   _applyState(st){
@@ -216,15 +273,34 @@ class AgentPane {
   _apply(le,replay){
     const ev=le.ev||{};
     this.seq=le.seq;
+    /**
+     * FR-M11-49 (M11-B49): **남의 것은 남의 자리에 그린다.**
+     *
+     * 서브에이전트의 진행은 같은 스트림으로 오고 `parentToolUseId` 가 그것을 가른다
+     * (실측 §2.13). 그대로 두면 서브에이전트의 프롬프트가 **사용자가 친 말**로 서고
+     * 그 도구가 **부모의 도구**로 선다 — `FR-M11-25`(자기가 하지 않은 말을 자기
+     * 기록에서 읽는다)와 같은 부류다.
+     *
+     * 사용자 결정(2026-09-15): **부모 도구 카드 안에 넣는다.**
+     */
+    if(ev.parentToolUseId){ this._applySub(ev.parentToolUseId,ev,replay); return }
     // 휴면·오류 뒤에 라이브로 exit 아닌 이벤트가 오면 재개된 것이다 (다른 브라우저가 재개했을 때).
     if(!replay&&this._dormant&&ev.kind!=='exit') this._revive();
     switch(ev.kind){
       case 'session': this._setState('idle'); this._mergeStatus(ev.status); this._sessionLine(ev.sessionId); break;
-      case 'user': this._endLive(); this._msg('agp-user',ev.text||''); this._pushHistory(ev.text||''); break;
+      case 'user': {
+        this._endLive();
+        const m=this._msg('agp-user',ev.text||'');
+        // FR-M11-40: 고르는 화면이 서면 이 말풍선은 지운다 — 무엇을 지울지는 여기서
+        // 잡아 두고, **폼이 실제로 열린 뒤** 그때 지운다.
+        if(this._awaitConfig&&AGENT_CONFIG_CMD_RE.test(ev.text||'')) this._cfgEcho=m;
+        this._pushHistory(ev.text||'');
+        break;
+      }
       case 'turn_start': this._setState('working'); break;
-      case 'turn_end': this._endLive(); this._setState('done'); if(ev.isError) this._line('agp-note agp-err', ev.text==='aborted_streaming'?t('agent.turn_aborted'):t('agent.turn_error',{reason:ev.text||''})); break;
+      case 'turn_end': this._endLive(); this._setState('done'); if(!replay) this._drainQueue(); if(ev.isError) this._line('agp-note agp-err', ev.text==='aborted_streaming'?t('agent.turn_aborted'):t('agent.turn_error',{reason:ev.text||''})); break;
       case 'text_delta': this._liveText(ev.text||''); break;
-      case 'thinking_delta': this._liveThinking(ev.text||''); break;
+      case 'thinking_delta': this._liveThinking(ev.text||'',ev.thinkingTokens||0,!replay); break;
       case 'message': this._message(ev.message); break;
       case 'tool_start': this._toolCard(ev.toolUseId,ev.tool,null); break;
       case 'tool_end': this._toolResult(ev.toolUseId,ev.text||'',!!ev.isError); break;
@@ -239,14 +315,112 @@ class AgentPane {
     }
   }
 
+  /**
+   * FR-M11-49: 서브에이전트 한 묶음. 부모 도구 카드 안에 자기 자리를 갖는다.
+   *
+   * **본 대화의 렌더를 다시 쓰지 않는다** — 여기 오는 것은 진행 요약이고, 자세한
+   * 것은 그 카드를 펼쳐 본다. 말·도구·결과를 줄로 적되 부모의 상태(`_setState`)·
+   * 사용량·큐는 **건드리지 않는다**: 그것들은 본 대화의 것이다.
+   */
+  _subOf(pid){
+    if(!this._subs) this._subs=new Map();
+    let sub=this._subs.get(pid);
+    if(sub) return sub;
+    // 부모 카드가 아직 없으면 세운다 — 도구 시작보다 자식이 먼저 오는 판이 있다.
+    const card=this._toolCard(pid,'',null);
+    const box=document.createElement('div'); box.className='agp-sub';
+    const head=document.createElement('div'); head.className='agp-sub-head';
+    head.textContent=t('agent.sub_head');
+    const body=document.createElement('div'); body.className='agp-sub-body ui-scroll';
+    box.appendChild(head); box.appendChild(body); card.appendChild(box);
+    sub={card,box,head,body,tools:0,live:null};
+    this._subs.set(pid,sub);
+    return sub;
+  }
+  _subLine(sub,cls,text){
+    const d=document.createElement('div'); d.className='agp-sub-line '+cls; d.textContent=text;
+    sub.body.appendChild(d); return d;
+  }
+  _applySub(pid,ev,replay){
+    const sub=this._subOf(pid);
+    switch(ev.kind){
+      case 'user':
+        // 서브에이전트가 **받은** 프롬프트다 — 사용자가 친 말이 아니다.
+        if(ev.text) this._subLine(sub,'agp-sub-prompt',ev.text);
+        break;
+      case 'text_delta':
+        if(!sub.live) sub.live=this._subLine(sub,'agp-sub-text','');
+        sub.live.textContent+=ev.text||'';
+        break;
+      case 'message': sub.live=null; break;
+      case 'tool_start':
+        sub.tools++;
+        this._subLine(sub,'agp-sub-tool',this._toolHead(ev.tool,null));
+        break;
+      case 'tool_end':
+        sub.live=null;
+        if(ev.isError) this._subLine(sub,'agp-sub-err',this._peekText(ev.text||''));
+        break;
+      case 'error':
+        this._subLine(sub,'agp-sub-err',ev.text||'');
+        break;
+    }
+    sub.head.textContent=t('agent.sub_head_n',{n:sub.tools});
+    if(!replay&&this._atBottom()) this._scrollEnd();
+  }
+
   // ── 상태 줄 ──
 
   _setState(st){
+    const was=this._activity;
     this._activity=st;
     const key={idle:'agent.state_idle',working:'agent.state_working',waiting:'agent.state_waiting',done:'agent.state_done',ended:'agent.state_ended',hibernated:'agent.state_hibernated',error:'agent.state_error'}[st];
     this.stateEl.textContent=key?t(key):'';
     this.stateEl.dataset.state=st||'';
     this.el.dataset.state=st||'';
+    this._syncBusy(was,st);
+  }
+
+  /**
+   * FR-M11-51 (M11-B52): **도는 중이면 화면이 움직인다.**
+   *
+   * 접수: *"지금이 idel, waiting 이 아니고 뭔가를 하고있을 떄 tui 에서는 애니메이션이
+   * 있잖아. 그런거."* 원본은 `✢ Tinkering… 60` · `✶ Tempering… (38s · ↓ 1.4k tokens)`
+   * 으로 **스피너 · 경과 · 받은 토큰**을 함께 돌린다 (§2.10 (4)·(5)).
+   *
+   * **모양은 옮기지 않는다** (사용자 결정 2026-09-15 — *"모양을 또같이 할 필요는
+   * 없다"*). 원본의 무작위 동사(`Baked`·`Brewed`…)는 claude 가 가진 사전이고 우리에겐
+   * 없다 — 지어내면 카탈로그 밖의 글자가 된다. 우리가 **아는 것**은 경과 시간이며
+   * 그것은 관측한 값이다.
+   *
+   * 도는 자리는 `working` 하나다 — `waiting` 은 **사람을 기다리는** 것이라 움직이면
+   * 거짓이 된다 (접수가 그 둘을 이름으로 갈랐다).
+   */
+  _syncBusy(was,st){
+    const busy=st==='working';
+    if(busy===(was==='working')&&this._busyJob) return;
+    if(this._busyJob){ this._busyJob.stop(); this._busyJob=null }
+    if(!busy){
+      // 끝났으면 **그 턴이 얼마였는지** 남긴다 — 원본의 `Brewed for 14s` 자리다.
+      if(was==='working'&&this._busyAt&&st==='done'){
+        this._line('agp-note agp-took',t('agent.turn_took',{secs:((Date.now()-this._busyAt)/1000).toFixed(1)}));
+      }
+      this._busyAt=0;
+      this.el.dataset.busy='';
+      return;
+    }
+    this._busyAt=Date.now();
+    this.el.dataset.busy='1';
+    this._paintBusy();
+    this._busyJob=TIMERS.every({id:'agp-busy:'+this.id,owner:this,every:AGENT_BUSY_TICK_MS,
+      when:()=>!this._destroyed&&this._activity==='working',
+      run:()=>this._paintBusy()});
+  }
+  /** 경과를 적는다. 스피너는 CSS 가 돌린다 — 프레임마다 DOM 을 만지지 않는다. */
+  _paintBusy(){
+    if(!this._busyAt) return;
+    this.stateEl.textContent=t('agent.state_working_for',
+      {secs:Math.round((Date.now()-this._busyAt)/1000)});
   }
   /**
    * 상태 조각을 합친다 — 모델·권한은 머리에, 선택지(models·commands)는 `state.status` 에.
@@ -484,7 +658,17 @@ class AgentPane {
 
   // ── 대화 렌더 ──
 
-  _scrollEnd(){ this.log.scrollTop=this.log.scrollHeight }
+  _scrollEnd(){ this.log.scrollTop=this.log.scrollHeight; this._syncBottomBtn() }
+
+  /**
+   * FR-M11-39: 바닥 버튼은 **바닥이 아닐 때만** 선다. 판정은 `_atBottom()` 하나를
+   * 쓴다 — 따라갈지 말지를 정하는 그 판정과 같아야 버튼이 "따라가지 않는 중" 을
+   * 정확히 가리킨다 (두 벌로 두면 한쪽만 고쳐진다).
+   */
+  _syncBottomBtn(){
+    if(!this.botBtn) return;
+    this.botBtn.hidden=this._atBottom();
+  }
 
   /**
    * FR-M11-26 (M11-B24): **바닥을 보고 있는가.**
@@ -515,6 +699,16 @@ class AgentPane {
    * **떼기 전에** 불려야 한다. 계기는 render 머리의 `_keepScroll()` 하나이며, 떼는
    * 자리 셋(`_hideOthers`·`_domGC`·`_place`)보다 앞선 유일한 시점이다.
    */
+  /**
+   * FR-M11-47 (M11-B48): **대화를 열면 바로 칠 수 있다.**
+   *
+   * 이름이 터미널의 것과 같다 (`TerminalTool.focus`) — 부르는 자리가 하나이므로
+   * 그쪽이 종류를 묻지 않아도 된다.
+   */
+  focus(){
+    if(this.ta&&!this.ta.disabled) this.ta.focus();
+  }
+
   keepView(){
     if(!this.el.isConnected||!this.el.classList.contains('vis')) return;
     this._logY=this.log.scrollTop;
@@ -592,10 +786,28 @@ class AgentPane {
     });
     return b;
   }
+  /**
+   * FR-M11-24 (M11-B22): **턴의 말은 한 컨테이너에 서고, 블록은 그 안에서 갈린다.**
+   *
+   * 종전에는 `_msg()` 를 불러 **빈 본문 하나**를 미리 만들었다. 그러면 블록이 둘인
+   * 턴에서 첫 블록이 그 자리를 차지하고 둘째가 갈 곳이 없어, `_message()` 가 매번
+   * 안을 **지우고 다시 그리는** 손을 쓰게 된다 — 그 손이 이 물결의 결함 둘(B22·B26)의
+   * 뿌리다. 여기서는 머리만 세우고 본문은 **블록이 올 때** 만든다.
+   */
   _ensureLive(){
     if(this._live) return this._live;
-    const d=this._msg('agp-assistant agp-live','');
+    const d=document.createElement('div'); d.className='agp-msg agp-assistant agp-live';
+    const who=document.createElement('div'); who.className='agp-who'; who.textContent=this.name;
+    who.appendChild(this._mkRawToggle(d));
+    d.appendChild(who); this.log.appendChild(d);
     this._live=d; return d;
+  }
+  /** 지금 열린 말 블록의 자리. 없으면 새로 세운다 — 블록 하나가 요소 하나다. */
+  _liveBodyEl(){
+    if(this._liveBody) return this._liveBody;
+    const b=this._mkBody('');
+    this._ensureLive().appendChild(b);
+    this._liveBody=b; return b;
   }
   /**
    * 스트리밍 중에는 **글자를 그대로 잇는다.** 조각마다 md 를 다시 그리면 반쯤 닫힌
@@ -603,48 +815,127 @@ class AgentPane {
    * 스냅샷이 그린다 — 진실은 스냅샷이다.
    */
   _liveText(s){
-    const b=this._ensureLive().querySelector('.agp-body');
+    const b=this._liveBodyEl();
     b.dataset.raw=(b.dataset.raw||'')+s;
     b.textContent=b.dataset.raw;
   }
-  _liveThinking(s){
-    const d=this._ensureLive();
-    if(!this._liveThink){
-      const det=document.createElement('details'); det.className='agp-think';
-      const sum=document.createElement('summary'); sum.textContent=t('agent.thinking'); det.appendChild(sum);
-      const pre=document.createElement('div'); pre.className='agp-think-body'; det.appendChild(pre);
-      d.insertBefore(det,d.querySelector('.agp-body')); this._liveThink=pre;
+  /**
+   * FR-M11-24: 말 블록을 **최종본으로 확정하고 닫는다.** 다음 블록은 새 요소다.
+   * 컨테이너는 닫지 않는다 — 한 턴의 말들이 이름 머리 하나를 함께 쓴다.
+   */
+  _endText(text){
+    const b=this._liveBodyEl();
+    this._paintBody(b,text);
+    this._liveBody=null;
+    // FR-M11-14: `/config` 의 답이 왔다 — 그 목록이 폼이 된다. 모양이 아니면 그대로 둔다.
+    if(this._awaitConfig){
+      this._awaitConfig=false;
+      // FR-M11-40: **연 뒤에** 감춘다 — 열지 못했으면 둘 다 그대로 선다.
+      if(this._openConfigPick(text)){
+        this._hideCommandEcho(this._cfgEcho); this._cfgEcho=null;
+        if(this._live) this._hideCommandEcho(this._live);
+        this._live=null; this._liveBody=null;
+      }
     }
-    this._liveThink.textContent+=s;
   }
-  _endLive(){ if(this._live){ this._live.classList.remove('agp-live'); this._live=null; this._liveThink=null } }
 
-  /** 에이전트 메시지 스냅샷 — 진행 중 블록을 이것으로 갈아 끼운다 (진실은 스냅샷이다). */
+  /**
+   * FR-M11-28 (M11-B26): **추론은 주는 만큼 보인다.**
+   *
+   * **claude 는 내용을 주지 않는다** (실측 §2.11 (1) — `thinking` 이 빈 문자열이고
+   * `estimated_tokens` 만 움직인다). 원본이 `thought for 2s` 로 시간만 말하는 것이
+   * 그 때문이다. `codex`·`omp` 는 글자를 주므로 그때는 그것을 접어 둔다.
+   *
+   * 요소의 종류가 **내용 유무로 갈린다**: 있으면 펼칠 수 있는 `details`, 없으면
+   * 한 줄 쪽지다. 빈 `details` 를 세우면 눌러도 아무것도 없어 고장으로 읽힌다.
+   */
+  _liveThinking(s,tokens,live){
+    const host=this._ensureLive();
+    /**
+     * **재생에는 시간이 없다** (FR-CBG-5). 우리가 재는 값은 *그 추론이 실제로 걸린
+     * 시간* 인데, 재생은 지난 이벤트를 순식간에 흘리므로 여기서 재면 `0.0초` 가
+     * 나온다 — 그것은 모름이 아니라 **거짓**이다. 그래서 재생이면 아예 달지 않는다.
+     */
+    if(!this._think) this._think={at:live===false?null:Date.now(),tokens:0,text:'',el:null,kind:''};
+    const th=this._think;
+    th.tokens+=Number(tokens)||0;
+    if(s) th.text+=s;
+    this._paintThink(host);
+  }
+  _paintThink(host){
+    const th=this._think; if(!th) return;
+    const kind=th.text?'body':'note';
+    if(th.kind!==kind){
+      let el;
+      if(kind==='body'){
+        el=document.createElement('details'); el.className='agp-think';
+        const sum=document.createElement('summary'); sum.textContent=t('agent.thinking'); el.appendChild(sum);
+        const b=document.createElement('div'); b.className='agp-think-body'; el.appendChild(b);
+      }else{
+        el=document.createElement('div'); el.className='agp-think agp-think-note';
+      }
+      if(th.el) th.el.replaceWith(el); else host.appendChild(el);
+      th.el=el; th.kind=kind;
+    }
+    if(kind==='body') th.el.querySelector('.agp-think-body').textContent=th.text;
+    else th.el.textContent=this._thinkNote(th);
+  }
+  /**
+   * 내용이 없을 때 적는 한 줄. **시간은 끝난 뒤에만 적는다** — 원본의 `thought for 2s`
+   * 도 끝난 뒤의 값이고, 도는 중에 초를 세려면 타이머가 하나 더 필요하다.
+   */
+  _thinkNote(th){
+    const tk=th.tokens?fmtTokens(th.tokens):'';
+    if(!th.done) return tk?t('agent.thinking_progress_tokens',{tokens:tk}):t('agent.thinking_progress');
+    // 시간을 재지 못한 것(재생)은 **적지 않는다** — 토큰은 프로토콜이 준 값이라 남는다.
+    if(th.at===null) return tk?t('agent.thinking_done_tokens',{tokens:tk}):t('agent.thinking_done');
+    const secs=((Date.now()-th.at)/1000).toFixed(1);
+    return tk?t('agent.thinking_note_tokens',{secs,tokens:tk}):t('agent.thinking_note',{secs});
+  }
+  /** 추론 블록을 닫는다 — 시간이 그때 고정된다. */
+  _endThink(){
+    const th=this._think; if(!th) return;
+    th.done=true; this._paintThink(this._live||this.log);
+    this._think=null;
+  }
+  _endLive(){
+    this._endThink();
+    if(this._live) this._live.classList.remove('agp-live');
+    this._live=null; this._liveBody=null;
+  }
+
+  /**
+   * 에이전트 메시지 스냅샷 — 블록 하나가 **끝났다**는 신호다 (실측 §2.11 (2): 한
+   * 프레임이 한 블록이고 블록이 닫힐 때 온다).
+   *
+   * FR-M11-24 (M11-B22): **지우지 않는다.**
+   *
+   *   이전 동작: `who` 만 남기고 **전부 지운 뒤** 스냅샷으로 다시 그렸다. 프레임이
+   *              블록마다 오므로 **앞 블록이 매번 사라졌고**, 빈 `thinking` 스냅샷은
+   *              세워 둔 추론 칸까지 지웠다 (M11-B26 이 안 보이던 까닭)
+   *   새  동작: 그 블록만 **확정하고 닫는다**. 앞에 선 것은 그대로 산다
+   *   이유:     경계는 프로토콜이 이미 주고 있었고 (§2.11 (2)) 우리가 지우고 있었다.
+   *             원본이 `⏺` 를 찍는 자리가 정확히 이 경계다
+   */
   _message(raw){
     // 와이어에서는 JSON 배열 그대로 온다(RawMessage 인라인). 문자열이면 파싱한다.
     let blocks=raw;
     if(typeof raw==='string'){ try{ blocks=JSON.parse(raw||'[]') }catch{ blocks=[] } }
     if(!Array.isArray(blocks)) return;
-    const d=this._live||this._msg('agp-assistant agp-live','');
-    this._live=d; this._liveThink=null;
-    // 본문을 다시 그린다: who 만 남기고.
-    for(const c of [...d.children]) if(!c.classList.contains('agp-who')) c.remove();
-    let hasBody=false;
+    const d=this._ensureLive();
     for(const b of blocks){
       if(!b||typeof b!=='object') continue;
-      if(b.type==='thinking'&&b.thinking){
-        const det=document.createElement('details'); det.className='agp-think';
-        const sum=document.createElement('summary'); sum.textContent=t('agent.thinking'); det.appendChild(sum);
-        const pre=document.createElement('div'); pre.className='agp-think-body'; pre.textContent=b.thinking; det.appendChild(pre);
-        d.appendChild(det);
+      if(b.type==='thinking'){
+        // 스냅샷의 `thinking` 은 claude 에서 **비어 있다** — 그것으로 덮지 않는다.
+        if(b.thinking&&(!this._think||!this._think.text)) this._liveThinking(b.thinking,0);
+        this._endThink();
       }else if(b.type==='text'){
-        d.appendChild(this._mkBody(b.text||'')); hasBody=true;
+        this._endText(b.text||'');
       }else if(b.type==='tool_use'){
         const card=this._toolCard(b.id,b.name,b.input);
         if(card.parentNode!==d) d.appendChild(card);
       }
     }
-    if(!hasBody) d.appendChild(this._mkBody(''));
   }
   /**
    * FR-M11-4: **도구 카드는 접힌 채 선다.**
@@ -670,6 +961,22 @@ class AgentPane {
     }
     if(input&&!card.querySelector('.agp-tool-in')){
       const pre=document.createElement('pre'); pre.className='agp-tool-in ui-scroll'; pre.textContent=agentDetail(tool,input); card.appendChild(pre);
+      // FR-M11-37 (M11-B36): 편집이면 **그 자리에** 무엇이 바뀌었는지 그린다.
+      const diff=this._mkDiff(tool,input);
+      if(diff){
+        card.appendChild(diff);
+        /**
+         * FR-M11-38 (M11-B37): **diff 는 펼친 채 선다.**
+         *
+         * `FR-M11-4` 가 도구를 접는 근거는 *출력이 화면을 먹는다* 인데, diff 는
+         * 출력이 아니라 **그 턴이 한 일 그 자체**다. 오류를 펼쳐 두는 것과 같은
+         * 근거다 — 읽으라고 있는 것을 접으면 접수한 증상이 돌아온다.
+         *
+         * 펼치는 것은 **편집 도구뿐**이다: `Bash` 의 긴 출력까지 펼치면
+         * `FR-M11-27` 이 접기로 푼 문제가 되살아난다.
+         */
+        card.open=true;
+      }
       /**
        * **인자는 늦게 온다.** `content_block_start` 가 빈 `input` 으로 카드를 먼저
        * 세우고, 실제 인자는 그 뒤 스냅샷에 실린다 — 그때 머리를 갱신하지 않으면
@@ -690,30 +997,95 @@ class AgentPane {
    */
   _toolHead(tool,input){
     const name=t('agent.tool_call',{tool:tool||''});
+    /**
+     * FR-M11-50 (M11-B50): **백그라운드는 머리에서 말한다.**
+     *
+     * 실측(§2.13): `run_in_background:true` 는 **평범한 도구 호출**이고 프로토콜이
+     * 진행을 따로 알려 주지 않는다 — 결과가 *"Command running in background with ID:
+     * …"* 라는 **글**로 온다. 그러니 우리가 아는 것은 *백그라운드로 돌렸다* 는 사실
+     * 하나이고, 그것은 **입력에 이미 있는 값**이라 지어내는 것이 없다.
+     *
+     * 원본도 하단에 `1 shell` 로 그 수를 적는다 (§2.13 의 화면).
+     */
+    const bg=this._isBackground(input)?t('agent.tool_bg'):'';
     const arg=input?String(agentDetail(tool,input)||'').replace(/\s+/g,' ').trim():'';
-    if(!arg) return name;
+    if(!arg) return name+bg;
     const cut=arg.length>AGENT_TOOL_HEAD_ARG_MAX
       ? arg.slice(0,AGENT_TOOL_HEAD_ARG_MAX)+'…' : arg;
-    return name+' ('+cut+')';
+    return name+' ('+cut+')'+bg;
+  }
+  /** 입력이 **스스로 말하는** 사실이다 — 추정하지 않는다 (FR-M11-50). */
+  _isBackground(input){
+    let o=input;
+    if(typeof o==='string'){ try{ o=JSON.parse(o) }catch{ return false } }
+    return !!(o&&typeof o==='object'&&o.run_in_background===true);
+  }
+
+  /**
+   * FR-M11-37 (M11-B36): **편집은 그 자리에서 무엇이 바뀌었는지 보인다.**
+   *
+   * 원본은 별도 창을 열지 않고 도구 결과 그 자리에 `⎿ Updated <파일> (+1 -1)` 과 줄
+   * 단위 `±` 를 그린다 (§2.10 (2)).
+   *
+   * **재료는 결과가 아니라 입력이다** (실측 §2.11 (3)): `tool_result` 는 *"has been
+   * updated successfully"* 한 줄뿐이고, 원본이 보이는 diff 는 TUI 가 `tool_use` 의
+   * 입력에서 스스로 만든 것이다.
+   *
+   * **줄번호는 달지 않는다** — 그 값은 파일 내용을 알아야 나오고 프로토콜은 주지
+   * 않는다 (D-M11-4 · FR-CBG-5). 아는 도구만 그린다: 모르는 도구의 입력을 diff 로
+   * 읽으면 없는 변경을 그리게 된다.
+   */
+  _mkDiff(tool,input){
+    let o=input;
+    if(typeof o==='string'){ try{ o=JSON.parse(o) }catch{ return null } }
+    if(!o||typeof o!=='object'||typeof o.file_path!=='string') return null;
+    let removed=[],added=[];
+    if(tool==='Edit'&&typeof o.old_string==='string'&&typeof o.new_string==='string'){
+      removed=o.old_string===''?[]:o.old_string.split('\n');
+      added=o.new_string===''?[]:o.new_string.split('\n');
+    }else if(tool==='Write'&&typeof o.content==='string'){
+      // 새로 쓰는 것이므로 지워진 줄이 없다.
+      added=o.content===''?[]:o.content.split('\n');
+    }else return null;
+    const el=document.createElement('div'); el.className='agp-diff';
+    const head=document.createElement('div'); head.className='agp-diff-head';
+    head.textContent=t('agent.diff_head',{file:o.file_path,added:added.length,removed:removed.length});
+    el.appendChild(head);
+    const body=document.createElement('pre'); body.className='agp-diff-body ui-scroll';
+    for(const [sign,lines] of [['-',removed],['+',added]]){
+      for(const line of lines){
+        const r=document.createElement('span');
+        r.className='agp-diff-line agp-diff-'+(sign==='+'?'add':'del');
+        r.textContent=sign+line;
+        body.appendChild(r);
+      }
+    }
+    el.appendChild(body);
+    return el;
   }
 
   /**
    * FR-M11-27 (M11-B25): **접힌 채로도 무엇인지 보인다.**
    *
    * 접수: *"접히는 출력에서 요약정도(앞뒤 일부를 보이거나하는등)은 해줘라 뭔지는
-   * 알아야지. n 줄 이내면 그냥 출력해도좋다."* 사용자 결정(§2.6b)이 그 수를 정했다 —
-   * **5줄 이내는 그대로, 넘으면 앞뒤 2줄씩**.
+   * 알아야지. n 줄 이내면 그냥 출력해도좋다."*
    *
-   * **끝줄을 함께 보이는 것이 요점이다.** 도구 출력은 결론이 끝에 있는 경우가 많아
-   * 앞만 보이면 성패를 모른다.
+   * **개정 (D-M11-5, 사용자 결정 2026-09-15): 긴 쪽은 한 문장이다.**
+   *
+   *   이전 동작: 넘으면 **앞 2줄 · 뒤 2줄**과 남은 줄 수
+   *   새  동작: 넘으면 **한 문장** — 규모와 펼치는 법만
+   *   이유:     원본이 `Searched for 1 pattern (ctrl+o to expand)` 로 그렇게 한다
+   *             (§2.10 (3)). 앞뒤 두 줄은 접힌 머리를 **네 줄로 만들어** 접은 뜻을
+   *             스스로 없앤다
+   *
+   * **짧은 쪽은 바뀌지 않는다** — 원본도 세 줄짜리 출력은 그대로 보인다 (§2.10 (2)).
+   * 원본의 동사(`Searched for…`)는 옮기지 않는다: 그것은 claude 가 도구마다 문구를
+   * 아는 덕이고 우리에겐 그 사전이 없다. 아는 것은 **규모**이므로 그것을 적는다.
    */
   _peekText(text){
     const lines=String(text||'').replace(/\s+$/,'').split('\n');
     if(lines.length<=AGENT_PEEK_FULL_LINES) return lines.join('\n');
-    const n=AGENT_PEEK_EDGE_LINES;
-    const head=lines.slice(0,n), tail=lines.slice(-n);
-    const hidden=lines.length-n*2;
-    return head.join('\n')+'\n'+t('agent.peek_more',{n:hidden})+'\n'+tail.join('\n');
+    return t('agent.peek_summary',{n:lines.length});
   }
 
   _toolResult(useId,text,isErr){
@@ -750,6 +1122,9 @@ class AgentPane {
   }
   _disableInput(){
     this.ta.disabled=true; this.sendBtn.disabled=true; this.stopBtn.disabled=true;
+    // 답할 곳이 없어진 프롬프트는 쌓아 둘 곳도 없다 — 남기면 다시 살아났을 때
+    // 사용자가 잊은 말이 나간다.
+    if(this._queue.length){ this._queue.length=0; this._renderQueue() }
     if(this._dialog) this._dialog.close();
   }
 
@@ -876,6 +1251,23 @@ class AgentPane {
   }
 
   _onKey(e){
+    // 목록이 떠 있으면 엔터는 **고르는 것**이다 (FR-M11-48) — 아래 갈래보다 먼저 본다.
+    if(!this.sugg.hidden&&(e.key==='ArrowDown'||e.key==='ArrowUp'||e.key==='Tab'||e.key==='Enter')){
+      if(e.key==='ArrowDown'){ e.preventDefault(); this._suggMove(1); return }
+      if(e.key==='ArrowUp'){ e.preventDefault(); this._suggMove(-1); return }
+      const b=this._suggCur();
+      /**
+       * **이미 다 친 명령이면 엔터는 보내기다.**
+       *
+       * 그러지 않으면 `/model` 을 다 치고 엔터를 눌렀을 때 목록이 그것을 *고르고*
+       * (입력은 그대로), 다시 눌러야 나간다 — 같은 손짓을 두 번 요구하는 것은
+       * 접수한 편의의 반대다. 인자를 받는 명령은 목록이 남아 있으므로 이 갈래가
+       * 없으면 언제나 두 번이 된다.
+       */
+      const nm=b&&b.querySelector('.agp-sugg-name');
+      if(nm&&nm.textContent===this.ta.value.trim()){ this._suggClose() }
+      else if(b){ e.preventDefault(); b.click(); return }
+    }
     if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){ e.preventDefault(); this.send(); return }
     // FR-M11-22: 터미널과 같은 규약. 수식키 조합이 겹치지 않게 **하나만** 눌린 것을 본다.
     if((e.key==='ArrowLeft'||e.key==='ArrowRight')&&!e.shiftKey){
@@ -883,12 +1275,84 @@ class AgentPane {
       if(e.metaKey&&!e.ctrlKey&&!e.altKey){ e.preventDefault(); this._moveCaret(toEnd,false); return }
       if(e.altKey&&!e.ctrlKey&&!e.metaKey){ e.preventDefault(); this._moveCaret(toEnd,true); return }
     }
-    if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); this.interrupt(); return }
-    if(e.key==='Tab'&&e.shiftKey){ e.preventDefault(); this.cyclePermission(); return }
-    if(e.key==='Tab'&&!this.sugg.hidden){ e.preventDefault(); const b=this.sugg.querySelector('button'); if(b) b.click(); return }
+    /**
+     * FR-M11-48: **드롭다운이 열려 있으면 그쪽이 먼저다.** `↑↓` 는 이력이 아니라
+     * 목록을 훑고, `Enter`·`Tab` 이 고른 것을 넣는다 — 목록이 떠 있는 동안 엔터가
+     * 프롬프트를 보내면 고르던 손이 문장을 날린다.
+     */
+    if(!this.sugg.hidden){
+      if(e.key==='ArrowDown'){ e.preventDefault(); this._suggMove(1); return }
+      if(e.key==='ArrowUp'){ e.preventDefault(); this._suggMove(-1); return }
+      if(e.key==='Tab'||e.key==='Enter'){
+        const b=this._suggCur();
+        if(b){ e.preventDefault(); b.click(); return }
+      }
+    }
     const atEdge=this.ta.selectionStart===this.ta.selectionEnd;
-    if(e.key==='ArrowUp'&&atEdge&&!this.ta.value.slice(0,this.ta.selectionStart).includes('\n')){ if(this._histMove(-1)) e.preventDefault(); return }
+    if(e.key==='ArrowUp'&&atEdge&&!this.ta.value.slice(0,this.ta.selectionStart).includes('\n')){
+      /**
+       * FR-M11-29: **큐가 있으면 큐를 먼저 꺼낸다.** 원본의 입력창이 그 자리에서
+       * *"Press up to edit queued messages"* 라고 말하므로, 같은 키에 두 벌의 손을
+       * 만들지 않고 **큐 → 이력** 순으로 본다. 꺼낸 것은 큐에서 빠지므로 그대로
+       * 두면 취소이고, 고쳐 보내면 수정이다.
+       */
+      if(this._queuePop()){ e.preventDefault(); return }
+      if(this._histMove(-1)) e.preventDefault();
+      return;
+    }
     if(e.key==='ArrowDown'&&atEdge&&!this.ta.value.slice(this.ta.selectionEnd).includes('\n')){ if(this._histMove(1)) e.preventDefault(); return }
+  }
+  /** 큐의 **마지막**을 입력창으로 꺼낸다 — 쌓인 순서의 역순이 고치는 순서다. */
+  _queuePop(){
+    if(!this._queue.length||this.ta.value) return false;
+    const item=this._queue.pop();
+    this.ta.value=item.text;
+    /**
+     * 첨부도 함께 돌아온다 — 글만 돌려주면 다시 보낼 때 그림이 빠진다.
+     *
+     * **이어 붙이지 않고 갈아 끼운다.** 표식(`[Image #n]`)의 n 은 목록의 자리를
+     * 가리키므로, 남아 있던 것 뒤에 붙이면 꺼낸 글의 `#1` 이 **다른 그림**을 가리킨다.
+     * 입력창이 비어 있을 때만 여기 오므로(위 조건) 남은 것에는 표식이 없고, 표식이
+     * 없는 첨부는 어차피 나가지 않는다 (`_takeAtts`).
+     */
+    this._atts=(item.atts||[]).slice();
+    this._renderQueue();
+    this.ta.selectionStart=this.ta.selectionEnd=this.ta.value.length;
+    this._growInput();
+    return true;
+  }
+  /**
+   * FR-M11-42: 패널 어디서나 듣는 키. **끊기와 모드 순환 둘뿐이다.**
+   *
+   * 모달이 떠 있으면 그쪽이 먼저 받는다 (모달은 `document` 에 걸린 자기 핸들러가 있고
+   * 이 요소 밖에 산다) — 그 처리는 `FR-M11-41` 이 정한다.
+   */
+  _onPaneKey(e){
+    if(e.key==='Escape'){
+      e.preventDefault(); e.stopPropagation();
+      // FR-M11-48: 목록이 떠 있으면 그것을 닫는 것이 먼저다 — 끊기는 그 다음 누름이다.
+      if(!this.sugg.hidden){ this._suggClose(); return }
+      this._ctrlC=0; this.interrupt(); return;
+    }
+    /**
+     * FR-M11-44 (M11-B44): **`Ctrl+C` 두 번이면 빠져나온다.**
+     *
+     * 원본 TUI 그대로다 (사용자 결정 2026-09-15): 첫 번은 턴만 끊고, 짧은 사이에 다시
+     * 누르면 나간다.
+     *
+     * **선택이 있으면 복사다.** `FR-M11-36`(에이전트의 내용은 선택·복사된다)이 그
+     * 손을 막 열어 두었는데, 여기서 무조건 가로채면 그 요구를 되돌리게 된다 —
+     * 읽는 자리에서 가져가는 길이 먼저다.
+     */
+    if((e.key==='c'||e.key==='C')&&e.ctrlKey&&!e.metaKey&&!e.altKey){
+      const sel=window.getSelection&&window.getSelection();
+      if(sel&&String(sel)) return;
+      e.preventDefault(); e.stopPropagation();
+      this._onCtrlC();
+      return;
+    }
+    if(e.key==='Tab'&&e.shiftKey&&e.target!==this.ta){ e.preventDefault(); this.cyclePermission(); return }
+    if(e.key==='Tab'&&e.shiftKey&&this.sugg.hidden){ e.preventDefault(); this.cyclePermission(); return }
   }
   _pushHistory(text){
     if(!text) return;
@@ -926,30 +1390,384 @@ class AgentPane {
     const cmds=(this.state&&this.state.status&&this.state.status.commands)||[];
     if(!v.startsWith('/')||v.includes(' ')||v.includes('\n')||!cmds.length){ this.sugg.hidden=true; this.sugg.textContent=''; return }
     const q=v.slice(1).toLowerCase();
-    const hits=cmds.filter(c=>c&&c.name&&c.name.toLowerCase().startsWith(q)).slice(0,8);
+    /**
+     * FR-M11-48 (M11-B51): **`/글자` 는 검색이다.**
+     *
+     * 접수: *"슬레시(/)로 명령시 드롭다운이나 그런 종류로 선택지 선택 가능. /글자 로
+     * 입력하면 / 명령어 검색 가능. 이것도 기본으로 있는 기능이다"*.
+     *
+     *   이전 동작: **접두 일치**만이고, 고르는 손이 마우스와 `Tab` 하나뿐이었다.
+     *              설명은 `title` 에만 있어 가리켜야 보인다
+     *   새  동작: 이름 **어디에 있어도** 찾고(접두가 앞에 선다), `↑↓` 로 고르고
+     *              `Enter`·`Tab` 으로 넣는다. 설명이 항목에 보인다
+     *   이유:     그것이 원본에 이미 있는 기능이다
+     *
+     * **접두를 앞에 두는 것이 요점이다.** 부분 일치만으로 정렬하면 `/model` 을 치는
+     * 중에 `set-model` 류가 먼저 서서, 찾으려던 것이 목록 아래로 밀린다.
+     */
+    const pre=[],mid=[];
+    for(const c of cmds){
+      if(!c||!c.name) continue;
+      const n=c.name.toLowerCase();
+      if(n.startsWith(q)) pre.push(c);
+      else if(q&&n.includes(q)) mid.push(c);
+    }
+    const hits=pre.concat(mid).slice(0,AGENT_SUGG_MAX);
     this.sugg.textContent='';
     if(!hits.length||(hits.length===1&&hits[0].name===q&&!hits[0].argumentHint)){ this.sugg.hidden=true; return }
-    for(const c of hits){
+    for(const [i,c] of hits.entries()){
       const b=document.createElement('button'); b.type='button'; b.className='ui-btn ui-btn-sm ui-btn-ghost agp-sugg-item';
+      b.setAttribute('role','option');
       const nm=document.createElement('span'); nm.className='agp-sugg-name'; nm.textContent='/'+c.name; b.appendChild(nm);
       if(c.argumentHint){ const h=document.createElement('span'); h.className='agp-sugg-hint'; h.textContent=c.argumentHint; b.appendChild(h) }
-      if(c.description){ b.title=c.description }
-      b.addEventListener('click',()=>{ this.ta.value='/'+c.name+(c.argumentHint?' ':''); this.sugg.hidden=true; this.ta.focus() });
+      // 설명은 **보여야** 고를 수 있다 — `title` 은 가리켜야 나온다 (FR-M9-45 와 같은 근거).
+      if(c.description){ const d=document.createElement('span'); d.className='agp-sugg-desc'; d.textContent=c.description; b.appendChild(d) }
+      b.addEventListener('click',()=>this._suggTake(c));
       this.sugg.appendChild(b);
+      if(i===0) b.dataset.cur='1';
     }
     this.sugg.hidden=false;
+    this._suggAt=0;
   }
+  /** 고른 것을 입력창에 넣는다 — 마우스와 키가 같은 자리를 지난다. */
+  _suggTake(c){
+    this.ta.value='/'+c.name+(c.argumentHint?' ':'');
+    this._suggClose();
+    this.ta.focus();
+    this.ta.selectionStart=this.ta.selectionEnd=this.ta.value.length;
+    this._growInput();
+  }
+  _suggClose(){ this.sugg.hidden=true; this.sugg.textContent=''; this._suggAt=0 }
+  /** `↑↓` 로 목록을 훑는다. 현재 항목은 `data-cur` 가 말한다 (CSS 가 그것을 칠한다). */
+  _suggMove(d){
+    const items=[...this.sugg.querySelectorAll('.agp-sugg-item')];
+    if(!items.length) return false;
+    const n=items.length;
+    this._suggAt=((this._suggAt||0)+d+n)%n;
+    for(const [i,b] of items.entries()){
+      if(i===this._suggAt) b.dataset.cur='1'; else delete b.dataset.cur;
+    }
+    items[this._suggAt].scrollIntoView({block:'nearest'});
+    return true;
+  }
+  _suggCur(){
+    const items=[...this.sugg.querySelectorAll('.agp-sugg-item')];
+    return items[this._suggAt||0]||null;
+  }
+  /**
+   * FR-M11-14 (M11-B11): **`/model`·`/config` 는 고르는 화면을 연다.**
+   *
+   * 접수: *"여전히 /model, /config 같은 tui 들은 사용이 불가"*. **막힌 것은 명령이
+   * 아니다** (실측 §2.11 (5)): 둘 다 정상 응답하고, `init` 이 말하는 TUI 전용 명령
+   * (`doctor`·`color`·`reload-plugins`)에도 없다. 막힌 것은 **고를 자리**다 — 원본
+   * TUI 에서 인자 없는 `/model` 은 선택 화면을 띄우는데 프로토콜은 사용법 텍스트를
+   * 돌려줄 뿐이다.
+   *
+   * **인자가 있으면 가로채지 않는다** — `/model opus` 는 사용자가 이미 고른 것이다.
+   *
+   * 참이면 이 함수가 처리했다는 뜻이다.
+   */
+  _pickCommand(text){
+    const m=AGENT_PICK_CMD_RE.exec(text);
+    if(!m) return false;
+    if(m[1]==='model') return this._openModelPick();
+    // `/config` 의 키·선택지는 **응답이 준다** — 우리가 목록을 지어내지 않는다.
+    // 보내 두고, 답이 오면 그것으로 연다 (`_message` 의 말 블록이 계기다).
+    this._submit(text,[]);
+    return true;
+  }
+  /**
+   * FR-M11-40 (M11-B40): **고르는 화면이 서면 그 명령은 대화에 남지 않는다.**
+   *
+   * 원본 TUI 에서 `/model` 은 **선택 화면으로 끝난다** — 사용법 텍스트는 우리가 그것을
+   * 열려고 물은 것이지 사용자가 읽으려던 것이 아니다.
+   *
+   * **가로채지 못한 경우는 그대로 선다**: 응답이 목록 모양이 아니어서 폼을 열지 못하면
+   * (`FR-M11-14`) 그 텍스트는 보여야 한다 — 감춘 채 아무것도 열지 않으면 명령이 사라진
+   * 것으로 읽힌다. 그래서 **연 뒤에** 감춘다.
+   */
+  _hideCommandEcho(msgEl){
+    if(msgEl&&msgEl.parentNode) msgEl.remove();
+  }
+  /**
+   * 모델 목록은 `initialize` 가 이미 주었고 메뉴가 그것을 쓴다 (`status.models`) —
+   * 같은 값을 두 벌로 만들지 않는다. **모르면 열지 않는다**: 종전처럼 명령이 그대로
+   * 나가고 텍스트가 선다 (FR-CBG-5 — 없는 선택지를 지어내지 않는다).
+   */
+  _openModelPick(){
+    // `/model` 은 **보내지 않는다** — 목록을 이미 들고 있으므로 물을 것이 없다.
+    // 그래서 대화에 남는 것도 없다 (FR-M11-40 이 `/config` 에만 손이 드는 이유).
+    const models=(this.state&&this.state.status&&this.state.status.models)||[];
+    if(!models.length) return false;
+    this._openPick(t('agent.model'),models.map(x=>({
+      value:x.value,label:x.displayName||x.value,title:x.description||'',cur:x.value===this._model,
+    })),v=>this._submit('/model '+v,[]));
+    return true;
+  }
+  /**
+   * `/config` 응답 텍스트를 폼으로. 한 줄이 `key=a|b|c` 인 목록이며 파싱은 결정적이다
+   * (실측 §2.11 (5)). **그 모양이 아니면 열지 않는다** — 텍스트가 그대로 선다.
+   *
+   * 현재값은 **되읽지 않는다** (§7 의 갭): 응답이 주는 것은 키와 선택지뿐이고, 보낸
+   * 값을 *현재값* 으로 적으면 실패했을 때 그것이 거짓이 된다.
+   */
+  _openConfigPick(text){
+    const keys=[];
+    for(const line of String(text||'').split('\n')){
+      const m=/^\s+([A-Za-z][\w.]*)=(\S.*)$/.exec(line);
+      if(m) keys.push({key:m[1],values:m[2].split('|').map(x=>x.trim()).filter(Boolean)});
+    }
+    if(!keys.length) return false;
+    const body=document.createElement('div'); body.className='agp-cfg';
+    /**
+     * **고른 것이 여럿일 수 있다.** 사용법이 `key=value [key=value ...]` 이므로 화면도
+     * 여럿을 세운다 — 한 자리만 기억하면 마지막에 만진 것만 나가고, 그것은 폼이 셋을
+     * 보이면서 하나만 보내는 거짓이 된다. 고른 것들을 자리마다 들고 보낼 때 모은다.
+     */
+    const picked=new Map();
+    for(const k of keys){
+      const row=document.createElement('div'); row.className='agp-cfg-row';
+      const name=document.createElement('span'); name.className='agp-cfg-key'; name.textContent=k.key;
+      const sel=document.createElement('select'); sel.className='agp-cfg-val';
+      sel.setAttribute('aria-label',k.key);
+      const none=document.createElement('option'); none.value=''; none.textContent=t('agent.config_keep');
+      sel.appendChild(none);
+      for(const v of k.values){ const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o) }
+      // 되돌리면 그 키만 빠진다 — 옆 자리의 선택을 함께 지우지 않는다.
+      sel.addEventListener('change',()=>{ if(sel.value) picked.set(k.key,sel.value); else picked.delete(k.key) });
+      row.appendChild(name); row.appendChild(sel); body.appendChild(row);
+    }
+    const m=UIKit.modal({title:t('agent.config_title'),body,cls:'agp-modal agp-cfg-modal',actions:[
+      {label:t('core.cancel'),onClick:()=>{}},
+      {label:t('agent.send'),kind:'primary',onClick:()=>{
+        if(!picked.size) return;
+        // 고른 순서 그대로 — 사용법이 받는 모양이다.
+        const args=[...picked].map(([k,v])=>k+'='+v).join(' ');
+        this._submit('/config '+args,[]);
+      }},
+    ]});
+    document.body.appendChild(m.el);
+    return true;
+  }
+  /** 값 하나를 고르는 화면 — `/model` 이 쓴다. */
+  _openPick(title,items,onPick){
+    const body=document.createElement('div'); body.className='agp-pick';
+    let value=(items.find(x=>x.cur)||items[0]).value;
+    for(const it of items){
+      const lab=document.createElement('label'); lab.className='agp-q-opt';
+      const inp=document.createElement('input'); inp.type='radio'; inp.name='agp-pick-'+this.id; inp.value=it.value;
+      inp.checked=it.value===value;
+      inp.addEventListener('change',()=>{ value=it.value });
+      const txt=document.createElement('span'); txt.textContent=it.label;
+      if(it.title) lab.title=it.title;
+      lab.appendChild(inp); lab.appendChild(txt); body.appendChild(lab);
+    }
+    const m=UIKit.modal({title,body,cls:'agp-modal agp-pick-modal',actions:[
+      {label:t('core.cancel'),onClick:()=>{}},
+      {label:t('agent.send'),kind:'primary',onClick:()=>onPick(value)},
+    ]});
+    document.body.appendChild(m.el);
+  }
+
+  /**
+   * FR-M11-30 (M11-B28): **이미지는 붙여넣기로 온다.**
+   *
+   * 접수: *"이미지 첨부 기능도 없다 같이해야한다"*. 원본이 `Image in clipboard ·
+   * ctrl+v to paste` 라고 그 자리에서 말하므로 손도 그것이다 (§2.10 (6)).
+   *
+   * **프로토콜은 받는다** (실측 §2.11 (4)) — 막힌 것은 `content` 를 문자열로만 보내던
+   * 한 줄이었다. 다만 **받는다고 확인한 어댑터에서만** 연다: `controls.attachments`
+   * 가 그 선언이며, 거짓인 곳에서 붙이게 두면 바이트가 조용히 사라진다.
+   *
+   * 본문에는 원본과 같이 **`[Image #1]`** 이 적힌다 — 무엇을 함께 보내는지 글이 말한다.
+   */
+  _onPaste(e){
+    if(!(this.state&&this.state.controls&&this.state.controls.attachments)) return;
+    const items=[...((e.clipboardData&&e.clipboardData.items)||[])]
+      .filter(it=>it.kind==='file'&&/^image\//.test(it.type||''));
+    if(!items.length) return;
+    e.preventDefault();
+    for(const it of items){
+      const file=it.getAsFile(); if(!file) continue;
+      const fr=new FileReader();
+      fr.onload=()=>{
+        // `data:<mime>;base64,<본문>` 에서 본문만 — 프로토콜이 받는 모양이 그것이다.
+        const s=String(fr.result||''); const i=s.indexOf(',');
+        if(i<0) return;
+        this._atts.push({mediaType:file.type||'image/png',data:s.slice(i+1)});
+        this._insertAtCaret(t('agent.image_ref',{n:this._atts.length}));
+      };
+      fr.readAsDataURL(file);
+    }
+  }
+  /** 캐럿 자리에 글을 끼운다 — 붙여넣기는 그 자리에 오는 것이므로. */
+  _insertAtCaret(text){
+    const el=this.ta, a=el.selectionStart, b=el.selectionEnd;
+    el.value=el.value.slice(0,a)+text+el.value.slice(b);
+    el.selectionStart=el.selectionEnd=a+text.length;
+    this._growInput();
+  }
+
+  /**
+   * FR-M11-29 (M11-B27 · B15 · B35): **턴이 도는 중이면 쌓는다.**
+   *
+   * 접수 셋이 한 자리다 — *"추론중에 입력하면 그대로 입력된다"* · *"프롬프트를 연달아
+   * 보낼때의 동작도 실제와 달라"* · 큐를 취소할 수 없다. 원본은 프롬프트를 큐에 쌓아
+   * 앞 턴이 끝난 뒤 처리한다 (§2.10 (5) 실측).
+   *
+   *   이전 동작: 턴 중에도 곧바로 `/api/agent/prompt` 로 나간다 — 큐라는 개념이 없다
+   *   새  동작: 도는 중이면 큐에 쌓고 화면에 세운다. 턴이 끝나면 맨 앞이 나간다
+   *   이유:     원본이 그렇게 한다
+   *
+   * **큐는 화면의 것이다** (D-M11-6) — 서버에 두면 보는 브라우저마다 다른 큐가 서거나
+   * 남의 큐가 내 화면에 선다 (FR-AGT-12).
+   */
   async send(){
     const text=this.ta.value.trim();
     if(!text||this._ended||!this._canControl()) return;
+    // 첨부는 **지금 보내는 프롬프트의 것**이다 — 본문이 가리키는 것만 간다.
+    const atts=this._takeAtts(text);
     this.ta.value=''; this.sugg.hidden=true; this._histIdx=-1; this._growInput();
-    const r=await apiPost('/api/agent/prompt',{toolId:this.id,text});
-    if(!r.ok){ Toast.show(apiErrText(r,t('agent.send')),'err'); this.ta.value=text }
+    // FR-M11-14 (M11-B11): 인자 없는 `/model`·`/config` 는 **고르는 화면**이다.
+    if(this._pickCommand(text)) return;
+    await this._submit(text,atts);
+    /**
+     * FR-M11-39 (M11-B38): **내가 보낼 때는 따라간다.**
+     *
+     * `FR-M11-26` 의 *"바닥일 때만"* 은 **에이전트가 말할 때**의 규칙이다 — 읽는 중에
+     * 끌려가지 않기 위한 것이고, 그 규약의 근거는 *"스크롤은 사용자만 조작한다"* 다.
+     * **엔터도 사용자의 조작**이므로 여기서는 내려간다: 방금 친 말은 내가 보려는 것이다.
+     */
+    this._scrollEnd();
   }
+  /**
+   * FR-M11-29: **보내는 문은 하나다** — 쌓을지 보낼지를 여기서 가른다.
+   *
+   * `send()` 만이 아니라 **고르는 화면**(`/model`·`/config`)도 이 문을 지난다. 그러지
+   * 않으면 턴이 도는 중에 고른 값이 큐를 건너뛰고 나가며, 그것은 접수한 증상
+   * (*"추론중에 입력하면 그대로 입력된다"*)이 한 경로에만 남는 것이다.
+   */
+  async _submit(text,atts){
+    if(this._turning()){ this._enqueue(text,atts||[]); return }
+    await this._post(text,atts);
+  }
+  /**
+   * FR-M11-30: **본문이 가리키는 첨부만 간다.**
+   *
+   * 표식(`[Image #n]`)을 지우는 것이 붙인 것을 무르는 손이다 — 남겨 두면 화면이
+   * 말하지 않는 바이트가 실린다. 보낸 뒤에는 남은 것도 버린다: 다음 프롬프트에
+   * 몰래 실리면 사용자는 자기가 보내지 않은 그림을 보낸다.
+   */
+  _takeAtts(text){
+    const keep=[];
+    this._atts.forEach((a,i)=>{ if(text.includes(t('agent.image_ref',{n:i+1}))) keep.push(a) });
+    this._atts=[];
+    return keep;
+  }
+  /** 턴이 도는 중인가 — 쌓을지 보낼지를 가르는 한 자리. */
+  _turning(){ return this._activity==='working'||this._activity==='waiting' }
+  _enqueue(text,atts){
+    this._queue.push({text,atts:atts||[]});
+    this._pushHistory(text);
+    this._renderQueue();
+  }
+  async _post(text,atts){
+    /**
+     * FR-M11-14: **기다림은 나가는 순간에 선다.**
+     *
+     * 종전에는 `_pickCommand` 에서 세웠는데, 그 사이 이 명령이 **큐에 쌓이면**
+     * 도는 턴의 말이 먼저 도착해 그것을 `/config` 의 답으로 읽는다. 계기를 보내는
+     * 자리로 옮기면 그 창이 닫힌다.
+     */
+    if(AGENT_CONFIG_CMD_RE.test(text)) this._awaitConfig=true;
+    const body={toolId:this.id,text};
+    if(atts&&atts.length) body.attachments=atts;
+    const r=await apiPost('/api/agent/prompt',body);
+    if(!r.ok){
+      Toast.show(apiErrText(r,t('agent.send')),'err');
+      this.ta.value=text; this._growInput();
+      if(atts&&atts.length) this._atts=atts.concat(this._atts);
+    }
+  }
+  /**
+   * 쌓인 것을 그린다. 자리와 모양이 원본 그대로다 — `❯ <본문>` 이 입력창 위에 줄줄이.
+   * 입력창의 안내도 함께 바뀐다: **고치는 손은 위 화살표**라고 원본이 그 자리에서 말한다.
+   */
+  _renderQueue(){
+    const q=this._queue;
+    this.queueEl.textContent='';
+    this.queueEl.hidden=!q.length;
+    for(const item of q){
+      const row=document.createElement('div'); row.className='agp-queue-item'; row.setAttribute('role','listitem');
+      const mark=document.createElement('span'); mark.className='agp-queue-mark'; mark.textContent=AGENT_QUEUE_MARK;
+      const body=document.createElement('span'); body.className='agp-queue-text'; body.textContent=item.text;
+      row.appendChild(mark); row.appendChild(body);
+      this.queueEl.appendChild(row);
+    }
+    this.ta.placeholder=q.length?t('agent.queue_hint'):t('agent.prompt_placeholder');
+  }
+  /** 턴이 끝났다 — 맨 앞 하나가 나간다 (원본: *"앞 턴이 끝난 뒤 처리된다"*). */
+  _drainQueue(){
+    if(!this._queue.length||this._ended) return;
+    const item=this._queue.shift();
+    this._renderQueue();
+    this._post(item.text,item.atts);
+  }
+  /**
+   * FR-M11-29: **`Esc` 는 끊고 한 번에 보낸다.**
+   *
+   * 사용자 실측: *"queue 에 프롬프트가 가있는 상황에서 esc 누르면 현재 동작 취소되고
+   * 큐가 한번에 들어가."* 위 화살표가 **고쳐 쓰는** 손이라면 이쪽은 **지금 것을 끊고
+   * 쌓인 것을 즉시 보내는** 손이다 — 둘은 다른 일이다.
+   *
+   * 큐가 비어 있으면 종전과 같다 (`interrupt` 하나). 더해지는 것은 *큐가 있을 때* 다.
+   */
+  /**
+   * FR-M11-44: 첫 번은 끊고, 짧은 사이에 다시 누르면 **나간다.**
+   *
+   * 나가는 자리는 **이미 있다** (`agentOpenTerminal` — TUI 출구, FR-AGT-10). 키를 그
+   * 출구에 잇는 것이지 새 길을 내지 않는다: 나가는 손이 둘이 되면 한쪽만 고쳐진다.
+   *
+   * 첫 번 뒤에는 **한 번 더 누르면 나간다고 말한다** — 원본도 그 자리에서 그렇게 한다.
+   */
+  _onCtrlC(){
+    const now=Date.now();
+    if(this._ctrlC&&now-this._ctrlC<=AGENT_CTRL_C_WINDOW_MS){
+      this._ctrlC=0;
+      this.app.agentOpenTerminal(this.id);
+      return;
+    }
+    this._ctrlC=now;
+    this.interrupt();
+    Toast.show(t('agent.ctrl_c_again'),'',AGENT_CTRL_C_WINDOW_MS);
+  }
+
+  /**
+   * FR-M11-41: 답하지 않고 닫았다 — **거절을 보내고 이어서 끊는다.**
+   *
+   * 순서가 요점이다 (§2.12 의 실측): 거절이 열린 요청을 닫고, 끊기가 그 턴을 멈춘다.
+   * 둘 중 하나만으로는 접수한 무한 대기가 남는다.
+   */
+  async _abandon(id){
+    const r=await apiPost('/api/agent/approve',{toolId:this.id,id,choice:'deny'});
+    if(!r.ok&&r.status!==404) Toast.show(apiErrText(r,t('agent.answer')),'err');
+    await this.interrupt();
+  }
+
   async interrupt(){
-    if(this._ended||!this._canControl()||this.stopBtn.hidden) return;
-    const r=await apiPost('/api/agent/interrupt',{toolId:this.id});
-    if(!r.ok) Toast.show(apiErrText(r,t('agent.interrupt')),'err');
+    if(this._ended||!this._canControl()) return;
+    const queued=this._queue.splice(0);
+    if(queued.length) this._renderQueue();
+    if(!this.stopBtn.hidden){
+      const r=await apiPost('/api/agent/interrupt',{toolId:this.id});
+      if(!r.ok){ Toast.show(apiErrText(r,t('agent.interrupt')),'err'); return }
+    }
+    // 쌓인 것은 **한 프롬프트로** 들어간다 — 하나씩 보내면 첫 것이 다시 턴을 열어
+    // 나머지가 또 쌓인다 (원본이 한 번에 넣는 이유다). 첨부도 함께 모인다.
+    if(queued.length){
+      const atts=queued.reduce((a,x)=>a.concat(x.atts||[]),[]);
+      await this._post(queued.map(x=>x.text).join('\n'),atts);
+    }
   }
   async control(kind,value){
     if(this._ended||!this._canControl()) return;
@@ -1020,24 +1838,81 @@ class AgentPane {
           fs.appendChild(inp); body.appendChild(fs); fields.push(fs);
           continue;
         }
+        const picked=()=>[...fs.querySelectorAll('.agp-q-opt input:checked')].map(x=>x.value);
         for(const [oi,o] of (q.options||[]).entries()){
           const lab=document.createElement('label'); lab.className='agp-q-opt';
           const inp=document.createElement('input'); inp.type=q.multiSelect?'checkbox':'radio'; inp.name='agp-q-'+this.id+'-'+qi; inp.value=o.label;
           inp.addEventListener('change',()=>{
-            if(q.multiSelect){
-              const picked=[...fs.querySelectorAll('input:checked')].map(x=>x.value);
-              answers[q.question]=picked.join(', ');
-            }else answers[q.question]=o.label;
+            if(q.multiSelect) answers[q.question]=picked().join(', ');
+            else answers[q.question]=o.label;
           });
           if(oi===0&&!q.multiSelect){ inp.checked=true; answers[q.question]=o.label }
           lab.appendChild(inp);
           const txt=document.createElement('span'); txt.textContent=o.label+(o.description?' — '+o.description:''); lab.appendChild(txt);
           fs.appendChild(lab);
         }
+        /**
+         * FR-M11-31 (M11-B29): **자유 입력은 목록의 마지막 항목이다.**
+         *
+         * 접수: *"질문에 답하는 모달에서 내가 원하는 답을 자유롭게 적는것도 필요하다"*.
+         * 원본을 쟀고(§2.10 (9)) TUI 는 그것을 `3. Type something.` 으로 **선택지와
+         * 같은 목록**에 둔다 — 고르는 손과 적는 손이 하나다.
+         *
+         * **항상 보이는 칸을 두지 않는 이유**가 여기 있다: 라디오를 고른 채 칸에도
+         * 적은 상태가 만들어지면 무엇이 답인지 화면이 말하지 못한다. 목록의 한
+         * 항목이면 **고른 것이 곧 답**이다.
+         */
+        if((q.options||[]).length){
+          const lab=document.createElement('label'); lab.className='agp-q-opt agp-q-own';
+          const inp=document.createElement('input'); inp.type=q.multiSelect?'checkbox':'radio';
+          inp.name='agp-q-'+this.id+'-'+qi; inp.value=''; inp.dataset.own='1';
+          const txt=document.createElement('span'); txt.textContent=t('agent.answer_own');
+          const box=document.createElement('input'); box.type='text'; box.className='agp-q-text';
+          box.setAttribute('aria-label',t('agent.answer_own')); box.hidden=true;
+          const apply=()=>{
+            if(!inp.checked) return;
+            if(q.multiSelect) answers[q.question]=picked().concat(box.value?[box.value]:[]).join(', ');
+            else answers[q.question]=box.value;
+          };
+          inp.addEventListener('change',()=>{
+            box.hidden=!inp.checked;
+            if(inp.checked){ box.focus(); apply() }
+            else if(q.multiSelect) answers[q.question]=picked().join(', ');
+          });
+          box.addEventListener('input',apply);
+          lab.appendChild(inp); lab.appendChild(txt);
+          fs.appendChild(lab); fs.appendChild(box);
+        }
         body.appendChild(fs); fields.push(fs);
       }
+      /**
+       * FR-M11-45 (M11-B45): **질문은 하나씩 서고 키로 답한다.**
+       *
+       * 접수: *"선택 모달좀 질문별로 구분 잘가게 하나씩 보이도록 하고 방향키 상하로 답
+       * 선택, 방향키 좌우로 질문선택 엔터로 질문넘기기 + summit 페이지 tui 처럼 만들어서
+       * 최종확인 후 엔터로 제출"*. 원본이 그 모양이다 (§2.10 (9) — `❯` 가 현재 항목을
+       * 가리키고 `Enter to select · ↑/↓ to navigate` 를 늘 적는다).
+       *
+       * **마우스를 지우지 않는다.** 키가 더해지는 것이지 대신하는 것이 아니다 —
+       * 클릭으로 고르고 버튼으로 제출하는 길은 그대로 선다 (FR-A11Y 의 요구이기도 하다).
+       * 그래서 위에서 만든 `fieldset` 을 **그대로 쓰고** 보이는 것만 하나로 줄인다.
+       */
+      if(fields.length) this._wizard(body,fields,answers,req);
     }
+    /**
+     * FR-M11-41: **답한 뒤의 닫힘과 그냥 닫은 것을 가른다.**
+     *
+     * `UIKit.modal` 의 액션은 `close()` 를 **먼저** 부르고 그 다음 `onClick` 을 부른다
+     * (`ui-kit.js`). 그래서 답하는 길이 닫힘보다 늦고, 그 사이 `onClose` 가 *그냥
+     * 닫았다* 로 읽어 거절을 보냈다 — 실측에서 `deny` 가 답보다 **먼저** 나갔다.
+     *
+     * 그래서 이 상자의 액션은 **스스로 닫는다** (`keepOpen`): 표시를 세우고 닫으므로
+     * 순서가 뒤집히지 않는다.
+     */
+    let answered=false;
     const decide=async d=>{
+      answered=true;
+      if(this._dialog&&this._dialog.id===req.id&&this._dialog.close) this._dialog.close();
       const r=await apiPost('/api/agent/approve',Object.assign({toolId:this.id,id:req.id},d));
       if(!r.ok) Toast.show(apiErrText(r,t('agent.answer')),'err');
     };
@@ -1053,14 +1928,121 @@ class AgentPane {
       }
     }
     const title=isQ?t('agent.question_title'):t('agent.approval_title',{tool:req.tool||''});
-    const m=UIKit.modal({title,body,actions,cls:'agp-modal',closeTitle:t('agent.choice_deny'),onClose:()=>{ if(this._dialog&&this._dialog.id===req.id) this._dialog=null }});
-    // 바깥 클릭·Esc 는 답이 아니다 — 요청은 열린 채 남고 다시 열 수 있다 (FR-APS-6).
+    /**
+     * FR-M11-41 (M11-B41): **닫는 것은 지금 것을 그만두는 것이다.**
+     *
+     * 접수: *"질문 모달 취소하면 거기서 interrupt 되어야하는데 무한정 기다림"*.
+     * **`FR-APS-6` 을 뒤집는다** (사용자 결정 2026-09-15) — 그 조항은 *"바깥 클릭·Esc 는
+     * 답이 아니다"* 였고 근거는 *실수로 닫은 것을 되돌릴 수 있어야 한다* 였다. 실제로
+     * 쓰니 **되돌릴 길보다 멈출 길이 급했다.**
+     *
+     * **거절이 먼저다.** 실측(§2.12 의 ④)이 보였다: interrupt 만 보내면 열린 승인
+     * 요청이 그대로 남고 상태가 `waiting` 이다 — claude 에는 *답 없이 닫는 프레임*이
+     * 없기 때문이다 (`claudeProto.Cancel` 이 `nil` 인 그 사실). 끊기부터 보내면 그
+     * 사이 에이전트가 승인을 기다리는 채로 남아 같은 무한 대기가 된다.
+     *
+     * **답한 뒤의 닫힘과 가른다**: `answered` 가 서 있으면 이 손은 돌지 않는다.
+     */
+    // 액션이 스스로 닫는다 — 위 `decide` 의 주석이 그 사유다.
+    for(const a of actions) a.keepOpen=true;
+    const m=UIKit.modal({title,body,actions,cls:'agp-modal',closeTitle:t('agent.choice_deny'),
+      onClose:()=>{
+        if(this._dialog&&this._dialog.id===req.id) this._dialog=null;
+        if(answered||this._ended) return;
+        this._abandon(req.id);
+      }});
     this._dialog={id:req.id,close:m.close};
     document.body.appendChild(m.el);
   }
 
+  /**
+   * FR-M11-45: 질문 넘김. **한 번에 하나만 보이고 확인 화면이 마지막이다.**
+   *
+   * 자리(`fields`)는 이미 서 있다 — 여기서는 **보이는 것을 줄이고 키를 잇는다.** 답을
+   * 담는 그릇(`answers`)도 그대로이므로 제출 경로가 갈라지지 않는다.
+   */
+  _wizard(body,fields,answers,req){
+    const steps=fields.length;
+    const sum=document.createElement('div'); sum.className='agp-q-sum'; sum.hidden=true;
+    body.appendChild(sum);
+    const nav=document.createElement('div'); nav.className='agp-q-nav';
+    const pos=document.createElement('span'); pos.className='agp-q-pos';
+    const hint=document.createElement('span'); hint.className='agp-q-hint'; hint.textContent=t('agent.q_keys');
+    /**
+     * **마우스로도 넘길 수 있어야 한다.** 키를 더하는 것이 이 요구인데 넘기는 손이
+     * 키뿐이면 그것은 대신한 것이다 — 클릭으로 고르던 사람이 다음 질문에 갈 길을
+     * 잃는다 (FR-A11Y 의 요구이기도 하다).
+     */
+    const prev=UIKit.button({label:t('agent.q_prev'),kind:'ghost',size:'sm',cls:'agp-q-prev',onClick:()=>move(-1)});
+    const next=UIKit.button({label:t('agent.q_next'),kind:'ghost',size:'sm',cls:'agp-q-next',onClick:()=>move(1)});
+    nav.appendChild(pos); nav.appendChild(hint); nav.appendChild(prev); nav.appendChild(next);
+    body.appendChild(nav);
+
+    let at=0; // steps 와 같으면 확인 화면이다.
+    // `move` 는 버튼이 먼저 잡으므로 **호이스팅되는 선언**이어야 한다.
+    function move(d){ at=Math.max(0,Math.min(steps,at+d)); paint() }
+    const paint=()=>{
+      for(const [i,fsEl] of fields.entries()) fsEl.hidden=i!==at;
+      const done=at>=steps;
+      sum.hidden=!done;
+      if(done) this._paintSummary(sum,req,answers);
+      pos.textContent=done?t('agent.q_confirm'):t('agent.q_pos',{i:at+1,n:steps});
+      prev.disabled=at===0;
+      next.disabled=done;
+      // 확인 화면에서만 제출이 선다 — 원본이 마지막에 한 번 묻는 것과 같은 자리다.
+      const primary=body.closest('.ui-modal-box')&&body.closest('.ui-modal-box').querySelector('.ui-modal-foot .ui-btn-primary');
+      if(primary) primary.disabled=!done;
+    };
+    // 현재 질문 안에서 `↑↓` 로 답을 옮긴다 — 원본의 `↑/↓ to navigate` 다.
+    const pick=d=>{
+      if(at>=steps) return;
+      const opts=[...fields[at].querySelectorAll('.agp-q-opt input')];
+      if(!opts.length) return;
+      const cur=opts.findIndex(x=>x.checked);
+      const next=opts[(Math.max(0,cur)+d+opts.length)%opts.length];
+      next.checked=true;
+      next.dispatchEvent(new Event('change',{bubbles:true}));
+    };
+    body.addEventListener('keydown',e=>{
+      if(e.key==='ArrowUp'||e.key==='ArrowDown'){
+        // 자유 입력 칸 안에서는 캐럿의 일이다 — 가로채지 않는다.
+        if(e.target&&e.target.classList&&e.target.classList.contains('agp-q-text')) return;
+        e.preventDefault(); pick(e.key==='ArrowDown'?1:-1); return;
+      }
+      if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
+        if(e.target&&e.target.classList&&e.target.classList.contains('agp-q-text')) return;
+        e.preventDefault(); move(e.key==='ArrowRight'?1:-1); return;
+      }
+      if(e.key==='Enter'&&!e.shiftKey){
+        e.preventDefault();
+        if(at<steps){ move(1); return }
+        // 확인 화면의 엔터가 제출이다.
+        const primary=body.closest('.ui-modal-box')&&body.closest('.ui-modal-box').querySelector('.ui-modal-foot .ui-btn-primary');
+        if(primary&&!primary.disabled) primary.click();
+      }
+    });
+    paint();
+    // 키가 바로 듣도록 — 모달이 열리면 이 자리가 포커스를 갖는다.
+    body.tabIndex=-1;
+    TIMERS.frame(()=>{ if(body.isConnected) body.focus() },{owner:this,label:'agp-q-focus'});
+  }
+  /** 확인 화면 — 질문과 고른 답을 나란히 적는다. */
+  _paintSummary(el,req,answers){
+    el.textContent='';
+    const h=document.createElement('div'); h.className='agp-q-sum-head'; h.textContent=t('agent.q_confirm_head');
+    el.appendChild(h);
+    for(const q of (req.questions||[])){
+      const row=document.createElement('div'); row.className='agp-q-sum-row';
+      const k=document.createElement('span'); k.className='agp-q-sum-k'; k.textContent=q.header||q.question;
+      const v=document.createElement('span'); v.className='agp-q-sum-v';
+      v.textContent=answers[q.question]||t('agent.q_no_answer');
+      row.appendChild(k); row.appendChild(v); el.appendChild(row);
+    }
+  }
+
   destroy(){
     this._destroyed=true;
+    if(this._busyJob){ this._busyJob.stop(); this._busyJob=null }
     if(this._dialog) this._dialog.close();
     this.el.remove();
   }

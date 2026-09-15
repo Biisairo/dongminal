@@ -83,6 +83,41 @@ I18N.register('ko', {
   'agent.session_label': '세션 {sid}',
   'agent.show_raw': '원문',
   'agent.peek_more': '… {n}줄 더',
+  // FR-M11-27 개정 (D-M11-5): 접힌 머리는 **한 문장**이다 — 원본의
+  // `Searched for 1 pattern (ctrl+o to expand)` 자리다.
+  'agent.peek_summary': '{n}줄 · 눌러서 펼침',
+  // FR-M11-29: 원본의 `Press up to edit queued messages` 자리다.
+  'agent.queue_label': '대기 중인 프롬프트',
+  // FR-M11-39: 바닥으로 돌아가는 손.
+  'agent.to_bottom': '맨 아래로',
+  // FR-M11-44: 원본이 그 자리에서 하는 말과 같다.
+  'agent.ctrl_c_again': '한 번 더 누르면 터미널로 나갑니다',
+  // FR-M11-45: 원본이 늘 적는 `Enter to select · ↑/↓ to navigate` 자리다.
+  'agent.q_keys': '↑↓ 답 고르기 · ←→ 질문 넘기기 · Enter 다음',
+  'agent.q_pos': '질문 {i}/{n}',
+  'agent.q_confirm': '확인',
+  'agent.q_prev': '이전',
+  // FR-M11-49: 서브에이전트의 진행은 부모 도구 카드 안에 산다.
+  'agent.sub_head': '서브에이전트',
+  // FR-M11-50: 입력이 스스로 말하는 사실 하나다.
+  'agent.tool_bg': ' · 백그라운드',
+  // FR-M11-51: 원본의 `✢ Tinkering… 60` · `Brewed for 14s` 자리다.
+  'agent.state_working_for': '작업 중 {secs}초',
+  'agent.turn_took': '{secs}초 걸렸습니다',
+  'agent.sub_head_n': '서브에이전트 · 도구 {n}',
+  'agent.q_next': '다음',
+  'agent.q_confirm_head': '이대로 보냅니다',
+  'agent.q_no_answer': '(답하지 않음)',
+  'agent.queue_hint': '위로 올려 고칩니다',
+  // FR-M11-30: 원본이 프롬프트에 적는 모양 그대로다 (§2.10 (6)).
+  'agent.image_ref': '[Image #{n}]',
+  // FR-M11-31: 원본의 `Type something.` 자리 — 선택지 목록의 마지막 항목이다.
+  'agent.answer_own': '직접 입력',
+  // FR-M11-14: 원본 TUI 의 `/config` 선택 화면 자리다.
+  'agent.config_title': '설정',
+  'agent.config_keep': '그대로',
+  // FR-M11-37: 원본의 `Updated <파일> (+1 -1)` 자리다.
+  'agent.diff_head': '{file} (+{added} -{removed})',
   'agent.show_rendered': '서식',
   'agent.state_done': '완료',
   'agent.state_ended': '종료',
@@ -93,6 +128,14 @@ I18N.register('ko', {
   'agent.state_working': '작업 중',
   'agent.tab_new': '에이전트 탭: {agent}',
   'agent.thinking': '추론',
+  // FR-M11-28: claude 는 추론 **내용을 주지 않는다** — 시간·토큰만 적는다.
+  'agent.thinking_progress': '추론 중…',
+  'agent.thinking_progress_tokens': '추론 중… · {tokens} 토큰',
+  'agent.thinking_note': '추론 {secs}초',
+  'agent.thinking_note_tokens': '추론 {secs}초 · {tokens} 토큰',
+  // 시간을 재지 못한 자리 (재생) — 없는 수를 적지 않는다.
+  'agent.thinking_done': '추론',
+  'agent.thinking_done_tokens': '추론 · {tokens} 토큰',
   'agent.thinking_budget': '사고 예산 (토큰)…',
   'agent.tool_call': '도구 호출: {tool}',
   'agent.tool_result': '결과',

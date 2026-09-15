@@ -122,7 +122,8 @@ func codexHandshake(o LaunchOpts, st *ProtoState) [][]byte {
 
 // codexPrompt 는 `turn/start` 다. thread 를 아직 모르면(핸드셰이크 응답 전) 빈 threadId 로
 // 보내 codex 의 오류 응답이 EvError 로 오게 한다 — 조용히 버리지 않는다 (FR-APS-8).
-func codexPrompt(text string, st *ProtoState) [][]byte {
+// 첨부는 받지 않는다 (FR-M11-30 — `Proto.Attachments` 가 거짓이다).
+func codexPrompt(text string, _ []Attachment, st *ProtoState) [][]byte {
 	x := codexExtOf(st)
 	p := map[string]any{"threadId": x.threadID, "input": []map[string]any{{"type": "text", "text": text}}}
 	if x.model != "" {

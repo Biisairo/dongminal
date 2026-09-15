@@ -35,7 +35,12 @@ type Proto struct {
 	// (nil, true) 다.
 	Decode func(line []byte, st *ProtoState) (evs []Event, ok bool)
 	// Prompt 는 사용자 입력을 프레임으로 만든다. 슬래시 명령도 여기로 간다.
-	Prompt func(text string, st *ProtoState) [][]byte
+	//
+	// M11_SRS FR-M11-30 (M11-B28): `atts` 는 딸려 가는 첨부다. 비어 있으면 종전과
+	// 같은 프레임이며, **받지 않는 어댑터는 그대로 버린다** — 화면이 `Attachments`
+	// 를 보고 먼저 막으므로 여기 오지 않는다 (FR-APS-4 의 규약: 없는 것은 선언으로
+	// 말한다).
+	Prompt func(text string, atts []Attachment, st *ProtoState) [][]byte
 	// Approve 는 열린 승인 요청에 대한 답이다. d.Choice 는 요청이 준 선택지의 id
 	// 중 하나 그대로다 (FR-AGT-5) — 어댑터가 그것을 프레임으로 옮기고 요청을 닫는다.
 	// 질문(Kind=question)이면 d.Answers 가 답이다.
@@ -53,6 +58,23 @@ type Proto struct {
 	// PermissionModes 는 `set_permission_mode` 가 받는 값의 순환 순서다 (FR-AGT-4a,
 	// Shift+Tab). 비어 있으면 그 에이전트에 순환이 없다 — 메뉴에도 나타나지 않는다.
 	PermissionModes []string
+	// Attachments 는 프롬프트에 **이미지를 실을 수 있는가**다 (FR-M11-30 / M11-B28).
+	//
+	// claude 만 참이다 — **실측으로 확인한 것만 둔다** (§2.11 (4): 8×8 빨강 PNG 를
+	// 보내고 *"빨강"* 이라는 답을 받았다). codex·omp 는 재지 않았고, 재지 않은 것을
+	// 참으로 두면 화면이 붙일 수 있다고 말한 뒤 값이 조용히 사라진다.
+	Attachments bool
+}
+
+// Attachment 는 프롬프트에 딸려 가는 것이다 (FR-M11-30 / M11-B28).
+//
+// 종류가 하나인 것이 지금의 사실이다 — 원본이 붙여넣기로 받는 것이 이미지이고
+// (§2.10 (6)) 프로토콜이 받는다고 확인한 것도 그것뿐이다.
+type Attachment struct {
+	// MediaType 은 `image/png` 류다. 빈 값이면 실을 수 없다.
+	MediaType string `json:"mediaType"`
+	// Data 는 base64 본문이다 (접두 `data:` 없이).
+	Data string `json:"data"`
 }
 
 // LaunchOpts 는 프로토콜 기동의 입력이다.
@@ -188,18 +210,31 @@ const (
 // thinking}` · `{type:"tool_use",id,name,input}`. 어댑터가 자기 프로토콜의 블록을 이
 // 셋으로 옮긴다 (FR-APS-7) — 뷰는 이 셋만 그린다.
 type Event struct {
-	Kind      EventKind        `json:"kind"`
-	SessionID string           `json:"sessionId,omitempty"`
-	Text      string           `json:"text,omitempty"`
-	Tool      string           `json:"tool,omitempty"`
-	ToolUseID string           `json:"toolUseId,omitempty"`
-	Detail    string           `json:"detail,omitempty"`
-	IsError   bool             `json:"isError,omitempty"`
-	Approval  *ApprovalRequest `json:"approval,omitempty"`
-	Usage     *ProtoUsage      `json:"usage,omitempty"`
-	Status    *ProtoStatus     `json:"status,omitempty"`
-	Message   json.RawMessage  `json:"message,omitempty"`
-	Raw       json.RawMessage  `json:"raw,omitempty"`
+	Kind      EventKind `json:"kind"`
+	SessionID string    `json:"sessionId,omitempty"`
+	Text      string    `json:"text,omitempty"`
+	Tool      string    `json:"tool,omitempty"`
+	ToolUseID string    `json:"toolUseId,omitempty"`
+	Detail    string    `json:"detail,omitempty"`
+	// ParentToolUseID 는 **이 이벤트가 누구의 것인가**다 (M11_SRS FR-M11-49 / M11-B49).
+	//
+	// 비어 있으면 본 대화의 것이고, 값이 있으면 그 `Agent` 도구 호출 **안에서** 일어난
+	// 일이다. 화면은 이 값으로 서브에이전트의 진행을 부모 카드 안에 모은다 — 값을
+	// 버리면 남의 말이 사용자의 기록에 선다 (FR-M11-25 와 같은 부류).
+	ParentToolUseID string `json:"parentToolUseId,omitempty"`
+	// ThinkingTokens 는 추론 증분이 **얼마였는가**다 (M11_SRS FR-M11-28 / M11-B26).
+	//
+	// **claude 는 추론 내용을 주지 않는다** (실측 §2.11 (1) — `thinking` 이 여덟 번
+	// 모두 빈 문자열이고 `estimated_tokens` 만 온다). 원본 TUI 가 `thought for 2s` 로
+	// 시간만 말하는 것이 그 때문이며, 우리가 화면에 적을 수 있는 유일한 수치가 이것이다.
+	// 0 은 부재다 — 내용을 주는 어댑터(codex·omp)는 이 값을 싣지 않는다.
+	ThinkingTokens int64            `json:"thinkingTokens,omitempty"`
+	IsError        bool             `json:"isError,omitempty"`
+	Approval       *ApprovalRequest `json:"approval,omitempty"`
+	Usage          *ProtoUsage      `json:"usage,omitempty"`
+	Status         *ProtoStatus     `json:"status,omitempty"`
+	Message        json.RawMessage  `json:"message,omitempty"`
+	Raw            json.RawMessage  `json:"raw,omitempty"`
 }
 
 // ProtoUsage 는 프레임이 말한 사용량이다 (FR-AGT-6 — 전사본을 읽지 않는다).

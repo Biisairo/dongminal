@@ -22,15 +22,15 @@ const focusedToolId = (page) =>
 
 test.describe('M11 — 올리기 진입점의 수명 (FR-M11-13)', () => {
   /**
-   * **아직 고치지 않았다 — 이 검사는 재현이다.** `fixme` 를 지우는 것이 B10 의
-   * 첫 걸음이고, 그때 빨갛게 떨어지는 것이 고칠 대상이다.
+   * **원인은 계측으로 확정했다** (2026-09-15). 계기는 있었다 — `_mountTabBody` 가
+   * 첫 렌더에서 `moved=true · term=true` 로 `refreshLift()` 를 **부른다.** 되돌아선
+   * 자리는 그 함수의 첫 줄이며, 그때 `el.isConnected` 가 **false** 다: `_buildPane`
+   * 은 pane 을 만들어 돌려줄 뿐이고 문서에 붙이는 것은 그 뒤이기 때문이다.
    *
-   * 원인의 후보: 진입점을 묻는 계기가 `renderer.js` 의 **이동**(`moved`)과
-   * `app-agents.js` 의 **활동 신호** 둘뿐이다. 새로 뜬 화면에는 이동이 없고, 다음
-   * 훅이 올 때까지 활동도 없다. 첫 마운트에 `term` 이 아직 없어 그 호출이
-   * 건너뛰어지는지도 함께 봐야 한다 (확인하지 않았다).
+   * 잰 값: 서버는 `liftable:true` · 새로고침 뒤 `/api/agent/session` 요청 **0건** ·
+   * 손으로 `refreshLift()` 를 부르면 버튼이 **선다**.
    */
-  test.fixme('V-M11-30: 새로고침 뒤에도 에이전트로 버튼이 선다 (FR-M11-13)', async ({ page, request }) => {
+  test('V-M11-30: 새로고침 뒤에도 에이전트로 버튼이 선다 (FR-M11-13)', async ({ page, request }) => {
     await waitForInit(page);
     const toolId = await focusedToolId(page);
     await keepToolBusy(page);

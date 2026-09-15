@@ -155,11 +155,38 @@ const AGENT_BOTTOM_SLACK_PX=4;
 const AGENT_INPUT_MAX_RATIO=1/3;
 /**
  * FR-M11-27 (M11-B25): **접힌 출력의 엿보기.** 사용자 결정(§2.6b) — 5줄 이내는
- * 그대로 보이고, 넘으면 **앞뒤 2줄씩**이다. 도구 출력은 끝줄에 결론이 있는 경우가
- * 많아 앞만 보이면 성패를 모른다.
+ * 그대로 보인다. 원본도 세 줄짜리 출력은 그대로 보이므로(§2.10 (2)) 그 갈래는
+ * 개정에서 바뀌지 않았다.
+ *
+ * **넘는 쪽은 한 문장이다** (D-M11-5): 앞뒤 2줄을 쓰던 상수(`AGENT_PEEK_EDGE_LINES`)는
+ * 지웠다 — 그 손은 접힌 머리를 네 줄로 만들어 접은 뜻을 스스로 없앴다.
  */
 const AGENT_PEEK_FULL_LINES=5;
-const AGENT_PEEK_EDGE_LINES=2;
+/**
+ * FR-M11-29 (M11-B27·B15·B35): 큐에 선 프롬프트의 표식. 원본이 `❯ <본문>` 으로
+ * 세우므로 그 글자를 그대로 쓴다 (§2.10 (5)) — 문구가 아니라 **모양**이라 카탈로그가
+ * 아니라 여기 산다.
+ */
+const AGENT_QUEUE_MARK='\u276f';
+/**
+ * FR-M11-14 (M11-B11): **인자 없는** `/model`·`/config` — 고르는 화면이 서는 자리다.
+ * 인자가 있으면 사용자가 이미 고른 것이므로 가로채지 않는다.
+ */
+const AGENT_PICK_CMD_RE=/^\/(model|config)\s*$/;
+/** 그중 `/config` — 답을 기다릴지 가르는 자리이며 위 규칙과 한 벌이다. */
+const AGENT_CONFIG_CMD_RE=/^\/config\s*$/;
+/**
+ * FR-M11-44 (M11-B44): `Ctrl+C` 두 번을 **한 손짓으로 볼 창**이다. 원본 TUI 도 첫 번과
+ * 둘째 사이에 시한을 둔다 — 시한이 없으면 한참 뒤의 한 번이 나가기가 된다.
+ */
+const AGENT_CTRL_C_WINDOW_MS=1500;
+/** FR-M11-48 (M11-B51): 슬래시 목록에 한 번에 보이는 수. 넘으면 스크롤한다. */
+const AGENT_SUGG_MAX=10;
+/**
+ * FR-M11-51 (M11-B52): 도는 동안 경과를 다시 적는 주기. 초 단위로 보이므로 1초면
+ * 충분하다 — 스피너 자체는 CSS 가 돌린다 (프레임마다 DOM 을 만지지 않는다).
+ */
+const AGENT_BUSY_TICK_MS=1000;
 /** 도구 머리에 담는 인자의 길이 — 원본은 `Bash(sed -i '' 's/…)` 처럼 잘라 싣는다. */
 const AGENT_TOOL_HEAD_ARG_MAX=48;
 const AGENT_LIFT_INTERRUPT_MS=400;

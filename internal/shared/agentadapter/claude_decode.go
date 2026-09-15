@@ -20,6 +20,23 @@ func claudeDecode(line []byte, st *ProtoState) ([]Event, bool) {
 	if err := json.Unmarshal(line, &fr); err != nil || fr.Type == "" {
 		return nil, false
 	}
+	evs, ok := claudeDecodeFrame(fr, st)
+	/**
+	 * M11_SRS FR-M11-49 (M11-B49): **주인은 한 자리에서 단다.**
+	 *
+	 * 서브에이전트의 진행은 같은 스트림으로 오고 `parent_tool_use_id` 만이 그것을
+	 * 가른다. 갈래마다 적으면 새 갈래가 생길 때 조용히 빠지므로 — 이 물결에서만
+	 * 그런 자리를 셋 겪었다 — **나가는 길 하나**에서 일괄로 단다.
+	 */
+	if fr.ParentToolUse != "" {
+		for i := range evs {
+			evs[i].ParentToolUseID = fr.ParentToolUse
+		}
+	}
+	return evs, ok
+}
+
+func claudeDecodeFrame(fr claudeFrame, st *ProtoState) ([]Event, bool) {
 	x := claudeExtOf(st)
 	switch fr.Type {
 	case "system":
@@ -128,6 +145,9 @@ func claudeDecodeStream(fr claudeFrame, x *claudeExt) ([]Event, bool) {
 			Type     string `json:"type"`
 			Text     string `json:"text"`
 			Thinking string `json:"thinking"`
+			// FR-M11-28: 추론 델타가 **실제로 싣는 것**이다 (실측 §2.11 (1)).
+			// `thinking` 은 빈 문자열로 오고 이 수만 움직인다.
+			Tokens int64 `json:"estimated_tokens"`
 		} `json:"delta"`
 	}
 	if err := json.Unmarshal(fr.Event, &ev); err != nil {
@@ -160,7 +180,8 @@ func claudeDecodeStream(fr claudeFrame, x *claudeExt) ([]Event, bool) {
 		case "text_delta":
 			return []Event{{Kind: EvTextDelta, SessionID: fr.SessionID, Text: ev.Delta.Text}}, true
 		case "thinking_delta":
-			return []Event{{Kind: EvThinkingDelta, SessionID: fr.SessionID, Text: ev.Delta.Thinking}}, true
+			return []Event{{Kind: EvThinkingDelta, SessionID: fr.SessionID,
+				Text: ev.Delta.Thinking, ThinkingTokens: ev.Delta.Tokens}}, true
 		case "input_json_delta", "signature_delta":
 			return nil, true
 		}
@@ -169,6 +190,38 @@ func claudeDecodeStream(fr claudeFrame, x *claudeExt) ([]Event, bool) {
 		return nil, true
 	}
 	return nil, false
+}
+
+// claudeHarnessPrefixes 는 하네스가 사용자의 자리에 끼우는 것들이다
+// (M11_SRS FR-M11-25 / M11-B23).
+//
+// **실측한 목록이고 추측이 없다** (§2.11 (6)): 사용자의 전사본 여덟 벌(최대 2448줄)의
+// `user` 항목을 전수로 훑어 센 여섯 종이다. 목록을 늘리려면 같은 방법으로 세고 여기에
+// 적는다 — 형식을 짐작해 더하면 사용자의 진짜 말이 조용히 사라진다.
+var claudeHarnessPrefixes = []string{
+	"<local-command-caveat>",
+	"<local-command-stdout>",
+	"<command-name>",
+	"<command-message>",
+	"<command-args>",
+	"<task-notification>",
+	"[Request interrupted by user",
+}
+
+// claudeHarnessText 는 그 글이 하네스의 것인가다.
+//
+// **첫 토큰으로 판정한다.** 실측에서 여섯 전부 자기 항목을 통째로 차지했고 사용자의
+// 말과 섞인 경우가 없었다. 그래서 **항목을 통째로 버리거나 통째로 남기거나** 둘 중
+// 하나이며, 본문을 잘라 내는 손을 만들지 않는다 — 그 손은 사용자가 마커를 인용한 글을
+// 함께 자른다.
+func claudeHarnessText(s string) bool {
+	t := strings.TrimSpace(s)
+	for _, p := range claudeHarnessPrefixes {
+		if strings.HasPrefix(t, p) {
+			return true
+		}
+	}
+	return false
 }
 
 // claudeDecodeUser 는 도구 결과(배열 content)와 로컬 명령 출력(문자열 content)을 가른다.
@@ -181,6 +234,9 @@ func claudeDecodeUser(fr claudeFrame) ([]Event, bool) {
 	}
 	var text string
 	if json.Unmarshal(m.Content, &text) == nil {
+		if claudeHarnessText(text) {
+			return nil, true
+		}
 		return []Event{{Kind: EvUser, SessionID: fr.SessionID, Text: text}}, true
 	}
 	var items []struct {
@@ -200,6 +256,9 @@ func claudeDecodeUser(fr claudeFrame) ([]Event, bool) {
 			evs = append(evs, Event{Kind: EvToolEnd, SessionID: fr.SessionID, ToolUseID: it.ToolUseID,
 				Text: claudeResultText(it.Content), IsError: it.IsError})
 		case "text":
+			if claudeHarnessText(it.Text) {
+				continue
+			}
 			evs = append(evs, Event{Kind: EvUser, SessionID: fr.SessionID, Text: it.Text})
 		}
 	}

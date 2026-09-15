@@ -44,6 +44,8 @@ var claudeProto = Proto{
 	 */
 	PermissionModes: []string{"default", "acceptEdits", "auto", "plan",
 		"bypassPermissions", "dontAsk"},
+	// FR-M11-30 (M11-B28): **실측으로 확인했다** (§2.11 (4)).
+	Attachments: true,
 }
 
 // claudeExt 는 이 어댑터의 사적 상태다 (ProtoState.Ext).
@@ -112,8 +114,35 @@ func claudeHandshake(_ LaunchOpts, st *ProtoState) [][]byte {
 	return [][]byte{claudeControlRequest(st, "initialize", "", map[string]any{"hooks": map[string]any{}})}
 }
 
-func claudePrompt(text string, st *ProtoState) [][]byte {
-	b, _ := json.Marshal(map[string]any{"type": "user", "message": map[string]any{"role": "user", "content": text}})
+// claudePrompt 는 프롬프트 프레임이다.
+//
+// M11_SRS FR-M11-30 (M11-B28): **첨부가 있으면 `content` 가 배열이다.**
+//
+//	이전 동작: `content` 를 **문자열로만** 보냈다 — 이미지를 실을 자리가 없었다
+//	새  동작: 첨부가 있으면 `[image…, {type:text}]` 로 보낸다
+//	이유:     막힌 것은 프로토콜이 아니라 이 한 줄이었다 (실측 §2.11 (4) — 8×8 빨강
+//	          PNG 를 보내고 *"빨강"* 이라는 답을 받았다)
+//
+// 첨부가 없으면 **종전 그대로 문자열**이다. 배열로 바꾸면 이미 도는 모든 턴의 와이어가
+// 함께 바뀌고, 그 변경은 이 요구가 요청한 것이 아니다.
+//
+// 이미지가 **앞**에 서는 것은 실측한 모양 그대로다 — 글이 그림을 가리킨다.
+func claudePrompt(text string, atts []Attachment, st *ProtoState) [][]byte {
+	var content any = text
+	if len(atts) > 0 {
+		blocks := make([]map[string]any, 0, len(atts)+1)
+		for _, a := range atts {
+			if a.MediaType == "" || a.Data == "" {
+				continue
+			}
+			blocks = append(blocks, map[string]any{"type": "image",
+				"source": map[string]any{"type": "base64", "media_type": a.MediaType, "data": a.Data}})
+		}
+		if len(blocks) > 0 {
+			content = append(blocks, map[string]any{"type": "text", "text": text})
+		}
+	}
+	b, _ := json.Marshal(map[string]any{"type": "user", "message": map[string]any{"role": "user", "content": content}})
 	return [][]byte{b}
 }
 
@@ -202,10 +231,16 @@ type claudeFrame struct {
 	ToolName  string          `json:"tool_name"`
 	Event     json.RawMessage `json:"event"`
 	Message   json.RawMessage `json:"message"`
-	RequestID string          `json:"request_id"`
-	Request   json.RawMessage `json:"request"`
-	Response  json.RawMessage `json:"response"`
-	NewConv   string          `json:"new_conversation_id"`
+	// ParentToolUse 는 **이 프레임이 누구의 것인가**다 (M11_SRS FR-M11-49 / M11-B49).
+	//
+	// 서브에이전트의 진행은 **같은 스트림**으로 오고 이 필드만이 그것을 가른다 —
+	// 값이 있으면 그 `Agent` 도구 호출 안에서 일어난 일이다 (실측 §2.13). 버리면
+	// 서브에이전트의 프롬프트가 *사용자가 친 말*로, 그 도구가 *부모의 도구*로 선다.
+	ParentToolUse string          `json:"parent_tool_use_id"`
+	RequestID     string          `json:"request_id"`
+	Request       json.RawMessage `json:"request"`
+	Response      json.RawMessage `json:"response"`
+	NewConv       string          `json:"new_conversation_id"`
 	// result
 	IsError    bool                        `json:"is_error"`
 	Result     string                      `json:"result"`

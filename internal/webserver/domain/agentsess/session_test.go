@@ -56,7 +56,7 @@ func fakeProto() *agentadapter.Proto {
 			}
 			return nil, false
 		},
-		Prompt: func(text string, st *agentadapter.ProtoState) [][]byte {
+		Prompt: func(text string, atts []agentadapter.Attachment, st *agentadapter.ProtoState) [][]byte {
 			return [][]byte{[]byte(`{"prompt":"` + text + `"}`)}
 		},
 		Approve: func(req agentadapter.ApprovalRequest, d agentadapter.Decision, st *agentadapter.ProtoState) ([]byte, error) {

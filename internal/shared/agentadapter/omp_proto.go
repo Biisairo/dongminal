@@ -98,7 +98,9 @@ func ompHandshake(_ LaunchOpts, st *ProtoState) [][]byte {
 
 // ompPrompt 는 `prompt` 다. 슬래시 명령도 같은 길이며 omp 가 `command_output` 으로 답한다.
 // 스트리밍 중이면 `streamingBehavior` 가 있어야 받아들이므로 steer 로 싣는다.
-func ompPrompt(text string, st *ProtoState) [][]byte {
+// 첨부는 받지 않는다 — `Proto.Attachments` 가 거짓이므로 화면이 먼저 막는다
+// (FR-M11-30: 재지 않은 것을 받는 척하지 않는다).
+func ompPrompt(text string, _ []Attachment, st *ProtoState) [][]byte {
 	x := ompExtOf(st)
 	body := map[string]any{"message": text}
 	if x.inAgent {

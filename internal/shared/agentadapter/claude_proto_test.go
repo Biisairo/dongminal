@@ -173,9 +173,15 @@ func TestClaudeProto_Tool(t *testing.T) {
 	if kinds(evs) != "tool_end" || evs[0].Text != "a\nb" || !evs[0].IsError {
 		t.Fatalf("tool_end 배열 content: %+v", evs)
 	}
-	// 로컬 명령의 출력은 사용자 쪽 텍스트다.
+	// **계약이 바뀌었다** (M11_SRS FR-M11-25 / M11-B23): 로컬 명령의 출력은 사용자의
+	// 말이 아니라 **하네스가 끼운 것**이므로 그리지 않는다. 종전에는 `user` 텍스트였다.
 	evs = decode1(t, p, st, `{"type":"user","message":{"role":"user","content":"<local-command-stdout>ok</local-command-stdout>"},"session_id":"`+claudeSID+`","uuid":"u"}`)
-	if kinds(evs) != "user" || evs[0].Text == "" {
+	if len(evs) != 0 {
+		t.Fatalf("하네스 블록이 그려졌다: %s %+v", kinds(evs), evs)
+	}
+	// 사용자가 실제로 친 글은 그대로 선다 — 걸러 내는 손이 넓어지지 않았다는 증거다.
+	evs = decode1(t, p, st, `{"type":"user","message":{"role":"user","content":"안녕"},"session_id":"`+claudeSID+`","uuid":"u"}`)
+	if kinds(evs) != "user" || evs[0].Text != "안녕" {
 		t.Fatalf("user 문자열 content: %s %+v", kinds(evs), evs)
 	}
 }
@@ -407,7 +413,7 @@ func TestClaudeProto_Unknown(t *testing.T) {
 // 프롬프트 프레임 · TUI 출구 argv.
 func TestClaudeProto_PromptAndResume(t *testing.T) {
 	p, st := protoOf(t)
-	frames := p.Prompt("say PONG", st)
+	frames := p.Prompt("say PONG", nil, st)
 	if len(frames) != 1 {
 		t.Fatalf("frames=%d", len(frames))
 	}

@@ -400,6 +400,15 @@ class Renderer {
   }
 
   _restoreScroll(){
+    /**
+     * FR-M11-17 (M11-B14): 에이전트 대화의 자리도 **여기서** 되돌린다.
+     *
+     * `_mountTabBody` 에서 부르면 그 pane 이 아직 문서에 없어 `scrollTop` 이 값을
+     * 받지 못한다 — 이 함수가 `_rLayout()` **뒤**에 있는 것이 바로 그 때문이다
+     * (FR-SCR-2 의 주석이 그 사실을 이미 적어 두었다).
+     */
+    const panes=this._agentRestore; this._agentRestore=null;
+    if(panes) for(const v of panes) v.restoreView();
     const list=this._scrollKeep; this._scrollKeep=null;
     if(!list) return;
     for(const [n,t,l] of list){
@@ -681,7 +690,25 @@ class Renderer {
           // 포커스 슬롯의 인스턴스를 focus 한다 (FR-WSL-20).
           const key=app.slotKey(tab.id,app.slotFocused());
           if(tab.type==='editor'){const v=app.fileEditors.get(key)||app.fileEditors.get(tab.id);if(v)v.el.focus()}
-          else{const p=app.toolAny(tab.toolId);if(p)p.focus()}
+          else{
+            /**
+             * M11_SRS FR-M11-47 (M11-B48): **에이전트 탭도 여기서 포커스를 받는다.**
+             *
+             *   이전 동작: `toolAny` 는 `app.tools`(터미널)만 본다 — 에이전트 탭에서는
+             *              `p` 가 `null` 이라 **아무도 포커스를 받지 않았고**, 탭을 연
+             *              뒤 한 번 더 눌러야 칠 수 있었다
+             *   새  동작: 에이전트 패널도 같은 자리에서 찾아 `focus()` 한다
+             *   이유:     터미널은 이미 그렇다. 같은 화면의 두 도구가 다른 손을 쓰면
+             *             그 자체가 결함이다 (FR-M11-22 가 좌우 키에 세운 근거)
+             *
+             * **모바일 제외는 이 블록의 조건이 이미 지킨다** (`!app.isMobile`,
+             * FR-MTI-25) — 판정을 새로 만들지 않는다.
+             */
+            const p=app.toolAny(tab.toolId)
+              ||(app.agentPanes&&(app.agentPanes.get(app.slotKey(tab.toolId,app.slotFocused()))
+                ||app.agentPanes.get(tab.toolId)));
+            if(p&&p.focus)p.focus();
+          }
           // 표명은 **실제로 넘긴 때**만 지운다 — 여는 한 손짓이 render 를 여러 번
           // 부르므로(addTab·switchWindow·mobileShowPane), 읽을 때 지우면 탭이
           // 아직 활성이 아닌 첫 렌더가 그것을 먹는다.
@@ -1094,10 +1121,22 @@ class Renderer {
       const view=this.app.fileEditors.get(this.app.slotKey(at.id,slot));
       if(view&&view.restoreView) view.restoreView();
     }
-    // FR-M11-17: 에이전트 대화의 자리도 **붙은 뒤에** 되돌린다 — 같은 규약이다.
+    /**
+     * FR-M11-17 (M11-B14): 에이전트 대화의 자리는 **여기서 되돌리지 않는다.**
+     *
+     *   이전 동작: 편집기 옆에서 곧바로 `restoreView()` 를 불렀다 — **이 시점의
+     *              pane 은 아직 문서에 없다** (`_buildPane` 은 만들어 돌려줄 뿐이다).
+     *              편집기는 Monaco 인스턴스가 값을 들고 있어 붙기 전에도 서지만,
+     *              에이전트의 자리는 DOM `scrollTop` 이라 **조용히 무시된다**
+     *              (실측 2026-09-15: 창을 오갈 때 `scrollHeight:0`·`clientHeight:0`
+     *              에서 복원이 돌았고 결과가 0 이었다)
+     *   새  동작: 되돌릴 것을 적어 두고 `_restoreScroll()` 이 비운다
+     *   이유:     그 자리가 이미 *"요소가 문서에 붙은 뒤"* 의 자리다 (FR-SCR-2).
+     *             **규약은 있었고 이 한 자리만 그 밖에 있었다**
+     */
     if(moved&&at.type==='agent'&&at.toolId&&this.app.agentPanes){
       const view=this.app.agentPanes.get(this.app.slotKey(at.toolId,slot));
-      if(view&&view.restoreView) view.restoreView();
+      if(view&&view.restoreView) (this._agentRestore||(this._agentRestore=[])).push(view);
     }
     this._mounted.add(el);
     this._hideOthers(body,el);
