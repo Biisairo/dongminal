@@ -16,7 +16,11 @@ import (
 
 func TestPosixShellBashUsesRcfile(t *testing.T) {
 	// V-HPR-4
-	bin := filepath.Join("/home", "u", "bin")
+	// **POSIX 모양 리터럴이다** — `filepath.Join` 을 쓰면 Windows 호스트에서
+	// `\home\u\bin` 이 되고, POSIX 제공자의 절대경로 판정(`posixAbs`)이 그것을
+	// 거절한다. 이 제공자는 POSIX 호스트에서만 쓰이므로 경로도 그 규약이어야
+	// 한다 (2026-09-16 CI 실측: Windows 잡에서만 세 검사가 빨갰다).
+	bin := "/home/u/bin"
 	s := posixShell{env: fakeEnv(map[string]string{"SHELL": "/bin/bash"}), stat: fakeStat("/bin/bash")}
 	spec := s.Shell(bin)
 
@@ -41,7 +45,11 @@ func TestPosixShellBashUsesRcfile(t *testing.T) {
 
 // V-HPR-4 의 나머지 절반: zsh 는 한 글자도 바뀌지 않는다 (FR-HPR-9).
 func TestPosixShellZshUnchanged(t *testing.T) {
-	bin := filepath.Join("/home", "u", "bin")
+	// **POSIX 모양 리터럴이다** — `filepath.Join` 을 쓰면 Windows 호스트에서
+	// `\home\u\bin` 이 되고, POSIX 제공자의 절대경로 판정(`posixAbs`)이 그것을
+	// 거절한다. 이 제공자는 POSIX 호스트에서만 쓰이므로 경로도 그 규약이어야
+	// 한다 (2026-09-16 CI 실측: Windows 잡에서만 세 검사가 빨갰다).
+	bin := "/home/u/bin"
 	s := posixShell{env: fakeEnv(map[string]string{"SHELL": "/bin/zsh"}), stat: fakeStat("/bin/zsh")}
 	spec := s.Shell(bin)
 

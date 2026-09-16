@@ -73,7 +73,11 @@ func TestPosixShellNeverReturnsEmpty(t *testing.T) {
 // bash 는 여기 없다 — 변수가 아니라 인자(`--rcfile`)로 걸며, 그것은
 // shell_bash_test.go 가 본다 (HOST_PARITY_SRS FR-HPR-7).
 func TestPosixShellHookEnv(t *testing.T) {
-	bin := filepath.Join("/home", "u", "bin")
+	// **POSIX 모양 리터럴이다** — `filepath.Join` 을 쓰면 Windows 호스트에서
+	// `\home\u\bin` 이 되고, POSIX 제공자의 절대경로 판정(`posixAbs`)이 그것을
+	// 거절한다. 이 제공자는 POSIX 호스트에서만 쓰이므로 경로도 그 규약이어야
+	// 한다 (2026-09-16 CI 실측: Windows 잡에서만 세 검사가 빨갰다).
+	bin := "/home/u/bin"
 	cases := []struct {
 		shell string
 		want  string
