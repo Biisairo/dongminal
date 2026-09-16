@@ -145,6 +145,21 @@ test.describe('V-M10-4·5 — 소유를 되찾은 창이 자기 폭으로 선다
     }, { timeout: 15000 }).toBeLessThan(wideCols);
 
     const narrowCols = (await sizeOf(narrow.page))!.cols;
+
+    /**
+     * **두 주장을 갈라 묻는다.**
+     *
+     * 종전에는 *줄이 새 폭으로 섰는가* 하나만 물었고, 그것이 지면 원인이 둘로
+     * 갈렸다 — ① 리사이즈가 PTY 까지 닿지 않았다(우리 결함) ② 닿았는데도 새 폭의
+     * 그림이 없다(전송 계층의 성질). 한 덩어리로 물으면 어느 쪽인지 말할 수 없고,
+     * 실제로 Windows 에서 그 구분이 필요했다 (2026-09-16: `[168]`).
+     *
+     * `_ptyCols` 는 **서버가 통보한 PTY 폭**이다 (FR-M9-3). 그것이 먼저다.
+     */
+    await expect.poll(async () => (await sizeOf(narrow.page))?.ptyCols,
+      { timeout: 15000, message: '되찾은 폭이 PTY 까지 닿지 않았다 (FR-M10-1 의 뒷면)' })
+      .toBe(narrowCols);
+
     await expect.poll(() => markerLens(narrow.page, 'WIDEMARK'),
       { timeout: 15000, message: '좁은 폭으로 다시 그려진 줄이 없다 (M10-B2)' })
       .toContain(narrowCols);
