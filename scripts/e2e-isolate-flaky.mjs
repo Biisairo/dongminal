@@ -18,6 +18,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 /** 격리 회차 수. 셋이다 — 한 번은 표본이 너무 적다 (사용자 결정 2026-09-16). */
 export const ISOLATION_ROUNDS = 3;
@@ -168,6 +169,20 @@ async function main(argv) {
   return 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+/**
+ * 직접 실행됐는가 — 테스트는 이 모듈을 import 만 하므로 그때 돌면 안 된다.
+ *
+ * **`` `file://${process.argv[1]}` `` 로 쓰면 Windows 에서 영원히 거짓이다.**
+ * 거기서 `argv[1]` 은 `D:\a\…\x.mjs` 이고 `import.meta.url` 은
+ * `file:///D:/a/…/x.mjs` 다 — 구분자도 다르고 슬래시 수도 다르다. POSIX 에서는
+ * 우연히 맞아떨어져서 **조용히 통과한다.**
+ *
+ * 실제로 그렇게 나갔고, Windows 러너 8잡이 **아무 출력 없이 exit 0** 했다.
+ * flaky 가 난 샤드에서도 격리가 돌지 않았다 (2026-09-16, CI 가 잡았다).
+ *
+ * 경로를 URL 로 올리는 일은 `pathToFileURL` 에 맡긴다 — 그것이 호스트 규약을
+ * 아는 유일한 자리다.
+ */
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main(process.argv.slice(2)).then((code) => process.exit(code));
 }
