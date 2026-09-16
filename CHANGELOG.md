@@ -74,6 +74,10 @@
   > 자리를 모르면 이제 **훅을 걸지 않습니다** — 그때는 작업 폴더 추적과 에이전트
   > 래퍼가 동작하지 않지만 셸 자체는 정상입니다. `PATH` 에도 그 자리를 더하지
   > 않습니다.
+  >
+  > **해당 조건·영향 판·지금 할 일은 [`SECURITY.md` §6](SECURITY.md#6-고쳐진-취약점)
+  > 에 있습니다.** 기본 기동(`dongminal start`)과 서비스 등록은 해당하지 않습니다 —
+  > `dongminal start --foreground` 을 `DONGMINAL_HOME` 없이 직접 띄운 경우입니다.
 
 - **Windows 터미널을 열 때 뜨던 빨간 오류가 사라졌습니다.**
   `The module 'bin' could not be loaded` 가 그것이며, 위와 같은 원인입니다.
