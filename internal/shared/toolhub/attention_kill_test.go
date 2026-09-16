@@ -65,8 +65,7 @@ func TestTool_Kill_TwiceClearsOnce(t *testing.T) {
 
 // 죽은 도구는 idle 로도 다시 깨어나지 않는다 — armed 가 내려가야 한다.
 func TestTool_Kill_DisarmsIdle(t *testing.T) {
-	defer func(orig func(*Tool) bool) { attnBusyProbe = orig }(attnBusyProbe)
-	attnBusyProbe = func(*Tool) bool { return true }
+	defer SetAttnBusyProbe(func(*Tool) bool { return true })()
 	var mu sync.Mutex
 	var attn, clear []string
 	p := newAttnPane("1", &mu, &attn, &clear)

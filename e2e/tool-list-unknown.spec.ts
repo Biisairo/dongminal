@@ -21,60 +21,37 @@ const addWindow = (page: Page) =>
     return r.win;
   });
 
-// 열린 WebSocket 을 센다. term-pane 은 자기 소켓을 `ws` 에 들고 있으므로 재연결이
-// 일어나면 인스턴스가 갈린다 — 그 사실을 id 로 표시해 두고 뒤에 비교한다.
 /**
- * **표를 붙이기 전에 소켓이 다 열린 것을 본다.**
+ * **표는 pane 에 붙인다 — 소켓이 아니라.**
  *
- * `markSockets` 는 `p.ws` 가 있는 pane 에만 표를 붙이고, `socketsReplaced` 는 표가
- * 없는 pane 을 **교체된 것으로 센다.** 그래서 표를 붙이는 순간 아직 소켓이 없는
- * pane 이 있으면 그 pane 은 영영 표를 못 받고, 나중에 소켓이 열리는 것만으로
- * "다시 붙었다" 가 된다 — 제품은 아무 일도 하지 않았는데.
+ * 재려는 것은 `clean()` 이 이 도구의 인스턴스를 **파괴했는가** 다 (FR-TLU-10).
+ * 종전에는 그것을 소켓으로 **대신** 쟀다 — *"재연결이 일어나면 인스턴스가 갈린다"*
+ * 는 관찰에 기댄 대리였다.
  *
- * 그 자리는 바로 앞의 `slotOpen(1, …)` 이다. 칸 1 인스턴스는 그때 소켓을 새로
- * 열고, 부하가 있으면 그 연결이 표보다 늦는다 (2026-09-15 전량 회차에서 966ms 만에
- * 실패했다 — 타임아웃이 아니라 경합이다).
+ * 그런데 소켓은 `clean()` 과 무관하게도 갈린다. 부하에서 끊긴 연결의 재시도가
+ * 표를 붙인 뒤에 열리면 `term-pane` 이 `this.ws` 를 갈아끼우고, 끊긴 그 순간에는
+ * `ws` 가 아예 `null` 이다. 두 경우 모두 제품은 아무것도 파괴하지 않았는데 검사는
+ * "다시 붙었다" 로 읽었다 — 전량·CI 에서만 지던 까닭이다 (2026-09-16, 재시도까지
+ * 실패). 대리를 지키려고 `_reconnectPending`·`_pendingWs` 까지 기다려 봤지만
+ * **표를 붙인 뒤에 끊기는 경우**는 그 앞에서 막을 수 없다.
  *
- * **열림만으로는 모자랐다** (2026-09-16 전량 회차 · CI ubuntu 에서 재시도까지 실패).
- * `readyState===1` 은 *지금* 붙어 있다는 말일 뿐, **비행 중인 재연결**을 말하지
- * 않는다. `_scheduleReconnect` 가 걸어 둔 재시도가 표를 붙인 **뒤에** 열리면
- * `term-pane` 은 `this.ws` 를 새 소켓으로 갈아끼우고, 그 소켓에는 표가 없다 —
- * 제품은 `clean()` 과 무관한 일을 했는데 검사는 "다시 붙었다" 로 읽는다.
- *
- * 그래서 **가라앉은 상태**를 기다린다: 붙어 있고, 걸린 재시도가 없고, 여는 중인
- * 소켓도 없다. 단독 실행에서 25/25 이고 전량에서만 지던 까닭이 이 셋 중 뒤의
- * 둘이었다.
+ * pane 객체 자체에 표를 붙이면 대리가 사라진다: 살아남은 인스턴스는 표를 들고
+ * 있고, 파괴된 뒤 다시 세워진 인스턴스는 표가 없다. 그것이 정확히 재려던 사실이며
+ * 소켓의 형편은 이 물음과 무관해진다.
  */
-async function waitSocketsOpen(page: Page) {
-  await expect
-    .poll(() => page.evaluate(() => {
-      const tools = [...(window as any).app.tools.values()].filter(Boolean);
-      if (!tools.length) return -1;
-      // `readyState === 1` 이 OPEN 이다. 여는 중(0)도 표를 못 받는다.
-      // `_reconnectPending`(대기 중인 재시도)·`_pendingWs`(여는 중인 재시도)는
-      // 표를 붙인 뒤에 `ws` 를 갈아끼울 수 있는 둘이다.
-      return tools.filter((p: any) =>
-        !p.ws || p.ws.readyState !== 1 || p._reconnectPending || p._pendingWs).length;
-    }), { timeout: 15000, message: '소켓이 가라앉지 않았다 — 비행 중인 재연결이 표를 지운다' })
-    .toBe(0);
-}
-
-async function markSockets(page: Page) {
+async function markPanes(page: Page) {
   await page.evaluate(() => {
     let n = 0;
-    for (const p of (window as any).app.tools.values()) {
-      if (p && p.ws) p.ws.__mark = ++n;
-    }
-    (window as any).__marked = n;
+    for (const p of (window as any).app.tools.values()) if (p) p.__mark = ++n;
   });
 }
 
-async function socketsReplaced(page: Page): Promise<number> {
+async function panesReplaced(page: Page): Promise<number> {
   return page.evaluate(() => {
     let replaced = 0;
     for (const p of (window as any).app.tools.values()) {
       if (!p) continue;
-      if (!p.ws || !p.ws.__mark) replaced++;
+      if (!p.__mark) replaced++;
     }
     return replaced;
   });
@@ -114,14 +91,13 @@ test.describe('묶음 L — 도구 목록을 모를 때 하지 않는 일', () =
     const wins0 = await windowCount(page);
     expect(keys0.length).toBeGreaterThan(0);
 
-    await waitSocketsOpen(page);
-    await markSockets(page);
+    await markPanes(page);
     await stubState(page, { known: false, tools: [] });
     await applyState(page);
 
     expect(await toolKeys(page), '모르는 목록으로 도구를 파괴했다').toEqual(keys0);
     expect(await windowCount(page), '모르는 목록으로 창을 지웠다').toBe(wins0);
-    expect(await socketsReplaced(page), '재연결이 일어났다').toBe(0);
+    expect(await panesReplaced(page), '인스턴스가 다시 세워졌다').toBe(0);
   });
 
   test('TC-TLU-11 (FR-TLU-5): 아는 빈 목록은 여전히 도구를 거둔다', async ({ page }) => {
@@ -191,12 +167,11 @@ test.describe('묶음 M — 죽은 도구 청소와 슬롯 키', () => {
     const slotted = keys.filter((k: string) => k.includes('@1'));
     expect(slotted.length, '칸 1 인스턴스가 서지 않았다 — 전제가 깨졌다').toBeGreaterThan(0);
 
-    await waitSocketsOpen(page);
-    await markSockets(page);
+    await markPanes(page);
     await applyState(page);
 
     expect(await toolKeys(page), '칸 1 인스턴스가 파괴됐다').toEqual(keys);
-    expect(await socketsReplaced(page), '칸 1 인스턴스가 다시 붙었다').toBe(0);
+    expect(await panesReplaced(page), '칸 1 인스턴스가 다시 세워졌다').toBe(0);
   });
 
   test('TC-TLU-11b (FR-TLU-10): 서버가 모르는 도구는 두 칸 모두에서 거둔다', async ({ page }) => {

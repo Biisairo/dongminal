@@ -1,6 +1,9 @@
 package toolhub
 
-import "bytes"
+import (
+	"bytes"
+	"sync/atomic"
+)
 
 // 도구 하나의 주의(L1 OSC·L2 유휴)·활동 상태기다 — tool.go 의 PTY 수명과 갈라
 // 두었다 (M8 GO-15, D-A-10). 공통 상수·attnNow 는 attention.go, 턴 판정은 agentturn.go.
@@ -133,16 +136,24 @@ func (p *Tool) AttendTyped() {
 
 // attnBusyProbe reports whether a tool has a running foreground process. It is
 // a package variable so tests can substitute a deterministic probe.
-var attnBusyProbe = func(p *Tool) bool { return p.IsBusy() }
+// **원자적인 이유는 `attnNow` 와 같다** — 읽는 것은 쓸이(sweeper)·readPTY 이고
+// 바꾸는 것은 검사다. nil 이면 진짜 판정이다.
+var attnBusyProbeFn atomic.Pointer[func(*Tool) bool]
+
+func attnBusyProbe(p *Tool) bool {
+	if f := attnBusyProbeFn.Load(); f != nil {
+		return (*f)(p)
+	}
+	return p.IsBusy()
+}
 
 // SetAttnBusyProbe는 유휴 탐지와 활동 스냅샷 정리가 쓰는 전경 프로세스 검사를
 // 교체하고, 이전 검사로 되돌리는 함수를 돌려준다. 다른 패키지의 테스트가 이것을
 // 필요로 하는 이유는 NewDetachedTool 로 만든 도구에 프로세스가 없어 항상
 // "busy 아님"으로 읽히고, 그러면 working 상태가 정리 대상이 되기 때문이다.
 func SetAttnBusyProbe(f func(*Tool) bool) (restore func()) {
-	prev := attnBusyProbe
-	attnBusyProbe = f
-	return func() { attnBusyProbe = prev }
+	prev := attnBusyProbeFn.Swap(&f)
+	return func() { attnBusyProbeFn.Store(prev) }
 }
 
 // maybeIdle fires L2 (idle) attention when an armed tool has been quiet for at

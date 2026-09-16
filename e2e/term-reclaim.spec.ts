@@ -1,4 +1,5 @@
 import { test, expect, waitForInit } from './fixtures';
+import { cursorEndMarkCmd } from './osenv';
 
 // V-M10-4·5 — 돌아온 기기가 자기 폭을 되찾는다 (M10_SRS FR-M10-1·2)
 //
@@ -111,7 +112,7 @@ test.describe('V-M10-4·5 — 소유를 되찾은 창이 자기 폭으로 선다
     const wideCols = (await sizeOf(wide.page))!.cols;
     // `\033[<W>G` 는 그 폭의 오른쪽 끝이다. 줄바꿈이 아니라 **좌표**이므로
     // xterm 의 리플로우로는 되돌아가지 않는다 — 다시 그리는 길은 전량 재생뿐이다.
-    await typeInto(wide.page, `printf 'WIDEMARK'; printf '\\033[%dGR\\n' $(tput cols)\r`);
+    await typeInto(wide.page, cursorEndMarkCmd('WIDEMARK', 'R') + '\r');
 
     await expect.poll(() => markerLine(wide.page, 'WIDEMARK').then((s) => s.length),
       { timeout: 15000 }).toBe(wideCols);

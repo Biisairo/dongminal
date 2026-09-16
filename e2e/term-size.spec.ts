@@ -1,4 +1,5 @@
 import { test, expect, waitForInit } from './fixtures';
+import { numberedLinesCmd } from './osenv';
 
 // V-M9-3b — PTY 크기 통보 (M9_SRS FR-M9-3, D-M9-3)
 //
@@ -85,7 +86,9 @@ test.describe('V-M9-3b — 크기는 서버가 통보하고 비소유자가 따�
 
     // 좁은 폭에서 줄바꿈이 일어나는 길이로 낸다 — 폭 해석이 어긋나면 여기서
     // 갈린다. 실측에서 사라진 것이 정확히 이런 줄들의 앞부분이었다.
-    await typeInto(narrow.page, 'for i in 1 2 3 4 5 6 7 8; do echo "ROW-$i ----------------------------"; done\r');
+    // 반복 문법은 셸마다 다르다 — 재려는 것은 여러 줄이 두 클라이언트에 같게
+    // 보이는가이지 그 문법이 아니다 (osenv 의 규약).
+    await typeInto(narrow.page, numberedLinesCmd('ROW-', 8, ' ----------------------------') + '\r');
 
     await expect.poll(() => linesOf(narrow.page).then((l) => l.filter((s) => s.startsWith('ROW-')).length),
       { timeout: 15000 }).toBe(8);

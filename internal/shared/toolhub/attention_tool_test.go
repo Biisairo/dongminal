@@ -40,17 +40,12 @@ func startStaleWork(p *Tool) {
 
 // stubAttnNow 는 시계를 갈아 끼우고 되돌리는 함수를 돌려준다 (M8 D-A-22 —
 // `SetAttnBusyProbe` 와 같은 형식). 시계를 되돌리는 코드를 검사마다 적지 않는다.
-func stubAttnNow(f func() int64) (restore func()) {
-	prev := attnNow
-	attnNow = f
-	return func() { attnNow = prev }
-}
+func stubAttnNow(f func() int64) (restore func()) { return setAttnNow(f) }
 
 // TC-PAN-8/9/10: idle sweeper edge semantics.
 // TC-PAN-8/9/10: idle sweeper edge semantics.
 func TestTool_MaybeIdle_FiresOncePerQuietEdge(t *testing.T) {
-	defer func(orig func(*Tool) bool) { attnBusyProbe = orig }(attnBusyProbe)
-	attnBusyProbe = func(*Tool) bool { return true } // tool has a running agent
+	defer SetAttnBusyProbe(func(*Tool) bool { return true })() // tool has a running agent
 	var mu sync.Mutex
 	var attn, clear []string
 	p := newAttnPane("1", &mu, &attn, &clear)
@@ -99,13 +94,12 @@ func TestTool_MaybeIdle_NoActivityNeverFires(t *testing.T) {
 // Idle must NOT fire for a bare shell (no foreground process) — this is the
 // daemon-restart flood guard.
 func TestTool_MaybeIdle_GatedByBusy(t *testing.T) {
-	defer func(orig func(*Tool) bool) { attnBusyProbe = orig }(attnBusyProbe)
 	var mu sync.Mutex
 	var attn, clear []string
 	const threshold = int64(1000)
 
 	// Not busy → armed+quiet but no fire.
-	attnBusyProbe = func(*Tool) bool { return false }
+	defer SetAttnBusyProbe(func(*Tool) bool { return false })()
 	pIdle := newAttnPane("1", &mu, &attn, &clear)
 	startStaleWork(pIdle) // FR-ATF-1·ATN-10 의 전제 (아래 pBusy 도 같다)
 	pIdle.LastOutputAt.Store(0)
@@ -116,7 +110,7 @@ func TestTool_MaybeIdle_GatedByBusy(t *testing.T) {
 	}
 
 	// Busy → fires.
-	attnBusyProbe = func(*Tool) bool { return true }
+	defer SetAttnBusyProbe(func(*Tool) bool { return true })()
 	pBusy := newAttnPane("2", &mu, &attn, &clear)
 	startStaleWork(pBusy)
 	pBusy.LastOutputAt.Store(0)
@@ -146,8 +140,7 @@ func TestTool_MaybeIdle_DisabledThreshold(t *testing.T) {
 // 말한 사실은 L1 이 이미 알렸고, 그 뒤의 정적은 새 사건이 아니다 (FR-ATN-10).
 // 진행 중에 던진 `waiting`(권한 요청·질문)은 그대로 운다.
 func TestTool_MaybeIdle_SuppressedWhileWorking(t *testing.T) {
-	defer func(orig func(*Tool) bool) { attnBusyProbe = orig }(attnBusyProbe)
-	attnBusyProbe = func(*Tool) bool { return true }
+	defer SetAttnBusyProbe(func(*Tool) bool { return true })()
 	var mu sync.Mutex
 	var attn, clear []string
 	const threshold = int64(1000)

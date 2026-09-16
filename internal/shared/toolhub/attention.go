@@ -2,6 +2,7 @@ package toolhub
 
 import (
 	"bytes"
+	"sync/atomic"
 	"time"
 
 	"dongminal/internal/shared/dmenv"
@@ -46,9 +47,30 @@ const (
 // 임계값(10초)과 두 자릿수 차이를 둔다.
 const AttnWorkingStale = int64(5 * time.Minute)
 
-// attnNow returns the current time in unix-nanos. It is a package variable so
-// tests can substitute a deterministic clock (mirrors toolBusyProbe).
-var attnNow = func() int64 { return time.Now().UnixNano() }
+// attnNow 는 지금을 unix-nanos 로 답한다. 검사가 결정론적 시계로 갈아 끼울 수
+// 있게 **바꿀 수 있는 자리**로 둔다 (attnBusyProbe 와 같은 형식).
+//
+// **원자적인 이유**: 이 값을 읽는 것은 `readPTY` 고루틴이고(`observeOutput`),
+// 바꾸는 것은 검사의 본체다. 맨 변수로 두면 앞선 검사가 남긴 읽기 고루틴과
+// 다음 검사의 쓰기가 겹쳐 `-race` 가 운다 — `-shuffle=on` 이 그 조합을 만드는
+// 회차에서만이라 오래 숨어 있었다 (2026-09-16 CI 실측, 시드 1789521661969676951).
+//
+// nil 이면 진짜 시계다. 그래서 기본을 세우는 `init` 이 필요 없고, 되돌리기는
+// 이전 포인터(nil 일 수 있다)를 그대로 넣는 일이 된다.
+var attnNowFn atomic.Pointer[func() int64]
+
+func attnNow() int64 {
+	if f := attnNowFn.Load(); f != nil {
+		return (*f)()
+	}
+	return time.Now().UnixNano()
+}
+
+// setAttnNow 는 시계를 갈아 끼우고 되돌리는 함수를 돌려준다 (검사 전용).
+func setAttnNow(f func() int64) (restore func()) {
+	prev := attnNowFn.Swap(&f)
+	return func() { attnNowFn.Store(prev) }
+}
 
 // AttentionIdleThreshold resolves the L2 idle threshold: env override
 // (DONGMINAL_ATTENTION_IDLE_MS) or the named default. 0 disables L2.

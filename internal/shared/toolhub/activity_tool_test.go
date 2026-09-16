@@ -69,8 +69,7 @@ func TestTool_Activity_NilUntilReported(t *testing.T) {
 // FR-AAP-4 / TC-AAP-7: ActivitySnapshot returns only tools that have reported
 // activity, sorted by id for determinism.
 func TestToolManager_ActivitySnapshot(t *testing.T) {
-	defer func(o func(*Tool) bool) { attnBusyProbe = o }(attnBusyProbe)
-	attnBusyProbe = func(*Tool) bool { return true } // agents alive
+	defer SetAttnBusyProbe(func(*Tool) bool { return true })() // agents alive
 	m := NewToolManager("", nil)
 	t.Cleanup(m.StopSaving)
 	p1 := &Tool{ID: "1"}
@@ -100,8 +99,7 @@ func TestToolManager_ActivitySnapshot(t *testing.T) {
 // from the snapshot so a stale "working" never lingers after an abnormal exit.
 // Terminal states (done/waiting/idle) are kept regardless of busy.
 func TestToolManager_ActivitySnapshot_PrunesDeadWorking(t *testing.T) {
-	defer func(o func(*Tool) bool) { attnBusyProbe = o }(attnBusyProbe)
-	attnBusyProbe = func(*Tool) bool { return false } // agent dead
+	defer SetAttnBusyProbe(func(*Tool) bool { return false })() // agent dead
 	m := NewToolManager("", nil)
 	t.Cleanup(m.StopSaving)
 	pw := &Tool{ID: "1"}

@@ -141,6 +141,41 @@ export function echoCmd(text: string): string {
 }
 
 /**
+ * **번호가 붙은 줄 N 개**를 내는 조각 (`<prefix>1<suffix>` … `<prefix>N<suffix>`).
+ *
+ * `for i in 1 2 3; do echo …; done` 은 **bash 의 문법**이다. pwsh 에 그대로 치면
+ * 아무 줄도 나오지 않고, 그것을 세는 검사는 `0` 을 받는다 — `term-size` 의
+ * TC-M9-3b 가 Windows 에서 내내 그렇게 졌다 (2026-09-16 실측: 기대 8, 받은 0).
+ *
+ * 재려는 것은 *여러 줄이 두 클라이언트에 같게 보이는가* 이지 셸의 반복 문법이
+ * 아니다. 그래서 이 파일의 다른 셋과 같은 자리에 둔다.
+ */
+export function numberedLinesCmd(prefix: string, n: number, suffix: string): string {
+  if (isWin) return `1..${n} | ForEach-Object { "${prefix}$_${suffix}" }`;
+  const list = Array.from({ length: n }, (_, i) => i + 1).join(' ');
+  return `for i in ${list}; do echo "${prefix}$i${suffix}"; done`;
+}
+
+/**
+ * `text` 를 찍고, **그 터미널의 오른쪽 끝 열**로 커서를 옮겨 `mark` 를 찍는 조각.
+ *
+ * 줄바꿈이 아니라 **절대 좌표**(`ESC [ <W> G`)이므로 xterm 의 리플로우로는
+ * 되돌아가지 않는다 — 다시 그리는 길이 전량 재생뿐이라는 사실을 재는 자리가
+ * 이것을 쓴다 (`term-reclaim` TC-M10-2).
+ *
+ * `printf`·`tput` 은 bash 의 것이다. pwsh 에서는 폭을 호스트에게 묻고 ESC 를
+ * `[char]27` 로 만든다 — 그 판에서 이 명령이 다른 글을 찍는 바람에 길이가
+ * 어긋났다 (2026-09-16 실측: 기대 164, 받은 18).
+ */
+export function cursorEndMarkCmd(text: string, mark: string): string {
+  if (isWin) {
+    return `Write-Host -NoNewline '${text}'; ` +
+      `Write-Host ("$([char]27)[" + $Host.UI.RawUI.WindowSize.Width + "G${mark}")`;
+  }
+  return `printf '${text}'; printf '\\033[%dG${mark}\\n' $(tput cols)`;
+}
+
+/**
  * 차례로 잇는다.
  *
  * **`;` 다.** `&&` 는 pwsh 7 도 받지만, 세 조각을 한 줄로 이어 타이핑하면 그 셸이
