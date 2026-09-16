@@ -159,7 +159,7 @@
 
 ### 프로덕션 기준선
 
-문서화된 업그레이드 절차(바이너리 교체 → `start` 가 판 불일치를 감지해 "데몬 재시작 필요(세션 손실)" 를 알리거나, 데몬을 무중단 교체하는 설계) · 롤백 절차(하위 판이 상위 스키마를 만나면 거부 + 자동 백업에서 복원 안내) · 업데이트 확인(`dongminal update --check`, 옵트인) · `dongminal uninstall --dry-run` · 릴리스 발행이 e2e 를 기다림 · 최소 Homebrew tap · 스키마 사다리(N→N+1 함수 목록 + 파일별 버전 필드).
+문서화된 업그레이드 절차(바이너리 교체 → `start` 가 판 불일치를 감지해 "데몬 재시작 필요(세션 손실)" 를 알리거나, 데몬을 무중단 교체하는 설계) · 롤백 절차(하위 판이 상위 스키마를 만나면 거부 + 자동 백업에서 복원 안내) · 업데이트 확인(`dongminal update --check` 수동 + 서버 자동 확인·상태바 배지, **옵트아웃** — UPDATE_NOTICE_SRS) · `dongminal uninstall --dry-run` · 릴리스 발행이 e2e 를 기다림 · 최소 Homebrew tap · 스키마 사다리(N→N+1 함수 목록 + 파일별 버전 필드).
 
 ### 갭
 
@@ -167,7 +167,7 @@
 |---|---|---|---|---|
 | G3-1 | **필수** | 업그레이드 절차 미정의 + 데몬↔서버 판 불일치 미감지 | `paned.go:170` hello 에 `cli.Version` 실기(데몬은 `boot.Run` 인자로 이미 받는다), `toolclient/client.go:137` 대조, `start.go:66-70` 안내 분기, `health.go`·G2-2 헬스에 노출, getting-started 에 "업그레이드" 절 | M |
 | G3-2 | **필수** | 롤백 경로 없음 — 상위 스키마 조용히 읽음, 백업 없음 | `workspace/manager.go:541` `>` 거부 + 안내, G4-1 백업 세대와 연동, 문서 | M |
-| G3-3 | 권장 | 업데이트 확인·알림(옵트인, GitHub Releases API, 상태바 배지 또는 `start` 출력 한 줄) | 신규 `ctl/cli/update.go`, `handlers_api.go` `/api/version`, 프론트 상태바 | M |
+| G3-3 | 권장 | 업데이트 확인·알림(**옵트아웃** — 기본 켜짐·설정에서 끔·최초 1회 고지·`DONGMINAL_NO_UPDATE_CHECK` 킬스위치, GitHub Releases API, 상태바 배지) | `ctl/cli/update.go`, `shared/release`, `shared/updatecheck`, `handlers_update.go` `/api/update`, 프론트 상태바 (UPDATE_NOTICE_SRS) | M |
 | G3-4 | 권장 | 설치 제거 명령·문서(무엇이 어디에 남는지 목록 포함) | 신규 `ctl/cli/uninstall.go`, `docs/external/getting-started.md` | S |
 | G3-5 | 권장 | 릴리스 발행이 e2e 게이트를 기다리지 않음 | `release.yml` `publish.needs` 에 e2e 워크플로 결과(`workflow_run` 또는 잡 통합) | S |
 | G3-6 | 권장 | 패키지 매니저 채널(최소 Homebrew tap; Windows `winget`) — `xattr` 안내가 필요한 현재 설치 경험의 근본 해법 | 신규 tap 저장소, `release.yml` formula 갱신 스텝 | M |

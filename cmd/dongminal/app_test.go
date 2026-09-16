@@ -7,7 +7,7 @@ import "testing"
 // 언어 서버 정지 → 워크스페이스 flush 순이다. 이름의 순서를 잰다.
 func TestShutdownSteps_OrderIsTheContract(t *testing.T) {
 	a := &app{}
-	want := []string{"마커", "데몬 연결", "도구 저장", "샌드박스", "LSP", "워크스페이스"}
+	want := []string{"마커", "데몬 연결", "도구 저장", "샌드박스", "LSP", "판 확인", "워크스페이스"}
 	steps := a.shutdownSteps()
 	if len(steps) != len(want) {
 		t.Fatalf("단계 수 %d, want %d", len(steps), len(want))

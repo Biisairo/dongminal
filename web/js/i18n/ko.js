@@ -352,6 +352,7 @@ I18N.register('ko', {
 
   // ── err ──
   'err.access_store_unavailable': '허용 목록 계층이 아직 서지 않았습니다.',
+  'err.update_unavailable': '이 서버는 판 확인 없이 돕니다.',
   'err.bad_request': '요청의 모양이 규약과 다릅니다.',
   'err.body_too_large': '본문이 상한을 넘었습니다.',
   'err.conflict': '다른 변경이 먼저 반영되어 지금 상태와 어긋납니다.',
@@ -832,6 +833,12 @@ I18N.register('ko', {
   'html.mode_hint': '\'Auto\' 모드에서 창 너비가 Breakpoint보다 작으면 모바일 레이아웃으로 전환됩니다.',
   'html.mode_mobile': 'Mobile (강제)',
   'html.notify_hint': '데스크톱 알림은 브라우저 권한 허용이 필요합니다. 시각 강조와 탭 제목 배지는 항상 동작합니다.',
+
+  // UPDATE_NOTICE_SRS FR-UPD-9·15
+  'html.update_check': '업데이트 알림',
+  'html.update_check_hint': '새 판이 나오면 상태바에 알립니다. 서버가 GitHub 릴리스를 하루 한 번, 그리고 화면을 열 때 확인합니다. 끄면 확인 자체가 돌지 않습니다.',
+  'update.badge': '새 판 {version}',
+  'update.badge_title': '{version} 이(가) 나왔습니다 — 릴리스 페이지를 엽니다',
   'html.page_title': '페이지 제목',
   'html.page_title_hint': '브라우저 탭에 뜨는 이름입니다. 여러 대에 띄웠을 때 탭 줄에서 구분됩니다. 비우면 \'Dongminal\' 로 돌아갑니다.',
   'html.polling_hint': '숨은 브라우저 탭과 보이지 않는 화면에서는 아무것도 묻지 않고, 돌아오면 즉시 한 번 갚습니다. 창 전환·저장·git 명령처럼 결과를 곧바로 봐야 하는 순간은 주기와 무관하게 그때 갱신합니다.',

@@ -16,6 +16,8 @@
 | PUT | `/api/workspace` | workspace 저장. `If-Match: <rev>` 로 낙관적 동시성 제어. stale 시 409 + 최신 `ETag` 반환 |
 | GET | `/api/settings` | 설정 조회 |
 | PUT | `/api/settings` | 설정 저장 (`settings.json` 즉시 영속화) |
+| GET | `/api/update` | 마지막 판 확인 결과 — `{ enabled, current, latest, newer, link, checkedAt, failed }`. **밖으로 나가지 않습니다** (캐시만 읽음) |
+| PUT | `/api/update` | 자동 판 확인 토글 — `{ enabled: bool }`. `server.json` 의 `updateCheck` 에 남습니다 (설정 블롭이 아닙니다) |
 | GET | `/api/stats` | `{ hostname, cpu, memUsed, memTotal, diskPct, sysUptime, srvUptime }` |
 | GET | `/api/ping` | `"ok"` (레이턴시 측정용) |
 

@@ -130,6 +130,11 @@ var apiRoutes = []apiRoute{
 	httproute.Put("/api/workspace", (*Server).apiWorkspacePut),
 	httproute.Get("/api/settings", (*Server).apiSettingsGet),
 	httproute.Put("/api/settings", (*Server).apiSettingsPut),
+	// UPDATE_NOTICE_SRS FR-UPD-7·13 — 배지가 읽는 캐시와, 그것을 켜고 끄는 토글.
+	// 토글이 `/api/settings` 가 아닌 것은 D-UPD-2 다: 서버가 읽어야 하는 값이고,
+	// 설정 블롭은 서버가 해석하지 않는다.
+	httproute.Get("/api/update", (*Server).apiUpdateGet),
+	httproute.Put("/api/update", (*Server).apiUpdatePut),
 	// ACCESS_ALLOWLIST_SRS FR-ACL-19·20. 게이트 **뒤**에 있다 — 허용된 기기는
 	// 이미 PTY 전권이라 access.json 을 직접 고칠 수 있고, 종단만 막는 것은
 	// 방어가 아니면서 원격 관리만 불가능하게 만든다 (FR-ACL-21).

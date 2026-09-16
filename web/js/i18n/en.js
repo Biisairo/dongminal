@@ -342,6 +342,7 @@ I18N.register('en', {
 
   // ── err ──
   'err.access_store_unavailable': 'The allowlist layer is not up yet.',
+  'err.update_unavailable': 'This server runs without update checks.',
   'err.bad_request': 'The request does not match the contract.',
   'err.body_too_large': 'The body exceeds the limit.',
   'err.conflict': 'Another change was applied first and conflicts with the current state.',
@@ -824,6 +825,12 @@ I18N.register('en', {
   'html.mode_hint': 'In \'Auto\' mode the mobile layout is used when the window is narrower than the breakpoint.',
   'html.mode_mobile': 'Mobile (forced)',
   'html.notify_hint': 'Desktop notifications need browser permission. Visual highlights and the tab-title badge always work.',
+
+  // UPDATE_NOTICE_SRS FR-UPD-9·15
+  'html.update_check': 'Update notices',
+  'html.update_check_hint': 'Tells you in the status bar when a new release is out. The server asks GitHub once a day and when you open the screen. Turning this off stops the check itself.',
+  'update.badge': 'New {version}',
+  'update.badge_title': '{version} is out — opens the release page',
   'html.page_title': 'Page title',
   'html.page_title_hint': 'The name shown in the browser tab. Tells machines apart in the tab bar when several are open. Empty falls back to \'Dongminal\'.',
   'html.polling_hint': 'Hidden browser tabs and invisible screens ask for nothing, and catch up once immediately on return. Moments whose result must be seen right away — switching windows, saving, git commands — refresh then, regardless of the interval.',

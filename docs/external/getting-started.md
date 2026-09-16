@@ -310,6 +310,7 @@ CI 가 잡습니다 (`scripts/check-env-docs.sh`) — 문서는 조용히 낡으
 | `DONGMINAL_HOME` | `~/.dongminal` | 설치 루트. `bin/`(런타임 헬퍼), `server.json`, `settings.json`, `access.json`(접속 허용 목록), `workspace.json`, `tools.json`, `notes/`(메모장) 모두 이 아래. 없으면 서버 기동 시 자동 생성 |
 | `DONGMINAL_LOG` | `/tmp/dongminal.log`<br>(Windows: `%LOCALAPPDATA%` 아래) | `start` 가 배경 모드에서 서버 로그를 리다이렉트할 파일 |
 | `DONGMINAL_LOG_LEVEL` | `info` | 로그 수준 — `debug`·`info`·`warn`·`error`. 알 수 없는 값은 `info` 로 떨어집니다 |
+| `DONGMINAL_NO_UPDATE_CHECK` | (없음) | `1` 이면 서버가 새 판을 **확인하지 않습니다**. `server.json` 의 `updateCheck` 와 설정 화면의 토글보다 **먼저** 이깁니다 — 에어갭·CI 환경에서 한 줄로 막는 자리입니다. `dongminal update --check` 는 사람이 직접 친 명령이므로 이 변수와 무관하게 동작합니다 |
 | `DONGMINAL_RESTART_RUNNER` | (내부) | **직접 설정하지 마세요.** `--restart-daemon` 이 재시작을 대리 프로세스에 넘길 때 그 대리에게 심는 표시입니다 — 대리가 다시 위임하지 않게 하는 것이 전부입니다 |
 
 ### 도구 셸에 주입되는 값

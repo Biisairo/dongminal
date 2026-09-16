@@ -14,6 +14,7 @@ import (
 	"dongminal/internal/shared/runtime"
 	"dongminal/internal/shared/serverconf"
 	"dongminal/internal/shared/toolhub"
+	"dongminal/internal/shared/updatecheck"
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/httpapi"
 	"dongminal/internal/webserver/hub"
@@ -31,6 +32,9 @@ type app struct {
 	panedClient      *toolclient.ToolClient
 	bd               builtDeps
 	srv              *httpapi.Server
+	// updates 는 최신 판 캐시다 (UPDATE_NOTICE_SRS). 조립에서 만들고 run 이
+	// 시작하며 종료 표가 멈춘다 — 시계를 가진 다른 것들과 같은 수명이다.
+	updates *updatecheck.Checker
 }
 
 // buildApp 은 조립이다 — 로그 계층·헬퍼 설치·데몬 연결·의존 배선·서버·해석층
@@ -76,6 +80,23 @@ func buildApp(home, host, port string) (*app, error) {
 		return nil, err
 	}
 	dmlog.Infof(nil, "workspace manager ready rev=%d bytes=%d", a.bd.wsMgr.CurrentRev(), len(a.bd.wsMgr.Raw()))
+
+	// UPDATE_NOTICE_SRS FR-UPD-1·8a: 확인 주체는 **서버 프로세스 하나**다.
+	// 브라우저가 몇이든 확인 횟수는 늘지 않고, 결과가 바뀌었을 때만 방송한다.
+	//
+	// 여기서 만드는 것은 방송 상대(`Commands`)가 이미 서 있는 자리가 여기이기
+	// 때문이다. buildDeps 안에서 만들면 `conf` 를 한 번 더 읽어야 한다.
+	a.updates = updatecheck.New(updatecheck.Options{
+		Home:    home,
+		Current: cli.Version,
+		Enabled: conf.UpdateCheck,
+		Broadcast: func() {
+			if a.bd.deps.Commands != nil {
+				a.bd.deps.Commands.Broadcast(hub.UpdateChangedPayload())
+			}
+		},
+	})
+	a.bd.deps.Updates = a.updates
 
 	a.srv, err = httpapi.New(cfg, a.bd.deps)
 	if err != nil {
@@ -166,6 +187,12 @@ func (a *app) run(ctx context.Context) error {
 	// 인터페이스 주소를 주기적으로 갱신한다. 요청 경로는 그 결과만 읽는다 —
 	// 게이트 판정에 DNS 왕복이 붙으면 모든 요청이 그만큼 느려진다.
 	a.srv.StartAccessRefresh(ctx.Done())
+	// UPDATE_NOTICE_SRS FR-UPD-2 ①·③: 기동 확인 한 번과 24시간 마감.
+	// 마감은 **한 번도 끄지 않고 띄워 둔 세션**만을 위한 보조다 — 갱신의 주된
+	// 계기는 SSE 연결 수립이고 그쪽은 요청 경로에 있다.
+	if a.updates != nil {
+		a.updates.Start()
+	}
 	// RECONNECT_STORM_SRS FR-LOG-1: 서버가 자기 로그의 크기를 스스로 지킨다.
 	// 폭주가 4.17 GB 를 만든 뒤에도 상한이 없다는 사실은 그대로였다.
 	go cli.WatchLogSize(ctx.Done())
@@ -245,6 +272,11 @@ func (a *app) shutdownSteps() []shutdownStep {
 		{"LSP", func() {
 			if a.bd.lspSvc != nil {
 				a.bd.lspSvc.Shutdown()
+			}
+		}},
+		{"판 확인", func() {
+			if a.updates != nil {
+				a.updates.Stop()
 			}
 		}},
 		{"워크스페이스", func() {

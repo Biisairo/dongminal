@@ -38,6 +38,11 @@ const (
 // DefaultLogLevel 은 `logLevel` 의 기본이다.
 const DefaultLogLevel = "info"
 
+// DefaultUpdateCheck 는 서버의 자동 판 확인 기본값이다 (UPDATE_NOTICE_SRS
+// FR-UPD-12). **켜져 있다** — 종전의 옵트인이 회수하지 못한 대가가 그 반대편에
+// 있었다(§2.2). 대신 처음 한 번 고지하고(FR-UPD-10) 끌 수 있게 한다.
+const DefaultUpdateCheck = true
+
 // Value 는 실효값과 그 출처다.
 type Value struct {
 	Value  string `json:"value"`
@@ -68,6 +73,14 @@ type Resolved struct {
 	LogFile  Value    `json:"logFile"`
 	Warnings []string `json:"warnings,omitempty"`
 
+	// UpdateCheck 는 서버가 스스로 판을 확인하는가다 (FR-UPD-12). 계층이 넷이
+	// 아니라 **파일과 기본값 둘**뿐인 것은 이 값이 기동 인자가 아니기 때문이다 —
+	// 사용자가 화면에서 켜고 끄고, 그 결정이 파일에 남는다.
+	UpdateCheck bool `json:"updateCheck"`
+	// UpdateCheckSet 은 파일에 그 키가 **적혀 있었는가**다. 최초 고지가 이것을
+	// 표식으로 쓴다 (FR-UPD-10) — 적힌 적 없다는 것이 곧 아직 알리지 않았다는 뜻이다.
+	UpdateCheckSet bool `json:"updateCheckSet"`
+
 	portErr error
 }
 
@@ -78,10 +91,16 @@ type file struct {
 	Port     *string `json:"port"`
 	LogLevel *string `json:"logLevel"`
 	LogFile  *string `json:"logFile"`
+
+	// updateCheck 는 **구조체 태그로 읽지 않는다** (FR-UPD-16). 태그로 읽으면
+	// `"updateCheck":"yes"` 한 줄이 Unmarshal 전체를 깨뜨려 host·port 까지 함께
+	// 잃는다 — 한 키의 오타가 포트를 날리는 것은 이 파일의 계약(C-4)이 아니다.
+	// 아래 readFile 이 raw 표에서 따로 읽는다.
+	updateCheck *bool
 }
 
 // knownKeys 는 파일이 아는 키다. 밖의 키는 경고이지 실패가 아니다 (D-CFG-4).
-var knownKeys = map[string]bool{"host": true, "port": true, "logLevel": true, "logFile": true}
+var knownKeys = map[string]bool{"host": true, "port": true, "logLevel": true, "logFile": true, "updateCheck": true}
 
 // Resolve 는 네 계층을 지나 실효값을 정한다.
 //
@@ -104,6 +123,12 @@ func Resolve(in Inputs) Resolved {
 		f.Port, dmenv.DefaultPort)
 	r.LogLevel = pick(in.FlagLogLevel, []envRef{{EnvLogLevel, getenv(EnvLogLevel)}}, f.LogLevel, DefaultLogLevel)
 	r.LogFile = pick(in.FlagLogFile, []envRef{{EnvLogFile, getenv(EnvLogFile)}}, f.LogFile, in.DefaultLogFile)
+
+	r.UpdateCheck = DefaultUpdateCheck
+	if f.updateCheck != nil {
+		r.UpdateCheck = *f.updateCheck
+		r.UpdateCheckSet = true
+	}
 
 	r.portErr = checkPort(r.Port)
 	return r
@@ -162,6 +187,14 @@ func readFile(home string) (file, []string) {
 		sort.Strings(unknown)
 		for _, k := range unknown {
 			warns = append(warns, fmt.Sprintf("%s: 알 수 없는 키 %q (무시합니다)", FileName, k))
+		}
+		if v, ok := raw["updateCheck"]; ok {
+			var b bool
+			if json.Unmarshal(v, &b) == nil {
+				f.updateCheck = &b
+			} else {
+				warns = append(warns, fmt.Sprintf("%s: updateCheck 가 true/false 가 아닙니다 (기본값 %v 를 씁니다)", FileName, DefaultUpdateCheck))
+			}
 		}
 	}
 	return f, warns

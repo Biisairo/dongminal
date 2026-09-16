@@ -199,6 +199,12 @@ const INHERITED_INSTANCE_ENV = [
 function hermeticEnv(): NodeJS.ProcessEnv {
   const env = { ...process.env };
   for (const k of INHERITED_INSTANCE_ENV) delete env[k];
+  // UPDATE_NOTICE_SRS TC-UPD-14 / FR-UPD-11: **검사는 진짜 GitHub 으로 나가지
+  // 않는다.** 판 확인은 기본이 켜짐이므로 막지 않으면 워커 수 × 연결 수만큼
+  // api.github.com 을 친다 — 남의 서비스에 부하를 주는 것과 별개로, 그 응답이
+  // 검사의 입력이 되는 순간 결정론이 사라진다. 배지 동작 자체는 `/api/update`
+  // 를 가로채는 update-notice.spec.ts 가 잰다.
+  env.DONGMINAL_NO_UPDATE_CHECK = '1';
   return env;
 }
 

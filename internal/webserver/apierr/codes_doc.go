@@ -65,6 +65,8 @@ var CodeDoc = map[string]Doc{
 	CodeCorruptAsset: {"내장 자산을 읽지 못했습니다.", "바이너리가 손상됐을 수 있습니다. 다시 내려받아 설치하세요."},
 
 	// ── git 실행 환경 ──
+	CodeUpdateUnready: {"판 확인 계층을 쓸 수 없는 서버입니다.", "이 서버는 자동 판 확인 없이 돕니다. 직접 확인하려면 dongminal update --check 를 쓰세요."},
+
 	CodeNotRepo:     {"그 자리가 git 저장소가 아닙니다.", "저장소 안의 경로를 지목하세요."},
 	CodeRepoMissing: {"등록된 저장소가 디스크에 없습니다.", "옮기거나 지웠다면 목록에서 빼세요."},
 	CodeGitMissing:  {"git 실행 파일을 찾지 못했습니다.", "git 을 설치하고 PATH 에 있는지 확인하세요."},

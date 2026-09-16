@@ -96,6 +96,28 @@ const STATE_REGISTRY=[
   },
   {
     /**
+     * UPDATE_NOTICE_SRS FR-UPD-9a — **배지도 상태다.**
+     *
+     * `every` 가 없다. 하루에 한 번 바뀌는 값에 주기를 붙이면 `_pollStats` 의
+     * 3초마다 묻게 되고 그건 28,800배의 낭비다 (D-UPD-4). 대신 값이 바뀌면
+     * 서버가 `update_changed` 로 민다 (FR-UPD-8a).
+     *
+     * `revalidateOn:['sse:open']` 이 페이지 로드와 재연결의 재조회를 그대로
+     * 준다. **서버 쪽 확인을 거는 것은 이쪽이 아니다** — 그건 서버의 SSE 연결
+     * 훅이고(FR-UPD-2 ②), 여기서 하는 일은 캐시를 읽는 것뿐이다.
+     *
+     * `merge:'latest'` 는 `background`·`settings` 와 같은 근거다 — 방송이
+     * 증분을 나르지 않고 "다시 받으라" 는 신호다.
+     */
+    id:'update',
+    restore:'_updateRestore',
+    merge:'latest',
+    flight:'update',
+    events:{update_changed:'_updateRestore'},
+    revalidateOn:['sse:open','softreload'],
+  },
+  {
+    /**
      * GIT_PUSH_OBSERVE_SRS — **서버가 밀어 준다.**
      *
      * `every` 가 없다. 종전에는 브라우저가 signature 를 500ms 마다 물어 변화를

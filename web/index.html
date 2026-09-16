@@ -226,6 +226,11 @@
     </div>
     <div id="status-bar" class="status-bar">
       <span id="sb-items"></span>
+      <!-- UPDATE_NOTICE_SRS FR-UPD-9: 새 판이 있을 때만 보인다. 최신이거나
+           확인에 실패했거나 꺼져 있으면 아무것도 보이지 않는다.
+           `#bg-btn` 과 같은 규약으로 **정적 요소**다 — 지표 재생성 주기에
+           종속되면 안 된다 (FR-BGU-4). 내용은 app-update.js 가 채운다. -->
+      <a id="update-badge" class="sb-update" hidden target="_blank" rel="noopener noreferrer"></a>
     </div>
   </div>
   <div id="agents-handle"></div>
@@ -421,6 +426,16 @@
             <input type="checkbox" id="attn-sound">
           </div>
           <div class="ds-hint" data-i18n="html.notify_hint"></div>
+          <!-- UPDATE_NOTICE_SRS FR-UPD-15: 사용자에게 설정은 한 곳이다.
+               **이 행만 `/api/update` 로 간다** — 설정 블롭이 아니다 (D-UPD-2).
+               서버가 읽어야 하는 값이고, 블롭에 두면 서버가 블롭을 파싱해야
+               해서 D-CFG-1 이 그 자리에서 깨진다. 저장 경로가 둘인 것은 내부
+               사정이며 화면에 새지 않는다. -->
+          <div class="ds-row">
+            <span data-i18n="html.update_check"></span>
+            <input type="checkbox" id="ds-update-check">
+          </div>
+          <div class="ds-hint" data-i18n="html.update_check_hint"></div>
           <!-- TLS-1: 평문 HTTP 접속이면 브라우저가 Notification 을 통째로 막는다.
                사유와 대체 수단을 여기 적는다. 문구는 `_attnSecurityNotice` 가 넣는다 —
                조건이 런타임에 결정되므로 마크업에 박을 수 없다. -->
@@ -759,6 +774,7 @@
 <!-- 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS). app.js 뒤·main.js 앞이면 된다. -->
 <script src="js/core/app-backup.js?v=__ASSETV__"></script>
 <script src="js/core/app-statusbar.js?v=__ASSETV__"></script>
+<script src="js/core/app-update.js?v=__ASSETV__"></script>
 <script src="js/core/app-presets.js?v=__ASSETV__"></script>
 <script src="js/core/app-dnd.js?v=__ASSETV__"></script>
 <!-- APP_TESTING_CONTRACT_SRS FR-ATC-1·7: e2e 가 보는 공개 계약.

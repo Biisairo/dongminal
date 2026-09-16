@@ -223,6 +223,9 @@ class InputBinding {
     document.getElementById('search-close').addEventListener('click',()=>this.app.closeSearch());
     this.app.initModal();
     this.app.initStatusBar();
+    // UPDATE_NOTICE_SRS FR-UPD-15: 토글의 리스너를 한 번만 붙인다 — `#bg-btn`
+    // 과 같은 규약이다 (FR-BGU-4). 값은 `_updateRender` 가 채운다.
+    this.app.initUpdateSettings();
     this.app.initPresets();
     this.app.initMobile();
     this.app.initMobileKeybar();

@@ -1021,6 +1021,14 @@ body.mobile .tp-ov-acts .ui-btn{padding:0 14px}
   flex-shrink:0;max-width:100%;white-space:nowrap;margin-left:-1px}
 .sb-item+.sb-item{border-left:1px solid var(--border)}
 .sb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+/* UPDATE_NOTICE_SRS FR-UPD-9: 새 판 배지. 지표들 오른쪽 끝에 홀로 선다 —
+   `.sb-item` 의 구분선 규약에 끼면 없을 때 빈 칸이 남는다. `hidden` 이 기본이며
+   보일 때만 자리를 차지한다. */
+.sb-update{margin-left:auto;flex-shrink:0;padding:0 8px;line-height:16px;white-space:nowrap;
+  border-radius:3px;background:var(--term-green);color:var(--sidebar-bg);
+  font-weight:600;text-decoration:none;cursor:pointer}
+.sb-update:hover{filter:brightness(1.1)}
+.sb-update[hidden]{display:none}
 .sb-dot.ok{background:var(--term-green)}
 .sb-dot.err{background:var(--danger)}
 .sb-sep{color:var(--border);margin:0 2px}

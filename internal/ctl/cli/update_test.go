@@ -8,11 +8,11 @@ import (
 	"testing"
 )
 
-// M5 `G3-3` — `dongminal update --check`.
+// `dongminal update --check` — 사람이 직접 묻는 자리다 (UPDATE_NOTICE_SRS
+// FR-UPD-17).
 //
-// **옵트인이다.** 이 제품은 스스로 판을 확인하지 않는다 — 상시 노출된 작업
-// 도구가 묻지 않고 밖으로 나가면, 그 사실 자체가 사용자가 통제하지 못하는
-// 트래픽이 된다.
+// **`--check` 없이는 이 명령이 밖으로 나가지 않는다.** 자동 확인은 서버가 하며
+// 그쪽은 설정으로 끈다 — 두 경로를 한 플래그에 묶지 않는다.
 
 func releaseServer(t *testing.T, tag string) *httptest.Server {
 	t.Helper()
@@ -68,7 +68,7 @@ func TestUpdateCheckDevBuild(t *testing.T) {
 	}
 }
 
-// **`--check` 없이는 밖으로 나가지 않는다.** 옵트인이 이 명령의 계약이다.
+// **`--check` 없이는 밖으로 나가지 않는다.** 인자 없는 호출은 안내만 한다.
 func TestUpdateWithoutCheckDoesNotFetch(t *testing.T) {
 	var hit int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -99,24 +99,5 @@ func TestUpdateCheckNetworkFailure(t *testing.T) {
 	}
 	if strings.Contains(errw.String(), "panic") {
 		t.Error("패닉")
-	}
-}
-
-// 판 비교는 SemVer 다 — 문자열 비교면 `v1.10.0` 이 `v1.9.0` 보다 작아진다.
-func TestVersionNewer(t *testing.T) {
-	for _, tc := range []struct {
-		a, b string
-		want bool
-	}{
-		{"v1.10.0", "v1.9.0", true},
-		{"v1.9.0", "v1.10.0", false},
-		{"v2.0.0", "v1.99.99", true},
-		{"v1.0.1", "v1.0.0", true},
-		{"v1.0.0", "v1.0.0", false},
-		{"1.2.3", "v1.2.2", true},
-	} {
-		if got := versionNewer(tc.a, tc.b); got != tc.want {
-			t.Errorf("versionNewer(%q,%q) = %v, want %v", tc.a, tc.b, got, tc.want)
-		}
 	}
 }

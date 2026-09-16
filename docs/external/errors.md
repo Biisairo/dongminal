@@ -102,7 +102,8 @@
 | `undo_expired` | 되돌리기 창이 지났습니다. | git 의 reflog 로 직접 되찾아야 합니다. |
 | `unknown_action` | 모르는 명령입니다. | commands.md 의 목록을 확인하세요. 판이 뒤진 서버일 수도 있습니다. |
 | `unsafe_ignore_path` | 그 경로는 .gitignore 에 넣을 수 없습니다. | 저장소 안의 상대 경로를 쓰세요. |
+| `update_unavailable` | 판 확인 계층을 쓸 수 없는 서버입니다. | 이 서버는 자동 판 확인 없이 돕니다. 직접 확인하려면 dongminal update --check 를 쓰세요. |
 | `workspace_unavailable` | 워크스페이스 계층이 아직 서지 않았습니다. | 잠시 뒤 다시 시도하세요. |
 | `worktree_exists` | 그 자리에 이미 worktree 가 있습니다. | 다른 경로를 고르거나 기존 것을 여세요. |
 
-총 **71개**.
+총 **72개**.

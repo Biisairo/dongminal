@@ -7,6 +7,7 @@ import (
 
 	"dongminal/internal/shared/sandbox"
 	"dongminal/internal/shared/toolhub"
+	"dongminal/internal/shared/updatecheck"
 
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/domain/ext"
@@ -152,6 +153,23 @@ type Deps struct {
 	// nil 이면 /api/lsp/* 이 503 이며 그 밖의 동작에는 영향이 없다 — 코드 탐색이
 	// 없는 편집기는 종전의 편집기다.
 	LSP LSPService
+	// Updates 는 최신 판 캐시다 (UPDATE_NOTICE_SRS). nil 이면 `/api/update` 가
+	// 503 이고 SSE 연결이 아무것도 걸지 않는다 — 배지가 없는 서버는 종전의
+	// 서버다. 인터페이스인 것은 방향 때문이다: **httpapi 는 GitHub 도
+	// server.json 도 알지 않는다.**
+	Updates UpdateService
+}
+
+// UpdateService 는 판 확인의 접합면이다. `*updatecheck.Checker` 가 만족한다.
+type UpdateService interface {
+	// Snapshot 은 캐시를 읽는다. **나가지 않는다** (FR-UPD-8).
+	Snapshot() updatecheck.Snapshot
+	// Trigger 는 캐시를 채우라는 계기다. 이 계층은 **결과를 기다리지 않으며**,
+	// 구현이 막히더라도 SSE 연결이 함께 서지 않도록 고루틴으로 부른다
+	// (NFR-UPD-2).
+	Trigger()
+	// SetEnabled 는 토글을 바꾸고 server.json 에 적는다 (FR-UPD-13).
+	SetEnabled(on bool) error
 }
 
 // LSPService 는 코드 탐색의 접합면이다. 인터페이스인 것은 방향 때문이다 —

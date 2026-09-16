@@ -112,6 +112,11 @@ func RunStart(o StartOpts, serve Serve, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "dongminald 미실행 — dongminal 이 자동 기동합니다")
 	}
 
+	// UPDATE_NOTICE_SRS FR-UPD-10: 기본 켜짐을 처음 한 번 말한다. 전경·분리
+	// 두 갈래가 갈리기 **전**에 둔다 — 어느 쪽으로 뜨든 사용자가 보는 것은
+	// 같아야 한다.
+	announceUpdateCheck(home, os.Getenv, stdout)
+
 	if o.Foreground {
 		// M8_UNIFIED_SRS D-A-9 (FBE-09·10): 격리 기동은 전경에서도 **어디에 떴는지** 말하고,
 		// 도구 셸의 홈도 같은 규칙으로 격리한다.

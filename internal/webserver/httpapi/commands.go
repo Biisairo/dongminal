@@ -97,6 +97,21 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 		defer s.gitWatch.Detach(cid, ep)
 	}
 
+	// UPDATE_NOTICE_SRS FR-UPD-2 ② — **새로고침과 재연결이 여기 하나로 온다.**
+	//
+	// 그 둘을 따로 세는 코드를 두지 않는다 (D-UPD-7). 화면이 열리는 순간이
+	// 안내를 볼 수 있는 유일한 때이므로, 그때 캐시를 새로 채우는 것이 가장
+	// 정직하다. **기다리지 않는다** — Trigger 는 즉시 돌아오고, 결과가 바뀌면
+	// `update_changed` 가 그때 배지를 세운다 (FR-UPD-8a / NFR-UPD-2).
+	//
+	// **고루틴으로 떨어뜨리는 것이 이 계층의 책임이다.** Trigger 가 즉시
+	// 돌아온다는 것은 지금 구현의 성질이고, 이 연결이 막히지 않는다는 것은
+	// 이 계층의 요구다 (NFR-UPD-2). 둘을 같은 것으로 보면, 협력자가 언젠가
+	// 느려질 때 SSE 가 함께 선다.
+	if s.Updates != nil {
+		go s.Updates.Trigger()
+	}
+
 	fmt.Fprint(w, ": connected\n\n")
 	// RELOAD_CONTINUITY_SRS FR-RLC-20: **첫 이벤트로 자기 판을 말한다.** 자산은
 	// 바이너리에 박혀 있어(`web/embed.go`) 그것이 바뀌는 길은 프로세스 교체뿐이고,

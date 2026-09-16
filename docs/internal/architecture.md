@@ -111,6 +111,8 @@ internal/
     mimeprobe/           #   ②③  — 바이트 앞머리로 그림인지 (파일 종단·git 블롭 종단이 같은 한 벌, M9 FR-M9-21)
     diagtail/            #   ②③  — 실행 진단 문자열의 절단 규칙 하나 (상한은 표면마다)
     serverconf/          #   ③④  — 서버 기동값 네 계층 (플래그 > 환경 > server.json > 기본)
+    release/             #   ①③  — 최신 릴리스가 무엇인가 하나만 (update --check 와 서버 확인이 같은 판정)
+    updatecheck/         #   ③   — 최신 판 캐시 한 칸 + 트리거 넷 (끈 것은 실제로 나가지 않는다)
     settingsschema/      #   ③④  — settings-schema.js 를 같은 바이트로 읽는다 (표는 JS 가 원천)
     listorder/           #   ③   — 끌어다 놓기 한 번의 목록 반영 (gitapi·wsentry 가 공유)
     platform/            #   ①②③④ — OS 마다 갈리는 능력을 인터페이스 뒤로 (경로·프로세스·셸·소켓)
