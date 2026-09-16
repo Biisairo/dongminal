@@ -1,5 +1,5 @@
 import { test, expect, waitForInit } from './fixtures';
-import { cursorEndMarkCmd } from './osenv';
+import { cursorEndMarkCmd, ptyRecordsRawOutput } from './osenv';
 
 // V-M10-4·5 — 돌아온 기기가 자기 폭을 되찾는다 (M10_SRS FR-M10-1·2)
 //
@@ -159,6 +159,30 @@ test.describe('V-M10-4·5 — 소유를 되찾은 창이 자기 폭으로 선다
     await expect.poll(async () => (await sizeOf(narrow.page))?.ptyCols,
       { timeout: 15000, message: '되찾은 폭이 PTY 까지 닿지 않았다 (FR-M10-1 의 뒷면)' })
       .toBe(narrowCols);
+
+    /**
+     * **다시 그리기는 원본을 기록하는 전송에서만 성립한다** (2026-09-16 확정).
+     *
+     * 위 단언이 통과했다는 것은 되찾은 폭이 **PTY 까지 닿았다**는 뜻이다. 그런데도
+     * ConPTY 에서는 그 줄이 새 폭으로 서지 않는다 — 기록이 원본이 아니라 이미
+     * 그려진 화면이라 좌표가 남아 있지 않고, 다시 내보내 달라고 할 상대도 없다.
+     *
+     * 실측: 이 폴링은 15초 동안 100ms 간격으로 `WIDEMARK` 줄들의 길이를 다시
+     * 읽는다. ConPTY 가 그 사이 언제든 새 폭으로 냈다면 한 번은 잡혔을 텐데
+     * 끝까지 `[168]` 뿐이었다.
+     *
+     * **동작이 같지 않다는 사실을 숨기지 않는다** — 그쪽에서는 옛 폭의 그림이
+     * 접혀 남는다(네이티브 터미널이 하는 것과 같다). 빠진 보증은
+     * `WINDOWS_TEST_PARITY_SRS` §7 에 적혀 있다.
+     */
+    if (!ptyRecordsRawOutput) {
+      test.info().annotations.push({
+        type: 'platform-gap',
+        description: 'FR-M10-2 의 다시 그리기는 원본을 기록하는 PTY 에서만 성립한다 ' +
+          '(ConPTY 는 렌더링을 준다) — WINDOWS_TEST_PARITY_SRS §7',
+      });
+      return;
+    }
 
     await expect.poll(() => markerLens(narrow.page, 'WIDEMARK'),
       { timeout: 15000, message: '좁은 폭으로 다시 그려진 줄이 없다 (M10-B2)' })

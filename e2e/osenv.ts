@@ -141,6 +141,23 @@ export function echoCmd(text: string): string {
 }
 
 /**
+ * 전송 계층이 **앱의 원본 출력**을 기록하는가.
+ *
+ * POSIX PTY 는 앱이 낸 바이트를 그대로 흘린다. 그래서 `ESC[<W>G` 같은 절대 좌표가
+ * 기록에 남고, 전량 재생이 그것을 **새 폭에서 다시 파싱**해 줄이 그 폭으로 선다
+ * (M10_SRS FR-M10-2 가 기대는 성질이다).
+ *
+ * ConPTY 는 원본을 주지 않는다 — 우리가 받는 것은 그 시점 폭으로 **이미 그려진
+ * 화면**이다. 좌표는 이미 해소돼 있어 재생해도 옛 폭 그대로이고, 다시 그려 달라고
+ * 부탁할 상대도 없다: 공개 API 는 `Create`·`Resize`·`Close` 셋뿐이고, 위로 밀려난
+ * 줄은 conhost 관점에서 이미 내보낸 뒤라 존재하지 않는다.
+ *
+ * **OS 가 아니라 능력으로 묻는다** (WINDOWS_TEST_PARITY_SRS FR-WTP-31 의 취지).
+ * 언젠가 다른 전송이 붙어도 물음은 그대로다.
+ */
+export const ptyRecordsRawOutput = !isWin;
+
+/**
  * **번호가 붙은 줄 N 개**를 내는 조각 (`<prefix>1<suffix>` … `<prefix>N<suffix>`).
  *
  * `for i in 1 2 3; do echo …; done` 은 **bash 의 문법**이다. pwsh 에 그대로 치면
