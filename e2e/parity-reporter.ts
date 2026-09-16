@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync } from 'fs';
-import { join, relative } from 'path';
+import { join, relative, sep } from 'path';
 
 import type { Reporter, TestCase, TestResult, FullResult, FullConfig } from '@playwright/test/reporter';
 
@@ -79,7 +79,10 @@ class ParityReporter implements Reporter {
       // **위치를 함께 싣는다** (FR-EFI-1). 격리 재실행은 제목이 아니라 위치로
       // 건다 — 제목에는 `›`·괄호·중점·한글이 섞여 있어 셸을 지나며 깨진다.
       this.flaky.push({
-        file: relative(this.rootDir, test.location.file),
+        // **구분자를 `/` 로 눕힌다.** playwright 의 파일 필터는 인자를 정규식으로
+        // 읽으므로 Windows 의 `e2e\a11y-axe.spec.ts` 를 그대로 주면 `\a` 가
+        // 이스케이프로 먹혀 `No tests found` 가 된다 (2026-09-16, CI 가 잡았다).
+        file: relative(this.rootDir, test.location.file).split(sep).join('/'),
         line: test.location.line,
         title: test.titlePath().slice(1).join(' › '),
       });

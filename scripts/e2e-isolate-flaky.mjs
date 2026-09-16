@@ -54,7 +54,11 @@ export function classify(attempts) {
  * 깨진다.
  */
 export function specArg(item) {
-  return `${item.file}:${item.line}`;
+  // **구분자를 `/` 로 눕힌다.** playwright 는 이 인자를 **정규식**으로 읽는다.
+  // Windows 의 `e2e\a11y-axe.spec.ts` 를 그대로 주면 `\a` 가 이스케이프로 먹혀
+  // 아무것도 매치되지 않는다. 리포터도 눕혀서 쓰지만 (FR-EFI-1) 옛 목록이
+  // 들어올 수 있으므로 여기서도 막는다.
+  return `${String(item.file).split('\\').join('/')}:${item.line}`;
 }
 
 /**
@@ -108,7 +112,36 @@ const PW_CLI = createRequire(import.meta.url).resolve('@playwright/test/cli');
  * 가 여기서 돌면 `parity-flaky.txt` 를 덮어써 잡 요약을 오염시킨다. 본 실행의
  * 판정과 이 실행의 판정은 서로 다른 것을 재고 있다 (FR-EFI-11).
  */
+/**
+ * 그 위치가 **실제로 한 건이라도 매치되는가** — 돌기 전에 묻는다.
+ *
+ * 이 확인이 없으면 `No tests found`(정상 종료 · exit 1)가 "테스트가 졌다" 와
+ * 같은 답이 되고, **돌지도 않은 것이 3회 실패로 쌓여 결함이 된다.** 실제로
+ * 그렇게 나갔다 (2026-09-16 · 경로 구분자).
+ *
+ * 세 번 연속 같은 부류에 당한 자리다 — 매번 *대리가 0 이 아닌 다른 이유*만
+ * 하나씩 막았다. 여기서는 **재려는 것을 직접 묻는다**: 돌 대상이 있는가.
+ */
+function assertMatchable(item) {
+  // `--reporter=line` 을 빼면 설정의 `parity-reporter` 가 여기서도 돌아
+  // **`parity-flaky.txt` 를 0 으로 덮어쓴다** — 잡 요약이 그것을 읽는다.
+  const r = spawnSync(process.execPath, [PW_CLI, 'test', specArg(item), '--list', '--reporter=line'], {
+    encoding: 'utf8',
+    env: { ...process.env, DM_E2E_KEEP_PEERS: '1' },
+  });
+  if (r.error) throw new Error(`격리 대상을 세지 못했다 (${specArg(item)}): ${r.error.message}`);
+  if (r.status !== 0) {
+    const why = `${r.stderr || ''}${r.stdout || ''}`.trim().split('\n')[0] || `exit ${r.status}`;
+    throw new Error(
+      `격리 대상을 찾지 못했다 (${specArg(item)}): ${why}\n` +
+        '돌지 않은 것을 "졌다" 로 셀 수 없으므로 멈춘다 (E2E_FLAKY_ISOLATION_SRS FR-EFI-5b).',
+    );
+  }
+}
+
 function playwrightRunner(item, round) {
+  // 첫 회차 전에 한 번만 묻는다 — 매 회차 물으면 값만 쓴다.
+  if (round === 1) assertMatchable(item);
   const port = PORT_BASE + round * 10;
   const r = spawnSync(
     process.execPath,

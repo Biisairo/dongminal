@@ -107,6 +107,18 @@ test('V-EFI-4: 제목이 아니라 위치로 건다', () => {
   assert.equal(specArg(it), 'e2e/editor-link.spec.ts:72');
 });
 
+test('V-EFI-4: Windows 구분자를 `/` 로 눕힌다', () => {
+  // playwright 는 이 인자를 **정규식**으로 읽는다. `e2e\a11y-axe.spec.ts` 를 그대로
+  // 주면 `\a` 가 이스케이프로 먹혀 `No tests found` 가 되고, 그것이 "졌다" 로
+  // 세어져 거짓 결함이 됐다 (2026-09-16).
+  assert.equal(specArg({ file: 'e2e\\a11y-axe.spec.ts', line: 67 }), 'e2e/a11y-axe.spec.ts:67');
+  assert.equal(specArg({ file: 'e2e\\sub\\a.spec.ts', line: 3 }), 'e2e/sub/a.spec.ts:3');
+});
+
+test('V-EFI-4: 이미 `/` 인 경로는 그대로 둔다', () => {
+  assert.equal(specArg({ file: 'e2e/a11y-axe.spec.ts', line: 67 }), 'e2e/a11y-axe.spec.ts:67');
+});
+
 test('V-EFI-4: 위치 인자에 제목의 어느 조각도 섞이지 않는다', () => {
   const it = item('e2e/a.spec.ts', 5, '› ( ) · — ↔ 한글');
   const arg = specArg(it);
