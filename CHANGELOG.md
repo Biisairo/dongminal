@@ -3,7 +3,7 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/) 를 따르고,
 판 번호는 [유의적 버전](https://semver.org/lang/ko/) 을 따릅니다.
 
-## [Unreleased]
+## [1.1.1] — 2026-09-17
 
 ### 추가
 
@@ -33,6 +33,12 @@
 - **`server.json` 에 `updateCheck` 키가 생겼습니다** (bool, 기본 `true`).
   true/false 가 아니면 경고만 내고 기본값으로 떨어집니다 — 다른 키를 함께
   잃지 않습니다.
+
+### 수정
+
+- **`dongminal update --check` 가 늘 실패하던 것을 고쳤습니다.** 1.1.0 은 없는
+  저장소 주소를 묻고 있어서 언제 쳐도 "최신 판을 확인하지 못했습니다: 응답 404"
+  가 났습니다. 이제 실제 릴리스를 읽습니다.
 
 ## [1.1.0] — 2026-09-16
 
@@ -1373,6 +1379,7 @@
   에이전트 간 메시지와 API 입력 주입이 그 셸에서 통째로 깨져 있었다. 이제 셸이
   그 모드를 켰을 때만 감싼다
 
+[1.1.1]: https://github.com/Biisairo/dongminal/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Biisairo/dongminal/releases/tag/v1.1.0
 [1.0.12]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.12
 [1.0.11]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.11
