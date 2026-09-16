@@ -23,9 +23,27 @@ import { tmpPath, TMP, realPath } from './osenv';
 //
 //   기준선 갱신:  LAYOUT_BASELINE=write npx playwright test ui-layout-defaults
 //   대조:         npx playwright test ui-layout-defaults
+//
+// **기준선은 판마다 하나다** (UI_LAYOUT_DEFAULTS_SRS §9, 사용자 결정 2026-09-16).
+//
+// 위의 *"폰트 렌더링이 끼어들 자리가 없다"* 는 전제는 **한 판 안에서만** 참이었다.
+// 판을 건너면 글꼴 메트릭이 달라지고, 그것이 두 값을 흔든다:
+//
+//   ① `position:absolute` 이면서 한쪽이 `auto` 인 요소의 `inset` — `getComputedStyle`
+//      이 돌려주는 것은 **used value** 라 그 수치가 내용 폭에서 도출된다
+//   ② `clipped*` — 같은 글이 판에 따라 넘치기도 하고 아니기도 한다
+//
+// 실측: macOS 에서 뜬 기준선으로 CI 를 돌리면 ubuntu 1자리 · windows 11자리가
+// 어긋났고, 두 ubuntu 회차의 값끼리도 달랐다. 판을 섞으면 이 검사는 **우리 CSS 가
+// 아니라 러너의 글꼴**을 재게 된다.
+//
+// 그래서 파일을 판마다 둔다. 새 판에서 처음 돌면 기준선이 없으므로, 그때는 뜬
+// 스냅샷을 `test-results/` 에 남기고 **무엇을 커밋하면 되는지 말하며** 진다 —
+// CI 는 실패 시 그 디렉터리를 아티팩트로 올린다.
 
 const FIXTURES = tmpPath('dm-lay-' + process.pid);
-const BASELINE = path.join(__dirname, 'baseline', 'ui-layout.json');
+const PLATFORM = process.platform;
+const BASELINE = path.join(__dirname, 'baseline', `ui-layout.${PLATFORM}.json`);
 const WRITE = process.env.LAYOUT_BASELINE === 'write';
 
 let BASE = '';
@@ -178,8 +196,16 @@ test('V-LAY-1 (FR-LAY-50): 계산값이 기준선과 같다', async ({ page, req
     return;
   }
 
-  expect(fs.existsSync(BASELINE),
-    '기준선이 없다 — LAYOUT_BASELINE=write 로 먼저 떠라 (§8 의 1단계)').toBe(true);
+  if (!fs.existsSync(BASELINE)) {
+    // 이 판의 기준선이 아직 없다. 사람이 다시 뜨러 오는 대신 **뜬 것을 넘긴다** —
+    // CI 는 실패한 회차의 `test-results/` 를 아티팩트로 올리므로, 그 파일을
+    // `e2e/baseline/` 에 넣어 커밋하면 다음 회차부터 대조가 선다.
+    const drop = path.join(process.cwd(), 'test-results', path.basename(BASELINE));
+    fs.mkdirSync(path.dirname(drop), { recursive: true });
+    fs.writeFileSync(drop, JSON.stringify(now, null, 1) + '\n');
+    expect(false, `이 판(${PLATFORM})의 기준선이 없다 — 방금 뜬 것을 ${drop} 에 ` +
+      `남겼다. 그 파일을 e2e/baseline/${path.basename(BASELINE)} 로 커밋하라 (§9)`).toBe(true);
+  }
   const base = JSON.parse(fs.readFileSync(BASELINE, 'utf8')) as Record<string, Row>;
 
   /**

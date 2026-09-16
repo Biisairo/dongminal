@@ -334,8 +334,18 @@ jobs:
       # 여기서는 기준선을 쌓기 시작한다.
       - name: 커버리지 (기준선 아티팩트)
         run: |
-          go test -coverprofile=coverage.out -covermode=atomic ./... > /dev/null
-          go tool cover -func=coverage.out | tail -1
+          # 위 주석대로 **커버리지는 실패시키지 않는다.** 그런데 `bash -e` 아래에서
+          # `go test` 의 비영 종료가 이 job 을 넘어뜨리고 있었고, 게다가 출력을
+          # `/dev/null` 로 버려 **무엇이 졌는지 볼 수도 없었다** — 게이트가 빨간데
+          # 사유를 말하지 않는 상태가 그렇게 생긴다 (2026-09-16 실측).
+          #
+          # 판정은 위의 `test` 잡이 한다 (`-race -shuffle=on`). 여기서는 말을
+          # 남기고 넘어간다.
+          go test -coverprofile=coverage.out -covermode=atomic ./... \
+            || echo "::warning::커버리지 회차에서 테스트가 졌다 — 판정은 test 잡이 한다"
+          # 프로파일이 없으면 요약도 없다. 그 사실만 말하고 넘어간다.
+          test -s coverage.out && go tool cover -func=coverage.out | tail -1 \
+            || echo "::warning::coverage.out 이 비었다"
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: coverage

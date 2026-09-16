@@ -50,8 +50,19 @@ test('TC-RST-2 되돌리면 서버 설정이 비워지고 다시 열린다', asy
   await page.click('#bk-reset');
   await page.click('#bk-reset-apply');
 
-  await expect.poll(async () => page.evaluate(() => (window as any).__beforeReset ?? null),
-    { timeout: 10_000 }).toBeNull();
+  /**
+   * **다시 열리는 중에는 `page.evaluate` 가 던진다.**
+   *
+   * 되돌리기는 페이지를 다시 연다. 그 항해가 도는 동안의 물음은
+   * `Execution context was destroyed` 로 끝나고, `expect.poll` 은 콜백의 예외를
+   * 되풀이가 아니라 **실패로** 읽는다 — 그래서 CI 에서만, 항해가 물음과 겹친
+   * 회차에서만 빨갛다 (2026-09-16 ubuntu 실측).
+   *
+   * `waitForFunction` 은 항해를 건너 **새 문서에서 다시 평가한다.** 재려는 것이
+   * *표식이 사라졌는가* 이므로 그것이 이 물음의 바른 모양이다.
+   */
+  await page.waitForFunction(() => (window as any).__beforeReset === undefined,
+    undefined, { timeout: 10_000 });
 
   const after = await (await page.request.get(`${baseURL}/api/settings`)).json();
   expect(after.pageTitle ?? '').toBe('');
