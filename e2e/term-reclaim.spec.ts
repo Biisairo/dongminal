@@ -56,6 +56,24 @@ const logicalLines = (page) => page.evaluate(() => {
 const markerLine = async (page, tag: string) =>
   (await logicalLines(page)).find((s) => s.startsWith(tag)) || '';
 
+/**
+ * 그 표식이 붙은 **모든** 논리 줄의 길이.
+ *
+ * `markerLine` 은 **첫 줄**을 집는다. POSIX 에서는 전량 재생이 `\x1b[3J` 로
+ * 스크롤백까지 지우고 다시 뿌리므로 그 줄이 하나뿐이라 그것으로 충분했다.
+ *
+ * ConPTY 는 다르다 — 기록에 남는 것이 **원본 출력이 아니라 그 시점의 렌더링**이고,
+ * 리사이즈 때 자기 버퍼를 새 폭으로 다시 내보낸다. 그래서 재생에는 옛 폭으로
+ * 그려진 기록과 새 폭의 렌더링이 **둘 다** 들어오고, 첫 줄은 언제나 옛 것이다
+ * (2026-09-16 CI 실측: 기대 28, 받은 168 — 15초 내내).
+ *
+ * 재려는 것은 *스크롤백이 새 폭으로 다시 섰는가* 이지 *옛 그림이 사라졌는가* 가
+ * 아니다. 그러므로 **새 폭의 줄이 있는가**를 묻는다 — 다시 그리지 않으면 그런
+ * 줄은 생기지 않으므로 M10-B2 의 회귀는 그대로 잡힌다.
+ */
+const markerLens = async (page, tag: string) =>
+  (await logicalLines(page)).filter((s) => s.startsWith(tag)).map((s) => s.length);
+
 test.describe('V-M10-4·5 — 소유를 되찾은 창이 자기 폭으로 선다', () => {
   test('TC-M10-1: 되찾은 넓은 창의 cols 와 PTY 가 모두 자기 폭이 된다 (FR-M10-1)', async ({ browser }) => {
     // 좁은 쪽을 나중에 띄운다 — last-focus-wins 이므로 그쪽이 PTY 를 잡는다.
@@ -127,8 +145,9 @@ test.describe('V-M10-4·5 — 소유를 되찾은 창이 자기 폭으로 선다
     }, { timeout: 15000 }).toBeLessThan(wideCols);
 
     const narrowCols = (await sizeOf(narrow.page))!.cols;
-    await expect.poll(() => markerLine(narrow.page, 'WIDEMARK').then((s) => s.length),
-      { timeout: 15000 }).toBe(narrowCols);
+    await expect.poll(() => markerLens(narrow.page, 'WIDEMARK'),
+      { timeout: 15000, message: '좁은 폭으로 다시 그려진 줄이 없다 (M10-B2)' })
+      .toContain(narrowCols);
 
     await narrow.ctx.close();
     await wide.ctx.close();
