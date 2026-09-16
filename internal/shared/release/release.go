@@ -17,8 +17,16 @@ import (
 	"time"
 )
 
+// Repo 는 릴리스가 사는 저장소다.
+//
+// **릴리스를 발행하는 곳과 같아야 한다.** `.github/workflows/release.yml` 이
+// `${{ github.repository }}` 로 올리므로 그 값이 진실이고, 여기가 어긋나면 확인은
+// 404 를 받는다 — 그리고 FR-UPD-4 에 따라 **조용히** 실패하므로 아무도 모른다.
+// 실제로 어긋나 있었다: `dykim-hancom/dongminal` 은 404 였고 릴리스는 이쪽에 있다.
+const Repo = "Biisairo/dongminal"
+
 // API 는 최신 릴리스를 묻는 자리다.
-const API = "https://api.github.com/repos/dykim-hancom/dongminal/releases/latest"
+const API = "https://api.github.com/repos/" + Repo + "/releases/latest"
 
 // Timeout 은 확인에 주는 시간이다. 짧다 — 사용자가 기다리는 명령이고, 닿지
 // 못하는 것이 사용자가 할 일을 만들지 않는다.
