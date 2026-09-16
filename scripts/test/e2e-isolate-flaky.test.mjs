@@ -91,6 +91,16 @@ test('V-EFI-5: 상한과 같은 수는 돈다', async () => {
   assert.equal(calls, MAX_FLAKY, '경계는 넘지 않은 것이다');
 });
 
+test('실행이 서지 못하면 결함으로 세지 않고 멈춘다', async () => {
+  // Windows 에서 `spawnSync('npx', …)` 가 `.cmd` 를 띄우지 못해 프로세스가 아예
+  // 서지 못했고, 그 회차들이 조용히 결함으로 쌓여 **거짓 결함 4건**이 나갔다
+  // (2026-09-16). 재려는 것은 *테스트가 지는가* 이지 *자식의 종료 코드* 가 아니다.
+  await assert.rejects(
+    () => isolate([item('e2e/a.spec.ts', 1)], async () => { throw new Error('띄우지 못했다') }),
+    /띄우지 못했다/,
+  );
+});
+
 test('V-EFI-4: 제목이 아니라 위치로 건다', () => {
   // 제목에는 `›` 와 괄호와 한글과 공백이 섞여 있다. 그것을 셸로 넘기면 깨진다.
   const it = item('e2e/editor-link.spec.ts', 72, '묶음 L — git 핀 ↔ Editor 행 (FR-EDT-33·34)');

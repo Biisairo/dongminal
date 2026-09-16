@@ -18,6 +18,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 
 /** 격리 회차 수. 셋이다 — 한 번은 표본이 너무 적다 (사용자 결정 2026-09-16). */
@@ -89,6 +90,18 @@ export async function isolate(items, runner) {
 }
 
 /**
+ * playwright 의 CLI. **`npx` 를 거치지 않는다.**
+ *
+ * Windows 에서 `npx` 는 `npx.cmd` 이고, Node 의 `spawnSync` 는 `shell` 없이
+ * `.cmd` 를 띄우지 못한다. 그렇게 나갔더니 **프로세스가 아예 서지 못한 채**
+ * `status` 가 0 이 아니었고, 그것을 "테스트가 졌다" 로 세어 **거짓 결함 4건**을
+ * 만들었다 (2026-09-16, CI 가 잡았다).
+ *
+ * `process.execPath` + CLI 경로로 부르면 셸도 `.cmd` 도 지나지 않는다.
+ */
+const PW_CLI = createRequire(import.meta.url).resolve('@playwright/test/cli');
+
+/**
  * 실제 실행기 — 항목 하나를 새 playwright 프로세스로 한 번 돈다.
  *
  * **`--reporter=line` 이 설정의 리포터를 대체하는 것은 의도다.** `parity-reporter`
@@ -98,13 +111,18 @@ export async function isolate(items, runner) {
 function playwrightRunner(item, round) {
   const port = PORT_BASE + round * 10;
   const r = spawnSync(
-    'npx',
-    ['playwright', 'test', specArg(item), '--workers=1', '--retries=0', '--reporter=line'],
+    process.execPath,
+    [PW_CLI, 'test', specArg(item), '--workers=1', '--retries=0', '--reporter=line'],
     {
       stdio: 'inherit',
       env: { ...process.env, E2E_PORT_BASE: String(port), DM_E2E_KEEP_PEERS: '1' },
     },
   );
+  // **실행이 서지 못한 것은 "졌다" 가 아니다.** 그 둘을 종료 코드 하나로 뭉뚱그리면
+  // 재려는 사실(테스트가 단독에서 지는가)을 대리(자식의 종료 코드)로 재게 되고,
+  // 프로세스가 못 뜬 회차가 조용히 결함으로 쌓인다. 판정할 수 없으면 멈춘다.
+  if (r.error) throw new Error(`격리 실행을 띄우지 못했다 (${specArg(item)} · ${round}회차): ${r.error.message}`);
+  if (r.status === null) throw new Error(`격리 실행이 신호로 끝났다 (${specArg(item)} · ${round}회차): ${r.signal}`);
   return r.status === 0;
 }
 
