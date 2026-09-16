@@ -127,6 +127,28 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 	dmlog.Infof(nil, "[tool %s] registered total=%d", id, len(m.tools))
 	m.mutated.Store(true)
 	m.saveAsync()
+	/**
+	 * **등록보다 먼저 끝나는 프로세스가 있다.**
+	 *
+	 * `start` 는 잠금 **밖에서** 돈다 (위 주석 — fork/exec 와 PTY open 을 잠금 안에
+	 * 두지 않기로 한 그 결정이다). 그래서 `Command: "exit 0"` 처럼 즉시 끝나는
+	 * 명령은 우리가 잠금을 다시 쥐기 전에 죽을 수 있고, 그때 `toolExited` 는
+	 * **아직 없는 id** 를 지나간다 — `Get` 이 nil, `Delete` 가 무동작이다.
+	 *
+	 * 그 뒤 이 줄이 **죽은 도구를 등록한다.** 지울 사람이 이미 지나갔으므로 그것은
+	 * 목록에도 백그라운드에도 **영원히** 남는다 (CI 실측 2026-09-16:
+	 * `TestCreate_CommandIsTheProcess` 가 "끝난 명령의 도구가 백그라운드 목록에
+	 * 남았다" 로 졌다).
+	 *
+	 * 그러므로 이미 끝났으면 종료 경로를 **다시 한 번** 지나게 한다. 잠금은 우리가
+	 * 쥐고 있으므로 따로 띄운다. 두 번 불리는 것은 무해하다 — `Delete` 는 멱등이고
+	 * 관측자들은 *"그 id 는 사라졌다"* 를 받는 자리다.
+	 */
+	select {
+	case <-p.Wait():
+		go m.toolExited(id)
+	default:
+	}
 	return p, nil
 }
 

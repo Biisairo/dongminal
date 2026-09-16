@@ -414,9 +414,10 @@ func TestHandleWS_ResumeSendsNoClearAndNoDuplicate(t *testing.T) {
 	waitForShellReady(t, func() int { blob, _ := p.Stream().Snapshot(); return len(blob) })
 
 	ws1 := mustWS(t, ts, "/ws?cols=80&rows=24&tool="+p.ID)
-	_, seq := readUntilOp(t, ws1, toolhub.OpSeq)
+	first, seq := readUntilOp(t, ws1, toolhub.OpSeq)
 	off := int64(binary.BigEndian.Uint64(seq[1:9]))
 	ws1.Close()
+	seen := outputBytes(first)
 
 	// 그 좌표에서 이어 붙인다. 사이에 새 출력은 없다.
 	ws2 := mustWS(t, ts, "/ws?cols=80&rows=24&tool="+p.ID+"&since="+strconv.FormatInt(off, 10))
@@ -432,9 +433,20 @@ func TestHandleWS_ResumeSendsNoClearAndNoDuplicate(t *testing.T) {
 	if bytes.Contains(body, termReset) {
 		t.Error("델타 재개가 터미널 모드를 초기화했다")
 	}
-	// 새 출력이 없었으므로 재생분도 없어야 한다 — 있다면 그만큼이 중복이다.
-	if len(body) != 0 {
-		t.Errorf("중복 %d 바이트가 왔다: %q", len(body), body)
+	/**
+	 * **재는 것은 중복이지 침묵이 아니다** (검사 이름 그대로).
+	 *
+	 * 종전에는 `len(body) != 0` 으로 *"아무것도 오지 않았다"* 를 요구했다. 그것은
+	 * 셸이 두 접속 사이에 **한 글자도 내지 않는다**는 전제인데, 살아 있는 셸은
+	 * 언제든 낼 수 있다 — Windows 러너에서 pwsh 가 늦게 낸 오류 한 줄에 이 검사가
+	 * 졌다 (2026-09-16: `.: The module 'bin' could not be loaded.` 98 바이트).
+	 * 그것은 **새 출력**이지 중복이 아니다.
+	 *
+	 * 그러므로 *이미 본 바이트가 다시 왔는가* 를 묻는다. 좌표까지의 내용이 다시
+	 * 오는 것이 접수한 증상이고(SRS §2.2), 이 단언이 그것을 그대로 잡는다.
+	 */
+	if len(seen) > 0 && bytes.Contains(body, seen) {
+		t.Errorf("좌표까지의 내용이 다시 왔다: %d 바이트", len(seen))
 	}
 }
 
