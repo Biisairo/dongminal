@@ -72,8 +72,20 @@ func TestCreate_CommandIsTheProcess(t *testing.T) {
 	}
 	// FR-SBX-27 과 갈라져야 한다 — 명령으로 띄운 도구는 샌드박스가 아니므로
 	// 백그라운드로 갈 수 있다. 그 도구는 백그라운드에 살라고 만든 것이다.
-	if !m.SetBackground(p.ID, true) {
-		t.Fatal("명령 도구를 백그라운드로 보내지 못했다 — 샌드박스로 오인했다")
+	//
+	// **판정을 `SetBackground` 하나로 대신하지 않는다.** 그 함수는 두 사유로
+	// 거절한다 — 샌드박스이거나, **도구가 없거나**. `exit 0` 은 즉시 끝나므로
+	// `Create` 가 돌아온 뒤 여기까지 오는 사이에 거둬질 수 있고, 그때의 false 는
+	// 옳은 답인데 이 검사는 그것을 "샌드박스로 오인했다" 로 읽었다 (2026-09-16
+	// CI 실측 — 세 회차 초록 뒤 한 번).
+	//
+	// 재려는 것은 오인 여부이므로 그 사실을 **직접** 본다. `SetBackground` 는
+	// 도구가 아직 살아 있을 때만 참을 요구한다.
+	if p.sandboxed {
+		t.Fatal("명령으로 띄운 도구를 샌드박스로 오인했다 (FR-BGP-3 vs FR-SBX-27)")
+	}
+	if !m.SetBackground(p.ID, true) && m.Get(p.ID) != nil {
+		t.Fatal("살아 있는 명령 도구를 백그라운드로 보내지 못했다")
 	}
 	select {
 	case id := <-gone:
