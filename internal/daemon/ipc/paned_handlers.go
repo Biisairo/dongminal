@@ -70,20 +70,12 @@ func (pc *panedConn) create(req *toolipc.PanedRequest) interface{} {
 		Profile string `json:"profile"`
 		Command string `json:"command"`
 		Work    string `json:"work"`
-		// M8_UNIFIED_SRS §9.3 ④: 에이전트 도구 — 종류·argv·어댑터 id 가 더해진다.
-		// 데몬은 그 뜻을 모른다; 프로세스를 세우는 자리가 여기라 값만 받는다.
-		Kind  string   `json:"kind"`
-		Argv  []string `json:"argv"`
-		Agent string   `json:"agent"`
-		// M8_UNIFIED_SRS D-C-11: 휴면·오류 세션의 재개 — 같은 도구 신원으로 다시 세운다.
-		ReuseID string `json:"reuseId"`
 	}](req)
 	if perr != nil {
 		return *perr
 	}
 	tool, err := pc.pm.Create(p.Cwd, p.Cols, p.Rows,
-		toolhub.Placement{WindowUUID: p.Window, Profile: p.Profile, Command: p.Command, Work: p.Work,
-			Kind: toolhub.ToolKind(p.Kind), Argv: p.Argv, Agent: p.Agent, ReuseID: p.ReuseID})
+		toolhub.Placement{WindowUUID: p.Window, Profile: p.Profile, Command: p.Command, Work: p.Work})
 	if err != nil {
 		return createError(req, err)
 	}
@@ -92,7 +84,7 @@ func (pc *panedConn) create(req *toolipc.PanedRequest) interface{} {
 	}
 	return toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{
 		"id": tool.ID, "name": tool.Name, "pid": tool.CmdProcessPID(),
-		"cols": p.Cols, "rows": p.Rows, "kind": string(tool.Kind), "agent": tool.Agent,
+		"cols": p.Cols, "rows": p.Rows,
 	}}
 }
 
@@ -289,17 +281,11 @@ func (pc *panedConn) backgroundList(req *toolipc.PanedRequest) interface{} {
 
 // ── Push events ────────────────────────────────────────────────────────
 
-// pushExit notifies dongminal that a tool exited. info 는 종료 코드와 파이프 stderr 의
-// 꼬리다 (M8_UNIFIED_SRS D-C-15) — 에이전트 도구의 오류 상태가 그 사유를 보인다.
-// 터미널 도구는 둘 다 영값이고, 프런트엔드는 종전대로 신호만 쓴다.
+// pushExit notifies dongminal that a tool exited.
 func (pc *panedConn) pushExit(toolID string, info toolhub.ExitInfo) {
-	ev := map[string]interface{}{
+	pc.enqueue(map[string]interface{}{
 		"event": "exit", "tool": toolID, "code": info.Code,
-	}
-	if len(info.Stderr) > 0 {
-		ev["stderr"] = info.Stderr
-	}
-	pc.enqueue(ev, false)
+	}, false)
 }
 
 // pushForeground notifies dongminal that a tool's foreground process name
@@ -325,20 +311,10 @@ func (pc *panedConn) pushSize(toolID string, cols, rows uint16) {
 
 // end 는 이 청크의 끝 절대 오프셋이다 (TERMINAL_RESUME_SRS FR-TRS-15). 받는 쪽이
 // 스냅샷과 겹치는 앞부분을 정확히 잘라내는 근거다.
-//
-// kind 는 청크에 실린다 (M8_UNIFIED_SRS D-C-10) — 받는 쪽이 종류를 되묻지 않게.
-// 그리고 droppable 을 정한다 (D-C-8): PTY 청크는 떨어져도 다음 snapshot 이 화면을
-// 치유하지만, 프로토콜 프레임 하나가 떨어지면 승인 요청이 사라진다. 에이전트
-// 도구의 output 은 `exit` 와 같은 등급으로 기다린다 — 막히는 것은 그 도구의 읽기
-// 고루틴 하나이고, 파이프가 에이전트에 역압을 준다.
-func (pc *panedConn) pushOutputData(toolID string, kind toolhub.ToolKind, data []byte, end int64) {
-	ev := map[string]interface{}{
+func (pc *panedConn) pushOutputData(toolID string, data []byte, end int64) {
+	pc.enqueue(map[string]interface{}{
 		"event": "output", "tool": toolID,
 		"data": base64.StdEncoding.EncodeToString(data),
 		"end":  end,
-	}
-	if kind != "" {
-		ev["kind"] = string(kind)
-	}
-	pc.enqueue(ev, kind != toolhub.KindAgent)
+	}, true)
 }

@@ -87,11 +87,6 @@ Object.assign(App.prototype, {
 
     bus.subscribe('workspace_changed',a=>this._onWorkspaceChanged(a&&a.rev),{owner:'app'});
 
-    // M8_UNIFIED_SRS D-C-3: 에이전트 도구의 이벤트. 뷰가 seq 로 이어 붙이고, 구독이
-    // 다시 열리면 놓친 것을 재생으로 맞춘다.
-    bus.subscribe('agent_event',a=>this._onAgentEvent(a),{owner:'app'});
-    bus.subscribe('sse:open',()=>this._agentResyncAll(),{owner:'app'});
-
     /**
      * FR-M9-10 (D-M9-8): **끊겼던 동안의 삭제는 다시 붙어도 오지 않는다.**
      *
@@ -345,11 +340,7 @@ Object.assign(App.prototype, {
     // 사실로 받으면 도구·pane·창이 차례로 지워진다.
     const live=known?new Set(serverIds):TOOLS_ALL_LIVE;
     const nameOf=new Map((serverPanes||[]).map(p=>[p.id,p.name]));
-    // M8_UNIFIED_SRS D-U-4 (b)·D-C-17: 에이전트 도구는 xterm 을 세우지 않는다 — 뷰는 탭이
-    // 그려질 때 선다(`mkAgent`). 휴면·오류 세션은 프로세스가 없어 WS 를 붙일 것도 없다.
-    const agentIds=new Set((serverPanes||[]).filter(p=>p&&p.kind==='agent').map(p=>p.id));
     for(const id of serverIds){
-      if(agentIds.has(id)) continue;
       if(!this.tools.has(id)) this.mkTool(id, nameOf.get(id)||id);
     }
     // FR-ATL-7: 서버가 모르는 도구는 죽은 도구다. 이름을 지우는 `_fgApply` 와
@@ -549,18 +540,6 @@ Object.assign(App.prototype, {
     }
     if(action==='newTab'){
       const opts={name:args.name,keepFocus:!!args.keepFocus};
-      /**
-       * M9_SRS FR-M9-43 (M9-B24): **표면은 플래그 하나가 가른다.**
-       *
-       * `--agent <id>` 가 오면 그 탭은 에이전트 도구이고, 없으면 터미널이다.
-       * `--kind` 를 따로 두지 않는 이유는 두 플래그가 서로를 부정할 수 있는
-       * 조합(`--kind terminal --agent claude`)을 만들지 않기 위해서다.
-       *
-       * 모르는 id 는 **종단이 거절한다** (`/api/tools?kind=agent` → 400) — 여기서
-       * 목록을 다시 확인하지 않는다. 그 목록의 진실은 등록부 한 곳이다 (FR-U-1).
-       */
-      const kind=args.agent?'agent':'terminal';
-      if(args.agent) opts.agent=String(args.agent);
       let rid=null;
       if(args.location){
         const tgt=this._resolveLocation(args.location);
@@ -575,7 +554,7 @@ Object.assign(App.prototype, {
       }else{
         rid=this.focused;
       }
-      if(rid) this.addTab(rid,kind,opts).then((tab)=>{
+      if(rid) this.addTab(rid,'terminal',opts).then((tab)=>{
         if(args.reqId&&tab) this._echoResult(args.reqId,{newTabs:[tab]});
       }).catch(err=>this._notify(t('core.open_tab_fail')+' — '+((err&&err.message)||err)));
       return;

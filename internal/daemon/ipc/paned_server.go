@@ -137,14 +137,13 @@ func (ps *PanedServer) Accept() error {
 	// closures and just swap currConn. `p.wired` guards against re-wiring
 	// (which would nest exit handlers and re-trigger pushes). (FR-12)
 	pc.wireTool = func(p *toolhub.Tool) {
-		kind := p.Kind
 		p.WireRelayOnce(func(baseExit func(string)) (func(string, []byte, int64), func(string)) {
 			return func(toolID string, data []byte, end int64) {
 					ps.mu.Lock()
 					c := ps.currConn
 					ps.mu.Unlock()
 					if c != nil {
-						c.pushOutputData(toolID, kind, data, end)
+						c.pushOutputData(toolID, data, end)
 					}
 				}, func(toolID string) {
 					ps.mu.Lock()

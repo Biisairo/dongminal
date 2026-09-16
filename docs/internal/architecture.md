@@ -82,7 +82,6 @@ internal/
       wsentry/           #     workspace.json 최상위 두 목록 (git.pinned[]·editors.list[])
       lsp/               #     언어 서버 세션 (정의·참조·호버) — 세션 상한·유휴 회수
       ext/               #     언어 서버 플러그인 매니페스트 — 서버 목록은 여기 없다
-      agentsess/         #     에이전트 도구의 해석층 — 바이트→줄→Proto.Decode→이벤트 로그·활동 (M8 D-C-2)
   ctl/                   # ④ 제어 CLI 프로세스
     cli/                 #   start/stop/health/migrate 디스패치 + 옵션 해석
     migrate/             #   v1 → v2 엔티티 스키마 1회성 변환
@@ -510,55 +509,19 @@ id="sb-panel-…">`) 하나를 두면 끝이다. 아래 넷이 그 배열에서 
 주체는 브라우저이고 그쪽 409 처리가 머지 없이 재PUT 이므로 동시 편집에 지워질 수
 있다. 소유권의 진실은 `runs.json` 이다.
 
-### 프로토콜 표면 — 에이전트 도구 (`M8_UNIFIED_SRS` 묶음 P·T)
+### 어댑터 — 에이전트를 아는 한 자리 (`internal/shared/agentadapter`)
 
-위 접합면이 "도구 **안의** 에이전트가 우리를 부르는" 길이라면, 이것은 "우리가 에이전트를
-**프레임으로** 모는" 길이다. 에이전트 도구는 `Tool.Kind = agent` 인 **변형**이다 (D-U-4): PTY 대신
-파이프(`platform.StartPipe`)로 뜨고 argv 는 어댑터의 `Proto.Launch` 가 만든다 — 셸을 거치지
-않는다. 그 밖(생성 종단·닫기·백그라운드·데몬 push·`dmctl wait`)은 터미널과 **같은 길**을 지난다
-(FR-AGT-8). 종류를 묻는 자리는 셋으로 끝난다 — 서버 해석층 입구·브라우저 뷰(`AgentPane`)·전송
-(`SendPaste` 무동작·데몬 push non-droppable·L2 idle 제외).
+에이전트 지식은 전부 여기 있다. 훅 설치(`dmctl activity` 배선)·전사본 해석
+(`ParseHistory`)·사용량 환산·컨텍스트 창·이벤트 선언(`Signals`)이 어댑터의 것이고,
+소비자(`dmctl activity`·`dmctl run`·`runtime/install`·`run/context_window`·
+`handlers_attention`·`handlers_status`)는 에이전트 이름을 모른다 (FR-U-1·2).
 
-해석층은 서버의 `domain/agentsess` 하나다 (D-C-2). 두 모드가 같은 바이트를 절대 오프셋 위에서
-받고(직접 `ToolHooks.OnOutput` · 데몬 `ToolClient.SetOnOutput`), 틈은 `SnapshotTool` 로 되메운다.
-**종류는 청크에 실려 온다** (D-C-10) — 입구가 목록에 되물으면 데몬 모드에서 그 물음이 readLoop
-안의 RPC 가 되어 시한까지 막히기 때문이다. 세션은 줄로 자르고 `Proto.Decode` 로 공통 이벤트
-(`session`·`turn_start`·`approval_open`·…·`exit`)를 만들어 메모리 링에 쌓는다 (D-C-3); 브라우저는
-`GET /api/agent/events` 로 재생하고 SSE `agent_event` 로 잇는다. 활동(`idle`·`working`·`waiting`·
-`done`·`ended`)은 공통 이벤트에서 파생해 `activity/set` 과 **같은 함수**를 지난다 — 그래서 알람·
-활동 패널·`dmctl wait --for ready` 가 그대로 선다. 승인·질문은 한 통로(`ApprovalRequest.Kind`) —
-서버는 대신 답하지 않으며, 선택지는 프로토콜이 준 것 그대로다 (FR-APS-5·6). 에이전트 지식은
-전부 어댑터의 `Proto` 구현에 있고, 해석층·HTTP·뷰는 에이전트 이름을 모른다.
-
-어댑터는 셋이고 한 구조체에 든다 (FR-U-2, P4 판정). `claude_proto.go` — stream-json 양방향, 승인은
-`control_request{can_use_tool}` ↔ `control_response`. `codex_proto.go` — `app-server` 의 JSON-RPC 2.0:
-핸드셰이크(`initialize`·`initialized`·`thread/start|resume`·`model/list`)를 응답을 기다리지 않고 한
-번에 보내고, 서버→클라 **요청**(`item/*/requestApproval`·`item/tool/requestUserInput`)에 JSON-RPC
-응답으로 답한다; 한 프로세스가 여러 thread 를 들 수 있어도 한 도구는 thread 하나다(F-3); 세션 중
-제어는 없어 다음 `turn/start` 에 싣는다. `omp_proto.go` — `--mode rpc-ui` 의 NDJSON: 기본 승인
-정책이 yolo 라 `--approval-mode` 를 반드시 싣고(설정 `agentApprovalMode`, F-4), 승인·질문·로그인
-입력이 전부 `extension_ui_request` 라 `select["Approve","Deny"]` 만 permission 이고 나머지는 question
-(`Question.FreeText` 가 글 입력)이다. 세 차이가 함수 안에서 끝나므로 `Handshake` 가 `LaunchOpts` 를
-받는 것 하나가 소비자에 보이는 전부다. 계약 드리프트는 `drift_test.go`(`-tags agentdrift`)가 실제
-바이너리로 잰다 — CI 밖, 단계 착수마다 (D-U-5).
-
-**세션은 프로세스보다 오래 산다** (묶음 B, P5 — D-C-11~17). 프로세스의 끝은 세션을 지우지 않는다:
-세션은 `Dormant`(`hibernated` 명시적 휴면 · `error` 죽음·서버 재시동) 상태로 남고, `EvExit` 가 그
-사유(`Text: hibernated|closed|died` · `Detail: exit <code>: <stderr 꼬리>`)를 든다 — stderr 꼬리는
-파이프를 든 `toolhub.Tool` 이 모아 `ExitInfo` 로 낸다(직접 모드 `ExitObserver` · 데몬 `exit` push).
-지우는 것은 사용자의 닫기(`DELETE /api/tools/<id>` → `Forget`) 하나다. 재개(`POST /api/agent/resume`)는
-**같은 `toolId`** 로 새 프로세스를 세운다(`Placement.ReuseID`, 데몬 `create.reuseId`) — 탭의 신원이
-`toolId` 이므로 교체를 워크스페이스로 흘리지 않는다; 세션은 오프셋만 0 으로 되돌리고 seq 는 잇는다.
-디스크: `agents/<toolId>.jsonl`(SSE 와 같은 줄 `Logged`, 링에서 버려진 수가 상한에 이르면 `{snap}` +
-링으로 압축) · `agents.json`(레코드 — 어댑터·신원·cwd·기동 옵션·상태; 활성 세션도 있다). 잘린 앞은
-**버려진 이벤트의 접힘**인 요약 스냅샷 하나(마지막 assistant 메시지·열린 요청·사용량·status)로 재생
-응답에 실린다 (FR-ABG-21). 부팅(`AgentRestore`)은 레코드마다 — 도구가 데몬에 살아 있으면 `Resume` 으로
-채택(codex 는 살아 있는 thread 를 rejoin 한다) · 없으면 오류 상태로 되살림 · 신원이 없거나 어느 탭도
-참조하지 않으면 버린다. 휴면·오류 세션은 toolhub 에 없으므로 `/api/state.tools` 가 `dormant` 표식으로
-합친다 — 브라우저의 `clean()` 이 그 탭을 살려 두는 근거다. claude 의 세션 신원은 첫 프롬프트 뒤에
-오므로(§2-28) 첫 턴 전에는 휴면할 수 없다(409 `agent_no_identity`); 활동 `idle` 은 `initialize` 응답이
-낸다. 틈 되메움(`SnapshotTool`)은 **비동기**다 — 데몬 모드에서 그 자리는 readLoop 안이라 동기 RPC 가
-연결을 떨어뜨린다.
+어댑터는 셋이고 한 구조체에 든다 (FR-U-2, P4 판정) — `claude.go` · `codex.go` ·
+`omp.go`. `*_proto.go`·`*_decode.go` 는 각 에이전트의 **프로토콜 표면**이다: 프레임을
+공통 이벤트(`session`·`turn_start`·`approval_open`·…·`exit`)로 옮기는 층이며, 그것을
+소비하던 에이전트 GUI 는 제거됐다 (`AGENT_GUI_REMOVAL_SRS`). **코드는 남겨 두었다** —
+이벤트 추상을 다시 쓸 여지가 있고, 계약 드리프트는 `drift_test.go`
+(`-tags agentdrift`)가 실제 바이너리로 계속 잰다 (D-U-5).
 
 ## 오케스트레이션 다이어그램
 

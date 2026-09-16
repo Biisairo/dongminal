@@ -34,7 +34,7 @@ func (m *ToolManager) SetActivityNotifier(notify func(id, state, tool, detail st
 // SetOutputObserver 는 모든 도구의 출력 청크를 받는 관측자를 꽂는다 (D-C-2) —
 // 직접 모드의 에이전트 해석층이 그 자리다. 기동 전에 릴레이에 실리므로 이 뒤에
 // 만들어진 도구만 받는다; 배선에서 LoadAll 앞에 한 번 부른다.
-func (m *ToolManager) SetOutputObserver(f func(id string, kind ToolKind, data []byte, end int64)) {
+func (m *ToolManager) SetOutputObserver(f func(id string, data []byte, end int64)) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.outputObserver = f

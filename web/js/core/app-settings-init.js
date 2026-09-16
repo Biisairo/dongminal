@@ -140,17 +140,6 @@ Object.assign(App.prototype, {
     });
   },
 
-  /**
-   * M8_UNIFIED_SRS §9.3 ⑥ F-4: Settings ▸ Display 의 `에이전트 승인 정책`. 값은 다음
-   * 에이전트 도구 기동의 `approval` 인자다 — 어댑터가 자기 어휘로 싣거나 무시한다.
-   */
-  _initAgentApproval(){
-    const sel=document.getElementById('ds-agent-approval');
-    if(!sel) return;
-    sel.value=agentApprovalMode;
-    sel.addEventListener('change',()=>{ agentApprovalMode=sel.value; this.saveSettings() });
-  },
-
   /** 거울을 쓴다. 되읽어 같아야 참이다 — 사생활 모드에서는 거짓이다. */
   _localeMirror(v){
     try{localStorage.setItem(I18N_STORAGE_KEY,v);return localStorage.getItem(I18N_STORAGE_KEY)===v}catch{return false}

@@ -134,72 +134,6 @@ var agentsPollInterval=AGENTS_POLL_DEFAULT;
 // 상태별 글꼴 기호(이모지 아님) — 색(.ag-state.<state>)과 함께 상태를 구분.
 const AGENT_STATE_ICON={working:'●',done:'✓',waiting:'…',idle:'○'};
 
-/**
- * M11_SRS FR-M11-5: 셸에서 도는 에이전트를 **끝내고 기다리는** 시한 (M11-B2).
- *
- * `INTERRUPT_MS` 는 끊기(ESC)와 종료 명령 사이의 틈이다 — 붙여 보내면 TUI 가
- * 인터럽트를 소화하기 전에 `/exit` 가 입력창에 얹힌다.
- * `EXIT_MS` 는 사라지기를 기다리는 상한이고, `POLL_MS` 가 그 사이의 걸음이다.
- * 판정의 원천은 활동 등록부다 (`_activity` — `ended` 면 항목이 지워진다).
- */
-/**
- * FR-M11-26 (M11-B24): **바닥 판정의 여유.** 소수점 스크롤·테두리 때문에
- * `scrollHeight - scrollTop - clientHeight` 가 정확히 0 이 되지 않는다. 이만큼
- * 안이면 "바닥을 보고 있다" 로 친다.
- */
-const AGENT_BOTTOM_SLACK_PX=4;
-/**
- * FR-M11-21 (M11-B19): **입력창이 자랄 수 있는 몫.** 접수가 그 상한을 지정했다 —
- * *"탭 크기의 1/3 까지는 커지게 하고 그 이후로 스크롤"*.
- */
-const AGENT_INPUT_MAX_RATIO=1/3;
-/**
- * FR-M11-27 (M11-B25): **접힌 출력의 엿보기.** 사용자 결정(§2.6b) — 5줄 이내는
- * 그대로 보인다. 원본도 세 줄짜리 출력은 그대로 보이므로(§2.10 (2)) 그 갈래는
- * 개정에서 바뀌지 않았다.
- *
- * **넘는 쪽은 한 문장이다** (D-M11-5): 앞뒤 2줄을 쓰던 상수(`AGENT_PEEK_EDGE_LINES`)는
- * 지웠다 — 그 손은 접힌 머리를 네 줄로 만들어 접은 뜻을 스스로 없앴다.
- */
-const AGENT_PEEK_FULL_LINES=5;
-/**
- * FR-M11-29 (M11-B27·B15·B35): 큐에 선 프롬프트의 표식. 원본이 `❯ <본문>` 으로
- * 세우므로 그 글자를 그대로 쓴다 (§2.10 (5)) — 문구가 아니라 **모양**이라 카탈로그가
- * 아니라 여기 산다.
- */
-const AGENT_QUEUE_MARK='\u276f';
-/*
- * **지웠다 — `AGENT_PICK_CMD_RE` · `AGENT_CONFIG_CMD_RE`** (M12_SRS FR-M12-4).
- *
- * 그 둘은 `/model`·`/config` 라는 **claude 의 명령 이름**을 화면에 박아 두었다
- * (누수 L5). 지금은 어댑터가 `ProtoCommand.form` 으로 선언하고 화면은 이름을
- * 모른다 — `agent-pane.js` 의 `_formOf` 가 그 선언을 찾는 한 자리다.
- */
-/**
- * FR-M11-44 (M11-B44): `Ctrl+C` 두 번을 **한 손짓으로 볼 창**이다. 원본 TUI 도 첫 번과
- * 둘째 사이에 시한을 둔다 — 시한이 없으면 한참 뒤의 한 번이 나가기가 된다.
- */
-const AGENT_CTRL_C_WINDOW_MS=1500;
-/** FR-M11-48 (M11-B51): 슬래시 목록에 한 번에 보이는 수. 넘으면 스크롤한다. */
-const AGENT_SUGG_MAX=10;
-/**
- * FR-M11-51 (M11-B52): 도는 동안 경과를 다시 적는 주기. 초 단위로 보이므로 1초면
- * 충분하다 — 스피너 자체는 CSS 가 돌린다 (프레임마다 DOM 을 만지지 않는다).
- */
-const AGENT_BUSY_TICK_MS=1000;
-/** 도구 머리에 담는 인자의 길이 — 원본은 `Bash(sed -i '' 's/…)` 처럼 잘라 싣는다. */
-const AGENT_TOOL_HEAD_ARG_MAX=48;
-/**
- * FR-M12-12: **끊고 나서 턴이 실제로 끝나기를 기다리는 상한.**
- *
- * `/api/agent/interrupt` 의 응답은 *"끊는 프레임을 썼다"* 이지 *"턴이 끝났다"* 가
- * 아니다 — `turn_end` 는 에이전트의 `result` 가 와야 난다. 넘기면 **그래도 보낸다**:
- * 사용자가 쓴 글을 잃는 것이 순서가 뒤집히는 것보다 나쁘다.
- */
-const AGENT_INTERRUPT_SETTLE_MS=4000;
-const AGENT_LIFT_INTERRUPT_MS=400;
-const AGENT_LIFT_EXIT_MS=8000;
-const AGENT_LIFT_POLL_MS=250;
 
 // 모바일 키바 제스처 상수 (USER_CHECKLIST_FIXES_SRS FR-MTB-2/4/5).
 // TAP_SLOP: 이 거리를 넘으면 탭이 아니라 스크롤로 넘긴다.
@@ -695,9 +629,6 @@ const PRESET_MSG_CLASS='preset-msg';
 const PRESET_SAVE_NO_PLAIN=t('core.preset_save_no_plain');
 // CONTEXT_MENU_UNIFY_SRS FR-CMU-8·10: 탭·터미널 본문의 컨텍스트 메뉴 문구.
 const TAB_MENU_NEW=t('core.tab_menu_new');
-// M8_UNIFIED_SRS FR-AGT-10: 에이전트 탭의 TUI 출구 (renderer 의 탭 메뉴 — 그 자리는
-// 지역 `t` 가 전역 `t()` 를 가린다).
-const AGENT_OPEN_TERMINAL=t('agent.open_terminal');
 const TAB_MENU_RENAME=t('core.tab_menu_rename');
 const TAB_MENU_CLOSE=t('core.tab_menu_close');
 const TAB_MENU_RENAME_GIT_NO=t('core.tab_menu_rename_git_no');

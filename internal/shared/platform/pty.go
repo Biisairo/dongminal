@@ -18,10 +18,6 @@ type ProcSpec struct {
 	Args []string // Args[0] 을 포함한 전체 argv
 	Env  []string // "K=V" 목록. 완전한 환경이며 상속하지 않는다
 	Dir  string   // 작업 디렉터리
-	// Pipe 는 PTY 대신 stdin·stdout 파이프로 띄운다 — 에이전트 도구의 전송이다
-	// (M8_UNIFIED_SRS FR-AGT-2, StartPipe). PTY.Start 는 이 값을 보지 않는다;
-	// 갈래는 호출자(toolhub.StartTool)가 든다.
-	Pipe bool
 }
 
 // dedupEnv 는 중복 키를 **뒤엣것으로** 정리한다. 호출자가

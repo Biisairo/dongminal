@@ -310,16 +310,6 @@
             </select>
           </div>
           <div class="ds-hint" data-i18n="html.locale_hint"></div>
-          <!-- M8_UNIFIED_SRS §9.3 ⑥ F-4: 에이전트 도구의 기동 승인 정책. 값은 어댑터의 어휘 그대로 실린다. -->
-          <div class="ds-row">
-            <span data-i18n="html.agent_approval"></span>
-            <select class="sbs-select" id="ds-agent-approval">
-              <option value="always-ask">always-ask</option>
-              <option value="write">write</option>
-              <option value="yolo">yolo</option>
-            </select>
-          </div>
-          <div class="ds-hint" data-i18n="html.agent_approval_hint"></div>
           <div class="ds-row">
             <span data-i18n="html.page_title"></span>
             <input type="text" class="ds-text" id="ds-title" maxlength="60" placeholder="Dongminal">
@@ -655,7 +645,6 @@
      탐색기와 터미널이 함께 쓴다 — 의존이 0 이라 순서는 둘보다 앞이기만 하면 된다. -->
 <script src="js/ui/drop-entries.js?v=__ASSETV__"></script>
 <script src="js/ui/term-pane.js?v=__ASSETV__"></script>
-<script src="js/ui/agent-pane.js?v=__ASSETV__"></script>
 <script src="js/ui/file-editor.js?v=__ASSETV__"></script>
 <!-- 편집기의 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS). file-editor.js 뒤여야
      한다 — FileEditor.prototype 에 얹는다 (DRIFT_RECLAIM_SRS FR-DRC-13). -->
@@ -727,7 +716,6 @@
 <script src="js/core/app-focus.js?v=__ASSETV__"></script>
 <script src="js/core/app-attn.js?v=__ASSETV__"></script>
 <script src="js/core/app-agents.js?v=__ASSETV__"></script>
-<script src="js/core/app-agent-tool.js?v=__ASSETV__"></script>
 <script src="js/core/app-git.js?v=__ASSETV__"></script>
 <!-- Editor 탭·창 (EDITOR_TAB_SRS). app.js 뒤 main.js 앞 — prototype 확장이다. -->
 <script src="js/core/app-editor.js?v=__ASSETV__"></script>

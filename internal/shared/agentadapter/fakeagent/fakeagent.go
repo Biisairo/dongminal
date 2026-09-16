@@ -27,6 +27,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -79,6 +81,14 @@ func claudeMain(args []string, stdin io.Reader, stdout io.Writer) int {
 				a.permMode = args[i+1]
 				i++
 			}
+		case "--plugin-dir":
+			// M12_SRS FR-M12-21: **플러그인을 들고 뜨면 그 명령이 목록에 선다.**
+			// 원본이 그렇게 하므로 흉내도 그래야 한다 — 싣지 않으면 "GUI 에이전트가
+			// 플러그인을 들었는가" 를 화면에서 가를 길이 없다.
+			if i+1 < len(args) {
+				a.pluginDir = args[i+1]
+				i++
+			}
 		}
 	}
 	// `system:init` 은 여기서 내지 않는다 — 실제 claude 는 첫 `user` 프레임 뒤에 낸다
@@ -100,7 +110,12 @@ type agent struct {
 	permMode string
 	resumed  bool
 	inited   bool
-	seq      int
+	// pluginDir 는 `--plugin-dir` 로 들어온 세션 스코프 플러그인의 뿌리다.
+	pluginDir string
+	// denied 는 **이 턴에서 사용자가 도구를 거절했는가**다 (M12_SRS FR-M12-23).
+	// 실제 claude 는 그때 턴을 `terminal_reason:"aborted_tools"` 로 끝낸다.
+	denied bool
+	seq    int
 }
 
 func newID(prefix string) string {
@@ -173,7 +188,7 @@ func (a *agent) control(id, subtype, model, mode string) {
 			// M9_SRS FR-M9-45: 실측한 모양 그대로 `argumentHint` 를 싣는다 — 68개 중
 			// 23개가 인자 문법을 말하고 나머지는 그 자리가 빈다. **둘 다 흉내 낸다**:
 			// 화면이 "인자를 받는 것" 과 "받지 않는 것" 을 갈라 그려야 한다.
-			"commands": []map[string]any{
+			"commands": append([]map[string]any{
 				{"name": "compact", "description": "Free up context", "argumentHint": "<optional instructions>"},
 				{"name": "clear", "description": "Start a new session"},
 				{"name": "model", "description": "Set the AI model", "argumentHint": "<model>"},
@@ -184,7 +199,7 @@ func (a *agent) control(id, subtype, model, mode string) {
 				// **목록에 없으면 평범한 명령**이다 — 실측한 `initialize` 는 이 명령을
 				// 싣는다(68개 중 하나). 흉내가 원본보다 적으면 검사가 헛돈다.
 				{"name": "config", "description": "Open config", "argumentHint": "key=value"},
-			},
+			}, pluginCommands(a.pluginDir)...),
 			"models": []map[string]any{
 				{"value": "default", "displayName": "Default (fake)", "description": "fake default"},
 				{"value": "fast", "displayName": "Fast (fake)", "description": "fake fast"},
@@ -278,6 +293,14 @@ func (a *agent) turn(text string) (int, bool) {
 		a.text("PONG")
 	}
 	a.rateLimit()
+	if a.denied {
+		// FR-M12-23: 거절로 끝난 턴의 사유는 `aborted_tools` 다 — 종전 흉내는 여기서도
+		// `completed` 를 내어, 사용자가 본 *"턴이 오류로 끝났습니다: aborted_tools"* 가
+		// 검사에 한 번도 나타나지 않았다.
+		a.denied = false
+		a.result(true, "aborted_tools")
+		return 0, false
+	}
 	a.result(false, "completed")
 	return 0, false
 }
@@ -463,6 +486,7 @@ func (a *agent) toolTurnOut(tool string, input map[string]any, suggestions []map
 		a.emit(map[string]any{"type": "user", "parent_tool_use_id": nil, "message": map[string]any{"role": "user",
 			"content": []map[string]any{{"tool_use_id": toolUse, "type": "tool_result", "content": "denied", "is_error": true}}}})
 		a.text("DENIED")
+		a.denied = true
 		return
 	}
 	if ups, ok := resp["updatedPermissions"].([]any); ok {
@@ -580,4 +604,80 @@ func (a *agent) result(isErr bool, reason string) {
 		"result": "PONG", "total_cost_usd": 0.001, "stop_reason": "end_turn", "terminal_reason": reason, "permission_denials": []any{},
 		"usage":      map[string]any{"input_tokens": 10, "cache_creation_input_tokens": 100, "cache_read_input_tokens": 1000, "output_tokens": 5},
 		"modelUsage": map[string]any{a.model: map[string]any{"inputTokens": 10, "outputTokens": 5, "costUSD": 0.001, "contextWindow": 200000}}})
+}
+
+// pluginCommands 는 세션 스코프 플러그인이 싣는 명령들이다 (M12_SRS FR-M12-21).
+//
+// 원본은 `<plugin>/commands/*.md` 와 `<plugin>/skills/*/SKILL.md` 를 `<플러그인
+// 이름>:<파일 이름>` 으로 목록에 올린다 — 사용자가 찾지 못한 `/dongminal:migration`
+// 이 그 자리다. 이름과 설명은 **실제로 깔린 파일에서 읽는다**: 지어내면 설치 트리가
+// 바뀌어도 검사가 초록으로 남는다.
+func pluginCommands(dir string) []map[string]any {
+	if dir == "" {
+		return nil
+	}
+	blob, err := os.ReadFile(filepath.Join(dir, ".claude-plugin", "plugin.json"))
+	if err != nil {
+		return nil
+	}
+	var meta struct {
+		Name string `json:"name"`
+	}
+	if json.Unmarshal(blob, &meta) != nil || meta.Name == "" {
+		return nil
+	}
+	var out []map[string]any
+	for _, f := range pluginSpecFiles(dir) {
+		desc, hint := frontMatter(f.path)
+		cmd := map[string]any{"name": meta.Name + ":" + f.name, "description": desc}
+		if hint != "" {
+			cmd["argumentHint"] = hint
+		}
+		out = append(out, cmd)
+	}
+	return out
+}
+
+type pluginSpec struct{ name, path string }
+
+// pluginSpecFiles 는 명령 하나가 되는 파일들이다 — `commands/<이름>.md` 와
+// `skills/<이름>/SKILL.md`. 순서를 고정해 목록이 실행마다 흔들리지 않게 한다.
+func pluginSpecFiles(dir string) []pluginSpec {
+	var out []pluginSpec
+	if ents, err := os.ReadDir(filepath.Join(dir, "commands")); err == nil {
+		for _, e := range ents {
+			if !e.IsDir() && strings.HasSuffix(e.Name(), ".md") {
+				out = append(out, pluginSpec{strings.TrimSuffix(e.Name(), ".md"), filepath.Join(dir, "commands", e.Name())})
+			}
+		}
+	}
+	if ents, err := os.ReadDir(filepath.Join(dir, "skills")); err == nil {
+		for _, e := range ents {
+			if e.IsDir() {
+				out = append(out, pluginSpec{e.Name(), filepath.Join(dir, "skills", e.Name(), "SKILL.md")})
+			}
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].name < out[j].name })
+	return out
+}
+
+// frontMatter 는 머리말의 `description`·`argument-hint` 다. 없으면 빈 값이다.
+func frontMatter(path string) (desc, hint string) {
+	blob, err := os.ReadFile(path)
+	if err != nil {
+		return "", ""
+	}
+	for _, line := range strings.Split(string(blob), "\n") {
+		if strings.HasPrefix(line, "---") && desc != "" {
+			break
+		}
+		if v, ok := strings.CutPrefix(line, "description:"); ok && desc == "" {
+			desc = strings.TrimSpace(v)
+		}
+		if v, ok := strings.CutPrefix(line, "argument-hint:"); ok && hint == "" {
+			hint = strings.Trim(strings.TrimSpace(v), `"`)
+		}
+	}
+	return desc, hint
 }

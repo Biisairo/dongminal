@@ -19,7 +19,7 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | 명령 | 설명 |
 |------|------|
 | `dmctl new-window [--name <이름>] [-n] [--sandbox <프로파일>] [--workdir <경로>]` | 새 창 생성. `--name` 으로 잡 이름 지정, `-n` 이면 백그라운드 생성 (사용자 포커스·화면 무변화 — 사이드바에만 추가). `--sandbox` 는 그 창의 도구를 컨테이너 안에서 실행 (`scratch` · `dev`), `--workdir` 는 그 창의 작업 폴더 |
-| `dmctl new-tab [--name <이름>] [-n] [--at <uuid>] [--agent <id>]` | 새 탭. `--at` 은 그 **탭**이 속한 칸을 가리킨다(칸 uuid 는 받지 않는다). **생략하면 포커스 칸**이며 부르는 쪽의 칸이 아니다. `-n` 이면 활성 탭도 포커스도 그대로 둔 채 백그라운드 추가. `--agent <id>` 면 터미널 대신 **에이전트 도구 탭** (M9_SRS FR-M9-43) |
+| `dmctl new-tab [--name <이름>] [-n] [--at <uuid>]` | 새 탭. `--at` 은 그 **탭**이 속한 칸을 가리킨다(칸 uuid 는 받지 않는다). **생략하면 포커스 칸**이며 부르는 쪽의 칸이 아니다. `-n` 이면 활성 탭도 포커스도 그대로 둔 채 백그라운드 추가 |
 | `dmctl split-h [N]` | 가로 분할. N 지정 시 N 개로 균등 분할 (기본 2) |
 | `dmctl split-v [N]` | 세로 분할. 동일 |
 | `dmctl focus <uuid>` | 특정 탭으로 포커스. **uuid 만 허용** (`list-workspace` 의 `uuid=` 컬럼). 좌표/라벨/toolId 는 400 거부 |
@@ -113,7 +113,6 @@ UUID=$(dmctl list-workspace --json | jq -r '.[0].uuid')
 dmctl focus "$UUID"                             # uuid 로 이동
 dmctl split-h 3 --at "$UUID"                    # uuid 위치에 가로 3 분할
 dmctl new-tab --at "$UUID" -n                   # 그 탭의 칸에, 포커스 변경 없이 탭 추가
-dmctl new-tab --at "$UUID" -n --agent claude    # 같은 자리에 에이전트 도구 탭
 dmctl split-v --no-focus                        # 현재 포커스 유지하며 분할
 dmctl send splitH '{"count":2}'                 # raw API 호출
 SELF=$(dmctl who-am-i --json | jq -r .uuid)     # 자기 자신 uuid (스크립트 자기 식별)

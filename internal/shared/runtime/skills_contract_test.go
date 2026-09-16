@@ -286,24 +286,26 @@ func TestMigrationCommand_GuardsTheFourSymptoms(t *testing.T) {
 	}
 }
 
-// V-M9-43 (M9_SRS FR-M9-43 / M9-B24): **에이전트와 표면이 옵션이다.**
+// V-M9-43 (M9_SRS FR-M9-43 / M9-B24, AGENT_GUI_REMOVAL_SRS FR-AGR-2 로 좁힘):
+// **에이전트가 옵션이다.**
 //
-// 기본값은 `claude` · `cli` 다 — 아무 말 없이 부르면 지금과 같은 동작이며, 그
-// 사실이 문서에 있어야 스킬이 사용자에게 되묻지 않는다.
-func TestMigrationCommand_CarriesAgentAndSurfaceOptions(t *testing.T) {
+// 기본값은 `claude` 다 — 아무 말 없이 부르면 지금과 같은 동작이며, 그 사실이
+// 문서에 있어야 스킬이 사용자에게 되묻지 않는다. 표면(`cli`·`gui`)은 갈래가
+// 하나뿐이라 사라졌다 — 에이전트 GUI 가 없다.
+func TestMigrationCommand_CarriesAgentOption(t *testing.T) {
 	body := commandDocs(t)[path.Join("agentplugin", "commands", "migration.md")]
 	if body == "" {
 		t.Fatal("commands/migration.md 를 찾지 못했다")
 	}
-	for _, needle := range []string{"claude", "cli", "gui", "--agent"} {
-		if !strings.Contains(body, needle) {
-			t.Errorf("commands/migration.md 에 표면 옵션이 없다 (%q)", needle)
-		}
+	if !strings.Contains(body, "claude") {
+		t.Error("commands/migration.md 에 기본 에이전트가 없다")
 	}
-	// gui 갈래는 기동줄을 치지 않는다 — 탭 자체가 그 에이전트다. 그 구분이 없으면
-	// 에이전트 도구에 `claude` 를 타이핑하는 길이 열린다.
-	if !strings.Contains(body, "gui 로 열었으면 이 단계는 없다") {
-		t.Error("commands/migration.md 가 gui 갈래에서 기동줄을 건너뛰라고 말하지 않는다")
+	// 없어진 표면이 되살아나지 않는지도 함께 잰다 — 문서가 없는 종단을 안내하면
+	// 읽는 쪽이 404 를 받는다.
+	for _, gone := range []string{"--agent", "/api/agent/"} {
+		if strings.Contains(body, gone) {
+			t.Errorf("commands/migration.md 에 제거된 표면이 남았다 (%q)", gone)
+		}
 	}
 }
 
@@ -320,42 +322,5 @@ func TestTeamSkill_DefersHandoffToMigration(t *testing.T) {
 	}
 	if !strings.Contains(body, "migration") {
 		t.Error("team/SKILL.md 가 인수인계를 migration 에 넘기지 않는다 (M9-B6)")
-	}
-}
-
-// M12_SRS FR-M12-9 (V-M12-22 의 문서 쪽) — **gui 갈래가 실제로 gui 를 말한다.**
-//
-// 명령서 3단계는 `--agent` 로 gui 탭을 열라 하는데, 6·8단계의 진단은 **PTY 를
-// 전제**했다 (`read-screen` · *"입력줄에 문자열로 남아 있다"*). 에이전트 도구에는
-// 화면도 입력줄도 없으므로 그 갈래는 gui 에서 따라갈 수 없다.
-//
-// 그리고 9단계는 8이 `working` 을 확인한 뒤에도 사용자에게 되물었다 — 판정의
-// 근거가 훅 상태이므로 그것이 섰으면 물을 것이 남아 있지 않다.
-func TestMigrationCommand_GUIBranchAndCloseWithoutAsking(t *testing.T) {
-	body := commandDocs(t)[path.Join("agentplugin", "commands", "migration.md")]
-	if body == "" {
-		t.Fatal("commands/migration.md 를 찾지 못했다")
-	}
-	required := []struct{ name, needle string }{
-		// gui 의 둘째 관문은 화면이 아니라 `live=true` 다.
-		{"gui 의 준비 판정", "live=true"},
-		{"gui 에 read-screen 을 쓰지 말라는 말", "`read-screen` 을 쓰지 마라"},
-		// gui 의 배달 진단은 이벤트 로그다 — 이 SRS 를 낳은 결함의 자리다.
-		{"gui 의 배달 진단", "/api/agent/events"},
-		// 9단계: 확인이 섰으면 되묻지 않는다.
-		{"되묻지 않는다", "되묻지 않는다"},
-	}
-	for _, r := range required {
-		if !strings.Contains(body, r.needle) {
-			t.Errorf("commands/migration.md 에 %s 가 없다 (%q)", r.name, r.needle)
-		}
-	}
-	// **멈추는 갈래는 지우지 않았다** — 절대 원칙 5 의 나머지 절반이다.
-	// 확인하지 못했을 때 닫지 않는 것이 이 명령의 안전장치이고, 되묻기를 없앤 것이
-	// 그것까지 없앤 것으로 읽히면 안 된다.
-	for _, needle := range []string{"닫지 말고 사용자에게 말한다", "세 번 시도해도"} {
-		if !strings.Contains(body, needle) {
-			t.Errorf("commands/migration.md 에서 멈추는 갈래가 사라졌다 (%q)", needle)
-		}
 	}
 }

@@ -599,37 +599,6 @@ Object.assign(App.prototype, {
       this.save();
       return { uuid: t };
     }
-    /**
-     * M8_UNIFIED_SRS FR-AGT-1·8 (D-C-1): 에이전트 탭. 도구를 만드는 길은 터미널과
-     * 같은 종단(`POST /api/tools?kind=agent`)이고, 탭 레코드가 종류를 든다 —
-     * 뷰가 그것으로 xterm 대신 대화 뷰를 고른다. 그 밖(닫기·백그라운드·포커스)은
-     * `toolId` 를 보는 코드가 그대로 닿는다.
-     */
-    if (type === 'agent') {
-      if (!opts.agent) { console.warn('[addTab] agent tab requires agent'); return }
-      const ref = this._paneNewToolRef(s, rid);
-      const cwd = opts.cwd || ref.cwd || null;
-      const made = await this._newAgentTool(opts.agent, cwd, cwd ? null : (ref.cwdTool || null), s, opts);
-      if (!made) return;
-      const t = newEntityId();
-      const tab = { id: t, name: clampEntityName(opts.name || made.name || opts.agent), type: 'agent', toolId: made.id };
-      pn.tabs.push(tab);
-      /**
-       * M9_SRS FR-M9-43 (M9-B24): **`keepFocus` 는 포커스까지 지킨다.**
-       *
-       *   이전 동작: `setFocusState` 를 **무조건** 불렀다 — `-n` 으로 만든 탭도
-       *             그 칸으로 포커스를 끌어갔다
-       *   새  동작: 터미널 갈래와 같다 — `keepFocus` 면 활성 탭도 포커스도 그대로
-       *   이유:     이 갈래는 여태 사용자가 메뉴에서 여는 길뿐이었고 그때는
-       *             `keepFocus` 가 없다. `dmctl new-tab --agent -n` 이 생기면서
-       *             배경 생성이 이 길을 지나고, 그때 포커스를 빼앗으면 인계가
-       *             사용자가 보던 자리를 옮긴다 (FR-RST-4 의 보장)
-       */
-      if (!opts.keepFocus) { this.paneTabSet(pn, t); this.setFocusState(pn.id, s) }
-      this.render();
-      this.save();
-      return { uuid: t, toolId: made.id };
-    }
     const ref = this._paneNewToolRef(s, rid);
     // FR-GIT-244: 호출자가 cwd 를 주면 그것이 이긴다 — worktree 에서 터미널을 열 때
     // 기준은 pane 의 cwd 가 아니라 그 worktree 다. 주지 않으면 기존 동작 그대로다.

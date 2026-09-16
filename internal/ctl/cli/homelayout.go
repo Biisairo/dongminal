@@ -39,9 +39,6 @@ func homeLayout() []homeEntry {
 		{Name: "access.json", What: "접속 허용 목록 (기기·호스트 이름)", Backup: true},
 		{Name: "runs.json", What: "Run(오케스트레이션) 기록", Backup: true},
 		{Name: "tools.json", What: "도구의 이름·작업 폴더 등 복원 정보", Backup: true},
-		// M8_UNIFIED_SRS D-C-12·14: 에이전트 세션의 레코드와 이벤트 로그 — 휴면·재개·대화 복원의 근거.
-		{Name: "agents.json", What: "에이전트 도구의 세션 레코드 (어댑터·세션 id·휴면 상태)", Backup: true},
-		{Name: "agents", IsDir: true, What: "에이전트 도구의 이벤트 로그 (도구마다 JSONL)", Backup: true},
 		{Name: "server.json", What: "서버 기동값 (host·port·로그)", Backup: true},
 		{Name: "sandbox.json", What: "샌드박스 프로파일 정의", Backup: true},
 

@@ -571,12 +571,6 @@ Object.assign(App.prototype, {
       try{p.destroy()}catch{}
       this.tools.delete(k);
     }
-    for(const [k,p] of [...(this.agentPanes||[])]){
-      const i=this._slotOf(k); if(!i) continue;
-      if(keepTools.get(i)?.has(this.slotBase(k))) continue;
-      try{p.destroy()}catch{}
-      this.agentPanes.delete(k);
-    }
     for(const [k,v] of [...this.fileEditors]){
       const i=this._slotOf(k); if(!i) continue;
       if(keepTabs.get(i)?.has(this.slotBase(k))) continue;

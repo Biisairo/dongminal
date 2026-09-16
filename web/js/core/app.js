@@ -144,8 +144,6 @@ class App {
     // 모르면 둘 다 돌지 않는 것이 옳다 — 추측한 홈으로 만든 창은 나중에 서버가
     // 알려준 홈과 어긋난 채로 남는다.
     const edReady=this._edLoad();
-    // M8_UNIFIED_SRS FR-AGT-1: 에이전트 탭 메뉴의 목록은 등록부에서 온다 — 한 번 받아 둔다.
-    this._agentList().catch(()=>{});
     try{
       const stRes=await this._fetchStateKnown();
       this.wsETag=this._etagOf(stRes);
@@ -153,9 +151,7 @@ class App {
       const sp=st.tools||[];
       const sv=st.workspace;
       const ok=new Set(sp.map(p=>p.id));
-      // M8_UNIFIED_SRS D-U-4 (b): 에이전트 도구는 xterm 을 미리 세우지 않는다 — 뷰는
-      // 탭이 그려질 때 선다 (`mkAgent`). 목록의 `kind` 가 그것을 말한다.
-      for(const p of sp){if(p.kind==='agent') continue; const pane=this.mkTool(p.id,p.name);pane._reconnecting=true;pane.el.style.opacity='0'}
+      for(const p of sp){const pane=this.mkTool(p.id,p.name);pane._reconnecting=true;pane.el.style.opacity='0'}
       await edReady;
       // **창이 없어도 서버가 소유한 키는 채택한다.**
       //

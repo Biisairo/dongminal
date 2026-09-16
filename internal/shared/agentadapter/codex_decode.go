@@ -181,7 +181,9 @@ func codexDecodeNotification(fr codexFrame, x *codexExt, st *ProtoState) ([]Even
 		}
 		_ = json.Unmarshal(fr.Params, &p)
 		x.inTurn = false
-		ev := Event{Kind: EvTurnEnd, SessionID: sid, Text: p.Turn.Status, IsError: p.Turn.Status == "failed"}
+		// FR-M12-23: 종류는 **상태**에서 나온다 — 아래에서 Text 가 오류 문장으로
+		// 갈릴 수 있으므로, 문장을 보는 갈래는 메시지가 바뀔 때마다 틀린다.
+		ev := Event{Kind: EvTurnEnd, SessionID: sid, Text: p.Turn.Status, Outcome: codexTurnOutcome(p.Turn.Status)}
 		if p.Turn.Error != nil && p.Turn.Error.Message != "" {
 			ev.Text = p.Turn.Error.Message
 		}
@@ -460,4 +462,17 @@ func codexDecodeServerRequest(fr codexFrame, x *codexExt, st *ProtoState) ([]Eve
 	x.reqIDs[key] = append(json.RawMessage(nil), fr.ID...)
 	st.Open[key] = ar
 	return []Event{{Kind: EvApprovalOpen, SessionID: st.SessionID, Tool: ar.Tool, Detail: ar.Detail, Approval: &ar}}, true
+}
+
+// codexTurnOutcome 은 codex 의 `turn.status` 를 공통 어휘로 옮긴다 (M12_SRS FR-M12-23).
+// 어휘는 셋이다 — `completed`·`interrupted`·`failed` (§7: codex 는 실측하지 않았다 —
+// 근거는 어댑터가 따르는 JSON 스키마다).
+func codexTurnOutcome(status string) TurnOutcome {
+	switch status {
+	case "interrupted":
+		return OutcomeStopped
+	case "failed":
+		return OutcomeError
+	}
+	return OutcomeCompleted
 }

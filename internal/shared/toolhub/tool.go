@@ -51,13 +51,6 @@ type Tool struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 	PID  int    `json:"pid"`
-	// Kind 는 도구의 종류다 (M8_UNIFIED_SRS D-U-4 — 변형 + 표식). 비어 있으면
-	// 터미널. 에이전트 도구는 term 이 파이프 전송(platform.StartPipe)이고, 이
-	// 파일에서 종류를 묻는 자리는 **L2 idle 제외**(FR-AAL-5) 하나다 — 나머지
-	// 차이는 전송 인터페이스 안에서 끝난다.
-	Kind ToolKind `json:"kind,omitempty"`
-	// Agent 는 에이전트 도구의 어댑터 id 다. toolhub 는 뜻을 모르고 나른다.
-	Agent string `json:"agent,omitempty"`
 	// term 은 의사 터미널과 거기 붙은 셸 프로세스를 함께 소유한다. 종전의
 	// ptmx(*os.File) + cmd(*exec.Cmd) 두 필드를 대신한다 — Windows ConPTY 는
 	// 그 둘이 분리되지 않기 때문이다 (CROSS_PLATFORM_SRS FR-XPT-3).
@@ -126,11 +119,8 @@ type Tool struct {
 	activity   atomic.Pointer[ActivityState]
 	onActivity func(id, state, tool, detail string)
 
-	// stderrTail 은 파이프 전송의 stderr 마지막 줄들이다 (M8_UNIFIED_SRS D-C-15) —
-	// 연결 끊김의 사유가 여기 있다(codex 의 401 이 그랬다). PTY 도구에는 없다(nil).
-	// exitCode 는 kill() 이 수확한 종료 코드다. 둘이 ExitInfo 로 나간다.
-	stderrTail *stderrTail
-	exitCode   atomic.Int32
+	// exitCode 는 kill() 이 수확한 종료 코드다. ExitInfo 로 나간다.
+	exitCode atomic.Int32
 
 	// bracketed paste 모드 (BRACKETED_PASTE_SRS FR-BPT-1/4). bpCarryBuf 는
 	// attnCarry 와 같이 readPTY 고루틴만 만지므로 잠금이 없다. 원자값 쪽은
@@ -175,29 +165,16 @@ type ToolHooks struct {
 	// 누적 오프셋. 기동 **전에** 릴레이에 실리므로 첫 바이트도 놓치지 않는다;
 	// 데몬 모드는 `WireRelayOnce` 가 릴레이를 통째로 바꾸므로 그쪽에는 닿지 않는다
 	// — 데몬 프로세스에는 해석층이 없다.
-	//
-	// kind 가 청크와 **함께** 온다 (D-C-10). 받는 쪽이 목록에서 되묻게 두면 데몬
-	// 모드에서는 그 물음이 readLoop 안의 RPC 가 되어 자기 응답을 기다리다 시한에
-	// 걸린다 — 청크의 출처가 종류를 아는 자리이므로 여기서 실어 보낸다.
-	OnOutput func(id string, kind ToolKind, data []byte, end int64)
+	OnOutput func(id string, data []byte, end int64)
 	// OnSize 는 PTY 크기가 바뀌었을 때 불린다 (M9_SRS FR-M9-3). 데몬 모드에서만
 	// 걸린다 — 직접 모드의 통보는 `Tool.broadcast` 가 이 프로세스 안에서 끝낸다.
 	OnSize func(id string, cols, rows uint16)
 }
 
-// ExitInfo 는 이 도구의 종료 사정이다. 끝나기 전에 부르면 Code 는 0 이고 Stderr 는 지금까지의 꼬리다.
+// ExitInfo 는 이 도구의 종료 사정이다. 끝나기 전에 부르면 Code 는 0 이다.
 func (p *Tool) ExitInfo() ExitInfo {
-	info := ExitInfo{Code: int(p.exitCode.Load())}
-	if p.stderrTail != nil {
-		info.Stderr = p.stderrTail.lines()
-	}
-	return info
+	return ExitInfo{Code: int(p.exitCode.Load())}
 }
-
-const (
-	stderrTailLines = 8
-	stderrTailBytes = 2048
-)
 
 // NewDetachedTool은 PTY 없이 훅만 배선된 Tool 을 만든다. 셸을 띄우지 않으므로
 // 프로세스도 파일 디스크립터도 만들지 않는다 — 데몬 모드에서 원격 도구를
@@ -285,21 +262,7 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 	if place != nil {
 		spec.Path, spec.Args = place.Path, place.Args
 	}
-	var term platform.Terminal
-	var err error
-	var tail *stderrTail
-	if place != nil && place.Pipe {
-		// FR-AGT-2·3: 에이전트 도구 — 파이프가 PTY 를 대신할 뿐 소유 구조는 같다.
-		// stderr 는 로그로 (D-C-6), 그리고 마지막 줄들은 종료 사유로 (D-C-15).
-		spec.Pipe = true
-		tail = newStderrTail()
-		term, err = platform.StartPipe(spec, func(line string) {
-			dmlog.Infof(nil, "[tool %s] stderr: %s", id, line)
-			tail.add(line)
-		})
-	} else {
-		term, err = platform.Current().PTY.Start(spec, cols, rows)
-	}
+	term, err := platform.Current().PTY.Start(spec, cols, rows)
 	if err != nil {
 		return nil, err
 	}
@@ -310,15 +273,10 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 		stream:    outbuf.NewStream(context.Background(), bufMax),
 		done:      make(chan struct{}),
 	}
-	if place != nil && place.Pipe {
-		p.Kind = KindAgent
-		p.stderrTail = tail
-	}
 	// Set the base exit callback before readPTY starts (race-free).
 	relay := &toolRelay{onExit: onExit}
 	if hooks != nil && hooks.OnOutput != nil {
-		kind, onOutput := p.Kind, hooks.OnOutput
-		relay.onOutput = func(id string, data []byte, end int64) { onOutput(id, kind, data, end) }
+		relay.onOutput = hooks.OnOutput
 	}
 	p.relay.Store(relay)
 	if hooks != nil {

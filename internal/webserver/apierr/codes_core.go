@@ -57,18 +57,6 @@ const (
 
 	// ── 자산 ──
 	CodeCorruptAsset = "corrupt_asset"
-
-	// ── 에이전트 도구 (M8_UNIFIED_SRS 묶음 P·T) ──
-	CodeAgentUnknown     = "unknown_agent"
-	CodeAgentNoProto     = "agent_no_proto"
-	CodeAgentBinMissing  = "agent_bin_missing"
-	CodeAgentNoSession   = "agent_session_not_found"
-	CodeApprovalNotOpen  = "approval_not_open"
-	CodeAgentUnsupported = "agent_control_unsupported"
-	// 묶음 B (P5) — 휴면·재개 (D-C-11·16).
-	CodeAgentNoIdentity = "agent_no_identity"
-	CodeAgentDormant    = "agent_dormant"
-	CodeAgentNotDormant = "agent_not_dormant"
 )
 
 // coreCodes 는 이 파일이 선언한 코드 전부다. 손으로 적는 자리가 여기 하나뿐이고,
@@ -82,8 +70,6 @@ var coreCodes = []string{
 	CodeNotAFile, CodeNotAnImage, CodeAbsPathNeeded, CodeFileChanged,
 	CodeAccessUnready, CodeHostRejected,
 	CodeUnknownAction, CodeCorruptAsset,
-	CodeAgentUnknown, CodeAgentNoProto, CodeAgentBinMissing, CodeAgentNoSession, CodeApprovalNotOpen, CodeAgentUnsupported,
-	CodeAgentNoIdentity, CodeAgentDormant, CodeAgentNotDormant,
 }
 
 // gitCodes 는 종전부터 있던 표면들의 코드다. `codes.go` 의 선언과 **한 벌**이어야

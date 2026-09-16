@@ -20,21 +20,12 @@ type ToolInfo struct {
 	// 옛 데몬이 보내는 목록과 같은 모양이다. Agent 는 에이전트 도구의 어댑터
 	// id 이며 toolhub 는 그 뜻을 모른다 — 서버가 재기동 뒤 해석층을 다시 세울
 	// 때 어느 어댑터인지 아는 유일한 자리다.
-	Kind  ToolKind `json:"kind,omitempty"`
-	Agent string   `json:"agent,omitempty"`
+	Agent string `json:"agent,omitempty"`
 	// Dormant 는 프로세스 없는 에이전트 세션의 상태다 (M8_UNIFIED_SRS D-C-17 — `hibernated`·
 	// `error`). toolhub 의 목록에는 없다; 서버가 `/api/state` 에서 해석층의 것을 합칠 때만
 	// 채워진다. 브라우저의 `clean()` 이 그 탭을 살려 두는 근거다.
 	Dormant string `json:"dormant,omitempty"`
 }
-
-// ToolKind 는 도구의 종류다. 종류가 갈리는 코드는 셋에 한정된다 (D-U-4):
-// 서버의 해석층 · 브라우저의 뷰 · 전송이 필요한 호출의 무동작.
-type ToolKind string
-
-// KindAgent 는 PTY 가 없고 프로토콜 프레임만 오가는 도구다 (FR-AGT-2).
-// 터미널 도구는 빈 값이다 — 이름을 두면 그것을 묻는 자리가 생긴다.
-const KindAgent ToolKind = "agent"
 
 // OutChunk 는 도구 출력 한 조각이다 — 프로세스 경계를 건너는 push 의 단위.
 //

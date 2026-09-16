@@ -114,12 +114,6 @@ func (m *ToolManager) SendPaste(id string, text []byte, submit bool) error {
 	if p == nil {
 		return fmt.Errorf("tool 없음: %s", id)
 	}
-	// M8_UNIFIED_SRS FR-AGT-2: 에이전트 도구에 붙여넣기는 성립하지 않는다 — 프레임이
-	// 아닌 바이트는 에이전트를 깨뜨린다. 오류가 아니라 무동작이다; 입력은
-	// 해석층의 프롬프트 경로로 간다.
-	if p.Kind == KindAgent {
-		return nil
-	}
 	if err := p.Write(wrapPaste(text, p.BracketedPaste())); err != nil {
 		return fmt.Errorf("터미널 쓰기 (paste): %w", err)
 	}

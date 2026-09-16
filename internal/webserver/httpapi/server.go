@@ -60,9 +60,6 @@ type Config struct {
 type Server struct {
 	Deps
 
-	// agentState 는 에이전트 도구의 해석층이다 (M8_UNIFIED_SRS D-C-2, handlers_agent.go).
-	agentState
-
 	cfg Config
 	// Focus holds window→client ownership (FR-XDF-1). in-memory only.
 	Focus *hub.FocusRegistry

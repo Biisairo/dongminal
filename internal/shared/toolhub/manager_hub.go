@@ -226,7 +226,7 @@ func (m *ToolManager) BackgroundList() []BackgroundEntry {
 	// Cwd() shells out (lsof on macOS) — never hold the lock across it.
 	out := make([]BackgroundEntry, 0, len(pairs))
 	for _, p := range pairs {
-		out = append(out, BackgroundEntry{ToolID: p.t.ID, Name: p.t.Name, Cwd: cwdOrServer(p.t), Since: p.since, Kind: p.t.Kind})
+		out = append(out, BackgroundEntry{ToolID: p.t.ID, Name: p.t.Name, Cwd: cwdOrServer(p.t), Since: p.since})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Since < out[j].Since })
 	return out

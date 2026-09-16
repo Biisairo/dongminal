@@ -388,3 +388,13 @@ func cmdNames(cs []ProtoCommand) string {
 	}
 	return strings.Join(out, ",")
 }
+
+// V-M12-31 (FR-M12-23): omp 의 `agent_end` 는 **끝까지 간 것**이다 — 중단은 `message_end`
+// 의 `stopReason` 으로 따로 오고 그것은 이미 `EvError` 다.
+func TestOmpProto_TurnOutcome(t *testing.T) {
+	p, st := ompReady(t)
+	evs := decode1(t, p, st, `{"type":"agent_end","isTerminal":true,"sessionId":"`+ompSID+`"}`)
+	if kinds(evs) != "turn_end" || evs[0].Outcome != OutcomeCompleted {
+		t.Fatalf("agent_end: %s %+v", kinds(evs), evs)
+	}
+}

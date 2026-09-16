@@ -774,7 +774,7 @@ func TestDaemonAttentionWithoutSubscriber(t *testing.T) {
 
 	cmdHub := hub.NewCommandHub()
 	tracker := hub.NewAttnTracker(cmdHub, 10000)
-	pc.SetOnOutput(func(toolID string, _ toolhub.ToolKind, data []byte, _ int64) { tracker.FeedOutput(toolID, data) }) // wire detection like main.go
+	pc.SetOnOutput(func(toolID string, data []byte, _ int64) { tracker.FeedOutput(toolID, data) }) // wire detection like main.go
 
 	var mu sync.Mutex
 	var attn bool

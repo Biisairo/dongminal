@@ -118,21 +118,6 @@ var apiRoutes = []apiRoute{
 	httproute.When(http.MethodDelete, httproute.Under("/api/runs/"), (*Server).apiRunDelete),
 	httproute.When(http.MethodGet, httproute.UnderWith("/api/tools/", "/busy"), (*Server).apiToolBusy),
 	httproute.When(http.MethodDelete, httproute.Under("/api/tools/"), (*Server).apiToolDelete),
-	// ── M8_UNIFIED_SRS 묶음 P·T — 에이전트 도구 (handlers_agent.go) ──
-	httproute.Get("/api/agents", (*Server).apiAgentsList),
-	httproute.Get("/api/agent/events", (*Server).apiAgentEvents),
-	httproute.Post("/api/agent/prompt", (*Server).apiAgentPrompt),
-	httproute.Post("/api/agent/approve", (*Server).apiAgentApprove),
-	httproute.Post("/api/agent/control", (*Server).apiAgentControl),
-	httproute.Post("/api/agent/interrupt", (*Server).apiAgentInterrupt),
-	httproute.Post("/api/agent/command-form", (*Server).apiAgentCommandForm),
-	httproute.Post("/api/agent/cancel", (*Server).apiAgentCancel),
-	httproute.Get("/api/agent/tui-line", (*Server).apiAgentTUILine),
-	// M9_SRS FR-M9-33: TUI 출구의 **반대 방향**. 그 터미널 탭에서 도는 에이전트를
-	// 에이전트 도구로 올릴 수 있는지를 답한다.
-	httproute.Get("/api/agent/session", (*Server).apiAgentSessionOf),
-	httproute.Post("/api/agent/hibernate", (*Server).apiAgentHibernate),
-	httproute.Post("/api/agent/resume", (*Server).apiAgentResume),
 	httproute.Get("/api/focus", (*Server).apiFocusGet),
 	httproute.Post("/api/focus/claim", (*Server).apiFocusClaim),
 	httproute.Get("/api/sandbox/profiles", (*Server).apiSandboxProfiles),
@@ -254,9 +239,6 @@ func (s *Server) apiStateGet(w http.ResponseWriter, r *http.Request) {
 		json.Unmarshal(rawWS, &ws)
 	}
 	tools, known := s.Tools.ListOK()
-	// M8_UNIFIED_SRS D-C-17: 휴면·오류 에이전트 세션은 프로세스가 없어 toolhub 에 없다 —
-	// 여기서 합쳐야 브라우저가 그 탭을 살려 둔다.
-	tools = s.agentToolsList(tools)
 	w.Header().Set("ETag", strconv.FormatUint(rev, 10))
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -299,12 +281,6 @@ func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	// M8_UNIFIED_SRS FR-AGT-8: 에이전트 도구도 **같은 종단**이다. 갈리는 것은
-	// 배치(파이프·argv)뿐이고 그것은 handlers_agent.go 가 든다.
-	if r.URL.Query().Get("kind") == string(toolhub.KindAgent) {
-		s.createAgentTool(w, r, cwd, cols, rows)
-		return
-	}
 	// FR-SBX-11: 어느 Window 의 어떤 프로파일인지는 호출자가 실어 보낸다.
 	// 프로파일이 비어 있으면 종전대로 호스트에서 뜬다.
 	tool, err := s.tools(r).Create(cwd, cols, rows, toolhub.Placement{
@@ -341,9 +317,6 @@ func (s *Server) apiToolBusy(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) apiToolDelete(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/api/tools/")
-	// M8_UNIFIED_SRS D-C-11: 닫기는 에이전트 세션을 지우는 유일한 길이다 — 도구를 지우기
-	// **전에** 잊어야 뒤따르는 exit 이 오류 상태를 만들지 않는다. 에이전트 도구가 아니면 무해하다.
-	s.AgentForget(id)
 	if s.Tools != nil {
 		// `GO-8`: 오류를 **명시로** 무시한다. 이 경로에서 "이미 없다" 는 정상이며
 		// (목록이 앞서 걷혔거나 사용자가 두 번 눌렀다) 치울 것이 없다는 뜻이다.

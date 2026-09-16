@@ -81,20 +81,6 @@ func buildApp(home, host, port string) (*app, error) {
 	if err != nil {
 		return nil, errors.Join(errServerInit, err)
 	}
-	// M8_UNIFIED_SRS D-C-2: 에이전트 도구의 해석층 배선. 직접 모드는 ToolManager 의
-	// 출력 관측자·종료 관측자, 데몬 모드는 위 push 콜백의 늦은 포인터다. 그 뒤
-	// 레코드(agents.json)로 세션을 되살린다 — 살아 있는 도구(데몬이 든 것)는 채택,
-	// 없는 것은 오류 상태 (D-C-14).
-	if a.bd.bindServer != nil {
-		a.bd.bindServer(a.srv)
-	}
-	if a.bd.pm != nil {
-		a.bd.pm.SetOutputObserver(func(id string, kind toolhub.ToolKind, data []byte, end int64) {
-			a.srv.AgentOutput(id, kind, data, end)
-		})
-		a.bd.pm.SetExitObserver(a.srv.AgentExit)
-	}
-	a.srv.AgentRestore()
 	return a, nil
 }
 
@@ -112,24 +98,13 @@ func (a *app) wireDaemonPushes() {
 	if attnTracker == nil {
 		return
 	}
-	// M8_UNIFIED_SRS D-C-2: 에이전트 도구의 바이트는 해석층이 먼저 받고, 그
-	// 도구는 터미널 경로(L1 OSC·L2 무장)를 지나지 않는다 (FR-AAL-5). 서버는
-	// 뒤에 만들어지므로 늦게 묶인 포인터로 부른다.
-	var srvRef *httpapi.Server
-	a.panedClient.SetOnOutput(func(toolID string, kind toolhub.ToolKind, data []byte, end int64) {
-		if srvRef != nil && srvRef.AgentOutput(toolID, kind, data, end) {
-			return
-		}
+	a.panedClient.SetOnOutput(func(toolID string, data []byte, _ int64) {
 		attnTracker.FeedOutput(toolID, data)
 	})
-	a.bd.bindServer = func(srv *httpapi.Server) { srvRef = srv }
 	// FR-ATL-3: 활동만 내리고 주의를 남기면 죽은 도구의 알람이 배지에
 	// 남는다. 두 레이어를 같은 콜백에서 함께 정리한다 — Forget 이
 	// 주의 해제(에지)와 상태 폐기를 한 번에 한다.
 	a.panedClient.SetOnExit(func(toolID string, info toolhub.ExitInfo) {
-		if srvRef != nil {
-			srvRef.AgentExit(toolID, info)
-		}
 		attnTracker.SetActivity(toolID, "ended", "", "")
 		attnTracker.Forget(toolID)
 		// UX_BATCH6_SRS FR-BGP-1·2: 백그라운드 목록은 살아 있는
@@ -187,9 +162,6 @@ func (a *app) run(ctx context.Context) error {
 	// UX_REVISION_SRS FR-DEL-14/18: 끝난 Run 과 조정자를 잃은 Run 을 거둔다.
 	// 부팅 직후 한 번 돌므로 epoch 펜싱이 aborted 로 표시한 Run 도 여기서 사라진다.
 	a.srv.StartRunReaper(ctx.Done())
-	// M8 D-A-23: 어느 탭도 참조하지 않는 휴면·오류 에이전트 세션을 거둔다 —
-	// 부팅의 "참조 없음" 판정을 런타임에도 적용한다.
-	a.srv.StartAgentReaper(ctx.Done())
 	// ACCESS_ALLOWLIST_SRS FR-ACL-5a·15: 허용 목록의 호스트명 해석과 이 머신의
 	// 인터페이스 주소를 주기적으로 갱신한다. 요청 경로는 그 결과만 읽는다 —
 	// 게이트 판정에 DNS 왕복이 붙으면 모든 요청이 그만큼 느려진다.

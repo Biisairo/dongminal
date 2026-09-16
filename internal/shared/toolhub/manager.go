@@ -96,7 +96,7 @@ type ToolManager struct {
 	attnNotify     func(id, reason string)
 	attnClear      func(id string)
 	activityNotify func(id, state, tool, detail string)
-	outputObserver func(id string, kind ToolKind, data []byte, end int64)
+	outputObserver func(id string, data []byte, end int64)
 	exitObserver   func(id string, info ExitInfo)
 
 	// background는 탭에서 떼어내 백그라운드로 보낸 도구의 전환 시각(unix
@@ -127,7 +127,6 @@ type BackgroundEntry struct {
 	Since  int64  `json:"since"`
 	// Kind 는 도구의 종류다 (M8_UNIFIED_SRS FR-ABG-1) — 되살릴 때 어느 뷰의 탭으로
 	// 돌아가는가. 비어 있으면 터미널.
-	Kind ToolKind `json:"kind,omitempty"`
 }
 
 // NewToolManager builds an empty manager. dataDir is where tools.json lives;
@@ -187,7 +186,6 @@ func (m *ToolManager) List() []ToolInfo {
 		out = append(out, ToolInfo{
 			ID: p.ID, Name: p.Name, PID: p.CmdProcessPID(),
 			Cols: cols, Rows: rows, FgName: fg[p.ID],
-			Kind: p.Kind, Agent: p.Agent,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })

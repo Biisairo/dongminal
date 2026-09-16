@@ -115,8 +115,8 @@ class TerminalTool {
     if(this._opened) return; this._opened=true;
     /**
      * FR-M11-15 (M11-B16): **글꼴 크기는 한 자리에서 온다** — CSS 토큰 `--fs-lg` 다.
-     * `.agp-dash` 도 그것을 쓰므로 둘이 갈라지지 않는다. 읽는 손은 `file-editor.js`
-     * 가 이미 쓰는 그것이며, 여기서는 **DOM 이 선 뒤**라 값이 있다.
+     * 읽는 손은 `file-editor.js` 가 이미 쓰는 그것이며, 여기서는 **DOM 이 선 뒤**라
+     * 값이 있다.
      */
     const fs=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs-lg'));
     this.term=new Terminal(fs?Object.assign({},TOPTS,{fontSize:fs}):TOPTS);
@@ -228,64 +228,6 @@ class TerminalTool {
   }
 
   // ── 입력 (MOBILE_TUI_INPUT_SCROLL_SRS §3.1 / §3.5) ──
-
-  /**
-   * M9_SRS FR-M9-33: **이 탭에서 올릴 수 있는가**를 서버에 묻는다.
-   *
-   * 판정은 서버의 것이다 (`GET /api/agent/session`) — 프론트가 "에이전트처럼 보이는
-   * 출력" 으로 짐작하면 그것이 곧 화면 fingerprint 이고, `FR-SKL-2` 가 team 스킬에서
-   * 지운 그 방식이다. 신원을 모르면 404 이며 그때 버튼은 서지 않는다.
-   *
-   * 묻는 계기는 **보이게 될 때**다 (renderer 의 이동 갈래). 폴링하지 않는 이유는
-   * 이 답이 사람이 셸에 무엇을 치는가에 달렸고, 그 사이 그 탭은 어차피 화면에
-   * 없기 때문이다.
-   */
-  async refreshLift(){
-    /**
-     * M11_SRS FR-M11-13 (M11-B10): **아직 붙지 않은 것과 사라진 것은 다르다.**
-     *
-     *   이전 동작: `!this.el.isConnected` 로 물러났다 — **첫 렌더에서 언제나** 참이다
-     *              (`_buildPane` 은 pane 을 만들어 **돌려줄 뿐**이고, 문서에 붙이는
-     *              것은 그 뒤다). 그 뒤로 묻는 계기가 없어 버튼이 영영 서지 않았다
-     *   새  동작: 이 파일이 이미 쓰는 관용구(`_destroyed||_exited`)로 판정한다
-     *   이유:     한 조건에 두 뜻이 얹혀 있었다. 막으려던 것은 *사라진 도구에 묻지
-     *             않는다* 이고, *아직 붙지 않았다* 는 곧 붙을 것이라는 뜻이다
-     *
-     * 실측(2026-09-15): 새로고침 뒤 서버는 `liftable:true` 인데 이 요청이 **0건**
-     * 이었고, 손으로 부르면 버튼이 섰다.
-     */
-    if(this._destroyed||this._exited||!this.el) return;
-    const r=await apiGet('/api/agent/session',{query:{tool:this.id}});
-    if(this._destroyed||this._exited||!this.el) return;
-    // FR-M9-37: 신원이 없는 것은 **정상 응답**이다 (`liftable:false`). 오류가 아니므로
-    // `r.ok` 이고, 판정은 그 필드가 한다.
-    if(!(r.ok&&r.data&&r.data.liftable)){
-      if(this.liftBtn) this.liftBtn.hidden=true;
-      return;
-    }
-    /**
-     * **버튼은 여기서 처음 만들어진다** — 생성자가 아니다.
-     *
-     *   이전 동작: 생성자가 `UIKit.button` 을 불렀다
-     *   새  동작: 조건이 처음 설 때 만든다
-     *   이유:     `term-pane.js` 를 **홀로 싣는 검사가 둘** 있다
-     *             (`e2e/reconnect-storm.spec.ts` 의 합성 페이지 · `web/js/test/`
-     *             의 node 단위). 둘 다 전역을 손으로 세우므로 생성자에 전역을
-     *             하나 더 쓰면 그 자리에서 `UIKit is not defined` 로 터진다 —
-     *             실제로 전량 e2e 5건과 단위 25건이 그렇게 떨어졌다
-     *             (`M9_PROGRESS` §2-25). 하네스마다 한 줄을 더하는 것보다
-     *             **의존을 만드는 자리를 옮기는 쪽**이 싸다
-     *
-     * 그리고 이 지연은 설계와도 맞는다 — 조건이 서지 않는 터미널에는 이 버튼이
-     * 숨는 것이 아니라 **아예 없다**.
-     */
-    if(!this.liftBtn){
-      this.liftBtn=UIKit.button({label:t('term.lift_to_agent'),title:t('term.lift_to_agent_title'),
-        kind:'ghost',size:'sm',cls:'tp-lift',onClick:()=>app.agentLiftFromTerminal(this.id)});
-      this.el.appendChild(this.liftBtn);
-    }
-    this.liftBtn.hidden=false;
-  }
 
   _sendText(s){
     if(!s) return;

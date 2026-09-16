@@ -95,6 +95,19 @@ type LaunchOpts struct {
 	// 없이 띄우면 승인 요청이 한 번도 오지 않으므로, 그 어댑터는 이 값을 반드시 싣는다.
 	// 정책을 기동 인자로 받지 않는 에이전트는 무시한다 (FR-APS-4 — 부재).
 	Approval string
+	// PolicyHooksDir·PolicyPluginDir 는 **이 인스턴스의 세션 스코프 정책이 사는
+	// 자리**다 (M12_SRS FR-M12-21) — `<홈>/bin/agent-hooks` 와 `<홈>/bin/agent-plugin`.
+	//
+	// 종전에는 이 둘을 **셸 래퍼만** 붙였다 (`shellhooks/posix/zdotdir/.zshrc` 의
+	// `claude()`). 그래서 터미널에서 친 claude 만 훅·플러그인을 받고, 같은 에이전트가
+	// GUI 로 뜨면 `/dongminal:*` 을 아예 갖지 못했다 (실측 2026-09-16: 그 세션의
+	// 명령 68개에 `dongminal:migration` 이 없다).
+	//
+	// **자리는 호출자가 주고, 플래그 이름은 어댑터가 안다** (D-M12-1). 빈 값은
+	// 부재이고, 그 자리에 실제로 자산이 없어도 싣지 않는다 — 래퍼의 `[ -f ]`·`[ -d ]`
+	// 와 같은 규약이다. 없는 경로를 실으면 기동 자체가 멎는다.
+	PolicyHooksDir  string
+	PolicyPluginDir string
 }
 
 // ProtoState 는 도구 하나의 프로토콜 상태다. 어댑터만 읽고 쓴다.
@@ -192,7 +205,7 @@ type EventKind string
 const (
 	EvSession        EventKind = "session"         // 세션 신원 (+모델·권한 모드)
 	EvTurnStart      EventKind = "turn_start"      // 턴 시작 — 모델 요청이 나갔다
-	EvTurnEnd        EventKind = "turn_end"        // 턴 종료 — Text 는 종료 사유
+	EvTurnEnd        EventKind = "turn_end"        // 턴 종료 — Outcome 이 종류 · Text 는 그 에이전트의 사유
 	EvTextDelta      EventKind = "text_delta"      // 본문 증분
 	EvThinkingDelta  EventKind = "thinking_delta"  // 추론 증분
 	EvMessage        EventKind = "message"         // 에이전트 메시지 스냅샷 (Message = content 블록들 — 아래 어휘)
@@ -207,6 +220,30 @@ const (
 	EvError          EventKind = "error"           // 오류 — Text 는 사유
 	EvExit           EventKind = "exit"            // 프로세스 종료 (해석층이 낸다)
 	EvRaw            EventKind = "raw"             // 모르는 프레임 원문 (FR-APS-8)
+)
+
+// TurnOutcome 은 턴이 **어떻게 끝났는가**다 (M12_SRS FR-M12-23). `EvTurnEnd` 만 쓴다.
+//
+// **멈춘 것은 오류가 아니다.** 실측 2026-09-16: 사용자 세션의 턴 12개 중 7개가 화면에
+// *오류*로 적혔고 **하나도 오류가 아니었다** — 여섯은 `Esc` 로 끊은 것이고 하나는
+// 사용자가 도구를 거절한 것이다.
+//
+// 어휘가 셋인 이유는 그 셋이 **사용자가 할 일을 가르기 때문**이다: `completed` 는
+// 볼 것이 없고, `stopped` 는 자기가 한 일이며, `error` 만이 남의 일이다.
+//
+// 에이전트마다 어휘가 다르고 **그것을 옮기는 것이 어댑터의 일이다** (D-M12-1):
+// claude 는 `terminal_reason`(`aborted_*` · `error_*`), codex 는 `turn.status`
+// (`completed`·`interrupted`·`failed`), omp 는 `agent_end` 다. 종전에는 화면이
+// `ev.text==='aborted_streaming'` 으로 **claude 의 사유 문자열을 직접 비교**했고,
+// 그래서 어휘가 하나 늘 때마다(`aborted_tools`) 브라우저가 틀렸다 (누수 L1·L5 와 같은 부류).
+//
+// `Text` 는 그대로 간다 — 그 에이전트가 말한 사유는 버리지 않는다 (D-M11-4).
+type TurnOutcome string
+
+const (
+	OutcomeCompleted TurnOutcome = "completed" // 끝까지 갔다
+	OutcomeStopped   TurnOutcome = "stopped"   // 사람이 멈췄다 (끊기 · 도구 거절)
+	OutcomeError     TurnOutcome = "error"     // 에이전트가 오류로 끝냈다
 )
 
 // Event 는 공통 이벤트다. Kind 별 값만 채워지고, 없는 것은 영값이 아니라 부재다
@@ -254,6 +291,9 @@ type Event struct {
 	// 0 은 부재다 — 내용을 주는 어댑터(codex·omp)는 이 값을 싣지 않는다.
 	ThinkingTokens int64 `json:"thinkingTokens,omitempty"`
 	IsError        bool  `json:"isError,omitempty"`
+	// Outcome 은 이 턴이 **어떻게 끝났는가**다 (FR-M12-23). `EvTurnEnd` 만 싣는다 —
+	// 빈 값은 부재이고, 턴의 끝이 아닌 이벤트가 그렇다.
+	Outcome TurnOutcome `json:"outcome,omitempty"`
 	// Edit 은 이 호출이 **파일을 고치는가**다 (M12_SRS FR-M12-2). nil 이면 편집이
 	// 아니거나 그 어댑터가 편집을 구조로 주지 않는다.
 	Edit *ToolEdit `json:"edit,omitempty"`

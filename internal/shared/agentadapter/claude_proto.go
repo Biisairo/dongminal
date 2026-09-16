@@ -3,6 +3,8 @@ package agentadapter
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -101,7 +103,39 @@ func claudeProtoLaunch(o LaunchOpts) []string {
 	if o.PermissionMode != "" {
 		argv = append(argv, "--permission-mode", o.PermissionMode)
 	}
+	/**
+	 * M12_SRS FR-M12-21 (V-M12-34): **세션 스코프 정책은 표면과 무관하다.**
+	 *
+	 * 종전에는 셸 래퍼(`claude()`)만 이 둘을 붙였고, 그래서 GUI 로 뜬 같은 에이전트는
+	 * `/dongminal:migration`·`/dongminal:team`·`/dongminal:workflow` 를 갖지 못했다.
+	 * 선언은 `claudeAdapter.PolicyInjection.Flags` 에 이미 있었다 — 읽는 쪽이 하나뿐이었다.
+	 *
+	 * **있을 때만 붙인다** — 래퍼의 `[[ -f ]]`·`[[ -d ]]` 와 같은 규약이다. 없는 경로를
+	 * 실으면 기동이 그 자리에서 멎는다.
+	 */
+	if o.PolicyHooksDir != "" {
+		if s := filepath.Join(o.PolicyHooksDir, claudeHooksFile); isFile(s) {
+			argv = append(argv, "--settings", s)
+		}
+	}
+	if isDir(o.PolicyPluginDir) {
+		argv = append(argv, "--plugin-dir", o.PolicyPluginDir)
+	}
 	return argv
+}
+
+// isFile·isDir 은 **깔려 있는가**다. 셸 래퍼가 같은 것을 묻는다.
+func isFile(p string) bool {
+	st, err := os.Stat(p)
+	return err == nil && !st.IsDir()
+}
+
+func isDir(p string) bool {
+	if p == "" {
+		return false
+	}
+	st, err := os.Stat(p)
+	return err == nil && st.IsDir()
 }
 
 // controlRequest 는 호스트→CLI 제어 프레임이다. 대기표를 남긴다.

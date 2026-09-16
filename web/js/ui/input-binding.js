@@ -138,23 +138,21 @@ class InputBinding {
        *   새  동작: 둘을 가른다. 차단은 **언제나** 하고(글자를 치는 자리에서는
        *             편집 조합만 예외), 단축키는 **자기 편집을 스스로 하는 표면**
        *             에서만 돈다
-       *   이유:     접수한 말 — *"gui agent 의 텍스트박스를 클릭한 상태에서 탭
-       *             닫기 단축키를 누르면 … 보이는 모든 브라우저를 닫는다"*.
-       *             `FR-KEY-5` 의 근거는 복사·붙여넣기·전체선택이었고 그 셋은 이미
+       *   이유:     접수한 말 — *"텍스트박스를 클릭한 상태에서 탭 닫기 단축키를
+       *             누르면 … 보이는 모든 브라우저를 닫는다"*. `FR-KEY-5` 의 근거는
+       *             복사·붙여넣기·전체선택이었고 그 셋은 이미
        *             `KEY_BLOCK_EXEMPT_MOD` 가 지킨다 — 면제가 근거보다 넓었다
        */
       const ae=document.activeElement;
       const inText=!!ae&&(ae.tagName==='INPUT'||(ae.tagName==='TEXTAREA'&&!ae.classList.contains('xterm-helper-textarea')));
       /**
-       * 앱 단축키를 낼 자리인가. 글자를 받는 표면 중 **편집을 스스로 하는** 것만
-       * 참이다 — xterm 의 도우미 textarea(위 조건에서 이미 빠진다)와 에이전트
-       * 입력창. 터미널에서 되는 탭 닫기가 에이전트 패널에서 안 되면 그 차이가
-       * 곧 결함이다 (M9_PROGRESS §2-21).
+       * 글자를 받는 표면에서는 브라우저 기본만 막고 물러난다 — xterm 의 도우미
+       * textarea 는 위 조건에서 이미 빠진다.
        *
-       * **Monaco 의 입력 영역은 빠진다.** 그 안쪽은 `file-editor.js` 가 따로
+       * **Monaco 의 입력 영역도 여기 걸린다.** 그 안쪽은 `file-editor.js` 가 따로
        * 배선하며(FR-EKB-1), 여기서 함께 열면 편집기 키가 두 곳에서 판정된다.
        */
-      if(inText&&!ae.classList.contains('agp-ta')){ this._blockBrowserDefault(e,true); return }
+      if(inText){ this._blockBrowserDefault(e,true); return }
       // EDITOR_GIT_UX_SRS FR-EKB-1: Monaco **밖**(탐색기·탭바)에서 누른 경우다.
       // 안쪽은 위의 activeElement 게이트에 걸려 여기 오지 않으므로 file-editor.js
       // 가 같은 함수를 따로 건다. FR-EKB-2: cmd+p 는 브라우저의 인쇄라 반드시 막는다.

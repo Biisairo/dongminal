@@ -158,7 +158,7 @@ func TestCodexProto_Turn(t *testing.T) {
 		t.Fatalf("usage: %+v", evs[0].Usage)
 	}
 	evs = decode1(t, p, st, `{"method":"turn/completed","params":{"threadId":"`+codexTID+`","turn":{"id":"turn-1","items":[],"status":"completed"}}}`)
-	if kinds(evs) != "turn_end" || evs[0].IsError || evs[0].Text != "completed" {
+	if kinds(evs) != "turn_end" || evs[0].Outcome != OutcomeCompleted || evs[0].Text != "completed" {
 		t.Fatalf("turn_end: %+v", evs)
 	}
 	if a, _ := evs[0].Activity(); a != "done" {
@@ -170,12 +170,12 @@ func TestCodexProto_Turn(t *testing.T) {
 		t.Fatalf("error: %+v", evs)
 	}
 	evs = decode1(t, p, st, `{"method":"turn/completed","params":{"threadId":"`+codexTID+`","turn":{"id":"turn-2","items":[],"status":"failed","error":{"message":"boom"}}}}`)
-	if kinds(evs) != "turn_end" || !evs[0].IsError || evs[0].Text != "boom" {
+	if kinds(evs) != "turn_end" || evs[0].Outcome != OutcomeError || evs[0].Text != "boom" {
 		t.Fatalf("failed turn_end: %+v", evs)
 	}
 	// 중단(interrupted)은 오류가 아니다.
 	evs = decode1(t, p, st, `{"method":"turn/completed","params":{"threadId":"`+codexTID+`","turn":{"id":"turn-3","items":[],"status":"interrupted"}}}`)
-	if evs[0].IsError || evs[0].Text != "interrupted" {
+	if evs[0].Outcome != OutcomeStopped || evs[0].Text != "interrupted" {
 		t.Fatalf("interrupted: %+v", evs)
 	}
 }
@@ -396,5 +396,24 @@ func TestCodexProto_ReinitializeIsQuiet(t *testing.T) {
 	evs := decode1(t, p, st, `{"error":{"code":-32600,"message":"no rollout found for thread id x"},"id":"dm-2"}`)
 	if kinds(evs) != "error" || !strings.Contains(evs[0].Text, "thread/resume") {
 		t.Fatalf("다른 오류는 그대로: %+v", evs)
+	}
+}
+
+// V-M12-30 (FR-M12-23): codex 의 `turn.status` 셋이 공통 어휘로 갈린다.
+// **`failed` 의 Text 는 오류 문장이므로** 종류는 상태에서 나와야 한다 — 문장을 비교하면
+// 메시지가 바뀔 때마다 갈래가 틀린다.
+func TestCodexProto_TurnOutcome(t *testing.T) {
+	p, st := codexReady(t)
+	evs := decode1(t, p, st, `{"method":"turn/completed","params":{"threadId":"`+codexTID+`","turn":{"id":"t1","items":[],"status":"completed"}}}`)
+	if evs[0].Outcome != OutcomeCompleted {
+		t.Errorf("completed → %q", evs[0].Outcome)
+	}
+	evs = decode1(t, p, st, `{"method":"turn/completed","params":{"threadId":"`+codexTID+`","turn":{"id":"t2","items":[],"status":"interrupted"}}}`)
+	if evs[0].Outcome != OutcomeStopped {
+		t.Errorf("interrupted → %q, 기대 stopped", evs[0].Outcome)
+	}
+	evs = decode1(t, p, st, `{"method":"turn/completed","params":{"threadId":"`+codexTID+`","turn":{"id":"t3","items":[],"status":"failed","error":{"message":"boom"}}}}`)
+	if evs[0].Outcome != OutcomeError || evs[0].Text != "boom" {
+		t.Errorf("failed → %q/%q", evs[0].Outcome, evs[0].Text)
 	}
 }

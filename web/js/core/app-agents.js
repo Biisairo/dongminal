@@ -9,7 +9,6 @@ Object.assign(App.prototype, {
   _onToolActivity({toolId,state,tool,detail}={}){
     if(!toolId||!state) return;
     this._restoreNote('activity',toolId);   // FR-RSF-4
-    this._noteLiftable(toolId,state);
     if(state==='ended'){ // 종료 → 카드 제거
       if(this._activity.delete(toolId)) this.agentsRender();
       return;
@@ -17,28 +16,6 @@ Object.assign(App.prototype, {
     // FR-AAP-13/21: 기존 항목은 제자리 갱신(순서 불변), 신규는 Map 끝(=최하단)에 추가
     this._activity.set(toolId,{state,tool:tool||'',detail:detail||''});
     this.agentsRender();
-  },
-
-  /**
-   * M9_SRS FR-M9-37 (M9-B19): **활동 신호는 "여기서 에이전트가 돈다" 는 뜻이다.**
-   *
-   *   이전 동작: 올리기 조건을 **탭을 옮길 때만** 물었다
-   *   새  동작: 활동이 오면 그 도구에 대해 다시 묻는다
-   *   이유:     신원은 탭을 옮기는 것보다 **나중에** 생긴다. 사용자가 셸에서
-   *             `claude` 를 띄우면 그 탭은 이미 보이는 중이므로 이동이 일어나지
-   *             않고, 그래서 버튼이 영영 서지 않았다 (사용자 접수 2026-09-14 —
-   *             *"여전히 버튼은 없어"*). 서버·훅·자산이 모두 새것이었고 신원도
-   *             잡혀 있었는데 **화면만 그 사실을 몰랐다**
-   *
-   * **버튼이 이미 있으면 묻지 않는다.** 활동은 도구를 쓸 때마다 오므로 그대로 두면
-   * 요청이 다시 잦아진다 — 404 도배를 고치며 좁힌 것을 여기서 되돌리지 않는다.
-   * 종료(`ended`)는 예외다: 그때는 사라져야 하므로 한 번 더 묻는다.
-   */
-  _noteLiftable(toolId,state){
-    const p=this.tools&&this.tools.get(toolId);
-    if(!p||!p.refreshLift) return;
-    // 숨어 있는 것도 "아직 못 세웠다" 이다 — 그때 신원이 생겼을 수 있다.
-    if(state==='ended'||!p.liftBtn||p.liftBtn.hidden) p.refreshLift();
   },
 
   // FR-AAP-15: 합류/재연결 시 현재 활동 스냅샷 복원

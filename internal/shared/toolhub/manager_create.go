@@ -40,23 +40,6 @@ type Placement struct {
 	// 그쪽 명세가 정하며, 둘이 동시에 참이면 어느 쪽이 이기는지 말할 수 없다.
 	Command string
 
-	// Kind 가 KindAgent 면 **에이전트 도구**다 (M8_UNIFIED_SRS D-U-4·FR-AGT-1).
-	// Argv 가 그 프로세스의 전체 argv(Argv[0] 이 실행 파일)이고, 셸도 PTY 도
-	// 없이 파이프로 뜬다 (FR-AGT-2·3). Agent 는 어댑터 id — 표시명이 되고
-	// ToolInfo 에 실려 서버가 해석층을 세우는 근거가 된다. toolhub 는 그 뜻을
-	// 모른다: argv 를 만든 것은 어댑터이고 프레임을 읽는 것은 서버다.
-	//
-	// Profile·Command 와 함께 쓰지 않는다 — 컨테이너 안의 에이전트 도구는 이
-	// 단계의 범위 밖이다.
-	Kind  ToolKind
-	Argv  []string
-	Agent string
-
-	// ReuseID 는 **이 id 로** 등록하라는 뜻이다 — 휴면·오류 세션의 재개가 같은 도구
-	// 신원으로 새 프로세스를 세우는 길 (M8_UNIFIED_SRS D-C-11; `Restore(id, …)` 와
-	// 같은 근거). 비어 있으면 새 uuid 다. 그 id 가 이미 살아 있으면 ErrToolExists.
-	ReuseID string
-
 	// 아래 둘은 **ToolManager 가 채운다.** 호출자는 건드리지 않는다 — 도구
 	// 식별자는 여기서 만들어지고, 작업 디렉터리는 Create 의 인자이므로 바깥에서
 	// 다시 실어 보낼 이유가 없다.
@@ -90,10 +73,7 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 	//
 	// 배치보다 **먼저** 만든다. 컨테이너 안 도구도 자기 식별자를 환경으로 받아야
 	// dmctl 이 자신을 서버에 알릴 수 있다 (FR-SBX-16).
-	id := place.ReuseID
-	if id == "" {
-		id = uuid.NewString()
-	}
+	id := uuid.NewString()
 	// 작업 디렉터리는 **그대로** 넘긴다. 실재 여부의 판정과 사유 보고는 배치기가
 	// 한다 (FR-SBX-41) — 여기서 조용히 걸러 내면 사용자가 고른 폴더가 왜 안
 	// 붙었는지 알 수 없다.
@@ -129,11 +109,7 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 	start := m.startTool
 	m.mu.Unlock()
 
-	name := defaultToolName
-	if place.Kind == KindAgent && place.Agent != "" {
-		name = place.Agent
-	}
-	p, err := start(id, name, cwd, cols, rows, m.toolExited, hooks, spec)
+	p, err := start(id, defaultToolName, cwd, cols, rows, m.toolExited, hooks, spec)
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -147,9 +123,6 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 	// 샌드박스로 오인되어 백그라운드로 갈 수 없게 된다 — 그 도구는 백그라운드에
 	// 살라고 만든 것이다.
 	p.sandboxed = place.Profile != ""
-	if place.Kind == KindAgent {
-		p.Kind, p.Agent = KindAgent, place.Agent
-	}
 	m.tools[id] = p
 	dmlog.Infof(nil, "[tool %s] registered total=%d", id, len(m.tools))
 	m.mutated.Store(true)
@@ -191,13 +164,6 @@ func (m *ToolManager) SetPlacer(f func(Placement) (*platform.ProcSpec, error)) {
 // Window 가 지정되지 않았으면 결정자를 묻지도 않는다 — 샌드박스가 아닌 창의
 // 경로가 이 기능 도입 전과 완전히 같아야 한다 (NFR-SBX-2).
 func (m *ToolManager) placement(place Placement) (*platform.ProcSpec, error) {
-	if place.Kind == KindAgent {
-		// FR-AGT-2·3: 에이전트 도구 — argv 그대로, 파이프로. 셸을 거치지 않는다.
-		if len(place.Argv) == 0 {
-			return nil, fmt.Errorf("에이전트 도구의 argv 가 비어 있다")
-		}
-		return &platform.ProcSpec{Path: place.Argv[0], Args: place.Argv, Pipe: true}, nil
-	}
 	if place.Profile == "" {
 		// FR-BGP-3: 셸 대신 명령. 셸을 띄우고 그 안에 타이핑하는 대신 명령
 		// 자체를 도구의 프로세스로 세운다 — 그래야 그 명령의 끝이 도구의 끝이다.

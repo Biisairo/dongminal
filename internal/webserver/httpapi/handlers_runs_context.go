@@ -146,10 +146,8 @@ func (s *Server) apiRunContext(w http.ResponseWriter, r *http.Request) {
 		// 에이전트마다 다르므로 창 크기를 물으려면 누가 보고했는지 알아야 한다.
 		// 비어 있으면 창을 모르는 것으로 둔다 — 폴백이 이미 있다 (FR-CTX-6·7).
 		Agent string `json:"agent"`
-		// M9_SRS FR-M9-41: 그 세션의 기록이 있는 **로컬 파일**의 경로다. 내용은
-		// 오지 않는다 (NFR-4 개정 — 경로와 내용은 다른 일이다). 이 값은
-		// `ContextObservation` 에 **들지 않는다**: 관측은 `runs.json` 으로 가고
-		// 거기 적힐 이유가 없다.
+		// TranscriptPath 는 그 세션의 기록이 있는 로컬 파일의 경로다. 훅이 실어
+		// 보내므로 **필드를 남기되 쓰지 않는다** (AGENT_GUI_REMOVAL_SRS FR-AGR-9).
 		TranscriptPath string `json:"transcriptPath"`
 	}
 	if !decodeJSONBody(w, r, &body) {
@@ -166,10 +164,6 @@ func (s *Server) apiRunContext(w http.ResponseWriter, r *http.Request) {
 		obs.Tokens, obs.HasTokens = *body.Tokens, true
 	}
 	sender := s.callerToolID(r, body.ToolID)
-	// M9_SRS FR-M9-32: **Run 에 앉는지와 무관하게** 신원을 붙든다. 아래 `found` 는
-	// "Run 에 앉혔는가" 이고 그 답이 거짓이어도 이 도구에서 에이전트가 돌고 있다는
-	// 사실은 참이다 — 둘을 한 값으로 묶으면 하나가 다른 하나를 삼킨다.
-	s.noteAgentSession(sender, body.SessionID, body.Agent, body.TranscriptPath)
 	m, entered, found := s.Runs.ObserveContext(sender, obs, s.contextPolicy())
 	if !found {
 		writeJSON(w, map[string]any{"observed": false})

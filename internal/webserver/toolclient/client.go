@@ -62,7 +62,7 @@ type ToolClient struct {
 	// onForeground 는 전경 프로세스 이름이 바뀔 때 온다 (CONVENIENCE_SRS
 	// FR-TAN-9). 데몬은 변화만 밀므로 같은 값이 되풀이되지 않는다. nil 이면
 	// 끈다 — 같은 이름이 List() 응답에도 실리므로 잃는 것은 없다.
-	onOutput     func(toolID string, kind toolhub.ToolKind, data []byte, end int64)
+	onOutput     func(toolID string, data []byte, end int64)
 	onExit       func(toolID string, info toolhub.ExitInfo)
 	onForeground func(toolID, name string)
 	earlyPushes  []earlyPush
@@ -97,7 +97,7 @@ type earlyPush struct {
 // SetOnOutput 은 output 콜백을 잠금 안에서 건다. 배선 전에 도착한 output 은
 // 버리지 않고 **놓친다** — 화면은 다음 snapshot 이 메우고, 주의 탐지는 다음
 // 청크에서 이어진다 (exit 와 달리 유실이 상태를 남기지 않는다).
-func (pc *ToolClient) SetOnOutput(cb func(toolID string, kind toolhub.ToolKind, data []byte, end int64)) {
+func (pc *ToolClient) SetOnOutput(cb func(toolID string, data []byte, end int64)) {
 	pc.mu.Lock()
 	pc.onOutput = cb
 	pc.mu.Unlock()

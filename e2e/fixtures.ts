@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { test as base, expect } from '@playwright/test';
 
-import { E2E_AGENT_BIN_DIR, E2E_BIN, E2E_HOME, E2E_PORT0 } from '../playwright.config';
+import { E2E_BIN, E2E_HOME, E2E_PORT0 } from '../playwright.config';
 import { stopDaemon } from './daemon-cleanup';
 import { realPath } from './osenv';
 
@@ -230,8 +230,6 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
           PORT: String(port),
           DONGMINAL_HOME: home,
           DONGMINAL_TOOL_HOME: toolHome,
-          // M8_UNIFIED_SRS D-C-7: 에이전트 도구는 여기의 가짜를 띄운다 (V-12).
-          DONGMINAL_AGENT_BIN_DIR: E2E_AGENT_BIN_DIR,
         },
         // 서버의 말은 **모아 두었다가 실패했을 때만** 낸다. 그대로 흘리면 워커
         // 수만큼의 요청 로그가 리포터의 줄을 덮어, 무엇이 몇 개 실패했는지 로그만

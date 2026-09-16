@@ -12,7 +12,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -195,13 +194,12 @@ func TestPanedPushOutputBase64(t *testing.T) {
 	var buf bytes.Buffer
 	pc := &panedConn{encoder: json.NewEncoder(&buf)}
 	raw := []byte("hello\x1b[31mworld\x1b[0m\n")
-	pc.pushOutputData("1", "", raw, int64(len(raw)))
+	pc.pushOutputData("1", raw, int64(len(raw)))
 
 	var ev struct {
-		Event string  `json:"event"`
-		Tool  string  `json:"tool"`
-		Data  string  `json:"data"`
-		Kind  *string `json:"kind"`
+		Event string `json:"event"`
+		Tool  string `json:"tool"`
+		Data  string `json:"data"`
 	}
 	json.Unmarshal(bytes.TrimRight(buf.Bytes(), "\n"), &ev)
 	if ev.Event != "output" || ev.Tool != "1" {
@@ -211,49 +209,21 @@ func TestPanedPushOutputBase64(t *testing.T) {
 	if !bytes.Equal(dec, raw) {
 		t.Fatalf("round-trip mismatch")
 	}
-	// 터미널 도구의 청크에는 kind 가 없다 — 옛 데몬과 같은 모양이다.
-	if ev.Kind != nil {
-		t.Fatalf("터미널 청크에 kind 가 실렸다: %q", *ev.Kind)
-	}
-}
-
-// M8_UNIFIED_SRS D-C-10: 에이전트 도구의 청크는 종류를 싣는다 — 받는 쪽(ToolClient
-// readLoop)이 목록에 되묻지 않게.
-func TestPanedPushOutputCarriesKind(t *testing.T) {
-	var buf bytes.Buffer
-	pc := &panedConn{encoder: json.NewEncoder(&buf)}
-	raw := []byte(`{"type":"hello"}` + "\n")
-	pc.pushOutputData("1", toolhub.KindAgent, raw, int64(len(raw)))
-	var ev struct {
-		Kind string `json:"kind"`
-	}
-	json.Unmarshal(bytes.TrimRight(buf.Bytes(), "\n"), &ev)
-	if ev.Kind != string(toolhub.KindAgent) {
-		t.Fatalf("kind=%q", ev.Kind)
-	}
 }
 
 func TestPanedPushExit(t *testing.T) {
 	var buf bytes.Buffer
 	pc := &panedConn{encoder: json.NewEncoder(&buf)}
-	// M8_UNIFIED_SRS D-C-15: exit push 는 종료 코드와 stderr 꼬리를 든다.
-	pc.pushExit("1", toolhub.ExitInfo{Code: 1, Stderr: []string{"401", "boom"}})
+	pc.pushExit("1", toolhub.ExitInfo{Code: 1})
 
 	var ev struct {
-		Event  string   `json:"event"`
-		Tool   string   `json:"tool"`
-		Code   int      `json:"code"`
-		Stderr []string `json:"stderr"`
+		Event string `json:"event"`
+		Tool  string `json:"tool"`
+		Code  int    `json:"code"`
 	}
 	json.Unmarshal(bytes.TrimRight(buf.Bytes(), "\n"), &ev)
-	if ev.Event != "exit" || ev.Tool != "1" || ev.Code != 1 || len(ev.Stderr) != 2 || ev.Stderr[1] != "boom" {
+	if ev.Event != "exit" || ev.Tool != "1" || ev.Code != 1 {
 		t.Fatalf("ev=%+v", ev)
-	}
-	// 터미널 도구(영값)는 종전 모양 그대로 — stderr 필드가 없다.
-	buf.Reset()
-	pc.pushExit("2", toolhub.ExitInfo{})
-	if strings.Contains(buf.String(), "stderr") {
-		t.Fatalf("영값에 stderr 가 실렸다: %s", buf.String())
 	}
 }
 
@@ -261,7 +231,7 @@ func TestPanedPushOutputStopped(t *testing.T) {
 	var buf bytes.Buffer
 	pc := &panedConn{encoder: json.NewEncoder(&buf)}
 	pc.stopped.Store(true)
-	pc.pushOutputData("1", "", []byte("x"), 1)
+	pc.pushOutputData("1", []byte("x"), 1)
 	if buf.Len() > 0 {
 		t.Fatal("pushOutputData should no-op when stopped")
 	}

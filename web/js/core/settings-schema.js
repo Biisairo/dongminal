@@ -47,8 +47,7 @@ const SETTINGS_SCHEMA = [
   {"key":"themeFollowSystem","type":"bool","def":false,"where":"Theme ▸ 시스템 추종"},
   {"key":"themeNameDark","type":"string","def":"Tokyo Night","where":"Theme ▸ 다크 슬롯"},
   {"key":"themeNameLight","type":"string","def":"GitHub Light","where":"Theme ▸ 라이트 슬롯"},
-  {"key":"locale","type":"string","def":"ko","where":"Display ▸ 언어"},
-  {"key":"agentApprovalMode","type":"string","def":"always-ask","where":"Display ▸ 에이전트 승인 정책"}
+  {"key":"locale","type":"string","def":"ko","where":"Display ▸ 언어"}
 ];
 
 const SETTINGS_BY_KEY=Object.fromEntries(SETTINGS_SCHEMA.map(s=>[s.key,s]));

@@ -80,9 +80,6 @@ func (pc *ToolClient) pushOutput(raw json.RawMessage) {
 		// 이 필드를 보내지 않는 옛 데몬에서는 0 으로 읽히고, 그때 받는 쪽은
 		// 겹침 제거를 건너뛴다 — 지금 동작과 같아질 뿐 나빠지지 않는다.
 		End int64 `json:"end"`
-		// Kind 는 도구의 종류다 (M8_UNIFIED_SRS D-C-10). 여기서 목록으로 되물으면
-		// 그 RPC 의 응답을 읽을 고루틴이 바로 이 readLoop 라 시한까지 막힌다.
-		Kind string `json:"kind"`
 	}
 	if err := json.Unmarshal(raw, &ev); err != nil {
 		return
@@ -97,7 +94,7 @@ func (pc *ToolClient) pushOutput(raw json.RawMessage) {
 	onOutput := pc.onOutput
 	pc.mu.Unlock()
 	if onOutput != nil {
-		onOutput(ev.Tool, toolhub.ToolKind(ev.Kind), data, ev.End)
+		onOutput(ev.Tool, data, ev.End)
 	}
 	// Dispatch to per-tool output channels. Non-blocking: a single slow
 	// WS subscriber must never stall readLoop (which serves every tool).
@@ -170,11 +167,11 @@ func (pc *ToolClient) pushExit(raw json.RawMessage) {
 	pc.mu.Lock()
 	onExit := pc.onExit
 	if onExit == nil {
-		pc.earlyPushes = append(pc.earlyPushes, earlyPush{tool: ev.Tool, info: toolhub.ExitInfo{Code: ev.Code, Stderr: ev.Stderr}})
+		pc.earlyPushes = append(pc.earlyPushes, earlyPush{tool: ev.Tool, info: toolhub.ExitInfo{Code: ev.Code}})
 	}
 	pc.mu.Unlock()
 	if onExit != nil {
-		onExit(ev.Tool, toolhub.ExitInfo{Code: ev.Code, Stderr: ev.Stderr})
+		onExit(ev.Tool, toolhub.ExitInfo{Code: ev.Code})
 	}
 }
 

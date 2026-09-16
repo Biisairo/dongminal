@@ -88,7 +88,7 @@ func claudeDecodeFrame(fr claudeFrame, st *ProtoState) ([]Event, bool) {
 		}
 		return []Event{
 			{Kind: EvUsage, SessionID: fr.SessionID, Usage: u},
-			{Kind: EvTurnEnd, SessionID: fr.SessionID, Text: reason, IsError: fr.IsError},
+			{Kind: EvTurnEnd, SessionID: fr.SessionID, Text: reason, Outcome: claudeTurnOutcome(reason, fr.IsError)},
 		}, true
 	case "control_request":
 		return claudeDecodeControlRequest(fr, st)
@@ -534,4 +534,27 @@ func claudeParseHistory(line string) ([]Event, bool) {
 		return evs, true
 	}
 	return nil, false
+}
+
+// claudeTurnOutcome 은 claude 의 종료 사유를 공통 어휘로 옮긴다 (M12_SRS FR-M12-23).
+//
+// **`is_error` 로는 가를 수 없다** (실측 2026-09-16): 사용자가 `Esc` 로 끊은 턴도,
+// 도구를 거절한 턴도 `is_error:true` 에 `subtype:"error_during_execution"` 으로 온다.
+// 가르는 것은 `terminal_reason` 이며 CLI 2.1.273 의 어휘가 접두사로 이미 갈라 준다:
+//
+//	aborted_streaming · aborted_tools · aborted_by_mock   ← 사람이 멈췄다
+//	error_during_execution · error_max_turns · error_max_budget_usd
+//	  · error_max_structured_output_retries               ← 오류
+//
+// 접두사로 보는 이유는 **어휘가 는다**는 것이 이번 결함의 원인이기 때문이다 —
+// `aborted_tools` 는 종전 열거에 없어 오류로 떨어졌다. 모르는 사유는 `is_error` 가
+// 마지막 갈래이며, 그것마저 없으면 끝까지 간 것이다.
+func claudeTurnOutcome(reason string, isErr bool) TurnOutcome {
+	switch {
+	case strings.HasPrefix(reason, "aborted"):
+		return OutcomeStopped
+	case strings.HasPrefix(reason, "error"), isErr:
+		return OutcomeError
+	}
+	return OutcomeCompleted
 }

@@ -73,7 +73,7 @@ func ompDecode(line []byte, st *ProtoState) ([]Event, bool) {
 			return nil, true
 		}
 		x.inAgent = false
-		return []Event{{Kind: EvTurnEnd, SessionID: sid, Text: "completed"}}, true
+		return []Event{{Kind: EvTurnEnd, SessionID: sid, Text: "completed", Outcome: OutcomeCompleted}}, true
 	case "message_start", "turn_start", "turn_end", "model_changed", "thinking_level_changed",
 		"auto_retry_start", "auto_retry_end", "retry_fallback_applied", "retry_fallback_succeeded",
 		"ttsr_triggered", "todo_reminder", "todo_auto_clear", "goal_updated", "irc_message",

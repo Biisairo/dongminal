@@ -162,26 +162,14 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 		// 비어 있으면 **종전 판정 그대로** 간다 — 알 수 없는 보고자에게 알람을
 		// 지어내지 않는다.
 		Agent string `json:"agent"`
-		// SessionID 는 그 도구에서 도는 에이전트의 신원이다 (M11_SRS FR-M11-8).
-		//
-		// **활동과 같은 요청에 오는 이유**는 받는 쪽이 활동 방송을 계기로 신원을
-		// 즉시 되묻기 때문이다. 별도 POST 로 뒤따르면 그 물음이 언제나 한 왕복
-		// 빨라 "모른다" 를 받고, 다음 훅까지 아무도 다시 묻지 않는다 (M11-B7).
-		// `reportActivity` 의 D-1 과 같은 근거다 — 한 요청 안에서는 순서가 확정된다.
+		// SessionID 는 그 도구에서 도는 에이전트의 신원이다. 훅이 실어 보내므로
+		// **필드를 남기되 쓰지 않는다** (AGENT_GUI_REMOVAL_SRS FR-AGR-9) — 이것을
+		// 읽던 세션 신원 저장소는 에이전트 GUI 와 함께 사라졌다.
 		SessionID string `json:"sessionId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" || !hub.ValidActivityState(req.State) {
 		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeBadRequest)
 		return
-	}
-	// **방송보다 먼저다.** 순서가 이 두 줄의 전부이며, 뒤집으면 M11-B7 이 돌아온다.
-	// 빈 값은 아무것도 하지 않는다 (`noteAgentSession` — 모른다를 없다로 만들지 않는다).
-	s.noteAgentSession(req.ToolID, req.SessionID, req.Agent, "")
-	// FR-M11-9: 끝남도 **같은 요청**에서 표시한다. 방송 뒤에 표시하면 받는 쪽이
-	// `ended` 를 계기로 되물을 때 아직 "올릴 수 있다" 가 나온다 — FR-M11-8 이
-	// 고친 것과 같은 순서 문제가 반대편에서 되살아난다.
-	if req.State == "ended" {
-		s.endAgentSession(req.ToolID)
 	}
 	s.reportActivity(req.ToolID, req.State, req.Tool, req.Detail, req.UserPrompt, agentReportsUserTurn(req.Agent))
 	w.Header().Set("Content-Type", "application/json")

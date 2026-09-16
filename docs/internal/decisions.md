@@ -38,6 +38,14 @@
 | `D-A11Y-11` | 키 이동의 계약은 두 모양이다 — 목록·탭은 roving tabindex, 트리는 컨테이너 포커스 + `aria-activedescendant`. |  | 채택 |
 | `D-A11Y-12` | 활성화는 클릭과 같다 — 포커스를 넘긴다. 이동은 넘기지 않는다. |  | 채택 |
 
+## [`AGENT_GUI_REMOVAL_SRS`](./AGENT_GUI_REMOVAL_SRS.md)
+
+| ID | 결정 | 근거 | 상태 |
+|---|---|---|---|
+| `D-1` | 훅 기반 활동 패널 | **유지** — GUI 탭이 아니라 터미널 에이전트의 활동이다. 배선이 분리돼 있다 | 채택 |
+| `D-2` | 올리기 버튼 + 세션 신원 저장소 | **둘 다 제거** — 목적지가 사라지고, 저장소의 유일한 독자가 `handlers_agent.go` 였다 | 채택 |
+| `D-3` | `agentApprovalMode` 설정 | **제거** — 유일한 소비자가 GUI 탭 생성이다 | 채택 |
+
 ## [`AGENT_PROTOCOL_SURFACE_SRS`](./AGENT_PROTOCOL_SURFACE_SRS.md)
 
 | ID | 결정 | 근거 | 상태 |
@@ -923,4 +931,4 @@
 
 ---
 
-결정 **555건** · 문서 **69개**.
+결정 **558건** · 문서 **70개**.

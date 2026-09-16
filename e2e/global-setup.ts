@@ -1,12 +1,10 @@
 import { execFileSync } from 'child_process';
-import { copyFileSync, mkdirSync, readdirSync, rmSync, statSync } from 'fs';
+import { mkdirSync, readdirSync, rmSync, statSync } from 'fs';
 import { basename } from 'path';
 
-import { join } from 'path';
-
-import { E2E_AGENT_BIN_DIR, E2E_BIN, E2E_HOME, E2E_RUN_ENV } from '../playwright.config';
+import { E2E_BIN, E2E_HOME, E2E_RUN_ENV } from '../playwright.config';
 import { stopDaemon, stopDaemonsUnder } from './daemon-cleanup';
-import { TMP, isWin, tmpPath } from './osenv';
+import { TMP, tmpPath } from './osenv';
 
 // 이전 실행이 남긴 `<임시>/dongminal-e2e-*` 를 정리한다 (`TMP` 는 osenv 가 정한다).
 //
@@ -69,18 +67,6 @@ function keepPeers(): boolean {
 function buildServer() {
   mkdirSync(E2E_HOME, { recursive: true });
   execFileSync('go', ['build', '-o', E2E_BIN, './cmd/dongminal'], { stdio: ['ignore', 'ignore', 'inherit'] });
-  /**
-   * M8_UNIFIED_SRS V-12 · D-C-7·9: 가짜 에이전트. 서버는 `DONGMINAL_AGENT_BIN_DIR` 에서
-   * 어댑터의 `DetectCmd` 이름을 먼저 찾으므로 그 이름으로 놓는다 — 이름은 등록부의
-   * 것이고, 이 파일과 `agent-tool.spec.ts` 가 그것을 아는 e2e 자리다. 한 바이너리가
-   * 세 프로토콜을 말하며(argv 의 모양으로 고른다) 이름마다 복사한다. `fixtures.ts` 가
-   * 그 디렉터리를 서버에 준다.
-   */
-  mkdirSync(E2E_AGENT_BIN_DIR, { recursive: true });
-  const ext = isWin ? '.exe' : '';
-  const fake = join(E2E_AGENT_BIN_DIR, 'claude' + ext);
-  execFileSync('go', ['build', '-o', fake, './internal/shared/agentadapter/fakeagent/cmd'], { stdio: ['ignore', 'ignore', 'inherit'] });
-  for (const name of ['codex', 'omp']) copyFileSync(fake, join(E2E_AGENT_BIN_DIR, name + ext));
 }
 
 async function globalSetup() {

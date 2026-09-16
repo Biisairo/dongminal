@@ -362,10 +362,6 @@ class Renderer {
     // `_hideOthers`, 창·칸 전환은 `_domGC`, 배치 변경은 `_place`. 셋에 각각 훅을
     // 걸면 넷째 자리가 생길 때 조용히 빠진다. 이 시점은 그 셋보다 앞선다.
     if(app.fileEditors) for(const v of app.fileEditors.values()) if(v&&v.keepView) v.keepView();
-    // FR-M11-17 (M11-B14): **에이전트 패널도 여기 있다.** 대화(`agp-log`)의 자리는
-    // DOM `scrollTop` 이지만 요소가 떨어지면 브라우저가 그것을 버리므로, 훑기로
-    // 잡히는 시점이 없다 — 편집기와 같은 이유로 위젯에게 갈무리를 맡긴다.
-    if(app.agentPanes) for(const v of app.agentPanes.values()) if(v&&v.keepView) v.keepView();
   }
 
   /**
@@ -400,15 +396,6 @@ class Renderer {
   }
 
   _restoreScroll(){
-    /**
-     * FR-M11-17 (M11-B14): 에이전트 대화의 자리도 **여기서** 되돌린다.
-     *
-     * `_mountTabBody` 에서 부르면 그 pane 이 아직 문서에 없어 `scrollTop` 이 값을
-     * 받지 못한다 — 이 함수가 `_rLayout()` **뒤**에 있는 것이 바로 그 때문이다
-     * (FR-SCR-2 의 주석이 그 사실을 이미 적어 두었다).
-     */
-    const panes=this._agentRestore; this._agentRestore=null;
-    if(panes) for(const v of panes) v.restoreView();
     const list=this._scrollKeep; this._scrollKeep=null;
     if(!list) return;
     for(const [n,t,l] of list){
@@ -704,9 +691,7 @@ class Renderer {
              * **모바일 제외는 이 블록의 조건이 이미 지킨다** (`!app.isMobile`,
              * FR-MTI-25) — 판정을 새로 만들지 않는다.
              */
-            const p=app.toolAny(tab.toolId)
-              ||(app.agentPanes&&(app.agentPanes.get(app.slotKey(tab.toolId,app.slotFocused()))
-                ||app.agentPanes.get(tab.toolId)));
+            const p=app.toolAny(tab.toolId);
             if(p&&p.focus)p.focus();
           }
           // 표명은 **실제로 넘긴 때**만 지운다 — 여는 한 손짓이 render 를 여러 번
@@ -1085,11 +1070,6 @@ class Renderer {
     }else if(at.type==='run'){
       // FR-RVZ-6: 네 번째 타입. 루트 DOM 은 탭마다 캐시된다 (NFR-RVZ-2).
       el=this.app.runViewEl(at,slot);
-    }else if(at.type==='agent'){
-      // M8_UNIFIED_SRS D-U-4 (b): 에이전트 도구 — xterm 대신 대화 뷰. 종류를 묻는
-      // 세 자리 중 하나가 여기다.
-      const p=at.toolId?this.app.mkAgent(at.toolId,at.name||'',slot):null;
-      if(p) el=p.el;
     }else{
       // 슬롯 1 의 인스턴스는 그 슬롯이 처음 이 도구를 그릴 때 선다 (FR-WSL-20).
       const p=at.toolId?this.app.mkTool(at.toolId,at.name||'',slot):null;
@@ -1106,15 +1086,6 @@ class Renderer {
       moved=true;
     }
     el.classList.add('vis');
-    /**
-     * M9_SRS FR-M9-33·37: 올리기 조건을 다시 묻는다 — 떠나 있는 동안 그 셸에서
-     * 에이전트가 떴을 수 있고, 반대로 끝났을 수도 있다.
-     *
-     * **계기는 이동뿐이다** (`moved`). 종전에는 렌더마다 물었고, 그래서 같은 물음이
-     * 초당 여러 번 나갔다 (사용자 접수 2026-09-14 — 콘솔이 그 요청으로 찼다).
-     * 이 답은 사람이 셸에 무엇을 치는가에 달렸으므로 **탭을 오갈 때 한 번**이면 된다.
-     */
-    if(moved&&term&&term.refreshLift) term.refreshLift();
     // FR-VSR-3: 편집기 탭의 시선은 **붙은 뒤에** 되돌린다. 이동하지 않은 경로에서는
     // 부르지 않는다 — 화면을 만지는 쪽의 조건은 좁아야 한다 (FR-PDR-10 의 규약).
     if(moved&&at.type==='editor'){
@@ -1134,10 +1105,6 @@ class Renderer {
      *   이유:     그 자리가 이미 *"요소가 문서에 붙은 뒤"* 의 자리다 (FR-SCR-2).
      *             **규약은 있었고 이 한 자리만 그 밖에 있었다**
      */
-    if(moved&&at.type==='agent'&&at.toolId&&this.app.agentPanes){
-      const view=this.app.agentPanes.get(this.app.slotKey(at.toolId,slot));
-      if(view&&view.restoreView) (this._agentRestore||(this._agentRestore=[])).push(view);
-    }
     this._mounted.add(el);
     this._hideOthers(body,el);
   }
@@ -1292,14 +1259,8 @@ class Renderer {
       const aw=app.aw();
       const noNew=app.isGitWin(aw)||app.isEditorWin(aw);
       const label=t.querySelector('.pn-tab-label');
-      // M8_UNIFIED_SRS FR-AGT-10: 에이전트 탭이면 TUI 출구 — 같은 세션을 터미널로.
-      // 에이전트 탭 **만들기**는 `+` 우클릭에만 있다 — 이 메뉴는 FR-CMU-8 의 셋이다.
-      const tui=c.tab.type==='agent'
-        ?[{id:'agent-tui',label:AGENT_OPEN_TERMINAL,onClick:()=>app.agentOpenTerminal(c.tab.toolId)}]
-        :[];
       UIKit.menu([
         {id:'new',label:TAB_MENU_NEW,disabled:noNew?TAB_MENU_NEW_NO:false,onClick:()=>app.addTab(c.pane.id,'terminal')},
-        ...tui,
         {id:'rename',label:TAB_MENU_RENAME,disabled:c.tab.type===TAB_TYPE_GIT?TAB_MENU_RENAME_GIT_NO:false,
           onClick:()=>{if(c.tab.preview) app.pinPreviewTab(c.tab); if(label) app.renameTab(c.tab,label)}},
         {id:'close',label:TAB_MENU_CLOSE,onClick:()=>app.closeTab(c.pane.id,c.tab.id,null,{slot:c.slot})},
@@ -1387,7 +1348,6 @@ class Renderer {
       const pid=pn._ctx.node.id;
       UIKit.menu([
         {id:'new',label:TAB_MENU_NEW,onClick:()=>app.addTab(pid,'terminal')},
-        ...app.agentMenuItems(pid),
       ],{at:{x:e.clientX,y:e.clientY},cls:'tab-menu'});
     });
     return add;

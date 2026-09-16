@@ -20,7 +20,6 @@ export const E2E_BIN = E2E_HOME + '/dongminal-e2e' + (isWin ? '.exe' : '');
 
 // 가짜 에이전트가 놓이는 디렉터리 (M8_UNIFIED_SRS V-12 · D-C-7). `globalSetup` 이
 // 만들고 워커의 서버가 `DONGMINAL_AGENT_BIN_DIR` 로 받는다.
-export const E2E_AGENT_BIN_DIR = E2E_HOME + '/agent-bin';
 
 // 워커 0 의 포트. 워커 i 는 `E2E_PORT0 + i` 를 쓴다 (FR-EPL-1).
 //

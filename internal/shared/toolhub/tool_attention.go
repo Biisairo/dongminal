@@ -159,11 +159,6 @@ func SetAttnBusyProbe(f func(*Tool) bool) (restore func()) {
 // ① 이 없던 동안 `vim`·`less`·`top`·`ssh`·빌드 대기가 전부 울었다. ② 만으로는
 // "무언가 돌고 있다"까지밖에 말하지 못한다.
 func (p *Tool) maybeIdle(now, threshold int64) {
-	// FR-AAL-5: 에이전트 도구는 L2 idle 의 대상이 아니다 — 프로토콜이 턴의 시작과
-	// 끝을 명시하고, 끊기면 idle 이 아니라 오류다 (FR-ABG-20).
-	if p.Kind == KindAgent {
-		return
-	}
 	if threshold <= 0 || !p.attnArmed.Load() {
 		return
 	}

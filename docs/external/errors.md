@@ -34,14 +34,6 @@
 | 코드 | 의미 | 다음에 할 일 |
 |---|---|---|
 | `access_store_unavailable` | 허용 목록 계층이 아직 서지 않았습니다. | 잠시 뒤 다시 시도하세요. |
-| `agent_bin_missing` | 에이전트 실행 파일을 찾지 못했습니다. | PATH 에 그 에이전트를 설치하거나 DONGMINAL_AGENT_BIN_DIR 을 지정하세요. |
-| `agent_control_unsupported` | 이 에이전트는 그 제어를 지원하지 않습니다. | 메뉴에 보이는 제어만 쓰세요 — 없는 것은 어댑터가 주지 않는 것입니다. |
-| `agent_dormant` | 이 에이전트는 휴면·오류 상태라 프로세스가 없습니다. | 재개한 뒤 다시 시도하세요 — POST /api/agent/resume. |
-| `agent_no_identity` | 세션 신원이 아직 없어 휴면할 수 없습니다. | 첫 턴을 보낸 뒤 휴면하세요 — 그때 에이전트가 세션 id 를 냅니다. |
-| `agent_no_proto` | 이 에이전트는 프로토콜 표면이 없어 에이전트 도구로 띄울 수 없습니다. | 터미널 탭에서 여세요. 프로토콜 표면은 어댑터가 선언합니다. |
-| `agent_not_dormant` | 이 에이전트는 활성 상태라 재개할 것이 없습니다. | 휴면하려면 POST /api/agent/hibernate 를 먼저 부르세요. |
-| `agent_session_not_found` | 그 도구에 에이전트 세션이 없습니다. | 에이전트 도구가 아니거나 이미 끝난 도구입니다. 목록을 다시 받으세요. |
-| `approval_not_open` | 그 승인 요청은 열려 있지 않습니다. | 이미 답했거나 에이전트가 거둔 요청입니다. 화면을 새로 고쳐 열린 요청을 확인하세요. |
 | `bad_request` | 요청의 모양이 규약과 다릅니다. | 보낸 값의 형식과 필수 항목을 확인하세요. 같은 요청을 다시 보내도 같은 답이 옵니다. |
 | `body_too_large` | 본문이 상한을 넘었습니다. | 나눠 보내거나 파일 업로드 표면을 쓰세요. 상한은 features.md 의 용량 표에 있습니다. |
 | `branch_exists` | 같은 이름의 브랜치가 이미 있습니다. | 다른 이름을 쓰거나 기존 것으로 전환하세요. |
@@ -109,9 +101,8 @@
 | `tools_unavailable` | 도구 계층이 아직 서지 않았습니다. | 잠시 뒤 다시 시도하세요. 계속되면 dongminal health 로 데몬 연결을 보세요. |
 | `undo_expired` | 되돌리기 창이 지났습니다. | git 의 reflog 로 직접 되찾아야 합니다. |
 | `unknown_action` | 모르는 명령입니다. | commands.md 의 목록을 확인하세요. 판이 뒤진 서버일 수도 있습니다. |
-| `unknown_agent` | 알 수 없는 에이전트입니다. | 등록된 에이전트 id 를 쓰세요 — GET /api/agents 가 목록을 냅니다. |
 | `unsafe_ignore_path` | 그 경로는 .gitignore 에 넣을 수 없습니다. | 저장소 안의 상대 경로를 쓰세요. |
 | `workspace_unavailable` | 워크스페이스 계층이 아직 서지 않았습니다. | 잠시 뒤 다시 시도하세요. |
 | `worktree_exists` | 그 자리에 이미 worktree 가 있습니다. | 다른 경로를 고르거나 기존 것을 여세요. |
 
-총 **80개**.
+총 **71개**.

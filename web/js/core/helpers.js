@@ -508,10 +508,6 @@ var confirmLeave=false;
 // 같은 언어여야 한다. **활성 로케일은 `I18N.locale` 이고 이 값은 저장할 값이다** —
 // 둘이 다른 순간은 사용자가 고르고 페이지가 다시 열리기 전뿐이다 (D-B-1).
 var uiLocale=I18N.locale;
-// M8_UNIFIED_SRS §9.3 ⑥ F-4: 에이전트 도구의 기동 승인 정책. 어댑터의 어휘 그대로 실리고,
-// 정책을 기동 인자로 받지 않는 에이전트는 무시한다. 기본이 무승인(yolo)인 에이전트를
-// 인자 없이 띄우면 승인 요청이 한 번도 오지 않으므로 기본은 가장 많이 묻는 쪽이다.
-var agentApprovalMode='always-ask';
 /**
  * UNFOCUSED_EDGE_SRS FR-UFE-10·12·13: 포커스를 잃은 창의 가장자리 표시 세기(0~10).
  *
@@ -590,8 +586,6 @@ function normalizeTab(t) {
 // 닫히지도 않는 고정 탭이다 (FR-GIT-28).
 const TOOL_CAPABILITIES = {
   terminal: { backgroundCapable: true },
-  // M8_UNIFIED_SRS FR-ABG-1: 에이전트 도구도 서버가 소유한 프로세스다 — 백그라운드는 같은 길.
-  agent:    { backgroundCapable: true },
   editor:   { backgroundCapable: false },
   git:      { backgroundCapable: false },
 };

@@ -158,6 +158,26 @@ func TestFake_ApproveRoundTrip(t *testing.T) {
 	}
 }
 
+// V-M12-32 (FR-M12-23): **도구를 거절하면 턴은 `aborted_tools` 로 끝난다.**
+//
+// 실측 2026-09-16 의 일곱 거짓 오류 중 하나가 이것이다. 종전 흉내는 거절 뒤에도
+// `completed` 를 내어 그 갈래가 아예 재어지지 않았다 — **흉내가 원본보다 적으면
+// 검사가 헛돈다** (M12_PROGRESS §2-6).
+func TestFake_DenyEndsTurnStopped(t *testing.T) {
+	r := start(t)
+	r.send(r.proto.Prompt("APPROVE please", nil, r.st)...)
+	_, ev := r.until(t, agentadapter.EvApprovalOpen)
+	frame, err := r.proto.Approve(*ev.Approval, agentadapter.Decision{Choice: agentadapter.ChoiceDeny}, r.st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.send(frame)
+	_, ev = r.until(t, agentadapter.EvTurnEnd)
+	if ev.Outcome != agentadapter.OutcomeStopped || ev.Text != "aborted_tools" {
+		t.Fatalf("거절된 턴: %+v", ev)
+	}
+}
+
 func TestFake_Question(t *testing.T) {
 	r := start(t)
 	r.send(r.proto.Prompt("QUESTION", nil, r.st)...)
@@ -182,7 +202,8 @@ func TestFake_InterruptAndDie(t *testing.T) {
 	r.until(t, agentadapter.EvTextDelta)
 	r.send(r.proto.Interrupt(r.st))
 	_, ev := r.until(t, agentadapter.EvTurnEnd)
-	if !ev.IsError || ev.Text != "aborted_streaming" {
+	// FR-M12-23: 사용자가 끊은 턴은 **멈춘 것**이다 — 오류가 아니다.
+	if ev.Outcome != agentadapter.OutcomeStopped || ev.Text != "aborted_streaming" {
 		t.Fatalf("인터럽트된 턴: %+v", ev)
 	}
 	r.send(r.proto.Prompt("DIE", nil, r.st)...)

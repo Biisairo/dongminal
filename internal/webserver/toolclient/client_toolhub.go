@@ -171,12 +171,6 @@ func (pc *ToolClient) Create(cwd string, cols, rows uint16, place toolhub.Placem
 		"command": place.Command,
 		// UX_BATCH6_SRS FR-SBM-3: 작업 방식도 데몬이 배치할 때 쓴다.
 		"work": place.Work,
-		// M8_UNIFIED_SRS §9.3 ④: 에이전트 도구의 종류·argv·어댑터 id. 프로세스를
-		// 세우는 것은 데몬이므로 값만 실어 보낸다 — 프로파일·명령과 같은 방향이다.
-		"kind": string(place.Kind), "argv": place.Argv, "agent": place.Agent,
-		// M8_UNIFIED_SRS D-C-11: 재개는 같은 도구 신원이다. 옛 데몬은 모르는 필드를 버리고 새
-		// id 를 주며, 호출자(apiAgentResume)가 그 어긋남을 본다.
-		"reuseId": place.ReuseID,
 	})
 	if err != nil {
 		// M8 D-A-16: 상한 초과는 코드로 건너온다 — 핸들러의 `errors.Is` 가 두 모드에서 같다.
@@ -189,18 +183,16 @@ func (pc *ToolClient) Create(cwd string, cols, rows uint16, place toolhub.Placem
 	pc.invalidateList()
 	id, _ := resp["id"].(string)
 	name, _ := resp["name"].(string)
-	kind, _ := resp["kind"].(string)
-	agent, _ := resp["agent"].(string)
-	return &toolhub.Tool{ID: id, Name: name, Kind: toolhub.ToolKind(kind), Agent: agent}, nil
+	return &toolhub.Tool{ID: id, Name: name}, nil
 }
 
-// Get 은 **신원만 든 합성 Tool** 이다 (`GO-47`, ToolHub.Get 의 계약) — ID·Name·
-// Kind·Agent 는 목록에서 오고, 전송·프로세스가 필요한 메서드는 무동작·영값이다.
+// Get 은 **신원만 든 합성 Tool** 이다 (`GO-47`, ToolHub.Get 의 계약) — ID·Name 은
+// 목록에서 오고, 전송·프로세스가 필요한 메서드는 무동작·영값이다.
 func (pc *ToolClient) Get(id string) *toolhub.Tool {
 	// ToolClient doesn't have local state; we check liveness via List
 	for _, t := range pc.List() {
 		if t.ID == id {
-			return &toolhub.Tool{ID: id, Name: t.Name, Kind: t.Kind, Agent: t.Agent}
+			return &toolhub.Tool{ID: id, Name: t.Name}
 		}
 	}
 	return nil

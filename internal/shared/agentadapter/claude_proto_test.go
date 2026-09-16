@@ -2,6 +2,8 @@ package agentadapter
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -390,8 +392,10 @@ func TestClaudeProto_StatusResetDenied(t *testing.T) {
 		t.Fatalf("permission_denied: %+v", evs)
 	}
 	evs = decode1(t, p, st, `{"type":"result","subtype":"error_during_execution","is_error":true,"session_id":"new-sid","total_cost_usd":0.001,"usage":{"input_tokens":0},"modelUsage":{},"terminal_reason":"aborted_streaming","uuid":"u"}`)
-	if kinds(evs) != "usage,turn_end" || !evs[1].IsError || evs[1].Text != "aborted_streaming" {
-		t.Fatalf("오류 result: %s %+v", kinds(evs), evs)
+	// FR-M12-23: `is_error:true` 여도 **사유가 `aborted_*` 면 멈춘 것이다** — 종류는
+	// `Outcome` 이 말하고 `IsError` 는 턴의 끝에 서지 않는다.
+	if kinds(evs) != "usage,turn_end" || evs[1].Outcome != OutcomeStopped || evs[1].Text != "aborted_streaming" {
+		t.Fatalf("끊긴 result: %s %+v", kinds(evs), evs)
 	}
 }
 
@@ -795,5 +799,98 @@ func TestClaudeProto_ResultUsageWithoutIterations(t *testing.T) {
 	}
 	if u == nil || u.Tokens != 25700 {
 		t.Fatalf("Tokens: %+v, 기대 25700", u)
+	}
+}
+
+// V-M12-29 (FR-M12-23): **멈춘 것은 오류가 아니다.** claude 의 종료 어휘(CLI 2.1.273
+// 전수)가 공통 셋으로 갈린다 — `aborted_*` 는 사람이 멈춘 것이고 `error_*` 만이 오류다.
+//
+// 실측 2026-09-16: 사용자 세션의 턴 12개 중 7개가 *오류*로 적혔고 하나도 오류가 아니었다.
+func TestClaudeProto_TurnOutcome(t *testing.T) {
+	for _, c := range []struct {
+		sub, reason string
+		isErr       bool
+		want        TurnOutcome
+	}{
+		{"success", "completed", false, OutcomeCompleted},
+		{"success", "", false, OutcomeCompleted},
+		{"error_during_execution", "aborted_streaming", true, OutcomeStopped},
+		{"error_during_execution", "aborted_tools", true, OutcomeStopped},
+		{"error_during_execution", "aborted_by_mock", true, OutcomeStopped},
+		{"error_during_execution", "error_during_execution", true, OutcomeError},
+		{"error_max_turns", "", true, OutcomeError},
+		{"error_max_budget_usd", "", true, OutcomeError},
+		{"error_max_structured_output_retries", "", true, OutcomeError},
+	} {
+		p, st := protoOf(t)
+		line := `{"type":"result","subtype":"` + c.sub + `","is_error":` + boolLit(c.isErr) +
+			`,"session_id":"sid-o","terminal_reason":"` + c.reason + `","usage":{"input_tokens":1},"modelUsage":{}}`
+		evs := decode1(t, p, st, line)
+		if kinds(evs) != "usage,turn_end" {
+			t.Fatalf("%s/%s: %s", c.sub, c.reason, kinds(evs))
+		}
+		if evs[1].Outcome != c.want {
+			t.Errorf("%s/%s → %q, 기대 %q", c.sub, c.reason, evs[1].Outcome, c.want)
+		}
+		// 사유는 버리지 않는다 (D-M11-4) — 화면이 그것을 읽지 않을 뿐이다.
+		want := c.reason
+		if want == "" {
+			want = c.sub
+		}
+		if evs[1].Text != want {
+			t.Errorf("%s/%s: Text=%q, 기대 %q", c.sub, c.reason, evs[1].Text, want)
+		}
+	}
+}
+
+func boolLit(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}
+
+// V-M12-34 (FR-M12-21): **GUI 에이전트도 정책을 들고 뜬다.**
+//
+// 선언(`PolicyInjection.Flags`)은 이미 있었고 읽는 쪽이 셸 래퍼뿐이었다. 기동 argv 가
+// 그 선언을 전부 실어야 터미널 표면과 나란해진다 (FR-U-3).
+func TestClaudeProto_LaunchCarriesSessionPolicy(t *testing.T) {
+	p, _ := protoOf(t)
+	ad, err := Get(claudeID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bin := t.TempDir()
+	hooks, plugin := filepath.Join(bin, "agent-hooks"), filepath.Join(bin, "agent-plugin")
+
+	// 자리를 주어도 **자산이 없으면 싣지 않는다** — 래퍼의 `[ -f ]`·`[ -d ]` 와 같은
+	// 규약이다. 없는 경로를 실으면 claude 가 기동에서 멎는다.
+	empty := strings.Join(p.Launch(LaunchOpts{Bin: "claude", PolicyHooksDir: hooks, PolicyPluginDir: plugin}), " ")
+	for _, f := range ad.PolicyInjection.Flags {
+		if strings.Contains(empty, f) {
+			t.Fatalf("설치되지 않은 자리를 실었다 (%s): %s", f, empty)
+		}
+	}
+
+	if err := os.MkdirAll(hooks, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	settings := filepath.Join(hooks, claudeHooksFile)
+	if err := os.WriteFile(settings, []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(plugin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	argv := strings.Join(p.Launch(LaunchOpts{Bin: "claude", PolicyHooksDir: hooks, PolicyPluginDir: plugin}), " ")
+	for _, f := range ad.PolicyInjection.Flags {
+		if !strings.Contains(argv, f) {
+			t.Errorf("선언한 %s 가 기동 argv 에 없다: %s", f, argv)
+		}
+	}
+	for _, want := range []string{settings, plugin} {
+		if !strings.Contains(argv, want) {
+			t.Errorf("%s 가 기동 argv 에 없다: %s", want, argv)
+		}
 	}
 }

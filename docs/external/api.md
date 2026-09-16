@@ -10,7 +10,7 @@
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| GET | `/api/state` | `{ tools, workspace }` 스냅샷. 응답 헤더 `ETag: <rev>` 포함. `tools` 에는 휴면·오류 상태의 에이전트 도구(`kind:"agent"`, `dormant:"hibernated"\|"error"` — 프로세스 없음)도 든다 |
+| GET | `/api/state` | `{ tools, workspace }` 스냅샷. 응답 헤더 `ETag: <rev>` 포함 |
 | GET | `/api/whoami?toolId=<id>` | 요청자의 도구 식별 정보. `toolId` 생략 시 remoteAddr → PID 부모 체인으로 역추적 |
 | GET | `/api/workspace` | workspace.json raw (`schemaVersion: 2`). ETag 헤더 포함 |
 | PUT | `/api/workspace` | workspace 저장. `If-Match: <rev>` 로 낙관적 동시성 제어. stale 시 409 + 최신 `ETag` 반환 |
@@ -41,29 +41,6 @@
 
 `id`/`to`/`from` 은 tab uuid·`toolId` 만 받는다. `W?.P?.T?` 좌표 라벨은 400, 대상이
 없으면 404 `{ "error": … }`.
-
-### 에이전트 도구 (프로토콜 표면)
-
-터미널 대신 **프레임**으로 대화하는 에이전트 도구다 (`M8_UNIFIED_SRS` 묶음 P·T). 생성은
-터미널과 같은 종단 `POST /api/tools?kind=agent&agent=<id>&cwd=&cwdTool=&model=&permissionMode=&approval=&resume=`
-이고, 응답 `{ id, name, kind: "agent", agent }`. `permissionMode`·`approval` 은 어댑터의 어휘 그대로다
-(`approval` 은 기동 승인 정책 — 설정 `agentApprovalMode` 가 싣고, 정책을 기동 인자로 받지 않는
-에이전트는 무시한다). 그 뒤가 아래다 — `tool`/`toolId` 는 도구 id.
-
-| 메서드 | 경로 | 설명 |
-|--------|------|------|
-| GET | `/api/agents` | 등록부의 에이전트 목록 `[{ id, proto, available }]` — `proto` 는 프로토콜 표면이 있는가, `available` 은 실행 파일이 있는가. 둘 다 참이어야 띄울 수 있다 |
-| GET | `/api/agent/events?tool=&since=` | 상태와 이벤트 로그 재생 `{ state, events: [{ seq, at, ev }], truncated, snapshot? }`. `since` 는 마지막으로 본 `seq`. 잘렸으면(`truncated`) `snapshot`(`{ seq, sessionId, status, usage, open, lastMessage }`)이 잘린 앞부분의 요약이다. `state.dormant` 가 `hibernated`·`error` 면 프로세스가 없다 — `resumable` 이면 재개할 수 있다. 라이브는 SSE `agent_event` |
-| POST | `/api/agent/prompt` | `{ toolId, text }` — 프롬프트 한 턴 |
-| POST | `/api/agent/approve` | `{ toolId, id, choice, answers }` — 열린 승인·질문에 답한다. `choice` 는 프로토콜이 준 선택지(`allow`·`deny`·`suggestion:<n>`), `answers` 는 질문의 `{질문: 라벨}` (선택지 없는 질문 `freeText` 는 글 그대로) |
-| POST | `/api/agent/control` | `{ toolId, kind, value }` — 세션 중 제어. `kind` 는 프로토콜의 것 그대로 (claude: `set_model`·`set_permission_mode`·`set_max_thinking_tokens` · codex: `set_model`·`set_permission_mode` — 다음 턴부터 · omp: `set_model`(`provider/modelId`)·`set_thinking_level`). 없는 제어는 400 `agent_unsupported` |
-| POST | `/api/agent/interrupt` | `{ toolId }` — 진행 중인 턴을 끊는다 (Esc) |
-| POST | `/api/agent/cancel` | `{ toolId, id }` — 열린 승인·질문을 **답 없이** 닫는다. 거절(*"하지 마라"*)과 다른 일이며 (*"묻지 않은 것으로 하라"*), 그 능력이 있는 어댑터에서만 쓴다 — `state.controls.cancel` 이 그것을 말한다 (omp 만 참). 없으면 400 `agent_unsupported`, 이미 닫힌 요청이면 400 |
-| POST | `/api/agent/command-form` | `{ toolId, name, response }` → `{ fields: [{ key, values }] }` — 인자 없이 **고르는 화면**을 여는 명령(`state.status.commands[].form`)의 응답 텍스트를 폼의 줄들로 옮긴다. 읽는 일은 자기 출력 형식을 아는 어댑터가 한다. **빈 목록은 오류가 아니다** — 응답이 그 모양이 아니었다는 뜻이고, 그때 화면은 폼을 열지 않고 텍스트가 그대로 선다 |
-| GET | `/api/agent/tui-line` | `{ line, sessionId }` — 같은 세션을 터미널(TUI)에서 이어 갈 한 줄 명령 |
-| GET | `/api/agent/session` | `?tool=<toolId>` → `{ sessionId, agent, exitCommand }` — **그 터미널 탭에서 도는** 에이전트의 신원 (`tui-line` 의 반대 방향). 신원은 활동 훅이 실어 온 것이며 우리가 띄운 도구든 사용자가 손으로 친 것이든 같다. 모르면 404 `agent_no_identity` — 그때 올리기 진입점은 서지 않는다. `exitCommand` 는 어댑터가 아는 정중한 종료 지시이고, 어댑터를 모르면 빈 값이다 |
-| POST | `/api/agent/hibernate` | `{ toolId }` — 휴면: 프로세스를 끝내고 세션 신원만 남긴다. 탭은 그대로다. 세션 신원이 아직 없으면(첫 턴 전) 409 `agent_no_identity`, 이미 휴면·오류면 409 `agent_dormant` |
-| POST | `/api/agent/resume` | `{ toolId }` → `{ id, name, kind, agent }` — 휴면·오류 세션을 **같은 toolId** 로 재개한다 (claude `--resume` · codex `thread/resume` · omp `--resume`). 이력은 우리 이벤트 로그가 재생한다. 활성이면 409 `agent_not_dormant`, 신원이 없으면 409 `agent_no_identity` |
 
 ### 주의 알림 · 활동
 

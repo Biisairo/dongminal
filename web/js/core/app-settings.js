@@ -111,12 +111,6 @@ const SETTINGS_ACCESS={
     if(sel) sel.value=uiLocale;
     if(uiLocale!==I18N.locale&&this._localeMirror(uiLocale)) location.reload();
   }},
-  // M8 F-4: 다음 에이전트 도구 기동에 실린다 — 이미 뜬 도구는 바뀌지 않는다.
-  agentApprovalMode:{get:()=>agentApprovalMode,set(v){
-    agentApprovalMode=String(v||'');
-    const sel=document.getElementById('ds-agent-approval');
-    if(sel) sel.value=agentApprovalMode;
-  }},
 };
 
 
@@ -393,7 +387,6 @@ Object.assign(App.prototype, {
     this._initAttnEdge();
     this._initWordWrap();
     this._initLocale();
-    this._initAgentApproval();
     this._initLSP();
     this._initBackup();
     this._initSandboxPanel();
