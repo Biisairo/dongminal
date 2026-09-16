@@ -83,6 +83,11 @@
 워크플로는 수를 요약에 적을 뿐이다. 조사용 손잡이는 `DM_E2E_ALLOW_FLAKY=1` 이고
 **CI 는 그것을 주지 않는다.**
 
+> **정정 (2026-09-16).** 이 판정은 다시 뒤집혔다 — `CI_GATES_SRS §3.1` 이 근거와
+> 되뒤집을 조건을 든다. 위 손잡이 `DM_E2E_ALLOW_FLAKY` 는 **없어졌고**, 지금은
+> 반대 방향의 `DM_E2E_STRICT_FLAKY=1` 이 M6 의 판정을 되살린다. 이 절은 그때의
+> 기록이다.
+
 ### ④ 갱신 수명·표시
 
 **새 SRS**: [`GIT_REFRESH_LIFECYCLE_SRS`](../GIT_REFRESH_LIFECYCLE_SRS.md)

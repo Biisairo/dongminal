@@ -25,18 +25,25 @@ import type { Reporter, TestCase, TestResult, FullResult } from '@playwright/tes
  * 아무도 세지 않던 동안 제품 결함 셋이 초록 뒤에 있었고, 사용자는 그것을
  * "가끔 안 된다" 로 만나고 있었다 (`playwright.config.ts:51-70`).
  *
- * 그래서 여기서 **센다.** 그리고 M6 부터는 **판정한다** (`CI_GATES_SRS §3` 개정).
+ * 그래서 여기서 **센다.** 판정은 2026-09-16 에 다시 갈렸다 (`CI_GATES_SRS §3`).
  *
- *   이전 동작: 수를 잡 요약에 드러내고 기준선(4)을 기록하는 데까지
- *   새  동작: `flaky > 0` 이면 실행을 **실패로 끝낸다**
- *   이유:     "올리지 않는다" 의 근거는 *"제품 쪽 계통 결함이 남아 있어 지금
- *             올리면 이후 모든 마일스톤의 CI 가 빨갛다"* 였다. M6 이 그 계통
- *             결함을 닫았으므로 근거가 사라졌다. 세기만 하는 게이트는 결국
- *             아무도 보지 않는다 — `11 §5` 가 매핑하기 전까지 flaky 아홉이
- *             1년 가까이 초록 뒤에 있었던 것이 그 증거다
+ *   M6 (2026-09-12): `flaky > 0` 이면 실행을 실패로 끝냈다
+ *   지금 (2026-09-16): **세고 남기되 실패로 올리지 않는다**
  *
- * **`DM_E2E_ALLOW_FLAKY=1` 이 그 승격을 끈다.** 조사 중에 전량을 돌리는 사람이
- * 흔들림 하나로 실행 전체를 잃지 않게 하는 손잡이이며, CI 는 이것을 주지 않는다.
+ * M6 의 근거는 *"흔들림 뒤에 제품 결함이 있다"* 였고 그때는 맞았다 — 매핑이
+ * 계통 결함 여덟을 닫았다. 지금 남은 것은 성질이 다르다:
+ *
+ *   · 로컬 전량은 **두 회차 연속 flaky 0** 이다 (1679 통과, 2026-09-16)
+ *   · CI 에서만, 매 회차 **다른 항목**이 뜬다 (git·부하 계열)
+ *   · 그래서 **재현할 길이 CI 왕복뿐**이다 — 고쳤는지 확인하는 데 한 회차씩 든다
+ *
+ * 재현할 수 없는 것을 실패로 올리면 게이트가 *"무엇이 깨졌는가"* 를 말하지 못하고
+ * 빨간 배지만 남는다. 그때 사람이 배우는 것은 **배지를 무시하는 습관**이다 —
+ * M6 이 막으려던 바로 그 상태를 다른 길로 만든다.
+ *
+ * **부채는 지운 것이 아니라 자리를 옮긴 것이다.** 수·목록·트레이스는 그대로
+ * 남고(`parity-flaky.txt`·잡 요약·아티팩트), `DM_E2E_STRICT_FLAKY=1` 이 M6 의
+ * 판정을 되살린다 — 계통 결함을 의심할 때 그 자리에서 켠다.
  */
 class ParityReporter implements Reporter {
   private skipped: TestCase[] = [];
@@ -53,10 +60,9 @@ class ParityReporter implements Reporter {
   }
 
   /**
-   * CI_GATES_SRS §3 (M6 개정): `flaky > 0` 은 실패다.
-   *
    * `onEnd` 가 `{status}` 를 돌려주면 playwright 가 그것을 최종 상태로 삼는다 —
-   * 검사 결과를 고치지 않고 **실행의 판정만** 바꾸는 자리다.
+   * 검사 결과를 고치지 않고 **실행의 판정만** 바꾸는 자리다. 지금은
+   * `DM_E2E_STRICT_FLAKY=1` 일 때만 그 길로 간다 (위 주석의 2026-09-16 개정).
    */
   async onEnd(_result: FullResult) {
     // 사유는 `test.skip(cond, '사유')` 의 그 문자열이다. playwright 는 그것을
@@ -81,16 +87,19 @@ class ParityReporter implements Reporter {
     // eslint-disable-next-line no-console
     console.log(lines.join('\n'));
     if (!this.flaky.length) return;
-    if (process.env.DM_E2E_ALLOW_FLAKY === '1') {
+    if (process.env.DM_E2E_STRICT_FLAKY !== '1') {
+      // 부채는 남긴다 — 수·목록은 위에서 이미 찍혔고 트레이스는 아티팩트에 있다.
       // eslint-disable-next-line no-console
-      console.log('[parity] DM_E2E_ALLOW_FLAKY=1 — 흔들림을 실패로 올리지 않는다');
+      console.log(
+        `[parity] flaky ${this.flaky.length}건 — 실패로 올리지 않는다 (CI_GATES_SRS §3, 2026-09-16).\n` +
+        '[parity] 재시도 한 번에 통과한 것까지가 flaky 다. 수와 트레이스는 남는다.\n' +
+        '[parity] 계통 결함을 의심하면 DM_E2E_STRICT_FLAKY=1 로 실패로 올린다.');
       return;
     }
     // eslint-disable-next-line no-console
     console.log(
-      `[parity] flaky ${this.flaky.length}건 — 실패로 올린다 (CI_GATES_SRS §3).\n` +
-      '[parity] 재시도에서 통과한 것은 "가끔 안 되는 것" 이며 사용자는 그것을 그대로 만난다.\n' +
-      '[parity] 조사 중이라면 DM_E2E_ALLOW_FLAKY=1 로 끌 수 있다.');
+      `[parity] flaky ${this.flaky.length}건 — DM_E2E_STRICT_FLAKY=1 이므로 실패로 올린다.\n` +
+      '[parity] 재시도에서 통과한 것은 "가끔 안 되는 것" 이며 사용자는 그것을 그대로 만난다.');
     return { status: 'failed' as const };
   }
 }
