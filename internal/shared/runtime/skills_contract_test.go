@@ -43,7 +43,12 @@ func pluginDocs(t *testing.T, sub string) map[string]string {
 		if rerr != nil {
 			return rerr
 		}
-		out[p] = string(blob)
+		// **줄바꿈은 재는 대상이 아니다** (WINDOWS_TEST_PARITY_SRS 의 부류).
+		// Windows 체크아웃은 `core.autocrlf` 로 텍스트를 CRLF 로 받고 `go:embed` 는
+		// 그 바이트를 그대로 담는다 — 그래서 `"---\n"` 로 여는 frontmatter 판정이
+		// 그 판에서만 거짓이 됐다. 아는 것은 문서의 **내용**이므로 여기서 한 번
+		// 고르고, 읽는 검사들은 줄바꿈을 모른다.
+		out[p] = strings.ReplaceAll(string(blob), "\r\n", "\n")
 		return nil
 	})
 	if err != nil {

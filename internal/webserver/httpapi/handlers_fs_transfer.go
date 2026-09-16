@@ -78,7 +78,13 @@ func fsUploadTarget(root, dir, rel, name string) (string, error) {
 	// 브라우저는 언제나 `/` 로 준다 (webkitRelativePath). 플랫폼 구분자로 옮겨야
 	// Windows 에서 한 조각짜리 이름으로 읽히지 않는다.
 	cleaned := filepath.Clean(filepath.FromSlash(rel))
-	if filepath.IsAbs(cleaned) || filepath.VolumeName(cleaned) != "" {
+	// **뿌리 붙은 경로도 거부한다.** Windows 의 `filepath.IsAbs` 는 볼륨이 없는
+	// `\abs.txt` 를 절대경로로 보지 않아, POSIX 에서 400 이던 `/abs.txt` 가 그
+	// 판에서만 통과해 `dir\abs.txt` 로 다시 읽혔다 — 같은 입력이 판마다 다른 뜻을
+	// 갖는 것이 결함이다. 새는 자리는 아니지만(합친 경로는 대상 아래에 남는다)
+	// 계약은 한 벌이어야 한다.
+	if filepath.IsAbs(cleaned) || filepath.VolumeName(cleaned) != "" ||
+		strings.HasPrefix(cleaned, string(filepath.Separator)) || strings.HasPrefix(rel, "/") {
 		return "", fsError{fsErrBadRequest, "relPath 는 상대경로여야 한다"}
 	}
 	if cleaned == "." || cleaned == ".." ||

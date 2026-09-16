@@ -71,6 +71,13 @@ const SETTINGS_ACCESS={
     if(ww) ww.checked=editorWordWrap;
     if(this._edApplyWordWrap) this._edApplyWordWrap();
   }},
+  // FR-MMT-4: 줄바꿈과 같은 근거로 열려 있는 편집기에도 얹는다.
+  editorMinimap:{get:()=>editorMinimap,set(v){
+    editorMinimap=v;
+    const mm=document.getElementById('ds-minimap');
+    if(mm) mm.checked=editorMinimap;
+    if(this._edApplyMinimap) this._edApplyMinimap();
+  }},
   // FR-TBW-8: 같은 근거로 곧바로 얹는다. 클래스와 변수 하나뿐이라 다시 그리지 않는다.
   tabFixedWidth:{get:()=>tabFixedWidth,set(v){
     tabFixedWidth=v;
@@ -342,6 +349,9 @@ Object.assign(App.prototype, {
       // FR-WBR-10: 열 때마다 현재 값을 다시 칠한다 (FR-LVC-3 과 같은 근거).
       const dsWrap=document.getElementById('ds-wordwrap');
       if(dsWrap) dsWrap.checked=editorWordWrap;
+      // FR-MMT-6: 미니맵도 같은 자리에서 다시 칠한다.
+      const dsMini=document.getElementById('ds-minimap');
+      if(dsMini) dsMini.checked=editorMinimap;
       // Auto-close drawer when opening settings on mobile
       if(this.isMobile && this.drawerOpen){this._toggleDrawer(false);this.renderer._rTopbar()}
     });
@@ -386,6 +396,7 @@ Object.assign(App.prototype, {
     this._initFocusEdge();
     this._initAttnEdge();
     this._initWordWrap();
+    this._initMinimap();
     this._initLocale();
     this._initLSP();
     this._initBackup();

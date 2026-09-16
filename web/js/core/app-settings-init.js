@@ -299,5 +299,26 @@ Object.assign(App.prototype, {
     for(const ed of this.fileEditors.values()) if(ed&&ed.applyWordWrap) ed.applyWordWrap();
   },
 
+  /**
+   * EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-1·4: 미니맵 스위치. 줄바꿈과 **같은 모양**
+   * 이며, 그 사실이 이 함수가 짧은 이유다 — 새 규약을 만들지 않는다.
+   */
+  _initMinimap(){
+    const cb=document.getElementById('ds-minimap');
+    if(!cb) return;
+    cb.checked=editorMinimap;
+    cb.addEventListener('change',()=>{
+      editorMinimap=cb.checked;
+      this._edApplyMinimap();
+      this.saveSettings();
+    });
+  },
+
+  /** 열려 있는 편집기 전부에 지금 값을 얹는다 (`_edApplyWordWrap` 과 같은 근거). */
+  _edApplyMinimap(){
+    if(!this.fileEditors) return;
+    for(const ed of this.fileEditors.values()) if(ed&&ed.applyMinimap) ed.applyMinimap();
+  },
+
   // ── Modal & Theme ──
 });

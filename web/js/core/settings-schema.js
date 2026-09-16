@@ -40,6 +40,7 @@ const SETTINGS_SCHEMA = [
   {"key":"pageTitle","type":"string","def":"","where":"Display ▸ 페이지 제목"},
   {"key":"confirmLeave","type":"bool","def":false,"where":"Display ▸ 떠날 때 확인"},
   {"key":"editorWordWrap","type":"bool","def":false,"where":"Display ▸ 편집기 줄바꿈"},
+  {"key":"editorMinimap","type":"bool","def":true,"where":"Display ▸ 편집기 미니맵"},
   {"key":"tabFixedWidth","type":"bool","def":false,"where":"Display ▸ 탭 너비 고정"},
   {"key":"tabWidthPx","type":"int","def":160,"min":40,"max":480,"where":"Display ▸ 탭 너비"},
   {"key":"focusEdgeLevel","type":"int","def":5,"min":0,"max":10,"where":"Display ▸ 비활성 창 가장자리"},

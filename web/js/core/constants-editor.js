@@ -120,6 +120,20 @@ const ED_FIND_MINIMAP_COLOR_CUR='minimap.selectionHighlight';
 // 동안 화면이 멎는 것보다 낫다.
 const ED_FIND_MAX_HITS=20000;
 
+/**
+ * EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-5: **미니맵 옵션은 한 자리에서 만든다.**
+ *
+ * 생성(`monaco.editor.create`)과 갱신(`updateOptions`)이 같은 덩이를 딛는다.
+ * 두 자리에 적으면 한쪽만 고쳐지는 날이 오고, 특히 `updateOptions` 에 `enabled`
+ * 하나만 넘기면 `size`·`scale`·`showSlider` 가 함께 흔들릴 수 있다.
+ *
+ * `size:'fill'` 의 근거는 UX_BATCH8_SRS FR-MMP-2 다 — 미리보기가 스크롤바와 같은
+ * 좌표계에 서야 한다. 이 함수는 그 값을 **옮겨 적을 뿐** 다시 정하지 않는다.
+ */
+function edMinimapOpts(enabled){
+  return {enabled:!!enabled,size:'fill',scale:1,showSlider:'mouseover'};
+}
+
 // ── 코드 탐색: 언어 서버의 관측 (EDITOR_LSP_SRS 묶음 A · M1) ──
 //
 // 조회가 POST 인 것은 본문이 필요하기 때문이다 — 설정에 적은 절대경로 표를

@@ -851,6 +851,8 @@ I18N.register('en', {
   'html.theme_follow_hint': 'Custom themes have no mode and are not applied while following — pick dark and light slots from the list.',
   'html.word_wrap': 'Word wrap',
   'html.word_wrap_hint': 'Wraps long lines to the editor width. When off, lines stay single and scroll horizontally (default). Applies immediately to editors that are already open. The diff view puts two sides next to each other and does not follow this setting.',
+  'html.minimap': 'Editor minimap',
+  'html.minimap_hint': 'Shows the document preview on the right of the editor (on by default). Turning it off gives that width back to the text. Applies immediately to editors that are already open. The diff view keeps no minimap, as before.',
 
   // ── keys ──
   'keys.group_ed_edit': 'Editor editing',

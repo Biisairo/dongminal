@@ -430,7 +430,9 @@ class FileEditor {
        *             `{top:454}`, `fill` 은 둘 다 `{top:454,h:171}`. 3000줄에서는
        *             둘 다 일치하므로 긴 문서의 결과는 바뀌지 않는다
        */
-      minimap: { enabled: true, size: 'fill', scale: 1, showSlider: 'mouseover' },
+      // EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-3: 켜고 끄는 것은 설정이고, 모양은
+      // 덩이가 든다 (FR-MMT-5 · UX_BATCH8_SRS FR-MMP-2).
+      minimap: edMinimapOpts(editorMinimap),
       lineNumbers: 'on',
       scrollBeyondLastLine: false,
       // WORKBENCH_REVIEW_SRS FR-WBR-10: 설정이 정한다. 기본은 끔이다.
@@ -590,6 +592,15 @@ class FileEditor {
   applyWordWrap() {
     if (!this._editor) return;
     this._editor.updateOptions({ wordWrap: editorWordWrap ? 'on' : 'off' });
+  }
+
+  /**
+   * EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-4: 미니맵도 **이미 열려 있는** 편집기가
+   * 곧바로 따라간다 — `applyWordWrap` 과 같은 규약이다 (FR-WBR-11).
+   */
+  applyMinimap() {
+    if (!this._editor) return;
+    this._editor.updateOptions({ minimap: edMinimapOpts(editorMinimap) });
   }
 
   /**

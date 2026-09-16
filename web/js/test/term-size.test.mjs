@@ -118,7 +118,7 @@ test('cols 가 255 를 넘어도 빅엔디언으로 바로 읽는다', () => {
 // ── FR-TRS-9 와 같은 규약: 모르는 op 는 버린다 ────────────────────────────
 
 test('OpSize 를 모르는 옛 클라이언트의 규약 — 분기는 if/else 사슬이다', () => {
-  const { p, OP } = pane({ owner: false });
+  const { p } = pane({ owner: false });
   // 등록되지 않은 op. 던지지 않고 아무 일도 일어나지 않아야 한다.
   p._onOp(new Uint8Array([0x7f, 1, 2, 3]));
   assert.equal(p.term.cols, 151);

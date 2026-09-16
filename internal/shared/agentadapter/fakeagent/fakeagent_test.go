@@ -122,7 +122,9 @@ func TestFake_PongTurn(t *testing.T) {
 	}
 	r.send(r.proto.Prompt("say PONG", nil, r.st)...)
 	// `system:init` 은 첫 프롬프트 뒤 — 신원과 모델이 그때 온다 (§2-28).
-	kinds, ev = r.until(t, agentadapter.EvSession)
+	// 여기서 재는 것은 그 **한 이벤트**이지 거기까지의 종류들이 아니다 — 종류는
+	// 아래 턴 종료까지 모아 한 번에 본다.
+	_, ev = r.until(t, agentadapter.EvSession)
 	if ev.SessionID == "" || ev.Status.Model != "fake-x" {
 		t.Fatalf("init: %+v", ev)
 	}

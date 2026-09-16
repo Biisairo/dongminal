@@ -491,6 +491,9 @@ var fgTabNames=true;
 // 지금 동작이고, 코드에서 가로 스크롤은 "이 줄이 길다" 를 말한다.
 // /api/settings blob 에 실린다 — 취향이지 기기의 치수가 아니다 (D-WBR-7).
 var editorWordWrap=false;
+// EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-2: 편집기의 미니맵. 기본은 **켬** — 종전
+// 동작이다. 설정을 더하는 일이 동작을 바꾸는 일이 되어서는 안 된다 (§2.2).
+var editorMinimap=true;
 // UX_REVISION_SRS FR-KEY-6: 브라우저 기본 단축키 차단. 기본은 켬 — 이 앱은
 // 터미널이고, Ctrl 조합은 브라우저보다 터미널의 것이다.
 var blockBrowserKeys=true;

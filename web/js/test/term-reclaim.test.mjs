@@ -68,7 +68,7 @@ function countRefresh(p) {
 // ── FR-M10-1: 따라가도 자기 폭을 잃지 않는다 ──────────────────────────────
 
 test('비소유가 되어 PTY 를 따라가도 자기 폭은 남는다', () => {
-  const { p, OP } = pane({ owner: true });
+  const { p } = pane({ owner: true });
   p.doFit();                       // 소유자로서 자기 폭을 잰다
   const { release } = pane();      // (형식만 맞춘 호출 — 아래에서 다시 쓴다)
   void release;

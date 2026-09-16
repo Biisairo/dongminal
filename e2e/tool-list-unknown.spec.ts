@@ -34,6 +34,16 @@ const addWindow = (page: Page) =>
  * 그 자리는 바로 앞의 `slotOpen(1, …)` 이다. 칸 1 인스턴스는 그때 소켓을 새로
  * 열고, 부하가 있으면 그 연결이 표보다 늦는다 (2026-09-15 전량 회차에서 966ms 만에
  * 실패했다 — 타임아웃이 아니라 경합이다).
+ *
+ * **열림만으로는 모자랐다** (2026-09-16 전량 회차 · CI ubuntu 에서 재시도까지 실패).
+ * `readyState===1` 은 *지금* 붙어 있다는 말일 뿐, **비행 중인 재연결**을 말하지
+ * 않는다. `_scheduleReconnect` 가 걸어 둔 재시도가 표를 붙인 **뒤에** 열리면
+ * `term-pane` 은 `this.ws` 를 새 소켓으로 갈아끼우고, 그 소켓에는 표가 없다 —
+ * 제품은 `clean()` 과 무관한 일을 했는데 검사는 "다시 붙었다" 로 읽는다.
+ *
+ * 그래서 **가라앉은 상태**를 기다린다: 붙어 있고, 걸린 재시도가 없고, 여는 중인
+ * 소켓도 없다. 단독 실행에서 25/25 이고 전량에서만 지던 까닭이 이 셋 중 뒤의
+ * 둘이었다.
  */
 async function waitSocketsOpen(page: Page) {
   await expect
@@ -41,8 +51,11 @@ async function waitSocketsOpen(page: Page) {
       const tools = [...(window as any).app.tools.values()].filter(Boolean);
       if (!tools.length) return -1;
       // `readyState === 1` 이 OPEN 이다. 여는 중(0)도 표를 못 받는다.
-      return tools.filter((p: any) => !p.ws || p.ws.readyState !== 1).length;
-    }), { timeout: 15000, message: '소켓이 전부 열리지 않았다 — 표 없는 pane 이 교체로 세어진다' })
+      // `_reconnectPending`(대기 중인 재시도)·`_pendingWs`(여는 중인 재시도)는
+      // 표를 붙인 뒤에 `ws` 를 갈아끼울 수 있는 둘이다.
+      return tools.filter((p: any) =>
+        !p.ws || p.ws.readyState !== 1 || p._reconnectPending || p._pendingWs).length;
+    }), { timeout: 15000, message: '소켓이 가라앉지 않았다 — 비행 중인 재연결이 표를 지운다' })
     .toBe(0);
 }
 
