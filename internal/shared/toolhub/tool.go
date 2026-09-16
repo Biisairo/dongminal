@@ -202,6 +202,34 @@ func NewAttendingTool(id string, hooks *ToolHooks, armed bool) *Tool {
 	return p
 }
 
+// toolBinDir 은 이 인스턴스의 `bin` 이다. **모르면 빈 값**이다 — 상대경로를
+// 만들지 않는다.
+//
+// 종전에는 `filepath.Join(os.Getenv(EnvHome), "bin")` 이었고, 그 변수가 비면
+// 결과가 **`bin`** 이었다. 그 상대경로는 셸이 **도구의 cwd 기준으로** 풀므로
+// 사용자의 저장소에 있는 같은 이름의 파일이 훅으로 실행될 수 있었고, PATH 에도
+// 그 자리가 얹혔다. Windows 에서 PowerShell 이 그것을 모듈 이름으로 읽어 빨간
+// 줄을 찍으면서 드러났다 (CI 실측 2026-09-16).
+//
+// 빈 값은 `platform.Shell` 이 훅 없이 띄우는 갈래로 간다 (`hookable`).
+func toolBinDir() string {
+	home := os.Getenv(dmenv.EnvHome)
+	if home == "" {
+		return ""
+	}
+	return filepath.Join(home, "bin")
+}
+
+// toolPath 는 도구의 PATH 다. 자리를 모르면 **더하지 않는다** — 빈 조각을 얹으면
+// 그 구분자 사이가 "현재 디렉터리" 로 읽힌다 (POSIX 규약).
+func toolPath(binDir string) string {
+	base := os.Getenv("PATH")
+	if binDir == "" {
+		return base
+	}
+	return base + string(os.PathListSeparator) + binDir
+}
+
 // StartTool spawns a shell under a new PTY. Exported for tool manager + tests.
 //
 // place 는 **호스트 셸 대신 띄울 것**이다. 샌드박스 창의 도구가 대응 컨테이너
@@ -212,7 +240,7 @@ func NewAttendingTool(id string, hooks *ToolHooks, armed bool) *Tool {
 // 알지 않는다 — invalidator·ownedProvider 와 같은 방향이다.
 func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *ToolHooks, place *platform.ProcSpec) (*Tool, error) {
 	home := toolHome()
-	binDir := filepath.Join(os.Getenv(dmenv.EnvHome), "bin")
+	binDir := toolBinDir()
 
 	// 셸 선택과 훅 주입 방식은 OS 마다 다르다. 그 차이는 platform.ShellProvider
 	// 뒤에 있고, 여기서는 어느 셸인지 묻지 않는다 (CROSS_PLATFORM_SRS FR-XSH-6).
@@ -224,7 +252,7 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 	env := []string{
 		"TERM=xterm-256color", "COLORTERM=truecolor",
 		// PATH 구분자는 OS 마다 다르다 — 문자를 박지 않는다.
-		"PATH=" + os.Getenv("PATH") + string(os.PathListSeparator) + binDir,
+		"PATH=" + toolPath(binDir),
 		"HOME=" + home,
 		// PANE_ATTENTION_NOTIFY_SRS: lets `dmctl notify` (incl. detached agent
 		// hooks that have no controlling tty) identify this tool to the server.

@@ -90,6 +90,33 @@ var posixShellHooks = []posixShellHook{
 	}},
 }
 
+// posixAbs·windowsAbs 는 그 bin 디렉터리에 셸 훅을 걸어도 되는가를 가른다.
+//
+// **상대경로는 거절한다.** 훅 경로는 셸이 **도구의 cwd 기준으로** 푼다. 그러면
+// 사용자의 저장소에 `bin/bash-hook.sh`·`bin\powershell-hook.ps1` 이 있을 때 그것이
+// 그 셸에서 실행된다 — 빨간 줄 하나가 아니라 **임의 코드 실행**이다.
+//
+// 빈 값이 되는 길이 실재한다: `toolhub.StartTool` 이
+// `filepath.Join(os.Getenv(EnvHome), "bin")` 으로 만드는데, 그 변수가 비면
+// `filepath.Join("", "bin")` 은 **`bin`** 이다. Windows 에서 그것이 눈에 보였다 —
+// PowerShell 이 `\` 앞을 모듈 이름으로 읽어 `.: The module 'bin' could not be
+// loaded.` 를 빨갛게 찍었다 (CI 실측 2026-09-16).
+//
+// 훅이 없으면 cwd 추적과 에이전트 래퍼가 동작하지 않지만 셸 자체는 정상이다 —
+// cmd.exe 로 떨어질 때와 같은 등급의 성능 저하다 (FR-XSH-3).
+// **판정은 호스트가 아니라 대상 규약으로 한다.** 이 제공자들은 가짜 env 로
+// **어느 판에서나** 검사되므로(`shell_test.go`), `filepath.IsAbs` 를 쓰면 POSIX
+// 호스트가 드라이브 문자 경로를 상대경로로 읽는다.
+func posixAbs(p string) bool { return strings.HasPrefix(p, "/") }
+
+func windowsAbs(p string) bool {
+	if strings.HasPrefix(p, `\\`) { // UNC
+		return true
+	}
+	// 드라이브 문자 — `C:\x` · `C:/x`
+	return len(p) >= 3 && p[1] == ':' && (p[2] == '\\' || p[2] == '/')
+}
+
 type posixShell struct {
 	env  envFn
 	stat statFn
@@ -129,6 +156,9 @@ func (s posixShell) Shell(binDir string) ShellSpec {
 			"SHELL_SESSIONS_DISABLE=1",
 			"SHELL=" + path,
 		},
+	}
+	if !posixAbs(binDir) {
+		return spec
 	}
 	for _, h := range posixShellHooks {
 		if strings.Contains(path, h.match) {
@@ -210,6 +240,10 @@ func (s windowsShell) Shell(binDir string) ShellSpec {
 	// 않지만 셸 자체는 정상이다 — 성능 저하이지 오류가 아니다 (FR-XSH-3).
 	if !strings.Contains(strings.ToLower(filepath.Base(path)), "powershell") &&
 		!strings.Contains(strings.ToLower(filepath.Base(path)), "pwsh") {
+		return spec
+	}
+	// 상대경로 훅은 걸지 않는다 — 근거는 위 `posixAbs`·`windowsAbs` 주석에 있다.
+	if !windowsAbs(binDir) {
 		return spec
 	}
 	spec.Args = []string{

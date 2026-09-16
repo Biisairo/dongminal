@@ -295,3 +295,50 @@ func unquotePowerShell(s string) (string, bool) {
 	}
 	return out.String(), true
 }
+
+// ── 상대경로 훅은 걸지 않는다 (2026-09-16) ─────────────────────────────
+//
+// 훅 경로는 셸이 **도구의 cwd 기준으로** 푼다. 상대경로를 넘기면 사용자의
+// 저장소에 있는 같은 이름의 파일이 그 셸에서 실행된다 — 임의 코드 실행이다.
+//
+// 그런 값이 실제로 만들어졌다: `toolhub.StartTool` 이
+// `filepath.Join(os.Getenv(DONGMINAL_HOME), "bin")` 으로 bin 을 잡는데, 그 변수가
+// 비면 결과가 **`bin`** 이다. Windows 에서 PowerShell 이 `\` 앞을 모듈 이름으로
+// 읽어 `.: The module 'bin' could not be loaded.` 를 빨갛게 찍으며 드러났다.
+
+func TestPosixShellSkipsRelativeHookDir(t *testing.T) {
+	for _, bin := range []string{"", "bin", "./bin", "../bin"} {
+		s := posixShell{env: fakeEnv(map[string]string{"SHELL": "/bin/zsh"}), stat: fakeStat("/bin/zsh")}
+		for _, e := range s.Shell(bin).Env {
+			if strings.HasPrefix(e, "ZDOTDIR=") {
+				t.Fatalf("bin=%q 에 훅이 걸렸다: %q", bin, e)
+			}
+		}
+		b := posixShell{env: fakeEnv(map[string]string{"SHELL": "/bin/bash"}), stat: fakeStat("/bin/bash")}
+		if args := b.Shell(bin).Args; slices.Contains(args, "--rcfile") {
+			t.Fatalf("bin=%q 에 rcfile 이 걸렸다: %v", bin, args)
+		}
+	}
+}
+
+func TestWindowsShellSkipsRelativeHookDir(t *testing.T) {
+	for _, bin := range []string{"", "bin", `bin\sub`, `.\bin`} {
+		s := windowsShell{env: fakeEnv(nil), look: fakeLook("pwsh.exe")}
+		for _, a := range s.Shell(bin).Args {
+			if strings.HasPrefix(a, ". ") {
+				t.Fatalf("bin=%q 에 닷소싱이 걸렸다: %q", bin, a)
+			}
+		}
+	}
+}
+
+// 절대경로는 종전대로 걸린다 — 위 갈래가 훅을 통째로 죽이지 않았음을 잰다.
+func TestWindowsShellKeepsAbsoluteHookDir(t *testing.T) {
+	for _, bin := range []string{`C:\home\bin`, `C:/home/bin`, `\\srv\share\bin`} {
+		s := windowsShell{env: fakeEnv(nil), look: fakeLook("pwsh.exe")}
+		want := dotSource(filepath.Join(bin, PowerShellHookFile))
+		if !slices.Contains(s.Shell(bin).Args, want) {
+			t.Fatalf("bin=%q 에 훅이 빠졌다", bin)
+		}
+	}
+}
