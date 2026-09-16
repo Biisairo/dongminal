@@ -158,6 +158,15 @@ e2e:  ## e2e 전량 — **CI 와 같은 분할**(8샤드)을 **병렬**로 돈�
 	 fi
 	@PW_WORKERS=$(E2E_WORKERS) sh -c 'seq 1 8 | xargs -P $(E2E_JOBS) -I{} scripts/e2e-shard-run.sh {} 8'
 	@echo "e2e ok — 8샤드 전부 (동시 워커 $(E2E_JOBS)×$(E2E_WORKERS), 상한 $(E2E_CAP))"
+	@# 흔들린 항목을 **격리해서 세 번 더** 돈다 (E2E_FLAKY_ISOLATION_SRS FR-EFI-10).
+	@#
+	@# **전 샤드가 끝난 뒤다.** 샤드 안에서 돌면 나머지 일곱의 부하를 그대로 받아
+	@# 그것은 독립이 아니다 — 부하를 없애려고 도는 검사가 부하 속에서 돌면 답이
+	@# 뒤집힌다 (§2.3). CI 는 샤드마다 러너가 달라 그 자리에서 바로 돈다.
+	@#
+	@# 글로브가 아무것도 맞히지 못하면 셸이 패턴을 그대로 넘기는데, 스크립트가
+	@# 없는 파일을 flaky 0 으로 읽는다 (FR-EFI-3).
+	@node scripts/e2e-isolate-flaky.mjs test-results/s*/parity-flaky.json
 
 e2e-rebalance:  ## 마지막 전량 실행의 시간으로 샤드 분할을 다시 맞춘다
 	@node scripts/e2e-timings.mjs

@@ -133,6 +133,25 @@ jobs:
           specs=$(node scripts/e2e-shard.mjs --list ${{ matrix.shard }}/8)
           npx playwright test $specs --reporter=line,html,./e2e/parity-reporter.ts
 
+      # 흔들린 항목을 **격리해서 세 번 더** 돈다 (E2E_FLAKY_ISOLATION_SRS FR-EFI-9).
+      #
+      # `retries: 1` 의 재시도는 같은 프로세스·같은 워커 편성·같은 서버 상태에서
+      # 곧바로 돈다. 그래서 "부하에 밀려 진 것" 과 "가끔 지는 결함" 이 같은 모양으로
+      # 끝났고, 가릴 수 없으니 봐줄 수밖에 없었다 (CI_GATES_SRS §3.1).
+      #
+      # **이 단계가 그 회차 안에 재현 수단을 만든다.** 단독 3회를 모두 지면 그것은
+      # 부하가 아니다 (FR-EFI-7). 한 번이라도 통과하면 부하로 확정하고 넘어간다.
+      #
+      # **여기서 바로 도는 것이 곧 독립이다** — 이 러너에서는 다른 샤드가 돌지
+      # 않는다. 로컬은 8샤드를 한 기계에서 병렬로 돌므로 전량이 끝난 뒤에 모아서
+      # 돈다 (Makefile 의 `e2e` — FR-EFI-10). 판정과 격리 조건은 같고 시점만 다르다.
+      #
+      # `if: always()` 가 아니다. 본 실행이 실패로 끝났으면 거기서 볼 것이 이미
+      # 있고, 흔들림을 가리는 일은 그 다음이다.
+      - name: flaky 격리 재실행
+        shell: bash
+        run: node scripts/e2e-isolate-flaky.mjs test-results/parity-flaky.json
+
       # flaky 수를 **잡 요약에 드러낸다** (05-test 의 P1 · CI_GATES_SRS §3).
       #
       # `retries: 1` 이 한 번까지 봐주므로 흔들린 항목도 초록으로 끝난다. 그 수를

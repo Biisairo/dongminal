@@ -15,7 +15,7 @@
     "e2e:report": "playwright show-report",
     "typecheck": "tsc --noEmit -p e2e && tsc --noEmit -p jsconfig.json",
     "lint": "eslint .",
-    "unit": "node --test web/js/test/*.test.mjs"
+    "unit": "node --test web/js/test/*.test.mjs scripts/test/*.test.mjs"
   },
   "engines": {
     "node": ">=22"

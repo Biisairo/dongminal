@@ -1,6 +1,7 @@
-import { writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync } from 'fs';
+import { join, relative } from 'path';
 
-import type { Reporter, TestCase, TestResult, FullResult } from '@playwright/test/reporter';
+import type { Reporter, TestCase, TestResult, FullResult, FullConfig } from '@playwright/test/reporter';
 
 /**
  * OS 사이의 **동등성**을 결과에서 읽을 수 있게 한다 (CI_E2E_MATRIX_SRS FR-CEM-27).
@@ -48,14 +49,40 @@ import type { Reporter, TestCase, TestResult, FullResult } from '@playwright/tes
 class ParityReporter implements Reporter {
   private skipped: TestCase[] = [];
   private ran = 0;
-  private flaky: string[] = [];
+  private flaky: { file: string; line: number; title: string }[] = [];
+  private rootDir = process.cwd();
+  private outputDir = 'test-results';
+
+  /**
+   * 목록을 **어디에** 쓸지는 여기서만 알 수 있다 (FR-EFI-2).
+   *
+   * `outputDir` 은 이미 샤드별로 갈려 있다 (`--output=test-results/s$i`). 거기
+   * 두면 로컬 8샤드 병렬에서도 서로 덮어쓰지 않는다 — `parity-flaky.txt` 는 cwd 에
+   * 쓰는 탓에 실제로 여덟이 같은 파일을 쓴다. 그 실수를 되풀이하지 않는다.
+   *
+   * **`config.rootDir` 을 쓰지 않는다.** 그것은 리포 루트가 아니라 `testDir`
+   * (`./e2e`) 이다 — 그것으로 상대 경로를 만들면 `e2e/` 가 빠져 `a.spec.ts:8` 이
+   * 되고, 같은 이름의 파일이 다른 자리에 생기는 순간 어느 것인지 말할 수 없다.
+   * 실측으로 걸렸다 (2026-09-16). 기준은 **cwd** 다 — CI 도 `e2e-shard-run.sh` 도
+   * 리포 루트에서 playwright 를 부른다.
+   */
+  onBegin(config: FullConfig) {
+    const dir = config.projects[0]?.outputDir;
+    if (dir) this.outputDir = dir;
+  }
 
   onTestEnd(test: TestCase, result: TestResult) {
     if (result.status === 'skipped') this.skipped.push(test);
     else this.ran++;
     // 재시도에서 통과한 항목이 flaky 다. `retry > 0` 이면서 결과가 기대와 같다.
     if (result.retry > 0 && result.status === test.expectedStatus) {
-      this.flaky.push(test.titlePath().slice(1).join(' › '));
+      // **위치를 함께 싣는다** (FR-EFI-1). 격리 재실행은 제목이 아니라 위치로
+      // 건다 — 제목에는 `›`·괄호·중점·한글이 섞여 있어 셸을 지나며 깨진다.
+      this.flaky.push({
+        file: relative(this.rootDir, test.location.file),
+        line: test.location.line,
+        title: test.titlePath().slice(1).join(' › '),
+      });
     }
   }
 
@@ -81,9 +108,19 @@ class ParityReporter implements Reporter {
       lines.push(`[parity]   ${n}× ${why}`);
     }
     lines.push(`[parity] flaky ${this.flaky.length}`);
-    for (const t of this.flaky) lines.push(`[parity]   flaky: ${t}`);
+    for (const t of this.flaky) lines.push(`[parity]   flaky: ${t.title}`);
     // 잡 요약이 읽는 자리. 리포터의 표준 출력은 러너 로그에 묻힌다.
     try { writeFileSync('parity-flaky.txt', String(this.flaky.length)) } catch { /* 없어도 요약이 0 을 쓴다 */ }
+    // 격리 재실행이 읽는 자리 (FR-EFI-1·3). **흔들리지 않았으면 만들지 않는다** —
+    // 있는지 없는지가 곧 할 일이 있는지 없는지다.
+    if (this.flaky.length) {
+      try {
+        // playwright 는 남길 산출물이 있을 때만 이 자리를 만든다. 흔들린 항목이
+        // 트레이스를 남기지 않고 끝나는 경우가 있어 우리가 보장한다.
+        mkdirSync(this.outputDir, { recursive: true });
+        writeFileSync(join(this.outputDir, 'parity-flaky.json'), JSON.stringify(this.flaky, null, 2));
+      } catch { /* 없으면 격리 재실행이 그 샤드를 flaky 0 으로 읽는다 */ }
+    }
     // eslint-disable-next-line no-console
     console.log(lines.join('\n'));
     if (!this.flaky.length) return;
