@@ -210,7 +210,7 @@ jobs:
       # 서명 대상은 **`SHA256SUMS` 하나**다. 그것이 나머지 전부를 이미 묶고
       # 있으므로, 다섯을 따로 서명하면 검증 절차만 다섯 배가 되고 얻는 것이 없다.
       - name: cosign 설치
-        uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
 
       - name: 체크섬 서명 (keyless)
         env:
