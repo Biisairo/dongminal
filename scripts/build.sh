@@ -94,11 +94,33 @@ cgo_for() {
 # `-ldflags -X` 로 이미 명시적으로 새긴다 (RELEASE_SRS FR-RVN-2/4).
 REPRO_FLAGS=(-trimpath -buildvcs=false)
 
+# ── 데몬 지문 ─────────────────────────────────────────
+#
+# 같은 바이너리가 두 프로세스로 돈다 — 웹서버와 `dongminald`. `start` 는 앞의
+# 것을 죽이고 새 바이너리로 뜨지만 데몬은 `--restart-daemon` 없이는 **옛
+# 바이너리 그대로** 돈다. 그래서 빌드마다 물음이 하나 선다: 이번 것은 데몬을
+# 갈아야 하는가.
+#
+# 답의 재료를 여기서 새긴다 (DAEMON_STALENESS_SRS FR-DFP-1). 계산은
+# `daemon-fingerprint.sh` 한 자리에 있다 — 정의역이 두 벌이 되면 한쪽만 고쳐진다.
+#
+# 대상마다 다시 계산한다: `platform` 이 OS 마다 다른 파일을 갖기 때문이다.
+# 호스트 기준으로 한 번만 세면 크로스 산출물의 지문이 그 내용과 무관해진다.
+#
+# 계산하지 못하면 **비워 둔다**. 빈 것은 "모른다" 이지 일치가 아니다 (FR-DFP-3) —
+# 거짓 값을 새기면 그 뒤의 판정이 전부 거짓이 된다.
+daemon_fp() {
+  scripts/daemon-fingerprint.sh --os "$1" --arch "$2" 2>/dev/null || true
+}
+
 build_one() {
   local os="$1" arch="$2" out="$3"
   local cgo; cgo="$(cgo_for "$os")"
+  local ld="$LDFLAGS"
+  local fp; fp="$(daemon_fp "$os" "$arch")"
+  [[ -n "$fp" ]] && ld="${ld:+$ld }-X dongminal/internal/ctl/cli.DaemonBuild=$fp"
   CGO_ENABLED="$cgo" GOOS="$os" GOARCH="$arch" \
-    go build "${REPRO_FLAGS[@]}" ${LDFLAGS:+-ldflags "$LDFLAGS"} -o "$out" ./cmd/dongminal
+    go build "${REPRO_FLAGS[@]}" ${ld:+-ldflags "$ld"} -o "$out" ./cmd/dongminal
   if [[ "$os" == "darwin" && "$cgo" == "0" ]]; then
     # 건너뛰지 않고 빌드하되 사실을 남긴다. 경고가 없으면 지표가 빠진 배포본이
     # 조용히 나간다.
@@ -146,6 +168,17 @@ case "$MODE" in
   host)
     build_one "$(go env GOHOSTOS)" "$(go env GOHOSTARCH)" "$BINARY"
     echo "빌드 완료: $BINARY"
+    # FR-DFP-7: 방금 만든 것으로 재실행할 때 데몬을 갈아야 하는지 말한다.
+    #
+    # **방금 만든 바이너리에게 묻는다.** 판정 문구는 `cli.daemonStateLine` 한
+    # 자리에 있고(FR-DFP-11), 여기서 bash 로 다시 적으면 두 벌이 되어 한쪽만
+    # 고쳐진다. `--daemon` 은 HTTP 검사를 지나지 않으므로 서버가 떠 있지 않아도
+    # 즉시 답한다.
+    #
+    # 배포 대상(`--all`·`--os`)에서는 하지 않는다 — 그 산출물은 이 기계에서 도는
+    # 데몬과 무관하고, 애초에 여기서 실행되지 않는다.
+    bin="$BINARY"; [[ "$bin" == */* ]] || bin="./$bin"
+    "$bin" health --daemon || true
     ;;
 
   one)

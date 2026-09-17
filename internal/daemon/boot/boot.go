@@ -16,6 +16,7 @@ import (
 	"dongminal/internal/shared/runtime"
 	"dongminal/internal/shared/sandboxplace"
 	"dongminal/internal/shared/toolhub"
+	"dongminal/internal/shared/toolipc"
 	"dongminal/internal/shared/workspace"
 
 	"dongminal/internal/shared/platform"
@@ -48,7 +49,11 @@ func referencedTools(path string) map[string]struct{} {
 // version 은 이 바이너리의 판이다(cli.Version). 인자로 받는 것은 데몬이
 // ctl/cli 를 되받아 import 하지 않게 하기 위해서다 — 샌드박스 헬퍼를 서버와
 // 같은 판으로 맞추는 데만 쓰인다 (FR-SBX-14).
-func Run(home, version string) {
+//
+// daemonBuild 는 이 바이너리 안 **데몬 코드**의 지문이다(cli.DaemonBuild). 같은
+// 이유로 주입받으며, 기동이 그것을 홈에 남겨 "지금 도는 것이 무엇인가" 에
+// 답한다 (DAEMON_STALENESS_SRS FR-DFP-4/6).
+func Run(home, version, daemonBuild string) {
 	dmlog.Infof(nil, "dongminald starting home=%s", home)
 
 	if err := runtime.Install(filepath.Join(home, "bin")); err != nil {
@@ -93,6 +98,9 @@ func Run(home, version string) {
 	// 이미 `Run(home, version)` 으로 들어와 있다 — 데몬이 `ctl/cli` 를 import
 	// 하지 않고도 판을 말할 수 있는 것이 이 주입의 목적이다.
 	ps.SetBuildVersion(version)
+	// FR-DFP-4: 소켓을 열면서 지문을 남긴다. 자리는 `paned.pid` 의 옆이고 수명도
+	// 같다 — 하나는 누가, 하나는 무엇이 도는지다.
+	ps.SetDaemonBuild(filepath.Join(home, toolipc.DaemonBuildFile), daemonBuild)
 	if err := ps.Listen(); err != nil {
 		dmlog.Errorf(nil, "dongminald listen: %v", err)
 		os.Exit(1)

@@ -21,6 +21,12 @@ func RunHealth(o HealthOpts, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
+	// FR-DFP-7: 데몬의 낡음만 묻는 갈래. HTTP 도 헬퍼도 보지 않으므로 서버가
+	// 떠 있지 않아도 즉시 답한다.
+	if o.DaemonOnly {
+		fmt.Fprintln(stdout, daemonStateLine(inspectDaemon(home)))
+		return 0
+	}
 	port := o.ResolvePort()
 
 	fail := 0
@@ -47,6 +53,11 @@ func RunHealth(o HealthOpts, stdout, stderr io.Writer) int {
 	default:
 		fmt.Fprintln(stdout, "ℹ️  dongminald 소켓은 있으나 pidfile 이 없습니다")
 	}
+
+	// FR-DFP-10: 낡은 데몬은 **어긋남이지 고장이 아니다.** 그래서 말하되 `fail`
+	// 에 세지 않는다 — 이 명령의 종료 코드는 생존의 답이고, 그것을 바꾸면
+	// 되살릴 것이 없는데도 스크립트가 실패로 읽는다.
+	fmt.Fprintf(stdout, "%s\n", daemonStateLine(inspectDaemon(home)))
 
 	// HELPER_INSTALL_SRS FR-HLI-9: 설치된 헬퍼가 죽어 있어도 서버와 데몬은
 	// 멀쩡하다 — 그래서 지금까지 아무도 알려 주지 않았고, 에이전트 훅이 실패할

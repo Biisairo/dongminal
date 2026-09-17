@@ -162,6 +162,10 @@ type DoctorOpts struct {
 // HealthOpts는 `dongminal health` 의 옵션이다.
 type HealthOpts struct {
 	Common
+	// DaemonOnly 는 데몬의 낡음만 묻는다 (DAEMON_STALENESS_SRS FR-DFP-7).
+	// `scripts/build.sh` 가 빌드 직후 부르는 자리라 HTTP 대기를 지나지 않는다 —
+	// 그때 서버는 떠 있지 않은 것이 보통이고, 빌드 끝에 3초를 태울 이유가 없다.
+	DaemonOnly bool
 }
 
 // WindowOpts는 `dongminal window` 의 옵션이다. 겨눌 서버를 정하는 것이 전부이고,
@@ -305,6 +309,8 @@ func ParseHealth(args []string) (HealthOpts, error) {
 		switch args[i] {
 		case "-h", "--help":
 			return HealthOpts{}, ErrHelp
+		case "--daemon":
+			o.DaemonOnly = true
 		default:
 			ok, err := o.Common.take(args, &i)
 			if err != nil {

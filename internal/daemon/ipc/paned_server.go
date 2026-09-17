@@ -28,6 +28,11 @@ type PanedServer struct {
 	// buildVersion 은 `hello` 가 싣는 빌드 판이다 (FR-VHL-1). `mu` 아래 둔다 —
 	// 연결 수락과 같은 잠금이다.
 	buildVersion string
+	// daemonBuild 는 이 데몬이 실행하는 **코드의 지문**이고 buildPath 는 그것을
+	// 남길 자리다 (DAEMON_STALENESS_SRS FR-DFP-4). 빌드 판과 다른 것을 센다 —
+	// 로컬 빌드에서 판은 언제나 `dev` 라 그것으로는 낡음을 가릴 수 없다.
+	daemonBuild string
+	buildPath   string
 
 	mu       sync.Mutex
 	listener net.Listener
@@ -49,6 +54,21 @@ const dialProbeTimeout = 2 * time.Second
 func (ps *PanedServer) SetBuildVersion(v string) {
 	ps.mu.Lock()
 	ps.buildVersion = v
+	ps.mu.Unlock()
+}
+
+// SetDaemonBuild 는 이 데몬의 코드 지문과 그것을 남길 자리를 새긴다 (FR-DFP-4/6).
+//
+// `SetBuildVersion` 과 같은 이유로 **주입받는다** — 값의 단일 출처는
+// `internal/ctl/cli.DaemonBuild` 이고, 데몬 층이 그것을 import 하면 아래에서
+// 위를 보게 된다. `boot.Run` 이 이미 그 값을 들고 있다.
+//
+// `Listen` **전에** 부른다. 기록은 소켓을 연 직후에 일어난다 —
+// `SetBuildVersion` 과 같은 순서다.
+func (ps *PanedServer) SetDaemonBuild(path, fp string) {
+	ps.mu.Lock()
+	ps.buildPath = path
+	ps.daemonBuild = fp
 	ps.mu.Unlock()
 }
 
@@ -108,7 +128,33 @@ func (ps *PanedServer) Listen() error {
 			dmlog.Errorf(nil, "paned: pidfile 쓰기 실패 %s: %v", ps.pidPath, err)
 		}
 	}
+	ps.recordDaemonBuild()
 	return nil
+}
+
+// recordDaemonBuild 는 지금 도는 것이 **무엇인지**를 남긴다 (FR-DFP-4).
+//
+// 지문을 모르면 앞선 데몬이 남긴 것을 **지운다** (FR-DFP-5). 남겨 두면 그 값이
+// 지금 도는 데몬의 것인 양 읽히고 판정은 "일치" 를 말한다 — 침묵보다 나쁜 것은
+// 틀린 말이다.
+//
+// pidfile 과 같이 기동의 조건이 아니다: 실패해도 기록만 남기고 지나간다.
+func (ps *PanedServer) recordDaemonBuild() {
+	ps.mu.Lock()
+	path, fp := ps.buildPath, ps.daemonBuild
+	ps.mu.Unlock()
+	if path == "" {
+		return
+	}
+	if fp == "" {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			dmlog.Errorf(nil, "paned: 지문 파일 제거 실패 %s: %v", path, err)
+		}
+		return
+	}
+	if err := os.WriteFile(path, []byte(fp+"\n"), 0o600); err != nil {
+		dmlog.Errorf(nil, "paned: 지문 쓰기 실패 %s: %v", path, err)
+	}
 }
 
 func (ps *PanedServer) Accept() error {

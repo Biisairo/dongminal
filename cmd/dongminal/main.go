@@ -431,7 +431,7 @@ func main() {
 			dmlog.Errorf(nil, "%v", err)
 			os.Exit(1)
 		}
-		boot.Run(home, cli.Version)
+		boot.Run(home, cli.Version, cli.DaemonBuild)
 		return
 	}
 

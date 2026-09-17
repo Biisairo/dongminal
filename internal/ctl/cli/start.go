@@ -106,10 +106,8 @@ func RunStart(o StartOpts, serve Serve, stdout, stderr io.Writer) int {
 	if o.RestartDaemon {
 		fmt.Fprintln(stdout, "dongminald 재시작 (터미널 세션을 잃습니다)...")
 		stopDaemon(home, stdout)
-	} else if socketExists(home) {
-		fmt.Fprintln(stdout, "dongminald 실행 중 (세션 보존)")
 	} else {
-		fmt.Fprintln(stdout, "dongminald 미실행 — dongminal 이 자동 기동합니다")
+		fmt.Fprintln(stdout, runningDaemonNotice(home, socketExists(home)))
 	}
 
 	// UPDATE_NOTICE_SRS FR-UPD-10: 기본 켜짐을 처음 한 번 말한다. 전경·분리

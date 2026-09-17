@@ -133,6 +133,9 @@ func usageHealth() string {
 종료 코드: 0 정상 / 1 이상 있음
 
 옵션:
+  --daemon          데몬의 낡음만 본다 — 지금 도는 dongminald 가 이 바이너리의
+                    코드인지. HTTP 검사를 지나지 않으므로 즉시 답한다
+                    (scripts/build.sh 가 빌드 끝에 부르는 자리다)
 ` + commonFlags + `
 `
 }
