@@ -3,6 +3,36 @@
 형식은 [Keep a Changelog](https://keepachangelog.com/ko/1.1.0/) 를 따르고,
 판 번호는 [유의적 버전](https://semver.org/lang/ko/) 을 따릅니다.
 
+## [1.1.2] — 2026-09-17
+
+### 추가
+
+- **빌드하면 데몬을 갈아야 하는지 알려 줍니다.** 소스에서 빌드해 쓰는 분들을
+  위한 것입니다. `scripts/build.sh` 가 끝나면 한 줄이 나옵니다:
+
+  ```
+  ⚠️  데몬 코드가 바뀌었습니다 — dongminal start --restart-daemon (터미널 세션을 잃습니다)
+  ✅ 데몬 코드 그대로 — dongminal start 만 하면 됩니다 (세션 보존)
+  ```
+
+  같은 바이너리가 두 프로세스로 돕니다 — 웹서버와 터미널을 들고 있는
+  `dongminald`. `start` 는 웹서버만 새 것으로 바꾸고 데몬은 옛 것을 그대로
+  씁니다. 그래서 종전에는 늘 `--restart-daemon` 을 붙여 **필요 없이 터미널을
+  잃거나**, 붙이지 않고 **고친 줄 알았던 것이 그대로인 채로** 보게 됐습니다.
+  이제 어느 쪽인지 빌드가 말해 줍니다.
+- **`dongminal health --daemon`** — 데몬의 낡음만 묻습니다. HTTP 검사를 지나지
+  않으므로 서버가 떠 있지 않아도 즉시 답합니다.
+
+### 변경
+
+- **`dongminal health` 가 데몬 판의 일치 여부를 한 줄 더 냅니다.** 낡은 데몬을
+  **실패로 세지 않습니다** — 어긋남이지 고장이 아니므로 종료 코드는 그대로 0 입니다.
+- **`dongminal start` 가 데몬을 살려 둔 채 뜰 때, 그 데몬이 낡았으면 경고합니다.**
+  빌드와 기동 사이에 시간이 떠도 잡힙니다.
+- **릴리스 바이너리에 데몬 코드의 지문이 함께 새겨집니다.** 판(`version`)과 다른
+  것을 셉니다 — 판은 릴리스마다 바뀌고, 지문은 데몬이 실행하는 코드가 바뀔 때만
+  바뀝니다. 웹서버만 고친 빌드에서는 그대로입니다.
+
 ## [1.1.1] — 2026-09-17
 
 ### 추가
@@ -1379,6 +1409,7 @@
   에이전트 간 메시지와 API 입력 주입이 그 셸에서 통째로 깨져 있었다. 이제 셸이
   그 모드를 켰을 때만 감싼다
 
+[1.1.2]: https://github.com/Biisairo/dongminal/releases/tag/v1.1.2
 [1.1.1]: https://github.com/Biisairo/dongminal/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Biisairo/dongminal/releases/tag/v1.1.0
 [1.0.12]: https://github.com/Biisairo/dongminal/releases/tag/v1.0.12
