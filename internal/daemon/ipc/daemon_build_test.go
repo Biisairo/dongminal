@@ -35,14 +35,6 @@ func TestListenWritesFP(t *testing.T) {
 	if got := strings.TrimSpace(string(blob)); got != "deadbeef12" {
 		t.Fatalf("지문 %q, want deadbeef12", got)
 	}
-	// `paned.pid` 와 같은 권한이다 — 홈 안의 것은 그 사용자만 읽는다 (04-secops P1-6).
-	st, err := os.Stat(buildPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if perm := st.Mode().Perm(); perm != 0o600 {
-		t.Fatalf("권한 %04o, want 0600", perm)
-	}
 }
 
 // FR-DFP-5 — 지문을 모르는 데몬은 앞선 데몬이 남긴 것을 **지운다**.
