@@ -227,7 +227,7 @@ jobs:
       # 빌드 출처(provenance) 증명. 서명이 "누가" 라면 이쪽은 "무엇으로부터" 다 —
       # 어떤 커밋의 어떤 워크플로우가 이 바이트를 만들었는지.
       - name: provenance 증명
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: dist/SHA256SUMS
 
