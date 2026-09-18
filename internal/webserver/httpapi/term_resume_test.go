@@ -132,18 +132,38 @@ func TestBuildReplay_EmptyDelta(t *testing.T) {
 
 // V-TRS-10: 9 바이트, 빅엔디언 오프셋 + 플래그.
 func TestSeqPayload(t *testing.T) {
-	p := seqPayload(0x0102030405060708, true)
+	p := seqPayload(0x0102030405060708, true, false)
 	if len(p) != 9 {
 		t.Fatalf("len=%d want 9", len(p))
 	}
 	if got := int64(binary.BigEndian.Uint64(p[:8])); got != 0x0102030405060708 {
 		t.Errorf("offset=%#x want %#x", got, 0x0102030405060708)
 	}
+	// 전량만이면 종전과 **같은 바이트**다 — 비트로 넓혔을 뿐 뜻을 바꾸지 않았다.
 	if p[8] != 1 {
 		t.Errorf("flag=%d want 1", p[8])
 	}
-	if p2 := seqPayload(0, false); p2[8] != 0 {
+	if p2 := seqPayload(0, false, false); p2[8] != 0 {
 		t.Errorf("flag=%d want 0", p2[8])
+	}
+}
+
+// V-TRS-17c (FR-TRS-18b): alt screen 은 **비트 하나**로 실린다. 넛지를 걸지 말지를
+// 브라우저가 가르려면 그 사실이 건너가야 하고, 브라우저는 PTY 출력을 보지 않는다.
+func TestSeqPayload_AltScreenBit(t *testing.T) {
+	cases := []struct {
+		full, alt bool
+		want      byte
+	}{
+		{false, false, 0},
+		{true, false, 1},
+		{false, true, 2},
+		{true, true, 3},
+	}
+	for _, c := range cases {
+		if got := seqPayload(0, c.full, c.alt)[8]; got != c.want {
+			t.Errorf("full=%v alt=%v → flag=%d want %d", c.full, c.alt, got, c.want)
+		}
 	}
 }
 

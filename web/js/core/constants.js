@@ -25,6 +25,9 @@
 // 페이로드 4 바이트 — cols 2 + rows 2, 빅엔디언. 크기의 주인이 아닌 창은 이 값을
 // 따르고 자기 `fit()` 결과를 PTY 에 보내지 않는다 (D-M9-3).
 const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,TOOLID:3,SEQ:4,SIZE:5};
+// TERMINAL_RESUME_SRS FR-TRS-18b: `OpSeq` 플래그 바이트의 비트.
+// bit0 은 종전의 값 `1`(전량 재생)과 같고, bit1 이 "그 도구가 alt screen 안이다" 다.
+const SEQ_FLAG_FULL=1, SEQ_FLAG_ALT=2;
 const enc=new TextEncoder(), dec=new TextDecoder();
 // PAGE_TITLE_SRS FR-PGT-7: 설정이 비었을 때 쓰는 페이지 제목.
 const DEFAULT_PAGE_TITLE='Dongminal';

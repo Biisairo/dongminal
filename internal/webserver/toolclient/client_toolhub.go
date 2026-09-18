@@ -371,6 +371,7 @@ func decodeModes(v interface{}) toolhub.TermModes {
 		MouseProtocol:  num("mouseProtocol"),
 		MouseEncoding:  num("mouseEncoding"),
 		FocusEvent:     b("focusEvent"),
+		AltScreen:      b("altScreen"),
 	}
 }
 

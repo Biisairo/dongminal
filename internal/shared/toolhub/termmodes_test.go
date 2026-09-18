@@ -116,3 +116,24 @@ func TestModes_RestoreRoundTrips(t *testing.T) {
 		t.Fatalf("got %+v want %+v", got, want)
 	}
 }
+
+// V-TRS-17c (TERMINAL_RESUME_SRS FR-TRS-18b): alt screen 은 **관측하되 복원하지
+// 않는다.**
+//
+// 넛지를 걸지 말지를 가르는 데 필요한 것은 *켜져 있는가* 하나뿐이다. 되세우는
+// 일은 여전히 비목표다 — 버퍼 전환은 내용을 동반하므로 규칙이 다르다.
+func TestModes_AltScreenObservedNotRestored(t *testing.T) {
+	for _, n := range []string{"\x1b[?1049h", "\x1b[?47h", "\x1b[?1047h"} {
+		if !modesAfter(t, n).AltScreen {
+			t.Errorf("%q 를 보고도 alt screen 이 아니라고 한다", n)
+		}
+	}
+	if modesAfter(t, "\x1b[?1049h", "\x1b[?1049l").AltScreen {
+		t.Error("나간 뒤에도 alt screen 이라고 한다")
+	}
+	// 켜진 채여도 복원 바이트에는 담기지 않는다.
+	m := TermModes{AltScreen: true, BracketedPaste: true}
+	if got := string(m.RestoreBytes()); got != "\x1b[?2004h" {
+		t.Fatalf("복원 바이트=%q — alt screen 이 섞였다", got)
+	}
+}

@@ -87,11 +87,23 @@ func buildReplay(data []byte, full bool) []byte {
 //
 // 플래그가 필요한 이유는 클라이언트가 **전량 재생 뒤에만** 재그리기 넛지를 보내야
 // 하기 때문이다 (FR-TRS-18). 델타 재개에는 넛지가 필요 없고 리플로우만 만든다.
-func seqPayload(offset int64, full bool) []byte {
+// 플래그 바이트의 비트 (FR-TRS-18b). 종전에는 값 `1` 하나만 썼고, 비트로 읽도록
+// 넓히면 자리가 여섯 남는다 — 새 프레임도 왕복도 늘지 않는다.
+const (
+	seqFlagFull = 1 << 0 // 전량 재생이었다 (종전의 값 1 과 같다)
+	seqFlagAlt  = 1 << 1 // 그 도구가 지금 alt screen 안이다
+)
+
+func seqPayload(offset int64, full, alt bool) []byte {
 	p := make([]byte, 9)
 	binary.BigEndian.PutUint64(p[:8], uint64(offset))
 	if full {
-		p[8] = 1
+		p[8] |= seqFlagFull
+	}
+	// FR-TRS-18a: 넛지는 alt screen 앱에만 건다. 그 판정의 재료가 이 비트이며,
+	// 브라우저는 PTY 출력을 보지 않으므로 서버가 말해 주지 않으면 알 길이 없다.
+	if alt {
+		p[8] |= seqFlagAlt
 	}
 	return p
 }

@@ -158,7 +158,7 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remo
 	}
 	// FR-TRS-8: 좌표 통보는 재생 **뒤**다. 이 뒤로 오는 OpOutput 은 라이브 PTY
 	// 바이트뿐이므로, 클라이언트는 길이를 더하는 것만으로 좌표를 유지한다.
-	if err := conn.Send(toolhub.OpSeq, seqPayload(regOff, full)); err != nil {
+	if err := conn.Send(toolhub.OpSeq, seqPayload(regOff, full, tool.TermModes().AltScreen)); err != nil {
 		dmlog.Errorf(nil, "[tool %s] seq send error addr=%s: %v", tool.ID, remoteAddr, err)
 		return
 	}
@@ -211,7 +211,7 @@ func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, pc toolhub.DaemonHub, to
 		return
 	}
 	// FR-TRS-8: 좌표 통보는 재생 뒤다.
-	if err := conn.Send(toolhub.OpSeq, seqPayload(snap.End, full)); err != nil {
+	if err := conn.Send(toolhub.OpSeq, seqPayload(snap.End, full, snap.Modes.AltScreen)); err != nil {
 		dmlog.Errorf(nil, "[tool %s] seq send error: %v", toolID, err)
 		return
 	}

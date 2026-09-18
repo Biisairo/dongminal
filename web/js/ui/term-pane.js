@@ -652,7 +652,20 @@ class TerminalTool {
     const dv=new DataView(p.buffer,p.byteOffset,p.length);
     this._seq=dv.getUint32(0,false)*4294967296+dv.getUint32(4,false);
     this._seqLive=true;
-    if(p[8]===1) this._redrawNudge();
+    /**
+     * FR-TRS-18·18a: 넛지는 **전량 재생이고, 앱이 alt screen 안일 때만** 건다.
+     *
+     * 플래그는 이제 비트다 — bit0 전량, bit1 alt screen. 종전에는 값 `1` 하나만
+     * 보고 전량이면 무조건 걸었고, 그것이 접수된 렌더 잔재의 원인이었다
+     * (`M11_SRS` §2.4f): 넛지는 `SIGWINCH` 를 두 번 일으켜 앱을 두 번 그리게
+     * 하는데, **화면을 지우지 않고 커서만 올려 덮어쓰는 앱**은 그때마다 어긋난
+     * 그림을 하나씩 더 쌓는다. claude 가 그 방식이다.
+     *
+     * 넛지가 막는 영구 desync 는 alt screen 앱에서만 일어나므로(§2.4), 약을
+     * 버리는 것이 아니라 필요한 곳에만 남기는 것이다.
+     */
+    const flag=p[8];
+    if((flag&SEQ_FLAG_FULL)&&(flag&SEQ_FLAG_ALT)) this._redrawNudge();
   }
 
   /**

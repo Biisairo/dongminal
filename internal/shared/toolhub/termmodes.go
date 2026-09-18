@@ -25,6 +25,14 @@ const (
 	modeFocusEvent     = 1004
 )
 
+// altScreenModes 는 **대체 화면**으로 드나드는 신호다 (TERMINAL_RESUME_SRS
+// FR-TRS-18b). `1049` 가 지금의 표준이고 `47`·`1047` 은 옛 형태다.
+//
+// **관측만 한다.** 되세우는 일은 비목표다 (TERMINAL_MODE_RESTORE_SRS §1.4) —
+// 버퍼 전환은 내용을 동반하므로 규칙이 다르다. 여기서 필요한 것은 넛지를 걸지
+// 말지를 가를 *켜져 있는가* 하나뿐이다.
+var altScreenModes = []int{1049, 47, 1047}
+
 // mouseProtocols·mouseEncodings 는 **갈래**다. 각 갈래에서 살아남는 값은 하나이며
 // (FR-TMR-3), 갈래에 속한 어느 번호의 끄기든 그 갈래를 비운다 (FR-TMR-4).
 //
@@ -44,6 +52,8 @@ type TermModes struct {
 	// MouseEncoding 은 `1005`·`1006`·`1015` 중 하나다. 0 이면 기본.
 	MouseEncoding int  `json:"mouseEncoding"`
 	FocusEvent    bool `json:"focusEvent"`
+	// AltScreen 은 앱이 **대체 화면 안**인지다. 복원하지 않고 넛지 판정에만 쓴다.
+	AltScreen bool `json:"altScreen"`
 }
 
 // RestoreBytes 는 켜진 모드를 다시 세우는 바이트다 (FR-TMR-20).
@@ -84,6 +94,9 @@ func (m TermModes) pack() uint64 {
 	if m.FocusEvent {
 		v |= 1 << 33
 	}
+	if m.AltScreen {
+		v |= 1 << 34
+	}
 	return v
 }
 
@@ -93,6 +106,7 @@ func unpackModes(v uint64) TermModes {
 		MouseProtocol:  int(uint16(v)),
 		MouseEncoding:  int(uint16(v >> 16)),
 		FocusEvent:     v&(1<<33) != 0,
+		AltScreen:      v&(1<<34) != 0,
 	}
 }
 
@@ -222,6 +236,8 @@ func applyMode(m TermModes, n int, on bool) TermModes {
 		} else {
 			m.MouseProtocol = 0
 		}
+	case contains(altScreenModes, n):
+		m.AltScreen = on
 	case contains(mouseEncodings, n):
 		if on {
 			m.MouseEncoding = n
