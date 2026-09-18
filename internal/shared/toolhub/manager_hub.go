@@ -87,6 +87,12 @@ type ToolSnapshot struct {
 	// 0 이고, 0 은 "모른다" 이므로 통보하지 않는다.
 	Cols uint16
 	Rows uint16
+	// Modes 는 **앱이 켜 둔 터미널 모드**다 (TERMINAL_MODE_RESTORE_SRS FR-TMR-24).
+	//
+	// 자리가 `Cols`·`Rows` 옆인 것은 근거가 같기 때문이다 — daemon 모드에서 PTY 는
+	// 다른 프로세스에 있고 `Get(id)` 이 주는 합성 Tool 은 이것을 모른다. 접속마다
+	// 이미 도는 이 RPC 에 실어 오는 것이 왕복을 늘리지 않는 유일한 길이다.
+	Modes TermModes
 }
 
 // SnapshotTool returns the outbuf snapshot of the named tool.
@@ -116,7 +122,7 @@ func (m *ToolManager) SnapshotToolSince(id string, since int64) (ToolSnapshot, e
 	if since >= 0 {
 		if data, end, ok := s.Since(since); ok {
 			return ToolSnapshot{Data: data, TotalBytesIn: end, Retained: len(data), End: end, Resumed: true,
-				Cols: cols, Rows: rows}, nil
+				Cols: cols, Rows: rows, Modes: p.TermModes()}, nil
 		}
 	}
 	data, stats := s.Snapshot()
@@ -128,6 +134,7 @@ func (m *ToolManager) SnapshotToolSince(id string, since int64) (ToolSnapshot, e
 		End:            stats.TotalBytesIn,
 		Cols:           cols,
 		Rows:           rows,
+		Modes:          p.TermModes(),
 	}, nil
 }
 

@@ -106,6 +106,30 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 //
 // 재생의 끝은 **등록 오프셋**이다 (FR-TRS-17). 거기서부터는 readPTY 의 broadcast
 // 가 이 소켓에 직접 나르므로, 재생이 그 자리를 넘으면 넘은 만큼 두 번 보인다.
+// sendModeRestore 는 앱이 켜 둔 터미널 모드를 재접속한 xterm 에 되세운다
+// (TERMINAL_MODE_RESTORE_SRS FR-TMR-20·21·24).
+//
+// **자리가 요점이다** — 재생 바로 뒤, 좌표 통보 앞이다.
+//
+//   - 재생 **앞**이면 재생 데이터에 남아 있는 낡은 `ESC[?2004l` 이 이 복원을 덮는다.
+//   - 좌표(`OpSeq`) **뒤**면 "그 뒤의 OpOutput 은 라이브 PTY 바이트뿐" 이라는
+//     FR-TRS-8 의 계약을 깬다.
+//
+// 보내는 것은 앱이 보냈을 바이트 그대로이므로 **프론트는 한 줄도 바뀌지 않는다** —
+// 모드를 세우는 일은 원래 터미널의 몫이고, 우리는 그것을 대신 전할 뿐이다.
+// 켜진 것이 하나도 없으면 아무것도 보내지 않는다 (FR-TMR-22).
+func sendModeRestore(conn *toolhub.SafeConn, toolID string, modes toolhub.TermModes) bool {
+	payload := modes.RestoreBytes()
+	if len(payload) == 0 {
+		return true
+	}
+	if err := conn.Send(toolhub.OpOutput, payload); err != nil {
+		dmlog.Errorf(nil, "[tool %s] mode restore send error: %v", toolID, err)
+		return false
+	}
+	return true
+}
+
 func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remoteAddr string, since int64) {
 	regOff, ok := tool.AddClientAt(conn)
 	if !ok {
@@ -128,6 +152,9 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remo
 			dmlog.Errorf(nil, "[tool %s] replay send error addr=%s: %v", tool.ID, remoteAddr, err)
 			return
 		}
+	}
+	if !sendModeRestore(conn, tool.ID, tool.TermModes()) {
+		return
 	}
 	// FR-TRS-8: 좌표 통보는 재생 **뒤**다. 이 뒤로 오는 OpOutput 은 라이브 PTY
 	// 바이트뿐이므로, 클라이언트는 길이를 더하는 것만으로 좌표를 유지한다.
@@ -179,6 +206,9 @@ func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, pc toolhub.DaemonHub, to
 			dmlog.Errorf(nil, "[tool %s] replay send error: %v", toolID, err)
 			return
 		}
+	}
+	if !sendModeRestore(conn, toolID, snap.Modes) {
+		return
 	}
 	// FR-TRS-8: 좌표 통보는 재생 뒤다.
 	if err := conn.Send(toolhub.OpSeq, seqPayload(snap.End, full)); err != nil {

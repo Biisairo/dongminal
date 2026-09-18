@@ -233,6 +233,9 @@ func (pc *panedConn) snapshot(req *toolipc.PanedRequest) interface{} {
 		// 0 으로 읽고 통보하지 않는다 — 지금 동작과 같다.
 		"cols": snap.Cols,
 		"rows": snap.Rows,
+		// FR-TMR-24: 앱이 켜 둔 모드. 같은 근거로 같은 자리다 — 웹서버는 PTY 를
+		// 보지 못하므로 이것 없이는 재접속한 xterm 에 모드를 되세울 수 없다.
+		"modes": snap.Modes,
 	}}
 }
 

@@ -122,11 +122,13 @@ type Tool struct {
 	// exitCode 는 kill() 이 수확한 종료 코드다. ExitInfo 로 나간다.
 	exitCode atomic.Int32
 
-	// bracketed paste 모드 (BRACKETED_PASTE_SRS FR-BPT-1/4). bpCarryBuf 는
-	// attnCarry 와 같이 readPTY 고루틴만 만지므로 잠금이 없다. 원자값 쪽은
-	// 입력 경로가 읽는다.
-	bracketedPaste atomic.Bool
-	bpCarryBuf     []byte
+	// 앱이 켜 둔 터미널 모드 (TERMINAL_MODE_RESTORE_SRS FR-TMR-2/7 ·
+	// BRACKETED_PASTE_SRS FR-BPT-1/4 를 넓힌 것). modeCarryBuf 는 attnCarry 와
+	// 같이 readPTY 고루틴만 만지므로 잠금이 없다. 원자값 쪽은 입력 경로와
+	// **재접속 경로**가 읽는다 — 후자가 이 상태를 든 이유다: 새 xterm 은 앱이
+	// 켠 모드를 하나도 모르고, 재생만으로는 되살아나지 않는다.
+	modes        atomic.Uint64
+	modeCarryBuf []byte
 
 	// reportedCwd 는 셸 훅이 OSC 777;Cwd 로 알린 작업 디렉터리다
 	// (WINDOWS_TOOL_CWD_SRS FR-WTC-2). readPTY 고루틴이 쓰고 아무 고루틴이나
@@ -374,7 +376,7 @@ func (p *Tool) readPTY() {
 			r.onOutput(p.ID, append([]byte(nil), raw[:n]...), end)
 		}
 		p.observeOutput(raw[:n])
-		p.observeBracketedPaste(raw[:n])
+		p.observeModes(raw[:n])
 		if !live {
 			continue
 		}

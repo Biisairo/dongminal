@@ -334,6 +334,10 @@ func (pc *ToolClient) SnapshotToolSince(id string, since int64) (toolhub.ToolSna
 	// "모른다" 라 통보하지 않는다 — 그때의 동작은 이 요구가 없던 때와 같다.
 	cols, _ := resp["cols"].(float64)
 	rows, _ := resp["rows"].(float64)
+	// FR-TMR-24·25: 앱이 켜 둔 모드. **필드를 보내지 않는 옛 데몬에서는 제로값**이
+	// 되고, 제로값은 "전부 꺼짐" 이라 복원이 없을 뿐이다 — 이 요구가 없던 때의
+	// 동작과 같다.
+	modes := decodeModes(resp["modes"])
 	return toolhub.ToolSnapshot{
 		Data:           data,
 		TotalBytesIn:   int64(totalIn),
@@ -343,7 +347,31 @@ func (pc *ToolClient) SnapshotToolSince(id string, since int64) (toolhub.ToolSna
 		Resumed:        resumed,
 		Cols:           uint16(cols),
 		Rows:           uint16(rows),
+		Modes:          modes,
 	}, nil
+}
+
+// decodeModes 는 RPC 가 실어 온 모드다. JSON 을 지난 수는 float64 이므로 한 자리에
+// 모아 옮긴다 — 흩어 두면 새 모드가 늘 때마다 같은 실수를 되풀이한다.
+func decodeModes(v interface{}) toolhub.TermModes {
+	m, ok := v.(map[string]interface{})
+	if !ok {
+		return toolhub.TermModes{}
+	}
+	num := func(k string) int {
+		f, _ := m[k].(float64)
+		return int(f)
+	}
+	b := func(k string) bool {
+		x, _ := m[k].(bool)
+		return x
+	}
+	return toolhub.TermModes{
+		BracketedPaste: b("bracketedPaste"),
+		MouseProtocol:  num("mouseProtocol"),
+		MouseEncoding:  num("mouseEncoding"),
+		FocusEvent:     b("focusEvent"),
+	}
 }
 
 // Ensure ToolClient implements toolhub.ToolHub.

@@ -34,7 +34,7 @@ func TestBracketedPaste_TracksEnableDisable(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			var p Tool
 			for _, chunk := range c.feed {
-				p.observeBracketedPaste([]byte(chunk))
+				p.observeModes([]byte(chunk))
 			}
 			if got := p.BracketedPaste(); got != c.want {
 				t.Fatalf("got %v, want %v", got, c.want)
@@ -52,9 +52,9 @@ func TestBracketedPaste_SplitAcrossReads(t *testing.T) {
 		for cut := 1; cut < len(seq); cut++ {
 			var p Tool
 			// 켜기를 먼저 확정해 두면 끄기 시퀀스의 쪼개짐도 검증된다.
-			p.observeBracketedPaste([]byte("\x1b[?2004h"))
-			p.observeBracketedPaste([]byte(seq[:cut]))
-			p.observeBracketedPaste([]byte(seq[cut:]))
+			p.observeModes([]byte("\x1b[?2004h"))
+			p.observeModes([]byte(seq[:cut]))
+			p.observeModes([]byte(seq[cut:]))
 			want := seq == "\x1b[?2004h"
 			if got := p.BracketedPaste(); got != want {
 				t.Errorf("%q 를 %d 에서 자르면 %v (want %v)", seq, cut, got, want)
@@ -66,7 +66,7 @@ func TestBracketedPaste_SplitAcrossReads(t *testing.T) {
 func TestBracketedPaste_ByteAtATime(t *testing.T) {
 	var p Tool
 	for _, b := range []byte("앞\x1b[?2004h뒤") {
-		p.observeBracketedPaste([]byte{b})
+		p.observeModes([]byte{b})
 	}
 	if !p.BracketedPaste() {
 		t.Fatal("1바이트씩 먹였더니 켜기를 놓쳤다")
@@ -77,19 +77,19 @@ func TestBracketedPaste_ByteAtATime(t *testing.T) {
 func TestBracketedPaste_CarryIsBounded(t *testing.T) {
 	var p Tool
 	for i := 0; i < 1000; i++ {
-		p.observeBracketedPaste([]byte("\x1b"))
+		p.observeModes([]byte("\x1b"))
 	}
-	if len(p.bpCarryBuf) > bpMaxCarry {
-		t.Fatalf("이월이 %d 바이트까지 자랐다 (상한 %d)", len(p.bpCarryBuf), bpMaxCarry)
+	if len(p.modeCarryBuf) > modeMaxCarry {
+		t.Fatalf("이월이 %d 바이트까지 자랐다 (상한 %d)", len(p.modeCarryBuf), modeMaxCarry)
 	}
 }
 
 // 접두사가 될 수 없는 꼬리는 들고 가지 않는다.
 func TestBracketedPaste_DropsImpossibleCarry(t *testing.T) {
 	var p Tool
-	p.observeBracketedPaste([]byte("\x1b[31m"))
-	if len(p.bpCarryBuf) != 0 {
-		t.Fatalf("색상 시퀀스를 이월했다: %q", p.bpCarryBuf)
+	p.observeModes([]byte("\x1b[31m"))
+	if len(p.modeCarryBuf) != 0 {
+		t.Fatalf("색상 시퀀스를 이월했다: %q", p.modeCarryBuf)
 	}
 }
 
