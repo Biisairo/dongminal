@@ -195,15 +195,18 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
     expect(body.to).toBe(body.toolId);
     expect(body.from).toBe(body.toolId);
 
-    await expect.poll(async () => {
+    const screen = async () => {
       const out = await (await request.get(
         `/api/tools/output?id=${uuid}&bytes=16384&strip=1`)).json();
-      return out.text || '';
-    }, { timeout: 10000 }).toContain('DONGMINAL-AGENT-MSG');
+      return (out.text || '') as string;
+    };
 
-    const out = await (await request.get(
-      `/api/tools/output?id=${uuid}&bytes=16384&strip=1`)).json();
-    expect(out.text, '엔벨로프 본문이 도달하지 않았다').toContain(marker);
+    await expect.poll(screen, { timeout: 10000 }).toContain('DONGMINAL-AGENT-MSG');
+    // **본문도 기다린다.** 종전에는 여기서 한 번만 읽었는데, 머리글과 본문은 같은
+    // 순간에 도착하지 않는다 — PTY 를 지나 화면에 그려지기까지의 틈이 있고,
+    // 느린 러너에서는 그 틈에 걸린다 (2026-09-18 Windows 실측: 머리글은 왔고
+    // 본문만 없었다).
+    await expect.poll(screen, { timeout: 10000 }).toContain(marker);
   });
 
   test('없는 식별자는 404 로 거부된다', async ({ request }) => {
