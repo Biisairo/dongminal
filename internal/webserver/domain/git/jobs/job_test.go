@@ -606,11 +606,23 @@ func TestJob_RecordIsWrittenBeforeDoneIsPublished(t *testing.T) {
 // 취소·구독·같은 리포 배타는 원격 작업과 같은 기계장치다.
 func TestJobStartUnguarded_RecordsReasonAndSharesMachinery(t *testing.T) {
 	svc := jobSvc()
+	// **배타를 재는 동안 첫 작업이 살아 있어야 한다.**
+	//
+	// 종전에는 이 runner 가 곧바로 반환했다. 그러면 두 번째 Start 가 불리기 전에
+	// 첫 작업이 끝나는 순간이 있고, 그때는 배타가 성립할 이유가 없어 `nil` 이
+	// 온다 — CI 의 부하와 `-shuffle` 아래에서 실제로 졌다
+	// (`같은 리포는 배타여야 한다: <nil>`, 2026-09-18 ubuntu 러너).
+	//
+	// 재려는 것은 *같은 리포에 둘이 동시에 들어가지 못한다* 이지 스케줄러의
+	// 빠르기가 아니다. 그래서 닫을 때까지 붙잡는다 — `jobBlockRunner` 가 ctx 로
+	// 같은 일을 하지만, 이쪽은 **스스로 끝나야** 종료 코드와 기록을 잴 수 있다.
+	release := make(chan struct{})
 	j := NewJobs(svc, WithJobRunner(func(_ context.Context, _ string, args []string, emit func(string, string)) (int, error) {
 		emit(LineStderr, "Cloning into 'vendor/x'...")
 		if args[0] != "submodule" {
 			return 2, nil
 		}
+		<-release
 		return 0, nil
 	}))
 	jb, err := j.StartUnguarded(jobRepo, "submodule", []string{"submodule", "update", "--init", "--", "vendor/x"}, "테스트 사유")
@@ -623,6 +635,7 @@ func TestJobStartUnguarded_RecordsReasonAndSharesMachinery(t *testing.T) {
 	if _, err := j.StartUnguarded(jobRepo, "submodule", []string{"submodule", "update"}, "x"); !errors.Is(err, ErrJobBusy) {
 		t.Fatalf("같은 리포는 배타여야 한다: %v", err)
 	}
+	close(release)
 	final := jobWait(t, j, jb.ID, time.Second)
 	if final.ExitCode != 0 || final.Err != "" {
 		t.Fatalf("final=%+v", final)
