@@ -34,13 +34,14 @@ function pane(opts = {}) {
 }
 
 /** 서버가 보내는 `OpSeq` 한 벌. */
-function seqFrame(OP, offset, full) {
+// 플래그는 **비트**다 (TERMINAL_RESUME_SRS FR-TRS-18b): bit0 전량, bit1 alt screen.
+function seqFrame(OP, offset, full, alt = false) {
   const d = new Uint8Array(10);
   d[0] = OP.SEQ;
   const dv = new DataView(d.buffer);
   dv.setUint32(1, Math.floor(offset / 4294967296), false);
   dv.setUint32(5, offset >>> 0, false);
-  d[9] = full ? 1 : 0;
+  d[9] = (full ? 1 : 0) | (alt ? 2 : 0);
   return d;
 }
 
@@ -129,25 +130,42 @@ test('새 소켓이 열리면 통보 전까지 다시 세지 않는다', () => {
 
 // ── FR-TRS-18~20: 재그리기 넛지 ──────────────────────────────────────────
 
-test('전량 재생 뒤에는 rows 를 흔들어 TUI 가 전체를 다시 그리게 한다', async () => {
+// FR-TRS-18a: **alt screen 일 때만** 흔든다. 그쪽 앱은 화면 전체를 자기가
+// 관리하므로 다시 그리면 제자리를 찾는다.
+test('alt screen 앱은 전량 재생 뒤 rows 를 흔들어 전체를 다시 그리게 한다', async () => {
   const { p, clock, OP } = pane();
-  p._onOp(seqFrame(OP, 0, true));
+  p._onOp(seqFrame(OP, 0, true, true));
   await clock.advance(50);
   const sizes = p.sent.filter((m) => m[0] === OP.RESIZE)
     .map((m) => new DataView(m.buffer).getUint16(3, false));
   assert.deepEqual(sizes, [29, 30]);
 });
 
+/**
+ * FR-TRS-18a: main screen 앱은 흔들지 않는다 — 접수된 렌더 잔재의 원인이었다.
+ *
+ * 넛지는 `SIGWINCH` 를 두 번 일으켜 앱을 두 번 그리게 한다. **화면을 지우지 않고
+ * 커서만 올려 덮어쓰는 앱**(claude 가 그 방식)은 그때마다 어긋난 그림을 하나씩 더
+ * 쌓는다 (`M11_SRS` §2.4f: 표식 6 대 2).
+ */
+test('main screen 앱은 전량 재생 뒤에도 흔들지 않는다', async () => {
+  const { p, clock, OP } = pane();
+  p._onOp(seqFrame(OP, 0, true, false));
+  await clock.advance(50);
+  assert.equal(p.sent.filter((m) => m[0] === OP.RESIZE).length, 0);
+});
+
 test('델타 재개 뒤에는 흔들지 않는다 — 화면이 이미 맞아 있다', async () => {
   const { p, clock, OP } = pane();
-  p._onOp(seqFrame(OP, 0, false));
+  // alt screen 이어도 델타면 걸지 않는다 — 가르는 것은 전량 재생 여부다.
+  p._onOp(seqFrame(OP, 0, false, true));
   await clock.advance(50);
   assert.equal(p.sent.filter((m) => m[0] === OP.RESIZE).length, 0);
 });
 
 test('크기의 주인이 아니면 흔들지 않는다', async () => {
   const { p, clock, OP } = pane({ owner: false });
-  p._onOp(seqFrame(OP, 0, true));
+  p._onOp(seqFrame(OP, 0, true, true));
   await clock.advance(50);
   assert.equal(p.sent.filter((m) => m[0] === OP.RESIZE).length, 0);
 });
