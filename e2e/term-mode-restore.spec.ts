@@ -1,4 +1,5 @@
 import { test, expect, waitForInit, waitShellReady } from './fixtures';
+import { ptyRecordsRawOutput } from './osenv';
 
 /**
  * 재접속이 앱의 터미널 모드를 잃지 않는다 (TERMINAL_MODE_RESTORE_SRS · V-TMR-9~11).
@@ -150,6 +151,20 @@ test('V-TMR-9: 링버퍼를 넘긴 뒤 새로고침해도 bracketed paste 가 �
  * 것(복원을 보내는가)보다 넓다.
  */
 test('V-TMR-10: 재접속이 마우스 모드를 되세운다', async ({ page }) => {
+  /**
+   * **platform-gap** (`WINDOWS_TEST_PARITY_SRS` FR-WTP-32 의 방식).
+   *
+   * ConPTY 는 앱의 출력을 그대로 흘리지 않고 콘솔 버퍼에 적용한 뒤 자기가 다시
+   * VT 를 만든다. 마우스 모드 설정은 그 과정에서 **콘솔 입력 모드로 흡수되어
+   * 출력으로 되나오지 않는다** — 그러면 PTY 출력을 보는 서버는 그 모드를 관측할
+   * 길이 없고, 관측하지 못한 것은 복원할 수도 없다.
+   *
+   * bracketed paste(`V-TMR-9`)는 Windows 에서도 선다 — ConPTY 가 그것은 통과시킨다.
+   * 그래서 이 한 검사만 가른다. **Windows 가 깨진 것이 아니라 그 PTY 가 원본을
+   * 남기지 않는 것이고**, 네이티브 터미널도 같은 자리에서 같게 동작한다.
+   */
+  test.skip(!ptyRecordsRawOutput,
+    'platform-gap: ConPTY 는 마우스 모드 설정을 출력으로 되내지 않아 서버가 관측할 수 없다');
   await page.goto('/');
   await ready(page);
 
@@ -188,6 +203,10 @@ test('V-TMR-10: 재접속이 마우스 모드를 되세운다', async ({ page })
  * 켜고 계속 도는 앱**에서만 조용히 죽는다.
  */
 test('V-TMR-11: 앱이 끈 모드는 재접속 뒤에도 꺼진 채다', async ({ page }) => {
+  // **platform-gap** — `V-TMR-10` 과 같은 자리다. Windows 에서는 모드가 애초에
+  // 서지 않으므로 이 검사가 **재지 못한 채 초록이 된다.** 그것이 통과보다 나쁘다.
+  test.skip(!ptyRecordsRawOutput,
+    'platform-gap: ConPTY 에서는 마우스 모드가 서지 않아 "켜지지 않음" 을 잴 수 없다');
   await page.goto('/');
   await ready(page);
 
