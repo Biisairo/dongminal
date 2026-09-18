@@ -233,14 +233,30 @@ func (s *Server) gitRepoAllowed(repoRoot string) error {
 //
 // 마지막 조각을 따라가지 않는 덕에 링크 자체를 다루는 것이 가능하고, 중간
 // 디렉터리가 링크여서 루트를 벗어나는 경우는 걸린다 (FR-EDT-112).
-func (s *Server) fileGuard(w http.ResponseWriter, r *http.Request, p string, forWrite bool) (string, bool) {
+// fileDenial 은 경계가 거절한 까닭이다 (EDITOR_LIVE_RELOAD_SRS FR-ELR-8).
+//
+// **응답을 쓰지 않는다.** 경로가 여럿인 종단은 한 경로의 거절로 요청 전체를 무르게
+// 할 수 없고(FR-ELR-5), 그러려면 판정과 응답이 갈려 있어야 한다.
+type fileDenial struct {
+	status int
+	code   string
+	msg    string
+	// log 가 비어 있지 않으면 요청 정보와 함께 기록한다. 기록은 요청을 아는
+	// 자리(fileGuard)의 일이다 — 판정은 요청을 보지 않는다.
+	log string
+}
+
+// fileAllow 는 경계 판정 그 자체다. 통과하면 해석된 경로를, 아니면 까닭을 준다.
+//
+// fileGuard 가 오랫동안 이 판정과 오류 응답을 함께 들고 있었다. 갈라 둔 이유는
+// FR-ELR-8 이다 — **경계는 한 벌이어야 하고**, 새 종단이 자기 판정을 따로 가지면
+// 그것이 새 구멍이다.
+func (s *Server) fileAllow(p string, forWrite bool) (string, *fileDenial) {
 	if p == "" {
-		httpErr(w, "missing path", http.StatusBadRequest, apierr.CodeMissingArg)
-		return "", false
+		return "", &fileDenial{http.StatusBadRequest, apierr.CodeMissingArg, "missing path", ""}
 	}
 	if !filepath.IsAbs(p) {
-		httpErr(w, "path must be absolute", http.StatusBadRequest, apierr.CodeAbsPathNeeded)
-		return "", false
+		return "", &fileDenial{http.StatusBadRequest, apierr.CodeAbsPathNeeded, "path must be absolute", ""}
 	}
 	// FR-FAB-12: 홈 아래 쓰기는 **노트만**이다 (`SEC-16`).
 	//
@@ -248,19 +264,16 @@ func (s *Server) fileGuard(w http.ResponseWriter, r *http.Request, p string, for
 	// 어디서든 열겠다" 는 뜻이지 "내 서버의 집행 선언을 웹으로 덮겠다" 는 뜻이
 	// 아니다 — 노출 모드가 같은 설정을 무시하는 것과 같은 논리다 (FR-FAB-7).
 	if forWrite && s.homeWriteDenied(p) {
-		dmlog.Infof(nil, "file denied(home) addr=%s %s path=%q", r.RemoteAddr, r.Method, p)
-		httpErr(w, "forbidden", http.StatusForbidden, apierr.CodeForbidden)
-		return "", false
+		return "", &fileDenial{http.StatusForbidden, apierr.CodeForbidden, "forbidden", "denied(home)"}
 	}
 	if s.fileUnrestricted() {
-		return p, true
+		return p, nil
 	}
 
 	roots, err := s.fileRoots()
 	if err != nil {
 		dmlog.Warnf(nil, "file: 루트 목록을 읽지 못했다 (%v) — 거절한다", err)
-		httpErr(w, "forbidden", http.StatusForbidden, apierr.CodeForbidden)
-		return "", false
+		return "", &fileDenial{http.StatusForbidden, apierr.CodeForbidden, "forbidden", ""}
 	}
 
 	resolve := fsResolveExisting
@@ -280,12 +293,22 @@ func (s *Server) fileGuard(w http.ResponseWriter, r *http.Request, p string, for
 	}
 	for _, root := range roots {
 		if got, err := resolve(root, p); err == nil {
-			return got, true
+			return got, nil
 		}
 	}
 	// 어느 루트에도 들지 않았다. **목록을 본문에 싣지 않는다** — 흘리면 그것이 곧
 	// 다음 시도의 입력이 된다 (FR-ACL-8 승계). 사후 추적은 로그가 한다.
-	dmlog.Infof(nil, "file denied addr=%s %s path=%q", r.RemoteAddr, r.Method, p)
-	httpErr(w, "forbidden", http.StatusForbidden, apierr.CodeForbidden)
+	return "", &fileDenial{http.StatusForbidden, apierr.CodeForbidden, "forbidden", "denied"}
+}
+
+func (s *Server) fileGuard(w http.ResponseWriter, r *http.Request, p string, forWrite bool) (string, bool) {
+	got, den := s.fileAllow(p, forWrite)
+	if den == nil {
+		return got, true
+	}
+	if den.log != "" {
+		dmlog.Infof(nil, "file %s addr=%s %s path=%q", den.log, r.RemoteAddr, r.Method, p)
+	}
+	httpErr(w, den.msg, den.status, den.code)
 	return "", false
 }

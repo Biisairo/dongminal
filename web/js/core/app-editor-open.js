@@ -128,6 +128,103 @@ Object.assign(App.prototype, {
     for(const d of this._edDocs.values()) if(d.dd) d.dd.recompute();
   },
 
+  // ── 열어 둔 파일의 실시간 반영 (EDITOR_LIVE_RELOAD_SRS 묶음 P·R) ──
+
+  /**
+   * FR-ELR-11: **보이는 Editor 창에 탭이 있는 파일들.**
+   *
+   * 활성 탭만이 아니다 — 탭을 오갈 때의 `refresh()` 는 이미 있으므로(SRS §2.1)
+   * 여기서 활성만 보면 그 계기를 되풀이할 뿐이고, 보태는 것이 없다.
+   *
+   * 사이드가 `Changes` 인 창도 든다 (FR-ELR-11b). `_edVisibleTrees` 의 Explorer
+   * 게이트는 **탐색기의 사정**이지 열린 파일의 사정이 아니다 — 사이드를 바꿨다고
+   * 보고 있는 파일이 낡아도 되는 것은 아니다.
+   */
+  _edVisibleDocPaths(){
+    const seen=new Set();
+    for(const s of (this.ws&&this.ws.windows)||[]){
+      if(!s||!s.layout||!this.isEditorWin(s)) continue;
+      // FR-ELR-11a: 보이지 않는 창은 묻지 않는다 (FR-STAT-17). 돌아오면 그 틱의
+      // 첫 회차가 낡음을 갚는다 (`visiblePoll` 의 복귀 갱신).
+      if(!this.windowVisible(s.id)) continue;
+      const walk=n=>{
+        if(!n) return;
+        if(n.type==='pane'&&n.tabs) for(const t of n.tabs){
+          if(t&&t.type==='editor'&&t.filePath) seen.add(t.filePath);
+        }
+        if(n.type==='split'&&n.children) for(const c of n.children) walk(c);
+      };
+      walk(s.layout);
+    }
+    return seen;
+  },
+
+  /**
+   * FR-ELR-11~13·20: 지금 물어야 할 파일들.
+   *
+   * 거르는 셋에는 각각 이유가 있다.
+   *
+   *   `dirty`   물어도 할 일이 없다 (FR-EXC-3 — 편집본은 놔둔다)
+   *   `!model`  넣을 자리가 없다 (로딩 중·이진·이미지·상한 초과)
+   *   `!stamp`  견줄 기준이 없다. 표식을 주지 않는 옛 서버에서 열린 문서다
+   */
+  _edLiveDocs(){
+    if(!this._edDocs||!this._edDocs.size) return [];
+    const seen=this._edVisibleDocPaths();
+    const out=[];
+    for(const [path,d] of this._edDocs){
+      if(!d||d.dirty||!d.model||!d.stamp) continue;
+      if(!seen.has(path)) continue;
+      out.push(path);
+    }
+    // FR-ELR-6: 서버의 상한과 같은 값으로 먼저 자른다. 넘겨 보내면 요청 전체가
+    // 거절되므로 관측이 통째로 멎는다 — 일부만 보는 편이 낫다 (FR-FSL-5 와 같다).
+    return out.length>FILE_STAMPS_MAX?out.slice(0,FILE_STAMPS_MAX):out;
+  },
+
+  /**
+   * FR-ELR-10·21: 열어 둔 파일들이 바뀌었는지 **한 번에** 묻고, 달라진 것만 다시
+   * 읽는다.
+   *
+   * 요청 수가 열린 탭의 수가 아니라 **변경의 수**에 비례한다 — 아무것도 바뀌지
+   * 않은 회차에는 이 요청 하나가 전부다 (`pollStamp` 와 같은 형태이며 같은 근거).
+   *
+   * 새 타이머를 만들지 않는다 (FR-ELR-10). `_edStartGitPoll` 의 같은 틱에 얹히므로
+   * 주기는 `Polling` 설정을 그대로 따른다.
+   */
+  async edPollDocStamps(){
+    if(this._edStampsOff||this._edStampsBusy) return;
+    const paths=this._edLiveDocs();
+    if(!paths.length) return;
+    this._edStampsBusy=true;
+    const r=await apiPost(FILE_STAMPS_API,{paths});
+    this._edStampsBusy=false;
+    // FR-ELR-15: 전송 실패는 판정이 아니다 — 다음 회차에 다시 묻는다.
+    if(r.status===0) return;
+    // 4xx 는 "이 서버로는 물을 수 없다" 는 답이다. 종단이 아예 없는 옛 서버도
+    // 여기로 온다(404) — 굳히지 않으면 주기마다 404 를 부른다. 5xx 는 서버 쪽
+    // 사정이므로 굳히지 않는다 (FR-FSL-12 와 같은 관례).
+    if(!r.ok){
+      if(r.status>=400&&r.status<500) this._edStampsOff=true;
+      return;
+    }
+    const st=r.data&&r.data.stamps;
+    if(!st||typeof st!=='object') return;
+    for(const p of paths){
+      const now=st[p];
+      // FR-ELR-22: 응답에서 **빠진** 경로는 재읽기를 촉발하지 않는다. 빠짐은
+      // "없다·볼 수 없다" 이고, 밖에서 지워진 파일의 탭은 그대로 둔다
+      // (FR-EXC-10·10b).
+      if(typeof now!=='string') continue;
+      const d=this._edDocs&&this._edDocs.get(p);
+      // 물은 시점과 답이 온 시점 사이에 사용자가 한 글자 칠 수 있다 (FR-ELR-23).
+      if(!d||d.dirty||!d.stamp||d.stamp===now) continue;
+      // 모델이 문서의 것이므로 **뷰 하나만 부르면** 모든 칸에 반영된다
+      // (FR-SVS-51). 시선은 그 안에서 칸마다 지켜진다 (FR-ELR-30).
+      for(const v of d.views){ if(v&&typeof v.refresh==='function'){ v.refresh(); break } }
+    }
+  },
+
   /**
    * FR-SVS-20: 탐색기의 **관측**은 루트마다 하나다. 창이 아니라 루트가 단위인
    * 이유는 두 Editor 창이 같은 루트를 볼 때 요청이 두 벌이 될 이유가 없기

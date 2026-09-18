@@ -22,6 +22,12 @@ Object.assign(App.prototype, {
     // 한 주기 동안 낡은 채였다. 공용 규약이 그것을 함께 준다.
     this._edGitPoll=visiblePoll(()=>gitReposInterval,()=>{
       for(const t of this._edVisibleTrees()){ t.pollGit(); t.pollStamp() }
+      // EDITOR_LIVE_RELOAD_SRS FR-ELR-10: **열어 둔 파일의 내용도 같은 틱이다.**
+      // 트리와 갈라 두면 사용자는 "목록은 바뀌었는데 열어 둔 내용은 그대로인"
+      // 중간 상태를 본다 — 위 주석이 색과 목록에 대해 적은 것과 같은 근거다.
+      // 창 단위가 아니라 앱 단위로 한 번인 이유는 문서가 **파일마다 하나**이기
+      // 때문이다 (FR-SVS-50) — 창마다 부르면 같은 파일을 두 번 묻는다.
+      this.edPollDocStamps();
     });
   },
 

@@ -242,6 +242,15 @@ const FS_STAMP_API='/api/fs/stamp';
 // 통째로 멎는다.
 const FS_STAMP_MAX=512;
 
+// EDITOR_LIVE_RELOAD_SRS FR-ELR-1 — "열어 둔 이 파일들이 바뀌었나". 겹의 것
+// (`FS_STAMP_API`)과 나뉘어 있는 이유는 겹의 mtime 이 **파일 내용을 보지 않기**
+// 때문이다 — 편집기가 보는 것이 바로 그 내용이다.
+const FILE_STAMPS_API='/api/file/stamps';
+// FR-ELR-6 의 상한과 같은 값이어야 한다. 서버가 넘긴 요청을 통째로 거절하므로,
+// 먼저 자르지 않으면 탭을 아주 많이 연 사용자에게서 관측이 멎는다
+// (`FS_STAMP_MAX` 와 같은 근거).
+const FILE_STAMPS_MAX=512;
+
 // FR-EDT-77: 활성 Editor 창의 색 갱신 주기. `GIT_REPOS_POLL_MS` 를 **값으로 딛는다**
 // — 같은 사실을 보는 두 화면이 다른 속도로 갱신될 이유가 없고, 두 벌로 적으면
 // 한쪽만 고쳐진다.

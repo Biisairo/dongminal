@@ -145,6 +145,11 @@ var apiRoutes = []apiRoute{
 	httproute.Get("/api/cwd", (*Server).apiCwd),
 	httproute.Get("/api/file/read", (*Server).apiFileRead),
 	httproute.Post("/api/file/write", (*Server).apiFileWrite),
+	// EDITOR_LIVE_RELOAD_SRS 묶음 E — 열어 둔 파일들이 바뀌었는지만 묻는다.
+	// read 옆에 두는 이유는 같은 것(파일 내용)을 보는 두 물음이기 때문이다:
+	// 이쪽이 "바뀌었나", 저쪽이 "무엇인가" 다. POST 인 것은 경로가 여럿이고
+	// 길기 때문이다 (FR-ELR-7) — `/api/fs/stamp` 와 같은 근거다.
+	httproute.Post("/api/file/stamps", (*Server).apiFileStamps),
 	// EDITOR_GIT_UX_SRS 묶음 V — 열 수 있는 형식인가, 그리고 이미지 바이트.
 	httproute.Get("/api/file/probe", (*Server).apiFileProbe),
 	httproute.Get("/api/file/raw", (*Server).apiFileRaw),

@@ -370,6 +370,68 @@ func stampOfPath(p string) string {
 	return fileStamp(fi)
 }
 
+// EDITOR_LIVE_RELOAD_SRS 묶음 E — 열어 둔 파일들이 바뀌었는지 **한 번에** 묻는다
+// (FR-ELR-1~7).
+//
+// **왜 read 가 아닌가.** 편집기가 "밖에서 바뀌었나" 를 알려면 지금은 파일을 통째로
+// 다시 받는 수밖에 없다 — 열린 탭이 열이면 주기마다 열 번의 전문 전송이다. 이
+// 종단은 그 물음을 요청 하나로 접고, 클라이언트는 답을 자기가 든 표식과 견주어
+// **달라진 파일만** 다시 읽는다. 변화가 없는 회차의 비용은 `os.Stat` 몇 번이다.
+//
+// **왜 `/api/fs/stamp` 로는 안 되는가.** 그쪽은 **겹**의 것이고, 그 파일의 머리말이
+// 적어 두었다 — *"파일 내용만 바뀐 것은 겹의 mtime 을 움직이지 않는다."* 편집기가
+// 보는 것이 바로 그 내용이다.
+//
+// 표식은 `/api/file/read` 와 **같은 함수**에서 나온다 (FR-ELR-2). 갈리면 읽을 때
+// 기억한 값과 여기서 견주는 값이 어긋나 매 회차가 변경으로 읽힌다.
+
+// fileStampsMax 는 한 요청이 볼 수 있는 파일 수다 (FR-ELR-6). 열어 둔 탭의 수이므로
+// 현실적으로는 수십이며, 상한은 그 꼬리를 자르는 자리다 — 없으면 한 요청이
+// 서버에서 무한정 stat 한다. 값이 `fsStampMax` 와 같은 것은 우연이 아니다: 같은
+// 성질의 상한이다.
+const fileStampsMax = 512
+
+type fileStampsReq struct {
+	Paths []string `json:"paths"`
+}
+
+func (s *Server) apiFileStamps(w http.ResponseWriter, r *http.Request) {
+	body, err := httpreq.Read(w, r, 0)
+	if err != nil {
+		httpErr(w, "read body: "+err.Error(), httpreq.Status(err), apierr.CodeBodyTooBig)
+		return
+	}
+	var req fileStampsReq
+	if err := json.Unmarshal(body, &req); err != nil {
+		httpErr(w, "invalid json: "+err.Error(), http.StatusBadRequest, apierr.CodeInvalidJSON)
+		return
+	}
+	if len(req.Paths) > fileStampsMax {
+		httpErr(w, fmt.Sprintf("too many paths (max %d)", fileStampsMax), http.StatusBadRequest, apierr.CodeBadRequest)
+		return
+	}
+	stamps := make(map[string]string, len(req.Paths))
+	for _, p := range req.Paths {
+		// FR-ELR-4: 판정은 **읽기와 같다.** 읽을 수 없는 파일의 표식도 줄 수 없다 —
+		// 그것도 그 파일이 언제 바뀌었는지를 말한다.
+		//
+		// FR-ELR-5: 통과하지 못한 경로·없는 파일·디렉터리는 **빠진다.** 오류가
+		// 아니다 — 한 경로의 사정이 나머지의 답을 막으면, 루트 밖의 파일 하나를
+		// 열어 둔 것만으로 열린 파일 전부의 관측이 멎는다.
+		target, den := s.fileAllow(p, false)
+		if den != nil {
+			continue
+		}
+		if st := stampOfPath(target); st != "" {
+			// FR-ELR-3: 키는 **클라이언트가 보낸 경로 그대로**다. 해석된 경로로
+			// 답하면 심링크를 지난 파일에서 짝지을 수 없다.
+			stamps[p] = st
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"stamps": stamps})
+}
+
 func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {
 	// FR-FAB-11: 읽기도 같은 판정이다. 쓰기만 막고 읽기를 열어 두면 SSH 개인키나
 	// 클라우드 자격 파일이 그대로 나간다 — 이쪽은 응답을 돌려주므로 오히려 더

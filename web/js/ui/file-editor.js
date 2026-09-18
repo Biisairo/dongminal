@@ -890,6 +890,46 @@ class FileEditor {
   }
 
   /**
+   * FR-ELR-30: 이 문서를 보는 **모든 칸**의 시선 — 선택(커서를 품는다)과 스크롤.
+   *
+   * 문서를 못 얻은 뷰(이진·이미지·로딩 실패)는 자기 것만 담는다. `__dirty` 가
+   * 같은 자리에서 같은 폴백을 쓴다.
+   */
+  _gazes() {
+    const views = this._doc ? [...this._doc.views] : [this];
+    const out = [];
+    for (const v of views) {
+      const ed = v && v._editor;
+      if (!ed) continue;
+      out.push({ ed, sel: ed.getSelection(), top: ed.getScrollTop(), left: ed.getScrollLeft() });
+    }
+    return out;
+  }
+
+  /**
+   * FR-ELR-31: 파일이 짧아져 그 줄이 사라졌으면 **가장 가까운 자리**로 둔다.
+   *
+   * 자르는 일은 모델이 한다 (`validatePosition`) — 줄 수와 그 줄의 길이를 아는
+   * 것이 모델이고, 여기서 다시 세면 그 셈이 두 벌이 된다. 되돌릴 수 없다는 이유로
+   * 1,1 로 보내지 않는다: 그것은 복원하지 않는 것과 같다.
+   */
+  _restoreGaze(g) {
+    const model = g.ed.getModel();
+    if (model && g.sel) {
+      const a = model.validatePosition(
+        { lineNumber: g.sel.selectionStartLineNumber, column: g.sel.selectionStartColumn });
+      const b = model.validatePosition(
+        { lineNumber: g.sel.positionLineNumber, column: g.sel.positionColumn });
+      g.ed.setSelection({
+        selectionStartLineNumber: a.lineNumber, selectionStartColumn: a.column,
+        positionLineNumber: b.lineNumber, positionColumn: b.column,
+      });
+    }
+    g.ed.setScrollTop(g.top);
+    g.ed.setScrollLeft(g.left);
+  }
+
+  /**
    * 디스크의 내용을 다시 읽어 화면에 반영한다 (FR-EXC-1).
    *
    * **dirty 면 아무것도 하지 않는다** (FR-EXC-3·4).
@@ -919,8 +959,15 @@ class FileEditor {
       // 같은 내용을 다시 넣는 일은 화면에 아무것도 바꾸지 않으면서 커서와 undo
       // 스택만 버린다. 디스크와 같아졌다는 사실(dirty 해제)만 반영한다.
       if (this._editor.getValue() === content) return;
-      // 모델이 공유되므로 이 한 번이 모든 칸의 내용을 되돌린다.
+      // EDITOR_LIVE_RELOAD_SRS FR-ELR-30: **시선을 먼저 담는다.**
+      //
+      // 모델이 공유되므로 아래 한 번이 모든 칸의 내용을 되돌리는데, 그때
+      // `setValue` 는 **모든 칸의 커서를 1,1 로** 보낸다 (FR-SVS-51 — 시선은
+      // 칸마다의 것이다). 계기가 "탭을 다시 열 때" 뿐이던 동안에는 드러나지
+      // 않았다. 3초마다 도는 계기가 서면 그것이 곧 결함이 된다.
+      const gazes = this._gazes();
       this._editor.setValue(content);
+      for (const g of gazes) this._restoreGaze(g);
       this._dirty = false;
       this._tabLabelAll();
     }).catch(e => console.error('[FileEditor] refresh error:', e));
