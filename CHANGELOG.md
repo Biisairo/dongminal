@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [1.1.3] — 2026-09-19
+
 ### 추가
 
 - **Claude Code 를 fullscreen 으로 띄웁니다** (Settings ▸ Terminal, 기본 켬).
@@ -1465,6 +1467,7 @@
   에이전트 간 메시지와 API 입력 주입이 그 셸에서 통째로 깨져 있었다. 이제 셸이
   그 모드를 켰을 때만 감싼다
 
+[1.1.3]: https://github.com/Biisairo/dongminal/releases/tag/v1.1.3
 [1.1.2]: https://github.com/Biisairo/dongminal/releases/tag/v1.1.2
 [1.1.1]: https://github.com/Biisairo/dongminal/releases/tag/v1.1.1
 [1.1.0]: https://github.com/Biisairo/dongminal/releases/tag/v1.1.0
