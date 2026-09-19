@@ -42,7 +42,7 @@ func wsPair(t *testing.T) (server, client *websocket.Conn) {
 // 기재됐다. 패닉 뒤에는 EOF 경로와 같은 순서 — kill() 그리고 onExit — 가 돈다.
 func TestTool_ReadPTYPanic_KillsAndSignalsExit(t *testing.T) {
 	exited := make(chan string, 1)
-	p, err := StartTool("t-panic", "panic", t.TempDir(), 80, 24, func(id string) { exited <- id }, nil, nil)
+	p, err := StartTool("t-panic", "panic", t.TempDir(), 80, 24, func(id string) { exited <- id }, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("StartTool: %v", err)
 	}

@@ -259,6 +259,9 @@
       <button class="mtab" data-tab="presets" title="Layout preset settings">Presets</button>
       <button class="mtab" data-tab="display" title="Display settings">Display</button>
       <!-- EDITOR_LSP_SRS FR-LSP-46 -->
+      <!-- AGENT_RENDER_ENV_SRS FR-ARE-3: 터미널에서 도는 것들의 설정. 자리가
+           Display 옆인 것은 둘 다 "무엇이 어떻게 보이는가" 이기 때문이다. -->
+      <button class="mtab" data-tab="terminal" title="Terminal settings">Terminal</button>
       <button class="mtab" data-tab="code" title="Editor and code settings">Code</button>
       <button class="mtab" data-tab="notify" title="Notification settings">Notifications</button>
       <!-- ACCESS_ALLOWLIST_SRS FR-ACL-22: --expose 뒤의 유일한 문. -->
@@ -391,6 +394,16 @@
         </div>
       </div>
       <!-- EDITOR_LSP_SRS 묶음 A — 언어 서버의 관측과 받기 (FR-LSP-46) -->
+      <div class="mpanel" id="panel-terminal" style="display:none">
+        <div class="display-settings">
+          <!-- AGENT_RENDER_ENV_SRS FR-ARE-1·4 -->
+          <div class="ds-row">
+            <span data-i18n="html.claude_fullscreen"></span>
+            <input type="checkbox" id="ds-claudefs">
+          </div>
+          <div class="ds-hint" data-i18n="html.claude_fullscreen_hint"></div>
+        </div>
+      </div>
       <div class="mpanel" id="panel-code" style="display:none">
         <div class="display-settings">
           <div class="ds-hint" id="lsp-hint"></div>

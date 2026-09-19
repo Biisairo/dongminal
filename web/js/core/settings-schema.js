@@ -37,6 +37,7 @@ const SETTINGS_SCHEMA = [
   {"key":"defaultPreset","type":"int","def":-1,"min":-1,"max":999,"where":"Presets ▸ 기본"},
   {"key":"fgTabNames","type":"bool","def":true,"where":"Display ▸ 전경 프로세스 이름"},
   {"key":"blockBrowserKeys","type":"bool","def":true,"where":"Shortcuts ▸ 브라우저 기본키 차단"},
+  {"key":"claudeFullscreen","type":"bool","def":true,"where":"Terminal ▸ Claude Code fullscreen"},
   {"key":"pageTitle","type":"string","def":"","where":"Display ▸ 페이지 제목"},
   {"key":"confirmLeave","type":"bool","def":false,"where":"Display ▸ 떠날 때 확인"},
   {"key":"editorWordWrap","type":"bool","def":false,"where":"Display ▸ 편집기 줄바꿈"},

@@ -822,6 +822,8 @@ I18N.register('ko', {
   'html.confirm_leave_hint': '탭을 닫거나 새로고침할 때 되묻습니다. 끄면 실수로 닫아도 묻지 않고 터미널 세션과의 연결을 잃습니다(세션 자체는 서버에 남아 다시 접속하면 이어집니다). 확인 문구는 브라우저가 정하므로 바꿀 수 없습니다. 새 판을 받는 자동 새로고침은 이 설정과 무관하게 묻지 않습니다.',
   'html.desktop_notify': '데스크톱 알림',
   'html.display_mode': '표시 모드',
+  'html.claude_fullscreen': 'Claude Code 를 fullscreen 으로 띄우기',
+  'html.claude_fullscreen_hint': 'Claude Code 가 대화를 별도 화면(alt screen)에 그려, 창 크기나 분할이 바뀌어도 위쪽 내용이 깨지지 않습니다. 새로 여는 터미널부터 적용됩니다. Claude Code 안에서 /tui default 를 치면 그쪽이 우선합니다.',
   'html.fg_names': '프로세스 이름을 탭 이름으로',
   'html.fg_names_hint': '터미널에서 실행 중인 프로그램 이름(vim·claude·ssh…)이 탭 이름이 됩니다. 직접 지정한 이름은 덮이지 않습니다.',
   'html.focus_edge': '포커스 잃은 창 표시',

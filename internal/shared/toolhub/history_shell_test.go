@@ -66,7 +66,7 @@ func testShellSeesOwnHistFile(t *testing.T) {
 	shell := platform.Current().Shell.Shell(filepath.Join(instHome, "bin")).Path
 	want := "HF(" + filepath.Join(instHome, toolHistDir, "t-hist."+histShellName(shell)) + ")"
 
-	p, err := StartTool("t-hist", "hist", iso, 80, 24, nil, nil, nil)
+	p, err := StartTool("t-hist", "hist", iso, 80, 24, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("StartTool: %v", err)
 	}
@@ -112,7 +112,7 @@ func testLeavesSharedHistoryAlone(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	p, err := StartTool("t-share", "share", iso, 80, 24, nil, nil, nil)
+	p, err := StartTool("t-share", "share", iso, 80, 24, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("StartTool: %v", err)
 	}

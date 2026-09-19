@@ -101,6 +101,23 @@ Object.assign(App.prototype, {
   },
 
   /**
+   * AGENT_RENDER_ENV_SRS FR-ARE-3: Settings ▸ Terminal 의 `Claude Code 를
+   * fullscreen 으로 띄우기`.
+   *
+   * 값이 서버에 사는 이유는 `blockBrowserKeys` 와 같다 — **쓰는 주체가 서버**이고
+   * (도구를 띄울 때 환경에 넣는다) 정하는 자리만 화면이다.
+   */
+  _initClaudeFullscreen(){
+    const cb=document.getElementById('ds-claudefs');
+    if(!cb) return;
+    cb.checked=claudeFullscreen;
+    cb.addEventListener('change',()=>{
+      claudeFullscreen=cb.checked;
+      this.saveSettings();
+    });
+  },
+
+  /**
    * FR-KEY-6: Settings ▸ Shortcuts 의 `브라우저 기본 단축키 차단`.
    *
    * 값이 서버에 있는 이유는 `fgTabNames` 와 같다 — 단축키 자체가 서버 설정이고,

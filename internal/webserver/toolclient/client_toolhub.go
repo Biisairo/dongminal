@@ -171,6 +171,10 @@ func (pc *ToolClient) Create(cwd string, cols, rows uint16, place toolhub.Placem
 		"command": place.Command,
 		// UX_BATCH6_SRS FR-SBM-3: 작업 방식도 데몬이 배치할 때 쓴다.
 		"work": place.Work,
+		// AGENT_RENDER_ENV_SRS FR-ARE-6: 도구를 세우는 것은 데몬이므로 추가 환경도
+		// 값만 실어 보낸다 — 명령·작업 방식과 같은 방향이다. 필드를 모르는 옛
+		// 데몬에서는 주입이 없을 뿐 깨지지 않는다.
+		"extraEnv": place.ExtraEnv,
 	})
 	if err != nil {
 		// M8 D-A-16: 상한 초과는 코드로 건너온다 — 핸들러의 `errors.Is` 가 두 모드에서 같다.

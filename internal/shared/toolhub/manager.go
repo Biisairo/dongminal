@@ -23,7 +23,7 @@ import (
 // startToolFunc 는 StartTool 의 모양이다. ToolManager 가 필드로 드는 이유는
 // 테스트가 기동을 가짜로 바꿔 잠금 규약(Create 가 잠금 밖에서 띄운다)을 판정하기
 // 위해서다 — 패키지 전역을 바꿔 끼우면 t.Parallel 을 막는다 (M8 `GO-42`).
-type startToolFunc func(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *ToolHooks, place *platform.ProcSpec) (*Tool, error)
+type startToolFunc func(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *ToolHooks, place *platform.ProcSpec, extraEnv []string) (*Tool, error)
 
 type ToolManager struct {
 	mu    sync.RWMutex

@@ -814,6 +814,8 @@ I18N.register('en', {
   'html.confirm_leave_hint': 'Asks before closing or reloading the tab. When off, closing by mistake does not ask and you lose the connection to the terminal session (the session itself stays on the server and resumes when you reconnect). The wording is the browser\'s and cannot be changed. The automatic refresh that fetches a new build never asks, regardless of this setting.',
   'html.desktop_notify': 'Desktop notifications',
   'html.display_mode': 'Display Mode',
+  'html.claude_fullscreen': 'Launch Claude Code in fullscreen',
+  'html.claude_fullscreen_hint': 'Claude Code draws the conversation on the alternate screen, so earlier output stays intact when the window or split is resized. Applies to terminals you open from now on. Running /tui default inside Claude Code overrides this.',
   'html.fg_names': 'Process name as tab name',
   'html.fg_names_hint': 'The name of the program running in the terminal (vim · claude · ssh…) becomes the tab name. Names you set yourself are not overwritten.',
   'html.focus_edge': 'Mark unfocused windows',

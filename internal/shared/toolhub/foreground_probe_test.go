@@ -25,7 +25,7 @@ import (
 func startProbeShell(t *testing.T) *Tool {
 	t.Helper()
 	t.Setenv("SHELL", "/bin/sh")
-	p, err := StartTool("fg-probe", "Shell", t.TempDir(), 80, 24, func(string) {}, nil, nil)
+	p, err := StartTool("fg-probe", "Shell", t.TempDir(), 80, 24, func(string) {}, nil, nil, nil)
 	if err != nil {
 		t.Skipf("PTY 를 띄울 수 없는 환경: %v", err)
 	}

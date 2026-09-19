@@ -298,6 +298,8 @@ func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 		Profile:    profile,
 		// UX_BATCH6_SRS FR-SBM-3: 창이 고른 작업 방식. 비면 프로파일의 것이다.
 		Work: r.URL.Query().Get("sandboxWork"),
+		// AGENT_RENDER_ENV_SRS FR-ARE-1: 에이전트가 화면을 망가뜨리지 않게 띄운다.
+		ExtraEnv: agentRenderEnv(s.Settings.Get()),
 	})
 	if err != nil {
 		// 상한 초과는 **429** 다 (04-secops P1-4). 500 으로 답하면 클라이언트가

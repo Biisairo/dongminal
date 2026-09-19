@@ -40,6 +40,15 @@ type Placement struct {
 	// 그쪽 명세가 정하며, 둘이 동시에 참이면 어느 쪽이 이기는지 말할 수 없다.
 	Command string
 
+	// ExtraEnv 는 **호출자가 정한 추가 환경**이다 (`KEY=VALUE`,
+	// AGENT_RENDER_ENV_SRS FR-ARE-5).
+	//
+	// toolhub 는 이 값을 **해석하지 않는다.** 어느 에이전트가 무엇을 필요로
+	// 하는지는 띄우는 쪽의 지식이고, 여기서는 받은 것을 환경에 얹을 뿐이다 —
+	// `Profile`·`Work` 가 컨테이너의 사정을 이 패키지에 들이지 않는 것과 같은
+	// 경계다. 같은 키가 이미 있으면 **이쪽이 이긴다.**
+	ExtraEnv []string
+
 	// 아래 둘은 **ToolManager 가 채운다.** 호출자는 건드리지 않는다 — 도구
 	// 식별자는 여기서 만들어지고, 작업 디렉터리는 Create 의 인자이므로 바깥에서
 	// 다시 실어 보낼 이유가 없다.
@@ -109,7 +118,7 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 	start := m.startTool
 	m.mu.Unlock()
 
-	p, err := start(id, defaultToolName, cwd, cols, rows, m.toolExited, hooks, spec)
+	p, err := start(id, defaultToolName, cwd, cols, rows, m.toolExited, hooks, spec, place.ExtraEnv)
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -212,7 +221,7 @@ func (m *ToolManager) placement(place Placement) (*platform.ProcSpec, error) {
 func (m *ToolManager) Restore(id, name, cwd string, cols, rows uint16) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	p, err := m.startTool(id, name, cwd, cols, rows, m.toolExited, m.attnHooks(), nil)
+	p, err := m.startTool(id, name, cwd, cols, rows, m.toolExited, m.attnHooks(), nil, nil)
 	if err != nil {
 		return err
 	}

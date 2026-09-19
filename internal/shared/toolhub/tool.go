@@ -240,7 +240,7 @@ func toolPath(binDir string) string {
 //
 // 완성된 명세를 받는 것이 요점이다. 그래야 toolhub 가 컨테이너도 프로파일도
 // 알지 않는다 — invalidator·ownedProvider 와 같은 방향이다.
-func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *ToolHooks, place *platform.ProcSpec) (*Tool, error) {
+func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *ToolHooks, place *platform.ProcSpec, extraEnv []string) (*Tool, error) {
 	home := toolHome()
 	binDir := toolBinDir()
 
@@ -270,6 +270,10 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 	// TOOL_HISTORY_ISOLATION_SRS FR-THI-1·21: 이 도구만의 히스토리 파일. 심을 수
 	// 없으면 비어 있고, 그때 셸은 종전대로 사용자 히스토리를 공유한다.
 	env = append(env, toolHistEnv(id, shell)...)
+	// FR-ARE-5: 호출자가 정한 추가 환경. **해석하지 않는다** — 무엇을 왜 넣는지는
+	// 띄우는 쪽의 지식이다. 자리가 맨 뒤인 것은 같은 키가 있을 때 이쪽이 이기게
+	// 하기 위해서다 (`dedupEnv` 가 뒤를 남긴다).
+	env = append(env, extraEnv...)
 	env = append(os.Environ(), env...)
 	startDir := userHome()
 	if cwd != "" {

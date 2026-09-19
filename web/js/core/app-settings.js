@@ -49,6 +49,13 @@ const SETTINGS_ACCESS={
     const cb=document.getElementById('ds-fgnames');
     if(cb) cb.checked=fgTabNames;
   }},
+  // FR-ARE-3: 저장된 적 없으면 기본값(켬). 서버도 같은 기본값을 쓴다
+  // (`agentRenderEnv`) — 두 자리가 어긋나면 화면과 실제가 갈린다.
+  claudeFullscreen:{get:()=>claudeFullscreen,set(v){
+    claudeFullscreen=v;
+    const cb=document.getElementById('ds-claudefs');
+    if(cb) cb.checked=claudeFullscreen;
+  }},
   // FR-KEY-6: 저장된 적 없으면 기본값(켬).
   blockBrowserKeys:{get:()=>blockBrowserKeys,set(v){
     blockBrowserKeys=v;
@@ -338,6 +345,8 @@ Object.assign(App.prototype, {
       this._slotDirPaint();
       const scBlock=document.getElementById('sc-blockbrowser');
       if(scBlock) scBlock.checked=blockBrowserKeys;
+      const dsCfs=document.getElementById('ds-claudefs');
+      if(dsCfs) dsCfs.checked=claudeFullscreen;
       this._labelSettingsRows();
       // FR-LVC-3: 열 때마다 현재 값을 다시 칠한다 — 다른 화면에서 바뀐 값이
       // 이 모달에 옛 상태로 남아 있으면 사용자가 그것을 켜진 줄로 읽는다.
@@ -392,6 +401,7 @@ Object.assign(App.prototype, {
     this._initTabWidth();
     this._initFgNames();
     this._initBlockKeys();
+    this._initClaudeFullscreen();
     this._initConfirmLeave();
     this._initFocusEdge();
     this._initAttnEdge();

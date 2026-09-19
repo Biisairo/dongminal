@@ -63,19 +63,21 @@ func (pc *panedConn) hello(req *toolipc.PanedRequest) interface{} {
 
 func (pc *panedConn) create(req *toolipc.PanedRequest) interface{} {
 	p, perr := decodeParams[struct {
-		Cwd     string `json:"cwd"`
-		Cols    uint16 `json:"cols"`
-		Rows    uint16 `json:"rows"`
-		Window  string `json:"window"`
-		Profile string `json:"profile"`
-		Command string `json:"command"`
-		Work    string `json:"work"`
+		Cwd     string   `json:"cwd"`
+		Cols    uint16   `json:"cols"`
+		Rows    uint16   `json:"rows"`
+		Window  string   `json:"window"`
+		Profile string   `json:"profile"`
+		Command string   `json:"command"`
+		Work    string   `json:"work"`
+		Extra   []string `json:"extraEnv"`
 	}](req)
 	if perr != nil {
 		return *perr
 	}
 	tool, err := pc.pm.Create(p.Cwd, p.Cols, p.Rows,
-		toolhub.Placement{WindowUUID: p.Window, Profile: p.Profile, Command: p.Command, Work: p.Work})
+		toolhub.Placement{WindowUUID: p.Window, Profile: p.Profile, Command: p.Command, Work: p.Work,
+			ExtraEnv: p.Extra})
 	if err != nil {
 		return createError(req, err)
 	}

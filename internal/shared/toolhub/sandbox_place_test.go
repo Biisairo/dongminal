@@ -27,7 +27,7 @@ func TestStartTool_PlaceReplacesHostShell(t *testing.T) {
 		Args: []string{"/bin/sh", "-c", "echo PLACED-HERE; sleep 5"},
 	}
 
-	p, err := StartTool("t-place", "place", "", 80, 24, nil, nil, place)
+	p, err := StartTool("t-place", "place", "", 80, 24, nil, nil, place, nil)
 	if err != nil {
 		t.Fatalf("StartTool: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestStartTool_PlaceReplacesHostShell(t *testing.T) {
 // NFR-SBX-2: place 가 nil 이면 종전과 완전히 같다. 샌드박스가 아닌 창의 동작이
 // 이 변경으로 달라져서는 안 된다.
 func TestStartTool_NilPlaceKeepsHostShell(t *testing.T) {
-	p, err := StartTool("t-host", "host", "", 80, 24, nil, nil, nil)
+	p, err := StartTool("t-host", "host", "", 80, 24, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("StartTool: %v", err)
 	}

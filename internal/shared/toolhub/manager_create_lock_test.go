@@ -12,7 +12,7 @@ import (
 // blockingStart 는 StartTool 자리에 꽂는 가짜다 — release 가 닫힐 때까지 기동
 // 안에서 멈춘다. Create 가 그동안 레지스트리 잠금을 쥐고 있는지가 판정 대상이다.
 func blockingStart(release <-chan struct{}) startToolFunc {
-	return func(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *ToolHooks, place *platform.ProcSpec) (*Tool, error) {
+	return func(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *ToolHooks, place *platform.ProcSpec, _ []string) (*Tool, error) {
 		<-release
 		return NewDetachedTool(id, hooks), nil
 	}
@@ -119,7 +119,7 @@ func TestToolManager_CreateReleasesReservationOnFailure(t *testing.T) {
 	m := NewToolManager(t.TempDir(), nil)
 	t.Cleanup(m.StopSaving)
 	boom := errors.New("boom")
-	m.startTool = func(string, string, string, uint16, uint16, func(string), *ToolHooks, *platform.ProcSpec) (*Tool, error) {
+	m.startTool = func(string, string, string, uint16, uint16, func(string), *ToolHooks, *platform.ProcSpec, []string) (*Tool, error) {
 		return nil, boom
 	}
 	if _, err := m.Create("", 80, 24, Placement{}); !errors.Is(err, boom) {
@@ -139,7 +139,7 @@ func TestToolManager_ExitReadsInvalidatorUnderLock(t *testing.T) {
 	m := NewToolManager(t.TempDir(), nil)
 	t.Cleanup(m.StopSaving)
 	var onExit func(string)
-	m.startTool = func(id, name, cwd string, cols, rows uint16, exit func(string), hooks *ToolHooks, place *platform.ProcSpec) (*Tool, error) {
+	m.startTool = func(id, name, cwd string, cols, rows uint16, exit func(string), hooks *ToolHooks, place *platform.ProcSpec, _ []string) (*Tool, error) {
 		onExit = exit
 		return NewDetachedTool(id, hooks), nil
 	}

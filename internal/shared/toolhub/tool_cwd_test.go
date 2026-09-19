@@ -130,7 +130,7 @@ func TestCwdOrServer_PrefersReport(t *testing.T) {
 // 아는 사실은 그것 하나이며, 승계(`cwdTool=…`)가 그 값을 딛는다.
 func TestToolCwd_SeededFromStartDir(t *testing.T) {
 	dir := t.TempDir()
-	p, err := StartTool("t-seed", "seed", dir, 80, 24, nil, nil, nil)
+	p, err := StartTool("t-seed", "seed", dir, 80, 24, nil, nil, nil, nil)
 	if err != nil {
 		t.Skipf("이 호스트에서 셸을 띄울 수 없다: %v", err)
 	}
