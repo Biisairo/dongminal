@@ -74,19 +74,6 @@ type Server struct {
 	// (gitapi.gitResolveRepo, FR-GIT-60 · FR-DPN-24).
 	git *gitapi.GitServer
 
-	// gitRepoOK 는 `repo` 경계 판정의 **허용** 결과를 붙들어 둔다 (NFR-FAB-4).
-	//
-	// 이 판정은 git 요청마다 돌고 git 은 **폴링한다.** 판정 한 번이 루트마다
-	// EvalSymlinks 를 하고 workspace 스냅샷을 읽으므로, 캐시가 없으면 그 값이
-	// 그대로 응답 시간이 된다 — 실측으로 `refs` 가 16~23ms 에서 37~123ms 가 됐고,
-	// 그 지연이 e2e 하나의 경합 구간을 벌려 실패로 드러났다.
-	//
-	// **거부는 담지 않는다.** 담으면 방금 등록한 저장소가 TTL 동안 계속 막히고,
-	// 그것은 사용자에게 "더했는데 안 열린다" 로 보인다. 허용만 담으므로 목록에서
-	// 뺀 저장소가 최대 TTL 동안 통과하는 것이 유일한 느슨함이다 — 자기가 방금 뺀
-	// 자리이며, 그 창은 인증이 들어오면(M4) 함께 닫힌다.
-	gitRepoOK sync.Map // string → time.Time (만료 시각)
-
 	// gitWatch 는 저장소 signature 를 감시해 `git_changed` 를 방송한다
 	// (GIT_PUSH_OBSERVE_SRS). `Git` 이 nil 이면 이 자리도 nil 이고, 그때
 	// `GitServer.Watch` 가 nil 이라 표명이 무해하게 지나간다.
@@ -282,10 +269,9 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		Submodules:      submoduleManager(deps.Git),
 		UserWorktrees:   deps.UserWorktrees,
 		RunWorktreeRoot: runWorktreeRoot,
-		// FILE_API_BOUNDARY_SRS FR-FAB-14 (`SEC-15`): git 의 `repo` 도 파일
-		// 표면과 **같은 경계**를 지난다. 규칙을 그쪽에서 빌려 오는 것이지
-		// 이 자리에서 다시 세우지 않는다 (FR-FAB-15).
-		RepoGuard: srv.gitRepoAllowed,
+		// FILE_API_BOUNDARY_SRS 묶음 G 는 **폐기됐다** (2026-09-20, 사용자 결정).
+		// `RepoGuard` 를 주입하지 않는다 — nil 이면 제한하지 않는다는 규약이
+		// 이미 있으므로(gitapi.go 의 필드 주석) 새 갈래를 만들지 않는다.
 	}
 	return srv, nil
 }

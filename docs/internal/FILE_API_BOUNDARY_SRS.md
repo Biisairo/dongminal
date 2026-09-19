@@ -1,5 +1,31 @@
 # SRS: `/api/file/*` 의 경계 — IEEE 29148
 
+> ## ⚠ 경계 조항은 **폐기됐다** (2026-09-20, 사용자 결정)
+>
+> **묶음 B(경계) · W(홈 안의 쓰기) · G(git 의 `repo`) · O(넓힘) 은 더 이상 효력이
+> 없다.** `/api/file/*` 와 `/api/git/*` 은 **절대경로면 어디든** 읽고 쓴다.
+>
+> 접수한 말 그대로다: *"그냥 파일에 대한 가드를 없애자. 없던걸로."* 앞선 요구는
+> *"모든 파일에 대한 권한을 그냥 달라"* 였고, `--expose` 상태에서도 열려야 한다는
+> 조건이 따라왔다 — 그래서 `FR-FAB-7`(노출 모드에서는 무시)도 함께 폐기했다.
+>
+> **무엇이 사라졌는지 적어 둔다.** 이 문서가 막으려던 것이 그대로 가능해진다:
+>
+> | 열린 자리 | 결과 |
+> |---|---|
+> | `$DONGMINAL_HOME/ext/plugins/<id>/dongminal-ext.json` | 여기 적힌 설치 명령이 **실행된다** (FR-EXT-17) |
+> | `$DONGMINAL_HOME/access.json` | 허용 목록 — 요청 하나로 **ACL 무력화** |
+> | `$DONGMINAL_HOME/settings.json` | 설정 전부 |
+> | 그 밖 파일시스템 전체 | 서버를 띄운 계정의 권한으로 읽기·쓰기 |
+>
+> **남은 방어선은 `accessGate`(출발지 IP)와 `requestGate`(Origin·Host) 둘뿐이고,**
+> 그중 `accessGate` 의 근거 파일(`access.json`)이 위 표에 있다. 즉 통과한 기기
+> 하나가 목록 자체를 끌 수 있다 — `SECURITY.md` §4-2 가 잔여 위험으로 적어 둔
+> 것이 이제 **파일 쓰기 한 번**으로 닿는다.
+>
+> **살아 있는 조항은 §3.3 묶음 S(크기 상한)뿐이다.** 그것은 경계가 아니라 브라우저
+> 보호이므로 이 결정의 범위 밖이다 (사용자 확인 2026-09-20).
+
 > **문서 상태**: 승인·구현완료
 
 - 근거 감사: `04-secops.md` §3 P1-5 · §4.4(`SEC-19`) · `05-test.md` §1
@@ -128,6 +154,8 @@ platform.WriteFileAtomic(req.Path, []byte(req.Content), 0o644)   // ← 어디�
 
 ### 3.1 묶음 B — 경계
 
+> ~~아래 조항은 효력이 없다.~~ **폐기 (2026-09-20).** 절대경로면 어디든 통과한다. `fileAllow` 의 루트 대조가 사라졌다.
+
 **FR-FAB-1** `/api/file/{read,write,raw,probe}` 는 대상 경로가 **허용 루트 아래**일 때만
 동작한다. 밖이면 **403** 이고 본문에 루트 목록을 싣지 않는다.
 
@@ -172,6 +200,8 @@ platform.WriteFileAtomic(req.Path, []byte(req.Content), 0o644)   // ← 어디�
 
 ### 3.1a 묶음 W — 홈 안의 쓰기 (`SEC-16`)
 
+> ~~아래 조항은 효력이 없다.~~ **폐기 (2026-09-20).** `homeWriteDenied` 를 지웠다. `$DONGMINAL_HOME` 아래도 쓰기가 된다 — 위 표의 세 파일을 포함한다.
+
 **FR-FAB-12** `$DONGMINAL_HOME` 아래는 **쓰기 대상이 아니다.** 노트 디렉터리
 (`$DONGMINAL_HOME/notes`)만 예외다. 그 밖의 자리로 오는 `POST /api/file/write` 는
 **403** 이다.
@@ -198,6 +228,8 @@ platform.WriteFileAtomic(req.Path, []byte(req.Content), 0o644)   // ← 어디�
 있지 않다 — 비밀이 생기면 그때는 다른 요구가 선다.
 
 ### 3.1b 묶음 G — git 표면의 `repo` (`SEC-15`)
+
+> ~~아래 조항은 효력이 없다.~~ **폐기 (2026-09-20).** `RepoGuard` 주입을 끊었다. `repo` 인자는 검사받지 않는다.
 
 **FR-FAB-14** `/api/git/*` 의 `repo` 인자도 **같은 허용 루트**를 지난다. 밖이면
 **403** 이다. 판정 대상은 요청이 보낸 문자열이 아니라 `rev-parse` 가 돌려준
@@ -244,6 +276,8 @@ platform.WriteFileAtomic(req.Path, []byte(req.Content), 0o644)   // ← 어디�
 
 ### 3.2 묶음 O — 넓힘
 
+> ~~아래 조항은 효력이 없다.~~ **폐기 (2026-09-20).** 켜고 끌 것이 없어졌다 — 언제나 열려 있다. `fileApiUnrestricted` 설정과 `FR-FAB-7`(노출 모드 예외)이 함께 사라졌다.
+
 **FR-FAB-5** 허용 루트 밖을 켜는 길이 하나 있다: 설정의 `fileApiUnrestricted`(기본
 **거짓**). 참이면 종전 동작(절대경로면 어디든)으로 돌아간다.
 
@@ -279,62 +313,48 @@ Monaco 에 올리지 않고 사유를 보인다 — 터미널로 여는 길과 �
 **FR-FAB-10** `handlers_files_test.go` 에 다섯이 선다. `05-test.md` §1 이 지목한 목록
 그대로다.
 
-| # | 확인 |
-|---|---|
-| 1 | 정상 쓰기 → `{"ok":true}` |
-| 2 | 상대경로 → 400 |
-| 3 | 빈 `path` → 400 |
-| 4 | 쓰기 실패 → 500 |
-| 5 | **허용 루트 밖 절대경로 → 403** |
+| # | 확인 | 상태 |
+|---|---|---|
+| 1 | 정상 쓰기 → `{"ok":true}` | 유효 |
+| 2 | 상대경로 → 400 | 유효 |
+| 3 | 빈 `path` → 400 | 유효 |
+| 4 | 쓰기 실패 → 500 | 유효 |
+| 5 | ~~허용 루트 밖 절대경로 → 403~~ | **폐기 (2026-09-20)** — 루트가 없다 |
+
+> 5번과 함께 지운 검사: `TestFileWrite_OutsideRootIs403` ·
+> `TestFileWrite_SymlinkEscapeIs403` · `TestFileWrite_SymlinkedParentIs403` ·
+> `TestFileRead_OutsideRootIs403` · `git_repo_guard_test.go`(파일 전체) ·
+> `handlers_files_home_write_test.go`(파일 전체).
+>
+> `TestFileStamps_SkipsUnreadableAndMissing` 은 **고쳤다**. 그 검사가 재는 것은
+> 부분 실패 내성(FR-ELR-5)이고 그것은 살아 있다 — "루트 밖" 갈래만 빼고 "없는
+> 파일 · 디렉터리" 갈래는 그대로 둔다.
 
 ### 3.5 비기능 요구 (NFR)
 
-**NFR-FAB-1** 대조는 요청당 `EvalSymlinks` 몇 번이다. 루트 목록은 `Entries` 의 캐시를
-읽는다 — 디스크를 다시 읽지 않는다.
-
 **NFR-FAB-2** `-race` 통과. 도구 목록은 `ToolManager` 의 잠금 아래에서만 읽는다.
 
-**NFR-FAB-4 (판정 비용)** git 의 `repo` 판정은 **허용 결과를 붙들어 둔다**(5초).
-이 판정은 요청마다 돌고 git 은 **폴링한다** — 판정 한 번이 루트마다 `EvalSymlinks`
-를 하고 workspace 스냅샷을 읽으므로, 캐시가 없으면 그 값이 그대로 응답 시간이 된다.
-
-> **실측 (2026-09-11).** 캐시 없이 경계를 켜자 `/api/git/refs` 가 **16~23ms →
-> 37~123ms** 가 됐고, 그 지연이 e2e 하나의 경합 구간을 벌려 실패로 드러났다
-> (`branch-menu-unify` TC-BMU-15 — 배지를 누르는 순간 refs 가 아직 없어 recovery
-> hint 의 oid 가 비었다). 캐시를 넣은 뒤 **12~14ms** 다.
-
-**거부는 담지 않는다.** 담으면 방금 등록한 저장소가 그 시간 동안 계속 막히고, 그것은
-"더했는데 안 열린다" 로 보인다. 허용만 담으므로 **목록에서 뺀 저장소가 최대 5초 동안
-통과하는 것**이 유일한 느슨함이다 — 자기가 방금 뺀 자리이며, 그 창은 인증이 들어오면
-함께 닫힌다 (M4).
-
-**NFR-FAB-3** 루트 목록을 읽지 못하면 **fail-closed** 다. 읽기 실패로 전부 열리면 그
-실패가 곧 우회 경로가 된다.
+> **NFR-FAB-1·3·4 는 폐기됐다** (2026-09-20). 셋 다 사라진 경계의 성질이었다 —
+> `NFR-FAB-1`(대조 비용)·`NFR-FAB-3`(fail-closed)은 루트 대조가 있어야 뜻이 있고,
+> `NFR-FAB-4`(git `repo` 판정 캐시, `gitRepoOK`)는 그 판정 자체가 사라져 함께
+> 지웠다. `s.gitRepoOK` 필드와 `gitRepoGuardTTL` 상수도 코드에서 없앴다.
 
 ---
 
 ## 4. 검증 (Verification)
 
-### 4.1 경계 (Go, `handlers_files_test.go`)
+### 4.1 입력 계약 (Go, `handlers_files_boundary_test.go`)
 
-| ID | 확인 |
-|---|---|
-| TC-FAB-1~5 | FR-FAB-10 의 다섯 |
-| TC-FAB-6 | Editor 루트 아래 쓰기 → 200 |
-| TC-FAB-7 | 도구 `cwd` 아래 쓰기 → 200 |
-| TC-FAB-8 | `$HOME/.ssh/authorized_keys` 쓰기 → 403 |
-| TC-FAB-9 | 루트 안의 심링크가 밖을 가리키면 → 403 |
-| TC-FAB-10 | 중간 디렉터리가 링크로 루트를 벗어나면 → 403 |
-| TC-FAB-11 | `read`·`raw`·`probe` 도 같은 판정 |
-| TC-FAB-12 | 루트 목록 읽기 실패 → 403 (fail-closed) |
+**경계 검증(TC-FAB-8~15)은 폐기됐다** (2026-09-20). 남은 것은 형식·정상·크기다.
 
-### 4.2 넓힘
-
-| ID | 확인 |
-|---|---|
-| TC-FAB-13 | `fileApiUnrestricted: true` → 밖도 통과 |
-| TC-FAB-14 | 그때 기동 로그에 사실이 남는다 |
-| TC-FAB-15 | 노출 모드에서는 그 설정이 참이어도 403 |
+| ID | 확인 | 상태 |
+|---|---|---|
+| TC-FAB-1~4 | FR-FAB-10 의 1~4 (정상·상대경로·빈 path·쓰기 실패) | 유효 |
+| TC-FAB-5 | ~~허용 루트 밖 → 403~~ | 폐기 |
+| TC-FAB-6 | Editor 루트 아래 쓰기 → 200 | 유효 (경계와 무관) |
+| TC-FAB-7 | 도구 `cwd` 아래 쓰기 → 200 | 유효 (경계와 무관) |
+| TC-FAB-8~12 | ~~SSH 키·심링크 탈출·읽기 경계·fail-closed~~ | 폐기 — 검사 삭제 |
+| TC-FAB-13~15 | ~~`fileApiUnrestricted` 스위치·노출 모드 예외~~ | 폐기 — 스위치 자체가 없다 |
 
 ### 4.3 크기
 
@@ -346,28 +366,21 @@ Monaco 에 올리지 않고 사유를 보인다 — 터미널로 여는 길과 �
 | TC-FAB-19 | 상한 이하는 그대로 200 이고 내용이 온전하다 (경계값) |
 | TC-FAB-20 | `probe` 응답에 `maxBytes` 가 실린다 |
 
-### 4.3a 홈 안의 쓰기 (`SEC-16`)
+### 4.3a 홈 안의 쓰기 (`SEC-16`) — **폐기 (2026-09-20)**
 
-| ID | 확인 |
-|---|---|
-| TC-FAB-21 | `$DONGMINAL_HOME/settings.json` 쓰기 → 403 |
-| TC-FAB-22 | `$DONGMINAL_HOME/access.json` 쓰기 → 403 |
-| TC-FAB-23 | `$DONGMINAL_HOME/ext/plugins/x/dongminal-ext.json` 쓰기 → 403 |
-| TC-FAB-24 | `$DONGMINAL_HOME/notes/a.md` 쓰기 → 200 (예외는 노트뿐이다) |
-| TC-FAB-25 | 같은 자리들의 **읽기**는 그대로 200 |
-| TC-FAB-26 | `fileApiUnrestricted: true` 여도 홈 쓰기는 403 (FR-FAB-7 과 같은 논리) |
+TC-FAB-21~26 은 전부 폐기됐다. 홈 아래도 쓰기가 되므로 그 403 은 더 이상 성립하지
+않는다. `handlers_files_home_write_test.go`(파일 전체)를 지웠다. `notes` 예외가
+성립하던 근거(`homeWriteDenied`)가 사라졌으므로 **notes 도 특별하지 않다** — 다른
+경로와 똑같이 열린다.
 
-### 4.3b git 표면의 `repo` (`SEC-15`)
+### 4.3b git 표면의 `repo` (`SEC-15`) — **폐기 (2026-09-20)**
 
-| ID | 확인 |
-|---|---|
-| TC-FAB-27 | 허용 루트 밖 저장소 → 403 |
-| TC-FAB-28 | 허용 루트 안 저장소 → 200 |
-| TC-FAB-29 | 판정은 **푼 루트**로 한다 — 하위 경로로 불러도 같은 판정 |
-| TC-FAB-30 | 가드가 주입되지 않은 배선은 종전대로 동작한다 |
-| TC-FAB-31 | **핀으로 등록한 저장소는 어디에 있든 통과한다** — 그 안쪽(서브모듈)도 |
-| TC-FAB-32 | 등록 경로의 **조상** 저장소도 통과한다 (`FR-FAB-14b`) |
-| TC-FAB-33 | (e2e) 등록을 지난 git 흐름 전량이 종전대로 돈다 — `git-dir-entry`·`git-worktrees` |
+TC-FAB-27~32 는 폐기됐다. `RepoGuard` 를 주입하지 않으므로 `repo` 는 검사받지
+않는다. `git_repo_guard_test.go`(파일 전체)를 지웠다.
+
+| ID | 확인 | 상태 |
+|---|---|---|
+| TC-FAB-33 | (e2e) 등록을 지난 git 흐름 전량이 종전대로 돈다 — `git-dir-entry`·`git-worktrees` | 유효 — 등록 흐름 자체는 경계와 별개다 |
 
 ### 4.4 보존 확인 (회귀)
 
@@ -407,5 +420,6 @@ Monaco 에 올리지 않고 사유를 보인다 — 터미널로 여는 길과 �
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-20 | **경계 조항 폐기** (사용자 결정). 묶음 B·W·G·O 가 효력을 잃었다. 코드에서 `fileAllow` 의 루트 대조 · `homeWriteDenied` · `gitRepoAllowed` · `fileRoots` · `fileUnrestricted` 가 사라졌고, 그것을 단정하던 검사들(`git_repo_guard_test.go` · `handlers_files_home_write_test.go` 외)도 함께 지웠다. `SECURITY.md` 의 "막는 것" 표에서 파일 경계 줄을 빼고 잔여 위험에 옮겨 적었다 — **코드가 안 막는 것을 문서가 막는다고 적어 두는 상태가 가장 위험하다.** 남은 것은 §3.3 크기 상한뿐이다 |
 | 2026-09-10 | 초안. M2 착수. |
 | 2026-09-11 | **FR-FAB-8 의 값이 10 MiB 로 확정**(사용자 판정). FR-FAB-9 를 "서버가 `probe.maxBytes` 로 값을 준다" 로 구체화 — 상수 두 벌을 만들지 않는다. **묶음 W 신설**(FR-FAB-12·13, `SEC-16`): 홈 아래 쓰기는 노트만 허용. 조사로 확정한 사실이 근거다 — `fileRoots` 가 홈 전체를 루트로 넣고 그 아래 `ext` 매니페스트·`access.json`·`settings.json` 이 산다. |

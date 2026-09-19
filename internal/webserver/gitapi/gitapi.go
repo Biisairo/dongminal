@@ -63,15 +63,18 @@ type GitServer struct {
 	// 잘리는 것보다, 없다고 말하는 쪽이 낫다.
 	Images *core.Service
 
-	// RepoGuard 는 `repo` 가 허용 루트 안인가다 (FILE_API_BOUNDARY_SRS FR-FAB-14,
-	// `SEC-15`). 판정 대상은 요청 문자열이 아니라 **푼 저장소 루트**다.
+	// RepoGuard 는 `repo` 가 다뤄도 되는 자리인가다. 판정 대상은 요청 문자열이
+	// 아니라 **푼 저장소 루트**다.
 	//
-	// 함수로 받는 이유는 그 판정이 파일 표면의 것이기 때문이다 — 루트 목록도,
-	// `fileApiUnrestricted` 예외도 그쪽이 쥐고 있고, 이 패키지가 그것을 다시
-	// 구현하면 규칙이 둘이 된다 (FR-FAB-15).
+	// **지금 주입하는 자리는 없다** (2026-09-20). `FILE_API_BOUNDARY_SRS` 묶음 G
+	// 가 폐기되면서 합성 루트가 `srv.gitRepoAllowed` 주입을 끊었고, 그래서 `repo`
+	// 는 검사받지 않는다 (`SECURITY.md` §4-5).
 	//
-	// **nil 이면 제한하지 않는다.** 주입은 합성 루트에서만 일어나며, 주입 없는
-	// 구성(테스트·git 전용 배선)까지 막으면 그 자리가 통째로 선다.
+	// 함수로 받는 모양은 그대로 둔다 — 판정이 다시 필요해지면 그것은 파일 표면의
+	// 것이고, 이 패키지가 그것을 다시 구현하면 규칙이 둘이 된다.
+	//
+	// **nil 이면 제한하지 않는다.** 주입 없는 구성(테스트·git 전용 배선)까지
+	// 막으면 그 자리가 통째로 선다.
 	RepoGuard func(repoRoot string) error
 
 	// Watch 는 관심 표명을 받는다 (GIT_PUSH_OBSERVE_SRS FR-GPO-10).

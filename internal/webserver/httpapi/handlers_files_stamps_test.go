@@ -88,24 +88,27 @@ func TestFileStamps_ChangesAfterWrite(t *testing.T) {
 
 // V-ELR-3 (FR-ELR-5): 볼 수 없는 경로는 **빠지고**, 같은 요청의 나머지는 답을 받는다.
 //
-// 한 경로의 사정이 나머지의 답을 막지 않는다. 막으면 루트 밖의 파일 하나를 열어
-// 둔 것만으로 열린 파일 전부의 관측이 멎는다.
+// 한 경로의 사정이 나머지의 답을 막지 않는다. 막으면 없는 파일 하나를 열어 둔
+// 것만으로 열린 파일 전부의 관측이 멎는다.
+//
+// **"루트 밖" 갈래는 빠졌다** (2026-09-20, FILE_API_BOUNDARY_SRS 묶음 B 폐기).
+// 경계가 없으므로 루트 밖이라는 것이 더 이상 "볼 수 없음" 의 사유가 아니다 —
+// 그 갈래를 남겨 두면 통과하지 못한다. 이 검사가 재는 **부분 실패 내성**은
+// 그대로다.
 func TestFileStamps_SkipsUnreadableAndMissing(t *testing.T) {
 	e := newFileBoundaryEnv(t)
 	ok := filepath.Join(e.root, "ok.txt")
 	seed(t, ok, "ok\n")
-	outside := filepath.Join(e.outside, "secret.txt")
-	seed(t, outside, "secret\n")
 	missing := filepath.Join(e.root, "gone.txt")
 
-	code, got := fileStampsOf(t, e, []string{outside, missing, e.root, ok})
+	code, got := fileStampsOf(t, e, []string{missing, e.root, ok})
 	if code != http.StatusOK {
 		t.Fatalf("status=%d want 200 — 한 경로의 사정이 요청을 무르게 하지 않는다", code)
 	}
 	if got[ok] == "" {
 		t.Errorf("볼 수 있는 파일의 표식이 없다")
 	}
-	for name, p := range map[string]string{"루트 밖": outside, "없는 파일": missing, "디렉터리": e.root} {
+	for name, p := range map[string]string{"없는 파일": missing, "디렉터리": e.root} {
 		if _, has := got[p]; has {
 			t.Errorf("%s 가 응답에 들었다: %q", name, p)
 		}
