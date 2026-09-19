@@ -134,6 +134,22 @@ function edMinimapOpts(enabled){
   return {enabled:!!enabled,size:'fill',scale:1,showSlider:'mouseover'};
 }
 
+/**
+ * FONT_SIZE_SETTING_SRS FR-FSS-9·10 — 편집기의 글자 크기.
+ *
+ * **기준 13 은 여기 한 자리에 있다.** 생성과 갱신이 같은 함수를 딛는 근거는
+ * `edMinimapOpts` 와 같다 — 두 자리에 적으면 한쪽만 고쳐진다.
+ *
+ * 13 이 `--fs-*` 다섯에 없는 여섯 번째 크기인 것은 `FR-TOK-18` 의 수렴 대상이
+ * 아니다: 이것은 CSS 가 아니라 Monaco 옵션이고, 게이트(`check-font-size`)가
+ * 재는 자리 밖이다. 반올림하는 것은 Monaco 가 소수 크기에서 줄 높이를 튀게
+ * 잡기 때문이다.
+ */
+const EDITOR_FONT_SIZE_BASE=13;
+function edFontSize(){
+  return Math.round(EDITOR_FONT_SIZE_BASE*uiFontScaleNow()/100);
+}
+
 // ── 코드 탐색: 언어 서버의 관측 (EDITOR_LSP_SRS 묶음 A · M1) ──
 //
 // 조회가 POST 인 것은 본문이 필요하기 때문이다 — 설정에 적은 절대경로 표를

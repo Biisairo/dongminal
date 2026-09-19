@@ -13,16 +13,18 @@ func TestLoadReadsEmbeddedTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	// 26 = 착수 시 20 + SYSTEM_THEME_FOLLOW_SRS FR-STF-1 의 셋 (M7 `UX-19`)
+	// 29 = 착수 시 20 + SYSTEM_THEME_FOLLOW_SRS FR-STF-1 의 셋 (M7 `UX-19`)
 	//    + M8_UNIFIED_SRS FR-B-4 의 `locale` (M8 P2)
 	//    + EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-2 의 `editorMinimap`
-	//    + AGENT_RENDER_ENV_SRS FR-ARE-3 의 `claudeFullscreen`.
+	//    + AGENT_RENDER_ENV_SRS FR-ARE-3 의 `claudeFullscreen`
+	//    + FONT_SIZE_SETTING_SRS FR-FSS-2·12 의 `uiFontScale`·`termFontSize`
+	//    + AGENT_RENDER_ENV_SRS FR-ARE-8 의 `claudeScrollSpeed`.
 	//    `agentApprovalMode` 는 에이전트 GUI 와 함께 빠졌다 (AGENT_GUI_REMOVAL_SRS FR-AGR-4).
-	if len(specs) != 26 {
-		t.Fatalf("서술자 %d개, 기대 26개", len(specs))
+	if len(specs) != 29 {
+		t.Fatalf("서술자 %d개, 기대 29개", len(specs))
 	}
 	by := settingsschema.ByKey(specs)
-	for _, k := range []string{"themeName", "tabWidthPx", "attnEdgeLevel", "gitStatusInterval"} {
+	for _, k := range []string{"themeName", "tabWidthPx", "attnEdgeLevel", "gitStatusInterval", "uiFontScale", "termFontSize"} {
 		if _, ok := by[k]; !ok {
 			t.Errorf("%s 가 표에 없다", k)
 		}
@@ -59,6 +61,44 @@ func TestValidateReportsAllProblems(t *testing.T) {
 	}
 	if len(unknown) != 0 {
 		t.Errorf("알 수 없는 키가 없어야 한다: %v", unknown)
+	}
+}
+
+// V-FSS-3 (FONT_SIZE_SETTING_SRS FR-FSS-2·12): 글자 크기 두 키의 **경계**를 잰다.
+//
+// 경계를 재는 이유는 이 두 값이 화면 전체를 움직이기 때문이다 — 손으로 고친
+// 설정 하나가 글자를 읽을 수 없게 만들거나(3px) 한 화면에 한 글자만 남게
+// (400%) 해서는 안 된다. `tabWidthPx` 와 달리 되돌릴 UI 자체가 안 보이게 된다.
+func TestValidateFontSizeBounds(t *testing.T) {
+	specs, err := settingsschema.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 안쪽과 경계는 통과한다.
+	for _, blob := range []string{
+		`{"uiFontScale":80}`, `{"uiFontScale":100}`, `{"uiFontScale":200}`,
+		`{"termFontSize":8}`, `{"termFontSize":14}`, `{"termFontSize":32}`,
+	} {
+		probs, _, err := settingsschema.Validate(specs, []byte(blob))
+		if err != nil {
+			t.Fatalf("Validate(%s): %v", blob, err)
+		}
+		if len(probs) != 0 {
+			t.Errorf("%s 는 통과해야 한다: %+v", blob, probs)
+		}
+	}
+	// 한 눈금 밖은 걸린다.
+	for _, blob := range []string{
+		`{"uiFontScale":79}`, `{"uiFontScale":201}`,
+		`{"termFontSize":7}`, `{"termFontSize":33}`,
+	} {
+		probs, _, err := settingsschema.Validate(specs, []byte(blob))
+		if err != nil {
+			t.Fatalf("Validate(%s): %v", blob, err)
+		}
+		if len(probs) != 1 {
+			t.Errorf("%s 는 걸려야 한다: %+v", blob, probs)
+		}
 	}
 }
 

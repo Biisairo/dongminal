@@ -439,7 +439,8 @@ class FileEditor {
       wordWrap: editorWordWrap ? 'on' : 'off',
       tabSize: 4,
       insertSpaces: true,
-      fontSize: 13,
+      // FR-FSS-9: 기준 13 에 UI 배율이 걸린다 (`constants-editor.js`).
+      fontSize: edFontSize(),
       fontFamily: "'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace",
       lineHeight: 1.5,
       renderWhitespace: 'selection',
@@ -601,6 +602,17 @@ class FileEditor {
   applyMinimap() {
     if (!this._editor) return;
     this._editor.updateOptions({ minimap: edMinimapOpts(editorMinimap) });
+  }
+
+  /**
+   * FR-FSS-9: 배율을 바꾸면 **이미 열려 있는** 편집기도 따라온다.
+   *
+   * `updateOptions` 이므로 모델·커서·편집 중인 내용을 잃지 않는다 — 재생성이면
+   * 저장하지 않은 편집이 사라진다 (FR-MMT-4·FR-WBR-11 과 같은 근거).
+   */
+  applyFontSize() {
+    if (!this._editor) return;
+    this._editor.updateOptions({ fontSize: edFontSize() });
   }
 
   /**

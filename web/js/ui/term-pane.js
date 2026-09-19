@@ -114,12 +114,17 @@ class TerminalTool {
   open() {
     if(this._opened) return; this._opened=true;
     /**
-     * FR-M11-15 (M11-B16): **글꼴 크기는 한 자리에서 온다** — CSS 토큰 `--fs-lg` 다.
-     * 읽는 손은 `file-editor.js` 가 이미 쓰는 그것이며, 여기서는 **DOM 이 선 뒤**라
-     * 값이 있다.
+     * FONT_SIZE_SETTING_SRS FR-FSS-13 — **글꼴 크기는 자기 설정에서 온다.**
+     *
+     * `FR-M11-15` 의 개정이다. 그때는 `--fs-lg` 를 읽었다: 하단 대시보드
+     * (`.agp-dash`)와 터미널이 같은 값을 써야 했고, 값이 두 벌이 되지 않게
+     * CSS 토큰을 진실로 삼았다. **그 대시보드는 에이전트 GUI 와 함께 사라졌고**
+     * (`AGENT_GUI_REMOVAL_SRS`), 남은 것은 짝을 잃은 결합이었다 — 그 결합이
+     * 있는 한 UI 를 키우면 터미널이 따라 커진다.
+     *
+     * 진실이 여전히 한 자리인 것은 같다. 그 자리가 CSS 토큰에서 설정 키로 옮겼다.
      */
-    const fs=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--fs-lg'));
-    this.term=new Terminal(fs?Object.assign({},TOPTS,{fontSize:fs}):TOPTS);
+    this.term=new Terminal(Object.assign({},TOPTS,{fontSize:termFontSizeNow()}));
     this.fit=new FitAddon.FitAddon();
     this.term.loadAddon(this.fit);
     try{this.term.loadAddon(new WebLinksAddon.WebLinksAddon((_e,uri)=>{
@@ -833,6 +838,22 @@ class TerminalTool {
     // FR-M10-1: 여기가 **자기 폭이 정해지는 유일한 자리**다. 소유자로서 잰 값만
     // 기록한다 — 비소유자의 경로는 위에서 이미 돌아갔다.
     if(this.term&&this.term.cols>0){ this._ownCols=this.term.cols; this._ownRows=this.term.rows }
+  }
+
+  /**
+   * FR-FSS-15·16: 지금 값을 얹고 **다시 잰다**.
+   *
+   * 값만 얹으면 화면이 어긋난 채 남는다 — 글자가 커지면 같은 픽셀 상자에 들어가는
+   * `cols`·`rows` 가 줄고, PTY 는 옛 크기를 믿은 채 줄을 나눈다. `doFit` 이
+   * `fit()` → `onResize` → `_sendResize` 의 길을 이미 갖고 있으므로 그것을 딛는다
+   * (보낼 자격은 `resizeCheck` 가 종전대로 가린다, M10_SRS FR-M10-1).
+   */
+  applyFontSize(){
+    if(!this.term) return;
+    const px=termFontSizeNow();
+    if(this.term.options.fontSize===px) return;
+    this.term.options.fontSize=px;
+    this.doFit();
   }
 
   /**

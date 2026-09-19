@@ -38,12 +38,15 @@ const SETTINGS_SCHEMA = [
   {"key":"fgTabNames","type":"bool","def":true,"where":"Display ▸ 전경 프로세스 이름"},
   {"key":"blockBrowserKeys","type":"bool","def":true,"where":"Shortcuts ▸ 브라우저 기본키 차단"},
   {"key":"claudeFullscreen","type":"bool","def":true,"where":"Terminal ▸ Claude Code fullscreen"},
+  {"key":"termFontSize","type":"int","def":14,"min":8,"max":32,"where":"Terminal ▸ 터미널 글자 크기"},
+  {"key":"claudeScrollSpeed","type":"int","def":3,"min":1,"max":20,"where":"Terminal ▸ Claude Code 스크롤 속도"},
   {"key":"pageTitle","type":"string","def":"","where":"Display ▸ 페이지 제목"},
   {"key":"confirmLeave","type":"bool","def":false,"where":"Display ▸ 떠날 때 확인"},
   {"key":"editorWordWrap","type":"bool","def":false,"where":"Display ▸ 편집기 줄바꿈"},
   {"key":"editorMinimap","type":"bool","def":true,"where":"Display ▸ 편집기 미니맵"},
   {"key":"tabFixedWidth","type":"bool","def":false,"where":"Display ▸ 탭 너비 고정"},
   {"key":"tabWidthPx","type":"int","def":160,"min":40,"max":480,"where":"Display ▸ 탭 너비"},
+  {"key":"uiFontScale","type":"int","def":100,"min":80,"max":200,"where":"Display ▸ UI 글자 크기"},
   {"key":"focusEdgeLevel","type":"int","def":5,"min":0,"max":10,"where":"Display ▸ 비활성 창 가장자리"},
   {"key":"attnEdgeLevel","type":"int","def":5,"min":0,"max":10,"where":"Display ▸ 알림 가장자리"},
   {"key":"themeFollowSystem","type":"bool","def":false,"where":"Theme ▸ 시스템 추종"},
@@ -82,4 +85,26 @@ function settingValue(raw,spec){
     case 'object': return (raw&&typeof raw==='object'&&!Array.isArray(raw))?raw:spec.def;
     default: return raw;
   }
+}
+
+/**
+ * FR-FSS-19: 사용자가 **치는 값**을 쓸 수 있는 값으로 만든다.
+ *
+ * `settingValue` 와 뜻이 다르다. 저 손은 저장된 값을 해석하며 범위 밖을
+ * **기본값으로 떨어뜨린다** — 손으로 고친 설정이 화면을 못 쓰게 만들지 않기
+ * 위해서다. 이 손은 범위 밖을 **자른다**: 숫자 입력은 타이핑 도중 잠깐 범위
+ * 밖이 되고(`150` 을 지우고 `9` 를 치는 순간), 그때마다 기본값으로 튕기면
+ * 입력 자체가 불가능해진다 (FR-TBW-4 가 `clampTabWidth` 로 먼저 겪은 일이다).
+ *
+ * **범위를 다시 적지 않는다.** `clampTabWidth` 는 상수 셋을 따로 들고 있으나
+ * 그 값은 이미 표에 있다 — 두 벌이 되면 한쪽만 고쳐진다 (FR-CFG-1).
+ */
+function clampSetting(key,v){
+  const spec=SETTINGS_BY_KEY[key];
+  if(!spec||spec.type!=='int') return v;
+  const n=Math.round(Number(v));
+  // 빈 입력란은 `''` 이고 `Number('')` 는 0 이다. 그것을 자르면 최솟값이 되어,
+  // 지우고 다시 치는 동안 화면이 줄었다 편다.
+  if(v===''||v===null||v===undefined||!Number.isFinite(n)) return spec.def;
+  return Math.min(spec.max,Math.max(spec.min,n));
 }

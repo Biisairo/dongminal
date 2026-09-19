@@ -120,7 +120,17 @@ test('V-GAP-1: 아이콘과 글자 사이가 키트의 간격이다', async ({ p
   await waitForInit(page);
   const got = await page.evaluate(() => {
     const px = (v: string) => parseFloat(v) || 0;
-    const token = px(getComputedStyle(document.documentElement).getPropertyValue('--ui-gap'));
+    // FONT_SIZE_SETTING_SRS FR-FSS-5 이후 `--ui-gap` 은 `calc(6px * var(--fs-scale))`
+    // 이다. 커스텀 프로퍼티는 계산 전 문자열로 나오므로 `parseFloat` 가 `NaN` 이
+    // 된다 — 값을 실제 속성에 얹어야 브라우저가 계산한다.
+    const probe = document.createElement('div');
+    probe.style.position = 'absolute';
+    probe.style.visibility = 'hidden';
+    probe.style.display = 'flex';
+    probe.style.columnGap = 'var(--ui-gap)';
+    document.body.appendChild(probe);
+    const token = px(getComputedStyle(probe).columnGap);
+    probe.remove();
     const box = document.querySelector('#add-sandbox-window') as HTMLElement;
     const ctl = document.querySelector('.slot-ctl') as HTMLElement;
     return {

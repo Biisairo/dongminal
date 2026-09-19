@@ -20,23 +20,32 @@
 :root{
   /* FR-UIK-2 — 크기 토큰. 값의 출처는 실측이다: `.tbtn` 이 4px+11px+4px ≈ 24px,
      `.mtbtn` 이 26px 이었다. 둘의 가운데인 26 을 표준으로 삼는다. */
-  --ui-btn-h:26px;
-  --ui-btn-h-sm:22px;
-  --ui-btn-h-lg:30px;
-  --ui-btn-px:10px;
+  /* FONT_SIZE_SETTING_SRS FR-FSS-5: 글자를 담는 상자는 글자와 **함께** 커진다.
+     글꼴만 키우면 19.8px 글자가 26px 버튼 안에 남는다.
+
+     `--ui-radius` 는 빠진다 (FR-FSS-6) — 모서리는 크기의 함수가 아니다. */
+  --ui-btn-h:calc(26px * var(--fs-scale));
+  --ui-btn-h-sm:calc(22px * var(--fs-scale));
+  --ui-btn-h-lg:calc(30px * var(--fs-scale));
+  --ui-btn-px:calc(10px * var(--fs-scale));
   --ui-radius:4px;
-  --ui-gap:6px;
+  --ui-gap:calc(6px * var(--fs-scale));
   /* FR-TOK-20: 값을 갖지 않는다 — `--fs-sm` 을 가리킨다. 두 이름이 각자 11px
      을 들고 있던 동안 본문을 키우면 키트만 안 커졌다. */
   --ui-font:var(--fs-sm);
   /* FR-UIK-5 / D-7: 아이콘 변은 **버튼 높이에서 파생한다**. 두 값을 따로 적으면
      버튼을 키울 때 아이콘만 남는다. */
   --ui-icon-ratio:.68;
+  /* FR-FSS-6: 비율에는 배율을 걸지 않는다 — 걸면 아이콘이 두 번 커진다
+     (높이가 이미 배율을 먹은 뒤 그 비율에 또 곱한다). */
   /* 버튼 밖(목록의 점·행의 표식)에 쓰는 두 눈금 (FR-GLY-5). 자리마다 px 를
      적지 않는다. */
-  --ui-icon-sm:13px;
-  --ui-icon-md:16px;
-  --ui-tab-h:30px;
+  --ui-icon-sm:calc(13px * var(--fs-scale));
+  --ui-icon-md:calc(16px * var(--fs-scale));
+  /* FR-FSS-7: 착수 시 `.ui-icon-lg` 가 20px 을 **직접** 들고 있었다. 토큰으로
+     올리지 않으면 큰 아이콘만 배율에서 빠진다. */
+  --ui-icon-lg:calc(20px * var(--fs-scale));
+  --ui-tab-h:calc(30px * var(--fs-scale));
 }
 
 /* ── 아이콘 (FR-GLY-2·5) ───────────────────────────────────────────────
@@ -48,7 +57,7 @@
   vertical-align:-.15em;pointer-events:none;
 }
 .ui-icon-sm{width:var(--ui-icon-sm);height:var(--ui-icon-sm)}
-.ui-icon-lg{width:20px;height:20px}
+.ui-icon-lg{width:var(--ui-icon-lg);height:var(--ui-icon-lg)}
 /* 채워 그리는 모양(점 등)은 획이 아니라 면이다. */
 .ui-icon-fill{fill:currentColor;stroke:none}
 

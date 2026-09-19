@@ -555,6 +555,34 @@ function applyTabWidth(){
   document.body.classList.toggle('tabfix',!!tabFixedWidth);
 }
 
+/**
+ * FONT_SIZE_SETTING_SRS FR-FSS-3·12 — 글자 크기 둘.
+ *
+ * **초기값을 여기 적지 않는다.** 기본값은 서술자 표가 갖고(FR-CFG-1), 설정이
+ * 오기 전의 화면은 CSS 의 `--fs-scale:1` 이 낸다 — 여기에 `100` 을 적으면 같은
+ * 값이 세 자리(표·CSS·여기)에 서고, 그 중 하나만 고쳐지는 날이 온다.
+ */
+var uiFontScale;
+var termFontSize;
+// AGENT_RENDER_ENV_SRS FR-ARE-8: 값을 들고 저장할 뿐, 얹을 화면이 없다 —
+// 서버가 도구를 띄울 때 환경변수로 넣는다.
+var claudeScrollSpeed;
+
+/** 지금 쓸 값. 설정이 아직 오지 않았으면 표의 기본값이다. */
+function uiFontScaleNow(){ return uiFontScale??SETTINGS_BY_KEY.uiFontScale.def }
+function termFontSizeNow(){ return termFontSize??SETTINGS_BY_KEY.termFontSize.def }
+
+/**
+ * FR-FSS-3: 배율을 **CSS 변수 하나**로 전달한다.
+ *
+ * 자리마다 인라인 스타일을 쓰지 않는 근거는 `applyTabWidth` 와 같다
+ * (TAB_WIDTH_SRS NFR-TBW-1) — 토큰 정의부 한 곳이 움직이면 그것을 가리키는
+ * 374곳이 따라온다.
+ */
+function applyUiFontScale(){
+  document.documentElement.style.setProperty('--fs-scale',String(uiFontScaleNow()/100));
+}
+
 // FR-TBW-4: 범위 밖은 **자른다** — 거부하지 않는다. 숫자 입력은 타이핑 도중에
 // 잠깐 범위 밖이 되며, 그때마다 오류를 내면 입력 자체가 불가능해진다.
 function clampTabWidth(v){

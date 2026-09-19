@@ -359,6 +359,12 @@
             <input type="number" class="ds-num" id="ds-tabw" min="40" max="480" step="10">
           </div>
           <div class="ds-hint" data-i18n="html.tab_width_hint"></div>
+          <!-- FONT_SIZE_SETTING_SRS FR-FSS-1 -->
+          <div class="ds-row">
+            <span data-i18n="html.ui_font_scale"></span>
+            <input type="number" class="ds-num" id="ds-uifs" min="80" max="200" step="10">
+          </div>
+          <div class="ds-hint" data-i18n="html.ui_font_scale_hint"></div>
           <div class="ds-row">
             <span data-i18n="html.fg_names"></span>
             <input type="checkbox" id="ds-fgnames">
@@ -402,6 +408,18 @@
             <input type="checkbox" id="ds-claudefs">
           </div>
           <div class="ds-hint" data-i18n="html.claude_fullscreen_hint"></div>
+          <!-- FONT_SIZE_SETTING_SRS FR-FSS-11 -->
+          <div class="ds-row">
+            <span data-i18n="html.term_font_size"></span>
+            <input type="number" class="ds-num" id="ds-termfs" min="8" max="32" step="1">
+          </div>
+          <div class="ds-hint" data-i18n="html.term_font_size_hint"></div>
+          <!-- AGENT_RENDER_ENV_SRS FR-ARE-10 -->
+          <div class="ds-row">
+            <span data-i18n="html.claude_scroll_speed"></span>
+            <input type="number" class="ds-num" id="ds-scrollspeed" min="1" max="20" step="1">
+          </div>
+          <div class="ds-hint" data-i18n="html.claude_scroll_speed_hint"></div>
         </div>
       </div>
       <div class="mpanel" id="panel-code" style="display:none">

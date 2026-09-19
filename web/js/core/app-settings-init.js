@@ -337,5 +337,102 @@ Object.assign(App.prototype, {
     for(const ed of this.fileEditors.values()) if(ed&&ed.applyMinimap) ed.applyMinimap();
   },
 
+  /**
+   * 설정 숫자 입력란 하나 (FONT_SIZE_SETTING_SRS FR-FSS-1·11·19·20·21 ·
+   * AGENT_RENDER_ENV_SRS FR-ARE-10).
+   *
+   * 셋(UI 배율 · 터미널 글자 px · Claude 스크롤 속도)이 **같은 모양**이라 한
+   * 자리에 둔다. 다른 것은 키와 얹는 손뿐이고, 그 둘을 인자로 받는다 — 같은
+   * 40줄을 세 벌 적으면 한쪽만 고쳐지는 날이 온다.
+   *
+   * 규약은 `_initTabWidth` 에서 그대로 온다: 입력마다 얹되 저장은 미루고
+   * (타이핑 한 글자마다 PUT 을 보내지 않는다), **포커스를 놓을 때 곧바로
+   * 저장한다** — 디바운스는 요청 수를 줄이는 장치이지 확정을 미루는 장치가
+   * 아니다 (실측 W7: 값을 바꾸고 바로 새로고침하면 입력이 통째로 날아갔다).
+   */
+  _initNumSetting(id,key,apply){
+    const num=document.getElementById(id);
+    if(!num) return;
+    const timer='_fontSaveTimer_'+key;
+    const read=()=>clampSetting(key,num.value);
+    const paint=()=>{num.value=String(SETTINGS_ACCESS[key].get()??SETTINGS_BY_KEY[key].def)};
+    paint();
+    // FR-FSS-21: 여는 자리가 목록을 들고 있으면 키를 두 벌 적게 된다 — 세운
+    // 쪽이 자기 칠하는 손을 맡긴다.
+    (this._numSettingPaints||(this._numSettingPaints=[])).push(paint);
+    num.addEventListener('input',()=>{
+      // FR-FSS-19: 자르는 것은 **적용하는 값뿐**이다 — 입력란의 글자를 그때그때
+      // 고쳐 쓰면 타이핑이 튄다 (`150` 을 지우고 `9` 를 치는 순간 80 이 된다).
+      apply.call(this,read());
+      TIMERS.cancel(this[timer]);
+      this[timer]=this.timers.after(500,()=>this.saveSettings(),{owner:'app',label:'save-'+id});
+    });
+    num.addEventListener('blur',()=>{
+      // 잘린 사실이 **보여야** 사용자가 왜 그 크기인지 안다 (FR-TBW-4 와 같은 근거).
+      num.value=String(read());
+      TIMERS.cancel(this[timer]);
+      this.saveSettings();
+    });
+  },
+
+  /**
+   * FR-FSS-21: 설정 창을 **열 때마다** 숫자 입력들이 현재 값으로 다시 칠해진다
+   * (FR-LVC-3 과 같은 근거).
+   *
+   * 방송이 올 때마다 `SETTINGS_ACCESS` 가 이미 칠하지만, 그 사이에 **확정하지
+   * 않은 글자**가 입력란에 남을 수 있다 — `999` 를 치고 `Esc` 로 닫은 경우가
+   * 그렇다. 적용된 값은 200 이고 입력란만 999 다. 여는 순간이 그것을 맞출 자리다.
+   */
+  _paintNumSettings(){
+    for(const paint of this._numSettingPaints||[]) paint();
+  },
+
+  /** FR-FSS-1: Settings ▸ Display 의 `UI 글자 크기`. */
+  _initUiFontScale(){
+    this._initNumSetting('ds-uifs','uiFontScale',function(v){
+      uiFontScale=v;
+      applyUiFontScale();
+      this._edApplyFontSize();
+    });
+    applyUiFontScale();
+  },
+
+  /** FR-FSS-11: Settings ▸ Terminal 의 `터미널 글자 크기`. */
+  _initTermFontSize(){
+    this._initNumSetting('ds-termfs','termFontSize',function(v){
+      termFontSize=v;
+      this._termApplyFontSize();
+    });
+  },
+
+  /**
+   * AGENT_RENDER_ENV_SRS FR-ARE-10·11: Settings ▸ Terminal 의 `스크롤 속도`.
+   *
+   * **얹을 화면이 없다.** 이 값은 도구를 띄울 때 서버가 환경변수로 넣는 것이라
+   * (FR-ARE-8), 브라우저가 할 일은 값을 들고 저장하는 것뿐이다 — 이미 떠 있는
+   * 터미널은 바뀌지 않는다 (FR-ARE-11, 환경은 프로세스 시작 시점의 것이다).
+   */
+  _initClaudeScrollSpeed(){
+    this._initNumSetting('ds-scrollspeed','claudeScrollSpeed',function(v){
+      claudeScrollSpeed=v;
+    });
+  },
+
+  /** FR-FSS-9: 열려 있는 편집기 전부 (`_edApplyMinimap` 과 같은 근거). */
+  _edApplyFontSize(){
+    if(!this.fileEditors) return;
+    for(const ed of this.fileEditors.values()) if(ed&&ed.applyFontSize) ed.applyFontSize();
+  },
+
+  /**
+   * FR-FSS-15·16: 열려 있는 터미널 전부. **보이는 것만이 아니다** — 숨은 pane 도
+   * 되돌아올 때 옛 크기로 서면 안 된다. `applyFontSize` 가 값이 같으면 아무 일도
+   * 하지 않으므로 헛된 `fit` 이 나지 않는다.
+   */
+  _termApplyFontSize(){
+    if(!this.tools) return;
+    for(const p of this.tools.values()) if(p&&p.applyFontSize) p.applyFontSize();
+  },
+
   // ── Modal & Theme ──
 });

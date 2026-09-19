@@ -98,6 +98,28 @@ const SETTINGS_ACCESS={
     if(tw) tw.value=String(tabWidthPx);
     applyTabWidth();
   }},
+  // FONT_SIZE_SETTING_SRS FR-FSS-3·9: 배율 하나가 CSS 토큰과 편집기 둘 다에 간다.
+  // 터미널은 여기 없다 — 그것이 이 스펙의 요점이다 (FR-FSS-17).
+  uiFontScale:{get:()=>uiFontScale,set(v){
+    uiFontScale=clampSetting('uiFontScale',v);
+    const el=document.getElementById('ds-uifs');
+    if(el) el.value=String(uiFontScale);
+    applyUiFontScale();
+    if(this._edApplyFontSize) this._edApplyFontSize();
+  }},
+  // FR-FSS-12·15: 터미널만 움직인다.
+  termFontSize:{get:()=>termFontSize,set(v){
+    termFontSize=clampSetting('termFontSize',v);
+    const el=document.getElementById('ds-termfs');
+    if(el) el.value=String(termFontSize);
+    if(this._termApplyFontSize) this._termApplyFontSize();
+  }},
+  // AGENT_RENDER_ENV_SRS FR-ARE-8: 얹을 화면이 없다 — 값은 서버가 쓴다.
+  claudeScrollSpeed:{get:()=>claudeScrollSpeed,set(v){
+    claudeScrollSpeed=clampSetting('claudeScrollSpeed',v);
+    const el=document.getElementById('ds-scrollspeed');
+    if(el) el.value=String(claudeScrollSpeed);
+  }},
   // FR-UFE-12·13 / FR-AED-9: 범위 판정은 표가 한다 (`settingValue`) — 종전에는
   // 같은 모양의 `if` 가 두 줄 걸러 두 번 적혀 있었다.
   focusEdgeLevel:{get:()=>focusEdgeLevel,set(v){
@@ -348,6 +370,9 @@ Object.assign(App.prototype, {
       const dsCfs=document.getElementById('ds-claudefs');
       if(dsCfs) dsCfs.checked=claudeFullscreen;
       this._labelSettingsRows();
+      // FONT_SIZE_SETTING_SRS FR-FSS-21 · AGENT_RENDER_ENV_SRS FR-ARE-10: 숫자
+      // 입력 셋도 열 때마다 다시 칠한다 (아래 FR-LVC-3 과 같은 근거).
+      this._paintNumSettings();
       // FR-LVC-3: 열 때마다 현재 값을 다시 칠한다 — 다른 화면에서 바뀐 값이
       // 이 모달에 옛 상태로 남아 있으면 사용자가 그것을 켜진 줄로 읽는다.
       const dsLeave=document.getElementById('ds-confirmleave');
@@ -399,9 +424,12 @@ Object.assign(App.prototype, {
     });
     this._initPageTitle();
     this._initTabWidth();
+    this._initUiFontScale();
     this._initFgNames();
     this._initBlockKeys();
     this._initClaudeFullscreen();
+    this._initTermFontSize();
+    this._initClaudeScrollSpeed();
     this._initConfirmLeave();
     this._initFocusEdge();
     this._initAttnEdge();

@@ -369,9 +369,9 @@ const SEARCH_BAD_REGEX=t('core.search_bad_regex');
 // TOPTS theme is set after THEMES loads (see themes.js)
 var TOPTS={
   scrollback:TERM_SCROLLBACK_LINES,cursorBlink:true,cursorStyle:'block',
-  // FR-M11-15 (M11-B16): **`fontSize` 는 여기 없다.** 터미널과 에이전트 GUI 하단이
-  // 같은 크기여야 한다는 접수이고, 같은 수를 두 자리에 적으면 한쪽만 바뀐다.
-  // 진실은 CSS 토큰 `--fs-lg` 이며 `term-pane.js` 가 생성 시점에 읽는다.
+  // FONT_SIZE_SETTING_SRS FR-FSS-13: **`fontSize` 는 여기 없다.** 진실은 설정
+  // `termFontSize` 이며 `term-pane.js` 가 생성 시점에 읽는다 — 같은 수를 두 자리에
+  // 적으면 한쪽만 바뀐다. 종전에는 그 자리가 CSS 토큰 `--fs-lg` 였다 (FR-M11-15).
   lineHeight:1.2,allowProposedApi:true,logLevel:'off',
   fontFamily:"'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace",
   theme:null,

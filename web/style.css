@@ -44,11 +44,17 @@
 
      사상표는 `DESIGN_TOKENS_SRS` §3.3 이 갖는다. `scripts/check-font-size.mjs`
      가 px 리터럴 0 을 지킨다 (FR-TOK-32). */
-  --fs-xs:9px;
-  --fs-sm:11px;
-  --fs-md:12px;
-  --fs-lg:14px;
-  --fs-xl:18px;
+  /* FONT_SIZE_SETTING_SRS FR-FSS-3·4: 배율은 **변수 하나**로 온다. 다섯의 기준
+     px 는 위 사상표의 실측 결과이므로 **그대로 남고**, 배율은 그것을 곱한다 —
+     그래서 `var(--fs-*)` 사용처 374곳이 한 글자도 바뀌지 않는다.
+
+     `--fs-scale` 은 설정이 정하고 JS 가 얹는다. 기본 1 은 종전과 같은 화면이다. */
+  --fs-scale:1;
+  --fs-xs:calc(9px * var(--fs-scale));
+  --fs-sm:calc(11px * var(--fs-scale));
+  --fs-md:calc(12px * var(--fs-scale));
+  --fs-lg:calc(14px * var(--fs-scale));
+  --fs-xl:calc(18px * var(--fs-scale));
 
   /* DESIGN_TOKENS_SRS FR-TOK-21·22 (`UX-16`): z-index 는 **여섯 층**이다. 착수 시
      실측은 44선언 · 28값 · 1~9999 였고, 의미의 층이 값에서 읽히지 않았다 —
