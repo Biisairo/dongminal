@@ -778,7 +778,15 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
  *   새  동작: 탭 열이 한 줄로 서는 폭을 주고, 좁은 화면에서는 뷰포트를 따른다
  *   이유:     가로 스크롤은 "거기 더 있다" 를 감춘다 (사용자 지시) */
 #modal{
-  width:min(760px,94vw);max-width:94vw;height:min(80vh,720px);overflow:hidden;
+  /* AGENT_RENDER_ENV_SRS FR-ARE-3 으로 `Terminal` 탭이 늘면서 760px 이 탭 열
+     한 줄을 못 담게 됐다. FR-UIK-14 ①이 요구하는 것은 **탭이 한 줄로 서기에
+     넉넉한 폭**이므로, 탭이 늘면 폭도 따라 는다. `94vw` 가 그대로 있어 좁은
+     화면에서는 종전처럼 뷰포트 안에 들고 탭 열은 접힌다(③).
+
+     760 → 920 으로 한 번에 키운 것은 러너의 글꼴이 더 넓기 때문이다. 760 에서
+     CI 의 두 OS 가 함께 졌고, 860 은 로컬 여유가 68px 뿐이라 같은 차이로 다시
+     질 수 있다. 920 에서 여유가 128px 다. */
+  width:min(920px,94vw);max-width:94vw;height:min(80vh,720px);overflow:hidden;
 }
 .modal-header{
   display:flex;align-items:center;justify-content:space-between;
