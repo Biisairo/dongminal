@@ -105,5 +105,5 @@ RPC 를 타고 건너간다. 필드를 모르는 옛 데몬에서는 **주입이
 
 | 날짜 | 내용 |
 |---|---|
-| 2026-09-19 | 구현완료. Go 하나(, 여덟 갈래)와 e2e 하나가 선다. `Placement.ExtraEnv` 로 toolhub 가 에이전트를 모르게 두었고, daemon 모드는 create RPC 로 건너간다. |
+| 2026-09-19 | 구현완료. Go 하나(`agent_render_env_test.go`, 여덟 갈래)와 e2e 하나가 선다. `Placement.ExtraEnv` 로 toolhub 가 에이전트를 모르게 두었고, daemon 모드는 create RPC 로 건너간다. |
 | 2026-09-19 | 초안·승인. `M11-B1` 추적의 결론으로 선다 — 터미널이 못 고치는 것을 앱이 고치게 한다. 세 에이전트를 조사해 주입 대상을 Claude Code 하나로 좁혔다. |
