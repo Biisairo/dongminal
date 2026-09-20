@@ -49,6 +49,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@node scripts/check-button-kit.mjs
 	@echo "── 대문자 장식 (영문에만 걸리는 변형이 없는가)"
 	@node scripts/check-uppercase.mjs
+	@echo "── 킷 컴포넌트 (킷의 값을 밖에서 덮지 않는가)"
+	@node scripts/check-kit-components.mjs
 	@echo "── 골격 배치 (inset:0 이 position 과 같은 규칙에 있는가)"
 	@scripts/check-skeleton.sh
 	@echo "── 에이전트 이름 (등록부 밖에 리터럴이 없는가)"
