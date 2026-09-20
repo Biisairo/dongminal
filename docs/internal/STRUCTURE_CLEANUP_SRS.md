@@ -324,7 +324,7 @@
 | FR-STR-43 | `renderer.js:542 _rLayout`(168줄)이 넷으로 갈린다 — `_rSlots`·`_gcWidgets`·`_afterLayout`·`_refocus`. **전부 구간 이동**이고 `_rLayout` 에 남는 것은 진행 순서다 | 필수 |
 | FR-STR-44 | `renderer.js`(1,586)가 **증강 분할**된다 — `renderer.js` · `renderer-scroll.js` · `renderer-chrome.js` · `renderer-layout.js` · `renderer-pane.js`. `Renderer.prototype` 에 `Object.assign` 하므로 계약은 한 글자도 바뀌지 않는다 | 필수 |
 | FR-STR-45 | `index.html` 의 로드 순서가 **클래스 정의 뒤**에 증강 파일을 둔다. `check-load-order.mjs` 가 그것을 강제한다 (C-2) | 필수 |
-| FR-STR-46 | **무동작변경의 증명**은 전수성으로 한다 (`FE_MODULE_BOUNDARY_SRS` §7.2 의 규약): 분할 전후로 `Renderer.prototype` 멤버 수가 같고, 멤버 본문의 **비공백 행이 다중집합으로 동일**하다 | 필수 |
+| FR-STR-46 | **무동작변경의 증명**은 전수성으로 한다 (`FE_MODULE_BOUNDARY_SRS` §7.2 의 규약): 분할 전후로 `Renderer.prototype` 멤버 수가 같고, 비공백 행이 **다중집합으로 동일**하다. 허용되는 편집은 이름이 붙은 것만이다 — ① 파일 머리말 ② 클래스 본문이 객체 리터럴이 되며 멤버 끝의 `}` 가 `},` 로 바뀌는 것. 그 둘로 설명되지 않는 차이가 하나라도 있으면 분할이 아니다 | 필수 |
 | FR-STR-47 | `FE_MODULE_BOUNDARY_SRS` **N3 과 §7.1 을 같은 변경에서 개정한다** (규약 4). N3 의 근거는 *"응집도가 있다"* 였고, 그것은 줄이 늘어도 자동으로 재검토되지 않았다 — 실측으로 이 파일은 지금 **넷을 한다** (§2.7 · `AUDIT-fe-ui.md` M-9) | 필수 |
 | FR-STR-48 | 나머지 28개 과대 함수와 다른 파일의 분할은 **이 묶음이 아니다** (§6-3). 게이트가 섰으므로 악화는 막힌다 | 필수 |
 

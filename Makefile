@@ -79,6 +79,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-shortcuts-docs.sh
 	@echo "── e2e 의 내부 접근 (app.testing 계약만 쓰는가)"
 	@scripts/check-e2e-private.sh
+	@echo "── 모듈 크기 (500줄 초과 수·최대 줄이 기준선보다 나빠졌는가)"
+	@node scripts/check-file-size.mjs
 	@echo "── 로드 순서 (스크립트가 아직 서지 않은 이름을 읽지 않는가)"
 	@node scripts/check-load-order.mjs
 	@echo "── e2e 의 고정 대기 (근거가 있는 예외만인가)"
