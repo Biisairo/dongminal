@@ -366,7 +366,7 @@ func (s *Server) apiWorkspacePut(w http.ResponseWriter, r *http.Request) {
 	// 워크스페이스는 창·탭·핀이 쌓이면 커진다 — 기본 상한보다 넉넉히 준다.
 	body, err := httpreq.Read(w, r, httpreq.WorkspaceLimit)
 	if err != nil {
-		httpErr(w, "read body", httpreq.Status(err), apierr.CodeBodyTooBig)
+		httpErr(w, "read body", httpreq.Status(err), bodyReadCode(err))
 		return
 	}
 	// STATE_FILE_DURABILITY_SRS FR-SFD-20 (`FE-2`, **P0**): **조건을 요구한다.**

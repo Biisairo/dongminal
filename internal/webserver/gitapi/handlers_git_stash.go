@@ -279,7 +279,7 @@ func (s *GitServer) gitStashApply(w http.ResponseWriter, r *http.Request, reques
 	}
 	code, name := gitStashErrorCode(runErr, extra)
 	body["error"], body["message"] = name, gitTail(runErr.Error())
-	gitJSON(w, code, body)
+	gitErrJSON(w, code, name, body)
 }
 
 // gitStashErrorCode 는 stash 실패를 코드로 옮긴다.

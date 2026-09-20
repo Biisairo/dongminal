@@ -46,11 +46,24 @@ func gitJSON(w http.ResponseWriter, code int, body any) {
 	json.NewEncoder(w).Encode(body)
 }
 
-func gitFail(w http.ResponseWriter, code int, name, msg string) {
-	// ERROR_CONTRACT_SRS FR-ERR-7: 코드가 **헤더로도** 나간다. 본문의 값과
-	// 같아야 한다 — 두 자리가 갈리면 헤더 쪽이 거짓말이 된다.
+// gitErrJSON 은 git 방언의 오류 응답 **하나뿐인 문**이다
+// (SAFETY_CORRECTNESS_SRS FR-SAF-10).
+//
+// ERROR_CONTRACT_SRS FR-ERR-7 이 *"기존 방언 넷의 렌더러도 `X-Error-Code` 를
+// 싣는다"* 고 못박았으나, 본문에 맥락을 더 실어야 하는 자리 열둘이 `gitFail` 을
+// 우회해 `gitJSON` 으로 직행하고 있었다 — 충돌 응답이 *"무엇이"* 이미 있는지
+// 말해야 해서 생긴 우회다. 그 자리들이 하필 **가장 자주 실패하는 경로**였다:
+// `gitApply` 는 stage·unstage·discard·resolve·commit·undo 의 모든 실패를 지난다.
+//
+// 그래서 본문은 호출자가 만들고 **헤더는 여기가 세운다.** 헤더를 세우는 자리가
+// 하나면 다음에 생기는 열셋째도 빠질 수 없다.
+func gitErrJSON(w http.ResponseWriter, status int, name string, body map[string]any) {
 	w.Header().Set(apierr.CodeHeader, name)
-	gitJSON(w, code, map[string]any{"error": name, "message": msg})
+	gitJSON(w, status, body)
+}
+
+func gitFail(w http.ResponseWriter, code int, name, msg string) {
+	gitErrJSON(w, code, name, map[string]any{"error": name, "message": msg})
 }
 
 // gitUnavailable 은 git 표면만 닫는다. 다른 엔드포인트에는 영향이 없다.

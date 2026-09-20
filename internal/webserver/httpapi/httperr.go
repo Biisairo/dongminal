@@ -56,16 +56,33 @@ func httpErr(w http.ResponseWriter, msg string, status int, code string) {
 func readBodyHTTP(w http.ResponseWriter, r *http.Request, body any) (ok, answered bool) {
 	raw, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		// 상한 초과는 사용자가 고칠 수 있으므로 사유가 보인다. 그 밖의 읽기
-		// 실패는 연결의 사정이라 감춘다 — `failRead` 와 같은 규약이다.
-		if errors.Is(err, httpreq.ErrTooLarge) {
-			httpErr(w, httpreq.ErrTooLarge.Error(), http.StatusRequestEntityTooLarge, apierr.CodeBodyTooBig)
-		} else {
-			httpErr(w, "본문을 읽지 못했습니다", httpreq.Status(err), apierr.CodeBadRequest)
-		}
+		httpErr(w, "read body", httpreq.Status(err), bodyReadCode(err))
 		return false, true
 	}
 	return json.Unmarshal(raw, body) == nil, false
+}
+
+// bodyReadCode 는 본문 읽기 실패의 **사유**를 코드로 옮긴다
+// (SAFETY_CORRECTNESS_SRS FR-SAF-13).
+//
+//	이전 동작: 여섯 자리가 상태는 `httpreq.Status(err)` 로 갈라 놓고(413 또는
+//	          400) 코드는 **무조건 `body_too_big`** 을 냈다. 연결이 끊긴 읽기
+//	          실패가 `400 body_too_big` 으로 나갔다
+//	새  동작: 상한 초과만 `body_too_big`, 나머지는 `bad_request`
+//	이유:     클라이언트가 코드로 분기하는 것이 이 계약의 전부인데
+//	          (`codes_core.go`) 같은 코드가 두 가지 서로 다른 일을 가리켰다.
+//	          사용자에게는 "나눠 보내세요" 라는 복구 안내(`codes_doc.go`)가
+//	          전달되지만 실제 원인은 연결이라 나눠 보내도 같은 결과가 온다
+//
+// `failRead` 로 옮기지 않은 이유: 그쪽은 코드를 **상태에서** 파생하므로
+// (`fail` → `httpErr(…, "")` → `CodeForStatus(413)`) 413 이 `too_large` 가 된다.
+// `body_too_big` 이 더 좁고, 그 좁음이 `codes_doc.go` 의 복구 안내를 가른다 —
+// 덜 구체적인 코드로 물러설 이유가 없다.
+func bodyReadCode(err error) string {
+	if errors.Is(err, httpreq.ErrTooLarge) {
+		return apierr.CodeBodyTooBig
+	}
+	return apierr.CodeBadRequest
 }
 
 // httpErrf 는 인자 순서 때문에 갈라 둔 형태다 — 문구가 여러 줄로 흐르는 자리에서

@@ -132,7 +132,7 @@ func (s *GitServer) apiGitFileHead(w http.ResponseWriter, r *http.Request) {
 	res := gitHeadFileResponse{Requested: req, Repo: root, Path: dc.Path, Kind: side.Kind, Size: side.Size}
 	if side.Kind != query.DiffKindText {
 		// 사유를 코드로 준다 — 빈 편집기를 열면 사용자는 파일이 비었다고 읽는다.
-		gitJSON(w, http.StatusConflict, map[string]any{
+		gitErrJSON(w, http.StatusConflict, gitErrNotText, map[string]any{
 			"error": gitErrNotText, "message": gitHeadNotTextMessage(side.Kind),
 			"requested": req, "repo": root, "path": dc.Path, "kind": side.Kind, "size": side.Size,
 		})

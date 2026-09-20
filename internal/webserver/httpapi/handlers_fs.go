@@ -67,7 +67,18 @@ func fsJSON(w http.ResponseWriter, status int, body any) {
 	json.NewEncoder(w).Encode(body)
 }
 
+// fsFail 은 탐색기 방언의 오류 하나다 (`{code,message}`).
+//
+// ERROR_CONTRACT_SRS FR-ERR-7 / SAFETY_CORRECTNESS_SRS FR-SAF-12: 코드가
+// **헤더로도** 나간다. 본문의 값과 같아야 한다 — 두 자리가 갈리면 헤더 쪽이
+// 거짓말이 된다.
+//
+//	이전 동작: `/api/fs/*` 와 `/api/editors/*` 의 오류 **전부**가 헤더 없이
+//	          나갔다. `httperr.go` 가 적어 둔 대로 *"빈 헤더는 '코드가 없다' 가
+//	          아니라 '옮기다 잊었다' 로 읽힌다"* — 정확히 그 상태였다
+//	새  동작: 여기 한 줄이 그 표면 전체를 세운다
 func fsFail(w http.ResponseWriter, code, msg string) {
+	w.Header().Set(apierr.CodeHeader, code)
 	fsJSON(w, fsStatus(code), map[string]any{"code": code, "message": msg})
 }
 

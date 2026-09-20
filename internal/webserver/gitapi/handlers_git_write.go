@@ -156,7 +156,7 @@ func (s *GitServer) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(pf.Blocks) > 0 {
-		gitJSON(w, http.StatusConflict, map[string]any{
+		gitErrJSON(w, http.StatusConflict, gitErrPreflightBlocked, map[string]any{
 			"error":     gitErrPreflightBlocked,
 			"message":   "커밋 전 검사가 막았다",
 			"requested": req.Repo,
@@ -281,7 +281,7 @@ func (s *GitServer) gitApply(w http.ResponseWriter, r *http.Request, requested, 
 		}
 		body["status"] = obs.Status
 	}
-	gitJSON(w, code, body)
+	gitErrJSON(w, code, name, body)
 	return query.Status{}, false
 }
 

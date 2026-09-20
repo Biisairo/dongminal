@@ -257,7 +257,7 @@ func (s *GitServer) gitRangeCount(ctx context.Context, root, from, to string) (i
 // 드리프트였고, 지금은 표면 전체가 `ref_name_invalid` 다 (FR-DPN-10).
 func gitCommitOpError(w http.ResponseWriter, err error, parents []string) {
 	if errors.Is(err, write.ErrMergeParent) {
-		gitJSON(w, http.StatusBadRequest, map[string]any{
+		gitErrJSON(w, http.StatusBadRequest, gitErrMergeParent, map[string]any{
 			"error":   gitErrMergeParent,
 			"message": gitTail(err.Error()),
 			"parents": gitParentList(parents),

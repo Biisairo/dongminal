@@ -57,7 +57,7 @@ func (s *GitServer) apiGitOperation(w http.ResponseWriter, r *http.Request) {
 		if cur == "" {
 			name = gitErrNoOperation
 		}
-		gitJSON(w, code, map[string]any{
+		gitErrJSON(w, code, name, map[string]any{
 			"error": name, "requested": req.Repo, "repo": t.root,
 			"message": "진행 중인 작업이 " + operationLabel(cur) + " 입니다",
 			"status":  before,

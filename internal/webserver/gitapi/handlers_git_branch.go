@@ -155,7 +155,7 @@ func (s *GitServer) gitBranchNameTaken(w http.ResponseWriter, r *http.Request, r
 	if !exists {
 		return false
 	}
-	gitJSON(w, http.StatusConflict, map[string]any{
+	gitErrJSON(w, http.StatusConflict, gitErrBranchExists, map[string]any{
 		"error":     gitErrBranchExists,
 		"message":   "로컬 브랜치 " + name + " 가 이미 있다",
 		"requested": requested,
@@ -297,7 +297,7 @@ func (s *GitServer) gitBranchDeleteBlocked(w http.ResponseWriter, r *http.Reques
 	requested, root string, before query.Status, opts write.BranchDeleteOpts) bool {
 	for _, n := range opts.Names {
 		if !before.Detached && n == before.Branch {
-			gitJSON(w, http.StatusConflict, map[string]any{
+			gitErrJSON(w, http.StatusConflict, gitErrBranchCurrent, map[string]any{
 				"error": gitErrBranchCurrent, "requested": requested, "repo": root,
 				"branch": n, "message": "현재 브랜치 " + n + " 는 지울 수 없다",
 			})
@@ -321,7 +321,7 @@ func (s *GitServer) gitBranchDeleteBlocked(w http.ResponseWriter, r *http.Reques
 			gitError(w, err)
 			return true
 		}
-		gitJSON(w, http.StatusConflict, map[string]any{
+		gitErrJSON(w, http.StatusConflict, gitErrBranchNotMerged, map[string]any{
 			"error": gitErrBranchNotMerged, "requested": requested, "repo": root,
 			"branch": n, "oid": oid,
 			"message": n + " 는 아직 합쳐지지 않았다 — 지우면 그 커밋들은 reflog 에만 남는다",

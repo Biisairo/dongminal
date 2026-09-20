@@ -398,7 +398,7 @@ type fileStampsReq struct {
 func (s *Server) apiFileStamps(w http.ResponseWriter, r *http.Request) {
 	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		httpErr(w, "read body: "+err.Error(), httpreq.Status(err), apierr.CodeBodyTooBig)
+		httpErr(w, "read body", httpreq.Status(err), bodyReadCode(err))
 		return
 	}
 	var req fileStampsReq
@@ -492,7 +492,7 @@ type fileWriteReq struct {
 func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		httpErr(w, "read body: "+err.Error(), httpreq.Status(err), apierr.CodeBodyTooBig)
+		httpErr(w, "read body", httpreq.Status(err), bodyReadCode(err))
 		return
 	}
 	var req fileWriteReq

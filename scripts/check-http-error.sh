@@ -81,4 +81,39 @@ if (( n_ko > FROZEN_HTTPERR_KO )); then
   exit 1
 fi
 
-echo "http-error ok — 직접 호출 0곳 · 한국어 본문 $n_ko/$FROZEN_HTTPERR_KO (동결)"
+# ── SAFETY_CORRECTNESS_SRS FR-SAF-22 — 방언 렌더러를 우회하는 오류 응답 ──
+#
+# 위의 `http.Error` 검사는 **평문 표면**만 본다. JSON 방언 둘(git `{error,message}` ·
+# fs `{code,message}`)은 `gitJSON`·`fsJSON` 으로 나가는데, 그 둘은 헤더를 세우지
+# 않는다 — 세우는 것은 렌더러(`gitErrJSON`·`fsFail`·`jsonFail`)다.
+#
+# 착수 시 열둘이 그 렌더러를 우회해 오류 상태를 직접 썼다. 본문에 맥락을 더
+# 실어야 해서 생긴 우회이고(충돌 응답이 "무엇이" 이미 있는지 말해야 한다),
+# 하필 가장 자주 실패하는 경로였다 — `gitApply` 는 stage·unstage·discard·
+# resolve·commit·undo 의 모든 실패를 지난다.
+#
+# 재는 것은 **성공이 아닌 상태로 `gitJSON`/`fsJSON` 을 직접 부르는가** 다.
+# 렌더러 자신만 지나간다.
+ok_status='http\.StatusOK|http\.StatusCreated|http\.StatusAccepted|http\.StatusNoContent|http\.StatusPartialContent'
+
+bypass=$(
+  grep -rnE '\b(gitJSON|fsJSON)\([[:alnum:]_.]+,[[:space:]]*[A-Za-z0-9_.]+' \
+    --include='*.go' --exclude='*_test.go' \
+    internal/webserver/gitapi internal/webserver/httpapi 2>/dev/null \
+    | grep -vE "\b(gitJSON|fsJSON)\([[:alnum:]_.]+,[[:space:]]*($ok_status)" \
+    | grep -vE '^internal/webserver/gitapi/handlers_git\.go:[0-9]+:[[:space:]]*gitJSON\(w, status, body\)' \
+    | grep -vE '^internal/webserver/httpapi/handlers_fs\.go:[0-9]+:[[:space:]]*fsJSON\(w, fsStatus' \
+    | grep -vE '^internal/webserver/httpapi/handlers_files\.go:[0-9]+:[[:space:]]*fsJSON\(w, status' \
+    | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|\*|/\*)' || true
+)
+
+if [[ -n "$bypass" ]]; then
+  echo "오류 상태를 렌더러 없이 직접 쓴 자리가 있습니다 (FR-SAF-22 · FR-ERR-7):"
+  echo "$bypass"
+  echo
+  echo "gitErrJSON(w, status, name, body) 를 쓰세요 — 본문은 그대로이고 X-Error-Code 가 붙습니다."
+  echo "fs 표면은 fsFail/jsonFail 이 이미 헤더를 세웁니다."
+  exit 1
+fi
+
+echo "http-error ok — 직접 호출 0곳 · 방언 우회 0곳 · 한국어 본문 $n_ko/$FROZEN_HTTPERR_KO (동결)"

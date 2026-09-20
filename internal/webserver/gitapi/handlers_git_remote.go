@@ -196,7 +196,7 @@ func (s *GitServer) gitStartUnguardedJob(w http.ResponseWriter, requested, root,
 // 무엇이 설정되는지 모르면 사용자가 확인할 수 없다 (FR-GIT-100).
 func gitPushError(w http.ResponseWriter, requested, root string, plan write.PushPlan, err error) {
 	if errors.Is(err, write.ErrPublishRequired) {
-		gitJSON(w, http.StatusConflict, map[string]any{
+		gitErrJSON(w, http.StatusConflict, gitErrPublishRequired, map[string]any{
 			"error":     gitErrPublishRequired,
 			"message":   gitTail(err.Error()),
 			"requested": requested,

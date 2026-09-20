@@ -99,7 +99,7 @@ func settingsChangedPayload() []byte {
 func (s *Server) apiSettingsPut(w http.ResponseWriter, r *http.Request) {
 	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
-		httpErr(w, "read body", httpreq.Status(err), apierr.CodeBodyTooBig)
+		httpErr(w, "read body", httpreq.Status(err), bodyReadCode(err))
 		return
 	}
 	// FR-RQG-16: **JSON 인지 보고 쓴다.** 종전에는 받은 바이트를 검증 없이 그대로

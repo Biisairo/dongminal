@@ -145,7 +145,8 @@ func (t *gitWrite) rejectBody(status int, code, msg string, extra map[string]any
 	for k, v := range extra {
 		body[k] = v
 	}
-	gitJSON(t.w, status, body)
+	// FR-SAF-10: 본문은 여기서 만들고 헤더는 gitErrJSON 이 세운다.
+	gitErrJSON(t.w, status, code, body)
 	t.done = true
 }
 

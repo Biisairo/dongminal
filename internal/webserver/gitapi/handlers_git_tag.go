@@ -220,7 +220,7 @@ func (s *GitServer) gitTagRemoteRoute(w http.ResponseWriter, r *http.Request, co
 func (s *GitServer) gitTagNameTaken(w http.ResponseWriter, r *http.Request, requested, root, name string) bool {
 	if err := write.CheckNewTagName(s.Git.Service(), r.Context(), root, name); err != nil {
 		if errors.Is(err, write.ErrTagExists) {
-			gitJSON(w, http.StatusConflict, map[string]any{
+			gitErrJSON(w, http.StatusConflict, gitErrTagExists, map[string]any{
 				"error":     gitErrTagExists,
 				"message":   "태그 " + name + " 가 이미 있다",
 				"requested": requested,

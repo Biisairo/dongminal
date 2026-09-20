@@ -185,10 +185,38 @@
 - **FR-SAF-11** gitapi 11곳이 `gitErrJSON` 을 지난다 (`rejectBody` ·
   preflight 409 · `gitApply` · branch 3 · commit_ops · ignore · operation ·
   `gitPushError` · stash · tag).
-- **FR-SAF-12** `fsFail` 이 `apierr.CodeHeader` 를 세운다. `jsonFail` 은
-  본문이 바이트 단위로 같으므로 `fsFail` 을 감싸는 형태로 줄인다.
-- **FR-SAF-13** 본문 읽기 실패 6곳이 `failRead` 를 쓴다 — 연결 절단을
-  `body_too_large` 로 답하지 않는다.
+- **FR-SAF-12** `fsFail` 이 `apierr.CodeHeader` 를 세운다. 한 줄이 `/api/fs/*` ·
+  `/api/editors/*` 의 오류 **전부**를 세운다.
+
+  > **뒷부분은 기각한다 (2026-09-20).** 착수 시 요구는 *"`jsonFail` 은 본문이
+  > 바이트 단위로 같으므로 `fsFail` 을 감싸는 형태로 줄인다"* 였다. 코드를 읽고
+  > **틀렸음을 확인했다.**
+  >
+  > 같은 것은 **본문뿐**이다. `jsonFail` 은 상태를 **호출자가 정하고**
+  > (`fail(http.StatusConflict, …)`), `fsFail` 은 `fsStatus(code)` 로 파생한다.
+  > 더 중요하게 `jsonFail` 은 `failFn` 타입의 구현 둘 중 하나이고 나머지 하나가
+  > 터미널 표면의 `textFail` 이다 (`handlers_files.go:84`) — `uploadInto` ·
+  > `serveDownload` 가 그 타입으로 두 표면을 공유한다. `fsFail` 로 줄이면 그
+  > 공유 추상이 깨지고 호출자가 고른 상태가 사라진다.
+  >
+  > `jsonFail` 은 **이미 헤더를 세우고 있다**(`handlers_files.go:100`). 고칠
+  > 것이 없었다.
+- **FR-SAF-13** 본문 읽기 실패 6곳이 **사유에 맞는 코드**를 낸다 — 연결 절단을
+  `body_too_big` 으로 답하지 않는다.
+
+  > **`failRead` 로 옮기지 않는다 (2026-09-20).** 착수 시 요구는 *"여섯 자리를
+  > `failRead(w, err)` 로 교체한다"* 였다. 코드를 읽고 **더 나쁜 결과**임을
+  > 확인했다.
+  >
+  > `failRead` 는 `fail` → `httpErr(…, "")` 를 지나며 코드를 **상태에서**
+  > 파생한다 (`CodeForStatus(413)` = `too_large`). 지금 이 여섯 자리는 413 에
+  > **`body_too_big`** 을 내고 있고 그쪽이 더 좁다 — `codes_doc.go` 가 두 코드에
+  > 서로 다른 복구 안내를 달아 두었기 때문이다. 옮기면 상한 초과의 안내가 덜
+  > 구체적인 쪽으로 **물러선다**.
+  >
+  > 그래서 고친 것은 **코드 선택**뿐이다. `bodyReadCode(err)` 가 상한 초과만
+  > `body_too_big` 으로, 나머지를 `bad_request` 로 가른다. 413 의 계약은 그대로다.
+  > `handlers_files.go` 두 곳의 `err.Error()` 누설도 함께 걷었다.
 
 ### 3.5 묶음 E — 스케줄러
 
