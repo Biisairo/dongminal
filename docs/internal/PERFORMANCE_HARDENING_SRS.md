@@ -1,6 +1,6 @@
 # SRS: 성능 15건을 재고 고치고, **재는 것을 남긴다** — IEEE 29148
 
-> **문서 상태**: 초안
+> **문서 상태**: 승인·구현완료
 
 - 접수: 2026-09-21 (프로덕션 승격 감사 1단계 · `docs/internal/refactor/` 214건 중 **묶음 B6**)
 - 선행: `SAFETY_CORRECTNESS_SRS`(B1) · `KIT_APPLICATION_SRS`(B2) · `KIT_COMPONENTS_SRS`(B3) ·
