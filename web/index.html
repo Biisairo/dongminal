@@ -141,8 +141,8 @@
         <!-- SANDBOX_WINDOW_SRS: 샌드박스 창은 `+ New` 의 변종이므로 버튼을
              따로 세우지 않고 그 안에 둔다. span 인 것은 button 안에 button 을
              넣을 수 없기 때문이며, 분기는 클릭 대상으로 한다. -->
-        <button id="add-window" class="ui-btn" title="New window"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg>New<span id="add-sandbox-window" data-i18n-title="html.sandbox_window_title"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-box"/></svg>Box</span></button>
-        <button id="add-preset" class="ui-btn" title="New window from default preset"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star"/></svg>Preset</button>
+        <button id="add-window" class="ui-btn" title="New window"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg><span class="ui-btn-label" data-i18n="html.btn_new">New</span><span id="add-sandbox-window" data-i18n-title="html.sandbox_window_title"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-box"/></svg><span class="ui-btn-label" data-i18n="html.btn_new_box">Box</span></span></button>
+        <button id="add-preset" class="ui-btn" title="New window from default preset"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star"/></svg><span class="ui-btn-label" data-i18n="html.btn_preset">Preset</span></button>
       </div>
       <div id="windows"></div>
     </div>
@@ -155,7 +155,7 @@
     <div class="sb-panel" id="sb-panel-repo" hidden>
       <!-- FR-BLP-8: `+ Add` 는 목록 **위**다 — `+ New` 와 같은 자리. -->
       <div class="sb-actions">
-        <button id="repo-add" class="ui-btn" title="Add a repository or folder"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg>Add</button>
+        <button id="repo-add" class="ui-btn" title="Add a repository or folder"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg><span class="ui-btn-label" data-i18n="html.btn_repo_add">Add</span></button>
       </div>
       <div id="repo-entries"></div>
       <div id="repo-root"></div>
@@ -184,25 +184,25 @@
       </span>
       <span class="spacer"></span>
       <button class="tbtn ui-btn" id="attn-badge" title="Tools waiting for your attention" aria-label="Tools waiting for your attention" style="display:none"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bell"/></svg><span class="attn-count">0</span></button>
-      <button class="tbtn ui-btn desktop-only" id="split-h" data-i18n-title="html.split_h_title" data-i18n-shortcut="splitH">Split H</button>
-      <button class="tbtn ui-btn desktop-only" id="split-v" data-i18n-title="html.split_v_title" data-i18n-shortcut="splitV">Split V</button>
+      <button class="tbtn ui-btn desktop-only" id="split-h" data-i18n-title="html.split_h_title" data-i18n-shortcut="splitH" data-i18n="html.btn_split_h">Split H</button>
+      <button class="tbtn ui-btn desktop-only" id="split-v" data-i18n-title="html.split_v_title" data-i18n-shortcut="splitV" data-i18n="html.btn_split_v">Split V</button>
       <!-- ORCHESTRATION_V2_SRS FR-RVZ-1: Run 시각화 진입점. Split V 와 Agents
            사이가 지정된 자리다. 리스너는 app-runs.js 가 붙인다. -->
-      <button class="tbtn ui-btn desktop-only" id="runs-btn" title="Run orchestration">Runs</button>
+      <button class="tbtn ui-btn desktop-only" id="runs-btn" title="Run orchestration" data-i18n="html.btn_runs">Runs</button>
       <!-- STATUS_BAR_REFLOW_SRS FR-SBR-8/12: Runs 와 Agents 사이. 이웃과 달리
            desktop-only 가 아니다 — 모바일에서 백그라운드 도구에 닿는 유일한
            통로다 (§2.5). 리스너는 app-statusbar.js 가 붙인다. -->
-      <button class="tbtn ui-btn" id="bg-btn" title="Tools running in the background">Background</button>
+      <button class="tbtn ui-btn" id="bg-btn" title="Tools running in the background" data-i18n="html.btn_background">Background</button>
       <!-- WINDOW_SLOTS_SRS FR-WSL-50: 창 **밖**을 쪼갠다 — 창 **안**을 쪼개는
            Split H·V 와 떨어진 자리다 (§7 R-3). 한계에 닿으면 비활성이 된다.
            리스너는 app-slots.js 가 붙인다. -->
       <span class="slot-ctl desktop-only">
         <button class="tbtn ui-btn ui-btn-icon ui-btn-sm" id="slot-remove" data-i18n-title="html.slot_remove_title" data-i18n-shortcut="slotRemove" aria-label="Remove a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-minus"/></svg></button>
-        <span class="slot-ctl-label">Slot</span>
+        <span class="slot-ctl-label" data-i18n="html.slot_label">Slot</span>
         <button class="tbtn ui-btn ui-btn-icon ui-btn-sm" id="slot-add" data-i18n-title="html.slot_add_title" data-i18n-shortcut="slotAdd" aria-label="Add a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></button>
       </span>
       <!-- FR-WSL-50: Agents 가 데스크톱 버튼 중 가장 오른쪽이다. -->
-      <button class="tbtn ui-btn ui-btn-attn desktop-only" id="agents-toggle" title="Show all agents in one place">Agents</button>
+      <button class="tbtn ui-btn ui-btn-attn desktop-only" id="agents-toggle" title="Show all agents in one place" data-i18n="html.btn_agents">Agents</button>
       <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-search-btn" title="Search in this terminal" aria-label="Search in this terminal"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg></button>
       <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-add-tab" title="New tab" aria-label="New tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></button>
       <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-drawer-toggle" title="Open the menu" aria-label="Open the menu"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button>
@@ -216,13 +216,13 @@
       <input id="search-input" type="text" data-i18n-placeholder="html.search_placeholder" aria-label="Search in this terminal">
       <button id="search-prev" class="ui-btn ui-btn-icon ui-btn-sm" title="Previous match (Shift+Enter)" aria-label="Previous match"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-up"/></svg></button>
       <button id="search-next" class="ui-btn ui-btn-icon ui-btn-sm" title="Next match (Enter)" aria-label="Next match"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-arrow-down"/></svg></button>
-      <button id="search-case" class="ui-btn ui-btn-sm" title="Match case">Aa</button>
+      <button id="search-case" class="ui-btn ui-btn-sm" title="Match case" data-i18n="html.search_case">Aa</button>
       <!-- `12-func-ui.md FUI-15`: 편집기 찾기 줄은 셋을 다 갖고 n/N 도 보인다
            (`file-editor-find.js`). 터미널만 `Aa` 하나였고 일치 수도 없었다 —
            같은 앱의 두 검색이 비대칭이었다. 벤더 addon 은 세 옵션과
            `onDidChangeResults` 를 이미 낸다. -->
-      <button id="search-word" class="ui-btn ui-btn-sm" title="Match whole word">ab</button>
-      <button id="search-regex" class="ui-btn ui-btn-sm" title="Use regular expression">.*</button>
+      <button id="search-word" class="ui-btn ui-btn-sm" title="Match whole word" data-i18n="html.search_word">ab</button>
+      <button id="search-regex" class="ui-btn ui-btn-sm" title="Use regular expression" data-i18n="html.search_regex">.*</button>
       <span id="search-count"></span>
       <button id="search-close" class="ui-btn ui-btn-icon ui-btn-sm ui-btn-ghost" title="Close (Esc)" aria-label="Close"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg></button>
     </div>
@@ -286,10 +286,10 @@
           <div class="theme-list ui-scroll-sm" id="theme-list"></div>
           <div class="theme-preview-panel" id="theme-preview"></div>
         </div>
-        <button id="custom-toggle" class="ui-btn" title="Toggle the custom theme editor"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-pencil"/></svg>Customize Current Theme</button>
+        <button id="custom-toggle" class="ui-btn" title="Toggle the custom theme editor"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-pencil"/></svg><span class="ui-btn-label" data-i18n="html.custom_toggle">Customize Current Theme</span></button>
         <div id="custom-editor" style="display:none">
-          <div class="ce-section"><div class="ce-title">UI Colors</div><div class="ce-colors" id="ce-ui"></div></div>
-          <div class="ce-section"><div class="ce-title">Terminal Colors</div><div class="ce-colors" id="ce-terminal"></div></div>
+          <div class="ce-section"><div class="ce-title" data-i18n="html.ce_ui">UI Colors</div><div class="ce-colors" id="ce-ui"></div></div>
+          <div class="ce-section"><div class="ce-title" data-i18n="html.ce_terminal">Terminal Colors</div><div class="ce-colors" id="ce-terminal"></div></div>
         </div>
       </div>
       <div class="mpanel" id="panel-shortcuts" style="display:none">
@@ -334,9 +334,9 @@
                  두 값의 이름은 트랙 **바깥 양쪽**에 마크업으로 그대로 적는다 — 바뀌지
                  않는 이름이고 자리도 고정이라 JS 가 채울 것이 없다. -->
             <span class="ds-switch" id="ds-slotdir">
-              <span class="ds-sw-lbl l">Horizontal</span>
+              <span class="ds-sw-lbl l" data-i18n="html.slotdir_h">Horizontal</span>
               <button type="button" role="switch" aria-checked="false"><i></i></button>
-              <span class="ds-sw-lbl r">Vertical</span>
+              <span class="ds-sw-lbl r" data-i18n="html.slotdir_v">Vertical</span>
             </span>
           </div>
           <div class="ds-hint" data-i18n="html.slot_dir_hint"></div>

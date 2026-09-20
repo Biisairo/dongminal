@@ -97,6 +97,10 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@node scripts/check-hardcoded-color.mjs
 	@echo "── 문구 카탈로그 (한글 리터럴이 카탈로그 밖에 없는가 · ko·en 이 한 벌인가)"
 	@node scripts/check-i18n.mjs
+	@echo "── 보이는 글자 (index.html 의 글자가 카탈로그를 지나는가)"
+	@node scripts/check-i18n-html.mjs
+	@echo "── 영어 리터럴 (이웃이 번역되는데 자기만 영어인 자리가 없는가)"
+	@node scripts/check-i18n-literal.mjs
 	@echo "gates ok"
 
 # ── 전량 e2e 의 용량 (M10_SRS FR-M10-5 · D-M10-6) ───────────────────────────

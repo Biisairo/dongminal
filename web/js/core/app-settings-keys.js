@@ -13,7 +13,7 @@ Object.assign(App.prototype, {
       // FR-M9-25: 보던 자리 오가기. 창 묶음 바로 아래다 — 창을 넘나드는 일이다.
       {label:t('keys.group_focus_nav'),keys:['focusBack','focusForward']},
       {label:t('keys.group_tab'),keys:['tabNext','tabPrev','newTab','closeTab']},
-      {label:'Pane',keys:['paneUp','paneDown','paneLeft','paneRight']},
+      {label:t('keys.group_pane'),keys:['paneUp','paneDown','paneLeft','paneRight']},
       // FR-WSL-51: 창 **안**의 분할과 창 **밖**의 슬롯은 다른 것이다 (§7 R-3).
       // 같은 그룹에 두되 라벨이 그 차이를 말한다.
       {label:t('keys.group_split'),keys:['splitH','splitV','slotAdd','slotRemove','slotPrev','slotNext']},

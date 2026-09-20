@@ -155,7 +155,7 @@ Object.assign(App.prototype, {
   _updateBgBtn(){
     const btn=document.getElementById('bg-btn');if(!btn)return;
     const n=(this._bg&&this._bg.length)||0;
-    btn.textContent=n?`Background ${n}`:'Background';
+    btn.textContent=n?t('html.btn_background_n',{n}):t('html.btn_background');
     // FR-TIP-2: 툴팁은 영어다. 배지의 숫자는 그대로 — 바뀌는 것은 title 뿐이다.
     btn.title=n?`${n} tool${n===1?'':'s'} running in the background`
               :'No tools running in the background';

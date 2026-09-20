@@ -30,7 +30,7 @@ const GIT_BR_NEW='+ New Branch';
 const GIT_BR_NEW_TITLE='Create a new branch from the current HEAD';
 const GIT_BR_EMPTY=t('git.br_empty');
 const GIT_BR_LOAD_FAIL=t('git.br_load_fail');
-const GIT_BR_RETRY='Retry';
+const GIT_BR_RETRY=t('git.act.br_retry');
 // 즐겨찾기는 workspace.json 최상위 git.favorites[<repo>] 다 (O13). 접힘 상태는
 // 기기별 취향이라 localStorage 다 (FR-GIT-150) — 실제 키는 <이것>:<repo>.
 const GIT_BR_FAV_FIELD='favorites';
@@ -44,7 +44,7 @@ const GIT_BR_PREFIX_SEP='/';
 
 // FR-GIT-155·156: checkout. 원격 ref 는 같은 이름의 로컬을 만들며 추적을 설정한다 —
 // 그러므로 두 항목은 뜻이 다르고, 어느 쪽이 왜 막혔는지 사유로 알린다.
-const GIT_BR_CHECKOUT_LOCAL='Checkout as local';
+const GIT_BR_CHECKOUT_LOCAL=t('git.act.br_checkout_local');
 const GIT_MENU_CURRENT=t('git.menu_current');
 const GIT_MENU_REMOTE_REF=t('git.menu_remote_ref');
 const GIT_MENU_LOCAL_ONLY=t('git.menu_local_only');
@@ -84,7 +84,7 @@ const GIT_BR_CREATE_TITLE=t('git.br_create_title');
 const GIT_BR_NAME_PLACEHOLDER=t('git.br_name_placeholder');
 const GIT_BR_START_PLACEHOLDER=t('git.br_start_placeholder');
 const GIT_BR_CREATE_CHECKOUT=t('git.br_create_checkout');
-const GIT_BR_CREATE_RUN='Create';
+const GIT_BR_CREATE_RUN=t('git.act.br_create_run');
 const GIT_BR_WHY_EMPTY=t('git.br_why_empty');
 const GIT_BR_WHY_EXISTS=t('git.br_why_exists');
 const GIT_BR_VALIDATE_FAIL=t('git.br_validate_fail');
@@ -113,12 +113,12 @@ const GIT_STASH_CREATE_TITLE=t('git.stash_create_title');
 const GIT_STASH_MSG_PLACEHOLDER=t('git.stash_msg_placeholder');
 const GIT_STASH_OPT_UNTRACKED=t('git.stash_opt_untracked');
 const GIT_STASH_OPT_KEEPINDEX=t('git.stash_opt_keepindex');
-const GIT_STASH_CREATE_RUN='Create';
+const GIT_STASH_CREATE_RUN=t('git.act.stash_create_run');
 // 우클릭 항목 (FR-GIT-162~164·168)
-const GIT_STASH_APPLY='Apply';
-const GIT_STASH_APPLY_INDEX='Apply (--index)';
-const GIT_STASH_POP='Pop';
-const GIT_STASH_DROP='Drop';
+const GIT_STASH_APPLY=t('git.act.stash_apply');
+const GIT_STASH_APPLY_INDEX=t('git.act.stash_apply_index');
+const GIT_STASH_POP=t('git.act.stash_pop');
+const GIT_STASH_DROP=t('git.act.stash_drop');
 // FR-GIT-168: drop 은 파괴적이다. 이름은 서버의 파괴적 목록(/api/git/policy)의
 // 키이며, 목록을 프론트에 복제하지 않는다.
 const GIT_ACT_STASH_DROP='stash_drop';

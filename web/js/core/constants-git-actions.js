@@ -76,7 +76,7 @@ const GIT_MENU_OP_BUSY=t('git.menu_op_busy');
 
 // ── Console 의 검색·replay (GIT_ACTIONS_SRS §3.8 / FR-GIT-281) ──
 const GIT_CON_SEARCH_PH=t('git.con_search_ph');
-const GIT_CON_REPLAY='Replay';
+const GIT_CON_REPLAY=t('git.act.con_replay');
 // 확인창의 제목이다 — 사용자가 **읽는** 글자이므로 한국어다 (FR-TIP-3).
 // 버튼의 툴팁은 `GIT_TIP_CON_REPLAY` 가 따로 든다 (FR-TIP-2).
 const GIT_CON_REPLAY_TITLE=t('git.con_replay_title');
@@ -91,7 +91,7 @@ const GIT_CON_SEARCH_NONE=t('git.con_search_none');
 const GIT_TAG_NEW=t('git.tag_new');
 const GIT_TAG_CREATE_AT=t('git.tag_create_at');
 const GIT_TAG_CREATE_TITLE=t('git.tag_create_title');
-const GIT_TAG_CREATE_RUN='Create Tag';
+const GIT_TAG_CREATE_RUN=t('git.act.tag_create_run');
 const GIT_TAG_NAME_PH=t('git.tag_name_ph');
 const GIT_TAG_REF_PH=t('git.tag_ref_ph');
 const GIT_TAG_MSG_PH=t('git.tag_msg_ph');
@@ -115,10 +115,10 @@ const GIT_TAG_WHY_NEED_MSG=t('git.tag_why_need_msg');
 const GIT_TAG_VALIDATE_FAIL=t('git.tag_validate_fail');
 // 메뉴 항목 (FR-GIT-261·262). 로컬과 원격은 **다른 항목**이다 — 하나가 다른 하나를
 // 자동으로 하지 않는다.
-const GIT_TAG_PUSH='Push to remote';
-const GIT_TAG_PUSH_ALL='Push all tags';
-const GIT_TAG_DELETE='Delete (local)';
-const GIT_TAG_DELETE_REMOTE='Delete (remote)';
+const GIT_TAG_PUSH=t('git.act.tag_push');
+const GIT_TAG_PUSH_ALL=t('git.act.tag_push_all');
+const GIT_TAG_DELETE=t('git.act.tag_delete');
+const GIT_TAG_DELETE_REMOTE=t('git.act.tag_delete_remote');
 // 확인 (FR-GIT-89·92). 이름은 서버의 파괴적 목록(/api/git/policy)의 키이며 목록을
 // 복제하지 않는다.
 const GIT_ACT_TAG_DELETE='tag_delete';
@@ -147,11 +147,11 @@ const GIT_REMOTE_URL={
 // `warn`/`destructive` 선언만 하면 GitMenu 가 GitDialog/GitConfirm 을 거친다.
 
 // stash 우클릭 (FR-GIT-272)
-const GIT_STASH_BRANCH='Branch from stash…';
+const GIT_STASH_BRANCH=t('git.act.stash_branch');
 const GIT_STASH_COPY_NAME=t('git.stash_copy_name');
 const GIT_STASH_COPY_HASH=t('git.stash_copy_hash');
 const GIT_STASH_BRANCH_TITLE=t('git.stash_branch_title');
-const GIT_STASH_BRANCH_RUN='Create';
+const GIT_STASH_BRANCH_RUN=t('git.act.stash_branch_run');
 const GIT_STASH_BRANCH_NAME_PH=t('git.stash_branch_name_ph');
 const GIT_STASH_BRANCH_NEED_NAME=t('git.stash_branch_need_name');
 // stash 목록 필터 (FR-GIT-272). 메시지와 기준 브랜치를 함께 본다.
@@ -159,13 +159,13 @@ const GIT_STASH_FILTER_PH=t('git.stash_filter_ph');
 const GIT_STASH_FILTER_NONE=t('git.stash_filter_none');
 
 // 파일 우클릭 (FR-GIT-273·274·275)
-const GIT_FILE_IGNORE='Add to .gitignore';
-const GIT_FILE_OPEN_HEAD='Open File (HEAD)';
-const GIT_FILE_HISTORY='File history';
+const GIT_FILE_IGNORE=t('git.act.file_ignore');
+const GIT_FILE_OPEN_HEAD=t('git.act.file_open_head');
+const GIT_FILE_HISTORY=t('git.act.file_history');
 
 // Blame (FR-GIT-276). 고정 탭을 늘리지 않고 Diff 탭의 **모드**로 둔다 (D8) —
 // Diff 탭이 Monaco·파일 선택·큰 파일 잘림 규약을 이미 들고 있다.
-const GIT_FILE_BLAME='Blame';
+const GIT_FILE_BLAME=t('git.act.file_blame');
 const GIT_BLAME_TOGGLE='Blame';
 const GIT_BLAME_TOGGLE_TITLE='Show which commit each line came from';
 const GIT_BLAME_LOADING=t('git.blame_loading');
@@ -182,9 +182,9 @@ const GIT_HEAD_OPEN_FAIL=t('git.head_open_fail');
 const GIT_HEAD_TAB_SUFFIX=' (HEAD)';
 
 // 미커밋 행 (FR-GIT-277). Clean 만 파괴적이다.
-const GIT_UNC_STASH='Stash…';
-const GIT_UNC_RESET='Reset (mixed)';
-const GIT_UNC_CLEAN='Clean';
+const GIT_UNC_STASH=t('git.act.unc_stash');
+const GIT_UNC_RESET=t('git.act.unc_reset');
+const GIT_UNC_CLEAN=t('git.act.unc_clean');
 const GIT_ACT_CLEAN_UNTRACKED='clean_untracked';
 const GIT_UNC_CLEAN_TITLE=t('git.unc_clean_title');
 // 되살릴 수 없으므로 hint 는 되돌리는 명령이 아니라 **먼저 담아 두는** 명령이다
@@ -256,7 +256,7 @@ const GIT_RM_ADD='+ Add Remote';
 const GIT_RM_ADD_TITLE='Add a new remote (git remote add)';
 const GIT_RM_EMPTY=t('git.rm_empty');
 const GIT_RM_LOAD_FAIL=t('git.rm_load_fail');
-const GIT_RM_REMOVE='Remove';
+const GIT_RM_REMOVE=t('git.act.rm_remove');
 
 const GIT_RM_PUSH_PREFIX='push → ';
 // 자격증명이 박힌 URL 은 그 자리가 가려져 온다. 가려졌다는 사실을 말하지 않으면
@@ -265,7 +265,7 @@ const GIT_RM_MASK='***';
 const GIT_RM_MASK_TITLE=t('git.rm_mask_title');
 // 생성 다이얼로그 (FR-GIT-171 의 골격을 그대로 쓴다).
 const GIT_RM_CREATE_TITLE=t('git.rm_create_title');
-const GIT_RM_CREATE_RUN='Add';
+const GIT_RM_CREATE_RUN=t('git.act.rm_create_run');
 const GIT_RM_NAME_PH=t('git.rm_name_ph');
 const GIT_RM_URL_PH=t('git.rm_url_ph');
 const GIT_RM_WHY_NAME=t('git.rm_why_name');
@@ -284,12 +284,12 @@ const GIT_RM_REMOVE_FAIL=t('git.rm_remove_fail');
 // (FR-GIT-202). 파괴 여부는 **옵션에서 파생한다** — `reset --soft` 는 안전하고
 // `--hard` 는 아니므로 항목 하나가 두 성질을 갖는다 (FR-GIT-250.1).
 
-const GIT_CO_CHERRY_LABEL='Cherry-pick';
-const GIT_CO_REVERT_LABEL='Revert…';
-const GIT_CO_RESET_LABEL='Reset to here…';
-const GIT_CO_DROP_LABEL='Drop';
+const GIT_CO_CHERRY_LABEL=t('git.act.co_cherry_label');
+const GIT_CO_REVERT_LABEL=t('git.act.co_revert_label');
+const GIT_CO_RESET_LABEL=t('git.act.co_reset_label');
+const GIT_CO_DROP_LABEL=t('git.act.co_drop_label');
 const GIT_CO_MARK_LABEL=t('git.co_mark_label');
-const GIT_CO_COMPARE_LABEL='Compare with…';
+const GIT_CO_COMPARE_LABEL=t('git.act.co_compare_label');
 
 // 항목이 막히는 사유. `gitOpBusy()` 다음에 오는 그 항목만의 사유다 (FR-GIT-252).
 const GIT_CO_WHY_IS_HEAD=t('git.co_why_is_head');
@@ -303,14 +303,14 @@ const GIT_CO_MAINLINE_OPT=t('git.co_mainline_opt');
 const GIT_CO_CONFLICT_NOTE=t('git.co_conflict_note');
 
 const GIT_CO_CHERRY_TITLE=t('git.co_cherry_title');
-const GIT_CO_CHERRY_RUN='Cherry-pick';
+const GIT_CO_CHERRY_RUN=t('git.act.co_cherry_run');
 const GIT_CO_REVERT_TITLE=t('git.co_revert_title');
-const GIT_CO_REVERT_RUN='Revert';
+const GIT_CO_REVERT_RUN=t('git.act.co_revert_run');
 const GIT_CO_REVERT_NOCOMMIT=t('git.co_revert_nocommit');
 
 // Reset to here (FR-GIT-265). 첫 선택지가 기본이고 파괴적인 것이 마지막이다 (O14).
 const GIT_CO_RESET_TITLE=t('git.co_reset_title');
-const GIT_CO_RESET_RUN='Reset';
+const GIT_CO_RESET_RUN=t('git.act.co_reset_run');
 const GIT_CO_RESET_MODE_LABEL=t('git.co_reset_mode_label');
 // 값은 서버의 `write.ResetModes` 와 같은 문자열이어야 한다. 순서가 제시 순서이고
 // **첫 값이 기본**이다 (FR-GIT-173) — 파괴적인 것이 마지막이다.
@@ -335,7 +335,7 @@ const GIT_CO_DROP_NOTE=t('git.co_drop_note');
 // Compare with (FR-GIT-267). **새 축을 만들지 않는다** — 두 리비전은 이미 있는
 // commit ↔ parent 축(FR-GIT-138)의 두 끝으로 그대로 들어간다.
 const GIT_CO_COMPARE_TITLE=t('git.co_compare_title');
-const GIT_CO_COMPARE_RUN='Compare';
+const GIT_CO_COMPARE_RUN=t('git.act.co_compare_run');
 const GIT_CO_COMPARE_THIS=t('git.co_compare_this');
 const GIT_CO_COMPARE_MARKED=t('git.co_compare_marked');
 const GIT_CO_COMPARE_REV_PH=t('git.co_compare_rev_ph');
@@ -358,16 +358,16 @@ GIT_WRITE_ERR.reset_mode_invalid=t('git.write_err.reset_mode_invalid');
 
 // 메뉴 항목의 라벨. 로컬과 원격은 **뜻이 다른 항목**이라 같은 메뉴에 함께 서고,
 // 어느 쪽이 왜 막혔는지는 사유로 알린다 (checkout·checkout-local 과 같은 규약).
-const GIT_BR_RENAME='Rename…';
-const GIT_BR_DELETE='Delete';
-const GIT_BR_MERGE='Merge into current';
-const GIT_BR_REBASE='Rebase onto…';
-const GIT_BR_SET_UPSTREAM='Set upstream…';
-const GIT_BR_UNSET_UPSTREAM='Unset upstream';
-const GIT_BR_PUSH='Push';
-const GIT_BR_CREATE_FROM='Create Branch from…';
-const GIT_BR_REMOTE_FETCH='Fetch into local';
-const GIT_BR_REMOTE_DELETE='Delete remote branch';
+const GIT_BR_RENAME=t('git.act.br_rename');
+const GIT_BR_DELETE=t('git.act.br_delete');
+const GIT_BR_MERGE=t('git.act.br_merge');
+const GIT_BR_REBASE=t('git.act.br_rebase');
+const GIT_BR_SET_UPSTREAM=t('git.act.br_set_upstream');
+const GIT_BR_UNSET_UPSTREAM=t('git.act.br_unset_upstream');
+const GIT_BR_PUSH=t('git.act.br_push');
+const GIT_BR_CREATE_FROM=t('git.act.br_create_from');
+const GIT_BR_REMOTE_FETCH=t('git.act.br_remote_fetch');
+const GIT_BR_REMOTE_DELETE=t('git.act.br_remote_delete');
 
 // 비활성 사유. 왜 못 누르는지 보이지 않으면 사용자는 고장으로 읽는다 (FR-GIT-180).
 const GIT_BR_LOCAL_ONLY=t('git.br_local_only');
@@ -376,7 +376,7 @@ const GIT_BR_WHY_NO_UPSTREAM=t('git.br_why_no_upstream');
 
 // Rename (FR-GIT-253). 이름 검사는 생성 다이얼로그와 **같은 자리**를 쓴다.
 const GIT_BR_RENAME_TITLE=t('git.br_rename_title');
-const GIT_BR_RENAME_RUN='Rename';
+const GIT_BR_RENAME_RUN=t('git.act.br_rename_run');
 const GIT_BR_RENAME_PLACEHOLDER=t('git.br_rename_placeholder');
 
 // Delete (FR-GIT-254). action 은 서버의 파괴적 목록(/api/git/policy)의 키다 —
@@ -385,7 +385,7 @@ const GIT_ACT_BRANCH_DELETE='branch_delete';
 const GIT_BR_DELETE_TITLE=t('git.br_delete_title');
 // BRANCH_MENU_UNIFY_SRS FR-BMU-10: 로컬과 원격을 한 번에. 별도 항목인 것이 요점이다
 // — FR-GIT-261 의 "하나가 다른 하나를 자동으로 하지 않는다" 는 그대로 지켜진다.
-const GIT_BR_DELETE_BOTH='Delete (local + remote)';
+const GIT_BR_DELETE_BOTH=t('git.act.br_delete_both');
 const GIT_BR_DELETE_BOTH_TITLE=t('git.br_delete_both_title');
 const GIT_BR_DELETE_BOTH_NOTE=t('git.br_delete_both_note');
 const GIT_BR_DELETE_BOTH_FAIL=t('git.br_delete_both_fail');
@@ -401,7 +401,7 @@ const GIT_BR_SEL_TITLE=t('git.br_sel_title');
 
 // Merge (FR-GIT-255). 다이얼로그는 **영향 범위를 먼저 보인다** (G11).
 const GIT_BR_MERGE_TITLE=t('git.br_merge_title');
-const GIT_BR_MERGE_RUN='Merge';
+const GIT_BR_MERGE_RUN=t('git.act.br_merge_run');
 // 첫 선택지가 기본이고 그것이 안전한 쪽이다 (FR-GIT-97·173).
 const GIT_BR_MERGE_FIELDS=[
   {key:'mode',type:GIT_DIALOG_RADIO,label:t('git.br_merge_fields.mode_label'),opts:[
@@ -430,7 +430,7 @@ const GIT_BR_REBASE_NOTE=t('git.br_rebase_note');
 // Set / Unset upstream (FR-GIT-257). 대상 목록은 **이미 받아 둔 원격 ref 목록**에서
 // 온다 — 새 조회를 만들지 않는다.
 const GIT_BR_UPSTREAM_TITLE=t('git.br_upstream_title');
-const GIT_BR_UPSTREAM_RUN='Set';
+const GIT_BR_UPSTREAM_RUN=t('git.act.br_upstream_run');
 const GIT_BR_UPSTREAM_PLACEHOLDER=t('git.br_upstream_placeholder');
 const GIT_BR_UPSTREAM_WHY_EMPTY=t('git.br_upstream_why_empty');
 const GIT_BR_UPSTREAM_WHY_UNKNOWN=t('git.br_upstream_why_unknown');

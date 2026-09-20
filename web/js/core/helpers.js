@@ -409,7 +409,8 @@ const SHORTCUT_LABELS={
   focusBack:t('shortcut.focus_back'),focusForward:t('shortcut.focus_forward'),
   windowNext:t('shortcut.window_next'),windowPrev:t('shortcut.window_prev'),
   tabNext:t('shortcut.tab_next'),tabPrev:t('shortcut.tab_prev'),
-  paneUp:'Pane ↑',paneDown:'Pane ↓',paneLeft:'Pane ←',paneRight:'Pane →',
+  paneUp:t('shortcut.pane_up'),paneDown:t('shortcut.pane_down'),
+  paneLeft:t('shortcut.pane_left'),paneRight:t('shortcut.pane_right'),
   splitH:t('shortcut.split_h'),splitV:t('shortcut.split_v'),
   newWindow:t('shortcut.new_window'),newTab:t('shortcut.new_tab'),
   closeWindow:t('shortcut.close_window'),closeTab:t('shortcut.close_tab'),
@@ -491,7 +492,7 @@ const STATUS_ITEMS={
   // 보지 않는다.
   memory:{label:t('statusbar.memory'),def:true},
   hostname:{label:t('statusbar.hostname'),def:false},
-  cpu:{label:'CPU',def:false},
+  cpu:{label:t('statusbar.cpu'),def:false},
   disk:{label:t('statusbar.disk'),def:false},
   termsize:{label:t('statusbar.termsize'),def:false},
   uptime:{label:t('statusbar.uptime'),def:false},

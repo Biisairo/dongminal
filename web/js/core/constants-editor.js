@@ -9,7 +9,7 @@
 // REPO_TAB_UNIFY_SRS FR-RTU-1: `Git` 과 `Editor` 두 탭이 **하나**가 됐다. 목록이
 // 이미 같은 집합이었으므로(§2.1) 화면만 둘로 그리고 있었던 셈이다.
 const REPO_TAB_ID='repo';
-const REPO_TAB_LABEL='Repo';
+const REPO_TAB_LABEL=t('editor.act.repo_tab_label');
 const REPO_PANEL_ID='sb-panel-repo';
 const REPO_LIST_ID='repo-entries';
 const REPO_ROOT_ID='repo-root';

@@ -53,7 +53,7 @@ const GIT_HIST_FILTERS=[
   {key:'until', label:'Until'},
   {key:'path',  label:'Path'},
 ];
-const GIT_HIST_APPLY='Apply';
+const GIT_HIST_APPLY=t('git.act.hist_apply');
 // FR-TIP-1: `Apply`·`Go` 만으로는 무엇에 적용하고 어디로 가는지 보이지 않는다.
 const GIT_HIST_APPLY_TITLE='Apply these filters to the history list';
 // HISTORY_BRANCH_BUTTON_SRS FR-HBB-3: 같은 바의 라벨은 같은 자리에 모인다.

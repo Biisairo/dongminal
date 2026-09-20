@@ -43,25 +43,25 @@ const GIT_JOB_OK=t('git.job_ok');
 const GIT_JOB_FAIL=t('git.job_fail');
 const GIT_JOB_CANCELED=t('git.job_canceled');
 const GIT_JOB_CANCELING=t('git.job_canceling');
-const GIT_JOB_CLOSE='Close';
+const GIT_JOB_CLOSE=t('git.act.job_close');
 // REPO_TAB_UNIFY_SRS FR-RTU-100: 로그 접기 토글. 폭이 줄어도 자리가 고정인 유일한
 // 계기이므로 라벨도 한 글자여야 한다 — 글자가 길면 그것이 다시 폭을 다툰다.
 const GIT_JOB_FOLD_OPEN='\u25be';
 const GIT_JOB_FOLD_CLOSED='\u25b8';
 
-const GIT_JOB_COPY='Copy Output';
+const GIT_JOB_COPY=t('git.act.job_copy');
 const GIT_JOB_STREAM_FAIL=t('git.job_stream_fail');
 const GIT_JOB_START_FAIL=t('git.job_start_fail');
 // FR-GIT-102: 취소는 **부분 적용 가능성을 알린다** — 원격에 절반이 올라간 뒤
 // 끊길 수 있다. 그 사실을 확인 문구에 명시한다.
 const GIT_ACT_JOB_CANCEL='job_cancel';
-const GIT_JOB_CANCEL='Cancel';
+const GIT_JOB_CANCEL=t('git.act.job_cancel');
 const GIT_JOB_CANCEL_TITLE=t('git.job_cancel_title');
 const GIT_JOB_CANCEL_NOTE=t('git.job_cancel_note');
 // FR-GIT-104: **자격증명을 받지 않는다.** 입력을 만들지 않고 터미널에서 수행하도록
 // 안내만 한다 — 만들지 않는 것이 유일한 보장이다.
 const GIT_JOB_AUTH_NOTE=t('git.job_auth_note');
-const GIT_JOB_AUTH_COPY='Copy Command';
+const GIT_JOB_AUTH_COPY=t('git.act.job_auth_copy');
 // FR-GIT-105: 선택지는 **서버가 준 순서 그대로** 그린다. 순서가 곧 우선순위이고
 // force 는 마지막이며 강조하지 않는다.
 const GIT_JOB_REJECT_NOTE=t('git.job_reject_note');
@@ -122,7 +122,7 @@ const GIT_WT_DETACHED='detached';
 const GIT_WT_MAIN='main';
 // 소유 표식 (FR-GIT-240). **사용자 것은 표식이 없다** — 그것이 기본이기 때문이다.
 // 이모지를 쓰지 않는다 (FR-GIT-187·192).
-const GIT_WT_OWN_LABEL={run:'Run',outside:t('git.wt_own_label.outside')};
+const GIT_WT_OWN_LABEL={run:t('git.wt_own_label.run'),outside:t('git.wt_own_label.outside')};
 const GIT_WT_OWN_TITLE={
   run:t('git.wt_own_title.run'),
   outside:t('git.wt_own_title.outside'),
@@ -211,7 +211,7 @@ const GIT_SUB_CANCEL_TITLE=t('git.sub_cancel_title');
 const GIT_SUB_CANCEL_NOTE=t('git.sub_cancel_note');
 
 const GIT_WT_CREATE_TITLE=t('git.wt_create_title');
-const GIT_WT_CREATE_RUN='Create';
+const GIT_WT_CREATE_RUN=t('git.act.wt_create_run');
 const GIT_WT_NAME_PH=t('git.wt_name_ph');
 const GIT_WT_REF_PH=t('git.wt_ref_ph');
 const GIT_WT_OPT_NEWBRANCH=t('git.wt_opt_newbranch');

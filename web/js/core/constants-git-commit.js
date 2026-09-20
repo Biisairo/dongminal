@@ -18,7 +18,7 @@ const GIT_COMMIT_HEIGHT_KEY='gitCommitHeight';
 // FR-GIT-75 · O6: draft 는 ws.git.drafts[<repo>] 다. 입력이 멈춘 뒤 저장한다 —
 // 키 하나마다 PUT 을 보내지 않는다.
 const GIT_COMMIT_DRAFT_DEBOUNCE_MS=300;
-const GIT_COMMIT_BTN='Commit';
+const GIT_COMMIT_BTN=t('git.act.commit_btn');
 const GIT_COMMIT_MORE='▾';
 // FR-TIP-1: `▾` 만으로는 무엇이 열리는지 보이지 않는다.
 const GIT_COMMIT_MORE_TITLE='More commit options';
@@ -58,12 +58,12 @@ const GIT_COMMIT_RUNNING=t('git.commit_running');
 // FR-GIT-81·83 · O7: 5초 고정. 만료는 서버 토큰이 함께 강제한다.
 const GIT_UNDO_MS=5000;
 const GIT_UNDO_TEXT=t('git.undo_text');
-const GIT_UNDO_LABEL='Undo';
+const GIT_UNDO_LABEL=t('git.act.undo_label');
 const GIT_UNDO_FAIL=t('git.undo_fail');
 // FR-GIT-88: 무엇이 왜 막혔고 어떻게 푸는지를 함께 보인다. Fix 는 복사 가능하다.
 const GIT_PREFLIGHT_TITLE=t('git.preflight_title');
 const GIT_PREFLIGHT_FIX=t('git.preflight_fix');
-const GIT_PREFLIGHT_COPY='Copy';
+const GIT_PREFLIGHT_COPY=t('git.act.preflight_copy');
 // FR-GIT-87: 막지 않고 알린다. 파괴적이 아니므로 1단계 확인이다.
 const GIT_ACT_DETACHED='commit_detached';
 const GIT_DETACHED_TITLE=t('git.detached_title');
@@ -80,7 +80,7 @@ const GIT_ERR_UNDO_EXPIRED='undo_expired';
 // 다음 걸음이 없어졌다 (FR-COS-4).
 
 const GIT_CONFIRM_TITLE=t('git.confirm_title');
-const GIT_CONFIRM_RUN='Run';
+const GIT_CONFIRM_RUN=t('git.act.confirm_run');
 const GIT_CONFIRM_CANCEL='Cancel';
 const GIT_CONFIRM_COPY='Copy';
 const GIT_CONFIRM_HINT_LABEL=t('git.confirm_hint_label');
@@ -89,7 +89,7 @@ const GIT_CONFIRM_HINT_LABEL=t('git.confirm_hint_label');
 const GIT_CONFIRM_RUN_TITLE='Run the command shown above';
 const GIT_CONFIRM_CANCEL_TITLE='Close without running anything';
 const GIT_CONFIRM_COPY_TITLE='Copy this command to the clipboard';
-const GIT_CONFIRM_RUNNING='Running…';
+const GIT_CONFIRM_RUNNING=t('git.act.confirm_running');
 const GIT_CONFIRM_FAIL=t('git.confirm_fail');
 // FR-GIT-92: 값을 얻지 못한 hint 를 조용히 빈 칸으로 두지 않는다.
 const GIT_CONFIRM_NO_HINT=t('git.confirm_no_hint');

@@ -485,7 +485,7 @@ const CLOSE_DIRTY_MSG=t('core.close_dirty_msg');
 // 되돌린다. 유예는 git Undo 와 같은 5초다. `%s` 는 창 이름.
 const WINDOW_CLOSE_UNDO_MS=5000;
 const WINDOW_CLOSE_UNDO_TEXT=t('core.window_close_undo_text');
-const WINDOW_CLOSE_UNDO_LABEL='Undo';
+const WINDOW_CLOSE_UNDO_LABEL=t('core.act.window_close_undo_label');
 const WINDOW_CLOSE_UNDO_TITLE='Bring the window and its shells back';
 
 // ── 툴팁 (UX_BATCH5_SRS 묶음 C / FR-TIP-1·2·4) ──

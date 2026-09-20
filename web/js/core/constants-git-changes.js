@@ -325,7 +325,7 @@ const GIT_DISCARD_NOTE_DEL=t('git.discard_note_del');
 // 조용히 넘기지 않는 것이 요구사항이고, 그것을 이 안내가 맡는다.
 const GIT_PARTIAL_NOTE=t('git.partial_note');
 const GIT_WRITE_FAIL=t('git.write_fail');
-const GIT_NOTE_CLOSE='Close';
+const GIT_NOTE_CLOSE=t('git.act.note_close');
 //
 // 아래는 라벨이 한두 낱말이라 **무엇을** 하는지 말하지 않는 버튼들이다. 각 상수는
 // 그 라벨 옆이 아니라 여기 모여 산다 (FR-TIP-4).

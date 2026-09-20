@@ -103,7 +103,7 @@ const GIT_DIFF_WS_KEY='gitDiffIgnoreWs';
 // EDITOR_GIT_UX_SRS FR-DOR-3·4: 변경 없는 구간의 접기. 기본은 **꺼짐**이다
 // (FR-DOR-2) — 접으면 개요 눈금의 위치가 실제 파일의 줄 위치와 어긋난다.
 const GIT_DIFF_FOLD_KEY='gitDiffHideUnchanged';
-const GIT_DIFF_FOLD_LABEL='Fold Unchanged';
+const GIT_DIFF_FOLD_LABEL=t('git.act.diff_fold_label');
 const GIT_DIFF_MODE_LABEL={side:'side-by-side',inline:'unified'};
 // FR-TIP-1: 라벨이 지금 **무엇인지**를 말하므로, 누르면 무엇이 되는지는 툴팁이
 // 말한다 — 라벨만으로는 그것이 상태인지 동작인지 알 수 없다.
@@ -111,7 +111,7 @@ const GIT_DIFF_MODE_TITLE='Switch between side-by-side and unified diff';
 // 파일 사이를 오가는 화살표. `\u2039`·`\u203a` 만으로는 무엇의 이전·다음인지
 // 보이지 않는다.
 const GIT_DIFF_NAV_TITLE={prev:'Previous changed file',next:'Next changed file'};
-const GIT_DIFF_WS_LABEL='Ignore Whitespace';
+const GIT_DIFF_WS_LABEL=t('git.act.diff_ws_label');
 // FR-GIT-55: Monaco 로드 실패는 Git 창의 나머지를 멈추지 않는다 — diff 자리에만
 // 사유를 보인다.
 //
@@ -147,7 +147,7 @@ const GIT_DIFF_ERR={
 //
 // 폴링(FR-GIT-18~24)은 1초에 한 번 기록되므로 거르지 않으면 목록이 그것으로만
 // 찬다. 기본은 쓰기와 실패만 보이고, 토글이 읽기까지 연다.
-const GIT_CON_READS_LABEL='Show Reads';
+const GIT_CON_READS_LABEL=t('git.act.con_reads_label');
 const GIT_CON_REFRESH='Refresh';
 // FR-TIP-1: 무엇을 다시 받는지가 라벨에 없다 — 머리의 `⟳` 와 대상이 다르다.
 const GIT_CON_REFRESH_TITLE='Reload the list of git commands this app has run';

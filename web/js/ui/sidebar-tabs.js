@@ -33,7 +33,7 @@ const SB_TAB_KEY='sidebarTab'; // FR-SBT-6: 보는 방식은 클라이언트의 
  */
 const SB_TAB_DEFS=[
   {
-    id:'windows',label:'Windows',icon:'terminal',panelId:'sb-panel-windows',
+    id:'windows',label:t('sidebar.tab_windows'),icon:'terminal',panelId:'sb-panel-windows',
     // FR-TIP-1·2: 무슨 탭인지 영어로 알린다. 라벨만으로는 이 목록이
     // **무엇의** 목록인지 처음 보는 사용자에게 보이지 않는다.
     title:'Terminal windows in this workspace',

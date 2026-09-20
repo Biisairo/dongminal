@@ -114,13 +114,13 @@ const GIT_MENUS={
   // 파일 (S1 목록 / History 상세 목록). 저장소를 바꾸는 항목이 하나도 없다
   // (FR-GIT-41) — 5단계의 GIT_CTX_ITEMS 를 그대로 옮긴 것이다.
   file:[
-    {id:'openChanges',label:'Open Changes',run:t=>gitMenuPanel().openFileDiff(t)},
+    {id:'openChanges',label:t('git.menu.file_open_changes'),run:t=>gitMenuPanel().openFileDiff(t)},
     // FR-GIT-236: 행 인라인 동작과 같은 자리를 지난다 — 두 벌로 두면 한쪽만 고쳐진다.
-    {id:'openFile',   label:'Open File',   run:t=>gitMenuPanel()._run('openFile',[t])},
+    {id:'openFile',   label:t('git.menu.file_open_file'),run:t=>gitMenuPanel()._run('openFile',[t])},
     // FR-GIT-274: 워킹 트리가 아니라 `HEAD:<path>` 의 내용이다. 여는 자리는
     // Open File 과 같다 — Git 창이 아닌 창이다 (FR-GIT-179·185).
     {id:'openFileHead',label:GIT_FILE_OPEN_HEAD,run:t=>gitMenuPanel().openFileAtHead(t)},
-    {id:'copyPath',   label:'Copy Path',   run:t=>gitMenuPanel().copyText(gitMenuPanel().absPath(t))},
+    {id:'copyPath',   label:t('git.menu.file_copy_path'),run:t=>gitMenuPanel().copyText(gitMenuPanel().absPath(t))},
     {sep:true},
     // FR-GIT-275: path 필터가 이미 있으므로(FR-GIT-129) 그것을 채워 탭을 여는 것이
     // 전부다 — 새 조회를 만들지 않는다.
