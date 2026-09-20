@@ -117,6 +117,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@node scripts/check-repaint.mjs
 	@echo "── 관측자 (만든 것을 잡는가)"
 	@node scripts/check-observer.mjs
+	@echo "── 애니메이션 (레이아웃을 건드리지 않는가)"
+	@node scripts/check-css-animation.mjs
 	@echo "gates ok"
 
 # ── 전량 e2e 의 용량 (M10_SRS FR-M10-5 · D-M10-6) ───────────────────────────

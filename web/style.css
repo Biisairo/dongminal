@@ -1567,14 +1567,24 @@ body.mobile #bg-btn{padding:4px 6px}
    보이지 않는 진행 바는 그냥 선이다. */
 .boot-bar{margin-top:24px;position:relative;width:150px;height:3px;border-radius:3px;
   background:var(--border);overflow:hidden}
-.boot-bar i{position:absolute;top:0;bottom:0;width:46%;border-radius:3px;
+.boot-bar i{position:absolute;top:0;bottom:0;left:0;width:46%;border-radius:3px;
   background:linear-gradient(90deg,transparent,var(--boot-brand),var(--boot-brand-lit),transparent);
   animation:boot-flow 1.25s ease-in-out infinite}
 /* 문구가 길이를 오갈 때 아래 여백이 출렁이지 않도록 높이를 잡아 둔다. */
 #boot-step{margin-top:12px;font-size:var(--fs-sm);letter-spacing:.02em;min-height:14px}
 @keyframes boot-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 @keyframes boot-breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-@keyframes boot-flow{0%{left:-45%}100%{left:103%}}
+/* PERFORMANCE_HARDENING_SRS FR-PRF-33 (`AUDIT-design.md` 10-1).
+
+     이전 동작: `left` 를 애니메이션했다 — 13개 키프레임 중 **유일하게 레이아웃을
+               유발하는 속성**이고, 그것을 **부팅 중에** 60fps 로 무한 반복했다
+     새  동작: `transform` 으로 옮겼다 — 합성만 돈다
+     이유:     `left` 변경은 매 프레임 레이아웃 → 페인트 → 합성을 전부 돈다.
+               스크립트 파싱과 워크스페이스 적재가 동시에 도는 가장 바쁜 순간이다
+
+   값은 기준이 바뀐 것을 옮긴 것이다 — `left` 는 **상자(150px)** 기준이고
+   `translateX` 는 **자기 폭(46% = 69px)** 기준이다: -45%→-98%, 103%→224%. */
+@keyframes boot-flow{0%{transform:translateX(-98%)}100%{transform:translateX(224%)}}
 /* 움직임을 줄이라고 한 사람에게는 흐름 대신 **선 하나**를 준다 — 진행 중이라는
    사실은 남기되 눈을 끌지 않는다. */
 /* ── 움직임 줄이기 (`UX-12` / WCAG 2.3.3 · 2.2.2) ──────────────────────
@@ -1602,7 +1612,9 @@ body.mobile #bg-btn{padding:4px 6px}
   /* 전역 규칙은 **멎게** 할 뿐 모양을 정하지 않는다. 아래 셋은 멎은 자리가
      중간 프레임이라 따로 적는다. */
   .boot-inner,.boot-logo{animation:none}
-  .boot-bar i{animation:none;left:0;width:100%;
+    /* `left` 대신 `transform` 을 되돌린다 (FR-PRF-34) — **한쪽만 고치면** 움직임을
+     끈 사용자에게 막대가 마지막 프레임 자리에 남는다. */
+  .boot-bar i{animation:none;transform:none;width:100%;
     background:linear-gradient(90deg,var(--boot-brand),var(--boot-brand-lit))}
 }
 
