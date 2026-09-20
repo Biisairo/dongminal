@@ -140,12 +140,22 @@
   --danger-strong:rgba(247,118,142,.2);
   --attn:#e0af68;--attn-subtle:rgba(224,175,104,.16);--attn-glow:rgba(224,175,104,.5);
   /* UX_REVISION_SRS FR-STC-1~3 · EDITOR_TAB_SRS FR-EDT-70: 상태문자의 초록.
-     전역 테마에 "추가" 색이 없으므로 값을 **이 한 자리에서** 정한다. Git 패널
-     밖(탐색기 트리·편집기의 변경 표시)도 같은 값을 봐야 하므로 `.git-files` 가
-     아니라 여기 산다 (D-4).
-     (규약의 선례로 `.git-hunks` 를 들고 있었는데 그 선택자는 폐기됐다 —
-      DIFF_HUNK_BAR_SRS FR-DHB-1. 값이 여기 사는 근거는 그대로다.) */
-  --git-st-add:#9ece6a;
+     Git 패널 밖(탐색기 트리·편집기의 변경 표시)도 같은 값을 봐야 하므로
+     `.git-files` 가 아니라 여기 산다 (D-4).
+
+     WORDING_COLOR_SRS FR-WRD-10·11: **값이 파생을 탄다.**
+       이전 동작: `#9ece6a`(Tokyo Night 의 초록) 고정 — 54종 전부가 이 한 값을
+                 썼고 **라이트 테마 11/11 에서 1.26~1.83:1** 이었다 (3:1 미달)
+       새  동작: `var(--term-green)` — `deriveContrastTokens` 가 그 테마의 터미널
+                 팔레트에서 뽑아 `CONTRAST_FLOORS.strong`(4.5)로 끌어올린 값이다
+       이유:     *"전역 테마에 추가 색이 없으므로 값을 이 한 자리에서 정한다"* 는
+                 이 주석의 옛 근거가 `.run-view{--run-ok:var(--term-green)}`
+                 (style-git-views.css:916)의 선례가 생긴 뒤로 낡았다 — 그 주석이
+                 이미 이 토큰을 이름으로 들고 있었다. 게이트는
+                 `check-contrast.mjs` 의 `CSS_TOKENS` 다 (FR-WRD-12).
+     `:root` 의 `--term-green`(아래)은 첫 페인트용 폴백이고 `applyThemeObj` 가
+     곧 덮는다 (helpers.js:272). */
+  --git-st-add:var(--term-green);
   /* ACCESSIBILITY_BASELINE_SRS FR-A11Y-27 (`UX-7`): 모바일 터치 타겟의 하한.
      **AA 요건이 아니다** — WCAG 2.1 에는 타겟 크기 SC 가 없고 44 는 AAA 의
      2.5.5 값이다. 이 앱이 휴대폰에서 실제로 쓰이므로 자체 하한으로 둔다.
@@ -1428,6 +1438,15 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
   background:var(--bg);
 }
 .file-editor.vis{display:block}
+/* WORDING_COLOR_SRS FR-WRD-14·15: 저장 실패 플래시.
+     이전 동작: `file-editor.js` 가 인라인으로 `inset 0 0 0 2px #f44` 를 썼다 —
+               테마의 `danger` 는 `#8c4351`(Tokyo Night Light)~`#ff2c6d`(Panda)
+               까지 폭이 넓은데 `#f44` 는 그 어느 것도 아니었고, 인라인이라
+               색 게이트의 범위 밖이었다
+     새  동작: 클래스 하나를 토글한다. 색은 CSS 가 갖고 테마를 탄다
+     이유:     화면의 다른 모든 위험 표시(`var(--danger)` 86곳)와 색이 맞아야
+               한다. 두께·시간(2px·500ms)은 그대로다 */
+.file-editor.fe-save-failed{box-shadow:inset 0 0 0 2px var(--danger)}
 .fe-loading{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   color:var(--text-muted);font-size:var(--fs-lg);
