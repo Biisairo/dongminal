@@ -93,7 +93,7 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@node scripts/check-font-size.mjs
 	@echo "── z-index 층 (값이 층에서 오고 산술이 없는가)"
 	@node scripts/check-z-index.mjs
-	@echo "── 하드코딩 색 (:root 밖에 색 리터럴이 없는가)"
+	@echo "── 하드코딩 색 (CSS·JS·HTML 의 색이 토큰에서 오는가)"
 	@node scripts/check-hardcoded-color.mjs
 	@echo "── 문구 카탈로그 (한글 리터럴이 카탈로그 밖에 없는가 · ko·en 이 한 벌인가)"
 	@node scripts/check-i18n.mjs
