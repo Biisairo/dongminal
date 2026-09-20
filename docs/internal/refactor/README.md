@@ -172,6 +172,12 @@ Go 쪽의 진짜 결함이 모인 곳이다.
    (`FE_MODULE_BOUNDARY_SRS` §7.1 기준선 대비). 문서의 완료 선언과 현재 수치가
    어긋난다.
 
+   > **B5 에서 처리 (2026-09-21).** 근본 원인은 수치가 아니라 **재는 것이
+   > 없었다**는 것이다 — `scripts/check-file-size.mjs` 를 세우고 기준선을
+   > `FE_MODULE_BOUNDARY_SRS §7.1a` 에 두었다. `renderer.js` 를 다섯으로 갈라
+   > 최대 파일이 1,586 → **1,178** 이 됐고, 500줄 초과는 24(i18n 카탈로그 둘을
+   > 뺀 수)로 잠겼다. 22 / 1,336 으로 되돌리는 것은 별도 작업이다 (D-STR-5).
+
 **게이트를 넓혀야 할 곳** (패턴 B 참조): `check-hardcoded-color` 를 `:root`
 안·`web/js/**`·`index.html` 까지, `check-i18n` 을 영어 리터럴까지, `check-focus`
 를 "링을 안 그리는 자리" 까지, `check-css-vars` 의 `readdirSync` 를 재귀로.
@@ -192,7 +198,7 @@ Go 쪽의 진짜 결함이 모인 곳이다.
 | **B2-K** | **키보드 도달** — git 뷰 8개 · 스크롤 표면 47개. `tabindex` 는 여기로 옮겼다 (사용자 결정 2026-09-20, D-KIT-8): 결손이 git 에만 있지 않고, `FR-A11Y-16` 이 도달 대상을 **손으로 열거**하는 것이 근본 원인이다 | `AUDIT-fe-ui.md` H-5 | MED | **별도 작업** |
 | **B3** | **킷에 없는 컴포넌트 8종을 세우고 옮긴다** — `.ui-key`·`.ui-switch`·`.ui-section-head`·`.ui-segment`·`.ui-notice`·`.ui-empty`·`.ui-split`·`.ui-badge` + 넘침 페이드 · 모달 chrome | uiux §1·§4 | MED | **끝났다** (`KIT_COMPONENTS_SRS`) |
 | **B4** | **말을 고친다** — 낱말 통일, 영문 리터럴, 조사 헬퍼, 존댓말 등급, 색 위반 25건. **B3 이 넘긴 둘**: 머리글의 낱말 통일(`STAGED`→`스테이지됨` 류 — B3 은 대소문자만 고쳤다) · `300개 로드`→상태로 읽히는 말 (FR-CMP-85) | uiux §2 · design | LOW | **끝났다** (`WORDING_COLOR_SRS`) |
-| **B5** | **구조 정리** — 패턴 A 의 Go 쪽 잔여, 과대 함수·모듈 분할, `internal/shared` 응집도. **B3 이 넘긴 것**: 공용 클립보드 헬퍼 추출 (`git/confirm.js`·`git/dialog.js` 가 같은 textarea 수법을 각자 갖고 있어 세 번째 자리를 만들 수 없었다 — FR-CMP-63a) | 각 보고서 | MED | |
+| **B5** | **구조 정리** — 클립보드 한 자리 · 겨냥 4계층 · 홈 전수 목록 · 기본 로그 경로 · 모듈 크기 게이트와 `renderer.js` 분할 | 각 보고서 | MED | **끝났다** (`STRUCTURE_CLEANUP_SRS`). **§2 의 표에서 셋을 정정했다** — ① 클립보드 헬퍼는 **없지 않았다**(`term-clipboard.js` 의 3단이 2026-09-15 에 섰고 사본은 둘이 아니라 넷) ② `dmenv.DialHost` 행의 실체는 **4계층을 안 지키는 겨누는 명령 다섯**이고, `server.json` 한 줄이 `stop` 으로 하여금 남의 프로세스를 죽이게 했다 ③ `homeLayout()` 누락은 셋이 아니라 **열하나**다. `reconcileList` 행은 **B6 으로 넘겼다** (D-STR-6 — §4.1 항목 6 이 측정 방법까지 못박은 성능 항목이라 이주와 측정이 같은 변경이어야 한다) |
 | **B6** | **성능 한 묶음** — §4.1 의 15건, 전후 측정과 함께 | §4 | MED | |
 | **B7** | **문서 동기화** — 상태 라벨 5건, 낡은 문서 6건, DoD 수치 갱신 | §5 | LOW | |
 

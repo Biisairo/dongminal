@@ -1,6 +1,6 @@
 # SRS: 단일 출처를 세워 놓고 안 옮긴 자리를 닫는다 — IEEE 29148
 
-> **문서 상태**: 초안
+> **문서 상태**: 승인·구현완료
 
 - 접수: 2026-09-21 (프로덕션 승격 감사 1단계 · `docs/internal/refactor/` 214건 중 **묶음 B5**)
 - 선행: `SAFETY_CORRECTNESS_SRS`(B1) · `KIT_APPLICATION_SRS`(B2) · `KIT_COMPONENTS_SRS`(B3) · `WORDING_COLOR_SRS`(B4).
@@ -444,4 +444,9 @@
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-09-21 | **묶음 B5 종료.** 게이트 **41종 → 45종**(`check-clipboard`·`check-server-target`·`check-home-layout`·`check-file-size`), 프론트 단위 **282 → 289**, Go 단위 **18건 신설**. **전량 e2e 1,745건 통과 · 실패 0 · flaky 0** (`make e2e` 8샤드, 샤드별 직접 셈). 네 게이트 전부 탐침으로 **잡는 것과 잡으면 안 되는 것**을 확인하고 지웠다 (규약 3-3) |
+| 2026-09-21 | **묶음 D 완료.** 모듈 크기 DoD 를 게이트로 세우고(`check-file-size.mjs`, 기준선은 `FE_MODULE_BOUNDARY_SRS §7.1a` 가 갖는다) `_rLayout`(168줄)을 넷으로, `renderer.js`(1,586)를 다섯으로 갈랐다. 최대 파일 **1,586 → 1,178**. 500줄 초과는 24 그대로 — 조각 하나가 아직 경계 위다. N3 을 같은 변경에서 개정했다 |
+| 2026-09-21 | **묶음 C 완료.** 게이트가 홈 누락 **열하나**를 찾았다 — 감사는 일곱, 이 문서의 초안은 여덟이었다. **D-STR-4 를 뒤집었다**: `Backup` 은 `uninstall` 에게 *"보존하는가"* 이기도 해서, false 로 두면 맨 `uninstall` 이 사용자의 worktree 를 지운다. 기본 로그 경로의 답 셋을 하나로 모았다 |
+| 2026-09-21 | **묶음 B 완료.** `ResolveTarget` 하나로 겨누는 명령 넷을 모으고 `dmenv.ListenAddr`·`BaseURL` 로 주소 조립 넷을 옮겼다. `DRIFT_RECLAIM_SRS` FR-DRC-12(과교정) · `WINDOW_COMMAND_SRS` FR-WIN-2(3계층) · `CONFIG_MANAGEMENT_SRS` FR-CFG-13(적용 범위)을 같은 변경에서 개정했다 |
+| 2026-09-21 | **묶음 A 완료.** 3단 복사를 `ui/clipboard.js` 의 `ClipboardWriter` 로 꺼내고 사본 넷을 모았다. 전역 이름이 `Clipboard` 가 **아닌 것**은 그것이 브라우저 인터페이스 이름이기 때문이다. `app-tool.js` 의 조용한 실패가 이 묶음이 고친 실제 결함이다 |
 | 2026-09-21 | 초안. B4 인계서 §0 의 셋 중 **`reconcileList` 를 B6 으로 넘겼고**(D-STR-6) 대신 감사가 패턴 A 로 분류하지 않은 자리 셋(주소 조립 · 기본 로그 경로 · 클립보드의 실제 사본 수)을 파싱으로 찾아 넣었다. FR-CMP-63a 의 전제가 틀렸다는 것이 이 문서의 뿌리다 (§2.2) |
