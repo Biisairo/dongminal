@@ -300,36 +300,90 @@ func parseRipgrepJSON(out []byte, root string, limit int) ([]grepMatch, bool, er
 	return matches, false, nil
 }
 
+// grepReadBuf 는 줄 단위로 훑을 때의 읽기 버퍼다. 한 줄이 이보다 길면
+// `bufio` 가 알아서 늘린다 — 파일 자체가 `fsGrepMaxBytes` 이하이므로 상한은 그것이다.
+const grepReadBuf = 64 << 10
+
 // grepWithGo 는 ripgrep 이 없을 때의 폴백이다 (FR-EGS-3). 형태는 같다.
+//
+// PERFORMANCE_HARDENING_SRS FR-PRF-58~60 (`AUDIT-go-http.md` P-4):
+//
+//	이전 동작: 파일당 ① `os.ReadFile` 로 최대 2MiB ② `string(blob)` 로 같은 크기
+//	          한 번 더 ③ `strings.Split` 로 줄 수만큼의 string 헤더
+//	새  동작: `os.Open` + 줄 단위. 상주 메모리가 O(파일크기) → O(줄길이)
+//	이유:     ripgrep 이 없는 환경의 **기본 경로**다 (Windows·최소 컨테이너).
+//	          파일 5,000개 트리를 훑으면 GB 단위 할당이 GC 를 때렸다
+//
+// **이진 판정이 전량 읽기보다 앞선다.** 종전에는 앞 8,000바이트만 보는 판정을
+// 하려고 파일 전체를 먼저 읽었다 — 이진 파일일수록 헛일이 컸다. `Peek` 은 버퍼가
+// 채워진 만큼만 본다.
+//
+// **조각 내는 규칙은 한 글자도 바뀌지 않았다.** `\n` 이 구분자이므로 마지막 개행
+// 뒤에도 (빈) 조각이 하나 있고, 빈 파일도 조각 하나다 — `strings.Split` 과 같다.
+// `Col` 은 `\r` 을 떼기 **전** 줄에서의 자리이며 그것도 그대로다 (FR-PRF-59).
+//
+//	이전 동작: 읽다 실패하면 그 파일의 결과가 **하나도** 없었다 (`ReadFile` 이 실패)
+//	새  동작: 그때까지 찾은 것은 남는다
+//	이유:     줄 단위로 읽으면 앞부분은 이미 정확히 읽은 것이다. 버리면 "찾았는데
+//	          안 보인다" 가 되고, 그 사실을 알릴 자리도 이 종단에는 없다
 func grepWithGo(ctx context.Context, root, q string, limit int) ([]grepMatch, bool, error) {
 	needle := strings.ToLower(q)
 	matches := make([]grepMatch, 0, 32)
 	truncated := false
+	// 되쓰는 버퍼 둘. **줄마다 새로 잡으면 바이트는 줄어도 할당 수가 폭발한다** —
+	// 첫 판이 정확히 그랬다 (538 → 160,419 allocs/op, §8 의 기록).
+	var lower, long []byte
 
 	err := fsWalkFiles(ctx, root, func(p, rel string, d fs.DirEntry) bool {
 		info, ierr := d.Info()
 		if ierr != nil || info.Size() > fsGrepMaxBytes {
 			return true
 		}
-		blob, rerr := os.ReadFile(p)
-		if rerr != nil || isBinary(blob) {
+		f, oerr := os.Open(p)
+		if oerr != nil {
 			return true
 		}
-		for i, line := range strings.Split(string(blob), "\n") {
-			idx := strings.Index(strings.ToLower(line), needle)
-			if idx < 0 {
-				continue
+		defer f.Close()
+		br := bufio.NewReaderSize(f, grepReadBuf)
+		// 짧은 파일은 `Peek` 이 오류와 함께 있는 만큼을 준다 — 그것이 정상이다.
+		head, _ := br.Peek(8000)
+		if isBinary(head) {
+			return true
+		}
+		// **오류를 따로 보지 않는다.** `ReadSlice` 가 구분자 없이 돌아오는 경우는
+		// 버퍼가 찼거나(긴 줄) EOF 이거나 읽기 오류이고, 앞의 하나만 이어 붙이면
+		// 나머지 둘은 *"이것이 마지막 조각이다"* 로 같다.
+		for lineNo := 1; ; lineNo++ {
+			line, rerr := br.ReadSlice('\n')
+			for rerr == bufio.ErrBufferFull {
+				long = append(long[:0], line...)
+				for rerr == bufio.ErrBufferFull {
+					line, rerr = br.ReadSlice('\n')
+					long = append(long, line...)
+				}
+				line = long
 			}
-			if len(matches) >= limit {
-				truncated = true
-				return false
+			nl := len(line) > 0 && line[len(line)-1] == '\n'
+			if nl {
+				line = line[:len(line)-1]
 			}
-			matches = append(matches, grepMatch{
-				Path: rel,
-				Line: i + 1,
-				Col:  idx + 1,
-				Text: clipLine(strings.TrimRight(line, "\r")),
-			})
+			if idx := grepIndexFold(line, needle, &lower); idx >= 0 {
+				if len(matches) >= limit {
+					truncated = true
+					return false
+				}
+				matches = append(matches, grepMatch{
+					Path: rel,
+					Line: lineNo,
+					Col:  idx + 1,
+					Text: clipLine(strings.TrimRight(string(line), "\r")),
+				})
+			}
+			// 개행 없이 끝난 조각이 마지막이다. 그 앞에서 멎으면 `strings.Split` 이
+			// 내던 마지막 (빈) 조각이 사라진다.
+			if !nl {
+				break
+			}
 		}
 		return true
 	})
@@ -337,6 +391,36 @@ func grepWithGo(ctx context.Context, root, q string, limit int) ([]grepMatch, bo
 		return nil, false, err
 	}
 	return matches, truncated, nil
+}
+
+// grepIndexFold 는 `strings.Index(strings.ToLower(string(line)), needle)` 와
+// **같은 답**을 내되, 줄마다 사본을 만들지 않는다 (FR-PRF-60).
+//
+// 줄이 순수 ASCII 면 소문자화가 바이트 길이를 바꾸지 않으므로, 되쓰는 버퍼에
+// 접어 넣고 `bytes.Index` 를 쓴다 — 자리도 길이도 같다.
+//
+// **ASCII 가 아니면 종전 경로로 물러선다.** 유니코드 소문자화는 길이를 바꿀 수
+// 있고(`İ` → 두 룬), 그러면 `Col` 이 달라진다. 그 자리의 동작이 옳은지는 이
+// 묶음의 물음이 아니다 — **바꾸지 않는 것**이 물음이다 (FR-PRF-8).
+func grepIndexFold(line []byte, needle string, buf *[]byte) int {
+	ascii := true
+	for _, c := range line {
+		if c >= 0x80 {
+			ascii = false
+			break
+		}
+	}
+	if !ascii {
+		return strings.Index(strings.ToLower(string(line)), needle)
+	}
+	b := append((*buf)[:0], line...)
+	for i, c := range b {
+		if c >= 'A' && c <= 'Z' {
+			b[i] = c + ('a' - 'A')
+		}
+	}
+	*buf = b
+	return bytes.Index(b, []byte(needle))
 }
 
 // isBinary 는 앞부분에 NUL 이 있으면 이진으로 본다 — git 과 같은 판정이다

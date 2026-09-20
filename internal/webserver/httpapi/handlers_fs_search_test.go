@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -318,6 +319,84 @@ func TestFSSearchRejectsEmptyQuery(t *testing.T) {
 		code, body := fsReq(t, s, "GET", path+"?root="+url.QueryEscape(home)+"&q=", "")
 		if code == 200 {
 			t.Fatalf("%s: 빈 질의가 통과했다: %v", path, body)
+		}
+	}
+}
+
+// ── 성능: grep 이 파일을 통째로 올리지 않는다 (PERFORMANCE_HARDENING_SRS 묶음 P-C) ──
+
+// TC-PRF-19: 줄 단위로 바꾸면서 **조각 내는 규칙이 한 글자도 바뀌지 않는다**
+// (FR-PRF-58·59).
+//
+// 이것이 이 항목의 위험이다 — `bufio.Scanner` 의 기본 `ScanLines` 는 `\r\n` 을
+// 함께 처리해 CRLF 파일의 `Col` 을 바꾼다. 그래서 `Scanner` 가 아니라
+// `ReadString('\n')` 을 쓰고, 그 선택을 여기서 잠근다.
+func TestGrepWithGo_LineSplittingUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, body string) {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// LF · CRLF · 종결자 없는 마지막 줄 · 이진 · 빈 파일.
+	write("lf.txt", "alpha\nNEEDLE here\nomega\n")
+	write("crlf.txt", "alpha\r\nxx NEEDLE\r\nomega\r\n")
+	write("noeol.txt", "alpha\nNEEDLE last")
+	write("bin.dat", "NEEDLE\x00binary\n")
+	write("empty.txt", "")
+
+	got, truncated, err := grepWithGo(context.Background(), dir, "NEEDLE", 100)
+	if err != nil {
+		t.Fatalf("grepWithGo: %v", err)
+	}
+	if truncated {
+		t.Fatal("잘렸다고 답했다")
+	}
+	want := map[string]grepMatch{
+		// `Col` 은 `\r` 을 떼기 **전** 줄에서의 자리다 — CRLF 라고 달라지지 않는다.
+		"lf.txt":    {Path: "lf.txt", Line: 2, Col: 1, Text: "NEEDLE here"},
+		"crlf.txt":  {Path: "crlf.txt", Line: 2, Col: 4, Text: "xx NEEDLE"},
+		"noeol.txt": {Path: "noeol.txt", Line: 2, Col: 1, Text: "NEEDLE last"},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("맞은 줄 %d개, want %d: %+v", len(got), len(want), got)
+	}
+	for _, m := range got {
+		w, ok := want[m.Path]
+		if !ok {
+			t.Fatalf("이진 파일이나 빈 파일이 걸렸다: %+v", m)
+		}
+		if m != w {
+			t.Fatalf("%s: got %+v, want %+v", m.Path, m, w)
+		}
+	}
+}
+
+// 벽시계가 아니라 **할당**을 기록한다 (FR-PRF-60 · TC-PRF-28).
+//
+// 종전에는 파일당 ① `os.ReadFile` 로 전체 ② `string(blob)` 로 한 벌 더
+// ③ `strings.Split` 로 줄 수만큼의 헤더였다. ripgrep 이 없는 환경의 기본 경로이므로
+// 파일 5,000개 트리에서 이것이 GB 단위가 됐다 (`AUDIT-go-http.md` P-4).
+func BenchmarkGrepWithGo(b *testing.B) {
+	dir := b.TempDir()
+	var sb strings.Builder
+	for i := 0; i < 4000; i++ {
+		sb.WriteString("line ")
+		sb.WriteString(strconv.Itoa(i))
+		sb.WriteString(" of some source file with a fair amount of text on it\n")
+	}
+	body := sb.String()
+	for i := 0; i < 40; i++ {
+		if err := os.WriteFile(filepath.Join(dir, "f"+strconv.Itoa(i)+".txt"), []byte(body), 0o644); err != nil {
+			b.Fatal(err)
+		}
+	}
+	ctx := context.Background()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, _, err := grepWithGo(ctx, dir, "line 3999 of", 100); err != nil {
+			b.Fatal(err)
 		}
 	}
 }
