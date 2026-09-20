@@ -61,6 +61,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-agent-names.sh
 	@echo "── 환경변수 문서 (코드와 표가 양방향으로 같은가)"
 	@scripts/check-env-docs.sh
+	@echo "── 설정 문서 (설정 화면에 있는 것이 사용자 문서에도 있는가)"
+	@scripts/check-settings-docs.sh
 	@echo "── 로그의 단일 경로 (표준 log 를 직접 부르지 않는가)"
 	@scripts/check-logging.sh
 	@echo "── 오류 응답의 단일 경로 (http.Error 를 직접 부르지 않는가)"

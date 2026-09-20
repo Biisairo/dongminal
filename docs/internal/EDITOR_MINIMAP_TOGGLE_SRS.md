@@ -58,7 +58,7 @@ Monaco 편집기의 미니맵을 **설정에서 끌 수 있게** 한다. 지금�
 
 | ID | 층 | 내용 |
 |----|-----|------|
-| V-MMT-1 | Go 단위 | 서술자 표가 `editorMinimap` 을 포함해 25개다 |
+| V-MMT-1 | Go 단위 | 서술자 표가 `editorMinimap` 을 **포함한다**. 개수 계약은 `settingsschema/schema_test.go` 가 갖는다 — **여기 수를 적지 않는다** (`DOC_SYNC_SRS` D-DSY-6: 적은 수는 다음 설정이 늘 때 낡는다. 종전에 25 라 적혀 있었고 실제는 29였다) |
 | V-MMT-2 | e2e | 스위치를 끄면 **열려 있는** 편집기의 `getRawOptions().minimap.enabled` 가 거짓이 되고, 켜면 참으로 돌아온다 |
 | V-MMT-3 | e2e | 값이 `/api/settings` 블롭에 실리고, 새로고침 뒤에도 유지된다 |
 | V-MMT-4 | gates | `check-i18n` · `check-html` 통과 — 한글 리터럴 0, ko·en 한 벌 |

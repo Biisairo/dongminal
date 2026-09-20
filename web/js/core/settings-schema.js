@@ -35,7 +35,7 @@ const SETTINGS_SCHEMA = [
   {"key":"gitConsoleInterval","type":"int","def":2000,"min":1000,"max":10000,"where":"Polling ▸ git 콘솔"},
   {"key":"layoutPresets","type":"array","def":[],"where":"Presets"},
   {"key":"defaultPreset","type":"int","def":-1,"min":-1,"max":999,"where":"Presets ▸ 기본"},
-  {"key":"fgTabNames","type":"bool","def":true,"where":"Display ▸ 전경 프로세스 이름"},
+  {"key":"fgTabNames","type":"bool","def":true,"where":"Display ▸ 프로세스 이름을 탭 이름으로"},
   {"key":"blockBrowserKeys","type":"bool","def":true,"where":"Shortcuts ▸ 브라우저 기본키 차단"},
   {"key":"claudeFullscreen","type":"bool","def":true,"where":"Terminal ▸ Claude Code fullscreen"},
   {"key":"termFontSize","type":"int","def":14,"min":8,"max":32,"where":"Terminal ▸ 터미널 글자 크기"},

@@ -30,6 +30,15 @@ dongminal 이 띄운 터미널의 Claude Code 세션에서 슬래시 명령으�
 의도가 명확하면 슬래시 없이 "팀 만들어서 …", "저장된 워크플로우 돌려줘" 같은 말로도
 자동 트리거됩니다.
 
+**명령은 스킬과 다른 자리입니다.**
+
+| 명령 | 역할 |
+|------|------|
+| `/dongminal:migration` | 지금 세션의 일을 다음 세션으로 넘긴다 |
+
+스킬은 *"의도가 보이면 자동으로"* 이고 명령은 *"사람이 부를 때만"* 입니다 — 인계는
+자동으로 트리거되면 안 되는 일이라 그 자리를 갈랐습니다 (`M10_SRS` FR-M10-6).
+
 ## 에이전트가 쓰는 `dmctl` 명령
 
 전체 목록은 `dmctl --help`, 각 명령의 상세는 `dmctl <명령> --help`.
@@ -44,6 +53,11 @@ dongminal 이 띄운 터미널의 Claude Code 세션에서 슬래시 명령으�
 | `dmctl msg --to <uuid>` | 다른 **에이전트**에게 신뢰 채널로 메시지 |
 | `dmctl split-h/split-v/new-tab/new-window/close-tab/rename-tab/…` | 레이아웃 조작 |
 | `dmctl open-editor --at <uuid> <파일>` | 편집기 탭 열기 |
+| `dmctl run …` | Run(오케스트레이션) — 시작·멤버·보고·상태·정리. **목록은 [commands.md](./commands.md) 가 갖습니다** |
+
+`dmctl run` 계열을 여기 베끼지 않는 이유는 그것이 낡는 자리이기 때문입니다 —
+`commands.md` 는 `scripts/check-commands-docs.sh` 가 `dmctl` 과 양방향으로 대조하므로
+**그쪽이 진실**이고 이 문서는 가리키기만 합니다.
 
 긴 본문은 위치 인자 대신 stdin 으로 넘깁니다 (heredoc 종료자는 줄 맨 앞에):
 
@@ -87,6 +101,7 @@ bin/
 └── agent-plugin/                       # 오케스트레이션 스킬 (--plugin-dir 로 주입)
     ├── .claude-plugin/plugin.json
     ├── skills/team, skills/workflow
+    ├── commands/migration.md           # 슬래시 명령 (자동 트리거되지 않는다)
     └── hooks/hooks.json                # SessionStart → dmctl agent-context
 ```
 
