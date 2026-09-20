@@ -72,7 +72,7 @@ I18N.register('ko', {
   'backup.write_fail': '서버에 설정을 쓰지 못했습니다 (HTTP {status}). 아무것도 바뀌지 않았습니다.',
 
   // ── bg ──
-  'bg.head.other': '백그라운드 도구 {n}개',
+  'bg.title': '백그라운드 도구',
   'bg.kill_title': '{name} 종료',
   'bg.q_kill': '종료?',
   'bg.q_kill_member': '종료? 이 도구는 Run {short} 의 멤버다.',
@@ -944,7 +944,7 @@ I18N.register('ko', {
   'runs.empty_hint': '/dongminal:team 으로 팀을 연다',
   'runs.gone': '이 Run 은 더 이상 없다',
   'runs.graph_fail': '대시보드를 받지 못했다',
-  'runs.head.other': 'Run {n}개',
+  'runs.title': 'Run',
   'runs.headless': '헤드리스',
   'runs.headless_paren': '(헤드리스)',
   'runs.list_fail': '목록을 받지 못했다',

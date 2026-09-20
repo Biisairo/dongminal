@@ -57,8 +57,7 @@ I18N.register('en', {
   'backup.write_fail': 'Could not write settings to the server (HTTP {status}). Nothing was changed.',
 
   // ── bg ──
-  'bg.head.one': '{n} background tool',
-  'bg.head.other': '{n} background tools',
+  'bg.title': 'Background tools',
   'bg.kill_title': 'Kill {name}',
   'bg.q_kill': 'Kill?',
   'bg.q_kill_member': 'Kill? This tool is a member of Run {short}.',
@@ -939,8 +938,7 @@ I18N.register('en', {
   'runs.empty_hint': 'Open a team with /dongminal:team',
   'runs.gone': 'This Run no longer exists',
   'runs.graph_fail': 'Could not fetch the dashboard',
-  'runs.head.one': '{n} Run',
-  'runs.head.other': '{n} Runs',
+  'runs.title': 'Runs',
   'runs.headless': 'headless',
   'runs.headless_paren': '(headless)',
   'runs.list_fail': 'Could not fetch the list',

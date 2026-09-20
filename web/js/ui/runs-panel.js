@@ -121,14 +121,27 @@ Object.assign(RunsPanel.prototype, {
     let box = ov.querySelector('.runs-box'), head;
     if (!box) {
       box = runDiv('runs-box ui-modal-box ui-scroll');
-      head = runDiv('runs-head', tn('runs.head', rows.length));
+      /**
+       * FR-CMP-80~82: 머리는 **제목 · 개수 배지 · 닫기** 셋이다.
+       *   - 제목에 수를 넣지 않는다 — 0 일 때 "Run 0개" 라는 제목이 된다
+       *   - 닫기 `X` 는 **언제나 머리글 오른쪽**이다. 없으면 `Esc` 를 모르는
+       *     사용자가 갇힌 느낌을 받는다
+       */
+      head = runDiv('runs-head');
+      const title = runDiv('runs-head-t ui-modal-title', t('runs.title'));
+      const badge = runDiv('runs-head-n ui-badge', String(rows.length));
+      head.appendChild(title); head.appendChild(badge);
+      head.appendChild(UIKit.button({
+        icon: 'x', title: t('core.close'), kind: 'ghost', size: 'sm',
+        cls: 'ui-modal-close runs-head-x', onClick: () => this._runsModalToggle(false),
+      }));
       box.appendChild(head); ov.appendChild(box);
       this._runsDlgRelease = UIKit.dialogOpen(box,
-        { labelledBy: head, label: head.textContent, returnTo: this._runsReturnTo });
+        { labelledBy: title, label: title.textContent, returnTo: this._runsReturnTo });
     } else {
       head = box.querySelector('.runs-head');
       while (head.nextSibling) head.nextSibling.remove();
-      head.textContent = tn('runs.head', rows.length);
+      head.querySelector('.runs-head-n').textContent = String(rows.length);
     }
     if (this._runsErr) {
       box.appendChild(runDiv('runs-err', this._runsErr));

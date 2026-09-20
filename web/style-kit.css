@@ -119,6 +119,21 @@
 }
 .ui-tabs-side .ui-tab{justify-content:flex-start;border-left:2px solid transparent}
 .ui-tabs-side .ui-tab.active{border-left-color:var(--accent)}
+/* ── 개수 배지 (KIT_COMPONENTS_SRS FR-CMP-80~81) ────────────────────────
+   수를 말하는 한 벌. 착수 시 넷이었다 — 사이드바의 알약 배지 · git 머리글의
+   `(8)` · `Run 0개` · `백그라운드 도구 0개`.
+
+   **제목에는 수를 넣지 않는다** (FR-CMP-80). 넣으면 0 일 때 "Run 0개" 라는
+   제목이 되고, 그것은 제목이 아니라 문장이다. 제목은 이름이고 수는 그 옆이다.
+
+   `.ui-tab-badge` 는 탭 줄의 수식어로 남는다 — 탭 안에서는 강조색 채움이
+   맞지만, 머리글 옆에서는 그 무게가 제목을 이긴다. */
+.ui-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:calc(var(--ui-btn-h-sm) - 6px);padding:0 6px;
+  border:1px solid var(--border);border-radius:calc(var(--ui-btn-h-sm) / 2);
+  color:var(--text-muted);font-size:var(--fs-xs);line-height:calc(var(--ui-btn-h-sm) - 8px);
+}
 .ui-tab-badge{
   min-width:15px;padding:0 4px;border-radius:8px;
   background:var(--accent);color:var(--bg);font-size:var(--fs-xs);line-height:15px;text-align:center;

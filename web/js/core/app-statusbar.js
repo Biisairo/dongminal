@@ -206,15 +206,24 @@ Object.assign(App.prototype, {
     let box=ov.querySelector('.bg-box'), head;
     if(!box){
       box=document.createElement('div'); box.className='bg-box ui-modal-box ui-scroll';
+      // FR-CMP-80~82: 머리는 **제목 · 개수 배지 · 닫기** 셋이다 (Runs 와 같은 규약).
       head=document.createElement('div'); head.className='bg-head';
-      head.textContent=tn('bg.head',this._bg.length);
+      const title=document.createElement('span');
+      title.className='bg-head-t ui-modal-title'; title.textContent=t('bg.title');
+      const badge=document.createElement('span');
+      badge.className='bg-head-n ui-badge'; badge.textContent=String(this._bg.length);
+      head.appendChild(title); head.appendChild(badge);
+      head.appendChild(UIKit.button({
+        icon:'x', title:t('core.close'), kind:'ghost', size:'sm',
+        cls:'ui-modal-close bg-head-x', onClick:()=>this._bgModalToggle(false),
+      }));
       box.appendChild(head); ov.appendChild(box);
       this._bgDlgRelease=UIKit.dialogOpen(box,
-        {labelledBy:head,label:head.textContent,returnTo:this._bgReturnTo});
+        {labelledBy:title,label:title.textContent,returnTo:this._bgReturnTo});
     }else{
       head=box.querySelector('.bg-head');
       while(head.nextSibling) head.nextSibling.remove();
-      head.textContent=tn('bg.head',this._bg.length);
+      head.querySelector('.bg-head-n').textContent=String(this._bg.length);
     }
     if(!this._bg.length){
       const empty=document.createElement('div'); empty.className='ui-empty bg-empty';

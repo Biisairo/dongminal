@@ -776,7 +776,12 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
      760 → 920 으로 한 번에 키운 것은 러너의 글꼴이 더 넓기 때문이다. 760 에서
      CI 의 두 OS 가 함께 졌고, 860 은 로컬 여유가 68px 뿐이라 같은 차이로 다시
      질 수 있다. 920 에서 여유가 128px 다. */
-  width:min(920px,94vw);max-width:94vw;height:min(80vh,720px);overflow:hidden;
+  width:min(920px,94vw);max-width:94vw;overflow:hidden;
+  /* FR-CMP-83: **내용에 맞춰 는다.** 종전에는 `height:min(80vh,720px)` 로 못박아
+     탭과 무관하게 같은 높이였다 — Theme 는 아래 약 190px, Status Bar 는 약 280px
+     이 비고, 반대로 Shortcuts 는 넘쳐서 마지막 행이 높이 중간에서 잘렸다.
+     상한만 남기면 짧은 탭은 줄고 긴 탭은 상한까지 늘어 그 안에서 구른다. */
+  max-height:min(80vh,720px);
 }
 .modal-header{
   display:flex;align-items:center;justify-content:space-between;
@@ -1438,7 +1443,11 @@ body.mobile #bg-btn{padding:4px 6px}
   min-width:280px;max-width:min(520px,90vw);max-height:70vh;overflow-y:auto;
   padding:4px;font-size:var(--fs-md);
 }
-.bg-box .bg-head{padding:8px 10px;color:var(--text-muted);border-bottom:1px solid var(--border)}
+.bg-box .bg-head{
+  display:flex;align-items:center;gap:var(--ui-gap);
+  padding:8px 10px;color:var(--text-muted);border-bottom:1px solid var(--border);
+}
+.bg-box .bg-head .ui-modal-close{margin-left:auto}
 .bg-box .bg-row{display:flex;gap:8px;align-items:baseline;padding:8px 10px;border-radius:4px;cursor:pointer}
 .bg-box .bg-row:hover{background:var(--accent-subtle)}
 .bg-box .bg-name{color:var(--text-bright);white-space:nowrap}

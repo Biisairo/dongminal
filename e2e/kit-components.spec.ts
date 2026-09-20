@@ -194,4 +194,75 @@ test.describe('킷 컴포넌트 (KIT_COMPONENTS_SRS)', () => {
     expect(got.small, `44px 하한을 못 넘는 스위치:\n  ${got.small.join('\n  ')}`).toEqual([]);
     await page.keyboard.press('Escape');
   });
+
+  /** 모달 넷: 이름 · 여는 법 · 상자 · 머리 · 닫는 법. */
+  const MODALS = [
+    { name: '설정', box: '#modal', head: '.modal-header', open: async (p: Page) => { await p.click('#settings-btn') } },
+    { name: 'Runs', box: '#runs-modal .runs-box', head: '#runs-modal .runs-head', open: async (p: Page) => { await p.click('#runs-btn') } },
+    { name: '백그라운드', box: '#bg-modal .bg-box', head: '#bg-modal .bg-head', open: async (p: Page) => { await p.click('#bg-btn') } },
+  ];
+
+  test('TC-CMP-16: 모달마다 닫기 X 가 머리글 오른쪽에 있다 (FR-CMP-82)', async ({ page }) => {
+    await waitForInit(page, { clearLocalStorage: true });
+    const bad: string[] = [];
+    for (const m of MODALS) {
+      await m.open(page);
+      await expect(page.locator(m.box), `${m.name} 이 열리지 않았다`).toBeVisible({ timeout: 10000 });
+      const s = await page.evaluate(([box, head]) => {
+        const h = document.querySelector(head) as HTMLElement | null;
+        if (!h) return { found: false, right: false };
+        // 닫기는 **머리글 안**에 있고 **오른쪽 끝**이다 — 모달마다 찾는 자리가
+        // 다르면 사용자는 닫는 법을 모달마다 다시 배운다.
+        const x = h.querySelector('.ui-btn-icon');
+        if (!x) return { found: false, right: false };
+        const hr = h.getBoundingClientRect(), xr = (x as HTMLElement).getBoundingClientRect();
+        return { found: true, right: hr.right - xr.right < 24 };
+      }, [m.box, m.head]);
+      if (!s.found) bad.push(`${m.name}: 머리글에 닫기 X 가 없다`);
+      else if (!s.right) bad.push(`${m.name}: 닫기 X 가 오른쪽 끝이 아니다`);
+      await page.keyboard.press('Escape');
+      await expect(page.locator(m.box)).toBeHidden({ timeout: 5000 });
+    }
+    expect(bad).toEqual([]);
+  });
+
+  test('TC-CMP-18: 제목에 수가 없고 배지가 그 옆에 선다 (FR-CMP-80·81)', async ({ page }) => {
+    await waitForInit(page, { clearLocalStorage: true });
+    const bad: string[] = [];
+    for (const m of MODALS.slice(1)) {   // 수를 세는 둘 — Runs · 백그라운드
+      await m.open(page);
+      await expect(page.locator(m.box)).toBeVisible({ timeout: 10000 });
+      const s = await page.evaluate((head) => {
+        const h = document.querySelector(head) as HTMLElement | null;
+        if (!h) return null;
+        const badge = h.querySelector('.ui-badge');
+        const title = h.querySelector('.ui-modal-title, .runs-head-t, .bg-head-t');
+        return { text: (title ? title.textContent : h.textContent) || '', badge: badge ? badge.textContent : null };
+      }, m.head);
+      expect(s, `${m.name}: 머리글을 찾지 못했다`).not.toBeNull();
+      // 0 일 때 "Run 0개" 라는 제목이 되는 것이 이 요구가 고치는 것이다.
+      if (/\d/.test(s!.text)) bad.push(`${m.name}: 제목에 수가 있다 — "${s!.text.trim()}"`);
+      if (s!.badge === null) bad.push(`${m.name}: 개수 배지가 없다`);
+      await page.keyboard.press('Escape');
+      await expect(page.locator(m.box)).toBeHidden({ timeout: 5000 });
+    }
+    expect(bad).toEqual([]);
+  });
+
+  test('TC-CMP-17: 설정 모달의 높이가 탭에 따라 달라진다 — 고정이 아니다 (FR-CMP-83)', async ({ page }) => {
+    await waitForInit(page, { clearLocalStorage: true });
+    await page.click('#settings-btn');
+    await expect(page.locator('#modal-overlay.open')).toBeVisible({ timeout: 10000 });
+
+    const heightOf = async (tab: string) => {
+      await page.click(`.mtab[data-tab="${tab}"]`);
+      return page.evaluate(() => Math.round(document.getElementById('modal')!.getBoundingClientRect().height));
+    };
+    // 착수 시 `#modal{height:min(80vh,720px)}` 이라 내용과 무관하게 같은 높이였다
+    // — Theme 는 아래 약 190px, Status Bar 는 약 280px 이 비었다.
+    const a = await heightOf('theme');
+    const b = await heightOf('shortcuts');
+    expect(a, `Theme(${a}) 와 Shortcuts(${b}) 의 높이가 같다 — 내용에 맞춰 늘지 않는다`).not.toBe(b);
+    await page.keyboard.press('Escape');
+  });
 });

@@ -258,8 +258,24 @@ test.describe('FR-BGK-1·5·11: 목표가 겹치지 않는다', () => {
       Array.from(document.querySelectorAll('#bg-modal .bg-kill'))
         .filter((el) => !el.closest('.bg-row')).length);
     expect(outside, '행 밖에 종료 버튼이 있다').toBe(0);
-    // 머리글에는 버튼이 없다 — "전체 종료" 가 놓일 유일한 자리다.
-    expect(await page.locator('#bg-modal .bg-head button').count()).toBe(0);
+    /**
+     * 머리글에 **종료 수단**이 없다 — "전체 종료" 가 놓일 유일한 자리다.
+     *
+     * 종전에는 `button` 개수가 0 인지 보았다. 그 대리는 머리글에 버튼이 하나도
+     * 없던 동안만 뜻이 같았고, `KIT_COMPONENTS_SRS` FR-CMP-82 가 **닫기 `X`** 를
+     * 세우면서 갈렸다 — 닫기는 모달을 닫을 뿐 아무것도 죽이지 않는다.
+     *
+     * 요구의 원문은 *"전체 종료 버튼은 두지 않는다"* 이지 *"버튼을 두지 않는다"*
+     * 가 아니므로, 대리를 **뜻에 맞게 좁힌다**: 닫기를 뺀 나머지가 0 이다.
+     * (게이트를 느슨하게 만든 것이 아니다 — 재는 대상이 달라졌다.)
+     */
+    const headBtns = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('#bg-modal .bg-head button'))
+        .filter((el) => !el.classList.contains('ui-modal-close'))
+        .map((el) => el.className));
+    expect(headBtns, '머리글에 닫기 아닌 버튼이 있다 (FR-BGK-11)').toEqual([]);
+    // 닫기는 **있어야** 한다 (FR-CMP-82) — 없으면 Esc 를 모르는 사용자가 갇힌다.
+    expect(await page.locator('#bg-modal .bg-head .ui-modal-close').count()).toBe(1);
     expect(await page.locator('#bg-modal .bg-box').innerText()).not.toContain('전체');
   });
 });
