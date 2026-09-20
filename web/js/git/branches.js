@@ -78,11 +78,11 @@ class GitBranches {
       '<div class="git-br-bar">'+
         '<input class="git-br-search" type="text">'+
         '<span class="git-br-spacer"></span>'+
-        '<button class="git-br-new"></button>'+
+        '<button class="ui-btn ui-btn-sm git-br-new"></button>'+
       '</div>'+
       '<div class="git-br-note">'+
         '<span class="git-br-note-msg"></span>'+
-        '<button class="git-br-retry"></button>'+
+        '<button class="ui-btn ui-btn-sm git-br-retry"></button>'+
       '</div>'+
       '<div class="git-br-tree ui-scroll"></div>'+
       // FR-GIT-269: 원격 목록. 트리 **아래**에 둔다 — 브랜치가 이 탭의 본체이고

@@ -18,10 +18,7 @@
   padding:4px 8px;border-bottom:1px solid var(--border);
   background:var(--bg-alt);
 }
-.dr-source{
-  flex:0 0 auto;padding:2px 8px;border:1px solid var(--border);border-radius:4px;
-  background:transparent;color:var(--text-hint);font-size:var(--fs-sm);cursor:pointer;
-}
+.dr-source{flex:0 0 auto}
 .dr-source:hover{color:var(--text);border-color:var(--accent)}
 .dr-path{
   flex:1 1 auto;min-width:0;color:var(--text-hint);font-size:var(--fs-sm);
@@ -108,12 +105,7 @@
  *
  * FR-DRB-3a: 테두리와 글자가 기본 상태에서 **강조색**이다. `--text`·`opacity:.9`
  * 는 밝은 배경의 문서 위에서 여전히 잠겼다 — 그것이 U-2 의 접수 내용이다. */
-.fe-render{
-  position:absolute;bottom:8px;left:8px;z-index:var(--z-raised);
-  height:22px;padding:0 8px;border:1px solid var(--accent);border-radius:4px;
-  background:var(--bg);color:var(--accent-text);font-size:var(--fs-sm);line-height:1;cursor:pointer;
-  white-space:nowrap;opacity:1;transition:background .12s,color .12s;
-}
+.fe-render{position:absolute;bottom:8px;left:8px;z-index:var(--z-raised);border:1px solid var(--accent);color:var(--accent-text);opacity:1;transition:background .12s,color .12s}
 .fe-render:hover{background:var(--accent);color:var(--bg)}
 
 /* ── SVG (FR-DRV-14) ──

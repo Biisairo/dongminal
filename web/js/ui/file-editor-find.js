@@ -72,7 +72,7 @@ Object.assign(FileEditor.prototype, {
      */
     p.innerHTML =
       '<div class="fe-find-line">'
-      + '<button type="button" class="fe-find-toggle" title="' + ED_FIND_REPLACE_TOGGLE_TITLE + '" aria-label="' + ED_FIND_REPLACE_TOGGLE_TITLE + '" aria-expanded="false">' + UIKit.iconHTML('chevron-right') + '</button>'
+      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-sm ui-btn-ghost fe-find-toggle" title="' + ED_FIND_REPLACE_TOGGLE_TITLE + '" aria-label="' + ED_FIND_REPLACE_TOGGLE_TITLE + '" aria-expanded="false">' + UIKit.iconHTML('chevron-right') + '</button>'
       + '<input class="fe-find-q" type="text" spellcheck="false" autocomplete="off"'
       + ' placeholder="' + ED_FIND_IN_PLACEHOLDER + '">'
       + '<span class="fe-find-count"></span>'

@@ -246,7 +246,7 @@ class DocRender {
     this.el.tabIndex = 0;
     this.el.innerHTML =
       '<div class="dr-bar">' +
-        '<button type="button" class="dr-source" title="' + DOC_RENDER_SOURCE_TITLE + '">' +
+        '<button type="button" class="ui-btn ui-btn-sm dr-source" title="' + DOC_RENDER_SOURCE_TITLE + '">' +
           DOC_RENDER_SOURCE + '</button>' +
         '<span class="dr-path"></span>' +
       '</div>' +

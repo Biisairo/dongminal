@@ -878,7 +878,7 @@ class Renderer {
       // FR-PDR-7: 배선은 한 번. 탭 목록은 고정이므로 버튼도 한 번 만든다.
       for(const d of REPO_SIDE_TABS){
         const t=document.createElement('button');
-        t.className='ed-side-tab';
+        t.className='ui-tab ed-side-tab';
         t.dataset.side=d.id; t.textContent=d.label;
         if(d.title) t.title=d.title;
         // `s` 를 가두지 않는다 — 이 골격은 창 id 로 키를 갖지만 그 객체는
@@ -914,7 +914,7 @@ class Renderer {
      */
     const rf=this._keep(key+'/refresh',()=>{
       const b=document.createElement('button');
-      b.className='ed-side-refresh git-head-refresh';
+      b.className='ui-btn ui-btn-icon ui-btn-lg ui-btn-ghost ed-side-refresh git-head-refresh';
       // 요구 ③/⑤: 글자가 아니라 아이콘이다. 크기는 `.ui-icon` 이 정한다.
       b.appendChild(UIKit.icon(GIT_REFRESH_LABEL)); b.title=GIT_REFRESH_TITLE;
       b.addEventListener('click',()=>app.gitPanelAt(app.edRootOf(s),slot).refresh());
@@ -1331,7 +1331,7 @@ class Renderer {
 
   _makeTabAdd(){
     const app=this.app;
-    const add=document.createElement('button'); add.className='pn-tab-add';
+    const add=document.createElement('button'); add.className='ui-btn ui-btn-icon ui-btn-ghost pn-tab-add';
     add.appendChild(UIKit.icon('plus',{size:'sm'}));
     add.title=TAB_ADD_TITLE;
     add.addEventListener('click',e=>{

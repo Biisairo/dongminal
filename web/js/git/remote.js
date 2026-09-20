@@ -245,7 +245,7 @@ class GitRemote {
     for(const fix of list){
       const b=document.createElement('button');
       // 클래스가 하나뿐인 것이 요구사항이다 — force 를 눈에 띄게 만들지 않는다.
-      b.className='git-job-opt'; b.dataset.fix=fix; b.type='button';
+      b.className='ui-btn ui-btn-sm git-job-opt'; b.dataset.fix=fix; b.type='button';
       b.textContent=GIT_JOB_FIX_LABEL[fix]||fix;
       b.title=GIT_TIP_JOB_FIX;
       b.addEventListener('click',()=>this._fix(fix));
@@ -664,7 +664,7 @@ class GitRemoteList {
         '<span class="git-rm-title"></span>'+
         '<span class="git-rm-count"></span>'+
         '<span class="git-rm-spacer"></span>'+
-        '<button class="git-rm-add" type="button"></button>'+
+        '<button class="ui-btn ui-btn-sm git-rm-add" type="button"></button>'+
       '</div>'+
       '<div class="git-rm-note"></div>'+
       '<div class="git-rm-rows ui-scroll-sm"></div>';
@@ -725,7 +725,7 @@ class GitRemoteList {
     url.title=url.textContent.includes(GIT_RM_MASK)?GIT_RM_MASK_TITLE:url.textContent;
     d.appendChild(url);
     const rm=document.createElement('button');
-    rm.type='button'; rm.className='git-rm-del';
+    rm.type='button'; rm.className='ui-btn ui-btn-sm git-rm-del';
     rm.textContent=GIT_RM_REMOVE; rm.title=GIT_TIP_RM_REMOVE;
     rm.addEventListener('click',()=>this.remove(r));
     d.appendChild(rm);

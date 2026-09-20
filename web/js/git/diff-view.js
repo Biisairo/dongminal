@@ -210,7 +210,7 @@ class GitDiffView {
     bar.className='git-img-bar';
     for(const m of [GIT_IMG_MODE_SIDE,GIT_IMG_MODE_OVER]){
       const btn=document.createElement('button');
-      btn.className='git-img-mode'+(this._imgMode===m?' active':'');
+      btn.className='ui-btn ui-btn-sm git-img-mode'+(this._imgMode===m?' active':'');
       btn.dataset.mode=m; btn.textContent=GIT_IMG_MODE_LABEL[m];
       btn.addEventListener('click',()=>{
         if(this._imgMode===m) return;
@@ -222,7 +222,7 @@ class GitDiffView {
     // SVG 는 텍스트 diff 도 갖는다 — 돌아갈 길을 같은 줄에 둔다.
     if(GIT_DIFF_DRAWABLE.has(a.kind)&&GIT_DIFF_DRAWABLE.has(b.kind)){
       const back=document.createElement('button');
-      back.className='git-img-as-text';
+      back.className='ui-btn ui-btn-sm git-img-as-text';
       back.textContent=GIT_IMG_AS_TEXT;
       // **다시 받지 않는다.** `show()` 를 부르면 stale 가드의 토큰이 없어
       // 그 호출이 자기 세대에 걸러지고(실측), 무엇보다 우리가 이미 두 벌의
@@ -473,7 +473,7 @@ class GitDiffView {
     for(const a of list){
       if(!a||!a.label||typeof a.run!=='function') continue;
       const b=document.createElement('button');
-      b.className='git-diff-note-act';
+      b.className='ui-btn ui-btn-sm git-diff-note-act';
       b.textContent=a.label;
       if(a.title) b.title=a.title;
       b.addEventListener('click',()=>a.run());

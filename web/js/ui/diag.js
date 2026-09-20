@@ -23,13 +23,13 @@
   el.innerHTML=
     '<div class="dg-bar">'+
       '<span class="dg-t">DIAG</span>'+
-      '<button class="dg-b" data-a="send" title="Upload this log to the server as a file">'+escHtml(t('diag.send'))+'</button>'+
-      '<button class="dg-b" data-a="clear" title="Clear the collected log lines">'+escHtml(t('diag.clear'))+'</button>'+
-      '<button class="dg-b" data-a="pause" title="Pause and resume log collection">'+escHtml(t('diag.pause'))+'</button>'+
-      '<button class="dg-b" data-a="env" title="Log the current environment (viewport, user agent, feature flags)">'+escHtml(t('diag.env'))+'</button>'+
-      '<button class="dg-b" data-a="hub" title="Dump pending timers and event topics (TimerHub / EventBus)">'+escHtml(t('diag.hub'))+'</button>'+
-      '<button class="dg-b" data-a="err" title="Dump uncaught errors and unhandled promise rejections">'+escHtml(t('diag.err'))+'</button>'+
-      '<button class="dg-b" data-a="min" title="Minimize this overlay">─</button>'+
+      '<button class="ui-btn ui-btn-sm dg-b" data-a="send" title="Upload this log to the server as a file">'+escHtml(t('diag.send'))+'</button>'+
+      '<button class="ui-btn ui-btn-sm dg-b" data-a="clear" title="Clear the collected log lines">'+escHtml(t('diag.clear'))+'</button>'+
+      '<button class="ui-btn ui-btn-sm dg-b" data-a="pause" title="Pause and resume log collection">'+escHtml(t('diag.pause'))+'</button>'+
+      '<button class="ui-btn ui-btn-sm dg-b" data-a="env" title="Log the current environment (viewport, user agent, feature flags)">'+escHtml(t('diag.env'))+'</button>'+
+      '<button class="ui-btn ui-btn-sm dg-b" data-a="hub" title="Dump pending timers and event topics (TimerHub / EventBus)">'+escHtml(t('diag.hub'))+'</button>'+
+      '<button class="ui-btn ui-btn-sm dg-b" data-a="err" title="Dump uncaught errors and unhandled promise rejections">'+escHtml(t('diag.err'))+'</button>'+
+      '<button class="ui-btn ui-btn-sm dg-b" data-a="min" title="Minimize this overlay">─</button>'+
     '</div>'+
     '<div class="dg-log"></div>';
   const style=document.createElement('style');

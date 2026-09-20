@@ -15,11 +15,7 @@
   flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:4px 8px;
   border-bottom:1px solid var(--border);font-size:var(--fs-md);
 }
-.git-diff-nav{
-  font:inherit;font-size:var(--fs-lg);line-height:1;padding:1px 7px;cursor:pointer;
-  background:var(--bg);color:var(--text);
-  border:1px solid var(--border);border-radius:3px;
-}
+.git-diff-nav{font-size:var(--fs-lg)}
 .git-diff-nav:disabled{color:var(--text-hint);cursor:not-allowed}
 .git-diff-path{color:var(--text-bright);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .git-diff-pos{color:var(--text-muted);font-size:var(--fs-sm);flex-shrink:0}
@@ -28,11 +24,6 @@
 .git-diff-gone{display:none;color:var(--attn-text);font-size:var(--fs-sm);flex-shrink:0}
 .git-diff-gone.vis{display:inline}
 .git-diff-spacer{flex:1 1 auto}
-.git-diff-mode{
-  font:inherit;font-size:var(--fs-sm);padding:2px 8px;cursor:pointer;flex-shrink:0;
-  background:var(--bg);color:var(--text);
-  border:1px solid var(--border);border-radius:3px;
-}
 .git-diff-ws,.git-diff-fold{display:flex;align-items:center;gap:4px;font-size:var(--fs-sm);color:var(--text-muted);flex-shrink:0;cursor:pointer}
 .git-diff-body{flex:1 1 auto;min-height:0;position:relative}
 /* FR-LAY-3: `.off` 를 `[hidden]` 으로 옮겼다. */
@@ -72,11 +63,6 @@
 /* 아직 커밋되지 않은 줄은 커밋된 줄과 구분되어야 한다 */
 .git-blame-row.uncommitted .git-blame-oid,
 .git-blame-row.uncommitted .git-blame-author{color:var(--text-hint);font-style:italic}
-/* 켜져 있음이 보여야 한다 — 사용자가 왜 diff 대신 blame 을 보는지의 근거다 */
-.git-diff-blame{
-  font:inherit;font-size:var(--fs-sm);padding:2px 8px;cursor:pointer;flex-shrink:0;
-  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
-}
 .git-diff-blame:hover{background:var(--accent-hover);color:var(--accent-text)}
 .git-diff-blame.on{background:var(--accent-active);color:var(--accent-text)}
 
@@ -90,9 +76,7 @@
 /* GIT_DIR_ENTRY_SRS FR-DIR-22: 사유에 딸린 진입점. 디렉터리 항목(서브모듈·중첩
    저장소)에서 그 저장소로 가는 길이다 — 안내만 있고 길이 없으면 사용자는 같은
    자리에서 매번 막힌다. */
-.git-diff-note-act{display:inline-block;margin-top:6px;padding:3px 8px;
-  font-size:var(--fs-sm);color:var(--text-bright);background:var(--bg-alt);
-  border:1px solid var(--border);border-radius:3px;cursor:pointer}
+.git-diff-note-act{display:inline-block;margin-top:6px;color:var(--text-bright)}
 .git-diff-note-act:hover{border-color:var(--accent);color:var(--accent-text)}
 .git-diff-host{flex:1 1 auto;min-height:0}
 
@@ -103,9 +87,6 @@
 .git-img-diff{display:flex;flex:1 1 auto;min-height:0;flex-direction:column;overflow:hidden}
 .git-img-bar{flex:0 0 auto;display:flex;align-items:center;gap:4px;padding:4px 8px;
   border-bottom:1px solid var(--border);font-size:var(--fs-sm)}
-.git-img-mode,.git-img-as-text{padding:3px 8px;font-size:var(--fs-sm);
-  color:var(--text-muted);background:var(--bg-alt);border:1px solid var(--border);
-  border-radius:3px;cursor:pointer}
 .git-img-mode.active{color:var(--accent-text);border-color:var(--accent)}
 .git-img-mode:hover,.git-img-as-text:hover{color:var(--text-bright);border-color:var(--accent)}
 /* `그림으로` 는 오른쪽 끝이다 — 모드 둘과 다른 종류의 동작이다. */
@@ -146,11 +127,7 @@
 .git-hist-search:focus{border-color:var(--accent);outline:none}
 .git-hist-search:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 /* FR-HSU-9·10: 옵션 드롭다운의 손잡이. 걸린 필터가 있으면 배지가 선다 */
-.git-hist-opts{
-  display:inline-flex;align-items:center;gap:3px;flex:0 0 auto;
-  font:inherit;font-size:var(--fs-sm);padding:0 6px;height:var(--git-btn-h);cursor:pointer;
-  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
-}
+.git-hist-opts{gap:3px;flex:0 0 auto}
 .git-hist-opts>.ui-icon{width:calc(var(--git-btn-h) * .56);height:calc(var(--git-btn-h) * .56)}
 .git-hist-opts:hover{background:var(--accent-hover);color:var(--accent-text)}
 .git-hist-opts.on{border-color:var(--accent-border);color:var(--accent-text)}
@@ -164,10 +141,6 @@
 .git-hist-optsmenu .ui-field{gap:8px;justify-content:space-between}
 .git-hist-optsmenu .ui-input,.git-hist-optsmenu .ui-select{width:130px}
 .git-hist-opts-foot{display:flex;justify-content:flex-end;padding-top:6px}
-.git-hist-branch,.git-hist-retry{
-  font:inherit;font-size:var(--fs-sm);padding:2px 8px;cursor:pointer;flex-shrink:0;
-  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
-}
 .git-hist-branch:hover,.git-hist-retry:hover{background:var(--accent-hover);color:var(--accent-text)}
 
 /* FR-GIT-132: 사유를 보이되 목록은 지우지 않는다 */
@@ -371,12 +344,7 @@ body.mobile .git-refs{width:110px}
 .git-con-exit{flex:0 0 auto;color:var(--danger-text);font-size:var(--fs-sm)}
 /* replay 는 hover 로만 보인다 — 기록은 읽는 자리이지 누르는 자리가 아니다
    (.git-wt-act 와 같은 어휘). */
-.git-con-replay{
-  flex:0 0 auto;font:inherit;font-size:var(--fs-sm);line-height:1;cursor:pointer;padding:0 6px;
-  opacity:0;transition:opacity .1s;
-  background:transparent;color:var(--text-muted);
-  border:1px solid var(--border);border-radius:3px;
-}
+.git-con-replay{flex:0 0 auto;opacity:0;transition:opacity .1s}
 .git-con-row:hover .git-con-replay,.git-con-row:focus-within .git-con-replay{opacity:1}
 .git-con-replay:hover{color:var(--text-bright);border-color:var(--accent)}
 .git-con-row[data-destructive="1"] .git-con-replay:hover{color:var(--danger-text);border-color:var(--danger)}
@@ -480,10 +448,6 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
   font:inherit;font-size:var(--fs-sm);padding:2px 6px;width:160px;min-width:0;
   background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
 }
-.git-br-new,.git-br-retry{
-  font:inherit;font-size:var(--fs-sm);padding:2px 8px;cursor:pointer;flex-shrink:0;
-  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
-}
 .git-br-new:hover,.git-br-retry:hover{background:var(--accent-hover);color:var(--accent-text)}
 /* 사유를 보이되 목록은 지우지 않는다 (FR-GIT-132 과 같은 규약) */
 .git-br-note{
@@ -546,10 +510,6 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
   flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:4px 8px;
   border-bottom:1px solid var(--border);font-size:var(--fs-md);
 }
-.git-stash-new{
-  font:inherit;font-size:var(--fs-sm);padding:2px 8px;cursor:pointer;flex-shrink:0;
-  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
-}
 .git-stash-new:hover:not(:disabled){background:var(--accent-hover);color:var(--accent-text)}
 .git-stash-new:disabled{color:var(--text-hint);cursor:not-allowed}
 /* FR-GIT-272: 메시지·기준 브랜치 필터. 받아 둔 목록에만 건다 */
@@ -568,10 +528,6 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 }
 .git-stash-note.vis{display:flex}
 .git-stash-note-msg{flex:1 1 auto;min-width:0}
-.git-stash-note-close{
-  font:inherit;font-size:var(--fs-sm);padding:1px 6px;cursor:pointer;flex-shrink:0;
-  background:transparent;color:var(--attn-text);border:1px solid var(--attn);border-radius:3px;
-}
 .git-stash-main{flex:1 1 auto;min-height:0;display:flex}
 .git-stash-list{flex:1 1 auto;min-width:0;overflow-y:auto;font-size:var(--fs-md)}
 .git-stash-empty{padding:10px;color:var(--text-muted);font-size:var(--fs-sm)}
@@ -642,21 +598,8 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 /* 행 동작의 외형은 `.ui-btn.ui-btn-sm` 이다 (§7.5). 제거만 hover 에서 위험색을
    미리 보인다 — 담는 쪽에 건다 (D-TOK-11). */
 .git-wt-acts>[data-act="remove"]:hover{color:var(--danger-text);border-color:var(--danger)}
-/* 머리의 생성 진입점과 안내 닫기. 같은 자리를 쓰는 Stash 탭(.git-stash-new ·
-   .git-stash-note-close)과 같은 어휘여야 한다 — 규칙이 없으면 브라우저 기본 베벨로
-   떠서 어두운 테마에서 튄다 */
-.git-wt-add{
-  font:inherit;font-size:var(--fs-sm);padding:2px 8px;cursor:pointer;
-  background:var(--bg);color:var(--text);
-  border:1px solid var(--border);border-radius:3px;
-}
 .git-wt-add:hover:not(:disabled){background:var(--accent-hover);color:var(--accent-text)}
 .git-wt-add:disabled{color:var(--text-hint);cursor:not-allowed}
-.git-wt-note-close{
-  flex-shrink:0;font:inherit;font-size:var(--fs-sm);padding:0 8px;cursor:pointer;
-  background:transparent;color:var(--text-muted);
-  border:1px solid var(--border);border-radius:3px;
-}
 
 /* ── Submodules 탭 (UX_BATCH5_SRS 묶음 D / FR-SUB-6~11) ──
    골격이 Worktrees 와 같으므로(FR-SUB-7) 규칙도 그것을 그대로 딛는다. 값을 다시
@@ -701,25 +644,9 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
    안의 변경을 덮을 수 있다 — 파괴적인 것은 hover 에서 색으로도 갈린다. */
 .git-sub-acts>[data-act="update"]:hover:not(:disabled),
 .git-sub-acts>[data-act="init"]:hover:not(:disabled){color:var(--danger-text);border-color:var(--danger)}
-.git-sub-bulk{
-  font:inherit;font-size:var(--fs-sm);padding:2px 8px;cursor:pointer;
-  background:var(--bg);color:var(--text);
-  border:1px solid var(--border);border-radius:3px;
-}
 .git-sub-bulk:hover:not(:disabled){background:var(--accent-hover);color:var(--accent-text)}
 .git-sub-bulk:disabled{color:var(--text-hint);cursor:not-allowed}
-/* M8 D-A-27: 갱신이 도는 동안만 보이는 취소. 모양은 일괄 버튼과 같고 뜻은 위험이다. */
-.git-sub-cancel{
-  font:inherit;font-size:var(--fs-sm);padding:2px 8px;cursor:pointer;
-  background:var(--bg);color:var(--danger-text);
-  border:1px solid var(--danger);border-radius:3px;
-}
 .git-sub-cancel:disabled{color:var(--text-hint);border-color:var(--border);cursor:not-allowed}
-.git-sub-note-close{
-  flex-shrink:0;font:inherit;font-size:var(--fs-sm);padding:0 8px;cursor:pointer;
-  background:transparent;color:var(--text-muted);
-  border:1px solid var(--border);border-radius:3px;
-}
 
 /* ── Git 컨트롤 치수 하한 (FR-GIT-195~199, **FR-GIT-226 으로 개정**) ──
    기준은 VSCode(22/26)가 아니라 **이 앱의 WINDOWS 목록 행(`.si` 30px)** 이다 —
@@ -864,10 +791,6 @@ select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .git-rm-title{color:var(--accent-text)}
 .git-rm-count{color:var(--text-muted)}
 .git-rm-spacer{flex:1 1 auto}
-.git-rm-add{
-  font:inherit;font-size:var(--fs-sm);padding:1px 6px;cursor:pointer;
-  background:transparent;color:var(--text);border:1px solid var(--border);border-radius:3px;
-}
 .git-rm-add:hover:not(:disabled){background:var(--accent-hover);color:var(--accent-text)}
 .git-rm-add:disabled{color:var(--text-hint);cursor:not-allowed}
 .git-rm-note{display:none;padding:3px 10px;font-size:var(--fs-sm);color:var(--danger-text)}
@@ -882,10 +805,6 @@ select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .git-rm-url{
   flex:1 1 auto;min-width:0;color:var(--text-muted);font-size:var(--fs-sm);font-family:monospace;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
-.git-rm-del{
-  font:inherit;font-size:var(--fs-sm);padding:1px 6px;cursor:pointer;flex-shrink:0;
-  background:transparent;color:var(--text);border:1px solid var(--border);border-radius:3px;
 }
 .git-rm-del:hover{background:var(--accent-hover);color:var(--accent-text)}
 

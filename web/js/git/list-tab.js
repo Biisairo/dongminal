@@ -55,7 +55,7 @@ class GitListTab {
       '</div>'+
       '<div class="'+p+'-note">'+
         '<span class="'+p+'-note-msg"></span>'+
-        '<button class="'+p+'-note-close"></button>'+
+        '<button class="ui-btn ui-btn-sm '+p+'-note-close"></button>'+
       '</div>'+
       '<div class="'+p+'-list ui-scroll-sm"></div>'+
       '<div class="'+p+'-empty"></div>';

@@ -142,8 +142,8 @@ Object.assign(GitPanel.prototype, {
   _buildDiff(el){
     el.innerHTML=
       '<div class="git-diff-bar">'+
-        '<button class="git-diff-nav" data-nav="prev">\u2039</button>'+
-        '<button class="git-diff-nav" data-nav="next">\u203a</button>'+
+        '<button class="ui-btn ui-btn-sm git-diff-nav" data-nav="prev">\u2039</button>'+
+        '<button class="ui-btn ui-btn-sm git-diff-nav" data-nav="next">\u203a</button>'+
         '<span class="git-diff-path"></span>'+
         // REPO_TAB_UNIFY_SRS FR-RTU-20: 축 라벨은 걷어낸 인라인 미리보기가 들고
         // 있었다 (`worktree ↔ index`). 어느 두 쪽을 비교하는지는 diff 를 읽는
@@ -157,8 +157,8 @@ Object.assign(GitPanel.prototype, {
         // 있었고, 그 패널이 세로 공간의 42% 를 먹었다 (I-3).
         '<span class="git-diff-hunk-note"></span>'+
         '<span class="git-diff-spacer"></span>'+
-        '<button class="git-diff-blame"></button>'+
-        '<button class="git-diff-mode"></button>'+
+        '<button class="ui-btn ui-btn-sm git-diff-blame"></button>'+
+        '<button class="ui-btn ui-btn-sm git-diff-mode"></button>'+
         '<label class="git-diff-ws"><input type="checkbox"></label>'+
         // FR-DOR-3: 접기 토글. 공백무시와 같은 규약·같은 자리다 — 둘 다
         // "무엇을 보여 줄 것인가"를 정하는 기기별 취향이다.

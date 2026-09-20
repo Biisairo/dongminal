@@ -131,12 +131,12 @@ class GitHistory {
         '<span class="git-hist-search-box">'+
           '<input class="git-hist-search" type="text">'+
         '</span>'+
-        '<button class="git-hist-opts"><span class="git-hist-opts-badge"></span></button>'+
+        '<button class="ui-btn ui-btn-lg git-hist-opts"><span class="git-hist-opts-badge"></span></button>'+
         '<span class="git-hist-spacer"></span>'+
         // FR-HBB-1·2: 브랜치 생성 진입점. 여백 **뒤**다 — 왼쪽 무리는 목록을
         // 거르는 것들이고 이 버튼은 거기 속하지 않는다. 공용 머리(.git-head)에
         // 두지 않는 이유는 §2.2 다 — 그 자리는 Changes 와 공유한다.
-        '<button class="git-hist-branch"></button>'+
+        '<button class="ui-btn ui-btn-sm git-hist-branch"></button>'+
       '</div>'+
       // FR-HSU-6: 입력이 실재하는 리비전이면 **결과 맨 위**에 그 줄이 선다.
       // 가상 목록 안에 끼우지 않고 목록 바로 위의 줄로 둔다 — 행 창의 좌표 계산이
@@ -144,7 +144,7 @@ class GitHistory {
       '<div class="git-hist-rev"></div>'+
       '<div class="git-hist-note">'+
         '<span class="git-hist-note-msg"></span>'+
-        '<button class="git-hist-retry"></button>'+
+        '<button class="ui-btn ui-btn-sm git-hist-retry"></button>'+
       '</div>'+
       '<div class="git-hist-main">'+
         '<div class="git-refs ui-scroll-sm"></div>'+

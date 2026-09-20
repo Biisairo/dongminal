@@ -337,7 +337,7 @@ Object.assign(App.prototype, {
     if(!this._attn.size){this._attnCenterClose();return}
     const head=document.createElement('div');
     head.className='attn-head';
-    head.innerHTML=`<span class="attn-title">${escHtml(t('attn.title',{n:this._attn.size}))}</span><button class="attn-clear-all" title="Clear every attention alert">${escHtml(t('attn.clear_all'))}</button>`;
+    head.innerHTML=`<span class="attn-title">${escHtml(t('attn.title',{n:this._attn.size}))}</span><button class="ui-btn ui-btn-sm ui-btn-attn attn-clear-all" title="Clear every attention alert">${escHtml(t('attn.clear_all'))}</button>`;
     head.querySelector('.attn-clear-all').addEventListener('click',e=>{e.stopPropagation();this._attnClearAll()});
     center.appendChild(head);
     for(const [toolId,info] of this._attn){

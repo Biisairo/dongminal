@@ -93,9 +93,9 @@ Object.assign(App.prototype, {
 
       const done=found===srvs.length&&found>0;
       const btn=head.installing
-        ? '<button class="lsp-install" title="'+escHtml(LSP_INSTALL_TITLE)+'" data-id="'+escHtml(pack)+'" disabled>'+LSP_INSTALLING+'</button>'
+        ? '<button class="ui-btn ui-btn-sm lsp-install" title="'+escHtml(LSP_INSTALL_TITLE)+'" data-id="'+escHtml(pack)+'" disabled>'+LSP_INSTALLING+'</button>'
         : (done ? ''
-          : '<button class="lsp-install" title="'+escHtml(LSP_INSTALL_TITLE)+'" data-id="'+escHtml(pack)+'"'+
+          : '<button class="ui-btn ui-btn-sm lsp-install" title="'+escHtml(LSP_INSTALL_TITLE)+'" data-id="'+escHtml(pack)+'"'+
             (head.canInstall?'':' disabled')+'>'+LSP_INSTALL+'</button>');
 
       // 이 팩이 덮는 언어들. 서버가 준 표를 그대로 쓴다 (FR-EXT-1) — 화면이 따로

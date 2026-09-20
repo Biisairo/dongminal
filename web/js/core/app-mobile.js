@@ -231,7 +231,7 @@ Object.assign(App.prototype, {
     const hideTip=()=>{const t=document.getElementById('mkb-tip');if(t)t.remove()};
     for(const k of keys){
       const b=document.createElement('button');
-      b.className='mkb-btn';b.textContent=k.label;b.type='button';
+      b.className='ui-btn mkb-btn';b.textContent=k.label;b.type='button';
       // FR-MTI-14: 버튼이 포커스를 가져가면 소프트 키보드가 내려가고, 이어지는
       // term.focus() 가 다시 올려 visualViewport 이벤트가 폭주한다. 스와이프로
       // 판정된 터치(preventDefault 를 하지 않는 경로)에서도 그 일이 없어야 한다.

@@ -1069,7 +1069,7 @@ class FileEditor {
     el.innerHTML =
       '<span class="fe-offer-msg"></span>' +
       actBtn +
-      '<button type="button" class="fe-offer-no">' + LSP_OFFER_DISMISS + '</button>' +
+      '<button type="button" class="ui-btn ui-btn-sm fe-offer-no">' + LSP_OFFER_DISMISS + '</button>' +
       '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-offer-x" title="' + ED_FIND_CLOSE_TITLE + '" aria-label="' + ED_FIND_CLOSE_TITLE + '">' + UIKit.iconHTML('x') + '</button>';
     // 사유는 텍스트 노드로 넣는다 — 서버가 보낸 이름이 그 자리에 닿는다.
     el.querySelector('.fe-offer-msg').textContent = body;

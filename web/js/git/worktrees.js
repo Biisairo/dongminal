@@ -22,7 +22,7 @@ class GitWorktrees extends GitListTab {
 
   // ── 골격이 채워 달라는 자리 (GitListTab, FR-DRC-7) ──
 
-  _headHTML(){return '<button class="git-wt-add"></button>'}
+  _headHTML(){return '<button class="ui-btn ui-btn-sm git-wt-add"></button>'}
 
   _mountHead(el){
     const add=el.querySelector('.git-wt-add');

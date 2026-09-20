@@ -124,13 +124,7 @@ body.mobile .git-head-remote{gap:2px}
 }
 /* FR-RTU-100: 폭과 무관하게 자리와 크기가 고정인 유일한 계기. 하한은 기존
    히트 영역 규약을 그대로 쓴다 (FR-GIT-195~198). */
-.git-job-fold{
-  flex:0 0 auto;min-width:var(--git-hit);min-height:var(--git-hit);
-  display:flex;align-items:center;justify-content:center;
-  font:inherit;font-size:var(--fs-sm);line-height:1;cursor:pointer;
-  background:transparent;color:var(--text-muted);
-  border:1px solid var(--border);border-radius:3px;
-}
+.git-job-fold{flex:0 0 auto}
 .git-job-fold:hover{color:var(--text-bright);border-color:var(--accent)}
 .git-job-kind{color:var(--accent-text);flex-shrink:0}
 /* 기준 폭을 60px 로 **명시**한다 — `auto` 로 두면 wrap 이 argv 의 내용 길이로
@@ -142,10 +136,7 @@ body.mobile .git-head-remote{gap:2px}
 }
 .git-job-state{color:var(--text-muted);flex-shrink:0}
 .git-job-spacer{flex:1 1 auto}
-.git-job-cancel,.git-job-copy,.git-job-close{
-  display:none;font:inherit;font-size:var(--fs-sm);padding:1px 6px;cursor:pointer;flex-shrink:0;
-  background:transparent;color:var(--text);border:1px solid var(--border);border-radius:3px;
-}
+.git-job-cancel,.git-job-copy,.git-job-close{display:none}
 .git-job-copy{display:inline-block}
 .git-job-cancel.vis,.git-job-close.vis{display:inline-block}
 .git-job-cancel{color:var(--attn-text);border-color:var(--attn)}
@@ -169,19 +160,12 @@ body.mobile .git-head-remote{gap:2px}
   background:var(--accent-subtle);padding:3px 6px;border-radius:3px;
   white-space:pre-wrap;word-break:break-all;
 }
-.git-job-auth-copy{
-  align-self:flex-start;font:inherit;font-size:var(--fs-sm);padding:1px 6px;cursor:pointer;
-  background:transparent;color:var(--text);border:1px solid var(--border);border-radius:3px;
-}
+.git-job-auth-copy{align-self:flex-start}
 /* FR-GIT-105: 선택지는 서버가 준 순서 그대로이고 **하나도 강조하지 않는다** —
    생김새를 달리 주는 것이 곧 force 를 기본 제안하는 것이다 */
 .git-job-opts{display:none;flex-direction:column;gap:3px;align-items:flex-start}
 .git-job-opts.vis{display:flex}
 .git-job-opts-note{font-size:var(--fs-sm);color:var(--text-muted)}
-.git-job-opt{
-  font:inherit;font-size:var(--fs-sm);padding:2px 8px;cursor:pointer;
-  background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:3px;
-}
 .git-job-opt:hover{background:var(--accent-hover);color:var(--accent-text)}
 /* FR-GIT-103: 진행 표시는 stderr 로 오지만 오류가 아니다 — 색을 가르지 않는다 */
 .git-job-log{
@@ -347,11 +331,6 @@ body.mobile .git-head-remote{gap:2px}
 .git-preflight-fix-label{color:var(--text-muted);flex-shrink:0}
 .git-preflight-cmd{flex:1 1 auto;min-width:0;padding:2px 6px;border-radius:3px;
   background:var(--sidebar-bg);color:var(--text-bright);font-family:monospace;word-break:break-all}
-.git-preflight-copy{
-  font:inherit;font-size:var(--fs-sm);padding:1px 6px;cursor:pointer;flex-shrink:0;
-  background:transparent;color:var(--text-muted);
-  border:1px solid var(--border);border-radius:3px;
-}
 .git-preflight-copy:hover{color:var(--text-bright);border-color:var(--accent)}
 
 /* FR-GIT-81·83 · O7: 5초 뒤 사라진다. 사라진 뒤에는 진입점이 DOM 에 없다 */
@@ -432,14 +411,7 @@ body.mobile .git-head-remote{gap:2px}
    들어가지 않았다(실측). 모양과 히트 영역을 `.git-file-act` 와 같이 둔다: 같은
    어휘의 아이콘이 자리마다 다르게 보이면 같은 것으로 읽히지 않는다.
    FR-GIT-195·226: 아이콘 버튼의 하한도 30px 이다 (`--git-hit`). */
-.git-group-bulk{
-  font:inherit;font-size:var(--fs-md);line-height:1;cursor:pointer;flex:0 0 auto;
-  min-width:var(--git-hit);min-height:var(--git-hit);padding:0;
-  display:flex;align-items:center;justify-content:center;
-  text-transform:none;letter-spacing:normal;
-  background:transparent;color:var(--text-muted);
-  border:0;border-radius:3px;
-}
+.git-group-bulk{font-size:var(--fs-md);flex:0 0 auto;text-transform:none;letter-spacing:normal}
 .git-group-bulk:hover:not(:disabled){color:var(--text-bright);background:var(--accent-hover)}
 /* 파괴적인 것은 손에서 멀 뿐 아니라 색으로도 갈린다 — 행의 폐기와 같은 규약이다. */
 .git-group-bulk[data-act="discard"]:hover:not(:disabled){color:var(--danger-text);background:var(--attn-subtle)}
@@ -654,11 +626,7 @@ body.mobile .git-head-remote{gap:2px}
 .git-partial-msg{word-break:break-all}
 .git-partial-list{margin:2px 0 0;padding:0 0 0 14px;max-height:80px;overflow-y:auto;color:var(--text)}
 .git-partial-path{font-family:monospace;word-break:break-all}
-.git-partial-close{
-  margin-top:4px;font:inherit;font-size:var(--fs-sm);padding:0 8px;min-height:var(--git-btn-h);cursor:pointer;
-  background:transparent;color:var(--text-muted);
-  border:1px solid var(--border);border-radius:3px;
-}
+.git-partial-close{margin-top:4px}
 /* 충돌 행은 구분만 한다 (FR-GIT-37). M1 은 해결하지 않는다 */
 .git-file.conflict .git-file-st,.git-file.conflict .git-file-path,
 .git-file.conflict .git-file-path-dir,.git-file.conflict .git-file-path-name,

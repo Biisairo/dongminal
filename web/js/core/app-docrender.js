@@ -33,7 +33,7 @@ Object.assign(App.prototype, {
     if (view.el.querySelector('.fe-render')) return;
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'fe-render';
+    b.className = 'ui-btn ui-btn-sm fe-render';
     b.textContent = DOC_RENDER_BTN;
     b.title = DOC_RENDER_BTN_TITLE;
     b.addEventListener('click', (e) => {

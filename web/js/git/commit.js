@@ -330,7 +330,7 @@ class GitCommit {
       const code=document.createElement('code');
       code.className='git-preflight-cmd'; code.textContent=(b&&b.fix)||'';
       const cp=document.createElement('button');
-      cp.className='git-preflight-copy'; cp.textContent=GIT_PREFLIGHT_COPY;
+      cp.className='ui-btn ui-btn-sm git-preflight-copy'; cp.textContent=GIT_PREFLIGHT_COPY;
       cp.title=GIT_TIP_PREFLIGHT_COPY;
       cp.addEventListener('click',()=>this.panel.copyText((b&&b.fix)||''));
       f.appendChild(lab); f.appendChild(code); f.appendChild(cp);

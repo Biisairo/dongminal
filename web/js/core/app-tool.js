@@ -101,7 +101,7 @@ Object.assign(App.prototype, {
         const code=document.createElement('code'); code.className='sbx-rt-cmd ui-scroll';
         code.textContent=cmd;
         const copy=document.createElement('button');
-        copy.type='button'; copy.className='sbx-rt-copy'; copy.textContent=SBX_RT_COPY;
+        copy.type='button'; copy.className='ui-btn ui-btn-sm sbx-rt-copy'; copy.textContent=SBX_RT_COPY;
         copy.addEventListener('click',async()=>{
           // 복사가 막힌 환경(비 HTTPS·권한)에서도 명령은 화면에 남아 있다 —
           // 실패를 알릴 뿐 흐름을 막지 않는다.
@@ -235,7 +235,7 @@ Object.assign(App.prototype, {
         // 고르는 행위여야 한다 (FR-SBX-40).
         if(here){
           const now=document.createElement('button');
-          now.type='button';now.className='sbx-now';now.textContent=t('sbx.here');now.title=here;
+          now.type='button';now.className='ui-btn ui-btn-sm sbx-now';now.textContent=t('sbx.here');now.title=here;
           now.addEventListener('click',()=>{input.value=here;input.focus()});
           wrap.appendChild(now);
         }
@@ -248,7 +248,7 @@ Object.assign(App.prototype, {
           const bar=document.createElement('div');bar.className='sbx-recent';
           for(const path of recent){
             const b=document.createElement('button');
-            b.type='button';b.className='sbx-recent-item';b.textContent=path;b.title=path;
+            b.type='button';b.className='ui-btn ui-btn-sm sbx-recent-item';b.textContent=path;b.title=path;
             b.addEventListener('click',()=>{input.value=path;input.focus()});
             bar.appendChild(b);
           }
@@ -279,7 +279,7 @@ Object.assign(App.prototype, {
         wrap.appendChild(label);
         for(const k of SANDBOX_WORK_PICKS){
           const b=document.createElement('button');
-          b.type='button';b.className='sbx-work-opt sbx-work-'+k;b.dataset.work=k;
+          b.type='button';b.className='ui-btn ui-btn-sm sbx-work-opt sbx-work-'+k;b.dataset.work=k;
           b.textContent=SANDBOX_WORK_LABEL[k];b.title=SANDBOX_WORK_TITLE[k]||'';
           b.addEventListener('click',()=>setWork(k));
           workBtns.set(k,b);wrap.appendChild(b);
@@ -340,7 +340,7 @@ Object.assign(App.prototype, {
         const hint=document.createElement('div');hint.className='sbx-hint';
         hint.textContent=SANDBOX_DEV_HINT;
         const open=document.createElement('button');
-        open.type='button';open.className='sbx-settings';open.textContent=SANDBOX_DEV_SETTINGS;
+        open.type='button';open.className='ui-btn ui-btn-sm sbx-settings';open.textContent=SANDBOX_DEV_SETTINGS;
         open.title=TIP_SBX_SETTINGS;
         // 선택창을 닫고 설정을 연다 — 두 창이 겹치면 어느 쪽이 살아 있는지
         // 알 수 없다.

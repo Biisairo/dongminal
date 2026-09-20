@@ -32,12 +32,7 @@
 .ed-side-tabs{display:flex;flex:0 0 auto;border-bottom:1px solid var(--border)}
 /* FR-GCC-10: 탭 줄 오른쪽 여백의 새로고침. 탭은 왼쪽에서 자기 폭만 쓰고, 이
    버튼이 남은 자리의 끝에 앉는다 — `margin-left:auto` 하나면 된다. */
-.ed-side-refresh{
-  margin-left:auto;flex:0 0 auto;min-width:30px;min-height:30px;
-  display:inline-flex;align-items:center;justify-content:center;
-  background:transparent;border:0;border-radius:3px;
-  color:var(--text-muted);font-size:var(--fs-md);cursor:pointer;
-}
+.ed-side-refresh{margin-left:auto;flex:0 0 auto;font-size:var(--fs-md)}
 /* 요구 ③/⑤: 아이콘이 상자를 꽉 채운다 (FR-GLY-5). */
 .ed-side-refresh>.ui-icon{width:18px;height:18px}
 .ed-side-refresh:hover:not(:disabled){color:var(--accent-text);background:var(--accent-hover)}
@@ -46,12 +41,7 @@
    (NFR-EDT-3 과 같은 근거). */
 /* FR-GIT-195~198: Git 표면의 컨트롤은 히트 영역 하한(30px)을 넘는다. 통합이
    새로 넣은 이 두 컨트롤이 그 요구를 지나쳐 24px·23px 로 서 있었다 (V80 실측). */
-.ed-side-tab{
-  flex:1 1 0;min-width:0;min-height:30px;padding:5px 4px;font-size:var(--fs-sm);
-  background:transparent;border:none;border-bottom:2px solid transparent;
-  color:var(--text-muted);cursor:pointer;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-}
+.ed-side-tab{flex:1 1 0;min-width:0;border-bottom:2px solid transparent;overflow:hidden;text-overflow:ellipsis}
 .ed-side-tab:hover{color:var(--text)}
 .ed-side-tab.active{color:var(--text-bright);border-bottom-color:var(--accent)}
 /* FR-RTU-20·21: 진입점 아이콘 줄. Changes 탭에서만 서며 커밋 입력보다 위다 —
@@ -285,11 +275,7 @@ body.mobile .ed-row{height:var(--touch-min)}
 .fe-find-r:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 /* 토글은 첫 줄의 맨 앞에 선다. 글자 버튼이 아니라 방향 표시이므로 `.fe-find-opt`
    의 상자를 쓰지 않는다. */
-.fe-find-toggle{
-  display:flex;align-items:center;justify-content:center;
-  width:var(--ui-btn-h-sm);height:var(--ui-btn-h-sm);padding:0;
-  background:none;border:0;border-radius:4px;color:var(--text-muted);cursor:pointer;
-}
+.fe-find-toggle{width:var(--ui-btn-h-sm);height:var(--ui-btn-h-sm)}
 .fe-find-toggle:hover{background:var(--border);color:var(--text-bright)}
 .fe-find-toggle:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .fe-find-q{
@@ -377,8 +363,6 @@ body.mobile .ed-row{height:var(--touch-min)}
 .tc-copy-row button{
   border:none;border-radius:5px;padding:6px 12px;font:inherit;font-weight:600;
 }
-.tc-copy-do{background:var(--accent);color:var(--bg)}
-.tc-copy-close{background:var(--border);color:var(--text-bright)}
 
 /* ── 코드 탐색: 언어 서버의 관측 (EDITOR_LSP_SRS 묶음 A · FR-LSP-46) ──
    설정 ▸ Code 의 언어별 행. 한 줄에 다 담지 않는 이유는 경로가 길기 때문이다 —
@@ -401,10 +385,6 @@ body.mobile .ed-row{height:var(--touch-min)}
   overflow-wrap:anywhere;
 }
 .lsp-act{grid-area:act;display:flex;align-items:center}
-.lsp-install{
-  padding:4px 10px;border:1px solid var(--border);border-radius:4px;cursor:pointer;
-  background:transparent;color:var(--text);font-size:var(--fs-sm);white-space:nowrap;
-}
 .lsp-install:hover:not(:disabled){background:var(--border);color:var(--text-bright)}
 .lsp-install:disabled{opacity:.45;cursor:default}
 /* 결과는 그 자리에 남는다 (FR-LSP-10) — 조용히 사라지면 사용자는 무엇이 됐는지 모른다. */

@@ -159,14 +159,14 @@ Object.assign(GitPanel.prototype, {
           // REPO_TAB_UNIFY_SRS FR-RTU-100: 접기·펴기는 **전용 토글**이 갖는다.
           // 바의 나머지를 누르는 계기도 남지만, 폭이 줄면 그 자리가 버튼이 되므로
           // 폭과 무관한 자리가 하나 있어야 한다 (D-RTU-33).
-          '<button class="git-job-fold"></button>'+
+          '<button class="ui-btn ui-btn-icon ui-btn-lg git-job-fold"></button>'+
           '<span class="git-job-kind"></span>'+
           '<code class="git-job-argv"></code>'+
           '<span class="git-job-state"></span>'+
           '<span class="git-job-spacer"></span>'+
-          '<button class="git-job-cancel"></button>'+
-          '<button class="git-job-copy"></button>'+
-          '<button class="git-job-close"></button>'+
+          '<button class="ui-btn ui-btn-sm git-job-cancel"></button>'+
+          '<button class="ui-btn ui-btn-sm git-job-copy"></button>'+
+          '<button class="ui-btn ui-btn-sm git-job-close"></button>'+
         '</div>'+
         '<div class="git-job-note"></div>'+
         '<div class="git-job-fail">'+
@@ -177,7 +177,7 @@ Object.assign(GitPanel.prototype, {
           '<div class="git-job-auth">'+
             '<div class="git-job-auth-note"></div>'+
             '<code class="git-job-auth-cmd"></code>'+
-            '<button class="git-job-auth-copy"></button>'+
+            '<button class="ui-btn ui-btn-sm git-job-auth-copy"></button>'+
           '</div>'+
           '<div class="git-job-opts"></div>'+
         '</div>'+
@@ -200,7 +200,7 @@ Object.assign(GitPanel.prototype, {
       '<div class="git-partial-note">'+
         '<div class="git-partial-msg"></div>'+
         '<ul class="git-partial-list ui-scroll-sm"></ul>'+
-        '<button class="git-partial-close"></button>'+
+        '<button class="ui-btn ui-btn-lg git-partial-close"></button>'+
       '</div>'+
       /**
        * REPO_TAB_UNIFY_SRS FR-RTU-20: **목록 하나다.**
@@ -266,7 +266,7 @@ Object.assign(GitPanel.prototype, {
       for(const c of this._actCols(GIT_GROUP_BULK[g.key]||[],GIT_BULK_COLS)){
         if(!c.act){acts.appendChild(this._actGap());continue}
         const b=document.createElement('button');
-        b.className='git-group-bulk'; b.dataset.act=c.act;
+        b.className='ui-btn ui-btn-icon ui-btn-lg ui-btn-ghost git-group-bulk'; b.dataset.act=c.act;
         // FR-WBR-52: 행 동작과 **같은 어휘**의 아이콘이다. FR-WBR-52a: 뜻이
         // 갈리는 자리는 툴팁이다 — 워킹 그룹의 폐기는 삭제를 포함한다.
         b.appendChild(UIKit.icon(GIT_ACT_ICON[c.act]));

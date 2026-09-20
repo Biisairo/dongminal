@@ -33,7 +33,7 @@ class GitConsole {
         '<input class="git-con-search" type="search">'+
         '<span class="git-con-spacer"></span>'+
         '<span class="git-con-count"></span>'+
-        '<button class="git-con-refresh"></button>'+
+        '<button class="ui-btn ui-btn-sm git-con-refresh"></button>'+
       '</div>'+
       '<div class="git-con-list ui-scroll"></div>';
     el.querySelector('.git-con-reads span').textContent=GIT_CON_READS_LABEL;
@@ -193,7 +193,7 @@ class GitConsole {
     ex.textContent=failed?'exit '+rec.exitCode:'';
     // FR-GIT-281: 같은 명령을 다시 돌린다. **클릭이 행으로 올라가지 않는다** —
     // 올라가면 상세가 여닫혀 목록이 다시 그려지고 버튼이 사라진다.
-    const rp=document.createElement('button'); rp.className='git-con-replay';
+    const rp=document.createElement('button'); rp.className='ui-btn ui-btn-sm git-con-replay';
     rp.textContent=GIT_CON_REPLAY; rp.title=GIT_TIP_CON_REPLAY;
     rp.addEventListener('click',ev=>{ev.stopPropagation();this._replay(rec)});
 

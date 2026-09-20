@@ -52,13 +52,13 @@ class GitStash {
     this._el=el;
     el.innerHTML=
       '<div class="git-stash-bar">'+
-        '<button class="git-stash-new"></button>'+
+        '<button class="ui-btn ui-btn-sm git-stash-new"></button>'+
         '<input class="git-stash-filter" type="text">'+
         '<span class="git-stash-why"></span>'+
       '</div>'+
       '<div class="git-stash-note">'+
         '<span class="git-stash-note-msg"></span>'+
-        '<button class="git-stash-note-close"></button>'+
+        '<button class="ui-btn ui-btn-sm ui-btn-attn git-stash-note-close"></button>'+
       '</div>'+
       '<div class="git-stash-main">'+
         '<div class="git-stash-list ui-scroll"></div>'+

@@ -22,10 +22,10 @@ class GitSubmodules extends GitListTab {
   // ── 골격이 채워 달라는 자리 ──
 
   _headHTML(){
-    return '<button class="git-sub-bulk" data-act="update"></button>'+
-           '<button class="git-sub-bulk" data-act="sync"></button>'+
+    return '<button class="ui-btn ui-btn-sm git-sub-bulk" data-act="update"></button>'+
+           '<button class="ui-btn ui-btn-sm git-sub-bulk" data-act="sync"></button>'+
            // M8 D-A-27: update 는 작업이다 — 도는 동안 취소가 선다.
-           '<button class="git-sub-cancel"></button>';
+           '<button class="ui-btn ui-btn-sm ui-btn-danger git-sub-cancel"></button>';
   }
 
   _mountHead(el){

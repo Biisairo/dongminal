@@ -45,6 +45,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-scroll.sh
 	@echo "── 스크롤바 (구르는 표면이 킷의 스크롤바를 갖는가)"
 	@node scripts/check-scrollbar.mjs
+	@echo "── 버튼 등급 (<button> 이 킷 등급을 받았는가)"
+	@node scripts/check-button-kit.mjs
 	@echo "── 골격 배치 (inset:0 이 position 과 같은 규칙에 있는가)"
 	@scripts/check-skeleton.sh
 	@echo "── 에이전트 이름 (등록부 밖에 리터럴이 없는가)"
