@@ -39,6 +39,20 @@ Object.assign(App.prototype, {
   // 한 글자도 다르지 않아야 D-4 가 Map 층에서도 성립한다.
   slotKey(id,slot){ return slot?`${id}@${slot}`:id },
 
+  /**
+   * 한 id 의 **모든 슬롯 키**를 칸 0 부터 차례로 준다
+   * (SAFETY_CORRECTNESS_SRS FR-SAF-17).
+   *
+   * 손으로 적지 않는다. `SLOT_MAX` 가 2 에서 4 로 자랐을 때 상수를 도는 자리
+   * (`_slotReap`·`_gitPanelReap`·`_slotSyncSubs`·`_slotCloseAllSubs`)는 따라왔고
+   * 손으로 적은 자리 둘은 따라오지 못했다 — 그것이 이 함수가 생긴 이유다.
+   */
+  slotKeysOf(id){
+    const out=[];
+    for(let i=0;i<SLOT_MAX;i++) out.push(this.slotKey(id,i));
+    return out;
+  },
+
   // 복합키에서 슬롯 번호와 원래 id 를 되돌린다. `slotKey` 의 역이며 **자리는
   // 여기 하나다** — 렌더러의 편집기 회수가 자기 손으로 `@1` 만 잘라 내다가 칸
   // 2·3 의 편집기를 매 render 마다 파괴했다 (FR-SVS-60).

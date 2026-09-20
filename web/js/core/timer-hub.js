@@ -158,7 +158,11 @@ class TimerHub {
     // 흐름 제어에 try/catch 를 쓰지 않는다. 여기서 잡는 것은 흐름이 아니라
     // **잠금**이다 — 답이 오지 않는 요청 하나가 single-flight 를 영구히 붙들면
     // 그 뒤의 모든 수집이 조용히 되돌아간다 (FR-RMS-29 · TC-SVS-64).
-    try{ await job.run(ctx) }catch{ failed=true }
+    // FR-SAF-16: 삼킨 예외도 **흔적을 남긴다.** 종전에는 `catch{}` 가 전문을
+    // 지워, 폴링 job 이 매 회차 던져도 콘솔에도 `ErrorLog` 에도 아무것이 없고
+    // 백오프(`failStreak`)만 늘었다. `ErrorLog` 까지 밀지는 않는다 — 폴링 실패는
+    // 흔하고 50칸 버퍼를 덮는다. 콘솔 한 줄이면 `?diag=1` 이 답할 수 있다.
+    try{ await job.run(ctx) }catch(e){ failed=true; console.error('[timers]',job.id,e) }
     job.inflight=false;
     if(failed) job.failStreak++; else job.failStreak=0;
     if(job.again){ job.again=false; this._fire(job); return }
@@ -318,17 +322,40 @@ class TimerHub {
 
   _clearNext(){ if(this._nextT){ clearTimeout(this._nextT); this._nextT=null } this._nextAt=0 }
 
+  /**
+   * 콜백 하나의 예외가 **회차를 넘지 않게** 한다
+   * (SAFETY_CORRECTNESS_SRS FR-SAF-15·16).
+   *
+   * `EventBus.publish` 가 같은 형태로 같은 일을 한다 — 그 주석이 적은 *"하나가
+   * 던져도 나머지는 받는다"* 가 여기서도 그대로 요구다. 버스는 막았고 허브는
+   * 막지 않아, `after` 콜백 하나가 그 회차의 남은 일 전부와 다음 예약을 함께
+   * 죽였다.
+   */
+  _safe(label,fn){
+    try{ fn() }
+    catch(e){
+      console.error('[timers]',label,e);
+      ErrorLog.push('timer',String((e&&e.message)||e),{id:label});
+    }
+  }
+
   _tick(){
-    const now=Date.now();
-    for(const [id,r] of Array.from(this._ones)){
-      if(r.kind!=='after'||r.at>now) continue;
-      this._ones.delete(id);
-      r.fn();
+    // FR-SAF-14: `_reschedule` 은 **어떤 경우에도** 돈다. `_nextT` 는 이 함수에
+    // 들어오기 전에 이미 null 이므로, 여기서 빠져나가면 다음 예약이 서지 않고
+    // 앱의 유일한 스케줄러가 멎는다 — 새 등록이 들어올 때까지.
+    try{
+      const now=Date.now();
+      for(const [id,r] of Array.from(this._ones)){
+        if(r.kind!=='after'||r.at>now) continue;
+        this._ones.delete(id);
+        this._safe(r.label||id,r.fn);
+      }
+      for(const j of Array.from(this._jobs.values())){
+        if(j.nextAt>0&&j.nextAt<=now) this._safe(j.id,()=>this._fire(j));
+      }
+    }finally{
+      this._reschedule();
     }
-    for(const j of Array.from(this._jobs.values())){
-      if(j.nextAt>0&&j.nextAt<=now) this._fire(j);
-    }
-    this._reschedule();
   }
 
   /**

@@ -563,8 +563,10 @@ Object.assign(App.prototype, {
   // 기다리면 그 사이 배지가 없는 도구를 가리키고, 통지가 유실되면 영영 남는다.
   // FR-WSL-22: 도구를 지우는 경로는 **모든 슬롯의 인스턴스**를 파괴한다. 슬롯 1 의
   // 인스턴스가 남으면 이미 죽은 PTY 로 재연결을 시도한다.
+  // FR-SAF-17·18: 칸 목록을 손으로 적지 않는다. 종전에는 `[pid, slotKey(pid,1)]`
+  // 두 칸만 돌아, `SLOT_MAX` 가 4 로 자란 뒤 슬롯 2·3 의 인스턴스가 살아남았다.
   _killToolInstances(pid){
-    for(const k of [pid,this.slotKey(pid,1)]){
+    for(const k of this.slotKeysOf(pid)){
       const p=this.tools.get(k);
       if(p){try{p.destroy()}catch{}; this.tools.delete(k)}
     }

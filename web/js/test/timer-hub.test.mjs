@@ -181,3 +181,60 @@ test('pending: 무엇이 언제 도는지 답한다 (FR-SCH-11)', async () => {
   assert.equal(p[0].owner, 'panel-1');
   assert.equal(p[0].every, 100);
 });
+
+/**
+ * SAFETY_CORRECTNESS_SRS 묶음 E (TC-SAF-8·9).
+ *
+ * 이 저장소에서 시간은 하나다 (INV-1). 스케줄러가 멎으면 상태바·git 폴링·SSE
+ * 침묵 감시·워크스페이스 저장 홀드가 **전부** 함께 멎고, 증상은 "화면이 갱신되지
+ * 않는다" 로만 보인다 — 원인 함수와 증상이 완전히 분리된다.
+ *
+ * `EventBus.publish` 가 같은 위험을 이미 막고 그 주석이 *"하나가 던져도 나머지는
+ * 받는다"* 라고 적는다. 버스는 막았고 허브는 막지 않았다.
+ */
+function hubWithLog() {
+  const clock = fakeClock();
+  // error-log.js 는 로드되는 순간 window 훅을 건다 (조건 없이 — 그것이 그
+  // 파일의 요구다). 브라우저 스텁에는 그 자리가 없으므로 받아만 둔다.
+  const ctx = load(['core/error-log.js', 'core/timer-hub.js'], {
+    clock,
+    globals: { addEventListener() {} },
+    expose: ['TimerHub', 'TIMERS', 'ErrorLog'],
+  });
+  return { clock, ctx, TIMERS: ctx.TIMERS, ErrorLog: ctx.ErrorLog };
+}
+
+test('after: 하나가 던져도 같은 tick 의 나머지가 돈다 (TC-SAF-8)', async () => {
+  const { clock, TIMERS } = hubWithLog();
+  let ran = 0;
+  TIMERS.after(100, () => { throw new Error('일부러 던진다') });
+  TIMERS.after(100, () => { ran++ });
+  await clock.advance(200);
+  assert.equal(ran, 1, '앞의 after 가 던져서 뒤의 after 가 죽었다');
+});
+
+test('after: 던진 뒤에도 다음 예약이 선다 (TC-SAF-9)', async () => {
+  const { clock, TIMERS } = hubWithLog();
+  let n = 0;
+  TIMERS.every({ id: 'a', every: () => 100, run: () => { n++ } });
+  TIMERS.after(100, () => { throw new Error('일부러 던진다') });
+  await clock.advance(500);
+  assert.ok(n >= 3, `after 가 던진 뒤 스케줄러가 멎었다 — every 가 ${n}회만 돌았다`);
+});
+
+test('after: 던진 예외가 흔적을 남긴다 (FR-SAF-16)', async () => {
+  const { clock, TIMERS, ErrorLog } = hubWithLog();
+  TIMERS.after(100, () => { throw new Error('흔적 검사') });
+  await clock.advance(200);
+  const hit = ErrorLog.items().some(i => i.kind === 'timer' && /흔적 검사/.test(i.message));
+  assert.ok(hit, `삼킨 예외가 ErrorLog 에 없다: ${JSON.stringify(ErrorLog.items())}`);
+});
+
+test('every: run 이 던져도 스케줄러가 멎지 않는다 (TC-SAF-9b)', async () => {
+  const { clock, TIMERS } = hubWithLog();
+  let other = 0;
+  TIMERS.every({ id: 'bad', every: () => 100, run: () => { throw new Error('던진다') } });
+  TIMERS.every({ id: 'good', every: () => 100, run: () => { other++ } });
+  await clock.advance(500);
+  assert.ok(other >= 3, `던지는 job 옆에서 멀쩡한 job 이 ${other}회만 돌았다`);
+});

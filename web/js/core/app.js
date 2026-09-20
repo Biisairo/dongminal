@@ -312,13 +312,20 @@ class App {
 
   // 슬롯을 모르는 호출부의 조회. 포커스 슬롯을 먼저 보고, 없으면 다른 슬롯의
   // 인스턴스를 준다 — 슬롯 1 에만 있는 창의 도구도 검색·상태바에서 닿아야 한다.
+  // FR-SAF-17·18: 순서는 **포커스 칸 → 칸 0 → 나머지 오름차순**이다 (지금의
+  // 의도 그대로). 종전에는 마지막 갈래가 `slotKey(id,1)` 하나뿐이라, 슬롯 2·3
+  // 에만 있는 도구가 상태바 `termsize`·검색·전경 이름 갱신에서 조용히 null 이
+  // 됐다.
   toolAny(id){
     if(!id) return null;
     const f=this.slotFocused();
-    return this.tools.get(this.slotKey(id,f))
-      || this.tools.get(id)
-      || this.tools.get(this.slotKey(id,1))
-      || null;
+    const first=this.tools.get(this.slotKey(id,f));
+    if(first) return first;
+    for(const k of this.slotKeysOf(id)){
+      const p=this.tools.get(k);
+      if(p) return p;
+    }
+    return null;
   }
 
   // ── Tool Attention Notify (PANE_ATTENTION_NOTIFY_SRS) ──
