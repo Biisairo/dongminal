@@ -69,6 +69,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-error-docs.sh
 	@echo "── SRS 상태 필드 (enum 안에 있는가)"
 	@scripts/check-srs-status.sh
+	@echo "── SRS 진행 근거 (\"구현중\" 이라는 주장에 근거가 있는가)"
+	@scripts/check-srs-progress.sh
 	@echo "── 결정 색인 (생성물이 SRS 와 맞는가)"
 	@scripts/check-decisions.sh
 	@echo "── 명령 문서 (commands.md 와 dmctl 이 양방향으로 같은가)"

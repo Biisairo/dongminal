@@ -1,6 +1,13 @@
 # M12 — 에이전트의 차이는 어댑터에서 끝난다
 
-> **문서 상태**: 승인·구현중
+> **문서 상태**: 대체
+
+> **[`AGENT_GUI_REMOVAL_SRS`](./AGENT_GUI_REMOVAL_SRS.md) 가 이 문서의 대상을 걷어 냈다**
+> (2026-09-21, `AUDIT-docs-gap.md` H1). `FR-M12-1~8`·`13~23` 은 전부 GUI 대화 뷰의
+> 동작이고, 그 GUI 는 사용자 결정으로 코드에서 제거됐다.
+>
+> **본문은 고치지 않는다 — 기록이다** (`AGENT_GUI_REMOVAL_SRS` §2.3 비목표).
+> 고친 것은 상태 줄뿐이다 (DOC_SYNC_SRS FR-DSY-20·21).
 
 - 선행: M11 완료 (`edad7ca`). 접수 쉰둘이 닫혔고 전량 e2e 는 `unexpected 0` 이다
 - 형식: IEEE 29148 (요구 → 결정 → 검증). 규약은 `M11_SRS` 와 같다 — Spec → Test → Code,
