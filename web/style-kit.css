@@ -124,6 +124,60 @@
   background:var(--accent);color:var(--bg);font-size:var(--fs-xs);line-height:15px;text-align:center;
 }
 
+/* ── 스위치 (KIT_COMPONENTS_SRS FR-CMP-20~23) ───────────────────────────
+   불리언 설정 한 벌. 착수 시 **세 모양**이 한 모달 안에 있었다 —
+   맨 네모(14px) · 알약(`.sbs-row .slider`, 36×20) · 체크박스+글자.
+
+   **DOM 은 `<input type="checkbox">` 로 남는다** (FR-CMP-21 / D-CMP-1). 껍데기만
+   바꾼다: 체크박스는 `aria-checked`·폼 의미론·키 조작을 브라우저에게서 공짜로
+   받고, `_settingsA11y` 가 접근 이름을 **구조에서 파생**하므로(FR-A11Y-13)
+   요소 종류가 바뀌면 그 파생이 흔들린다.
+
+   **트랙을 `::before`, 손잡이를 `::after` 로 그리는 이유**는 모바일이다.
+   FR-A11Y-27 이 히트 영역 44px 을 요구하는데 알약 자체를 44px 로 키우면 흉하다
+   — 요소를 44px 로 키우고 트랙을 안쪽에 그리면 **보이는 크기와 닿는 크기가
+   갈린다**. `--sw-pad` 한 값이 그 차이를 잡는다. */
+.ui-switch{
+  --sw-h:var(--ui-btn-h-sm);
+  --sw-w:calc(var(--ui-btn-h-sm) * 1.7);
+  --sw-knob:calc(var(--ui-btn-h-sm) - 8px);
+  /* 트랙이 요소 가장자리에서 물러난 거리. 데스크톱은 0 이고 모바일이 키운다. */
+  --sw-pad:0px;
+  appearance:none;-webkit-appearance:none;
+  position:relative;flex-shrink:0;align-self:center;margin:0;cursor:pointer;
+  width:calc(var(--sw-w) + var(--sw-pad) * 2);
+  height:var(--sw-h);
+  background:transparent;border:0;border-radius:0;
+}
+/* 트랙 */
+.ui-switch::before{
+  content:'';position:absolute;top:50%;transform:translateY(-50%);
+  left:var(--sw-pad);right:var(--sw-pad);height:var(--sw-h);
+  border:1px solid var(--border);border-radius:calc(var(--sw-h) / 2);
+  background:var(--bg);transition:background .15s,border-color .15s;
+}
+/* 손잡이 */
+.ui-switch::after{
+  content:'';position:absolute;top:50%;left:calc(var(--sw-pad) + 3px);
+  width:var(--sw-knob);height:var(--sw-knob);border-radius:50%;
+  background:var(--text-dim);
+  transform:translateY(-50%);transition:transform .15s,background .15s;
+}
+.ui-switch:checked::before{background:var(--accent-subtle);border-color:var(--accent)}
+.ui-switch:checked::after{
+  background:var(--accent);
+  transform:translateY(-50%) translateX(calc(var(--sw-w) - var(--sw-knob) - 6px));
+}
+.ui-switch:hover:not(:disabled)::before{border-color:var(--accent)}
+.ui-switch:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px;border-radius:calc(var(--sw-h) / 2)}
+.ui-switch:disabled{opacity:.45;cursor:not-allowed}
+/* FR-CMP-23: 손가락은 접근성 트리를 보지 않는다. 닿는 크기만 키우고 보이는
+   크기는 그대로 둔다 — `--sw-pad` 가 그 차이다. */
+body.mobile .ui-switch{
+  --sw-pad:11px;
+  height:var(--touch-min);
+}
+
 /* ── 섹션 머리글 (KIT_COMPONENTS_SRS FR-CMP-30) ─────────────────────────
    목록·패널을 가르는 머리글 한 벌.
 

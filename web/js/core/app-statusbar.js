@@ -423,12 +423,13 @@ Object.assign(App.prototype, {
     for(const[k,v]of Object.entries(STATUS_ITEMS)){
       const row=document.createElement('div');row.className='sbs-row';row.dataset.item=k;
       const label=document.createElement('span');label.textContent=v.label;
-      const toggle=document.createElement('label');
-      const inp=document.createElement('input');inp.type='checkbox';inp.checked=!!statusBar[k];
-      const slider=document.createElement('span');slider.className='slider';
+      // FR-CMP-20·21: 알약은 킷의 것이다. 종전에는 입력을 숨기고(`opacity:0`)
+      // 형제 `<span class="slider">` 가 알약을 그렸다 — 그 대역이 있으면 킷의
+      // `:checked` 파생이 닿지 않는다. 입력이 스스로 그리므로 대역을 걷는다.
+      const inp=document.createElement('input');
+      inp.type='checkbox'; inp.className='ui-switch'; inp.checked=!!statusBar[k];
       inp.addEventListener('change',()=>{statusBar[k]=inp.checked;this.saveSettings();this.updateStatusBar()});
-      toggle.appendChild(inp);toggle.appendChild(slider);
-      row.appendChild(label);row.appendChild(toggle);
+      row.appendChild(label);row.appendChild(inp);
       el.appendChild(row);
     }
   },

@@ -698,8 +698,13 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
    흰 사각형이 튀고 라이트 테마에서도 accent 와 어긋난다. 전역으로 한 벌만 그린다:
    컨트롤을 두 벌로 그리면 같은 체크박스가 자리마다 달라 보인다.
 
-   상태는 **형태로** 구분한다 (FR-GIT-204) — 색만으로 나누면 테마에 따라 사라진다. */
-input[type="checkbox"],input[type="radio"]{
+   상태는 **형태로** 구분한다 (FR-GIT-204) — 색만으로 나누면 테마에 따라 사라진다.
+
+   `.ui-switch` 는 **비켜 간다** (KIT_COMPONENTS_SRS FR-CMP-20). 킷은 `<link>`
+   순서상 먼저 오므로(FR-UIK-1) 명시도가 같거나 낮으면 언제나 진다 — 여기서
+   `input[type="checkbox"]`(0-1-1)가 `.ui-switch`(0-1-0)를 이겼고, 스위치가
+   14px 네모로 그려졌다. 명시도를 올려 다투는 대신 **대상을 좁힌다.** */
+input[type="checkbox"]:not(.ui-switch),input[type="radio"]{
   appearance:none;-webkit-appearance:none;
   /* 상자는 정사각이어야 한다. flex 부모의 stretch 나 다른 규칙의 min-height 가
      한 변만 늘리면 타원·직사각이 된다 — 네 값을 함께 못박는다 (실측 결함). */
@@ -709,20 +714,20 @@ input[type="checkbox"],input[type="radio"]{
   cursor:pointer;transition:background .1s,border-color .1s;
 }
 input[type="radio"]{border-radius:50%}
-input[type="checkbox"]:hover:not(:disabled),
+input[type="checkbox"]:not(.ui-switch):hover:not(:disabled),
 input[type="radio"]:hover:not(:disabled){border-color:var(--accent)}
 /* FR-GIT-204: 켜짐은 **꽉 찬 상자**다. 체크 표식은 그리지 않는다 — 14px 안의 획은
    어떻게 그려도 끝이 뭉툭하거나 비율이 어긋난다(4종 실측). 비었나 찼나는 색이
    아니라 면적의 차이라 흑백으로 떨어뜨려도 남는다. */
-input[type="checkbox"]:checked,input[type="radio"]:checked{
+input[type="checkbox"]:not(.ui-switch):checked,input[type="radio"]:checked{
   background:var(--accent);border-color:var(--accent);
 }
 /* FR-GIT-70 의 indeterminate 는 "켜짐도 꺼짐도 아님" 이다 — 다른 색으로 채운다 */
-input[type="checkbox"]:indeterminate{background:var(--attn);border-color:var(--attn)}
-input[type="checkbox"]:disabled,input[type="radio"]:disabled{
+input[type="checkbox"]:not(.ui-switch):indeterminate{background:var(--attn);border-color:var(--attn)}
+input[type="checkbox"]:not(.ui-switch):disabled,input[type="radio"]:disabled{
   opacity:.45;cursor:not-allowed;
 }
-input[type="checkbox"]:focus-visible,input[type="radio"]:focus-visible{
+input[type="checkbox"]:not(.ui-switch):focus-visible,input[type="radio"]:focus-visible{
   outline:2px solid var(--focus-ring);outline-offset:1px;
 }
 /* FR-GIT-205: select 도 같은 토큰으로. 화살표는 기본 위젯을 지우고 직접 그린다 */

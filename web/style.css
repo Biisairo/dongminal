@@ -1023,12 +1023,6 @@ body.mobile .tp-ov-acts .ui-btn{padding:0 14px}
 .sbs-row span{color:var(--text);font-size:var(--fs-md)}
 .sbs-row>span{flex:1 1 auto;min-width:0;line-height:1.5;overflow-wrap:anywhere}
 .sbs-row>:not(span){flex:0 0 auto}
-.sbs-row label{position:relative;width:36px;height:20px;cursor:pointer}
-.sbs-row input{opacity:0;width:0;height:0}
-.sbs-row .slider{position:absolute;inset:0;background:var(--border);border-radius:10px;transition:.2s}
-.sbs-row .slider::before{content:'';position:absolute;left:2px;top:2px;width:16px;height:16px;background:var(--text-muted);border-radius:50%;transition:.2s}
-.sbs-row input:checked+.slider{background:var(--accent)}
-.sbs-row input:checked+.slider::before{transform:translateX(16px);background:var(--text-bright)}
 .sbs-select{background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:var(--fs-sm);padding:2px 6px;outline:none;font-family:inherit}
 .sbs-select:focus{border-color:var(--accent)}
 .sbs-select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
@@ -1341,15 +1335,15 @@ body.mobile .ui-btn{min-height:var(--touch-min)}
 /* 설정의 체크박스도 손가락 크기다 (FR-A11Y-27). 네이티브 상자를 키우면 흉하므로
    히트 영역만 44 로 두고 표식은 안에 그린다 — `UX-19` 의 추종 스위치가 Theme 탭에
    서면서 TC-A11Y-13b 가 14px 를 잡았다. */
-body.mobile .display-settings input[type=checkbox]{
+body.mobile .display-settings input[type=checkbox]:not(.ui-switch){
   appearance:none;width:var(--touch-min);height:var(--touch-min);margin:0;flex:0 0 auto;
   display:inline-grid;place-content:center;cursor:pointer;
 }
-body.mobile .display-settings input[type=checkbox]::before{
+body.mobile .display-settings input[type=checkbox]:not(.ui-switch)::before{
   content:'';width:18px;height:18px;border-radius:var(--ui-radius);
   border:1px solid var(--border-strong);background:var(--bg);
 }
-body.mobile .display-settings input[type=checkbox]:checked::before{background:var(--accent);border-color:var(--accent)}
+body.mobile .display-settings input[type=checkbox]:not(.ui-switch):checked::before{background:var(--accent);border-color:var(--accent)}
 /* 아이콘 버튼은 글자가 폭을 벌어 주지 않는다 — 가로도 받아야 한다. */
 body.mobile .ui-btn-icon{min-width:var(--touch-min)}
 /* 닫기는 자기 크기를 토큰으로 갖는다 — 아이콘도 그 비율로 함께 큰다. */
