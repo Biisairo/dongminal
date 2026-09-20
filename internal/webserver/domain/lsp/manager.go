@@ -95,7 +95,19 @@ func (s *Service) session(root, path string) (*Session, error) {
 	if s.Ext == nil {
 		return nil, fmt.Errorf("플러그인 계층이 배선되지 않았습니다")
 	}
-	m, srv, st, ok := s.Ext.Resolve(filepath.Ext(path), s.Overrides)
+	// FR-PRF-70: **캐시를 먼저 본다.** 살아 있는 세션이 있으면 `Resolve` 를 아예
+	// 부르지 않는다 — 그것이 격리 칸 전량 재파싱과 `LookPath` 두 번이었고,
+	// 호버는 커서를 움직일 때마다 온다.
+	//
+	// 순서를 뒤집는 것만으로 되는 이유는 세션의 키가 (루트, 서술자)이고 서술자를
+	// `extDesc` 가 알기 때문이다. `ext` 쪽은 한 글자도 건드리지 않는다 —
+	// `FR-EXT-33`("상태는 캐시가 아니라 관측")은 설정 화면의 요구이지 이 핫패스의
+	// 요구가 아니다 (D-PRF-5).
+	fileExt := filepath.Ext(path)
+	if sess := s.cachedSession(root, fileExt); sess != nil {
+		return sess, nil
+	}
+	m, srv, st, ok := s.Ext.Resolve(fileExt, s.Overrides)
 	if !ok {
 		return nil, fmt.Errorf("%s 는 코드 탐색을 지원하는 언어가 아닙니다", filepath.Ext(path))
 	}
@@ -108,6 +120,10 @@ func (s *Service) session(root, path string) (*Session, error) {
 	if s.sessions == nil {
 		s.sessions = map[string]*Session{}
 	}
+	if s.extDesc == nil {
+		s.extDesc = map[string]string{}
+	}
+	s.extDesc[fileExt] = descID
 	if sess := s.sessions[key]; sess != nil {
 		s.mu.Unlock()
 		return sess, nil
@@ -155,6 +171,21 @@ func (s *Service) session(root, path string) (*Session, error) {
 	// FR-LSP-19: 상한을 넘으면 가장 오래 쓰이지 않은 것을 정지한다.
 	s.evictOverLimit()
 	return sess, nil
+}
+
+// cachedSession 은 확장자만으로 살아 있는 세션을 찾는다. 없으면 nil 이고, 그때만
+// `Ext.Resolve` 를 지난다 (FR-PRF-70).
+//
+// **실패 기억은 여기서 보지 않는다.** 그 판정은 `Resolve` 뒤의 자리에 그대로 있고,
+// 여기 옮기면 같은 물음이 두 곳에 생긴다.
+func (s *Service) cachedSession(root, fileExt string) *Session {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	descID, ok := s.extDesc[fileExt]
+	if !ok {
+		return nil
+	}
+	return s.sessions[sessionKey(root, descID)]
 }
 
 func (s *Service) remember(descID string, err error) {
@@ -243,6 +274,9 @@ func (s *Service) Shutdown() {
 	s.mu.Lock()
 	all := s.sessions
 	s.sessions = map[string]*Session{}
+	// 확장자→서술자 표도 함께 버린다 — 세션이 없으면 그 표는 아무것도 가리키지
+	// 않고, 남겨 두면 선언이 바뀐 뒤에도 옛 배정을 붙든다 (FR-PRF-70).
+	s.extDesc = nil
 	s.mu.Unlock()
 	for _, sess := range all {
 		sess.Close()

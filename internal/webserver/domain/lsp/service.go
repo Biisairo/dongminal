@@ -39,6 +39,20 @@ type Service struct {
 	// failed 는 기동 실패의 기억이다 (FR-LSP-16) — 매 요청마다 같은 실패를
 	// 되풀이해 프로세스를 띄우지 않는다.
 	failed map[string]error
+
+	// extDesc 는 확장자 → 서술자 id 다 (PERFORMANCE_HARDENING_SRS FR-PRF-70).
+	//
+	// **세션 캐시를 먼저 보기 위한 열쇠다.** 세션은 (루트, 서술자) 로 키잉되는데
+	// 서술자를 알려면 `Ext.Resolve` 를 지나야 했고, 그것이 격리 칸 전량 재파싱과
+	// `LookPath` 를 뜻했다 — **살아 있는 세션을 쓰는 요청도 매번** 그랬다.
+	// 호버는 커서를 움직일 때마다 뜬다 (`AUDIT-go-domain.md` HIGH 3).
+	//
+	// 이 표만으로 세션을 찾을 수 있으므로 캐시 히트면 `Resolve` 를 아예 부르지
+	// 않는다. `Overrides` 는 여기 섞이지 않는다 — 그것은 **실행 파일 자리**를
+	// 바꿀 뿐 확장자→서버 배정을 바꾸지 않는다 (`ext.Resolve` 의 `ServerForExt`).
+	//
+	// 선언이 바뀌면 지운다: `Install` 과 `Shutdown` 이 그 자리다.
+	extDesc map[string]string
 }
 
 // NewService 는 플러그인 계층 위에 선 Service 다.
@@ -73,6 +87,10 @@ func (s *Service) forgetPack(packID string) {
 	prefix := packID + "/"
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// FR-PRF-70: 선언이 바뀔 수 있는 자리다 — 확장자→서술자 표를 버린다.
+	// 다음 요청이 `Resolve` 를 한 번 더 지날 뿐이고, 붙들고 있으면 새 팩이
+	// 가져간 확장자가 옛 서버를 계속 가리킨다.
+	s.extDesc = nil
 	for k := range s.failed {
 		// key 는 `루트\x00팩/서버` 가 아니라 서술자 쪽만 담는다 (remember 참조).
 		if k == packID || len(k) > len(prefix) && k[:len(prefix)] == prefix {

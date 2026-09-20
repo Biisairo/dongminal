@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -310,3 +311,78 @@ func TestManager_RejectsHugeText(t *testing.T) {
 }
 
 var _ = json.Marshal
+
+// PERFORMANCE_HARDENING_SRS FR-PRF-70~72 · TC-PRF-20 (`AUDIT-go-domain.md` HIGH 3).
+//
+// **재는 것은 `LookPath` 횟수다** — 셀 수 있고 어디서 재도 같다 (FR-PRF-3).
+// 종전에는 `session()` 이 세션 캐시를 보기 **전에** `Ext.Resolve` 를 불렀고,
+// 그 한 번이 격리 칸 전량 재파싱 + `LookPath` 두 번이었다. 호버는 편집기에서
+// 커서를 움직일 때마다 뜬다 — 사용자 조작 하나가 디렉터리 스캔 하나다.
+func TestManager_LiveSessionSkipsResolve(t *testing.T) {
+	var looks atomic.Int32
+	root := t.TempDir()
+	for id, decl := range map[string]string{"gopls": goPackDecl} {
+		dir := ext.PluginDir(root, id)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, ext.ManifestName), []byte(decl), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	start, _ := countingStarter(t, echoHandler)
+	e := &ext.Service{
+		Root: root,
+		LookPath: func(name string) (string, error) {
+			looks.Add(1)
+			if name == "gopls" {
+				return "/fake/gopls", nil
+			}
+			return "", errors.New("not found")
+		},
+	}
+	svc := &Service{Ext: e, Start: start}
+	t.Cleanup(svc.Shutdown)
+
+	// 첫 요청이 세션을 세운다 — 그때는 풀어야 한다.
+	if _, err := svc.Definition(context.Background(), "/root", "/root/a.go", "x\n", 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	after := looks.Load()
+	if after == 0 {
+		t.Fatal("첫 요청이 PATH 를 훑지 않았다 — 검사가 공회전한다")
+	}
+
+	// 같은 세션을 쓰는 요청 열 번. **한 번도 더 훑지 않아야 한다.**
+	for i := 0; i < 10; i++ {
+		if _, err := svc.Definition(context.Background(), "/root", "/root/b.go", "x\n", 1, 1); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := looks.Load(); got != after {
+		t.Fatalf("살아 있는 세션을 쓰는 요청 10회가 PATH 를 %d번 더 훑었다 (FR-PRF-72)", got-after)
+	}
+}
+
+// 선언이 바뀔 수 있는 자리에서는 표를 버린다 (FR-PRF-70). 붙들고 있으면 새 팩이
+// 가져간 확장자가 옛 서버를 계속 가리킨다.
+func TestManager_InstallForgetsExtTable(t *testing.T) {
+	start, _ := countingStarter(t, echoHandler)
+	svc := svcWith(t, start, map[string]string{"gopls": "/fake/gopls"})
+	if _, err := svc.Definition(context.Background(), "/root", "/root/a.go", "x\n", 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	svc.mu.Lock()
+	n := len(svc.extDesc)
+	svc.mu.Unlock()
+	if n == 0 {
+		t.Fatal("확장자 표가 비었다 — 캐시가 서지 않았다")
+	}
+	svc.forgetPack("gopls")
+	svc.mu.Lock()
+	n = len(svc.extDesc)
+	svc.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("설치 뒤에도 확장자 표가 %d개 남았다", n)
+	}
+}
