@@ -113,6 +113,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@node scripts/check-honorific.mjs
 	@echo "── 클립보드 (복사가 한 자리를 지나는가)"
 	@node scripts/check-clipboard.mjs
+	@echo "── 다시 그리기 등록부 (비우고 다시 그리는 자리가 판정을 받았는가)"
+	@node scripts/check-repaint.mjs
 	@echo "gates ok"
 
 # ── 전량 e2e 의 용량 (M10_SRS FR-M10-5 · D-M10-6) ───────────────────────────

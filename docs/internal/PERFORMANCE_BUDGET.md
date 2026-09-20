@@ -71,6 +71,87 @@
 
 `GET /api/diag` 가 `goroutines`·`allocMB` 를 냅니다 — 의심할 때 먼저 보는 자리입니다.
 
+### 2-5. 셀 수 있는 예산 — 게이트가 읽는 자리
+
+> **신설 2026-09-21** (묶음 B6 · `PERFORMANCE_HARDENING_SRS` FR-PRF-4).
+>
+> 위 §2-1~2-4 는 **벽시계와 자원**이다. 그 값들은 기계의 부하에 흔들리므로 게이트가
+> 되지 못하고(§5-1), 그래서 *"사람이 의심할 때 돌린다"* 가 이 문서의 원래 규약이었다.
+>
+> 이 절은 다른 갈래다 — **같은 입력에 언제나 같은 답이 나오는 수**만 담는다.
+> 그 수는 게이트가 될 수 있고, **아래 각 행은 자기를 지키는 검사의 이름을 적는다.**
+> 수가 두 벌이 되지 않게 하려는 것이다.
+
+#### 2-5-1. 비우고 다시 그리는 자리 (등록부)
+
+`web/js/ui/repaint.js` 머리말이 규칙을 적는다 — *"목록을 `innerHTML=''` 로 비우고 다시
+만드는 것은 **사용자가 부른 다시 그리기에서만** 옳다"*. 모양 자체는 결함이 아니고
+**계기**가 결함을 만든다. 그 계기는 호출 사슬을 따라가야 알 수 있어 파싱으로 파생되지
+않으므로(`STRUCTURE_CLEANUP_SRS` D-STR-6 · `PERFORMANCE_HARDENING_SRS` D-PRF-2),
+게이트는 판정이 아니라 **이 목록과의 일치**만 본다.
+
+**지키는 검사**: `scripts/check-repaint.mjs` (`make gates`).
+**계기**: `사용자`(규약이 허용) · `가드`(폴링·관측이지만 근거 가드 뒤) · `폴링`(가드 없음 — **빚**).
+
+| 파일 | 함수 | 대상 | 수 | 계기 | 근거 |
+|---|---|---|---:|---|---|
+| `web/js/core/app-attn.js` | `_attnCenterRender` | `center` | 1 | 폴링 | **등록부가 드러낸 자리.** 주의 상태가 바뀔 때마다(`_attnPaint`) 열려 있는 알림 센터를 통째로 다시 만든다. `refactor/README.md` §4.1 의 열다섯 밖이라 B6 이 고치지 않는다 (SRS §6-3) |
+| `web/js/core/app-edsearch.js` | `_edPanel` | `p.querySelector('.ed-find-list')` | 1 | 사용자 | 찾기 패널을 세울 때 한 번 |
+| `web/js/core/app-edsearch.js` | `_edPanelPaint` | `list` | 1 | 사용자 | 검색어가 비면 목록을 비운다 |
+| `web/js/core/app-edsearch.js` | `_edPanelQuery` | `p.querySelector('.ed-find-list')` | 1 | 사용자 | 사용자가 친 검색어 |
+| `web/js/core/app-mobile.js` | `initMobileKeybar` | `bar` | 1 | 사용자 | 키바 배선 — `InputBinding.bind()` 에서 한 번 |
+| `web/js/core/app-presets.js` | `_renderPresets` | `el` | 1 | 사용자 | 프리셋 목록을 열 때 |
+| `web/js/core/app-settings-access.js` | `_loadAccessPanel` | `box` | 1 | 사용자 | 설정 탭 전환 |
+| `web/js/core/app-settings-access.js` | `_loadAccessPanel` | `hostBox` | 1 | 사용자 | 같은 자리 |
+| `web/js/core/app-settings-keys.js` | `_renderShortcutList` | `el` | 1 | 사용자 | 설정 탭 전환 |
+| `web/js/core/app-settings-sandbox.js` | `_loadSandboxPanel` | `box` | 1 | 사용자 | 설정 탭 전환 |
+| `web/js/core/app-settings-theme.js` | `_renderThemePanel` | `list` | 1 | 사용자 | 설정 탭 전환 |
+| `web/js/core/app-settings-theme.js` | `_showCustomEditor` | `termDiv` | 1 | 사용자 | 사용자가 연 편집기 |
+| `web/js/core/app-settings-theme.js` | `_showCustomEditor` | `uiDiv` | 1 | 사용자 | 같은 자리 |
+| `web/js/core/app-statusbar.js` | `_renderStatusBarSettings` | `el` | 1 | 사용자 | 설정 탭 전환 |
+| `web/js/git/commit.js` | `_paintBlocks` | `box` | 1 | 가드 | `box.dataset.sig` — 막힘 코드 목록이 그대로면 그리지 않는다 |
+| `web/js/git/confirm.js` | `_paint` | `ul` | 1 | 사용자 | 사용자가 연 확인창 |
+| `web/js/git/console.js` | `_drawList` | `list` | 1 | 가드 | `paintIfChanged` 안이다 (FR-RPT-1) |
+| `web/js/git/diff-view.js` | `clear` | `this._host` | 1 | 사용자 | 이름이 곧 계기다 — 비우라고 부른다 |
+| `web/js/git/history-detail.js` | `_paintDetail` | `ps` | 1 | 가드 | 부모 줄이 `paintIfChanged` 를 지난다 (FR-PRF-10) |
+| `web/js/git/history-detail.js` | `_paintDetail` | `sel` | 1 | 가드 | `sel.dataset.for` — 커밋과 부모 수가 그대로면 채우지 않는다 |
+| `web/js/git/history-refs.js` | `_paintRefs` | `box` | 1 | 가드 | 뼈대는 한 번, 그룹별 행은 `reconcileList` 를 지난다 (FR-PRF-10) |
+| `web/js/git/history.js` | `_paintRev` | `box` | 2 | 가드 | 하나는 리비전이 없을 때의 비우기, 하나는 `box.dataset.sig` 뒤 |
+| `web/js/git/panel-changes.js` | `_paintGroup` | `rows` | 1 | 가드 | 접힌 그룹을 비운다 — 이미 비어 있으면 변이가 없다. 펼친 쪽은 `reconcileList` 다 |
+| `web/js/git/panel-changes.js` | `_paintHead` | `badges` | 1 | 가드 | 배지 줄이 `paintIfChanged` 를 지난다 (FR-PRF-10) |
+| `web/js/git/panel-changes.js` | `_renderChanges` | `el` | 1 | 가드 | `el.dataset.built` — 뷰를 처음 세울 때만 |
+| `web/js/git/panel-changes.js` | `_renderInit` | `el` | 1 | 사용자 | 뷰 세우기 |
+| `web/js/git/panel-diff.js` | `_drawBlame` | `rows` | 1 | 가드 | `box.dataset.sig` — 같은 파일을 다시 열어도 다시 그리지 않는다. 한 번의 비용은 §2-5-2 가 잡는다 |
+| `web/js/git/panel-diff.js` | `_hunkBarPaint` | `el` | 1 | 가드 | `el.dataset.sig` |
+| `web/js/git/panel-life.js` | `_render` | `el` | 1 | 사용자 | 뷰 전환 |
+| `web/js/git/panel-life.js` | `_renderBody` | `el` | 1 | 사용자 | 뷰 전환 |
+| `web/js/git/panel-life.js` | `_renderMissing` | `el` | 1 | 사용자 | 리포 소실 — 상태 전이 한 번 |
+| `web/js/git/panel-views.js` | `_renderBranches` | `el` | 1 | 가드 | `el.dataset.built` |
+| `web/js/git/panel-views.js` | `_renderConsole` | `el` | 1 | 가드 | `el.dataset.built` |
+| `web/js/git/panel-views.js` | `_renderHistory` | `el` | 1 | 가드 | `el.dataset.built` |
+| `web/js/git/panel-views.js` | `_renderStash` | `el` | 1 | 가드 | `el.dataset.built` |
+| `web/js/git/panel-views.js` | `_renderSubmodules` | `el` | 1 | 가드 | `el.dataset.built` |
+| `web/js/git/panel-views.js` | `_renderWorktrees` | `el` | 1 | 가드 | `el.dataset.built` |
+| `web/js/git/panel-write.js` | `_paintNote` | `ul` | 1 | 사용자 | 사용자가 연 부분 스테이지 대화상자 |
+| `web/js/git/remote.js` | `_paintFail` | `opts` | 1 | 가드 | `opts.dataset.opts` |
+| `web/js/git/remote.js` | `_paintLog` | `log` | 1 | 가드 | `log.dataset.job` — job 이 바뀔 때만 |
+| `web/js/ui/doc-render.js` | `_note` | `this._body` | 1 | 사용자 | 문서를 여는 경로의 안내 |
+| `web/js/ui/doc-render.js` | `_paintTable` | `this._body` | 1 | 사용자 | 문서를 여는 경로 |
+| `web/js/ui/file-editor.js` | `_createEditor` | `this.el` | 1 | 사용자 | 편집기를 세울 때 한 번 |
+| `web/js/ui/runs-panel.js` | `_runPaintSummary` | `el` | 1 | 가드 | `paintIfChanged` 안이다 |
+| `web/js/ui/sidebar-list.js` | `_paintInto` | `el` | 2 | 가드 | 빈 상태의 비우기 둘. 목록은 `reconcileList` 를 지난다 |
+| `web/js/ui/ui-kit.js` | `_hud` | `b` | 1 | 사용자 | 분할 드래그 중의 크기 HUD — 사용자의 손이 계기다 |
+
+#### 2-5-2. 그 밖의 셀 수 있는 예산
+
+| 항목 | 예산 | 지키는 검사 |
+|---|---|---|
+| 값이 바뀌지 않은 관측 회차의 목록 DOM 변이 | **0** | `e2e/perf-repaint.spec.ts` P1 |
+| 값이 **바뀐** 회차에 살아남는 행 | **바뀌지 않은 행 전부** | `e2e/perf-repaint.spec.ts` P2~P5 |
+
+> 둘째 줄이 없으면 첫째 줄은 *"아무것도 안 그린다"* 로도 통과한다. 조용히 낡은
+> 화면은 느린 화면보다 나쁘다 (`PERFORMANCE_HARDENING_SRS` §7).
+
 ---
 
 ## 3. SLO — 무엇을 약속하는가

@@ -325,17 +325,26 @@ Object.assign(GitPanel.prototype, {
     // detached 면 브랜치 자리에 해시 앞 7자가 온다.
     el.querySelector('.git-head-branch').textContent=
       !s?'':(s.detached?(s.oid||'').slice(0,7):(s.branch||''));
-    const badges=el.querySelector('.git-head-badges'); badges.innerHTML='';
-    const add=(cls,text)=>{
-      const b=document.createElement('span'); b.className='git-head-badge '+cls;
-      b.textContent=text; badges.appendChild(b);
-    };
-    if(s){
-      if(s.detached) add('git-badge-detached','detached HEAD');
-      else if(!s.hasUpstream) add('git-badge-noupstream',t('git.badge_no_upstream'));
-      const n=(s.conflicts||[]).length;
-      if(n) add('git-badge-conflict',t('git.badge_conflicts',{n}));
-    }
+    const badges=el.querySelector('.git-head-badges');
+    // FR-PRF-10 — 이전: 관측 회차마다 배지 줄을 비우고 다시 만들었다.
+    // 새: 배지가 그대로면 그리지 않는다.
+    // 이유: `_paintHead` 는 status 폴링이 부르고, 배지는 detached·upstream·충돌
+    //       셋으로만 정해져 **거의 언제나 그대로다.** 이 자리는 감사가 든 여섯에
+    //       없었고 **등록부를 채우는 과정에서 나왔다** (SRS §2.2 · D-PRF-2).
+    const sig=!s?'':[s.detached?1:0,s.hasUpstream?1:0,(s.conflicts||[]).length].join('\u0001');
+    paintIfChanged(badges,sig,()=>{
+      badges.innerHTML='';
+      const add=(cls,text)=>{
+        const b=document.createElement('span'); b.className='git-head-badge '+cls;
+        b.textContent=text; badges.appendChild(b);
+      };
+      if(s){
+        if(s.detached) add('git-badge-detached','detached HEAD');
+        else if(!s.hasUpstream) add('git-badge-noupstream',t('git.badge_no_upstream'));
+        const n=(s.conflicts||[]).length;
+        if(n) add('git-badge-conflict',t('git.badge_conflicts',{n}));
+      }
+    });
     // ahead/behind 는 0 이면 그리지 않는다.
     const ab=[];
     if(s&&s.ahead>0) ab.push('↑'+s.ahead);

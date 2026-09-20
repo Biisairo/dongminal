@@ -697,18 +697,39 @@ class GitRemoteList {
     if(this._repo) this._load();
   }
 
+  /**
+   * FR-PRF-10: 행을 `reconcileList` 로 맞춘다.
+   *
+   *   이전 동작: `box.innerHTML=''` 후 전량 재생성. `GitBranches.paint()` 가 관측
+   *             회차마다 부르므로, 원격이 하나도 바뀌지 않은 회차에도 행이 전부
+   *             사라졌다 다시 났다 — hover 와 글자 선택이 매 회차 끊긴다
+   *   새  동작: 값이 그대로면 요소를 그대로 둔다 (변이 0)
+   *   이유:     `refactor/README.md` §4.1 항목 6 · `repaint.js` FR-RPT-3
+   *
+   * 빈 목록의 안내 줄도 같은 규약을 지난다 — 항목 하나짜리 목록으로 둔다.
+   */
   _paintRows(){
     const box=this._el.querySelector('.git-rm-rows');
-    box.innerHTML='';
     if(!this._items.length){
       // 빈 목록은 사실을 알린다 — 빈 화면은 실패와 구분되지 않는다.
-      const d=document.createElement('div');
-      d.className='ui-empty git-rm-empty';
-      d.textContent=(this._loading&&this._repo)?GIT_HIST_LOADING:GIT_RM_EMPTY;
-      box.appendChild(d);
+      const text=(this._loading&&this._repo)?GIT_HIST_LOADING:GIT_RM_EMPTY;
+      reconcileList(box,[text],{
+        key:()=>'empty',
+        sig:s=>s,
+        build:s=>{
+          const d=document.createElement('div');
+          d.className='ui-empty git-rm-empty'; d.textContent=s; return d;
+        },
+      });
       return;
     }
-    for(const r of this._items) box.appendChild(this._rowEl(r));
+    // 보이는 값 전부다 (FR-RPT-2) — 이름·URL·push URL 이 행이 그리는 전부이고,
+    // 지우기 버튼의 글자는 상수다.
+    reconcileList(box,this._items,{
+      key:r=>r.name||'',
+      sig:r=>[r.name||'',r.url||'',r.pushUrl||''].join('\u0001'),
+      build:r=>this._rowEl(r),
+    });
   }
 
   _rowEl(r){

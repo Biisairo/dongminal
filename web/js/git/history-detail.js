@@ -41,19 +41,25 @@ Object.assign(GitHistory.prototype, {
     el.dataset.oid=this._open||'';
     el.classList.toggle('loading',!d&&!this._detailErr);
     el.querySelector('.git-hist-d-oid').textContent=(d&&d.oid)||this._open||'';
-    const ps=el.querySelector('.git-hist-d-parents'); ps.innerHTML='';
+    const ps=el.querySelector('.git-hist-d-parents');
     const parents=(d&&d.parents)||[];
-    const lab=document.createElement('span');
-    lab.className='git-hist-d-plabel';
-    lab.textContent=parents.length?GIT_DETAIL_PARENTS:GIT_DETAIL_ROOT;
-    ps.appendChild(lab);
-    for(const p of parents){
-      const a=document.createElement('code');
-      a.className='git-hist-d-parent'; a.dataset.oid=p;
-      a.textContent=p.slice(0,8); a.title=p;
-      a.addEventListener('click',()=>this._goto(p));
-      ps.appendChild(a);
-    }
+    // FR-PRF-10 — 이전: 회차마다 비우고 다시 만들었다. 새: 값이 그대로면 그리지
+    // 않는다. 이유: 상세는 열려 있는 동안 `_paintRows` 를 타고 매 관측 회차에
+    // 다시 칠해지는데, 부모는 커밋이 바뀌지 않으면 바뀌지 않는다.
+    paintIfChanged(ps,parents.join(','),()=>{
+      ps.innerHTML='';
+      const lab=document.createElement('span');
+      lab.className='git-hist-d-plabel';
+      lab.textContent=parents.length?GIT_DETAIL_PARENTS:GIT_DETAIL_ROOT;
+      ps.appendChild(lab);
+      for(const p of parents){
+        const a=document.createElement('code');
+        a.className='git-hist-d-parent'; a.dataset.oid=p;
+        a.textContent=p.slice(0,8); a.title=p;
+        a.addEventListener('click',()=>this._goto(p));
+        ps.appendChild(a);
+      }
+    });
     const who=el.querySelector('.git-hist-d-who');
     if(d){
       who.textContent=
@@ -79,8 +85,15 @@ Object.assign(GitHistory.prototype, {
     const files=(d&&d.files)||[];
     el.querySelector('.git-hist-d-filelabel').textContent=
       d?(files.length?GIT_DETAIL_FILES+' ('+files.length+')':GIT_DETAIL_NO_FILES):'';
-    const box=el.querySelector('.git-hist-d-files'); box.innerHTML='';
-    for(const f of files) box.appendChild(this._fileEl(d,f));
+    // FR-PRF-10 — 이전: 회차마다 비우고 다시 만들었다. 새: 바뀐 행만 다시 만든다.
+    // `reconcileList` 는 키 없는 자식을 지우므로 첫 회차에 옛 방식으로 그려 둔
+    // 것이 있으면 함께 거둬진다.
+    const box=el.querySelector('.git-hist-d-files');
+    reconcileList(box,files,{
+      key:f=>f.path,
+      sig:f=>[f.status,f.path,f.origPath||'',f.score||''].join('\u0001'),
+      build:f=>this._fileEl(d,f),
+    });
   },
 
   _fileEl(d,f){
