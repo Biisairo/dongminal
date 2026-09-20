@@ -100,10 +100,10 @@ const SETTINGS_ACCESS={
   }},
   // FONT_SIZE_SETTING_SRS FR-FSS-3·9: 배율 하나가 CSS 토큰과 편집기 둘 다에 간다.
   // 터미널은 여기 없다 — 그것이 이 스펙의 요점이다 (FR-FSS-17).
-  uiFontScale:{get:()=>uiFontScale,set(v){
-    uiFontScale=clampSetting('uiFontScale',v);
+  uiFontSize:{get:()=>uiFontSize,set(v){
+    uiFontSize=clampSetting('uiFontSize',v);
     const el=document.getElementById('ds-uifs');
-    if(el) el.value=String(uiFontScale);
+    if(el) el.value=String(uiFontSize);
     applyUiFontScale();
     if(this._edApplyFontSize) this._edApplyFontSize();
   }},
@@ -208,6 +208,9 @@ Object.assign(App.prototype, {
    */
   _settingsApply(saved,opts){
     if(!saved||typeof saved!=='object') return;
+    // FR-FSS-2c: 옛 `uiFontScale`(%) 을 `uiFontSize`(px) 로 옮긴다. 세 계기가
+    // 모두 이 함수를 지나므로 자리가 여기 하나다.
+    migrateUiFontScale(saved);
     /**
      * **서술자 표 하나를 돈다** (CONFIG_MANAGEMENT_SRS FR-CFG-3·5).
      *

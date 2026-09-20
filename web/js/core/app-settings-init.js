@@ -389,8 +389,8 @@ Object.assign(App.prototype, {
 
   /** FR-FSS-1: Settings ▸ Display 의 `UI 글자 크기`. */
   _initUiFontScale(){
-    this._initNumSetting('ds-uifs','uiFontScale',function(v){
-      uiFontScale=v;
+    this._initNumSetting('ds-uifs','uiFontSize',function(v){
+      uiFontSize=v;
       applyUiFontScale();
       this._edApplyFontSize();
     });

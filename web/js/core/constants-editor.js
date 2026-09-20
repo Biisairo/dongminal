@@ -147,7 +147,7 @@ function edMinimapOpts(enabled){
  */
 const EDITOR_FONT_SIZE_BASE=13;
 function edFontSize(){
-  return Math.round(EDITOR_FONT_SIZE_BASE*uiFontScaleNow()/100);
+  return Math.round(EDITOR_FONT_SIZE_BASE*uiFontSizeNow()/UI_FONT_BASE_PX);
 }
 
 // ── 코드 탐색: 언어 서버의 관측 (EDITOR_LSP_SRS 묶음 A · M1) ──

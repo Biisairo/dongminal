@@ -35,8 +35,8 @@ test.afterAll(() => { if (BASE) rmTree(BASE) });
  * **두 값을 기본으로 되돌리고 나간다.**
  *
  * 설정은 서버 블롭에 살고(FR-FSS-18) 워커의 서버는 테스트들이 함께 쓴다 — 이
- * 파일은 배율을 200 까지 올리므로, 되돌리지 않으면 다음 테스트가 그 값을 물려받는다
- * (실측: F3 이 남긴 180 을 F6 이 받아 편집기가 13 대신 23 으로 섰다).
+ * 파일은 UI 글자를 28px 까지 올리므로, 되돌리지 않으면 다음 테스트가 그 값을 물려받는다
+ * (실측: F3 이 남긴 값을 F6 이 받아 편집기가 13 대신 23 으로 섰다).
  *
  * 블롭을 통째로 덮지 않고 **읽어서 두 키만 고친다** — 같은 워커의 다른 spec 이
  * 세워 둔 설정을 지우지 않기 위해서다.
@@ -44,7 +44,7 @@ test.afterAll(() => { if (BASE) rmTree(BASE) });
 test.afterEach(async ({ request }) => {
   const cur = await (await request.get('/api/settings')).json();
   await request.put('/api/settings', {
-    data: { ...cur, uiFontScale: 100, termFontSize: 14 },
+    data: { ...cur, uiFontSize: 14, termFontSize: 14 },
   });
 });
 
@@ -108,7 +108,7 @@ async function setNum(page: Page, sel: string, v: number) {
   await num.blur();
 }
 
-async function setUiScale(page: Page, v: number) {
+async function setUiFontPx(page: Page, v: number) {
   await openPanel(page, 'display');
   await setNum(page, '#ds-uifs', v);
   await closePanel(page);
@@ -124,7 +124,7 @@ test.describe('글자 크기 설정 (FR-FSS-1~23)', () => {
 
   test('F1 (V-FSS-11 / FR-FSS-23): 기본값은 종전 화면을 낸다', async ({ page }) => {
     await waitForInit(page);
-    // 배율 100 에서 다섯은 사상표의 값 그대로다 (DESIGN_TOKENS_SRS §3.3).
+    // 기본 14px(= `--fs-lg` 의 기준)에서 다섯은 사상표의 값 그대로다 (DESIGN_TOKENS_SRS §3.3).
     expect(await cssPx(page, '--fs-xs')).toBe(9);
     expect(await cssPx(page, '--fs-sm')).toBe(11);
     expect(await cssPx(page, '--fs-md')).toBe(12);
@@ -140,7 +140,7 @@ test.describe('글자 크기 설정 (FR-FSS-1~23)', () => {
   test('F2 (V-FSS-5 / FR-FSS-4·5): 배율을 올리면 글꼴과 상자가 **함께** 커진다',
     async ({ page }) => {
       await waitForInit(page);
-      await setUiScale(page, 150);
+      await setUiFontPx(page, 21);
       // 글꼴 다섯.
       await expect.poll(() => cssPx(page, '--fs-sm'), { timeout: 10000 }).toBe(16.5);
       expect(await cssPx(page, '--fs-xs')).toBe(13.5);
@@ -162,7 +162,7 @@ test.describe('글자 크기 설정 (FR-FSS-1~23)', () => {
       await waitForInit(page);
       const ratio0 = await cssRaw(page, '--ui-icon-ratio');
       const radius0 = await cssPx(page, '--ui-radius', 'border-top-left-radius');
-      await setUiScale(page, 180);
+      await setUiFontPx(page, 25);
       await expect.poll(() => cssPx(page, '--fs-sm'), { timeout: 10000 }).toBeGreaterThan(19);
       // 비율에 배율을 걸면 아이콘이 두 번 커진다. 모서리는 크기의 함수가 아니다.
       expect(await cssRaw(page, '--ui-icon-ratio')).toBe(ratio0);
@@ -188,7 +188,7 @@ test.describe('글자 크기 설정 (FR-FSS-1~23)', () => {
       await expect.poll(() => termFont(page), { timeout: 15000 }).toBe(14);
 
       // ① UI 만 키운다 → 터미널은 14 에 선다.
-      await setUiScale(page, 200);
+      await setUiFontPx(page, 28);
       await expect.poll(() => cssPx(page, '--fs-lg'), { timeout: 10000 }).toBe(28);
       expect(await termFont(page)).toBe(14);
 
@@ -213,7 +213,7 @@ test.describe('글자 크기 설정 (FR-FSS-1~23)', () => {
         ed._editor.setPosition({ lineNumber: 2, column: 3 });
       });
 
-      await setUiScale(page, 200);
+      await setUiFontPx(page, 28);
       await expect.poll(() => edFont(page), { timeout: 10000 }).toBe(26);
 
       const after = await page.evaluate(() => {
@@ -229,28 +229,28 @@ test.describe('글자 크기 설정 (FR-FSS-1~23)', () => {
   test('F7 (V-FSS-10 / FR-FSS-18): 두 값이 블롭에 실리고 새로고침 뒤에도 남는다',
     async ({ page, request }) => {
       await waitForInit(page);
-      await setUiScale(page, 130);
+      await setUiFontPx(page, 18);
       await setTermFont(page, 18);
 
       await expect.poll(async () => {
         const r = await request.get('/api/settings');
         const b = await r.json();
-        return { u: b.uiFontScale, t: b.termFontSize };
-      }, { timeout: 10000 }).toEqual({ u: 130, t: 18 });
+        return { u: b.uiFontSize, t: b.termFontSize };
+      }, { timeout: 10000 }).toEqual({ u: 18, t: 18 });
 
       await page.reload();
       await waitForInit(page);
-      await expect.poll(() => cssPx(page, '--fs-sm'), { timeout: 10000 }).toBe(14.3);
+      await expect.poll(() => cssPx(page, '--fs-sm'), { timeout: 10000 }).toBe(14.14);
       await expect.poll(() => termFont(page), { timeout: 15000 }).toBe(18);
     });
 
   test('F9 (V-FSS-14 / FR-FSS-21): 설정 창을 열 때마다 입력란이 현재 값으로 다시 칠해진다',
     async ({ page }) => {
       await waitForInit(page);
-      await setUiScale(page, 120);
+      await setUiFontPx(page, 17);
 
       // 확정되지 않은 글자가 입력란에 남은 상태를 만든다. 이벤트를 내지 않으므로
-      // 적용된 값은 120 그대로이고 **입력란만** 어긋난다 — 여는 순간이 그것을
+      // 적용된 값은 17 그대로이고 **입력란만** 어긋난다 — 여는 순간이 그것을
       // 맞출 자리다 (FR-LVC-3 과 같은 근거).
       await openPanel(page, 'display');
       await page.evaluate(() => {
@@ -259,10 +259,27 @@ test.describe('글자 크기 설정 (FR-FSS-1~23)', () => {
       await closePanel(page);
 
       await openPanel(page, 'display');
-      await expect(page.locator('#ds-uifs')).toHaveValue('120');
+      await expect(page.locator('#ds-uifs')).toHaveValue('17');
       await closePanel(page);
-      // 화면은 내내 120 이었다 — 어긋난 것은 글자뿐이다.
-      expect(await cssPx(page, '--fs-sm')).toBe(13.2);
+      // 화면은 내내 17px 이었다 — 어긋난 것은 글자뿐이다.
+      expect(await cssPx(page, '--fs-sm')).toBe(13.36);
+    });
+
+  test('F10 (V-FSS-15 / FR-FSS-2a): 하한 8px 에서도 파생이 서고 화면이 무너지지 않는다',
+    async ({ page }) => {
+      await waitForInit(page);
+      // 8px 은 종전 하한(80% = 11.2px)보다 낮은 **새 구간**이다 (§7 리스크).
+      await setUiFontPx(page, 8);
+      // 파생은 비례로 내려간다: 9 × 8/14 ≈ 5.14 · 11 × 8/14 ≈ 6.29.
+      await expect.poll(() => cssPx(page, '--fs-lg'), { timeout: 10000 }).toBe(8);
+      expect(await cssPx(page, '--fs-xs')).toBe(5.14);
+      expect(await cssPx(page, '--fs-sm')).toBe(6.29);
+      // 상자는 0 이 되지 않는다 — 26 × 8/14 ≈ 14.86. 눌리지만 남는다.
+      expect(await cssPx(page, '--ui-btn-h', 'height')).toBeGreaterThan(12);
+      // 설정 창이 그 크기에서도 열리고 닫힌다.
+      await openPanel(page, 'display');
+      await expect(page.locator('#ds-uifs')).toHaveValue('8');
+      await closePanel(page);
     });
 
   test('F8 (V-FSS-4 / FR-FSS-19): 범위 밖은 자른다 — 거부하지 않는다',
@@ -271,8 +288,8 @@ test.describe('글자 크기 설정 (FR-FSS-1~23)', () => {
       await openPanel(page, 'display');
       await setNum(page, '#ds-uifs', 999);
       // 잘린 사실이 **보여야** 사용자가 왜 그 크기인지 안다 (FR-TBW-4 와 같은 근거).
-      await expect(page.locator('#ds-uifs')).toHaveValue('200', { timeout: 10000 });
+      await expect(page.locator('#ds-uifs')).toHaveValue('32', { timeout: 10000 });
       await closePanel(page);
-      expect(await cssPx(page, '--fs-sm')).toBe(22);
+      expect(await cssPx(page, '--fs-sm')).toBe(25.14);
     });
 });

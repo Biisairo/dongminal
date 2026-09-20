@@ -562,14 +562,14 @@ function applyTabWidth(){
  * 오기 전의 화면은 CSS 의 `--fs-scale:1` 이 낸다 — 여기에 `100` 을 적으면 같은
  * 값이 세 자리(표·CSS·여기)에 서고, 그 중 하나만 고쳐지는 날이 온다.
  */
-var uiFontScale;
+var uiFontSize;
 var termFontSize;
 // AGENT_RENDER_ENV_SRS FR-ARE-8: 값을 들고 저장할 뿐, 얹을 화면이 없다 —
 // 서버가 도구를 띄울 때 환경변수로 넣는다.
 var claudeScrollSpeed;
 
 /** 지금 쓸 값. 설정이 아직 오지 않았으면 표의 기본값이다. */
-function uiFontScaleNow(){ return uiFontScale??SETTINGS_BY_KEY.uiFontScale.def }
+function uiFontSizeNow(){ return uiFontSize??SETTINGS_BY_KEY.uiFontSize.def }
 function termFontSizeNow(){ return termFontSize??SETTINGS_BY_KEY.termFontSize.def }
 
 /**
@@ -580,7 +580,29 @@ function termFontSizeNow(){ return termFontSize??SETTINGS_BY_KEY.termFontSize.de
  * 374곳이 따라온다.
  */
 function applyUiFontScale(){
-  document.documentElement.style.setProperty('--fs-scale',String(uiFontScaleNow()/100));
+  document.documentElement.style.setProperty('--fs-scale',String(uiFontSizeNow()/UI_FONT_BASE_PX));
+}
+
+/**
+ * FR-FSS-2c: 옛 키 `uiFontScale`(%) 을 **한 번** `uiFontSize`(px) 로 옮긴다.
+ *
+ * 서버의 `Validate` 는 모르는 키를 거부하지 않고 `unknown` 으로 돌려주므로
+ * (`settingsschema/schema.go:166`) 이관 전에도 저장은 막히지 않는다 — 그래서
+ * 이 함수는 **값을 잃지 않기 위한 것**이지 오류를 피하기 위한 것이 아니다.
+ *
+ * 옛 키는 받은 블롭에서 지운다. **서버에서 사라지는 것은 다음 저장 때**다 —
+ * PUT 본문은 `SETTINGS_ACCESS` 의 `get()` 으로 조립되므로 표에 없는 키는 실리지
+ * 않는다 (FR-CFG-6). 강제로 한 번 더 저장하지 않는 이유가 그것이다.
+ */
+function migrateUiFontScale(blob){
+  if(!blob||typeof blob!=='object') return blob;
+  if(!('uiFontScale' in blob)) return blob;
+  if(blob.uiFontSize===undefined||blob.uiFontSize===null){
+    const pct=Number(blob.uiFontScale);
+    if(isFinite(pct)) blob.uiFontSize=clampSetting('uiFontSize',Math.round(UI_FONT_BASE_PX*pct/100));
+  }
+  delete blob.uiFontScale;
+  return blob;
 }
 
 // FR-TBW-4: 범위 밖은 **자른다** — 거부하지 않는다. 숫자 입력은 타이핑 도중에

@@ -17,14 +17,14 @@ func TestLoadReadsEmbeddedTable(t *testing.T) {
 	//    + M8_UNIFIED_SRS FR-B-4 의 `locale` (M8 P2)
 	//    + EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-2 의 `editorMinimap`
 	//    + AGENT_RENDER_ENV_SRS FR-ARE-3 의 `claudeFullscreen`
-	//    + FONT_SIZE_SETTING_SRS FR-FSS-2·12 의 `uiFontScale`·`termFontSize`
+	//    + FONT_SIZE_SETTING_SRS FR-FSS-2a·12 의 `uiFontSize`·`termFontSize`
 	//    + AGENT_RENDER_ENV_SRS FR-ARE-8 의 `claudeScrollSpeed`.
 	//    `agentApprovalMode` 는 에이전트 GUI 와 함께 빠졌다 (AGENT_GUI_REMOVAL_SRS FR-AGR-4).
 	if len(specs) != 29 {
 		t.Fatalf("서술자 %d개, 기대 29개", len(specs))
 	}
 	by := settingsschema.ByKey(specs)
-	for _, k := range []string{"themeName", "tabWidthPx", "attnEdgeLevel", "gitStatusInterval", "uiFontScale", "termFontSize"} {
+	for _, k := range []string{"themeName", "tabWidthPx", "attnEdgeLevel", "gitStatusInterval", "uiFontSize", "termFontSize"} {
 		if _, ok := by[k]; !ok {
 			t.Errorf("%s 가 표에 없다", k)
 		}
@@ -76,7 +76,7 @@ func TestValidateFontSizeBounds(t *testing.T) {
 	}
 	// 안쪽과 경계는 통과한다.
 	for _, blob := range []string{
-		`{"uiFontScale":80}`, `{"uiFontScale":100}`, `{"uiFontScale":200}`,
+		`{"uiFontSize":8}`, `{"uiFontSize":14}`, `{"uiFontSize":32}`,
 		`{"termFontSize":8}`, `{"termFontSize":14}`, `{"termFontSize":32}`,
 	} {
 		probs, _, err := settingsschema.Validate(specs, []byte(blob))
@@ -89,7 +89,7 @@ func TestValidateFontSizeBounds(t *testing.T) {
 	}
 	// 한 눈금 밖은 걸린다.
 	for _, blob := range []string{
-		`{"uiFontScale":79}`, `{"uiFontScale":201}`,
+		`{"uiFontSize":7}`, `{"uiFontSize":33}`,
 		`{"termFontSize":7}`, `{"termFontSize":33}`,
 	} {
 		probs, _, err := settingsschema.Validate(specs, []byte(blob))

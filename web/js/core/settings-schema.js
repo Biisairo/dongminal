@@ -46,7 +46,7 @@ const SETTINGS_SCHEMA = [
   {"key":"editorMinimap","type":"bool","def":true,"where":"Display ▸ 편집기 미니맵"},
   {"key":"tabFixedWidth","type":"bool","def":false,"where":"Display ▸ 탭 너비 고정"},
   {"key":"tabWidthPx","type":"int","def":160,"min":40,"max":480,"where":"Display ▸ 탭 너비"},
-  {"key":"uiFontScale","type":"int","def":100,"min":80,"max":200,"where":"Display ▸ UI 글자 크기"},
+  {"key":"uiFontSize","type":"int","def":14,"min":8,"max":32,"where":"Display ▸ UI 글자 크기"},
   {"key":"focusEdgeLevel","type":"int","def":5,"min":0,"max":10,"where":"Display ▸ 비활성 창 가장자리"},
   {"key":"attnEdgeLevel","type":"int","def":5,"min":0,"max":10,"where":"Display ▸ 알림 가장자리"},
   {"key":"themeFollowSystem","type":"bool","def":false,"where":"Theme ▸ 시스템 추종"},

@@ -377,6 +377,13 @@ var TOPTS={
   theme:null,
 };
 
+// FONT_SIZE_SETTING_SRS FR-FSS-2b: `--fs-scale` 의 분모다.
+//
+// 본문 토큰 `--fs-lg` 의 기준 px 이며(`style.css` 의 `calc(14px * …)`), `html,body`
+// 의 글자가 그것이다. 설정에 적은 수가 **곧 앱 본문 글자의 px** 인 것이 이 상수의
+// 뜻이다 — 두 곳에 적으면 한쪽만 고쳐진다.
+const UI_FONT_BASE_PX=14;
+
 // ── 터미널이 스스로 내는 보고 ──
 
 /**
