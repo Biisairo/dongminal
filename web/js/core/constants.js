@@ -24,7 +24,7 @@
 // SIZE 는 서버가 **PTY 의 크기**를 통보하는 프레임이다 (M9_SRS FR-M9-3).
 // 페이로드 4 바이트 — cols 2 + rows 2, 빅엔디언. 크기의 주인이 아닌 창은 이 값을
 // 따르고 자기 `fit()` 결과를 PTY 에 보내지 않는다 (D-M9-3).
-const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,TOOLID:3,SEQ:4,SIZE:5};
+const OP={INPUT:0,RESIZE:1,OUTPUT:0,ERROR:1,EXIT:2,TOOLID:3,SEQ:4,SIZE:5,REPLY_SEAT:6};
 // TERMINAL_RESUME_SRS FR-TRS-18b: `OpSeq` 플래그 바이트의 비트.
 // bit0 은 종전의 값 `1`(전량 재생)과 같고, bit1 이 "그 도구가 alt screen 안이다" 다.
 const SEQ_FLAG_FULL=1, SEQ_FLAG_ALT=2;
@@ -376,6 +376,32 @@ var TOPTS={
   fontFamily:"'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace",
   theme:null,
 };
+
+// ── 터미널이 스스로 내는 보고 ──
+
+/**
+ * xterm 이 `onData` 로 내는 것은 두 종류다 — **사용자가 친 키**와, 터미널이
+ * 스스로 내는 **보고**다. 이 정규식이 뒤엣것이다.
+ *
+ * 목록은 서버의 `snapshotQueryPattern` 과 **쌍**이다: 그쪽이 재생분에서 지우는
+ * 질의에 이 xterm 이 내는 답이 여기 있다 (`TERMINAL_RESUME_SRS` FR-TRS-5a).
+ * 한쪽만 고치면 다시 어긋나므로 자리를 함께 적어 둔다.
+ *
+ *   ESC[…c      DA1·DA2 응답        ESC[…n  ESC[…R  DSR·CPR 응답
+ *   ESC[…$y     DECRQM 응답          ESC]…;rgb:…    OSC 색 보고
+ *   ESC P…$r…ST DECRQSS 응답         ESC[I  ESC[O   포커스 보고
+ *
+ * 사용자의 키와 겹치지 않는다 — 화살표(`ESC[A`~`D`)·Home(`ESC[H`)·F 키(`ESC[…~`)·
+ * SGR 마우스(`ESC[<…M`)는 어느 갈래에도 걸리지 않는다.
+ */
+const TERM_REPORT_RE=/^(?:\x1b\[[?>=]?[0-9;]*[cnRIO]|\x1b\[[?>=]?[0-9;]*\$y|\x1b\][0-9]{1,3};rgb:[0-9a-fA-F/]*(?:\x07|\x1b\\)|\x1bP[01]\$r[^\x1b]*\x1b\\)$/;
+
+/**
+ * 그 중 **포커스 보고**다. 좌석 앞에서 갈리는 유일한 갈래이므로 따로 선다
+ * (`TERM_REPLY_SEAT_SRS` FR-RPS-8): 나머지는 질의의 **답**이라 하나만 나가야
+ * 하지만, 포커스는 **그 창 고유의 사실**이라 창마다 나가야 한다.
+ */
+const TERM_FOCUS_RE=/^\x1b\[[IO]$/;
 
 // ── Git 창 (GIT_SRS §3.4 / FR-GIT-25~31) ──
 

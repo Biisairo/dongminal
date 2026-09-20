@@ -63,6 +63,12 @@ type Server struct {
 	cfg Config
 	// Focus holds window→client ownership (FR-XDF-1). in-memory only.
 	Focus *hub.FocusRegistry
+	// Seats 는 도구마다 **답장을 보낼 연결 하나**를 정한다
+	// (TERM_REPLY_SEAT_SRS FR-RPS-1). `Focus` 와 같은 성질이다 — 서버가 권위로
+	// 들고, 재시작하면 모두 풀린다. 두 배선(direct·daemon)이 이 자리 하나를
+	// 함께 쓴다: PTY 가 어느 프로세스에 있든 **WS 연결은 언제나 여기 있다**
+	// (FR-RPS-2).
+	Seats *hub.ReplySeats
 	// Entries 는 workspace.json 최상위의 두 목록 — git.pinned[] 와 editors.list[] —
 	// 을 함께 소유한다 (EDITOR_TAB_SRS FR-EDT-116). /api/editors/* 와 /api/fs/* 의
 	// 루트 가드가 이것을 읽는다 (FR-EDT-113). Work 가 nil 이면 그 종단만 실패한다.
@@ -208,6 +214,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		Deps:    deps,
 		cfg:     cfg,
 		Focus:   hub.NewFocusRegistry(),
+		Seats:   hub.NewReplySeats(),
 		Access:  access,
 		started: time.Now(),
 		limits:  defaultLimits(),

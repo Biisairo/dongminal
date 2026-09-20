@@ -137,6 +137,14 @@
 - **FR-MTI-15** sticky modifier 의 적용·소비는 입력 문자열 길이와 무관하게 수행한다.
   판정 기준은 첫 코드포인트다. 적용 대상이 아니어도 sticky(1회성)는 소비된다 —
   잔존해 다음 입력을 오염시켜서는 안 된다.
+- **FR-MTI-15a** 이 규약의 대상은 **사용자의 입력**이다. xterm 이 스스로 내는
+  보고는 `_onTermData` 가 앞에서 갈라 `_applyStickyMods` 에 넘기지 않는다 —
+  소비하면 사용자가 눌러 둔 Ctrl 이 앱의 질의 한 번에 사라진다. 목록
+  (`TERM_REPORT_RE`)은 포커스 보고·DA·DSR/CPR·DECRQM 응답·OSC 색 보고·DECRQSS
+  응답이며, 서버의 `snapshotQueryPattern` 과 **쌍**이다 (`TERMINAL_RESUME_SRS`
+  FR-TRS-5a) — 그쪽이 지우는 질의에 이쪽이 내는 답이므로 한쪽만 넓히면 어긋난다.
+
+  종전에는 포커스 보고 하나만 특례로 빠져 있었다. 그 특례를 이 조항이 흡수한다.
 - **FR-MTI-16** Ctrl 변환은 첫 코드포인트가 `0x40`~`0x7e` 일 때만, 그 한 문자에만 적용한다.
 - **FR-MTI-17** Alt 프리픽스(`ESC`)는 첫 코드포인트가 ASCII 출력 범위(`0x20`~`0x7e`)일 때만 붙인다.
   한글 등 그 밖의 문자에는 붙이지 않는다(sticky 는 소비한다).
@@ -177,6 +185,7 @@
 | TC-MTI-10 | FR-MTI-14 | 키바 버튼은 `tabindex="-1"` 이고, 스와이프 후에도 포커스가 터미널에 남는다 |
 | TC-MTI-11 | FR-MTI-15 | Ctrl sticky 상태에서 여러 문자 입력 시 sticky 가 소비된다 |
 | TC-MTI-12 | FR-MTI-17 | Alt sticky + 한글 입력에 `ESC` 가 붙지 않고 sticky 는 소비된다 |
+| TC-MTI-11a | FR-MTI-15a | 터미널 보고 11종이 sticky 를 소비하지 않고 변형 없이 나간다. 화살표·F 키·마우스는 종전대로 소비한다 (`web/js/test/term-report.test.mjs`) |
 
 회귀: `e2e/mobile-keybar.spec.ts`, `e2e/mobile-keybar-touch.spec.ts`,
 `e2e/regression-pane-scroll.spec.ts`, `e2e/terminal.spec.ts` 가 그대로 통과해야 한다.

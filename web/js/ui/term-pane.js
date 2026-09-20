@@ -24,6 +24,9 @@ class TerminalTool {
     // `_seqLive` 가 따로 있는 이유: 재생분(스냅샷·델타)은 좌표 통보 **앞에** 오므로
     // 세면 안 된다 (FR-TRS-8). 통보를 받은 뒤의 OpOutput 만이 라이브 PTY 바이트다.
     this._seq=-1; this._seqLive=false;
+    // TERM_REPLY_SEAT_SRS FR-RPS-9: **통보를 받기 전에는 주인이다.** 좌석을 모르는
+    // 서버에 붙은 탭은 종전 그대로 돌아야 하고, 그때의 최악은 **종전 동작**이다.
+    this._replySeat=true;
     // M10_SRS FR-M10-1: **소유자로서 마지막으로 잰 자기 크기.** `term.cols` 와 따로
     // 두는 이유는 그 칸에 두 진실이 담기기 때문이다 — 비소유가 되면 `_applyPtySize`
     // 가 `term.cols` 를 PTY 폭으로 덮고, 그러면 되찾을 때 되보낼 자기 폭이 없다
@@ -179,9 +182,7 @@ class TerminalTool {
       // Ctrl+ shortcuts → bypass to terminal, block browser
       if(e.ctrlKey&&!e.metaKey) e.preventDefault();
     });
-    this.term.onData(d=>{
-      this._sendText(this._applyStickyMods(d));
-    });
+    this.term.onData(d=>this._onTermData(d));
     this.term.onResize(({cols,rows})=>{
       // Only the OS-focused window that owns the pane's window may send resize.
       if(!window.app||!window.app.resizeCheck(this.id,this._slot)) return;
@@ -234,6 +235,35 @@ class TerminalTool {
 
   // ── 입력 (MOBILE_TUI_INPUT_SCROLL_SRS §3.1 / §3.5) ──
 
+  /**
+   * `onData` 로 오는 것은 두 종류다 — 사용자가 친 키와, 터미널이 **스스로 내는
+   * 보고**(`TERM_REPORT_RE`)다. 여기서 가른다.
+   *
+   * 갈라야 하는 이유는 sticky 다. 그것은 대상이 아니어도 **소비된다**(그것이
+   * FR-MTI-15~17 의 규약이다). 보고가 그 그물을 지나면 사용자가 눌러 둔 Ctrl 이
+   * 조용히 사라진다 — 키바에서 Ctrl 을 누르고 글자를 누르는 사이에 포커스가
+   * 오가거나 앱이 터미널에 질의를 내는 것은 모바일에서 흔한 일이다.
+   * (Windows CI 에서 실측: 그 OS 는 포커스 보고가 늦게 도착해 매번 재현됐다.)
+   *
+   * 종전에는 포커스 보고(`ESC[I`·`ESC[O`) **하나만** `_applyStickyMods` 안에서
+   * 특례로 빠져 있었다. 색·모드 질의의 답은 그 그물을 그대로 지났고, 앱이
+   * 기동하며 내는 질의가 정확히 그것이다.
+   */
+  _onTermData(d){
+    if(TERM_REPORT_RE.test(d)){
+      // TERM_REPLY_SEAT_SRS FR-RPS-7: 질의의 **답**은 좌석의 주인만 보낸다. 같은
+      // 도구에 창이 둘 붙으면 질의 하나를 두 xterm 이 다 보고 각자 답하는데,
+      // 앱은 답을 하나만 먹으므로 나머지가 입력 줄에 남는다.
+      //
+      // 포커스 보고는 예외다 (FR-RPS-8) — 그것은 질의의 답이 아니라 **그 창
+      // 고유의 사실**이다.
+      if(!this._replySeat && !TERM_FOCUS_RE.test(d)) return;
+      this._sendText(d);
+      return;
+    }
+    this._sendText(this._applyStickyMods(d));
+  }
+
   _sendText(s){
     if(!s) return;
     const b=enc.encode(s);
@@ -244,14 +274,7 @@ class TerminalTool {
   // FR-MTI-15~17: sticky 는 입력 길이와 무관하게 첫 코드포인트로 판정하고,
   // 대상이 아니어도 소비한다 — 잔존하면 다음 입력을 오염시킨다.
   _applyStickyMods(s){
-    // xterm 이 **스스로 내는 포커스 보고**(CSI `I`·`O`)는 사용자의 입력이 아니다.
-    //
-    // 그것도 `onData` 로 오므로 여기를 지나는데, sticky 는 대상이 아니어도
-    // **소비된다**(그것이 FR-MTI-15~17 의 규약이다). 그래서 창이 포커스를 되찾는
-    // 순간 사용자가 눌러 둔 Ctrl 이 조용히 사라진다 — 키바에서 Ctrl 을 누르고
-    // 글자를 누르는 사이에 포커스가 오가는 것은 모바일에서 흔한 일이다.
-    // (Windows CI 에서 실측: 그 OS 는 포커스 보고가 늦게 도착해 매번 재현됐다.)
-    if(s==='\x1b[I'||s==='\x1b[O') return s;
+    // 보고는 여기 오지 않는다 — `_onTermData` 가 앞에서 갈랐다.
     const A=window.app;
     if(!(A && A.isMobile && A.modKbd)) return s;
     const mk=A.modKbd;
@@ -566,6 +589,8 @@ class TerminalTool {
     if(d[0]===OP.OUTPUT){ this._handleOutput(d.subarray(1)); }
     else if(d[0]===OP.SEQ){ this._onSeq(d.subarray(1)); }
     else if(d[0]===OP.SIZE){ this._onSize(d.subarray(1)); }
+    // FR-RPS-3: 페이로드 1 바이트 — 이 연결이 답장을 보낼 자격을 쥐었는가.
+    else if(d[0]===OP.REPLY_SEAT){ this._replySeat=d[1]===1; }
     else if(d[0]===OP.TOOLID){ this.id=dec.decode(d.subarray(1)); this.el.dataset.toolid=this.id; }
     else if(d[0]===OP.EXIT){ this._markExited(); }
     else if(d[0]===OP.ERROR){ this.write('\r\n\x1b[31m'+dec.decode(d.subarray(1))+'\x1b[0m\r\n'); }

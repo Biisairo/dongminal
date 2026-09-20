@@ -146,6 +146,11 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remo
 		sendSize(conn, cols, rows)
 	}
 
+	// FR-RPS-4: 좌석 통보는 **재생보다 앞**이다. 재생·라이브보다 먼저 닿아야 그
+	// 구간의 질의를 만나기 전에 누가 답할지가 정해져 있다.
+	s.Seats.Join(tool.ID, conn)
+	defer s.Seats.Leave(tool.ID, conn)
+
 	data, full := directReplay(tool.Stream(), since, regOff)
 	if payload := buildReplay(data, full); len(payload) > 0 {
 		if err := conn.Send(toolhub.OpOutput, payload); err != nil {
@@ -201,6 +206,11 @@ func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, pc toolhub.DaemonHub, to
 	// FR-M9-3 ①: direct 모드와 **같은 자리**다 — 재생보다 앞. 두 모드가 같은
 	// 바이트를 같은 순서로 보내야 어느 쪽이 맞는지 물을 수 있다 (FR-TRS-12).
 	sendSize(conn, snap.Cols, snap.Rows)
+	// FR-RPS-2·4: direct 배선과 **같은 자리**다 — 재생보다 앞. 좌석을 두 배선이
+	// 함께 쓰는 근거는 `buildReplay` 를 함께 쓰는 것과 같다 (FR-TRS-12).
+	s.Seats.Join(toolID, conn)
+	defer s.Seats.Leave(toolID, conn)
+
 	if payload := buildReplay(snap.Data, full); len(payload) > 0 {
 		if err := conn.Send(toolhub.OpOutput, payload); err != nil {
 			dmlog.Errorf(nil, "[tool %s] replay send error: %v", toolID, err)

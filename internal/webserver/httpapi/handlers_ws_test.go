@@ -106,6 +106,21 @@ func TestHandleWS_ExistingTool(t *testing.T) {
 		t.Fatalf("expected toolhub.OpSize, got op=0x%02x", msg[0])
 	}
 
+	// 그다음이 좌석 통보다 (TERM_REPLY_SEAT_SRS FR-RPS-4) — 이것도 **재생보다
+	// 앞**이다. 재생·라이브보다 먼저 닿아야 그 구간의 질의를 만나기 전에 누가
+	// 답할지가 정해져 있다. 이 연결이 이 도구의 첫 클라이언트이므로 주인이다.
+	ws.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_, msg, err = ws.ReadMessage()
+	if err != nil {
+		t.Fatalf("read reply seat: %v", err)
+	}
+	if len(msg) != 2 || msg[0] != toolhub.OpReplySeat {
+		t.Fatalf("expected toolhub.OpReplySeat, got op=0x%02x len=%d", msg[0], len(msg))
+	}
+	if msg[1] != 1 {
+		t.Fatalf("첫 연결이 좌석의 주인이 아니다: %d", msg[1])
+	}
+
 	// Next message should be toolhub.OpOutput (snapshot).
 	ws.SetReadDeadline(time.Now().Add(5 * time.Second))
 	mt, msg, err := ws.ReadMessage()
