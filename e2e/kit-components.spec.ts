@@ -265,4 +265,40 @@ test.describe('킷 컴포넌트 (KIT_COMPONENTS_SRS)', () => {
     expect(a, `Theme(${a}) 와 Shortcuts(${b}) 의 높이가 같다 — 내용에 맞춰 늘지 않는다`).not.toBe(b);
     await page.keyboard.press('Escape');
   });
+
+  test('TC-CMP-19: 넘치면 잘린 것이 있음을 페이드가 알린다 (FR-CMP-84)', async ({ page }) => {
+    await waitForInit(page, { clearLocalStorage: true });
+    await page.click('#settings-btn');
+    await expect(page.locator('#modal-overlay.open')).toBeVisible({ timeout: 10000 });
+
+    const read = async (tab: string, want: string) => {
+      await page.click(`.mtab[data-tab="${tab}"]`);
+      // 표식은 `ResizeObserver`·`MutationObserver` 가 세우므로 **비동기**다.
+      // 고정 대기가 아니라 조건 폴링이고, 끝내 안 서면 진다.
+      await page.waitForFunction((w) => {
+        const b = document.querySelector('.modal-body') as HTMLElement;
+        return (b.dataset.overflow || '') === w || ((b.dataset.overflow || '').includes(w) && w !== '');
+      }, want, { timeout: 3000 }).catch(() => {});
+      return page.evaluate(() => {
+        const b = document.querySelector('.modal-body') as HTMLElement;
+        return {
+          over: b.scrollHeight > b.clientHeight + 1,
+          mark: b.dataset.overflow || '',
+          mask: getComputedStyle(b).maskImage || (getComputedStyle(b) as any).webkitMaskImage || 'none',
+        };
+      });
+    };
+    // 짧은 탭 — 넘치지 않으므로 **페이드가 없어야** 한다. 늘 흐리면 그것은
+    // 정보가 아니라 장식이다.
+    const short = await read('theme', '');
+    expect(short.over, 'Theme 이 넘친다 — 검사의 전제가 깨졌다').toBe(false);
+    expect(short.mark, '넘치지 않는데 표식이 섰다').toBe('');
+
+    // 긴 탭 — 넘치므로 아래쪽이 흐려진다.
+    const long = await read('shortcuts', 'bottom');
+    expect(long.over, 'Shortcuts 가 넘치지 않는다 — 검사의 전제가 깨졌다').toBe(true);
+    expect(long.mark, '넘치는데 표식이 서지 않았다').toContain('bottom');
+    expect(long.mask, '표식은 섰는데 페이드가 그려지지 않는다').not.toBe('none');
+    await page.keyboard.press('Escape');
+  });
 });

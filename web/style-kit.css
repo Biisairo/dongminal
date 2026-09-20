@@ -119,6 +119,21 @@
 }
 .ui-tabs-side .ui-tab{justify-content:flex-start;border-left:2px solid transparent}
 .ui-tabs-side .ui-tab.active{border-left-color:var(--accent)}
+/* ── 넘침 페이드 (KIT_COMPONENTS_SRS FR-CMP-84) ─────────────────────────
+   구르는 표면의 **잘린 쪽**을 흐린다. 스크롤바가 있어도 "여기서 끝인가" 는
+   가장자리가 말해 주는 편이 빠르다 — 설정 모달의 긴 탭에서 마지막 행이 높이
+   중간에서 잘리던 것이 그 자리다 (`AUDIT-uiux.md` §4.2).
+
+   **표식은 JS 가 세운다** (`UIKit.fadeWatch`). 순수 CSS 로는 "지금 넘치는가" 를
+   알 수 없어 늘 흐려지고, 늘 흐리면 그것은 정보가 아니라 장식이다. 이 저장소가
+   가로축에서 이미 같은 방법을 쓴다 — `.pn-tabs[data-overflow]` (UX-24).
+
+   `mask-image` 는 알파만 읽으므로 색이 아니다 (FR-TOK-29a) — `#000` 은 리터럴이
+   아니라 "완전 불투명" 의 표기다. */
+.ui-fade-y[data-overflow="bottom"]{mask-image:linear-gradient(to bottom,#000 calc(100% - 24px),transparent)}
+.ui-fade-y[data-overflow="top"]{mask-image:linear-gradient(to bottom,transparent,#000 24px)}
+.ui-fade-y[data-overflow="both"]{mask-image:linear-gradient(to bottom,transparent,#000 24px,#000 calc(100% - 24px),transparent)}
+
 /* ── 개수 배지 (KIT_COMPONENTS_SRS FR-CMP-80~81) ────────────────────────
    수를 말하는 한 벌. 착수 시 넷이었다 — 사이드바의 알약 배지 · git 머리글의
    `(8)` · `Run 0개` · `백그라운드 도구 0개`.

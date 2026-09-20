@@ -190,6 +190,48 @@ const UIKit = {
   },
 
   /**
+   * KIT_COMPONENTS_SRS FR-CMP-84 — **넘친 쪽을 흐려 잘린 것이 있음을 알린다.**
+   *
+   * 순수 CSS 로는 "지금 넘치는가" 를 알 수 없어 늘 흐려지고, **늘 흐리면 그것은
+   * 정보가 아니라 장식이다.** 그래서 표식(`data-overflow`)을 여기서 세운다 —
+   * 이 저장소가 가로축에서 이미 쓰는 방법이다 (`renderer.js` 의 `markOverflow`,
+   * UX-24).
+   *
+   * 스크롤·크기 변화 둘 다에 반응해야 한다: 탭을 옮기면 스크롤은 그대로인데
+   * 내용 높이가 바뀐다. `ResizeObserver` 는 **내용**도 봐야 하므로 자식까지 건다.
+   *
+   * 돌려주는 것은 **끊는 함수**다. 안 끊으면 관찰자가 남는다 (`renderer.js` 의
+   * 미수거 `ResizeObserver` 가 성능 목록 P-6 에 올라 있다 — 같은 자리를 만들지
+   * 않는다).
+   */
+  fadeWatch(el) {
+    if (!el) return () => {};
+    el.classList.add('ui-fade-y');
+    const mark = () => {
+      const top = el.scrollTop > 0;
+      // 1px 여유는 소수점 높이의 반올림 때문이다 — 없으면 안 넘치는 표면이
+      // 회차마다 깜빡인다.
+      const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+      const v = top && bottom ? 'both' : top ? 'top' : bottom ? 'bottom' : '';
+      if (v) el.dataset.overflow = v; else delete el.dataset.overflow;
+    };
+    el.addEventListener('scroll', mark, { passive: true });
+    const ro = new ResizeObserver(mark);
+    const watch = () => { ro.disconnect(); ro.observe(el); for (const c of el.children) ro.observe(c) };
+    watch();
+    /**
+     * 자식이 갈리는 것도 본다. 설정 모달은 탭마다 **패널을 갈아 끼우므로**,
+     * 처음 본 자식만 관찰하면 탭을 옮겨도 아무 일이 나지 않는다 (첫 판이 그랬다).
+     * `attributes` 까지 보는 것은 패널을 지우지 않고 `hidden` 으로 감추는 자리가
+     * 있기 때문이다.
+     */
+    const mo = new MutationObserver(() => { watch(); mark() });
+    mo.observe(el, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'class', 'style'] });
+    mark();
+    return () => { el.removeEventListener('scroll', mark); ro.disconnect(); mo.disconnect() };
+  },
+
+  /**
    * ACCESSIBILITY_BASELINE_SRS FR-A11Y-18 (`UX-3`) — **모달의 접근성 계약이 한
    * 자리에 있다.**
    *

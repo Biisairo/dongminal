@@ -343,10 +343,13 @@ Object.assign(App.prototype, {
      * 것이 `UX-3` 가 보고한 부류의 결함이다.
      */
     let releaseDlg=null;
+    let releaseFade=null;
     const closeSettings=()=>{
       if(!overlay.classList.contains('open'))return;
       overlay.classList.remove('open');
       if(releaseDlg){releaseDlg();releaseDlg=null}
+      // 관찰자를 끊는다 — 안 끊으면 모달을 열 때마다 하나씩 는다 (fadeWatch 의 주석).
+      if(releaseFade){releaseFade();releaseFade=null}
     };
     document.getElementById('settings-btn').addEventListener('click',()=>{
       overlay.classList.add('open');
@@ -357,6 +360,9 @@ Object.assign(App.prototype, {
         labelledBy:'.modal-title',
         returnTo:document.getElementById('settings-btn'),
       });
+      // FR-CMP-84: 탭마다 내용 높이가 달라 넘치는 탭과 안 넘치는 탭이 섞인다.
+      // 넘친 쪽만 흐려 **잘린 것이 있음**을 알린다.
+      releaseFade=UIKit.fadeWatch(modal.querySelector('.modal-body'));
       this._renderThemePanel();this._renderShortcutList();this._renderPresets();
       const dsMode=document.getElementById('ds-mode');
       const dsBp=document.getElementById('ds-bp');
