@@ -415,10 +415,11 @@ test.describe('묶음 T — 단축키 (FR-SBT-26~33)', () => {
     await page.click('#settings-btn');
     await page.click('.mtab[data-tab="shortcuts"]');
 
-    // 라벨의 탭 이름 부분이 서술자에서 나온다 (FR-SBT-30).
+    // 라벨의 탭 이름 부분이 서술자에서 나온다 (FR-SBT-30). 그 이름은 이제
+    // 카탈로그의 데이터이고 ko 에서는 `창`·`저장소` 다 (WORDING_COLOR_SRS FR-WRD-50).
     const rows = page.locator('#sc-list .sc-row');
-    await expect(rows.filter({ hasText: '사이드바 탭: Windows' })).toHaveCount(1);
-    await expect(rows.filter({ hasText: '사이드바 탭: Repo' })).toHaveCount(1);
+    await expect(rows.filter({ hasText: '사이드바 탭: 창' })).toHaveCount(1);
+    await expect(rows.filter({ hasText: '사이드바 탭: 저장소' })).toHaveCount(1);
     // 순회 키 라벨이 모드 의존을 설명한다 (FR-SBT-33).
     await expect(rows.filter({ hasText: '다음 항목 (활성 탭 기준)' })).toHaveCount(1);
 
