@@ -165,8 +165,15 @@ Object.assign(App.prototype, {
   // FR-BGU-6/7: 진입점 클릭 → 중앙 모달. 항목 클릭 시 현재 분할 칸의 새 탭으로
   // 복귀한다 (detach --restore 와 같은 경로).
   _bgModalToggle(open){
+    const wasOpen=this._bgModalOpen;
     this._bgModalOpen = (open===undefined) ? !this._bgModalOpen : !!open;
-    if(this._bgModalOpen){ this._bgRefresh(); this._bgModalRender(); return }
+    if(this._bgModalOpen){
+      // FR-KIT-24: 돌아갈 자리는 **여는 순간**에 잡는다. 이 모달은 열린 채 다시
+      // 그리므로, 렌더마다 잡으면 `returnTo` 가 모달 안의 요소가 된다.
+      if(!wasOpen) this._bgReturnTo=document.activeElement;
+      this._bgRefresh(); this._bgModalRender(); return
+    }
+    if(this._bgDlgRelease){this._bgDlgRelease();this._bgDlgRelease=null}
     // FR-BGK-5: 모달 밖 클릭·Escape 는 모달을 닫으므로 확인도 함께 취소된다.
     // 진행 중인 종료는 남는다 — 요청은 이미 떠났고, 응답이 목록을 정리한다.
     this._bgConfirm=null; this._bgError=null;
@@ -184,17 +191,36 @@ Object.assign(App.prototype, {
       this._bgModalKey=e=>{if(e.key==='Escape'){e.preventDefault();this._bgModalToggle(false)}};
       document.addEventListener('keydown',this._bgModalKey);
     }
-    ov.innerHTML='';
-    const box=document.createElement('div'); box.className='bg-box ui-modal-box ui-scroll';
-    const head=document.createElement('div'); head.className='bg-head';
-    head.textContent=tn('bg.head',this._bg.length);
-    box.appendChild(head);
+    /**
+     * FR-KIT-24a: **상자는 한 번만 만든다.**
+     *
+     * 종전에는 렌더마다 `ov.innerHTML=''` 로 상자를 새로 지었다. 그 위에
+     * 접근성 계약(`UIKit.dialogOpen`)을 얹으면 렌더마다 **계약을 놓고 다시
+     * 걸어야** 하고, 놓는 순간 포커스가 `returnTo`(창 밖)로 돌아갔다가 다음
+     * 프레임에 다시 들어온다 — 열자마자 목록이 도착하는 이 모달에서 그것이
+     * 실제로 보였다. 정체성을 유지하면 계약을 한 번만 건다.
+     *
+     * 머리도 함께 남는다 — `aria-labelledby` 가 가리키는 요소가 사라지면
+     * 접근 이름이 조용히 없어진다.
+     */
+    let box=ov.querySelector('.bg-box'), head;
+    if(!box){
+      box=document.createElement('div'); box.className='bg-box ui-modal-box ui-scroll';
+      head=document.createElement('div'); head.className='bg-head';
+      head.textContent=tn('bg.head',this._bg.length);
+      box.appendChild(head); ov.appendChild(box);
+      this._bgDlgRelease=UIKit.dialogOpen(box,
+        {labelledBy:head,label:head.textContent,returnTo:this._bgReturnTo});
+    }else{
+      head=box.querySelector('.bg-head');
+      while(head.nextSibling) head.nextSibling.remove();
+      head.textContent=tn('bg.head',this._bg.length);
+    }
     if(!this._bg.length){
       const empty=document.createElement('div'); empty.className='bg-empty';
       empty.textContent=t('core.none'); box.appendChild(empty);
     }
     for(const b of this._bg) box.appendChild(this._bgRow(b));
-    ov.appendChild(box);
   },
 
   // FR-BGK-1: 행 하나. 종료는 행 클릭(복귀)과 **다른 목표**다 — 겹치면 복귀하려다

@@ -17,13 +17,20 @@ Object.assign(App.prototype, {
   // 오류 메시지이며, innerHTML 에 끼우면 그 내용이 마크업으로 해석된다.
   // (`_confirmClose` 가 종전에 그랬고, 지금은 같은 규약으로 수렴했다.)
   _notify(msg){
+    // FR-KIT-24: 돌아갈 자리는 **포커스를 옮기기 전**에 잡는다 — 뒤에 잡으면
+    // 창을 연 컨트롤이 아니라 창 **안의** 버튼이 `returnTo` 가 된다.
+    const returnTo=document.activeElement;
     const ov=document.createElement('div');ov.className='confirm-overlay ui-modal';
     ov.innerHTML='<div class="confirm-box ui-modal-box"><div class="confirm-msg notify-msg ui-scroll"></div>'+
       '<div class="confirm-btns"><button class="ui-btn ui-btn-primary confirm-ok" title="'+TIP_NOTIFY_OK+'">'+escHtml(t('core.ok'))+'</button></div></div>';
     ov.querySelector('.confirm-msg').textContent=msg;
     document.body.appendChild(ov);
     const btn=ov.querySelector('.confirm-ok');btn.focus();
-    const cleanup=()=>{ov.remove();document.removeEventListener('keydown',onKey)};
+    // FR-KIT-24: 계약은 골격이 아니라 함수가 갖는다 (D-A11Y-7). 여기서 부르는 것이
+    // `Escape` 와 겹치지 않는 이유는 `_dlgOnKey` 가 **`Tab` 만** 다루기 때문이다.
+    const releaseDlg=UIKit.dialogOpen(ov.querySelector('.confirm-box'),
+      {labelledBy:ov.querySelector('.confirm-msg'),label:t('core.ok'),returnTo,focus:btn});
+    const cleanup=()=>{releaseDlg();ov.remove();document.removeEventListener('keydown',onKey)};
     const onKey=e=>{if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();cleanup()}};
     document.addEventListener('keydown',onKey);
     btn.addEventListener('click',cleanup);
@@ -77,6 +84,7 @@ Object.assign(App.prototype, {
    */
   _sbxRuntimeModal(st){
     return new Promise(resolve=>{
+      const returnTo=document.activeElement;   // FR-KIT-24
       const missing=st.state===SBX_RT_MISSING;
       const ov=document.createElement('div');
       ov.className='confirm-overlay ui-modal'; ov.dataset.state=st.state;
@@ -144,10 +152,13 @@ Object.assign(App.prototype, {
       box.appendChild(btns);
       ov.appendChild(box);
       document.body.appendChild(ov);
+      // FR-KIT-24·25: 이름은 머리(`.confirm-msg`)가 준다.
+      const releaseDlg=UIKit.dialogOpen(box,{labelledBy:title,label:title.textContent,returnTo,focus:start||close});
 
       let done=false;
       const cleanup=v=>{
         if(done) return; done=true;
+        releaseDlg();
         ov.remove(); document.removeEventListener('keydown',onKey); resolve(v);
       };
       const onKey=e=>{if(e.key==='Escape'){e.preventDefault();cleanup(false)}};
@@ -211,6 +222,7 @@ Object.assign(App.prototype, {
 
   _pickSandbox(list,here){
     return new Promise(resolve=>{
+      const returnTo=document.activeElement;   // FR-KIT-24
       const ov=document.createElement('div');ov.className='confirm-overlay ui-modal';
       const box=document.createElement('div');box.className='confirm-box ui-modal-box';
       const msg=document.createElement('div');msg.className='confirm-msg';
@@ -303,7 +315,8 @@ Object.assign(App.prototype, {
       if(input) input.addEventListener('input',syncWarn);
 
       const btns=document.createElement('div');btns.className='confirm-btns sbx-pick';
-      const cleanup=v=>{ov.remove();document.removeEventListener('keydown',onKey);resolve(v)};
+      let releaseDlg=null;
+      const cleanup=v=>{if(releaseDlg)releaseDlg();ov.remove();document.removeEventListener('keydown',onKey);resolve(v)};
       const onKey=e=>{if(e.key==='Escape'){e.preventDefault();cleanup(null)}};
       for(const p of list){
         const b=document.createElement('button');
@@ -355,7 +368,10 @@ Object.assign(App.prototype, {
       ov.appendChild(box);document.body.appendChild(ov);
       document.addEventListener('keydown',onKey);
       ov.addEventListener('click',e=>{if(e.target===ov)cleanup(null)});
-      if(input) input.focus(); else {const f=btns.querySelector('.sbx-opt'); if(f) f.focus()}
+      const want=input||btns.querySelector('.sbx-opt');
+      if(want) want.focus();
+      // FR-KIT-24·25: 이름은 머리(`.confirm-msg`)가 준다.
+      releaseDlg=UIKit.dialogOpen(box,{labelledBy:msg,label:t('sbx.profile_title'),returnTo,focus:want});
     });
   },
 
@@ -381,6 +397,7 @@ Object.assign(App.prototype, {
    */
   _confirmClose(msg, opts = {}){
     return new Promise(resolve=>{
+      const returnTo=document.activeElement;   // FR-KIT-24
       const ov=document.createElement('div');ov.className='confirm-overlay ui-modal';
       const box=document.createElement('div');box.className='confirm-box ui-modal-box';
       const text=document.createElement('div');text.className='confirm-msg';
@@ -412,8 +429,10 @@ Object.assign(App.prototype, {
        * 저장 갈래가 없는 호출(실행 중인 프로세스)에서는 `닫기` 가 목적이다.
        */
       (saveBtn||okBtn).focus();
+      // FR-KIT-24·25: 머리가 없는 상자라 이름은 본문(`.confirm-msg`)이 준다.
+      const releaseDlg=UIKit.dialogOpen(box,{labelledBy:text,label:msg,returnTo,focus:saveBtn||okBtn});
 
-      const cleanup=v=>{ov.remove();document.removeEventListener('keydown',onKey,true);resolve(v)};
+      const cleanup=v=>{releaseDlg();ov.remove();document.removeEventListener('keydown',onKey,true);resolve(v)};
       // FR-PDA-2: `Enter` 는 가로채지 않는다 — 포커스된 버튼을 누르는 브라우저
       // 기본 동작이 곧 이 규약이다. 종전에는 capture 로 그것까지 막고 언제나
       // 취소했다 (POPUP_DEFAULT_ACTION_SRS D-1).

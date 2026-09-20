@@ -161,10 +161,19 @@ class GitConfirm {
   }
 
   _show(){
+    // FR-KIT-24: 돌아갈 자리는 `_focus()` **전에** 잡는다 — 뒤에 잡으면 창을 연
+    // 컨트롤이 아니라 창 **안의** 버튼이 `returnTo` 가 된다.
+    const returnTo=document.activeElement;
     this._build();
     GitConfirm._cur=this;
     this._paint();
     this._focus();
+    // FR-KIT-24·25: 이름은 머리(`.gc-head`)가 준다. `_paint` 가 그 글자를 세운
+    // 뒤라야 한다 — 빈 요소를 가리키면 접근 이름은 여전히 없다.
+    this._releaseDlg=UIKit.dialogOpen(this.box,{
+      labelledBy:this.box.querySelector('.gc-head'), label:this.title||'',
+      returnTo, focus:document.activeElement,
+    });
     return new Promise(res=>{this._resolve=res});
   }
 
@@ -323,6 +332,7 @@ class GitConfirm {
 
   _close(v){
     document.removeEventListener('keydown',this._key,true);
+    if(this._releaseDlg){this._releaseDlg();this._releaseDlg=null}
     if(this.ov) this.ov.remove();
     this.ov=null; this.box=null;
     if(GitConfirm._cur===this) GitConfirm._cur=null;

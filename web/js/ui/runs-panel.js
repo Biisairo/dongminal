@@ -74,8 +74,14 @@ Object.assign(RunsPanel.prototype, {
   // FR-RVZ-1: 상단바 [Runs]. 배경 클릭·Escape 로 닫히고 오버레이 자신이 대상일
   // 때만 닫는다 — 백그라운드 도구 모달(FR-BGU-7)과 **같은 상호작용 규약**이다.
   _runsModalToggle(open) {
+    const wasOpen = this._runsModalOpen;
     this._runsModalOpen = (open === undefined) ? !this._runsModalOpen : !!open;
-    if (this._runsModalOpen) { this._runsRefresh(); this._runsModalRender(); return }
+    if (this._runsModalOpen) {
+      // FR-KIT-24: 돌아갈 자리는 **여는 순간**에 잡는다 (`bg-modal` 과 같은 이유).
+      if (!wasOpen) this._runsReturnTo = document.activeElement;
+      this._runsRefresh(); this._runsModalRender(); return
+    }
+    if (this._runsDlgRelease) { this._runsDlgRelease(); this._runsDlgRelease = null }
     // FR-DEL-4: 모달이 닫히면 확인도 취소된다 (FR-BGK-5 와 같은 규약). 진행 중인
     // 삭제는 남는다 — 요청은 이미 떠났고, 응답이 목록을 정리한다.
     this._runsErr = null; this._runsConfirm = null; this._runsDelErr = null;
@@ -105,11 +111,25 @@ Object.assign(RunsPanel.prototype, {
       this._runsModalKey = e => { if (e.key === 'Escape') { e.preventDefault(); this._runsModalToggle(false) } };
       document.addEventListener('keydown', this._runsModalKey);
     }
-    ov.innerHTML = '';
-    const box = runDiv('runs-box ui-modal-box ui-scroll');
     // 최근순. 서버 순서에 기대지 않는다 — 정렬은 이 화면의 약속이다.
     const rows = (this._runsList || []).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    box.appendChild(runDiv('runs-head', tn('runs.head', rows.length)));
+    /**
+     * FR-KIT-24a: **상자는 한 번만 만든다** (`bg-modal` 과 같은 근거).
+     * 렌더마다 새로 지으면 접근성 계약을 놓고 다시 걸어야 하고, 놓는 순간
+     * 포커스가 창 밖으로 돌아갔다가 다음 프레임에 다시 들어온다.
+     */
+    let box = ov.querySelector('.runs-box'), head;
+    if (!box) {
+      box = runDiv('runs-box ui-modal-box ui-scroll');
+      head = runDiv('runs-head', tn('runs.head', rows.length));
+      box.appendChild(head); ov.appendChild(box);
+      this._runsDlgRelease = UIKit.dialogOpen(box,
+        { labelledBy: head, label: head.textContent, returnTo: this._runsReturnTo });
+    } else {
+      head = box.querySelector('.runs-head');
+      while (head.nextSibling) head.nextSibling.remove();
+      head.textContent = tn('runs.head', rows.length);
+    }
     if (this._runsErr) {
       box.appendChild(runDiv('runs-err', this._runsErr));
     } else if (!rows.length) {
@@ -120,7 +140,6 @@ Object.assign(RunsPanel.prototype, {
       box.appendChild(empty);
     }
     for (const rv of rows) box.appendChild(this._runsRow(rv));
-    ov.appendChild(box);
   },
 
   _runsRow(rv) {

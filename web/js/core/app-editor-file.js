@@ -153,6 +153,7 @@ Object.assign(App.prototype, {
    */
   _edConfirm(lines,okLabel){
     return new Promise(resolve=>{
+      const returnTo=document.activeElement;   // FR-KIT-24
       const ov=document.createElement('div');
       ov.className='confirm-overlay ui-modal ed-confirm';
       const box=document.createElement('div'); box.className='confirm-box ui-modal-box';
@@ -169,7 +170,9 @@ Object.assign(App.prototype, {
       btns.appendChild(ok); btns.appendChild(no);
       box.appendChild(msg); box.appendChild(btns); ov.appendChild(box);
       document.body.appendChild(ov);
-      const done=v=>{ov.remove();document.removeEventListener('keydown',onKey,true);resolve(v)};
+      // FR-KIT-24·25: 이름은 줄 묶음(`.confirm-msg`)이 준다 — 머리가 없는 상자다.
+      const releaseDlg=UIKit.dialogOpen(box,{labelledBy:msg,label:lines.join(' '),returnTo,focus:ok});
+      const done=v=>{releaseDlg();ov.remove();document.removeEventListener('keydown',onKey,true);resolve(v)};
       const onKey=e=>{
         if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(false)}
       };
