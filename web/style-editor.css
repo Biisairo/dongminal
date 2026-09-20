@@ -132,8 +132,6 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
    그린다 — 컨테이너 둘레만으로는 어느 행인지 말하지 못한다. */
 .ed-tree:focus-visible{outline:1px solid var(--focus-ring);outline-offset:-1px}
 .ed-tree:focus-visible .ed-row.sel{outline:1px solid var(--focus-ring);outline-offset:-1px}
-.ed-tree::-webkit-scrollbar{width:4px}
-.ed-tree::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 .ed-row{
   display:flex;align-items:center;gap:4px;
   height:22px;font-size:var(--fs-md);cursor:pointer;white-space:nowrap;

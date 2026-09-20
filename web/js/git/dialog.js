@@ -162,15 +162,15 @@ class GitDialog {
         '<div class="git-dialog-head '+ns+'-head"></div>'+
         // FR-GIT-178: 상단에 알린다.
         '<div class="git-dialog-changed"></div>'+
-        '<div class="git-dialog-body '+ns+'-note"></div>'+
-        '<div class="git-dialog-fields '+ns+'-fields"></div>'+
+        '<div class="git-dialog-body ui-scroll '+ns+'-note"></div>'+
+        '<div class="git-dialog-fields ui-scroll '+ns+'-fields"></div>'+
         '<div class="git-dialog-why '+ns+'-why"></div>'+
         '<div class="git-dialog-err '+ns+'-err">'+
           '<div class="git-dialog-err-reason"></div>'+
-          '<pre class="git-dialog-err-tail"></pre>'+
+          '<pre class="git-dialog-err-tail ui-scroll"></pre>'+
           '<button type="button" class="ui-btn ui-btn-sm git-dialog-copy"></button>'+
         '</div>'+
-        '<div class="git-dialog-opts '+ns+'-opts"></div>'+
+        '<div class="git-dialog-opts ui-scroll '+ns+'-opts"></div>'+
         // 실행 버튼은 옵션과 분리된 별도 행이다 (FR-GIT-94·177).
         '<div class="git-dialog-actions '+ns+'-actions">'+
           '<span class="git-dialog-progress '+ns+'-progress"></span>'+

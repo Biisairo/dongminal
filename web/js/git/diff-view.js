@@ -197,7 +197,7 @@ class GitDiffView {
     wrap.className='git-img-diff mode-'+mode;
     wrap.appendChild(this._imgBar(target,mime,a,b));
     const body=document.createElement('div');
-    body.className='git-img-body';
+    body.className='git-img-body ui-scroll';
     for(const side of [GIT_IMG_SIDE_ORIGINAL,GIT_IMG_SIDE_MODIFIED]){
       body.appendChild(this._imgPane(target,side,side===GIT_IMG_SIDE_ORIGINAL?a:b));
     }

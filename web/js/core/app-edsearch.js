@@ -145,7 +145,7 @@ Object.assign(App.prototype, {
         '<div class="ed-find-box">'+
           '<input class="ed-find-q" type="text" spellcheck="false" autocomplete="off">'+
           '<div class="ed-find-note"></div>'+
-          '<div class="ed-find-list"></div>'+
+          '<div class="ed-find-list ui-scroll-sm"></div>'+
         '</div>';
       document.body.appendChild(p);
       this._edPanelEl=p;

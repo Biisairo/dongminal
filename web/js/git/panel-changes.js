@@ -171,7 +171,7 @@ Object.assign(GitPanel.prototype, {
         '<div class="git-job-note"></div>'+
         '<div class="git-job-fail">'+
           '<div class="git-job-reason"></div>'+
-          '<pre class="git-job-tail"></pre>'+
+          '<pre class="git-job-tail ui-scroll"></pre>'+
           // 자격증명을 받는 자리가 아니다 — 안내와 복사 가능한 명령뿐이다
           // (FR-GIT-104).
           '<div class="git-job-auth">'+
@@ -181,7 +181,7 @@ Object.assign(GitPanel.prototype, {
           '</div>'+
           '<div class="git-job-opts"></div>'+
         '</div>'+
-        '<pre class="git-job-log"></pre>'+
+        '<pre class="git-job-log ui-scroll"></pre>'+
       '</div>'+
       // FR-GIT-252: 진행 중 작업과 **나갈 길**. 상태만 보이고 출구가 없으면
       // 사용자는 GUI 안에 갇힌다.
@@ -199,7 +199,7 @@ Object.assign(GitPanel.prototype, {
       // 않았다 (`11 GP-4`). 자리는 같다: 머리 바로 아래.
       '<div class="git-partial-note">'+
         '<div class="git-partial-msg"></div>'+
-        '<ul class="git-partial-list"></ul>'+
+        '<ul class="git-partial-list ui-scroll-sm"></ul>'+
         '<button class="git-partial-close"></button>'+
       '</div>'+
       /**
@@ -217,7 +217,7 @@ Object.assign(GitPanel.prototype, {
        * 나눌 칸이 없으면 그 사이의 손잡이도 없다 (§7 D-RTU-22).
        */
       '<div class="git-changes-body">'+
-        '<div class="git-files">'+
+        '<div class="git-files ui-scroll-sm">'+
           '<div class="git-files-bar">'+
             '<button class="ui-btn ui-btn-icon ui-btn-lg git-files-mode" data-mode="tree"></button>'+
             '<button class="ui-btn ui-btn-icon ui-btn-lg git-files-mode" data-mode="flat"></button>'+

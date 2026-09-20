@@ -206,8 +206,6 @@
   flex:0 0 auto;width:150px;min-width:0;overflow-y:auto;font-size:var(--fs-sm);
   border-right:1px solid var(--border);
 }
-.git-refs::-webkit-scrollbar{width:6px}
-.git-refs::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 .git-refs-all,.git-ref{
   display:flex;align-items:center;gap:4px;padding:3px 8px;cursor:pointer;
   white-space:nowrap;overflow:hidden;
@@ -232,8 +230,6 @@
 /* FR-GIT-116: 스페이서 두 개 + 보이는 구간만 DOM 에 둔다. 행 높이는 constants.js
    가 정하고 JS 가 --git-row-h 로 싣는다 — 같은 숫자를 두 곳에 적지 않는다. */
 .git-hist-list{flex:1 1 auto;min-width:0;overflow-y:auto;position:relative}
-.git-hist-list::-webkit-scrollbar{width:8px}
-.git-hist-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 .git-hist-sp-top,.git-hist-sp-bot{height:0}
 .git-hist-row{
   display:flex;align-items:center;gap:8px;height:var(--git-row-h);
@@ -282,8 +278,6 @@
   padding:6px 10px;font-size:var(--fs-sm);
   background:var(--sidebar-bg);border-top:1px solid var(--border);border-bottom:1px solid var(--border);
 }
-.git-hist-detail::-webkit-scrollbar{width:6px}
-.git-hist-detail::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 .git-hist-detail.loading{color:var(--text-muted)}
 .git-hist-d-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .git-hist-d-oid{color:var(--text-bright);font-family:monospace;word-break:break-all}
@@ -362,8 +356,6 @@ body.mobile .git-refs{width:110px}
 .git-con-spacer{flex:1 1 auto}
 .git-con-count{color:var(--text-hint);font-size:var(--fs-sm)}
 .git-con-list{flex:1 1 auto;min-height:0;overflow-y:auto;font-size:var(--fs-md)}
-.git-con-list::-webkit-scrollbar{width:8px}
-.git-con-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 .git-con-note{padding:10px;color:var(--text-muted);font-size:var(--fs-sm)}
 .git-con-row{
   display:flex;align-items:center;gap:8px;padding:0 8px;cursor:pointer;
@@ -501,8 +493,6 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 .git-br-note.vis{display:flex}
 .git-br-note-msg{flex:1 1 auto;min-width:0}
 .git-br-tree{flex:1 1 auto;min-height:0;overflow-y:auto;font-size:var(--fs-md);padding:4px 0}
-.git-br-tree::-webkit-scrollbar{width:8px}
-.git-br-tree::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 .git-br-empty{padding:10px;color:var(--text-muted);font-size:var(--fs-sm)}
 /* FR-GIT-216: 그룹(로컬·원격·태그)은 섹션이다. 접두사 묶음(`.git-br-pfx`)은 그룹
    **안**의 하위 묶음이므로 대상이 아니다 */
@@ -584,8 +574,6 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 }
 .git-stash-main{flex:1 1 auto;min-height:0;display:flex}
 .git-stash-list{flex:1 1 auto;min-width:0;overflow-y:auto;font-size:var(--fs-md)}
-.git-stash-list::-webkit-scrollbar{width:8px}
-.git-stash-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 .git-stash-empty{padding:10px;color:var(--text-muted);font-size:var(--fs-sm)}
 .git-stash-row{
   display:flex;align-items:center;gap:8px;padding:3px 10px;cursor:pointer;
@@ -602,8 +590,6 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
   flex:0 0 auto;width:260px;min-width:0;overflow-y:auto;
   border-left:1px solid var(--border);font-size:var(--fs-sm);
 }
-.git-stash-preview::-webkit-scrollbar{width:6px}
-.git-stash-preview::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 /* FR-GIT-226: 같은 이유 — 머리글이 내용 없이 줄어들지 않는다 */
 .git-stash-preview-head{
   display:flex;align-items:center;min-height:var(--git-row-min);
@@ -902,12 +888,6 @@ select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
   background:transparent;color:var(--text);border:1px solid var(--border);border-radius:3px;
 }
 .git-rm-del:hover{background:var(--accent-hover);color:var(--accent-text)}
-
-/* Push 미리보기 (FR-GIT-271). 본문이 올라갈 커밋 목록이므로 줄바꿈을 보존한다 */
-.gpp-note{
-  white-space:pre-wrap;word-break:break-all;max-height:180px;overflow-y:auto;
-  font-family:monospace;font-size:var(--fs-sm);
-}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    PARALLEL_DELIVERY_PLAN Step 0-9 — 트랙별 CSS 섹션 경계

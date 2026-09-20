@@ -168,7 +168,7 @@ Object.assign(GitPanel.prototype, {
       // 사용자는 무엇을 보고 있는지 모른다 — 켜진 쪽만 보인다.
       '<div class="git-blame">'+
         '<div class="git-blame-note"></div>'+
-        '<div class="git-blame-rows"></div>'+
+        '<div class="git-blame-rows ui-scroll-sm"></div>'+
       '</div>'+
       '<div class="git-diff-body"></div>';
     el.querySelector('.git-diff-ws').appendChild(document.createTextNode(GIT_DIFF_WS_LABEL));

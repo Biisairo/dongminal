@@ -453,7 +453,7 @@ Object.assign(FileEditor.prototype,{
           escHtml(ED_DD_PEEK_CLOSE_TITLE)+'" aria-label="'+escHtml(ED_DD_PEEK_CLOSE_TITLE)+'">'+
           UIKit.iconHTML('x')+'</button>'+
       '</div>'+
-      '<pre class="fe-dd-peek-old"></pre>';
+      '<pre class="fe-dd-peek-old ui-scroll"></pre>';
     // FR-EDD-32: 파일의 내용은 **텍스트 노드**로 넣는다. 마크업으로 넣으면 파일이
     // 화면을 고친다.
     const pre=node.querySelector('.fe-dd-peek-old');

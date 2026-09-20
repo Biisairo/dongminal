@@ -106,7 +106,7 @@ Object.assign(RunsPanel.prototype, {
       document.addEventListener('keydown', this._runsModalKey);
     }
     ov.innerHTML = '';
-    const box = runDiv('runs-box ui-modal-box');
+    const box = runDiv('runs-box ui-modal-box ui-scroll');
     // 최근순. 서버 순서에 기대지 않는다 — 정렬은 이 화면의 약속이다.
     const rows = (this._runsList || []).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     box.appendChild(runDiv('runs-head', tn('runs.head', rows.length)));
@@ -367,11 +367,11 @@ Object.assign(RunsPanel.prototype, {
   },
 
   _runBuildRoot() {
-    const root = runDiv('run-view');
+    const root = runDiv('run-view ui-scroll');
     root.appendChild(runDiv('run-miss'));
     const body = runDiv('run-body');
     body.appendChild(runDiv('run-summary'));
-    const wrap = runDiv('run-graph-wrap');
+    const wrap = runDiv('run-graph-wrap ui-scroll');
     const svg = runSvg('svg', { class: 'run-graph' });
     svg.appendChild(runSvg('defs'));
     svg.appendChild(runSvg('g', { class: 'run-edges' }));

@@ -18,7 +18,7 @@ Object.assign(App.prototype, {
   // (`_confirmClose` 가 종전에 그랬고, 지금은 같은 규약으로 수렴했다.)
   _notify(msg){
     const ov=document.createElement('div');ov.className='confirm-overlay ui-modal';
-    ov.innerHTML='<div class="confirm-box ui-modal-box"><div class="confirm-msg notify-msg"></div>'+
+    ov.innerHTML='<div class="confirm-box ui-modal-box"><div class="confirm-msg notify-msg ui-scroll"></div>'+
       '<div class="confirm-btns"><button class="ui-btn ui-btn-primary confirm-ok" title="'+TIP_NOTIFY_OK+'">'+escHtml(t('core.ok'))+'</button></div></div>';
     ov.querySelector('.confirm-msg').textContent=msg;
     document.body.appendChild(ov);
@@ -98,7 +98,7 @@ Object.assign(App.prototype, {
       const showCmd=!!cmd&&(missing||!st.startTryable);
       if(showCmd){
         const row=document.createElement('div'); row.className='sbx-rt-cmdrow';
-        const code=document.createElement('code'); code.className='sbx-rt-cmd';
+        const code=document.createElement('code'); code.className='sbx-rt-cmd ui-scroll';
         code.textContent=cmd;
         const copy=document.createElement('button');
         copy.type='button'; copy.className='sbx-rt-copy'; copy.textContent=SBX_RT_COPY;
@@ -126,7 +126,7 @@ Object.assign(App.prototype, {
       }
 
       // 진행과 사유가 함께 사는 자리. 닫히지 않으므로 읽을 시간이 있다.
-      const note=document.createElement('div'); note.className='sbx-rt-note';
+      const note=document.createElement('div'); note.className='sbx-rt-note ui-scroll';
       note.hidden=true;
       box.appendChild(note);
 

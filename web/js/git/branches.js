@@ -84,7 +84,7 @@ class GitBranches {
         '<span class="git-br-note-msg"></span>'+
         '<button class="git-br-retry"></button>'+
       '</div>'+
-      '<div class="git-br-tree"></div>'+
+      '<div class="git-br-tree ui-scroll"></div>'+
       // FR-GIT-269: 원격 목록. 트리 **아래**에 둔다 — 브랜치가 이 탭의 본체이고
       // 원격 설정은 그것을 보조한다. 채우는 것은 GitRemoteList 다 (remote.js).
       '<div class="git-br-remotes"></div>';

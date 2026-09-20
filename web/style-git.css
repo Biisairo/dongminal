@@ -188,8 +188,6 @@ body.mobile .git-head-remote{gap:2px}
   margin:0;max-height:140px;overflow-y:auto;padding:0 10px 6px;
   font-family:monospace;font-size:var(--fs-sm);color:var(--text-muted);
 }
-.git-job-log::-webkit-scrollbar{width:8px}
-.git-job-log::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
 .git-job-line{white-space:pre-wrap;word-break:break-all}
 /* FR-GIT-221: 성공으로 끝난 작업은 로그를 접고 바 한 줄만 남긴다. 바를 누르면
    다시 펼쳐진다 — 사라지는 것이 아니라 접히는 것이다. */
@@ -392,8 +390,6 @@ body.mobile .git-head-remote{gap:2px}
 .git-files{
   flex:1 1 auto;min-width:0;min-height:0;overflow-y:auto;
 }
-.git-files::-webkit-scrollbar{width:6px}
-.git-files::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 .git-files-bar{
   position:sticky;top:0;z-index:var(--z-sticky);display:flex;align-items:center;gap:4px;padding:4px 6px;
   background:var(--bg);border-bottom:1px solid var(--border);

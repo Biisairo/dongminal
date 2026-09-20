@@ -10,14 +10,14 @@ Object.assign(GitHistory.prototype, {
 
   _buildDetail(){
     const el=document.createElement('div');
-    el.className='git-hist-detail';
+    el.className='git-hist-detail ui-scroll';
     el.innerHTML=
       '<div class="git-hist-d-head">'+
         '<code class="git-hist-d-oid"></code>'+
         '<span class="git-hist-d-parents"></span>'+
       '</div>'+
       '<div class="git-hist-d-who"></div>'+
-      '<pre class="git-hist-d-body"></pre>'+
+      '<pre class="git-hist-d-body ui-scroll"></pre>'+
       '<div class="git-hist-d-filehead">'+
         '<span class="git-hist-d-filelabel"></span>'+
         '<label class="git-hist-d-pick">'+

@@ -147,8 +147,8 @@ class GitHistory {
         '<button class="git-hist-retry"></button>'+
       '</div>'+
       '<div class="git-hist-main">'+
-        '<div class="git-refs"></div>'+
-        '<div class="git-hist-list">'+
+        '<div class="git-refs ui-scroll-sm"></div>'+
+        '<div class="git-hist-list ui-scroll">'+
           '<div class="git-hist-sp-top"></div>'+
           '<div class="git-hist-sp-bot"></div>'+
         '</div>'+

@@ -667,7 +667,7 @@ class GitRemoteList {
         '<button class="git-rm-add" type="button"></button>'+
       '</div>'+
       '<div class="git-rm-note"></div>'+
-      '<div class="git-rm-rows"></div>';
+      '<div class="git-rm-rows ui-scroll-sm"></div>';
     el.querySelector('.git-rm-title').textContent=GIT_RM_TITLE;
     const add=el.querySelector('.git-rm-add');
     add.textContent=GIT_RM_ADD; add.title=GIT_RM_ADD_TITLE;

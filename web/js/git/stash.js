@@ -61,8 +61,8 @@ class GitStash {
         '<button class="git-stash-note-close"></button>'+
       '</div>'+
       '<div class="git-stash-main">'+
-        '<div class="git-stash-list"></div>'+
-        '<div class="git-stash-preview">'+
+        '<div class="git-stash-list ui-scroll"></div>'+
+        '<div class="git-stash-preview ui-scroll">'+
           '<div class="git-stash-preview-head"></div>'+
           '<div class="git-stash-files"></div>'+
         '</div>'+

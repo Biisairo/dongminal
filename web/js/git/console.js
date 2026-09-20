@@ -35,7 +35,7 @@ class GitConsole {
         '<span class="git-con-count"></span>'+
         '<button class="git-con-refresh"></button>'+
       '</div>'+
-      '<div class="git-con-list"></div>';
+      '<div class="git-con-list ui-scroll"></div>';
     el.querySelector('.git-con-reads span').textContent=GIT_CON_READS_LABEL;
     const conRf=el.querySelector('.git-con-refresh');
     conRf.textContent=GIT_CON_REFRESH; conRf.title=GIT_CON_REFRESH_TITLE;
@@ -213,7 +213,7 @@ class GitConsole {
     // stderr 는 서버가 자격증명을 지운 뒤 보낸 것이다 (FR-GIT-104).
     const msg=(rec.stderr||'').trim()||(rec.err||'').trim();
     if(msg){
-      const p=document.createElement('pre'); p.className='git-con-stderr';
+      const p=document.createElement('pre'); p.className='git-con-stderr ui-scroll';
       p.textContent=msg; d.appendChild(p);
     }
     frag.appendChild(d);

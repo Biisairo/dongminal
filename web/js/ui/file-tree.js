@@ -108,7 +108,7 @@ class FileTree {
       if(to&&!this.el.contains(to)) this._focusOwn=false;
     });
     this.list=document.createElement('div');
-    this.list.className='ed-tree';
+    this.list.className='ed-tree ui-scroll-sm';
     // FR-A11Y-16 / D-A11Y-11: 트리는 컨테이너가 포커스를 쥐고 선택된 행을
     // `aria-activedescendant` 로 가리킨다 (`paint`). 행이 포커스를 갖지 않는
     // 이유는 reconcile 이 선택마다 행을 다시 만들기 때문이다 (FR-EXR-51).

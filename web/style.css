@@ -205,8 +205,6 @@ textarea,
    **패널의 남은 높이 전부**를 쓴다 (FR-SBT-3). min-height:0 은 필수다 — flex
    자식이 내용 높이 아래로 줄지 않으면 스크롤 대신 사이드바 밖으로 밀린다. */
 .sbl-list{flex:1 1 auto;min-height:0;overflow-y:auto;margin-bottom:6px}
-.sbl-list::-webkit-scrollbar{width:4px}
-.sbl-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 
 /* ── 사이드바 리스트의 행 (UX_REVISION_SRS FR-BLP-7) ──
    두 목록은 **같은 것**이므로 생김새도 한 자리에서 정한다. `.si`·`.git-repo` 는
@@ -819,8 +817,6 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 /* FR-UIK-14: `overflow-y` 만 주면 다른 축은 `auto` 로 계산된다 — 한 행이 넘치는
    순간 가로 막대가 선다. 넘치는 것은 줄바꿈으로 받는다 (`.ds-row` 아래). */
 .modal-body{flex:1 1 auto;min-height:0;padding:18px;overflow-y:auto;overflow-x:hidden}
-.modal-body::-webkit-scrollbar{width:6px}
-.modal-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 
 /* ── Theme layout (list + preview) ── */
 .theme-layout{display:flex;gap:12px;height:380px}
@@ -829,8 +825,6 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   overflow-y:auto;border:1px solid var(--border);border-radius:6px;
   background:var(--sidebar-bg);
 }
-.theme-list::-webkit-scrollbar{width:4px}
-.theme-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 .tl-item{
   display:flex;align-items:center;gap:6px;
   padding:7px 10px;cursor:pointer;
@@ -899,8 +893,6 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 /* ── Shortcuts ── */
 /* FR-UIK-13: 스크롤은 `.modal-body` 하나다 (종전 `max-height:60vh` 를 걷었다). */
 .sc-list{}
-.sc-list::-webkit-scrollbar{width:6px}
-.sc-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 .sc-group-title{font-size:var(--fs-sm);font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--accent-text);margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
 .sc-group-title:first-child{margin-top:0}
 .sc-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)}

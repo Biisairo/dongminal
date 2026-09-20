@@ -125,7 +125,7 @@
 </div>
 <div id="app">
   <div id="drawer-backdrop"></div>
-  <div id="sidebar">
+  <div id="sidebar" class="ui-scroll">
     <!-- GIT_SIDEBAR_TABS_SRS FR-SBT-1·18·21: 탭 버튼은 서술자 배열에서 그린다
          (sidebar-tabs.js). 여기 비워 두는 것이 "새 탭 = 서술자 1개" 를 지키는
          자리다 — 탭이 늘어도 이 파일을 다시 열지 않는다. -->
@@ -234,12 +234,12 @@
     </div>
   </div>
   <div id="agents-handle"></div>
-  <div id="agents-panel"></div>
+  <div id="agents-panel" class="ui-scroll"></div>
   <div id="mobile-keybar" class="mobile-only"></div>
 </div>
 
 <!-- 주의 알림 센터 (FR-PAN-16) -->
-<div id="attn-center"></div>
+<div id="attn-center" class="ui-scroll"></div>
 
 <!-- Settings Modal -->
 <div id="modal-overlay" class="ui-modal">
@@ -270,7 +270,7 @@
       <button class="mtab" data-tab="sandbox" title="Sandbox profile settings">Sandbox</button>
       <button class="mtab" data-tab="backup" title="Backup and restore settings">Backup</button>
     </div>
-    <div class="modal-body">
+    <div class="modal-body ui-scroll">
       <div class="mpanel" id="panel-theme">
         <!-- SYSTEM_THEME_FOLLOW_SRS FR-STF-8: 추종 스위치. 이름은 `.ds-row` 구조에서 파생한다. -->
         <div class="display-settings">
@@ -281,7 +281,7 @@
           <div class="ds-hint" hidden data-i18n="html.theme_follow_hint"></div>
         </div>
         <div class="theme-layout">
-          <div class="theme-list" id="theme-list"></div>
+          <div class="theme-list ui-scroll-sm" id="theme-list"></div>
           <div class="theme-preview-panel" id="theme-preview"></div>
         </div>
         <button id="custom-toggle" class="ui-btn" title="Toggle the custom theme editor"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-pencil"/></svg>Customize Current Theme</button>
@@ -298,7 +298,7 @@
           </div>
           <div class="ds-hint" data-i18n="html.block_keys_hint"></div>
         </div>
-        <div class="sc-list" id="sc-list"></div>
+        <div class="sc-list ui-scroll-sm" id="sc-list"></div>
       </div>
       <div class="mpanel" id="panel-statusbar" style="display:none">
         <div class="sb-settings" id="sb-settings"></div>

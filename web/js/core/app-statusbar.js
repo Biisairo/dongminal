@@ -185,7 +185,7 @@ Object.assign(App.prototype, {
       document.addEventListener('keydown',this._bgModalKey);
     }
     ov.innerHTML='';
-    const box=document.createElement('div'); box.className='bg-box ui-modal-box';
+    const box=document.createElement('div'); box.className='bg-box ui-modal-box ui-scroll';
     const head=document.createElement('div'); head.className='bg-head';
     head.textContent=tn('bg.head',this._bg.length);
     box.appendChild(head);

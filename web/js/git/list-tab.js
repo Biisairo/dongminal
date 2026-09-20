@@ -57,7 +57,7 @@ class GitListTab {
         '<span class="'+p+'-note-msg"></span>'+
         '<button class="'+p+'-note-close"></button>'+
       '</div>'+
-      '<div class="'+p+'-list"></div>'+
+      '<div class="'+p+'-list ui-scroll-sm"></div>'+
       '<div class="'+p+'-empty"></div>';
     const close=el.querySelector('.'+p+'-note-close');
     close.textContent=GIT_NOTE_CLOSE; close.title=GIT_TIP_NOTE_CLOSE;

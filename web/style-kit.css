@@ -242,13 +242,34 @@
    옛 `.modal-body`(style.css:821)가 **이미 스크롤바를 그리고 있었다** — 모달
    골격 수렴이 진행될수록 스크롤바가 사라졌고, 개선 작업이 회귀를 만들고 있었다.
 
-   좁은 목록(`.sbl-list`·`.theme-list`)의 4px 은 여기 들지 않는다. 그 자리의
-   뜻이 다르다 (§6 비목표). */
-.ui-scroll::-webkit-scrollbar,.ui-modal-body::-webkit-scrollbar,.xterm-viewport::-webkit-scrollbar{width:8px;height:8px}
-.ui-scroll::-webkit-scrollbar-track,.ui-modal-body::-webkit-scrollbar-track,.xterm-viewport::-webkit-scrollbar-track{background:transparent}
-.ui-scroll::-webkit-scrollbar-thumb,.ui-modal-body::-webkit-scrollbar-thumb,.xterm-viewport::-webkit-scrollbar-thumb{
+   **눈금은 둘이다** (KIT_APPLICATION_SRS FR-KIT-4·5 · D-KIT-2). 종전 주석이
+   *"좁은 목록의 4px 은 뜻이 다르다"* 고 적었고, 이 표는 그 판단을 **토큰으로
+   세운다**: 내용이 흐르는 본문 표면은 `--ui-scroll-w`, 목록 행이 서는 좁은 열은
+   `--ui-scroll-w-sm`. 착수 시 폭이 4·6·8 셋이었고 **6px 여섯 중 셋은 좁은 목록,
+   셋은 본문**이라 같은 값이 두 뜻을 덮고 있었다 — 그래서 6px 이 사라진다.
+
+   손잡이 색·hover·반경은 두 눈금이 **함께** 쓴다. 색이 갈리면 눈금이 아니라
+   두 벌이 된다 (FR-KIT-5).
+
+   **이전/새/이유** (규약 4 · FR-KIT-9): 이전에는 손으로 그린 열넷이 전부
+   `--border` 손잡이에 hover 가 없었고 킷만 `--text-dim`+hover 였다. 새로: 열넷이
+   킷을 받는다. 이유: 실측은 `--border` 14 vs `--text-dim` 2 로 **다수가
+   `--border`** 이지만 다수 쪽으로 접으면 **hover 를 잃고**, `--border` 는 경계용
+   원시값이라 "집는 것" 으로 보이지 않는다 (D-KIT-3). */
+:root{
+  /* FR-KIT-6: 배율(`--fs-scale`)을 걸지 않는다 — 스크롤바는 글자를 담는 상자가
+     아니다. `--ui-radius` 를 배율에서 뺀 것과 같은 근거다 (FR-FSS-6). */
+  --ui-scroll-w:8px;
+  --ui-scroll-w-sm:4px;
+}
+.ui-scroll::-webkit-scrollbar,.ui-modal-body::-webkit-scrollbar,.xterm-viewport::-webkit-scrollbar{
+  width:var(--ui-scroll-w);height:var(--ui-scroll-w);
+}
+.ui-scroll-sm::-webkit-scrollbar{width:var(--ui-scroll-w-sm);height:var(--ui-scroll-w-sm)}
+.ui-scroll::-webkit-scrollbar-track,.ui-scroll-sm::-webkit-scrollbar-track,.ui-modal-body::-webkit-scrollbar-track,.xterm-viewport::-webkit-scrollbar-track{background:transparent}
+.ui-scroll::-webkit-scrollbar-thumb,.ui-scroll-sm::-webkit-scrollbar-thumb,.ui-modal-body::-webkit-scrollbar-thumb,.xterm-viewport::-webkit-scrollbar-thumb{
   background:var(--text-dim);border-radius:4px;
 }
-.ui-scroll::-webkit-scrollbar-thumb:hover,.ui-modal-body::-webkit-scrollbar-thumb:hover,.xterm-viewport::-webkit-scrollbar-thumb:hover{
+.ui-scroll::-webkit-scrollbar-thumb:hover,.ui-scroll-sm::-webkit-scrollbar-thumb:hover,.ui-modal-body::-webkit-scrollbar-thumb:hover,.xterm-viewport::-webkit-scrollbar-thumb:hover{
   background:var(--text-muted);
 }

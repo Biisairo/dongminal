@@ -54,7 +54,7 @@ const SidebarList = {
     const el = document.getElementById(containerId);
     if (!el) return;
     // FR-BLP-7: 컨테이너의 생김새(남은 높이 전부 + 세로 스크롤)도 공통이다.
-    el.classList.add('sbl-list');
+    el.classList.add('sbl-list','ui-scroll-sm');
     // 데이터가 아직 없는 목록(Git 은 첫 응답 전)은 **비우기만** 한다. 빈 안내를
     // 그리면 "없다" 와 "아직 모른다" 가 같은 화면이 된다.
     if (d.ready && !d.ready(app)) { el.innerHTML = ''; return }

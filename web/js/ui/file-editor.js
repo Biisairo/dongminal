@@ -335,7 +335,7 @@ class FileEditor {
   _showImage(probe) {
     const src = FILE_RAW_API + '?path=' + encodeURIComponent(this.filePath);
     this.el.innerHTML =
-      '<div class="fe-image">' +
+      '<div class="fe-image ui-scroll">' +
         '<img class="fe-img" alt="' + escHtml(this.filePath) + '">' +
         '<div class="fe-img-meta"></div>' +
       '</div>';

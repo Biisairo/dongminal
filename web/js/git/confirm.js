@@ -176,7 +176,7 @@ class GitConfirm {
         // FR-GIT-178: 목록 **위**에 알린다.
         '<div class="gc-changed"></div>'+
         '<div class="gc-count"></div>'+
-        '<ul class="gc-targets"></ul>'+
+        '<ul class="gc-targets ui-scroll-sm"></ul>'+
         '<div class="gc-hint">'+
           '<div class="gc-hint-label"></div>'+
           '<div class="gc-hint-note"></div>'+
@@ -185,7 +185,7 @@ class GitConfirm {
         '</div>'+
         '<div class="gc-err">'+
           '<div class="gc-err-reason"></div>'+
-          '<pre class="gc-err-tail"></pre>'+
+          '<pre class="gc-err-tail ui-scroll"></pre>'+
           '<button type="button" class="ui-btn ui-btn-sm gc-copy gc-copy-err"></button>'+
         '</div>'+
         // 실행 버튼이 목록과 분리된 별도 행이다 (FR-GIT-94·177).
