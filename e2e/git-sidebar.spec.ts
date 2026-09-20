@@ -71,8 +71,9 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     // WINDOWS 목록은 그대로 남는다 — 옮겨진 것은 GIT 쪽이다.
     await expect(page.locator('#windows .si')).toHaveCount(1);
 
-    // FR-RTU-1 / D-RTU-15: 탭 이름은 `Repo` 다 — `Git` 과 `Editor` 를 합친 하나다.
-    await expect(page.locator('.sb-tab[data-panel="repo"] .sb-tab-label')).toHaveText('Repo');
+    // FR-RTU-1 / D-RTU-15: 탭은 **하나**다 — `Git` 과 `Editor` 를 합친 것이다.
+    // 이름은 카탈로그의 데이터이고 ko 에서는 `저장소` 다 (FR-WRD-50).
+    await expect(page.locator('.sb-tab[data-panel="repo"] .sb-tab-label')).toHaveText('저장소');
     await openGitTab(page);
     await expect(page.locator('#sb-panel-windows')).toBeHidden();
     await expect(page.locator('#repo-entries')).toBeVisible();

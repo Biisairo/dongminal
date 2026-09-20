@@ -146,10 +146,14 @@ test.describe('묶음 T — 사이드바 Editor 탭 (FR-EDT-1~12)', () => {
   //   새  동작: Windows · Repo 두 탭
   //   이유:     `git.pinned` 와 `editors.list` 는 서버 연동이 함께 바꾸는 **같은
   //             집합**이다 — 화면만 둘로 그리고 있었다
-  test('E1 (V-RTU-1): 탭이 Windows·Repo 순으로 보인다', async ({ page }) => {
+  // WORDING_COLOR_SRS FR-WRD-50: 탭 **이름**이 카탈로그의 데이터가 됐다.
+  //   이전 동작: 마크업·상수에 `Windows`·`Repo` 가 박혀 있었다
+  //   새  동작: ko 는 `창`·`저장소`, en 은 `Windows`·`Repo` (FR-RTU-1 개정)
+  //   이유:     같은 대상을 탭·버튼·대화상자가 네 낱말로 부르고 있었다 (§2.1)
+  test('E1 (V-RTU-1): 탭이 창·저장소 순으로 보인다', async ({ page }) => {
     await goto(page);
     const labels = await page.locator('#sb-tabs .sb-tab:not([hidden]) .sb-tab-label').allTextContents();
-    expect(labels).toEqual(['Windows', 'Repo']);
+    expect(labels).toEqual(['창', '저장소']);
   });
 
   // FR-RTU-7: 번호는 **배열 인덱스에서 파생**되므로 탭이 줄면 함께 당겨진다.

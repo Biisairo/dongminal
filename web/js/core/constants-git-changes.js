@@ -20,13 +20,13 @@ const GIT_GROUPS=[
    * 충돌은 머지가 멈춰 있는 동안에만 존재하고 그 밖의 시간에는 물음 자체가 없다.
    * 늘 서 있는 `Conflicts (0)` 은 답이 아니라 소음이다.
    */
-  {key:'conflicts',name:'Conflicts',hideEmpty:true},
-  {key:'staged',   name:'Staged'},
+  {key:'conflicts',name:t('git.group.conflicts'),hideEmpty:true},
+  {key:'staged',   name:t('git.group.staged')},
   // PANEL_SURFACE_SRS FR-CMG-1 / D-8: `changes` 와 `untracked` 는 **한 그룹**이다.
   // 둘은 diff 축도 행 동작도 그룹 일괄도 같았고(§2.3), 갈리는 것은 상태 문자와
   // 폐기의 명령뿐이다 — 앞의 것은 행이 보이고(FR-CMG-3), 뒤의 것은 확인창이
   // 나눠 보인다 (FR-CMG-7).
-  {key:'working',  name:'Changes'},
+  {key:'working',  name:t('git.group.working')},
 ];
 /**
  * 화면의 그룹 하나가 서버 응답의 어느 배열들인가 (D-7·D-8).

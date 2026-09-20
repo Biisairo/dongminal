@@ -42,7 +42,7 @@ test.describe('Git 창의 상단 이름', () => {
     await page.evaluate((p) => (window as any).app.openGitWindow(p), a);
     const wantA = await listName(page, a).textContent();
     expect(wantA).toBeTruthy();
-    await expect(topName(page)).toHaveText(`Repo · ${wantA!.trim()}`, { timeout: 10000 });
+    await expect(topName(page)).toHaveText(`저장소 · ${wantA!.trim()}`, { timeout: 10000 });
     await expect(topName(page)).not.toHaveText('Git');
 
     // 같은 창에서 리포만 바꾼다 — render 가 돌지 않는 경로다.
@@ -50,7 +50,7 @@ test.describe('Git 창의 상단 이름', () => {
     const wantB = await listName(page, b).textContent();
     expect(wantB).toBeTruthy();
     expect(wantB!.trim()).not.toBe(wantA!.trim());
-    await expect(topName(page)).toHaveText(`Repo · ${wantB!.trim()}`, { timeout: 10000 });
+    await expect(topName(page)).toHaveText(`저장소 · ${wantB!.trim()}`, { timeout: 10000 });
   });
 
   /**
@@ -69,6 +69,6 @@ test.describe('Git 창의 상단 이름', () => {
       app.switchWindow(w.id);
       return w.name;
     });
-    await expect(topName(page)).toHaveText(`Windows · ${name}`, { timeout: 10000 });
+    await expect(topName(page)).toHaveText(`창 · ${name}`, { timeout: 10000 });
   });
 });

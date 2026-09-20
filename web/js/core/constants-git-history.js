@@ -120,10 +120,12 @@ const GIT_HIST_BREAKS=[
 ];
 
 // refs 사이드바 (FR-GIT-122·123)
+// WORDING_COLOR_SRS FR-WRD-43: 번역이 **이미 사전에 있었다** — 브랜치 대화상자가
+// `git.br_groups.*` 를 쓰고 이 자리만 안 쓰고 있었다. 새 키를 만들지 않는다.
 const GIT_REF_GROUPS=[
-  {kind:'local', name:'Local'},
-  {kind:'remote',name:'Remote'},
-  {kind:'tag',   name:'Tags'},
+  {kind:'local', name:t('git.br_groups.local')},
+  {kind:'remote',name:t('git.br_groups.remote')},
+  {kind:'tag',   name:t('git.br_groups.tag')},
 ];
 const GIT_REF_ALL=t('git.ref_all');
 // upstream 이 사라진 것은 ahead/behind 0 과 **다르다** — 구분하지 않으면 사용자가

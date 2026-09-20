@@ -610,8 +610,9 @@ test.describe('묶음 D — 슬롯 방향', () => {
     const sw = t.locator('button');
     await expect(t).toBeVisible();
     // SETTINGS_CONTROLS_SRS FR-SCT-2·4: 두 값의 이름은 트랙 **바깥 양쪽**에 늘 있다.
-    await expect(t.locator('.ds-sw-lbl.l')).toHaveText('Horizontal');
-    await expect(t.locator('.ds-sw-lbl.r')).toHaveText('Vertical');
+    // 이름은 카탈로그의 데이터가 됐고 ko 에서는 `가로`·`세로` 다 (FR-WRD-50 / FR-SCT-4 개정).
+    await expect(t.locator('.ds-sw-lbl.l')).toHaveText('가로');
+    await expect(t.locator('.ds-sw-lbl.r')).toHaveText('세로');
     // FR-SCT-3: 지금 값은 컨테이너의 `data-v` 가 말한다.
     await expect(t).toHaveAttribute('data-v', 'horizontal');
     await expect(sw).toHaveAttribute('aria-checked', 'false');

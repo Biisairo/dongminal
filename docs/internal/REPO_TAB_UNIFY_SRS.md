@@ -204,8 +204,22 @@ Working Tree diff 의 오른쪽은 **편집·저장된다.** Index diff 의 오�
 
 ### 3.1 묶음 T — 사이드바 `Repo` 탭
 
-**FR-RTU-1.** 사이드바 탭은 **둘**이 된다 — `Windows` · `Repo`. `Git` 과 `Editor`
-서술자를 하나로 합친다.
+**FR-RTU-1.** 사이드바 탭은 **둘**이 된다 — 창 목록과 저장소 목록. `Git` 과
+`Editor` 서술자를 하나로 합친다.
+
+> **개정 2026-09-20 (WORDING_COLOR_SRS FR-WRD-50).** 탭의 **이름**이 카탈로그의
+> 데이터가 됐다.
+>
+> - 이전 동작: 이름이 코드에 박혀 있었다 — `label:'Windows'`(`sidebar-tabs.js:36`) ·
+>   `REPO_TAB_LABEL='Repo'`(`constants-editor.js:12`). 로케일과 무관하게 영어였다
+> - 새 동작: `sidebar.tab_windows` · `editor.act.repo_tab_label` 을 지난다.
+>   ko 는 `창` · `저장소`, en 은 `Windows` · `Repo`
+> - 이유: 같은 대상을 탭(`Repo`)·버튼(`Add`)·대화상자(`Editor 추가`)·빈 상태
+>   (`+ Add 로…`)가 **네 낱말**로 부르고 있었다 (`AUDIT-uiux.md` §2.1).
+>   **탭이 둘이라는 이 요구의 내용은 그대로다** — 바뀐 것은 이름의 출처다.
+>
+> 창 제목(`_rWinTitle`)이 이 라벨을 쓰므로 머리글도 `저장소 · <이름>` 이 된다
+> (`slot-title-boundary.spec.ts`).
 
 **FR-RTU-2.** `Repo` 목록의 항목은 **경로 하나**다. 표시 이름은 마지막 조각, 툴팁은
 절대경로 전체다.

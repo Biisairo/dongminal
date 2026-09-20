@@ -53,28 +53,28 @@ const plainName = (page: Page, id: string) =>
 
 test.describe('제목 — <타입 라벨> · <창 이름>', () => {
   // TC-STB-1
-  test('터미널 창은 Windows 라벨을 단다', async ({ page }) => {
+  test('터미널 창은 창 목록 라벨을 단다', async ({ page }) => {
     await waitForInit(page);
     const id = await activeWindowOf(page);
     const name = await plainName(page, id);
-    await expect(topName(page)).toHaveText(`Windows · ${name}`, { timeout: 10000 });
+    await expect(topName(page)).toHaveText(`창 · ${name}`, { timeout: 10000 });
   });
 
   // TC-STB-2
-  test('Repo 창은 Repo 라벨에 그 저장소의 이름을 단다', async ({ page, request }) => {
+  test('Repo 창은 저장소 라벨에 그 저장소의 이름을 단다', async ({ page, request }) => {
     const a = await pin(request, makeRepo('dm-stb-a-'));
     const b = await pin(request, makeRepo('dm-stb-b-'));
     await waitForInit(page);
 
     await page.evaluate((p) => (window as any).app.openGitWindow(p), a);
     const wantA = (await listName(page, a).textContent())!.trim();
-    await expect(topName(page)).toHaveText(`Repo · ${wantA}`, { timeout: 10000 });
+    await expect(topName(page)).toHaveText(`저장소 · ${wantA}`, { timeout: 10000 });
 
     // **리포를 바꾸는 것은 창을 바꾸는 것이다** (FR-RTU-72).
     await page.evaluate((p) => (window as any).app.openGitWindow(p), b);
     const wantB = (await listName(page, b).textContent())!.trim();
     expect(wantB).not.toBe(wantA);
-    await expect(topName(page)).toHaveText(`Repo · ${wantB}`, { timeout: 10000 });
+    await expect(topName(page)).toHaveText(`저장소 · ${wantB}`, { timeout: 10000 });
   });
 
   /**
@@ -92,15 +92,15 @@ test.describe('제목 — <타입 라벨> · <창 이름>', () => {
     await waitForInit(page);
     await page.evaluate((p) => (window as any).app.openGitWindow(p), a);
     const want = (await listName(page, a).textContent())!.trim();
-    await expect(topName(page)).toHaveText(`Repo · ${want}`, { timeout: 10000 });
+    await expect(topName(page)).toHaveText(`저장소 · ${want}`, { timeout: 10000 });
 
     const gitWin = await activeWindowOf(page);
     await slotAdd(page);
     await openInSlot(page, 0, gitWin);
     await focusSlot(page, 0);
     // 머리글은 저장된 이름(`Git`)이 아니라 파생 이름을 쓴다.
-    await expect(head(page, 0)).toHaveText(`Repo · ${want}`, { timeout: 10000 });
-    await expect(head(page, 0)).not.toHaveText('Repo');
+    await expect(head(page, 0)).toHaveText(`저장소 · ${want}`, { timeout: 10000 });
+    await expect(head(page, 0)).not.toHaveText('저장소');
   });
 });
 
@@ -119,8 +119,8 @@ test.describe('자리 분담 — 칸이 하나일 때와 여럿일 때', () => {
     await focusSlot(page, 0);
 
     await expect(topName(page)).toHaveText('', { timeout: 10000 });
-    await expect(head(page, 0)).toHaveText(`Windows · ${n0}`);
-    await expect(head(page, 1)).toHaveText(`Windows · ${n1}`);
+    await expect(head(page, 0)).toHaveText(`창 · ${n0}`);
+    await expect(head(page, 1)).toHaveText(`창 · ${n1}`);
   });
 
   // TC-STB-7
@@ -134,7 +134,7 @@ test.describe('자리 분담 — 칸이 하나일 때와 여럿일 때', () => {
     await expect(topName(page)).toHaveText('', { timeout: 10000 });
 
     await slotRemove(page);
-    await expect(topName(page)).toHaveText(`Windows · ${n0}`, { timeout: 10000 });
+    await expect(topName(page)).toHaveText(`창 · ${n0}`, { timeout: 10000 });
     await expect(page.locator('#area .slot-head')).toHaveCount(0);
   });
 
