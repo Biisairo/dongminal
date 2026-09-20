@@ -10,7 +10,18 @@ import (
 // 요청 본문에는 상한이 없었다.
 //
 // `io.ReadAll(r.Body)` 가 10곳이었고 `json.NewDecoder(r.Body).Decode` 가 둘이었다.
-// 그중 `PUT /api/settings` 는 받은 바이트를 **JSON 인지도 보지 않고** 그대로
+//
+// **그 문장이 이 결손을 가렸다** (SAFETY_CORRECTNESS_SRS FR-SAF-9 · D-SAF-5).
+// "둘이었다" 는 과거형이 일을 끝난 것으로 읽히게 했으나, 실제로는 `httpErr`
+// 방언을 쓰는 일곱 종단(`tools/kill` · `command-result` · `focus/claim` ·
+// attention·activity·background 넷)이 무제한 디코드로 남아 있었다. 그중 셋은
+// 1MiB 를 넘는 본문을 **받아서 처리하고 200 을 답했다.** 2026-09-20 에
+// `readBodyHTTP`(`httpapi/httperr.go`)로 넘겼다.
+//
+// 끝나지 않은 일을 끝난 것처럼 적지 않는다. 남은 것이 있으면 **어디에 몇 개가**
+// 남았는지 적는다 — 그래야 다음 사람이 셀 수 있다.
+//
+// `PUT /api/settings` 는 받은 바이트를 **JSON 인지도 보지 않고** 그대로
 // `settings.json` 에 썼다. 상한이 있던 곳은 업로드(512MiB)·LSP·WS 프레임(1MiB)
 // 뿐이고, **그 셋은 실제 사고에서 배운 방어라 이 패키지가 우회하지 않는다** —
 // 그 경로들은 여기를 지나지 않는다.

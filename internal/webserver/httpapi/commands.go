@@ -262,8 +262,12 @@ func (s *Server) handleCommandResult(w http.ResponseWriter, r *http.Request) {
 		NewPanes   []string     `json:"newPanes"`
 		NewTabs    []hub.TabRef `json:"newTabs"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpErr(w, "invalid json: "+err.Error(), http.StatusBadRequest, apierr.CodeInvalidJSON)
+	ok, answered := readBodyHTTP(w, r, &body)
+	if answered {
+		return
+	}
+	if !ok {
+		httpErr(w, "invalid json", http.StatusBadRequest, apierr.CodeInvalidJSON)
 		return
 	}
 	if body.ReqId != "" {

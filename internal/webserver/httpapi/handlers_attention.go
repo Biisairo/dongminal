@@ -39,7 +39,11 @@ func (s *Server) apiToolAttentionSet(w http.ResponseWriter, r *http.Request) {
 		ToolID string `json:"toolId"`
 		Reason string `json:"reason"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" {
+	ok, answered := readBodyHTTP(w, r, &req)
+	if answered {
+		return
+	}
+	if !ok || req.ToolID == "" {
 		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeBadRequest)
 		return
 	}
@@ -74,7 +78,11 @@ func (s *Server) apiToolAttentionClear(w http.ResponseWriter, r *http.Request) {
 		ToolID string `json:"toolId"`
 		Typed  bool   `json:"typed"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" {
+	ok, answered := readBodyHTTP(w, r, &req)
+	if answered {
+		return
+	}
+	if !ok || req.ToolID == "" {
 		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeBadRequest)
 		return
 	}
@@ -167,7 +175,11 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 		// 읽던 세션 신원 저장소는 에이전트 GUI 와 함께 사라졌다.
 		SessionID string `json:"sessionId"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ToolID == "" || !hub.ValidActivityState(req.State) {
+	ok, answered := readBodyHTTP(w, r, &req)
+	if answered {
+		return
+	}
+	if !ok || req.ToolID == "" || !hub.ValidActivityState(req.State) {
 		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeBadRequest)
 		return
 	}
@@ -265,7 +277,11 @@ func (s *Server) apiToolBackgroundSet(w http.ResponseWriter, r *http.Request) {
 		ToolID     string `json:"toolId"`
 		Background bool   `json:"background"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.ToolID == "" {
+	ok, answered := readBodyHTTP(w, r, &body)
+	if answered {
+		return
+	}
+	if !ok || body.ToolID == "" {
 		httpErr(w, "toolId 필요", http.StatusBadRequest, apierr.CodeMissingArg)
 		return
 	}

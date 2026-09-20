@@ -28,7 +28,11 @@ func (s *Server) apiToolKill(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		ToolID string `json:"toolId"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.ToolID == "" {
+	ok, answered := readBodyHTTP(w, r, &body)
+	if answered {
+		return
+	}
+	if !ok || body.ToolID == "" {
 		httpErr(w, "toolId 필요", http.StatusBadRequest, apierr.CodeMissingArg)
 		return
 	}

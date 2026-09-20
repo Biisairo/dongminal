@@ -42,7 +42,11 @@ func (s *Server) apiFocusClaim(w http.ResponseWriter, r *http.Request) {
 		ClientID string `json:"clientId"`
 		WindowID string `json:"windowId"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.ClientID == "" || body.WindowID == "" {
+	ok, answered := readBodyHTTP(w, r, &body)
+	if answered {
+		return
+	}
+	if !ok || body.ClientID == "" || body.WindowID == "" {
 		httpErr(w, "clientId·windowId 필요", http.StatusBadRequest, apierr.CodeMissingArg)
 		return
 	}
