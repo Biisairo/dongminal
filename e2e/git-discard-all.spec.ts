@@ -68,7 +68,7 @@ test.describe('묶음 D — 워킹 그룹의 Discard All', () => {
       const repo = copyFx('basic', 'd1');
       await waitForInit(page);
       await openGit(page, repo);
-      await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('3', { timeout: 10000 });
 
       // FR-WBR-50·51·52: 행 동작과 **같은 어휘**의 아이콘이고 파괴적인 것이
       // 오른쪽이다. FR-CMG-6: 일괄은 `stage` 하나와 `discard` 하나다.
@@ -107,7 +107,7 @@ test.describe('묶음 D — 워킹 그룹의 Discard All', () => {
       const repo = copyFx('basic', 'd1b');
       await waitForInit(page);
       await openGit(page, repo);
-      await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('3', { timeout: 10000 });
 
       // 아이콘을 고른 이유가 이것이다 — 글자 라벨은 줄을 늘려 36→71px 이 됐다.
       // 제품은 `.gone` 을 `[hidden]` 으로 옮겼다 (FR-LAY-3·30) — 숨김의 어휘는 하나다.
@@ -124,7 +124,7 @@ test.describe('묶음 D — 워킹 그룹의 Discard All', () => {
       const repo = copyFx('basic', 'd2');
       await waitForInit(page);
       await openGit(page, repo);
-      await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('3', { timeout: 10000 });
       expect(existsSync(join(repo, 'untracked.txt'))).toBeTruthy();
 
       await bulkAct(page, 'working', 'discard').click();
@@ -137,7 +137,7 @@ test.describe('묶음 D — 워킹 그룹의 Discard All', () => {
       await box(page).locator('.gc-go').click();
       await expect(box(page)).toHaveCount(0, { timeout: 10000 });
 
-      await expect(count(page, 'working')).toHaveText('(0)', { timeout: 5000 });
+      await expect(count(page, 'working')).toHaveText('0', { timeout: 5000 });
       // FR-CMG-8: 두 명령이 다 실행됐다 — 되돌림(checkout)과 삭제(clean).
       expect(readFileSync(join(repo, 'tracked.txt'), 'utf8')).toBe('one\n');
       expect(readFileSync(join(repo, KO), 'utf8')).toBe('ko\nboth\n');
@@ -152,11 +152,11 @@ test.describe('묶음 D — 워킹 그룹의 Discard All', () => {
       const repo = copyFx('basic', 'd3');
       await waitForInit(page);
       await openGit(page, repo);
-      await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('3', { timeout: 10000 });
 
       // 새 파일을 스테이지로 옮기면 워킹 그룹에는 되돌릴 것만 남는다.
       await rowAct(page, 'working', 'untracked.txt', 'stage');
-      await expect(count(page, 'working')).toHaveText('(2)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('2', { timeout: 10000 });
 
       await bulkAct(page, 'working', 'discard').click();
       await expect(box(page)).toBeVisible({ timeout: 10000 });
@@ -175,14 +175,14 @@ test.describe('묶음 D — 워킹 그룹의 Discard All', () => {
       const repo = copyFx('basic', 'd4');
       await waitForInit(page);
       await openGit(page, repo);
-      await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('3', { timeout: 10000 });
 
       // 처음에는 둘 다 살아 있다.
       await expect(bulk(page, 'working').nth(0)).toBeEnabled();
       await expect(bulk(page, 'working').nth(1)).toBeEnabled();
 
       await bulkAct(page, 'working', 'stage').click();
-      await expect(count(page, 'working')).toHaveText('(0)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('0', { timeout: 10000 });
 
       await expect(bulk(page, 'working').nth(0)).toBeDisabled();
       await expect(bulk(page, 'working').nth(1)).toBeDisabled();
@@ -193,7 +193,7 @@ test.describe('묶음 D — 워킹 그룹의 Discard All', () => {
       const repo = copyFx('conflict', 'd5');
       await waitForInit(page);
       await openGit(page, repo);
-      await expect(count(page, 'conflicts')).toHaveText('(1)', { timeout: 10000 });
+      await expect(count(page, 'conflicts')).toHaveText('1', { timeout: 10000 });
 
       // 일괄 자체가 없다 — 충돌 stage 는 "해결됨 표시" 라 한 번에 밀 동작이 아니다.
       await expect(bulk(page, 'conflicts')).toHaveCount(0);
@@ -204,7 +204,7 @@ test.describe('묶음 D — 워킹 그룹의 Discard All', () => {
       const repo = copyFx('basic', 'd6');
       await waitForInit(page);
       await openGit(page, repo);
-      await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('3', { timeout: 10000 });
 
       // 새 파일이 섞여 있다 — 파일 자체가 사라지고 되살릴 값이 없다는 것을 먼저 말한다.
       await rowAct(page, 'working', 'untracked.txt', 'discard');
@@ -226,7 +226,7 @@ test.describe('묶음 D — 워킹 그룹의 Discard All', () => {
       const repo = copyFx('basic', 'd7');
       await waitForInit(page);
       await openGit(page, repo);
-      await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('3', { timeout: 10000 });
 
       // ① 그룹 일괄 — 두 출신이 섞인다. `-u` 가 없으면 이 명령이 실패한다 (SRS §2.7).
       await bulkAct(page, 'working', 'discard').click();

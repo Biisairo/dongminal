@@ -230,7 +230,7 @@ test.describe('묶음 F — Diff 뷰', () => {
     // 헤더와 목록은 계속 동작한다.
     writeFileSync(join(repo, 'd7-new.txt'), 'x');
     await expect(changes(page).locator('.git-group[data-group="working"] .git-group-count'))
-      .toHaveText('(4)', { timeout: 10000 });
+      .toHaveText('4', { timeout: 10000 });
     await expect(changes(page).locator('.git-head-branch')).toHaveText('main');
 
     // Diff 탭도 같은 사유를 보이고 바는 살아 있다.

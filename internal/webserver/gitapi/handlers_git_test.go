@@ -40,6 +40,9 @@ type gitFake struct {
 	root func(dir string) (core.Output, error)
 	// statusHold 는 status 진입 시 호출된다. single-flight 를 관찰할 지점이다.
 	statusHold func()
+	// statusTruncated 는 git 의 출력 자체가 상한에서 잘린 상황을 흉내낸다
+	// (SAFETY_CORRECTNESS_SRS FR-SAF-19·21).
+	statusTruncated bool
 }
 
 // newGitFake 은 HEAD 만 있는 gitdir 을 만든다. Store 의 관측이 signature 도 함께
@@ -69,7 +72,7 @@ func (g *gitFake) runner(_ context.Context, dir string, args []string) (core.Out
 		if g.statusHold != nil {
 			g.statusHold()
 		}
-		return core.Output{Stdout: gitStatusFixture}, nil
+		return core.Output{Stdout: gitStatusFixture, StdoutTruncated: g.statusTruncated}, nil
 	}
 	return core.Output{}, nil
 }
@@ -276,6 +279,55 @@ func TestGitRepos_BadgeFromObservation(t *testing.T) {
 	}
 	if badge["observedAtUnixMs"] == float64(0) {
 		t.Fatalf("observedAtUnixMs=%v", badge["observedAtUnixMs"])
+	}
+}
+
+// 배지가 **잘림을 말한다** (SAFETY_CORRECTNESS_SRS FR-SAF-21 · WORDING_COLOR_SRS
+// FR-WRD-81).
+//
+// 서버는 `OutputTruncated` 를 이미 싣고 있었지만 배지 payload 에는 없었다 —
+// 그래서 화면은 하한을 **정확한 수처럼** 그렸다. B1 이 남긴 빚의 절반이 그것이다.
+func TestGitRepos_BadgeSaysTruncated(t *testing.T) {
+	g := newGitFake(t)
+	g.statusTruncated = true
+	s, _, ws, _ := gitTestServer(t, g)
+	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":[` + qWorkRepo + `]}}`)
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: absWorkRepo + "\n"}, nil }
+
+	if code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo="+url.QueryEscape(absWorkRepo), ""); code != 200 {
+		t.Fatalf("status code=%d body=%v", code, out)
+	}
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/repos", "")
+	if code != 200 {
+		t.Fatalf("code=%d body=%v", code, out)
+	}
+	pinned, _ := out["pinned"].([]any)
+	e, _ := pinned[0].(map[string]any)
+	badge, _ := e["badge"].(map[string]any)
+	if badge == nil {
+		t.Fatalf("badge 가 없다: %v", e)
+	}
+	if badge["outputTruncated"] != true {
+		t.Fatalf("잘렸는데 배지가 말하지 않는다 — badge=%v", badge)
+	}
+}
+
+// 잘리지 않은 평소에는 그 열쇠가 **없다** — 있으면 화면이 늘 `+` 를 그린다.
+func TestGitRepos_BadgeSilentWhenNotTruncated(t *testing.T) {
+	g := newGitFake(t)
+	s, _, ws, _ := gitTestServer(t, g)
+	ws.raw = []byte(`{"schemaVersion":2,"git":{"pinned":[` + qWorkRepo + `]}}`)
+	g.root = func(string) (core.Output, error) { return core.Output{Stdout: absWorkRepo + "\n"}, nil }
+
+	if code, out := gitReq(t, s, http.MethodGet, "/api/git/status?repo="+url.QueryEscape(absWorkRepo), ""); code != 200 {
+		t.Fatalf("status code=%d body=%v", code, out)
+	}
+	_, out := gitReq(t, s, http.MethodGet, "/api/git/repos", "")
+	pinned, _ := out["pinned"].([]any)
+	e, _ := pinned[0].(map[string]any)
+	badge, _ := e["badge"].(map[string]any)
+	if _, ok := badge["outputTruncated"]; ok {
+		t.Fatalf("잘리지 않았는데 열쇠가 있다 — badge=%v", badge)
 	}
 }
 

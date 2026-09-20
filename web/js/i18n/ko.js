@@ -414,6 +414,7 @@ I18N.register('ko', {
   'git.badge_conflicts': '충돌 {n}',
   'git.badge_no_upstream': 'upstream 없음',
   'git.badge_stale': '최신 아님 (마지막 관측: {at})',
+  'git.badge_truncated': '변경이 너무 많아 목록이 잘렸습니다 — 이 수는 최소값입니다',
   'git.blame_empty': 'blame 할 내용이 없습니다',
   'git.blame_fail': 'blame 을 읽지 못했습니다',
   'git.blame_loading': 'blame 을 읽는 중…',

@@ -128,9 +128,9 @@ test.describe('묶음 E — Changes 탭', () => {
     await openGit(page, repo);
 
     const g = group(page, 'working');
-    await expect(g.locator('.git-group-count')).toHaveText('(3)', { timeout: 10000 });
+    await expect(g.locator('.git-group-count')).toHaveText('3', { timeout: 10000 });
     writeFileSync(join(repo, 'c4-new.txt'), 'x');
-    await expect(g.locator('.git-group-count')).toHaveText('(4)', { timeout: 10000 });
+    await expect(g.locator('.git-group-count')).toHaveText('4', { timeout: 10000 });
     await expect(g.locator('.git-file[data-path="c4-new.txt"]')).toBeVisible();
     // FR-CMG-3: 출신은 상태 문자가 말한다 — 그룹이 아니다.
     await expect(g.locator('.git-file[data-path="c4-new.txt"] .git-file-st')).toHaveText('?');
@@ -149,7 +149,7 @@ test.describe('묶음 E — Changes 탭', () => {
     await expect(group(page, 'staged').locator('.git-file[data-path="untracked.txt"]'))
       .toBeVisible({ timeout: 10000 });
     // 새 파일이 staged 로 옮겨 갔으므로 워킹 그룹은 수정 2 만 남는다.
-    await expect(group(page, 'working').locator('.git-group-count')).toHaveText('(2)');
+    await expect(group(page, 'working').locator('.git-group-count')).toHaveText('2');
   });
 
   test('C6 (V23): 트리/플랫 토글이 동작한다', async ({ page }) => {

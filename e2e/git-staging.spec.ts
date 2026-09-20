@@ -57,12 +57,12 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
     await openGit(page, repo);
 
     // `basic` 의 워킹 그룹은 수정 2 + 새 파일 1 이다 (FR-CMG-2).
-    await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
+    await expect(count(page, 'working')).toHaveText('3', { timeout: 10000 });
     await act(page, 'working', 'untracked.txt', 'stage');
 
     // FR-GIT-71: 폴링 주기를 기다리지 않고 응답의 status 로 즉시 갱신된다.
     await expect(row(page, 'staged', 'untracked.txt')).toBeVisible({ timeout: 3000 });
-    await expect(count(page, 'working')).toHaveText('(2)');
+    await expect(count(page, 'working')).toHaveText('2');
 
     await act(page, 'staged', 'untracked.txt', 'unstage');
     await expect(row(page, 'working', 'untracked.txt')).toBeVisible({ timeout: 3000 });
@@ -73,13 +73,13 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
     await waitForInit(page);
     await openGit(page, repo);
 
-    await expect(count(page, 'working')).toHaveText('(3)', { timeout: 10000 });
+    await expect(count(page, 'working')).toHaveText('3', { timeout: 10000 });
     await group(page, 'working').locator('.git-group-bulk[data-act="stage"]').click();
-    await expect(count(page, 'working')).toHaveText('(0)', { timeout: 5000 });
+    await expect(count(page, 'working')).toHaveText('0', { timeout: 5000 });
 
     // staged 그룹 일괄은 언스테이지다 (FR-GIT-67).
     await group(page, 'staged').locator('.git-group-bulk[data-act="unstage"]').click();
-    await expect(count(page, 'staged')).toHaveText('(0)', { timeout: 5000 });
+    await expect(count(page, 'staged')).toHaveText('0', { timeout: 5000 });
   });
 
   test('E1c (V30): 다중 선택과 Shift 범위 선택으로 일괄 stage 한다', async ({ page }) => {
@@ -102,8 +102,8 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
     // FR-GIT-207·208: 진입점은 행 인라인 버튼 하나이고, 누른 행이 선택 안에
     // 있으면 선택 전체가 대상이다.
     await clickRowAct(page, allRows(page).nth(4), 'stage');
-    await expect(count(page, 'working')).toHaveText('(0)', { timeout: 5000 });
-    await expect(count(page, 'working')).toHaveText('(0)');
+    await expect(count(page, 'working')).toHaveText('0', { timeout: 5000 });
+    await expect(count(page, 'working')).toHaveText('0');
     // 처리한 대상은 선택에서 빠진다 — 같은 선택이 남아 다음 동작에 끌려가지 않는다.
     await expect(selected).toHaveCount(0);
   });
@@ -190,7 +190,7 @@ test.describe('묶음 H — 스테이징 (클라이언트)', () => {
 
     await box.locator('.gc-go').click();
     await expect(box).toHaveCount(0, { timeout: 10000 });
-    await expect(count(page, 'conflicts')).toHaveText('(0)', { timeout: 5000 });
+    await expect(count(page, 'conflicts')).toHaveText('0', { timeout: 5000 });
     await expect(row(page, 'staged', 'c.txt')).toBeVisible();
   });
 

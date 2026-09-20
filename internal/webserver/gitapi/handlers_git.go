@@ -248,12 +248,28 @@ func (s *GitServer) gitBadge(root string) map[string]any {
 	if !ok {
 		return nil
 	}
-	return map[string]any{
+	m := map[string]any{
 		"total":            obs.Status.Total,
 		"branch":           obs.Status.Branch,
 		"detached":         obs.Status.Detached,
 		"observedAtUnixMs": obs.ObservedAtUnixMs,
 	}
+	// SAFETY_CORRECTNESS_SRS FR-SAF-21 · WORDING_COLOR_SRS FR-WRD-81:
+	// **출력이 잘렸으면 `total` 은 하한이다.**
+	//
+	//   이전 동작: 그 사실이 배지 payload 에 없어 화면은 하한을 정확한 수처럼 그렸다
+	//   새  동작: 잘렸을 때만 이 열쇠가 선다. 화면은 `N+` 로 그리고 사유는 툴팁이 말한다
+	//   이유:     B1 이 서버 쪽만 닫고 남긴 빚이다. `Truncated`(그룹별 개수)와
+	//             **다른 종류의 사실**이므로 섞지 않는다 — 그쪽은 프론트가 키별로
+	//             합을 내고(`gitGroupTruncated`), 여기에 개수가 아닌 값을 넣으면
+	//             그 합이 깨진다 (status.go 의 주석이 그 경계를 적었다)
+	//
+	// 잘리지 않은 평소에는 **열쇠가 없다** — 있으면 화면이 늘 `+` 를 그릴지 말지를
+	// 값으로 판정해야 하고, `omitempty` 규약(Status 쪽)과도 어긋난다.
+	if obs.Status.OutputTruncated {
+		m["outputTruncated"] = true
+	}
+	return m
 }
 
 type gitPathReq struct {

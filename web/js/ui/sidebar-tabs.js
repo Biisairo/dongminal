@@ -179,11 +179,28 @@ const SB_TAB_DEFS=[
           title:why?e.path+' — '+why:e.path,
           active:!!w&&w.id===app.ws.activeWindow,
           cls,
-          // 배지는 서버의 마지막 관측값이다. 0 을 보일 이유는 없다 (FR-GIT-14).
+          /**
+           * 배지는 서버의 마지막 관측값이다. 0 을 보일 이유는 없다 (FR-GIT-14).
+           *
+           * WORDING_COLOR_SRS FR-WRD-81~83 (SAFETY_CORRECTNESS_SRS FR-SAF-21 의
+           * 남은 절반):
+           *   이전 동작: `total` 을 **정확한 수처럼** 그렸다. git 의 출력이 1MiB
+           *             상한에서 잘린 저장소에서 그 수는 하한인데 화면은 그것을
+           *             말하지 않았다 — `web/` 에서 `outputTruncated` 를 읽는
+           *             자리가 **0** 이었다
+           *   새  동작: 잘렸으면 `N+` 로 그리고 툴팁이 사유를 말한다
+           *   이유:     틀린 수를 확정적으로 말하는 것이 모르는 것보다 나쁘다
+           *
+           * `+` 는 새 기호가 아니다 — 잘린 그룹 머리글(`git-group-count`,
+           * FR-GDT-24)과 편집기 검색(`app-edsearch.js`)이 이미 같은 표기를 쓴다.
+           * **잘렸다는 사실이 개수의 뜻을 바꾸므로 그 설명이 낡음보다 앞선다**
+           * (`panel-changes.js` 가 같은 순서를 쓴다).
+           */
           badge:(b&&b.total>0)?{
-            text:String(b.total),
+            text:String(b.total)+(b.outputTruncated?'+':''),
             cls:stale?'stale':'',
-            title:stale?t('git.badge_stale',{at:new Date(b.observedAtUnixMs).toLocaleTimeString()}):'',
+            title:b.outputTruncated?t('git.badge_truncated')
+              :(stale?t('git.badge_stale',{at:new Date(b.observedAtUnixMs).toLocaleTimeString()}):''),
           }:null,
           fixed:pinned,
           removable:!pinned,

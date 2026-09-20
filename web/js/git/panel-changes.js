@@ -253,7 +253,7 @@ Object.assign(GitPanel.prototype, {
     for(const g of GIT_GROUPS){
       const d=document.createElement('div'); d.className='git-group'; d.dataset.group=g.key;
       d.innerHTML='<div class="git-group-head"><span class="git-group-caret"></span>'+
-        '<span class="git-group-name"></span><span class="git-group-count"></span>'+
+        '<span class="git-group-name"></span><span class="git-group-count ui-badge"></span>'+
         '<span class="git-group-spacer"></span></div>'+
         '<div class="git-group-rows"></div>';
       d.querySelector('.git-group-name').textContent=g.name;
@@ -419,7 +419,15 @@ Object.assign(GitPanel.prototype, {
      */
     const st=this._status&&this._status.status;
     const cut=gitGroupTruncated(st,g.key);
-    cnt.textContent='('+entries.length+(cut?'+':'')+')';
+    /**
+     * WORDING_COLOR_SRS FR-WRD-80: 개수는 **배지 하나로** 말한다.
+     *   이전 동작: `(3)` — 괄호 표기였고, 같은 앱의 다른 세 자리(사이드바 알약 ·
+     *             Runs·Background 모달 머리)는 `.ui-badge` 였다
+     *   새  동작: 킷의 배지에 수만 담는다. 잘림의 `+` 와 툴팁은 그대로다
+     *   이유:     같은 수치가 네 서식으로 나오고 있었다 (`AUDIT-uiux.md` §1.4).
+     *             B3 이 모달 머리 둘을 배지로 옮겼고 이 자리가 마지막이다
+     */
+    cnt.textContent=String(entries.length)+(cut?'+':'');
     cnt.classList.toggle('git-group-cut',!!cut);
     // FR-CMG-11: 합계만으로는 **지울 것이 있는지** 보이지 않는다. 두 출신이 섞이는
     // 그룹에서만 내역을 적는다 — 갈리지 않는 그룹에 같은 말을 두면 뜻이 없다.

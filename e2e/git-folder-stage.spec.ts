@@ -143,7 +143,7 @@ test.describe('묶음 F — 폴더 단위 스테이징', () => {
       await setView(page, 'tree');
       // PANEL_SURFACE_SRS FR-CMG-9: `src` 는 이제 **한 폴더 행**이고 그 아래에
       // 수정 둘과 새 파일 둘이 함께 있다.
-      await expect(count(page, 'working')).toHaveText('(4)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('4', { timeout: 10000 });
 
       const acts = (key: string, p: string) =>
         dir(page, key, p).locator('.git-file-act').evaluateAll(
@@ -199,7 +199,7 @@ test.describe('묶음 F — 폴더 단위 스테이징', () => {
       await waitForInit(page);
       await openGit(page, mkConflictTree('f1c'));
       await setView(page, 'tree');
-      await expect(count(page, 'conflicts')).toHaveText('(1)', { timeout: 10000 });
+      await expect(count(page, 'conflicts')).toHaveText('1', { timeout: 10000 });
 
       const d = dir(page, 'conflicts', 'deep');
       await expect(d).toBeVisible();
@@ -220,7 +220,7 @@ test.describe('묶음 F — 폴더 단위 스테이징', () => {
 
       await dirAct(page, 'working', 'src', 'stage');
       // 그려진 행이 아니라 그 폴더 아래 **전부**가 대상이다 — 두 출신 모두.
-      await expect(count(page, 'working')).toHaveText('(0)', { timeout: 5000 });
+      await expect(count(page, 'working')).toHaveText('0', { timeout: 5000 });
       await expect(row(page, 'staged', 'src/a.txt')).toBeVisible();
       await expect(row(page, 'staged', 'src/b.txt')).toBeVisible();
       await expect(row(page, 'staged', 'src/n1.txt')).toBeVisible();
@@ -233,14 +233,14 @@ test.describe('묶음 F — 폴더 단위 스테이징', () => {
       await waitForInit(page);
       await openGit(page, repo);
       await setView(page, 'tree');
-      await expect(count(page, 'working')).toHaveText('(2000)', { timeout: 30000 });
+      await expect(count(page, 'working')).toHaveText('2000', { timeout: 30000 });
       // 그려진 것은 한 덩어리뿐이다 (FR-GIT-42).
       const drawn = await group(page, 'working').locator('.git-file').count();
       expect(drawn, '목록이 잘리지 않아 이 시험이 뜻을 잃는다').toBeLessThan(2000);
 
       await dirAct(page, 'working', 'src', 'stage');
-      await expect(count(page, 'working')).toHaveText('(0)', { timeout: 60000 });
-      await expect(count(page, 'staged')).toHaveText('(2000)');
+      await expect(count(page, 'working')).toHaveText('0', { timeout: 60000 });
+      await expect(count(page, 'staged')).toHaveText('2000');
     });
 
   test('F4 (V-WBR-83 / FR-CMG-9·10): 한 폴더 행이 두 출신을 함께 담고, staged 트리는 따로 선다',
@@ -248,8 +248,8 @@ test.describe('묶음 F — 폴더 단위 스테이징', () => {
       await waitForInit(page);
       await openGit(page, copyTree('f4'));
       await setView(page, 'tree');
-      await expect(count(page, 'working')).toHaveText('(4)', { timeout: 10000 });
-      await expect(count(page, 'staged')).toHaveText('(1)');
+      await expect(count(page, 'working')).toHaveText('4', { timeout: 10000 });
+      await expect(count(page, 'staged')).toHaveText('1');
 
       // FR-CMG-3: 한 폴더 아래에 수정과 새 파일이 상태 문자로 갈려 함께 있다.
       await expect(row(page, 'working', 'src/a.txt').locator('.git-file-st')).toHaveText('M');
@@ -263,8 +263,8 @@ test.describe('묶음 F — 폴더 단위 스테이징', () => {
 
       // FR-WBR-82: 트리는 그룹마다 따로 선다 — staged 의 `lib` 은 건드리지 않는다.
       await dirAct(page, 'working', 'src', 'stage');
-      await expect(count(page, 'working')).toHaveText('(0)', { timeout: 5000 });
-      await expect(count(page, 'staged')).toHaveText('(5)');
+      await expect(count(page, 'working')).toHaveText('0', { timeout: 5000 });
+      await expect(count(page, 'staged')).toHaveText('5');
     });
 
   /**
@@ -282,7 +282,7 @@ test.describe('묶음 F — 폴더 단위 스테이징', () => {
       const repo = copyTree('f6');
       await openGit(page, repo);
       await setView(page, 'tree');
-      await expect(count(page, 'working')).toHaveText('(4)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('4', { timeout: 10000 });
 
       await dirAct(page, 'working', 'src', 'discard');
       await expect(box(page)).toBeVisible({ timeout: 10000 });
@@ -294,14 +294,14 @@ test.describe('묶음 F — 폴더 단위 스테이징', () => {
       await box(page).locator('.gc-go').click();
       await expect(box(page)).toHaveCount(0, { timeout: 10000 });
 
-      await expect(count(page, 'working')).toHaveText('(0)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('0', { timeout: 10000 });
       // 되돌림과 삭제가 둘 다 일어났다 (FR-CMG-8).
       expect(fs.readFileSync(j(repo, 'src', 'a.txt'), 'utf8')).toBe('A\n');
       expect(fs.readFileSync(j(repo, 'src', 'b.txt'), 'utf8')).toBe('B\n');
       expect(fs.existsSync(j(repo, 'src', 'n1.txt'))).toBeFalsy();
       expect(fs.existsSync(j(repo, 'src', 'n2.txt'))).toBeFalsy();
       // staged 분은 그대로다 — discard 는 index 를 건드리지 않는다.
-      await expect(count(page, 'staged')).toHaveText('(1)');
+      await expect(count(page, 'staged')).toHaveText('1');
     });
 
   test('F8 (V-DBA-6 / FR-DBA-4): 폐기 확인을 취소하면 아무것도 바뀌지 않는다',
@@ -310,14 +310,14 @@ test.describe('묶음 F — 폴더 단위 스테이징', () => {
       const repo = copyTree('f8');
       await openGit(page, repo);
       await setView(page, 'tree');
-      await expect(count(page, 'working')).toHaveText('(4)', { timeout: 10000 });
+      await expect(count(page, 'working')).toHaveText('4', { timeout: 10000 });
 
       await dirAct(page, 'working', 'src', 'discard');
       await expect(box(page)).toBeVisible({ timeout: 10000 });
       await box(page).locator('.gc-cancel').click();
       await expect(box(page)).toHaveCount(0, { timeout: 10000 });
 
-      await expect(count(page, 'working')).toHaveText('(4)');
+      await expect(count(page, 'working')).toHaveText('4');
       expect(fs.readFileSync(j(repo, 'src', 'a.txt'), 'utf8')).toBe('A\na2\n');
       expect(fs.existsSync(j(repo, 'src', 'n1.txt'))).toBeTruthy();
     });

@@ -243,15 +243,27 @@
 - **FR-SAF-21** 잘렸을 때 `Total` 이 **틀린 수를 확정적으로 말하지 않는다** —
   "최소 N개" 임이 드러나야 한다.
 
-  > **부분 완료 (2026-09-20).** 서버는 끝났다 — `Status.OutputTruncated` 가
-  > 사실을 싣고, `Total` 이 하한임을 그 필드의 주석이 못박는다. **화면은
-  > 남았다**: git 배지는 여전히 `Total` 을 정확한 수처럼 그린다.
+  > **완료 (2026-09-20).** 서버와 화면이 모두 닫혔다.
   >
-  > 남긴 이유는 자리가 다르기 때문이다. 프론트의 `gitGroupTruncated` 는
-  > `truncated` 맵을 **키별로 합산**하므로 `OutputTruncated` 는 그 경로에 들지
-  > 않고, 새 표시는 `.ui-badge`·빈 상태 어휘와 함께 정해야 한다
-  > (`AUDIT-uiux.md` §1.4 — 지금 개수 표기가 네 가지다). **묶음 B4 에서
-  > 처리한다.** 그때까지 화면은 잘림을 말하지 않는다 — 이 문장이 그 빚의 기록이다.
+  > - **서버** — `Status.OutputTruncated` 가 사실을 싣고, `Total` 이 하한임을 그
+  >   필드의 주석이 못박는다
+  > - **화면 (묶음 B4, `WORDING_COLOR_SRS` FR-WRD-81~83)** — 배지 payload
+  >   (`gitBadge`, `handlers_git.go`)가 잘렸을 때만 `outputTruncated` 를 싣고,
+  >   사이드바 배지가 `N+` 로 그리며 툴팁이 사유를 말한다
+  >
+  >   - 이전 동작: `web/` 전체에서 `outputTruncated` 를 읽는 자리가 **0** 이었고
+  >     배지는 하한을 정확한 수처럼 그렸다
+  >   - 새 동작: `3+` · 툴팁 *"변경이 너무 많아 목록이 잘렸습니다 — 이 수는
+  >     최소값입니다"*
+  >   - 이유: 틀린 수를 확정적으로 말하는 것이 모르는 것보다 나쁘다
+  >
+  > `+` 는 새 기호가 아니다 — 잘린 그룹 머리글(FR-GDT-24)과 편집기 검색이 이미
+  > 같은 표기를 쓴다. `Truncated`(그룹별 개수)와 `OutputTruncated`(출력 자체의
+  > 잘림)는 **섞지 않았다**: 프론트의 `gitGroupTruncated` 는 여전히 `truncated`
+  > 맵만 키별로 합산한다.
+  >
+  > 검증: `TestGitRepos_BadgeSaysTruncated`·`TestGitRepos_BadgeSilentWhenNotTruncated`
+  > (payload) · `git-sidebar.spec.ts` TC-WRD-21·22 (화면).
 
 ### 3.8 묶음 V — 게이트
 

@@ -741,3 +741,44 @@ test.describe('UI 개정 — GIT 섹션 표식 (FR-GIT-192~194)', () => {
   });
 });
 
+/**
+ * TC-WRD-21·22 — 배지가 **하한임을 말한다**
+ * (WORDING_COLOR_SRS FR-WRD-81~83 · SAFETY_CORRECTNESS_SRS FR-SAF-21).
+ *
+ * git 의 출력이 1MiB 상한에서 잘리는 저장소를 디스크로 만들 수 없으므로 응답을
+ * 세운다 — `editor-explorer.spec.ts` 가 같은 이유로 쓰는 수법이다. 서버가 그
+ * 열쇠를 싣는다는 사실은 Go 검사가 따로 지킨다
+ * (`TestGitRepos_BadgeSaysTruncated`).
+ */
+test.describe('배지 — 잘렸으면 하한이라고 말한다', () => {
+  const badge = (page: Page) => page.locator('#repo-entries .ed-entry .sbl-badge').first();
+
+  /** `/api/git/repos` 의 배지에 `outputTruncated` 를 얹는다. */
+  async function truncateBadges(page: Page, on: boolean) {
+    await page.route('**/api/git/repos*', async (route) => {
+      const res = await route.fetch();
+      const body = await res.json();
+      for (const e of body.pinned || []) {
+        if (e.badge) { e.badge.total = 3; if (on) e.badge.outputTruncated = true }
+      }
+      await route.fulfill({ response: res, json: body });
+    });
+  }
+
+  test('TC-WRD-21: 잘렸으면 `+` 가 붙고 툴팁이 사유를 말한다', async ({ page, request }) => {
+    await truncateBadges(page, true);
+    await pin(request, makeRepo('dm-repo-trunc-'));
+    await waitForInit(page);
+    await openGitTab(page);
+    await expect(badge(page)).toHaveText('3+', { timeout: 15000 });
+    await expect(badge(page)).toHaveAttribute('title', /최소값/);
+  });
+
+  test('TC-WRD-22: 잘리지 않았으면 표기가 그대로다', async ({ page, request }) => {
+    await truncateBadges(page, false);
+    await pin(request, makeRepo('dm-repo-plain-'));
+    await waitForInit(page);
+    await openGitTab(page);
+    await expect(badge(page)).toHaveText('3', { timeout: 15000 });
+  });
+});

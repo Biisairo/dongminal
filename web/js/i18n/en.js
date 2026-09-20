@@ -389,6 +389,7 @@ I18N.register('en', {
   'git.badge_conflicts': '{n} conflicts',
   'git.badge_no_upstream': 'no upstream',
   'git.badge_stale': 'Stale (last observed: {at})',
+  'git.badge_truncated': 'The list was truncated — this count is a lower bound',
   'git.blame_empty': 'Nothing to blame',
   'git.blame_fail': 'Could not read blame',
   'git.blame_loading': 'Reading blame…',
