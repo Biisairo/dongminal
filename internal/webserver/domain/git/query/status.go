@@ -62,6 +62,26 @@ type Status struct {
 	//   이유:     조용히 자르면 사용자는 파일이 없어진 것으로 읽는다 (FR-GDT-23).
 	//             `Total` 은 자르기 **전**의 수라 배지는 여전히 참이다
 	Truncated map[string]int `json:"truncated,omitempty"`
+	// OutputTruncated 는 **git 의 출력 자체가** 상한(`core.DefaultMaxOutput`,
+	// 1MiB)에서 잘렸다는 뜻이다 (SAFETY_CORRECTNESS_SRS FR-SAF-19·20·21).
+	//
+	// `Truncated` 와 **다른 종류의 사실**이라 섞지 않는다. 그쪽은 "이 그룹이 몇
+	// 개였는가" 이고 프론트가 키별로 **합을 낸다**(`gitGroupTruncated`) — 거기에
+	// 개수가 아닌 값을 넣으면 그 합이 깨진다.
+	//
+	//   이전 동작: 잘림을 보지 않고 곧장 파싱했다. 조회 아홉 중 여덟은 보는데
+	//             `StatusOf` 만 안 봤다. 잘림은 NUL 경계를 가리지 않으므로
+	//             마지막 레코드가 중간에서 끊기면 파싱이 실패해 **status 가
+	//             영구히 실패**하고, 우연히 경계에 맞으면 **조용히 짧은 목록**이
+	//             됐다
+	//   새  동작: 온전한 레코드까지만 파싱하고 이 표식을 세운다
+	//   이유:     status 는 실패로 끝낼 수 없는 표면이다 (D-SAF-2). 배지·관측이
+	//             여기 딛고 `StashPush`·`CleanUntracked`·`Rebase`·`PushSpec` 이
+	//             전부 이 함수를 지나므로, 오류로 끝내면 그 저장소에서 여섯이
+	//             함께 막힌다
+	//
+	// **이것이 서면 `Total` 은 하한이지 정확한 수가 아니다** (FR-SAF-21).
+	OutputTruncated bool `json:"outputTruncated,omitempty"`
 	// Operation 은 충돌로 멈춘 중간 상태다 (FR-GIT-251). porcelain 은 이것을 주지
 	// 않으므로 gitdir 의 표식에서 파생하며, 관측을 만드는 자리(store.observe)가
 	// 채운다 — 여기서 채우면 status 마다 rev-parse 가 한 번씩 더 돈다.
@@ -308,10 +328,30 @@ func StatusOf(s *core.Service, ctx context.Context, repo string) (Status, error)
 	if err != nil {
 		return Status{}, err
 	}
-	st, err := ParseStatusV2(out.Stdout)
+	// FR-SAF-19·20: 잘렸으면 **온전한 레코드까지만** 넘긴다. 상한은 NUL 경계를
+	// 가리지 않으므로 마지막 토막은 레코드가 아니다 — 그대로 파서에 주면
+	// "필드가 N개다" 로 실패하고, 이 표면은 실패로 끝낼 수 없다 (D-SAF-2).
+	raw := out.Stdout
+	if out.StdoutTruncated {
+		raw = dropPartialRecord(raw)
+	}
+	st, err := ParseStatusV2(raw)
 	if err != nil {
 		return Status{}, err
 	}
 	st.Repo = repo
+	st.OutputTruncated = out.StdoutTruncated
 	return st, nil
+}
+
+// dropPartialRecord 는 마지막 NUL 뒤에 남은 토막을 버린다.
+//
+// NUL 이 하나도 없으면 온전한 레코드가 하나도 없다는 뜻이므로 전부 버린다 —
+// 머리글(`# branch.head …`)조차 끝나지 않았다.
+func dropPartialRecord(s string) string {
+	i := strings.LastIndexByte(s, 0)
+	if i < 0 {
+		return ""
+	}
+	return s[:i+1]
 }
