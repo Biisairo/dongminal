@@ -631,4 +631,51 @@ test.describe('FR-GIT-276 — Blame (Diff 탭의 모드)', () => {
     await expect(diff(page).locator('.git-blame-note')).toBeVisible({ timeout: 20000 });
     await expect(diff(page).locator('.git-blame-row')).toHaveCount(0);
   });
+
+  /**
+   * PERFORMANCE_HARDENING_SRS FR-PRF-18·19 · TC-PRF-8 (`refactor/README.md` §4.1 항목 4).
+   *
+   * 행마다 `<div>` 1 + `<span>` 5 = **6 노드**였고 상한이 없었다 — 5,000줄 파일이면
+   * 30,000 노드다. 재는 것은 노드 수이고 그것은 **셀 수 있는 수**다 (FR-PRF-3).
+   *
+   * 자른 것을 **말하지 않으면** 사용자는 파일이 그만큼인 줄 안다. 그래서 잘린 사실과
+   * 전체 보기가 함께 선다 (FR-DRV-29 와 같은 규약).
+   */
+  test('BL3 (FR-PRF-18·19 · TC-PRF-8): 큰 파일의 blame 은 상한까지만 그리고 그 사실을 말한다', async ({ page }) => {
+    const repo = copyFx('basic', 'bl3');
+    const git = (...a: string[]) => execFileSync('git', ['-C', repo, ...a], { stdio: 'ignore' });
+    const N = 2500;
+    writeFileSync(join(repo, 'big.txt'), Array.from({ length: N }, (_, i) => 'line ' + (i + 1)).join('\n') + '\n');
+    git('add', '-A');
+    git('commit', '-qm', 'BIGFILE');
+    // 워킹 그룹에 행이 서야 파일 메뉴로 blame 을 연다 — 한 줄 더 얹는다.
+    writeFileSync(join(repo, 'big.txt'), Array.from({ length: N + 1 }, (_, i) => 'line ' + (i + 1)).join('\n') + '\n');
+
+    await waitForInit(page);
+    await openGit(page, repo);
+    const r = row(page, 'working', 'big.txt');
+    await expect(r).toBeVisible({ timeout: 20000 });
+    await r.click({ button: 'right' });
+    await expect(menu(page)).toBeVisible();
+    await item(page, 'blame').click();
+
+    await expect(blame(page)).toBeVisible({ timeout: 25000 });
+    /**
+     * **상한 값을 여기 적지 않는다** — 적으면 그것이 두 번째 사본이 된다.
+     * 안내줄이 사용자에게 하는 약속("전체 %r줄 중 %n줄")을 읽어, 화면의 행 수가
+     * 그 약속과 같은지 본다. 약속과 화면이 갈리는 것이 이 검사가 잡는 결함이다.
+     */
+    const note = blame(page).locator('.git-blame-note');
+    await expect(note).toContainText(String(N + 1), { timeout: 25000 });
+    const nums = ((await note.textContent()) || '').match(/\d+/g)!.map(Number);
+    expect(nums[0]).toBe(N + 1);
+    const cap = nums[1];
+    expect(cap).toBeGreaterThan(0);
+    expect(cap).toBeLessThan(N + 1);
+    await expect(blame(page).locator('.git-blame-row')).toHaveCount(cap, { timeout: 25000 });
+
+    // 전체 보기는 상한을 푼다 — 자르는 것이 사실을 숨기는 것이 되지 않는다.
+    await blame(page).locator('.git-blame-all').click();
+    await expect(blame(page).locator('.git-blame-row')).toHaveCount(N + 1, { timeout: 25000 });
+  });
 });

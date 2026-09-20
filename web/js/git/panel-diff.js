@@ -255,6 +255,7 @@ Object.assign(GitPanel.prototype, {
     el.querySelector('.git-diff-body').hidden=!!t;
     if(!t){
       this._blameKey=null; this._blameData=null; this._blameErr=null;
+      this._blameAll=false;
       box.dataset.sig=''; return;
     }
     // 대상이 그대로면 다시 부르지 않는다 — 폴링마다 재요청하면 스크롤이 매초
@@ -262,6 +263,9 @@ Object.assign(GitPanel.prototype, {
     const key=[this.repo||'',t.rev,t.path].join('\u0000');
     if(this._blameKey!==key){
       this._blameKey=key; this._blameData=null; this._blameErr=null;
+      // FR-PRF-18: "전체 보기" 는 **그 파일에 대한 선택**이다 — 다른 파일로 옮기면
+      // 다시 상한이 선다. 남겨 두면 파일을 옮겨 다니는 동안 상한이 조용히 사라진다.
+      this._blameAll=false;
       this._loadBlame(t,key);
     }
     this._drawBlame(box);
@@ -287,20 +291,47 @@ Object.assign(GitPanel.prototype, {
     this._paint();
   },
 
+  /**
+   * FR-PRF-18: 행 수에 **상한**이 있다.
+   *
+   *   이전 동작: 줄 수만큼 전부 그렸다 — 행마다 6노드라 5,000줄이면 30,000노드
+   *   새  동작: `GIT_BLAME_MAX_ROWS` 까지만 그리고, 잘랐다는 사실과 **전체 보기**를
+   *             안내줄이 말한다
+   *   이유:     `refactor/README.md` §4.1 항목 4. 같은 저장소의 `doc-render` 가
+   *             큰 표를 같은 방법으로 이미 다룬다 (`DOC_RENDER_TABLE_MAX_ROWS`)
+   *
+   * 자르는 것은 **사실을 숨기는 것이 아니다** — 숨기면 사용자는 파일이 그만큼인
+   * 줄 안다. 그래서 전체 줄 수와 보인 줄 수를 둘 다 적는다 (FR-DRV-29 와 같은 규약).
+   */
   _drawBlame(box){
     const d=this._blameData;
-    // 판정 근거는 이 렌더러가 읽는 값 전부다 (FR-RPT-2).
-    const sig=[this._blameKey,this._blameErr||'',d?d.lines.length:-1].join('\u0000');
+    const all=d?d.lines.length:0;
+    const cut=!this._blameAll&&all>GIT_BLAME_MAX_ROWS;
+    const shown=cut?GIT_BLAME_MAX_ROWS:all;
+    // 판정 근거는 이 렌더러가 읽는 값 전부다 (FR-RPT-2) — 보인 줄 수가 여기 있어야
+    // "전체 보기" 가 실제로 다시 그린다.
+    const sig=[this._blameKey,this._blameErr||'',d?all:-1,shown].join('\u0000');
     if(box.dataset.sig===sig) return;
     box.dataset.sig=sig;
     const note=box.querySelector('.git-blame-note');
     const rows=box.querySelector('.git-blame-rows');
-    const msg=this._blameErr||(!d?GIT_BLAME_LOADING:(d.lines.length?'':GIT_BLAME_EMPTY));
-    note.textContent=msg; note.classList.toggle('vis',!!msg);
+    const msg=this._blameErr||(!d?GIT_BLAME_LOADING:(all?'':GIT_BLAME_EMPTY));
+    note.textContent=msg; note.classList.toggle('vis',!!msg||cut);
     rows.innerHTML='';
-    if(!d||!d.lines.length) return;
+    if(!d||!all) return;
+    if(cut){
+      note.textContent=GIT_BLAME_CUT.replace('%r',String(all)).replace('%n',String(shown));
+      const b=document.createElement('button');
+      b.type='button'; b.className='ui-btn ui-btn-sm git-blame-all';
+      b.textContent=GIT_BLAME_SHOW_ALL;
+      b.addEventListener('click',()=>{this._blameAll=true;this._paint()});
+      note.appendChild(b);
+    }
     const frag=document.createDocumentFragment();
-    for(const ln of d.lines) frag.appendChild(this._blameRow(ln,d.commits[ln.oid]||{}));
+    for(let i=0;i<shown;i++){
+      const ln=d.lines[i];
+      frag.appendChild(this._blameRow(ln,d.commits[ln.oid]||{}));
+    }
     rows.appendChild(frag);
   },
 

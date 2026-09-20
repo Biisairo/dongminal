@@ -174,6 +174,20 @@ const GIT_BLAME_FAIL=t('git.blame_fail');
 // 사람 이름 자리에 그대로 두면 작성자로 읽힌다.
 const GIT_BLAME_UNCOMMITTED=t('git.blame_uncommitted');
 const GIT_BLAME_EMPTY=t('git.blame_empty');
+/**
+ * 한 번에 그리는 blame 행의 상한 (PERFORMANCE_HARDENING_SRS FR-PRF-18).
+ *
+ * 행마다 `<div>` 1 + `<span>` 5 = **6 노드**이므로 5,000줄 파일이면 30,000 노드였다.
+ * 같은 저장소가 같은 문제를 같은 방법으로 이미 풀었다 —
+ * `DOC_RENDER_TABLE_MAX_ROWS`(2,000). **그 값을 따른다**: 둘이 다르면 "왜 여기만
+ * 다른가" 를 설명해야 하고, 설명할 근거가 없다.
+ *
+ * 가상 스크롤이 더 나은 답이지만 blame 의 스크롤은 Monaco 와 맞물려 있다 (D-PRF-4).
+ * 상한이 자주 걸리면 그것이 가상 스크롤을 여는 근거다.
+ */
+const GIT_BLAME_MAX_ROWS=2000;
+const GIT_BLAME_CUT=t('git.blame_cut');
+const GIT_BLAME_SHOW_ALL=t('git.blame_show_all');
 const GIT_IGNORE_FAIL=t('git.ignore_fail');
 const GIT_IGNORE_DUP=t('git.ignore_dup');
 const GIT_HEAD_OPEN_FAIL=t('git.head_open_fail');
