@@ -152,6 +152,7 @@
 | blame 이 한 번에 그리는 행 | **`GIT_BLAME_MAX_ROWS`(2,000) 이하** — 행마다 6노드다 | `e2e/git-diff.spec.ts` BL3 |
 | 만든 관측자를 잡지 않는 자리 | **0** (착수 시 9자리 중 1) | `scripts/check-observer.mjs` |
 | 레이아웃을 애니메이션하는 `@keyframes` | **0** (착수 시 13개 중 1) | `scripts/check-css-animation.mjs` |
+| 상태바 한 회차의 **직렬** 왕복 | **2** (`ping` → `stats` ∥ `git/jobs`) | `e2e/perf-statusbar.spec.ts` S1 |
 
 > 둘째 줄이 없으면 첫째 줄은 *"아무것도 안 그린다"* 로도 통과한다. 조용히 낡은
 > 화면은 느린 화면보다 나쁘다 (`PERFORMANCE_HARDENING_SRS` §7).

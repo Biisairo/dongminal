@@ -30,6 +30,21 @@ Object.assign(App.prototype, {
     // (SYSTEM_STATS_SRS FR-STAT-17). 규약은 `visiblePoll` 하나가 갖는다.
     this._statsPoll=visiblePoll(()=>statsInterval,()=>this._pollStats(),{immediate:true});
   },
+  /**
+   * FR-PRF-36~38 (`refactor/README.md` §4.1 항목 10).
+   *
+   *   이전 동작: 세 왕복이 **직렬**이었다 — ping → stats → git/jobs
+   *   새  동작: ping 은 홀로 앞에 남고 **뒤의 둘이 겹친다** (회차당 3r → 2r)
+   *   이유:     ②③이 서로를 기다릴 이유가 없다. 원격 접속(`start.sh --expose`)에서
+   *             RTT 80ms 면 회차가 240ms 이고, 주기를 하한(1초)으로 내린
+   *             사용자에게는 주기의 **24%** 가 대기다
+   *
+   * **①은 겹치지 않는다.** 그 왕복은 지연 측정 자체가 목적이라(아래 `t0`)
+   * 다른 요청과 같은 줄에 서면 측정이 오염된다. 앞에 두는 것만으로 충분하다.
+   *
+   * 회차 겹침 가드를 더하지 않는다 — `TimerHub` 의 `overlap:'drop'` 기본값이
+   * 이미 막는다 (`timer-hub.js:148`).
+   */
   async _pollStats(){
     // Measure real network latency with lightweight ping
     const t0=performance.now();
@@ -37,9 +52,8 @@ Object.assign(App.prototype, {
     // 망 실패는 status 0 이다 — 그때 지연은 숫자가 아니라 "없음" 이다.
     this._latency=ping.status?Math.round(performance.now()-t0):null;
     // 통계는 따로 받는다 — ping 을 순수한 지연 측정으로 남겨 두려는 것이다.
-    const st=await apiGet('/api/stats');
+    const [st]=await Promise.all([apiGet('/api/stats'),this._pollGitJobs()]);
     if(st.ok&&st.data) this._stats=st.data;
-    await this._pollGitJobs();
     this.updateStatusBar();
   },
   /**
