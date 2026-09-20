@@ -97,10 +97,10 @@
 .git-head-remote{display:flex;gap:4px;flex-shrink:0}
 /* 머리·목록 줄의 버튼 외형은 키트다 (DESIGN_TOKENS_SRS §7.5) — 아이콘 버튼은
    `.ui-btn-icon.ui-btn-lg`(30px = 옛 `--git-btn-h`) 이고 아이콘은 키트 비율로
-   파생한다 (FR-GLY-5). 여기 남는 것은 **원격 한 쌍을 붙여 한 벌로 보이게 하는
-   모서리**뿐이다 — 변형은 `▾` 다이얼로그에서만 온다 (FR-GIT-99). */
-.git-head-remote>.ui-btn:nth-child(odd){border-radius:var(--ui-radius) 0 0 var(--ui-radius)}
-.git-remote-more{padding:0 4px;border-left:0;border-radius:0 var(--ui-radius) var(--ui-radius) 0}
+   파생한다 (FR-GLY-5). 붙은 쌍의 모서리는 **킷의 `.ui-split`** 이 준다
+   (KIT_COMPONENTS_SRS FR-CMP-70) — 종전에는 이 파일이 `nth-child(odd)` 로 자리를
+   적었고, 부모의 `gap:4px` 이 쌍 **안에도** 틈을 줘서 모서리만 붙은 척했다.
+   변형은 `▾` 다이얼로그에서만 온다 (FR-GIT-99). */
 .git-remote-more>.ui-icon{width:12px;height:12px}
 
 /* ── 좁은 폭의 머리 (FR-GHM-10·11) ── */
@@ -292,10 +292,8 @@ body.mobile .git-head-remote{gap:2px}
 /* FR-GIT-85: 서명이 활성이면 그 사실을 보인다 */
 .git-commit-gpg{display:none;font-size:var(--fs-sm);color:var(--accent-text);white-space:nowrap;flex-shrink:0}
 .git-commit-gpg.vis{display:block}
-.git-commit-go{position:relative;display:flex;gap:0;flex-shrink:0}
-/* 커밋 한 쌍의 외형은 `.ui-btn-primary` — 붙여 한 벌로 보이게 하는 모서리만 여기 것이다 */
-.git-commit-go>.ui-btn:first-child{border-top-right-radius:0;border-bottom-right-radius:0}
-.git-commit-more{padding:0 6px;border-left:none;border-top-left-radius:0;border-bottom-left-radius:0}
+/* 메뉴가 이 상자를 기준으로 뜬다 — 붙은 모서리는 `.ui-split` 이 준다 (FR-CMP-70). */
+.git-commit-go{position:relative}
 .git-commit-more.active{background:var(--accent-active);color:var(--text-bright)}
 /* FR-GIT-79: 조합 명령 20개를 대체하는 옵션 3개. 기억하지 않으므로 항상 꺼진 채 열린다 */
 /* FR-GIT-213 으로 Commit 이 왼쪽에 서므로 메뉴도 **오른쪽으로 펼친다**.

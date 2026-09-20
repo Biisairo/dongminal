@@ -193,6 +193,11 @@
   display:flex;align-items:center;min-height:var(--git-row-min);
   padding:4px 8px 2px;color:var(--text-hint);font-size:var(--fs-sm)}
 .git-ref-short{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* FR-CMP-43 / FR-A11Y-21: 지금 체크아웃된 브랜치. **색 하나로만 말하지 않는다**
+   — 글자색만이면 링크로 읽히고(실제로 링크가 아니다) 색각·고대비에서 사라진다.
+   왼쪽 레일이 모양으로 함께 말한다. `.sel`(이 ref 로 거르는 중)과는 다른 상태이고
+   둘이 겹칠 수 있으므로 표시 수단도 달라야 한다. */
+.git-ref.head{border-left:2px solid var(--accent)}
 .git-ref.head .git-ref-short{color:var(--accent-text)}
 .git-ref-ab{flex-shrink:0;color:var(--text-muted);font-size:var(--fs-sm)}
 /* upstream 이 사라진 것은 ahead/behind 0 과 다르다 — 색과 글자로 함께 알린다 */

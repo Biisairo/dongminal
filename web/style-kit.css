@@ -124,6 +124,48 @@
   background:var(--accent);color:var(--bg);font-size:var(--fs-xs);line-height:15px;text-align:center;
 }
 
+/* ── 세그먼트 (KIT_COMPONENTS_SRS FR-CMP-40~41) ─────────────────────────
+   서로 배타인 선택지가 **한 덩이로 붙고** 고른 것이 채워진다.
+
+   착수 시 "지금 선택된 것" 표시가 셋이었다 — 탭의 밑줄 · 보기 모드 두 버튼의
+   강조 테두리+배경 · ref 목록의 글자색. 탭은 킷이 이미 갖고 있으므로 여기서
+   세우는 것은 **버튼 쪽**이다.
+
+   **선택은 등급이 아니라 상태다** (FR-CMP-41). 종전에는 `_paintMode` 가 켜진
+   쪽에 `ui-btn-primary` 를 붙였는데, 등급은 "이 버튼이 무슨 무게인가" 이고
+   선택은 "지금 어느 쪽인가" 다 — 섞으면 비활성 세그먼트를 표현할 수 없다. */
+.ui-segment{display:inline-flex}
+.ui-segment>.ui-btn{border-radius:0;margin-left:-1px}
+.ui-segment>.ui-btn:first-child{border-radius:var(--ui-radius) 0 0 var(--ui-radius);margin-left:0}
+.ui-segment>.ui-btn:last-child{border-radius:0 var(--ui-radius) var(--ui-radius) 0}
+.ui-segment>.ui-btn.active{
+  /* 겹친 테두리 위로 올라와야 고른 쪽의 테두리가 끊기지 않는다. 한 겹 위는
+     `--z-raised` 다 — 층을 새로 만들지 않는다 (FR-TOK-31). */
+  position:relative;z-index:var(--z-raised);
+  background:var(--accent-subtle);color:var(--accent-text);border-color:var(--accent);
+}
+
+/* ── 분할 버튼 (KIT_COMPONENTS_SRS FR-CMP-70~72) ────────────────────────
+   주동작과 더보기(`▾`)가 **한 테두리를 나눈다**.
+
+   `DESIGN_TOKENS_SRS` §7.5 가 이 규칙을 *"이름이 아니라 자리다"* 로 남겼고,
+   그래서 두 벌이 되었다 — 원격 줄과 커밋 줄이 각자 모서리를 적었고 여백도
+   달랐다(`padding:0 4px` vs `0 6px`).
+
+   **틈이 0 인 것이 요점이다.** 착수 시 `.git-head-remote{gap:4px}` 이 쌍
+   **안에도** 틈을 줘서, 모서리는 붙은 척하는데 4px 벌어져 있었다 — 그래서
+   더보기가 독립 버튼으로 보였다 (`AUDIT-uiux.md` §1.5). */
+.ui-split{display:inline-flex;gap:0;flex-shrink:0}
+.ui-split>.ui-btn:first-child{border-top-right-radius:0;border-bottom-right-radius:0}
+.ui-split>.ui-btn:last-child{
+  border-top-left-radius:0;border-bottom-left-radius:0;
+  /* 두 테두리가 겹치면 가운데가 2px 이 된다 — 하나를 걷고 1px 구분선만 남긴다. */
+  border-left:0;padding:0 6px;
+}
+/* FR-CMP-71: 더보기는 **주버튼의 등급을 따라간다.** 착수 시 비활성 `Commit`
+   옆의 화살표가 강조색으로 채워져 부차 동작이 주 동작보다 시끄러웠다. */
+.ui-split>.ui-btn:first-child:disabled+.ui-btn{opacity:.4;cursor:default}
+
 /* ── 빈 상태 (KIT_COMPONENTS_SRS FR-CMP-60~64) ──────────────────────────
    보일 것이 없을 때 그 자리에 서는 안내. 착수 시 **열셋**이었고(감사는 화면에
    보이던 다섯을 셌다 — §2.1 정정 ①) 정렬·등급·정보량이 전부 달랐다: 여백

@@ -219,8 +219,12 @@ Object.assign(GitPanel.prototype, {
       '<div class="git-changes-body">'+
         '<div class="git-files ui-scroll-sm">'+
           '<div class="git-files-bar">'+
-            '<button class="ui-btn ui-btn-icon ui-btn-lg git-files-mode" data-mode="tree"></button>'+
-            '<button class="ui-btn ui-btn-icon ui-btn-lg git-files-mode" data-mode="flat"></button>'+
+            // FR-CMP-40: 배타 선택지 둘이므로 세그먼트다 — 붙어 한 덩이로 보이고
+            // 고른 쪽이 채워진다.
+            '<span class="ui-segment">'+
+              '<button class="ui-btn ui-btn-icon ui-btn-lg git-files-mode" data-mode="tree"></button>'+
+              '<button class="ui-btn ui-btn-icon ui-btn-lg git-files-mode" data-mode="flat"></button>'+
+            '</span>'+
             '<span class="git-files-spacer"></span>'+
           '</div>'+
         '</div>'+
@@ -808,9 +812,11 @@ Object.assign(GitPanel.prototype, {
     const tree=this._treeMode();
     for(const b of el.querySelectorAll('.git-files-mode')){
       const on=(b.dataset.mode==='tree')===tree;
+      // FR-CMP-41: **선택은 등급이 아니라 상태다.** 종전에는 켜진 쪽에
+      // `ui-btn-primary` 를 붙였는데, 등급은 "이 버튼이 무슨 무게인가" 이고
+      // 선택은 "지금 어느 쪽인가" 다 — 섞으면 비활성 세그먼트를 표현할 수 없다.
+      // 외형은 `.ui-segment>.ui-btn.active` 가 준다.
       b.classList.toggle('active',on);
-      // 켜진 쪽의 외형은 키트 등급이다 (DESIGN_TOKENS_SRS §7.5)
-      b.classList.toggle('ui-btn-primary',on);
     }
     el.querySelector('.git-files').classList.toggle('tree',tree);
   },
@@ -839,8 +845,12 @@ Object.assign(GitPanel, {
       // 원격 버튼은 기본 동작만 하고 변형은 `▾` 다이얼로그에서 온다
       // (FR-GIT-98·99). 동작은 GitRemote 가 붙인다.
       (remote?'<span class="git-head-remote">'+GIT_REMOTE_KINDS.map(k=>
-        '<button class="ui-btn ui-btn-icon ui-btn-lg git-remote-btn" data-remote="'+k+'" disabled></button>'+
-        '<button class="ui-btn ui-btn-lg git-remote-more" data-remote="'+k+'" disabled></button>'
+        // FR-CMP-70: 주동작과 더보기가 한 테두리를 나눈다. 종전에는 부모의
+        // `gap:4px` 이 **쌍 안에도** 틈을 줘서 모서리만 붙은 척했다.
+        '<span class="ui-split">'+
+          '<button class="ui-btn ui-btn-icon ui-btn-lg git-remote-btn" data-remote="'+k+'" disabled></button>'+
+          '<button class="ui-btn ui-btn-lg git-remote-more" data-remote="'+k+'" disabled></button>'+
+        '</span>'
       ).join('')+'</span>':'')+
       '<span class="git-head-spacer"></span>'+
     '</div>';

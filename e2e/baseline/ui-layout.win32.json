@@ -1277,15 +1277,6 @@
   "overflowY": "visible",
   "position": "static"
  },
- "editor|span.slider": {
-  "display": "block",
-  "flexDirection": "row",
-  "inset": "0px 0px 0px 0px",
-  "minHeight": "0px",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "absolute"
- },
  "editor|span.slot-ctl-label": {
   "display": "block",
   "flexDirection": "row",
@@ -1397,14 +1388,14 @@
   "position": "relative",
   "scrollsY": false
  },
- "git:branches|button.active.git-files-mode.ui-btn.ui-btn-icon.ui-btn-lg.ui-btn-primary": {
+ "git:branches|button.active.git-files-mode.ui-btn.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "flexDirection": "row",
-  "inset": "auto auto auto auto",
+  "inset": "0px 0px 0px 0px",
   "minHeight": "30px",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static"
+  "position": "relative"
  },
  "git:branches|button.active.mtab.ui-tab": {
   "display": "flex",
@@ -2300,7 +2291,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:branches|div.git-commit-go": {
+ "git:branches|div.git-commit-go.ui-split": {
   "display": "flex",
   "flexDirection": "row",
   "inset": "0px 0px 0px 0px",
@@ -3650,15 +3641,6 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:branches|span.slider": {
-  "display": "block",
-  "flexDirection": "row",
-  "inset": "0px 0px 0px 0px",
-  "minHeight": "0px",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "absolute"
- },
  "git:branches|span.slot-ctl-label": {
   "display": "block",
   "flexDirection": "row",
@@ -3794,14 +3776,14 @@
   "position": "relative",
   "scrollsY": false
  },
- "git:changes|button.active.git-files-mode.ui-btn.ui-btn-icon.ui-btn-lg.ui-btn-primary": {
+ "git:changes|button.active.git-files-mode.ui-btn.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "flexDirection": "row",
-  "inset": "auto auto auto auto",
+  "inset": "0px 0px 0px 0px",
   "minHeight": "30px",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static"
+  "position": "relative"
  },
  "git:changes|button.active.mtab.ui-tab": {
   "display": "flex",
@@ -4553,7 +4535,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:changes|div.git-commit-go": {
+ "git:changes|div.git-commit-go.ui-split": {
   "display": "flex",
   "flexDirection": "row",
   "inset": "0px 0px 0px 0px",
@@ -5762,15 +5744,6 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:changes|span.slider": {
-  "display": "block",
-  "flexDirection": "row",
-  "inset": "0px 0px 0px 0px",
-  "minHeight": "0px",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "absolute"
- },
  "git:changes|span.slot-ctl-label": {
   "display": "block",
   "flexDirection": "row",
@@ -5906,14 +5879,14 @@
   "position": "relative",
   "scrollsY": false
  },
- "git:console|button.active.git-files-mode.ui-btn.ui-btn-icon.ui-btn-lg.ui-btn-primary": {
+ "git:console|button.active.git-files-mode.ui-btn.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "flexDirection": "row",
-  "inset": "auto auto auto auto",
+  "inset": "0px 0px 0px 0px",
   "minHeight": "30px",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static"
+  "position": "relative"
  },
  "git:console|button.active.mtab.ui-tab": {
   "display": "flex",
@@ -6647,7 +6620,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:console|div.git-commit-go": {
+ "git:console|div.git-commit-go.ui-split": {
   "display": "flex",
   "flexDirection": "row",
   "inset": "0px 0px 0px 0px",
@@ -7865,15 +7838,6 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:console|span.slider": {
-  "display": "block",
-  "flexDirection": "row",
-  "inset": "0px 0px 0px 0px",
-  "minHeight": "0px",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "absolute"
- },
  "git:console|span.slot-ctl-label": {
   "display": "block",
   "flexDirection": "row",
@@ -8009,14 +7973,14 @@
   "position": "relative",
   "scrollsY": false
  },
- "git:diff|button.active.git-files-mode.ui-btn.ui-btn-icon.ui-btn-lg.ui-btn-primary": {
+ "git:diff|button.active.git-files-mode.ui-btn.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "flexDirection": "row",
-  "inset": "auto auto auto auto",
+  "inset": "0px 0px 0px 0px",
   "minHeight": "30px",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static"
+  "position": "relative"
  },
  "git:diff|button.active.mtab.ui-tab": {
   "display": "flex",
@@ -8801,7 +8765,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:diff|div.git-commit-go": {
+ "git:diff|div.git-commit-go.ui-split": {
   "display": "flex",
   "flexDirection": "row",
   "inset": "0px 0px 0px 0px",
@@ -10085,15 +10049,6 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:diff|span.slider": {
-  "display": "block",
-  "flexDirection": "row",
-  "inset": "0px 0px 0px 0px",
-  "minHeight": "0px",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "absolute"
- },
  "git:diff|span.slot-ctl-label": {
   "display": "block",
   "flexDirection": "row",
@@ -10229,14 +10184,14 @@
   "position": "relative",
   "scrollsY": false
  },
- "git:history|button.active.git-files-mode.ui-btn.ui-btn-icon.ui-btn-lg.ui-btn-primary": {
+ "git:history|button.active.git-files-mode.ui-btn.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "flexDirection": "row",
-  "inset": "auto auto auto auto",
+  "inset": "0px 0px 0px 0px",
   "minHeight": "30px",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static"
+  "position": "relative"
  },
  "git:history|button.active.mtab.ui-tab": {
   "display": "flex",
@@ -10988,7 +10943,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:history|div.git-commit-go": {
+ "git:history|div.git-commit-go.ui-split": {
   "display": "flex",
   "flexDirection": "row",
   "inset": "0px 0px 0px 0px",
@@ -12506,15 +12461,6 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:history|span.slider": {
-  "display": "block",
-  "flexDirection": "row",
-  "inset": "0px 0px 0px 0px",
-  "minHeight": "0px",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "absolute"
- },
  "git:history|span.slot-ctl-label": {
   "display": "block",
   "flexDirection": "row",
@@ -12650,14 +12596,14 @@
   "position": "relative",
   "scrollsY": false
  },
- "git:stash|button.active.git-files-mode.ui-btn.ui-btn-icon.ui-btn-lg.ui-btn-primary": {
+ "git:stash|button.active.git-files-mode.ui-btn.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "flexDirection": "row",
-  "inset": "auto auto auto auto",
+  "inset": "0px 0px 0px 0px",
   "minHeight": "30px",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static"
+  "position": "relative"
  },
  "git:stash|button.active.mtab.ui-tab": {
   "display": "flex",
@@ -13400,7 +13346,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:stash|div.git-commit-go": {
+ "git:stash|div.git-commit-go.ui-split": {
   "display": "flex",
   "flexDirection": "row",
   "inset": "0px 0px 0px 0px",
@@ -14660,15 +14606,6 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:stash|span.slider": {
-  "display": "block",
-  "flexDirection": "row",
-  "inset": "0px 0px 0px 0px",
-  "minHeight": "0px",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "absolute"
- },
  "git:stash|span.slot-ctl-label": {
   "display": "block",
   "flexDirection": "row",
@@ -14804,14 +14741,14 @@
   "position": "relative",
   "scrollsY": false
  },
- "git:submodules|button.active.git-files-mode.ui-btn.ui-btn-icon.ui-btn-lg.ui-btn-primary": {
+ "git:submodules|button.active.git-files-mode.ui-btn.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "flexDirection": "row",
-  "inset": "auto auto auto auto",
+  "inset": "0px 0px 0px 0px",
   "minHeight": "30px",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static"
+  "position": "relative"
  },
  "git:submodules|button.active.mtab.ui-tab": {
   "display": "flex",
@@ -15563,7 +15500,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:submodules|div.git-commit-go": {
+ "git:submodules|div.git-commit-go.ui-split": {
   "display": "flex",
   "flexDirection": "row",
   "inset": "0px 0px 0px 0px",
@@ -16772,15 +16709,6 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:submodules|span.slider": {
-  "display": "block",
-  "flexDirection": "row",
-  "inset": "0px 0px 0px 0px",
-  "minHeight": "0px",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "absolute"
- },
  "git:submodules|span.slot-ctl-label": {
   "display": "block",
   "flexDirection": "row",
@@ -16916,14 +16844,14 @@
   "position": "relative",
   "scrollsY": false
  },
- "git:worktrees|button.active.git-files-mode.ui-btn.ui-btn-icon.ui-btn-lg.ui-btn-primary": {
+ "git:worktrees|button.active.git-files-mode.ui-btn.ui-btn-icon.ui-btn-lg": {
   "display": "flex",
   "flexDirection": "row",
-  "inset": "auto auto auto auto",
+  "inset": "0px 0px 0px 0px",
   "minHeight": "30px",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static"
+  "position": "relative"
  },
  "git:worktrees|button.active.mtab.ui-tab": {
   "display": "flex",
@@ -17675,7 +17603,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:worktrees|div.git-commit-go": {
+ "git:worktrees|div.git-commit-go.ui-split": {
   "display": "flex",
   "flexDirection": "row",
   "inset": "0px 0px 0px 0px",
@@ -18950,15 +18878,6 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:worktrees|span.slider": {
-  "display": "block",
-  "flexDirection": "row",
-  "inset": "0px 0px 0px 0px",
-  "minHeight": "0px",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "absolute"
- },
  "git:worktrees|span.slot-ctl-label": {
   "display": "block",
   "flexDirection": "row",
@@ -20191,15 +20110,6 @@
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static"
- },
- "terminal|span.slider": {
-  "display": "block",
-  "flexDirection": "row",
-  "inset": "0px 0px 0px 0px",
-  "minHeight": "0px",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "absolute"
  },
  "terminal|span.slot-ctl-label": {
   "display": "block",

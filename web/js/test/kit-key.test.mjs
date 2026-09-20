@@ -227,3 +227,40 @@ test('TC-CMP-12: 목록의 빈 줄 아홉이 공통 선언을 킷에서 받는�
   }
   assert.deepEqual(bad, [], `킷과 겹치는 선언이 남았다:\n  ${bad.join('\n  ')}`);
 });
+
+/**
+ * 세그먼트와 분할 버튼이 킷의 것인가
+ * (KIT_COMPONENTS_SRS TC-CMP-8·14 / FR-CMP-40~43 · 70~73).
+ */
+test('TC-CMP-8a: 킷이 .ui-segment 를 갖는다 (FR-CMP-40)', () => {
+  const kit = rules().filter((r) => r.file === 'web/style-kit.css');
+  assert.ok(kit.some((r) => /(^|,)\s*\.ui-segment\s*$/.test(r.sel)), '`.ui-segment` 가 없다');
+  const active = kit.find((r) => /\.ui-segment>\.ui-btn\.active/.test(r.sel.replace(/\s+/g, '')));
+  assert.ok(active, '세그먼트의 `.active` 규칙이 없다 — 선택은 등급이 아니라 상태다');
+});
+
+test('TC-CMP-14a: 킷이 .ui-split 을 갖고 쌍이 붙는다 (FR-CMP-70)', () => {
+  const kit = rules().filter((r) => r.file === 'web/style-kit.css');
+  const base = kit.find((r) => /(^|,)\s*\.ui-split\s*$/.test(r.sel));
+  assert.ok(base, '`.ui-split` 이 없다');
+  // **틈이 0 이어야 한 테두리로 보인다.** 착수 시 `.git-head-remote{gap:4px}` 이
+  // 쌍 안에도 틈을 줘서, 모서리는 붙은 척하는데 4px 벌어져 있었다.
+  assert.match(base.decls, /gap:0/, '분할 쌍에 틈이 남는다');
+});
+
+test('TC-CMP-14: 분할 쌍의 자리 규칙이 도메인에 남지 않는다 (FR-CMP-72)', () => {
+  // `DESIGN_TOKENS_SRS` §7.5 가 "이름이 아니라 자리다" 로 남긴 넷. 킷이 대신한다.
+  const bad = rules().filter((r) => r.file !== 'web/style-kit.css'
+    && /(git-head-remote|git-commit-go)\s*>/.test(r.sel)
+    && /border-radius|border-top-right-radius|border-bottom-right-radius/.test(r.decls));
+  assert.deepEqual(bad.map((r) => `${r.file}: ${r.sel}`), [],
+    '붙은 쌍의 모서리를 도메인이 아직 정한다');
+});
+
+test('TC-CMP-9: 현재 브랜치 표시가 색 하나로만 가지 않는다 (FR-CMP-43 / FR-A11Y-21)', () => {
+  const head = rules().find((r) => /\.git-ref\.head(?![\w-])/.test(r.sel.replace(/\s+/g, '')));
+  assert.ok(head, '`.git-ref.head` 규칙이 없다');
+  // 글자색만이면 **링크로 읽힌다** — 실제로 링크가 아니다. 모양이 함께 가야 한다.
+  assert.match(head.decls, /border-(?:left|inline-start)/,
+    '현재 브랜치가 색으로만 표시된다 — 레일 같은 모양이 함께 가야 한다');
+});

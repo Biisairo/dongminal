@@ -49,7 +49,7 @@ class GitCommit {
         '<div class="git-commit-bar">'+
           '<label class="git-commit-amend"><input type="checkbox"><span></span></label>'+
           '<span class="git-commit-gpg"></span>'+
-          '<div class="git-commit-go">'+
+          '<div class="git-commit-go ui-split">'+
             '<button class="ui-btn ui-btn-primary git-commit-btn"></button>'+
             '<button class="ui-btn ui-btn-primary git-commit-more"></button>'+
             '<div class="git-commit-menu"></div>'+
