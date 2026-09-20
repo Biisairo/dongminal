@@ -224,9 +224,39 @@ test('V-LAY-1 (FR-LAY-50): 계산값이 기준선과 같다', async ({ page, req
     'git-blame',
   ];
 
+  /**
+   * DOC_SYNC_SRS 묶음 D-D (FR-DSY-30~34) — **재지 않는 자리를 센다.**
+   *
+   * 이 대조는 값이 달라졌는가만 본다. 그런데 **양쪽에 있는 키만** 보므로
+   * (`if (!b) continue`), 키가 사라지면 그 자리는 조용히 대상에서 빠진다.
+   * `KIT_APPLICATION_SRS` §7 이 그것을 *"무관한 드리프트(116건)"* 로 적으면서
+   * 리스크를 "해소" 로 닫았는데, 같은 줄에 **"D·G 에서 다시 온다"** 를 나란히
+   * 적었다 — 해소가 아니라 **이월**이었다.
+   *
+   * 셋으로 가른다:
+   *
+   *   onlyBase  기준선에만 있다 — 화면에서 사라졌거나, **이번 회차에 안 떴다**
+   *   onlyNow   지금에만 있다 — 새로 생긴 자리를 기준선이 모른다
+   *   exempt    `EXPECTED_DIFF` 로 면제했다 — 그 면제가 아직 필요한지 아무도 안 본다
+   *
+   * **게이트는 `onlyNow + exempt` 만 센다** (D-DSY-7). `onlyBase` 는 회차마다
+   * 흔들린다 — 조건부로 뜨는 요소(안내줄 같은)가 없는 회차에는 기준선에만 있는
+   * 것으로 잡히기 때문이다. 실측: 같은 커밋의 두 회차가 **62 와 74** 였다.
+   * 흔들리는 게이트는 없는 게이트보다 나쁘다 (`PERFORMANCE_HARDENING_SRS` D-PRF-1).
+   * 그 수는 **찍되 잠그지 않는다.**
+   *
+   * 값 대조의 판정은 한 글자도 바뀌지 않는다 (FR-DSY-32) — 둘을 함께 바꾸면
+   * 어느 쪽이 빨개졌는지 말할 수 없다.
+   */
+  const exemptKey = (k: string) => EXPECTED_DIFF.some((e) => k.includes(e));
+  const onlyBase = Object.keys(base).filter((k) => !exemptKey(k) && !now[k]);
+  const onlyNow = Object.keys(now).filter((k) => !exemptKey(k) && !base[k]);
+  const exempt = [...new Set([...Object.keys(base), ...Object.keys(now)])].filter(exemptKey);
+  const drift = onlyNow.length + exempt.length;
+
   const diffs: string[] = [];
   for (const k of Object.keys(base)) {
-    if (EXPECTED_DIFF.some((e) => k.includes(e))) continue;
+    if (exemptKey(k)) continue;
     const a = base[k], b = now[k];
     /**
      * **양쪽에 있는 키만 대조한다.** 조건부로 뜨는 요소(`git-con-note` 같은
@@ -240,6 +270,33 @@ test('V-LAY-1 (FR-LAY-50): 계산값이 기준선과 같다', async ({ page, req
     }
   }
   expect(diffs, `계산값이 달라진 자리 ${diffs.length}개:\n` + diffs.slice(0, 40).join('\n')).toEqual([]);
+
+  /**
+   * FR-DSY-31: **기준선은 문서가 갖는다** — `check-file-size.mjs` 가 모듈 크기에서
+   * 한 것과 같은 꼴이다. 여기 박아 두면 그것이 두 번째 사본이 된다.
+   *
+   * 판마다 따로다 (FR-DSY-34 · §9) — 글꼴 메트릭이 `inset`·`clipped*` 를 흔들어
+   * 키 집합 자체가 판에 따라 갈린다.
+   */
+  const SRS = path.join(__dirname, '..', 'docs', 'internal', 'UI_LAYOUT_DEFAULTS_SRS.md');
+  const srs = fs.readFileSync(SRS, 'utf8');
+  const m = srs.match(new RegExp('드리프트:[^\n]*\\b' + PLATFORM + '=(\\d+)'));
+  const detail =
+    `재지 않는 자리 ${drift} (지금에만 ${onlyNow.length} · 면제 ${exempt.length})\n` +
+    `  지금에만:   ${onlyNow.slice(0, 10).join(', ')}\n` +
+    `  (기준선에만 ${onlyBase.length} — 회차마다 흔들려 게이트로 세우지 않는다: ` +
+    `${onlyBase.slice(0, 5).join(', ')})`;
+  if (!m) {
+    expect(false, `이 판(${PLATFORM})의 드리프트 기준선이 ${SRS} §9 에 없다.\n${detail}\n` +
+      `  그 절의 \`드리프트:\` 줄에 \`${PLATFORM}=${drift}\` 를 적어라 (FR-DSY-31).`).toBe(true);
+  }
+  const baseDrift = Number(m![1]);
+  expect(drift, `${detail}\n  기준선 ${baseDrift} 보다 늘었다 — 재는 대상이 그만큼 줄었다는 뜻이다 (FR-DSY-30).`)
+    .toBeLessThanOrEqual(baseDrift);
+  if (drift < baseDrift) {
+    console.log(`드리프트가 기준선보다 낫다 — ${drift}(기준선 ${baseDrift}). ` +
+      `${SRS} §9 의 수를 이 값으로 갱신하라 (좋아진 것을 적지 않으면 다음 역행이 보이지 않는다).`);
+  }
 });
 
 test('V-LAY-2 · V-LAY-12 (FR-LAY-20·22): 여덟 뷰가 전부 같은 기본을 쓴다',
