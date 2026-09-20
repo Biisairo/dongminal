@@ -59,3 +59,49 @@ func TestStripOSC777_UnaffectedByQueryStripping(t *testing.T) {
 		t.Fatalf("예상 밖: %q", got)
 	}
 }
+
+// 실측(2026-09-20): 재접속마다 프롬프트에 `11;rgb:3f3f/3f3f/3f3f2026;0$y2048;0$y…`
+// 가 찍혔다. OSC 색 질의와 DECRQM 질의가 스냅샷에 남아 새 xterm 이 그것들에
+// 답했고, 그 응답이 셸의 입력이 된 것이다 (FR-TRS-5a).
+func TestStripSnapshotQueries_RemovesModeAndColorQueries(t *testing.T) {
+	cases := []struct{ name, in string }{
+		{"DECRQM 동기화출력 ESC[?2026$p", "\x1b[?2026$p"},
+		{"DECRQM 인밴드리사이즈 ESC[?2048$p", "\x1b[?2048$p"},
+		{"DECRQM 색스킴 ESC[?2031$p", "\x1b[?2031$p"},
+		{"DECRQM 스크롤 ESC[?1010$p", "\x1b[?1010$p"},
+		{"DECRQM ESC[?1011$p", "\x1b[?1011$p"},
+		{"DECRQM ANSI 모드 ESC[4$p", "\x1b[4$p"},
+		{"OSC 11 배경색 질의 (BEL)", "\x1b]11;?\x07"},
+		{"OSC 10 전경색 질의 (ST)", "\x1b]10;?\x1b\\"},
+		{"OSC 12 커서색 질의", "\x1b]12;?\x07"},
+		{"OSC 4 팔레트 질의", "\x1b]4;1;?\x07"},
+		{"DECRQSS 커서 모양", "\x1bP$q q\x1b\\"},
+		{"DECRQSS 보호속성", "\x1bP$q\"q\x1b\\"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := string(stripSnapshotQueries([]byte("전" + c.in + "후")))
+			if got != "전후" {
+				t.Fatalf("남았다: %q", got)
+			}
+		})
+	}
+}
+
+// 반증: 값을 싣고 오는 OSC 는 질의가 아니다 — 지우면 재생된 화면의 색과 제목이
+// 사라진다.
+func TestStripSnapshotQueries_KeepsValueBearingSequences(t *testing.T) {
+	keep := []struct{ name, in string }{
+		{"OSC 11 배경색 설정", "\x1b]11;rgb:3f3f/3f3f/3f3f\x07"},
+		{"OSC 4 팔레트 설정", "\x1b]4;1;#ff0000\x07"},
+		{"물음표가 든 제목", "\x1b]0;이게 버그인가?\x07"},
+		{"DECCARA 사각 속성", "\x1b[1;1;5;5$r"},
+	}
+	for _, c := range keep {
+		t.Run(c.name, func(t *testing.T) {
+			if got := string(stripSnapshotQueries([]byte(c.in))); got != c.in {
+				t.Fatalf("지워졌다: %q → %q", c.in, got)
+			}
+		})
+	}
+}

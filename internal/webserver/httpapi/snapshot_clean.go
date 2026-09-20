@@ -28,7 +28,28 @@ func stripOSC777(b []byte) []byte {
 // 실측(2026-08-25) 결과 실행 중인 TUI 의 버퍼 400KB 에 1400여 건이 들어 있었다.
 // 세 final 로 끝나는 CSI 는 질의·응답 외의 용도가 없으므로 접두·인자를 가리지
 // 않고 지운다.
-var snapshotQueryPattern = regexp.MustCompile(`\x1b\[[?>=]?[0-9;]*[cnR]`)
+//
+// **그 셋만으로는 좁았다** (FR-TRS-5a). 실측(2026-09-20)으로 접수된 것은
+// `11;rgb:3f3f/3f3f/3f3f2026;0$y2048;0$y2031;0$y1010;0$y1011;0$y` — 프롬프트에
+// 찍힌 이 문자열은 **xterm 이 낸 응답 한 벌**이다. 앱이 기동할 때 보낸 OSC 색
+// 질의와 DECRQM 질의가 스냅샷에 그대로 남아, 다시 붙은 새 xterm 이 그것들에
+// 답한 것이다 (`3f3f/3f3f/3f3f` 는 zenburn 테마의 터미널 배경이다 — 답한 쪽이
+// 우리 브라우저라는 증거다). 질의 셋을 xterm 이 **실제로 답하는** 세 갈래로
+// 넓힌다:
+//
+//   - DECRQM (`ESC[?<n>$p`) — 응답 `ESC[?<n>;<v>$y`
+//   - OSC 색 질의 (`ESC]4|5|10‥19;…;?` + BEL|ST) — 응답 `ESC]<n>;rgb:…`
+//   - DECRQSS (`ESC P $q … ESC \`) — 응답 `ESC P 1$r … ESC \`
+//
+// 값을 싣고 오는 것은 질의가 아니다. OSC 갈래가 끝의 `;?` 를 요구하는 것이
+// 그 경계다 — `ESC]11;rgb:…` 는 색을 **세우는** 명령이고, 지우면 재생된 화면의
+// 색이 사라진다. 번호를 색 계열로 한정하는 것도 같은 이유다: 제목(`ESC]0;…`)에
+// 든 물음표는 질의가 아니다.
+var snapshotQueryPattern = regexp.MustCompile(
+	`\x1b\[[?>=]?[0-9;]*[cnR]` +
+		`|\x1b\[[?>=]?[0-9;]*\$p` +
+		`|\x1b\](?:4|5|1[0-9])(?:;[^;\x07\x1b]*)*;\?(?:\x07|\x1b\\)` +
+		`|\x1bP\$q[^\x1b]*\x1b\\`)
 
 // stripSnapshotQueries removes terminal query sequences from b so that
 // replaying a scrollback snapshot never makes the client terminal send an

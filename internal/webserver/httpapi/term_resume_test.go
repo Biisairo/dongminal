@@ -113,6 +113,20 @@ func TestBuildReplay_DeltaIsFiltered(t *testing.T) {
 	}
 }
 
+// V-TRS-9a: 접수된 증상 그대로의 재료다 (2026-09-20). 앱이 기동할 때 낸 질의
+// 한 벌이 스냅샷에 남아 있으면, 다시 붙은 xterm 이 그것들에 답해
+// `11;rgb:…2026;0$y2048;0$y…` 가 셸의 입력으로 꽂힌다.
+func TestBuildReplay_StripsStartupProbes(t *testing.T) {
+	probes := "\x1b]11;?\x07" +
+		"\x1b[?2026$p" + "\x1b[?2048$p" + "\x1b[?2031$p" +
+		"\x1b[?1010$p" + "\x1b[?1011$p" +
+		"\x1bP$q q\x1b\\"
+	got := buildReplay([]byte("$ claude"+probes+"\nready"), false)
+	if string(got) != "$ claude\nready" {
+		t.Fatalf("질의가 남았다: %q", got)
+	}
+}
+
 // V-TRS-9: 전량 재생도 같은 필터를 지난다.
 func TestBuildReplay_FullIsFiltered(t *testing.T) {
 	got := buildReplay([]byte("\na\x1b]777;Cwd;/tmp\x07b"), true)
