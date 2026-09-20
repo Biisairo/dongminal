@@ -134,7 +134,7 @@ Object.assign(App.prototype, {
       }
 
       // 진행과 사유가 함께 사는 자리. 닫히지 않으므로 읽을 시간이 있다.
-      const note=document.createElement('div'); note.className='sbx-rt-note ui-scroll';
+      const note=document.createElement('div'); note.className='ui-notice sbx-rt-note ui-scroll';
       note.hidden=true;
       box.appendChild(note);
 

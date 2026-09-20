@@ -45,9 +45,8 @@
 .git-blame.vis{display:flex}
 /* 거부 사유는 누른 자리에 보인다 — Diff 탭에서 낸 실패의 자리가 여기다 */
 .git-blame-note{
-  display:none;flex:0 0 auto;padding:6px 10px;font-size:var(--fs-md);color:var(--text-muted);
-  border-bottom:1px solid var(--border);
-}
+  display:none;flex:0 0 auto;
+  border-bottom:1px solid var(--border)}
 .git-blame-note.vis{display:block}
 /* FR-LAY-24·26: 구르는 것은 이 목록이다. `min-height:0` 이 없으면 flex 열에서
    줄어들지 못해 `overflow-y` 가 스크롤러가 되지 못한다. */
@@ -69,7 +68,7 @@
 /* GitDiffView — 미리보기와 Diff 탭이 같은 골격을 쓴다 (§3.2) */
 .git-diff-view{position:absolute;inset:0;display:flex;flex-direction:column}
 /* 안내는 diff 자리에만 남는다 — Monaco 로드 실패도 여기까지다 (FR-GIT-55) */
-.git-diff-note{display:none;flex:0 0 auto;padding:6px 10px;font-size:var(--fs-sm);color:var(--text-muted)}
+.git-diff-note{display:none;flex:0 0 auto}
 .git-diff-note.vis{display:block}
 /* 본문을 못 주는 쪽의 메타(oid·크기) — 사유 아래 줄이다 (FR-GIT-46·47·48). */
 .git-diff-meta{display:block;margin-top:2px;color:var(--text-hint)}
@@ -328,7 +327,6 @@ body.mobile .git-refs{width:110px}
 .git-con-spacer{flex:1 1 auto}
 .git-con-count{color:var(--text-hint);font-size:var(--fs-sm)}
 .git-con-list{flex:1 1 auto;min-height:0;overflow-y:auto;font-size:var(--fs-md)}
-.git-con-note{padding:10px;color:var(--text-muted);font-size:var(--fs-sm)}
 .git-con-row{
   display:flex;align-items:center;gap:8px;padding:0 8px;cursor:pointer;
   min-height:var(--git-row-min);white-space:nowrap;

@@ -154,11 +154,11 @@ class GitConsole {
   _drawList(list,recs){
     list.innerHTML='';
     if(this._err){
-      const d=document.createElement('div'); d.className='git-con-note';
+      const d=document.createElement('div'); d.className='ui-notice git-con-note';
       d.textContent=this._err; list.appendChild(d); return;
     }
     if(!recs.length){
-      const d=document.createElement('div'); d.className='git-con-note';
+      const d=document.createElement('div'); d.className='ui-notice git-con-note';
       d.textContent=this._q.trim()?GIT_CON_SEARCH_NONE
         :(this._reads?GIT_CON_EMPTY_READS:GIT_CON_EMPTY);
       list.appendChild(d); return;

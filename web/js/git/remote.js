@@ -240,7 +240,7 @@ class GitRemote {
     opts.classList.toggle('vis',!!list.length);
     if(!list.length) return;
     const n=document.createElement('div');
-    n.className='git-job-opts-note'; n.textContent=GIT_JOB_REJECT_NOTE;
+    n.className='ui-notice git-job-opts-note'; n.textContent=GIT_JOB_REJECT_NOTE;
     opts.appendChild(n);
     for(const fix of list){
       const b=document.createElement('button');

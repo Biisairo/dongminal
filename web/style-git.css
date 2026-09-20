@@ -142,7 +142,7 @@ body.mobile .git-head-remote{gap:2px}
 .git-job-cancel{color:var(--attn-text);border-color:var(--attn)}
 .git-job-cancel:disabled{color:var(--text-hint);border-color:var(--border);cursor:not-allowed}
 /* FR-GIT-111: 충돌은 해결 UI 가 아니라 안내다 */
-.git-job-note{display:none;padding:3px 10px;font-size:var(--fs-sm);color:var(--attn-text);background:var(--attn-subtle)}
+.git-job-note{display:none}
 .git-job-note.vis{display:block}
 .git-job-fail{display:none;flex-direction:column;gap:4px;padding:4px 10px 6px}
 .git-job-fail.vis{display:flex}
@@ -165,7 +165,6 @@ body.mobile .git-head-remote{gap:2px}
    생김새를 달리 주는 것이 곧 force 를 기본 제안하는 것이다 */
 .git-job-opts{display:none;flex-direction:column;gap:3px;align-items:flex-start}
 .git-job-opts.vis{display:flex}
-.git-job-opts-note{font-size:var(--fs-sm);color:var(--text-muted)}
 .git-job-opt:hover{background:var(--accent-hover);color:var(--accent-text)}
 /* FR-GIT-103: 진행 표시는 stderr 로 오지만 오류가 아니다 — 색을 가르지 않는다 */
 .git-job-log{
@@ -358,7 +357,7 @@ body.mobile .git-head-remote{gap:2px}
 /* 진행 중 조작의 버튼 셋은 키트다 — 중단은 되돌릴 수 없으므로 `ui-btn-danger`
    (§7.5). 보임·숨김은 `[hidden]` 이다 (FR-LAY-30). */
 
-.git-stale-note{display:none;padding:3px 10px;font-size:var(--fs-sm);color:var(--attn-text);background:var(--attn-subtle)}
+.git-stale-note{display:none}
 .git-stale-note.vis{display:block}
 .git-stale-note.loading{color:var(--text-muted);background:transparent}
 
@@ -619,8 +618,7 @@ body.mobile .git-head-remote{gap:2px}
 }
 
 /* FR-GIT-73 · §7.1 I2: 부분 적용을 조용히 넘기지 않는다 */
-.git-partial-note{display:none;padding:4px 10px;font-size:var(--fs-sm);
-  color:var(--attn-text);background:var(--attn-subtle)}
+.git-partial-note{display:none}
 .git-partial-note.vis{display:block}
 .git-partial-msg{word-break:break-all}
 .git-partial-list{margin:2px 0 0;padding:0 0 0 14px;max-height:80px;overflow-y:auto;color:var(--text)}

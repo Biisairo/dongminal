@@ -94,7 +94,7 @@ class GitDiffView {
     this._editor=null; this._orig=null; this._mod=null;
     this._el=document.createElement('div');
     this._el.className='git-diff-view';
-    this._el.innerHTML='<div class="git-diff-note"></div><div class="git-diff-host"></div>';
+    this._el.innerHTML='<div class="ui-notice git-diff-note"></div><div class="git-diff-host"></div>';
     this._note=this._el.querySelector('.git-diff-note');
     this._host=this._el.querySelector('.git-diff-host');
   }
@@ -473,7 +473,7 @@ class GitDiffView {
     for(const a of list){
       if(!a||!a.label||typeof a.run!=='function') continue;
       const b=document.createElement('button');
-      b.className='ui-btn ui-btn-sm git-diff-note-act';
+      b.className='ui-notice ui-btn ui-btn-sm git-diff-note-act';
       b.textContent=a.label;
       if(a.title) b.title=a.title;
       b.addEventListener('click',()=>a.run());

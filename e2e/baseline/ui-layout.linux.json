@@ -2438,7 +2438,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:branches|div.git-job-note": {
+ "git:branches|div.git-job-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -2483,7 +2483,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:branches|div.git-partial-note": {
+ "git:branches|div.git-partial-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -4691,7 +4691,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:changes|div.git-job-note": {
+ "git:changes|div.git-job-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -4736,7 +4736,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:changes|div.git-partial-note": {
+ "git:changes|div.git-partial-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -6827,7 +6827,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:console|div.git-job-note": {
+ "git:console|div.git-job-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -6872,7 +6872,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:console|div.git-partial-note": {
+ "git:console|div.git-partial-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -8741,7 +8741,7 @@
   "position": "static",
   "scrollsY": false
  },
- "git:diff|div.git-blame-note": {
+ "git:diff|div.git-blame-note.ui-notice": {
   "display": "none",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -8873,7 +8873,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:diff|div.git-diff-note.vis": {
+ "git:diff|div.git-diff-note.ui-notice.vis": {
   "display": "block",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -8996,7 +8996,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:diff|div.git-job-note": {
+ "git:diff|div.git-job-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -9041,7 +9041,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:diff|div.git-partial-note": {
+ "git:diff|div.git-partial-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -11237,7 +11237,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:history|div.git-job-note": {
+ "git:history|div.git-job-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -11282,7 +11282,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:history|div.git-partial-note": {
+ "git:history|div.git-partial-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -13538,7 +13538,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:stash|div.git-job-note": {
+ "git:stash|div.git-job-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -13583,7 +13583,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:stash|div.git-partial-note": {
+ "git:stash|div.git-partial-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -15701,7 +15701,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:submodules|div.git-job-note": {
+ "git:submodules|div.git-job-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -15746,7 +15746,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:submodules|div.git-partial-note": {
+ "git:submodules|div.git-partial-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -17813,7 +17813,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:worktrees|div.git-job-note": {
+ "git:worktrees|div.git-job-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -17858,7 +17858,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:worktrees|div.git-partial-note": {
+ "git:worktrees|div.git-partial-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "flexDirection": "row",
   "inset": "auto auto auto auto",

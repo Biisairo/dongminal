@@ -168,7 +168,7 @@ Object.assign(GitPanel.prototype, {
           '<button class="ui-btn ui-btn-sm git-job-copy"></button>'+
           '<button class="ui-btn ui-btn-sm git-job-close"></button>'+
         '</div>'+
-        '<div class="git-job-note"></div>'+
+        '<div class="ui-notice ui-notice-attn git-job-note"></div>'+
         '<div class="git-job-fail">'+
           '<div class="git-job-reason"></div>'+
           '<pre class="git-job-tail ui-scroll"></pre>'+
@@ -197,7 +197,7 @@ Object.assign(GitPanel.prototype, {
       // (`panel-life.js` `_paintStaleIn`) — 이 골격에만 있던 탓에 History·
       // Branches·Stash·Console 을 보는 동안에는 실패가 화면에 한 톨도 나타나지
       // 않았다 (`11 GP-4`). 자리는 같다: 머리 바로 아래.
-      '<div class="git-partial-note">'+
+      '<div class="ui-notice ui-notice-attn git-partial-note">'+
         '<div class="git-partial-msg"></div>'+
         '<ul class="git-partial-list ui-scroll-sm"></ul>'+
         '<button class="ui-btn ui-btn-lg git-partial-close"></button>'+

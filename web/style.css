@@ -308,7 +308,7 @@ textarea,
 .sbx-rt-restart{margin:0 0 6px;font-size:var(--fs-sm);color:var(--attn-text)}
 .sbx-rt-docs{margin:0 0 10px;font-size:var(--fs-sm);color:var(--text-hint);word-break:break-all}
 /* 진행과 사유가 같은 자리에 산다. 닫히지 않으므로 읽을 시간이 있다. */
-.sbx-rt-note{margin:0 0 10px;padding:6px 8px;font-size:var(--fs-sm);color:var(--text-muted);
+.sbx-rt-note{margin:0 0 10px;
   background:var(--bg);border:1px solid var(--border);border-radius:3px;
   max-height:120px;overflow-y:auto;white-space:pre-wrap;word-break:break-word}
 

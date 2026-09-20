@@ -124,6 +124,33 @@
   background:var(--accent);color:var(--bg);font-size:var(--fs-xs);line-height:15px;text-align:center;
 }
 
+/* ── 인라인 알림 (KIT_COMPONENTS_SRS FR-CMP-50~53) ───────────────────────
+   흐름 안에 서는 한 줄 알림. 착수 시 열둘이 같은 일을 했고 값이 갈렸다 —
+   세로 여백 3·4·6·10px, 가로 8·10px.
+
+   값의 출처는 **다수**다: 가로 10px 은 여덟 중 일곱이 쓰고 있었고(git 목록 행의
+   들여쓰기와 같다), 세로 6px 은 넷이 쓴다.
+
+   등급은 둘이다. 기본은 **사실을 말한다**(`--text-muted`), 주의는 **손이 필요한
+   일을 말한다**(`--attn-text` + 배경). 셋째를 만들지 않는다 — 착수 시 열둘 중
+   위험(`--danger`)을 쓰는 알림은 없었다.
+
+   **뜬 것은 여기 들지 않는다** (§6-예외표 E-3): `.fe-note`(떠서 사라지는
+   토스트)와 `.ver-held`(바닥 고정 배너)는 자리가 흐름 밖이고 그림자·페이드를
+   갖는다. 인라인 띠와 한 컴포넌트로 묶으면 둘 다 어정쩡해진다.
+
+   `aria-live` 를 갖지 않는다 (FR-CMP-53). 무엇이 읽혀야 하는지는 `FR-A11Y-19`
+   가 셋으로 정했고, 컴포넌트가 그것을 넓히면 화면의 모든 안내가 읽힌다. */
+.ui-notice{
+  padding:6px 10px;
+  font-size:var(--ui-font);line-height:1.4;color:var(--text-muted);
+}
+.ui-notice-attn{color:var(--attn-text);background:var(--attn-subtle)}
+/* 동작을 가진 알림. 버튼은 `ui-btn-sm` 한 크기이고 주동작만 `primary`, 닫기는
+   `ghost ui-btn-icon` 이다 (FR-CMP-51) — B2 가 `.fe-offer` 한 줄에서 정한
+   판단을 컴포넌트로 올린 것이다. */
+.ui-notice-acts{display:flex;align-items:center;gap:var(--ui-gap)}
+
 /* ── 스위치 (KIT_COMPONENTS_SRS FR-CMP-20~23) ───────────────────────────
    불리언 설정 한 벌. 착수 시 **세 모양**이 한 모달 안에 있었다 —
    맨 네모(14px) · 알약(`.sbs-row .slider`, 36×20) · 체크박스+글자.

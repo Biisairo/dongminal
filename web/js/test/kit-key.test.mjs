@@ -124,3 +124,68 @@ test('TC-CMP-6b: 킷이 .ui-section-head 를 갖는다 (FR-CMP-30)', () => {
   assert.match(kit.decls, /var\(--fs-sm\)/);
   assert.match(kit.decls, /var\(--text-muted\)/);
 });
+
+/**
+ * 인라인 알림이 **한 벌인가** (KIT_COMPONENTS_SRS TC-CMP-10 / FR-CMP-50~53).
+ *
+ * 착수 시 12규칙이 같은 일을 했고 값이 갈렸다 — 세로 여백 3·4·6·10px, 가로
+ * 8·10px, 색은 `--attn-text`(주의)와 `--text-muted`(기본) 둘.
+ *
+ * **뜬 것은 알림이 아니다.** `.fe-note`(떠서 사라지는 토스트)와 `.ver-held`
+ * (바닥 고정 배너)는 자리가 흐름 밖이고 그림자·페이드를 갖는다 — 인라인 띠와
+ * 같은 컴포넌트로 묶으면 둘 다 어정쩡해진다 (§6-예외표 E-3).
+ */
+const NOTICE = ['git-job-note', 'git-stale-note', 'git-partial-note', 'git-diff-note',
+  'git-con-note', 'git-blame-note', 'git-job-opts-note', 'sbx-rt-note', 'fe-offer'];
+
+test('TC-CMP-10a: 킷이 .ui-notice 와 주의 등급을 갖는다 (FR-CMP-50)', () => {
+  const kit = rules().filter((r) => r.file === 'web/style-kit.css');
+  const base = kit.find((r) => /(^|,)\s*\.ui-notice\s*$/.test(r.sel));
+  const attn = kit.find((r) => /(^|,)\s*\.ui-notice-attn\s*$/.test(r.sel));
+  assert.ok(base, '`.ui-notice` 가 없다');
+  assert.ok(attn, '`.ui-notice-attn` 이 없다');
+  assert.match(base.decls, /var\(--ui-font\)/);
+  assert.match(base.decls, /var\(--text-muted\)/);
+  assert.match(attn.decls, /var\(--attn-text\)/);
+  assert.match(attn.decls, /var\(--attn-subtle\)/);
+});
+
+test('TC-CMP-10: 알림 아홉이 공통 선언을 킷에서 받는다 (FR-CMP-52)', () => {
+  const bad = [];
+  for (const r of rules()) {
+    if (r.file === 'web/style-kit.css') continue;
+    const n = NOTICE.find((x) => new RegExp(`(^|,)\\s*\\.${x}\\s*$`).test(r.sel));
+    if (!n) continue;
+    // 킷이 주는 것 — 여백·글자·역할색. 남으면 킷을 덮어 수렴하지 않는다.
+    for (const p of ['padding', 'font-size']) {
+      if (new RegExp(`(^|;)\\s*${p}\\s*:`).test(r.decls)) bad.push(`.${n}: ${p}`);
+    }
+    if (/(^|;)\s*color\s*:\s*var\(--(?:attn-text|text-muted)\)/.test(r.decls)) bad.push(`.${n}: color`);
+    if (/(^|;)\s*background\s*:\s*var\(--attn-subtle\)/.test(r.decls)) bad.push(`.${n}: background`);
+  }
+  assert.deepEqual(bad, [], `킷과 겹치는 선언이 남았다:\n  ${bad.join('\n  ')}`);
+});
+
+test('TC-CMP-10b: 알림 아홉이 킷 클래스를 단다 (FR-CMP-52)', () => {
+  // 클래스는 **만드는 자리**에서 단다 (FR-KIT-11 과 같은 규약). 마크업을 훑어
+  // 그 이름이 나오는 자리마다 킷이 함께 있는지 본다.
+  const files = ['web/index.html'];
+  const walk = (d) => {
+    for (const e of readdirSync(d)) {
+      const p = join(d, e);
+      if (statSync(p).isDirectory()) { if (e !== 'vendor' && e !== 'test') walk(p); continue; }
+      if (e.endsWith('.js')) files.push(p);
+    }
+  };
+  walk('web/js');
+  const src = files.map((f) => readFileSync(f, 'utf8')).join('\n');
+  const bad = [];
+  for (const n of NOTICE) {
+    // 클래스 목록 안에서 그 이름이 나오는 자리를 모두 본다.
+    const re = new RegExp(`class(?:Name)?\\s*=\\s*(["'\`])([^"'\`\\n]*\\b${n}\\b[^"'\`\\n]*)\\1`, 'g');
+    const hits = [...src.matchAll(re)].map((m) => m[2]);
+    if (!hits.length) { bad.push(`.${n}: 만드는 자리를 찾지 못했다`); continue; }
+    for (const h of hits) if (!/\bui-notice\b/.test(h)) bad.push(`.${n}: class="${h}"`);
+  }
+  assert.deepEqual(bad, [], `킷 클래스를 안 단 알림:\n  ${bad.join('\n  ')}`);
+});

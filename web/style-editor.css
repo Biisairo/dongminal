@@ -412,11 +412,9 @@ body.mobile .ed-row{height:var(--touch-min)}
    모양일 수 없다. 그래서 자리도 위쪽 가로 띠다. */
 .fe-offer{
   position:absolute;top:0;left:0;right:0;z-index:var(--z-raised);
-  display:flex;align-items:center;gap:8px;padding:6px 10px;
+  display:flex;align-items:center;gap:8px;
   border-bottom:1px solid var(--border);
-  background:var(--sidebar-bg);
-  font-size:var(--fs-sm);line-height:1.5;
-}
+  background:var(--sidebar-bg)}
 .fe-offer-msg{flex:1 1 auto;min-width:0;color:var(--text);overflow-wrap:anywhere}
 /* 버튼 셋의 외형은 키트다 — 설치는 `primary`, 설정은 기본, 닫기는 ghost 아이콘 (§7.4). */
 /* 제안 띠가 있으면 찾기 패널과 알림 줄이 그 아래로 내려 앉는다 — 같은 자리를

@@ -167,7 +167,7 @@ Object.assign(GitPanel.prototype, {
       // FR-GIT-276: blame 은 Diff 탭의 **모드**다 (D8). 두 본문이 함께 보이면
       // 사용자는 무엇을 보고 있는지 모른다 — 켜진 쪽만 보인다.
       '<div class="git-blame">'+
-        '<div class="git-blame-note"></div>'+
+        '<div class="ui-notice git-blame-note"></div>'+
         '<div class="git-blame-rows ui-scroll-sm"></div>'+
       '</div>'+
       '<div class="git-diff-body"></div>';

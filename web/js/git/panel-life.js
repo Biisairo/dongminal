@@ -273,7 +273,7 @@ Object.assign(GitPanel.prototype, {
     if(!info){ if(note) note.classList.remove('vis'); return }
     if(!note){
       note=document.createElement('div');
-      note.className='git-stale-note';
+      note.className='ui-notice ui-notice-attn git-stale-note';
       // 자리는 머리 바로 아래다 — Changes 에서 그랬던 그 자리이며, 머리가 없는
       // 뷰에서는 맨 위다.
       let head=null;
