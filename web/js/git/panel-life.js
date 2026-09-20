@@ -233,7 +233,7 @@ Object.assign(GitPanel.prototype, {
     if(view==='submodules') return this._renderSubmodules(el);
     el.innerHTML='';
     if(!this.repo){
-      const d=document.createElement('div'); d.className='git-empty';
+      const d=document.createElement('div'); d.className='ui-empty ui-empty-center git-empty';
       d.textContent=GIT_NO_REPO_HINT;
       el.appendChild(d);
     }

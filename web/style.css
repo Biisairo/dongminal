@@ -688,7 +688,6 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .ag-title{flex:1}
 .ag-refresh,.ag-close{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-lg);line-height:1;padding:2px 4px;border-radius:3px}
 .ag-refresh:hover,.ag-close:hover{color:var(--accent-text);background:var(--accent-hover)}
-.ag-empty{padding:12px 10px;font-size:var(--fs-md);color:var(--text-hint)}
 /* PANEL_SURFACE_SRS FR-AGG-1·10·11·12: 창 그룹의 머리. 카드가 있는 창만 갖는다. */
 .ag-group{display:flex;align-items:center;gap:4px;padding:5px 8px;cursor:pointer;background:var(--bg-alt);border-bottom:1px solid var(--border);font-size:var(--fs-sm);font-weight:600;color:var(--text-muted)}
 .ag-group:hover{color:var(--accent-text);background:var(--accent-hover)}
@@ -1440,7 +1439,6 @@ body.mobile #bg-btn{padding:4px 6px}
   padding:4px;font-size:var(--fs-md);
 }
 .bg-box .bg-head{padding:8px 10px;color:var(--text-muted);border-bottom:1px solid var(--border)}
-.bg-box .bg-empty{padding:10px;color:var(--text-muted)}
 .bg-box .bg-row{display:flex;gap:8px;align-items:baseline;padding:8px 10px;border-radius:4px;cursor:pointer}
 .bg-box .bg-row:hover{background:var(--accent-subtle)}
 .bg-box .bg-name{color:var(--text-bright);white-space:nowrap}

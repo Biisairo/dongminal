@@ -703,7 +703,7 @@ class GitRemoteList {
     if(!this._items.length){
       // 빈 목록은 사실을 알린다 — 빈 화면은 실패와 구분되지 않는다.
       const d=document.createElement('div');
-      d.className='git-rm-empty';
+      d.className='ui-empty git-rm-empty';
       d.textContent=(this._loading&&this._repo)?GIT_HIST_LOADING:GIT_RM_EMPTY;
       box.appendChild(d);
       return;

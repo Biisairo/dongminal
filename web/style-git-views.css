@@ -239,7 +239,6 @@
 .git-hist-list.hide-hash .git-hist-hash{display:none}
 .git-hist-list.hide-date .git-hist-date{display:none}
 .git-hist-list.hide-author .git-hist-author{display:none}
-.git-hist-empty{padding:10px;color:var(--text-muted);font-size:var(--fs-md)}
 
 /* FR-GIT-135: 그 행 **아래에** 인라인으로 펼친다. 별도 고정 영역을 두지 않는다.
    높이는 고정이고 넘치는 내용은 안에서 스크롤한다 — 펼침이 하나이므로 오프셋
@@ -454,7 +453,6 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 .git-br-note.vis{display:flex}
 .git-br-note-msg{flex:1 1 auto;min-width:0}
 .git-br-tree{flex:1 1 auto;min-height:0;overflow-y:auto;font-size:var(--fs-md);padding:4px 0}
-.git-br-empty{padding:10px;color:var(--text-muted);font-size:var(--fs-sm)}
 /* FR-GIT-216: 그룹(로컬·원격·태그)은 섹션이다. 접두사 묶음(`.git-br-pfx`)은 그룹
    **안**의 하위 묶음이므로 대상이 아니다 */
 .git-br-group+.git-br-group{border-top:var(--git-sec-divider)}
@@ -527,7 +525,6 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 .git-stash-note-msg{flex:1 1 auto;min-width:0}
 .git-stash-main{flex:1 1 auto;min-height:0;display:flex}
 .git-stash-list{flex:1 1 auto;min-width:0;overflow-y:auto;font-size:var(--fs-md)}
-.git-stash-empty{padding:10px;color:var(--text-muted);font-size:var(--fs-sm)}
 .git-stash-row{
   display:flex;align-items:center;gap:8px;padding:3px 10px;cursor:pointer;
   white-space:nowrap;overflow:hidden;
@@ -569,7 +566,7 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 .git-wt-note.vis{display:flex;align-items:center;gap:8px}
 .git-wt-note-msg{flex:1 1 auto;min-width:0;word-break:break-all}
 .git-wt-list{flex:1 1 auto;min-height:0;overflow-y:auto}
-.git-wt-empty{display:none;padding:6px 10px;font-size:var(--fs-sm);color:var(--text-hint)}
+.git-wt-empty{display:none}
 .git-wt-empty.vis{display:block}
 /* FR-GIT-197·226: 목록 행의 높이 하한은 한 곳(--git-row-min)에서 온다 */
 .git-wt-row{
@@ -614,7 +611,7 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 .git-sub-note.vis{display:flex;align-items:center;gap:8px}
 .git-sub-note-msg{flex:1 1 auto;min-width:0;word-break:break-all}
 .git-sub-list{flex:1 1 auto;min-height:0;overflow-y:auto}
-.git-sub-empty{display:none;padding:6px 10px;font-size:var(--fs-sm);color:var(--text-hint)}
+.git-sub-empty{display:none}
 .git-sub-empty.vis{display:block}
 .git-sub-row{
   display:flex;align-items:center;gap:8px;padding:0 6px 0 10px;
@@ -797,7 +794,6 @@ select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .git-rm-note{display:none;padding:3px 10px;font-size:var(--fs-sm);color:var(--danger-text)}
 .git-rm-note.vis{display:block}
 .git-rm-rows{max-height:140px;overflow-y:auto;padding-bottom:4px}
-.git-rm-empty{padding:6px 10px;color:var(--text-muted);font-size:var(--fs-sm)}
 .git-rm-row{
   display:flex;align-items:center;gap:8px;padding:2px 10px;min-width:0;
   min-height:var(--git-row-min);

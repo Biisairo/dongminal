@@ -581,7 +581,7 @@ class Renderer {
           const b=document.createElement('div'); b.className='slot-body';
           // FR-B-6 (UX-11): 빈 칸의 안내는 CSS `content` 가 아니라 DOM 텍스트다 —
           // 접근성 트리에 잡히고 카탈로그를 지난다. 창이 있으면 CSS 가 숨긴다.
-          const hint=document.createElement('div'); hint.className='slot-empty-hint'; hint.textContent=SLOT_EMPTY_HINT;
+          const hint=document.createElement('div'); hint.className='ui-empty ui-empty-center slot-empty-hint'; hint.textContent=SLOT_EMPTY_HINT;
           b.appendChild(hint); return b;
         });
         this._place(el,[head,body]);
@@ -837,7 +837,7 @@ class Renderer {
     // FR-EDT-55: pane 이 없는 것이지 빈 pane 이 있는 것이 아니다 — 안내문을 둔다.
     if(!s||!s.layout){
       const hint=this._keep(key+'/hint',()=>{
-        const x=document.createElement('div'); x.className='ed-empty';
+        const x=document.createElement('div'); x.className='ui-empty ui-empty-center ed-empty';
         x.textContent=EDITOR_EMPTY_HINT; return x;
       });
       this._place(main,[hint]);

@@ -263,7 +263,7 @@ Object.assign(App.prototype, {
 
   _agEmptyEl(){
     const empty=document.createElement('div');
-    empty.className='ag-empty';
+    empty.className='ui-empty ag-empty';
     empty.textContent=t('attn.no_active_agents');
     return empty;
   },

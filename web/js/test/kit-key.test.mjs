@@ -189,3 +189,41 @@ test('TC-CMP-10b: 알림 아홉이 킷 클래스를 단다 (FR-CMP-52)', () => {
   }
   assert.deepEqual(bad, [], `킷 클래스를 안 단 알림:\n  ${bad.join('\n  ')}`);
 });
+
+/**
+ * 빈 상태가 **한 벌인가** (KIT_COMPONENTS_SRS TC-CMP-12 / FR-CMP-60~64).
+ *
+ * 착수 시 열셋이었고(감사는 다섯을 셌다 — §2.1 정정 ①) 정렬·등급·정보량이
+ * 전부 달랐다: 여백 `10px`·`6px 10px`·`12px 10px`·`14px 10px`, 색
+ * `--text-muted`·`--text-hint`, 글자 `--fs-sm`·`--fs-md`.
+ *
+ * 갈래는 둘이다 — **목록 안의 한 줄**과 **화면 가운데**. 둘을 한 클래스로
+ * 묶으면 목록 줄이 화면 가운데로 가거나 그 반대가 된다.
+ */
+const EMPTY_INLINE = ['lsp-empty', 'git-hist-empty', 'git-br-empty', 'git-stash-empty',
+  'git-wt-empty', 'git-sub-empty', 'git-rm-empty', 'ag-empty', 'bg-empty'];
+
+test('TC-CMP-12a: 킷이 .ui-empty 와 가운데 갈래를 갖는다 (FR-CMP-60)', () => {
+  const kit = rules().filter((r) => r.file === 'web/style-kit.css');
+  const base = kit.find((r) => /(^|,)\s*\.ui-empty\s*$/.test(r.sel));
+  const center = kit.find((r) => /(^|,)\s*\.ui-empty-center\s*$/.test(r.sel));
+  assert.ok(base, '`.ui-empty` 가 없다');
+  assert.ok(center, '`.ui-empty-center` 가 없다');
+  assert.match(base.decls, /var\(--ui-font\)/);
+  assert.match(base.decls, /var\(--text-muted\)/);
+  assert.match(center.decls, /justify-content:center/);
+});
+
+test('TC-CMP-12: 목록의 빈 줄 아홉이 공통 선언을 킷에서 받는다 (FR-CMP-61)', () => {
+  const bad = [];
+  for (const r of rules()) {
+    if (r.file === 'web/style-kit.css') continue;
+    const n = EMPTY_INLINE.find((x) => new RegExp(`(^|,|\\s)\\.${x}\\s*$`).test(r.sel));
+    if (!n) continue;
+    for (const p of ['padding', 'font-size']) {
+      if (new RegExp(`(^|;)\\s*${p}\\s*:`).test(r.decls)) bad.push(`.${n}: ${p}`);
+    }
+    if (/(^|;)\s*color\s*:\s*var\(--text-(?:muted|hint)\)/.test(r.decls)) bad.push(`.${n}: color`);
+  }
+  assert.deepEqual(bad, [], `킷과 겹치는 선언이 남았다:\n  ${bad.join('\n  ')}`);
+});

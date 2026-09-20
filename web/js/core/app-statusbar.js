@@ -217,7 +217,7 @@ Object.assign(App.prototype, {
       head.textContent=tn('bg.head',this._bg.length);
     }
     if(!this._bg.length){
-      const empty=document.createElement('div'); empty.className='bg-empty';
+      const empty=document.createElement('div'); empty.className='ui-empty bg-empty';
       empty.textContent=t('core.none'); box.appendChild(empty);
     }
     for(const b of this._bg) box.appendChild(this._bgRow(b));

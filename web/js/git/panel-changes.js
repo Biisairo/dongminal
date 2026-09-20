@@ -19,7 +19,7 @@ Object.assign(GitPanel.prototype, {
       el.dataset.built=''; el.innerHTML='';
       // 골격을 버렸으므로 커밋 영역도 자기 DOM 을 놓아야 한다.
       this._commit().unmount();
-      const d=document.createElement('div'); d.className='git-empty';
+      const d=document.createElement('div'); d.className='ui-empty ui-empty-center git-empty';
       d.textContent=this._errMsg||GIT_NO_REPO_HINT;
       el.appendChild(d);
       return;

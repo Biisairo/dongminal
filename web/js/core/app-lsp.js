@@ -43,7 +43,7 @@ Object.assign(App.prototype, {
     const d=r.ok?r.data:null;
     if(!d||!Array.isArray(d.servers)){
       // 503 은 배선이 없는 서버다 — 고장이 아니라 그 서버의 성질이므로 다르게 말한다.
-      list.innerHTML='<div class="lsp-empty">'+
+      list.innerHTML='<div class="ui-empty lsp-empty">'+
         escHtml(r.status===503?LSP_UNAVAILABLE:LSP_STATUS_FAIL)+'</div>';
       return;
     }
@@ -51,7 +51,7 @@ Object.assign(App.prototype, {
     // FR-EXT-8: 읽지 못한 선언이 있으면 그 사실이 보여야 한다.
     if(Array.isArray(d.problems)&&d.problems.length){
       const box=document.createElement('div');
-      box.className='lsp-empty';
+      box.className='ui-empty lsp-empty';
       box.textContent=LSP_DECL_PROBLEM+': '+d.problems.join(' / ');
       list.appendChild(box);
     }

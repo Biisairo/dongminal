@@ -112,7 +112,7 @@ Object.assign(GitHistory.prototype, {
     let empty=this._el.querySelector('.git-hist-empty');
     const showEmpty=!items.length&&!this._loading&&!this._err;
     if(showEmpty&&!empty){
-      empty=document.createElement('div'); empty.className='git-hist-empty';
+      empty=document.createElement('div'); empty.className='ui-empty git-hist-empty';
       // FR-GDT-21: 커밋이 아직 없는 것과 필터에 걸리는 것이 없는 것은 **다른
       // 사실**이다. 서버가 그 둘을 가른다.
       empty.textContent=this._initial?GIT_HIST_NO_COMMITS:GIT_HIST_EMPTY;

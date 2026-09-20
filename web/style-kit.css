@@ -124,6 +124,29 @@
   background:var(--accent);color:var(--bg);font-size:var(--fs-xs);line-height:15px;text-align:center;
 }
 
+/* ── 빈 상태 (KIT_COMPONENTS_SRS FR-CMP-60~64) ──────────────────────────
+   보일 것이 없을 때 그 자리에 서는 안내. 착수 시 **열셋**이었고(감사는 화면에
+   보이던 다섯을 셌다 — §2.1 정정 ①) 정렬·등급·정보량이 전부 달랐다: 여백
+   `10px`·`6px 10px`·`12px 10px`·`14px 10px`, 색 `--text-muted`·`--text-hint`,
+   글자 `--fs-sm`·`--fs-md`.
+
+   **갈래가 둘이다.** 목록 안에 한 줄로 서는 것과 화면을 가득 채워 가운데 서는
+   것. 한 클래스로 묶으면 목록 줄이 화면 가운데로 가거나 그 반대가 된다 —
+   그래서 기본은 한 줄이고 `-center` 가 가운데를 고른다.
+
+   **주동작 버튼은 선택이다** (FR-CMP-62). 없는 동작을 지어내지 않는다. */
+.ui-empty{
+  padding:10px;
+  font-size:var(--ui-font);line-height:1.5;color:var(--text-muted);
+}
+.ui-empty-center{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:var(--ui-gap);padding:0 16px;text-align:center;
+}
+/* 주동작이 있을 때의 자리. 버튼은 `ui-btn-sm` 한 크기다 (FR-CMP-51 과 같은 규약). */
+.ui-empty-act{display:flex;align-items:center;gap:var(--ui-gap);margin-top:var(--ui-gap)}
+
 /* ── 인라인 알림 (KIT_COMPONENTS_SRS FR-CMP-50~53) ───────────────────────
    흐름 안에 서는 한 줄 알림. 착수 시 열둘이 같은 일을 했고 값이 갈렸다 —
    세로 여백 3·4·6·10px, 가로 8·10px.

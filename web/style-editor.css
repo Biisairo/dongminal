@@ -390,7 +390,6 @@ body.mobile .ed-row{height:var(--touch-min)}
 /* 결과는 그 자리에 남는다 (FR-LSP-10) — 조용히 사라지면 사용자는 무엇이 됐는지 모른다. */
 .lsp-msg{grid-area:msg;font-size:var(--fs-sm);color:var(--text-hint);overflow-wrap:anywhere}
 .lsp-msg:empty{display:none}
-.lsp-empty{padding:10px;font-size:var(--fs-sm);color:var(--text-muted)}
 
 /* FR-LSP-28 / D-9: 침묵을 가르는 알림 줄. 찾기 패널과 같은 자리 규약이며
    스스로 사라진다 — 닫는 조작을 배워야 하는 알림은 알림이 아니라 창이다. */

@@ -134,9 +134,9 @@ Object.assign(RunsPanel.prototype, {
       box.appendChild(runDiv('runs-err', this._runsErr));
     } else if (!rows.length) {
       // FR-RVZ-4: 빈 목록은 안내다. 빈 상자를 보여 주지 않는다.
-      const empty = runDiv('runs-empty');
-      empty.appendChild(runDiv('runs-empty-t', RUN_EMPTY_TEXT));
-      empty.appendChild(runDiv('runs-empty-h', RUN_EMPTY_HINT));
+      const empty = runDiv('ui-empty ui-empty-center runs-empty');
+      empty.appendChild(runDiv('ui-empty ui-empty-center runs-empty-t', RUN_EMPTY_TEXT));
+      empty.appendChild(runDiv('ui-empty ui-empty-center runs-empty-h', RUN_EMPTY_HINT));
       box.appendChild(empty);
     }
     for (const rv of rows) box.appendChild(this._runsRow(rv));

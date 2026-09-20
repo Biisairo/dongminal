@@ -191,7 +191,7 @@ class GitStash {
       sig:it=>it.note!==undefined?('n:'+it.note):this._rowSig(it.row),
       build:it=>{
         if(it.note!==undefined){
-          const d=document.createElement('div'); d.className='git-stash-empty';
+          const d=document.createElement('div'); d.className='ui-empty git-stash-empty';
           d.textContent=it.note;
           return d;
         }

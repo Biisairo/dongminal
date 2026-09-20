@@ -488,9 +488,9 @@
   "overflowY": "visible",
   "position": "static"
  },
- "editor|div.ed-empty": {
+ "editor|div.ed-empty.ui-empty.ui-empty-center": {
   "display": "flex",
-  "flexDirection": "row",
+  "flexDirection": "column",
   "inset": "0px 0px 0px 0px",
   "minHeight": "0px",
   "overflowX": "visible",
@@ -13619,7 +13619,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "git:stash|div.git-stash-empty": {
+ "git:stash|div.git-stash-empty.ui-empty": {
   "display": "block",
   "flexDirection": "row",
   "inset": "auto auto auto auto",

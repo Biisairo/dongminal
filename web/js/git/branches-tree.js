@@ -50,7 +50,7 @@ Object.assign(GitBranches.prototype, {
   },
 
   _emptyEl(text){
-    const d=document.createElement('div'); d.className='git-br-empty';
+    const d=document.createElement('div'); d.className='ui-empty git-br-empty';
     d.textContent=text;
     return d;
   },
