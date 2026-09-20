@@ -51,6 +51,22 @@ Object.assign(App.prototype, {
     v.findOpen();
   },
 
+  /**
+   * FR-ERS-20·21·24: 지금 편집기에서 고른 **한 줄 안의** 글자. 없으면 빈 문자열이다.
+   *
+   * 씨앗이 없는 것은 오류가 아니다 — 편집기가 없을 수도, 고른 것이 없을 수도,
+   * 여러 줄일 수도 있고 그 셋 다 종전처럼 빈 칸으로 연다.
+   */
+  _edSelectionSeed(){
+    const v=this._edActiveEditor();
+    const ed=v&&v._editor;
+    if(!ed) return '';
+    const sel=ed.getSelection();
+    if(!sel||sel.isEmpty()||sel.startLineNumber!==sel.endLineNumber) return '';
+    const m=ed.getModel();
+    return m?m.getValueInRange(sel):'';
+  },
+
   // 활성 Editor 창에서 지금 보이는 편집기. `fileEditors` 는 탭 id 로 열려 있고
   // 활성 탭은 pane 이 안다.
   _edActiveEditor(){
@@ -138,11 +154,24 @@ Object.assign(App.prototype, {
     p._mode=mode; p._root=root; p._sel=0; p._items=[];
     const q=p.querySelector('.ed-find-q');
     q.placeholder=ED_PANEL_PLACEHOLDER[mode]||ED_GREP_PLACEHOLDER;
-    q.value='';
+    /**
+     * EDITOR_REPLACE_AND_SEED_SRS FR-ERS-20~23: 전체 검색은 **고른 글자를 들고**
+     * 열린다.
+     *
+     * 모드를 가리는 것이 요점이다 (D-4) — 이 패널은 넷이 공유하고, 파일 **이름**
+     * 을 찾는 칸에 본문 조각을 넣으면 그 모드가 못 쓰게 된다.
+     *
+     * 규칙은 `findOpen` 의 것을 그대로 쓴다 (D-5 · FR-EFP-9): 한 줄 선택만 싣고
+     * 여러 줄은 싣지 않는다 — 줄바꿈이 든 질의는 grep 한 줄과 맞지 않아 결과가
+     * 0 이 된다.
+     */
+    q.value=(mode==='grep'&&this._edSelectionSeed())||'';
     p.querySelector('.ed-find-list').innerHTML='';
     p.querySelector('.ed-find-note').textContent=ED_PANEL_HINT[mode]||ED_GREP_HINT;
     p.classList.add('vis');
     q.focus();
+    // FR-ERS-22: 실린 글자는 전체 선택이다 — 한 번의 타이핑으로 갈아 칠 수 있다.
+    if(q.value) q.select();
     // 패널을 **돌려준다.** 부르는 쪽이 항목을 직접 채우는 경우가 있다 —
     // 참조·정의 목록은 이미 손에 있는 자리들을 그린다 (FR-LSP-25).
     return p;

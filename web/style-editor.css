@@ -265,13 +265,35 @@ body.mobile .ed-row{height:var(--touch-min)}
    넘겨야 하므로 코드를 가리는 배경막을 쓸 수 없다 (FR-EFP-6 / 그 SRS §2.7).
 
    `.file-editor` 가 이미 `position:absolute` 이므로 이 오버레이는 그 칸에만 얹힌다. */
+/* EDITOR_REPLACE_AND_SEED_SRS FR-ERS-1: 패널이 두 줄이 된다 — 바깥이 세로,
+   각 줄이 가로다. 종전의 가로 배치는 `.fe-find-line` 이 그대로 물려받으므로
+   첫 줄의 모양은 바뀌지 않는다. */
 .fe-find{
   position:absolute;top:6px;right:18px;z-index:var(--z-raised);display:none;
-  align-items:center;gap:4px;padding:4px 6px;
+  flex-direction:column;gap:4px;padding:4px 6px;
   background:var(--sidebar-bg);border:1px solid var(--border);
   border-radius:6px;box-shadow:var(--shadow-1);
 }
 .fe-find.vis{display:flex}
+.fe-find-line{display:flex;align-items:center;gap:4px}
+/* 접힘이 기본이다 (D-1) — 열렸을 때만 선다. */
+.fe-find-rep{display:none}
+.fe-find.rep-open .fe-find-rep{display:flex}
+.fe-find-r{
+  width:200px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;
+  outline:none;font-size:var(--fs-md);background:var(--bg);color:var(--text-bright);
+}
+.fe-find-r:focus{border-color:var(--accent)}
+.fe-find-r:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
+/* 토글은 첫 줄의 맨 앞에 선다. 글자 버튼이 아니라 방향 표시이므로 `.fe-find-opt`
+   의 상자를 쓰지 않는다. */
+.fe-find-toggle{
+  display:flex;align-items:center;justify-content:center;
+  width:var(--ui-btn-h-sm);height:var(--ui-btn-h-sm);padding:0;
+  background:none;border:0;border-radius:4px;color:var(--text-muted);cursor:pointer;
+}
+.fe-find-toggle:hover{background:var(--border);color:var(--text-bright)}
+.fe-find-toggle:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .fe-find-q{
   width:200px;padding:3px 6px;border:1px solid var(--border);border-radius:4px;
   outline:none;font-size:var(--fs-md);background:var(--bg);color:var(--text-bright);

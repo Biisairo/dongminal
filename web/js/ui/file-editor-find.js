@@ -62,8 +62,18 @@ Object.assign(FileEditor.prototype, {
       + label + '</button>';
     const p = document.createElement('div');
     p.className = 'fe-find';
+    /**
+     * EDITOR_REPLACE_AND_SEED_SRS FR-ERS-1: 패널이 **두 줄**이 된다.
+     *
+     * 첫 줄의 내용과 이름(`.fe-find-q`·`.fe-find-opt` …)은 한 글자도 바뀌지
+     * 않는다 — 바뀐 것은 그것들을 감싸는 줄 하나다. 둘째 줄은 토글로 여닫고
+     * 기본은 접힘이다 (D-1): 이 패널은 편집기 **위에 얹히는** 오버레이라
+     * 늘 두 줄이면 그만큼 본문을 덮는다.
+     */
     p.innerHTML =
-      '<input class="fe-find-q" type="text" spellcheck="false" autocomplete="off"'
+      '<div class="fe-find-line">'
+      + '<button type="button" class="fe-find-toggle" title="' + ED_FIND_REPLACE_TOGGLE_TITLE + '" aria-label="' + ED_FIND_REPLACE_TOGGLE_TITLE + '" aria-expanded="false">' + UIKit.iconHTML('chevron-right') + '</button>'
+      + '<input class="fe-find-q" type="text" spellcheck="false" autocomplete="off"'
       + ' placeholder="' + ED_FIND_IN_PLACEHOLDER + '">'
       + '<span class="fe-find-count"></span>'
       + opt('case', ED_FIND_OPT_CASE, ED_FIND_OPT_CASE_TITLE)
@@ -71,7 +81,14 @@ Object.assign(FileEditor.prototype, {
       + opt('word', ED_FIND_OPT_WORD, ED_FIND_OPT_WORD_TITLE)
       + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-find-prev" title="' + ED_FIND_PREV_TITLE + '" aria-label="' + ED_FIND_PREV_TITLE + '">' + UIKit.iconHTML('arrow-up') + '</button>'
       + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-find-next" title="' + ED_FIND_NEXT_TITLE + '" aria-label="' + ED_FIND_NEXT_TITLE + '">' + UIKit.iconHTML('arrow-down') + '</button>'
-      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-find-close" title="' + ED_FIND_CLOSE_TITLE + '" aria-label="' + ED_FIND_CLOSE_TITLE + '">' + UIKit.iconHTML('x') + '</button>';
+      + '<button type="button" class="ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm fe-find-close" title="' + ED_FIND_CLOSE_TITLE + '" aria-label="' + ED_FIND_CLOSE_TITLE + '">' + UIKit.iconHTML('x') + '</button>'
+      + '</div>'
+      + '<div class="fe-find-line fe-find-rep">'
+      + '<input class="fe-find-r" type="text" spellcheck="false" autocomplete="off"'
+      + ' placeholder="' + ED_FIND_REPLACE_PLACEHOLDER + '">'
+      + '<button type="button" class="ui-btn ui-btn-sm fe-find-rep-one">' + ED_FIND_REPLACE_ONE + '</button>'
+      + '<button type="button" class="ui-btn ui-btn-sm fe-find-rep-all">' + ED_FIND_REPLACE_ALL + '</button>'
+      + '</div>';
     this.el.appendChild(p);
     this._find = p;
     this._findOpts = edFindOptsLoad();
@@ -79,6 +96,7 @@ Object.assign(FileEditor.prototype, {
     this._findCur = 0;
     this._findWire(p);
     this._findPaintOpts();
+    this._findPaintReplace();
     return p;
   },
 
@@ -109,6 +127,52 @@ Object.assign(FileEditor.prototype, {
     p.querySelector('.fe-find-prev').addEventListener('click', () => { this._findMove(-1); q.focus() });
     p.querySelector('.fe-find-next').addEventListener('click', () => { this._findMove(1); q.focus() });
     p.querySelector('.fe-find-close').addEventListener('click', () => this.findClose());
+
+    // FR-ERS-1·2: 토글은 옵션과 **같은 자리**에 보존된다 (`edFindOpts`).
+    p.querySelector('.fe-find-toggle').addEventListener('click', () => {
+      this._findOpts.replace = !this._findOpts.replace;
+      edFindOptsSave(this._findOpts);
+      this._findPaintReplace();
+      if (this._findOpts.replace) p.querySelector('.fe-find-r').focus();
+      else q.focus();
+    });
+    const r = p.querySelector('.fe-find-r');
+    // FR-ERS-9: 바꾸기 칸의 규약은 찾기 칸과 같다 — 키는 밖으로 나가지 않고,
+    // `Escape` 는 닫고, `Enter` 는 그 줄의 기본 동작(바꾸기)이다.
+    r.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Escape') { e.preventDefault(); this.findClose(); return }
+      if (e.key === 'Enter') { e.preventDefault(); this._findReplaceOne() }
+    });
+    p.querySelector('.fe-find-rep-one').addEventListener('click', () => { this._findReplaceOne(); r.focus() });
+    p.querySelector('.fe-find-rep-all').addEventListener('click', () => { this._findReplaceAll(); r.focus() });
+  },
+
+  // FR-ERS-1: 접힘/펼침을 화면에 얹는다. 버튼의 방향과 `aria-expanded` 가 같은
+  // 사실을 말한다 — 하나만 바꾸면 화면과 보조기술이 갈린다.
+  _findPaintReplace() {
+    const p = this._find;
+    if (!p) return;
+    const on = !!(this._findOpts && this._findOpts.replace);
+    p.classList.toggle('rep-open', on);
+    const b = p.querySelector('.fe-find-toggle');
+    if (b) {
+      b.setAttribute('aria-expanded', on ? 'true' : 'false');
+      b.innerHTML = UIKit.iconHTML(on ? 'chevron-down' : 'chevron-right');
+    }
+    this._findPaintReplaceEnabled();
+  },
+
+  // FR-ERS-7: 고칠 것이 없으면 두 버튼은 비활성이다 — 눌러도 아무 일이 없는
+  // 버튼은 사용자에게 자기가 뭘 잘못했는지 묻게 만든다.
+  _findPaintReplaceEnabled() {
+    const p = this._find;
+    if (!p) return;
+    const none = !(this._findHits && this._findHits.length);
+    for (const sel of ['.fe-find-rep-one', '.fe-find-rep-all']) {
+      const b = p.querySelector(sel);
+      if (b) b.disabled = none;
+    }
   },
 
   _findPaintOpts() {
@@ -190,6 +254,7 @@ Object.assign(FileEditor.prototype, {
       this._findCur = 0;
       this._findPaint();
       this._findCount('');
+      this._findPaintReplaceEnabled();
       return;
     }
     // FR-EFP-24: 잘못된 정규식을 조용히 0건으로 보이면 사용자가 없는 줄로 읽는다.
@@ -199,19 +264,24 @@ Object.assign(FileEditor.prototype, {
       p.classList.add('bad-re');
       this._findPaint();
       this._findCount(ED_FIND_BAD_RE);
+      this._findPaintReplaceEnabled();
       return;
     }
     // FR-EFP-21 / D-2: 세 옵션이 이 호출의 인자로 그대로 간다. 단어 단위를 끈
     // 상태는 구분자를 **보지 않는 것**이므로 `null` 이다.
+    // FR-ERS-6: 캡처는 **정규식일 때만** 모은다. 리터럴 찾기에서는 쓸 곳이
+    // 없고(치환이 글자 그대로다), 캡처를 켜면 일치마다 배열이 하나씩 더 선다.
     const found = model.findMatches(
       query, false, !!o.regex, !!o.case,
       o.word ? ED_FIND_WORD_SEPARATORS : null,
-      false, ED_FIND_MAX_HITS);
+      !!o.regex, ED_FIND_MAX_HITS);
+    this._findFound = found;
     this._findHits = found.map(m => m.range);
     const n = this._findHits.length;
     this._findCur = n ? (keep ? Math.min(this._findCur, n - 1) : this._findCur) : 0;
     this._findPaint();
     this._findCount(n ? (this._findCur + 1) + '/' + n : ED_FIND_NONE);
+    this._findPaintReplaceEnabled();
   },
 
   // FR-EFP-16: 질의가 비면 수를 말하지 않는다 — 아직 묻지 않은 것이다.
@@ -258,6 +328,64 @@ Object.assign(FileEditor.prototype, {
     }));
   },
 
+  /**
+   * FR-ERS-6: 바꿀 말 하나를 **그 일치에 맞게** 푼다.
+   *
+   * 정규식이 꺼져 있으면 손대지 않는다 — 그때 `$` 는 글자다. 켜져 있을 때만
+   * `$1`~`$9` 와 `$&` 를 캡처로 갈고, `$$` 는 리터럴 `$` 다(관례).
+   *
+   * `m.matches` 는 `findMatches` 가 `captureMatches` 로 실어 준 것이고 `[0]` 이
+   * 전체 일치다 — 우리가 다시 정규식을 돌리지 않는다.
+   */
+  _findReplacement(raw, m) {
+    if (!this._findOpts || !this._findOpts.regex) return raw;
+    const caps = (m && m.matches) || [];
+    return String(raw).replace(/\$(\$|&|[1-9])/g, (_all, k) => {
+      if (k === '$') return '$';
+      if (k === '&') return caps[0] != null ? caps[0] : '';
+      const v = caps[Number(k)];
+      return v != null ? v : '';
+    });
+  },
+
+  /**
+   * FR-ERS-4: 현재 일치 **하나**를 고치고 다음으로 옮긴다.
+   *
+   * 고친 뒤 `_findRun(true)` 이 일치를 다시 센다. 자리를 유지하는 것(`keep`)이
+   * 요점이다 — 치환으로 일치가 하나 줄어도 사용자가 보던 자리 근처에 남는다.
+   */
+  _findReplaceOne() {
+    if (!this._editor || !this._find) return;
+    const hits = this._findHits || [];
+    if (!hits.length) return;
+    const i = Math.min(this._findCur, hits.length - 1);
+    const range = hits[i];
+    const text = this._findReplacement(this._find.querySelector('.fe-find-r').value, (this._findFound || [])[i]);
+    this._editor.executeEdits(ED_FIND_EDIT_SOURCE, [{ range, text, forceMoveMarkers: true }]);
+    this._findRun(true);
+  },
+
+  /**
+   * FR-ERS-5: 모든 일치를 **한 번의 편집**으로 고친다.
+   *
+   * 목록을 통째로 넘기는 것이 이 함수의 전부다 — 하나씩 부르면 `undo` 가
+   * 그 수만큼 필요해지고, 되돌리기가 사용자의 일이 된다 (D-3).
+   *
+   * 상한(`ED_FIND_MAX_HITS`)에 걸린 경우에도 **사용자가 보는 수와 바뀌는 수가
+   * 같다** — 수 표시도 같은 목록에서 나온다 (§7).
+   */
+  _findReplaceAll() {
+    if (!this._editor || !this._find) return;
+    const hits = this._findHits || [];
+    if (!hits.length) return;
+    const raw = this._find.querySelector('.fe-find-r').value;
+    const found = this._findFound || [];
+    this._editor.executeEdits(ED_FIND_EDIT_SOURCE,
+      hits.map((range, i) => ({ range, text: this._findReplacement(raw, found[i]), forceMoveMarkers: true })));
+    this._findCur = 0;
+    this._findRun();
+  },
+
   // FR-EFP-19: 끝에서 돌아 감는다 — 마지막 다음은 처음이다.
   _findMove(d) {
     const n = (this._findHits || []).length;
@@ -278,10 +406,12 @@ Object.assign(FileEditor.prototype, {
  * 검색 옵션은 그런 값이 아니라 지금 이 손의 버릇이며, 서버에 두면 다른 기계에서
  * 켜 둔 정규식 모드가 따라와 놀라게 된다.
  */
-const ED_FIND_OPT_KEYS = ['case', 'regex', 'word'];
+// `replace` 는 옵션이 아니라 **줄이 열려 있는가** 다. 같은 자리에 두는 근거는
+// FR-ERS-2 — 보존의 규약(기기별 `localStorage`)이 같기 때문이다.
+const ED_FIND_OPT_KEYS = ['case', 'regex', 'word', 'replace'];
 
 function edFindOptsLoad() {
-  const o = { case: false, regex: false, word: false };
+  const o = { case: false, regex: false, word: false, replace: false };
   let raw = null;
   try { raw = localStorage.getItem(ED_FIND_OPTS_KEY) } catch { raw = null }
   if (!raw) return o;

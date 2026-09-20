@@ -335,7 +335,7 @@ Git 의 diff 는 Monaco DiffEditor 다 (`GitDiffView`). 그 뷰에는 우리 패
 
 ## 6. 비목표 (Non-goals)
 
-1. 바꾸기·전부 바꾸기 — 사용자가 고른 범위 밖이다 (D-6).
+1. ~~바꾸기·전부 바꾸기 — 사용자가 고른 범위 밖이다 (D-6).~~ **열렸다** (2026-09-20) — [`EDITOR_REPLACE_AND_SEED_SRS`](./EDITOR_REPLACE_AND_SEED_SRS.md) 묶음 R 이 이 자리를 받는다. 옵션 셋·일치 계산·하이라이트는 이 문서의 것을 그대로 쓴다.
 2. 선택 영역 안에서만 찾기.
 3. 여러 파일에서 찾기 — 이미 있다 (`Mod+Shift+F`, FR-EGS-*).
 4. 찾기 이력·최근 질의 목록.

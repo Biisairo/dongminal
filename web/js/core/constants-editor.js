@@ -92,6 +92,13 @@ const ED_FIND_PREV_TITLE=t('editor.find_prev_title');
 const ED_FIND_NEXT_TITLE=t('editor.find_next_title');
 const ED_FIND_CLOSE_TITLE=t('editor.find_close_title');
 const ED_FIND_IN_PLACEHOLDER=t('editor.find_in_placeholder');
+// EDITOR_REPLACE_AND_SEED_SRS 묶음 R — 바꾸기 줄의 문구.
+const ED_FIND_REPLACE_PLACEHOLDER=t('editor.find_replace_placeholder');
+const ED_FIND_REPLACE_ONE=t('editor.find_replace_one');
+const ED_FIND_REPLACE_ALL=t('editor.find_replace_all');
+const ED_FIND_REPLACE_TOGGLE_TITLE=t('editor.find_replace_toggle_title');
+// `executeEdits` 의 출처 이름. Monaco 가 undo 묶음과 이벤트에 그대로 싣는다.
+const ED_FIND_EDIT_SOURCE='fe-find-replace';
 // FR-EFP-16: 질의가 비면 수를 말하지 않는다 — 아직 묻지 않은 것이다. 0건과
 // 빈 질의를 같은 화면으로 두면 사용자가 "없다" 로 읽는다.
 const ED_FIND_NONE=t('editor.find_none');
