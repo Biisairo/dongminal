@@ -40,6 +40,28 @@ var agentPluginFS embed.FS
 func helperNames() []string { return dmenv.HelperNames() }
 
 // Install은 helper symlink + shell hook 파일을 binDir 에 설치한다.
+// EnsureInstalled 는 **없거나 깨졌을 때만** 설치한다
+// (PERFORMANCE_HARDENING_SRS FR-PRF-78·79 · `AUDIT-go-infra.md` 항목 8).
+//
+//	이전 동작: 서버와 데몬이 부팅마다 **각자** `Install` 을 불렀다 — 같은
+//	          디렉터리에 같은 자산을 두 번 깐다
+//	새  동작: 설치의 주체는 서버 하나이고, 데몬은 이 함수로 **점검**만 한다
+//	이유:     `bin/` 은 인스턴스 자산이고 데몬은 그것을 **소비**할 뿐이다.
+//	          기동 순서상 데몬은 서버의 자식이므로 서버가 언제나 먼저 깐다 —
+//	          데몬이 단독으로 뜨는 경로는 사람이 `dongminald` 를 직접 부를 때뿐이고,
+//	          그때는 여기서 설치가 돈다
+//
+// **값은 시간이 아니다.** 두 번째 호출은 darwin 에서 2ms 다 (`BenchmarkInstallWarm`).
+// 값은 둘이다 — ① 두 설치가 겹치는 창이 사라진다 ② Windows 의 파일당 Defender
+// 스캔과 네트워크 홈의 왕복이 18개 파일 × `LinkOrCopy` 5회 × `WalkDir` 3패스에
+// 곱해지던 것이 사라진다. 그 배수는 재지 않았고, **재지 않은 것을 근거로 적지 않는다.**
+func EnsureInstalled(binDir string) error {
+	if st := InspectHelpers(binDir); st.Installed && len(st.Problems) == 0 {
+		return nil
+	}
+	return Install(binDir)
+}
+
 func Install(binDir string) error {
 	self, err := os.Executable()
 	if err != nil {

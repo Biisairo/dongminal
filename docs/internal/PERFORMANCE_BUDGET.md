@@ -159,6 +159,7 @@
 | grep 폴백의 파일당 상주 메모리 | **O(줄 길이)** (전에는 O(파일 크기)) | `TestGrepWithGo_LineSplittingUnchanged` · `BenchmarkGrepWithGo` |
 | 살아 있는 LSP 세션을 쓰는 요청의 `LookPath` | **0** (전에는 요청당 2) | `TestManager_LiveSessionSkipsResolve` |
 | `runs.json` 저장 1회의 깊은 복사 | **0** (되돌림은 쓴 바이트에서 푼다) | `TestSave_RollbackWorksFromBlob` · `BenchmarkAppendMessage` |
+| 부팅 1회의 `runtime.Install` 진입 | **1** (서버만. 데몬은 점검) | `TestEnsureInstalled_SkipsWhenHelpersAreHealthy` |
 
 > 둘째 줄이 없으면 첫째 줄은 *"아무것도 안 그린다"* 로도 통과한다. 조용히 낡은
 > 화면은 느린 화면보다 나쁘다 (`PERFORMANCE_HARDENING_SRS` §7).

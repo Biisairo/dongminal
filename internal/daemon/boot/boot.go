@@ -56,7 +56,10 @@ func referencedTools(path string) map[string]struct{} {
 func Run(home, version, daemonBuild string) {
 	dmlog.Infof(nil, "dongminald starting home=%s", home)
 
-	if err := runtime.Install(filepath.Join(home, "bin")); err != nil {
+	// FR-PRF-78: **점검만 한다.** 정상 경로에서는 서버가 이미 깔았다 — 데몬은
+	// 서버의 자식이다. 없거나 깨졌을 때만 깐다 (사람이 `dongminald` 를 직접 부른
+	// 경우가 그 자리다).
+	if err := runtime.EnsureInstalled(filepath.Join(home, "bin")); err != nil {
 		dmlog.Errorf(nil, "runtime install: %v", err)
 		os.Exit(1)
 	}
