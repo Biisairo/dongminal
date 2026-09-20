@@ -80,7 +80,7 @@ func RunBackup(o BackupOpts, stdout, stderr io.Writer) int {
 
 	var n int
 	for _, e := range homeLayout() {
-		if !e.Backup {
+		if !e.InBackup {
 			continue
 		}
 		src := filepath.Join(home, e.Name)

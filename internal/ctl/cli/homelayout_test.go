@@ -42,7 +42,7 @@ func TestHomeLayoutCoversKnownFiles(t *testing.T) {
 // 만드는 것이라 담아도 뜻이 없고, 소켓은 zip 에 담기지도 않는다.
 func TestBackupExcludesEphemeral(t *testing.T) {
 	for _, e := range homeLayout() {
-		if !e.Backup {
+		if !e.InBackup {
 			continue
 		}
 		if e.Ephemeral {
@@ -65,7 +65,7 @@ func TestBackupExcludesEphemeral(t *testing.T) {
 func inBackup(name string) bool {
 	for _, e := range homeLayout() {
 		if e.Name == name {
-			return e.Backup
+			return e.InBackup
 		}
 	}
 	return false
@@ -128,10 +128,11 @@ func TestUninstallRequiresConfirmation(t *testing.T) {
 
 // STRUCTURE_CLEANUP_SRS 묶음 C · TC-STR-12.
 //
-// **`Backup` 은 뜻이 둘인 필드다.** `backup` 에게는 "zip 에 담는가" 이고
-// `uninstall` 에게는 **"보존하는가"** 다 (`uninstallPlan` 이 `e.Backup && !purge`
-// 로 거른다). 뜻이 둘이면 되돌릴 수 없는 쪽을 따라야 한다 — `git-worktrees` 는
-// 사용자가 Git 창에서 만든 worktree 이고 거기에는 커밋하지 않은 작업이 산다.
+// **종전에는 `Backup` 한 필드가 두 물음을 겸했다** — `backup` 에게는 "zip 에
+// 담는가" 이고 `uninstall` 에게는 "보존하는가" 였다. 뜻이 둘이면 되돌릴 수 없는
+// 쪽을 따라야 한다는 것이 D-STR-4 의 판단이었고, 지금은 필드가 갈렸다
+// (DOC_SYNC_SRS FR-DSY-60). **이 검사가 재는 사실은 그대로다** — `git-worktrees`
+// 는 사용자가 Git 창에서 만든 worktree 이고 거기에는 커밋하지 않은 작업이 산다.
 func TestUserWorktreesSurvivePlainUninstall(t *testing.T) {
 	home := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(home, "git-worktrees", "feature-x"), 0o700); err != nil {
@@ -184,6 +185,87 @@ func TestHomeLayoutHasDerivedEntries(t *testing.T) {
 	} {
 		if !names[n] {
 			t.Errorf("홈에 쓰는 %s 가 표에 없다 (FR-STR-30)", n)
+		}
+	}
+}
+
+// ── 두 물음이 갈렸다 (DOC_SYNC_SRS 묶음 D-F · TC-DSY-13~15) ──
+
+// **가르는 것이 이 변경이고, 답을 다시 정하는 것은 아니다** (FR-DSY-61).
+//
+// 종전에 `Backup` 하나가 답하던 두 물음의 답이 지금도 같은지 — 그것이 이 검사다.
+// 지금은 모든 항목에서 둘이 같으므로, 이 검사는 **다르게 만든 사람이 그것을
+// 의도했는지** 묻는 자리가 된다: 답을 갈랐다면 여기 예외를 적게 된다.
+func TestHomeEntry_TwoQuestionsAgreeToday(t *testing.T) {
+	n := 0
+	for _, e := range homeLayout() {
+		if e.InBackup != e.KeepOnUninstall {
+			t.Errorf("%s: InBackup=%v · KeepOnUninstall=%v — 답이 갈렸다. "+
+				"의도한 것이라면 이 검사에 사유와 함께 예외를 적어라 (FR-DSY-61)",
+				e.Name, e.InBackup, e.KeepOnUninstall)
+		}
+		if e.InBackup {
+			n++
+		}
+	}
+	// M6 §4-A-1: 아무것도 재지 않는 검사를 만들지 않는다.
+	if n < 5 {
+		t.Fatalf("담는 항목이 %d개뿐이다 — 검사가 공회전한다", n)
+	}
+}
+
+// TC-DSY-13: `backup` 의 대상 집합이 **갈리기 전과 같다.**
+//
+// 이름을 손으로 적지 않고 `Ephemeral` 의 반대로 파생한다 — 표가 자라도 이 검사가
+// 따라간다 (규약 9).
+func TestBackupSetUnchangedBySplit(t *testing.T) {
+	got := map[string]bool{}
+	for _, n := range backupNames() {
+		got[n] = true
+	}
+	for _, e := range homeLayout() {
+		// 착수 시의 규칙: 담는 것 = 다시 만들어지지 않는 것.
+		want := !e.Ephemeral
+		if got[e.Name] != want {
+			t.Errorf("%s: backup 대상 %v, want %v", e.Name, got[e.Name], want)
+		}
+	}
+}
+
+// TC-DSY-14: 맨 `uninstall` 의 **보존 집합**이 갈리기 전과 같다.
+func TestKeepSetUnchangedBySplit(t *testing.T) {
+	home := t.TempDir()
+	for _, e := range homeLayout() {
+		p := filepath.Join(home, e.Name)
+		var err error
+		if e.IsDir {
+			err = os.MkdirAll(p, 0o700)
+		} else {
+			err = os.WriteFile(p, []byte("x"), 0o600)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	planned := map[string]bool{}
+	for _, it := range uninstallPlan(home, false) {
+		planned[it.entry.Name] = true
+	}
+	for _, e := range homeLayout() {
+		// 맨 uninstall 은 **보존하기로 한 것만** 남긴다.
+		if planned[e.Name] == e.KeepOnUninstall {
+			t.Errorf("%s: 맨 uninstall 계획에 %v · KeepOnUninstall=%v — 둘이 어긋난다",
+				e.Name, planned[e.Name], e.KeepOnUninstall)
+		}
+	}
+	// `--purge` 는 전부 가져간다 — 보존하기로 한 것까지.
+	all := map[string]bool{}
+	for _, it := range uninstallPlan(home, true) {
+		all[it.entry.Name] = true
+	}
+	for _, e := range homeLayout() {
+		if !all[e.Name] {
+			t.Errorf("%s: --purge 가 지우지 않는다", e.Name)
 		}
 	}
 }

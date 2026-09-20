@@ -69,8 +69,9 @@ func RunUninstall(o UninstallOpts, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "지울 항목 %d개:\n", len(plan))
 	for _, p := range plan {
 		mark := " "
-		if p.entry.Backup {
-			// **되살릴 수 있는 것**에 표시를 단다. 사람이 멈출 자리가 여기다.
+		if p.entry.KeepOnUninstall {
+			// **맨 `uninstall` 이면 남았을 것**에 표시를 단다 — 여기 보인다는 것은
+			// `--purge` 라는 뜻이다. 사람이 멈출 자리가 여기다.
 			mark = "!"
 		}
 		fmt.Fprintf(stdout, " %s %-24s %s\n", mark, p.entry.Name, p.entry.What)
@@ -123,7 +124,9 @@ type uninstallItem struct {
 func uninstallPlan(home string, purge bool) []uninstallItem {
 	var out []uninstallItem
 	for _, e := range homeLayout() {
-		if e.Backup && !purge {
+		// 묻는 것은 **"맨 uninstall 이 보존하는가"** 하나다 (FR-DSY-60).
+		// `--purge` 는 보존하기로 한 것까지 지운다.
+		if e.KeepOnUninstall && !purge {
 			continue
 		}
 		p := filepath.Join(home, e.Name)
@@ -138,7 +141,7 @@ func uninstallPlan(home string, purge bool) []uninstallItem {
 func keptNames(home string) []string {
 	var out []string
 	for _, e := range homeLayout() {
-		if !e.Backup {
+		if !e.KeepOnUninstall {
 			continue
 		}
 		if _, err := os.Lstat(filepath.Join(home, e.Name)); err == nil {
