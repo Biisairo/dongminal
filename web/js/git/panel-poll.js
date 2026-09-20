@@ -74,23 +74,21 @@ Object.assign(GitPanel.prototype, {
 
   openFileDiff(t){this._openDiff(t.group,{path:t.path,origPath:t.origPath||''})},
 
-  // 복사 유틸이 기존에 없다. clipboard 가 막힌 환경(비보안 컨텍스트)에서는
-  // 임시 textarea 로 떨어진다.
+  /**
+   * 우클릭 메뉴의 복사 진입점. **이름과 서명은 계약이다** — 메뉴 일곱 항목과
+   * e2e 둘이 이것을 가로챈다 (FR-STR-12).
+   *
+   *   이전 동작: 1단(`navigator.clipboard`) → 2단(임시 textarea). 둘 다 실패하면
+   *             **아무 일도 일어나지 않는다.**
+   *   새  동작: `ClipboardWriter.write` 가 3단(복사창)까지 내려간다 (FR-STR-14·15).
+   *   이유:     1·2단의 실패는 환경이 정하는 것이라(비보안 컨텍스트·제스처 없음)
+   *             3단이 없으면 이 기능은 "될 때도 있고 안 될 때도 있는 것" 이다
+   *             (FR-ETR-40 · D-12). 그 3단은 이미 서 있었고 이름이 터미널을
+   *             말해서 여기가 못 봤을 뿐이다.
+   */
   copyText(text){
     if(!text) return;
-    if(navigator.clipboard&&navigator.clipboard.writeText){
-      navigator.clipboard.writeText(text).catch(()=>this._copyFallback(text));
-      return;
-    }
-    this._copyFallback(text);
-  },
-
-  _copyFallback(text){
-    const ta=document.createElement('textarea');
-    ta.value=text; ta.style.cssText='position:fixed;left:-9999px;top:0';
-    document.body.appendChild(ta); ta.select();
-    try{document.execCommand('copy')}catch{}
-    ta.remove();
+    ClipboardWriter.write(text);
   },
 
   /**

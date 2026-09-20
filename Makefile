@@ -105,6 +105,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@node scripts/check-josa.mjs
 	@echo "── 존댓말 등급 (해라체가 섞이지 않는가)"
 	@node scripts/check-honorific.mjs
+	@echo "── 클립보드 (복사가 한 자리를 지나는가)"
+	@node scripts/check-clipboard.mjs
 	@echo "gates ok"
 
 # ── 전량 e2e 의 용량 (M10_SRS FR-M10-5 · D-M10-6) ───────────────────────────

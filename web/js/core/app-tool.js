@@ -113,8 +113,16 @@ Object.assign(App.prototype, {
         copy.addEventListener('click',async()=>{
           // 복사가 막힌 환경(비 HTTPS·권한)에서도 명령은 화면에 남아 있다 —
           // 실패를 알릴 뿐 흐름을 막지 않는다.
-          try{await navigator.clipboard.writeText(cmd); copy.textContent=SBX_RT_COPIED}
-          catch{}
+          //
+          //   이전 동작: `navigator.clipboard.writeText` 하나. secure context
+          //             밖에서는 `navigator.clipboard` 가 **아예 없어** 호출이
+          //             TypeError 로 던지고 빈 catch 가 그것을 삼켰다 — 버튼을
+          //             눌러도 **아무 일이 안 일어난다.** 주석이 "실패를 알릴 뿐"
+          //             이라 적었는데 알리지 않았다.
+          //   새  동작: 3단까지 내려가고 **성공 여부를 돌려받는다.** 실패하면
+          //             글자를 바꾸지 않으므로 눌린 것이 되지 않는다 (FR-STR-16).
+          //   이유:     FR-STR-14·15 · FR-ETR-40.
+          if(await ClipboardWriter.write(cmd)) copy.textContent=SBX_RT_COPIED;
         });
         row.appendChild(code); row.appendChild(copy);
         box.appendChild(row);

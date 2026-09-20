@@ -269,13 +269,13 @@
 
 | ID | 요구 | 등급 |
 |---|---|---|
-| FR-STR-10 | 3단 복사가 **`web/js/ui/clipboard.js` 의 `Clipboard`** 로 선다. 몸통은 `term-clipboard.js` 의 `write`·`_execCopy`·`prompt`·`close`·`_watchedHere` 를 **구간 이동**한 것이고 한 줄도 바뀌지 않는다 | 필수 |
-| FR-STR-11 | `TermClipboard` 는 **OSC 52 어댑터로 남는다** — `attach`·`_onOsc`·`_decode` 와 상한. 쓰기는 `Clipboard.write` 에 위임한다. 이름이 그 파일이 하는 일을 말하게 된다 | 필수 |
+| FR-STR-10 | 3단 복사가 **`web/js/ui/clipboard.js` 의 `ClipboardWriter`** 로 선다. 몸통은 `term-clipboard.js` 의 `write`·`_execCopy`·`prompt`·`close`·`_watchedHere` 를 **구간 이동**한 것이고 한 줄도 바뀌지 않는다 | 필수 |
+| FR-STR-11 | `TermClipboard` 는 **OSC 52 어댑터로 남는다** — `attach`·`_onOsc`·`_decode` 와 상한. 쓰기는 `ClipboardWriter.write` 에 위임한다. 이름이 그 파일이 하는 일을 말하게 된다 | 필수 |
 | FR-STR-12 | **CSS 클래스(`.tc-copy*`)·카탈로그 키(`TERM_COPY_*`)·`TERM_COPY_ID` 는 그대로 둔다.** 외형도 낱말도 이 묶음의 대상이 아니고, e2e 가 그 이름을 단정한다 (FR-STR-6) | 필수 |
-| FR-STR-13 | `window.TermClipboard` 는 **남는다.** e2e 와 `term-pane.js` 가 창 밖에서 부른다. `window.Clipboard` 가 함께 선다 | 필수 |
-| FR-STR-14 | 사본 넷이 `Clipboard.write` 를 지난다 — `git/panel-poll.js`(`copyText`·`_copyFallback`) · `git/dialog.js`(`_copy`) · `git/confirm.js`(`_copy`) · `core/app-tool.js:116` | 필수 |
+| FR-STR-13 | `window.TermClipboard` 는 **남는다.** e2e 와 `term-pane.js` 가 창 밖에서 부른다. `window.ClipboardWriter` 가 함께 선다 — 전역 이름이 `Clipboard` 가 **아닌 이유**는 그것이 브라우저의 인터페이스 이름이기 때문이다 (`navigator.clipboard instanceof Clipboard`) | 필수 |
+| FR-STR-14 | 사본 넷이 `ClipboardWriter.write` 를 지난다 — `git/panel-poll.js`(`copyText`·`_copyFallback`) · `git/dialog.js`(`_copy`) · `git/confirm.js`(`_copy`) · `core/app-tool.js:116` | 필수 |
 | FR-STR-15 | **이것은 동작 변경이다.** 이전: 1·2단이 실패하면 아무 일도 일어나지 않는다. 새: 3단 복사창이 선다. 이유: `EXPLORER_TRANSFER_IGNORE_SRS` D-12 가 *"1·2 가 실패하는 것은 환경이 정하는 것이므로 3 이 없으면 이 기능은 될 때도 있고 안 될 때도 있는 것이 된다"* 로 이미 판정했다. FR-STR-5 대로 기록한다 | 필수 |
-| FR-STR-16 | `app-tool.js:116` 의 빈 `catch{}` 가 사라진다 — `Clipboard.write` 는 **던지지 않고 성공 여부를 돌려준다.** 실패하면 버튼 글자가 `SBX_RT_COPIED` 로 바뀌지 않는다 (지금은 성공·실패가 구분되지 않는다) | 필수 |
+| FR-STR-16 | `app-tool.js:116` 의 빈 `catch{}` 가 사라진다 — `ClipboardWriter.write` 는 **던지지 않고 성공 여부를 돌려준다.** 실패하면 버튼 글자가 `SBX_RT_COPIED` 로 바뀌지 않는다 (지금은 성공·실패가 구분되지 않는다) | 필수 |
 | FR-STR-17 | **게이트 1**: `scripts/check-clipboard.mjs` — `web/js` 에서 `execCommand('copy')` 또는 `navigator.clipboard.writeText` 를 부르는 자리가 **헬퍼 밖에 없다.** 물음은 하나다: *"복사가 한 자리를 지나는가"* | 필수 |
 | FR-STR-18 | 게이트는 **읽기(`readText`)를 잡지 않는다.** `term-pane.js:61` 의 붙여넣기는 다른 물음이고 3단 폴백이 성립하지 않는다 (브라우저가 주지 않는 것을 우회할 수 없다) | 필수 |
 
@@ -348,7 +348,7 @@
 
 | TC | 묶음 | 내용 | 수단 |
 |---|---|---|---|
-| TC-STR-1 | A | `Clipboard.write` 가 1단 성공·1단 실패→2단 성공·둘 다 실패→3단 창을 각각 낸다 | 단위 |
+| TC-STR-1 | A | `ClipboardWriter.write` 가 1단 성공·1단 실패→2단 성공·둘 다 실패→3단 창을 각각 낸다 | 단위 |
 | TC-STR-2 | A | git 패널 경로 복사 · 확인창의 명령 복사 · 샌드박스 명령 복사가 **실제 화면에서** 통한다 | e2e |
 | TC-STR-3 | A | `execCommand('copy')`·`navigator.clipboard.writeText` 를 부르는 자리가 헬퍼 밖에 **0** | 단위 (게이트 1) |
 | TC-STR-4 | A | 게이트 1 이 `navigator.clipboard.readText`(붙여넣기)를 **잡지 않는다** | 탐침 |

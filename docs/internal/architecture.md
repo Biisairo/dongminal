@@ -124,7 +124,7 @@ web/                     # 프론트엔드 자산 + embed.FS()
   style{,-git,-git-views,-editor}.css   # 넷의 <link> 순서 = 원본 선언 순서 (캐스케이드)
   js/core/               #   App 클래스 (app.js + 주제별 app-*.js 17) + helpers·main
                          #     constants{,-git,-editor}.js — 주제별 상수 (로드 순서가 그 순서)
-  js/ui/                 #   themes·renderer·term-pane·term-clipboard·file-editor 등
+  js/ui/                 #   themes·renderer·term-pane·clipboard·file-editor 등
                          #     file-tree{,-store,-paint,-edit,-xfer}.js — 탐색기 5파일
   js/git/                #   git 패널. api.js — gitFetch/gitPost (stale·echo 가드 소유)
                          #     observer(관측 하나) · panel(칸마다 하나) · diff-view(Monaco)

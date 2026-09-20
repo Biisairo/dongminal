@@ -389,14 +389,12 @@ class GitDialog {
     if(r) r(this.choices.length?String(v||''):!!v);
   }
 
-  // 클립보드 접근이 막힌 환경에서도 동작해야 한다 — GitConfirm 과 같은 방식이다.
+  // 클립보드 접근이 막힌 환경에서도 동작해야 한다 — 그 3단은 한 자리에 있다
+  // (FR-STR-10). 종전에는 2단만 여기 복사돼 있었고, 그래서 제스처가 거부되면
+  // 조용히 실패했다 (FR-STR-14·15).
   _copy(text){
     if(!text) return;
-    const ta=document.createElement('textarea');
-    ta.value=text; ta.style.cssText='position:fixed;left:-9999px;top:0';
-    document.body.appendChild(ta); ta.select();
-    try{document.execCommand('copy')}catch{}
-    ta.remove();
+    ClipboardWriter.write(text);
   }
 }
 

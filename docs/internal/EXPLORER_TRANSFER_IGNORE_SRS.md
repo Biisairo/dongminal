@@ -401,6 +401,13 @@ unknown" 인데(`toolhub/hub.go`), `Tool.Cwd` 가 조회 실패를 서버 프로
 3. 그것도 실패하면 **복사창을 띄운다** — 받은 내용을 담고, 사용자가 한 번 누르면
    복사된다. 그 클릭이 제스처이므로 2단이 그 자리에서는 통한다
 
+> **자리 이동 (2026-09-21 · `STRUCTURE_CLEANUP_SRS` FR-STR-10).**
+> 이전: 이 3단은 `web/js/ui/term-clipboard.js` 안에 있었다.
+> 새: `web/js/ui/clipboard.js` 의 `ClipboardWriter` 다. `term-clipboard.js` 는
+> OSC 52 어댑터로 남고 `TermClipboard.write` 는 위임으로 남는다 — **계약은 그대로다.**
+> 이유: 이름이 터미널을 말해서 **뒤따른 네 자리가 이 3단을 못 보고 각자 1단이나
+> 2단만 다시 만들었다.** 요구가 아니라 자리가 바뀌었다.
+
 **FR-ETR-41.** 복사창은 내용을 **미리 선택한 채로** 연다. 누르지 않고 `Cmd/Ctrl+C`
 로 끝낼 수 있어야 한다. `Esc` 로 닫는다.
 
