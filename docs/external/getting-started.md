@@ -429,6 +429,7 @@ dongminal config validate      # 설정 파일을 스키마에 대조 (불일치
 | `.lastexit` | 마지막 종료가 정상이었는지 | ❌ |
 | `server.log` · `daemon.log` · `restart.log` | 로그 | ❌ |
 | `doctor/` · `doctor-tools/` · `doctor-probe.txt` | `doctor` 의 작업 자리 | ❌ |
+| `verify-too-large.bin` | `verify` 가 413 을 확인할 때 쓰는 큰 파일 | ❌ 정상 종료면 스스로 치웁니다 |
 
 배경 모드 기동 로그는 `$DONGMINAL_LOG`, 정하지 않았으면
 **`$DONGMINAL_HOME/server.log`** 입니다. 홈은 `0700` 이라 같은 기계의 다른

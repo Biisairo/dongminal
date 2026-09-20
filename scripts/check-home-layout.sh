@@ -18,6 +18,21 @@
 #
 # 이 검사는 반대로 센다 — **코드가 홈 아래에 쓰는 첫 조각 전부**.
 #
+# ## 집합이 셋이다 (DOC_SYNC_SRS FR-DSY-50~52)
+#
+#   ① 코드가 홈에 쓰는 첫 조각
+#   ② `homeLayout()` 의 Name
+#   ③ `docs/external/getting-started.md` 의 "데이터가 어디 있나요" 표
+#
+#   이전 동작: ①↔② 둘만 봤다. ③ 은 B5 가 **손으로** 맞췄다
+#   새  동작: ③ 도 양방향으로 본다
+#   이유:     사용자가 읽는 것은 ③ 이다. 손으로 맞춘 것은 다음 변경에서 낡고,
+#             그때 문서는 "이 폴더 밖에 상태를 두지 않습니다" 라고 단언한 채로
+#             거짓이 된다 (`STRUCTURE_CLEANUP_SRS` §6-11 이 넘긴 자리)
+#
+# **물음은 여전히 하나다** — *"홈의 목록이 전수인가"*. 세 집합은 한 물음의 세
+# 증인이다 (FR-DSY-52).
+#
 # ## 이름 해석
 #
 # 이름이 상수로 적힌 자리가 많다(`toolipc.DaemonBuildFile`·`platform.SocketFileName`).
@@ -43,7 +58,10 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 
   상수로 적힌 이름은 정의를 따라간다 (쓰는 파일 → 디렉터리 → 패키지).
 
-  --list  양쪽 집합과 해석하지 못한 이름을 찍는다.
+  세 번째 집합은 docs/external/getting-started.md 의 "데이터가 어디 있나요" 표다.
+  한 칸에 이름이 여럿이면(`a` · `b`) 나눠서 센다.
+
+  --list  세 집합과 해석하지 못한 이름을 찍는다.
 USAGE
   exit 0
 fi
@@ -123,9 +141,37 @@ while IFS= read -r n; do
   grep -qxF "$n" <<<"$declared" || missing+=("$n")
 done <<<"$used"
 
+# ── 문서 쪽: getting-started.md 의 "데이터가 어디 있나요" 표 ────────────────
+#
+# 첫 칸에서 백틱 안의 이름을 전부 집는다 — 한 칸에 여럿이 올 수 있다
+# (`paned.sock` · `paned.pid` · `paned.build`). 디렉터리의 끝 `/` 는 뗀다:
+# 표는 사람에게 디렉터리임을 보이려고 붙이고, `homeLayout()` 은 `IsDir` 로 답한다.
+DOC=docs/external/getting-started.md
+documented=$(
+  awk '/^## 데이터가 어디 있나요/{inside=1} inside&&/^## /&&!/데이터가 어디 있나요/{inside=0} inside&&/^\|/{print}' "$DOC" \
+    | sed -E 's/^\|([^|]*)\|.*/\1/' | grep -oE '`[^`]+`' | tr -d '`' | sed 's#/$##' | sort -u
+)
+
+if [[ $(grep -c . <<<"$documented") -lt 15 ]]; then
+  echo "$DOC 의 홈 표에서 이름을 $(grep -c . <<<"$documented")개밖에 못 읽었다 — 검사가 공회전한다."
+  exit 1
+fi
+
+docMissing=()   # 표에 있는데 문서에 없다
+docExtra=()     # 문서에 있는데 표에 없다
+while IFS= read -r n; do
+  [[ -z "$n" ]] && continue
+  grep -qxF "$n" <<<"$documented" || docMissing+=("$n")
+done <<<"$declared"
+while IFS= read -r n; do
+  [[ -z "$n" ]] && continue
+  grep -qxF "$n" <<<"$declared" || docExtra+=("$n")
+done <<<"$documented"
+
 if [[ "${1:-}" == "--list" ]]; then
   echo "표(homeLayout):"; sed 's/^/  /' <<<"$declared"
   echo "코드가 쓰는 첫 조각:"; sed 's/^/  /' <<<"$used"
+  echo "문서($DOC):"; sed 's/^/  /' <<<"$documented"
   echo
 fi
 
@@ -145,4 +191,20 @@ if ((${#missing[@]})); then
   exit 1
 fi
 
-echo "home-layout ok (표 $(grep -c . <<<"$declared")개 · 코드가 쓰는 첫 조각 $(grep -c . <<<"$used")개 전부 표 안 · 해석 못 한 이름 $(grep -c . <<<"$unresolved"))"
+if ((${#docMissing[@]} + ${#docExtra[@]})); then
+  echo "홈의 표와 문서가 어긋납니다 (FR-DSY-50·51):"
+  if ((${#docMissing[@]})); then
+    echo "  표에 있는데 $DOC 에 없다:"
+    printf '    %s\n' "${docMissing[@]}"
+  fi
+  if ((${#docExtra[@]})); then
+    echo "  $DOC 에 있는데 표에 없다:"
+    printf '    %s\n' "${docExtra[@]}"
+  fi
+  echo
+  echo "  사용자가 읽는 것은 문서입니다. 그 표가 \"이 폴더 밖에 상태를 두지 않습니다\" 라고"
+  echo "  단언하므로, 빠진 이름 하나가 그 단언을 거짓으로 만듭니다."
+  exit 1
+fi
+
+echo "home-layout ok (표 $(grep -c . <<<"$declared")개 · 코드가 쓰는 첫 조각 $(grep -c . <<<"$used")개 · 문서 $(grep -c . <<<"$documented")개 — 셋이 같다 · 해석 못 한 이름 $(grep -c . <<<"$unresolved"))"
