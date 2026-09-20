@@ -256,7 +256,11 @@ func verifyChecks() []verifyCheck {
 		// ── 경계 (M2) ──
 		// 유닛은 가짜 배선에서 돌고 e2e 는 브라우저를 지난다. "설치된 실물 서버에서
 		// 이 경계가 실제로 서 있는가" 를 묻는 자리가 그 둘 사이에 없었다.
-		verifyCheck{Section: "경계", Name: "허용 루트 밖 파일 읽기 403", Run: (*verifySession).fileOutsideRootIs403},
+		// 여기 "허용 루트 밖 파일 읽기 403" 이 있었다 — 홈 밖의 절대경로를 실물
+		// 서버에 물어 **거부되는가** 를 확인했다. `FILE_API_BOUNDARY_SRS` 의 묶음
+		// B·W·G·O 가 폐기되며 그 경계가 사라졌으므로(2026-09-20) 이 검사가 물을
+		// 사실이 없어졌다. 남겨 두면 언제나 실패한다 — 바로 아래 "노출 ACL
+		// 게이트" 와 같은 경위다.
 		verifyCheck{Section: "경계", Name: "상대경로 400", Run: wantStatus(http.StatusBadRequest, at("/api/file/read?path=relative.txt"))},
 		verifyCheck{Section: "경계", Name: "읽기 상한 초과 413", Run: (*verifySession).fileOverLimitIs413},
 		verifyCheck{Section: "경계", Name: "정적 응답의 보안 헤더", Run: (*verifySession).staticSecurityHeaders},

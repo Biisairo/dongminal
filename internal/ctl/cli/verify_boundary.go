@@ -20,22 +20,13 @@ import (
 // §2.12 의 정정을 지킨다: verify 는 **런타임 종단간** 검사이며 정적 검사의 자리가
 // 아니다. 아래 다섯은 전부 실제로 뜬 서버(또는 실제로 돌린 기동)를 두드린다.
 
-// verifyOutsidePath 는 어떤 허용 루트에도 들 수 없는 절대경로다.
-//
-// **OS 갈래를 만들지 않는다** (FR-E2S-0). 볼륨 루트 바로 아래의 이름 하나면
-// 어디서나 홈 밖이고, 실재하지 않아도 판정은 같다 — 경계는 "루트 안인가" 를 먼저
-// 묻고 그 답이 아니오이기 때문이다.
-func verifyOutsidePath(home string) string {
-	vol := filepath.VolumeName(home)
-	return filepath.Join(vol+string(filepath.Separator), "dongminal-verify-outside", "x.txt")
-}
-
 // registerRepo 는 검사 대상 저장소를 **워크스페이스에 등록한다**
 // (FILE_API_BOUNDARY_SRS FR-FAB-14c).
 //
-// `repo` 인자도 이제 경계를 지난다 — 워크스페이스가 모르는 저장소는 403 이다.
-// 제품의 UI 흐름은 `openGitWindow` 가 열기 전에 등록하므로(`FR-RTU-72`) 이 계약을
-// 이미 지키고, 이 검사만 그 걸음을 건너뛰고 있었다.
+// 등록은 제품의 UI 흐름과 같은 걸음이다 — `openGitWindow` 가 열기 전에 등록한다
+// (`FR-RTU-72`). 종전에는 `repo` 인자가 경계를 지나 워크스페이스가 모르는 저장소가
+// 403 이었고 이 검사만 그 걸음을 건너뛰고 있었는데, 그 경계는 폐기됐다(묶음 G).
+// **등록을 남기는 이유는 검사가 제품의 흐름을 흉내내야 하기 때문이다.**
 //
 // **격리 홈에서는 이 걸음이 필수다.** 검사는 자기 홈을 새로 잡고 대상 저장소는
 // 체크아웃 자리에 있다 — 리눅스 러너에서는 둘 다 `/home/runner` 아래라 우연히
@@ -53,18 +44,6 @@ func (s *verifySession) registerRepo() (string, error) {
 		return "", fmt.Errorf("editors/add → %d", resp.StatusCode)
 	}
 	return s.repo, nil
-}
-
-func (s *verifySession) fileOutsideRootIs403() (string, error) {
-	p := verifyOutsidePath(s.home)
-	code, err := s.status("/api/file/read?path=" + url.QueryEscape(p))
-	if err != nil {
-		return "", err
-	}
-	if code != http.StatusForbidden {
-		return "", fmt.Errorf("%s → %d, want 403 — 경계가 서 있지 않다", p, code)
-	}
-	return p, nil
 }
 
 // 상한 초과는 **실제 파일**로 확인한다. sparse 로 만들어 디스크를 쓰지 않는다 —
