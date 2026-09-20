@@ -543,7 +543,7 @@ CSS 전체의 `:focus-visible` 규칙은 28개이며 나머지는 입력·목록
 | E-1 | `.pn-tabs` · `#mobile-keybar` (폭 0) | 숨김은 겉모습이 아니라 뜻이다 — 탭 줄·키바는 스크롤바가 자리를 먹으면 안 된다 | 그 두 표면이 세로로 구르게 되면 |
 | E-2 | `.xterm-viewport` | 벤더가 만드는 요소라 클래스를 붙일 자리가 없다. 킷 선택자에 이름으로 들어 있다 | xterm 이 컨테이너 클래스를 상속시키면 |
 | E-3 | `.dr-body table` · `.dr-body pre` | 마크다운 렌더 산출물이라 클래스를 붙일 자리가 없다 — 부모 `.dr-body` 가 킷을 받는다 | `doc-render` 가 표·코드 블록을 감싸는 래퍼를 만들면 |
-| E-4 | `.sc-key` (`app-settings-keys.js`) | **키캡 표시**이지 누르는 버튼이 아니다. 킷에 `.ui-key` 가 없고 없는 것을 세우는 일은 B3 이다 (D-KIT-1) | 묶음 B3 이 `.ui-key` 를 세우면 |
+| ~~E-4~~ | ~~`.sc-key`~~ | **해소** (2026-09-20) — 묶음 B3 이 킷에 `.ui-key` 를 세웠다 (`KIT_COMPONENTS_SRS` FR-CMP-10~14). 검사는 `.ui-key` 를 등급으로 인정하고 예외 행은 사라졌다 | — |
 | E-5 | `role="switch"` (`index.html` `.ds-switch`) | 토글 스위치이지 버튼이 아니다. `.ui-switch` 는 B3 이다 | 묶음 B3 이 `.ui-switch` 를 세우면 |
 | E-6 | `.fe-find-opt` (`file-editor-find.js`) | `.on` 상태를 가진 **글자 토글**이라 자기 규칙으로 남는다 — `DESIGN_TOKENS_SRS` §7.4 가 *"이 표의 행이 아니다"* 로 이미 판정했다 | 그 판정이 뒤집히면 |
 | E-7 | `web/js/ui/ui-kit.js` | 킷 자신이 버튼을 만드는 자리 — 등급을 **붙이는** 쪽이다 | 없어지지 않는다 (킷의 정의) |

@@ -28,8 +28,15 @@ import { readFileSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 const ROOT = 'web';
-/** 킷 등급. `.ui-btn` 계열과 `.ui-tab` 이며, 둘 다 포커스 링을 갖는다. */
-const KIT = /\bui-(?:btn|tab)\b/;
+/**
+ * 킷 등급. `.ui-btn` 계열 · `.ui-tab` · `.ui-key` 이며 **셋 다 포커스 링을 갖는다**.
+ *
+ * `.ui-key` 가 늦게 들어왔다 (KIT_COMPONENTS_SRS FR-CMP-14). 그 자리는 실제로
+ * `<button>` 이지만 **키캡 표시**라 `ui-btn` 을 달면 뜻이 틀린다 — 그래서 한동안
+ * 이 검사의 예외였고, 킷이 `.ui-key` 를 갖게 되면서 예외가 **해소됐다**.
+ * 검사를 느슨하게 만든 것이 아니라 **셀 대상이 늘어난 것**이다 (규약 2).
+ */
+const KIT = /\bui-(?:btn|tab|key)\b/;
 /** 같은 문이 아니어도 봐 주는 창 (FR-KIT-21b). */
 const WINDOW = 3;
 
@@ -40,9 +47,6 @@ const WINDOW = 3;
 const EXEMPT = [
   { at: 'web/js/ui/ui-kit.js', why: '킷 자신이 버튼을 만드는 자리 — 등급을 붙이는 쪽이다',
     until: '없어지지 않는다 (킷의 정의)' },
-  { at: 'web/js/core/app-settings-keys.js', line: 44,
-    why: '`.sc-key` 는 키캡 표시이지 누르는 버튼이 아니다 — `ui-btn` 을 달면 뜻이 틀린다 (D-KIT-1)',
-    until: '묶음 B3 이 킷에 `.ui-key` 를 세우면' },
   { at: 'web/index.html', line: 336,
     why: '`role="switch"` — 토글 스위치이지 버튼이 아니다',
     until: '묶음 B3 이 킷에 `.ui-switch` 를 세우면' },

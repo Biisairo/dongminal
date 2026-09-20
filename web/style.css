@@ -881,15 +881,10 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .sc-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)}
 .sc-row>span{color:var(--text);font-size:var(--fs-md);flex:1;min-width:0}
 .sc-btns{display:flex;align-items:center;gap:4px;flex-shrink:0}
-.sc-key{
-  background:var(--sidebar-bg);border:1px solid var(--border);border-radius:4px;
-  padding:3px 10px;color:var(--text-bright);font-size:var(--fs-sm);cursor:pointer;
-  font-family:inherit;min-width:80px;text-align:center;transition:border-color .15s;
-}
+.sc-key{cursor:pointer;min-width:80px;transition:border-color .15s}
 .sc-key:hover{border-color:var(--accent-border)}
 .sc-key.recording{border-color:var(--accent);color:var(--accent-text);animation:sc-pulse 1s infinite}
 @keyframes sc-pulse{0%,100%{border-color:var(--accent)}50%{border-color:transparent}}
-kbd{background:var(--border);border:1px solid var(--accent-border);border-radius:4px;padding:2px 8px;font-size:var(--fs-sm);color:var(--accent-text);font-family:inherit}
 
 /* ── Search Bar ── */
 .search-bar{

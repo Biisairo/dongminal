@@ -41,7 +41,7 @@ Object.assign(App.prototype, {
       for(const k of g.keys){
         const row=document.createElement('div');row.className='sc-row';
         const label=document.createElement('span');label.textContent=SHORTCUT_LABELS[k];
-        const btn=document.createElement('button');btn.className='sc-key';btn.dataset.action=k;
+        const btn=document.createElement('button');btn.className='ui-key sc-key';btn.dataset.action=k;
         btn.textContent=displayKey(shortcuts[k]||'');
         // FR-TIP-1: 키 조합이 라벨이므로 **누르면 무슨 일이 나는지**는 라벨에 없다.
         btn.title=SHORTCUT_REBIND_TITLE;

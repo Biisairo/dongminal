@@ -124,6 +124,27 @@
   background:var(--accent);color:var(--bg);font-size:var(--fs-xs);line-height:15px;text-align:center;
 }
 
+/* ── 키캡 (KIT_COMPONENTS_SRS FR-CMP-10) ────────────────────────────────
+   키 조합을 **보여 주는** 표시다. 누르는 것이 아니므로 `.ui-btn` 이 아니다 —
+   `ui-btn` 을 달면 "눌러서 무언가 실행되는 것" 으로 읽히고, 키캡의 뜻은
+   "이 키를 누르면 된다" 이다 (D-KIT-1).
+
+   실제 요소가 `<button>` 인 자리가 있다 (단축키 재바인딩). 그것은 **도달
+   가능성**의 문제이고 표시의 뜻과 별개다 — 포커스 링은 그래서 따로 준다
+   (FR-CMP-12).
+
+   값은 전부 토큰 파생이다. `--sidebar-bg` 는 본문보다 한 겹 뒤로 물러난
+   면이고, 키캡이 글 속에서 **물리적인 키처럼** 도드라지는 데 그 겹이 쓰인다. */
+.ui-key{
+  display:inline-flex;align-items:center;justify-content:center;
+  height:var(--ui-btn-h-sm);padding:0 8px;
+  border:1px solid var(--border);border-radius:var(--ui-radius);
+  background:var(--sidebar-bg);color:var(--text-bright);
+  font-family:inherit;font-size:var(--ui-font);line-height:1;white-space:nowrap;
+}
+/* FR-CMP-12: 누를 수 있는 자리면 포커스가 보여야 한다 (WCAG 2.4.7). */
+.ui-key:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
+
 /* ── 상자 (FR-UIK-7) ─────────────────────────────────────────────────────
    DESIGN_TOKENS_SRS §3.9 (FR-TOK-40~42): 오버레이·상자의 겉모습은 **여기 한
    벌**이다. 옛 골격 여섯(`#modal-overlay`·`.confirm-overlay`·`.bg-modal`·
