@@ -4,6 +4,20 @@
  * 키 규약은 스펙 §3.3 — `ns.name[.sub]`, 자리표시자 `{name}`, 복수형은 `.one`/`.other`.
  * 값은 종전 코드의 문자열과 바이트 단위로 같다 (D-B-4) — 문구 교정은 이 파일의 diff 하나다.
  * 네임스페이스 순으로 정렬돼 있다. 새 키는 그 자리에 넣는다 — 게이트가 ko·en 의 일치를 잡는다.
+ *
+ * ## 목소리는 두 등급뿐이다 (WORDING_COLOR_SRS FR-WRD-70)
+ *
+ *   문장(안내·확인·오류·설명)  **합쇼체** — `…합니다` · `…습니다` · `…하세요`
+ *   라벨·상태 표시            **명사형** — `활동 중인 에이전트 없음`
+ *
+ * 해라체(`…없다` · `…연다`)를 쓰지 않는다. 같은 앱의 다섯 화면이 서로 다른
+ * 등급으로 말하면 화면을 옮길 때마다 목소리가 바뀌고, 해라체는 다른 화면과
+ * 나란히 놓였을 때 무뚝뚝하게 읽힌다. `check-honorific.mjs` 가 지킨다.
+ *
+ * ## 조사는 마커로 쓴다 (FR-WRD-60)
+ *
+ * `'%s {을를} 삭제합니다.'` — `을(를)` 로 피하지 않는다. 마커는 `i18n.js` 의
+ * `josa()` 가 치환 뒤에 풀고, 판정할 수 없을 때만 회피형으로 떨어진다.
  */
 I18N.register('ko', {
   // ── acl ──
@@ -75,8 +89,8 @@ I18N.register('ko', {
   'bg.title': '백그라운드 도구',
   'bg.kill_title': '{name} 종료',
   'bg.q_kill': '종료?',
-  'bg.q_kill_member': '종료? 이 도구는 Run {short} 의 멤버다.',
-  'bg.q_kill_member_role': '종료? 이 도구는 Run {short} 의 멤버 {role} 이다.',
+  'bg.q_kill_member': '종료? 이 도구는 Run {short} 의 멤버입니다.',
+  'bg.q_kill_member_role': '종료? 이 도구는 Run {short} 의 멤버 {role} 입니다.',
   'bg.row_title': '클릭하면 현재 분할 칸의 새 탭으로 복귀',
 
   // ── boot ──
@@ -101,7 +115,7 @@ I18N.register('ko', {
   'core.dur_min.other': '{n}분',
   'core.dur_sec.other': '{n}초',
   'core.err_status': '{what} ({status})',
-  'core.err_unreachable': '{what} — 서버에 닿지 못했다',
+  'core.err_unreachable': '{what} — 서버에 닿지 못했습니다',
   'core.expand': '펼치기',
   'core.file_conflict_cancel': '취소',
   'core.file_conflict_go': '내 것으로 덮어쓰기',
@@ -121,7 +135,7 @@ I18N.register('ko', {
   'core.ok': '확인',
   'core.open_window_fail': '창을 열지 못했습니다',
   'core.open_tab_fail': '탭을 열지 못했습니다',
-  'core.preset_del_q': '삭제? 되돌릴 수 없다.',
+  'core.preset_del_q': '삭제? 되돌릴 수 없습니다.',
   'core.preset_load_fail': '프리셋을 불러오지 못했습니다: %s',
   'core.preset_save_no_plain': '저장할 일반 창이 없습니다 — 터미널 창을 열고 다시 시도하세요',
   'core.q_close_tab': '실행 중인 프로세스가 있습니다. 탭을 닫으시겠습니까?',
@@ -561,7 +575,7 @@ I18N.register('ko', {
   'git.hist_no_commits': '커밋이 아직 없습니다',
   'git.hist_opts': '옵션',
   'git.hist_opts_order': '정렬',
-  'git.hist_reflog_title': '어떤 ref 도 가리키지 않는 커밋을 reflog 에서 찾아 함께 보인다',
+  'git.hist_reflog_title': '어떤 ref 도 가리키지 않는 커밋을 reflog 에서 찾아 함께 보입니다',
   'git.hist_uncommitted': '미커밋 변경',
   'git.hunk_load_fail': '조각을 불러오지 못했습니다',
   'git.hunk_loading': '조각을 불러오는 중…',
@@ -779,7 +793,7 @@ I18N.register('ko', {
   'git.wt_name_ph': '이름 — 디렉터리 이름이 됩니다',
   'git.wt_need_name': '이름이 필요합니다',
   'git.wt_need_ref': '대상 ref 가 필요합니다',
-  'git.wt_opt_newbranch': '이 이름으로 새 브랜치를 만든다',
+  'git.wt_opt_newbranch': '이 이름으로 새 브랜치를 만듭니다',
   'git.wt_own_label.outside': '외부',
   'git.wt_own_label.run': 'Run',
   'git.wt_own_title.outside': 'dongminal 밖에서 만든 worktree 입니다 — 여기서 지울 수 없습니다',
@@ -1020,8 +1034,8 @@ I18N.register('ko', {
   'runs.ago': '{ago} 전',
   'runs.archived_msgs.other': '보관된 메시지 {n}건',
   'runs.attach_fail': '부착 실패',
-  'runs.card_attach_title': '클릭하면 현재 분할 칸의 새 탭으로 부착한다',
-  'runs.card_jump_title': '클릭하면 이 멤버의 도구로 이동한다',
+  'runs.card_attach_title': '클릭하면 현재 분할 칸의 새 탭으로 부착합니다',
+  'runs.card_jump_title': '클릭하면 이 멤버의 도구로 이동합니다',
   'runs.close': '종료',
   'runs.close_fail': '종료 실패',
   'runs.closing': '종료 중…',
@@ -1033,14 +1047,14 @@ I18N.register('ko', {
   'runs.detach': '분리',
   'runs.detach_fail': '분리 실패',
   'runs.elapsed': '경과 {ago}',
-  'runs.empty': '진행 중인 Run 이 없다',
-  'runs.empty_hint': '/dongminal:team 으로 팀을 연다',
-  'runs.gone': '이 Run 은 더 이상 없다',
-  'runs.graph_fail': '대시보드를 받지 못했다',
+  'runs.empty': '진행 중인 Run 이 없습니다',
+  'runs.empty_hint': '/dongminal:team 으로 팀을 엽니다',
+  'runs.gone': '이 Run 은 더 이상 없습니다',
+  'runs.graph_fail': '대시보드를 받지 못했습니다',
   'runs.title': 'Run',
   'runs.headless': '헤드리스',
   'runs.headless_paren': '(헤드리스)',
-  'runs.list_fail': '목록을 받지 못했다',
+  'runs.list_fail': '목록을 받지 못했습니다',
   'runs.member_count': '멤버 {n}',
   'runs.member_count_headless': '멤버 {n} (헤드리스 {h})',
   'runs.members.other': '{n}명',
@@ -1048,10 +1062,10 @@ I18N.register('ko', {
   'runs.no_role': '역할 없음',
   'runs.no_role_paren': '(역할 없음)',
   'runs.objective': '목적: {v}',
-  'runs.q_close': '종료? 에이전트를 끝내고 탭을 닫는다. 기록은 남는다.',
-  'runs.q_delete': '삭제? 기록이 사라진다.',
-  'runs.q_delete_open': '삭제? 진행 중인 Run 이며 기록도 함께 사라진다.',
-  'runs.row_title': '클릭하면 현재 분할 칸의 새 탭에 대시보드가 열린다',
+  'runs.q_close': '종료? 에이전트를 끝내고 탭을 닫습니다. 기록은 남습니다.',
+  'runs.q_delete': '삭제? 기록이 사라집니다.',
+  'runs.q_delete_open': '삭제? 진행 중인 Run 이며 기록도 함께 사라집니다.',
+  'runs.row_title': '클릭하면 현재 분할 칸의 새 탭에 대시보드가 열립니다',
 
   // ── sbx ──
   'sbx.config_read_fail': '샌드박스 설정을 읽지 못했습니다',

@@ -16,8 +16,8 @@ import {
 // 단계에서 조정자가 확인한다. 대신 SSE 수신 경로(_onRunChanged)가 화면을
 // 깨뜨리지 않는다는 것(V-RVZ-12)은 여기서 고정한다.
 
-const RUN_EMPTY_TEXT = '진행 중인 Run 이 없다';
-const RUN_GONE_TEXT = '이 Run 은 더 이상 없다';
+const RUN_EMPTY_TEXT = '진행 중인 Run 이 없습니다';
+const RUN_GONE_TEXT = '이 Run 은 더 이상 없습니다';
 
 const RUN_A = 'aaaaaaaa-1111-4111-8111-111111111111';
 const RUN_B = 'bbbbbbbb-2222-4222-8222-222222222222';
@@ -470,7 +470,7 @@ test.describe('FUI-04 — Run 의 출구', () => {
     const confirm = runRow(page, RUN_A).locator('.runs-confirm');
     await expect(confirm).toHaveAttribute('data-kind', 'close');
     // **기록이 남는다** 는 것이 두 출구의 차이 전부다 — 문구가 그것을 말한다.
-    await expect(confirm.locator('.runs-q')).toContainText('기록은 남는다');
+    await expect(confirm.locator('.runs-q')).toContainText('기록은 남습니다');
     expect(posts).toHaveLength(0);   // 확인 전에는 아무것도 나가지 않는다
 
     await confirm.locator('.runs-yes').click();
@@ -490,7 +490,7 @@ test.describe('FUI-04 — Run 의 출구', () => {
     await runRow(page, RUN_A).locator('.runs-del').click();
     const confirm = runRow(page, RUN_A).locator('.runs-confirm');
     await expect(confirm).toHaveAttribute('data-kind', 'delete');
-    await expect(confirm.locator('.runs-q')).toContainText('기록도 함께 사라진다');
+    await expect(confirm.locator('.runs-q')).toContainText('기록도 함께 사라집니다');
   });
 
   test('V-FUI-4d: 붙어 있는 멤버 카드에만 분리가 서고, 누르면 detach 가 나간다',
