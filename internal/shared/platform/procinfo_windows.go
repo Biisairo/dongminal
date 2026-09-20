@@ -79,6 +79,10 @@ func (windowsProcInfo) HasChildren(pid int) bool {
 // 없는 것은 폴백뿐이다.
 func (windowsProcInfo) CWD(int) (string, bool) { return "", false }
 
+// CWDs 도 같다 — 조회할 길이 없으므로 **빈 표**다 (FR-PRF-76). 빈 문자열로 채우면
+// "모름" 이 "빈 cwd" 로 읽힌다.
+func (windowsProcInfo) CWDs([]int) map[int]string { return map[int]string{} }
+
 func (windowsProcInfo) Names(pids []int) map[int]string {
 	want := map[int]struct{}{}
 	for _, pid := range dedupPositive(pids) {

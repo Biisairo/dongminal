@@ -51,6 +51,20 @@ func (m *ToolManager) SaveAll() {
 	// 소유 집합은 루프 밖에서 한 번만 묻는다 — 제공자가 파일을 읽을 수 있으므로
 	// 도구마다 부르면 SaveAll 한 번이 파일을 n번 읽는다.
 	owned := m.ownedTools()
+	// cwd 도 **루프 밖에서 한 번만** 묻는다 (PERFORMANCE_HARDENING_SRS FR-PRF-76).
+	//
+	//	이전 동작: 도구마다 `Cwd()` → darwin 에서 도구 수만큼 `lsof` fork
+	//	새  동작: `CWDs` 한 번 — 자식 프로세스 수가 도구 수와 무관해진다
+	//	이유:     바로 위 `owned` 와 **같은 논증**이다. 이 파일의 머리말이
+	//	          *"Cwd() can take tens to hundreds of ms on macOS (lsof)"* 를
+	//	          이미 알면서 잠금 밖으로 빼기만 했고 **횟수는 줄이지 않았다**
+	pids := make([]int, 0, len(snap))
+	for _, p := range snap {
+		if pid := p.CmdProcessPID(); pid > 0 {
+			pids = append(pids, pid)
+		}
+	}
+	cwds := platform.Current().Info.CWDs(pids)
 	states := make([]ToolState, 0, len(snap))
 	for _, p := range snap {
 		// FR-EM-12/FR-BG-9: 백그라운드 도구는 기재하지 않는다. 기재하면
@@ -74,7 +88,7 @@ func (m *ToolManager) SaveAll() {
 		if p.sandboxed {
 			continue
 		}
-		states = append(states, ToolState{ID: p.ID, Name: p.Name, Cwd: cwdOrServer(p)})
+		states = append(states, ToolState{ID: p.ID, Name: p.Name, Cwd: cwdOrServerFrom(p, cwds)})
 	}
 	sort.Slice(states, func(i, j int) bool { return states[i].ID < states[j].ID })
 	data, err := json.Marshal(states)

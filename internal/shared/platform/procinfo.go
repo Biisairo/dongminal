@@ -21,6 +21,19 @@ type ProcInfo interface {
 	// CWD 는 프로세스의 현재 작업 디렉터리다.
 	CWD(pid int) (string, bool)
 
+	// CWDs 는 pid 들의 cwd 를 **한 번에** 읽는다
+	// (PERFORMANCE_HARDENING_SRS FR-PRF-76). 바로 아래 `Names` 와 **같은 이유**다 —
+	// 도구마다 외부 프로세스를 띄우면 도구 100개에서 갱신 주기를 넘긴다 (NFR-XP-4).
+	//
+	// 그 논증이 `CWD` 에도 그대로 있었는데 일괄이 없었다: `ToolManager.SaveAll` 이
+	// 도구마다 `lsof` 를 fork 했고, `persist.go` 의 주석이 그 비용을 이미 알면서
+	// (*"Cwd() can take tens to hundreds of ms on macOS (lsof)"*) **횟수는 줄이지
+	// 않았다** — 잠금 밖으로 빼기만 했다.
+	//
+	// 읽지 못한 pid 는 **표에 없다.** 빈 문자열로 채우지 않는 것은 "모름" 과
+	// "빈 cwd" 가 다른 사실이기 때문이다 (NFR-XP-6).
+	CWDs(pids []int) map[int]string
+
 	// Names 는 pid 들의 프로세스 이름을 **한 번에** 읽는다. 도구마다 외부
 	// 프로세스를 띄우면 도구 100개에서 갱신 주기를 넘긴다 (NFR-XP-4).
 	Names(pids []int) map[int]string
@@ -103,6 +116,23 @@ func (d darwinProcInfo) CWD(pid int) (string, bool) {
 	return parseLsofCwd(string(out))
 }
 
+// CWDs 는 `lsof` 를 **한 번** 띄운다. `-Fpn` 이 pid 와 이름을 필드로 내므로
+// 그 둘을 짝지어 읽는다 — `p` 줄이 나오면 그 뒤의 `n` 줄이 그 pid 의 것이다.
+func (d darwinProcInfo) CWDs(pids []int) map[int]string {
+	pids = dedupPositive(pids)
+	if len(pids) == 0 {
+		return map[int]string{}
+	}
+	list := make([]string, len(pids))
+	for i, pid := range pids {
+		list[i] = strconv.Itoa(pid)
+	}
+	// `lsof` 는 요청한 pid 가 하나도 없으면 비정상 종료한다. 일부만 사라진 경우의
+	// 부분 출력은 유효하므로 err 로 버리지 않고 나온 만큼 읽는다 (`Names` 와 같다).
+	out, _ := d.run("lsof", "-a", "-p", strings.Join(list, ","), "-d", "cwd", "-Fpn")
+	return parseLsofCwds(string(out))
+}
+
 func (d darwinProcInfo) Names(pids []int) map[int]string {
 	pids = dedupPositive(pids)
 	if len(pids) == 0 {
@@ -179,6 +209,37 @@ func firstForeignPID(pids []int, self int) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+// parseLsofCwds 는 `lsof -Fpn` 의 필드 출력을 pid → 경로 표로 읽는다.
+//
+// 필드 출력은 **줄마다 첫 글자가 종류**이고, `p` 가 프로세스를 열면 그 뒤의 줄들이
+// 그 프로세스의 것이다. `-d cwd` 로 좁혔으므로 프로세스당 `n` 은 하나다.
+//
+// 짝이 맞지 않는 `n`(앞에 `p` 가 없다)은 버린다 — 어느 프로세스의 것인지 모르는
+// 경로를 아무 pid 에나 붙이는 것이 이 함수가 낼 수 있는 가장 나쁜 답이다.
+func parseLsofCwds(out string) map[int]string {
+	res := map[int]string{}
+	cur := 0
+	for _, line := range strings.Split(out, "\n") {
+		if len(line) < 2 {
+			continue
+		}
+		switch line[0] {
+		case 'p':
+			n, err := strconv.Atoi(strings.TrimSpace(line[1:]))
+			if err != nil || n <= 0 {
+				cur = 0
+				continue
+			}
+			cur = n
+		case 'n':
+			if cur > 0 {
+				res[cur] = strings.TrimSpace(line[1:])
+			}
+		}
+	}
+	return res
 }
 
 // parseLsofCwd 는 `lsof -Fn` 의 필드 출력에서 경로를 뽑는다. 각 줄의 첫 글자가
@@ -281,6 +342,18 @@ func (l linuxProcInfo) CWD(pid int) (string, bool) {
 		return "", false
 	}
 	return cwd, true
+}
+
+// CWDs 는 pid 마다 readlink 다. **프로세스를 띄우지 않으므로 루프로 족하다** —
+// 일괄의 값은 fork 를 줄이는 데 있고 여기에는 fork 가 없다.
+func (l linuxProcInfo) CWDs(pids []int) map[int]string {
+	out := map[int]string{}
+	for _, pid := range dedupPositive(pids) {
+		if cwd, ok := l.CWD(pid); ok {
+			out[pid] = cwd
+		}
+	}
+	return out
 }
 
 func (l linuxProcInfo) ParentPID(pid int) (int, bool) {

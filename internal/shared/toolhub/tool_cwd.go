@@ -45,3 +45,25 @@ func cwdOrServer(p *Tool) string {
 	cwd, _ := os.Getwd()
 	return cwd
 }
+
+// cwdOrServerFrom 은 `cwdOrServer` 와 같은 답을 내되 **미리 받아 둔 표**를 읽는다
+// (PERFORMANCE_HARDENING_SRS FR-PRF-76).
+//
+// 순서는 `Cwd()` 와 같다 — 직접 조회가 먼저, 없으면 셸 훅의 보고, 그래도 없으면
+// 서버의 cwd. 두 벌이 되지 않게 **순서의 근거는 위 `Cwd()` 의 주석 하나**이고
+// 여기서는 그것을 되풀이하지 않는다.
+//
+// 표에 없는 pid 는 **모름**이다 (NFR-XP-6) — 빈 문자열과 구분되지 않지만, 둘 다
+// 다음 갈래로 내려가므로 답이 갈리지 않는다.
+func cwdOrServerFrom(p *Tool, byPID map[int]string) string {
+	if pid := p.CmdProcessPID(); pid > 0 {
+		if cwd := byPID[pid]; cwd != "" {
+			return cwd
+		}
+	}
+	if v, ok := p.reportedCwd.Load().(string); ok && v != "" {
+		return v
+	}
+	cwd, _ := os.Getwd()
+	return cwd
+}

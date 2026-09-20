@@ -408,3 +408,70 @@ func TestDarwinParentAndConnectionOwner(t *testing.T) {
 		t.Fatalf("ConnectionOwnerPID = %d %v, want 7777 (자기 자신을 걸러야 한다)", pid, ok)
 	}
 }
+
+// ── 성능: cwd 일괄 조회 (PERFORMANCE_HARDENING_SRS 묶음 P-D 항목 9) ──
+
+// TC-PRF-23: pid 20개를 물어도 `lsof` 는 **한 번**만 뜬다 (FR-PRF-76·77).
+//
+// 재는 것은 **자식 프로세스 수**다 — 셀 수 있고 어디서 재도 같다 (FR-PRF-3).
+// 종전에는 `ToolManager.SaveAll` 이 도구마다 `Cwd()` 를 불러 도구 수만큼 fork
+// 했다. `Names` 가 이미 같은 이유로 일괄인데(NFR-XP-4) `CWD` 만 아니었다.
+func TestDarwinCWDsIsSingleCall(t *testing.T) {
+	calls := 0
+	run := func(string, ...string) ([]byte, error) { calls++; return []byte(""), nil }
+	pids := make([]int, 20)
+	for i := range pids {
+		pids[i] = i + 1
+	}
+	darwinProcInfo{run: run}.CWDs(pids)
+	if calls != 1 {
+		t.Fatalf("lsof 호출 = %d회, want 1 (FR-PRF-77)", calls)
+	}
+}
+
+// pid 가 하나도 없으면 외부 명령을 아예 띄우지 않는다 (`Names` 와 같은 규약).
+func TestDarwinCWDsSkipsEmpty(t *testing.T) {
+	calls := 0
+	run := func(string, ...string) ([]byte, error) { calls++; return nil, nil }
+	darwinProcInfo{run: run}.CWDs([]int{0, -1})
+	if calls != 0 {
+		t.Fatalf("빈 목록에 명령을 띄웠다 (%d회)", calls)
+	}
+}
+
+// 짝짓기가 이 변경의 위험이다 — 경로를 **엉뚱한 pid** 에 붙이면 도구가 남의
+// 디렉터리에서 되살아난다. 없는 pid 는 표에 **없어야** 한다 (모름과 빈 값은 다르다).
+func TestDarwinCWDsPairsPidToPath(t *testing.T) {
+	run := func(string, ...string) ([]byte, error) {
+		return []byte("p100\nfcwd\nn/tmp/a\np200\nfcwd\nn/tmp/b\n"), nil
+	}
+	got := darwinProcInfo{run: run}.CWDs([]int{100, 200, 300})
+	want := map[int]string{100: "/tmp/a", 200: "/tmp/b"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("CWDs = %v, want %v", got, want)
+	}
+}
+
+// 앞에 `p` 가 없는 `n` 은 어느 프로세스의 것인지 모른다 — 버린다.
+func TestDarwinCWDsDropsOrphanPath(t *testing.T) {
+	run := func(string, ...string) ([]byte, error) {
+		return []byte("n/tmp/orphan\np100\nfcwd\nn/tmp/a\n"), nil
+	}
+	got := darwinProcInfo{run: run}.CWDs([]int{100})
+	if !reflect.DeepEqual(got, map[int]string{100: "/tmp/a"}) {
+		t.Fatalf("CWDs = %v — 주인 없는 경로를 붙였다", got)
+	}
+}
+
+// linux 는 readlink 라 프로세스를 띄우지 않는다 — 일괄의 값이 없고, 답만 같으면 된다.
+func TestLinuxCWDsReadsEachLink(t *testing.T) {
+	f := fakeProc{links: map[string]string{
+		"/proc/100/cwd": "/tmp/a",
+		"/proc/200/cwd": "/tmp/b",
+	}}
+	got := f.info().CWDs([]int{100, 200, 300})
+	want := map[int]string{100: "/tmp/a", 200: "/tmp/b"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("CWDs = %v, want %v", got, want)
+	}
+}

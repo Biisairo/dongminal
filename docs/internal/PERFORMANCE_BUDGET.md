@@ -160,6 +160,7 @@
 | 살아 있는 LSP 세션을 쓰는 요청의 `LookPath` | **0** (전에는 요청당 2) | `TestManager_LiveSessionSkipsResolve` |
 | `runs.json` 저장 1회의 깊은 복사 | **0** (되돌림은 쓴 바이트에서 푼다) | `TestSave_RollbackWorksFromBlob` · `BenchmarkAppendMessage` |
 | 부팅 1회의 `runtime.Install` 진입 | **1** (서버만. 데몬은 점검) | `TestEnsureInstalled_SkipsWhenHelpersAreHealthy` |
+| 도구 N개의 cwd 조회가 내는 자식 프로세스 | **1** (darwin. linux·windows 는 0) | `TestDarwinCWDsIsSingleCall` |
 
 > 둘째 줄이 없으면 첫째 줄은 *"아무것도 안 그린다"* 로도 통과한다. 조용히 낡은
 > 화면은 느린 화면보다 나쁘다 (`PERFORMANCE_HARDENING_SRS` §7).

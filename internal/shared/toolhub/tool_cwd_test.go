@@ -146,3 +146,37 @@ func TestToolCwd_SeededFromStartDir(t *testing.T) {
 		t.Fatalf("Cwd() = %q — 서버의 cwd 가 도구의 것으로 나간다", got)
 	}
 }
+
+// ── 성능: 표에서 읽는 cwd (PERFORMANCE_HARDENING_SRS 묶음 P-D 항목 9) ──
+
+// `cwdOrServerFrom` 은 `cwdOrServer` 와 **같은 순서**로 답한다 (FR-PRF-76).
+//
+// 이 변경의 위험은 성능이 아니라 **순서**다. 직접 조회 → 셸 훅의 보고 → 서버의
+// cwd 라는 세 갈래 중 하나라도 어긋나면, 재기동한 도구가 남의 디렉터리에서
+// 되살아난다. 표로 옮기면서 그 셋이 그대로인지를 여기서 잠근다.
+func TestCwdOrServerFrom_KeepsFallbackOrder(t *testing.T) {
+	server, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %v", err)
+	}
+
+	// ① 표에도 보고에도 없다 → 서버의 cwd.
+	p := NewDetachedTool("t1", nil)
+	if got := cwdOrServerFrom(p, map[int]string{}); got != server {
+		t.Fatalf("빈 표: %q, want %q", got, server)
+	}
+
+	// ② 보고만 있다 → 보고한 값. (합성 Tool 은 pid 가 없으므로 표는 지나간다.)
+	p.noteCwdReport("/reported")
+	if got := cwdOrServerFrom(p, map[int]string{}); got != "/reported" {
+		t.Fatalf("보고만 있을 때: %q, want %q", got, "/reported")
+	}
+
+	// ③ 표에 있으면 **표가 이긴다** — 직접 조회가 지금의 값이고 보고는 마지막
+	//    프롬프트의 값이다 (`Cwd()` 의 순서 근거 그대로).
+	if pid := p.CmdProcessPID(); pid > 0 {
+		if got := cwdOrServerFrom(p, map[int]string{pid: "/live"}); got != "/live" {
+			t.Fatalf("표가 있을 때: %q, want %q", got, "/live")
+		}
+	}
+}
