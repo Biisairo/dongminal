@@ -78,3 +78,49 @@ test('TC-CMP-1d: 킷 밖에 키캡 값이 남지 않는다 (FR-CMP-3)', () => {
   // 뜻이 있는 것은 남는다 — 단축키 칸의 최소 폭과 가운데 정렬.
   assert.match(own[0].decls, /min-width/, '`min-width` 는 이 화면의 뜻이므로 남아야 한다');
 });
+
+/**
+ * 머리글의 **대문자 장식**이 사라졌는가
+ * (KIT_COMPONENTS_SRS TC-CMP-6 / FR-CMP-30~34).
+ *
+ * 착수 시 `text-transform:uppercase` 가 **9규칙**이었다. 한글에는 대소문자가
+ * 없으므로 이 장식은 **영문에만 걸린다** — 그 결과 같은 층위의 머리글이
+ * `STAGED`(영·대문자)와 `미커밋 변경`(한)으로 갈려 다른 층위처럼 읽힌다.
+ *
+ * 자간 벌리기(`letter-spacing`)는 대문자 조판의 짝이다. 대문자를 걷고 자간만
+ * 남기면 소문자·한글이 헐겁게 벌어져 읽기를 해친다 (FR-CMP-32).
+ */
+test('TC-CMP-6: CSS 전체에 text-transform:uppercase 가 없다 (FR-CMP-31)', () => {
+  const all = rules();
+  assert.ok(all.length > 100, `규칙을 ${all.length}개밖에 못 읽었다 — 검사가 공회전한다`);
+  const up = all.filter((r) => /text-transform\s*:\s*uppercase/.test(r.decls));
+  assert.deepEqual(up.map((r) => `${r.file}: ${r.sel}`), [],
+    '대문자 장식이 남았다 — 한글에는 대소문자가 없어 영문에만 걸린다');
+});
+
+test('TC-CMP-6a: 아홉 자리에 자간 벌리기가 남지 않았다 (FR-CMP-32)', () => {
+  /**
+   * **대문자를 걷은 그 규칙**만 본다. 대문자가 없던 자리의 `letter-spacing` 은
+   * 이 묶음의 대상이 아니다 — 조판 의도일 수 있고(`.boot-name` 의 `.16em`),
+   * 부모의 자간을 **되돌리는** 선언일 수도 있다(`.git-group-bulk{normal}`).
+   * 첫 판이 그 구분 없이 걷어 넷을 잘못 지웠다.
+   *
+   * 남는 둘은 이름으로 적는다 — 적을 수 없으면 걷는다.
+   */
+  const TOUCHED = ['.git-refs-head', '.gc-target-sect', '.git-stash-preview-head',
+    '.git-group-head', '.ag-head', '.ag-group', '.tl-section', '.ce-title', '.sc-group-title'];
+  const KEEP = new Set(['.git-group-head', '.tl-section']);
+  const bad = rules().filter((r) => TOUCHED.includes(r.sel) && !KEEP.has(r.sel)
+    && /(^|;)\s*letter-spacing\s*:/.test(r.decls));
+  assert.deepEqual(bad.map((r) => `${r.file}: ${r.sel}`), [],
+    '대문자를 걷은 자리에 자간 벌리기가 남았다');
+});
+
+test('TC-CMP-6b: 킷이 .ui-section-head 를 갖는다 (FR-CMP-30)', () => {
+  const kit = rules().find((r) => r.file === 'web/style-kit.css' && /(^|,)\s*\.ui-section-head\s*$/.test(r.sel));
+  assert.ok(kit, '`style-kit.css` 에 `.ui-section-head` 규칙이 없다');
+  assert.doesNotMatch(kit.decls, /text-transform/, '킷이 대문자 장식을 갖고 있다');
+  assert.doesNotMatch(kit.decls, /letter-spacing/, '킷이 자간 벌리기를 갖고 있다');
+  assert.match(kit.decls, /var\(--fs-sm\)/);
+  assert.match(kit.decls, /var\(--text-muted\)/);
+});

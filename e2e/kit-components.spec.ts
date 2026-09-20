@@ -73,4 +73,26 @@ test.describe('킷 컴포넌트 (KIT_COMPONENTS_SRS)', () => {
     expect(noRing, '포커스 링을 그리는 규칙이 없는 키캡').toEqual([]);
     await page.keyboard.press('Escape');
   });
+
+  test('TC-CMP-7: 머리글이 원문 그대로 뜬다 — 대문자로 변형되지 않는다 (FR-CMP-31)', async ({ page }) => {
+    await waitForInit(page, { clearLocalStorage: true });
+    /**
+     * CSS 를 읽는 단위 검사(TC-CMP-6)와 **다른 것을 묻는다**: 저쪽은 "선언이
+     * 없는가", 여기는 "화면의 글자가 실제로 변형되지 않는가" 다. 캐스케이드가
+     * 어딘가에서 다시 걸면 저쪽은 초록이고 여기가 빨개진다.
+     */
+    const bad = await page.evaluate(() => {
+      const out: string[] = [];
+      for (const el of Array.from(document.querySelectorAll<HTMLElement>('*'))) {
+        if (el.closest('.xterm') || el.closest('.monaco-editor')) continue;
+        const tt = getComputedStyle(el).textTransform;
+        if (tt === 'uppercase') {
+          const cls = Array.from(el.classList).join('.');
+          out.push(`${el.tagName.toLowerCase()}${cls ? '.' + cls : ''}`);
+        }
+      }
+      return [...new Set(out)];
+    });
+    expect(bad, `대문자로 변형되는 요소:\n  ${bad.join('\n  ')}`).toEqual([]);
+  });
 });

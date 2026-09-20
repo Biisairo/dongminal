@@ -192,8 +192,7 @@
    (행 안의 인라인 span 은 대상이 아니다. 늘리면 행이 두 배가 된다.) */
 .git-refs-head{
   display:flex;align-items:center;min-height:var(--git-row-min);
-  padding:4px 8px 2px;color:var(--text-hint);font-size:var(--fs-sm);text-transform:uppercase;
-}
+  padding:4px 8px 2px;color:var(--text-hint);font-size:var(--fs-sm)}
 .git-ref-short{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .git-ref.head .git-ref-short{color:var(--accent-text)}
 .git-ref-ab{flex-shrink:0;color:var(--text-muted);font-size:var(--fs-sm)}
@@ -403,7 +402,7 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 .gc-targets{flex:1 1 auto;min-height:0;max-height:40vh;overflow-y:auto;margin:0;padding:0 12px 8px;list-style:none}
 .gc-target{padding:2px 0;font-family:monospace;word-break:break-all}
 /* FR-CMG-7: 뜻이 다른 두 무리의 머리. 되돌림과 삭제가 한 목록에 섞이지 않는다 */
-.gc-target-sect{padding:6px 0 2px;color:var(--text-muted);font-size:var(--fs-sm);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.gc-target-sect{padding:6px 0 2px;color:var(--text-muted);font-size:var(--fs-sm);font-weight:600}
 .gc-target-sect:first-child{padding-top:0}
 .gc-hint,.gc-err{flex:0 0 auto;display:none;padding:8px 12px;border-top:1px solid var(--border)}
 .gc-hint.vis,.gc-err.vis{display:block}
@@ -549,8 +548,7 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 /* FR-GIT-226: 같은 이유 — 머리글이 내용 없이 줄어들지 않는다 */
 .git-stash-preview-head{
   display:flex;align-items:center;min-height:var(--git-row-min);
-  padding:4px 8px;color:var(--text-hint);text-transform:uppercase;font-size:var(--fs-sm);
-}
+  padding:4px 8px;color:var(--text-hint);font-size:var(--fs-sm)}
 .git-stash-file{
   display:flex;align-items:center;gap:6px;padding:2px 8px;cursor:pointer;
   white-space:nowrap;overflow:hidden;

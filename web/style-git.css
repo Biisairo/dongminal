@@ -396,8 +396,7 @@ body.mobile .git-head-remote{gap:2px}
 .git-group-head{
   display:flex;flex-wrap:nowrap;align-items:center;gap:5px;padding:0 6px 0 9px;cursor:pointer;
   min-height:calc(var(--git-btn-h) + 6px);min-width:0;
-  font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);
-}
+  font-size:var(--fs-sm);letter-spacing:.06em;color:var(--text-muted)}
 .git-group-head:hover{background:var(--accent-hover)}
 .git-group-caret{width:9px;flex-shrink:0}
 /* 기준 폭을 60px 로 **명시**한다 — `auto` 로 두면 wrap 이 그룹 이름의 글자 수로

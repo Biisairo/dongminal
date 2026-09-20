@@ -684,13 +684,13 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 #agents-handle::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
 #agents-panel{width:var(--ag-w,260px);min-width:var(--ag-w,260px);background:var(--sidebar-bg);border-left:1px solid var(--border);display:none;flex-direction:column;overflow-y:auto}
 #agents-panel.open{display:flex}
-.ag-head{display:flex;align-items:center;gap:6px;padding:8px 10px;font-size:var(--fs-sm);font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)}
+.ag-head{display:flex;align-items:center;gap:6px;padding:8px 10px;font-size:var(--fs-sm);font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border)}
 .ag-title{flex:1}
 .ag-refresh,.ag-close{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-lg);line-height:1;padding:2px 4px;border-radius:3px}
 .ag-refresh:hover,.ag-close:hover{color:var(--accent-text);background:var(--accent-hover)}
 .ag-empty{padding:12px 10px;font-size:var(--fs-md);color:var(--text-hint)}
 /* PANEL_SURFACE_SRS FR-AGG-1·10·11·12: 창 그룹의 머리. 카드가 있는 창만 갖는다. */
-.ag-group{display:flex;align-items:center;gap:4px;padding:5px 8px;cursor:pointer;background:var(--bg-alt);border-bottom:1px solid var(--border);font-size:var(--fs-sm);font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em}
+.ag-group{display:flex;align-items:center;gap:4px;padding:5px 8px;cursor:pointer;background:var(--bg-alt);border-bottom:1px solid var(--border);font-size:var(--fs-sm);font-weight:600;color:var(--text-muted)}
 .ag-group:hover{color:var(--accent-text);background:var(--accent-hover)}
 .ag-group-fold{flex:none}
 .ag-group-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -821,10 +821,8 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .tl-item.slot{box-shadow:inset 2px 0 0 var(--accent)}
 .tl-section{
   font-size:var(--fs-xs);letter-spacing:.12em;color:var(--text-muted);
-  padding:8px 10px 4px;border-bottom:1px solid var(--border);
-  text-transform:uppercase;background:var(--bg);
-  position:sticky;top:0;z-index:var(--z-sticky);
-}
+  padding:8px 10px 4px;border-bottom:1px solid var(--border);background:var(--bg);
+  position:sticky;top:0;z-index:var(--z-sticky)}
 .tl-dots{display:flex;gap:2px}
 .tl-dots span{width:8px;height:8px;border-radius:2px}
 /* FR-UIK-14: 이름을 말줄임으로 자르지 않는다 — 자르면 `Tokyo Night Storm` 과
@@ -867,7 +865,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 #custom-toggle:hover{border-color:var(--accent-border);color:var(--accent-text)}
 #custom-toggle.active{border-color:var(--accent);color:var(--accent-text);border-style:solid}
 .ce-section{margin-top:10px}
-.ce-title{font-size:var(--fs-sm);font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:6px}
+.ce-title{font-size:var(--fs-sm);font-weight:600;color:var(--text-muted);margin-bottom:6px}
 .ce-colors{display:flex;flex-wrap:wrap;gap:6px}
 .ce-item{display:flex;align-items:center;gap:4px;background:var(--sidebar-bg);border:1px solid var(--border);border-radius:4px;padding:3px 6px}
 .ce-item label{font-size:var(--fs-sm);color:var(--text-muted);white-space:nowrap;min-width:40px}
@@ -876,7 +874,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 /* ── Shortcuts ── */
 /* FR-UIK-13: 스크롤은 `.modal-body` 하나다 (종전 `max-height:60vh` 를 걷었다). */
 .sc-list{}
-.sc-group-title{font-size:var(--fs-sm);font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--accent-text);margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.sc-group-title{font-size:var(--fs-sm);font-weight:600;color:var(--accent-text);margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
 .sc-group-title:first-child{margin-top:0}
 .sc-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)}
 .sc-row>span{color:var(--text);font-size:var(--fs-md);flex:1;min-width:0}
