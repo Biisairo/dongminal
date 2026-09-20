@@ -9,6 +9,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
+	"dongminal/internal/shared/serverconf"
 )
 
 // ErrHelp는 -h/--help 가 주어졌을 때 파서가 돌려주는 센티널이다. 액션의
@@ -119,6 +121,69 @@ func (c Common) ResolveHome() (string, error) {
 		return "", fmt.Errorf("홈 디렉터리 확인 실패: %w", err)
 	}
 	return filepath.Join(userHome, dmenv.DefaultHomeDir), nil
+}
+
+// Target 은 이 명령이 **겨누는 서버**다.
+//
+// 계층은 `start` 와 같다 (FR-CFG-13: 플래그 > 환경변수 > 파일 > 기본값).
+// 종전에는 겨누는 명령 넷이 `ResolvePort` 의 3계층에 머물러 `server.json` 을
+// 보지 못했다. `server.json` 에 `{"port":"9000"}` 한 줄을 적으면 그 순간 갈렸다:
+//
+//	start    9000  정상
+//	health  58146  "응답 없음" (서버는 멀쩡하다)
+//	window  58146  "서버가 떠 있지 않습니다"
+//	stop    58146  **그 포트의 다른 프로세스를 죽인다** (killPort 는 가리지 않는다)
+//	migrate 58146  서버가 도는데도 "정지됨" 으로 보고 변환을 강행한다
+//
+// 뒤의 둘이 특히 나쁘다 — `stop` 은 TERM→KILL 을 보내고, `migrate` 의 포트 점유
+// 검사는 안전장치인데 엉뚱한 포트를 봐서 **무력화된다.**
+//
+// `window.go` 의 주석이 이미 불변식을 적고 있었다 (FR-WIN-2): *"대상 주소를
+// `start` 와 같은 규칙으로 정한다. 두 곳이 다르면 띄운 자리와 여는 자리가
+// 어긋난다."* 주석은 다음 사람을 막지 못한다 — 이 타입이 막는다.
+type Target struct {
+	Home string
+	// Host 는 DialHost 를 지난 값이다 — 그대로 두드릴 수 있다. 미지정
+	// 주소(`0.0.0.0`·`::`)는 바인드 대상이지 접속 대상이 아니다.
+	Host string
+	Port string
+	// URL 은 `dmenv.BaseURL(Host, Port)` 다. IPv6 의 대괄호가 여기서 붙는다.
+	URL string
+	// Warnings 는 `serverconf` 가 낸 것을 **버리지 않고** 나른다. 설정 파일이
+	// 조용히 무시되는 것이 이 묶음이 고치는 결함과 같은 모양이다 (FR-CFG-15).
+	Warnings []string
+}
+
+// ResolveTarget 은 겨누는 명령이 쓰는 단일 해석이다 (FR-STR-22).
+//
+// 오류는 **두드리기 전에** 돌려준다 — 잘못된 포트로 ping 하면 "응답 없음" 이
+// 되고, 그 문구에는 어느 값이 잘못됐는지가 없다 (FR-CFG-19 가 `start` 에서
+// 같은 이유로 `net.Listen` 앞에 검사를 세웠다).
+func (c Common) ResolveTarget() (Target, error) {
+	home, err := c.ResolveHome()
+	if err != nil {
+		return Target{}, err
+	}
+	conf := serverconf.Resolve(serverconf.Inputs{Home: home, FlagPort: c.Port})
+	if err := conf.Err(); err != nil {
+		return Target{}, err
+	}
+	host, port := conf.Host.Value, conf.Port.Value
+	return Target{
+		Home:     home,
+		Host:     dmenv.DialHost(host),
+		Port:     port,
+		URL:      dmenv.BaseURL(host, port),
+		Warnings: conf.Warnings,
+	}, nil
+}
+
+// warn 은 해석 경고를 찍는다. **막지 않는다** (FR-CFG-15 / D-CFG-3) — 설정 파일
+// 하나가 명령을 못 돌게 만들면 사용자는 그것을 고칠 자리에 닿을 수 없다.
+func (t Target) warn(stderr io.Writer) {
+	for _, w := range t.Warnings {
+		fmt.Fprintf(stderr, "⚠ %s\n", w)
+	}
 }
 
 // expandTilde는 선행 `~/` 만 $HOME 으로 편다. 기존 스크립트의 _load_env 와

@@ -226,7 +226,10 @@ func (a *app) run(ctx context.Context) error {
 		go bd.lspSvc.RunSweeper(ctx)
 	}
 
-	return a.srv.Run(ctx, a.host+":"+a.port)
+	// 조립은 `dmenv.ListenAddr` 이 한다 (FR-STR-20·21). 문자열 접합으로 만들면
+	// `DONGMINAL_HOST=::1` 이 `net.Listen` 에서 *too many colons* 로 죽고, 부모는
+	// 5초 폴링 뒤 "기동 실패" 만 낸다 — 어느 값이 문제인지가 없다.
+	return a.srv.Run(ctx, dmenv.ListenAddr(a.host, a.port))
 }
 
 // shutdownStep 은 종료 순서의 한 칸이다. 조립되지 않은 구성원은 fn 안에서 건너뛴다.

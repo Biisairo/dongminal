@@ -1,6 +1,7 @@
 package dmenv_test
 
 import (
+	"net"
 	"testing"
 
 	"dongminal/internal/shared/dmenv"
@@ -70,5 +71,59 @@ func TestExposureLabel(t *testing.T) {
 	}
 	if got := dmenv.ExposureLabel("192.168.1.5"); got != "exposed" {
 		t.Errorf("ExposureLabel(lan) = %q", got)
+	}
+}
+
+// FR-STR-20 · TC-STR-5: **판정과 조립은 다른 일이다.**
+//
+// `normalizeHost` 가 `[::1]` 의 대괄호를 떼는 것은 판정에 맞고, 조립에는 붙이는
+// 것이 맞다. 둘이 한 함수의 출력을 공유하는 동안 `DONGMINAL_HOST=::1` 로는
+// 서버가 뜨지 않았다 — 문서가 지원한다고 적은 값인데도.
+func TestListenAddr(t *testing.T) {
+	for _, tc := range []struct{ host, port, want string }{
+		// IPv6 는 대괄호가 필요하다. 이것이 이 함수가 생긴 이유다.
+		{"::1", "9911", "[::1]:9911"},
+		{"[::1]", "9911", "[::1]:9911"},
+		{"::", "9911", "[::]:9911"},
+		// 바인드는 **사용자가 적은 그 주소**에 한다 — 미지정을 loopback 으로
+		// 바꾸는 것은 두드리는 쪽의 일이다 (DialHost).
+		{"0.0.0.0", "9911", "0.0.0.0:9911"},
+		{"127.0.0.1", "9911", "127.0.0.1:9911"},
+		{"localhost", "9911", "localhost:9911"},
+		// 빈 host 는 모든 인터페이스다 — 종전 접합(`""+":"+port`)과 같은 값이다.
+		{"", "9911", ":9911"},
+	} {
+		if got := dmenv.ListenAddr(tc.host, tc.port); got != tc.want {
+			t.Errorf("ListenAddr(%q, %q) = %q, want %q", tc.host, tc.port, got, tc.want)
+		}
+	}
+}
+
+// ListenAddr 의 결과는 **net.Listen 이 실제로 받는 것**이어야 한다. 값 비교만
+// 하면 다음 사람이 형식을 바꿨을 때 이 검사가 함께 틀린다.
+func TestListenAddrIsDialable(t *testing.T) {
+	for _, host := range []string{"127.0.0.1", "::1"} {
+		ln, err := net.Listen("tcp", dmenv.ListenAddr(host, "0"))
+		if err != nil {
+			t.Errorf("net.Listen(%q) 실패: %v", dmenv.ListenAddr(host, "0"), err)
+			continue
+		}
+		ln.Close()
+	}
+}
+
+// FR-STR-20 · TC-STR-5: 두드리는 주소는 DialHost 를 지난 뒤 대괄호를 되붙인다.
+func TestBaseURL(t *testing.T) {
+	for _, tc := range []struct{ host, port, want string }{
+		{"0.0.0.0", "9911", "http://127.0.0.1:9911"},
+		{"::", "9911", "http://127.0.0.1:9911"},
+		{"", "9911", "http://127.0.0.1:9911"},
+		{"::1", "9911", "http://[::1]:9911"},
+		{"192.168.1.5", "9911", "http://192.168.1.5:9911"},
+		{"localhost", "9911", "http://localhost:9911"},
+	} {
+		if got := dmenv.BaseURL(tc.host, tc.port); got != tc.want {
+			t.Errorf("BaseURL(%q, %q) = %q, want %q", tc.host, tc.port, got, tc.want)
+		}
 	}
 }

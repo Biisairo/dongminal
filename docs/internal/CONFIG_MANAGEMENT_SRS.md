@@ -227,6 +227,16 @@
 **FR-CFG-13** 우선순위는 **플래그 > 환경변수 > 파일 > 기본값**이다. 빈 문자열은
 "정하지 않음" 이며 다음 계층으로 넘어간다.
 
+> **적용 범위 확장 2026-09-21 (`STRUCTURE_CLEANUP_SRS` FR-STR-22·23).**
+> 이 계층을 지나는 명령이 셋(`start`·`config show`·`service install`)뿐이었다.
+> **겨누는 명령 넷**(`health`·`window`·`stop`·`migrate`)은 `Common.ResolvePort` 의
+> 3계층에 머물러 `server.json` 을 보지 못했고, 그래서 `{"port":"9000"}` 한 줄이
+> 다섯 명령을 갈랐다 — `stop` 은 `killPort` 로 **그 포트의 남의 프로세스를
+> 죽였고**, `migrate` 의 포트 점유 안전장치(FR-ACT-12)는 무력화됐다.
+> 넷이 `Common.ResolveTarget()` 을 지나게 했고 `scripts/check-server-target.sh`
+> 가 그것을 센다. **`dmctl`(헬퍼)은 여전히 3계층이다** — 프로세스 축 경계가
+> `ctl/cli` import 를 막는다 (D-STR-3).
+
 **FR-CFG-14** `server.json` 이 없으면 **조용히 넘어간다.** 없는 것이 정상이다.
 
 **FR-CFG-15** `server.json` 이 깨졌으면 **기동을 막지 않고 경고한 뒤 다음 계층으로

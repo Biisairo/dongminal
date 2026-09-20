@@ -16,25 +16,33 @@ const healthPingTimeout = 3 * time.Second
 
 // RunHealth는 `dongminal health` 다 (FR-ACT-9/10).
 func RunHealth(o HealthOpts, stdout, stderr io.Writer) int {
-	home, err := o.ResolveHome()
+	tgt, err := o.ResolveTarget()
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
+	tgt.warn(stderr)
+	home := tgt.Home
 	// FR-DFP-7: 데몬의 낡음만 묻는 갈래. HTTP 도 헬퍼도 보지 않으므로 서버가
 	// 떠 있지 않아도 즉시 답한다.
 	if o.DaemonOnly {
 		fmt.Fprintln(stdout, daemonStateLine(inspectDaemon(home)))
 		return 0
 	}
-	port := o.ResolvePort()
+	port := tgt.Port
 
 	fail := 0
-	// 호스트는 `dmenv.DefaultHost` 다 (FR-DRC-12). 여기만 "localhost" 를 박아
-	// 두었더니 그 이름이 `::1` 로 먼저 풀리는 환경에서 health 만 실패했다 —
-	// 서버는 `127.0.0.1` 에 떠 있고, 옆의 `migrate.go` 는 이미 이 상수를 쓴다.
-	// 같은 데몬을 두 이름으로 부르면 한쪽이 다른 인스턴스를 본다 (dmenv.go:40).
-	if ping(fmt.Sprintf("http://%s:%s/", dmenv.DefaultHost, port), healthPingTimeout) {
+	// 호스트는 **겨냥 해석이 준 것**이다 (FR-STR-22·24).
+	//
+	//   이전 동작: `dmenv.DefaultHost` 고정. `localhost` 를 박아 두었더니 그 이름이
+	//             `::1` 로 먼저 풀리는 환경에서 health 만 실패했고(FR-DRC-12),
+	//             그 수정이 **과교정이었다** — `DONGMINAL_HOST=192.168.1.5` 로
+	//             띄운 인스턴스에 health 를 걸면 언제나 실패한다.
+	//   새  동작: `ResolveTarget` 이 준 host·port. 옆의 `start` 와 같은 규칙이다.
+	//   이유:     `DialHost` 가 그 이름 해석 문제를 이미 푼다 — 미지정 주소만
+	//             loopback 으로 바꾸고 나머지는 그대로 두드린다. 두 벌로 두면
+	//             한쪽만 고쳐진다.
+	if ping(tgt.URL+"/", healthPingTimeout) {
 		fmt.Fprintf(stdout, "✅ dongminal HTTP :%s\n", port)
 	} else {
 		fmt.Fprintf(stdout, "❌ dongminal HTTP :%s — 응답 없음\n", port)

@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"io"
-	"os"
 	"time"
 )
 
@@ -23,11 +22,20 @@ const windowPingTimeout = 2 * time.Second
 func RunWindow(o WindowOpts, open Opener, stdout, stderr io.Writer) int {
 	// FR-WIN-2: 대상 주소를 `start` 와 같은 규칙으로 정한다. 두 곳이 다르면
 	// 띄운 자리와 여는 자리가 어긋난다.
-	host := DefaultHost
-	if v := os.Getenv(EnvHost); v != "" {
-		host = v
+	//
+	//   이전 동작: `DefaultHost` + `os.Getenv(EnvHost)` + `ResolvePort()` — 3계층.
+	//             `server.json` 을 보지 못해 **주석이 말하는 불변식을 코드가 안
+	//             지켰다.**
+	//   새  동작: `ResolveTarget` 의 4계층 (FR-CFG-13 · FR-STR-23).
+	//   이유:     그 계약의 유일한 구현이 `serverconf.Resolve` 이고 `start` 가
+	//             그것을 지난다. 두 벌로 두면 한쪽만 고쳐진다.
+	tgt, err := o.ResolveTarget()
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
 	}
-	url := ServerURL(host, o.ResolvePort())
+	tgt.warn(stderr)
+	url := tgt.URL
 
 	// FR-WIN-3: 죽은 서버에 창을 띄우면 사용자는 빈 화면에서 원인을 찾게 된다.
 	if !ping(url+"/api/ping", windowPingTimeout) {

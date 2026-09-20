@@ -84,9 +84,16 @@ README 의 빠른 시작과 `docs/external/getting-started.md`, 그리고 릴리
 - **FR-WIN-1** `dongminal window` 는 돌고 있는 서버를 향해 frameless window 를
   연다. **서버를 띄우지 않고, 죽이지 않으며, 어떤 프로세스도 새로 만들지 않는다**
   (창을 여는 프로세스 외에는).
-- **FR-WIN-2** 대상 주소는 `start` 와 같은 규칙으로 정한다 — `--port`(없으면
-  `$PORT`, 없으면 기본 포트)와 호스트 환경변수. `0.0.0.0`·`::` 로 바인드된
-  경우에도 두드리는 주소는 `localhost` 다 (`pingHost`).
+- **FR-WIN-2** 대상 주소는 `start` 와 같은 규칙으로 정한다 — **플래그 > 환경변수 >
+  파일(`server.json`) > 기본값**의 네 계층(`Common.ResolveTarget`, FR-CFG-13).
+  `0.0.0.0`·`::` 로 바인드된 경우에도 두드리는 주소는 loopback 이다 (`dmenv.DialHost`).
+
+  > **개정 2026-09-21 (`STRUCTURE_CLEANUP_SRS` FR-STR-23).** 이 요구의 글은 처음부터
+  > *"`start` 와 같은 규칙"* 이었으나 **괄호 안의 열거가 세 계층뿐이었고 구현도
+  > 그랬다** — `server.json` 을 못 봤다. 코드의 주석이 *"두 곳이 다르면 띄운
+  > 자리와 여는 자리가 어긋난다"* 로 불변식을 적고 있었는데 그 불변식이 깨져
+  > 있었다. 이전: 3계층 · 새: 4계층 · 이유: FR-CFG-13 이 계약이고 그 유일한
+  > 구현이 `serverconf.Resolve` 다.
 - **FR-WIN-3** 서버가 준비되어 있지 않으면 **창을 열지 않고** 실패한다(rc=1).
   무엇이 없는지와 `dongminal start` 를 안내한다.
 - **FR-WIN-4** 창 열기에 실패하면 이 명령은 실패다(rc=1). `start --open` 의

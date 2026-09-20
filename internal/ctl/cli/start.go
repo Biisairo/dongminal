@@ -355,8 +355,11 @@ func prepareServerCmd(home, host, port, logPath string) (*exec.Cmd, *os.File, st
 }
 
 // ServerURL 은 host·port 로 띄운 서버를 실제로 두드릴 주소다.
+//
+// 조립은 `dmenv.BaseURL` 이 한다 — IPv6 는 대괄호가 필요하고, 그것을 문자열
+// 접합으로 만들면 `http://::1:9911` 이 된다 (FR-STR-20·21).
 func ServerURL(host, port string) string {
-	return fmt.Sprintf("http://%s:%s", pingHost(host), port)
+	return dmenv.BaseURL(host, port)
 }
 
 // waitReady 는 /api/ping 이 응답할 때까지 기다린다.

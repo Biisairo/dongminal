@@ -1,6 +1,7 @@
 package dmenv
 
 import (
+	"net"
 	"net/netip"
 	"strings"
 )
@@ -65,6 +66,33 @@ func DialHost(host string) string {
 		return DefaultHost
 	}
 	return h
+}
+
+// ListenAddr 는 net.Listen 에 그대로 넘길 주소다.
+//
+// **판정과 조립은 다른 일이다.** normalizeHost 가 `[::1]` 의 대괄호를 떼는 것은
+// 판정(IsExposedHost·DialHost)에 맞는 일이고, 조립에는 붙이는 것이 맞다. 둘이
+// 한 함수의 출력을 공유하면 한쪽이 언제나 틀린다:
+//
+//	net.Listen("tcp", "::1:9911")   -> too many colons in address
+//	net.Listen("tcp", "[::1]:9911") -> ok
+//
+// `DONGMINAL_HOST=::1` 은 문서가 지원한다고 적은 값이다 (getting-started 의
+// loopback 셋). 종전에는 그 값으로 기동하면 자식이 net.Listen 에서 죽고 부모는
+// "기동 실패" 만 냈다 — **어느 값이 문제인지가 없었다.**
+//
+// host 를 미지정 주소로 바꾸지 않는 이유: 바인드는 사용자가 적은 그 주소에 해야
+// 한다. 미지정을 loopback 으로 바꿔 주는 것은 **두드리는 쪽**의 일이다 (DialHost).
+func ListenAddr(host, port string) string {
+	return net.JoinHostPort(normalizeHost(host), port)
+}
+
+// BaseURL 은 그 서버를 두드릴 http URL 이다. DialHost 를 지난 뒤 대괄호를 되붙인다.
+//
+// 여기에 TLS 는 없다 — 기밀성은 제품이 제공하지 않고 오버레이 망에 위임한다
+// (결정 9). 이 파일의 머리말과 같은 이유다.
+func BaseURL(host, port string) string {
+	return "http://" + net.JoinHostPort(DialHost(host), port)
 }
 
 // ExposureLabel 은 기동 로그와 `start` 출력이 함께 쓰는 표시다.

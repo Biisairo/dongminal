@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"dongminal/internal/ctl/migrate"
-
-	"dongminal/internal/shared/dmenv"
 )
 
 // targetFlags는 기본값이 아닌 대상을 가리킬 때 안내에 덧붙일 플래그다.
@@ -31,14 +29,22 @@ func targetFlags(c Common, port, home string) string {
 // direct mode 로 도는 인스턴스는 paned.pid 가 죽은 pid 를 가리키므로 그
 // 검사를 통과한다. 서버 자체를 두드려 확인한다.
 func RunMigrate(o MigrateOpts, stdout, stderr io.Writer) int {
-	home, err := o.ResolveHome()
+	// 겨냥은 `start` 와 같은 규칙이다 (FR-STR-23).
+	//
+	//   이전 동작: `ResolvePort()` 의 3계층. 아래의 포트 점유 검사는 FR-ACT-12 의
+	//             **안전장치**인데, 엉뚱한 포트를 보면 서버가 도는 중에도 "정지됨"
+	//             으로 읽고 변환을 강행한다 — 무력화된다.
+	//   새  동작: `ResolveTarget` 의 4계층.
+	//   이유:     FR-CFG-13.
+	tgt, err := o.ResolveTarget()
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	port := o.ResolvePort()
+	tgt.warn(stderr)
+	home, port := tgt.Home, tgt.Port
 
-	if !o.DryRun && ping(fmt.Sprintf("http://%s:%s/api/ping", dmenv.DefaultHost, port), 2*time.Second) {
+	if !o.DryRun && ping(tgt.URL+"/api/ping", 2*time.Second) {
 		fmt.Fprintf(stderr, "❌ dongminal 이 포트 %s 에서 실행 중입니다 — 변환하지 않았습니다.\n", port)
 		fmt.Fprintln(stderr, "   서버와 데몬을 완전히 정지한 뒤 다시 실행하세요:")
 		fmt.Fprintf(stderr, "     dongminal stop --all%s\n", targetFlags(o.Common, port, home))

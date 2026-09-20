@@ -198,6 +198,16 @@ ping(fmt.Sprintf("http://%s:%s/api/ping", dmenv.DefaultHost, port), 2*time.Secon
 
 **FR-DRC-12** `ctl/cli/health.go` 는 `dmenv.DefaultHost` 를 써야 한다.
 
+> **개정 2026-09-21 (`STRUCTURE_CLEANUP_SRS` FR-STR-24).** 이 요구는 **과교정이었다.**
+> 고치려던 결함은 *"`localhost` 가 `::1` 로 먼저 풀려 health 만 실패한다"* 였고,
+> 그 해법을 **상수 고정**으로 적은 탓에 `DONGMINAL_HOST=192.168.1.5` 로 띄운
+> 인스턴스에는 health 가 **언제나 실패**하게 됐다.
+>
+> 이전: `dmenv.DefaultHost` 고정 · 새: `Common.ResolveTarget()` 이 준 host
+> (`dmenv.DialHost` 를 지난 값) · 이유: `DialHost` 가 이름 해석 문제를 이미 푼다 —
+> 미지정 주소만 loopback 으로 바꾸고 나머지는 그대로 두드린다. 옆의 `start` 가
+> 처음부터 그 규칙이었고, 두 벌로 두면 한쪽만 고쳐진다.
+
 ### 3.3 묶음 D — 간헐 실패의 원인 제거
 
 **FR-DRC-14** 화면이 스스로 회복해야 한다. 어떤 상태의 복구도 **바깥의 다음
