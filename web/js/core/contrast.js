@@ -171,6 +171,43 @@ function pickContrastAnchor(ui,mode){
  * `bright*` 를 먼저 보는 것은 터미널 관행이다 — 어두운 배경에서 기본 ANSI 는
  * 대체로 너무 어둡다.
  */
+/**
+ * WORDING_COLOR_SRS FR-WRD-30·31 — **그늘**(백드롭·그림자)의 파생.
+ *
+ * 다크 테마의 그늘은 검정이다: 팔레트의 색이 아니라 **빛이 없는 상태**다.
+ * 라이트 테마의 그늘은 검정이 아니라 그 팔레트의 **잉크**(`ui.text`)다 — 밝은
+ * 종이 위의 `0 8px 32px` 50% 검정은 "떠 있다" 가 아니라 "더럽다" 로 읽힌다.
+ *
+ * **감사의 제안을 한 자리에서 정정했다** (규약 3-4). `AUDIT-design.md` §1-4 는
+ * 라이트의 그늘로 `ui.textDim` 을 제안했지만, 이 저장소의 `textDim` 은 **글자가
+ * 아니라 경계·채움**이고(FR-TOK-3 / D-TOK-2) 라이트 11종 실측에서 상대휘도가
+ * **0.562~0.807** 이다 — 거의 흰색이라 그늘이 되지 못한다. 같은 11종의
+ * `ui.text` 는 0.016~0.186 이다.
+ *
+ * **알파도 모드가 가른다.** 같은 알파를 라이트에 쓰면 색만 바꿔도 여전히 무겁다.
+ *
+ * `--shadow-*` 는 **전체 값**이다 (사용자 결정 2026-09-13, style.css:89~93) —
+ * 뜻이 둘이고(화면에 붙은 것 `-1` · 떠 있는 것 `-2`) 그 뜻은 기하에 실린다.
+ * 그래서 색만 주지 않고 값을 통째로 만든다.
+ */
+const SHADE_DARK='#000000';
+const SHADE_ALPHA={
+  dark:{backdrop:.6,soft:.4,s1:.4,s2:.5},
+  light:{backdrop:.35,soft:.22,s1:.18,s2:.22},
+};
+function deriveShade(ui,mode){
+  const light=mode==='light';
+  const shade=light?ui.text:SHADE_DARK;
+  const a=SHADE_ALPHA[light?'light':'dark'];
+  const rgba=(c,al)=>{const p=hexRgb(c);return p?`rgba(${p.r},${p.g},${p.b},${al})`:c};
+  return{
+    '--backdrop':rgba(shade,a.backdrop),
+    '--backdrop-soft':rgba(shade,a.soft),
+    '--shadow-1':`0 2px 10px ${rgba(shade,a.s1)}`,
+    '--shadow-2':`0 8px 32px ${rgba(shade,a.s2)}`,
+  };
+}
+
 const SYNTAX_KEYS=['red','green','yellow','blue','magenta','cyan'];
 
 function deriveContrastTokens(ui,mode,attn,term){

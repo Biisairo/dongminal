@@ -24,7 +24,7 @@ const ctx = load(['core/contrast.js', 'ui/themes.js'], {
 const {
   CONTRAST_FLOORS, CONTRAST_STEP, THEMES,
   relLuminance, contrastRatio, mixHex, liftContrast,
-  pickContrastAnchor, deriveContrastTokens,
+  pickContrastAnchor, deriveContrastTokens, deriveShade,
 } = ctx;
 
 const themeNames = Object.keys(THEMES);
@@ -334,4 +334,50 @@ test('FR-TOK-25 이미 3:1 을 넘는 테마에서는 --accent 그대로다', ()
   const t = THEMES['Tokyo Night'];
   const d = deriveContrastTokens(t.ui, t.mode);
   assert.equal(d.focusRing, t.ui.accent);
+});
+
+
+// ── FR-WRD-30~33. 그늘 (백드롭·그림자) ──────────────────────────────
+//
+// 착수 시 네 값은 `style.css` 의 상수였고 54종 전부에 걸렸다 — 라이트 11종에서
+// 모달 뒤가 60% 검정이었다. 이주의 조건은 **다크가 한 픽셀도 움직이지 않는
+// 것**이다 (TC-WRD-6): 43종의 겉모습이 함께 바뀌면 이것은 색 정리가 아니라
+// 디자인 변경이 된다.
+test('TC-WRD-6 다크 43종의 그늘은 이주 전 값 그대로다', () => {
+  const before = {
+    '--backdrop': 'rgba(0,0,0,0.6)',
+    '--backdrop-soft': 'rgba(0,0,0,0.4)',
+    '--shadow-1': '0 2px 10px rgba(0,0,0,0.4)',
+    '--shadow-2': '0 8px 32px rgba(0,0,0,0.5)',
+  };
+  const dark = themeNames.filter((n) => THEMES[n].mode !== 'light');
+  assert.ok(dark.length >= 40, `다크 ${dark.length}종 — 너무 적다 (빈 루프로 초록이 되지 않는다)`);
+  for (const name of dark) {
+    const t = THEMES[name];
+    assert.deepEqual(plain(deriveShade(t.ui, t.mode)), before, `${name} 의 그늘이 움직였다`);
+  }
+});
+
+// 라이트의 그늘은 **그 팔레트의 잉크**다. 감사는 `textDim` 을 제안했지만 이
+// 저장소의 `textDim` 은 글자가 아니라 경계·채움이고(D-TOK-2) 실측 상대휘도가
+// 0.562~0.807 이다 — 거의 흰색이라 그늘이 되지 못한다.
+test('TC-WRD-6a 라이트 11종의 그늘은 팔레트의 잉크이고 종이보다 어둡다', () => {
+  const light = themeNames.filter((n) => THEMES[n].mode === 'light');
+  assert.ok(light.length >= 10, `라이트 ${light.length}종 — 너무 적다`);
+  for (const name of light) {
+    const t = THEMES[name];
+    const v = deriveShade(t.ui, t.mode);
+    assert.ok(!/rgba\(0,0,0/.test(v['--backdrop']), `${name} 의 백드롭이 여전히 검정이다`);
+    // 잉크는 종이보다 어둡다 — 그렇지 않으면 그늘이 빛이 된다.
+    assert.ok(relLuminance(t.ui.text) < relLuminance(t.ui.bg), `${name} 의 잉크가 종이보다 밝다`);
+    assert.match(v['--shadow-2'], /^0 8px 32px /, `${name} 의 그림자가 기하를 잃었다`);
+  }
+});
+
+// `--shadow-*` 는 **전체 값**이다 (사용자 결정 2026-09-13). 색만 주면 뜻(붙은
+// 것 · 떠 있는 것)을 말할 자리가 사라진다.
+test('TC-WRD-6b 그림자는 색이 아니라 전체 값이다', () => {
+  const v = deriveShade(THEMES['Tokyo Night'].ui, 'dark');
+  assert.match(v['--shadow-1'], /^0 2px 10px rgba\(/);
+  assert.match(v['--shadow-2'], /^0 8px 32px rgba\(/);
 });

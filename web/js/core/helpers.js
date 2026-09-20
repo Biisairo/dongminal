@@ -183,7 +183,13 @@ function hexToRgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.sli
 // 색을 하드코딩하지 않고, accent 가 노랑/주황인 테마에서도 포커스와 겹치지 않게 한다(FR-PAN-10).
 function pickAttnColor(t){
   const T=t.terminal||{};
-  const fallback=T.brightYellow||T.yellow||'#e0af68';
+  // WORDING_COLOR_SRS FR-WRD-36: 최후 폴백도 **테마 안**이다.
+  //   이전 동작: `'#e0af68'`(Tokyo Night 의 yellow) — 팔레트가 없는 테마에서
+  //             54종과 무관한 한 색이 섰다
+  //   새  동작: 그 테마의 `accent` 로 떨어진다
+  //   이유:     닿는 일이 드문 자리여도 색이 테마 밖으로 나가면 게이트가 재는
+  //             면적이 줄고, 그 자리는 다음에 또 는다
+  const fallback=T.brightYellow||T.yellow||(t.ui&&t.ui.accent);
   const acc=hexRgb(t.ui&&t.ui.accent);
   const cands=[T.brightYellow||T.yellow,T.brightMagenta||T.magenta,T.brightCyan||T.cyan,T.brightGreen||T.green].filter(Boolean);
   if(!acc||!cands.length) return fallback;
@@ -266,6 +272,21 @@ function themeVarsOf(t){
     '--attn':attn,
     '--attn-subtle':hexToRgba(attn,.16),
     '--attn-glow':hexToRgba(attn,.5),
+    /**
+     * WORDING_COLOR_SRS FR-WRD-30·31: 백드롭과 그림자도 파생이다.
+     *
+     *   이전 동작: `style.css` 의 `rgba(0,0,0,.4~.6)` 네 벌이 54종 전부에 걸렸다
+     *             — 라이트 **11종**에서 모달 뒤가 60% 검정으로 덮였다
+     *   새  동작: 그늘의 색과 알파를 **모드가 가른다**
+     *   이유:     `style.css:95~97` 이 이미 *"테마별 파생이 필요해지면 그때 이
+     *             토큰이 applyThemeObj 로 옮겨간다"* 고 예고했다. 이 이주는 그
+     *             예고의 실행이지 결정의 번복이 아니다
+     *
+     * `--shadow-*` 가 **전체 값**(geometry 포함)이라는 사용자 결정(2026-09-13)은
+     * 그대로다 — 뜻은 둘이고(붙은 것·떠 있는 것) 그 뜻이 값에 실려 있어야 한다.
+     * 그래서 여기서도 색이 아니라 전체 값을 만든다 (FR-WRD-31).
+     */
+    ...deriveShade(ui,t.mode),
   };
   // FR-DRV-13d: 구문 강조색을 **실제로** 터미널 팔레트에서 세운다. 그 주석이
   // 약속한 지 오래인데 파생이 없어 여섯 다 폴백으로 떨어지고 있었다.

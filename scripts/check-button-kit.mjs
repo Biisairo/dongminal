@@ -47,7 +47,9 @@ const WINDOW = 3;
 const EXEMPT = [
   { at: 'web/js/ui/ui-kit.js', why: '킷 자신이 버튼을 만드는 자리 — 등급을 붙이는 쪽이다',
     until: '없어지지 않는다 (킷의 정의)' },
-  { at: 'web/index.html', line: 336,
+  // 줄 번호는 `index.html` 이 자라면 함께 움직인다 — FR-WRD-35 의 주석 두 줄이
+  // 336 → 338 로 밀었다.
+  { at: 'web/index.html', line: 338,
     why: '`role="switch"` — 토글 스위치이지 버튼이 아니다',
     until: '묶음 B3 이 킷에 `.ui-switch` 를 세우면' },
   { at: 'web/js/ui/file-editor-find.js', line: 61,
