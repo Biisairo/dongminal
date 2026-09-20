@@ -420,7 +420,22 @@ Object.assign(Renderer.prototype, {
       e.preventDefault();
       tabs.scrollLeft+=e.deltaY;
     },{passive:false});
-    if(typeof ResizeObserver!=='undefined') new ResizeObserver(markOverflow).observe(tabs);
+    /**
+     * FR-PRF-30: **만든 관측자를 잡는다.**
+     *
+     *   이전 동작: `new ResizeObserver(markOverflow).observe(tabs)` — 어디에도
+     *             저장되지 않아 `disconnect()` 할 길이 자체가 없었다
+     *   새  동작: 골격에 얹고 `_domGC()` 가 골격을 거둘 때 함께 끊는다
+     *   이유:     같은 파일군의 다른 여덟 자리는 전부 참조를 든다 —
+     *             **이 한 자리만 규약 밖**이었고, 그러면 다음 사람이 어느 쪽이
+     *             규칙인지 알 수 없다 (`AUDIT-fe-ui.md` M-6)
+     *
+     * `_markTabOverflow` 를 같은 방식으로 이미 얹고 있으므로 자리가 하나다.
+     */
+    if(typeof ResizeObserver!=='undefined'){
+      el._tabOverflowRo=new ResizeObserver(markOverflow);
+      el._tabOverflowRo.observe(tabs);
+    }
     el._markTabOverflow=markOverflow;
     tabs.addEventListener('dragover',e=>{
       if(!app.drag||app.drag.type!=='tab')return;

@@ -100,6 +100,10 @@ class Renderer {
     for(const [k,el] of [...this._dom]){
       if(this._domUsed.has(k)) continue;
       this._dom.delete(k);
+      // FR-PRF-30: 골격에 얹힌 관측자를 함께 끊는다. `_domGC` 가 이 저장소의
+      // **유일한 골격 수거 지점**이므로 자리가 하나다 — 떼는 쪽이 여럿이면
+      // 한 곳이 반드시 빠진다.
+      if(el&&el._tabOverflowRo) el._tabOverflowRo.disconnect();
       if(el&&el.remove) el.remove();
     }
   }

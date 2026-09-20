@@ -150,6 +150,7 @@
 | 값이 **바뀐** 회차에 살아남는 행 | **바뀌지 않은 행 전부** | `e2e/perf-repaint.spec.ts` P2~P5 |
 | 한 동작이 내는 `render()` 진입 | **1** (유휴 5초는 **0**) | `e2e/perf-render.spec.ts` R1·R2 |
 | blame 이 한 번에 그리는 행 | **`GIT_BLAME_MAX_ROWS`(2,000) 이하** — 행마다 6노드다 | `e2e/git-diff.spec.ts` BL3 |
+| 만든 관측자를 잡지 않는 자리 | **0** (착수 시 9자리 중 1) | `scripts/check-observer.mjs` |
 
 > 둘째 줄이 없으면 첫째 줄은 *"아무것도 안 그린다"* 로도 통과한다. 조용히 낡은
 > 화면은 느린 화면보다 나쁘다 (`PERFORMANCE_HARDENING_SRS` §7).
