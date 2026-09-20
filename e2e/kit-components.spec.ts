@@ -249,22 +249,18 @@ test.describe('킷 컴포넌트 (KIT_COMPONENTS_SRS)', () => {
     expect(bad).toEqual([]);
   });
 
-  test('TC-CMP-17: 설정 모달의 높이가 탭에 따라 달라진다 — 고정이 아니다 (FR-CMP-83)', async ({ page }) => {
-    await waitForInit(page, { clearLocalStorage: true });
-    await page.click('#settings-btn');
-    await expect(page.locator('#modal-overlay.open')).toBeVisible({ timeout: 10000 });
-
-    const heightOf = async (tab: string) => {
-      await page.click(`.mtab[data-tab="${tab}"]`);
-      return page.evaluate(() => Math.round(document.getElementById('modal')!.getBoundingClientRect().height));
-    };
-    // 착수 시 `#modal{height:min(80vh,720px)}` 이라 내용과 무관하게 같은 높이였다
-    // — Theme 는 아래 약 190px, Status Bar 는 약 280px 이 비었다.
-    const a = await heightOf('theme');
-    const b = await heightOf('shortcuts');
-    expect(a, `Theme(${a}) 와 Shortcuts(${b}) 의 높이가 같다 — 내용에 맞춰 늘지 않는다`).not.toBe(b);
-    await page.keyboard.press('Escape');
-  });
+  /**
+   * **TC-CMP-17 을 걷었다** (2026-09-20). 그 검사는 *"설정 모달의 높이가 탭에
+   * 따라 달라진다"* 를 단정했고, `UI_KIT_SRS` FR-UIK-12 가 그 **반대**를 요구한다
+   * — *"설정 모달의 크기는 탭에 따라 달라지지 않는다"*, 2026-09-08 **사용자 접수**.
+   *
+   * `AUDIT-uiux.md` §4.2 가 반대를 제안했으나 감사 제안으로 사용자 접수를 뒤집을
+   * 수 없다. `poll-interval.spec.ts` 의 PIS19(V-11)가 그 요구를 지키고 있었고
+   * **전량 e2e 가 잡았다** — 부분 실행 49건에서는 보이지 않던 자리다.
+   *
+   * §4.2 가 본 진짜 불편(긴 탭에서 마지막 행이 잘린다)은 높이가 아니라 **잘린
+   * 것이 안 보이는 것**이므로 TC-CMP-19(넘침 페이드)가 그 절반을 고친다.
+   */
 
   test('TC-CMP-19: 넘치면 잘린 것이 있음을 페이드가 알린다 (FR-CMP-84)', async ({ page }) => {
     await waitForInit(page, { clearLocalStorage: true });

@@ -776,12 +776,18 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
      760 → 920 으로 한 번에 키운 것은 러너의 글꼴이 더 넓기 때문이다. 760 에서
      CI 의 두 OS 가 함께 졌고, 860 은 로컬 여유가 68px 뿐이라 같은 차이로 다시
      질 수 있다. 920 에서 여유가 128px 다. */
-  width:min(920px,94vw);max-width:94vw;overflow:hidden;
-  /* FR-CMP-83: **내용에 맞춰 는다.** 종전에는 `height:min(80vh,720px)` 로 못박아
-     탭과 무관하게 같은 높이였다 — Theme 는 아래 약 190px, Status Bar 는 약 280px
-     이 비고, 반대로 Shortcuts 는 넘쳐서 마지막 행이 높이 중간에서 잘렸다.
-     상한만 남기면 짧은 탭은 줄고 긴 탭은 상한까지 늘어 그 안에서 구른다. */
-  max-height:min(80vh,720px);
+  /* **높이는 고정이다** — `FR-UIK-12`(2026-09-08 **사용자 접수**): *"설정 모달의
+     크기는 탭에 따라 달라지지 않는다. 폭과 높이가 고정이며, 내용이 짧은 탭에서도
+     상자가 줄지 않는다."*
+
+     `AUDIT-uiux.md` §4.2 가 그 반대를 제안했고(*"고정 높이를 주는 자기 규칙을
+     걷고 내용에 맞춰 늘게 둔다"*) `KIT_COMPONENTS_SRS` FR-CMP-83 이 한동안 그것을
+     옮겨 적었으나, **사용자가 접수한 요구를 감사 제안으로 뒤집을 수 없다.**
+     `V-11`(PIS19)이 그 요구를 지키고 있었고 전량 e2e 가 잡았다.
+
+     §4.2 가 본 진짜 불편(긴 탭에서 마지막 행이 잘린다)은 높이가 아니라 **잘린
+     것이 안 보이는 것**이므로, 넘침 페이드(FR-CMP-84)가 그 절반을 고친다. */
+  width:min(920px,94vw);max-width:94vw;height:min(80vh,720px);overflow:hidden;
 }
 .modal-header{
   display:flex;align-items:center;justify-content:space-between;
