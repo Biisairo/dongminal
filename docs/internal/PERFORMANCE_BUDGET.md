@@ -155,6 +155,7 @@
 | 상태바 한 회차의 **직렬** 왕복 | **2** (`ping` → `stats` ∥ `git/jobs`) | `e2e/perf-statusbar.spec.ts` S1 |
 | 같은 `.gz` 자산 N회 요청의 파일 읽기 | **1** | `TestStatic_PrecompressedReadsFileOnce` |
 | 없는 경로 1,000회 뒤 `etags` 항목 | **0** | `TestStatic_ETagDoesNotCacheMisses` |
+| 핀 목록의 `RepoRoot` 동시 진행 | **2 이상 · `gitObserveMax`(4) 이하** | `TestGitPinnedEntries_RunsInParallel` |
 
 > 둘째 줄이 없으면 첫째 줄은 *"아무것도 안 그린다"* 로도 통과한다. 조용히 낡은
 > 화면은 느린 화면보다 나쁘다 (`PERFORMANCE_HARDENING_SRS` §7).

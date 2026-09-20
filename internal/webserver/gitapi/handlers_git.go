@@ -220,23 +220,45 @@ func (s *GitServer) gitRepoAtEntry(ctx context.Context, cwd string) map[string]a
 
 // gitPinnedEntries 는 핀 목록을 순서 그대로 준다. 저장소가 아니게 된 핀은
 // **목록에서 지우지 않고** isRepo:false 로 보인다 — 지울지는 사용자가 정한다.
+// PERFORMANCE_HARDENING_SRS FR-PRF-55~57 (`AUDIT-go-http.md` P-3):
+//
+//	이전 동작: 핀마다 `RepoRoot` 를 **순차**로 불렀다
+//	새  동작: 바로 위 `gitObservePins` 와 **같은 세마포어**(`gitObserveMax`)로 겹친다
+//	이유:     `store.Store` 의 `RepoRoot` TTL 이 2초라 그보다 느린 폴링에서는 매번
+//	          핀 수만큼의 `git rev-parse` 가 직렬로 떴다. 핀 10개 × 10~30ms 면
+//	          100~300ms 이고 Git 탭이 열려 있는 동안 되풀이된다
+//
+// **새 상수를 만들지 않는다.** 같은 물음("git 프로세스를 한꺼번에 몇 개까지
+// 띄울 것인가")에 답이 둘이면 한쪽만 고쳐진다 — 이 파일이 바로 위에서 그 답을
+// 이미 정해 두었다.
+//
+// **결과는 인덱스로 쓴다.** 핀 순서는 사용자가 정한 것이고 그것이 계약이다.
 func (s *GitServer) gitPinnedEntries(ctx context.Context) []map[string]any {
 	pins, err := s.gitPinsRead()
 	if err != nil {
 		return []map[string]any{}
 	}
-	out := make([]map[string]any, 0, len(pins))
-	for _, p := range pins {
-		e := map[string]any{"path": p, "name": filepath.Base(p), "isRepo": false, "reason": "", "badge": nil}
-		if _, err := s.Git.RepoRoot(ctx, p); err != nil {
-			_, name := gitErrorCode(err)
-			e["reason"] = name
-		} else {
-			e["isRepo"] = true
-			e["badge"] = s.gitBadge(p)
-		}
-		out = append(out, e)
+	out := make([]map[string]any, len(pins))
+	sem := make(chan struct{}, gitObserveMax)
+	var wg sync.WaitGroup
+	for i, p := range pins {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(i int, p string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			e := map[string]any{"path": p, "name": filepath.Base(p), "isRepo": false, "reason": "", "badge": nil}
+			if _, err := s.Git.RepoRoot(ctx, p); err != nil {
+				_, name := gitErrorCode(err)
+				e["reason"] = name
+			} else {
+				e["isRepo"] = true
+				e["badge"] = s.gitBadge(p)
+			}
+			out[i] = e
+		}(i, p)
 	}
+	wg.Wait()
 	return out
 }
 
