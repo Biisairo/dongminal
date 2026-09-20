@@ -153,6 +153,8 @@
 | 만든 관측자를 잡지 않는 자리 | **0** (착수 시 9자리 중 1) | `scripts/check-observer.mjs` |
 | 레이아웃을 애니메이션하는 `@keyframes` | **0** (착수 시 13개 중 1) | `scripts/check-css-animation.mjs` |
 | 상태바 한 회차의 **직렬** 왕복 | **2** (`ping` → `stats` ∥ `git/jobs`) | `e2e/perf-statusbar.spec.ts` S1 |
+| 같은 `.gz` 자산 N회 요청의 파일 읽기 | **1** | `TestStatic_PrecompressedReadsFileOnce` |
+| 없는 경로 1,000회 뒤 `etags` 항목 | **0** | `TestStatic_ETagDoesNotCacheMisses` |
 
 > 둘째 줄이 없으면 첫째 줄은 *"아무것도 안 그린다"* 로도 통과한다. 조용히 낡은
 > 화면은 느린 화면보다 나쁘다 (`PERFORMANCE_HARDENING_SRS` §7).

@@ -52,10 +52,28 @@ type staticHandler struct {
 
 	mu    sync.RWMutex
 	etags map[string]string
+
+	// blobs 는 **사전압축 자산의 담긴 바이트**다 (PERFORMANCE_HARDENING_SRS FR-PRF-50).
+	//
+	// `go:embed` 자산은 프로세스가 사는 동안 바뀌지 않는다 — 바로 위 `etags` 가
+	// 이미 그 근거로 캐시를 두고 있는데 **바이트는 캐시하지 않았다.** 그래서
+	// Monaco 청크 하나를 열 때마다 자기 크기만큼 힙을 잡았다 버렸다.
+	//
+	// 상한은 **담긴 `.gz` 의 총량**이다 (지금 138개 5.7MB) — 키 집합이 우리가
+	// 정하는 유한 목록이라는 점이 `etags` 의 결함(요청자가 키를 정한다, FR-PRF-53)과
+	// 다른 자리다.
+	//
+	// **해제본은 담지 않는다** (D-PRF-7). 해제가 도는 것은 gzip 을 밝히지 않는
+	// 클라이언트뿐이고(`dmctl`·curl·일부 프록시) 브라우저는 전부 gzip 을 밝힌다.
+	// Monaco raw 는 23.3MB 라, 거의 쓰이지 않는 경로를 위해 상주 메모리를 네 배로
+	// 무는 셈이 된다. 읽기가 사라지는 것만으로 그 경로도 함께 싸진다.
+	blobMu sync.RWMutex
+	blobs  map[string][]byte
 }
 
 func newStaticHandler(fsys fs.FS, version string) http.Handler {
-	h := &staticHandler{fsys: fsys, next: http.FileServer(http.FS(fsys)), etags: map[string]string{}}
+	h := &staticHandler{fsys: fsys, next: http.FileServer(http.FS(fsys)),
+		etags: map[string]string{}, blobs: map[string][]byte{}}
 	if b, err := fs.ReadFile(fsys, indexPage); err == nil {
 		h.index = []byte(strings.ReplaceAll(string(b), assetVerPlaceholder, version))
 		h.indexETag = hashBytes(h.index)
@@ -180,6 +198,29 @@ func (h *staticHandler) gzName(urlPath string) string {
 	return gz
 }
 
+// gzBlob 은 사전압축 자산의 담긴 바이트를 준다. **처음 한 번만 읽는다**
+// (PERFORMANCE_HARDENING_SRS FR-PRF-50~52).
+//
+// 같은 이름을 두 요청이 동시에 처음 읽으면 둘 다 읽고 뒤의 것이 이긴다 — 값이
+// 같으므로 결과가 갈리지 않고, 그 한 번을 막으려고 이름마다 잠금을 두는 것이
+// 더 비싸다 (`etagFor` 가 같은 판단을 이미 하고 있다).
+func (h *staticHandler) gzBlob(gz string) ([]byte, error) {
+	h.blobMu.RLock()
+	b, ok := h.blobs[gz]
+	h.blobMu.RUnlock()
+	if ok {
+		return b, nil
+	}
+	b, err := fs.ReadFile(h.fsys, gz)
+	if err != nil {
+		return nil, err
+	}
+	h.blobMu.Lock()
+	h.blobs[gz] = b
+	h.blobMu.Unlock()
+	return b, nil
+}
+
 // servePrecompressed 는 `.gz` 로 담긴 자산을 낸다 (MONACO_VENDORING_SRS 묶음 Z).
 //
 // `go:embed` 는 압축하지 않고 릴리스는 raw 바이너리를 그대로 올린다. Monaco 의
@@ -193,7 +234,7 @@ func (h *staticHandler) servePrecompressed(w http.ResponseWriter, r *http.Reques
 	if gz == "" {
 		return false
 	}
-	data, err := fs.ReadFile(h.fsys, gz)
+	data, err := h.gzBlob(gz)
 	if err != nil {
 		return false
 	}
@@ -326,6 +367,20 @@ func (h *staticHandler) etagFor(urlPath string) string {
 	// 압축 여부와 무관하게 같다 (FR-MVN-10).
 	if tag == "" {
 		tag = hashFile(h.fsys, name+gzSuffix)
+	}
+	// PERFORMANCE_HARDENING_SRS FR-PRF-53: **빈 태그는 담지 않는다.**
+	//
+	//   이전 동작: 없는 경로도 `h.etags[name] = ""` 로 들어갔다
+	//   새  동작: 실재하는 자산만 담는다
+	//   이유:     키가 **요청 URL 에서 온다.** `/a1`, `/a2`, … 를 되풀이하면 맵이
+	//             요청 수만큼 자랐고 상한도 만료도 없었다 (`AUDIT-go-http.md` P-2).
+	//             정적 자산은 `gateExempt` 로 출처 게이트를 비켜 가므로 게이트
+	//             한 겹만 지나면 닿는 표면이다
+	//
+	// 대가는 없는 파일마다 매번 `fs.Stat` 두 번인데, `embed.FS` 에서 그것은 맵
+	// 조회다. **없는 것을 기억하는 값보다 싸다.**
+	if tag == "" {
+		return ""
 	}
 	h.mu.Lock()
 	h.etags[name] = tag
