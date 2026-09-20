@@ -67,7 +67,8 @@ func (s *Store) Start(opt StartOptions) (Record, error) {
 	if err := s.save(); err != nil {
 		return Record{}, err
 	}
-	return rec, nil
+	// FR-SAF-4: rec.Worktree 는 호출자가 준 포인터이고 s.runs 가 같은 것을 든다.
+	return cloneRun(rec), nil
 }
 
 // MemberSpec is the input of AddMember.
@@ -135,7 +136,7 @@ func (s *Store) AddMember(runID string, spec MemberSpec) (Member, error) {
 	if err := s.save(); err != nil {
 		return Member{}, err
 	}
-	return m, nil
+	return cloneMember(m), nil
 }
 
 // ReportSpec is the input of Report. RunID/MemberID are corroboration only —
@@ -188,7 +189,7 @@ func (s *Store) Report(senderToolID string, spec ReportSpec) (Member, error) {
 	} else {
 		m.State = Failed
 	}
-	out := *m
+	out := cloneMember(*m)
 	if err := s.save(); err != nil {
 		return Member{}, err
 	}
@@ -213,7 +214,7 @@ func (s *Store) Close(runID string, force bool) (Record, []Member, error) {
 	var pending []Member
 	for _, m := range rec.Members {
 		if !m.settled() {
-			pending = append(pending, m)
+			pending = append(pending, cloneMember(m))
 		}
 	}
 	if len(pending) > 0 && !force {
@@ -221,7 +222,7 @@ func (s *Store) Close(runID string, force bool) (Record, []Member, error) {
 	}
 	rec.State = Closed
 	rec.ClosedAt = s.now()
-	out := *rec
+	out := cloneRun(*rec)
 	if err := s.save(); err != nil {
 		return Record{}, nil, err
 	}
@@ -244,7 +245,7 @@ func (s *Store) Sweep(runID string) (Record, error) {
 	if s.runs[idx].State == Open {
 		return Record{}, ErrRunOpen
 	}
-	return s.runs[idx], nil
+	return cloneRun(s.runs[idx]), nil
 }
 
 // Delete 는 레코드를 지운다 (UX_REVISION_SRS FR-DEL-7).
@@ -261,7 +262,7 @@ func (s *Store) Delete(runID string) (Record, error) {
 	if idx < 0 {
 		return Record{}, ErrUnknownRun
 	}
-	rec := s.runs[idx]
+	rec := cloneRun(s.runs[idx])
 	s.runs = append(s.runs[:idx], s.runs[idx+1:]...)
 	if err := s.save(); err != nil {
 		return Record{}, err

@@ -69,23 +69,76 @@ type Store struct {
 	alive func(toolID string) bool
 }
 
+// cloneMember 는 Member 의 참조 필드를 끊는다 (SAFETY_CORRECTNESS_SRS FR-SAF-4).
+//
+// 임베드 `ContextState` 와 `Worktree` 의 본문은 전부 스칼라이므로, 포인터 대상은
+// 값 복제 한 번으로 끝난다.
+func cloneMember(in Member) Member {
+	out := in
+	if in.Worktree != nil {
+		wt := *in.Worktree
+		out.Worktree = &wt
+	}
+	if in.FilesModified != nil {
+		fs := make([]string, len(in.FilesModified))
+		copy(fs, in.FilesModified)
+		out.FilesModified = fs
+	}
+	return out
+}
+
+// cloneRun 은 Record 가 **저장소의 내부를 공유하지 않도록** 끊는다
+// (SAFETY_CORRECTNESS_SRS FR-SAF-4).
+//
+// 잠금 밖으로 나가는 참조 필드는 다섯이다 — `Members`·`Worktree`·`Coordinator`
+// (Record) 와 `Worktree`·`FilesModified` (Member). 얕게만 복사하면 둘이 깨진다:
+// 호출자가 복사본이라 믿고 고친 것이 저장소에 닿고, 호출자가 잠금 **밖**에서
+// 읽는 동안 `&s.runs[ri].Members[mi]` 제자리 수정이 겹치면 데이터 레이스다.
+//
+// `Messages` 는 `store_messages.go` 가 이미 같은 이유로 새 배열로 옮긴다 —
+// 그 처방이 나머지 넷에 닿지 않아 이 함수가 생겼다.
+//
+// **깊이는 여기 한 자리다.** 타입에 참조 필드가 늘면 이 함수만 고친다.
+func cloneRun(in Record) Record {
+	out := in
+	if in.Members != nil {
+		ms := make([]Member, len(in.Members))
+		for i := range in.Members {
+			ms[i] = cloneMember(in.Members[i])
+		}
+		out.Members = ms
+	}
+	if in.Worktree != nil {
+		wt := *in.Worktree
+		out.Worktree = &wt
+	}
+	if in.Coordinator != nil {
+		cs := *in.Coordinator
+		out.Coordinator = &cs
+	}
+	if in.Messages != nil {
+		ms := make([]MsgEvent, len(in.Messages))
+		copy(ms, in.Messages)
+		out.Messages = ms
+	}
+	return out
+}
+
 // cloneRuns 는 되돌릴 수 있는 깊이까지 복사한다.
 //
 // `Record` 만 얕게 복사하면 **멤버가 같은 배열을 가리킨다** — 코드가
 // `&s.runs[ri].Members[mi]` 로 제자리 수정을 하므로, 그 수정이 복사본에도 그대로
 // 보여서 되돌릴 것이 남지 않는다.
+//
+// FR-SAF-4a: 깊이를 `cloneRun` 에 맡긴다. 종전에는 `Members` 만 끊었고, 되돌림에
+// 필요한 깊이와 조회에 필요한 깊이가 **다른 두 벌**로 갈라져 있었다.
 func cloneRuns(in []Record) []Record {
 	if in == nil {
 		return nil
 	}
 	out := make([]Record, len(in))
-	copy(out, in)
-	for i := range out {
-		if out[i].Members != nil {
-			ms := make([]Member, len(out[i].Members))
-			copy(ms, out[i].Members)
-			out[i].Members = ms
-		}
+	for i := range in {
+		out[i] = cloneRun(in[i])
 	}
 	return out
 }

@@ -15,7 +15,7 @@ func (s *Store) Get(runID string) (Record, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if i := s.indexOf(runID); i >= 0 {
-		return s.runs[i], true
+		return cloneRun(s.runs[i]), true
 	}
 	return Record{}, false
 }
@@ -24,9 +24,7 @@ func (s *Store) Get(runID string) (Record, bool) {
 func (s *Store) List() []Record {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	out := make([]Record, len(s.runs))
-	copy(out, s.runs)
-	return out
+	return cloneRuns(s.runs)
 }
 
 // MemberByTool resolves a tool to its member in an open Run. This is the
@@ -38,7 +36,7 @@ func (s *Store) MemberByTool(toolID string) (Member, bool) {
 	if !ok {
 		return Member{}, false
 	}
-	return s.runs[ri].Members[mi], true
+	return cloneMember(s.runs[ri].Members[mi]), true
 }
 
 // FindMember resolves a member id to its Run and member row, across every Run
@@ -54,7 +52,7 @@ func (s *Store) FindMember(memberID string) (Record, Member, bool) {
 	for ri := range s.runs {
 		for mi := range s.runs[ri].Members {
 			if s.runs[ri].Members[mi].ID == memberID {
-				return s.runs[ri], s.runs[ri].Members[mi], true
+				return cloneRun(s.runs[ri]), cloneMember(s.runs[ri].Members[mi]), true
 			}
 		}
 	}

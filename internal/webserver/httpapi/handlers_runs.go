@@ -362,8 +362,18 @@ func (s *Server) apiRunPreamble(w http.ResponseWriter, r *http.Request) {
 			// 묻는 쪽이 사라졌다 — 표식은 그대로 둔다. 다음 조회가 이어서 기다린다.
 			return
 		}
-		if _, cur, ok := s.Runs.FindMember(m.ID); ok {
-			m = cur
+		// SAFETY_CORRECTNESS_SRS FR-SAF-5: **`rec` 도 다시 읽는다.**
+		//
+		//   이전 동작: 멤버만 다시 읽었다. 그래도 동작한 것은 `rec.Members` 가
+		//             저장소의 배열을 **공유**했기 때문이다 — 늦게 도착한 요약이
+		//             낡은 `rec` 를 통해 비쳤다. 잠금 밖의 읽기였으므로 그것은
+		//             데이터 레이스였고, 이 종단은 그 레이스에 기대고 있었다
+		//   새  동작: 조회가 복사본을 주므로 `rec` 를 다시 읽어 최신으로 만든다
+		//   이유:     `HandoffClause` 가 전임자의 요약을 **`rec.Members` 에서**
+		//             찾는다. 위 주석이 말한 "만드는 시점에 다시 읽는다" 가
+		//             성립하려면 그 시점의 `rec` 가 최신이어야 한다
+		if curRec, cur, ok := s.Runs.FindMember(m.ID); ok {
+			rec, m = curRec, cur
 		}
 	}
 	writeJSON(w, map[string]any{

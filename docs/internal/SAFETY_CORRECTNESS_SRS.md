@@ -1,6 +1,6 @@
 # SRS: 조용히 틀리는 일곱 자리를 소리 나게 만든다 — IEEE 29148
 
-> **문서 상태**: 초안
+> **문서 상태**: 승인·구현중
 
 - 접수: 2026-09-20 (프로덕션 승격 감사 1단계 · `docs/internal/refactor/` 214건 중 묶음 B1)
 - 선행: `docs/internal/refactor/README.md` §3 "가장 먼저 고쳐야 할 열 가지"
@@ -127,14 +127,38 @@
 ### 3.2 묶음 B — 잠금 경계
 
 - **FR-SAF-4** `cloneRun(Record) Record` 와 `cloneMember(Member) Member` 를
-  세운다. `Members` 슬라이스를 새로 만들고 `Worktree` 포인터를 값 복제한다 —
-  `cloneRuns` 가 이미 하는 일의 단건 판이다.
+  세운다. 잠금 밖으로 나가는 **참조 필드 다섯 전부**를 덮는다.
+
+  | 타입 | 필드 | 종류 | 지금 상태 |
+  |---|---|---|---|
+  | `Record` | `Members []Member` | 슬라이스 | 감사가 지목 |
+  | `Record` | `Worktree *Worktree` | 포인터 (per-run 공유 트리) | **감사가 놓침** |
+  | `Record` | `Coordinator *ContextState` | 포인터 | **감사가 놓침** |
+  | `Record` | `Messages []MsgEvent` | 슬라이스 | `store_messages.go` 가 이미 지킨다 |
+  | `Member` | `Worktree *Worktree` | 포인터 | 감사가 지목 |
+  | `Member` | `FilesModified []string` | 슬라이스 | **감사가 놓침** |
+
+  `Member` 의 임베드 `ContextState` 와 `Worktree` 의 본문은 **전부 스칼라**이므로
+  포인터 대상은 값 복제 한 번으로 끝난다.
+- **FR-SAF-4a** `cloneRuns`(`store.go:77`)를 **재사용하지 않는다.** 그것은
+  되돌리기용이고 `Members` 만 덮는다 — 머리말이 적은 목적("되돌릴 수 있는
+  깊이까지")이 다르다. `cloneRun` 을 세운 뒤 `cloneRuns` 가 그것을 돌게 하여
+  깊이를 **한 자리**로 모은다.
 - **FR-SAF-5** 잠금 밖으로 `Record`/`Member` 를 내보내는 **모든** 경로가 그것을
   지난다: `Get`·`List`·`MemberByTool`·`FindMember`·`Close`·`Sweep`·`Delete`·
   `Report`·`Succeed`·`ObserveContext`·`mutateMember`.
 - **FR-SAF-6** 착수 전에 **반환된 포인터로 저장소를 고치는 호출처가 있는지**
   확인한다. 있으면 그 호출처를 저장소 메서드로 옮긴 뒤 FR-SAF-5 를 적용한다 —
   순서를 바꾸면 그 호출처가 조용히 무력화된다.
+
+  > **확인 완료 (2026-09-20).** `LSP findReferences` 로 `Get` 44곳 · `List` 17곳을
+  > 전수 확인했다. 프로덕션 호출처 **11곳**(`handlers_runs.go` 4 ·
+  > `handlers_runs_close.go` · `handlers_runs_context.go` 2 ·
+  > `handlers_runs_delete.go` 2 · `handlers_runs_graph.go` ·
+  > `handlers_runs_peers.go`)은 **전부 읽기 전용**이다. 반환값의 참조 필드에
+  > 대입하는 자리는 0곳이며, `provisionMember`(`handlers_runs_worktree.go:103`)는
+  > 이미 `wt := *rec.Worktree` 로 값 복제를 한다 — 올바른 형태가 이미 있다.
+  > **그러므로 FR-SAF-5 를 곧바로 적용해도 무력화되는 호출처가 없다.**
 
 ### 3.3 묶음 C — 본문 상한
 
@@ -269,7 +293,8 @@ TC-SAF-8·TC-SAF-10 은 지금 코드에서 실제로 실패하는 것을 확인
 | 리스크 | 등급 | 완화 |
 |---|---|---|
 | **A 가 동작을 바꾼다** — 지금까지 200 이던 실패가 500 이 된다 | MED | 그것이 옳다. FR-SAF-3 이 이전/새/이유를 기록으로 남기고, TC-SAF-2 가 정상 경로의 회귀를 막는다 |
-| **B 의 복사가 호출처를 무력화한다** — 반환 포인터로 저장소를 고치던 자리가 있으면 조용히 죽는다 | **HIGH** | FR-SAF-6·D-SAF-3 이 **확인을 먼저** 못박는다. `find_referencing_symbols` 로 열한 경로의 호출처를 전수 확인한 뒤 착수 |
+| ~~**B 의 복사가 호출처를 무력화한다**~~ | ~~HIGH~~ → **해소** | **확인 완료 2026-09-20** (FR-SAF-6 의 주석). 프로덕션 호출처 11곳 전부 읽기 전용이고 반환값의 참조 필드에 대입하는 자리는 0곳이다. 이 리스크는 더 이상 열려 있지 않다 |
+| **참조 필드를 빠뜨린다** — 감사는 둘만 지목했으나 실제로는 다섯이다 | MED | FR-SAF-4 의 표가 다섯을 명시하고, FR-SAF-4a 가 깊이를 `cloneRun` **한 자리**로 모은다. 타입에 참조 필드가 늘면 그 한 자리만 고치면 된다 |
 | **B 의 복사가 뜨거운 경로에 들어간다** — `List()` 가 자주 불린다 | MED | `handlers_runs_peers.go` 가 이미 전량을 순회한다. 복사 비용을 §4(B6)의 성능 목록에 올려 두고, 이 묶음에서는 **정확성을 먼저** 택한다 |
 | **G 가 `Total` 계약을 바꾼다** — 프론트가 그 수를 믿고 있다 | MED | FR-SAF-21. 소비자를 먼저 찾고, 배지가 "최소 N" 을 표현할 수 있는지 확인한 뒤 정한다 |
 | **게이트 셋이 기존 코드에서 빨개진다** | LOW | 그것이 목적이다. 게이트와 수정이 같은 커밋에 든다 (D-SAF-4) |

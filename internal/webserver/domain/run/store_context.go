@@ -176,7 +176,7 @@ func (s *Store) ObserveContext(toolID string, obs ContextObservation, policy Con
 	// FR-RCX-8: 멤버와 조정자가 **같은 함수**를 지난다 — 등급 판정이 두 벌이 되면
 	// 화면의 두 자리가 다른 규칙으로 색을 고르게 된다.
 	entered = applyContextObservation(&cur.ContextState, obs, policy, s.now())
-	out := *cur
+	out := cloneMember(*cur)
 	if err := s.save(); err != nil {
 		// 영속 실패로 관측을 잃어도 훅과 activity 는 살아 있어야 한다
 		// (NFR-CBG-2). 저장소가 못 쓰게 된 사실은 save 가 이미 로그로 남긴다.
@@ -405,12 +405,12 @@ func (s *Store) Succeed(spec SucceedSpec) (prev Member, next Member, err error) 
 	}
 	// Outcome 은 건드리지 않는다 (FR-CBG-9). 승계는 결말이 아니다.
 
-	prev = *old
+	prev = cloneMember(*old)
 	s.runs[ri].Members = append(s.runs[ri].Members, next)
 	if err := s.save(); err != nil {
 		return Member{}, Member{}, err
 	}
-	return prev, next, nil
+	return prev, cloneMember(next), nil
 }
 
 // Handoff 는 멤버가 후임에게 남기는 인수인계 요약을 받는다 (FR-CBG-9 의 1단계).
@@ -442,7 +442,7 @@ func (s *Store) Handoff(senderToolID, claimedMemberID, summary string) (Member, 
 	// UX_BATCH6_SRS FR-RUN-4: 청한 것이 도착했다. 기다리던 쪽이 이 표식을 보고
 	// 멈춘다 — 늦게 왔어도 버려지지 않는다.
 	m.HandoffPending = false
-	out := *m
+	out := cloneMember(*m)
 	if err := s.save(); err != nil {
 		return Member{}, err
 	}
