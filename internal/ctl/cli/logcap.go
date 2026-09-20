@@ -103,13 +103,16 @@ func capHomeLogs(home string, max, keep int64) {
 // **홈 아래 셋을 함께 본다** (`G2-1`). `$DONGMINAL_LOG` 로 옮긴 서버 로그는 홈
 // 밖일 수 있으므로 따로 건다 — 그 경우에도 데몬·재시작 로그는 홈에 남는다.
 func WatchLogSize(done <-chan struct{}) {
-	path := os.Getenv(EnvLog)
-	if path == "" {
-		path = defaultLogFile()
-	}
 	// 홈은 서버가 도는 그 홈이다. 실패하면 홈 아래 로그는 건드리지 않는다 —
 	// 로그 위생 때문에 서버가 서지 않아서는 안 된다 (FR-LOG-4).
 	home, _ := Common{}.ResolveHome()
+	path := os.Getenv(EnvLog)
+	if path == "" {
+		// 종전에는 `platform` 의 자리(`/tmp/dongminal.log`)를 받아 **존재하지 않는
+		// 파일을 매 분 stat** 했다. `capHomeLogs` 가 `homeLogs` 로 `server.log` 를
+		// 따로 덮은 덕에 우연히 구제됐을 뿐이다 (FR-STR-33).
+		path = defaultLogFile(home)
+	}
 	t := time.NewTicker(LogCheckEvery)
 	defer t.Stop()
 	for {

@@ -129,7 +129,10 @@ func doctorChecks(p platform.Platform, home, probeBin string) []doctorCheck {
 func doctorEnvironment(r *checkReport, p platform.Platform, home string) {
 	r.section("환경")
 	r.info("DONGMINAL_HOME = %s", home)
-	r.info("로그 기본 경로  = %s", p.Paths.DefaultLogFile())
+	// 홈을 아는 자리이므로 홈 아래를 답한다 (FR-STR-33). 종전에는 platform 의
+	// 값을 그대로 내어 **없는 파일**을 안내했다 — 진단이 틀린 경로를 말하면
+	// 그것을 쫓는 시간이 통째로 날아간다.
+	r.info("로그 기본 경로  = %s", defaultLogFile(home))
 	r.info("실행 확장자     = %q", p.Paths.ExeSuffix())
 	// 홈은 start 가 만든다. doctor 는 홈이 없는 상태에서도 돌 수 있어야
 	// 하므로 여기서도 만든다 — 없는 것은 실패가 아니다.

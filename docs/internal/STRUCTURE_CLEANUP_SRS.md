@@ -28,7 +28,7 @@
 | 서버를 겨누는 방법 | **5벌** · 4계층을 지키는 것 **3개** | `server.json` 에 포트를 적으면 `stop` 이 **엉뚱한 프로세스를 죽인다** |
 | `net.JoinHostPort` 사용 | **0곳** | 문서가 지원한다고 적은 `DONGMINAL_HOST=::1` 로 **서버가 안 뜬다** |
 | 기본 로그 경로의 답 | **3개** | `config show`·`doctor`·`--help` 가 **없는 파일**을 가리킨다 |
-| `homeLayout()` 이 모르는 홈 항목 | **8개** | `backup` 이 사용자 worktree 를 빠뜨리고 `uninstall --purge` 가 `ext/` 수백 MB 를 남긴다 |
+| `homeLayout()` 이 모르는 홈 항목 | **11개** | `backup` 이 사용자 worktree 를 빠뜨리고 `uninstall --purge` 가 `ext/` 수백 MB 를 남긴다 |
 | 500줄 초과 파일 | **26** (기준선 22) · 최대 **1,586** (기준선 1,336) | — (개발자가 겪는 것) |
 | 80줄 초과 함수 | **29** | — |
 
@@ -177,7 +177,7 @@
 `dmenv.normalizeHost` 가 `[::1]` 의 대괄호를 **뗀다** — 판정에는 그것이 맞고
 조립에는 붙이는 것이 맞는데, **둘이 한 함수의 출력을 공유한다.**
 
-### 2.5 `homeLayout()` 이 모르는 홈 항목이 **8개**다
+### 2.5 `homeLayout()` 이 모르는 홈 항목이 **11개**다
 
 세는 방법: `filepath.Join(<home|cfg.DataDir 류>, "…")` 의 **첫 조각**을 파싱으로
 모으고 `homeLayout()` 의 `Name` 집합과 뺀다. 상수로 적힌 이름
@@ -193,9 +193,18 @@
 | `doctor-tools/` | `cli/doctor.go:392` | 진단 데이터 | 남는다 |
 | `doctor-probe.txt` | `cli/doctor_probe.go:204` | 진단 탐침 출력 | 남는다 |
 | `verify-too-large.bin` | `cli/verify_boundary.go:53` | 413 확인용 sparse 파일 | `defer os.Remove` 가 지운다 — **`verify` 가 죽으면 남는다** |
+| `cache/` | `shared/sandbox/helper.go:46` | 컨테이너용 리눅스 헬퍼 캐시 | 남는다 |
+| `tool-home/` | `cli/start.go:285` | 격리 기동의 도구 셸 홈 | 남는다 |
+| `panes.json` | `ctl/migrate/apply.go:52` | **변환 전 레이아웃** | `backup` 이 담지 않는다 |
 
-마지막 줄은 **감사가 적지 않은 것**이다 (`AUDIT-go-infra.md` 항목 4 는 일곱을 적었다).
-파싱이 여덟 번째를 찾았다 — §2.0 이 요구한 것이 이것이다.
+**마지막 넷은 감사가 적지 않은 것이다** (`AUDIT-go-infra.md` 항목 4 는 일곱을 적었다).
+게이트를 세우고 코드에서 파생하자 **열하나**가 나왔다 — §2.0 이 요구한 것이 이것이다.
+초안을 쓸 때 손으로 훑어 여덟이라 적었고, **그 여덟도 표본이었다.**
+
+> **세는 방법의 한계도 적는다.** 파생은 `filepath.Join(<home 류>, …)` 꼴만 본다.
+> 이름이 런타임 값인 자리(`filepath.Join(home, e.Name)` — 표 자신을 도는 변수)는
+> 해석되지 않으며, 게이트가 그 수를 **매번 찍는다**(실측 7자리). 거기 진짜 상수가
+> 섞이면 그 줄로 보인다.
 
 **검사가 왜 못 잡았나.** `homelayout_test.go:32-40` 은 `rollbackTargets` 와 `homeLogs`
 가 **표에 포함되는지만** 본다. 둘 다 이미 표에 있는 것들이다. **표 밖에서 홈에 쓰는
@@ -297,7 +306,7 @@
 | ID | 요구 | 등급 |
 |---|---|---|
 | FR-STR-30 | `homeLayout()` 이 §2.5 의 여덟을 담는다. `What` 은 비울 수 없다 (`uninstall --dry-run` 의 목록이 곧 안내다) | 필수 |
-| FR-STR-31 | `git-worktrees/` 는 **`Backup: false`** 다 (D-STR-4). 목록에는 **있어야** `uninstall` 이 그것을 지운다고 말할 수 있다 | 필수 |
+| FR-STR-31 | `git-worktrees/` 는 **`Backup: true`** 다 (D-STR-4). 이 필드는 `uninstall` 에게 *"보존하는가"* 이기도 하므로, false 로 두면 **맨 `uninstall` 이 사용자의 worktree 를 지운다** | 필수 |
 | FR-STR-32 | **이것은 동작 변경이다.** `uninstall --purge` 가 더 많이 지운다 (`ext/`·`worktrees/`·`doctor-*`). 이전/새/이유를 적고 `--dry-run` 목록이 그것을 먼저 보여준다 | 필수 |
 | FR-STR-33 | 기본 로그 경로가 **한 함수**가 된다 — `defaultLogFile(home)`. 홈이 있으면 `<home>/server.log` 이고, 없을 때만 `platform` 의 자리로 물러선다. `prepareServerCmd` 도 그것을 쓴다 | 필수 |
 | FR-STR-34 | `usageStart()` 는 홈을 모르므로 문구를 **`$DONGMINAL_HOME/server.log`** 로 적는다 — 그 편이 실제로도 정확하다 | 필수 |
@@ -336,7 +345,7 @@
 | **D-STR-1** | 클립보드 헬퍼를 **새로 만들지 않고 `term-clipboard.js` 에서 꺼낸다** | 그 파일의 3단은 `EXPLORER_TRANSFER_IGNORE_SRS` 묶음 F 가 설계하고 D-12·D-13 이 근거를 적은 것이다. 새로 만들면 **여섯 번째 사본**이 되고, 이 문서가 고치려는 바로 그 모양이다 (D-CMP-4 와 같은 규약) |
 | **D-STR-2** | `TermClipboard` 라는 **이름을 남긴다** — OSC 52 어댑터로 | `window.TermClipboard` 를 e2e 와 `term-pane.js` 가 부른다. 이름을 지우면 계약이 바뀌고, 이 묶음은 **자리만 옮긴다** (FR-STR-1). 이름이 터미널을 말하는 것이 옳아진다 — 그 파일에 남는 것이 실제로 터미널의 일(OSC 52)이기 때문이다 |
 | **D-STR-3** | `dmctl` 의 **파일 계층은 범위 밖**이다 | `helper/runtimebin` 은 `ctl/cli` 를 import 할 수 없다 (프로세스 축 경계, `check-pkg-axis.sh`). 계층을 주려면 `serverconf` 를 `shared` 로 옮겨야 하고 그것은 패키지 구조 변경이다 — 이 묶음의 범위를 넘는다. **`dmenv.BaseURL` 까지는 지나게** 해서 주소 조립만이라도 한 벌로 만들고, 남은 결손을 머리말에 사유로 적는다 |
-| **D-STR-4** | `git-worktrees/` 는 `Backup: false` | worktree 의 실체는 **git 저장소 밖**이고 `.git` 파일이 절대 경로를 가리킨다. zip 에 담아 다른 기계에서 풀면 **깨진 worktree** 가 복원된다 — 담지 않는 것이 담고 거짓말하는 것보다 낫다. 감사는 이것을 *"사용자 결정 대상"* 으로 남겼는데, 담았을 때 실제로 무엇이 복원되는지를 읽으면 답이 하나다. 사용자에게 물을 자리는 **목록에 넣을지**가 아니라 **worktree 백업 기능을 만들지**이며 그것은 이 묶음이 아니다 |
+| **D-STR-4** | `git-worktrees/` 는 `Backup: **true**` | **초안은 `false` 였고, 소비자를 읽자 뒤집혔다.** 초안의 근거는 *"worktree 의 `.git` 은 절대 경로라 다른 기계에서 풀면 깨진 것이 복원된다"* 였고 그 사실 자체는 옳다. 틀린 것은 **`Backup` 이 한 가지 뜻이라는 가정**이다 — `backup.go` 에게는 "zip 에 담는가" 이지만 `uninstall.go` 의 `uninstallPlan` 은 `e.Backup && !purge` 로 걸러서 **"보존하는가"** 로 읽는다. false 로 두면 맨 `dongminal uninstall` 이 사용자가 Git 창에서 만든 worktree 를 **커밋하지 않은 작업과 함께** 지운다.<br><br>뜻이 둘인 필드에서는 **되돌릴 수 없는 쪽**을 따른다. zip 의 대가는 bounded 다 — 같은 기계 복원은 그대로 되고, 다른 기계에서는 `.git` 파일이 가리키는 곳이 없는 디렉터리가 하나 생길 뿐 **조용한 손실이 아니다.**<br><br>감사는 이것을 *"사용자 결정 대상"* 으로 남겼는데, 물어야 할 것은 **목록에 넣을지**가 아니라 **worktree 백업을 제대로 만들지**이고 그것은 이 묶음이 아니다. 필드가 두 물음을 겸하는 것 자체도 결함이며, 가르는 일은 `uninstall`·`backup` 의 계약 변경이라 여기 넣지 않는다 (§6-10) |
 | **D-STR-5** | 모듈 크기 기준선을 **지금 값(26 / 1,586)으로 다시 잡고**, 같은 변경에서 최대 파일만 내린다 | 22 / 1,336 으로 되돌리려면 네 파일을 추가로 500 아래로 갈라야 하고 그것은 L 공수다. 감사 D2 가 권한 순서가 *"게이트를 먼저 세우고 기준선을 정하는 순서"* 이며, **재는 것이 없는 상태가 수치보다 나쁘다** — 9일 만에 되돌아온 것이 그 증거다. 게이트가 서면 다음 되돌림은 커밋에서 막힌다 |
 | **D-STR-6** | `reconcileList` 이주는 **B6 이다** | `refactor/README.md` §4.1 항목 6 이 그 이주를 **성능 항목으로 등록하고 측정 방법까지 못박았다**(`MutationObserver` 로 60초간 변이 수). 이주 없이는 측정할 수 없고 측정 없이 이주하면 §4 의 *"각 항목의 전후를 그 표의 측정 열로 잰다"* 가 깨진다 — **같은 변경이어야 한다.** 더구나 `innerHTML=''` 54자리 중 폴링 경로인 것을 가르는 일은 자리마다 판단이 필요해 파싱으로 파생되지 않는다 (FR-STR-2 를 만족하지 못한다). B5 는 이 행을 **열지 않는다** |
 | **D-STR-7** | 빈 상태의 **주동작은 넣지 않는다** | FR-CMP-62 가 버튼을 **선택**으로 두었으므로 미달이 아니다. 헬퍼가 섰으니 Runs 의 "팀 명령 복사" 는 이제 **가능해졌고**, 그것을 만드는 것은 컴포넌트 작업이 아니라 기능 작업이다 (D-CMP-3 과 같은 경계) |
@@ -359,7 +368,7 @@
 | TC-STR-9 | B | 게이트 2 가 로그 문구·테스트의 주소 리터럴을 **잡지 않는다** | 탐침 |
 | TC-STR-10 | C | `homeLayout()` 의 이름 집합이 코드가 홈에 쓰는 첫 조각 집합을 **덮는다** | 게이트 3 |
 | TC-STR-11 | C | 게이트 3 이 홈 밖 경로(`os.TempDir()`·저장소 경로)를 **잡지 않는다** | 탐침 |
-| TC-STR-12 | C | `backup` 이 담는 이름에 `git-worktrees` 가 **없고**, `uninstall --dry-run` 목록에는 **있다** | 단위 (Go) |
+| TC-STR-12 | C | 맨 `uninstall` 이 `git-worktrees` 를 **계획에 넣지 않고**, `--purge` 는 **넣는다.** 표에 없어서 아무도 지우지 않던 `ext` 는 맨 `uninstall` 이 가져간다 | 단위 (Go) |
 | TC-STR-13 | C | `config show` 의 `logFile` 이 `<home>/server.log` 다 | 단위 (Go) |
 | TC-STR-14 | D | `web/js` 의 500줄 초과 수·최대 줄이 §7.1 표보다 **나빠지면 빨갛다** | 탐침 (게이트 4) |
 | TC-STR-15 | D | 게이트 4 가 `i18n/*.js`·`vendor/`·`test/` 를 **세지 않는다** | 탐침 |
@@ -394,6 +403,13 @@
 7. **성능** — B6. **문서 동기화·상태 라벨·결정 색인의 B2·B3·B4 누락** — B7.
 8. **키보드 도달** — B2-K, 사용자가 직접 (D-KIT-8).
 9. **간격·`--mono`·`line-height` 토큰화** (`AUDIT-design.md` §5·§6). 색도 구조도 아니다 — B7.
+10. **`homeEntry.Backup` 을 두 물음으로 가르는 것** (D-STR-4). 지금 그 필드는
+    `backup` 에게 "zip 에 담는가" 이고 `uninstall` 에게 "보존하는가" 다. 가르는 일은
+    두 명령의 계약 변경이고, 이 묶음은 **표를 전수로 만드는 것**까지다.
+11. **`getting-started.md` 의 홈 표를 게이트가 함께 대조하는 것.** 감사가 제안한
+    세 집합 대조 중 **코드↔표** 둘만 세웠다. 문서는 같은 변경에서 손으로 맞췄고,
+    그 자동화는 `check-env-docs.sh` 와 같은 꼴의 별도 작업이다 — B7.
+
 
 ### 6-예외표
 
@@ -404,7 +420,7 @@
 | S-3 | `web/js/i18n/*.js` (모듈 크기) | **데이터**다. 키가 늘면 줄이 늘고 분할이 뜻을 갖지 않는다 | 카탈로그가 JSON 으로 나가면 |
 | S-4 | `web/vendor/**` · `web/js/test/**` (모듈 크기) | 우리 코드가 아니거나 검사 코드다 | — |
 | S-5 | `helper/runtimebin` 의 파일 계층 결손 | **축 경계**가 `ctl/cli` import 를 막는다 (D-STR-3) | `serverconf` 가 `shared` 로 가면 |
-| S-6 | `cli/verify_boundary.go:53` `verify-too-large.bin` | `defer os.Remove` 가 지운다. 표에는 `Ephemeral` 로 **든다** — 죽으면 남기 때문이다 | 검사가 임시 디렉터리를 쓰게 되면 |
+| S-6 | ~~`verify-too-large.bin` 을 예외로~~ | **철회.** 표에 `Ephemeral` 로 **넣었다** — `defer os.Remove` 는 정상 경로만 덮고 `verify` 가 죽으면 홈에 남는다. 예외로 두면 그때 아무도 거두지 않는다 | — |
 | S-7 | 테스트 픽스처의 홈 경로 (`*_test.go`) | 검사가 만드는 가짜 홈이다 | — |
 | (구현 중 추가) | | | |
 

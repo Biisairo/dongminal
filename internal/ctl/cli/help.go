@@ -60,7 +60,7 @@ func usageStart() string {
   --foreground      터미널을 점유하며 실행한다 (^C 로 정지)
 ` + commonFlags + `
 
-로그: $DONGMINAL_LOG (기본: ` + defaultLogFile() + `) — 배경 모드에서만
+로그: $DONGMINAL_LOG (기본: $DONGMINAL_HOME/server.log) — 배경 모드에서만
 `
 }
 

@@ -46,10 +46,28 @@ const (
 	ExposeHost = "0.0.0.0"
 )
 
-// defaultLogFile 은 배경 모드 기동이 출력을 남길 자리다. 상수가 아니라 함수인
-// 것은 이 값이 OS 마다 다르기 때문이다 — POSIX 는 /tmp/dongminal.log 로 종전과
-// 같고, Windows 는 %LOCALAPPDATA% 아래다 (CROSS_PLATFORM_SRS FR-XPA-2).
-func defaultLogFile() string { return platform.Current().Paths.DefaultLogFile() }
+// logFileName 은 홈 아래 서버 로그의 이름이다. `homeLogs` 와 `homeLayout()` 이
+// 같은 이름을 쓴다.
+const logFileName = "server.log"
+
+// defaultLogFile 은 배경 모드 기동이 출력을 남길 자리다 (04-secops P1-6).
+//
+// **홈이 있으면 그 아래다.** 종전에는 POSIX 에서 `/tmp/dongminal.log` 였는데,
+// 그 이동이 `prepareServerCmd` **안에만** 있었다 — `serverconf.Inputs.DefaultLogFile`
+// 로 흘러드는 값은 여전히 옛 것이라 답이 **셋**이 됐고, 그래서
+// `config show`·`doctor`·`start --help` 가 **없는 파일**을 안내했다.
+// `config show` 의 존재 이유가 FR-CFG-7 *"값이 아니라 출처를 말한다"* 인데
+// 출처는 맞고 값이 틀렸다 — 안 듣는 설정을 쫓는 사람이 정확히 그 화면에서
+// 잘못된 경로로 간다 (FR-STR-33).
+//
+// 홈을 모르는 부름(`usageStart`)은 빈 문자열을 준다. 그때만 `platform` 의
+// 자리로 물러선다 — OS 마다 다르기 때문이다 (CROSS_PLATFORM_SRS FR-XPA-2).
+func defaultLogFile(home string) string {
+	if home != "" {
+		return filepath.Join(home, logFileName)
+	}
+	return platform.Current().Paths.DefaultLogFile()
+}
 
 // Actions는 help 에 나열되는 액션 이름이다. 내부 진입점 `d`(데몬)는 여기
 // 없다 — 사용자가 직접 부를 것이 아니다 (FR-CLI-8).

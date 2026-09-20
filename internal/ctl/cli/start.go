@@ -48,7 +48,7 @@ func RunStart(o StartOpts, serve Serve, stdout, stderr io.Writer) int {
 		Home:           home,
 		FlagHost:       startFlagHost(o),
 		FlagPort:       port,
-		DefaultLogFile: defaultLogFile(),
+		DefaultLogFile: defaultLogFile(home),
 	})
 	for _, w := range conf.Warnings {
 		// FR-CFG-15 / D-CFG-3: **막지 않는다.** 설정 파일 하나가 서버를 못 뜨게
@@ -312,11 +312,7 @@ func prepareServerCmd(home, host, port, logPath string) (*exec.Cmd, *os.File, st
 			// 예측 가능한 이름이고, 그 로그에는 `RemoteAddr`·도구 cwd·헤드리스
 			// 명령이 남는다. 홈은 0700 이므로 같은 호스트의 다른 UID 가 읽지
 			// 못한다. `DONGMINAL_LOG` 로 여전히 옮길 수 있다.
-			if home != "" {
-				logPath = filepath.Join(home, "server.log")
-			} else {
-				logPath = defaultLogFile()
-			}
+			logPath = defaultLogFile(home)
 		}
 	}
 	// 로그의 상위 디렉터리는 없을 수 있다 — POSIX 의 /tmp 와 달리

@@ -91,7 +91,7 @@ func RunService(o ServiceOpts, stdout, stderr io.Writer) int {
 			return 1
 		}
 	}
-	conf := serverconf.Resolve(serverconf.Inputs{Home: home, DefaultLogFile: defaultLogFile()})
+	conf := serverconf.Resolve(serverconf.Inputs{Home: home, DefaultLogFile: defaultLogFile(home)})
 
 	var body, hint string
 	switch kind {

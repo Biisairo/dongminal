@@ -61,7 +61,14 @@ func statFile(p string) error {
 
 type posixPaths struct{}
 
-// /tmp 하드코딩은 종전 cli.DefaultLog 와 같은 값이다 (§7 #2).
+// 홈을 **모를 때만** 쓰이는 자리다 (`cli.defaultLogFile` 이 홈이 있으면
+// `<home>/server.log` 를 낸다 — 04-secops P1-6).
+//
+//	이전 주석: "종전 cli.DefaultLog 와 같은 값이다"
+//	새  주석: 위 문장
+//	이유:     그 문장이 **거짓이 됐다.** 기본 로그가 홈 아래로 옮겨진 뒤로
+//	          이 값은 어느 경로의 기본값도 아니며, 그 사실을 몰라서
+//	          config show·doctor·help 가 없는 파일을 안내했다 (FR-STR-35).
 func (posixPaths) DefaultLogFile() string { return filepath.Join("/tmp", logBaseName) }
 
 func (posixPaths) ExeSuffix() string { return "" }

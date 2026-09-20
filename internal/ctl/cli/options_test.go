@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/serverconf"
 
 	"errors"
@@ -333,5 +334,45 @@ func TestWithEnv_Drops(t *testing.T) {
 	}
 	if !slices.Contains(got, EnvPort+"=2") {
 		t.Error("새 값이 붙지 않았다")
+	}
+}
+
+// STRUCTURE_CLEANUP_SRS 묶음 C · TC-STR-13.
+//
+// 기본 로그 경로에 답이 **셋**이었다. 실제로 쓰이는 값은 `<home>/server.log`
+// 인데 `config show`·`doctor`·`start --help` 는 `platform` 의 값을 안내했다 —
+// **없는 파일**이다. `config show` 의 존재 이유가 "값이 아니라 출처를 말한다"
+// 인데(FR-CFG-7) 출처는 맞고 값이 틀렸다.
+func TestDefaultLogFileFollowsHome(t *testing.T) {
+	home := t.TempDir()
+	want := filepath.Join(home, "server.log")
+	if got := defaultLogFile(home); got != want {
+		t.Errorf("defaultLogFile(%q) = %q, want %q", home, got, want)
+	}
+	// 홈을 모르는 부름(`usageStart`)만 platform 의 자리로 물러선다.
+	if got := defaultLogFile(""); got != platform.Current().Paths.DefaultLogFile() {
+		t.Errorf("홈이 없을 때 = %q", got)
+	}
+}
+
+// `config show` 가 내는 logFile 이 실제로 쓰이는 값이어야 한다.
+func TestConfigShowLogFileIsUnderHome(t *testing.T) {
+	home := t.TempDir()
+	isolateEnv(t, home)
+	conf := serverconf.Resolve(serverconf.Inputs{Home: home, DefaultLogFile: defaultLogFile(home)})
+	if got := conf.LogFile.Value; got != filepath.Join(home, "server.log") {
+		t.Errorf("logFile = %q — 안 듣는 설정을 쫓는 사람이 없는 파일로 간다", got)
+	}
+}
+
+// `start --help` 는 홈을 모른다. 그래서 **경로가 아니라 규칙**을 적는다 —
+// 그 편이 실제로도 정확하다 (FR-STR-34).
+func TestStartUsageDescribesLogByRule(t *testing.T) {
+	u := usageStart()
+	if !strings.Contains(u, "$DONGMINAL_HOME/server.log") {
+		t.Errorf("start --help 가 로그 자리를 규칙으로 적지 않는다:\n%s", u)
+	}
+	if strings.Contains(u, "/tmp/dongminal.log") {
+		t.Error("start --help 가 아직 옛 기본 경로를 안내한다")
 	}
 }

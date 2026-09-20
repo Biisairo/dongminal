@@ -1,6 +1,9 @@
 package cli
 
-import "dongminal/internal/shared/platform"
+import (
+	"dongminal/internal/shared/platform"
+	"dongminal/internal/shared/toolipc"
+)
 
 // 홈의 구성 — **한 곳에서 선언한다** (M5 `G4-3`·`G3-4`).
 //
@@ -54,6 +57,33 @@ func homeLayout() []homeEntry {
 		{Name: "server.log", What: "웹 서버 로그", Ephemeral: true},
 		{Name: "daemon.log", What: "dongminald 로그", Ephemeral: true},
 		{Name: restartLogFile, What: "재시작 대리의 출력", Ephemeral: true},
+
+		// ── 2026-09-21 에 더한 것 (STRUCTURE_CLEANUP_SRS FR-STR-30) ──
+		//
+		// 표가 홈의 절반쯤만 알고 있었다. `scripts/check-home-layout.sh` 가 코드에서
+		// 파생한 결과와 대조하며, 그 검사가 **열하나**를 찾았다 — 감사가 손으로 센
+		// 일곱보다 많다.
+		//
+		// `git-worktrees` 의 `Backup` 이 이 묶음에서 가장 비싼 판단이었다 (D-STR-4).
+		// 이 필드는 `backup` 에게는 "zip 에 담는가" 이지만 `uninstall` 에게는
+		// **"보존하는가"** 다 (`uninstallPlan` 이 `e.Backup && !purge` 로 거른다).
+		// 뜻이 둘인 필드에서 **되돌릴 수 없는 쪽**을 따른다 — false 로 두면 맨
+		// `uninstall` 이 사용자의 worktree 를 지운다.
+		{Name: "git-worktrees", IsDir: true, What: "Git 창에서 만든 사용자 worktree", Backup: true},
+		{Name: "panes.json", What: "변환 전 레이아웃 (migrate 가 workspace.json 으로 옮긴다)", Backup: true},
+
+		{Name: "worktrees", IsDir: true, What: "Run 격리 worktree (정리는 Run 레코드가 정한다)", Ephemeral: true},
+		{Name: "ext", IsDir: true, What: "편집기 플러그인·언어 서버 (다시 받을 수 있다)", Ephemeral: true},
+		// 이름의 출처는 `shared/sandbox` 의 `helperCacheDir` 인데 그것은 내보내지
+		// 않았고, 여기서 그 패키지를 끌어오면 축 경계가 흔들린다. 값이 두 자리에
+		// 있는 것을 `check-home-layout.sh` 가 대조한다.
+		{Name: "cache", IsDir: true, What: "컨테이너용 리눅스 헬퍼 캐시 (판마다 다시 만든다)", Ephemeral: true},
+		{Name: toolHomeDir, IsDir: true, What: "격리 기동에서 도구 셸이 쓰는 홈", Ephemeral: true},
+		{Name: toolipc.DaemonBuildFile, What: "도는 데몬의 코드 지문", Ephemeral: true},
+		{Name: "doctor", IsDir: true, What: "doctor 의 IPC 자리", Ephemeral: true},
+		{Name: "doctor-tools", IsDir: true, What: "doctor 가 띄운 도구의 데이터", Ephemeral: true},
+		{Name: "doctor-probe.txt", What: "doctor 탐침의 출력", Ephemeral: true},
+		{Name: "verify-too-large.bin", What: "verify 가 413 을 확인할 때 쓰는 큰 파일 (죽으면 남는다)", Ephemeral: true},
 	}
 }
 

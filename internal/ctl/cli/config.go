@@ -87,7 +87,7 @@ func RunConfig(o ConfigOpts, stdout, stderr io.Writer) int {
 	rep.Server = serverconf.Resolve(serverconf.Inputs{
 		Home:           home,
 		FlagPort:       o.Port,
-		DefaultLogFile: defaultLogFile(),
+		DefaultLogFile: defaultLogFile(home),
 	})
 	rep.Warnings = append(rep.Warnings, rep.Server.Warnings...)
 	if err := rep.Server.Err(); err != nil {

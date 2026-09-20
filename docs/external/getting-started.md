@@ -405,7 +405,7 @@ dongminal config validate      # 설정 파일을 스키마에 대조 (불일치
 ## 데이터가 어디 있나요 (M5 `G10-3`)
 
 전부 `$DONGMINAL_HOME`(기본 `~/.dongminal`) 아래에 있습니다. **이 폴더 밖에
-상태를 두지 않습니다** — 로그 하나만 예외입니다.
+상태를 두지 않습니다.**
 
 | 자리 | 무엇 | 옮겨지나 |
 |---|---|---|
@@ -417,12 +417,22 @@ dongminal config validate      # 설정 파일을 스키마에 대조 (불일치
 | `server.json` | 서버 기동값 | ✅ |
 | `sandbox.json` | 샌드박스 프로파일 | ✅ |
 | `notes/` | 메모장 | ✅ |
+| `git-worktrees/` | Git 창에서 만든 worktree | ✅ |
+| `panes.json` | 변환 전 레이아웃 (`migrate` 가 옮깁니다) | ✅ |
 | `bin/` | 런타임 헬퍼 | ❌ 기동마다 다시 채웁니다 |
+| `ext/` | 편집기 플러그인·언어 서버 | ❌ 다시 받을 수 있습니다 |
+| `cache/` | 컨테이너용 리눅스 헬퍼 | ❌ |
+| `worktrees/` | Run 격리 worktree | ❌ |
 | `tool-history/` | 도구 셸의 히스토리 | ❌ |
-| `paned.sock` · `paned.pid` | 데몬 IPC | ❌ |
+| `tool-home/` | `--isolated` 기동에서 도구 셸이 쓰는 홈 | ❌ |
+| `paned.sock` · `paned.pid` · `paned.build` | 데몬 IPC 와 코드 지문 | ❌ |
 | `.lastexit` | 마지막 종료가 정상이었는지 | ❌ |
 | `server.log` · `daemon.log` · `restart.log` | 로그 | ❌ |
-| `$DONGMINAL_LOG` (기본 `/tmp/dongminal.log`) | 배경 모드 기동 로그 — **홈 밖입니다** | ❌ |
+| `doctor/` · `doctor-tools/` · `doctor-probe.txt` | `doctor` 의 작업 자리 | ❌ |
+
+배경 모드 기동 로그는 `$DONGMINAL_LOG`, 정하지 않았으면
+**`$DONGMINAL_HOME/server.log`** 입니다. 홈은 `0700` 이라 같은 기계의 다른
+사용자가 읽지 못합니다.
 
 ```bash
 dongminal backup --out ~/dm-backup.zip   # 옮겨지는 것 전부

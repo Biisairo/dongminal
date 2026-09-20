@@ -125,3 +125,65 @@ func TestUninstallRequiresConfirmation(t *testing.T) {
 		t.Errorf("되돌리는 길을 안내하지 않았다:\n%s%s", out.String(), errw.String())
 	}
 }
+
+// STRUCTURE_CLEANUP_SRS 묶음 C · TC-STR-12.
+//
+// **`Backup` 은 뜻이 둘인 필드다.** `backup` 에게는 "zip 에 담는가" 이고
+// `uninstall` 에게는 **"보존하는가"** 다 (`uninstallPlan` 이 `e.Backup && !purge`
+// 로 거른다). 뜻이 둘이면 되돌릴 수 없는 쪽을 따라야 한다 — `git-worktrees` 는
+// 사용자가 Git 창에서 만든 worktree 이고 거기에는 커밋하지 않은 작업이 산다.
+func TestUserWorktreesSurvivePlainUninstall(t *testing.T) {
+	home := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(home, "git-worktrees", "feature-x"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(home, "ext"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	plain := uninstallPlan(home, false)
+	for _, it := range plain {
+		if it.entry.Name == "git-worktrees" {
+			t.Error("맨 uninstall 이 사용자 worktree 를 지운다")
+		}
+	}
+	// `--purge` 는 지운다 — 그때는 사용자가 명시적으로 요구한 것이다.
+	var purged bool
+	for _, it := range uninstallPlan(home, true) {
+		if it.entry.Name == "git-worktrees" {
+			purged = true
+		}
+	}
+	if !purged {
+		t.Error("--purge 가 사용자 worktree 를 남긴다 — '전부 지웠습니다' 가 거짓이 된다")
+	}
+	// 다시 받을 수 있는 것은 맨 uninstall 이 가져간다. 종전에는 표에 없어서
+	// **아무도 지우지 않았고**, 그 자리에 언어 서버 수백 MB 가 남았다.
+	var extPlanned bool
+	for _, it := range plain {
+		if it.entry.Name == "ext" {
+			extPlanned = true
+		}
+	}
+	if !extPlanned {
+		t.Error("ext 가 계획에 없다 — uninstall 이 '전부 지웠습니다' 하고 남긴다")
+	}
+}
+
+// 표가 **전수**인지는 `scripts/check-home-layout.sh` 가 코드에서 파생해 센다.
+// 여기서는 그 검사가 찾아낸 열하나가 실제로 들어왔는지만 잠근다 — 표에서
+// 지워지면 게이트보다 이 검사가 먼저 말한다.
+func TestHomeLayoutHasDerivedEntries(t *testing.T) {
+	names := map[string]bool{}
+	for _, e := range homeLayout() {
+		names[e.Name] = true
+	}
+	for _, n := range []string{
+		"git-worktrees", "panes.json", "worktrees", "ext", "cache",
+		toolHomeDir, "doctor", "doctor-tools", "doctor-probe.txt", "verify-too-large.bin",
+	} {
+		if !names[n] {
+			t.Errorf("홈에 쓰는 %s 가 표에 없다 (FR-STR-30)", n)
+		}
+	}
+}

@@ -33,6 +33,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-gitwrite.sh
 	@echo "── 서버 겨냥 (주소 조립·겨누는 명령이 한 규칙을 지나는가)"
 	@scripts/check-server-target.sh
+	@echo "── 홈 전수 목록 (홈에 쓰는 것이 전부 표에 있는가)"
+	@scripts/check-home-layout.sh
 	@echo "── 크로스 컴파일"
 	@scripts/check-cross.sh
 	@echo "── 제3자 자산 판 기록"
