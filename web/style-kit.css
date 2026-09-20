@@ -231,13 +231,24 @@
    `.xterm-viewport` 를 선택자에 함께 적는 것은 그 요소를 xterm 이 만들기
    때문이다 — 클래스를 붙일 자리가 없다. 두 벌로 두면 한쪽만 고쳐진다.
 
+   `.ui-modal-body` 도 함께 적는다 (KIT_APPLICATION_SRS FR-KIT-1). 그것은
+   **킷 자신의 클래스**이므로 `ui-kit.js` 에서 `ui-scroll` 을 덧붙이는 길과 다르다
+   — 덧붙이면 손으로 `<div class="ui-modal-body">` 를 쓰는 자리가 스크롤바를
+   다시 잃는다. 앱의 표면은 생성 자리에서 클래스를 받고(FR-KIT-11), 킷의 표면은
+   여기서 받는다.
+
+   **이전/새/이유** (규약 4 · FR-KIT-3): 이전에는 `.ui-modal-body` 가 브라우저
+   기본 스크롤바였다. 새로: 킷의 8px·`--text-dim`·hover. 이유: 그것이 대체하는
+   옛 `.modal-body`(style.css:821)가 **이미 스크롤바를 그리고 있었다** — 모달
+   골격 수렴이 진행될수록 스크롤바가 사라졌고, 개선 작업이 회귀를 만들고 있었다.
+
    좁은 목록(`.sbl-list`·`.theme-list`)의 4px 은 여기 들지 않는다. 그 자리의
    뜻이 다르다 (§6 비목표). */
-.ui-scroll::-webkit-scrollbar,.xterm-viewport::-webkit-scrollbar{width:8px;height:8px}
-.ui-scroll::-webkit-scrollbar-track,.xterm-viewport::-webkit-scrollbar-track{background:transparent}
-.ui-scroll::-webkit-scrollbar-thumb,.xterm-viewport::-webkit-scrollbar-thumb{
+.ui-scroll::-webkit-scrollbar,.ui-modal-body::-webkit-scrollbar,.xterm-viewport::-webkit-scrollbar{width:8px;height:8px}
+.ui-scroll::-webkit-scrollbar-track,.ui-modal-body::-webkit-scrollbar-track,.xterm-viewport::-webkit-scrollbar-track{background:transparent}
+.ui-scroll::-webkit-scrollbar-thumb,.ui-modal-body::-webkit-scrollbar-thumb,.xterm-viewport::-webkit-scrollbar-thumb{
   background:var(--text-dim);border-radius:4px;
 }
-.ui-scroll::-webkit-scrollbar-thumb:hover,.xterm-viewport::-webkit-scrollbar-thumb:hover{
+.ui-scroll::-webkit-scrollbar-thumb:hover,.ui-modal-body::-webkit-scrollbar-thumb:hover,.xterm-viewport::-webkit-scrollbar-thumb:hover{
   background:var(--text-muted);
 }
