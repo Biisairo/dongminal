@@ -30,13 +30,40 @@ type Entry struct {
 	Status string
 }
 
+// idPat 은 결정 번호의 꼴이다 — 세 패턴이 **같은 것을 뜻해야** 하므로 한 자리에 둔다.
+//
+// 끝의 소문자 하나는 **정정 판**이다 (`D-8b`·`D-WRD-9a`). 종전 패턴은 그것을 몰라
+// `D-WRD-9a` 를 `D-WRD-9` 로 읽었다 — 색인이 **다른 결정의 번호를 달아 주는** 자리였다.
+const idPat = `(D-[A-Z0-9]+(?:-[0-9]+)?[a-z]?)`
+
 var (
 	// 표 행: `| **D-CFG-1** | 제목 | 근거 |` — 이 저장소가 가장 많이 쓰는 형태.
-	rowRe = regexp.MustCompile(`^\|\s*\*{0,2}(D-[A-Z0-9]+(?:-[0-9]+)?)\*{0,2}\s*\|(.*)$`)
-	// 굵은 머리: `**D-CAF-1: 제목**` 또는 `**D-CAF-1** 제목`
-	headRe = regexp.MustCompile(`^\*\*(D-[A-Z0-9]+(?:-[0-9]+)?)[:：]?\*{0,2}\s*(.*?)\*{0,2}\s*$`)
+	rowRe = regexp.MustCompile(`^\|\s*\*{0,2}` + idPat + `\*{0,2}\s*\|(.*)$`)
+	// 굵은 머리: `**D-CAF-1: 제목**` · `**D-CAF-1** 제목` · `- **D-1. 제목**`.
+	//
+	// **목록 항목도 같은 것이다** (DOC_SYNC_SRS FR-DSY-10).
+	//
+	//	이전 동작: 줄이 `**` 로 **시작할 때만** 읽었다
+	//	새  동작: 앞의 불릿(`-`·`*`·`+`)을 건너뛴다
+	//	이유:     이 저장소의 SRS **49개**가 결정을 목록으로 적는다. 색인은 게이트가
+	//	          초록인 채로 그것들을 놓치고 있었다. 소수 문서가 별난 형식을 쓰는
+	//	          것이 아니라 **다수 형식을 파서가 몰랐다** (D-DSY-1)
+	//
+	// 형식을 문서 쪽에서 맞추지 않는 이유도 그 수에 있다. 49개 문서의 결정 절을
+	// 표로 눌러 담으면 근거 산문이 상하고, 무엇보다 **다음 사람이 자연스러운 쪽으로
+	// 다시 쓴다** — 그때 색인은 또 조용히 놓친다. 색인의 일은 결정을 찾는 것이지
+	// 산문의 형식을 정하는 것이 아니다.
+	//
+	// 번호 뒤에 오는 것은 구분자여야 한다. 그러지 않으면 `**D-Day 는…**` 이
+	// `D-D` 로 잡힌다 (실측 — 첫 판이 그랬다).
+	headRe = regexp.MustCompile(`^(?:[-*+]\s+)?\*\*` + idPat + `(?:[.:：]|\*|\s)(.*)$`)
+	// 굵은 span 안쪽: `- **D-X 제목.** 그 뒤의 근거` 에서 **제목만** 든다.
+	//
+	// 목록 형식은 제목 뒤에 근거 산문이 같은 줄로 이어진다. 안쪽을 따로 집지
+	// 않으면 색인의 제목에 `**` 와 근거가 통째로 실린다.
+	spanRe = regexp.MustCompile(`^(?:[-*+]\s+)?\*\*` + idPat + `(?:[.:：]?\s+([^*]*?)\s*)?\*\*`)
 	// 취소선으로 철회 표기한 것 — 이 저장소의 관행이다.
-	struckRe = regexp.MustCompile(`~~\s*\*{0,2}(D-[A-Z0-9]+(?:-[0-9]+)?)`)
+	struckRe = regexp.MustCompile(`~~\s*\*{0,2}` + idPat)
 )
 
 // Collect 는 dir 아래 SRS 전부에서 결정을 모은다.
@@ -109,8 +136,15 @@ func parseLine(line string) (Entry, bool) {
 		}
 		return e, true
 	}
+	if m := spanRe.FindStringSubmatch(t); m != nil && m[2] != "" {
+		title := balanceBold(strings.TrimSpace(m[2]))
+		if !endsSentence(title) {
+			title += "…"
+		}
+		return Entry{ID: m[1], Title: title, Status: "채택"}, true
+	}
 	if m := headRe.FindStringSubmatch(t); m != nil {
-		title := strings.TrimSpace(strings.TrimSuffix(m[2], "**"))
+		title := balanceBold(strings.TrimSpace(strings.Trim(m[2], "*: 　")))
 		if title == "" {
 			return Entry{}, false
 		}
@@ -123,6 +157,18 @@ func parseLine(line string) (Entry, bool) {
 		return Entry{ID: m[1], Title: title, Status: "채택"}, true
 	}
 	return Entry{}, false
+}
+
+// balanceBold 는 짝이 맞지 않는 굵은 글씨 표시를 닫는다.
+//
+// 결정 제목 안에 강조가 들어 있는 것은 흔하고(`**전부**`), 제목을 잘라 오면 그
+// 여는 표시만 남을 수 있다. 색인은 표이므로 그대로 두면 **뒤 칸의 서식까지
+// 흐트러진다** — 닫아 주는 편이 싸다.
+func balanceBold(s string) string {
+	if strings.Count(s, "**")%2 == 1 {
+		return s + "**"
+	}
+	return s
 }
 
 // endsSentence 는 줄이 문장으로 끝났는지 본다.
