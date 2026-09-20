@@ -160,7 +160,20 @@ func (s *accessStore) setConfig(cfg accessConfig) error {
 		e.Label = strings.TrimSpace(e.Label)
 		hosts = append(hosts, e)
 	}
+	// SAFETY_CORRECTNESS_SRS FR-SAF-1·2 / D-SAF-1: **저장에 실패하면 메모리도
+	// 되돌린다.**
+	//
+	//   이전 동작: 디스크 쓰기 실패를 로그로만 남기고 `nil` 을 돌려주었다 —
+	//             `PUT /api/access` 가 200 을 답했다. 메모리에는 반영되므로 그
+	//             세션에서는 동작했고, 다음 기동에서 **조용히 열린 서버**가 됐다
+	//   새  동작: 쓰기가 실패하면 옛 값으로 되돌리고 `errAccessSaveFailed` 를
+	//             돌려준다 (`apiAccessPut` 이 500 으로 옮긴다)
+	//   이유:     이것은 접근 허용 목록이다. 디스크와 메모리가 갈리면 다음
+	//             기동의 동작을 아무도 예측할 수 없고, 이 목록은 그 불확실성을
+	//             감당할 수 있는 대상이 아니다. marshal 실패도 같은 갈래였다 —
+	//             `errAccessSaveFailed` 를 돌려주면서 메모리는 바꾼 채 두었다
 	s.mu.Lock()
+	prev := s.cfg
 	s.cfg = accessConfig{Enabled: cfg.Enabled, Entries: entries, Hosts: hosts}
 	data, err := json.MarshalIndent(s.cfg, "", "  ")
 	s.mu.Unlock()
@@ -168,17 +181,30 @@ func (s *accessStore) setConfig(cfg accessConfig) error {
 		// 문자열과 불뿐인 구조체라 실무에서 나지 않는다. 나더라도 사용자에게 할
 		// 말은 없으므로 전문은 로그로만 간다 (04-secops SEC-17).
 		dmlog.Infof(nil, "saveAccess marshal: %v", err)
+		s.restore(prev)
 		return errAccessSaveFailed
 	}
 	// 원자적으로 쓴다 — 사용자가 손으로 만든 값이고 잘리면 되돌릴 방법이 없다
 	// (settings 저장과 같은 근거).
 	if err := platform.WriteStateFile(s.path, data, 0o644); err != nil {
 		dmlog.Infof(nil, "saveAccess: %v", err)
+		s.restore(prev)
+		return errAccessSaveFailed
 	}
 	// 새로 들어온 호스트명이 곧바로 상태를 갖게 한다. 이것이 없으면 저장 직후
 	// 화면이 "해석 안 됨" 으로 보인다.
 	s.refresh()
 	return nil
+}
+
+// restore 는 저장에 실패한 변경을 되돌린다 (FR-SAF-2).
+//
+// `refresh()` 를 부르지 않는다 — 되돌린 값은 이미 한 번 해석된 것이고, 실패한
+// 저장을 위해 DNS 를 다시 칠 이유가 없다.
+func (s *accessStore) restore(prev accessConfig) {
+	s.mu.Lock()
+	s.cfg = prev
+	s.mu.Unlock()
 }
 
 // validateAccessValue 는 IP 리터럴·CIDR·호스트명 셋 중 하나인지 본다 (FR-ACL-14).
