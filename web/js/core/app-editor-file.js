@@ -222,7 +222,7 @@ Object.assign(App.prototype, {
         :String((count&&count.n)||0);
       lines.push(EDITOR_DEL_DIR.replace('%s',name).replace('%n',n));
     }else{
-      lines.push(EDITOR_DEL_FILE.replace('%s',name));
+      lines.push(josa(EDITOR_DEL_FILE.replace('%s',name)));
     }
     lines.push(EDITOR_DEL_PERMANENT);
     if(dirty&&dirty.length){

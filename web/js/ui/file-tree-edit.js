@@ -264,7 +264,7 @@ Object.assign(FileTree.prototype, {
      * `Toast` 를 지나므로 라이브 리전에 든다 (FR-A11Y-19).
      */
     const hint=recover.filter(p=>done.includes(p));
-    if(hint.length) Toast.show(EDITOR_DEL_RECOVER_HINT.replace('%s',hint.join(' ')),'',TOAST_ERR_MS,{cls:'ed-del-hint'});
+    if(hint.length) Toast.show(josa(EDITOR_DEL_RECOVER_HINT.replace('%s',hint.join(' '))),'',TOAST_ERR_MS,{cls:'ed-del-hint'});
     if(failed){
       // 하나라도 실패했으면 낙관적 반영을 믿을 수 없다 — 서버의 답으로 다시 읽는다.
       this._restore(snap);

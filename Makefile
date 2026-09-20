@@ -101,6 +101,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@node scripts/check-i18n-html.mjs
 	@echo "── 영어 리터럴 (이웃이 번역되는데 자기만 영어인 자리가 없는가)"
 	@node scripts/check-i18n-literal.mjs
+	@echo "── 조사 (받침을 보는가 · 회피형이 없는가)"
+	@node scripts/check-josa.mjs
 	@echo "gates ok"
 
 # ── 전량 e2e 의 용량 (M10_SRS FR-M10-5 · D-M10-6) ───────────────────────────

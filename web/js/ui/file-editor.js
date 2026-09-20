@@ -1060,8 +1060,8 @@ class FileEditor {
     // 받을 수 없을 때의 사유는 **서버가 사람의 말로 적어 보낸다** (FR-EXT-29) —
     // 화면이 다시 쓰면 서버가 아는 사유와 사용자가 읽는 문장이 갈린다.
     const body = st.canInstall
-      ? LSP_OFFER_BODY.replace('%s', st.id)
-      : (st.note || LSP_OFFER_BLOCKED).replace('%s', st.id);
+      ? josa(LSP_OFFER_BODY.replace('%s', st.id))
+      : josa((st.note || LSP_OFFER_BLOCKED).replace('%s', st.id));
     // 마크업에 잇는 것은 **이름 붙인 값**이다 — 속성 접근이 마크업 안에 그대로
     // 들어가면 `check-html.sh` 가 그것을 값으로 보고 막는다 (FE-16·17 의 규칙).
     const actBtn = st.canInstall

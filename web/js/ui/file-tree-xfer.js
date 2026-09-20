@@ -95,7 +95,7 @@ Object.assign(FileTree.prototype, {
     const d=r.data;
     if(r.ok&&d&&d.ok) return '';
     const why=EDITOR_FS_ERR_MSG[(d&&d.code)||'']||(d&&d.message)||'';
-    return why||EDITOR_UPLOAD_FAIL.replace('%s',it.relPath||it.file.name);
+    return why||josa(EDITOR_UPLOAD_FAIL.replace('%s',it.relPath||it.file.name));
   },
 
   /**
@@ -110,7 +110,7 @@ Object.assign(FileTree.prototype, {
     const got=await GitDialog.open({
       id:'ed-upload-fail-dlg',ns:'euf',action:'upload_retry',
       title:EDITOR_UPLOAD_FAIL_TITLE,
-      body:EDITOR_UPLOAD_FAIL_BODY.replace('%s',label).replace('%r',why),
+      body:josa(EDITOR_UPLOAD_FAIL_BODY.replace('%s',label).replace('%r',why)),
       choices:[
         {id:'retry',label:EDITOR_UPLOAD_RETRY},
         {id:'skip',label:EDITOR_UPLOAD_SKIP},

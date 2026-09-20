@@ -99,7 +99,68 @@ const I18N={
   },
 };
 
-function t(key,params){return I18N.fill(I18N.lookup(key),params)}
+/**
+ * 조사 (WORDING_COLOR_SRS FR-WRD-60~64).
+ *
+ * 한국어의 조사는 **앞 낱말의 받침**을 본다 — `go 를`(맞음) / `python 를`(틀림).
+ * 서식 문자열이 한쪽을 골라 두면 이름이 바뀔 때마다 절반이 틀리고, 회피책
+ * (`을(를)`)은 틀리지는 않지만 받침을 알 수 있는데도 묻지 않은 것이다.
+ *
+ * 그래서 카탈로그는 **마커**를 갖는다: `'%s {을를} 삭제합니다.'`
+ *
+ * ## 언제 풀리는가
+ *
+ * 마커 앞이 아직 **자리표시자**(`%s`·`{name}`)면 풀지 않는다 — 그때 풀면
+ * `%s` 의 `s` 를 보고 고르게 된다. 상수는 로드 시점에 `t()` 를 부르므로
+ * (`constants*.js`) 이 규칙이 없으면 전부 그 순간에 잘못 확정된다.
+ * 치환하는 쪽이 치환 뒤에 `josa()` 를 한 번 더 부른다 (FR-WRD-63).
+ *
+ * ## 무엇으로 판정하는가 (FR-WRD-61)
+ *
+ *   한글  유니코드 계산 — `(code-0xAC00)%28`
+ *   숫자  한글 읽기 — 1·7·8 은 `ㄹ`, 0·3·6 은 받침, 2·4·5·9 는 없음
+ *   라틴  **글자 이름**의 읽기 — `l`(엘)·`m`(엠)·`n`(엔)만 받침을 갖는다
+ *   그 밖  괄호·따옴표·구두점은 건너뛰고 그 앞을 본다
+ *
+ * 라틴은 근사다. 낱말을 읽으면 `web`→`웹`(받침)이지만 글자 이름으로는 `비`다 —
+ * 그 경우를 정확히 하려면 전사 사전이 필요하고, 그것은 이 자리의 일이 아니다.
+ * **판정할 수 없으면 회피형으로 떨어진다** (D-WRD-7) — 틀린 조사보다 낫다.
+ */
+const JOSA_FORMS={을를:['을','를'],이가:['이','가'],은는:['은','는'],와과:['와','과'],으로로:['으로','로']};
+const JOSA_AVOID={을를:'을(를)',이가:'이(가)',은는:'은(는)',와과:'와(과)',으로로:'(으)로'};
+/** 0 = 받침 없음 · 8 = `ㄹ` · 그 밖의 양수 = 받침 있음. */
+const JOSA_DIGIT={'0':1,'1':8,'2':0,'3':1,'4':0,'5':0,'6':1,'7':8,'8':8,'9':0};
+const JOSA_LATIN={a:0,b:0,c:0,d:0,e:0,f:0,g:0,h:0,i:0,j:0,k:0,l:8,m:1,n:1,
+                  o:0,p:0,q:0,r:0,s:0,t:0,u:0,v:0,w:0,x:0,y:0,z:0};
+
+/** 마지막 판정 가능한 글자의 받침. 모르면 `null`. */
+function josaJong(text){
+  for(let i=text.length-1;i>=0;i--){
+    const ch=text[i],code=text.charCodeAt(i);
+    if(code>=0xAC00&&code<=0xD7A3) return (code-0xAC00)%28;
+    if(ch>='0'&&ch<='9') return JOSA_DIGIT[ch];
+    const low=ch.toLowerCase();
+    if(low>='a'&&low<='z') return JOSA_LATIN[low];
+    if(/[\s)\]}'"`·.,…]/.test(ch)) continue;
+    return null;
+  }
+  return null;
+}
+
+/** 마커를 푼다. 앞이 자리표시자면 그대로 두고 치환하는 쪽을 기다린다. */
+function josa(s){
+  if(typeof s!=='string'||s.indexOf('{')<0) return s;
+  return s.replace(/\{(을를|이가|은는|와과|으로로)\}/g,(m,kind,at)=>{
+    const head=s.slice(0,at).replace(/\s+$/,'');
+    if(/(%[a-z]|\{[a-z0-9_]+\})$/.test(head)) return m;
+    const j=josaJong(head);
+    if(j===null) return JOSA_AVOID[kind];
+    if(kind==='으로로') return j===8?'로':(j?'으로':'로');
+    return j?JOSA_FORMS[kind][0]:JOSA_FORMS[kind][1];
+  });
+}
+
+function t(key,params){return josa(I18N.fill(I18N.lookup(key),params))}
 
 /**
  * 복수형 (FR-B-2). `Intl.PluralRules` 가 `one`/`other` 를 고르고, 그 접미의 키가
