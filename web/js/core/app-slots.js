@@ -21,7 +21,7 @@ const SLOT_KEY='slots';                  // FR-WSL-72
 const SLOT_MAX=4;                        // FR-WSL-1, D-9
 const SLOT_SIZE_DEFAULT=1;
 const SLOT_MIN_PX=80;                    // 손잡이가 칸을 이보다 좁히지 않는다
-const SLOT_DIR_KEY='slotDir';            // FR-WSL-82
+const SLOT_DIR_KEY='slotDir';            // FR-WSL-82 (창별 — FR-UXB-1)
 const SLOT_DIR_DEFAULT='horizontal';     // FR-WSL-80
 // FR-SCT-4 / D-4a: 두 값의 이름(`Horizontal`·`Vertical`)은 **마크업**에 산다 —
 // 바뀌지 않는 이름이고 화면의 자리도 고정이라 코드가 들고 있을 이유가 없다.
@@ -609,6 +609,9 @@ Object.assign(App.prototype, {
   // 버튼과 단축키가 **같은 함수**를 부른다 — 여는 길이 둘로 갈리면 한쪽만
   // 고쳐진다 (FR-PSC-3 이 이미 세운 규약).
   _initSlots(){
+    // FR-UXB-4: 방향이 창의 것이 되면서 기기의 키는 읽는 자리를 잃었다. 남겨
+    // 두면 다음 사람이 그것을 진실로 읽는다 — 부팅에서 한 번 지운다.
+    try{localStorage.removeItem(SLOT_DIR_KEY)}catch{}
     const add=document.getElementById('slot-add');
     if(add) add.addEventListener('click',()=>this.slotAdd());
     const rm=document.getElementById('slot-remove');
@@ -710,20 +713,30 @@ Object.defineProperties(App.prototype,{
     get(){ return this._slots||null },
     configurable:true,
   },
-  // FR-WSL-80~84: 칸이 놓이는 방향. 칸 배치(sessionStorage)와 달리 **기기별
-  // 설정**이므로 localStorage 다 — 탭을 새로 열 때마다 기본값으로 돌아가면
-  // 설정으로서 배신이다.
+  /**
+   * FR-WSL-80~84 / UX_BATCH10_SRS FR-UXB-1~3: 칸이 놓이는 방향.
+   *
+   *   이전 동작: `localStorage` — "기기별 설정" 이라 그것이 맞다고 보았다
+   *   새  동작: `sessionStorage` — 칸 배치(`_slots`)와 같은 칸이다
+   *   이유:     같은 브라우저의 탭·PWA 창이 localStorage 를 공유하고, 이
+   *             getter 는 **매 render 마다 다시 읽는다** (`renderer-layout.js`
+   *             의 `data-slotdir`). 그래서 한 창에서 바꾼 방향이 다른 창의 다음
+   *             렌더에 실렸다 — 사용자가 만지지도 않은 창의 배치가 돌아간다
+   *
+   * 새 창이 기본값으로 서는 것은 이 규약의 대가가 아니라 **뜻**이다 (D-UXB-1):
+   * 창의 배치는 그 창에서 정한다.
+   */
   slotDir:{
     get(){
       try{
-        const v=localStorage.getItem(SLOT_DIR_KEY);
+        const v=sessionStorage.getItem(SLOT_DIR_KEY);
         if(v==='vertical'||v==='horizontal') return v;
       }catch{}
       return SLOT_DIR_DEFAULT;
     },
     set(v){
       const d=v==='vertical'?'vertical':'horizontal';
-      try{localStorage.setItem(SLOT_DIR_KEY,d)}catch{}
+      try{sessionStorage.setItem(SLOT_DIR_KEY,d)}catch{}
       // FR-WSL-83: 열려 있는 칸은 즉시 재배치된다. 배분값은 방향과 무관하므로
       // 그대로 둔다. PTY 크기 맞추기는 render 의 rAF 가 doFit 으로 한다.
       this.render();

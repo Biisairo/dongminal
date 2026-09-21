@@ -442,12 +442,10 @@ Object.assign(App.prototype, {
     if('mobileBreakpoint' in this.ws) delete this.ws.mobileBreakpoint;
     // REPO_SIDE_WIDTH_SRS FR-RSW-5: 다른 브라우저가 개정 이전 모양을 보내올 수
     // 있다 — 옮긴 키를 지우는 자리는 첫 로드와 여기 둘이다.
+    // FR-UXB-8: 옛 판의 브라우저가 폭을 계속 실어 보낼 수 있다 — 지우는 자리는
+    // 첫 로드와 여기 둘이다.
+    if('sidebarWidth' in this.ws){ delete this.ws.sidebarWidth; edChanged=true }
     if(this._edMigrateSideWidth()) edChanged=true;
-    if(this.ws.sidebarWidth){
-      const w=clampSidebarWidth(this.ws.sidebarWidth);
-      document.documentElement.style.setProperty('--sb-w',w+'px');
-      try{localStorage.setItem('sidebarWidth',w)}catch{}
-    }
     const a=this.aw();
     if(a&&a.layout){
       const saved=a.focusedPane;

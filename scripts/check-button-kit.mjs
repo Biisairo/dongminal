@@ -52,7 +52,9 @@ const EXEMPT = [
   { at: 'web/index.html', line: 338,
     why: '`role="switch"` — 토글 스위치이지 버튼이 아니다',
     until: '묶음 B3 이 킷에 `.ui-switch` 를 세우면' },
-  { at: 'web/js/ui/file-editor-find.js', line: 61,
+  // 줄 번호는 파일이 자라면 함께 움직인다 — UX_BATCH10_SRS FR-UXB-44 가 덩이를
+  // 이름 있게 꺼내면서(`ED_FIND_MIXIN`) 머리 주석 열 줄이 61 → 71 로 밀었다.
+  { at: 'web/js/ui/file-editor-find.js', line: 71,
     why: '`.fe-find-opt` 는 `.on` 상태를 가진 글자 토글 — DESIGN_TOKENS_SRS §7.4 가 "이 표의 행이 아니다" 로 판정했다',
     until: '그 판정이 뒤집히면' },
 ];

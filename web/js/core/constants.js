@@ -257,6 +257,29 @@ const SIDEBAR_W_MAX_PX=400;
 function clampSidebarWidth(w){
   return Math.max(SIDEBAR_W_MIN_PX,Math.min(SIDEBAR_W_MAX_PX,w));
 }
+/**
+ * UX_BATCH10_SRS FR-UXB-6 / D-UXB-1: **폭은 이 창의 것이다.**
+ *
+ *   이전 동작: `ws.sidebarWidth` — 워크스페이스에 실려 서버로 갔다
+ *   새  동작: `sessionStorage` — 창 하나의 치수다
+ *   이유:     워크스페이스는 모든 기기가 함께 본다. 데스크톱에서 끈 폭이
+ *             휴대폰 접속에 강제됐고, 그것은 `displayMode` 가 이미 같은 이유로
+ *             워크스페이스에서 나온 길이다 (app.js 의 두 `delete`)
+ *
+ * **`index.html` 의 첫 페인트 스크립트는 예외다** (D-SBW-1 과 같은 근거) — 그
+ * 한 줄은 이 함수보다 먼저 돌아야 하므로 키 이름을 직접 적는다.
+ */
+const SIDEBAR_W_KEY='sidebarWidth';
+/**
+ * 범위로 강제해 담는다 (FR-UXB-10) — 손으로 고친 값 하나가 화면을 못 쓰게 하지
+ * 않는다. **읽는 짝이 여기 없는 것이 맞다**: 복원은 첫 페인트 스크립트 한 자리이며
+ * (FR-SBC-5) 그것은 이 파일보다 먼저 돈다.
+ */
+function sidebarWidthStore(w){
+  const v=clampSidebarWidth(w);
+  try{sessionStorage.setItem(SIDEBAR_W_KEY,v)}catch{}
+  return v;
+}
 
 const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','MetaLeft','MetaRight','ShiftLeft','ShiftRight']);
 /**

@@ -206,10 +206,26 @@ Object.assign(App.prototype, {
     window.addEventListener('focus',()=>{
       this.windowFocused=true;
       this._paintFocusEdge();
-    this._paintAttnEdge();
-      if(this.ws.activeWindow) this._focusWindow(this.ws.activeWindow);
+      this._paintAttnEdge();
+      // UX_BATCH10_SRS FR-UXB-24: **모든 칸**을 되찾는다. 칸마다 신원이 다르므로
+      // (FR-WSL-10) 포커스 칸 하나만 주장하면 나머지 칸은 dim 인 채로 남는다 —
+      // 접수된 "포커스를 다시 가져오지 못한다" 의 절반이 이것이었다.
+      this._focusReclaim();
     });
-    window.addEventListener('blur',()=>{this.windowFocused=false;this._paintFocusEdge()});
+    window.addEventListener('blur',()=>{
+      this.windowFocused=false;
+      this._paintFocusEdge();
+      this._focusReleaseAll();
+    });
+    /**
+     * FR-UXB-26 / D-UXB-5: **복귀의 계기는 버스 한 자리다.**
+     *
+     * 돌아온 화면이 옛 그림인 것은 두 가지가 겹친 결과다 — 렌더가 돌지 않고,
+     * 폴링도 다시 돌지 않는다. 둘 다 여기서 한 번에 푼다. 문서에 리스너를 새로
+     * 달지 않는 것은 FR-BUS-8 의 규약이다.
+     */
+    for(const topic of [LIFE_FOCUS,LIFE_VISIBLE])
+      this.bus.subscribe(topic,()=>this._onLifeResume(),{owner:'focus:resume'});
     // FR-UFE-8: 첫 화면도 실제 상태를 말한다 — 배경 탭에서 연 창은 이벤트가 한
     // 번도 오지 않으므로, 여기서 한 번 칠하지 않으면 포커스가 없는 채로 포커스
     // 있는 얼굴을 하고 있다. (`windowFocused` 의 초기값은 `document.hasFocus()`)
@@ -278,6 +294,52 @@ Object.assign(App.prototype, {
     this.applyFocusOverlay();
   },
 
+  /**
+   * FR-UXB-24: 이 창이 쥐어야 할 것을 **전부** 되찾는다.
+   *
+   * 자리가 셋이다 — 포커스 복귀·SSE 복귀(`_focusRestore`)·부팅. 셋이 같은 함수를
+   * 부르지 않으면 칸 여럿의 재주장이 한 자리에서만 온전해진다 (실제로 그랬다).
+   */
+  _focusReclaim(){
+    if(this._slots) this._slotClaimAll();
+    else if(this.ws.activeWindow) this._focusWindow(this.ws.activeWindow,0);
+  },
+
+  /**
+   * FR-UXB-20·23·29 / D-UXB-3: **blur 의 반납.**
+   *
+   * OS 포커스를 잃은 화면은 창을 붙들고 있을 이유가 없다. 반납이 없던 동안,
+   * 창을 빼앗은 쪽이 떠나도 빼앗긴 쪽은 영영 dim 이었다 (SRS §2.4).
+   *
+   * 구독은 끊지 않는다 — 그것은 해제(FR-XDF-9)이고 다른 동사다.
+   *
+   * **놓을 것이 없으면 종단에 닿지 않는다** (FR-UXB-29). alt-tab 마다 요청이
+   * 나가면 그것이 곧 폭주이고, 서버의 멱등성은 그 비용까지 덮어 주지 않는다.
+   */
+  _focusReleaseAll(){
+    const mine=new Set(this._slots?this._slotIdentities():[this.clientId]);
+    const drop=new Set();
+    for(const sid of Object.keys(this._windowFocusOwner)){
+      if(!mine.has(this._windowFocusOwner[sid])) continue;
+      drop.add(this._windowFocusOwner[sid]);
+      delete this._windowFocusOwner[sid];
+    }
+    if(!drop.size) return;
+    for(const cid of drop) apiPost('/api/focus/release',{clientId:cid});
+    this.applyFocusOverlay();
+  },
+
+  /**
+   * FR-UXB-26·27: 돌아왔다. 화면과 관측을 함께 깨운다.
+   *
+   * 순서가 있다 — 먼저 그리고 그다음에 수집한다. 수집의 답은 비동기이고, 그
+   * 답을 기다려 그리면 사용자는 돌아온 뒤에도 한 왕복만큼 옛 화면을 본다.
+   */
+  _onLifeResume(){
+    this.render();
+    TIMERS.revalidate();
+  },
+
   // _focusClaim posts ownership to the server (FR-XDF-7). The server answers by
   // broadcasting the full owner map, which is what actually converges every
   // client — this POST is fire-and-forget.
@@ -304,7 +366,9 @@ Object.assign(App.prototype, {
    */
   _onWindowFocus(a){
     this._windowFocusOwner=(a&&a.owners)||{};
-    this.applyFocusOverlay();
+    // FR-UXB-25: dim 이 **풀린** 칸은 그동안 사용자가 보지 못하던 화면이다 —
+    // 클래스만 갈고 끝내면 되찾은 자리에 옛 그림이 남는다.
+    if(this.applyFocusOverlay()) this.render();
   },
 
   /**
@@ -321,10 +385,8 @@ Object.assign(App.prototype, {
       this.applyFocusOverlay();
       // FR-WSL-12: 슬롯이 둘이면 둘 다 재주장한다 — 각 슬롯의 구독이 따로 끊기고
       // 따로 해제되므로, 하나만 되찾으면 다른 칸이 영영 dim 된 채로 남는다.
-      if(this.windowFocused){
-        if(this._slots) this._slotClaimAll();
-        else if(this.ws.activeWindow) this._focusWindow(this.ws.activeWindow,0);
-      }
+      // (FR-UXB-24 가 그 규약을 포커스 복귀에도 세우면서 자리가 하나가 됐다.)
+      if(this.windowFocused) this._focusReclaim();
     }).catch(()=>{});
   },
 
@@ -349,7 +411,13 @@ Object.assign(App.prototype, {
   // FR-WSL-14: 판정이 pane 마다 갈린다 — 같은 창이 두 슬롯에 있으면 한쪽만 소유하고
   // 다른 쪽은 흐려져야 한다. 그래서 "내 것인가" 를 앱 전체가 아니라 **그 pane 이
   // 선 슬롯의 신원**으로 묻는다.
+  /**
+   * FR-UXB-25: **dim 이 풀린 칸이 있었는지**를 돌려준다. 부르는 쪽이 그때
+   * 다시 그린다 — 판정을 여기서 하는 이유는 이전 상태를 아는 자리가 여기뿐이기
+   * 때문이다.
+   */
   applyFocusOverlay(){
+    let freed=false;
     for(const pn of document.querySelectorAll('.pn')){
       const slotEl=pn.closest?pn.closest('.slot'):null;
       const slot=slotEl?(parseInt(slotEl.dataset.slot,10)||0):0;
@@ -361,8 +429,10 @@ Object.assign(App.prototype, {
         const owner=this._windowFocusOwner[sid];
         if(owner&&owner!==mine){dim=true;break}
       }
+      if(pn.classList.contains('pn-dimmed')&&!dim) freed=true;
       pn.classList.toggle('pn-dimmed',dim);
     }
+    return freed;
   },
 
   // _toolWindowId returns the window id containing a pane (by walking the

@@ -85,6 +85,14 @@ const SETTINGS_ACCESS={
     if(mm) mm.checked=editorMinimap;
     if(this._edApplyMinimap) this._edApplyMinimap();
   }},
+  // UX_BATCH10_SRS FR-UXB-42·43: diff 의 미니맵. 위 둘과 **같은 모양**이며,
+  // 그 사실이 이 항목이 짧은 이유다 — 새 규약을 만들지 않는다.
+  diffMinimap:{get:()=>diffMinimap,set(v){
+    diffMinimap=v;
+    const dm=document.getElementById('ds-diffminimap');
+    if(dm) dm.checked=diffMinimap;
+    if(this._diffApplyOptions) this._diffApplyOptions();
+  }},
   // FR-TBW-8: 같은 근거로 곧바로 얹는다. 클래스와 변수 하나뿐이라 다시 그리지 않는다.
   tabFixedWidth:{get:()=>tabFixedWidth,set(v){
     tabFixedWidth=v;
@@ -395,6 +403,9 @@ Object.assign(App.prototype, {
       // FR-MMT-6: 미니맵도 같은 자리에서 다시 칠한다.
       const dsMini=document.getElementById('ds-minimap');
       if(dsMini) dsMini.checked=editorMinimap;
+      // FR-UXB-43: diff 미니맵도 같은 근거로 열 때마다 다시 칠한다.
+      const dsDiffMini=document.getElementById('ds-diffminimap');
+      if(dsDiffMini) dsDiffMini.checked=diffMinimap;
       // Auto-close drawer when opening settings on mobile
       if(this.isMobile && this.drawerOpen){this._toggleDrawer(false);this.renderer._rTopbar()}
     });
@@ -444,6 +455,7 @@ Object.assign(App.prototype, {
     this._initAttnEdge();
     this._initWordWrap();
     this._initMinimap();
+    this._initDiffMinimap();
     this._initLocale();
     this._initLSP();
     this._initBackup();

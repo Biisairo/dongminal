@@ -113,7 +113,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "editor|button.ed-head-btn.ed-head-new-dir.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-sm": {
+ "editor|button.ed-head-btn.ed-head-new-dir.ui-btn.ui-btn-ghost.ui-btn-icon": {
   "display": "flex",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -122,7 +122,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "editor|button.ed-head-btn.ed-head-new-file.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-sm": {
+ "editor|button.ed-head-btn.ed-head-new-file.ui-btn.ui-btn-ghost.ui-btn-icon": {
   "display": "flex",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -131,7 +131,7 @@
   "overflowY": "visible",
   "position": "static"
  },
- "editor|button.ed-head-btn.ed-head-refresh.ui-btn.ui-btn-ghost.ui-btn-icon.ui-btn-sm": {
+ "editor|button.ed-head-btn.ed-head-refresh.ui-btn.ui-btn-ghost.ui-btn-icon": {
   "display": "flex",
   "flexDirection": "row",
   "inset": "auto auto auto auto",
@@ -8372,11 +8372,11 @@
  "git:diff|div.git-diff-host": {
   "display": "block",
   "flexDirection": "row",
-  "inset": "auto auto auto auto",
+  "inset": "0px 0px 0px 0px",
   "minHeight": "0px",
   "overflowX": "visible",
   "overflowY": "visible",
-  "position": "static"
+  "position": "relative"
  },
  "git:diff|div.git-diff-note.ui-notice.vis": {
   "display": "block",

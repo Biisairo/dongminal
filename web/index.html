@@ -35,7 +35,7 @@
        **100·400 은 여기서만 숫자로 남는다** (M6 `FE-18`). 이 줄은 어떤 스크립트
        보다 먼저 돌아야 하므로 `SIDEBAR_W_MIN_PX`·`SIDEBAR_W_MAX_PX` 를 볼 수
        없다 — 고칠 때 `web/js/core/constants.js` 의 그 둘을 함께 고친다. -->
-  <script>try{var w=parseInt(localStorage.getItem('sidebarWidth'));if(w>=100&&w<=400)document.documentElement.style.setProperty('--sb-w',w+'px');if(localStorage.getItem('sidebarCollapsed')==='1')document.documentElement.classList.add('sb-collapsed')}catch(e){}</script>
+  <script>try{var w=parseInt(sessionStorage.getItem('sidebarWidth'));if(w>=100&&w<=400)document.documentElement.style.setProperty('--sb-w',w+'px');if(localStorage.getItem('sidebarCollapsed')==='1')document.documentElement.classList.add('sb-collapsed')}catch(e){}</script>
   <!-- BOOT_SCREEN_SRS FR-BTS-3~5 / D-4·D-6: 마지막에 쓴 테마를 **첫 페인트 전에**
        세운다. 담긴 것은 팔레트가 아니라 `applyThemeObj` 가 만든 최종 CSS 변수
        맵이므로 파생값을 여기서 다시 계산하지 않는다. 키 문자열은 constants.js 의
@@ -450,6 +450,12 @@
             <input type="checkbox" class="ui-switch" id="ds-minimap">
           </div>
           <div class="ds-hint" data-i18n="html.minimap_hint"></div>
+          <!-- UX_BATCH10_SRS FR-UXB-42·43 -->
+          <div class="ds-row">
+            <span data-i18n="html.diff_minimap"></span>
+            <input type="checkbox" class="ui-switch" id="ds-diffminimap">
+          </div>
+          <div class="ds-hint" data-i18n="html.diff_minimap_hint"></div>
         </div>
       </div>
       <div class="mpanel" id="panel-notify" style="display:none">
@@ -730,6 +736,7 @@
 <script src="js/git/panel-diff.js?v=__ASSETV__"></script>
 <script src="js/git/panel-poll.js?v=__ASSETV__"></script>
 <script src="js/git/diff-view.js?v=__ASSETV__"></script>
+<script src="js/git/diff-view-parity.js?v=__ASSETV__"></script>
 <script src="js/git/confirm.js?v=__ASSETV__"></script>
 <script src="js/git/dialog.js?v=__ASSETV__"></script>
 <script src="js/git/commit.js?v=__ASSETV__"></script>

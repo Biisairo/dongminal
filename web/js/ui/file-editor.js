@@ -412,7 +412,14 @@ class FileEditor {
     // FR-SVS-51·52: 모델 하나를 여러 에디터에 붙인다 (D-6). Monaco 가 공식으로
     // 지원하는 형태이며, 그때 **커서·선택·스크롤·접힘은 에디터별로 남는다** —
     // 그것이 시선이고 칸마다 달라야 하는 것이다. 내용만 공유된다.
-    this._editor = monaco.editor.create(this.el, {
+    /**
+     * UX_BATCH10_SRS FR-UXB-41: 본문을 그리는 규약은 **`edTextOptions()` 한
+     * 덩이**다 (줄바꿈·글자 크기·글꼴·탭·공백·괄호·가이드·커서). Diff 탭이 같은
+     * 덩이를 받으므로 설정이 늘 때 한쪽만 고쳐질 수 없다 (D-UXB-9).
+     *
+     * 여기 남는 것은 **이 편집기만의 것**이다 — 모델·테마·레이아웃·미니맵.
+     */
+    this._editor = monaco.editor.create(this.el, Object.assign({}, edTextOptions(), {
       model: this._model(content),
       theme: monacoTheme(),
       automaticLayout: true,
@@ -433,30 +440,7 @@ class FileEditor {
       // EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-3: 켜고 끄는 것은 설정이고, 모양은
       // 덩이가 든다 (FR-MMT-5 · UX_BATCH8_SRS FR-MMP-2).
       minimap: edMinimapOpts(editorMinimap),
-      lineNumbers: 'on',
-      scrollBeyondLastLine: false,
-      // WORKBENCH_REVIEW_SRS FR-WBR-10: 설정이 정한다. 기본은 끔이다.
-      wordWrap: editorWordWrap ? 'on' : 'off',
-      tabSize: 4,
-      insertSpaces: true,
-      // FR-FSS-9: 기준 13 에 UI 배율이 걸린다 (`constants-editor.js`).
-      fontSize: edFontSize(),
-      fontFamily: "'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace",
-      lineHeight: 1.5,
-      renderWhitespace: 'selection',
-      bracketPairColorization: { enabled: true },
-      guides: { bracketPairs: true, indentation: true },
-      smoothScrolling: true,
-      cursorBlinking: 'blink',
-      // NOTES_LIVE_EXPLORER_SRS FR-CUR-1: 캐럿은 **애니메이션 없이** 옮겨간다.
-      // `'on'` 이면 커서가 이전 자리에서 새 자리로 미끄러지는데, 그것이 타이핑과
-      // 이동에 지연으로 느껴진다. `'off'` 가 Monaco 의 기본값이자 VS Code 의
-      // 기본값이다 — 끄는 것이 곧 "vsc 처럼" 이다.
-      //
-      // 깜빡임(cursorBlinking)은 그대로다 (FR-CUR-2). 움직임과 깜빡임은 다른
-      // 것이고 접수한 말의 대상은 앞의 것이다.
-      cursorSmoothCaretAnimation: 'off',
-    });
+    }));
 
 
     // Ensure Monaco fills the container after DOM insertion

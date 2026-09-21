@@ -292,6 +292,10 @@ class GitDiffView {
    * 에디터에는 뗄 수도 없다 (FR-GIT-56).
    */
   _dropEditor(){
+    // FR-UXB-45: 패널은 `_host` 안에 산다 — 그릇이 비워지면 캐시한 요소는 문서
+    // 밖의 것이 된다. 함께 버리지 않으면 다음 찾기가 보이지 않는 패널을 연다.
+    this._findPanel=null;
+    this._findKeysOn=false;
     if(this._editor&&this.onEditor) this.onEditor(null);
     if(this._editor){this._editor.dispose();this._editor=null}
     this._dropModels(this._orig,this._mod);
@@ -361,13 +365,23 @@ class GitDiffView {
     this._setNote(note);
     const lang=monacoLang(path);
     if(!this._editor){
-      this._editor=monaco.editor.createDiffEditor(this._host,Object.assign({},GIT_DIFF_OPTIONS,{
+      // UX_BATCH10_SRS FR-UXB-40·41: 본문을 그리는 규약은 편집기 탭과 **같은
+      // 덩이**에서 온다 (`edTextOptions`). 그 앞에 `GIT_DIFF_OPTIONS` 가 오는
+      // 것은 diff 만의 것(읽기 전용·좌우 배치·개요 눈금)이 거기 살기 때문이고,
+      // 뒤에 오는 셋은 이 인스턴스의 토글이다.
+      this._editor=monaco.editor.createDiffEditor(this._host,Object.assign({},GIT_DIFF_OPTIONS,edTextOptions(),{
         renderSideBySide:this._sideBySide,
         renderSideBySideInlineBreakpoint:this._breakpoint,
         ignoreTrimWhitespace:this._ignoreWs,
         hideUnchangedRegions:{enabled:this._fold},
         theme:monacoTheme(),
       }));
+      // UX_BATCH10_SRS 묶음 D: 편집기와 같아지는 셋을 여기서 건다 — 미니맵의
+      // 한쪽(FR-UXB-42) · Monaco find 위젯 닫기(FR-UXB-44) · 언어 provider
+      // 등록(FR-UXB-47). 본문은 `diff-view-parity.js` 에 있다.
+      this._applyMinimapSides();
+      this._findKillWidgetKeys();
+      if(window.app&&window.app.lspHoverRegister) window.app.lspHoverRegister();
       // 생성은 한 번뿐이다 — 아래 setModel 이 대상마다 모델만 갈아끼운다. 그래서
       // 이 훅도 에디터의 수명에 한 번 돈다 (FR-DHB-21·22).
       if(this.onEditor) this.onEditor(this._editor.getModifiedEditor());

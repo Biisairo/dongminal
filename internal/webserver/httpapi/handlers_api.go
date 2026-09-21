@@ -120,6 +120,8 @@ var apiRoutes = []apiRoute{
 	httproute.When(http.MethodDelete, httproute.Under("/api/tools/"), (*Server).apiToolDelete),
 	httproute.Get("/api/focus", (*Server).apiFocusGet),
 	httproute.Post("/api/focus/claim", (*Server).apiFocusClaim),
+	// UX_BATCH10_SRS FR-UXB-20: 반납. 해제(구독 종료)와 다른 동사다 (D-UXB-3).
+	httproute.Post("/api/focus/release", (*Server).apiFocusRelease),
 	httproute.Get("/api/sandbox/profiles", (*Server).apiSandboxProfiles),
 	// UX_BATCH5_SRS FR-SRT-1·3 — 런타임의 지금 상태와, 그것을 띄우는 시도.
 	httproute.Get("/api/sandbox/runtime", (*Server).apiSandboxRuntime),

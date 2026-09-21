@@ -157,6 +157,45 @@ function edFontSize(){
   return Math.round(EDITOR_FONT_SIZE_BASE*uiFontSizeNow()/UI_FONT_BASE_PX);
 }
 
+// 글꼴 차례. Monaco 옵션이므로 CSS 토큰이 아니다 — `edFontSize` 와 같은 범주다.
+const ED_FONT_FAMILY="'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace";
+
+/**
+ * UX_BATCH10_SRS FR-UXB-41 / D-UXB-9: **본문을 그리는 규약은 한 덩이다.**
+ *
+ * 편집기 탭과 Git 의 Diff 탭이 같은 함수를 딛는다. 종전에는 두 표였고
+ * (`monaco.editor.create` 의 인자 · `GIT_DIFF_OPTIONS`), 그래서 설정이 늘 때마다
+ * 한쪽만 고쳐졌다 — `editorWordWrap` 은 **한 번도** diff 에 닿은 적이 없다
+ * (접수 4번). 이 저장소가 `saveSettings`·`_settingsApply`·이식 표에서 이미 겪은
+ * 형태이며, 그 답이 `settings-schema.js` 였듯 여기서는 이 함수다.
+ *
+ * 값이 아니라 **함수**인 것은 설정을 읽기 때문이다. 생성과 갱신
+ * (`updateOptions`)이 같은 덩이를 받는 근거는 `edMinimapOpts` 와 같다.
+ *
+ * 미니맵은 여기 없다 — 편집기와 diff 의 답이 다르다 (FR-UXB-42, D-UXB-8).
+ */
+function edTextOptions(){
+  return {
+    // WORKBENCH_REVIEW_SRS FR-WBR-10: 설정이 정한다. 기본은 끔이다.
+    wordWrap: editorWordWrap ? 'on' : 'off',
+    // FR-FSS-9: 기준 13 에 UI 배율이 걸린다.
+    fontSize: edFontSize(),
+    fontFamily: ED_FONT_FAMILY,
+    lineHeight: 1.5,
+    tabSize: 4,
+    insertSpaces: true,
+    lineNumbers: 'on',
+    scrollBeyondLastLine: false,
+    renderWhitespace: 'selection',
+    bracketPairColorization: {enabled: true},
+    guides: {bracketPairs: true, indentation: true},
+    smoothScrolling: true,
+    cursorBlinking: 'blink',
+    // NOTES_LIVE_EXPLORER_SRS FR-CUR-1: 캐럿은 **애니메이션 없이** 옮겨간다.
+    cursorSmoothCaretAnimation: 'off',
+  };
+}
+
 // ── 코드 탐색: 언어 서버의 관측 (EDITOR_LSP_SRS 묶음 A · M1) ──
 //
 // 조회가 POST 인 것은 본문이 필요하기 때문이다 — 설정에 적은 절대경로 표를
@@ -308,12 +347,16 @@ const REPO_SIDE_TABS=[
  */
 const REPO_SIDE_DEFAULT=REPO_SIDE_CHANGES;
 
-// REPO_SIDE_WIDTH_SRS FR-RSW-1 / D-3·D-4: 사이드 폭은 **워크스페이스 하나**에 산다
+// REPO_SIDE_WIDTH_SRS FR-RSW-1 / D-3·D-4 (UX_BATCH10_SRS FR-UXB-7 이 저장 위치를
+// 개정했다 — 워크스페이스가 아니라 **브라우저 창**이다): 사이드 폭은 한 자리에 산다
 // (`ws.repoSideWidth`) — `sidebarWidth` 와 같은 규약이다. 창마다 두던 값이었고
 // (`window.editor.explorerWidth`, FR-EDT-47) 그러면 창을 옮길 때마다 목록의 폭이
 // 달라졌다. 이름이 `EXPLORER` 가 아닌 이유는 그 폭이 `Changes` 의 것이기도 하기
 // 때문이다. 상·하한은 사이드바(`--sb-w`)의 규약을 그대로 따른다 — 같은 종류의 값이
 // 서로 다른 한계를 가질 이유가 없다.
+// FR-UXB-7: 탐색기 폭도 창의 것이다 (D-UXB-1) — 사이드바 폭과 같은 규약이며
+// 저장소도 같다 (`sessionStorage`).
+const REPO_SIDE_W_KEY='repoSideWidth';
 const REPO_SIDE_W_DEFAULT=220;
 const REPO_SIDE_W_MIN=100;
 const REPO_SIDE_W_MAX=520;

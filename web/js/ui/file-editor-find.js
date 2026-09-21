@@ -10,8 +10,18 @@
  * 대소문자·단어 단위를 이미 전부 받으므로 우리가 만드는 것은 껍데기뿐이다.
  *
  * `file-editor.js` 뒤에 실려야 한다 — 얹을 prototype 이 그때 있다.
+ *
+ * UX_BATCH10_SRS FR-UXB-44 / D-UXB-9: **한 벌을 둘이 쓴다.**
+ *
+ * Git 의 Diff 탭에도 같은 패널이 서야 한다 (접수 5번 — "diff 는 editor 와 완전히
+ * 동일하게 기능해야 한다"). 그래서 본문을 `FileEditor.prototype` 에 **직접**
+ * 얹지 않고 이름 있는 덩이로 두고, 그 덩이를 얹는다.
+ *
+ * 이 덩이가 기대하는 것은 둘뿐이다 — `el`(패널이 살 자리)과 `_editor`(찾을
+ * 모델을 든 편집기). 나머지 `_find*` 는 자기 상태다. 그래서 그 둘을 든 그릇이면
+ * 무엇이든 이 패널을 세울 수 있다 (`git/diff-view.js` 의 `_findHostFor`).
  */
-Object.assign(FileEditor.prototype, {
+const ED_FIND_MIXIN = {
   /**
    * FR-EFP-4: Monaco 의 find 위젯을 **여는 모든 키를 닫는다.**
    *
@@ -397,7 +407,7 @@ Object.assign(FileEditor.prototype, {
     this._findPaint();
     this._findCount((this._findCur + 1) + '/' + n);
   },
-});
+};
 
 /**
  * FR-EFP-23 / D-4: 찾기 옵션은 **기기별**이다 (`localStorage`).
@@ -437,6 +447,8 @@ function edFindOptsSave(o) {
 function edFindReOk(src) {
   try { new RegExp(src); return true } catch { return false }
 }
+
+Object.assign(FileEditor.prototype, ED_FIND_MIXIN);
 
 // 테마 전환 훅 (helpers.js applyThemeObj). 이름이 같은 테마를 다시 정의하고
 // setTheme 을 부르면 살아 있는 에디터와 diff 뷰가 함께 따라온다 (FR-GIT-49).

@@ -86,8 +86,10 @@ test.describe('Settings export/import', () => {
     await waitForInit(page);
     await page.evaluate(() => {
       localStorage.setItem('attnSound', '1');
-      localStorage.setItem('slotDir', 'vertical');
-      localStorage.setItem('sidebarWidth', '333'); // 표 밖 — 기기별 치수
+      // UX_BATCH10_SRS FR-UXB-1·5: 슬롯 방향이 **창별**이 되면서 이식 표에서도
+      // 세션 칸으로 옮겼다 (`displayMode` 와 같은 칸).
+      sessionStorage.setItem('slotDir', 'vertical');
+      sessionStorage.setItem('sidebarWidth', '333'); // 표 밖 — 창의 치수
     });
     await openBackupTab(page);
 
@@ -96,9 +98,11 @@ test.describe('Settings export/import', () => {
     // 표 안의 값 둘을 재는 자리다. 종전에는 `agentsPollMs` 가 그 둘째였는데,
     // POLL_INTERVAL_SETTINGS_SRS FR-PIS-18 로 **표에서 빠졌다** — 값이 서버 설정으로
     // 옮겼고(D-3) 이 표는 localStorage·sessionStorage 만 담는다 (FR-SPT-3).
-    // 그 자리를 `slotDir` 이 받는다: 여전히 로컬에 사는 표 안의 값이다.
-    expect(envelope.local.slotDir).toBe('vertical');
+    // 그 자리를 `slotDir` 이 받는다 — 사는 곳이 세션으로 옮겼을 뿐 표 안이다.
+    expect(envelope.session.slotDir).toBe('vertical');
+    expect(envelope.local.slotDir, 'FR-UXB-1: 기기 칸에는 담기지 않는다').toBeUndefined();
     expect(envelope.local.agentsPollMs, 'FR-PIS-18: 표에서 빠졌다').toBeUndefined();
+    expect(envelope.session.sidebarWidth, 'FR-UXB-6: 창의 치수는 표 밖이다').toBeUndefined();
     expect(envelope.local.sidebarWidth).toBeUndefined();
     expect(envelope.session.displayMode).toBe('desktop');
   });

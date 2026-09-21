@@ -77,7 +77,11 @@
    자리에서 매번 막힌다. */
 .git-diff-note-act{display:inline-block;margin-top:6px;color:var(--text-bright)}
 .git-diff-note-act:hover{border-color:var(--accent);color:var(--accent-text)}
-.git-diff-host{flex:1 1 auto;min-height:0}
+/* UX_BATCH10_SRS FR-UXB-45: 찾기 패널이 **이 칸 안에** 뜬다 (`.fe-find` 는
+   `position:absolute`). 좌표계를 여기 두지 않으면 패널이 화면 전체를 기준으로
+   서서, 칸이 둘일 때 남의 칸 위에 뜬다 — 편집기 탭에서 `.file-editor` 가 이미
+   같은 일을 한다 (EDITOR_FIND_PANEL_SRS §2.8). */
+.git-diff-host{flex:1 1 auto;min-height:0;position:relative}
 
 /* ── 그림 diff (M9_SRS FR-M9-20 · D-M9-12) ──
    두 판을 나란히 두는 것이 기본이고, `겹쳐` 는 같은 자리에 포개 반투명으로

@@ -18,10 +18,11 @@ func TestLoadReadsEmbeddedTable(t *testing.T) {
 	//    + EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-2 의 `editorMinimap`
 	//    + AGENT_RENDER_ENV_SRS FR-ARE-3 의 `claudeFullscreen`
 	//    + FONT_SIZE_SETTING_SRS FR-FSS-2a·12 의 `uiFontSize`·`termFontSize`
-	//    + AGENT_RENDER_ENV_SRS FR-ARE-8 의 `claudeScrollSpeed`.
+	//    + AGENT_RENDER_ENV_SRS FR-ARE-8 의 `claudeScrollSpeed`
+	//    + UX_BATCH10_SRS FR-UXB-42 의 `diffMinimap`.
 	//    `agentApprovalMode` 는 에이전트 GUI 와 함께 빠졌다 (AGENT_GUI_REMOVAL_SRS FR-AGR-4).
-	if len(specs) != 29 {
-		t.Fatalf("서술자 %d개, 기대 29개", len(specs))
+	if len(specs) != 30 {
+		t.Fatalf("서술자 %d개, 기대 30개", len(specs))
 	}
 	by := settingsschema.ByKey(specs)
 	for _, k := range []string{"themeName", "tabWidthPx", "attnEdgeLevel", "gitStatusInterval", "uiFontSize", "termFontSize"} {

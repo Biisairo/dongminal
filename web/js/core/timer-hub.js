@@ -367,6 +367,20 @@ class TimerHub {
    */
   _visibility(){
     if(this._hidden()){ this._reschedule(); return }
+    this.revalidate();
+  }
+
+  /**
+   * UX_BATCH10_SRS FR-UXB-27·28: **지금 되살릴 수 있는 것을 되살린다.**
+   *
+   * 가시성 복귀가 부르던 본문을 이름 있는 동사로 꺼냈다. 부르는 자리가 하나 더
+   * 생겼기 때문이다 — **포커스 복귀**다. 창 둘을 오갈 때 `document.hidden` 은
+   * 양쪽 다 거짓이라 `visibilitychange` 가 오지 않고, 그래서 사용자가 돌아온
+   * 창은 다음 주기까지 옛 값을 보여 준다.
+   *
+   * 겹쳐 쏘지 않는다 — `_fire` 가 `inflight` 를 이미 본다 (FR-SCH-7).
+   */
+  revalidate(){
     for(const j of this._jobs.values()){
       if(j.whenHidden==='pause'&&j.revalidateOnShow&&this._alive(j)) this._fire(j);
     }

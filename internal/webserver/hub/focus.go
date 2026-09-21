@@ -84,6 +84,34 @@ func (f *FocusRegistry) Claim(clientID, windowID string) bool {
 	return changed
 }
 
+// Release drops every window owned by clientID **without ending its
+// subscription** (UX_BATCH10_SRS FR-UXB-20~22 / D-UXB-3).
+//
+// blur 는 "떠났다" 가 아니라 "지금은 내 차례가 아니다" 이다. 해제(Detach)로
+// 대신하면 SSE 가 끊겨 명령·이벤트가 멎고 실행자 후보에서도 빠진다 — 그래서
+// `live`·`claimed`·`addrs` 는 그대로 두고 `owners` 만 준다.
+//
+// 이 동사가 없어서, 창을 빼앗은 화면이 포커스를 잃어도 소유권이 그대로 남았다.
+// 빼앗긴 쪽은 영영 dim 인 채였다 (SRS §2.4).
+//
+// Reports whether anything changed — a no-op release produces no broadcast
+// (FR-XDF-14 와 같은 멱등 규약).
+func (f *FocusRegistry) Release(clientID string) bool {
+	if clientID == "" {
+		return false
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	changed := false
+	for wid, owner := range f.owners {
+		if owner == clientID {
+			delete(f.owners, wid)
+			changed = true
+		}
+	}
+	return changed
+}
+
 // Executor names the single Client that should perform a creating command
 // (FR-SXE-4). Candidates are live subscriptions only; among them the most
 // recent focus claimer wins, falling back to the oldest subscription when no

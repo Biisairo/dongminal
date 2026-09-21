@@ -130,47 +130,51 @@ Object.assign(App.prototype, {
   // ── 사이드 폭 (REPO_SIDE_WIDTH_SRS FR-RSW-1~5) ──
 
   /**
-   * 폭은 **워크스페이스 하나**에 산다 — `sidebarWidth` 가 그렇다 (§2.10).
+   * 폭은 **이 브라우저 창의 것**이다 — `sidebarWidth` 가 그렇다 (FR-UXB-6·7).
    *
-   *   이전 동작: 창 레코드마다 하나였다 (`window.editor.explorerWidth`, FR-EDT-47)
-   *   새  동작: `ws.repoSideWidth` 하나를 모든 Repo 창이 읽는다
-   *   이유:     폭은 "이 창을 어떻게 볼까" 가 아니라 목록 자리의 치수다. 창마다
-   *             따로면 창을 옮길 때마다 같은 자리가 다른 폭으로 선다 (D-1·D-2)
+   *   이전 동작: `ws.repoSideWidth` — 워크스페이스 하나를 모든 Repo 창이 읽었다
+   *             (REPO_SIDE_WIDTH_SRS D-1·D-2)
+   *   새  동작: `sessionStorage` — 브라우저 창 하나의 치수다
+   *   이유:     "목록 자리의 치수" 라는 근거는 그대로 옳고, 그 자리가 **화면**
+   *             이었다. 워크스페이스는 기기를 건너므로 데스크톱에서 끈 폭이
+   *             휴대폰에 강제된다 (UX_BATCH10_SRS §2.2 · D-UXB-1)
+   *
+   * 앱 안의 Repo 창들이 같은 폭을 쓰는 성질은 유지된다 — 키가 창별일 뿐 앱
+   * 안에서는 여전히 하나다.
    */
   edSideWidth(){
-    const w=parseInt(this.ws&&this.ws.repoSideWidth,10);
+    let w=NaN;
+    try{ w=parseInt(sessionStorage.getItem(REPO_SIDE_W_KEY),10) }catch{}
     if(!Number.isFinite(w)) return REPO_SIDE_W_DEFAULT;
     return Math.max(REPO_SIDE_W_MIN,Math.min(REPO_SIDE_W_MAX,w));
   },
 
   edSetSideWidth(w){
     const v=Math.max(REPO_SIDE_W_MIN,Math.min(REPO_SIDE_W_MAX,Math.round(w)));
-    if(this.ws.repoSideWidth===v) return;
-    this.ws.repoSideWidth=v;
-    this.save();
+    try{ sessionStorage.setItem(REPO_SIDE_W_KEY,v) }catch{}
   },
 
   /**
-   * FR-RSW-5: 창별 폭을 워크스페이스 하나로 옮긴다.
+   * FR-RSW-5 · FR-UXB-8: 워크스페이스에서 **폭을 걷어낸다.**
+   *
+   * 두 세대의 키를 지운다 — 창 레코드의 `editor.explorerWidth`(FR-EDT-47)와
+   * 워크스페이스의 `repoSideWidth`(FR-RSW-1). 값을 승계하지 않는 것이 이번
+   * 개정이다: 승계하면 서버가 마지막으로 본 폭이 **새 창의 폭**이 되고, 그것이
+   * 곧 이 문서가 없애려는 전파다 (D-UXB-1·D-UXB-2).
    *
    * `displayMode` 를 지우는 두 자리와 같은 규약이다 — 옮긴 키는 첫 진입과 원격
-   * 반영 **둘 다**에서 지운다. 승계는 배열에서 처음 만나는 유효한 값 하나이며
-   * (결정론적이다), 이미 새 값이 있으면 승계하지 않는다.
+   * 반영 **둘 다**에서 지운다.
    *
    * 바뀐 것이 있으면 참이다. 저장은 호출자가 한다.
    */
   _edMigrateSideWidth(){
-    let changed=false, take=0;
+    let changed=false;
     for(const s of (this.ws.windows||[])){
       if(!s||!s.editor||!('explorerWidth' in s.editor)) continue;
-      const w=parseInt(s.editor.explorerWidth,10);
-      if(!take&&Number.isFinite(w)) take=w;
       delete s.editor.explorerWidth;
       changed=true;
     }
-    if(take&&!this.ws.repoSideWidth){
-      this.ws.repoSideWidth=Math.max(REPO_SIDE_W_MIN,Math.min(REPO_SIDE_W_MAX,take));
-    }
+    if('repoSideWidth' in this.ws){ delete this.ws.repoSideWidth; changed=true }
     return changed;
   },
 

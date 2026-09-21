@@ -94,7 +94,9 @@ class InputBinding {
         // 살아남는(또는 그 반대의) 어긋남을 막는다.
         if(!collapse&&raw>=SIDEBAR_W_MIN_PX&&raw<=SIDEBAR_W_MAX_PX){
           document.documentElement.style.setProperty('--sb-w',raw+'px');
-          this.app.ws.sidebarWidth=raw;
+          // FR-UXB-6: 놓을 때 담을 값을 든다. 접힌 채로 놓았으면 레일의 폭이지
+          // 사용자가 정한 폭이 아니므로 여기를 지나지 않는다.
+          ctx.w=raw;
         }
       },
       // FR-HSZ-3: 왼쪽은 사이드바, 오른쪽은 콘텐츠다. 사이드바에는 `C×R` 이
@@ -107,10 +109,11 @@ class InputBinding {
             pct:tot?cw/tot*100:null},
         ];
       },
-      end:()=>{
+      // FR-UXB-6: 폭이 워크스페이스를 떠나면서 `save()` 도 떠났다 — 올릴 것이
+      // 없는 저장은 다른 창의 화면을 한 번씩 흔드는 일만 한다.
+      end:(ctx)=>{
         for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();
-        try{localStorage.setItem('sidebarWidth',this.app.ws.sidebarWidth)}catch{}
-        this.app.save();
+        if(ctx.w) sidebarWidthStore(ctx.w);
       },
     });
     this.app.recording=null;

@@ -154,6 +154,52 @@ test('숨으면 멈추고, 돌아오면 즉시 한 번 갚는다 (FR-RST-23)', a
   assert.equal(n, 1, '돌아왔는데 한 주기를 더 기다린다 — 화면이 낡은 채다');
 });
 
+/**
+ * UX_BATCH10_SRS FR-UXB-27·28 — **포커스 복귀에도 되살린다.**
+ *
+ * 창 둘을 오갈 때 `document.hidden` 은 양쪽 다 거짓이므로 `visibilitychange`
+ * 가 오지 않는다. 그동안 돌아온 창은 다음 주기까지 옛 값을 보여 줬다 — 접수된
+ * "포커스가 돌아왔을 때 화면 갱신이 늦다" 의 절반이 이것이다.
+ */
+test('revalidate: 가시성 변화 없이도 되살린다 (FR-UXB-27)', async () => {
+  const { TIMERS } = hub();
+  let n = 0;
+  TIMERS.every({ id: 'a', every: () => 100000, whenHidden: 'pause', run: () => { n++ } });
+  TIMERS.revalidate();
+  assert.equal(n, 1, '되살림이 job 을 깨우지 않았다');
+});
+
+test('revalidate: 숨어 있으면 되살리지 않는다 (FR-UXB-27)', async () => {
+  const { TIMERS, doc } = hub();
+  let n = 0;
+  TIMERS.every({ id: 'a', every: () => 100000, whenHidden: 'pause', run: () => { n++ } });
+  doc.hidden = true;
+  TIMERS.revalidate();
+  assert.equal(n, 0, '아무도 보지 않는 화면을 위해 요청이 나갔다');
+});
+
+test('revalidate: 비행 중인 job 에 겹쳐 쏘지 않는다 (FR-UXB-28)', async () => {
+  const { TIMERS } = hub();
+  let n = 0;
+  let release;
+  const gate = new Promise((r) => { release = r });
+  TIMERS.every({ id: 'a', every: () => 100000, whenHidden: 'pause', run: async () => { n++; await gate } });
+  TIMERS.revalidate();
+  assert.equal(n, 1);
+  TIMERS.revalidate();
+  TIMERS.revalidate();
+  assert.equal(n, 1, '답을 기다리는 job 에 요청이 겹쳐 나갔다');
+  release();
+});
+
+test("revalidate: revalidateOnShow:false 인 job 은 그대로 잔다", async () => {
+  const { TIMERS } = hub();
+  let n = 0;
+  TIMERS.every({ id: 'a', every: () => 100000, whenHidden: 'pause', revalidateOnShow: false, run: () => { n++ } });
+  TIMERS.revalidate();
+  assert.equal(n, 0, '되살리지 말라고 한 job 을 되살렸다');
+});
+
 test("whenHidden:'run' 인 job 은 숨어도 돈다", async () => {
   const { clock, TIMERS, doc } = hub();
   let n = 0;

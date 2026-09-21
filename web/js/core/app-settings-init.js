@@ -314,6 +314,9 @@ Object.assign(App.prototype, {
   _edApplyWordWrap(){
     if(!this.fileEditors) return;
     for(const ed of this.fileEditors.values()) if(ed&&ed.applyWordWrap) ed.applyWordWrap();
+    // FR-UXB-40·41: diff 도 같은 설정을 딛는다 — 편집기만 따라가면 두 표면이
+    // 서로 다른 글자로 선다.
+    this._diffApplyOptions();
   },
 
   /**
@@ -335,6 +338,37 @@ Object.assign(App.prototype, {
   _edApplyMinimap(){
     if(!this.fileEditors) return;
     for(const ed of this.fileEditors.values()) if(ed&&ed.applyMinimap) ed.applyMinimap();
+  },
+
+  /**
+   * UX_BATCH10_SRS FR-UXB-42·43: diff 미니맵 스위치. 편집기 미니맵과 **같은
+   * 모양**이다 (FR-MMT-1·4).
+   */
+  _initDiffMinimap(){
+    const cb=document.getElementById('ds-diffminimap');
+    if(!cb) return;
+    cb.checked=diffMinimap;
+    cb.addEventListener('change',()=>{
+      diffMinimap=cb.checked;
+      this._diffApplyOptions();
+      this.saveSettings();
+    });
+  },
+
+  /**
+   * FR-UXB-40·41·42: **열려 있는 diff 전부**에 지금 값을 얹는다.
+   *
+   * 편집기 쪽이 셋(`_edApplyWordWrap`·`_edApplyMinimap`·`_edApplyFontSize`)인
+   * 자리가 여기서 하나인 것은, diff 가 딛는 것이 덩이 하나이기 때문이다
+   * (`edTextOptions`, D-UXB-9).
+   *
+   * 살아 있는 diff 는 git 패널이 든다 — 패널마다 `_diffView` 가 하나다.
+   */
+  _diffApplyOptions(){
+    if(!this.gitPanels) return;
+    for(const p of this.gitPanels.values()){
+      if(p&&p._diffView&&p._diffView.applyTextOptions) p._diffView.applyTextOptions();
+    }
   },
 
   /**
@@ -422,6 +456,9 @@ Object.assign(App.prototype, {
   _edApplyFontSize(){
     if(!this.fileEditors) return;
     for(const ed of this.fileEditors.values()) if(ed&&ed.applyFontSize) ed.applyFontSize();
+    // FR-UXB-40·41: diff 도 같은 설정을 딛는다 — 편집기만 따라가면 두 표면이
+    // 서로 다른 글자로 선다.
+    this._diffApplyOptions();
   },
 
   /**

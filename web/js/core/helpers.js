@@ -516,6 +516,10 @@ var editorWordWrap=false;
 // EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-2: 편집기의 미니맵. 기본은 **켬** — 종전
 // 동작이다. 설정을 더하는 일이 동작을 바꾸는 일이 되어서는 안 된다 (§2.2).
 var editorMinimap=true;
+// UX_BATCH10_SRS FR-UXB-42: **diff 의 미니맵.** 기본은 끔 — M9_SRS D-M9-5 가
+// 좁은 칸의 폭을 지키려 아예 끈 자리이고, 이 설정은 그 결정을 폐기하는 것이
+// 아니라 기본값으로 강등한다 (D-UXB-7). 켜도 뜨는 것은 **수정 쪽 하나**다.
+var diffMinimap=false;
 // UX_REVISION_SRS FR-KEY-6: 브라우저 기본 단축키 차단. 기본은 켬 — 이 앱은
 // 터미널이고, Ctrl 조합은 브라우저보다 터미널의 것이다.
 var blockBrowserKeys=true;

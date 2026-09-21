@@ -200,7 +200,10 @@ class FileTree {
    * 들어온다. 목록에 있는 것만 그림이 되므로 그 경로가 아예 없다.
    */
   _headBtn(cls,label,title,fn){
-    const b=document.createElement('button'); b.className='ui-btn ui-btn-icon ui-btn-ghost ui-btn-sm ed-head-btn '+cls;
+    // UX_BATCH10_SRS FR-UXB-31: 기본 크기다 (`ui-btn-sm` 이 아니다) — 세 버튼이
+    // 눌러야 할 것으로 보이지 않을 만큼 작았다. 아이콘 치수는 CSS 가 이 높이에서
+    // 파생한다 (FR-UXB-30).
+    const b=document.createElement('button'); b.className='ui-btn ui-btn-icon ui-btn-ghost ed-head-btn '+cls;
     if(EDITOR_HEAD_ICONS.has(label)) b.innerHTML=label;
     else b.textContent=label;
     b.title=title;

@@ -25,9 +25,30 @@ Object.assign(App.prototype, {
   },
 
   // FR-EFP-13 의 판정. `_edActiveEditor` 와 가르는 이유는 위의 주석이다.
+  //
+  // UX_BATCH10_SRS FR-UXB-44: **Diff 탭도 찾을 수 있는 표면이다.** 여기가 거짓을
+  // 내면 `edTrySearchKey` 가 키를 넘기고, 그 키는 아래의 `BUILTIN_HOTKEYS` 에서
+  // **터미널 검색**이 가져간다 — diff 위에서 `Mod+F` 를 누르면 터미널 찾기 줄이
+  // 떴다 (실측). 접수 5번의 절반이 이 한 줄이다.
   _edFindReady(){
     const v=this._edActiveEditor();
-    return !!(v&&v._editor);
+    if(v&&v._editor) return true;
+    return !!this._edActiveDiff();
+  },
+
+  /**
+   * FR-UXB-44: 지금 화면에서 보이는 Diff 뷰. 없으면 null 이다.
+   *
+   * `_edActiveEditor` 와 같은 축이다 — "활성 창의 포커스 칸이 지금 무엇을
+   * 보이는가". 패널은 그 축으로 이미 골라져 있으므로(`gitPanel` getter) 여기서
+   * 남는 물음은 **그 뷰가 화면에 있는가** 하나다: 다른 탭으로 옮겼는데 옛 뷰의
+   * 패널이 열리면 사용자는 보이지 않는 곳을 찾게 된다.
+   */
+  _edActiveDiff(){
+    const p=this.gitPanel;
+    const d=p&&p._diffView;
+    if(!d||!d._editor||!d.el) return null;
+    return d.el.offsetParent!==null?d:null;
   },
 
   _edQuickOpen(){ this._edPanelOpen('find') },
@@ -47,8 +68,11 @@ Object.assign(App.prototype, {
    */
   _edFindInFile(){
     const v=this._edActiveEditor();
-    if(!v||!v.findOpen) return;
-    v.findOpen();
+    if(v&&v.findOpen){ v.findOpen(); return }
+    // FR-UXB-44: 편집기 탭이 아니면 Diff 탭이다. 패널도 규약도 같은 한 벌이며
+    // (`ED_FIND_MIXIN`), 다른 것은 어느 편집기의 모델을 찾느냐뿐이다.
+    const d=this._edActiveDiff();
+    if(d) d.findOpen();
   },
 
   /**

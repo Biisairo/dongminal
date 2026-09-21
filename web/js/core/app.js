@@ -177,12 +177,12 @@ class App {
         // Now per-device (localStorage); strip from synced state.
         if('displayMode' in this.ws) delete this.ws.displayMode;
         if('mobileBreakpoint' in this.ws) delete this.ws.mobileBreakpoint;
-        sideWidthMoved=this._edMigrateSideWidth();
-        if(this.ws.sidebarWidth){
-          const w=clampSidebarWidth(this.ws.sidebarWidth);
-          document.documentElement.style.setProperty('--sb-w',w+'px');
-          try{localStorage.setItem('sidebarWidth',w)}catch{}
-        }
+        // FR-UXB-8: 폭 둘도 같은 자리에서 걷어낸다 — 치수는 창의 것이다
+        // (UX_BATCH10_SRS D-UXB-1). 화면에 세우는 일은 하지 않는다: 첫 페인트
+        // 스크립트가 이 창의 값으로 이미 세웠고, 서버의 값이 그것을 덮으면
+        // 다른 기기에서 끈 폭이 이 화면에 강제된다.
+        if('sidebarWidth' in this.ws){ delete this.ws.sidebarWidth; sideWidthMoved=true }
+        sideWidthMoved=this._edMigrateSideWidth()||sideWidthMoved;
         for(const s of this.ws.windows){
           if(!s||!s.id) continue;
           s.layout=clean(s.layout,ok);

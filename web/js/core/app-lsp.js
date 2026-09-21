@@ -454,6 +454,21 @@ Object.assign(App.prototype, {
     for(const ed of this.fileEditors.values()){
       if(ed&&ed._editor&&ed._editor.getModel()===model) return ed.filePath;
     }
+    /**
+     * UX_BATCH10_SRS FR-UXB-47 / D-UXB-10: **Diff 탭의 모델도 답한다.**
+     *
+     * provider 는 언어마다 한 벌이고 diff 의 모델에도 그대로 붙는다 (FR-LSP-39)
+     * — 모자랐던 것은 **그 모델이 어느 파일인가** 하나였다. 여기 자리를 늘리는
+     * 것이 규약을 바꾸지 않는 길이다: 이 함수는 이미 "열려 있는 것들을 훑어"
+     * 답하고 있었고, 훑을 목록이 하나 는 것뿐이다.
+     */
+    if(this.gitPanels){
+      for(const p of this.gitPanels.values()){
+        const d=p&&p._diffView;
+        const path=d&&d.lspPathOf?d.lspPathOf(model):'';
+        if(path) return path;
+      }
+    }
     return '';
   },
 

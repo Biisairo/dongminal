@@ -44,6 +44,7 @@ const SETTINGS_SCHEMA = [
   {"key":"confirmLeave","type":"bool","def":false,"where":"Display ▸ 떠날 때 확인"},
   {"key":"editorWordWrap","type":"bool","def":false,"where":"Display ▸ 편집기 줄바꿈"},
   {"key":"editorMinimap","type":"bool","def":true,"where":"Display ▸ 편집기 미니맵"},
+  {"key":"diffMinimap","type":"bool","def":false,"where":"Display ▸ diff 미니맵"},
   {"key":"tabFixedWidth","type":"bool","def":false,"where":"Display ▸ 탭 너비 고정"},
   {"key":"tabWidthPx","type":"int","def":160,"min":40,"max":480,"where":"Display ▸ 탭 너비"},
   {"key":"uiFontSize","type":"int","def":14,"min":8,"max":32,"where":"Display ▸ UI 글자 크기"},

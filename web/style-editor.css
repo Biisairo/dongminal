@@ -93,9 +93,11 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
 
 /* FR-EDT-64: 새로고침은 상단에 상주한다. 머리는 스크롤에서 빠지고 트리만 구른다 —
    수천 행에서 진입점이 화면 밖으로 밀리면 없는 것과 같다. */
+/* FR-UXB-31: 높이는 **버튼이 정한다** — 머리는 그 버튼을 담는 줄이다. 26px 을
+   적어 두면 버튼이 커질 때 잘린다. */
 .ed-head{
   display:flex;align-items:center;gap:6px;flex:0 0 auto;
-  height:26px;padding:0 4px 0 8px;
+  height:calc(var(--ui-btn-h) + 4px);padding:0 4px 0 8px;
   border-bottom:1px solid var(--border);
 }
 /* FR-EXR-2·3: 머리는 누를 수 있고, 루트가 선택되면 그것을 보인다. 뿌리에는 행이
@@ -105,13 +107,23 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
 .ed-head.sel{background:var(--accent-active)}
 .ed-head-name{flex:1 1 auto;min-width:0;font-size:var(--fs-sm);color:var(--text-bright);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* 머리 버튼의 외형은 `.ui-btn.ui-btn-icon.ui-btn-ghost.ui-btn-sm` 이다 (§7.4).
+/* 머리 버튼의 외형은 `.ui-btn.ui-btn-icon.ui-btn-ghost` 이다 (§7.4).
    FR-EDT-80: 새 파일·새 폴더는 문서와 폴더를 그대로 그린다 (종전 `⊕`·`⊞` 는
    어느 쪽이 무엇인지 말하지 않았다). 이 그림은 스프라이트가 아니라 자기 경로
    (`EDITOR_HEAD_ICONS`)라 `.ui-icon` 의 치수를 받지 않는다 — 담는 쪽에 건다.
-   `currentColor` 라 hover 의 색 변화를 글자 버튼과 똑같이 따라간다. */
+   `currentColor` 라 hover 의 색 변화를 글자 버튼과 똑같이 따라간다.
+
+   UX_BATCH10_SRS FR-UXB-30·32: **치수를 직접 들지 않는다.**
+
+     이전 동작: `14px` 고정 — 키트의 파생(`--ui-btn-h × --ui-icon-ratio`)과
+               `--fs-scale` 둘 다의 밖에 있었다. UI 글자 크기를 키워도 14px 이다
+     새  동작: `.ui-btn-icon>.ui-icon` 과 **같은 식**을 쓴다
+     이유:     접수 — "file explorer 아이콘이 너무 작다". 22px 버튼 안의 14px 은
+               키트 비율(.68)이 말하는 15px 보다도 작았다 */
 .ed-head .ui-btn svg{
-  width:14px;height:14px;display:block;
+  width:calc(var(--ui-btn-h) * var(--ui-icon-ratio));
+  height:calc(var(--ui-btn-h) * var(--ui-icon-ratio));
+  display:block;
   fill:none;stroke:currentColor;stroke-width:1.3;
   stroke-linecap:round;stroke-linejoin:round;
 }
