@@ -413,6 +413,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "terminal|span.desktop-only[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "terminal|span.m-pane-nav.mobile-only": {
   "display": "none",
   "overflowX": "visible",
@@ -1690,6 +1699,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:changes|span.desktop-only[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:changes|span.m-pane-nav.mobile-only": {
   "display": "none",
@@ -3874,6 +3892,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:diff|span.desktop-only[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:diff|span.m-pane-nav.mobile-only": {
   "display": "none",
@@ -6166,6 +6193,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:history|span.desktop-only[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:history|span.m-pane-nav.mobile-only": {
   "display": "none",
@@ -8660,6 +8696,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:branches|span.desktop-only[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:branches|span.m-pane-nav.mobile-only": {
   "display": "none",
   "overflowX": "visible",
@@ -11129,6 +11174,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:stash|span.desktop-only[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:stash|span.m-pane-nav.mobile-only": {
   "display": "none",
   "overflowX": "visible",
@@ -13355,6 +13409,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:console|span.desktop-only[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:console|span.m-pane-nav.mobile-only": {
   "display": "none",
   "overflowX": "visible",
@@ -15529,6 +15592,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "git:worktrees|span.desktop-only[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "git:worktrees|span.m-pane-nav.mobile-only": {
   "display": "none",
@@ -17780,6 +17852,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:submodules|span.desktop-only[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:submodules|span.m-pane-nav.mobile-only": {
   "display": "none",
   "overflowX": "visible",
@@ -19972,6 +20053,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "30px"
+ },
+ "editor|span.desktop-only[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
  },
  "editor|span.m-pane-nav.mobile-only": {
   "display": "none",

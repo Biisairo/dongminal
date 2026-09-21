@@ -937,6 +937,7 @@ I18N.register('ko', {
   'html.search_regex': '.*',
   'html.search_word': 'ab',
   'html.slot_label': 'Slot',
+  'html.slot_marker_cell': '{n}번 칸으로',
   'html.slotdir_h': '가로',
   'html.slotdir_v': '세로',
   'html.ui_font_scale': 'UI 글자 크기 (px)',

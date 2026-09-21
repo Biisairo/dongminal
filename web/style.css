@@ -498,6 +498,34 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
   background:var(--sidebar-bg);border-bottom:1px solid var(--border-strong);padding:0 8px;gap:6px;
 }
 #window-name{font-size:var(--fs-md);color:var(--text-muted)}
+
+/* SLOT_MARKER_SRS FR-SMK-1·4·5·6·20·21: 칸 마커.
+   `#window-name` 이 비는 자리에 선다 — 칸이 여럿일 때만 서므로 그 둘이 같은
+   픽셀을 두고 다투지 않는다 (FR-STB-12).
+   가로 균등이다. `data-slotdir` 을 **보지 않는다** — 세로 분할이어도 가로다
+   (D-2: 상단바 높이가 세로 축소판을 담지 못한다). */
+#slot-marker{
+  --slot-marker-size:10px;      /* FR-SMK-21 — 값은 이 한자리에 둔다 */
+  --slot-marker-gap:6px;
+  --slot-marker-hit:8px;        /* 과녁을 사각형 밖으로 넓히는 폭 (R-2) */
+  display:inline-flex;align-items:center;gap:var(--slot-marker-gap);margin:0 var(--ui-gap);
+}
+/* 킷의 버튼이되 **크기만** 다시 적는다 — 색·테두리·포커스 링은 킷의 것을 그대로
+   쓴다 (FR-SMK-20: 새 토큰을 만들지 않는다). 빈 사각형은 킷의 기본 그대로다. */
+.slot-marker-cell{
+  position:relative;
+  width:var(--slot-marker-size);height:var(--slot-marker-size);padding:0;
+}
+/* 사각형은 작고 과녁은 크다. `.slot-handle::before` 가 쓰는 것과 같은 수다. */
+.slot-marker-cell::before{
+  content:'';position:absolute;
+  left:calc(var(--slot-marker-hit) * -1);right:calc(var(--slot-marker-hit) * -1);
+  top:calc(var(--slot-marker-hit) * -1);bottom:calc(var(--slot-marker-hit) * -1);
+}
+/* FR-SMK-6: 포커스 칸은 **채운** 사각형이다. 색은 포커스의 언어를 그대로 쓴다 —
+   칸 머리글이 이미 `--accent` 다 (FR-STB-26). 둘이 다른 색이면 사용자는 그것을
+   다른 종류의 정보로 읽는다. */
+.slot-marker-cell[aria-current="true"]{background:var(--accent);border-color:var(--accent)}
 .spacer{flex:1}
 
 /* 주의 알림 배지 (FR-PAN-16).

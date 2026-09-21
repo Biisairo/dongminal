@@ -914,6 +914,7 @@ I18N.register('en', {
   'html.search_regex': '.*',
   'html.search_word': 'ab',
   'html.slot_label': 'Slot',
+  'html.slot_marker_cell': 'Focus slot {n}',
   'html.slotdir_h': 'Horizontal',
   'html.slotdir_v': 'Vertical',
   'html.ui_font_scale': 'UI font size (px)',

@@ -413,6 +413,14 @@ Object.assign(App.prototype, {
     for(let k=0;k<n;k++){
       const el=document.querySelector(`#area .slot[data-slot="${k}"]`);
       if(el) el.classList.toggle('slot-focused',k===f);
+      // SLOT_MARKER_SRS FR-SMK-9: 마커도 **같은 판정**을 딛는다. 이 경로는
+      // `render()` 를 미루므로(`deferRender`), 여기서 칠하지 않으면 마커만 옛
+      // 칸을 가리킨 채 남는다 — 포커스를 말하는 자리 둘이 서로 다른 말을 한다.
+      const m=document.querySelector(`#slot-marker .slot-marker-cell[data-slot="${k}"]`);
+      if(m){
+        if(k===f) m.setAttribute('aria-current','true');
+        else m.removeAttribute('aria-current');
+      }
     }
   },
 

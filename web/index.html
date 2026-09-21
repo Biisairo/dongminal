@@ -178,6 +178,12 @@
   <div id="content">
     <div id="topbar">
       <span id="window-name"></span>
+      <!-- SLOT_MARKER_SRS FR-SMK-1·2: 칸이 여럿이면 **이 자리는 빈다**
+           (SLOT_TITLE_BOUNDARY_SRS FR-STB-12) — 머리글이 창 이름을 이어받기
+           때문이다. 마커가 필요한 조건과 그 자리가 비는 조건이 **같은 식**이므로
+           (`slotCount()>1`) 그 빈자리에 선다. 사각형은 칸 수만큼 서며
+           `renderer-chrome.js` 가 만든다. -->
+      <span id="slot-marker" class="desktop-only" hidden></span>
       <span class="m-pane-nav mobile-only">
         <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost" id="m-pane-prev" title="Focus the previous pane" aria-label="Focus the previous pane"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-left"/></svg></button>
         <span id="m-pane-indicator">1/1</span>

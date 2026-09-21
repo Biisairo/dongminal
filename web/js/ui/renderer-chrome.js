@@ -152,6 +152,58 @@ Object.assign(Renderer.prototype, {
       sr.hidden=this.app.isMobile;
       sr.disabled=n<=1;
     }
+    // SLOT_MARKER_SRS FR-SMK-1·2: 마커는 `#window-name` 이 비는 그 자리에 선다 —
+    // 조건이 위 `multi` 와 **같은 식**이다.
+    this._rSlotMarker(n);
+  },
+
+  /**
+   * SLOT_MARKER_SRS FR-SMK-1~13: 칸 마커.
+   *
+   * 답하는 물음은 하나다 — **"지금 어느 칸이 포커스인가"**. 사이드바에서 창을
+   * 여는 모든 경로가 포커스 칸으로 가므로(WINDOW_SLOTS_SRS FR-WSL-54), 그 답이
+   * 곧 **"누르면 어디가 열리는가"** 다 (SRS §1.1).
+   *
+   * **칸을 재지 창을 재지 않는다** (FR-SMK-8). 창의 이름·유무·타입은 칸 머리글이
+   * 말한다 (FR-STB-12) — 마커가 그것을 되풀이하면 같은 값을 두 자리가 말하게 되고,
+   * 사용자는 그것이 어느 칸의 것인지 매번 판정해야 한다 (D-STB-1 과 같은 이유).
+   *
+   * 가로 균등이다 (FR-SMK-4·5). `slotDir`·`sizes` 를 **읽지 않는다** — 축소판은
+   * 상단바 높이(32px)가 세로 분할을 담지 못해 기각됐다 (D-2).
+   *
+   * 사각형은 **칸 수가 바뀔 때만** 다시 만든다. 매 render 마다 갈아치우면
+   * mousedown↔mouseup 사이에 요소가 사라져 `click` 이 아예 만들어지지 않는다
+   * (`_rSide` 머리말의 `GP-6`).
+   */
+  _rSlotMarker(n){
+    const box=document.getElementById('slot-marker');
+    if(!box) return;
+    const show=!this.app.isMobile&&n>1;               // FR-SMK-2
+    box.hidden=!show;
+    if(!show){ box.replaceChildren(); return }
+    if(box.childElementCount!==n){
+      const cells=[];
+      for(let i=0;i<n;i++){
+        const b=document.createElement('button');
+        b.className='slot-marker-cell ui-btn';        // FR-SMK-12 — 킷 등급
+        b.type='button';
+        b.dataset.slot=String(i);                     // FR-SMK-3
+        b.addEventListener('click',()=>this.app.slotFocusTo(i));   // FR-SMK-10·11
+        cells.push(b);
+      }
+      box.replaceChildren(...cells);
+    }
+    const f=this.app.slotFocused();
+    for(let i=0;i<n;i++){
+      const b=box.children[i];
+      // FR-SMK-13: 이름은 **낱말 키로 먼저 선다.** 단축키 표를 기다리면
+      // `if(d.i18nShortcut && !sc) continue` 에 걸려 이름 없이 남는다.
+      b.setAttribute('aria-label',t('html.slot_marker_cell',{n:i+1}));
+      // FR-SMK-6: 채움을 나르는 것은 이것 **하나**다 (D-7) — 클래스와 ARIA 둘에
+      // 적으면 둘이 어긋날 수 있고, 어긋나면 보이는 것과 읽히는 것이 갈린다.
+      if(i===f) b.setAttribute('aria-current','true');
+      else b.removeAttribute('aria-current');
+    }
   },
 
   /**
