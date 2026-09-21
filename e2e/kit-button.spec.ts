@@ -94,7 +94,15 @@ test.describe('킷 등급을 받은 버튼 (KIT_APPLICATION_SRS)', () => {
     // 빠져 나가고, 검사는 "이미 킷인 것이 킷이다" 만 확인한다 (첫 판이 그랬다).
     const EXEMPT = /\b(?:sc-key|fe-find-opt)\b/;
     const all = (await buttons(page)).filter((b) => !EXEMPT.test(b.sel) && !/ui-tab\b/.test(b.sel));
-    expect(all.length, '버튼을 찾지 못했다').toBeGreaterThan(10);
+    /**
+     * **표본이 있는가**만 묻는 줄이다 — 계약이 아니라 전제다. 수를 세는 것이
+     * 아니므로 화면의 버튼이 늘거나 줄어도 이 검사의 뜻은 바뀌지 않는다.
+     *
+     * 하한을 10 에서 내린다: `UIUX_OVERHAUL_SRS` FR-CHR-1 이 `#topbar` 를
+     * 해체하면서 기본 화면의 버튼이 줄어 실측 **9** 가 됐다. 준 것은 **대상**이지
+     * 킷의 적용 범위가 아니다 — 남은 아홉은 여전히 전수 검사를 받는다.
+     */
+    expect(all.length, '버튼을 찾지 못했다').toBeGreaterThan(5);
     // 클래스만 붙고 옛 `padding`·`height` 가 남아 있으면 여기서 드러난다.
     const off = all.filter((b) => !GRADES.includes(b.h));
     expect(off.map((b) => `${b.sel} = ${b.h}px`),

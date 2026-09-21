@@ -132,12 +132,10 @@ test('V-GAP-1: 아이콘과 글자 사이가 키트의 간격이다', async ({ p
     const token = px(getComputedStyle(probe).columnGap);
     probe.remove();
     const box = document.querySelector('#add-sandbox-window') as HTMLElement;
-    const ctl = document.querySelector('.slot-ctl') as HTMLElement;
     return {
       token,
       boxGap: px(getComputedStyle(box).columnGap),
       boxDisplay: getComputedStyle(box).display,
-      ctlGap: px(getComputedStyle(ctl).columnGap),
       // 간격이 **실제로** 벌어졌는가 — 아이콘의 오른쪽 변과 글자의 시작 사이.
       boxIconRight: (box.querySelector('svg') as SVGElement).getBoundingClientRect().right,
       boxRight: box.getBoundingClientRect().right,
@@ -146,7 +144,15 @@ test('V-GAP-1: 아이콘과 글자 사이가 키트의 간격이다', async ({ p
   expect(got.token, '--ui-gap 토큰이 없다').toBeGreaterThan(0);
   // FR-GAP-3: 값을 px 로 적지 않는다 — 토큰과 같아야 한다.
   expect(got.boxGap).toBe(got.token);
-  expect(got.ctlGap).toBe(got.token);
+  /**
+   * **`.slot-ctl` 은 재지 않는다** (FR-GAP-2 폐기). 그 덩어리 자체가 사라졌다 —
+   * 칸 `±` 는 pane 탭줄의 `⋯` 메뉴로 갔고 상단바는 해체됐다 (UIUX_OVERHAUL_SRS
+   * FR-CHR-5·1). 없는 요소를 `getComputedStyle` 에 넘기면 검사는 `TypeError` 로
+   * 죽지 재는 것을 말하지 못한다.
+   *
+   * 조항이 지키려던 것(값을 px 로 적지 않는다)은 FR-GAP-3 가 이 파일에 그대로
+   * 남아 있다 — 위 두 줄이 그것을 `#add-sandbox-window` 에서 잰다.
+   */
   // inline 이면 gap 이 걸리지 않는다 — 그것이 접수된 결함이었다.
   expect(got.boxDisplay).toContain('flex');
   expect(got.boxRight - got.boxIconRight).toBeGreaterThan(got.token);

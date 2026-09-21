@@ -3,7 +3,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import {
-  test, expect, plainWindows, waitForInit, gitFixture, cleanGitFixture, JSON_HDR, openGit, makeCopyFx, GIT_VIEW_TABS, SPLIT_H, SPLIT_V } from './fixtures';
+  test, expect, plainWindows, waitForInit, gitFixture, cleanGitFixture, JSON_HDR, openGit, makeCopyFx, GIT_VIEW_TABS, SPLIT_H, SPLIT_V, clickGitView } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 const FIXTURES = tmpPath('dm-git-fx-gitwin-' + process.pid);
@@ -115,6 +115,16 @@ test.describe('묶음 D — Repo 창 골격', () => {
       await waitForInit(page);
       await openRepo(page, fx('basic'));
       await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+
+      /**
+       * **뷰를 하나 먼저 연다.** 진입점의 자리가 pane 탭줄로 옮겨 갔기 때문이다
+       * (FR-CHR-2). 갓 연 Repo 창의 본문에는 pane 이 **없고**(FR-EDT-55: 안내문만
+       * 있다) pane 이 없으면 탭줄도 없다 — 상단바 시절에는 창의 상태와 무관하게
+       * 그 줄이 서 있었으므로 이 대기가 필요 없었다.
+       *
+       * 재는 것은 그대로다: **진입점이 있는 자리에서 그것이 비활성인가.**
+       */
+      await clickGitView(page, 'history');
       const before = await page.locator('#area .pn').count();
 
       // 진입점은 **자리를 지키되 비활성**이다 (UIUX_OVERHAUL_SRS FR-CHR-3 개정).

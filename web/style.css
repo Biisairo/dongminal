@@ -583,14 +583,9 @@ body:not(.mobile) #topbar{display:none}
 #area[data-slotdir="vertical"] .slot-handle{cursor:row-resize}
 #area[data-slotdir="horizontal"] .slot-handle::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
 #area[data-slotdir="vertical"] .slot-handle::before{content:'';position:absolute;left:0;right:0;top:-6px;bottom:-6px}
-/* FR-WSL-50: 토프바의 `− Slot +`. 두 버튼이 한 덩어리로 읽혀야 창 안 분할과
-   섞이지 않는다 (§7 R-3). */
-/* FR-GAP-2: 간격은 키트의 토큰이다 — 한 덩어리로 읽히는 것과 맞붙는 것은 다르다. */
-.slot-ctl{display:inline-flex;align-items:center;gap:var(--ui-gap);margin:0 2px}
-/* `G7-1` 첫 판: 글자에 `opacity` 를 걸면 토큰이 바닥을 넘어도 화면은 넘지 못한다
-   (실측 `.slot-ctl-label` 3.84 · `#add-sandbox-window` 3.27 — 계산 게이트는
-   토큰만 보므로 못 잡는다). 흐림은 색으로 말한다 — 파생 토큰은 바닥을 받는다. */
-.slot-ctl-label{font-size:var(--fs-sm);color:var(--text-hint);user-select:none}
+/* UIUX_OVERHAUL_SRS FR-CHR-5: 토프바의 `− Slot +`(`.slot-ctl`)가 **없다** — 칸
+   `±` 는 pane 탭줄의 `⋯` 메뉴로 갔고, 상단바가 해체되면서 그 덩어리도 걷혔다
+   (FR-CHR-1). 규칙을 남기면 다음에 이 이름을 다시 쓰는 손이 없던 배치를 물려받는다. */
 /* FR-WSL-81: 설정의 두 칸짜리 세그먼트 토글. */
 .sp[data-d="horizontal"]{flex-direction:row}
 .sp[data-d="vertical"]{flex-direction:column}

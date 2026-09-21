@@ -38,7 +38,14 @@ async function measure(page: Page, scope: string) {
       const r = e.getBoundingClientRect();
       return r.width > 0 && r.height > 0;
     };
-    const grab = (sel: string) => [...root.querySelectorAll(sel)].filter(vis).map((e) => {
+    // **pane 탭줄은 이 하한의 대상이 아니다** (GIT_UI_REVISION_SRS FR-GIT-226 의
+    // 비대상: *"`.pn-tab`(27px) … 탭 높이는 터미널 창과 공유하므로 별건으로
+    // 다룬다"*). `UIUX_OVERHAUL_SRS` FR-CHR-2 가 분할·`⋯` 를 그 줄의 고정 구로
+    // 옮기면서 **앱 전역 크롬의 버튼이 Git 창의 범위 안으로 들어왔다** — 줄의
+    // 높이(28px)가 그 버튼의 높이를 정하므로, 여기서 재면 재는 것은 Git 표면이
+    // 아니라 탭줄이다.
+    const grab = (sel: string) => [...root.querySelectorAll(sel)]
+      .filter((e) => !e.closest('.pn-tabs')).filter(vis).map((e) => {
       const r = e.getBoundingClientRect();
       const s = getComputedStyle(e);
       return {

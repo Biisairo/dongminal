@@ -407,7 +407,7 @@ Object.assign(Renderer.prototype, {
     b.className='ui-btn ui-btn-icon ui-btn-ghost pn-act pn-menu';
     b.appendChild(UIKit.icon('more-horizontal',{size:'sm'}));
     b.title=t('core.pane_menu_title');
-    b.setAttribute('aria-label',t('core.pane_menu_title'));
+    b.setAttribute('aria-label',t('core.pane_menu_aria'));
     b.addEventListener('click',e=>{
       e.stopPropagation();
       const n=app.slotCount();

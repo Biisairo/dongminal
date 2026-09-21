@@ -187,7 +187,10 @@ I18N.register('ko', {
   'core.pane_menu_slot_max': '칸은 최대 {n}개입니다',
   'core.pane_menu_slot_min': '칸이 하나뿐입니다',
   'core.pane_menu_runs': 'Runs',
-  'core.pane_menu_title': '이 칸의 메뉴',
+  // 툴팁은 영어다 (FR-TIP-2) — ko 카탈로그의 데이터로 지킨다. 읽히는 이름인
+  // `aria-label` 은 한국어로 가른다.
+  'core.pane_menu_title': 'This pane\u2019s menu',
+  'core.pane_menu_aria': '이 칸의 메뉴',
   'core.tab_menu_rename_git_no': 'git 뷰 탭의 이름은 뷰가 정합니다',
   'core.term_copy_close': '닫기',
   'core.term_copy_do': '복사',

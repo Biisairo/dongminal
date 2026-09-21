@@ -100,8 +100,17 @@ test.describe('묶음 F — 여는 경로는 포커스 칸에 연다 (FR-WSL-54)
       const count = () => page.evaluate(() => (window as any).app.ws.windows.length);
       const n = await count();
       await page.locator('#add-window').click();
-      // 창이 실제로 생길 때까지 기다린다 — 생성은 도구 기동을 지나므로 비동기다.
-      await expect.poll(count, { timeout: 15000 }).toBe(n + 1);
+      /**
+       * 창이 실제로 생길 때까지 기다린다 — 생성은 **도구 기동**(서버가 PTY 를
+       * 띄운다)을 지나므로 비동기다.
+       *
+       * **상한이 30초인 것은 병렬의 부하 때문이다** (E2E_PARALLEL_SRS D-6 의
+       * `waitLoaded` 20→30→45 와 같은 근거). 2026-09-21 전량 회차에서 이 줄이
+       * 15초에 걸려 *"창 수가 4 에 멈춘다"* 로 빨갰고, 같은 커밋에서 단독 실행과
+       * 이 파일 전량(45/45) 모두 초록이었다 — 재는 것은 "새 창이 포커스 칸에
+       * 서는가" 이지 "몇 초에 서는가" 가 아니다.
+       */
+      await expect.poll(count, { timeout: 30000 }).toBe(n + 1);
 
       const after = await page.evaluate(() => {
         const app = (window as any).app;

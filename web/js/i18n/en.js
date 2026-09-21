@@ -163,6 +163,7 @@ I18N.register('en', {
   'core.pane_menu_slot_min': 'Only one slot left',
   'core.pane_menu_runs': 'Runs',
   'core.pane_menu_title': 'This pane\u2019s menu',
+  'core.pane_menu_aria': 'This pane\u2019s menu',
   'core.tab_menu_rename_git_no': 'Git view tabs are named by the view',
   'core.term_copy_close': 'Close',
   'core.term_copy_do': 'Copy',
