@@ -460,8 +460,21 @@ windows.filter(s => s && (s.layout || s.type === WINDOW_TYPE_EDITOR))
 이것이 FR-EDT-55 의 전제다. 다른 창 타입의 동작은 바뀌지 않는다.
 
 **FR-EDT-50.** **분할 단축키와 분할 버튼은 Editor 창에서 동작하지 않는다.**
-`Ctrl+Shift+H`·`Ctrl+Shift+V` 는 무시되고(`app-layout.js:402` 자리) 툴바의 분할
-버튼은 감춰진다(`renderer.js:69-74` 자리).
+`Ctrl+Shift+H`·`Ctrl+Shift+V` 는 무시되고(`app-layout.js` 의 `_splitInner`) 툴바의
+분할 버튼은 **비활성이 된다**(`renderer-chrome.js` 의 `_rTopbar`).
+
+> **개정 2026-09-21 — `UIUX_OVERHAUL_SRS` FR-CHR-3.** 초판은 *"감춰진다"* 였고
+> 근거는 `FR-GIT-180` 과 같았다 (*"눌리지만 아무 일도 하지 않는 버튼은 고장으로
+> 읽힌다"*). `disabled` 가 그 요구를 만족하면서 **자리를 지킨다** — 감추면 이웃이
+> 왼쪽으로 밀려 같은 픽셀에 다른 동작이 온다.
+>
+> `FR-EDT-54`(탭 `+`)는 **바뀌지 않는다.** Editor 창에는 편집기 탭만 있어 새 탭
+> 버튼의 **대상 자체가 없고**, 자리를 지킬 이유가 없는 것은 사라진다. 가르는
+> 것은 모드가 아니라 컨트롤이다 (사용자 결정 2026-09-21).
+>
+> - 이전 동작: 분할 버튼이 Editor 창에서 `hidden`
+> - 새  동작: `disabled`
+> - 이유: 자리의 고정이 위계의 언어다 (FR-CHR-3)
 
 **FR-EDT-51.** **분할이 생기는 유일한 길은 드래그드롭이다.** 탭을 pane 의
 가장자리(좌·우·상·하)로 끌어다 놓을 때만 새 pane 이 생기고, 그 pane 은 끌어온 탭을

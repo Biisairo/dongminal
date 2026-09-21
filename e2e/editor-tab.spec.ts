@@ -465,10 +465,10 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
       return !!(w && w.type === 'editor' && w.layout);
     })).toBe(true);
 
-    // 제품은 `[hidden]` 속성으로 감춘다 — `.git-hidden` 은 FR-LAY-3 이 걷어낸
-    // 옛 어휘다 (style-git-views.css:772). 숨김의 어휘는 하나다 (FR-LAY-30).
-    await expect(page.locator('#split-h')).toBeHidden();
-    await expect(page.locator('#split-v')).toBeHidden();
+    // **감추지 않고 비활성으로 둔다** (UIUX_OVERHAUL_SRS FR-CHR-3 개정) — 분할은
+    // 어느 창에서나 같은 자리에 있고, 쓸 수 없을 때 그렇다고만 말한다.
+    await expect(page.locator('#split-h')).toBeDisabled();
+    await expect(page.locator('#split-v')).toBeDisabled();
 
     const paneCount = () => page.evaluate(() => {
       const a = (window as any).app;

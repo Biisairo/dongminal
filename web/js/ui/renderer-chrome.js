@@ -101,18 +101,27 @@ Object.assign(Renderer.prototype, {
     // 것인지 사용자가 매번 판정해야 한다 (D-1). 모바일에는 칸이 없다 (FR-STB-14).
     const multi=!this.app.isMobile&&this.app.slotCount()>1;
     document.getElementById('window-name').textContent=multi?'':this._rWinTitle(a);
-    // FR-GIT-180: Git 창에서는 분할 진입점을 감춘다. (FR-GIT-183 의 `Close Git`
-    // 은 폐기됐다 — 떠나는 길이 사이드바 탭으로 상시 존재한다, FR-SBT-34.)
+    // FR-GIT-180 · FR-EDT-50 (**UIUX_OVERHAUL_SRS FR-CHR-3 으로 개정**): Git·
+    // Editor 창에서는 분할 진입점을 **비활성으로 둔다.** 종전에는 감췄다 —
+    // 그러면 이웃이 왼쪽으로 밀려 같은 픽셀에 다른 동작이 온다 (§2.4).
+    //
+    //   이전 동작: `hidden` — Git·Editor 창에서 자리가 사라진다
+    //   새  동작: `disabled` — 자리를 지키고 쓸 수 없다고만 말한다
+    //   이유:     **가르는 것은 모드가 아니라 컨트롤이다** (사용자 결정
+    //             2026-09-21). 쪼개는 동작(분할·슬롯 `±`)은 어느 창에서나 같은
+    //             자리에 있고, 탭 `+` 는 만들 **대상 자체가 없어** 사라진다
+    //
+    // 단축키 경로는 이것과 무관하게 막힌다 — `_splitInner` 가 `isGitWin`·
+    // `isEditorWin` 에서 되돌아간다 (V70·E6 의 뒷문장).
     const isGit=this.app.isGitWin(a);
-    // FR-EDT-50: Editor 창에서도 분할 진입점을 감춘다 — 분할이 생기는 유일한
-    // 길은 드래그드롭이다 (FR-EDT-51). 눌리지만 아무 일도 하지 않는 버튼은
-    // 고장으로 읽힌다.
     const noSplit=isGit||this.app.isEditorWin(a);
     for(const id of ['split-h','split-v']){
       const b=document.getElementById(id);
-      if(b) b.hidden=noSplit;
+      if(b) b.disabled=noSplit;
     }
-    // FR-EDT-54: Editor 창에는 편집기 탭만 있다 — 새 탭 버튼의 대상이 없다.
+    // FR-EDT-54: Editor 창에는 편집기 탭만 있다 — 새 탭 버튼의 **대상이 없다.**
+    // 그래서 이쪽만 종전대로 감춘다 (데스크톱의 `.pn-tab-add` 는 아예 서지
+    // 않는다 — `_makeTabAdd` 를 부르지 않는다).
     const mAdd=document.getElementById('m-add-tab');
     if(mAdd) mAdd.hidden=noSplit;
     const ind=document.getElementById('m-pane-indicator');

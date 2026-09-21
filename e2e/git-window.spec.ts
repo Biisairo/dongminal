@@ -118,9 +118,10 @@ test.describe('묶음 D — Repo 창 골격', () => {
       await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
       const before = await page.locator('#area .pn').count();
 
-      // 진입점은 감춰진다 — 눌리지만 아무 일도 하지 않는 버튼은 고장으로 읽힌다.
-      await expect(page.locator('#split-h:visible')).toHaveCount(0);
-      await expect(page.locator('#split-v:visible')).toHaveCount(0);
+      // 진입점은 **자리를 지키되 비활성**이다 (UIUX_OVERHAUL_SRS FR-CHR-3 개정).
+      // 감추면 이웃이 왼쪽으로 밀려 같은 픽셀에 다른 동작이 온다.
+      await expect(page.locator('#split-h')).toBeDisabled();
+      await expect(page.locator('#split-v')).toBeDisabled();
       await page.evaluate(async () => {
         const a = (window as any).app;
         await a.executeAction('splitH');
@@ -214,10 +215,11 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
     await waitForInit(page);
     await openGit(page, gurFx('basic'));
 
-    // 상단 바의 분할 버튼과 탭 행의 `+` 는 **자리가 없다** — 눌리지만 아무 일도
-    // 하지 않는 버튼은 고장으로 읽힌다.
-    await expect(page.locator('#split-h:visible')).toHaveCount(0);
-    await expect(page.locator('#split-v:visible')).toHaveCount(0);
+    // **가르는 것은 모드가 아니라 컨트롤이다** (UIUX_OVERHAUL_SRS FR-CHR-3 개정).
+    // 분할 버튼은 자리를 지키고 비활성이 되며, 탭 `+` 는 만들 **대상이 없어**
+    // 아예 서지 않는다.
+    await expect(page.locator('#split-h')).toBeDisabled();
+    await expect(page.locator('#split-v')).toBeDisabled();
     await expect(page.locator('#area .pn-tab-add')).toHaveCount(0);
 
     // 단축키 경로도 막힌다.
