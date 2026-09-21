@@ -224,6 +224,9 @@ Object.assign(Renderer.prototype, {
       b.disabled=closed;
       actKids.push(b);
     }
+    // FR-CHR-5: 드문 것이 모이는 자리. 어느 창에서나 선다 — 담는 것이 창의
+    // 성질과 무관하기 때문이다 (칸 ± 는 창 **밖**을 쪼갠다, FR-WSL-50).
+    actKids.push(this._keep(key+'/menu',()=>this._makePaneMenuBtn()));
     this._place(acts,actKids);
     // `Tab` 에 닿는 탭은 하나다 — 포커스가 줄 안에 있으면 그 탭, 아니면 활성 탭.
     const ae=document.activeElement;
@@ -370,6 +373,50 @@ Object.assign(Renderer.prototype, {
       // FR-EXR-42 와 같은 규약 — 자리는 활성 pane 이 아니라 **이 버튼이 속한
       // pane** 이다.
       app.split(dir,node?{targetPane:node.id}:{});
+    });
+    return b;
+  },
+
+  /**
+   * UIUX_OVERHAUL_SRS FR-CHR-5: pane 메뉴 — **드물게 쓰는 것**이 모이는 자리.
+   *
+   * 담는 것은 창 슬롯 `±` 와 `Runs` 다. 스펙은 셋을 적었지만 **프리셋은 들어오지
+   * 않는다** — `#add-preset` 는 *"New window from default preset"* 이고, FR-CHR-7
+   * 이 *"새로 만든다"* 의 자리를 **탭줄과 사이드바 상단 둘로** 못박았다. 같은
+   * 문서의 두 요구가 부딪히면 자리를 정한 쪽이 이긴다 (FR-CHR-5 는 *무엇이 드문가*
+   * 를 말하고 FR-CHR-7 은 *어디에 사는가* 를 말한다).
+   *
+   * **단축키는 하나도 바뀌지 않는다** (FR-CHR-5 · NFR-4). 메뉴는 같은 함수를 부르는
+   * 또 하나의 길일 뿐이고, 항목의 `title` 이 그 키를 적어 둔다.
+   */
+  _makePaneMenuBtn(){
+    const app=this.app;
+    const b=document.createElement('button');
+    b.className='ui-btn ui-btn-icon ui-btn-ghost pn-act pn-menu';
+    b.appendChild(UIKit.icon('more-horizontal',{size:'sm'}));
+    b.title=t('core.pane_menu_title');
+    b.setAttribute('aria-label',t('core.pane_menu_title'));
+    b.addEventListener('click',e=>{
+      e.stopPropagation();
+      const n=app.slotCount();
+      const key=a=>displayKey((typeof shortcuts==='object'&&shortcuts[a])||'');
+      const r=b.getBoundingClientRect();
+      UIKit.menu([
+        {id:'slot-add',label:t('core.pane_menu_slot_add'),icon:'plus',
+         title:t('html.slot_add_title',{key:key('slotAdd')}),
+         disabled:n>=SLOT_MAX&&t('core.pane_menu_slot_max',{n:SLOT_MAX}),
+         onClick:()=>app.slotAdd()},
+        {id:'slot-remove',label:t('core.pane_menu_slot_remove'),icon:'minus',
+         title:t('html.slot_remove_title',{key:key('slotRemove')}),
+         disabled:n<=1&&t('core.pane_menu_slot_min'),
+         onClick:()=>app.slotRemove()},
+        {sep:true},
+        // **단축키가 지나는 바로 그 길이다** — `runsToggle` 은 `executeAction` 의
+        // 표에 있는 이름이고(`app.js`), `ui/` 가 App 의 비공개에 닿지 않는
+        // 유일한 경로이기도 하다 (FE_MODULE_BOUNDARY_SRS FR-FMB-40~43).
+        {id:'runs',label:t('core.pane_menu_runs'),icon:'play',
+         onClick:()=>app.executeAction('runsToggle')},
+      ],{at:{x:r.right,y:r.bottom},align:'right',cls:'pn-menu-pop'});
     });
     return b;
   },

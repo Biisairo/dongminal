@@ -181,6 +181,13 @@ I18N.register('ko', {
   'core.tab_menu_new': '새 탭',
   'core.tab_menu_new_no': '이 창에는 새 탭을 둘 수 없습니다',
   'core.tab_menu_rename': '이름 변경',
+  // UIUX_OVERHAUL_SRS FR-CHR-5: pane 메뉴 — 드물게 쓰는 것이 모이는 자리.
+  'core.pane_menu_slot_add': '칸 추가',
+  'core.pane_menu_slot_remove': '칸 제거',
+  'core.pane_menu_slot_max': '칸은 최대 {n}개입니다',
+  'core.pane_menu_slot_min': '칸이 하나뿐입니다',
+  'core.pane_menu_runs': 'Runs',
+  'core.pane_menu_title': '이 칸의 메뉴',
   'core.tab_menu_rename_git_no': 'git 뷰 탭의 이름은 뷰가 정합니다',
   'core.term_copy_close': '닫기',
   'core.term_copy_do': '복사',

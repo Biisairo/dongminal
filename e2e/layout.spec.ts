@@ -544,3 +544,44 @@ test.describe('탭줄의 고정 구 (FR-CHR-2)', () => {
       await expect(btns.nth(1)).toBeEnabled();
     });
 });
+
+// UIUX_OVERHAUL_SRS §4.2 — 드문 것은 메뉴로 (FR-CHR-5).
+test.describe('pane 메뉴 (FR-CHR-5)', () => {
+  const MENU_BTN = '#area .pn.focused .pn-acts .pn-menu';
+  const ITEM = '.ui-menu.pn-menu-pop .ui-menu-item';
+
+  test('V-CHR-5a: `⋯` 가 칸 ± 와 Runs 를 낸다',
+    async ({ page }) => {
+      await waitForInit(page);
+      await page.locator(MENU_BTN).click();
+      await expect(page.locator(ITEM)).toHaveCount(3);
+      const ids = await page.locator(ITEM).evaluateAll(
+        (els) => els.map((e) => (e as HTMLElement).dataset.id));
+      expect(ids).toEqual(['slot-add', 'slot-remove', 'runs']);
+    });
+
+  test('V-CHR-5b: 칸이 하나면 제거가 비활성이고 사유를 말한다',
+    async ({ page }) => {
+      await waitForInit(page);
+      await page.locator(MENU_BTN).click();
+      const rm = page.locator(ITEM + '[data-id="slot-remove"]');
+      await expect(rm).toHaveClass(/disabled/);
+      // 비활성의 **사유가 `title`** 이다 (FR-CMU-3).
+      expect(await rm.getAttribute('title')).toBeTruthy();
+    });
+
+  test('V-CHR-5c: 메뉴의 칸 추가가 칸을 늘린다 — 단축키와 같은 함수다',
+    async ({ page }) => {
+      await waitForInit(page);
+      // **칸의 수는 앱에 묻는다.** `#area .slot` 은 칸이 하나면 DOM 에 서지 않는다
+      // — 래퍼가 둘 이상일 때만 생기므로 요소를 세면 0 에서 2 로 뛴다.
+      const count = () => page.evaluate(() => (window as any).app.slotCount() as number);
+      const before = await count();
+      await page.locator(MENU_BTN).click();
+      await page.locator(ITEM + '[data-id="slot-add"]').click();
+      await expect.poll(count, { timeout: 10000 }).toBe(before + 1);
+      // 이제 제거가 살아난다 — 같은 메뉴가 상태를 따라간다.
+      await page.locator(MENU_BTN).first().click();
+      await expect(page.locator(ITEM + '[data-id="slot-remove"]')).not.toHaveClass(/disabled/);
+    });
+});
