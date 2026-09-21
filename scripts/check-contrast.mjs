@@ -72,6 +72,22 @@ const CSS_TOKENS = [
   ['--git-st-add', CONTRAST_FLOORS.strong],
 ];
 
+/**
+ * ANSI 6색 (UIUX_OVERHAUL_SRS FR-SEM-1·3).
+ *
+ * `deriveContrastTokens` 는 이 여섯을 `CONTRAST_FLOORS.strong` 으로 끌어올려
+ * 파생해 왔지만, **게이트가 그것을 확인한 적은 없었다** — `CHECK` 에도
+ * `CSS_TOKENS` 에도 없었고, `--git-st-add` 를 통해 green 하나가 간접적으로
+ * 걸렸을 뿐이다. 파생이 있다는 것과 파생이 바닥에 닿는다는 것은 다른 말이다.
+ *
+ * 6색이 UI 상태 어휘의 정본이 되는 이상(FR-SEM-1) 여섯 다 글자로 선다.
+ * `CSS_TOKENS` 와 갈라 두는 이유: 저것은 **`:root` 의 CSS 선언**이 무엇을
+ * 가리키는지 보는 목록이고(`--git-st-add:var(--term-green)`), 이것은 **파생
+ * 결과** 자체를 보는 목록이다. `:root` 의 `--term-*` 리터럴은 첫 페인트용
+ * 폴백이므로 그 값을 재면 라이트 테마에서 Tokyo Night 의 색을 재게 된다.
+ */
+const SYNTAX_TOKENS = ['red', 'green', 'yellow', 'blue', 'magenta', 'cyan'];
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const STYLE_CSS = readFileSync(join(ROOT, 'web', 'style.css'), 'utf8');
 
@@ -137,6 +153,16 @@ for (const name of names) {
     }
     row[tok] = worst;
   }
+  for (const k of SYNTAX_TOKENS) {
+    const color = d.syntax && d.syntax[k];
+    if (!color) { bad.push(`  ${name} / --term-${k} 가 파생되지 않았다 — 터미널 팔레트를 확인한다`); continue }
+    for (const [bgName, bg] of bgs) {
+      const got = contrastRatio(color, bg);
+      if (got < CONTRAST_FLOORS.strong - 1e-9) {
+        bad.push(`  ${name} / --term-${k}(${color}) on --${bgName}: ${got.toFixed(2)} < ${CONTRAST_FLOORS.strong}`);
+      }
+    }
+  }
   for (const [name_, floor] of CSS_TOKENS) {
     const decl = cssDecl(name_);
     if (!decl) { bad.push(`  ${name_} 를 web/style.css 에서 찾지 못했다 — 검사가 공회전한다`); continue }
@@ -179,4 +205,4 @@ if (bad.length) {
   process.exit(1);
 }
 
-console.log(`contrast ok (테마 ${names.length}종 × 토큰 ${CHECK.length + CSS_TOKENS.length}개 × 배경 3, 바닥 미달 0)`);
+console.log(`contrast ok (테마 ${names.length}종 × 토큰 ${CHECK.length + CSS_TOKENS.length + SYNTAX_TOKENS.length}개 × 배경 3, 바닥 미달 0)`);

@@ -89,33 +89,33 @@ Object.assign(App.prototype, {
       push('connection',`<span class="sb-item"><span class="sb-dot ${e(ok?'ok':'err')}"></span>${e(ok?t('statusbar.connected'):t('statusbar.disconnected'))}</span>`);
     }
     if(statusBar.latency&&this._latency!==null){
-      push('latency',`<span class="sb-item">${e(this._latency)}ms</span>`);
+      push('latency',`<span class="sb-item"><span class="mono">${e(this._latency)}ms</span></span>`);
     }
     if(statusBar.location){
       const loc=this._locationLabel();
       if(loc)push('location',`<span class="sb-item" title="${e(t('statusbar.location_title',{loc}))}">📍 ${e(loc)}</span>`);
     }
     if(statusBar.cwd){
-      push('cwd',`<span class="sb-item">📁 ${e(this._shortCwd(this.cwd||'~'))}</span>`);
+      push('cwd',`<span class="sb-item">📁 <span class="mono sb-ref">${e(this._shortCwd(this.cwd||'~'))}</span></span>`);
     }
     if(statusBar.hostname&&this._stats.hostname){
-      push('hostname',`<span class="sb-item">💻 ${e(this._stats.hostname)}</span>`);
+      push('hostname',`<span class="sb-item">💻 <span class="mono sb-ref">${e(this._stats.hostname)}</span></span>`);
     }
     if(statusBar.cpu&&this._stats.cpu!==undefined){
-      push('cpu',`<span class="sb-item">CPU ${e(this._stats.cpu)}%</span>`);
+      push('cpu',`<span class="sb-item">CPU <span class="mono">${e(this._stats.cpu)}%</span></span>`);
     }
     if(statusBar.memory&&this._stats.memTotal){
       const used=this._fmtMemSize(this._stats.memUsed);
       const total=this._fmtMemSize(this._stats.memTotal);
-      push('memory',`<span class="sb-item">MEM ${e(used)}/${e(total)}</span>`);
+      push('memory',`<span class="sb-item">MEM <span class="mono">${e(used)}/${e(total)}</span></span>`);
     }
     if(statusBar.disk&&this._stats.diskPct){
-      push('disk',`<span class="sb-item">DISK ${e(this._stats.diskPct)}%</span>`);
+      push('disk',`<span class="sb-item">DISK <span class="mono">${e(this._stats.diskPct)}%</span></span>`);
     }
     if(statusBar.termsize){
       const p=this.focusedTerminal();
       if(p&&p.term){
-        push('termsize',`<span class="sb-item">${e(p.term.cols)}×${e(p.term.rows)}</span>`);
+        push('termsize',`<span class="sb-item"><span class="mono">${e(p.term.cols)}×${e(p.term.rows)}</span></span>`);
       }
     }
     if(statusBar.uptime){
@@ -265,7 +265,13 @@ Object.assign(App.prototype, {
     const run=this._bgRun(b);
     if(run){
       const el=document.createElement('span'); el.className='bg-run';
-      el.textContent=run.role?`Run ${run.short} · ${run.role}`:`Run ${run.short}`;
+      // FR-TYP-3: 혼합 문자열은 조각으로 가른다 — `Run` 과 역할명은 사람말이고
+      // short 는 해시다. textContent 로 붙이는 것은 그대로다 (역할명은 사용자
+      // 입력이므로 innerHTML 로 올리지 않는다).
+      el.appendChild(document.createTextNode('Run '));
+      const hash=document.createElement('span'); hash.className='mono'; hash.textContent=run.short;
+      el.appendChild(hash);
+      if(run.role) el.appendChild(document.createTextNode(' · '+run.role));
       row.appendChild(el);
     }
     // FR-BGK-10: 오류는 행 안에 남는다. 종료 목표보다 앞에 두어 오른쪽 끝이 흔들리지 않는다.

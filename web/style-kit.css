@@ -61,6 +61,18 @@
 /* 채워 그리는 모양(점 등)은 획이 아니라 면이다. */
 .ui-icon-fill{fill:currentColor;stroke:none}
 
+/* ── 글꼴의 역할 (UIUX_OVERHAUL_SRS FR-TYP-1·3·4) ──────────────────────
+   **기계가 준 값**에 붙는다 — 경로·호스트·지연·치수·브랜치·해시·PID·수치.
+   사람이 읽는 말(라벨·안내·버튼)은 붙지 않는다: 한글이 고정폭으로 가면
+   자간이 벌어져 되레 읽기 어렵다 (D-1 이 전면 mono 를 버린 이유다).
+
+   혼합 문자열은 **조각으로 가른다** — `연결됨 40ms` 는 한 노드가 아니라
+   sans 노드와 이 클래스를 단 노드 둘이다 (FR-TYP-3).
+
+   **어휘는 이것 하나다.** `.path`·`.num`·`.code` 류를 새로 만들지 마라 —
+   뜻이 갈리는 것이 아니라 출처가 같다. */
+.mono{font-family:var(--mono);font-size:calc(1em * var(--mono-scale))}
+
 /* ── 버튼 (FR-UIK-3·4·5) ─────────────────────────────────────────────── */
 .ui-btn{
   display:inline-flex;align-items:center;justify-content:center;gap:5px;
