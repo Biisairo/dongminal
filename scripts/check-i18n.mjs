@@ -30,6 +30,20 @@ import * as espree from 'espree';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const KR = /[가-힣ㄱ-ㆎ]/;
+/**
+ * 이모지 판정 (UI_KIT_SRS FR-GLY-9).
+ *
+ * **글리프는 통과시키고 이모지만 잡는다.** 이 저장소는 `★`·`●`·`▸`·`✓`·`⌘` 같은
+ * 흑백 활자 글리프를 쓰고, 그것들은 `currentColor` 를 타므로 테마를 따른다.
+ * 이모지는 자기 색을 갖고 그리므로 54종 팔레트 밖에 선다 — FR-GLY-7 이 `🔔`·`🔍`
+ * 를 걷은 근거가 그것이다.
+ *
+ * 가르는 것은 **유니코드가 이미 아는 사실**이다: `Emoji_Presentation` 이면 기본이
+ * 그림이고, `U+FE0F`(variation selector-16)는 활자 글자를 그림으로 **강제**한다
+ * (`⏸️`·`⌨️` 가 그 꼴이었다). 맨몸 `⌨`·`⌃`·`⏎` 는 둘 다 아니므로 지나간다.
+ */
+const EMOJI = /\p{Emoji_Presentation}|\uFE0F/u;
+const emojiIn = (s) => (String(s).match(/\p{Emoji_Presentation}|\uFE0F/gu) || []).join('');
 const KEY_RE = /^[a-z0-9_]+(\.[a-z0-9_]+)+$/;
 
 /** 파일 단위 예외 — 통째로 지나간다. */
@@ -101,6 +115,9 @@ function checkJs(file, src) {
       if (KR.test(raw) && !isThrownError(anc) && !isSkippedProp(file, anc)) {
         say(file, n.loc.start.line, `한글 리터럴이 카탈로그 밖에 있다: ${JSON.stringify(raw).slice(0, 60)}`);
       }
+      if (EMOJI.test(raw)) {
+        say(file, n.loc.start.line, `이모지가 화면에 나간다 (FR-GLY-9): '${emojiIn(raw)}' — ${JSON.stringify(raw).slice(0, 60)}`);
+      }
       return;
     }
     anc.push(n);
@@ -138,6 +155,7 @@ function checkHtml(file, src) {
     for (const a of HTML_ATTRS) {
       const am = tag.match(new RegExp(`\\s${a}="([^"]*)"`));
       if (am && KR.test(am[1])) say(file, line, `${a} 속성의 한글: ${JSON.stringify(am[1]).slice(0, 60)}`);
+      if (am && EMOJI.test(am[1])) say(file, line, `${a} 속성의 이모지 (FR-GLY-9): '${emojiIn(am[1])}'`);
     }
   }
   // 자기 언어를 말하는 요소는 지난다 — 언어 선택지의 `한국어` 는 어느 로케일에서나 같다 (FR-B-5).
@@ -146,6 +164,7 @@ function checkHtml(file, src) {
   body = body.replace(/<[a-zA-Z/][^>]*>/g, blank);
   body.split('\n').forEach((ln, i) => {
     if (KR.test(ln)) say(file, i + 1, `텍스트 노드의 한글: ${JSON.stringify(ln.trim()).slice(0, 60)}`);
+    if (EMOJI.test(ln)) say(file, i + 1, `텍스트 노드의 이모지 (FR-GLY-9): '${emojiIn(ln)}'`);
   });
   void lines;
 }
@@ -159,6 +178,7 @@ function checkCss(file, src) {
     if (!m) return;
     const v = m[2];
     if (KR.test(v) || /[A-Za-z]{2,}/.test(v)) say(file, i + 1, `CSS content 에 문구가 있다 (FR-B-6): '${v}'`);
+    if (EMOJI.test(v)) say(file, i + 1, `CSS content 의 이모지 (FR-GLY-9): '${emojiIn(v)}'`);
   });
 }
 
@@ -179,6 +199,9 @@ function loadCatalog(file) {
         if (k in out) say(file, p.loc.start.line, `키가 겹친다: ${k}`);
         if (!KEY_RE.test(k)) say(file, p.loc.start.line, `키 형식이 규약 밖이다: ${k}`);
         if (!(p.value.type === 'Literal' && typeof p.value.value === 'string')) say(file, p.loc.start.line, `값은 문자열 리터럴이어야 한다: ${k}`);
+        if (EMOJI.test(String(p.value.value))) {
+          say(file, p.loc.start.line, `이모지가 문구에 있다 (FR-GLY-9): ${k} = '${emojiIn(p.value.value)}'`);
+        }
         out[k] = p.value.value;
       }
       return;

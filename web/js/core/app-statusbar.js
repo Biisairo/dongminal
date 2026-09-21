@@ -115,15 +115,24 @@ Object.assign(App.prototype, {
     if(statusBar.latency&&this._latency!==null){
       push('latency',`<span class="sb-item"><span class="mono">${e(this._latency)}ms</span></span>`);
     }
+    /**
+     * UI_KIT_SRS FR-GLY-9: **이모지를 쓰지 않는다.** 종전에는 세 지표가
+     * `📍`·`📁`·`💻` 를 라벨로 달았다 — 그 셋은 **테마 색을 따르지 않는** 유일한
+     * 화면 요소였고(FR-GLY-7 이 같은 이유로 `🔔`·`🔍` 를 걷었다), 이 줄의 나머지
+     * 지표는 이미 `CPU`·`MEM` 처럼 **낱말**이거나 값만 낸다.
+     *
+     * 무엇인지는 `title` 이 말한다 — 설정의 지표 이름을 그대로 쓴다. 새 문구를
+     * 만들면 같은 것을 두 벌로 적게 된다.
+     */
     if(statusBar.location){
       const loc=this._locationLabel();
-      if(loc)push('location',`<span class="sb-item" title="${e(t('statusbar.location_title',{loc}))}">📍 ${e(loc)}</span>`);
+      if(loc)push('location',`<span class="sb-item" title="${e(t('statusbar.location_title',{loc}))}">${e(loc)}</span>`);
     }
     if(statusBar.cwd){
-      push('cwd',`<span class="sb-item">📁 <span class="mono sb-ref">${e(this._shortCwd(this.cwd||'~'))}</span></span>`);
+      push('cwd',`<span class="sb-item" title="${e(t('statusbar.cwd'))}"><span class="mono sb-ref">${e(this._shortCwd(this.cwd||'~'))}</span></span>`);
     }
     if(statusBar.hostname&&this._stats.hostname){
-      push('hostname',`<span class="sb-item">💻 <span class="mono sb-ref">${e(this._stats.hostname)}</span></span>`);
+      push('hostname',`<span class="sb-item" title="${e(t('statusbar.hostname'))}"><span class="mono sb-ref">${e(this._stats.hostname)}</span></span>`);
     }
     if(statusBar.cpu&&this._stats.cpu!==undefined){
       push('cpu',`<span class="sb-item">CPU <span class="mono">${e(this._stats.cpu)}%</span></span>`);
