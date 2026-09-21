@@ -358,3 +358,4 @@ TC-SAF-8·TC-SAF-10 은 지금 코드에서 실제로 실패하는 것을 확인
 |---|---|
 | 2026-09-20 | 초안. 감사 1단계(214건) 중 "실패가 성공으로 보이는" 일곱 자리를 묶음 B1 로 분리 |
 | 2026-09-20 | 구현 완료. 일곱 묶음 전부 RED→GREEN. 검증: `go test -race -shuffle=on ./...` 45패키지 · `npm run unit` 248건 · `make gates` 33종 · `npm run typecheck` · **e2e 전량 1,725건 통과(실패 0 · flaky 0)**. 감사 제안 둘(`jsonFail` 축소 · `failRead` 이동)은 코드 확인 후 기각하고 근거를 FR-SAF-12·13 에 남겼다 |
+| 2026-09-21 | **TC-SAF-12 의 검사가 darwin 에서만 돌 수 있었다** (CI windows 가 잡았다). `status_truncate_test.go` 가 cwd 로 `"/repo"` 를 박았는데 `core/exec.go` 의 가드는 `filepath.IsAbs` 로 재고 **Windows 에서 `/repo` 는 절대 경로가 아니다** — 두 검사가 `unsafe_argument` 로 졌다. 러너는 가짜라 그 경로를 쓰지도 않는다. 이 패키지의 관용구인 `t.TempDir()` 로 바꿨다 (`operation_test.go` 등 20여 자리와 같다). **제품 코드는 바뀌지 않았다.** §3-4 와 같은 모양이다 — RED 를 한 판에서만 봤다 |

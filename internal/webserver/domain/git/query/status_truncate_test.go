@@ -52,7 +52,7 @@ func TestStatusOf_TruncatedOutputIsCarriedNotFatal(t *testing.T) {
 	full := porcelainRecords(5)
 	cut := full[:len(full)-6]
 
-	st, err := StatusOf(svcWith(truncRunner(cut, true)), context.Background(), "/repo")
+	st, err := StatusOf(svcWith(truncRunner(cut, true)), context.Background(), t.TempDir())
 	if err != nil {
 		t.Fatalf("잘림이 오류가 됐다 — status 는 실패로 끝낼 수 없는 표면이다 (D-SAF-2): %v", err)
 	}
@@ -69,7 +69,7 @@ func TestStatusOf_TruncatedOutputIsCarriedNotFatal(t *testing.T) {
 
 // 잘리지 않은 출력은 종전 그대로다 (회귀 방지).
 func TestStatusOf_UntruncatedIsUnchanged(t *testing.T) {
-	st, err := StatusOf(svcWith(truncRunner(porcelainRecords(3), false)), context.Background(), "/repo")
+	st, err := StatusOf(svcWith(truncRunner(porcelainRecords(3), false)), context.Background(), t.TempDir())
 	if err != nil {
 		t.Fatalf("StatusOf: %v", err)
 	}

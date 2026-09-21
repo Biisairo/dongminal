@@ -111,13 +111,19 @@ Object.assign(GitHistory.prototype, {
     // 목록이 비었으면 사실을 알린다 — 빈 화면은 실패와 구분되지 않는다.
     let empty=this._el.querySelector('.git-hist-empty');
     const showEmpty=!items.length&&!this._loading&&!this._err;
-    if(showEmpty&&!empty){
-      empty=document.createElement('div'); empty.className='ui-empty git-hist-empty';
+    if(showEmpty){
+      if(!empty){
+        empty=document.createElement('div'); empty.className='ui-empty git-hist-empty';
+        list.appendChild(empty);
+      }
       // FR-GDT-21: 커밋이 아직 없는 것과 필터에 걸리는 것이 없는 것은 **다른
       // 사실**이다. 서버가 그 둘을 가른다.
+      //
+      // **회차마다 다시 쓴다.** 만들 때만 쓰면 `_initial` 이 오기 전에 그린
+      // 회차의 문구가 그대로 남는다 — 첫 그리기가 응답보다 빠른 기계에서만
+      // 나므로 darwin 은 늘 초록이었다 (FR-GDT-21, CI windows).
       empty.textContent=this._initial?GIT_HIST_NO_COMMITS:GIT_HIST_EMPTY;
-      list.appendChild(empty);
-    }else if(!showEmpty&&empty) empty.remove();
+    }else if(empty) empty.remove();
   },
 
   _uncEl(){
