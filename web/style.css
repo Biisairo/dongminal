@@ -593,9 +593,17 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
 .sp[data-d="vertical"]>.sh::before{content:'';position:absolute;left:0;right:0;top:-6px;bottom:-6px}
 
 /* ── Pane (분할 칸) ── */
-.pn{display:flex;flex-direction:column;position:absolute;inset:0;border:2px solid transparent}
-.pn.focused{border-color:var(--accent)}
-.pn.focused .pn-tabs{border-bottom-color:var(--accent)}
+/* UIUX_OVERHAUL_SRS FR-HIE-2: 포커스는 **한 변**으로 말한다.
+     이전 동작: `.pn` 이 4변을 2px accent 로 감쌌다 — 터미널 내용을 둘러싼 색
+               테두리가 내용과 대비를 다퉜고(§2.3), 그 자리를 늘 비워 두느라
+               칸마다 가로·세로 4px 을 잃었다
+     새  동작: 탭줄의 아랫변 하나가 그 일을 한다. `.pn` 의 빈 테두리를 걷는다
+     이유:     §3.3 원칙 3 — accent 는 "지금 어디" 에만이고 한 번 말하면 된다.
+               터미널 면적은 껍데기의 예산에서 나온다 (원칙 1)
+   두께는 `box-shadow` 로 준다 — `border-bottom` 을 키우면 포커스가 옮길 때마다
+   탭줄이 자라 그 아래 터미널이 다시 눕는다. */
+.pn{display:flex;flex-direction:column;position:absolute;inset:0}
+.pn.focused .pn-tabs{border-bottom-color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
 
 .pn-tabs{
   height:28px;min-height:28px;display:flex;align-items:stretch;
@@ -696,10 +704,10 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
    두께가 **위 2px · 왼쪽 3px · 아래 4px** 로 어긋나 모서리가 우그러져 보였다 (§2.4).
    겹 하나로 그리면 어느 면에서나 같은 두께이고, 겹에는 내용이 없으므로 맥박을
    opacity 로 줄 수 있다 (D-5). */
-/* FR-ATV-2: 링은 요소의 `border` **안쪽**에 앉는다. 개정 전에는 `inset:-2px` 로
-   테두리 자리를 통째로 덮어, 포커스(2px `border`)와 알람이 같은 픽셀을 다퉜다 —
-   알람이 있는 칸에서 포커스가 보이지 않던 자리다 (B5). 안쪽으로 한 겹 물리면
-   포커스가 바깥에, 알람이 그 안에 나란히 선다. */
+/* FR-ATV-2: 링은 칸의 가장자리에 앉는다. 개정 전에는 포커스(2px `border`)와
+   알람이 같은 픽셀을 다퉈 알람이 있는 칸에서 포커스가 보이지 않았고(B5), 그래서
+   링을 테두리 **안쪽**으로 한 겹 물렸다. FR-HIE-2 가 그 테두리를 걷었으므로
+   다툴 픽셀이 없다 — 포커스는 탭줄에 있고 이 링은 가장자리를 홀로 쓴다. */
 .pn.attn::after{
   content:'';position:absolute;inset:0;z-index:var(--z-overlay);pointer-events:none;
   box-shadow:inset 0 0 0 3px var(--attn),0 0 12px -1px var(--attn-glow);
