@@ -185,6 +185,15 @@
      값이 여기 하나인 것이 요구다: 세 자리가 각자 44 를 적고 있었고, 그렇게
      흩어진 값은 하나를 고칠 때 나머지가 남는다. */
   --touch-min:44px;
+  /* UIUX_OVERHAUL_SRS FR-HIE-3: 행 높이는 **3단**이고 그 위는 없다.
+       --row-dense  조밀 — 탐색기. 한 화면에 많이 담는 것이 그 목록의 일이다
+       --row        표준 — 목록. 사이드바·git·Runs·Background 가 같은 눈높이다
+       --touch-min  터치 — 모바일 (위 FR-A11Y-27)
+     값이 여기 있는 것이 요구다. `--touch-min` 이 세 자리에 흩어져 있던 것과
+     같은 이유이고, 30px 은 `--git-row-min` 과 `.sbl-item` 두 벌로 이미 갈려
+     있었다 — 단이 이름을 가져야 다음 목록이 숫자를 새로 짓지 않는다. */
+  --row-dense:22px;
+  --row:30px;
   /* 키바의 높이. 버튼 44 + 위아래 여백 4 (E-3: 폭은 면제, 세로는 받는다). */
   --m-kb-h:52px;
   /* SIDEBAR_COLLAPSE_SRS FR-SBC-2: 접힌 사이드바(아이콘 레일)의 폭. 펼침 폭
@@ -245,7 +254,7 @@ textarea,
    (x 의 hover 배경이 서로 달랐고 gap 도 달랐다).
    기준은 WINDOWS 목록의 값이다. */
 .sbl-list{--sbl-hit:30px}
-.sbl-item{display:flex;align-items:center;gap:8px;height:30px;padding:0 10px;font-size:var(--fs-md);cursor:pointer;transition:background .1s}
+.sbl-item{display:flex;align-items:center;gap:8px;height:var(--row);padding:0 10px;font-size:var(--fs-md);cursor:pointer;transition:background .1s}
 .sbl-item:focus-visible{outline:1px solid var(--focus-ring);outline-offset:-1px}
 .sbl-item:hover{background:var(--accent-hover)}
 .sbl-item.active{background:var(--accent-active)}

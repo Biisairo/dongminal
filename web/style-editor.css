@@ -144,10 +144,10 @@ body.mobile .ed-side{flex:1 1 auto;max-width:none;width:auto}
 .ed-tree:focus-visible .ed-row.sel{outline:1px solid var(--focus-ring);outline-offset:-1px}
 .ed-row{
   display:flex;align-items:center;gap:4px;
-  height:22px;font-size:var(--fs-md);cursor:pointer;white-space:nowrap;
+  height:var(--row-dense);font-size:var(--fs-md);cursor:pointer;white-space:nowrap;
 }
-/* FR-A11Y-27: 손가락으로 짚는 행이다. 데스크톱의 22px 은 그대로 둔다 —
-   하한은 터치 입력의 것이다. */
+/* FR-A11Y-27: 손가락으로 짚는 행이다. 데스크톱의 조밀 단은 그대로 둔다 —
+   하한은 터치 입력의 것이다 (FR-HIE-3 의 셋째 단). */
 body.mobile .ed-row{height:var(--touch-min)}
 .ed-row:hover{background:var(--accent-hover)}
 .ed-row.sel{background:var(--accent-active)}
@@ -156,6 +156,17 @@ body.mobile .ed-row{height:var(--touch-min)}
 .ed-tw{flex:0 0 10px;text-align:center;font-size:var(--fs-xs);color:var(--text-muted)}
 .ed-name{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--text)}
 .ed-row.ed-dir .ed-name{color:var(--text-bright)}
+/* UIUX_OVERHAUL_SRS FR-HIE-5: 타입 단서가 10px 삼각형 **하나**에 실려 있었다
+   (기준선 02). `--text-bright` 와 `--text` 는 테마에 따라 거의 같은 값이라
+   (Tokyo Night `#c0caf5` vs `#a9b1d6`) 둘째 채널로 세지 않는다 — 폴더만 있는
+   목록에서는 아예 보이지 않는다.
+
+   접미 `/` 는 `ls -F` 의 문법이다. §3.1 — 껍데기는 터미널과 같은 문법으로
+   말한다. 마크업이 아니라 `::after` 인 것이 요점이다: 이름을 읽는 쪽
+   (`.ed-name` 의 textContent, 이름 변경 입력)은 `/` 를 보지 않는다.
+   링크는 `.ed-dir` 이 아니므로 붙지 않는다 — 그쪽은 `.ed-mark` 가 `ls -F` 의
+   `@` 를 이미 하고 있다 (FR-EDT-60). */
+.ed-row.ed-dir .ed-name::after{content:'/';color:var(--text-hint)}
 /* FR-EDT-60: 링크는 따라가지 않는다는 사실을 표시가 알린다. */
 .ed-mark{flex:0 0 auto;font-size:var(--fs-sm);color:var(--text-muted)}
 /* FR-EDT-63: 조회 실패는 그 폴더 행에만 남는다 — 트리는 그대로 산다. */
