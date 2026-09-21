@@ -1106,6 +1106,8 @@ I18N.register('en', {
   'statusbar.connection': 'Connection',
   'statusbar.cwd': 'Current directory',
   'statusbar.disconnected': 'Disconnected',
+  'statusbar.fold_less': 'Collapse indicators',
+  'statusbar.fold_more': 'Show more indicators',
   'statusbar.disk': 'Disk',
   'statusbar.hostname': 'Hostname',
   'statusbar.latency': 'Latency',
@@ -1114,8 +1116,8 @@ I18N.register('en', {
   'statusbar.memory': 'Memory',
   'statusbar.termsize': 'Terminal size',
   'statusbar.uptime': 'Uptime',
-  'statusbar.uptime_srv': 'server {v}',
-  'statusbar.uptime_sys': 'system {v}',
+  'statusbar.uptime_srv': 'server',
+  'statusbar.uptime_sys': 'system',
   'statusbar.cpu': 'CPU',
 
   // ── term ──

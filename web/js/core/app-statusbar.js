@@ -16,6 +16,7 @@ Object.assign(App.prototype, {
     // 지표 재생성(updateStatusBar) 주기에 종속되면 안 된다.
     const bgBtn=document.getElementById('bg-btn');
     if(bgBtn) bgBtn.addEventListener('click',e=>{e.stopPropagation();this._bgModalToggle()});
+    this._initStatusBarFold();
     this._initStatusBarReflow();
     // FR-BGK-3/4/10: 인라인 확인·진행·오류는 **데이터**로 산다. 모달은 _bgRefresh
     // 마다 통째로 다시 그려지므로, 요소에 붙인 상태는 다시 그리기가 버린다
@@ -119,10 +120,28 @@ Object.assign(App.prototype, {
       }
     }
     if(statusBar.uptime){
-      const parts=[];
-      if(this._stats.sysUptime)parts.push(t('statusbar.uptime_sys',{v:this._stats.sysUptime}));
-      if(this._stats.srvUptime)parts.push(t('statusbar.uptime_srv',{v:this._stats.srvUptime}));
-      if(parts.length)push('uptime',`<span class="sb-item">↑ ${e(parts.join(' │ '))}</span>`);
+      // FR-TYP-3: 사람말과 기계값이 한 문자열로 섞여 있어 M1 이 이 줄만 남겼다 —
+      // `'시스템 {v}'` 안에서는 `1d 21h` 를 꺼낼 수 없다. 템플릿을 **라벨만**으로
+      // 가르고 값은 `.mono` 로 나른다. 이웃 지표(CPU·MEM·DISK)와 같은 모양이다.
+      //
+      // **조각을 문자열로 잇지 않는다** (02-fe-arch 의 P0): 마크업이 든 조각을
+      // `join` 하면 그 `${…}` 는 이스케이프로 시작하지 않고, 게이트는 예외를 두지
+      // 않는다. 여기는 DOM 으로 세운다 — `reconcileList` 가 `el` 을 받는다.
+      const el=document.createElement('span'); el.className='sb-item';
+      el.appendChild(document.createTextNode('↑ '));
+      const seg=(k,v)=>{
+        // `.sb-sep` 는 이 자리를 위해 있던 규칙이고 아무도 쓰지 않고 있었다.
+        if(el.childNodes.length>1){
+          const sep=document.createElement('span'); sep.className='sb-sep'; sep.textContent='│';
+          el.appendChild(sep);
+        }
+        el.appendChild(document.createTextNode(t(k)+' '));
+        const m=document.createElement('span'); m.className='mono'; m.textContent=v;
+        el.appendChild(m);
+      };
+      if(this._stats.sysUptime)seg('statusbar.uptime_sys',this._stats.sysUptime);
+      if(this._stats.srvUptime)seg('statusbar.uptime_srv',this._stats.srvUptime);
+      if(el.childNodes.length>1)items.push({k:'uptime',el});
     }
     // **상태바에 git 표면은 없다.** 브랜치 chip 은 FR-FLW-12 가, 진행 중 원격 작업
     // chip 은 U-19 ①(FR-GIT-112 철회)이 없앴다 — 둘 다 사용자 판정이다.
@@ -138,6 +157,13 @@ Object.assign(App.prototype, {
         return t.content.firstElementChild;
       },
     });
+    // FR-HIE-4: 순위를 행에 싣는다. `reconcileList` 가 키를 `dataset.rkey` 로
+    // 남기므로(repaint.js) 그것을 표에 대어 보면 된다 — 마크업에 순위를 적지 않는다.
+    for(const el of bar.children){
+      const pri=STATUSBAR_PRI[el.dataset.rkey];
+      if(pri) el.dataset.pri=String(pri);
+    }
+    this._foldStatusBar();
     this._updateBgBtn();
   },
 
@@ -149,9 +175,15 @@ Object.assign(App.prototype, {
   _initStatusBarReflow(){
     const bar=document.getElementById('status-bar');
     if(!bar||typeof ResizeObserver==='undefined')return;
-    let h=null;
+    let h=null,w=null;
     this._sbRo=new ResizeObserver(es=>{
-      const nh=es[es.length-1].contentRect.height;
+      const r=es[es.length-1].contentRect;
+      const nh=r.height,nw=r.width;
+      // FR-HIE-4: 폭이 바뀌면 접힘을 다시 잰다. 높이보다 먼저 보는 것은, 접는
+      // 일이 높이를 바꾸어 아래 분기를 스스로 부르기 때문이다 — 순서가 반대면
+      // 한 프레임 늦게 맞춘다. 접힘은 멱등이라 되먹임이 돌지 않는다.
+      if(w!==null&&Math.abs(nw-w)>=0.5) this._foldStatusBar();
+      w=nw;
       // 첫 관측은 지금 높이를 적어 두는 일일 뿐이다 — 변한 것이 없다.
       if(h===null){h=nh;return}
       if(Math.abs(nh-h)<0.5)return;

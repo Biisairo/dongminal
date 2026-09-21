@@ -1085,6 +1085,29 @@ body.mobile .tp-ov-acts .ui-btn{padding:0 14px}
 .sb-dot.ok{background:var(--term-green)}
 .sb-dot.err{background:var(--danger)}
 .sb-sep{color:var(--border-weak);margin:0 2px}
+/* UIUX_OVERHAUL_SRS FR-HIE-4 (개정): 모바일에서만 접는다.
+     이전 동작: 390px 에서 지표가 3줄로 넘쳐 터미널 세로를 50px 가까이 먹었다
+               (§2.6 · 기준선 06)
+     새  동작: 모바일은 한 줄이다. 넘치는 만큼 낮은 순위부터 숨고, 눌러서 펼치면
+               종전의 줄바꿈으로 돌아간다
+     이유:     사용자 결정 2026-09-21. `STATUS_BAR_REFLOW_SRS` FR-SBR-1·3 의
+               *"2줄 3줄로 표시"* 는 데스크톱의 요구였고 그쪽은 손대지 않는다
+   `nowrap` 이라야 `scrollWidth` 가 넘친 폭을 말한다 — 줄을 넘기면 그 값이
+   컨테이너 폭과 같아져 JS 가 넘침을 볼 수 없다. */
+body.mobile #sb-items{flex-wrap:nowrap}
+body.mobile .status-bar.sb-expanded #sb-items{flex-wrap:wrap}
+.sb-hidden{display:none}
+/* 접혔다는 사실과 펼치는 길을 꺾쇠 하나가 말한다. **버튼을 두지 않는다** —
+   `body.mobile .ui-btn` 의 44px 하한(NFR-3)이 22px 짜리 바를 49px 로 키워
+   접기로 아낀 30px 을 그대로 토해낸다 (실측). 이 요구가 존재하는 이유가 그
+   30px 이다. 글리프는 높이를 요구하지 않고, 누르는 대상은 바 전체다. */
+body.mobile .status-bar.sb-folded,body.mobile .status-bar.sb-expanded{cursor:pointer}
+body.mobile .status-bar.sb-folded::after,
+body.mobile .status-bar.sb-expanded::after{
+  flex:0 0 auto;padding:0 2px;color:var(--text-hint);line-height:16px;
+}
+body.mobile .status-bar.sb-folded::after{content:'⌃'}
+body.mobile .status-bar.sb-expanded::after{content:'⌄'}
 
 /* ── Status Bar Settings ── */
 /* FR-UIK-13: 스크롤은 `.modal-body` 하나다 (종전 `max-height:60vh` 를 걷었다) —

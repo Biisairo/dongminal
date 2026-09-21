@@ -1125,6 +1125,8 @@ I18N.register('ko', {
   'statusbar.connection': '연결 상태',
   'statusbar.cwd': '현재 디렉토리',
   'statusbar.disconnected': '끊김',
+  'statusbar.fold_less': '지표 접기',
+  'statusbar.fold_more': '지표 더 보기',
   'statusbar.disk': '디스크',
   'statusbar.hostname': '호스트명',
   'statusbar.latency': '레이턴시',
@@ -1133,8 +1135,8 @@ I18N.register('ko', {
   'statusbar.memory': '메모리',
   'statusbar.termsize': '터미널 크기',
   'statusbar.uptime': '업타임',
-  'statusbar.uptime_srv': '서버 {v}',
-  'statusbar.uptime_sys': '시스템 {v}',
+  'statusbar.uptime_srv': '서버',
+  'statusbar.uptime_sys': '시스템',
   'statusbar.cpu': 'CPU',
 
   // ── term ──
