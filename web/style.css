@@ -753,7 +753,15 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .ag-card.drag-above{box-shadow:inset 0 2px 0 var(--accent)}
 .ag-card.drag-below{box-shadow:inset 0 -2px 0 var(--accent)}
 .ag-loc{font-size:var(--fs-sm);color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ag-state{font-size:var(--fs-md);color:var(--text-bright);margin-top:2px}
+/* UIUX_OVERHAUL_SRS FR-ACT-6: 항목은 패널 폭 안에서 잘린다.
+     이전 동작: 카드 세 줄 중 이 줄만 말줄임이 없어, 긴 도구 이름
+               (`mcp__plugin_playwright_playwright_browser_take_screenshot`)이
+               줄바꿈도 되지 않고(끊을 자리가 없는 한 낱말이다) 패널을 가로로
+               밀었다 — 실측 `scrollWidth` 433 vs `clientWidth` 259 (기준선 04)
+     새  동작: `.ag-loc`·`.ag-detail` 과 같은 말줄임. 패널은 가로로 스크롤되지 않는다
+     이유:     도킹 패널의 폭은 사용자가 정한다. 그 폭을 내용이 뒤집으면 폭이 아니다 */
+.ag-state{font-size:var(--fs-md);color:var(--text-bright);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* UIUX_OVERHAUL_SRS FR-SEM-1 · 원칙 3: **working 은 green 이다.**
    종전 `--accent-text` 는 "지금 어디" 의 색을 상태에 빌려 쓴 것이었다 —
    그래서 포커스된 칸과 일하는 에이전트가 같은 색으로 경쟁했다.
