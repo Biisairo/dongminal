@@ -7319,6 +7319,138 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:history|div.git-hist-row.head": {
+  "display": "flex",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
+ "git:history|span.git-hist-graph": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:history|line": {
+  "display": "inline",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|span.git-hist-msg": {
+  "display": "flex",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
+ "git:history|span.git-hist-badge.head.local": {
+  "display": "block",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
+ "git:history|span.git-hist-subject": {
+  "display": "block",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
+ "git:history|span.git-hist-author": {
+  "display": "block",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
+ "git:history|span.git-hist-date": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:history|span.git-hist-hash": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:history|div.git-hist-row": {
+  "display": "flex",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
+ "git:history|span.git-hist-badge.local": {
+  "display": "block",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
+ "git:history|span.git-hist-badge.remote": {
+  "display": "block",
+  "overflowX": "hidden",
+  "overflowY": "hidden",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto",
+  "clippedY": false,
+  "clippedX": false,
+  "scrollsY": false
+ },
  "git:history|div.git-hist-sp-bot": {
   "display": "block",
   "overflowX": "visible",
