@@ -24,16 +24,10 @@ const SKELETONS: {
     open: async (p) => { await p.evaluate(() => { void (window as any).app.testing.confirmClose('트랩 검사') }) },
     close: async (p) => { await p.click('.confirm-overlay .confirm-cancel') },
   },
-  {
-    name: '백그라운드', box: '#bg-modal .bg-box', opener: '#bg-btn',
-    open: async (p) => { await p.click('#bg-btn') },
-    close: async (p) => { await p.keyboard.press('Escape') },
-  },
-  {
-    name: 'Runs', box: '#runs-modal .runs-box', opener: '#runs-btn',
-    open: async (p) => { await p.click('#runs-btn') },
-    close: async (p) => { await p.keyboard.press('Escape') },
-  },
+  // UIUX_OVERHAUL_SRS FR-ACT-2: **백그라운드와 Runs 가 이 목록을 떠났다.** 둘은
+  // 더 이상 모달이 아니라 활동 패널의 구역이므로 포커스 트랩·백드롭·Escape 의
+  // 계약 대상이 아니다 — 되돌릴 것이 없는 조회가 앱을 막지 않는다는 것이 그
+  // 요구다. 그 둘의 검증은 `background-ui.spec.ts`·`runs.spec.ts` 로 갔다.
   {
     name: 'git 확인창', box: '#git-confirm .gc-box', opener: '#settings-btn',
     open: async (p) => { await p.evaluate(() => {

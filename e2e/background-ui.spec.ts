@@ -231,43 +231,43 @@ test.describe('FR-SBR-8..13: 백그라운드 진입점', () => {
   });
 });
 
-test.describe('FR-BGU-6..8: 백그라운드 목록 모달', () => {
-  test('TC-BGU-7: 목록이 뷰포트 중앙 모달로 열린다', async ({ page, request }) => {
+/**
+ * FR-BGU-6..8 (**UIUX_OVERHAUL_SRS FR-ACT-1·2 로 개정**): 목록은 모달이 아니라
+ * 활동 패널의 백그라운드 구역이다.
+ *
+ * 사라진 검증 둘과 그 이유:
+ *   TC-BGU-7 "뷰포트 중앙 모달로 열린다" — 중앙에 뜨는 것이 결함이었다 (§2.5).
+ *     도킹 패널은 중앙에 뜨지 않으므로 이 문장은 뒤집힌 채로 남길 수 없다.
+ *     그 자리를 **"차단하지 않는다"** 가 대신한다 (아래 TC-ACT-2).
+ *   TC-BGU-8 "Esc 와 배경 클릭으로 닫힌다" — 백드롭이 있을 때만 성립한다.
+ *     패널에는 배경이 없고, 닫는 길은 진입점 토글과 패널의 닫기다.
+ */
+test.describe('FR-BGU-6..8 (FR-ACT-1·2 개정): 백그라운드 구역', () => {
+  test('TC-ACT-2: 목록이 앱을 막지 않는다 — 백드롭이 없다', async ({ page, request }) => {
     await waitForInit(page);
     await makeBackgroundTool(page, request);
 
     await page.click('#bg-btn');
-    const modal = page.locator('#bg-modal .bg-box');
-    await expect(modal).toBeVisible();
-
-    const off = await page.evaluate(() => {
-      const b = document.querySelector('#bg-modal .bg-box')!.getBoundingClientRect();
-      return {
-        dx: Math.abs((b.left + b.right) / 2 - window.innerWidth / 2),
-        dy: Math.abs((b.top + b.bottom) / 2 - window.innerHeight / 2),
-      };
-    });
-    expect(off.dx).toBeLessThanOrEqual(2);
-    expect(off.dy).toBeLessThanOrEqual(2);
+    await expect(page.locator('#agents-panel.open .ag-sec[data-sec="bg"]')).toBeVisible();
+    // 조회 경로에 **보이는** 오버레이가 없다 (FR-ACT-2 · §9 의 검증 항목).
+    // `#modal-overlay` 는 설정의 것으로 항상 DOM 에 있고 숨어 있다 — 세는 것은
+    // 존재가 아니라 화면을 덮었는가다.
+    expect(await page.locator('.ui-modal:visible').count(), '조회가 백드롭을 띄웠다').toBe(0);
+    // 막지 않는다는 것은 터미널이 그대로 닿는다는 뜻이다.
+    await expect(page.locator('#area .pn.focused .xterm-helper-textarea')).toBeVisible();
   });
 
-  test('TC-BGU-8: Esc 와 배경 클릭으로 닫힌다', async ({ page, request }) => {
+  test('TC-ACT-4: 진입점을 다시 누르면 닫힌다 — 토글이던 것은 토글로 남는다', async ({ page, request }) => {
     await waitForInit(page);
     await makeBackgroundTool(page, request);
 
     await page.click('#bg-btn');
-    await expect(page.locator('#bg-modal')).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(page.locator('#bg-modal')).toHaveCount(0);
-
+    await expect(page.locator('#agents-panel.open')).toBeVisible();
     await page.click('#bg-btn');
-    await expect(page.locator('#bg-modal')).toBeVisible();
-    // 오버레이 자체(중앙 박스 밖)를 클릭한다.
-    await page.locator('#bg-modal').click({ position: { x: 5, y: 5 } });
-    await expect(page.locator('#bg-modal')).toHaveCount(0);
+    await expect(page.locator('#agents-panel.open')).toHaveCount(0);
   });
 
-  test('TC-BGU-9b: 모달 항목 클릭 시 현재 Pane 새 탭으로 복귀한다', async ({ page, request }) => {
+  test('TC-BGU-9b: 구역의 항목을 누르면 현재 Pane 새 탭으로 복귀한다', async ({ page, request }) => {
     await waitForInit(page);
     const toolId = await makeBackgroundTool(page, request);
 
@@ -286,7 +286,7 @@ test.describe('FR-BGU-6..8: 백그라운드 목록 모달', () => {
     const tabsBefore = await focusedTabCount();
 
     await page.click('#bg-btn');
-    await page.locator(`#bg-modal .bg-row[data-toolid="${toolId}"]`).click();
+    await page.locator(`#agents-panel .bg-row[data-toolid="${toolId}"]`).click();
 
     // 배리어는 클라이언트 상태여야 한다. _restoreTool 은 서버의 백그라운드
     // 해제를 먼저 await 하고 그 뒤에 탭을 넣으므로, /api/tools/background 로
@@ -298,6 +298,7 @@ test.describe('FR-BGU-6..8: 백그라운드 목록 모달', () => {
     const bg = await (await request.get('/api/tools/background')).json();
     expect((bg.background || []).some((b: any) => b.toolId === toolId),
       '탭은 복귀했는데 백그라운드 목록에 남아 있다').toBe(false);
-    await expect(page.locator('#bg-modal')).toHaveCount(0);
+    // FR-ACT-2: 조회는 남의 동작에 닫히지 않는다 — 행만 빠지고 패널은 산다.
+    await expect(page.locator('#agents-panel.open')).toBeVisible();
   });
 });

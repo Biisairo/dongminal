@@ -1027,6 +1027,12 @@ I18N.register('ko', {
   'poll.stats.hint': '하단 상태바의 CPU·메모리·지연',
   'poll.stats.label': '시스템 통계',
 
+  // ── panel (UIUX_OVERHAUL_SRS FR-ACT-1) ──
+  'panel.act_title': '활동 — 주의·에이전트·백그라운드·Run',
+  'panel.attn_empty': '주의를 기다리는 도구가 없습니다 — 에이전트가 입력을 기다리면 여기 섭니다',
+  'panel.sec_agents': '에이전트',
+  'panel.sec_attn': '주의',
+
   // ── presets ──
   'presets.default_name': '프리셋 {n}',
   'presets.empty': '저장된 프리셋이 없습니다 — 아래 현재 레이아웃 저장을 누릅니다',

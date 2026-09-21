@@ -22,8 +22,8 @@
 
 // 대시보드가 다루는 문자열. 한 자리에 모아 둔다 — e2e 가 같은 값을 본다.
 const RUN_GONE_TEXT = t('runs.gone');
-const RUN_EMPTY_TEXT = t('runs.empty');
-const RUN_EMPTY_HINT = t('runs.empty_hint');
+// 빈 목록의 두 줄은 이제 구역이 갖는다 (`app-activity.js` 의 `ACTIVITY_SECTIONS`) —
+// 모달의 머리·빈 안내가 사라지면서 이 자리도 함께 나갔다 (FR-ACT-1).
 // 조정자는 멤버가 아니므로 uuid 가 없다. 서버가 쓰는 것과 같은 문자열이다.
 const RUN_COORD = 'coordinator';
 // FR-RVZ-12: "최근 통신" 의 경계. 서버 시각은 Unix **초**다 (run/store.go 의 now()).
@@ -69,24 +69,22 @@ class RunsPanel {
 
 Object.assign(RunsPanel.prototype, {
 
-  // ── 진입점과 목록 모달 (FR-RVZ-1~4) ──
+  // ── 진입점과 목록 (FR-RVZ-1~4 · UIUX_OVERHAUL_SRS FR-ACT-1~2 로 개정) ──
 
-  // FR-RVZ-1: 상단바 [Runs]. 배경 클릭·Escape 로 닫히고 오버레이 자신이 대상일
-  // 때만 닫는다 — 백그라운드 도구 모달(FR-BGU-7)과 **같은 상호작용 규약**이다.
+  /**
+   * FR-RVZ-1 (개정): 진입점은 **패널의 Run 구역**을 연다.
+   *
+   * 중앙 차단 모달이 사라졌다 (FR-ACT-2) — 되돌릴 것이 없는 조회가 백드롭으로
+   * 앱 전체를 막을 이유가 없다 (§3.3 원칙 4). 목록이 그리던 행은 그대로다:
+   * 합친 것은 표면이고 정보가 아니다 (FR-ACT-1).
+   *
+   * 이름은 그대로 둔다 — 부르는 자리가 다섯이고(`app.js` 의 `runsToggle` ·
+   * 상단바 · 모바일 드로어 · 행 클릭 · e2e) 이름을 바꾸는 것은 이 변경이 아니다.
+   */
   _runsModalToggle(open) {
-    const wasOpen = this._runsModalOpen;
-    this._runsModalOpen = (open === undefined) ? !this._runsModalOpen : !!open;
-    if (this._runsModalOpen) {
-      // FR-KIT-24: 돌아갈 자리는 **여는 순간**에 잡는다 (`bg-modal` 과 같은 이유).
-      if (!wasOpen) this._runsReturnTo = document.activeElement;
-      this._runsRefresh(); this._runsModalRender(); return
-    }
-    if (this._runsDlgRelease) { this._runsDlgRelease(); this._runsDlgRelease = null }
-    // FR-DEL-4: 모달이 닫히면 확인도 취소된다 (FR-BGK-5 와 같은 규약). 진행 중인
-    // 삭제는 남는다 — 요청은 이미 떠났고, 응답이 목록을 정리한다.
+    if (open === false) return;              // 조회는 남의 동작에 닫히지 않는다
     this._runsErr = null; this._runsConfirm = null; this._runsDelErr = null;
-    const el = document.getElementById('runs-modal'); if (el) el.remove();
-    if (this._runsModalKey) { document.removeEventListener('keydown', this._runsModalKey); this._runsModalKey = null }
+    this.app.actPanelOpen('runs');
   },
 
   // FR-RVZ-3: 목록은 GET /api/runs 다. 대시보드가 쓰는 /graph 와 다른 종단이며,
@@ -98,61 +96,12 @@ Object.assign(RunsPanel.prototype, {
     else err = apiErrText(r, t('runs.list_fail'));
     this._runsList = list || [];
     this._runsErr = err;
-    if (this._runsModalOpen) this._runsModalRender();
+    this._runsPanelPaint();
   },
 
-  _runsModalRender() {
-    let ov = document.getElementById('runs-modal');
-    if (!ov) {
-      ov = runDiv('runs-modal ui-modal'); ov.id = 'runs-modal';
-      document.body.appendChild(ov);
-      // FR-RVZ-2: 배경 클릭 — 오버레이 자신이 대상일 때만 닫는다.
-      ov.addEventListener('click', e => { if (e.target === ov) this._runsModalToggle(false) });
-      this._runsModalKey = e => { if (e.key === 'Escape') { e.preventDefault(); this._runsModalToggle(false) } };
-      document.addEventListener('keydown', this._runsModalKey);
-    }
-    // 최근순. 서버 순서에 기대지 않는다 — 정렬은 이 화면의 약속이다.
-    const rows = (this._runsList || []).slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-    /**
-     * FR-KIT-24a: **상자는 한 번만 만든다** (`bg-modal` 과 같은 근거).
-     * 렌더마다 새로 지으면 접근성 계약을 놓고 다시 걸어야 하고, 놓는 순간
-     * 포커스가 창 밖으로 돌아갔다가 다음 프레임에 다시 들어온다.
-     */
-    let box = ov.querySelector('.runs-box'), head;
-    if (!box) {
-      box = runDiv('runs-box ui-modal-box ui-scroll');
-      /**
-       * FR-CMP-80~82: 머리는 **제목 · 개수 배지 · 닫기** 셋이다.
-       *   - 제목에 수를 넣지 않는다 — 0 일 때 "Run 0개" 라는 제목이 된다
-       *   - 닫기 `X` 는 **언제나 머리글 오른쪽**이다. 없으면 `Esc` 를 모르는
-       *     사용자가 갇힌 느낌을 받는다
-       */
-      head = runDiv('runs-head');
-      const title = runDiv('runs-head-t ui-modal-title', t('runs.title'));
-      const badge = runDiv('runs-head-n ui-badge', String(rows.length));
-      head.appendChild(title); head.appendChild(badge);
-      head.appendChild(UIKit.button({
-        icon: 'x', title: t('core.close'), kind: 'ghost', size: 'sm',
-        cls: 'ui-modal-close runs-head-x', onClick: () => this._runsModalToggle(false),
-      }));
-      box.appendChild(head); ov.appendChild(box);
-      this._runsDlgRelease = UIKit.dialogOpen(box,
-        { labelledBy: title, label: title.textContent, returnTo: this._runsReturnTo });
-    } else {
-      head = box.querySelector('.runs-head');
-      while (head.nextSibling) head.nextSibling.remove();
-      head.querySelector('.runs-head-n').textContent = String(rows.length);
-    }
-    if (this._runsErr) {
-      box.appendChild(runDiv('runs-err', this._runsErr));
-    } else if (!rows.length) {
-      // FR-RVZ-4: 빈 목록은 안내다. 빈 상자를 보여 주지 않는다.
-      const empty = runDiv('ui-empty ui-empty-center runs-empty');
-      empty.appendChild(runDiv('ui-empty ui-empty-center runs-empty-t', RUN_EMPTY_TEXT));
-      empty.appendChild(runDiv('ui-empty ui-empty-center runs-empty-h', RUN_EMPTY_HINT));
-      box.appendChild(empty);
-    }
-    for (const rv of rows) box.appendChild(this._runsRow(rv));
+  /** 패널이 열려 있으면 다시 그린다. 모달 시절 `_runsModalRender` 가 하던 일이다. */
+  _runsPanelPaint() {
+    this.app.agentsRender();
   },
 
   _runsRow(rv) {
@@ -217,7 +166,6 @@ Object.assign(RunsPanel.prototype, {
       if (this._runsPending) return;
       // FR-DEL-3·4: 확인이 열려 있으면 행을 건드리는 것은 **취소일 뿐**이다.
       if (this._runsConfirm) { this._runsConfirmSet(null); return }
-      this._runsModalToggle(false);
       this.app.addTab(this.app.focused, 'run', { runId: rv.id, short: rv.short });
     });
     return row;
@@ -280,7 +228,7 @@ Object.assign(RunsPanel.prototype, {
     this._runsConfirm = runId || null;
     this._runsConfirmKind = runId ? (kind || 'delete') : null;
     this._runsDelErr = null;
-    this._runsModalRender();
+    this._runsPanelPaint();
   },
 
   /**
@@ -297,7 +245,7 @@ Object.assign(RunsPanel.prototype, {
   async _runsClose(runId) {
     this._runsConfirm = null; this._runsConfirmKind = null; this._runsDelErr = null;
     this._runsPending = runId; this._runsPendingKind = 'close';
-    this._runsModalRender();
+    this._runsPanelPaint();
     const r = await apiPost('/api/runs/close', { runId, force: true });
     let msg = '';
     if (!r.ok) {
@@ -307,7 +255,7 @@ Object.assign(RunsPanel.prototype, {
     if (msg) this._runsDelErr = { runId, msg };
     else await this._runsRefresh();
     // 응답을 기다리는 사이에 모달이 닫혔을 수 있다 — 그때 그리면 되살아난다.
-    if (this._runsModalOpen) this._runsModalRender();
+    this._runsPanelPaint();
   },
 
   // FR-DEL-5: DELETE /api/runs/{id}. 성공하면 목록만 다시 받는다 — 모달은 열린
@@ -315,7 +263,7 @@ Object.assign(RunsPanel.prototype, {
   async _runsDelete(runId) {
     this._runsConfirm = null; this._runsConfirmKind = null; this._runsDelErr = null;
     this._runsPending = runId; this._runsPendingKind = 'delete';
-    this._runsModalRender();
+    this._runsPanelPaint();
     let ok = false, msg = '';
     const r = await apiDel('/api/runs/' + encodeURIComponent(runId));
     ok = r.ok;
@@ -324,7 +272,7 @@ Object.assign(RunsPanel.prototype, {
     if (!ok) this._runsDelErr = { runId, msg };
     else await this._runsRefresh();
     // 응답을 기다리는 사이에 모달이 닫혔을 수 있다 — 그때 그리면 되살아난다.
-    if (this._runsModalOpen) this._runsModalRender();
+    this._runsPanelPaint();
   },
 
   // ── 탭 (FR-RVZ-6~9) ──
@@ -439,6 +387,9 @@ Object.assign(RunsPanel.prototype, {
   _onRunChanged(args) {
     const runId = args && args.runId;
     if (!runId) return;
+    // FR-ACT-3: 상태바의 `⚡ n` 이 Run 을 세므로 목록이 최신이어야 한다 — 종전에는
+    // 모달을 열 때만 받았고, 열지 않으면 수가 틀린 채로 있었다.
+    this._runsRefresh();
     const m = this._runViewMap();
     if (!m.size) return;
     const live = this._runLiveTabIds();

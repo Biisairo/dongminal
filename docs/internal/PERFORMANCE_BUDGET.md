@@ -95,7 +95,6 @@
 
 | 파일 | 함수 | 대상 | 수 | 계기 | 근거 |
 |---|---|---|---:|---|---|
-| `web/js/core/app-attn.js` | `_attnCenterRender` | `center` | 1 | 폴링 | **등록부가 드러낸 자리.** 주의 상태가 바뀔 때마다(`_attnPaint`) 열려 있는 알림 센터를 통째로 다시 만든다. `refactor/README.md` §4.1 의 열다섯 밖이라 B6 이 고치지 않는다 (SRS §6-3) |
 | `web/js/core/app-edsearch.js` | `_edPanel` | `p.querySelector('.ed-find-list')` | 1 | 사용자 | 찾기 패널을 세울 때 한 번 |
 | `web/js/core/app-edsearch.js` | `_edPanelPaint` | `list` | 1 | 사용자 | 검색어가 비면 목록을 비운다 |
 | `web/js/core/app-edsearch.js` | `_edPanelQuery` | `p.querySelector('.ed-find-list')` | 1 | 사용자 | 사용자가 친 검색어 |

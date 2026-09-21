@@ -1004,6 +1004,12 @@ I18N.register('en', {
   'poll.stats.hint': 'CPU · memory · latency in the bottom status bar',
   'poll.stats.label': 'System stats',
 
+  // ── panel (UIUX_OVERHAUL_SRS FR-ACT-1) ──
+  'panel.act_title': 'Activity — attention, agents, background, runs',
+  'panel.attn_empty': 'Nothing is waiting for you — agents waiting on input appear here',
+  'panel.sec_agents': 'Agents',
+  'panel.sec_attn': 'Attention',
+
   // ── presets ──
   'presets.default_name': 'Preset {n}',
   'presets.empty': 'No saved presets — press Save current layout below',

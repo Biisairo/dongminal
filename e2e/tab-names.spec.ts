@@ -284,7 +284,7 @@ test.describe('묶음 N — 도구 이름 (FR-NAM-*)', () => {
       (window as any).app.testing.execRemote('detachTab', { toolId: id }), [toolId]);
 
     await page.locator('#bg-btn').click();
-    const row = page.locator(`#bg-modal .bg-row[data-toolid="${toolId}"]`);
+    const row = page.locator(`#agents-panel .bg-row[data-toolid="${toolId}"]`);
     await expect(row).toBeVisible({ timeout: 10000 });
     // FR-NAM-5: `Shell` 이 아니라 그 도구가 지금 돌리는 것의 이름이다.
     await expect(row.locator('.bg-name')).toHaveText('vim');

@@ -366,13 +366,19 @@ test.describe('Agent panel window groups (FR-AGG)', () => {
     const { win1, win2, pidA, pidB, pidC } = await twoWindows(page);
 
     // FR-AGG-14: 바깥 계기의 다시 그리기가 요소를 버리지 않는다.
+    //
+    // 세는 것은 **살아남은 비율**이지 절대수가 아니다. 종전에는 `6`(머리 + 그룹
+    // 둘 + 카드 셋)을 박았는데, `UIUX_OVERHAUL_SRS` FR-ACT-1 이 패널에 구역 넷과
+    // 그 빈 줄을 더하면서 그 수가 패널의 **구성**을 따라 움직이게 됐다. 이 검증이
+    // 묻는 것은 "다시 그려도 그대로인가" 이므로 앞뒤를 견준다.
+    const before = await page.locator('#agents-panel > *').count();
+    expect(before, '패널이 비었다 — 검증이 공회전한다').toBeGreaterThan(5);
     await page.evaluate(() => {
       for (const e of document.querySelectorAll('#agents-panel > *')) (e as HTMLElement).dataset.mark = '1';
     });
     await page.evaluate(() => (window as any).app.render());
     await page.evaluate(() => (window as any).app.render());
-    // `.ag-head` + 그룹 둘 + 카드 셋.
-    expect(await page.locator('#agents-panel > *[data-mark="1"]').count()).toBe(6);
+    expect(await page.locator('#agents-panel > *[data-mark="1"]').count()).toBe(before);
 
     // FR-AGG-10: 머리를 접으면 그 그룹의 카드만 사라진다.
     await page.locator(`#agents-panel .ag-group[data-sid="${win1}"] .ag-group-fold`).click();

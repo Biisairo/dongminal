@@ -22,11 +22,11 @@
  * 표가 여기 한 벌인 것이 요구다. 순위를 마크업에 흩으면 지표를 더할 때마다
  * 어느 단인지 다시 판단하게 된다.
  *
- *   1  연결 상태 · 현재 위치 — 이것이 없으면 상태바가 아니다
+ *   1  활동 진입점 · 연결 상태 · 현재 위치 — 이것이 없으면 상태바가 아니다
  *   2  호스트 · 지연 · 치수
  *   3  CPU · MEM · DISK · 업타임
  */
-const STATUSBAR_PRI={connection:1,location:1,cwd:1,hostname:2,latency:2,termsize:2,
+const STATUSBAR_PRI={activity:1,connection:1,location:1,cwd:1,hostname:2,latency:2,termsize:2,
   cpu:3,memory:3,disk:3,uptime:3};
 /** 낮은 단부터 숨긴다. 1단은 숨기지 않으므로 목록에 없다. */
 const STATUSBAR_FOLD_ORDER=[3,2];
@@ -52,6 +52,8 @@ Object.assign(App.prototype, {
     sbar.addEventListener('click',e=>{
       // 새 판 배지는 링크다 — 삼키면 눌러도 아무 일이 없다.
       if(e.target.closest('.sb-update')) return;
+      // FR-ACT-3: 활동 진입점은 접힘이 아니라 패널을 연다.
+      if(e.target.closest('.sb-act')){this.actPanelOpen();return}
       if(!document.body.classList.contains('mobile')) return;
       if(!this._sbExpanded&&!sbar.classList.contains('sb-folded')) return;
       this._sbExpanded=!this._sbExpanded;

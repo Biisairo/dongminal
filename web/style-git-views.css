@@ -830,61 +830,55 @@ select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 
 /* --- track: runs (WS-5 · ORCHESTRATION_V2_SRS 묶음 V) --- */
 
-/* FR-RVZ-2: Run 목록 모달. 백그라운드 도구 모달(.bg-modal)과 같은 상호작용
-   규약을 쓰므로 치수도 그것을 따른다 — 골격은 `.ui-modal`/`.ui-modal-box`
-   (FR-TOK-40·43). */
-.runs-box{
-  min-width:360px;max-width:min(680px,92vw);max-height:70vh;overflow-y:auto;
-  padding:4px;font-size:var(--fs-md);
+/* FR-RVZ-2 (**UIUX_OVERHAUL_SRS FR-ACT-1·2 로 개정**): Run 목록은 모달이 아니라
+   **활동 패널의 구역**이다. 상자(`.runs-box`)와 그 머리가 사라졌다 — 치수·백드롭·
+   자기 머리글은 모달의 것이었고, 구역은 패널의 폭과 머리를 쓴다.
+
+   행의 규칙은 그대로 남되 **`.runs-box` 라는 집을 잃는다.** 클래스 이름이 이미
+   유일하므로(`runs-row`·`runs-short`…) 자손 선택자는 집이 있을 때만 뜻이 있었다.
+
+   좁은 칸에서는 **행이 접힌다** (FR-ACT-6). 260px 짜리 도킹 패널에 목적·상태·
+   멤버 수·경과·버튼 둘이 한 줄로 서지 않으므로 `flex-wrap` 이 그것을 받는다 —
+   잘라 버리면 무엇이 도는지 읽을 수 없다. */
+.runs-err{padding:10px;color:var(--danger-text)}
+.runs-row{
+  display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;min-height:var(--row);
+  padding:8px 10px;border-radius:4px;cursor:pointer;font-size:var(--fs-md);
 }
-.runs-box .runs-head{
-  display:flex;align-items:center;gap:var(--ui-gap);
-  padding:8px 10px;color:var(--text-muted);border-bottom:1px solid var(--border);
-}
-.runs-box .runs-head .ui-modal-close{margin-left:auto}
-.runs-box .runs-err{padding:10px;color:var(--danger-text)}
-/* FR-RVZ-4: 빈 목록은 안내다. 두 줄이며 아래가 다음 행동이다. */
-.runs-box .runs-empty{padding:14px 10px}
-.runs-box .runs-empty-t{color:var(--text-bright)}
-.runs-box .runs-empty-h{margin-top:4px;color:var(--text-muted);font-family:var(--mono);font-size:var(--fs-sm)}
-.runs-box .runs-row{
-  display:flex;gap:8px;align-items:baseline;min-height:var(--row);
-  padding:8px 10px;border-radius:4px;cursor:pointer;
-}
-.runs-box .runs-row:hover{background:var(--accent-subtle)}
-.runs-box .runs-short{color:var(--text-bright);font-family:var(--mono);flex-shrink:0}
+.runs-row:hover{background:var(--accent-subtle)}
+.runs-short{color:var(--text-bright);font-family:var(--mono);flex-shrink:0}
 /* FR-RVZ-3: 목적은 한 줄로 자른다 — 행 높이가 목적 길이에 흔들리면 목록이 아니다. */
-.runs-box .runs-obj{flex:1 1 auto;min-width:0;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.runs-box .runs-state{font-size:var(--fs-sm);padding:1px 6px;border-radius:3px;border:1px solid var(--border);color:var(--text-muted);flex-shrink:0}
-.runs-box .runs-state.st-open{color:var(--accent-text);border-color:var(--accent-border)}
-.runs-box .runs-state.st-aborted{color:var(--danger-text);border-color:var(--danger)}
-.runs-box .runs-members{color:var(--text-muted);font-size:var(--fs-sm);white-space:nowrap;flex-shrink:0}
-.runs-box .runs-iso{color:var(--text-muted);font-size:var(--fs-sm);white-space:nowrap;flex-shrink:0}
+.runs-obj{flex:1 1 100%;min-width:0;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.runs-state{font-size:var(--fs-sm);padding:1px 6px;border-radius:3px;border:1px solid var(--border);color:var(--text-muted);flex-shrink:0}
+.runs-state.st-open{color:var(--accent-text);border-color:var(--accent-border)}
+.runs-state.st-aborted{color:var(--danger-text);border-color:var(--danger)}
+.runs-members{color:var(--text-muted);font-size:var(--fs-sm);white-space:nowrap;flex-shrink:0}
+.runs-iso{color:var(--text-muted);font-size:var(--fs-sm);white-space:nowrap;flex-shrink:0}
 /* V-RVZ-6: 컨텍스트 경고 배지. 값이 없으면 이 요소 자체가 만들어지지 않는다. */
-.runs-box .runs-ctx{font-size:var(--fs-sm);white-space:nowrap;flex-shrink:0}
-.runs-box .runs-ctx.lv-warn{color:var(--attn-text)}
-.runs-box .runs-ctx.lv-critical{color:var(--danger-text)}
-.runs-box .runs-ago{color:var(--text-hint);font-size:var(--fs-sm);white-space:nowrap;flex-shrink:0}
-/* UX_REVISION_SRS FR-DEL-1~6: 삭제 목표. 백그라운드 모달의 종료(FR-BGK-1~10)와
-   **같은 규약이므로 같은 모양**이다 — 두 모달에서 파괴적 동작이 다르게 생기면
+.runs-ctx{font-size:var(--fs-sm);white-space:nowrap;flex-shrink:0}
+.runs-ctx.lv-warn{color:var(--attn-text)}
+.runs-ctx.lv-critical{color:var(--danger-text)}
+.runs-ago{color:var(--text-hint);font-size:var(--fs-sm);white-space:nowrap;flex-shrink:0}
+/* UX_REVISION_SRS FR-DEL-1~6: 삭제 목표. 백그라운드 구역의 종료(FR-BGK-1~10)와
+   **같은 규약이므로 같은 모양**이다 — 두 자리에서 파괴적 동작이 다르게 생기면
    사용자가 매번 다시 읽는다. */
 /* FUI-04: `종료` 는 삭제 **왼쪽**에 선다 — 오른쪽 끝은 파괴적인 것의 자리다
    (`runs-yes` 가 오른쪽 끝인 것과 같은 규약). `margin-left:auto` 는 그 묶음의
    맨 앞 요소 하나에만 걸어야 둘이 붙어 선다. */
-.runs-box .runs-close,.runs-box .runs-confirm,.runs-box .runs-deleting{margin-left:auto;flex-shrink:0}
-.runs-box .runs-row:not(:has(.runs-close)) .runs-del{margin-left:auto}
-.runs-box .runs-del{flex-shrink:0}
+.runs-close,.runs-confirm,.runs-deleting{margin-left:auto;flex-shrink:0}
+.runs-row:not(:has(.runs-close)) .runs-del{margin-left:auto}
+.runs-del{flex-shrink:0}
 /* 버튼의 외형은 `.ui-btn.ui-btn-sm` 이다 (DESIGN_TOKENS_SRS §7.1). 종료는 파괴적이
    **아니다** — 기록이 남는다. 그래서 기본 등급이고, 삭제만 hover 에서 위험색을
    미리 보인다: 색이 같으면 두 버튼이 같은 일을 한다고 읽힌다. */
-.runs-box .runs-del:hover{color:var(--danger-text);border-color:var(--danger);background:var(--danger-subtle)}
-.runs-box .runs-confirm{display:inline-flex;gap:6px;align-items:center}
-.runs-box .runs-q{color:var(--text-bright);font-size:var(--fs-sm);white-space:nowrap}
-.runs-box .runs-deleting{color:var(--text-muted);font-size:var(--fs-sm);white-space:nowrap}
-.runs-box .runs-err-inline{color:var(--danger-text);font-size:var(--fs-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.runs-del:hover{color:var(--danger-text);border-color:var(--danger);background:var(--danger-subtle)}
+.runs-confirm{display:inline-flex;gap:6px;align-items:center}
+.runs-q{color:var(--text-bright);font-size:var(--fs-sm);white-space:nowrap}
+.runs-deleting{color:var(--text-muted);font-size:var(--fs-sm);white-space:nowrap}
+.runs-err-inline{flex:1 1 100%;color:var(--danger-text);font-size:var(--fs-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* 터치. hover 없이 닿아야 하므로 히트 영역만 키운다 (.bg-row 와 같은 44px 규약). */
-body.mobile .runs-box .runs-row{min-height:var(--touch-min)}
-body.mobile .runs-box .runs-del,body.mobile .runs-box .runs-close{min-height:var(--touch-min);padding:0 12px}
+body.mobile .runs-row{min-height:var(--touch-min)}
+body.mobile .runs-del,body.mobile .runs-close{min-height:var(--touch-min);padding:0 12px}
 
 /* FR-RVZ-6: 네 번째 탭 타입의 본문. .file-editor 와 같은 층위이므로 표시 규약도
    같다 — pane body 에 붙은 뒤 `.vis` 가 붙는다. */
@@ -1067,22 +1061,22 @@ body.mobile .sb-tab-badge{min-width:18px;padding:0 6px;font-size:var(--fs-sm);li
 /* --- track: bg-kill (WS-8 · CONVENIENCE_SRS 묶음 X) --- */
 /* 종료 목표는 행 클릭(복귀)과 겹치지 않도록 오른쪽 끝에 따로 선다 (FR-BGK-1).
    행이 baseline 정렬이므로 버튼도 그 선을 따른다. */
-.bg-box .bg-row{min-height:var(--row)}
-.bg-box .bg-kill,.bg-box .bg-confirm,.bg-box .bg-killing{margin-left:auto;flex-shrink:0}
+.bg-row{min-height:var(--row)}
+.bg-kill,.bg-confirm,.bg-killing{margin-left:auto;flex-shrink:0}
 /* FR-BGK-2: 항상 보인다. hover 게이팅하지 않는다 — 터치 기기에 hover 가 없고,
    `.git-repo-x` 의 opacity:0 규약을 여기서 되풀이하지 않는다. */
 /* 외형은 `.ui-btn.ui-btn-sm` — 종료는 hover 에서 위험색을 미리 보인다 (`.runs-del` 과 같다). */
-.bg-box .bg-kill:hover{color:var(--danger-text);border-color:var(--danger);background:var(--danger-subtle)}
-/* FR-BGK-4: 인라인 확인 — 행 안에서 바뀐다. 모달 위의 모달을 띄우지 않는다. */
-.bg-box .bg-confirm{display:inline-flex;gap:6px;align-items:center}
-.bg-box .bg-q{color:var(--text-bright);font-size:var(--fs-sm);white-space:nowrap}
-.bg-box .bg-killing{color:var(--text-muted);font-size:var(--fs-sm);white-space:nowrap}
-/* FR-BGK-10: 오류는 행 안에 남는다 — 모달을 닫지 않는다. */
-.bg-box .bg-err{color:var(--danger-text);font-size:var(--fs-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bg-kill:hover{color:var(--danger-text);border-color:var(--danger);background:var(--danger-subtle)}
+/* FR-BGK-4: 인라인 확인 — 행 안에서 바뀐다. 확인창을 따로 띄우지 않는다. */
+.bg-confirm{display:inline-flex;gap:6px;align-items:center}
+.bg-q{color:var(--text-bright);font-size:var(--fs-sm);white-space:nowrap}
+.bg-killing{color:var(--text-muted);font-size:var(--fs-sm);white-space:nowrap}
+/* FR-BGK-10: 오류는 행 안에 남는다 — 목록을 접지 않는다. */
+.bg-err{flex:1 1 100%;color:var(--danger-text);font-size:var(--fs-sm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* FR-BGK-12: 소속 Run — 묶음 H 가 오기 전에는 이 요소가 만들어지지 않는다. */
-.bg-box .bg-run{color:var(--accent-text);font-size:var(--fs-sm);white-space:nowrap;flex-shrink:0}
+.bg-run{color:var(--accent-text);font-size:var(--fs-sm);white-space:nowrap;flex-shrink:0}
 /* V-BGK-12: 터치. hover 없이 닿아야 하므로 히트 영역만 키운다 (기존 44px 규약). */
-body.mobile .bg-box .bg-row{min-height:var(--touch-min)}
-body.mobile .bg-box .bg-kill,body.mobile .bg-box .bg-yes,body.mobile .bg-box .bg-no{min-height:32px;padding:4px 12px}
+body.mobile .bg-row{min-height:var(--touch-min)}
+body.mobile .bg-kill,body.mobile .bg-yes,body.mobile .bg-no{min-height:32px;padding:4px 12px}
 
 

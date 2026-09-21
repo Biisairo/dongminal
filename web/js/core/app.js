@@ -46,9 +46,7 @@ class App {
     this.mPaneIdx=0; // mobile current pane index (volatile)
     this.drawerOpen=false;
     this._bg=[]; // 백그라운드 도구 목록 (FR-BG-6)
-    this._bgModalOpen=false;
     this._winUndo=null; // 닫은 창의 유예 하나 (WINDOW_CLOSE_UNDO_SRS FR-WCU-6)
-    this._bgModalKey=null; // 모달 Esc 핸들러 (열려 있을 때만 부착)
     this.modKbd=null; // {ctrl:bool|'lock', alt:bool|'lock'}
     this.gitRepos=null; // GIT 섹션 목록 {follow,pinned} (FR-GIT-13)
     this._lastPlainWindow=null; // Open File 이 돌아갈 일반 창 (FR-GIT-185, O15)

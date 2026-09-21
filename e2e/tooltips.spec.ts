@@ -263,8 +263,10 @@ test.describe('묶음 C — 상태바가 여는 표면', () => {
     const badge = page.locator('#attn-badge');
     await expect(badge).toBeVisible({ timeout: 10000 });
     await badge.click();
-    await expect(page.locator('#attn-center')).toHaveClass(/open/, { timeout: 10000 });
-    await assertAll(page, '주의 알림 센터');
+    // FR-ACT-1: 배지는 활동 패널의 주의 구역을 연다 (팝오버가 사라졌다).
+    await expect(page.locator('#agents-panel.open .ag-sec[data-sec="attn"]'))
+      .toBeVisible({ timeout: 10000 });
+    await assertAll(page, '활동 패널의 주의 구역');
   });
 
   // 진단 오버레이는 `?diag=1` 로 접속할 때만 선다 (diag.js 의 첫 줄).

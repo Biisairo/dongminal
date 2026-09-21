@@ -66,7 +66,7 @@ test.describe('FR-BGK-2: 터치로 종료 목표에 닿는다', () => {
     const id = await makeBackgroundTool(page, request);
 
     await page.locator('#bg-btn').tap();
-    const row = page.locator(`#bg-modal .bg-row[data-toolid="${id}"]`);
+    const row = page.locator(`#agents-panel .bg-row[data-toolid="${id}"]`);
     await expect(row).toBeVisible();
 
     const btn = row.locator('.bg-kill');

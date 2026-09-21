@@ -64,13 +64,14 @@ test.describe('Pane attention', () => {
     await expect(firstTab).toHaveClass(/attn/);
     await expect(badge).toBeVisible();
 
-    // Open the notification center: one item listed.
+    // UIUX_OVERHAUL_SRS FR-ACT-1·4: 배지는 **활동 패널의 주의 구역**을 연다
+    // (팝오버 `#attn-center` 가 사라졌다). 행의 마크업은 그대로다.
     await badge.click();
-    await expect(page.locator('#attn-center.open')).toBeVisible();
-    await expect(page.locator('#attn-center .attn-item')).toHaveCount(1);
+    await expect(page.locator('#agents-panel.open .ag-sec[data-sec="attn"]')).toBeVisible();
+    await expect(page.locator('#agents-panel .attn-item')).toHaveCount(1);
 
     // Clicking the item jumps to that pane → attention clears everywhere.
-    await page.locator('#attn-center .attn-item').first().click();
+    await page.locator('#agents-panel .attn-item').first().click();
     await expect(page.locator('#area .pn.focused .pn-tab').first()).not.toHaveClass(/attn/, { timeout: 10000 });
     await expect(badge).toBeHidden();
     await expect.poll(() => page.title()).not.toContain('(1)');
@@ -241,7 +242,7 @@ test.describe('Pane attention', () => {
 // 로드맵 M7 P2 — `FUI-22`: 알림 센터의 항목을 **하나씩** 뗄 수 있다. 종전에는
 // 항목 클릭(= 그 도구로 이동)과 "모두 제거" 뿐이었다 — 보기만 하고 넘기려면
 // 이동하거나 전부를 잃어야 했다.
-test.describe('알림 센터 개별 해제 (FUI-22)', () => {
+test.describe('주의 구역의 개별 해제 (FUI-22 · FR-ACT-1)', () => {
   test('항목의 × 가 그 항목만 떼고 도구로 이동하지 않는다', async ({ page }) => {
     await waitForInit(page);
     await waitShellReady(page);
@@ -252,11 +253,11 @@ test.describe('알림 센터 개별 해제 (FUI-22)', () => {
     await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
     await expect(page.locator('#attn-badge')).toBeVisible({ timeout: 10000 });
     await page.click('#attn-badge');
-    const item = page.locator('#attn-center .attn-item');
+    const item = page.locator('#agents-panel .attn-item');
     await expect(item).toHaveCount(1);
     const activeBefore = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-tab');
     await item.locator('.attn-x').click();
-    await expect(page.locator('#attn-center .attn-item')).toHaveCount(0);
+    await expect(page.locator('#agents-panel .attn-item')).toHaveCount(0);
     await expect(page.locator('#attn-badge')).toBeHidden();
     // 이동하지 않았다 — 활성 탭이 그대로다.
     expect(await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-tab')).toBe(activeBefore);

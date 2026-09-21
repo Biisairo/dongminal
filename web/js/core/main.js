@@ -106,8 +106,6 @@ document.getElementById('custom-toggle').addEventListener('click',()=>{
 });
 
 window.addEventListener('resize',()=>{
-  const ac=document.getElementById('attn-center');
-  if(ac&&ac.classList.contains('open')) app._positionAttnCenter();
   const wasMobile=document.body.classList.contains('mobile');
   const nowMobile=app.isMobile;
   if(wasMobile!==nowMobile){

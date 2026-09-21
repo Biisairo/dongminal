@@ -31,22 +31,26 @@ test.describe('진입점 단축키', () => {
     expect(got.runs).toBe('Ctrl+Shift+KeyO');
   });
 
-  // V-PSC-2 · FR-PSC-4
-  test('Ctrl+Shift+B 가 백그라운드 모달을 열고 닫는다', async ({ page }) => {
+  /**
+   * V-PSC-2·3 · FR-PSC-4 (**UIUX_OVERHAUL_SRS FR-ACT-4 로 개정**).
+   *
+   * 외운 키는 그대로 산다 (NFR-4). 여는 대상이 모달에서 **활동 패널의 그 구역**
+   * 으로 바뀌었고, 같은 키를 다시 누르면 닫힌다 — 토글이던 것은 토글로 남는다.
+   */
+  test('Ctrl+Shift+B 가 백그라운드 구역을 열고 닫는다', async ({ page }) => {
     await waitForInit(page);
     await page.keyboard.press('Control+Shift+KeyB');
-    await expect(page.locator('#bg-modal')).toBeVisible();
+    await expect(page.locator('#agents-panel.open .ag-sec[data-sec="bg"]')).toBeVisible();
     await page.keyboard.press('Control+Shift+KeyB');
-    await expect(page.locator('#bg-modal')).toHaveCount(0);
+    await expect(page.locator('#agents-panel.open')).toHaveCount(0);
   });
 
-  // V-PSC-3 · FR-PSC-4
-  test('Ctrl+Shift+O 가 Run 모달을 열고 닫는다', async ({ page }) => {
+  test('Ctrl+Shift+O 가 Run 구역을 열고 닫는다', async ({ page }) => {
     await waitForInit(page);
     await page.keyboard.press('Control+Shift+KeyO');
-    await expect(page.locator('#runs-modal')).toBeVisible();
+    await expect(page.locator('#agents-panel.open .ag-sec[data-sec="runs"]')).toBeVisible();
     await page.keyboard.press('Control+Shift+KeyO');
-    await expect(page.locator('#runs-modal')).toHaveCount(0);
+    await expect(page.locator('#agents-panel.open')).toHaveCount(0);
   });
 
   // V-PSC-4: 설정 목록은 두 표에서 자동으로 그려진다 — 배선이 빠지면 여기서 드러난다.

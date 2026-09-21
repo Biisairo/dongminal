@@ -191,7 +191,7 @@ backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center
 (`#modal-overlay` 만 `display:none` + `.open{display:flex}`). `.ui-modal` 은 그중
 `backdrop-filter` 가 없다 — 일곱째가 여섯과 다른 자리는 그 하나뿐이다.
 
-**상자 여섯도 겉모습이 같다.** `.confirm-box` · `.bg-box` · `.runs-box` · `.gc-box` ·
+**상자 여섯도 겉모습이 같다.** `.confirm-box` · ~~`.bg-box`~~ · ~~`.runs-box`~~ (2026-09-21 개정: 둘은 모달을 떠났다 — FR-ACT-2) · `.gc-box` ·
 `.git-dialog-box` · `#modal` 은 전부 `background:var(--bg);border:1px solid
 var(--border);border-radius:8px;box-shadow:var(--shadow-2)` 위에 자기 치수를 얹는다
 (`#modal` 만 반경 10px · `.gc-box` 만 테두리가 `--danger`). `.ui-modal-box` 는
@@ -563,8 +563,8 @@ D-TOK-8 이 지목한 "누가 위인가를 값으로 적은 자리" 다. 같은 
 |---|---|---|---|
 | `#modal` | 8 | bg·border·radius(10→8)·shadow·display·flex-direction | `width:min(760px,94vw)`·`height:min(80vh,720px)`·`overflow:hidden` (FR-UIK-12~14) |
 | `.confirm-box` | 6 | bg·border·radius·shadow | `padding:20px 24px`·`min-width:280px` — 머리 없는 상자다 |
-| `.bg-box` | 9 | bg·border·radius·shadow | `min-width`·`max-width`·`max-height`·`overflow-y`·`padding:4px`·`font-size` |
-| `.runs-box` | 9 | 같음 | `min-width:360px`·`max-width`·`max-height`·`overflow-y`·`padding:4px`·`font-size` |
+| ~~`.bg-box`~~ | — | — | **사라졌다** (2026-09-21, `UIUX_OVERHAUL_SRS` FR-ACT-2). 모달이 아니라 활동 패널의 구역이므로 상자가 없다 |
+| ~~`.runs-box`~~ | — | — | 같음 |
 | `.gc-box` | 9 | bg·radius·shadow·display·flex-direction | `min/max-width`·`max-height`·`border-color:var(--danger)`·`font-size`·`color` |
 | `.git-dialog-box` | 11 | bg·border·radius·shadow·display·flex-direction | `gap`·`padding`·`min/max-width`·`max-height`·`color`·`font-size` |
 
@@ -746,7 +746,7 @@ D-TOK-8 이 지목한 "누가 위인가를 값으로 적은 자리" 다. 같은 
 | TC-TOK-18 | `.tc-copy` 가 컨텍스트 메뉴와 **같은 층**(`--z-popover`)이고 DOM 순서대로 겹친다 · `.ed-find` 는 모달 층이므로 메뉴가 그 **위**에 뜬다 (초안은 `.ed-find` 를 찾기 줄로 오독했다 — §3.4) |
 | TC-TOK-19 | e2e 전량 unexpected 0 — 과도기 표면마다 1회 (FR-TOK-38) |
 | TC-TOK-20 | `themes.js` 의 `ui` 값이 착수 전과 **바이트 단위로 같다** (FR-TOK-16) |
-| TC-TOK-21 | **모달 골격이 한 벌이다** (FR-TOK-40~42, e2e `a11y-dialog.spec.ts`): 일곱을 차례로 열고 — 설정(`#modal-overlay`) · 확인창(`app._notify`) · 백그라운드(`#bg-btn`) · Runs(`#runs-btn`) · git 확인창(`GitConfirm.open`) · git 다이얼로그(`GitDialog`) · 키트(`UIKit.modal`) — 열린 오버레이가 ① `ui-modal` 클래스를 갖고 ② 계산된 `background-color` 가 `--backdrop` 의 값이며 ③ `backdrop-filter` 가 `blur(2px)` 이고 ④ 상자가 `ui-modal-box` 를 갖고 그 `border-radius` 가 8px · `background-color` 가 `--bg` 의 값임을 단정한다. 착수 시 RED: `#modal-overlay` 부터 ① 에서 죽는다 |
+| TC-TOK-21 | **모달 골격이 한 벌이다** (FR-TOK-40~42, e2e `a11y-dialog.spec.ts`): **다섯**을 차례로 열고 — 설정(`#modal-overlay`) · 확인창(`app._notify`) · git 확인창(`GitConfirm.open`) · git 다이얼로그(`GitDialog`) · 키트(`UIKit.modal`) — (**2026-09-21 개정**: 백그라운드·Runs 가 빠졌다. `UIUX_OVERHAUL_SRS` FR-ACT-2 가 그 둘을 모달에서 **활동 패널의 구역**으로 옮겼다 — 되돌릴 것이 없는 조회는 앱을 막지 않는다. 계약이 줄어든 것이 아니라 **대상이 줄었다**: 남은 다섯은 그대로 한 벌이다) — 열린 오버레이가 ① `ui-modal` 클래스를 갖고 ② 계산된 `background-color` 가 `--backdrop` 의 값이며 ③ `backdrop-filter` 가 `blur(2px)` 이고 ④ 상자가 `ui-modal-box` 를 갖고 그 `border-radius` 가 8px · `background-color` 가 `--bg` 의 값임을 단정한다. 착수 시 RED: `#modal-overlay` 부터 ① 에서 죽는다 |
 | TC-TOK-22 | **잔여표 재측정** (FR-TOK-35·39, 절차): 표면 하나를 끝낼 때마다 §7 의 그 표면 행을 다시 세어(선택자 본문의 선언 수) 0 이면 행을 지운다. 0 이 아닌데 지우면 그 커밋이 거짓이다 |
 
 ### 5.4 사람이 보는 것 (기록으로 남긴다)

@@ -170,7 +170,6 @@ Object.assign(App.prototype, {
     for(const id of this._attn.keys()) this._attnNoteLock(id,false);
     this._restoreVoid('attn');   // FR-RSF-5: 전체 초기화는 id 로 표현되지 않는다
     this._attn.clear();
-    this._attnCenterClose();
     this._attnRefresh();
   },
 
@@ -301,76 +300,24 @@ Object.assign(App.prototype, {
       const cnt=badge.querySelector('.attn-count');
       if(cnt) cnt.textContent=String(n);
       badge.style.display=n?'':'none';
-      if(!n) this._attnCenterClose();
     }
-    const center=document.getElementById('attn-center');
-    if(center&&center.classList.contains('open')) this._attnCenterRender();
-    this.agentsRender(); // FR-AAP-18: 활동 카드의 alarm 표시도 함께 갱신
+    // FR-AAP-18: 활동 카드의 alarm 표시도 함께 갱신. FR-ACT-1 이후로는 **주의
+    // 구역 자체**도 이 한 번으로 다시 그려진다 — 표면이 하나라 갱신도 하나다.
+    this.agentsRender();
   },
 
-  _positionAttnCenter(){
-    const badge=document.getElementById('attn-badge');
-    const center=document.getElementById('attn-center');
-    if(!badge||!center) return;
-    const r=badge.getBoundingClientRect();
-    center.style.top=(r.bottom+4)+'px';
-    center.style.left='';
-    center.style.right=(window.innerWidth-r.right)+'px';
-  },
-
-  _attnCenterToggle(){
-    const center=document.getElementById('attn-center');
-    if(!center) return;
-    if(center.classList.contains('open')) this._attnCenterClose();
-    else{this._positionAttnCenter();center.classList.add('open');this._attnCenterRender()}
-  },
-
-  _attnCenterClose(){
-    const center=document.getElementById('attn-center');
-    if(center) center.classList.remove('open');
-  },
-
-  _attnCenterRender(){
-    const center=document.getElementById('attn-center');
-    if(!center) return;
-    center.innerHTML='';
-    if(!this._attn.size){this._attnCenterClose();return}
-    const head=document.createElement('div');
-    head.className='attn-head';
-    head.innerHTML=`<span class="attn-title">${escHtml(t('attn.title',{n:this._attn.size}))}</span><button class="ui-btn ui-btn-sm ui-btn-attn attn-clear-all" title="Clear every attention alert">${escHtml(t('attn.clear_all'))}</button>`;
-    head.querySelector('.attn-clear-all').addEventListener('click',e=>{e.stopPropagation();this._attnClearAll()});
-    center.appendChild(head);
-    for(const [toolId,info] of this._attn){
-      // FR-NAM-6: 알림도 파생 이름을 쓴다 — 화면의 탭과 다른 이름을 부르면
-      // 사용자가 어느 도구인지 못 찾는다.
-      const name=this._toolName(toolId,toolId);
-      const reason=info&&info.reason==='idle'?t('attn.reason_idle'):t('attn.reason_signal');
-      const item=document.createElement('div');
-      item.className='attn-item';
-      const nameSpan=document.createElement('span');nameSpan.className='attn-name';nameSpan.textContent=name;
-      const reasonSpan=document.createElement('span');reasonSpan.className='attn-reason';reasonSpan.textContent=reason;
-      item.appendChild(nameSpan);
-      item.appendChild(reasonSpan);
-      // FR-AEV-15: 무엇에 대한 알람인지. 내용이 없는 에이전트도 있으므로(그 쪽은
-      // 페이로드가 비어 온다) 있을 때만 붙인다 — 빈 줄이 자리를 먹지 않는다.
-      const detail=this._attnDetail(toolId);
-      if(detail){
-        const d=document.createElement('span');
-        d.className='attn-detail';
-        d.textContent=detail;
-        d.title=detail;
-        item.appendChild(d);
-      }
-      item.addEventListener('click',()=>{this.jumpToTool(toolId);this._attnCenterClose()});
-      // 로드맵 M7 `FUI-22`: **하나만** 뗀다. 항목 클릭은 이동이고 "모두 제거" 는
-      // 전부다 — 보고 넘기려는 알림 하나를 위해 그 둘 중 하나를 고르게 하지 않는다.
-      // 서버에도 알린다(`_attnClear`) — 다른 브라우저의 배지도 함께 내려간다.
-      const x=UIKit.button({icon:'x',title:'Dismiss this alert',kind:'ghost',size:'sm',cls:'attn-x'});
-      x.addEventListener('click',e=>{e.stopPropagation();this._attnClear(toolId,false);this._attnCenterRender()});
-      item.appendChild(x);
-      center.appendChild(item);
-    }
-  },
+  /**
+   * UIUX_OVERHAUL_SRS FR-ACT-1·2: 팝오버(`#attn-center`)가 사라졌다.
+   *
+   *   이전 동작: 상단바 배지 아래에 뜨는 팝오버. 같은 부류의 조회가 네 표면으로
+   *             갈려 있었고, 그 넷이 서로 다른 문법으로 말했다 (§2.5)
+   *   새  동작: 배지는 **활동 패널의 주의 구역**을 연다. 행의 마크업은 그대로다
+   *   이유:     "지금 뭐가 돌고 있나" 는 한 질문이고 답이 있는 자리도 하나여야
+   *             한다. 팝오버는 차단하지 않았지만 **네 번째 표면**이었다
+   *
+   * 자리 계산(`_positionAttnCenter`)·토글·닫기·그리기 넷이 함께 사라졌다 —
+   * 도킹 패널에는 띄울 자리를 잴 일이 없다.
+   */
 
   // FR-PAN-13a: 데스크톱 알림(권한 granted + 설정 on). pane 별 직전 알림을 닫고 새로 띄운다.
   /**
@@ -467,19 +414,14 @@ Object.assign(App.prototype, {
     osc.stop(t+.2);
   },
 
-  // notification center 배지/팝오버 이벤트 바인딩 + 설정 토글 (FR-PAN-14/16)
+  // 주의 배지의 배선 + 설정 토글 (FR-PAN-14/16 · FR-ACT-4 로 개정)
   initAttn(){
     const badge=document.getElementById('attn-badge');
     if(badge&&!badge._bound){
       badge._bound=true;
-      badge.addEventListener('click',e=>{e.stopPropagation();this._attnCenterToggle()});
+      // FR-ACT-4: 배지는 외운 진입점이다 — 그대로 살고, 패널의 주의 구역을 연다.
+      badge.addEventListener('click',e=>{e.stopPropagation();this.actPanelOpen('attn')});
     }
-    document.addEventListener('click',e=>{
-      const center=document.getElementById('attn-center');
-      if(!center||!center.classList.contains('open')) return;
-      if(center.contains(e.target)||(badge&&badge.contains(e.target))) return;
-      this._attnCenterClose();
-    });
     const dt=document.getElementById('attn-desktop');
     if(dt){
       dt.checked=this.attnDesktop;

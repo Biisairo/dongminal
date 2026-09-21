@@ -17,6 +17,14 @@ Object.assign(App.prototype, {
     const bgBtn=document.getElementById('bg-btn');
     if(bgBtn) bgBtn.addEventListener('click',e=>{e.stopPropagation();this._bgModalToggle()});
     this._initStatusBarFold();
+    // FR-ACT-3: `⚡ n` 은 네 구역의 합이다. 주의·활동·백그라운드는 등록부가 몰고
+    // 오지만 Run 은 목록을 부르는 사람이 있어야 왔다 — 부팅에 한 번 받고,
+    // 그 뒤로는 `_onRunChanged` 가 따라온다.
+    //
+    // 이것이 *"Run 을 한 번도 열지 않은 브라우저는 `RunsPanel` 을 만들지
+    // 않는다"* (`gitObs` 규약)를 깬다. 깨는 이유는 **상태바의 수**다: 세지
+    // 않는 진입점은 진입점이 아니고, 틀린 수는 없는 수보다 나쁘다.
+    this._runsPanel()._runsRefresh();
     this._initStatusBarReflow();
     // FR-BGK-3/4/10: 인라인 확인·진행·오류는 **데이터**로 산다. 모달은 _bgRefresh
     // 마다 통째로 다시 그려지므로, 요소에 붙인 상태는 다시 그리기가 버린다
@@ -85,6 +93,17 @@ Object.assign(App.prototype, {
     // 서버가 준 값(hostname·cpu…)도 예외를 두지 않는다 — 예외가 있으면 다음
     // 사람이 어느 쪽인지 판단해야 하고, 그 판단이 틀리는 날이 온다.
     const e=escHtml;
+    /**
+     * UIUX_OVERHAUL_SRS FR-ACT-3: 활동의 **단일 진입점**. 누르면 패널이 토글된다.
+     *
+     * 설정으로 끄지 않는 유일한 지표다 — 나머지 열은 사용자가 고르는 **지표**이고
+     * 이것은 **진입점**이다. 진입점은 사라지지 않는다 (`STATUS_BAR_REFLOW_SRS`
+     * FR-SBR-9 가 같은 이유로 `#bg-btn` 을 항상 보이게 했다).
+     *
+     * FR-HIE-4 의 순위 1 이므로 좁은 화면에서도 접히지 않는다.
+     */
+    push('activity',`<span class="sb-item sb-act" title="${e(t('panel.act_title'))}">`
+      +`⚡ <span class="mono">${e(this.actCount())}</span></span>`);
     if(statusBar.connection){
       const ok=this._latency!==null;
       push('connection',`<span class="sb-item"><span class="sb-dot ${e(ok?'ok':'err')}"></span>${e(ok?t('statusbar.connected'):t('statusbar.disconnected'))}</span>`);
@@ -208,74 +227,25 @@ Object.assign(App.prototype, {
     btn.classList.toggle('on',!!n);
   },
 
-  // FR-BGU-6/7: 진입점 클릭 → 중앙 모달. 항목 클릭 시 현재 분할 칸의 새 탭으로
-  // 복귀한다 (detach --restore 와 같은 경로).
+  /**
+   * FR-BGU-6/7 (**UIUX_OVERHAUL_SRS FR-ACT-2 로 개정**): 진입점은 이제 **패널**을
+   * 연다. 중앙 차단 모달이 사라졌다 — 되돌릴 것이 없는 조회가 백드롭으로 앱
+   * 전체를 막을 이유가 없다 (§3.3 원칙 4).
+   *
+   * 이름은 그대로 둔다. 부르는 자리가 여섯이고(`app.js` 의 `bgToggle` ·
+   * `app-tool.js` · `app-cmd.js` · 진입점 · 행 클릭 · e2e) 이름을 바꾸는 것은
+   * 이 변경이 아니다. `open===false` 는 "닫아라" 가 아니라 **"내 일은 끝났다"**
+   * 로 남는다 — 패널은 조회이므로 남의 동작이 닫지 않는다.
+   */
   _bgModalToggle(open){
-    const wasOpen=this._bgModalOpen;
-    this._bgModalOpen = (open===undefined) ? !this._bgModalOpen : !!open;
-    if(this._bgModalOpen){
-      // FR-KIT-24: 돌아갈 자리는 **여는 순간**에 잡는다. 이 모달은 열린 채 다시
-      // 그리므로, 렌더마다 잡으면 `returnTo` 가 모달 안의 요소가 된다.
-      if(!wasOpen) this._bgReturnTo=document.activeElement;
-      this._bgRefresh(); this._bgModalRender(); return
-    }
-    if(this._bgDlgRelease){this._bgDlgRelease();this._bgDlgRelease=null}
-    // FR-BGK-5: 모달 밖 클릭·Escape 는 모달을 닫으므로 확인도 함께 취소된다.
-    // 진행 중인 종료는 남는다 — 요청은 이미 떠났고, 응답이 목록을 정리한다.
+    if(open===false) return;                 // 조회는 남의 동작에 닫히지 않는다
     this._bgConfirm=null; this._bgError=null;
-    const el=document.getElementById('bg-modal'); if(el) el.remove();
-    if(this._bgModalKey){document.removeEventListener('keydown',this._bgModalKey);this._bgModalKey=null}
+    this.actPanelOpen('bg');
   },
 
-  _bgModalRender(){
-    let ov=document.getElementById('bg-modal');
-    if(!ov){
-      ov=document.createElement('div'); ov.id='bg-modal'; ov.className='bg-modal ui-modal';
-      document.body.appendChild(ov);
-      // FR-BGU-7: 배경 클릭 — 오버레이 자신이 대상일 때만 닫는다.
-      ov.addEventListener('click',e=>{if(e.target===ov)this._bgModalToggle(false)});
-      this._bgModalKey=e=>{if(e.key==='Escape'){e.preventDefault();this._bgModalToggle(false)}};
-      document.addEventListener('keydown',this._bgModalKey);
-    }
-    /**
-     * FR-KIT-24a: **상자는 한 번만 만든다.**
-     *
-     * 종전에는 렌더마다 `ov.innerHTML=''` 로 상자를 새로 지었다. 그 위에
-     * 접근성 계약(`UIKit.dialogOpen`)을 얹으면 렌더마다 **계약을 놓고 다시
-     * 걸어야** 하고, 놓는 순간 포커스가 `returnTo`(창 밖)로 돌아갔다가 다음
-     * 프레임에 다시 들어온다 — 열자마자 목록이 도착하는 이 모달에서 그것이
-     * 실제로 보였다. 정체성을 유지하면 계약을 한 번만 건다.
-     *
-     * 머리도 함께 남는다 — `aria-labelledby` 가 가리키는 요소가 사라지면
-     * 접근 이름이 조용히 없어진다.
-     */
-    let box=ov.querySelector('.bg-box'), head;
-    if(!box){
-      box=document.createElement('div'); box.className='bg-box ui-modal-box ui-scroll';
-      // FR-CMP-80~82: 머리는 **제목 · 개수 배지 · 닫기** 셋이다 (Runs 와 같은 규약).
-      head=document.createElement('div'); head.className='bg-head';
-      const title=document.createElement('span');
-      title.className='bg-head-t ui-modal-title'; title.textContent=t('bg.title');
-      const badge=document.createElement('span');
-      badge.className='bg-head-n ui-badge'; badge.textContent=String(this._bg.length);
-      head.appendChild(title); head.appendChild(badge);
-      head.appendChild(UIKit.button({
-        icon:'x', title:t('core.close'), kind:'ghost', size:'sm',
-        cls:'ui-modal-close bg-head-x', onClick:()=>this._bgModalToggle(false),
-      }));
-      box.appendChild(head); ov.appendChild(box);
-      this._bgDlgRelease=UIKit.dialogOpen(box,
-        {labelledBy:title,label:title.textContent,returnTo:this._bgReturnTo});
-    }else{
-      head=box.querySelector('.bg-head');
-      while(head.nextSibling) head.nextSibling.remove();
-      head.querySelector('.bg-head-n').textContent=String(this._bg.length);
-    }
-    if(!this._bg.length){
-      const empty=document.createElement('div'); empty.className='ui-empty bg-empty';
-      empty.textContent=t('bg.empty'); box.appendChild(empty);
-    }
-    for(const b of this._bg) box.appendChild(this._bgRow(b));
+  /** 패널이 열려 있으면 다시 그린다. 모달 시절 `_bgModalRender` 가 하던 일이다. */
+  _bgPanelPaint(){
+    this.agentsRender();
   },
 
   // FR-BGK-1: 행 하나. 종료는 행 클릭(복귀)과 **다른 목표**다 — 겹치면 복귀하려다
@@ -326,7 +296,7 @@ Object.assign(App.prototype, {
       // FR-BGK-5: 확인이 열려 있으면 행을 건드리는 것은 **취소일 뿐**이다.
       // 취소와 복귀를 한 클릭에 겹치면 확인의 의미가 사라진다.
       if(this._bgConfirm){this._bgConfirmSet(null);return}
-      this._bgModalToggle(false);this._restoreTool(b.toolId);
+      this._restoreTool(b.toolId);
     });
     return row;
   },
@@ -378,7 +348,7 @@ Object.assign(App.prototype, {
   _bgConfirmSet(toolId){
     this._bgConfirm=toolId||null;
     this._bgError=null;
-    this._bgModalRender();
+    this._bgPanelPaint();
   },
 
   // FR-BGK-6~10: 종료는 POST /api/tools/kill 이다. 성공하면 목록만 다시 받는다 —
@@ -386,7 +356,7 @@ Object.assign(App.prototype, {
   // (FR-BGK-9). 실패하면 행이 남고 오류만 인라인으로 붙는다(FR-BGK-10).
   async _bgKill(toolId){
     this._bgConfirm=null; this._bgError=null; this._bgPending=toolId;
-    this._bgModalRender();
+    this._bgPanelPaint();
     const r=await apiPost('/api/tools/kill',{toolId});
     const ok=r.ok;
     let msg='';
@@ -396,7 +366,7 @@ Object.assign(App.prototype, {
     else await this._bgRefresh();
     // 응답을 기다리는 사이에 모달이 닫혔을 수 있다 — 그때 그리면 되살아난다.
     // 목록 갱신이 실패한 회차에도 '종료 중…' 이 남지 않게 여기서 한 번 더 그린다.
-    if(this._bgModalOpen) this._bgModalRender();
+    this._bgPanelPaint();
   },
   /**
    * 상태바의 cwd 표기 (M6 `FE-21`).

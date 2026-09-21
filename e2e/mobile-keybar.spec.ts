@@ -488,7 +488,7 @@ test.describe('모바일 드로어의 Runs·Agents (FUI-27)', () => {
     const acts = page.locator('#m-drawer-acts button');
     await expect(acts).toHaveCount(2);
     await acts.filter({ hasText: 'Runs' }).click();
-    await expect(page.locator('#runs-modal .runs-box')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#agents-panel.open .ag-sec[data-sec="runs"]')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('body')).not.toHaveClass(/drawer-open/);
   });
 });

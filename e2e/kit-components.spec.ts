@@ -195,11 +195,15 @@ test.describe('킷 컴포넌트 (KIT_COMPONENTS_SRS)', () => {
     await page.keyboard.press('Escape');
   });
 
-  /** 모달 넷: 이름 · 여는 법 · 상자 · 머리 · 닫는 법. */
+  /**
+   * 모달: 이름 · 여는 법 · 상자 · 머리 · 닫는 법.
+   *
+   * UIUX_OVERHAUL_SRS FR-ACT-2 로 Runs·백그라운드가 빠졌다 — 모달이 아니므로
+   * "머리글 오른쪽의 닫기 X" 라는 계약의 대상이 아니다. 구역에는 닫기가 아니라
+   * 접기가 있고, 패널을 닫는 길은 패널의 머리 하나다.
+   */
   const MODALS = [
     { name: '설정', box: '#modal', head: '.modal-header', open: async (p: Page) => { await p.click('#settings-btn') } },
-    { name: 'Runs', box: '#runs-modal .runs-box', head: '#runs-modal .runs-head', open: async (p: Page) => { await p.click('#runs-btn') } },
-    { name: '백그라운드', box: '#bg-modal .bg-box', head: '#bg-modal .bg-head', open: async (p: Page) => { await p.click('#bg-btn') } },
   ];
 
   test('TC-CMP-16: 모달마다 닫기 X 가 머리글 오른쪽에 있다 (FR-CMP-82)', async ({ page }) => {

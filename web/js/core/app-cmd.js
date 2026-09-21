@@ -298,7 +298,6 @@ Object.assign(App.prototype, {
     // 닫힌 것을 그리면 되살아난다. 둘 다 reconcile 이라 값이 그대로면 DOM 은
     // 손대지 않는다 (FR-RPT-3).
     if(this.agentsRender) this.agentsRender();
-    if(this._bgModalOpen) this._bgModalRender();
   },
 
   /**

@@ -485,7 +485,7 @@ Object.assign(App.prototype, {
     this._bg=Array.isArray(r.data.background)?r.data.background:[];
     this._restoreEnd('background',t);
     this.updateStatusBar();
-    if(this._bgModalOpen) this._bgModalRender();
+    this._bgPanelPaint();
   },
 
   // FR-BGR-7: 복귀 대상 Pane 을 고른다.
@@ -527,10 +527,11 @@ Object.assign(App.prototype, {
     /**
      * FUI-21: **실패를 화면이 말한다.**
      *
-     * 이 함수는 백그라운드 모달의 행 클릭에서 불리고, 그 모달은 **이미 닫혀
-     * 있다** (`_bgModalToggle(false)` 가 먼저 돈다). 그래서 `console.warn` 은
-     * 사용자에게 아무것도 아니었다 — 화면에서 보면 "눌렀는데 아무 일도 없음"
+     * 이 함수는 백그라운드 **구역의 행 클릭**에서 불린다. `console.warn` 은
+     * 사용자에게 아무것도 아니다 — 화면에서 보면 "눌렀는데 아무 일도 없음"
      * 이고, 그 상태에서 할 수 있는 것은 같은 것을 다시 누르는 일뿐이다.
+     * (모달이던 시절에는 이미 닫힌 뒤라 더 그랬다 — FR-ACT-2 로 표면이
+     * 패널이 된 지금은 목록이 그대로 보이므로 안내가 그 위에 선다.)
      *
      * 도구는 두 갈래 모두에서 **백그라운드 목록에 그대로 남는다** (FR-BGR-5 가
      * 대상 확정을 앞세운 이유) — 안내가 그 사실을 함께 말한다.

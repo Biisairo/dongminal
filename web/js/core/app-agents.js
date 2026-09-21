@@ -56,9 +56,6 @@ Object.assign(App.prototype, {
     try{localStorage.setItem('agentsPanelOpen',open?'1':'0')}catch{}
     for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
     if(open){this.agentsRender();this.agentsStartPoll()}else{this._agentsStopPoll()}
-    // agents 패널이 열리거나 닫힐 때 attn center 위치도 같이 조정
-    const ac=document.getElementById('attn-center');
-    if(ac&&ac.classList.contains('open')) TIMERS.frame(()=>this._positionAttnCenter(),{owner:'app',label:'attn-center'});
   },
 
   // FR-AAP-19: 패널 열림 동안 주기적으로 서버 스냅샷과 동기화(자동 새로고침)
@@ -144,36 +141,24 @@ Object.assign(App.prototype, {
   agentsRender(){
     const panel=document.getElementById('agents-panel');
     if(!panel||!panel.classList.contains('open')) return;
-    // FR-AGG-5·9: 카드의 소속은 `findToolLocation` 이 준다 — 어디에도 저장하지
-    // 않는다 (D-9). 순서는 `ws.agentsOrder` 그대로이고, 그룹 안 순서는 그 평면
-    // 배열을 창으로 거른 것이다 (D-10).
-    const byWin=new Map();
-    for(const toolId of this._agentOrderSync()){ // ws.agentsOrder 순서(신규=최하단)
-      const loc=this.findToolLocation(toolId);
-      if(!loc) continue;
-      let g=byWin.get(loc.win.id);
-      if(!g) byWin.set(loc.win.id,g=[]);
-      g.push({t:'card',toolId,info:this._activity.get(toolId),loc});
-    }
-    const items=[{t:'head'}],fold=this._agFolded();
-    let cards=0;
-    // FR-AGG-2·3: 그룹 순서는 `ws.windows` 의 순서다. 패널이 따로 갖는 순서가
-    // 없으므로 창 순서가 바뀌면 그 자리에서 따라간다.
-    for(const win of this.ws.windows||[]){
-      const g=byWin.get(win.id);
-      if(!g||!g.length) continue; // FR-AGG-4: 빈 머리는 정보가 아니다
-      cards+=g.length;
-      const folded=fold.has(win.id);
-      // FR-AGG-11: 알람 수는 접혀 있어도 보인다 — 접었다고 알람이 사라지면 안 된다.
-      items.push({t:'group',win,attn:g.reduce((n,c)=>n+(this.attnHas(c.toolId)?1:0),0),folded});
-      if(!folded) for(const c of g) items.push(c);
-    }
-    if(!cards) items.push({t:'empty'});
+    // UIUX_OVERHAUL_SRS FR-ACT-1: 패널의 몸통은 **네 구역**이다 (주의 · 에이전트 ·
+    // 백그라운드 · Run). 무엇을 그릴지는 각 표면의 주인이 알고, 여기가 아는 것은
+    // 머리 하나뿐이다 (`app-activity.js` 의 `ACTIVITY_SECTIONS`).
+    const items=[{t:'head'}].concat(this._actItems());
     reconcileList(panel,items,{
-      key:it=>it.t==='card'?'card:'+it.toolId:it.t==='group'?'grp:'+it.win.id:it.t,
+      key:it=>it.t==='card'?'card:'+it.toolId
+        :it.t==='group'?'grp:'+it.win.id
+        :it.t==='sec'?'sec:'+it.sec.key
+        :it.t==='secempty'?'secempty:'+it.sec.key
+        :it.t==='row'?it.sec+':'+it.id
+        :it.t,
       sig:it=>{
         // FR-AGG-14: 머리도 항목이다 — 값이 바뀌는 항목이므로 근거를 준다.
         if(it.t==='group') return [it.win.name||'',it.attn,it.folded?1:0].join('\u0001');
+        if(it.t==='sec') return [it.n,it.folded?1:0].join('\u0001');
+        // 구역의 행은 **그려질 마크업 전부**가 근거다 (FR-RPT-2) — 그 행이 무엇을
+        // 보이는지 이 파일은 모르고, 알 필요도 없다.
+        if(it.t==='row') return it.el.outerHTML;
         if(it.t!=='card') return '1';
         const i=it.info||{};
         // `_agCardEl` 이 읽는 값 전부다 (FR-RPT-2).
@@ -186,9 +171,43 @@ Object.assign(App.prototype, {
       },
       build:it=>it.t==='head'?this._agHeadEl()
         :it.t==='group'?this._agGroupEl(it.win,it.attn,it.folded)
-        :it.t==='empty'?this._agEmptyEl()
+        :it.t==='sec'?this._actSecEl(it.sec,it.n,it.folded)
+        :it.t==='secempty'?this._actSecEmptyEl(it.sec)
+        :it.t==='row'?it.el
         :this._agCardEl(panel,it.toolId,it.info,it.loc),
     });
+  },
+
+  /**
+   * FR-AGG-1~14: 에이전트 구역의 항목 — **창 그룹과 그 안의 카드**.
+   *
+   * 구역 넷 중 하나이지만 하위 그룹을 갖는 유일한 것이라 조립이 다르다
+   * (`app-activity.js` 의 `ACTIVITY_SECTIONS` 가 이것을 그대로 받는다).
+   */
+  _agWindowItems(){
+    // FR-AGG-5·9: 카드의 소속은 `findToolLocation` 이 준다 — 어디에도 저장하지
+    // 않는다 (D-9). 순서는 `ws.agentsOrder` 그대로이고, 그룹 안 순서는 그 평면
+    // 배열을 창으로 거른 것이다 (D-10).
+    const byWin=new Map();
+    for(const toolId of this._agentOrderSync()){ // ws.agentsOrder 순서(신규=최하단)
+      const loc=this.findToolLocation(toolId);
+      if(!loc) continue;
+      let g=byWin.get(loc.win.id);
+      if(!g) byWin.set(loc.win.id,g=[]);
+      g.push({t:'card',toolId,info:this._activity.get(toolId),loc});
+    }
+    const out=[],fold=this._agFolded();
+    // FR-AGG-2·3: 그룹 순서는 `ws.windows` 의 순서다. 패널이 따로 갖는 순서가
+    // 없으므로 창 순서가 바뀌면 그 자리에서 따라간다.
+    for(const win of this.ws.windows||[]){
+      const g=byWin.get(win.id);
+      if(!g||!g.length) continue; // FR-AGG-4: 빈 머리는 정보가 아니다
+      const folded=fold.has(win.id);
+      // FR-AGG-11: 알람 수는 접혀 있어도 보인다 — 접었다고 알람이 사라지면 안 된다.
+      out.push({t:'group',win,attn:g.reduce((n,c)=>n+(this.attnHas(c.toolId)?1:0),0),folded});
+      if(!folded) for(const c of g) out.push(c);
+    }
+    return out;
   },
 
   // FR-AGG-10: 그룹 접힘은 창 id 별로 **클라이언트**에 남는다 — 보는 방식은
@@ -217,7 +236,10 @@ Object.assign(App.prototype, {
     g.dataset.sid=win.id;
     g.appendChild(UIKit.button({
       icon:folded?'chevron-right':'chevron-down',
-      title:folded?t('core.expand'):t('core.collapse'),
+      // FR-TIP-2: 툴팁은 영어다. 종전에는 한국어였고, 이 패널을 재는 시험이
+      // 없어서 드러나지 않았다 — FR-ACT-1 이 주의 구역을 여기로 옮기면서
+      // `tooltips.spec.ts` C10 이 패널 전체를 보게 됐다.
+      title:folded?'Expand this window group':'Collapse this window group',
       kind:'ghost',size:'sm',cls:'ag-group-fold',
       onClick:e=>{e.stopPropagation();this._agFoldToggle(win.id)},
     }));
@@ -246,7 +268,8 @@ Object.assign(App.prototype, {
     // 아니지만, 문자열 조립 안에 두면 "여기 들어오는 것은 마크업이다" 라는
     // 예외가 생긴다 — 예외가 있으면 다음 사람이 판단해야 하고, 그 판단이
     // 틀리는 날이 온다 (`scripts/check-html.sh`).
-    head.innerHTML='<span class="ag-title">Agents</span>';
+    // FR-ACT-1: 패널이 에이전트만 담던 때의 이름이었다. 이제 네 구역이 산다.
+    head.innerHTML='<span class="ag-title">Activity</span>';
     const mkBtn=(cls,tip,icon)=>{
       const b=document.createElement('button');
       b.className='ui-btn ui-btn-icon ui-btn-ghost '+cls;
@@ -259,13 +282,6 @@ Object.assign(App.prototype, {
     head.querySelector('.ag-refresh').addEventListener('click',e=>{e.stopPropagation();this._activityRestore()});
     head.querySelector('.ag-close').addEventListener('click',e=>{e.stopPropagation();this.agentsToggle()});
     return head;
-  },
-
-  _agEmptyEl(){
-    const empty=document.createElement('div');
-    empty.className='ui-empty ag-empty';
-    empty.textContent=t('attn.no_active_agents');
-    return empty;
   },
 
   _agCardEl(panel,toolId,info,loc){

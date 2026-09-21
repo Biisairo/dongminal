@@ -212,8 +212,8 @@ const skeleton = (page: Page, overlay: string, box: string) => page.evaluate(([o
   };
 }, [overlay, box]);
 
-test.describe('모달 골격 — 일곱이 한 벌이다 (FR-TOK-40~42 / UX-16)', () => {
-  /** 일곱 골격: 이름 · 여는 법 · 오버레이 · 상자 · 닫는 법. */
+test.describe('모달 골격 — 다섯이 한 벌이다 (FR-TOK-40~42 / UX-16 · FR-ACT-2 개정)', () => {
+  /** 다섯 골격: 이름 · 여는 법 · 오버레이 · 상자 · 닫는 법. */
   const SKELETONS: { name: string; overlay: string; box: string;
     open: (page: Page) => Promise<void>; close: (page: Page) => Promise<void> }[] = [
     { name: '설정', overlay: '#modal-overlay', box: '#modal',
@@ -222,12 +222,8 @@ test.describe('모달 골격 — 일곱이 한 벌이다 (FR-TOK-40~42 / UX-16)'
     { name: '확인창', overlay: '.confirm-overlay', box: '.confirm-overlay .confirm-box',
       open: async (p) => { await p.evaluate(() => { void (window as any).app.testing.confirmClose('골격 검사') }) },
       close: async (p) => { await p.click('.confirm-overlay .confirm-cancel') } },
-    { name: '백그라운드', overlay: '#bg-modal', box: '#bg-modal .bg-box',
-      open: async (p) => { await p.click('#bg-btn') },
-      close: async (p) => { await p.keyboard.press('Escape') } },
-    { name: 'Runs', overlay: '#runs-modal', box: '#runs-modal .runs-box',
-      open: async (p) => { await p.click('#runs-btn') },
-      close: async (p) => { await p.keyboard.press('Escape') } },
+    // UIUX_OVERHAUL_SRS FR-ACT-2: 백그라운드와 Runs 가 이 목록을 떠났다 —
+    // 모달이 아니라 활동 패널의 구역이다 (`DESIGN_TOKENS_SRS` TC-TOK-21 개정).
     { name: 'git 확인창', overlay: '#git-confirm', box: '#git-confirm .gc-box',
       open: async (p) => { await p.evaluate(() => {
         (window as any).GitConfirm.open({ action: 'discard', title: '골격 검사', targets: ['a.txt'], run: async () => ({ ok: true }) });

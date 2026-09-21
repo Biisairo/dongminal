@@ -117,12 +117,20 @@ async function mockRuns(page: Page, list: Json[], graphs: Record<string, Json>) 
   });
 }
 
-async function openModal(page: Page) {
-  await page.click('#runs-btn');
-  await expect(page.locator('#runs-modal .runs-box')).toBeVisible();
+/**
+ * UIUX_OVERHAUL_SRS FR-ACT-1·2: 목록은 모달이 아니라 **활동 패널의 Run 구역**이다.
+ * 진입점(`#runs-btn`)은 그대로이고 여는 대상이 바뀌었다.
+ */
+async function openList(page: Page) {
+  // 진입점은 **토글**이다 (FR-ACT-4). 모달 시절에는 행을 누르면 저절로 닫혀서
+  // 다시 여는 것이 늘 "열기" 였는데, 조회는 이제 남의 동작에 닫히지 않으므로
+  // (FR-ACT-2) 이미 열려 있으면 누르지 않는다 — 누르면 닫힌다.
+  const open = await page.locator('#agents-panel.open').count();
+  if (!open) await page.click('#runs-btn');
+  await expect(page.locator('#agents-panel.open .ag-sec[data-sec="runs"]')).toBeVisible();
 }
 
-const runRow = (page: Page, id: string) => page.locator(`#runs-modal .runs-row[data-runid="${id}"]`);
+const runRow = (page: Page, id: string) => page.locator(`#agents-panel .runs-row[data-runid="${id}"]`);
 
 // 활성 창의 탭 개수. 새 탭이 생겼는지/안 생겼는지를 세는 유일한 자리다.
 function tabCount(page: Page) {
@@ -152,28 +160,30 @@ function runTabs(page: Page) {
 
 test.describe('Run 시각화 (묶음 V)', () => {
 
-  test('V-RVZ-1: Run 0개면 모달이 빈 안내를 낸다', async ({ page }) => {
+  test('V-RVZ-1: Run 0개면 구역이 빈 안내를 낸다', async ({ page }) => {
     await mockRuns(page, [], {});
     await waitForInit(page);
-    await openModal(page);
+    await openList(page);
 
-    await expect(page.locator('#runs-modal .runs-empty-t')).toHaveText(RUN_EMPTY_TEXT);
-    // FR-RVZ-4: 다음 행동을 함께 낸다 — "없다" 만으로는 무엇을 하라는 말이 없다.
-    await expect(page.locator('#runs-modal .runs-empty-h')).toContainText('/dongminal:team');
-    await expect(page.locator('#runs-modal .runs-row')).toHaveCount(0);
+    const empty = page.locator('#agents-panel .ag-sec[data-sec="runs"] + .ag-sec-empty');
+    await expect(empty).toContainText(RUN_EMPTY_TEXT);
+    // FR-RVZ-4 · FR-CPY-2: 다음 행동을 함께 낸다 — "없다" 만으로는 무엇을 하라는 말이 없다.
+    await expect(empty.locator('.ag-sec-empty-h')).toContainText('/dongminal:team');
+    await expect(page.locator('#agents-panel .runs-row')).toHaveCount(0);
   });
 
-  test('V-RVZ-2: 행을 클릭하면 모달이 닫히고 현재 분할 칸에 대시보드 탭이 생긴다', async ({ page }) => {
+  test('V-RVZ-2: 행을 클릭하면 현재 분할 칸에 대시보드 탭이 생긴다', async ({ page }) => {
     const a = graphA(), b = graphB();
     await mockRuns(page, listOf(a, b), { [RUN_A]: a, [RUN_B]: b });
     await waitForInit(page);
     const before = await tabCount(page);
 
-    await openModal(page);
-    await expect(page.locator('#runs-modal .runs-row')).toHaveCount(2);
+    await openList(page);
+    await expect(page.locator('#agents-panel .runs-row')).toHaveCount(2);
     await runRow(page, RUN_A).click();
 
-    await expect(page.locator('#runs-modal')).toHaveCount(0);
+    // FR-ACT-2: 조회는 남의 동작에 닫히지 않는다 — 탭이 열려도 목록은 산다.
+    await expect(page.locator('#agents-panel.open')).toBeVisible();
     expect(await tabCount(page)).toBe(before + 1);
 
     // FR-RVZ-8: 이름은 `Run <short>` 다.
@@ -197,7 +207,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
     await mockRuns(page, listOf(a, b), { [RUN_A]: a, [RUN_B]: b });
     await waitForInit(page);
 
-    await openModal(page);
+    await openList(page);
     await runRow(page, RUN_A).click();
     await expect(page.locator('#area .run-view.vis')).toBeVisible();
     const after1 = await tabCount(page);
@@ -207,7 +217,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
     await page.evaluate(() => (window as any).app.addTab((window as any).app.focused));
     await expect.poll(() => tabCount(page)).toBe(after1 + 1);
 
-    await openModal(page);
+    await openList(page);
     await runRow(page, RUN_A).click();
 
     // FR-RVZ-7: 탭은 늘지 않는다.
@@ -234,7 +244,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
     const a = graphA();
     await mockRuns(page, listOf(a), { [RUN_A]: a });
     await waitForInit(page);
-    await openModal(page);
+    await openList(page);
     await runRow(page, RUN_A).click();
     await expect(page.locator('#area .run-view.vis')).toBeVisible();
 
@@ -258,7 +268,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
     const a = graphA();
     await mockRuns(page, listOf(a), { [RUN_A]: a });
     await waitForInit(page);
-    await openModal(page);
+    await openList(page);
 
     // 모달 행의 경고 배지 — critical 이 하나라도 있으면 그것이 이긴다.
     await expect(runRow(page, RUN_A).locator('.runs-ctx.lv-critical')).toBeVisible();
@@ -283,7 +293,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
     const a = graphA();
     await mockRuns(page, listOf(a), { [RUN_A]: a });
     await waitForInit(page);
-    await openModal(page);
+    await openList(page);
     await runRow(page, RUN_A).click();
     const view = page.locator('#area .run-view.vis');
     await expect(view).toBeVisible();
@@ -310,7 +320,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
     a.coordinator = { contextTokens: 700000, contextLimit: 1000000, contextRatio: 0.7, contextLevel: 'warn' };
     await mockRuns(page, listOf(a), { [RUN_A]: a });
     await waitForInit(page);
-    await openModal(page);
+    await openList(page);
     await runRow(page, RUN_A).click();
     const view = page.locator('#area .run-view.vis');
     await expect(view).toBeVisible();
@@ -325,7 +335,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
     const a = graphA();
     await mockRuns(page, listOf(a), { [RUN_A]: a });
     await waitForInit(page);
-    await openModal(page);
+    await openList(page);
     await runRow(page, RUN_A).click();
     const view = page.locator('#area .run-view.vis');
     await expect(view).toBeVisible();
@@ -338,7 +348,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
     const a = graphA();
     await mockRuns(page, listOf(a), { [RUN_A]: a });
     await waitForInit(page);
-    await openModal(page);
+    await openList(page);
     await runRow(page, RUN_A).click();
     const view = page.locator('#area .run-view.vis');
     await expect(view).toBeVisible();
@@ -359,7 +369,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
     const a = graphA();
     await mockRuns(page, listOf(a), { [RUN_A]: a });
     await waitForInit(page);
-    await openModal(page);
+    await openList(page);
     await runRow(page, RUN_A).click();
     await expect(page.locator('#area .run-view.vis')).toBeVisible();
 
@@ -383,7 +393,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
     const a = graphA();
     await mockRuns(page, listOf(a), { [RUN_A]: a });
     await waitForInit(page);
-    await openModal(page);
+    await openList(page);
     await runRow(page, RUN_A).click();
     await expect(page.locator('#area .run-view.vis')).toBeVisible();
     const before = await tabCount(page);
@@ -402,7 +412,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
     const a = graphA();
     await mockRuns(page, listOf(a), { [RUN_A]: a });
     await waitForInit(page);
-    await openModal(page);
+    await openList(page);
     await runRow(page, RUN_A).click();
     await expect(page.locator('#area .run-view.vis')).toBeVisible();
 
@@ -449,7 +459,7 @@ test.describe('FUI-04 — Run 의 출구', () => {
     const a = graphA(), b = graphB();   // a=open, b=closed
     await mockRuns(page, listOf(a, b), { [RUN_A]: a, [RUN_B]: b });
     await waitForInit(page);
-    await openModal(page);
+    await openList(page);
 
     await expect(runRow(page, RUN_A).locator('.runs-close')).toHaveCount(1);
     // 끝난 것을 또 끝내는 버튼은 뜻이 없다.
@@ -464,7 +474,7 @@ test.describe('FUI-04 — Run 의 출구', () => {
     await mockRuns(page, listOf(a), { [RUN_A]: a });
     const posts = captureRunPost(page, '/api/runs/close');
     await waitForInit(page);
-    await openModal(page);
+    await openList(page);
 
     await runRow(page, RUN_A).locator('.runs-close').click();
     const confirm = runRow(page, RUN_A).locator('.runs-confirm');
@@ -485,7 +495,7 @@ test.describe('FUI-04 — Run 의 출구', () => {
     const a = graphA();
     await mockRuns(page, listOf(a), { [RUN_A]: a });
     await waitForInit(page);
-    await openModal(page);
+    await openList(page);
 
     await runRow(page, RUN_A).locator('.runs-del').click();
     const confirm = runRow(page, RUN_A).locator('.runs-confirm');
@@ -499,7 +509,7 @@ test.describe('FUI-04 — Run 의 출구', () => {
       await mockRuns(page, listOf(a), { [RUN_A]: a });
       const posts = captureRunPost(page, '/api/runs/detach');
       await waitForInit(page);
-      await openModal(page);
+      await openList(page);
       await runRow(page, RUN_A).click();
       await expect(page.locator('#area .run-view.vis')).toBeVisible();
 
@@ -523,7 +533,7 @@ test.describe('FUI-04 — Run 의 출구', () => {
     await mockRuns(page, listOf(a), { [RUN_A]: a });
     captureRunPost(page, '/api/runs/detach');
     await waitForInit(page);
-    await openModal(page);
+    await openList(page);
     await runRow(page, RUN_A).click();
     await expect(page.locator('#area .run-view.vis')).toBeVisible();
     const before = await tabCount(page);
@@ -676,7 +686,7 @@ test.describe('묶음 D — Run 삭제 (FR-DEL-*)', () => {
     }, [toolId]);
 
     await page.locator('#runs-btn').click();
-    const row = page.locator(`#runs-modal .runs-row[data-runid="${runId}"]`);
+    const row = page.locator(`#agents-panel .runs-row[data-runid="${runId}"]`);
     await expect(row).toBeVisible({ timeout: 10000 });
     const tabsBefore = await page.locator('.pn-tab').count();
 

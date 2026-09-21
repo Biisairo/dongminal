@@ -61,12 +61,19 @@ async function makeBackgroundTools(page: Page, request: any, n: number): Promise
   return ids;
 }
 
-async function openModal(page: Page) {
-  await page.click('#bg-btn');
-  await expect(page.locator('#bg-modal .bg-box')).toBeVisible();
+/**
+ * UIUX_OVERHAUL_SRS FR-ACT-1·2: 목록은 모달이 아니라 **활동 패널의 백그라운드
+ * 구역**이다. 진입점(`#bg-btn`)은 그대로이고 여는 대상이 바뀌었다.
+ */
+async function openList(page: Page) {
+  // 진입점은 **토글**이다 (FR-ACT-4) — 이미 열려 있으면 누르지 않는다.
+  const open = await page.locator('#agents-panel.open').count();
+  if (!open) await page.click('#bg-btn');
+  await expect(page.locator('#agents-panel.open .ag-sec[data-sec="bg"]')).toBeVisible();
 }
 
-const row = (page: Page, id: string) => page.locator(`#bg-modal .bg-row[data-toolid="${id}"]`);
+const list = (page: Page) => page.locator('#agents-panel.open');
+const row = (page: Page, id: string) => page.locator(`#agents-panel .bg-row[data-toolid="${id}"]`);
 
 async function bgListHas(request: any, id: string): Promise<boolean> {
   const bg = await (await request.get('/api/tools/background')).json();
@@ -78,7 +85,7 @@ test.describe('FR-BGK-1..3: 종료 목표와 확인', () => {
   test('TC-BGK-1: 행마다 종료 버튼이 hover 없이 보인다', async ({ page, request }) => {
     await waitForInit(page);
     const ids = await makeBackgroundTools(page, request, 2);
-    await openModal(page);
+    await openList(page);
 
     for (const id of ids) {
       const btn = row(page, id).locator('.bg-kill');
@@ -100,7 +107,7 @@ test.describe('FR-BGK-1..3: 종료 목표와 확인', () => {
   test('TC-BGK-2: 종료 버튼은 인라인 확인으로 바꿀 뿐 아직 죽이지 않는다', async ({ page, request }) => {
     await waitForInit(page);
     const [a] = await makeBackgroundTools(page, request, 1);
-    await openModal(page);
+    await openList(page);
 
     await row(page, a).locator('.bg-kill').click();
     await expect(row(page, a).locator('.bg-confirm')).toBeVisible();
@@ -108,7 +115,7 @@ test.describe('FR-BGK-1..3: 종료 목표와 확인', () => {
     await expect(row(page, a).locator('.bg-no')).toBeVisible();
     await expect(row(page, a).locator('.bg-kill')).toHaveCount(0);
     // FR-BGK-4: 모달 위의 모달이 아니다 — 확인은 행 **안**에 있다.
-    expect(await page.locator('#bg-modal .bg-box').count()).toBe(1);
+    expect(await list(page).count()).toBe(1);
     expect(await row(page, a).locator('.bg-confirm').count()).toBe(1);
 
     expect(await bgListHas(request, a), '확인 단계에서 이미 죽었다').toBe(true);
@@ -117,17 +124,17 @@ test.describe('FR-BGK-1..3: 종료 목표와 확인', () => {
 
 test.describe('FR-BGK-8..10: 종료의 결과', () => {
   // V-BGK-3 (FR-BGK-8)
-  test('TC-BGK-3: 예 → 그 행만 사라지고 모달은 열린 채로 남는다', async ({ page, request }) => {
+  test('TC-BGK-3: 예 → 그 행만 사라지고 목록은 그대로 남는다', async ({ page, request }) => {
     await waitForInit(page);
     const [a, b] = await makeBackgroundTools(page, request, 2);
-    await openModal(page);
+    await openList(page);
 
     await row(page, a).locator('.bg-kill').click();
     await row(page, a).locator('.bg-yes').click();
 
     // 서버가 SIGTERM 유예(3초)를 기다린 뒤 응답한다 — 넉넉히 준다.
     await expect(row(page, a)).toHaveCount(0, { timeout: 15000 });
-    await expect(page.locator('#bg-modal .bg-box')).toBeVisible();
+    await expect(list(page)).toBeVisible();
     await expect(row(page, b)).toBeVisible();
     expect(await bgListHas(request, a)).toBe(false);
     expect(await bgListHas(request, b), '옆 행까지 죽었다').toBe(true);
@@ -137,7 +144,7 @@ test.describe('FR-BGK-8..10: 종료의 결과', () => {
   test('TC-BGK-4: 아니오 → 원상 복귀', async ({ page, request }) => {
     await waitForInit(page);
     const [a] = await makeBackgroundTools(page, request, 1);
-    await openModal(page);
+    await openList(page);
 
     await row(page, a).locator('.bg-kill').click();
     await row(page, a).locator('.bg-no').click();
@@ -152,14 +159,16 @@ test.describe('FR-BGK-8..10: 종료의 결과', () => {
   test('TC-BGK-7: 마지막 도구를 종료하면 "없음" 과 하이라이트 소멸', async ({ page, request }) => {
     await waitForInit(page);
     const [a] = await makeBackgroundTools(page, request, 1);
-    await openModal(page);
+    await openList(page);
     // 앞선 스펙이 남긴 도구가 없어야 "마지막" 이 성립한다.
-    expect(await page.locator('#bg-modal .bg-row').count()).toBe(1);
+    expect(await page.locator('#agents-panel .bg-row').count()).toBe(1);
 
     await row(page, a).locator('.bg-kill').click();
     await row(page, a).locator('.bg-yes').click();
 
-    await expect(page.locator('#bg-modal .bg-empty')).toHaveText('없음', { timeout: 15000 });
+    // FR-CPY-2: 빈 구역은 사실만 말하지 않는다 — 다음 할 일이 그 줄에 붙는다.
+    await expect(page.locator('#agents-panel .ag-sec[data-sec="bg"] + .ag-sec-empty'))
+      .toContainText('백그라운드 도구가 없습니다', { timeout: 15000 });
     await expect(page.locator('#bg-btn')).toBeVisible();
     await expect(page.locator('#bg-btn')).not.toHaveClass(/\bon\b/);
   });
@@ -170,13 +179,13 @@ test.describe('FR-BGK-8..10: 종료의 결과', () => {
     const [a] = await makeBackgroundTools(page, request, 1);
     await page.route('**/api/tools/kill', (route) =>
       route.fulfill({ status: 500, body: '종료 실패(강제)' }));
-    await openModal(page);
+    await openList(page);
 
     await row(page, a).locator('.bg-kill').click();
     await row(page, a).locator('.bg-yes').click();
 
     await expect(row(page, a).locator('.bg-err')).toBeVisible();
-    await expect(page.locator('#bg-modal .bg-box')).toBeVisible();
+    await expect(list(page)).toBeVisible();
     expect(await bgListHas(request, a), '실패했는데 도구가 사라졌다').toBe(true);
   });
 });
@@ -186,7 +195,7 @@ test.describe('FR-BGK-1·5·11: 목표가 겹치지 않는다', () => {
   test('TC-BGK-5: 확인 중 다른 행을 건드리면 확인이 취소된다', async ({ page, request }) => {
     await waitForInit(page);
     const [a, b] = await makeBackgroundTools(page, request, 2);
-    await openModal(page);
+    await openList(page);
 
     await row(page, a).locator('.bg-kill').click();
     await expect(row(page, a).locator('.bg-confirm')).toBeVisible();
@@ -196,7 +205,7 @@ test.describe('FR-BGK-1·5·11: 목표가 겹치지 않는다', () => {
     await expect(row(page, a).locator('.bg-confirm')).toHaveCount(0);
     await expect(row(page, a).locator('.bg-kill')).toBeVisible();
     // 취소일 뿐이다 — 그 클릭이 복귀까지 하면 모달이 닫히고 화면이 바뀐다.
-    await expect(page.locator('#bg-modal .bg-box')).toBeVisible();
+    await expect(list(page)).toBeVisible();
     expect(await bgListHas(request, b)).toBe(true);
   });
 
@@ -204,40 +213,35 @@ test.describe('FR-BGK-1·5·11: 목표가 겹치지 않는다', () => {
   test('TC-BGK-5b: 다른 행의 종료를 누르면 확인이 그 행으로 옮겨간다', async ({ page, request }) => {
     await waitForInit(page);
     const [a, b] = await makeBackgroundTools(page, request, 2);
-    await openModal(page);
+    await openList(page);
 
     await row(page, a).locator('.bg-kill').click();
     await row(page, b).locator('.bg-kill').click();
 
     await expect(row(page, b).locator('.bg-confirm')).toBeVisible();
     await expect(row(page, a).locator('.bg-confirm')).toHaveCount(0);
-    expect(await page.locator('#bg-modal .bg-confirm').count()).toBe(1);
+    expect(await page.locator('#agents-panel .bg-confirm').count()).toBe(1);
   });
 
-  // V-BGK-5 (FR-BGK-5 — 모달 밖 클릭)
-  test('TC-BGK-5c: 모달 밖을 클릭하면 확인이 남지 않는다', async ({ page, request }) => {
-    await waitForInit(page);
-    const [a] = await makeBackgroundTools(page, request, 1);
-    await openModal(page);
-
-    await row(page, a).locator('.bg-kill').click();
-    await page.locator('#bg-modal').click({ position: { x: 5, y: 5 } });
-    await expect(page.locator('#bg-modal')).toHaveCount(0);
-
-    await openModal(page);
-    await expect(row(page, a).locator('.bg-kill')).toBeVisible();
-    await expect(row(page, a).locator('.bg-confirm')).toHaveCount(0);
-  });
+  /**
+   * TC-BGK-5c 가 사라졌다 (UIUX_OVERHAUL_SRS FR-ACT-2).
+   *
+   * 그 검증은 *"모달 **밖**을 클릭하면 확인이 남지 않는다"* 였고, 그것은 백드롭이
+   * 있을 때만 성립하는 문장이다 — 도킹 패널에는 밖이 없다. 확인이 한 번에 하나로
+   * 남는다는 사실은 TC-BGK-5·5b 가 그대로 지킨다.
+   */
 
   // V-BGK-6
   test('TC-BGK-6: 행 본문 클릭은 복귀다 — 종료가 아니다', async ({ page, request }) => {
     await waitForInit(page);
     const [a] = await makeBackgroundTools(page, request, 1);
-    await openModal(page);
+    await openList(page);
 
     await row(page, a).locator('.bg-name').click();
 
-    await expect(page.locator('#bg-modal')).toHaveCount(0);
+    // FR-ACT-2: 조회는 남의 동작에 닫히지 않는다 — 행은 목록에서 빠지되 패널은 산다.
+    await expect(row(page, a)).toHaveCount(0, { timeout: 15000 });
+    await expect(list(page)).toBeVisible();
     expect(await bgListHas(request, a), '복귀 대신 종료됐다').toBe(false);
     // 살아 있어야 한다 — 백그라운드에서 빠진 것이지 죽은 것이 아니다.
     const state = await (await request.get('/api/state')).json();
@@ -248,35 +252,29 @@ test.describe('FR-BGK-1·5·11: 목표가 겹치지 않는다', () => {
   test('TC-BGK-11: 전체 종료 버튼이 없다', async ({ page, request }) => {
     await waitForInit(page);
     const ids = await makeBackgroundTools(page, request, 2);
-    await openModal(page);
+    await openList(page);
 
     // 종료 목표의 개수는 정확히 행의 개수다 — 행 밖의 종료 수단이 없다는 뜻이다.
-    const rows = await page.locator('#bg-modal .bg-row').count();
-    expect(await page.locator('#bg-modal .bg-kill').count()).toBe(rows);
+    const rows = await page.locator('#agents-panel .bg-row').count();
+    expect(await page.locator('#agents-panel .bg-kill').count()).toBe(rows);
     expect(rows).toBeGreaterThanOrEqual(ids.length);
     const outside = await page.evaluate(() =>
-      Array.from(document.querySelectorAll('#bg-modal .bg-kill'))
+      Array.from(document.querySelectorAll('#agents-panel .bg-kill'))
         .filter((el) => !el.closest('.bg-row')).length);
     expect(outside, '행 밖에 종료 버튼이 있다').toBe(0);
     /**
-     * 머리글에 **종료 수단**이 없다 — "전체 종료" 가 놓일 유일한 자리다.
+     * 구역 머리에 **종료 수단**이 없다 — "전체 종료" 가 놓일 유일한 자리다.
      *
-     * 종전에는 `button` 개수가 0 인지 보았다. 그 대리는 머리글에 버튼이 하나도
-     * 없던 동안만 뜻이 같았고, `KIT_COMPONENTS_SRS` FR-CMP-82 가 **닫기 `X`** 를
-     * 세우면서 갈렸다 — 닫기는 모달을 닫을 뿐 아무것도 죽이지 않는다.
-     *
-     * 요구의 원문은 *"전체 종료 버튼은 두지 않는다"* 이지 *"버튼을 두지 않는다"*
-     * 가 아니므로, 대리를 **뜻에 맞게 좁힌다**: 닫기를 뺀 나머지가 0 이다.
-     * (게이트를 느슨하게 만든 것이 아니다 — 재는 대상이 달라졌다.)
+     * 종전에는 모달 머리글(`.bg-head`)을 보았다. FR-ACT-1 이 그 머리글을 구역
+     * 머리(`.ag-sec`)로 바꿨고, 거기 있는 버튼은 **접기 하나**다 — 닫기는 패널의
+     * 것이지 이 목록의 것이 아니다. 재는 대상이 달라졌으므로 자리도 옮긴다.
      */
     const headBtns = await page.evaluate(() =>
-      Array.from(document.querySelectorAll('#bg-modal .bg-head button'))
-        .filter((el) => !el.classList.contains('ui-modal-close'))
+      Array.from(document.querySelectorAll('#agents-panel .ag-sec[data-sec="bg"] button'))
+        .filter((el) => !el.classList.contains('ag-sec-fold'))
         .map((el) => el.className));
-    expect(headBtns, '머리글에 닫기 아닌 버튼이 있다 (FR-BGK-11)').toEqual([]);
-    // 닫기는 **있어야** 한다 (FR-CMP-82) — 없으면 Esc 를 모르는 사용자가 갇힌다.
-    expect(await page.locator('#bg-modal .bg-head .ui-modal-close').count()).toBe(1);
-    expect(await page.locator('#bg-modal .bg-box').innerText()).not.toContain('전체');
+    expect(headBtns, '구역 머리에 접기 아닌 버튼이 있다 (FR-BGK-11)').toEqual([]);
+    expect(await list(page).innerText()).not.toContain('전체');
   });
 });
 
@@ -293,7 +291,7 @@ test.describe('FR-BGK-2·12: 모바일 배치와 Run 소속', () => {
     await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
 
     const [a] = await makeBackgroundTools(page, request, 1);
-    await openModal(page);
+    await openList(page);
 
     const btn = row(page, a).locator('.bg-kill');
     await expect(btn).toBeVisible();
@@ -355,7 +353,7 @@ test.describe('FR-BGK-2·12: 모바일 배치와 Run 소속', () => {
         ((window as any).app.testing.bg || []).some((b: any) => b.toolId === tid), memberTool),
       { timeout: 10000 },
     ).toBe(true);
-    await openModal(page);
+    await openList(page);
 
     // 주인 없는 도구에는 아무것도 붙지 않는다 — 계약의 반쪽이다.
     await expect(row(page, plain).locator('.bg-run')).toHaveCount(0);
