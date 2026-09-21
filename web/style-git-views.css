@@ -180,7 +180,7 @@
 /* FR-GIT-122: 로컬 / 원격 / 태그 3그룹 */
 .git-refs{
   flex:0 0 auto;width:150px;min-width:0;overflow-y:auto;font-size:var(--fs-sm);
-  border-right:1px solid var(--border);
+  border-right:1px solid var(--border-strong);
 }
 .git-refs-all,.git-ref{
   display:flex;align-items:center;gap:4px;padding:3px 8px;cursor:pointer;
@@ -547,7 +547,7 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
 /* FR-GIT-169: 선택한 stash 의 변경 파일. 클릭하면 Diff 탭이 커밋 축으로 연다 */
 .git-stash-preview{
   flex:0 0 auto;width:260px;min-width:0;overflow-y:auto;
-  border-left:1px solid var(--border);font-size:var(--fs-sm);
+  border-left:1px solid var(--border-strong);font-size:var(--fs-sm);
 }
 /* FR-GIT-226: 같은 이유 — 머리글이 내용 없이 줄어들지 않는다 */
 .git-stash-preview-head{

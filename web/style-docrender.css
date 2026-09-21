@@ -59,7 +59,7 @@
 .dr-body ul,.dr-body ol{margin:.7em 0;padding-left:1.6em}
 .dr-body li{margin:.25em 0}
 .dr-body table{border-collapse:collapse;margin:1em 0;display:block;overflow-x:auto}
-.dr-body th,.dr-body td{border:1px solid var(--border);padding:5px 10px;text-align:left}
+.dr-body th,.dr-body td{border:1px solid var(--border-weak);padding:5px 10px;text-align:left}
 .dr-body th{background:var(--bg-alt);font-weight:600}
 
 .dr-body code{
@@ -144,7 +144,7 @@
   font-family:var(--mono);
 }
 .dr-table th,.dr-table td{
-  border:1px solid var(--border);padding:3px 8px;text-align:left;white-space:pre;
+  border:1px solid var(--border-weak);padding:3px 8px;text-align:left;white-space:pre;
   max-width:40em;overflow:hidden;text-overflow:ellipsis;
 }
 .dr-table th{background:var(--bg-alt);font-weight:600;position:sticky;top:0}

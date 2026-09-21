@@ -203,6 +203,12 @@ function pickAttnColor(t){
 // 인 파일에 있어야 하고, 고전 스크립트는 전역을 공유하므로 여기 사본을 남기면
 // 뒤가 앞을 덮는다 (M6 §4-A-2). `contrast.js` 가 이 파일 앞에 실린다.
 const BORDER_STRONG_MIX=.35;
+// UIUX_OVERHAUL_SRS FR-HIE-1: 경계의 아래 단. `--border-strong` 이 text 쪽으로
+// 가듯 이쪽은 bg 쪽으로 간다 — 사다리의 방향이 하나여야 "선 하나가 위계 하나"
+// (§3.3 원칙 2)가 선다. 값이 `.35` 보다 큰 것은 거리가 달라서다: border→text 는
+// 멀고 border→bg 는 가깝다. 실측(54종)에서 `--border` 의 대비 1.09~1.74 가
+// 1.05~1.39 로 내려간다 — 행 사이는 속삭이고 칸의 경계가 말한다.
+const BORDER_WEAK_MIX=.45;
 // SLOT_TITLE_BOUNDARY_SRS FR-STB-21·22: 슬롯 경계색. `--border-strong` 과 같은
 // 방식이되 섞는 상대가 accent 다 — border 쪽은 "이것은 경계다", accent 쪽은 "이
 // 경계는 주목을 요구한다" 는 뜻이다. terminal(ANSI) 팔레트에서 뽑지 않는 이유는
@@ -260,6 +266,7 @@ function themeVarsOf(t){
     // (WCAG 1.4.11). `--accent` 를 그대로 쓰면 밝은 테마 둘에서 링이 보이지 않는다.
     '--focus-ring':aa.focusRing,
     '--accent-border':ui.accentBorder,
+    '--border-weak':mixHex(ui.border,ui.bg,BORDER_WEAK_MIX),
     '--border-strong':mixHex(ui.border,ui.text,BORDER_STRONG_MIX),
     '--slot-edge':mixHex(ui.border,ui.accent,SLOT_EDGE_MIX),
     '--accent-hover':hexToRgba(ui.accent,.1),

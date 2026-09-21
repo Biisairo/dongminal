@@ -301,7 +301,7 @@ body.mobile .git-head-remote{gap:2px}
 .git-commit-menu{
   display:none;position:absolute;left:0;top:calc(100% + 3px);z-index:var(--z-popover);
   min-width:170px;padding:4px;font-size:var(--fs-sm);
-  background:var(--bg);border:1px solid var(--border);border-radius:5px;
+  background:var(--bg);border:1px solid var(--border-strong);border-radius:5px;
   box-shadow:var(--shadow-2);
 }
 .git-commit-menu.vis{display:block}
@@ -444,7 +444,7 @@ body.mobile .git-head-remote{gap:2px}
   min-height:var(--git-row-min);font-size:var(--fs-md);white-space:nowrap;cursor:pointer;
   border-left:3px solid transparent;
   background-image:repeating-linear-gradient(to right,
-    var(--border) 0 1px, transparent 1px var(--git-indent));
+    var(--border-weak) 0 1px, transparent 1px var(--git-indent));
   background-repeat:no-repeat;
   background-position:var(--git-tree-pad0) 0;
   background-size:calc(var(--git-depth) * var(--git-indent)) 100%;

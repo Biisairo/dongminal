@@ -27,7 +27,7 @@
    세로로 쌓지 않는 이유가 D-RTU-3 이다(둘 다 절반 높이가 된다). */
 .ed-side{
   flex:0 0 auto;min-width:0;display:flex;flex-direction:column;overflow:hidden;
-  background:var(--sidebar-bg);border-right:1px solid var(--border);
+  background:var(--sidebar-bg);border-right:1px solid var(--border-strong);
 }
 .ed-side-tabs{display:flex;flex:0 0 auto;border-bottom:1px solid var(--border)}
 /* FR-GCC-10: 탭 줄 오른쪽 여백의 새로고침. 탭은 왼쪽에서 자기 폭만 쓰고, 이
@@ -68,10 +68,10 @@
 .ed-side-body>.ed-explorer{position:absolute;inset:0;width:auto;border-right:none}
 .ed-explorer{
   flex:0 0 auto;min-width:0;display:flex;flex-direction:column;overflow:hidden;
-  background:var(--sidebar-bg);border-right:1px solid var(--border);
+  background:var(--sidebar-bg);border-right:1px solid var(--border-strong);
 }
 /* FR-EDT-47: 폭 조절 손잡이. 사이드바(`#sb-handle`)와 같은 생김새·같은 히트 확장. */
-.ed-ex-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border);position:relative}
+.ed-ex-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border-strong);position:relative}
 .ed-ex-handle:hover{background:var(--accent)}
 .ed-ex-handle::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
 /* `.pn`·`.sp` 가 `position:absolute;inset:0` 이므로 담는 쪽이 위치 기준이어야 한다. */

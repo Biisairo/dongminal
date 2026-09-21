@@ -144,6 +144,12 @@
   --focus-ring:#7aa2f7;
   /* FR-GIT-216: JS 가 테마에서 파생해 덮어쓴다. 여기 값은 첫 페인트용이다 */
   --border-strong:#565c76;
+  /* UIUX_OVERHAUL_SRS FR-HIE-1: 같은 규약. mixHex(border,bg,.45) 의 기본 테마 값이다.
+     경계는 이제 3단이고 **뜻이 단을 고른다**:
+       --border-weak    같은 목록 안의 행 사이 — 목록 행, 표 줄, 탭 사이
+       --border         구획 사이 — 패널·그룹의 머리와 발, 컨트롤의 테두리
+       --border-strong  창·칸의 경계 — pane 분할, 사이드바, 모달, 떠 있는 메뉴 */
+  --border-weak:#222535;
   /* FR-STB-21: 같은 규약. mixHex(border,accent,.55) 의 기본 테마 값이다 */
   --slot-edge:#566ea6;
   --git-sec-divider:2px solid var(--border-strong);
@@ -225,7 +231,7 @@ textarea,
 /* ── Sidebar ── */
 #sidebar{
   width:var(--sb-w,150px);min-width:var(--sb-w,150px);
-  background:var(--sidebar-bg);border-right:1px solid var(--border);
+  background:var(--sidebar-bg);border-right:1px solid var(--border-strong);
   display:flex;flex-direction:column;user-select:none;
 }
 /* UX_REVISION_SRS FR-BLP-7: 목록 컨테이너. 탭이 한 번에 하나만 보이므로 목록은
@@ -375,7 +381,7 @@ textarea,
 #add-preset{color:var(--text-hint);opacity:.7}
 #add-preset:hover{opacity:1}
 
-#sb-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border);position:relative}
+#sb-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border-strong);position:relative}
 #sb-handle:hover{background:var(--accent)}
 #sb-handle::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
 
@@ -398,7 +404,7 @@ html.sb-collapsed body:not(.mobile) #sidebar{
    종전에는 감췄고(끌어서 펼칠 수 있는 것처럼 보인다는 이유), 그때는 펼치는 버튼이
    탑바에 있었다. 지금은 손잡이가 그 일을 하므로 감추면 길이 사라진다.
    레일의 폭은 여전히 고정이다: 끌어도 임계를 넘기 전에는 아무것도 바뀌지 않는다. */
-html.sb-collapsed body:not(.mobile) #sb-handle{background:var(--border)}
+html.sb-collapsed body:not(.mobile) #sb-handle{background:var(--border-strong)}
 /* ── 레일의 목록 (PANEL_SURFACE_SRS FR-RAL-1~9 · FR-SBC-11 개정) ──
 
    종전에는 `.sb-panel` 을 통째로 감췄다 — 40px 에서 목록은 읽히지 않는다는
@@ -480,7 +486,7 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
 /* ── Top bar ── */
 #topbar{
   height:32px;min-height:32px;display:flex;align-items:center;
-  background:var(--sidebar-bg);border-bottom:1px solid var(--border);padding:0 8px;gap:6px;
+  background:var(--sidebar-bg);border-bottom:1px solid var(--border-strong);padding:0 8px;gap:6px;
 }
 #window-name{font-size:var(--fs-md);color:var(--text-muted)}
 .spacer{flex:1}
@@ -579,7 +585,7 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
 .sp[data-d="horizontal"]{flex-direction:row}
 .sp[data-d="vertical"]{flex-direction:column}
 .sc{flex:1;position:relative;overflow:hidden;min-width:0;min-height:0}
-.sh{flex-shrink:0;background:var(--border);transition:background .15s;position:relative;z-index:var(--z-raised)}
+.sh{flex-shrink:0;background:var(--border-strong);transition:background .15s;position:relative;z-index:var(--z-raised)}
 .sh:hover{background:var(--accent)}
 .sp[data-d="horizontal"]>.sh{width:3px;cursor:col-resize}
 .sp[data-d="vertical"]>.sh{height:3px;cursor:row-resize}
@@ -607,7 +613,7 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
 .pn-tab{
   display:flex;align-items:center;padding:0 10px;gap:4px;
   font-size:var(--fs-md);color:var(--text-muted);cursor:pointer;
-  border-right:1px solid var(--border);white-space:nowrap;flex-shrink:0;
+  border-right:1px solid var(--border-weak);white-space:nowrap;flex-shrink:0;
 }
 /* TAB_WIDTH_SRS FR-TBW-5·7: 켠 사람에게만 보이는 규칙이다 — 끈 상태(`body` 에
    `.tabfix` 가 없을 때)의 폭·말줄임은 위 규칙 그대로다 (FR-TBW-9).
@@ -705,11 +711,11 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   animation:attn-pulse-dot 2s ease-in-out infinite}
 
 /* 에이전트 활동 모아보기 패널 (AGENT_ACTIVITY_PANEL_SRS) — 좌측 사이드바와 대칭 */
-#agents-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border);position:relative;display:none}
+#agents-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border-strong);position:relative;display:none}
 #agents-handle:hover{background:var(--accent)}
 #agents-handle.open{display:block}
 #agents-handle::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
-#agents-panel{width:var(--ag-w,260px);min-width:var(--ag-w,260px);background:var(--sidebar-bg);border-left:1px solid var(--border);display:none;flex-direction:column;overflow-y:auto}
+#agents-panel{width:var(--ag-w,260px);min-width:var(--ag-w,260px);background:var(--sidebar-bg);border-left:1px solid var(--border-strong);display:none;flex-direction:column;overflow-y:auto}
 #agents-panel.open{display:flex}
 .ag-head{display:flex;align-items:center;gap:6px;padding:8px 10px;font-size:var(--fs-sm);font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border)}
 .ag-title{flex:1}
@@ -721,7 +727,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .ag-group-fold{flex:none}
 .ag-group-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ag-group.attn .ag-group-name{color:var(--attn-text)}
-.ag-card{padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s}
+.ag-card{padding:8px 10px;border-bottom:1px solid var(--border-weak);cursor:pointer;transition:background .1s}
 .ag-card:hover{background:var(--accent-hover)}
 .ag-card.attn{box-shadow:inset 3px 0 0 var(--attn);animation:attn-pulse-bar 2s ease-in-out infinite}
 .ag-card.focused{background:var(--accent-active)}
@@ -853,7 +859,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .tl-item{
   display:flex;align-items:center;gap:6px;
   padding:7px 10px;cursor:pointer;
-  border-bottom:1px solid var(--border);
+  border-bottom:1px solid var(--border-weak);
   transition:background .1s;
 }
 .tl-item:last-child{border-bottom:none}
@@ -918,7 +924,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .sc-list{}
 .sc-group-title{font-size:var(--fs-sm);font-weight:600;color:var(--accent-text);margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
 .sc-group-title:first-child{margin-top:0}
-.sc-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)}
+.sc-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-weak)}
 .sc-row>span{color:var(--text);font-size:var(--fs-md);flex:1;min-width:0}
 .sc-btns{display:flex;align-items:center;gap:4px;flex-shrink:0}
 .sc-key{cursor:pointer;min-width:80px;transition:border-color .15s}
@@ -1034,7 +1040,7 @@ body.mobile .tp-ov-acts .ui-btn{padding:0 14px}
 .status-bar{
   display:flex;align-items:center;gap:2px;
   padding:2px 10px;flex-shrink:0;
-  background:var(--sidebar-bg);border-top:1px solid var(--border);
+  background:var(--sidebar-bg);border-top:1px solid var(--border-strong);
   font-size:var(--fs-sm);color:var(--text-muted);min-height:22px;
 }
 /* FR-LAY-4: 죽은 규칙이었다 — 이 클래스를 붙이는 자리가 하나도 없다. 지웠다. */
@@ -1043,7 +1049,7 @@ body.mobile .tp-ov-acts .ui-btn{padding:0 14px}
    FR-SBR-5: 음수 마진 1px — 줄의 첫 항목 구분선만 컨테이너 밖으로 나가 잘린다 (D-5). */
 .sb-item{display:flex;align-items:center;gap:3px;padding:0 6px;line-height:16px;
   flex-shrink:0;max-width:100%;white-space:nowrap;margin-left:-1px}
-.sb-item+.sb-item{border-left:1px solid var(--border)}
+.sb-item+.sb-item{border-left:1px solid var(--border-weak)}
 .sb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 /* UPDATE_NOTICE_SRS FR-UPD-9: 새 판 배지. 지표들 오른쪽 끝에 홀로 선다 —
    `.sb-item` 의 구분선 규약에 끼면 없을 때 빈 칸이 남는다. `hidden` 이 기본이며
@@ -1061,13 +1067,13 @@ body.mobile .tp-ov-acts .ui-btn{padding:0 14px}
 .sb-item .sb-ref{color:var(--term-cyan)}
 .sb-dot.ok{background:var(--term-green)}
 .sb-dot.err{background:var(--danger)}
-.sb-sep{color:var(--border);margin:0 2px}
+.sb-sep{color:var(--border-weak);margin:0 2px}
 
 /* ── Status Bar Settings ── */
 /* FR-UIK-13: 스크롤은 `.modal-body` 하나다 (종전 `max-height:60vh` 를 걷었다) —
    `.sc-list` 가 이미 같은 이유로 비어 있다. */
 .sb-settings{}
-.sbs-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid var(--border)}
+.sbs-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid var(--border-weak)}
 .sbs-row span{color:var(--text);font-size:var(--fs-md)}
 .sbs-row>span{flex:1 1 auto;min-width:0;line-height:1.5;overflow-wrap:anywhere}
 .sbs-row>:not(span){flex:0 0 auto}
@@ -1283,7 +1289,7 @@ body.mobile #sidebar{
   z-index:var(--z-overlay);
   transform:translateY(-100%);
   transition:transform .22s ease;
-  border-right:none;border-bottom:1px solid var(--border);
+  border-right:none;border-bottom:1px solid var(--border-strong);
   box-shadow:var(--shadow-2);
   overflow-y:auto;
 }
@@ -1301,7 +1307,7 @@ body.mobile #m-drawer-acts.mobile-only:not([hidden]){display:flex !important;gap
 body.mobile #agents-panel.open{
   position:fixed;top:0;left:0;right:0;width:100%;min-width:0;
   max-height:min(75vh,520px);z-index:var(--z-overlay);
-  border-left:none;border-bottom:1px solid var(--border);box-shadow:var(--shadow-2);
+  border-left:none;border-bottom:1px solid var(--border-strong);box-shadow:var(--shadow-2);
 }
 
 /* hide split handles entirely on mobile */
@@ -1326,7 +1332,7 @@ body.mobile #window-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;wh
 /* mobile keybar (M4) */
 #mobile-keybar{
   position:fixed;left:0;right:0;bottom:env(safe-area-inset-bottom, 0px);
-  height:var(--m-kb-h);background:var(--sidebar-bg);border-top:1px solid var(--border);
+  height:var(--m-kb-h);background:var(--sidebar-bg);border-top:1px solid var(--border-strong);
   display:none;align-items:center;gap:4px;padding:4px 6px;
   overflow-x:auto;overflow-y:hidden;z-index:var(--z-overlay);
   -webkit-overflow-scrolling:touch;
