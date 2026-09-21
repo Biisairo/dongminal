@@ -425,15 +425,39 @@ test.describe('탐색기 머리의 아이콘', () => {
     const row = (await page.locator('.ed-tree .ed-row').first().boundingBox())!;
     expect(Math.round(row.height)).toBe(22);
 
-    // FR-UXB-32: UI 글자 크기를 키우면 아이콘도 커진다.
-    await page.click('#settings-btn');
-    await expect(page.locator('#modal-overlay')).toHaveClass(/open/, { timeout: 10000 });
-    await page.click('.mtab[data-tab="display"]');
-    const num = page.locator('#ds-uifs');
-    await expect(num).toBeVisible({ timeout: 10000 });
-    await num.fill('20');
-    await num.blur();
-    await page.click('#modal-close');
+    /**
+     * FR-UXB-32: UI 글자 크기를 키우면 아이콘도 커진다.
+     *
+     * **키운 것은 되돌린다.** 이 값은 브라우저가 아니라 **인스턴스의 설정**에
+     * 살므로 컨텍스트를 새로 열어도 남고, 같은 워커의 뒤 스펙이 그것을 물려받는다
+     * — 워커 사이의 격리(E2E_PARALLEL_SRS FR-EPL-1)는 워커 **안**을 다루지 않는다.
+     *
+     * 실측: 20 이 남으면 `mobile-keybar-touch` 의 TC-MTB-6·7 이 진다. 키바 버튼이
+     * 넓어져 `↑` 의 중심이 뷰포트(412px) 밖(414px)으로 나가고, 그 좌표로 쏜 터치는
+     * `elementFromPoint` 가 `null` 인 자리에 떨어져 롱프레스가 시작되지 않는다.
+     * 전량을 **샤드로** 돌 때만 보인다 — 한 프로세스로 돌면 파일 순서가 달라진다.
+     */
+    const uifsBefore = await num0(page, 'ds-uifs');
+    await setUifs(page, 20);
     await expect.poll(sizeOf).toBeGreaterThan(base);
+    await setUifs(page, uifsBefore);
+    await expect.poll(sizeOf).toBe(base);
   });
 });
+
+/** 설정의 수 하나를 읽는다 — 되돌릴 값을 상수로 적지 않기 위해서다. */
+const num0 = (page: Page, id: string) =>
+  page.evaluate((i) => Number((document.getElementById(i) as HTMLInputElement).value), id);
+
+/** UI 글자 크기를 사용자가 지나는 길 그대로 바꾼다. */
+async function setUifs(page: Page, v: number) {
+  await page.click('#settings-btn');
+  await expect(page.locator('#modal-overlay')).toHaveClass(/open/, { timeout: 10000 });
+  await page.click('.mtab[data-tab="display"]');
+  const num = page.locator('#ds-uifs');
+  await expect(num).toBeVisible({ timeout: 10000 });
+  await num.fill(String(v));
+  await num.blur();
+  await page.click('#modal-close');
+  await expect(page.locator('#modal-overlay')).not.toHaveClass(/open/, { timeout: 10000 });
+}
