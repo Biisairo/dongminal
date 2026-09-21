@@ -276,7 +276,8 @@ test.describe('모바일 390px', () => {
      * 가로로 스크롤되고, 그 스크롤 폭 안에 마지막 탭이 들어온다.
      */
     const tabs = await page.evaluate(() => {
-      const bar = document.querySelector('#area .pn-tabs') as HTMLElement;
+      // FR-CHR-2: 구르는 것은 안쪽 스크롤러다.
+      const bar = document.querySelector('#area .pn-tabs-scroll') as HTMLElement;
       const list = Array.from(document.querySelectorAll('#area .pn-tab[data-git-view]'));
       const br = bar.getBoundingClientRect();
       const last = list[list.length - 1].getBoundingClientRect();

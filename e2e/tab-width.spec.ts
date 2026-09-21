@@ -139,8 +139,9 @@ test.describe('탭 너비 고정 (FR-TBW-1~11)', () => {
       expect(new Set(w), '자리가 모자라자 폭이 줄었다: ' + JSON.stringify(w))
         .toHaveProperty('size', 1);
       expect(w[0]).toBe(160);
-      // 대신 줄이 스크롤한다.
-      const over = await page.locator(TABS)
+      // 대신 줄이 스크롤한다. **구르는 것은 안쪽 스크롤러다** (FR-CHR-2) — 고정
+      // 구는 그 밖에서 자리를 지킨다.
+      const over = await page.locator(TABS + '-scroll')
         .evaluate((e) => e.scrollWidth > e.clientWidth + 1);
       expect(over, '넘쳤는데 스크롤할 것이 없다').toBeTruthy();
     });
@@ -209,7 +210,9 @@ test.describe('탭 줄 — 끌 수 있음이 보이고 넘침이 보인다 (UX-2
       for (let i = 0; i < 14; i++) await a.addTab(a.focused, 'terminal');
       a.render();
     });
-    const bar = page.locator('#area .pn.focused .pn-tabs');
+    // FR-CHR-2: 구르는 것은 `.pn-tabs` 가 아니라 그 안의 스크롤러다 — 고정 구는
+    // 그 밖에서 자리를 지킨다.
+    const bar = page.locator('#area .pn.focused .pn-tabs-scroll');
     await expect.poll(() => bar.evaluate((e) => e.scrollWidth > e.clientWidth), { timeout: 10000 }).toBe(true);
     // 넘침은 속성으로 드러나고 CSS 가 그것을 그린다 — 스크롤바를 감춘 채 아무
     // 표시가 없던 것이 `UX-24` 다.

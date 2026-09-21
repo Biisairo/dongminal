@@ -481,3 +481,66 @@ test.describe('Layout & navigation', () => {
     expect(await focusedPane.getAttribute('data-paneid')).toBe(firstPaneId);
   });
 });
+
+// UIUX_OVERHAUL_SRS §4.2 — 탭줄이 크롬이 된다 (FR-CHR-2·3).
+test.describe('탭줄의 고정 구 (FR-CHR-2)', () => {
+  const ACTS = '#area .pn.focused .pn-acts';
+
+  test('V-CHR-2a: 고정 구가 탭줄 오른쪽 끝에 서고 탭과 함께 구르지 않는다',
+    async ({ page }) => {
+      await waitForInit(page);
+      // 줄이 넘칠 만큼 탭을 늘린다 — 고정 구가 스크롤러 **밖**이라는 것이 요지다.
+      // 넓은 화면에서는 열넷도 한 줄에 서므로 창을 좁힌다 (`tab-width` W6 과 같은
+      // 이유이고, 그쪽은 고정 폭으로 같은 일을 한다).
+      await page.setViewportSize({ width: 640, height: 600 });
+      await page.evaluate(async () => {
+        const a = (window as any).app;
+        for (let i = 0; i < 12; i++) await a.addTab(a.focused, 'terminal');
+        a.render();
+      });
+      const scroll = page.locator('#area .pn.focused .pn-tabs-scroll');
+      await expect.poll(() => scroll.evaluate((e) => e.scrollWidth > e.clientWidth),
+        { timeout: 15000 }).toBe(true);
+
+      // 구는 줄의 오른쪽 끝에 붙는다.
+      const geo = await page.evaluate(() => {
+        const bar = document.querySelector('#area .pn.focused .pn-tabs')!.getBoundingClientRect();
+        const acts = document.querySelector('#area .pn.focused .pn-acts')!.getBoundingClientRect();
+        return { barRight: Math.round(bar.right), actsRight: Math.round(acts.right) };
+      });
+      expect(geo.actsRight).toBe(geo.barRight);
+
+      // 줄을 끝까지 굴려도 구의 자리는 그대로다 — 스크롤러 밖이기 때문이다.
+      const beforeX = await page.locator(ACTS).evaluate((e) => Math.round(e.getBoundingClientRect().left));
+      await scroll.evaluate((e) => { e.scrollLeft = e.scrollWidth });
+      await expect.poll(() => scroll.evaluate((e) => e.scrollLeft), { timeout: 5000 })
+        .toBeGreaterThan(0);
+      const afterX = await page.locator(ACTS).evaluate((e) => Math.round(e.getBoundingClientRect().left));
+      expect(afterX, '탭을 굴렸더니 고정 구가 따라 움직였다').toBe(beforeX);
+    });
+
+  test('V-CHR-2b: 탭줄의 분할 버튼이 그 pane 을 쪼갠다',
+    async ({ page }) => {
+      await waitForInit(page);
+      const before = await page.locator('#area .pn').count();
+      await page.locator(ACTS + ' .pn-split').first().click();
+      await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
+    });
+
+  test('V-CHR-2c: 세로 분할 버튼도 같은 자리에서 칸을 늘린다',
+    async ({ page }) => {
+      await waitForInit(page);
+      const before = await page.locator('#area .pn').count();
+      await page.locator(ACTS + ' .pn-split').nth(1).click();
+      await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
+    });
+
+  test('V-CHR-3: 일반 창에서는 분할 버튼이 쓸 수 있다 — 자리가 모드를 타지 않는다',
+    async ({ page }) => {
+      await waitForInit(page);
+      const btns = page.locator(ACTS + ' .pn-split');
+      await expect(btns).toHaveCount(2);
+      await expect(btns.nth(0)).toBeEnabled();
+      await expect(btns.nth(1)).toBeEnabled();
+    });
+});

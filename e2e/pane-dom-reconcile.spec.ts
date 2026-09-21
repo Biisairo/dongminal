@@ -130,8 +130,8 @@ test.describe('Pane DOM reconcile', () => {
     // `_rLayout` 이 짓는 요소들에 대한 것이고, 위젯 안쪽은 그 요구의 대상이 아니다.
     // 그래서 클래스로 가린다 — 소음을 재우는 대신 무엇을 세는지 좁힌다.
     const added = await page.evaluate(`(async () => {${PICK}
-      const LAYOUT = ['slot','slot-handle','sp','sc','pn','pn-tabs','pn-body',
-        'pn-tab','pn-tab-add','ed-win','ed-area','ed-side'];
+      const LAYOUT = ['slot','slot-handle','sp','sc','pn','pn-tabs','pn-tabs-scroll',
+        'pn-acts','pn-body','pn-tab','pn-tab-add','pn-act','ed-win','ed-area','ed-side'];
       const area = document.getElementById('area');
       let n = 0;
       const obs = new MutationObserver(rs => {

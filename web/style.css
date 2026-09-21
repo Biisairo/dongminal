@@ -613,19 +613,32 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
 .pn{display:flex;flex-direction:column;position:absolute;inset:0}
 .pn.focused .pn-tabs{border-bottom-color:var(--accent);box-shadow:inset 0 -2px 0 var(--accent)}
 
+/* UIUX_OVERHAUL_SRS FR-CHR-2: 줄 자신은 **구르지 않는다.** 구르는 것은 안쪽
+   `.pn-tabs-scroll` 이고, 고정 구(`.pn-acts`)는 그 밖에서 오른쪽 끝을 지킨다.
+   포커스 표식(`box-shadow`)은 줄 전체의 것이므로 여기 남는다. */
 .pn-tabs{
   height:28px;min-height:28px;display:flex;align-items:stretch;
   background:var(--sidebar-bg);border-bottom:1px solid var(--border);
-  overflow-x:auto;flex-shrink:0;
+  flex-shrink:0;
 }
-.pn-tabs::-webkit-scrollbar{height:0}
+.pn-tabs-scroll{display:flex;align-items:stretch;overflow-x:auto;flex:1 1 auto;min-width:0}
+.pn-tabs-scroll::-webkit-scrollbar{height:0}
 /* UX-24: 넘친 쪽의 가장자리를 흐린다 — 렌더러가 `data-overflow` 를 세운다 (renderer.js
-   `_makePane`). 스크롤바를 감춘 대가로 "저 너머에 더 있다" 를 이것이 말한다. */
-.pn-tabs[data-overflow="right"]{mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent)}
-.pn-tabs[data-overflow="left"]{mask-image:linear-gradient(to right,transparent,#000 28px)}
-.pn-tabs[data-overflow="both"]{mask-image:linear-gradient(to right,transparent,#000 28px,#000 calc(100% - 28px),transparent)}
-/* D-A11Y-11: 탭만 담는 tablist. 바 안의 한 겹이라 `+` 와 함께 스크롤한다. */
+   `_makePane`). 스크롤바를 감춘 대가로 "저 너머에 더 있다" 를 이것이 말한다.
+
+   **마스크가 고정 구에 닿지 않는다** — `mask-image` 는 자손까지 걸리므로 구를
+   스크롤러 안에 두면 그것까지 흐려진다 (FR-CHR-2 의 구조 근거). */
+.pn-tabs-scroll[data-overflow="right"]{mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent)}
+.pn-tabs-scroll[data-overflow="left"]{mask-image:linear-gradient(to right,transparent,#000 28px)}
+.pn-tabs-scroll[data-overflow="both"]{mask-image:linear-gradient(to right,transparent,#000 28px,#000 calc(100% - 28px),transparent)}
+/* D-A11Y-11: 탭만 담는 tablist. */
 .pn-tablist{display:flex;align-items:stretch;flex-shrink:0}
+/* FR-CHR-2 의 고정 구. 탭이 넘쳐도 자리를 지킨다 — 근육기억이 문맥마다 깨지지
+   않는다는 것이 이 묶음의 요지다 (§3.3 원칙 2). */
+.pn-acts{display:flex;align-items:stretch;flex-shrink:0;
+  border-left:1px solid var(--border-weak)}
+.pn-act{width:24px}
+.pn-act:hover:not(:disabled){color:var(--accent-text)}
 .pn-tab{
   display:flex;align-items:center;padding:0 10px;gap:4px;
   font-size:var(--fs-md);color:var(--text-muted);cursor:pointer;

@@ -367,23 +367,28 @@ test.describe('묶음 D — 메모장은 다른 explorer 와 같다 (FR-M9-22·2
 
 // ── 묶음 E — 탭 바 여백 더블클릭 (U-11) ──────────────────
 
-/** 활성 pane 의 탭 바 **오른쪽 여백**. 마지막 탭보다 오른쪽에 자리가 있어야 한다. */
+/**
+ * 활성 pane 의 탭 바 **오른쪽 여백**. 마지막 탭보다 오른쪽에 자리가 있어야 한다.
+ *
+ * **여백은 스크롤러 안의 것이다** (UIUX_OVERHAUL_SRS FR-CHR-2). 고정 구
+ * (`.pn-acts` — `+` · 분할 둘)는 스크롤러 **밖**에서 오른쪽 끝을 지키므로, 여백은
+ * `.pn-tablist` 의 오른쪽 끝부터 `.pn-tabs-scroll` 의 오른쪽 끝까지다. 바 전체로
+ * 재면 고정 구의 폭이 여백에 섞여 그 버튼을 누르게 된다.
+ */
 async function dblBlankTabs(page: Page, paneSel = '#area .pn.focused') {
   const gap = await page.evaluate((s) => {
-    const bar = document.querySelector(`${s} .pn-tabs`) as HTMLElement;
-    const ts = [...bar.querySelectorAll('.pn-tab, .pn-tab-add')] as HTMLElement[];
-    const right = ts.length ? Math.max(...ts.map((t) => t.getBoundingClientRect().right))
-      : bar.getBoundingClientRect().left;
-    return bar.getBoundingClientRect().right - right;
+    const scroll = document.querySelector(`${s} .pn-tabs-scroll`) as HTMLElement;
+    const list = document.querySelector(`${s} .pn-tablist`) as HTMLElement;
+    return scroll.getBoundingClientRect().right - list.getBoundingClientRect().right;
   }, paneSel);
   expect(gap, '탭 바에 여백이 없다 — 이 검증이 성립하지 않는다').toBeGreaterThan(16);
-  const box = (await page.locator(`${paneSel} .pn-tabs`).boundingBox())!;
+  const box = (await page.locator(`${paneSel} .pn-tabs-scroll`).boundingBox())!;
   // **여백의 한가운데**를 누른다. 끝에서 6px 을 누르던 것이 분할 손잡이의 히트
-  // 확장(`.sh::before` ±6px)에 먹혔다 — UIUX_OVERHAUL_SRS FR-HIE-2 가 `.pn` 의
-  // 2px 투명 테두리를 걷으면서 탭줄이 손잡이에 맞닿아 죽은 영역이 4px → 6px 로
-  // 늘었다. 한가운데는 손잡이 기하와 무관하고, 이 검증이 묻는 "여백을 누르면
-  // 탭이 서는가" 에 더 정확하다.
-  await page.locator(`${paneSel} .pn-tabs`)
+  // 확장(`.sh::before` ±6px)에 먹혔다 — FR-HIE-2 가 `.pn` 의 2px 투명 테두리를
+  // 걷으면서 탭줄이 손잡이에 맞닿아 죽은 영역이 4px → 6px 로 늘었다. 한가운데는
+  // 손잡이 기하와 무관하고, 이 검증이 묻는 "여백을 누르면 탭이 서는가" 에 더
+  // 정확하다.
+  await page.locator(`${paneSel} .pn-tabs-scroll`)
     .dblclick({ position: { x: box.width - gap / 2, y: box.height / 2 } });
 }
 

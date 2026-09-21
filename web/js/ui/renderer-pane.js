@@ -202,16 +202,29 @@ Object.assign(Renderer.prototype, {
       t.title=tab.preview?REPO_PREVIEW_TITLE:name;
       kids.push(t);
     }
-    // FR-GIT-180 / FR-EDT-54: Git·Editor 창에는 `+` 자리를 만들지 않는다 —
-    // 눌리지만 아무 일도 하지 않는 버튼은 고장으로 읽힌다.
-    // D-A11Y-11: 탭은 `tablist` 안에, `+` 는 그 **옆**에 — tablist 의 자식은 tab
-    // 뿐이어야 한다. 둘 다 같은 바 안에 있으므로 함께 스크롤한다.
-    const list=tabs.firstChild;
+    // D-A11Y-11: 탭은 `tablist` 안에, 동작은 그 **밖**에 — tablist 의 자식은 tab
+    // 뿐이어야 한다.
+    const scroll=tabs.firstChild;
+    const acts=tabs.lastChild;
+    const list=scroll.firstChild;
     this._place(list,kids);
     const aw=app.aw();
-    const bar=[list];
-    if(!(app.isGitWin(aw)||app.isEditorWin(aw))) bar.push(this._keep(key+'/add',()=>this._makeTabAdd()));
-    this._place(tabs,bar);
+    const closed=app.isGitWin(aw)||app.isEditorWin(aw);
+    /**
+     * UIUX_OVERHAUL_SRS FR-CHR-2·3: 고정 구. **가르는 것은 모드가 아니라
+     * 컨트롤이다.**
+     *
+     *   `+`      FR-GIT-180·FR-EDT-54 — 닫힌 창에는 만들 **대상이 없다**. 사라진다
+     *   분할 둘  FR-CHR-3 — 쪼개는 동작은 어느 창에서나 같은 자리다. `disabled`
+     */
+    const actKids=[];
+    if(!closed) actKids.push(this._keep(key+'/add',()=>this._makeTabAdd()));
+    for(const dir of ['horizontal','vertical']){
+      const b=this._keep(key+'/split-'+dir,()=>this._makeSplitBtn(dir));
+      b.disabled=closed;
+      actKids.push(b);
+    }
+    this._place(acts,actKids);
     // `Tab` 에 닿는 탭은 하나다 — 포커스가 줄 안에 있으면 그 탭, 아니면 활성 탭.
     const ae=document.activeElement;
     UIKit.rove(kids,kids.includes(ae)?ae:kids.find(t=>t.classList.contains('active')));
@@ -328,6 +341,39 @@ Object.assign(Renderer.prototype, {
     return t;
   },
 
+  /**
+   * UIUX_OVERHAUL_SRS FR-CHR-2: 탭줄의 분할 진입점.
+   *
+   * **상단바의 `Split H`·`Split V` 와 같은 동작을 부른다** — `app.split(dir)` 하나를
+   * 지나므로 두 자리가 갈릴 수 없다. 단축키(`splitH`·`splitV`)도 같은 함수다.
+   *
+   * 아이콘은 방향을 그대로 말한다: 가로 분할은 칸이 **옆으로** 서므로 `columns`,
+   * 세로 분할은 **위아래**로 서므로 `rows` 다 (`.sp[data-d="horizontal"]` 가
+   * `flex-direction:row` 인 것과 같은 말이다).
+   *
+   * 툴팁은 카탈로그를 지나고 단축키 표기가 `{key}` 에 든다 (FR-B-7) —
+   * `I18N.applyShortcuts(document)` 가 설정 변경 뒤에 이 요소도 다시 채운다.
+   */
+  _makeSplitBtn(dir){
+    const app=this.app, h=dir==='horizontal';
+    const b=document.createElement('button');
+    b.className='ui-btn ui-btn-icon ui-btn-ghost pn-act pn-split';
+    b.appendChild(UIKit.icon(h?'columns':'rows',{size:'sm'}));
+    b.dataset.i18nTitle=h?'html.split_h_title':'html.split_v_title';
+    b.dataset.i18nAriaLabel=h?'html.split_h_title':'html.split_v_title';
+    b.dataset.i18nShortcut=h?'splitH':'splitV';
+    I18N.apply(b);
+    b.addEventListener('click',e=>{
+      e.stopPropagation();
+      const pn=b.closest('.pn');
+      const node=pn&&pn._ctx&&pn._ctx.node;
+      // FR-EXR-42 와 같은 규약 — 자리는 활성 pane 이 아니라 **이 버튼이 속한
+      // pane** 이다.
+      app.split(dir,node?{targetPane:node.id}:{});
+    });
+    return b;
+  },
+
   _makeTabAdd(){
     const app=this.app;
     const add=document.createElement('button'); add.className='ui-btn ui-btn-icon ui-btn-ghost pn-tab-add';
@@ -358,10 +404,26 @@ Object.assign(Renderer.prototype, {
     const app=this.app;
     const el=document.createElement('div');
     el.className='pn';
+    /**
+     * UIUX_OVERHAUL_SRS FR-CHR-2: **탭줄이 크롬이 된다.** 오른쪽 끝에 고정 구가
+     * 서고, 그 구는 탭과 함께 스크롤하지 않는다.
+     *
+     *   .pn-tabs            줄 자신 — 포커스 표식(`box-shadow`)의 임자
+     *     .pn-tabs-scroll   구르는 것은 **이쪽**이다. 넘침 표식·마스크도 여기
+     *       .pn-tablist     탭만 담는다 (D-A11Y-11)
+     *     .pn-acts          고정 구 — `+` · 분할 둘
+     *
+     * **마스크가 구조를 정했다.** `[data-overflow]` 의 `mask-image` 는 자손까지
+     * 걸리므로 고정 구를 스크롤러 **안**에 `position:sticky` 로 두면 그것이
+     * 흐려진다. 밖으로 내면 마스크는 탭에만 걸리고 구는 또렷하다.
+     */
     const tabs=document.createElement('div'); tabs.className='pn-tabs';
+    const scroll=document.createElement('div'); scroll.className='pn-tabs-scroll';
     const list=document.createElement('div'); list.className='pn-tablist';
     list.setAttribute('role','tablist');
-    tabs.appendChild(list);
+    scroll.appendChild(list);
+    const acts=document.createElement('div'); acts.className='pn-acts';
+    tabs.appendChild(scroll); tabs.appendChild(acts);
     const body=document.createElement('div'); body.className='pn-body';
     // FR-B-6 (UX-11): 다른 화면이 쥔 칸의 안내. `.pn-dimmed` 일 때만 CSS 가 보인다.
     const dim=document.createElement('div'); dim.className='pn-dim-hint'; dim.textContent=CLICK_TO_FOCUS_HINT;
@@ -396,7 +458,7 @@ Object.assign(Renderer.prototype, {
      * FR-EXR-44: Editor·Git 창에서는 `addTab` 이 스스로 거절한다 — `+` 를 두지
      * 않는 조건과 같은 불변식이며(FR-GIT-179·FR-EDT-54) 여기 다시 적지 않는다.
      */
-    tabs.addEventListener('dblclick',e=>{
+    scroll.addEventListener('dblclick',e=>{
       if(e.target.closest('.pn-tab'))return;
       const n=node(); if(!n)return;
       e.stopPropagation();
@@ -409,16 +471,16 @@ Object.assign(Renderer.prototype, {
      * 세로 휠은 가로로 구른다 — 가로 휠이 없는 마우스가 대부분이다.
      */
     const markOverflow=()=>{
-      const left=tabs.scrollLeft>0;
-      const right=tabs.scrollLeft+tabs.clientWidth<tabs.scrollWidth-1;
+      const left=scroll.scrollLeft>0;
+      const right=scroll.scrollLeft+scroll.clientWidth<scroll.scrollWidth-1;
       const v=left&&right?'both':left?'left':right?'right':'';
-      if(v) tabs.dataset.overflow=v; else delete tabs.dataset.overflow;
+      if(v) scroll.dataset.overflow=v; else delete scroll.dataset.overflow;
     };
-    tabs.addEventListener('scroll',markOverflow,{passive:true});
-    tabs.addEventListener('wheel',e=>{
-      if(e.deltaX||!e.deltaY||tabs.scrollWidth<=tabs.clientWidth)return;
+    scroll.addEventListener('scroll',markOverflow,{passive:true});
+    scroll.addEventListener('wheel',e=>{
+      if(e.deltaX||!e.deltaY||scroll.scrollWidth<=scroll.clientWidth)return;
       e.preventDefault();
-      tabs.scrollLeft+=e.deltaY;
+      scroll.scrollLeft+=e.deltaY;
     },{passive:false});
     /**
      * FR-PRF-30: **만든 관측자를 잡는다.**
@@ -434,7 +496,7 @@ Object.assign(Renderer.prototype, {
      */
     if(typeof ResizeObserver!=='undefined'){
       el._tabOverflowRo=new ResizeObserver(markOverflow);
-      el._tabOverflowRo.observe(tabs);
+      el._tabOverflowRo.observe(scroll);
     }
     el._markTabOverflow=markOverflow;
     tabs.addEventListener('dragover',e=>{
