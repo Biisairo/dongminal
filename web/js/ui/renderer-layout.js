@@ -195,10 +195,33 @@ Object.assign(Renderer.prototype, {
      * `tabindex` 가 생기면 클릭도 탭에 포커스를 두는데, 그것까지 지키면
      * 탭을 누른 뒤 터미널에 글자를 칠 수 없다. Enter 로 연 것은 `focusHandoff`
      * 가 넘긴다 (`UIKit.roving` 의 activate).
+     *
+     * **개정 2026-09-22 — 지키는 범위가 `.kb-nav` 로는 좁았다** (FR-A11Y-16).
+     *
+     *   이전 동작: `.ed-explorer` 와 `.kb-nav` **둘만** 지켰다. 그 사이의 버튼
+     *             — 사이드바 탭줄(`#sb-tabs`)·`새 창`·`설정` — 은 키보드로
+     *             닿는 순간 렌더가 포커스를 터미널로 가져갔고, xterm 은 `Tab`
+     *             을 먹으므로 **거기서 순회가 끝났다.** `Tab` 이 창 목록에
+     *             영영 닿지 못한다
+     *   새  동작: `#area` **밖**에서 키보드로 들어온 포커스는 전부 지킨다
+     *   이유:     FR-A11Y-16 은 *"키보드만으로 간다"* 이고, 그 길 위의 표면을
+     *             하나씩 등록하는 방식은 **다음 버튼에서 또 깨진다** — 열거는
+     *             계약이 아니다. 실측으로 `a11y-keyboard` 여섯이 이 한 자리에서
+     *             졌다 (개편 앞 `e34b7206` 에서도 같다 — 기존 결함이다)
+     *
+     * **판정 기준은 한 글자도 바뀌지 않았다.** 마우스와 키보드를 가르는 것은
+     * 여전히 `:focus-visible` 이다 (D-A11Y-12) — 클릭으로 받은 포커스는
+     * 그것에 걸리지 않으므로 누른 뒤 터미널에 글자를 치는 길이 그대로 남는다.
+     *
+     * **`#area` 안은 여전히 이 함수의 것이다.** 터미널·편집기 자신이 포커스를
+     * 쥐고 있을 때 물러나면 칸을 옮겨도 **옛 인스턴스**가 포커스를 쥔다
+     * (FR-WSL-20). 그 안에서 지키는 것은 종전대로 `.kb-nav` 뿐이다 —
+     * pane 탭줄이 그것이고, TC-A11Y-6b 가 그 자리를 잰다.
      */
     const ae=document.activeElement;
+    const kb=ae&&ae.matches&&ae.matches(':focus-visible');
     const held=!app.focusHandoff&&ae&&ae.closest&&(ae.closest('.ed-explorer')
-      ||(ae.closest('.kb-nav')&&ae.matches(':focus-visible')));
+      ||(kb&&(ae.closest('.kb-nav')||!ae.closest('#area'))));
     const s=app.aw();
     if(app.focused && !app.isMobile && s?.layout && !held){
       const pn=findPane(s.layout,app.focused);

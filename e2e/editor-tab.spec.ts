@@ -618,17 +618,29 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     // 는 그 탭에서만 있다 — 그 자리를 명시로 연다.
     await openExplorerSide(page);
     await expect(page.locator('#area .ed-win .ed-side .ed-explorer')).toHaveCount(1);
-    // FR-RSW-1: 폭은 창 레코드가 아니라 워크스페이스 최상위 한 자리다.
+    /**
+     * FR-RSW-1 (개정): 폭은 **한 자리**에 산다 — 그 자리가 워크스페이스에서
+     * `sessionStorage` 로 옮겼다 (`UX_BATCH10_SRS` FR-UXB-7 · D-UXB-1:
+     * *"치수는 화면의 것이다"*). 워크스페이스는 서버의 것이라 기기를 건너고,
+     * 데스크톱에서 끈 폭이 휴대폰에 강제됐다.
+     *
+     * **재는 목적은 그대로다**: 폭을 아는 자리가 하나이고 창 레코드가 그것을
+     * 갖지 않는다. 옮긴 자리를 이 검사가 따라간다.
+     */
     const stored = await page.evaluate(() => {
       const a = (window as any).app;
       a.testing.edSetSideWidth(310);
       a.render();
       return {
-        ws: a.ws.repoSideWidth,
+        session: sessionStorage.getItem('repoSideWidth'),
+        read: a.testing.edSideWidth(),
+        onWs: 'repoSideWidth' in a.ws,
         onWindows: a.ws.windows.some((w: any) => w.editor && 'explorerWidth' in w.editor),
       };
     });
-    expect(stored.ws).toBe(310);
+    expect(stored.session).toBe('310');
+    expect(stored.read).toBe(310);
+    expect(stored.onWs, '폭이 워크스페이스로 새면 기기를 건넌다').toBe(false);
     expect(stored.onWindows).toBe(false);
     await expect(page.locator('#area .ed-win .ed-side')).toHaveCSS('width', '310px');
 
@@ -639,33 +651,47 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     }, HOME_DIR);
     await expect(page.locator('#area .ed-win .ed-side')).toHaveCSS('width', '310px');
 
-    // FR-RSW-4: 상·하한에서 자른다. 값이 없으면 기본이다.
+    // FR-RSW-4: 상·하한에서 자른다. 값이 없으면 기본이다. **수는 그대로다.**
     expect(await page.evaluate(() => {
       const a = (window as any).app;
-      a.testing.edSetSideWidth(9999); const hi = a.ws.repoSideWidth;
-      a.testing.edSetSideWidth(1); const lo = a.ws.repoSideWidth;
-      delete a.ws.repoSideWidth; const none = a.testing.edSideWidth();
+      a.testing.edSetSideWidth(9999); const hi = a.testing.edSideWidth();
+      a.testing.edSetSideWidth(1); const lo = a.testing.edSideWidth();
+      sessionStorage.removeItem('repoSideWidth'); const none = a.testing.edSideWidth();
       a.testing.edSetSideWidth(310);
       return { hi, lo, none };
     })).toEqual({ hi: 520, lo: 100, none: 220 });
 
+    /**
+     * FR-RSW-2 개정판의 경계: **같은 탭의 새로고침은 폭을 지우지 않는다.**
+     * `sessionStorage` 가 탭의 수명을 딛기 때문이고, 그것이 *"이 브라우저 창
+     * 하나의 치수"* 라는 D-UXB-1 의 뜻이다.
+     */
     await flushSave(page);
     await page.reload();
     await waitLoaded(page);
-    expect(await page.evaluate(() => (window as any).app.ws.repoSideWidth)).toBe(310);
+    expect(await page.evaluate(() => (window as any).app.testing.edSideWidth())).toBe(310);
 
-    // FR-RSW-5: 개정 이전의 창별 폭은 승계되고 창 레코드에서 지워진다.
+    /**
+     * FR-RSW-5 (개정): 옛 두 키는 **승계 없이** 걷힌다 (FR-UXB-8 · D-UXB-1).
+     *
+     *   이전 동작: `explorerWidth` 를 `repoSideWidth` 로 옮겨 적었다
+     *   새  동작: 둘 다 지우기만 한다 — 새 창은 기본값에서 시작한다
+     *   이유:     승계를 두면 *"새 창은 기본값"* 과 *"다른 창을 따라가지
+     *             않는다"* 중 하나가 흐려진다. 둘을 다 지키는 값은 기본값뿐이다
+     */
     expect(await page.evaluate(() => {
       const a = (window as any).app;
-      delete a.ws.repoSideWidth;
+      a.ws.repoSideWidth = 275;
       for (const w of a.testing.edWindows()) w.editor.explorerWidth = 275;
       const moved = a.testing.edMigrateSideWidth();
       return {
         moved,
-        ws: a.ws.repoSideWidth,
+        onWs: 'repoSideWidth' in a.ws,
         onWindows: a.ws.windows.some((w: any) => w.editor && 'explorerWidth' in w.editor),
+        // 승계하지 않는다 — 세션의 값이 옛 키에 덮이지 않는다.
+        width: a.testing.edSideWidth(),
       };
-    })).toEqual({ moved: true, ws: 275, onWindows: false });
+    })).toEqual({ moved: true, onWs: false, onWindows: false, width: 310 });
   });
 });
 

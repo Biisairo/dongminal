@@ -71,6 +71,31 @@ Repo 창의 좌측 사이드(`Changes`·`Explorer` 탭이 갈아 끼워지는 �
 | FR-RSW-3 | 드래그가 도는 동안 화면에 있는 모든 사이드의 폭이 함께 움직인다. 확정은 mouseup 한 번이고 그때 `save()` 한다 (D-5). | 필수 |
 | FR-RSW-4 | 값이 없거나 숫자가 아니면 `REPO_SIDE_W_DEFAULT`(220) 다. 읽을 때도 쓸 때도 `REPO_SIDE_W_MIN`(100) ~ `REPO_SIDE_W_MAX`(520) 로 자른다 — 상·하한과 기본값은 종전과 같은 수다. | 필수 |
 | FR-RSW-5 | 옛 워크스페이스의 `window.editor.explorerWidth` 는 첫 진입에서 `repoSideWidth` 로 승계되고(값이 아직 없을 때만), 창 레코드에서는 지워진다. 바뀌었으면 저장한다 (D-6). | 필수 |
+
+> **개정 2026-09-21 — 폭이 사는 자리가 바뀌었다 (`UX_BATCH10_SRS` FR-UXB-6~8 ·
+> D-UXB-1, 사용자 결정).** 이 문서의 D-1·D-2 를 그 문서가 뒤집었는데 **여기에
+> 적히지 않았다** — 그래서 `editor-tab` E22 가 `ws.repoSideWidth` 를 계속 재며
+> `Expected 310, Received undefined` 로 졌다 (2026-09-22 에 발견).
+>
+> | | 이전 | 새 |
+> |---|---|---|
+> | 사는 자리 | 워크스페이스 최상위 `ws.repoSideWidth` | `sessionStorage['repoSideWidth']` |
+> | 범위 | 워크스페이스를 공유하는 **전 기기** | **이 브라우저 창** 하나 |
+> | 옛 키 | `explorerWidth` → `repoSideWidth` 로 **승계** | 두 키 모두 **승계 없이 삭제** |
+>
+> **이유**: 워크스페이스는 서버의 것이라 기기를 건넌다 — 데스크톱에서 끈 폭이
+> 휴대폰에 강제됐다. 치수는 화면의 것이다. 승계를 두지 않는 것은 *"새 창은
+> 기본값"* 과 *"다른 창을 따라가지 않는다"* 를 동시에 지키는 값이 기본값뿐이기
+> 때문이다 (D-UXB-1).
+>
+> **살아남는 것**: FR-RSW-2(앱 안의 모든 Repo 창이 같은 폭) · FR-RSW-3(끄는 동안
+> 함께 움직인다) · FR-RSW-4(상·하한 100~520, 기본 220) · FR-RSW-7 · FR-RSW-8 은
+> 한 글자도 바뀌지 않는다. 바뀐 것은 **값이 어디에 적히는가** 하나다.
+>
+> **FR-RSW-1 은 *한 자리* 라는 뜻으로 남는다** — 그 자리가 워크스페이스에서
+> 세션 저장소로 옮겼을 뿐이고, 창 레코드가 폭을 갖지 않는다는 금지는 그대로다.
+> **FR-RSW-6 은 폐기다** — 폭이 더는 워크스페이스에 없으므로 다른 브라우저의
+> 변경이 따라올 자리가 없다. 그것이 이 개정의 목적이다.
 | FR-RSW-6 | 다른 브라우저가 폭을 바꾸면 `workspace_changed` 반영에서 그대로 따라온다 — 최상위 키이므로 `this.ws=sv` 와 `render()` 가 그 경로다 (D-3). | 필수 |
 | FR-RSW-7 | 활성 탭(`window.editor.side`)은 창마다 따로 남는다 (D-7). | 필수 |
 | FR-RSW-8 | 모바일에서는 폭을 주지 않는다 — 사이드가 순회의 자리 하나를 전부 쓴다 (FR-RTU-80). | 필수 |
@@ -93,10 +118,10 @@ Repo 창의 좌측 사이드(`Changes`·`Explorer` 탭이 갈아 끼워지는 �
 ## 4. 검증 (Verification)
 | ID | 대상 | 검증 방법 |
 |----|------|----------|
-| V-RSW-1 (FR-RSW-1·2) | e2e: `edSetSideWidth(310)` 뒤 `ws.repoSideWidth===310`, 열려 있는 **모든** `.ed-side` 의 폭이 310px, 창 레코드에 `editor.explorerWidth` 가 없다. |
-| V-RSW-2 (FR-RSW-1) | e2e: 새로고침 뒤에도 310px 이고 값은 여전히 워크스페이스 최상위에 있다. |
+| V-RSW-1 (FR-RSW-1·2) | e2e: `edSetSideWidth(310)` 뒤 `sessionStorage['repoSideWidth']==='310'`, 열려 있는 **모든** `.ed-side` 의 폭이 310px, 워크스페이스에도 창 레코드에도 폭이 없다. |
+| V-RSW-2 (FR-RSW-1) | e2e: 새로고침 뒤에도 310px 이고 값은 여전히 세션 저장소에 있다 — 같은 탭의 새로고침은 그것을 지우지 않는다. |
 | V-RSW-3 (FR-RSW-4) | e2e: `edSetSideWidth(9999)` → 520, `edSetSideWidth(1)` → 100. 값을 지우면 220. |
-| V-RSW-4 (FR-RSW-5) | e2e: 창 레코드에 `explorerWidth` 를 심고 `repoSideWidth` 를 지운 뒤 다시 읽으면 승계되고 창 레코드의 키가 사라진다. |
+| V-RSW-4 (FR-RSW-5 개정) | e2e: 워크스페이스에 옛 두 키를 심고 `edMigrateSideWidth()` 를 부르면 둘 다 사라지고 **폭은 승계되지 않는다** (D-UXB-1). |
 | V-RSW-5 (FR-RSW-7) | e2e: 창 A 의 사이드를 `Changes` 로 바꿔도 창 B 는 `Explorer` 다. |
 | V-RSW-6 (회귀) | `npx playwright test e2e/editor-tab.spec.ts e2e/repo-tab.spec.ts` 통과. |
 

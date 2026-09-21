@@ -47,8 +47,10 @@ async function blockSave(page: Page) {
  * 창을 건드리면 무엇이 탭을 지켰는지 갈리지 않는다. 바꾸는 것은 `sidebarWidth`
  * 하나이고, 그래도 서버 rev 가 오르므로 SSE `workspace_changed` 가 방송된다.
  * 그때 오는 원격 스냅샷에는 이 화면이 방금 만든 탭이 **없다** — 그것이 요점이다.
+ *
+ * **새 rev 를 돌려준다** — 채택을 기다리는 쪽이 그것을 딛는다 (`waitAdopted`).
  */
-async function bumpWorkspace(request: any, width: number) {
+async function bumpWorkspace(request: any, width: number): Promise<number> {
   const got = await request.get('/api/workspace');
   expect(got.ok()).toBeTruthy();
   const etag = got.headers()['etag'];
@@ -59,13 +61,35 @@ async function bumpWorkspace(request: any, width: number) {
     data: body,
   });
   expect(put.ok()).toBeTruthy();
+  return revOf(put);
 }
 
-/** 이 화면이 그 rev 를 채택할 때까지 기다린다. */
-async function waitAdopted(page: Page, width: number) {
+/** 응답의 `ETag` 가 곧 워크스페이스 rev 다 (`apiWorkspacePut`). */
+function revOf(res: any): number {
+  const et = parseInt(res.headers()['etag'], 10);
+  expect(Number.isFinite(et), 'PUT 응답에 ETag 가 없다 — rev 를 알 길이 없다').toBe(true);
+  return et;
+}
+
+/**
+ * 이 화면이 그 rev 를 채택할 때까지 기다린다.
+ *
+ * **표식이 값에서 rev 로 바뀌었다** (2026-09-22). 종전에는 방금 실어 보낸
+ * `sidebarWidth` 가 `app.ws` 에 나타나기를 기다렸는데, `UX_BATCH10_SRS`
+ * FR-UXB-6·8 이 그 키를 `sessionStorage` 로 옮기면서 **채택하는 쪽이 그것을
+ * 지우게** 됐다 (`app-cmd.js` 의 `delete this.ws.sidebarWidth`). 값은 영영 오지
+ * 않고 스무 초를 기다리다 죽는다 — 이 파일의 셋이 그렇게 빨갰다.
+ *
+ * 재는 것은 처음부터 *"그 rev 를 채택했는가"* 였다. `wsETag` 가 바로 그 수이고,
+ * 실어 보낸 값이 무엇이든 그것에 흔들리지 않는다.
+ */
+async function waitAdopted(page: Page, rev: number) {
   await page.waitForFunction(
-    (w: number) => (window as any).app?.ws?.sidebarWidth === w,
-    width, { timeout: 20000 });
+    (r: number) => {
+      const et = parseInt((window as any).app?.wsETag, 10);
+      return Number.isFinite(et) && et >= r;
+    },
+    rev, { timeout: 20000 });
 }
 
 test('V-OPL-1: 저장 전에 채택이 와도 방금 연 git 뷰 탭이 남는다', async ({ page, request }) => {
@@ -74,8 +98,7 @@ test('V-OPL-1: 저장 전에 채택이 와도 방금 연 git 뷰 탭이 남는�
   await openGit(page, fx('basic'));
   await expect(viewTabs(page)).toHaveCount(GIT_VIEW_TABS);
 
-  await bumpWorkspace(request, 231);
-  await waitAdopted(page, 231);
+  await waitAdopted(page, await bumpWorkspace(request, 231));
 
   // 채택이 닿은 **뒤에도** 일곱이다. 이전 동작에서는 여기서 0 이었다.
   await expect(viewTabs(page)).toHaveCount(GIT_VIEW_TABS);
@@ -89,8 +112,7 @@ test('V-OPL-2: 되얹은 탭은 저장으로 나가 새로고침 뒤에도 있�
   await openGit(page, fx('basic'));
   await expect(viewTabs(page)).toHaveCount(GIT_VIEW_TABS);
 
-  await bumpWorkspace(request, 232);
-  await waitAdopted(page, 232);
+  await waitAdopted(page, await bumpWorkspace(request, 232));
   await expect(viewTabs(page)).toHaveCount(GIT_VIEW_TABS);
 
   // 저장 길을 다시 연다. FR-OPL-9 가 병합에 저장을 딸려 보냈으므로, 대기 중인
@@ -148,7 +170,7 @@ test('V-OPL-3e: 다른 화면이 닫은 탭은 되살아나지 않는다', async
     data: body,
   });
   expect(put.ok()).toBeTruthy();
-  await waitAdopted(page, 233);
+  await waitAdopted(page, revOf(put));
 
   // 되살아나지 않는다. 합집합이었다면 여기서 일곱이다.
   await expect(viewTabs(page)).toHaveCount(0);
