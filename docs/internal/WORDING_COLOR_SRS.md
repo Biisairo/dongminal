@@ -261,7 +261,6 @@ B2·B3 이 끝난 화면은 **모양이 한 벌**이다. 그 안에 든 말은 �
 |---|---|---|
 | FR-WRD-50 | 같은 대상을 **한 낱말**로 부른다. 지금 저장소 하나가 탭 `Repo` · 버튼 `Add` · 빈 상태 `+ Add 로 …` · 대화상자 `Editor 추가` 넷으로 불린다 | 필수 |
 | FR-WRD-51 | **낱말을 못박은 요구를 먼저 찾는다** (FR-WRD-4 의 적용). 실측으로 확인된 자리: `FR-SBR-11`(*"이름은 `Background` 이고 … `Background 2`"*) · `FR-RVZ-1`(상단바 구성과 `Runs`) · `GIT_UI_REVISION_SRS` V70(`Split H`·`Split V` 의 유무를 단정) · e2e `background-ui.spec.ts:155·182`(글자를 그대로 단정). **못박힌 낱말은 그 문서를 같은 변경에서 고치지 않는 한 바꾸지 않는다** | 필수 |
-| FR-WRD-51a (2026-09-21) | **`UIUX_OVERHAUL_SRS` FR-CHR-1 이 그 셋 중 둘의 자리를 없앴다.** `FR-RVZ-1`(상단바 구성과 `Runs`)과 `GIT_UI_REVISION_SRS` V70(`Split H`·`Split V` 의 유무)은 **그 문서를 같은 변경에서 고치며** 옮겼다 — 이 요구가 요구한 절차 그대로다. `FR-SBR-11`(`Background` 이름)은 낱말이 그대로이고 자리만 모바일로 좁혀졌다. **낱말은 하나도 바꾸지 않았다** | 필수 |
 | FR-WRD-52 | 머리글 낱말이 카탈로그로 간다 — `Conflicts`·`Staged`·`Changes`(`constants-git-changes.js`). B3-C 는 **대소문자만** 고쳤고 D-CMP-2 가 그 경계를 그었다 | 필수 |
 | FR-WRD-53 | `%n개 로드`(`git.hist_loaded_n`)가 **상태로 읽히는 말**이 된다. 자리는 이미 `<span class="git-hist-loaded">` 이고 클릭 핸들러가 없다 — 고칠 것은 낱말뿐이다 (FR-CMP-85 철회의 근거) | 필수 |
 | FR-WRD-54 | 낱말 교체는 **카탈로그 데이터의 변경**이다 (FR-B-9). 구조를 바꾸는 변경(묶음 D)과 **다른 커밋**에 둔다 — 섞으면 빨개졌을 때 어느 쪽인지 말할 수 없다 | 필수 |

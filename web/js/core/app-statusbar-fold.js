@@ -52,10 +52,6 @@ Object.assign(App.prototype, {
     sbar.addEventListener('click',e=>{
       // 새 판 배지는 링크다 — 삼키면 눌러도 아무 일이 없다.
       if(e.target.closest('.sb-update')) return;
-      // FR-ACT-3: 활동 진입점은 접힘이 아니라 패널을 연다.
-      if(e.target.closest('.sb-act')){this.actPanelOpen();return}
-      // FR-CHR-4: 현재 위치를 누르면 사이드바의 그 항목으로 간다.
-      if(e.target.closest('.sb-win')){this.revealActiveWindow();return}
       if(!document.body.classList.contains('mobile')) return;
       if(!this._sbExpanded&&!sbar.classList.contains('sb-folded')) return;
       this._sbExpanded=!this._sbExpanded;

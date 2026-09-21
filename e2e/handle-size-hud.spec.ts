@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, openGit, gitFixture, cleanGitFixture, waitSettled, SPLIT_H, SPLIT_V, ACT_BTN, PANE_MENU, paneMenuItem } from './fixtures';
+import { test, expect, waitForInit, openGit, gitFixture, cleanGitFixture, waitSettled , SPLIT_H, SPLIT_V} from './fixtures';
 import { join } from 'path';
 import { tmpPath, realPath } from './osenv';
 
@@ -61,7 +61,7 @@ const HANDLES: {
   {
     name: '#agents-handle (Agents 폭)', sel: '#agents-handle', dx: -60, dy: 0, terms: [0],
     setup: async (page) => {
-      await page.locator(ACT_BTN).click();
+      await page.locator('#agents-toggle').click();
       await expect(page.locator('#agents-panel.open')).toBeVisible();
     },
   },
@@ -75,9 +75,7 @@ const HANDLES: {
   {
     name: '.slot-handle (슬롯 비율)', sel: '#area .slot-handle', dx: 60, dy: 0, terms: [0, 1],
     setup: async (page) => {
-      // FR-CHR-5: 칸 `±` 는 pane 탭줄의 `⋯` 메뉴로 들어갔다.
-      await page.locator(PANE_MENU).click();
-      await page.locator(paneMenuItem('slot-add')).click();
+      await page.locator('#slot-add').click();
       await expect(page.locator('#area .slot-handle')).toHaveCount(1);
       await waitSettled(page);
     },

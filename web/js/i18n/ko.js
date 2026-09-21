@@ -181,16 +181,6 @@ I18N.register('ko', {
   'core.tab_menu_new': '새 탭',
   'core.tab_menu_new_no': '이 창에는 새 탭을 둘 수 없습니다',
   'core.tab_menu_rename': '이름 변경',
-  // UIUX_OVERHAUL_SRS FR-CHR-5: pane 메뉴 — 드물게 쓰는 것이 모이는 자리.
-  'core.pane_menu_slot_add': '칸 추가',
-  'core.pane_menu_slot_remove': '칸 제거',
-  'core.pane_menu_slot_max': '칸은 최대 {n}개입니다',
-  'core.pane_menu_slot_min': '칸이 하나뿐입니다',
-  'core.pane_menu_runs': 'Runs',
-  // 툴팁은 영어다 (FR-TIP-2) — ko 카탈로그의 데이터로 지킨다. 읽히는 이름인
-  // `aria-label` 은 한국어로 가른다.
-  'core.pane_menu_title': 'This pane\u2019s menu',
-  'core.pane_menu_aria': '이 칸의 메뉴',
   'core.tab_menu_rename_git_no': 'git 뷰 탭의 이름은 뷰가 정합니다',
   'core.term_copy_close': '닫기',
   'core.term_copy_do': '복사',
@@ -1148,8 +1138,6 @@ I18N.register('ko', {
   'statusbar.latency': '레이턴시',
   'statusbar.location': '현재 위치 (dmctl 대상)',
   'statusbar.location_title': 'dmctl 대상: {loc}',
-  // UIUX_OVERHAUL_SRS FR-CHR-4: 현재 위치는 상태바 왼쪽이다.
-  'statusbar.winname_title': '지금 보고 있는 창 — 눌러서 사이드바의 그 항목으로',
   'statusbar.memory': '메모리',
   'statusbar.termsize': '터미널 크기',
   'statusbar.uptime': '업타임',

@@ -1,4 +1,4 @@
-import { test, expect, waitForInit, ACT_BTN } from './fixtures';
+import { test, expect, waitForInit } from './fixtures';
 
 // AGENT_ACTIVITY_PANEL_SRS e2e: agent activity panel.
 // Covers TC-AAP-11 (card with location/state/detail), TC-AAP-12 (toggle),
@@ -31,7 +31,7 @@ test.describe('Agent activity panel', () => {
     expect(pid).toBeTruthy();
 
     // Open the panel (toggle button next to Split V).
-    await page.locator(ACT_BTN).click();
+    await page.locator('#agents-toggle').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
 
     // Report a working activity → a card appears with the command detail.
@@ -55,7 +55,7 @@ test.describe('Agent activity panel', () => {
   test('SessionEnd (ended) removes the card (FR-AAP-16)', async ({ page }) => {
     await waitForInit(page);
     const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
-    await page.locator(ACT_BTN).click();
+    await page.locator('#agents-toggle').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
 
     // done card present, then an `ended` signal removes it.
@@ -77,7 +77,7 @@ test.describe('Agent activity panel', () => {
     expect(pid1).toBeTruthy();
     expect(pid2).toBeTruthy();
 
-    await page.locator(ACT_BTN).click();
+    await page.locator('#agents-toggle').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
 
     // done state isn't pruned by the busy check, so ordering is stable.
@@ -103,7 +103,7 @@ test.describe('Agent activity panel', () => {
     await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
     const pid2 = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
 
-    await page.locator(ACT_BTN).click();
+    await page.locator('#agents-toggle').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
 
     expect(await setActivity(page, pid1, 'done', '', 'one')).toBe(200);
@@ -186,7 +186,7 @@ test.describe('Agent activity panel', () => {
     // 배경 턴의 종료로 보고하고, 알람은 칸이 배경으로 간 뒤에 세운다.
     expect(await setActivity(page, pid, 'done', '', 'finished', false)).toBe(200);
 
-    await page.locator(ACT_BTN).click();
+    await page.locator('#agents-toggle').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
     const card = page.locator(`#agents-panel .ag-card[data-toolid="${pid}"]`);
     await expect(card).toHaveCount(1, { timeout: 10000 });
@@ -274,7 +274,7 @@ async function twoWindows(page: any) {
   expect(win2).not.toBe(win1);
   const pidC = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
 
-  await page.locator(ACT_BTN).click();
+  await page.locator('#agents-toggle').click();
   await expect(page.locator('#agents-panel.open')).toBeVisible();
   // done 은 busy 판정에 걸리지 않아 폴링을 지나도 카드가 남는다.
   for (const [pid, d] of [[pidA, 'a'], [pidB, 'b'], [pidC, 'c']] as Array<[string, string]>) {

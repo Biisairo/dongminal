@@ -224,9 +224,8 @@ Object.assign(Renderer.prototype, {
       b.disabled=closed;
       actKids.push(b);
     }
-    // FR-CHR-5: 드문 것이 모이는 자리. 어느 창에서나 선다 — 담는 것이 창의
-    // 성질과 무관하기 때문이다 (칸 ± 는 창 **밖**을 쪼갠다, FR-WSL-50).
-    actKids.push(this._keep(key+'/menu',()=>this._makePaneMenuBtn()));
+    // FR-CHR-10 (D-6): **`⋯` 는 없다.** 담고 있던 둘(칸 `±` · `Runs`)이 전역
+    // 동작이라 상단바로 갔다 — 이 줄이 드는 것은 이 pane 에 관여하는 것뿐이다.
     this._place(acts,actKids);
     // `Tab` 에 닿는 탭은 하나다 — 포커스가 줄 안에 있으면 그 탭, 아니면 활성 탭.
     const ae=document.activeElement;
@@ -365,8 +364,11 @@ Object.assign(Renderer.prototype, {
     /**
      * **이름은 단축키를 기다리지 않는다.** `I18N.apply` 는 `data-i18n-shortcut` 이
      * 붙은 요소를 **단축키 표가 아직 없으면 통째로 건너뛴다**(`i18n.js` 의
-     * `if(d.i18nShortcut&&!sc) continue`). 아이콘만 있는 버튼이 그 회차를 이름
-     * 없이 지나면 axe 의 `button-name` 이 올라온다 — 실측으로 첫 화면이 빨개졌다.
+     * `if(d.i18nShortcut&&!sc) continue`). 게다가 `apply(root)` 는 `root` 의
+     * **자손만** 훑으므로 `I18N.apply(b)` 는 `b` 자신을 한 번도 채우지 않는다 —
+     * 첫 화면에서는 뒤따르는 전역 `apply(document)` 가 가려 주지만, Git 창처럼
+     * **나중에 서는 pane** 의 버튼은 이름 없이 남는다 (실측: `tooltips` C3·C4·
+     * C7·C8·C9·C15 와 `ui-kit-icons` UIK5 가 그렇게 빨개졌다).
      *
      * 그래서 **이름은 지금 세우고**(단축키가 없는 낱말 키를 쓴다) 툴팁만 표가 온
      * 뒤에 채워지게 둔다. `applyShortcuts(document)` 가 설정 변경 때 이 요소도
@@ -385,50 +387,6 @@ Object.assign(Renderer.prototype, {
       // FR-EXR-42 와 같은 규약 — 자리는 활성 pane 이 아니라 **이 버튼이 속한
       // pane** 이다.
       app.split(dir,node?{targetPane:node.id}:{});
-    });
-    return b;
-  },
-
-  /**
-   * UIUX_OVERHAUL_SRS FR-CHR-5: pane 메뉴 — **드물게 쓰는 것**이 모이는 자리.
-   *
-   * 담는 것은 창 슬롯 `±` 와 `Runs` 다. 스펙은 셋을 적었지만 **프리셋은 들어오지
-   * 않는다** — `#add-preset` 는 *"New window from default preset"* 이고, FR-CHR-7
-   * 이 *"새로 만든다"* 의 자리를 **탭줄과 사이드바 상단 둘로** 못박았다. 같은
-   * 문서의 두 요구가 부딪히면 자리를 정한 쪽이 이긴다 (FR-CHR-5 는 *무엇이 드문가*
-   * 를 말하고 FR-CHR-7 은 *어디에 사는가* 를 말한다).
-   *
-   * **단축키는 하나도 바뀌지 않는다** (FR-CHR-5 · NFR-4). 메뉴는 같은 함수를 부르는
-   * 또 하나의 길일 뿐이고, 항목의 `title` 이 그 키를 적어 둔다.
-   */
-  _makePaneMenuBtn(){
-    const app=this.app;
-    const b=document.createElement('button');
-    b.className='ui-btn ui-btn-icon ui-btn-ghost pn-act pn-menu';
-    b.appendChild(UIKit.icon('more-horizontal',{size:'sm'}));
-    b.title=t('core.pane_menu_title');
-    b.setAttribute('aria-label',t('core.pane_menu_aria'));
-    b.addEventListener('click',e=>{
-      e.stopPropagation();
-      const n=app.slotCount();
-      const key=a=>displayKey((typeof shortcuts==='object'&&shortcuts[a])||'');
-      const r=b.getBoundingClientRect();
-      UIKit.menu([
-        {id:'slot-add',label:t('core.pane_menu_slot_add'),icon:'plus',
-         title:t('html.slot_add_title',{key:key('slotAdd')}),
-         disabled:n>=SLOT_MAX&&t('core.pane_menu_slot_max',{n:SLOT_MAX}),
-         onClick:()=>app.slotAdd()},
-        {id:'slot-remove',label:t('core.pane_menu_slot_remove'),icon:'minus',
-         title:t('html.slot_remove_title',{key:key('slotRemove')}),
-         disabled:n<=1&&t('core.pane_menu_slot_min'),
-         onClick:()=>app.slotRemove()},
-        {sep:true},
-        // **단축키가 지나는 바로 그 길이다** — `runsToggle` 은 `executeAction` 의
-        // 표에 있는 이름이고(`app.js`), `ui/` 가 App 의 비공개에 닿지 않는
-        // 유일한 경로이기도 하다 (FE_MODULE_BOUNDARY_SRS FR-FMB-40~43).
-        {id:'runs',label:t('core.pane_menu_runs'),icon:'play',
-         onClick:()=>app.executeAction('runsToggle')},
-      ],{at:{x:r.right,y:r.bottom},align:'right',cls:'pn-menu-pop'});
     });
     return b;
   },

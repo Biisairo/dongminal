@@ -1,4 +1,4 @@
-import { test, expect, waitForInit, SPLIT_H, SPLIT_V} from './fixtures';
+import { test, expect, waitForInit , SPLIT_H, SPLIT_V} from './fixtures';
 
 test.describe('Focus movement', () => {
   test('new session creates focused pane', async ({ page }) => {

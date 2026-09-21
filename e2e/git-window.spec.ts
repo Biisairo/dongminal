@@ -128,8 +128,7 @@ test.describe('묶음 D — Repo 창 골격', () => {
       const before = await page.locator('#area .pn').count();
 
       // 진입점은 **자리를 지키되 비활성**이다 (UIUX_OVERHAUL_SRS FR-CHR-3 개정).
-      // 감추면 이웃이 밀려 같은 픽셀에 다른 동작이 온다. 자리는 이제 pane 탭줄의
-      // 고정 구다 (FR-CHR-1·2 — `#topbar` 가 해체됐다).
+      // 감추면 이웃이 왼쪽으로 밀려 같은 픽셀에 다른 동작이 온다.
       await expect(page.locator(SPLIT_H)).toBeDisabled();
       await expect(page.locator(SPLIT_V)).toBeDisabled();
       await page.evaluate(async () => {
@@ -227,7 +226,7 @@ test.describe('UI 개정 — Git 창의 경계 (FR-GIT-179~186)', () => {
 
     // **가르는 것은 모드가 아니라 컨트롤이다** (UIUX_OVERHAUL_SRS FR-CHR-3 개정).
     // 분할 버튼은 자리를 지키고 비활성이 되며, 탭 `+` 는 만들 **대상이 없어**
-    // 아예 서지 않는다. 둘 다 pane 탭줄의 고정 구에 산다 (FR-CHR-2).
+    // 아예 서지 않는다.
     await expect(page.locator(SPLIT_H)).toBeDisabled();
     await expect(page.locator(SPLIT_V)).toBeDisabled();
     await expect(page.locator('#area .pn-tab-add')).toHaveCount(0);

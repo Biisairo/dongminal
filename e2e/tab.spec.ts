@@ -1,4 +1,4 @@
-import { test, expect, waitForInit, SPLIT_H} from './fixtures';
+import { test, expect, waitForInit , SPLIT_H} from './fixtures';
 
 test.describe('Tab management', () => {
   test('tab can be closed via x button', async ({ page }) => {

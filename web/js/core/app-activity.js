@@ -218,13 +218,4 @@ Object.assign(App.prototype, {
     return out;
   },
 
-  /** FR-ACT-3: 상태바 진입점의 수. 네 구역의 합이다. */
-  actCount(){
-    let n=this._attn?this._attn.size:0;
-    n+=this._activity?this._activity.size:0;
-    n+=(this._bg||[]).length;
-    const rp=this._runs;                       // 아직 만들지 않았으면 목록도 없다
-    n+=(rp&&rp._runsList?rp._runsList.length:0);
-    return n;
-  },
 });

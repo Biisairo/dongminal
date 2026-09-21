@@ -1,5 +1,6 @@
 import {
-  test, expect, waitForInit, waitSettled, gotoSettled, PANE_MENU, paneMenuItem } from './fixtures';
+  test, expect, waitForInit, waitSettled, gotoSettled,
+} from './fixtures';
 
 // 창 슬롯 — WINDOW_SLOTS_SRS §5 TC-WSL-*
 //
@@ -163,30 +164,15 @@ test.describe('묶음 S·R — 슬롯 모델과 렌더링', () => {
     await expect(page.locator('#area .slot.slot-focused')).toHaveCount(1);
   });
 
-  /**
-   * TC-WSL-2c (**개정 2026-09-21 — `UIUX_OVERHAUL_SRS` FR-CHR-5**)
-   *
-   * 칸 `±` 는 상단바를 떠나 pane 탭줄의 `⋯` 메뉴로 들어갔다. **한계에서 비활성**
-   * 이라는 계약(FR-WSL-1/50)은 한 글자도 바뀌지 않았고, 이제 그 사유까지 말한다
-   * (`CONTEXT_MENU_UNIFY_SRS` FR-CMU-3).
-   */
-  test('TC-WSL-2c (개정): 한계에서 메뉴 항목이 비활성이다 (FR-WSL-1/50)', async ({ page }) => {
+  test('TC-WSL-2c: 한계에서 버튼이 비활성이다 (FR-WSL-1/50)', async ({ page }) => {
     await waitForInit(page);
-    const openMenu = async () => {
-      await page.locator(PANE_MENU).first().click();
-      await expect(page.locator('.ui-menu.pn-menu-pop')).toBeVisible();
-    };
     // 칸이 1개면 `−` 를 쓸 수 없다.
-    await openMenu();
-    await expect(page.locator(paneMenuItem('slot-remove'))).toHaveClass(/disabled/);
-    await expect(page.locator(paneMenuItem('slot-add'))).not.toHaveClass(/disabled/);
-    await page.keyboard.press('Escape');
+    await expect(page.locator('#slot-remove')).toBeDisabled();
+    await expect(page.locator('#slot-add')).toBeEnabled();
 
     for (let i = 0; i < 3; i++) await slotAdd(page);
-    await openMenu();
-    await expect(page.locator(paneMenuItem('slot-add'))).toHaveClass(/disabled/);
-    await expect(page.locator(paneMenuItem('slot-remove'))).not.toHaveClass(/disabled/);
-    await page.keyboard.press('Escape');
+    await expect(page.locator('#slot-add')).toBeDisabled();
+    await expect(page.locator('#slot-remove')).toBeEnabled();
 
     // 상한을 넘겨 부르면 무동작이다.
     await slotAdd(page);
@@ -535,56 +521,49 @@ test.describe('묶음 U·M — 진입점과 모바일', () => {
     await expect(page.locator('#area .slot')).toHaveCount(0);
     await expect(page.locator('#area .slot-handle')).toHaveCount(0);
     await expect(page.locator('#area > .pn, #area > .sp')).not.toHaveCount(0);
-    // FR-CHR-5: 칸 `±` 는 `⋯` 메뉴로 갔고, 모바일에는 분할도 칸도 없으므로 그
-    // 구의 버튼이 서지 않는다 (FR-WSL-60). **요소는 남고 CSS 가 감춘다** —
-    // `_rTabs` 는 판을 보지 않는다 (판정은 한 자리에, `body.mobile` 이 그 자리다).
-    await expect(page.locator('#area .pn-acts .pn-menu').first()).toBeHidden();
-    await expect(page.locator('#area .pn-acts .pn-split').first()).toBeHidden();
+    await expect(page.locator('#slot-add')).toBeHidden();
+    await expect(page.locator('#slot-remove')).toBeHidden();
     // FR-WSL-61: 상태는 보존된다.
     expect((await slotsState(page)).windows).toHaveLength(2);
   });
 
-  test('TC-WSL-21b: 메뉴와 단축키가 같은 일을 한다 (FR-WSL-50/51)', async ({ page }) => {
+  test('TC-WSL-21b: 버튼과 단축키가 같은 일을 한다 (FR-WSL-50/51)', async ({ page }) => {
     await waitForInit(page);
-    // FR-CHR-5: 자리가 `⋯` 메뉴로 옮겨졌을 뿐, 부르는 함수는 단축키와 같다.
-    const menuClick = async (id: string) => {
-      await page.locator(PANE_MENU).first().click();
-      await page.locator(paneMenuItem(id)).click();
-    };
-    await expect(page.locator(PANE_MENU)).toHaveCount(1);
+    await expect(page.locator('#slot-add')).toBeVisible();
 
-    await menuClick('slot-add');
+    await page.click('#slot-add');
     await expect(page.locator('#area .slot')).toHaveCount(2);
 
     await page.evaluate(() => (window as any).app.executeAction('slotAdd'));
     await expect(page.locator('#area .slot')).toHaveCount(3);
 
-    await menuClick('slot-remove');
+    await page.click('#slot-remove');
     await expect(page.locator('#area .slot')).toHaveCount(2);
 
     await page.evaluate(() => (window as any).app.executeAction('slotRemove'));
     await expect(page.locator('#area .slot')).toHaveCount(0);
   });
 
-  /**
-   * TC-WSL-21c (**개정 2026-09-21 — `UIUX_OVERHAUL_SRS` FR-CHR-1·5**)
-   *
-   * 초판은 *"토프바에서 Agents 가 가장 오른쪽"* 을 재고, 뒷줄에서 **슬롯 버튼이
-   * 창 안 분할과 떨어져 있는가**(§7 R-3)를 쟀다. 앞의 것은 잴 줄이 없어졌고,
-   * **뒤의 것은 오히려 더 선명해졌다** — 분할은 탭줄에 버튼으로 서고 칸 `±` 는
-   * `⋯` 메뉴 **안**에 있다. 같은 줄에 나란히 놓였던 종전보다 두 계층이 멀다.
-   */
-  test('TC-WSL-21c (개정): 칸 ± 는 창 안 분할과 다른 겹에 산다 (FR-WSL-50 / §7 R-3)',
-    async ({ page }) => {
-      await waitForInit(page);
-      // 분할은 탭줄에 **버튼**으로 선다.
-      await expect(page.locator('#area .pn.focused .pn-acts .pn-split')).toHaveCount(2);
-      // 칸 ± 는 그 줄에 버튼으로 서지 않는다 — 메뉴를 열어야 나온다.
-      await expect(page.locator('#area .pn-acts [data-id="slot-add"]')).toHaveCount(0);
-      await page.locator(PANE_MENU).first().click();
-      await expect(page.locator(paneMenuItem('slot-add'))).toHaveCount(1);
-      await expect(page.locator(paneMenuItem('slot-remove'))).toHaveCount(1);
-    });
+  test('TC-WSL-21c: 토프바에서 Agents 가 가장 오른쪽이다 (FR-WSL-50)', async ({ page }) => {
+    await waitForInit(page);
+    const order = await page.evaluate(() =>
+      [...document.querySelectorAll('#topbar button')]
+        .filter((b: any) => b.offsetParent !== null)
+        .map((b: any) => b.id),
+    );
+    expect(order[order.length - 1]).toBe('agents-toggle');
+    /**
+     * 슬롯 버튼은 창 **안** 분할과 떨어져 있다 (§7 R-3).
+     *
+     * **재는 방법이 개정됐다** (`UIUX_OVERHAUL_SRS` FR-CHR-10 / D-6). 종전에는
+     * 같은 줄에서 `split-v` 와의 **거리**로 쟀다. 이제 분할은 상단바에 아예 없다
+     * — pane 탭줄의 고정 구로 갔기 때문이다. 떨어짐이 거리에서 **다른 줄**이
+     * 됐으므로 그것을 그대로 잰다: 둘이 같은 줄에 서지 않는다.
+     */
+    expect(order).not.toContain('split-h');
+    expect(order).not.toContain('split-v');
+    await expect(page.locator('#area .pn.focused .pn-acts .pn-split').first()).toBeVisible();
+  });
 });
 
 test.describe('묶음 D — 슬롯 방향', () => {

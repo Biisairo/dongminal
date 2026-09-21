@@ -3,7 +3,7 @@ import * as path from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, gitFixture, cleanGitFixture, rmTree, openExplorerSide, SPLIT_H, SPLIT_V} from './fixtures';
+import { test, expect, gitFixture, cleanGitFixture, rmTree, openExplorerSide , SPLIT_H, SPLIT_V} from './fixtures';
 import { TMP, tmpPath, realPath } from './osenv';
 
 // EDITOR_TAB_SRS §4 — M2(탭·창 골격)의 검증 V-EDT-*.
@@ -466,8 +466,7 @@ test.describe('묶음 W — Editor 창 (FR-EDT-40~56)', () => {
     })).toBe(true);
 
     // **감추지 않고 비활성으로 둔다** (UIUX_OVERHAUL_SRS FR-CHR-3 개정) — 분할은
-    // 어느 창에서나 같은 자리에 있고, 쓸 수 없을 때 그렇다고만 말한다. 그 자리는
-    // 이제 pane 탭줄의 고정 구다 (FR-CHR-1·2).
+    // 어느 창에서나 같은 자리에 있고, 쓸 수 없을 때 그렇다고만 말한다.
     await expect(page.locator(SPLIT_H)).toBeDisabled();
     await expect(page.locator(SPLIT_V)).toBeDisabled();
 

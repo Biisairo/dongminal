@@ -1,4 +1,4 @@
-import { test, expect, waitForInit, waitSettled, SPLIT_H, SPLIT_V} from './fixtures';
+import { test, expect, waitForInit, waitSettled , SPLIT_H, SPLIT_V} from './fixtures';
 
 test.describe('Layout & navigation', () => {
   test('split horizontal increases pane count', async ({ page }) => {
@@ -108,10 +108,10 @@ test.describe('Layout & navigation', () => {
     // Two button clicks back-to-back, no awaiting between them — this is
     // exactly the user-reported reproduction.
     await page.evaluate(() => {
-      // FR-CHR-1·2: 분할 버튼은 pane 탭줄의 고정 구로 갔다. `_keep` 이 그 요소를
-      // pane 마다 캐시하므로 다시 그려도 같은 요소다 — 두 번 연속 누르는 이
-      // 재현이 성립한다.
+      // FR-CHR-10 (D-6): 분할은 pane 탭줄의 고정 구다 — 옛 전역 id(`#split-h`)가
+      // 아니라 **포커스 칸의** 첫 분할 버튼이 그 자리다.
       const btn = document.querySelector('#area .pn.focused .pn-acts .pn-split') as HTMLElement;
+      if (!btn) throw new Error('포커스 칸에 분할 버튼이 없다');
       btn.click();
       btn.click();
     });
@@ -549,42 +549,33 @@ test.describe('탭줄의 고정 구 (FR-CHR-2)', () => {
 });
 
 // UIUX_OVERHAUL_SRS §4.2 — 드문 것은 메뉴로 (FR-CHR-5).
-test.describe('pane 메뉴 (FR-CHR-5)', () => {
-  const MENU_BTN = '#area .pn.focused .pn-acts .pn-menu';
-  const ITEM = '.ui-menu.pn-menu-pop .ui-menu-item';
-
-  test('V-CHR-5a: `⋯` 가 칸 ± 와 Runs 를 낸다',
-    async ({ page }) => {
-      await waitForInit(page);
-      await page.locator(MENU_BTN).click();
-      await expect(page.locator(ITEM)).toHaveCount(3);
-      const ids = await page.locator(ITEM).evaluateAll(
-        (els) => els.map((e) => (e as HTMLElement).dataset.id));
-      expect(ids).toEqual(['slot-add', 'slot-remove', 'runs']);
-    });
-
-  test('V-CHR-5b: 칸이 하나면 제거가 비활성이고 사유를 말한다',
-    async ({ page }) => {
-      await waitForInit(page);
-      await page.locator(MENU_BTN).click();
-      const rm = page.locator(ITEM + '[data-id="slot-remove"]');
-      await expect(rm).toHaveClass(/disabled/);
-      // 비활성의 **사유가 `title`** 이다 (FR-CMU-3).
-      expect(await rm.getAttribute('title')).toBeTruthy();
-    });
-
-  test('V-CHR-5c: 메뉴의 칸 추가가 칸을 늘린다 — 단축키와 같은 함수다',
-    async ({ page }) => {
-      await waitForInit(page);
-      // **칸의 수는 앱에 묻는다.** `#area .slot` 은 칸이 하나면 DOM 에 서지 않는다
-      // — 래퍼가 둘 이상일 때만 생기므로 요소를 세면 0 에서 2 로 뛴다.
-      const count = () => page.evaluate(() => (window as any).app.slotCount() as number);
-      const before = await count();
-      await page.locator(MENU_BTN).click();
-      await page.locator(ITEM + '[data-id="slot-add"]').click();
-      await expect.poll(count, { timeout: 10000 }).toBe(before + 1);
-      // 이제 제거가 살아난다 — 같은 메뉴가 상태를 따라간다.
-      await page.locator(MENU_BTN).first().click();
-      await expect(page.locator(ITEM + '[data-id="slot-remove"]')).not.toHaveClass(/disabled/);
-    });
-});
+/**
+ * pane 탭줄의 고정 구 (FR-CHR-2 · FR-CHR-10).
+ *
+ * **`⋯`(pane 메뉴)를 재던 셋(V-CHR-5a·5b·5c)을 이 하나로 개정했다** — D-6 이
+ * 그 표면을 걷었다. 칸 `±` 와 `Runs` 는 **전역**이라 상단바로 갔고, 메뉴에는
+ * 열 것이 남지 않았다.
+ *
+ * 그 셋이 지키던 것은 여기서 사라지지 않는다. 자리만 옮겼다:
+ *
+ *   한계에서 비활성 + 사유      `window-slots` TC-WSL-2c (`#slot-remove`·`#slot-add`)
+ *   버튼과 단축키가 같은 함수    `window-slots` TC-WSL-21b
+ *   상단바에서의 자리            `window-slots` TC-WSL-21c
+ *
+ * 이 자리에 남는 물음은 하나다 — **탭줄이 드는 것이 이 pane 의 것뿐인가.**
+ */
+test('V-CHR-10: 탭줄의 고정 구는 새 탭과 분할뿐이다 — 전역은 상단바로 갔다',
+  async ({ page }) => {
+    await waitForInit(page);
+    const acts = page.locator('#area .pn.focused .pn-acts > button');
+    await expect(acts).toHaveCount(3);
+    expect(await acts.evaluateAll((els) => els.map((e) => {
+      const c = (e as HTMLElement).classList;
+      return c.contains('pn-tab-add') ? 'add' : c.contains('pn-split') ? 'split' : 'other';
+    }))).toEqual(['add', 'split', 'split']);
+    // `⋯` 는 DOM 에 없다 — 감춘 것이 아니라 만들지 않는다.
+    await expect(page.locator('.pn-menu')).toHaveCount(0);
+    // 그리고 그 둘은 상단바에 서 있다.
+    await expect(page.locator('#topbar #slot-add')).toBeVisible();
+    await expect(page.locator('#topbar #runs-btn')).toBeVisible();
+  });

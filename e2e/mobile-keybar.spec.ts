@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect, waitSettled } from './fixtures';
+import { test, expect, waitSettled , SPLIT_H, SPLIT_V} from './fixtures';
 
 const MOBILE_VIEWPORT = { width: 375, height: 667 };
 const DESKTOP_VIEWPORT = { width: 1280, height: 800 };
@@ -363,10 +363,10 @@ test.describe('Mobile RFC §7.2 verification automation (SRS REQ-D1..D4)', () =>
   test('TC-D4: split controls and split handles are hidden in mobile mode', async ({ page }) => {
     await gotoMobile(page);
 
-    // FR-CHR-1·2: 분할 진입점은 pane 탭줄의 고정 구로 갔다. 모바일에는 분할도
-    // 칸도 없으므로 그 구의 버튼들은 서지 않는다 (FR-WSL-60).
-    await expect(page.locator('#area .pn-acts .pn-split').first()).toBeHidden();
-    await expect(page.locator('#area .pn-acts .pn-menu').first()).toBeHidden();
+    const splitH = page.locator(SPLIT_H);
+    const splitV = page.locator(SPLIT_V);
+    await expect(splitH).toBeHidden();
+    await expect(splitV).toBeHidden();
 
     // Split handles (.sh) may not exist when there is no split, but if present must be hidden.
     const handles = page.locator('.sh');

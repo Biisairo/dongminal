@@ -176,22 +176,36 @@
        키로도 같은 일을 한다 (`sidebarToggle`, 기본 Ctrl+Shift+E). -->
   <div id="sb-handle" title="Drag to resize — drag all the way in to collapse"></div>
   <div id="content">
-    <!-- UIUX_OVERHAUL_SRS FR-CHR-1·6: **모바일 전용이다.** 데스크톱에서는 CSS 가
-         이 줄을 걷고(32px 이 터미널로 간다) 동작은 pane 탭줄의 고정 구로,
-         창 이름은 상태바로 갔다. 모바일이 남는 이유는 pane 페이저(`‹ 1/2 ›`)가
-         그 자리를 요구하기 때문이다. -->
     <div id="topbar">
+      <span id="window-name"></span>
       <span class="m-pane-nav mobile-only">
         <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost" id="m-pane-prev" title="Focus the previous pane" aria-label="Focus the previous pane"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-left"/></svg></button>
         <span id="m-pane-indicator">1/1</span>
         <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost" id="m-pane-next" title="Focus the next pane" aria-label="Focus the next pane"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron-right"/></svg></button>
       </span>
       <span class="spacer"></span>
-      <!-- STATUS_BAR_REFLOW_SRS FR-SBR-12 (**FR-CHR-1 로 개정**): 이제
-           `mobile-only` 다. 데스크톱에서는 상태바의 `⚡` 가 같은 패널을 열고,
-           모바일에는 그 진입점 말고 백그라운드 도구에 닿는 길이 없다 (§2.5).
-           리스너는 app-statusbar.js 가 붙인다. -->
-      <button class="tbtn ui-btn mobile-only" id="bg-btn" title="Tools running in the background" data-i18n="html.btn_background">Background</button>
+      <button class="tbtn ui-btn" id="attn-badge" title="Tools waiting for your attention" aria-label="Tools waiting for your attention" style="display:none"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-bell"/></svg><span class="attn-count">0</span></button>
+      <!-- UIUX_OVERHAUL_SRS FR-CHR-10 (D-6): **분할은 여기 없다.** 그것은 이
+           pane 을 쪼개므로 pane 탭줄의 고정 구에 산다 (FR-CHR-2). 상단바가 드는
+           것은 **전역**에 관여하는 것뿐이다 — 슬롯 `±` 가 이 줄에 남는 이유도
+           그것이 창 **밖**을 쪼개기 때문이다 (WINDOW_SLOTS_SRS FR-WSL-50). -->
+      <!-- ORCHESTRATION_V2_SRS FR-RVZ-1: Run 시각화 진입점. Split V 와 Agents
+           사이가 지정된 자리다. 리스너는 app-runs.js 가 붙인다. -->
+      <button class="tbtn ui-btn desktop-only" id="runs-btn" title="Run orchestration" data-i18n="html.btn_runs">Runs</button>
+      <!-- STATUS_BAR_REFLOW_SRS FR-SBR-8/12: Runs 와 Agents 사이. 이웃과 달리
+           desktop-only 가 아니다 — 모바일에서 백그라운드 도구에 닿는 유일한
+           통로다 (§2.5). 리스너는 app-statusbar.js 가 붙인다. -->
+      <button class="tbtn ui-btn" id="bg-btn" title="Tools running in the background" data-i18n="html.btn_background">Background</button>
+      <!-- WINDOW_SLOTS_SRS FR-WSL-50: 창 **밖**을 쪼갠다 — 창 **안**을 쪼개는
+           Split H·V 와 떨어진 자리다 (§7 R-3). 한계에 닿으면 비활성이 된다.
+           리스너는 app-slots.js 가 붙인다. -->
+      <span class="slot-ctl desktop-only">
+        <button class="tbtn ui-btn ui-btn-icon ui-btn-sm" id="slot-remove" data-i18n-title="html.slot_remove_title" data-i18n-shortcut="slotRemove" aria-label="Remove a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-minus"/></svg></button>
+        <span class="slot-ctl-label" data-i18n="html.slot_label">Slot</span>
+        <button class="tbtn ui-btn ui-btn-icon ui-btn-sm" id="slot-add" data-i18n-title="html.slot_add_title" data-i18n-shortcut="slotAdd" aria-label="Add a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></button>
+      </span>
+      <!-- FR-WSL-50: Agents 가 데스크톱 버튼 중 가장 오른쪽이다. -->
+      <button class="tbtn ui-btn ui-btn-attn desktop-only" id="agents-toggle" title="Show all agents in one place" data-i18n="html.btn_agents">Agents</button>
       <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-search-btn" title="Search in this terminal" aria-label="Search in this terminal"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg></button>
       <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-add-tab" title="New tab" aria-label="New tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></button>
       <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-drawer-toggle" title="Open the menu" aria-label="Open the menu"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button>

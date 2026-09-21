@@ -1,7 +1,7 @@
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, waitForInit, GIT_BODY_VIEWS, clickGitView, gitFixture, cleanGitFixture, ACT_BTN } from './fixtures';
+import { test, expect, makeCopyFx, waitForInit, GIT_BODY_VIEWS, clickGitView, gitFixture, cleanGitFixture } from './fixtures';
 import { tmpPath } from './osenv';
 
 /**
@@ -245,9 +245,8 @@ test.describe('묶음 C — 모달과 조건부 표면', () => {
  */
 test.describe('묶음 C — 상태바가 여는 표면', () => {
   /**
-   * UIUX_OVERHAUL_SRS FR-CHR-4: 배지(`#attn-badge`)가 상태바의 `⚡` 에 흡수됐다.
-   * 그 자리는 **언제나 보이지만** 알림이 있어야 `attn` 을 입고 주의 구역이
-   * 뜻을 가지므로, 여기서도 **알림을 만들고** 연다 — skip 은 검증이 아니다.
+   * 알림 배지는 알림이 하나라도 있어야 선다 (`#attn-badge` 는 기본이 `display:none`).
+   * 그래서 **알림을 만들고** 연다 — skip 은 검증이 아니다.
    */
   test('C10 (V-TIP-10 / FR-TIP-1·2): 주의 알림 센터', async ({ page }) => {
     await waitForInit(page);
@@ -261,10 +260,10 @@ test.describe('묶음 C — 상태바가 여는 표면', () => {
       return true;
     });
     expect(made, '알림을 걸 도구가 없다 — 시험이 뜻을 잃는다').toBeTruthy();
-    const badge = page.locator(ACT_BTN);
-    await expect(badge).toHaveClass(/\battn\b/, { timeout: 10000 });
+    const badge = page.locator('#attn-badge');
+    await expect(badge).toBeVisible({ timeout: 10000 });
     await badge.click();
-    // FR-ACT-1·3: 진입점은 활동 패널을 열고, 주의 구역은 그 안에 있다.
+    // FR-ACT-1: 배지는 활동 패널의 주의 구역을 연다 (팝오버가 사라졌다).
     await expect(page.locator('#agents-panel.open .ag-sec[data-sec="attn"]'))
       .toBeVisible({ timeout: 10000 });
     await assertAll(page, '활동 패널의 주의 구역');

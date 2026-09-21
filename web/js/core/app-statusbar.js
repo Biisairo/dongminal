@@ -17,14 +17,16 @@ Object.assign(App.prototype, {
     const bgBtn=document.getElementById('bg-btn');
     if(bgBtn) bgBtn.addEventListener('click',e=>{e.stopPropagation();this._bgModalToggle()});
     this._initStatusBarFold();
-    // FR-ACT-3: `⚡ n` 은 네 구역의 합이다. 주의·활동·백그라운드는 등록부가 몰고
-    // 오지만 Run 은 목록을 부르는 사람이 있어야 왔다 — 부팅에 한 번 받고,
-    // 그 뒤로는 `_onRunChanged` 가 따라온다.
-    //
-    // 이것이 *"Run 을 한 번도 열지 않은 브라우저는 `RunsPanel` 을 만들지
-    // 않는다"* (`gitObs` 규약)를 깬다. 깨는 이유는 **상태바의 수**다: 세지
-    // 않는 진입점은 진입점이 아니고, 틀린 수는 없는 수보다 나쁘다.
-    this._runsPanel()._runsRefresh();
+    /**
+     * FR-CHR-11 (D-6): **깼던 규약을 되돌린다.**
+     *
+     * 종전에는 여기서 Run 목록을 한 번 받았다 — 상태바의 `⚡ n` 이 네 구역의
+     * 합이라 Run 을 세야 했기 때문이고, 그것이 *"Run 을 한 번도 열지 않은
+     * 브라우저는 `RunsPanel` 을 만들지 않는다"* (`gitObs` 규약)를 깼다.
+     *
+     * `⚡` 가 없어져 셀 이유가 사라졌다. 규약이 제자리로 온다 — 목록은 `Runs`
+     * 를 누른 사람에게만 간다.
+     */
     this._initStatusBarReflow();
     // FR-BGK-3/4/10: 인라인 확인·진행·오류는 **데이터**로 산다. 모달은 _bgRefresh
     // 마다 통째로 다시 그려지므로, 요소에 붙인 상태는 다시 그리기가 버린다
@@ -94,41 +96,18 @@ Object.assign(App.prototype, {
     // 사람이 어느 쪽인지 판단해야 하고, 그 판단이 틀리는 날이 온다.
     const e=escHtml;
     /**
-     * UIUX_OVERHAUL_SRS FR-ACT-3: 활동의 **단일 진입점**. 누르면 패널이 토글된다.
+     * UIUX_OVERHAUL_SRS FR-CHR-11 (D-6): **`⚡` 는 여기 없다.**
      *
-     * 설정으로 끄지 않는 유일한 지표다 — 나머지 열은 사용자가 고르는 **지표**이고
-     * 이것은 **진입점**이다. 진입점은 사라지지 않는다 (`STATUS_BAR_REFLOW_SRS`
-     * FR-SBR-9 가 같은 이유로 `#bg-btn` 을 항상 보이게 했다).
+     *   이전 동작: 상태바의 `⚡ n` 하나가 주의·에이전트·백그라운드·Run 넷의
+     *             진입점이었다 (FR-ACT-3)
+     *   새  동작: 그 넷은 상단바의 `경고`·`Agents`·`Background`·`Runs` 가 연다
+     *   이유:     실사용자가 `⚡` 를 찾지 못했다 (R-5 현실화). 상태바는 **상태**를
+     *             말하는 줄이고 동작의 진입점은 상단바의 것이다 — 가르는 축은
+     *             전역인가 국소인가이지 빈도가 아니다
      *
-     * FR-HIE-4 의 순위 1 이므로 좁은 화면에서도 접히지 않는다.
+     * **합쳐진 것은 패널이지 진입점이 아니었다** — FR-ACT-1·2·4·5·6 은 그대로다.
+     * 넷이 같은 활동 패널을 열고, 단축키는 그 구역으로 스크롤한다.
      */
-    /**
-     * FR-CHR-4 (2026-09-21 개정): **주의 배지가 이 자리에 흡수됐다.** `#attn-badge`
-     * 는 상단바와 함께 사라졌고, 주의가 있으면 `⚡` 가 그 색을 입는다 — `n` 은
-     * 이미 주의를 포함한 네 그룹의 합이므로 수를 두 번 셀 이유가 없었다.
-     */
-    const attn=this._attn?this._attn.size:0;
-    push('activity',`<span class="sb-item sb-act${attn?' attn':''}" title="${e(t('panel.act_title'))}">`
-      +`⚡ <span class="mono">${e(this.actCount())}</span></span>`);
-    /**
-     * FR-CHR-4: **현재 위치는 상태바 왼쪽이다.** `#topbar` 가 해체되면서 창 이름이
-     * 이리로 내려왔다.
-     *
-     * **id 는 바뀌지 않는다** (`SLOT_TITLE_BOUNDARY_SRS` FR-STB-31 — *"기존 e2e 가
-     * 그 위에 서 있다"*). 자리만 옮겼다.
-     *
-     * 제목을 **조립하는 자리는 여전히 하나**다 (FR-STB-4) — `_rWinTitle` 을 부른다.
-     * FR-STB-11·12·14 의 규칙도 그대로다: 칸이 여럿이면 비고(머리글이 그 자리를
-     * 이어받는다), 모바일에는 칸이 없으므로 언제나 낸다.
-     *
-     * **설정으로 끄지 않는다** — `⚡` 와 같은 이유다. 지표가 아니라 *지금 어디*이고,
-     * FR-HIE-4 의 순위 1 이다.
-     */
-    const rz=this.renderer;
-    const multi=!this.isMobile&&this.slotCount()>1;
-    const wt=rz&&!multi?rz._rWinTitle(this.aw()):'';
-    push('winname',`<span class="sb-item sb-win" title="${e(t('statusbar.winname_title'))}">`
-      +`<span id="window-name">${e(wt)}</span></span>`);
     if(statusBar.connection){
       const ok=this._latency!==null;
       push('connection',`<span class="sb-item"><span class="sb-dot ${e(ok?'ok':'err')}"></span>${e(ok?t('statusbar.connected'):t('statusbar.disconnected'))}</span>`);

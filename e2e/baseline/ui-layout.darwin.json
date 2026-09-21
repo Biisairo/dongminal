@@ -432,6 +432,24 @@
   "minHeight": "0px"
  },
  "terminal|span.spacer": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "terminal|button.tbtn.ui-btn": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "terminal|span.attn-count": {
   "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -440,14 +458,50 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "terminal|button.mobile-only.tbtn.ui-btn": {
-  "display": "none",
+ "terminal|button.desktop-only.tbtn.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
+ },
+ "terminal|span.desktop-only.slot-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "terminal|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "terminal|span.slot-ctl-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "terminal|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "terminal|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
   "display": "none",
@@ -543,15 +597,6 @@
   "minHeight": "auto"
  },
  "terminal|button.pn-act.pn-split.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "terminal|button.pn-act.pn-menu.ui-btn.ui-btn-ghost.ui-btn-icon": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -662,33 +707,6 @@
   "flexDirection": "row",
   "minHeight": "22px"
  },
- "terminal|span.sb-act.sb-item": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "terminal|span.mono": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "terminal|span.sb-item.sb-win": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "terminal|span.sb-item": {
   "display": "flex",
   "overflowX": "visible",
@@ -699,6 +717,15 @@
   "minHeight": "auto"
  },
  "terminal|span.ok.sb-dot": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "terminal|span.mono": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -1683,6 +1710,24 @@
   "minHeight": "0px"
  },
  "git:changes|span.spacer": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:changes|button.tbtn.ui-btn": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|span.attn-count": {
   "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -1691,14 +1736,50 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:changes|button.mobile-only.tbtn.ui-btn": {
-  "display": "none",
+ "git:changes|button.desktop-only.tbtn.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
+ },
+ "git:changes|span.desktop-only.slot-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:changes|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:changes|span.slot-ctl-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:changes|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:changes|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
   "display": "none",
@@ -2639,15 +2720,6 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:changes|button.pn-act.pn-menu.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:changes|div.pn-body": {
   "display": "block",
   "overflowX": "hidden",
@@ -2819,33 +2891,6 @@
   "flexDirection": "row",
   "minHeight": "22px"
  },
- "git:changes|span.sb-act.sb-item": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:changes|span.mono": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:changes|span.sb-item.sb-win": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:changes|span.sb-item": {
   "display": "flex",
   "overflowX": "visible",
@@ -2856,6 +2901,15 @@
   "minHeight": "auto"
  },
  "git:changes|span.ok.sb-dot": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:changes|span.mono": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -3840,6 +3894,24 @@
   "minHeight": "0px"
  },
  "git:diff|span.spacer": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:diff|button.tbtn.ui-btn": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|span.attn-count": {
   "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -3848,14 +3920,50 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:diff|button.mobile-only.tbtn.ui-btn": {
-  "display": "none",
+ "git:diff|button.desktop-only.tbtn.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
+ },
+ "git:diff|span.desktop-only.slot-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:diff|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:diff|span.slot-ctl-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:diff|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:diff|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
   "display": "none",
@@ -4796,15 +4904,6 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:diff|button.pn-act.pn-menu.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:diff|div.pn-body": {
   "display": "block",
   "overflowX": "hidden",
@@ -5084,33 +5183,6 @@
   "flexDirection": "row",
   "minHeight": "22px"
  },
- "git:diff|span.sb-act.sb-item": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:diff|span.mono": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:diff|span.sb-item.sb-win": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:diff|span.sb-item": {
   "display": "flex",
   "overflowX": "visible",
@@ -5121,6 +5193,15 @@
   "minHeight": "auto"
  },
  "git:diff|span.ok.sb-dot": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:diff|span.mono": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -6105,6 +6186,24 @@
   "minHeight": "0px"
  },
  "git:history|span.spacer": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:history|button.tbtn.ui-btn": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|span.attn-count": {
   "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -6113,14 +6212,50 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|button.mobile-only.tbtn.ui-btn": {
-  "display": "none",
+ "git:history|button.desktop-only.tbtn.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
+ },
+ "git:history|span.desktop-only.slot-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:history|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:history|span.slot-ctl-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:history|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:history|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
   "display": "none",
@@ -7061,15 +7196,6 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:history|button.pn-act.pn-menu.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:history|div.pn-body": {
   "display": "block",
   "overflowX": "hidden",
@@ -7550,33 +7676,6 @@
   "flexDirection": "row",
   "minHeight": "22px"
  },
- "git:history|span.sb-act.sb-item": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:history|span.mono": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:history|span.sb-item.sb-win": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:history|span.sb-item": {
   "display": "flex",
   "overflowX": "visible",
@@ -7587,6 +7686,15 @@
   "minHeight": "auto"
  },
  "git:history|span.ok.sb-dot": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:history|span.mono": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -8571,6 +8679,24 @@
   "minHeight": "0px"
  },
  "git:branches|span.spacer": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:branches|button.tbtn.ui-btn": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|span.attn-count": {
   "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -8579,14 +8705,50 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:branches|button.mobile-only.tbtn.ui-btn": {
-  "display": "none",
+ "git:branches|button.desktop-only.tbtn.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
+ },
+ "git:branches|span.desktop-only.slot-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:branches|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:branches|span.slot-ctl-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:branches|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:branches|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
   "display": "none",
@@ -9527,15 +9689,6 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:branches|button.pn-act.pn-menu.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:branches|div.pn-body": {
   "display": "block",
   "overflowX": "hidden",
@@ -9992,33 +10145,6 @@
   "flexDirection": "row",
   "minHeight": "22px"
  },
- "git:branches|span.sb-act.sb-item": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:branches|span.mono": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:branches|span.sb-item.sb-win": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:branches|span.sb-item": {
   "display": "flex",
   "overflowX": "visible",
@@ -10029,6 +10155,15 @@
   "minHeight": "auto"
  },
  "git:branches|span.ok.sb-dot": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:branches|span.mono": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -11013,6 +11148,24 @@
   "minHeight": "0px"
  },
  "git:stash|span.spacer": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:stash|button.tbtn.ui-btn": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|span.attn-count": {
   "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -11021,14 +11174,50 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:stash|button.mobile-only.tbtn.ui-btn": {
-  "display": "none",
+ "git:stash|button.desktop-only.tbtn.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
+ },
+ "git:stash|span.desktop-only.slot-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:stash|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:stash|span.slot-ctl-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:stash|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:stash|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
   "display": "none",
@@ -11969,15 +12158,6 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:stash|button.pn-act.pn-menu.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:stash|div.pn-body": {
   "display": "block",
   "overflowX": "hidden",
@@ -12191,33 +12371,6 @@
   "flexDirection": "row",
   "minHeight": "22px"
  },
- "git:stash|span.sb-act.sb-item": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:stash|span.mono": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:stash|span.sb-item.sb-win": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:stash|span.sb-item": {
   "display": "flex",
   "overflowX": "visible",
@@ -12228,6 +12381,15 @@
   "minHeight": "auto"
  },
  "git:stash|span.ok.sb-dot": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:stash|span.mono": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -13212,6 +13374,24 @@
   "minHeight": "0px"
  },
  "git:console|span.spacer": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:console|button.tbtn.ui-btn": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|span.attn-count": {
   "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -13220,14 +13400,50 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:console|button.mobile-only.tbtn.ui-btn": {
-  "display": "none",
+ "git:console|button.desktop-only.tbtn.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
+ },
+ "git:console|span.desktop-only.slot-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:console|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:console|span.slot-ctl-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:console|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:console|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
   "display": "none",
@@ -14168,15 +14384,6 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:console|button.pn-act.pn-menu.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:console|div.pn-body": {
   "display": "block",
   "overflowX": "hidden",
@@ -14339,33 +14546,6 @@
   "flexDirection": "row",
   "minHeight": "22px"
  },
- "git:console|span.sb-act.sb-item": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:console|span.mono": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:console|span.sb-item.sb-win": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:console|span.sb-item": {
   "display": "flex",
   "overflowX": "visible",
@@ -14376,6 +14556,15 @@
   "minHeight": "auto"
  },
  "git:console|span.ok.sb-dot": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:console|span.mono": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -15360,6 +15549,24 @@
   "minHeight": "0px"
  },
  "git:worktrees|span.spacer": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:worktrees|button.tbtn.ui-btn": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|span.attn-count": {
   "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -15368,14 +15575,50 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:worktrees|button.mobile-only.tbtn.ui-btn": {
-  "display": "none",
+ "git:worktrees|button.desktop-only.tbtn.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
+ },
+ "git:worktrees|span.desktop-only.slot-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:worktrees|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:worktrees|span.slot-ctl-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:worktrees|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:worktrees|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
   "display": "none",
@@ -16316,15 +16559,6 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:worktrees|button.pn-act.pn-menu.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:worktrees|div.pn-body": {
   "display": "block",
   "overflowX": "hidden",
@@ -16562,33 +16796,6 @@
   "flexDirection": "row",
   "minHeight": "22px"
  },
- "git:worktrees|span.sb-act.sb-item": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:worktrees|span.mono": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:worktrees|span.sb-item.sb-win": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:worktrees|span.sb-item": {
   "display": "flex",
   "overflowX": "visible",
@@ -16599,6 +16806,15 @@
   "minHeight": "auto"
  },
  "git:worktrees|span.ok.sb-dot": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:worktrees|span.mono": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -17583,6 +17799,24 @@
   "minHeight": "0px"
  },
  "git:submodules|span.spacer": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:submodules|button.tbtn.ui-btn": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|span.attn-count": {
   "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -17591,14 +17825,50 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:submodules|button.mobile-only.tbtn.ui-btn": {
-  "display": "none",
+ "git:submodules|button.desktop-only.tbtn.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
+ },
+ "git:submodules|span.desktop-only.slot-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:submodules|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:submodules|span.slot-ctl-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:submodules|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:submodules|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
   "display": "none",
@@ -18539,15 +18809,6 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:submodules|button.pn-act.pn-menu.ui-btn.ui-btn-ghost.ui-btn-icon": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:submodules|div.pn-body": {
   "display": "block",
   "overflowX": "hidden",
@@ -18719,33 +18980,6 @@
   "flexDirection": "row",
   "minHeight": "22px"
  },
- "git:submodules|span.sb-act.sb-item": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:submodules|span.mono": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "git:submodules|span.sb-item.sb-win": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:submodules|span.sb-item": {
   "display": "flex",
   "overflowX": "visible",
@@ -18756,6 +18990,15 @@
   "minHeight": "auto"
  },
  "git:submodules|span.ok.sb-dot": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "git:submodules|span.mono": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -19749,6 +19992,24 @@
   "minHeight": "0px"
  },
  "editor|span.spacer": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "editor|button.tbtn.ui-btn": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|span.attn-count": {
   "display": "inline",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -19757,14 +20018,50 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "editor|button.mobile-only.tbtn.ui-btn": {
-  "display": "none",
+ "editor|button.desktop-only.tbtn.ui-btn": {
+  "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
   "inset": "auto auto auto auto",
   "flexDirection": "row",
-  "minHeight": "0px"
+  "minHeight": "auto"
+ },
+ "editor|span.desktop-only.slot-ctl": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "editor|button.tbtn.ui-btn.ui-btn-icon.ui-btn-sm": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "editor|span.slot-ctl-label": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "editor|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "editor|button.mobile-only.mtbtn.ui-btn.ui-btn-ghost.ui-btn-icon": {
   "display": "none",
@@ -20066,33 +20363,6 @@
   "flexDirection": "row",
   "minHeight": "22px"
  },
- "editor|span.sb-act.sb-item": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "editor|span.mono": {
-  "display": "block",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
- "editor|span.sb-item.sb-win": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "editor|span.sb-item": {
   "display": "flex",
   "overflowX": "visible",
@@ -20103,6 +20373,15 @@
   "minHeight": "auto"
  },
  "editor|span.ok.sb-dot": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
+ "editor|span.mono": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",

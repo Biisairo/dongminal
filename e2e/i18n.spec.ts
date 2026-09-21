@@ -6,7 +6,7 @@
  */
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, SPLIT_H} from './fixtures';
+import { test, expect, waitForInit , SPLIT_H} from './fixtures';
 
 const KO = /[가-힣]/;
 
@@ -174,8 +174,6 @@ test.describe('축 B — 국제화', () => {
   test('단축키를 재바인딩하면 툴팁의 표기가 따라온다', async ({ page, request }) => {
     await seedLocale(request, null);
     await waitForInit(page);
-    // FR-CHR-1·2: 분할 버튼은 pane 탭줄로 갔다. `data-i18n-title`·
-    // `data-i18n-shortcut` 계약은 그대로이므로 재는 것은 한 글자도 바뀌지 않는다.
     const btn = page.locator(SPLIT_H);
     await expect(btn).toHaveAttribute('title', 'Split Horizontal (⌃+⇧+H)');
     await openSettingsTab(page, 'shortcuts');

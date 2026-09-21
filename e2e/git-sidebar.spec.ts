@@ -5,7 +5,8 @@ import { basename, join } from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import {
-  test, expect, openGitTab, waitForInit, waitShellReady, openGit, makeCopyFx, gitFixture, cleanGitFixture, clickGitView, nextFrames, SPLIT_H } from './fixtures';
+  test, expect, openGitTab, waitForInit, waitShellReady, openGit, makeCopyFx, gitFixture, cleanGitFixture, clickGitView, nextFrames,
+  SPLIT_H } from './fixtures';
 import { TMP, cssPath, tmpPath, realPath } from './osenv';
 
 // GIT_M1_STEP4_CONTRACT §4 — 좌측 GIT 섹션. 검증 V17·V16·V3·V7.

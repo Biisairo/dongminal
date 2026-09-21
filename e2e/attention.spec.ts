@@ -1,4 +1,4 @@
-import { test, expect, waitForInit, waitShellReady, ACT_BTN } from './fixtures';
+import { test, expect, waitForInit, waitShellReady } from './fixtures';
 import { chain, dmctl, echoCmd, sleepCmd } from './osenv';
 
 // PANE_ATTENTION_NOTIFY_SRS e2e: terminal-monitoring attention.
@@ -51,13 +51,10 @@ test.describe('Pane attention', () => {
     await expect(firstTab).toHaveClass(/attn/, { timeout: 10000 });
     await expect(firstTab).not.toHaveClass(/active/);
 
-    // UIUX_OVERHAUL_SRS FR-CHR-4: **배지가 상태바의 `⚡` 에 흡수됐다.** `#topbar`
-    // 해체로 갈 곳이 없어졌고, `⚡ n` 이 이미 주의를 포함한 네 그룹의 합을 센다.
-    // 주의가 있으면 그 자리가 `attn` 을 입는다. 여기서는 주의 말고 도는 것이
-    // 없으므로 n 은 여전히 1 이다 — 수를 재는 힘이 줄지 않았다.
-    const badge = page.locator(ACT_BTN);
-    await expect(badge).toHaveClass(/\battn\b/);
-    await expect(badge.locator('.mono')).toHaveText('1');
+    // Badge appears with count 1; title gets the count badge.
+    const badge = page.locator('#attn-badge');
+    await expect(badge).toBeVisible();
+    await expect(badge.locator('.attn-count')).toHaveText('1');
     await expect.poll(() => page.title()).toContain('(1)');
 
     // The alarm must PERSIST until the user attends — it must not auto-clear
@@ -76,8 +73,7 @@ test.describe('Pane attention', () => {
     // Clicking the item jumps to that pane → attention clears everywhere.
     await page.locator('#agents-panel .attn-item').first().click();
     await expect(page.locator('#area .pn.focused .pn-tab').first()).not.toHaveClass(/attn/, { timeout: 10000 });
-    // FR-CHR-4: `⚡` 는 사라지지 않는다 — 주의가 없으면 그 색을 잃을 뿐이다.
-    await expect(badge).not.toHaveClass(/\battn\b/);
+    await expect(badge).toBeHidden();
     await expect.poll(() => page.title()).not.toContain('(1)');
   });
   // ATTENTION_FIRING_SRS V-ATV-1·2 / V-ATA-1·2: 포커스된 칸에서 뜬 알람은
@@ -97,7 +93,7 @@ test.describe('Pane attention', () => {
     const tab = pane.locator('.pn-tab.active').first();
     await expect(pane).toHaveClass(/attn/, { timeout: 15000 });
     await expect(tab).toHaveClass(/attn/);
-    await expect(page.locator(ACT_BTN)).toHaveClass(/\battn\b/);
+    await expect(page.locator('#attn-badge')).toBeVisible();
 
     // V-ATV-2: 포커스 테두리와 알람 링이 **둘 다** 그려진다. 링이 테두리 자리를
     // 덮던 것이 "알림이 포커스에 가려 보이지 않는다" 의 원인이었다 (B5).
@@ -121,7 +117,7 @@ test.describe('Pane attention', () => {
     // V-ATA-2: 그 칸을 클릭하면 — 실제 상호작용 — 사라진다.
     await pane.locator('.xterm-screen').click();
     await expect(pane).not.toHaveClass(/attn/, { timeout: 10000 });
-    await expect(page.locator(ACT_BTN)).not.toHaveClass(/\battn\b/);
+    await expect(page.locator('#attn-badge')).toBeHidden();
   });
 
   // V-ATA-3 · V-ATA-4(개정): 키 입력은 알람을 해제한다. 그리고 **보고 있어도**
@@ -166,7 +162,7 @@ test.describe('Pane attention', () => {
     // V-ATA-3: 키를 누르면 사라진다.
     await page.keyboard.press('a');
     await expect(pane).not.toHaveClass(/attn/, { timeout: 10000 });
-    await expect(page.locator(ACT_BTN)).not.toHaveClass(/\battn\b/);
+    await expect(page.locator('#attn-badge')).toBeHidden();
   });
 
   // ATTENTION_LIFECYCLE_GIT_OBSERVE_SRS V-ATL-1·6·7·8: 도구가 사라지면 알람도
@@ -182,8 +178,8 @@ test.describe('Pane attention', () => {
     await page.locator('#area .pn.focused .pn-tab-add').click();
     await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
 
-    const badge = page.locator(ACT_BTN);
-    await expect(badge).toHaveClass(/\battn\b/, { timeout: 15000 });
+    const badge = page.locator('#attn-badge');
+    await expect(badge).toBeVisible({ timeout: 15000 });
     const firstTab = page.locator('#area .pn.focused .pn-tab').first();
     await expect(firstTab).toHaveClass(/attn/, { timeout: 10000 });
 
@@ -195,7 +191,7 @@ test.describe('Pane attention', () => {
     if (await ok.count()) await ok.first().click();
 
     // FR-ATL-7: 배지가 즉시 내려간다.
-    await expect(badge).not.toHaveClass(/\battn\b/, { timeout: 10000 });
+    await expect(badge).toBeHidden({ timeout: 10000 });
     await expect.poll(() => page.title()).not.toContain('(1)');
 
     // FR-ATL-1·6: 서버도 잊었다 — 새로고침해도 되살아나지 않는다 (FR-ATL-8).
@@ -207,7 +203,7 @@ test.describe('Pane attention', () => {
 
     await page.reload();
     await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 15000 });
-    await expect(page.locator(ACT_BTN)).not.toHaveClass(/\battn\b/, { timeout: 10000 });
+    await expect(page.locator('#attn-badge')).toBeHidden({ timeout: 10000 });
   });
   // V-ATL-7 (FR-ATL-11): 복원은 **요청을 떠나기 전에** 지울 후보를 확정한다.
   // 응답이 도는 동안 SSE 로 올라온 알람까지 지우면, 합류 직후에 부른 도구의
@@ -255,14 +251,14 @@ test.describe('주의 구역의 개별 해제 (FUI-22 · FR-ACT-1)', () => {
     const before = await page.locator('#area .pn.focused .pn-tab').count();
     await page.locator('#area .pn.focused .pn-tab-add').click();
     await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
-    await expect(page.locator(ACT_BTN)).toHaveClass(/\battn\b/, { timeout: 10000 });
-    await page.click(ACT_BTN);
+    await expect(page.locator('#attn-badge')).toBeVisible({ timeout: 10000 });
+    await page.click('#attn-badge');
     const item = page.locator('#agents-panel .attn-item');
     await expect(item).toHaveCount(1);
     const activeBefore = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-tab');
     await item.locator('.attn-x').click();
     await expect(page.locator('#agents-panel .attn-item')).toHaveCount(0);
-    await expect(page.locator(ACT_BTN)).not.toHaveClass(/\battn\b/);
+    await expect(page.locator('#attn-badge')).toBeHidden();
     // 이동하지 않았다 — 활성 탭이 그대로다.
     expect(await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-tab')).toBe(activeBefore);
   });

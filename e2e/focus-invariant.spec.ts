@@ -1,6 +1,6 @@
 import { Page, APIRequestContext } from '@playwright/test';
 
-import { test, expect, plainWindows, waitForInit, SPLIT_H} from './fixtures';
+import { test, expect, plainWindows, waitForInit , SPLIT_H} from './fixtures';
 
 // SRS: APP_DECOMPOSE_SRS.md (S1-Phase1)
 //   불변식: this.focused === active session.focusedPane

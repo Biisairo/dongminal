@@ -757,19 +757,6 @@ map-reduce, pipeline) 추가한다. debate 시나리오는 **P2P 왕복이 실�
 [Split H] [Split V] [Runs] [Agents]        (desktop-only, 기존 attn-badge·git-close 유지)
 ```
 
-> **개정 2026-09-21 — `UIUX_OVERHAUL_SRS` FR-CHR-1·5.** **그 줄이 사라졌다.**
-> 데스크톱의 `#topbar` 가 해체되면서 네 버튼과 주의 배지가 전부 자리를 옮겼다:
->
-> | 옛 자리 | 새 자리 |
-> |---|---|
-> | `Split H` · `Split V` | pane 탭줄의 고정 구 (FR-CHR-2) |
-> | `Runs` | pane 탭줄의 `⋯` 메뉴 (FR-CHR-5) |
-> | `Agents` · `Background` · 주의 배지 | 상태바의 `⚡` 하나 (FR-ACT-3) |
->
-> **이 요구가 정하던 것은 순서였고, 순서를 잴 줄이 없어졌다.** `Runs` 가 진입점을
-> 갖는다는 요지는 남는다 — `⋯` 메뉴의 항목이 그것이고, 부르는 함수는
-> `executeAction('runsToggle')` 로 단축키와 같은 길이다.
-
 **FR-RVZ-2** `Runs` 클릭 시 **중앙 모달**이 열린다. 백그라운드 도구 모달(`bg-modal`)과
 같은 상호작용 규약을 쓴다 — 배경 클릭·`Esc` 로 닫히고, 오버레이 자신이 대상일 때만 닫힌다.
 

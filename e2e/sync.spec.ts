@@ -1,4 +1,4 @@
-import { test, expect, waitForInit, SPLIT_H} from './fixtures';
+import { test, expect, waitForInit , SPLIT_H} from './fixtures';
 
 test.describe('Multi-client synchronization via SSE', () => {
   test('client A creates session and client B syncs', async ({ browser }) => {

@@ -156,14 +156,6 @@ I18N.register('en', {
   'core.tab_menu_new': 'New tab',
   'core.tab_menu_new_no': 'This window cannot have new tabs',
   'core.tab_menu_rename': 'Rename',
-  // UIUX_OVERHAUL_SRS FR-CHR-5: pane menu — where rarely used actions gather.
-  'core.pane_menu_slot_add': 'Add a window slot',
-  'core.pane_menu_slot_remove': 'Remove a window slot',
-  'core.pane_menu_slot_max': 'At most {n} slots',
-  'core.pane_menu_slot_min': 'Only one slot left',
-  'core.pane_menu_runs': 'Runs',
-  'core.pane_menu_title': 'This pane\u2019s menu',
-  'core.pane_menu_aria': 'This pane\u2019s menu',
   'core.tab_menu_rename_git_no': 'Git view tabs are named by the view',
   'core.term_copy_close': 'Close',
   'core.term_copy_do': 'Copy',
@@ -1127,8 +1119,6 @@ I18N.register('en', {
   'statusbar.latency': 'Latency',
   'statusbar.location': 'Current location (dmctl target)',
   'statusbar.location_title': 'dmctl target: {loc}',
-  // UIUX_OVERHAUL_SRS FR-CHR-4: the current place lives at the left of the status bar.
-  'statusbar.winname_title': 'The window you are in \u2014 click to reveal it in the sidebar',
   'statusbar.memory': 'Memory',
   'statusbar.termsize': 'Terminal size',
   'statusbar.uptime': 'Uptime',
