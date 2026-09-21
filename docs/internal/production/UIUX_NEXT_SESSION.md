@@ -10,7 +10,7 @@
 - `f1061cb5` fix: 모바일 상태바는 한 줄이고 눌러서 펼친다 (FR-HIE-4 개정 · FR-TYP-3)
 - `b943b246` fix: 빈 자리는 다음 할 일을 말하고 복귀는 복귀다 (FR-CPY-1~3)
 - `8404163f` fix: 긴 도구 이름이 패널을 밀지 않는다 (FR-ACT-6 · FR-ACT-5 대조)
-- `<M5커밋>` fix: 조회는 한 자리에 모인다 — 모달 둘과 팝오버가 사라진다 (FR-ACT-1~4)
+- `e9849d4d` fix: 조회는 한 자리에 모인다 — 모달 둘과 팝오버가 사라진다 (FR-ACT-1~4)
 
 ---
 
@@ -19,36 +19,87 @@
 
 ## 0. 먼저 할 일 — e2e 빚 갚기
 
-**이 인계의 첫 항목이다.** 앞 세션이 전체 e2e 를 돌렸고 실패가 남았다. 그중
-**둘은 이번 개편이 만든 것**이고 나머지는 기존 결함이다. §2 의 표가 전수다.
+**이 인계의 첫 항목이다.** 앞 세션이 전체 e2e 를 끝까지 돌렸다:
 
-아래 둘을 먼저 고친다 (작고 근거가 확정돼 있다):
+    1,749 통과 · 13 실패 · 3 간헐   (178 스펙, 23.8분)
 
-  ① e2e/git-detect-tier.spec.ts  V-GDT-12
-     `git.hist_no_commits` 의 **정확한 문자열**을 단정한다. M4 의 FR-CPY-2 가
-     그 문구에 다음 할 일을 붙였다:
-       옛: '커밋이 아직 없습니다'
-       새: '커밋이 아직 없습니다 — Changes 탭에서 첫 커밋을 만듭니다'
-     `toHaveText` 를 `toContainText` 로 바꾸거나 기대값을 새 문구로 고친다.
-     **빈 저장소와 필터 결과를 가르는 것이 그 검증의 뜻**이므로(FR-GDT-21)
-     그 뜻이 살아 있기만 하면 된다.
+실패 열셋 중 **여섯이 이번 개편이 만든 것**이다. 판정 근거는 §2 의 표에 있고,
+고치는 순서는 아래가 권장이다 — 쉬운 것부터, 결정이 필요한 것을 뒤로.
 
-  ② e2e/explorer-root-keys.spec.ts  V-EXR-42 (헬퍼 `dblBlankTabs`, 371행)
-     헬퍼가 탭 바의 **오른쪽 끝에서 6px** 지점을 더블클릭한다. FR-HIE-2 가
-     `.pn{border:2px solid transparent}` 를 걷으면서 탭줄이 분할 손잡이에
-     맞닿았고, `.sh::before` 의 히트 확장(±6px)이 그 6px 을 덮는다 — 실패
-     로그가 `<div class="sh"></div> intercepts pointer events` 를 찍는다.
-     종전에는 테두리 2px 덕에 죽은 영역이 4px 이었다.
+### ① git-detect-tier V-GDT-12 — 문구 (작다)
 
-     **고치는 자리는 헬퍼의 겨냥점**이다: 헬퍼는 이미 여백 폭(`gap`)을 재고
-     `gap > 16` 을 단정하므로, 끝에서 6px 이 아니라 **여백의 한가운데**를
-     누르면 손잡이 기하와 무관해진다. 이것은 결함을 덮는 것이 아니다 — 그
-     검증이 묻는 것은 "여백을 누르면 탭이 서는가" 이고, 여백의 한가운데가 그
-     물음에 더 정확하다. 다만 **죽은 영역이 4px → 6px 로 늘어난 사실**은
-     커밋 메시지에 남긴다.
+`e2e/git-detect-tier.spec.ts:162`. `git.hist_no_commits` 의 **정확한 문자열**을
+단정한다. M4 의 FR-CPY-2 가 그 문구에 다음 할 일을 붙였다:
 
-그 뒤 `npx playwright test git-detect-tier explorer-root-keys` 로 확인하고,
-**전체 e2e 를 한 번 더 돌린다** (§2 의 미분류 넷이 남아 있다).
+    옛: '커밋이 아직 없습니다'
+    새: '커밋이 아직 없습니다 — Changes 탭에서 첫 커밋을 만듭니다'
+
+`toHaveText` → `toContainText` 이거나 기대값 갱신. **빈 저장소와 필터 결과를
+가르는 것**이 그 검증의 뜻이므로(FR-GDT-21) 그 뜻만 살아 있으면 된다.
+
+### ② explorer-root-keys V-EXR-42 — 기하 (작다)
+
+헬퍼 `dblBlankTabs` (`e2e/explorer-root-keys.spec.ts:371`)가 탭 바의 **오른쪽
+끝에서 6px** 을 더블클릭한다. FR-HIE-2 가 `.pn{border:2px solid transparent}` 를
+걷으면서 탭줄이 분할 손잡이에 맞닿았고, `.sh::before` 의 히트 확장(±6px)이 그
+6px 을 덮는다 — 로그가 `<div class="sh"></div> intercepts pointer events` 를 찍는다.
+**죽은 영역이 4px → 6px 로 늘었다.**
+
+헬퍼는 이미 여백 폭(`gap`)을 재고 `gap > 16` 을 단정한다. 끝에서 6px 대신
+**여백의 한가운데**를 누르면 손잡이 기하와 무관해진다. 덮는 것이 아니다 — 그
+검증이 묻는 것은 "여백을 누르면 탭이 서는가" 이고 한가운데가 더 정확하다.
+다만 **4px → 6px 사실은 커밋 메시지에 남겨라.**
+
+### ③ slot-title-boundary "분할 손잡이는 종전대로다" — **스펙 충돌이다**
+
+`e2e/slot-title-boundary.spec.ts:232`. `Expected rgb(68,71,90)` ·
+`Received rgb(131,133,143)`.
+
+FR-HIE-1 이 `.sh`(분할 손잡이)를 **창·칸의 경계**로 보고 `--border` →
+`--border-strong` 으로 올렸다. 그런데 `SLOT_TITLE_BOUNDARY_SRS` 는 *"분할
+손잡이는 종전대로다"* 를 **검증으로 얼려 두었다** — 그 문서의 FR-STB-21~23 이
+슬롯 경계색(`--slot-edge`)을 세우면서 **손잡이는 건드리지 않는다**는 것을
+설계로 정했기 때문이다.
+
+**§3 ② 와 같은 부류다.** 혼자 판정하지 말고:
+  1. `docs/internal/SLOT_TITLE_BOUNDARY_SRS.md` 에서 그 요구의 **근거**를 읽는다
+  2. 손잡이가 `--border` 여야 하는 이유가 남아 있으면 FR-HIE-1 을 되돌린다
+     (`.sh` 만 `--border` 로. 나머지 17자리는 그대로)
+  3. 그 이유가 FR-HIE-1 에 흡수됐으면 그 문서에 **개정을 적고** 검증을 고친다
+  4. 갈리지 않으면 **사용자에게 묻는다**
+
+### ④ ui-layout-defaults V-LAY-1 — 기준선 세 판 (결정이 필요하다)
+
+    재지 않는 자리 299 (기준선 269) — 30 늘었다
+
+드리프트 기준선(`FR-DSY-30`)이다. 늘어난 목록에 **`terminal|span.sb-act.sb-item`**
+이 있다 — FR-ACT-3 의 `⚡` 진입점이다. 나머지 스물아홉은 이번 개편의 것인지 아닌지
+**가려 보지 못했다** (`m-drawer-acts`·`ui-btn-label`·`kb-nav…` 등은 무관해 보인다).
+
+**이것이 §4 의 R-1 이 경고한 바로 그 벽이고, M6 이 아니라 지금 왔다.**
+기준선은 **판마다 하나**다 (`e2e/ui-layout-defaults.spec.ts` 머리말 — 글꼴
+메트릭이 판을 건너면 달라진다):
+
+    e2e/baseline/ui-layout.darwin.json   macOS 에서만 다시 뜰 수 있다
+    e2e/baseline/ui-layout.linux.json    그 판에서 떠야 한다
+    e2e/baseline/ui-layout.win32.json    같음
+
+    갱신: LAYOUT_BASELINE=write npx playwright test ui-layout-defaults
+
+선례가 있다 — `0a581c12` "드리프트 기준선을 파생해 세 판을 모두 채운다".
+**사용자에게 세 판을 어떻게 채울지 먼저 확인하라.**
+
+### ⑤ git-dialog D6 · slot-view-state TC-SVS-57 — 미분류
+
+    git-dialog.spec.ts:229  D6  `Expected 0, Received 1`
+    slot-view-state.spec.ts:1077  TC-SVS-57  `page.waitForFunction` 타임아웃
+
+앞 세션이 **기준선 대조를 하지 못했다.** §3 ⑤ 의 방법으로 `793fc633` 에서 먼저
+돌려라 — 기존 결함이면 손대지 않는다.
+
+### 그 뒤
+
+각 스펙을 개별로 확인한 뒤 **전체 e2e 를 한 번 더 돌린다.** 그러고 나서 §4 로 간다.
 
 ## 1. 먼저 읽을 것
 
@@ -68,21 +119,21 @@
   **그 8장은 낡은 인스턴스에서 찍혔다** — §3 ① 을 반드시 읽어라.
 이번 개편 중 찍은 것: 같은 폴더의 `m3-*`·`m5-*`
 
-## 2. e2e 실패 전수 (앞 세션 실측)
-
-전체 e2e 는 178 스펙 파일이고 약 20분 걸린다. 실패한 이름은 이 열셋이다.
+## 2. e2e 실패 전수 — 판정표 (앞 세션 실측, 전체 1회 완주)
 
 | 실패 | 판정 | 근거 |
 |---|---|---|
-| `a11y-keyboard` 6건 | **기존** | `793fc633`(인계 커밋)에서 같은 6건이 실패한다. 체크아웃해 확인했다 |
+| `a11y-keyboard` 6건 | **기존** | `793fc633`(인계 커밋)을 체크아웃해 돌렸고 같은 6건이 실패했다 |
 | `editor-tab` E22 | **기존** | `793fc633` 에서도 실패. `Expected 310, Received undefined` |
-| `editor-explorer` X8 | **기존·간헐** | 기준선에서 1회 실패 후 재시도 통과. `--git-st-add` 가 테마 추종에 매여 흔들린다 |
+| `editor-explorer` X8 | **기존·간헐** | 기준선에서 1회 실패 후 재시도 통과. `--git-st-add` 가 테마 추종에 매인다 |
 | `git-detect-tier` V-GDT-12 | **이번 개편** | M4 FR-CPY-2 의 문구 (§0 ①) |
 | `explorer-root-keys` V-EXR-42 | **이번 개편** | FR-HIE-2 의 기하 (§0 ②) |
-| `git-dialog` "Esc 는 취소, Enter 는 기본 동작이다" | **미분류** | `Expected 0, Received 1`. 기준선 대조를 하지 못했다 |
-| `optimistic-layout` V-OPL-1·2·3e | **미분류** | `page.waitForFunction` 타임아웃 셋. 기준선 대조를 하지 못했다 |
+| `slot-title-boundary` 손잡이 | **이번 개편 · 스펙 충돌** | FR-HIE-1 vs `SLOT_TITLE_BOUNDARY_SRS` (§0 ③) |
+| `ui-layout-defaults` V-LAY-1 | **이번 개편(일부)** | 드리프트 기준선 269 → 299. `span.sb-act` 가 그중 하나 (§0 ④) |
+| `git-dialog` D6 | **미분류** | `Expected 0, Received 1` |
+| `slot-view-state` TC-SVS-57 | **미분류** | `waitForFunction` 타임아웃 |
 
-**미분류 넷은 기준선에서 먼저 돌려라.** 방법은 §3 ⑤ 에 있다.
+**간헐 3건**은 이름이 기록되지 않았다 — 재시도로 통과한 것들이다.
 
 ## 3. 값을 치르고 안 것 — 다시 치르지 마라
 
@@ -255,4 +306,6 @@ FR-SBR-1·3 으로 "어떤 폭에서도 전부 보인다" 를 정했고 D-1 이 
 
 먼저 §0 의 e2e 빚 둘을 갚고, 그 다음 §4 의 R-1 조사를 끝낸 뒤 사용자에게
 기준선 세 판의 비용을 말하라. **그 대화 전에 `#topbar` 를 건드리지 마라.**
+
+다만 **§0 ④ 의 기준선 결정이 그보다 먼저 온다** — 그것이 이미 빨갛기 때문이다.
 ```
