@@ -11,11 +11,18 @@ class InputBinding {
     const sbEl=document.getElementById('sidebar');
     // FR-HSZ-3: 두 핸들의 반대쪽이 같은 요소다 — 콘텐츠 영역.
     const contentEl=document.getElementById('content');
-    document.getElementById('split-h').addEventListener('click',()=>this.app.split('horizontal'));
-    document.getElementById('split-v').addEventListener('click',()=>this.app.split('vertical'));
-    document.getElementById('agents-toggle').addEventListener('click',()=>this.app.agentsToggle());
+    /**
+     * UIUX_OVERHAUL_SRS FR-CHR-1: **`#split-h`·`#split-v`·`#agents-toggle` 은
+     * 사라졌다.** 분할은 pane 탭줄의 고정 구가(FR-CHR-2), 활동 패널은 상태바의
+     * `⚡` 가(FR-ACT-3) 연다.
+     *
+     * 이 자리에 배선이 남아 있던 동안 **`bind()` 가 첫 줄에서 죽었고**, 그 뒤의
+     * 배선이 전부(설정 버튼까지) 붙지 않았다 — 실측으로 설정 모달이 열리지
+     * 않았다. 없는 id 를 `getElementById(...).addEventListener` 로 바로 읽는 줄은
+     * **그 요소가 사라지는 날 앱 전체를 끈다.**
+     */
     const ap=document.getElementById('agents-panel'),aph=document.getElementById('agents-handle');
-    try{if(localStorage.getItem('agentsPanelOpen')==='1'){ap.classList.add('open');aph.classList.add('open');document.getElementById('agents-toggle').classList.add('open');this.app.agentsStartPoll()}}catch{}
+    try{if(localStorage.getItem('agentsPanelOpen')==='1'){ap.classList.add('open');aph.classList.add('open');this.app.agentsStartPoll()}}catch{}
     /**
      * UI_KIT_SRS FR-HSZ-1·10: 여섯 핸들이 `UIKit.drag` 한 골격을 쓴다.
      *

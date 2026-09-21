@@ -1,6 +1,6 @@
 import { Page, APIRequestContext } from '@playwright/test';
 
-import { test, expect, plainWindows, waitForInit } from './fixtures';
+import { test, expect, plainWindows, waitForInit, SPLIT_H} from './fixtures';
 
 // SRS: APP_DECOMPOSE_SRS.md (S1-Phase1)
 //   불변식: this.focused === active session.focusedPane
@@ -28,7 +28,7 @@ test.describe('Focus invariant (S1-Phase1)', () => {
 
   test('split keeps invariant on new pane focus', async ({ page, request }) => {
     await waitForInit(page, { clearLocalStorage: true });
-    await page.click('#split-h');
+    await page.click(SPLIT_H);
     await page.waitForFunction(() => document.querySelectorAll('#area .pn').length >= 2, { timeout: 5000 });
     const inv = await readInvariant(page);
     expect(inv.focused).toBe(inv.windowFocusedPane);
@@ -50,7 +50,7 @@ test.describe('Focus invariant (S1-Phase1)', () => {
 
   test('session switch then return restores focused pane', async ({ page, request }) => {
     await waitForInit(page, { clearLocalStorage: true });
-    await page.click('#split-h');
+    await page.click(SPLIT_H);
     await page.waitForFunction(() => document.querySelectorAll('#area .pn').length >= 2, { timeout: 5000 });
 
     const before = await readInvariant(page);
@@ -129,7 +129,7 @@ test.describe('Focus invariant (S1-Phase1)', () => {
 
   test('setFocus on different pane updates both sides', async ({ page, request }) => {
     await waitForInit(page, { clearLocalStorage: true });
-    await page.click('#split-h');
+    await page.click(SPLIT_H);
     await page.waitForFunction(() => document.querySelectorAll('#area .pn').length >= 2, { timeout: 5000 });
 
     const otherRid = await page.evaluate(() => {

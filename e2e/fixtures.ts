@@ -482,6 +482,40 @@ export async function plainWindows(page: any): Promise<any[]> {
 //
 // 숫자를 목록에서 **파생시킨다** — 둘을 따로 적으면 뷰가 늘 때 한쪽만 고쳐지고,
 // 그 어긋남은 스펙 수십 개가 한꺼번에 깨지는 모습으로 나타난다 (이번에 겪었다).
+/**
+ * UIUX_OVERHAUL_SRS FR-CHR-1·2: **분할 진입점은 pane 탭줄의 고정 구에 있다.**
+ * `#topbar` 가 해체되면서 `#split-h`·`#split-v` 가 사라졌다.
+ *
+ * 자리가 pane 의 것이 됐으므로 **어느 칸을 쪼개는지 셀렉터가 말한다** — 종전의
+ * 전역 id 는 활성 창의 포커스 칸을 암묵으로 겨눴다. 기본값(`.pn.focused`)이 그
+ * 옛 뜻과 같고, 다른 칸을 겨누려면 `paneSel` 을 준다.
+ */
+export const splitBtn = (dir: 'h' | 'v', paneSel = '#area .pn.focused') =>
+  `${paneSel} .pn-acts .pn-split >> nth=${dir === 'h' ? 0 : 1}`;
+export const SPLIT_H = splitBtn('h');
+export const SPLIT_V = splitBtn('v');
+
+/**
+ * UIUX_OVERHAUL_SRS FR-ACT-3 · FR-CHR-1: **활동의 단일 진입점.** 상태바의 `⚡ n`
+ * 이고, `n` 은 주의·에이전트·백그라운드·Run 네 그룹의 합이다.
+ *
+ * 상단바의 `Runs`·`Background`·`Agents` 세 버튼과 주의 배지는 전부 이 자리로
+ * 수렴했다 — 넷이 같은 패널을 여는 진입점이었고, `#topbar` 해체가 그 중복을
+ * 걷었다 (FR-CHR-1).
+ */
+export const ACT_BTN = '.status-bar .sb-act';
+
+/** FR-CHR-4: 주의가 있으면 `⚡` 가 그 색을 입는다 — 옛 `#attn-badge` 의 자리다. */
+export const ACT_ATTN = '.status-bar .sb-act.attn';
+
+/** FR-CHR-4: 상태바 왼쪽의 현재 위치. `#window-name` 은 이름이 바뀌지 않았다. */
+export const WIN_NAME = '.status-bar .sb-win #window-name';
+
+/** FR-CHR-5: pane 탭줄의 `⋯` — 드문 것(칸 `±` · Runs)이 사는 자리. */
+export const PANE_MENU = '#area .pn.focused .pn-acts .pn-menu';
+export const paneMenuItem = (id: string) =>
+  `.ui-menu.pn-menu-pop .ui-menu-item[data-id="${id}"]`;
+
 export const GIT_BODY_VIEWS = [
   'diff', 'history', 'branches', 'stash', 'console', 'worktrees', 'submodules',
 ] as const;

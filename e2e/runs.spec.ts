@@ -1,8 +1,7 @@
 import { Page } from '@playwright/test';
 
 import {
-  test, expect, waitForInit, gotoSettled,
-} from './fixtures';
+  test, expect, waitForInit, gotoSettled, PANE_MENU, paneMenuItem } from './fixtures';
 
 // 묶음 V (ORCHESTRATION_V2_SRS §3.5) — Run 시각화의 **브라우저 쪽**.
 //
@@ -119,14 +118,18 @@ async function mockRuns(page: Page, list: Json[], graphs: Record<string, Json>) 
 
 /**
  * UIUX_OVERHAUL_SRS FR-ACT-1·2: 목록은 모달이 아니라 **활동 패널의 Run 구역**이다.
- * 진입점(`#runs-btn`)은 그대로이고 여는 대상이 바뀌었다.
+ * **FR-CHR-1·5 로 진입점도 바뀌었다** — 상단바가 해체되면서 `Runs` 는 pane
+ * 탭줄의 `⋯` 메뉴로 갔고, 데스크톱의 단일 진입점은 상태바의 `⚡` 다 (FR-ACT-3).
  */
 async function openList(page: Page) {
   // 진입점은 **토글**이다 (FR-ACT-4). 모달 시절에는 행을 누르면 저절로 닫혀서
   // 다시 여는 것이 늘 "열기" 였는데, 조회는 이제 남의 동작에 닫히지 않으므로
   // (FR-ACT-2) 이미 열려 있으면 누르지 않는다 — 누르면 닫힌다.
   const open = await page.locator('#agents-panel.open').count();
-  if (!open) await page.click('#runs-btn');
+  if (!open) {
+    await page.locator(PANE_MENU).first().click();
+    await page.locator(paneMenuItem('runs')).click();
+  }
   await expect(page.locator('#agents-panel.open .ag-sec[data-sec="runs"]')).toBeVisible();
 }
 
@@ -685,7 +688,8 @@ test.describe('묶음 D — Run 삭제 (FR-DEL-*)', () => {
       return (await r.json()).id;
     }, [toolId]);
 
-    await page.locator('#runs-btn').click();
+    await page.locator(PANE_MENU).first().click();
+    await page.locator(paneMenuItem('runs')).click();
     const row = page.locator(`#agents-panel .runs-row[data-runid="${runId}"]`);
     await expect(row).toBeVisible({ timeout: 10000 });
     const tabsBefore = await page.locator('.pn-tab').count();

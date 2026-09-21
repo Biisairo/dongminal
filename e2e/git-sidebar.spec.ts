@@ -5,8 +5,7 @@ import { basename, join } from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import {
-  test, expect, openGitTab, waitForInit, waitShellReady, openGit, makeCopyFx, gitFixture, cleanGitFixture, clickGitView, nextFrames,
-} from './fixtures';
+  test, expect, openGitTab, waitForInit, waitShellReady, openGit, makeCopyFx, gitFixture, cleanGitFixture, clickGitView, nextFrames, SPLIT_H } from './fixtures';
 import { TMP, cssPath, tmpPath, realPath } from './osenv';
 
 // GIT_M1_STEP4_CONTRACT §4 — 좌측 GIT 섹션. 검증 V17·V16·V3·V7.
@@ -362,7 +361,7 @@ test.describe('UI 개정 — 터미널의 리포를 딛는 근거 (D-FLW-6, 옛 
     await waitForInit(page);
 
     // 칸을 나누고 첫 칸을 **클릭한다** — 기억이 여기서 심긴다.
-    await page.click('#split-h');
+    await page.click(SPLIT_H);
     await expect(page.locator('#area .pn')).toHaveCount(2, { timeout: 10000 });
     await page.locator('#area .pn').first().click();
     await expect(page.locator('#area .pn.focused')).toHaveCount(1);
@@ -391,7 +390,7 @@ test.describe('UI 개정 — 터미널의 리포를 딛는 근거 (D-FLW-6, 옛 
     const repoB = gurCopy('with-remote', 'flw3-d');
     await waitForInit(page);
 
-    await page.click('#split-h');
+    await page.click(SPLIT_H);
     await expect(page.locator('#area .pn')).toHaveCount(2, { timeout: 10000 });
     await page.locator('#area .pn').first().click();
     await expect(page.locator('#area .pn.focused')).toHaveCount(1);

@@ -1,7 +1,7 @@
 import { Page } from '@playwright/test';
 import { join } from 'path';
 
-import { test, expect, waitForInit, openGit, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, waitForInit, openGit, gitFixture, cleanGitFixture, ACT_BTN } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 /**
@@ -60,7 +60,7 @@ test.describe('묶음 UIK — 아이콘이 버튼을 채운다 (V-1)', () => {
   // Agents 패널 머리의 둘(`refresh-cw`·`x`)이 이 화면에서만 선다.
   test('UIK2: Agents 패널을 열어도 지켜진다', async ({ page }) => {
     await waitForInit(page);
-    await page.locator('#agents-toggle').click();
+    await page.locator(ACT_BTN).click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
     const bad = await offenders(page);
     expect(bad, report(bad)).toEqual([]);

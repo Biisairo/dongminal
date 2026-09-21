@@ -1,4 +1,4 @@
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, SPLIT_H, SPLIT_V} from './fixtures';
 
 test.describe('Focus movement', () => {
   test('new session creates focused pane', async ({ page }) => {
@@ -46,7 +46,7 @@ test.describe('Focus movement', () => {
     // Click Split H.
     const [respH] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-      page.click('#split-h'),
+      page.click(SPLIT_H),
     ]);
     expect(respH.status()).toBe(200);
 
@@ -63,7 +63,7 @@ test.describe('Focus movement', () => {
 
     const [respV] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-      page.click('#split-v'),
+      page.click(SPLIT_V),
     ]);
     expect(respV.status()).toBe(200);
 
@@ -99,7 +99,7 @@ test.describe('Focus movement', () => {
 
     const [resp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-      page.click('#split-h'),
+      page.click(SPLIT_H),
     ]);
     expect(resp.status()).toBe(200);
     await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });

@@ -1126,6 +1126,8 @@ I18N.register('en', {
   'statusbar.latency': 'Latency',
   'statusbar.location': 'Current location (dmctl target)',
   'statusbar.location_title': 'dmctl target: {loc}',
+  // UIUX_OVERHAUL_SRS FR-CHR-4: the current place lives at the left of the status bar.
+  'statusbar.winname_title': 'The window you are in \u2014 click to reveal it in the sidebar',
   'statusbar.memory': 'Memory',
   'statusbar.termsize': 'Terminal size',
   'statusbar.uptime': 'Uptime',

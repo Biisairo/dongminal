@@ -362,10 +362,22 @@ Object.assign(Renderer.prototype, {
     const b=document.createElement('button');
     b.className='ui-btn ui-btn-icon ui-btn-ghost pn-act pn-split';
     b.appendChild(UIKit.icon(h?'columns':'rows',{size:'sm'}));
+    /**
+     * **이름은 단축키를 기다리지 않는다.** `I18N.apply` 는 `data-i18n-shortcut` 이
+     * 붙은 요소를 **단축키 표가 아직 없으면 통째로 건너뛴다**(`i18n.js` 의
+     * `if(d.i18nShortcut&&!sc) continue`). 아이콘만 있는 버튼이 그 회차를 이름
+     * 없이 지나면 axe 의 `button-name` 이 올라온다 — 실측으로 첫 화면이 빨개졌다.
+     *
+     * 그래서 **이름은 지금 세우고**(단축키가 없는 낱말 키를 쓴다) 툴팁만 표가 온
+     * 뒤에 채워지게 둔다. `applyShortcuts(document)` 가 설정 변경 때 이 요소도
+     * 다시 채운다 (FR-B-7).
+     */
+    const sk=h?'splitH':'splitV';
+    const kl=()=>displayKey((typeof shortcuts==='object'&&shortcuts[sk])||'');
+    b.setAttribute('aria-label',t(h?'html.btn_split_h':'html.btn_split_v'));
+    b.title=t(h?'html.split_h_title':'html.split_v_title',{key:kl()});
     b.dataset.i18nTitle=h?'html.split_h_title':'html.split_v_title';
-    b.dataset.i18nAriaLabel=h?'html.split_h_title':'html.split_v_title';
-    b.dataset.i18nShortcut=h?'splitH':'splitV';
-    I18N.apply(b);
+    b.dataset.i18nShortcut=sk;
     b.addEventListener('click',e=>{
       e.stopPropagation();
       const pn=b.closest('.pn');

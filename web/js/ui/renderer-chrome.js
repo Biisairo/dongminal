@@ -94,34 +94,23 @@ Object.assign(Renderer.prototype, {
     return label+' · '+name;
   },
 
+  /**
+   * **모바일 상단바만 남았다** (UIUX_OVERHAUL_SRS FR-CHR-1·6).
+   *
+   * 데스크톱의 `#topbar` 는 해체됐다 — 동작은 pane 탭줄의 고정 구로(FR-CHR-2·5),
+   * 창 이름은 상태바로(FR-CHR-4) 갔다. 남은 것은 모바일의 pane 페이저와 그
+   * 이웃들이고, 그것이 이 함수가 지금 하는 일의 전부다.
+   *
+   * 창 이름은 이제 `updateStatusBar` 가 그린다. **조립하는 자리는 여전히 하나**다
+   * (FR-STB-4) — 거기서도 `_rWinTitle` 을 부른다.
+   */
   _rTopbar(){
     const a=this.app.aw();
-    // FR-STB-11·12: 칸이 하나면 토프바가 제목을 낸다. 칸이 여럿이면 머리글이 그
-    // 자리를 이어받으므로 토프바는 **비운다** — 되풀이하면 그 값이 어느 칸의
-    // 것인지 사용자가 매번 판정해야 한다 (D-1). 모바일에는 칸이 없다 (FR-STB-14).
-    const multi=!this.app.isMobile&&this.app.slotCount()>1;
-    document.getElementById('window-name').textContent=multi?'':this._rWinTitle(a);
-    // FR-GIT-180 · FR-EDT-50 (**UIUX_OVERHAUL_SRS FR-CHR-3 으로 개정**): Git·
-    // Editor 창에서는 분할 진입점을 **비활성으로 둔다.** 종전에는 감췄다 —
-    // 그러면 이웃이 왼쪽으로 밀려 같은 픽셀에 다른 동작이 온다 (§2.4).
-    //
-    //   이전 동작: `hidden` — Git·Editor 창에서 자리가 사라진다
-    //   새  동작: `disabled` — 자리를 지키고 쓸 수 없다고만 말한다
-    //   이유:     **가르는 것은 모드가 아니라 컨트롤이다** (사용자 결정
-    //             2026-09-21). 쪼개는 동작(분할·슬롯 `±`)은 어느 창에서나 같은
-    //             자리에 있고, 탭 `+` 는 만들 **대상 자체가 없어** 사라진다
-    //
-    // 단축키 경로는 이것과 무관하게 막힌다 — `_splitInner` 가 `isGitWin`·
-    // `isEditorWin` 에서 되돌아간다 (V70·E6 의 뒷문장).
-    const isGit=this.app.isGitWin(a);
-    const noSplit=isGit||this.app.isEditorWin(a);
-    for(const id of ['split-h','split-v']){
-      const b=document.getElementById(id);
-      if(b) b.disabled=noSplit;
-    }
     // FR-EDT-54: Editor 창에는 편집기 탭만 있다 — 새 탭 버튼의 **대상이 없다.**
-    // 그래서 이쪽만 종전대로 감춘다 (데스크톱의 `.pn-tab-add` 는 아예 서지
-    // 않는다 — `_makeTabAdd` 를 부르지 않는다).
+    // 그래서 이쪽은 감춘다 (데스크톱의 `.pn-tab-add` 도 아예 서지 않는다 —
+    // `_makeTabAdd` 를 부르지 않는다). 분할은 다르다: 자리를 지키고 비활성이
+    // 된다 (FR-CHR-3, `renderer-pane.js` 의 `_rTabs`).
+    const noSplit=this.app.isGitWin(a)||this.app.isEditorWin(a);
     const mAdd=document.getElementById('m-add-tab');
     if(mAdd) mAdd.hidden=noSplit;
     const ind=document.getElementById('m-pane-indicator');
@@ -138,20 +127,10 @@ Object.assign(Renderer.prototype, {
     // UI_KIT_SRS FR-GLY-4: 글자가 아니라 아이콘이므로 `textContent` 로 바꿀 수
     // 없다 — 그 대입은 `<svg>` 를 지운다.
     if(dt) dt.replaceChildren(UIKit.icon(this.app.drawerOpen?'x':'menu'));
-    // FR-WSL-50·62: 칸 더하기·빼기. 모바일에는 칸을 만드는 길이 없다.
-    // 한계에 닿은 버튼은 비활성이다 — 눌리지만 아무 일도 하지 않는 버튼은
-    // 고장으로 읽힌다 (FR-GIT-180 이 세운 규약).
-    const n=this.app.slotCount();
-    const sa=document.getElementById('slot-add');
-    if(sa){
-      sa.hidden=this.app.isMobile;
-      sa.disabled=n>=SLOT_MAX;
-    }
-    const sr=document.getElementById('slot-remove');
-    if(sr){
-      sr.hidden=this.app.isMobile;
-      sr.disabled=n<=1;
-    }
+    // FR-WSL-50·62 의 칸 `±` 는 **pane 메뉴로 갔다** (FR-CHR-5). 한계에 닿으면
+    // 비활성이고 사유를 말하는 규약은 그대로이며, 그 판정은 메뉴를 열 때 한다
+    // (`renderer-pane.js` 의 `_makePaneMenuBtn`) — 매 render 마다 볼 이유가 없는
+    // 것이 메뉴 안으로 들어갔기 때문이다.
   },
 
   /**

@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, clickRowAct } from './fixtures';
+import { test, expect, openGitTab, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openGit, gitFixture, cleanGitFixture, clickRowAct, ACT_BTN } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 /**
@@ -215,7 +215,7 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
   test('P9 (V111 / FR-RPT-7 #5): Agents 카드가 폴링에 살아남는다', async ({ page }) => {
     await waitForInit(page);
     const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
-    await page.locator('#agents-toggle').click();
+    await page.locator(ACT_BTN).click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
     await page.evaluate(async (a) => {
       await fetch('/api/tools/activity/set', {

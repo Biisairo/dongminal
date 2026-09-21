@@ -54,6 +54,8 @@ Object.assign(App.prototype, {
       if(e.target.closest('.sb-update')) return;
       // FR-ACT-3: 활동 진입점은 접힘이 아니라 패널을 연다.
       if(e.target.closest('.sb-act')){this.actPanelOpen();return}
+      // FR-CHR-4: 현재 위치를 누르면 사이드바의 그 항목으로 간다.
+      if(e.target.closest('.sb-win')){this.revealActiveWindow();return}
       if(!document.body.classList.contains('mobile')) return;
       if(!this._sbExpanded&&!sbar.classList.contains('sb-folded')) return;
       this._sbExpanded=!this._sbExpanded;

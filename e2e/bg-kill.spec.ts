@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, ACT_BTN } from './fixtures';
 
 // 묶음 X (CONVENIENCE_SRS §3.2) — 백그라운드 도구 즉시 종료.
 //
@@ -63,12 +63,13 @@ async function makeBackgroundTools(page: Page, request: any, n: number): Promise
 
 /**
  * UIUX_OVERHAUL_SRS FR-ACT-1·2: 목록은 모달이 아니라 **활동 패널의 백그라운드
- * 구역**이다. 진입점(`#bg-btn`)은 그대로이고 여는 대상이 바뀌었다.
+ * 구역**이다. **FR-CHR-1 로 진입점도 바뀌었다** — `#topbar` 해체로 데스크톱의
+ * 진입점 넷이 상태바의 `⚡` 하나로 수렴했다 (FR-ACT-3).
  */
 async function openList(page: Page) {
   // 진입점은 **토글**이다 (FR-ACT-4) — 이미 열려 있으면 누르지 않는다.
   const open = await page.locator('#agents-panel.open').count();
-  if (!open) await page.click('#bg-btn');
+  if (!open) await page.click(ACT_BTN);
   await expect(page.locator('#agents-panel.open .ag-sec[data-sec="bg"]')).toBeVisible();
 }
 
@@ -169,7 +170,9 @@ test.describe('FR-BGK-8..10: 종료의 결과', () => {
     // FR-CPY-2: 빈 구역은 사실만 말하지 않는다 — 다음 할 일이 그 줄에 붙는다.
     await expect(page.locator('#agents-panel .ag-sec[data-sec="bg"] + .ag-sec-empty'))
       .toContainText('백그라운드 도구가 없습니다', { timeout: 15000 });
-    await expect(page.locator('#bg-btn')).toBeVisible();
+    // FR-CHR-1: 데스크톱의 `Background` 버튼은 화면을 떠났다. 하이라이트가
+    // 꺼졌는가는 여전히 그 요소가 말한다 — 계산값은 판을 타지 않는다.
+    await expect(page.locator('#bg-btn')).toHaveCount(1);
     await expect(page.locator('#bg-btn')).not.toHaveClass(/\bon\b/);
   });
 

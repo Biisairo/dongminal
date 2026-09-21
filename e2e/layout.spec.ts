@@ -1,4 +1,4 @@
-import { test, expect, waitForInit, waitSettled } from './fixtures';
+import { test, expect, waitForInit, waitSettled, SPLIT_H, SPLIT_V} from './fixtures';
 
 test.describe('Layout & navigation', () => {
   test('split horizontal increases pane count', async ({ page }) => {
@@ -6,7 +6,7 @@ test.describe('Layout & navigation', () => {
     const before = await page.locator('#area .pn').count();
     const [resp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-      page.click('#split-h'),
+      page.click(SPLIT_H),
     ]);
     expect(resp.status()).toBe(200);
     await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
@@ -18,7 +18,7 @@ test.describe('Layout & navigation', () => {
     const before = await page.locator('#area .pn').count();
     const [resp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-      page.click('#split-v'),
+      page.click(SPLIT_V),
     ]);
     expect(resp.status()).toBe(200);
     await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
@@ -31,7 +31,7 @@ test.describe('Layout & navigation', () => {
     const before = await page.locator('#area .pn').count();
     const [resp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-      page.click('#split-h'),
+      page.click(SPLIT_H),
     ]);
     expect(resp.status()).toBe(200);
     await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
@@ -65,7 +65,7 @@ test.describe('Layout & navigation', () => {
     if (before < 2) {
       const [resp] = await Promise.all([
         page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-        page.click('#split-h'),
+        page.click(SPLIT_H),
       ]);
       expect(resp.status()).toBe(200);
       await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
@@ -108,7 +108,10 @@ test.describe('Layout & navigation', () => {
     // Two button clicks back-to-back, no awaiting between them — this is
     // exactly the user-reported reproduction.
     await page.evaluate(() => {
-      const btn = document.getElementById('split-h')!;
+      // FR-CHR-1·2: 분할 버튼은 pane 탭줄의 고정 구로 갔다. `_keep` 이 그 요소를
+      // pane 마다 캐시하므로 다시 그려도 같은 요소다 — 두 번 연속 누르는 이
+      // 재현이 성립한다.
+      const btn = document.querySelector('#area .pn.focused .pn-acts .pn-split') as HTMLElement;
       btn.click();
       btn.click();
     });
@@ -190,7 +193,7 @@ test.describe('Layout & navigation', () => {
     const before = await page.locator('#area .pn').count();
     const [resp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-      page.click('#split-h'),
+      page.click(SPLIT_H),
     ]);
     expect(resp.status()).toBe(200);
     await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });
@@ -269,7 +272,7 @@ test.describe('Layout & navigation', () => {
     const before = await page.locator('#area .pn').count();
     const [resp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-      page.click('#split-h'),
+      page.click(SPLIT_H),
     ]);
     expect(resp.status()).toBe(200);
     await expect(page.locator('#area .pn')).toHaveCount(before + 1, { timeout: 10000 });

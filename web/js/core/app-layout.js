@@ -971,6 +971,25 @@ Object.assign(App.prototype, {
   _toggleSidebar(){this.setSidebarCollapsed(!this.sidebarCollapsed())},
 
   /**
+   * UIUX_OVERHAUL_SRS FR-CHR-4: 상태바의 **현재 위치**를 누르면 사이드바의 그
+   * 항목으로 간다.
+   *
+   * **새 동작이 아니다** — 기존 창 선택 동작을 그 자리에서 부르는 것이다. 탭을
+   * 옮길 필요도 없다: 창 → 탭 방향은 `FR-SBT-14` 가 이미 맞춰 두었으므로 활성
+   * 창의 탭이 곧 지금 탭이다. 여기서 하는 일은 **닿게 만드는 것** 뿐이다 —
+   * 레일이면 펼치고(모바일이면 서랍을 열고), 활성 행을 보이는 자리로 굴려
+   * 포커스를 준다.
+   */
+  revealActiveWindow(){
+    if(this.isMobile) this._toggleDrawer(true);
+    else this.setSidebarCollapsed(false);
+    const row=document.querySelector('#sidebar .sbl-item.active');
+    if(!row) return;
+    row.scrollIntoView({block:'nearest'});
+    row.focus();
+  },
+
+  /**
    * PANEL_SURFACE_SRS FR-RAL-9·10: **사이드바가 지금 레일인가.**
    *
    * CSS 선택자 `html.sb-collapsed body:not(.mobile)` 와 같은 판정이며, JS 쪽의

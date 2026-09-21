@@ -1,4 +1,4 @@
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, SPLIT_H} from './fixtures';
 
 test.describe('Tab management', () => {
   test('tab can be closed via x button', async ({ page }) => {
@@ -93,7 +93,7 @@ test.describe('Tab management', () => {
     if (beforeRg < 2) {
       const [resp] = await Promise.all([
         page.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-        page.click('#split-h'),
+        page.click(SPLIT_H),
       ]);
       expect(resp.status()).toBe(200);
       await expect(page.locator('#area .pn')).toHaveCount(beforeRg + 1, { timeout: 10000 });

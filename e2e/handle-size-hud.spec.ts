@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit, openGit, gitFixture, cleanGitFixture, waitSettled } from './fixtures';
+import { test, expect, waitForInit, openGit, gitFixture, cleanGitFixture, waitSettled, SPLIT_H, SPLIT_V, ACT_BTN, PANE_MENU, paneMenuItem } from './fixtures';
 import { join } from 'path';
 import { tmpPath, realPath } from './osenv';
 
@@ -61,21 +61,23 @@ const HANDLES: {
   {
     name: '#agents-handle (Agents 폭)', sel: '#agents-handle', dx: -60, dy: 0, terms: [0],
     setup: async (page) => {
-      await page.locator('#agents-toggle').click();
+      await page.locator(ACT_BTN).click();
       await expect(page.locator('#agents-panel.open')).toBeVisible();
     },
   },
   {
     name: '.sh (분할 칸 비율)', sel: '#area .sh', dx: 60, dy: 0, terms: [0, 1],
     setup: async (page) => {
-      await page.locator('#split-h').click();
+      await page.locator(SPLIT_H).click();
       await expect(page.locator('#area .sh')).toHaveCount(1);
     },
   },
   {
     name: '.slot-handle (슬롯 비율)', sel: '#area .slot-handle', dx: 60, dy: 0, terms: [0, 1],
     setup: async (page) => {
-      await page.locator('#slot-add').click();
+      // FR-CHR-5: 칸 `±` 는 pane 탭줄의 `⋯` 메뉴로 들어갔다.
+      await page.locator(PANE_MENU).click();
+      await page.locator(paneMenuItem('slot-add')).click();
       await expect(page.locator('#area .slot-handle')).toHaveCount(1);
       await waitSettled(page);
     },
@@ -85,7 +87,7 @@ const HANDLES: {
     // 벗어난다 — 축이 값을 고르는 규약이므로 두 축을 다 봐야 한다.
     name: '.sh (분할 칸, 세로)', sel: '#area .sh', dx: 0, dy: 40, terms: [0, 1],
     setup: async (page) => {
-      await page.locator('#split-v').click();
+      await page.locator(SPLIT_V).click();
       await expect(page.locator('#area .sh')).toHaveCount(1);
     },
   },
@@ -169,7 +171,7 @@ test.describe('묶음 HSZ — 핸들의 크기 표시 (FR-HSZ-1~10)', () => {
    */
   test('HSZ V-7: 분할 칸의 `%` 가 저장되는 비율과 같다', async ({ page }) => {
     await waitForInit(page);
-    await page.locator('#split-h').click();
+    await page.locator(SPLIT_H).click();
     await expect(page.locator('#area .sh')).toHaveCount(1);
 
     await grab(page, '#area .sh', 80, 0);
@@ -199,7 +201,7 @@ test.describe('묶음 HSZ — 핸들의 크기 표시 (FR-HSZ-1~10)', () => {
    */
   test('HSZ V-8: 끄는 동안 resize 요청이 나가지 않는다', async ({ page }) => {
     await waitForInit(page);
-    await page.locator('#split-h').click();
+    await page.locator(SPLIT_H).click();
     await expect(page.locator('#area .sh')).toHaveCount(1);
 
     let n = 0;

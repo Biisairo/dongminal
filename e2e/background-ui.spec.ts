@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, ACT_BTN } from './fixtures';
 
 // 묶음 A (USER_CHECKLIST_FIXES_SRS §3.1 / §4.1) — 백그라운드 UI 일관화.
 //
@@ -150,25 +150,46 @@ test.describe('FR-SBR-8..13: 백그라운드 진입점', () => {
     await waitForInit(page);
     await expect.poll(async () => page.evaluate(() => (window as any).app.testing.bg.length),
       { timeout: 10000 }).toBe(0);
+    // FR-CHR-1·FR-SBR-12 개정: `Background` 버튼은 **모바일에만 보인다.** 재는
+    // 것은 그 버튼의 낱말·하이라이트가 테마에서 파생하는가이고, 계산값은 판을
+    // 타지 않으므로 여기서 그대로 잰다 — `display:none` 도 `getComputedStyle` 은
+    // 값을 돌려준다. 보이는가는 개정된 TC-SBR-5 가 잰다.
     const btn = page.locator('#bg-btn');
-    await expect(btn).toBeVisible();
+    await expect(btn).toHaveCount(1);
     await expect(btn).toHaveText('Background');
     await expect(btn).not.toHaveClass(/\bon\b/);
   });
 
-  // V-SBR-5
-  test('TC-SBR-5: 진입점이 Runs 와 Agents 사이에 서고 상태바에는 없다', async ({ page }) => {
+  /**
+   * V-SBR-5 (**개정 2026-09-21 — `UIUX_OVERHAUL_SRS` FR-CHR-1**)
+   *
+   * 초판은 *"진입점이 Runs 와 Agents 사이에 서고 **상태바에는 없다**"* 였다.
+   * 그 계약이 뒤집혔다 — `#topbar` 가 해체되면서 데스크톱의 진입점 넷
+   * (`Runs`·`Background`·`Agents`·주의 배지)이 **상태바의 `⚡` 하나로** 수렴했다
+   * (FR-ACT-3 의 "단일 진입점").
+   *
+   * **느슨해진 것이 아니라 대상이 줄었다.** 초판이 막으려던 것은 *"진입점이
+   * 상태바 지표에 묻혀 폴링마다 재생성되는 것"* 이었고(§2.2), 그것은
+   * `TC-BGU-5` 가 계속 잰다 — `⚡` 는 지표가 아니라 진입점이라 재생성 대상이
+   * 아니다.
+   */
+  test('TC-SBR-5 (개정): 데스크톱의 진입점은 상태바의 활동 하나다', async ({ page }) => {
     await waitForInit(page);
     const got = await page.evaluate(() => {
-      const bar = document.getElementById('topbar')!;
-      const ids = Array.from(bar.children).map((e) => e.id).filter(Boolean);
+      const gone = ['split-h', 'split-v', 'runs-btn', 'agents-toggle', 'attn-badge']
+        .filter((i) => document.getElementById(i));
+      const bg = document.getElementById('bg-btn');
       return {
-        order: ids.filter((i) => ['split-h', 'split-v', 'runs-btn', 'bg-btn', 'agents-toggle'].includes(i)),
-        inStatusBar: document.getElementById('status-bar')!.contains(document.getElementById('bg-btn')),
+        gone,
+        // FR-SBR-12 개정: `Background` 는 모바일에만 남는다 — 그 판에서는 이것이
+        // 백그라운드 도구에 닿는 유일한 통로다 (§2.5).
+        bgOffscreen: !bg || getComputedStyle(bg).display === 'none',
+        act: !!document.querySelector('.status-bar .sb-act'),
       };
     });
-    expect(got.order).toEqual(['split-h', 'split-v', 'runs-btn', 'bg-btn', 'agents-toggle']);
-    expect(got.inStatusBar, '진입점이 아직 상태바에 있다').toBe(false);
+    expect(got.gone, '상단바 진입점이 아직 DOM 에 있다').toEqual([]);
+    expect(got.bgOffscreen, '데스크톱에 Background 버튼이 아직 보인다').toBe(true);
+    expect(got.act, '상태바에 활동 진입점이 없다').toBe(true);
   });
 
   // V-SBR-7
@@ -188,7 +209,11 @@ test.describe('FR-SBR-8..13: 백그라운드 진입점', () => {
   test('TC-BGU-4: 진입점 색이 테마 팔레트를 따른다', async ({ page, request }) => {
     await waitForInit(page);
     await makeBackgroundTool(page, request);
-    await expect(page.locator('#bg-btn')).toBeVisible();
+    // FR-CHR-1·FR-SBR-12 개정: `Background` 버튼은 **모바일에만 보인다.** 재는
+    // 것은 그 버튼의 낱말·하이라이트가 테마에서 파생하는가이고, 계산값은 판을
+    // 타지 않으므로 여기서 그대로 잰다 — `display:none` 도 `getComputedStyle` 은
+    // 값을 돌려준다. 보이는가는 개정된 TC-SBR-5 가 잰다.
+    await expect(page.locator('#bg-btn')).toHaveCount(1);
 
     const before = await page.evaluate(() => getComputedStyle(document.getElementById('bg-btn')!).color);
 
@@ -204,7 +229,7 @@ test.describe('FR-SBR-8..13: 백그라운드 진입점', () => {
   test('TC-BGU-5: 진입점이 상태바 지표 재생성으로 파괴되지 않는다', async ({ page, request }) => {
     await waitForInit(page);
     await makeBackgroundTool(page, request);
-    await expect(page.locator('#bg-btn')).toBeVisible();
+    await expect(page.locator('#bg-btn')).toHaveCount(1);
 
     const survived = await page.evaluate(() => {
       const app = (window as any).app;
@@ -222,7 +247,7 @@ test.describe('FR-SBR-8..13: 백그라운드 진입점', () => {
     await waitForInit(page);
     await makeBackgroundTool(page, request);
     const btn = page.locator('#bg-btn');
-    await expect(btn).toBeVisible();
+    await expect(btn).toHaveCount(1);
     await expect(btn).not.toHaveClass(/sb-item/);
     // 지표 컨테이너 밖에 있어야 구분선 규칙(.sb-item+.sb-item)이 닿지 않는다.
     const outside = await page.evaluate(() =>
@@ -247,7 +272,7 @@ test.describe('FR-BGU-6..8 (FR-ACT-1·2 개정): 백그라운드 구역', () => 
     await waitForInit(page);
     await makeBackgroundTool(page, request);
 
-    await page.click('#bg-btn');
+    await page.click(ACT_BTN);
     await expect(page.locator('#agents-panel.open .ag-sec[data-sec="bg"]')).toBeVisible();
     // 조회 경로에 **보이는** 오버레이가 없다 (FR-ACT-2 · §9 의 검증 항목).
     // `#modal-overlay` 는 설정의 것으로 항상 DOM 에 있고 숨어 있다 — 세는 것은
@@ -261,9 +286,9 @@ test.describe('FR-BGU-6..8 (FR-ACT-1·2 개정): 백그라운드 구역', () => 
     await waitForInit(page);
     await makeBackgroundTool(page, request);
 
-    await page.click('#bg-btn');
+    await page.click(ACT_BTN);
     await expect(page.locator('#agents-panel.open')).toBeVisible();
-    await page.click('#bg-btn');
+    await page.click(ACT_BTN);
     await expect(page.locator('#agents-panel.open')).toHaveCount(0);
   });
 
@@ -285,7 +310,7 @@ test.describe('FR-BGU-6..8 (FR-ACT-1·2 개정): 백그라운드 구역', () => 
     });
     const tabsBefore = await focusedTabCount();
 
-    await page.click('#bg-btn');
+    await page.click(ACT_BTN);
     await page.locator(`#agents-panel .bg-row[data-toolid="${toolId}"]`).click();
 
     // 배리어는 클라이언트 상태여야 한다. _restoreTool 은 서버의 백그라운드

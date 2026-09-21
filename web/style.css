@@ -492,23 +492,29 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
 /* ── Content ── */
 #content{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
 
-/* ── Top bar ── */
+/* ── Top bar ──
+   UIUX_OVERHAUL_SRS FR-CHR-1: **데스크톱에서는 없다.** 32px 이 터미널로 간다 —
+   이 묶음이 내놓는 유일한 면적이고, 동작은 pane 탭줄로(FR-CHR-2·5) 창 이름은
+   상태바로(FR-CHR-4) 갔다.
+
+   FR-CHR-6: 모바일은 유지한다 — pane 페이저(`‹ 1/2 ›`)가 그 자리를 요구한다. */
+body:not(.mobile) #topbar{display:none}
 #topbar{
   height:32px;min-height:32px;display:flex;align-items:center;
   background:var(--sidebar-bg);border-bottom:1px solid var(--border-strong);padding:0 8px;gap:6px;
 }
+/* FR-STB-31: 이름은 바뀌지 않는다 — **자리만 옮겼다.** id 규칙(1-0-0)이 상태바의
+   `.sb-item`(0-1-0)을 이기므로 글자색은 종전 그대로이고, `slot-title-boundary`
+   TC-STB-11(비포커스 머리글 == 이 색)이 그대로 선다. */
 #window-name{font-size:var(--fs-md);color:var(--text-muted)}
 .spacer{flex:1}
 
-/* 주의 알림 배지 (FR-PAN-16).
-   UIUX_OVERHAUL_SRS FR-ACT-1: **팝오버(`#attn-center`)가 사라졌다** — 배지는 이제
-   활동 패널의 주의 구역을 연다. 자리를 계산해 띄우던 규칙(`position:fixed` ·
-   `z-popover` · 자기 테두리와 그늘)이 함께 사라진다: 도킹 패널 안의 행은 띄울
-   자리를 잴 일이 없다. 행(`.attn-item`)의 규칙은 그대로 남는다 — 같은 사실을
-   두 표면이 다른 모양으로 말하지 않는다. */
-#attn-badge{position:relative;color:var(--attn-text);border-color:var(--attn);
-  animation:attn-pulse-badge 2s ease-in-out infinite}
-#attn-badge .attn-count{margin-left:4px;font-size:var(--fs-sm);font-weight:600}
+/* 주의 알림 (FR-PAN-16).
+   UIUX_OVERHAUL_SRS FR-ACT-1 이 팝오버(`#attn-center`)를 걷었고, **FR-CHR-4 가
+   배지(`#attn-badge`)마저 걷었다** — 상단바가 해체되면서 갈 곳이 없어졌고,
+   상태바의 `⚡` 가 이미 주의를 포함한 네 그룹의 합을 센다. 수를 두 번 셀 이유가
+   없다. 행(`.attn-item`)의 규칙은 그대로 남는다 — 같은 사실을 두 표면이 다른
+   모양으로 말하지 않는다. */
 /* FR-AEV-15: 이름 · 사유 · 내용 세 칸. 내용은 길 수 있으므로(codex 의
    last-assistant-message 는 문단으로 온다) **줄이 늘지 않고 잘린다** — 항목 높이가
    내용에 따라 들쭉날쭉하면 목록으로 읽히지 않는다. */
@@ -637,6 +643,11 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
    않는다는 것이 이 묶음의 요지다 (§3.3 원칙 2). */
 .pn-acts{display:flex;align-items:stretch;flex-shrink:0;
   border-left:1px solid var(--border-weak)}
+/* FR-WSL-60 · `_splitInner` 의 첫 줄: 모바일에는 분할도 칸도 없다 — 그 자리를
+   두면 눌리지만 아무 일도 하지 않는 버튼이 된다 (FR-GIT-180 이 세운 규약).
+   FR-CHR-3 의 "자리를 지킨다" 는 **데스크톱의 규칙**이다: 모바일에는 자리를
+   견줄 이웃 자체가 없다 — 상단바가 pane 페이저를 들고 따로 선다 (FR-CHR-6). */
+body.mobile .pn-split,body.mobile .pn-menu{display:none}
 .pn-act{width:24px}
 .pn-act:hover:not(:disabled){color:var(--accent-text)}
 .pn-tab{
@@ -1128,6 +1139,20 @@ body.mobile .tp-ov-acts .ui-btn{padding:0 14px}
    (44px 하한이 22px 짜리 바를 키운다). */
 .sb-act{cursor:pointer}
 .sb-act:hover{color:var(--accent-text)}
+/* FR-CHR-4: 주의 배지가 이 자리에 흡수됐다. 색은 `--attn` 이다 — 포커스(accent)와
+   위험(danger)에서 갈라야 하는 세 번째 뜻이기 때문이다 (FR-PAN-10). 맥동은
+   `ATTENTION_PULSE_SRS` FR-ATP-1·3 의 그 규약을 그대로 쓴다 — 움직이는 것은
+   요소가 아니라 표식을 그리는 속성이다. */
+/* **글자색을 두고 배경만 숨쉰다** (FR-ATP D-2 의 그 규약) — 글리프와 수가 곧
+   내용이므로 색을 맥박에 실으면 반주기 동안 수를 읽을 수 없다. 배경이 읽히도록
+   자리만 조금 준다. */
+.sb-act.attn{color:var(--attn-text);border-radius:3px;padding:0 4px;
+  animation:attn-pulse-chip 2s ease-in-out infinite}
+.sb-act.attn:hover{color:var(--attn-text)}
+/* FR-CHR-4: 현재 위치. 눌러서 사이드바의 그 항목으로 간다. */
+.sb-win{cursor:pointer}
+.sb-win:hover #window-name{color:var(--accent-text)}
+.sb-win:empty,.sb-win:has(#window-name:empty){display:none}
 .sb-item .sb-ref{color:var(--term-cyan)}
 .sb-dot.ok{background:var(--term-green)}
 .sb-dot.err{background:var(--danger)}

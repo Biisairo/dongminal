@@ -102,8 +102,33 @@ Object.assign(App.prototype, {
      *
      * FR-HIE-4 의 순위 1 이므로 좁은 화면에서도 접히지 않는다.
      */
-    push('activity',`<span class="sb-item sb-act" title="${e(t('panel.act_title'))}">`
+    /**
+     * FR-CHR-4 (2026-09-21 개정): **주의 배지가 이 자리에 흡수됐다.** `#attn-badge`
+     * 는 상단바와 함께 사라졌고, 주의가 있으면 `⚡` 가 그 색을 입는다 — `n` 은
+     * 이미 주의를 포함한 네 그룹의 합이므로 수를 두 번 셀 이유가 없었다.
+     */
+    const attn=this._attn?this._attn.size:0;
+    push('activity',`<span class="sb-item sb-act${attn?' attn':''}" title="${e(t('panel.act_title'))}">`
       +`⚡ <span class="mono">${e(this.actCount())}</span></span>`);
+    /**
+     * FR-CHR-4: **현재 위치는 상태바 왼쪽이다.** `#topbar` 가 해체되면서 창 이름이
+     * 이리로 내려왔다.
+     *
+     * **id 는 바뀌지 않는다** (`SLOT_TITLE_BOUNDARY_SRS` FR-STB-31 — *"기존 e2e 가
+     * 그 위에 서 있다"*). 자리만 옮겼다.
+     *
+     * 제목을 **조립하는 자리는 여전히 하나**다 (FR-STB-4) — `_rWinTitle` 을 부른다.
+     * FR-STB-11·12·14 의 규칙도 그대로다: 칸이 여럿이면 비고(머리글이 그 자리를
+     * 이어받는다), 모바일에는 칸이 없으므로 언제나 낸다.
+     *
+     * **설정으로 끄지 않는다** — `⚡` 와 같은 이유다. 지표가 아니라 *지금 어디*이고,
+     * FR-HIE-4 의 순위 1 이다.
+     */
+    const rz=this.renderer;
+    const multi=!this.isMobile&&this.slotCount()>1;
+    const wt=rz&&!multi?rz._rWinTitle(this.aw()):'';
+    push('winname',`<span class="sb-item sb-win" title="${e(t('statusbar.winname_title'))}">`
+      +`<span id="window-name">${e(wt)}</span></span>`);
     if(statusBar.connection){
       const ok=this._latency!==null;
       push('connection',`<span class="sb-item"><span class="sb-dot ${e(ok?'ok':'err')}"></span>${e(ok?t('statusbar.connected'):t('statusbar.disconnected'))}</span>`);

@@ -295,12 +295,10 @@ Object.assign(App.prototype, {
       const pid=at?at.dataset.toolid:null;
       pn.classList.toggle('attn', !!(pid&&this.attnHas(pid)));
     });
-    const badge=document.getElementById('attn-badge');
-    if(badge){
-      const cnt=badge.querySelector('.attn-count');
-      if(cnt) cnt.textContent=String(n);
-      badge.style.display=n?'':'none';
-    }
+    // UIUX_OVERHAUL_SRS FR-CHR-4: **배지가 사라졌다.** 수와 색은 상태바의 `⚡` 가
+    // 말한다 — `updateStatusBar` 가 `_attn.size` 를 보고 `attn` 을 붙이며, `n` 은
+    // 이미 주의를 포함한 네 그룹의 합이다 (FR-ACT-3).
+    this.updateStatusBar();
     // FR-AAP-18: 활동 카드의 alarm 표시도 함께 갱신. FR-ACT-1 이후로는 **주의
     // 구역 자체**도 이 한 번으로 다시 그려진다 — 표면이 하나라 갱신도 하나다.
     this.agentsRender();
@@ -416,12 +414,8 @@ Object.assign(App.prototype, {
 
   // 주의 배지의 배선 + 설정 토글 (FR-PAN-14/16 · FR-ACT-4 로 개정)
   initAttn(){
-    const badge=document.getElementById('attn-badge');
-    if(badge&&!badge._bound){
-      badge._bound=true;
-      // FR-ACT-4: 배지는 외운 진입점이다 — 그대로 살고, 패널의 주의 구역을 연다.
-      badge.addEventListener('click',e=>{e.stopPropagation();this.actPanelOpen('attn')});
-    }
+    // FR-CHR-4: 배지의 배선이 사라졌다 — 상태바의 `⚡` 가 그 자리다
+    // (`app-statusbar-fold.js` 의 `.sb-act`). **단축키는 그대로 산다** (FR-ACT-4).
     const dt=document.getElementById('attn-desktop');
     if(dt){
       dt.checked=this.attnDesktop;

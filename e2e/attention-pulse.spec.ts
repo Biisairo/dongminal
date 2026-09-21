@@ -20,7 +20,10 @@ const TARGETS: Array<[string, string, string, string?]> = [
   ['사이드바 창 항목', '#windows .sbl-item', 'boxShadow'],
   ['사이드바 항목의 점', '#windows .sbl-item .sbl-dot', 'backgroundColor'],
   ['에이전트 카드', '#agents-panel .ag-card', 'boxShadow'],
-  ['상단바 배지', '#attn-badge', 'borderTopColor'],
+  // UIUX_OVERHAUL_SRS FR-CHR-4: 상단바 배지가 상태바의 `⚡` 에 흡수됐다.
+  // `--attn` 계열로 숨쉬는 것은 같고, 테두리가 없는 자리라 **배경**이 숨쉰다
+  // (`attn-pulse-chip` — 사이드바 탭 배지와 같은 키프레임이다).
+  ['상태바 활동', '.status-bar .sb-act', 'backgroundColor'],
   ['사이드바 탭 배지', '.sb-tab[data-panel="windows"] .sb-tab-badge', 'backgroundColor'],
 ];
 
@@ -41,9 +44,9 @@ async function markAll(page: Page) {
       panel.appendChild(c);
     }
     panel.querySelector('.ag-card')!.classList.add('attn');
-    // 배지 둘은 알람이 있을 때만 보인다 — 표식의 처신을 보려면 세워야 한다.
-    const badge = document.getElementById('attn-badge') as HTMLElement;
-    badge.style.display = '';
+    // 배지 둘은 알람이 있을 때만 그 색을 입는다 — 표식의 처신을 보려면 세워야
+    // 한다. 상태바의 활동 자리는 언제나 보이고, `attn` 이 붙을 때만 숨쉰다.
+    document.querySelector('.status-bar .sb-act')!.classList.add('attn');
     const chip = document.querySelector('.sb-tab[data-panel="windows"] .sb-tab-badge') as HTMLElement;
     if (chip) { chip.hidden = false; chip.textContent = '1'; }
   });
@@ -107,7 +110,7 @@ test.describe('주의 표식의 맥박', () => {
   test('맥박이 글자색을 건드리지 않는다', async ({ page }) => {
     await waitForInit(page);
     await markAll(page);
-    for (const sel of ['#area .pn .pn-tab', '#attn-badge',
+    for (const sel of ['#area .pn .pn-tab', '.status-bar .sb-act',
       '.sb-tab[data-panel="windows"] .sb-tab-badge']) {
       const at0 = await sampleAt(page, sel, 'color', 0);
       const at1 = await sampleAt(page, sel, 'color', 1000);

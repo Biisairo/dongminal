@@ -1,4 +1,4 @@
-import { test, expect, waitForInit } from './fixtures';
+import { test, expect, waitForInit, SPLIT_H} from './fixtures';
 
 test.describe('Multi-client synchronization via SSE', () => {
   test('client A creates session and client B syncs', async ({ browser }) => {
@@ -76,7 +76,7 @@ test.describe('Multi-client synchronization via SSE', () => {
     // Client A splits horizontally.
     const [resp] = await Promise.all([
       pageA.waitForResponse((r) => r.url().includes('/api/tools') && r.status() === 200),
-      pageA.click('#split-h'),
+      pageA.click(SPLIT_H),
     ]);
     expect(resp.status()).toBe(200);
 

@@ -1145,6 +1145,8 @@ I18N.register('ko', {
   'statusbar.latency': '레이턴시',
   'statusbar.location': '현재 위치 (dmctl 대상)',
   'statusbar.location_title': 'dmctl 대상: {loc}',
+  // UIUX_OVERHAUL_SRS FR-CHR-4: 현재 위치는 상태바 왼쪽이다.
+  'statusbar.winname_title': '지금 보고 있는 창 — 눌러서 사이드바의 그 항목으로',
   'statusbar.memory': '메모리',
   'statusbar.termsize': '터미널 크기',
   'statusbar.uptime': '업타임',

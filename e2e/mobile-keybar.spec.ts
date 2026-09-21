@@ -363,10 +363,10 @@ test.describe('Mobile RFC §7.2 verification automation (SRS REQ-D1..D4)', () =>
   test('TC-D4: split controls and split handles are hidden in mobile mode', async ({ page }) => {
     await gotoMobile(page);
 
-    const splitH = page.locator('#split-h');
-    const splitV = page.locator('#split-v');
-    await expect(splitH).toBeHidden();
-    await expect(splitV).toBeHidden();
+    // FR-CHR-1·2: 분할 진입점은 pane 탭줄의 고정 구로 갔다. 모바일에는 분할도
+    // 칸도 없으므로 그 구의 버튼들은 서지 않는다 (FR-WSL-60).
+    await expect(page.locator('#area .pn-acts .pn-split').first()).toBeHidden();
+    await expect(page.locator('#area .pn-acts .pn-menu').first()).toBeHidden();
 
     // Split handles (.sh) may not exist when there is no split, but if present must be hidden.
     const handles = page.locator('.sh');
