@@ -378,8 +378,13 @@ async function dblBlankTabs(page: Page, paneSel = '#area .pn.focused') {
   }, paneSel);
   expect(gap, '탭 바에 여백이 없다 — 이 검증이 성립하지 않는다').toBeGreaterThan(16);
   const box = (await page.locator(`${paneSel} .pn-tabs`).boundingBox())!;
+  // **여백의 한가운데**를 누른다. 끝에서 6px 을 누르던 것이 분할 손잡이의 히트
+  // 확장(`.sh::before` ±6px)에 먹혔다 — UIUX_OVERHAUL_SRS FR-HIE-2 가 `.pn` 의
+  // 2px 투명 테두리를 걷으면서 탭줄이 손잡이에 맞닿아 죽은 영역이 4px → 6px 로
+  // 늘었다. 한가운데는 손잡이 기하와 무관하고, 이 검증이 묻는 "여백을 누르면
+  // 탭이 서는가" 에 더 정확하다.
   await page.locator(`${paneSel} .pn-tabs`)
-    .dblclick({ position: { x: box.width - 6, y: box.height / 2 } });
+    .dblclick({ position: { x: box.width - gap / 2, y: box.height / 2 } });
 }
 
 test.describe('묶음 E — 탭 바 여백 더블클릭 (FR-EXR-40~43)', () => {

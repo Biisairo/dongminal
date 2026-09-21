@@ -176,7 +176,9 @@ test('V-GDT-12 (FR-GDT-21): 빈 저장소에서 History 가 "커밋이 아직 �
     // 종전에는 `git log` 가 exit 128 로 실패해 "불러오지 못했습니다" 가 떴다 —
     // **"아직 없다" 와 "읽지 못했다" 가 같은 문구**였다.
     await expect(empty).toBeVisible({ timeout: 20000 });
-    await expect(empty).toHaveText('커밋이 아직 없습니다');
+    // UIUX_OVERHAUL_SRS FR-CPY-2 가 그 문구에 다음 할 일을 붙였다 — 재는 것은
+    // **"아직 없다" 와 "읽지 못했다" 를 가르는가** 이므로 앞머리만 단정한다.
+    await expect(empty).toContainText('커밋이 아직 없습니다');
   });
 
 test('V-GDT-14 (회귀): 작업 트리에 파일을 만들면 여전히 방송이 온다',
