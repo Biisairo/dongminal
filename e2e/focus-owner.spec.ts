@@ -115,6 +115,59 @@ test.describe('묶음 E — 크로스 기기 창 포커스 소유권', () => {
     await B.ctx.close();
   });
 
+  /**
+   * V-UXB-8a · FR-UXB-27a (D-UXB-9) — **소유권으로 돌아올 때도 같다.**
+   *
+   * 접수: *"포커스를 뺏었다가 돌려오는 동작에서 포커스가 돌아오긴 하나 재렌더가
+   * 되지 않는다."* FR-UXB-26 이 "렌더와 폴링을 한 자리에서 푼다" 고 했는데 그
+   * 자리가 **OS 포커스 경로뿐**이었다 — 소유권으로 돌아오는 길은 그리기만 하고
+   * 데이터는 낡은 채였다. 그쪽에는 `visibilitychange` 도 `focus` 도 오지 않는다.
+   *
+   * 아래 시험과 같은 수를 쓴다 — 주기가 아주 긴 job 은 **되살림이 돌았을 때만**
+   * 돈다.
+   */
+  test('소유권이 돌아오면 그 자리에서 다시 그리고 폴링도 깨어난다', async ({ browser }) => {
+    const A = await newClient(browser);
+    const B = await newClient(browser);
+
+    await B.page.evaluate(() => {
+      const a = (window as any).app;
+      (window as any).__renders = 0;
+      const orig = a.render.bind(a);
+      a.render = () => { (window as any).__renders++; orig() };
+      (window as any).__polls = 0;
+      const T = (globalThis as any).eval('TIMERS');
+      T.every({
+        id: 'uxb10-own-probe', every: () => 3600000, whenHidden: 'pause',
+        run: () => { (window as any).__polls++ },
+      });
+    });
+
+    // A 가 가져간다 — B 는 dim 이 되고, 그동안 B 의 probe 는 돌 이유가 없다.
+    await claim(A.page);
+    await expect(B.page.locator('#area .pn.pn-dimmed')).toHaveCount(1, { timeout: 10000 });
+    const renders = () => B.page.evaluate(() => (window as any).__renders);
+    const polls = () => B.page.evaluate(() => (window as any).__polls);
+    const before = await renders();
+
+    // A 가 놓는다. B 의 dim 이 풀리는 계기는 **소유권 맵**뿐이다 — B 에는 OS
+    // 포커스 이벤트도 가시성 변화도 오지 않는다.
+    await A.ctx.close();
+    await expect(B.page.locator('#area .pn.pn-dimmed')).toHaveCount(0, { timeout: 10000 });
+
+    await expect.poll(renders, { timeout: 10000 }).toBeGreaterThan(before);
+    /**
+     * 착수 시 RED: 그리기는 돌았는데 이 값이 **0 에 머물렀다.**
+     *
+     * 횟수를 못박지 않는다 — 계약은 *"맵이 바뀌면 돈다"* 이고, 컨텍스트를 닫는
+     * 것은 맵을 **두 번** 바꾼다(반납 한 번, 구독이 끊겨 서버가 해제하며 한 번).
+     * 그 둘을 하나로 세는 것은 이 조항의 일이 아니다.
+     */
+    await expect.poll(polls, { timeout: 10000 }).toBeGreaterThan(0);
+
+    await B.ctx.close();
+  });
+
   test('TC-XDF-6: 늦게 참여한 Client 가 접속 직후 dim 을 본다 (FR-XDF-11)', async ({ browser }) => {
     const A = await newClient(browser);
     await claim(A.page);
