@@ -124,21 +124,53 @@ test.describe('묶음 K — 브라우저 기본 키 차단 (FR-KEY-*)', () => {
       return { start: si.selectionStart, value: si.value };
     });
 
+    /**
+     * **누르는 키가 판마다 다르다** (`CI_E2E_MATRIX_SRS` FR-CEM-9 와 같은 이유).
+     *
+     * 브라우저의 편집 명령은 UA 가 아니라 **호스트 OS 의 관습**을 따른다 —
+     * `devices['Desktop Chrome']` 이 UA 를 Windows 로 적어도 macOS 러너에서는
+     * `Cmd+←` 가 줄 처음으로 가고 Linux 러너에서는 아무 일도 하지 않는다.
+     * 그래서 판마다 **그 판의 편집 키**로 잰다. 재는 조항은 하나다 —
+     * `KEY_EDIT_CODES` 의 면제가 없으면 어느 쪽이든 막힌다.
+     */
     await set('hello world', 11);
-    await page.keyboard.press('Meta+ArrowLeft');
-    expect((await read()).start, 'Cmd+← 가 줄 처음으로 가지 않는다').toBe(0);
+    if (process.platform === 'darwin') {
+      // 줄 단위다 — 자리가 결정적이라 그대로 단정한다.
+      await page.keyboard.press('Meta+ArrowLeft');
+      expect((await read()).start, 'Cmd+← 가 줄 처음으로 가지 않는다').toBe(0);
 
-    await page.keyboard.press('Meta+ArrowRight');
-    expect((await read()).start, 'Cmd+→ 가 줄 끝으로 가지 않는다').toBe(11);
+      await page.keyboard.press('Meta+ArrowRight');
+      expect((await read()).start, 'Cmd+→ 가 줄 끝으로 가지 않는다').toBe(11);
 
-    await page.keyboard.press('Meta+Backspace');
-    expect((await read()).value, 'Cmd+Backspace 가 줄을 지우지 않는다').toBe('');
+      await page.keyboard.press('Meta+Backspace');
+      expect((await read()).value, 'Cmd+Backspace 가 줄을 지우지 않는다').toBe('');
+    } else {
+      /**
+       * 단어 단위다. **경계의 정의는 브라우저 관습이지 우리 계약이 아니다** —
+       * 다음 단어의 앞에 서는 판과 앞 단어의 끝에 서는 판이 갈린다. 그래서
+       * *"자리가 어디로 갔는가"* 가 아니라 **"움직였는가"** 를 잰다: 막혔다면
+       * 한 칸도 움직이지 않는다.
+       */
+      await page.keyboard.press('Control+ArrowLeft');
+      const left = (await read()).start!;
+      expect(left, 'Ctrl+← 가 앞 단어로 가지 않는다').toBeLessThan(11);
+      expect(left, 'Ctrl+← 가 줄 처음까지 넘어갔다 — 단어 단위가 아니다').toBeGreaterThan(0);
+
+      await page.keyboard.press('Control+ArrowRight');
+      expect((await read()).start, 'Ctrl+→ 가 뒤로 가지 않는다').toBeGreaterThan(left);
+
+      await set('hello world', 11);
+      await page.keyboard.press('Control+Backspace');
+      const after = (await read()).value;
+      expect(after.length, 'Ctrl+Backspace 가 앞 단어를 지우지 않는다').toBeLessThan(11);
+      expect(after, '한 글자만 지웠다 — 단어 단위가 아니다').not.toBe('hello worl');
+    }
 
     /**
-     * **`Ctrl+E` 는 여기서 재지 않는다.** e2e 는 `devices['Desktop Chrome']` 을
-     * 쓰고 그 디스크립터의 `userAgentData.platform` 은 **`Windows`** 다 — 그
-     * 판에서 `Ctrl+E` 는 브라우저의 것(주소창)이라 막히는 것이 맞다. macOS
-     * 분기는 아래 시험이 플랫폼을 가장해 따로 잰다.
+     * **`Ctrl+E` 는 여기서 재지 않는다.** `IS_MAC` 은 `userAgentData` 를 보고
+     * 그 값은 어느 러너에서나 `Windows` 다 — 그 판정 아래에서 `Ctrl+E` 는
+     * 브라우저의 것(주소창)이라 막히는 것이 맞다. macOS 분기는 아래 시험이
+     * 판정을 갈아 끼워 따로 잰다.
      */
   });
 
