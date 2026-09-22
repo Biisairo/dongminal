@@ -95,6 +95,7 @@
 
 | 파일 | 함수 | 대상 | 수 | 계기 | 근거 |
 |---|---|---|---:|---|---|
+| `web/js/core/app-attn-center.js` | `_attnCenterRender` | `center` | 1 | 가드 | 팝오버를 여는 것은 사용자이고, `_attnRefresh` 의 갱신은 **열려 있을 때만** 지난다 (`.open` 가드). 목록은 알람 수만큼이라 짧다 |
 | `web/js/core/app-edsearch.js` | `_edPanel` | `p.querySelector('.ed-find-list')` | 1 | 사용자 | 찾기 패널을 세울 때 한 번 |
 | `web/js/core/app-edsearch.js` | `_edPanelPaint` | `list` | 1 | 사용자 | 검색어가 비면 목록을 비운다 |
 | `web/js/core/app-edsearch.js` | `_edPanelQuery` | `p.querySelector('.ed-find-list')` | 1 | 사용자 | 사용자가 친 검색어 |

@@ -528,15 +528,24 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
 .slot-marker-cell[aria-current="true"]{background:var(--accent);border-color:var(--accent)}
 .spacer{flex:1}
 
-/* 주의 알림 배지 (FR-PAN-16).
-   UIUX_OVERHAUL_SRS FR-ACT-1: **팝오버(`#attn-center`)가 사라졌다** — 배지는 이제
-   활동 패널의 주의 구역을 연다. 자리를 계산해 띄우던 규칙(`position:fixed` ·
-   `z-popover` · 자기 테두리와 그늘)이 함께 사라진다: 도킹 패널 안의 행은 띄울
-   자리를 잴 일이 없다. 행(`.attn-item`)의 규칙은 그대로 남는다 — 같은 사실을
-   두 표면이 다른 모양으로 말하지 않는다. */
+/* 주의 알림 배지 + 센터 팝오버 (FR-PAN-16).
+   UIUX_OVERHAUL_SRS FR-ACT-8 (D-7): **팝오버가 돌아왔다.** FR-ACT-1 이 이것을
+   활동 패널의 한 구역으로 접었는데, 거기 질문이 **둘**이었다 — 주의는 *"나를
+   기다리는 것이 있나"* 이고 나머지 셋은 *"지금 뭐가 돌고 있나"* 다. 자리를
+   계산해 띄우던 규칙이 그대로 돌아온다. 행(`.attn-item`)은 지운 적이 없다. */
 #attn-badge{position:relative;color:var(--attn-text);border-color:var(--attn);
   animation:attn-pulse-badge 2s ease-in-out infinite}
 #attn-badge .attn-count{margin-left:4px;font-size:var(--fs-sm);font-weight:600}
+#attn-center{
+  display:none;position:fixed;z-index:var(--z-popover);
+  min-width:200px;max-width:320px;max-height:60vh;overflow-y:auto;
+  background:var(--sidebar-bg);border:1px solid var(--attn);border-radius:6px;
+  box-shadow:var(--shadow-1);padding:4px;
+}
+#attn-center.open{display:block}
+.attn-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px 8px;border-bottom:1px solid var(--border);margin-bottom:4px}
+.attn-head .attn-title{font-size:var(--fs-sm);color:var(--text-muted)}
+.attn-clear-all:hover{background:var(--attn-subtle)}
 /* FR-AEV-15: 이름 · 사유 · 내용 세 칸. 내용은 길 수 있으므로(codex 의
    last-assistant-message 는 문단으로 온다) **줄이 늘지 않고 잘린다** — 항목 높이가
    내용에 따라 들쭉날쭉하면 목록으로 읽히지 않는다. */
@@ -1139,10 +1148,18 @@ body.mobile .tp-ov-acts .ui-btn{padding:0 14px}
 /* FR-SBR-2: 눌리지 않는다. 폭이 모자라면 줄을 넘길 일이지 글자를 겹칠 일이 아니다.
    FR-SBR-6: 한 줄보다 넓은 지표는 그 지표만 잘린다.
    FR-SBR-5: 음수 마진 1px — 줄의 첫 항목 구분선만 컨테이너 밖으로 나가 잘린다 (D-5). */
-.sb-item{display:flex;align-items:center;gap:3px;padding:0 6px;line-height:16px;
+/* FR-TYP-4: **같은 줄에서 밑선이 맞아야 한다.** 한 항목 안에 글꼴이 둘 선다 —
+   라벨은 sans(`MEM`), 값은 mono(`18.5GB/32.0GB`). `align-items:center` 는 두
+   글꼴의 **상자 중심**을 맞추고 밑선은 맞추지 않아, 실측에서 밑선이 1px
+   어긋났다 (711.0 vs 712.03). `--mono-scale` 의 크기 보정은 제 일을 하고 있었고
+   남은 것이 이 축이었다.
+
+   점(`.sb-dot`)은 글자가 아니므로 이 정렬에서 빠진다 — 밑선에 맞추면 원이
+   글줄 위로 떠오른다. 제 상자의 중심으로 선다. */
+.sb-item{display:flex;align-items:baseline;gap:3px;padding:0 6px;line-height:16px;
   flex-shrink:0;max-width:100%;white-space:nowrap;margin-left:-1px}
 .sb-item+.sb-item{border-left:1px solid var(--border-weak)}
-.sb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.sb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;align-self:center}
 /* UPDATE_NOTICE_SRS FR-UPD-9: 새 판 배지. 지표들 오른쪽 끝에 홀로 선다 —
    `.sb-item` 의 구분선 규약에 끼면 없을 때 빈 칸이 남는다. `hidden` 이 기본이며
    보일 때만 자리를 차지한다. */
@@ -1612,14 +1629,10 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
    (줄바꿈이 넘칠 것을 남기지 않는다). */
 #sb-items{display:flex;flex-wrap:wrap;align-items:center;gap:2px;
   flex:1;min-width:0;overflow:hidden}
-/* FR-SBR-10: 하이라이트는 팔레트를 쓴다. 평소에는 이웃 .tbtn 과 같은 얼굴이다. */
-/* FR-SEM-1: **백그라운드·분리됨은 magenta 다.** 이 배지는 "지금 선택된 것" 이
-   아니라 "눈 밖에서 도는 것" 을 말한다 — accent 를 쓰면 포커스 표시와 같은
-   색으로 경쟁하고, 실측(기준선 01)에서 실제로 화면에서 가장 먼저 읽히는 것이
-   동작이 아니라 이 배지였다 (§2.3). */
-#bg-btn.on{color:var(--term-magenta);border-color:var(--term-magenta);
-  background:color-mix(in srgb,var(--term-magenta) 12%,transparent)}
-body.mobile #bg-btn{padding:4px 6px}
+/* UIUX_OVERHAUL_SRS FR-CHR-15·16 (D-7): **`#bg-btn` 이 없어졌다.** 하이라이트
+   규칙(`.on`, FR-SBR-10 · FR-SEM-1 의 magenta)과 모바일 여백도 함께 간다 —
+   진입점은 이제 수를 말하지 않는다. magenta 가 뜻하던 *"눈 밖에서 도는 것"* 은
+   `.ag-state` 와 `.bg-row` 가 패널 안에서 그대로 말한다. */
 /* UIUX_OVERHAUL_SRS FR-ACT-1·2: 백그라운드 목록은 모달이 아니라 **활동 패널의
    구역**이다. 상자(`.bg-box`)와 그 머리가 사라졌다 — 치수·백드롭·자기 머리글은
    모달의 것이었고, 구역은 패널의 폭과 머리를 쓴다.

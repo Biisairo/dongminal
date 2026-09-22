@@ -1,14 +1,22 @@
 /**
- * Remote Terminal — 활동 패널의 구역 (UIUX_OVERHAUL_SRS FR-ACT-1~4)
+ * Remote Terminal — 활동 패널의 구역 (UIUX_OVERHAUL_SRS FR-ACT-1~4 · 7~10)
  *
- * "지금 뭐가 돌고 있나" 를 보는 창구가 **넷이고 표면 문법이 전부 달랐다** —
- * Agents 는 우측 도킹 패널, Background 와 Runs 는 **중앙 차단 모달**, Attention
- * 은 상단바 팝오버 (§2.5). 되돌릴 것이 없는 조회가 백드롭으로 앱 전체를 막고
- * 있었다.
+ * "지금 뭐가 돌고 있나" 를 보는 창구가 **셋이고 표면 문법이 전부 달랐다** —
+ * Agents 는 우측 도킹 패널, Background 와 Runs 는 **중앙 차단 모달** (§2.5).
+ * 되돌릴 것이 없는 조회가 백드롭으로 앱 전체를 막고 있었다.
  *
- * 한 질문의 답은 한 자리에 있어야 한다. 넷을 **이미 있는 패널**의 구역으로
+ * 한 질문의 답은 한 자리에 있어야 한다. 셋을 **이미 있는 패널**의 구역으로
  * 모은다 — 패널을 새로 만들지 않고, 각 표면이 그리던 **행 마크업을 그대로**
  * 쓴다 (FR-ACT-1: 정보는 그대로다, 합치는 것은 표면이다).
+ *
+ * ## 주의는 여기 없다 (FR-ACT-7·8, D-7)
+ *
+ * 초판은 주의 알림까지 **넷**을 모았다. 거기 질문이 둘이었다 — 주의는 *"나를
+ * 기다리는 것이 있나"* 이고 나머지 셋은 *"지금 뭐가 돌고 있나"* 다. 물음이
+ * 다르면 자리도 다르므로 주의는 팝오버(`#attn-center`)로 돌아갔다.
+ *
+ * 넷이 셋이 되는 일은 **배열에서 한 줄을 빼는 것**으로 끝났다 — 아래 서술자
+ * 규약이 그 방향으로도 선다는 증거다.
  *
  * ## 구역은 서술자다
  *
@@ -37,10 +45,6 @@
  *   act(app)    머리에 서는 그 구역만의 동작. 없으면 접기와 수뿐이다
  */
 const ACTIVITY_SECTIONS=[
-  // 주의의 "모두 제거" 는 팝오버 머리글이 갖고 있던 것이다 (`FUI-22`). 표면이
-  // 바뀌어도 **동작은 따라온다** — 합치는 것은 표면이고 정보가 아니다 (FR-ACT-1).
-  {key:'attn', title:()=>t('panel.sec_attn'), empty:()=>t('panel.attn_empty'),
-   items:app=>app._actAttnRows(), act:app=>app._actAttnClearEl()},
   {key:'agents', title:()=>t('panel.sec_agents'), empty:()=>t('attn.no_active_agents'),
    items:app=>app._agWindowItems(), count:its=>its.filter(i=>i.t==='card').length},
   {key:'bg', title:()=>t('bg.title'), empty:()=>t('bg.empty'),
@@ -96,16 +100,6 @@ Object.assign(App.prototype, {
     return g;
   },
 
-  /** FUI-22 의 짝: 하나씩 떼는 `×` 는 행에, 전부를 떼는 것은 구역 머리에 있다. */
-  _actAttnClearEl(){
-    const b=UIKit.button({
-      label:t('attn.clear_all'), title:'Clear every attention alert',
-      kind:'attn', size:'sm', cls:'attn-clear-all',
-    });
-    b.addEventListener('click',e=>{e.stopPropagation();this._attnClearAll()});
-    return b;
-  },
-
   /** 빈 구역의 한 줄. 문구는 그 표면이 모달·팝오버 시절에 쓰던 것 그대로다. */
   _actSecEmptyEl(sec){
     const d=document.createElement('div');
@@ -129,7 +123,8 @@ Object.assign(App.prototype, {
   /**
    * FR-ACT-3·4: 패널을 열고 그 구역으로 간다.
    *
-   * 기존 진입점 넷(`Ctrl+Shift+O`·`B`·`A` · 주의 배지)이 전부 이리로 온다 —
+   * 기존 진입점 셋(`Ctrl+Shift+O`·`B`·`A`)이 전부 이리로 온다 — 주의 배지는
+   * 제 팝오버를 가지므로 여기 없다 (FR-ACT-8) —
    * **외운 키를 뺏지 않는다** (NFR-4). 같은 구역을 다시 부르면 패널이 닫힌다:
    * 토글이던 것은 토글로 남는다.
    */
@@ -179,43 +174,6 @@ Object.assign(App.prototype, {
       return [{t:'row',sec:'runs',id:'err',el:d}];
     }
     return (rp._runsList||[]).map(rv=>({t:'row',sec:'runs',id:String(rv.id),el:rp._runsRow(rv)}));
-  },
-
-  /**
-   * 주의 알림의 행. 종전 팝오버(`#attn-center`)가 그리던 것과 **같은 클래스**다
-   * — 같은 사실을 두 표면이 다른 모양으로 말하지 않는다.
-   */
-  _actAttnRows(){
-    const out=[];
-    for(const [toolId,info] of this._attn){
-      const item=document.createElement('div');
-      item.className='attn-item';
-      item.dataset.toolid=toolId;
-      // FR-NAM-6: 알림도 파생 이름을 쓴다 — 화면의 탭과 다른 이름을 부르면
-      // 사용자가 어느 도구인지 못 찾는다.
-      const name=document.createElement('span');
-      name.className='attn-name';
-      name.textContent=name.title=this._toolName(toolId,toolId);
-      const reason=document.createElement('span');
-      reason.className='attn-reason';
-      reason.textContent=(info&&info.reason==='idle')?t('attn.reason_idle'):t('attn.reason_signal');
-      item.appendChild(name); item.appendChild(reason);
-      // FR-AEV-15: 무엇에 대한 알람인지. 내용이 없는 에이전트도 있으므로 있을
-      // 때만 붙인다 — 빈 줄이 자리를 먹지 않는다.
-      const detail=this._attnDetail(toolId);
-      if(detail){
-        const d=document.createElement('span');
-        d.className='attn-detail'; d.textContent=d.title=detail;
-        item.appendChild(d);
-      }
-      // M7 `FUI-22`: **하나만** 뗀다. 항목 클릭은 이동이고 그것과 고르게 하지 않는다.
-      const x=UIKit.button({icon:'x',title:'Dismiss this alert',kind:'ghost',size:'sm',cls:'attn-x'});
-      x.addEventListener('click',e=>{e.stopPropagation();this._attnClear(toolId,false);this.agentsRender()});
-      item.appendChild(x);
-      item.addEventListener('click',()=>this.jumpToTool(toolId));
-      out.push({t:'row',sec:'attn',id:toolId,el:item});
-    }
-    return out;
   },
 
 });

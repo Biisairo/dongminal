@@ -910,13 +910,11 @@ I18N.register('ko', {
   'html.block_keys': '브라우저 기본 단축키 차단',
   'html.block_keys_hint': 'Ctrl/Cmd 조합의 브라우저 기본 동작(저장·인쇄·찾기·북마크…)을 막아 단축키로 쓸 수 있게 합니다. 복사·붙여넣기·전체선택과 F5·F11·F12 는 그대로 둡니다. Ctrl+T·Ctrl+N·Ctrl+W 처럼 브라우저가 페이지에 넘기지 않는 조합은 어떤 설정으로도 막을 수 없습니다.',
   'html.breakpoint': '모바일 기준 너비 (px)',
-  'html.btn_agents': 'Agents',
-  'html.btn_background': 'Background',
+  'html.btn_activity': 'Activity',
   'html.btn_new': '새 창',
   'html.btn_new_box': 'Box',
   'html.btn_preset': '프리셋',
   'html.btn_repo_add': '추가',
-  'html.btn_runs': 'Runs',
   'html.btn_split_h': 'Split H',
   'html.btn_split_v': 'Split V',
   'html.cancel': '취소',
@@ -995,7 +993,6 @@ I18N.register('ko', {
   'html.minimap_hint': '편집기 오른쪽의 문서 미리보기를 보입니다(기본 켬). 끄면 그 폭만큼 본문이 넓어집니다. 이미 열려 있는 편집기에도 곧바로 적용됩니다.',
   'html.diff_minimap': 'diff 미니맵',
   'html.diff_minimap_hint': 'diff 화면에도 문서 미리보기를 보입니다(기본 끔). 좌우 양쪽이 아니라 수정 쪽 하나만 화면 오른쪽에 섭니다 — 좁은 칸에서 두 번 자리를 내주지 않기 위해서입니다. 이미 열려 있는 diff 에도 곧바로 적용됩니다.',
-  'html.btn_background_n': 'Background {n}',
 
   // ── keys ──
   'keys.group_ed_edit': 'Editor 편집',
@@ -1029,10 +1026,7 @@ I18N.register('ko', {
   'poll.stats.label': '시스템 통계',
 
   // ── panel (UIUX_OVERHAUL_SRS FR-ACT-1) ──
-  'panel.act_title': '활동 — 주의·에이전트·백그라운드·Run',
-  'panel.attn_empty': '주의를 기다리는 도구가 없습니다 — 에이전트가 입력을 기다리면 여기 섭니다',
   'panel.sec_agents': '에이전트',
-  'panel.sec_attn': '주의',
 
   // ── presets ──
   'presets.default_name': '프리셋 {n}',

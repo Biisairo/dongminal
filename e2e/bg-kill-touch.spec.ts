@@ -65,7 +65,9 @@ test.describe('FR-BGK-2: 터치로 종료 목표에 닿는다', () => {
     await gotoMobile(page);
     const id = await makeBackgroundTool(page, request);
 
-    await page.locator('#bg-btn').tap();
+    // D-7 (FR-CHR-15·17): `#bg-btn` 이 없어졌고 `Activity` 가 그 자리를 진다.
+    // 모바일에서는 단축키가 길이 아니므로 **버튼이 유일한 길**이다.
+    await page.locator('#agents-toggle').tap();
     const row = page.locator(`#agents-panel .bg-row[data-toolid="${id}"]`);
     await expect(row).toBeVisible();
 

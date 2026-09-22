@@ -575,7 +575,8 @@ test('V-CHR-10: 탭줄의 고정 구는 새 탭과 분할뿐이다 — 전역은
     }))).toEqual(['add', 'split', 'split']);
     // `⋯` 는 DOM 에 없다 — 감춘 것이 아니라 만들지 않는다.
     await expect(page.locator('.pn-menu')).toHaveCount(0);
-    // 그리고 그 둘은 상단바에 서 있다.
+    // 그리고 그 둘은 상단바에 서 있다. **(D-7 개정)** `Runs` 는 더 이상 버튼이
+    // 아니다 — 같은 패널을 열던 셋이 `Activity` 하나가 됐다 (FR-CHR-15).
     await expect(page.locator('#topbar #slot-add')).toBeVisible();
-    await expect(page.locator('#topbar #runs-btn')).toBeVisible();
+    await expect(page.locator('#topbar #agents-toggle')).toBeVisible();
   });

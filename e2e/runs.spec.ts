@@ -119,14 +119,16 @@ async function mockRuns(page: Page, list: Json[], graphs: Record<string, Json>) 
 
 /**
  * UIUX_OVERHAUL_SRS FR-ACT-1·2: 목록은 모달이 아니라 **활동 패널의 Run 구역**이다.
- * 진입점(`#runs-btn`)은 그대로이고 여는 대상이 바뀌었다.
+ * **D-7 개정**: 진입점 `#runs-btn` 이 없어졌다 — 셋이 같은 패널을 열고 있었고
+ * `Activity` 하나가 됐다 (FR-CHR-15). Run 구역으로 직행하는 길은
+ * `Ctrl+Shift+O` 다 (FR-CHR-18 · `PANEL_SHORTCUTS_SRS` FR-PSC-2).
  */
 async function openList(page: Page) {
   // 진입점은 **토글**이다 (FR-ACT-4). 모달 시절에는 행을 누르면 저절로 닫혀서
   // 다시 여는 것이 늘 "열기" 였는데, 조회는 이제 남의 동작에 닫히지 않으므로
   // (FR-ACT-2) 이미 열려 있으면 누르지 않는다 — 누르면 닫힌다.
   const open = await page.locator('#agents-panel.open').count();
-  if (!open) await page.click('#runs-btn');
+  if (!open) await page.keyboard.press('Control+Shift+KeyO');
   await expect(page.locator('#agents-panel.open .ag-sec[data-sec="runs"]')).toBeVisible();
 }
 
@@ -685,7 +687,7 @@ test.describe('묶음 D — Run 삭제 (FR-DEL-*)', () => {
       return (await r.json()).id;
     }, [toolId]);
 
-    await page.locator('#runs-btn').click();
+    await openList(page);
     const row = page.locator(`#agents-panel .runs-row[data-runid="${runId}"]`);
     await expect(row).toBeVisible({ timeout: 10000 });
     const tabsBefore = await page.locator('.pn-tab').count();

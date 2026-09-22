@@ -18,6 +18,15 @@ async function openConfirm(page: Page, opts: Record<string, unknown>) {
   await page.waitForSelector('.confirm-overlay .confirm-btns button');
 }
 
+/**
+ * UIUX_OVERHAUL_SRS FR-CHR-18 (D-7): 백그라운드 구역으로 **직행하는 길**은 이제
+ * `Ctrl+Shift+B` 다. 버튼이 없어졌다고 외운 키를 뺏지 않는다 (NFR-4) — 오히려
+ * 그 구역을 직접 부르는 유일한 길이 됐다.
+ */
+async function pressBgKey(page: Page) {
+  await page.keyboard.press('Control+Shift+KeyB');
+}
+
 const FORM_PROPS = [
   'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
   'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
@@ -142,84 +151,113 @@ test.describe('FR-BGU-1: 확인창 버튼 형태 규약', () => {
 });
 
 // STATUS_BAR_REFLOW_SRS 묶음 B 가 이 묶음을 개정한다 — 진입점은 상태바를 떠나
-// 상단바의 `Split H · Split V · Runs · BG · Agents` 자리에 서고(FR-SBR-8),
-// 0개여도 숨지 않는다(FR-SBR-9, 구 FR-BGU-5 폐기).
-test.describe('FR-SBR-8..13: 백그라운드 진입점', () => {
+/**
+ * **재개정 2026-09-22 (`UIUX_OVERHAUL_SRS` FR-CHR-14~18 / D-7).**
+ *
+ * `#bg-btn` 이 없어졌다. 묶음 B 가 상태바에서 상단바로 옮겨 놓은 그 진입점은
+ * `Runs`·`Agents` 와 **같은 패널**을 열고 있었고, 문이 셋이면 방도 셋으로
+ * 읽힌다. 셋은 `Activity`(`#agents-toggle`) 하나가 됐다.
+ *
+ * **재는 대상이 바뀐 것이지 조항이 느슨해진 것이 아니다** — FR-SBR-8·9 가
+ * 말하던 *"상단바에 있고 항상 보인다"* 는 그 하나가 그대로 진다. FR-SBR-10·11
+ * (하이라이트와 `Background n`)은 **철회**됐고, 그 자리를 뒤집은 단정이
+ * 대신한다 (TC-CHR-16).
+ */
+test.describe('FR-SBR-8·9 (D-7 개정): 활동 진입점', () => {
   // V-SBR-6
   test('TC-SBR-6: 도구가 0개여도 보이고, 하이라이트는 없다', async ({ page }) => {
     await waitForInit(page);
     await expect.poll(async () => page.evaluate(() => (window as any).app.testing.bg.length),
       { timeout: 10000 }).toBe(0);
-    const btn = page.locator('#bg-btn');
+    const btn = page.locator('#agents-toggle');
     await expect(btn).toBeVisible();
-    await expect(btn).toHaveText('Background');
+    await expect(btn).toHaveText('Activity');
     await expect(btn).not.toHaveClass(/\bon\b/);
   });
 
-  // V-SBR-5
-  test('TC-SBR-5: 진입점이 Runs 와 Agents 사이에 서고 상태바에는 없다', async ({ page }) => {
+  // V-SBR-5 · FR-CHR-14: 오른쪽 차례가 `알림 · 슬롯 ± · Activity` 다.
+  test('TC-SBR-5: 진입점이 이 줄의 끝에 서고 상태바에는 없다', async ({ page }) => {
     await waitForInit(page);
     const got = await page.evaluate(() => {
       const bar = document.getElementById('topbar')!;
-      const ids = Array.from(bar.children).map((e) => e.id).filter(Boolean);
+      const ids = Array.from(bar.querySelectorAll('[id]'))
+        .filter((e) => (e as HTMLElement).offsetParent !== null)
+        .map((e) => e.id);
       return {
-        order: ids.filter((i) => ['runs-btn', 'bg-btn', 'agents-toggle'].includes(i)),
-        inStatusBar: document.getElementById('status-bar')!.contains(document.getElementById('bg-btn')),
+        gone: ['runs-btn', 'bg-btn'].filter((i) => document.getElementById(i)),
+        tail: ids.slice(-3),
+        inStatusBar: document.getElementById('status-bar')!.contains(document.getElementById('agents-toggle')),
       };
     });
-    /**
-     * **재는 것은 `Runs` 와 `Agents` 사이다** (FR-SBR-8). 종전에는 앞에 분할 둘을
-     * 함께 적었는데, `UIUX_OVERHAUL_SRS` FR-CHR-10 (D-6) 이 그 둘을 pane 탭줄로
-     * 보냈다 — 분할은 이 pane 을 쪼개므로 전역 줄의 것이 아니다.
-     *
-     * 이 조항이 말하는 이웃 관계는 그대로다. 없어진 이웃을 기대값에서 뺀다.
-     */
-    expect(got.order).toEqual(['runs-btn', 'bg-btn', 'agents-toggle']);
+    expect(got.gone, '없어진 버튼이 아직 DOM 에 있다').toEqual([]);
+    // 알림 배지는 알림이 없으면 서지 않으므로(`display:none`) 보이는 꼬리는 셋이
+    // 아니라 슬롯 둘과 `Activity` 다.
+    expect(got.tail).toEqual(['slot-remove', 'slot-add', 'agents-toggle']);
     expect(got.inStatusBar, '진입점이 아직 상태바에 있다').toBe(false);
   });
 
-  // V-SBR-7
-  test('TC-SBR-7: 도구가 생기면 개수가 붙고 하이라이트된다', async ({ page, request }) => {
+  // FR-CHR-16: 종전 TC-SBR-7 을 **뒤집는다.** 수를 세려면 Run 을 세야 하고,
+  // 그것은 `RunsPanel` 규약을 다시 깬다 — 부분만 센 수는 수가 아니다.
+  test('TC-CHR-16: 도구가 생겨도 개수가 붙지 않고 하이라이트도 없다', async ({ page, request }) => {
     await waitForInit(page);
-    const plain = await page.evaluate(() => getComputedStyle(document.getElementById('bg-btn')!).borderColor);
-
+    const btn = page.locator('#agents-toggle');
     await makeBackgroundTool(page, request);
-    const btn = page.locator('#bg-btn');
-    await expect(btn).toHaveClass(/\bon\b/, { timeout: 10000 });
-    await expect(btn).toHaveText('Background 1');
-    const lit = await page.evaluate(() => getComputedStyle(document.getElementById('bg-btn')!).borderColor);
-    expect(lit, '하이라이트가 평소와 같은 테두리색이다').not.toBe(plain);
+    await expect.poll(async () => page.evaluate(() => (window as any).app.testing.bg.length),
+      { timeout: 10000 }).toBe(1);
+    await expect(btn).toHaveText('Activity');
+    await expect(btn).not.toHaveClass(/\bon\b/);
   });
 
-  // V-SBR-7 (FR-SBR-10): 하이라이트는 리터럴 색이 아니다.
-  test('TC-BGU-4: 진입점 색이 테마 팔레트를 따른다', async ({ page, request }) => {
+  /**
+   * FR-CHR-18 · NFR-4: 버튼이 없어졌다고 외운 키를 뺏지 않는다. 셋이 **문
+   * 하나**를 열고, 앞의 둘은 제 구역을 펴 준다.
+   *
+   * 스크롤 자체가 아니라 **접힌 구역이 펴지는 것**을 잰다 (`_actScrollTo`) —
+   * 스크롤 위치는 패널 높이에 따라 흔들리지만 접힘은 결정적이다.
+   */
+  test('TC-CHR-18: 단축키 셋이 살아 각자의 구역을 연다', async ({ page }) => {
     await waitForInit(page);
-    await makeBackgroundTool(page, request);
-    await expect(page.locator('#bg-btn')).toBeVisible();
+    const folded = (sec: string) => page.locator(`#agents-panel .ag-sec[data-sec="${sec}"].folded`);
 
-    const before = await page.evaluate(() => getComputedStyle(document.getElementById('bg-btn')!).color);
+    // 세 구역을 **화면에서** 접어 둔다 — 펴지는 것이 키의 일이었음을 드러낸다.
+    // 접기는 머리의 몸통으로 한다 (FR-ACT-10).
+    await page.click('#agents-toggle');
+    await expect(page.locator('#agents-panel.open')).toBeVisible();
+    for (const sec of ['agents', 'bg', 'runs']) {
+      await page.locator(`#agents-panel .ag-sec[data-sec="${sec}"] .ag-sec-name`).click();
+      await expect(folded(sec)).toHaveCount(1);
+    }
+    await page.click('#agents-toggle');
+    await expect(page.locator('#agents-panel.open')).toHaveCount(0);
 
-    // 테마를 바꾸면 진입점 색도 함께 바뀐다 (리터럴 색상이 아니라는 증거).
-    await page.click('#settings-btn');
-    await page.locator('#theme-list .tl-item', { hasText: 'GitHub Light' }).click();
-    await page.click('#modal-close');
+    await page.keyboard.press('Control+Shift+KeyB');
+    await expect(page.locator('#agents-panel.open')).toBeVisible();
+    await expect(folded('bg')).toHaveCount(0);
+    await expect(folded('runs'), '부르지 않은 구역까지 폈다').toHaveCount(1);
 
-    const after = await page.evaluate(() => getComputedStyle(document.getElementById('bg-btn')!).color);
-    expect(after).not.toBe(before);
+    await page.keyboard.press('Control+Shift+KeyO');
+    await expect(folded('runs')).toHaveCount(0);
+
+    // `Ctrl+Shift+A` 는 구역을 지정하지 않는 **문 그 자체**다 — 토글로 닫힌다.
+    await page.keyboard.press('Control+Shift+KeyA');
+    await expect(page.locator('#agents-panel.open')).toHaveCount(0);
+    await page.keyboard.press('Control+Shift+KeyA');
+    await expect(page.locator('#agents-panel.open')).toBeVisible();
+    await expect(folded('agents'), '문만 여는 키가 구역까지 폈다').toHaveCount(1);
   });
 
   test('TC-BGU-5: 진입점이 상태바 지표 재생성으로 파괴되지 않는다', async ({ page, request }) => {
     await waitForInit(page);
     await makeBackgroundTool(page, request);
-    await expect(page.locator('#bg-btn')).toBeVisible();
+    await expect(page.locator('#agents-toggle')).toBeVisible();
 
     const survived = await page.evaluate(() => {
       const app = (window as any).app;
       const mark = Symbol.for('tc-bgu-5');
-      const el = document.getElementById('bg-btn') as any;
+      const el = document.getElementById('agents-toggle') as any;
       el[mark] = true;
       for (let i = 0; i < 3; i++) app.testing.updateStatusBar();
-      const now = document.getElementById('bg-btn') as any;
+      const now = document.getElementById('agents-toggle') as any;
       return !!(now && now[mark]);
     });
     expect(survived, 'updateStatusBar 가 진입점을 재생성했다').toBe(true);
@@ -228,12 +266,12 @@ test.describe('FR-SBR-8..13: 백그라운드 진입점', () => {
   test('TC-BGU-9: 진입점은 상태바 지표가 아니다', async ({ page, request }) => {
     await waitForInit(page);
     await makeBackgroundTool(page, request);
-    const btn = page.locator('#bg-btn');
+    const btn = page.locator('#agents-toggle');
     await expect(btn).toBeVisible();
     await expect(btn).not.toHaveClass(/sb-item/);
     // 지표 컨테이너 밖에 있어야 구분선 규칙(.sb-item+.sb-item)이 닿지 않는다.
     const outside = await page.evaluate(() =>
-      !document.getElementById('sb-items')!.contains(document.getElementById('bg-btn')));
+      !document.getElementById('sb-items')!.contains(document.getElementById('agents-toggle')));
     expect(outside, '진입점이 지표 컨테이너 안에 있다').toBe(true);
   });
 });
@@ -254,7 +292,7 @@ test.describe('FR-BGU-6..8 (FR-ACT-1·2 개정): 백그라운드 구역', () => 
     await waitForInit(page);
     await makeBackgroundTool(page, request);
 
-    await page.click('#bg-btn');
+    await pressBgKey(page);
     await expect(page.locator('#agents-panel.open .ag-sec[data-sec="bg"]')).toBeVisible();
     // 조회 경로에 **보이는** 오버레이가 없다 (FR-ACT-2 · §9 의 검증 항목).
     // `#modal-overlay` 는 설정의 것으로 항상 DOM 에 있고 숨어 있다 — 세는 것은
@@ -268,9 +306,9 @@ test.describe('FR-BGU-6..8 (FR-ACT-1·2 개정): 백그라운드 구역', () => 
     await waitForInit(page);
     await makeBackgroundTool(page, request);
 
-    await page.click('#bg-btn');
+    await pressBgKey(page);
     await expect(page.locator('#agents-panel.open')).toBeVisible();
-    await page.click('#bg-btn');
+    await pressBgKey(page);
     await expect(page.locator('#agents-panel.open')).toHaveCount(0);
   });
 
@@ -292,7 +330,7 @@ test.describe('FR-BGU-6..8 (FR-ACT-1·2 개정): 백그라운드 구역', () => 
     });
     const tabsBefore = await focusedTabCount();
 
-    await page.click('#bg-btn');
+    await pressBgKey(page);
     await page.locator(`#agents-panel .bg-row[data-toolid="${toolId}"]`).click();
 
     // 배리어는 클라이언트 상태여야 한다. _restoreTool 은 서버의 백그라운드

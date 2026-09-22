@@ -63,12 +63,14 @@ async function makeBackgroundTools(page: Page, request: any, n: number): Promise
 
 /**
  * UIUX_OVERHAUL_SRS FR-ACT-1·2: 목록은 모달이 아니라 **활동 패널의 백그라운드
- * 구역**이다. 진입점(`#bg-btn`)은 그대로이고 여는 대상이 바뀌었다.
+ * 구역**이다. **D-7 개정**: 진입점 `#bg-btn` 이 없어졌다 — 셋이 같은 패널을
+ * 열고 있었고 `Activity` 하나가 됐다 (FR-CHR-15). 구역으로 직행하는 길은
+ * `Ctrl+Shift+B` 다 (FR-CHR-18).
  */
 async function openList(page: Page) {
   // 진입점은 **토글**이다 (FR-ACT-4) — 이미 열려 있으면 누르지 않는다.
   const open = await page.locator('#agents-panel.open').count();
-  if (!open) await page.click('#bg-btn');
+  if (!open) await page.keyboard.press('Control+Shift+KeyB');
   await expect(page.locator('#agents-panel.open .ag-sec[data-sec="bg"]')).toBeVisible();
 }
 
@@ -169,8 +171,11 @@ test.describe('FR-BGK-8..10: 종료의 결과', () => {
     // FR-CPY-2: 빈 구역은 사실만 말하지 않는다 — 다음 할 일이 그 줄에 붙는다.
     await expect(page.locator('#agents-panel .ag-sec[data-sec="bg"] + .ag-sec-empty'))
       .toContainText('백그라운드 도구가 없습니다', { timeout: 15000 });
-    await expect(page.locator('#bg-btn')).toBeVisible();
-    await expect(page.locator('#bg-btn')).not.toHaveClass(/\bon\b/);
+    // **D-7 개정 (FR-CHR-16).** 종전에는 진입점의 하이라이트가 내려가는 것을
+    // 함께 쟀다. 진입점은 이제 수를 말하지 않으므로 잴 것이 없다 — 비었다는
+    // 사실은 **구역이** 말한다 (바로 위의 빈 줄).
+    await expect(page.locator('#agents-toggle')).toBeVisible();
+    await expect(page.locator('#agents-toggle')).not.toHaveClass(/\bon\b/);
   });
 
   // V-BGK-10

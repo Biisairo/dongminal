@@ -170,6 +170,7 @@ Object.assign(App.prototype, {
     for(const id of this._attn.keys()) this._attnNoteLock(id,false);
     this._restoreVoid('attn');   // FR-RSF-5: 전체 초기화는 id 로 표현되지 않는다
     this._attn.clear();
+    this._attnCenterClose();
     this._attnRefresh();
   },
 
@@ -300,23 +301,18 @@ Object.assign(App.prototype, {
       const cnt=badge.querySelector('.attn-count');
       if(cnt) cnt.textContent=String(n);
       badge.style.display=n?'':'none';
+      // FR-ACT-8: 배지가 내려가면 띄워 둘 목록도 없다.
+      if(!n) this._attnCenterClose();
     }
-    // FR-AAP-18: 활동 카드의 alarm 표시도 함께 갱신. FR-ACT-1 이후로는 **주의
-    // 구역 자체**도 이 한 번으로 다시 그려진다 — 표면이 하나라 갱신도 하나다.
-    this.agentsRender();
+    const center=document.getElementById('attn-center');
+    if(center&&center.classList.contains('open')) this._attnCenterRender();
+    this.agentsRender(); // FR-AAP-18: 활동 카드의 alarm 표시도 함께 갱신
   },
 
   /**
-   * UIUX_OVERHAUL_SRS FR-ACT-1·2: 팝오버(`#attn-center`)가 사라졌다.
-   *
-   *   이전 동작: 상단바 배지 아래에 뜨는 팝오버. 같은 부류의 조회가 네 표면으로
-   *             갈려 있었고, 그 넷이 서로 다른 문법으로 말했다 (§2.5)
-   *   새  동작: 배지는 **활동 패널의 주의 구역**을 연다. 행의 마크업은 그대로다
-   *   이유:     "지금 뭐가 돌고 있나" 는 한 질문이고 답이 있는 자리도 하나여야
-   *             한다. 팝오버는 차단하지 않았지만 **네 번째 표면**이었다
-   *
-   * 자리 계산(`_positionAttnCenter`)·토글·닫기·그리기 넷이 함께 사라졌다 —
-   * 도킹 패널에는 띄울 자리를 잴 일이 없다.
+   * 주의 센터 팝오버(`#attn-center`)는 **제 파일에 산다** — `app-attn-center.js`.
+   * 이 파일이 아는 것은 이름 셋뿐이다: `_attnCenterToggle`(배선) ·
+   * `_attnCenterClose`(전체 해제·배지 소멸) · `_attnCenterRender`(갱신).
    */
 
   // FR-PAN-13a: 데스크톱 알림(권한 granted + 설정 on). pane 별 직전 알림을 닫고 새로 띄운다.
@@ -414,14 +410,20 @@ Object.assign(App.prototype, {
     osc.stop(t+.2);
   },
 
-  // 주의 배지의 배선 + 설정 토글 (FR-PAN-14/16 · FR-ACT-4 로 개정)
+  // notification center 배지/팝오버 이벤트 바인딩 + 설정 토글
+  // (FR-PAN-14/16 · UIUX_OVERHAUL_SRS FR-ACT-8 로 개정)
   initAttn(){
     const badge=document.getElementById('attn-badge');
     if(badge&&!badge._bound){
       badge._bound=true;
-      // FR-ACT-4: 배지는 외운 진입점이다 — 그대로 살고, 패널의 주의 구역을 연다.
-      badge.addEventListener('click',e=>{e.stopPropagation();this.actPanelOpen('attn')});
+      badge.addEventListener('click',e=>{e.stopPropagation();this._attnCenterToggle()});
     }
+    document.addEventListener('click',e=>{
+      const center=document.getElementById('attn-center');
+      if(!center||!center.classList.contains('open')) return;
+      if(center.contains(e.target)||(badge&&badge.contains(e.target))) return;
+      this._attnCenterClose();
+    });
     const dt=document.getElementById('attn-desktop');
     if(dt){
       dt.checked=this.attnDesktop;

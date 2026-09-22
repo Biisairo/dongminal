@@ -28,6 +28,10 @@
   --ui-btn-h-sm:calc(22px * var(--fs-scale));
   --ui-btn-h-lg:calc(30px * var(--fs-scale));
   --ui-btn-px:calc(10px * var(--fs-scale));
+  /* FR-CMP-81: 배지의 **지름**이다. 한 글자면 원이 되고 두 자리부터 알약으로
+     늘어난다 — 높이·최소폭·모서리가 전부 이 하나에서 나온다. 버튼과 같은
+     이유로 배율을 탄다 (FR-FSS-5): 글자만 키우면 원 밖으로 숫자가 넘친다. */
+  --ui-badge-h:calc(16px * var(--fs-scale));
   --ui-radius:4px;
   --ui-gap:calc(6px * var(--fs-scale));
   /* FR-TOK-20: 값을 갖지 않는다 — `--fs-sm` 을 가리킨다. 두 이름이 각자 11px
@@ -155,12 +159,28 @@
 
    `.ui-tab-badge` 는 탭 줄의 수식어로 남는다 — 탭 안에서는 강조색 채움이
    맞지만, 머리글 옆에서는 그 무게가 제목을 이긴다. */
+/* **정의는 하나다** (FR-CMP-81). 종전에는 이 파일 안에 `.ui-badge` 가 **두
+   번** 있었고 뒤엣것이 앞엣것의 최소폭·여백·모서리·테두리색을 덮었다 — 한
+   벌이라고 적어 둔 것이 두 벌이었다. 덮어 쓰던 값(accent 계열·`--fs-sm`)이
+   화면에 서던 것이므로 **그 값을 이 자리로 가져왔다**: 합치면서 색이 바뀌면
+   합친 것과 고친 것을 구별할 수 없다.
+
+   **한 글자는 원이다.** 여백이 최소폭을 넘기면 수 하나짜리 배지가 가로로 긴
+   타원이 된다 (실측 19.03×16). 여백을 지름의 함수로 두어 한 자리에서는
+   `min-width` 가 이기고, 두 자리부터 알약으로 늘어난다.
+
+   `tabular-nums` 는 수가 바뀔 때 폭이 흔들리지 않게 한다 — 배지는 갱신되는
+   자리이고, 1 과 2 의 글리프 폭이 다르면 옆 요소가 밀린다. */
 .ui-badge{
   display:inline-flex;align-items:center;justify-content:center;
-  min-width:calc(var(--ui-btn-h-sm) - 6px);padding:0 6px;
-  border:1px solid var(--border);border-radius:calc(var(--ui-btn-h-sm) / 2);
-  color:var(--text-muted);font-size:var(--fs-xs);line-height:calc(var(--ui-btn-h-sm) - 8px);
+  min-width:var(--ui-badge-h);padding:0 calc(3px * var(--fs-scale));
+  background:var(--accent-subtle);border:1px solid var(--accent-border);
+  border-radius:calc(var(--ui-badge-h) / 2);
+  color:var(--accent-text);font-size:var(--fs-sm);
+  line-height:calc(var(--ui-badge-h) - 2px);
+  font-variant-numeric:tabular-nums;
 }
+.ui-badge-attn{background:var(--attn-subtle);border-color:var(--attn);color:var(--attn-text)}
 .ui-tab-badge{
   min-width:15px;padding:0 4px;border-radius:8px;
   background:var(--accent);color:var(--bg);font-size:var(--fs-xs);line-height:15px;text-align:center;
@@ -412,12 +432,6 @@ body.mobile .ui-switch{
 .ui-input:focus-visible,.ui-select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .ui-input::placeholder{color:var(--text-hint)}
 .ui-hint{color:var(--text-hint);font-size:var(--fs-sm);line-height:1.5;margin-top:6px}
-.ui-badge{
-  min-width:16px;padding:0 5px;border-radius:8px;
-  background:var(--accent-subtle);border:1px solid var(--accent-border);
-  color:var(--accent-text);font-size:var(--fs-sm);line-height:14px;text-align:center;
-}
-.ui-badge-attn{background:var(--attn-subtle);border-color:var(--attn);color:var(--attn-text)}
 
 /* ── 핸들의 크기 표시 (FR-HSZ-2·3·4·8) ────────────────────────────────
    문서에 **하나**뿐인 겹이다 (D-10). 끄는 동안만 보이고, 손을 가로채지 않는다. */

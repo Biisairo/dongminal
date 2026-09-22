@@ -254,7 +254,19 @@ Object.assign(App.prototype, {
       b.title=tn('attn.alarm_count',attn);
       g.appendChild(b);
     }
-    g.addEventListener('click',()=>this.switchWindow(win.id));
+    /**
+     * UIUX_OVERHAUL_SRS FR-ACT-10 (D-7): **몸통을 눌러도 접힌다.**
+     *
+     *   이전 동작: 몸통을 누르면 그 창으로 갔다 (`PANEL_SURFACE_SRS` FR-AGG-12)
+     *   새  동작: 구역 머리(`.ag-sec`)와 같다 — 접고 편다
+     *   이유:     같은 패널에서 같은 모양의 줄이 클릭에 다르게 답하고 있었다.
+     *             한 줄이 접히고 옆줄이 창을 바꾸면 규칙을 외울 수 없다
+     *
+     * 잃는 것은 *"접힌 그룹에서 그 창으로 가기"* 하나다 — 펼친 그룹에서는 카드
+     * 클릭이 `jumpToTool` 로 **창이 아니라 그 도구**로 가고, 창으로 가는 길은
+     * 사이드바가 갖는다. 꺽쇠는 그대로 선다.
+     */
+    g.addEventListener('click',()=>this._agFoldToggle(win.id));
     return g;
   },
 

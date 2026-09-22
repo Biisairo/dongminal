@@ -403,3 +403,44 @@ test.describe('Agent panel window groups (FR-AGG)', () => {
     expect(await panelOrder(page)).toEqual(['G:' + win1, 'C:' + pidA, 'C:' + pidB, 'G:' + win2, 'C:' + pidC]);
   });
 });
+
+
+/**
+ * UIUX_OVERHAUL_SRS §4.3.1 (D-7) — **구역은 셋이고, 머리는 몸통으로 접힌다.**
+ */
+test.describe('FR-ACT-7·10 (D-7): 구역 셋과 몸통 접기', () => {
+  test('FR-ACT-7: 구역이 셋이고 차례가 에이전트 · 백그라운드 · Run 이다', async ({ page }) => {
+    await waitForInit(page);
+    await page.locator('#agents-toggle').click();
+    await expect(page.locator('#agents-panel.open')).toBeVisible();
+
+    // 빈 구역도 머리를 갖는다 (FR-ACT-1) — 세는 것은 내용이 아니라 구역이다.
+    const secs = await page.evaluate(() =>
+      [...document.querySelectorAll('#agents-panel .ag-sec')].map((e) => (e as HTMLElement).dataset.sec));
+    expect(secs, '주의 구역이 아직 패널에 있다').toEqual(['agents', 'bg', 'runs']);
+  });
+
+  test('FR-ACT-10: 그룹 머리의 몸통을 눌러 접고 편다', async ({ page }) => {
+    const { win1, win2, pidA, pidB, pidC } = await twoWindows(page);
+
+    const head = page.locator(`#agents-panel .ag-group[data-sid="${win1}"]`);
+    const all = ['G:' + win1, 'C:' + pidA, 'C:' + pidB, 'G:' + win2, 'C:' + pidC];
+    expect(await panelOrder(page)).toEqual(all);
+
+    // 꺽쇠가 아니라 **이름 칸**을 누른다 — 종전에는 이것이 `switchWindow` 였다
+    // (`PANEL_SURFACE_SRS` FR-AGG-12, 철회).
+    await head.locator('.ag-group-name').click();
+    expect(await panelOrder(page)).toEqual(['G:' + win1, 'G:' + win2, 'C:' + pidC]);
+    expect(await page.evaluate(() => localStorage.getItem('agentsGroupFold'))).toContain(win1);
+
+    // 창은 바뀌지 않았다 — 접기는 보는 방식이고 어디에 있는가가 아니다.
+    expect(await page.evaluate(() => (window as any).app.ws.activeWindow)).not.toBe(win1);
+
+    await head.locator('.ag-group-name').click();
+    expect(await panelOrder(page)).toEqual(all);
+
+    // 꺽쇠도 그대로 듣는다 — 몸통이 **더해진** 것이지 꺽쇠가 없어진 것이 아니다.
+    await head.locator('.ag-group-fold').click();
+    expect(await panelOrder(page)).toEqual(['G:' + win1, 'G:' + win2, 'C:' + pidC]);
+  });
+});

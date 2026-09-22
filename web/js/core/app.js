@@ -389,7 +389,8 @@ class App {
       newWindow:()=>this.addWindow().catch(err=>this._notify(t('core.open_window_fail')+' — '+((err&&err.message)||err))),
       newTab:()=>this.addTabFocused(),
       closeWindow:()=>this.closeWindowActive(),closeTab:()=>this.closeTabFocused(),
-      agentsToggle:()=>this.agentsToggle(),
+      // FR-PSC-3 · FR-CHR-15 (D-7): 버튼과 **같은 함수**다.
+      agentsToggle:()=>this.actPanelOpen(),
       // FR-WSL-51·74: 버튼과 **같은 함수**를 부른다. 여는 길이 둘로 갈리면
       // 한쪽만 고쳐진다.
       slotAdd:()=>this.slotAdd(),

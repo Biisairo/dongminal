@@ -887,13 +887,11 @@ I18N.register('en', {
   'html.block_keys': 'Block browser default shortcuts',
   'html.block_keys_hint': 'Blocks the browser\'s default actions on Ctrl/Cmd combinations (save · print · find · bookmark…) so they can be used as shortcuts. Copy · paste · select all and F5 · F11 · F12 are left alone. Combinations the browser never passes to the page, like Ctrl+T · Ctrl+N · Ctrl+W, cannot be blocked by any setting.',
   'html.breakpoint': 'Mobile Breakpoint (px)',
-  'html.btn_agents': 'Agents',
-  'html.btn_background': 'Background',
+  'html.btn_activity': 'Activity',
   'html.btn_new': 'New',
   'html.btn_new_box': 'Box',
   'html.btn_preset': 'Preset',
   'html.btn_repo_add': 'Add',
-  'html.btn_runs': 'Runs',
   'html.btn_split_h': 'Split H',
   'html.btn_split_v': 'Split V',
   'html.cancel': 'Cancel',
@@ -972,7 +970,6 @@ I18N.register('en', {
   'html.minimap_hint': 'Shows the document preview on the right of the editor (on by default). Turning it off gives that width back to the text. Applies immediately to editors that are already open.',
   'html.diff_minimap': 'Diff minimap',
   'html.diff_minimap_hint': 'Shows the document preview in the diff view too (off by default). Only the modified side gets one, on the right edge — a narrow pane cannot give that width away twice. Applies immediately to diffs that are already open.',
-  'html.btn_background_n': 'Background {n}',
 
   // ── keys ──
   'keys.group_ed_edit': 'Editor editing',
@@ -1006,10 +1003,7 @@ I18N.register('en', {
   'poll.stats.label': 'System stats',
 
   // ── panel (UIUX_OVERHAUL_SRS FR-ACT-1) ──
-  'panel.act_title': 'Activity — attention, agents, background, runs',
-  'panel.attn_empty': 'Nothing is waiting for you — agents waiting on input appear here',
   'panel.sec_agents': 'Agents',
-  'panel.sec_attn': 'Attention',
 
   // ── presets ──
   'presets.default_name': 'Preset {n}',

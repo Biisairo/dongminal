@@ -302,3 +302,99 @@ test.describe('킷 컴포넌트 (KIT_COMPONENTS_SRS)', () => {
     await page.keyboard.press('Escape');
   });
 });
+
+
+/**
+ * FR-CMP-81 — **배지는 한 벌이고, 한 글자는 원이다.**
+ *
+ * 착수 시 `.ui-badge` 가 `style-kit.css` 안에 **두 번** 있었고 뒤엣것이 앞엣것의
+ * 최소폭·여백·모서리를 덮었다. 그 결과 수 하나짜리 배지가 가로로 3px 긴
+ * 타원이었다 (실측 19.03×16).
+ */
+test.describe('FR-CMP-81: 배지의 모양', () => {
+  test('TC-CMP-20: 한 자리 수 배지는 정원이다', async ({ page }) => {
+    await waitForInit(page);
+    await page.locator('#agents-toggle').click();
+    await expect(page.locator('#agents-panel.open')).toBeVisible();
+
+    const got = await page.evaluate(() => {
+      const b = document.querySelector('#agents-panel .ag-sec-n') as HTMLElement;
+      const r = b.getBoundingClientRect();
+      const cs = getComputedStyle(b);
+      return {
+        text: b.textContent, w: +r.width.toFixed(2), h: +r.height.toFixed(2),
+        radius: cs.borderRadius, numeric: cs.fontVariantNumeric,
+      };
+    });
+    expect(got.text!.length, '이 시험은 한 자리 수를 전제한다').toBe(1);
+    expect(got.w, `한 자리인데 원이 아니다 (${got.w}×${got.h})`).toBe(got.h);
+    // 모서리가 반지름이라야 원으로 보인다 — 지름의 절반이다.
+    expect(parseFloat(got.radius)).toBeCloseTo(got.h / 2, 1);
+    // 수가 바뀔 때 폭이 흔들리면 옆 요소가 밀린다.
+    expect(got.numeric).toContain('tabular-nums');
+  });
+});
+
+/**
+ * `UIUX_OVERHAUL_SRS` FR-TYP-4 — **같은 줄에서 밑선이 맞아야 한다.**
+ *
+ * 상태바의 한 항목에는 글꼴이 둘 선다: 라벨은 sans(`MEM`), 값은
+ * mono(`18.6GB/32.0GB`). `align-items:center` 는 두 글꼴의 **상자 중심**을
+ * 맞추고 밑선은 맞추지 않아, 실측에서 1px 어긋나 있었다 (711.0 vs 712.03).
+ */
+test.describe('FR-TYP-4: 상태바의 두 글꼴', () => {
+  test('TC-TYP-4: 라벨(sans)과 값(mono)이 같은 밑선에 선다', async ({ page }) => {
+    await waitForInit(page);
+    // 라벨+값 쌍을 세우려면 지표가 켜져 있어야 한다.
+    await page.evaluate(() => {
+      const a = (window as any).app;
+      for (const k of Object.keys(a.sbShow || {})) a.sbShow[k] = true;
+      a.testing.updateStatusBar();
+    });
+    await expect(page.locator('#sb-items .sb-item .mono').first()).toBeVisible({ timeout: 15000 });
+
+    const rows = await page.evaluate(() => {
+      const cv = document.createElement('canvas').getContext('2d')!;
+      // 글자 상자의 top 에 ascent 를 더하면 그 줄의 밑선이다.
+      const baseOf = (rect: DOMRect, cs: CSSStyleDeclaration, text: string) => {
+        cv.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+        return rect.top + cv.measureText(text).fontBoundingBoxAscent;
+      };
+      const out: Array<{ label: string; delta: number }> = [];
+      for (const it of document.querySelectorAll('#sb-items .sb-item')) {
+        const mono = it.querySelector('.mono');
+        if (!mono) continue;
+        let lb: { rect: DOMRect; text: string } | null = null;
+        for (const n of it.childNodes) {
+          if (n.nodeType === 3 && n.textContent!.trim()) {
+            const r = document.createRange(); r.selectNodeContents(n);
+            lb = { rect: r.getBoundingClientRect(), text: n.textContent!.trim() };
+            break;
+          }
+        }
+        if (!lb) continue;
+        const mr = document.createRange(); mr.selectNodeContents(mono);
+        const a = baseOf(lb.rect, getComputedStyle(it), lb.text);
+        const b = baseOf(mr.getBoundingClientRect(), getComputedStyle(mono), mono.textContent!);
+        out.push({ label: lb.text, delta: +(b - a).toFixed(2) });
+      }
+      return out;
+    });
+
+    expect(rows.length, '라벨과 값이 함께 선 항목이 없다 — 시험이 공회전한다').toBeGreaterThan(0);
+    for (const r of rows) {
+      expect(Math.abs(r.delta), `${r.label}: 밑선이 ${r.delta}px 어긋났다`).toBeLessThanOrEqual(0.5);
+    }
+  });
+
+  test('TC-TYP-4b: 점은 밑선이 아니라 제 상자의 중심에 선다', async ({ page }) => {
+    await waitForInit(page);
+    const off = await page.evaluate(() => {
+      const dot = document.querySelector('#sb-items .sb-dot') as HTMLElement;
+      const ir = dot.parentElement!.getBoundingClientRect(), dr = dot.getBoundingClientRect();
+      return +((dr.top + dr.height / 2) - (ir.top + ir.height / 2)).toFixed(2);
+    });
+    // 글자가 아닌 것을 밑선에 맞추면 원이 글줄 위로 떠오른다.
+    expect(Math.abs(off), `점이 항목의 중심에서 ${off}px 벗어났다`).toBeLessThanOrEqual(0.5);
+  });
+});

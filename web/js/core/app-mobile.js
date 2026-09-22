@@ -124,16 +124,16 @@ Object.assign(App.prototype, {
       xb.title='Close the sidebar';xb.setAttribute('aria-label','Close the sidebar');
       xb.addEventListener('click',()=>{this._toggleDrawer(false);this.renderer._rTopbar()});
       sb.insertBefore(xb, sb.firstChild);
-      // 로드맵 M7 `FUI-27`: 모바일에서 Runs·Agents 에 닿는 길. 상단바의 둘은
-      // `desktop-only` 이고 단축키는 물리 키가 없는 기기에서 길이 아니다.
-      // 버튼과 **같은 함수**를 부른다 (FR-PSC-3 의 규약).
+      // 로드맵 M7 `FUI-27`: 모바일에서 활동에 닿는 길. 단축키는 물리 키가 없는
+      // 기기에서 길이 아니다. 버튼과 **같은 함수**를 부른다 (FR-PSC-3 의 규약).
+      //
+      // UIUX_OVERHAUL_SRS FR-CHR-17 (D-7): **둘이 하나가 됐다.** `Runs` 와
+      // `Agents` 는 같은 패널을 열고 있었다 — 서랍 머리에서도 문은 하나다.
       const acts=document.createElement('div');
       acts.id='m-drawer-acts'; acts.className='m-drawer-acts mobile-only';
-      const runs=UIKit.button({label:'Runs',title:'Run orchestration',size:'lg'});
-      runs.addEventListener('click',()=>{this._toggleDrawer(false);this.renderer._rTopbar();this._runsModalToggle(true)});
-      const agents=UIKit.button({label:'Agents',title:'Show all agents in one place',kind:'attn',size:'lg'});
-      agents.addEventListener('click',()=>{this._toggleDrawer(false);this.renderer._rTopbar();this.agentsToggle()});
-      acts.append(runs,agents);
+      const activity=UIKit.button({label:'Activity',title:'Show everything that is running',kind:'attn',size:'lg'});
+      activity.addEventListener('click',()=>{this._toggleDrawer(false);this.renderer._rTopbar();this.actPanelOpen()});
+      acts.append(activity);
       sb.insertBefore(acts, xb.nextSibling);
     }
     // Auto-close drawer on window switch (mobile)

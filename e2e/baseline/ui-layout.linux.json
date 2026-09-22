@@ -467,15 +467,6 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "terminal|button.desktop-only.tbtn.ui-btn": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "terminal|span.desktop-only.slot-ctl": {
   "display": "flex",
   "overflowX": "visible",
@@ -503,7 +494,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "terminal|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+ "terminal|button.tbtn.ui-btn.ui-btn-attn": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -1754,15 +1745,6 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:changes|button.desktop-only.tbtn.ui-btn": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:changes|span.desktop-only.slot-ctl": {
   "display": "flex",
   "overflowX": "visible",
@@ -1790,7 +1772,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:changes|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+ "git:changes|button.tbtn.ui-btn.ui-btn-attn": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -3947,15 +3929,6 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:diff|button.desktop-only.tbtn.ui-btn": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:diff|span.desktop-only.slot-ctl": {
   "display": "flex",
   "overflowX": "visible",
@@ -3983,7 +3956,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:diff|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+ "git:diff|button.tbtn.ui-btn.ui-btn-attn": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -6248,15 +6221,6 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|button.desktop-only.tbtn.ui-btn": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:history|span.desktop-only.slot-ctl": {
   "display": "flex",
   "overflowX": "visible",
@@ -6284,7 +6248,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:history|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+ "git:history|button.tbtn.ui-btn.ui-btn-attn": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -8750,15 +8714,6 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:branches|button.desktop-only.tbtn.ui-btn": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:branches|span.desktop-only.slot-ctl": {
   "display": "flex",
   "overflowX": "visible",
@@ -8786,7 +8741,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:branches|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+ "git:branches|button.tbtn.ui-btn.ui-btn-attn": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -11228,15 +11183,6 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:stash|button.desktop-only.tbtn.ui-btn": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:stash|span.desktop-only.slot-ctl": {
   "display": "flex",
   "overflowX": "visible",
@@ -11264,7 +11210,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:stash|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+ "git:stash|button.tbtn.ui-btn.ui-btn-attn": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -13463,15 +13409,6 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:console|button.desktop-only.tbtn.ui-btn": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:console|span.desktop-only.slot-ctl": {
   "display": "flex",
   "overflowX": "visible",
@@ -13499,7 +13436,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:console|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+ "git:console|button.tbtn.ui-btn.ui-btn-attn": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -15647,15 +15584,6 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:worktrees|button.desktop-only.tbtn.ui-btn": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:worktrees|span.desktop-only.slot-ctl": {
   "display": "flex",
   "overflowX": "visible",
@@ -15683,7 +15611,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:worktrees|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+ "git:worktrees|button.tbtn.ui-btn.ui-btn-attn": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -17906,15 +17834,6 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:submodules|button.desktop-only.tbtn.ui-btn": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "git:submodules|span.desktop-only.slot-ctl": {
   "display": "flex",
   "overflowX": "visible",
@@ -17942,7 +17861,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:submodules|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+ "git:submodules|button.tbtn.ui-btn.ui-btn-attn": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -20108,15 +20027,6 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "editor|button.desktop-only.tbtn.ui-btn": {
-  "display": "flex",
-  "overflowX": "visible",
-  "overflowY": "visible",
-  "position": "static",
-  "inset": "auto auto auto auto",
-  "flexDirection": "row",
-  "minHeight": "auto"
- },
  "editor|span.desktop-only.slot-ctl": {
   "display": "flex",
   "overflowX": "visible",
@@ -20144,7 +20054,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "editor|button.desktop-only.tbtn.ui-btn.ui-btn-attn": {
+ "editor|button.tbtn.ui-btn.ui-btn-attn": {
   "display": "flex",
   "overflowX": "visible",
   "overflowY": "visible",

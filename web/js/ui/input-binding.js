@@ -15,7 +15,10 @@ class InputBinding {
     // 고정 구가 그 자리이고 배선도 거기서 한다 (`renderer-pane.js` 의
     // `_makeSplitBtn`). 여기서 `getElementById('split-h')` 를 가드 없이 읽으면
     // 그 줄의 예외가 **뒤따르는 배선을 전부** 끊는다 (실측으로 한 번 겪었다).
-    document.getElementById('agents-toggle').addEventListener('click',()=>this.app.agentsToggle());
+    // UIUX_OVERHAUL_SRS FR-CHR-15 (D-7): 문은 하나이고 **구역을 넘기지 않는
+    // 호출이 그 기본값**이다 — 형제 셋이 `actPanelOpen(key)` 를 부르는데 이
+    // 하나만 `agentsToggle()` 을 불러 같은 줄에서 처신이 갈려 있었다.
+    document.getElementById('agents-toggle').addEventListener('click',()=>this.app.actPanelOpen());
     const ap=document.getElementById('agents-panel'),aph=document.getElementById('agents-handle');
     try{if(localStorage.getItem('agentsPanelOpen')==='1'){ap.classList.add('open');aph.classList.add('open');document.getElementById('agents-toggle').classList.add('open');this.app.agentsStartPoll()}}catch{}
     /**

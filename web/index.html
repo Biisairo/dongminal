@@ -195,13 +195,10 @@
            pane 을 쪼개므로 pane 탭줄의 고정 구에 산다 (FR-CHR-2). 상단바가 드는
            것은 **전역**에 관여하는 것뿐이다 — 슬롯 `±` 가 이 줄에 남는 이유도
            그것이 창 **밖**을 쪼개기 때문이다 (WINDOW_SLOTS_SRS FR-WSL-50). -->
-      <!-- ORCHESTRATION_V2_SRS FR-RVZ-1: Run 시각화 진입점. Split V 와 Agents
-           사이가 지정된 자리다. 리스너는 app-runs.js 가 붙인다. -->
-      <button class="tbtn ui-btn desktop-only" id="runs-btn" title="Run orchestration" data-i18n="html.btn_runs">Runs</button>
-      <!-- STATUS_BAR_REFLOW_SRS FR-SBR-8/12: Runs 와 Agents 사이. 이웃과 달리
-           desktop-only 가 아니다 — 모바일에서 백그라운드 도구에 닿는 유일한
-           통로다 (§2.5). 리스너는 app-statusbar.js 가 붙인다. -->
-      <button class="tbtn ui-btn" id="bg-btn" title="Tools running in the background" data-i18n="html.btn_background">Background</button>
+      <!-- UIUX_OVERHAUL_SRS FR-CHR-15 (D-7): **`Runs` 와 `Background` 가 여기
+           없다.** 셋이 같은 패널 하나를 열고 있었고, 문이 셋이면 방도 셋으로
+           읽힌다. 셋은 `Activity` 하나가 됐다 — 구역으로 직행하는 길은 단축키가
+           갖는다 (FR-CHR-18 · PANEL_SHORTCUTS_SRS). -->
       <!-- WINDOW_SLOTS_SRS FR-WSL-50: 창 **밖**을 쪼갠다 — 창 **안**을 쪼개는
            Split H·V 와 떨어진 자리다 (§7 R-3). 한계에 닿으면 비활성이 된다.
            리스너는 app-slots.js 가 붙인다. -->
@@ -210,8 +207,12 @@
         <span class="slot-ctl-label" data-i18n="html.slot_label">Slot</span>
         <button class="tbtn ui-btn ui-btn-icon ui-btn-sm" id="slot-add" data-i18n-title="html.slot_add_title" data-i18n-shortcut="slotAdd" aria-label="Add a window slot"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></button>
       </span>
-      <!-- FR-WSL-50: Agents 가 데스크톱 버튼 중 가장 오른쪽이다. -->
-      <button class="tbtn ui-btn ui-btn-attn desktop-only" id="agents-toggle" title="Show all agents in one place" data-i18n="html.btn_agents">Agents</button>
+      <!-- FR-WSL-50: 이 줄의 가장 오른쪽이다.
+           FR-CHR-15·17 (D-7): 식별자는 지키고 라벨만 `Activity` 가 됐다 (R-1:
+           id 는 새 자리에서 보존). `desktop-only` 가 아닌 것은 `#bg-btn` 이
+           갖고 있던 *"모바일에서 백그라운드 도구에 닿는 유일한 길"* 을 이것이
+           이어받기 때문이다 (STATUS_BAR_REFLOW_SRS FR-SBR-12). -->
+      <button class="tbtn ui-btn ui-btn-attn" id="agents-toggle" title="Show everything that is running" data-i18n="html.btn_activity">Activity</button>
       <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-search-btn" title="Search in this terminal" aria-label="Search in this terminal"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg></button>
       <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-add-tab" title="New tab" aria-label="New tab"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></button>
       <button class="mtbtn ui-btn ui-btn-icon ui-btn-ghost mobile-only" id="m-drawer-toggle" title="Open the menu" aria-label="Open the menu"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-menu"/></svg></button>
@@ -249,7 +250,11 @@
   <div id="mobile-keybar" class="mobile-only"></div>
 </div>
 
-<!-- 주의 알림 센터 (FR-PAN-16) -->
+<!-- 주의 알림 센터 (FR-PAN-16).
+     UIUX_OVERHAUL_SRS FR-ACT-8 (D-7): **팝오버가 돌아왔다.** 주의는 *"나를
+     기다리는 것이 있나"* 에 답하고 `Activity` 의 셋은 *"지금 뭐가 돌고 있나"* 에
+     답한다 — 물음이 다르면 자리도 다르다. -->
+<div id="attn-center" class="ui-scroll"></div>
 
 <!-- Settings Modal -->
 <div id="modal-overlay" class="ui-modal">
@@ -797,6 +802,8 @@
 <script src="js/core/app-slots.js?v=__ASSETV__"></script>
 <script src="js/core/app-focus.js?v=__ASSETV__"></script>
 <script src="js/core/app-attn.js?v=__ASSETV__"></script>
+<!-- 주의 센터 팝오버 (FR-ACT-8). `app-attn.js` 뒤 — prototype 확장이다. -->
+<script src="js/core/app-attn-center.js?v=__ASSETV__"></script>
 <script src="js/core/app-agents.js?v=__ASSETV__"></script>
 <script src="js/core/app-activity.js?v=__ASSETV__"></script>
 <script src="js/core/app-git.js?v=__ASSETV__"></script>

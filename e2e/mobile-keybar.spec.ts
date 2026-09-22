@@ -477,18 +477,31 @@ test.describe('Mobile keybar tooltips (SRS REQ-T-1..T-4)', () => {
   });
 });
 
-// 로드맵 M7 P2 — `FUI-27`: 모바일에서 Runs·Agents 에 닿는 길. 상단바의 둘은
-// `desktop-only` 이고 단축키는 물리 키가 없는 기기에서 길이 아니다 — 드로어가
-// 그 길이다.
-test.describe('모바일 드로어의 Runs·Agents (FUI-27)', () => {
-  test('드로어에 두 진입점이 있고 Runs 가 열린다', async ({ page }) => {
+// 로드맵 M7 P2 — `FUI-27`: 모바일에서 활동에 닿는 길. 단축키는 물리 키가 없는
+// 기기에서 길이 아니다 — 드로어가 그 길이다.
+//
+// **D-7 개정 (`UIUX_OVERHAUL_SRS` FR-CHR-17).** 둘이 하나가 됐다: `Runs` 와
+// `Agents` 는 같은 패널을 열고 있었다. 상단바의 `Activity` 도 이제 모바일에
+// 서므로(`#bg-btn` 이 갖고 있던 그 자리를 이어받는다) 길은 둘 다 열려 있다.
+test.describe('모바일의 Activity (FUI-27 · FR-CHR-17)', () => {
+  test('드로어의 진입점이 하나이고 활동 패널을 연다', async ({ page }) => {
     await gotoMobile(page);
     await page.click('#m-drawer-toggle');
     await expect(page.locator('body')).toHaveClass(/drawer-open/);
     const acts = page.locator('#m-drawer-acts button');
-    await expect(acts).toHaveCount(2);
-    await acts.filter({ hasText: 'Runs' }).click();
+    await expect(acts).toHaveCount(1);
+    await acts.first().click();
     await expect(page.locator('#agents-panel.open .ag-sec[data-sec="runs"]')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('body')).not.toHaveClass(/drawer-open/);
+  });
+
+  test('상단바의 Activity 가 모바일에서도 선다 — 백그라운드에 닿는 길이다', async ({ page }) => {
+    await gotoMobile(page);
+    // FR-SBR-12 의 요구가 대상만 바꿔 살아 있다: 모바일에서 백그라운드 도구에
+    // 닿는 길이 있어야 한다. `#bg-btn` 이 지던 그 짐을 이것이 진다.
+    await expect(page.locator('#topbar #agents-toggle')).toBeVisible();
+    await expect(page.locator('#topbar #bg-btn')).toHaveCount(0);
+    await page.locator('#topbar #agents-toggle').click();
+    await expect(page.locator('#agents-panel.open .ag-sec[data-sec="bg"]')).toBeVisible({ timeout: 10000 });
   });
 });

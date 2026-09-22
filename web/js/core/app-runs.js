@@ -25,14 +25,7 @@ Object.assign(App.prototype, {
 });
 
 
-// FR-RVZ-1: 진입점은 정적 요소다 — index.html 의 <script> 는 본문 뒤에 오므로
-// 이 스크립트가 평가되는 시점에 이미 DOM 에 있다. 리스너를 여기서 한 번만
-// 붙이고, App 인스턴스(main.js 가 만든다)는 핸들러 안에서 본다.
-(function () {
-  const btn = document.getElementById('runs-btn');
-  if (!btn) return;
-  btn.addEventListener('click', e => {
-    e.stopPropagation();
-    if (window.app) window.app._runsModalToggle();
-  });
-})();
+// UIUX_OVERHAUL_SRS FR-CHR-15 (D-7): **`#runs-btn` 이 없어졌다.** 이 진입점은
+// `Background`·`Agents` 와 같은 패널을 열고 있었고, 셋은 `Activity` 하나가 됐다.
+// Run 구역으로 직행하는 길은 `Ctrl+Shift+O` 가 갖는다 (PANEL_SHORTCUTS_SRS
+// FR-PSC-2). `_runsModalToggle` 의 이름과 나머지 호출처 다섯은 그대로다.

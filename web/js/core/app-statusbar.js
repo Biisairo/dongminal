@@ -12,10 +12,14 @@ Object.assign(App.prototype, {
     // 창이 띄운 작업도 같은 리포의 원격 버튼을 막아야 하므로(FR-GIT-101) 이
     // 폴링이 그 목록을 나른다. 상태바 chip 은 철회됐고 폴링은 남았다.
     this._gitJobs=[];
-    // FR-BGU-4: 진입점은 정적 요소다. 리스너를 여기서 한 번만 부착한다 —
-    // 지표 재생성(updateStatusBar) 주기에 종속되면 안 된다.
-    const bgBtn=document.getElementById('bg-btn');
-    if(bgBtn) bgBtn.addEventListener('click',e=>{e.stopPropagation();this._bgModalToggle()});
+    /**
+     * UIUX_OVERHAUL_SRS FR-CHR-15 (D-7): **`#bg-btn` 이 없어졌다.**
+     *
+     * 묶음 B 가 상태바에서 상단바로 옮겨 놓은 그 진입점은 `Runs`·`Agents` 와
+     * **같은 패널**을 열고 있었다 — 문이 셋이면 방도 셋으로 읽힌다. 셋은
+     * `Activity` 하나가 됐고, 백그라운드 구역으로 직행하는 길은 `Ctrl+Shift+B`
+     * 가 갖는다 (FR-CHR-18 · `PANEL_SHORTCUTS_SRS` FR-PSC-1).
+     */
     this._initStatusBarFold();
     /**
      * FR-CHR-11 (D-6): **깼던 규약을 되돌린다.**
@@ -196,7 +200,6 @@ Object.assign(App.prototype, {
       if(pri) el.dataset.pri=String(pri);
     }
     this._foldStatusBar();
-    this._updateBgBtn();
   },
 
   /**
@@ -225,20 +228,19 @@ Object.assign(App.prototype, {
     this._sbRo.observe(bar);
   },
 
-  // FR-SBR-8..11: 진입점은 상단바 `Runs` 와 `Agents` 사이의 정적 버튼이다.
-  // 이름은 줄이지 않는다 — `BG` 는 처음 보는 사람에게 아무것도 말하지 않는다
-  // (FR-SBR-11, 1.0.3 개정).
-  // 지표 재생성과 수명을 공유하지 않으므로(FR-RPT-3) 여기서는 개수와 하이라이트만
-  // 갱신한다. **숨기지 않는다** — 나타났다 사라지는 버튼이 이웃의 자리를 흔든다 (D-3).
-  _updateBgBtn(){
-    const btn=document.getElementById('bg-btn');if(!btn)return;
-    const n=(this._bg&&this._bg.length)||0;
-    btn.textContent=n?t('html.btn_background_n',{n}):t('html.btn_background');
-    // FR-TIP-2: 툴팁은 영어다. 배지의 숫자는 그대로 — 바뀌는 것은 title 뿐이다.
-    btn.title=n?`${n} tool${n===1?'':'s'} running in the background`
-              :'No tools running in the background';
-    btn.classList.toggle('on',!!n);
-  },
+  /**
+   * UIUX_OVERHAUL_SRS FR-CHR-16 (D-7): **`_updateBgBtn` 이 사라졌다.**
+   *
+   *   이전 동작: `Background 3` 이 누르기 전에 수와 하이라이트(`.on`)를 준다
+   *   새  동작: `Activity` 는 라벨뿐이다. 수는 열어서 구역 머리의 배지로 본다
+   *   이유:     셋의 합을 세려면 Run 을 세야 하고, 그것은 *"Run 을 한 번도 열지
+   *             않은 브라우저는 RunsPanel 을 만들지 않는다"* 는 규약을 다시
+   *             깬다. FR-ACT-3 이 `⚡ n` 때문에 깼고 FR-CHR-11 이 되돌린 자리다
+   *             — 같은 값을 두 번 치르지 않는다
+   *
+   * `FR-SBR-10·11` 은 이로써 철회된다. 긴급한 것은 알림 배지가 이미 수와 함께
+   * 말한다 — *돌고 있는* 것의 수는 사람을 기다리게 하지 않는다.
+   */
 
   /**
    * FR-BGU-6/7 (**UIUX_OVERHAUL_SRS FR-ACT-2 로 개정**): 진입점은 이제 **패널**을
