@@ -214,6 +214,15 @@ Object.assign(GitPanel.prototype, {
   branchDeleteRemote(short){return GitBranches.deleteRemote(this,short)},
   // BRANCH_MENU_UNIFY_SRS FR-BMU-10: 로컬과 원격을 한 번에.
   branchDeleteBoth(t){return GitBranches.delBoth(this,t)},
+  // FR-BMU-16e: 메뉴가 짝과 그 사유를 묻는다 — 판정은 한 자리에 있다.
+  branchDeletePair(t){return GitBranches.pairOf(this,t)},
+  /**
+   * FR-BMU-16h: ref 목록을 받는 자리. 부르는 쪽은 둘이다 (Branches · History).
+   *
+   * **덮어쓴다.** 둘은 같은 종단(`/api/git/refs`)을 보므로 나중 것이 더 새롭고,
+   * 합치려 들면 사라진 ref 가 살아남는다.
+   */
+  adoptRefs(refs){this._knownRefs=Array.isArray(refs)?refs:[]},
 
   // FR-GIT-255: 머지·리베이스의 충돌은 실패가 아니라 진행 중 상태다 — 사유를
   // Changes 탭 머리에 남기고 화면을 그리로 보낸다 (FR-GIT-111 과 같은 경로).

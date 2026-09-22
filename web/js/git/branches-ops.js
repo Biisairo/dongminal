@@ -346,17 +346,82 @@ Object.assign(GitBranches, {
    *
    * 원격 이름은 **지우기 전에** 확보한다 — 로컬이 사라지면 upstream 을 읽을 수 없다.
    */
+  /**
+   * FR-BMU-16e: **짝은 어느 쪽에서 세어도 같다.**
+   *
+   * 로컬을 골랐으면 그 `upstream` 이 원격이고, 원격을 골랐으면 그것을 `upstream`
+   * 으로 추적하는 로컬이 짝이다.
+   *
+   * **짝의 근거는 추적 관계 하나다** (사용자 결정 2026-09-22). 이름이 같다는
+   * 것은 짝의 근거가 아니다 — 같은 이름의 로컬과 원격이 서로 다른 갈래일 수
+   * 있고, 그 둘을 한 번에 지우는 것은 되돌리기 어렵다. **git 이 짝이라고 적어
+   * 둔 것만 짝이다.**
+   *
+   * 추적하는 로컬이 **여럿이면 짝을 정하지 않는다** (FR-BMU-16f) — 사용자가
+   * 고르지 않은 채 파괴적 동작이 대상을 정하면 안 된다.
+   *
+   * `why` 는 비활성 사유이고 비어 있으면 짝이 섰다는 뜻이다.
+   */
+  pairOf(panel,t){
+    if(!t) return {local:null,remote:'',why:GIT_BR_WHY_NO_UPSTREAM};
+    if(t.kind!==GIT_REF_KIND_REMOTE){
+      const up=((t.upstream||'')+'').trim();
+      return {local:t,remote:up,why:up?'':GIT_BR_WHY_NO_UPSTREAM};
+    }
+    // FR-BMU-16h: **뷰가 아니라 패널에게 묻는다.** 종전에는 Branches 뷰의 사본을
+    // 읽어서, 그 탭을 한 번도 열지 않으면 추적하는 로컬이 있어도 "없다" 가 됐다.
+    const refs=Array.isArray(panel&&panel._knownRefs)?panel._knownRefs:[];
+    const hits=refs.filter(r=>r&&r.kind===GIT_REF_KIND_LOCAL
+      &&((r.upstream||'')+'').trim()===t.short);
+    if(!hits.length) return {local:null,remote:t.short,why:GIT_BR_WHY_NO_LOCAL};
+    if(hits.length>1) return {local:null,remote:t.short,why:GIT_BR_WHY_MANY_LOCAL};
+    return {local:hits[0],remote:t.short,why:''};
+  },
+
   async delBoth(panel,t){
     if(!panel||!panel.repo||!t) return;
-    const up=((t.upstream||'')+'').trim();
-    if(!up) return;
-    const res=await GitBranches._delete(panel,GitBranches.targetsOf(panel,t),false);
+    // FR-BMU-16d·16g: 어느 행에서 눌렀든 같은 쌍을 같은 순서로 지운다.
+    const pair=GitBranches.pairOf(panel,t);
+    if(pair.why||!pair.local||!pair.remote) return;
+    const up=pair.remote;
+    const res=await GitBranches._delete(panel,GitBranches.targetsOf(panel,pair.local),false);
     // FR-BMU-14: 로컬이 실패하면 원격은 건드리지 않는다.
     if(!res||!res.ok) return res;
     const rr=await GitBranches.deleteRemote(panel,up);
-    // FR-BMU-15: 반쪽만 지워진 것을 조용히 성공으로 보이지 않는다.
-    if(rr&&rr.ok===false) panel.branchNote(GIT_BR_DELETE_BOTH_FAIL);
+    /**
+     * FR-BMU-15·15a: 반쪽만 지워진 것을 조용히 성공으로 보이지 않는다.
+     *
+     *   이전 동작: `rr.ok===false` 만 보았다 — 그 조건은 **작업을 띄우지도 못한**
+     *             경우(busy · repo 없음)만 잡는다. 진짜 실패는 나중에 job 의
+     *             `done` 으로 오고 아무도 보지 않았다 (실측: exitCode 1 인데
+     *             화면의 note·err 가 둘 다 비어 있었다)
+     *   새  동작: 띄웠으면 **그 job 의 끝을 기다려** 판정한다
+     *   이유:     `run()` 의 `ok:true` 는 "띄웠다" 이지 "지워졌다" 가 아니다
+     */
+    if(!rr||rr.ok===false){GitBranches._delBothFail(rr&&rr.data);return rr}
+    const job=rr.data&&rr.data.job;
+    const done=job&&job.id?await panel._remote().awaitJob(job.id):null;
+    // 답을 못 받은 것(`null`)은 성공이 아니다 — 모르는 것을 성공으로 읽으면 이
+    // 조항이 다시 새어 나간다.
+    if(!done||done.err||done.exitCode!==0) GitBranches._delBothFail(done);
     return rr;
+  },
+
+  /**
+   * FR-BMU-15b·15d: 실패를 **사유와 함께**, 그리고 **닿는 자리**에 말한다.
+   *
+   * `panel.branchNote` 는 쓰지 않는다 — 그것이 그리는 `.git-partial-note` 는
+   * Changes 화면의 것이고, `delete-both` 를 누른 사람은 Branches 탭에 있다
+   * (실측). 파괴적 작업이 반쪽만 끝난 사실은 어느 탭에 있든 닿아야 한다.
+   *
+   * 사유는 `stderrTail` 의 **첫 `error:` 줄**이다. 마지막 줄은 대개
+   * `failed to push some refs to ...` 라 무엇 때문에 졌는지 말하지 않는다.
+   */
+  _delBothFail(jb){
+    const tail=((jb&&jb.stderrTail)||'').split('\n').map(x=>x.trim()).filter(Boolean);
+    const why=tail.find(x=>x.startsWith('error:'))||tail[0]||(jb&&jb.err)||'';
+    Toast.show(why?GIT_BR_DELETE_BOTH_FAIL+' — '+why:GIT_BR_DELETE_BOTH_FAIL,
+      'err',TOAST_ERR_MS);
   },
 
   deleteRemote(panel,short){

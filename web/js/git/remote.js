@@ -422,6 +422,10 @@ class GitRemote {
   _attach(job){
     if(!job||!job.id) return;
     this._closeStream();
+    // 앞 job 을 기다리던 쪽이 있으면 **답 없이** 끝낸다 (`null`). 새 job 이
+    // 붙었다는 것은 그 결과가 오지 않는다는 뜻이고, 매달린 채로 두면 호출자가
+    // 영원히 판정하지 못한다.
+    this._settleWaits(null);
     this._job=job;
     this._jobRepo=job.repo||this.panel.repo;
     this._done=null; this._err=null; this._conflict=false;
@@ -498,6 +502,9 @@ class GitRemote {
     const jb=job||this._job||{};
     this._done=jb;
     this._job=null;
+    // BRANCH_MENU_UNIFY_SRS FR-BMU-15a: 결과를 기다리는 쪽에 넘긴다. `run()` 의
+    // `ok` 는 "띄웠다" 까지이고 **끝났는가와 이겼는가는 여기서 정해진다.**
+    this._settleWaits(jb);
     this._canceling=false;
     this._streamErr=false;
     // pull 의 결과는 status 를 봐야 안다. **collect 의 완료를 기다리지 않는다** —
@@ -513,6 +520,40 @@ class GitRemote {
     // 걸리는지는 패널이 안다** (D-1). collect 를 기다리지 않는다 (FR-GVR-5) —
     // 서로 독립이며 기다리면 화면이 그만큼 늦는다.
     this.panel.afterRemoteJob(jb.kind);
+  }
+
+  /**
+   * BRANCH_MENU_UNIFY_SRS FR-BMU-15a: **job 하나의 끝을 기다린다.**
+   *
+   * `run()` 이 돌려주는 `ok:true` 는 *"작업을 띄웠다"* 이고 실패 사유는 `done`
+   * 이벤트가 가져온다 (이 파일 `run` 의 주석). 그 사이를 이어 주는 것이 이
+   * 메서드다 — 띄운 쪽이 결과로 판정해야 하는 자리에서 쓴다.
+   *
+   * 이미 끝난 job 이면 곧바로 답한다. 다른 job 이 붙어 있으면 그 결과는 오지
+   * 않으므로 `null` 이다 — 기다림이 끝나지 않는 것보다 모른다고 답하는 편이 낫다.
+   *
+   * **화면을 막지 않는다** (FR-BMU-15c). 진행은 job 표면이 이미 보이고 있고,
+   * 이 기다림은 판정을 위한 것이다.
+   */
+  awaitJob(id){
+    if(!id) return Promise.resolve(null);
+    if(this._done&&this._done.id===id) return Promise.resolve(this._done);
+    if(!this._job||this._job.id!==id) return Promise.resolve(null);
+    if(!this._waits) this._waits=new Map();
+    let w=this._waits.get(id);
+    if(!w){
+      let res=null;
+      const p=new Promise(r=>{res=r});
+      w={p,res};
+      this._waits.set(id,w);
+    }
+    return w.p;
+  }
+
+  _settleWaits(jb){
+    if(!this._waits||!this._waits.size) return;
+    const ws=this._waits; this._waits=new Map();
+    for(const [id,w] of ws) w.res(jb&&jb.id===id?jb:null);
   }
 
   // 관측이 하나 올 때마다 `GitPanel._applyStatus` 가 부른다 (FR-RPT-8). 화면을

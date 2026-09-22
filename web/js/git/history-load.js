@@ -157,6 +157,7 @@ Object.assign(GitHistory.prototype, {
     if(this.panel.isStale(tok)) return;
     if(!d||!d.requested||d.requested.repo!==repo) return;
     this._refs=Array.isArray(d.refs)?d.refs:[];
+    this.panel.adoptRefs(this._refs);   // FR-BMU-16h
     this.paint();
   },
 

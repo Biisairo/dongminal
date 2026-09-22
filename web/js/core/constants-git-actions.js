@@ -387,6 +387,10 @@ const GIT_BR_REMOTE_DELETE=t('git.act.br_remote_delete');
 const GIT_BR_LOCAL_ONLY=t('git.br_local_only');
 const GIT_BR_WHY_SELF=t('git.br_why_self');
 const GIT_BR_WHY_NO_UPSTREAM=t('git.br_why_no_upstream');
+// FR-BMU-16f: 원격 행에서 짝을 찾지 못한 두 갈래. 없는 것과 여럿인 것은 다른
+// 사실이므로 다르게 말한다 — 여럿이면 사용자가 고르지 않은 채 지울 수 없다.
+const GIT_BR_WHY_NO_LOCAL=t('git.br_why_no_local');
+const GIT_BR_WHY_MANY_LOCAL=t('git.br_why_many_local');
 
 // Rename (FR-GIT-253). 이름 검사는 생성 다이얼로그와 **같은 자리**를 쓴다.
 const GIT_BR_RENAME_TITLE=t('git.br_rename_title');

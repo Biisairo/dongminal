@@ -177,8 +177,13 @@ test.describe('묶음 D — 삭제 통합', () => {
     await expect.poll(() => git(repo, 'ls-remote', '--heads', 'origin', 'gone'), { timeout: 30000 }).toBe('');
   });
 
-  // TC-BMU-13 — 한쪽만 지우는 길은 그대로 남는다.
-  test('delete 와 remote-delete 가 그대로 있다', async ({ page }) => {
+  /**
+   * TC-BMU-13 (개정 D-BMU-6) — **한쪽만 지우는 길은 그대로이되 항목은 하나다.**
+   *
+   * 종전에는 원격 행에서 `delete` 가 "로컬 브랜치에서만" 으로 죽고 `remote-delete`
+   * 라는 다른 항목이 원격을 지웠다. 이제 `delete` 가 문맥을 따른다.
+   */
+  test('delete 가 문맥을 따르고 remote-delete 는 없다', async ({ page }) => {
     const repo = copyFx('with-remote', 'bmu-d3');
     await waitForInit(page);
     await openBranches(page, repo);
@@ -187,12 +192,212 @@ test.describe('묶음 D — 삭제 통합', () => {
     await openMenu(page, 'no-upstream');
     await expect(item(page, 'delete')).toHaveCount(1);
     expect(await isDisabled(page, 'delete')).toBe(false);
+    await expect(item(page, 'delete')).toContainText('Delete');
+    await expect(item(page, 'remote-delete')).toHaveCount(0);
     await closeMenu(page);
 
+    // FR-BMU-16c: 원격 ref 에서도 **활성**이고, 라벨이 무엇을 지우는지 말한다.
     await openMenu(page, 'origin/main');
-    await expect(item(page, 'remote-delete')).toHaveCount(1);
-    expect(await isDisabled(page, 'remote-delete')).toBe(false);
+    await expect(item(page, 'delete')).toHaveCount(1);
+    expect(await isDisabled(page, 'delete')).toBe(false);
+    await expect(item(page, 'delete')).toContainText('Delete remote branch');
+    await expect(item(page, 'remote-delete')).toHaveCount(0);
     await closeMenu(page);
+  });
+
+  // TC-BMU-22 — 원격 행의 delete 는 그 원격만 지운다.
+  test('원격 ref 의 delete 가 원격만 지운다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'bmu-d4');
+    git(repo, 'push', '-q', 'origin', 'no-upstream:only-remote');
+    git(repo, 'fetch', '-q', 'origin');
+    await waitForInit(page);
+    await openBranches(page, repo);
+    await waitRefs(page, 3);
+
+    await openMenu(page, 'origin/only-remote');
+    await item(page, 'delete').click();
+    await expect(confirm(page)).toBeVisible({ timeout: 15000 });
+    await confirm(page).locator('.gc-go').click();
+
+    await expect.poll(() => git(repo, 'ls-remote', '--heads', 'origin', 'only-remote'),
+      { timeout: 30000 }).toBe('');
+    // 로컬은 건드리지 않는다 — 한쪽만 지우는 길이다.
+    expect(git(repo, 'branch', '--list', 'no-upstream')).toContain('no-upstream');
+  });
+
+  // TC-BMU-24 — 원격 행에서도 짝을 지운다 (FR-BMU-16d·16e·16g).
+  test('원격 ref 의 delete-both 가 짝지어진 둘을 지운다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'bmu-d6');
+    git(repo, 'push', '-q', '-u', 'origin', 'no-upstream:paired');
+    git(repo, 'fetch', '-q', 'origin');
+    await waitForInit(page);
+    await openBranches(page, repo);
+    await waitRefs(page, 3);
+
+    // 종전에는 여기서 "로컬 브랜치에서만 쓸 수 있습니다" 로 죽었다.
+    await openMenu(page, 'origin/paired');
+    expect(await isDisabled(page, 'delete-both')).toBe(false);
+    await item(page, 'delete-both').click();
+
+    // FR-BMU-12: 영향 범위에 둘 다 — 어느 행에서 눌렀든 같은 쌍이다.
+    await expect(confirm(page)).toBeVisible({ timeout: 15000 });
+    const listed = (await confirm(page).textContent()) || '';
+    expect(listed).toContain('no-upstream');
+    expect(listed).toContain('origin/paired');
+    await confirm(page).locator('.gc-go').click();
+
+    await expect.poll(() => git(repo, 'branch', '--list', 'no-upstream'), { timeout: 30000 }).toBe('');
+    await expect.poll(() => git(repo, 'ls-remote', '--heads', 'origin', 'paired'), { timeout: 30000 }).toBe('');
+  });
+
+  /**
+   * TC-BMU-27 (FR-BMU-16h) — **Branches 탭을 열지 않아도 짝을 안다.**
+   *
+   * 접수: *"remote local 이 둘 다 존재하는데 `Delete local and remote` 가
+   * 비활성이다."* 원인은 짝 판정이 **Branches 뷰의 사본**을 읽은 것이었다 —
+   * 그 탭을 한 번도 열지 않으면 목록이 비어 "추적하는 로컬이 없다" 가 됐다.
+   */
+  test('Branches 탭을 열지 않은 채 History 배지에서도 짝을 찾는다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'bmu-d9');
+    git(repo, 'push', '-q', '-u', 'origin', 'no-upstream:tracked');
+    git(repo, 'fetch', '-q', 'origin');
+
+    await waitForInit(page);
+    await page.evaluate((r: string) => (window as any).app.openGitWindow(r), repo);
+    await page.waitForSelector('#area .ed-win .ed-side', { timeout: 15000 });
+    // **history 만** 연다 — branches 는 열지 않는다.
+    await page.evaluate(() => {
+      const a = (window as any).app;
+      a.testing.edSetSide(a.testing.aw(), 'changes');
+      a.gitPanel.openView('history');
+    });
+    await clickGitView(page, 'history');
+
+    const badge = page.locator('#area .pn-body .git-hist-badge').filter({ hasText: 'origin/tracked' }).first();
+    await expect(badge).toBeVisible({ timeout: 20000 });
+    // 착수 시 RED: 여기서 "이 원격을 추적하는 로컬 브랜치가 없습니다" 로 죽었다.
+    await badge.click({ button: 'right' });
+    await expect(menu(page)).toBeVisible();
+    expect(await isDisabled(page, 'delete-both')).toBe(false);
+    await closeMenu(page);
+  });
+
+  // TC-BMU-25 — 짝이 없으면 사유와 함께 죽는다 (FR-BMU-16f).
+  test('추적하는 로컬이 없는 원격에서는 delete-both 가 사유와 함께 비활성이다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'bmu-d7');
+    // upstream 을 세우지 않고 올린다 — 이 원격을 추적하는 로컬이 없다.
+    git(repo, 'push', '-q', 'origin', 'no-upstream:orphan');
+    git(repo, 'fetch', '-q', 'origin');
+    await waitForInit(page);
+    await openBranches(page, repo);
+    await waitRefs(page, 3);
+
+    await openMenu(page, 'origin/orphan');
+    expect(await isDisabled(page, 'delete-both')).toBe(true);
+    await expect(item(page, 'delete-both')).toHaveAttribute('title', /로컬 브랜치가 없습니다/);
+    // 같은 행의 `delete` 는 살아 있다 — 원격 하나만 지우는 길이다.
+    expect(await isDisabled(page, 'delete')).toBe(false);
+    await closeMenu(page);
+  });
+
+  /**
+   * TC-BMU-26 (FR-BMU-16g) — 짝은 섰는데 **그 로컬이 현재 브랜치**인 경우.
+   *
+   * 원격만 지우고 끝나는 경로를 만들지 않는다. 그것이 필요하면 같은 메뉴의
+   * `delete` 가 이미 그 길이다.
+   */
+  test('짝지어진 로컬이 현재 브랜치면 delete-both 가 죽는다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'bmu-d8');
+    await waitForInit(page);
+    await openBranches(page, repo);
+    await waitRefs(page, 3);
+
+    // `main` 이 `origin/main` 을 추적하고 그것이 HEAD 다.
+    await openMenu(page, 'origin/main');
+    expect(await isDisabled(page, 'delete-both')).toBe(true);
+    await expect(item(page, 'delete-both')).toHaveAttribute('title', /현재 브랜치/);
+    expect(await isDisabled(page, 'delete')).toBe(false);
+    await closeMenu(page);
+  });
+
+  // TC-BMU-23 — 로컬 행의 delete 는 종전 그대로다.
+  test('로컬 ref 의 delete 는 로컬만 지운다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'bmu-d5');
+    git(repo, 'push', '-q', '-u', 'origin', 'no-upstream:keep-remote');
+    git(repo, 'fetch', '-q', 'origin');
+    await waitForInit(page);
+    await openBranches(page, repo);
+    await waitRefs(page, 3);
+
+    await openMenu(page, 'no-upstream');
+    await item(page, 'delete').click();
+    await expect(confirm(page)).toBeVisible({ timeout: 15000 });
+    await confirm(page).locator('.gc-go').click();
+
+    await expect.poll(() => git(repo, 'branch', '--list', 'no-upstream'), { timeout: 30000 }).toBe('');
+    expect(git(repo, 'ls-remote', '--heads', 'origin', 'keep-remote')).toContain('keep-remote');
+  });
+});
+
+/**
+ * TC-BMU-20·21 (FR-BMU-15·15a·15b·15d) — **반쪽만 지워진 것을 말한다.**
+ *
+ * 착수 시 이 조항은 구현되지 않고 있었다. `GitRemote.run()` 의 `ok:true` 는
+ * *"작업을 띄웠다"* 이지 *"지워졌다"* 가 아닌데 `delBoth` 는 그것만 보았다 —
+ * 진짜 실패는 job 의 `done` 으로 오고 아무도 보지 않았다.
+ */
+test.describe('묶음 F — 반쪽 실패를 말한다', () => {
+  const toast = (page: Page) => page.locator('#toast-host .toast');
+
+  // TC-BMU-20
+  test('원격 삭제가 지면 그 사유가 화면에 뜬다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'bmu-f1');
+    git(repo, 'push', '-q', '-u', 'origin', 'no-upstream:feature/ghost');
+    git(repo, 'branch', '-q', '--set-upstream-to=origin/feature/ghost', 'no-upstream');
+    git(repo, 'fetch', '-q', 'origin');
+    // 원격에서만 지운다 — upstream 설정과 원격 추적 ref 는 남으므로 메뉴는 활성이고,
+    // 실제 `push --delete` 는 "remote ref does not exist" 로 진다.
+    execFileSync('git', ['-C', git(repo, 'remote', 'get-url', 'origin'), 'branch', '-D', 'feature/ghost']);
+
+    await waitForInit(page);
+    await openBranches(page, repo);
+    await waitRefs(page, 3);
+
+    await openMenu(page, 'no-upstream');
+    await item(page, 'delete-both').click();
+    await expect(confirm(page)).toBeVisible({ timeout: 15000 });
+    await confirm(page).locator('.gc-go').click();
+
+    // 로컬은 사라진다 (FR-BMU-13: 로컬 먼저).
+    await expect.poll(() => git(repo, 'branch', '--list', 'no-upstream'), { timeout: 30000 }).toBe('');
+
+    // FR-BMU-15d: 자리는 토스트다 — Branches 탭에서 누른 사람에게 닿아야 한다.
+    await expect(toast(page)).toBeVisible({ timeout: 30000 });
+    const text = (await toast(page).textContent()) || '';
+    // FR-BMU-15b: 사유를 싣는다. 무엇 때문에 졌는지 없으면 다음에 할 일을 못 고른다.
+    expect(text, `사유가 없다: ${text}`).toContain('remote ref does not exist');
+  });
+
+  // TC-BMU-21 — 기다림이 거짓 경보를 만들지 않는다.
+  test('원격이 실제로 지워지면 조용하다', async ({ page }) => {
+    const repo = copyFx('with-remote', 'bmu-f2');
+    git(repo, 'push', '-q', '-u', 'origin', 'no-upstream:feature/real');
+    git(repo, 'branch', '-q', '--set-upstream-to=origin/feature/real', 'no-upstream');
+    git(repo, 'fetch', '-q', 'origin');
+
+    await waitForInit(page);
+    await openBranches(page, repo);
+    await waitRefs(page, 3);
+
+    await openMenu(page, 'no-upstream');
+    await item(page, 'delete-both').click();
+    await expect(confirm(page)).toBeVisible({ timeout: 15000 });
+    await confirm(page).locator('.gc-go').click();
+
+    await expect.poll(() => git(repo, 'branch', '--list', 'no-upstream'), { timeout: 30000 }).toBe('');
+    await expect.poll(() => git(repo, 'ls-remote', '--heads', 'origin', 'feature/real'), { timeout: 30000 }).toBe('');
+    // 둘 다 지워졌으므로 실패 안내가 설 이유가 없다.
+    await expect(toast(page)).toHaveCount(0);
   });
 });
 

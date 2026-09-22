@@ -74,6 +74,16 @@ class GitPanel {
     this._sel=new Set();          // 다중 선택 (FR-GIT-69). group\0path
     this._anchor=null;            // Shift 범위 선택의 기준 행
     this._note=null;              // 쓰기 실패·부분 적용 안내 (FR-GIT-73)
+    /**
+     * BRANCH_MENU_UNIFY_SRS FR-BMU-16h: **마지막으로 본 ref 목록.**
+     *
+     * `/api/git/refs` 를 부르는 자리가 둘이고(Branches 뷰 · History 뷰) 각자
+     * 자기 사본을 들고 있었다. 그래서 메뉴의 짝 판정이 **Branches 탭을 한 번도
+     * 열지 않으면** 빈 목록을 보고 "추적하는 로컬이 없다" 고 답했다 — 실제로는
+     * 있는데도. 진입점 셋이 같은 대답을 해야 하므로(FR-BMU-17) 목록도 한 자리에
+     * 둔다. 받는 쪽이 둘인 것은 그대로다.
+     */
+    this._knownRefs=[];
     this._commitView=null;        // 커밋 영역 (FR-GIT-74~85)
     this._historyView=null;       // History 탭 (FR-GIT-113~139)
     this._branchesView=null;      // Branches 탭 (FR-GIT-147~160)

@@ -182,37 +182,78 @@ const GIT_MENUS={
     {sep:true},
     // 삭제는 파괴적이다 (`branch_delete`). hint 는 **지우기 전 oid** 로 만든다
     // (FR-GIT-250.2) — 목록이 그 값을 이미 싣고 있다 (/api/git/refs).
-    {id:'delete',label:GIT_BR_DELETE,destructive:true,
-     action:GIT_ACT_BRANCH_DELETE,title:GIT_BR_DELETE_TITLE,
-     disabled:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY:(t.isHead?GIT_MENU_CURRENT:''),
-     targets:t=>gitMenuPanel().branchDeleteTargets(t),
-     hint:t=>({note:GIT_BR_DELETE_NOTE,command:'git branch '+t.short+' '+(t.oid||'')}),
-     run:t=>gitMenuPanel().branchDelete(t)},
+    /**
+     * FR-BMU-16 (개정 D-BMU-6): **삭제는 고른 것을 지운다.**
+     *
+     *   이전 동작: 원격 ref 에서 `Delete` 가 "로컬 브랜치에서만" 으로 죽고,
+     *             원격을 지우는 것은 아래의 `remote-delete` 라는 **다른 항목**이었다
+     *   새  동작: 한 항목이 문맥을 따른다 — 로컬 행은 로컬을, 원격 행은 그 원격을
+     *   이유:     원격 행을 우클릭한 사람이 `Delete` 에서 기대하는 것은 그 원격이다.
+     *             메뉴는 고른 대상을 이미 아는데 두 번 고르게 하고 있었다
+     *
+     * **한쪽만 지우는 길은 그대로다** — 로컬 행은 원격을, 원격 행은 로컬을
+     * 건드리지 않는다. 둘을 함께 지우는 것은 여전히 `delete-both` 하나다.
+     *
+     * `action` 이 갈리는 것이 요점이다 (FR-BMU-16a): 파괴적 확인의 단계와 문안은
+     * 서버의 파괴적 목록이 `action` 으로 정하므로, 뭉뚱그리면 원격 삭제가 로컬
+     * 삭제의 확인을 입는다.
+     */
+    {id:'delete',destructive:true,
+     label:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_BR_REMOTE_DELETE:GIT_BR_DELETE,
+     action:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_ACT_REMOTE_REF_DELETE:GIT_ACT_BRANCH_DELETE,
+     title:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_BR_REMOTE_DELETE_TITLE:GIT_BR_DELETE_TITLE,
+     // FR-BMU-16c: 원격 ref 에는 막을 사유가 없다. 로컬은 종전대로 현재 브랜치가 죽는다.
+     disabled:t=>t.kind===GIT_REF_KIND_REMOTE?'':(t.isHead?GIT_MENU_CURRENT:''),
+     targets:t=>t.kind===GIT_REF_KIND_REMOTE?[t.short]:gitMenuPanel().branchDeleteTargets(t),
+     hint:t=>t.kind===GIT_REF_KIND_REMOTE
+       ?({note:GIT_BR_REMOTE_DELETE_NOTE,command:GitBranches.restoreRemoteCmd(t)})
+       :({note:GIT_BR_DELETE_NOTE,command:'git branch '+t.short+' '+(t.oid||'')}),
+     run:t=>t.kind===GIT_REF_KIND_REMOTE
+       ?gitMenuPanel().branchDeleteRemote(t.short)
+       :gitMenuPanel().branchDelete(t)},
     // FR-BMU-10·11: 셋째 길 — 로컬과 원격을 한 번에. upstream 이 있는 로컬
     // 브랜치에서만 열린다. 영향 범위에 **둘 다** 실어 무엇이 사라지는지 보인다
     // (FR-BMU-12 / FR-GIT-91).
+    /**
+     * FR-BMU-16d (D-BMU-6): **이 항목도 문맥을 따른다.**
+     *
+     * 두 삭제의 뜻을 가르는 축은 *대상*이 아니라 **범위**다 — 위의 `delete` 는
+     * 고른 그것만, 이것은 짝지어진 둘이다. 어느 행에서 눌러도 같은 쌍을 지운다.
+     *
+     * 짝을 세는 것과 그 사유는 `pairOf` 한 자리가 안다 (FR-BMU-16e) — 비활성
+     * 판정과 실행이 같은 답을 봐야 눌러 놓고 아무 일도 안 일어나지 않는다.
+     */
     {id:'delete-both',label:GIT_BR_DELETE_BOTH,destructive:true,
      action:GIT_ACT_BRANCH_DELETE,title:GIT_BR_DELETE_BOTH_TITLE,
-     disabled:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY
-       :(t.isHead?GIT_MENU_CURRENT:(t.upstream?'':GIT_BR_WHY_NO_UPSTREAM)),
-     targets:t=>[t.short,t.upstream||''].filter(Boolean),
-     hint:t=>({note:GIT_BR_DELETE_BOTH_NOTE,
-       command:'git branch '+t.short+' '+(t.oid||'')
-         +'\n'+GitBranches.restoreRemoteCmd({short:t.upstream||'',oid:t.oid})}),
+     disabled:t=>{
+       const p=gitMenuPanel().branchDeletePair(t);
+       if(p.why) return p.why;
+       // FR-BMU-16g: 로컬 먼저라는 순서는 어느 행에서 눌렀는가와 무관하다.
+       // 지울 수 없는 로컬이면 원격만 지우고 끝나는 경로를 만들지 않는다.
+       return p.local&&p.local.isHead?GIT_MENU_CURRENT:'';
+     },
+     targets:t=>{
+       const p=gitMenuPanel().branchDeletePair(t);
+       return [p.local&&p.local.short,p.remote].filter(Boolean);
+     },
+     hint:t=>{
+       const p=gitMenuPanel().branchDeletePair(t);
+       const loc=p.local||{};
+       return {note:GIT_BR_DELETE_BOTH_NOTE,
+         command:'git branch '+(loc.short||'')+' '+(loc.oid||'')
+           +'\n'+GitBranches.restoreRemoteCmd({short:p.remote||'',oid:loc.oid})};
+     },
      run:t=>gitMenuPanel().branchDeleteBoth(t)},
     {sep:true},
-    // 원격 브랜치의 세 항목 (FR-GIT-268). 로컬에서는 비활성이고 사유가 보인다.
-    // FR-BMU-1: 옛 `remote-pull` 은 폐기됐다 — 위의 `merge` 가 그 일을 한다.
+    // 원격 브랜치의 무리 (FR-GIT-268). 로컬에서는 비활성이고 사유가 보인다.
+    //
+    // **셋이 하나가 됐다.** FR-BMU-1 이 `remote-pull` 을 폐기했고(위의 `merge` 가
+    // 그 일을 한다), FR-BMU-16(D-BMU-6)이 `remote-delete` 를 걷었다(위의 `delete`
+    // 가 원격 행에서 그 일을 한다). 남은 것은 fetch 뿐이다 — 그것만이 원격 ref
+    // 에서만 뜻을 갖고 다른 항목이 대신할 수 없다.
     {id:'remote-fetch',label:GIT_BR_REMOTE_FETCH,
      disabled:t=>t.kind===GIT_REF_KIND_REMOTE?'':GIT_MENU_LOCAL_ONLY,
      run:t=>gitMenuPanel().branchFetchInto(t.short)},
-    {id:'remote-delete',label:GIT_BR_REMOTE_DELETE,destructive:true,
-     action:GIT_ACT_REMOTE_REF_DELETE,title:GIT_BR_REMOTE_DELETE_TITLE,
-     disabled:t=>t.kind===GIT_REF_KIND_REMOTE?'':GIT_MENU_LOCAL_ONLY,
-     targets:t=>[t.short],
-     hint:t=>({note:GIT_BR_REMOTE_DELETE_NOTE,
-       command:GitBranches.restoreRemoteCmd(t)}),
-     run:t=>gitMenuPanel().branchDeleteRemote(t.short)},
   ],
   // 태그 (FR-GIT-260~262). 생성은 대상을 묻지 않고 열린다 — 비우면 HEAD 다.
   //
@@ -352,7 +393,7 @@ class GitMenu {
       if(it.sep) return {sep:true};
       const why=it.disabled?(it.disabled(target)||''):'';
       return {
-        id:it.id,label:it.label,cur:!!it.cur,
+        id:it.id,label:GitMenu._val(it.label,target),cur:!!it.cur,
         // 사유가 있으면 그것이 title 이고, 없으면 툴팁(`tip`)이다 — `title` 은
         // 확인 다이얼로그의 제목으로 이미 쓰인다.
         disabled:why||false,title:why?'':(it.tip||''),
@@ -365,6 +406,15 @@ class GitMenu {
     });
     m.dataset.kind=kind;
   }
+
+  /**
+   * BRANCH_MENU_UNIFY_SRS FR-BMU-16b: 항목의 값이 **대상을 볼 수 있다.**
+   *
+   * `disabled`·`targets`·`hint` 는 이미 `t=>...` 꼴이었고 `label`·`title`·
+   * `action` 만 상수였다. 그래서 한 항목이 문맥에 따라 다른 것을 지우게 만들 수
+   * 없었다 — 규약을 하나로 맞춘다. 상수는 그대로 상수로 지난다.
+   */
+  static _val(v,target){return typeof v==='function'?v(target):v}
 
   static close(){UIKit.closeMenu()}
 
@@ -381,8 +431,8 @@ class GitMenu {
     if(typeof it.run!=='function') return;
     if(it.warn||it.destructive){
       const ok=await GitDialog.confirm({
-        action:it.action||it.id,
-        title:it.title||it.label,
+        action:GitMenu._val(it.action,target)||it.id,
+        title:GitMenu._val(it.title,target)||GitMenu._val(it.label,target),
         targets:it.targets?it.targets(target):[],
         hint:it.hint?it.hint(target):null,
         stages:1,

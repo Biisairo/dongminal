@@ -304,6 +304,17 @@ merge·rebase·cherry-pick·revert 를 열면 **충돌로 멈춘 중간 상태**
 - **FR-GIT-268** **원격 브랜치 메뉴.** `Pull/Merge`(그 원격 ref 를 현재 브랜치로) ·
   `Fetch into local`(같은 이름 로컬 ref 갱신) · `Delete remote branch`.
   - 삭제는 `remote_ref_delete` 로 파괴적이며 hint 는 되살리는 push 다.
+
+  > **셋 중 둘이 제 항목을 잃었다** (`BRANCH_MENU_UNIFY_SRS`). `Pull/Merge` 는
+  > FR-BMU-1 이, `Delete remote branch` 는 FR-BMU-16(D-BMU-6)이 걷었다 — 둘 다
+  > **같은 일을 하는 항목이 둘이던 자리**이고, 남은 `merge`·`delete` 가 고른
+  > 대상을 따른다. 원격 행에서 `delete` 를 누르면 그 원격을 지운다.
+  >
+  > **이 조항의 세 동작은 그대로 산다** — 사라진 것은 항목이지 길이 아니다.
+  > 삭제가 `remote_ref_delete` 로 파괴적인 것도, hint 가 되살리는 push 인 것도
+  > 바뀌지 않았다 (`delete` 의 `action`·`hint` 가 대상 종류를 따른다).
+  > 원격 ref 에서만 뜻을 갖고 다른 항목이 대신할 수 없는 `Fetch into local` 만
+  > 제 항목으로 남는다.
 - **FR-GIT-269** **remote 목록 · add / remove.** Branches 탭에 원격 목록을 두고
   `git remote add|remove` 를 붙인다. remove 는 파괴적이 아니다(설정만 지운다) —
   다만 되살릴 `git remote add <name> <url>` 을 hint 로 남긴다.

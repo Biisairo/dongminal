@@ -263,15 +263,21 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await page.keyboard.press('Escape');
 
     // 원격 ref 에서는 로컬 전용 항목이 전부 비활성이고 사유가 다르다.
+    //
+    // **`delete` 는 이 무리에서 빠졌다** (`BRANCH_MENU_UNIFY_SRS` FR-BMU-16 /
+    // D-BMU-6): 그것은 이제 로컬 전용이 아니라 **고른 대상을 따르는** 항목이라
+    // 원격 행에서도 열려 있다. 나머지 셋은 종전 그대로다.
     git(repo, 'push', '-q', 'origin', 'no-upstream:feat');
     git(repo, 'fetch', '-q', 'origin');
     await page.evaluate(() => (window as any).app.gitPanel.refresh());
     await expect(row(page, 'origin/feat')).toHaveCount(1, { timeout: 20000 });
     await openRowMenu(page, row(page, 'origin/feat'));
-    for (const id of ['delete', 'rename', 'push', 'upstream-set']) {
+    for (const id of ['rename', 'push', 'upstream-set']) {
       await expect(item(page, id), id + ' 가 원격 ref 에서 열려 있다').toHaveClass(/disabled/);
       await expect(item(page, id)).toHaveAttribute('title', /로컬 브랜치/);
     }
+    await expect(item(page, 'delete'), 'delete 가 원격 ref 에서 막혔다').not.toHaveClass(/disabled/);
+    await expect(item(page, 'delete')).toContainText('Delete remote branch');
   });
 
   test('BR6 (V181 / FR-GIT-254): 다중 선택 일괄 삭제는 `-D` 를 제공하지 않는다', async ({ page }) => {
@@ -541,7 +547,7 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     }, { timeout: 30000 }).toBe('origin/no-upstream');
   });
 
-  test('BR14 (V195 / FR-GIT-268): 원격 브랜치의 세 항목이 각각 동작한다', async ({ page }) => {
+  test('BR14 (V195 / FR-GIT-268): 원격 브랜치의 세 동작이 각각 듣는다', async ({ page }) => {
     const repo = copyFx('with-remote', 'br14');
     git(repo, 'push', '-q', 'origin', 'no-upstream:feat');
     git(repo, 'fetch', '-q', 'origin');
@@ -567,8 +573,12 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     await page.keyboard.press('Escape');
 
     // ③ Delete remote branch — 파괴적이며 hint 는 **되살리는 push** 다.
+    //
+    // **항목이 `delete` 로 합쳐졌다** (FR-BMU-16 / D-BMU-6). 원격 행에서 `delete`
+    // 가 그 원격을 지우므로 `remote-delete` 는 중복이 되어 없어졌다 — 재는 것은
+    // 같다: 확인 단계 · 되살리는 명령 · 실제로 지워지는가.
     await row(page, 'origin/feat').click({ button: 'right' });
-    await item(page, 'remote-delete').click();
+    await item(page, 'delete').click();
     await expect(confirm(page)).toBeVisible({ timeout: 15000 });
     await expect(confirm(page)).toHaveAttribute('data-stage', '1');
     const cmd = (await confirm(page).locator('.gc-hint-cmd').textContent())!.trim();

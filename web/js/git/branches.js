@@ -219,6 +219,7 @@ class GitBranches {
     const d=res.data;
     this._err=null;
     this._refs=Array.isArray(d.refs)?d.refs:[];
+    this.panel.adoptRefs(this._refs);   // FR-BMU-16h
     if(this._el) this.paint();
   }
 }
