@@ -35,7 +35,12 @@ const SAMPLES: [string, number][] = [
   ['#panel-display .ds-row > span:first-child', 5],
   ['#panel-display .ds-hint', 0],
   ['#preset-save', 0],
-  ['#panel-shortcuts .ds-row > span:first-child', 0],
+  // **표본이 하나 옮겨졌다** (`UX_REVISION_SRS` FR-KEY-6 철회 / D-K2). 종전의
+  // `#panel-shortcuts .ds-row` 는 브라우저 기본키 차단 스위치의 줄이었고, 그
+  // 스위치가 없어졌다 — 차단은 이제 끌 수 없다. 이 축이 재는 것은 *"로케일을
+  // 바꾸면 문구가 바뀌는가"* 이므로 **같은 패널의 번역되는 다른 문구**로
+  // 대신한다. 열 곳이라는 수는 그대로다.
+  ['#panel-shortcuts .sc-row > span:first-child', 0],
   ['#panel-shortcuts .ds-hint', 0],
   ['#bk-export', 0],
   ['#bk-import', 0],

@@ -56,12 +56,6 @@ const SETTINGS_ACCESS={
     const cb=document.getElementById('ds-claudefs');
     if(cb) cb.checked=claudeFullscreen;
   }},
-  // FR-KEY-6: 저장된 적 없으면 기본값(켬).
-  blockBrowserKeys:{get:()=>blockBrowserKeys,set(v){
-    blockBrowserKeys=v;
-    const bk=document.getElementById('sc-blockbrowser');
-    if(bk) bk.checked=blockBrowserKeys;
-  }},
   // PAGE_TITLE_SRS FR-PGT-10
   pageTitle:{get:()=>pageTitle,set(v){pageTitle=v;this._applyPageTitle()}},
   // FR-LVC-6: 저장된 적 없으면 기본값(끔).
@@ -382,8 +376,6 @@ Object.assign(App.prototype, {
       if(dsFg) dsFg.checked=fgTabNames;
       // FR-WSL-81: 슬롯 방향 세그먼트. 열 때마다 현재 값을 다시 칠한다.
       this._slotDirPaint();
-      const scBlock=document.getElementById('sc-blockbrowser');
-      if(scBlock) scBlock.checked=blockBrowserKeys;
       const dsCfs=document.getElementById('ds-claudefs');
       if(dsCfs) dsCfs.checked=claudeFullscreen;
       this._labelSettingsRows();
@@ -446,7 +438,6 @@ Object.assign(App.prototype, {
     this._initTabWidth();
     this._initUiFontScale();
     this._initFgNames();
-    this._initBlockKeys();
     this._initClaudeFullscreen();
     this._initTermFontSize();
     this._initClaudeScrollSpeed();

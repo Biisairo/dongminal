@@ -104,7 +104,7 @@ Object.assign(App.prototype, {
    * AGENT_RENDER_ENV_SRS FR-ARE-3: Settings ▸ Terminal 의 `Claude Code 를
    * fullscreen 으로 띄우기`.
    *
-   * 값이 서버에 사는 이유는 `blockBrowserKeys` 와 같다 — **쓰는 주체가 서버**이고
+   * 값이 서버에 사는 이유는 `fgTabNames` 와 같다 — **쓰는 주체가 서버**이고
    * (도구를 띄울 때 환경에 넣는다) 정하는 자리만 화면이다.
    */
   _initClaudeFullscreen(){
@@ -118,26 +118,22 @@ Object.assign(App.prototype, {
   },
 
   /**
-   * FR-KEY-6: Settings ▸ Shortcuts 의 `브라우저 기본 단축키 차단`.
+   * UX_REVISION_SRS FR-KEY-6 철회 (D-K2): **`_initBlockKeys` 가 사라졌다.**
    *
-   * 값이 서버에 있는 이유는 `fgTabNames` 와 같다 — 단축키 자체가 서버 설정이고,
-   * 그 단축키가 실제로 먹히는지를 정하는 스위치가 다른 곳에 살면 두 값이
-   * 브라우저마다 어긋난다.
+   *   이전 동작: Shortcuts 탭의 스위치로 브라우저 기본키 차단을 끌 수 있다
+   *   새  동작: 스위치가 없다. 차단은 늘 돈다
+   *   이유:     기본값이 이미 켬이라 **동작은 바뀌지 않는다.** 끄는 유일한
+   *             실사용 근거가 *"입력란에서 편집 키가 막힌다"* 였고, 그것은
+   *             설정이 아니라 면제표의 결함이었다 (FR-KEY-8)
+   *
+   * 서버 blob 에 남은 값은 `settingsschema.Validate` 가 unknown 으로 흘린다 —
+   * 마이그레이션이 필요 없다.
    */
-  _initBlockKeys(){
-    const cb=document.getElementById('sc-blockbrowser');
-    if(!cb) return;
-    cb.checked=blockBrowserKeys;
-    cb.addEventListener('change',()=>{
-      blockBrowserKeys=cb.checked;
-      this.saveSettings();
-    });
-  },
 
   /**
    * FR-LVC-1·10: Settings ▸ Display 의 `떠날 때 확인`.
    *
-   * 값이 서버에 있는 이유는 `blockBrowserKeys` 와 같다 (D-2). 자리가 Display 인
+   * 값이 서버에 있는 이유는 `pageTitle` 과 같다 (D-2). 자리가 Display 인
    * 이유는 D-3 이다 — 저쪽은 **키**를 다루고 이쪽은 떠남의 동작이다.
    *
    * 가드가 이 전역을 그때그때 읽으므로 리스너를 다시 걸 일이 없다 (FR-LVC-10).

@@ -314,6 +314,43 @@ const KEY_BLOCK_EXEMPT_MOD=new Set(['KeyC','KeyV','KeyX','KeyA','KeyI','KeyJ','K
  * 거기 이미 있다).
  */
 const KEY_BLOCK_EXEMPT_TEXT=new Set(['KeyZ','KeyY']);
+/**
+ * UX_REVISION_SRS FR-KEY-8 (D-K2): **자리 이동과 지움.**
+ *
+ * FR-M9-44 가 면제를 여섯으로 좁히면서 입력기의 네이티브 편집이 통째로 막혔다 —
+ * 실측: `Cmd+←` 가 커서를 움직이지 않고 `Cmd+Backspace` 가 줄을 지우지 않는다.
+ * 그 개정의 진단(*"면제가 근거보다 넓었다"*)은 맞았지만 **좁힌 목록이 이번에는
+ * 근거보다 좁았다**: 클립보드와 되돌리기만 셌고 커서 이동·줄 삭제를 세지 않았다.
+ *
+ * `Alt+←`(단어 단위)가 살아남은 것은 면제되어서가 아니라 `Ctrl`·`Meta` 가 아니라
+ * FR-KEY-2 에 걸리지 않은 것이다 — 우연이었다.
+ */
+const KEY_EDIT_CODES=new Set([
+  'ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Backspace','Delete','Home','End',
+]);
+/**
+ * FR-KEY-8: **macOS 의 `Ctrl` 조합은 통째로 편집이다.**
+ *
+ * 그 자리의 편집 키는 emacs 계열이고(`Ctrl+A`·`E`·`B`·`F`·`N`·`P`·`K`·`D`·`H`·
+ * `W`·`U`·`Y`·`T`·`O`) **낱자로 세면 반드시 빠뜨린다** — 이번 결함이 그 증거다.
+ * 그리고 macOS 의 브라우저 액셀러레이터는 `Cmd` 기반이라 이 면제와 **겹치는
+ * 것이 없다**: 넓게 면제해도 잃는 차단이 없다.
+ *
+ * Windows·Linux 는 반대다 — 그쪽은 `Ctrl` 이 브라우저의 것이므로 위의 코드
+ * 목록만 면제한다. 같은 규칙을 양쪽에 쓰면 한쪽에서 반드시 틀린다.
+ *
+ * `userAgentData` 가 정본이고 `platform` 은 그것이 없는 판을 받는다 (Safari·
+ * 구판 Firefox). 둘 다 없으면 macOS 가 아닌 쪽으로 읽는다 — 좁은 면제가
+ * 기본값이어야 차단이 조용히 새지 않는다.
+ */
+const IS_MAC=(()=>{
+  // 유닛 하네스는 이 파일을 `vm` 컨텍스트에서 평가한다 — 거기에는 `navigator`
+  // 가 없다. 브라우저가 아닌 자리는 macOS 가 아닌 쪽으로 읽는다.
+  if(typeof navigator==='undefined') return false;
+  const ua=navigator.userAgentData;
+  if(ua&&ua.platform) return ua.platform==='macOS';
+  return /Mac/i.test(navigator.platform||'');
+})();
 
 
 // Built-in hotkeys are not user-rebindable and may match modifier variants

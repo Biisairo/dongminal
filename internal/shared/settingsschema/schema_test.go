@@ -21,8 +21,11 @@ func TestLoadReadsEmbeddedTable(t *testing.T) {
 	//    + AGENT_RENDER_ENV_SRS FR-ARE-8 의 `claudeScrollSpeed`
 	//    + UX_BATCH10_SRS FR-UXB-42 의 `diffMinimap`.
 	//    `agentApprovalMode` 는 에이전트 GUI 와 함께 빠졌다 (AGENT_GUI_REMOVAL_SRS FR-AGR-4).
-	if len(specs) != 30 {
-		t.Fatalf("서술자 %d개, 기대 30개", len(specs))
+	//    `blockBrowserKeys` 는 스위치와 함께 빠졌다 — 차단은 끌 수 없고 늘 돈다
+	//    (UX_REVISION_SRS FR-KEY-6 철회 / D-K2). 이미 쓰인 값은 Validate 가
+	//    unknown 으로 흘리므로 마이그레이션이 없다.
+	if len(specs) != 29 {
+		t.Fatalf("서술자 %d개, 기대 29개", len(specs))
 	}
 	by := settingsschema.ByKey(specs)
 	for _, k := range []string{"themeName", "tabWidthPx", "attnEdgeLevel", "gitStatusInterval", "uiFontSize", "termFontSize"} {

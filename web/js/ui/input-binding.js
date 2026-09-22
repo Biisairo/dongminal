@@ -258,14 +258,19 @@ class InputBinding {
    * 통째로 면제해서 이 구분이 필요 없었고, 그 면제가 곧 결함이었다.
    */
   _blockBrowserDefault(e,inText){
-    if(!blockBrowserKeys) return;
     if(KEY_BLOCK_EXEMPT_BARE.has(e.code)) return;
     // FR-KEY-2: 수식키 없는 키는 대상이 아니다. 터미널에 그냥 글자를 치는 것을
     // 막을 이유가 없다.
     if(!e.ctrlKey&&!e.metaKey) return;
     if(MOD_CODES.has(e.code)) return;
     if(KEY_BLOCK_EXEMPT_MOD.has(e.code)) return;
-    if(inText&&KEY_BLOCK_EXEMPT_TEXT.has(e.code)) return;
+    if(inText){
+      if(KEY_BLOCK_EXEMPT_TEXT.has(e.code)) return;
+      // FR-KEY-8 (D-K2): 자리 이동과 지움은 그 표면의 것이다.
+      if(KEY_EDIT_CODES.has(e.code)) return;
+      // macOS 의 `Ctrl` 조합은 통째로 편집이다 — 그쪽 브라우저는 `Cmd` 를 쓴다.
+      if(IS_MAC&&e.ctrlKey&&!e.metaKey) return;
+    }
     e.preventDefault();
   }
 }

@@ -527,15 +527,15 @@ var editorMinimap=true;
 // 좁은 칸의 폭을 지키려 아예 끈 자리이고, 이 설정은 그 결정을 폐기하는 것이
 // 아니라 기본값으로 강등한다 (D-UXB-7). 켜도 뜨는 것은 **수정 쪽 하나**다.
 var diffMinimap=false;
-// UX_REVISION_SRS FR-KEY-6: 브라우저 기본 단축키 차단. 기본은 켬 — 이 앱은
-// 터미널이고, Ctrl 조합은 브라우저보다 터미널의 것이다.
-var blockBrowserKeys=true;
+// UX_REVISION_SRS FR-KEY-6 철회 (D-K2): **`blockBrowserKeys` 가 없어졌다.**
+// 차단은 늘 돈다 — 기본값이 이미 켬이었고, 끄는 유일한 근거였던 *"입력란에서
+// 편집 키가 막힌다"* 는 면제표의 결함이었다 (FR-KEY-8 이 닫았다).
 /**
  * AGENT_RENDER_ENV_SRS FR-ARE-1·3: 새 터미널의 Claude Code 를 fullscreen 으로
  * 띄울 것인가 (Settings ▸ Terminal). 기본은 **켬**이다.
  *
  * 값을 쓰는 것은 **서버**다 — 도구를 띄울 때 환경에 넣는다. 여기 사는 이유는
- * 정하는 자리가 설정 화면이기 때문이며, `blockBrowserKeys` 와 같은 방향이다.
+ * 정하는 자리가 설정 화면이기 때문이며, `claudeScrollSpeed` 와 같은 방향이다.
  */
 var claudeFullscreen=true;
 // PAGE_TITLE_SRS FR-PGT-4: 브라우저 탭에 뜨는 이름. /api/settings blob 에 실린다 —

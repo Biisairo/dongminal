@@ -91,10 +91,132 @@ test.describe('묶음 K — 브라우저 기본 키 차단 (FR-KEY-*)', () => {
     // FR-KEY-2: 수식키 없는 글자는 대상이 아니다.
     expect(await probe('KeyS', 's', false)).toBe(false);
 
-    // FR-KEY-6: 끄면 기본 동작이 돌아온다.
-    await page.evaluate(() => { (0, eval)('blockBrowserKeys = false') });
-    expect(await probe('KeyS', 's')).toBe(false);
-    await page.evaluate(() => { (0, eval)('blockBrowserKeys = true') });
+    /**
+     * **FR-KEY-6 철회 (D-K2).** 종전에는 여기서 스위치를 끄고 기본 동작이
+     * 돌아오는 것을 쟀다. 스위치가 없어졌다 — 차단은 늘 돈다.
+     *
+     * 재는 대상이 *"끌 수 있는가"* 에서 *"끌 자리가 없는데도 도는가"* 로
+     * 바뀐다. 위의 단정 넷이 이미 "돈다" 를 말하므로 여기서는 **스위치가
+     * 사라졌다**는 사실만 더한다.
+     */
+    await expect(page.locator('#sc-blockbrowser')).toHaveCount(0);
+  });
+
+  /**
+   * UX_REVISION_SRS FR-KEY-8 (D-K2): **입력기에서는 편집 키가 그대로 듣는다.**
+   *
+   * FR-M9-44 가 면제를 여섯으로 좁히면서 커서 이동과 줄 삭제가 통째로 막혔다.
+   * 재는 것은 `defaultPrevented` 가 아니라 **커서와 값이 실제로 움직였는가**다 —
+   * 막지 않는 것과 편집이 도는 것은 다른 말이고, 사용자가 겪은 것은 뒤쪽이다.
+   */
+  test('FR-KEY-8: 입력란에서 커서 이동·지움이 듣는다', async ({ page }) => {
+    await waitForInit(page);
+    await page.evaluate(() => {
+      document.getElementById('search-bar')!.removeAttribute('hidden');
+      (document.getElementById('search-input') as HTMLInputElement).focus();
+    });
+    const set = (val: string, at: number) => page.evaluate(([v, p]: any) => {
+      const si = document.getElementById('search-input') as HTMLInputElement;
+      si.value = v; si.focus(); si.setSelectionRange(p, p);
+    }, [val, at] as any);
+    const read = () => page.evaluate(() => {
+      const si = document.getElementById('search-input') as HTMLInputElement;
+      return { start: si.selectionStart, value: si.value };
+    });
+
+    await set('hello world', 11);
+    await page.keyboard.press('Meta+ArrowLeft');
+    expect((await read()).start, 'Cmd+← 가 줄 처음으로 가지 않는다').toBe(0);
+
+    await page.keyboard.press('Meta+ArrowRight');
+    expect((await read()).start, 'Cmd+→ 가 줄 끝으로 가지 않는다').toBe(11);
+
+    await page.keyboard.press('Meta+Backspace');
+    expect((await read()).value, 'Cmd+Backspace 가 줄을 지우지 않는다').toBe('');
+
+    /**
+     * **`Ctrl+E` 는 여기서 재지 않는다.** e2e 는 `devices['Desktop Chrome']` 을
+     * 쓰고 그 디스크립터의 `userAgentData.platform` 은 **`Windows`** 다 — 그
+     * 판에서 `Ctrl+E` 는 브라우저의 것(주소창)이라 막히는 것이 맞다. macOS
+     * 분기는 아래 시험이 플랫폼을 가장해 따로 잰다.
+     */
+  });
+
+  /**
+   * FR-KEY-8 의 macOS 분기 — `Ctrl` 조합은 통째로 편집이다.
+   *
+   * `IS_MAC` 은 스크립트가 평가될 때 한 번 정해지므로(`constants.js`) 페이지가
+   * 뜨기 **전에** 판정의 근거를 갈아 끼운다.
+   */
+  test('FR-KEY-8 (macOS): Ctrl 조합이 편집으로 남는다', async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'userAgentData', { get: () => ({ platform: 'macOS' }) });
+    });
+    await waitForInit(page);
+    expect(await page.evaluate(() => (0, eval)('IS_MAC')), '가장이 듣지 않았다').toBe(true);
+
+    const prevented = await page.evaluate(() => {
+      document.getElementById('search-bar')!.removeAttribute('hidden');
+      const si = document.getElementById('search-input') as HTMLInputElement;
+      si.value = 'hello world'; si.focus();
+      const fire = (code: string, mods: Partial<KeyboardEventInit>) => {
+        const e = new KeyboardEvent('keydown', { code, key: code, bubbles: true, cancelable: true, ...mods });
+        si.dispatchEvent(e);
+        return e.defaultPrevented;
+      };
+      return {
+        ctrlE: fire('KeyE', { ctrlKey: true }),   // 줄 끝으로 (emacs)
+        ctrlK: fire('KeyK', { ctrlKey: true }),   // 줄 끝까지 지움
+        ctrlW: fire('KeyW', { ctrlKey: true }),   // 앞 단어 지움
+        metaS: fire('KeyS', { metaKey: true }),   // 저장 — 이쪽은 막힌다
+      };
+    });
+    expect(prevented.ctrlE, 'Ctrl+E 를 아직 막는다').toBe(false);
+    expect(prevented.ctrlK, 'Ctrl+K 를 아직 막는다').toBe(false);
+    expect(prevented.ctrlW, 'Ctrl+W 를 아직 막는다').toBe(false);
+    // macOS 의 브라우저 액셀러레이터는 `Cmd` 기반이므로 그쪽은 그대로 막힌다.
+    expect(prevented.metaS, 'Cmd+S 가 저장으로 샌다').toBe(true);
+  });
+
+  /**
+   * 면제가 **다시 넓어지지 않았는지** 본다. FR-KEY-8 이 여는 것은 편집 키이고,
+   * 브라우저의 저장·인쇄는 입력기 안에서도 그대로 막힌다.
+   */
+  test('FR-KEY-8 (역): 입력란에서도 저장·인쇄는 막힌다', async ({ page }) => {
+    await waitForInit(page);
+    const prevented = await page.evaluate(() => {
+      document.getElementById('search-bar')!.removeAttribute('hidden');
+      const si = document.getElementById('search-input') as HTMLInputElement;
+      si.focus();
+      const fire = (code: string, key: string) => {
+        const e = new KeyboardEvent('keydown', { code, key, metaKey: true, bubbles: true, cancelable: true });
+        si.dispatchEvent(e);
+        return e.defaultPrevented;
+      };
+      return { s: fire('KeyS', 's'), p: fire('KeyP', 'p'), left: fire('ArrowLeft', 'ArrowLeft') };
+    });
+    expect(prevented.s, 'Cmd+S 가 브라우저 저장으로 샌다').toBe(true);
+    expect(prevented.p, 'Cmd+P 가 인쇄로 샌다').toBe(true);
+    expect(prevented.left, 'Cmd+← 를 아직 막고 있다').toBe(false);
+  });
+
+  /**
+   * FR-KEY-7 개정 (D-K2): 못 막는 조합을 알리는 한 줄은 **키를 배정하는 사람**
+   * 에게 하는 말이라 단축키 목록 위에 선다 — 스위치와 함께 사라지지 않는다.
+   */
+  test('FR-KEY-7: 못 막는 조합을 알리는 줄이 목록 위에 있다', async ({ page }) => {
+    await waitForInit(page);
+    await page.keyboard.press('Control+Shift+Slash');
+    await expect(page.locator('#panel-shortcuts')).toBeVisible();
+    const note = page.locator('#panel-shortcuts .ds-hint');
+    await expect(note).toBeVisible();
+    await expect(note).toContainText('Ctrl+W');
+    const order = await page.evaluate(() => {
+      const p = document.getElementById('panel-shortcuts')!;
+      const n = p.querySelector('.ds-hint')!, l = p.querySelector('#sc-list')!;
+      return n.compareDocumentPosition(l) & Node.DOCUMENT_POSITION_FOLLOWING ? 'note-first' : 'list-first';
+    });
+    expect(order, '안내가 목록 아래로 갔다').toBe('note-first');
   });
 });
 
