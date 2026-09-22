@@ -354,29 +354,46 @@ test.describe('FR-TYP-4: 상태바의 두 글꼴', () => {
     await expect(page.locator('#sb-items .sb-item .mono').first()).toBeVisible({ timeout: 15000 });
 
     const rows = await page.evaluate(() => {
-      const cv = document.createElement('canvas').getContext('2d')!;
-      // 글자 상자의 top 에 ascent 를 더하면 그 줄의 밑선이다.
-      const baseOf = (rect: DOMRect, cs: CSSStyleDeclaration, text: string) => {
-        cv.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-        return rect.top + cv.measureText(text).fontBoundingBoxAscent;
+      /**
+       * **밑선은 브라우저에게 묻는다.** 처음에는 `rect.top + fontBoundingBoxAscent`
+       * 로 어림했는데 그 값은 `line-height` 의 half-leading 과 canvas 의 글꼴
+       * 폴백에 흔들린다 — Windows 에는 Menlo 가 없어 Consolas 로 떨어지고, 거기서
+       * 2px 가 어긋난 것처럼 보였다.
+       *
+       * 높이 0 의 `inline-block` 을 `vertical-align:baseline` 으로 세우면 그
+       * 상자의 **아래 모서리가 곧 밑선**이다. 글꼴이 무엇이든 참이다.
+       */
+      const baseOf = (el: Element) => {
+        const m = document.createElement('span');
+        m.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+        el.appendChild(m);
+        const b = m.getBoundingClientRect().bottom;
+        m.remove();
+        return b;
       };
       const out: Array<{ label: string; delta: number }> = [];
       for (const it of document.querySelectorAll('#sb-items .sb-item')) {
         const mono = it.querySelector('.mono');
         if (!mono) continue;
-        let lb: { rect: DOMRect; text: string } | null = null;
-        for (const n of it.childNodes) {
+        // 라벨은 익명 텍스트 노드이고 익명 flex 항목이라 마커를 넣을 그릇이
+        // 없다. 재는 동안만 감싼다 — 상태바는 폴링마다 다시 그려지므로 남지
+        // 않고, 익명 항목이 이름 있는 항목이 되어도 flex 의 정렬 규칙은 같다.
+        let label: HTMLElement | null = null, text = '';
+        for (const n of Array.from(it.childNodes)) {
           if (n.nodeType === 3 && n.textContent!.trim()) {
-            const r = document.createRange(); r.selectNodeContents(n);
-            lb = { rect: r.getBoundingClientRect(), text: n.textContent!.trim() };
+            text = n.textContent!.trim();
+            label = document.createElement('span');
+            it.insertBefore(label, n);
+            label.appendChild(n);
             break;
           }
         }
-        if (!lb) continue;
-        const mr = document.createRange(); mr.selectNodeContents(mono);
-        const a = baseOf(lb.rect, getComputedStyle(it), lb.text);
-        const b = baseOf(mr.getBoundingClientRect(), getComputedStyle(mono), mono.textContent!);
-        out.push({ label: lb.text, delta: +(b - a).toFixed(2) });
+        if (!label) continue;
+        const delta = +(baseOf(mono) - baseOf(label)).toFixed(2);
+        // 감싼 것을 풀어 원래 모양으로 되돌린다.
+        while (label.firstChild) it.insertBefore(label.firstChild, label);
+        label.remove();
+        out.push({ label: text, delta });
       }
       return out;
     });
