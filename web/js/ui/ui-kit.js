@@ -142,8 +142,13 @@ const UIKit = {
    *   items()        지금의 항목들, 보이는 순서. 컨테이너 여럿에 걸쳐도 된다
    *                  (Repo 목록의 고정 행은 다른 컨테이너에 산다)
    *   horizontal     탭 줄이면 ←→, 목록이면 ↑↓
-   *   activate(el)   Enter/Space. **클릭과 같은 일**이어야 한다 (D-A11Y-12)
+   *   activate(el)   Enter/Space. **클릭과 같은 일**이어야 한다 (D-A11Y-12).
+   *                  없으면 그 키를 흘린다 — `<button>` 은 스스로 눌린다
    *   remove(el)     Delete/Backspace. `×` 가 하는 일이다 (D-A11Y-10). 없으면 무시
+   *   keepTabStops   `tabindex` 를 옮기지 않는다 (D-A11Y-13). 항목이 **각각**
+   *                  탭 정지점으로 남아야 하는 자리 — 대화상자의 액션 버튼이다.
+   *                  목록·탭·트리는 이것을 주지 않는다: 그쪽은 `Tab` 한 자리가
+   *                  표준이다 (D-A11Y-11)
    *
    * 끝에서 감싸지 않는다 — 탐색기의 `_moveSel` 이 잡는 것과 같은 규약이다.
    */
@@ -168,6 +173,9 @@ const UIKit = {
         case 'Home': to = items[0]; break;
         case 'End': to = items[items.length - 1]; break;
         case 'Enter': case ' ':
+          // 활성화를 맡은 자리가 없으면 **기본 동작이 옳다** — `<button>` 은 이
+          // 두 키로 스스로 눌린다. 여기서 막으면 버튼이 죽는다.
+          if (!spec.activate) return;
           e.preventDefault(); spec.activate(cur); return;
         case 'Delete': case 'Backspace':
           if (!spec.remove) return;
@@ -175,7 +183,7 @@ const UIKit = {
         default: return;
       }
       e.preventDefault();
-      if (to && to !== cur) { UIKit.rove(items, to); to.focus() }
+      if (to && to !== cur) { if (!spec.keepTabStops) UIKit.rove(items, to); to.focus() }
     });
   },
 
@@ -419,6 +427,23 @@ const UIKit = {
       foot.appendChild(b);
       last = b;
       if (a.kind === 'primary' || a.kind === 'danger') primary = b;
+    }
+    /**
+     * FR-A11Y-30 / D-A11Y-13: 액션 줄을 `←`/`→` 로도 옮긴다.
+     *
+     * `keepTabStops` 다 — 버튼은 **각각** 탭 정지점으로 남는다. 취소와 확인 사이를
+     * `Tab` 으로 오가는 것은 오래된 관용이고, 요구는 **길을 더하는 것**이지 다른
+     * 길로 바꾸는 것이 아니다.
+     *
+     * 비활성 버튼은 목록에서 빠진다 — 닿아도 아무 일이 없는 자리에 포커스를
+     * 세우면 키보드 사용자는 그것을 고장으로 읽는다.
+     */
+    if (foot) {
+      this.roving(foot, {
+        horizontal: true,
+        keepTabStops: true,
+        items: () => [...foot.querySelectorAll('.ui-btn')].filter((b) => !b.disabled),
+      });
     }
     const defBtn = primary || last;
     // 어느 버튼에 포커스를 주는지는 여전히 여기가 정한다(위 FR-PDA-1·11) — 옮긴

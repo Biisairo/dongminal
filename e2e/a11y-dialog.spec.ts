@@ -2,6 +2,9 @@ import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit } from './fixtures';
 
+// 브라우저 쪽 전역 렉시컬 바인딩 (classic script 의 최상위 `const`).
+declare const OpenUrl: { handle: (url: string) => void };
+
 // ACCESSIBILITY_BASELINE_SRS §5.1 — TC-A11Y-8·9 (FR-A11Y-18 / M7 `UX-3`).
 //
 // **재는 것은 "속성이 있다" 가 아니다.** `role="dialog"` 를 붙이는 것은 한 줄이고,
@@ -263,5 +266,96 @@ test.describe('모달 골격 — 다섯이 한 벌이다 (FR-TOK-40~42 / UX-16 �
       await expect(page.locator(k.box), `${k.name} 이 닫히지 않았다`).toBeHidden({ timeout: 5000 });
     }
     expect(bad).toEqual([]);
+  });
+});
+
+// ACCESSIBILITY_BASELINE_SRS §5.1 — TC-A11Y-15 (FR-A11Y-30 / D-A11Y-13).
+//
+// **재는 것은 "화살표가 듣는다" 만이 아니다.** 길을 더하면서 **이미 있던 길을
+// 빼앗지 않았는가** 를 함께 단정한다 — `roving` 을 그대로 걸면 `tabindex` 가 한
+// 자리로 모여 `Tab` 으로 버튼 사이를 오가던 길이 사라진다 (D-A11Y-13).
+test.describe('접근성 — 버튼 줄의 화살표 이동 (FR-A11Y-30)', () => {
+  /** 액션 버튼 둘을 가진 대화상자. `OpenUrl` 이 이 저장소에서 가장 짧은 경로다. */
+  async function openDialog(page: Page) {
+    // classic script 의 최상위 `const` 는 `window` 에 붙지 않는다 — 이름으로
+    // 직접 부른다 (`slot-title-boundary.spec.ts` 가 `THEMES` 를 쓰는 것과 같다).
+    await page.evaluate(() => OpenUrl.handle('https://example.com/'));
+    await expect(page.locator('.ui-modal-foot .ui-btn').first()).toBeVisible({ timeout: 10000 });
+  }
+
+  /** 지금 포커스를 가진 버튼이 액션 줄에서 몇 번째인가. 밖이면 -1. */
+  const focusedIdx = (page: Page) => page.evaluate(() => {
+    const btns = [...document.querySelectorAll('.ui-modal-foot .ui-btn')];
+    return btns.indexOf(document.activeElement as Element);
+  });
+
+  test('TC-A11Y-15a: 좌우 화살표가 버튼 사이를 옮기고 끝에서 멈춘다', async ({ page }) => {
+    await waitForInit(page);
+    await openDialog(page);
+
+    const n = await page.locator('.ui-modal-foot .ui-btn').count();
+    expect(n).toBeGreaterThanOrEqual(2);
+
+    // 포커스는 다음 프레임에 온다 (`focusDefault`) — 폴링한다.
+    await expect.poll(() => focusedIdx(page), { timeout: 10000 }).toBeGreaterThanOrEqual(0);
+
+    await page.keyboard.press('Home');
+    await expect.poll(() => focusedIdx(page)).toBe(0);
+
+    // 첫 버튼에서 왼쪽은 무동작이다 — 끝에서 감싸지 않는다 (`roving` 의 규약).
+    await page.keyboard.press('ArrowLeft');
+    await expect.poll(() => focusedIdx(page)).toBe(0);
+
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => focusedIdx(page)).toBe(1);
+
+    await page.keyboard.press('End');
+    await expect.poll(() => focusedIdx(page)).toBe(n - 1);
+
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => focusedIdx(page)).toBe(n - 1);
+  });
+
+  // 같은 요구가 드는 자리는 둘이다 (FR-A11Y-30). `gc-actions` 는 `ui-modal-foot`
+  // 과 다른 골격이라 한쪽만 걸어도 다른 쪽은 조용히 남는다.
+  test('TC-A11Y-15c: git 확인창의 실행·취소도 좌우로 옮겨진다', async ({ page }) => {
+    await waitForInit(page);
+    await page.evaluate(() => {
+      (window as any).GitConfirm.open({
+        action: 'discard', title: '화살표 검사', targets: ['a.txt'], run: async () => ({ ok: true }),
+      });
+    });
+    const btns = page.locator('#git-confirm .gc-actions .ui-btn');
+    await expect(btns.first()).toBeVisible({ timeout: 10000 });
+
+    const idx = () => page.evaluate(() => {
+      const b = [...document.querySelectorAll('#git-confirm .gc-actions .ui-btn')];
+      return b.indexOf(document.activeElement as Element);
+    });
+
+    await btns.first().focus();
+    await expect.poll(idx).toBe(0);
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(idx).toBe(1);
+    await page.keyboard.press('ArrowLeft');
+    await expect.poll(idx).toBe(0);
+
+    // `Tab` 의 길은 그대로다 — FR-PDA-2 가 그 위에 서 있다.
+    const tabIdx = await page.evaluate(() =>
+      [...document.querySelectorAll('#git-confirm .gc-actions .ui-btn')].map((b) => (b as HTMLElement).tabIndex));
+    for (const i of tabIdx) expect(i).not.toBe(-1);
+
+    await page.click('#git-confirm .gc-cancel');
+  });
+
+  test('TC-A11Y-15b: Tab 이 여전히 버튼마다 선다 — 길을 빼앗지 않았다', async ({ page }) => {
+    await waitForInit(page);
+    await openDialog(page);
+
+    // roving tabindex 라면 여기서 하나만 0 이고 나머지가 -1 이 된다 (D-A11Y-13).
+    const tabIdx = await page.evaluate(() =>
+      [...document.querySelectorAll('.ui-modal-foot .ui-btn')].map((b) => (b as HTMLElement).tabIndex));
+    expect(tabIdx.length).toBeGreaterThanOrEqual(2);
+    for (const i of tabIdx) expect(i).not.toBe(-1);
   });
 });

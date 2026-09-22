@@ -213,6 +213,20 @@ class GitConfirm {
     this.box.querySelector('.gc-copy-err').addEventListener('click',()=>
       this._copy((this.err&&this.err.tail)||''));
     /**
+     * ACCESSIBILITY_BASELINE_SRS FR-A11Y-30 / D-A11Y-13: 실행·취소 사이를
+     * `←`/`→` 로도 옮긴다. `keepTabStops` 라 `Tab` 의 길은 그대로다 — 바로 위
+     * FR-PDA-2 의 규약(*"`Tab` 으로 취소에 옮긴 뒤의 `Enter` 는 취소다"*)이 그
+     * 길 위에 서 있으므로 빼앗을 수 없다.
+     *
+     * 실행 중에는 두 버튼이 `disabled` 이고, 그때는 옮길 곳이 없다 (FR-GIT-174).
+     */
+    const acts=this.box.querySelector('.gc-actions');
+    UIKit.roving(acts,{
+      horizontal:true,
+      keepTabStops:true,
+      items:()=>[...acts.querySelectorAll('.ui-btn')].filter(b=>!b.disabled),
+    });
+    /**
      * FR-PDA-2: `Enter` 는 **가로채지 않는다.** 포커스된 버튼의 click 합성이라는
      * 브라우저 기본 동작이 곧 이 규약이다 — 기본 포커스가 실행이므로 창이 뜨자마자
      * 누른 `Enter` 는 실행이고, `Tab` 으로 취소에 옮긴 뒤의 `Enter` 는 취소다.
