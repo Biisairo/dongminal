@@ -1,6 +1,7 @@
 package gitapi
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -99,12 +100,18 @@ func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
 		(`--all` 갈래). 두 갈래 다 같은 사실을 뜻하므로 같은 답을 낸다 —
 		한쪽만 다루면 화면의 문구가 요청 인자에 따라 갈린다.
 	*/
-	initial := false
-	if obs, ok := s.Git.Observed(root); ok {
-		initial = obs.Status.Initial
+	// GIT_EMPTY_REPO_OBSERVE_SRS FR-GEO-1~4: 판정이 필요할 때만 묻는다. 거부된
+	// 요청(400)이면 관측하지 않는다 — H-L2 가 지키는 "거부했는데 실행했다" 의 선이다.
+	initial := func() bool {
+		rejected := false
+		if err != nil {
+			code, _ := gitErrorCode(err)
+			rejected = code == http.StatusBadRequest
+		}
+		return s.gitInitial(r.Context(), root, rejected)
 	}
 	if err != nil {
-		if initial {
+		if initial() {
 			gitJSON(w, http.StatusOK, gitLogResponse{
 				Requested: req, Repo: root, Limit: query.LogLimit(req.Limit),
 				Commits: []query.Commit{}, Initial: true,
@@ -121,7 +128,7 @@ func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
 		Requested: req, Repo: root, Limit: query.LogLimit(req.Limit), Commits: commits,
 		// 목록이 비어 있을 때만 뜻이 있다 — 커밋이 있는데 이 표식이 서면 화면이
 		// 거짓말을 한다.
-		Initial:   initial && len(commits) == 0,
+		Initial:   len(commits) == 0 && initial(),
 		Signature: sig.Value,
 	})
 }
@@ -219,4 +226,27 @@ func gitCountParam(w http.ResponseWriter, q url.Values, name string) (int, bool)
 		return 0, false
 	}
 	return n, true
+}
+
+// gitInitial 은 root 가 커밋이 없는 저장소인지 답한다 (FR-GDT-21 ·
+// GIT_EMPTY_REPO_OBSERVE_SRS FR-GEO-1~5).
+//
+//	이전 동작: 캐시된 관측(`Observed`)만 읽었다 — 없으면 거짓이었다
+//	새  동작: 관측이 없고 요청이 거부되지 않았으면 그 자리에서 관측한다
+//	이유:     Repo 창을 열면 status 와 History 의 `git log` 가 거의 함께 나가고,
+//	          느린 러너(CI Windows)에서 `git log` 가 먼저 끝나면 관측이 아직 없다.
+//	          그때 빈 저장소가 "검색과 일치하는 커밋이 없습니다" 로 굳었다 — 두
+//	          응답의 signature 가 같아 클라이언트는 다시 묻지 않는다
+//
+// 새 관측은 캐시에도 남으므로(`Store.Status`) 다음 회차는 종전처럼 git 을
+// 실행하지 않는다. 관측이 실패하면 거짓이다 — 모르는 것을 참으로 말하지 않는다.
+func (s *GitServer) gitInitial(ctx context.Context, root string, rejected bool) bool {
+	if obs, ok := s.Git.Observed(root); ok {
+		return obs.Status.Initial
+	}
+	if rejected {
+		return false
+	}
+	obs, _, err := s.Git.Status(ctx, root)
+	return err == nil && obs.Status.Initial
 }

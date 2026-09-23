@@ -25,7 +25,12 @@ type gitHistFake struct {
 	logOut  string
 	treeOut string
 	refsOut string
-	argvs   [][]string
+	// statusOut 은 관측(`StatusOf`)이 읽는 porcelain v2 출력이다. logFail 은 빈
+	// 저장소에서 HEAD 를 요구하는 `git log` 가 exit 128 로 실패하는 갈래다
+	// (GIT_EMPTY_REPO_OBSERVE_SRS).
+	statusOut string
+	logFail   bool
+	argvs     [][]string
 }
 
 func newGitHistFake(t *testing.T) *gitHistFake {
@@ -47,7 +52,12 @@ func (f *gitHistFake) runner(_ context.Context, _ string, args []string) (core.O
 	f.argvs = append(f.argvs, append([]string(nil), args...))
 	switch args[0] {
 	case "log":
+		if f.logFail {
+			return core.Output{ExitCode: 128, Stderr: "fatal: your current branch 'main' does not have any commits yet\n"}, nil
+		}
 		return core.Output{Stdout: f.logOut}, nil
+	case "status":
+		return core.Output{Stdout: f.statusOut}, nil
 	case "diff-tree":
 		return core.Output{Stdout: f.treeOut}, nil
 	case "for-each-ref":
