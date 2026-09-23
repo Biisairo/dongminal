@@ -139,7 +139,7 @@ class TerminalTool {
     // 붙이지 않으면 셸이 보낸 복사가 **받는 사람 없이 버려진다** — 그것이
     // "복사가 원격에서만 안 된다" 의 정체였다 (§2.5).
     try{TermClipboard.attach(this.term,this.id,this)}catch(e){}
-    this.term.open(this.box); for(const f of ['h','l']) this.term.parser.registerCsiHandler({prefix:'?',final:f},ps=>this._onAltMode(ps,f==='h'));
+    this.term.open(this.box); for(const f of ['h','l']) this.term.parser.registerCsiHandler({prefix:'?',final:f},ps=>this._onAltMode(ps,f==='h')); this.term.parser.registerCsiHandler({final:'J'},ps=>this._onEraseDisplay(ps));
     this.term.attachCustomKeyEventHandler(e=>{
       // UX_BATCH6_SRS FR-IME-1: 조합이 아직 끝나지 않았으면 이 키는 xterm 이
       // 보아서는 안 된다. 가장 앞에 둔다 — 뒤의 갈래들도 조합보다 앞서면 안 된다.
@@ -933,7 +933,7 @@ class TerminalTool {
     return this.reconnectNow({quiet:true});
   }
   focus(){if(this.term)try{this.term.focus()}catch{}}
-  _onAltMode(ps,on){if(ps.some(v=>v===1049||v===47||v===1047)){this._srvAlt=on;if(!on&&this._widthDebt&&this._seqLive&&!this._followsPty())this._refreshForWidth()}return false}   // FR-OTR-7·9
+  _onEraseDisplay(ps){if(ps[0]===3&&!this._ed3Follow&&this.term.buffer.active.type!=='alternate'){const d=this.term.onWriteParsed(()=>{d.dispose();this._ed3Follow=false;if(this.term)this.term.scrollToBottom()});this._ed3Follow=true}return false} _onAltMode(ps,on){if(ps.some(v=>v===1049||v===47||v===1047)){this._srvAlt=on;if(!on&&this._widthDebt&&this._seqLive&&!this._followsPty())this._refreshForWidth()}return false}   // FR-ESF-1~5 · FR-OTR-7·9
   _reconnect(){
     if(this._destroyed||this._exited) return;
     // Instant first attempt, then fast backoff: 200, 500, 1s, 1.2x up to 10s.
