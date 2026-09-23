@@ -98,23 +98,10 @@ test.describe('묶음 E — 크로스 기기 창 포커스 소유권', () => {
     await A.ctx.close();
   });
 
-  /**
-   * `OWNER_HANDBACK_SRS` FR-OHB-3 이 이 시험의 단정 하나를 개정했다.
-   *
-   *   이전 동작: 구독이 끊기면 그 창은 **주인 없는 채로** 남았다
-   *   새  동작: 직전 주인의 구독이 살아 있으면 그에게 돌아간다
-   *   이유:     주인 없는 창은 아무도 크기를 정하지 못해, 보고 있는 화면이 떠난
-   *             화면의 폭에 머물렀다 (OWNER_HANDBACK_SRS §2.2 실측)
-   *
-   * **FR-XDF-9 가 지키려던 것은 그대로다** — 떠난 신원은 즉시 소유를 잃고 grace
-   * period 는 없다. 바뀐 것은 그 빈자리를 누가 채우는가 하나뿐이므로, 재는 것도
-   * "비었는가" 에서 "떠난 쪽이 아직 쥐고 있는가" 로 옮긴다.
-   */
-  test('TC-XDF-5: 컨텍스트 종료 시 즉시 해제 (FR-XDF-9 · FR-OHB-3)', async ({ browser, request }) => {
+  test('TC-XDF-5: 컨텍스트 종료 시 즉시 해제 (FR-XDF-9)', async ({ browser, request }) => {
     const A = await newClient(browser);
     const B = await newClient(browser);
     const w1 = await activeWindowOf(A.page);
-    const idA = await clientIdOf(A.page);
 
     await claim(A.page);
     await expect(B.page.locator('#area .pn.pn-dimmed')).toHaveCount(1, { timeout: 10000 });
@@ -123,7 +110,7 @@ test.describe('묶음 E — 크로스 기기 창 포커스 소유권', () => {
 
     // grace period 없음 — 구독 해제가 곧 해제다.
     await expect(B.page.locator('#area .pn.pn-dimmed')).toHaveCount(0, { timeout: 10000 });
-    expect((await owners(request))[w1], '떠난 신원이 아직 쥐고 있다').not.toBe(idA);
+    expect((await owners(request))[w1]).toBeUndefined();
 
     await B.ctx.close();
   });
@@ -172,9 +159,9 @@ test.describe('묶음 E — 크로스 기기 창 포커스 소유권', () => {
     /**
      * 착수 시 RED: 그리기는 돌았는데 이 값이 **0 에 머물렀다.**
      *
-     * 횟수를 못박지 않는다 — 계약은 *"맵이 바뀌면 돈다"* 이고, 컨텍스트를 닫는
-     * 것은 맵을 **두 번** 바꾼다(반납 한 번, 구독이 끊겨 서버가 해제하며 한 번).
-     * 그 둘을 하나로 세는 것은 이 조항의 일이 아니다.
+     * 횟수를 못박지 않는다 — 계약은 *"맵이 바뀌면 돈다"* 이다. 컨텍스트를 닫는
+     * 것은 구독을 끊고, 서버가 그 해제를 방송한다 (FR-XDF-9 — 비는 계기는 그것
+     * 하나다. FOCUS_INITIAL_RESTORE_SRS).
      */
     await expect.poll(polls, { timeout: 10000 }).toBeGreaterThan(0);
 

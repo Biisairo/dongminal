@@ -14,9 +14,8 @@ import { TMP, realPath, tmpPath, cssPath } from './osenv';
  * UX_BATCH10_SRS §4 — V-UXB-1·3·7·9·10·12·13.
  *
  * 접수된 일곱 건의 화면 쪽 검증이다. 저장소를 재는 것(어느 저장소에 닿는가)은
- * `web/js/test/window-local-state.test.mjs` 가 이미 세고, 서버의 반납은
- * `internal/webserver/hub/focus_release_test.go` 가 센다 — 여기서 재는 것은
- * **사용자가 보는 결과**다.
+ * `web/js/test/window-local-state.test.mjs` 가 이미 센다 — 여기서 재는 것은
+ * **사용자가 보는 결과**다. (서버의 반납은 걷혔다 — FOCUS_INITIAL_RESTORE_SRS.)
  */
 
 const FIXTURES = tmpPath('dm-uxb10-fx-' + process.pid);
@@ -130,22 +129,24 @@ const claim = (page: Page) =>
   page.evaluate(() => (window as any).app.setFocus((window as any).app.focused));
 
 test.describe('놓은 창은 되찾을 수 있다', () => {
-  // V-UXB-7 · FR-UXB-20·23·25
   /**
-   * `OWNER_HANDBACK_SRS` FR-OHB-3 이 마지막 단정을 개정했다.
+   * `FOCUS_INITIAL_RESTORE_SRS` 가 이 시험을 뒤집었다 (V-FIR-2).
    *
-   *   이전 동작: 반납하면 그 창은 **주인 없는 채로** 남았다
-   *   새  동작: 직전 주인(여기서는 A)의 구독이 살아 있으면 그에게 돌아간다
-   *   이유:     주인 없는 창은 아무도 크기를 정하지 못한다. 이 시험이 재는 것은
-   *             *"빼앗긴 쪽의 dim 이 풀린다"* 이고 그것은 그대로다 — 오히려 A 가
-   *             주인이 되므로 더 강하게 참이다
+   *   이전 동작: B 가 blur 하면 소유권을 반납했고 A 의 dim 이 풀렸다 (FR-UXB-20~23)
+   *   새  동작: blur 는 소유권을 놓지 않는다. A 는 dim 인 채이고, A 를 포커스하면
+   *             그때 재획득해 다시 그리고 폭을 맞춘다 (초기 문서 FR-XDF-2 · E-7)
+   *   이유:     반납이 만든 "주인 없는 창" 에서 A 는 dim 이 풀린 채 B 의 폭에 머물렀고
+   *             (처음 접수된 결함), 그 구멍을 메우려던 돌려주기는 alt-tab 마다 폭을
+   *             뒤집어 쓰기 어려웠다 (사용자, 2026-09-24). 초기 문서에는 둘 다 없었다
    *
-   * 그래서 단정도 "아무도 안 쥔다" 가 아니라 **"놓은 쪽이 안 쥔다"** 로 옮긴다.
+   * 음의 단정을 시간으로 기다리지 않는다 (E2E_QUIESCENCE I-1). 반납은 blur 순간 B 의
+   * **로컬 맵을 동기적으로** 지웠으므로, blur 직후 B 의 맵이 곧 판정이다.
    */
-  test('빼앗아 간 쪽이 포커스를 잃으면 빼앗긴 쪽의 dim 이 풀린다', async ({ browser, request }) => {
+  test('빼앗아 간 쪽이 포커스를 잃어도 소유권은 그대로다 (FR-XDF-2)', async ({ browser, request }) => {
     const A = await newClient(browser);
     const B = await newClient(browser);
     const idB = await B.page.evaluate(() => (window as any).app.clientId);
+    const w = await B.page.evaluate(() => (window as any).app.ws.activeWindow);
 
     await claim(A.page);
     await expect(B.page.locator('#area .pn.pn-dimmed')).toHaveCount(1, { timeout: 10000 });
@@ -153,14 +154,15 @@ test.describe('놓은 창은 되찾을 수 있다', () => {
     await claim(B.page);
     await expect(A.page.locator('#area .pn.pn-dimmed')).toHaveCount(1, { timeout: 10000 });
 
-    // B 가 OS 포커스를 잃는다. 종전에는 여기서 아무 일도 일어나지 않았고,
-    // A 는 영영 dim 인 채였다 (SRS §2.4).
-    await B.page.evaluate(() => window.dispatchEvent(new Event('blur')));
+    const mine = await B.page.evaluate((win) => {
+      window.dispatchEvent(new Event('blur'));
+      return (window as any).app.testing.windowFocusOwner[win];
+    }, w);
+    expect(mine, 'blur 가 소유권을 놓았다 — 주인 없는 창이 다시 생긴다').toBe(idB);
 
-    await expect(A.page.locator('#area .pn.pn-dimmed')).toHaveCount(0, { timeout: 10000 });
     const r = await request.get('/api/focus');
-    expect(Object.values((await r.json()).owners || {}), '반납했는데 서버가 아직 쥐어 주고 있다')
-      .not.toContain(idB);
+    expect(((await r.json()).owners || {})[w], '서버가 소유권을 비웠다').toBe(idB);
+    await expect(A.page.locator('#area .pn.pn-dimmed')).toHaveCount(1);
 
     await A.ctx.close();
     await B.ctx.close();
@@ -210,7 +212,9 @@ test.describe('놓은 창은 되찾을 수 있다', () => {
     await expect.poll(polls, { timeout: 5000 }).toBe(2);
   });
 
-  // V-UXB-7 · FR-UXB-24 — 반납한 쪽이 돌아오면 다시 가져간다.
+  // V-UXB-7 · FR-UXB-24 — 빼앗긴 쪽에 포커스가 돌아오면 다시 가져간다.
+  // (반납을 걷은 뒤 중간 단정 "B 의 blur 로 A 의 dim 이 풀린다" 를 뺐다 —
+  //  FOCUS_INITIAL_RESTORE_SRS. 되찾기의 계기는 포커스 하나다.)
   test('포커스가 돌아오면 이 창이 다시 주장한다', async ({ browser }) => {
     const A = await newClient(browser);
     const B = await newClient(browser);
@@ -218,8 +222,8 @@ test.describe('놓은 창은 되찾을 수 있다', () => {
     await claim(B.page);
     await expect(A.page.locator('#area .pn.pn-dimmed')).toHaveCount(1, { timeout: 10000 });
 
-    await B.page.evaluate(() => window.dispatchEvent(new Event('blur')));
-    await expect(A.page.locator('#area .pn.pn-dimmed')).toHaveCount(0, { timeout: 10000 });
+    await claim(A.page);
+    await expect(B.page.locator('#area .pn.pn-dimmed')).toHaveCount(1, { timeout: 10000 });
 
     await B.page.evaluate(() => window.dispatchEvent(new Event('focus')));
     await expect(A.page.locator('#area .pn.pn-dimmed')).toHaveCount(1, { timeout: 10000 });

@@ -74,7 +74,6 @@
 |--------|------|------|
 | GET | `/api/focus` | `{ owners: { "<windowId>": "<clientId>" } }` — 현재 소유권 스냅샷 |
 | POST | `/api/focus/claim` | 바디 `{clientId, windowId}`. 그 클라이언트를 소유자로 만든다. 둘 중 하나라도 비면 400 |
-| POST | `/api/focus/release` | 바디 `{clientId}`. 그 클라이언트가 쥔 창을 **전부 놓는다**. 구독은 끊지 않는다 — 계기는 브라우저의 `blur` 다. 비면 400 |
 
 - **last-focus-wins**: 기존 소유자는 협상 없이 밀려난다. 한 클라이언트는 동시에 한 Window 만 소유한다
 - **in-memory**: 영속화하지 않는다. 서버 재시작이면 전원 해제다

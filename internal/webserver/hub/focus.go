@@ -30,11 +30,6 @@ type FocusRegistry struct {
 	// working" (WORKSPACE_IDENTITY_SRS FR-SXE-4).
 	claimed  map[string]uint64
 	claimSeq uint64
-	// prior maps a windowId to the identity that most recently **left** it —
-	// displaced, released or detached alike (OWNER_HANDBACK_SRS FR-OHB-1·2).
-	// 주인이 비는 순간 누가 채우는가의 답이며, `owners` 와 같은 수명이다
-	// (비영속 — 서버 재시작은 둘 다 잊는다, FR-XDF-1).
-	prior map[string]string
 	// addrs maps a clientId to the remote address of its newest subscription.
 	// 뷰어가 서버와 같은 컴퓨터인지 판정하는 근거다
 	// (VIEWER_URL_OPEN_SRS FR-VUO-1). 모르면 빈 문자열이고, 그때는 원격으로
@@ -44,7 +39,7 @@ type FocusRegistry struct {
 
 func NewFocusRegistry() *FocusRegistry {
 	return &FocusRegistry{owners: map[string]string{}, live: map[string]uint64{}, claimed: map[string]uint64{},
-		prior: map[string]string{}, addrs: map[string]string{}}
+		addrs: map[string]string{}}
 }
 
 // Snapshot returns a copy of the current ownership map (FR-XDF-7).
@@ -72,18 +67,11 @@ func (f *FocusRegistry) Claim(clientID, windowID string) bool {
 	changed := false
 	for wid, owner := range f.owners {
 		if wid != windowID && owner == clientID {
-			// 옮겨 가는 것도 떠나는 것이다 — 두고 가는 창은 같은 문을 지나고,
-			// 거기서 직전 주인에게 돌아갈 수 있다 (FR-OHB-2).
-			f.leaveLocked(wid, clientID)
+			delete(f.owners, wid)
 			changed = true
 		}
 	}
 	if f.owners[windowID] != clientID {
-		// 밀려나는 주인을 직전 주인으로 적는다. **여기서는 돌려주지 않는다** —
-		// 이 창은 지금 주장자의 것이 되므로 돌려줄 자리가 없다 (FR-XDF-2).
-		if displaced := f.owners[windowID]; displaced != "" && displaced != clientID {
-			f.prior[windowID] = displaced
-		}
 		f.owners[windowID] = clientID
 		changed = true
 	}
@@ -94,80 +82,6 @@ func (f *FocusRegistry) Claim(clientID, windowID string) bool {
 		f.claimed[clientID] = f.claimSeq
 	}
 	return changed
-}
-
-// Release drops every window owned by clientID **without ending its
-// subscription** (UX_BATCH10_SRS FR-UXB-20~22 / D-UXB-3).
-//
-// blur 는 "떠났다" 가 아니라 "지금은 내 차례가 아니다" 이다. 해제(Detach)로
-// 대신하면 SSE 가 끊겨 명령·이벤트가 멎고 실행자 후보에서도 빠진다 — 그래서
-// `live`·`claimed`·`addrs` 는 그대로 두고 `owners` 만 준다.
-//
-// 이 동사가 없어서, 창을 빼앗은 화면이 포커스를 잃어도 소유권이 그대로 남았다.
-// 빼앗긴 쪽은 영영 dim 인 채였다 (SRS §2.4).
-//
-// Reports whether anything changed — a no-op release produces no broadcast
-// (FR-XDF-14 와 같은 멱등 규약).
-func (f *FocusRegistry) Release(clientID string) bool {
-	if clientID == "" {
-		return false
-	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	changed := false
-	for wid, owner := range f.owners {
-		if owner == clientID {
-			f.leaveLocked(wid, clientID)
-			changed = true
-		}
-	}
-	return changed
-}
-
-// leaveLocked 은 한 신원이 한 창을 **떠나는 유일한 자리**다 (FR-OHB-2).
-//
-// 떠남의 방식은 셋이다 — 밀려남·반납·해제. 셋이 같은 자리를 지나지 않으면 직전
-// 주인의 기억이 경로마다 갈린다. 실측이 그것을 못박았다: A 가 **놓은 뒤에** B 가
-// 빈 창을 가져갔으므로, 밀려남만 적는 구현은 그 사례를 영영 잡지 못한다
-// (OWNER_HANDBACK_SRS §2.3 ①).
-//
-// 돌려줄 수 있으면 **같은 락 안에서** 돌려준다 (NFR-OHB-1). 놓기와 세우기를 두
-// 단으로 나누면 그 사이의 Snapshot 이 "주인 없음" 을 보고 나간다.
-func (f *FocusRegistry) leaveLocked(windowID, owner string) {
-	prev := f.prior[windowID]
-	f.prior[windowID] = owner
-	delete(f.owners, windowID)
-	// 자기 자신에게는 돌려주지 않는다 (FR-OHB-4) — 그러면 반납이 아무 일도 하지
-	// 않는 동사가 된다.
-	if prev == "" || prev == owner {
-		return
-	}
-	if f.canTakeLocked(prev) {
-		// 부르는 쪽 셋은 모두 `owners` 를 range 로 돌던 중이다. 여기서 다시 넣은
-		// 항목이 그 순회에 실려 한 번 더 나올 수 있으나(Go 는 그것을 미정으로
-		// 둔다), 새 주인은 **떠난 신원이 아니므로** 셋의 `owner == clientID`
-		// 갈래에 걸리지 않는다. 다시 떠나지 않는다.
-		f.owners[windowID] = prev
-	}
-}
-
-// canTakeLocked 은 직전 주인이 창을 돌려받을 수 있는지 답한다.
-//
-//   - 구독이 살아 있어야 한다 (FR-OHB-7). 죽은 신원에게 돌려주면 그 창은 아무도
-//     크기를 정하지 못하는 채로 잠긴다. **보이는지는 묻지 않는다** — 서버가 알
-//     수 없고, 알리려면 와이어에 낡을 수 있는 사실이 하나 는다 (D-OHB-1).
-//   - 다른 창을 쥐고 있지 않아야 한다 (FR-OHB-5 · FR-XDF-3). 뺏어 오면 그 창이
-//     비고, 그 자리에서 또 돌려주기가 서며, 창이 고리를 이루면 끝나지 않는다.
-func (f *FocusRegistry) canTakeLocked(clientID string) bool {
-	if _, live := f.live[clientID]; !live {
-		return false
-	}
-	for _, owner := range f.owners {
-		if owner == clientID {
-			return false
-		}
-	}
-	return true
 }
 
 // Executor names the single Client that should perform a creating command
@@ -264,9 +178,7 @@ func (f *FocusRegistry) Detach(clientID string, ep uint64) bool {
 	changed := false
 	for wid, owner := range f.owners {
 		if owner == clientID {
-			// 구독이 끊긴 것도 떠난 것이다 — 상대 기기가 창을 닫는 것과 blur
-			// 하는 것은 이쪽 화면에서 구별되지 않아야 한다 (FR-OHB-2·3).
-			f.leaveLocked(wid, clientID)
+			delete(f.owners, wid)
 			changed = true
 		}
 	}

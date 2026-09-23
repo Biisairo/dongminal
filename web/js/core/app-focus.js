@@ -216,10 +216,11 @@ Object.assign(App.prototype, {
       // 접수된 "포커스를 다시 가져오지 못한다" 의 절반이 이것이었다.
       this._focusReclaim();
     });
+    // FOCUS_INITIAL_RESTORE_SRS: blur 는 소유권을 놓지 않는다 — 초기 문서(FR-XDF-2·9)
+    // 그대로다. 되찾기의 계기는 포커스이고(위), 비는 계기는 구독 끊김뿐이다.
     window.addEventListener('blur',()=>{
       this.windowFocused=false;
       this._paintFocusEdge();
-      this._focusReleaseAll();
     });
     /**
      * FR-UXB-26 / D-UXB-5: **복귀의 계기는 버스 한 자리다.**
