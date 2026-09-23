@@ -131,9 +131,21 @@ const claim = (page: Page) =>
 
 test.describe('놓은 창은 되찾을 수 있다', () => {
   // V-UXB-7 · FR-UXB-20·23·25
+  /**
+   * `OWNER_HANDBACK_SRS` FR-OHB-3 이 마지막 단정을 개정했다.
+   *
+   *   이전 동작: 반납하면 그 창은 **주인 없는 채로** 남았다
+   *   새  동작: 직전 주인(여기서는 A)의 구독이 살아 있으면 그에게 돌아간다
+   *   이유:     주인 없는 창은 아무도 크기를 정하지 못한다. 이 시험이 재는 것은
+   *             *"빼앗긴 쪽의 dim 이 풀린다"* 이고 그것은 그대로다 — 오히려 A 가
+   *             주인이 되므로 더 강하게 참이다
+   *
+   * 그래서 단정도 "아무도 안 쥔다" 가 아니라 **"놓은 쪽이 안 쥔다"** 로 옮긴다.
+   */
   test('빼앗아 간 쪽이 포커스를 잃으면 빼앗긴 쪽의 dim 이 풀린다', async ({ browser, request }) => {
     const A = await newClient(browser);
     const B = await newClient(browser);
+    const idB = await B.page.evaluate(() => (window as any).app.clientId);
 
     await claim(A.page);
     await expect(B.page.locator('#area .pn.pn-dimmed')).toHaveCount(1, { timeout: 10000 });
@@ -147,8 +159,8 @@ test.describe('놓은 창은 되찾을 수 있다', () => {
 
     await expect(A.page.locator('#area .pn.pn-dimmed')).toHaveCount(0, { timeout: 10000 });
     const r = await request.get('/api/focus');
-    expect(Object.keys((await r.json()).owners || {}), '반납했는데 서버가 아직 쥐고 있다')
-      .toHaveLength(0);
+    expect(Object.values((await r.json()).owners || {}), '반납했는데 서버가 아직 쥐어 주고 있다')
+      .not.toContain(idB);
 
     await A.ctx.close();
     await B.ctx.close();

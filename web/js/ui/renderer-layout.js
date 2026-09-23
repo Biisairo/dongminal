@@ -153,10 +153,12 @@ Object.assign(Renderer.prototype, {
       for(const rec of moved) this._restoreScrollOf(rec);
       this._refocus();
       // After fit, panes have correct dimensions. Re-send sizes for the
-      // active window if this window owns it and has OS focus.
-      if(app.windowFocused){
-        app.resendWindowSizes(app.ws.activeWindow);
-      }
+      // active window.
+      // OWNER_HANDBACK_SRS FR-OHB-13: 게이트는 `windowFocused` 가 아니라 소유
+      // 판정이다 (`_mayDriveSize`, resendWindowSizes 안). 포커스로 가리면 돌려받은
+      // 화면이 전량 재생(FR-M10-2)의 문 — `ptySize()` 의 `cols!==had` — 을 지나지
+      // 못하고, 떠난 화면이 남긴 폭에 머문다.
+      app.resendWindowSizes(app.ws.activeWindow);
     },{owner:this,label:'render-frame'});
   },
 

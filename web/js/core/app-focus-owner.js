@@ -50,8 +50,10 @@ Object.assign(App.prototype, {
     // already-owned window would hit the server.
     if(changed) this._focusClaim(windowId,cid);
     // Send resize immediately (before render) so PTY matches this window's
-    // size by the time the user sees the panes. Only if OS-focused.
-    if(this.windowFocused) this.resendWindowSizes(windowId,si);
+    // size by the time the user sees the panes.
+    // FR-OHB-12: 자격은 `resendWindowSizes` 가 스스로 묻는다 — 여기서 한 번 더
+    // 물으면 판정이 두 벌이 되고, 돌려받은(포커스 없는) 주인이 그 사본에 걸린다.
+    this.resendWindowSizes(windowId,si);
     this.applyFocusOverlay();
   },
 
@@ -174,12 +176,33 @@ Object.assign(App.prototype, {
   // toolId 가 같으므로, 슬롯을 묻지 않으면 두 인스턴스가 모두 허가를 받아 서로
   // 다른 크기를 PTY 에 보낸다 — 크기는 하나뿐이다.
   resizeCheck(toolId,slot){
-    if(!this.windowFocused) return false;
-    const sid=this._toolWindowId(toolId);
-    if(!sid) return true; // pane not in any window yet → allow
-    const owner=this._windowFocusOwner[sid];
-    if(!owner) return true;
-    return owner===this._slotIdentity(slot||0);
+    // 아직 어느 창에도 없는 pane 은 주인을 물을 대상이 없다 — `_mayDriveSize`
+    // 의 "주인 없음" 갈래가 그것을 종전과 같이 다룬다.
+    return this._mayDriveSize(this._toolWindowId(toolId),slot);
+  },
+
+  /**
+   * OWNER_HANDBACK_SRS FR-OHB-9·12: **크기를 정할 자격을 답하는 한 자리.**
+   *
+   *   이전 동작: `if(!this.windowFocused) return false` 가 맨 앞이었다 — 주인이
+   *             누구냐를 **묻기도 전에** 죽었다
+   *   새  동작: 주인을 먼저 묻는다. 내가 주인이면 OS 포커스가 없어도 참이고,
+   *             남이 주인이면 거짓이며, **주인이 없을 때만** 포커스를 묻는다
+   *   이유:     한 판정이 두 물음을 겸하고 있었다. 그래서 내가 주인인데도 크기를
+   *             못 보내고, 주인이 아무도 없는데도 떠난 화면이 남긴 PTY 폭을
+   *             계속 따랐다 (SRS §2.2 실측 — `owner:(none) rc:false cols:201`)
+   *
+   * OS 포커스 조건을 **없애는 것이 아니라 자리를 옮기는 것**이다 (D-OHB-2).
+   * `FR-XDF-13` 이 막으려던 것은 *배경 기기가 활성 기기에게서 뺏기* 이고, 그것은
+   * 그대로 막힌다 — 활성 주인이 있는 동안에는 애초에 주인이 되지 못하므로.
+   *
+   * `resizeCheck`(pane 별)과 `resendWindowSizes`(창 전체)가 이 하나를 딛는다
+   * (FR-OHB-12). 자리가 둘이면 한쪽만 고쳐진다.
+   */
+  _mayDriveSize(windowId,slot){
+    const owner=windowId?this._windowFocusOwner[windowId]:'';
+    if(owner) return owner===this._slotIdentity(slot||0);
+    return !!this.windowFocused;
   },
 
   // applyFocusOverlay syncs the DOM: panes whose window is owned by
@@ -238,9 +261,10 @@ Object.assign(App.prototype, {
   resendWindowSizes(windowId,slot){
     if(!windowId) return;
     const si=(slot==null)?this.slotFocused():slot;
-    // Don't send resize if another slot/client owns this window.
-    const owner=this._windowFocusOwner[windowId];
-    if(owner&&owner!==this._slotIdentity(si)) return;
+    // FR-OHB-12: 자격의 판정은 `resizeCheck` 와 **같은 자리**다. 종전에는 여기가
+    // "남이 쥐지 않았으면 보낸다" 만 물었고, 그래서 주인도 포커스도 없는 배경
+    // 화면이 PTY 를 흔들 수 있었다.
+    if(!this._mayDriveSize(windowId,si)) return;
     const s=this.ws.windows.find(x=>x.id===windowId);
     if(!s||!s.layout) return;
     const toolIds=new Set();
