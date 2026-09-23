@@ -31,7 +31,7 @@ class TerminalTool {
     // 두는 이유는 그 칸에 두 진실이 담기기 때문이다 — 비소유가 되면 `_applyPtySize`
     // 가 `term.cols` 를 PTY 폭으로 덮고, 그러면 되찾을 때 되보낼 자기 폭이 없다
     // (D-M10-1). 0 은 "소유자였던 적이 없다" 이고 그때는 `term` 의 값을 쓴다.
-    this._ownCols=0; this._ownRows=0; this._widthDebt=false;   // 빚: OWNER_TRANSFER_REPLAY_SRS
+    this._ownCols=0; this._ownRows=0; this._widthDebt=false; this._srvAlt=false;   // 빚·서버 대체 화면: OWNER_TRANSFER_REPLAY_SRS
     this.el=document.createElement('div');
     this.el.className='tp'; this.el.dataset.toolid=id;
     this.box=document.createElement('div');
@@ -139,7 +139,7 @@ class TerminalTool {
     // 붙이지 않으면 셸이 보낸 복사가 **받는 사람 없이 버려진다** — 그것이
     // "복사가 원격에서만 안 된다" 의 정체였다 (§2.5).
     try{TermClipboard.attach(this.term,this.id)}catch(e){}
-    this.term.open(this.box);
+    this.term.open(this.box); for(const f of ['h','l']) this.term.parser.registerCsiHandler({prefix:'?',final:f},ps=>this._onAltMode(ps,f==='h'));
     this.term.attachCustomKeyEventHandler(e=>{
       // UX_BATCH6_SRS FR-IME-1: 조합이 아직 끝나지 않았으면 이 키는 xterm 이
       // 보아서는 안 된다. 가장 앞에 둔다 — 뒤의 갈래들도 조합보다 앞서면 안 된다.
@@ -695,7 +695,7 @@ class TerminalTool {
      * 버리는 것이 아니라 필요한 곳에만 남기는 것이다.
      */
     const flag=p[8];
-    if(flag&SEQ_FLAG_FULL){ this._widthDebt=false; if(flag&SEQ_FLAG_ALT) this._redrawNudge() }   // FR-OTR-3: 빚은 도착으로 갚는다
+    this._srvAlt=!!(flag&SEQ_FLAG_ALT); if(flag&SEQ_FLAG_FULL){ this._widthDebt=false; if(this._srvAlt) this._redrawNudge() }   // FR-OTR-3·9
   }
 
   /**
@@ -829,8 +829,7 @@ class TerminalTool {
     if(this.term.cols===this._ptyCols&&this.term.rows===this._ptyRows) return;
     const had=this.term.cols;
     try{this.term.resize(this._ptyCols,this._ptyRows)}catch{}
-    // FR-M10-2: 옛 폭의 그림을 고치는 길은 전량 재생뿐이다 (M10_SRS §2.3). FR-OTR-1:
-    // **지금 받지는 않는다** — dim 인 화면의 재생은 아무도 안 기다린다(E-7). 빚으로 적는다.
+    // FR-M10-2 의 재생을 지금 받지 않는다 — dim 인 화면은 아무도 안 기다린다(FR-OTR-1·E-7).
     if(this.term.cols!==had) this._widthDebt=true;
   }
 
@@ -899,8 +898,8 @@ class TerminalTool {
     const cols=this._ownCols>0?this._ownCols:this.term.cols;
     const rows=this._ownRows>0?this._ownRows:this.term.rows;
     if(!(cols>0&&rows>0)) return null;
-    // FR-OTR-2: 빚도 근거다 — 되찾는 폭이 따라가던 폭과 같으면 `cols!==had` 가 안 선다.
-    if(cols!==had||this._widthDebt) this._refreshForWidth();
+    // FR-OTR-2·8: 빚은 라이브일 때만 근거다. FR-OTR-6·9: 서버가 대체 화면이라 하면 앱의 재그리기에 맡긴다.
+    if(cols!==had||(this._widthDebt&&this._seqLive)){ if(this._srvAlt) this._widthDebt=true; else this._refreshForWidth() }
     return {cols,rows};
   }
 
@@ -934,6 +933,7 @@ class TerminalTool {
     return this.reconnectNow({quiet:true});
   }
   focus(){if(this.term)try{this.term.focus()}catch{}}
+  _onAltMode(ps,on){if(ps.some(v=>v===1049||v===47||v===1047)){this._srvAlt=on;if(!on&&this._widthDebt&&this._seqLive&&!this._followsPty())this._refreshForWidth()}return false}   // FR-OTR-7·9
   _reconnect(){
     if(this._destroyed||this._exited) return;
     // Instant first attempt, then fast backoff: 200, 500, 1s, 1.2x up to 10s.
