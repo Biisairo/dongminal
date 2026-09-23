@@ -20,7 +20,7 @@ import { load, fakeClock } from './harness.mjs';
  */
 function pane(opts = {}) {
   const clock = fakeClock();
-  const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/timer-hub.js', 'ui/term-pane.js'], {
+  const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/timer-hub.js', 'ui/clipboard.js', 'ui/term-clipboard.js', 'ui/term-pane.js'], {
     clock,
     expose: ['OP', 'TerminalTool', 'TIMERS', 'SEQ_FLAG_FULL', 'SEQ_FLAG_ALT'],
   });

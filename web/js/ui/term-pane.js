@@ -138,7 +138,7 @@ class TerminalTool {
     // FR-ETR-37: OSC 52(클립보드 쓰기). xterm 은 이것을 스스로 처리하지 않으므로
     // 붙이지 않으면 셸이 보낸 복사가 **받는 사람 없이 버려진다** — 그것이
     // "복사가 원격에서만 안 된다" 의 정체였다 (§2.5).
-    try{TermClipboard.attach(this.term,this.id)}catch(e){}
+    try{TermClipboard.attach(this.term,this.id,this)}catch(e){}
     this.term.open(this.box); for(const f of ['h','l']) this.term.parser.registerCsiHandler({prefix:'?',final:f},ps=>this._onAltMode(ps,f==='h'));
     this.term.attachCustomKeyEventHandler(e=>{
       // UX_BATCH6_SRS FR-IME-1: 조합이 아직 끝나지 않았으면 이 키는 xterm 이
@@ -1018,7 +1018,7 @@ class TerminalTool {
     // 서버의 오프셋이 PTY 가 낸 raw 바이트의 수이기 때문이다.
     if(this._seqLive) this._seq+=data.length;
     // stream:true preserves UTF-8 multibyte state across WS chunk boundaries
-    this._outputBuf+=this._decoder.decode(data,{stream:true});
+    this._outputBuf+=this._decoder.decode(data,{stream:true}); TermClipboard.arrive(this);   // FR-CPO-1: 도착 때 판정
     if(this._flushScheduled) return;
     this._flushScheduled=true;
     // 프레임이 아니라 매크로태스크다 — 숨은 탭에서도 출력이 흘러야 한다.
@@ -1069,7 +1069,7 @@ class TerminalTool {
       else if(cmd==='Cwd') this._onCwd(val);
     }
     const clean=text.replace(/\x1b\]777;\w+;[^\x07]*\x07/g,'');
-    if(this.term) try{this.term.write(clean||'')}catch{}
+    if(this.term) try{TermClipboard.feed(this,clean)}catch{}   // FR-CPO-5: 쓰기마다 도착 판정을 싣는다
     else if(clean) this._buf.push(enc.encode(clean));
   }
   _onCwd(cwd){

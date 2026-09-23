@@ -28,14 +28,67 @@ const TermClipboard={
    * 보고 잔재를 화면에 찍는다 (FR-ETR-42). 내용을 버리는 경우(읽기 요청·상한
    * 초과)에도 "우리가 처리했다" 는 사실은 같다.
    */
-  attach(term,toolId){
+  attach(term,toolId,pane){
     if(!term||!term.parser||typeof term.parser.registerOscHandler!=='function') return;
     try{
-      term.parser.registerOscHandler(52,data=>{TermClipboard._onOsc(String(data||''),toolId);return true});
+      term.parser.registerOscHandler(52,data=>{TermClipboard._onOsc(String(data||''),toolId,pane);return true});
     }catch{}
   },
 
-  _onOsc(data,toolId){
+  /**
+   * COPY_POPUP_ORIGIN_SRS FR-CPO-1·2·3: 출력이 **도착한 순간**에 판정한다.
+   *
+   *   이전 동작: 판정(FR-ETR-44)은 xterm 이 OSC 52 를 **처리하는 순간**에 물었다
+   *   새  동작: 바이트가 WebSocket 으로 닿는 순간 묻고, 그 답을 그 바이트와 함께 넘긴다
+   *   이유:     처리는 도착보다 늦을 수 있다. 뒤에 있던 B 가 포커스를 받은 **뒤**에
+   *             파싱하면 그때 판정이 참이 되어, A 에서 한 복사의 창이 B 에서 섰다
+   *             (접수 2026-09-24). 재생은 옛 OSC 52 를 다시 파싱해 같은 일을 했다
+   *
+   * 라이브로 도착한 것만 복사다 (FR-CPO-2) — 좌표(`OpSeq`) 전의 바이트는 재생이다.
+   * 한 flush 에 묶이는 조각들은 **모두** 쓰는 화면에서 도착해야 참이다 (FR-CPO-5).
+   */
+  arrive(pane){
+    const ok=!!pane._seqLive&&TermClipboard._usingHere(pane);
+    pane._clipOk=(pane._clipOk!==false)&&ok;
+  },
+
+  /**
+   * FR-CPO-5 · NFR-CPO-2: xterm 에 넘기는 한 번의 쓰기에 그 묶음의 판정을 싣는다.
+   *
+   * xterm 은 쓰기를 넣은 순서대로 처리하고, 콜백은 그 쓰기의 파싱이 **끝난 뒤**에
+   * 부른다. 그래서 핸들러가 불리는 동안 큐의 머리가 곧 그 쓰기의 판정이다.
+   *
+   * 보류된 조각(`_outputBuf`, FR-FTR-8)이 남으면 판정을 **이어 간다** — 그 조각도
+   * 같은 도착들의 것이다. 남은 것이 없을 때만 다음 묶음을 새로 판정한다.
+   */
+  feed(pane,text){
+    const ok=pane._clipOk===true;
+    if(!pane._outputBuf) pane._clipOk=undefined;
+    if(!text) return;
+    (pane._clipQ||(pane._clipQ=[])).push(ok);
+    pane.term.write(text,()=>{pane._clipQ.shift()});
+  },
+
+  /**
+   * FR-CPO-3: 사용자가 지금 **이 브라우저로** 그 도구를 쓰고 있는가.
+   *
+   * OS 포커스·활성 탭(`attnUserIsWatching`)만으로는 모자란다 — 다른 컴퓨터는 각자
+   * OS 포커스를 가져, 사용자가 보고 있지 않은 기기도 참이 된다. 여러 기기를 가로질러
+   * "지금 쓰는 화면" 을 아는 것은 소유권 하나다 (`resizeCheck` — FR-XDF-2). 드래그의
+   * 클릭이 그 화면을 주인으로 세운다.
+   */
+  _usingHere(pane){
+    const app=(typeof window!=='undefined')?window.app:null;
+    if(!app) return false;
+    const watch=typeof app.attnUserIsWatching==='function'?app.attnUserIsWatching(pane.id):false;
+    const own=typeof app.resizeCheck==='function'?app.resizeCheck(pane.id,pane._slot):false;
+    return !!watch&&!!own;
+  },
+
+  _onOsc(data,toolId,pane){
+    // FR-CPO-1·4·6: 이 쓰기가 **도착 때 받은 판정**이 거짓이면 세 단 모두 하지 않는다.
+    // 판정이 없으면(도착 경로를 지나지 않은 쓰기 — 열리기 전 버퍼 등) 참으로 읽지 않는다.
+    if(!pane||!pane._clipQ||!pane._clipQ[0]) return;
     // 형식은 `<targets>;<base64>` 다. targets 는 가르지 않는다 — 브라우저에는
     // 클립보드가 하나뿐이라 c·p·s 를 나눌 자리가 없다.
     const i=data.indexOf(';');

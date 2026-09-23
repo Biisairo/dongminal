@@ -6,6 +6,7 @@ import { APIRequestContext, Locator, Page } from '@playwright/test';
 
 import {
   test, expect, openRowMenu, rmTree, switchToEditorRoot, openExplorerSide, gotoWithEditors, openExplorerAt,
+  waitShellReady,
 } from './fixtures';
 import { TMP, realPath, cssPath } from './osenv';
 
@@ -403,13 +404,18 @@ test.describe('묶음 D — 실패했을 때의 선택 (FR-ETR-26~30)', () => {
 // ── 묶음 F — 터미널의 복사 ────────────────────────────
 
 test.describe('묶음 F — OSC 52 (FR-ETR-37~43)', () => {
-  /** 터미널에 OSC 52 를 흘려 넣는다 — 셸이 보낸 것과 같은 길이다. */
+  /**
+   * 터미널에 OSC 52 를 흘려 넣는다 — 셸이 보낸 바이트가 WebSocket 으로 **닿는 자리**
+   * (`_handleOutput`)로. 복사의 판정이 그 도착 순간에 서므로(COPY_POPUP_ORIGIN_SRS
+   * FR-CPO-1), xterm 에 바로 쓰면 판정을 건너뛰어 복사가 되지 않는다 (FR-CPO-6).
+   * 종전에는 `pane.term.write` 였고, 그것은 셸의 길이 아니었다.
+   */
   async function feedOsc52(page: Page, payload: string) {
     await page.evaluate((p) => {
       const a = (window as any).app;
       const pane = a.testing.focusedTerminal();
       if (!pane || !pane.term) throw new Error('터미널이 없다');
-      pane.term.write('\x1b]52;c;' + p + '\x07');
+      pane._handleOutput(new TextEncoder().encode('\x1b]52;c;' + p + '\x07'));
     }, payload);
   }
 
@@ -501,6 +507,67 @@ test.describe('묶음 F — OSC 52 (FR-ETR-37~43)', () => {
     await expect(page.locator('#term-copy')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('#term-copy .tc-copy-text')).toHaveValue('mine-text');
     await page.locator('#term-copy .tc-copy-text').press('Escape');
+  });
+
+  /**
+   * V-CPO-7 (COPY_POPUP_ORIGIN_SRS 길 ③): **다른 브라우저의 복사는 재생돼도 여기서 서지
+   * 않는다.** 접수: *"A 에서 claude 를 드래그해 복사하고 B 로 가면 복사창이 뜬다."*
+   *
+   * 실제 PTY 가 OSC 52 를 내게 한다 — 두 브라우저가 같은 바이트를 받는다. B 가 되찾으며
+   * 전량 재생을 받으면 tail 안의 **옛 OSC 52** 가 다시 파싱되고, 그때 B 는 포커스·소유
+   * 둘 다 참이라 종전 판정(FR-ETR-44)이 통과했다.
+   *
+   * 음의 단정을 시간으로 기다리지 않는다 (E2E_QUIESCENCE I-1). 재생 뒤에 **라이브 표지**
+   * 하나를 도착 경로로 흘린다 — 쓰기는 넣은 순서대로 처리되므로, 표지의 창이 떴을 때는
+   * 앞선 재생이 모두 처리된 뒤다. 그때까지 선 창이 표지 하나뿐이어야 한다.
+   */
+  test('ET17 (V-CPO-7): 다른 브라우저에서 한 복사는 재생돼도 이 브라우저에 창을 세우지 않는다', async ({ browser }) => {
+    const open = async () => {
+      const ctx = await browser.newContext();
+      await ctx.addInitScript(() => sessionStorage.setItem('displayMode', 'desktop'));
+      const page = await ctx.newPage();
+      await page.goto('/');
+      await waitShellReady(page);
+      return { ctx, page };
+    };
+    const A = await open();
+    const B = await open();
+
+    // B 는 두 단이 막힌 환경(원격 HTTP) — 복사창이 서는 자리다. 선 창을 전부 센다.
+    await B.page.evaluate(() => {
+      try { Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true }) } catch {}
+      (document as any).execCommand = () => false;
+      const W = (window as any).ClipboardWriter || (globalThis as any).eval('ClipboardWriter');
+      (window as any).__prompts = [];
+      const orig = W.prompt.bind(W);
+      W.prompt = (t: string) => { (window as any).__prompts.push(t); return orig(t) };
+      (document as any).hasFocus = () => false;
+      window.dispatchEvent(new Event('blur'));
+    });
+
+    // A 가 주인이 되고, A 의 셸이 OSC 52 를 낸다.
+    await A.page.evaluate(() => (window as any).app.setFocus((window as any).app.focused));
+    await A.page.locator('#area .pn.focused .xterm-helper-textarea').focus();
+    await A.page.keyboard.type("printf '\\033]52;c;%s\\007' " + b64('from-A') + '\n');
+    // B 가 그 바이트를 받았다 — 명령의 메아리가 B 의 화면에도 선다.
+    await expect(B.page.locator('#area .pn.focused .xterm-rows')).toContainText(b64('from-A'), { timeout: 15000 });
+
+    // 사용자가 B 로 온다 — 포커스를 받고 되찾는다. 그리고 전량 재생을 받는다.
+    await B.page.evaluate(() => { (document as any).hasFocus = () => true; window.dispatchEvent(new Event('focus')) });
+    await B.page.evaluate(() => (window as any).app.testing.focusedTerminal()._refreshForWidth());
+    await expect.poll(() => B.page.evaluate(() => (window as any).app.testing.focusedTerminal()._seqLive),
+      { timeout: 15000 }).toBe(true);
+
+    // 표지 — 이 브라우저에서 라이브로 도착한, 지금 쓰는 화면의 복사. 이것은 선다.
+    await B.page.evaluate((m) => {
+      (window as any).app.testing.focusedTerminal()._handleOutput(new TextEncoder().encode('\x1b]52;c;' + m + '\x07'));
+    }, b64('marker'));
+    await expect.poll(() => B.page.evaluate(() => (window as any).__prompts.length), { timeout: 10000 }).toBeGreaterThan(0);
+    expect(await B.page.evaluate(() => (window as any).__prompts), 'A 의 복사가 재생으로 B 에서 다시 실행됐다')
+      .toEqual(['marker']);
+
+    await A.ctx.close();
+    await B.ctx.close();
   });
 
   test('ET15 (V-ETR-36): 읽기 요청(`?`)에는 아무것도 보내지 않는다', async ({ page }) => {
