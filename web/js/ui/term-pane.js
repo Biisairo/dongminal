@@ -31,7 +31,7 @@ class TerminalTool {
     // 두는 이유는 그 칸에 두 진실이 담기기 때문이다 — 비소유가 되면 `_applyPtySize`
     // 가 `term.cols` 를 PTY 폭으로 덮고, 그러면 되찾을 때 되보낼 자기 폭이 없다
     // (D-M10-1). 0 은 "소유자였던 적이 없다" 이고 그때는 `term` 의 값을 쓴다.
-    this._ownCols=0; this._ownRows=0;
+    this._ownCols=0; this._ownRows=0; this._widthDebt=false;   // 빚: OWNER_TRANSFER_REPLAY_SRS
     this.el=document.createElement('div');
     this.el.className='tp'; this.el.dataset.toolid=id;
     this.box=document.createElement('div');
@@ -695,7 +695,7 @@ class TerminalTool {
      * 버리는 것이 아니라 필요한 곳에만 남기는 것이다.
      */
     const flag=p[8];
-    if((flag&SEQ_FLAG_FULL)&&(flag&SEQ_FLAG_ALT)) this._redrawNudge();
+    if(flag&SEQ_FLAG_FULL){ this._widthDebt=false; if(flag&SEQ_FLAG_ALT) this._redrawNudge() }   // FR-OTR-3: 빚은 도착으로 갚는다
   }
 
   /**
@@ -829,10 +829,9 @@ class TerminalTool {
     if(this.term.cols===this._ptyCols&&this.term.rows===this._ptyRows) return;
     const had=this.term.cols;
     try{this.term.resize(this._ptyCols,this._ptyRows)}catch{}
-    // FR-M10-2: 폭이 바뀌었으면 스크롤백은 **옛 폭의 그림**이다. xterm 의 리플로우는
-    // 줄바꿈만 되돌리고 절대 좌표로 그려진 것은 되돌리지 못한다 — 그것을 새 폭으로
-    // 다시 파싱하는 길은 전량 재생뿐이다 (M10_SRS §2.3).
-    if(this.term.cols!==had) this._refreshForWidth();
+    // FR-M10-2: 옛 폭의 그림을 고치는 길은 전량 재생뿐이다 (M10_SRS §2.3). FR-OTR-1:
+    // **지금 받지는 않는다** — dim 인 화면의 재생은 아무도 안 기다린다(E-7). 빚으로 적는다.
+    if(this.term.cols!==had) this._widthDebt=true;
   }
 
   /**
@@ -900,7 +899,8 @@ class TerminalTool {
     const cols=this._ownCols>0?this._ownCols:this.term.cols;
     const rows=this._ownRows>0?this._ownRows:this.term.rows;
     if(!(cols>0&&rows>0)) return null;
-    if(cols!==had) this._refreshForWidth();
+    // FR-OTR-2: 빚도 근거다 — 되찾는 폭이 따라가던 폭과 같으면 `cols!==had` 가 안 선다.
+    if(cols!==had||this._widthDebt) this._refreshForWidth();
     return {cols,rows};
   }
 
