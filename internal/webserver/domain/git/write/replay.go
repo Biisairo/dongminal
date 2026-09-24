@@ -45,6 +45,19 @@ func Replay(s *core.Service, ctx context.Context, repo string, rec core.Record) 
 	if rec.Unguarded {
 		return denied(), fmt.Errorf("%w: 인가를 지나지 않은 기록이다 (%s)", ErrReplayTarget, rec.Reason)
 	}
+	// REPO_FIX 01 §7.5: 다시 돌리면 **다른 결과**가 되는 기록은 거절한다.
+	//
+	//	이전 동작: 그대로 재실행 — stdin 기록(커밋·태그·패치)은 내용 없이 돌아
+	//	          태그는 빈 메시지 annotated tag 가 exit 0 으로 생겼다(실측),
+	//	          stash 기록은 지금 그 위치의 다른 stash 를 건드렸다
+	//	새  동작: 실행 전 거절
+	//	이유:     stdin 내용은 기록되지 않고(I6), stash 는 위치로 기록된다
+	if rec.StdinBytes > 0 {
+		return denied(), fmt.Errorf("%w: stdin 으로 넘긴 내용은 기록되지 않아 다시 실행할 수 없다", ErrReplayTarget)
+	}
+	if rec.Write && rec.Argv[0] == "stash" {
+		return denied(), fmt.Errorf("%w: stash 는 위치로 기록돼 지금 다시 실행하면 다른 stash 를 건드릴 수 있다", ErrReplayTarget)
+	}
 	if rec.Write {
 		return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: rec.Argv, Destructive: rec.Destructive})
 	}

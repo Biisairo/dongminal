@@ -68,3 +68,38 @@ func TestReplay_AllowsGuardedRecord(t *testing.T) {
 		t.Fatalf("argv 가 그대로 가지 않았다: %q", seen)
 	}
 }
+
+// REPO_FIX 01 §7.5: stdin 으로 넘긴 내용은 기록되지 않는다(I6). 그 기록을 다시
+// 돌리면 다른 결과다 — 태그는 빈 메시지 annotated tag 가 exit 0 으로 생겼다(실측).
+// 실행 전에 거절한다.
+func TestReplay_RejectsStdinRecord(t *testing.T) {
+	var called bool
+	s := core.New(core.WithWriteRunner(func(context.Context, string, []string, string) (core.Output, error) {
+		called = true
+		return core.Output{}, nil
+	}))
+	rec := core.Record{Argv: []string{"tag", "-a", "v1", "-F", "-"}, Cwd: absRepo, Write: true, StdinBytes: 12}
+	if _, err := Replay(s, context.Background(), absRepo, rec); !errors.Is(err, ErrReplayTarget) {
+		t.Fatalf("err = %v, want ErrReplayTarget", err)
+	}
+	if called {
+		t.Fatal("stdin 기록이 재실행됐다")
+	}
+}
+
+// §7.5: stash 쓰기 기록은 위치(stash@{n})로 기록돼 지금 다시 돌리면 다른 stash 를
+// 건드릴 수 있다 — 거절한다.
+func TestReplay_RejectsStashWriteRecord(t *testing.T) {
+	var called bool
+	s := core.New(core.WithWriteRunner(func(context.Context, string, []string, string) (core.Output, error) {
+		called = true
+		return core.Output{}, nil
+	}))
+	rec := core.Record{Argv: []string{"stash", "drop", "stash@{0}"}, Cwd: absRepo, Write: true}
+	if _, err := Replay(s, context.Background(), absRepo, rec); !errors.Is(err, ErrReplayTarget) {
+		t.Fatalf("err = %v, want ErrReplayTarget", err)
+	}
+	if called {
+		t.Fatal("stash 기록이 재실행됐다")
+	}
+}
