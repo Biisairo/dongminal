@@ -28,6 +28,8 @@ var readCommands = map[string]bool{
 	// 줄마다 어느 커밋에서 왔는지는 blame 만 답한다 (FR-GIT-276). 순수 읽기이며
 	// writeCommands 와 겹치지 않는다.
 	"blame": true,
+	// REPO_FIX 01 §7.6: 커밋 쪽 gitlink 판정(모드 160000). 순수 읽기다.
+	"ls-tree": true,
 }
 
 // unsafePrefixes 는 임의 명령 실행 또는 파일 쓰기로 가는 인자들이다. 읽기

@@ -131,6 +131,9 @@ const GIT_LFS_KIND='lfs';
 // git 이 해시를 축약해 보이는 것과 같은 관례다.
 const GIT_LFS_OID_PREFIX='sha256:';
 const GIT_LFS_OID_ABBREV=12;
+// REPO_FIX 01 §7.6: gitlink 쪽은 가리키는 커밋 oid 를 메타로 보인다.
+const GIT_SUBMODULE_KIND='submodule';
+const GIT_COMMIT_ABBREV=10;
 const GIT_META_SEP=' · ';
 // 양쪽 메타가 다를 때만 쪽을 밝힌다. diff 에디터의 좌·우가 곧 이전·이후다.
 const GIT_META_SIDE={orig:t('git.meta_side.orig'),mod:t('git.meta_side.mod')};

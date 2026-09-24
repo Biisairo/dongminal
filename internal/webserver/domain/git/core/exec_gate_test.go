@@ -288,8 +288,11 @@ func TestCommandAllowlistsDidNotGrow(t *testing.T) {
 	//	          `bisect reset` 은 그 조건을 만족한다 — 전부 쓰기이고,
 	//	          `guardOpOnlyArgs` 가 그 셋 밖의 모양을 실행 전에 막는다.
 	//	          `worktree`·`submodule` 의 기각(D-9)은 그대로다
+	//
+	//	REPO_FIX 01 §7.6: 읽기에 `ls-tree` 가 더해졌다(15 → 16). 커밋 쪽 gitlink
+	//	(모드 160000) 판정 전용이며 순수 읽기다 — 쓰기 목록과 겹치지 않는다.
 	const (
-		wantRead  = 15
+		wantRead  = 16
 		wantWrite = 24
 	)
 	if len(readCommands) != wantRead {

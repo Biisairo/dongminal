@@ -45,6 +45,7 @@ function gitBlobMeta(side){
     return [oid,size].filter(Boolean).join(GIT_META_SEP);
   }
   if(GIT_META_SIZED.has(s.kind)) return s.size?gitFmtBytes(s.size):'';
+  if(s.kind===GIT_SUBMODULE_KIND) return s.oid?s.oid.slice(0,GIT_COMMIT_ABBREV):'';
   return '';
 }
 

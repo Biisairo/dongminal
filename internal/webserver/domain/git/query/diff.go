@@ -29,7 +29,12 @@ const (
 	DiffKindBinary   = "binary"
 	DiffKindLFS      = "lfs"
 	DiffKindTooLarge = "too_large"
+	// DiffKindSubmodule 은 gitlink(모드 160000)다 — 본문이 아니라 가리키는 커밋
+	// oid 가 비교 대상이다 (REPO_FIX 01 §7.6).
+	DiffKindSubmodule = "submodule"
 )
+
+const gitlinkMode = "160000"
 
 // 상한은 상수로 못박는다 — 호출 지점마다 다른 숫자가 흩어지면 상한이 상한이
 // 아니게 된다.
@@ -58,12 +63,15 @@ const (
 // DiffSide 는 비교 한쪽이다. kind 가 text 가 아니면 content 는 비어 있다 —
 // 뷰어는 본문 대신 안내를 보인다.
 type DiffSide struct {
-	Kind    string `json:"kind"`    // text | absent | binary | lfs | too_large
+	Kind    string `json:"kind"`    // text | absent | binary | lfs | too_large | submodule
 	Content string `json:"content"` // Kind=="text" 일 때만 채운다
 	Size    int64  `json:"size"`
 	// LFS 포인터의 메타. Kind=="lfs" 일 때만 (FR-GIT-47)
 	LFSOid  string `json:"lfsOid,omitempty"`
 	LFSSize int64  `json:"lfsSize,omitempty"`
+	// Oid 는 Kind=="submodule" 일 때 그 쪽이 가리키는 커밋이다. 작업 트리 쪽은
+	// 비어 있다 (체크아웃된 서브모듈의 HEAD 를 여기서 묻지 않는다).
+	Oid string `json:"oid,omitempty"`
 }
 
 // DiffContent 는 한 축의 양쪽 전체 내용이다.
@@ -124,6 +132,11 @@ func DiffContentOf(s *core.Service, ctx context.Context, repo, axis, p, origPath
 
 	// 양쪽이 모두 없으면 요청 자체가 잘못된 것이다. 빈 diff 를 그려 주면 사용자는
 	// 파일이 비었다고 읽는다.
+	// §7.6: 작업 트리 쪽은 디렉터리(absent)이고 반대쪽이 gitlink 면 그것은
+	// 체크아웃된 서브모듈이다.
+	if axis != AxisIndexHead && dc.Original.Kind == DiffKindSubmodule && dc.Modified.Kind == DiffKindAbsent && worktreeIsDir(repo, rel) {
+		dc.Modified = DiffSide{Kind: DiffKindSubmodule}
+	}
 	if dc.Original.Kind == DiffKindAbsent && dc.Modified.Kind == DiffKindAbsent {
 		return DiffContent{}, fmt.Errorf("%w: %s 의 %s 축 양쪽에 %q 가 없다", ErrDiffBothAbsent, repo, axis, rel)
 	}
@@ -141,6 +154,12 @@ func diffBlobSide(s *core.Service, ctx context.Context, repo, rev string) (DiffS
 	if err != nil {
 		if diffAbsent(err) {
 			return DiffSide{Kind: DiffKindAbsent}, nil
+		}
+		// §7.6: gitlink 는 상위 저장소에 객체가 없어 cat-file 이 실패한다(could
+		// not get object info — 500 이던 것). 실패했을 때만 모드를 물어 정상
+		// 파일의 경로에 git 호출을 더하지 않는다.
+		if sub, ok := gitlinkSide(s, ctx, repo, rev); ok {
+			return sub, nil
 		}
 		return DiffSide{}, err
 	}
@@ -163,6 +182,37 @@ func diffBlobSide(s *core.Service, ctx context.Context, repo, rev string) (DiffS
 	return diffSideFromBody(body.Stdout, size), nil
 }
 
+// gitlinkSide 는 rev(`:<p>` 또는 `<treeish>:<p>`)가 gitlink 인지 묻는다.
+func gitlinkSide(s *core.Service, ctx context.Context, repo, rev string) (DiffSide, bool) {
+	treeish, p, _ := strings.Cut(rev, ":")
+	var out core.Output
+	var err error
+	if treeish == "" {
+		out, err = s.Exec(ctx, repo, "ls-files", "-s", "--", p)
+	} else {
+		out, err = s.Exec(ctx, repo, "ls-tree", treeish, "--", p)
+	}
+	if err != nil {
+		return DiffSide{}, false
+	}
+	// ls-files -s: "<mode> <oid> <stage>\t<path>", ls-tree: "<mode> <type> <oid>\t<path>"
+	meta, _, _ := strings.Cut(strings.TrimSpace(out.Stdout), "\t")
+	f := strings.Fields(meta)
+	if len(f) < 3 || f[0] != gitlinkMode {
+		return DiffSide{}, false
+	}
+	oid := f[1]
+	if treeish != "" {
+		oid = f[2]
+	}
+	return DiffSide{Kind: DiffKindSubmodule, Oid: oid}, true
+}
+
+func worktreeIsDir(repo, rel string) bool {
+	fi, err := os.Lstat(filepath.Join(repo, rel))
+	return err == nil && fi.IsDir()
+}
+
 // diffWorktreeSide 는 워킹 트리 파일 한쪽을 판정한다. git 을 경유하지 않는다 —
 // `git show` 는 index/HEAD 만 알고, 워킹 트리는 파일시스템이 진실이다.
 func diffWorktreeSide(repo, rel string) (DiffSide, error) {
@@ -170,12 +220,22 @@ func diffWorktreeSide(repo, rel string) (DiffSide, error) {
 	if err != nil {
 		return DiffSide{}, err
 	}
-	fi, err := os.Stat(abs)
+	fi, err := os.Lstat(abs)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return DiffSide{Kind: DiffKindAbsent}, nil
 		}
 		return DiffSide{}, err
+	}
+	// REPO_FIX 01 §7.6: 심링크는 따라가지 않고 **링크 문자열**이 본문이다 — git 이
+	// blob 으로 저장하는 표현과 같다. 종전에는 대상 파일 본문을 읽어 HEAD 쪽(링크
+	// 문자열)과 비교했고, 밖을 가리키면 400 이었다.
+	if fi.Mode()&os.ModeSymlink != 0 {
+		link, err := os.Readlink(abs)
+		if err != nil {
+			return DiffSide{}, err
+		}
+		return DiffSide{Kind: DiffKindText, Content: link, Size: int64(len(link))}, nil
 	}
 	// 디렉터리를 읽으려 하면 오류가 되고, 그 오류는 사용자에게 아무것도 설명하지
 	// 못한다. 비교할 본문이 없다는 사실은 absent 가 이미 뜻한다.
@@ -197,13 +257,17 @@ func diffWorktreeSide(repo, rel string) (DiffSide, error) {
 //
 // 존재하지 않는 파일은 풀 수 없다. 그래서 존재하는 조상까지 풀고 나머지를 이어
 // 붙인다 — 새로 만든 파일의 diff 가 "풀 수 없다"는 이유로 막히면 안 된다.
+//
+// **마지막 조각은 풀지 않는다** (REPO_FIX 01 §7.6) — 그 자리가 심링크여도 우리는
+// 그것을 따라 읽지 않고 링크 문자열을 읽으므로, 밖을 가리키는 링크 자체는 안전하다.
+// 밖으로 나가는 것은 중간 디렉터리 심링크뿐이다.
 func diffWorktreeAbs(repo, rel string) (string, error) {
 	root, err := filepath.EvalSymlinks(repo)
 	if err != nil {
 		root = repo
 	}
 	abs := filepath.Join(repo, rel)
-	target := evalExisting(abs)
+	target := filepath.Join(evalExisting(filepath.Dir(abs)), filepath.Base(abs))
 	if target != root && !strings.HasPrefix(target, root+string(os.PathSeparator)) {
 		return "", fmt.Errorf("%w: %q 가 리포 밖(%s)을 가리킨다", ErrDiffPath, rel, target)
 	}
@@ -302,6 +366,8 @@ func diffNote(orig, mod DiffSide) string {
 			return "Git LFS 포인터입니다 — 실제 내용은 받아오지 않았습니다"
 		case DiffKindBinary:
 			return "바이너리 파일입니다 — 본문을 표시하지 않습니다"
+		case DiffKindSubmodule:
+			return "서브모듈입니다 — 가리키는 커밋이 바뀌었습니다"
 		}
 	}
 	switch {

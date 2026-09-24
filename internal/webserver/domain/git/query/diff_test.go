@@ -438,10 +438,19 @@ func TestDiffContent_RejectsSymlinkEscape(t *testing.T) {
 	f.blobs[":link.txt"] = "x\n"
 	f.blobs[":dir/secret.txt"] = "x\n"
 	svc := core.New(core.WithRunner(f.run))
-	for _, p := range []string{"link.txt", "dir/secret.txt"} {
-		if _, err := DiffContentOf(svc, context.Background(), repo, AxisWorktreeIndex, p, ""); !errors.Is(err, ErrDiffPath) {
-			t.Fatalf("%s: err = %v, want ErrDiffPath", p, err)
-		}
+	// 중간 디렉터리 심링크로 밖에 닿는 경로는 거부한다.
+	if _, err := DiffContentOf(svc, context.Background(), repo, AxisWorktreeIndex, "dir/secret.txt", ""); !errors.Is(err, ErrDiffPath) {
+		t.Fatalf("dir/secret.txt: err = %v, want ErrDiffPath", err)
+	}
+	// REPO_FIX 01 §7.6: 경로 자체가 심링크면 링크를 따라가지 않고 **링크 문자열**이
+	// 본문이다(git 과 같은 표현). 밖을 가리켜도 밖을 읽지 않으므로 거부할 이유가
+	// 없다 — 종전에는 400 으로 diff 전체를 볼 수 없었다.
+	dc, err := DiffContentOf(svc, context.Background(), repo, AxisWorktreeIndex, "link.txt", "")
+	if err != nil {
+		t.Fatalf("link.txt: %v", err)
+	}
+	if dc.Modified.Kind != DiffKindText || dc.Modified.Content != filepath.Join(outside, "secret.txt") {
+		t.Fatalf("link.txt 본문 = %+v", dc.Modified)
 	}
 }
 

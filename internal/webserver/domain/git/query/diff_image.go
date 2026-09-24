@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -95,15 +96,7 @@ func SideBytes(img *core.Service, ctx context.Context, repo, axis, p, origPath, 
 		return nil, err
 	}
 	if rev == "" {
-		abs, err := diffWorktreeAbs(repo, rel)
-		if err != nil {
-			return nil, err
-		}
-		b, err := os.ReadFile(abs)
-		if os.IsNotExist(err) {
-			return nil, ErrDiffBothAbsent
-		}
-		return b, err
+		return worktreeBytes(repo, rel, img.MaxOutput(), -1)
 	}
 	out, err := img.Exec(ctx, repo, "show", rev)
 	if err != nil {
@@ -120,6 +113,49 @@ func SideBytes(img *core.Service, ctx context.Context, repo, axis, p, origPath, 
 	return []byte(out.Stdout), nil
 }
 
+// worktreeBytes 는 작업 트리 파일의 바이트다 (REPO_FIX 01 §7.6).
+//
+// 크기를 먼저 보고 limit 를 넘으면 읽지 않는다 — 종전에는 수 GB 파일도 통째로
+// 읽었다. head > 0 이면 앞 head 바이트만 읽는다(판별용). 심링크는 따라가지 않고
+// 링크 문자열을 준다 — 밖의 파일을 내보내지 않는다.
+func worktreeBytes(repo, rel string, limit, head int) ([]byte, error) {
+	abs, err := diffWorktreeAbs(repo, rel)
+	if err != nil {
+		return nil, err
+	}
+	fi, err := os.Lstat(abs)
+	if os.IsNotExist(err) {
+		return nil, ErrDiffBothAbsent
+	}
+	if err != nil {
+		return nil, err
+	}
+	if fi.Mode()&os.ModeSymlink != 0 {
+		link, err := os.Readlink(abs)
+		return []byte(link), err
+	}
+	if fi.IsDir() {
+		return nil, ErrDiffBothAbsent
+	}
+	if head > 0 {
+		f, err := os.Open(abs)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		buf := make([]byte, head)
+		n, err := io.ReadFull(f, buf)
+		if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
+			return nil, err
+		}
+		return buf[:n], nil
+	}
+	if fi.Size() > int64(limit) {
+		return nil, ErrDiffTooLarge
+	}
+	return os.ReadFile(abs)
+}
+
 // ErrDiffTooLarge 는 그림이 상한을 넘었다는 뜻이다. 서버는 413 으로 옮긴다.
 var ErrDiffTooLarge = errors.New("diff_image_too_large")
 
@@ -134,7 +170,7 @@ var ErrDiffTooLarge = errors.New("diff_image_too_large")
 // 현재 판이 없는 회차뿐이다.
 func ImageMimeOf(img *core.Service, ctx context.Context, repo, axis, p, origPath, oid, parentOid string) string {
 	for _, side := range []string{DiffSideModified, DiffSideOriginal} {
-		b, err := SideBytes(img, ctx, repo, axis, p, origPath, oid, parentOid, side)
+		b, err := sniffSide(img, ctx, repo, axis, p, origPath, oid, parentOid, side)
 		if err != nil {
 			continue
 		}
@@ -144,6 +180,26 @@ func ImageMimeOf(img *core.Service, ctx context.Context, repo, axis, p, origPath
 	}
 	return ""
 }
+
+// sniffSide 는 판별용 바이트다. 작업 트리 쪽은 앞 imageSniffBytes 만 읽는다
+// (§7.6 — 판별에 파일 전체가 필요 없다). git 쪽은 SideBytes 와 같다.
+func sniffSide(img *core.Service, ctx context.Context, repo, axis, p, origPath, oid, parentOid, side string) ([]byte, error) {
+	rel, origRel, err := diffRelPair(p, origPath)
+	if err != nil {
+		return nil, err
+	}
+	rev, err := sideRev(axis, side, rel, origRel, oid, parentOid)
+	if err != nil {
+		return nil, err
+	}
+	if rev == "" {
+		return worktreeBytes(repo, rel, img.MaxOutput(), imageSniffBytes)
+	}
+	return SideBytes(img, ctx, repo, axis, p, origPath, oid, parentOid, side)
+}
+
+// imageSniffBytes 는 http.DetectContentType 가 보는 폭이다.
+const imageSniffBytes = 512
 
 // diffRelPair 는 두 경로를 함께 검증한다. `DiffContentOf`·`DiffCommit` 이 각자
 // 적던 네 줄이며, 세 번째 자리가 생겨 한 자리로 모았다.
