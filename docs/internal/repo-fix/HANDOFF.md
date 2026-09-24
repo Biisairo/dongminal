@@ -61,7 +61,7 @@
 7. ~~**05 git 프런트**~~ 완료 — Delete both 한 쌍, Diff = 편집기 문서 모델 공유(문서 단위 저장 `edDocSave`), 어휘적 저장소 최상위 경로, 쓰기 세대·stage 큐, 커밋 draft/amend 슬롯 분리, 결과 미상 잡 판정(`gitJobOutcome`)
 8. ~~**마무리**~~ 완료 — `make e2e` 8샤드 전량: 진짜 실패 1건(`ui-layout-defaults` V-LAY-1 — 01 의 잡 칸·lock 버튼 24자리가 darwin 기준선에 없었다 → 추가만, 값 변경·삭제 0, `8d91cc6a`), 나머지는 재시도 통과 flaky 3건(branch-menu-unify F·git-dialog D6·git-worktrees V169 — V169 는 `--repeat-each` 를 병렬로 돌리면 같은 이름이 부딪혀 실패한다. `--workers=1` 로 4/4 통과). Go 전량 race·shuffle 통과. 재감사: 감사 1~47 전부 01~05 에서 다뤘다(#23 은 번호 표기 없이 01 P-4, `core/exec.go:214`)
 9. **남은 것** ← **여기서 시작**
-   - (사용자 결정) Clean 의 서버 `paths` 필드 — 확인한 목록만 지우게 할지. 05 §3A-8 첫 항목
+   - ~~(사용자 결정) Clean 의 서버 `paths` 필드~~ 완료 `14d287a9` — 사용자 결정 "paths 필수 + 집합 검사". 없으면 400, 실행 직전 untracked 와 집합이 다르면 409 `stale_observation`, 같으면 `:(literal)` 로 그 경로만 지우고 빈 조상 정리(FR-GIT-277 개정)
    - (CI) `e2e/baseline/ui-layout.linux.json`·`win32.json` 에도 같은 24자리가 없다 — 로컬(macOS)에서는 뜰 수 없다. CI 에서 `LAYOUT_BASELINE=write` 로 떠서 추가만인지 확인한 뒤 커밋한다
    - (비범위·기록) 옛 Git 창의 저장소 전환이 Diff 만 연 dirty 문서를 확인 없이 버린다
 
