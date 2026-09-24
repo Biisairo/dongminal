@@ -259,7 +259,7 @@
 | GET | `/api/git/blame` | 줄별 마지막 변경자 |
 | GET | `/api/git/log` | 커밋 기록 |
 | GET | `/api/git/commit-range` | 두 지점 사이의 커밋들 |
-| POST | `/api/git/uncommitted/reset` · `/api/git/uncommitted/clean` | 미커밋 변경을 되돌리고, 추적되지 않는 파일을 지운다 |
+| POST | `/api/git/uncommitted/reset` · `/api/git/uncommitted/clean` | 미커밋 변경을 되돌리고, 추적되지 않는 파일을 지운다 (clean 은 `confirm:true`·`paths` 필수 — 확인한 목록만 지우며 지금과 다르면 409 `stale_observation`) |
 | POST | `/api/git/ignore` | `.gitignore` 에 더한다 |
 
 ### Git — 브랜치·태그

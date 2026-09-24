@@ -182,7 +182,7 @@
 ### §3A-8 구현 중 정정·추적표 (구현 완료 2026-09-24)
 
 구현 중 정정:
-- F-1 Clean: 서버(`/api/git/uncommitted/clean`)는 대상 목록을 받지 않고 그 순간의 untracked 전부를 지운다. 서버 변경 금지(§1)라 클라이언트가 확인 뒤 목록이 바뀌었으면 보내지 않고 사유를 보인다. **남은 틈(플래그)**: 클라이언트의 마지막 관측과 서버의 실행 시점 사이에 생긴 untracked 는 보인 적 없이 지워질 수 있다 — 막으려면 서버가 `paths` 를 받아 그것만 지워야 한다(별도 결정 필요).
+- F-1 Clean: 서버(`/api/git/uncommitted/clean`)는 대상 목록을 받지 않고 그 순간의 untracked 전부를 지운다. 서버 변경 금지(§1)라 클라이언트가 확인 뒤 목록이 바뀌었으면 보내지 않고 사유를 보인다. **남은 틈(플래그)**: 클라이언트의 마지막 관측과 서버의 실행 시점 사이에 생긴 untracked 는 보인 적 없이 지워질 수 있다 — 막으려면 서버가 `paths` 를 받아 그것만 지워야 한다(별도 결정 필요). → **해소(마무리 후속, 사용자 결정 "paths 필수 + 집합 검사")**: 서버가 `paths` 를 필수로 받아 실행 직전 status 의 untracked 와 집합이 다르면 409 `stale_observation`, 같으면 그 경로만 지운다(GIT_ACTIONS_SRS FR-GIT-277 개정). 클라이언트는 확인창 목록을 `paths` 로 싣는다.
 - F-1 대상이 확정 객체(`t`)에서 오는 항목(drop·stash drop·checkout·tag·rebase)은 실행이 그 객체를 쓰고 선택 상태를 다시 읽지 않으므로 바꾸지 않았다. 선택을 읽던 셋(로컬 Delete·Delete both·Clean)만 확인창 배열로 실행한다.
 - F-2 문서 저장은 FileEditor 안에 있었다 — `app.edDocSave(path, ui)`(대기 1건 포함)·`edDocWrite`·`edConfirmConflict` 로 문서 단위로 올렸고 FileEditor·Diff 뷰가 같은 것을 부른다. Diff 뷰는 문서 레지스트리에 자신이 아니라 대상마다의 작은 뷰 객체(`_docViewOf`)로 든다 — 레지스트리는 `_editor.setModel(model)` 을 부르는데 diff 에디터는 모델 둘을 받기 때문이다(`gazeEditor`·`onDocMoved`·`onDocReadOnly` 로 대신한다).
 - F-2 닫기·창 닫기의 확인은 "그 뷰가 떠나면 편집을 잃는가"(마지막 뷰)로 묻고, 탭 ● 는 문서 dirty 로 묻는다 — `viewDirty(view, closing)` 로 둘을 나눴다. 앱 전체 dirty(`edAnyDirty`, 떠남 확인)는 문서를 먼저 본다(Diff 만 연 문서).

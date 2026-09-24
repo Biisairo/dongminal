@@ -25,8 +25,9 @@ Object.assign(GitPanel.prototype, {
   // **파괴적이다** (FR-GIT-277). 파괴적 확인과 recovery hint 는 GitMenu 가 이미
   // 거쳤으므로 여기서는 `confirm` 을 실어 보낸다 — 서버도 그것을 요구한다.
   //
-  // `paths` 는 확인창에 보인 목록이다 (REPO_FIX 05 F-1). 서버는 목록을 받지 않고
-  // 그 순간의 untracked 전부를 지우므로, 확인 뒤 목록이 달라졌으면 보내지 않는다.
+  // `paths` 는 확인창에 보인 목록이다 (REPO_FIX 05 F-1). 서버는 그 목록만 지우고
+  // 지금의 untracked 와 다르면 409 로 거절한다 (FR-GIT-277 개정) — 여기서 먼저
+  // 대조하는 것은 요청 없이 사유를 보이기 위해서다.
   async uncommittedClean(paths){
     if(this._writing){this.busyNote();return}
     const now=this.untrackedPaths();
@@ -36,7 +37,7 @@ Object.assign(GitPanel.prototype, {
       return;
     }
     const res=await this.post('/api/git/uncommitted/clean',
-      {repo:this.repo,confirm:true});
+      {repo:this.repo,confirm:true,paths:shown});
     this._after(res,[]);
   },
 

@@ -180,3 +180,13 @@ test('F-1: 로컬 Delete 는 확인창에 보인 다중 선택 그대로를 지�
   const del = w.log.find((e) => e[0] === 'post' && e[1] === '/api/git/branch/delete');
   assert.deepEqual(plain(del[2].names), ['feat', 'other']);
 });
+
+test('FR-GIT-277 개정: Clean 은 확인창에 보인 목록을 paths 로 싣는다 (서버가 그것만 지운다)', async () => {
+  const w = world();
+  patch(w);
+  const it = w.ctx.GIT_MENUS.uncommitted.find((x) => x.id === 'clean');
+  w.state.untracked = ['a.txt', 'd/b.txt'];
+  await w.ctx.GitMenu._pick(it, FIXTURES.uncommitted[0]);
+  const req = w.log.find((e) => e[0] === 'post' && e[1] === '/api/git/uncommitted/clean');
+  assert.deepEqual(plain(req[2]), { repo: '/r', confirm: true, paths: ['a.txt', 'd/b.txt'] });
+});

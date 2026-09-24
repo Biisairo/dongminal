@@ -120,11 +120,12 @@ func TestCleanUntracked_DestructiveWithHint(t *testing.T) {
 
 	f := &writeFake{}
 	s := core.New(core.WithWriteRunner(f.runner))
-	if _, err := CleanUntracked(s, context.Background(), repo); err != nil {
+	if _, err := CleanUntracked(s, context.Background(), repo, Paths{"u2.txt", "u1.txt"}); err != nil {
 		t.Fatalf("CleanUntracked: %v", err)
 	}
-	if len(f.argvs) != 1 || fmt.Sprint(f.argvs[0]) != fmt.Sprint(CleanUntrackedArgs()) {
-		t.Fatalf("argv = %v", f.argvs)
+	want := append(CleanUntrackedArgs(), "--", ":(literal)u1.txt", ":(literal)u2.txt")
+	if len(f.argvs) != 1 || fmt.Sprint(f.argvs[0]) != fmt.Sprint(want) {
+		t.Fatalf("argv = %v, want %v", f.argvs, want)
 	}
 	recs := s.Records(0)
 	if !recs[len(recs)-1].Destructive {
@@ -154,7 +155,7 @@ func TestCleanUntracked_NothingToClean(t *testing.T) {
 	f := &writeFake{}
 	s := core.New(core.WithWriteRunner(f.runner))
 
-	if _, err := CleanUntracked(s, context.Background(), repo); !errors.Is(err, ErrNothingToClean) {
+	if _, err := CleanUntracked(s, context.Background(), repo, Paths{"u.txt"}); !errors.Is(err, ErrNothingToClean) {
 		t.Fatalf("err = %v, want ErrNothingToClean", err)
 	}
 	if len(f.argvs) != 0 {
@@ -177,9 +178,10 @@ func TestCleanUntracked_Real(t *testing.T) {
 	writeFile(t, repo, "d/inner.txt", "i\n")
 
 	s := core.New()
-	if _, err := CleanUntracked(s, ctx, repo); err != nil {
+	if _, err := CleanUntracked(s, ctx, repo, Paths{"u.txt", "d/inner.txt"}); err != nil {
 		t.Fatalf("CleanUntracked: %v", err)
 	}
+	// 경로 단위로 지우면 git 은 부모 디렉터리를 남긴다 — 빈 조상은 함께 지운다.
 	for _, p := range []string{"u.txt", "d/inner.txt", "d"} {
 		if _, err := os.Stat(filepath.Join(repo, p)); !os.IsNotExist(err) {
 			t.Fatalf("%s 가 남았다: %v", p, err)
@@ -191,5 +193,92 @@ func TestCleanUntracked_Real(t *testing.T) {
 	}
 	if len(st.Changes) != 1 || st.Changes[0].Path != "README.md" {
 		t.Fatalf("changes = %v, want [README.md]", st.Changes)
+	}
+}
+
+// T9 (FR-GIT-277 개정): `paths` 가 없으면 실행하지 않는다 — 빈 목록은 "확인한
+// 것" 이 아니다.
+func TestCleanUntracked_RequiresPaths(t *testing.T) {
+	repo := tempRepo(t)
+	writeFile(t, repo, "u.txt", "u\n")
+	f := &writeFake{}
+	s := core.New(core.WithWriteRunner(f.runner))
+
+	if _, err := CleanUntracked(s, context.Background(), repo, nil); !errors.Is(err, core.ErrUnsafeArgument) {
+		t.Fatalf("err = %v, want ErrUnsafeArgument", err)
+	}
+	if len(f.argvs) != 0 || len(s.Hints(0)) != 0 {
+		t.Fatalf("실행하지 않아야 한다: argv %v, hint %v", f.argvs, s.Hints(0))
+	}
+}
+
+// T10 (FR-GIT-277 개정): 확인한 목록과 지금의 untracked 가 다르면 실행하지 않는다.
+// 확인 뒤 생긴 파일(더 많음)과 사라진 파일(더 적음) 둘 다다.
+func TestCleanUntracked_ChangedSet(t *testing.T) {
+	cases := map[string]Paths{
+		"새로 생김": {"u1.txt"},
+		"사라짐":   {"u1.txt", "u2.txt", "gone.txt"},
+		"다른 이름": {"u1.txt", "other.txt"},
+	}
+	for name, paths := range cases {
+		t.Run(name, func(t *testing.T) {
+			repo := tempRepo(t)
+			writeFile(t, repo, "u1.txt", "u\n")
+			writeFile(t, repo, "u2.txt", "u\n")
+			f := &writeFake{}
+			s := core.New(core.WithWriteRunner(f.runner))
+
+			if _, err := CleanUntracked(s, context.Background(), repo, paths); !errors.Is(err, ErrCleanChanged) {
+				t.Fatalf("err = %v, want ErrCleanChanged", err)
+			}
+			if len(f.argvs) != 0 || len(s.Hints(0)) != 0 {
+				t.Fatalf("실행하지 않아야 한다: argv %v, hint %v", f.argvs, s.Hints(0))
+			}
+		})
+	}
+}
+
+// T11 (FR-GIT-277 개정): 같은 경로가 두 번 와도 집합으로 비교한다.
+func TestCleanUntracked_DuplicatePaths(t *testing.T) {
+	repo := tempRepo(t)
+	writeFile(t, repo, "u.txt", "u\n")
+	f := &writeFake{}
+	s := core.New(core.WithWriteRunner(f.runner))
+
+	if _, err := CleanUntracked(s, context.Background(), repo, Paths{"u.txt", "u.txt"}); err != nil {
+		t.Fatalf("CleanUntracked: %v", err)
+	}
+	want := append(CleanUntrackedArgs(), "--", ":(literal)u.txt")
+	if len(f.argvs) != 1 || fmt.Sprint(f.argvs[0]) != fmt.Sprint(want) {
+		t.Fatalf("argv = %v, want %v", f.argvs, want)
+	}
+}
+
+// T12 (FR-GIT-277 개정, 실측): `*` 가 든 파일명도 literal pathspec 으로 지워진다.
+// 지운 경로의 조상이라도 비지 않았으면 남긴다 — 확인 뒤 생긴 파일이 든
+// 디렉터리다.
+func TestCleanUntracked_RealLiteralAndKeepsNonEmptyParent(t *testing.T) {
+	repo := tempRepo(t)
+	ctx := context.Background()
+	writeFile(t, repo, "a*", "u\n")
+
+	s := core.New()
+	if _, err := CleanUntracked(s, ctx, repo, Paths{"a*"}); err != nil {
+		t.Fatalf("CleanUntracked: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(repo, "a*")); !os.IsNotExist(err) {
+		t.Fatalf("a* 가 남았다: %v", err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(repo, "d", "e"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, repo, "d/new.txt", "keep\n")
+	removeEmptyParents(repo, Paths{"d/e/gone.txt"})
+	if _, err := os.Stat(filepath.Join(repo, "d", "e")); !os.IsNotExist(err) {
+		t.Fatalf("빈 d/e 가 남았다: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(repo, "d", "new.txt")); err != nil {
+		t.Fatalf("d/new.txt 가 지워졌다: %v", err)
 	}
 }

@@ -120,13 +120,54 @@ func TestAPIGitUncommittedClean(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/uncommitted/clean",
-		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`,"confirm":true}`)
+		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`,"confirm":true,"paths":["u.txt"]}`)
 	if code != http.StatusOK || out["ok"] != true {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}
 	w := f.wrote()
-	if len(w) != 1 || strings.Join(w[0], " ") != "clean -q -f -d" {
+	if len(w) != 1 || strings.Join(w[0], " ") != "clean -q -f -d -- :(literal)u.txt" {
 		t.Fatalf("argv = %v", w)
+	}
+}
+
+// F4b (FR-GIT-277 개정): `paths` 가 없으면 400 이고 실행하지 않는다 — 서버는
+// 확인한 목록만 지운다.
+func TestAPIGitUncommittedClean_RequiresPaths(t *testing.T) {
+	for name, body := range map[string]string{
+		"없음":   `,"confirm":true}`,
+		"빈 배열": `,"confirm":true,"paths":[]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newGitM5Fake(t)
+			f.status = gitIgnoreStatus("u.txt")
+			s := gitM5Server(t, f)
+
+			code, out := gitReq(t, s, http.MethodPost, "/api/git/uncommitted/clean",
+				`{"repo":`+testpath.JSONQuote(gitM5Repo)+body)
+			if code != http.StatusBadRequest || out["error"] != gitErrBadRequest {
+				t.Fatalf("code = %d, out = %v", code, out)
+			}
+			if len(f.wrote()) != 0 {
+				t.Fatalf("실행됐다: %v", f.wrote())
+			}
+		})
+	}
+}
+
+// F4c (FR-GIT-277 개정): 확인한 목록과 지금의 untracked 가 다르면 409
+// `stale_observation` 이고 실행하지 않는다.
+func TestAPIGitUncommittedClean_ChangedSet(t *testing.T) {
+	f := newGitM5Fake(t)
+	f.status = gitIgnoreStatus("new.txt")
+	s := gitM5Server(t, f)
+
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/uncommitted/clean",
+		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`,"confirm":true,"paths":["u.txt"]}`)
+	if code != http.StatusConflict || out["error"] != gitErrStaleObservation {
+		t.Fatalf("code = %d, out = %v", code, out)
+	}
+	if len(f.wrote()) != 0 {
+		t.Fatalf("실행됐다: %v", f.wrote())
 	}
 }
 
@@ -137,7 +178,7 @@ func TestAPIGitUncommittedClean_NothingToClean(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/uncommitted/clean",
-		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`,"confirm":true}`)
+		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`,"confirm":true,"paths":["u.txt"]}`)
 	if code != http.StatusConflict || out["error"] != gitErrNothingToClean {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}

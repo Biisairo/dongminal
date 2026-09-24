@@ -30,6 +30,8 @@ var Git = Table{
 
 	// ── 부분 스테이징. 원본에서 gitWriteErrorCode 가 가장 먼저 물었다 ──
 	{write.ErrPatchStale, http.StatusConflict, CodeStaleObservation},
+	// FR-GIT-277 개정: 확인한 Clean 목록이 지금과 다르다 — "본 것과 지금이 어긋난다"
+	{write.ErrCleanChanged, http.StatusConflict, CodeStaleObservation},
 	{write.ErrPatchEmpty, http.StatusBadRequest, CodePatchEmpty},
 	{write.ErrPatchOp, http.StatusBadRequest, CodeBadRequest},
 	{write.ErrPatchAxis, http.StatusBadRequest, CodeBadRequest},

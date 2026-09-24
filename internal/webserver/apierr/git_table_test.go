@@ -36,6 +36,7 @@ var gitTableCases = []struct {
 
 	// gitPatchErrorCode
 	{write.ErrPatchStale, http.StatusConflict, CodeStaleObservation},
+	{write.ErrCleanChanged, http.StatusConflict, CodeStaleObservation},
 	{write.ErrPatchEmpty, http.StatusBadRequest, CodePatchEmpty},
 	{write.ErrPatchOp, http.StatusBadRequest, CodeBadRequest},
 	{write.ErrPatchAxis, http.StatusBadRequest, CodeBadRequest},

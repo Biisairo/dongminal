@@ -29,6 +29,9 @@ const (
 type gitUncommittedReq struct {
 	Repo    string `json:"repo"`
 	Confirm bool   `json:"confirm"`
+	// Paths 는 clean 의 확인창에 보인 목록이다 — 서버는 그것만 지운다
+	// (FR-GIT-277 개정). reset 은 읽지 않는다.
+	Paths []string `json:"paths"`
 }
 
 // POST /api/git/uncommitted/reset — index 를 HEAD 로 되돌린다 (mixed, FR-GIT-277).
@@ -36,7 +39,7 @@ type gitUncommittedReq struct {
 // **파괴적이 아니다** — 워킹 트리의 내용은 그대로 남는다. 그래서 확인을 요구하지
 // 않는다: 안전한 것에 확인을 붙이면 확인이 뜻을 잃는다 (FR-GIT-97).
 func (s *GitServer) apiGitUncommittedReset(w http.ResponseWriter, r *http.Request) {
-	s.gitUncommittedRoute(w, r, false, gitResetBlocked, func(ctx context.Context, root string) error {
+	s.gitUncommittedRoute(w, r, false, gitResetBlocked, func(ctx context.Context, root string, _ gitUncommittedReq) error {
 		_, err := write.UncommittedReset(s.Git.Service(), ctx, root)
 		return err
 	})
@@ -45,12 +48,14 @@ func (s *GitServer) apiGitUncommittedReset(w http.ResponseWriter, r *http.Reques
 // POST /api/git/uncommitted/clean — 추적되지 않는 파일을 지운다. **파괴적이다**
 // (FR-GIT-89·277).
 //
-// `confirm:true` 가 없으면 실행하지 않는다. recovery hint 는 git 패키지가 실행
+// `confirm:true` 가 없으면 실행하지 않는다. `paths`(확인한 목록)가 없으면 400,
+// 지금의 untracked 와 집합이 다르면 409 `stale_observation` 이다 (FR-GIT-277 개정).
+// recovery hint 는 git 패키지가 실행
 // **전에** 남긴다 (FR-GIT-92) — 되살릴 수 없으므로 hint 는 되돌리는 명령이 아니라
 // 먼저 담아 두는 명령(`git stash push -u`)이다.
 func (s *GitServer) apiGitUncommittedClean(w http.ResponseWriter, r *http.Request) {
-	s.gitUncommittedRoute(w, r, true, gitCleanBlocked, func(ctx context.Context, root string) error {
-		_, err := write.CleanUntracked(s.Git.Service(), ctx, root)
+	s.gitUncommittedRoute(w, r, true, gitCleanBlocked, func(ctx context.Context, root string, req gitUncommittedReq) error {
+		_, err := write.CleanUntracked(s.Git.Service(), ctx, root, req.Paths)
 		return err
 	})
 }
@@ -77,7 +82,7 @@ func gitCleanBlocked(st query.Status) (string, string) {
 // gitUncommittedRoute 는 두 동작의 공통 절차다. 둘은 본문과 응답이 같고 실행하는
 // 것·확인을 요구하는지·실행 전 거부 사유만 다르다 — 나머지는 기존 쓰기 규약
 // 그대로다 (FR-GIT-250 ③).
-func (s *GitServer) gitUncommittedRoute(w http.ResponseWriter, r *http.Request, confirm bool, blocked func(query.Status) (string, string), run func(context.Context, string) error) {
+func (s *GitServer) gitUncommittedRoute(w http.ResponseWriter, r *http.Request, confirm bool, blocked func(query.Status) (string, string), run func(context.Context, string, gitUncommittedReq) error) {
 	var req gitUncommittedReq
 	t := s.beginWrite(w, r, &req)
 	if t.stop() {
@@ -85,6 +90,10 @@ func (s *GitServer) gitUncommittedRoute(w http.ResponseWriter, r *http.Request, 
 	}
 	t.requireConfirm(confirm, req.Confirm,
 		"파괴적 동작은 confirm:true 를 요구한다 (FR-GIT-89·277)")
+	if confirm && len(req.Paths) == 0 {
+		t.rejectWith(http.StatusBadRequest, gitErrBadRequest,
+			"paths 가 없다 — 확인한 목록만 지운다 (FR-GIT-277)")
+	}
 	t.resolve(req.Repo)
 	before := t.snapshot()
 	if t.stop() {
@@ -96,6 +105,6 @@ func (s *GitServer) gitUncommittedRoute(w http.ResponseWriter, r *http.Request, 
 		t.rejectBody(http.StatusConflict, name, msg, map[string]any{"status": before})
 		return
 	}
-	t.apply(func(ctx context.Context) error { return run(ctx, t.root) })
+	t.apply(func(ctx context.Context) error { return run(ctx, t.root, req) })
 	t.ok(nil)
 }
