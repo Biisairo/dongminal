@@ -998,6 +998,24 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
       undefined, { timeout: 30000 });
   });
 
+  // REPO_FIX 05 F-6.2: 비저장소 판정은 관측기의 것이다 — 한 칸의 관측이 세운 판정을
+  // 다른 칸도 본다. 종전에는 collect 를 돈 칸에만 기록돼 다른 칸은 빈 목록이었다.
+  test('TC-SVS-24b: 비저장소 판정은 두 칸에 함께 온다 (REPO_FIX 05 F-6.2)', async ({ page }) => {
+    const repo = copyFx('basic', 'unrepo');
+    await twoSlotsOnGit(page, repo);
+
+    await rmTreeHard(path.join(repo, '.git'));
+    const inits = () => page.evaluate(
+      () => document.querySelectorAll('#area .slot .ed-side .git-view.git-changes .git-init').length);
+    await expect.poll(inits, { timeout: 30000 }).toBe(2);
+
+    // 한 칸에서 풀면 다른 칸도 풀린다 — 비저장소 루트는 폴링을 멈추므로(F-6.2), 판정이
+    // 칸마다 따로면 다른 칸은 init 안내에 갇힌다.
+    await page.locator('#area .slot[data-slot="0"] .ed-side .git-init-btn').click();
+    await page.locator('#git-confirm .gc-go').click();
+    await expect.poll(inits, { timeout: 30000 }).toBe(0);
+  });
+
   test('TC-SVS-25: 칸을 없애면 그 패널이 파괴된다 (FR-SVS-46)', async ({ page }) => {
     await twoSlotsOnGit(page, fx('basic'));
     expect(await panelsForActiveRoot(page)).toBe(2);

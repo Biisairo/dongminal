@@ -207,7 +207,7 @@
 | #6 #43 | F-3 | `web/js/test/git-top.test.mjs`, `e2e/git-subroot.spec.ts` | `37a2ce04` |
 | #40 #41 P2(discard 후 Diff) | F-4 | `e2e/git-write-order.spec.ts` Q1·Q2·W1·D1 | `9e33a09f` |
 | #44 P2(blame) | F-5 | `web/js/test/git-hunk-fresh.test.mjs`, `e2e/git-blame-fresh.spec.ts` | `7cb95605` |
-| #42 P2(_notRepo·워치독·init) | F-6 | `web/js/test/git-row-sig.test.mjs`, `e2e/git-not-repo.spec.ts` | `200ff7e2` |
+| #42 P2(_notRepo·워치독·init) | F-6 | `web/js/test/git-row-sig.test.mjs`, `e2e/git-not-repo.spec.ts`, `e2e/slot-view-state.spec.ts` TC-SVS-24b(두 칸 공유 — 마무리 후속 P2 대조에서 추가, 칸별 필드로 되돌리면 실패함을 확인) | `200ff7e2` |
 | #33 #34 #35 N3 P2(300ms·Reset) | F-7 | `e2e/git-commit-slots.spec.ts` C1~C8 | `501af931` |
 | #36 #37 P2(Compare·부모 해시) | F-8 | `e2e/git-history-fresh.spec.ts` H1~H5 | `af3157b1` |
 | #38 #39 N5 P2(job 오표시·이름 검증) | F-9 | `web/js/test/git-job-outcome.test.mjs`, `web/js/test/git-feedback.test.mjs`, `e2e/git-feedback.spec.ts` | `b5a7f7ef` |
