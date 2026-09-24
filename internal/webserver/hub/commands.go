@@ -13,6 +13,12 @@ type CmdSub struct {
 	ch   chan []byte
 	done chan struct{}
 	once sync.Once
+
+	// REPO_FIX 02 §3A-2 — 진단 슬롯. `lsp_diagnostics` 는 큐가 아니라 여기(키 →
+	// 최신 payload)에 덮어쓴다. dready 는 "비울 것이 있다" 신호(1칸)다.
+	dmu    sync.Mutex
+	diag   map[string][]byte
+	dready chan struct{}
 }
 
 // Messages는 이 구독에 브로드캐스트된 payload 채널이다. Closed는 구독이 닫힐
@@ -20,6 +26,34 @@ type CmdSub struct {
 // 가 select 만 할 수 있게 한다 — 채널 자체를 노출하면 핸들러가 닫거나 쓸 수 있다.
 func (s *CmdSub) Messages() <-chan []byte { return s.ch }
 func (s *CmdSub) Closed() <-chan struct{} { return s.done }
+
+// DiagnosticsReady 는 진단 슬롯에 비울 것이 생겼다는 신호다. TakeDiagnostics 로 비운다.
+func (s *CmdSub) DiagnosticsReady() <-chan struct{} { return s.dready }
+
+// TakeDiagnostics 는 슬롯의 payload 를 모두 꺼내고 비운다 — 키마다 최신 하나다.
+func (s *CmdSub) TakeDiagnostics() [][]byte {
+	s.dmu.Lock()
+	defer s.dmu.Unlock()
+	out := make([][]byte, 0, len(s.diag))
+	for _, p := range s.diag {
+		out = append(out, p)
+	}
+	s.diag = nil
+	return out
+}
+
+func (s *CmdSub) putDiag(key string, payload []byte) {
+	s.dmu.Lock()
+	if s.diag == nil {
+		s.diag = map[string][]byte{}
+	}
+	s.diag[key] = payload
+	s.dmu.Unlock()
+	select {
+	case s.dready <- struct{}{}:
+	default: // 이미 신호가 있다 — SSE 루프가 비울 때 이것도 함께 나간다
+	}
+}
 
 // TabRef pairs a newly created tab's uuid with its server-assigned toolId
 // (REMOTE_COMMAND_RESULT_SRS — 호출자가 uuid→toolId 재조회 불필요).
@@ -40,6 +74,9 @@ type CmdResult struct {
 type CommandHub struct {
 	mu   sync.Mutex
 	subs map[*CmdSub]struct{}
+	// diagLatest 는 키(uri) → 최신 진단 payload 다 (REPO_FIX 02 §3A-2). 새 구독이
+	// 이것을 스냅샷으로 받는다 — 진단은 푸시 전용이라 재연결하면 다시 받을 길이 없다.
+	diagLatest map[string][]byte
 
 	// pending maps a creating command's reqId to the channel awaiting the
 	// browser's echo (REMOTE_COMMAND_RESULT_SRS FR-RCR-2/3). Guarded by pmu.
@@ -49,8 +86,9 @@ type CommandHub struct {
 
 func NewCommandHub() *CommandHub {
 	return &CommandHub{
-		subs:    map[*CmdSub]struct{}{},
-		pending: map[string]chan CmdResult{},
+		subs:       map[*CmdSub]struct{}{},
+		pending:    map[string]chan CmdResult{},
+		diagLatest: map[string][]byte{},
 	}
 }
 
@@ -183,15 +221,15 @@ func (h *CommandHub) pendingCount() int {
 	return len(h.pending)
 }
 
-// cmdSubQueue는 구독당 미수신 payload 버퍼 크기다. 넘치면 그 구독만 드롭한다
-// — 느린 브라우저 하나가 다른 구독을 막지 않는다.
+// cmdSubQueue는 구독당 미수신 payload 버퍼 크기다. 넘치면 그 구독을 닫는다
+// — 느린 브라우저 하나가 다른 구독을 막지 않고, 닫힌 쪽은 재연결해 다시 받는다.
 const cmdSubQueue = 16
 
 // NewCmdSub는 허브에 등록되지 않은 홀로 선 구독을 만든다. Close는 그 구독을
 // 닫는다(중복 호출 안전). CommandHub.Add/Remove 가 내부에서 하는 일과 같으며,
 // 허브를 대역하는 다른 패키지의 CommandBroker 구현이 쓴다.
 func NewCmdSub() *CmdSub {
-	return &CmdSub{ch: make(chan []byte, cmdSubQueue), done: make(chan struct{})}
+	return &CmdSub{ch: make(chan []byte, cmdSubQueue), done: make(chan struct{}), dready: make(chan struct{}, 1)}
 }
 
 func (s *CmdSub) Close() { s.once.Do(func() { close(s.done) }) }
@@ -215,6 +253,9 @@ func (h *CommandHub) Add() *CmdSub {
 		return nil
 	}
 	s := NewCmdSub()
+	for k, p := range h.diagLatest {
+		s.putDiag(k, p)
+	}
 	h.subs[s] = struct{}{}
 	return s
 }
@@ -230,6 +271,13 @@ func (h *CommandHub) Remove(s *CmdSub) {
 }
 
 // Broadcast delivers payload to all subscribers; returns delivered count.
+//
+// REPO_FIX 02 §3A-2: 큐가 가득 찬 구독은 **닫는다** — 그 구독의 SSE 핸들러가 돌아가고
+// 클라이언트가 재연결해 `revalidateOn:['sse:open']` 으로 다시 받는다.
+//
+//	이전 동작: 그 이벤트만 조용히 버렸다
+//	새  동작: 구독을 닫는다(로그 1줄). 닫힌 큐에 남은 명령은 재전송하지 않는다
+//	이유:     git_changed·워크스페이스 이벤트를 잃은 화면이 안전망까지 낡았다 (#21)
 func (h *CommandHub) Broadcast(payload []byte) int {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -239,10 +287,29 @@ func (h *CommandHub) Broadcast(payload []byte) int {
 		case s.ch <- payload:
 			n++
 		default:
-			dmlog.Infof(nil, "[cmd] subscriber channel full, dropping")
+			dmlog.Infof(nil, "[cmd] 구독 큐(%d)가 가득 차 구독을 닫는다 — 클라이언트가 재연결해 다시 받는다", cmdSubQueue)
+			s.Close()
+			delete(h.subs, s)
 		}
 	}
 	return n
+}
+
+// BroadcastDiagnostics 는 진단 하나를 모든 구독의 슬롯에 덮어쓴다 (REPO_FIX 02
+// §3A-2). 큐를 쓰지 않으므로 git 이벤트를 밀어내지 않고 넘침 판정 대상도 아니다.
+// clear 면(빈 진단) 스냅샷에서 그 키를 지운다 — 빈 payload 는 그래도 전달한다
+// (앞선 밑줄을 걷어야 한다).
+func (h *CommandHub) BroadcastDiagnostics(key string, payload []byte, clear bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if clear {
+		delete(h.diagLatest, key)
+	} else {
+		h.diagLatest[key] = payload
+	}
+	for s := range h.subs {
+		s.putDiag(key, payload)
+	}
 }
 
 var AllowedCmdActions = map[string]bool{

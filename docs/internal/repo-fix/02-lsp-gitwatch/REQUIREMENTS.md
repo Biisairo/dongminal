@@ -95,6 +95,8 @@
 | 그 밖 재수집 | 워크스페이스·설정·git 은 기존 `revalidateOn:['sse:open']`(`state-registry.js:44-149`)로 재수집한다 — 새 코드 없음, 테스트로 고정 |
 | 명령 손실 | 닫힌 구독 큐에 남은 워크스페이스 명령은 재전송하지 않는다(이전 동작: 넘친 명령 드롭 — 같음). `BroadcastAndAwait` 의 전달 수 규약은 바꾸지 않는다 |
 
+구현 중 정정 (G-2): 진단 스냅샷 표("uri → 최신 진단")는 LSP 서비스가 아니라 **허브**(`CommandHub.diagLatest`)가 든다 — 모든 진단이 `BroadcastDiagnostics(uri, payload, clear)` 로 허브를 지나므로 새 구독(`Add`)이 곧바로 스냅샷을 받고, httpapi 에 새 배선이 없다. "빈 진단이면 지운다" 는 `clear` 인자다. 세션 종료 시 빈 진단 방송은 LSP 쪽(L-2)이 그대로 진다. 또 쓰기 시한이 미들웨어의 `responseWriter` 를 지나도록 `Unwrap()` 을 더했다(없으면 `SetWriteDeadline` 이 ErrNotSupported).
+
 인수: ① 큐를 채우면 구독이 닫히고 클라이언트 재연결 뒤 `git.observe` 재수집이 일어남(e2e 또는 단위) ② 읽지 않는 클라이언트에서 10s(테스트 축소) 뒤 핸들러 반환·Detach 호출 ③ 진단 1000건 방송 중에도 `git_changed` 가 전달됨 ④ 재연결 구독이 스냅샷을 받음.
 
 ### §3A-3 LSP 실행 파일 경로 — 서버 측 설정 (L-1, 사용자 결정)

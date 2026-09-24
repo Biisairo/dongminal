@@ -139,6 +139,10 @@ func (rw *responseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return nil, nil, fmt.Errorf("ResponseWriter does not implement http.Hijacker")
 }
 
+// Unwrap 은 http.ResponseController 가 안쪽 응답에 닿게 한다 — SSE 의 쓰기 시한
+// (SetWriteDeadline, REPO_FIX 02 §3A-2)이 이 감싸개를 지나야 한다.
+func (rw *responseWriter) Unwrap() http.ResponseWriter { return rw.ResponseWriter }
+
 func (rw *responseWriter) Flush() {
 	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
 		f.Flush()

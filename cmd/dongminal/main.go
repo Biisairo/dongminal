@@ -386,7 +386,9 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 		if err != nil {
 			return
 		}
-		cmdHub.Broadcast(payload)
+		// REPO_FIX 02 §3A-2: 큐가 아니라 구독별 슬롯(파일 → 최신)에 덮어쓴다 — 진단
+		// 폭주가 git 이벤트를 밀어내지 않고, 재연결 구독이 스냅샷을 받는다.
+		cmdHub.BroadcastDiagnostics(d.Path, payload, len(d.Items) == 0)
 	}
 
 	return builtDeps{

@@ -6,7 +6,9 @@ import (
 	"dongminal/internal/webserver/hub"
 
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 
 	"dongminal/internal/webserver/httpreq"
@@ -112,14 +114,33 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 		go s.Updates.Trigger()
 	}
 
-	fmt.Fprint(w, ": connected\n\n")
+	// REPO_FIX 02 §3A-2: 매 쓰기 전에 시한을 건다 — 읽지 않는 클라이언트에서 쓰기가
+	// 막혀도 핸들러가 돌아가 구독 정리(Remove·Detach)가 돈다. 시한을 지원하지 않는
+	// 응답(테스트의 Recorder)에서는 시한 없이 쓴다.
+	//
+	//	이전 동작: 시한 없음 — 막힌 Fprintf 에서 빠져나오지 못해 sub.Close() 뒤에도 남았다
+	//	새  동작: 쓰기마다 now+sseWriteTimeout, 실패하면 반환
+	//	이유:     막힌 구독 하나가 허브의 구독 자리와 임대를 영구히 쥐었다 (#21)
+	rc := http.NewResponseController(w)
+	send := func(frame string) bool {
+		if err := rc.SetWriteDeadline(time.Now().Add(sseWriteTimeout)); err != nil && !errors.Is(err, http.ErrNotSupported) {
+			return false
+		}
+		if _, err := io.WriteString(w, frame); err != nil {
+			return false
+		}
+		return rc.Flush() == nil
+	}
+
 	// RELOAD_CONTINUITY_SRS FR-RLC-20: **첫 이벤트로 자기 판을 말한다.** 자산은
 	// 바이너리에 박혀 있어(`web/embed.go`) 그것이 바뀌는 길은 프로세스 교체뿐이고,
 	// 프로세스가 바뀌면 이 구독은 반드시 끊긴다 — 그러므로 **구독이 열리는 순간이
 	// 곧 "자산이 바뀌었을 수 있는 순간"** 이며, 화면은 주기적으로 물어볼 필요가 없다.
 	hello := s.helloEvent()
-	fmt.Fprintf(w, "data: %s\n\n", hello)
-	flusher.Flush()
+	// 연결 주석과 인사는 한 번에 flush 한다(종전과 같다) — 첫 읽기가 인사를 본다.
+	if !send(": connected\n\n" + "data: " + string(hello) + "\n\n") {
+		return
+	}
 
 	// FR-RLC-20a: 인사가 keepalive 를 **대신한다.** 종전의 `: keep` 주석은 연결을
 	// 살려 두기만 했다 — `EventSource` 는 주석에 이벤트를 발화하지 않으므로 화면은
@@ -135,11 +156,20 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 		case <-sub.Closed():
 			return
 		case msg := <-sub.Messages():
-			fmt.Fprintf(w, "data: %s\n\n", msg)
-			flusher.Flush()
+			if !send("data: " + string(msg) + "\n\n") {
+				return
+			}
+		case <-sub.DiagnosticsReady():
+			// §3A-2: 진단 슬롯(uri → 최신)을 비운다 — 새 구독은 여기로 스냅샷을 받는다.
+			for _, msg := range sub.TakeDiagnostics() {
+				if !send("data: " + string(msg) + "\n\n") {
+					return
+				}
+			}
 		case <-keep.C:
-			fmt.Fprintf(w, "data: %s\n\n", hello)
-			flusher.Flush()
+			if !send("data: " + string(hello) + "\n\n") {
+				return
+			}
 		}
 	}
 }
@@ -283,6 +313,9 @@ func (s *Server) handleCommandResult(w http.ResponseWriter, r *http.Request) {
 // sseHelloEvery 는 SSE 인사의 기본 주기다 (RELOAD_CONTINUITY_SRS FR-RLC-20a).
 // 종전 keepalive 주석과 같은 값이라 오가는 양이 늘지 않는다.
 const sseHelloEvery = 15 * time.Second
+
+// sseWriteTimeout 은 SSE 쓰기 하나의 시한이다 (REPO_FIX 02 §3A-2). 테스트만 줄인다.
+var sseWriteTimeout = 10 * time.Second
 
 func (s *Server) helloInterval() time.Duration {
 	if s.helloEvery > 0 {
