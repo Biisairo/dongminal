@@ -235,8 +235,12 @@ class EdDirtyDiff{
     if(!tail) return false;
     this._retryAt=0;
     const rel=prefix+tail;
-    const dc=await gitFetch('/api/git/diff-content',
-      {repo:d.repo,axis:ED_DD_AXIS,path:rel});
+    // REPO_FIX 03 §3A-3: 문서의 인코딩으로 기준을 디코드해 받는다 — CP949 문서의
+    // 기준이 깨진 글자면 모든 줄이 변경으로 보인다.
+    const doc=this.app.edDocAt(this.filePath);
+    const params={repo:d.repo,axis:ED_DD_AXIS,path:rel};
+    if(doc&&doc.encoding) params.encoding=doc.encoding;
+    const dc=await gitFetch('/api/git/diff-content',params);
     if(!dc.ok) return false;
     const side=(dc.data||{}).original;
     // FR-EDD-6: absent(untracked)·binary·LFS·상한은 **표시하지 않는다.** 빈 기준과
@@ -244,7 +248,9 @@ class EdDirtyDiff{
     if(!side||side.kind!==ED_DD_KIND_TEXT) return false;
     this.repo=d.repo;
     this.rel=(dc.data||{}).path||rel;
-    this.base=String(side.content||'').split('\n');
+    // REPO_FIX 03 E-8.1: 줄 끝(CRLF·CR)을 정규화한다 — 모델 줄은 EOL 을 뺀다. 이전:
+    // CRLF 파일은 편집하지 않아도 모든 줄에 변경 표시가 섰다 (#47).
+    this.base=String(side.content||'').replace(/\r\n?/g,'\n').split('\n');
     return true;
   }
 

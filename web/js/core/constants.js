@@ -672,6 +672,8 @@ const VER_HELD_GO=t('core.ver_held_go');
 // 로드맵 `FUI-05`: 저장 실패는 사유와 함께 알린다 — 테두리만으로는 무엇이
 // 잘못됐는지 말하지 못한다.
 const FILE_SAVE_FAIL=t('core.file_save_fail');
+// REPO_FIX 03 §3A-1: 어느 인코딩으로도 풀리지 않아 읽기 전용으로 연 문서.
+const FILE_UNDECODABLE_NOTE=t('core.file_undecodable');
 
 // `FE-7`: 설정 저장 실패는 조용히 지나가지 않는다 — 사용자는 바뀐 줄 알고
 // 다음 기동에서 옛 값을 만난다.

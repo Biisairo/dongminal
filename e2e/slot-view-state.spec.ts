@@ -1245,8 +1245,9 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
       // 저장을 **기다리지 않는다** — 날아가 있는 상태를 만들어야 한다.
       await page.evaluate((k) => { (window as any).app.fileEditors.get(k).save() }, keys[1]);
       await expect.poll(() => page.evaluate(() => (window as any).__seen), { timeout: 10000 }).toBe(1);
+      // REPO_FIX 03 §3A-8: 진행 중 저장은 문서의 `savePromise` 다(겹친 저장이 기다린다).
       await expect.poll(() => page.evaluate(
-        () => [...(window as any).app.testing.edDocs.values()][0].saving)).toBe(true);
+        () => !![...(window as any).app.testing.edDocs.values()][0].savePromise)).toBe(true);
 
       // 그 칸을 없앤다 → 그 뷰의 `destroy()` 가 저장 도중에 온다.
       await page.evaluate(() => {
@@ -1263,7 +1264,7 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
       // FR-WBR-90: 기록이 남지 않는다. FR-WBR-91: 쓰기가 성공했으므로 dirty 도 없다.
       await expect.poll(() => page.evaluate(() => {
         const d = [...(window as any).app.testing.edDocs.values()][0];
-        return { saving: d.saving, dirty: d.dirty };
+        return { saving: !!d.savePromise, dirty: d.dirty };
       }), { timeout: 10000 }).toEqual({ saving: false, dirty: false });
       expect(fs.readFileSync(FILE, 'utf8')).toBe('written while dying\n');
 
@@ -1276,6 +1277,28 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
       await expect.poll(() => fs.readFileSync(FILE, 'utf8'), { timeout: 10000 })
         .toBe('after the fix\n');
     });
+
+  // REPO_FIX 03 E-9.1: 같은 파일을 보는 칸 하나를 닫아도 다른 칸의 LSP 진단이 남는다 —
+  // 진단 지우기는 문서의 마지막 뷰가 떠날 때(edDocDrop)만 한다.
+  test('REPO_FIX 03 E-9.1: 칸 하나를 닫아도 다른 칸의 진단이 남는다', async ({ page, request }) => {
+    await sameFileInTwoSlots(page, request);
+    const markers = () => page.evaluate(() => {
+      const m = (window as any).monaco;
+      const d = [...(window as any).app.testing.edDocs.values()][0];
+      return m.editor.getModelMarkers({ resource: d.model.uri, owner: 'dongminal-lsp' }).length;
+    });
+    await page.evaluate(() => {
+      const m = (window as any).monaco;
+      const d = [...(window as any).app.testing.edDocs.values()][0];
+      m.editor.setModelMarkers(d.model, 'dongminal-lsp', [{ startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 2, message: 'x', severity: 8 }]);
+    });
+    expect(await markers()).toBe(1);
+    await page.evaluate(() => { (window as any).app.slotFocusTo(1); (window as any).app.slotRemove() });
+    await renderNow(page);
+    await page.waitForFunction(() => [...(window as any).app.testing.edDocs.values()][0].views.size === 1,
+      undefined, { timeout: 15000 });
+    expect(await markers()).toBe(1);
+  });
 
   test('TC-SVS-52: 문서는 마지막 칸이 떠날 때 거둬진다 (FR-SVS-55)', async ({ page, request }) => {
     const keys = await sameFileInTwoSlots(page, request);

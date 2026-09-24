@@ -99,6 +99,7 @@ I18N.register('en', {
   'core.file_conflict_title': 'File changed outside',
   'core.file_image_fail': 'Could not load the image',
   'core.file_save_fail': 'Could not save',
+  'core.file_undecodable': 'Read-only — this file could not be decoded in any supported encoding',
   'core.file_too_large_download': 'Download',
   'core.file_too_large_hint': 'Open it in the terminal. You can also download it below.',
   'core.file_too_large_title': 'Too large to open',

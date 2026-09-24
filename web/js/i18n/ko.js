@@ -124,6 +124,7 @@ I18N.register('ko', {
   'core.file_conflict_title': '파일이 밖에서 바뀌었습니다',
   'core.file_image_fail': '이미지를 불러오지 못했습니다',
   'core.file_save_fail': '저장하지 못했습니다',
+  'core.file_undecodable': '읽기 전용 — 지원하는 어느 인코딩으로도 읽을 수 없는 파일입니다',
   'core.file_too_large_download': '내려받기',
   'core.file_too_large_hint': '터미널에서 여세요. 아래에서 내려받을 수도 있습니다.',
   'core.file_too_large_title': '너무 커서 열지 않습니다',

@@ -86,7 +86,13 @@ Object.assign(App.prototype, {
       // `stamp` 는 경합의 재료다 (EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-11). 문서의
       // 것인 이유는 dirty·내용과 같다 — 두 칸이 같은 파일을 볼 때 한쪽이 저장하면
       // **양쪽의** 표식이 함께 새것이 되어야 다음 저장이 제 발에 걸리지 않는다.
-      d={model:null,dirty:false,saving:false,stamp:'',dd:null,views:new Set()};
+      // REPO_FIX 03 §3A-5·3A-7: `gen` 은 디스크 내용을 모델에 넣을 때마다 +1,
+      // `savedAltVer` 는 저장 시점 모델 판(dirty 판정의 기준), `encoding`·`bom`·
+      // `decodable` 은 읽기가 준 판별이다. `loading`·`savePromise`·`saveQueued` 는
+      // 겹친 로드·저장을 한 번으로 모은다.
+      d={model:null,dirty:false,stamp:'',dd:null,views:new Set(),
+        gen:0,savedAltVer:0,encoding:'',bom:false,decodable:true,
+        loading:null,savePromise:null,saveQueued:null};
       this._edDocs.set(filePath,d);
     }
     return d;
@@ -126,9 +132,14 @@ Object.assign(App.prototype, {
     // REPO_FIX 02 §3A-0 X4: 문서의 마지막 뷰가 떠났다 — 언어 서버에서도 닫는다.
     // 뷰 하나의 destroy 가 아니라 이 자리다(다른 칸이 보고 있으면 닫지 않는다).
     this.lspDocClosed(filePath);
+    // REPO_FIX 03 §3A-0 X4 (E-9.1): LSP 진단 표시도 이 순간에만 지운다 — 같은 파일을
+    // 보는 칸 하나를 닫아도 다른 칸의 밑줄은 남는다. 이전: 뷰의 destroy 에서 지워
+    // 남은 칸의 진단까지 사라졌다.
+    if(d.model&&this.lspClearDiagnostics) this.lspClearDiagnostics(d.model);
     // FR-EDD-16·55: 표시의 수명은 문서의 수명이다. 모델보다 **먼저** 걷는다 —
     // 데코레이션을 버려진 모델에서 지우려 하면 그 자리가 예외다.
     if(d.dd){d.dd.dispose();d.dd=null}
+    if(d.modelSub){try{d.modelSub.dispose()}catch{}d.modelSub=null}
     if(d.model){try{d.model.dispose()}catch{}}
     this._edDocs.delete(filePath);
   },
@@ -245,9 +256,9 @@ Object.assign(App.prototype, {
       const d=this._edDocs&&this._edDocs.get(p);
       // 물은 시점과 답이 온 시점 사이에 사용자가 한 글자 칠 수 있다 (FR-ELR-23).
       if(!d||d.dirty||!d.stamp||d.stamp===now) continue;
-      // 모델이 문서의 것이므로 **뷰 하나만 부르면** 모든 칸에 반영된다
-      // (FR-SVS-51). 시선은 그 안에서 칸마다 지켜진다 (FR-ELR-30).
-      for(const v of d.views){ if(v&&typeof v.refresh==='function'){ v.refresh(); break } }
+      // REPO_FIX 03 E-7.1: 뷰가 아니라 **문서**의 refresh — 첫 뷰가 무엇이든 소스가
+      // 갱신되고 모든 뷰가 알림을 받는다. 시선은 칸마다 지켜진다 (FR-ELR-30).
+      this.edDocRefresh(p);
     }
   },
 

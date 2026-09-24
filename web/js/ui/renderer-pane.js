@@ -59,6 +59,17 @@ Object.assign(Renderer.prototype, {
     }else if(at.type==='editor'){
       const key=this.app.slotKey(at.id,slot);
       let editor=this.app.fileEditors.get(key);
+      // REPO_FIX 03 §3A-5: 탭의 경로가 바뀌었다(원격 기기의 이름변경이 워크스페이스
+      // 동기로 왔다) — 같은 이동 API 를 탄다. 옮길 수 없으면(대상 경로가 이미 열려
+      // 있다) 이 뷰를 거두고 새로 세운다.
+      if(editor&&editor.filePath!==at.filePath){
+        const moved=this.app.edDocMove(editor.filePath,at.filePath);
+        if(editor.filePath!==at.filePath||moved.conflicts.length){
+          try{editor.destroy()}catch{ /* 이미 파괴된 것은 오류가 아니다 */ }
+          this.app.fileEditors.delete(key);
+          editor=null;
+        }
+      }
       // DOC_RENDER_VIEW_SRS D-1: 타입은 하나이고 **실체가 둘**이다.
       if(!editor){
         editor=at.render

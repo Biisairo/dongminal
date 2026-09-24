@@ -216,6 +216,10 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
 
     // Monaco 는 CDN 에서 온다 — e2e 에서 편집을 흉내 낼 수 없으므로 `edDirtyUnder`
     // 가 읽는 계약(`FileEditor._dirty`) 자체를 세운다.
+    // REPO_FIX 03 §3A-5: 문서 로드가 끝나야 dirty 를 세울 수 있다 — 로드 완료는
+    // 새 문서를 깨끗한 상태로 둔다.
+    await expect.poll(() => page.evaluate(() =>
+      [...(window as any).app.fileEditors.values()].every((e: any) => !!e._editor)), { timeout: 30000 }).toBe(true);
     await page.evaluate(() => {
       for (const e of (window as any).app.fileEditors.values()) e._dirty = true;
     });
@@ -406,6 +410,10 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     await expect.poll(async () => (await tabs(page)).length).toBe(3);
 
     // FR-EDT-91: dirty 여도 확인창을 **다시** 띄우지 않는다 (FR-EDT-84 에서 이미 밝혔다).
+    // REPO_FIX 03 §3A-5: 문서 로드가 끝나야 dirty 를 세울 수 있다 — 로드 완료는
+    // 새 문서를 깨끗한 상태로 둔다.
+    await expect.poll(() => page.evaluate(() =>
+      [...(window as any).app.fileEditors.values()].every((e: any) => !!e._editor)), { timeout: 30000 }).toBe(true);
     await page.evaluate(() => {
       for (const e of (window as any).app.fileEditors.values()) e._dirty = true;
     });

@@ -317,10 +317,13 @@ class DocRender {
    */
   async _text() {
     if (this._model) return this._model.getValue();
-    // 원문을 그대로 받는다 — 이 종단은 JSON 이 아니라 파일 내용을 낸다 (FR-CAPI-11).
-    const r = await apiGet('/api/file/read', { query: { path: this.filePath }, parse: false });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.text;
+    // REPO_FIX 03 §3A-3·3A-5: 파일을 직접 읽지 않는다 — 문서가 판별·변환해 모델을
+    // 만든다(첫 뷰가 렌더 탭이어도 모델이 생긴다). 인코딩 계약이 소스와 같아진다.
+    //   이전 동작: `/api/file/read` 원문을 UTF-8 로 풀었다 — CP949 문서가 깨졌다
+    const model = (typeof app !== 'undefined' && app && app.edDocLoad) ? await app.edDocLoad(this.filePath) : null;
+    if (!model) throw new Error('document not loaded');
+    if (model !== this._model) this._bindModel(model);
+    return model.getValue();
   }
 
   _note(text) {
@@ -582,6 +585,16 @@ class DocRender {
   // 다시 찾는다.
   refresh() {
     this._bindModel(this._findModel());
+    // REPO_FIX 03 E-7.1: 외부 변경은 문서가 한 번 읽는다 — 첫 뷰가 이 렌더 탭이어도
+    // 소스 모델이 갱신된다. 모델 갱신은 구독(`onDidChangeContent`)이 다시 그린다.
+    if (typeof app !== 'undefined' && app && app.edDocRefresh) app.edDocRefresh(this.filePath);
+    this._schedule(0);
+  }
+
+  // REPO_FIX 03 §3A-5: 문서가 새 경로로 옮겨졌다 — 새 URI 모델에 붙는다.
+  onDocMoved(path, model) {
+    this.filePath = path;
+    this._bindModel(model || this._findModel());
     this._schedule(0);
   }
 

@@ -253,6 +253,9 @@ Object.assign(App.prototype, {
    * 빠뜨리면 다음 저장이 사라진 경로에 쓴다.
    */
   edRetargetTabs(from,to){
+    // REPO_FIX 03 §3A-5: 문서(레지스트리 키·모델 URI·변경 표시)를 먼저 옮긴다 —
+    // 탭 경로만 바꾸면 LSP·DocRender·재열기가 옛 경로를 가리킨다 (#10).
+    this.edDocMove(from,to);
     const list=this._edTabsUnder(from);
     if(!list.length) return 0;
     for(const {tab} of list){

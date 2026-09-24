@@ -261,10 +261,14 @@ class FileEditor {
       if (this._overSizeLimit(probe)) { this._showTooLarge(probe); this._loading = false; return }
       if (probe.kind === FILE_KIND_IMAGE) { this._showImage(probe); this._loading = false; return }
       await this._loadMonaco();
-      // FR-SVS-50: 다른 칸이 이미 이 파일을 열어 두었으면 그 문서를 그대로 쓴다 —
-      // 내용을 다시 받지 않는다. 받아 오면 그 사이의 편집이 덮인다.
-      const content = (this._doc && this._doc.model) ? null : await this._fetchFile();
-      this._createEditor(content);
+      // FR-SVS-50: 다른 칸이 이미 이 파일을 열어 두었으면 그 문서를 그대로 쓴다.
+      // REPO_FIX 03 §3A-5: 모델은 **문서가** 만든다(`edDocLoad` — 판별·변환 읽기,
+      // 고아 모델 정리). 기다리는 사이 이 뷰가 파괴됐으면 편집기를 세우지 않는다 —
+      // 문서 뷰가 0 이면 `edDocDrop` 이 이미 해제했다 (#9).
+      const model = await app.edDocLoad(this.filePath);
+      if (this._destroyed) return;
+      if (!model) throw new Error('document not loaded');
+      this._createEditor(model);
       this._loading = false;
     } catch (e) {
       console.error('[FileEditor] init error:', e);
@@ -377,36 +381,7 @@ class FileEditor {
     return loadMonaco();
   }
 
-  /**
-   * 파일 원문 하나. **표식을 함께 거둔다** (FR-EXC-11).
-   *
-   * 원문을 그대로 받는다 — 이 종단은 JSON 이 아니라 파일 내용을 낸다 (FR-CAPI-11).
-   * 그래서 표식이 실릴 자리는 헤더뿐이다. 값은 **불투명하다** — 여기서 뜻을 읽지
-   * 않고 저장 때 그대로 되돌려 보낸다. 판정은 서버의 것이다 (FR-EXC-6).
-   */
-  async _fetchFile() {
-    const r = await apiGet('/api/file/read', { query: { path: this.filePath }, parse: false });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    this._stamp = (r.headers && r.headers.get(FILE_STAMP_HEADER)) || '';
-    return r.text;
-  }
-
-  /**
-   * 이 파일의 Monaco 모델. 문서가 이미 들고 있으면 그것이고, 없으면 지금 만든다.
-   *
-   * URI 는 파일 경로에서 나온다 — Monaco 는 같은 URI 의 모델을 둘 만들지 않으므로
-   * 그것이 "파일 하나에 문서 하나" (D-7) 를 한 겹 더 보장한다.
-   */
-  _model(content) {
-    if (this._doc && this._doc.model) return this._doc.model;
-    const uri = monaco.Uri.file(this.filePath);
-    const model = monaco.editor.getModel(uri)
-      || monaco.editor.createModel(content || '', monacoLang(this.filePath), uri);
-    if (this._doc) this._doc.model = model;
-    return model;
-  }
-
-  _createEditor(content) {
+  _createEditor(model) {
     this.el.innerHTML = '';
 
     // FR-SVS-51·52: 모델 하나를 여러 에디터에 붙인다 (D-6). Monaco 가 공식으로
@@ -420,7 +395,10 @@ class FileEditor {
      * 여기 남는 것은 **이 편집기만의 것**이다 — 모델·테마·레이아웃·미니맵.
      */
     this._editor = monaco.editor.create(this.el, Object.assign({}, edTextOptions(), {
-      model: this._model(content),
+      model,
+      // REPO_FIX 03 §3A-1: 어느 인코딩으로도 풀리지 않은 문서는 읽기 전용이다 —
+      // 치환 문자로 된 내용을 되쓰면 원본이 파괴된다.
+      readOnly: !!(this._doc && this._doc.decodable === false),
       theme: monacoTheme(),
       automaticLayout: true,
       /**
@@ -447,6 +425,7 @@ class FileEditor {
     TIMERS.frame(() => {
       if (this._editor) this._editor.layout();
     },{owner:this,label:'editor-frame'});
+    if (this._doc && this._doc.decodable === false) this.note(FILE_UNDECODABLE_NOTE);
     this._findKillMonacoKeys();
     this._lspKillMonacoKeys();
     this._lspBindClick();
@@ -466,8 +445,13 @@ class FileEditor {
     // 모델이 공유되므로 이 이벤트는 같은 파일을 보는 에디터 **모두**에 온다.
     // dirty 설정은 멱등이고, 라벨은 칸마다 있으므로 전부 갱신한다 (FR-SVS-54).
     this._editor.onDidChangeModelContent((e) => {
-      if (!this._dirty) {
-        this._dirty = true;
+      // REPO_FIX 03 §3A-7: dirty 는 판 비교다 — undo 로 되돌리면 풀린다.
+      const was = this._dirty;
+      // 문서는 모델을 스스로 구독한다(`_edDocWatch`) — 여기서도 부르는 것은 이 뷰가
+      // 아래 판정(was→now)을 같은 틱에 보기 위해서다. 멱등이다.
+      if (this._doc) app.edDocDirtySync(this._doc);
+      else this.__dirty = true;
+      if (!was && this._dirty) {
         this._tabLabelAll();
         // REPO_TAB_UNIFY_SRS FR-RTU-42: **편집을 시작하면 고정된다.** 고치던
         // 파일이 다음 클릭에 사라지면 그것은 미리보기가 아니라 사고다.
@@ -512,8 +496,13 @@ class FileEditor {
     // FR-EDD-34: 팝업을 닫는 길 둘 중 하나. 찾기 패널이 포커스를 갖고 있으면
     // 그 패널의 핸들러가 먼저 먹고 전파를 멈추므로(`_findWire`) 이 자리는 돌지
     // 않는다 — 두 Escape 가 다투지 않는다.
+    // REPO_FIX 03 E-9.2: capture 는 조상이 먼저 받으므로 찾기 입력의 Esc 도 여기 먼저
+    // 온다 — 찾기 패널 안에서 누른 Esc 는 찾기 패널의 것이다(팝업은 두고 그 패널만
+    // 닫는다). 이전: 팝업과 찾기 패널이 함께 닫혔다.
     this.el.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this._ddZone) { e.preventDefault(); this._ddClose() }
+      if (e.key !== 'Escape' || !this._ddZone) return;
+      if (this._find && this._find.contains(/** @type {Node} */ (e.target))) return;
+      e.preventDefault(); this._ddClose();
     }, true);
 
     // Keyboard interop: prevent terminal shortcuts from firing in editor
@@ -723,84 +712,69 @@ class FileEditor {
    *   이유:     경합(FR-EXC-5)을 들이면서 그 가드가 없으면 **이 스펙 자체가**
    *             저장한 줄 알고 닫는 손실 경로를 만든다 (FR-RTU-103)
    */
-  async save() {
-    if (!this._editor || !this._dirty) return false;
-    // FR-SVS-53: 저장은 **문서 하나에 대한 한 번**이다. 두 칸이 같은 파일을 볼 때
-    // 양쪽에서 Ctrl+S 가 겹치면 같은 내용을 두 번 쓰게 되고, 그 사이의 편집이
-    // 어느 쪽 버퍼에 담겼는지에 따라 결과가 갈린다.
-    // WORKBENCH_REVIEW_SRS FR-WBR-90~92: 플래그의 임자는 **문서**이므로 여기서
-    // 한 번 잡고 끝까지 그것으로 만진다.
-    //
-    //   이전 동작: `this._doc` 을 그때그때 거쳤다
-    //   새  동작: 저장을 시작할 때 잡은 문서로 내린다
-    //   이유:     `destroy()` 는 `this._doc = null` 로 끊는다. 저장이 날아가 있는
-    //             동안 그 뷰가 파괴되면 `finally` 의 조건이 거짓이 되어 공유
-    //             문서의 `saving` 을 못 내렸고, 다른 칸이 문서를 붙들고 있으면
-    //             그 기록이 살아남아 **그 파일의 모든 저장이 조용히 건너뛰어졌다**
+  /**
+   * REPO_FIX 03 §3A-8 (E-9.3): 저장 진행 중의 저장 요청은 **무음으로 버리지 않는다** —
+   * 진행 중 저장이 끝나기를 기다린 뒤 그때 dirty 면 한 번 더 저장한다. 여러 번 눌러도
+   * 대기는 1건이다. 대기는 문서 단위다(같은 파일을 보는 칸들이 공유한다).
+   *
+   *   이전 동작: `saving` 중이면 false — "저장 후 닫기" 가 닫지 못하고 조용히 끝났다
+   *   새  동작: 기다렸다가 필요하면 다시 저장, 결과를 돌려준다
+   */
+  save() {
     const doc = this._doc;
-    if (doc && doc.saving) return false;
-    if (doc) doc.saving = true;
+    if (!doc) return this._saveOnce(null);
+    if (doc.savePromise) {
+      if (!doc.saveQueued) {
+        doc.saveQueued = doc.savePromise.then((ok) => {
+          doc.saveQueued = null;
+          return doc.dirty ? this.save() : ok;
+        });
+      }
+      return doc.saveQueued;
+    }
+    const p = this._saveOnce(doc);
+    doc.savePromise = p;
+    p.finally(() => { if (doc.savePromise === p) doc.savePromise = null });
+    return p;
+  }
+
+  async _saveOnce(doc) {
+    if (!this._editor || !this._dirty) return false;
+    // 어느 인코딩으로도 풀리지 않은 문서는 저장하지 않는다(읽기 전용, §3A-1).
+    if (doc && doc.decodable === false) return false;
+    const path = this.filePath;
     const content = this._editor.getValue();
     /**
-     * FR-EXC-14: **담아 간 내용의 판본을 적어 둔다.**
-     *
-     * 위의 `content` 는 지금 이 순간의 스냅샷이고, 아래의 `await` 는 망 왕복이다.
-     * 그 사이의 타이핑은 이 저장에 담기지 않는다 — 그런데 성공 처리는 `dirty` 를
-     * 무조건 내렸다.
-     *
-     *   이전 동작: 왕복 중의 편집이 있어도 `doc.dirty=false`
-     *   새  동작: 판본이 달라졌으면 `dirty` 를 **유지한다**
-     *   이유:     내린 순간 그 편집은 화면에서 저장된 것처럼 보이고(탭의 ● 가
-     *             사라진다), 다음 `Ctrl/Cmd+S` 는 `save()` 의 첫 줄
-     *             `if (!this._dirty) return false` 에 걸려 **아무 말 없이**
-     *             되돌아간다. 사용자에게는 "한 번씩 저장이 안 되고, 닫았다 열면
-     *             된다"(새 문서가 서면서 플래그가 리셋된다)로 보이지만, 실제로
-     *             일어난 일은 **그 사이의 편집이 조용히 유실되는 것**이다.
-     *             원격 접속처럼 왕복이 긴 자리에서 자주 겹친다
-     *
-     * `getAlternativeVersionId` 를 쓰는 이유는 되돌리기까지 셈에 넣기 때문이다 —
-     * 쳤다가 `Cmd+Z` 로 되돌리면 값이 제자리로 오고, 그때는 담아 간 내용과 같으므로
-     * dirty 를 내리는 것이 옳다.
+     * FR-EXC-14: **담아 간 내용의 판본을 적어 둔다.** 아래 `await` 는 망 왕복이고
+     * 그 사이의 타이핑은 이 저장에 담기지 않는다. §3A-7: 저장 시점 판을 기준으로
+     * 삼으면(`savedAltVer = sentVer`) 왕복 중 편집이 있을 때 dirty 가 남고, 없으면
+     * 풀린다. `Cmd+Z` 로 제자리에 오면 다시 같아진다.
      */
     const model = this._editor.getModel();
     const sentVer = model ? model.getAlternativeVersionId() : 0;
     try {
-      let r = await this._write(content, this._stamp);
+      let r = await this._write(content, this._stamp, doc);
       // FR-EXC-5·7·9: 409 는 **우리가 읽은 뒤 디스크가 바뀌었다**는 뜻이다.
-      // 사용자가 승인하면 표식 없이 한 번 더 보낸다 — 서버는 표식이 없는 요청을
-      // 검사하지 않으므로(FR-EXC-6a) 그 한 번이 곧 덮어쓰기다.
       if (r.status === 409) {
         if (!await this._confirmConflict()) return false;
-        r = await this._write(content, '');
+        r = await this._write(content, '', doc);
       }
       if (!r.ok) {
-        // 로드맵 `FUI-05` / M3: 저장 실패의 **사유가 화면에 닿는다.** 종전에는
-        // 500ms 붉은 테두리 하나뿐이라, 서버가 본문에 실어 보낸 사유(경계 거부·
-        // 디스크 오류)가 콘솔에만 남았다.
         this._noteSaveFailed(r);
         return false;
       }
-      // FR-EXC-11: 새 표식을 거둔다. 거두지 않으면 다음 저장이 **자기 편이 방금
-      // 만든 변경**에 걸려 경합이 된다 — 한 번 저장하면 그 뒤로 아무것도 저장되지
-      // 않는다는 뜻이다.
-      //
-      // **처음 잡아 둔 `doc` 으로 내린다** — `set _stamp` 는 `this._doc` 을 보는데
-      // `destroy()` 가 그것을 끊으므로, 저장이 날아가 있는 동안 이 칸이 파괴되면
-      // 표식이 **죽은 필드**(`__stamp`)에 쓰인다. 그러면 문서의 표식은 낡은 채
-      // 남고, 같은 파일을 보던 다른 칸의 다음 저장이 방금 우리가 만든 변경에
-      // 걸려 409 가 된다 (TC-SVS-53 이 그것을 잡았다). `dirty`·`saving` 이 이미
-      // 치른 값이다 (FR-WBR-90~92).
       const next = (r.data && r.data.stamp) || '';
-      if (doc) doc.stamp = next; else this._stamp = next;
-      // FR-WBR-91·92: dirty 와 탭 표시도 문서를 딛는다. `set _dirty` 는 `_doc` 이
-      // 끊겨 있으면 **죽은 필드**(`__dirty`)에 쓰므로, 파괴된 뒤에는 쓰기가
-      // 성공해도 문서가 dirty 로 남았다 — 남은 칸의 탭에 저장 안 됨 표시가 남고
-      // 재조정이 그 창을 붙든다 (FR-WBR-40·41).
-      // FR-EXC-14: 왕복 중에 편집이 있었으면 dirty 를 내리지 않는다. 라벨 갱신은
-      // 양쪽 모두에서 한다 — ● 가 **남는 것**도 갱신의 결과다.
-      const edited = !!(model && model.getAlternativeVersionId() !== sentVer);
-      if (doc) { if (!edited) doc.dirty = false; for (const v of doc.views) v._updateTabLabel() }
-      else { if (!edited) this._dirty = false; this._tabLabelAll() }
+      // 저장 중 문서가 옮겨지거나 해제됐으면 그 문서에 적용하지 않는다(§3A-5).
+      const live = !doc || app.edDocAt(path) === doc;
+      if (doc && live) {
+        doc.stamp = next;
+        doc.savedAltVer = sentVer;
+        app.edDocDirtySync(doc);
+      } else if (!doc) {
+        this._stamp = next;
+        if (!(model && model.getAlternativeVersionId() !== sentVer)) this.__dirty = false;
+        this._tabLabelAll();
+      }
       // 파일 저장은 즉시 신호다 (FR-GIT-18) — 작업 트리가 방금 바뀌었다.
       if (typeof app !== 'undefined' && app) app.gitSignal('write');
       return true;
@@ -808,8 +782,6 @@ class FileEditor {
       console.error('[FileEditor] save error:', e);
       this._noteSaveFailed(null);
       return false;
-    } finally {
-      if (doc) doc.saving = false;
     }
   }
 
@@ -833,9 +805,12 @@ class FileEditor {
 
   // 쓰기 한 번. 표식이 비면 필드를 싣지 않는다 — 서버의 관대함(FR-EXC-6a)을
   // 부르는 것이 곧 "검사하지 말라" 이므로, 그 뜻을 한 자리에 모아 둔다.
-  _write(content, stamp) {
+  _write(content, stamp, doc) {
     const body = { path: this.filePath, content };
     if (stamp) body.stamp = stamp;
+    // REPO_FIX 03 §3A-2: 문서의 인코딩·BOM 으로 되돌려 쓴다. 판별을 모르면(옛 서버)
+    // 싣지 않는다 — 서버가 UTF-8 원문 그대로 쓴다.
+    if (doc && doc.encoding) { body.encoding = doc.encoding; body.bom = !!doc.bom }
     return apiPost('/api/file/write', body);
   }
 
@@ -887,87 +862,13 @@ class FileEditor {
   }
 
   /**
-   * FR-ELR-30: 이 문서를 보는 **모든 칸**의 시선 — 선택(커서를 품는다)과 스크롤.
-   *
-   * 문서를 못 얻은 뷰(이진·이미지·로딩 실패)는 자기 것만 담는다. `__dirty` 가
-   * 같은 자리에서 같은 폴백을 쓴다.
-   */
-  _gazes() {
-    const views = this._doc ? [...this._doc.views] : [this];
-    const out = [];
-    for (const v of views) {
-      const ed = v && v._editor;
-      if (!ed) continue;
-      out.push({ ed, sel: ed.getSelection(), top: ed.getScrollTop(), left: ed.getScrollLeft() });
-    }
-    return out;
-  }
-
-  /**
-   * FR-ELR-31: 파일이 짧아져 그 줄이 사라졌으면 **가장 가까운 자리**로 둔다.
-   *
-   * 자르는 일은 모델이 한다 (`validatePosition`) — 줄 수와 그 줄의 길이를 아는
-   * 것이 모델이고, 여기서 다시 세면 그 셈이 두 벌이 된다. 되돌릴 수 없다는 이유로
-   * 1,1 로 보내지 않는다: 그것은 복원하지 않는 것과 같다.
-   */
-  _restoreGaze(g) {
-    const model = g.ed.getModel();
-    if (model && g.sel) {
-      const a = model.validatePosition(
-        { lineNumber: g.sel.selectionStartLineNumber, column: g.sel.selectionStartColumn });
-      const b = model.validatePosition(
-        { lineNumber: g.sel.positionLineNumber, column: g.sel.positionColumn });
-      g.ed.setSelection({
-        selectionStartLineNumber: a.lineNumber, selectionStartColumn: a.column,
-        positionLineNumber: b.lineNumber, positionColumn: b.column,
-      });
-    }
-    g.ed.setScrollTop(g.top);
-    g.ed.setScrollLeft(g.left);
-  }
-
-  /**
-   * 디스크의 내용을 다시 읽어 화면에 반영한다 (FR-EXC-1).
-   *
-   * **dirty 면 아무것도 하지 않는다** (FR-EXC-3·4).
-   *
-   *   이전 동작: `_dirty` 를 보지 않고 읽어 와 달라졌으면 `setValue` 했다.
-   *             그래서 편집 중인 파일의 탭을 **다시 열기만 해도** 편집본이
-   *             디스크 것으로 덮였다
-   *   새  동작: dirty 면 읽지도 않고 돌아간다
-   *   이유:     `U-10`(FR-RTU-103) — 편집을 확인 없이 잃는 것이 이 제품에서
-   *             가장 비싼 실패다. 덮어쓸지는 저장할 때 묻는다 (FR-EXC-9)
-   *
-   * 읽기에 실패해도(밖에서 지워졌다) 화면을 비우지 않는다 — 보던 내용이 사라지는
-   * 것이 곧 손실이고, 저장하면 새로 만든다 (FR-EXC-10·10b).
+   * 디스크의 내용을 다시 읽어 화면에 반영한다 (FR-EXC-1). REPO_FIX 03 E-7.1: 일은
+   * **문서**가 한다(`edDocRefresh`) — dirty 면 읽지 않고, 응답이 올 때 그 사이 편집이
+   * 있었으면 적용하지 않으며, 모든 뷰에 알린다.
    */
   refresh() {
-    if (this._loading || this._dirty) return;
-    this._fetchFile().then(content => {
-      if (!this._editor) return;
-      // EDITOR_LSP_SRS §2.11b / FR-LSP-26b: **내용이 같으면 넣지 않는다.**
-      //
-      // `setValue` 는 커서를 1,1 로 되돌리고 undo 스택을 버린다. 그런데 이 갱신은
-      // 비동기이고, `edOpenFile` 은 탭을 활성화한 **직후에** 그 줄로 커서를
-      // 옮긴다 (FR-EGS-10) — 그래서 늦게 도착한 이 `setValue` 가 방금 옮긴 커서를
-      // 앗아갔다. 이미 열어 둔 파일을 검색 결과나 정의 이동으로 고르면 그 줄로
-      // 가지 않는 결함이 그것이었다 (V-EGS-10 이 그것을 잡고 있었다).
-      //
-      // 같은 내용을 다시 넣는 일은 화면에 아무것도 바꾸지 않으면서 커서와 undo
-      // 스택만 버린다. 디스크와 같아졌다는 사실(dirty 해제)만 반영한다.
-      if (this._editor.getValue() === content) return;
-      // EDITOR_LIVE_RELOAD_SRS FR-ELR-30: **시선을 먼저 담는다.**
-      //
-      // 모델이 공유되므로 아래 한 번이 모든 칸의 내용을 되돌리는데, 그때
-      // `setValue` 는 **모든 칸의 커서를 1,1 로** 보낸다 (FR-SVS-51 — 시선은
-      // 칸마다의 것이다). 계기가 "탭을 다시 열 때" 뿐이던 동안에는 드러나지
-      // 않았다. 3초마다 도는 계기가 서면 그것이 곧 결함이 된다.
-      const gazes = this._gazes();
-      this._editor.setValue(content);
-      for (const g of gazes) this._restoreGaze(g);
-      this._dirty = false;
-      this._tabLabelAll();
-    }).catch(e => console.error('[FileEditor] refresh error:', e));
+    if (this._loading || !this._doc) return;
+    app.edDocRefresh(this.filePath);
   }
 
   _updateTabLabel() {
@@ -1125,12 +1026,9 @@ class FileEditor {
     // 하이라이트는 에디터와 함께 사라지지만, 컬렉션을 명시적으로 걷는다 —
     // dispose 순서에 기대지 않는다.
     if (this._findDecos) { this._findDecos.clear(); this._findDecos = null }
-    // EDITOR_LSP_SRS FR-LSP-35: 진단은 **모델의 것**이고 모델은 탭보다 오래 살
-      // 수 있다 (`edDocDrop` 이 수명을 정한다). 걷지 않으면 다시 열었을 때 낡은
-    // 밑줄이 먼저 보인다.
-    if (this._editor && window.app && window.app.lspClearDiagnostics) {
-      window.app.lspClearDiagnostics(this._editor.getModel());
-    }
+    // REPO_FIX 03 E-9.1: LSP 진단은 여기서 지우지 않는다 — 문서의 마지막 뷰가 떠날
+    // 때(`edDocDrop`) 지운다. 같은 파일을 보는 다른 칸의 밑줄이 남아야 한다.
+    this._destroyed = true;
     if (this._editor) {
       // 모델은 **에디터의 것이 아니다** — `{model}` 로 준 것은 dispose 되지 않는다.
       // 문서의 수명은 `edDocDrop` 이 정한다 (FR-SVS-55).
