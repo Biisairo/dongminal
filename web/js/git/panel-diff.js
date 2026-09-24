@@ -695,7 +695,8 @@ Object.assign(GitPanel.prototype, {
     const f=this.commitFile?null:this._diffTarget();
     const h=this._hunks;
     const co=this._hunkBarCoords();
-    if(!f||!h||!co||this._writing||this._hunkBlocked()) return;
+    if(!f||!h||!co||this._hunkBlocked()) return;
+    if(this._writing){this.busyNote();return}
     const hunk=(h.list||[]).find(x=>x.index===co.hunk);
     const body={repo:f.repo,axis:f.axis,path:f.path,op,
       hunk:co.hunk,from:co.from,to:co.to,diffId:h.diffId};
@@ -744,13 +745,19 @@ Object.assign(GitPanel.prototype, {
     // 사유는 **그 대상의 것**이다. 아래에서 목록을 다시 받으려고 키를 비우므로,
     // 어느 대상의 사유인지 따로 들고 있어야 다시 받는 그 회차에 지워지지 않는다.
     this._hunkErrKey=res.ok?null:this._hunkKey;
+    this._diffInvalidate();
+    if(res.ok){this._note=null; this.adopt(res.data); return}
+    this.applyWriteFail(res);
+  },
+
+  // 쓰기 뒤 Diff 를 다시 받게 한다 — 조각 관측과 본문 둘 다 낡았다. hunk 쓰기와 파일
+  // 단위 쓰기(F-4.3)가 이 한 함수를 쓴다.
+  _diffInvalidate(){
     this._hunkKey=null; this._hunks=null;
     // FR-DHB-44: 사라진 조각 위에 툴바가 남지 않는다 — 다시 hover 로만 뜬다.
     this._hunkBarHide();
     // Monaco 의 두 모델도 낡았다 — 같은 대상이라도 내용이 바뀌었다 (FR-GIT-71).
     this._diffKey=null;
-    if(res.ok){this._note=null; this.adopt(res.data); return}
-    this.applyWriteFail(res);
   },
 
   // FR-GIT-138·139: `<parent>..<commit>` 를 짧은 해시로 보인다. 루트 커밋은 부모가

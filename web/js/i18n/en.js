@@ -588,6 +588,8 @@ I18N.register('en', {
   'git.hunk_none': 'This file has no hunks to split',
   'git.hunk_dirty': 'There are unsaved changes — available after saving',
   'git.hunk_utf16': 'Git treats UTF-16 files as binary, so they cannot be split into hunks',
+  'git.wq_full': 'Too many pending requests — press again after the earlier ones finish',
+  'git.wq_dropped': 'Not sent because an earlier request was rejected — please try again',
   'git.hunk_revert_note': 'Run the following before discarding and the whole file stays as a stash (not run automatically)',
   'git.hunk_revert_note.patch_empty': 'No changed lines in the selected range',
   'git.hunk_revert_note.stale_observation': 'The file changed in the meantime — reload the hunks and pick again',

@@ -42,6 +42,11 @@ class GitObserver {
     this._obsSig=null;            // FR-GIT-227: 마지막으로 그린 관측
     // FR-SVS-45: 쓰기 한 번은 한 번이다. 칸마다 두면 두 칸이 같은 쓰기를 함께 보낸다.
     this._writing=false;
+    // REPO_FIX 05 §3A-5 (F-4.1): 쓰기 세대 — 동기 쓰기 시작·잡 시작·잡 완료가 각각 +1.
+    // 보낼 때의 값과 도착했을 때의 값이 다른 status 는 적용하지 않는다.
+    this._writeGen=0;
+    // F-4.2: stage/unstage/discard 의 저장소 단위 FIFO. 칸이 넷이어도 한 줄이다.
+    this._wq=[]; this._wqOn=false;
     // single-flight 와 주기. 칸이 늘어도 이것들이 하나이므로 요청이 늘지 않는다.
     // `_sigT` 는 즉시 신호의 150ms 합치기 창이다 — 지워진 signature 폴링과
     // 이름만 비슷하고 성질이 다르다 (FR-PIS-3).
@@ -61,6 +66,28 @@ class GitObserver {
   // 살아 있는 패널 하나. 주기 타이머가 딛는 자리다 — 콜백이 특정 패널을 캡처하면
   // 그 칸이 사라진 뒤에도 죽은 패널을 붙들고 부른다.
   any(){ for(const p of this.panels) return p; return null }
+
+  /**
+   * F-4.2: 큐를 하나씩 보낸다. 409 `job_busy`·`repo_busy`·`index_locked` 면 멈추고 남은
+   * 항목은 버린다(사유는 실패한 그 항목의 뒷정리가 보인다 — 사용자가 다시 누른다).
+   *
+   *   이전 동작: 쓰기 진행 중의 stage 연타는 `_writing` 에 걸려 무음으로 버려졌다(#40)
+   *   새  동작: 차례로 보낸다
+   */
+  async wqPump(){
+    if(this._wqOn) return;
+    this._wqOn=true;
+    while(this._wq.length){
+      const it=this._wq.shift();
+      const res=await it.panel.post(it.url,it.body);
+      it.resolve(res);
+      if(!res.ok&&GIT_WQ_STOP.has(((res.data||{}).error)||'')) this.wqDrop();
+    }
+    this._wqOn=false;
+  }
+
+  // 남은 항목을 보내지 않고 끝낸다 — 기다리는 쪽은 `null` 을 받는다.
+  wqDrop(){ for(const it of this._wq.splice(0)) it.resolve(null) }
 
   /**
    * GIT_OBSERVE_REVIVE_SRS FR-GOR-4·5 / D-3: **이 관측기가 폴링할 이유가 있는가.**

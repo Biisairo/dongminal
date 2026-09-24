@@ -462,6 +462,8 @@ class GitRemote {
     this._settleWaits(null);
     this._job=job;
     this._jobRepo=job.repo||this.panel.repo;
+    // REPO_FIX 05 §3A-5: 잡 시작은 쓰기 세대 경계다.
+    this.panel.bumpWrite();
     this._done=null; this._err=null; this._conflict=false;
     this._lines=[]; this._total=0; this._seq=0;
     this._logOpen=null;
@@ -536,6 +538,8 @@ class GitRemote {
     const jb=job||this._job||{};
     this._done=jb;
     this._job=null;
+    // §3A-5: 잡 완료(성공·실패·취소·결과 미상)도 쓰기 세대 경계다.
+    this.panel.bumpWrite();
     // BRANCH_MENU_UNIFY_SRS FR-BMU-15a: 결과를 기다리는 쪽에 넘긴다. `run()` 의
     // `ok` 는 "띄웠다" 까지이고 **끝났는가와 이겼는가는 여기서 정해진다.**
     this._settleWaits(jb);

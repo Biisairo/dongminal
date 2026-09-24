@@ -612,6 +612,8 @@ I18N.register('ko', {
   'git.hunk_none': '이 파일에는 나눌 조각이 없습니다',
   'git.hunk_dirty': '저장하지 않은 변경이 있습니다 — 저장한 뒤 사용할 수 있습니다',
   'git.hunk_utf16': 'UTF-16 파일은 git 이 바이너리로 보아 조각으로 나눌 수 없습니다',
+  'git.wq_full': '대기 중인 요청이 너무 많습니다 — 앞의 요청이 끝난 뒤 다시 눌러 주세요',
+  'git.wq_dropped': '앞선 요청이 거절되어 보내지 않았습니다 — 다시 시도해 주세요',
   'git.hunk_revert_note': '버리기 전에 아래를 실행하면 파일 전체가 stash 로 남습니다 (자동 실행하지 않습니다)',
   'git.hunk_revert_note.patch_empty': '고른 범위에 바뀐 줄이 없습니다',
   'git.hunk_revert_note.stale_observation': '그 사이 파일이 바뀌었습니다 — 조각을 다시 받아 고르세요',

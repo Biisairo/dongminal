@@ -461,6 +461,7 @@ Object.assign(GitPanel.prototype, {
     this._busy=true;
     const seq=++this._seq;
     const tok=this.token();
+    const wg=this._writeGen;
     let r=null,d=null;
     // 시한이 있다 (FR-RMS-29). 이 요청은 single-flight 라 답이 오지 않으면 `_busy`
     // 가 영구히 참으로 남고, 그 뒤의 모든 `collect()` 가 조용히 되돌아간다 —
@@ -482,6 +483,10 @@ Object.assign(GitPanel.prototype, {
     if(this._seq!==seq){this._applyStatus(tok,r,d);return}
     this._busy=false;
     const again=this._again; this._again=false;
+    // REPO_FIX 05 §3A-5 (F-4.1): 보낸 뒤 쓰기가 시작·끝났으면 이 관측은 쓰기 이전의 것일 수
+    // 있다 — 적용하지 않고 한 번 더 받는다. 이전: 쓰기 전에 출발한 status 가 방금 쓴
+    // 결과를 덮어 다음 폴링까지 되돌아간 화면을 보였다(#41).
+    if(this._writeGen!==wg){this.collect();return}
     this._applyStatus(tok,r,d);
     if(again) this.collect();
   },

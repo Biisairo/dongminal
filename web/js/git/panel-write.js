@@ -194,6 +194,7 @@ Object.assign(GitPanel.prototype, {
     // §6.4: index 칸이 도는 동안 동기 쓰기·index 잡 시작을 보내지 않는다.
     const block=this._remote().blocks(url);
     if(block) return {ok:false,code:409,data:{error:'job_busy',message:block}};
+    this.bumpWrite();
     this._writing=true;
     // 망 실패·파싱 실패를 접는 일은 `gitPost` 가 한다 (api.js) — 두 벌로 두면
     // 한쪽만 고쳐진다. 여기 남는 것은 **패널 고유의 관심사** 둘이다.
@@ -213,6 +214,25 @@ Object.assign(GitPanel.prototype, {
     // 부분 적용도 200 으로 오기 때문이다 (FR-GIT-73).
     return {ok:!!(res.ok&&res.data&&res.data.ok),code:res.status,data:res.data};
   },
+
+  // REPO_FIX 05 §3A-5 (F-4.1): 쓰기 세대 경계 — 동기 쓰기 시작·잡 시작·잡 완료.
+  bumpWrite(){ this._writeGen++ },
+
+  /**
+   * F-4.2: stage/unstage/discard 를 저장소 단위 큐로 보낸다. 결과(또는 버려졌으면 null)를
+   * 돌려준다. 깊이 상한을 넘으면 그 요청을 버리고 사유를 보인다.
+   */
+  wqPost(url,body){
+    const q=this.obs._wq;
+    if(q.length>=GIT_WQ_MAX){this._note={msg:GIT_WQ_FULL}; this._paint(); return Promise.resolve(null)}
+    return new Promise(resolve=>{
+      q.push({panel:this,url,body,resolve});
+      this.obs.wqPump();
+    });
+  },
+
+  // 큐 밖의 동기 쓰기가 다른 쓰기에 막혔다 — 무음으로 버리지 않고 사유를 보인다 (§3A-5).
+  busyNote(){ this._note={msg:GIT_WRITE_ERR.repo_busy}; this._paint() },
 
   // 잡을 여는 쓰기를 다이얼로그·메뉴에서 보낸다 (§6.4). 잡이 시작되면 곧바로
   // `{ok:true, started:true}` 로 돌아오고 — 다이얼로그는 닫는다 — 끝나면 settle 이

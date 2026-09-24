@@ -17,7 +17,7 @@ Object.assign(GitPanel.prototype, {
 
   // mixed 다 — index 만 HEAD 로 되돌리고 워킹 트리는 그대로 둔다.
   async uncommittedReset(){
-    if(this._writing) return;
+    if(this._writing){this.busyNote();return}
     const res=await this.post('/api/git/uncommitted/reset',{repo:this.repo});
     this._after(res,[]);
   },
@@ -28,7 +28,7 @@ Object.assign(GitPanel.prototype, {
   // `paths` 는 확인창에 보인 목록이다 (REPO_FIX 05 F-1). 서버는 목록을 받지 않고
   // 그 순간의 untracked 전부를 지우므로, 확인 뒤 목록이 달라졌으면 보내지 않는다.
   async uncommittedClean(paths){
-    if(this._writing) return;
+    if(this._writing){this.busyNote();return}
     const now=this.untrackedPaths();
     const shown=Array.isArray(paths)?paths:[];
     if(now.length!==shown.length||now.some(p=>shown.indexOf(p)<0)){
@@ -47,7 +47,8 @@ Object.assign(GitPanel.prototype, {
    * 아무 일도 아니었던 것을 성공으로 읽는다 (V200).
    */
   async ignorePath(t){
-    if(!t||!t.path||this._writing) return;
+    if(!t||!t.path) return;
+    if(this._writing){this.busyNote();return}
     const res=await this.post('/api/git/ignore',{repo:this.repo,paths:[t.path]});
     if(!res.ok){
       this._note={msg:GIT_IGNORE_FAIL+': '+this.writeError(res)};
@@ -226,9 +227,11 @@ Object.assign(GitPanel.prototype, {
       for(const i of items) this.app.gitOpenFile(this.absPath(i));
       return;
     }
-    if(this._writing) return;
     if(act==='discard'){this._discard(items);return}
-    if(act==='ours'||act==='theirs'){this._resolveSide(act,items);return}
+    if(act==='ours'||act==='theirs'){
+      if(this._writing){this.busyNote();return}
+      this._resolveSide(act,items);return;
+    }
     // FR-GIT-72: 충돌 파일의 stage 는 "해결됨 표시" 다. 실행 **전에** 그 뜻을
     // 알린다. 파괴적이 아니므로 1단계 확인이다.
     const conflicts=items.filter(i=>i.group==='conflicts').map(i=>i.path);
@@ -241,8 +244,9 @@ Object.assign(GitPanel.prototype, {
       if(!ok) return;
     }
     const url=act==='stage'?'/api/git/stage':'/api/git/unstage';
-    const res=await this.post(url,{repo:this.repo,paths:this._paths(act,items)});
-    this._after(res,items);
+    // F-4.2: 연타는 버리지 않고 큐로 차례로 보낸다. 버려진 항목(null)은 뒷정리가 없다.
+    const res=await this.wqPost(url,{repo:this.repo,paths:this._paths(act,items)});
+    if(res) this._after(res,items);
   },
 
   /**
@@ -321,7 +325,8 @@ Object.assign(GitPanel.prototype, {
         command:'git stash push -u -- '+targets.map(gitShQuote).join(' '),
       },
       run:async()=>{
-        const res=await this.post('/api/git/discard',{repo,tracked,untracked,confirm:true});
+        const res=await this.wqPost('/api/git/discard',{repo,tracked,untracked,confirm:true});
+        if(!res) return {ok:false,reason:GIT_WQ_DROPPED,stderrTail:''};
         this._after(res,items);
         if(res.ok) return {ok:true};
         // 사유와 stderr tail 은 다이얼로그 안에서 보인다 (FR-GIT-96·175).
@@ -335,6 +340,9 @@ Object.assign(GitPanel.prototype, {
     if(res.ok){
       this._note=null;
       for(const i of items) this._sel.delete(this._selKey(i.group,i.path));
+      // F-4.3: 그 경로의 Diff 가 열려 있으면 hunk 쓰기와 같은 재적재를 한다.
+      const f=this._diffTarget();
+      if(f&&!this.commitFile&&items.some(i=>i.path===f.path)) this._diffInvalidate();
       this.adopt(res.data);
       return;
     }

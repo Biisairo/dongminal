@@ -259,6 +259,11 @@ const GIT_HUNK_NONE=t('git.hunk_none');
 // git 이 바이너리로 보는 UTF-16 문서.
 const GIT_HUNK_DIRTY=t('git.hunk_dirty');
 const GIT_HUNK_UTF16=t('git.hunk_utf16');
+// REPO_FIX 05 §3A-5 (F-4.2): stage/unstage/discard 큐 — 깊이 상한, 멈추는 409, 사유.
+const GIT_WQ_MAX=32;
+const GIT_WQ_STOP=new Set(['job_busy','repo_busy','index_locked']);
+const GIT_WQ_FULL=t('git.wq_full');
+const GIT_WQ_DROPPED=t('git.wq_dropped');
 // FR-DHB-2: `GIT_HUNK_HINT`·`GIT_HUNK_CLEAR`·`GIT_HUNK_CLEAR_TITLE` 는 폐기됐다 —
 // 커스텀 줄 선택의 조작법을 설명하던 말들이고, 그 조작이 Monaco 의 텍스트 선택으로
 // 바뀌면서 설명할 것이 없어졌다 (I-2).

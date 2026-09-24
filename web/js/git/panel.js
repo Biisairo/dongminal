@@ -117,6 +117,7 @@ class GitPanel {
   get _obsSig(){ return this.obs._obsSig } set _obsSig(v){ this.obs._obsSig=v }
   get _lastObsAt(){ return this.obs._lastObsAt } set _lastObsAt(v){ this.obs._lastObsAt=v }
   get _writing(){ return this.obs._writing } set _writing(v){ this.obs._writing=v }
+  get _writeGen(){ return this.obs._writeGen } set _writeGen(v){ this.obs._writeGen=v }
   get _busy(){ return this.obs._busy } set _busy(v){ this.obs._busy=v }
   get _again(){ return this.obs._again } set _again(v){ this.obs._again=v }
   get _sigT(){ return this.obs._sigT } set _sigT(v){ this.obs._sigT=v }
