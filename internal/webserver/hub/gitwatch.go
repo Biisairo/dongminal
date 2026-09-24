@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/store"
 )
@@ -74,6 +75,10 @@ const (
 	// GitWatchCap 은 동시에 감시하는 저장소 수의 상한이다 (FR-GPO-12).
 	// 브라우저 여럿이 각자 다른 저장소를 봐도 이 안에 든다.
 	GitWatchCap = 16
+
+	// GitWatchBackoffMax 는 일시적 관측 실패 뒤 그 저장소를 건너뛰는 시간의 상한이다
+	// (REPO_FIX 02 §3A-1 — min(2^(n-1), 30)s).
+	GitWatchBackoffMax = 30 * time.Second
 )
 
 // GitObserver 는 감시자가 필요로 하는 것 전부다. `store.Store` 가 이것을
@@ -87,6 +92,11 @@ type GitObserver interface {
 	// Signature 는 **1차 게이트**다 (GIT_DETECT_TIER_SRS FR-GDT-1).
 	// git 을 실행하지 않는다 — read 1회 + stat 몇 번이다.
 	Signature(ctx context.Context, repo string) (query.Signature, error)
+	// Invalidate 는 세대를 올린다 (REPO_FIX 01 §4) — signature 가 바뀐 회차가 TTL
+	// 캐시·옛 flight 의 변화 전 관측을 받지 않게 한다.
+	Invalidate(repo string)
+	// Observed 는 마지막 유효 관측이다. 회차 시한이 놓친 관측을 다음 회차가 받는다.
+	Observed(repo string) (store.Observation, bool)
 }
 
 // obsMark 는 관측 하나를 비교 가능한 한 줄로 접는다.
@@ -177,6 +187,15 @@ type gitWatchEntry struct {
 	// holders 는 이 저장소를 보고 있는 신원들이다 (clientId → 그 구독의 epoch).
 	// **비어 있지 않으면 유휴로 만료되지 않는다** (FR-GWL-2).
 	holders map[string]uint64
+
+	// REPO_FIX 02 §3A-1. pending 은 "signature 가 바뀌어 변화 이후의 관측을 기다린다"
+	// 이다 — lastSig 는 그 관측이 성립한 뒤에만 pendingSig 로 확정한다.
+	pending    bool
+	pendingSig string
+	pendingAt  time.Time
+	// fails·retryAt 은 일시적 관측 실패의 연속 횟수와 다음 관측 시각이다.
+	fails   int
+	retryAt time.Time
 }
 
 // watchPhase 는 저장소 경로에서 워크트리 회차의 위상을 뽑는다 (FR-GDT-4).
@@ -409,9 +428,10 @@ Tick 은 회차 하나다 (FR-GPO-3).
 첫 회차는 방송하지 않는다. 그때의 signature 는 "바뀐 것" 이 아니라 기준선이며,
 브라우저는 방금 status 를 받아 그 값을 이미 알고 있다.
 
-읽기 오류는 그 저장소를 대상에서 뺀다 (FR-GPO-5). 저장소가 사라졌거나 gitdir 이
-깨진 것이고, 그 판정과 화면 처리는 브라우저의 `GIT_REPO_MISSING` 경로가 이미
-갖고 있다 (FR-RMS-6) — 감시자가 그것을 흉내내지 않는다.
+결정적 읽기 오류(core.IsTerminal)만 그 저장소를 대상에서 뺀다 (FR-GPO-5, REPO_FIX
+02 §3A-1). 저장소가 사라졌거나 저장소가 아닌 것이고, 그 판정과 화면 처리는
+브라우저의 `GIT_REPO_MISSING` 경로가 이미 갖고 있다 (FR-RMS-6) — 감시자는 mark:""
+로 한 번 알릴 뿐 그것을 흉내내지 않는다. 일시적 오류는 백오프한다.
 */
 func (w *GitWatcher) Tick(ctx context.Context) int {
 	if w == nil || w.git == nil {
@@ -467,66 +487,99 @@ func (w *GitWatcher) Tick(ctx context.Context) int {
 observe 는 저장소 하나의 회차다. 방송했으면 참이다.
 
 **2단이다** (FR-GDT-1·2). 1차는 `ReadSignature` — git 을 실행하지 않는다. 2차는
-`git status` 이고, 그것을 돌리는 회차는 셋 중 하나다:
+`git status` 이고, 그것을 돌리는 회차는 넷 중 하나다:
 
-	① signature 가 직전 회차와 다르다
-	② 이 저장소의 워크트리 회차다 (저빈도)
-	③ signature 를 읽지 못했다 — 판정할 수 없으면 관측한다
+	① signature 가 확정된 값(lastSig)과 다르다
+	② 변화 이후의 관측을 기다리는 중이다(pending)
+	③ 이 저장소의 워크트리 회차다 (저빈도)
+	④ signature 를 읽지 못했다(일시적) — 판정할 수 없으면 관측한다
 
 	이전 동작: 회차마다 `git status` 를 돌렸다. 아무 변화가 없어도 1초마다,
 	          최대 16개 저장소 동시에, 브라우저가 숨어도 90초 동안
 	새  동작: 변화가 없으면 1차 게이트에서 끝난다
 	이유:     `GIT_PUSH_OBSERVE_SRS §1.2` 가 fsnotify 를 기각하며 든 근거가
 	          **"ReadSignature = 0.02ms 이므로 싸다"** 였는데, 구현이 그 자리에서
-	          `git status` 를 돌려 그 근거를 스스로 무효로 만들었다 (`11 GP-7`).
-	          사용자의 진단("변경이 없어도 1초마다 git 을 돌린다")이 정확했다
+	          `git status` 를 돌려 그 근거를 스스로 무효로 만들었다 (`11 GP-7`)
+
+REPO_FIX 02 §3A-1 — 감시 수명:
+
+	이전 동작: 오류 종류를 가리지 않고 감시에서 뺐고(취소·시한도), lastSig 를 관측
+	          **전에** 전진시켜 실패한 회차의 변화를 잃었다
+	새  동작: 결정적 오류(core.IsTerminal)만 빼고 mark:"" 를 1회 알린다. 일시적 오류는
+	          기준선·임대를 그대로 두고 백오프한다. signature 가 바뀌면 Invalidate 뒤
+	          관측하고, 관측이 성립한 뒤에만 lastSig 를 확정한다
+	이유:     한 요청의 취소·잠깐 깨진 index 가 감시를 영구히 걷었고(#20), 회차 시한
+	          (20s)보다 느린 status 의 변화가 방송되지 않았다(N5)
 */
 func (w *GitWatcher) observe(ctx context.Context, repo string, round uint64) bool {
-	sig, sigErr := w.git.Signature(ctx, repo)
-
 	w.mu.Lock()
 	e, ok := w.watch[repo]
+	if !ok || w.now().Before(e.retryAt) {
+		w.mu.Unlock()
+		return false
+	}
+	w.mu.Unlock()
+
+	sig, sigErr := w.git.Signature(ctx, repo)
+	if core.IsTerminal(sigErr) {
+		return w.drop(repo, sigErr)
+	}
+
+	w.mu.Lock()
+	e, ok = w.watch[repo]
 	if !ok { // 회차 중에 만료·퇴출됐다
 		w.mu.Unlock()
 		return false
 	}
-	// FR-GDT-4 / D-GDT-2: 워크트리 회차를 저장소마다 **어긋나게** 돈다. 전부 같은
-	// 회차에 몰리면 4초마다 16개의 `git status` 가 동시에 뜬다 — 1초마다 하나씩
-	// 뜨는 것보다 나쁜 모양이다(피크가 높다).
+	// FR-GDT-4 / D-GDT-2: 워크트리 회차를 저장소마다 **어긋나게** 돈다.
 	worktreeRound := (round+e.phase)%GitWatchWorktreeEvery == 0
-	sigChanged := sigErr != nil || !e.hasSig || e.lastSig != sig.Value
-	if sigErr == nil {
-		e.lastSig, e.hasSig = sig.Value, true
-	} else {
-		e.hasSig = false
+	invalidate := false
+	if sigErr == nil && (!e.hasSig || e.lastSig != sig.Value) {
+		// 새 변화다. 기다리던 것과 같은 값이면 이미 무효화했다 — 합류만 한다.
+		if !e.pending || e.pendingSig != sig.Value {
+			invalidate = true
+			e.pending, e.pendingSig, e.pendingAt = true, sig.Value, w.now()
+		}
 	}
-	need := sigChanged || worktreeRound
+	pending, pendingAt := e.pending, e.pendingAt
+	need := pending || worktreeRound || sigErr != nil
 	w.mu.Unlock()
 
-	// FR-GDT-7: 2차를 건너뛴 회차는 **방송하지 않는다.** 비교할 obsMark 를 만들지
-	// 않았으므로 "바뀌었다" 를 말할 근거가 없다.
+	// FR-GDT-7: 2차를 건너뛴 회차는 **방송하지 않는다.**
 	if !need {
 		return false
 	}
+	if invalidate {
+		w.git.Invalidate(repo)
+	}
 
 	obs, _, err := w.git.Status(ctx, repo)
-	mark := ""
-	if err == nil {
-		mark = obsMark(obs)
+	if err != nil && pending {
+		// 회차 시한이 놓친 관측을 flight 가 끝내 Store 에 남겼을 수 있다. 변화 이후에
+		// 끝난 관측이면 그것으로 성립한다 (01 은 옛 세대 결과를 유효로 두지 않는다).
+		if last, ok := w.git.Observed(repo); ok && last.ObservedAtUnixMs >= pendingAt.UnixMilli() {
+			obs, err = last, nil
+		}
 	}
+	if err != nil {
+		if core.IsTerminal(err) {
+			return w.drop(repo, err)
+		}
+		w.fail(repo, err, pending && ctx.Err() != nil)
+		return false
+	}
+
+	mark := obsMark(obs)
 	w.mu.Lock()
 	e, ok = w.watch[repo]
 	if !ok {
 		w.mu.Unlock()
 		return false
 	}
-	if err != nil {
-		// FR-GLW-7: 탈락은 **저장소가 읽히지 않은 것**이다 (FR-GPO-5).
-		// 되풀이되지 않는다 — 이 저장소는 여기서 대상에서 빠진다.
-		dmlog.Errorf(nil, "[gitwatch] 관측 실패로 감시에서 뺀다 (repo=%s err=%v)", repo, err)
-		delete(w.watch, repo)
-		w.mu.Unlock()
-		return false
+	e.fails, e.retryAt = 0, time.Time{}
+	if pending && e.pending && e.pendingSig != "" {
+		e.lastSig, e.hasSig = e.pendingSig, true
+		e.pending = false
 	}
 	first := !e.hasMark
 	changed := e.hasMark && e.lastMark != mark
@@ -540,6 +593,51 @@ func (w *GitWatcher) observe(ctx context.Context, repo string, round uint64) boo
 		w.hub.Broadcast(gitChangedPayload(repo, mark))
 	}
 	return true
+}
+
+// drop 은 결정적 오류(저장소 소실·비저장소·git 부재)의 저장소를 감시에서 빼고
+// `git_changed`(mark:"")를 한 번 알린다 — 브라우저가 status 를 다시 물어
+// `GIT_REPO_MISSING` 화면으로 간다 (FR-RMS-6).
+func (w *GitWatcher) drop(repo string, err error) bool {
+	w.mu.Lock()
+	_, ok := w.watch[repo]
+	delete(w.watch, repo)
+	w.mu.Unlock()
+	if !ok {
+		return false
+	}
+	// FR-GLW-7: 탈락은 **저장소가 읽히지 않은 것**이다 (FR-GPO-5).
+	dmlog.Errorf(nil, "[gitwatch] 저장소를 읽을 수 없어 감시에서 뺀다 (repo=%s err=%v)", repo, err)
+	if w.hub != nil {
+		w.hub.Broadcast(gitChangedPayload(repo, ""))
+	}
+	return true
+}
+
+// fail 은 일시적 관측 실패다. 기준선(lastSig·lastMark)·임대·pending 을 그대로 두고,
+// 연속 실패 n 에 따라 min(2^(n-1), 30)s 동안 그 저장소를 건너뛴다. 회차 시한이 놓친
+// 관측(pending 중)은 flight 가 계속 돌므로 n 을 올리지 않는다.
+func (w *GitWatcher) fail(repo string, err error, roundTimeout bool) {
+	if roundTimeout {
+		return
+	}
+	w.mu.Lock()
+	e, ok := w.watch[repo]
+	if !ok {
+		w.mu.Unlock()
+		return
+	}
+	e.fails++
+	n := e.fails
+	wait := GitWatchBackoffMax
+	if n <= 5 {
+		wait = time.Duration(1<<(n-1)) * time.Second
+	}
+	e.retryAt = w.now().Add(wait)
+	w.mu.Unlock()
+	if n == 1 || n%10 == 0 {
+		dmlog.Infof(nil, "[gitwatch] 관측 실패 — 감시는 유지하고 %v 뒤 다시 본다 (repo=%s n=%d err=%v)", wait, repo, n, err)
+	}
 }
 
 /*

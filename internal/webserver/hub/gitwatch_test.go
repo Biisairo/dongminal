@@ -5,12 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/store"
 )
@@ -43,6 +45,30 @@ type fakeSigner struct {
 	// 되고, 그동안 다른 저장소가 함께 시작되는지가 병렬의 관측 가능한 표면이다.
 	// `nil` 이면 아무 일도 없다 — 다른 검사는 이 필드를 모른다.
 	hook func(ctx context.Context, repo string)
+
+	// REPO_FIX 02 §3A-1 — 세대 무효화·마지막 관측. `status` 가 있으면 Status 가
+	// 그것을 부른다(느린·실패하는 관측을 흉내 낸다). `observed` 는 Store.Observed 다.
+	invalidated  int
+	onInvalidate func(repo string)
+	status       func(ctx context.Context, repo string) (store.Observation, error)
+	observed     map[string]store.Observation
+}
+
+func (f *fakeSigner) Invalidate(repo string) {
+	f.mu.Lock()
+	f.invalidated++
+	hook := f.onInvalidate
+	f.mu.Unlock()
+	if hook != nil {
+		hook(repo)
+	}
+}
+
+func (f *fakeSigner) Observed(repo string) (store.Observation, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	o, ok := f.observed[repo]
+	return o, ok
 }
 
 func (f *fakeSigner) Signature(ctx context.Context, repo string) (query.Signature, error) {
@@ -62,7 +88,17 @@ func (f *fakeSigner) Signature(ctx context.Context, repo string) (query.Signatur
 	return query.Signature{Value: f.sigs[repo]}, nil
 }
 
-func (f *fakeSigner) Status(_ context.Context, repo string) (store.Observation, bool, error) {
+func (f *fakeSigner) Status(ctx context.Context, repo string) (store.Observation, bool, error) {
+	f.mu.Lock()
+	fn := f.status
+	f.mu.Unlock()
+	if fn != nil {
+		f.mu.Lock()
+		f.calls++
+		f.mu.Unlock()
+		obs, err := fn(ctx, repo)
+		return obs, false, err
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls++
@@ -227,26 +263,54 @@ func TestGitWatch_CapEvictsOldest(t *testing.T) {
 func TestGitWatch_ErrorDropsRepo(t *testing.T) {
 	sig := &fakeSigner{
 		sigs: map[string]string{"/ok": "a", "/gone": "x"},
-		errs: map[string]error{"/gone": errors.New("no such gitdir")},
+		errs: map[string]error{"/gone": fmt.Errorf("%w: no such gitdir", core.ErrRepoMissing)},
 	}
 	br := &fakeBroker{}
 	w := newWatcher(sig, br)
 	note(t, w, sig, "/ok")
 	note(t, w, sig, "/gone")
+	sig.sigs["/gone"] = "y" // 2차 관측을 부른다
 
 	w.Tick(context.Background())
 	if w.Watching() != 1 {
-		t.Fatalf("오류난 저장소가 대상에 남았다: %d (G-6)", w.Watching())
+		t.Fatalf("결정적 오류의 저장소가 대상에 남았다: %d (G-6)", w.Watching())
 	}
-	if br.count() != 0 {
-		t.Fatalf("오류를 방송했다 (G-6)")
+	// REPO_FIX 02 §3A-1: 결정적 오류로 뺄 때 mark:"" 를 1회 방송한다 — 브라우저가
+	// status 를 다시 물어 GIT_REPO_MISSING 화면으로 간다.
+	//	이전 동작: 조용히 뺐다 / 새: mark:"" 방송 1회 / 이유: 화면이 30s 안전망까지 몰랐다
+	if got := gitChangedMarks(br); len(got) != 1 || got["/gone"] != "" {
+		t.Fatalf("제외 알림 = %v, want /gone 에 mark:\"\" 1회", got)
 	}
+	br.reset()
 	// 남은 쪽은 계속 감시된다.
 	sig.sigs["/ok"] = "b"
 	w.Tick(context.Background())
 	if got := gitChangedRepos(br); len(got) != 1 || got[0] != "/ok" {
 		t.Fatalf("살아 있는 저장소의 변화를 놓쳤다: %v (G-6)", got)
 	}
+}
+
+// gitChangedMarks 는 git_changed 의 repo → mark 다(같은 repo 가 두 번이면 실패로 센다).
+func gitChangedMarks(b *fakeBroker) map[string]string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	out := map[string]string{}
+	for _, p := range b.sent {
+		var m struct {
+			Action string `json:"action"`
+			Args   struct {
+				Repo string `json:"repo"`
+				Mark string `json:"mark"`
+			} `json:"args"`
+		}
+		if json.Unmarshal(p, &m) == nil && m.Action == "git_changed" {
+			if _, dup := out[m.Args.Repo]; dup {
+				out[m.Args.Repo+"#dup"] = m.Args.Mark
+			}
+			out[m.Args.Repo] = m.Args.Mark
+		}
+	}
+	return out
 }
 
 // G-7 → **V-GDT-1·2 로 개정** (GIT_DETECT_TIER_SRS 묶음 A).
@@ -511,8 +575,8 @@ func TestGitWatch_LogsExpiryAndDrop(t *testing.T) {
 	}
 
 	sig2 := &fakeSigner{
-		sigs: map[string]string{"/gone": "x"},
-		errs: map[string]error{"/gone": errors.New("no such gitdir")},
+		sigs:    map[string]string{"/gone": "x"},
+		sigErrs: map[string]error{"/gone": fmt.Errorf("%w: no such gitdir", core.ErrRepoMissing)},
 	}
 	w2 := newWatcher(sig2, &fakeBroker{})
 	note(t, w2, sig2, "/gone")
@@ -835,5 +899,173 @@ func TestGitWatch_RoundHonoursContext(t *testing.T) {
 	}
 	if _, ok := seen.Deadline(); !ok {
 		t.Error("관측이 받은 컨텍스트에 시한이 없다 (FR-GDT-9)")
+	}
+}
+
+// ── REPO_FIX 02 §3A-1 — 감시 수명: 오류 종류·늦은 확정·백오프 ─────────────────
+
+func (f *fakeBroker) reset() {
+	f.mu.Lock()
+	f.sent = nil
+	f.mu.Unlock()
+}
+
+// 인수 ①: 일시적 오류 3회 뒤 성공 — 감시·임차인이 남고, 변화가 방송된다. 실패 동안
+// 기준선(lastSig)이 전진하지 않으므로 그 변화를 잃지 않는다.
+func TestGitWatch_TransientErrorsKeepWatchAndBaseline(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
+	br := &fakeBroker{}
+	w := newWatcher(sig, br)
+	now := time.Now()
+	w.now = func() time.Time { return now }
+	ep := w.Attach("c1")
+	noteFor(t, w, sig, "/r", "c1")
+
+	fails := 0
+	sig.status = func(context.Context, string) (store.Observation, error) {
+		fails++
+		return store.Observation{}, errors.New("잠깐 깨진 index")
+	}
+	sig.sigs["/r"] = "b"
+	for i := 0; i < 3; i++ {
+		w.Tick(context.Background())
+		now = now.Add(31 * time.Second) // 백오프 상한(30s)을 넘긴다
+	}
+	if fails != 3 {
+		t.Fatalf("실패 회차 %d, want 3", fails)
+	}
+	if w.Watching() != 1 {
+		t.Fatal("일시적 오류로 감시에서 뺐다")
+	}
+	sig.status = nil
+	sig.files = map[string][]string{"/r": {"new.txt"}}
+	w.Tick(context.Background())
+	if got := gitChangedRepos(br); len(got) != 1 {
+		t.Fatalf("복구 뒤 변화 방송 = %v, want 1회", got)
+	}
+	w.mu.Lock()
+	holders := len(w.watch["/r"].holders)
+	w.mu.Unlock()
+	if holders != 1 {
+		t.Fatalf("임차인 %d, want 1 (일시적 오류가 임대를 지웠다)", holders)
+	}
+	w.Detach("c1", ep)
+}
+
+// 백오프: 연속 실패 n 회째 뒤 min(2^(n-1),30)s 동안 그 저장소를 건너뛴다. 로그는
+// n=1 과 10 의 배수에서만.
+func TestGitWatch_TransientBackoffAndSparseLog(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
+	w := newWatcher(sig, &fakeBroker{})
+	now := time.Now()
+	w.now = func() time.Time { return now }
+	note(t, w, sig, "/r")
+	sig.status = func(context.Context, string) (store.Observation, error) {
+		return store.Observation{}, errors.New("일시")
+	}
+	sig.sigs["/r"] = "b"
+	logs := captureLog(t, func() {
+		w.Tick(context.Background()) // n=1 → 1s 뒤
+		before := sig.calls
+		w.Tick(context.Background()) // 같은 시각 — 건너뛴다
+		if sig.calls != before {
+			t.Fatalf("백오프 중에 관측했다")
+		}
+		now = now.Add(time.Second)
+		w.Tick(context.Background()) // n=2 → 2s
+		now = now.Add(time.Second)
+		before = sig.calls
+		w.Tick(context.Background())
+		if sig.calls != before {
+			t.Fatalf("2s 백오프 중에 관측했다")
+		}
+	})
+	if n := strings.Count(logs, "[gitwatch]"); n != 1 {
+		t.Fatalf("로그 %d줄, want 1 (n=1 만): %q", n, logs)
+	}
+}
+
+// 인수 ②: ErrRepoMissing(Signature 쪽)이면 제외 + mark:"" 1회.
+func TestGitWatch_TerminalSignatureErrorDropsAndNotifies(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
+	br := &fakeBroker{}
+	w := newWatcher(sig, br)
+	note(t, w, sig, "/r")
+	sig.sigErrs = map[string]error{"/r": fmt.Errorf("%w: 사라짐", core.ErrRepoMissing)}
+	w.Tick(context.Background())
+	w.Tick(context.Background())
+	if w.Watching() != 0 {
+		t.Fatal("결정적 오류인데 감시에 남았다")
+	}
+	if got := gitChangedMarks(br); len(got) != 1 || got["/r"] != "" {
+		t.Fatalf("알림 = %v, want /r mark:\"\" 1회", got)
+	}
+}
+
+// 인수 ③: 관측이 회차 시한보다 오래 걸려도(flight 가 계속 돈다) 다음 회차가
+// Store.Observed 로 그 결과를 받아 방송한다. pending 동안 추가 Invalidate 가 없고
+// 실패 수를 올리지 않는다.
+func TestGitWatch_SlowStatusBeyondRoundTimeoutStillBroadcasts(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
+	br := &fakeBroker{}
+	w := newWatcher(sig, br)
+	now := time.Now()
+	w.now = func() time.Time { return now }
+	note(t, w, sig, "/r")
+
+	sig.sigs["/r"] = "b"
+	sig.status = func(ctx context.Context, _ string) (store.Observation, error) {
+		<-ctx.Done() // 회차 시한까지 끝나지 않는다
+		return store.Observation{}, fmt.Errorf("%w: 시한", core.ErrTimeout)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	w.Tick(ctx)
+	cancel()
+	if sig.invalidated != 1 {
+		t.Fatalf("Invalidate %d회, want 1", sig.invalidated)
+	}
+	// flight 가 끝나 Store 에 변화 이후의 관측이 남았다.
+	after := store.Observation{Signature: query.Signature{Value: "b"}, ObservedAtUnixMs: now.UnixMilli() + 5}
+	after.Status.Untracked = []query.FileEntry{{Path: "x", XY: "??"}}
+	sig.observed = map[string]store.Observation{"/r": after}
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	w.Tick(ctx2) // 백오프 없이 곧바로 — pending 중 시한 초과는 실패로 세지 않는다
+	cancel2()
+	if sig.invalidated != 1 {
+		t.Fatalf("pending 중 추가 Invalidate — %d회", sig.invalidated)
+	}
+	if got := gitChangedRepos(br); len(got) != 1 {
+		t.Fatalf("느린 저장소의 변화 방송 = %v, want 1회", got)
+	}
+	w.mu.Lock()
+	e := w.watch["/r"]
+	fixed, pending := e.lastSig, e.pending
+	w.mu.Unlock()
+	if fixed != "b" || pending {
+		t.Fatalf("lastSig=%q pending=%v, want b/false", fixed, pending)
+	}
+}
+
+// 인수 ④ (N5): TTL 캐시·옛 flight 가 변화 전 관측을 주는 동안에도, sig 변화 회차가
+// Invalidate 한 뒤 관측하므로 변화가 방송된다.
+func TestGitWatch_SigChangeInvalidatesBeforeObserve(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
+	br := &fakeBroker{}
+	w := newWatcher(sig, br)
+	note(t, w, sig, "/r")
+	stale := true // Invalidate 전까지 캐시는 변화 전 값을 준다
+	sig.onInvalidate = func(string) { stale = false }
+	sig.status = func(context.Context, string) (store.Observation, error) {
+		obs := store.Observation{Signature: query.Signature{Value: "a"}}
+		if !stale {
+			obs.Signature.Value = "b"
+			obs.Status.Branch = "other"
+		}
+		return obs, nil
+	}
+	sig.sigs["/r"] = "b"
+	w.Tick(context.Background())
+	if got := gitChangedRepos(br); len(got) != 1 {
+		t.Fatalf("변화 방송 = %v, want 1회 (캐시가 변화 전 값을 줬다)", got)
 	}
 }
