@@ -81,7 +81,7 @@ jobs:
       # node 로 쓴 게이트(로드 순서·고정 대기·문구 카탈로그…)는 `espree`·`eslint-scope`
       # 를 import 한다 — `node_modules` 없이는 첫 줄에서 죽는다. M8 P2 가 발견: 이
       # 잡에는 `npm ci` 가 없었다 ("게이트는 두 자리에 들어가야 끝난다" 의 네 번째 사례).
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -363,7 +363,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version-file: .nvmrc
           cache: npm
