@@ -294,9 +294,9 @@ const GIT_MENUS={
   // stash (FR-GIT-162~164·168). drop 만 파괴적이며 확인은 프레임워크가 거친다 —
   // 항목이 확인 코드를 따로 쓰지 않는다.
   stash:[
-    {id:'apply',      label:GIT_STASH_APPLY,      run:t=>gitMenuPanel().stashApply(t.index,false)},
-    {id:'apply-index',label:GIT_STASH_APPLY_INDEX,run:t=>gitMenuPanel().stashApply(t.index,true)},
-    {id:'pop',        label:GIT_STASH_POP,        run:t=>gitMenuPanel().stashPop(t.index)},
+    {id:'apply',      label:GIT_STASH_APPLY,      run:t=>gitMenuPanel().stashApply(t.oid,false)},
+    {id:'apply-index',label:GIT_STASH_APPLY_INDEX,run:t=>gitMenuPanel().stashApply(t.oid,true)},
+    {id:'pop',        label:GIT_STASH_POP,        run:t=>gitMenuPanel().stashPop(t.oid)},
     {sep:true},
     {id:'drop',label:GIT_STASH_DROP,destructive:true,
      action:GIT_ACT_STASH_DROP,title:GIT_STASH_DROP_TITLE,
@@ -305,7 +305,7 @@ const GIT_MENUS={
      // (FR-GIT-92·168). 서버도 실행 전에 같은 것을 HintLog 에 남긴다.
      hint:t=>({note:GIT_STASH_DROP_NOTE,
        command:'git stash store -m '+gitShQuote(t.message||'')+' '+(t.oid||'')}),
-     run:t=>gitMenuPanel().stashDrop(t.index)},
+     run:t=>gitMenuPanel().stashDrop(t.oid)},
     {sep:true},
     // FR-GIT-272: 그 stash 를 새 브랜치에 적용하며 옮겨 간다. **파괴적이 아니다**
     // — git 은 적용이 끝난 뒤에만 stash 를 지운다.

@@ -44,7 +44,7 @@ var gitTableCases = []struct {
 
 	// gitStashErrorCode
 	{write.ErrStashEmpty, http.StatusConflict, CodeNothingToStash},
-	{write.ErrStashNotFound, http.StatusNotFound, CodeNotFound},
+	{write.ErrStashMoved, http.StatusConflict, CodeStashMoved},
 
 	// gitRemoteError / gitPushError
 	{write.ErrPublishRequired, http.StatusConflict, CodePublishRequired},

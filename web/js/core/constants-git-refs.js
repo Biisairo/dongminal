@@ -98,6 +98,8 @@ const GIT_STASH_BLOCKED_TITLE='Nothing to stash right now';
 const GIT_STASH_EMPTY=t('git.stash_empty');
 const GIT_STASH_LOAD_FAIL=t('git.stash_load_fail');
 const GIT_STASH_PREVIEW_FAIL=t('git.stash_preview_fail');
+// REPO_FIX 01 §5.3: 고른 stash 가 목록에서 사라졌다.
+const GIT_STASH_GONE=t('git.stash_gone');
 const GIT_STASH_PICK=t('git.stash_pick');
 const GIT_STASH_FILES=t('git.stash_files');
 const GIT_STASH_NO_FILES=t('git.stash_no_files');

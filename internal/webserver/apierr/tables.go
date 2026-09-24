@@ -37,7 +37,7 @@ var Git = Table{
 	// ── stash. errors.Join 으로 두 sentinel 이 함께 올 수 있어 상대 순서를
 	//    원본 switch 그대로 둔다 (write/stash.go:226) ──
 	{write.ErrStashEmpty, http.StatusConflict, CodeNothingToStash},
-	{write.ErrStashNotFound, http.StatusNotFound, CodeNotFound},
+	{write.ErrStashMoved, http.StatusConflict, CodeStashMoved},
 
 	// ── 원격 동작 ──
 	{write.ErrPublishRequired, http.StatusConflict, CodePublishRequired},

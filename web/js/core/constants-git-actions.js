@@ -30,6 +30,7 @@ const GIT_WRITE_ERR={
   repo_busy:t('git.write_err.repo_busy'),
   index_locked:t('git.write_err.index_locked'),
   stash_moved:t('git.write_err.stash_moved'),
+  branch_exists:t('git.write_err.branch_exists'),
   resolve_partial:t('git.write_err.resolve_partial'),
   server_shutdown:t('git.write_err.server_shutdown'),
   no_remote:t('git.write_err.no_remote'),

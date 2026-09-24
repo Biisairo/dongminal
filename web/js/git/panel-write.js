@@ -80,23 +80,26 @@ Object.assign(GitPanel.prototype, {
   },
 
   // ── stash 쓰기 (GIT_MENUS stash 가 부른다) ──
+  //
+  // REPO_FIX 01 §5.3: stash 는 **oid** 로 지목한다 — 위치(index)는 목록이 바뀌면
+  // 다른 stash 를 가리킨다. 서버가 실행 직전에 현재 위치를 찾는다.
 
-  async stashApply(index,withIndex){
+  async stashApply(oid,withIndex){
     const res=await this.post('/api/git/stash/apply',
-      {repo:this.repo,index,withIndex:!!withIndex});
+      {repo:this.repo,oid,withIndex:!!withIndex});
     this.afterStashWrite(res);
   },
 
-  async stashPop(index){
-    const res=await this.post('/api/git/stash/pop',{repo:this.repo,index});
+  async stashPop(oid){
+    const res=await this.post('/api/git/stash/pop',{repo:this.repo,oid});
     this.afterStashWrite(res);
   },
 
   // drop 은 파괴적이다 (FR-GIT-89·168). 파괴적 확인과 recovery hint 는 GitMenu 가
   // 이미 거쳤으므로 여기서는 `confirm` 을 실어 보낸다 — 서버도 그것을 요구한다.
-  async stashDrop(index){
+  async stashDrop(oid){
     const res=await this.post('/api/git/stash/drop',
-      {repo:this.repo,index,confirm:true});
+      {repo:this.repo,oid,confirm:true});
     this.afterStashWrite(res);
   },
 

@@ -30,7 +30,7 @@ class GitStash {
     // FR-GRF-22: 이 리포의 목록을 받아 본 적이 있는가 (branches.js 와 같은 규약).
     this._loadedFor=null;
     this._note=null;   // {kind,msg} — pop 잔류·실패 안내
-    this._sel=null;    // 선택된 stash 인덱스 (FR-GIT-169)
+    this._sel=null;    // 선택된 stash 의 oid (FR-GIT-169, REPO_FIX 01 §5.3)
     this._files=null;
     this._filesErr=null;
     this._filesFor=null;
@@ -44,6 +44,12 @@ class GitStash {
   }
 
   static ref(i){return 'stash@{'+i+'}'}
+
+  // oid 의 지금 위치 이름. 표시에만 쓴다 — 식별은 oid 다 (REPO_FIX 01 §5.3).
+  _refOf(oid){
+    const s=this._list.find(x=>x.oid===oid);
+    return s?GitStash.ref(s.index):oid.slice(0,GIT_DIFF_REV_ABBREV);
+  }
 
   // ── 골격 ──
 
@@ -187,7 +193,7 @@ class GitStash {
     }
     const items=note===null?list.map(x=>({row:x})):[{note}];
     reconcileList(box,items,{
-      key:it=>it.note!==undefined?'__note':('s:'+it.row.index),
+      key:it=>it.note!==undefined?'__note':('s:'+it.row.oid),
       sig:it=>it.note!==undefined?('n:'+it.note):this._rowSig(it.row),
       build:it=>{
         if(it.note!==undefined){
@@ -202,7 +208,7 @@ class GitStash {
 
   // 행의 보이는 값 전부 (FR-RPT-2 · FR-GRF-19).
   _rowSig(s){
-    return [s.index,s.message||'',s.base||'',s.atUnixMs||0,this._sel===s.index?1:0].join('\u0000');
+    return [s.index,s.message||'',s.base||'',s.atUnixMs||0,this._sel===s.oid?1:0].join('\u0000');
   }
 
   /**
@@ -220,8 +226,9 @@ class GitStash {
 
   _rowEl(s){
     const d=document.createElement('div');
-    d.className='git-stash-row'+(this._sel===s.index?' sel':'');
+    d.className='git-stash-row'+(this._sel===s.oid?' sel':'');
     d.dataset.index=String(s.index);
+    d.dataset.oid=s.oid;
     const r=document.createElement('span'); r.className='git-stash-ref';
     r.textContent=GitStash.ref(s.index);
     const m=document.createElement('span'); m.className='git-stash-msg';
@@ -233,16 +240,16 @@ class GitStash {
     const abs=GitHistory.absTime(s.atUnixMs);
     t.textContent=GitHistory.relTime(s.atUnixMs); t.title=abs;
     d.appendChild(r); d.appendChild(m); d.appendChild(b); d.appendChild(t);
-    d.addEventListener('click',()=>this._select(s.index));
+    d.addEventListener('click',()=>this._select(s.oid));
     d.addEventListener('contextmenu',ev=>{ev.preventDefault();GitMenu.open('stash',s,ev)});
     return d;
   }
 
   // ── 미리보기 (FR-GIT-169) ──
 
-  _select(i){
-    if(this._sel===i){this._sel=null;this._files=null;this._filesFor=null}
-    else{this._sel=i;this._files=null;this._filesErr=null;this._loadFiles(i)}
+  _select(oid){
+    if(this._sel===oid){this._sel=null;this._files=null;this._filesFor=null}
+    else{this._sel=oid;this._files=null;this._filesErr=null;this._loadFiles(oid)}
     this._paintList();
     this._paintPreview();
   }
@@ -269,7 +276,7 @@ class GitStash {
     });
   }
 
-  _fileEl(index,f){
+  _fileEl(oid,f){
     const d=document.createElement('div');
     d.className='git-stash-file'; d.dataset.path=f.path;
     const st=document.createElement('span'); st.className='git-stash-file-st';
@@ -278,10 +285,11 @@ class GitStash {
     p.textContent=f.origPath?f.origPath+' → '+f.path:f.path;
     d.title=p.textContent;
     d.appendChild(st); d.appendChild(p);
-    // 축은 커밋 축이다 — stash 는 커밋이므로 `stash@{n}^` 과 비교한다.
+    // 축은 커밋 축이다 — stash 는 커밋이므로 `<oid>^` 와 비교한다. 위치
+    // (`stash@{n}`)로 걸면 목록이 바뀐 뒤 다른 stash 의 diff 가 열린다.
     d.addEventListener('click',()=>this.panel.showCommitDiff({
       repo:this._repo,axis:GIT_AXIS.COMMIT,
-      oid:GitStash.ref(index),parentOid:GitStash.ref(index)+'^',
+      oid:oid,parentOid:oid+'^',revLabel:this._refOf(oid),
       path:f.path,origPath:f.origPath||'',
     }));
     return d;
@@ -316,16 +324,25 @@ class GitStash {
     if(this._el) this.paint();
   }
 
-  async _loadFiles(index){
+  async _loadFiles(oid){
     const repo=this._repo; if(!repo) return;
     const tok=this.panel.token();
-    const q=new URLSearchParams({repo,index:String(index)});
     // 뒤늦게 온 다른 stash 의 응답을 자기 것으로 읽지 않는다 — 선택이 바뀐 것은
-    // stale 이고, index 가 어긋난 것은 echo 가 잡는다.
-    const res=await gitFetch('/api/git/stash/show',Object.fromEntries(q),
-      {stale:()=>this.panel.isStale(tok)||this._sel!==index,echo:{repo,index}});
+    // stale 이고, oid 가 어긋난 것은 echo 가 잡는다.
+    const res=await gitFetch('/api/git/stash/show',{repo,oid},
+      {stale:()=>this.panel.isStale(tok)||this._sel!==oid,echo:{repo,oid}});
     if(res.stale) return;
     if(!res.ok){
+      const d=res.data||{};
+      // REPO_FIX 01 §5.3: 그 stash 가 사라졌다 — 서버가 실은 현재 목록으로 갈고
+      // 선택을 푼다. 미리보기 자리는 이유를 말한다.
+      if(d.error==='stash_moved'){
+        if(Array.isArray(d.stashes)) this._list=d.stashes;
+        this._sel=null; this._files=null; this._filesFor=null;
+        this._filesErr=GIT_STASH_GONE;
+        if(this._el) this.paint();
+        return;
+      }
       this._filesErr=GIT_STASH_PREVIEW_FAIL;
       this._paintPreview();
       return;
@@ -333,7 +350,7 @@ class GitStash {
     const d=res.data;
     this._filesErr=null;
     this._files=Array.isArray(d.files)?d.files:[];
-    this._filesFor=index;
+    this._filesFor=oid;
     this._paintPreview();
   }
 
@@ -347,10 +364,13 @@ class GitStash {
   adoptWrite(res){
     const d=(res&&res.data)||{};
     if(Array.isArray(d.stashes)) this._list=d.stashes;
+    // REPO_FIX 01 §5.3: 선택은 oid 라 목록이 바뀌어도 같은 stash 를 가리킨다 —
+    // 그 stash 가 목록에 남아 있으면 선택을 유지하고, 없으면 푼다.
+    if(this._sel&&!this._list.some(x=>x.oid===this._sel)){
+      this._sel=null; this._files=null; this._filesFor=null;
+    }
     if(res&&res.ok){
       this._note=null;
-      // 선택은 인덱스로 매겨진 것이므로 목록이 바뀌면 뜻을 잃는다.
-      this._sel=null; this._files=null; this._filesFor=null;
     }else if(d.stashKept){
       this._note={kind:'stash_kept',
         msg:GIT_STASH_KEPT+(d.stashKeptReason?' — '+d.stashKeptReason:'')};
@@ -464,7 +484,7 @@ class GitStashBranch {
 
   async _run(v){
     const res=await this.panel.post('/api/git/stash/branch',{
-      repo:this.repo,index:this.stash.index,name:(v.name||'').trim(),
+      repo:this.repo,oid:this.stash.oid,name:(v.name||'').trim(),
     });
     // 조작 응답은 실행 후 목록과 status 를 함께 싣고 온다 (FR-GIT-170) — 실패
     // 응답도 그렇다. **ref 가 바뀌므로 refs 도 다시 받는다** (FR-GIT-160):

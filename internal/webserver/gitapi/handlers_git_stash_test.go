@@ -26,6 +26,11 @@ func gitStashOut(recs ...[4]string) string {
 	return b.String()
 }
 
+var (
+	gitStashA = strings.Repeat("a", 40)
+	gitStashB = strings.Repeat("b", 40)
+)
+
 var gitStashTwo = gitStashOut(
 	[4]string{"stash@{0}", strings.Repeat("a", 40), "On main: 나중 것", "1700000060"},
 	[4]string{"stash@{1}", strings.Repeat("b", 40), "WIP on main: abc123 첫 것", "1700000000"},
@@ -135,9 +140,10 @@ func TestAPIGitStashApplyPop_Args(t *testing.T) {
 		body string
 		want []string
 	}{
-		{"/api/git/stash/apply", `{"repo":` + qWorkRepo + `,"index":1}`, []string{"stash", "apply", "stash@{1}"}},
-		{"/api/git/stash/apply", `{"repo":` + qWorkRepo + `,"index":0,"withIndex":true}`, []string{"stash", "apply", "--index", "stash@{0}"}},
-		{"/api/git/stash/pop", `{"repo":` + qWorkRepo + `,"index":1}`, []string{"stash", "pop", "stash@{1}"}},
+		// REPO_FIX 01 §5.3: oid 로 지목한다. apply 는 oid 그대로, pop 은 현재 위치.
+		{"/api/git/stash/apply", `{"repo":` + qWorkRepo + `,"oid":"` + gitStashB + `"}`, []string{"stash", "apply", gitStashB}},
+		{"/api/git/stash/apply", `{"repo":` + qWorkRepo + `,"oid":"` + gitStashA + `","withIndex":true}`, []string{"stash", "apply", "--index", gitStashA}},
+		{"/api/git/stash/pop", `{"repo":` + qWorkRepo + `,"oid":"` + gitStashB + `"}`, []string{"stash", "pop", "stash@{1}"}},
 	}
 	for _, c := range cases {
 		t.Run(fmt.Sprint(c.want), func(t *testing.T) {
@@ -179,7 +185,7 @@ func TestAPIGitStashPop_ConflictKeepsStash(t *testing.T) {
 	}
 	s := gitM5Server(t, f)
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/pop", `{"repo":`+qWorkRepo+`,"index":1}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/pop", `{"repo":`+qWorkRepo+`,"oid":"`+gitStashB+`"}`)
 	if code != http.StatusConflict || out["error"] != gitErrStashKept {
 		t.Fatalf("code = %d, error = %v, want 409 stash_kept", code, out["error"])
 	}
@@ -206,7 +212,7 @@ func TestAPIGitStashDrop_RequiresConfirm(t *testing.T) {
 	f.stashes = gitStashTwo
 	s := gitM5Server(t, f)
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/drop", `{"repo":`+qWorkRepo+`,"index":0}`)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/drop", `{"repo":`+qWorkRepo+`,"oid":"`+gitStashA+`"}`)
 	if code != http.StatusBadRequest || out["error"] != gitErrConfirmRequired {
 		t.Fatalf("code = %d, error = %v, want 400 confirmation_required", code, out["error"])
 	}
@@ -223,7 +229,7 @@ func TestAPIGitStashDrop_RecordsHint(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/drop",
-		`{"repo":`+qWorkRepo+`,"index":1,"confirm":true}`)
+		`{"repo":`+qWorkRepo+`,"oid":"`+gitStashB+`","confirm":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -255,10 +261,11 @@ func TestAPIGitStashDrop_RecordsHint(t *testing.T) {
 // 커밋 상세와 같은 파서를 쓴다.
 func TestAPIGitStashShow(t *testing.T) {
 	f := newGitM5Fake(t)
+	f.stashes = gitStashTwo
 	f.show = "R094\x00old.txt\x00new.txt\x00"
 	s := gitM5Server(t, f)
 
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/stash/show?repo="+url.QueryEscape(absWorkRepo)+"&index=2", "")
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/stash/show?repo="+url.QueryEscape(absWorkRepo)+"&oid="+gitStashB, "")
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -271,7 +278,7 @@ func TestAPIGitStashShow(t *testing.T) {
 		t.Fatalf("file = %v", fl)
 	}
 	req, _ := out["requested"].(map[string]any)
-	if req["repo"] != gitM5Repo || req["index"] != float64(2) {
+	if req["repo"] != gitM5Repo || req["oid"] != gitStashB {
 		t.Fatalf("requested = %v", req)
 	}
 	if got := f.wrote(); len(got) != 0 {
@@ -279,42 +286,68 @@ func TestAPIGitStashShow(t *testing.T) {
 	}
 }
 
-// N9: 음수 인덱스는 400 이며 실행되지 않는다 — `stash@{-1}` 은 git 에서 다른 뜻이다.
-func TestAPIGitStash_NegativeIndex(t *testing.T) {
+// §5.3: index 는 더 이상 받지 않는다(400, 실행 없음). oid 형식이 아니면 400.
+func TestAPIGitStash_IndexAndBadOidRejected(t *testing.T) {
+	bodies := []string{
+		`{"repo":` + qWorkRepo + `,"index":0}`,
+		`{"repo":` + qWorkRepo + `,"oid":"` + gitStashA + `","index":0}`,
+		`{"repo":` + qWorkRepo + `,"oid":"stash@{0}"}`,
+		`{"repo":` + qWorkRepo + `}`,
+	}
 	for _, path := range []string{"/api/git/stash/apply", "/api/git/stash/pop"} {
-		f := newGitM5Fake(t)
-		f.stashes = gitStashTwo
-		s := gitM5Server(t, f)
-		code, out := gitReq(t, s, http.MethodPost, path, `{"repo":`+qWorkRepo+`,"index":-1}`)
-		if code != http.StatusBadRequest || out["error"] != gitErrBadRequest {
-			t.Fatalf("%s → %d %v, want 400 bad_request", path, code, out["error"])
-		}
-		if got := f.wrote(); len(got) != 0 {
-			t.Fatalf("%s: 거부됐는데 실행됐다: %v", path, got)
+		for _, body := range bodies {
+			f := newGitM5Fake(t)
+			f.stashes = gitStashTwo
+			s := gitM5Server(t, f)
+			code, out := gitReq(t, s, http.MethodPost, path, body)
+			if code != http.StatusBadRequest || out["error"] != gitErrBadRequest {
+				t.Fatalf("%s %s → %d %v, want 400 bad_request", path, body, code, out["error"])
+			}
+			if got := f.wrote(); len(got) != 0 {
+				t.Fatalf("%s: 거부됐는데 실행됐다: %v", path, got)
+			}
 		}
 	}
 	f := newGitM5Fake(t)
 	s := gitM5Server(t, f)
-	code, out := gitReq(t, s, http.MethodGet, "/api/git/stash/show?repo="+url.QueryEscape(absWorkRepo)+"&index=-1", "")
-	if code != http.StatusBadRequest {
-		t.Fatalf("show → %d %v, want 400", code, out["error"])
+	for _, q := range []string{"&index=0", "&oid=bad"} {
+		code, out := gitReq(t, s, http.MethodGet, "/api/git/stash/show?repo="+url.QueryEscape(absWorkRepo)+q, "")
+		if code != http.StatusBadRequest {
+			t.Fatalf("show %s → %d %v, want 400", q, code, out["error"])
+		}
 	}
 }
 
-// N10 (FR-GIT-170): 없는 인덱스는 404 다 — 저장소 실패(500)와 구분되지 않으면
-// 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다.
-func TestAPIGitStashDrop_MissingIndex(t *testing.T) {
+// §5.3: 목록에 없는 oid 는 409 stash_moved 이며 실행되지 않는다. 본문에 현재 목록이
+// 실려 화면이 다시 묻지 않아도 된다.
+func TestAPIGitStashDrop_MovedOid(t *testing.T) {
 	f := newGitM5Fake(t)
 	f.stashes = gitStashTwo
 	s := gitM5Server(t, f)
-
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/drop",
-		`{"repo":`+qWorkRepo+`,"index":9,"confirm":true}`)
-	if code != http.StatusNotFound || out["error"] != gitErrNotFound {
-		t.Fatalf("code = %d, error = %v, want 404 not_found", code, out["error"])
+		`{"repo":`+qWorkRepo+`,"oid":"`+strings.Repeat("d", 40)+`","confirm":true}`)
+	if code != http.StatusConflict || out["error"] != "stash_moved" {
+		t.Fatalf("code = %d, error = %v, want 409 stash_moved", code, out["error"])
+	}
+	if list, _ := out["stashes"].([]any); len(list) != 2 {
+		t.Fatalf("stashes = %v", out["stashes"])
 	}
 	if got := f.wrote(); len(got) != 0 {
 		t.Fatalf("거부됐는데 실행됐다: %v", got)
+	}
+}
+
+// §5.3: 미리보기에서도 사라진 oid 는 409 stash_moved + 현재 목록이다.
+func TestAPIGitStashShow_MovedOid(t *testing.T) {
+	f := newGitM5Fake(t)
+	f.stashes = gitStashTwo
+	s := gitM5Server(t, f)
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/stash/show?repo="+url.QueryEscape(absWorkRepo)+"&oid="+strings.Repeat("d", 40), "")
+	if code != http.StatusConflict || out["error"] != "stash_moved" {
+		t.Fatalf("code = %d, body = %v", code, out)
+	}
+	if list, _ := out["stashes"].([]any); len(list) != 2 {
+		t.Fatalf("stashes = %v", out["stashes"])
 	}
 }
 

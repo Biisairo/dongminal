@@ -147,20 +147,26 @@ func TestStashPush_RefusesWhenNothingToSave(t *testing.T) {
 // T6 (V56, FR-GIT-163·164): apply/pop 의 argv. `--index` 는 호출자가 고를 때만
 // 붙는다 (FR-GIT-163).
 func TestStashApplyPop_Args(t *testing.T) {
-	var repo = absTmpRepo
+	repo := tempRepoWithStashes(t)
 	ctx := context.Background()
+	list, err := StashList(core.New(), ctx, repo)
+	if err != nil || len(list) != 2 {
+		t.Fatalf("StashList: %v %v", list, err)
+	}
+	// REPO_FIX 01 §5.3: apply 는 oid 를 그대로 넘기고, pop 은 oid 의 **현재 위치**를
+	// 찾아 stash@{n} 으로 넘긴다(git 이 pop 에는 ref 만 받는다).
 	cases := []struct {
 		name string
 		run  func(*core.Service) error
 		want []string
 	}{
-		{"apply", func(s *core.Service) error { _, err := StashApply(s, ctx, repo, 1, false); return err }, []string{"stash", "apply", "stash@{1}"}},
-		{"apply --index", func(s *core.Service) error { _, err := StashApply(s, ctx, repo, 0, true); return err }, []string{"stash", "apply", "--index", "stash@{0}"}},
-		{"pop", func(s *core.Service) error { _, err := StashPop(s, ctx, repo, 0, false); return err }, []string{"stash", "pop", "stash@{0}"}},
+		{"apply", func(s *core.Service) error { _, err := StashApply(s, ctx, repo, list[1].Oid, false); return err }, []string{"stash", "apply", list[1].Oid}},
+		{"apply --index", func(s *core.Service) error { _, err := StashApply(s, ctx, repo, list[0].Oid, true); return err }, []string{"stash", "apply", "--index", list[0].Oid}},
+		{"pop", func(s *core.Service) error { _, err := StashPop(s, ctx, repo, list[1].Oid, false); return err }, []string{"stash", "pop", "stash@{1}"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			f := &writeFake{}
+			f := newStashWriteFake(t)
 			s := core.New(core.WithWriteRunner(f.runner))
 			if err := c.run(s); err != nil {
 				t.Fatalf("%s: %v", c.name, err)
@@ -169,6 +175,52 @@ func TestStashApplyPop_Args(t *testing.T) {
 				t.Fatalf("argv = %v, want %v", f.argvs, c.want)
 			}
 		})
+	}
+}
+
+// §5.3: 목록을 본 뒤 다른 곳에서 stash push 가 끼어 위치가 밀려도, 고른 oid 의
+// stash 가 pop 된다. 종전에는 index 로 실행해 새로 만든 stash 가 pop 됐다.
+func TestStashPop_ShiftedPositionStillPopsChosenOid(t *testing.T) {
+	repo := tempRepoWithStashes(t)
+	ctx := context.Background()
+	s := core.New()
+	list, err := StashList(s, ctx, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chosen := list[0].Oid
+	writeFile(t, repo, "third.txt", "t\n")
+	gitRun(t, repo, "add", "third.txt")
+	gitRun(t, repo, "stash", "push", "-q", "--message=third msg")
+	if _, _, err := StashPopChecked(s, ctx, repo, chosen, false); err != nil {
+		t.Fatalf("StashPopChecked: %v", err)
+	}
+	after, err := StashList(s, ctx, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, st := range after {
+		if st.Oid == chosen {
+			t.Fatal("고른 stash 가 남았다 — 다른 stash 가 pop 됐다")
+		}
+	}
+	if len(after) != 2 {
+		t.Fatalf("stash = %d개, want 2", len(after))
+	}
+}
+
+// §5.3: oid 형식이 아니면 실행 전에 거부한다(`stash@{0}` 같은 위치 참조 포함).
+func TestCheckStashOid(t *testing.T) {
+	for _, bad := range []string{"", "stash@{0}", "HEAD", "abc", strings.Repeat("g", 40)} {
+		if err := CheckStashOid(bad); !errors.Is(err, core.ErrUnsafeArgument) {
+			t.Errorf("CheckStashOid(%q) = %v", bad, err)
+		}
+	}
+	if err := CheckStashOid(strings.Repeat("a", 40)); err != nil {
+		t.Errorf("sha1 이 거부됐다: %v", err)
+	}
+	if err := CheckStashOid(strings.Repeat("b", 64)); err != nil {
+		t.Errorf("sha256 이 거부됐다: %v", err)
 	}
 }
 
@@ -200,7 +252,7 @@ func TestStashPopChecked_KeepsStashOnConflict(t *testing.T) {
 		t.Fatalf("준비된 stash = %d개, want 1", len(before))
 	}
 
-	_, kept, popErr := StashPopChecked(s, ctx, repo, 0, false)
+	_, kept, popErr := StashPopChecked(s, ctx, repo, before[0].Oid, false)
 	if popErr == nil {
 		t.Fatal("pop 이 성공했다 — 충돌 상태를 만들지 못했다")
 	}
@@ -238,8 +290,12 @@ func TestStashPopChecked_DropsStashOnSuccess(t *testing.T) {
 	repo := tempRepoWithStashes(t)
 	s := core.New()
 	ctx := context.Background()
+	list0, err := StashList(s, ctx, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	_, kept, err := StashPopChecked(s, ctx, repo, 0, false)
+	_, kept, err := StashPopChecked(s, ctx, repo, list0[0].Oid, false)
 	if err != nil {
 		t.Fatalf("StashPopChecked: %v", err)
 	}
@@ -267,7 +323,7 @@ func TestStashDrop_HintBeforeExecuting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StashList: %v", err)
 	}
-	if _, err := StashDrop(s, ctx, repo, 0); err != nil {
+	if _, err := StashDrop(s, ctx, repo, list[0].Oid); err != nil {
 		t.Fatalf("StashDrop: %v", err)
 	}
 	if len(f.argvs) != 1 || fmt.Sprint(f.argvs[0]) != fmt.Sprint([]string{"stash", "drop", "stash@{0}"}) {
@@ -308,8 +364,8 @@ func TestStashDrop_MissingIndex(t *testing.T) {
 	f := newStashWriteFake(t)
 	s := core.New(core.WithWriteRunner(f.runner))
 
-	if _, err := StashDrop(s, context.Background(), repo, 9); !errors.Is(err, ErrStashNotFound) {
-		t.Fatalf("err = %v, want ErrStashNotFound", err)
+	if _, err := StashDrop(s, context.Background(), repo, strings.Repeat("d", 40)); !errors.Is(err, ErrStashMoved) {
+		t.Fatalf("err = %v, want ErrStashMoved", err)
 	}
 	if len(f.argvs) != 0 {
 		t.Fatalf("거부됐는데 실행됐다: %v", f.argvs)
@@ -324,8 +380,12 @@ func TestStashDrop_MissingIndex(t *testing.T) {
 func TestStashPreview_ReusesNameStatusParser(t *testing.T) {
 	repo := tempRepoRenameStash(t)
 	s := core.New()
+	list, err := StashList(s, context.Background(), repo)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	files, err := StashPreview(s, context.Background(), repo, 0)
+	files, err := StashPreview(s, context.Background(), repo, list[0].Oid)
 	if err != nil {
 		t.Fatalf("StashPreview: %v", err)
 	}
@@ -476,8 +536,12 @@ func TestStashBranch_ExecutesOnce(t *testing.T) {
 	repo := tempRepoWithStashes(t)
 	f := newStashWriteFake(t)
 	s := core.New(core.WithWriteRunner(f.runner))
+	list, err := StashList(s, context.Background(), repo)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	if _, err := StashBranch(s, context.Background(), repo, "feat/a", 0); err != nil {
+	if _, _, err := StashBranch(s, context.Background(), repo, "feat/a", list[0].Oid); err != nil {
 		t.Fatalf("StashBranch: %v", err)
 	}
 	if len(f.argvs) != 1 {
@@ -499,8 +563,8 @@ func TestStashBranch_MissingIndex(t *testing.T) {
 	f := newStashWriteFake(t)
 	s := core.New(core.WithWriteRunner(f.runner))
 
-	if _, err := StashBranch(s, context.Background(), repo, "feat/a", 9); !errors.Is(err, ErrStashNotFound) {
-		t.Fatalf("err = %v, want ErrStashNotFound", err)
+	if _, _, err := StashBranch(s, context.Background(), repo, "feat/a", strings.Repeat("d", 40)); !errors.Is(err, ErrStashMoved) {
+		t.Fatalf("err = %v, want ErrStashMoved", err)
 	}
 	if len(f.argvs) != 0 {
 		t.Fatalf("실행하지 않아야 한다: %v", f.argvs)
@@ -517,7 +581,7 @@ func TestStashBranch_Real(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StashList: %v", err)
 	}
-	if _, err := StashBranch(s, ctx, repo, "from-stash", 0); err != nil {
+	if _, _, err := StashBranch(s, ctx, repo, "from-stash", before[0].Oid); err != nil {
 		t.Fatalf("StashBranch: %v", err)
 	}
 	after, err := StashList(s, ctx, repo)

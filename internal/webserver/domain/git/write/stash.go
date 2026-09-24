@@ -59,8 +59,9 @@ var stashRefRe = regexp.MustCompile(`^stash@\{(\d+)\}$`)
 var (
 	// ErrStashEmpty 는 저장할 변경이 없다는 것이다 (FR-GIT-167).
 	ErrStashEmpty = errors.New("nothing_to_stash")
-	// ErrStashNotFound 는 그 인덱스의 stash 가 없다는 것이다.
-	ErrStashNotFound = errors.New("stash_not_found")
+	// ErrStashMoved 는 고른 stash(oid)가 목록에 없다는 것이다 (REPO_FIX 01 §5.3).
+	// 위치가 밀린 것은 여기 해당하지 않는다 — oid 로 현재 위치를 찾는다.
+	ErrStashMoved = errors.New("stash_moved")
 )
 
 // Stash 는 Stash 탭 한 줄이다 (FR-GIT-161).
@@ -187,74 +188,117 @@ func StashEmptyReason(st query.Status, includeUntracked bool) string {
 	return "저장할 변경이 없다"
 }
 
+// REPO_FIX 01 §5.3 — stash 는 **oid 로** 지목한다.
+//
+//	이전 동작: 위치(index)로 지목했다 — 사용자가 목록을 본 뒤 다른 곳에서 stash
+//	          push/drop 이 일어나면 다른 stash 가 적용·삭제됐다
+//	새  동작: 클라이언트가 본 oid 를 받아 **실행 직전에** 목록에서 현재 위치를 찾는다.
+//	          apply·show 는 oid 를 그대로 넘기고, pop·drop·branch 는 찾은 stash@{n}
+//	          을 넘긴다(git 이 그 셋에는 ref 만 받거나, ref 로 열어야 스스로 지운다)
+//	이유:     위치는 목록이 바뀌면 다른 stash 를 가리킨다
+//
+// 목록에 없으면 ErrStashMoved 다. dongminal 밖(터미널)이 목록 조회와 실행 사이에
+// 끼는 창은 남는다 — dongminal 안의 경쟁은 호출자가 잠금으로 막는다.
+
+// CheckStashOid 는 oid 형식(sha1 40자·sha256 64자 16진수)인지 본다. 위치 참조
+// (`stash@{n}`)·ref 이름은 받지 않는다 — 그것이 곧 위치 지목이다.
+func CheckStashOid(oid string) error {
+	if len(oid) != 40 && len(oid) != 64 {
+		return fmt.Errorf("%w: stash oid 형식이 아니다: %q", core.ErrUnsafeArgument, oid)
+	}
+	for _, c := range oid {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
+			return fmt.Errorf("%w: stash oid 형식이 아니다: %q", core.ErrUnsafeArgument, oid)
+		}
+	}
+	return nil
+}
+
+// StashLocate 는 목록에서 oid 의 현재 항목을 찾는다.
+func StashLocate(s *core.Service, ctx context.Context, repo, oid string) (Stash, []Stash, error) {
+	if err := CheckStashOid(oid); err != nil {
+		return Stash{}, nil, err
+	}
+	list, err := StashList(s, ctx, repo)
+	if err != nil {
+		return Stash{}, nil, err
+	}
+	for _, st := range list {
+		if st.Oid == oid {
+			return st, list, nil
+		}
+	}
+	return Stash{}, list, fmt.Errorf("%w: stash %s 가 목록에 없다 (stash %d개)", ErrStashMoved, oid, len(list))
+}
+
 // StashApply 는 stash 를 워킹 트리에 얹고 **stash 를 남긴다** (FR-GIT-163).
 // withIndex 는 index 까지 복원한다 (`--index`).
-func StashApply(s *core.Service, ctx context.Context, repo string, index int, withIndex bool) (core.Output, error) {
-	return stashRestore(s, ctx, repo, "apply", index, withIndex)
+func StashApply(s *core.Service, ctx context.Context, repo, oid string, withIndex bool) (core.Output, error) {
+	if _, _, err := StashLocate(s, ctx, repo, oid); err != nil {
+		return denied(), err
+	}
+	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: stashRestoreArgs("apply", oid, withIndex)})
 }
 
 // StashPop 은 stash 를 얹고 그것을 지운다 (FR-GIT-164).
 //
 // **충돌로 끝나면 git 이 stash 를 남긴다.** 그것을 확인해 알리는 것은
 // StashPopChecked 의 일이다 (FR-GIT-165) — 여기서는 실행만 한다.
-func StashPop(s *core.Service, ctx context.Context, repo string, index int, withIndex bool) (core.Output, error) {
-	return stashRestore(s, ctx, repo, "pop", index, withIndex)
+func StashPop(s *core.Service, ctx context.Context, repo, oid string, withIndex bool) (core.Output, error) {
+	target, _, err := StashLocate(s, ctx, repo, oid)
+	if err != nil {
+		return denied(), err
+	}
+	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: stashRestoreArgs("pop", fmt.Sprintf(stashRefFormat, target.Index), withIndex)})
 }
 
 // StashPopChecked 는 pop 을 실행하고 stash 가 남았는지 **확인한다** (FR-GIT-165,
 // 검증 V57).
 //
 // 충돌로 끝나면 git 은 stash 를 지우지 않는다. 조용히 넘기면 사용자는 작업을 잃었다고
-// 오해한다 — 그래서 목록을 다시 찍어 그 인덱스에 같은 oid 가 있는지 본다. 성공했다면
-// 그 자리에는 다음 stash(다른 oid)가 오거나 자리 자체가 없다.
+// 오해한다 — 그래서 목록을 다시 찍어 **그 oid 가 남았는지** 본다(위치는 보지 않는다).
 //
 // pop 이 실패해도 확인한다 — 확인이 필요한 경우가 바로 실패한 경우다.
-func StashPopChecked(s *core.Service, ctx context.Context, repo string, index int, withIndex bool) (core.Output, StashPopKept, error) {
-	before, err := StashList(s, ctx, repo)
-	if err != nil {
+func StashPopChecked(s *core.Service, ctx context.Context, repo, oid string, withIndex bool) (core.Output, StashPopKept, error) {
+	if _, _, err := StashLocate(s, ctx, repo, oid); err != nil {
 		return denied(), StashPopKept{}, err
 	}
-	target, ok := stashAt(before, index)
-	if !ok {
-		return denied(), StashPopKept{}, stashMissing(index, len(before))
-	}
-
-	out, popErr := StashPop(s, ctx, repo, index, withIndex)
-	after, listErr := StashList(s, ctx, repo)
+	out, popErr := StashPop(s, ctx, repo, oid, withIndex)
+	kept, listErr := stashKeptAfter(s, ctx, repo, oid,
+		"pop 이 끝나지 않아 git 이 stash(%s) 를 남겼다 — 저장한 작업은 사라지지 않았다. 충돌을 해소한 뒤 drop 하면 된다.")
 	if listErr != nil {
 		// 확인하지 못한 것을 "남지 않았다" 로 답하지 않는다.
 		return out, StashPopKept{}, errors.Join(popErr, listErr)
 	}
-	kept := StashPopKept{}
-	if cur, ok := stashAt(after, index); ok && cur.Oid == target.Oid {
-		kept.Kept, kept.Oid = true, target.Oid
-		kept.Reason = fmt.Sprintf(
-			"pop 이 끝나지 않아 git 이 stash@{%d}(%s) 를 남겼다 — 저장한 작업은 사라지지 않았다. 충돌을 해소한 뒤 drop 하면 된다.",
-			index, target.Oid)
-	}
 	return out, kept, popErr
+}
+
+// stashKeptAfter 는 실행 뒤 목록에 oid 가 남았는지다.
+func stashKeptAfter(s *core.Service, ctx context.Context, repo, oid, reasonFmt string) (StashPopKept, error) {
+	after, err := StashList(s, ctx, repo)
+	if err != nil {
+		return StashPopKept{}, err
+	}
+	for _, st := range after {
+		if st.Oid == oid {
+			return StashPopKept{Kept: true, Oid: oid, Reason: fmt.Sprintf(reasonFmt, oid)}, nil
+		}
+	}
+	return StashPopKept{}, nil
 }
 
 // StashDrop 은 stash 를 지운다. **파괴적이다** (FR-GIT-89·168).
 //
 // 실행 **전에** recovery hint 를 남긴다 (FR-GIT-92). 실행 후에 남기면 이미 지워진
 // stash 의 sha·메시지·시각을 읽을 수 없고, 실패한 경로에서는 hint 가 아예 없다.
-func StashDrop(s *core.Service, ctx context.Context, repo string, index int) (core.Output, error) {
-	ref, err := StashRef(index)
+func StashDrop(s *core.Service, ctx context.Context, repo, oid string) (core.Output, error) {
+	target, _, err := StashLocate(s, ctx, repo, oid)
 	if err != nil {
-		return denied(), err
-	}
-	list, err := StashList(s, ctx, repo)
-	if err != nil {
-		return denied(), err
-	}
-	target, ok := stashAt(list, index)
-	if !ok {
 		// 지우지 않은 것의 복구 안내는 거짓이므로 hint 도 남기지 않는다.
-		return denied(), stashMissing(index, len(list))
+		return denied(), err
 	}
 	s.AddHint(stashDropHint(repo, target))
-	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: []string{"stash", "drop", ref}, Destructive: true})
+	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: []string{"stash", "drop", fmt.Sprintf(stashRefFormat, target.Index)}, Destructive: true})
 }
 
 // StashBranchArgs 는 `stash branch <name> <stash>` 의 argv 다 (FR-GIT-272).
@@ -279,39 +323,44 @@ func StashBranchArgs(name string, index int) ([]string, error) {
 // StashBranch 는 stash 를 새 브랜치에 적용하며 옮겨 간다 (FR-GIT-272, 검증 V199).
 //
 // **파괴적이 아니다.** git 은 적용이 끝난 뒤에만 그 stash 를 지우므로 잃는 것이
-// 없다 — 실패하면 stash 는 그대로 남는다.
+// 없다 — 실패하면 stash 는 그대로 남는다. 그 사실을 pop 과 같은 확인으로 알린다
+// (REPO_FIX 01 §5.3): 적용이 충돌하면 브랜치는 만들어지고 stash 는 남는다.
 //
-// 없는 인덱스는 **실행하지 않는다.** git 에 그대로 넘기면 브랜치를 만들다 만
+// 없는 stash 는 **실행하지 않는다.** git 에 그대로 넘기면 브랜치를 만들다 만
 // 상태가 남을 수 있고, 사용자는 왜 그 브랜치가 생겼는지 알 수 없다.
-func StashBranch(s *core.Service, ctx context.Context, repo, name string, index int) (core.Output, error) {
-	argv, err := StashBranchArgs(name, index)
+func StashBranch(s *core.Service, ctx context.Context, repo, name, oid string) (core.Output, StashPopKept, error) {
+	target, _, err := StashLocate(s, ctx, repo, oid)
 	if err != nil {
-		return denied(), err
+		return denied(), StashPopKept{}, err
 	}
-	list, err := StashList(s, ctx, repo)
+	argv, err := StashBranchArgs(name, target.Index)
 	if err != nil {
-		return denied(), err
+		return denied(), StashPopKept{}, err
 	}
-	if _, ok := stashAt(list, index); !ok {
-		return denied(), stashMissing(index, len(list))
+	out, runErr := s.ExecWrite(ctx, repo, core.WriteSpec{Argv: argv})
+	kept, listErr := stashKeptAfter(s, ctx, repo, oid,
+		"stash branch 가 끝나지 않아 git 이 stash(%s) 를 남겼다 — 저장한 작업은 사라지지 않았다.")
+	if listErr != nil {
+		return out, StashPopKept{}, errors.Join(runErr, listErr)
 	}
-	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: argv})
+	return out, kept, runErr
 }
 
 // StashPreview 는 stash 가 바꾼 파일 목록이다 (FR-GIT-169).
 //
-// `-z` 이므로 rename 은 세 조각이다 — 커밋 상세와 **같은 파서**를 쓴다. 파서가 두
-// 벌이면 한쪽만 고쳐진다.
+// **oid 로 직접 연다** (REPO_FIX 01 §5.3) — 위치를 거치지 않으므로 목록 조회와
+// 실행 사이에 위치가 밀려도 다른 stash 를 보이지 않는다. 목록은 그 oid 가 아직
+// stash 인지 확인하는 데만 쓴다.
+//
+// `-z` 이므로 rename 은 세 조각이다 — 커밋 상세와 **같은 파서**를 쓴다.
 //
 // **untracked 는 여기 없다.** `stash show` 는 `--include-untracked` 로 담은 파일을
-// 보이지 않는다 (git 2.50.1 실측) — 그것까지 필요하면 `stash@{n}^3` 을 따로 봐야
-// 하며, 이 단계의 요구사항은 아니다.
-func StashPreview(s *core.Service, ctx context.Context, repo string, index int) ([]query.CommitFile, error) {
-	ref, err := StashRef(index)
-	if err != nil {
+// 보이지 않는다 (git 2.50.1 실측).
+func StashPreview(s *core.Service, ctx context.Context, repo, oid string) ([]query.CommitFile, error) {
+	if _, _, err := StashLocate(s, ctx, repo, oid); err != nil {
 		return nil, err
 	}
-	out, err := s.ExecWrite(ctx, repo, core.WriteSpec{Argv: []string{"stash", "show", stashNameStatusFlags, "-z", ref}})
+	out, err := s.ExecWrite(ctx, repo, core.WriteSpec{Argv: []string{"stash", "show", stashNameStatusFlags, "-z", oid}})
 	if err != nil {
 		return nil, err
 	}
@@ -321,17 +370,13 @@ func StashPreview(s *core.Service, ctx context.Context, repo string, index int) 
 	return query.ParseNameStatusZ(out.Stdout)
 }
 
-// stashRestore 는 apply/pop 의 공통 argv 다. 둘은 stash 를 지우는지만 다르다.
-func stashRestore(s *core.Service, ctx context.Context, repo, sub string, index int, withIndex bool) (core.Output, error) {
-	ref, err := StashRef(index)
-	if err != nil {
-		return denied(), err
-	}
+// stashRestoreArgs 는 apply/pop 의 공통 argv 다. 둘은 stash 를 지우는지만 다르다.
+func stashRestoreArgs(sub, target string, withIndex bool) []string {
 	argv := []string{"stash", sub}
 	if withIndex {
 		argv = append(argv, stashIndexFlag)
 	}
-	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: append(argv, ref)})
+	return append(argv, target)
 }
 
 // stashDropHint 는 지워지는 stash 의 sha·메시지·시각을 적는다 (FR-GIT-168).
@@ -348,21 +393,6 @@ func stashDropHint(repo string, st Stash) core.Hint {
 		Note: fmt.Sprintf("%s 에 %s 기준으로 만든 stash 다. gc 전이면 위 명령으로 되살릴 수 있다.",
 			time.UnixMilli(st.AtUnixMs).Format(time.RFC3339), st.Base),
 	}
-}
-
-// stashAt 은 그 인덱스의 항목이다. 목록의 자리로 세지 않는 이유는 인덱스가 목록의
-// 순서와 같다는 것이 git 의 규약일 뿐 우리가 보장하는 것이 아니기 때문이다.
-func stashAt(list []Stash, index int) (Stash, bool) {
-	for _, st := range list {
-		if st.Index == index {
-			return st, true
-		}
-	}
-	return Stash{}, false
-}
-
-func stashMissing(index, have int) error {
-	return fmt.Errorf("%w: stash@{%d} 가 없다 (stash %d개)", ErrStashNotFound, index, have)
 }
 
 // stashIndexOf 는 `%gd`(`stash@{n}`) 에서 n 을 뽑는다. 형태가 다르면 오류다 —

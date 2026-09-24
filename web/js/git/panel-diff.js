@@ -745,8 +745,12 @@ Object.assign(GitPanel.prototype, {
     // 비교하는지 읽을 수 없다 (FR-GIT-169).
     const short=o=>{
       const v=o||'';
-      return /^[0-9a-f]{40,}$/.test(v)?v.slice(0,GIT_DIFF_REV_ABBREV):v;
+      const m=/^([0-9a-f]{40,})(\^?)$/.exec(v);
+      return m?m[1].slice(0,GIT_DIFF_REV_ABBREV)+m[2]:v;
     };
+    // REPO_FIX 01 §5.3: stash 는 oid 로 열되 사람이 읽는 이름(`stash@{n}`)을
+    // 따로 싣는다 — 식별은 oid, 표시는 이름이다.
+    if(f.revLabel) return (GIT_AXIS_LABEL[f.axis]||f.axis)+' \u00b7 '+f.revLabel;
     return (GIT_AXIS_LABEL[f.axis]||f.axis)+' \u00b7 '+
       (f.parentOid?short(f.parentOid):GIT_DETAIL_ROOT)+GIT_DIFF_REV_RANGE+short(f.oid);
   },

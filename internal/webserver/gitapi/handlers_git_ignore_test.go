@@ -188,7 +188,7 @@ func TestAPIGitStashBranch(t *testing.T) {
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/branch",
-		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`,"index":1,"name":"feat/from-stash"}`)
+		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`,"oid":"`+gitStashB+`","name":"feat/from-stash"}`)
 	if code != http.StatusOK || out["ok"] != true {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}
@@ -202,10 +202,11 @@ func TestAPIGitStashBranch(t *testing.T) {
 // 직접 호출이 우회한다.
 func TestAPIGitStashBranch_Rejects(t *testing.T) {
 	cases := []string{
-		`{"repo":` + testpath.JSONQuote(gitM5Repo) + `,"index":0,"name":""}`,
-		`{"repo":` + testpath.JSONQuote(gitM5Repo) + `,"index":0,"name":"--force"}`,
-		`{"repo":` + testpath.JSONQuote(gitM5Repo) + `,"index":-1,"name":"ok"}`,
-		`{"repo":` + testpath.JSONQuote(gitM5Repo) + `,"index":0,"name":"bad name"}`,
+		`{"repo":` + testpath.JSONQuote(gitM5Repo) + `,"oid":"` + gitStashA + `","name":""}`,
+		`{"repo":` + testpath.JSONQuote(gitM5Repo) + `,"oid":"` + gitStashA + `","name":"--force"}`,
+		`{"repo":` + testpath.JSONQuote(gitM5Repo) + `,"oid":"stash@{0}","name":"ok"}`,
+		`{"repo":` + testpath.JSONQuote(gitM5Repo) + `,"oid":"` + gitStashA + `","index":0,"name":"ok"}`,
+		`{"repo":` + testpath.JSONQuote(gitM5Repo) + `,"oid":"` + gitStashA + `","name":"bad name"}`,
 	}
 	for _, body := range cases {
 		f := newGitM5Fake(t)
@@ -221,16 +222,36 @@ func TestAPIGitStashBranch_Rejects(t *testing.T) {
 	}
 }
 
-// F10 (V199): 없는 인덱스는 404 이며 실행하지 않는다.
-func TestAPIGitStashBranch_MissingIndex(t *testing.T) {
+// F10 (V199, REPO_FIX 01 §5.3): 목록에 없는 oid 는 409 stash_moved 이며 실행하지 않는다.
+func TestAPIGitStashBranch_MovedOid(t *testing.T) {
 	f := newGitM5Fake(t)
 	f.stashes = gitStashTwo
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/branch",
-		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`,"index":9,"name":"feat"}`)
-	if code != http.StatusNotFound || out["error"] != gitErrNotFound {
+		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`,"oid":"`+strings.Repeat("d", 40)+`","name":"feat"}`)
+	if code != http.StatusConflict || out["error"] != "stash_moved" {
 		t.Fatalf("code = %d, out = %v", code, out)
+	}
+	if len(f.wrote()) != 0 {
+		t.Fatalf("실행됐다: %v", f.wrote())
+	}
+}
+
+// §5.3: 이미 있는 브랜치 이름이면 실행 전 409 branch_exists — 브랜치 생성용 선택지
+// (checkout·rename)는 싣지 않는다. 종전에는 실행 뒤 git 이 실패했는데 HEAD 가 그
+// 이름이라 "브랜치를 만들었다" 는 거짓 안내가 나갈 수 있었다.
+func TestAPIGitStashBranch_ExistingNameNoOptions(t *testing.T) {
+	f := newGitM5Fake(t)
+	f.stashes = gitStashTwo
+	s := gitM5Server(t, f)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/branch",
+		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`,"oid":"`+gitStashA+`","name":"main"}`)
+	if code != http.StatusConflict || out["error"] != gitErrBranchExists {
+		t.Fatalf("code = %d, out = %v", code, out)
+	}
+	if _, has := out["options"]; has {
+		t.Fatalf("options 가 실렸다: %v", out["options"])
 	}
 	if len(f.wrote()) != 0 {
 		t.Fatalf("실행됐다: %v", f.wrote())

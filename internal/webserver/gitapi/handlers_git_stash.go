@@ -2,6 +2,7 @@ package gitapi
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"dongminal/internal/webserver/apierr"
@@ -34,11 +35,16 @@ type gitStashPushReq struct {
 
 // gitStashIndexReq 는 apply/pop/drop 의 본문이다.
 //
+// Oid 는 클라이언트가 목록에서 본 stash 다 (REPO_FIX 01 §5.3 — 필수). Index 는
+// 더 이상 받지 않는다: 포인터로 두어 **보냈는지**를 가르고, 보냈으면 400 이다 —
+// 받는 척 무시하면 옛 클라이언트가 위치로 지목한다고 믿는다.
+//
 // WithIndex 는 `--index` 다 (FR-GIT-163). Confirm 은 drop 의 2단계 확인이다
 // (FR-GIT-168) — 파괴적 동작이므로 확인 없이는 실행되지 않는다.
 type gitStashIndexReq struct {
 	Repo      string `json:"repo"`
-	Index     int    `json:"index"`
+	Oid       string `json:"oid"`
+	Index     *int   `json:"index"`
 	WithIndex bool   `json:"withIndex"`
 	Confirm   bool   `json:"confirm"`
 }
@@ -53,11 +59,11 @@ type gitStashListResponse struct {
 	Stashes   []write.Stash         `json:"stashes"`
 }
 
-// gitStashShowRequested 의 식별자는 (리포, 인덱스) 다 — stale 가드의 서버측
-// 절반이며, 인덱스가 빠지면 뒤늦게 온 다른 stash 의 응답을 자기 것으로 읽는다.
+// gitStashShowRequested 의 식별자는 (리포, oid) 다 — stale 가드의 서버측 절반이며,
+// oid 가 빠지면 뒤늦게 온 다른 stash 의 응답을 자기 것으로 읽는다.
 type gitStashShowRequested struct {
-	Repo  string `json:"repo"`
-	Index int    `json:"index"`
+	Repo string `json:"repo"`
+	Oid  string `json:"oid"`
 }
 
 type gitStashShowResponse struct {
@@ -82,23 +88,45 @@ func (s *GitServer) apiGitStashList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GET /api/git/stash/show?repo=&index= — 선택한 stash 의 변경 파일 (FR-GIT-169).
+// GET /api/git/stash/show?repo=&oid= — 선택한 stash 의 변경 파일 (FR-GIT-169).
+//
+// REPO_FIX 01 §5.3: oid 로 직접 연다. index 쿼리는 400, 목록에 없는 oid 는 409
+// stash_moved(현재 목록을 함께 싣는다).
 func (s *GitServer) apiGitStashShow(w http.ResponseWriter, r *http.Request) {
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
 	}
-	index, ok := gitCountParam(w, r.URL.Query(), "index")
-	if !ok {
+	q := r.URL.Query()
+	if q.Has("index") {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "index 는 더 이상 받지 않는다 — oid 를 보내라")
 		return
 	}
-	files, err := write.StashPreview(s.Git.Service(), r.Context(), root, index)
+	oid := q.Get("oid")
+	if err := write.CheckStashOid(oid); err != nil {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
+		return
+	}
+	files, err := write.StashPreview(s.Git.Service(), r.Context(), root, oid)
+	if errors.Is(err, write.ErrStashMoved) {
+		body := map[string]any{
+			"error":     apierr.CodeStashMoved,
+			"message":   gitTail(err.Error()),
+			"requested": gitStashShowRequested{Repo: requested, Oid: oid},
+			"repo":      root,
+		}
+		if list, lerr := write.StashList(s.Git.Service(), r.Context(), root); lerr == nil {
+			body["stashes"] = list
+		}
+		gitErrJSON(w, http.StatusConflict, apierr.CodeStashMoved, body)
+		return
+	}
 	if err != nil {
 		gitError(w, err)
 		return
 	}
 	gitJSON(w, http.StatusOK, gitStashShowResponse{
-		Requested: gitStashShowRequested{Repo: requested, Index: index}, Repo: root, Files: files,
+		Requested: gitStashShowRequested{Repo: requested, Oid: oid}, Repo: root, Files: files,
 	})
 }
 
@@ -137,7 +165,7 @@ func (s *GitServer) apiGitStashPush(w http.ResponseWriter, r *http.Request) {
 // POST /api/git/stash/apply — stash 를 얹고 **남긴다** (FR-GIT-163).
 func (s *GitServer) apiGitStashApply(w http.ResponseWriter, r *http.Request) {
 	s.gitStashIndexRoute(w, r, false, func(ctx context.Context, root string, req gitStashIndexReq) (map[string]any, error) {
-		_, err := write.StashApply(s.Git.Service(), ctx, root, req.Index, req.WithIndex)
+		_, err := write.StashApply(s.Git.Service(), ctx, root, req.Oid, req.WithIndex)
 		return nil, err
 	})
 }
@@ -148,12 +176,8 @@ func (s *GitServer) apiGitStashApply(w http.ResponseWriter, r *http.Request) {
 // 담는다 — 조용히 넘기면 사용자는 작업을 잃었다고 오해한다.
 func (s *GitServer) apiGitStashPop(w http.ResponseWriter, r *http.Request) {
 	s.gitStashIndexRoute(w, r, false, func(ctx context.Context, root string, req gitStashIndexReq) (map[string]any, error) {
-		_, kept, err := write.StashPopChecked(s.Git.Service(), ctx, root, req.Index, req.WithIndex)
-		return map[string]any{
-			"stashKept":       kept.Kept,
-			"stashKeptReason": kept.Reason,
-			"stashKeptOid":    kept.Oid,
-		}, err
+		_, kept, err := write.StashPopChecked(s.Git.Service(), ctx, root, req.Oid, req.WithIndex)
+		return stashKeptFields(kept), err
 	})
 }
 
@@ -163,15 +187,27 @@ func (s *GitServer) apiGitStashPop(w http.ResponseWriter, r *http.Request) {
 // **전에** 남긴다 (FR-GIT-92).
 func (s *GitServer) apiGitStashDrop(w http.ResponseWriter, r *http.Request) {
 	s.gitStashIndexRoute(w, r, true, func(ctx context.Context, root string, req gitStashIndexReq) (map[string]any, error) {
-		_, err := write.StashDrop(s.Git.Service(), ctx, root, req.Index)
+		_, err := write.StashDrop(s.Git.Service(), ctx, root, req.Oid)
 		return nil, err
 	})
 }
 
-// gitStashBranchReq 는 Branch from stash 의 본문이다 (FR-GIT-272).
+// stashKeptFields 는 stash 잔존 사실을 응답 필드로 옮긴다 — pop 과 branch 가 같은
+// 세 필드를 쓴다 (REPO_FIX 01 §5.3).
+func stashKeptFields(kept write.StashPopKept) map[string]any {
+	return map[string]any{
+		"stashKept":       kept.Kept,
+		"stashKeptReason": kept.Reason,
+		"stashKeptOid":    kept.Oid,
+	}
+}
+
+// gitStashBranchReq 는 Branch from stash 의 본문이다 (FR-GIT-272). Oid·Index 의
+// 규칙은 gitStashIndexReq 와 같다.
 type gitStashBranchReq struct {
 	Repo  string `json:"repo"`
-	Index int    `json:"index"`
+	Oid   string `json:"oid"`
+	Index *int   `json:"index"`
 	Name  string `json:"name"`
 }
 
@@ -186,9 +222,13 @@ func (s *GitServer) apiGitStashBranch(w http.ResponseWriter, r *http.Request) {
 	if t.stop() {
 		return
 	}
+	if msg := stashTargetInvalid(req.Oid, req.Index); msg != "" {
+		t.rejectWith(http.StatusBadRequest, gitErrBadRequest, msg)
+		return
+	}
 	// 순수 함수가 argv 를 만들 수 있는지로 판정한다 — 판정이 두 벌이면 한쪽만
-	// 고쳐진다 (FR-GIT-250 ①).
-	if _, err := write.StashBranchArgs(req.Name, req.Index); err != nil {
+	// 고쳐진다 (FR-GIT-250 ①). 위치는 실행 직전에 oid 로 찾으므로 여기서는 이름만 본다.
+	if _, err := write.StashBranchArgs(req.Name, 0); err != nil {
 		t.rejectWith(http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
 		return
 	}
@@ -201,14 +241,38 @@ func (s *GitServer) apiGitStashBranch(w http.ResponseWriter, r *http.Request) {
 		t.rejectWith(http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
 		return
 	}
+	// REPO_FIX 01 §5.3: 이미 있는 이름이면 실행 전에 거절한다. 선택지(checkout·
+	// rename)는 브랜치 생성의 것이라 싣지 않는다 — 그대로 실행하면 git 이 브랜치를
+	// 만들기 전에 실패하는데 HEAD 가 그 이름이면 "만들어졌다" 로 읽힌다.
+	exists, err := query.LocalBranchExists(s.Git.Service(), r.Context(), t.root, req.Name)
+	if err != nil {
+		t.reject(err)
+		return
+	}
+	if exists {
+		t.rejectBody(http.StatusConflict, gitErrBranchExists, "로컬 브랜치 "+req.Name+" 가 이미 있다",
+			map[string]any{"branch": req.Name})
+		return
+	}
 	before := t.snapshot()
 	if t.stop() {
 		return
 	}
 	s.gitStashApply(w, r, t.requested, t.root, before, func(ctx context.Context) (map[string]any, error) {
-		_, err := write.StashBranch(s.Git.Service(), ctx, t.root, req.Name, req.Index)
-		return nil, err
+		_, kept, err := write.StashBranch(s.Git.Service(), ctx, t.root, req.Name, req.Oid)
+		return stashKeptFields(kept), err
 	})
+}
+
+// stashTargetInvalid 는 stash 지목이 잘못됐으면 사유를, 맞으면 "" 를 준다.
+func stashTargetInvalid(oid string, index *int) string {
+	if index != nil {
+		return "index 는 더 이상 받지 않는다 — oid 를 보내라"
+	}
+	if err := write.CheckStashOid(oid); err != nil {
+		return gitTail(err.Error())
+	}
+	return ""
 }
 
 // gitStashIndexRoute 는 apply/pop/drop 의 공통 절차다. 셋은 본문과 응답이 같고
@@ -224,9 +288,8 @@ func (s *GitServer) gitStashIndexRoute(w http.ResponseWriter, r *http.Request, c
 	if t.stop() {
 		return
 	}
-	// 인덱스는 인자로 넘기기 전에 본다 — `stash@{-1}` 은 git 에서 다른 뜻이 된다.
-	if _, err := write.StashRef(req.Index); err != nil {
-		t.rejectWith(http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
+	if msg := stashTargetInvalid(req.Oid, req.Index); msg != "" {
+		t.rejectWith(http.StatusBadRequest, gitErrBadRequest, msg)
 		return
 	}
 	t.resolve(req.Repo)
