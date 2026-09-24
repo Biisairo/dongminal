@@ -183,6 +183,7 @@ const GIT_BLAME_TOGGLE='Blame';
 const GIT_BLAME_TOGGLE_TITLE='Show which commit each line came from';
 const GIT_BLAME_LOADING=t('git.blame_loading');
 const GIT_BLAME_FAIL=t('git.blame_fail');
+const GIT_BLAME_RETRY=t('git.blame_retry');
 // 아직 커밋되지 않은 줄. git 은 author 를 "Not Committed Yet" 으로 답하지만 그것을
 // 사람 이름 자리에 그대로 두면 작성자로 읽힌다.
 const GIT_BLAME_UNCOMMITTED=t('git.blame_uncommitted');

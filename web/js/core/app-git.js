@@ -631,6 +631,8 @@ Object.assign(App.prototype, {
       // 만드는 요청은 아무도 읽지 않는 값을 위한 것이다 (NFR-RTU-1 과 같은 근거).
       if(!o.pollOkAny()) continue;
       o._gitMark=a.mark||'';
+      // REPO_FIX 05 F-5.2: 작업 트리가 바뀌었다 — 작업 트리 Blame 도 다시 받는다.
+      for(const q of o.panels) q.blameStale();
       p.collect();
     }
   },

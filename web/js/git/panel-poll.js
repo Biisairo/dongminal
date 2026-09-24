@@ -122,7 +122,7 @@ Object.assign(GitPanel.prototype, {
   async refresh(){
     if(this._refreshing||!this.repo) return;
     this._refreshing=true;
-    for(const p of this.obs.panels) p._paintRefresh();
+    for(const p of this.obs.panels){p._paintRefresh(); p.blameStale()}
     /**
      * 플래그 해제는 `finally` 가 한다 (선례: `_wsApply` 의 `_wsApplyInflight`).
      *
@@ -242,6 +242,8 @@ Object.assign(GitPanel.prototype, {
   signal(kind){
     if(document.hidden) return;
     if(!this.repo||this._gitMissing) return;
+    // F-5.2: 파일 저장(편집기 탭 포함)은 작업 트리 Blame 을 낡게 한다.
+    if(kind==='write') for(const p of this.obs.panels) p.blameStale();
     TIMERS.cancel(this._sigT);
     // 연속 신호가 status 를 연발하지 않게 하나로 합친다.
     this._sigT=TIMERS.after(GIT_SIGNAL_DEBOUNCE_MS,()=>{this._sigT=null;this.collect()},

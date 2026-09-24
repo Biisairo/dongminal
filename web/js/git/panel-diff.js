@@ -317,6 +317,14 @@ Object.assign(GitPanel.prototype, {
     const rows=box.querySelector('.git-blame-rows');
     const msg=this._blameErr||(!d?GIT_BLAME_LOADING:(all?'':GIT_BLAME_EMPTY));
     note.textContent=msg; note.classList.toggle('vis',!!msg||cut);
+    // F-5.2: 조회 실패는 다시 시도할 수 있다 — 사유 옆에 길을 둔다.
+    if(this._blameErr){
+      const b=document.createElement('button');
+      b.type='button'; b.className='ui-btn ui-btn-sm git-blame-retry';
+      b.textContent=GIT_BLAME_RETRY;
+      b.addEventListener('click',()=>{this._blameKey=null;this._paint()});
+      note.appendChild(b);
+    }
     rows.innerHTML='';
     if(!d||!all) return;
     if(cut){
@@ -750,6 +758,30 @@ Object.assign(GitPanel.prototype, {
     this.applyWriteFail(res);
   },
 
+  /**
+   * REPO_FIX 05 §3A-6 (F-5.1): 본문이 실제로 바뀐 회차 — 조각 목록과 diffId 를 함께 버리고
+   * **곧바로** 다시 받는다. 받는 동안 `_hunks` 가 비어 있으므로 툴바 동작은 서지 않는다.
+   *
+   *   이전 동작: 키만 지우고 목록은 다음 그리기까지 남아, 그 사이 툴바가 낡은 조각·
+   *             diffId 로 요청했다(#44)
+   *   새  동작: 목록을 버리고 즉시 다시 받는다
+   */
+  _diffChanged(){
+    this._hunkKey=null; this._hunks=null;
+    this._hunkBarHide();
+    const el=this._els.get('diff');
+    if(el&&el.dataset.built==='1') this._paintHunks(el,(this.commitFile||this._blameOn)?null:this._diffTarget());
+  },
+
+  // F-5.2: 작업 트리 파일의 Blame 을 다시 받게 한다 — 저장·git_changed·새로고침이 부른다.
+  // 커밋 축(rev 있음)의 blame 은 낡지 않는다.
+  blameStale(){
+    const t=this._blameTarget();
+    if(!t||t.rev) return;
+    this._blameKey=null;
+    this._paint();
+  },
+
   // 쓰기 뒤 Diff 를 다시 받게 한다 — 조각 관측과 본문 둘 다 낡았다. hunk 쓰기와 파일
   // 단위 쓰기(F-4.3)가 이 한 함수를 쓴다.
   _diffInvalidate(){
@@ -979,7 +1011,7 @@ Object.assign(GitPanel.prototype, {
       onEditor:ed=>this._hunkBarWire(ed),
       // UX_BATCH6_SRS FR-GLV-1: 본문이 실제로 바뀐 회차다. 조각 관측은 이
       // 본문에서 파생되므로 그때만 낡는다 — 폴링마다 다시 받으면 요청이 배로 는다.
-      onChanged:()=>{this._hunkKey=null; this._hunkBarHide()},
+      onChanged:()=>this._diffChanged(),
     });
     return this._diffView;
   },
@@ -1002,6 +1034,7 @@ Object.assign(GitPanel.prototype, {
 
   _gitSaved(){
     this.signal('write');
+    this.blameStale();
     // 탐색기의 색도 같은 사실을 딛는다 (FR-EDT-78).
     const t=this.app.edActiveTree&&this.app.edActiveTree();
     if(t&&t.pollGit) t.pollGit({now:true});

@@ -442,6 +442,7 @@ I18N.register('ko', {
   'git.badge_truncated': '변경이 너무 많아 목록이 잘렸습니다 — 이 수는 최소값입니다',
   'git.blame_cut': '큰 파일이라 앞부분만 보입니다 — %r줄 중 %n줄',
   'git.blame_empty': 'blame 할 내용이 없습니다',
+  'git.blame_retry': '다시 시도',
   'git.blame_fail': 'blame 을 읽지 못했습니다',
   'git.blame_loading': 'blame 을 읽는 중…',
   'git.blame_show_all': '전체 보기',
