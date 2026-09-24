@@ -45,6 +45,12 @@ func (s *GitServer) apiGitInit(w http.ResponseWriter, r *http.Request) {
 	// 이미 저장소면 거부한다. **하위 디렉터리는 거부하지 않는다** — 저장소 안에
 	// 또 저장소를 만드는 것은 사용자가 의도할 수 있는 일이고(서브모듈의 원본이
 	// 그렇게 생긴다), 그 판정은 `RepoRoot` 가 이 경로 자신을 돌려줄 때만 참이다.
+	//
+	//	이전 동작: 캐시된(2초) 루트로 판정했다
+	//	새 동작: 판정 직전에 그 경로의 기억을 지우고 새로 묻는다
+	//	이유: `.git` 이 사라진 직후 status 는 비저장소라 init 을 권하는데, 캐시의
+	//	      옛 성공이 409 `exists` 로 거절했다(ubuntu CI 실측)
+	s.Git.ForgetRoot(dir)
 	if root, err := s.Git.RepoRoot(r.Context(), dir); err == nil && root == dir {
 		gitFail(w, http.StatusConflict, gitErrExists, "이미 git 저장소입니다: "+dir)
 		return

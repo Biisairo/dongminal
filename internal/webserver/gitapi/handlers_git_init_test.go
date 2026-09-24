@@ -110,6 +110,32 @@ func TestGitInit_InvalidatesRootCache(t *testing.T) {
 	}
 }
 
+// "이미 저장소" 판정은 캐시를 딛지 않는다. `RepoRoot` 의 성공 기억(2초)이 남은 사이
+// `.git` 이 사라지면, status 는 비저장소라 init 을 권하는데 init 은 409 `exists` 로
+// 거절했다 (ubuntu CI 의 TC-SVS-24b 실측).
+func TestGitInit_StaleRootCacheDoesNotBlock(t *testing.T) {
+	s, _ := realGitServer(t)
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code, out := gitReq(t, s, http.MethodPost, "/api/git/init",
+		mustJSON(map[string]string{"path": dir})); code != http.StatusOK {
+		t.Fatalf("첫 init code=%d body=%v", code, out)
+	}
+	// 화면의 관측이 성공을 캐시에 남긴다.
+	if root, err := s.Git.RepoRoot(t.Context(), dir); err != nil || root != dir {
+		t.Fatalf("RepoRoot = %q %v", root, err)
+	}
+	if err := os.RemoveAll(filepath.Join(dir, ".git")); err != nil {
+		t.Fatal(err)
+	}
+	if code, out := gitReq(t, s, http.MethodPost, "/api/git/init",
+		mustJSON(map[string]string{"path": dir})); code != http.StatusOK {
+		t.Fatalf("다시 init code=%d body=%v (캐시된 옛 루트로 거절했다)", code, out)
+	}
+}
+
 // 없는 폴더와 파일은 거부한다 — 그대로 넘기면 git 이 자리를 만들어 버린다.
 func TestGitInit_RejectsMissingAndFile(t *testing.T) {
 	s, _ := realGitServer(t)
