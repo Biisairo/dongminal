@@ -153,21 +153,6 @@ function edDdDecoOptions(type){
 }
 
 /**
- * 저장소 루트에서 이 Editor 루트까지의 접두. 탐색기의 `_prefixOf` 와 **같은
- * 규약**이다 (FR-EDD-3) — 클라이언트가 심볼릭 링크를 풀려 하지 않고 서버가 준
- * 정규화 값을 쓴다.
- */
-function edDdPrefix(repo,resolved){
-  if(!resolved) return null;
-  if(resolved===repo) return '';
-  // 구분자는 그 경로의 것이다 (file-tree-paint 의 `_prefixOf` 와 같은 규약).
-  const sep=pathSep(repo);
-  const base=repo.endsWith(sep)?repo:repo+sep;
-  if(!resolved.startsWith(base)) return null;
-  return resolved.slice(base.length).replace(/\\/g,'/')+'/';
-}
-
-/**
  * 문서 하나의 변경 표시. **모델에 걸린다** (D-4) — 같은 파일을 두 칸에서 열어도
  * 기준 취득과 계산은 한 번이고, 결과는 그 모델을 붙인 모든 편집기에 함께 뜬다.
  */
@@ -226,7 +211,7 @@ class EdDirtyDiff{
     // 필드를 채우는 날 조용히 갈린다 (`file-tree-paint` 와 같은 규약).
     if(d.isRepo===false){this._back();return false}
     if(!d.repo){this._back();return false}
-    const prefix=d.rootMatch?'':edDdPrefix(d.repo,d.requestedResolved||'');
+    const prefix=d.rootMatch?'':gitRepoPrefix(d.repo,d.requestedResolved||'');
     if(prefix===null){this._back();return false}
     // git 이 받는 경로는 어느 OS 에서도 `/` 다. 그냥 잘라 내면 Windows 에서
     // `sub\file.txt` 가 그대로 나가고, 서버는 그런 경로를 모른다 — 표시가 통째로

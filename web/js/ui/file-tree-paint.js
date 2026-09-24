@@ -522,16 +522,7 @@ Object.assign(FileTree.prototype, {
    * 백오프로 다룬다. `/appx` 가 `/app` 의 하위로 오인되지 않도록 경계는 구분자로
    * 본다.
    */
-  _prefixOf(repo,resolved){
-    if(!resolved) return null;
-    if(resolved===repo) return '';
-    // 구분자는 그 경로의 것이다 — Windows 에서 `/` 로 이으면 이 접두는 어떤
-    // 경로에도 걸리지 않고, 그러면 저장소 안의 루트가 색을 통째로 잃는다.
-    const sep=pathSep(repo);
-    const base=repo.endsWith(sep)?repo:repo+sep;
-    if(!resolved.startsWith(base)) return null;
-    return resolved.slice(base.length).replace(/\\/g,'/')+'/';
-  },
+  _prefixOf(repo,resolved){ return gitRepoPrefix(repo,resolved) },
 
   /**
    * 상태 응답을 경로→문자 맵 셋으로 옮긴다 (GIT_DIR_ENTRY_SRS FR-DIR-10).

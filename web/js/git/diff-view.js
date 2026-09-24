@@ -91,6 +91,7 @@ class GitDiffView {
     // 사라졌다는 사실은 여기가 알고, 그 위에 무엇을 붙일지는 부르는 쪽이 안다 —
     // hunk 관측을 이 안에 넣으면 "탭도 관측도 모른다" 는 원칙이 깨진다.
     this.onEditor=o.onEditor||null;
+    this._absOf=o.absPath||null;
     this._seq=0; this._dead=false;
     this._editor=null; this._orig=null; this._mod=null;
     this._el=document.createElement('div');
@@ -442,6 +443,7 @@ class GitDiffView {
   // 여기서 다시 물을 이유가 없다.
   _absPath(target){
     if(!target||!target.repo||!target.path) return '';
+    if(this._absOf) return this._absOf(target);
     return pathJoin(target.repo,target.path);
   }
 

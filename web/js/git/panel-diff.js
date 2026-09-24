@@ -50,7 +50,7 @@ Object.assign(GitPanel.prototype, {
    */
   _openInEditor(e){
     if(!this.repo||!e||!e.path||e.dir) return false;
-    const abs=pathJoin(this.repo,e.path);
+    const abs=this.absPath(e);
     // 한 번 클릭이므로 미리보기다 (FR-RTU-40) — 목록을 훑어도 탭이 쌓이지 않는다.
     this.app.edOpenFile(abs,{preview:true});
     return true;
@@ -890,7 +890,8 @@ Object.assign(GitPanel.prototype, {
   _dirEntryActs(f){
     const app=this.app;
     if(!app||!f||!f.repo||!f.path) return [];
-    const abs=f.repo.replace(/\/+$/,'')+'/'+f.path;
+    // §3A-4: 어휘적 저장소 최상위 기준 — 창 루트가 하위 폴더여도 같은 항목을 가리킨다.
+    const abs=this.absPath(f);
     const has=(app.edEntries?app.edEntries():[]).some(e=>e&&e.path===abs);
     const go=()=>{
       const w=app.edWindowFor&&app.edWindowFor(abs);
@@ -958,6 +959,8 @@ Object.assign(GitPanel.prototype, {
       ignoreWhitespace:this._ignoreWsPref(),
       hideUnchanged:this._foldPref(),
       isStale:tok=>this.isStale(tok),
+      // §3A-4: 작업 트리 쪽 문서의 경로는 패널이 안다(어휘적 저장소 최상위 기준).
+      absPath:t=>this.absPath(t),
       // FR-RTU-53: 저장되지 않은 변경은 탭 이름에 `●` 로 선다 — 편집기 탭과
       // 같은 표시이며, 렌더가 공유 문서의 dirty 에서 파생한다 (`app.tabDirty`, F-2.5).
       onDirty:v=>this._setDiffDirty(v),

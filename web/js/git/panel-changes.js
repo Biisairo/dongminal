@@ -292,7 +292,8 @@ Object.assign(GitPanel.prototype, {
 
   // 헤더 (FR-GIT-32·33·40)
   _paintHead(el,s){
-    const repo=this.repo||'';
+    // F-3.3 (FR-RTU-24): 창 루트가 하위 폴더여도 이름은 그 저장소의 것이다.
+    const repo=this.repoTop();
     const r=el.querySelector('.git-head-repo');
     r.textContent=pathBase(repo)||repo;
     r.title=repo;

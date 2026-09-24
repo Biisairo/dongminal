@@ -70,7 +70,19 @@ Object.assign(GitPanel.prototype, {
   // 메뉴는 GitMenu 프레임워크가 그린다 — 5단계의 자체 메뉴를 그것이 흡수했다.
   // 여기 남는 것은 항목이 부르는 동작뿐이다.
 
-  absPath(t){return pathJoin(this.repo||'',t.path)},
+  /**
+   * REPO_FIX 05 §3A-4 (F-3.1): 파일 절대경로 = 어휘적 저장소 최상위 + 상대경로. 창 루트가
+   * 저장소 하위 폴더여도, 심볼릭 링크여도 편집기 경로(03 문서 키)와 같다.
+   *   이전 동작: 창 루트에 이었다 — 하위 폴더 루트에서 `…/src/src/a.txt` 가 됐다(#6)
+   */
+  absPath(t){return pathJoin(this.repoTop(),t.path)},
+
+  // 관측이 지금 저장소의 것일 때만 그 응답으로 잰다. 아직 없으면 창 루트다.
+  repoTop(){
+    const d=this._status;
+    const top=d&&d.requested===this.repo?gitLexicalTop(d):'';
+    return top||this.repo||'';
+  },
 
   openFileDiff(t){this._openDiff(t.group,{path:t.path,origPath:t.origPath||''})},
 

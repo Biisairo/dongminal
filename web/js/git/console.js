@@ -104,7 +104,9 @@ class GitConsole {
     if(!r.ok||!d||!Array.isArray(d.records)){
       this._err=GIT_CON_FAIL; this._paintList(); return;
     }
-    if(d.repo!==repo) return;
+    // REPO_FIX 05 §3A-4: 대조는 요청한 값으로 한다 — 서버의 `repo` 는 저장소 최상위(심링크를
+    // 푼 값)라 하위 폴더·심링크 루트에서 영영 같지 않았다(#43).
+    if(((d.requested||{}).repo||'')!==repo) return;
     this._err=''; this._recs=d.records;
     this._paintList();
   }
