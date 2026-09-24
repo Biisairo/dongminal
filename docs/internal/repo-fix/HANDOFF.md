@@ -1,6 +1,6 @@
 # REPO_FIX 인계 — 다음 세션 착수 문서
 
-> 작성 2026-09-24. 01·02·03·04 끝났다. 다음은 **05 git 프런트**.
+> 작성 2026-09-24. 01~05 끝났다. 다음은 **마무리**(`make e2e` 전량 8샤드 + 재감사).
 > **사용자 지시: "새 세션에서 순서대로 진행"** — 아래 §3 순서대로 한다.
 
 ## 1. 무엇을 하는 일인가
@@ -30,6 +30,8 @@
 | 01-G §5.6 | worktree·submodule `Runner` ctx·`%w`, `worktree.LockRepo`(ctx·시한, common-dir 키 `Spec.LockKey`), `core.CommonDirKey`(nil 수신자), worktree add 잡(common 칸→repoLock→충돌→부모 디렉터리→등록, 완료 처리 config·반납), remove 순서(대상 칸·뮤텍스, 180s 단계 안 repoLock), sync 180s·lock 필드, Run 격리 ctx·TryLock 잔여물, 프런트 index 칸 예외·`timeout:0` | 인계 문서와 같은 커밋 |
 | 01-F §5.2·6 | 느린 쓰기 8종 잡 전환, kind 표·모양 제약, stdin, Job JSON `slots`·`errorCode`·`lock`·`result`, 완료 처리 순서, undo 토큰 기점, 프런트 칸별 잡 표시기(`GitJobs`)·`panel.post` 잡 인식·e2e `git-job-indicator.spec.ts` | `6862f2ca` `02b8a777` |
 
+**05 도 끝났다** — F-1 `50de3c10`, F-2 `afe856ee`(+회귀 수정 `a719bc25`), F-3 `37a2ce04`, F-4 `9e33a09f`, F-5 `7cb95605`, F-6 `200ff7e2`, F-7 `501af931`, F-8 `af3157b1`, F-9 `b5a7f7ef`. 정정·추적표는 `05-git-frontend/REQUIREMENTS.md` §3A-8. **남은 플래그**: Clean 은 서버가 목록을 받지 않아 확인 뒤~실행 사이 서버 쪽에 생긴 untracked 까지 지울 수 있다(서버 `paths` 필드가 필요 — 사용자 결정 대상). 옛 Git 창의 저장소 전환은 Diff 만 연 dirty 문서를 확인 없이 버린다(이전과 같음, 비범위).
+
 **04 도 끝났다** — 서버(mark·대소문자) `4e1eacea`, 프런트는 인계 갱신과 같은 커밋. 정정·추적표는 `04-explorer/REQUIREMENTS.md` §3A-8.
 
 **03 도 끝났다** — 서버 `2bc4e059`, 조회·dirty 파생 `4768034a`, 문서 레지스트리 `053e283f`, 인코딩 UI 는 인계 갱신과 같은 커밋. 정정·추적표는 `03-editor/REQUIREMENTS.md` §3A-9.
@@ -56,8 +58,8 @@
 4. ~~**02 gitwatch·LSP**~~ 완료 — `02-lsp-gitwatch/REQUIREMENTS.md` (§3A 필독: LSP 경로는 **서버 설정 `<dataDir>/lsp-paths.json` + GET/PUT `/api/lsp/paths` + 설정 ▸ Code UI**, 사용자 결정)
 5. ~~**03 에디터**~~ 완료 — 인코딩 왕복(x/text 의존성 추가 승인됨, 자동판별 BOM→UTF-8→CP949 + 다시 열기 4종 + "UTF-8 로 변환해 저장" 확인창), 권한·심링크 보존, 응답 후 재확인 장치, slot 인식 조회, 문서 이동 API(undo 소실 허용), tab.dirty 비영속
 6. ~~**04 탐색기**~~ 완료 — 로드 세대·coalesce, 폴더 관측 상태 4종, 대소문자 이름변경(같은 부모+대소문자만 다름+SameFile), status 응답 `mark` 는 04 가 추가
-7. **05 git 프런트** ← **여기서 시작** — Delete both(가장 위험), Diff 는 **편집기 문서 모델 공유**(사용자 결정), 저장소 최상위 기준 경로, 커밋 초안/amend 슬롯 분리 등. 01 이 만든 잡 UI 를 전제로 한다
-8. 마무리: `make e2e`(전량 8샤드) + 재감사
+7. ~~**05 git 프런트**~~ 완료 — Delete both 한 쌍, Diff = 편집기 문서 모델 공유(문서 단위 저장 `edDocSave`), 어휘적 저장소 최상위 경로, 쓰기 세대·stage 큐, 커밋 draft/amend 슬롯 분리, 결과 미상 잡 판정(`gitJobOutcome`)
+8. **마무리** ← **여기서 시작**: `make e2e`(전량 8샤드) + 재감사
 
 직전 세션 말미에 사용자에게 "데이터 손실 5건(Delete both·Diff hunk 오적용·입력 유실·칸1 닫기 확인 누락·저장 권한)을 먼저 하자"고 제안했으나 **사용자는 "순서대로"를 택했다.** 제안을 다시 꺼내지 말고 위 순서대로 간다.
 
@@ -112,6 +114,15 @@
   - 낙관 반영과 진행 중 로드의 경합이 실제로 있다 — 테스트는 로드 완료를 기다리지 않는 순서로도 돌려라(`--repeat-each`)
   - status 응답의 `mark`(=`store.Mark`)가 "관측이 같은가" 의 유일한 기준이다 — 05 도 이것을 쓴다
 
+- **(05 에서 배운 것)**
+  - 회귀 범위를 좁게 잡지 마라 — F-2 때 `git-view-refresh` 를 빼고 돌려 회귀(바깥 변경이 Diff 에 안 옴)가 다음 단계에서야 드러났다. git 프런트를 건드리면 `e2e/git-*.spec.ts` 전부를 돌린다(약 8분)
+  - 문서 저장은 `app.edDocSave(path, ui)` 하나다(`ui` = `_confirmConflict`·`_noteUnmappable`·`_noteSaveFailed`). Diff 뷰는 레지스트리에 `_docViewOf` 객체로 든다(`_editor` 를 주지 않는다 — 레지스트리가 `setModel(model)` 을 부른다)
+  - 잡 결과 판정은 `gitJobOutcome(jb)`(jobs.js) 하나 — `!exitCode` 로 읽지 마라(결과 미상이 성공이 된다)
+  - 메뉴 항목은 `busy`(잡 키 | 'write')를 선언해야 한다 — `git-feedback.test.mjs` 가 누락을 잡는다. 비활성 사유는 `GitMenu._why`
+  - status 는 탐색기도 폴링한다(`clientId` 없음) — 패널의 관측만 재려면 `clientId=` 로 가르거나 그 패널의 `apiGet` 한 번을 가로챈다
+  - e2e 의 고정 대기는 "일어나지 않음" 을 잴 때만, `**예외 (\`TEST-16\`)**` 표식과 사유를 붙인다(게이트). testing 계약 이름은 `_` 를 뗀 것이다(`app.testing.edDocs`)
+  - helpers.js 는 최대 파일(기준선)이다 — 새 전역 헬퍼는 새 파일로(`core/git-path.js`)
+
 ## 6. 유효한 사용자 결정 (요약 — 상세는 각 REQUIREMENTS)
 
 - 느린 쓰기 → **기존 원격 잡 경로로 전환**, 상한 10분, 진행·취소 UI
@@ -126,7 +137,8 @@
 ## 7. 착수 블록
 
 ```
-git status && git log --oneline -3   # 맨 위가 04 프런트 + 인계 갱신 커밋, 그 아래 4e1eacea, 트리 깨끗
-docs/internal/repo-fix/05-git-frontend/REQUIREMENTS.md 를 읽는다 — 머리말의 §3A 확정 사항이 본문보다 우선이다.
-05 는 03 의 문서 레지스트리(edDoc*·docToken·savePromise)와 01 의 잡 UI, 04 의 status mark 를 전제로 한다.
+git status && git log --oneline -3   # 맨 위가 05 인계 갱신 커밋, 그 아래 b5a7f7ef(F-9), 트리 깨끗
+make e2e 를 8샤드로 전량 돌린다(Makefile 의 e2e 목표·샤드 방식 확인). 실패는 단독 반복으로 flaky 여부를 가르고,
+진짜 실패는 원인 커밋을 찾아 고친다(§5 flaky 목록 참고).
+재감사: tmp/REPO_AUDIT_2026-09-24.md 의 항목을 01~05 추적표(각 REQUIREMENTS 의 §3A 끝)와 대조해 닫히지 않은 것을 찾는다.
 ```

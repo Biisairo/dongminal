@@ -179,6 +179,39 @@
 | F-9.5 | 이름 검증은 입력마다 `nameGen` +1, 응답은 gen 이 같을 때만 실행 버튼 상태에 반영 |
 | 추적 | 스펙 산출물로 "감사 # ↔ 요구 ID ↔ 테스트 ID" 표를 싣는다(X8) |
 
+### §3A-8 구현 중 정정·추적표 (구현 완료 2026-09-24)
+
+구현 중 정정:
+- F-1 Clean: 서버(`/api/git/uncommitted/clean`)는 대상 목록을 받지 않고 그 순간의 untracked 전부를 지운다. 서버 변경 금지(§1)라 클라이언트가 확인 뒤 목록이 바뀌었으면 보내지 않고 사유를 보인다. **남은 틈(플래그)**: 클라이언트의 마지막 관측과 서버의 실행 시점 사이에 생긴 untracked 는 보인 적 없이 지워질 수 있다 — 막으려면 서버가 `paths` 를 받아 그것만 지워야 한다(별도 결정 필요).
+- F-1 대상이 확정 객체(`t`)에서 오는 항목(drop·stash drop·checkout·tag·rebase)은 실행이 그 객체를 쓰고 선택 상태를 다시 읽지 않으므로 바꾸지 않았다. 선택을 읽던 셋(로컬 Delete·Delete both·Clean)만 확인창 배열로 실행한다.
+- F-2 문서 저장은 FileEditor 안에 있었다 — `app.edDocSave(path, ui)`(대기 1건 포함)·`edDocWrite`·`edConfirmConflict` 로 문서 단위로 올렸고 FileEditor·Diff 뷰가 같은 것을 부른다. Diff 뷰는 문서 레지스트리에 자신이 아니라 대상마다의 작은 뷰 객체(`_docViewOf`)로 든다 — 레지스트리는 `_editor.setModel(model)` 을 부르는데 diff 에디터는 모델 둘을 받기 때문이다(`gazeEditor`·`onDocMoved`·`onDocReadOnly` 로 대신한다).
+- F-2 닫기·창 닫기의 확인은 "그 뷰가 떠나면 편집을 잃는가"(마지막 뷰)로 묻고, 탭 ● 는 문서 dirty 로 묻는다 — `viewDirty(view, closing)` 로 둘을 나눴다. 앱 전체 dirty(`edAnyDirty`, 떠남 확인)는 문서를 먼저 본다(Diff 만 연 문서).
+- F-2 dirty 중에도 Diff 는 다시 받는다 — 작업 트리 쪽이 문서 모델이라 원본 쪽만 바뀐다(이전의 "편집 중 다시 읽지 않음" 가드는 걷었다). 바깥 변경은 라이브 리로드 표식 폴링이 나르며, Diff 탭의 문서도 그 대상에 넣었다(`_gitDiffDocPaths`, 회귀 수정 `a719bc25`).
+- F-2 비범위로 남긴 것: 옛 Git 창에서 저장소를 바꾸면 Diff 뷰가 `clear` 되며 마지막 뷰인 dirty 문서가 확인 없이 버려진다(이 작업 이전에도 같았다).
+- F-3 `_prefixOf`(탐색기)·`edDdPrefix`(변경 표시)가 같은 함수 두 벌이었다 — `core/git-path.js` 의 `gitRepoPrefix` 하나로 모으고 어휘적 최상위 `gitLexicalTop` 을 곁에 뒀다(helpers.js 는 최대 파일이라 따로 둔다). 중첩 저장소·서브모듈 진입점(`_dirEntryActs`)도 같은 결함이라 함께 고쳤다.
+- F-4 잡 시작·완료 통지 자리는 `GitRemote._attach`·`_finish` 한 줄씩이다. 큐는 stage/unstage/discard 만 탄다 — resolve(ours/theirs)·ignore·uncommitted reset/clean·hunk 는 큐 밖의 동기 쓰기이고, 막혔을 때 무음 대신 `repo_busy` 사유를 보인다.
+- F-5.1 diff-content 응답에는 diffId 가 없다(서버 변경 금지) — "본문과 hunk 가 같은 diffId" 는 **본문 회차**로 대신한다: 본문이 바뀐 회차에 조각 목록을 버리고 곧바로 다시 받으며, 받는 동안 `_hunks` 가 비어 동작이 서지 않는다. 그 사이 디스크가 또 바뀌면 서버의 diffId 409 가 마지막 방어다.
+- F-6.1 쓰기 응답에는 mark 가 없어 `adopt` 는 근거를 비운다 — 쓰기 뒤 첫 관측이 한 번 더 칠한다(행은 reconcileList 라 싸다).
+- F-7.4 결과 미상 판정이 필요해 `panel._jobRes` 의 성공을 `gitJobOutcome(jb)==='ok'` 로 먼저 바꿨다(F-9.4 와 한 함수).
+- F-8.3 Compare 기준 표시는 바의 한 줄(`_note`)이라 로드 범위와 무관하게 유지한다.
+- F-9.2 (정정) 01 §6.4 "진행 중 잠금" 표가 기준이다 — index 칸이 돌면 동기 쓰기·index 잡 시작, common 칸이 돌면 **비-index 잡 시작만** 막는다(본문의 "비-index 잡 중 잡 시작 항목 전부" 는 01 행렬·"push 중 commit 허용" 결정과 어긋난다). 항목마다 `busy`(잡 키 또는 'write')를 선언하고 `GitMenu._why` 가 `gitJobSlotsOf` 로 판정한다. 사유 문구는 `job_busy` 의 사용자 문구.
+- F-9.3 (정정) "정책 조회 중 두 번째 호출은 첫 호출의 Promise 를 공유" 는 이중 실행을 만든다(메뉴는 답을 받은 뒤 스스로 실행한다) — 두 번째 호출은 창을 띄우지 않고 열린 창을 앞으로 가져온 뒤 `false`(실행 안 함)다.
+- F-9.5 세대는 요청 때만 올랐다 — 입력마다 올린다(echo 는 같은 이름의 응답이라 막지 못했다).
+
+추적표 (감사 # ↔ 요구 ↔ 테스트):
+
+| 감사 # | 요구 | 테스트 | 커밋 |
+|---|---|---|---|
+| #1 | F-1 | `web/js/test/git-menu-targets.test.mjs` (파괴적·경고 항목 전수 열거) | `50de3c10` |
+| #2 #4 N4 X2 P2(Cmd+S) | F-2 | `e2e/git-diff-doc.spec.ts` S1~S7 | `afe856ee` `a719bc25` |
+| #6 #43 | F-3 | `web/js/test/git-top.test.mjs`, `e2e/git-subroot.spec.ts` | `37a2ce04` |
+| #40 #41 P2(discard 후 Diff) | F-4 | `e2e/git-write-order.spec.ts` Q1·Q2·W1·D1 | `9e33a09f` |
+| #44 P2(blame) | F-5 | `web/js/test/git-hunk-fresh.test.mjs`, `e2e/git-blame-fresh.spec.ts` | `7cb95605` |
+| #42 P2(_notRepo·워치독·init) | F-6 | `web/js/test/git-row-sig.test.mjs`, `e2e/git-not-repo.spec.ts` | `200ff7e2` |
+| #33 #34 #35 N3 P2(300ms·Reset) | F-7 | `e2e/git-commit-slots.spec.ts` C1~C8 | `501af931` |
+| #36 #37 P2(Compare·부모 해시) | F-8 | `e2e/git-history-fresh.spec.ts` H1~H5 | `af3157b1` |
+| #38 #39 N5 P2(job 오표시·이름 검증) | F-9 | `web/js/test/git-job-outcome.test.mjs`, `web/js/test/git-feedback.test.mjs`, `e2e/git-feedback.spec.ts` | `b5a7f7ef` |
+
 ## 4. 제약
 - `make gates lint typecheck unit test` 통과. 영향 e2e(`e2e/git-*.spec.ts` 전체, `repo-tab*`, Diff 편집이 편집기 문서와 공유되므로 `e2e/editor-*.spec.ts` 중 저장·dirty 관련) 회귀 없음. 새 동작에는 e2e 또는 node:test.
 - 01·03·04 에서 만든 공통 장치(잡 UI, 문서 레지스트리·저장·토큰, status `mark`)를 재사용하고 같은 목적의 새 장치를 만들지 않는다.
