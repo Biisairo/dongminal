@@ -475,7 +475,7 @@ func TestRemoteBranchSpecs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RemoteBranchDeleteSpec: %v", err)
 	}
-	want = []string{"push", progressFlag, "origin", "--delete", "feat"}
+	want = []string{"push", progressFlag, "origin", "--delete", "refs/heads/feat"}
 	if fmt.Sprint(dspec.Argv) != fmt.Sprint(want) {
 		t.Fatalf("argv = %v, want %v", dspec.Argv, want)
 	}
@@ -548,7 +548,7 @@ func TestBranchPushSpec_Force(t *testing.T) {
 	if !spec.Destructive {
 		t.Fatal("force push 가 파괴적으로 선언되지 않았다")
 	}
-	want := []string{"push", progressFlag, "--force-with-lease", "origin", "feat"}
+	want := []string{"push", progressFlag, "--force-with-lease", "origin", "feat:refs/heads/feat"}
 	if fmt.Sprint(spec.Argv) != fmt.Sprint(want) {
 		t.Fatalf("argv = %v, want %v", spec.Argv, want)
 	}
@@ -569,5 +569,49 @@ func TestBranchRename_RejectsTakenName(t *testing.T) {
 	}
 	if len(f.argvs) != 0 {
 		t.Fatalf("거부됐는데 실행됐다: %v", f.argvs)
+	}
+}
+
+// REPO_FIX 01 §7.3: upstream 이 있으면 **upstream 브랜치 이름으로** 민다. 종전에는
+// `push origin feat` 이 나가 upstream(feature-x)이 아닌 같은 이름의 새 원격
+// 브랜치가 생겼다(실측).
+func TestBranchPushSpec_PushesToUpstreamBranchName(t *testing.T) {
+	repo := tempRepoWithRemote(t)
+	gitRun(t, repo, "checkout", "-q", "-b", "local-name", "--track", "origin/feat")
+	gitRun(t, repo, "checkout", "-q", "main")
+	spec, plan, err := BranchPushSpec(core.New(), context.Background(), repo, BranchPushOpts{Branch: "local-name"})
+	if err != nil {
+		t.Fatalf("BranchPushSpec: %v", err)
+	}
+	want := []string{"push", progressFlag, "origin", "local-name:refs/heads/feat"}
+	if fmt.Sprint(spec.Argv) != fmt.Sprint(want) {
+		t.Fatalf("argv = %v, want %v", spec.Argv, want)
+	}
+	if plan.Publish || plan.Remote != "origin" {
+		t.Fatalf("plan = %+v", plan)
+	}
+}
+
+// §7.3: upstream 이 로컬 브랜치(원격 `.`)면 밀 곳이 없다 — 거절한다. 종전에는
+// upstream 이름 "main" 을 원격 이름으로 읽어 `push main …` 이 나갔다.
+func TestBranchPushSpec_LocalUpstreamRejected(t *testing.T) {
+	repo := tempRepoWithRemote(t)
+	gitRun(t, repo, "checkout", "-q", "-b", "topic", "--track", "main")
+	gitRun(t, repo, "checkout", "-q", "main")
+	if _, _, err := BranchPushSpec(core.New(), context.Background(), repo, BranchPushOpts{Branch: "topic"}); !errors.Is(err, ErrUpstreamLocal) {
+		t.Fatalf("err = %v, want ErrUpstreamLocal", err)
+	}
+}
+
+// §7.3: 원격 브랜치 삭제는 완전 이름이다.
+func TestRemoteBranchDeleteSpec_FullRef(t *testing.T) {
+	repo := tempRepoWithRemote(t)
+	spec, err := RemoteBranchDeleteSpec(core.New(), context.Background(), repo, RemoteBranchOpts{Remote: "origin", Branch: "feat"})
+	if err != nil {
+		t.Fatalf("RemoteBranchDeleteSpec: %v", err)
+	}
+	want := []string{"push", progressFlag, "origin", pushDeleteFlag, "refs/heads/feat"}
+	if fmt.Sprint(spec.Argv) != fmt.Sprint(want) {
+		t.Fatalf("argv = %v, want %v", spec.Argv, want)
 	}
 }

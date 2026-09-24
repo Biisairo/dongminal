@@ -159,7 +159,9 @@ func TagDeleteRemoteArgs(o TagRemoteOpts) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return append(argv, pushDeleteFlag, o.Name), nil
+	// 완전 이름으로 지운다 (REPO_FIX 01 §7.3). 짧은 이름은 원격에 같은 이름의
+	// 브랜치만 있으면 **그 브랜치를** 지웠다(실측 `[deleted] foo`).
+	return append(argv, pushDeleteFlag, query.TagRefPrefix+o.Name), nil
 }
 
 // TagCreate 는 태그를 만든다 (FR-GIT-260).

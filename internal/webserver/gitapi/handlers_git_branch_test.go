@@ -813,7 +813,7 @@ func TestAPIGitRemoteBranch_FetchAndDelete(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("→ %d %v", code, out)
 	}
-	if got := gitBranchJobArgv(t, out); got != "push --progress origin --delete feat" {
+	if got := gitBranchJobArgv(t, out); got != "push --progress origin --delete refs/heads/feat" {
 		t.Fatalf("argv = %q", got)
 	}
 	hints := s2.Git.Service().Hints(0)

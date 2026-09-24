@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/query"
@@ -503,13 +502,22 @@ func BranchPushSpec(s *core.Service, ctx context.Context, repo string, o BranchP
 	argv = append(argv, force...)
 	spec := core.WriteSpec{Destructive: o.Force != PushNoForce}
 
-	up, err := query.BranchUpstream(s, ctx, repo, o.Branch)
+	up, err := query.BranchUpstreamTarget(s, ctx, repo, o.Branch)
 	if err != nil {
 		return core.WriteSpec{}, plan, err
 	}
-	if up != "" {
-		plan.Remote = remoteOfUpstream(up)
-		spec.Argv = append(argv, plan.Remote, o.Branch)
+	// REPO_FIX 01 §7.3: upstream 이 있으면 **그 이름으로** 민다.
+	//
+	//	이전 동작: `push <remote> <branch>` — upstream 이름이 달라도 같은 이름의
+	//	          새 원격 브랜치가 생기고 upstream 은 갱신되지 않았다(실측)
+	//	새  동작: `push <remote> <branch>:<upstream ref>` — gone 이면 다시 만든다
+	//	이유:     사용자가 고른 것은 "이 브랜치의 upstream 에 밀기"다
+	switch {
+	case up.Remote == ".":
+		return core.WriteSpec{}, plan, fmt.Errorf("%w: %s 의 upstream 은 로컬 브랜치(%s)다", ErrUpstreamLocal, o.Branch, up.Ref)
+	case up.Remote != "" && up.Ref != "":
+		plan.Remote = up.Remote
+		spec.Argv = append(argv, up.Remote, o.Branch+":"+up.Ref)
 		return spec, plan, nil
 	}
 	remote, err := query.DefaultRemote(s, ctx, repo)
@@ -548,7 +556,8 @@ func RemoteBranchDeleteSpec(s *core.Service, ctx context.Context, repo string, o
 	}
 	s.AddHint(remoteBranchDeleteHint(repo, o, oid))
 	return core.WriteSpec{
-		Argv:        []string{"push", progressFlag, o.Remote, pushDeleteFlag, o.Branch},
+		// 완전 이름으로 지운다 (§7.3) — 짧은 이름은 같은 이름의 태그와 겹친다.
+		Argv:        []string{"push", progressFlag, o.Remote, pushDeleteFlag, query.BranchRefPrefix + o.Branch},
 		Destructive: true,
 	}, nil
 }
@@ -558,15 +567,6 @@ func checkRemoteBranch(o RemoteBranchOpts) error {
 		return err
 	}
 	return core.CheckRefArg("branch", o.Branch)
-}
-
-// remoteOfUpstream 은 `origin/feat` 에서 원격 이름을 뽑는다. 첫 조각만 보는 이유는
-// 브랜치 이름에 `/` 가 흔하기 때문이다 (`origin/feature/a`).
-func remoteOfUpstream(up string) string {
-	if i := strings.Index(up, "/"); i > 0 {
-		return up[:i]
-	}
-	return up
 }
 
 // branchDeleteHint 는 지워질 브랜치의 oid 로 **되살리는 명령**을 만든다

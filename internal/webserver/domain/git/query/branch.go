@@ -15,9 +15,9 @@ import (
 // 규칙을 직접 구현하지 않는다 — `git check-ref-format` 이 판정한다. 목록도 여기서
 // 만들지 않는다: Refs 가 이미 답한다 (FR-GIT-147).
 
-// branchRefPrefix 는 로컬 브랜치 ref 의 접두다. 이름만으로 묻지 않는 이유는
+// BranchRefPrefix 는 로컬 브랜치 ref 의 접두다. 이름만으로 묻지 않는 이유는
 // for-each-ref 의 패턴이 `refs/heads/feat` 로 `refs/heads/feat/sub` 도 잡기 때문이다.
-const branchRefPrefix = "refs/heads/"
+const BranchRefPrefix = "refs/heads/"
 
 // refNameInvalidStderr 는 "그 이름은 브랜치 이름이 아니다" 를 뜻하는 git 의 fatal
 // 문구다 (git 2.50.1 실측). classify 가 분류하지 않는 exit 128 이므로 문구로 좁힌다
@@ -61,7 +61,7 @@ func LocalBranchExists(s *core.Service, ctx context.Context, repo, name string) 
 	if err := core.CheckRefArg("name", name); err != nil {
 		return false, err
 	}
-	if _, err := s.Exec(ctx, repo, "rev-parse", "--verify", branchRefPrefix+name); err != nil {
+	if _, err := s.Exec(ctx, repo, "rev-parse", "--verify", BranchRefPrefix+name); err != nil {
 		var xe *core.ExecError
 		if errors.As(err, &xe) && xe.Unwrap() == nil {
 			return false, nil
@@ -103,7 +103,7 @@ const (
 // 안내문만 남는다. `refs/heads/<name>` 으로 정확히 묻는 이유는 LocalBranchExists 와
 // 같다: `feat` 는 `feat/sub` 도 잡는 패턴이 된다.
 func BranchOid(s *core.Service, ctx context.Context, repo, name string) (string, error) {
-	return refOid(s, ctx, repo, branchRefPrefix, name)
+	return refOid(s, ctx, repo, BranchRefPrefix, name)
 }
 
 // RemoteBranchOid 는 원격 추적 ref 가 가리키는 커밋이다 (FR-GIT-268). short 는
@@ -129,11 +129,33 @@ func BranchUpstream(s *core.Service, ctx context.Context, repo, name string) (st
 	if err := core.CheckRefArg("branch", name); err != nil {
 		return "", err
 	}
-	out, err := s.Exec(ctx, repo, "for-each-ref", "--format=%(upstream:short)", branchRefPrefix+name)
+	out, err := s.Exec(ctx, repo, "for-each-ref", "--format=%(upstream:short)", BranchRefPrefix+name)
 	if err != nil {
 		return "", err
 	}
 	return strings.TrimSpace(out.Stdout), nil
+}
+
+// UpstreamTarget 은 upstream 의 원격 이름과 그 원격에서의 ref 다. 원격이 `.` 이면
+// upstream 이 로컬 브랜치다. upstream 이 없으면 둘 다 "" 다.
+type UpstreamTarget struct {
+	Remote string // 예: "origin", "." (로컬)
+	Ref    string // 예: "refs/heads/feature-x"
+}
+
+// BranchUpstreamTarget 은 upstream 을 **원격 이름과 ref 로 나눠** 준다
+// (REPO_FIX 01 §7.3). `%(upstream:short)` 를 첫 `/` 에서 자르면 `/` 가 든 원격
+// 이름·로컬 upstream(`.`)을 잘못 읽는다. gone 인 upstream 도 설정대로 준다.
+func BranchUpstreamTarget(s *core.Service, ctx context.Context, repo, name string) (UpstreamTarget, error) {
+	if err := core.CheckRefArg("branch", name); err != nil {
+		return UpstreamTarget{}, err
+	}
+	out, err := s.Exec(ctx, repo, "for-each-ref", "--format=%(upstream:remotename)%00%(upstream:remoteref)", BranchRefPrefix+name)
+	if err != nil {
+		return UpstreamTarget{}, err
+	}
+	remote, ref, _ := strings.Cut(strings.TrimRight(out.Stdout, "\n"), "\x00")
+	return UpstreamTarget{Remote: remote, Ref: ref}, nil
 }
 
 // BranchMerged 는 `git branch -d` 가 그 브랜치를 받아들일지다 (FR-GIT-254).

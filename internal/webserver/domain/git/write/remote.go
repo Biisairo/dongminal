@@ -50,6 +50,9 @@ var (
 	// ErrPublishRequired 는 upstream 설정을 사용자가 아직 확인하지 않았다는
 	// 것이다 (FR-GIT-100).
 	ErrPublishRequired = errors.New("publish_required")
+	// ErrUpstreamLocal 은 upstream 이 로컬 브랜치(원격 `.`)라 밀 원격이 없다는
+	// 것이다 (REPO_FIX 01 §7.3).
+	ErrUpstreamLocal = errors.New("upstream_local")
 	// ErrDetachedPush 는 detached HEAD 라 밀 브랜치가 없다는 것이다.
 	ErrDetachedPush = errors.New("detached_head_push")
 	// ErrPushTarget 은 지목한 remote/branch 가 인자로 넘길 수 없는 값이라는

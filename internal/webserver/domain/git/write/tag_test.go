@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"dongminal/internal/shared/gittest"
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/query"
 )
@@ -124,7 +125,7 @@ func TestTagRemoteAndDeleteArgs(t *testing.T) {
 		{
 			"원격 삭제", TagDeleteRemoteArgs,
 			TagRemoteOpts{Remote: "origin", Name: "v1.0"},
-			[]string{"push", "--progress", "origin", "--delete", "v1.0"},
+			[]string{"push", "--progress", "origin", "--delete", "refs/tags/v1.0"},
 		},
 	}
 	for _, c := range cases {
@@ -359,4 +360,25 @@ func tempRepoWithTag(t *testing.T, name string) string {
 	repo := tempRepo(t)
 	gitRun(t, repo, "tag", "-a", "-m", "픽스처 태그", name)
 	return repo
+}
+
+// REPO_FIX 01 §7.3: 원격에 브랜치 foo 만 있을 때 "원격 태그 foo 삭제"가 브랜치를
+// 지웠다(실측 `[deleted] foo`). 완전 이름(refs/tags/foo)으로 지우면 git 이 없는
+// 태그 삭제를 거절하고 브랜치는 남는다.
+func TestTagDeleteRemote_DoesNotDeleteSameNamedBranch(t *testing.T) {
+	repo := tempRepoWithRemote(t) // 원격에 브랜치 feat
+	s := core.New()
+	ctx := context.Background()
+	spec, err := TagDeleteRemoteSpec(s, ctx, repo, TagRemoteOpts{Remote: "origin", Name: "feat"})
+	if err != nil {
+		t.Fatalf("TagDeleteRemoteSpec: %v", err)
+	}
+	if got := spec.Argv[len(spec.Argv)-1]; got != "refs/tags/feat" {
+		t.Fatalf("삭제 대상 %q, want refs/tags/feat", got)
+	}
+	_, _ = s.ExecWrite(ctx, repo, spec)
+	out := gittest.Run(t, repo, "ls-remote", "origin", "refs/heads/feat")
+	if !strings.Contains(out, "refs/heads/feat") {
+		t.Fatal("원격 태그 삭제가 같은 이름의 원격 브랜치를 지웠다")
+	}
 }

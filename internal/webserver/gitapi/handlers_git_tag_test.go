@@ -244,7 +244,7 @@ func TestAPIGitTagDeleteRemote_JobPathOnly(t *testing.T) {
 		t.Fatalf("remote = %v, want origin", out["remote"])
 	}
 	jb := gitRemoteWaitDone(t, s, id)
-	want := []string{"push", "--progress", "origin", "--delete", "v1.0"}
+	want := []string{"push", "--progress", "origin", "--delete", "refs/tags/v1.0"}
 	if fmt.Sprint(jb.Argv) != fmt.Sprint(want) {
 		t.Fatalf("job argv = %v, want %v", jb.Argv, want)
 	}

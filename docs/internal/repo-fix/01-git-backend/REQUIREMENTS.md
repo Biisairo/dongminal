@@ -246,8 +246,8 @@
 - 프런트: 버튼은 `index_locked` 응답·잡 결과에서만. 확인 다이얼로그에 lockPath·상대 시각과 확인문("터미널 등 다른 git 이 실행 중이면 지우지 말 것"). 성공 뒤 status 재수집, 원래 동작은 자동 재시도하지 않는다.
 
 ### 7.3 ref 모호성 (N1, #11)
-- 원격 브랜치·태그 삭제는 완전 이름(`refs/heads/<b>`, `refs/tags/<t>`). 원격에 브랜치만 있을 때 태그 삭제가 브랜치를 지우지 않는다(실측 재현을 테스트로). 태그 원격 삭제 시 `TagOid` 실패를 무시하는 경로를 없앤다.
-- 브랜치 Push: upstream 이 원격 R 의 브랜치 B → `push R <local>:refs/heads/B`(R 이 기본 원격이 아니어도). upstream 원격이 `.` → 거절+사유. upstream gone → 같은 refspec 으로 다시 만든다. upstream 이 있으면 `-u` 재설정 안 함. upstream 없으면 현행.
+- 원격 브랜치·태그 삭제는 완전 이름(`refs/heads/<b>`, `refs/tags/<t>`). 원격에 브랜치만 있을 때 태그 삭제가 브랜치를 지우지 않는다(실측 재현을 테스트로). 태그 원격 삭제 시 로컬 `TagOid` 조회 실패는 **현행대로 값 없는 hint 로 진행한다**(구현 중 정정: 로컬에 없는 원격 전용 태그를 지울 수 있어야 하고, 위험이던 브랜치 삭제는 완전 이름으로 해소된다).
+- 브랜치 메뉴 Push(`BranchPushSpec`): upstream 이 원격 R 의 브랜치 B → `push R <local>:refs/heads/B`(R 이 기본 원격이 아니어도). upstream 원격이 `.` → 거절+사유. upstream gone → 같은 refspec 으로 다시 만든다. upstream 이 있으면 `-u` 재설정 안 함. upstream 없으면 현행. 현재 브랜치 Push(`PushSpec`, 인자 없는 `git push`)는 사용자의 `push.default`·`pushRemote` 설정을 존중하므로 바꾸지 않는다. upstream 은 `%(upstream:remotename)`·`%(upstream:remoteref)` 로 원격과 ref 를 나눠 읽는다(`/` 가 든 원격 이름 대응).
 
 ### 7.4 충돌 해결 (#24, N8)
 - 선택한 쪽 S(ours|theirs, git 정의 그대로 — rebase 중 반전 안내는 기존 프런트 문구)의 stage 가 없으면 `git rm`, 양쪽 삭제(DD)는 `git rm`, 그 밖(AA 포함)은 `checkout --S` + `add`. 경로별로 실행해 한 경로의 실패가 다른 경로를 막지 않는다.
