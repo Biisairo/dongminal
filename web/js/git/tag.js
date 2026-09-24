@@ -167,6 +167,8 @@ class GitTagCreate {
   }
 
   _onName(v,d){
+    // REPO_FIX 05 F-9.5: 입력마다 세대를 올린다 — 앞 이름의 응답이 지금 입력을 열지 않는다.
+    this._seq++;
     TIMERS.cancel(this._t);
     const name=(v.name||'').trim();
     if(!name){this._setName('empty',GIT_TAG_WHY_EMPTY);return}

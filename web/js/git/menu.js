@@ -10,7 +10,11 @@
  *
  * 항목의 모양:
  *   {id, label, run(target,targets), disabled(target)→사유|'', warn, destructive,
- *    action, title, targets(target)→[문자열], hint(target)→{note,command}}
+ *    action, title, targets(target)→[문자열], hint(target)→{note,command},
+ *    busy: 잡 키 | 'write' | 그 배열 | (target)→그것}
+ *
+ * `busy` 는 REPO_FIX 05 F-9.2 의 판정 재료다 — 그 항목이 시작하는 잡의 키(`gitJobSlotsOf`)
+ * 이거나 동기 쓰기('write' = index 칸)다. 그 칸이 돌면 항목은 비활성 + 사유다.
  *   {sep:true}
  *
  * 확인은 **항목이 따로 쓰지 않는다** — `warn:true` 는 1단계, `destructive:true` 는
@@ -61,18 +65,18 @@ const GIT_MENUS={
   commit:[
     // FR-GIT-141: 18단계의 생성 다이얼로그를 시작점만 이 커밋으로 고정해 연다 —
     // 이름 검증(FR-GIT-159)까지 그것이 이미 안다.
-    {id:'branch-from',label:t('git.menu.branch_from'),
+    {id:'branch-from',busy:'write',label:t('git.menu.branch_from'),
      run:t=>gitMenuPanel().createBranchFrom(t.oid)},
     // FR-GIT-260: 태그 생성의 **같은 다이얼로그**를 대상만 이 커밋으로 고정해 연다
     // — 이름 검증도 종류 선택도 그것이 이미 안다.
-    {id:'tag-from',label:GIT_TAG_CREATE_AT,
+    {id:'tag-from',busy:'write',label:GIT_TAG_CREATE_AT,
      run:t=>gitMenuPanel().createTag(t.oid)},
     {id:'copy-hash',   label:t('git.menu.copy_hash'),run:t=>gitMenuPanel().copyText(t.oid)},
     {id:'copy-subject',label:t('git.menu.copy_subject'),run:t=>gitMenuPanel().copyText(t.subject)},
     {sep:true},
     // FR-GIT-144: detached 가 됨을 사전 경고하고, dirty 면 묶음 N 의 3선택을
     // 거친다 — 태그 메뉴와 같은 경로다. 판정을 두 벌로 만들지 않는다.
-    {id:'checkout-detached',label:'Checkout (detached)',warn:true,
+    {id:'checkout-detached',busy:'checkout',label:'Checkout (detached)',warn:true,
      action:GIT_CHECKOUT_DETACHED_ACT,title:GIT_CHECKOUT_DETACHED_TITLE,
      targets:t=>[t.abbrev+(t.subject?' '+t.subject:'')],
      hint:()=>({note:GIT_DETACHED_NOTE,command:''}),
@@ -83,20 +87,20 @@ const GIT_MENUS={
     // 넷 다 `gitOpBusy()` 를 **먼저** 부른다 (FR-GIT-252) — 진행 중 작업이 있으면
     // 새 작업을 시작할 수 없고, 판정 근거는 관측 하나다. 그 뒤에 오는 것이 그
     // 항목만의 사유이며, 사유가 없으면 항목은 늘 열려 있다.
-    {id:'cherry-pick',label:GIT_CO_CHERRY_LABEL,
+    {id:'cherry-pick',busy:'cherry-pick',label:GIT_CO_CHERRY_LABEL,
      disabled:t=>gitOpBusy()||GitCommitOps.whyHead(t),
      run:t=>GitCommitOps.cherryPick(gitMenuPanel(),t)},
-    {id:'revert',label:GIT_CO_REVERT_LABEL,
+    {id:'revert',busy:'revert',label:GIT_CO_REVERT_LABEL,
      disabled:()=>gitOpBusy(),
      run:t=>GitCommitOps.revert(gitMenuPanel(),t)},
     // reset 은 **파괴 여부가 옵션에서 파생하므로**(`--hard` 만) 여기서
     // destructive 를 선언하지 않는다 — 선언하면 세 모드 전부가 확인을 요구한다.
-    {id:'reset',label:GIT_CO_RESET_LABEL,
+    {id:'reset',busy:'reset',label:GIT_CO_RESET_LABEL,
      disabled:t=>gitOpBusy()||GitCommitOps.whyHead(t),
      run:t=>GitCommitOps.reset(gitMenuPanel(),t)},
     // drop 은 언제나 파괴적이다 (`commit_drop`). 파괴적 확인과 recovery hint 는
     // 프레임워크가 거친다 — 항목이 확인 코드를 따로 쓰지 않는다 (FR-GIT-89·92).
-    {id:'drop',label:GIT_CO_DROP_LABEL,destructive:true,
+    {id:'drop',busy:'drop',label:GIT_CO_DROP_LABEL,destructive:true,
      action:GIT_ACT_COMMIT_DROP,title:GIT_CO_DROP_TITLE,
      disabled:t=>gitOpBusy()||GitCommitOps.whyDrop(t),
      targets:t=>[GitCommitOps.label(t)],
@@ -129,17 +133,17 @@ const GIT_MENUS={
     {id:'blame',      label:GIT_FILE_BLAME,  run:t=>gitMenuPanel().openBlame(t)},
     // FR-GIT-273: **git 실행이 아니라 파일 쓰기다.** 저장소 루트의 `.gitignore`
     // 하나만 대상이며, 경로가 그 안인지는 서버가 다시 본다.
-    {id:'ignore',     label:GIT_FILE_IGNORE,run:t=>gitMenuPanel().ignorePath(t)},
+    {id:'ignore',busy:'write',     label:GIT_FILE_IGNORE,run:t=>gitMenuPanel().ignorePath(t)},
   ],
   // 브랜치·태그 (FR-GIT-154·155·156·160). 로컬과 원격은 **뜻이 다른 두 항목**이다 —
   // 원격 ref 로 그냥 옮겨 가면 detached 가 되므로 같은 이름의 로컬을 만들며 추적을
   // 설정한다 (FR-GIT-156). 어느 쪽이 왜 막혔는지는 사유로 알린다.
   branch:[
     {id:'copy-name',label:t('git.menu.copy_branch_name'),run:t=>gitMenuPanel().copyText(t.short)},
-    {id:'checkout', label:'Checkout',
+    {id:'checkout',busy:'checkout', label:'Checkout',
      disabled:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_MENU_REMOTE_REF:(t.isHead?GIT_MENU_CURRENT:''),
      run:t=>gitMenuPanel().checkoutRef(t.short,{})},
-    {id:'checkout-local',label:GIT_BR_CHECKOUT_LOCAL,
+    {id:'checkout-local',busy:'checkout',label:GIT_BR_CHECKOUT_LOCAL,
      disabled:t=>t.kind===GIT_REF_KIND_REMOTE?'':GIT_MENU_LOCAL_ONLY,
      run:t=>gitMenuPanel().checkoutRemote(t.short)},
     {sep:true},
@@ -148,9 +152,9 @@ const GIT_MENUS={
     // merge·rebase 는 **진행 중 작업을 먼저 본다** (FR-GIT-252) — 판정은 gitOpBusy()
     // 한 자리이고, 항목마다 다시 세면 한 곳이 빠져도 조용히 지나간다.
     // FR-GIT-259: 커밋 메뉴의 `branch-from` 과 **같은 함수**를 시작점만 바꿔 부른다.
-    {id:'branch-from',label:GIT_BR_CREATE_FROM,
+    {id:'branch-from',busy:'write',label:GIT_BR_CREATE_FROM,
      run:t=>gitMenuPanel().createBranchFrom(t.short)},
-    {id:'rename',label:GIT_BR_RENAME,
+    {id:'rename',busy:'write',label:GIT_BR_RENAME,
      disabled:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY:'',
      run:t=>gitMenuPanel().branchRename(t)},
     // BRANCH_MENU_UNIFY_SRS FR-BMU-1~3: **로컬·원격 모두 여기다.**
@@ -158,11 +162,11 @@ const GIT_MENUS={
     // 반대였다 — 항목이 둘이라 로컬 브랜치에서 Pull 을 누르려던 사용자가 "원격
     // 브랜치에서만" 으로 막혔다. 동작이 하나였으므로 항목도 하나다.
     // ref 종류는 더 이상 비활성 사유가 아니다 (FR-BMU-2).
-    {id:'merge',label:GIT_BR_MERGE,
+    {id:'merge',busy:'merge',label:GIT_BR_MERGE,
      disabled:t=>gitOpBusy()||(t.isHead?GIT_BR_WHY_SELF:''),
      run:t=>gitMenuPanel().branchMerge(t.short)},
     // rebase 는 파괴적이다 (`rebase`) — 커밋 해시가 바뀐다. hint 는 rebase 전 HEAD 다.
-    {id:'rebase',label:GIT_BR_REBASE,destructive:true,
+    {id:'rebase',busy:'rebase',label:GIT_BR_REBASE,destructive:true,
      action:GIT_ACT_REBASE,title:GIT_BR_REBASE_TITLE,
      disabled:t=>gitOpBusy()||(t.isHead?GIT_BR_WHY_SELF:''),
      targets:t=>[t.short],
@@ -170,13 +174,13 @@ const GIT_MENUS={
        command:'git reset --hard '+(((gitMenuPanel().statusOf()||{}).oid)||'')}),
      run:t=>gitMenuPanel().branchRebase(t.short)},
     {sep:true},
-    {id:'upstream-set',label:GIT_BR_SET_UPSTREAM,
+    {id:'upstream-set',busy:'write',label:GIT_BR_SET_UPSTREAM,
      disabled:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY:'',
      run:t=>gitMenuPanel().branchSetUpstream(t)},
-    {id:'upstream-unset',label:GIT_BR_UNSET_UPSTREAM,
+    {id:'upstream-unset',busy:'write',label:GIT_BR_UNSET_UPSTREAM,
      disabled:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY:(t.upstream?'':GIT_BR_WHY_NO_UPSTREAM),
      run:t=>gitMenuPanel().branchUnsetUpstream(t)},
-    {id:'push',label:GIT_BR_PUSH,
+    {id:'push',busy:'branch/push',label:GIT_BR_PUSH,
      disabled:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY:'',
      run:t=>gitMenuPanel().branchPush(t)},
     {sep:true},
@@ -198,7 +202,7 @@ const GIT_MENUS={
      * 서버의 파괴적 목록이 `action` 으로 정하므로, 뭉뚱그리면 원격 삭제가 로컬
      * 삭제의 확인을 입는다.
      */
-    {id:'delete',destructive:true,
+    {id:'delete',busy:t=>t.kind===GIT_REF_KIND_REMOTE?'branch/delete-remote':'write',destructive:true,
      label:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_BR_REMOTE_DELETE:GIT_BR_DELETE,
      action:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_ACT_REMOTE_REF_DELETE:GIT_ACT_BRANCH_DELETE,
      title:t=>t.kind===GIT_REF_KIND_REMOTE?GIT_BR_REMOTE_DELETE_TITLE:GIT_BR_DELETE_TITLE,
@@ -223,7 +227,7 @@ const GIT_MENUS={
      * 짝을 세는 것과 그 사유는 `pairOf` 한 자리가 안다 (FR-BMU-16e) — 비활성
      * 판정과 실행이 같은 답을 봐야 눌러 놓고 아무 일도 안 일어나지 않는다.
      */
-    {id:'delete-both',label:GIT_BR_DELETE_BOTH,destructive:true,
+    {id:'delete-both',busy:['write','branch/delete-remote'],label:GIT_BR_DELETE_BOTH,destructive:true,
      action:GIT_ACT_BRANCH_DELETE,title:GIT_BR_DELETE_BOTH_TITLE,
      disabled:t=>{
        const p=gitMenuPanel().branchDeletePair(t);
@@ -251,7 +255,7 @@ const GIT_MENUS={
     // 그 일을 한다), FR-BMU-16(D-BMU-6)이 `remote-delete` 를 걷었다(위의 `delete`
     // 가 원격 행에서 그 일을 한다). 남은 것은 fetch 뿐이다 — 그것만이 원격 ref
     // 에서만 뜻을 갖고 다른 항목이 대신할 수 없다.
-    {id:'remote-fetch',label:GIT_BR_REMOTE_FETCH,
+    {id:'remote-fetch',busy:'branch/fetch',label:GIT_BR_REMOTE_FETCH,
      disabled:t=>t.kind===GIT_REF_KIND_REMOTE?'':GIT_MENU_LOCAL_ONLY,
      run:t=>gitMenuPanel().branchFetchInto(t.short)},
   ],
@@ -262,11 +266,11 @@ const GIT_MENUS={
   // 이므로 파괴적 확인은 프레임워크가 거치고, 항목은 **되살리는 명령**만 선언한다
   // — 그 명령은 지우기 전 oid 를 싣는다 (FR-GIT-92·250.2).
   tag:[
-    {id:'create',label:GIT_TAG_NEW,run:()=>gitMenuPanel().createTag('')},
+    {id:'create',busy:'write',label:GIT_TAG_NEW,run:()=>gitMenuPanel().createTag('')},
     {id:'copy-name',label:t('git.menu.copy_tag_name'),run:t=>gitMenuPanel().copyText(t.short)},
     // 태그는 브랜치가 아니므로 옮겨 가면 detached 다 — 사전 경고를 1단계 거친다
     // (FR-GIT-144 와 같은 규약).
-    {id:'checkout', label:'Checkout (detached)',warn:true,
+    {id:'checkout',busy:'checkout', label:'Checkout (detached)',warn:true,
      action:GIT_CHECKOUT_DETACHED_ACT,title:GIT_CHECKOUT_DETACHED_TITLE,
      targets:t=>[t.short],
      hint:()=>({note:GIT_DETACHED_NOTE,command:''}),
@@ -274,16 +278,16 @@ const GIT_MENUS={
     {sep:true},
     // push 는 파괴적이 아니다 — 원격에 없던 ref 를 더할 뿐이다. 원격 작업이므로
     // job 경로를 탄다 (FR-GIT-262·101~104).
-    {id:'push',    label:GIT_TAG_PUSH,    run:t=>gitMenuPanel().tagPush(t.short)},
-    {id:'push-all',label:GIT_TAG_PUSH_ALL,run:()=>gitMenuPanel().tagPushAll()},
+    {id:'push',busy:'tag-push',    label:GIT_TAG_PUSH,    run:t=>gitMenuPanel().tagPush(t.short)},
+    {id:'push-all',busy:'tag-push',label:GIT_TAG_PUSH_ALL,run:()=>gitMenuPanel().tagPushAll()},
     {sep:true},
-    {id:'delete',label:GIT_TAG_DELETE,destructive:true,
+    {id:'delete',busy:'write',label:GIT_TAG_DELETE,destructive:true,
      action:GIT_ACT_TAG_DELETE,title:GIT_TAG_DELETE_TITLE,
      targets:t=>[t.short],
      hint:t=>({note:GIT_TAG_DELETE_NOTE,
        command:'git tag '+t.short+' '+gitTagOid(t)}),
      run:t=>gitMenuPanel().tagDelete(t.short)},
-    {id:'delete-remote',label:GIT_TAG_DELETE_REMOTE,destructive:true,
+    {id:'delete-remote',busy:'tag-delete-remote',label:GIT_TAG_DELETE_REMOTE,destructive:true,
      action:GIT_ACT_REMOTE_REF_DELETE,title:GIT_TAG_DELETE_REMOTE_TITLE,
      targets:t=>[t.short],
      hint:t=>({note:GIT_TAG_DELETE_REMOTE_NOTE,
@@ -294,11 +298,11 @@ const GIT_MENUS={
   // stash (FR-GIT-162~164·168). drop 만 파괴적이며 확인은 프레임워크가 거친다 —
   // 항목이 확인 코드를 따로 쓰지 않는다.
   stash:[
-    {id:'apply',      label:GIT_STASH_APPLY,      run:t=>gitMenuPanel().stashApply(t.oid,false)},
-    {id:'apply-index',label:GIT_STASH_APPLY_INDEX,run:t=>gitMenuPanel().stashApply(t.oid,true)},
-    {id:'pop',        label:GIT_STASH_POP,        run:t=>gitMenuPanel().stashPop(t.oid)},
+    {id:'apply',busy:'write',      label:GIT_STASH_APPLY,      run:t=>gitMenuPanel().stashApply(t.oid,false)},
+    {id:'apply-index',busy:'write',label:GIT_STASH_APPLY_INDEX,run:t=>gitMenuPanel().stashApply(t.oid,true)},
+    {id:'pop',busy:'write',        label:GIT_STASH_POP,        run:t=>gitMenuPanel().stashPop(t.oid)},
     {sep:true},
-    {id:'drop',label:GIT_STASH_DROP,destructive:true,
+    {id:'drop',busy:'write',label:GIT_STASH_DROP,destructive:true,
      action:GIT_ACT_STASH_DROP,title:GIT_STASH_DROP_TITLE,
      targets:t=>[GitStash.label(t)],
      // hint 는 지워질 stash 의 sha 로 만든다 — 안내문만 남기면 되살릴 수 없다
@@ -309,7 +313,7 @@ const GIT_MENUS={
     {sep:true},
     // FR-GIT-272: 그 stash 를 새 브랜치에 적용하며 옮겨 간다. **파괴적이 아니다**
     // — git 은 적용이 끝난 뒤에만 stash 를 지운다.
-    {id:'branch-from',label:GIT_STASH_BRANCH,run:t=>gitMenuPanel().stashBranch(t)},
+    {id:'branch-from',busy:'stash-branch',label:GIT_STASH_BRANCH,run:t=>gitMenuPanel().stashBranch(t)},
     {id:'copy-name',  label:GIT_STASH_COPY_NAME,run:t=>gitMenuPanel().copyText(GitStash.ref(t.index))},
     {id:'copy-hash',  label:GIT_STASH_COPY_HASH,run:t=>gitMenuPanel().copyText(t.oid)},
   ],
@@ -318,15 +322,15 @@ const GIT_MENUS={
     {id:'open-changes',label:t('git.menu.open_changes'),run:()=>gitMenuPanel().openView('changes')},
     {sep:true},
     // FR-GIT-277: 생성 다이얼로그를 그대로 다시 쓴다 — 두 벌로 두면 한쪽만 고쳐진다.
-    {id:'stash',label:GIT_UNC_STASH,
+    {id:'stash',busy:'write',label:GIT_UNC_STASH,
      disabled:()=>gitMenuPanel().dirtyCount()?'':GIT_UNC_NOTHING,
      run:()=>gitMenuPanel().stashCreate()},
     // mixed 다 — index 만 HEAD 로 되돌리고 워킹 트리는 그대로 둔다. 파괴적이
     // 아니므로 확인을 붙이지 않는다 (FR-GIT-97).
-    {id:'reset',label:GIT_UNC_RESET,run:()=>gitMenuPanel().uncommittedReset()},
+    {id:'reset',busy:'write',label:GIT_UNC_RESET,run:()=>gitMenuPanel().uncommittedReset()},
     // **파괴적이다** (FR-GIT-277). 되살릴 수 없으므로 hint 는 되돌리는 명령이
     // 아니라 먼저 담아 두는 명령이다.
-    {id:'clean',label:GIT_UNC_CLEAN,destructive:true,
+    {id:'clean',busy:'write',label:GIT_UNC_CLEAN,destructive:true,
      action:GIT_ACT_CLEAN_UNTRACKED,title:GIT_UNC_CLEAN_TITLE,
      disabled:()=>gitMenuPanel().untrackedPaths().length?'':GIT_UNC_NOTHING,
      targets:()=>gitMenuPanel().untrackedPaths(),
@@ -356,7 +360,7 @@ class GitMenu {
     const items=GIT_MENUS[kind]||[];
     for(const id of ids){
       const it=items.find(x=>!x.sep&&x.id===id);
-      if(!it||(it.disabled&&it.disabled(target))) continue;
+      if(!it||GitMenu._why(it,target)) continue;
       return it;
     }
     return null;
@@ -391,7 +395,7 @@ class GitMenu {
      */
     const kit=items.map(it=>{
       if(it.sep) return {sep:true};
-      const why=it.disabled?(it.disabled(target)||''):'';
+      const why=GitMenu._why(it,target);
       return {
         id:it.id,label:GitMenu._val(it.label,target),cur:!!it.cur,
         // 사유가 있으면 그것이 title 이고, 없으면 툴팁(`tip`)이다 — `title` 은
@@ -415,6 +419,25 @@ class GitMenu {
    * 없었다 — 규약을 하나로 맞춘다. 상수는 그대로 상수로 지난다.
    */
   static _val(v,target){return typeof v==='function'?v(target):v}
+
+  /**
+   * 항목의 비활성 사유 — 항목 자신의 사유가 먼저, 없으면 잡 칸이다 (REPO_FIX 05 F-9.2).
+   *
+   * 판정은 01 의 칸 규칙이다(01 §6.4 "진행 중 잠금"): index 칸이 돌면 그 저장소의 동기
+   * 쓰기·index 잡 시작이, common 칸이 돌면 비-index 잡 시작이 막힌다. 서버도 409 `job_busy`
+   * 로 거절한다 — 누르기 전에 같은 사유를 보인다.
+   *   이전 동작: 항목이 열려 있다가 눌러야 거절 사유가 떴다
+   */
+  static _why(it,target){
+    const own=it.disabled?(it.disabled(target)||''):'';
+    if(own||!it.busy) return own;
+    const p=gitMenuPanel();
+    const jobs=p&&p._remote?p._remote():null;
+    if(!jobs) return '';
+    const keys=[].concat(GitMenu._val(it.busy,target));
+    const hit=keys.some(k=>(k==='write'?[GIT_JOB_SLOT_INDEX]:gitJobSlotsOf(k)).some(s=>jobs.busy(s)));
+    return hit?GIT_WRITE_ERR.job_busy:'';
+  }
 
   static close(){UIKit.closeMenu()}
 

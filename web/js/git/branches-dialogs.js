@@ -57,6 +57,9 @@ class GitBranchCreate {
   // 검사는 git 실행이다.
   _onName(v,d,key){
     if(key&&key!=='name') return {kind:this.whyKind,why:this.why};
+    // REPO_FIX 05 F-9.5: 입력마다 세대를 올린다 — 앞 이름의 검증 응답이 지금 입력의 실행
+    // 버튼을 열지 않는다. 이전: 세대가 요청 때만 올라, 디바운스 사이의 입력에 앞 응답이 닿았다.
+    this._seq++;
     TIMERS.cancel(this._t);
     const name=(v.name||'').trim();
     if(!name) return this._set('empty',GIT_BR_WHY_EMPTY);

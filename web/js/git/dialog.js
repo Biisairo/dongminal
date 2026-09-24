@@ -50,7 +50,8 @@ class GitDialog {
     // 파괴적 확인은 전문가에게 넘긴다 — 옵션 폼을 얹은 파괴적 동작은 아직 없다.
     if(d.destructive) return GitDialog.confirm(d);
     // 한 번에 하나다 — 겹치면 어느 대상의 다이얼로그인지 알 수 없다.
-    if(GitDialog._cur) return Promise.resolve(GitDialog._safe(d));
+    // REPO_FIX 05 F-9.3: 새 요청은 열린 창을 앞으로 가져와 포커스한다(새 창을 띄우지 않는다).
+    if(GitDialog._cur){GitDialog._cur._front(); return Promise.resolve(GitDialog._safe(d))}
     return new GitDialog(d)._show();
   }
 
@@ -351,6 +352,12 @@ class GitDialog {
 
   // 텍스트 필드가 있으면 그것이 첫 입력 자리다 (FR-GIT-173 · FR-PDA-5).
   // 그 밖에는 **목적 버튼**인 실행에 둔다 (FR-PDA-1) — 종전에는 취소였다.
+  // F-9.3: 겹쳐 온 요청에 열린 창을 보인다.
+  _front(){
+    if(this.ov&&this.ov.parentNode) document.body.appendChild(this.ov);
+    this._focus();
+  }
+
   _focus(){
     if(this._defBtn){this._defBtn.focus();return}
     const b=this.box;

@@ -126,3 +126,5 @@ const GIT_STASH_DROP=t('git.act.stash_drop');
 const GIT_ACT_STASH_DROP='stash_drop';
 const GIT_STASH_DROP_TITLE=t('git.stash_drop_title');
 const GIT_STASH_DROP_NOTE=t('git.stash_drop_note');
+// REPO_FIX 05 F-9.1: "Stash 후 checkout" 에서 checkout 이 이기지 못했을 때의 안내.
+const GIT_STASH_KEPT_NOTE=t('git.stash_kept_note');

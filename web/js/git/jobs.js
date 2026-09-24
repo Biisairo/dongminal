@@ -9,6 +9,22 @@
  * 칸 판정의 출처는 둘이다 — 도는 잡은 서버가 준 `slots`, 아직 응답이 오지 않은 시작은
  * `gitJobSlotsOf(key)`(서버 jobs.SlotsOf 와 같은 규칙).
  */
+/**
+ * REPO_FIX 05 §3A-7 (F-9.4): 끝난 잡 하나의 판정 — `canceled`·`ok`·`fail`·`unknown`.
+ * 원격 잡과 01 이 잡으로 옮긴 모든 쓰기가 이 한 함수를 쓴다.
+ *
+ * 성공은 `exitCode` 가 숫자이고 0 이며 `err` 가 없을 때뿐이다. 보관 기간(`JobRetention`
+ * 5분)이 지나 서버가 `{id, done:true}` 만 주면 `exitCode` 키가 없다 — **결과 미상**이다.
+ *   이전 동작: `!exitCode&&!err` 로 읽어 결과를 모르는 잡을 성공으로 칠했다
+ */
+function gitJobOutcome(jb){
+  if(!jb) return 'unknown';
+  if(jb.canceled) return 'canceled';
+  if(jb.err) return 'fail';
+  if(typeof jb.exitCode!=='number') return 'unknown';
+  return jb.exitCode===0?'ok':'fail';
+}
+
 class GitJobs {
   constructor(panel){
     this.panel=panel;
@@ -117,7 +133,7 @@ class GitJobs {
     if(this._owned.delete(jb.id)) return;
     const r=jb.result||{};
     if(r.status) this.panel.adopt({requested:this.panel.repo,repo:jb.repo,status:r.status});
-    if(jb.kind==='commit'&&!jb.err&&!jb.exitCode) this.panel._commit().adoptJobDone(jb);
+    if(jb.kind==='commit'&&gitJobOutcome(jb)==='ok') this.panel._commit().adoptJobDone(jb);
   }
 
   adoptJobs(jobs){this._each(v=>v.adoptJobs(jobs))}
@@ -134,3 +150,4 @@ class GitJobs {
 }
 
 window.GitJobs=GitJobs;
+window.gitJobOutcome=gitJobOutcome;

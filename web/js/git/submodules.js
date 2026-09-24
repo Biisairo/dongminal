@@ -282,10 +282,11 @@ class GitSubmodules extends GitListTab {
   _finishJob(jb){
     this._closeStream();
     this._job=null; this._busy=false; this._canceling=false;
-    const failed=!!(jb&&(jb.err||jb.canceled||(jb.exitCode&&jb.exitCode!==0)));
-    this._note=failed
-      ? {kind:'fail',msg:(jb&&jb.canceled)?GIT_SUB_UPDATE_CANCELED:(this._jobFail+((jb&&jb.err)?' — '+jb.err:''))}
-      : {kind:'done',msg:this._jobOk};
+    // REPO_FIX 05 F-9.4: 판정은 `gitJobOutcome` 하나다 — 결과 미상을 성공으로 적지 않는다.
+    const o=gitJobOutcome(jb);
+    this._note=o==='ok'?{kind:'done',msg:this._jobOk}
+      :o==='unknown'?{kind:'fail',msg:GIT_JOB_UNKNOWN_NOTE}
+      :{kind:'fail',msg:o==='canceled'?GIT_SUB_UPDATE_CANCELED:(this._jobFail+((jb&&jb.err)?' — '+jb.err:''))};
     // 상태가 바뀌었다 — 목록과 Changes 를 함께 새로 받는다 (서버의 완료 훅이 관측
     // 캐시를 이미 버렸다).
     this._load();

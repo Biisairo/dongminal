@@ -64,6 +64,9 @@ const GIT_JOB_RETRY_MAX=5;
 const GIT_JOB_RUNNING=t('git.job_running');
 const GIT_JOB_OK=t('git.job_ok');
 const GIT_JOB_FAIL=t('git.job_fail');
+// REPO_FIX 05 F-9.4: 끝났지만 결과를 모른다(보관 기간이 지났다).
+const GIT_JOB_UNKNOWN=t('git.job_unknown');
+const GIT_JOB_UNKNOWN_NOTE=t('git.job_unknown_note');
 const GIT_JOB_CANCELED=t('git.job_canceled');
 const GIT_JOB_CANCELING=t('git.job_canceling');
 const GIT_JOB_CLOSE=t('git.act.job_close');

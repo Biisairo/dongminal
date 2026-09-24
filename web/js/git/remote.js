@@ -203,7 +203,9 @@ class GitRemote {
     const close=box.querySelector('.git-job-close');
     close.classList.toggle('vis',!this._job&&!this._busy);
     const note=box.querySelector('.git-job-note');
-    const msg=this._conflict?GIT_JOB_CONFLICT_NOTE:'';
+    // F-9.4: 결과 미상은 성공도 실패도 아니다 — 중립 문구로 상태를 확인하라고 말한다.
+    const unknown=!this._job&&!!this._done&&gitJobOutcome(this._done)==='unknown';
+    const msg=this._conflict?GIT_JOB_CONFLICT_NOTE:(unknown?GIT_JOB_UNKNOWN_NOTE:'');
     note.textContent=msg;
     note.classList.toggle('vis',!!msg);
     const collapsed=this._logCollapsed();
@@ -227,7 +229,7 @@ class GitRemote {
     if(this._job||this._busy) return false;
     const d=this._done;
     if(!d||this._err||this._conflict) return false;
-    return !d.canceled&&!d.exitCode&&!d.err;
+    return gitJobOutcome(d)==='ok';
   }
 
   _state(){
@@ -237,14 +239,17 @@ class GitRemote {
     if(this._busy) return GIT_JOB_RUNNING;
     const d=this._done;
     if(!d) return this._err?GIT_JOB_FAIL:'';
-    if(d.canceled) return GIT_JOB_CANCELED;
-    return (d.exitCode||d.err)?GIT_JOB_FAIL:GIT_JOB_OK;
+    const o=gitJobOutcome(d);
+    if(o==='canceled') return GIT_JOB_CANCELED;
+    if(o==='unknown') return GIT_JOB_UNKNOWN;
+    return o==='ok'?GIT_JOB_OK:GIT_JOB_FAIL;
   }
 
   // 실패 사유·stderr tail·인증 안내·후속 선택지 (FR-GIT-104·105·108).
   _paintFail(box){
     const d=this._done||{};
-    const failed=!!(d.exitCode||d.err||d.canceled||this._err);
+    const o=this._done?gitJobOutcome(d):'';
+    const failed=!!(this._err||o==='fail'||o==='canceled');
     const fail=box.querySelector('.git-job-fail');
     fail.classList.toggle('vis',failed);
     fail.querySelector('.git-job-reason').textContent=this._err||d.err||'';
@@ -566,6 +571,9 @@ class GitRemote {
     // 걸리는지는 패널이 안다** (D-1). collect 를 기다리지 않는다 (FR-GVR-5) —
     // 서로 독립이며 기다리면 화면이 그만큼 늦는다.
     this.panel.afterRemoteJob(jb.kind);
+    // F-9.4: 결과를 모르면 status 뿐 아니라 목록들(stash·refs)도 다시 받는다 — 무엇이
+    // 일어났는지는 관측이 말한다. 성공 후처리(undo·draft 비우기)는 하지 않는다.
+    if(gitJobOutcome(jb)==='unknown') this.panel._reloadViews();
   }
 
   /**

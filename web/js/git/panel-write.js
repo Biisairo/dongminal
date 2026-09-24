@@ -248,9 +248,9 @@ Object.assign(GitPanel.prototype, {
   _jobRes(jb,requested){
     if(!jb) return {ok:false,code:0,data:{error:'job_not_found'}};
     const r=jb.result||{};
-    // REPO_FIX 05 F-9.4: 성공은 `exitCode===0` 이 명시된 경우만이다 — 보관 기간이 지나
-    // `{id, done:true}` 만 온 잡(결과 미상)을 이긴 것으로 읽으면 입력을 비운다.
-    const ok=!jb.err&&!jb.canceled&&jb.exitCode===0;
+    // REPO_FIX 05 F-9.4: 성공은 `exitCode===0` 이 명시된 경우만이다(`gitJobOutcome`) — 보관
+    // 기간이 지나 `{id, done:true}` 만 온 잡(결과 미상)을 이긴 것으로 읽으면 입력을 비운다.
+    const ok=gitJobOutcome(jb)==='ok';
     const data=Object.assign({},r,{requested,repo:jb.repo,ok,job:jb});
     if(!ok){
       data.error=jb.errorCode||'git_failed';

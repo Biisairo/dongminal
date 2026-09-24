@@ -59,8 +59,18 @@ class GitConfirm {
    */
   static async open({action,title,targets,sections,hint,mobile,run,stages}){
     // 파괴적 확인은 한 번에 하나다 — 겹치면 어느 대상의 확인인지 알 수 없다.
-    if(GitConfirm._cur) return false;
-    const destructive=await GitConfirm.destructive(action);
+    // REPO_FIX 05 F-9.3: 새 요청은 새 창을 띄우지 않고 열린 창을 앞으로 가져와 포커스한다.
+    // 정책을 받는 동안(`_opening`)도 하나다 — 이전: 첫 정책 조회 중 두 번 누르면 확인창이
+    // 겹쳤고, 열린 창이 있을 때의 새 요청은 무음으로 버려졌다(N5). 두 번째 요청은 실행하지
+    // 않는다(false) — 첫 창의 답을 나눠 주면 같은 동작이 두 번 돈다.
+    if(GitConfirm._cur||GitConfirm._opening){
+      if(GitConfirm._cur) GitConfirm._cur._front();
+      return false;
+    }
+    GitConfirm._opening=true;
+    let destructive=true;
+    try{ destructive=await GitConfirm.destructive(action) }
+    finally{ GitConfirm._opening=false }
     // FR-COS-3: 물어볼 이유가 없으면 묻지 않는다. 있으면 한 번 묻는다.
     if(!destructive&&stages!==1&&stages!==2){
       if(typeof run!=='function') return true;
@@ -328,6 +338,12 @@ class GitConfirm {
     if(g) g.focus();
   }
 
+  // F-9.3: 겹쳐 온 요청에 열린 창을 보인다 — 맨 위로 올리고 포커스를 되돌린다.
+  _front(){
+    if(this.ov&&this.ov.parentNode) document.body.appendChild(this.ov);
+    this._focus();
+  }
+
   async _advance(){
     if(this.busy) return;
     if(!this.run){this._close(true);return}
@@ -366,6 +382,7 @@ class GitConfirm {
 GitConfirm._cur=null;
 GitConfirm._policy=null;
 GitConfirm._policyP=null;
+GitConfirm._opening=false;
 
 // e2e 와 10·11단계 클라이언트가 창 밖에서 부르는 진입점이다. 고전 스크립트의
 // class 선언은 window 의 속성이 되지 않으므로 여기서 명시적으로 붙인다

@@ -37,7 +37,24 @@ Object.assign(GitBranches, {
       {repo:panel.repo,message:GIT_STASH_BEFORE_MSG,includeUntracked:true});
     panel.afterStashWrite(res);
     if(!res.ok) return;
-    return GitBranches._send(panel,opts);
+    const co=await GitBranches._send(panel,opts);
+    GitBranches._stashKept(panel,co);
+    return co;
+  },
+
+  /**
+   * REPO_FIX 05 F-9.1: stash 는 이겼는데 checkout 이 실행 전 거부되거나 잡이 실패·취소·결과
+   * 미상으로 끝났다 — 변경은 stash 목록 맨 위에 남아 있다. 그 사실을 조작한 자리에(어느
+   * 탭이든 닿는 Toast) 말하고 stash 목록을 다시 받는다. 잡 결과 문구 자체는 01 의 UI 다.
+   *   이전 동작: 변경이 stash 로 옮겨 간 채 아무 말이 없어, 작업 트리가 비어 보였다(#38)
+   */
+  _stashKept(panel,res){
+    const tell=()=>{
+      Toast.show(GIT_STASH_KEPT_NOTE.replace('%s',GIT_STASH_BEFORE_MSG),'err',TOAST_ERR_MS);
+      if(panel._stashView) panel._stashView.reload();
+    };
+    if(!res||!res.ok){tell();return}
+    if(res.started&&res.done) res.done.then(r=>{if(!r||!r.ok) tell()});
   },
 
   // 원격 ref 는 같은 이름의 로컬을 만들며 추적을 설정한다 (FR-GIT-156) —
