@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"dongminal/internal/webserver/domain/ext"
+	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/submodule"
 	"dongminal/internal/webserver/domain/wsentry"
@@ -202,6 +203,11 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	// 않으므로 새 필드를 빠뜨릴 자리가 없다.
 	deps.Commands = cmds
 	deps.Settings = settings
+	// REPO_FIX 01 §5.4: 배타 상태는 서버에 하나 — GitServer(동기 쓰기·잡)와 Run 격리가
+	// 같은 인스턴스를 봐야 한다. 합성 루트가 주지 않은 배선에서도 여기서 하나로 묶는다.
+	if deps.GitExclusion == nil {
+		deps.GitExclusion = jobs.NewExclusion()
+	}
 	accessPath := "access.json"
 	if cfg.DataDir != "" {
 		accessPath = filepath.Join(cfg.DataDir, "access.json")

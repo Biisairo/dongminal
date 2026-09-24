@@ -31,9 +31,10 @@ const (
 )
 
 // writeLocks 는 §5.2 분류표의 잠금 열이다. **POST 종단 전부가 여기 있어야 한다**
-// (TestWriteLocks_CoverAllPostRoutes). worktree 두 종단과 submodule update 는 §5.6
-// (01-G)에서 repoLock·대상 toplevel 로 옮긴다 — 지금은 잠금이 없던 현행 그대로다.
-// lock/remove 는 기다리지 않는 TryLock 을 핸들러가 직접 한다.
+// (TestWriteLocks_CoverAllPostRoutes). lockNone 이지만 핸들러가 직접 잠그는 종단이
+// 셋이다 (§5.6·7.2): worktrees/create 는 common 칸 확인 + repoLock, worktrees/remove
+// 는 **대상** worktree 의 index 칸·toplevel 뮤텍스(요청 worktree 가 아니다),
+// lock/remove 는 기다리지 않는 TryLock.
 var writeLocks = map[string]lockMode{
 	"/api/git/init":                 lockNone,
 	"/api/git/repos/pin":            lockNone,
@@ -160,6 +161,13 @@ func (s *GitServer) gitRoot() context.Context {
 		return context.Background()
 	}
 	return s.Git.Root()
+}
+
+func (s *GitServer) gitManagerWrite() time.Duration {
+	if s.managerWrite > 0 {
+		return s.managerWrite
+	}
+	return core.ManagerWriteTimeout
 }
 
 func (s *GitServer) gitLockWait() time.Duration {

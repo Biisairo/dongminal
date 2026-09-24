@@ -136,7 +136,18 @@ async function createUserWorktree(
 ) {
   const r = await request.post('/api/git/worktrees/create', { data: { repo, name, ref, newBranch } });
   expect(r.ok(), `사용자 worktree 생성 실패: ${await r.text()}`).toBeTruthy();
-  return (await r.json()).path as string;
+  // REPO_FIX 01 §5.6: 생성은 잡이다 — 응답은 {job}. 잡이 진행 목록에서 빠질 때까지
+  // 기다린 뒤 목록에서 그 이름의 경로를 찾는다.
+  const id = (await r.json()).job?.id as string;
+  expect(id, '생성 응답에 잡이 없다').toBeTruthy();
+  await expect.poll(async () => {
+    const jobs = await (await request.get('/api/git/jobs')).json();
+    return (jobs.jobs || []).some((j: { id: string }) => j.id === id);
+  }, { timeout: 15000 }).toBe(false);
+  const list = await (await request.get('/api/git/worktrees?repo=' + encodeURIComponent(repo))).json();
+  const hit = (list.worktrees || []).find((e: { path: string }) => e.path.endsWith('/' + name) || e.path.endsWith('\\' + name));
+  expect(hit, `생성한 worktree 가 목록에 없다: ${name}`).toBeTruthy();
+  return hit.path as string;
 }
 
 test.describe('묶음 M — I7 Worktrees 목록 (FR-GIT-240)', () => {

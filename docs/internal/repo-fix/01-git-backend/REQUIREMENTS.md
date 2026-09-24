@@ -167,6 +167,12 @@
   - 결과: remove 는 어느 worktree 의 stash 도 막지 않는다. 대상 worktree 의 동기 쓰기만 remove 동안 5s 뒤 409 `repo_busy`(삭제 중인 worktree 이므로 의도 — 이전: 배타 없음).
   - 연속 remove: `repoLock` 을 쓰기 단계 마감 안에서 기다리므로 서로 다른 worktree 를 연달아 지워도 차례로 성공한다(현행 무기한 대기와 같은 결과, 상한만 생김).
   - 최악: (10+6) + 5 + (180+6) = **207s**.
+- **구현 중 정정 (01-G)**:
+  - `BranchExists` 는 `repoLock` 을 쥐지 않는다 — worktree add 사전 단계가 `repoLock` 을 쥔 채 이름 충돌을 판정하는데 잠금은 재진입하지 않는다. 판정~생성 사이 경쟁은 `worktree add -b` 가 기존 브랜치를 거부해 막는다.
+  - common-dir 키는 `Spec.LockKey`·`RemoveSpec.LockKey` 로 넘긴다(`core.(*Service).CommonDirKey`, nil 수신자 동작). 비면 저장소 경로가 키다(단독 배선·도메인 테스트, 그리고 Run 정리에서 저장소가 사라져 키를 구하지 못한 경우 — 그 저장소는 다른 조작도 키를 구하지 못한다).
+  - `Manager.Remove` 는 잔여물 모델(200 + `residue`)이라 git 실패는 `detail` 로 싣는다. lock 필드는 `repoLock` 을 얻지 못한 경우의 `Result.Err`(→ 409 repo_busy·504 git_timeout·503)와 submodule sync 실패(→ index_locked + lock)에 적용한다. `git worktree remove` 는 요청 worktree 의 index.lock 을 만들지 않는다.
+  - `Rollback` 은 `repoLock` 을 얻지 못하면 되돌리지 않는다(잠금 없는 삭제 금지). Run 격리의 롤백 ctx 는 요청에서 취소만 뗀 것이다(`context.WithoutCancel`) — 만든 것은 그 요청이다.
+  - 프런트: worktrees/create·submodules/update 는 common 칸 잡이므로 index 칸 차단에서 뺀다(`GIT_JOB_INDEX_EXEMPT`). worktrees/remove·submodules/sync 는 `timeout:0`(`GIT_WRITE_UNBOUNDED`).
 - **Run 격리**(handlers_runs_worktree.go): Create·Remove 는 `repoLock` 을 자기 요청 ctx + 180s 로 기다린다(이전: 무기한 / 새: 사용자 worktree add 잡과 겹치면 최대 180s 뒤 실패 보고 / 이유: 10분 매달림 방지). Remove 는 대상 index 칸을 확인하고 대상 toplevel 뮤텍스를 **TryLock** 한다 — 칸 진행 중이거나 TryLock 실패면 제거하지 않고 기존 잔여물 경로로 `Residue: ResidueRemoveFailed`, `Detail: "사용 중인 worktree — 작업이 끝난 뒤 정리"`(:166-184 와 같은 모양). TryLock 성공 시 `repoLock` 대기·`Remove` 동안 쥔다. 이전: 사용자 커밋 중에도 작업 트리를 지울 수 있었다 / 새: 사용 중이면 잔여물 / 이유: 진행 중 쓰기의 작업 트리 삭제 방지.
 
 ## 6. 잡 계약·프런트 (사용자 결정: 잡으로 전환 + 진행·취소 UI)

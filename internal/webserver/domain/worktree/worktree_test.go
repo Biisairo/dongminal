@@ -38,7 +38,7 @@ func TestCreate_NoTrackAndRecordsBase(t *testing.T) {
 	m := tempManager(t)
 	spec := Spec{Repo: repo, Path: m.Path("run1234", "mem5678"), Branch: "dmn/run1234/writer", Base: "main"}
 
-	if err := m.Create(spec); err != nil {
+	if err := m.Create(context.Background(), spec); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 	if got := git(t, spec.Path, "rev-parse", "--abbrev-ref", "HEAD"); got != spec.Branch {
@@ -100,13 +100,13 @@ func TestCreate_RejectsDashLeadingArguments(t *testing.T) {
 		{"branch·base 둘 다 빔", Spec{Repo: repo, Path: good, Branch: "", Base: ""}},
 	}
 	for _, c := range cases {
-		if err := m.Create(c.spec); !errors.Is(err, ErrUnsafeArgument) {
+		if err := m.Create(context.Background(), c.spec); !errors.Is(err, ErrUnsafeArgument) {
 			t.Errorf("%s: want ErrUnsafeArgument, got %v", c.name, err)
 		}
 	}
 	// 경로 이탈은 별개의 사유다 — 뭉뚱그리면 호출자가 무엇이 위험했는지 모른다.
 	esc := Spec{Repo: repo, Path: filepath.Join(m.Root(), "..", "elsewhere"), Branch: "dmn/a/b", Base: "main"}
-	if err := m.Create(esc); !errors.Is(err, ErrUnsafePath) {
+	if err := m.Create(context.Background(), esc); !errors.Is(err, ErrUnsafePath) {
 		t.Errorf("경로 이탈: want ErrUnsafePath, got %v", err)
 	}
 	if _, err := os.Stat(good); !os.IsNotExist(err) {
@@ -119,7 +119,7 @@ func TestRemove_CleanRemovesWorktreeAndMergedBranch(t *testing.T) {
 	repo := tempRepo(t)
 	m := tempManager(t)
 	spec := Spec{Repo: repo, Path: m.Path("run1234", "mem5678"), Branch: "dmn/run1234/writer", Base: "main"}
-	if err := m.Create(spec); err != nil {
+	if err := m.Create(context.Background(), spec); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
@@ -140,7 +140,7 @@ func TestRemove_DirtyIsPreservedAndReported(t *testing.T) {
 	repo := tempRepo(t)
 	m := tempManager(t)
 	spec := Spec{Repo: repo, Path: m.Path("run1234", "mem5678"), Branch: "dmn/run1234/writer", Base: "main"}
-	if err := m.Create(spec); err != nil {
+	if err := m.Create(context.Background(), spec); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 	work := filepath.Join(spec.Path, "작업물.txt")
@@ -166,7 +166,7 @@ func TestRemove_UnmergedBranchIsResidue(t *testing.T) {
 	repo := tempRepo(t)
 	m := tempManager(t)
 	spec := Spec{Repo: repo, Path: m.Path("run1234", "mem5678"), Branch: "dmn/run1234/writer", Base: "main"}
-	if err := m.Create(spec); err != nil {
+	if err := m.Create(context.Background(), spec); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(spec.Path, "새파일.txt"), []byte("a\n"), 0o644); err != nil {
@@ -239,25 +239,25 @@ func TestResolve_NonRepoFails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := m.Resolve(plain, ""); !errors.Is(err, ErrNotRepo) {
+	if _, err := m.Resolve(context.Background(), plain, ""); !errors.Is(err, ErrNotRepo) {
 		t.Fatalf("want ErrNotRepo, got %v", err)
 	}
-	if _, err := m.Resolve("", ""); err == nil {
+	if _, err := m.Resolve(context.Background(), "", ""); err == nil {
 		t.Fatal("빈 cwd 는 실패해야 한다")
 	}
 
 	repo := tempRepo(t)
-	got, err := m.Resolve(repo, "")
+	got, err := m.Resolve(context.Background(), repo, "")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
 	if got.Root != repo || got.Base != "main" {
 		t.Fatalf("base 는 조정자 cwd 의 HEAD 다: %+v", got)
 	}
-	if _, err := m.Resolve(repo, "-x"); !errors.Is(err, ErrUnsafeArgument) {
+	if _, err := m.Resolve(context.Background(), repo, "-x"); !errors.Is(err, ErrUnsafeArgument) {
 		t.Fatal("- 로 시작하는 base 는 거부한다")
 	}
-	if _, err := m.Resolve(repo, "없는브랜치"); err == nil {
+	if _, err := m.Resolve(context.Background(), repo, "없는브랜치"); err == nil {
 		t.Fatal("존재하지 않는 base 는 실패해야 한다")
 	}
 }
@@ -296,13 +296,13 @@ func TestNew_ResolvesSymlinkedRoot(t *testing.T) {
 
 	repo := tempRepo(t)
 	spec := Spec{Repo: repo, Path: m.Path("run1234", "mem5678"), Branch: "dmn/run1234/writer", Base: "main"}
-	if err := m.Create(spec); err != nil {
+	if err := m.Create(context.Background(), spec); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
 	// 전제 확인: git worktree list 가 실제로 realpath 를 보고하는가. 이게 깨지면
 	// 이 테스트 전체가 무의미하다.
-	entries, err := m.List(repo)
+	entries, err := m.List(context.Background(), repo)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
@@ -319,7 +319,7 @@ func TestNew_ResolvesSymlinkedRoot(t *testing.T) {
 	// gone() 도 같은 realpath 정합성에 기댄다(List 를 그대로 쓰므로 원리상
 	// List 가 맞으면 같이 맞지만, checkPath·Remove 의 내부 분기 구조와 무관하게
 	// 직접 확인한다 — Remove 는 정상 삭제 시 gone() 을 안 거치는 경로도 있다).
-	if m.gone(repo, spec.Path) {
+	if m.gone(context.Background(), repo, spec.Path) {
 		t.Fatalf("gone() 이 아직 있는 worktree(%q) 를 사라졌다고 본다", spec.Path)
 	}
 
@@ -330,7 +330,7 @@ func TestNew_ResolvesSymlinkedRoot(t *testing.T) {
 		t.Fatalf("symlink 경유 root 아래의 정당한 worktree 가 거부됐다: %+v", res)
 	}
 
-	if !m.gone(repo, spec.Path) {
+	if !m.gone(context.Background(), repo, spec.Path) {
 		t.Fatalf("gone() 이 지워진 worktree(%q) 를 여전히 있다고 본다", spec.Path)
 	}
 }
@@ -338,7 +338,7 @@ func TestNew_ResolvesSymlinkedRoot(t *testing.T) {
 // TC-WKT-9 / FR-WKT-7: worktree 조작은 직렬화한다. 공용 common-dir 을 건드린다.
 func TestOperations_AreSerialized(t *testing.T) {
 	var cur, max int32
-	m := New(filepath.Join(t.TempDir(), "worktrees"), WithRunner(func(dir string, args ...string) (string, error) {
+	m := New(filepath.Join(t.TempDir(), "worktrees"), WithRunner(func(_ context.Context, dir string, args ...string) (string, error) {
 		n := atomic.AddInt32(&cur, 1)
 		defer atomic.AddInt32(&cur, -1)
 		time.Sleep(2 * time.Millisecond) // 겹칠 기회를 준다 — 직렬화가 없으면 여기서 만난다
@@ -356,7 +356,7 @@ func TestOperations_AreSerialized(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			_ = m.Create(Spec{Repo: absRepo, Path: m.Path("run1234", "mem"+string(rune('a'+i))), Branch: "dmn/run1234/r", Base: "main"})
+			_ = m.Create(context.Background(), Spec{Repo: absRepo, Path: m.Path("run1234", "mem"+string(rune('a'+i))), Branch: "dmn/run1234/r", Base: "main"})
 		}(i)
 	}
 	wg.Wait()
@@ -385,7 +385,7 @@ func TestOperations_SerializeAcrossManagersForSameRepo(t *testing.T) {
 	// base 기록 — worktree.go:194,197,201). 임계구역 관찰은 실제 저장소 변경이
 	// 일어나는 "worktree add" 호출 하나로만 좁힌다 — 그러지 않으면 부수 config
 	// 호출까지 채널을 막아서 버퍼가 넘친다.
-	runner := func(dir string, args ...string) (string, error) {
+	runner := func(_ context.Context, dir string, args ...string) (string, error) {
 		if len(args) < 2 || args[0] != "worktree" {
 			return "", nil
 		}
@@ -411,11 +411,11 @@ func TestOperations_SerializeAcrossManagersForSameRepo(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		_ = m1.Create(Spec{Repo: repo, Path: m1.Path("run1234", "a"), Branch: "dmn/run1234/a", Base: "main"})
+		_ = m1.Create(context.Background(), Spec{Repo: repo, Path: m1.Path("run1234", "a"), Branch: "dmn/run1234/a", Base: "main"})
 	}()
 	go func() {
 		defer wg.Done()
-		_ = m2.Create(Spec{Repo: repo, Path: m2.Path("run1234", "b"), Branch: "dmn/run1234/b", Base: "main"})
+		_ = m2.Create(context.Background(), Spec{Repo: repo, Path: m2.Path("run1234", "b"), Branch: "dmn/run1234/b", Base: "main"})
 	}()
 
 	<-entered
@@ -442,7 +442,7 @@ func TestOperations_SerializeSameRepoDifferentSpelling(t *testing.T) {
 	release := make(chan struct{})
 	entered := make(chan struct{}, 2)
 
-	runner := func(dir string, args ...string) (string, error) {
+	runner := func(_ context.Context, dir string, args ...string) (string, error) {
 		if len(args) < 2 || args[0] != "worktree" {
 			return "", nil
 		}
@@ -465,12 +465,12 @@ func TestOperations_SerializeSameRepoDifferentSpelling(t *testing.T) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		_ = m.Create(Spec{Repo: absRepo, Path: m.Path("run1234", "a"), Branch: "dmn/run1234/a", Base: "main"})
+		_ = m.Create(context.Background(), Spec{Repo: absRepo, Path: m.Path("run1234", "a"), Branch: "dmn/run1234/a", Base: "main"})
 	}()
 	go func() {
 		defer wg.Done()
 		// 같은 저장소, 트레일링 슬래시만 다른 표기.
-		_ = m.Create(Spec{Repo: absRepo + string(filepath.Separator), Path: m.Path("run1234", "b"), Branch: "dmn/run1234/b", Base: "main"})
+		_ = m.Create(context.Background(), Spec{Repo: absRepo + string(filepath.Separator), Path: m.Path("run1234", "b"), Branch: "dmn/run1234/b", Base: "main"})
 	}()
 
 	<-entered
@@ -510,7 +510,7 @@ func TestList_IncludesMainAndParsesEntries(t *testing.T) {
 	repo := tempRepo(t)
 	m := tempManager(t)
 	spec := Spec{Repo: repo, Path: m.Path("run1234", "mem5678"), Branch: "dmn/run1234/writer", Base: "main"}
-	if err := m.Create(spec); err != nil {
+	if err := m.Create(context.Background(), spec); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 	// detach 된 세 번째 worktree 도 하나 만든다. git 이 물리 경로로 답하므로(맥OS
@@ -520,11 +520,11 @@ func TestList_IncludesMainAndParsesEntries(t *testing.T) {
 		t.Fatal(err)
 	}
 	detachedPath := filepath.Join(detachedParent, "detached")
-	if _, err := m.git(repo, "worktree", "add", "--detach", detachedPath, "main"); err != nil {
+	if _, err := m.git(context.Background(), repo, "worktree", "add", "--detach", detachedPath, "main"); err != nil {
 		t.Fatalf("detach worktree 준비 실패: %v", err)
 	}
 
-	entries, err := m.List(repo)
+	entries, err := m.List(context.Background(), repo)
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
@@ -565,12 +565,12 @@ func TestList_MainStaysOnOriginRegardlessOfQueryPath(t *testing.T) {
 	repo := tempRepo(t)
 	m := tempManager(t)
 	spec := Spec{Repo: repo, Path: m.Path("run1234", "mem5678"), Branch: "dmn/run1234/writer", Base: "main"}
-	if err := m.Create(spec); err != nil {
+	if err := m.Create(context.Background(), spec); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
 	// repo 자신에서 조회 — main 은 repo 다.
-	entries, err := m.List(repo)
+	entries, err := m.List(context.Background(), repo)
 	if err != nil {
 		t.Fatalf("List(repo): %v", err)
 	}
@@ -580,7 +580,7 @@ func TestList_MainStaysOnOriginRegardlessOfQueryPath(t *testing.T) {
 	// list 는 어느 worktree 디렉터리에서 불러도 같은 전체 목록을 준다(공용
 	// 관리 영역을 읽으므로). main 배지는 여전히 repo 에 있어야 한다 — spec.Path
 	// (지금 조회에 쓴 경로) 로 옮겨가면 안 된다.
-	entries, err = m.List(spec.Path)
+	entries, err = m.List(context.Background(), spec.Path)
 	if err != nil {
 		t.Fatalf("List(spec.Path): %v", err)
 	}
@@ -609,7 +609,7 @@ func TestCreate_ChecksOutExistingRefWithoutNewBranch(t *testing.T) {
 	git(t, repo, "branch", "other")
 	path := m.Path("bucket", "existing-ref")
 
-	if err := m.Create(Spec{Repo: repo, Path: path, Base: "other"}); err != nil {
+	if err := m.Create(context.Background(), Spec{Repo: repo, Path: path, Base: "other"}); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 	if got := git(t, path, "rev-parse", "--abbrev-ref", "HEAD"); got != "other" {
@@ -673,15 +673,17 @@ func TestRemove_RetryStopsWhenContextIsCancelled(t *testing.T) {
 		t.Fatal(err)
 	}
 	var removes int
-	m := New(filepath.Join(root, "worktrees"), WithRunner(func(dir string, args ...string) (string, error) {
+	// 첫 remove 도중 요청이 떠난다. 이미 떠난 요청은 repoLock 을 쥐지 않으므로
+	// (REPO_FIX 01 §5.6) 되풀이를 보려면 실행이 시작된 뒤에 끊어야 한다.
+	ctx, cancel := context.WithCancel(context.Background())
+	m := New(filepath.Join(root, "worktrees"), WithRunner(func(_ context.Context, dir string, args ...string) (string, error) {
 		if len(args) >= 2 && args[0] == "worktree" && args[1] == "remove" {
 			removes++
+			cancel()
 			return "", errors.New("locked")
 		}
 		return "", nil // status --porcelain 은 clean, prune 은 성공
 	}))
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
 	start := time.Now()
 	res := m.Remove(ctx, RemoveSpec{Repo: repo, Path: path})
 	if res.Removed || res.Residue != ResidueRemoveFailed {

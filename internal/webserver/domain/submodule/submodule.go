@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"dongminal/internal/shared/diagtail"
 	"dongminal/internal/webserver/domain/git/core"
@@ -50,16 +49,18 @@ var stateByPrefix = map[byte]string{
 }
 
 // opTimeout 은 git 한 번의 상한이다. `submodule update` 는 원격에서 받아올 수
-// 있어 짧게 둘 수 없다 — worktree 의 체크아웃과 같은 성질이다.
-const opTimeout = 180 * time.Second
+// 있어 짧게 둘 수 없다 — worktree 의 체크아웃과 같은 성질이다. 호출자 ctx 의
+// 마감이 더 짧으면 그것이 이긴다.
+const opTimeout = core.ManagerWriteTimeout
 
 // oidLen 은 서브모듈 상태가 싣는 커밋 해시의 길이다. 짧은 것을 받지 않는 이유는
 // 그것이 알아보지 못한 줄이라는 신호이기 때문이다.
 const oidLen = 40
 
 // Runner 는 git 한 번이다. 주입인 것은 런타임 없이 파싱과 가드를 결정적으로
-// 관찰하기 위해서다 (worktree.Runner 와 같은 모양).
-type Runner func(dir string, args ...string) (string, error)
+// 관찰하기 위해서다 (worktree.Runner 와 같은 모양). ctx 는 호출자의 것이다
+// (REPO_FIX 01 §5.6) — 조회는 요청, sync 는 서버 루트 파생이다.
+type Runner func(ctx context.Context, dir string, args ...string) (string, error)
 
 type Manager struct{ git Runner }
 
@@ -86,15 +87,15 @@ List 는 등록된 서브모듈 전부다 (FR-SUB-1·2).
 빈 출력은 **정상**이다. 서브모듈이 없는 저장소가 흔하며, 그것을 오류로 바꾸면
 탭이 저장소마다 실패를 보인다 (FR-SUB-10).
 */
-func (m *Manager) List(repo string) ([]Entry, error) {
+func (m *Manager) List(ctx context.Context, repo string) ([]Entry, error) {
 	if err := checkRepo(repo); err != nil {
 		return nil, err
 	}
-	out, err := m.run(repo, "submodule", "status")
+	out, err := m.git(ctx, repo, "submodule", "status")
 	if err != nil {
 		// 실패를 빈 목록으로 낮추지 않는다 — "없다" 와 "확인에 실패했다" 는
 		// 사용자가 할 일이 다르다.
-		return nil, fmt.Errorf("%w: %s", ErrFailed, tail(out, err))
+		return nil, failed(out, err)
 	}
 	return parseStatus(out), nil
 }
@@ -173,8 +174,8 @@ Update 는 서브모듈을 등록된 커밋으로 옮긴다 (FR-SUB-4).
 
 `path` 가 비면 저장소의 서브모듈 **전부**가 대상이다.
 */
-func (m *Manager) Update(repo, path string, init, recursive bool) error {
-	return m.runPathOp(repo, path, updateArgs(init, recursive))
+func (m *Manager) Update(ctx context.Context, repo, path string, init, recursive bool) error {
+	return m.runPathOp(ctx, repo, path, updateArgs(init, recursive))
 }
 
 func updateArgs(init, recursive bool) []string {
@@ -207,23 +208,39 @@ func UpdateSpec(repo, path string, init, recursive bool) (Spec, error) {
 
 // Sync 는 `.gitmodules` 의 URL 을 `.git/config` 로 옮긴다 (FR-SUB-4).
 // 체크아웃을 건드리지 않으므로 파괴적이지 않다.
-func (m *Manager) Sync(repo, path string) error {
-	return m.runPathOp(repo, path, []string{"submodule", "sync"})
+func (m *Manager) Sync(ctx context.Context, repo, path string) error {
+	return m.runPathOp(ctx, repo, path, []string{"submodule", "sync"})
 }
 
 // runPathOp 은 경로 가드와 `--` 규약을 한 자리에 둔다. 두 조작이 같은 규칙을
 // 따라야 하고, 그것을 각자 적으면 한쪽만 고쳐진다.
-func (m *Manager) runPathOp(repo, path string, args []string) error {
+func (m *Manager) runPathOp(ctx context.Context, repo, path string, args []string) error {
 	args, err := pathOpArgs(repo, path, args)
 	if err != nil {
 		return err
 	}
-	out, err := m.run(repo, args...)
+	out, err := m.git(ctx, repo, args...)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrFailed, tail(out, err))
+		return failed(out, err)
 	}
 	return nil
 }
+
+// failure 는 실행 실패다. ErrFailed 와 원인(core 의 분류)을 **둘 다** 준다 —
+// 화면 문구는 ErrFailed 가 정하고, index_locked·git_timeout 판정은 원인이 한다.
+//
+//	이전 동작: ErrFailed 에 진단 텍스트만 붙였다 — core 의 sentinel 이 사라졌다
+//	새  동작: errors.Is 로 원인도 본다
+//	이유:     sync 가 index.lock 에 막혀도 lock 필드·409 를 실어야 한다 (REPO_FIX 01 §5.6)
+type failure struct {
+	msg   string
+	cause error
+}
+
+func (f *failure) Error() string   { return ErrFailed.Error() + ": " + f.msg }
+func (f *failure) Unwrap() []error { return []error{ErrFailed, f.cause} }
+
+func failed(out string, err error) error { return &failure{msg: tail(out, err), cause: err} }
 
 // pathOpArgs 는 경로 가드를 지나 argv 를 완성한다 — 동기 조작과 작업 경로가 같은
 // 인가를 지난다.
@@ -281,10 +298,6 @@ func checkPath(p string) error {
 	return nil
 }
 
-func (m *Manager) run(dir string, args ...string) (string, error) {
-	return m.git(dir, args...)
-}
-
 // UnguardedReason 은 실행 기록에 남는 사유다 (GIT_EXEC_UNIFY_SRS FR-GXU-1).
 // Console 이 이 문장으로 "왜 이 실행이 화이트리스트를 지나지 않았는가"를 답한다.
 const UnguardedReason = "submodule 도메인 — 화이트리스트가 argv[0] 으로 키잉되어 status 와 update 를 가를 수 없다 (D-9)"
@@ -302,12 +315,16 @@ ExecGit 는 Service 없이 도는 기본 Runner 다. 기록이 남지 않을 뿐
 버려진다. 실측으로 잡은 결함이며, Runner 를 주입한 단위 시험은 이것을 볼 수 없다
 — 그래서 `TestExecGitKeepsLeadingSpace` 가 이 경로 자신을 시험한다.
 */
-func ExecGit(dir string, args ...string) (string, error) { return runGit(nil, dir, args...) }
+func ExecGit(ctx context.Context, dir string, args ...string) (string, error) {
+	return runGit(ctx, nil, dir, args...)
+}
 
 // RunnerFor 는 실행 기록을 core 와 공유하는 Runner 를 만든다 (FR-GXU-10).
 // 이것을 쓰지 않으면 이 패키지의 실행은 Console 에 보이지 않는다.
 func RunnerFor(svc *core.Service) Runner {
-	return func(dir string, args ...string) (string, error) { return runGit(svc, dir, args...) }
+	return func(ctx context.Context, dir string, args ...string) (string, error) {
+		return runGit(ctx, svc, dir, args...)
+	}
 }
 
 // runGit 은 이 패키지의 유일한 git 실행이다 (GIT_EXEC_UNIFY_SRS FR-GXU-7).
@@ -320,20 +337,20 @@ func RunnerFor(svc *core.Service) Runner {
 // **환경이 특히 중요한 자리다.** `submodule update --init` 은 원격에 닿으므로,
 // `GIT_TERMINAL_PROMPT=0` 이 없으면 private 서브모듈에서 자격증명 프롬프트가 뜨고
 // 프로세스가 opTimeout 까지 매달린다 — GUI askpass 면 보이지 않는 창을 기다린다.
-func runGit(svc *core.Service, dir string, args ...string) (string, error) {
-	out, err := svc.ExecUnguarded(context.Background(), dir, core.UnguardedSpec{
+func runGit(ctx context.Context, svc *core.Service, dir string, args ...string) (string, error) {
+	out, err := svc.ExecUnguarded(ctx, dir, core.UnguardedSpec{
 		Argv:    args,
 		Timeout: opTimeout,
 		Reason:  UnguardedReason,
 	})
 	if errors.Is(err, core.ErrGitMissing) {
-		return "", fmt.Errorf("%w: git 을 찾을 수 없다: %v", ErrFailed, err)
+		return "", fmt.Errorf("%w: git 을 찾을 수 없다: %w", ErrFailed, err)
 	}
 	// 뒤의 개행만 다듬는다 — 파싱이 줄 단위이므로 끝의 빈 줄은 뜻이 없다.
 	// **앞은 손대지 않는다** (위 FR-SUB-2).
 	text := strings.TrimRight(out.Stdout+out.Stderr, "\r\n")
 	if err != nil {
-		return text, fmt.Errorf("git %s: %v", strings.Join(args, " "), err)
+		return text, fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
 	}
 	return text, nil
 }

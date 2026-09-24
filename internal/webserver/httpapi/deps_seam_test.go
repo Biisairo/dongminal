@@ -19,11 +19,17 @@ func (f *fakeWorktrees) Root() string { return "/fake/worktrees" }
 func (f *fakeWorktrees) Path(runShort, leaf string) string {
 	return "/fake/worktrees/" + runShort + "/" + leaf
 }
-func (f *fakeWorktrees) Resolve(cwd, base string) (worktree.Repo, error) { return worktree.Repo{}, nil }
-func (f *fakeWorktrees) Create(worktree.Spec) error                      { return nil }
-func (f *fakeWorktrees) Rollback(worktree.Spec)                          {}
-func (f *fakeWorktrees) BranchExists(string, string) bool                { return false }
-func (f *fakeWorktrees) List(string) ([]worktree.Entry, error)           { return nil, nil }
+func (f *fakeWorktrees) Resolve(context.Context, string, string) (worktree.Repo, error) {
+	return worktree.Repo{}, nil
+}
+func (f *fakeWorktrees) Create(context.Context, worktree.Spec) error            { return nil }
+func (f *fakeWorktrees) Rollback(context.Context, worktree.Spec)                {}
+func (f *fakeWorktrees) BranchExists(context.Context, string, string) bool      { return false }
+func (f *fakeWorktrees) List(context.Context, string) ([]worktree.Entry, error) { return nil, nil }
+func (f *fakeWorktrees) AddSpec(worktree.Spec) (worktree.ExecSpec, error) {
+	return worktree.ExecSpec{}, nil
+}
+func (f *fakeWorktrees) Configure(context.Context, worktree.Spec) {}
 func (f *fakeWorktrees) Remove(_ context.Context, s worktree.RemoveSpec) worktree.Result {
 	f.removed = append(f.removed, s)
 	r := f.result

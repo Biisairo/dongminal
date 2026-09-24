@@ -1,6 +1,7 @@
 package worktree
 
 import (
+	"context"
 	"os/exec"
 	"strings"
 	"testing"
@@ -35,7 +36,7 @@ func TestRunGitAppliesEnvContract(t *testing.T) {
 		// 페이저는 출력을 붙잡는다.
 		{"GIT_PAGER", "cat"},
 	} {
-		got, err := execGit(dir, "var", tc.name)
+		got, err := execGit(context.Background(), dir, "var", tc.name)
 		if err != nil {
 			t.Fatalf("execGit var %s: %v", tc.name, err)
 		}
@@ -55,7 +56,7 @@ func TestRunGitKeepsStderrOnFailure(t *testing.T) {
 		t.Skip("git 이 없다 — 이 테스트를 건너뛴다")
 	}
 	// 저장소가 아닌 곳에서 status 를 물으면 git 이 stderr 로 사유를 낸다.
-	text, err := execGit(t.TempDir(), "status", "--porcelain")
+	text, err := execGit(context.Background(), t.TempDir(), "status", "--porcelain")
 	if err == nil {
 		t.Fatal("저장소가 아닌 곳에서 성공했다")
 	}

@@ -219,11 +219,19 @@ func (t *gitWrite) launchJob(start func(*jobs.Jobs, jobs.Keys) (*jobs.Job, error
 }
 
 // jobKeys 는 잡의 배타 키다. Git 이 없는 배선(서브모듈 관리자만 있는 판)에서는
-// common-dir 을 물을 수 없으므로 루트를 두 칸의 키로 쓴다.
+// 캐시 없이 core 헬퍼로 common-dir 을 묻는다 (FR-GXU-4).
+//
+//	이전 동작: Git 이 없으면 루트를 두 칸의 키로 썼다
+//	새  동작: common 칸은 언제나 common-dir 키다
+//	이유:     링크드 worktree 의 잡이 주 저장소의 common 칸을 보지 못했다 (REPO_FIX 01 §5.1)
 func (s *GitServer) jobKeys(ctx context.Context, root string) (jobs.Keys, error) {
 	if s.Git == nil {
-		k := core.ExclusionKey(root)
-		return jobs.Keys{Top: k, Common: k}, nil
+		var svc *core.Service
+		common, err := svc.CommonDirKey(ctx, root)
+		if err != nil {
+			return jobs.Keys{}, err
+		}
+		return jobs.Keys{Top: core.ExclusionKey(root), Common: common}, nil
 	}
 	return s.gitKeys(ctx, root)
 }

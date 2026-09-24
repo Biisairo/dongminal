@@ -103,6 +103,8 @@ var Git = Table{
 	{worktree.ErrUnsafePath, http.StatusBadRequest, CodeBadRequest},
 	{worktree.ErrNotRepo, http.StatusNotFound, CodeNotRepo},
 	{worktree.ErrGitMissing, http.StatusServiceUnavailable, CodeGitMissing},
+	// REPO_FIX 01 §5.6: repoLock 대기 상한
+	{worktree.ErrRepoBusy, http.StatusConflict, CodeRepoBusy},
 
 	// ── 일반. 원본 번역기들의 default 자리 ──
 	// FR-DPN-10: core.ErrRefName 은 이제 표면 전체에서 하나다.
@@ -151,6 +153,8 @@ var Runs = Table{
 	{worktree.ErrGitMissing, http.StatusBadRequest, worktree.ErrGitMissing.Error()},
 	{worktree.ErrUnsafeArgument, http.StatusBadRequest, worktree.ErrUnsafeArgument.Error()},
 	{worktree.ErrUnsafePath, http.StatusBadRequest, worktree.ErrUnsafePath.Error()},
+	// REPO_FIX 01 §5.6: 사용자 worktree add 잡과 겹쳐 repoLock 을 180s 안에 얻지 못했다.
+	{worktree.ErrRepoBusy, http.StatusConflict, CodeRepoBusy},
 }
 
 // FS는 /api/fs/* · /api/editors/* 의 매핑 정책이다.

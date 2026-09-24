@@ -97,3 +97,26 @@ func TestIndexLockPath(t *testing.T) {
 		t.Fatalf("링크드 worktree lock 경로 = %q — 자기 gitdir 아래여야 한다", got)
 	}
 }
+
+// REPO_FIX 01 §5.1: common-dir 키는 Service 없이도 구해지고(FR-GXU-4), 링크드
+// worktree 와 주 저장소가 같은 키를 낸다.
+func TestCommonDirKey_NilServiceAndLinkedWorktree(t *testing.T) {
+	repo := gittest.Repo(t)
+	var nilSvc *Service
+	main, err := nilSvc.CommonDirKey(context.Background(), repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := ExclusionKey(filepath.Join(repo, ".git")); main != want {
+		t.Fatalf("주 저장소 키 = %q, want %q", main, want)
+	}
+	linked := filepath.Join(t.TempDir(), "linked")
+	gittest.Run(t, repo, "worktree", "add", "--detach", linked)
+	got, err := New().CommonDirKey(context.Background(), linked)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != main {
+		t.Fatalf("링크드 worktree 키 = %q, want 주 저장소와 같은 %q", got, main)
+	}
+}

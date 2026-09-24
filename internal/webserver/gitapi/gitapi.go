@@ -100,6 +100,9 @@ type GitServer struct {
 
 	// lockWait 는 잠금 대기 상한이다. 0 이면 core.LockWait — 테스트만 줄인다.
 	lockWait time.Duration
+	// managerWrite 는 Manager 경유 쓰기 단계의 마감이다. 0 이면
+	// core.ManagerWriteTimeout — 테스트만 줄인다.
+	managerWrite time.Duration
 
 	// gitJobs 는 원격 작업(fetch/pull/push)의 수명을 쥔다 (FR-GIT-101·102).
 	// 제로값도 쓸 수 있다 — 첫 사용에 만들어지고, Git 이 없으면 만들지 않는다.

@@ -28,9 +28,14 @@ function gitJobSlotsOf(key){
   if(key==='pull') return [GIT_JOB_SLOT_INDEX,GIT_JOB_SLOT_COMMON];
   return GIT_JOB_COMMON_KEYS.has(key)?[GIT_JOB_SLOT_COMMON]:[GIT_JOB_SLOT_INDEX];
 }
-// §6.4: index 칸이 도는 동안에도 막지 않는 동기 쓰기 — worktree 제거는 요청
-// worktree 의 index 를 건드리지 않는다 (§5.6).
-const GIT_JOB_INDEX_EXEMPT=new Set(['/api/git/worktrees/remove','/api/git/job/cancel']);
+// §6.4: index 칸이 도는 동안에도 막지 않는 쓰기 — worktree 제거는 요청 worktree 의
+// index 를 건드리지 않고(§5.6), worktree 생성·서브모듈 update 는 common 칸 잡이다
+// (§5.4 — index 잡과 함께 돈다. common 칸이 차 있으면 서버가 job_busy 로 답한다).
+const GIT_JOB_INDEX_EXEMPT=new Set(['/api/git/worktrees/remove','/api/git/job/cancel',
+  '/api/git/worktrees/create','/api/git/submodules/update']);
+// §5.5: Manager 경유 동기 쓰기 — 서버의 쓰기 단계 마감이 180s(최악 207s)라 응답까지
+// 기다린다. 이전: 35s 에 끊겨 서버는 계속 도는데 화면은 실패 / 새: timeout 없음.
+const GIT_WRITE_UNBOUNDED=new Set(['/api/git/worktrees/remove','/api/git/submodules/sync']);
 // FR-GCC-5: **버튼의 얼굴**. 좁은 사이드에서 글자 셋과 `▾` 셋은 두 줄을 먹었고
 // `Push` 의 `▾` 는 줄을 넘겼다(실측). 무엇인지는 툴팁(GIT_REMOTE_TITLE)이 말한다.
 const GIT_REMOTE_ICON={fetch:'download',pull:'arrow-down',push:'arrow-up'};

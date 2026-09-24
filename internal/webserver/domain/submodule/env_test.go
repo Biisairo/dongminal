@@ -1,6 +1,7 @@
 package submodule
 
 import (
+	"context"
 	"os/exec"
 	"strings"
 	"testing"
@@ -28,7 +29,7 @@ func TestRunGitAppliesEnvContract(t *testing.T) {
 		{"GIT_EDITOR", "true"},
 		{"GIT_PAGER", "cat"},
 	} {
-		got, err := ExecGit(dir, "var", tc.name)
+		got, err := ExecGit(context.Background(), dir, "var", tc.name)
 		if err != nil {
 			t.Fatalf("ExecGit var %s: %v", tc.name, err)
 		}
@@ -47,7 +48,7 @@ func TestRunGitKeepsStderrOnFailure(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git 이 없다 — 이 테스트를 건너뛴다")
 	}
-	text, err := ExecGit(t.TempDir(), "submodule", "status")
+	text, err := ExecGit(context.Background(), t.TempDir(), "submodule", "status")
 	if err == nil {
 		t.Fatal("저장소가 아닌 곳에서 성공했다")
 	}

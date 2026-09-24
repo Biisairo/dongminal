@@ -189,7 +189,7 @@ func (s *Server) apiRunStart(w http.ResponseWriter, r *http.Request) {
 	}
 	// 격리 준비가 **레코드보다 먼저**다 (FR-WKT-3/11). 비git 디렉터리·git 부재는
 	// 여기서 명확히 실패하고, 실패한 Run 은 기록에 남지 않는다.
-	prov, err := s.provisionRun(iso, body.Cwd, body.Base)
+	prov, err := s.provisionRun(r.Context(), iso, body.Cwd, body.Base)
 	if err != nil {
 		writeRunError(w, err, nil)
 		return
@@ -206,7 +206,7 @@ func (s *Server) apiRunStart(w http.ResponseWriter, r *http.Request) {
 	}
 	rec, err := s.Runs.Start(opts)
 	if err != nil {
-		s.rollbackRun(prov)
+		s.rollbackRun(r.Context(), prov)
 		writeRunError(w, err, nil)
 		return
 	}
@@ -263,7 +263,7 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	// 작업 트리를 멤버 등록보다 먼저 만든다 — 등록이 거부되면 되돌릴 수 있지만,
 	// 반대 순서로는 트리 없는 멤버가 기록에 남는다 (FR-WKT-3).
-	mi, err := s.provisionMember(rec, body.Role)
+	mi, err := s.provisionMember(r.Context(), rec, body.Role)
 	if err != nil {
 		writeRunError(w, err, nil)
 		return
@@ -274,7 +274,7 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 			cwd = mi.Worktree.Path
 		}
 		if toolID, err = s.createHeadlessTool(cwd, ""); err != nil {
-			s.rollbackMember(mi)
+			s.rollbackMember(r.Context(), mi)
 			writeToolIOError(w, http.StatusInternalServerError, "헤드리스 도구 생성 실패: "+err.Error())
 			return
 		}
@@ -290,7 +290,7 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 		Headless: body.Headless,
 	})
 	if err != nil {
-		s.rollbackMemberAdd(mi, body.Headless, toolID)
+		s.rollbackMemberAdd(r.Context(), mi, body.Headless, toolID)
 		writeRunError(w, err, nil)
 		return
 	}
@@ -302,7 +302,7 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 // rollbackMemberAdd 는 등록에 실패한 멤버의 보상 삭제다 — 도구를 만들고 멤버 등록에
 // 실패하면 그 도구는 누구의 것도 아니다. FR-HLM-5 가 말하는 고아(Run 이 끝난 뒤
 // 남은 도구)와는 다른 것이며, 이쪽은 **애초에 만들지 않은 것과 같게** 되돌린다.
-func (s *Server) rollbackMemberAdd(mi *memberIsolation, headless bool, toolID string) {
+func (s *Server) rollbackMemberAdd(ctx context.Context, mi *memberIsolation, headless bool, toolID string) {
 	if headless && s.Tools != nil {
 		// `GO-8`: 오류를 **명시로** 무시한다. 이 경로에서 "이미 없다" 는 정상이며
 		// (목록이 앞서 걷혔거나 사용자가 두 번 눌렀다) 치울 것이 없다는 뜻이다.
@@ -310,7 +310,7 @@ func (s *Server) rollbackMemberAdd(mi *memberIsolation, headless bool, toolID st
 		_ = s.Tools.Delete(toolID)
 		dmlog.Errorf(nil, "[run] headless 롤백 — 멤버 등록 실패: tool=%s", toolID)
 	}
-	s.rollbackMember(mi)
+	s.rollbackMember(ctx, mi)
 }
 
 // memberAddedView 는 등록 응답이다 — 표식을 쓰고 프리앰블을 싣는다. 프리앰블을

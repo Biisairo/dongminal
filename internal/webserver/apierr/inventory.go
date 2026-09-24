@@ -51,7 +51,7 @@ var Inventory = []error{
 
 	// domain/worktree
 	worktree.ErrGitMissing, worktree.ErrNotRepo,
-	worktree.ErrUnsafeArgument, worktree.ErrUnsafePath,
+	worktree.ErrUnsafeArgument, worktree.ErrUnsafePath, worktree.ErrRepoBusy,
 
 	// domain/run
 	run.ErrNotRunParticipant, run.ErrMemberAttached, run.ErrMemberNotAttached,

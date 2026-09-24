@@ -49,6 +49,23 @@ func ExclusionKey(p string) string {
 	}
 }
 
+// CommonDirKey 는 repo 의 common-dir 배타 키다 (§5.1) — `--git-common-dir` 절대화 +
+// ExclusionKey. 핸들러가 이것을 구해 잡·배타 상태·worktree repoLock·Run 격리에
+// 넘긴다(jobs·worktree 는 store 를 모른다).
+//
+// 수신자가 nil 이어도 동작한다 (FR-GXU-4) — 기록만 생략한다.
+func (s *Service) CommonDirKey(ctx context.Context, repo string) (string, error) {
+	svc := s
+	if svc == nil {
+		svc = New()
+	}
+	_, common, err := svc.GitDirs(ctx, repo)
+	if err != nil {
+		return "", err
+	}
+	return ExclusionKey(common), nil
+}
+
 // IndexLockPath 는 root 의 index.lock 절대 경로다 (§7.2). 링크드 worktree 는 자기
 // gitdir 아래를 가리킨다 — `.git/index.lock` 으로 짐작하면 그 경우가 틀린다.
 func (s *Service) IndexLockPath(ctx context.Context, root string) (string, error) {

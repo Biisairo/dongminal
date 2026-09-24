@@ -16,6 +16,8 @@ type RemoveSpec struct {
 	Path   string
 	Branch string
 	Keep   bool
+	// LockKey 는 repoLock 의 키 — common-dir 키다 (Spec.LockKey 와 같다).
+	LockKey string
 }
 
 // Result 는 정리 한 건의 결말이다. Removed 가 false 면 Residue 가 반드시 있다.
@@ -25,6 +27,10 @@ type Result struct {
 	Removed bool   `json:"removed"`
 	Residue string `json:"residue,omitempty"`
 	Detail  string `json:"detail,omitempty"`
+	// Err 는 repoLock 을 얻지 못한 사유다 (REPO_FIX 01 §5.6) — 대기 상한(ErrRepoBusy)·
+	// 마감(core.ErrTimeout)·요청 이탈(core.ErrCanceled). 그때는 아무것도 하지 않았다.
+	// 호출자가 응답 코드를 고를 수 있게 sentinel 을 그대로 둔다.
+	Err error `json:"-"`
 }
 
 // Remove 는 정리 규칙 전부다 (FR-WKT-8).
@@ -50,18 +56,21 @@ func (m *Manager) Remove(ctx context.Context, s RemoveSpec) Result {
 		return res
 	}
 
-	lock := repoLock(s.Repo)
-	lock.Lock()
-	defer lock.Unlock()
+	release, err := m.lock(ctx, s.LockKey, s.Repo)
+	if err != nil {
+		res.Residue, res.Detail, res.Err = ResidueRemoveFailed, err.Error(), err
+		return res
+	}
+	defer release()
 
 	if _, err := os.Stat(s.Path); errors.Is(err, os.ErrNotExist) {
 		// 경로가 이미 없다 — 등록만 남았을 수 있으므로 정리하고 성공으로 본다.
-		_, _ = m.git(s.Repo, "worktree", "prune")
+		_, _ = m.git(ctx, s.Repo, "worktree", "prune")
 		res.Removed = true
-		m.deleteBranch(s, &res)
+		m.deleteBranch(ctx, s, &res)
 		return res
 	}
-	dirty, err := m.isDirty(s.Path)
+	dirty, err := m.isDirty(ctx, s.Path)
 	if err != nil {
 		res.Residue, res.Detail = ResidueRemoveFailed, err.Error()
 		return res
@@ -73,14 +82,14 @@ func (m *Manager) Remove(ctx context.Context, s RemoveSpec) Result {
 	if err := m.removeWithRetry(ctx, s); err != nil {
 		// 조회·제거 실패를 "사라졌다"의 증거로 쓰지 않는다 — prune 뒤 실제로
 		// 사라졌는지 재확인하고, 아니면 잔여물로 보고한다.
-		_, _ = m.git(s.Repo, "worktree", "prune")
-		if !m.gone(s.Repo, s.Path) {
+		_, _ = m.git(ctx, s.Repo, "worktree", "prune")
+		if !m.gone(ctx, s.Repo, s.Path) {
 			res.Residue, res.Detail = ResidueRemoveFailed, err.Error()
 			return res
 		}
 	}
 	res.Removed = true
-	m.deleteBranch(s, &res)
+	m.deleteBranch(ctx, s, &res)
 	return res
 }
 
@@ -106,7 +115,7 @@ func (m *Manager) removeWithRetry(ctx context.Context, s RemoveSpec) error {
 	start := time.Now()
 	var err error
 	for i := 0; i < removeRetryTries; i++ {
-		if _, err = m.git(s.Repo, "worktree", "remove", s.Path); err == nil {
+		if _, err = m.git(ctx, s.Repo, "worktree", "remove", s.Path); err == nil {
 			return nil
 		}
 		if i == removeRetryTries-1 || time.Since(start) > removeRetryBudget {
@@ -126,12 +135,12 @@ func (m *Manager) removeWithRetry(ctx context.Context, s RemoveSpec) error {
 // deleteBranch 는 머지된 브랜치만 지운다. 남으면 잔여물이다 — 사용자의 커밋을
 // -D 로 날리는 것보다 남기는 편이 언제나 낫다. 호출자는 repoLock(s.Repo) 를
 // 쥐고 있다 (FR-WKT-7, 개정).
-func (m *Manager) deleteBranch(s RemoveSpec, res *Result) {
+func (m *Manager) deleteBranch(ctx context.Context, s RemoveSpec, res *Result) {
 	if s.Repo == "" || validRef(s.Branch) != nil {
 		return
 	}
-	if _, err := m.git(s.Repo, "branch", "-d", s.Branch); err != nil {
-		if _, verr := m.git(s.Repo, "rev-parse", "--verify", "--quiet", "refs/heads/"+s.Branch); verr == nil {
+	if _, err := m.git(ctx, s.Repo, "branch", "-d", s.Branch); err != nil {
+		if _, verr := m.git(ctx, s.Repo, "rev-parse", "--verify", "--quiet", "refs/heads/"+s.Branch); verr == nil {
 			res.Residue, res.Detail = ResidueBranchRetained, err.Error()
 		}
 	}
@@ -140,8 +149,8 @@ func (m *Manager) deleteBranch(s RemoveSpec, res *Result) {
 // isDirty reports whether the working tree has anything a person could lose —
 // 추적되지 않는 파일도 포함한다. 호출자는 repoLock(path 의 repo) 를 쥐고 있다
 // (FR-WKT-7, 개정).
-func (m *Manager) isDirty(path string) (bool, error) {
-	out, err := m.git(path, "status", "--porcelain")
+func (m *Manager) isDirty(ctx context.Context, path string) (bool, error) {
+	out, err := m.git(ctx, path, "status", "--porcelain")
 	if err != nil {
 		return false, err
 	}
@@ -154,11 +163,11 @@ func (m *Manager) isDirty(path string) (bool, error) {
 // List 를 그대로 쓴다 — git worktree list --porcelain 을 다시 파싱하지 않는다
 // (FR-GIT-246: worktree 의 git 실행·파싱은 이 패키지 안에서 한 곳으로 모은다,
 // 두 벌로 두면 한쪽만 고쳐진다).
-func (m *Manager) gone(repo, path string) bool {
+func (m *Manager) gone(ctx context.Context, repo, path string) bool {
 	if _, err := os.Stat(path); err == nil {
 		return false
 	}
-	entries, err := m.List(repo)
+	entries, err := m.List(ctx, repo)
 	if err != nil {
 		return false // 확인할 수 없으면 사라졌다고 단정하지 않는다
 	}

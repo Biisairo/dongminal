@@ -197,7 +197,7 @@ Object.assign(GitPanel.prototype, {
     this._writing=true;
     // 망 실패·파싱 실패를 접는 일은 `gitPost` 가 한다 (api.js) — 두 벌로 두면
     // 한쪽만 고쳐진다. 여기 남는 것은 **패널 고유의 관심사** 둘이다.
-    const res=await gitPost(url,body);
+    const res=await gitPost(url,body,GIT_WRITE_UNBOUNDED.has(url)?{timeout:0}:undefined);
     this._writing=false;
     // 모든 쓰기가 이 한 곳을 지난다 — 방금 실행한 명령이 Console 의 맨 위에
     // 있어야 한다 (FR-GIT-218).

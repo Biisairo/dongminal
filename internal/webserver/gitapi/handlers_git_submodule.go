@@ -1,10 +1,13 @@
 package gitapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"path/filepath"
 
+	"dongminal/internal/webserver/apierr"
+	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/submodule"
 )
 
@@ -40,11 +43,25 @@ func gitSubmodulesUnavailable(w http.ResponseWriter) {
 // 실패를 가른다 — 앞은 클라이언트가 잘못 보낸 것이고 뒤는 git 이 거부한 것이라
 // 사용자가 할 일이 다르다.
 func gitSubmoduleError(w http.ResponseWriter, err error) {
+	code, name := gitSubmoduleCode(err)
+	gitFail(w, code, name, gitTail(err.Error()))
+}
+
+// gitSubmoduleCode 는 가드 거부(400)·core 가 분류한 실패(index_locked·git_timeout·
+// server_shutdown 등 — 등록부)·그 밖의 실행 실패(500)를 가른다.
+//
+//	이전 동작: 가드 거부 외에는 전부 500 failed
+//	새  동작: core 의 분류가 있으면 그 코드
+//	이유:     Runner 가 %w 로 원인을 보존한다 (REPO_FIX 01 §5.6) — index.lock 에 막힌
+//	          sync 가 "남은 lock 지우기" 를 세우지 못했다
+func gitSubmoduleCode(err error) (int, string) {
 	if errors.Is(err, submodule.ErrUnsafePath) {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-		return
+		return http.StatusBadRequest, gitErrBadRequest
 	}
-	gitFail(w, http.StatusInternalServerError, gitErrFailed, gitTail(err.Error()))
+	if status, code, ok := apierr.Git.Lookup(err); ok {
+		return status, code
+	}
+	return http.StatusInternalServerError, gitErrFailed
 }
 
 // GET /api/git/submodules?repo=<abs> — 등록된 서브모듈 전부다 (FR-SUB-1).
@@ -59,7 +76,9 @@ func (s *GitServer) apiGitSubmodules(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	entries, err := s.Submodules.List(root)
+	ctx, cancel := context.WithTimeout(r.Context(), core.PrePhaseTimeout)
+	defer cancel()
+	entries, err := s.Submodules.List(ctx, root)
 	if err != nil {
 		gitSubmoduleError(w, err)
 		return
@@ -140,9 +159,32 @@ func (s *GitServer) apiGitSubmoduleSync(w http.ResponseWriter, r *http.Request) 
 	t := s.beginServiceWrite(w, r, &req, s.Submodules != nil, gitSubmodulesUnavailable)
 	t.requireConfirm(true, req.Confirm, gitSubmoduleConfirmReason)
 	t.resolve(req.Repo)
-	t.exec(func(root string) error {
-		return s.Submodules.Sync(root, req.Path)
-	}, gitSubmoduleError)
+	if t.stop() {
+		return
+	}
+	// REPO_FIX 01 §5.5: Manager 경유 쓰기 — 서버 루트 파생 + 180s. 요청이 떠나도 끝까지
+	// 가고, 프런트는 응답까지 기다린다(timeout:0).
+	//
+	//	이전 동작: 요청 ctx 도 마감도 없이(git 한 번 180s) 돌았고 실패는 500 뿐이었다
+	//	새  동작: 쓰기 단계 마감 하나, 실패 코드는 core 의 분류, index.lock 이면 lock 필드
+	//	이유:     35s 에 끊긴 화면과 계속 도는 서버가 어긋났다
+	ran, err := t.writeWithin(s.gitManagerWrite(), func(ctx context.Context) error {
+		return s.Submodules.Sync(ctx, t.root, req.Path)
+	})
+	if !ran {
+		return
+	}
+	if err != nil {
+		if errors.Is(err, core.ErrServerShutdown) {
+			t.reject(err)
+			return
+		}
+		ctx, cancel := t.post()
+		defer cancel()
+		code, name := gitSubmoduleCode(err)
+		s.gitRenderFail(ctx, t, code, name, gitTail(err.Error()), err, map[string]any{})
+		return
+	}
 	// **`invalidate` 가 없다.** sync 는 `.git/config` 만 옮기고 체크아웃을 건드리지
 	// 않으므로 부모의 status 가 달라지지 않는다 (FR-SUB-5). 버릴 것이 없는 캐시를
 	// 버리면 다음 조회가 공짜로 한 번 더 돈다.

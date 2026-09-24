@@ -40,6 +40,22 @@ func worktreeTestServer(t *testing.T) (s *GitServer, repo string, userMgr *workt
 	return s, repo, userMgr
 }
 
+// wtCreateAwait 는 생성 잡을 끝까지 기다려 종전의 동기 모양 {ok, path, branch} 로
+// 펴 준다 (REPO_FIX 01 §5.6 — 생성은 잡이다). 실행 전 거부는 그대로 돌려준다.
+func wtCreateAwait(t *testing.T, s *GitServer, body string) (int, map[string]any) {
+	t.Helper()
+	code, out := wtReq(t, s, http.MethodPost, "/api/git/worktrees/create", body)
+	if code != http.StatusOK || out["job"] == nil {
+		return code, out
+	}
+	jb := gitJobDone(t, s, out)
+	out["ok"] = jobSucceeded(jb)
+	if jb.Result != nil {
+		out["path"], out["branch"] = jb.Result.Path, jb.Result.Branch
+	}
+	return code, out
+}
+
 func wtReq(t *testing.T, s *GitServer, method, path, body string) (int, map[string]any) {
 	t.Helper()
 	var r *http.Request
@@ -126,7 +142,7 @@ func TestGitWorktreeOwner_ClassifiesByPath(t *testing.T) {
 func TestAPIGitWorktreeCreate_RejectsDashLeadingName(t *testing.T) {
 	s, repo, _ := worktreeTestServer(t)
 	body := fmt.Sprintf(`{"repo":%q,"name":"-x","ref":"main"}`, repo)
-	code, out := wtReq(t, s, http.MethodPost, "/api/git/worktrees/create", body)
+	code, out := wtCreateAwait(t, s, body)
 	if code != http.StatusBadRequest || out["error"] != gitErrRefName {
 		t.Fatalf("want 400 ref_name_invalid, got %d %+v", code, out)
 	}
@@ -140,7 +156,7 @@ func TestAPIGitWorktreeCreate_RejectsExistingName(t *testing.T) {
 	wtGitRun(t, repo, "branch", "other")
 
 	body := fmt.Sprintf(`{"repo":%q,"name":"feature","ref":"other"}`, repo)
-	code, out := wtReq(t, s, http.MethodPost, "/api/git/worktrees/create", body)
+	code, out := wtCreateAwait(t, s, body)
 	if code != http.StatusOK {
 		t.Fatalf("첫 생성 want 200, got %d %+v", code, out)
 	}
@@ -154,7 +170,7 @@ func TestAPIGitWorktreeCreate_RejectsExistingName(t *testing.T) {
 		t.Fatalf("경로가 사용자 영역 밖이다: %+v", out)
 	}
 
-	code, out = wtReq(t, s, http.MethodPost, "/api/git/worktrees/create", body)
+	code, out = wtCreateAwait(t, s, body)
 	if code != http.StatusConflict || out["error"] != gitErrWorktreeExists {
 		t.Fatalf("같은 이름 재생성이 거부되지 않았다: %d %+v", code, out)
 	}
@@ -167,7 +183,7 @@ func TestAPIGitWorktreeCreate_RejectsExistingBranch(t *testing.T) {
 	wtGitRun(t, repo, "branch", "taken")
 
 	body := fmt.Sprintf(`{"repo":%q,"name":"taken","ref":"main","newBranch":true}`, repo)
-	code, out := wtReq(t, s, http.MethodPost, "/api/git/worktrees/create", body)
+	code, out := wtCreateAwait(t, s, body)
 	if code != http.StatusConflict || out["error"] != gitErrBranchExists {
 		t.Fatalf("want 409 branch_exists, got %d %+v", code, out)
 	}
@@ -180,7 +196,7 @@ func TestAPIGitWorktree_CreateListRemove(t *testing.T) {
 	s, repo, _ := worktreeTestServer(t)
 
 	body := fmt.Sprintf(`{"repo":%q,"name":"feature","ref":"main","newBranch":true}`, repo)
-	code, out := wtReq(t, s, http.MethodPost, "/api/git/worktrees/create", body)
+	code, out := wtCreateAwait(t, s, body)
 	if code != http.StatusOK {
 		t.Fatalf("create want 200, got %d %+v", code, out)
 	}
@@ -253,7 +269,7 @@ func TestAPIGitWorktree_CreateListRemove(t *testing.T) {
 func TestAPIGitWorktreeRemove_DirtyIsOkButNotRemoved(t *testing.T) {
 	s, repo, _ := worktreeTestServer(t)
 	body := fmt.Sprintf(`{"repo":%q,"name":"feature","ref":"main","newBranch":true}`, repo)
-	_, out := wtReq(t, s, http.MethodPost, "/api/git/worktrees/create", body)
+	_, out := wtCreateAwait(t, s, body)
 	path, _ := out["path"].(string)
 	if path == "" {
 		t.Fatalf("생성 실패: %+v", out)
@@ -289,7 +305,7 @@ func TestAPIGitWorktreeRemove_DirtyIsOkButNotRemoved(t *testing.T) {
 func TestAPIGitWorktrees_MainStaysOnOriginWhenQueriedFromLinkedWorktree(t *testing.T) {
 	s, repo, _ := worktreeTestServer(t)
 	body := fmt.Sprintf(`{"repo":%q,"name":"feature","ref":"main","newBranch":true}`, repo)
-	_, out := wtReq(t, s, http.MethodPost, "/api/git/worktrees/create", body)
+	_, out := wtCreateAwait(t, s, body)
 	path, _ := out["path"].(string)
 	if path == "" {
 		t.Fatalf("생성 실패: %+v", out)

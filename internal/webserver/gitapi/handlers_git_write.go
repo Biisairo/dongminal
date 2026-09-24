@@ -403,7 +403,7 @@ func (s *GitServer) gitRenderFail(ctx context.Context, t *gitWrite, code int, na
 
 // gitIndexLock 은 err 가 index.lock 실패일 때 그 lock 의 정보다 (§7.2).
 func (s *GitServer) gitIndexLock(ctx context.Context, root string, err error) (*core.LockInfo, bool) {
-	if !errors.Is(err, core.ErrIndexLocked) {
+	if !errors.Is(err, core.ErrIndexLocked) || s.Git == nil {
 		return nil, false
 	}
 	info := s.Git.Service().IndexLockInfo(ctx, root)

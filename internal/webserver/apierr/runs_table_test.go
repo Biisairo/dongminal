@@ -37,6 +37,7 @@ func TestRunsTableMatchesPreRefactorBehavior(t *testing.T) {
 		{worktree.ErrGitMissing, http.StatusBadRequest},
 		{worktree.ErrUnsafeArgument, http.StatusBadRequest},
 		{worktree.ErrUnsafePath, http.StatusBadRequest},
+		{worktree.ErrRepoBusy, http.StatusConflict},
 	}
 	for _, c := range cases {
 		t.Run(c.sentinel.Error(), func(t *testing.T) {

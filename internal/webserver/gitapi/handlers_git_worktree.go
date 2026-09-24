@@ -1,12 +1,15 @@
 package gitapi
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"dongminal/internal/webserver/apierr"
+	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/worktree"
 )
 
@@ -84,7 +87,9 @@ func (s *GitServer) apiGitWorktrees(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	entries, err := s.UserWorktrees.List(root)
+	ctx, cancel := context.WithTimeout(r.Context(), core.PrePhaseTimeout)
+	defer cancel()
+	entries, err := s.UserWorktrees.List(ctx, root)
 	if err != nil {
 		gitError(w, err)
 		return
@@ -127,6 +132,15 @@ type gitWorktreeCreateReq struct {
 // 경로를 고르지 않는다** — Run 영역은 uuid 파생이라 충돌이 구조적으로 없지만
 // 사용자 영역은 사람이 고른 이름이라 충돌이 실제로 있고, 조용히 비켜가면
 // "내가 만든 게 어디 갔지"가 된다.
+//
+// **잡이다** (REPO_FIX 01 §5.2·5.6). 사전 단계: common 칸 확인 → repoLock(≤5s) →
+// 충돌 판정 → 부모 디렉터리 생성 → 요청 확인 → 등록. 등록 전에 실패하면 repoLock 을
+// 반납하고 이번에 만든 빈 부모 디렉터리를 지운다. 완료 처리가 config 두 건을 쓰고
+// repoLock 을 반납한다(모든 결말).
+//
+//	이전 동작: 동기 — git 한 번 180s·취소 불가, 응답 {ok, path, branch}
+//	새  동작: 200 {job}(kind worktree, common 칸). path·branch 는 잡의 result
+//	이유:     큰 저장소의 체크아웃은 분 단위다 — 35s 에 끊긴 화면과 계속 도는 서버가 어긋났다
 func (s *GitServer) apiGitWorktreeCreate(w http.ResponseWriter, r *http.Request) {
 	var req gitWorktreeCreateReq
 	t := s.beginServiceWrite(w, r, &req, s.UserWorktrees != nil, gitWorktreesUnavailable)
@@ -140,28 +154,100 @@ func (s *GitServer) apiGitWorktreeCreate(w http.ResponseWriter, r *http.Request)
 	if t.stop() {
 		return
 	}
+	keys, err := s.jobKeys(t.ctx(), t.root)
+	if err != nil {
+		t.reject(err)
+		return
+	}
+	t.keys = keys
+	if id, busy := s.exclusion().CommonBusy(keys.Common); busy {
+		t.rejectWith(http.StatusConflict, gitErrJobBusy,
+			"이 저장소에서 원격 작업("+id+")이 진행 중이다 — 끝난 뒤 다시 시도하라")
+		return
+	}
+	release, err := worktree.LockRepo(t.ctx(), keys.Common, s.gitLockWait())
+	if err != nil {
+		t.reject(err)
+		return
+	}
+	registered := false
+	var made []string
+	defer func() {
+		if registered {
+			return
+		}
+		release()
+		gitRemoveMadeDirs(made)
+	}()
 
 	// 여기부터는 이 표면 고유의 충돌 판정이다 — 파이프라인이 대신할 수 없다.
-	// root 를 읽어야 하므로 `resolve` 뒤여야 하고, 실행 **전에** 답해야 한다.
 	path := s.UserWorktrees.Path(worktree.RepoBucket(t.root), req.Name)
 	if _, err := os.Stat(path); err == nil {
 		t.rejectBody(http.StatusConflict, gitErrWorktreeExists,
 			"이미 있는 이름이다: "+req.Name, map[string]any{"path": path})
 		return
 	}
-
-	spec := worktree.Spec{Repo: t.root, Path: path, Base: req.Ref}
+	spec := worktree.Spec{Repo: t.root, Path: path, Base: req.Ref, LockKey: keys.Common}
 	if req.NewBranch {
-		if s.UserWorktrees.BranchExists(t.root, req.Name) {
+		if s.UserWorktrees.BranchExists(t.ctx(), t.root, req.Name) {
 			t.rejectBody(http.StatusConflict, gitErrBranchExists,
 				"로컬 브랜치 "+req.Name+" 가 이미 있다", map[string]any{"branch": req.Name})
 			return
 		}
 		spec.Branch = req.Name
 	}
+	add, err := s.UserWorktrees.AddSpec(spec)
+	if err != nil {
+		t.reject(err)
+		return
+	}
+	made, err = gitMkdirParents(filepath.Dir(path))
+	if err != nil {
+		t.reject(err)
+		return
+	}
+	finish := jobs.OnFinish(func(ctx context.Context, jb *jobs.Job) {
+		// ⑤ config(성공·루트 생존) → ⑥ repoLock 반납(항상) (§6.3).
+		if jobSucceeded(jb) {
+			if ctx.Err() == nil {
+				s.UserWorktrees.Configure(ctx, spec)
+			}
+			jb.Result = &jobs.Result{Path: spec.Path, Branch: spec.Branch}
+		}
+		release()
+	})
+	t.launchJob(func(h *jobs.Jobs, k jobs.Keys) (*jobs.Job, error) {
+		jb, err := h.StartUnguarded(t.root, k, "worktree", add.Argv, add.Reason, finish)
+		registered = err == nil
+		return jb, err
+	}, nil)
+}
 
-	t.exec(func(string) error { return s.UserWorktrees.Create(spec) }, gitError)
-	t.okPlain(map[string]any{"path": spec.Path, "branch": spec.Branch})
+// gitMkdirParents 는 dir 을 만들고 **이번에 새로 만든** 디렉터리를 바깥부터 준다 —
+// 등록 전 실패에서 그것만 되돌린다. 이미 있던 것은 목록에 없다.
+func gitMkdirParents(dir string) ([]string, error) {
+	var missing []string
+	for p := filepath.Clean(dir); ; p = filepath.Dir(p) {
+		if _, err := os.Stat(p); err == nil {
+			break
+		}
+		missing = append(missing, p)
+		if filepath.Dir(p) == p {
+			break
+		}
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, err
+	}
+	return missing, nil
+}
+
+// gitRemoveMadeDirs 는 gitMkdirParents 가 만든 디렉터리를 안쪽부터 지운다. 비어 있지
+// 않으면(그 사이 누군가 채웠다) os.Remove 가 거부하므로 남의 것을 지우지 않는다.
+func gitRemoveMadeDirs(made []string) {
+	for _, p := range made {
+		_ = os.Remove(p)
+	}
 }
 
 // gitWorktreeRemoveReq 는 제거의 본문이다 (FR-GIT-243). Confirm 은 파괴적 동작의
@@ -180,24 +266,43 @@ type gitWorktreeRemoveReq struct {
 // 밖의 모든 경로를 unsafe_path 로 거부한다 — Run 영역도 그 형제이므로 밖이다
 // (FR-WKT-13). 소유 판정을 다시 구현하면 그 판정이 checkPath 와 어긋날 때 구멍이
 // 생긴다.
+//
+// **요청 worktree 의 칸·뮤텍스는 보지 않는다** (REPO_FIX 01 §5.6) — `git worktree
+// remove` 는 대상 작업 트리와 `$GIT_COMMON_DIR/worktrees/<n>` 만 바꾼다. 순서:
+// ① worktree 잡 확인 → 목록으로 대상 확정 → 대상 index 칸 확인 → ② 대상 toplevel
+// 뮤텍스(≤5s) → ③ 대상 index 칸 재확인 → ④ 요청 확인 → ⑤ 쓰기 단계(180s, 루트
+// 파생): repoLock 대기 + Remove. common-dir 잠금(stash)은 쓰지 않는다.
+//
+//	이전 동작: 배타 없음 — 대상 worktree 에서 커밋이 도는 중에도 지웠다
+//	새  동작: 대상의 잡·동기 쓰기가 있으면 409, repoLock 대기가 마감에 걸리면 504
+//	이유:     진행 중인 쓰기의 작업 트리를 지우지 않는다
 func (s *GitServer) apiGitWorktreeRemove(w http.ResponseWriter, r *http.Request) {
 	var req gitWorktreeRemoveReq
 	t := s.beginServiceWrite(w, r, &req, s.UserWorktrees != nil, gitWorktreesUnavailable)
 	t.requireConfirm(true, req.Confirm,
 		"worktree 제거는 확인을 요구한다: confirm:true (FR-GIT-243)")
 	t.resolve(req.Repo)
-
-	// 지울 브랜치 이름은 클라이언트를 믿지 않는다 — 실제 목록에서 다시 찾는다.
-	var entries []worktree.Entry
-	t.exec(func(root string) error {
-		var err error
-		entries, err = s.UserWorktrees.List(root)
-		return err
-	}, gitError)
 	if t.stop() {
 		return
 	}
+	keys, err := s.jobKeys(t.ctx(), t.root)
+	if err != nil {
+		t.reject(err)
+		return
+	}
+	x := s.exclusion()
+	if id, busy := x.CommonBusy(keys.Common); busy && s.gitJobKind(id) == "worktree" {
+		t.rejectWith(http.StatusConflict, gitErrJobBusy,
+			"이 저장소에서 worktree 작업("+id+")이 진행 중이다 — 끝난 뒤 다시 시도하라")
+		return
+	}
 
+	// 지울 브랜치 이름은 클라이언트를 믿지 않는다 — 실제 목록에서 다시 찾는다.
+	entries, err := s.UserWorktrees.List(t.ctx(), t.root)
+	if err != nil {
+		t.reject(err)
+		return
+	}
 	target := filepath.Clean(req.Path)
 	var branch string
 	found := false
@@ -216,7 +321,37 @@ func (s *GitServer) apiGitWorktreeRemove(w http.ResponseWriter, r *http.Request)
 		// 브랜치를 함께 지우는 것은 별도 선택이며 기본이 아니다 (FR-GIT-243).
 		branch = ""
 	}
-	res := s.UserWorktrees.Remove(r.Context(), worktree.RemoveSpec{Repo: t.root, Path: req.Path, Branch: branch})
+
+	// 밖에서 지운 worktree 도 키가 나온다 (§5.1 — 존재하는 조상까지 푼다).
+	top := core.ExclusionKey(target)
+	if t.targetIndexBusy(x, top) {
+		return
+	}
+	unlock, err := x.LockTop(t.r.Context(), top, s.gitLockWait())
+	if err != nil {
+		t.reject(err)
+		return
+	}
+	defer unlock()
+	if t.targetIndexBusy(x, top) {
+		return
+	}
+
+	var res worktree.Result
+	ran, err := t.writeWithin(s.gitManagerWrite(), func(ctx context.Context) error {
+		res = s.UserWorktrees.Remove(ctx, worktree.RemoveSpec{
+			Repo: t.root, Path: req.Path, Branch: branch, LockKey: keys.Common,
+		})
+		return res.Err
+	})
+	if !ran {
+		return
+	}
+	if err != nil {
+		// repoLock 을 얻지 못했다 — 아무것도 지우지 않았다. 마감이면 504, 종료면 503.
+		t.reject(err)
+		return
+	}
 	// `ok` 는 "요청을 처리했다" 이고 `removed` 는 "실제로 지웠다" 다 — 둘은 다르다.
 	// 지우지 않은 경우(dirty)도 정상 처리이며 사유는 `residue` 가 싣는다. 그래서
 	// 이 자리는 `rejectBody` 가 아니라 `okPlain` 이다.
@@ -224,4 +359,25 @@ func (s *GitServer) apiGitWorktreeRemove(w http.ResponseWriter, r *http.Request)
 		"path": res.Path, "branch": res.Branch,
 		"removed": res.Removed, "residue": res.Residue, "detail": res.Detail,
 	})
+}
+
+// targetIndexBusy 는 **대상** worktree 의 index 칸을 쥔 잡이 있으면 409 job_busy 다.
+func (t *gitWrite) targetIndexBusy(x *jobs.Exclusion, top string) bool {
+	id, busy := x.IndexBusy(top)
+	if busy {
+		t.rejectWith(http.StatusConflict, gitErrJobBusy,
+			"지우려는 worktree 에서 작업("+id+")이 진행 중이다 — 끝난 뒤 다시 시도하라")
+	}
+	return busy
+}
+
+// gitJobKind 는 진행 중인 잡의 kind 다. 허브가 없거나 이미 치워졌으면 빈 문자열이다.
+func (s *GitServer) gitJobKind(id string) string {
+	if s.Git == nil {
+		return "" // 허브는 Git 이 있어야 선다 — 없으면 도는 잡도 없다
+	}
+	if jb, ok := s.jobsHub().Get(id); ok {
+		return jb.Kind
+	}
+	return ""
 }

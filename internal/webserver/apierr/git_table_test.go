@@ -32,6 +32,7 @@ var gitTableCases = []struct {
 	{jobs.ErrRepoBusy, http.StatusConflict, CodeRepoBusy},
 	// REPO_FIX 01 §8
 	{core.ErrServerShutdown, http.StatusServiceUnavailable, CodeServerShutdown},
+	{worktree.ErrRepoBusy, http.StatusConflict, CodeRepoBusy},
 
 	// gitPatchErrorCode
 	{write.ErrPatchStale, http.StatusConflict, CodeStaleObservation},
