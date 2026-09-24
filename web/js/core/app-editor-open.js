@@ -188,6 +188,10 @@ Object.assign(App.prototype, {
         if(!n) return;
         if(n.type==='pane'&&n.tabs) for(const t of n.tabs){
           if(t&&t.type==='editor'&&t.filePath) seen.add(t.filePath);
+          // REPO_FIX 05 §3A-3: git Diff 탭의 작업 트리 쪽도 편집기 문서다 — 바깥 변경은
+          // 문서 refresh 가 나른다(03). 빼면 Diff 만 연 파일이 낡는다.
+          if(t&&t.type===TAB_TYPE_GIT&&t.gitView==='diff')
+            for(const p of this._gitDiffDocPaths(this.edRootOf(s))) seen.add(p);
         }
         if(n.type==='split'&&n.children) for(const c of n.children) walk(c);
       };

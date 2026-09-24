@@ -77,6 +77,9 @@ Object.assign(GitDiffView.prototype, {
     return (d&&d.encoding)||'';
   },
 
+  // 지금 그린 문서의 경로 — 라이브 리로드가 이 문서도 묻는다(`_edVisibleDocPaths`).
+  docPath(){ return this._docRec()?this._dv.filePath:'' },
+
   // 지금 그린 문서의 인코딩 — utf-16 이면 hunk 를 쓸 수 없다 (§3A-3 인코딩).
   docEncoding(){ const d=this._docRec(); return (d&&d.encoding)||'' },
 

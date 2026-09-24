@@ -163,6 +163,18 @@ Object.assign(App.prototype, {
     return false;
   },
 
+  // 그 루트의 Diff 뷰들이 보고 있는 편집기 문서의 경로 (REPO_FIX 05 §3A-3).
+  _gitDiffDocPaths(root){
+    const out=[];
+    if(!this.gitPanels) return out;
+    for(const [key,p] of this.gitPanels){
+      if(this._gitPanelRoot(key)!==(root||'')) continue;
+      const dp=p&&p._diffView&&p._diffView.docPath();
+      if(dp) out.push(dp);
+    }
+    return out;
+  },
+
   /**
    * 그 루트의 Diff 뷰가 든 편집을 저장한다. 하나라도 실패하면 false 다 —
    * 호출자는 그때 닫기를 멈춘다. 저장한 줄 알고 닫으면 그것이 곧 손실이다.
