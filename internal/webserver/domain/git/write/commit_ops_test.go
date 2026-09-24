@@ -218,14 +218,3 @@ func TestDropSpec_DestructiveWithHint(t *testing.T) {
 		t.Fatalf("hint.Command = %q — 되살릴 수 있는 명령이 아니다", hint.Command)
 	}
 }
-
-// fakeParentsRead 는 `log --format=%P` 하나만 답하는 읽기 실행기다. 머지 판정이
-// 무엇을 묻는지 고정한다.
-func fakeParentsRead(parents string) core.Runner {
-	return func(_ context.Context, _ string, args []string) (core.Output, error) {
-		if len(args) > 0 && args[0] == "log" {
-			return core.Output{Stdout: parents + "\n"}, nil
-		}
-		return core.Output{}, nil
-	}
-}

@@ -348,27 +348,6 @@ func (t *gitWrite) ok(extra map[string]any) {
 	t.done = true
 }
 
-// exec 는 관리자의 조작을 실행한다 (FR-DRC-3) — `apply` 의 자매다.
-//
-// `apply` 와 갈라 두는 이유는 **status 왕복이 여기서 값을 벌지 않기** 때문이다.
-// `apply` 는 실행 전후의 status 를 찍어 부분 적용을 판정한다 (FR-GIT-73). 그 판정은
-// 작업 트리를 건드리는 쓰기에만 뜻이 있다 — 서브모듈 체크아웃 이동이나 worktree
-// 생성은 부모의 status 를 그런 식으로 갈라 놓지 않는다. 판정하지 않을 값을 위해
-// git 을 두 번 더 부르지 않는다.
-//
-// 오류 번역기를 **표면이 준다.** `gitSubmoduleError` 는 안전 가드의 거부(400)와
-// 실행 실패(500)를 가르고, `gitError` 는 sentinel 등록부를 본다 — 판정이 다르므로
-// 한쪽으로 접으면 다른 쪽이 틀린 코드를 내보낸다.
-func (t *gitWrite) exec(run func(root string) error, fail func(http.ResponseWriter, error)) {
-	if t.done {
-		return
-	}
-	if err := run(t.root); err != nil {
-		fail(t.w, err)
-		t.done = true
-	}
-}
-
 // invalidate 는 관측 캐시를 버린다.
 //
 // `apply` 는 이것을 스스로 한다 (`handlers_git_write.go:250`). `exec` 로 도는
@@ -386,7 +365,7 @@ func (t *gitWrite) invalidate() {
 	t.s.Git.Invalidate(t.root)
 }
 
-// okPlain 은 status 없이 답하는 성공이다 (FR-DRC-2) — `exec` 의 종단.
+// okPlain 은 status 없이 답하는 성공이다 (FR-DRC-2).
 //
 // `ok` 와 같은 세 필드(`ok`·`repo`·`requested`)를 싣는다. `ok` 가 **클라이언트의
 // 성공 판정**이고 (`panel-write.js:166` 의 `!!(r&&r.ok&&d&&d.ok)`), `requested` 는
