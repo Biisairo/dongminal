@@ -161,12 +161,11 @@ body.mobile .ed-row{height:var(--touch-min)}
    (Tokyo Night `#c0caf5` vs `#a9b1d6`) 둘째 채널로 세지 않는다 — 폴더만 있는
    목록에서는 아예 보이지 않는다.
 
-   접미 `/` 는 `ls -F` 의 문법이다. §3.1 — 껍데기는 터미널과 같은 문법으로
-   말한다. 마크업이 아니라 `::after` 인 것이 요점이다: 이름을 읽는 쪽
-   (`.ed-name` 의 textContent, 이름 변경 입력)은 `/` 를 보지 않는다.
-   링크는 `.ed-dir` 이 아니므로 붙지 않는다 — 그쪽은 `.ed-mark` 가 `ls -F` 의
-   `@` 를 이미 하고 있다 (FR-EDT-60). */
-.ed-row.ed-dir .ed-name::after{content:'/';color:var(--text-hint)}
+     이전 동작: 폴더 이름 뒤에 `::after` 로 `/`(`ls -F` 의 문법)를 붙였다
+     새 동작: 폴더 이름을 굵게(600) 한다 — 글자는 늘지 않는다
+     이유: 모든 폴더 뒤의 `/` 가 보기 싫다(사용자 결정 2026-09-25). 500 은
+           Segoe UI 등에서 400 과 같게 그려져 단서가 되지 않는다 */
+.ed-row.ed-dir .ed-name{font-weight:600}
 /* FR-EDT-60: 링크는 따라가지 않는다는 사실을 표시가 알린다. */
 .ed-mark{flex:0 0 auto;font-size:var(--fs-sm);color:var(--text-muted)}
 /* FR-EDT-63: 조회 실패는 그 폴더 행에만 남는다 — 트리는 그대로 산다. */
