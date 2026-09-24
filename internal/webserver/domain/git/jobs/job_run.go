@@ -20,7 +20,7 @@ import (
 func (j *Jobs) run1(ctx context.Context, cancel context.CancelFunc, st *jobState) {
 	defer cancel()
 	started := j.now()
-	exit, err := j.run(ctx, st.job.Repo, st.raw, func(stream, text string) {
+	exit, err := j.run(ctx, st.job.Repo, st.raw, st.spec.Stdin, func(stream, text string) {
 		j.appendLine(st, stream, text)
 	})
 	// 상한 초과는 실행기가 무엇을 돌려주든 **이것이** 사유다 (O9). 실행기의
@@ -86,9 +86,21 @@ func (j *Jobs) finish(st *jobState, exit int, runErr error, dur time.Duration) {
 	final.ExitCode = exit
 	final.Canceled = canceled
 	final.StderrTail = tail
+	remote := remoteKinds[final.Kind]
+	shutdown := j.root.Err() != nil
 	switch {
-	case canceled:
+	case shutdown:
+		// §8: 서버 종료로 끊긴 것은 사용자의 취소가 아니다 — 최우선 분류다.
+		final.Canceled = false
+		final.ErrorCode = ErrorServerShutdown
+		final.Err = "서버 종료로 중단했다 — 일부가 적용됐을 수 있다"
+	case canceled && remote:
 		final.Err = "취소했다. 원격에 일부가 적용됐을 수 있다"
+	case canceled:
+		final.Err = "취소했다. 일부가 적용됐을 수 있다 — 상태를 확인하라"
+	case errors.Is(runErr, core.ErrTimeout):
+		final.ErrorCode = ErrorTimeout
+		final.Err = core.SanitizeRemote(runErr.Error())
 	case runErr != nil:
 		final.Err = core.SanitizeRemote(runErr.Error())
 	case exit != 0:
@@ -96,7 +108,9 @@ func (j *Jobs) finish(st *jobState, exit int, runErr error, dur time.Duration) {
 		// 직접 해석해야 하고, 그 판정이 두 벌이 된다. 자세한 내용은 StderrTail 이다.
 		final.Err = fmt.Sprintf("git %s 가 exit %d 로 끝났다", final.Kind, exit)
 	}
-	if !canceled {
+	// 원격 전용 판정은 원격 kind 에서만 (§6.3) — merge 의 stderr 에 "rejected" 가
+	// 있다고 force push 를 권하지 않는다.
+	if !canceled && !shutdown && remote {
 		final.AuthRequired = matchesAny(tail, authPatterns)
 		final.Rejected = matchesAny(tail, rejectPatterns)
 		if final.Rejected {
@@ -133,9 +147,22 @@ func (j *Jobs) finish(st *jobState, exit int, runErr error, dur time.Duration) {
 	// 훅은 **끝이 공개되기 전에** 돈다 (FR-GIT-107). Done 을 세우고 구독자를
 	// 닫은 뒤에 부르면, 그 사이에 `done` 을 본 쪽이 status 를 물어 만료되지 않은
 	// 캐시를 받는다 — `-race -shuffle` 전량에서 실제로 잡힌 창이다 (M8 P1 ②).
+	// ② lock 판정 → ③ 무효화(공용 훅) → ④~⑦ 잡의 완료 처리 (§6.3). ctx 는 루트
+	// 파생 + 15s 이며 잡 ctx 와 별개다 — 취소된 잡도 재조회는 해야 한다.
+	fctx, fcancel := context.WithTimeout(j.root, core.PostPhaseTimeout)
+	defer fcancel()
+	if final.ErrorCode == "" && final.Err != "" && core.IndexLockedStderr(tail) {
+		final.ErrorCode = ErrorIndexLocked
+		if !shutdown {
+			final.Lock = j.svc.IndexLockInfo(fctx, final.Repo)
+		}
+	}
 	if j.onDone != nil {
 		snapshot := final
 		j.onDone(&snapshot)
+	}
+	if st.finish != nil {
+		st.finish(fctx, &final)
 	}
 
 	j.mu.Lock()

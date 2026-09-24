@@ -110,7 +110,7 @@ func TestAPIGitOperation_RunsMatchingAction(t *testing.T) {
 		f := newGitM5Fake(t)
 		opInProgress(t, f, tc.marker)
 		s := gitM5Server(t, f)
-		code, out := gitReq(t, s, http.MethodPost, "/api/git/operation", tc.body)
+		code, out := gitReqAwait(t, s, http.MethodPost, "/api/git/operation", tc.body)
 		if code != http.StatusOK || out["ok"] != true {
 			t.Fatalf("%s → %d %v", tc.body, code, out)
 		}

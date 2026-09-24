@@ -248,7 +248,7 @@
 | POST | `/api/git/patch` | **부분 스테이징.** 화면이 본 내용과 디스크가 어긋나면 거절한다 |
 | GET | `/api/git/hunks` | 변경 덩어리 목록 |
 | POST | `/api/git/discard` | 변경을 버린다 |
-| POST | `/api/git/commit` | 커밋 |
+| POST | `/api/git/commit` | 커밋 — **작업**이다: `{job}` 을 돌려주고 oid·undoToken·실행 후 status 는 끝난 작업의 `result` 에 온다 |
 | POST | `/api/git/undo-last` | 마지막 커밋 되돌리기 (창이 지나면 거절) |
 | GET | `/api/git/diff-content` | diff 본문 |
 | GET | `/api/git/blob` | diff 한쪽의 **원본 바이트** — 그림만 내보낸다 (`<img src>` 가 건다) |
@@ -265,19 +265,19 @@
 |---|---|---|
 | GET | `/api/git/refs` | 브랜치·태그 목록 |
 | GET | `/api/git/branch/validate` · `/api/git/tag/validate` | 이름이 git 규칙에 맞는가 |
-| POST | `/api/git/branch` · `/api/git/tag` | 만든다 |
+| POST | `/api/git/branch` · `/api/git/tag` | 만든다 (`branch` 에 `checkout:true` 면 checkout **작업**) |
 | POST | `/api/git/branch/rename` | 이름을 바꾼다 |
 | POST | `/api/git/branch/delete` · `/api/git/tag/delete` | 지운다 |
 | POST | `/api/git/branch/delete-remote` · `/api/git/tag/delete-remote` | 원격의 것을 지운다 |
-| POST | `/api/git/checkout` | 그 ref 로 옮긴다 |
+| POST | `/api/git/checkout` | 그 ref 로 옮긴다 — **작업** |
 | POST | `/api/git/branch/upstream` | 추적 대상을 정한다 |
-| POST | `/api/git/branch/merge` · `/api/git/branch/rebase` | 합친다 |
+| POST | `/api/git/branch/merge` · `/api/git/branch/rebase` | 합친다 — **작업** |
 | GET | `/api/git/branch/merge-preview` | 합치면 무엇이 바뀌는가 (실행하지 않는다) |
 | POST | `/api/git/branch/push` · `/api/git/branch/fetch` | 그 브랜치만 밀고 받는다 |
 | POST | `/api/git/tag/push` | 태그를 민다 |
-| POST | `/api/git/cherry-pick` · `/api/git/revert` | 커밋 하나를 가져오고 되돌린다 |
+| POST | `/api/git/cherry-pick` · `/api/git/revert` | 커밋 하나를 가져오고 되돌린다 — **작업** |
 | POST | `/api/git/reset` | `soft`·`mixed`·`hard` |
-| POST | `/api/git/operation` | 진행 중인 작업(merge·rebase…)을 잇거나 중단한다 |
+| POST | `/api/git/operation` | 진행 중인 작업(merge·rebase…)을 잇거나 중단한다 — **작업** |
 | POST | `/api/git/resolve` | 충돌을 해결한 것으로 표시한다 |
 
 ### Git — 원격·동기화
@@ -287,7 +287,7 @@
 | GET | `/api/git/remotes` | 원격 목록 |
 | POST | `/api/git/remote/add` · `/api/git/remote/remove` | 원격을 더하고 뺀다 |
 | POST | `/api/git/fetch` · `/api/git/pull` · `/api/git/push` | 받고 당기고 민다 |
-| GET | `/api/git/jobs` | 도는 작업 목록 |
+| GET | `/api/git/jobs` | 도는 작업 목록 — 저장소당 index·common 두 칸이라 최대 둘, 각 작업의 `slots` 가 어느 칸인지 말한다 |
 | GET | `/api/git/job/events` | 그 작업의 진행 (SSE) |
 | POST | `/api/git/job/cancel` | 작업을 취소한다 |
 | POST | `/api/git/lock/remove` | 쓰기가 `index_locked` 로 막힌 뒤 남은 `index.lock` 을 지운다 — `confirm:true` 와 확인한 `mtimeUnixMs` 가 필요하다. 서버가 스스로 지우지는 않는다 |
@@ -314,7 +314,7 @@
 |---|---|---|
 | GET | `/api/git/records` | 이 앱이 실행한 git 명령의 기록 (Git ▸ 콘솔 탭) |
 | POST | `/api/git/records/replay` | 그중 하나를 다시 실행한다 |
-| POST | `/api/git/drop` | 기록 하나를 지운다 |
+| POST | `/api/git/drop` | 커밋 하나를 히스토리에서 뺀다 — rebase **작업** |
 
 ## WebSocket: `/ws?tool=<id>&cols=&rows=&since=`
 

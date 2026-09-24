@@ -57,20 +57,20 @@ func (s *GitServer) apiGitCheckout(w http.ResponseWriter, r *http.Request) {
 		"force checkout 은 워킹 트리의 변경을 버린다: confirm:true 를 요구한다 (FR-GIT-89·157)")
 	t.resolve(req.Repo)
 	opts := write.CheckoutOpts{Ref: req.Ref, Create: req.Create, Track: req.Track, Detach: req.Detach, Force: req.Force}
-	// 잘못된 요청은 실행 **전에** 답한다. apply 를 지나면 코드가 500 이 되고,
-	// 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다.
-	if _, err := write.CheckoutArgs(opts); err != nil {
+	// 잘못된 요청은 실행 **전에** 답한다 — 잡으로 넘기면 사유가 스트림 끝에서야 온다.
+	spec, err := write.CheckoutSpec(opts)
+	if err != nil {
 		t.reject(err)
 	}
-	// 이름 충돌은 저장소를 조회해야 안다 — 파이프라인이 대신할 수 없는 검사다.
+	// 이름 충돌은 저장소를 조회해야 안다 — 사전 단계의 검사다 (§6.2).
 	if t.stop() || s.gitBranchNameTaken(w, t.ctx(), req.Repo, t.root, req.Create, req.Track) {
 		return
 	}
-	t.apply(func(ctx context.Context) error {
-		_, err := write.Checkout(s.Git.Service(), ctx, t.root, opts)
-		return err
-	})
-	t.ok(nil)
+	// REPO_FIX 01 §5.2: checkout 은 잡이다.
+	//
+	//	이전 동작: 동기 — 200 {ok, status} / 새 동작: 200 {job}, 결과는 잡의 result
+	//	이유:     post-checkout 훅·큰 작업 트리에서 35s 에 끊겨 화면만 실패로 읽었다
+	t.startWriteJob(spec, t.snapshot(), nil, nil)
 }
 
 // POST /api/git/branch — 브랜치를 만든다 (FR-GIT-158·159·160).
@@ -79,10 +79,16 @@ func (s *GitServer) apiGitBranchCreate(w http.ResponseWriter, r *http.Request) {
 	t := s.beginWrite(w, r, &req)
 	t.resolve(req.Repo)
 	opts := write.BranchCreateOpts{Name: req.Name, StartRef: req.StartRef, Checkout: req.Checkout}
-	if _, err := write.BranchCreateArgs(opts); err != nil {
+	argv, err := write.BranchCreateArgs(opts)
+	if err != nil {
 		t.reject(err)
 	}
 	if t.stop() || s.gitBranchNameTaken(w, t.ctx(), req.Repo, t.root, req.Name, "") {
+		return
+	}
+	// §5.2: 만들면서 옮겨 가는 것은 checkout 잡이다. 만들기만 하는 것은 동기다.
+	if req.Checkout {
+		t.startWriteJob(core.WriteSpec{Argv: argv}, t.snapshot(), nil, nil)
 		return
 	}
 	t.apply(func(ctx context.Context) error {
@@ -352,14 +358,13 @@ func (s *GitServer) apiGitBranchMerge(w http.ResponseWriter, r *http.Request) {
 	t := s.beginWrite(w, r, &req)
 	t.resolve(req.Repo)
 	opts := write.MergeOpts{Ref: req.Ref, Mode: req.Mode}
-	if _, err := write.MergeArgs(opts); err != nil {
+	argv, err := write.MergeArgs(opts)
+	if err != nil {
 		t.reject(err)
 	}
-	t.apply(func(ctx context.Context) error {
-		_, err := write.Merge(s.Git.Service(), ctx, t.root, opts)
-		return err
-	})
-	t.ok(nil)
+	// §5.2: merge 는 잡이다. 충돌로 멈추면 잡은 실패로 끝나고 result.status 의
+	// operation 이 진행 중 상태를 말한다 (§6.3).
+	t.startWriteJob(core.WriteSpec{Argv: argv}, t.snapshot(), nil, nil)
 }
 
 // POST /api/git/branch/rebase — 대상 ref 위로 현재 브랜치를 다시 얹는다
@@ -371,14 +376,13 @@ func (s *GitServer) apiGitBranchRebase(w http.ResponseWriter, r *http.Request) {
 		"rebase 는 커밋 해시를 바꾼다: confirm:true 를 요구한다 (FR-GIT-89·256)")
 	t.resolve(req.Repo)
 	opts := write.RebaseOpts{Ref: req.Ref, Onto: req.Onto}
-	if _, err := write.RebaseArgs(opts); err != nil {
+	// hint 는 **옮기기 전** HEAD 를 싣는다 (FR-GIT-250.2) — 사전 단계의 스냅샷이다.
+	before := t.snapshot()
+	spec, hint, err := write.RebaseSpec(t.root, opts, before.Oid)
+	if err != nil {
 		t.reject(err)
 	}
-	t.apply(func(ctx context.Context) error {
-		_, err := write.Rebase(s.Git.Service(), ctx, t.root, opts)
-		return err
-	})
-	t.ok(nil)
+	t.startWriteJob(spec, before, nil, &hint)
 }
 
 // POST /api/git/branch/upstream — set / unset (FR-GIT-257). 파괴적이 아니다 —

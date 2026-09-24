@@ -95,7 +95,7 @@ func gitRemoteServer(t *testing.T, f *gitRemoteFake, run jobs.JobRunner) *GitSer
 
 // gitRemoteHold 는 취소되거나 풀릴 때까지 매달리는 실행기다.
 func gitRemoteHold(release <-chan struct{}) jobs.JobRunner {
-	return func(ctx context.Context, _ string, _ []string, emit func(string, string)) (int, error) {
+	return func(ctx context.Context, _ string, _ []string, _ string, emit func(string, string)) (int, error) {
 		emit("stderr", "remote: 세는 중")
 		select {
 		case <-release:
@@ -108,7 +108,7 @@ func gitRemoteHold(release <-chan struct{}) jobs.JobRunner {
 
 // gitRemoteEmit 은 준 줄을 내고 곧 끝나는 실행기다.
 func gitRemoteEmit(lines ...string) jobs.JobRunner {
-	return func(_ context.Context, _ string, _ []string, emit func(string, string)) (int, error) {
+	return func(_ context.Context, _ string, _ []string, _ string, emit func(string, string)) (int, error) {
 		for _, l := range lines {
 			emit("stderr", l)
 		}
@@ -211,7 +211,7 @@ func TestGitRemote_StartReturnsJobImmediately(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.path+" "+c.body, func(t *testing.T) {
 			var got []string
-			s := gitRemoteServer(t, newGitRemoteFake(t), func(_ context.Context, _ string, args []string, _ func(string, string)) (int, error) {
+			s := gitRemoteServer(t, newGitRemoteFake(t), func(_ context.Context, _ string, args []string, _ string, _ func(string, string)) (int, error) {
 				got = append([]string(nil), args...)
 				return 0, nil
 			})
@@ -274,7 +274,7 @@ func TestGitPush_ForceNeedsConfirm(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			var got []string
-			s := gitRemoteServer(t, newGitRemoteFake(t), func(_ context.Context, _ string, args []string, _ func(string, string)) (int, error) {
+			s := gitRemoteServer(t, newGitRemoteFake(t), func(_ context.Context, _ string, args []string, _ string, _ func(string, string)) (int, error) {
 				got = append([]string(nil), args...)
 				return 0, nil
 			})
@@ -302,7 +302,7 @@ func TestGitPush_PublishAnnouncedBeforeRun(t *testing.T) {
 	f := newGitRemoteFake(t)
 	f.branch, f.upstream = "no-upstream", ""
 	var got []string
-	s := gitRemoteServer(t, f, func(_ context.Context, _ string, args []string, _ func(string, string)) (int, error) {
+	s := gitRemoteServer(t, f, func(_ context.Context, _ string, args []string, _ string, _ func(string, string)) (int, error) {
 		got = append([]string(nil), args...)
 		return 0, nil
 	})

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 
 	"dongminal/internal/webserver/httpreq"
 	"path/filepath"
@@ -18,6 +17,7 @@ import (
 	"dongminal/internal/shared/uuid"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/write"
 )
@@ -240,24 +240,30 @@ func (s *GitServer) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	t.apply(func(ctx context.Context) error {
-		_, err := write.Commit(s.Git.Service(), ctx, t.root, write.CommitOpts{
-			Message:  req.Message,
-			Amend:    req.Amend,
-			SignOff:  req.SignOff,
-			NoVerify: req.NoVerify,
-			All:      req.All,
-		})
-		return err
+	// REPO_FIX 01 §5.2: 커밋은 잡이다 — 훅(pre-commit·commit-msg)이 분 단위일 수 있다.
+	//
+	//	이전 동작: 동기 — 200 {ok, oid, undoToken, status}
+	//	새  동작: 200 {job}. oid·undoToken·status 는 잡의 result
+	//	이유:     35s 에 끊기면 커밋은 만들어졌는데 화면은 실패로 읽고 메시지를 남겼다
+	spec := write.CommitSpec(write.CommitOpts{
+		Message:  req.Message,
+		Amend:    req.Amend,
+		SignOff:  req.SignOff,
+		NoVerify: req.NoVerify,
+		All:      req.All,
 	})
-	if t.stop() {
-		return
-	}
-	// 토큰은 커밋이 성공한 뒤에만 발급한다 — 실패한 커밋에 되돌릴 것은 없다.
-	t.ok(map[string]any{
-		"oid":       t.after.Oid,
-		"undoToken": s.gitUndo.issue(t.root),
-	})
+	root := t.root
+	t.startWriteJob(spec, before, func(_ context.Context, jb *jobs.Job) {
+		// ⑦ 토큰은 커밋이 성공한 뒤에만, 완료 처리의 **마지막**에 발급한다 — undo 창
+		// (write.UndoTTL)의 기점이 Done 공개 직전이어야 화면이 받는 창이 온전하다.
+		if !jobSucceeded(jb) || jb.Result == nil {
+			return
+		}
+		if jb.Result.Status != nil {
+			jb.Result.Oid = jb.Result.Status.Oid
+		}
+		jb.Result.UndoToken = s.gitUndo.issue(root)
+	}, nil)
 }
 
 // gitAmendUnchanged 는 amend 가 메시지도 바꾸지 않는가다. 직전 메시지를 읽지
@@ -389,21 +395,13 @@ func (s *GitServer) gitRenderFail(ctx context.Context, t *gitWrite, code int, na
 	t.done = true
 }
 
-// gitIndexLock 은 err 가 index.lock 실패일 때 그 lock 의 정보다 (§7.2). 파일이
-// 없으면 mtime 을 싣지 않는다 — 프런트는 "다시 시도" 로 안내한다.
-func (s *GitServer) gitIndexLock(ctx context.Context, root string, err error) (map[string]any, bool) {
+// gitIndexLock 은 err 가 index.lock 실패일 때 그 lock 의 정보다 (§7.2).
+func (s *GitServer) gitIndexLock(ctx context.Context, root string, err error) (*core.LockInfo, bool) {
 	if !errors.Is(err, core.ErrIndexLocked) {
 		return nil, false
 	}
-	p, perr := s.Git.Service().IndexLockPath(ctx, root)
-	if perr != nil {
-		return nil, false
-	}
-	lock := map[string]any{"path": p}
-	if st, serr := os.Lstat(p); serr == nil {
-		lock["mtimeUnixMs"] = st.ModTime().UnixMilli()
-	}
-	return lock, true
+	info := s.Git.Service().IndexLockInfo(ctx, root)
+	return info, info != nil
 }
 
 // gitWriteOK 는 쓰기 성공 응답이다. **실행 후 status 를 함께 담는다** (FR-GIT-71)

@@ -269,7 +269,7 @@ func TestGitRemoteRemove_MissingIsRejected(t *testing.T) {
 // gitActSteps 는 돈 작업의 하위 명령을 순서대로 모으는 실행기다. exit 는 kind 별로
 // 정한다 — pull 을 실패시켜 "뒤를 돌리지 않는다"를 볼 수 있어야 한다.
 func gitActSteps(seen *[]string, mu *sync.Mutex, exit map[string]int) jobs.JobRunner {
-	return func(_ context.Context, _ string, args []string, emit func(string, string)) (int, error) {
+	return func(_ context.Context, _ string, args []string, _ string, emit func(string, string)) (int, error) {
 		mu.Lock()
 		*seen = append(*seen, args[0])
 		mu.Unlock()

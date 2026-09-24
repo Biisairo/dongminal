@@ -36,7 +36,7 @@ func jobSvc() *core.Service {
 // 네트워크에 의존하면 결정론을 잃는다.
 func jobBlockRunner(started chan struct{}) JobRunner {
 	var once sync.Once
-	return func(ctx context.Context, _ string, _ []string, emit func(string, string)) (int, error) {
+	return func(ctx context.Context, _ string, _ []string, _ string, emit func(string, string)) (int, error) {
 		emit(LineStderr, "remote: 세는 중")
 		if started != nil {
 			once.Do(func() { close(started) })
@@ -106,7 +106,7 @@ func TestExecStream_CancelKillsProcessGroup(t *testing.T) {
 	exited := make(chan struct{})
 	go func() {
 		defer close(exited)
-		execStream(ctx, dir, sh, []string{"-c", script}, func(string, string) {})
+		execStream(ctx, dir, sh, []string{"-c", script}, "", func(string, string) {})
 	}()
 
 	child := jobAwaitPid(t, pidFile)
@@ -134,7 +134,7 @@ func TestExecStream_CancelEscalatesToKill(t *testing.T) {
 	exited := make(chan struct{})
 	go func() {
 		defer close(exited)
-		execStream(ctx, dir, sh, []string{"-c", script}, func(string, string) {})
+		execStream(ctx, dir, sh, []string{"-c", script}, "", func(string, string) {})
 	}()
 
 	child := jobAwaitPid(t, pidFile)
@@ -180,7 +180,7 @@ func TestJob_ProgressLinesArriveIndividually(t *testing.T) {
 	sh := jobShell(t)
 	var got []string
 	script := `printf 'Receiving objects:  1%%\rReceiving objects: 100%%\rdone.\n' 1>&2`
-	_, err := execStream(context.Background(), t.TempDir(), sh, []string{"-c", script},
+	_, err := execStream(context.Background(), t.TempDir(), sh, []string{"-c", script}, "",
 		func(stream, text string) {
 			if stream != LineStderr {
 				t.Errorf("stream = %q", stream)
@@ -251,7 +251,7 @@ func TestJob_CeilingEndsJobWithReason(t *testing.T) {
 func TestJob_LineCapDropsFromFront(t *testing.T) {
 	const extra = 100
 	emitted := make(chan struct{})
-	j := NewJobs(jobSvc(), WithJobRunner(func(_ context.Context, _ string, _ []string, emit func(string, string)) (int, error) {
+	j := NewJobs(jobSvc(), WithJobRunner(func(_ context.Context, _ string, _ []string, _ string, emit func(string, string)) (int, error) {
 		for i := 0; i < JobLineCap+extra; i++ {
 			emit(LineStdout, "줄 "+strconv.Itoa(i))
 		}
@@ -290,7 +290,7 @@ func TestJob_LineCapDropsFromFront(t *testing.T) {
 // Subscribe 는 afterSeq 이후만 준다 — 재연결이 이미 본 줄을 다시 그리지 않아야
 // 한다.
 func TestJobSubscribe_AfterSeq(t *testing.T) {
-	j := NewJobs(jobSvc(), WithJobRunner(func(_ context.Context, _ string, _ []string, emit func(string, string)) (int, error) {
+	j := NewJobs(jobSvc(), WithJobRunner(func(_ context.Context, _ string, _ []string, _ string, emit func(string, string)) (int, error) {
 		for i := 1; i <= 5; i++ {
 			emit(LineStdout, "줄 "+strconv.Itoa(i))
 		}
@@ -316,7 +316,7 @@ func TestJobSubscribe_AfterSeq(t *testing.T) {
 // 진행 중 작업의 구독은 새 줄을 받고, 끝나면 채널이 닫힌다.
 func TestJobSubscribe_LiveThenClose(t *testing.T) {
 	release := make(chan struct{})
-	j := NewJobs(jobSvc(), WithJobRunner(func(_ context.Context, _ string, _ []string, emit func(string, string)) (int, error) {
+	j := NewJobs(jobSvc(), WithJobRunner(func(_ context.Context, _ string, _ []string, _ string, emit func(string, string)) (int, error) {
 		<-release
 		emit(LineStderr, "진행 중")
 		return 0, nil
@@ -353,8 +353,8 @@ func TestJobSubscribe_UnknownID(t *testing.T) {
 	}
 }
 
-// 작업 경로는 원격 작업만 태운다. 짧은 명령을 여기 태우면 취소·스트리밍 기계장치가
-// 값어치 없이 붙는다.
+// 표에 없거나 모양이 틀린 kind 는 받지 않는다 (REPO_FIX 01 §6.1). 짧은 명령을 여기
+// 태우면 취소·스트리밍 기계장치가 값어치 없이 붙는다.
 func TestJobStart_RejectsNonRemoteKind(t *testing.T) {
 	j := NewJobs(jobSvc(), WithJobRunner(jobBlockRunner(nil)))
 	cases := []struct {
@@ -381,7 +381,7 @@ func TestJobStart_RejectsNonRemoteKind(t *testing.T) {
 func TestJob_RetentionDropsFinished(t *testing.T) {
 	now := time.Now()
 	j := NewJobs(jobSvc(),
-		WithJobRunner(func(context.Context, string, []string, func(string, string)) (int, error) { return 0, nil }),
+		WithJobRunner(func(context.Context, string, []string, string, func(string, string)) (int, error) { return 0, nil }),
 		WithJobClock(func() time.Time { return now }),
 	)
 	jb, _ := j.Start(jobRepo, keysOf(jobRepo), "fetch", jobFetchSpec())
@@ -396,7 +396,7 @@ func TestJob_RetentionDropsFinished(t *testing.T) {
 func TestJob_OnDoneCalledOnce(t *testing.T) {
 	done := make(chan *Job, 4)
 	j := NewJobs(jobSvc(),
-		WithJobRunner(func(context.Context, string, []string, func(string, string)) (int, error) { return 0, nil }),
+		WithJobRunner(func(context.Context, string, []string, string, func(string, string)) (int, error) { return 0, nil }),
 		WithOnDone(func(jb *Job) { done <- jb }),
 	)
 	jb, _ := j.Start(jobRepo, keysOf(jobRepo), "fetch", jobFetchSpec())
@@ -417,7 +417,7 @@ func TestJob_OnDoneCalledOnce(t *testing.T) {
 
 // 인증 실패는 감지만 하고 자격증명을 요구하지 않는다 (FR-GIT-104, O10).
 func TestJob_AuthRequiredFromStderr(t *testing.T) {
-	j := NewJobs(jobSvc(), WithJobRunner(func(_ context.Context, _ string, _ []string, emit func(string, string)) (int, error) {
+	j := NewJobs(jobSvc(), WithJobRunner(func(_ context.Context, _ string, _ []string, _ string, emit func(string, string)) (int, error) {
 		emit(LineStderr, "fatal: could not read Username for 'https://example.com': terminal prompts disabled")
 		return 128, nil
 	}))
@@ -438,7 +438,7 @@ func TestJob_AuthRequiredFromStderr(t *testing.T) {
 // R7 의 짝 (FR-GIT-105): non-fast-forward 거부는 사유와 후속 선택지를 남기고
 // **force 를 기본 제안하지 않는다** — 목록에서 마지막이다.
 func TestJob_RejectedOffersFetchFirst(t *testing.T) {
-	j := NewJobs(jobSvc(), WithJobRunner(func(_ context.Context, _ string, _ []string, emit func(string, string)) (int, error) {
+	j := NewJobs(jobSvc(), WithJobRunner(func(_ context.Context, _ string, _ []string, _ string, emit func(string, string)) (int, error) {
 		emit(LineStderr, " ! [rejected]        main -> main (non-fast-forward)")
 		return 1, nil
 	}))
@@ -504,7 +504,7 @@ func jobAwaitGone(t *testing.T, pid int, d time.Duration) {
 func TestJob_SanitizesCredentialsEverywhere(t *testing.T) {
 	const secretURL = "https://user:s3cr3t@example.com/o/r.git"
 	svc := jobSvc()
-	j := NewJobs(svc, WithJobRunner(func(_ context.Context, _ string, args []string, emit func(string, string)) (int, error) {
+	j := NewJobs(svc, WithJobRunner(func(_ context.Context, _ string, args []string, _ string, emit func(string, string)) (int, error) {
 		// 실행기는 **지워지지 않은** argv 를 받는다 — git 이 실제로 밀어야 하는 값이다.
 		if !strings.Contains(strings.Join(args, " "), "s3cr3t") {
 			return -1, fmt.Errorf("실행기가 원본 argv 를 받지 못했다: %v", args)
@@ -546,7 +546,7 @@ func TestJob_OnDoneRunsBeforeDoneIsPublished(t *testing.T) {
 	seen := make(chan bool, 1)
 	var j *Jobs
 	j = NewJobs(jobSvc(),
-		WithJobRunner(func(context.Context, string, []string, func(string, string)) (int, error) { return 0, nil }),
+		WithJobRunner(func(context.Context, string, []string, string, func(string, string)) (int, error) { return 0, nil }),
 		WithOnDone(func(jb *Job) {
 			cur, _ := j.Get(jb.ID)
 			seen <- cur != nil && cur.Done
@@ -589,7 +589,7 @@ func TestJob_RecordIsWrittenBeforeDoneIsPublished(t *testing.T) {
 	svc := jobSvc()
 	seen := make(chan int, 1)
 	j := NewJobs(svc,
-		WithJobRunner(func(context.Context, string, []string, func(string, string)) (int, error) { return 0, nil }),
+		WithJobRunner(func(context.Context, string, []string, string, func(string, string)) (int, error) { return 0, nil }),
 		WithOnDone(func(*Job) { seen <- len(svc.Records(5)) }),
 	)
 	if _, err := j.Start(jobRepo, keysOf(jobRepo), "fetch", jobFetchSpec()); err != nil {
@@ -621,7 +621,7 @@ func TestJobStartUnguarded_RecordsReasonAndSharesMachinery(t *testing.T) {
 	// 빠르기가 아니다. 그래서 닫을 때까지 붙잡는다 — `jobBlockRunner` 가 ctx 로
 	// 같은 일을 하지만, 이쪽은 **스스로 끝나야** 종료 코드와 기록을 잴 수 있다.
 	release := make(chan struct{})
-	j := NewJobs(svc, WithJobRunner(func(_ context.Context, _ string, args []string, emit func(string, string)) (int, error) {
+	j := NewJobs(svc, WithJobRunner(func(_ context.Context, _ string, args []string, _ string, emit func(string, string)) (int, error) {
 		emit(LineStderr, "Cloning into 'vendor/x'...")
 		if args[0] != "submodule" {
 			return 2, nil

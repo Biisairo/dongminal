@@ -57,10 +57,6 @@ var (
 	ErrJobKind = errors.New("job_kind_not_allowed")
 )
 
-// jobKinds 는 작업 경로를 탈 수 있는 하위 명령이다. **원격 작업만 이 경로를
-// 탄다** — 짧은 명령을 여기 태우면 취소·스트리밍 기계장치가 값어치 없이 붙는다.
-var jobKinds = map[string]bool{"fetch": true, "pull": true, "push": true}
-
 // authPatterns 는 인증이 필요해 실패했음을 알리는 stderr 조각이다 (O10).
 // GIT_TERMINAL_PROMPT=0 이므로 git 은 매달리지 않고 이 문장과 함께 즉시 끝난다 —
 // 그래서 감지가 실패 처리와 같아진다.
@@ -86,7 +82,7 @@ var rejectPatterns = []string{"non-fast-forward", "! [rejected]", "fetch first",
 type Job struct {
 	ID       string   `json:"id"`
 	Repo     string   `json:"repo"`
-	Kind     string   `json:"kind"` // fetch | pull | push | submodule (D-A-27)
+	Kind     string   `json:"kind"` // §6.1 jobKinds·unguardedKinds 의 키 (REPO_FIX 01)
 	Argv     []string `json:"argv"`
 	Started  int64    `json:"startedUnixMs"`
 	Done     bool     `json:"done"`
@@ -100,7 +96,31 @@ type Job struct {
 	Rejected     bool     `json:"rejected"`             // FR-GIT-105. non-fast-forward 거부
 	Options      []string `json:"options,omitempty"`    // FR-GIT-105. 순서가 곧 우선순위다
 	StderrTail   string   `json:"stderrTail,omitempty"` // FR-GIT-108·96
+
+	// REPO_FIX 01 §6.3. Slots 는 시작부터 있다 — 프런트 잠금의 유일한 출처다.
+	Slots     []string       `json:"slots,omitempty"`
+	ErrorCode string         `json:"errorCode,omitempty"` // server_shutdown | index_locked | git_timeout
+	Lock      *core.LockInfo `json:"lock,omitempty"`      // errorCode=index_locked
+	Result    *Result        `json:"result,omitempty"`    // 완료 처리가 채운다
 }
+
+// 분류된 실패의 이름 (§6.3). apierr 의 코드와 같은 문자열이다.
+const (
+	ErrorServerShutdown = "server_shutdown"
+	ErrorIndexLocked    = "index_locked"
+	ErrorTimeout        = "git_timeout"
+)
+
+// Finisher 는 잡 하나의 완료 처리다 (§6.3 ④~⑦). Done 공개 **전**에, 기록·lock 판정·
+// 공용 훅(무효화) 뒤에 불린다. ctx 는 서버 루트 파생 + 15s 이며 루트가 이미
+// 취소됐으면 끝난 ctx 다 — 그때는 재조회를 건너뛰고 반납만 한다.
+type Finisher func(ctx context.Context, jb *Job)
+
+// StartOption 은 잡 하나의 선택이다.
+type StartOption func(*jobState)
+
+// OnFinish 는 그 잡의 완료 처리를 준다.
+func OnFinish(f Finisher) StartOption { return func(st *jobState) { st.finish = f } }
 
 // Line 은 작업 출력 한 줄이다. git 은 진행 상황을 stderr 로 낸다 — 그것이 오류가
 // 아니라 진행이므로 스트림을 구분해 보낸다.
@@ -114,7 +134,9 @@ type Line struct {
 // 모아 돌려주면 진행 상황이 **끝난 뒤에** 도착하기 때문이다 (FR-GIT-103).
 //
 // emit 은 줄이 생길 때마다 불린다. 돌려주는 값은 exit 코드와 실행 오류다.
-type JobRunner func(ctx context.Context, dir string, args []string, emit func(stream, text string)) (int, error)
+//
+// stdin 이 비어 있으면 파이프를 만들지 않는다 (§6.2).
+type JobRunner func(ctx context.Context, dir string, args []string, stdin string, emit func(stream, text string)) (int, error)
 
 // Jobs 는 칸(index·common)마다 **동시에 하나만** 허용한다 (FR-GIT-101, REPO_FIX 01 §5.4).
 type Jobs struct {
@@ -125,6 +147,9 @@ type Jobs struct {
 	lineCap   int
 	now       func() time.Time
 	onDone    func(*Job)
+	// root 는 서버 수명이다 (§8). 잡 상한·완료 처리 ctx 가 이것에서 파생하고, 이것이
+	// 취소되면 잡은 server_shutdown 으로 끝난다.
+	root context.Context
 
 	// excl 은 칸의 주인이다 (REPO_FIX 01 §5.4). 동기 쓰기가 같은 인스턴스로 칸을
 	// 보므로 Jobs 가 자기 것을 따로 들면 안 된다 — WithExclusion 으로 받는다.
@@ -145,6 +170,7 @@ type jobState struct {
 	// 기록이 Unguarded 표식을 든다.
 	unguarded string
 	cancel    context.CancelFunc
+	finish    Finisher
 	canceled  bool
 	lines     []Line
 	stderr    []string
@@ -165,6 +191,15 @@ type JobsOption func(*Jobs)
 // WithExclusion 은 서버의 배타 상태를 준다 (§5.4). 주지 않으면 자기 것을 만든다 —
 // 그때는 동기 쓰기와 칸을 나누지 못하므로 단독 배선(테스트)에서만 뜻이 있다.
 func WithExclusion(x *Exclusion) JobsOption { return func(j *Jobs) { j.excl = x } }
+
+// WithRoot 는 서버 수명 ctx 를 준다. 주지 않으면 Background 다.
+func WithRoot(ctx context.Context) JobsOption {
+	return func(j *Jobs) {
+		if ctx != nil {
+			j.root = ctx
+		}
+	}
+}
 
 // WithCeiling 은 작업 하나의 상한이다 (O9).
 func WithCeiling(d time.Duration) JobsOption { return func(j *Jobs) { j.ceiling = d } }
@@ -197,6 +232,7 @@ func NewJobs(svc *core.Service, opts ...JobsOption) *Jobs {
 		retention: JobRetention,
 		lineCap:   JobLineCap,
 		now:       time.Now,
+		root:      context.Background(),
 		byID:      map[string]*jobState{},
 	}
 	for _, o := range opts {
@@ -227,23 +263,23 @@ func NewJobs(svc *core.Service, opts ...JobsOption) *Jobs {
 //
 // 거부는 기록에 남지 않는다 — 프로세스가 뜨지 않았고 호출자가 오류를 받으므로,
 // 실행 기록에 exit -1 을 남기면 Console 에 "실행되지 않은 실행"이 쌓인다.
-func (j *Jobs) Start(repo string, keys Keys, kind string, spec core.WriteSpec) (*Job, error) {
+//
+//	이전 동작: fetch·pull·push 만 받았다
+//	새  동작: §6.1 표의 kind 를 모양 제약과 함께 받는다
+//	이유:     느린 쓰기(커밋 훅·checkout·rebase)를 잡으로 옮긴다 (사용자 결정)
+func (j *Jobs) Start(repo string, keys Keys, kind string, spec core.WriteSpec, opts ...StartOption) (*Job, error) {
 	if strings.TrimSpace(repo) == "" || !filepath.IsAbs(repo) {
 		return nil, fmt.Errorf("%w: cwd 는 절대 경로여야 한다: %q", core.ErrUnsafeArgument, repo)
-	}
-	if !jobKinds[kind] {
-		return nil, fmt.Errorf("%w: %q 는 원격 작업이 아니다", ErrJobKind, kind)
 	}
 	// 쓰기 허용 목록을 그대로 거친다 (FR-GIT-95) — 작업 경로가 별도라고 해서
 	// 검사가 별도가 되면 안 된다.
 	if err := core.GuardWriteArgs(spec.Argv); err != nil {
 		return nil, err
 	}
-	if spec.Argv[0] != kind {
-		return nil, fmt.Errorf("%w: kind %q 와 argv %q 가 어긋난다", ErrJobKind, kind, spec.Argv[0])
+	if err := checkShape(jobKinds, kind, spec.Argv, spec.Stdin); err != nil {
+		return nil, err
 	}
-
-	return j.launch(repo, keys, kind, spec, "")
+	return j.launch(repo, keys, kind, spec, "", opts)
 }
 
 // StartUnguarded 는 **인가를 호출자가 진** 작업이다 (M8 D-A-27, FBE-08) — `submodule
@@ -251,7 +287,7 @@ func (j *Jobs) Start(repo string, keys Keys, kind string, spec core.WriteSpec) (
 // 요구하며(ExecUnguarded 와 같은 규약), 기록은 Unguarded 표식과 그 사유를 든다.
 // 배타·취소·상한·스트리밍·자격증명 지움은 Start 와 같은 기계장치다. 호출자는
 // `core` 의 unguardedAllowed 에 든 도메인이어야 한다 — 경로 가드는 그쪽의 것이다.
-func (j *Jobs) StartUnguarded(repo string, keys Keys, kind string, argv []string, reason string) (*Job, error) {
+func (j *Jobs) StartUnguarded(repo string, keys Keys, kind string, argv []string, reason string, opts ...StartOption) (*Job, error) {
 	if strings.TrimSpace(repo) == "" || !filepath.IsAbs(repo) {
 		return nil, fmt.Errorf("%w: cwd 는 절대 경로여야 한다: %q", core.ErrUnsafeArgument, repo)
 	}
@@ -261,10 +297,11 @@ func (j *Jobs) StartUnguarded(repo string, keys Keys, kind string, argv []string
 	if len(argv) == 0 || strings.TrimSpace(kind) == "" {
 		return nil, fmt.Errorf("%w: 인자가 없다", core.ErrUnsafeArgument)
 	}
-	if argv[0] != kind {
-		return nil, fmt.Errorf("%w: kind %q 와 argv %q 가 어긋난다", ErrJobKind, kind, argv[0])
+	// 이전: kind 무제한 / 새: submodule·worktree(add) 만 (§6.1).
+	if err := checkShape(unguardedKinds, kind, argv, ""); err != nil {
+		return nil, err
 	}
-	return j.launch(repo, keys, kind, core.WriteSpec{Argv: argv, Destructive: true}, reason)
+	return j.launch(repo, keys, kind, core.WriteSpec{Argv: argv, Destructive: true}, reason, opts)
 }
 
 // launch 는 검사를 마친 작업을 띄운다 — Start 와 StartUnguarded 의 공통 몸통.
@@ -273,7 +310,7 @@ func (j *Jobs) StartUnguarded(repo string, keys Keys, kind string, argv []string
 //	새  동작: index·common 두 칸. 같은 칸끼리만 job_busy, pull 은 두 칸
 //	이유:     index 무관 원격 잡이 commit 등을 막지 않게 하고(§5.4), 같은 common
 //	          dir 을 쓰는 worktree 들의 원격 잡끼리는 계속 배타로 둔다
-func (j *Jobs) launch(repo string, keys Keys, kind string, spec core.WriteSpec, unguarded string) (*Job, error) {
+func (j *Jobs) launch(repo string, keys Keys, kind string, spec core.WriteSpec, unguarded string, opts []StartOption) (*Job, error) {
 	id := uuid.NewString()
 	j.mu.Lock()
 	j.sweepLocked()
@@ -281,7 +318,7 @@ func (j *Jobs) launch(repo string, keys Keys, kind string, spec core.WriteSpec, 
 		j.mu.Unlock()
 		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), j.ceiling)
+	ctx, cancel := context.WithTimeout(j.root, j.ceiling)
 	st := &jobState{
 		keys: keys,
 		job: Job{
@@ -291,12 +328,16 @@ func (j *Jobs) launch(repo string, keys Keys, kind string, spec core.WriteSpec, 
 			Argv:     core.SanitizeArgv(spec.Argv),
 			Started:  j.now().UnixMilli(),
 			ExitCode: -1,
+			Slots:    SlotsOf(kind),
 		},
 		raw:       append([]string(nil), spec.Argv...),
 		spec:      spec,
 		unguarded: unguarded,
 		cancel:    cancel,
 		subs:      map[*jobSub]struct{}{},
+	}
+	for _, o := range opts {
+		o(st)
 	}
 	j.byID[st.job.ID] = st
 	snapshot := st.job

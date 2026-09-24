@@ -2,6 +2,7 @@ package gitapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/git/write"
 
@@ -144,6 +146,9 @@ func gitWriteServer(t *testing.T, f *gitWriteFake) (*GitServer, *time.Time) {
 		store.WithClock(func() time.Time { return at }),
 	)
 	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
+	// REPO_FIX 01 §5.2: 잡으로 옮긴 쓰기(commit·checkout·merge…)도 같은 fake 가 받는다
+	// — 주지 않으면 실제 git 이 돈다.
+	s.gitJobs.run = fakeJobRunner(f.write)
 	undoNow := at
 	s.gitUndo.now = func() time.Time { return undoNow }
 	return s, &undoNow
@@ -168,7 +173,6 @@ func TestAPIGitWriteRoutes_ReturnFreshStatus(t *testing.T) {
 			`{"repo":` + qWorkRepo + `,"tracked":["a.txt"],"untracked":["n.txt"],"confirm":true}`,
 			[]string{"checkout", "-q", "--", "a.txt"},
 		},
-		{"/api/git/commit", `{"repo":` + qWorkRepo + `,"message":"m"}`, []string{"commit", "--file=-", "--cleanup=strip"}},
 		{"/api/git/undo-last", `{"repo":` + qWorkRepo + `,"undoToken":""}`, nil},
 	}
 	for _, c := range cases {
@@ -209,6 +213,57 @@ func TestAPIGitWriteRoutes_ReturnFreshStatus(t *testing.T) {
 	}
 }
 
+// REPO_FIX 01 §5.2·6.3: 커밋은 잡이다 — 응답은 {job} 이고 쓰기 이후 status·oid·
+// undoToken 은 잡의 result 에 온다.
+func TestAPIGitCommit_JobResultCarriesFreshStatusAndUndo(t *testing.T) {
+	f := newGitWriteFake(t)
+	f.onWrite = func(f *gitWriteFake, _ []string) { f.status = gitWriteStatus("b.txt", ".M") }
+	s, _ := gitWriteServer(t, f)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/commit", `{"repo":`+qWorkRepo+`,"message":"m"}`)
+	if code != http.StatusOK || out["job"] == nil || out["repo"] != gitWriteRepo {
+		t.Fatalf("code = %d, body = %v", code, out)
+	}
+	jb := gitJobDone(t, s, out)
+	if jb.Kind != "commit" || jb.ExitCode != 0 || jb.Result == nil || jb.Result.Status == nil {
+		t.Fatalf("잡 = %+v", jb)
+	}
+	if len(jb.Result.Status.Changes) != 1 || jb.Result.UndoToken == "" || jb.Result.Oid == "" {
+		t.Fatalf("result = %+v", jb.Result)
+	}
+	if got := f.wrote(); len(got) != 1 || fmt.Sprint(got[0]) != "[commit --file=- --cleanup=strip]" {
+		t.Fatalf("argv = %v", got)
+	}
+}
+
+// 실패한 커밋에는 undo 토큰이 없다 — 되돌릴 것이 없다.
+func TestAPIGitCommit_FailedJobHasNoUndo(t *testing.T) {
+	f := newGitWriteFake(t)
+	f.writeErr = func([]string) (core.Output, error) { return core.Output{ExitCode: 1, Stderr: "hook failed"}, nil }
+	s, _ := gitWriteServer(t, f)
+	_, out := gitReq(t, s, http.MethodPost, "/api/git/commit", `{"repo":`+qWorkRepo+`,"message":"m"}`)
+	jb := gitJobDone(t, s, out)
+	if jb.Err == "" || jb.Result == nil || jb.Result.UndoToken != "" || jb.Result.Status == nil {
+		t.Fatalf("잡 = %+v result %+v", jb, jb.Result)
+	}
+}
+
+// 커밋 잡이 도는 동안 같은 저장소의 동기 쓰기는 409 job_busy (§5.4).
+func TestAPIGitCommit_JobBlocksSyncWrite(t *testing.T) {
+	f := newGitWriteFake(t)
+	s, _ := gitWriteServer(t, f)
+	release := make(chan struct{})
+	defer close(release)
+	s.gitJobs.run = gitRemoteHold(release)
+	_, out := gitReq(t, s, http.MethodPost, "/api/git/commit", `{"repo":`+qWorkRepo+`,"message":"m"}`)
+	if out["job"] == nil {
+		t.Fatalf("잡이 아니다: %v", out)
+	}
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/stage", `{"repo":`+qWorkRepo+`,"paths":["a.txt"]}`)
+	if code != http.StatusConflict || out["error"] != "job_busy" {
+		t.Fatalf("stage = %d %v, want 409 job_busy", code, out)
+	}
+}
+
 // gitIssueUndo 는 커밋 하나를 만들어 undo 토큰을 발급받는다.
 func gitIssueUndo(t *testing.T, s *GitServer, f *gitWriteFake) string {
 	t.Helper()
@@ -216,9 +271,13 @@ func gitIssueUndo(t *testing.T, s *GitServer, f *gitWriteFake) string {
 	if code != http.StatusOK {
 		t.Fatalf("commit = %d, body = %v", code, out)
 	}
-	tok, _ := out["undoToken"].(string)
+	jb := gitJobDone(t, s, out)
+	tok := ""
+	if jb.Result != nil {
+		tok = jb.Result.UndoToken
+	}
 	if tok == "" {
-		t.Fatalf("undoToken 이 비었다: %v", out)
+		t.Fatalf("undoToken 이 비었다: %+v", jb)
 	}
 	f.mu.Lock()
 	f.writes, f.stdins = nil, nil
@@ -398,7 +457,7 @@ func TestAPIGitCommit_AllWithoutStaged(t *testing.T) {
 	f.status = gitWriteStatus("a.txt", ".M")
 	s, _ := gitWriteServer(t, f)
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/commit", `{"repo":`+qWorkRepo+`,"message":"m","all":true}`)
+	code, out := gitReqAwait(t, s, http.MethodPost, "/api/git/commit", `{"repo":`+qWorkRepo+`,"message":"m","all":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -415,7 +474,7 @@ func TestAPIGitCommit_MessageStaysInStdin(t *testing.T) {
 	s, _ := gitWriteServer(t, f)
 	const msg = "제목\n\n본문 줄"
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/commit",
+	code, out := gitReqAwait(t, s, http.MethodPost, "/api/git/commit",
 		`{"repo":`+qWorkRepo+`,"message":"제목\n\n본문 줄","signoff":true,"noVerify":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
@@ -562,7 +621,7 @@ func TestAPIGitCommit_AmendMessageOnly(t *testing.T) {
 	f := newGitWriteFake(t)
 	f.status = gitWriteStatus("a.txt", ".M") // staged 없음
 	s, _ := gitWriteServer(t, f)
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/commit", `{"repo":`+qWorkRepo+`,"message":"고친 제목","amend":true}`)
+	code, out := gitReqAwait(t, s, http.MethodPost, "/api/git/commit", `{"repo":`+qWorkRepo+`,"message":"고친 제목","amend":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
@@ -593,8 +652,50 @@ func TestAPIGitCommit_AmendSameMessageWithNewSignoff(t *testing.T) {
 	f := newGitWriteFake(t)
 	f.status = gitWriteStatus("a.txt", ".M")
 	s, _ := gitWriteServer(t, f)
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/commit", `{"repo":`+qWorkRepo+`,"message":"직전 커밋 제목\n\n본문","amend":true,"signoff":true}`)
+	code, out := gitReqAwait(t, s, http.MethodPost, "/api/git/commit", `{"repo":`+qWorkRepo+`,"message":"직전 커밋 제목\n\n본문","amend":true,"signoff":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
 	}
+}
+
+// fakeJobRunner 는 잡 실행을 fake 쓰기 실행기로 넘긴다. stderr 는 한 줄로 흘린다.
+func fakeJobRunner(write func(context.Context, string, []string, string) (core.Output, error)) jobs.JobRunner {
+	return func(ctx context.Context, dir string, args []string, stdin string, emit func(string, string)) (int, error) {
+		out, err := write(ctx, dir, args, stdin)
+		if out.Stderr != "" {
+			emit(jobs.LineStderr, out.Stderr)
+		}
+		return out.ExitCode, err
+	}
+}
+
+// gitJobDone 은 {job} 응답의 잡이 끝나기를 기다려 최종 모습을 준다.
+func gitJobDone(t *testing.T, s *GitServer, out map[string]any) *jobs.Job {
+	t.Helper()
+	jb, _ := out["job"].(map[string]any)
+	id, _ := jb["id"].(string)
+	if id == "" {
+		t.Fatalf("응답에 잡이 없다: %v", out)
+	}
+	return gitRemoteWaitDone(t, s, id)
+}
+
+// gitReqAwait 는 잡을 여는 종단을 부르고 잡이 끝나기를 기다린다 (REPO_FIX 01 §5.2).
+// 응답을 종전의 동기 모양 `{ok, status, requested, repo}` 로 펴 준다 — 잡으로 옮긴
+// 뒤에도 같은 사실(무엇이 실행됐고 실행 후 상태가 무엇인가)을 잰다.
+func gitReqAwait(t *testing.T, s *GitServer, method, path, body string) (int, map[string]any) {
+	t.Helper()
+	code, out := gitReq(t, s, method, path, body)
+	if code != http.StatusOK || out["job"] == nil {
+		return code, out
+	}
+	jb := gitJobDone(t, s, out)
+	out["ok"] = jobSucceeded(jb)
+	if jb.Result != nil && jb.Result.Status != nil {
+		raw, _ := json.Marshal(jb.Result.Status)
+		var st map[string]any
+		_ = json.Unmarshal(raw, &st)
+		out["status"] = st
+	}
+	return code, out
 }

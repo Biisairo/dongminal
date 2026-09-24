@@ -68,6 +68,7 @@ func (h *gitJobHolder) get(store *store.Store, excl *jobs.Exclusion) *jobs.Jobs 
 		opts := []jobs.JobsOption{
 			jobs.WithOnDone(func(jb *jobs.Job) { store.Invalidate(jb.Repo) }),
 			jobs.WithExclusion(excl),
+			jobs.WithRoot(store.Root()),
 		}
 		if h.run != nil {
 			opts = append(opts, jobs.WithJobRunner(h.run))
@@ -164,8 +165,16 @@ func (s *GitServer) jobsHub() *jobs.Jobs { return s.gitJobs.get(s.Git, s.exclusi
 
 // startJob 은 작업을 띄우고 식별자를 **즉시** 돌려준다 (FR-GIT-102). 끝나기를
 // 기다리면 응답이 분 단위가 되고, 그동안 UI 는 막힌다.
+//
+// index 칸을 쓰는 kind(pull 포함)는 완료 처리에서 쓰기 이후 status 를 싣는다 (§6.3).
 func (t *gitWrite) startJob(kind string, spec core.WriteSpec, extra map[string]any) {
-	t.launchJob(func(h *jobs.Jobs, k jobs.Keys) (*jobs.Job, error) { return h.Start(t.root, k, kind, spec) }, extra)
+	var opts []jobs.StartOption
+	if usesIndex(kind) {
+		opts = append(opts, jobs.OnFinish(t.s.indexFinisher(t.root, t.snapshot(), nil)))
+	}
+	t.launchJob(func(h *jobs.Jobs, k jobs.Keys) (*jobs.Job, error) {
+		return h.Start(t.root, k, kind, spec, opts...)
+	}, extra)
 }
 
 // startUnguardedJob 은 인가를 도메인이 진 작업을 띄운다 (M8 D-A-27) — 응답의

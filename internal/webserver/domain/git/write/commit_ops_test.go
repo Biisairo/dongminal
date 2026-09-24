@@ -93,41 +93,6 @@ func TestPickArgs_Rejects(t *testing.T) {
 	}
 }
 
-// D5 (FR-GIT-263·264): cherry-pick·revert 는 파괴적이 아니다 — 충돌로 멈추면 그것은
-// 실패가 아니라 진행 중 상태이며 출구가 이미 있다 (FR-GIT-251·252).
-func TestPick_NotDestructive(t *testing.T) {
-	ctx := context.Background()
-	for _, verb := range []string{PickCherry, PickRevert} {
-		f := &writeFake{}
-		s := core.New(core.WithRunner(fakeParentsRead("")), core.WithWriteRunner(f.runner))
-		if _, err := Pick(s, ctx, absTmpRepo, verb, PickOpts{Oid: "abc123"}); err != nil {
-			t.Fatalf("%s: %v", verb, err)
-		}
-		recs := s.Records(0)
-		last := recs[len(recs)-1]
-		if last.Destructive {
-			t.Fatalf("%s 가 파괴적으로 선언됐다", verb)
-		}
-	}
-}
-
-// D6 (V191): 실행 함수는 **저장소에** 머지 여부를 다시 묻는다. 요청이 거짓말을 해도
-// 부모 번호 없는 머지 cherry-pick 은 실행되지 않는다 — 서버가 마지막 방어선이다.
-func TestPick_MergeIsAskedOfTheRepo(t *testing.T) {
-	ctx := context.Background()
-	f := &writeFake{}
-	// 부모가 둘이다. 요청은 Merge 를 말하지 않았다.
-	s := core.New(core.WithRunner(fakeParentsRead("p1 p2")), core.WithWriteRunner(f.runner))
-	if _, err := Pick(s, ctx, absTmpRepo, PickCherry, PickOpts{Oid: "abc123"}); err == nil {
-		t.Fatal("머지 커밋인데 부모 없이 실행됐다")
-	} else if !errors.Is(err, ErrMergeParent) {
-		t.Fatalf("오류가 ErrMergeParent 가 아니다: %v", err)
-	}
-	if len(f.argvs) != 0 {
-		t.Fatalf("거부해야 하는데 실행됐다: %v", f.argvs)
-	}
-}
-
 // D7 (FR-GIT-265): 세 모드가 각각의 argv 를 낸다. 기본은 --mixed 이며 그것이
 // ResetModes 의 첫 값이다 (FR-GIT-173).
 func TestResetArgs_Modes(t *testing.T) {
@@ -238,55 +203,19 @@ func TestDropArgs(t *testing.T) {
 
 // D11 (V193, FR-GIT-250.1·250.2): drop 은 파괴적이며(`commit_drop`) hint 는 원래
 // HEAD 로의 `reset --hard` 다.
-func TestDrop_DestructiveWithHint(t *testing.T) {
-	ctx := context.Background()
-	f := &writeFake{}
-	s := core.New(core.WithWriteRunner(f.runner))
-	if _, err := Drop(s, ctx, absTmpRepo, "abc123", "deadbeef"); err != nil {
+func TestDropSpec_DestructiveWithHint(t *testing.T) {
+	spec, hint, err := DropSpec(absTmpRepo, "abc123", "deadbeef")
+	if err != nil {
 		t.Fatal(err)
 	}
-	recs := s.Records(0)
-	if !recs[len(recs)-1].Destructive {
+	if !spec.Destructive {
 		t.Fatal("drop 이 파괴적으로 선언되지 않았다")
 	}
-	hints := s.Hints(0)
-	if len(hints) != 1 || hints[0].Action != core.ActionCommitDrop {
-		t.Fatalf("hint = %+v, want action %q", hints, core.ActionCommitDrop)
+	if hint.Action != core.ActionCommitDrop {
+		t.Fatalf("hint = %+v, want action %q", hint, core.ActionCommitDrop)
 	}
-	if hints[0].Command != "git reset --hard deadbeef" {
-		t.Fatalf("hint.Command = %q — 되살릴 수 있는 명령이 아니다", hints[0].Command)
-	}
-}
-
-// D12 (FR-GIT-263): 머지 여부 판정은 실제 git 에 물어야 한다. 부모 수를 세는 자리가
-// 틀리면 V191 의 방어 전체가 무의미해진다.
-func TestCommitIsMerge_RealRepo(t *testing.T) {
-	dir := tempRepo(t)
-	gitRun(t, dir, "checkout", "-b", "side")
-	writeFile(t, dir, "side.txt", "s\n")
-	gitRun(t, dir, "add", ".")
-	gitRun(t, dir, "commit", "-m", "side")
-	gitRun(t, dir, "checkout", "main")
-	writeFile(t, dir, "main.txt", "m\n")
-	gitRun(t, dir, "add", ".")
-	gitRun(t, dir, "commit", "-m", "main2")
-	gitRun(t, dir, "merge", "--no-ff", "-m", "merge", "side")
-
-	s := core.New()
-	ctx := context.Background()
-	merge, err := CommitIsMerge(s, ctx, dir, "HEAD")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !merge {
-		t.Fatal("머지 커밋을 머지가 아니라고 답했다")
-	}
-	plain, err := CommitIsMerge(s, ctx, dir, "HEAD^1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if plain {
-		t.Fatal("보통 커밋을 머지라고 답했다")
+	if hint.Command != "git reset --hard deadbeef" {
+		t.Fatalf("hint.Command = %q — 되살릴 수 있는 명령이 아니다", hint.Command)
 	}
 }
 

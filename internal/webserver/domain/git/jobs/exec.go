@@ -20,12 +20,12 @@ import (
 // (`WithJobRunner`) 그 수명은 바뀌지 않는다.
 
 // execStreamGit 은 작업 경로의 기본 실행이다.
-func execStreamGit(ctx context.Context, dir string, args []string, emit func(stream, text string)) (int, error) {
+func execStreamGit(ctx context.Context, dir string, args []string, stdin string, emit func(stream, text string)) (int, error) {
 	bin, err := exec.LookPath("git")
 	if err != nil {
 		return -1, fmt.Errorf("%w: %v", core.ErrGitMissing, err)
 	}
-	return execStream(ctx, dir, bin, args, emit)
+	return execStream(ctx, dir, bin, args, stdin, emit)
 }
 
 // execStream 은 프로세스를 core 기동 헬퍼로 띄우고 줄 단위로 읽는다.
@@ -36,9 +36,13 @@ func execStreamGit(ctx context.Context, dir string, args []string, emit func(str
 //
 // bin 을 인자로 받는 이유는 이 경로 자체를 git 없이 검증할 수 있어야 하기
 // 때문이다. 실제 호출자는 execStreamGit 뿐이다.
-func execStream(ctx context.Context, dir, bin string, args []string, emit func(stream, text string)) (int, error) {
+func execStream(ctx context.Context, dir, bin string, args []string, stdin string, emit func(stream, text string)) (int, error) {
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Dir = dir
+	// 빈 stdin 에 파이프를 만들지 않는다 (§6.2) — 커밋 메시지만 이 길로 온다.
+	if stdin != "" {
+		cmd.Stdin = strings.NewReader(stdin)
+	}
 	cmd.Env = core.Env()
 	waitErr := core.Spawn(ctx, cmd,
 		func(r io.Reader) { readLines(r, func(t string) { emit(LineStdout, t) }) },

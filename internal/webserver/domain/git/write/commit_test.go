@@ -16,24 +16,19 @@ const commitFixtureMessage = "제목 줄\n\n본문 첫 줄\n본문 둘째 줄"
 
 // S6 (V34, FR-GIT-77): 메시지는 **stdin 으로** 전달되고 argv 에 없다. 인자에 넣으면
 // 프로세스 목록에 남는다.
-func TestCommit_MessageViaStdinOnly(t *testing.T) {
-	f := &writeFake{}
-	s := core.New(core.WithWriteRunner(f.runner))
-
-	if _, err := Commit(s, context.Background(), absTmpRepo, CommitOpts{Message: commitFixtureMessage}); err != nil {
-		t.Fatalf("Commit: %v", err)
-	}
+func TestCommitSpec_MessageViaStdinOnly(t *testing.T) {
+	spec := CommitSpec(CommitOpts{Message: commitFixtureMessage})
 	want := []string{"commit", "--file=-", "--cleanup=strip"}
-	if fmt.Sprint(f.argvs[0]) != fmt.Sprint(want) {
-		t.Fatalf("argv = %v, want %v", f.argvs[0], want)
+	if fmt.Sprint(spec.Argv) != fmt.Sprint(want) {
+		t.Fatalf("argv = %v, want %v", spec.Argv, want)
 	}
-	for _, a := range f.argvs[0] {
+	for _, a := range spec.Argv {
 		if strings.Contains(a, "제목 줄") || strings.Contains(a, "본문") {
-			t.Fatalf("argv 에 메시지가 실렸다: %v", f.argvs[0])
+			t.Fatalf("argv 에 메시지가 실렸다: %v", spec.Argv)
 		}
 	}
-	if f.stdins[0] != commitFixtureMessage {
-		t.Fatalf("stdin = %q, want %q", f.stdins[0], commitFixtureMessage)
+	if spec.Stdin != commitFixtureMessage {
+		t.Fatalf("stdin = %q, want %q", spec.Stdin, commitFixtureMessage)
 	}
 }
 
@@ -43,7 +38,7 @@ func TestCommit_RecordKeepsOnlyStdinBytes(t *testing.T) {
 	f := &writeFake{}
 	s := core.New(core.WithWriteRunner(f.runner))
 
-	if _, err := Commit(s, context.Background(), absTmpRepo, CommitOpts{Message: commitFixtureMessage}); err != nil {
+	if _, err := s.ExecWrite(context.Background(), absTmpRepo, CommitSpec(CommitOpts{Message: commitFixtureMessage})); err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
 	recs := s.Records(0)
@@ -83,20 +78,16 @@ func TestCommitOpts_Flags(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			f := &writeFake{}
-			s := core.New(core.WithWriteRunner(f.runner))
 			c.o.Message = "m"
-			if _, err := Commit(s, context.Background(), absTmpRepo, c.o); err != nil {
-				t.Fatalf("Commit: %v", err)
-			}
-			if fmt.Sprint(f.argvs[0]) != fmt.Sprint(c.want) {
-				t.Fatalf("argv = %v, want %v", f.argvs[0], c.want)
+			argv := CommitSpec(c.o).Argv
+			if fmt.Sprint(argv) != fmt.Sprint(c.want) {
+				t.Fatalf("argv = %v, want %v", argv, c.want)
 			}
 			// `--no-edit` 을 주지 않는다 — `--file=-` 이 이미 메시지를 정하므로
 			// 에디터가 열리지 않는다.
-			for _, a := range f.argvs[0] {
+			for _, a := range argv {
 				if a == "--no-edit" {
-					t.Fatalf("--no-edit 이 붙었다: %v", f.argvs[0])
+					t.Fatalf("--no-edit 이 붙었다: %v", argv)
 				}
 			}
 		})
@@ -160,7 +151,7 @@ func TestCommit_RealGitRoundTrip(t *testing.T) {
 	s := core.New()
 	ctx := context.Background()
 
-	if _, err := Commit(s, ctx, repo, CommitOpts{Message: commitFixtureMessage}); err != nil {
+	if _, err := s.ExecWrite(ctx, repo, CommitSpec(CommitOpts{Message: commitFixtureMessage})); err != nil {
 		t.Fatalf("Commit: %v", err)
 	}
 	got, err := query.LastCommitMessage(s, ctx, repo)

@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -63,4 +64,33 @@ func (s *Service) IndexLockPath(ctx context.Context, root string) (string, error
 		p = filepath.Join(root, p)
 	}
 	return filepath.Clean(p), nil
+}
+
+// LockInfo 는 index_locked 실패에 싣는 lock 정보다 (§7.2). 동기 응답과 잡 결과가
+// 같은 모양을 쓴다. 파일이 이미 없으면 MtimeUnixMs 가 nil 이다 — 프런트는 지울 것
+// 없이 "다시 시도" 로 안내한다.
+type LockInfo struct {
+	Path        string `json:"path"`
+	MtimeUnixMs *int64 `json:"mtimeUnixMs,omitempty"`
+}
+
+// IndexLockInfo 는 root 의 index.lock 경로와 mtime 이다. 경로를 구하지 못하면 nil 이다.
+func (s *Service) IndexLockInfo(ctx context.Context, root string) *LockInfo {
+	p, err := s.IndexLockPath(ctx, root)
+	if err != nil {
+		return nil
+	}
+	info := &LockInfo{Path: p}
+	if st, err := os.Lstat(p); err == nil {
+		ms := st.ModTime().UnixMilli()
+		info.MtimeUnixMs = &ms
+	}
+	return info
+}
+
+// IndexLockedStderr 는 stderr 가 index.lock 을 만들지 못한 실패인가다. 동기 실행의
+// 분류(classify)와 잡의 완료 처리가 같은 판정을 쓴다.
+func IndexLockedStderr(stderr string) bool {
+	low := strings.ToLower(stderr)
+	return strings.Contains(low, "unable to create '") && strings.Contains(low, "index.lock': file exists")
 }

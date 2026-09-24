@@ -56,7 +56,7 @@ func TestAPIGitReplay_WriteRequiresConfirm(t *testing.T) {
 	f := newGitM5Fake(t)
 	s := gitM5Server(t, f)
 	// 먼저 쓰기를 하나 만들어 기록을 남긴다 — 기록의 출처는 실행 경로다.
-	if code, _ := gitReq(t, s, http.MethodPost, "/api/git/checkout",
+	if code, _ := gitReqAwait(t, s, http.MethodPost, "/api/git/checkout",
 		`{"repo":`+qWorkRepo+`,"ref":"main"}`); code != http.StatusOK {
 		t.Fatalf("준비 실패: checkout → %d", code)
 	}
@@ -77,7 +77,7 @@ func TestAPIGitReplay_WriteRequiresConfirm(t *testing.T) {
 func TestAPIGitReplay_RunsRecordedArgv(t *testing.T) {
 	f := newGitM5Fake(t)
 	s := gitM5Server(t, f)
-	if code, _ := gitReq(t, s, http.MethodPost, "/api/git/checkout",
+	if code, _ := gitReqAwait(t, s, http.MethodPost, "/api/git/checkout",
 		`{"repo":`+qWorkRepo+`,"ref":"main"}`); code != http.StatusOK {
 		t.Fatalf("준비 실패")
 	}

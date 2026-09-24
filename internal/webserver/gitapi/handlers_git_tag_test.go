@@ -110,7 +110,7 @@ func gitTagServer(t *testing.T, f *gitTagFake, run jobs.JobRunner) *GitServer {
 // gitTagJobs 는 시작된 작업의 argv 를 모으는 실행기다. 원격 라우트가 무엇을
 // 실행하려 했는지는 job 경로 안에서만 보인다.
 func gitTagJobs(argvs *[][]string, mu *sync.Mutex) jobs.JobRunner {
-	return func(_ context.Context, _ string, args []string, _ func(string, string)) (int, error) {
+	return func(_ context.Context, _ string, args []string, _ string, _ func(string, string)) (int, error) {
 		mu.Lock()
 		*argvs = append(*argvs, append([]string(nil), args...))
 		mu.Unlock()

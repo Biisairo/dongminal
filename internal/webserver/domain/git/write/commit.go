@@ -34,13 +34,14 @@ type CommitOpts struct {
 	All      bool // -a
 }
 
-// Commit 은 staged 내용을 커밋한다 (FR-GIT-77).
+// CommitSpec 은 커밋 한 번의 spec 이다 (FR-GIT-77). 커밋은 잡으로 돈다 (REPO_FIX 01
+// §5.2) — 실행은 jobs 가 하고 여기서는 argv 와 stdin 만 만든다.
 //
 //	git commit --file=- --cleanup=strip [--amend] [--signoff] [--no-verify] [-a]
 //
 // `--no-edit` 은 주지 않는다 — `--file=-` 이 이미 메시지를 정하므로 에디터가 열리지
 // 않는다. 파괴적이 아니다: amend 도 `HEAD@{1}` 로 되돌아간다.
-func Commit(s *core.Service, ctx context.Context, repo string, o CommitOpts) (core.Output, error) {
+func CommitSpec(o CommitOpts) core.WriteSpec {
 	argv := []string{"commit", commitFileStdin, commitCleanup}
 	if o.Amend {
 		argv = append(argv, "--amend")
@@ -54,7 +55,7 @@ func Commit(s *core.Service, ctx context.Context, repo string, o CommitOpts) (co
 	if o.All {
 		argv = append(argv, "-a")
 	}
-	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: argv, Stdin: o.Message})
+	return core.WriteSpec{Argv: argv, Stdin: o.Message}
 }
 
 // UndoLast 는 직전 커밋을 되돌린다 (FR-GIT-82).

@@ -1,7 +1,6 @@
 package write
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"sort"
@@ -130,17 +129,19 @@ func OperationArgs(kind, action string) ([]string, error) {
 	return append([]string(nil), argv...), nil
 }
 
-// Operation 은 진행 중 작업의 출구 하나를 실행한다 (FR-GIT-252).
+// OperationSpec 은 진행 중 작업의 출구 하나다 (FR-GIT-252).
 //
 // **중단만 파괴적이다** — 그 작업 중 해결한 내용이 사라지고, 되살릴 값이 없다.
 // 계속·건너뛰기는 되돌릴 것이 없으므로 2단계 확인을 요구하지 않는다.
 //
 // **충돌이 남아 있는지 우리가 미리 판정하지 않는다.** git 이 거부하면 그 사유를
 // 그대로 올린다 — 판정을 두 벌로 두면 우리 쪽이 낡았을 때 사용자가 갈 곳을 잃는다.
-func Operation(s *core.Service, ctx context.Context, repo, kind, action string) (core.Output, error) {
+//
+// 잡으로 돈다 (REPO_FIX 01 §5.2) — 여기서는 spec 만 만든다.
+func OperationSpec(kind, action string) (core.WriteSpec, error) {
 	argv, err := OperationArgs(kind, action)
 	if err != nil {
-		return denied(), err
+		return core.WriteSpec{}, err
 	}
-	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: argv, Destructive: action == OpAbort})
+	return core.WriteSpec{Argv: argv, Destructive: action == OpAbort}, nil
 }

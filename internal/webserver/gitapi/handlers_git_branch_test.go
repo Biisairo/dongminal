@@ -149,7 +149,9 @@ func (f *gitM5Fake) wrote() [][]string {
 func gitM5Server(t *testing.T, f *gitM5Fake) *GitServer {
 	t.Helper()
 	store := store.NewStore(core.New(core.WithRunner(f.read), core.WithWriteRunner(f.write)))
-	return &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
+	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: store}
+	s.gitJobs.run = fakeJobRunner(f.write)
+	return s
 }
 
 // gitM5Endpoints 는 18·19단계가 더한 라우트 전부다.
@@ -218,7 +220,7 @@ func TestAPIGitCheckout_ForceWithConfirm(t *testing.T) {
 	f.onWrite = func(f *gitM5Fake, _ []string) { f.status = gitWriteStatus("b.txt", ".M") }
 	s := gitM5Server(t, f)
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/checkout",
+	code, out := gitReqAwait(t, s, http.MethodPost, "/api/git/checkout",
 		`{"repo":`+qWorkRepo+`,"ref":"main","force":true,"confirm":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
@@ -263,7 +265,7 @@ func TestAPIGitCheckout_RemoteBranchTracks(t *testing.T) {
 	f := newGitM5Fake(t)
 	s := gitM5Server(t, f)
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/checkout",
+	code, out := gitReqAwait(t, s, http.MethodPost, "/api/git/checkout",
 		`{"repo":`+qWorkRepo+`,"create":"feat","track":"origin/feat"}`)
 	if code != http.StatusOK {
 		t.Fatalf("code = %d, body = %v", code, out)
@@ -321,7 +323,7 @@ func TestAPIGitBranchCreate(t *testing.T) {
 			f.onWrite = func(f *gitM5Fake, _ []string) { f.status = gitWriteStatus("b.txt", ".M") }
 			s := gitM5Server(t, f)
 
-			code, out := gitReq(t, s, http.MethodPost, "/api/git/branch", c.body)
+			code, out := gitReqAwait(t, s, http.MethodPost, "/api/git/branch", c.body)
 			if code != http.StatusOK {
 				t.Fatalf("code = %d, body = %v", code, out)
 			}
@@ -625,7 +627,7 @@ func TestAPIGitBranchMerge(t *testing.T) {
 	} {
 		f := newGitM5Fake(t)
 		s := gitM5Server(t, f)
-		code, out := gitReq(t, s, http.MethodPost, "/api/git/branch/merge", tc.body)
+		code, out := gitReqAwait(t, s, http.MethodPost, "/api/git/branch/merge", tc.body)
 		if code != http.StatusOK || out["ok"] != true {
 			t.Fatalf("%s → %d %v", tc.body, code, out)
 		}
@@ -635,7 +637,7 @@ func TestAPIGitBranchMerge(t *testing.T) {
 	}
 	f := newGitM5Fake(t)
 	s := gitM5Server(t, f)
-	code, _ := gitReq(t, s, http.MethodPost, "/api/git/branch/merge",
+	code, _ := gitReqAwait(t, s, http.MethodPost, "/api/git/branch/merge",
 		`{"repo":`+qWorkRepo+`,"ref":"side","mode":"octopus"}`)
 	if code != http.StatusBadRequest {
 		t.Fatalf("→ %d, want 400", code)
@@ -649,7 +651,7 @@ func TestAPIGitBranchMerge(t *testing.T) {
 func TestAPIGitBranchRebase_RequiresConfirm(t *testing.T) {
 	f := newGitM5Fake(t)
 	s := gitM5Server(t, f)
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/branch/rebase",
+	code, out := gitReqAwait(t, s, http.MethodPost, "/api/git/branch/rebase",
 		`{"repo":`+qWorkRepo+`,"ref":"main"}`)
 	if code != http.StatusBadRequest || out["error"] != gitErrConfirmRequired {
 		t.Fatalf("→ %d %v, want 400 %s", code, out["error"], gitErrConfirmRequired)
@@ -660,7 +662,7 @@ func TestAPIGitBranchRebase_RequiresConfirm(t *testing.T) {
 
 	f2 := newGitM5Fake(t)
 	s2 := gitM5Server(t, f2)
-	code, out = gitReq(t, s2, http.MethodPost, "/api/git/branch/rebase",
+	code, out = gitReqAwait(t, s2, http.MethodPost, "/api/git/branch/rebase",
 		`{"repo":`+qWorkRepo+`,"ref":"main","onto":"v1","confirm":true}`)
 	if code != http.StatusOK || out["ok"] != true {
 		t.Fatalf("→ %d %v", code, out)
@@ -827,7 +829,7 @@ func TestAPIGitRemoteBranch_FetchAndDelete(t *testing.T) {
 func gitBranchJobServer(t *testing.T, f *gitM5Fake) *GitServer {
 	t.Helper()
 	s := gitM5Server(t, f)
-	s.gitJobs.run = func(context.Context, string, []string, func(string, string)) (int, error) {
+	s.gitJobs.run = func(context.Context, string, []string, string, func(string, string)) (int, error) {
 		return 0, nil
 	}
 	return s

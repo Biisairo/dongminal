@@ -137,22 +137,17 @@ func BranchCreateArgs(o BranchCreateOpts) ([]string, error) {
 	return argv, nil
 }
 
-// Checkout 은 워킹 트리를 다른 ref 로 옮긴다 (FR-GIT-155·156).
+// CheckoutSpec 은 checkout 한 번의 spec 이다 (FR-GIT-155·156). checkout 은 잡으로
+// 돈다 (REPO_FIX 01 §5.2). Force 는 파괴적으로 선언한다 — 워킹 트리의 변경을 버린다.
 //
-// Create 가 있으면 실행 **전에** 이름 규칙과 같은 이름의 로컬 브랜치를 확인한다
-// (FR-GIT-156). git 에 맡기면 exit 128 의 문구로만 알 수 있고, 사용자에게 줄
-// 선택지를 만들 수 없다. 클라이언트만 막으면 API 직접 호출이 우회한다.
-func Checkout(s *core.Service, ctx context.Context, repo string, o CheckoutOpts) (core.Output, error) {
+// 새 이름의 충돌 확인(FR-GIT-156)은 사전 단계의 것이다 — 핸들러가 잡 등록 전에
+// 한다(`gitBranchNameTaken`).
+func CheckoutSpec(o CheckoutOpts) (core.WriteSpec, error) {
 	argv, err := CheckoutArgs(o)
 	if err != nil {
-		return denied(), err
+		return core.WriteSpec{}, err
 	}
-	if o.Create != "" {
-		if err := checkNewBranchName(s, ctx, repo, o.Create); err != nil {
-			return denied(), err
-		}
-	}
-	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: argv, Destructive: o.Force})
+	return core.WriteSpec{Argv: argv, Destructive: o.Force}, nil
 }
 
 // BranchCreate 는 브랜치를 만든다 (FR-GIT-158). Checkout 이면 만들면서 옮겨 간다.
@@ -436,38 +431,17 @@ func BranchDelete(s *core.Service, ctx context.Context, repo string, o BranchDel
 	return out, plan, err
 }
 
-// Merge 는 대상 ref 를 현재 브랜치에 합친다 (FR-GIT-255).
-//
-// **파괴적이 아니다** — 충돌로 멈춰도 저장소는 되돌릴 수 있는 중간 상태이고,
-// 그 출구는 묶음 A 가 준다 (FR-GIT-251·252).
-//
-// 커버리지 주의 (M8 TEST-24): 이 함수의 함수 단위 커버리지 0% 는 결손이 아니다 —
-// 3줄 래퍼이고, 인자 조립·검증의 계약은 MergeArgs(branch_test.go)가, HTTP 종단은
-// gitapi 의 TestAPIGitBranchMerge 가 가짜 실행기로 시험한다. 실제 `git merge` 를
-// 돌리는 함수 단위 테스트를 여기 더하지 않는다 (로드맵 §1.6 정정).
-func Merge(s *core.Service, ctx context.Context, repo string, o MergeOpts) (core.Output, error) {
-	argv, err := MergeArgs(o)
-	if err != nil {
-		return denied(), err
-	}
-	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: argv})
-}
-
-// Rebase 는 대상 ref 위로 현재 브랜치를 다시 얹는다. **파괴적이다** (FR-GIT-256) —
+// RebaseSpec 은 rebase 한 번의 spec 과 recovery hint 다. **파괴적이다** (FR-GIT-256) —
 // 커밋 해시가 바뀌고 되돌리려면 원래 HEAD 를 알아야 한다.
 //
-// 그래서 실행 **전에** HEAD 의 oid 를 읽어 hint 에 싣는다 (FR-GIT-250.2).
-func Rebase(s *core.Service, ctx context.Context, repo string, o RebaseOpts) (core.Output, error) {
+// head 는 사전 단계가 읽은 **옮기기 전** HEAD 다 (FR-GIT-250.2). hint 는 잡 등록이
+// 성공한 뒤 호출자가 남긴다 (REPO_FIX 01 §5.1 — 사전 단계는 부작용이 없다).
+func RebaseSpec(repo string, o RebaseOpts, head string) (core.WriteSpec, core.Hint, error) {
 	argv, err := RebaseArgs(o)
 	if err != nil {
-		return denied(), err
+		return core.WriteSpec{}, core.Hint{}, err
 	}
-	st, err := query.StatusOf(s, ctx, repo)
-	if err != nil {
-		return denied(), err
-	}
-	s.AddHint(rebaseHint(repo, o, st.Oid))
-	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: argv, Destructive: true})
+	return core.WriteSpec{Argv: argv, Destructive: true}, rebaseHint(repo, o, head), nil
 }
 
 // SetUpstream 은 upstream 을 설정하거나 해제한다 (FR-GIT-257). **파괴적이 아니다**

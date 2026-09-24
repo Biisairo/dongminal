@@ -82,7 +82,9 @@ func (f *gitCoFake) wrote() [][]string {
 func gitCoServer(t *testing.T, f *gitCoFake) *GitServer {
 	t.Helper()
 	st := store.NewStore(core.New(core.WithRunner(f.read), core.WithWriteRunner(f.write)))
-	return &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: st}
+	s := &GitServer{Tools: newFakePaneHub(), Work: newFakeWorkspaceStore(), Commands: &fakeCommandBroker{}, Git: st}
+	s.gitJobs.run = fakeJobRunner(f.write)
+	return s
 }
 
 // gitCoEndpoints 는 묶음 D 가 더한 라우트 전부다.
@@ -154,7 +156,7 @@ func TestAPIGitPick_MainlineReachesArgv(t *testing.T) {
 	f.parents = "p1 p2"
 	s := gitCoServer(t, f)
 
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/cherry-pick",
+	code, out := gitReqAwait(t, s, http.MethodPost, "/api/git/cherry-pick",
 		`{"repo":`+qWorkRepo+`,"oid":"abc123","mainline":2}`)
 	if code != http.StatusOK {
 		t.Fatalf("→ %d %v", code, out["error"])
@@ -169,7 +171,7 @@ func TestAPIGitPick_MainlineReachesArgv(t *testing.T) {
 func TestAPIGitRevert_NoCommitOption(t *testing.T) {
 	f := newGitCoFake(t)
 	s := gitCoServer(t, f)
-	code, _ := gitReq(t, s, http.MethodPost, "/api/git/revert",
+	code, _ := gitReqAwait(t, s, http.MethodPost, "/api/git/revert",
 		`{"repo":`+qWorkRepo+`,"oid":"abc123","noCommit":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("→ %d", code)
@@ -181,7 +183,7 @@ func TestAPIGitRevert_NoCommitOption(t *testing.T) {
 
 	f2 := newGitCoFake(t)
 	s2 := gitCoServer(t, f2)
-	code, _ = gitReq(t, s2, http.MethodPost, "/api/git/cherry-pick",
+	code, _ = gitReqAwait(t, s2, http.MethodPost, "/api/git/cherry-pick",
 		`{"repo":`+qWorkRepo+`,"oid":"abc123","noCommit":true}`)
 	if code != http.StatusBadRequest {
 		t.Fatalf("cherry-pick 의 --no-commit → %d, want 400", code)
@@ -254,7 +256,7 @@ func TestAPIGitReset_UnknownModeRejected(t *testing.T) {
 func TestAPIGitDrop_ConfirmAndArgv(t *testing.T) {
 	f := newGitCoFake(t)
 	s := gitCoServer(t, f)
-	code, out := gitReq(t, s, http.MethodPost, "/api/git/drop",
+	code, out := gitReqAwait(t, s, http.MethodPost, "/api/git/drop",
 		`{"repo":`+qWorkRepo+`,"oid":"abc123"}`)
 	if code != http.StatusBadRequest || out["error"] != gitErrConfirmRequired {
 		t.Fatalf("→ %d %v, want 400 %s", code, out["error"], gitErrConfirmRequired)
@@ -265,7 +267,7 @@ func TestAPIGitDrop_ConfirmAndArgv(t *testing.T) {
 
 	f2 := newGitCoFake(t)
 	s2 := gitCoServer(t, f2)
-	code, out = gitReq(t, s2, http.MethodPost, "/api/git/drop",
+	code, out = gitReqAwait(t, s2, http.MethodPost, "/api/git/drop",
 		`{"repo":`+qWorkRepo+`,"oid":"abc123","confirm":true}`)
 	if code != http.StatusOK {
 		t.Fatalf("→ %d %v", code, out["error"])

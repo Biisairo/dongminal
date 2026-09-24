@@ -86,15 +86,13 @@ func (s *GitServer) gitPick(w http.ResponseWriter, r *http.Request, verb string)
 	// 잘못된 요청은 실행 **전에** 답한다. apply 를 지나면 코드가 500 이 되고,
 	// 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다. 부모 목록을 함께
 	// 실어야 하므로 파이프라인의 공용 거부가 아니라 전용 렌더러다.
-	if _, err := write.PickArgs(verb, opts); err != nil {
+	argv, err := write.PickArgs(verb, opts)
+	if err != nil {
 		gitCommitOpError(w, err, parents)
 		return
 	}
-	t.apply(func(ctx context.Context) error {
-		_, err := write.Pick(s.Git.Service(), ctx, t.root, verb, opts)
-		return err
-	})
-	t.ok(nil)
+	// §5.2: cherry-pick·revert 는 새 커밋을 만드는 잡이다.
+	t.startWriteJob(core.WriteSpec{Argv: argv}, t.snapshot(), nil, nil)
 }
 
 // POST /api/git/reset — 현재 브랜치를 그 커밋으로 옮긴다 (FR-GIT-265).
@@ -149,12 +147,14 @@ func (s *GitServer) apiGitDrop(w http.ResponseWriter, r *http.Request) {
 			"부모가 하나인 커밋만 뺄 수 있다 (부모 "+strconv.Itoa(len(parents))+"개)")
 		return
 	}
-	headOid := t.snapshot().Oid
-	t.apply(func(ctx context.Context) error {
-		_, err := write.Drop(s.Git.Service(), ctx, t.root, req.Oid, headOid)
-		return err
-	})
-	t.ok(nil)
+	before := t.snapshot()
+	spec, hint, err := write.DropSpec(t.root, req.Oid, before.Oid)
+	if err != nil {
+		t.reject(err)
+		return
+	}
+	// §5.2: drop 은 rebase 잡이다.
+	t.startWriteJob(spec, before, nil, &hint)
 }
 
 // GET /api/git/commit-range?repo=&from=&to=&symmetric= — 두 리비전 사이의 범위.

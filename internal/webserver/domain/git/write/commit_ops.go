@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"dongminal/internal/webserver/domain/git/core"
 )
@@ -131,42 +130,6 @@ func DropArgs(oid string) ([]string, error) {
 	return []string{"rebase", "--onto", oid + "^", oid}, nil
 }
 
-// CommitIsMerge 는 그 커밋이 부모를 둘 이상 가졌는지다 (FR-GIT-263·264).
-//
-// **읽기다** — `log` 는 읽기 허용 목록에 있다. `CommitDetailOf` 를 쓰지 않는 이유는
-// 그것이 변경 파일 목록까지 받아 오고, 파일이 많은 머지에서는 출력 상한에 걸려
-// 실패하기 때문이다. 여기서 필요한 것은 부모 수 하나다.
-func CommitIsMerge(s *core.Service, ctx context.Context, repo, oid string) (bool, error) {
-	if err := core.CheckRefArg("oid", oid); err != nil {
-		return false, err
-	}
-	out, err := s.Exec(ctx, repo, "log", "-n", "1", "--format=%P", oid)
-	if err != nil {
-		return false, err
-	}
-	return len(strings.Fields(out.Stdout)) > 1, nil
-}
-
-// Pick 은 cherry-pick 또는 revert 를 실행한다 (FR-GIT-263·264).
-//
-// **머지 여부를 저장소에 다시 묻는다.** 요청이 그것을 빠뜨리거나 거짓으로 보내면
-// git 은 틀린 부모를 조용히 집거나 exit 128 로만 답한다 — 서버가 마지막 방어선이다.
-//
-// 파괴적이 아니다. 충돌로 멈추면 그것은 실패가 아니라 진행 중 상태이며, 출구는
-// Changes 탭이 이미 준다 (FR-GIT-251·252).
-func Pick(s *core.Service, ctx context.Context, repo, verb string, o PickOpts) (core.Output, error) {
-	merge, err := CommitIsMerge(s, ctx, repo, o.Oid)
-	if err != nil {
-		return denied(), err
-	}
-	o.Merge = merge
-	argv, err := PickArgs(verb, o)
-	if err != nil {
-		return denied(), err
-	}
-	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: argv})
-}
-
 // Reset 은 현재 브랜치를 그 커밋으로 옮긴다 (FR-GIT-265).
 //
 // **`--hard` 만 파괴적이다** (`reset_hard`) — soft·mixed 는 워킹 트리를 건드리지
@@ -187,21 +150,22 @@ func Reset(s *core.Service, ctx context.Context, repo string, o ResetOpts, headO
 	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: argv, Destructive: hard})
 }
 
-// Drop 은 커밋 하나를 히스토리에서 뺀다 (FR-GIT-266).
+// DropSpec 은 커밋 하나를 히스토리에서 빼는 spec 과 recovery hint 다 (FR-GIT-266).
 //
 // **파괴적이다** (`commit_drop`) — 뒤따르는 커밋의 해시가 전부 바뀌고, 되살리려면
-// 옮기기 전 HEAD 를 알아야 한다. 그것이 hint 에 실린다 (FR-GIT-250.2).
+// 옮기기 전 HEAD 를 알아야 한다. 그것이 hint 에 실린다 (FR-GIT-250.2). hint 는 잡
+// 등록이 성공한 뒤 호출자가 남긴다.
 //
 // 충돌하면 rebase 가 멈춘 채로 남는다 — 진행 중 상태이며 출구는 이미 있다
 // (FR-GIT-251·252).
-func Drop(s *core.Service, ctx context.Context, repo, oid, headOid string) (core.Output, error) {
+func DropSpec(repo, oid, headOid string) (core.WriteSpec, core.Hint, error) {
 	argv, err := DropArgs(oid)
 	if err != nil {
-		return denied(), err
+		return core.WriteSpec{}, core.Hint{}, err
 	}
-	s.AddHint(restoreHeadHint(repo, core.ActionCommitDrop, oid, headOid,
-		"그 커밋을 빼고 뒤따르는 커밋을 다시 얹는다. 해시가 전부 바뀐다."))
-	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: argv, Destructive: true})
+	hint := restoreHeadHint(repo, core.ActionCommitDrop, oid, headOid,
+		"그 커밋을 빼고 뒤따르는 커밋을 다시 얹는다. 해시가 전부 바뀐다.")
+	return core.WriteSpec{Argv: argv, Destructive: true}, hint, nil
 }
 
 // restoreHeadHint 는 **옮기기 전 HEAD 로 되돌아가는 명령**이다 (FR-GIT-250.2).

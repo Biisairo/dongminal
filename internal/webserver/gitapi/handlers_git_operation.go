@@ -1,7 +1,6 @@
 package gitapi
 
 import (
-	"context"
 	"net/http"
 
 	"dongminal/internal/webserver/apierr"
@@ -41,7 +40,8 @@ func (s *GitServer) apiGitOperation(w http.ResponseWriter, r *http.Request) {
 	// 잘못된 조합은 실행 **전에** 답한다. apply 를 지나면 코드가 500 이 되고,
 	// 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다. 코드는 호출 문맥이
 	// 정하므로 (오류값이 아니라) 등록부를 지나지 않는다.
-	if _, err := write.OperationArgs(req.Kind, req.Action); err != nil {
+	spec, err := write.OperationSpec(req.Kind, req.Action)
+	if err != nil {
 		t.rejectWith(http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
 	}
 	t.resolve(req.Repo)
@@ -64,11 +64,9 @@ func (s *GitServer) apiGitOperation(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	t.apply(func(ctx context.Context) error {
-		_, err := write.Operation(s.Git.Service(), ctx, t.root, req.Kind, req.Action)
-		return err
-	})
-	t.ok(nil)
+	// §5.2: 출구(계속·건너뛰기·중단)는 잡이다 — kind 는 argv[0](`bisect reset` 은
+	// bisect). 계속이 다시 충돌로 멈추면 실패로 끝나고 result.status 가 그것을 말한다.
+	t.startWriteJob(spec, before, nil, nil)
 }
 
 // operationLabel 은 사유 문구에 쓸 이름이다. 빈 값은 "없음"이며, 그것이 사용자가

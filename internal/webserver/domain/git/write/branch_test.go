@@ -74,38 +74,15 @@ func TestCheckoutArgs_Rejects(t *testing.T) {
 
 // B3 (V55, FR-GIT-97·157): `Force` 는 **파괴적으로 선언된다** — 워킹 트리의 변경을
 // 버린다. 선언이 실행 기록에 남지 않으면 감사할 수 없다 (I5).
-func TestCheckout_ForceDeclaredDestructive(t *testing.T) {
-	ctx := context.Background()
+func TestCheckoutSpec_ForceDeclaredDestructive(t *testing.T) {
 	for _, force := range []bool{false, true} {
-		f := &writeFake{}
-		s := core.New(core.WithRunner(headRunner), core.WithWriteRunner(f.runner))
-		if _, err := Checkout(s, ctx, absTmpRepo, CheckoutOpts{Ref: "main", Force: force}); err != nil {
-			t.Fatalf("Checkout(force=%v): %v", force, err)
+		spec, err := CheckoutSpec(CheckoutOpts{Ref: "main", Force: force})
+		if err != nil {
+			t.Fatalf("CheckoutSpec(force=%v): %v", force, err)
 		}
-		recs := s.Records(0)
-		if len(recs) == 0 {
-			t.Fatalf("force=%v: 기록이 없다", force)
+		if spec.Destructive != force {
+			t.Fatalf("force=%v: Destructive = %v", force, spec.Destructive)
 		}
-		if got := recs[len(recs)-1].Destructive; got != force {
-			t.Fatalf("force=%v: Destructive = %v", force, got)
-		}
-	}
-}
-
-// B4 (V54, FR-GIT-156): 같은 이름의 로컬 브랜치가 있으면 **실행하지 않는다.**
-// 클라이언트만 막으면 API 직접 호출이 우회하고, git 에 맡기면 사용자에게 줄
-// 선택지를 만들 수 없다.
-func TestCheckout_RemoteBranchNameConflict(t *testing.T) {
-	repo := tempRepoWithBranch(t, "feat")
-	f := &writeFake{}
-	s := core.New(core.WithRunner(realReader(t, repo)), core.WithWriteRunner(f.runner))
-
-	_, err := Checkout(s, context.Background(), repo, CheckoutOpts{Create: "feat", Track: "origin/feat"})
-	if !errors.Is(err, ErrBranchExists) {
-		t.Fatalf("err = %v, want ErrBranchExists", err)
-	}
-	if len(f.argvs) != 0 {
-		t.Fatalf("거부됐는데 실행됐다: %v", f.argvs)
 	}
 }
 
@@ -116,7 +93,11 @@ func TestCheckout_RemoteBranchCreatesTracking(t *testing.T) {
 	s := core.New()
 	ctx := context.Background()
 
-	if _, err := Checkout(s, ctx, repo, CheckoutOpts{Create: "feat", Track: "origin/feat"}); err != nil {
+	spec, err := CheckoutSpec(CheckoutOpts{Create: "feat", Track: "origin/feat"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ExecWrite(ctx, repo, spec); err != nil {
 		t.Fatalf("Checkout: %v", err)
 	}
 	st, err := query.StatusOf(s, ctx, repo)
@@ -378,32 +359,20 @@ func TestMergeArgs(t *testing.T) {
 
 // B25 (FR-GIT-256 / V172·V174): rebase 는 **파괴적이다** — 커밋 해시가 바뀐다.
 // hint 는 `git reset --hard <원래 HEAD oid>` 이며 값이 실려 있다.
-func TestRebase_DestructiveAndHint(t *testing.T) {
-	repo := tempRepoWithBranch(t, "feat")
-	f := &writeFake{}
-	s := core.New(core.WithRunner(realReader(t, repo)), core.WithWriteRunner(f.runner))
-	ctx := context.Background()
-
-	head, err := query.BranchOid(s, ctx, repo, "main")
+func TestRebaseSpec_DestructiveAndHint(t *testing.T) {
+	const head = "deadbeef"
+	spec, hint, err := RebaseSpec(absTmpRepo, RebaseOpts{Ref: "feat"}, head)
 	if err != nil {
-		t.Fatalf("BranchOid: %v", err)
+		t.Fatalf("RebaseSpec: %v", err)
 	}
-	if _, err := Rebase(s, ctx, repo, RebaseOpts{Ref: "feat"}); err != nil {
-		t.Fatalf("Rebase: %v", err)
-	}
-	recs := s.Records(0)
-	if len(recs) == 0 || !recs[len(recs)-1].Destructive {
+	if !spec.Destructive {
 		t.Fatal("rebase 가 파괴적으로 선언되지 않았다")
 	}
-	hints := s.Hints(0)
-	if len(hints) != 1 {
-		t.Fatalf("hint 가 %d개다", len(hints))
+	if hint.Action != core.ActionRebase {
+		t.Fatalf("Action = %q, want %q", hint.Action, core.ActionRebase)
 	}
-	if hints[0].Action != core.ActionRebase {
-		t.Fatalf("Action = %q, want %q", hints[0].Action, core.ActionRebase)
-	}
-	if want := "git reset --hard " + head; hints[0].Command != want {
-		t.Fatalf("Command = %q, want %q", hints[0].Command, want)
+	if want := "git reset --hard " + head; hint.Command != want {
+		t.Fatalf("Command = %q, want %q", hint.Command, want)
 	}
 }
 

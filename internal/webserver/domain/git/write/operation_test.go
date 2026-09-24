@@ -1,11 +1,9 @@
 package write
 
 import (
-	"context"
 	"errors"
 	"testing"
 
-	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/query"
 )
 
@@ -70,10 +68,8 @@ func TestOperationArgs_Rejects(t *testing.T) {
 	}
 }
 
-// A9 (FR-GIT-95): 실행은 ExecWrite 하나만 지나고, 선언한 파괴 여부가 **기록에**
-// 그대로 남는다 — 기록이 곧 근거다.
-func TestOperation_DestructiveInRecord(t *testing.T) {
-	ctx := context.Background()
+// A9 (FR-GIT-95): 선언한 파괴 여부가 spec 에 실려 기록까지 간다 — 기록이 곧 근거다.
+func TestOperationSpec_Destructive(t *testing.T) {
 	for _, tc := range []struct {
 		action string
 		want   bool
@@ -82,17 +78,12 @@ func TestOperation_DestructiveInRecord(t *testing.T) {
 		{OpSkip, false},
 		{OpAbort, true},
 	} {
-		f := &writeFake{}
-		s := core.New(core.WithWriteRunner(f.runner))
-		if _, err := Operation(s, ctx, absTmpRepo, query.OpRebase, tc.action); err != nil {
+		spec, err := OperationSpec(query.OpRebase, tc.action)
+		if err != nil {
 			t.Fatalf("%s: %v", tc.action, err)
 		}
-		recs := s.Records(0)
-		if len(recs) == 0 {
-			t.Fatalf("%s: 기록이 없다", tc.action)
-		}
-		if got := recs[len(recs)-1].Destructive; got != tc.want {
-			t.Fatalf("%s: Destructive = %v, want %v", tc.action, got, tc.want)
+		if spec.Destructive != tc.want {
+			t.Fatalf("%s: Destructive = %v, want %v", tc.action, spec.Destructive, tc.want)
 		}
 	}
 }

@@ -80,7 +80,7 @@ func classify(ctx context.Context, stderr string) error {
 	}
 	// 두 조각이 함께 있어야 한다 — `refs/heads/x.lock` 같은 다른 lock 은 지울
 	// 대상이 아니므로 범위 밖이다 (§7.2).
-	if strings.Contains(low, "unable to create '") && strings.Contains(low, "index.lock': file exists") {
+	if IndexLockedStderr(stderr) {
 		return ErrIndexLocked
 	}
 	return nil
