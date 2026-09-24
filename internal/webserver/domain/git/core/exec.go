@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -149,23 +151,22 @@ func execGit(ctx context.Context, dir string, args []string, limit int, stdin st
 
 	stdout := &cappedBuffer{limit: limit}
 	stderr := &cappedBuffer{limit: limit}
-	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd := exec.CommandContext(ctx, bin, launchArgs(args)...)
 	cmd.Dir = dir
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
 	// 빈 stdin 에 파이프를 만들지 않는다 — 읽기 폴링이 매번 지불할 비용이 아니다.
 	if stdin != "" {
 		cmd.Stdin = strings.NewReader(stdin)
 	}
 	cmd.Env = Env()
-	runErr := cmd.Run()
+	// REPO_FIX 01 P-1: 잡과 같은 기동 헬퍼다 — 그룹·그룹 SIGTERM·유예 뒤 KILL.
+	runErr := Spawn(ctx, cmd, stdout.consume, stderr.consume)
 
 	out := Output{
 		Stdout:          stdout.String(),
 		Stderr:          stderr.String(),
 		ExitCode:        -1,
-		StdoutTruncated: stdout.truncated,
-		StderrTruncated: stderr.truncated,
+		StdoutTruncated: stdout.isTruncated(),
+		StderrTruncated: stderr.isTruncated(),
 		DurationMs:      elapsedMs(started),
 	}
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
@@ -187,13 +188,30 @@ func execGit(ctx context.Context, dir string, args []string, limit int, stdin st
 		// 실행되지 못했으므로 읽을 stderr 가 없다 — 근거는 chdir 의 ENOENT 다.
 		// `Op` 로 좁히는 이유는 git 바이너리가 사라진 경우도 ENOENT 이고 그것은
 		// 이미 ErrGitMissing 의 몫이기 때문이다 (§2.2).
+		//
+		// 새 세션으로 띄우면(REPO_FIX 01 P-2) Go 는 posix_spawn 대신 fork 경로를
+		// 타고, 그 경로의 chdir 실패는 `fork/exec <bin>` 오류로 온다. 그래서 오류
+		// 모양 대신 **디렉터리가 실제로 없는가**를 본다 — bin 은 LookPath 가 방금
+		// 찾았으므로 ENOENT 의 주인은 dir 이다.
 		var pe *fs.PathError
-		if errors.As(runErr, &pe) && pe.Op == "chdir" && errors.Is(runErr, fs.ErrNotExist) {
-			return out, fmt.Errorf("%w: %v", ErrRepoMissing, runErr)
+		if errors.As(runErr, &pe) && errors.Is(runErr, fs.ErrNotExist) {
+			if _, serr := os.Stat(dir); errors.Is(serr, fs.ErrNotExist) {
+				return out, fmt.Errorf("%w: chdir %s: %v", ErrRepoMissing, dir, runErr)
+			}
 		}
 		return out, fmt.Errorf("git %s: %w", strings.Join(args, " "), runErr)
 	}
 	return out, nil
+}
+
+// launchArgs 는 가드를 지난 argv 앞에 사용자 설정을 중립화하는 전역 인자를 붙인다
+// (REPO_FIX 01 P-4). 기록에는 원래 argv 가 남는다 — 붙이는 자리가 실행 직전이다.
+//
+// `log.showSignature=true` 면 서명된 커밋에서 log·`--format=%P`·`%B` 출력 앞에 서명
+// 검증 문구가 섞여 레코드 파싱·부모 판정(머지 오판)·amend 메시지가 오염됐다(실측).
+// 환경변수(GIT_CONFIG_COUNT)는 사용자의 GIT_CONFIG_* 를 덮으므로 쓰지 않는다.
+func launchArgs(args []string) []string {
+	return append([]string{"-c", "log.showSignature=false"}, args...)
 }
 
 // Env 는 git 이 사람을 기다리거나 로케일에 흔들리지 않게 만든다.
@@ -228,13 +246,19 @@ func elapsedMs(started time.Time) int64 { return time.Since(started).Millisecond
 
 // cappedBuffer 는 상한까지만 보존하고 초과분을 버린다 (FR-GIT-6). 큰 diff 하나가
 // 프로세스 메모리를 삼키는 것을 막는 것이 목적이다.
+//
+// 잠금을 갖는 이유: Spawn 은 그룹 밖 손자가 파이프를 쥐면 읽기단을 닫고 돌아오며,
+// 그때 소비 고루틴이 아직 쓰고 있을 수 있다.
 type cappedBuffer struct {
+	mu        sync.Mutex
 	limit     int
 	buf       []byte
 	truncated bool
 }
 
 func (b *cappedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	room := b.limit - len(b.buf)
 	switch {
 	case room >= len(p):
@@ -245,9 +269,22 @@ func (b *cappedBuffer) Write(p []byte) (int, error) {
 	case len(p) > 0:
 		b.truncated = true
 	}
-	// 짧은 쓰기를 보고하면 os/exec 의 복사가 오류로 끝난다 — 버린 분량도 썼다고
-	// 답하고, 잘렸다는 사실은 truncated 로만 알린다.
+	// 짧은 쓰기를 보고하면 복사가 오류로 끝난다 — 버린 분량도 썼다고 답하고,
+	// 잘렸다는 사실은 truncated 로만 알린다.
 	return len(p), nil
 }
 
-func (b *cappedBuffer) String() string { return string(b.buf) }
+// consume 은 Spawn 의 소비자다.
+func (b *cappedBuffer) consume(r io.Reader) { _, _ = io.Copy(b, r) }
+
+func (b *cappedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return string(b.buf)
+}
+
+func (b *cappedBuffer) isTruncated() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.truncated
+}

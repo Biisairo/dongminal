@@ -193,7 +193,7 @@ func TestCappedBuffer_Truncates(t *testing.T) {
 	if got := b.String(); got != "abcd" {
 		t.Fatalf("보존 %q, want %q", got, "abcd")
 	}
-	if !b.truncated {
+	if !b.isTruncated() {
 		t.Fatal("truncated 가 서지 않았다")
 	}
 }

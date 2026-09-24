@@ -35,6 +35,7 @@ type Process interface {
 
 	// NewGroup 은 cmd 와 그 **자손 전체**를 하나로 묶어 통째로 종료할 수 있게
 	// cmd 를 준비하고 그 묶음의 핸들을 낸다. cmd.Start() **전에** 부른다.
+	// POSIX 는 새 세션(제어 터미널 없음), Windows 는 Job Object 다.
 	NewGroup(cmd *exec.Cmd) Group
 }
 

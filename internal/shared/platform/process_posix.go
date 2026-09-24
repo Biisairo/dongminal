@@ -49,14 +49,29 @@ func (posixProcess) ShutdownSignals() []os.Signal {
 	return []os.Signal{os.Interrupt, syscall.SIGTERM, syscall.SIGHUP}
 }
 
-func (posixProcess) Detach(cmd *exec.Cmd) { sysProcAttr(cmd).Setsid = true }
+func (posixProcess) Detach(cmd *exec.Cmd) { newSession(cmd) }
 
+// NewGroup 은 **새 세션**으로 띄운다 (REPO_FIX 01 P-2). 새 세션의 리더는 곧 새
+// 그룹의 리더이므로 그룹 신호는 그대로 닿고, 제어 터미널이 없으므로 서버가
+// 터미널에서 돌 때도 ssh·gpg 프롬프트가 SIGTTIN 으로 자식을 멈추지 않는다.
+//
+//	이전 동작: Setpgid — 서버의 세션에 남아 포그라운드 실행에서 tty 읽기가 정지
+//	새  동작: Setsid — 터미널 프롬프트는 즉시 실패한다(GUI pinentry·ssh-agent 필요)
+//	이유:     정지한 git 은 취소 전까지 아무것도 알리지 않는다
 func (posixProcess) NewGroup(cmd *exec.Cmd) Group {
-	sysProcAttr(cmd).Setpgid = true
+	newSession(cmd)
 	return posixGroup{cmd: cmd}
 }
 
-// posixGroup 은 Setpgid 로 만든 프로세스 그룹이다. 리더의 pid 가 곧 pgid 다.
+// newSession 은 Setsid 를 세우고 Setpgid 를 내린다. 둘이 함께 서면 fork/exec 가
+// EPERM 으로 실패한다(darwin 실측) — 세션을 만들면 그룹은 저절로 생긴다.
+func newSession(cmd *exec.Cmd) {
+	a := sysProcAttr(cmd)
+	a.Setpgid = false
+	a.Setsid = true
+}
+
+// posixGroup 은 Setsid 로 만든 세션의 그룹이다. 리더의 pid 가 곧 pgid 다.
 type posixGroup struct{ cmd *exec.Cmd }
 
 // POSIX 는 SysProcAttr 로 이미 그룹이 서 있다. 할 일이 없다.

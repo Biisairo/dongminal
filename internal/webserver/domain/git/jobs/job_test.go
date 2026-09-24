@@ -137,7 +137,7 @@ func TestExecStream_CancelEscalatesToKill(t *testing.T) {
 	cancel()
 	select {
 	case <-exited:
-	case <-time.After(3*JobKillGrace + 10*time.Second):
+	case <-time.After(3*core.KillGrace + 10*time.Second):
 		t.Fatal("execStream 이 유예를 넘겨서도 돌아오지 않았다")
 	}
 	jobAwaitGone(t, child, 5*time.Second)

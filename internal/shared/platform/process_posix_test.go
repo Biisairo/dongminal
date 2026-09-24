@@ -11,6 +11,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 // waitUntil 은 cond 가 참이 될 때까지 최대 d 를 기다린다. 프로세스 종료는
@@ -84,16 +86,58 @@ func TestPosixDetachSetsSetsid(t *testing.T) {
 	}
 }
 
-// Detach 는 호출자가 이미 채워 둔 SysProcAttr 를 지우면 안 된다.
+// Detach 는 호출자가 이미 채워 둔 SysProcAttr 를 지우면 안 된다. 단 Setpgid 는
+// 예외다 — Setsid 와 함께 서면 fork/exec 가 EPERM 으로 실패한다(darwin 실측,
+// REPO_FIX 01 P-2). 새 세션이 곧 새 그룹이므로 Setpgid 를 내려도 잃는 것이 없다.
 func TestPosixDetachPreservesExistingAttr(t *testing.T) {
 	cmd := exec.Command("/bin/sh", "-c", "true")
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true, Noctty: true}
 	(posixProcess{}).Detach(cmd)
-	if !cmd.SysProcAttr.Setpgid {
-		t.Fatal("기존 Setpgid 가 사라졌다")
+	if !cmd.SysProcAttr.Noctty {
+		t.Fatal("기존 Noctty 가 사라졌다")
+	}
+	if cmd.SysProcAttr.Setpgid {
+		t.Fatal("Setpgid 가 Setsid 와 함께 남았다 — Start 가 EPERM 으로 실패한다")
 	}
 	if !cmd.SysProcAttr.Setsid {
 		t.Fatal("Setsid 가 서지 않았다")
+	}
+}
+
+// 호출자가 Setpgid 를 세워 둔 명령도 Detach 뒤에 실제로 시작된다.
+func TestPosixDetachAfterSetpgidStarts(t *testing.T) {
+	cmd := exec.Command("/bin/sh", "-c", "true")
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	(posixProcess{}).Detach(cmd)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Detach 한 명령이 시작되지 않는다: %v", err)
+	}
+}
+
+// REPO_FIX 01 P-2: 그룹은 **새 세션**으로 선다(pgid = sid = pid). 제어 터미널에서
+// 떨어져 ssh·gpg 프롬프트가 SIGTTIN 으로 멈추지 않는다. 플래그만 보지 않고 실제로
+// 띄워 확인한다 — 플래그 조합의 EPERM 은 Start 에서만 드러난다.
+func TestPosixNewGroupStartsNewSession(t *testing.T) {
+	cmd := exec.Command("/bin/sh", "-c", "sleep 60")
+	g := (posixProcess{}).NewGroup(cmd)
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	defer func() { _ = g.Kill(); _ = cmd.Wait() }()
+	if err := g.Bind(); err != nil {
+		t.Fatalf("Bind: %v", err)
+	}
+	pid := cmd.Process.Pid
+	pgid, err := syscall.Getpgid(pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sid, err := unix.Getsid(pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pgid != pid || sid != pid {
+		t.Fatalf("새 세션이 아니다: pid=%d pgid=%d sid=%d", pid, pgid, sid)
 	}
 }
 
@@ -106,8 +150,8 @@ func TestPosixGroupKillsDescendants(t *testing.T) {
 	cmd := exec.Command("/bin/sh", "-c", script)
 
 	g := p.NewGroup(cmd)
-	if cmd.SysProcAttr == nil || !cmd.SysProcAttr.Setpgid {
-		t.Fatal("Setpgid 가 서지 않았다")
+	if cmd.SysProcAttr == nil || !cmd.SysProcAttr.Setsid {
+		t.Fatal("Setsid 가 서지 않았다")
 	}
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)

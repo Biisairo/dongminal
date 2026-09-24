@@ -21,17 +21,11 @@ import (
 // 상한은 상수로 못박는다 — 호출 지점마다 다른 숫자가 흩어지면 상한이 상한이
 // 아니게 된다.
 const (
-	// RemoteOpCeiling 은 원격 작업 하나의 상한이다 (O9). **실질 종료 수단은
-	// 취소이고 이것은 고아 프로세스 안전망이다** — 브라우저를 닫은 사용자의
-	// 프로세스가 영구히 남지 않게 한다.
-	RemoteOpCeiling = 10 * time.Minute
 	// JobLineCap 은 보존 줄 수 상한이다. 초과분은 앞에서 버린다.
 	JobLineCap = 2000
 	// JobRetention 은 끝난 작업을 들고 있는 기간이다. 취소·실패의 이유를 사용자가
 	// 뒤늦게 볼 수 있어야 한다.
 	JobRetention = 5 * time.Minute
-	// JobKillGrace 는 SIGTERM 뒤 SIGKILL 까지의 유예다.
-	JobKillGrace = 3 * time.Second
 	// JobLineMax 는 한 줄의 바이트 상한이다. 구분자 없는 스트림 하나가 메모리를
 	// 삼키지 않게 한다.
 	JobLineMax = 4096
@@ -191,7 +185,7 @@ func WithJobClock(now func() time.Time) JobsOption {
 func NewJobs(svc *core.Service, opts ...JobsOption) *Jobs {
 	j := &Jobs{
 		svc:       svc,
-		ceiling:   RemoteOpCeiling,
+		ceiling:   core.JobCeiling,
 		retention: JobRetention,
 		lineCap:   JobLineCap,
 		now:       time.Now,
@@ -202,7 +196,7 @@ func NewJobs(svc *core.Service, opts ...JobsOption) *Jobs {
 		o(j)
 	}
 	if j.ceiling <= 0 {
-		j.ceiling = RemoteOpCeiling
+		j.ceiling = core.JobCeiling
 	}
 	if j.retention <= 0 {
 		j.retention = JobRetention
