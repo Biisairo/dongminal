@@ -241,7 +241,7 @@ Object.assign(App.prototype, {
   // 무엇을 잃는지 모른다 (GitConfirm 의 영향 범위와 같은 근거).
   edDirtyUnder(p){
     return this._edTabsUnder(p)
-      .filter(x=>{const e=this.fileEditors.get(x.tab.id);return !!(e&&e._dirty)})
+      .filter(x=>{const e=this.editorAny(x.tab.id);return !!(e&&e._dirty)})
       .map(x=>x.tab.name);
   },
 
@@ -259,8 +259,7 @@ Object.assign(App.prototype, {
       const np=tab.filePath===from?to:to+tab.filePath.slice(from.length);
       tab.filePath=np;
       tab.name=pathBase(np)||tab.name;
-      const ed=this.fileEditors.get(tab.id);
-      if(ed){ed.filePath=np;ed.name=tab.name}
+      for(const ed of this.editorsOf(tab.id)){ed.filePath=np;ed.name=tab.name}
     }
     this.render();
     this.save();

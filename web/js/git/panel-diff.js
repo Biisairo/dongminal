@@ -911,7 +911,7 @@ Object.assign(GitPanel.prototype, {
       hideUnchanged:this._foldPref(),
       isStale:tok=>this.isStale(tok),
       // FR-RTU-53: 저장되지 않은 변경은 탭 이름에 `●` 로 선다 — 편집기 탭과
-      // 같은 표시이며, 그 표시를 만드는 자리도 같다 (`tab.dirty`).
+      // 같은 표시이며, 렌더가 이 뷰의 dirty 에서 파생한다 (`app.tabDirty`).
       onDirty:v=>this._setDiffDirty(v),
       // FR-RTU-55: 저장 뒤에는 관측을 즉시 갱신한다. 방금 고친 것이 목록과
       // 색에 곧바로 서야 한다.
@@ -931,8 +931,10 @@ Object.assign(GitPanel.prototype, {
     if(!this.root) return;
     const w=this.app.edWindowFor(this.root); if(!w) return;
     const found=this.app.findGitViewTab(w,'diff'); if(!found) return;
-    if(!!found.tab.dirty===!!v) return;
-    found.tab.dirty=!!v;
+    // REPO_FIX 03 §3A-7: 탭 레코드에 쓰지 않는다 — 라벨은 렌더가 Diff 뷰에서
+    // 파생한다(`app.tabDirty`). 바뀐 때만 다시 그린다.
+    if(this._diffDirtyShown===!!v) return;
+    this._diffDirtyShown=!!v;
     this.app.render();
   },
 

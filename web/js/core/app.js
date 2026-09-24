@@ -476,8 +476,10 @@ class App {
           if(this.wsETag) headers['If-Match']=this.wsETag;
           // activeWindow and focusedPane are per-window; strip them so
           // remote windows aren't forced to switch views (multi-window sync).
+          // REPO_FIX 03 §3A-7: 탭의 `dirty` 는 파생이다 — 싣지 않는다(옛 저장본의
+          // 값은 읽혀도 쓰이지 않는다: 라벨이 `tabDirty` 로 파생한다).
           const wsBody=JSON.parse(JSON.stringify(this.ws,(k,v)=>{
-            if(k==='activeWindow'||k==='focusedPane') return undefined;
+            if(k==='activeWindow'||k==='focusedPane'||k==='dirty') return undefined;
             return v;
           }));
           // 서버는 schemaVersion 미달 저장을 거부한다 (FR-EM-2a). 어떤 경로로

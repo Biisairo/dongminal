@@ -101,8 +101,7 @@ Object.assign(App.prototype, {
     // 편집기 인스턴스는 칸마다 선다 (FR-WSL-20) — 포커스 칸의 것을 찾는다.
     const tid=p&&this.paneTab(p);
     if(!tid) return null;
-    return this.fileEditors.get(this.slotKey(tid,this.slotFocused()))
-      ||this.fileEditors.get(tid)||null;
+    return this.editorAny(tid);
   },
 
   /**

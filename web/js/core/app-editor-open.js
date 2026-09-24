@@ -92,6 +92,29 @@ Object.assign(App.prototype, {
     return d;
   },
 
+  /**
+   * REPO_FIX 03 §3A-7 (E-6): 탭의 dirty 는 **파생**이다. 편집기 탭은 그 파일 문서의
+   * dirty(문서를 못 얻은 뷰는 그 뷰의 것), git Diff 탭은 그 창 패널의 Diff 뷰다.
+   *
+   *   이전 동작: `tab.dirty` 를 탭 레코드에 써서 워크스페이스로 영속했다 — 새로고침·
+   *             다른 기기에서 가짜 ● 가 남았고, 활성 창의 탭만 갱신됐다
+   *   새  동작: 매 렌더 파생 — 모든 창이 같은 답을 본다
+   *   이유:     파생 상태를 원천으로 영속하면 원천과 어긋난다 (#45, N1)
+   */
+  tabDirty(win,tab){
+    if(!tab) return false;
+    if(tab.type==='editor'){
+      const d=this._edDocs&&this._edDocs.get(tab.filePath);
+      if(d) return !!d.dirty;
+      const v=this.editorAny(tab.id);
+      return !!(v&&v._dirty);
+    }
+    if(tab.type===TAB_TYPE_GIT&&win&&this.isEditorWin(win)){
+      return this._gitViewDirty(this.edRootOf(win),tab.gitView);
+    }
+    return false;
+  },
+
   // FR-SVS-55: 그 파일을 보는 칸이 하나도 남지 않으면 문서를 거둔다. 칸이 줄어도
   // 다른 칸이 보고 있으면 내용은 남는다 — 편집 중이던 것이 칸 정리로 사라지면
   // 그것이 결함이다.

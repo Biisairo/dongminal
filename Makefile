@@ -43,6 +43,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-html.sh
 	@echo "── API 호출의 단일 경로 (core/api.js 를 지나는가)"
 	@scripts/check-fetch.sh
+	@echo "── 편집기 조회의 단일 경로 (editorsOf·editorAny 를 지나는가)"
+	@scripts/check-editor-lookup.sh
 	@echo "── 숨김의 어휘 (.vis 와 [hidden] 둘인가)"
 	@scripts/check-visibility.sh
 	@echo "── 스크롤 소유권 (뷰별 재정의가 없는가)"

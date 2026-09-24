@@ -46,7 +46,7 @@ Object.assign(App.prototype, {
     const ln=(opts||{}).line;
     if(ln){
       const t=this._findEditorTab(filePath);
-      const v=t&&this.fileEditors.get(t.tab.id);
+      const v=t&&this.editorAny(t.tab.id);
       if(v&&v.revealLine) v.revealLine(ln,(opts||{}).col);
     }
     // 연 파일이 **탐색기에서도** 보이게 한다. 파일 검색·전체 검색으로 열면 그

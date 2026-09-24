@@ -31,7 +31,8 @@ Object.assign(Renderer.prototype, {
     // FR-DRV-11: 렌더 탭임을 알리는 표시. **여기서 붙인다** — `tabName` 은 dmctl 이
     // 같은 규칙을 Go 로 다시 쓰는 자리이며(helpers.js), 그쪽이 모르는 표시를 그
     // 함수에 넣으면 두 구현이 어긋난다.
-    return (tab.dirty?'● ':'')+(tab.render?DOC_RENDER_TAB_MARK:'')+tabName(tab,this.app.fgNames);
+    // REPO_FIX 03 §3A-7: ● 는 매 렌더 **파생**이다 — 탭 레코드에 두지 않는다.
+    return (this.app.tabDirty(this._rWin,tab)?'● ':'')+(tab.render?DOC_RENDER_TAB_MARK:'')+tabName(tab,this.app.fgNames);
   },
 
   // 활성 탭의 **본문**을 pane body 에 붙인다. 타입별로 실체가 다르다 — git 은

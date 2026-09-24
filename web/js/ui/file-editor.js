@@ -971,22 +971,8 @@ class FileEditor {
   }
 
   _updateTabLabel() {
-    // Update the tab data model so dirty state survives re-renders
-    const s = app.aw();
-    if (s) {
-      for (const n of (s.layout ? [s.layout] : [])) {
-        const walk = n => {
-          if (!n) return;
-          if (n.type === 'pane' && n.tabs) {
-            const tab = n.tabs.find(t => t.id === this.id);
-            if (tab) tab.dirty = this._dirty;
-          }
-          if (n.type === 'split' && n.children) n.children.forEach(walk);
-        };
-        walk(n);
-      }
-    }
-    // Also update DOM immediately for instant feedback.
+    // REPO_FIX 03 §3A-7: 탭 레코드에 dirty 를 쓰지 않는다 — 라벨은 렌더가 문서에서
+    // 파생한다(`app.tabDirty`). 여기서는 그려져 있는 라벨만 곧바로 고친다.
     // 같은 탭의 DOM 이 칸마다 있다 — 하나만 고치면 나머지 칸의 `● ` 가 낡는다.
     for (const tabEl of document.querySelectorAll(
       '.pn-tab[data-tab-id="' + this.id + '"] .pn-tab-label')) {

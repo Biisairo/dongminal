@@ -53,6 +53,40 @@ Object.assign(App.prototype, {
     return out;
   },
 
+  /**
+   * REPO_FIX 03 §3A-6: 탭 id 로 편집기를 찾는 **유일한 두 길**.
+   *
+   * 편집기 Map 의 키는 `slotKey(id,slot)` 인데 조회가 `tab.id` 로 하면 칸 0 만
+   * 잡힌다 — 칸 1 이상에만 있는 편집기의 닫기 확인·이름변경 추적·줄 이동이 조용히
+   * 빠졌다 (#5, N6). `fileEditors.get(` 을 이 둘 밖에서 쓰지 않는다
+   * (scripts/check-editor-lookup.sh).
+   *
+   *   editorsOf  그 탭의 모든 칸 인스턴스 (경로 갱신·파괴)
+   *   editorAny  포커스 칸 → 칸 0 → 나머지 순의 첫 인스턴스 (dirty·reveal·refresh — 문서 단위)
+   */
+  editorsOf(tabId){
+    const out=[];
+    if(!tabId) return out;
+    for(const k of this.slotKeysOf(tabId)){
+      const v=this.fileEditors.get(k);
+      if(v) out.push(v);
+    }
+    return out;
+  },
+
+  editorAny(tabId){
+    if(!tabId) return null;
+    return this.fileEditors.get(this.slotKey(tabId,this.slotFocused()))||this.editorsOf(tabId)[0]||null;
+  },
+
+  // 그 탭의 모든 칸 편집기를 파괴하고 Map 에서 뺀다.
+  editorsDrop(tabId){
+    for(const k of this.slotKeysOf(tabId)){
+      const v=this.fileEditors.get(k);
+      if(v){v.destroy();this.fileEditors.delete(k)}
+    }
+  },
+
   // 복합키에서 슬롯 번호와 원래 id 를 되돌린다. `slotKey` 의 역이며 **자리는
   // 여기 하나다** — 렌더러의 편집기 회수가 자기 손으로 `@1` 만 잘라 내다가 칸
   // 2·3 의 편집기를 매 render 마다 파괴했다 (FR-SVS-60).

@@ -579,7 +579,7 @@ Object.assign(App.prototype, {
         this.paneTabSet(existing.pane, existing.tab.id);
         this.setFocusState(existing.pane.id, existing.win);
         this._focusWindow(existing.win.id);
-        const editor = this.fileEditors.get(existing.tab.id);
+        const editor = this.editorAny(existing.tab.id);
         if (editor) editor.refresh();
         this.render();
         this.save();
@@ -664,7 +664,7 @@ Object.assign(App.prototype, {
     if(gitTab) this._gitDropView(this.edRootOf(s),tab.gitView);
     const isEditor=tab.type==='editor';
     if(isEditor){
-      const editor=this.fileEditors.get(tab.id);
+      const editor=this.editorAny(tab.id);
       // EDITOR_TAB_SRS FR-EDT-91: 파일이 삭제되어 닫는 경로는 확인을 건너뛴다 —
       // dirty 라는 사실은 삭제 확인창이 이미 밝혔고(FR-EDT-84), 여기서 취소해도
       // 파일은 이미 없다.
@@ -683,7 +683,8 @@ Object.assign(App.prototype, {
           return;
         }
       }
-      if(editor){editor.destroy();this.fileEditors.delete(tab.id)}
+      // REPO_FIX 03 E-4: 칸 1 이상의 인스턴스도 함께 거둔다.
+      this.editorsDrop(tab.id);
     }else{
       // FR-BG-1: 한가하면 확인 없이 닫고 도구를 종료한다.
       // FR-BG-3: 실행 중이면 살려둘 선택지를 준다. 프로세스가 도는 탭에는
