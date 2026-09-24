@@ -52,6 +52,7 @@ var gitTableCases = []struct {
 	{write.ErrPullMode, http.StatusBadRequest, CodeBadRequest},
 	{write.ErrPushForce, http.StatusBadRequest, CodeBadRequest},
 	{write.ErrDetachedPush, http.StatusBadRequest, CodeBadRequest},
+	{write.ErrUpstreamLocal, http.StatusBadRequest, CodeBadRequest},
 	{query.ErrNoRemote, http.StatusConflict, CodeNoRemote},
 
 	// gitStartFail

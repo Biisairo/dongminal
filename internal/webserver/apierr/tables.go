@@ -45,6 +45,7 @@ var Git = Table{
 	{write.ErrPullMode, http.StatusBadRequest, CodeBadRequest},
 	{write.ErrPushForce, http.StatusBadRequest, CodeBadRequest},
 	{write.ErrDetachedPush, http.StatusBadRequest, CodeBadRequest},
+	{write.ErrUpstreamLocal, http.StatusBadRequest, CodeBadRequest},
 	{query.ErrNoRemote, http.StatusConflict, CodeNoRemote},
 
 	// ── 작업 큐 ──

@@ -35,7 +35,7 @@ var Inventory = []error{
 	write.ErrBranchExists, write.ErrCheckoutTarget, write.ErrBranchRename,
 	write.ErrBranchDelete, write.ErrMergeMode, write.ErrBranchUpstream,
 	write.ErrOperation, write.ErrPullMode, write.ErrPushForce, write.ErrForceConfirm,
-	write.ErrPublishRequired, write.ErrDetachedPush, write.ErrPushTarget,
+	write.ErrPublishRequired, write.ErrDetachedPush, write.ErrUpstreamLocal, write.ErrPushTarget,
 	write.ErrRemoteName, write.ErrRemoteURL, write.ErrRemoteExists, write.ErrRemoteMissing,
 	write.ErrStashEmpty, write.ErrStashNotFound, write.ErrPickVerb, write.ErrMergeParent,
 	write.ErrResetMode, write.ErrReplayTarget, write.ErrIgnorePath,
