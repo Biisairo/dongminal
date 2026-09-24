@@ -348,10 +348,28 @@ func StatusOf(s *core.Service, ctx context.Context, repo string) (Status, error)
 //
 // NUL 이 하나도 없으면 온전한 레코드가 하나도 없다는 뜻이므로 전부 버린다 —
 // 머리글(`# branch.head …`)조차 끝나지 않았다.
+//
+// REPO_FIX 01 §7.7: rename/copy(`2 …`) 는 NUL 조각 **둘**이 한 레코드다. 경계가
+// 두 조각 사이에 걸리면 짝을 잃은 `2 …` 가 마지막에 남아 파서가 실패했다 — 그
+// 조각까지 버린다. 다른 레코드는 조각 하나라 위의 자르기로 충분하다.
 func dropPartialRecord(s string) string {
 	i := strings.LastIndexByte(s, 0)
 	if i < 0 {
 		return ""
 	}
-	return s[:i+1]
+	s = s[:i+1]
+	toks := strings.Split(s[:len(s)-1], "\x00")
+	start := 0 // 마지막 레코드의 시작 바이트
+	for j := 0; j < len(toks); j++ {
+		begin := start
+		start += len(toks[j]) + 1
+		if strings.HasPrefix(toks[j], "2 ") {
+			if j+1 >= len(toks) {
+				return s[:begin]
+			}
+			start += len(toks[j+1]) + 1
+			j++
+		}
+	}
+	return s
 }

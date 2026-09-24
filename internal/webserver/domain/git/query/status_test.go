@@ -395,3 +395,28 @@ func TestFinalizeStatus_NoMarkWhenUnderCap(t *testing.T) {
 		t.Fatalf("자르지 않았는데 표식이 있다: %v", st.Truncated)
 	}
 }
+
+// REPO_FIX 01 §7.7 (FR-SAF-19): 출력이 상한에서 잘린 경계가 rename 레코드와 그
+// origPath 사이에 걸리면 "rename 레코드에 origPath 가 없다" 로 status 전체가 실패했다.
+// 짝을 잃은 마지막 레코드는 버리고 나머지를 준다.
+func TestStatusOf_TruncatedBetweenRenameAndOrigPath(t *testing.T) {
+	out := strings.Join([]string{
+		"# branch.oid " + strings.Repeat("a", 40),
+		"# branch.head main",
+		"1 M. N... 100644 100644 100644 " + strings.Repeat("1", 40) + " " + strings.Repeat("2", 40) + " a.txt",
+		"2 R. N... 100644 100644 100644 " + strings.Repeat("1", 40) + " " + strings.Repeat("2", 40) + " R100 new.txt",
+	}, "\x00") + "\x00" + "old.t" // origPath 가 상한에서 잘렸다
+	s := core.New(core.WithRunner(func(context.Context, string, []string) (core.Output, error) {
+		return core.Output{Stdout: out, StdoutTruncated: true}, nil
+	}))
+	st, err := StatusOf(s, context.Background(), absRepo)
+	if err != nil {
+		t.Fatalf("잘린 status 가 실패로 끝났다: %v", err)
+	}
+	if len(st.Staged) != 1 || st.Staged[0].Path != "a.txt" {
+		t.Fatalf("온전한 레코드까지만 와야 한다: %+v", st.Staged)
+	}
+	if !st.OutputTruncated {
+		t.Fatal("잘렸다는 표시가 없다")
+	}
+}
