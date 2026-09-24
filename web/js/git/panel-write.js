@@ -278,9 +278,9 @@ Object.assign(GitPanel.prototype, {
     this._status=Object.assign({},this._status||{},
       {requested:d.requested,repo:d.repo,status:d.status});
     this._errMsg=null; this._staleNote=false;
-    // 사용자가 부른 쓰기의 응답이다 — 화면은 반드시 바뀐다 (FR-RPT-5). 다만 근거는
-    // 갱신해 둔다: 곧 오는 폴링이 같은 관측으로 한 번 더 그리지 않게 한다.
-    this._obsSig=JSON.stringify(d.status||null);
+    // 사용자가 부른 쓰기의 응답이다 — 화면은 반드시 바뀐다 (FR-RPT-5). 쓰기 응답에는
+    // 관측 식별자(mark)가 없으므로 근거를 비운다 — 다음 관측이 새 mark 로 선다 (F-6.1).
+    this._obsSig=null;
     // FR-SVS-44: 쓰기의 **결과는 관측**이다 — 조작이 어느 칸에서 시작됐는지는
     // 결과에 영향을 주지 않으므로 모든 칸이 함께 바뀐다.
     this.obs.paintAll();

@@ -45,6 +45,8 @@ class GitObserver {
     // REPO_FIX 05 §3A-5 (F-4.1): 쓰기 세대 — 동기 쓰기 시작·잡 시작·잡 완료가 각각 +1.
     // 보낼 때의 값과 도착했을 때의 값이 다른 status 는 적용하지 않는다.
     this._writeGen=0;
+    // F-6.2: 비저장소 판정은 저장소의 사실이다 — 같은 루트의 모든 칸이 같은 화면을 본다.
+    this._notRepo=false;
     // F-4.2: stage/unstage/discard 의 저장소 단위 FIFO. 칸이 넷이어도 한 줄이다.
     this._wq=[]; this._wqOn=false;
     // single-flight 와 주기. 칸이 늘어도 이것들이 하나이므로 요청이 늘지 않는다.

@@ -71,7 +71,15 @@ Object.assign(GitPanel.prototype, {
     const res=await GitConfirm.open({
       action:GIT_INIT_ACTION,title:GIT_INIT_CONFIRM,targets:[this.root],
       hint:GIT_INIT_HINT,stages:1,
-      run:()=>this.post('/api/git/init',{path:this.root}),
+      // F-6.3: 실패는 서버 사유로 말한다 — 확인창 안에서, 그리고 닫은 뒤 그 자리에.
+      // 이전: 응답 모양을 그대로 돌려 사유가 비어 "동작이 실패했습니다" 만 보였다.
+      run:async()=>{
+        const r=await this.post('/api/git/init',{path:this.root});
+        if(r.ok) return {ok:true};
+        const why=(r.data&&r.data.message)||'';
+        this._initErr=why||GIT_INIT_FAIL;
+        return {ok:false,reason:GIT_INIT_FAIL,stderrTail:why};
+      },
     });
     this._initBusy=false;
     if(res===true||(res&&res.ok)){
@@ -82,10 +90,8 @@ Object.assign(GitPanel.prototype, {
       // 목록·핀이 함께 바뀌었다 (FR-RTU-27). 사이드바가 그것을 따라오게 한다.
       if(this.app.edRefresh) this.app.edRefresh();
       if(this.app.gitReposRefresh) this.app.gitReposRefresh();
-    }else if(res!==false){
-      // `false` 는 사용자가 취소한 것이다 — 실패가 아니므로 사유를 남기지 않는다.
-      this._initErr=(res&&res.message)||GIT_INIT_FAIL;
     }
+    // 취소(`false`)는 실패가 아니다 — 사유는 실패한 실행이 남긴 것만 선다.
     this.obs.paintAll();
   },
 
@@ -451,9 +457,11 @@ Object.assign(GitPanel.prototype, {
     if(it.t==='dir') return [it.depth,it.label,it.collapsed?1:0].join('\u0001');
     if(it.t==='more') return String(it.n);
     const e=it.e,group=it.group;
+    // REPO_FIX 05 F-6.1: 항목 필드는 `GIT_ROW_FIELDS` 에서 파생한다. 이전: 필드를 손으로
+    // 적어 서브모듈 상태(`sub`)·디렉터리 표식(`dir`)이 빠졌고, 그것만 바뀌면 행이 낡았다(#42).
     return [
-      it.depth,e.path,e.origPath||'',e.staged||'',e.unstaged||'',
-      e.conflict?1:0,e.untracked?1:0,e.score||'',this._stateChar(group,e),
+      it.depth,...GIT_ROW_FIELDS.map(k=>e[k]==null||e[k]===false?'':String(e[k])),
+      this._stateChar(group,e),
       this._sel.has(this._selKey(group,e.path))?1:0,
       (this.previewFile&&this.previewFile.group===group&&this.previewFile.path===e.path)?1:0,
       this._treeMode()?1:0,

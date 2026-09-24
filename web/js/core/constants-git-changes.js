@@ -36,6 +36,9 @@ const GIT_GROUPS=[
  * 여기 없는 키는 서버 배열 이름이 곧 그룹 이름이다.
  */
 const GIT_GROUP_SRC={working:['changes','untracked']};
+// REPO_FIX 05 §3A-6 (F-6.1): Changes 행이 그리는 데 읽는 항목 필드 — 행 서명이 이 목록에서
+// 파생한다. 행이 새 필드를 읽으면 여기에 더한다(단위 검사가 대조한다).
+const GIT_ROW_FIELDS=['path','origPath','staged','unstaged','conflict','untracked','score','dir','sub'];
 /**
  * GIT_DETECT_TIER_SRS FR-GDT-24 (`11 GP-15`): 서버가 그룹을 잘랐다는 안내.
  *

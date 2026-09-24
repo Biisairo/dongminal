@@ -384,6 +384,10 @@ Object.assign(GitPanel.prototype, {
     // FR-GLR-3: 되살리기도 같은 판정을 먼저 지난다 — 아무도 보지 않는 저장소를
     // 깨우지 않는다.
     if(!this._pollOk()) return false;
+    // REPO_FIX 05 F-6.2: 확정된 "저장소가 아니다" 는 폴링을 멈춘 상태다(FR-DSP-1a). 워치독이
+    // 그것을 "멎은 관측" 으로 읽어 되살리면 그 판정이 무의미해진다 — 해제는 git init 성공·
+    // 루트 변경·손으로 부른 관측(포커스·새로고침)뿐이다.
+    if(this._notRepo) return false;
     const st=this._cadence(gitStatusInterval);
     /**
      * GIT_REFRESH_LIFECYCLE_SRS FR-GRF-1·2 (`GP-2`): 주기 0 에서 **첫 관측은
@@ -595,8 +599,11 @@ Object.assign(GitPanel.prototype, {
      * 화면은 낡은 채로 영구히 굳고 사유는 어디에도 보이지 않는다. 순서를 뒤집으면
      * 실패한 회차는 근거를 남기지 않으므로 다음 관측이 다시 시도한다.
      */
-    const obs=JSON.stringify(d.status||null);
-    if(obs!==this._obsSig){this.obs.paintAll(); this._obsSig=obs}
+    // REPO_FIX 05 §3A-6 (F-6.1 / §3A-0 X5): 관측 동일성은 서버의 `mark` 하나로 판정한다 —
+    // (저장소, mark) 가 직전 적용분과 같으면 재조정을 건너뛴다. `mark:""` 는 비교하지 않는다.
+    // 이전: 매 회차 status 전체를 JSON 으로 만들어 견줬다.
+    const obs=d.mark?(d.repo||'')+'\u0000'+d.mark:'';
+    if(!obs||obs!==this._obsSig){this.obs.paintAll(); this._obsSig=obs||null}
     // 활성 리포의 배지가 따라 갱신된다. 다른 리포는 서버의 마지막 관측값이다.
     this.app.gitReposRefresh();
     // 상태바 chip 은 Git 창 밖에서도 보이므로 관측마다 갱신한다 (FR-GIT-57).
