@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"dongminal/internal/shared/mimeprobe"
+	"dongminal/internal/shared/textenc"
 )
 
 // /api/file/{probe,raw} — 편집기가 "이 파일을 열 수 있는가"를 묻는 자리
@@ -54,6 +55,10 @@ func probeFile(f *os.File) (kind, mime string, head []byte, err error) {
 	switch {
 	case strings.HasPrefix(mime, "image/"):
 		return fileKindImage, mime, head, nil
+	// REPO_FIX 03 §3A-1: UTF-16 BOM 이면 NUL 이 있어도 텍스트다 — 판정은 read 가
+	// 한다. 이전: NUL 로 binary 가 되어 편집기가 열리지 않았다.
+	case textenc.HasUTF16BOM(head):
+		return fileKindText, mime, head, nil
 	case bytes.IndexByte(head, 0) >= 0:
 		return fileKindBinary, mime, head, nil
 	default:

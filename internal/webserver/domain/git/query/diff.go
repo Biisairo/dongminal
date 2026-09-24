@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	"dongminal/internal/webserver/domain/git/core"
+
+	"dongminal/internal/shared/textenc"
 )
 
 // diff 축. 값은 클라이언트가 보내는 문자열 그대로이며 **여기 없는 축은 실행되지
@@ -72,6 +74,44 @@ type DiffSide struct {
 	// Oid 는 Kind=="submodule" 일 때 그 쪽이 가리키는 커밋이다. 작업 트리 쪽은
 	// 비어 있다 (체크아웃된 서브모듈의 HEAD 를 여기서 묻지 않는다).
 	Oid string `json:"oid,omitempty"`
+	// REPO_FIX 03 §3A-3: `encoding` 파라미터가 있을 때만 채운다 — 이 쪽을 디코드한
+	// 인코딩과 디코드 성공 여부.
+	Encoding  string `json:"encoding,omitempty"`
+	Decodable *bool  `json:"decodable,omitempty"`
+
+	// body 는 본문 원문이다(text·binary 일 때). DecodeAs 가 이것으로 다시 푼다.
+	body string
+}
+
+// DecodeAs 는 양쪽을 문서의 인코딩으로 디코드한다 (REPO_FIX 03 §3A-3). 쪽마다
+// ① 그 인코딩으로 엄격 디코드 ② 실패하면 자동 판별 ③ 모두 실패하면 치환 디코드 +
+// decodable:false. 이진 쪽은 UTF-16 BOM 으로 시작할 때만 디코드한다(NUL 판정보다
+// 먼저). 변환 저장 뒤 index=CP949·작업 트리=UTF-8 도 양쪽 모두 읽히는 글자로 비교된다.
+//
+//	이전 동작: 바이트를 그대로 문자열로 보냈다 — CP949 는 깨진 글자, UTF-16 은 binary
+//	새  동작: 쪽별 디코드, 응답에 encoding·decodable
+//	이유:     편집기가 CP949 로 연 파일의 변경 표시·Diff 가 깨진 글자로 비교됐다 (#8)
+func (dc *DiffContent) DecodeAs(enc string) {
+	for _, side := range []*DiffSide{&dc.Original, &dc.Modified} {
+		side.decodeAs(enc)
+	}
+	dc.Note = diffNote(dc.Original, dc.Modified)
+}
+
+func (s *DiffSide) decodeAs(enc string) {
+	b := []byte(s.body)
+	switch {
+	case s.Kind == DiffKindText:
+	case s.Kind == DiffKindBinary && textenc.HasUTF16BOM(b):
+	default:
+		return
+	}
+	d, ok := textenc.DecodeAs(b, enc)
+	if !ok {
+		d = textenc.Detect(b)
+	}
+	decodable := d.Decodable
+	s.Kind, s.Content, s.Encoding, s.Decodable = DiffKindText, d.Text, d.Enc, &decodable
 }
 
 // DiffContent 는 한 축의 양쪽 전체 내용이다.
@@ -299,9 +339,9 @@ func diffSideFromBody(body string, size int64) DiffSide {
 		return DiffSide{Kind: DiffKindLFS, Size: size, LFSOid: oid, LFSSize: lfsSize}
 	}
 	if hasNUL(body) {
-		return DiffSide{Kind: DiffKindBinary, Size: size}
+		return DiffSide{Kind: DiffKindBinary, Size: size, body: body}
 	}
-	return DiffSide{Kind: DiffKindText, Content: body, Size: size}
+	return DiffSide{Kind: DiffKindText, Content: body, Size: size, body: body}
 }
 
 // hasNUL 은 앞 BinarySniffBytes 안의 NUL 을 찾는다. git 이 바이너리를 정하는

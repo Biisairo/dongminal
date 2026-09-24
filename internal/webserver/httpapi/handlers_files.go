@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"dongminal/internal/shared/platform"
+	"dongminal/internal/shared/textenc"
 )
 
 // 파일 종단 — 업로드·다운로드·읽기·쓰기와 그 기준 경로(cwd). 경로를 사용자 입력에서
@@ -465,6 +466,12 @@ func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {
 			http.StatusRequestEntityTooLarge)
 		return
 	}
+	// REPO_FIX 03 §3A-1: `decode=1` 이면 판별해 UTF-8 로 바꿔 보낸다. 없으면 원문이다
+	// (FR-CAPI-11 하위호환 — 옛 클라이언트·CLI).
+	if r.URL.Query().Get("decode") == "1" {
+		s.fileReadDecoded(w, r, f, stat)
+		return
+	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	// FR-EXC-11: 표식은 **헤더**로 간다. 본문은 파일 원문이므로(FR-CAPI-11) 실을
 	// 자리가 여기뿐이다. `ETag` 를 쓰지 않는 것은 브라우저의 조건부 GET 이 끼어들어
@@ -484,6 +491,10 @@ func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {
 type fileWriteReq struct {
 	Path    string `json:"path"`
 	Content string `json:"content"`
+	// REPO_FIX 03 §3A-2: 문서의 인코딩·BOM. Encoding 이 비면 UTF-8 원문 그대로다
+	// (하위호환). 편집기 문서 저장은 둘을 언제나 싣는다.
+	Encoding string `json:"encoding"`
+	BOM      bool   `json:"bom"`
 	// FR-EXC-11: 읽을 때 받은 표식. **비어 있으면 검사하지 않는다** (FR-EXC-6a) —
 	// 옛 클라이언트와, 확인창에서 사용자가 승인한 덮어쓰기가 그 길로 온다.
 	Stamp string `json:"stamp"`
@@ -508,6 +519,12 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// REPO_FIX 03 §3A-4: 심링크는 따라가 **대상**에 쓴다 — 링크는 그대로 남는다.
+	target = writeTarget(target)
+	if req.Encoding != "" && !textenc.Valid(req.Encoding) {
+		httpErr(w, "unknown encoding: "+req.Encoding, http.StatusBadRequest, apierr.CodeBadRequest)
+		return
+	}
 	// EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-5·7: 우리가 읽은 뒤 디스크가 바뀌었으면
 	// 덮지 않는다. 종전에는 **마지막에 저장한 쪽이 이겼다.**
 	//
@@ -519,9 +536,24 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	data, perm, un, err := fileWriteBytes(target, req)
+	if err != nil {
+		httpErr(w, "encode failed: "+err.Error(), http.StatusBadRequest, apierr.CodeBadRequest)
+		return
+	}
+	if un != nil {
+		// §3A-2: 조용한 손실 금지 — 첫 위치를 싣고 아무것도 쓰지 않는다.
+		w.Header().Set(apierr.CodeHeader, apierr.CodeEncodingUnmappable)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": apierr.CodeEncodingUnmappable, "line": un.Line, "col": un.Col, "char": un.Char,
+		})
+		return
+	}
 	// 원자적으로 쓴다 (FR-CAF-11). 여기서 잘리는 것은 우리 상태 파일이 아니라
 	// **사용자가 쓰던 원본**이다 — 편집기의 저장이 이 종단이다.
-	if err := platform.WriteFileAtomic(target, []byte(req.Content), 0o644); err != nil {
+	if err := platform.WriteFileAtomic(target, data, perm); err != nil {
 		dmlog.Errorf(nil, "file write error: %v", err)
 		httpErr(w, "write failed: "+err.Error(), http.StatusInternalServerError, apierr.CodeIO)
 		return
@@ -536,4 +568,80 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	// 내용보다 낡아서, 다음 저장이 제 손으로 만든 변경에 걸려 409 가 된다 —
 	// 한 번 저장하면 그 뒤로 아무것도 저장되지 않는다는 뜻이다.
 	json.NewEncoder(w).Encode(map[string]any{"ok": true, "stamp": stampOfPath(target)})
+}
+
+// fileReadDecoded 는 §3A-1 의 판별·변환 읽기다. `encoding=` 이 있으면 그것으로 엄격
+// 디코드하고, 실패하면 422 encoding_undecodable 이다(파일·문서는 그대로).
+func (s *Server) fileReadDecoded(w http.ResponseWriter, r *http.Request, f *os.File, stat os.FileInfo) {
+	raw, err := io.ReadAll(io.LimitReader(f, fileReadMaxBytes))
+	if err != nil {
+		httpErr(w, "read failed: "+err.Error(), http.StatusInternalServerError, apierr.CodeIO)
+		return
+	}
+	var d textenc.Decoded
+	if want := r.URL.Query().Get("encoding"); want != "" {
+		got, ok := textenc.DecodeAs(raw, want)
+		if !ok {
+			httpErr(w, "cannot decode as "+want, http.StatusUnprocessableEntity, apierr.CodeEncodingUndecodable)
+			return
+		}
+		d = got
+	} else {
+		d = textenc.Detect(raw)
+	}
+	h := w.Header()
+	h.Set("Content-Type", "text/plain; charset=utf-8")
+	h.Set(fileStampHeader, fileStamp(stat))
+	h.Set("X-File-Encoding", d.Enc)
+	h.Set("X-File-BOM", boolFlag(d.BOM))
+	h.Set("X-File-Decodable", boolFlag(d.Decodable))
+	_, _ = io.WriteString(w, d.Text)
+}
+
+func boolFlag(b bool) string {
+	if b {
+		return "1"
+	}
+	return "0"
+}
+
+// writeTarget 은 쓰기 대상이다 (§3A-4). 심링크면 대상 파일, 끊어진 링크면 링크가
+// 가리키는 경로(상대면 링크 디렉터리 기준)다. 경계는 쓰기 종단과 같다 — 절대경로면
+// 허용한다(허용 루트 가드는 없다, 이전 동작 = 새 동작).
+func writeTarget(p string) string {
+	if real, err := filepath.EvalSymlinks(p); err == nil {
+		return real
+	}
+	fi, err := os.Lstat(p)
+	if err != nil || fi.Mode()&os.ModeSymlink == 0 {
+		return p
+	}
+	dest, err := os.Readlink(p)
+	if err != nil {
+		return p
+	}
+	if !filepath.IsAbs(dest) {
+		dest = filepath.Join(filepath.Dir(p), dest)
+	}
+	return filepath.Clean(dest)
+}
+
+// fileWriteBytes 는 쓸 바이트와 권한이다 (§3A-2·3A-4). 기존 파일은 그 권한 비트를
+// 보존하고 문서의 인코딩으로 되돌려 쓴다. 새 파일은 0644·UTF-8·BOM 없음이다.
+//
+//	이전 동작: 언제나 0644·UTF-8 원문 — 실행 비트·0600 이 사라졌고 CP949·UTF-16
+//	          파일이 UTF-8 로 바뀌었으며, 심링크는 일반 파일로 대체됐다
+//	새  동작: 권한·인코딩·BOM·링크 보존, 표현할 수 없으면 거절
+//	이유:     저장 한 번이 파일의 성질을 조용히 바꿨다 (#7 #8)
+func fileWriteBytes(target string, req fileWriteReq) ([]byte, os.FileMode, *textenc.Unmappable, error) {
+	st, err := os.Stat(target)
+	if err != nil {
+		return []byte(req.Content), 0o644, nil, nil
+	}
+	perm := st.Mode().Perm()
+	if req.Encoding == "" {
+		return []byte(req.Content), perm, nil, nil
+	}
+	data, un, err := textenc.Encode(req.Content, req.Encoding, req.BOM)
+	return data, perm, un, err
 }

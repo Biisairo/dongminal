@@ -8,3 +8,5 @@ require (
 )
 
 require golang.org/x/sys v0.36.0
+
+require golang.org/x/text v0.40.0

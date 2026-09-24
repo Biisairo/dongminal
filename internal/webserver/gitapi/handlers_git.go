@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	"dongminal/internal/shared/textenc"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/wsentry"
@@ -596,6 +597,14 @@ func (s *GitServer) apiGitDiffContent(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		gitError(w, err)
 		return
+	}
+	// REPO_FIX 03 §3A-3: 문서의 인코딩을 실으면 쪽마다 디코드한다. 없으면 현행이다.
+	if enc := q.Get("encoding"); enc != "" {
+		if !textenc.Valid(enc) {
+			gitFail(w, http.StatusBadRequest, gitErrBadRequest, "모르는 인코딩: "+enc)
+			return
+		}
+		dc.DecodeAs(enc)
 	}
 	// M9_SRS FR-M9-20: **그림으로 볼 수 있는가.** 판정은 내용이고 전용 실행기를
 	// 쓴다 (D-M9-16) — 1MiB 를 넘는 그림이 `too_large` 로 갈려 "그림이 아닌 것" 이

@@ -47,6 +47,9 @@ const (
 	CodeNotAnImage    = "not_an_image"
 	CodeAbsPathNeeded = "path_must_be_absolute"
 	CodeFileChanged   = "file_changed_on_disk"
+	// REPO_FIX 03 §3A-1·3A-2: 인코딩 왕복의 두 거절.
+	CodeEncodingUnmappable  = "encoding_unmappable"
+	CodeEncodingUndecodable = "encoding_undecodable"
 
 	// ── 접근 ──
 	CodeAccessUnready = "access_store_unavailable"
@@ -71,6 +74,7 @@ var coreCodes = []string{
 	CodeToolNotFound, CodeToolsUnready, CodeToolCwdMissing, CodeSandboxUnready, CodeStreamUnsupport,
 	CodeWorkUnready, CodeStaleRev, CodeIfMatchRequired, CodeSaveFailed,
 	CodeNotAFile, CodeNotAnImage, CodeAbsPathNeeded, CodeFileChanged,
+	CodeEncodingUnmappable, CodeEncodingUndecodable,
 	CodeAccessUnready, CodeHostRejected,
 	CodeUnknownAction, CodeCorruptAsset,
 	CodeUpdateUnready,
