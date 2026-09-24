@@ -371,6 +371,9 @@ class EdDirtyDiff{
    */
   async stage(ch,view){
     if(!ch) return {ok:false,msg:ED_DD_STAGE_FAIL};
+    // REPO_FIX 03 §3A-3: UTF-16 문서는 git 이 이진으로 보아 hunk 좌표가 없다.
+    const doc=this.app.edDocAt(this.filePath);
+    if(doc&&/^utf-16/.test(doc.encoding||'')) return {ok:false,msg:ENC_DD_STAGE_UTF16};
     if(view&&view._dirty){
       await view.save();
       if(view._dirty) return {ok:false,msg:ED_DD_SAVE_FAIL};

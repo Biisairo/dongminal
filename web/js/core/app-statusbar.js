@@ -155,6 +155,11 @@ Object.assign(App.prototype, {
         push('termsize',`<span class="sb-item"><span class="mono">${e(p.term.cols)}×${e(p.term.rows)}</span></span>`);
       }
     }
+    // REPO_FIX 03 §3A-2: 포커스 편집기 문서의 인코딩 — 눌러서 다시 열기·UTF-8 변환 저장.
+    if(statusBar.encoding){
+      const h=this._sbEncHtml();
+      if(h) push('encoding',h);
+    }
     if(statusBar.uptime){
       // FR-TYP-3: 사람말과 기계값이 한 문자열로 섞여 있어 M1 이 이 줄만 남겼다 —
       // `'시스템 {v}'` 안에서는 `1d 21h` 를 꺼낼 수 없다. 템플릿을 **라벨만**으로
@@ -183,6 +188,7 @@ Object.assign(App.prototype, {
     // chip 은 U-19 ①(FR-GIT-112 철회)이 없앴다 — 둘 다 사용자 판정이다.
     // 근거는 그려질 마크업 전부다 (FR-RPT-2). 문자열 지표는 그 문자열이고, chip 은
     // DOM 이므로 `outerHTML` 이다.
+    this._sbEncBind(bar);
     reconcileList(bar,items,{
       key:i=>i.k,
       sig:i=>i.html!==undefined?i.html:i.el.outerHTML,

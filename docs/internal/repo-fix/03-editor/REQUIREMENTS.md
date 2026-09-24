@@ -173,6 +173,31 @@
 | E-9.3 | 저장 진행 중의 저장 요청은 진행 중 저장 완료를 기다린 뒤, 그때 dirty 면 한 번 더 저장한다(여러 번 눌러도 대기 1건 — 현행 `saving` 중 `return false` 무음(`file-editor.js:741`) 대체). "저장 후 닫기" 는 저장 성공 후 닫고, 실패·409 흐름에서 취소되면 닫지 않는다. 대기는 문서 단위다(FileEditor·git Diff 뷰의 저장이 같은 대기를 공유) |
 | 추적 | 스펙 산출물로 "감사 # ↔ 요구 ID ↔ 테스트 ID" 표를 싣는다(X8) |
 
+### §3A-9 구현 중 정정·추적표 (구현 완료 2026-09-24)
+
+구현 중 정정:
+- dirty 판정(§3A-7)은 편집기 뷰의 이벤트가 아니라 **문서가 모델 `onDidChangeContent` 를 직접 구독**해서 한다(`_edDocWatch`) — 렌더 탭만 연 문서·undo 도 같은 길을 탄다. 편집기 뷰도 같은 틱 판정을 위해 한 번 더 부른다(멱등).
+- 진행 중 저장의 표지는 `doc.saving` 불리언 대신 `doc.savePromise`(+ 대기 1건 `doc.saveQueued`)다.
+- ui/ 계층이 레지스트리를 볼 때는 `app.edDocAt(path)`(만들지 않음)를 쓴다(프론트 계층 경계 게이트 FR-FMB-40).
+- dirty-diff 기준 로드는 토큰 대신 기존 세대 카운터(`EdDirtyDiff._seq`, dispose 에서 증가)로 늦은 응답을 버린다 — 기준은 모델 내용을 바꾸지 않는다.
+- 편집기 조회 게이트의 허용 목록은 헬퍼(`app-slots.js`) + 렌더러의 **정확한 칸 키** 등록·복원(`renderer-pane.js`)이다 — 탭 id 로 찾는 자리는 0건.
+- 원격 워크스페이스 동기로 탭 경로가 바뀐 경우는 렌더러가 인스턴스 경로 불일치를 보고 `edDocMove` 를 부른다(옮길 수 없으면 그 뷰를 새로 세운다).
+- 인코딩 모듈은 `internal/shared/textenc`(파일 종단·git diff 공용), `golang.org/x/text v0.40.0`(Go 1.25 호환 판).
+- 버튼이 있는 편집기 알림(표현 불가 → "UTF-8 로 변환해 저장")은 15s 남는다(`FE_NOTE_ACTION_MS`).
+
+| 감사 # | 요구 | 테스트 | 커밋 |
+|---|---|---|---|
+| #8 | E-1 서버 | `shared/textenc/textenc_test.go`, `httpapi/handlers_files_encoding_test.go`, `query/diff_encoding_test.go` | `2bc4e059` |
+| #8 | E-1 화면 | e2e `editor-encoding.spec.ts`(6) | 이 커밋 |
+| #7 | E-2 | `httpapi/handlers_files_encoding_posix_test.go` | `2bc4e059` |
+| #3 #9 | E-3 | `web/js/test/doc-token.test.mjs`, e2e `editor-doc-registry.spec.ts` refresh·고아 | `053e283f` |
+| #5 N6 | E-4 | `web/js/test/editor-lookup.test.mjs`, 게이트 `check-editor-lookup.sh` | `4768034a` |
+| #10 | E-5 | e2e `editor-doc-registry.spec.ts` edDocMove | `053e283f` |
+| #45 N1 | E-6 | e2e `editor-dirty-derived.spec.ts`, `editor-doc-registry.spec.ts` undo | `4768034a` `053e283f` |
+| #46 | E-7 | e2e `editor-doc-registry.spec.ts` 렌더 탭만 남은 문서 | `053e283f` |
+| #47 | E-8 | e2e `editor-doc-registry.spec.ts` CRLF | `053e283f` |
+| P2 | E-9 | e2e `slot-view-state.spec.ts` E-9.1, `editor-doc-registry.spec.ts` 저장 대기 | `053e283f` |
+
 ## 4. 제약
 - 레포 관례(`// @ts-check` 파일은 typecheck 통과, 주석·문서 한국어, FR ID), `make gates lint typecheck unit test` 통과.
 - 영향 e2e(`e2e/editor-*.spec.ts`, `repo-tab*` 류, git Diff 편집이 닿는 `e2e/git-diff.spec.ts`) 회귀 없음. 새 동작에는 e2e 또는 node:test 단위 테스트를 추가한다(순수 로직은 모듈로 분리해 node:test).

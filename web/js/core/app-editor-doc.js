@@ -149,6 +149,76 @@ Object.assign(App.prototype, {
   },
 
   /**
+   * §3A-2: 다른 인코딩으로 다시 열기 — 디스크에서 그 인코딩으로 다시 디코드한다.
+   * dirty 면 먼저 묻는다(편집을 버린다). 422 encoding_undecodable 이면 문서는 그대로
+   * 두고 사유를 보인다.
+   */
+  async edDocReopen(filePath,enc){
+    const d=this.edDocAt(filePath);
+    if(!d||!d.model) return false;
+    if(d.dirty&&!await this._edEncConfirm(ENC_REOPEN_DIRTY)) return false;
+    const tok=docTokenOf(d,filePath);
+    const r=await this._edDocRead(filePath,enc);
+    if(r.status===422){this._edDocNote(d,t('editor.enc_undecodable',{enc:ENC_LABEL[enc]||enc}));return false}
+    if(!r.ok||!docTokenValid(tok,this._edDocs)) return false;
+    this._edDocMeta(d,r);
+    if(d.model.getValue()!==r.text){
+      const gazes=this._edDocGazes(d);
+      d.model.setValue(r.text);
+      for(const g of gazes) this._edDocRestoreGaze(g);
+    }
+    d.gen++;
+    d.savedAltVer=d.model.getAlternativeVersionId();
+    this.edDocDirtySync(d);
+    for(const v of d.views) if(v&&v._editor) v._editor.updateOptions({readOnly:d.decodable===false});
+    this.updateStatusBar();
+    return true;
+  },
+
+  /**
+   * §3A-2: UTF-8 로 변환해 저장 — 문서 내용을 `utf-8`·BOM 없음으로 쓴다(경합 검사는
+   * 일반 저장과 같다). 확인을 받고, 실패하면 문서의 인코딩을 되돌린다.
+   */
+  async edDocConvertUtf8(filePath){
+    const d=this.edDocAt(filePath);
+    if(!d||!d.model||d.decodable===false||(d.encoding==='utf-8'&&!d.bom)) return false;
+    if(!await this._edEncConfirm(ENC_CONVERT_CONFIRM)) return false;
+    const v=[...d.views].find(x=>x&&x._editor&&x._saveOnce);
+    if(!v) return false;
+    if(d.savePromise) await d.savePromise;
+    const prev={encoding:d.encoding,bom:d.bom};
+    d.encoding='utf-8'; d.bom=false;
+    const ok=await v._saveOnce(d,{force:true});
+    if(!ok){d.encoding=prev.encoding;d.bom=prev.bom}
+    this.updateStatusBar();
+    return ok;
+  },
+
+  // 문서를 보는 편집기 하나에 알림을 띄운다.
+  _edDocNote(d,text,action){
+    for(const v of d.views) if(v&&v._editor&&v.note){v.note(text,action?FE_NOTE_ACTION_MS:0,action);return}
+  },
+
+  _edEncConfirm(msg){
+    return new Promise(resolve=>{
+      let done=false;
+      const settle=v=>{if(!done){done=true;resolve(v)}};
+      const body=document.createElement('div');
+      body.className='fe-enc-msg';
+      body.textContent=msg;
+      const m=UIKit.modal({
+        cls:'fe-enc-confirm',title:ENC_TITLE,width:'min(460px,90vw)',body,
+        actions:[
+          {label:ENC_CANCEL,kind:'ghost',cls:'fe-enc-cancel',keepOpen:true,onClick:()=>{settle(false);m.close()}},
+          {label:ENC_OK,kind:'danger',cls:'fe-enc-go',keepOpen:true,onClick:()=>{settle(true);m.close()}},
+        ],
+        onClose:()=>settle(false),
+      });
+      document.body.appendChild(m.el);
+    });
+  },
+
+  /**
    * §3A-5 (E-5): 이름변경·이동의 **유일한** 문서 API — 04 탐색기와 탭 재지정이
    * 부른다. `from` 이 폴더면 그 아래 문서 전부. 새 경로 URI 의 새 모델로 옮기고
    * undo 이력은 버린다. 내용·dirty·인코딩·표식은 보존한다. 대응 경로에 이미 문서가

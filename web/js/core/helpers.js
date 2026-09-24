@@ -502,6 +502,8 @@ const STATUS_ITEMS={
   cpu:{label:t('statusbar.cpu'),def:false},
   disk:{label:t('statusbar.disk'),def:false},
   termsize:{label:t('statusbar.termsize'),def:false},
+  // REPO_FIX 03 §3A-2: 포커스 편집기 문서의 인코딩.
+  encoding:{label:t('statusbar.encoding'),def:true},
   uptime:{label:t('statusbar.uptime'),def:false},
 };
 var statusBar={}; // {itemKey: true/false}

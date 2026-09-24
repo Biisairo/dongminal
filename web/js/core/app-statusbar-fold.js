@@ -26,7 +26,7 @@
  *   2  호스트 · 지연 · 치수
  *   3  CPU · MEM · DISK · 업타임
  */
-const STATUSBAR_PRI={activity:1,connection:1,location:1,cwd:1,hostname:2,latency:2,termsize:2,
+const STATUSBAR_PRI={activity:1,connection:1,location:1,cwd:1,hostname:2,latency:2,termsize:2,encoding:2,
   cpu:3,memory:3,disk:3,uptime:3};
 /** 낮은 단부터 숨긴다. 1단은 숨기지 않으므로 목록에 없다. */
 const STATUSBAR_FOLD_ORDER=[3,2];

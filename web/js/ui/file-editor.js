@@ -738,8 +738,9 @@ class FileEditor {
     return p;
   }
 
-  async _saveOnce(doc) {
-    if (!this._editor || !this._dirty) return false;
+  async _saveOnce(doc, opts) {
+    // `force` 는 dirty 가 아니어도 쓴다 — UTF-8 로 변환해 저장이 그 길이다(§3A-2).
+    if (!this._editor || (!this._dirty && !(opts && opts.force))) return false;
     // 어느 인코딩으로도 풀리지 않은 문서는 저장하지 않는다(읽기 전용, §3A-1).
     if (doc && doc.decodable === false) return false;
     const path = this.filePath;
@@ -758,6 +759,10 @@ class FileEditor {
       if (r.status === 409) {
         if (!await this._confirmConflict()) return false;
         r = await this._write(content, '', doc);
+      }
+      if (r.status === 422 && r.data && r.data.error === 'encoding_unmappable') {
+        this._noteUnmappable(r.data, doc);
+        return false;
       }
       if (!r.ok) {
         this._noteSaveFailed(r);
@@ -801,6 +806,21 @@ class FileEditor {
     let why = '';
     if (r) why = (r.text || '').trim().split('\n')[0].slice(0, 200);
     this.note(why ? FILE_SAVE_FAIL + ': ' + why : FILE_SAVE_FAIL);
+  }
+
+  /**
+   * REPO_FIX 03 §3A-2: 문서 인코딩으로 쓸 수 없는 글자가 있어 서버가 거절했다 — 파일은
+   * 그대로다. 그 자리로 커서를 옮기고, 사유와 "UTF-8 로 변환해 저장" 을 함께 보인다.
+   */
+  _noteUnmappable(u, doc) {
+    const line = Number(u.line) || 1, col = Number(u.col) || 1;
+    if (this._editor) {
+      this._editor.setPosition({ lineNumber: line, column: col });
+      this._editor.revealPositionInCenter({ lineNumber: line, column: col });
+    }
+    const enc = doc && doc.encoding ? (ENC_LABEL[doc.encoding] || doc.encoding) : '';
+    this.note(t('editor.enc_unmappable', { line, col, char: u.char || '', enc }), FE_NOTE_ACTION_MS,
+      { label: ENC_CONVERT, run: () => app.edDocConvertUtf8(this.filePath) });
   }
 
   // 쓰기 한 번. 표식이 비면 필드를 싣지 않는다 — 서버의 관대함(FR-EXC-6a)을
@@ -897,7 +917,9 @@ class FileEditor {
    *
    * 자리는 찾기 패널과 같은 규약이다 (편집기 우상단) — 새 개념을 만들지 않는다.
    */
-  note(text, ms) {
+  // `action` 이 있으면 버튼 하나를 함께 둔다(`{label, run}`) — 그 알림은 눌러야 하므로
+  // 더 오래 남는다.
+  note(text, ms, action) {
     if (!text) return;
     if (!this._note) {
       const el = document.createElement('div');
@@ -906,6 +928,15 @@ class FileEditor {
       this._note = el;
     }
     this._note.textContent = text;
+    this._note.classList.toggle('fe-note-act', !!action);
+    if (action) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ui-btn ui-btn-sm fe-note-btn';
+      b.textContent = action.label;
+      b.addEventListener('click', () => { this._note.classList.remove('vis'); action.run() });
+      this._note.appendChild(b);
+    }
     // FR-TOK-22: 같은 층에서 겹치는 순서는 DOM 이 정한다 — 보일 때 맨 뒤로
     // 옮긴다 (`file-editor-find.js` 의 `findOpen` 이 같은 규약이다).
     this.el.appendChild(this._note);

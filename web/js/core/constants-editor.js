@@ -206,6 +206,25 @@ const LSP_INSTALL_API='/api/lsp/install';
 const LSP_PATHS_API='/api/lsp/paths';
 // REPO_FIX 02 §3A-6: 문서의 마지막 뷰가 떠날 때 언어 서버에서 닫는다.
 const LSP_CLOSE_API='/api/lsp/close';
+
+// ── 인코딩 (REPO_FIX 03 §3A-2) ──
+// 라벨은 서버의 인코딩 id 를 사람의 표기로 옮긴다. 다시 열기는 넷이다(사용자 결정).
+const ENC_LABEL={'utf-8':'UTF-8','utf-16le':'UTF-16 LE','utf-16be':'UTF-16 BE',
+  'cp949':'CP949','shift_jis':'Shift_JIS','windows-1252':'Windows-1252'};
+const ENC_REOPEN_CHOICES=['utf-8','cp949','shift_jis','windows-1252'];
+const ENC_TITLE=t('editor.enc_title');
+const ENC_READONLY=t('editor.enc_readonly');
+const ENC_REOPEN=t('editor.enc_reopen');
+const ENC_CONVERT=t('editor.enc_convert');
+const ENC_CONVERT_ALREADY=t('editor.enc_convert_already');
+const ENC_CONVERT_NO_DECODE=t('editor.enc_convert_no_decode');
+const ENC_REOPEN_DIRTY=t('editor.enc_reopen_dirty');
+const ENC_CONVERT_CONFIRM=t('editor.enc_convert_confirm');
+const ENC_OK=t('editor.enc_ok');
+const ENC_CANCEL=t('editor.enc_cancel');
+const ENC_UNDECODABLE=t('editor.enc_undecodable');
+const ENC_UNMAPPABLE=t('editor.enc_unmappable');
+const ENC_DD_STAGE_UTF16=t('editor.enc_dd_stage_utf16');
 const LSP_PATH_PH=t('editor.lsp_path_ph');
 const LSP_PATH_SAVE=t('editor.lsp_path_save');
 const LSP_PATH_CLEAR=t('editor.lsp_path_clear');
@@ -258,6 +277,8 @@ const LSP_DEFS_HINT=t('editor.lsp_defs_hint');
 const LSP_ASKING=t('editor.lsp_asking');
 // 알림 줄이 스스로 사라지기까지. 닫는 조작을 배워야 하는 알림은 알림이 아니라 창이다.
 const FE_NOTE_MS=4000;
+// REPO_FIX 03 §3A-2: 버튼이 있는 알림(UTF-8 로 변환해 저장)은 눌러야 하므로 더 오래 남는다.
+const FE_NOTE_ACTION_MS=15000;
 
 // ── 코드 탐색: 호버 (묶음 D · M3) ──
 const LSP_HOVER_API='/api/lsp/hover';
