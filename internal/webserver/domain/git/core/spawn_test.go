@@ -162,3 +162,26 @@ func TestExecGit_PrependsShowSignatureOff(t *testing.T) {
 		t.Fatalf("argv %q, want %q", got, want)
 	}
 }
+
+// REPO_FIX 01 §8: Drain 은 떠 있는 git 이 모두 끝날 때까지(상한까지) 기다린다.
+func TestDrain_WaitsForSpawned(t *testing.T) {
+	shortGrace(t, 200*time.Millisecond)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", "sleep 30")
+	var out, errb syncBuf
+	done := make(chan struct{})
+	go func() { _ = Spawn(ctx, cmd, out.consume, errb.consume); close(done) }()
+	deadline := time.Now().Add(2 * time.Second)
+	for Drain(0) && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if Drain(50 * time.Millisecond) {
+		t.Fatal("프로세스가 떠 있는데 Drain 이 참을 줬다")
+	}
+	cancel()
+	if !Drain(2*killGrace + time.Second) {
+		t.Fatal("취소 뒤에도 Drain 이 끝나지 않았다")
+	}
+	<-done
+}

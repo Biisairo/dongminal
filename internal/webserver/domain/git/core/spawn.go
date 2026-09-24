@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"sync"
 	"time"
 
 	"dongminal/internal/shared/platform"
@@ -42,6 +43,8 @@ var killGrace = KillGrace
 // 읽기단이 닫힌 뒤에도 돌 수 있으므로(그룹 밖 손자가 쥔 경우) 자기 버퍼를
 // 스스로 보호해야 한다.
 func Spawn(ctx context.Context, cmd *exec.Cmd, stdout, stderr func(io.Reader)) error {
+	spawned.enter()
+	defer spawned.leave()
 	outR, outW, err := os.Pipe()
 	if err != nil {
 		return err
@@ -117,3 +120,47 @@ func waitFor(done <-chan struct{}, d time.Duration) bool {
 		return false
 	}
 }
+
+// spawned 는 떠 있는 Spawn 의 수다 (REPO_FIX 01 §8). git 을 띄우는 자리가 여기
+// 하나이므로 종료가 "모든 git 이 끝났는가" 를 이것으로 묻는다.
+var spawned activity
+
+type activity struct {
+	mu   sync.Mutex
+	n    int
+	idle chan struct{} // n 이 0 이 될 때 닫힌다. 기다리는 쪽이 있을 때만 있다
+}
+
+func (a *activity) enter() {
+	a.mu.Lock()
+	a.n++
+	a.mu.Unlock()
+}
+
+func (a *activity) leave() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.n--
+	if a.n == 0 && a.idle != nil {
+		close(a.idle)
+		a.idle = nil
+	}
+}
+
+func (a *activity) wait(d time.Duration) bool {
+	a.mu.Lock()
+	if a.n == 0 {
+		a.mu.Unlock()
+		return true
+	}
+	if a.idle == nil {
+		a.idle = make(chan struct{})
+	}
+	idle := a.idle
+	a.mu.Unlock()
+	return waitFor(idle, d)
+}
+
+// Drain 은 떠 있는 git 이 모두 끝날 때까지 d 만큼 기다린다. 끝났으면 참이다.
+// 서버 종료가 루트 ctx 를 취소한 뒤 부른다 — 취소된 git 은 마감+2G 안에 끝난다.
+func Drain(d time.Duration) bool { return spawned.wait(d) }

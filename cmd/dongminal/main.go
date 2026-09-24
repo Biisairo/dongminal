@@ -214,7 +214,7 @@ func liveWindowUUIDs(ws []workspace.WindowInfo) []string {
 	return out
 }
 
-func buildDeps(cfg httpapi.Config) (builtDeps, error) {
+func buildDeps(cfg httpapi.Config, gitRoot context.Context) (builtDeps, error) {
 	pm := toolhub.NewToolManager(cfg.DataDir, nil)
 	placer := wireSandbox(pm, cfg)
 	cmdHub := hub.NewCommandHub()
@@ -233,7 +233,7 @@ func buildDeps(cfg httpapi.Config) (builtDeps, error) {
 	// 물으면 되살릴 대상이 하나도 남지 않는다.
 	headless := run.HeadlessToolIDs(cfg.DataDir)
 
-	bd, err := buildCommonDeps(cfg, pm, cmdHub, nil)
+	bd, err := buildCommonDeps(cfg, pm, cmdHub, nil, gitRoot)
 	if err != nil {
 		return builtDeps{}, err
 	}
@@ -266,7 +266,7 @@ func buildDeps(cfg httpapi.Config) (builtDeps, error) {
 // buildDepsWithHub is the daemon-mode variant that uses a ToolHub (ToolClient)
 // instead of a direct ToolManager. Attention/activity are not wired here
 // because in daemon mode they are driven by output push events from dongminald.
-func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub) (builtDeps, error) {
+func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub, gitRoot context.Context) (builtDeps, error) {
 	cmdHub := hub.NewCommandHub()
 	// 배치는 데몬이 한다(boot.Run). 여기서는 회수만 맡는다 — 회수는 workspace 를
 	// 봐야 하고 그 주인은 웹서버 프로세스다 (FR-SBX-9).
@@ -281,7 +281,7 @@ func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub) (builtDeps, e
 	// FR-ATL-6: 종료 통지를 놓쳐도 죽은 도구의 알람이 복원되지 않게 한다.
 	attnTracker.SetLiveProbe(toolHub.IsLive)
 
-	bd, err := buildCommonDeps(cfg, toolHub, cmdHub, attnTracker)
+	bd, err := buildCommonDeps(cfg, toolHub, cmdHub, attnTracker, gitRoot)
 	if err != nil {
 		return bd, err
 	}
@@ -296,7 +296,9 @@ func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub) (builtDeps, e
 // buildCommonDeps wires up the managers shared by both direct and daemon modes.
 // toolHub provides Liveness (IsLive) for the workspace manager and ToolHub for
 // the tool adapters.
-func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.CommandHub, attnTracker *hub.AttnTracker) (builtDeps, error) {
+// gitRoot 는 git 의 서버 수명 ctx 다 (REPO_FIX 01 §8) — Store flight·잡·동기 쓰기의
+// 쓰기·사후 단계·완료 처리가 모두 이것에서 파생한다. 종료가 취소한다.
+func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.CommandHub, attnTracker *hub.AttnTracker, gitRoot context.Context) (builtDeps, error) {
 
 	wsMgr, err := workspace.New(toolHub, workspace.FilePersister{Path: filepath.Join(cfg.DataDir, "workspace.json")})
 	if err != nil {
@@ -354,7 +356,7 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 
 	// git 조회 앞의 single-flight + TTL 캐시 (GIT_SRS 묶음 C). 브라우저 창이
 	// 여러 개여도 git 실행 횟수가 창 수에 비례하지 않게 한다 (FR-GIT-63).
-	gitStore := store.NewStore(gitSvc)
+	gitStore := store.NewStore(gitSvc, store.WithRoot(gitRoot))
 
 	// 편집기 코드 탐색의 언어 서버 (LSP_PLUGIN_SRS). 격리 칸은 worktrees 와 같은
 	// 규약으로 홈 아래에 잡는다 — **우리가 받은 것만** 그 안에 살고, 그 칸 하나를

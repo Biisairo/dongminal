@@ -26,11 +26,15 @@ var (
 	// §7.2). 다른 git 이 돌고 있거나 죽은 git 이 남긴 lock 이다 — 어느 쪽인지
 	// 서버는 모르므로 지우지 않고 사용자에게 묻는다.
 	ErrIndexLocked = errors.New("index_locked")
+	// ErrServerShutdown 은 서버 종료가 쓰기를 끊었다는 것이다 (REPO_FIX 01 §8).
+	// 요청이 떠난 것(ErrCanceled)과 가른다 — 일부가 적용됐을 수 있고, 서버를 다시
+	// 띄운 뒤 상태를 확인해야 한다.
+	ErrServerShutdown = errors.New("server_shutdown")
 )
 
 // kinds 는 분류 가능한 사유 전부다. 이미 분류된 오류를 다시 감싸지 않기 위한
 // 판정에도 쓴다.
-var kinds = []error{ErrGitMissing, ErrNotRepo, ErrRepoMissing, ErrTimeout, ErrCanceled, ErrUnsafeArgument, ErrWriteCommand, ErrIndexLocked}
+var kinds = []error{ErrGitMissing, ErrNotRepo, ErrRepoMissing, ErrTimeout, ErrCanceled, ErrUnsafeArgument, ErrWriteCommand, ErrIndexLocked, ErrServerShutdown}
 
 // IsTerminal 은 **다시 물어도 같은 답일** 실패인가다 (REPO_FIX 01 S-4). 저장소가
 // 없어졌거나 저장소가 아니거나 git 이 없다 — 이것만 감시 제외 같은 결정의 근거가

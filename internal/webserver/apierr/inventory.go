@@ -24,7 +24,7 @@ var Inventory = []error{
 	// domain/git/core
 	core.ErrGitMissing, core.ErrNotRepo, core.ErrRepoMissing, core.ErrTimeout,
 	core.ErrCanceled, core.ErrUnsafeArgument, core.ErrWriteCommand, core.ErrRefName,
-	core.ErrIndexLocked,
+	core.ErrIndexLocked, core.ErrServerShutdown,
 
 	// domain/git/query
 	query.ErrDiffAxis, query.ErrDiffPath, query.ErrDiffBothAbsent, query.ErrDiffTruncated,

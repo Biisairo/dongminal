@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"dongminal/internal/webserver/apierr"
+	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/write"
 )
@@ -321,6 +322,10 @@ func (s *GitServer) gitStashApply(t *gitWrite, before query.Status, run func(con
 		return err
 	})
 	if !ran {
+		return
+	}
+	if errors.Is(runErr, core.ErrServerShutdown) {
+		t.reject(runErr) // §8: 재조회 없이 503
 		return
 	}
 	ctx, cancel := t.post()

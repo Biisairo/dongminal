@@ -16,6 +16,7 @@ import (
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/updatecheck"
 	"dongminal/internal/shared/workspace"
+	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/httpapi"
 	"dongminal/internal/webserver/hub"
 	"dongminal/internal/webserver/toolclient"
@@ -35,11 +36,14 @@ type app struct {
 	// updates 는 최신 판 캐시다 (UPDATE_NOTICE_SRS). 조립에서 만들고 run 이
 	// 시작하며 종료 표가 멈춘다 — 시계를 가진 다른 것들과 같은 수명이다.
 	updates *updatecheck.Checker
+	// cancelGit 은 git 의 서버 수명 ctx 를 끝낸다 (REPO_FIX 01 §8). 신호가 오면
+	// AfterFunc 가, 신호 없는 오류 종료면 종료 표의 첫 단계가 부른다.
+	cancelGit context.CancelFunc
 }
 
 // buildApp 은 조립이다 — 로그 계층·헬퍼 설치·데몬 연결·의존 배선·서버·해석층
 // 되살림. 여기서 돌아오면 요청을 받을 수 있는 상태이며 아직 아무것도 돌지 않는다.
-func buildApp(home, host, port string) (*app, error) {
+func buildApp(gitRoot context.Context, home, host, port string) (*app, error) {
 	os.Setenv(dmenv.EnvHome, home)
 	// helper multi-call(dmctl/edit/…)이 서버 주소를 찾는 값이다.
 	os.Setenv(dmenv.EnvPort, port)
@@ -68,13 +72,13 @@ func buildApp(home, host, port string) (*app, error) {
 	var err error
 	if a.panedClient != nil {
 		// Daemon mode: ToolClient implements ToolHub
-		a.bd, err = buildDepsWithHub(cfg, a.panedClient)
+		a.bd, err = buildDepsWithHub(cfg, a.panedClient, gitRoot)
 		if err == nil {
 			a.wireDaemonPushes()
 		}
 	} else {
 		// Direct mode: ToolManager directly (backward compatible)
-		a.bd, err = buildDeps(cfg)
+		a.bd, err = buildDeps(cfg, gitRoot)
 	}
 	if err != nil {
 		return nil, err
@@ -238,8 +242,15 @@ type shutdownStep struct {
 	fn   func()
 }
 
+// gitDrainWait 는 종료가 git 잡·쓰기를 기다리는 상한이다 (REPO_FIX 01 §8) — 취소된
+// git 은 신호 시퀀스(2·KillGrace) 안에 끝나고 1s 를 더 준다.
+const gitDrainWait = 2*core.KillGrace + time.Second
+
 // shutdownSteps 는 종료 순서다 — **이 순서가 계약이다** (D-A-12).
 //
+//  0. git 잡·쓰기 대기 — git 루트를 취소하고 떠 있는 git 이 끝나기를 7s 까지
+//     기다린다 (REPO_FIX 01 §8). **마커 앞이다** — 마커는 "정상 종료" 를 뜻하므로
+//     그 뒤에 git 이 index.lock 을 남긴 채 끊기면 마커가 거짓이 된다.
 //  1. 마커 — 여기를 지났으면 정상 종료다. 다음 기동이 이 한 글자로 "강제로
 //     죽었는가" 에 답한다 (OBSERVABILITY_SRS FR-OBS-15).
 //  2. 데몬 연결 — 먼저 놓아야 dongminald 가 새 서버의 연결을 받는다.
@@ -251,6 +262,14 @@ type shutdownStep struct {
 //  6. 워크스페이스 — 비동기 writer 를 flush 한다.
 func (a *app) shutdownSteps() []shutdownStep {
 	return []shutdownStep{
+		{"git 잡·쓰기 대기", func() {
+			if a.cancelGit != nil {
+				a.cancelGit()
+			}
+			if !core.Drain(gitDrainWait) {
+				dmlog.Warnf(nil, "git 실행이 %v 안에 끝나지 않았습니다 — 기다리지 않고 종료합니다", gitDrainWait)
+			}
+		}},
 		{"마커", func() {
 			if a.home != "" {
 				platform.MarkCleanExit(a.home)
@@ -300,7 +319,10 @@ func (a *app) shutdown() {
 // serve는 웹 서버를 이 프로세스로 실행한다 (FR-FG-1). `dongminal start
 // --foreground` 의 실체이며, 배경 모드는 자기 자신을 이 형태로 재실행한다.
 func serve(home, host, port string) int {
-	a, err := buildApp(home, host, port)
+	// REPO_FIX 01 §8: git 의 서버 수명. 조립 전에 만들어 Store·잡이 파생하게 한다.
+	gitRoot, cancelGit := context.WithCancel(context.Background())
+	defer cancelGit()
+	a, err := buildApp(gitRoot, home, host, port)
 	if err != nil {
 		switch {
 		case errors.Is(err, workspace.ErrSchemaTooOld):
@@ -317,8 +339,12 @@ func serve(home, host, port string) int {
 		return 1
 	}
 
+	a.cancelGit = cancelGit
 	ctx, stop := signal.NotifyContext(context.Background(), platform.Current().Process.ShutdownSignals()...)
 	defer stop()
+	// 신호가 오면 HTTP 종료를 기다리지 않고 곧바로 git 을 끊는다 — 진행 중인 쓰기는
+	// 503 server_shutdown, 잡은 server_shutdown 으로 끝난다.
+	context.AfterFunc(ctx, cancelGit)
 
 	runErr := a.run(ctx)
 

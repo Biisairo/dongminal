@@ -30,6 +30,8 @@ var gitTableCases = []struct {
 	// REPO_FIX 01 §7.1 — 새 코드
 	{core.ErrIndexLocked, http.StatusConflict, CodeIndexLocked},
 	{jobs.ErrRepoBusy, http.StatusConflict, CodeRepoBusy},
+	// REPO_FIX 01 §8
+	{core.ErrServerShutdown, http.StatusServiceUnavailable, CodeServerShutdown},
 
 	// gitPatchErrorCode
 	{write.ErrPatchStale, http.StatusConflict, CodeStaleObservation},

@@ -2,7 +2,9 @@ package gitapi
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"time"
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/jobs"
@@ -254,14 +256,37 @@ func (t *gitWrite) ctx() context.Context {
 // 시작하면 서버 루트 ctx 파생 + 30s 마감 하나로 run 전체가 돈다 — 그 뒤의 이탈은
 // 무시한다. ran 이 거짓이면 이미 답했다.
 func (t *gitWrite) write(run func(context.Context) error) (ran bool, err error) {
+	return t.writeWithin(core.DefaultTimeout, run)
+}
+
+// writeWithin 은 마감을 호출자가 정하는 쓰기 단계다 — Manager 경유 쓰기(worktree
+// remove·submodule sync)는 core.ManagerWriteTimeout 이다 (§5.5).
+//
+// 서버 루트가 끝났으면(§8) 시작하지 않고, 쓰는 도중 끝났으면 쓰기의 결과와 무관하게
+// ErrServerShutdown 을 돌려준다 — 호출자는 재조회하지 않고 503 으로 답한다.
+func (t *gitWrite) writeWithin(d time.Duration, run func(context.Context) error) (ran bool, err error) {
+	if t.shutdown() {
+		t.reject(errServerShutdown)
+		return false, nil
+	}
 	if t.r.Context().Err() != nil {
 		t.reject(core.ErrCanceled)
 		return false, nil
 	}
-	ctx, cancel := context.WithTimeout(t.s.gitRoot(), core.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(t.s.gitRoot(), d)
 	defer cancel()
-	return true, run(ctx)
+	err = run(ctx)
+	if t.shutdown() {
+		return true, errServerShutdown
+	}
+	return true, err
 }
+
+// errServerShutdown 은 종료로 끊긴 동기 쓰기의 응답이다 (§8) — 재조회도 partial 도 없다.
+var errServerShutdown = fmt.Errorf("%w: 서버 종료로 중단했다 — 일부가 적용됐을 수 있다", core.ErrServerShutdown)
+
+// shutdown 은 서버 루트가 끝났는가다 (§8).
+func (t *gitWrite) shutdown() bool { return t.s.gitRoot().Err() != nil }
 
 // post 는 사후 단계 ctx 다 — 루트 파생 + 15s. 쓰기가 끝났으면 요청이 떠나도
 // 재조회까지 한다.

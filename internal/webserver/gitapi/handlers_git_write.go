@@ -345,6 +345,12 @@ func (s *GitServer) gitApply(t *gitWrite, before query.Status, run func(context.
 	if !ran {
 		return query.Status{}, false
 	}
+	if errors.Is(runErr, core.ErrServerShutdown) {
+		// §8: 종료 중에는 재조회하지 않는다 — 루트가 끝나 어차피 실패하고, 종료 7s
+		// 상한을 먹는다.
+		t.reject(runErr)
+		return query.Status{}, false
+	}
 	ctx, cancel := t.post()
 	defer cancel()
 	s.Git.Invalidate(t.root)
