@@ -1,4 +1,6 @@
 import { execFileSync } from 'child_process';
+import { chmodSync, writeFileSync } from 'fs';
+import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
@@ -355,9 +357,16 @@ test.describe('묶음 F — 반쪽 실패를 말한다', () => {
     git(repo, 'push', '-q', '-u', 'origin', 'no-upstream:feature/ghost');
     git(repo, 'branch', '-q', '--set-upstream-to=origin/feature/ghost', 'no-upstream');
     git(repo, 'fetch', '-q', 'origin');
-    // 원격에서만 지운다 — upstream 설정과 원격 추적 ref 는 남으므로 메뉴는 활성이고,
-    // 실제 `push --delete` 는 "remote ref does not exist" 로 진다.
-    execFileSync('git', ['-C', git(repo, 'remote', 'get-url', 'origin'), 'branch', '-D', 'feature/ghost']);
+    // 원격이 삭제를 거절하게 한다 — pre-receive 훅이 막으면 `push --delete` 가 진다.
+    //
+    // REPO_FIX 01 §7.3: 종전에는 "원격에서만 먼저 지워 둔 ref" 로 실패를 만들었다.
+    // 원격 삭제가 완전 이름(refs/heads/…)을 쓰게 된 뒤로 git 은 이미 없는 ref 의
+    // 삭제를 경고와 함께 **성공**(exit 0)으로 끝낸다(실측 — 원하는 결과에 이미
+    // 닿았다). 그래서 진짜 거절로 바꾼다. 검사하는 것(반쪽 실패의 사유 표시)은 같다.
+    const remote = git(repo, 'remote', 'get-url', 'origin');
+    const hook = join(remote, 'hooks', 'pre-receive');
+    writeFileSync(hook, '#!/bin/sh\necho "deletes are not allowed here" >&2\nexit 1\n');
+    chmodSync(hook, 0o755);
 
     await waitForInit(page);
     await openBranches(page, repo);
@@ -375,7 +384,7 @@ test.describe('묶음 F — 반쪽 실패를 말한다', () => {
     await expect(toast(page)).toBeVisible({ timeout: 30000 });
     const text = (await toast(page).textContent()) || '';
     // FR-BMU-15b: 사유를 싣는다. 무엇 때문에 졌는지 없으면 다음에 할 일을 못 고른다.
-    expect(text, `사유가 없다: ${text}`).toContain('remote ref does not exist');
+    expect(text, `사유가 없다: ${text}`).toContain('pre-receive hook declined');
   });
 
   // TC-BMU-21 — 기다림이 거짓 경보를 만들지 않는다.

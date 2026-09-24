@@ -419,7 +419,12 @@ Object.assign(GitBranches, {
    */
   _delBothFail(jb){
     const tail=((jb&&jb.stderrTail)||'').split('\n').map(x=>x.trim()).filter(Boolean);
-    const why=tail.find(x=>x.startsWith('error:'))||tail[0]||(jb&&jb.err)||'';
+    // 사유가 가장 구체적인 줄을 고른다: ref 별 거절 줄(`! [remote rejected] x (…)`)이
+    // 원격이 **왜** 막았는지를 담고, 마지막의 `failed to push some refs` 는 그 요약일
+    // 뿐이다 — 그것을 고르면 사유가 사라진다.
+    const why=tail.find(x=>/\[(remote )?rejected\]/.test(x))
+      ||tail.find(x=>x.startsWith('error:')&&!/failed to push some refs/.test(x))
+      ||tail.find(x=>x.startsWith('error:'))||tail[0]||(jb&&jb.err)||'';
     Toast.show(why?GIT_BR_DELETE_BOTH_FAIL+' — '+why:GIT_BR_DELETE_BOTH_FAIL,
       'err',TOAST_ERR_MS);
   },
