@@ -205,9 +205,19 @@ func (s *GitServer) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	// `-a` 는 tracked 변경을 스스로 담으므로 staged 가 없어도 커밋할 것이 있다.
 	// `--allow-empty` 는 M2 범위 밖이다 (FR-GIT-84).
+	//
+	// REPO_FIX 01 §7.7 (FR-GIT-84 개정): amend 면 staged 가 없어도 **메시지를 고치는
+	// 것**이 커밋할 것이다. 메시지가 직전과 같고(cleanup=strip 정규화) signoff 가
+	// 새로 붙지도 않으면 바뀔 것이 없다.
+	//
+	//	이전 동작: amend 여도 staged 가 없으면 nothing_staged
+	//	새  동작: amend 면 메시지가 바뀌었을 때 실행한다
+	//	이유:     직전 커밋의 오타만 고치는 일을 할 수 없었다
 	if len(before.Staged) == 0 && !req.All {
-		t.rejectWith(http.StatusBadRequest, gitErrNothingStaged, "staged 변경이 없다")
-		return
+		if !req.Amend || s.gitAmendUnchanged(r.Context(), t.root, req.Message, req.SignOff) {
+			t.rejectWith(http.StatusBadRequest, gitErrNothingStaged, "staged 변경이 없다")
+			return
+		}
 	}
 	t.apply(func(ctx context.Context) error {
 		_, err := write.Commit(s.Git.Service(), ctx, t.root, write.CommitOpts{
@@ -227,6 +237,22 @@ func (s *GitServer) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
 		"oid":       t.after.Oid,
 		"undoToken": s.gitUndo.issue(t.root),
 	})
+}
+
+// gitAmendUnchanged 는 amend 가 메시지도 바꾸지 않는가다. 직전 메시지를 읽지
+// 못하면 바뀐 것으로 본다 — 판정을 못 했다는 이유로 사용자의 조작을 막지 않는다
+// (git 이 마지막 판정을 한다).
+func (s *GitServer) gitAmendUnchanged(ctx context.Context, root, msg string, signoff bool) bool {
+	svc := s.Git.Service()
+	last, err := query.LastCommitMessage(svc, ctx, root)
+	if err != nil {
+		return false
+	}
+	if signoff && !write.HasSignoff(last) {
+		return false
+	}
+	prefix := write.CommentPrefix(svc, ctx, root)
+	return write.NormalizeCommitMessage(msg, prefix) == write.NormalizeCommitMessage(last, prefix)
 }
 
 // POST /api/git/undo-last — 직전 커밋을 되돌린다 (FR-GIT-82·83).

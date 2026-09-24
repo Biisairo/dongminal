@@ -299,9 +299,10 @@ class GitCommit {
     if(!this._repo) return GIT_COMMIT_WHY_NO_REPO;
     if(!this._msg.value.trim()) return GIT_COMMIT_WHY_EMPTY_CODE;
     // 서버와 같은 판정이다 — `-a` 는 tracked 변경을 스스로 담으므로 staged 가
-    // 없어도 커밋할 것이 있다 (FR-GIT-84).
+    // 없어도 커밋할 것이 있다 (FR-GIT-84). REPO_FIX 01 §7.7: amend 면 메시지를
+    // 고치는 것이 커밋할 것이다 — 메시지가 직전과 같은지는 서버가 판정한다.
     const staged=(this._st&&this._st.staged&&this._st.staged.length)||0;
-    if(!staged&&!this._opts.all) return GIT_COMMIT_WHY_NOTHING_CODE;
+    if(!staged&&!this._opts.all&&!this._amend) return GIT_COMMIT_WHY_NOTHING_CODE;
     return '';
   }
 

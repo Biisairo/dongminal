@@ -541,3 +541,46 @@ func TestAPIGitResolve_AllOK(t *testing.T) {
 		t.Fatalf("results = %v", out["results"])
 	}
 }
+
+// REPO_FIX 01 §7.7 (FR-GIT-84 개정): amend 면 staged 가 없어도 메시지만 고칠 수
+// 있다. 종전에는 "staged 없음" 으로 막혀 직전 커밋의 오타를 고칠 수 없었다.
+func TestAPIGitCommit_AmendMessageOnly(t *testing.T) {
+	f := newGitWriteFake(t)
+	f.status = gitWriteStatus("a.txt", ".M") // staged 없음
+	s, _ := gitWriteServer(t, f)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/commit", `{"repo":`+qWorkRepo+`,"message":"고친 제목","amend":true}`)
+	if code != http.StatusOK {
+		t.Fatalf("code = %d, body = %v", code, out)
+	}
+	got := f.wrote()
+	if len(got) != 1 || !strings.Contains(fmt.Sprint(got[0]), "--amend") {
+		t.Fatalf("argv = %v", got)
+	}
+}
+
+// §7.7: amend 인데 메시지가 직전과 같고(정규화 기준) staged 도 없으면 바뀔 것이
+// 없다 — 실행하지 않는다.
+func TestAPIGitCommit_AmendSameMessageRejected(t *testing.T) {
+	f := newGitWriteFake(t)
+	f.status = gitWriteStatus("a.txt", ".M")
+	s, _ := gitWriteServer(t, f)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/commit", `{"repo":`+qWorkRepo+`,"message":"직전 커밋 제목  \n\n본문\n","amend":true}`)
+	if code != http.StatusBadRequest || out["error"] != "nothing_staged" {
+		t.Fatalf("code = %d, body = %v", code, out)
+	}
+	if len(f.wrote()) != 0 {
+		t.Fatal("바뀔 것이 없는데 실행했다")
+	}
+}
+
+// §7.7: signoff 가 켜져 있고 직전 메시지에 Signed-off-by 가 없으면 git 이 트레일러를
+// 더하므로 바뀔 것이 있다.
+func TestAPIGitCommit_AmendSameMessageWithNewSignoff(t *testing.T) {
+	f := newGitWriteFake(t)
+	f.status = gitWriteStatus("a.txt", ".M")
+	s, _ := gitWriteServer(t, f)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/commit", `{"repo":`+qWorkRepo+`,"message":"직전 커밋 제목\n\n본문","amend":true,"signoff":true}`)
+	if code != http.StatusOK {
+		t.Fatalf("code = %d, body = %v", code, out)
+	}
+}
