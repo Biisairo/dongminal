@@ -187,7 +187,7 @@
 - F-2 문서 저장은 FileEditor 안에 있었다 — `app.edDocSave(path, ui)`(대기 1건 포함)·`edDocWrite`·`edConfirmConflict` 로 문서 단위로 올렸고 FileEditor·Diff 뷰가 같은 것을 부른다. Diff 뷰는 문서 레지스트리에 자신이 아니라 대상마다의 작은 뷰 객체(`_docViewOf`)로 든다 — 레지스트리는 `_editor.setModel(model)` 을 부르는데 diff 에디터는 모델 둘을 받기 때문이다(`gazeEditor`·`onDocMoved`·`onDocReadOnly` 로 대신한다).
 - F-2 닫기·창 닫기의 확인은 "그 뷰가 떠나면 편집을 잃는가"(마지막 뷰)로 묻고, 탭 ● 는 문서 dirty 로 묻는다 — `viewDirty(view, closing)` 로 둘을 나눴다. 앱 전체 dirty(`edAnyDirty`, 떠남 확인)는 문서를 먼저 본다(Diff 만 연 문서).
 - F-2 dirty 중에도 Diff 는 다시 받는다 — 작업 트리 쪽이 문서 모델이라 원본 쪽만 바뀐다(이전의 "편집 중 다시 읽지 않음" 가드는 걷었다). 바깥 변경은 라이브 리로드 표식 폴링이 나르며, Diff 탭의 문서도 그 대상에 넣었다(`_gitDiffDocPaths`, 회귀 수정 `a719bc25`).
-- F-2 비범위로 남긴 것: 옛 Git 창에서 저장소를 바꾸면 Diff 뷰가 `clear` 되며 마지막 뷰인 dirty 문서가 확인 없이 버려진다(이 작업 이전에도 같았다).
+- F-2 비범위로 남긴 것: 옛 Git 창에서 저장소를 바꾸면 Diff 뷰가 `clear` 되며 마지막 뷰인 dirty 문서가 확인 없이 버려진다(이 작업 이전에도 같았다). → **도달 불가로 판정(마무리 후속)**: 옛 Git 창은 로드(`app.js` `_migrateGitWindow`)와 매 동기화(`app-cmd.js`)에서 `migrateGitWindows` 가 지우고 만드는 경로가 없다. `setRepo` 의 호출은 `setRepo(null)` 둘(소실 핀 제거·not_a_git_repo)뿐이며 둘 다 그 창 전용이다 — 코드를 더하지 않는다.
 - F-3 `_prefixOf`(탐색기)·`edDdPrefix`(변경 표시)가 같은 함수 두 벌이었다 — `core/git-path.js` 의 `gitRepoPrefix` 하나로 모으고 어휘적 최상위 `gitLexicalTop` 을 곁에 뒀다(helpers.js 는 최대 파일이라 따로 둔다). 중첩 저장소·서브모듈 진입점(`_dirEntryActs`)도 같은 결함이라 함께 고쳤다.
 - F-4 잡 시작·완료 통지 자리는 `GitRemote._attach`·`_finish` 한 줄씩이다. 큐는 stage/unstage/discard 만 탄다 — resolve(ours/theirs)·ignore·uncommitted reset/clean·hunk 는 큐 밖의 동기 쓰기이고, 막혔을 때 무음 대신 `repo_busy` 사유를 보인다.
 - F-5.1 diff-content 응답에는 diffId 가 없다(서버 변경 금지) — "본문과 hunk 가 같은 diffId" 는 **본문 회차**로 대신한다: 본문이 바뀐 회차에 조각 목록을 버리고 곧바로 다시 받으며, 받는 동안 `_hunks` 가 비어 동작이 서지 않는다. 그 사이 디스크가 또 바뀌면 서버의 diffId 409 가 마지막 방어다.

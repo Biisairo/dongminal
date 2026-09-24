@@ -63,7 +63,8 @@
 9. **남은 것** ← **여기서 시작**
    - ~~(사용자 결정) Clean 의 서버 `paths` 필드~~ 완료 `14d287a9` — 사용자 결정 "paths 필수 + 집합 검사". 없으면 400, 실행 직전 untracked 와 집합이 다르면 409 `stale_observation`, 같으면 `:(literal)` 로 그 경로만 지우고 빈 조상 정리(FR-GIT-277 개정)
    - (CI) `e2e/baseline/ui-layout.linux.json`·`win32.json` 에도 같은 24자리가 없다 — 로컬(macOS)에서는 뜰 수 없다. CI 에서 `LAYOUT_BASELINE=write` 로 떠서 추가만인지 확인한 뒤 커밋한다
-   - (비범위·기록) 옛 Git 창의 저장소 전환이 Diff 만 연 dirty 문서를 확인 없이 버린다
+   - ~~(비범위·기록) 옛 Git 창의 저장소 전환이 Diff 만 연 dirty 문서를 확인 없이 버린다~~ 도달 불가로 판정 — 옛 Git 창은 로드·동기화마다 `migrateGitWindows` 가 지운다(05 §3A-8)
+   - ~~(CI) linux·win32 기준선~~ 24자리를 darwin 값으로 추가(`6e2212ff` — 모두 static·inset auto·clipped 없음이라 판에 매이지 않는 값). CI V-LAY-1 로 확인
 
 직전 세션 말미에 사용자에게 "데이터 손실 5건(Delete both·Diff hunk 오적용·입력 유실·칸1 닫기 확인 누락·저장 권한)을 먼저 하자"고 제안했으나 **사용자는 "순서대로"를 택했다.** 제안을 다시 꺼내지 말고 위 순서대로 간다.
 
