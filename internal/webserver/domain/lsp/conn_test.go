@@ -28,7 +28,7 @@ func newPair(t *testing.T, onNotify func(string, json.RawMessage)) (*conn, *fake
 		cw.Close()
 		cr.Close()
 		return nil
-	}}, onNotify)
+	}}, onNotify, nil)
 	t.Cleanup(func() { c.Close(); sw.Close(); sr.Close() })
 	return c, &fakeServer{fromClient: bufio.NewReader(sr), toClient: sw}
 }

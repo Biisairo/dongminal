@@ -127,6 +127,11 @@ type Session struct {
 	initErr error
 	once    sync.Once
 
+	// syncMu 는 문서 동기화의 임계구역이다 (REPO_FIX 02 §3A-5) — 판 번호 증가와
+	// didOpen/didChange/didClose 전송을 한 번에 한다. conn.wmu(프레임 직렬화)와
+	// 별개다. 요청 본문(Call)은 이 밖이다.
+	syncMu sync.Mutex
+
 	mu sync.Mutex
 	// open 은 서버가 알고 있는 문서의 판이다 (uri → version).
 	//
@@ -163,8 +168,29 @@ func newSession(root string, d ext.Server, exe string, start Starter,
 		if d, ok := parseDiagnostics(params); ok {
 			onDiag(d)
 		}
+	}, func(method string, params json.RawMessage) (any, *rpcError) {
+		return serverRequestResult(root, method, params)
 	})
 	return s
+}
+
+// serverRequestResult 는 서버발 요청의 최소 응답표다 (REPO_FIX 02 §3A-5). 설정을
+// 묻는 서버에는 "없음"(null)을, 등록·진행 알림 생성에는 수락(null)을, 작업 폴더에는
+// 세션 루트 하나를 준다. 그 밖은 −32601 이다 — 모른다고 답해야 서버가 기다리지 않는다.
+func serverRequestResult(root, method string, params json.RawMessage) (any, *rpcError) {
+	switch method {
+	case "workspace/configuration":
+		var p struct {
+			Items []json.RawMessage `json:"items"`
+		}
+		_ = json.Unmarshal(params, &p)
+		return make([]any, len(p.Items)), nil
+	case "client/registerCapability", "client/unregisterCapability", "window/workDoneProgress/create":
+		return nil, nil
+	case "workspace/workspaceFolders":
+		return []map[string]any{{"uri": pathToURI(root), "name": filepath.Base(root)}}, nil
+	}
+	return nil, errMethodNotFound(method)
 }
 
 // Root·ID 는 관리자가 세션을 가리키는 데 쓴다.
@@ -244,6 +270,12 @@ func (s *Session) handshake() {
 // 모른다. 처음이면 `didOpen`, 다음부터는 `didChange` 다.
 func (s *Session) sync(path, text string) error {
 	uri := pathToURI(path)
+	// §3A-5: 판 증가와 전송을 한 임계구역에서 한다.
+	//	이전 동작: 판은 잠금 안에서 올리고 전송은 잠금 밖 — 동시 요청이 판 순서를
+	//	          뒤바꿔 보냈고, 서버는 낮은 판을 늦게 받아 옛 텍스트로 답했다
+	//	새  동작: 올린 순서대로 나간다
+	s.syncMu.Lock()
+	defer s.syncMu.Unlock()
 	s.mu.Lock()
 	ver, seen := s.open[uri]
 	ver++
