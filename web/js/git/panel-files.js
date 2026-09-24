@@ -24,8 +24,17 @@ Object.assign(GitPanel.prototype, {
 
   // **파괴적이다** (FR-GIT-277). 파괴적 확인과 recovery hint 는 GitMenu 가 이미
   // 거쳤으므로 여기서는 `confirm` 을 실어 보낸다 — 서버도 그것을 요구한다.
-  async uncommittedClean(){
+  //
+  // `paths` 는 확인창에 보인 목록이다 (REPO_FIX 05 F-1). 서버는 목록을 받지 않고
+  // 그 순간의 untracked 전부를 지우므로, 확인 뒤 목록이 달라졌으면 보내지 않는다.
+  async uncommittedClean(paths){
     if(this._writing) return;
+    const now=this.untrackedPaths();
+    const shown=Array.isArray(paths)?paths:[];
+    if(now.length!==shown.length||now.some(p=>shown.indexOf(p)<0)){
+      Toast.show(GIT_UNC_CLEAN_CHANGED,'err',TOAST_ERR_MS);
+      return;
+    }
     const res=await this.post('/api/git/uncommitted/clean',
       {repo:this.repo,confirm:true});
     this._after(res,[]);

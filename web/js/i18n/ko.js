@@ -802,6 +802,7 @@ I18N.register('ko', {
   'git.tag_why_need_msg': 'annotated·signed 태그에는 메시지가 필요합니다',
   'git.unc_clean_note': '추적되지 않는 파일은 git 에 저장된 적이 없어 지운 뒤에는 되살릴 수 없습니다. 지우기 전에 아래 명령으로 담아 둘 수 있습니다.',
   'git.unc_clean_title': '추적되지 않는 파일을 지웁니다',
+  'git.unc_clean_changed': '확인한 뒤 추적되지 않는 파일 목록이 바뀌었습니다 — 다시 확인해 주세요',
   'git.unc_nothing': '대상이 없습니다',
   'git.undo_fail': '되돌릴 수 없습니다 — undo 창이 지났습니다',
   'git.undo_text': '커밋했습니다',

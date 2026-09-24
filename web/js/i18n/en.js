@@ -779,6 +779,7 @@ I18N.register('en', {
   'git.tag_why_need_msg': 'annotated · signed tags need a message',
   'git.unc_clean_note': 'Untracked files were never stored in git, so they cannot be restored after deletion. You can save them with the command below before deleting.',
   'git.unc_clean_title': 'Deletes untracked files',
+  'git.unc_clean_changed': 'The list of untracked files changed after you confirmed — please confirm again',
   'git.unc_nothing': 'Nothing to act on',
   'git.undo_fail': 'Cannot undo — the undo window has passed',
   'git.undo_text': 'Committed',

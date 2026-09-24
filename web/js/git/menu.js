@@ -9,7 +9,7 @@
  * 만들지 않는다.
  *
  * 항목의 모양:
- *   {id, label, run(target), disabled(target)→사유|'', warn, destructive,
+ *   {id, label, run(target,targets), disabled(target)→사유|'', warn, destructive,
  *    action, title, targets(target)→[문자열], hint(target)→{note,command}}
  *   {sep:true}
  *
@@ -208,9 +208,9 @@ const GIT_MENUS={
      hint:t=>t.kind===GIT_REF_KIND_REMOTE
        ?({note:GIT_BR_REMOTE_DELETE_NOTE,command:GitBranches.restoreRemoteCmd(t)})
        :({note:GIT_BR_DELETE_NOTE,command:'git branch '+t.short+' '+(t.oid||'')}),
-     run:t=>t.kind===GIT_REF_KIND_REMOTE
-       ?gitMenuPanel().branchDeleteRemote(t.short)
-       :gitMenuPanel().branchDelete(t)},
+     run:(t,names)=>t.kind===GIT_REF_KIND_REMOTE
+       ?gitMenuPanel().branchDeleteRemote(names[0])
+       :gitMenuPanel().branchDelete(t,names)},
     // FR-BMU-10·11: 셋째 길 — 로컬과 원격을 한 번에. upstream 이 있는 로컬
     // 브랜치에서만 열린다. 영향 범위에 **둘 다** 실어 무엇이 사라지는지 보인다
     // (FR-BMU-12 / FR-GIT-91).
@@ -243,7 +243,7 @@ const GIT_MENUS={
          command:'git branch '+(loc.short||'')+' '+(loc.oid||'')
            +'\n'+GitBranches.restoreRemoteCmd({short:p.remote||'',oid:loc.oid})};
      },
-     run:t=>gitMenuPanel().branchDeleteBoth(t)},
+     run:(t,names)=>gitMenuPanel().branchDeleteBoth(t,names)},
     {sep:true},
     // 원격 브랜치의 무리 (FR-GIT-268). 로컬에서는 비활성이고 사유가 보인다.
     //
@@ -331,7 +331,7 @@ const GIT_MENUS={
      disabled:()=>gitMenuPanel().untrackedPaths().length?'':GIT_UNC_NOTHING,
      targets:()=>gitMenuPanel().untrackedPaths(),
      hint:()=>({note:GIT_UNC_CLEAN_NOTE,command:GIT_UNC_CLEAN_CMD}),
-     run:()=>gitMenuPanel().uncommittedClean()},
+     run:(_,paths)=>gitMenuPanel().uncommittedClean(paths)},
   ],
 };
 
@@ -425,21 +425,29 @@ class GitMenu {
    * `stages:1` 을 늘 넘긴다. 파괴적 목록(서버 `/api/git/policy`)에 든 action 은
    * `GitConfirm` 이 요청과 무관하게 확인을 세운다 — 목록에 없는 action 이
    * 확인 없이 지나가는 일이 없게 바닥을 1단계로 둔다.
+   *
+   * REPO_FIX 05 §3A-2 (F-1): 대상은 **확인 전에 한 번** 계산해 확인창에 보이고
+   * 그 배열을 그대로 `run(target,targets)` 에 넘긴다.
+   *	이전 동작: 확인창은 `targets(t)`, 실행은 선택 상태를 다시 읽었다 — Delete both
+   *	           가 확인창의 한 쌍이 아니라 다중 선택 전체를 지웠다(#1)
+   *	새 동작: 실행은 확인창에 보인 배열만 쓴다
+   *	이유: 보인 것과 지워지는 것이 다르면 확인이 무의미하다
    */
   static async _pick(it,target){
     GitMenu.close();
     if(typeof it.run!=='function') return;
+    const targets=it.targets?it.targets(target):[];
     if(it.warn||it.destructive){
       const ok=await GitDialog.confirm({
         action:GitMenu._val(it.action,target)||it.id,
         title:GitMenu._val(it.title,target)||GitMenu._val(it.label,target),
-        targets:it.targets?it.targets(target):[],
+        targets,
         hint:it.hint?it.hint(target):null,
         stages:1,
       });
       if(!ok) return;
     }
-    await it.run(target);
+    await it.run(target,targets);
   }
 }
 

@@ -184,10 +184,13 @@ Object.assign(GitBranches, {
    *
    * **일괄 삭제는 `-d` 로만** 한다 — 확인 하나가 여러 개를 강제 삭제하는 자리를
    * 만들지 않는다. 서버도 같은 것을 막는다.
+   *
+   * `names` 는 확인창에 보인 대상(`targetsOf` 를 확인 전에 계산한 것)이다 — 여기서
+   * 선택을 다시 읽지 않는다 (REPO_FIX 05 F-1).
    */
-  del(panel,target){
-    if(!panel||!panel.repo||!target) return;
-    return GitBranches._delete(panel,GitBranches.targetsOf(panel,target),false);
+  del(panel,target,names){
+    if(!panel||!panel.repo||!target||!Array.isArray(names)||!names.length) return;
+    return GitBranches._delete(panel,names,false);
   },
 
   /**
@@ -388,13 +391,18 @@ Object.assign(GitBranches, {
     return {local:hits[0],remote:t.short,why:''};
   },
 
-  async delBoth(panel,t){
-    if(!panel||!panel.repo||!t) return;
+  /**
+   * `names` 는 확인창에 보인 한 쌍 `[로컬, 원격]` 이다 (REPO_FIX 05 F-1).
+   *	이전 동작: 짝을 다시 세고 로컬을 `targetsOf` 로 넓혀 다중 선택 전체를 지웠다
+   *	새 동작: 확인창의 한 쌍만 지운다
+   *	이유: Delete both 는 짝지어진 둘을 지우는 항목이다(#1)
+   */
+  async delBoth(panel,t,names){
+    if(!panel||!panel.repo||!t||!Array.isArray(names)) return;
     // FR-BMU-16d·16g: 어느 행에서 눌렀든 같은 쌍을 같은 순서로 지운다.
-    const pair=GitBranches.pairOf(panel,t);
-    if(pair.why||!pair.local||!pair.remote) return;
-    const up=pair.remote;
-    const res=await GitBranches._delete(panel,GitBranches.targetsOf(panel,pair.local),false);
+    const [local,up]=names;
+    if(names.length!==2||!local||!up) return;
+    const res=await GitBranches._delete(panel,[local],false);
     // FR-BMU-14: 로컬이 실패하면 원격은 건드리지 않는다.
     if(!res||!res.ok) return res;
     const rr=await GitBranches.deleteRemote(panel,up);

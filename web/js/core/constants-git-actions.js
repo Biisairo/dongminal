@@ -214,6 +214,7 @@ const GIT_UNC_RESET=t('git.act.unc_reset');
 const GIT_UNC_CLEAN=t('git.act.unc_clean');
 const GIT_ACT_CLEAN_UNTRACKED='clean_untracked';
 const GIT_UNC_CLEAN_TITLE=t('git.unc_clean_title');
+const GIT_UNC_CLEAN_CHANGED=t('git.unc_clean_changed');
 // 되살릴 수 없으므로 hint 는 되돌리는 명령이 아니라 **먼저 담아 두는** 명령이다
 // (discard 의 선례, FR-GIT-92).
 const GIT_UNC_CLEAN_NOTE=t('git.unc_clean_note');
