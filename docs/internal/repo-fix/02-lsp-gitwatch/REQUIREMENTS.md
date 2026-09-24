@@ -113,6 +113,8 @@
 | 편집 UI | 설정 ▸ Code 의 언어 서버 목록(`app-settings.js:426-433`, `app-lsp.js:520`)의 서버 행마다 경로 입력 1칸과 저장·지우기 버튼. 저장 성공 뒤 상태를 다시 조회해 "어디서 찾았는지"(FR-LSP-5)를 갱신한다. 실패 시 서버 사유 문구를 그 행에 표시한다. Code 패널은 열릴 때마다 `GET /api/lsp/paths` 로 읽는다(방송 없음 — 기존 "상태는 관측" 규약 FR-LSP-47) |
 | localStorage | `lspServerPaths` 읽기(`helpers.js:648-667`)와 `_lspOverrides`(`app-lsp.js:33`)를 제거하고, 페이지 로드 시 그 키를 `removeItem` 한다. 값을 서버로 이관하지 않는다 — 쓰는 UI 가 없어 값이 들어 있는 경우는 개발자 도구로 직접 넣은 경우뿐이다 |
 
+구현 중 정정 (L-1): 플러그인 계층 `ext.Locator` 의 override 표는 **서버 id** 로 키잉한다(`locate.go` `Overrides[s.ID]`). 서버 표(`팩/서버`)는 서비스가 서버 id 표로 옮겨 넘긴다 — 다른 팩에 같은 서버 id 가 있으면 둘이 같은 경로를 받는다(현재 선언에는 없다). 새 파일은 `homeLayout()`·getting-started 표·api.md 에 등록했다(게이트 FR-STR-30·FR-DSY-50). 편집 UI 는 `web/js/core/app-lsp-paths.js`.
+
 동작 기록(스펙에 싣는다) — 이전: 경로는 기기별 localStorage 에서 읽혔고 상태 조회에만 실렸으며 세션 기동은 무시했다 / 새: 서버 한 벌, 설정 ▸ Code 에서 편집, 상태·기동이 같은 값을 쓴다, 기존 localStorage 값은 버려진다 / 이유: 실행 파일은 서버 기계의 사실이고, 세션은 브라우저가 아니라 서버에서 (루트, 서술자)로 공유된다.
 
 ### §3A-4 세션 생존·실패 기억 (L-2, L-3)

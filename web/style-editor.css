@@ -421,6 +421,11 @@ body.mobile .ed-row{height:var(--touch-min)}
 /* 결과는 그 자리에 남는다 (FR-LSP-10) — 조용히 사라지면 사용자는 무엇이 됐는지 모른다. */
 .lsp-msg{grid-area:msg;font-size:var(--fs-sm);color:var(--text-hint);overflow-wrap:anywhere}
 .lsp-msg:empty{display:none}
+/* REPO_FIX 02 §3A-3: 서버별 실행 파일 경로 — 서버가 보관한다. */
+.lsp-paths{grid-column:1 / -1;display:flex;flex-direction:column;gap:4px;margin-top:4px}
+.lsp-pathrow{display:flex;align-items:center;gap:6px;min-width:0}
+.lsp-pathid{color:var(--text-muted);font-size:var(--fs-sm);font-family:var(--mono);flex:none}
+.lsp-pathin{flex:1;min-width:0;font-family:var(--mono);font-size:var(--fs-sm)}
 
 /* FR-LSP-28 / D-9: 침묵을 가르는 알림 줄. 찾기 패널과 같은 자리 규약이며
    스스로 사라진다 — 닫는 조작을 배워야 하는 알림은 알림이 아니라 창이다. */

@@ -412,6 +412,7 @@ dongminal config validate      # 설정 파일을 스키마에 대조 (불일치
 | `workspace.json` | 창·칸·탭의 배치 | ✅ `backup` 이 담습니다 |
 | `settings.json` | 테마·단축키·상태바·레이아웃 프리셋 | ✅ |
 | `access.json` | 접속 허용 목록 | ✅ |
+| `lsp-paths.json` | 언어 서버 실행 파일 경로 (설정 ▸ Code) | ✅ |
 | `runs.json` | Run(오케스트레이션) 기록 | ✅ |
 | `tools.json` | 도구의 이름·작업 폴더 | ✅ |
 | `server.json` | 서버 기동값 | ✅ |

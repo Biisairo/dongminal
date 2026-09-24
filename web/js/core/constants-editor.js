@@ -198,10 +198,15 @@ function edTextOptions(){
 
 // ── 코드 탐색: 언어 서버의 관측 (EDITOR_LSP_SRS 묶음 A · M1) ──
 //
-// 조회가 POST 인 것은 본문이 필요하기 때문이다 — 설정에 적은 절대경로 표를
-// 실어 보낸다 (FR-LSP-4b). 설정 블롭은 서버가 해석하지 않으므로 이 길이 유일하다.
+// 조회는 POST 로 남는다(옛 계약). 본문은 비어 있다 — 경로는 서버 표에서 온다
+// (REPO_FIX 02 §3A-3, FR-LSP-4b 개정).
 const LSP_STATUS_API='/api/lsp/status';
 const LSP_INSTALL_API='/api/lsp/install';
+// REPO_FIX 02 §3A-3: 서버가 보관하는 실행 파일 경로 표 (GET 조회 · PUT 전체 교체).
+const LSP_PATHS_API='/api/lsp/paths';
+const LSP_PATH_PH=t('editor.lsp_path_ph');
+const LSP_PATH_SAVE=t('editor.lsp_path_save');
+const LSP_PATH_CLEAR=t('editor.lsp_path_clear');
 // FR-LSP-5: 어디서 찾았는지를 사람의 말로 옮기는 자리는 여기 하나다.
 const LSP_ORIGIN_LABEL={
   config:t('editor.lsp_origin_label.config'),

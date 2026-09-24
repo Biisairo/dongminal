@@ -370,6 +370,10 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 		dmlog.Warnf(nil, "플러그인 선언을 펴지 못했습니다: %v", err)
 	}
 	lspSvc := lsp.NewService(extSvc)
+	// REPO_FIX 02 §3A-3: 실행 파일 경로 표는 서버가 보관한다 — 설정 ▸ Code 가 편집한다.
+	if err := lspSvc.LoadPaths(filepath.Join(cfg.DataDir, "lsp-paths.json")); err != nil {
+		dmlog.Warnf(nil, "LSP 경로 표를 읽지 못했습니다: %v", err)
+	}
 	// FR-LSP-32: 진단은 **요청 없이** 오므로 이미 있는 push 길로 밀어낸다 (D-2).
 	// 도메인 계층은 이것이 SSE 인지 모른다 (D-4) — 그 결정이 여기 있다.
 	//

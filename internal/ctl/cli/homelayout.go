@@ -59,6 +59,7 @@ func homeLayout() []homeEntry {
 		{Name: "workspace.json", What: "창·칸·탭의 배치와 도구 연결", InBackup: true, KeepOnUninstall: true},
 		{Name: "settings.json", What: "테마·단축키·상태바·레이아웃 프리셋", InBackup: true, KeepOnUninstall: true},
 		{Name: "access.json", What: "접속 허용 목록 (기기·호스트 이름)", InBackup: true, KeepOnUninstall: true},
+		{Name: "lsp-paths.json", What: "언어 서버 실행 파일 경로 표 (설정 ▸ Code)", InBackup: true, KeepOnUninstall: true},
 		{Name: "runs.json", What: "Run(오케스트레이션) 기록", InBackup: true, KeepOnUninstall: true},
 		{Name: "tools.json", What: "도구의 이름·작업 폴더 등 복원 정보", InBackup: true, KeepOnUninstall: true},
 		{Name: "server.json", What: "서버 기동값 (host·port·로그)", InBackup: true, KeepOnUninstall: true},

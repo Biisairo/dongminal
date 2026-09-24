@@ -25,21 +25,15 @@ Object.assign(App.prototype, {
   },
 
   /**
-   * FR-LSP-4b: 설정에 적은 절대경로 표를 실어 보낸다.
-   *
-   * 서버가 설정 블롭을 해석하지 않으므로(PAGE_TITLE_SRS §2.2) 이 길이 유일하다.
-   * M1 에서 이 표는 비어 있다 — 그것을 편집하는 자리는 M5 의 것이다.
-   */
-  _lspOverrides(){ return lspServerPaths||{} },
-
-  /**
    * FR-LSP-47: 상태는 캐시가 아니라 **관측**이다. 패널을 열 때마다 다시 읽는 이유가
    * 그것이다 — 사용자가 바깥에서 지운 서버를 우리가 있다고 우기면 안 된다.
    */
   async _lspRefresh(){
     const list=document.getElementById('lsp-list');
     if(!list) return;
-    const r=await apiPost(LSP_STATUS_API,{overrides:this._lspOverrides()});
+    // REPO_FIX 02 §3A-3: 요청은 경로를 싣지 않는다 — 서버 표로 해석한다. 경로 칸을
+    // 칠하려면 그 표가 먼저 있어야 한다.
+    const [r]=await Promise.all([apiPost(LSP_STATUS_API,{}),this._lspPathsLoad()]);
     const d=r.ok?r.data:null;
     if(!d||!Array.isArray(d.servers)){
       // 503 은 배선이 없는 서버다 — 고장이 아니라 그 서버의 성질이므로 다르게 말한다.
@@ -111,6 +105,7 @@ Object.assign(App.prototype, {
         '<div class="lsp-state">'+escHtml(state)+'</div>'+
         '<div class="lsp-path">'+escHtml((srvs.find(x=>x.found)||{}).exe||'')+'</div>'+
         '<div class="lsp-act">'+btn+'</div>'+
+        this._lspPathRows(pack,srvs)+
         '<div class="lsp-msg"></div>'+
       '</div>');
     }
@@ -118,6 +113,7 @@ Object.assign(App.prototype, {
     for(const b of list.querySelectorAll('.lsp-install')){
       b.addEventListener('click',()=>this._lspInstall(b.dataset.id));
     }
+    this._lspPathsBind(list);
   },
 
   /**
@@ -517,7 +513,7 @@ Object.assign(App.prototype, {
     if(this._lspStatus) return this._lspStatus;
     if(this._lspStatusP) return this._lspStatusP;
     this._lspStatusP=(async()=>{
-      const r=await apiPost(LSP_STATUS_API,{overrides:this._lspOverrides()});
+      const r=await apiPost(LSP_STATUS_API,{});
       const d=r.ok?r.data:null;
       // 배선이 없는 서버(503)는 제안할 것도 없다 — 빈 목록으로 굳혀 다시 묻지
       // 않는다.

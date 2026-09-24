@@ -152,3 +152,32 @@ test.describe('편집기 코드 탐색 — 언어 서버의 관측 (M1)', () => 
     await expect.poll(() => calls, { timeout: 10000 }).toBeGreaterThan(0);
   });
 });
+
+// REPO_FIX 02 §3A-3: 실행 파일 경로는 서버가 보관한다 — 설정 ▸ Code 의 서버 행에서
+// 적고 지운다. 저장하면 서버 표가 바뀌고, 상대경로는 서버 사유가 그 행에 남는다.
+test.describe('편집기 코드 탐색 — 서버 경로 표 (REPO_FIX 02)', () => {
+  test('경로를 저장·거부·지우기', async ({ page, request }) => {
+    await waitForInit(page);
+    await openCodePanel(page);
+    const prow = page.locator('#lsp-list .lsp-pathrow').first();
+    await expect(prow).toBeVisible({ timeout: 10000 });
+    const key = await prow.getAttribute('data-key');
+    const input = prow.locator('.lsp-pathin');
+
+    await input.fill('relative/bin');
+    await prow.locator('.lsp-pathsave').click();
+    const pack = key!.slice(0, key!.lastIndexOf('/'));
+    await expect(page.locator(`#lsp-list .lsp-row[data-id="${pack}"] .lsp-msg`)).not.toBeEmpty();
+
+    await input.fill('/opt/e2e/fake-server');
+    await prow.locator('.lsp-pathsave').click();
+    await expect.poll(async () => (await (await request.get('/api/lsp/paths')).json()).paths[key!], { timeout: 10000 })
+      .toBe('/opt/e2e/fake-server');
+    // 다시 칠한 뒤에도 입력에 서버 값이 보인다.
+    await expect(page.locator(`#lsp-list .lsp-pathrow[data-key="${key}"] .lsp-pathin`)).toHaveValue('/opt/e2e/fake-server');
+
+    await page.locator(`#lsp-list .lsp-pathrow[data-key="${key}"] .lsp-pathclear`).click();
+    await expect.poll(async () => (await (await request.get('/api/lsp/paths')).json()).paths[key!], { timeout: 10000 })
+      .toBeUndefined();
+  });
+});

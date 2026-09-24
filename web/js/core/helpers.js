@@ -645,14 +645,6 @@ function clampTabWidth(v){
   if(!isFinite(n)) return TAB_WIDTH_DEFAULT;
   return Math.min(TAB_WIDTH_MAX,Math.max(TAB_WIDTH_MIN,n));
 }
-// EDITOR_LSP_SRS FR-LSP-3·4b: 언어 서버의 절대경로를 사용자가 직접 적은 표
-// (서술자 id → 경로). **기기별이다** — 서버 실행 파일의 자리는 그 기계의 사실이고,
-// 서버 설정에 두면 다른 기계의 경로가 따라와 없는 파일을 가리킨다.
-//
-// M1 에서는 비어 있다. 이것을 편집하는 자리는 M5 의 것이며, 지금 있는 이유는
-// 탐색의 첫째 순위가 **요청에 실려야** 하기 때문이다 (설정 블롭은 서버가 해석하지
-// 않는다).
-var lspServerPaths={};
 // EDITOR_LSP_SRS FR-LSP-36: 진단(에러·경고 밑줄)을 켤지. 기본은 켬 — 언어 서버를
 // 세웠다면 그것이 찾은 문제를 보는 것이 기본값으로 옳다. **기기별**인 이유는
 // 화면의 시끄러움에 대한 취향이기 때문이다.
@@ -661,10 +653,9 @@ try{
   const raw=localStorage.getItem('lspDiagnostics');
   if(raw!==null) lspDiagOn=raw!=='0';
 }catch{}
-try{
-  const raw=localStorage.getItem('lspServerPaths');
-  if(raw){const o=JSON.parse(raw); if(o&&typeof o==='object') lspServerPaths=o}
-}catch{}
+// REPO_FIX 02 §3A-3: 언어 서버 경로는 이제 서버가 보관한다(설정 ▸ Code). 옛 기기별
+// 값은 이관하지 않고 버린다 — 쓰는 UI 가 없어 개발자 도구로 넣은 값뿐이었다.
+try{ localStorage.removeItem('lspServerPaths') }catch{}
 function effectiveTitle(){return (pageTitle||'').trim()||DEFAULT_PAGE_TITLE}
 
 // ── Layout helpers ──

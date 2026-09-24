@@ -7,9 +7,12 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
+	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/lsp"
 )
 
@@ -32,16 +35,6 @@ func (s *Server) lspReady(w http.ResponseWriter) bool {
 	return true
 }
 
-// lspStatusReq 는 조회의 본문이다.
-//
-// 조회인데 POST 인 것은 본문이 필요하기 때문이다 — 절대경로 표를 질의문자열에
-// 실으면 경로가 길고 로그에 그대로 남는다. `/api/fs/stamp` 가 같은 이유로 POST 다.
-type lspStatusReq struct {
-	// Overrides 는 화면이 실어 보낸 서술자 id → 절대경로 표다 (FR-LSP-4b).
-	// 설정 블롭은 서버가 해석하지 않으므로 서버가 그것을 읽을 자리가 없다.
-	Overrides map[string]string `json:"overrides"`
-}
-
 // lspInstallReq 의 ID 는 **팩**이다 (FR-EXT-31) — 조달의 단위가 그것이다.
 type lspInstallReq struct {
 	ID string `json:"id"`
@@ -52,15 +45,11 @@ func (s *Server) apiLSPStatus(w http.ResponseWriter, r *http.Request) {
 	if !s.lspReady(w) {
 		return
 	}
-	var req lspStatusReq
-	// 빈 본문도 받는다 — 절대경로 표가 없는 것이 정상이다.
-	if body, err := io.ReadAll(io.LimitReader(r.Body, lspMaxBody)); err == nil && len(body) > 0 {
-		if err := json.Unmarshal(body, &req); err != nil {
-			writeToolIOError(w, http.StatusBadRequest, "bad request")
-			return
-		}
-	}
-	servers, problems := s.LSP.Status(req.Overrides)
+	// REPO_FIX 02 §3A-3: 요청은 경로를 싣지 않는다(FR-LSP-4b 개정) — 서버가 보관한
+	// 경로 표로 해석한다. 본문은 읽지 않는다(옛 화면이 보내도 무시된다).
+	//	이전 동작: 본문의 overrides(브라우저 localStorage)로 조회했다
+	//	새  동작: 서버 표 — 세션 기동과 같은 값
+	servers, problems := s.LSP.Status()
 	out := map[string]any{"servers": servers}
 	// FR-EXT-8: 읽지 못한 선언이 있으면 그 사실을 싣는다. 조용히 빠지면 사용자는
 	// 자기가 고친 파일이 무시된 이유를 알 수 없다.
@@ -193,4 +182,56 @@ func lspLocsResult(locs []lsp.Location, err error) map[string]any {
 		out["reason"] = err.Error()
 	}
 	return out
+}
+
+// lspPathsBody 는 경로 표의 조회·저장 본문이다 (REPO_FIX 02 §3A-3).
+type lspPathsBody struct {
+	Paths map[string]string `json:"paths"`
+}
+
+// apiLSPPathsGet 은 서버가 보관한 실행 파일 경로 표다 — 없으면 빈 객체다.
+func (s *Server) apiLSPPathsGet(w http.ResponseWriter, r *http.Request) {
+	if !s.lspReady(w) {
+		return
+	}
+	p := s.LSP.Paths()
+	if p == nil {
+		p = map[string]string{}
+	}
+	writeJSON(w, lspPathsBody{Paths: p})
+}
+
+// apiLSPPathsPut 은 경로 표 전체를 바꾼다. 값이 바뀐 서술자의 세션·실패 기억은
+// 서비스가 무효화한다. 거부는 코드로 가른다 — 화면이 그 행에 사유를 보인다.
+func (s *Server) apiLSPPathsPut(w http.ResponseWriter, r *http.Request) {
+	if !s.lspReady(w) {
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, lspMaxBody))
+	var req lspPathsBody
+	if err != nil || json.Unmarshal(body, &req) != nil {
+		lspFail(w, http.StatusBadRequest, apierr.CodeBadRequest, "bad request")
+		return
+	}
+	out, err := s.LSP.SetPaths(req.Paths)
+	switch {
+	case errors.Is(err, lsp.ErrUnknownServer):
+		lspFail(w, http.StatusBadRequest, apierr.CodeBadRequest, err.Error())
+	case errors.Is(err, lsp.ErrPathNotAbsolute):
+		lspFail(w, http.StatusBadRequest, apierr.CodeAbsPathNeeded, err.Error())
+	case err != nil:
+		dmlog.Errorf(nil, "[lsp] 경로 표 저장 실패: %v", err)
+		lspFail(w, http.StatusInternalServerError, apierr.CodeSaveFailed, err.Error())
+	default:
+		writeJSON(w, lspPathsBody{Paths: out})
+	}
+}
+
+// lspFail 은 이 표면의 단문 방언(`{"error": 문구}`)에 코드를 헤더로 싣는다 —
+// 상태에서 코드를 고르면 path_must_be_absolute 가 bad_request 로 뭉개진다.
+func lspFail(w http.ResponseWriter, status int, code, msg string) {
+	w.Header().Set(apierr.CodeHeader, code)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }

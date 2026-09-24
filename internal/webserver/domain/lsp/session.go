@@ -3,12 +3,14 @@ package lsp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"dongminal/internal/shared/platform"
@@ -116,6 +118,22 @@ type Session struct {
 	root string
 	srv  ext.Server
 	exe  string
+	// desc·key 는 관리자가 채운다 — 서술자 id(팩/서버)와 세션 맵의 키다.
+	desc string
+	key  string
+
+	// REPO_FIX 02 §3A-4. now 는 관리자의 시계, started 는 기동 시각(크래시 계수의
+	// 60s 판정), closing 은 "우리가 닫는 중"(의도한 정지는 크래시가 아니다),
+	// dead 는 죽음을 한 번만 보고하게 한다(크래시 감시와 핸드셰이크 실패가 겹친다).
+	now     func() time.Time
+	started time.Time
+	closing atomic.Bool
+	dead    atomic.Bool
+	// published 는 이 세션이 비지 않은 진단을 publish 한 파일들이다 — 세션이 끝나면
+	// 그 파일들에 빈 진단을 보내 밑줄을 걷는다 (§3A-2).
+	published map[string]bool
+	onDiag    DiagFunc
+	diagOnce  sync.Once
 
 	c    *conn
 	stop func()
@@ -146,12 +164,16 @@ type Session struct {
 func newSession(root string, d ext.Server, exe string, start Starter,
 	onDiag DiagFunc) *Session {
 	s := &Session{
-		root:    root,
-		srv:     d,
-		exe:     exe,
-		ready:   make(chan struct{}),
-		open:    map[string]int{},
-		lastUse: time.Now(),
+		root:      root,
+		srv:       d,
+		exe:       exe,
+		ready:     make(chan struct{}),
+		open:      map[string]int{},
+		lastUse:   time.Now(),
+		now:       time.Now,
+		started:   time.Now(),
+		published: map[string]bool{},
+		onDiag:    onDiag,
 	}
 	rwc, stop, err := start(context.Background(), exe, d.Args, root)
 	if err != nil {
@@ -166,6 +188,13 @@ func newSession(root string, d ext.Server, exe string, start Starter,
 			return
 		}
 		if d, ok := parseDiagnostics(params); ok {
+			s.mu.Lock()
+			if len(d.Items) > 0 {
+				s.published[d.Path] = true
+			} else {
+				delete(s.published, d.Path)
+			}
+			s.mu.Unlock()
 			onDiag(d)
 		}
 	}, func(method string, params json.RawMessage) (any, *rpcError) {
@@ -202,6 +231,47 @@ func (s *Session) LastUse() time.Time {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.lastUse
+}
+
+// touch 는 LSP 응답을 받은 요청이 부른다 (§3A-4) — 전송 실패·취소·통로 사망은
+// 부르지 않는다. idle 정리가 "쓰이고 있다" 를 이것으로 판정한다.
+func (s *Session) touch() {
+	s.mu.Lock()
+	s.lastUse = s.now()
+	s.mu.Unlock()
+}
+
+// answered 는 err 가 "서버가 답했다" 인가다 — JSON-RPC 오류 응답도 답이다.
+func answered(err error) bool {
+	var re *rpcError
+	return err == nil || errors.As(err, &re)
+}
+
+// watch 는 통로가 죽으면(읽기 루프 종료) onExit 를 부른다 (§3A-4). 우리가 닫은
+// 것이면 부르지 않는다.
+func (s *Session) watch(onExit func()) {
+	if s.c == nil {
+		return
+	}
+	go func() {
+		<-s.c.done
+		if !s.closing.Load() {
+			onExit()
+		}
+	}()
+}
+
+// markDead 는 이 세션의 죽음을 처음 보고하는 쪽에만 참이다.
+func (s *Session) markDead() bool { return s.dead.CompareAndSwap(false, true) }
+
+// handshakeErr 는 핸드셰이크가 끝났고 실패했으면 그 사유다. 아직이면 nil 이다.
+func (s *Session) handshakeErr() error {
+	select {
+	case <-s.ready:
+		return s.initErr
+	default:
+		return nil
+	}
 }
 
 // waitReady 는 핸드셰이크를 한 번만 하고 그 결과를 모두가 공유한다.
@@ -280,7 +350,7 @@ func (s *Session) sync(path, text string) error {
 	ver, seen := s.open[uri]
 	ver++
 	s.open[uri] = ver
-	s.lastUse = time.Now()
+	// §3A-4: lastUse 는 여기서 늘리지 않는다 — 응답을 받은 요청만 늘린다.
 	s.mu.Unlock()
 
 	if !seen {
@@ -349,6 +419,9 @@ func (s *Session) Hover(ctx context.Context, path, text string, line, col int) (
 		"textDocument": map[string]any{"uri": pathToURI(path)},
 		"position":     map[string]any{"line": l, "character": ch},
 	}, &raw)
+	if answered(err) {
+		s.touch()
+	}
 	if err != nil {
 		return "", err
 	}
@@ -404,7 +477,11 @@ func (s *Session) locate(ctx context.Context, method, path, text string,
 	// 응답은 세 모양 중 하나다 — Location, Location[], LocationLink[].
 	// 서버마다 다르므로 셋을 다 받는다.
 	var raw any
-	if err := s.c.Call(ctx, method, params, &raw); err != nil {
+	err := s.c.Call(ctx, method, params, &raw)
+	if answered(err) {
+		s.touch()
+	}
+	if err != nil {
 		return nil, err
 	}
 	return parseLocations(raw), nil
@@ -511,8 +588,25 @@ func parseDiagnostics(params json.RawMessage) (Diagnostics, bool) {
 	return Diagnostics{Path: path, Items: items}, true
 }
 
-// Close 는 세션을 정지시킨다 (FR-LSP-17·18).
+// Close 는 세션을 정지시킨다 (FR-LSP-17·18). stop 이 프로세스를 회수(Wait)한다.
+// 이 세션이 publish 한 진단은 빈 진단으로 걷는다 (§3A-2).
 func (s *Session) Close() {
+	s.closing.Store(true)
+	s.diagOnce.Do(func() {
+		s.mu.Lock()
+		paths := make([]string, 0, len(s.published))
+		for p := range s.published {
+			paths = append(paths, p)
+		}
+		s.published = map[string]bool{}
+		s.mu.Unlock()
+		if s.onDiag == nil {
+			return
+		}
+		for _, p := range paths {
+			s.onDiag(Diagnostics{Path: p, Items: []Diagnostic{}})
+		}
+	})
 	if s.c != nil {
 		_ = s.c.Close()
 	}

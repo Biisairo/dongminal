@@ -196,6 +196,8 @@
 |---|---|---|
 | POST | `/api/lsp/status` | 그 언어의 서버가 설치·기동돼 있는가 |
 | POST | `/api/lsp/install` | 그 언어의 서버를 설치한다 |
+| GET | `/api/lsp/paths` | 서버가 보관하는 언어 서버 실행 파일 경로 표 `{paths:{"팩/서버":"절대경로"}}` |
+| PUT | `/api/lsp/paths` | 경로 표 전체 교체. 모르는 서버 400 `bad_request`, 상대경로 400 `path_must_be_absolute`, 저장 실패 500 `save_failed`. 바뀐 서버의 세션은 다시 선다 |
 | POST | `/api/lsp/definition` | 정의로 이동 |
 | POST | `/api/lsp/references` | 참조 찾기 |
 | POST | `/api/lsp/hover` | 호버 정보 |

@@ -16,11 +16,14 @@ import (
 )
 
 type fakeLSP struct {
-	statuses   []ext.Status
-	problems   []string
-	gotOverrid map[string]string
-	installID  string
-	outcome    ext.Outcome
+	statuses  []ext.Status
+	problems  []string
+	installID string
+	outcome   ext.Outcome
+
+	paths    map[string]string
+	setPaths map[string]string
+	setErr   error
 
 	locs    []lsp.Location
 	hover   string
@@ -33,9 +36,19 @@ type fakeLSP struct {
 	askIncl bool
 }
 
-func (f *fakeLSP) Status(overrides map[string]string) ([]ext.Status, []string) {
-	f.gotOverrid = overrides
+func (f *fakeLSP) Status() ([]ext.Status, []string) {
 	return f.statuses, f.problems
+}
+
+func (f *fakeLSP) Paths() map[string]string { return f.paths }
+
+func (f *fakeLSP) SetPaths(p map[string]string) (map[string]string, error) {
+	f.setPaths = p
+	if f.setErr != nil {
+		return nil, f.setErr
+	}
+	f.paths = p
+	return p, nil
 }
 
 func (f *fakeLSP) Install(_ context.Context, id string) ext.Outcome {
@@ -91,22 +104,65 @@ func TestLSPStatus(t *testing.T) {
 	}
 }
 
-// TC-LSP-31 (FR-LSP-4b): 요청이 실은 절대경로 표가 서비스로 그대로 넘어간다.
-// 설정 블롭은 서버가 해석하지 않으므로 이 길이 유일하다.
-func TestLSPStatus_PassesOverrides(t *testing.T) {
-	f := &fakeLSP{}
+// REPO_FIX 02 §3A-3: 경로 표는 서버가 보관한다 — 조회 GET, 저장 PUT(전체 교체).
+func TestLSPPaths_GetPut(t *testing.T) {
+	f := &fakeLSP{paths: map[string]string{"gopls/gopls": "/opt/gopls"}}
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{LSP: f})
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 
-	body := `{"overrides":{"gopls":"/opt/gopls"}}`
-	resp, err := http.Post(ts.URL+"/api/lsp/status", "application/json", strings.NewReader(body))
+	resp, err := http.Get(ts.URL + "/api/lsp/paths")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Paths map[string]string `json:"paths"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&got)
+	resp.Body.Close()
+	if resp.StatusCode != 200 || got.Paths["gopls/gopls"] != "/opt/gopls" {
+		t.Fatalf("GET = %d %+v", resp.StatusCode, got)
+	}
+
+	req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/lsp/paths", strings.NewReader(`{"paths":{"gopls/gopls":"/usr/local/bin/gopls"}}`))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err = http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
-	if f.gotOverrid["gopls"] != "/opt/gopls" {
-		t.Fatalf("절대경로 표가 넘어가지 않았다: %+v", f.gotOverrid)
+	if resp.StatusCode != 200 || f.setPaths["gopls/gopls"] != "/usr/local/bin/gopls" {
+		t.Fatalf("PUT = %d, 받은 표 %+v", resp.StatusCode, f.setPaths)
+	}
+}
+
+// 거부 코드: 모르는 서버 400 bad_request, 상대경로 400 path_must_be_absolute, 저장 실패
+// 500 save_failed.
+func TestLSPPaths_PutErrors(t *testing.T) {
+	cases := []struct {
+		err    error
+		status int
+		code   string
+	}{
+		{lsp.ErrUnknownServer, 400, "bad_request"},
+		{lsp.ErrPathNotAbsolute, 400, "path_must_be_absolute"},
+		{lsp.ErrPathsSave, 500, "save_failed"},
+	}
+	for _, c := range cases {
+		f := &fakeLSP{setErr: c.err}
+		srv, _ := New(Config{DataDir: t.TempDir()}, Deps{LSP: f})
+		ts := httptest.NewServer(srv.Handler())
+		req, _ := http.NewRequest(http.MethodPut, ts.URL+"/api/lsp/paths", strings.NewReader(`{"paths":{"x":"y"}}`))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		ts.Close()
+		if resp.StatusCode != c.status || resp.Header.Get("X-Error-Code") != c.code {
+			t.Fatalf("%v = %d %s, want %d %s", c.err, resp.StatusCode, resp.Header.Get("X-Error-Code"), c.status, c.code)
+		}
 	}
 }
 

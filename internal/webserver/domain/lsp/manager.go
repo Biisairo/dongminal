@@ -27,11 +27,51 @@ const MaxTextBytes = 8 << 20
 // SweepEvery 는 idle 정리의 주기다.
 const SweepEvery = 2 * time.Minute
 
-// sessionKey 는 (루트, 서술자) 한 쌍이다 (FR-LSP-13).
+// sessionKey 는 (루트, 서술자, exe키) 다 (FR-LSP-13, REPO_FIX 02 §3A-3).
 //
 // 서술자가 단위인 것이 규칙이다 — 언어를 단위로 삼으면 TS·JS 가 같은 서버를 두 번
-// 띄운다.
-func sessionKey(root, descID string) string { return root + "\x00" + descID }
+// 띄운다. exe키는 서버 경로 표에 그 서술자의 경로가 있으면 그 경로, 없으면
+// "default" 다 — 경로가 바뀌면 옛 세션을 재사용하지 않는다.
+func sessionKey(root, descID, exeKey string) string {
+	return root + "\x00" + descID + "\x00" + exeKey
+}
+
+// FailureTTL 은 실패 기억의 수명이다 (§3A-4) — 터미널에서 설치한 뒤 재시작 없이
+// 이 안에 동작해야 한다. EarlyCrash 는 "기동 직후 크래시" 로 세는 시간이다.
+const (
+	FailureTTL      = 60 * time.Second
+	FailureMaxDelay = 60 * time.Second
+	EarlyCrash      = 60 * time.Second
+)
+
+// failure 는 (루트, 서술자)의 실패 기억이다. exe 가 바뀌면(설치·경로 변경) 무효다.
+type failure struct {
+	desc string
+	exe  string
+	err  error
+	at   time.Time
+	n    int
+}
+
+// retryAt 은 at + min(2^(n-1)s, 60s) 다.
+func (f *failure) retryAt() time.Time {
+	d := FailureMaxDelay
+	if f.n <= 6 {
+		if b := time.Duration(1<<(f.n-1)) * time.Second; b < d {
+			d = b
+		}
+	}
+	return f.at.Add(d)
+}
+
+func failKey(root, descID string) string { return root + "\x00" + descID }
+
+func (s *Service) now() time.Time {
+	if s.Now != nil {
+		return s.Now()
+	}
+	return time.Now()
+}
 
 // Definition 은 그 자리의 정의들이다 (FR-LSP-21).
 func (s *Service) Definition(ctx context.Context, root, path, text string, line, col int) ([]Location, error) {
@@ -40,6 +80,9 @@ func (s *Service) Definition(ctx context.Context, root, path, text string, line,
 		return nil, err
 	}
 	if err := checkText(text); err != nil {
+		return nil, err
+	}
+	if err := s.ready(ctx, sess); err != nil {
 		return nil, err
 	}
 	return sess.Definition(ctx, path, text, line, col)
@@ -54,6 +97,9 @@ func (s *Service) References(ctx context.Context, root, path, text string, line,
 	if err := checkText(text); err != nil {
 		return nil, err
 	}
+	if err := s.ready(ctx, sess); err != nil {
+		return nil, err
+	}
 	return sess.References(ctx, path, text, line, col, includeDecl)
 }
 
@@ -66,6 +112,9 @@ func (s *Service) Hover(ctx context.Context, root, path, text string, line, col 
 	if err := checkText(text); err != nil {
 		return "", err
 	}
+	if err := s.ready(ctx, sess); err != nil {
+		return "", err
+	}
 	return sess.Hover(ctx, path, text, line, col)
 }
 
@@ -74,6 +123,47 @@ func checkText(text string) error {
 		return fmt.Errorf("파일이 너무 큽니다 (%d 바이트, 상한 %d)", len(text), MaxTextBytes)
 	}
 	return nil
+}
+
+// ready 는 핸드셰이크를 기다린다. 핸드셰이크가 실패(initialize 오류·시한 초과)했으면
+// 그 세션을 맵에서 빼고 정지하고 실패를 기억한다 (§3A-4) — 캐시에 고착되지 않는다.
+// 호출자 ctx 로 빠진 것은 실패가 아니다.
+func (s *Service) ready(ctx context.Context, sess *Session) error {
+	err := sess.waitReady(ctx)
+	if err == nil {
+		return nil
+	}
+	if herr := sess.handshakeErr(); herr != nil {
+		s.discard(sess, herr)
+		return herr
+	}
+	return err
+}
+
+// discard 는 죽은 세션을 맵에서 빼고(그 세션일 때만 — 재기동된 새 세션을 지우지
+// 않는다) 정지(회수)한다. 이 세션의 죽음을 처음 보고하는 쪽이면 기억한다.
+func (s *Service) discard(sess *Session, cause error) {
+	s.mu.Lock()
+	if s.sessions[sess.key] == sess {
+		delete(s.sessions, sess.key)
+	}
+	s.mu.Unlock()
+	if cause != nil && sess.markDead() {
+		s.remember(sess.root, sess.desc, sess.exe, cause)
+	}
+	sess.Close()
+}
+
+// exited 는 통로가 죽은 세션의 뒷정리다 (§3A-4 회수). 기동 후 EarlyCrash 안에 죽은
+// 것만 실패로 센다 — 그 뒤의 크래시는 다음 요청이 곧바로 재기동한다.
+func (s *Service) exited(sess *Session) {
+	var cause error
+	if s.now().Sub(sess.started) < EarlyCrash {
+		cause = fmt.Errorf("lsp: %s 가 기동 직후 종료됐습니다", sess.srv.ID)
+	} else {
+		sess.markDead()
+	}
+	s.discard(sess, cause)
 }
 
 // session 은 이 파일을 맡을 세션을 얻는다. 없으면 세우고, 실패는 기억한다.
@@ -85,37 +175,29 @@ func (s *Service) session(root, path string) (*Session, error) {
 	if root == "" {
 		return nil, fmt.Errorf("루트가 없습니다")
 	}
-	// FR-LSP-24·49: 루트 밖은 거절한다. 종단에도 가드가 있지만 이 표면을 쓰는
-	// 다른 종단이 그 가드를 다시 적지 않아도 되게 여기서도 막는다.
+	// FR-LSP-24·49: 루트 밖은 거절한다.
 	if !underRoot(root, path) {
 		return nil, fmt.Errorf("루트 밖의 경로입니다")
 	}
-	// 확장자 → 서버는 **플러그인 선언**이 푼다 (FR-EXT-1·4). 이 패키지에는 어떤
-	// 언어가 있는지에 대한 앎이 없다.
 	if s.Ext == nil {
 		return nil, fmt.Errorf("플러그인 계층이 배선되지 않았습니다")
 	}
 	// FR-PRF-70: **캐시를 먼저 본다.** 살아 있는 세션이 있으면 `Resolve` 를 아예
-	// 부르지 않는다 — 그것이 격리 칸 전량 재파싱과 `LookPath` 두 번이었고,
-	// 호버는 커서를 움직일 때마다 온다.
-	//
-	// 순서를 뒤집는 것만으로 되는 이유는 세션의 키가 (루트, 서술자)이고 서술자를
-	// `extDesc` 가 알기 때문이다. `ext` 쪽은 한 글자도 건드리지 않는다 —
-	// `FR-EXT-33`("상태는 캐시가 아니라 관측")은 설정 화면의 요구이지 이 핫패스의
-	// 요구가 아니다 (D-PRF-5).
+	// 부르지 않는다 — 호버는 커서를 움직일 때마다 온다. 키는 extDesc → 서술자 →
+	// 서버 경로 표 조회 한 번으로 만든다 (§3A-3).
 	fileExt := filepath.Ext(path)
 	if sess := s.cachedSession(root, fileExt); sess != nil {
 		return sess, nil
 	}
-	m, srv, st, ok := s.Ext.Resolve(fileExt, s.Overrides)
+	m, srv, st, ok := s.Ext.Resolve(fileExt, s.locatorOverrides())
 	if !ok {
 		return nil, fmt.Errorf("%s 는 코드 탐색을 지원하는 언어가 아닙니다", filepath.Ext(path))
 	}
-
-	// 세션의 단위는 서버다 (FR-EXT-4 / FR-LSP-13). 팩이 여럿을 내므로 키에 팩과
-	// 서버가 함께 들어간다 — 서버 id 만 쓰면 다른 팩의 같은 이름과 부딪힌다.
 	descID := m.ID + "/" + srv.ID
-	key := sessionKey(root, descID)
+	exe := ""
+	if st.Found {
+		exe = st.Exe
+	}
 	s.mu.Lock()
 	if s.sessions == nil {
 		s.sessions = map[string]*Session{}
@@ -124,17 +206,15 @@ func (s *Service) session(root, path string) (*Session, error) {
 		s.extDesc = map[string]string{}
 	}
 	s.extDesc[fileExt] = descID
+	key := sessionKey(root, descID, s.exeKeyLocked(descID))
 	if sess := s.sessions[key]; sess != nil {
 		s.mu.Unlock()
 		return sess, nil
 	}
-	// FR-LSP-16: 기동 실패는 기억된다 — 매 요청마다 프로세스를 되풀이 띄우지
-	// 않는다. 설치가 바뀌면 이 기억은 지워진다 (Install 이 그것을 한다).
-	if s.failed != nil {
-		if err, bad := s.failed[descID]; bad {
-			s.mu.Unlock()
-			return nil, err
-		}
+	// FR-LSP-16·§3A-4: 기억된 실패는 재시도 시각 전까지 되풀이하지 않는다.
+	if err := s.recalledLocked(root, descID, exe); err != nil {
+		s.mu.Unlock()
+		return nil, err
 	}
 	s.mu.Unlock()
 
@@ -142,7 +222,7 @@ func (s *Service) session(root, path string) (*Session, error) {
 	if !st.Found {
 		err := fmt.Errorf("%s 가 없어 코드 탐색을 할 수 없습니다 — %s (설정 ▸ Code)",
 			srv.Exe, ext.MissingText(st))
-		s.remember(descID, err)
+		s.remember(root, descID, "", err)
 		return nil, err
 	}
 
@@ -152,8 +232,10 @@ func (s *Service) session(root, path string) (*Session, error) {
 	}
 	// FR-LSP-32: 진단은 요청 없이 오므로 세션을 세울 때 통로를 잇는다.
 	sess := newSession(root, srv, st.Exe, start, s.OnDiagnostics)
+	sess.desc, sess.key, sess.now = descID, key, s.now
+	sess.started, sess.lastUse = s.now(), s.now()
 	if sess.initErr != nil {
-		s.remember(descID, sess.initErr)
+		s.remember(root, descID, exe, sess.initErr)
 		sess.Close()
 		return nil, sess.initErr
 	}
@@ -167,6 +249,8 @@ func (s *Service) session(root, path string) (*Session, error) {
 	}
 	s.sessions[key] = sess
 	s.mu.Unlock()
+	// §3A-4: 통로가 죽으면 맵에서 빼고 회수한다 — 죽은 세션이 캐시에 남지 않는다.
+	sess.watch(func() { s.exited(sess) })
 
 	// FR-LSP-19: 상한을 넘으면 가장 오래 쓰이지 않은 것을 정지한다.
 	s.evictOverLimit()
@@ -175,9 +259,6 @@ func (s *Service) session(root, path string) (*Session, error) {
 
 // cachedSession 은 확장자만으로 살아 있는 세션을 찾는다. 없으면 nil 이고, 그때만
 // `Ext.Resolve` 를 지난다 (FR-PRF-70).
-//
-// **실패 기억은 여기서 보지 않는다.** 그 판정은 `Resolve` 뒤의 자리에 그대로 있고,
-// 여기 옮기면 같은 물음이 두 곳에 생긴다.
 func (s *Service) cachedSession(root, fileExt string) *Session {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -185,24 +266,47 @@ func (s *Service) cachedSession(root, fileExt string) *Session {
 	if !ok {
 		return nil
 	}
-	return s.sessions[sessionKey(root, descID)]
+	return s.sessions[sessionKey(root, descID, s.exeKeyLocked(descID))]
 }
 
-func (s *Service) remember(descID string, err error) {
-	s.mu.Lock()
-	if s.failed == nil {
-		s.failed = map[string]error{}
+// recalledLocked 는 기억된 실패가 아직 유효하고 재시도 시각 전이면 그 사유다.
+// exe 가 달라졌거나(설치·경로) TTL 이 지났으면 기억을 버린다.
+func (s *Service) recalledLocked(root, descID, exe string) error {
+	k := failKey(root, descID)
+	f := s.failed[k]
+	if f == nil {
+		return nil
 	}
-	s.failed[descID] = err
-	s.mu.Unlock()
+	now := s.now()
+	if f.exe != exe || now.Sub(f.at) > FailureTTL {
+		delete(s.failed, k)
+		return nil
+	}
+	if now.Before(f.retryAt()) {
+		return f.err
+	}
+	return nil
 }
 
-// forget 은 그 서술자의 실패 기억을 지운다. 설치가 이것을 부른다 (FR-LSP-16) —
-// 고쳐 놓고도 안 되면 사용자는 우리를 못 믿는다.
-func (s *Service) forget(descID string) {
+// remember 는 (루트, 서술자, exe)의 실패를 기억한다 — 기동·핸드셰이크·시한 초과·
+// 기동 직후 크래시가 모두 여기로 온다 (§3A-4). 같은 exe 의 연속 실패는 n 을 올린다.
+//
+//	이전 동작: 키가 서술자뿐이라 한 루트의 실패가 모든 루트를 막았고, 지워지지 않았으며,
+//	          핸드셰이크 실패 세션은 맵에 남아 같은 오류를 되풀이했다
+//	새  동작: (루트, 서술자, exe), TTL 60s, 재시도 간격 min(2^(n-1)s, 60s)
+//	이유:     설치한 뒤에도 재시작 전까지 영영 안 됐다 (#17, N7)
+func (s *Service) remember(root, descID, exe string, err error) {
 	s.mu.Lock()
-	delete(s.failed, descID)
-	s.mu.Unlock()
+	defer s.mu.Unlock()
+	if s.failed == nil {
+		s.failed = map[string]*failure{}
+	}
+	k := failKey(root, descID)
+	n := 1
+	if f := s.failed[k]; f != nil && f.exe == exe && s.now().Sub(f.at) <= FailureTTL {
+		n = f.n + 1
+	}
+	s.failed[k] = &failure{desc: descID, exe: exe, err: err, at: s.now(), n: n}
 }
 
 // evictOverLimit 은 상한을 넘긴 만큼 가장 오래 쓰이지 않은 세션을 정지시킨다.
@@ -240,7 +344,7 @@ func (s *Service) Sweep() {
 	if after <= 0 {
 		after = IdleAfter
 	}
-	cut := time.Now().Add(-after)
+	cut := s.now().Add(-after)
 	var stop []*Session
 	s.mu.Lock()
 	for k, sess := range s.sessions {
@@ -277,6 +381,8 @@ func (s *Service) Shutdown() {
 	// 확장자→서술자 표도 함께 버린다 — 세션이 없으면 그 표는 아무것도 가리키지
 	// 않고, 남겨 두면 선언이 바뀐 뒤에도 옛 배정을 붙든다 (FR-PRF-70).
 	s.extDesc = nil
+	// §3A-4: 정지는 실패 기억도 버린다.
+	s.failed = nil
 	s.mu.Unlock()
 	for _, sess := range all {
 		sess.Close()
