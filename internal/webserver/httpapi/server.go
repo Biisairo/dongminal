@@ -261,6 +261,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	// 지나간다.
 	if deps.Git != nil {
 		srv.gitWatch = hub.NewGitWatcher(deps.Git, cmds)
+		srv.gitWatch.SetOnChanged(deps.OnGitChanged)
 	}
 	srv.git = &gitapi.GitServer{
 		Git:       deps.Git,

@@ -526,6 +526,11 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "write failed: "+err.Error(), http.StatusInternalServerError, apierr.CodeIO)
 		return
 	}
+	// REPO_FIX 02 §3A-6: 그 파일이 언어 서버에 열려 있으면 디스크 판으로 맞춘다 —
+	// 응답을 기다리게 하지 않는다(서버가 stdin 을 읽지 않으면 쓰기가 막힌다).
+	if s.LSP != nil {
+		go s.LSP.ResyncPath(target)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	// FR-EXC-11: **새 표식을 함께 준다.** 없으면 클라이언트가 든 표식이 방금 쓴
 	// 내용보다 낡아서, 다음 저장이 제 손으로 만든 변경에 걸려 409 가 된다 —

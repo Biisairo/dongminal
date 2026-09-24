@@ -172,6 +172,32 @@ type GitWatcher struct {
 	epoch uint64
 	// round 는 회차 번호다. 워크트리 회차의 판정이 이것을 딛는다 (FR-GDT-3·4).
 	round uint64
+	// onChanged 는 git_changed 를 방송할 때 그 저장소로 불린다 (REPO_FIX 02 §3A-6) —
+	// LSP 가 열린 문서를 디스크 판으로 맞춘다. 감시자는 그것이 무엇인지 모른다.
+	onChanged func(repo string)
+}
+
+// SetOnChanged 는 방송 훅을 건다. 합성 루트가 한 번 부른다.
+func (w *GitWatcher) SetOnChanged(f func(repo string)) {
+	if w == nil {
+		return
+	}
+	w.mu.Lock()
+	w.onChanged = f
+	w.mu.Unlock()
+}
+
+// announce 는 git_changed 를 방송하고 훅을 부른다.
+func (w *GitWatcher) announce(repo, mark string) {
+	if w.hub != nil {
+		w.hub.Broadcast(gitChangedPayload(repo, mark))
+	}
+	w.mu.Lock()
+	f := w.onChanged
+	w.mu.Unlock()
+	if f != nil {
+		f(repo)
+	}
 }
 
 type gitWatchEntry struct {
@@ -589,9 +615,7 @@ func (w *GitWatcher) observe(ctx context.Context, repo string, round uint64) boo
 	if first || !changed {
 		return false
 	}
-	if w.hub != nil {
-		w.hub.Broadcast(gitChangedPayload(repo, mark))
-	}
+	w.announce(repo, mark)
 	return true
 }
 
@@ -608,9 +632,7 @@ func (w *GitWatcher) drop(repo string, err error) bool {
 	}
 	// FR-GLW-7: 탈락은 **저장소가 읽히지 않은 것**이다 (FR-GPO-5).
 	dmlog.Errorf(nil, "[gitwatch] 저장소를 읽을 수 없어 감시에서 뺀다 (repo=%s err=%v)", repo, err)
-	if w.hub != nil {
-		w.hub.Broadcast(gitChangedPayload(repo, ""))
-	}
+	w.announce(repo, "")
 	return true
 }
 

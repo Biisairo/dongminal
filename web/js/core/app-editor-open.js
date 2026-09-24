@@ -100,6 +100,9 @@ Object.assign(App.prototype, {
     if(!d) return;
     d.views.delete(view);
     if(d.views.size) return;
+    // REPO_FIX 02 §3A-0 X4: 문서의 마지막 뷰가 떠났다 — 언어 서버에서도 닫는다.
+    // 뷰 하나의 destroy 가 아니라 이 자리다(다른 칸이 보고 있으면 닫지 않는다).
+    this.lspDocClosed(filePath);
     // FR-EDD-16·55: 표시의 수명은 문서의 수명이다. 모델보다 **먼저** 걷는다 —
     // 데코레이션을 버려진 모델에서 지우려 하면 그 자리가 예외다.
     if(d.dd){d.dd.dispose();d.dd=null}

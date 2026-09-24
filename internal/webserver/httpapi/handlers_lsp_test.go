@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"dongminal/internal/shared/testpath"
 	"dongminal/internal/webserver/domain/ext"
@@ -24,6 +25,9 @@ type fakeLSP struct {
 	paths    map[string]string
 	setPaths map[string]string
 	setErr   error
+
+	closed   chan [2]string
+	resynced chan string
 
 	locs    []lsp.Location
 	hover   string
@@ -41,6 +45,18 @@ func (f *fakeLSP) Status() ([]ext.Status, []string) {
 }
 
 func (f *fakeLSP) Paths() map[string]string { return f.paths }
+
+func (f *fakeLSP) CloseDoc(root, path string) {
+	if f.closed != nil {
+		f.closed <- [2]string{root, path}
+	}
+}
+
+func (f *fakeLSP) ResyncPath(path string) {
+	if f.resynced != nil {
+		f.resynced <- path
+	}
+}
 
 func (f *fakeLSP) SetPaths(p map[string]string) (map[string]string, error) {
 	f.setPaths = p
@@ -393,5 +409,70 @@ func TestLSPHover(t *testing.T) {
 	}
 	if f.askLine != 2 || f.askCol != 3 {
 		t.Fatalf("좌표가 넘어가지 않았다: %d,%d", f.askLine, f.askCol)
+	}
+}
+
+// REPO_FIX 02 §3A-6: close 는 절대경로만 받고 서비스로 넘긴다.
+func TestLSPClose(t *testing.T) {
+	f := &fakeLSP{closed: make(chan [2]string, 1)}
+	_, ts := lspServerWithRoot(t, f)
+	defer ts.Close()
+
+	rel := `{"root":` + testpath.JSONQuote(lspTestRoot) + `,"path":"rel/a.go"}`
+	resp, err := http.Post(ts.URL+"/api/lsp/close", "application/json", strings.NewReader(rel))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 400 {
+		t.Fatalf("상대경로 = %d, want 400", resp.StatusCode)
+	}
+	resp, err = http.Post(ts.URL+"/api/lsp/close", "application/json", strings.NewReader(lspBody("a.go", "")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("close = %d", resp.StatusCode)
+	}
+	select {
+	case got := <-f.closed:
+		if got[1] != filepath.Join(lspTestRoot, "a.go") {
+			t.Fatalf("닫은 문서 = %v", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("서비스로 넘어가지 않았다")
+	}
+}
+
+// REPO_FIX 02 §3A-6 ②: 파일을 쓰면 그 문서를 디스크 판으로 맞추라고 알린다.
+func TestFileWrite_ResyncsLSP(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &fakeLSP{resynced: make(chan string, 1)}
+	ws := newFakeWorkspaceStore()
+	seedRoot(t, ws, root)
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{LSP: f, Work: ws})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+	p := filepath.Join(root, "a.go")
+	body, _ := json.Marshal(map[string]string{"path": p, "content": "package a\n"})
+	resp, err := http.Post(ts.URL+"/api/file/write", "application/json", strings.NewReader(string(body)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("write = %d", resp.StatusCode)
+	}
+	select {
+	case got := <-f.resynced:
+		if got != p {
+			t.Fatalf("재동기화 경로 = %q", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("쓰기 뒤 재동기화가 없다")
 	}
 }

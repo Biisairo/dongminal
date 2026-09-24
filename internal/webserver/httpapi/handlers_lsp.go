@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"path/filepath"
 
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/webserver/apierr"
@@ -234,4 +235,31 @@ func lspFail(w http.ResponseWriter, status int, code, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
+// apiLSPClose 는 브라우저에서 그 문서의 마지막 뷰가 떠났다는 알림이다 (REPO_FIX 02
+// §3A-6). 열려 있으면 didClose, 세션이나 문서가 없으면 200 no-op 이다.
+func (s *Server) apiLSPClose(w http.ResponseWriter, r *http.Request) {
+	if !s.lspReady(w) {
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, lspMaxBody))
+	var req struct {
+		Root string `json:"root"`
+		Path string `json:"path"`
+	}
+	if err != nil || json.Unmarshal(body, &req) != nil {
+		writeToolIOError(w, http.StatusBadRequest, "bad request")
+		return
+	}
+	if !filepath.IsAbs(req.Path) {
+		lspFail(w, http.StatusBadRequest, apierr.CodeAbsPathNeeded, "path must be absolute")
+		return
+	}
+	root, ok := s.fsRoot(w, req.Root)
+	if !ok {
+		return
+	}
+	s.LSP.CloseDoc(root, req.Path)
+	writeJSON(w, map[string]any{"ok": true})
 }

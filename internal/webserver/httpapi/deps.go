@@ -154,6 +154,10 @@ type Deps struct {
 	// 격리가 **같은 인스턴스**를 봐야 배타가 선다. nil 이면 GitServer 가 자기 것을
 	// 만든다(단독 배선).
 	GitExclusion *jobs.Exclusion
+	// OnGitChanged 는 git 감시자가 git_changed 를 방송할 때 그 저장소로 불린다
+	// (REPO_FIX 02 §3A-6). 합성 루트가 LSP 의 재동기화를 잇는다 — 두 도메인은 서로를
+	// 모른다.
+	OnGitChanged func(repo string)
 	// LSP 는 편집기의 코드 탐색이 딛는 표면이다 (EDITOR_LSP_SRS 묶음 A).
 	// nil 이면 /api/lsp/* 이 503 이며 그 밖의 동작에는 영향이 없다 — 코드 탐색이
 	// 없는 편집기는 종전의 편집기다.
@@ -190,6 +194,10 @@ type LSPService interface {
 	// Paths·SetPaths 는 실행 파일 경로 표(팩/서버 → 절대경로)의 조회·전체 교체다.
 	Paths() map[string]string
 	SetPaths(map[string]string) (map[string]string, error)
+	// CloseDoc·ResyncPath 는 문서 수명이다 (REPO_FIX 02 §3A-6) — 브라우저의 마지막
+	// 뷰가 떠날 때 닫고, 파일을 쓴 뒤 열린 문서를 디스크 판으로 맞춘다.
+	CloseDoc(root, path string)
+	ResyncPath(path string)
 	// Install 은 **팩** 하나를 조달한다 (FR-EXT-31). 단위가 팩인 것은 조달물이
 	// 하나이기 때문이다 — 서버 다섯을 내는 패키지를 서버마다 받으면 같은 것을
 	// 다섯 번 받는다. 같은 것의 두 번째 요청은 거절된다 (FR-EXT-32).

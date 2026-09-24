@@ -336,6 +336,50 @@ func (s *Service) evictOverLimit() {
 	}
 }
 
+// liveSessions 는 지금 세션들의 사본이다 — 잠금 밖에서 세션에 말을 걸기 위해서다.
+func (s *Service) liveSessions() []*Session {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]*Session, 0, len(s.sessions))
+	for _, sess := range s.sessions {
+		out = append(out, sess)
+	}
+	return out
+}
+
+// CloseDoc 은 그 루트의 세션들에서 그 문서를 닫는다 (REPO_FIX 02 §3A-6 — 브라우저의
+// 마지막 뷰가 떠날 때). 열려 있지 않으면 아무것도 하지 않는다.
+//
+//	이전 동작: 한 번 연 문서는 세션이 끝날 때까지 열린 채 남았다
+//	새  동작: 마지막 뷰가 닫히면 didClose — 다음 요청이 다시 연다
+//	이유:     한 번 호버한 파일이 옛 판으로 영구히 남았다 (#19)
+func (s *Service) CloseDoc(root, path string) {
+	for _, sess := range s.liveSessions() {
+		if sess.root == root {
+			sess.closeDoc(path)
+		}
+	}
+}
+
+// ResyncPath 는 파일 쓰기 뒤 그 파일이 열린 세션의 문서를 디스크 판으로 맞춘다.
+func (s *Service) ResyncPath(path string) {
+	for _, sess := range s.liveSessions() {
+		sess.resync(path)
+	}
+}
+
+// ResyncRepo 는 저장소 변화(gitwatch 의 git_changed — 브랜치 전환 포함) 뒤 그 아래의
+// **열린 문서만** 디스크 판으로 맞춘다. 열지 않은 파일은 알리지 않는다(비목표).
+func (s *Service) ResyncRepo(repo string) {
+	for _, sess := range s.liveSessions() {
+		for _, p := range sess.openPaths() {
+			if underRoot(repo, p) {
+				sess.resync(p)
+			}
+		}
+	}
+}
+
 // Sweep 은 쓰이지 않은 세션을 정지시킨다 (FR-LSP-17).
 //
 // 정지는 포기가 아니다 — 다시 물으면 다시 선다.

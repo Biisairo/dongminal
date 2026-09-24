@@ -185,6 +185,7 @@ var apiRoutes = []apiRoute{
 	httproute.Post("/api/lsp/status", (*Server).apiLSPStatus),
 	httproute.Get("/api/lsp/paths", (*Server).apiLSPPathsGet),
 	httproute.Put("/api/lsp/paths", (*Server).apiLSPPathsPut),
+	httproute.Post("/api/lsp/close", (*Server).apiLSPClose),
 	httproute.Post("/api/lsp/install", (*Server).apiLSPInstall),
 	// 정의·참조는 `fsRoot` 가드를 딛는다 (FR-LSP-24·49) — /api/fs/* 와 같은 가드다.
 	httproute.Post("/api/lsp/definition", (*Server).apiLSPDefinition),

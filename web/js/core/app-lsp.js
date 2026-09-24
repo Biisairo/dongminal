@@ -443,6 +443,15 @@ Object.assign(App.prototype, {
 
   // 모델의 uri 에서 파일 경로를 되돌린다. 모델은 `edDoc` 이 파일마다 하나로
   // 만들므로 그 규약을 그대로 딛는다.
+  /**
+   * REPO_FIX 02 §3A-6: 이 브라우저에서 문서의 마지막 뷰가 떠났다. 서버에 열려 있으면
+   * 닫는다 — 다음 호버·정의가 didOpen 으로 다시 연다. 기다리지 않는다.
+   */
+  lspDocClosed(path){
+    const root=this._lspRootOfPath(path);
+    if(root) apiPost(LSP_CLOSE_API,{root,path});
+  },
+
   _lspPathOfModel(model){
     const v=this._edActiveEditor();
     if(v&&v._editor&&v._editor.getModel()===model) return v.filePath;

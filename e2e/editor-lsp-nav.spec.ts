@@ -670,3 +670,22 @@ test.describe('코드 탐색 — 설치 제안 (M5)', () => {
     await expect(offer(page).locator('.fe-offer-set')).toBeVisible();
   });
 });
+
+// REPO_FIX 02 §3A-6: 문서의 마지막 뷰가 떠나면 언어 서버에서도 닫는다.
+test('마지막 뷰가 떠나면 /api/lsp/close 를 보낸다', async ({ page, request }) => {
+  const closes: any[] = [];
+  page.on('request', (r: any) => {
+    if (r.url().includes('/api/lsp/close') && r.method() === 'POST') closes.push(r.postDataJSON());
+  });
+  await enter(page, request);
+  await openFile(page, 'main.go');
+  const key = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
+  // 그 파일을 보는 유일한 뷰를 거둔다 — 탭을 닫을 때 부르는 자리다.
+  await page.evaluate((p) => {
+    const k = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
+    const v = [...(window as any).app.fileEditors.values()].find((x: any) => k(x.filePath) === k(p));
+    v.destroy();
+  }, P('main.go'));
+  await expect.poll(() => closes.some((b) => key(b.path) === key(P('main.go')) && key(b.root) === key(ROOT)),
+    { timeout: 10000 }).toBe(true);
+});

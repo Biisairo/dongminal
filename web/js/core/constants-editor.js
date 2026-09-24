@@ -204,6 +204,8 @@ const LSP_STATUS_API='/api/lsp/status';
 const LSP_INSTALL_API='/api/lsp/install';
 // REPO_FIX 02 §3A-3: 서버가 보관하는 실행 파일 경로 표 (GET 조회 · PUT 전체 교체).
 const LSP_PATHS_API='/api/lsp/paths';
+// REPO_FIX 02 §3A-6: 문서의 마지막 뷰가 떠날 때 언어 서버에서 닫는다.
+const LSP_CLOSE_API='/api/lsp/close';
 const LSP_PATH_PH=t('editor.lsp_path_ph');
 const LSP_PATH_SAVE=t('editor.lsp_path_save');
 const LSP_PATH_CLEAR=t('editor.lsp_path_clear');

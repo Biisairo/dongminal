@@ -1069,3 +1069,24 @@ func TestGitWatch_SigChangeInvalidatesBeforeObserve(t *testing.T) {
 		t.Fatalf("변화 방송 = %v, want 1회 (캐시가 변화 전 값을 줬다)", got)
 	}
 }
+
+// REPO_FIX 02 §3A-6: git_changed 를 방송할 때(제외 알림 포함) 훅이 그 저장소로 불린다 —
+// LSP 가 열린 문서를 디스크 판으로 맞춘다.
+func TestGitWatch_OnChangedHook(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/r": "a", "/g": "x"}}
+	w := newWatcher(sig, &fakeBroker{})
+	var mu sync.Mutex
+	var got []string
+	w.SetOnChanged(func(repo string) { mu.Lock(); got = append(got, repo); mu.Unlock() })
+	note(t, w, sig, "/r")
+	note(t, w, sig, "/g")
+	sig.sigs["/r"] = "b"
+	sig.files = map[string][]string{"/r": {"n"}}
+	sig.sigErrs = map[string]error{"/g": fmt.Errorf("%w", core.ErrRepoMissing)}
+	w.Tick(context.Background())
+	mu.Lock()
+	defer mu.Unlock()
+	if len(got) != 2 {
+		t.Fatalf("훅 = %v, want /r 와 /g", got)
+	}
+}

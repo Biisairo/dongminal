@@ -2,16 +2,19 @@ package lsp
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/webserver/domain/ext"
@@ -157,7 +160,20 @@ type Session struct {
 	// 그래서 두 번째부터는 `didChange` 다 (D-3).
 	open    map[string]int
 	lastUse time.Time
+	// sent 는 문서마다 마지막으로 보낸 텍스트의 해시와 경로다 (REPO_FIX 02 §3A-6) —
+	// 디스크 재동기화가 "바뀌었는가" 를 이것으로 판정한다.
+	sent map[string]sentDoc
 }
+
+// sentDoc 은 서버가 알고 있는 문서 하나의 마지막 전송이다.
+type sentDoc struct {
+	path string
+	hash [sha256.Size]byte
+}
+
+// ResyncMaxBytes 는 디스크 재동기화가 읽는 파일의 상한이다 — 파일 읽기 종단의
+// 상한(10MiB)과 같다. 넘으면 그 문서를 닫는다.
+const ResyncMaxBytes = 10 << 20
 
 // newSession 은 세션을 만든다. 프로세스는 여기서 서고, 핸드셰이크는 **첫 요청이**
 // 기다린다 — 기동만 해 두고 아무도 묻지 않는 경우에 그 비용을 미리 내지 않는다.
@@ -169,6 +185,7 @@ func newSession(root string, d ext.Server, exe string, start Starter,
 		exe:       exe,
 		ready:     make(chan struct{}),
 		open:      map[string]int{},
+		sent:      map[string]sentDoc{},
 		lastUse:   time.Now(),
 		now:       time.Now,
 		started:   time.Now(),
@@ -350,6 +367,7 @@ func (s *Session) sync(path, text string) error {
 	ver, seen := s.open[uri]
 	ver++
 	s.open[uri] = ver
+	s.sent[uri] = sentDoc{path: path, hash: sha256.Sum256([]byte(text))}
 	// §3A-4: lastUse 는 여기서 늘리지 않는다 — 응답을 받은 요청만 늘린다.
 	s.mu.Unlock()
 
@@ -369,6 +387,78 @@ func (s *Session) sync(path, text string) error {
 		"textDocument":   map[string]any{"uri": uri, "version": ver},
 		"contentChanges": []map[string]any{{"text": text}},
 	})
+}
+
+// closeDoc 은 그 문서가 열려 있으면 didClose 를 보내고 잊는다 (REPO_FIX 02 §3A-6).
+// 열려 있지 않으면 아무것도 하지 않는다. 다음 요청은 didOpen 으로 다시 연다.
+func (s *Session) closeDoc(path string) {
+	s.syncMu.Lock()
+	defer s.syncMu.Unlock()
+	s.closeLocked(pathToURI(path))
+}
+
+func (s *Session) closeLocked(uri string) {
+	s.mu.Lock()
+	_, ok := s.open[uri]
+	delete(s.open, uri)
+	delete(s.sent, uri)
+	s.mu.Unlock()
+	if ok && s.c != nil {
+		_ = s.c.Notify("textDocument/didClose", map[string]any{
+			"textDocument": map[string]any{"uri": uri},
+		})
+	}
+}
+
+// openPaths 는 서버에 열려 있는 문서들의 경로다.
+func (s *Session) openPaths() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]string, 0, len(s.sent))
+	for _, d := range s.sent {
+		out = append(out, d.path)
+	}
+	return out
+}
+
+// resync 는 열린 문서 하나를 디스크 판으로 맞춘다 (REPO_FIX 02 §3A-6). 없음·읽기
+// 실패·상한 초과·유효하지 않은 UTF-8 이면 닫는다. 내용이 마지막 전송과 같으면
+// 아무것도 하지 않고, 다르면 전체 텍스트 didChange(판 +1)를 임계구역에서 보낸다.
+func (s *Session) resync(path string) {
+	uri := pathToURI(path)
+	s.syncMu.Lock()
+	defer s.syncMu.Unlock()
+	s.mu.Lock()
+	prev, open := s.sent[uri]
+	s.mu.Unlock()
+	if !open {
+		return
+	}
+	st, err := os.Stat(path)
+	if err != nil || !st.Mode().IsRegular() || st.Size() > ResyncMaxBytes {
+		s.closeLocked(uri)
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || len(data) > ResyncMaxBytes || !utf8.Valid(data) {
+		s.closeLocked(uri)
+		return
+	}
+	hash := sha256.Sum256(data)
+	if hash == prev.hash {
+		return
+	}
+	s.mu.Lock()
+	ver := s.open[uri] + 1
+	s.open[uri] = ver
+	s.sent[uri] = sentDoc{path: path, hash: hash}
+	s.mu.Unlock()
+	if s.c != nil {
+		_ = s.c.Notify("textDocument/didChange", map[string]any{
+			"textDocument":   map[string]any{"uri": uri, "version": ver},
+			"contentChanges": []map[string]any{{"text": string(data)}},
+		})
+	}
 }
 
 // languageFor 는 이 파일의 Monaco/LSP language id 다. 서술자가 덮는 언어가 여럿일

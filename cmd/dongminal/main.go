@@ -410,7 +410,9 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 			UserWorktrees: userWorktrees,
 			Git:           gitStore,
 			GitExclusion:  jobs.NewExclusion(),
-			LSP:           lspSvc,
+			// REPO_FIX 02 §3A-6: 저장소 변화(브랜치 전환 포함) 뒤 열린 문서만 디스크 판으로.
+			OnGitChanged: lspSvc.ResyncRepo,
+			LSP:          lspSvc,
 		},
 		pm:          nil, // set by caller in direct mode
 		attnTracker: attnTracker,
