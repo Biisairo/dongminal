@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"dongminal/internal/webserver/domain/wsentry"
+	"strings"
 )
 
 type fsRenameReq struct {
@@ -108,8 +109,20 @@ func (s *Server) fsRenameNoReplace(from, to string) error {
 	if err != nil {
 		return fsFromOS(err)
 	}
-	if _, err := os.Lstat(to); err == nil {
-		return fsError{fsErrExists, "대상에 같은 이름이 이미 있다"}
+	if tst, err := os.Lstat(to); err == nil {
+		// REPO_FIX 04 §3A-4: 대소문자 비구분 FS 에서 대소문자만 바꾸면 대상이 **자기
+		// 자신**으로 보인다. 같은 부모 + 대소문자만 다른 이름 + 같은 파일일 때만 충돌이
+		// 아니다 — 하드링크 두 이름(다른 이름·다른 부모)은 여전히 충돌이다.
+		//	이전 동작: readme.md → README.md 가 EEXIST 로 막혔다 (#28)
+		if !caseOnlyRename(from, to, st, tst) {
+			return fsError{fsErrExists, "대상에 같은 이름이 이미 있다"}
+		}
+		// os.Link 도 EEXIST 이므로 건너뛴다. os.Rename 은 같은 파일의 대소문자 변경을
+		// 허용한다(디렉터리 포함).
+		if err := os.Rename(from, to); err != nil {
+			return fsFromOS(err)
+		}
+		return nil
 	}
 	if st.Mode().IsRegular() {
 		switch err := os.Link(from, to); {
@@ -131,6 +144,16 @@ func (s *Server) fsRenameNoReplace(from, to string) error {
 		return fsFromOS(err)
 	}
 	return nil
+}
+
+// caseOnlyRename 은 from→to 가 대소문자만 바꾸는 같은 파일의 이름변경인가다
+// (REPO_FIX 04 §3A-4): 같은 부모, 대소문자 무시 같고 바이트는 다른 이름, 같은 파일.
+func caseOnlyRename(from, to string, fst, tst os.FileInfo) bool {
+	if filepath.Dir(from) != filepath.Dir(to) {
+		return false
+	}
+	a, b := filepath.Base(from), filepath.Base(to)
+	return a != b && strings.EqualFold(a, b) && os.SameFile(fst, tst)
 }
 
 type fsDeleteReq struct {

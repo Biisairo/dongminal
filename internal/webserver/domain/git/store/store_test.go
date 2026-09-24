@@ -13,6 +13,7 @@ import (
 	"dongminal/internal/webserver/domain/git/core"
 
 	"dongminal/internal/shared/testpath"
+	"dongminal/internal/webserver/domain/git/query"
 )
 
 // 묶음 C — Store (GIT_SRS §3.3 FR-GIT-21·24·63, 검증 V5·V7·V13·V18).
@@ -344,5 +345,19 @@ func TestStore_Invalidate(t *testing.T) {
 	st.Invalidate(absNone)
 	if _, ok := st.Observed(absNone); ok {
 		t.Fatal("없는 리포에 관측값이 생겼다")
+	}
+}
+
+// REPO_FIX 04 §3A-0 X5: 관측 식별자는 결정적이고 파일 상태가 바뀌면 달라진다.
+func TestMark_DeterministicAndSensitive(t *testing.T) {
+	a := Observation{}
+	a.Status.Branch = "main"
+	b := a
+	if Mark(a) != Mark(b) || Mark(a) == "" {
+		t.Fatalf("같은 관측의 mark 가 다르다: %q %q", Mark(a), Mark(b))
+	}
+	b.Status.Untracked = []query.FileEntry{{Path: "x", XY: "??"}}
+	if Mark(a) == Mark(b) {
+		t.Fatal("작업 트리 변화에 mark 가 그대로다")
 	}
 }

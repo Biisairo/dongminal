@@ -646,6 +646,10 @@ func TestGitStatus_NotRepoIsAnswer(t *testing.T) {
 	if _, ok := out["error"]; ok {
 		t.Fatalf("error 필드가 남았다: %v", out)
 	}
+	// REPO_FIX 04 §3A-0 X5: 비저장소의 관측 식별자는 빈 문자열이다.
+	if m, ok := out["mark"]; !ok || m != "" {
+		t.Fatalf("mark=%v (있음=%v), want \"\"", m, ok)
+	}
 }
 
 // V-ANA-2 (FR-ANA-6): **답할 수 없는 저장소는 감시에 넣지 않는다.**

@@ -15,6 +15,7 @@ import (
 	"dongminal/internal/shared/textenc"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/query"
+	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/wsentry"
 )
 
@@ -487,6 +488,8 @@ func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 			"rootMatch":         false,
 			"cached":            false,
 			"status":            nil,
+			// REPO_FIX 04 §3A-0 X5: 비저장소는 관측이 없다 — 빈 식별자다.
+			"mark": "",
 		})
 		return
 	}
@@ -529,6 +532,9 @@ func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 		"observedAtUnixMs":  obs.ObservedAtUnixMs,
 		"signature":         obs.Signature,
 		"status":            obs.Status,
+		// REPO_FIX 04 §3A-0 X5: 관측 식별자 — git_changed 의 mark 와 같은 함수다. 화면은
+		// "관측이 같은가" 를 이것으로만 판정한다(탐색기 폴링 재칠 생략, 05 F-6.1).
+		"mark": store.Mark(obs),
 	})
 }
 
