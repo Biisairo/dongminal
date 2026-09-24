@@ -132,6 +132,8 @@ const GIT_REF_ALL=t('git.ref_all');
 // 동기화된 브랜치로 읽는다 (계약 §2.5).
 const GIT_REF_GONE=t('git.ref_gone');
 const GIT_HIST_REF_KEY='gitHistRef'; // 리포별 선택. 실제 키는 <이것>:<repo>
+// REPO_FIX 05 F-8.1: 저장된 ref 필터가 사라져 풀었다는 사유.
+const GIT_HIST_REF_GONE=t('git.hist_ref_gone');
 
 // 미커밋 변경 행 (FR-GIT-127). 클릭 → Changes 탭 (표면 지도 S4).
 const GIT_HIST_UNCOMMITTED=t('git.hist_uncommitted');

@@ -158,7 +158,24 @@ Object.assign(GitHistory.prototype, {
     if(!d||!d.requested||d.requested.repo!==repo) return;
     this._refs=Array.isArray(d.refs)?d.refs:[];
     this.panel.adoptRefs(this._refs);   // FR-BMU-16h
+    /**
+     * REPO_FIX 05 F-8.1: 저장된 ref 필터가 목록에 없다(지워졌거나 이름이 바뀌었다) — 필터와
+     * 저장값을 풀고 사유를 한 번 보인다. 이전: 없는 ref 로 계속 물어 로드 실패가 고착됐다(#36).
+     */
+    if(this._ref&&!this._refs.some(r=>r.name===this._ref)){
+      const gone=this._ref;
+      this._setRef(null);
+      this._note=GIT_HIST_REF_GONE.replace('%s',gone);
+      this._paintBar();
+      return;
+    }
     this.paint();
+  },
+
+  // F-8.3: Compare 기준 표시 — 표시가 곧 `panel.compareMark` 이다. 다시 받아도 남는다.
+  _markNote(){
+    const m=this.panel.compareMark;
+    return m&&m.label?GIT_CO_COMPARE_MARKED.replace('%s',m.label):'';
   },
 
   async _loadDetail(){
@@ -195,7 +212,7 @@ Object.assign(GitHistory.prototype, {
   // 목록을 처음부터 다시 받는다. 실패해도 이전 목록은 화면에 남는다.
   _reload(){
     this._open=null; this._detail=null; this._detailErr=null;
-    this._jumped=null; this._note='';
+    this._jumped=null; this._note=this._markNote();
     return this._load(false);
   },
 
@@ -261,7 +278,12 @@ Object.assign(GitHistory.prototype, {
      *
      * 리비전 줄이 곧 그 물음의 답이므로 넓힐 이유도 없다.
      */
-    if(this._rev) return;
+    // F-8.2: 이전 말로 넓혀 둔 grep 이 남아 있으면 비운다 — 리비전 줄이 가리키는 커밋이
+    // 앞 검색의 조건으로 걸러진 목록 밖에 남지 않는다(#37).
+    if(this._rev){
+      if(this._grep){this._grep=''; this._err=null; await this._reload()}
+      return;
+    }
     if(this._grep===q) return;
     this._grep=q;
     this._err=null;
@@ -333,7 +355,7 @@ Object.assign(GitHistory.prototype, {
     }
     const i=this._view.findIndex(c=>c.oid===oid);
     if(i<0){this._note=GIT_JUMP_NOT_FOUND;this._paintBar();return}
-    this._note='';
+    this._note=this._markNote();
     this._goto(oid);
   },
 
@@ -345,7 +367,11 @@ Object.assign(GitHistory.prototype, {
     this._jumped=oid; this._ver++;
     const items=this._items();
     const idx=items.findIndex(it=>it.i===i);
-    this._list.scrollTop=Math.max(0,idx*this._rowH());
+    // F-8.4: 펼친 상세가 그 행보다 위에 있으면 그 높이만큼 아래다 — `_paintRows` 의 offset 과
+    // 같은 계산이다. 이전: 행 높이만 세어 상세 높이만큼 어긋난 자리로 갔다.
+    const exp=this._expIndex(items);
+    const detailH=exp>=0&&idx>exp?GIT_HIST_DETAIL_H:0;
+    this._list.scrollTop=Math.max(0,idx*this._rowH()+detailH);
     this._paintBar(); this._paintRows();
     TIMERS.cancel(this._flashT);
     this._flashT=TIMERS.after(GIT_JUMP_FLASH_MS,()=>{

@@ -418,6 +418,7 @@ I18N.register('en', {
   'git.blame_cut': 'Large file — showing the first %n of %r lines',
   'git.blame_empty': 'Nothing to blame',
   'git.blame_retry': 'Retry',
+  'git.hist_ref_gone': 'The saved filter ref (%s) no longer exists, so the filter was cleared',
   'git.blame_fail': 'Could not read blame',
   'git.blame_loading': 'Reading blame…',
   'git.blame_show_all': 'Show all',

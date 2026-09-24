@@ -56,7 +56,8 @@ Object.assign(GitHistory.prototype, {
         const a=document.createElement('code');
         a.className='git-hist-d-parent'; a.dataset.oid=p;
         a.textContent=p.slice(0,8); a.title=p;
-        a.addEventListener('click',()=>this._goto(p));
+        // F-8.4: 로드 범위 밖의 부모도 찾아간다 — `_goto` 는 받은 목록 안에서만 움직인다.
+        a.addEventListener('click',()=>this._jumpTo(p));
         ps.appendChild(a);
       }
     });
