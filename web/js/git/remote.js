@@ -22,11 +22,18 @@
  *   끊길 수 있다.
  * - **진행 중에는 같은 리포의 다른 원격 버튼도 막는다** (FR-GIT-101). 판정은 서버의
  *   `/api/git/jobs` 를 딛는다 — 다른 브라우저 창이 띄운 작업도 같은 리포를 막는다.
+ *
+ * REPO_FIX 01 §6.4: 이 클래스는 **잡 칸 하나**의 표시기다 — kind 무관하다. 저장소마다
+ * index·common 두 칸이 있고 `GitJobs`(jobs.js)가 둘을 묶어 패널에 하나의 표면으로
+ * 준다. 시작(`run`)은 그 묶음이 칸을 골라 여기 `_launch` 로 넘긴다.
  */
 class GitRemote {
-  constructor(panel){
+  constructor(panel,slot,router){
     this.panel=panel;
     this.app=panel.app;
+    this.slot=slot||GIT_JOB_SLOT_COMMON;
+    this.router=router||null;
+    this._busyKey='';     // 시작 요청이 오가는 동안 그 키 — 칸 판정에 쓴다
     this._job=null;       // 진행 중 작업. 내가 띄운 것이거나 /api/git/jobs 로 주워 온 것
     this._jobRepo=null;   // 그 작업의 저장소 (서버가 정규화한 루트)
     this._done=null;      // 끝난 작업. 실패 사유·선택지·인증 안내를 여기서 읽는다
@@ -71,7 +78,7 @@ class GitRemote {
    */
   bind(el){
     if(!el) return;
-    const box=el.querySelector('.git-job'); if(!box) return;
+    const box=this._box(el); if(!box) return;
     box.querySelector('.git-job-cancel').addEventListener('click',()=>this.cancel());
     box.querySelector('.git-job-copy').addEventListener('click',()=>this._copyLog());
     // FR-GIT-221 (REPO_TAB_UNIFY_SRS FR-RTU-100 개정): 접힌 로그는 사라진 것이
@@ -89,13 +96,30 @@ class GitRemote {
       if(ev.target.closest('button')) return;
       fold();
     });
-    box.querySelector('.git-job-close').addEventListener('click',()=>{
-      this._done=null; this._err=null; this._conflict=false;
-      this._lines=[]; this._total=0;
-      this._paint();
-    });
+    box.querySelector('.git-job-close').addEventListener('click',()=>this.dismiss());
     box.querySelector('.git-job-auth-copy').addEventListener('click',()=>
       this.panel.copyText(this._termCmd(this._done||{})));
+    // REPO_FIX 01 §7.2: index.lock 에 막혀 끝난 잡의 출구 — 확인 뒤에만 지운다.
+    box.querySelector('.git-job-lock').addEventListener('click',()=>
+      this.panel.removeIndexLock((this._done||{}).lock));
+  }
+
+  _box(el){return el.querySelector('.git-job[data-slot="'+this.slot+'"]')}
+
+  // 끝난 잡의 화면을 걷는다. 도는 잡은 건드리지 않는다.
+  dismiss(){
+    if(this._job||this._busy) return;
+    this._done=null; this._err=null; this._conflict=false;
+    this._lines=[]; this._total=0;
+    this._paint();
+  }
+
+  // 이 칸의 표시기가 쥔 잡이 slot 칸을 차지하는가 — pull 은 index 표시기에 붙지만
+  // common 칸도 쥔다. 시작 요청이 오가는 동안은 요청 키로 판정한다.
+  holds(slot){
+    if(this._job) return (this._job.slots||[this.slot]).includes(slot);
+    if(this._busy) return gitJobSlotsOf(this._busyKey).includes(slot);
+    return false;
   }
 
 
@@ -104,9 +128,11 @@ class GitRemote {
   // 되돌린다.
   detachRepo(){
     this._closeStream();
+    // 기다리던 쪽(`panel.post`)을 답 없이 끝낸다 — 매달리면 그 입력이 잠긴 채로 남는다.
+    this._settleWaits(null);
     this._job=null; this._jobRepo=null; this._done=null; this._err=null;
     this._logOpen=null;
-    this._conflict=false; this._busy=false; this._canceling=false;
+    this._conflict=false; this._busy=false; this._busyKey=''; this._canceling=false;
     this._lines=[]; this._total=0; this._seq=0;
     this._pending=null;
   }
@@ -138,27 +164,25 @@ class GitRemote {
     this.panel.paintHeads();
   }
 
-  _why(){
-    if(!this.panel.repo||!this.panel.statusOf()) return GIT_REMOTE_WHY_NO_STATUS;
-    return this.busy()?GIT_REMOTE_WHY_BUSY:'';
-  }
-
   // 머리 하나의 동작부 (FR-GHM-6). 막힘 사유는 리포의 것이므로 머리가 몇이든 같다.
+  // §6.4: 버튼마다 자기 kind 가 차지할 칸으로 판정한다 — push 중에도 pull 이 아닌
+  // 것은 막히지 않는다.
   paintHead(head){
     if(!head) return;
-    const why=this._why();
     for(const b of head.querySelectorAll('.git-remote-btn')){
+      const why=this.router.why(b.dataset.remote);
       b.disabled=!!why;
       b.title=why||(GIT_REMOTE_TITLE[b.dataset.remote]||'');
     }
     for(const b of head.querySelectorAll('.git-remote-more')){
+      const why=this.router.why(b.dataset.remote);
       b.disabled=!!why;
       b.title=why||GIT_REMOTE_MORE_TITLE;
     }
   }
 
   _paintJob(el){
-    const box=el.querySelector('.git-job'); if(!box) return;
+    const box=this._box(el); if(!box) return;
     const cur=this._job||this._done;
     const vis=!!(cur||this._busy||this._err);
     box.classList.toggle('vis',vis);
@@ -225,6 +249,11 @@ class GitRemote {
     fail.classList.toggle('vis',failed);
     fail.querySelector('.git-job-reason').textContent=this._err||d.err||'';
     fail.querySelector('.git-job-tail').textContent=d.stderrTail||'';
+    // §7.2: 지울 lock 이 실제로 있을 때만 버튼이 선다(mtime 이 없으면 이미 없다).
+    const lock=d.errorCode==='index_locked'&&d.lock&&d.lock.mtimeUnixMs!=null;
+    const lockBtn=fail.querySelector('.git-job-lock');
+    lockBtn.textContent=GIT_LOCK_REMOVE;
+    lockBtn.classList.toggle('vis',!!lock);
     // FR-GIT-104: 안내만 한다. 받는 자리를 만들지 않는다.
     const auth=fail.querySelector('.git-job-auth');
     auth.classList.toggle('vis',!!d.authRequired);
@@ -299,7 +328,7 @@ class GitRemote {
   }
 
   _opts(kind){
-    if(this.busy()||!GIT_REMOTE_DIALOGS[kind]) return;
+    if(this.router.why(kind)||!GIT_REMOTE_DIALOGS[kind]) return;
     new GitRemoteOpts(this,kind)._show();
   }
 
@@ -311,11 +340,14 @@ class GitRemote {
    * 실패 사유는 여기에 없다 — 작업이 아직 끝나지 않았으므로 즉시 응답에 담길
    * 값이 없고, `done` 이벤트가 그것을 가져온다 (계약 §2.3.1 ②).
    */
-  async run(kind,body){
-    if(this.busy()) return {ok:false,code:0,data:{}};
+  run(kind,body,opts){return this.router.run(kind,body,opts)}
+
+  // 칸이 비었는지는 묶음(GitJobs.run)이 이미 봤다. `opts.silent` 면 실행 전 거부를
+  // 이 박스에 적지 않는다 — 시작 자리(다이얼로그 등)가 적는다 (§6.4).
+  async _launch(kind,body,opts){
     const repo=this.panel.repo;
     if(!repo) return {ok:false,code:0,data:{}};
-    this._busy=true; this._err=null; this._done=null; this._conflict=false;
+    this._busy=true; this._busyKey=kind; this._err=null; this._done=null; this._conflict=false;
     this._logOpen=null;
     this._paint();
     // 라우트는 kind 에서 파생한다. 기본 규칙(`/api/git/<kind>`)과 다른 것만
@@ -323,16 +355,16 @@ class GitRemote {
     // **같은 job 경로**를 타야 하므로 새 실행 경로를 만들지 않는다.
     const res=await this._post(GIT_REMOTE_URL[kind]||('/api/git/'+kind),
       Object.assign({repo},body||{}));
-    this._busy=false;
+    this._busy=false; this._busyKey='';
     const job=res.data&&res.data.job;
-    if(res.ok&&job&&job.id){this._attach(job);return res}
+    if(res.ok&&job&&job.id){this.router.track(job,this);return res}
     // Publish 는 서버가 실행 **전에** 되묻는다 (FR-GIT-100, 계약 §2.3.1 ①).
     if(kind==='push'&&res.data&&res.data.error==='publish_required'){
       this._paint();
       this._publish(res.data.plan||{},body);
       return res;
     }
-    this._err=this._reason(res);
+    if(!(opts&&opts.silent)) this._err=this._reason(res);
     this._paint();
     return res;
   }
@@ -393,7 +425,7 @@ class GitRemote {
 
   // FR-GIT-105: 거부 뒤의 후속 동작. force 는 확인 절차를 그대로 탄다.
   _fix(fix){
-    if(this.busy()) return;
+    if(this.router.why('pull')) return;
     if(fix===GIT_JOB_FIX_REBASE){this.run('pull',{mode:'rebase'});return}
     if(fix===GIT_JOB_FIX_MERGE){this.run('pull',{mode:''});return}
     if(fix===GIT_JOB_FIX_LEASE){this._forcePush('lease');return}
@@ -406,7 +438,9 @@ class GitRemote {
     const ok=await GitDialog.confirm({
       action:GIT_ACT_JOB_CANCEL,title:GIT_JOB_CANCEL_TITLE,stages:1,
       targets:[(GIT_REMOTE_LABEL[job.kind]||job.kind||'')],
-      hint:{note:GIT_JOB_CANCEL_NOTE,command:''},
+      // §6.3: 원격이 아닌 잡은 "원격에" 가 아니라 이 저장소에 일부가 남는다.
+      hint:{note:GIT_JOB_COMMON_KEYS.has(job.kind)||job.kind==='pull'
+        ?GIT_JOB_CANCEL_NOTE:GIT_JOB_CANCEL_NOTE_LOCAL,command:''},
     });
     if(!ok||!this._job||this._job.id!==job.id) return;
     this._canceling=true; this._paint();
@@ -511,6 +545,14 @@ class GitRemote {
     // single-flight 라 진행 중인 요청이 있으면 기다리지 않고 돌아오고, 그때의
     // status 는 아직 작업 전의 것이다.
     this._pending=(jb.kind==='pull')?{status:this.panel._status}:null;
+    // §6.3: 충돌로 멈춘 잡은 실패로 끝나되 쓰기 이후 status 가 진행 중 작업을
+    // 말한다 — "충돌 — 해결 후 계속" 이고 출구는 Changes 의 진행 중 노트다.
+    const rs=jb.result&&jb.result.status;
+    if((jb.exitCode||jb.err)&&rs&&rs.operation&&rs.operation.kind){
+      this._conflict=true;
+      this.panel.expandGroup('conflicts');
+    }
+    this.router.finished(jb);
     this._paint();
     // FR-GIT-107: 작업이 끝나면 ahead/behind 와 상태를 갱신한다 — 폴링 주기를
     // 기다리면 화면이 그만큼 거짓말을 한다.
@@ -596,6 +638,8 @@ class GitRemote {
     if(!j||!j.repo) return false;
     // M8 D-A-27: 서브모듈 갱신도 작업이지만 이 표면의 것이 아니다 — 그쪽 탭이 든다.
     if(!GIT_REMOTE_LABEL[j.kind]) return false;
+    // §6.4: 잡은 첫 칸의 표시기에 붙는다 — pull(index·common)은 index 에.
+    if(((j.slots&&j.slots[0])||GIT_JOB_SLOT_COMMON)!==this.slot) return false;
     if(j.repo===this.panel.repo) return true;
     const st=this.panel._status;
     return !!(st&&j.repo===st.repo);

@@ -260,8 +260,13 @@ class GitCommitOps {
    * 오지만 저장소에는 진행 중 상태가 남는다 (FR-GIT-251). 그것을 화면에 반영해야
    * Changes 탭의 출구가 보인다.
    */
+  //
+  // REPO_FIX 01 §5.2: cherry-pick·revert·drop 은 잡이다 — 시작되면 다이얼로그를
+  // 닫고, 뒷정리는 잡이 끝날 때 한다.
   static async _send(panel,url,body){
-    const res=await panel.post(url,Object.assign({repo:panel.repo},body));
+    const res=await panel.postJob(url,Object.assign({repo:panel.repo},body),
+      r=>panel.afterCommitOp(r));
+    if(res.started) return {ok:true};
     panel.afterCommitOp(res);
     if(res.ok) return {ok:true};
     return {ok:false,reason:panel.writeReason(res),

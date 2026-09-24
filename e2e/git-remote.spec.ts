@@ -76,7 +76,8 @@ const more = (page: Page, kind: string) =>
   head(page).locator(`.git-remote-more[data-remote="${kind}"]`);
 const group = (page: Page, key: string) =>
   changes(page).locator(`.git-group[data-group="${key}"]`);
-const job = (page: Page) => changes(page).locator('.git-job');
+// REPO_FIX 01 §6.4: 잡 박스는 칸(index·common)마다 하나다 — 보이는 쪽이 그 잡이다.
+const job = (page: Page) => changes(page).locator('.git-job.vis');
 const log = (page: Page) => job(page).locator('.git-job-log');
 const lines = (page: Page) => log(page).locator('.git-job-line');
 const opts = (page: Page) => job(page).locator('.git-job-opt');

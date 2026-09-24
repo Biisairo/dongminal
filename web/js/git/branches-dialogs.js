@@ -91,14 +91,19 @@ class GitBranchCreate {
 
   async _run(v){
     const name=(v.name||'').trim();
+    // REPO_FIX 01 §5.2: 만들며 옮겨 가는 것은 checkout 잡이다 — 시작되면 닫는다.
+    const settle=r=>{
+      if(r.ok) this.panel.afterRefWrite(r.data); else this.panel.applyWriteFail(r);
+    };
     const res=this.track
-      ? await this.panel.post('/api/git/checkout',
-          {repo:this.repo,ref:'',create:name,track:this.track})
-      : await this.panel.post('/api/git/branch',{
+      ? await this.panel.postJob('/api/git/checkout',
+          {repo:this.repo,ref:'',create:name,track:this.track},settle)
+      : await this.panel.postJob('/api/git/branch',{
           repo:this.repo,name,
           startRef:(v.startRef||'').trim(),
           checkout:!!v.checkout,
-        });
+        },settle);
+    if(res.started) return {ok:true};
     if(res.ok){
       // 조작 후 목록·상태를 갱신한다 (FR-GIT-160).
       this.panel.afterRefWrite(res.data);

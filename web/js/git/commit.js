@@ -297,6 +297,7 @@ class GitCommit {
   // 사유 **코드**를 답한다 (FR-TIP-2·3) — 문구는 부르는 쪽이 표에서 고른다.
   _why(){
     if(!this._repo) return GIT_COMMIT_WHY_NO_REPO;
+    if(this.panel._remote().busy(GIT_JOB_SLOT_INDEX)) return GIT_COMMIT_WHY_JOB_CODE;
     if(!this._msg.value.trim()) return GIT_COMMIT_WHY_EMPTY_CODE;
     // 서버와 같은 판정이다 — `-a` 는 tracked 변경을 스스로 담으므로 staged 가
     // 없어도 커밋할 것이 있다 (FR-GIT-84). REPO_FIX 01 §7.7: amend 면 메시지를
@@ -422,6 +423,16 @@ class GitCommit {
     this._opts={signoff:false,noVerify:false,all:false};
     this._menuOpen=false;
     this._undoShow(repo,d.undoToken);
+    this._paint();
+  }
+
+  // REPO_FIX 01 §6.4 재부착: 다른 탭·새로고침 전에 띄운 커밋이 이겼다 — 그 저장소의
+  // 초안을 비우고, 창이 남았으면 undo 를 보인다(창은 서버가 강제한다).
+  adoptJobDone(jb){
+    const repo=this._repo;
+    if(!repo||this._busy||(jb.repo!==repo&&jb.repo!==((this.panel._status||{}).repo))) return;
+    this._setValue(''); this._draftSet(repo,'');
+    this._undoShow(repo,jb.result&&jb.result.undoToken);
     this._paint();
   }
 

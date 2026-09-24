@@ -153,36 +153,9 @@ Object.assign(GitPanel.prototype, {
       // 안쪽은 GitCommit 이 채운다 (FR-GIT-74~85). 자리와 고정 성질은 여기 있다.
       '<div class="git-commit"></div>'+
       GitPanel.headHTML()+
-      // 원격 작업 하나의 화면 (FR-GIT-102·103·105·108). 진행 중이 아니면 접힌다.
-      '<div class="git-job">'+
-        '<div class="git-job-bar">'+
-          // REPO_TAB_UNIFY_SRS FR-RTU-100: 접기·펴기는 **전용 토글**이 갖는다.
-          // 바의 나머지를 누르는 계기도 남지만, 폭이 줄면 그 자리가 버튼이 되므로
-          // 폭과 무관한 자리가 하나 있어야 한다 (D-RTU-33).
-          '<button class="ui-btn ui-btn-icon ui-btn-lg git-job-fold"></button>'+
-          '<span class="git-job-kind"></span>'+
-          '<code class="git-job-argv"></code>'+
-          '<span class="git-job-state"></span>'+
-          '<span class="git-job-spacer"></span>'+
-          '<button class="ui-btn ui-btn-sm git-job-cancel"></button>'+
-          '<button class="ui-btn ui-btn-sm git-job-copy"></button>'+
-          '<button class="ui-btn ui-btn-sm git-job-close"></button>'+
-        '</div>'+
-        '<div class="ui-notice ui-notice-attn git-job-note"></div>'+
-        '<div class="git-job-fail">'+
-          '<div class="git-job-reason"></div>'+
-          '<pre class="git-job-tail ui-scroll"></pre>'+
-          // 자격증명을 받는 자리가 아니다 — 안내와 복사 가능한 명령뿐이다
-          // (FR-GIT-104).
-          '<div class="git-job-auth">'+
-            '<div class="git-job-auth-note"></div>'+
-            '<code class="git-job-auth-cmd"></code>'+
-            '<button class="ui-btn ui-btn-sm git-job-auth-copy"></button>'+
-          '</div>'+
-          '<div class="git-job-opts"></div>'+
-        '</div>'+
-        '<pre class="git-job-log ui-scroll"></pre>'+
-      '</div>'+
+      // 잡 칸 둘의 화면 (FR-GIT-102·103·105·108, REPO_FIX 01 §6.4). 진행 중이
+      // 아니면 접힌다. 골격은 GitJobs 가 한 벌을 칸마다 찍는다.
+      '<div class="git-jobs">'+GitJobs.boxHTML(GIT_JOB_SLOT_INDEX)+GitJobs.boxHTML(GIT_JOB_SLOT_COMMON)+'</div>'+
       // FR-GIT-252: 진행 중 작업과 **나갈 길**. 상태만 보이고 출구가 없으면
       // 사용자는 GUI 안에 갇힌다.
       '<div class="git-op-bar">'+
@@ -234,13 +207,10 @@ Object.assign(GitPanel.prototype, {
     for(const b of el.querySelectorAll('.git-job-cancel')){
       b.textContent=GIT_JOB_CANCEL; b.title=GIT_TIP_JOB_CANCEL;
     }
-    const jobCopy=el.querySelector('.git-job-copy');
-    jobCopy.textContent=GIT_JOB_COPY; jobCopy.title=GIT_TIP_JOB_COPY;
-    const jobClose=el.querySelector('.git-job-close');
-    jobClose.textContent=GIT_JOB_CLOSE; jobClose.title=GIT_TIP_JOB_CLOSE;
-    el.querySelector('.git-job-fold').title=GIT_TIP_JOB_FOLD;
-    const authCopy=el.querySelector('.git-job-auth-copy');
-    authCopy.textContent=GIT_JOB_AUTH_COPY; authCopy.title=GIT_TIP_JOB_AUTH_COPY;
+    for(const b of el.querySelectorAll('.git-job-copy')){b.textContent=GIT_JOB_COPY; b.title=GIT_TIP_JOB_COPY}
+    for(const b of el.querySelectorAll('.git-job-close')){b.textContent=GIT_JOB_CLOSE; b.title=GIT_TIP_JOB_CLOSE}
+    for(const b of el.querySelectorAll('.git-job-fold')) b.title=GIT_TIP_JOB_FOLD;
+    for(const b of el.querySelectorAll('.git-job-auth-copy')){b.textContent=GIT_JOB_AUTH_COPY; b.title=GIT_TIP_JOB_AUTH_COPY}
     const partClose=el.querySelector('.git-partial-close');
     partClose.textContent=GIT_NOTE_CLOSE; partClose.title=GIT_TIP_NOTE_CLOSE;
     el.querySelector('.git-partial-close')

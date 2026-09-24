@@ -192,15 +192,16 @@ test.describe('데스크톱 — 머리의 자리와 History 이식', () => {
 
     // 시작 요청이 오가는 중과 같은 상태를 만든다 (FR-GIT-101 의 사유 하나).
     await page.evaluate(() => {
-      const r = (window as any).app.gitPanel._remote();
-      r._busy = true;
+      // REPO_FIX 01 §6.4: 잡 칸이 둘이다 — push 는 common 칸의 표시기가 받는다.
+      const r = (window as any).app.gitPanel._remote().views.common;
+      r._busy = true; r._busyKey = 'push';
       r._paint();
     });
     expect(await heads()).toEqual([true, true]);
 
     await page.evaluate(() => {
-      const r = (window as any).app.gitPanel._remote();
-      r._busy = false;
+      const r = (window as any).app.gitPanel._remote().views.common;
+      r._busy = false; r._busyKey = '';
       r._paint();
     });
     expect(await heads()).toEqual([false, false]);

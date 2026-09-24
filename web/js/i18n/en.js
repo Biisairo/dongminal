@@ -574,6 +574,8 @@ I18N.register('en', {
   'git.init_not_repo': 'This folder is not a git repository.',
   'git.job_auth_note': 'Credentials are required — dongminal neither receives nor stores credentials. Run the following in a terminal tab',
   'git.job_cancel_note': 'It may end with part of it already applied on the remote up to the point of cancellation',
+  'git.job_cancel_note_local': 'It may stop with part of the change applied — check the status when it ends',
+  'git.job_busy_note': 'A job is running in this repository — try again when it ends',
   'git.job_cancel_title': 'Cancels the running remote job',
   'git.job_canceled': 'Canceled',
   'git.job_canceling': 'Canceling…',

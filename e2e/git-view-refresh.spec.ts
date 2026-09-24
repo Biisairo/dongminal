@@ -87,7 +87,8 @@ const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-chang
 const head = (page: Page) => changes(page).locator('.git-head');
 const btn = (page: Page, kind: string) =>
   head(page).locator(`.git-remote-btn[data-remote="${kind}"]`);
-const job = (page: Page) => changes(page).locator('.git-job');
+// REPO_FIX 01 §6.4: 잡 박스는 칸(index·common)마다 하나다 — 보이는 쪽이 그 잡이다.
+const job = (page: Page) => changes(page).locator('.git-job.vis');
 
 const hist = (page: Page) => page.locator('#area .pn-body .git-view.git-history');
 const refAb = (page: Page, ref: string) =>

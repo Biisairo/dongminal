@@ -44,15 +44,22 @@ const GIT_COMMIT_WHY_NOTHING=t('git.commit_why_nothing');
 const GIT_COMMIT_WHY_NO_REPO='no-repo';
 const GIT_COMMIT_WHY_EMPTY_CODE='empty-message';
 const GIT_COMMIT_WHY_NOTHING_CODE='nothing-staged';
+// REPO_FIX 01 §6.4: 이 저장소의 index 칸에 잡이 돈다 — 끝날 때까지 커밋할 수 없다.
+// 동기 쓰기도 보내지 않는다(서버도 409 job_busy) — 그 문구가 이것이다. 잡 표시기
+// (remote·jobs)도 쓰므로 먼저 로드되는 이 파일에 둔다.
+const GIT_JOB_BUSY_NOTE=t('git.job_busy_note');
+const GIT_COMMIT_WHY_JOB_CODE='job-busy';
 const GIT_COMMIT_WHY_TEXT={
   [GIT_COMMIT_WHY_NO_REPO]:GIT_NO_REPO_HINT,
   [GIT_COMMIT_WHY_EMPTY_CODE]:GIT_COMMIT_WHY_EMPTY,
   [GIT_COMMIT_WHY_NOTHING_CODE]:GIT_COMMIT_WHY_NOTHING,
+  [GIT_COMMIT_WHY_JOB_CODE]:GIT_JOB_BUSY_NOTE,
 };
 const GIT_COMMIT_WHY_TITLE={
   [GIT_COMMIT_WHY_NO_REPO]:'Select a repository first',
   [GIT_COMMIT_WHY_EMPTY_CODE]:'Enter a commit message',
   [GIT_COMMIT_WHY_NOTHING_CODE]:'Nothing is staged — stage a file or turn on commit all',
+  [GIT_COMMIT_WHY_JOB_CODE]:'A job is running in this repository',
 };
 const GIT_COMMIT_RUNNING=t('git.commit_running');
 // FR-GIT-81·83 · O7: 5초 고정. 만료는 서버 토큰이 함께 강제한다.

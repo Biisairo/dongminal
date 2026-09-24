@@ -80,10 +80,14 @@ Object.assign(GitBranches, {
     return res;
   },
 
+  // checkout 은 잡이다 (REPO_FIX 01 §5.2) — 시작되면 곧바로 돌아오고, 조작 후
+  // 목록·상태 갱신(FR-GIT-160)은 잡이 끝날 때 한다. 실행 전 거부(이름 충돌 등)는
+  // 호출자가 다룬다.
   async _post(panel,opts){
-    const res=await panel.post('/api/git/checkout',opts);
-    // 조작 후 목록·상태를 갱신한다 (FR-GIT-160).
-    if(res.ok) panel.afterRefWrite(res.data);
+    const res=await panel.postJob('/api/git/checkout',opts,r=>{
+      if(r.ok) panel.afterRefWrite(r.data); else panel.applyWriteFail(r);
+    });
+    if(res.ok&&!res.started) panel.afterRefWrite(res.data);
     return res;
   },
 
@@ -138,7 +142,13 @@ Object.assign(GitBranches, {
    * **실패가 아니라 진행 중 상태**로 다룬다 (FR-GIT-251·255).
    */
   async _run(panel,url,body){
-    const res=await panel.post(url,Object.assign({repo:panel.repo},body||{}));
+    const res=await panel.postJob(url,Object.assign({repo:panel.repo},body||{}),
+      r=>GitBranches._after(panel,r));
+    if(res.started) return res;
+    return GitBranches._after(panel,res);
+  },
+
+  _after(panel,res){
     if(res.ok){panel.afterRefWrite(res.data);return res}
     if(GitBranches._conflicted(panel,res)) return res;
     panel.applyWriteFail(res);

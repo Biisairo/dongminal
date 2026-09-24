@@ -29,8 +29,12 @@
 
 **아직 안 한 01 항목**: `store.WithRoot` 는 만들었지만 **서버 루트 ctx 배선은 안 됐다**(기본 `Background`, G 에서 한다 — 쓰기·사후 단계는 이미 `s.Git.Root()` 에서 파생하므로 G 는 배선만 하면 된다).
 
+**01-F 에서 한 것** (커밋은 이 문서 아래 표): jobs 의 kind 표·모양 제약(`jobs/kinds.go`), `JobRunner` stdin, Job JSON `slots`·`errorCode`·`lock`·`result`, 완료 처리 순서(기록→lock→무효화 훅→`OnFinish`→공개), `WithRoot`(server_shutdown 판정 — 배선은 G), 원격 전용 판정·취소 문구 kind 한정. write 의 실행 함수를 `*Spec`(CommitSpec·CheckoutSpec·RebaseSpec·DropSpec·OperationSpec)으로 바꿨다. gitapi `startWriteJob`·`indexFinisher`(gitjob.go). 프런트: `GitRemote` = 칸 하나의 표시기, `GitJobs`(jobs.js) = 두 칸 묶음, `panel.post` 가 `{job}` 을 받으면 붙이고 기다려 동기 모양으로 편다(`postJob` 은 다이얼로그용 detach).
+
+**01-F 에서 G 로 넘긴 것**: worktree add 잡(`StartUnguarded("worktree")` 는 받게 해 뒀다 — 핸들러·repoLock·config 완료 처리는 §5.6 과 함께), Manager 경유 쓰기의 lock 필드.
+
 **01-E 에서 F·G 로 넘긴 것**:
-- (F) 잡 완료 처리의 lock 판정·`errorCode`/`lock` 필드, 잡 결과의 lock 버튼. 지금 잡 칸 규칙은 `jobs.SlotsOf`(kind→칸)에 있고 commit 등 index kind 는 그대로 index 칸이 된다
+- ~~(F) 잡 완료 처리의 lock 판정·잡 결과의 lock 버튼~~ 01-F 에서 함
 - (G) Manager 경유 쓰기(submodule sync·worktree remove)의 lock 필드 — Manager 가 `%v` 로 감싸 sentinel 이 사라진다(§5.6 `%w` 전환과 함께), 180s 단계 마감·루트 ctx
 - (G) `writeLocks` 의 worktrees/create·remove·submodules/update 는 현행(잠금 없음) — §5.6 순서로 바꾼다. Run 격리에 `Deps.GitExclusion` 주입(지금은 GitServer 만 받는다)
 - (G) common-dir 키 헬퍼의 Service nil 동작(FR-GXU-4) — 지금은 `store.CommonDir` 경유(Git 이 있어야 한다). Git 없는 배선의 잡 키는 `jobKeys` 가 루트로 대신한다
@@ -38,7 +42,7 @@
 ## 3. 남은 일 — 순서
 
 1. ~~**01-E**~~ 완료 (§5.1·5.4·5.5·7.1·7.2): 배타 상태 단일 인스턴스(`buildDeps` 에서 생성·주입), 저장소 뮤텍스(ctx 존중·5s)·common-dir 잠금(stash 5종)·index/common 두 칸 잡 슬롯, 판정 순서, 단계별 마감(대기 5·사전 10·쓰기 30·사후 15, 쓰기는 루트 ctx 파생), `ErrIndexLocked` 분류 + 모든 동기 쓰기 실패에 lock 필드, `POST /api/git/lock/remove`, 프런트 `GIT_WRITE_FETCH_TIMEOUT_MS` 35000→100000, resolve 의 index_locked 우선
-2. **01-F** (§6): 잡 전환(commit·checkout·operation·branch merge/rebase·checkout:true·cherry-pick/revert·drop·worktree add), `jobKinds`·모양 제약, stdin, 사전 단계 위치, 완료 처리 순서(①~⑧), Job JSON `slots`·`result.*`, undo 토큰 기점, 원격 전용 판정 한정, 프런트 **일반화 잡 표시기**(remote.js 상태기계 → kind 무관, §6.4 표 두 개)
+2. ~~**01-F**~~ 완료 (§6 — worktree add 잡은 G 로 넘김): 잡 전환(commit·checkout·operation·branch merge/rebase·checkout:true·cherry-pick/revert·drop·worktree add), `jobKinds`·모양 제약, stdin, 사전 단계 위치, 완료 처리 순서(①~⑧), Job JSON `slots`·`result.*`, undo 토큰 기점, 원격 전용 판정 한정, 프런트 **일반화 잡 표시기**(remote.js 상태기계 → kind 무관, §6.4 표 두 개)
 3. **01-G** (§5.6·8): repoLock ctx·common-dir 키, Runner ctx, worktree add 잡·remove 순서(요청 worktree 칸·뮤텍스 안 봄), Run 격리 TryLock·잔여물, 서버 루트 ctx(`serve` 에서 WithCancel → buildDeps, AfterFunc, shutdownSteps 인덱스 0, 7s), `server_shutdown`
 4. **02 gitwatch·LSP** — `02-lsp-gitwatch/REQUIREMENTS.md` (§3A 필독: LSP 경로는 **서버 설정 `<dataDir>/lsp-paths.json` + GET/PUT `/api/lsp/paths` + 설정 ▸ Code UI**, 사용자 결정)
 5. **03 에디터** — 인코딩 왕복(x/text 의존성 추가 승인됨, 자동판별 BOM→UTF-8→CP949 + 다시 열기 4종 + "UTF-8 로 변환해 저장" 확인창), 권한·심링크 보존, 응답 후 재확인 장치, slot 인식 조회, 문서 이동 API(undo 소실 허용), tab.dirty 비영속

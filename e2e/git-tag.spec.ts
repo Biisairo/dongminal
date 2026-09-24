@@ -333,7 +333,7 @@ test.describe('묶음 C — 태그 push (FR-GIT-262)', () => {
 
     // 진행·취소 자리는 Changes 의 job 상자다 — 태그 push 도 같은 자리를 쓴다.
     // Changes 는 창의 사이드에 늘 있다 (FR-RTU-32) — 돌아갈 탭이 없다.
-    await expect(page.locator('#area .ed-side .git-view.git-changes .git-job'), 'job 상자가 없다')
+    await expect(page.locator('#area .ed-side .git-view.git-changes .git-job.vis'), 'job 상자가 없다')
       .toHaveCount(1, { timeout: 10000 });
 
     await expect.poll(() => tagList(bare), { timeout: 20000 }).toContain('v9.0');

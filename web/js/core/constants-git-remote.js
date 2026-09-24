@@ -12,7 +12,25 @@
 const GIT_REMOTE_KINDS=['fetch','pull','push'];
 // **글자다.** 작업 진행 표시(상태바·작업 로그의 이름)가 이것을 쓴다 — 버튼을
 // 아이콘으로 바꾸면서 이 값을 함께 바꾸면 "⤓ 중" 이 된다 (GIT_CHANGES_CONTROLS_SRS D-6).
-const GIT_REMOTE_LABEL={fetch:'Fetch',pull:'Pull',push:'Push'};
+// REPO_FIX 01 §6.4: 잡은 이제 원격만이 아니다 — 잡 표시기가 kind 무관하게 이 이름을
+// 붙인다. 서버의 kind(jobs.jobKinds)와 같은 키다.
+const GIT_REMOTE_LABEL={fetch:'Fetch',pull:'Pull',push:'Push',
+  commit:'Commit',checkout:'Checkout',merge:'Merge',rebase:'Rebase',
+  'cherry-pick':'Cherry-pick',revert:'Revert',am:'am',bisect:'Bisect'};
+// §5.4·6.4 잡의 두 칸. 시작 요청의 키(kind 또는 GIT_REMOTE_URL 의 키)가 차지할 칸이며
+// 서버의 jobs.SlotsOf 와 같은 규칙이다 — 응답이 오기 전에 버튼을 막는 데 쓰고, 도는
+// 잡은 서버가 준 `slots` 가 유일한 출처다.
+const GIT_JOB_SLOT_INDEX='index';
+const GIT_JOB_SLOT_COMMON='common';
+const GIT_JOB_COMMON_KEYS=new Set(['fetch','push','branch/push','branch/fetch',
+  'branch/delete-remote','tag-push','tag-delete-remote']);
+function gitJobSlotsOf(key){
+  if(key==='pull') return [GIT_JOB_SLOT_INDEX,GIT_JOB_SLOT_COMMON];
+  return GIT_JOB_COMMON_KEYS.has(key)?[GIT_JOB_SLOT_COMMON]:[GIT_JOB_SLOT_INDEX];
+}
+// §6.4: index 칸이 도는 동안에도 막지 않는 동기 쓰기 — worktree 제거는 요청
+// worktree 의 index 를 건드리지 않는다 (§5.6).
+const GIT_JOB_INDEX_EXEMPT=new Set(['/api/git/worktrees/remove','/api/git/job/cancel']);
 // FR-GCC-5: **버튼의 얼굴**. 좁은 사이드에서 글자 셋과 `▾` 셋은 두 줄을 먹었고
 // `Push` 의 `▾` 는 줄을 넘겼다(실측). 무엇인지는 툴팁(GIT_REMOTE_TITLE)이 말한다.
 const GIT_REMOTE_ICON={fetch:'download',pull:'arrow-down',push:'arrow-up'};
@@ -28,7 +46,7 @@ const GIT_REMOTE_MORE_TITLE='More options';
 const GIT_REMOTE_WHY_NO_STATUS='Repository status has not been read yet';
 // FR-GIT-101: 진행 중에는 같은 리포의 다른 원격 버튼도 막는다. 사유 없이 꺼진
 // 버튼은 사용자가 해소할 수 없다.
-const GIT_REMOTE_WHY_BUSY='A remote operation is already running for this repository';
+const GIT_REMOTE_WHY_BUSY='A job is already running for this repository';
 // argv 는 그대로 보인다 — 무엇이 실행됐는지 모르면 다이얼로그의 선택이 반영됐는지
 // 사용자가 확인할 수 없다 (FR-GIT-109·110).
 const GIT_PROGRESS_FLAG='--progress';
@@ -58,6 +76,7 @@ const GIT_ACT_JOB_CANCEL='job_cancel';
 const GIT_JOB_CANCEL=t('git.act.job_cancel');
 const GIT_JOB_CANCEL_TITLE=t('git.job_cancel_title');
 const GIT_JOB_CANCEL_NOTE=t('git.job_cancel_note');
+const GIT_JOB_CANCEL_NOTE_LOCAL=t('git.job_cancel_note_local');
 // FR-GIT-104: **자격증명을 받지 않는다.** 입력을 만들지 않고 터미널에서 수행하도록
 // 안내만 한다 — 만들지 않는 것이 유일한 보장이다.
 const GIT_JOB_AUTH_NOTE=t('git.job_auth_note');

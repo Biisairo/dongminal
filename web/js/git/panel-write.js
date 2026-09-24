@@ -160,9 +160,11 @@ Object.assign(GitPanel.prototype, {
 
   // §7.2: 확인 뒤에만 지운다. 원래 동작은 다시 시도하지 않는다 — 사용자가 lock 이
   // 정말 남은 것인지 본 뒤 스스로 다시 누른다.
-  async removeIndexLock(){
-    const n=this._note, lock=n&&n.lock;
-    if(!lock||n.lockRepo!==this.repo) return;
+  //
+  // lock 을 주면 그것을(잡 결과의 lock), 아니면 안내 줄의 lock 을 지운다.
+  async removeIndexLock(given){
+    const n=this._note, lock=given||(n&&n.lockRepo===this.repo?n.lock:null);
+    if(!lock||lock.mtimeUnixMs==null) return;
     const repo=this.repo;
     const ok=await GitConfirm.open({
       action:GIT_ACT_INDEX_LOCK_REMOVE,title:GIT_LOCK_TITLE,targets:[lock.path],
@@ -182,7 +184,16 @@ Object.assign(GitPanel.prototype, {
 
   // POST 한 번. ok 는 **서버가 ok:true 를 준 것**이다 — 200 이지만 본문이 없는
   // 응답을 성공으로 읽지 않는다.
-  async post(url,body){
+  //
+  // REPO_FIX 01 §5.2·6.4: 느린 쓰기(commit·checkout·merge…)는 서버가 잡으로 돌리고
+  // `{job}` 을 준다. 그때 여기서 잡을 표시기에 붙이고 **끝을 기다려** 종전의 동기
+  // 응답 모양으로 펴 준다 — 호출자의 뒷정리(adopt·실패 안내)가 그대로 결과에 선다.
+  // `opts.detach` 면 시작 즉시 `{started:true, done}` 을 준다 — 다이얼로그는 닫고
+  // 뒷정리는 `done` 에서 한다 (§6.4 "다이얼로그는 닫는다").
+  async post(url,body,opts){
+    // §6.4: index 칸이 도는 동안 동기 쓰기·index 잡 시작을 보내지 않는다.
+    const block=this._remote().blocks(url);
+    if(block) return {ok:false,code:409,data:{error:'job_busy',message:block}};
     this._writing=true;
     // 망 실패·파싱 실패를 접는 일은 `gitPost` 가 한다 (api.js) — 두 벌로 두면
     // 한쪽만 고쳐진다. 여기 남는 것은 **패널 고유의 관심사** 둘이다.
@@ -191,9 +202,40 @@ Object.assign(GitPanel.prototype, {
     // 모든 쓰기가 이 한 곳을 지난다 — 방금 실행한 명령이 Console 의 맨 위에
     // 있어야 한다 (FR-GIT-218).
     if(this._consoleView) this._consoleView.reload();
+    const job=res.ok&&res.data&&res.data.job;
+    if(job&&job.id){
+      const requested=this.repo;
+      const done=this._remote().follow(job).then(jb=>this._jobRes(jb,requested));
+      if(opts&&opts.detach) return {ok:true,code:res.status,data:res.data,started:true,done};
+      return done;
+    }
     // **이 표면의 성공 판정은 `d.ok` 다** — HTTP 200 만으로는 성공이 아니다.
     // 부분 적용도 200 으로 오기 때문이다 (FR-GIT-73).
     return {ok:!!(res.ok&&res.data&&res.data.ok),code:res.status,data:res.data};
+  },
+
+  // 잡을 여는 쓰기를 다이얼로그·메뉴에서 보낸다 (§6.4). 잡이 시작되면 곧바로
+  // `{ok:true, started:true}` 로 돌아오고 — 다이얼로그는 닫는다 — 끝나면 settle 이
+  // 결과로 뒷정리한다. 실행 전 거부는 그대로 돌려준다(호출자가 시작 자리에 보인다).
+  async postJob(url,body,settle){
+    const res=await this.post(url,body,{detach:true});
+    if(res.started) res.done.then(settle);
+    return res;
+  },
+
+  // 끝난 잡을 동기 응답의 모양으로 편다. 결과를 모르면(재부착 전에 저장소가 바뀜)
+  // 실패다 — 이긴 것으로 읽으면 입력을 비운다.
+  _jobRes(jb,requested){
+    if(!jb) return {ok:false,code:0,data:{error:'job_not_found'}};
+    const r=jb.result||{};
+    const ok=!jb.err&&!jb.exitCode;
+    const data=Object.assign({},r,{requested,repo:jb.repo,ok,job:jb});
+    if(!ok){
+      data.error=jb.errorCode||'git_failed';
+      data.message=jb.stderrTail||jb.err||'';
+      if(jb.lock) data.lock=jb.lock;
+    }
+    return {ok,code:ok?200:409,data};
   },
 
   writeReason(res){
@@ -291,10 +333,13 @@ Object.assign(GitPanel.prototype, {
   },
 
   async _runOp(kind,action,confirm){
-    const res=await this.post('/api/git/operation',
-      {repo:this.repo,kind,action,confirm:!!confirm});
-    if(res.ok){this._note=null; this.adopt(res.data)}
-    else this.applyWriteFail(res);
+    const after=r=>{
+      if(r.ok){this._note=null; this.adopt(r.data)}
+      else this.applyWriteFail(r);
+    };
+    const res=await this.postJob('/api/git/operation',
+      {repo:this.repo,kind,action,confirm:!!confirm},after);
+    if(!res.started) after(res);
     return res;
   },
 

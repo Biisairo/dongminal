@@ -221,7 +221,7 @@
 | 상황 | 화면 동작 |
 |------|-----------|
 | 시작 | `gitPost(…, {timeout:0})`. 실행 전 거부(4xx)는 시작 자리(다이얼로그 등)에 표시. 200 `{job}` 이면 표시기에 붙고 다이얼로그는 닫는다 |
-| 진행 중 잠금 | Job 의 `slots` 기준 — 그 칸을 쓰는 컨트롤을 잠근다. `index`: 그 저장소의 동기 쓰기·index 잡 시작 컨트롤(**worktree remove 제외**). `common`: 비-index 잡 시작 컨트롤(worktree 잡이면 worktree remove 도). 시작 자리 컨트롤은 busy |
+| 진행 중 잠금 | Job 의 `slots` 기준 — 그 칸을 쓰는 컨트롤을 잠근다. `index`: 그 저장소의 동기 쓰기·index 잡 시작 컨트롤(**worktree remove 제외**). `common`: 비-index 잡 시작 컨트롤(worktree 잡이면 worktree remove 도). 시작 자리 컨트롤은 busy (구현 중 정정: 잠금은 한 자리에서 한다 — `panel.post` 가 index 칸이 돌면 동기 쓰기·index 잡 시작을 보내지 않고 `job_busy` 안내를 세우고, 커밋 버튼·원격 버튼은 칸 기준으로 꺼진다. 메뉴 항목마다의 비활성 표시는 05(시각 요소)) |
 | 성공 | `adopt(result.status)` + 동작별 후처리 |
 | 실패 | 박스에 `err`·`stderrTail`, `result.status` 가 있으면 adopt, 입력 보존 |
 | 충돌 | "충돌 — 해결 후 계속" 안내, adopt → Changes 의 진행 중 노트가 출구 버튼을 준다 |

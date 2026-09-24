@@ -18,9 +18,10 @@ Object.assign(GitPanel.prototype, {
   // ── 원격 작업 (FR-GIT-98~112) ──
 
   // 원격 조각도 지연 생성한다. 진행 중 작업의 상태를 들고 있으므로 Changes 탭의
-  // 골격보다 오래 산다.
+  // 골격보다 오래 산다. REPO_FIX 01 §6.4: 잡은 원격만이 아니고 칸이 둘이다 —
+  // `GitJobs` 가 두 칸의 표시기를 하나로 묶는다.
   _remote(){
-    if(!this._remoteView) this._remoteView=new GitRemote(this);
+    if(!this._remoteView) this._remoteView=new GitJobs(this);
     return this._remoteView;
   },
 

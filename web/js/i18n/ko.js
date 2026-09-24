@@ -598,6 +598,8 @@ I18N.register('ko', {
   'git.init_not_repo': '이 폴더는 git 저장소가 아닙니다.',
   'git.job_auth_note': '자격증명이 필요합니다 — dongminal 은 자격증명을 받지도 저장하지도 않습니다. 터미널 탭에서 아래를 실행하세요',
   'git.job_cancel_note': '끊긴 시점까지 원격에 일부가 적용된 채로 끝날 수 있습니다',
+  'git.job_cancel_note_local': '끊긴 시점까지 일부가 적용된 채로 끝날 수 있습니다 — 끝난 뒤 상태를 확인하세요',
+  'git.job_busy_note': '이 저장소에서 작업이 진행 중입니다 — 끝난 뒤 다시 시도하세요',
   'git.job_cancel_title': '진행 중인 원격 작업을 끊습니다',
   'git.job_canceled': '취소했습니다',
   'git.job_canceling': '취소하는 중…',

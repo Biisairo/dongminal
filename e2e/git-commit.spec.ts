@@ -54,7 +54,23 @@ async function clickCommit(page: Page) {
   await expect(btn(page)).toBeEnabled({ timeout: 20000 });
   await btn(page).click();
   const res = await wait;
-  return { status: res.status(), body: await res.json() };
+  return settle(page, { status: res.status(), body: await res.json() });
+}
+
+// REPO_FIX 01 §5.2·6.3: 커밋은 **잡**이다 — 시작 응답은 `{job}` 이고 oid·undoToken 은
+// 끝난 잡의 `result` 에 온다. 잡이 끝나기를 기다려 그 결과를 본문에 합친다.
+async function settle(page: Page, res: { status: number; body: any }) {
+  const id = res.body && res.body.job && res.body.job.id;
+  if (res.status !== 200 || !id) return res;
+  const done = await page.waitForFunction((jid) => {
+    const r = (window as any).app.gitPanel._remote();
+    for (const v of Object.values(r.views) as any[]) {
+      if (v._done && v._done.id === jid) return v._done;
+    }
+    return null;
+  }, id, { timeout: 30000 });
+  const jb = await done.jsonValue();
+  return { status: res.status, body: { ...res.body, ...(jb.result || {}), job: jb } };
 }
 
 test.describe('묶음 I — 커밋 (클라이언트)', () => {
@@ -327,7 +343,7 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
       await btn(page).click();
       await page.locator('#git-confirm .gc-go').click();
       const r = await wait;
-      return { status: r.status(), body: await r.json() };
+      return settle(page, { status: r.status(), body: await r.json() });
     })();
     expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(commits(repo)).toBe(before + 1);

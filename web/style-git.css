@@ -161,6 +161,9 @@ body.mobile .git-head-remote{gap:2px}
   white-space:pre-wrap;word-break:break-all;
 }
 .git-job-auth-copy{align-self:flex-start}
+/* REPO_FIX 01 §7.2: index_locked 로 끝난 잡에서만 선다 */
+.git-job-lock{display:none;align-self:flex-start}
+.git-job-lock.vis{display:inline-flex}
 /* FR-GIT-105: 선택지는 서버가 준 순서 그대로이고 **하나도 강조하지 않는다** —
    생김새를 달리 주는 것이 곧 force 를 기본 제안하는 것이다 */
 .git-job-opts{display:none;flex-direction:column;gap:3px;align-items:flex-start}

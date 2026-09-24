@@ -58,7 +58,8 @@ test.describe('묶음 E — Changes 탭', () => {
     expect(await remote.evaluateAll((els) => els.every((e) => !(e as HTMLButtonElement).disabled)),
       '원격 버튼이 꺼져 있다').toBe(true);
     // 진행 중 작업의 화면은 접혀 있다 (FR-GIT-102).
-    await expect(changes(page).locator('.git-job')).not.toHaveClass(/vis/);
+    // REPO_FIX 01 §6.4: 칸마다 박스가 하나 — 어느 것도 보이지 않는다.
+    await expect(changes(page).locator('.git-job.vis')).toHaveCount(0);
     // 커밋 영역은 M2 에서 살아 있다 (FR-GIT-74~85). 메시지가 비어 있으므로
     // Commit 만 disabled 이고 그 사유가 보인다 (FR-GIT-84).
     const commit = changes(page).locator('.git-commit');

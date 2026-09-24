@@ -41,7 +41,8 @@ test('TC-KIT-7: .fe-offer 한 줄의 버튼 셋이 같은 크기 등급이다 (F
 test('TC-KIT-7a: 한 줄에 서는 다른 버튼 묶음도 등급이 갈리지 않는다', () => {
   // 같은 규약을 쓰는 다른 줄들. 한 자리만 고치면 다음 자리가 같은 모양으로 샌다.
   const ROWS = [
-    ['web/js/git/panel-changes.js', /\bgit-job-(?:cancel|copy|close)\b/],
+    // REPO_FIX 01 §6.4: 잡 박스 골격은 jobs.js 로 옮겼다 (칸마다 한 벌).
+    ['web/js/git/jobs.js', /\bgit-job-(?:cancel|copy|close)\b/],
     ['web/js/git/submodules.js', /\bgit-sub-(?:bulk|cancel)\b/],
   ];
   for (const [file, re] of ROWS) {
