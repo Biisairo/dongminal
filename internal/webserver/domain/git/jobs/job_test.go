@@ -46,6 +46,10 @@ func jobBlockRunner(started chan struct{}) JobRunner {
 	}
 }
 
+// keysOf 는 배타 키가 저장소 경로와 같은 단순 배선이다 — 키 정규화는 호출자
+// (gitapi) 의 몫이고, 여기서는 칸의 규칙만 본다.
+func keysOf(repo string) Keys { return Keys{Top: repo, Common: repo} }
+
 func jobFetchSpec() core.WriteSpec { return core.WriteSpec{Argv: []string{"fetch", "--progress"}} }
 
 // jobWait 는 작업이 끝나기를 기다린다. 폴링 간격은 짧게 둔다 — 대기가 테스트
@@ -67,7 +71,7 @@ func jobWait(t *testing.T, j *Jobs, id string, d time.Duration) *Job {
 func TestJobCancel_EndsJobAndMarksCanceled(t *testing.T) {
 	started := make(chan struct{})
 	j := NewJobs(jobSvc(), WithJobRunner(jobBlockRunner(started)))
-	jb, err := j.Start(jobRepo, "fetch", jobFetchSpec())
+	jb, err := j.Start(jobRepo, keysOf(jobRepo), "fetch", jobFetchSpec())
 	if err != nil {
 		t.Fatalf("Start: %v", err)
 	}
@@ -196,18 +200,18 @@ func TestJob_ProgressLinesArriveIndividually(t *testing.T) {
 func TestJobStart_SameRepoIsBusy(t *testing.T) {
 	started := make(chan struct{})
 	j := NewJobs(jobSvc(), WithJobRunner(jobBlockRunner(started)))
-	first, err := j.Start(jobRepo, "fetch", jobFetchSpec())
+	first, err := j.Start(jobRepo, keysOf(jobRepo), "fetch", jobFetchSpec())
 	if err != nil {
 		t.Fatalf("첫 Start: %v", err)
 	}
 	<-started
-	if _, err := j.Start(jobRepo, "push", core.WriteSpec{Argv: []string{"push", "--progress"}}); !errors.Is(err, ErrJobBusy) {
+	if _, err := j.Start(jobRepo, keysOf(jobRepo), "push", core.WriteSpec{Argv: []string{"push", "--progress"}}); !errors.Is(err, ErrJobBusy) {
 		t.Fatalf("두 번째 Start err = %v, want ErrJobBusy", err)
 	}
 	// 끝나면 다시 받는다 — 한 번의 실패가 리포를 영구히 막지 않는다.
 	j.Cancel(first.ID)
 	jobWait(t, j, first.ID, 2*time.Second)
-	if _, err := j.Start(jobRepo, "fetch", jobFetchSpec()); err != nil {
+	if _, err := j.Start(jobRepo, keysOf(jobRepo), "fetch", jobFetchSpec()); err != nil {
 		t.Fatalf("끝난 뒤 Start: %v", err)
 	}
 }
@@ -215,10 +219,10 @@ func TestJobStart_SameRepoIsBusy(t *testing.T) {
 // R4: 다른 리포의 작업은 서로를 막지 않는다.
 func TestJobStart_OtherRepoNotBlocked(t *testing.T) {
 	j := NewJobs(jobSvc(), WithJobRunner(jobBlockRunner(nil)))
-	if _, err := j.Start(absWorkA, "fetch", jobFetchSpec()); err != nil {
+	if _, err := j.Start(absWorkA, keysOf(absWorkA), "fetch", jobFetchSpec()); err != nil {
 		t.Fatalf("/work/a: %v", err)
 	}
-	if _, err := j.Start(absWorkB, "fetch", jobFetchSpec()); err != nil {
+	if _, err := j.Start(absWorkB, keysOf(absWorkB), "fetch", jobFetchSpec()); err != nil {
 		t.Fatalf("/work/b: %v", err)
 	}
 	if n := len(j.Active()); n != 2 {
@@ -230,7 +234,7 @@ func TestJobStart_OtherRepoNotBlocked(t *testing.T) {
 // 브라우저를 닫은 사용자의 고아 프로세스가 영구히 남는다.
 func TestJob_CeilingEndsJobWithReason(t *testing.T) {
 	j := NewJobs(jobSvc(), WithJobRunner(jobBlockRunner(nil)), WithCeiling(30*time.Millisecond))
-	jb, err := j.Start(jobRepo, "fetch", jobFetchSpec())
+	jb, err := j.Start(jobRepo, keysOf(jobRepo), "fetch", jobFetchSpec())
 	if err != nil {
 		t.Fatalf("Start: %v", err)
 	}
@@ -254,7 +258,7 @@ func TestJob_LineCapDropsFromFront(t *testing.T) {
 		close(emitted)
 		return 0, nil
 	}))
-	jb, err := j.Start(jobRepo, "fetch", jobFetchSpec())
+	jb, err := j.Start(jobRepo, keysOf(jobRepo), "fetch", jobFetchSpec())
 	if err != nil {
 		t.Fatalf("Start: %v", err)
 	}
@@ -292,7 +296,7 @@ func TestJobSubscribe_AfterSeq(t *testing.T) {
 		}
 		return 0, nil
 	}))
-	jb, _ := j.Start(jobRepo, "fetch", jobFetchSpec())
+	jb, _ := j.Start(jobRepo, keysOf(jobRepo), "fetch", jobFetchSpec())
 	jobWait(t, j, jb.ID, 3*time.Second)
 
 	ch, unsub, ok := j.Subscribe(jb.ID, 3)
@@ -317,7 +321,7 @@ func TestJobSubscribe_LiveThenClose(t *testing.T) {
 		emit(LineStderr, "진행 중")
 		return 0, nil
 	}))
-	jb, _ := j.Start(jobRepo, "fetch", jobFetchSpec())
+	jb, _ := j.Start(jobRepo, keysOf(jobRepo), "fetch", jobFetchSpec())
 	ch, unsub, ok := j.Subscribe(jb.ID, 0)
 	if !ok {
 		t.Fatal("Subscribe 가 거짓을 돌려줬다")
@@ -366,7 +370,7 @@ func TestJobStart_RejectsNonRemoteKind(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if _, err := j.Start(c.repo, c.kind, core.WriteSpec{Argv: c.argv}); err == nil {
+			if _, err := j.Start(c.repo, keysOf(c.repo), c.kind, core.WriteSpec{Argv: c.argv}); err == nil {
 				t.Fatal("거부되지 않았다")
 			}
 		})
@@ -380,7 +384,7 @@ func TestJob_RetentionDropsFinished(t *testing.T) {
 		WithJobRunner(func(context.Context, string, []string, func(string, string)) (int, error) { return 0, nil }),
 		WithJobClock(func() time.Time { return now }),
 	)
-	jb, _ := j.Start(jobRepo, "fetch", jobFetchSpec())
+	jb, _ := j.Start(jobRepo, keysOf(jobRepo), "fetch", jobFetchSpec())
 	jobWait(t, j, jb.ID, 3*time.Second)
 	now = now.Add(JobRetention + time.Second)
 	if _, ok := j.Get(jb.ID); ok {
@@ -395,7 +399,7 @@ func TestJob_OnDoneCalledOnce(t *testing.T) {
 		WithJobRunner(func(context.Context, string, []string, func(string, string)) (int, error) { return 0, nil }),
 		WithOnDone(func(jb *Job) { done <- jb }),
 	)
-	jb, _ := j.Start(jobRepo, "fetch", jobFetchSpec())
+	jb, _ := j.Start(jobRepo, keysOf(jobRepo), "fetch", jobFetchSpec())
 	select {
 	case got := <-done:
 		if got.ID != jb.ID || got.Repo != jobRepo || !got.Done {
@@ -417,7 +421,7 @@ func TestJob_AuthRequiredFromStderr(t *testing.T) {
 		emit(LineStderr, "fatal: could not read Username for 'https://example.com': terminal prompts disabled")
 		return 128, nil
 	}))
-	jb, _ := j.Start(jobRepo, "push", core.WriteSpec{Argv: []string{"push", "--progress"}})
+	jb, _ := j.Start(jobRepo, keysOf(jobRepo), "push", core.WriteSpec{Argv: []string{"push", "--progress"}})
 	done := jobWait(t, j, jb.ID, 3*time.Second)
 	if !done.AuthRequired {
 		t.Fatalf("AuthRequired = false: %+v", done)
@@ -438,7 +442,7 @@ func TestJob_RejectedOffersFetchFirst(t *testing.T) {
 		emit(LineStderr, " ! [rejected]        main -> main (non-fast-forward)")
 		return 1, nil
 	}))
-	jb, _ := j.Start(jobRepo, "push", core.WriteSpec{Argv: []string{"push", "--progress"}})
+	jb, _ := j.Start(jobRepo, keysOf(jobRepo), "push", core.WriteSpec{Argv: []string{"push", "--progress"}})
 	done := jobWait(t, j, jb.ID, 3*time.Second)
 	if !done.Rejected {
 		t.Fatalf("Rejected = false: %+v", done)
@@ -508,7 +512,7 @@ func TestJob_SanitizesCredentialsEverywhere(t *testing.T) {
 		emit(LineStderr, "fatal: unable to access '"+secretURL+"': 401")
 		return 128, nil
 	}))
-	jb, err := j.Start(jobRepo, "push", core.WriteSpec{Argv: []string{"push", "--progress", secretURL, "main"}})
+	jb, err := j.Start(jobRepo, keysOf(jobRepo), "push", core.WriteSpec{Argv: []string{"push", "--progress", secretURL, "main"}})
 	if err != nil {
 		t.Fatalf("Start: %v", err)
 	}
@@ -548,7 +552,7 @@ func TestJob_OnDoneRunsBeforeDoneIsPublished(t *testing.T) {
 			seen <- cur != nil && cur.Done
 		}),
 	)
-	jb, _ := j.Start(jobRepo, "fetch", jobFetchSpec())
+	jb, _ := j.Start(jobRepo, keysOf(jobRepo), "fetch", jobFetchSpec())
 	select {
 	case published := <-seen:
 		if published {
@@ -588,7 +592,7 @@ func TestJob_RecordIsWrittenBeforeDoneIsPublished(t *testing.T) {
 		WithJobRunner(func(context.Context, string, []string, func(string, string)) (int, error) { return 0, nil }),
 		WithOnDone(func(*Job) { seen <- len(svc.Records(5)) }),
 	)
-	if _, err := j.Start(jobRepo, "fetch", jobFetchSpec()); err != nil {
+	if _, err := j.Start(jobRepo, keysOf(jobRepo), "fetch", jobFetchSpec()); err != nil {
 		t.Fatalf("Start: %v", err)
 	}
 	select {
@@ -625,14 +629,14 @@ func TestJobStartUnguarded_RecordsReasonAndSharesMachinery(t *testing.T) {
 		<-release
 		return 0, nil
 	}))
-	jb, err := j.StartUnguarded(jobRepo, "submodule", []string{"submodule", "update", "--init", "--", "vendor/x"}, "테스트 사유")
+	jb, err := j.StartUnguarded(jobRepo, keysOf(jobRepo), "submodule", []string{"submodule", "update", "--init", "--", "vendor/x"}, "테스트 사유")
 	if err != nil {
 		t.Fatalf("StartUnguarded: %v", err)
 	}
 	if jb.Kind != "submodule" || jb.Argv[0] != "submodule" {
 		t.Fatalf("job=%+v", jb)
 	}
-	if _, err := j.StartUnguarded(jobRepo, "submodule", []string{"submodule", "update"}, "x"); !errors.Is(err, ErrJobBusy) {
+	if _, err := j.StartUnguarded(jobRepo, keysOf(jobRepo), "submodule", []string{"submodule", "update"}, "x"); !errors.Is(err, ErrJobBusy) {
 		t.Fatalf("같은 리포는 배타여야 한다: %v", err)
 	}
 	close(release)
@@ -648,16 +652,16 @@ func TestJobStartUnguarded_RecordsReasonAndSharesMachinery(t *testing.T) {
 
 func TestJobStartUnguarded_RejectsMissingReasonOrArgv(t *testing.T) {
 	j := NewJobs(jobSvc(), WithJobRunner(jobBlockRunner(nil)))
-	if _, err := j.StartUnguarded(jobRepo, "submodule", []string{"submodule", "update"}, ""); err == nil {
+	if _, err := j.StartUnguarded(jobRepo, keysOf(jobRepo), "submodule", []string{"submodule", "update"}, ""); err == nil {
 		t.Fatal("사유 없는 인가 우회가 통과했다")
 	}
-	if _, err := j.StartUnguarded(jobRepo, "submodule", nil, "x"); err == nil {
+	if _, err := j.StartUnguarded(jobRepo, keysOf(jobRepo), "submodule", nil, "x"); err == nil {
 		t.Fatal("빈 argv 가 통과했다")
 	}
-	if _, err := j.StartUnguarded("repo", "submodule", []string{"submodule"}, "x"); err == nil {
+	if _, err := j.StartUnguarded("repo", keysOf("repo"), "submodule", []string{"submodule"}, "x"); err == nil {
 		t.Fatal("상대 경로가 통과했다")
 	}
-	if _, err := j.StartUnguarded(jobRepo, "fetch", []string{"submodule"}, "x"); err == nil {
+	if _, err := j.StartUnguarded(jobRepo, keysOf(jobRepo), "fetch", []string{"submodule"}, "x"); err == nil {
 		t.Fatal("kind 와 argv 불일치가 통과했다")
 	}
 }

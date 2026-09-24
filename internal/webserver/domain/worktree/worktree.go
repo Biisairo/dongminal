@@ -147,36 +147,14 @@ func New(root string, opts ...Option) *Manager {
 	// 곳에서 풀어야** Path·checkPath·gone·Root 가 전부 한 번에 맞는다 — 판정하는
 	// 자리마다 각자 풀면 한 곳이 빠질 수 있고, 그 한 곳이 보호 전체를 여는 자리가
 	// 될 수 있다.
-	clean = resolveSymlinksPrefix(clean)
+	// 존재하는 가장 깊은 조상까지만 풀고 나머지를 붙인다 — worktrees 디렉터리는
+	// 첫 worktree 를 만들 때 비로소 생긴다 (REPO_FIX 01 §5.1 에서 core 로 옮김).
+	clean = core.ExclusionKey(clean)
 	m := &Manager{root: clean, git: execGit}
 	for _, o := range opts {
 		o(m)
 	}
 	return m
-}
-
-// resolveSymlinksPrefix 는 p 를 realpath 로 만든다. **p 자신은 아직 없을 수 있다**
-// (첫 실행 — worktrees 디렉터리는 첫 worktree 를 만들 때 비로소 생긴다,
-// Create:MkdirAll 참고). filepath.EvalSymlinks 는 없는 경로에서 실패하므로,
-// **존재하는 가장 깊은 조상까지만 풀고 나머지 조각을 그대로 이어 붙인다** — 그러면
-// 아직 없는 경로에서도 판정이 흔들리지 않는다.
-func resolveSymlinksPrefix(p string) string {
-	dir := p
-	var tail []string
-	for {
-		resolved, err := filepath.EvalSymlinks(dir)
-		if err == nil {
-			return filepath.Join(append([]string{resolved}, tail...)...)
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			// 파일시스템 루트까지 왔는데도 못 풀었다 — 포기하고 원본을 돌려준다.
-			// (권한 문제 등 EvalSymlinks 가 항상 실패하는 드문 환경.)
-			return p
-		}
-		tail = append([]string{filepath.Base(dir)}, tail...)
-		dir = parent
-	}
 }
 
 func (m *Manager) Root() string { return m.root }

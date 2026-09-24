@@ -257,11 +257,12 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		srv.gitWatch = hub.NewGitWatcher(deps.Git, cmds)
 	}
 	srv.git = &gitapi.GitServer{
-		Git:      deps.Git,
-		Work:     deps.Work,
-		Commands: cmds,
-		Tools:    deps.Tools,
-		Watch:    srv.gitWatch,
+		Git:       deps.Git,
+		Exclusion: deps.GitExclusion,
+		Work:      deps.Work,
+		Commands:  cmds,
+		Tools:     deps.Tools,
+		Watch:     srv.gitWatch,
 		// UX_BATCH5_SRS FR-SUB-1: 서브모듈 Manager 는 **Git 이 있을 때만** 선다.
 		// 저장소가 없는 배선에서는 물을 대상이 없고, nil 이면 그 표면이 503 이다
 		// (UserWorktrees 와 같은 규약).

@@ -63,7 +63,7 @@ func (s *GitServer) apiGitCheckout(w http.ResponseWriter, r *http.Request) {
 		t.reject(err)
 	}
 	// 이름 충돌은 저장소를 조회해야 안다 — 파이프라인이 대신할 수 없는 검사다.
-	if t.stop() || s.gitBranchNameTaken(w, r, req.Repo, t.root, req.Create, req.Track) {
+	if t.stop() || s.gitBranchNameTaken(w, t.ctx(), req.Repo, t.root, req.Create, req.Track) {
 		return
 	}
 	t.apply(func(ctx context.Context) error {
@@ -82,7 +82,7 @@ func (s *GitServer) apiGitBranchCreate(w http.ResponseWriter, r *http.Request) {
 	if _, err := write.BranchCreateArgs(opts); err != nil {
 		t.reject(err)
 	}
-	if t.stop() || s.gitBranchNameTaken(w, r, req.Repo, t.root, req.Name, "") {
+	if t.stop() || s.gitBranchNameTaken(w, t.ctx(), req.Repo, t.root, req.Name, "") {
 		return
 	}
 	t.apply(func(ctx context.Context) error {
@@ -139,15 +139,15 @@ func (s *GitServer) apiGitBranchValidate(w http.ResponseWriter, r *http.Request)
 // 클라이언트가 목록을 복제하면 서버가 선택지를 늘려도 그것을 보이지 못한다.
 //
 // 참을 돌려주면 응답이 이미 쓰였다는 뜻이다.
-func (s *GitServer) gitBranchNameTaken(w http.ResponseWriter, r *http.Request, requested, root, name, track string) bool {
+func (s *GitServer) gitBranchNameTaken(w http.ResponseWriter, ctx context.Context, requested, root, name, track string) bool {
 	if name == "" {
 		return false
 	}
-	if err := query.ValidBranchName(s.Git.Service(), r.Context(), root, name); err != nil {
+	if err := query.ValidBranchName(s.Git.Service(), ctx, root, name); err != nil {
 		gitError(w, err)
 		return true
 	}
-	exists, err := query.LocalBranchExists(s.Git.Service(), r.Context(), root, name)
+	exists, err := query.LocalBranchExists(s.Git.Service(), ctx, root, name)
 	if err != nil {
 		gitError(w, err)
 		return true
@@ -245,7 +245,7 @@ func (s *GitServer) apiGitBranchRename(w http.ResponseWriter, r *http.Request) {
 	if _, err := write.BranchRenameArgs(opts); err != nil {
 		t.reject(err)
 	}
-	if t.stop() || s.gitBranchNameTaken(w, r, req.Repo, t.root, req.To, "") {
+	if t.stop() || s.gitBranchNameTaken(w, t.ctx(), req.Repo, t.root, req.To, "") {
 		return
 	}
 	t.apply(func(ctx context.Context) error {
@@ -274,7 +274,7 @@ func (s *GitServer) apiGitBranchDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	// 삭제 차단 판정에 실행 전 status 가 필요하다 — 그래서 여기서 먼저 찍는다.
 	before := t.snapshot()
-	if t.stop() || s.gitBranchDeleteBlocked(w, r, req.Repo, t.root, before, opts) {
+	if t.stop() || s.gitBranchDeleteBlocked(w, t.ctx(), req.Repo, t.root, before, opts) {
 		return
 	}
 	plan := write.BranchDeletePlan{}
@@ -293,7 +293,7 @@ func (s *GitServer) apiGitBranchDelete(w http.ResponseWriter, r *http.Request) {
 // ② 미머지 브랜치(`-d` 일 때만) — **실패가 아니라 선택지다.** 무엇을 고를 수
 //
 //	있는지 모르면 사용자는 갈 곳이 없다.
-func (s *GitServer) gitBranchDeleteBlocked(w http.ResponseWriter, r *http.Request,
+func (s *GitServer) gitBranchDeleteBlocked(w http.ResponseWriter, ctx context.Context,
 	requested, root string, before query.Status, opts write.BranchDeleteOpts) bool {
 	for _, n := range opts.Names {
 		if !before.Detached && n == before.Branch {
@@ -308,7 +308,7 @@ func (s *GitServer) gitBranchDeleteBlocked(w http.ResponseWriter, r *http.Reques
 		return false
 	}
 	for _, n := range opts.Names {
-		merged, err := query.BranchMerged(s.Git.Service(), r.Context(), root, n)
+		merged, err := query.BranchMerged(s.Git.Service(), ctx, root, n)
 		if err != nil {
 			gitError(w, err)
 			return true
@@ -316,7 +316,7 @@ func (s *GitServer) gitBranchDeleteBlocked(w http.ResponseWriter, r *http.Reques
 		if merged {
 			continue
 		}
-		oid, err := query.BranchOid(s.Git.Service(), r.Context(), root, n)
+		oid, err := query.BranchOid(s.Git.Service(), ctx, root, n)
 		if err != nil {
 			gitError(w, err)
 			return true
@@ -438,14 +438,14 @@ func (s *GitServer) apiGitBranchPush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	root := t.root
-	spec, plan, err := write.BranchPushSpec(s.Git.Service(), r.Context(), root, write.BranchPushOpts{
+	spec, plan, err := write.BranchPushSpec(s.Git.Service(), t.ctx(), root, write.BranchPushOpts{
 		Branch: req.Branch, Force: req.Force, Confirm: req.Confirm, Publish: req.Publish,
 	})
 	if err != nil {
 		gitPushError(w, req.Repo, root, plan, err)
 		return
 	}
-	s.gitStartJob(w, req.Repo, root, "push", spec, map[string]any{"plan": plan})
+	t.startJob("push", spec, map[string]any{"plan": plan})
 }
 
 // POST /api/git/branch/fetch — 원격 ref 를 같은 이름의 로컬 ref 로 가져온다
@@ -457,13 +457,12 @@ func (s *GitServer) apiGitBranchFetchInto(w http.ResponseWriter, r *http.Request
 	if t.stop() {
 		return
 	}
-	root := t.root
 	spec, err := write.RemoteFetchSpec(write.RemoteBranchOpts{Remote: req.Remote, Branch: req.Branch})
 	if err != nil {
 		gitError(w, err)
 		return
 	}
-	s.gitStartJob(w, req.Repo, root, "fetch", spec, nil)
+	t.startJob("fetch", spec, nil)
 }
 
 // POST /api/git/branch/delete-remote — 원격의 ref 를 지운다 (FR-GIT-268).
@@ -480,11 +479,11 @@ func (s *GitServer) apiGitBranchDeleteRemote(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	root := t.root
-	spec, err := write.RemoteBranchDeleteSpec(s.Git.Service(), r.Context(), root,
+	spec, err := write.RemoteBranchDeleteSpec(s.Git.Service(), t.ctx(), root,
 		write.RemoteBranchOpts{Remote: req.Remote, Branch: req.Branch})
 	if err != nil {
 		gitError(w, err)
 		return
 	}
-	s.gitStartJob(w, req.Repo, root, "push", spec, nil)
+	t.startJob("push", spec, nil)
 }

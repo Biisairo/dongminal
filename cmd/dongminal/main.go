@@ -26,6 +26,7 @@ import (
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/domain/ext"
 	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/lsp"
 	"dongminal/internal/webserver/domain/run"
@@ -400,6 +401,7 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 			Worktrees:     worktrees,
 			UserWorktrees: userWorktrees,
 			Git:           gitStore,
+			GitExclusion:  jobs.NewExclusion(),
 			LSP:           lspSvc,
 		},
 		pm:          nil, // set by caller in direct mode

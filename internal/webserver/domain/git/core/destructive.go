@@ -19,6 +19,9 @@ const (
 	ActionCommitDrop     = "commit_drop"     // 커밋 하나를 히스토리에서 뺀다
 	ActionCleanUntracked = "clean_untracked" // 추적되지 않는 파일은 되살릴 수 없다
 	ActionOperationAbort = "operation_abort" // 진행 중 작업의 해결 내용이 사라진다
+	// REPO_FIX 01 §7.2: 남은 index.lock 삭제. 다른 git 이 실제로 돌고 있었다면 그
+	// git 의 index 쓰기가 깨진다 — 서버는 어느 쪽인지 알 수 없으므로 사용자가 정한다.
+	ActionIndexLockRemove = "index_lock_remove"
 )
 
 // DestructiveActions 는 2단계 확인과 recovery hint 를 반드시 거치는 동작이다
@@ -28,4 +31,5 @@ var DestructiveActions = []string{
 	ActionDiscard, ActionBranchDelete, ActionStashDrop, ActionTagDelete,
 	ActionResetHard, ActionForcePush, ActionRemoteRefDelete, ActionResolveSide,
 	ActionRebase, ActionCommitDrop, ActionCleanUntracked, ActionOperationAbort,
+	ActionIndexLockRemove,
 }

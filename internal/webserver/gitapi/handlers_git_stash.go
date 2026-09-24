@@ -156,7 +156,7 @@ func (s *GitServer) apiGitStashPush(w http.ResponseWriter, r *http.Request) {
 		IncludeUntracked: req.IncludeUntracked,
 		KeepIndex:        req.KeepIndex,
 	}
-	s.gitStashApply(w, r, req.Repo, root, before, func(ctx context.Context) (map[string]any, error) {
+	s.gitStashApply(t, before, func(ctx context.Context) (map[string]any, error) {
 		_, err := write.StashPush(s.Git.Service(), ctx, root, opts)
 		return nil, err
 	})
@@ -237,14 +237,14 @@ func (s *GitServer) apiGitStashBranch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 이름 규칙 전체는 git 에 묻는다 — 우리가 다시 구현하지 않는다 (FR-GIT-159).
-	if err := query.ValidBranchName(s.Git.Service(), r.Context(), t.root, req.Name); err != nil {
+	if err := query.ValidBranchName(s.Git.Service(), t.ctx(), t.root, req.Name); err != nil {
 		t.rejectWith(http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
 		return
 	}
 	// REPO_FIX 01 §5.3: 이미 있는 이름이면 실행 전에 거절한다. 선택지(checkout·
 	// rename)는 브랜치 생성의 것이라 싣지 않는다 — 그대로 실행하면 git 이 브랜치를
 	// 만들기 전에 실패하는데 HEAD 가 그 이름이면 "만들어졌다" 로 읽힌다.
-	exists, err := query.LocalBranchExists(s.Git.Service(), r.Context(), t.root, req.Name)
+	exists, err := query.LocalBranchExists(s.Git.Service(), t.ctx(), t.root, req.Name)
 	if err != nil {
 		t.reject(err)
 		return
@@ -258,7 +258,7 @@ func (s *GitServer) apiGitStashBranch(w http.ResponseWriter, r *http.Request) {
 	if t.stop() {
 		return
 	}
-	s.gitStashApply(w, r, t.requested, t.root, before, func(ctx context.Context) (map[string]any, error) {
+	s.gitStashApply(t, before, func(ctx context.Context) (map[string]any, error) {
 		_, kept, err := write.StashBranch(s.Git.Service(), ctx, t.root, req.Name, req.Oid)
 		return stashKeptFields(kept), err
 	})
@@ -297,7 +297,7 @@ func (s *GitServer) gitStashIndexRoute(w http.ResponseWriter, r *http.Request, c
 	if t.stop() {
 		return
 	}
-	s.gitStashApply(w, r, t.requested, t.root, before, func(ctx context.Context) (map[string]any, error) {
+	s.gitStashApply(t, before, func(ctx context.Context) (map[string]any, error) {
 		return run(ctx, t.root, req)
 	})
 }
@@ -310,19 +310,32 @@ func (s *GitServer) gitStashIndexRoute(w http.ResponseWriter, r *http.Request, c
 // 있어야 한다.
 //
 // extra 는 실행이 알아낸 사실이며 성공·실패 양쪽에 실린다.
-func (s *GitServer) gitStashApply(w http.ResponseWriter, r *http.Request, requested, root string, before query.Status, run func(context.Context) (map[string]any, error)) {
-	extra, runErr := run(r.Context())
-	s.Git.Invalidate(root)
-	obs, _, statusErr := s.Git.Status(r.Context(), root)
+//
+// REPO_FIX 01 §5.5: 실행은 쓰기 단계(루트 ctx), 재조회는 사후 단계다. 잠금(common-dir
+// → toplevel)은 lease 가 응답 뒤까지 쥐므로 oid 위치 확인과 실행이 한 잠금 안이다.
+func (s *GitServer) gitStashApply(t *gitWrite, before query.Status, run func(context.Context) (map[string]any, error)) {
+	var extra map[string]any
+	ran, runErr := t.write(func(ctx context.Context) error {
+		var err error
+		extra, err = run(ctx)
+		return err
+	})
+	if !ran {
+		return
+	}
+	ctx, cancel := t.post()
+	defer cancel()
+	s.Git.Invalidate(t.root)
+	obs, _, statusErr := s.Git.Status(ctx, t.root)
 
-	body := map[string]any{"requested": requested, "repo": root, "partial": false}
+	body := map[string]any{"requested": t.requested, "repo": t.root, "partial": false}
 	for k, v := range extra {
 		body[k] = v
 	}
 	if statusErr == nil {
 		body["status"] = obs.Status
 		// 목록 조회의 실패로 응답을 버리지 않는다 — 실행 결과가 더 중요하다.
-		if list, err := write.StashList(s.Git.Service(), r.Context(), root); err == nil {
+		if list, err := write.StashList(s.Git.Service(), ctx, t.root); err == nil {
 			body["stashes"] = list
 		}
 		if changed := gitStatusDelta(before, obs.Status); len(changed) > 0 && runErr != nil {
@@ -333,16 +346,15 @@ func (s *GitServer) gitStashApply(w http.ResponseWriter, r *http.Request, reques
 		if statusErr != nil {
 			// 실행은 됐고 재조회가 실패했다. 성공으로 보이면 화면이 낡은 목록을
 			// 유지하므로 실패로 답한다.
-			gitError(w, statusErr)
+			gitError(t.w, statusErr)
 			return
 		}
 		body["ok"] = true
-		gitJSON(w, http.StatusOK, body)
+		gitJSON(t.w, http.StatusOK, body)
 		return
 	}
 	code, name := gitStashErrorCode(runErr, extra)
-	body["error"], body["message"] = name, gitTail(runErr.Error())
-	gitErrJSON(w, code, name, body)
+	s.gitRenderFail(ctx, t, code, name, gitTail(runErr.Error()), runErr, body)
 }
 
 // gitStashErrorCode 는 stash 실패를 코드로 옮긴다.

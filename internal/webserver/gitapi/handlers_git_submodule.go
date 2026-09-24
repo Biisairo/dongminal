@@ -127,7 +127,7 @@ func (s *GitServer) apiGitSubmoduleUpdate(w http.ResponseWriter, r *http.Request
 		gitSubmoduleError(w, err)
 		return
 	}
-	s.gitStartUnguardedJob(w, req.Repo, t.root, "submodule", spec.Argv, spec.Reason)
+	t.startUnguardedJob("submodule", spec.Argv, spec.Reason)
 }
 
 // POST /api/git/submodules/sync — `.gitmodules` 의 URL 을 `.git/config` 로 옮긴다.

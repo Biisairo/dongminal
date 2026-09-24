@@ -11,6 +11,7 @@ import (
 
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/domain/ext"
+	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/lsp"
 	"dongminal/internal/webserver/domain/run"
@@ -149,6 +150,10 @@ type Deps struct {
 	// Git 은 모든 git 조회가 통과하는 지점이다 (GIT_SRS 묶음 A~C). nil 이면
 	// /api/git/* 이 전부 503 이며 그 밖의 동작에는 영향이 없다 (FR-GIT-60).
 	Git *store.Store
+	// GitExclusion 은 저장소 배타 상태다 (REPO_FIX 01 §5.4) — 동기 쓰기·잡·Run
+	// 격리가 **같은 인스턴스**를 봐야 배타가 선다. nil 이면 GitServer 가 자기 것을
+	// 만든다(단독 배선).
+	GitExclusion *jobs.Exclusion
 	// LSP 는 편집기의 코드 탐색이 딛는 표면이다 (EDITOR_LSP_SRS 묶음 A).
 	// nil 이면 /api/lsp/* 이 503 이며 그 밖의 동작에는 영향이 없다 — 코드 탐색이
 	// 없는 편집기는 종전의 편집기다.

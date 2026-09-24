@@ -35,7 +35,7 @@ type gitReplayReq struct {
 func (s *GitServer) apiGitReplay(w http.ResponseWriter, r *http.Request) {
 	var req gitReplayReq
 	t := s.beginWrite(w, r, &req)
-	t.resolve(req.Repo)
+	t.resolveRoot(req.Repo)
 	if t.stop() {
 		return
 	}
@@ -47,6 +47,8 @@ func (s *GitServer) apiGitReplay(w http.ResponseWriter, r *http.Request) {
 			"그 기록이 이 저장소에 없다 — 버퍼에서 밀려났을 수 있다")
 		return
 	}
+	// REPO_FIX 01 §5.2: 쓰기 기록만 잠근다 — 읽기 재실행은 배타 대상이 아니다.
+	t.lock(rec.Write)
 	t.requireConfirm(rec.Write, req.Confirm,
 		"쓰기 기록을 다시 실행한다: confirm:true 를 요구한다 (FR-GIT-89)")
 	t.apply(func(ctx context.Context) error {

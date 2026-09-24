@@ -116,7 +116,7 @@ type Line struct {
 // emit 은 줄이 생길 때마다 불린다. 돌려주는 값은 exit 코드와 실행 오류다.
 type JobRunner func(ctx context.Context, dir string, args []string, emit func(stream, text string)) (int, error)
 
-// Jobs 는 리포별로 **동시에 하나만** 허용한다 (FR-GIT-101).
+// Jobs 는 칸(index·common)마다 **동시에 하나만** 허용한다 (FR-GIT-101, REPO_FIX 01 §5.4).
 type Jobs struct {
 	svc       *core.Service
 	run       JobRunner
@@ -126,15 +126,19 @@ type Jobs struct {
 	now       func() time.Time
 	onDone    func(*Job)
 
-	mu     sync.Mutex
-	byID   map[string]*jobState
-	active map[string]string // repo → 진행 중 작업의 id
+	// excl 은 칸의 주인이다 (REPO_FIX 01 §5.4). 동기 쓰기가 같은 인스턴스로 칸을
+	// 보므로 Jobs 가 자기 것을 따로 들면 안 된다 — WithExclusion 으로 받는다.
+	excl *Exclusion
+
+	mu   sync.Mutex
+	byID map[string]*jobState
 }
 
 // jobState 는 작업 하나의 전부다. raw 를 job 과 나눠 두는 이유가 핵심이다 —
 // 실행에는 원본 argv 가 필요하고, 밖으로 나가는 것은 지운 값이어야 한다.
 type jobState struct {
 	job  Job
+	keys Keys
 	raw  []string
 	spec core.WriteSpec
 	// unguarded 는 인가를 호출자가 진 작업의 사유다 (D-A-27). 비어 있지 않으면
@@ -157,6 +161,10 @@ type jobSub struct {
 func (s *jobSub) close() { s.once.Do(func() { close(s.ch) }) }
 
 type JobsOption func(*Jobs)
+
+// WithExclusion 은 서버의 배타 상태를 준다 (§5.4). 주지 않으면 자기 것을 만든다 —
+// 그때는 동기 쓰기와 칸을 나누지 못하므로 단독 배선(테스트)에서만 뜻이 있다.
+func WithExclusion(x *Exclusion) JobsOption { return func(j *Jobs) { j.excl = x } }
 
 // WithCeiling 은 작업 하나의 상한이다 (O9).
 func WithCeiling(d time.Duration) JobsOption { return func(j *Jobs) { j.ceiling = d } }
@@ -190,7 +198,6 @@ func NewJobs(svc *core.Service, opts ...JobsOption) *Jobs {
 		lineCap:   JobLineCap,
 		now:       time.Now,
 		byID:      map[string]*jobState{},
-		active:    map[string]string{},
 	}
 	for _, o := range opts {
 		o(j)
@@ -207,15 +214,20 @@ func NewJobs(svc *core.Service, opts ...JobsOption) *Jobs {
 	if j.run == nil {
 		j.run = execStreamGit
 	}
+	if j.excl == nil {
+		j.excl = NewExclusion()
+	}
 	return j
 }
 
-// Start 는 작업을 띄우고 **즉시** 돌아온다 (FR-GIT-102). 같은 리포에 진행 중인
-// 작업이 있으면 ErrJobBusy 다 (FR-GIT-101).
+// Start 는 작업을 띄우고 **즉시** 돌아온다 (FR-GIT-102). kind 가 차지할 칸
+// (SlotsOf) 에 진행 중인 작업이 있으면 ErrJobBusy 다 (FR-GIT-101, REPO_FIX 01 §5.4).
+//
+// repo 는 실행 cwd·Job.Repo 이고 keys 는 배타 키다 — 둘을 따로 받는다 (§5.1).
 //
 // 거부는 기록에 남지 않는다 — 프로세스가 뜨지 않았고 호출자가 오류를 받으므로,
 // 실행 기록에 exit -1 을 남기면 Console 에 "실행되지 않은 실행"이 쌓인다.
-func (j *Jobs) Start(repo string, kind string, spec core.WriteSpec) (*Job, error) {
+func (j *Jobs) Start(repo string, keys Keys, kind string, spec core.WriteSpec) (*Job, error) {
 	if strings.TrimSpace(repo) == "" || !filepath.IsAbs(repo) {
 		return nil, fmt.Errorf("%w: cwd 는 절대 경로여야 한다: %q", core.ErrUnsafeArgument, repo)
 	}
@@ -231,7 +243,7 @@ func (j *Jobs) Start(repo string, kind string, spec core.WriteSpec) (*Job, error
 		return nil, fmt.Errorf("%w: kind %q 와 argv %q 가 어긋난다", ErrJobKind, kind, spec.Argv[0])
 	}
 
-	return j.launch(repo, kind, spec, "")
+	return j.launch(repo, keys, kind, spec, "")
 }
 
 // StartUnguarded 는 **인가를 호출자가 진** 작업이다 (M8 D-A-27, FBE-08) — `submodule
@@ -239,7 +251,7 @@ func (j *Jobs) Start(repo string, kind string, spec core.WriteSpec) (*Job, error
 // 요구하며(ExecUnguarded 와 같은 규약), 기록은 Unguarded 표식과 그 사유를 든다.
 // 배타·취소·상한·스트리밍·자격증명 지움은 Start 와 같은 기계장치다. 호출자는
 // `core` 의 unguardedAllowed 에 든 도메인이어야 한다 — 경로 가드는 그쪽의 것이다.
-func (j *Jobs) StartUnguarded(repo, kind string, argv []string, reason string) (*Job, error) {
+func (j *Jobs) StartUnguarded(repo string, keys Keys, kind string, argv []string, reason string) (*Job, error) {
 	if strings.TrimSpace(repo) == "" || !filepath.IsAbs(repo) {
 		return nil, fmt.Errorf("%w: cwd 는 절대 경로여야 한다: %q", core.ErrUnsafeArgument, repo)
 	}
@@ -252,21 +264,28 @@ func (j *Jobs) StartUnguarded(repo, kind string, argv []string, reason string) (
 	if argv[0] != kind {
 		return nil, fmt.Errorf("%w: kind %q 와 argv %q 가 어긋난다", ErrJobKind, kind, argv[0])
 	}
-	return j.launch(repo, kind, core.WriteSpec{Argv: argv, Destructive: true}, reason)
+	return j.launch(repo, keys, kind, core.WriteSpec{Argv: argv, Destructive: true}, reason)
 }
 
 // launch 는 검사를 마친 작업을 띄운다 — Start 와 StartUnguarded 의 공통 몸통.
-func (j *Jobs) launch(repo, kind string, spec core.WriteSpec, unguarded string) (*Job, error) {
+//
+//	이전 동작: 저장소(repo 문자열)당 잡 하나 — fetch 중 pull·push 모두 job_busy
+//	새  동작: index·common 두 칸. 같은 칸끼리만 job_busy, pull 은 두 칸
+//	이유:     index 무관 원격 잡이 commit 등을 막지 않게 하고(§5.4), 같은 common
+//	          dir 을 쓰는 worktree 들의 원격 잡끼리는 계속 배타로 둔다
+func (j *Jobs) launch(repo string, keys Keys, kind string, spec core.WriteSpec, unguarded string) (*Job, error) {
+	id := uuid.NewString()
 	j.mu.Lock()
 	j.sweepLocked()
-	if id, busy := j.active[repo]; busy {
+	if err := j.excl.claim(keys, SlotsOf(kind), id); err != nil {
 		j.mu.Unlock()
-		return nil, fmt.Errorf("%w: %s 에 진행 중인 작업이 있다 (%s)", ErrJobBusy, repo, id)
+		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), j.ceiling)
 	st := &jobState{
+		keys: keys,
 		job: Job{
-			ID:       uuid.NewString(),
+			ID:       id,
 			Repo:     repo,
 			Kind:     kind,
 			Argv:     core.SanitizeArgv(spec.Argv),
@@ -280,7 +299,6 @@ func (j *Jobs) launch(repo, kind string, spec core.WriteSpec, unguarded string) 
 		subs:      map[*jobSub]struct{}{},
 	}
 	j.byID[st.job.ID] = st
-	j.active[repo] = st.job.ID
 	snapshot := st.job
 	j.mu.Unlock()
 
@@ -322,9 +340,10 @@ func (j *Jobs) Active() []*Job {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 	j.sweepLocked()
-	out := make([]*Job, 0, len(j.active))
-	for _, id := range j.active {
-		if st, ok := j.byID[id]; ok {
+	// byID 를 돈다 — 두 칸을 쥔 pull 이 칸 목록에서는 두 번 보인다 (§6.3).
+	out := []*Job{}
+	for _, st := range j.byID {
+		if !st.job.Done {
 			snapshot := st.job
 			out = append(out, &snapshot)
 		}

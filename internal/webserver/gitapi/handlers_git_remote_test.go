@@ -131,7 +131,7 @@ func gitRemoteJobID(t *testing.T, out map[string]any) string {
 
 func gitRemoteWaitDone(t *testing.T, s *GitServer, id string) *jobs.Job {
 	t.Helper()
-	hub := s.gitJobs.get(s.Git)
+	hub := s.jobsHub()
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
 		if jb, ok := hub.Get(id); ok && jb.Done {
@@ -227,7 +227,7 @@ func TestGitRemote_StartReturnsJobImmediately(t *testing.T) {
 			if fmt.Sprint(got) != fmt.Sprint(c.want) {
 				t.Fatalf("argv = %v, want %v", got, c.want)
 			}
-			jb, _ := s.gitJobs.get(s.Git).Get(id)
+			jb, _ := s.jobsHub().Get(id)
 			if jb.Kind != c.kind {
 				t.Fatalf("kind = %q, want %q", jb.Kind, c.kind)
 			}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 
 	"dongminal/internal/webserver/httpreq"
 	"path/filepath"
@@ -132,19 +133,33 @@ func (s *GitServer) apiGitResolve(w http.ResponseWriter, r *http.Request) {
 	}
 	// REPO_FIX 01 §7.4: 경로마다 따로 해결하고 경로별 결과를 싣는다. 실행 전
 	// 검증 실패만 오류로 오며 그때는 아무것도 실행되지 않았다.
-	results, err := write.Resolve(s.Git.Service(), r.Context(), t.root, req.Side, write.Paths(req.Paths))
+	var results []write.ResolveResult
+	ran, err := t.write(func(ctx context.Context) error {
+		var err error
+		results, err = write.Resolve(s.Git.Service(), ctx, t.root, req.Side, write.Paths(req.Paths))
+		return err
+	})
+	if !ran {
+		return
+	}
 	if err != nil {
 		t.reject(err)
 		return
 	}
+	ctx, cancel := t.post()
+	defer cancel()
 	s.Git.Invalidate(t.root)
-	obs, _, statusErr := s.Git.Status(r.Context(), t.root)
+	obs, _, statusErr := s.Git.Status(ctx, t.root)
 	failed, applied := 0, 0
+	var locked error
 	for _, res := range results {
 		if res.OK {
 			applied++
-		} else {
-			failed++
+			continue
+		}
+		failed++
+		if locked == nil && errors.Is(res.Err, core.ErrIndexLocked) {
+			locked = res.Err
 		}
 	}
 	if failed == 0 {
@@ -162,8 +177,14 @@ func (s *GitServer) apiGitResolve(w http.ResponseWriter, r *http.Request) {
 	if statusErr == nil {
 		body["status"] = obs.Status
 	}
-	t.rejectBody(http.StatusConflict, apierr.CodeResolvePartial,
-		fmt.Sprintf("%d개 경로 중 %d개의 충돌 해결이 실패했다", len(results), failed), body)
+	// 코드 우선순위: index_locked → resolve_partial (§7.4). lock 이 원인이면 사용자가
+	// 할 일이 "남은 lock 지우기" 로 정해진다.
+	msg := fmt.Sprintf("%d개 경로 중 %d개의 충돌 해결이 실패했다", len(results), failed)
+	if locked != nil {
+		s.gitRenderFail(ctx, t, http.StatusConflict, apierr.CodeIndexLocked, msg, locked, body)
+		return
+	}
+	s.gitRenderFail(ctx, t, http.StatusConflict, apierr.CodeResolvePartial, msg, nil, body)
 }
 
 // POST /api/git/commit — staged 내용을 커밋한다 (FR-GIT-77·79·84).
@@ -184,7 +205,7 @@ func (s *GitServer) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	// preflight 를 서버가 다시 돌린다 (FR-GIT-86). 응답에 검사 결과를 함께 실어야
 	// 하므로 파이프라인의 공용 거부로 답할 수 없다.
-	pf, err := query.PreflightOf(s.Git.Service(), r.Context(), t.root)
+	pf, err := query.PreflightOf(s.Git.Service(), t.ctx(), t.root)
 	if err != nil {
 		gitError(w, err)
 		return
@@ -214,7 +235,7 @@ func (s *GitServer) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
 	//	새  동작: amend 면 메시지가 바뀌었을 때 실행한다
 	//	이유:     직전 커밋의 오타만 고치는 일을 할 수 없었다
 	if len(before.Staged) == 0 && !req.All {
-		if !req.Amend || s.gitAmendUnchanged(r.Context(), t.root, req.Message, req.SignOff) {
+		if !req.Amend || s.gitAmendUnchanged(t.ctx(), t.root, req.Message, req.SignOff) {
 			t.rejectWith(http.StatusBadRequest, gitErrNothingStaged, "staged 변경이 없다")
 			return
 		}
@@ -275,7 +296,7 @@ func (s *GitServer) apiGitUndoLast(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 메시지는 되돌리기 **전에** 읽는다 — 되돌린 뒤에는 그 커밋이 HEAD 가 아니다.
-	msg, err := query.LastCommitMessage(s.Git.Service(), r.Context(), t.root)
+	msg, err := query.LastCommitMessage(s.Git.Service(), t.ctx(), t.root)
 	if err != nil {
 		gitError(w, err)
 		return
@@ -290,8 +311,8 @@ func (s *GitServer) apiGitUndoLast(w http.ResponseWriter, r *http.Request) {
 
 // gitStatusBefore 는 실행 전 상태다. 캐시된 값을 써도 된다 — 실패했을 때 무엇이
 // 바뀌었는지를 재는 기준선이고, 200ms 안의 관측은 같은 기준선이다.
-func (s *GitServer) gitStatusBefore(w http.ResponseWriter, r *http.Request, root string) (query.Status, bool) {
-	obs, _, err := s.Git.Status(r.Context(), root)
+func (s *GitServer) gitStatusBefore(w http.ResponseWriter, ctx context.Context, root string) (query.Status, bool) {
+	obs, _, err := s.Git.Status(ctx, root)
 	if err != nil {
 		gitError(w, err)
 		return query.Status{}, false
@@ -307,10 +328,21 @@ func (s *GitServer) gitStatusBefore(w http.ResponseWriter, r *http.Request, root
 // 실패하면 실행 전과 비교해 `partial` 과 **무엇이 바뀌었는지**를 응답에 담는다
 // (FR-GIT-73, §7.1 I2). git 의 add/reset/checkout 은 경로별로 처리해 진짜 롤백이
 // 없으므로, 요구사항은 부분 적용을 조용히 넘기지 않는 것으로 만족시킨다.
-func (s *GitServer) gitApply(w http.ResponseWriter, r *http.Request, requested, root string, before query.Status, run func(context.Context) error) (query.Status, bool) {
-	runErr := run(r.Context())
-	s.Git.Invalidate(root)
-	obs, _, statusErr := s.Git.Status(r.Context(), root)
+//
+// REPO_FIX 01 §5.5: 쓰기는 루트 ctx 파생 쓰기 단계, 재조회는 사후 단계다.
+//
+//	이전 동작: 쓰기·재조회가 요청 ctx 에 묶였다 — 탭을 닫으면 쓰기 도중 끊겼다
+//	새  동작: 쓰기 직전에만 요청을 보고, 시작한 쓰기는 끝까지 간다
+//	이유:     중간에 끊긴 쓰기는 index.lock 과 반쯤 적용된 작업 트리를 남긴다
+func (s *GitServer) gitApply(t *gitWrite, before query.Status, run func(context.Context) error) (query.Status, bool) {
+	ran, runErr := t.write(run)
+	if !ran {
+		return query.Status{}, false
+	}
+	ctx, cancel := t.post()
+	defer cancel()
+	s.Git.Invalidate(t.root)
+	obs, _, statusErr := s.Git.Status(ctx, t.root)
 
 	if runErr == nil && statusErr == nil {
 		return obs.Status, true
@@ -318,18 +350,11 @@ func (s *GitServer) gitApply(w http.ResponseWriter, r *http.Request, requested, 
 	if runErr == nil {
 		// 실행은 됐고 재조회가 실패했다. 결과를 성공으로 보이면 화면이 낡은 목록을
 		// 유지하므로 실패로 답한다.
-		gitError(w, statusErr)
+		gitError(t.w, statusErr)
 		return query.Status{}, false
 	}
 
-	code, name := gitErrorCode(runErr)
-	body := map[string]any{
-		"error":     name,
-		"message":   gitTail(runErr.Error()),
-		"requested": requested,
-		"repo":      root,
-		"partial":   false,
-	}
+	body := map[string]any{"partial": false}
 	var be *write.BatchError
 	if errors.As(runErr, &be) && be.Partial() {
 		body["partial"] = true
@@ -341,8 +366,44 @@ func (s *GitServer) gitApply(w http.ResponseWriter, r *http.Request, requested, 
 		}
 		body["status"] = obs.Status
 	}
-	gitErrJSON(w, code, name, body)
+	s.gitWriteFail(ctx, t, runErr, body)
 	return query.Status{}, false
+}
+
+// gitWriteFail 은 동기 쓰기 실패 응답의 **공통 지점**이다 (REPO_FIX 01 §7.2).
+// index.lock 에 막힌 실패면 lock 경로·mtime 을 덧붙인다 — 그래야 화면이 "남은 lock
+// 지우기" 를 세운다. 판정 git 은 사후 단계 ctx 로 돈다.
+func (s *GitServer) gitWriteFail(ctx context.Context, t *gitWrite, runErr error, body map[string]any) {
+	code, name := gitErrorCode(runErr)
+	s.gitRenderFail(ctx, t, code, name, gitTail(runErr.Error()), runErr, body)
+}
+
+// gitRenderFail 은 코드를 호출자가 정한 실패 응답이다 (stash 잔존·resolve 부분 실패).
+func (s *GitServer) gitRenderFail(ctx context.Context, t *gitWrite, code int, name, msg string, cause error, body map[string]any) {
+	body["error"], body["message"] = name, msg
+	body["requested"], body["repo"] = t.requested, t.root
+	if lock, ok := s.gitIndexLock(ctx, t.root, cause); ok {
+		body["lock"] = lock
+	}
+	gitErrJSON(t.w, code, name, body)
+	t.done = true
+}
+
+// gitIndexLock 은 err 가 index.lock 실패일 때 그 lock 의 정보다 (§7.2). 파일이
+// 없으면 mtime 을 싣지 않는다 — 프런트는 "다시 시도" 로 안내한다.
+func (s *GitServer) gitIndexLock(ctx context.Context, root string, err error) (map[string]any, bool) {
+	if !errors.Is(err, core.ErrIndexLocked) {
+		return nil, false
+	}
+	p, perr := s.Git.Service().IndexLockPath(ctx, root)
+	if perr != nil {
+		return nil, false
+	}
+	lock := map[string]any{"path": p}
+	if st, serr := os.Lstat(p); serr == nil {
+		lock["mtimeUnixMs"] = st.ModTime().UnixMilli()
+	}
+	return lock, true
 }
 
 // gitWriteOK 는 쓰기 성공 응답이다. **실행 후 status 를 함께 담는다** (FR-GIT-71)

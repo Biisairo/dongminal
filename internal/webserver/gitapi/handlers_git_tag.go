@@ -72,7 +72,7 @@ func (s *GitServer) apiGitTagCreate(w http.ResponseWriter, r *http.Request) {
 		t.reject(err)
 	}
 	// 이름 충돌은 저장소를 조회해야 안다 — 파이프라인이 대신할 수 없는 검사다.
-	if t.stop() || s.gitTagNameTaken(w, r, req.Repo, t.root, req.Name) {
+	if t.stop() || s.gitTagNameTaken(w, t.ctx(), req.Repo, t.root, req.Name) {
 		return
 	}
 	t.apply(func(ctx context.Context) error {
@@ -102,7 +102,7 @@ func (s *GitServer) apiGitTagDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	// 없는 태그는 실행 **전에** 404 로 답한다. apply 를 지나면 코드가 500 이 되고,
 	// 클라이언트는 "저장소가 고장났다" 와 "그런 태그가 없다" 를 구분할 수 없다.
-	exists, err := query.TagExists(s.Git.Service(), r.Context(), t.root, req.Name)
+	exists, err := query.TagExists(s.Git.Service(), t.ctx(), t.root, req.Name)
 	if err != nil {
 		gitError(w, err)
 		return
@@ -122,7 +122,7 @@ func (s *GitServer) apiGitTagDelete(w http.ResponseWriter, r *http.Request) {
 //
 // 원격 작업이므로 job 경로를 탄다 — 진행·취소·인증 안내가 공짜로 따라온다.
 func (s *GitServer) apiGitTagPush(w http.ResponseWriter, r *http.Request) {
-	s.gitTagRemoteRoute(w, r, false, func(root string, o write.TagRemoteOpts) (core.WriteSpec, error) {
+	s.gitTagRemoteRoute(w, r, false, func(_ context.Context, root string, o write.TagRemoteOpts) (core.WriteSpec, error) {
 		return write.TagPushSpec(o)
 	})
 }
@@ -132,8 +132,8 @@ func (s *GitServer) apiGitTagPush(w http.ResponseWriter, r *http.Request) {
 //
 // **로컬은 건드리지 않는다** — 그것은 다른 항목이다.
 func (s *GitServer) apiGitTagDeleteRemote(w http.ResponseWriter, r *http.Request) {
-	s.gitTagRemoteRoute(w, r, true, func(root string, o write.TagRemoteOpts) (core.WriteSpec, error) {
-		return write.TagDeleteRemoteSpec(s.Git.Service(), r.Context(), root, o)
+	s.gitTagRemoteRoute(w, r, true, func(ctx context.Context, root string, o write.TagRemoteOpts) (core.WriteSpec, error) {
+		return write.TagDeleteRemoteSpec(s.Git.Service(), ctx, root, o)
 	})
 }
 
@@ -184,7 +184,7 @@ func (s *GitServer) apiGitTagValidate(w http.ResponseWriter, r *http.Request) {
 //
 // **spec 을 실행 전에 만든다** — 잘못된 요청과 없는 원격을 job 으로 넘기면 사유가
 // 스트림 끝에서야 오고, 그때는 이미 확인을 지난 뒤다.
-func (s *GitServer) gitTagRemoteRoute(w http.ResponseWriter, r *http.Request, confirm bool, spec func(root string, o write.TagRemoteOpts) (core.WriteSpec, error)) {
+func (s *GitServer) gitTagRemoteRoute(w http.ResponseWriter, r *http.Request, confirm bool, spec func(ctx context.Context, root string, o write.TagRemoteOpts) (core.WriteSpec, error)) {
 	var req gitTagRemoteReq
 	t := s.beginWrite(w, r, &req)
 	if t.stop() {
@@ -199,26 +199,26 @@ func (s *GitServer) gitTagRemoteRoute(w http.ResponseWriter, r *http.Request, co
 	root := t.root
 	remote := req.Remote
 	if remote == "" {
-		got, err := query.DefaultRemote(s.Git.Service(), r.Context(), root)
+		got, err := query.DefaultRemote(s.Git.Service(), t.ctx(), root)
 		if err != nil {
 			t.reject(err)
 			return
 		}
 		remote = got
 	}
-	sp, err := spec(root, write.TagRemoteOpts{Remote: remote, Name: req.Name, All: req.All})
+	sp, err := spec(t.ctx(), root, write.TagRemoteOpts{Remote: remote, Name: req.Name, All: req.All})
 	if err != nil {
 		t.reject(err)
 		return
 	}
-	s.gitStartJob(w, req.Repo, root, "push", sp, map[string]any{"remote": remote, "tag": req.Name, "all": req.All})
+	t.startJob("push", sp, map[string]any{"remote": remote, "tag": req.Name, "all": req.All})
 }
 
 // gitTagNameTaken 은 이름 규칙과 이름 충돌을 실행 **전에** 답한다 (FR-GIT-250.3).
 //
 // 참을 돌려주면 응답이 이미 쓰였다는 뜻이다.
-func (s *GitServer) gitTagNameTaken(w http.ResponseWriter, r *http.Request, requested, root, name string) bool {
-	if err := write.CheckNewTagName(s.Git.Service(), r.Context(), root, name); err != nil {
+func (s *GitServer) gitTagNameTaken(w http.ResponseWriter, ctx context.Context, requested, root, name string) bool {
+	if err := write.CheckNewTagName(s.Git.Service(), ctx, root, name); err != nil {
 		if errors.Is(err, write.ErrTagExists) {
 			gitErrJSON(w, http.StatusConflict, gitErrTagExists, map[string]any{
 				"error":     gitErrTagExists,

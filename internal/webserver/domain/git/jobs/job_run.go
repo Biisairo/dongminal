@@ -141,9 +141,7 @@ func (j *Jobs) finish(st *jobState, exit int, runErr error, dur time.Duration) {
 	j.mu.Lock()
 	st.job = final
 	st.doneAt = j.now()
-	if j.active[final.Repo] == final.ID {
-		delete(j.active, final.Repo)
-	}
+	j.excl.free(st.keys, SlotsOf(final.Kind), final.ID)
 	for sub := range st.subs {
 		delete(st.subs, sub)
 		sub.close()

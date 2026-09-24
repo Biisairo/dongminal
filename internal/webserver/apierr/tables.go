@@ -19,6 +19,11 @@ import (
 // **순서는 구체 → 일반이다.** 원본에서 `core.*` 판정은 언제나 각 번역기의
 // `default` 였다 — 그 자리를 테이블 맨 아래가 대신한다.
 var Git = Table{
+	// ── REPO_FIX 01 §7.1: index.lock 이 가장 앞이다. 어느 쓰기 sentinel 이 감싸도
+	// 사용자가 할 일(남은 lock 확인·삭제)이 같고, 그 안내가 다른 코드에 묻히면
+	// "남은 lock 지우기" 버튼이 서지 않는다 ──
+	{core.ErrIndexLocked, http.StatusConflict, CodeIndexLocked},
+
 	// ── 부분 스테이징. 원본에서 gitWriteErrorCode 가 가장 먼저 물었다 ──
 	{write.ErrPatchStale, http.StatusConflict, CodeStaleObservation},
 	{write.ErrPatchEmpty, http.StatusBadRequest, CodePatchEmpty},
@@ -50,6 +55,7 @@ var Git = Table{
 
 	// ── 작업 큐 ──
 	{jobs.ErrJobBusy, http.StatusConflict, CodeJobBusy},
+	{jobs.ErrRepoBusy, http.StatusConflict, CodeRepoBusy},
 
 	// ── 브랜치 ──
 	{write.ErrBranchExists, http.StatusConflict, CodeBranchExists},

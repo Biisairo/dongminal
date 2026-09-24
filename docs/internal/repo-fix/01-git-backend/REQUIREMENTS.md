@@ -254,7 +254,7 @@
 
 ### 7.2 index.lock (#12, 사용자 결정: 자동 삭제 없음 + 안내·버튼)
 - `core.classify`(errors.go:57)가 소문자 stderr 에 `unable to create '` 와 `index.lock': file exists` 가 **함께** 있으면 `ErrIndexLocked`, `kinds`(errors.go:29)에 추가. 다른 `.lock` 은 범위 밖(현행 `git_failed`).
-- lock 정보: `lockPath` = `git rev-parse --git-path index.lock`(상대면 루트 기준 절대화 — 링크드 worktree 대응), `lockMtimeUnixMs` = `Lstat` mtime. 파일이 없으면 mtime 을 싣지 않는다(프런트는 "다시 시도" 안내).
+- lock 정보: 응답 필드 `lock {path, mtimeUnixMs}` — `path` = `git rev-parse --git-path index.lock`(상대면 루트 기준 절대화 — 링크드 worktree 대응), `mtimeUnixMs` = `Lstat` mtime. 파일이 없으면 mtime 을 싣지 않는다(프런트는 "다시 시도" 안내). (구현 중 정정: 동기 응답도 §6.3 잡 결과와 같은 `lock {path, mtimeUnixMs}` 모양 — 한 필드가 두 모양이면 프런트가 둘을 따로 읽는다. 삭제 종단 응답의 `lockPath` 는 그대로)
 - **모든 동기 쓰기 실패 응답**(gitApply 경로 전부·replay·undo·stash·Manager 경유·resolve)에 실패 렌더링 공통 지점 하나가 `errors.Is(ErrIndexLocked)` 로 판정해 덧붙인다(판정 git 은 사후 단계 ctx). 잡은 완료 처리에서 같은 판정.
 - 삭제 종단 `POST /api/git/lock/remove` 본문 `{repo, confirm, mtimeUnixMs}`(경로 필드 없음): `beginWrite` → `requireConfirm` → resolve → 잡 확인(그 toplevel 의 index 칸 또는 그 common dir 의 common 칸에 잡이 있으면 409 `job_busy`) → toplevel 뮤텍스 TryLock(실패 409 `repo_busy`) → 경로 재계산 → 검사(파일명 정확히 `index.lock`, `Lstat` 일반 파일 — 아니면 400, `--git-dir`/`--git-common-dir` 하위) → 없으면 200 `{ok:true, removed:false, lockPath}` → mtime ≠ 요청이면 409 `stale_observation` → `os.Remove` → 캐시 무효화 → 200 `{ok:true, removed:true, lockPath}`. 파괴적 정책 `core.ActionIndexLockRemove = "index_lock_remove"` 를 `DestructiveActions` 에 추가(`/api/git/policy` 노출). 서버 로그에 경로·mtime.
 - 프런트: 버튼은 `index_locked` 응답·잡 결과에서만. 확인 다이얼로그에 lockPath·상대 시각과 확인문("터미널 등 다른 git 이 실행 중이면 지우지 말 것"). 성공 뒤 status 재수집, 원래 동작은 자동 재시도하지 않는다.

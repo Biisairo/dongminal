@@ -49,6 +49,10 @@ type gitWriteFake struct {
 	writeErr func(argv []string) (core.Output, error)
 	// onWrite 는 쓰기 성공 직후에 불린다. 쓰기가 상태를 바꾸는 것을 흉내 낸다.
 	onWrite func(f *gitWriteFake, argv []string)
+	// writeCtx 는 쓰기가 받은 ctx 를 본다 — 쓰기 단계 ctx 의 부모 검증용 (§5.5).
+	writeCtx func(ctx context.Context)
+	// onStatus 는 status 조회마다 불린다(잠금 밖에서 부른다).
+	onStatus func()
 }
 
 func newGitWriteFake(t *testing.T) *gitWriteFake {
@@ -73,9 +77,16 @@ func (f *gitWriteFake) read(_ context.Context, dir string, args []string) (core.
 		return core.Output{Stdout: dir + "\n"}, nil
 	case args[0] == "rev-parse" && args[1] == "--verify":
 		return core.Output{Stdout: strings.Repeat("a", 40) + "\n"}, nil
+	case args[0] == "rev-parse" && args[1] == "--git-path":
+		return core.Output{Stdout: filepath.Join(f.gitDir, args[2]) + "\n"}, nil
 	case args[0] == "rev-parse":
 		return core.Output{Stdout: f.gitDir + "\n" + f.gitDir + "\n"}, nil
 	case args[0] == "status":
+		if hook := f.onStatus; hook != nil {
+			f.mu.Unlock()
+			hook()
+			f.mu.Lock()
+		}
 		return core.Output{Stdout: f.status}, nil
 	case args[0] == "log":
 		return core.Output{Stdout: f.message + "\n"}, nil
@@ -100,7 +111,10 @@ func (f *gitWriteFake) configValue(args []string) string {
 	return ""
 }
 
-func (f *gitWriteFake) write(_ context.Context, _ string, args []string, stdin string) (core.Output, error) {
+func (f *gitWriteFake) write(ctx context.Context, _ string, args []string, stdin string) (core.Output, error) {
+	if f.writeCtx != nil {
+		f.writeCtx(ctx)
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.writes = append(f.writes, append([]string(nil), args...))

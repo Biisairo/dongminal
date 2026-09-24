@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 
+	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/query"
 )
 
@@ -41,6 +43,11 @@ type gitWrite struct {
 
 	requested string
 	root      string
+
+	// pre 는 사전 단계 ctx 다 (REPO_FIX 01 §5.5) — 요청 ctx 파생 + 10s, 잠금을 쥔
+	// 뒤부터. 잠금 분류가 없는 배선(lease 없음)에서는 요청 ctx 그대로다.
+	pre  context.Context
+	keys jobs.Keys
 
 	// before 는 실행 전 상태, after 는 실행 후 상태다. **두 필드로 가른다** —
 	// 하나에 담으면 `apply` 뒤에 그 이름이 거짓이 되고, 부분 적용 판정이 무엇을
@@ -150,9 +157,17 @@ func (t *gitWrite) rejectBody(status int, code, msg string, extra map[string]any
 	t.done = true
 }
 
-// resolve 는 요청이 보낸 repo 를 정규 루트로 옮긴다 (FR-GIT-62). 클라이언트가
-// 보낸 경로를 그대로 신뢰해 저장소를 바꾸지 않는다.
+// resolve 는 요청이 보낸 repo 를 정규 루트로 옮기고, 종단의 잠금 분류대로 잠근다
+// (FR-GIT-62, REPO_FIX 01 §5.4). 클라이언트가 보낸 경로를 그대로 신뢰해 저장소를
+// 바꾸지 않는다.
 func (t *gitWrite) resolve(repo string) {
+	t.resolveRoot(repo)
+	t.lock(true)
+}
+
+// resolveRoot 는 잠그지 않고 루트만 정한다 — 잠글지가 루트를 본 뒤에야 정해지는
+// 종단(기록 재실행: 읽기 기록은 잠그지 않는다)이 lock 을 따로 부른다.
+func (t *gitWrite) resolveRoot(repo string) {
 	if t.done {
 		return
 	}
@@ -162,6 +177,96 @@ func (t *gitWrite) resolve(repo string) {
 		return
 	}
 	t.requested, t.root = repo, root
+}
+
+// lock 은 §5.4 의 판정 순서다: ① 같은 toplevel 의 index 칸(있으면 즉시 job_busy)
+// → ② (stash 는 common-dir 잠금 먼저) toplevel 뮤텍스(≤5s, 넘으면 repo_busy,
+// 요청이 떠나면 미실행) → ③ index 칸 재확인. 그 뒤 사전 단계 ctx 를 연다.
+//
+// need 가 거짓이면 잠그지 않고 사전 단계 ctx 만 연다.
+func (t *gitWrite) lock(need bool) {
+	if t.done {
+		return
+	}
+	l := leaseOf(t.r.Context())
+	if l == nil {
+		t.pre = t.r.Context()
+		return
+	}
+	if need && l.mode != lockNone {
+		t.acquire(l)
+		if t.done {
+			return
+		}
+	}
+	pre, cancel := context.WithTimeout(t.r.Context(), core.PrePhaseTimeout)
+	l.hold(cancel)
+	t.pre = pre
+}
+
+func (t *gitWrite) acquire(l *writeLease) {
+	keys, err := t.s.gitKeys(t.r.Context(), t.root)
+	if err != nil {
+		t.reject(err)
+		return
+	}
+	t.keys = keys
+	x := t.s.exclusion()
+	if t.indexBusy(x) {
+		return
+	}
+	if l.mode == lockStash {
+		release, err := x.LockCommon(t.r.Context(), keys.Common, t.s.gitLockWait())
+		if err != nil {
+			t.reject(err)
+			return
+		}
+		l.hold(release)
+	}
+	release, err := x.LockTop(t.r.Context(), keys.Top, t.s.gitLockWait())
+	if err != nil {
+		t.reject(err)
+		return
+	}
+	l.hold(release)
+	t.indexBusy(x)
+}
+
+// indexBusy 는 index 칸을 쥔 잡이 있으면 409 job_busy 로 답한다. 기다리지 않는다 —
+// 잡은 분 단위일 수 있다.
+func (t *gitWrite) indexBusy(x *jobs.Exclusion) bool {
+	id, busy := x.IndexBusy(t.keys.Top)
+	if busy {
+		t.rejectWith(http.StatusConflict, gitErrJobBusy, "이 저장소에서 작업("+id+")이 진행 중이다 — 끝난 뒤 다시 시도하라")
+	}
+	return busy
+}
+
+// ctx 는 사전 단계 ctx 다. 쓰기 전 검사·조회는 전부 이것을 쓴다.
+func (t *gitWrite) ctx() context.Context {
+	if t.pre != nil {
+		return t.pre
+	}
+	return t.r.Context()
+}
+
+// write 는 쓰기 단계다 (§5.5). 요청이 이미 떠났으면 실행하지 않고 답한다(④).
+// 시작하면 서버 루트 ctx 파생 + 30s 마감 하나로 run 전체가 돈다 — 그 뒤의 이탈은
+// 무시한다. ran 이 거짓이면 이미 답했다.
+func (t *gitWrite) write(run func(context.Context) error) (ran bool, err error) {
+	if t.r.Context().Err() != nil {
+		t.reject(core.ErrCanceled)
+		return false, nil
+	}
+	ctx, cancel := context.WithTimeout(t.s.gitRoot(), core.DefaultTimeout)
+	defer cancel()
+	return true, run(ctx)
+}
+
+// post 는 사후 단계 ctx 다 — 루트 파생 + 15s. 쓰기가 끝났으면 요청이 떠나도
+// 재조회까지 한다.
+func (t *gitWrite) post() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(t.s.gitRoot(), core.PostPhaseTimeout)
 }
 
 // snapshot 은 실행 전 상태를 찍는다. **멱등이다** — 두 번 불러도 한 번만 찍는다.
@@ -176,7 +281,7 @@ func (t *gitWrite) snapshot() query.Status {
 	if t.done || t.gotBefore {
 		return t.before
 	}
-	before, ok := t.s.gitStatusBefore(t.w, t.r, t.root)
+	before, ok := t.s.gitStatusBefore(t.w, t.ctx(), t.root)
 	if !ok {
 		t.done = true
 		return query.Status{}
@@ -198,7 +303,7 @@ func (t *gitWrite) apply(run func(ctx context.Context) error) {
 	if t.done {
 		return
 	}
-	after, ok := t.s.gitApply(t.w, t.r, t.requested, t.root, before, run)
+	after, ok := t.s.gitApply(t, before, run)
 	if !ok {
 		t.done = true
 		return

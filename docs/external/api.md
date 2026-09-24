@@ -290,6 +290,7 @@
 | GET | `/api/git/jobs` | 도는 작업 목록 |
 | GET | `/api/git/job/events` | 그 작업의 진행 (SSE) |
 | POST | `/api/git/job/cancel` | 작업을 취소한다 |
+| POST | `/api/git/lock/remove` | 쓰기가 `index_locked` 로 막힌 뒤 남은 `index.lock` 을 지운다 — `confirm:true` 와 확인한 `mtimeUnixMs` 가 필요하다. 서버가 스스로 지우지는 않는다 |
 
 ### Git — stash·worktree·submodule
 

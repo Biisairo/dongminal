@@ -76,7 +76,7 @@ func (s *GitServer) gitPick(w http.ResponseWriter, r *http.Request, verb string)
 	}
 	// 머지 여부는 **저장소에** 묻는다 (FR-GIT-263). 요청이 정하게 두면 화면이 낡은
 	// 순간에 부모 없는 머지가 그대로 지나간다.
-	parents, ok := s.gitCommitParents(w, r, t.root, req.Oid)
+	parents, ok := s.gitCommitParents(w, t.ctx(), t.root, req.Oid)
 	if !ok {
 		return
 	}
@@ -140,7 +140,7 @@ func (s *GitServer) apiGitDrop(w http.ResponseWriter, r *http.Request) {
 	}
 	// 머지 커밋은 `<oid>^` 로 뺄 수 없다 — 첫 부모만 남고 나머지 갈래가 조용히
 	// 사라진다. 루트 커밋은 `^` 가 가리킬 것이 없다.
-	parents, ok := s.gitCommitParents(w, r, t.root, req.Oid)
+	parents, ok := s.gitCommitParents(w, t.ctx(), t.root, req.Oid)
 	if !ok {
 		return
 	}
@@ -203,12 +203,12 @@ func (s *GitServer) apiGitCommitRange(w http.ResponseWriter, r *http.Request) {
 //
 // **머지 판정이 여기 한 자리다** — cherry-pick·revert 의 부모 선택과 drop 의 거부가
 // 같은 값을 딛는다. 두 벌이면 한쪽만 고쳐진다.
-func (s *GitServer) gitCommitParents(w http.ResponseWriter, r *http.Request, root, oid string) ([]string, bool) {
+func (s *GitServer) gitCommitParents(w http.ResponseWriter, ctx context.Context, root, oid string) ([]string, bool) {
 	if err := core.CheckRefArg("oid", oid); err != nil {
 		gitFail(w, http.StatusBadRequest, gitErrRefName, gitTail(err.Error()))
 		return nil, false
 	}
-	out, err := s.Git.Service().Exec(r.Context(), root, "log", "-n", "1", "--format=%P", oid)
+	out, err := s.Git.Service().Exec(ctx, root, "log", "-n", "1", "--format=%P", oid)
 	if err != nil {
 		gitError(w, err)
 		return nil, false

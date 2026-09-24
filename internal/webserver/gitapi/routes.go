@@ -111,6 +111,8 @@ var routes = []route{
 	httproute.Get("/api/git/worktrees", (*GitServer).apiGitWorktrees),
 	httproute.Post("/api/git/worktrees/create", (*GitServer).apiGitWorktreeCreate),
 	httproute.Post("/api/git/worktrees/remove", (*GitServer).apiGitWorktreeRemove),
+	// REPO_FIX 01 §7.2: 남은 index.lock 을 사용자 확인 뒤 지운다. 자동 삭제는 없다.
+	httproute.Post("/api/git/lock/remove", (*GitServer).apiGitLockRemove),
 }
 
 // Handle은 /api/git/* 요청을 처리하고 처리 여부를 돌려준다. false 면 호출자가
@@ -118,6 +120,11 @@ var routes = []route{
 func (g *GitServer) Handle(w http.ResponseWriter, r *http.Request) bool {
 	if !strings.HasPrefix(r.URL.Path, "/api/git/") {
 		return false
+	}
+	// REPO_FIX 01 §5.4: 쓰기 종단의 잠금은 핸들러가 끝난 뒤 여기서 반납한다.
+	r, lease := withLease(r)
+	if lease != nil {
+		defer lease.release()
 	}
 	return httproute.Dispatch(routes, g, w, r)
 }

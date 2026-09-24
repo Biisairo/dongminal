@@ -8,6 +8,9 @@
 package gitapi
 
 import (
+	"time"
+
+	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/submodule"
 	"dongminal/internal/webserver/domain/worktree"
@@ -89,6 +92,14 @@ type GitServer struct {
 	// 있다 — 클라이언트 타이머만으로는 만료를 강제할 수 없으므로 이 자리가 없어서
 	// undo 가 무제한이 되는 경로를 만들지 않는다.
 	gitUndo gitUndoStore
+
+	// Exclusion 은 저장소 배타 상태다 (REPO_FIX 01 §5.4) — toplevel 뮤텍스·
+	// common-dir 잠금·잡의 두 칸. 합성 루트가 하나를 만들어 여기와 Run 격리에 같은
+	// 것을 준다. nil 이면 처음 쓸 때 만든다(단독 배선).
+	Exclusion *jobs.Exclusion
+
+	// lockWait 는 잠금 대기 상한이다. 0 이면 core.LockWait — 테스트만 줄인다.
+	lockWait time.Duration
 
 	// gitJobs 는 원격 작업(fetch/pull/push)의 수명을 쥔다 (FR-GIT-101·102).
 	// 제로값도 쓸 수 있다 — 첫 사용에 만들어지고, Git 이 없으면 만들지 않는다.

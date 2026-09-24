@@ -17,6 +17,9 @@ func TestDestructiveActions_CoversFR89(t *testing.T) {
 		ActionResolveSide,
 		// FR-GIT-250.1 (GIT_ACTIONS_SRS): 동작 표면 완성판이 여는 것들.
 		ActionRebase, ActionCommitDrop, ActionCleanUntracked, ActionOperationAbort,
+		// REPO_FIX 01 §7.2: 남은 index.lock 을 지운다 — 다른 git 이 돌고 있었다면
+		// 그 git 의 index 쓰기를 깨뜨린다.
+		ActionIndexLockRemove,
 	}
 	if len(DestructiveActions) != len(want) {
 		t.Fatalf("DestructiveActions = %v, want %v", DestructiveActions, want)

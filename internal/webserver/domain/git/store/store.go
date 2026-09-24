@@ -143,6 +143,17 @@ func NewStore(svc *core.Service, opts ...StoreOption) *Store {
 
 func (st *Store) Service() *core.Service { return st.svc }
 
+// Root 는 서버 수명 ctx 다. 쓰기 단계·사후 단계가 이것에서 파생한다 (REPO_FIX 01
+// §5.5) — 요청이 떠나도 시작된 쓰기는 끝까지 가고, 서버가 멈추면 함께 멈춘다.
+func (st *Store) Root() context.Context { return st.root }
+
+// CommonDir 는 repo 의 common-dir 절대 경로다 (§5.1 common-dir 키의 재료). gitDirs
+// 캐시를 딛는다 — 쓰기마다 rev-parse 를 한 번 더 부르지 않는다.
+func (st *Store) CommonDir(ctx context.Context, repo string) (string, error) {
+	_, common, err := st.gitDirs(ctx, repo)
+	return common, err
+}
+
 // Status 는 캐시가 유효하면 그것을, 아니면 새로 관측해 돌려준다.
 // cached 는 git 을 실행하지 않았음을 뜻한다 — 진행 중 조회에 붙은 호출자도 참이다.
 //

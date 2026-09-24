@@ -59,11 +59,16 @@ type gitJobHolder struct {
 
 // get 은 허브를 지연 생성한다. 완료 훅으로 status 캐시를 만료시킨다 —
 // ahead/behind 가 폴링 주기를 기다리면 화면이 그만큼 거짓말을 한다 (FR-GIT-107).
-func (h *gitJobHolder) get(store *store.Store) *jobs.Jobs {
+//
+// 칸은 서버의 배타 상태(excl)에 둔다 — 동기 쓰기가 같은 인스턴스로 칸을 본다.
+func (h *gitJobHolder) get(store *store.Store, excl *jobs.Exclusion) *jobs.Jobs {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.jobs == nil {
-		opts := []jobs.JobsOption{jobs.WithOnDone(func(jb *jobs.Job) { store.Invalidate(jb.Repo) })}
+		opts := []jobs.JobsOption{
+			jobs.WithOnDone(func(jb *jobs.Job) { store.Invalidate(jb.Repo) }),
+			jobs.WithExclusion(excl),
+		}
 		if h.run != nil {
 			opts = append(opts, jobs.WithJobRunner(h.run))
 		}
@@ -114,8 +119,7 @@ func (s *GitServer) apiGitFetch(w http.ResponseWriter, r *http.Request) {
 	if t.stop() {
 		return
 	}
-	root := t.root
-	s.gitStartJob(w, req.Repo, root, "fetch", write.FetchSpec(write.FetchOpts{Prune: req.Prune, Tags: req.Tags}), nil)
+	t.startJob("fetch", write.FetchSpec(write.FetchOpts{Prune: req.Prune, Tags: req.Tags}), nil)
 }
 
 // POST /api/git/pull — 기본은 `pull --progress` 다 (FR-GIT-99).
@@ -126,13 +130,12 @@ func (s *GitServer) apiGitPull(w http.ResponseWriter, r *http.Request) {
 	if t.stop() {
 		return
 	}
-	root := t.root
 	spec, err := write.PullSpec(write.PullOpts{Mode: req.Mode})
 	if err != nil {
 		gitError(w, err)
 		return
 	}
-	s.gitStartJob(w, req.Repo, root, "pull", spec, nil)
+	t.startJob("pull", spec, nil)
 }
 
 // POST /api/git/push — upstream 이 없으면 Publish 이고, 그 사실을 **실행 전에**
@@ -145,7 +148,7 @@ func (s *GitServer) apiGitPush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	root := t.root
-	spec, plan, err := write.PushSpec(s.Git.Service(), r.Context(), root, write.PushOpts{
+	spec, plan, err := write.PushSpec(s.Git.Service(), t.ctx(), root, write.PushOpts{
 		Force: req.Force, Confirm: req.Confirm, Publish: req.Publish,
 		Remote: req.Remote, Branch: req.Branch,
 	})
@@ -153,43 +156,67 @@ func (s *GitServer) apiGitPush(w http.ResponseWriter, r *http.Request) {
 		gitPushError(w, req.Repo, root, plan, err)
 		return
 	}
-	s.gitStartJob(w, req.Repo, root, "push", spec, map[string]any{"plan": plan})
+	t.startJob("push", spec, map[string]any{"plan": plan})
 }
 
-// gitStartJob 은 작업을 띄우고 식별자를 **즉시** 돌려준다 (FR-GIT-102). 끝나기를
+// jobsHub 는 잡 허브다. 칸은 서버의 배타 상태에 둔다 (REPO_FIX 01 §5.4).
+func (s *GitServer) jobsHub() *jobs.Jobs { return s.gitJobs.get(s.Git, s.exclusion()) }
+
+// startJob 은 작업을 띄우고 식별자를 **즉시** 돌려준다 (FR-GIT-102). 끝나기를
 // 기다리면 응답이 분 단위가 되고, 그동안 UI 는 막힌다.
-func (s *GitServer) gitStartJob(w http.ResponseWriter, requested, root, kind string, spec core.WriteSpec, extra map[string]any) {
-	jb, err := s.gitJobs.get(s.Git).Start(root, kind, spec)
-	if err != nil {
-		if errors.Is(err, jobs.ErrJobBusy) {
-			gitFail(w, http.StatusConflict, gitErrJobBusy, gitTail(err.Error()))
-			return
-		}
-		code, name := gitErrorCode(err)
-		gitFail(w, code, name, gitTail(err.Error()))
+func (t *gitWrite) startJob(kind string, spec core.WriteSpec, extra map[string]any) {
+	t.launchJob(func(h *jobs.Jobs, k jobs.Keys) (*jobs.Job, error) { return h.Start(t.root, k, kind, spec) }, extra)
+}
+
+// startUnguardedJob 은 인가를 도메인이 진 작업을 띄운다 (M8 D-A-27) — 응답의
+// 모양과 busy 판정은 startJob 과 같다.
+func (t *gitWrite) startUnguardedJob(kind string, argv []string, reason string) {
+	t.launchJob(func(h *jobs.Jobs, k jobs.Keys) (*jobs.Job, error) {
+		return h.StartUnguarded(t.root, k, kind, argv, reason)
+	}, nil)
+}
+
+// launchJob 은 잡 등록의 공통 몸통이다. 배타 키는 잠금을 쥐며 구한 것을 그대로 쓰고
+// (lockNone 종단은 여기서 구한다), 요청이 이미 떠났으면 등록하지 않는다 (§5.4 ④).
+func (t *gitWrite) launchJob(start func(*jobs.Jobs, jobs.Keys) (*jobs.Job, error), extra map[string]any) {
+	if t.done {
 		return
 	}
-	body := map[string]any{"requested": requested, "repo": root, "job": jb}
+	keys := t.keys
+	if keys.Top == "" {
+		k, err := t.s.jobKeys(t.ctx(), t.root)
+		if err != nil {
+			t.reject(err)
+			return
+		}
+		keys = k
+	}
+	if t.r.Context().Err() != nil {
+		t.reject(core.ErrCanceled)
+		return
+	}
+	jb, err := start(t.s.jobsHub(), keys)
+	if err != nil {
+		code, name := gitErrorCode(err)
+		t.rejectWith(code, name, gitTail(err.Error()))
+		return
+	}
+	body := map[string]any{"requested": t.requested, "repo": t.root, "job": jb}
 	for k, v := range extra {
 		body[k] = v
 	}
-	gitJSON(w, http.StatusOK, body)
+	gitJSON(t.w, http.StatusOK, body)
+	t.done = true
 }
 
-// gitStartUnguardedJob 은 인가를 도메인이 진 작업을 띄운다 (M8 D-A-27) — 응답의
-// 모양과 busy 판정은 gitStartJob 과 같다.
-func (s *GitServer) gitStartUnguardedJob(w http.ResponseWriter, requested, root, kind string, argv []string, reason string) {
-	jb, err := s.gitJobs.get(s.Git).StartUnguarded(root, kind, argv, reason)
-	if err != nil {
-		if errors.Is(err, jobs.ErrJobBusy) {
-			gitFail(w, http.StatusConflict, gitErrJobBusy, gitTail(err.Error()))
-			return
-		}
-		code, name := gitErrorCode(err)
-		gitFail(w, code, name, gitTail(err.Error()))
-		return
+// jobKeys 는 잡의 배타 키다. Git 이 없는 배선(서브모듈 관리자만 있는 판)에서는
+// common-dir 을 물을 수 없으므로 루트를 두 칸의 키로 쓴다.
+func (s *GitServer) jobKeys(ctx context.Context, root string) (jobs.Keys, error) {
+	if s.Git == nil {
+		k := core.ExclusionKey(root)
+		return jobs.Keys{Top: k, Common: k}, nil
 	}
-	gitJSON(w, http.StatusOK, map[string]any{"requested": requested, "repo": root, "job": jb})
+	return s.gitKeys(ctx, root)
 }
 
 // gitPushError 는 Publish 확인 요구만 따로 다룬다. **계획을 함께 보낸다** —
@@ -222,7 +249,7 @@ func (s *GitServer) apiGitJobCancel(w http.ResponseWriter, r *http.Request) {
 		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "id 가 없다")
 		return
 	}
-	hub := s.gitJobs.get(s.Git)
+	hub := s.jobsHub()
 	if _, ok := hub.Get(req.ID); !ok {
 		gitFail(w, http.StatusNotFound, gitErrJobNotFound, "그 작업이 없다")
 		return
@@ -236,7 +263,7 @@ func (s *GitServer) apiGitJobs(w http.ResponseWriter, r *http.Request) {
 		gitUnavailable(w)
 		return
 	}
-	gitJSON(w, http.StatusOK, map[string]any{"jobs": s.gitJobs.get(s.Git).Active()})
+	gitJSON(w, http.StatusOK, map[string]any{"jobs": s.jobsHub().Active()})
 }
 
 // GET /api/git/job/events?id=&after=<seq> — 작업 출력 스트림 (FR-GIT-103).
@@ -259,7 +286,7 @@ func (s *GitServer) apiGitJobEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	after, _ := strconv.ParseUint(r.URL.Query().Get("after"), 10, 64)
-	hub := s.gitJobs.get(s.Git)
+	hub := s.jobsHub()
 	ch, unsub, ok := hub.Subscribe(id, after)
 	if !ok {
 		// 조용히 빈 스트림을 주면 클라이언트가 영원히 기다린다.
@@ -383,7 +410,10 @@ func (s *GitServer) gitRemoteWrite(w http.ResponseWriter, r *http.Request,
 	if t.stop() {
 		return
 	}
-	list, err := query.Remotes(s.Git.Service(), r.Context(), root)
+	// 쓰기 뒤의 재조회는 사후 단계다 (REPO_FIX 01 §5.5).
+	ctx, cancel := t.post()
+	defer cancel()
+	list, err := query.Remotes(s.Git.Service(), ctx, root)
 	if err != nil {
 		t.reject(err)
 		return

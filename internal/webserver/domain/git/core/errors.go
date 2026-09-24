@@ -22,11 +22,15 @@ var (
 	ErrCanceled       = errors.New("git_canceled")
 	ErrUnsafeArgument = errors.New("unsafe_argument")
 	ErrWriteCommand   = errors.New("write_command_not_allowed")
+	// ErrIndexLocked 는 git 이 index.lock 을 만들지 못했다는 것이다 (REPO_FIX 01
+	// §7.2). 다른 git 이 돌고 있거나 죽은 git 이 남긴 lock 이다 — 어느 쪽인지
+	// 서버는 모르므로 지우지 않고 사용자에게 묻는다.
+	ErrIndexLocked = errors.New("index_locked")
 )
 
 // kinds 는 분류 가능한 사유 전부다. 이미 분류된 오류를 다시 감싸지 않기 위한
 // 판정에도 쓴다.
-var kinds = []error{ErrGitMissing, ErrNotRepo, ErrRepoMissing, ErrTimeout, ErrCanceled, ErrUnsafeArgument, ErrWriteCommand}
+var kinds = []error{ErrGitMissing, ErrNotRepo, ErrRepoMissing, ErrTimeout, ErrCanceled, ErrUnsafeArgument, ErrWriteCommand, ErrIndexLocked}
 
 // IsTerminal 은 **다시 물어도 같은 답일** 실패인가다 (REPO_FIX 01 S-4). 저장소가
 // 없어졌거나 저장소가 아니거나 git 이 없다 — 이것만 감시 제외 같은 결정의 근거가
@@ -73,6 +77,11 @@ func classify(ctx context.Context, stderr string) error {
 	low := strings.ToLower(stderr)
 	if strings.Contains(low, "not a git repository") || strings.Contains(low, "not a working tree") {
 		return ErrNotRepo
+	}
+	// 두 조각이 함께 있어야 한다 — `refs/heads/x.lock` 같은 다른 lock 은 지울
+	// 대상이 아니므로 범위 밖이다 (§7.2).
+	if strings.Contains(low, "unable to create '") && strings.Contains(low, "index.lock': file exists") {
+		return ErrIndexLocked
 	}
 	return nil
 }
