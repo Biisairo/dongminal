@@ -2147,6 +2147,15 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:changes|div.git-jobs": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
  "git:changes|div.git-job": {
   "display": "none",
   "overflowX": "visible",
@@ -2315,6 +2324,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:changes|button.git-job-lock.ui-btn.ui-btn-sm": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
  "git:changes|div.git-job-opts": {
   "display": "none",
   "overflowX": "visible",
@@ -2419,6 +2437,15 @@
   "clippedY": false,
   "clippedX": false,
   "scrollsY": false
+ },
+ "git:changes|button.git-lock-remove.ui-btn.ui-btn-lg": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
  },
  "git:changes|button.git-partial-close.ui-btn.ui-btn-lg": {
   "display": "inline-flex",
@@ -4331,6 +4358,15 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:diff|div.git-jobs": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
  "git:diff|div.git-job": {
   "display": "none",
   "overflowX": "visible",
@@ -4499,6 +4535,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:diff|button.git-job-lock.ui-btn.ui-btn-sm": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
  "git:diff|div.git-job-opts": {
   "display": "none",
   "overflowX": "visible",
@@ -4603,6 +4648,15 @@
   "clippedY": false,
   "clippedX": false,
   "scrollsY": false
+ },
+ "git:diff|button.git-lock-remove.ui-btn.ui-btn-lg": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
  },
  "git:diff|button.git-partial-close.ui-btn.ui-btn-lg": {
   "display": "inline-flex",
@@ -6623,6 +6677,15 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:history|div.git-jobs": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
  "git:history|div.git-job": {
   "display": "none",
   "overflowX": "visible",
@@ -6791,6 +6854,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:history|button.git-job-lock.ui-btn.ui-btn-sm": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
  "git:history|div.git-job-opts": {
   "display": "none",
   "overflowX": "visible",
@@ -6895,6 +6967,15 @@
   "clippedY": false,
   "clippedX": false,
   "scrollsY": false
+ },
+ "git:history|button.git-lock-remove.ui-btn.ui-btn-lg": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
  },
  "git:history|button.git-partial-close.ui-btn.ui-btn-lg": {
   "display": "inline-flex",
@@ -9116,6 +9197,15 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:branches|div.git-jobs": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
  "git:branches|div.git-job": {
   "display": "none",
   "overflowX": "visible",
@@ -9284,6 +9374,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:branches|button.git-job-lock.ui-btn.ui-btn-sm": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
  "git:branches|div.git-job-opts": {
   "display": "none",
   "overflowX": "visible",
@@ -9388,6 +9487,15 @@
   "clippedY": false,
   "clippedX": false,
   "scrollsY": false
+ },
+ "git:branches|button.git-lock-remove.ui-btn.ui-btn-lg": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
  },
  "git:branches|button.git-partial-close.ui-btn.ui-btn-lg": {
   "display": "inline-flex",
@@ -11585,6 +11693,15 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:stash|div.git-jobs": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
  "git:stash|div.git-job": {
   "display": "none",
   "overflowX": "visible",
@@ -11753,6 +11870,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:stash|button.git-job-lock.ui-btn.ui-btn-sm": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
  "git:stash|div.git-job-opts": {
   "display": "none",
   "overflowX": "visible",
@@ -11857,6 +11983,15 @@
   "clippedY": false,
   "clippedX": false,
   "scrollsY": false
+ },
+ "git:stash|button.git-lock-remove.ui-btn.ui-btn-lg": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
  },
  "git:stash|button.git-partial-close.ui-btn.ui-btn-lg": {
   "display": "inline-flex",
@@ -13811,6 +13946,15 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:console|div.git-jobs": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
  "git:console|div.git-job": {
   "display": "none",
   "overflowX": "visible",
@@ -13979,6 +14123,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:console|button.git-job-lock.ui-btn.ui-btn-sm": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
  "git:console|div.git-job-opts": {
   "display": "none",
   "overflowX": "visible",
@@ -14083,6 +14236,15 @@
   "clippedY": false,
   "clippedX": false,
   "scrollsY": false
+ },
+ "git:console|button.git-lock-remove.ui-btn.ui-btn-lg": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
  },
  "git:console|button.git-partial-close.ui-btn.ui-btn-lg": {
   "display": "inline-flex",
@@ -15986,6 +16148,15 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:worktrees|div.git-jobs": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
  "git:worktrees|div.git-job": {
   "display": "none",
   "overflowX": "visible",
@@ -16154,6 +16325,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:worktrees|button.git-job-lock.ui-btn.ui-btn-sm": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
  "git:worktrees|div.git-job-opts": {
   "display": "none",
   "overflowX": "visible",
@@ -16258,6 +16438,15 @@
   "clippedY": false,
   "clippedX": false,
   "scrollsY": false
+ },
+ "git:worktrees|button.git-lock-remove.ui-btn.ui-btn-lg": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
  },
  "git:worktrees|button.git-partial-close.ui-btn.ui-btn-lg": {
   "display": "inline-flex",
@@ -18236,6 +18425,15 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:submodules|div.git-jobs": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
  "git:submodules|div.git-job": {
   "display": "none",
   "overflowX": "visible",
@@ -18404,6 +18602,15 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
+ "git:submodules|button.git-job-lock.ui-btn.ui-btn-sm": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
+ },
  "git:submodules|div.git-job-opts": {
   "display": "none",
   "overflowX": "visible",
@@ -18508,6 +18715,15 @@
   "clippedY": false,
   "clippedX": false,
   "scrollsY": false
+ },
+ "git:submodules|button.git-lock-remove.ui-btn.ui-btn-lg": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "30px"
  },
  "git:submodules|button.git-partial-close.ui-btn.ui-btn-lg": {
   "display": "inline-flex",
