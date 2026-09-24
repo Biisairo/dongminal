@@ -23,13 +23,16 @@ class GitCommit {
     this._pfRepo=null;
     this._st=null;        // 마지막 status. 비활성 사유 판정이 딛는다 (FR-GIT-84)
     this._amend=false;
-    this._stash=null;     // amend 를 켤 때 보관한 draft (FR-GIT-78)
+    // REPO_FIX 05 F-7.2: amend 메시지 슬롯 — 메모리에만 둔다(저장·동기화하지 않는다).
+    this._amendText='';
     this._opts={signoff:false,noVerify:false,all:false};
     this._menuOpen=false;
     this._blocks=null;    // 409 preflight_blocked 의 blocks (FR-GIT-88)
     this._err=null;
     this._busy=false;
     this._saveT=null;     // draft 디바운스
+    this._saveRepo=null; this._saveV='';  // 디바운스가 쓸 (저장소, 값) — F-7.5 flush 의 몫
+    this._headKey=null;   // F-7.1: 마지막 관측의 HEAD (oid·branch·detached)
     this._undo=null;      // {repo,token,el,timer}
     this._tmplRepo=null;  // template 을 이미 채운 리포 (FR-GIT-76)
     this._h=undefined;    // 경계 드래그로 정한 높이 (기기별)
@@ -99,61 +102,12 @@ class GitCommit {
     this._st=st;
     const repo=this.panel.repo;
     if(repo!==this._repo) this._reset(repo);
+    // REPO_FIX 05 F-7.1: HEAD 가 바뀐 관측이면 preflight 를 다시 받는다 — detached 경고와
+    // 진행 중 작업 차단이 현재 HEAD 를 따른다 (FR-GIT-87).
+    const hk=st?[st.oid||'',st.branch||'',st.detached?1:0].join('\u0000'):'';
+    if(repo&&this._headKey!==null&&hk!==this._headKey) this._loadPreflight(repo);
+    this._headKey=hk;
     this._paint();
-  }
-
-  // ── 값과 draft (FR-GIT-75, O6) ──
-
-  // draft 는 ws.git.drafts[<repo>] 다. **git 객체를 통째로 갈아치우지 않는다** —
-  // git.pinned 는 서버가 권위로 쓰므로 그것을 지우면 핀이 사라진다 (O1).
-  _drafts(){
-    const ws=this.app.ws;
-    if(!ws.git) ws.git={};
-    if(!ws.git.drafts||typeof ws.git.drafts!=='object') ws.git.drafts={};
-    return ws.git.drafts;
-  }
-
-  _draftGet(repo){
-    const g=this.app.ws.git;
-    const d=g&&g.drafts;
-    return (d&&typeof d[repo]==='string')?d[repo]:'';
-  }
-
-  _draftSet(repo,v){
-    if(!repo) return;
-    const d=this._drafts();
-    if(v) d[repo]=v; else delete d[repo];
-    this.app.save();
-  }
-
-  _setValue(v){
-    this._msg.value=v||'';
-    this._grow();
-  }
-
-  _input(){
-    this._grow();
-    this._err=null;
-    // 입력이 있으면 앞선 차단 표시는 낡은 것이다 — 다음 시도가 다시 채운다.
-    this._blocks=null;
-    const repo=this._repo,v=this._msg.value;
-    TIMERS.cancel(this._saveT);
-    // 입력이 멈춘 뒤에 저장한다 — 키 하나마다 PUT 을 보내지 않는다.
-    this._saveT=TIMERS.after(GIT_COMMIT_DRAFT_DEBOUNCE_MS,()=>{this._saveT=null;this._draftSet(repo,v)},{owner:this,label:'commit-draft'});
-    this._paint();
-  }
-
-  _reset(repo){
-    this._repo=repo;
-    this._amend=false; this._stash=null;
-    this._opts={signoff:false,noVerify:false,all:false};
-    this._menuOpen=false; this._blocks=null; this._err=null; this._busy=false;
-    if(this._saveT){TIMERS.cancel(this._saveT);this._saveT=null}
-    // 앞선 리포의 undo 진입점을 새 리포의 화면에 남기지 않는다.
-    this._undoHide();
-    this._pf=null; this._pfRepo=null;
-    this._setValue(repo?this._draftGet(repo):'');
-    if(repo) this._loadPreflight(repo);
   }
 
   // ── 높이 (FR-GIT-74) ──
@@ -341,35 +295,6 @@ class GitCommit {
     }
   }
 
-  // ── amend (FR-GIT-78) ──
-
-  async _amendToggle(on){
-    const repo=this._repo;
-    this._amend=!!on;
-    this._err=null;
-    if(!repo){this._paint();return}
-    if(this._amend){
-      this._stash=this._msg.value;
-      const msg=await this._lastMessage(repo);
-      // 왕복 중에 리포가 바뀌거나 토글이 꺼졌으면 그 결과는 버린다.
-      if(this._repo!==repo||!this._amend) return;
-      this._setValue(msg===null?this._stash:msg);
-    }else{
-      // 켤 때 보관한 것을 그대로 되돌린다. 왕복이 손실 없어야 한다 (검증 V33).
-      this._setValue(this._stash||'');
-      this._stash=null;
-    }
-    this._paint();
-  }
-
-  // 직전 커밋 메시지. 전용 진입점이 없으므로 커밋 상세의 body 를 쓴다
-  // (FR-GIT-136). 커밋이 없는 저장소에서는 null 이다 — amend 할 것이 없다.
-  async _lastMessage(repo){
-    const res=await gitFetch('/api/git/commit',{repo,oid:'HEAD'},{echo:{repo}});
-    if(!res.ok||typeof res.data.body!=='string') return null;
-    return res.data.body.replace(/\n+$/,'');
-  }
-
   // ── 커밋 (FR-GIT-77·79·80·87·88) ──
 
   async _commit(){
@@ -377,14 +302,12 @@ class GitCommit {
     const repo=this._repo; if(!repo) return;
     const msg=this._msg.value;
     if(this._why()) return;
-    // 경고 판정은 preflight 에 의존한다. **아직 오지 않았으면 기다린다** —
-    // 창을 열고 바로 커밋하면 preflight 가 도착하기 전이라 detached 경고 없이
-    // 커밋된다 (FR-GIT-87). 서버는 detached 를 막지 않으므로(그것이 옳다) 이
-    // 경고를 보장하는 것은 여기뿐이다.
-    if(this._pfRepo!==repo){
-      await this._loadPreflight(repo);
-      if(this._repo!==repo||this._busy) return;
-    }
+    // 경고 판정은 preflight 에 의존한다. 서버는 detached 를 막지 않으므로(그것이 옳다) 이
+    // 경고를 보장하는 것은 여기뿐이다 (FR-GIT-87).
+    // REPO_FIX 05 F-7.1: **커밋 직전에 늘 다시 받는다.** 이전: 한 번 받은 것을 계속 써서
+    // 그 사이 HEAD 가 detached 로 바뀌어도 경고 없이 커밋됐다(#33).
+    await this._loadPreflight(repo);
+    if(this._repo!==repo||this._busy) return;
     // detached 는 막지 않되 결과를 명시적으로 경고한다 (FR-GIT-87). 파괴적이
     // 아니므로 1단계 확인이다.
     const det=this._warning(GIT_WARN_DETACHED);
@@ -396,14 +319,26 @@ class GitCommit {
       });
       if(!ok||this._repo!==repo) return;
     }
+    const amend=this._amend;
     this._busy=true; this._blocks=null; this._err=null; this._paint();
     const res=await this.panel.post('/api/git/commit',{
-      repo,message:msg,amend:this._amend,
+      repo,message:msg,amend,
       signoff:this._opts.signoff,noVerify:this._opts.noVerify,all:this._opts.all,
     });
-    this._busy=false;
-    if(this._repo!==repo){this._paint();return}
     const d=res.data||{};
+    /**
+     * REPO_FIX 05 F-7.4: 뒷정리는 **커밋을 시작한 저장소 키**로 한다 — 잡이 도는 사이 화면이
+     * 다른 저장소로 옮겼어도 이긴 커밋의 메시지는 그 저장소 draft 에서 지운다. 입력칸은
+     * 지금 화면이 그 저장소일 때만 비운다. 실패·취소·결과 미상이면 draft 를 둔다.
+     *   이전 동작: 저장소가 바뀌었으면 아무것도 하지 않아, 돌아오면 이미 커밋된 메시지가
+     *             draft 로 남아 다시 커밋될 수 있었다(N3)
+     */
+    if(res.ok&&!amend){
+      if(this._saveRepo===repo){TIMERS.cancel(this._saveT);this._saveT=null;this._saveRepo=null}
+      this._draftSet(repo,'');
+    }
+    if(this._repo!==repo){this._paint();return}
+    this._busy=false;
     if(d.error===GIT_ERR_PREFLIGHT){
       this._blocks=(d.preflight&&d.preflight.blocks)||[];
       this._paint(); return;
@@ -413,12 +348,11 @@ class GitCommit {
       this.panel.applyWriteFail(res);
       this._paint(); return;
     }
-    // FR-GIT-80: 상태를 갱신하고 입력을 비운다. draft 도 함께 지운다.
+    // FR-GIT-80: 상태를 갱신하고 입력을 비운다(draft 는 위에서 지웠다). amend 커밋이었으면
+    // amend 슬롯만 비우고 원 draft 를 보인다 (F-7.2).
     this.panel.adopt(d);
-    if(this._saveT){TIMERS.cancel(this._saveT);this._saveT=null}
-    this._setValue('');
-    this._draftSet(repo,'');
-    this._amend=false; this._stash=null; this._tmplRepo=repo;
+    this._setValue(amend?this._draftGet(repo):'');
+    this._amend=false; this._amendText=''; this._tmplRepo=repo;
     // 옵션을 기억하지 않는다 (FR-GIT-79) — 다음 커밋이 조용히 훅을 끄지 않는다.
     this._opts={signoff:false,noVerify:false,all:false};
     this._menuOpen=false;

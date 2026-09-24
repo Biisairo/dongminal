@@ -85,7 +85,14 @@ class GitCommitOps {
         opts:GIT_CO_RESET_MODES.map(m=>({v:m,label:GIT_CO_RESET_MODE_LABELS[m]||m}))}],
       // 다이얼로그는 값만 받는다. `--hard` 의 파괴적 확인은 그것의 전문가에게
       // 넘긴다 (FR-GIT-172) — 확인 로직이 두 벌이면 한쪽이 조용히 뒤처진다.
-      run:v=>{GitCommitOps._reset(panel,c,v.mode||'');return {ok:true}},
+      // REPO_FIX 05 F-7.6 (FR-GIT-175): soft·mixed 는 **결과를 기다린다** — 실패하면 닫지
+      // 않고 서버 사유를 보인다. 이전: 보내자마자 닫혀 실패가 보이지 않았다.
+      run:v=>{
+        const mode=v.mode||'';
+        if(mode!==GIT_CO_RESET_MODE_HARD) return GitCommitOps._reset(panel,c,mode);
+        GitCommitOps._reset(panel,c,mode);
+        return {ok:true};
+      },
     });
   }
 
