@@ -3,6 +3,8 @@ package store
 import (
 	"container/list"
 	"context"
+	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -38,6 +40,7 @@ type Observation struct {
 // 물음이 겹칠 때 git 을 아끼는 일만 한다.
 type Store struct {
 	svc         *core.Service
+	root        context.Context // 서버 수명. flight 는 이것에서 파생한다 (S-1)
 	now         func() time.Time
 	statusTTL   time.Duration
 	repoRootTTL time.Duration
@@ -45,6 +48,7 @@ type Store struct {
 	observedCap int
 
 	mu     sync.Mutex
+	gen    uint64 // 전역 단조 세대 (S-2). 0 은 쓰지 않는다
 	states map[string]*repoState
 	lru    *list.List // front 가 최근 사용. Value 는 *repoState
 	roots  map[string]rootEntry
@@ -56,7 +60,8 @@ type Store struct {
 type repoState struct {
 	repo     string
 	elem     *list.Element
-	inflight *flight
+	gen      uint64  // 생성·Invalidate 때 전역 카운터에서 새로 받는다
+	inflight *flight // 현재 세대의 flight 만 슬롯에 든다
 	obs      Observation
 	at       time.Time
 	valid    bool
@@ -64,9 +69,11 @@ type repoState struct {
 
 // flight 는 진행 중인 관측이다. 뒤따라온 호출자는 실행하지 않고 결과를 나눠 받는다.
 type flight struct {
-	done chan struct{}
-	obs  Observation
-	err  error
+	done  chan struct{}
+	state *repoState
+	gen   uint64
+	obs   Observation
+	err   error
 }
 
 type rootEntry struct {
@@ -94,6 +101,16 @@ func WithStatusTTL(d time.Duration) StoreOption {
 	}
 }
 
+// WithRoot 는 서버 수명 ctx 를 준다. flight 는 호출자 ctx 가 아니라 이것에서
+// 파생하므로 한 요청의 취소가 합류자에게 번지지 않고, 서버가 멈추면 함께 멈춘다.
+func WithRoot(ctx context.Context) StoreOption {
+	return func(st *Store) {
+		if ctx != nil {
+			st.root = ctx
+		}
+	}
+}
+
 // WithClock 은 테스트가 시간을 지배하게 한다. TTL 검증이 실제 경과 시간에 의존하면
 // 결정론을 잃는다.
 func WithClock(now func() time.Time) StoreOption {
@@ -107,6 +124,7 @@ func WithClock(now func() time.Time) StoreOption {
 func NewStore(svc *core.Service, opts ...StoreOption) *Store {
 	st := &Store{
 		svc:         svc,
+		root:        context.Background(),
 		now:         time.Now,
 		statusTTL:   DefaultStatusTTL,
 		repoRootTTL: DefaultRepoRootTTL,
@@ -127,6 +145,13 @@ func (st *Store) Service() *core.Service { return st.svc }
 
 // Status 는 캐시가 유효하면 그것을, 아니면 새로 관측해 돌려준다.
 // cached 는 git 을 실행하지 않았음을 뜻한다 — 진행 중 조회에 붙은 호출자도 참이다.
+//
+// REPO_FIX 01 §4:
+//   - flight 는 서버 수명 ctx 파생 + 자체 시한으로 돈다. 모든 호출자(첫 호출자
+//     포함)는 **자기 ctx 로만** 빠져나간다 — 한 요청의 취소가 합류자 전원의
+//     오류가 되던 것이 없다(S-1). 호출자가 모두 떠나도 flight 는 끝까지 돈다.
+//   - 합류는 **같은 세대**의 flight 에만 한다. Invalidate 뒤의 조회는 쓰기 전에
+//     출발한 flight 에 붙지 않고, 그 옛 결과는 fresh 로 저장되지 않는다(S-2·S-3).
 func (st *Store) Status(ctx context.Context, repo string) (Observation, bool, error) {
 	st.mu.Lock()
 	s := st.stateLocked(repo)
@@ -135,44 +160,68 @@ func (st *Store) Status(ctx context.Context, repo string) (Observation, bool, er
 		st.mu.Unlock()
 		return obs, true, nil
 	}
-	if f := s.inflight; f != nil {
-		st.mu.Unlock()
-		<-f.done
-		return f.obs, true, f.err
+	f := s.inflight
+	joined := f != nil && f.gen == s.gen
+	if !joined {
+		f = &flight{done: make(chan struct{}), state: s, gen: s.gen}
+		s.inflight = f
+		go st.fly(repo, f)
 	}
-	f := &flight{done: make(chan struct{})}
-	s.inflight = f
 	st.mu.Unlock()
 
+	select {
+	case <-f.done:
+		return f.obs, joined, f.err
+	case <-ctx.Done():
+		kind := core.ErrCanceled
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			kind = core.ErrTimeout
+		}
+		return Observation{}, joined, fmt.Errorf("%w: %w", kind, ctx.Err())
+	}
+}
+
+// fly 는 flight 하나를 끝까지 돌린다.
+func (st *Store) fly(repo string, f *flight) {
+	ctx, cancel := context.WithTimeout(st.root, core.DefaultTimeout)
 	obs, err := st.observe(ctx, repo)
+	cancel()
 
 	st.mu.Lock()
-	s.inflight = nil
-	if err == nil {
-		// 실패는 마지막 관측값을 덮지 않는다 — 한 번의 실패로 배지가 사라지면
-		// 사용자는 변경이 없어진 것으로 읽는다.
-		s.obs, s.at, s.valid = obs, st.now(), true
-		st.lru.MoveToFront(s.elem)
+	if f.state.inflight == f {
+		f.state.inflight = nil
+	}
+	// 같은 상태(축출 뒤 재생성된 것이 아닌)이고 같은 세대일 때만 fresh 다. 실패는
+	// 마지막 관측값을 덮지 않는다 — 한 번의 실패로 배지가 사라지면 사용자는
+	// 변경이 없어진 것으로 읽는다.
+	if err == nil && st.states[repo] == f.state && f.state.gen == f.gen {
+		f.state.obs, f.state.at, f.state.valid = obs, st.now(), true
+		st.lru.MoveToFront(f.state.elem)
 	}
 	st.evictLocked()
 	st.mu.Unlock()
 
 	f.obs, f.err = obs, err
 	close(f.done)
-	return obs, false, err
 }
 
-// Invalidate 는 그 리포의 status 캐시를 만료시킨다. 쓰기 직후의 재조회가 방금 만든
-// 변경을 보지 못하면 화면이 거짓말을 한다 (FR-GIT-71).
+// Invalidate 는 그 리포의 status 캐시를 만료시키고 세대를 올린다. 쓰기 직후의
+// 재조회가 방금 만든 변경을 보지 못하면 화면이 거짓말을 한다 (FR-GIT-71).
 //
 // **마지막 관측값은 지우지 않는다** — 배지가 잠깐 사라지는 것보다 낡은 값이 낫고,
-// 곧 새 관측이 덮는다. 만료시키는 것은 "캐시로 답해도 되는 시한"뿐이다.
+// 곧 새 관측이 덮는다.
 func (st *Store) Invalidate(repo string) {
 	st.mu.Lock()
 	defer st.mu.Unlock()
 	if s, ok := st.states[repo]; ok {
 		s.at = time.Time{}
+		s.gen = st.nextGenLocked()
 	}
+}
+
+func (st *Store) nextGenLocked() uint64 {
+	st.gen++
+	return st.gen
 }
 
 // Observed 는 캐시를 **만료 여부와 무관하게** 준다. 활성이 아닌 리포의 배지가
@@ -291,7 +340,7 @@ func (st *Store) stateLocked(repo string) *repoState {
 		st.lru.MoveToFront(s.elem)
 		return s
 	}
-	s := &repoState{repo: repo}
+	s := &repoState{repo: repo, gen: st.nextGenLocked()}
 	s.elem = st.lru.PushFront(s)
 	st.states[repo] = s
 	return s

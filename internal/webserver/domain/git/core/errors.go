@@ -28,6 +28,14 @@ var (
 // 판정에도 쓴다.
 var kinds = []error{ErrGitMissing, ErrNotRepo, ErrRepoMissing, ErrTimeout, ErrCanceled, ErrUnsafeArgument, ErrWriteCommand}
 
+// IsTerminal 은 **다시 물어도 같은 답일** 실패인가다 (REPO_FIX 01 S-4). 저장소가
+// 없어졌거나 저장소가 아니거나 git 이 없다 — 이것만 감시 제외 같은 결정의 근거가
+// 된다. 취소·시한·그 밖의 exit 오류는 일시적이다(한 요청의 취소가 공유 flight 로
+// 번지거나, 잠깐 깨진 저장소를 읽은 것일 수 있다).
+func IsTerminal(err error) bool {
+	return errors.Is(err, ErrNotRepo) || errors.Is(err, ErrRepoMissing) || errors.Is(err, ErrGitMissing)
+}
+
 // ExecError 는 실패한 실행 그 자체다. stderr 를 잃지 않는 것이 목적이다.
 type ExecError struct {
 	Argv     []string
