@@ -98,6 +98,11 @@ class GitDiffView {
     this._el.innerHTML='<div class="ui-notice git-diff-note"></div><div class="git-diff-host"></div>';
     this._note=this._el.querySelector('.git-diff-note');
     this._host=this._el.querySelector('.git-diff-host');
+    // REPO_FIX 05 §3A-3 (F-2.6): 저장 키는 FileEditor 와 같은 계층(FR-EKB-5)에서
+    // 인스턴스당 한 번 건다 — 포커스가 이 뷰 안에 있을 때만 이 뷰의 문서를 저장한다.
+    this._el.addEventListener('keydown',e=>this._viewKey(e),true);
+    // 작업 트리 쪽이 편집기 문서면 그 문서의 뷰(`diff-view-doc.js`), 아니면 null.
+    this._dv=null; this._modOwn=false;
   }
 
   get el(){return this._el}
@@ -128,16 +133,21 @@ class GitDiffView {
     });
     if(this._stale(seq,token)) return;
     if(!loaded){this.clear(GIT_DIFF_MONACO_FAIL);return}
-    const d=await this._fetch(target);
-    if(this._stale(seq,token)) return;
-    if(!d.ok){this._refused=!!d.refused; this.clear(d.msg);return}
+    // REPO_FIX 05 §3A-3: 편집 가능한 축은 편집기 문서를 먼저 얻고(03 의 문서 로드),
+    // 그 인코딩으로 원본 쪽을 받는다. 두 단계 모두 뒤에서 다시 재확인한다.
+    const dv=await this._docJoin(target,seq,token);
+    if(dv===false) return;
+    const bail=()=>this._docLeaveIfIdle(dv);
+    const d=await this._fetch(target,this._docEncOf(dv));
+    if(this._stale(seq,token)){bail();return}
+    if(!d.ok){bail();this._refused=!!d.refused; this.clear(d.msg);return}
     // 서버가 되돌려준 요청값도 확인한다 — 같은 세대 안에서도 응답 순서가 뒤바뀔
     // 수 있다 (FR-GIT-54).
     const q=d.body.requested||{};
-    if(q.repo!==target.repo||q.axis!==target.axis||q.path!==target.path) return;
+    if(q.repo!==target.repo||q.axis!==target.axis||q.path!==target.path){bail();return}
     // 리비전까지 본다 — 머지 커밋에서 비교 부모를 바꿨을 때 이전 응답이 화면에
     // 닿아서는 안 된다 (FR-GIT-54·145).
-    if((q.oid||'')!==(target.oid||'')||(q.parentOid||'')!==(target.parentOid||'')) return;
+    if((q.oid||'')!==(target.oid||'')||(q.parentOid||'')!==(target.parentOid||'')){bail();return}
     const a=d.body.original||{},b=d.body.modified||{};
     const mime=d.body.imageMime||'';
     /**
@@ -151,18 +161,19 @@ class GitDiffView {
      * 새로 서고, 그것이 "바깥에서 바뀐 그림" 이 화면에 오는 유일한 길이다.
      */
     if(mime&&!GIT_DIFF_DRAWABLE.has(a.kind)){
-      this._drawImage(target,mime,a,b); return;
+      bail(); this._drawImage(target,mime,a,b); return;
     }
     // 한쪽이라도 본문이 없으면 에디터를 만들지 않고 서버가 준 사유를 보인다
     // (FR-GIT-46·47·48).
     if(!GIT_DIFF_DRAWABLE.has(a.kind)||!GIT_DIFF_DRAWABLE.has(b.kind)){
       // 그릴 수 없는 종류(바이너리·상한 초과)다. 다시 물어도 같은 답이므로
       // 폴링이 이것을 매 회차 다시 받지 않는다 (FR-GLV-6).
+      bail();
       this._refused=true;
       this.clear(d.body.note||GIT_DIFF_LOAD_FAIL,gitBlobMetaLines(a,b)); return;
     }
-    if(mime&&this._imgMode){this._drawImage(target,mime,a,b); return}
-    this._draw(target.path,a.content||'',b.content||'',d.body.note||'',target);
+    if(mime&&this._imgMode){bail();this._drawImage(target,mime,a,b); return}
+    this._draw(target.path,a.content||'',b.content||'',d.body.note||'',target,dv);
     if(mime) this._addImageToggle(target,mime,a,b);
   }
 
@@ -299,8 +310,10 @@ class GitDiffView {
     this._findKeysOn=false;
     if(this._editor&&this.onEditor) this.onEditor(null);
     if(this._editor){this._editor.dispose();this._editor=null}
-    this._dropModels(this._orig,this._mod);
-    this._orig=null; this._mod=null;
+    // 문서 모델은 이 뷰의 것이 아니다 — 버리지 않고 문서 뷰에서 빠진다 (§3A-3 해제).
+    this._dropModels(this._orig,this._modOwn?this._mod:null);
+    this._orig=null; this._mod=null; this._modOwn=false;
+    this._docLeave();
     this._drawnKey=null;
   }
 
@@ -325,9 +338,11 @@ class GitDiffView {
 
   _stale(seq,token){return this._dead||seq!==this._seq||this._isStale(token)}
 
-  async _fetch(target){
+  async _fetch(target,enc){
     let u='/api/git/diff-content?repo='+encodeURIComponent(target.repo)+
       '&axis='+encodeURIComponent(target.axis)+'&path='+encodeURIComponent(target.path);
+    // REPO_FIX 03 §3A-3: 문서의 인코딩이면 쪽마다 그것으로 디코드한다.
+    if(enc) u+='&encoding='+encodeURIComponent(enc);
     if(target.origPath) u+='&origPath='+encodeURIComponent(target.origPath);
     // 커밋 축만 리비전을 싣는다 (FR-GIT-138). oid 는 필수이고, parentOid 가 비면
     // 루트 커밋이다 — 서버가 그것을 absent 로 답한다.
@@ -343,7 +358,7 @@ class GitDiffView {
     return {ok:true,body:d};
   }
 
-  _draw(path,orig,mod,note,target){
+  _draw(path,orig,mod,note,target,dv){
     /**
      * UX_BATCH6_SRS FR-GLV-3: **내용이 그대로면 모델을 갈지 않는다.**
      *
@@ -354,13 +369,23 @@ class GitDiffView {
      * 근거에 **대상**을 함께 넣는다. 내용만 보면 내용이 같은 다른 파일로 옮겼을 때
      * 건너뛰어, `_bindEdit` 이 앞 파일의 절대경로를 든 채로 남는다.
      *
-     * 편집 중이면 애초에 여기 닿지 않는다 (`_showTarget` 의 dirty 가드).
+     * REPO_FIX 05 §3A-3: 작업 트리 쪽이 문서면 그 쪽은 문서 refresh 가 갱신한다 —
+     * 여기서는 원본 쪽만 바꾼다(dirty 여도 된다: 문서 모델을 건드리지 않는다).
      */
     const key=this._drawKey(target,path);
-    if(this._editor&&this._orig&&this._mod&&!this._dirty&&this._drawnKey===key
-      &&this._orig.getValue()===orig&&this._mod.getValue()===mod){
-      this._setNote(note);
-      return;
+    const model=this._docModelOf(dv);
+    if(this._editor&&this._orig&&this._mod&&this._drawnKey===key){
+      if(model&&this._dv===dv&&this._mod===model){
+        this._setNote(note);
+        if(this._orig.getValue()===orig) return;
+        this._orig.setValue(orig);
+        if(this.onChanged) this.onChanged();
+        return;
+      }
+      if(!model&&!this._dv&&this._orig.getValue()===orig&&this._mod.getValue()===mod){
+        this._setNote(note);
+        return;
+      }
     }
     this._drawnKey=key;
     this._setNote(note);
@@ -387,16 +412,18 @@ class GitDiffView {
       // 이 훅도 에디터의 수명에 한 번 돈다 (FR-DHB-21·22).
       if(this.onEditor) this.onEditor(this._editor.getModifiedEditor());
     }
-    const prevO=this._orig,prevM=this._mod;
+    const prevO=this._orig,prevM=this._modOwn?this._mod:null;
     this._orig=monaco.editor.createModel(orig,lang);
-    this._mod=monaco.editor.createModel(mod,lang);
+    this._mod=model||monaco.editor.createModel(mod,lang);
+    this._modOwn=!model;
     this._editor.setModel({original:this._orig,modified:this._mod});
     // 이전 모델은 새 모델을 붙인 뒤에 버린다 — 먼저 버리면 에디터가 사라진 모델을
-    // 읽는다 (FR-GIT-56).
+    // 읽는다 (FR-GIT-56). 앞 문서에서 빠지는 것도 그 뒤다(마지막 뷰면 모델이 버려진다).
     this._dropModels(prevO,prevM);
+    this._docSwitch(model?dv:null);
     // REPO_TAB_UNIFY_SRS FR-RTU-50: 오른쪽이 **디스크의 파일**인 축에서만 편집을
-    // 연다. 판정은 `GIT_AXIS_EDITABLE` 한 자리이며 여기서 다시 세지 않는다.
-    this._bindEdit(target);
+    // 연다. 판정은 `GIT_AXIS_EDITABLE` 한 자리(`_shareAbs`)이며 여기서 다시 세지 않는다.
+    this._bindEdit();
     TIMERS.frame(()=>this.layout(),{owner:this,label:'diff-layout'});
     // FR-GLV-1: **내용이 실제로 바뀐 회차에만** 알린다. 조각(hunk) 관측처럼 이
     // 본문에서 파생되는 것들이 그때만 다시 받으면 되고, 그러지 않으면 폴링마다
@@ -411,33 +438,6 @@ class GitDiffView {
     return [t.repo||'',t.axis||'',path||'',t.origPath||'',t.oid||'',t.parentOid||''].join('\u0000');
   }
 
-  /**
-   * FR-RTU-50·52·53·54: diff 의 오른쪽을 고치고 저장하는 자리.
-   *
-   * **저장은 `/api/file/write` 다** — 편집기 탭이 쓰는 그 경로다 (FR-RTU-52).
-   * 새 쓰기 표면을 만들면 같은 파일을 두 길로 쓰게 되고 dirty·충돌 규약이 둘로
-   * 갈린다.
-   */
-  _bindEdit(target){
-    const axis=(target&&target.axis)||'';
-    const abs=this._absPath(target);
-    const editable=!!(abs&&GIT_AXIS_EDITABLE.has(axis));
-    this._editable=editable;
-    this._editTarget=editable?abs:'';
-    this._dirty=false;
-    this._editor.updateOptions({readOnly:!editable,originalEditable:false});
-    if(!editable) return;
-    const me=this._editor.getModifiedEditor();
-    // FR-RTU-54: 읽기 전용 쪽을 고치려 하면 **사유를 말한다.** 왼쪽(원본)은 어느
-    // 축에서도 고칠 수 없다 — 그것은 비교 대상이지 파일이 아니다.
-    this._mod.onDidChangeContent(()=>{
-      if(this._dirty) return;
-      this._dirty=true;
-      if(this.onDirty) this.onDirty(true);
-    });
-    me.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyCode.KeyS,()=>this.save());
-  }
-
   // 대상의 절대경로. 저장소 루트와 상대경로에서 만든다 — 서버가 그 둘을 주므로
   // 여기서 다시 물을 이유가 없다.
   _absPath(target){
@@ -445,24 +445,11 @@ class GitDiffView {
     return pathJoin(target.repo,target.path);
   }
 
-  async save(){
-    if(!this._editable||!this._dirty||!this._editTarget||!this._mod) return false;
-    const content=this._mod.getValue();
-    const r=await apiPost('/api/file/write',{path:this._editTarget,content});
-    if(!r.ok){
-      this._setNote(GIT_DIFF_SAVE_FAIL);
-      return false;
-    }
-    this._dirty=false;
-    if(this.onDirty) this.onDirty(false);
-    // FR-RTU-55: 방금 고친 것이 목록과 색에 곧바로 서야 한다.
-    if(this.onSaved) this.onSaved();
-    return true;
-  }
-
-  // FR-RTU-56: 편집 중인 diff 는 폴링이 덮지 않는다. 사용자가 친 글자가 3초마다
-  // 사라지는 화면은 편집기가 아니다.
-  get dirty(){ return !!this._dirty }
+  // FR-RTU-56 / REPO_FIX 05 F-2.2: dirty 는 문서의 것이다 — 같은 파일을 보는 편집기
+  // 탭에서 친 것도 여기서 보인다. `dirtyLast` 는 이 뷰가 그 문서의 마지막 뷰인가이며,
+  // 닫기·대상 전환의 확인이 그것을 본다 (§3A-3).
+  get dirty(){ const d=this._docRec(); return !!(d&&d.dirty) }
+  get dirtyLast(){ const d=this._docRec(); return !!(d&&d.dirty&&d.views.size===1) }
 
   // FR-GLV-6: 서버가 **거부한** 대상인가. 폴링의 자동 재적재가 이것을 보고 멈춘다 —
   // 다시 물어도 같은 답이 오는 것을 매초 다시 묻지 않는다. 닿지 못한 것(네트워크)은

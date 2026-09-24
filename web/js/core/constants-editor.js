@@ -213,6 +213,10 @@ const ENC_LABEL={'utf-8':'UTF-8','utf-16le':'UTF-16 LE','utf-16be':'UTF-16 BE',
   'cp949':'CP949','shift_jis':'Shift_JIS','windows-1252':'Windows-1252'};
 const ENC_REOPEN_CHOICES=['utf-8','cp949','shift_jis','windows-1252'];
 const ENC_TITLE=t('editor.enc_title');
+// REPO_FIX 05 §3A-3 (F-2.4): dirty 문서의 마지막 뷰가 다른 대상으로 옮겨 갈 때의 확인.
+const DOC_LEAVE_MSG=t('editor.doc_leave_msg');
+const DOC_LEAVE_SAVE=t('editor.doc_leave_save');
+const DOC_LEAVE_DISCARD=t('editor.doc_leave_discard');
 const ENC_READONLY=t('editor.enc_readonly');
 const ENC_REOPEN=t('editor.enc_reopen');
 const ENC_CONVERT=t('editor.enc_convert');

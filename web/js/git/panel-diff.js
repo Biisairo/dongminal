@@ -430,11 +430,25 @@ Object.assign(GitPanel.prototype, {
   // FR-DHB-5: 머리의 한 줄이 말하는 넷. 아무 문제가 없으면 빈 문자열이고, 그때
   // 그 자리는 아무것도 차지하지 않는다.
   _hunkText(){
+    const why=this._hunkBlocked();
+    if(why) return why;
     if(this._hunkErr) return this._hunkErr;
     const h=this._hunks;
     if(!h) return GIT_HUNK_LOADING;
     if(h.err) return h.err;
     if(!h.list.length) return h.note||GIT_HUNK_NONE;
+    return '';
+  },
+
+  /**
+   * REPO_FIX 05 §3A-3: hunk 를 쓸 수 없는 사유. 문서가 dirty 면 화면의 diff(버퍼 기준)와
+   * 서버 hunk(디스크 기준)가 다르다. utf-16 은 git 이 바이너리로 본다.
+   */
+  _hunkBlocked(){
+    const v=this._diffView;
+    if(!v||this.commitFile) return '';
+    if(v.dirty) return GIT_HUNK_DIRTY;
+    if(/^utf-16/.test(v.docEncoding())) return GIT_HUNK_UTF16;
     return '';
   },
 
@@ -628,7 +642,8 @@ Object.assign(GitPanel.prototype, {
       // 좌표가 조각 전체면(선택이 없거나 바뀐 줄에 걸리지 않았다) 라벨도 조각의
       // 것이다 (FR-DHB-31·34).
       const lines=!!(co&&co.from);
-      const sig=[acts.join(','),lines?'l':'h',this._writing?'w':''].join('|');
+      const blocked=this._hunkBlocked();
+      const sig=[acts.join(','),lines?'l':'h',this._writing?'w':'',blocked].join('|');
       if(el.dataset.sig!==sig){
         el.dataset.sig=sig;
         el.innerHTML='';
@@ -636,8 +651,8 @@ Object.assign(GitPanel.prototype, {
           const b=document.createElement('button');
           b.className='ui-btn ui-btn-lg git-hunk-act'; b.dataset.act=act;
           b.textContent=lines?GIT_HUNK_LINE_LABEL[act]:GIT_HUNK_LABEL[act];
-          b.title=GIT_HUNK_TITLE[act];
-          b.disabled=!!this._writing;
+          b.title=blocked||GIT_HUNK_TITLE[act];
+          b.disabled=!!this._writing||!!blocked;
           el.appendChild(b);
         }
       }
@@ -680,7 +695,7 @@ Object.assign(GitPanel.prototype, {
     const f=this.commitFile?null:this._diffTarget();
     const h=this._hunks;
     const co=this._hunkBarCoords();
-    if(!f||!h||!co||this._writing) return;
+    if(!f||!h||!co||this._writing||this._hunkBlocked()) return;
     const hunk=(h.list||[]).find(x=>x.index===co.hunk);
     const body={repo:f.repo,axis:f.axis,path:f.path,op,
       hunk:co.hunk,from:co.from,to:co.to,diffId:h.diffId};
@@ -795,15 +810,24 @@ Object.assign(GitPanel.prototype, {
    * 이 인자가 생겨도 없다.
    */
   _showTarget(view,f,slot,force){
-    // FR-RTU-56: **편집 중인 diff 는 다시 읽지 않는다.** 폴링이 사용자의 편집을
-    // 덮으면 그 화면은 편집기가 아니다. 대상이 바뀌는 것은 사용자의 조작이므로
-    // 그때는 새로 읽는다 — 아래 key 비교가 그것을 가른다.
-    if(view&&view.dirty&&this[slot]) return;
     // 식별자는 (리포, 축, 경로, 리비전) 이다 (FR-GIT-54·145) — 리비전이 빠지면
     // 머지 커밋에서 부모를 바꿔도 같은 대상으로 보여 다시 받지 않는다.
     const key=f?[f.repo,f.axis,f.path,f.origPath,f.oid||'',f.parentOid||''].join('\u0000'):'';
     if(this[slot]===key&&!force) return;
+    /**
+     * REPO_FIX 05 §3A-3 (F-2.4): dirty 문서에서 다른 대상으로 옮길 때 — 이 뷰가 그
+     * 문서의 마지막 뷰면 저장/버리기/취소를 묻고, 다른 뷰가 들고 있으면 그냥 옮긴다
+     * (편집은 문서에 남는다). 같은 대상을 다시 받는 것은 원본 쪽만 바꾸므로 dirty 여도
+     * 된다(작업 트리 쪽은 문서 모델이다).
+     *
+     *   이전 동작: dirty 면 전환을 조용히 무시했다 — 머리·목록은 새 대상, 본문과 hunk
+     *             는 옛 대상이었다(#2)
+     *   새  동작: 묻고 옮기거나, 취소면 선택을 원래 행으로 되돌린다
+     */
+    if(view&&this[slot]&&this[slot]!==key&&view.dirtyLast){this._diffLeaveAsk(view);return}
+    if(this._diffAsking) return;
     this[slot]=key;
+    this._diffShown=f;
     if(!f){view.clear(this.repo?GIT_PREVIEW_HINT:GIT_NO_REPO_HINT);return}
     // GIT_DIR_ENTRY_SRS FR-DIR-21: 디렉터리 항목에는 diff 를 부르지 않는다.
     // 서버가 줄 것이 없고(실측), 사용자가 알아야 할 것은 사유와 갈 길이다.
@@ -812,6 +836,28 @@ Object.assign(GitPanel.prototype, {
       return;
     }
     view.show(f,this.token());
+  },
+
+  // F-2.4: 저장('save')·버리기(true)·취소(false). 취소와 저장 실패는 화면에 보이던
+  // 대상으로 선택을 되돌린다 — 머리·본문·hunk 목록이 같은 대상을 가리킨다.
+  async _diffLeaveAsk(view){
+    if(this._diffAsking) return;
+    this._diffAsking=true;
+    const r=await this.app.edDocLeaveConfirm();
+    const ok=r==='save'?await view.save():r===true;
+    this._diffAsking=false;
+    if(ok&&r===true){view.clear('');this._diffKey=null}
+    if(!ok) this._diffRestore(this._diffShown);
+    this._paint();
+  },
+
+  _diffRestore(f){
+    if(!f||!f.path) return;
+    this.commitFile=null;
+    this.previewFile=f;
+    this._sel.clear();
+    this._sel.add(this._selKey(f.group,f.path));
+    this._anchor={group:f.group,path:f.path};
   },
 
   /**
@@ -890,7 +936,9 @@ Object.assign(GitPanel.prototype, {
    * 볼 사람도 없다. 편집 중이면 받지 않는다 (FR-RTU-56).
    */
   reloadDiff(user){
-    if(!this._diffView||this._diffView.dirty) return;
+    // REPO_FIX 05 §3A-3: 편집 중이어도 받는다 — 작업 트리 쪽은 문서 모델이고 다시 받는
+    // 것은 원본 쪽과 hunk 목록뿐이다. 이전: dirty 면 받지 않아 원본이 낡았다.
+    if(!this._diffView) return;
     // FR-GLV-6: 서버가 거부한 대상은 **폴링이** 다시 묻지 않는다 — 바이너리·상한
     // 초과·사라진 경로가 그렇고, 매 회차 다시 물으면 콘솔과 서버 로그가 그 실패로
     // 채워진다 (실측으로 확인했다).
@@ -911,7 +959,7 @@ Object.assign(GitPanel.prototype, {
       hideUnchanged:this._foldPref(),
       isStale:tok=>this.isStale(tok),
       // FR-RTU-53: 저장되지 않은 변경은 탭 이름에 `●` 로 선다 — 편집기 탭과
-      // 같은 표시이며, 렌더가 이 뷰의 dirty 에서 파생한다 (`app.tabDirty`).
+      // 같은 표시이며, 렌더가 공유 문서의 dirty 에서 파생한다 (`app.tabDirty`, F-2.5).
       onDirty:v=>this._setDiffDirty(v),
       // FR-RTU-55: 저장 뒤에는 관측을 즉시 갱신한다. 방금 고친 것이 목록과
       // 색에 곧바로 서야 한다.
@@ -928,6 +976,10 @@ Object.assign(GitPanel.prototype, {
 
   // diff 탭 하나의 dirty 를 탭 레코드에 옮긴다 (FR-RTU-53).
   _setDiffDirty(v){
+    // §3A-3 hunk 와 dirty: 사유 줄과 툴바가 dirty 를 따른다.
+    const el=this._els.get('diff');
+    if(el&&el.dataset.built==='1') this._hunkNote(el.querySelector('.git-diff-hunk-note'),this._hunkText());
+    this._hunkBarPaint();
     if(!this.root) return;
     const w=this.app.edWindowFor(this.root); if(!w) return;
     const found=this.app.findGitViewTab(w,'diff'); if(!found) return;

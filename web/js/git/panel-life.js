@@ -112,9 +112,15 @@ Object.assign(GitPanel.prototype, {
    *
    * Diff 만 편집을 든다 — `GitDiffView` 가 unstaged·conflict 축에서 열린다.
    * 다른 뷰는 읽기이므로 언제나 false 다.
+   *
+   * REPO_FIX 05 §3A-3: 편집은 공유 문서의 것이다. 라벨(●)은 문서 dirty 이고,
+   * `closing`(닫기 확인)은 이 뷰가 그 문서의 **마지막 뷰**일 때만 참이다 — 다른
+   * 뷰가 들고 있으면 닫아도 편집은 문서에 남는다.
    */
-  viewDirty(view){
-    return view==='diff'&&!!this._diffView&&this._diffView.dirty;
+  viewDirty(view,closing){
+    const v=view==='diff'?this._diffView:null;
+    if(!v) return false;
+    return closing?v.dirtyLast:v.dirty;
   },
 
   /**
@@ -122,7 +128,7 @@ Object.assign(GitPanel.prototype, {
    * "저장할 것이 없었다" 와 "저장했다" 는 호출자에게 같은 답이어야 한다.
    */
   async viewSave(view){
-    if(!this.viewDirty(view)) return true;
+    if(!this.viewDirty(view,true)) return true;
     return await this._diffView.save();
   },
 

@@ -207,7 +207,7 @@ Object.assign(App.prototype, {
     const root=this.edRootOf(s);
     for(const pn of this.flattenPanes(s.layout))
       for(const t of (pn.tabs||[]))
-        if(t&&t.type===TAB_TYPE_GIT&&this._gitViewDirty(root,t.gitView)) return true;
+        if(t&&t.type===TAB_TYPE_GIT&&this._gitViewDirty(root,t.gitView,true)) return true;
     return false;
   },
 
@@ -222,6 +222,8 @@ Object.assign(App.prototype, {
    * "하나라도 있는가" 이므로 그것은 답을 바꾸지 않는다.
    */
   edAnyDirty(){
+    // REPO_FIX 05 §3A-3: git Diff 뷰만 연 문서도 편집을 든다 — 문서를 먼저 본다.
+    if(this._edDocs) for(const d of this._edDocs.values()) if(d&&d.dirty) return true;
     if(!this.fileEditors) return false;
     for(const v of this.fileEditors.values()) if(v&&v._dirty) return true;
     return false;

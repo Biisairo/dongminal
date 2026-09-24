@@ -115,10 +115,11 @@ Object.assign(App.prototype, {
     d.modelSub=d.model?d.model.onDidChangeContent(()=>this.edDocDirtySync(d)):null;
   },
 
+  // git Diff 뷰는 편집기 대신 `gazeEditor`(작업 트리 쪽 에디터)를 든다 (REPO_FIX 05 §3A-3).
   _edDocGazes(d){
     const out=[];
     for(const v of d.views){
-      const ed=v&&v._editor;
+      const ed=v&&(v._editor||v.gazeEditor);
       if(ed) out.push({ed,sel:ed.getSelection(),top:ed.getScrollTop(),left:ed.getScrollLeft()});
     }
     return out;
@@ -170,7 +171,10 @@ Object.assign(App.prototype, {
     d.gen++;
     d.savedAltVer=d.model.getAlternativeVersionId();
     this.edDocDirtySync(d);
-    for(const v of d.views) if(v&&v._editor) v._editor.updateOptions({readOnly:d.decodable===false});
+    for(const v of d.views){
+      if(v&&v._editor) v._editor.updateOptions({readOnly:d.decodable===false});
+      else if(v&&v.onDocReadOnly) v.onDocReadOnly(d.decodable===false);
+    }
     this.updateStatusBar();
     return true;
   },
@@ -183,15 +187,141 @@ Object.assign(App.prototype, {
     const d=this.edDocAt(filePath);
     if(!d||!d.model||d.decodable===false||(d.encoding==='utf-8'&&!d.bom)) return false;
     if(!await this._edEncConfirm(ENC_CONVERT_CONFIRM)) return false;
-    const v=[...d.views].find(x=>x&&x._editor&&x._saveOnce);
-    if(!v) return false;
+    const ui=[...d.views].find(x=>x&&x._noteSaveFailed)||null;
     if(d.savePromise) await d.savePromise;
     const prev={encoding:d.encoding,bom:d.bom};
     d.encoding='utf-8'; d.bom=false;
-    const ok=await v._saveOnce(d,{force:true});
+    const ok=await this._edDocSaveOnce(filePath,d,ui,{force:true});
     if(!ok){d.encoding=prev.encoding;d.bom=prev.bom}
     this.updateStatusBar();
     return ok;
+  },
+
+  /**
+   * 문서 저장 — 편집기 탭과 git Diff 뷰가 같은 길을 탄다 (REPO_FIX 05 §3A-3 F-2.2).
+   * `ui` 는 저장을 부른 뷰다 — 경합 확인·거절 사유를 그 자리에 보인다
+   * (`_confirmConflict`·`_noteUnmappable`·`_noteSaveFailed`).
+   *
+   * REPO_FIX 03 §3A-8 (E-9.3): 저장 진행 중의 저장 요청은 무음으로 버리지 않는다 —
+   * 진행 중 저장이 끝나기를 기다린 뒤 그때 dirty 면 한 번 더 저장한다. 대기는 문서
+   * 단위 1건이다.
+   *
+   *   이전 동작: 저장이 FileEditor 안에 있었고, Diff 뷰는 표식·인코딩 없이 따로 썼다
+   *   새  동작: 문서 하나에 저장 하나
+   *   이유:     같은 파일에 버퍼가 둘이면 dirty·저장·인코딩·경합이 두 벌이다 (N4)
+   */
+  edDocSave(filePath,ui){
+    const d=this.edDocAt(filePath);
+    if(!d) return Promise.resolve(false);
+    if(d.savePromise){
+      if(!d.saveQueued){
+        d.saveQueued=d.savePromise.then(ok=>{
+          d.saveQueued=null;
+          return d.dirty?this.edDocSave(filePath,ui):ok;
+        });
+      }
+      return d.saveQueued;
+    }
+    const p=this._edDocSaveOnce(filePath,d,ui);
+    d.savePromise=p;
+    p.finally(()=>{if(d.savePromise===p)d.savePromise=null});
+    return p;
+  },
+
+  // 저장 하나. **성공 여부를 돌려준다** (FR-EXC-12). `force` 는 dirty 가 아니어도
+  // 쓴다 — UTF-8 로 변환해 저장이 그 길이다(03 §3A-2).
+  async _edDocSaveOnce(filePath,d,ui,o){
+    if(!d.model||(!d.dirty&&!(o&&o.force))) return false;
+    // 어느 인코딩으로도 풀리지 않은 문서는 저장하지 않는다(읽기 전용, 03 §3A-1).
+    if(d.decodable===false) return false;
+    const content=d.model.getValue();
+    // FR-EXC-14 / 03 §3A-7: 담아 간 판을 기준으로 삼는다 — 왕복 중 편집이 있으면
+    // dirty 가 남는다.
+    const sentVer=d.model.getAlternativeVersionId();
+    try{
+      let r=await this.edDocWrite(filePath,content,d.stamp,d);
+      // FR-EXC-5·7·9: 409 는 우리가 읽은 뒤 디스크가 바뀌었다는 뜻이다.
+      if(r.status===409){
+        if(!ui||!await ui._confirmConflict()) return false;
+        r=await this.edDocWrite(filePath,content,'',d);
+      }
+      if(r.status===422&&r.data&&r.data.error==='encoding_unmappable'){
+        if(ui) ui._noteUnmappable(r.data,d);
+        return false;
+      }
+      if(!r.ok){
+        if(ui) ui._noteSaveFailed(r);
+        return false;
+      }
+      // 저장 중 문서가 옮겨지거나 해제됐으면 그 문서에 적용하지 않는다(03 §3A-5).
+      if(this.edDocAt(filePath)===d){
+        d.stamp=(r.data&&r.data.stamp)||'';
+        d.savedAltVer=sentVer;
+        this.edDocDirtySync(d);
+      }
+      // 파일 저장은 즉시 신호다 (FR-GIT-18) — 작업 트리가 방금 바뀌었다.
+      this.gitSignal('write');
+      return true;
+    }catch(e){
+      console.error('[edDoc] save error:',e);
+      if(ui) ui._noteSaveFailed(null);
+      return false;
+    }
+  },
+
+  // 쓰기 한 번. 표식이 비면 필드를 싣지 않는다 — 서버의 관대함(FR-EXC-6a)을
+  // 부르는 것이 곧 "검사하지 말라" 이므로, 그 뜻을 한 자리에 모아 둔다.
+  // REPO_FIX 03 §3A-2: 문서의 인코딩·BOM 으로 되돌려 쓴다. 판별을 모르면(옛 서버)
+  // 싣지 않는다 — 서버가 UTF-8 원문 그대로 쓴다.
+  edDocWrite(filePath,content,stamp,d){
+    const body={path:filePath,content};
+    if(stamp) body.stamp=stamp;
+    if(d&&d.encoding){body.encoding=d.encoding;body.bom=!!d.bom}
+    return apiPost('/api/file/write',body);
+  },
+
+  /**
+   * FR-EXC-9: 경합의 확인창. 참이면 덮어쓴다. 편집기 탭과 Diff 뷰가 함께 쓴다.
+   *
+   * **`디스크 것으로 덮기` 는 두지 않는다** (비목표 3) — 편집본을 확인 없이 버리는
+   * 길을 한 걸음 확인창에 둘 수 없다 (FR-COS-1·FR-RTU-103). 초기 포커스는
+   * `덮어쓰기` 다 (FR-EXC-9a / FR-PDA-1).
+   */
+  edConfirmConflict(name,filePath){
+    return new Promise(resolve=>{
+      let done=false;
+      const settle=v=>{if(!done){done=true;resolve(v)}};
+      const body=document.createElement('div');
+      const nm=document.createElement('div');
+      nm.className='fe-conflict-path';
+      nm.textContent=name;
+      nm.title=filePath;
+      const msg=document.createElement('div');
+      msg.className='fe-conflict-msg';
+      msg.textContent=FILE_CONFLICT_MSG;
+      body.appendChild(nm); body.appendChild(msg);
+      // 두 버튼 모두 `keepOpen` 이다 — 기본 순서(close 먼저)면 덮어쓰기를 눌러도
+      // `onClose` 가 취소로 먼저 접수한다. `Esc`·바깥 클릭은 쓰지 않은 것이다 (FR-PDA-3).
+      const m=UIKit.modal({
+        cls:'fe-conflict',title:FILE_CONFLICT_TITLE,width:'min(460px,90vw)',body,
+        actions:[
+          {label:FILE_CONFLICT_CANCEL,kind:'ghost',cls:'fe-conflict-cancel',
+            keepOpen:true,onClick:()=>{settle(false);m.close()}},
+          {label:FILE_CONFLICT_GO,kind:'danger',cls:'fe-conflict-go',
+            keepOpen:true,onClick:()=>{settle(true);m.close()}},
+        ],
+        onClose:()=>settle(false),
+      });
+      document.body.appendChild(m.el);
+    });
+  },
+
+  /**
+   * REPO_FIX 05 §3A-3 (F-2.4): dirty 문서의 마지막 뷰가 다른 대상으로 옮겨 가려 한다 —
+   * 저장('save')·버리기(true)·취소(false).
+   */
+  edDocLeaveConfirm(){
+    return this._confirmClose(DOC_LEAVE_MSG,{saveBtn:true,saveLabel:DOC_LEAVE_SAVE,okLabel:DOC_LEAVE_DISCARD});
   },
 
   // 문서를 보는 편집기 하나에 알림을 띄운다.

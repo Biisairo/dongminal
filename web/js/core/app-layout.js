@@ -654,7 +654,7 @@ Object.assign(App.prototype, {
      */
     if(gitTab&&!opts.force){
       const root=this.edRootOf(s);
-      if(this._gitViewDirty(root,tab.gitView)){
+      if(this._gitViewDirty(root,tab.gitView,true)){
         const r=await this._confirmClose(CLOSE_DIRTY_MSG,{saveBtn:true});
         if(!r) return;
         // 저장이 실패하면 닫지 않는다 — 저장한 줄 알고 닫는 것이 곧 손실이다.

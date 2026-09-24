@@ -255,6 +255,10 @@ const GIT_HUNK_TITLE={
 const GIT_HUNK_LOADING=t('git.hunk_loading');
 const GIT_HUNK_LOAD_FAIL=t('git.hunk_load_fail');
 const GIT_HUNK_NONE=t('git.hunk_none');
+// REPO_FIX 05 §3A-3: 화면의 diff(버퍼 기준)와 서버 hunk(디스크 기준)가 다를 때, 그리고
+// git 이 바이너리로 보는 UTF-16 문서.
+const GIT_HUNK_DIRTY=t('git.hunk_dirty');
+const GIT_HUNK_UTF16=t('git.hunk_utf16');
 // FR-DHB-2: `GIT_HUNK_HINT`·`GIT_HUNK_CLEAR`·`GIT_HUNK_CLEAR_TITLE` 는 폐기됐다 —
 // 커스텀 줄 선택의 조작법을 설명하던 말들이고, 그 조작이 Monaco 의 텍스트 선택으로
 // 바뀌면서 설명할 것이 없어졌다 (I-2).

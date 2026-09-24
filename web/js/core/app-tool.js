@@ -421,8 +421,9 @@ Object.assign(App.prototype, {
       };
       // 순서는 종전 그대로다 — 백그라운드·저장이 앞, 닫기·취소가 뒤.
       const bgBtn=opts.bgBtn?mk('ui-btn-primary confirm-bg',TIP_CLOSE_BG,opts.bgLabel||t('core.to_background')):null;
-      const saveBtn=opts.saveBtn?mk('ui-btn-primary confirm-save',TIP_CLOSE_SAVE,t('core.save_and_close')):null;
-      const okBtn=mk('ui-btn-danger confirm-ok',TIP_CLOSE_TOOL,t('core.close'));
+      // 문구를 바꿀 수 있다 — 대상 전환의 확인(REPO_FIX 05 F-2.4)은 "닫기" 가 아니다.
+      const saveBtn=opts.saveBtn?mk('ui-btn-primary confirm-save',TIP_CLOSE_SAVE,opts.saveLabel||t('core.save_and_close')):null;
+      const okBtn=mk('ui-btn-danger confirm-ok',TIP_CLOSE_TOOL,opts.okLabel||t('core.close'));
       const cancelBtn=mk('confirm-cancel',TIP_CLOSE_CANCEL,t('core.cancel'));
 
       document.body.appendChild(ov);

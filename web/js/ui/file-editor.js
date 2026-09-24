@@ -721,66 +721,30 @@ class FileEditor {
    *   새  동작: 기다렸다가 필요하면 다시 저장, 결과를 돌려준다
    */
   save() {
-    const doc = this._doc;
-    if (!doc) return this._saveOnce(null);
-    if (doc.savePromise) {
-      if (!doc.saveQueued) {
-        doc.saveQueued = doc.savePromise.then((ok) => {
-          doc.saveQueued = null;
-          return doc.dirty ? this.save() : ok;
-        });
-      }
-      return doc.saveQueued;
-    }
-    const p = this._saveOnce(doc);
-    doc.savePromise = p;
-    p.finally(() => { if (doc.savePromise === p) doc.savePromise = null });
-    return p;
+    // REPO_FIX 05 §3A-3: 문서가 있으면 저장은 문서의 것이다 — git Diff 뷰와 같은 길이다.
+    if (this._doc) return app.edDocSave(this.filePath, this);
+    return this._saveOnce();
   }
 
-  async _saveOnce(doc, opts) {
-    // `force` 는 dirty 가 아니어도 쓴다 — UTF-8 로 변환해 저장이 그 길이다(§3A-2).
-    if (!this._editor || (!this._dirty && !(opts && opts.force))) return false;
-    // 어느 인코딩으로도 풀리지 않은 문서는 저장하지 않는다(읽기 전용, §3A-1).
-    if (doc && doc.decodable === false) return false;
-    const path = this.filePath;
+  // 문서를 못 얻은 뷰(이진·이미지·로딩 실패)의 저장이다. 문서가 있으면 `edDocSave`.
+  async _saveOnce() {
+    if (!this._editor || !this._dirty) return false;
     const content = this._editor.getValue();
-    /**
-     * FR-EXC-14: **담아 간 내용의 판본을 적어 둔다.** 아래 `await` 는 망 왕복이고
-     * 그 사이의 타이핑은 이 저장에 담기지 않는다. §3A-7: 저장 시점 판을 기준으로
-     * 삼으면(`savedAltVer = sentVer`) 왕복 중 편집이 있을 때 dirty 가 남고, 없으면
-     * 풀린다. `Cmd+Z` 로 제자리에 오면 다시 같아진다.
-     */
     const model = this._editor.getModel();
     const sentVer = model ? model.getAlternativeVersionId() : 0;
     try {
-      let r = await this._write(content, this._stamp, doc);
-      // FR-EXC-5·7·9: 409 는 **우리가 읽은 뒤 디스크가 바뀌었다**는 뜻이다.
+      let r = await this._write(content, this._stamp, null);
       if (r.status === 409) {
         if (!await this._confirmConflict()) return false;
-        r = await this._write(content, '', doc);
-      }
-      if (r.status === 422 && r.data && r.data.error === 'encoding_unmappable') {
-        this._noteUnmappable(r.data, doc);
-        return false;
+        r = await this._write(content, '', null);
       }
       if (!r.ok) {
         this._noteSaveFailed(r);
         return false;
       }
-      const next = (r.data && r.data.stamp) || '';
-      // 저장 중 문서가 옮겨지거나 해제됐으면 그 문서에 적용하지 않는다(§3A-5).
-      const live = !doc || app.edDocAt(path) === doc;
-      if (doc && live) {
-        doc.stamp = next;
-        doc.savedAltVer = sentVer;
-        app.edDocDirtySync(doc);
-      } else if (!doc) {
-        this._stamp = next;
-        if (!(model && model.getAlternativeVersionId() !== sentVer)) this.__dirty = false;
-        this._tabLabelAll();
-      }
-      // 파일 저장은 즉시 신호다 (FR-GIT-18) — 작업 트리가 방금 바뀌었다.
+      this._stamp = (r.data && r.data.stamp) || '';
+      if (!(model && model.getAlternativeVersionId() !== sentVer)) this.__dirty = false;
+      this._tabLabelAll();
       if (typeof app !== 'undefined' && app) app.gitSignal('write');
       return true;
     } catch (e) {
@@ -823,63 +787,10 @@ class FileEditor {
       { label: ENC_CONVERT, run: () => app.edDocConvertUtf8(this.filePath) });
   }
 
-  // 쓰기 한 번. 표식이 비면 필드를 싣지 않는다 — 서버의 관대함(FR-EXC-6a)을
-  // 부르는 것이 곧 "검사하지 말라" 이므로, 그 뜻을 한 자리에 모아 둔다.
-  _write(content, stamp, doc) {
-    const body = { path: this.filePath, content };
-    if (stamp) body.stamp = stamp;
-    // REPO_FIX 03 §3A-2: 문서의 인코딩·BOM 으로 되돌려 쓴다. 판별을 모르면(옛 서버)
-    // 싣지 않는다 — 서버가 UTF-8 원문 그대로 쓴다.
-    if (doc && doc.encoding) { body.encoding = doc.encoding; body.bom = !!doc.bom }
-    return apiPost('/api/file/write', body);
-  }
+  _write(content, stamp, doc) { return app.edDocWrite(this.filePath, content, stamp, doc) }
 
-  /**
-   * FR-EXC-9: 경합의 확인창. 참이면 덮어쓴다.
-   *
-   * **`디스크 것으로 덮기` 는 두지 않는다** (비목표 3) — 편집본을 확인 없이 버리는
-   * 길을 한 걸음 확인창에 둘 수 없다 (FR-COS-1·FR-RTU-103). 취소하면 편집본은
-   * 화면에 그대로 남으므로(FR-EXC-3) 사용자가 스스로 처리할 수 있다.
-   *
-   * 초기 포커스는 `덮어쓰기` 다 — 이 창이 뜬 까닭이 사용자가 누른 저장이므로
-   * 그것이 목적 버튼이다 (FR-EXC-9a / FR-PDA-1). `UIKit.modal` 이 `kind` 를 보고
-   * 스스로 정하므로 여기서 `focus()` 를 부르지 않는다 (FR-PDA-11).
-   */
-  _confirmConflict() {
-    return new Promise(resolve => {
-      let done = false;
-      const settle = v => { if (!done) { done = true; resolve(v) } };
-      const body = document.createElement('div');
-      const name = document.createElement('div');
-      name.className = 'fe-conflict-path';
-      name.textContent = this.name;
-      name.title = this.filePath;
-      const msg = document.createElement('div');
-      msg.className = 'fe-conflict-msg';
-      msg.textContent = FILE_CONFLICT_MSG;
-      body.appendChild(name); body.appendChild(msg);
-      const m = UIKit.modal({
-        cls: 'fe-conflict',
-        title: FILE_CONFLICT_TITLE,
-        width: 'min(460px,90vw)',
-        body,
-        // **두 버튼 모두 `keepOpen` 이다.** `UIKit.modal` 의 기본은 `close()` 를
-        // 먼저 부르고 그 다음 `onClick` 을 부르는 순서라(ui-kit.js), 답을
-        // `onClose` 에서 받으면 **덮어쓰기를 눌러도 취소로 접수된다.** 그래서 답을
-        // 먼저 정하고 닫는다.
-        actions: [
-          { label: FILE_CONFLICT_CANCEL, kind: 'ghost', cls: 'fe-conflict-cancel',
-            keepOpen: true, onClick: () => { settle(false); m.close() } },
-          { label: FILE_CONFLICT_GO, kind: 'danger', cls: 'fe-conflict-go',
-            keepOpen: true, onClick: () => { settle(true); m.close() } },
-        ],
-        // `Esc` 와 바깥 클릭도 여기로 온다 — 답 없이 닫힌 것은 **쓰지 않은
-        // 것**이다 (FR-PDA-3). 버튼으로 이미 답했으면 `settle` 이 무시한다.
-        onClose: () => settle(false),
-      });
-      document.body.appendChild(m.el);
-    });
-  }
+  // FR-EXC-9: 경합의 확인창 — 문서 저장과 같은 것을 쓴다 (`app.edConfirmConflict`).
+  _confirmConflict() { return app.edConfirmConflict(this.name, this.filePath) }
 
   /**
    * 디스크의 내용을 다시 읽어 화면에 반영한다 (FR-EXC-1). REPO_FIX 03 E-7.1: 일은

@@ -153,11 +153,12 @@ Object.assign(App.prototype, {
    * 쪽**이기 때문이다. 탭의 표식은 그 사실의 사본이고, 사본을 근거로 삼으면
    * 동기화가 어긋난 순간 확인이 조용히 빠진다.
    */
-  _gitViewDirty(root,view){
+  // `closing` 은 닫기 확인의 물음이다 — 그 뷰가 떠나면 편집을 잃는가 (REPO_FIX 05 §3A-3).
+  _gitViewDirty(root,view,closing){
     if(!view||!this.gitPanels) return false;
     for(const [key,p] of this.gitPanels){
       if(this._gitPanelRoot(key)!==(root||'')) continue;
-      if(p.viewDirty&&p.viewDirty(view)) return true;
+      if(p.viewDirty&&p.viewDirty(view,!!closing)) return true;
     }
     return false;
   },
