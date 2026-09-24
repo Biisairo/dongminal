@@ -200,6 +200,7 @@ Object.assign(GitPanel.prototype, {
       '<div class="ui-notice ui-notice-attn git-partial-note">'+
         '<div class="git-partial-msg"></div>'+
         '<ul class="git-partial-list ui-scroll-sm"></ul>'+
+        '<button class="ui-btn ui-btn-lg git-lock-remove"></button>'+
         '<button class="ui-btn ui-btn-lg git-partial-close"></button>'+
       '</div>'+
       /**
@@ -244,6 +245,9 @@ Object.assign(GitPanel.prototype, {
     partClose.textContent=GIT_NOTE_CLOSE; partClose.title=GIT_TIP_NOTE_CLOSE;
     el.querySelector('.git-partial-close')
       .addEventListener('click',()=>{this._note=null;this._paint()});
+    const lockBtn=el.querySelector('.git-lock-remove');
+    lockBtn.textContent=GIT_LOCK_REMOVE;
+    lockBtn.addEventListener('click',()=>this.removeIndexLock());
     for(const b of el.querySelectorAll('.git-op-act')){
       b.textContent=GIT_OP_ACT_LABEL[b.dataset.act]||'';
       b.title=GIT_OP_ACT_TITLE[b.dataset.act]||'';

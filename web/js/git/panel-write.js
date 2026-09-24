@@ -149,8 +149,35 @@ Object.assign(GitPanel.prototype, {
   // 바뀌었는지까지 보인다 — git 이 주지 않는 원자성을 흉내 내지 않는다.
   applyWriteFail(res){
     const d=res.data||{};
-    this._note={msg:this.writeError(res),partial:!!d.partial,changed:d.changed||[]};
+    // REPO_FIX 01 §7.2: index.lock 에 막혔으면 그 lock 을 안내에 싣는다 — 버튼은
+    // 이 응답에서만 선다. 파일이 이미 없으면(mtime 없음) 지울 것이 없다.
+    const lock=(d.error==='index_locked'&&d.lock)?d.lock:null;
+    const msg=this.writeError(res)+(lock&&lock.mtimeUnixMs==null?' — '+GIT_LOCK_GONE:'');
+    this._note={msg,partial:!!d.partial,changed:d.changed||[],
+      lock:(lock&&lock.mtimeUnixMs!=null)?lock:null,lockRepo:this.repo};
     if(d.status) this.adopt(d); else this._paint();
+  },
+
+  // §7.2: 확인 뒤에만 지운다. 원래 동작은 다시 시도하지 않는다 — 사용자가 lock 이
+  // 정말 남은 것인지 본 뒤 스스로 다시 누른다.
+  async removeIndexLock(){
+    const n=this._note, lock=n&&n.lock;
+    if(!lock||n.lockRepo!==this.repo) return;
+    const repo=this.repo;
+    const ok=await GitConfirm.open({
+      action:GIT_ACT_INDEX_LOCK_REMOVE,title:GIT_LOCK_TITLE,targets:[lock.path],
+      hint:{note:GIT_LOCK_NOTE.replace('{when}',GitHistory.relTime(lock.mtimeUnixMs))},
+      run:async()=>{
+        const res=await this.post('/api/git/lock/remove',
+          {repo,confirm:true,mtimeUnixMs:lock.mtimeUnixMs});
+        if(res.ok) return {ok:true};
+        return {ok:false,reason:this.writeReason(res),stderrTail:(res.data&&res.data.message)||''};
+      },
+    });
+    if(!ok||repo!==this.repo) return;
+    // 관측이 같으면 refresh 는 다시 그리지 않는다 — 안내 줄은 여기서 걷는다.
+    this._note=null; this._paint();
+    this.refresh();
   },
 
   // POST 한 번. ok 는 **서버가 ok:true 를 준 것**이다 — 200 이지만 본문이 없는
@@ -277,6 +304,8 @@ Object.assign(GitPanel.prototype, {
     box.classList.toggle('vis',!!n);
     box.querySelector('.git-partial-msg').textContent=
       n?(n.partial?n.msg+' — '+GIT_PARTIAL_NOTE:n.msg):'';
+    const lockBtn=box.querySelector('.git-lock-remove');
+    if(lockBtn) lockBtn.classList.toggle('vis',!!(n&&n.lock));
     const ul=box.querySelector('.git-partial-list'); ul.innerHTML='';
     for(const p of (n&&n.changed)||[]){
       const li=document.createElement('li'); li.className='git-partial-path';

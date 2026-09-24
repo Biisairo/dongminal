@@ -51,8 +51,14 @@ const GIT_STATUS_FETCH_TIMEOUT_MS=20000;
  *
  * 그래서 서버가 먼저 포기하게 두고, 이 값은 **답이 아예 오지 않는 연결**만
  * 걷어내는 그물로 쓴다.
+ *
+ * REPO_FIX 01 §5.5: 서버의 쓰기는 이제 단계별 마감이다 — 잠금 대기 5s·사전 10s·
+ * 쓰기 30s·사후 15s, 각 단계 정리 대기 +6s. 최악 응답은 일반 쓰기 78s, stash
+ * (잠금 둘) 83s 다. 35s 에서 끊으면 서버가 끝내는 쓰기를 화면이 실패로 읽는다.
+ *
+ *   이전 동작: 35000 / 새 동작: 100000 (최소 여유 17s) / 이유: 위
  */
-const GIT_WRITE_FETCH_TIMEOUT_MS=35000;
+const GIT_WRITE_FETCH_TIMEOUT_MS=100000;
 // 즉시 신호는 몰아서 온다 — 셸 훅·에디터 저장·포커스 복귀가 겹친다. 하나로 합쳐
 // status 를 연발하지 않게 한다 (FR-GIT-20).
 const GIT_SIGNAL_DEBOUNCE_MS=150;

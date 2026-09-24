@@ -622,6 +622,9 @@ body.mobile .git-head-remote{gap:2px}
 .git-partial-list{margin:2px 0 0;padding:0 0 0 14px;max-height:80px;overflow-y:auto;color:var(--text)}
 .git-partial-path{font-family:var(--mono);word-break:break-all}
 .git-partial-close{margin-top:4px}
+/* REPO_FIX 01 §7.2: index_locked 응답에서만 선다 */
+.git-lock-remove{display:none;margin-top:4px}
+.git-lock-remove.vis{display:inline-flex}
 /* 충돌 행은 구분만 한다 (FR-GIT-37). M1 은 해결하지 않는다 */
 .git-file.conflict .git-file-st,.git-file.conflict .git-file-path,
 .git-file.conflict .git-file-path-dir,.git-file.conflict .git-file-path-name,

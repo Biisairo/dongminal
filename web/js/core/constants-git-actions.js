@@ -129,6 +129,12 @@ const GIT_TAG_DELETE_REMOTE=t('git.act.tag_delete_remote');
 // 확인 (FR-GIT-89·92). 이름은 서버의 파괴적 목록(/api/git/policy)의 키이며 목록을
 // 복제하지 않는다.
 const GIT_ACT_TAG_DELETE='tag_delete';
+// REPO_FIX 01 §7.2: 남은 index.lock 삭제. 서버의 파괴적 목록 키다.
+const GIT_ACT_INDEX_LOCK_REMOVE='index_lock_remove';
+const GIT_LOCK_REMOVE=t('git.lock.remove');
+const GIT_LOCK_TITLE=t('git.lock.title');
+const GIT_LOCK_NOTE=t('git.lock.note');
+const GIT_LOCK_GONE=t('git.lock.gone');
 const GIT_ACT_REMOTE_REF_DELETE='remote_ref_delete';
 const GIT_TAG_DELETE_TITLE=t('git.tag_delete_title');
 const GIT_TAG_DELETE_NOTE=t('git.tag_delete_note');
