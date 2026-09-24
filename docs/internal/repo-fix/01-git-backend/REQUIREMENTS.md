@@ -32,6 +32,20 @@
   - 동작 변경: 이전 — 출력을 리다이렉트하지 않은 훅의 백그라운드 자식(예: `ctags … &`)이 파이프를 쥐면 요청이 매달렸다 / 새 — 리더 종료 3s 뒤 그룹 SIGKILL / 이유 — 매달림 제거. 스펙 한계로 명시("오래 도는 훅 작업은 `>/dev/null 2>&1 &` 로 분리").
   - Windows: 그룹 = Job Object, SIGTERM = Ctrl+Break, SIGKILL = `TerminateJobObject`. 읽기 경로는 두 분기를 정의하고 **스펙 단계에서 벤치로 확정**한다 — W1(읽기도 Job Object) / W2(읽기만 비그룹: 리더 `TerminateProcess` → 파이프 EOF ≤G → 읽기단 닫기, 상한 동일). 규칙: Windows CI 에서 `git status` 1회 중앙값 증가 ≤10ms 면 W1.
 - **P-4 설정 중립화**: 기동 헬퍼가 인자 가드를 지난 **뒤** argv 앞에 `-c log.showSignature=false` 를 붙인다(환경변수 `GIT_CONFIG_COUNT` 는 사용자 `GIT_CONFIG_*` 를 덮으므로 쓰지 않는다). 기록에는 원래 argv 를 남긴다. 스펙에 "파싱하는 git 명령 × 출력에 영향을 주는 설정 키" 조사표를 싣고, 파싱 결과를 바꿀 수 있는 키는 이미 방어된 것(명시)을 빼고 같은 방식으로 중립화한다. 새 기능이 요구하는 최소 git 버전을 스펙에 명시한다.
+- **P-4 조사표 (구현 중 실측, git 2.54)** — 파싱하는 명령과 출력에 영향을 줄 수 있는 사용자 설정:
+
+| 명령 | 영향 후보 설정 | 결과 |
+|------|----------------|------|
+| `log -z --format=…` (log·commitdetail·`%P`·`%B`) | `log.showSignature` | **오염 — `-c log.showSignature=false` 로 중립화** |
+| 〃 | `color.ui=always`, `log.decorate` | 영향 없음(형식 문자열에 `%C` 없음, 장식은 명시 플래그) |
+| `diff` (hunk) | `diff.external`·textconv·색·prefix | 이미 방어(`--no-color --no-ext-diff --no-textconv --src/dst-prefix`, diff.go:456) |
+| `diff-tree --name-status -z -M` | `color.diff=always`, `diff.renames` | 영향 없음(실측), rename 은 `-M` 명시 |
+| `stash show --name-status -z` | `stash.showPatch`·`showStat`, 색 | 영향 없음(옵션을 주면 설정 무시 — 실측) |
+| `show <blob>` / `cat-file` | textconv, 필터 | 영향 없음(blob 은 textconv 없이 원문 — 실측) |
+| `status --porcelain=v2 -z` | `status.*`, `core.quotepath` | 영향 없음(porcelain 고정 형식, `-z` 는 인용 없음, `--untracked-files=all` 명시) |
+| `for-each-ref`·`stash list` (명시 형식) | — | 영향 없음 |
+| `blame --porcelain` | `blame.ignoreRevsFile` | 결과는 바뀌나 사용자 의도(형식은 불변) |
+
 - **P-5 index.lock** 은 자동 삭제하지 않는다(사용자 결정) — §7.2.
 
 ## 4. 상태 조회 single-flight·캐시 (#20 전제, #22, N3, N5)
