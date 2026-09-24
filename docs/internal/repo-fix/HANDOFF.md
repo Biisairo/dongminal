@@ -1,6 +1,6 @@
 # REPO_FIX 인계 — 다음 세션 착수 문서
 
-> 작성 2026-09-24. 01(git 백엔드) A~G 까지 끝났다(세 번째 세션이 G). 다음은 **02 gitwatch·LSP**.
+> 작성 2026-09-24. 01(git 백엔드) 전부, 02(gitwatch·LSP) 전부 끝났다. 다음은 **03 에디터**.
 > **사용자 지시: "새 세션에서 순서대로 진행"** — 아래 §3 순서대로 한다.
 
 ## 1. 무엇을 하는 일인가
@@ -30,6 +30,8 @@
 | 01-G §5.6 | worktree·submodule `Runner` ctx·`%w`, `worktree.LockRepo`(ctx·시한, common-dir 키 `Spec.LockKey`), `core.CommonDirKey`(nil 수신자), worktree add 잡(common 칸→repoLock→충돌→부모 디렉터리→등록, 완료 처리 config·반납), remove 순서(대상 칸·뮤텍스, 180s 단계 안 repoLock), sync 180s·lock 필드, Run 격리 ctx·TryLock 잔여물, 프런트 index 칸 예외·`timeout:0` | 인계 문서와 같은 커밋 |
 | 01-F §5.2·6 | 느린 쓰기 8종 잡 전환, kind 표·모양 제약, stdin, Job JSON `slots`·`errorCode`·`lock`·`result`, 완료 처리 순서, undo 토큰 기점, 프런트 칸별 잡 표시기(`GitJobs`)·`panel.post` 잡 인식·e2e `git-job-indicator.spec.ts` | `6862f2ca` `02b8a777` |
 
+**02 도 끝났다** — G-1 `0cee908c`, G-2 `24174030`, L-4 `a9a75741`, L-1~3 `eb96878e`, L-5 `84671484`. 추적표·구현 중 정정은 `02-lsp-gitwatch/REQUIREMENTS.md` §3A-8·각 절.
+
 **01 은 전부 끝났다.** (G 에서 정정한 요구조건은 `01-git-backend/REQUIREMENTS.md` §5.6 "구현 중 정정 (01-G)")
 
 **01-F 에서 한 것** (커밋은 이 문서 아래 표): jobs 의 kind 표·모양 제약(`jobs/kinds.go`), `JobRunner` stdin, Job JSON `slots`·`errorCode`·`lock`·`result`, 완료 처리 순서(기록→lock→무효화 훅→`OnFinish`→공개), `WithRoot`(server_shutdown 판정 — 배선은 G), 원격 전용 판정·취소 문구 kind 한정. write 의 실행 함수를 `*Spec`(CommitSpec·CheckoutSpec·RebaseSpec·DropSpec·OperationSpec)으로 바꿨다. gitapi `startWriteJob`·`indexFinisher`(gitjob.go). 프런트: `GitRemote` = 칸 하나의 표시기, `GitJobs`(jobs.js) = 두 칸 묶음, `panel.post` 가 `{job}` 을 받으면 붙이고 기다려 동기 모양으로 편다(`postJob` 은 다이얼로그용 detach).
@@ -47,8 +49,8 @@
 1. ~~**01-E**~~ 완료 (§5.1·5.4·5.5·7.1·7.2): 배타 상태 단일 인스턴스(`buildDeps` 에서 생성·주입), 저장소 뮤텍스(ctx 존중·5s)·common-dir 잠금(stash 5종)·index/common 두 칸 잡 슬롯, 판정 순서, 단계별 마감(대기 5·사전 10·쓰기 30·사후 15, 쓰기는 루트 ctx 파생), `ErrIndexLocked` 분류 + 모든 동기 쓰기 실패에 lock 필드, `POST /api/git/lock/remove`, 프런트 `GIT_WRITE_FETCH_TIMEOUT_MS` 35000→100000, resolve 의 index_locked 우선
 2. ~~**01-F**~~ 완료 (§6 — worktree add 잡은 G 로 넘김): 잡 전환(commit·checkout·operation·branch merge/rebase·checkout:true·cherry-pick/revert·drop·worktree add), `jobKinds`·모양 제약, stdin, 사전 단계 위치, 완료 처리 순서(①~⑧), Job JSON `slots`·`result.*`, undo 토큰 기점, 원격 전용 판정 한정, 프런트 **일반화 잡 표시기**(remote.js 상태기계 → kind 무관, §6.4 표 두 개)
 3. ~~**01-G**~~ 완료 (§5.6·8, E·F 에서 넘긴 것 포함)
-4. **02 gitwatch·LSP** ← **여기서 시작** — `02-lsp-gitwatch/REQUIREMENTS.md` (§3A 필독: LSP 경로는 **서버 설정 `<dataDir>/lsp-paths.json` + GET/PUT `/api/lsp/paths` + 설정 ▸ Code UI**, 사용자 결정)
-5. **03 에디터** — 인코딩 왕복(x/text 의존성 추가 승인됨, 자동판별 BOM→UTF-8→CP949 + 다시 열기 4종 + "UTF-8 로 변환해 저장" 확인창), 권한·심링크 보존, 응답 후 재확인 장치, slot 인식 조회, 문서 이동 API(undo 소실 허용), tab.dirty 비영속
+4. ~~**02 gitwatch·LSP**~~ 완료 — `02-lsp-gitwatch/REQUIREMENTS.md` (§3A 필독: LSP 경로는 **서버 설정 `<dataDir>/lsp-paths.json` + GET/PUT `/api/lsp/paths` + 설정 ▸ Code UI**, 사용자 결정)
+5. **03 에디터** ← **여기서 시작** — 인코딩 왕복(x/text 의존성 추가 승인됨, 자동판별 BOM→UTF-8→CP949 + 다시 열기 4종 + "UTF-8 로 변환해 저장" 확인창), 권한·심링크 보존, 응답 후 재확인 장치, slot 인식 조회, 문서 이동 API(undo 소실 허용), tab.dirty 비영속
 6. **04 탐색기** — 로드 세대·coalesce, 폴더 관측 상태 4종, 대소문자 이름변경(같은 부모+대소문자만 다름+SameFile), status 응답 `mark` 는 04 가 추가
 7. **05 git 프런트** — Delete both(가장 위험), Diff 는 **편집기 문서 모델 공유**(사용자 결정), 저장소 최상위 기준 경로, 커밋 초안/amend 슬롯 분리 등. 01 이 만든 잡 UI 를 전제로 한다
 8. 마무리: `make e2e`(전량 8샤드) + 재감사
@@ -89,6 +91,12 @@
   - 잡 허브(`gitJobHolder.get`)는 **처음 쓸 때 실행기를 고정한다** — 테스트가 잡을 한 번 띄운 뒤 `s.gitJobs.run` 을 바꾸면 적용되지 않는다(단독 실행은 타이밍으로 통과하고 `-race -shuffle` 전량에서만 떨어졌다). 서버를 만들 때 넣어라(`wtExclServer` 참고)
   - worktree 생성은 이제 잡이다 — e2e·Go 테스트에서 경로가 필요하면 잡 완료를 기다린다(`wtCreateAwait`, e2e `createUserWorktree`)
   - `worktree.LockRepo` 는 패키지 전역 잠금이다 — 테스트 간 키가 겹치지 않게 임시 경로를 키로 써라
+- **(02 에서 배운 것)**
+  - 게이트를 `;` 로 잇고 커밋하면 실패해도 커밋된다 — 한 번 또 당했다. `make gates …; rc=$?; if [ $rc -eq 0 ]; then git commit …; fi` 로만 커밋한다
+  - SSE 쓰기 시한은 미들웨어 `responseWriter.Unwrap()` 이 있어야 닿는다(`http.ResponseController`)
+  - 새 홈 파일은 `internal/ctl/cli/homelayout.go`·`docs/external/getting-started.md` 표에, 새 종단은 `docs/external/api.md` 에 등록해야 게이트가 통과한다. PUT 요청은 Content-Type 이 없으면 415
+  - LSP 가짜 서버(`fakeStarter`·`killableStarter`)는 읽기 고루틴 하나다 — 처리기 안에서 막으면 뒤 메시지가 전부 멈춘다. `go test` 는 `-timeout` 을 줘서 돌려라(행이 나면 스택이 나온다)
+  - 서버 경로 표는 `팩/서버` 키, `ext.Locator` override 는 서버 id 키 — `lsp.Service.locatorOverrides` 가 옮긴다
 
 ## 6. 유효한 사용자 결정 (요약 — 상세는 각 REQUIREMENTS)
 
@@ -104,7 +112,7 @@
 ## 7. 착수 블록
 
 ```
-git status && git log --oneline -3   # 맨 위가 01-G §5.6 커밋, 그 아래 10a2e911(§8), 트리 깨끗
-docs/internal/repo-fix/02-lsp-gitwatch/REQUIREMENTS.md 를 읽는다 — 머리말의 §3A 확정 사항이 본문보다 우선이다.
-LSP 경로는 서버 설정 <dataDir>/lsp-paths.json + GET/PUT /api/lsp/paths + 설정 ▸ Code UI (사용자 결정).
+git status && git log --oneline -3   # 맨 위가 이 인계 갱신 커밋, 그 아래 84671484(02 L-5), 트리 깨끗
+docs/internal/repo-fix/03-editor/REQUIREMENTS.md 를 읽는다 — 머리말의 §3A 확정 사항이 본문보다 우선이다.
+03 E-9.1 은 02 가 만든 edDocDrop 자리(lspDocClosed 호출 옆)에서 LSP 진단 표시를 지운다. 03 E-5.1 이름변경은 POST /api/lsp/close 를 쓴다.
 ```

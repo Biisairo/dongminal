@@ -164,6 +164,19 @@
 - 스펙 산출물로 "감사 # ↔ 요구 ID ↔ 테스트 ID" 표를 싣는다(X8).
 - §5 의 "크래시 복구" 테스트는 V-LSP-10(`docs/internal/EDITOR_LSP_SRS.md:501`)을 확장한다: 가짜 LSP 서버를 죽인 뒤 ① 세션이 맵에서 빠지고 프로세스가 `Wait` 로 회수됨 ② 다음 요청이 새 세션을 세움 ③ 기동 후 60s 안 연속 크래시에서 재시도 간격이 1s·2s·4s 로 늘어남(시계 주입).
 
+### §3A-8 추적표 (구현 완료 2026-09-24)
+| 감사 # | 요구 | 테스트 | 커밋 |
+|---|---|---|---|
+| #20, N5 | G-1 | `hub/gitwatch_test.go` TestGitWatch_TransientErrorsKeepWatchAndBaseline·TransientBackoffAndSparseLog·TerminalSignatureErrorDropsAndNotifies·SlowStatusBeyondRoundTimeoutStillBroadcasts·SigChangeInvalidatesBeforeObserve·ErrorDropsRepo | `0cee908c` |
+| #21 | G-2 | `hub/commands_broadcast_test.go` Broadcast_DropWhenFull·DiagnosticsCoalesceAndDoNotOverflow·NewSubscriberGetsDiagnosticsSnapshot, `httpapi/commands_sse_test.go` TestSSE_WriteDeadlineReleasesStuckSubscriber·ReconnectGetsDiagnosticsSnapshot, `web/js/test/state-registry.test.mjs` | `24174030` |
+| #18, P2 | L-4 | `lsp/rpc_test.go` 전부 | `a9a75741` |
+| #15 | L-1 | `lsp/lifecycle_test.go` TestPaths_SetValidatesPersistsAndInvalidates, `httpapi/handlers_lsp_test.go` TestLSPPaths_GetPut·PutErrors, e2e `editor-lsp.spec.ts` "서버 경로 표" | `eb96878e` |
+| #16, N9 | L-2 | `lsp/lifecycle_test.go` CrashReapsAndNextRequestRestarts·EarlyCrashBackoff·HandshakeFailureNotStuck·LastUseOnlyOnResponse | `eb96878e` |
+| #17, N7 | L-3 | `lsp/lifecycle_test.go` FailureMemoryPerRootAndTTL, 기존 TestManager_RemembersStartFailure·InstallClearsFailureMemory | `eb96878e` |
+| #19 | L-5 | `lsp/doclife_test.go` 전부, `httpapi/handlers_lsp_test.go` TestLSPClose·TestFileWrite_ResyncsLSP, `hub/gitwatch_test.go` TestGitWatch_OnChangedHook, e2e `editor-lsp-nav.spec.ts` "마지막 뷰" | `84671484` |
+
+구현 중 정정 (G-1): pending 중 signature 가 **다시** 바뀌면(pendingSig 와 다르면) 새 변화로 보고 한 번 더 Invalidate 하고 pending 시각을 새로 잡는다 — 옛 pending 의 관측이 두 번째 변화 전 것일 수 있다. 조용한 저장소에서는 §3A-1 대로 추가 Invalidate 가 없다.
+
 ## 4. 제약
 - 새 외부 의존성 금지. `make gates lint typecheck unit test` 통과, `e2e/editor-lsp*.spec.ts`·`e2e/git-live-triggers.spec.ts`·`e2e/git-observe-revive.spec.ts` 등 관련 e2e 회귀 없음.
 - 커밋 메시지·문서에 AI 서명 금지.
