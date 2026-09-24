@@ -370,7 +370,7 @@ test.describe('묶음 L — 탐색기의 살아있는 반영 (FR-FSL-1~14)', () 
       .toHaveCount(0);
 
     const dirs = await page.evaluate(() =>
-      (window as any).app.testing.edActiveTree()._stampDirs() as string[]);
+      (window as any).app.testing.edActiveTree().store.stampDirs() as string[]);  // REPO_FIX 04 §3A-2: 질의는 store 가 한다
     expect(dirs).toContain(PLAIN);
     expect(dirs).not.toContain(sub);
   });

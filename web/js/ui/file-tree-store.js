@@ -49,11 +49,17 @@ class FileTreeStore {
     this.ign=new Map();
     this.ignOff=false;
 
-    // NOTES_LIVE_EXPLORER_SRS FR-FSL-6: 겹별 마지막 스탬프. **관측의 것**이므로
-    // 루트마다 하나이고, 같은 루트를 보는 칸이 넷이어도 요청은 한 벌이다
-    // (FR-SVS-20). 값은 해석하지 않는다 — 같은지 다른지만 본다 (FR-FSL-2).
-    this.stamps=new Map();
+    // NOTES_LIVE_EXPLORER_SRS FR-FSL-6 · REPO_FIX 04 §3A-2: 겹별 관측 상태
+    // (unseen·ok(stamp)·failed·gone — `file-tree-obs.js`). **관측의 것**이므로 루트마다
+    // 하나이고, 같은 루트를 보는 칸이 넷이어도 요청은 한 벌이다 (FR-SVS-20).
+    this.obs=new Map();
     this.stampBusy=false;
+    // REPO_FIX 04 §3A-1: 폴더별 로드 세대(낙관 반영이 올린다)와 진행 중 로드(대기 1건).
+    this.gen=new Map();
+    this.loadQ=new Map();
+    // REPO_FIX 04 §3A-6: 직전에 적용한 git 관측의 키(저장소·접두·mark). 같으면 다시
+    // 계산하지 않는다.
+    this.gitKey='';
     // FR-FSL-12: 종단이 없거나 4xx 면 이 루트에서는 다시 묻지 않는다
     // (`gitOff`·`ignOff` 와 같은 관례). 굳히지 않으면 옛 서버에 붙은 새
     // 브라우저가 주기마다 영영 404 를 받는다.
@@ -72,5 +78,47 @@ class FileTreeStore {
 
   // FR-SVS-22: 관측이 갱신되면 그 루트를 보는 **모든** 칸이 다시 칠해진다.
   paintAll(){ for(const v of this.views) v.paint() }
+
+  // §3A-1: 낙관 반영으로 그 폴더의 목록을 직접 고쳤다 — 그 전에 출발한 응답은 버린다.
+  bump(dir){ this.gen.set(dir,(this.gen.get(dir)||0)+1) }
+
+  /**
+   * §3A-2 (T-3.1): 스탬프 질의 대상은 **그 루트의 모든 뷰**가 펼친 폴더의 합집합이다
+   * (루트 먼저, 중복 제거, 서버 상한으로 자름).
+   *
+   *   이전 동작: 뷰마다 자기 펼침만 물었고 공유 busy 에 둘째 뷰가 걸려 즉시 돌아갔다 —
+   *             같은 루트를 두 칸에 띄우면 뒤 칸의 펼친 폴더가 관측되지 않았다 (#32)
+   *   새  동작: store 가 한 번에 합집합을 묻는다
+   */
+  stampDirs(){
+    const out=[this.root], seen=new Set(out);
+    for(const v of this.views) for(const p of v._open){
+      if(seen.has(p)||!(this.kids.has(p)||this.obs.has(p))) continue;
+      seen.add(p); out.push(p);
+    }
+    return out.length>FS_STAMP_MAX?out.slice(0,FS_STAMP_MAX):out;
+  }
+
+  async pollStamp(){
+    if(this.stampOff||this.stampBusy||!this.root) return;
+    const dirs=this.stampDirs();
+    this.stampBusy=true;
+    const r=await apiPost(FS_STAMP_API,{root:this.root,dirs});
+    this.stampBusy=false;
+    if(r.status===0) return;   // 전송 실패는 판정이 아니다
+    // FR-FSL-12: 4xx 는 "이 루트로는 물을 수 없다" 는 서버의 답이다.
+    if(!r.ok){ if(r.status>=400&&r.status<500) this.stampOff=true; return }
+    const st=r.data&&r.data.stamps;
+    if(!st||typeof st!=='object') return;
+    const {reload,gone}=ftObsPoll(this.obs,dirs,st,Date.now());
+    // T-2.3: 사라진 겹의 옛 목록은 버린다 — 펼침은 남는다. 다시 생기면 새로 읽는다.
+    for(const d of gone) this.kids.delete(d);
+    if(gone.length) this.paintAll();
+    // 순차로 읽는다 — 병렬이면 응답마다의 paint 가 중간 상태를 깜빡인다.
+    for(const d of reload){
+      const v=[...this.views].find(x=>d===this.root||x._open.has(d));
+      if(v) await v.reload(d);
+    }
+  }
 }
 

@@ -161,7 +161,6 @@ class FileTree {
   get _ign(){ return this.store.ign }
   get _ignOff(){ return this.store.ignOff }
   set _ignOff(v){ this.store.ignOff=v }
-  get _stamps(){ return this.store.stamps }
   get _stampBusy(){ return this.store.stampBusy }
   set _stampBusy(v){ this.store.stampBusy=v }
   get _stampOff(){ return this.store.stampOff }

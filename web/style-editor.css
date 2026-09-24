@@ -238,7 +238,15 @@ body.mobile .ed-row{height:var(--touch-min)}
 .ed-op-err{
   font-size:var(--fs-sm);color:var(--danger-text);white-space:normal;
   padding-top:2px;padding-bottom:2px;padding-right:6px;
+  display:flex;align-items:flex-start;gap:6px;
 }
+/* REPO_FIX 04 §3A-3: 실패 표시는 사용자가 닫는다. */
+.ed-op-err-msg{flex:1;min-width:0}
+.ed-op-err-x{flex:none;border:0;background:none;color:inherit;cursor:pointer;padding:0 2px;font-size:var(--fs-sm)}
+/* REPO_FIX 04 §3A-2: 일시 오류로 갱신하지 못한 폴더 — 목록은 이전 것이다. */
+.ed-row.ed-stale .ed-name::after{content:" ⚠";color:var(--attn-text)}
+/* §3A-5 (T-7.4): 다시 그려져도 드래그 원본이 보인다. */
+.ed-row.ed-dragging{opacity:.55}
 /* FR-EDT-83: 삭제 확인창은 `_confirmClose` 의 껍데기를 그대로 쓴다 — 줄만 여럿이다. */
 .ed-confirm-line+.ed-confirm-line{margin-top:6px}
 

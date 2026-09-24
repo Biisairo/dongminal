@@ -71,7 +71,10 @@ Object.assign(FileTree.prototype, {
 
   _restore(snap){
     for(const [d,st] of snap){
-      if(st) this._kids.set(d,st); else this._kids.delete(d);
+      this.store.bump(d);
+      // REPO_FIX 04 §3A-1: 스냅샷 때 목록이 없었으면(로드 진행 중) 되돌릴 근거가 없다 —
+      // 그 사이 도착한 목록을 지우지 않고 다시 읽는다.
+      if(st) this._kids.set(d,st); else if(this._kids.has(d)) this.load(d);
     }
     this._paintAll();
   },
@@ -82,6 +85,8 @@ Object.assign(FileTree.prototype, {
     const st=this._kids.get(dir);
     if(!st) return;
     st.entries=st.entries.concat([{name,dir:!!isDir,link:false,linkDir:false}]);
+    // §3A-1: 직접 고친 목록 — 그 전에 출발한 응답은 적용하지 않는다.
+    this.store.bump(dir);
   },
 
   _optimDel(p){
@@ -89,6 +94,7 @@ Object.assign(FileTree.prototype, {
     if(!st) return;
     const n=this._base(p);
     st.entries=st.entries.filter(e=>!e||e.name!==n);
+    this.store.bump(this._parent(p));
   },
 
   /**
@@ -110,7 +116,12 @@ Object.assign(FileTree.prototype, {
     const map=p=>p===from?to:(p.startsWith(pre)?to+p.slice(from.length):p);
     // 캐시는 공유다 — 한 번만 갈아탄다.
     const kids=new Map();
-    for(const [k,v] of this._kids) kids.set(map(k),v);
+    for(const [k,v] of this._kids){
+      const nk=map(k);
+      // §3A-1: 옮겨진 키의 진행 중 로드는 옛 자리의 응답이다 — 양쪽 세대를 올려 버린다.
+      if(nk!==k){this.store.bump(k);this.store.bump(nk)}
+      kids.set(nk,v);
+    }
     this._kids=kids;
     // 펼침·선택은 칸마다 있다. **보는 칸 전부**가 갈아타야 한다 (FR-SVS-21) —
     // 조작한 칸만 갈아타면 다른 칸의 펼침이 옛 경로를 가리켜 그 가지가 접힌다.
@@ -151,11 +162,21 @@ Object.assign(FileTree.prototype, {
     this._clearErr();
     const path=this._join(dir,name);
     const snap=this._snap([dir]);
+    const prevSel=this._sel, prevSet=new Set(this._selSet||[]);
     this._optimAdd(dir,name,isDir);
     this._selOnly(path);
     this._paintAll();
     const r=await this.app.edFs(FS_CREATE_API,{root:this.root,path,dir:!!isDir});
-    if(!r.ok){this._restore(snap);this._fail(dir===this.root?'':dir,r.msg);return}
+    if(!r.ok){
+      // §3A-5 (T-6.2): 선택을 생성 전으로 되돌리고(다음 "새 파일" 이 원래 폴더에 뜬다),
+      // 입력하던 이름 그대로 인라인 입력을 다시 연다(사유와 함께).
+      this._restore(snap);
+      this._sel=prevSel; this._selSet=prevSet;
+      this._edit={mode:'create',dir,path:'',isDir:!!isDir,init:name};
+      this._focusEdit=true;
+      this._fail('input',r.msg);
+      return;
+    }
     await this._after([dir]);
     /**
      * FR-EXR-20~24: 만든 **파일**은 곧바로 연다. 진입점(툴바·메뉴·빈 여백
@@ -189,19 +210,28 @@ Object.assign(FileTree.prototype, {
     // FR-FTR-20b: 도착 폴더를 펼친다. 접힌 폴더로 옮기면 옮긴 것이 화면에서
     // 사라지고, 사용자는 잃은 것으로 읽는다 (업로드가 같은 이유로 펼친다).
     if(dd!==this.root&&!this._open.has(dd)) this._open.add(dd);
+    // §3A-5 (T-6.1): 대상 경로의 키(펼쳐 둔 기존 폴더)가 이미 있으면 낙관 반영을 하지
+    // 않는다 — 키 충돌에서 덮어쓰면 거부됐을 때 두 폴더의 펼침·캐시를 되돌릴 수 없다.
+    //   이전 동작: 덮어써서 거부 뒤 한쪽 폴더의 펼침·목록이 사라졌다
+    // 대상 폴더를 읽는 중이어도 같다 — 도착할 목록과 옮긴 키가 섞인다.
+    const optim=!this._kids.has(to)&&!this.store.loadQ.has(to);
     const snap=this._snap(sd===dd?[sd]:[sd,dd]);
-    this._optimMove(from,to);
-    this._selOnly(to);
-    this._paintAll();
+    if(optim){
+      this._optimMove(from,to);
+      this._selOnly(to);
+      this._paintAll();
+    }
     const r=await this.app.edFs(FS_RENAME_API,{root:this.root,from,to});
     if(!r.ok){
-      this._rekey(to,from);
-      this._restore(snap);
+      if(optim){this._rekey(to,from);this._restore(snap)}
       this._fail(from,r.msg);
       return;
     }
+    if(!optim) this._selOnly(to);
     // FR-EDT-90: 열린 탭의 경로와 이름이 따라간다. 폴더면 그 아래 전부다.
-    this.app.edRetargetTabs(from,to);
+    // REPO_FIX 04 §3A-5 (T-9.1): 서버 성공 뒤에만 옮긴다. 같은 경로의 문서가 이미
+    // 열려 있어 옮기지 못한 탭은 옛 경로에 남기고 사유를 보인다(조작은 성공이다).
+    this._retargetOrFail(from,to);
     // FR-EDT-88: 이동이면 출발·도착 **둘 다** 다시 읽는다.
     await this._after(sd===dd?[sd]:[sd,dd]);
   },
@@ -242,14 +272,13 @@ Object.assign(FileTree.prototype, {
     for(const t of targets){const d=this._parent(t);if(!dirs.includes(d))dirs.push(d)}
     // `UX-25`: 복구 길은 **지우기 전에** 판정한다 — 지운 뒤에는 상태가 없다.
     const recover=targets.filter(t=>this._recoverable(t)).map(t=>this._repoRel(t));
-    const snap=this._snap(dirs);
     for(const t of targets) this._optimDel(t);
     this._paintAll();
-    let failed=null;
+    const failed=[];
     const done=[];
     for(const t of targets){
       const r=await this.app.edFs(FS_DELETE_API,{root:this.root,path:t});
-      if(!r.ok){failed={path:t,msg:r.msg};continue}
+      if(!r.ok){failed.push({path:t,msg:r.msg});continue}
       // FR-EDT-91: 그 파일의 탭을 닫는다. 폴더면 하위 전부. 확인창은 다시 띄우지
       // 않는다 — FR-EDT-84 에서 이미 밝혔다.
       await this.app.edCloseTabsUnder(t);
@@ -265,11 +294,9 @@ Object.assign(FileTree.prototype, {
      */
     const hint=recover.filter(p=>done.includes(p));
     if(hint.length) Toast.show(josa(EDITOR_DEL_RECOVER_HINT.replace('%s',hint.join(' '))),'',TOAST_ERR_MS,{cls:'ed-del-hint'});
-    if(failed){
-      // 하나라도 실패했으면 낙관적 반영을 믿을 수 없다 — 서버의 답으로 다시 읽는다.
-      this._restore(snap);
-      this._fail(failed.path,failed.msg);
-    }
+    // §3A-1 (T-1.2): 항목별 되돌리기를 하지 않는다 — 아래 재조회가 서버 상태로
+    // 수렴시킨다. 되돌리기가 다른 성공 건의 반영을 되돌리던 것이 없다 (#31).
+    for(const f of failed) this._fail(f.path,f.msg);
     this._selOnly('');
     await this._after(dirs);
   },
@@ -322,7 +349,7 @@ Object.assign(FileTree.prototype, {
     if(c.move){
       const to=pathJoin(dir,pathBase(c.path));
       // 옮긴 것의 열린 탭이 새 자리를 가리킨다 (FR-EDT-90 · `doRename` 과 같은 자리).
-      this.app.edRetargetTabs(c.path,to);
+      this._retargetOrFail(c.path,to);
       // 클립보드를 비운다 — **잘라낸 것은 한 번만 붙는다.** 남겨 두면 다음
       // 붙여넣기가 이미 없는 원본을 찾아 "사라졌다" 로 실패한다.
       this.app.edClipSet(null,null);
@@ -360,7 +387,39 @@ Object.assign(FileTree.prototype, {
     this.app.edClipSet(this.root,p);
     await this.doPasteInto(this._parent(p));
     // 복제가 사용자의 클립보드를 덮지 않는다 — 그것은 다른 조작이다.
-    this.app.edClipSet(keep&&keep.root,keep&&keep.path);
+    // REPO_FIX 04 §3A-5 (T-7.1): 잘라내기/복사의 구분까지 되돌린다.
+    this.app.edClipSet(keep&&keep.root,keep&&keep.path,keep&&keep.move);
+  },
+
+  /**
+   * REPO_FIX 04 §3A-1 (T-1.2): 여러 항목 이동은 **배치**다 — 항목별 되돌리기 없이
+   * 전부 보낸 뒤(병렬) 영향받은 부모 폴더들을 재조회해 서버 상태로 수렴한다. 실패
+   * 항목은 실패 표시로 모은다.
+   */
+  async doMoveMany(pairs){
+    this._clearErr();
+    const dirs=[];
+    const add=d=>{if(!dirs.includes(d))dirs.push(d)};
+    for(const [from,to] of pairs){
+      add(this._parent(from)); add(this._parent(to));
+      const dd=this._parent(to);
+      if(dd!==this.root&&!this._open.has(dd)) this._open.add(dd);
+    }
+    const res=await Promise.all(pairs.map(([from,to])=>
+      pathUnder(from,to)?Promise.resolve({ok:false,msg:EDITOR_MOVE_INTO_SELF})
+        :this.app.edFs(FS_RENAME_API,{root:this.root,from,to})));
+    pairs.forEach(([from,to],i)=>{
+      if(res[i].ok) this._retargetOrFail(from,to);
+      else this._fail(from,res[i].msg);
+    });
+    await this._after(dirs);
+  },
+
+  // §3A-5 (T-9.1): 문서·탭을 옮기고, 같은 경로의 문서가 이미 열려 있어 옮기지 못한
+  // 것은 사유를 보인다.
+  _retargetOrFail(from,to){
+    const r=this.app.edRetargetTabs(from,to);
+    if(r&&r.conflicts&&r.conflicts.length) this._fail(to,EDITOR_MOVE_TAB_CONFLICT);
   },
 
   // ── 전송 (FILE_TRANSFER_SRS FR-FTR-13·14·19 · EXPLORER_TRANSFER_IGNORE_SRS

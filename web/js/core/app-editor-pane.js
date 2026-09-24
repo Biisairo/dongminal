@@ -255,18 +255,22 @@ Object.assign(App.prototype, {
   edRetargetTabs(from,to){
     // REPO_FIX 03 §3A-5: 문서(레지스트리 키·모델 URI·변경 표시)를 먼저 옮긴다 —
     // 탭 경로만 바꾸면 LSP·DocRender·재열기가 옛 경로를 가리킨다 (#10).
-    this.edDocMove(from,to);
+    // REPO_FIX 04 §3A-5 (T-9.1): 대상 경로에 이미 열린 문서가 있어 옮기지 못한 것은
+    // 그 탭을 옛 경로에 남긴다 — 호출자가 사유를 보인다.
+    const moved=this.edDocMove(from,to);
+    const conflicts=new Set(moved.conflicts);
     const list=this._edTabsUnder(from);
-    if(!list.length) return 0;
+    if(!list.length) return {count:0,conflicts:moved.conflicts};
     for(const {tab} of list){
       const np=tab.filePath===from?to:to+tab.filePath.slice(from.length);
+      if(conflicts.has(np)) continue;
       tab.filePath=np;
       tab.name=pathBase(np)||tab.name;
       for(const ed of this.editorsOf(tab.id)){ed.filePath=np;ed.name=tab.name}
     }
     this.render();
     this.save();
-    return list.length;
+    return {count:list.length,conflicts:moved.conflicts};
   },
 
   /**

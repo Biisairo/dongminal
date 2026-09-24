@@ -125,6 +125,29 @@
 | 새 행 | 펼침·로드로 새로 그려지는 행은 기존 상태 맵으로 칠한다(폴링과 무관, 현행) |
 | 검증 | 2000 항목 폴더에서 같은 `mark` 폴링 10회 동안 rollup·`_paintAll` 호출 0회, `mark` 변경 1회에 각 1회(node:test 계측) |
 
+### §3A-8 구현 중 정정·추적표 (구현 완료 2026-09-24)
+
+구현 중 정정:
+- 관측 식별자 함수는 `store.Mark`(`domain/git/store/mark.go`) — hub 의 `obsMark` 는 그것을 부른다.
+- 세대로 **버려진** 재조회 응답은 "한 번 더" 로 다시 읽는다 — 버리기만 하면 그 폴더가 목록 없이 남는다(로드 진행 중 낙관 반영과의 경합, e2e 로 재현).
+- 되돌리기 스냅샷이 "목록 없음" 이었으면(로드 진행 중) 그 사이 도착한 목록을 지우지 않고 다시 읽는다. 이름변경의 키 이동은 옮겨진 키의 양쪽 세대를 올린다. 대상 폴더를 **읽는 중**이어도 낙관 반영을 하지 않는다(T-6.1 확장).
+- 단일 항목 이동은 기존처럼 낙관 반영(+실패 시 되돌리기)이고, 여러 항목은 `doMoveMany` 배치(되돌리기 없이 재조회로 수렴)다. 삭제는 여러 건이든 한 건이든 되돌리기 없이 재조회로 수렴한다.
+- `edRetargetTabs` 는 `{count, conflicts}` 를 돌려준다(이전: 탭 수).
+- 드래그 표식 타입 `application/x-dongminal-tree` 를 싣는다. 현재 트리 밖에서 트리 드래그를 해석하는 자리는 없다 — 앞으로 생기면 이 타입이 있을 때만 해석한다.
+
+| 감사 # | 요구 | 테스트 | 커밋 |
+|---|---|---|---|
+| — | X5 mark | `gitapi/handlers_git_mark_test.go`, `handlers_git_test.go` NotRepoIsAnswer, `store/store_test.go` TestMark | `4e1eacea` |
+| #28 | T-5 | `httpapi/handlers_fs_case_test.go` | `4e1eacea` |
+| #31 N2 | T-1 | e2e `editor-ops.spec.ts` R4-1·R4-4·R4-5(경합) | 이 커밋 |
+| #29 #30 | T-2 | `web/js/test/file-tree-obs.test.mjs`, e2e R4-2·R4-3 | 이 커밋 |
+| #32 | T-3 | `web/js/test/file-tree-store.test.mjs` | 이 커밋 |
+| #27 | T-4 | e2e R4-1(재조회·폴링 뒤에도 남음, 닫기) | 이 커밋 |
+| P2 | T-6 | e2e R4-4·R4-5 | 이 커밋 |
+| P2 | T-7 | e2e R4-6·R4-7·R4-9 | 이 커밋 |
+| P2 | T-8 | `web/js/test/file-tree-mark.test.mjs` | 이 커밋 |
+| #10 | T-9 | e2e R4-8 | 이 커밋 |
+
 ### §3A-7 추적
 - 스펙 산출물로 "감사 # ↔ 요구 ID ↔ 테스트 ID" 표를 싣는다(X8).
 

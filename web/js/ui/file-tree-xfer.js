@@ -162,8 +162,9 @@ Object.assign(FileTree.prototype, {
 
   // FR-EDT-88·89: 영향받은 폴더**만** 다시 읽고 git 색을 다시 받는다. 트리 전체를
   // 새로 만들지 않는다.
+  // REPO_FIX 04 §3A-3: 실패 사유를 지우지 않는다 — 재조회가 사유를 앗아가면 사용자는
+  // 조작이 성공한 줄 안다 (#27).
   async _after(dirs){
-    this._clearErr();
     for(const d of dirs) await this.load(d);
     // FR-DIR-32: 방금 한 조작의 결과다 — 늦춰 보일 이유가 없다.
     this.pollGit({now:true});
@@ -298,6 +299,9 @@ Object.assign(FileTree.prototype, {
       e.dataTransfer.effectAllowed='move';
       // 데이터가 없으면 일부 브라우저가 드래그를 시작조차 하지 않는다.
       e.dataTransfer.setData('text/plain',this._drag);
+      // §3A-5 (T-7.4): 트리 드래그의 표식 — 트리 밖(편집기 탭 등)의 드롭은 이 타입이
+      // 있을 때만 트리 드래그로 읽는다.
+      e.dataTransfer.setData(FILE_TREE_DRAG_TYPE,this._drag);
     });
     this.el.addEventListener('dragover',e=>{
       const ext=FileTree._isFileDrag(e);
@@ -330,15 +334,22 @@ Object.assign(FileTree.prototype, {
         this._dropUpload(dir,entries,files);
         return;
       }
-      // FR-EMS-24: 선택 전부를 옮긴다. 조상이 함께 선택된 자손은 뺀다 —
-      // 조상과 함께 옮겨지므로 두 번째 요청은 없는 것을 찾는다 (FR-EMS-22).
+      // FR-EMS-24: 선택 전부를 옮긴다. 조상이 함께 선택된 자손은 뺀다 (FR-EMS-22).
+      // §3A-5 (T-7.2): 원본 자신·현재 부모 위의 드롭은 그 항목만 건너뛴다(오류 없음).
+      const pairs=[];
       for(const src of this._selTargets(from)){
-        // 이미 그 폴더에 있으면 아무 일도 아니다 — 서버에 묻지 않는다 (FR-FTR-21).
-        if(this._parent(src)===dir) continue;
-        this.doRename(src,this._join(dir,this._base(src)));
+        if(src===dir||this._parent(src)===dir) continue;
+        pairs.push([src,this._join(dir,this._base(src))]);
       }
+      if(pairs.length===1) this.doRename(pairs[0][0],pairs[0][1]);
+      else if(pairs.length) this.doMoveMany(pairs);
     });
-    this.el.addEventListener('dragend',()=>{this._drag='';this._dropClear()});
+    // §3A-5 (T-7.4): 드래그가 어떻게 끝나든(놓기·Esc·밖에 놓기·창 blur) 상태를 반드시
+    // 해제한다 — 남은 상태가 이후 다른 드롭에서 파일을 옮기지 않게.
+    const endDrag=()=>{ if(!this._drag&&!this._dropDir) return; this._drag=''; this._dropClear(); this._paintAll() };
+    this.el.addEventListener('dragend',endDrag);
+    window.addEventListener('blur',endDrag);
+    document.addEventListener('keydown',e=>{ if(e.key==='Escape') endDrag() });
   },
 
   /**

@@ -814,3 +814,146 @@ test.describe('탐색기 빈 여백 메뉴 (FR-CMU-9)', () => {
     await expect(row(page, j(R, 'blank.txt'))).toBeVisible({ timeout: 10000 });
   });
 });
+
+// ── REPO_FIX 04 — 탐색기 근본 수정 ───────────────────────────────
+
+test.describe('REPO_FIX 04 — 탐색기', () => {
+  const poll = (page: Page) => page.evaluate(async () => {
+    const t = (window as any).app.testing.edActiveTree();
+    await t.store.pollStamp();
+  });
+
+  // T-1.2 · T-4.1: 여러 항목 이동은 배치 — 한 건 실패가 다른 성공 건을 되돌리지 않고,
+  // 최종 화면이 서버와 같으며, 실패 사유가 재조회 뒤에도 남는다.
+  test('R4-1: 배치 이동 — 실패 한 건이 성공 건을 되돌리지 않고 사유가 남는다', async ({ page, request }) => {
+    const R = mkRoot('r4-1');
+    w(j(R, 'docs', 'a.txt'), 'EXISTS\n'); // a.txt 이동은 충돌로 실패한다
+    await enterExplorer(page, request, R);
+    await row(page, j(R, 'src')).click();
+    await row(page, j(R, 'docs')).click();
+    await page.evaluate(({ a, b, docs }: any) => {
+      const t = (window as any).app.testing.edActiveTree();
+      return t.doMoveMany([[a, docs + '/a.txt'], [b, docs + '/b.txt']]);
+    }, { a: j(R, 'src', 'a.txt'), b: j(R, 'src', 'b.txt'), docs: j(R, 'docs') });
+    await onDisk(() => fs.existsSync(j(R, 'docs', 'b.txt'))).toBe(true);
+    await expect(row(page, j(R, 'docs', 'b.txt'))).toBeVisible();
+    await expect(row(page, j(R, 'src', 'a.txt'))).toBeVisible();
+    await expect(row(page, j(R, 'src', 'b.txt'))).toHaveCount(0);
+    await expect(opErr(page)).toBeVisible();
+    await poll(page);
+    await page.evaluate(() => (window as any).app.testing.edActiveTree().refresh());
+    await expect(opErr(page)).toBeVisible(); // 재조회·폴링이 사유를 지우지 않는다
+    await opErr(page).locator('.ed-op-err-x').click();
+    await expect(opErr(page)).toHaveCount(0);
+  });
+
+  // T-2.2: 일시 오류(5xx)는 멀쩡한 목록을 덮지 않고 "갱신 실패" 표식을 단다.
+  test('R4-2: 5xx 는 목록을 유지하고 갱신 실패 표식', async ({ page, request }) => {
+    const R = mkRoot('r4-2');
+    await enterExplorer(page, request, R);
+    await row(page, j(R, 'src')).click();
+    await expect(row(page, j(R, 'src', 'a.txt'))).toBeVisible();
+    await page.route('**/api/fs/list*', (route: any) => route.fulfill({ status: 503, body: '{}' }));
+    await page.evaluate((p: string) => (window as any).app.testing.edActiveTree().load(p), j(R, 'src'));
+    await expect(row(page, j(R, 'src', 'a.txt'))).toBeVisible();
+    await expect(row(page, j(R, 'src'))).toHaveClass(/ed-stale/);
+    await page.unroute('**/api/fs/list*');
+  });
+
+  // T-2.1·2.3: 펼쳐 둔 폴더가 사라졌다 다시 생기면 새 목록을 읽는다.
+  test('R4-3: 사라졌다 다시 생긴 폴더는 새 목록', async ({ page, request }) => {
+    const R = mkRoot('r4-3');
+    await enterExplorer(page, request, R);
+    await row(page, j(R, 'docs')).click();
+    await expect(row(page, j(R, 'docs', 'd.txt'))).toBeVisible();
+    fs.rmSync(j(R, 'docs'), { recursive: true });
+    await expect.poll(async () => { await poll(page); return row(page, j(R, 'docs', 'd.txt')).count() }, { timeout: 15000 }).toBe(0);
+    fs.mkdirSync(j(R, 'docs'));
+    w(j(R, 'docs', 'new.txt'), 'N\n');
+    await expect.poll(async () => { await poll(page); return row(page, j(R, 'docs', 'new.txt')).count() }, { timeout: 15000 }).toBe(1);
+  });
+
+  // T-6.1: 펼쳐 둔 기존 폴더 이름으로의 변경이 거부되면 두 폴더가 그대로다.
+  test('R4-4: 기존 펼친 폴더 이름으로의 변경 거부 — 두 폴더의 펼침·목록 유지', async ({ page, request }) => {
+    const R = mkRoot('r4-4');
+    await enterExplorer(page, request, R);
+    await row(page, j(R, 'src')).click();
+    await row(page, j(R, 'docs')).click();
+    await page.evaluate(({ a, b }: any) => (window as any).app.testing.edActiveTree().doRename(a, b), { a: j(R, 'src'), b: j(R, 'docs') });
+    await expect(opErr(page)).toBeVisible();
+    await expect(row(page, j(R, 'src', 'a.txt'))).toBeVisible();
+    await expect(row(page, j(R, 'docs', 'd.txt'))).toBeVisible();
+  });
+
+  // T-6.2: 생성 실패 시 선택을 되돌리고 입력하던 이름으로 다시 연다.
+  test('R4-5: 생성 실패 — 입력 이름 보존·선택 복원', async ({ page, request }) => {
+    const R = mkRoot('r4-5');
+    await enterExplorer(page, request, R);
+    await row(page, j(R, 'src')).click();
+    // 폴더 로드가 끝나기 전에 만든다 — 낙관 반영과 진행 중 로드의 경합(§3A-1).
+    await page.evaluate((d: string) => (window as any).app.testing.edActiveTree().doCreate(d, 'a.txt', false), j(R, 'src'));
+    await expect(input(page)).toHaveValue('a.txt');
+    await expect(opErr(page)).toBeVisible();
+    expect(await page.evaluate(() => (window as any).app.testing.edActiveTree()._sel)).toBe(j(R, 'src'));
+  });
+
+  // T-7.1: 복제가 잘라내기 표식까지 되돌린다.
+  test('R4-6: 복제는 클립보드의 잘라내기 구분을 보존한다', async ({ page, request }) => {
+    const R = mkRoot('r4-6');
+    await enterExplorer(page, request, R);
+    await page.evaluate(({ r, p }: any) => (window as any).app.edClipSet(r, p, true), { r: R, p: j(R, 'top.txt') });
+    await row(page, j(R, 'src')).click();
+    await page.evaluate((p: string) => (window as any).app.testing.edActiveTree().doDuplicate(p), j(R, 'src', 'a.txt'));
+    await onDisk(() => fs.readdirSync(j(R, 'src')).length > 3).toBe(true);
+    const clip = await page.evaluate(() => (window as any).app.edClipGet());
+    expect(clip && clip.move).toBe(true);
+  });
+
+  // T-7.3: 인라인 편집을 Enter/Esc 로 끝내면 포커스가 트리로 돌아온다.
+  test('R4-7: 인라인 편집 종료 뒤 포커스는 트리', async ({ page, request }) => {
+    const R = mkRoot('r4-7');
+    await enterExplorer(page, request, R);
+    await page.evaluate((p: string) => (window as any).app.testing.edActiveTree().startRename(p), j(R, 'top.txt'));
+    await expect(input(page)).toBeFocused();
+    await input(page).press('Escape');
+    await expect(page.locator('.ed-tree')).toBeFocused();
+  });
+
+  // T-7.2·7.4: 자기 위 드롭은 무동작(오류 없음), 드래그 상태는 Esc·blur 로 해제된다.
+  test('R4-9: 자기 위 드롭은 무동작, Esc·blur 로 드래그 해제', async ({ page, request }) => {
+    const R = mkRoot('r4-9');
+    await enterExplorer(page, request, R);
+    const fire = (type: string, p: string) => page.evaluate(({ type, p }: any) => {
+      const el = document.querySelector(`.ed-tree .ed-row[data-path="${CSS.escape(p)}"]`)!;
+      const dt = new DataTransfer();
+      el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt }));
+    }, { type, p });
+    await fire('dragstart', j(R, 'src'));
+    await fire('drop', j(R, 'src'));
+    await expect(opErr(page)).toHaveCount(0);
+    expect(fs.existsSync(j(R, 'src', 'a.txt'))).toBe(true);
+    const drag = () => page.evaluate(() => (window as any).app.testing.edActiveTree()._drag);
+    await fire('dragstart', j(R, 'top.txt'));
+    expect(await drag()).toBe(j(R, 'top.txt'));
+    await page.keyboard.press('Escape');
+    expect(await drag()).toBe('');
+    await fire('dragstart', j(R, 'top.txt'));
+    await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+    expect(await drag()).toBe('');
+  });
+
+  // T-9.1: 같은 경로의 문서가 이미 열려 있으면 그 탭은 옛 경로에 남고 충돌이 보고된다.
+  test('R4-8: 탭 재지정 충돌은 옛 경로에 남는다', async ({ page, request }) => {
+    const R = mkRoot('r4-8');
+    await enterExplorer(page, request, R);
+    for (const f of [j(R, 'src', 'a.txt'), j(R, 'src', 'b.txt')]) {
+      await page.evaluate((p: string) => (window as any).app.testing.edOpenFile(p, { preview: false }), f);
+    }
+    await expect.poll(async () => (await tabs(page)).length).toBe(2);
+    await expect.poll(() => page.evaluate(() => [...(window as any).app.fileEditors.values()].every((v: any) => !!v._editor)), { timeout: 30000 }).toBe(true);
+    const r = await page.evaluate(({ a, b }: any) => (window as any).app.edRetargetTabs(a, b), { a: j(R, 'src', 'a.txt'), b: j(R, 'src', 'b.txt') });
+    expect(r.conflicts).toEqual([j(R, 'src', 'b.txt')]);
+    const files = (await tabs(page)).map((t) => t.file).sort();
+    expect(files).toEqual([j(R, 'src', 'a.txt'), j(R, 'src', 'b.txt')]);
+  });
+});

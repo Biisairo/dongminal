@@ -603,6 +603,12 @@ const EDITOR_FS_ERR_UNKNOWN=t('editor.fs_err_unknown');
 // FR-EDT-85: 서버에 묻기 전에 클라이언트가 막는 유일한 경우다 — os.Rename 은 이
 // 이동을 성공시키고 트리를 잃어버린다.
 const EDITOR_MOVE_INTO_SELF=t('editor.move_into_self');
+// REPO_FIX 04 §3A-2·3A-3·3A-5: 갱신 실패 표식 · 여러 건 실패 · 닫기 · 탭 충돌.
+const EDITOR_TREE_STALE=t('editor.tree_stale');
+const EDITOR_TREE_ERR_CLOSE=t('editor.tree_err_close');
+const EDITOR_MOVE_TAB_CONFLICT=t('editor.move_tab_conflict');
+// §3A-5 (T-7.4): 트리 드래그의 dataTransfer 타입 — 트리 밖 드롭은 이것이 있을 때만 트리 드래그다.
+const FILE_TREE_DRAG_TYPE='application/x-dongminal-tree';
 // WORKBENCH_REVIEW_SRS FR-WBR-41: 재조정이 지우려던 창을 미뤘다는 사실. 창 이름을
 // 밝히는 이유는 FR-EDT-84 와 같다 — 개수만으로는 무엇을 정리해야 할지 모른다.
 const EDITOR_HELD_DIRTY=t('editor.held_dirty');
