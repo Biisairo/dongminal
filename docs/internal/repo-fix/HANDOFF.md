@@ -25,12 +25,19 @@
 | 01-C §7.7 | status 절단 rename 경계, 가드는 옵션 자리에만(commit·tag 값 플래그 제외), amend 메시지 전용(FR-GIT-84 개정) | 그 뒤 커밋들 ~`d0ef2a55` |
 | 01 P-4 조사표 | 설정 영향 실측 — log.showSignature 외 불변 | `5def3a87` |
 | 01-D §5.3 | stash oid 지목(apply·show 는 oid, pop·drop·branch 는 찾은 stash@{n}), 409 stash_moved, index 필드 400, stash branch 이름 사전검사, 프런트 oid 선택 모델, Diff 머리 `revLabel` | `d1d6fbcf` `a74ee758` |
+| 01-E §5.1·5.4·5.5·7.1·7.2 | `jobs.Exclusion`(뮤텍스·common-dir 잠금·두 칸) buildDeps 주입, `writeLocks` 분류표 + Handle lease, 판정 순서, 단계 ctx(사전 요청+10s·쓰기 루트+30s·사후 루트+15s), `ErrIndexLocked`·lock 필드·resolve 우선, `POST /api/git/lock/remove`, 프런트 100s·lock 버튼 | `202dc805` `55886b21` |
 
-**아직 안 한 01 항목**: §5.3 의 **common-dir 잠금·toplevel 뮤텍스**(stash 는 지금 잠금 없이 oid 확인만 한다 — E 에서 붙인다), `store.WithRoot` 는 만들었지만 **서버 루트 ctx 배선은 안 됐다**(기본 `Background`, G 에서 한다).
+**아직 안 한 01 항목**: `store.WithRoot` 는 만들었지만 **서버 루트 ctx 배선은 안 됐다**(기본 `Background`, G 에서 한다 — 쓰기·사후 단계는 이미 `s.Git.Root()` 에서 파생하므로 G 는 배선만 하면 된다).
+
+**01-E 에서 F·G 로 넘긴 것**:
+- (F) 잡 완료 처리의 lock 판정·`errorCode`/`lock` 필드, 잡 결과의 lock 버튼. 지금 잡 칸 규칙은 `jobs.SlotsOf`(kind→칸)에 있고 commit 등 index kind 는 그대로 index 칸이 된다
+- (G) Manager 경유 쓰기(submodule sync·worktree remove)의 lock 필드 — Manager 가 `%v` 로 감싸 sentinel 이 사라진다(§5.6 `%w` 전환과 함께), 180s 단계 마감·루트 ctx
+- (G) `writeLocks` 의 worktrees/create·remove·submodules/update 는 현행(잠금 없음) — §5.6 순서로 바꾼다. Run 격리에 `Deps.GitExclusion` 주입(지금은 GitServer 만 받는다)
+- (G) common-dir 키 헬퍼의 Service nil 동작(FR-GXU-4) — 지금은 `store.CommonDir` 경유(Git 이 있어야 한다). Git 없는 배선의 잡 키는 `jobKeys` 가 루트로 대신한다
 
 ## 3. 남은 일 — 순서
 
-1. **01-E** (§5.1·5.4·5.5·7.1·7.2): 배타 상태 단일 인스턴스(`buildDeps` 에서 생성·주입), 저장소 뮤텍스(ctx 존중·5s)·common-dir 잠금(stash 5종)·index/common 두 칸 잡 슬롯, 판정 순서, 단계별 마감(대기 5·사전 10·쓰기 30·사후 15, 쓰기는 루트 ctx 파생), `ErrIndexLocked` 분류 + 모든 동기 쓰기 실패에 lock 필드, `POST /api/git/lock/remove`, 프런트 `GIT_WRITE_FETCH_TIMEOUT_MS` 35000→100000, resolve 의 index_locked 우선
+1. ~~**01-E**~~ 완료 (§5.1·5.4·5.5·7.1·7.2): 배타 상태 단일 인스턴스(`buildDeps` 에서 생성·주입), 저장소 뮤텍스(ctx 존중·5s)·common-dir 잠금(stash 5종)·index/common 두 칸 잡 슬롯, 판정 순서, 단계별 마감(대기 5·사전 10·쓰기 30·사후 15, 쓰기는 루트 ctx 파생), `ErrIndexLocked` 분류 + 모든 동기 쓰기 실패에 lock 필드, `POST /api/git/lock/remove`, 프런트 `GIT_WRITE_FETCH_TIMEOUT_MS` 35000→100000, resolve 의 index_locked 우선
 2. **01-F** (§6): 잡 전환(commit·checkout·operation·branch merge/rebase·checkout:true·cherry-pick/revert·drop·worktree add), `jobKinds`·모양 제약, stdin, 사전 단계 위치, 완료 처리 순서(①~⑧), Job JSON `slots`·`result.*`, undo 토큰 기점, 원격 전용 판정 한정, 프런트 **일반화 잡 표시기**(remote.js 상태기계 → kind 무관, §6.4 표 두 개)
 3. **01-G** (§5.6·8): repoLock ctx·common-dir 키, Runner ctx, worktree add 잡·remove 순서(요청 worktree 칸·뮤텍스 안 봄), Run 격리 TryLock·잔여물, 서버 루트 ctx(`serve` 에서 WithCancel → buildDeps, AfterFunc, shutdownSteps 인덱스 0, 7s), `server_shutdown`
 4. **02 gitwatch·LSP** — `02-lsp-gitwatch/REQUIREMENTS.md` (§3A 필독: LSP 경로는 **서버 설정 `<dataDir>/lsp-paths.json` + GET/PUT `/api/lsp/paths` + 설정 ▸ Code UI**, 사용자 결정)
