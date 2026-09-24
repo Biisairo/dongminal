@@ -10,6 +10,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"dongminal/internal/shared/platform"
 )
 
 // REPO_FIX 02 §3A-3·3A-4 — 세션 생존·실패 기억·서버 경로 표.
@@ -250,7 +252,9 @@ func TestPaths_SetValidatesPersistsAndInvalidates(t *testing.T) {
 	if _, err := svc.Definition(context.Background(), "/root", "/root/a.ts", "x", 1, 1); err != nil {
 		t.Fatal(err)
 	}
-	abs := filepath.Join(t.TempDir(), "my-gopls")
+	// Windows 는 확장자로 실행 파일을 가린다 — 접미사가 없으면 표를 무시하고
+	// 탐색 결과를 쓴다(CI 실측).
+	abs := filepath.Join(t.TempDir(), "my-gopls"+platform.Current().Paths.ExeSuffix())
 	if err := os.WriteFile(abs, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}

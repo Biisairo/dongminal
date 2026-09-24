@@ -192,9 +192,14 @@ func execGit(ctx context.Context, dir string, args []string, limit int, stdin st
 		// 새 세션으로 띄우면(REPO_FIX 01 P-2) Go 는 posix_spawn 대신 fork 경로를
 		// 타고, 그 경로의 chdir 실패는 `fork/exec <bin>` 오류로 온다. 그래서 오류
 		// 모양 대신 **디렉터리가 실제로 없는가**를 본다 — bin 은 LookPath 가 방금
-		// 찾았으므로 ENOENT 의 주인은 dir 이다.
+		// 찾았으므로 실패의 주인은 dir 이다.
+		//
+		//	이전 동작: 오류가 ENOENT 일 때만 소실로 봤다
+		//	새 동작: 오류 종류는 보지 않고 PathError + dir 이 실제로 없음으로 판정한다
+		//	이유: Windows 는 없는 작업 디렉터리를 ERROR_DIRECTORY("The directory
+		//	      name is invalid")로 답해 소실이 일반 실패가 됐다(CI 실측)
 		var pe *fs.PathError
-		if errors.As(runErr, &pe) && errors.Is(runErr, fs.ErrNotExist) {
+		if errors.As(runErr, &pe) {
 			if _, serr := os.Stat(dir); errors.Is(serr, fs.ErrNotExist) {
 				return out, fmt.Errorf("%w: chdir %s: %v", ErrRepoMissing, dir, runErr)
 			}

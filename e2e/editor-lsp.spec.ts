@@ -11,6 +11,7 @@
  * 묶는 코드를 부르면 그 코드가 틀렸을 때 검사가 함께 틀린다.
  */
 import { test, expect, waitForInit } from './fixtures';
+import { tmpPath } from './osenv';
 
 type Server = {
   pack?: string; id: string; langs?: string[]; found: boolean;
@@ -169,12 +170,14 @@ test.describe('편집기 코드 탐색 — 서버 경로 표 (REPO_FIX 02)', () 
     const pack = key!.slice(0, key!.lastIndexOf('/'));
     await expect(page.locator(`#lsp-list .lsp-row[data-id="${pack}"] .lsp-msg`)).not.toBeEmpty();
 
-    await input.fill('/opt/e2e/fake-server');
+    // 절대경로의 모양은 판마다 다르다 — Windows 에서 `/opt/…` 는 절대경로가 아니다(CI 실측).
+    const abs = tmpPath('e2e-fake-server');
+    await input.fill(abs);
     await prow.locator('.lsp-pathsave').click();
     await expect.poll(async () => (await (await request.get('/api/lsp/paths')).json()).paths[key!], { timeout: 10000 })
-      .toBe('/opt/e2e/fake-server');
+      .toBe(abs);
     // 다시 칠한 뒤에도 입력에 서버 값이 보인다.
-    await expect(page.locator(`#lsp-list .lsp-pathrow[data-key="${key}"] .lsp-pathin`)).toHaveValue('/opt/e2e/fake-server');
+    await expect(page.locator(`#lsp-list .lsp-pathrow[data-key="${key}"] .lsp-pathin`)).toHaveValue(abs);
 
     await page.locator(`#lsp-list .lsp-pathrow[data-key="${key}"] .lsp-pathclear`).click();
     await expect.poll(async () => (await (await request.get('/api/lsp/paths')).json()).paths[key!], { timeout: 10000 })

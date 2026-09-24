@@ -26,8 +26,8 @@ Object.assign(App.prototype, {
       return '<div class="lsp-pathrow" data-key="'+escHtml(key)+'">'+
         '<span class="lsp-pathid">'+escHtml(s.id)+'</span>'+
         '<input class="ui-input lsp-pathin" spellcheck="false" placeholder="'+escHtml(LSP_PATH_PH)+'" value="'+escHtml(map[key]||'')+'">'+
-        '<button class="ui-btn ui-btn-sm lsp-pathsave">'+escHtml(LSP_PATH_SAVE)+'</button>'+
-        '<button class="ui-btn ui-btn-sm lsp-pathclear">'+escHtml(LSP_PATH_CLEAR)+'</button>'+
+        '<button class="ui-btn ui-btn-sm lsp-pathsave" title="'+escHtml(LSP_PATH_SAVE_TITLE)+'">'+escHtml(LSP_PATH_SAVE)+'</button>'+
+        '<button class="ui-btn ui-btn-sm lsp-pathclear" title="'+escHtml(LSP_PATH_CLEAR_TITLE)+'">'+escHtml(LSP_PATH_CLEAR)+'</button>'+
       '</div>';
     }).join('')+'</div>';
   },

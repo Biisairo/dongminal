@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -276,7 +277,7 @@ func TestJob_IndexLockedErrorCode(t *testing.T) {
 	j := NewJobs(svc, WithJobRunner(jobDoneRunner(128, "fatal: Unable to create '"+gitDir+"/index.lock': File exists.")))
 	jb, _ := j.Start(jobRepo, keysOf(jobRepo), "merge", core.WriteSpec{Argv: []string{"merge", "x"}})
 	final := jobWait(t, j, jb.ID, 2*time.Second)
-	if final.ErrorCode != "index_locked" || final.Lock == nil || final.Lock.Path != gitDir+"/index.lock" {
+	if final.ErrorCode != "index_locked" || final.Lock == nil || filepath.Clean(final.Lock.Path) != filepath.Join(gitDir, "index.lock") {
 		t.Fatalf("= errorCode %q lock %+v", final.ErrorCode, final.Lock)
 	}
 	if final.Lock.MtimeUnixMs != nil {

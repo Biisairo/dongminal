@@ -253,6 +253,9 @@ const LSP_INSTALL=t('editor.lsp_install');
 // FR-TIP-1: 라벨은 한 낱말이라 무엇을 받는지 말하지 않는다. 라벨 자체는
 // 그대로다 (FR-TIP-3) — 툴팁만 더한다.
 const LSP_INSTALL_TITLE='Download and install this language server';
+// 경로 행 버튼의 툴팁 (FR-TIP-1·2 — 영어). 02 에서 빠졌다(CI 의 V-TIP-2 실측).
+const LSP_PATH_SAVE_TITLE='Save this executable path on the server';
+const LSP_PATH_CLEAR_TITLE='Clear the saved path and use the discovered executable';
 const LSP_INSTALLING=t('editor.lsp_installing');
 const LSP_STATUS_FAIL=t('editor.lsp_status_fail');
 const LSP_UNAVAILABLE=t('editor.lsp_unavailable');

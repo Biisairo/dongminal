@@ -137,6 +137,9 @@ func TestResolveSide_IsDestructiveAction(t *testing.T) {
 func conflictRepo(t *testing.T) string {
 	t.Helper()
 	repo := tempRepo(t)
+	// checkout 이 쓴 본문을 바이트로 비교한다 — Windows 러너의 전역
+	// `core.autocrlf=true` 가 `\n` 을 `\r\n` 으로 바꾸지 못하게 고정한다(CI 실측).
+	gitRun(t, repo, "config", "core.autocrlf", "false")
 	for _, f := range []string{"f", "g"} {
 		if err := os.WriteFile(filepath.Join(repo, f), []byte("base\n"), 0o644); err != nil {
 			t.Fatal(err)

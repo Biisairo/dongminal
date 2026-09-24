@@ -254,20 +254,21 @@ func TestCleanUntracked_DuplicatePaths(t *testing.T) {
 	}
 }
 
-// T12 (FR-GIT-277 개정, 실측): `*` 가 든 파일명도 literal pathspec 으로 지워진다.
+// T12 (FR-GIT-277 개정, 실측): glob 문자가 든 파일명도 literal pathspec 으로
+// 지워진다. `[b]` 인 이유는 `*`·`?` 를 Windows 가 파일명으로 받지 않기 때문이다.
 // 지운 경로의 조상이라도 비지 않았으면 남긴다 — 확인 뒤 생긴 파일이 든
 // 디렉터리다.
 func TestCleanUntracked_RealLiteralAndKeepsNonEmptyParent(t *testing.T) {
 	repo := tempRepo(t)
 	ctx := context.Background()
-	writeFile(t, repo, "a*", "u\n")
+	writeFile(t, repo, "a[b]", "u\n")
 
 	s := core.New()
-	if _, err := CleanUntracked(s, ctx, repo, Paths{"a*"}); err != nil {
+	if _, err := CleanUntracked(s, ctx, repo, Paths{"a[b]"}); err != nil {
 		t.Fatalf("CleanUntracked: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(repo, "a*")); !os.IsNotExist(err) {
-		t.Fatalf("a* 가 남았다: %v", err)
+	if _, err := os.Stat(filepath.Join(repo, "a[b]")); !os.IsNotExist(err) {
+		t.Fatalf("a[b] 가 남았다: %v", err)
 	}
 
 	if err := os.MkdirAll(filepath.Join(repo, "d", "e"), 0o755); err != nil {
