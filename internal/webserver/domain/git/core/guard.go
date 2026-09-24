@@ -117,6 +117,23 @@ func guardCommon(args []string, allowed map[string]bool, list string) error {
 		if strings.ContainsRune(a, 0) {
 			return fmt.Errorf("%w: NUL 을 포함한 인자", ErrUnsafeArgument)
 		}
+	}
+	// REPO_FIX 01 §7.7: 위험 접두는 **옵션 자리**에만 뜻이 있다. `--` 뒤는 경로이고,
+	// commit·tag 의 값 플래그 뒤는 메시지·파일 값이다 — 거기서 `-o…` 를 막으면
+	// `-old.txt` 를 stage 하거나 `-oops…` 로 시작하는 메시지를 쓸 수 없었다.
+	values := valueFlags[args[0]]
+	for i := 1; i < len(args); i++ {
+		a := args[i]
+		if a == "--" {
+			break
+		}
+		if values[a] {
+			i++ // 다음 인자는 값이다
+			continue
+		}
+		if attachedValue(values, a) {
+			continue
+		}
 		for _, p := range unsafePrefixes {
 			if strings.HasPrefix(a, p) {
 				return fmt.Errorf("%w: %q 는 임의 실행·파일 쓰기 경로다", ErrUnsafeArgument, a)
@@ -124,6 +141,29 @@ func guardCommon(args []string, allowed map[string]bool, list string) error {
 		}
 	}
 	return nil
+}
+
+// valueFlags 는 하위 명령별로 **다음 인자를 값으로 받는** 플래그다. 목록을 명령마다
+// 한정한다 — `branch -m`·`checkout -m` 은 불리언이고 `cherry-pick -m` 은 숫자라
+// 전역으로 두면 그 뒤 인자가 검사에서 빠진다. 결합 짧은 옵션(`-am`)은 풀지 않는다
+// (안전 쪽 — 이 패키지의 argv 는 그 모양을 쓰지 않는다).
+var valueFlags = map[string]map[string]bool{
+	"commit": {"-m": true, "--message": true, "-F": true, "--file": true},
+	"tag":    {"-m": true, "--message": true, "-F": true, "--file": true},
+}
+
+// attachedValue 는 값이 플래그에 붙은 형태(`--message=v`, `-mv`)인가다.
+func attachedValue(values map[string]bool, a string) bool {
+	for f := range values {
+		if strings.HasPrefix(f, "--") {
+			if strings.HasPrefix(a, f+"=") {
+				return true
+			}
+		} else if len(a) > len(f) && strings.HasPrefix(a, f) {
+			return true
+		}
+	}
+	return false
 }
 
 // guardConfigArgs 는 `git config` 를 읽기로 한정한다. `git config user.name x` 는

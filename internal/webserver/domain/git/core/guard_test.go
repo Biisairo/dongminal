@@ -166,3 +166,35 @@ func TestRelPath_KeepsOrdinaryRelativePaths(t *testing.T) {
 		}
 	}
 }
+
+// REPO_FIX 01 §7.7: 위험 접두(-o 등) 검사는 **옵션 자리**에만 한다. `--` 뒤 경로와
+// commit·tag 의 값 플래그 뒤 값은 옵션이 아니다 — `-old.txt` 를 stage 하거나
+// `-oops…` 로 시작하는 태그 메시지를 쓰면 unsafe_argument 로 막혔다.
+func TestGuard_UnsafePrefixOnlyInOptionPosition(t *testing.T) {
+	allowed := [][]string{
+		{"add", "--", "-old.txt"},
+		{"checkout", "-q", "--", "-output.txt"},
+		{"commit", "-m", "-oops message"},
+		{"commit", "--message", "-o"},
+		{"tag", "-a", "v1", "-m", "-o fix"},
+		{"tag", "-a", "v1", "--message=-o fix"},
+		{"commit", "-F", "-"},
+	}
+	for _, a := range allowed {
+		if err := GuardWriteArgs(a); err != nil {
+			t.Errorf("%q 가 막혔다: %v", a, err)
+		}
+	}
+	denied := [][]string{
+		{"add", "-o", "x"},
+		{"commit", "--output=/tmp/x"},
+		// 값 플래그 제외는 commit·tag 만이다 — branch -m 은 불리언이라 뒤 인자를 검사한다.
+		{"branch", "-m", "-oops"},
+		{"add", "--", "ok", "a\x00b"}, // NUL 은 `--` 뒤에서도 막는다
+	}
+	for _, a := range denied {
+		if err := GuardWriteArgs(a); err == nil {
+			t.Errorf("%q 가 통과했다", a)
+		}
+	}
+}

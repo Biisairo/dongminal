@@ -254,7 +254,7 @@
 - 응답: 전부 성공 200 `{ok:true, results, status}`. 쓰기 단계 마감 뒤 남은 경로는 `{path, ok:false, skipped:true, error:"시간 초과로 실행하지 않음"}`, 마감 순간 실행 중이던 경로는 `{ok:false, error}`. 코드 우선순위: 경로 오류에 `index_locked` 가 있으면 409 `index_locked`(results·status·lock) → 그 밖 실패·skipped 가 있으면 409 `resolve_partial`(`{error, message, requested, repo, results, status, partial}`) → 전부 성공 200. 504 는 쓰지 않는다. 실행 전 거부는 현행 400. 프런트는 실패 경로와 사유를 노트로.
 
 ### 7.5 replay 거절 (Console 재실행)
-- 쓰기 기록의 replay 는 동기(현행), 쓰기 단계 마감 초과 504. 다음은 실행 전 400 `bad_request`: `rec.StdinBytes > 0`(커밋·태그·패치 — 내용이 기록되지 않아 재실행은 다른 결과. 이전: 태그는 빈 메시지 annotated tag 가 exit 0 으로 생김 — 실측), `argv[0]=="stash"` 인 쓰기 기록(위치로 기록돼 다른 stash 를 건드릴 수 있다). Console 버튼 비활성은 05.
+- 쓰기 기록의 replay 는 동기(현행), 쓰기 단계 마감 초과 504. 다음은 실행 전 400 `bad_request`: `rec.StdinBytes > 0`(커밋·패치 — 내용이 기록되지 않아 재실행은 다른 결과), `argv[0]=="stash"` 인 쓰기 기록(위치로 기록돼 다른 stash 를 건드릴 수 있다). Console 버튼 비활성은 05.
 
 ### 7.6 diff (#13, #25, P2 서브모듈 500)
 - 작업 트리 쪽 심링크(`Lstat`)는 링크 문자열을 본문으로(git 과 같은 표현). 저장소 밖 검사는 링크 자신의 위치에만.
@@ -263,7 +263,7 @@
 
 ### 7.7 기타
 - **status 절단**(FR-SAF-19): 출력 상한 절단 시 마지막 불완전 레코드는 종류(1/2/u/?/!)와 무관하게 버린다.
-- **인자 가드**: 위험 접두(`-o`, `--output` 등) 검사는 `--` 앞 옵션 위치에만. 값 플래그 제외는 하위 명령별 — commit·tag 의 `-m`/`--message`/`-F`/`--file` 분리형(다음 인자 제외)과 붙은 형태(`--message=…`, `--file=…`, `-m…`, `-F…`). 그 밖의 명령은 제외 없음(`branch -m`·`checkout -m` 은 불리언, `cherry-pick -m` 은 숫자). 결합 짧은 옵션(`-am`)은 제외하지 않는다. 태그 메시지는 `-F -` + stdin.
+- **인자 가드**: 위험 접두(`-o`, `--output` 등) 검사는 `--` 앞 옵션 위치에만. 값 플래그 제외는 하위 명령별 — commit·tag 의 `-m`/`--message`/`-F`/`--file` 분리형(다음 인자 제외)과 붙은 형태(`--message=…`, `--file=…`, `-m…`, `-F…`). 그 밖의 명령은 제외 없음(`branch -m`·`checkout -m` 은 불리언, `cherry-pick -m` 은 숫자). 결합 짧은 옵션(`-am`)은 제외하지 않는다. 태그 메시지는 `-m <msg>` 를 유지한다(구현 중 정정: 가드가 값 플래그 뒤 인자를 검사하지 않게 되어 stdin 으로 옮길 이유가 사라졌고, 옮기면 Console 재실행이 거절되고 기록에서 메시지가 사라진다).
 - **amend 메시지 전용**(사용자 결정, FR-GIT-84 개정 — GIT_SRS 에 기록): amend 가 켜져 있으면 staged 없이도 커밋 허용(서버·프런트 판정). 요청 메시지(트레일러 추가 전)와 직전 메시지를 Go 로 구현한 cleanup=strip 정규화로 비교해 같고 staged 도 없으면 "바뀔 것이 없음". 정규화: 주석 접두 = `core.commentString`(git ≥ 2.45) → `core.commentChar` → `#`, 값이 `auto` 면 주석 줄 제거 안 함 → 줄 끝 공백 제거 → 연속 빈 줄 하나로 → 앞뒤 빈 줄 제거. signoff 가 켜져 있고 직전 메시지에 `Signed-off-by:` 줄이 없으면 "바뀔 것이 있음"(서명자 일치는 보지 않음 — 한계). amend + `-a` 로 추적 변경이 있으면 허용. HEAD 없으면 amend 불가(현행).
 
 ## 8. 서버 수명·종료
