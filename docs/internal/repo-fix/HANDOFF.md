@@ -1,6 +1,6 @@
 # REPO_FIX 인계 — 다음 세션 착수 문서
 
-> 작성 2026-09-24. 직전 세션이 01(git 백엔드)의 A~D 를 끝내고 넘긴다.
+> 작성 2026-09-24. 01(git 백엔드) A~F 까지 끝났다(두 번째 세션이 E·F). 다음은 **01-G**.
 > **사용자 지시: "새 세션에서 순서대로 진행"** — 아래 §3 순서대로 한다.
 
 ## 1. 무엇을 하는 일인가
@@ -26,6 +26,7 @@
 | 01 P-4 조사표 | 설정 영향 실측 — log.showSignature 외 불변 | `5def3a87` |
 | 01-D §5.3 | stash oid 지목(apply·show 는 oid, pop·drop·branch 는 찾은 stash@{n}), 409 stash_moved, index 필드 400, stash branch 이름 사전검사, 프런트 oid 선택 모델, Diff 머리 `revLabel` | `d1d6fbcf` `a74ee758` |
 | 01-E §5.1·5.4·5.5·7.1·7.2 | `jobs.Exclusion`(뮤텍스·common-dir 잠금·두 칸) buildDeps 주입, `writeLocks` 분류표 + Handle lease, 판정 순서, 단계 ctx(사전 요청+10s·쓰기 루트+30s·사후 루트+15s), `ErrIndexLocked`·lock 필드·resolve 우선, `POST /api/git/lock/remove`, 프런트 100s·lock 버튼 | `202dc805` `55886b21` |
+| 01-F §5.2·6 | 느린 쓰기 8종 잡 전환, kind 표·모양 제약, stdin, Job JSON `slots`·`errorCode`·`lock`·`result`, 완료 처리 순서, undo 토큰 기점, 프런트 칸별 잡 표시기(`GitJobs`)·`panel.post` 잡 인식·e2e `git-job-indicator.spec.ts` | `6862f2ca` `02b8a777` |
 
 **아직 안 한 01 항목**: `store.WithRoot` 는 만들었지만 **서버 루트 ctx 배선은 안 됐다**(기본 `Background`, G 에서 한다 — 쓰기·사후 단계는 이미 `s.Git.Root()` 에서 파생하므로 G 는 배선만 하면 된다).
 
@@ -43,7 +44,7 @@
 
 1. ~~**01-E**~~ 완료 (§5.1·5.4·5.5·7.1·7.2): 배타 상태 단일 인스턴스(`buildDeps` 에서 생성·주입), 저장소 뮤텍스(ctx 존중·5s)·common-dir 잠금(stash 5종)·index/common 두 칸 잡 슬롯, 판정 순서, 단계별 마감(대기 5·사전 10·쓰기 30·사후 15, 쓰기는 루트 ctx 파생), `ErrIndexLocked` 분류 + 모든 동기 쓰기 실패에 lock 필드, `POST /api/git/lock/remove`, 프런트 `GIT_WRITE_FETCH_TIMEOUT_MS` 35000→100000, resolve 의 index_locked 우선
 2. ~~**01-F**~~ 완료 (§6 — worktree add 잡은 G 로 넘김): 잡 전환(commit·checkout·operation·branch merge/rebase·checkout:true·cherry-pick/revert·drop·worktree add), `jobKinds`·모양 제약, stdin, 사전 단계 위치, 완료 처리 순서(①~⑧), Job JSON `slots`·`result.*`, undo 토큰 기점, 원격 전용 판정 한정, 프런트 **일반화 잡 표시기**(remote.js 상태기계 → kind 무관, §6.4 표 두 개)
-3. **01-G** (§5.6·8): repoLock ctx·common-dir 키, Runner ctx, worktree add 잡·remove 순서(요청 worktree 칸·뮤텍스 안 봄), Run 격리 TryLock·잔여물, 서버 루트 ctx(`serve` 에서 WithCancel → buildDeps, AfterFunc, shutdownSteps 인덱스 0, 7s), `server_shutdown`
+3. **01-G** ← **여기서 시작** (§5.6·8, 위 "E·F 에서 G 로 넘긴 것" 포함): repoLock ctx·common-dir 키, Runner ctx, worktree add 잡·remove 순서(요청 worktree 칸·뮤텍스 안 봄), Run 격리 TryLock·잔여물, 서버 루트 ctx(`serve` 에서 WithCancel → buildDeps, AfterFunc, shutdownSteps 인덱스 0, 7s), `server_shutdown`
 4. **02 gitwatch·LSP** — `02-lsp-gitwatch/REQUIREMENTS.md` (§3A 필독: LSP 경로는 **서버 설정 `<dataDir>/lsp-paths.json` + GET/PUT `/api/lsp/paths` + 설정 ▸ Code UI**, 사용자 결정)
 5. **03 에디터** — 인코딩 왕복(x/text 의존성 추가 승인됨, 자동판별 BOM→UTF-8→CP949 + 다시 열기 4종 + "UTF-8 로 변환해 저장" 확인창), 권한·심링크 보존, 응답 후 재확인 장치, slot 인식 조회, 문서 이동 API(undo 소실 허용), tab.dirty 비영속
 6. **04 탐색기** — 로드 세대·coalesce, 폴더 관측 상태 4종, 대소문자 이름변경(같은 부모+대소문자만 다름+SameFile), status 응답 `mark` 는 04 가 추가
@@ -73,7 +74,15 @@
 - 완전 이름(`refs/heads/x`) 원격 삭제는 이미 없는 ref 도 경고와 함께 **성공(exit 0)** 한다(실측)
 - 픽스처 `gittest.Repo` 두 개의 첫 커밋 oid 가 같다 — 서브모듈 테스트는 서브 쪽을 한 번 더 커밋해야 한다
 - e2e 는 `npx playwright test` 가 바이너리를 스스로 빌드한다. `timeout` 명령이 없다(macOS)
-- `e2e/branch-menu-unify.spec.ts` "원격이 실제로 지워지면 조용하다" 가 부하 중 1회 flaky(재시도 없이 5/5 통과, 알려진 flaky 목록에는 없음) — 전량에서 다시 보라
+- `e2e/branch-menu-unify.spec.ts` "원격이 실제로 지워지면 조용하다" 가 부하 중 flaky(E·F 전량에서 각 1회 실패, 단독 3/3 통과). `git-dialog` D6·`git-menu` N3(Esc 계열)도 전량 부하에서 1회씩 떨어졌고 단독은 통과 — 가짜 항목만 재는 테스트라 변경과 무관으로 판정했다
+- **(01-E·F 에서 배운 것)**
+  - 쓰기 잠금 분류는 `gitapi/gitlock.go` 의 `writeLocks` 표 하나다(POST 종단 전부가 있어야 한다 — `TestWriteLocks_CoverAllPostRoutes`). 잠금은 `gitWrite.resolve` 가 쥐고 `Handle` 의 lease 가 핸들러 뒤 반납한다. 사전 단계 조회는 `t.ctx()`, 쓰기는 `t.write`, 사후는 `t.post()` 를 쓴다(`r.Context()` 를 새로 쓰지 마라)
+  - `jobs/job.go` 는 **원격 표면 파일**이라 `token`·`secret` 이 든 이름·주석을 두면 `core/credentials_static_test` 가 실패한다(그래서 `Result` 는 `jobs/result.go`). `creden…` 은 저장소 전체 금지 — 주석에도 쓰지 마라
+  - gitapi 테스트 서버(`gitWriteServer`·`gitM5Server`·`gitCoServer`)는 `s.gitJobs.run = fakeJobRunner(f.write)` 로 잡도 fake 에 태운다 — 빼면 **실제 git 이 돈다**. 잡 종단 테스트는 `gitReqAwait`(잡 완료 대기 + 동기 모양) 로 쓴다
+  - 잡 쓰기의 쓰기 가드가 모양 제약보다 먼저 거절하는 경우가 있다(`submodule`·`worktree` 는 쓰기 허용 목록 밖, `am --quit`·`bisect good` 은 금지 하위 명령)
+  - 프런트: 잡 박스가 칸마다 둘(`.git-job[data-slot=index|common]`) — e2e 는 `.git-job.vis` 로 짚는다. 새 잡이 시작되면 다른 칸의 **끝난** 결과는 걷힌다(`GitJobs._dismissOthers`)
+  - `constants-git-commit.js` 는 `constants-git-remote.js` 보다 **먼저** 로드된다 — 앞 파일에서 뒤 파일 상수를 쓰면 TDZ 로 전체가 죽는다(`GIT_JOB_BUSY_NOTE` 를 앞 파일에 둔 이유)
+  - web/js 500줄 기준선: `commit.js` 496·`remote.js` 949(최대 959 는 panel-diff) — 더 늘리면 파일을 나눠라
 
 ## 6. 유효한 사용자 결정 (요약 — 상세는 각 REQUIREMENTS)
 
@@ -89,8 +98,13 @@
 ## 7. 착수 블록
 
 ```
-git status && git log --oneline -3   # 인계 문서 커밋(docs(repo-fix): 다음 세션 인계 문서) 이 맨 위, 그 아래 a74ee758, 트리 깨끗
-docs/internal/repo-fix/01-git-backend/REQUIREMENTS.md 의 §5.1·5.4·5.5·7.1·7.2 를 읽고 01-E 부터 시작한다.
-먼저 internal/webserver/gitapi/gitwrite.go(beginWrite→resolve→snapshot→apply→ok 파이프라인)와
-internal/webserver/domain/git/jobs/job.go(active 맵·Start·StartUnguarded)를 읽어 배타 상태를 어디에 둘지 정한다.
+git status && git log --oneline -3   # 맨 위가 이 인계 문서 커밋, 그 아래 02b8a777·6862f2ca, 트리 깨끗
+docs/internal/repo-fix/01-git-backend/REQUIREMENTS.md 의 §5.6·§8·§5.5(Manager 180s)를 읽고 01-G 부터 시작한다.
+이 문서 §2 의 "E·F 에서 G 로 넘긴 것" 을 G 의 범위에 포함한다.
+먼저 읽을 코드:
+  internal/webserver/domain/worktree/worktree.go (repoLock·Runner·runGit %v)·remove.go
+  internal/webserver/domain/submodule/submodule.go (Runner)
+  internal/webserver/gitapi/handlers_git_worktree.go·handlers_git_submodule.go, gitlock.go(writeLocks)
+  internal/webserver/httpapi/handlers_runs_worktree.go (Run 격리 7곳)
+  cmd/dongminal/app.go (serve·shutdownSteps)·main.go(buildDeps) — store.WithRoot·jobs.WithRoot 는 이미 있다, 배선만
 ```
