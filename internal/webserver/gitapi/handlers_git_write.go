@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"dongminal/internal/webserver/httpreq"
@@ -125,11 +126,44 @@ func (s *GitServer) apiGitResolve(w http.ResponseWriter, r *http.Request) {
 	t := s.beginWrite(w, r, &req)
 	t.requireConfirm(true, req.Confirm, "파괴적 동작은 confirm:true 를 요구한다 (FR-GIT-89)")
 	t.resolve(req.Repo)
-	t.apply(func(ctx context.Context) error {
-		_, err := write.Resolve(s.Git.Service(), ctx, t.root, req.Side, write.Paths(req.Paths))
-		return err
-	})
-	t.ok(nil)
+	t.snapshot()
+	if t.stop() {
+		return
+	}
+	// REPO_FIX 01 §7.4: 경로마다 따로 해결하고 경로별 결과를 싣는다. 실행 전
+	// 검증 실패만 오류로 오며 그때는 아무것도 실행되지 않았다.
+	results, err := write.Resolve(s.Git.Service(), r.Context(), t.root, req.Side, write.Paths(req.Paths))
+	if err != nil {
+		t.reject(err)
+		return
+	}
+	s.Git.Invalidate(t.root)
+	obs, _, statusErr := s.Git.Status(r.Context(), t.root)
+	failed, applied := 0, 0
+	for _, res := range results {
+		if res.OK {
+			applied++
+		} else {
+			failed++
+		}
+	}
+	if failed == 0 {
+		if statusErr != nil {
+			gitError(w, statusErr)
+			return
+		}
+		gitWriteOK(w, t.requested, t.root, obs.Status, map[string]any{"results": results})
+		return
+	}
+	body := map[string]any{
+		"results": results,
+		"partial": applied > 0,
+	}
+	if statusErr == nil {
+		body["status"] = obs.Status
+	}
+	t.rejectBody(http.StatusConflict, apierr.CodeResolvePartial,
+		fmt.Sprintf("%d개 경로 중 %d개의 충돌 해결이 실패했다", len(results), failed), body)
 }
 
 // POST /api/git/commit — staged 내용을 커밋한다 (FR-GIT-77·79·84).

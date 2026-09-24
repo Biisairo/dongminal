@@ -271,7 +271,12 @@ Object.assign(GitPanel.prototype, {
         const res=await this.post('/api/git/resolve',{repo,side,paths,confirm:true});
         this._after(res,items);
         if(res.ok) return {ok:true};
-        return {ok:false,reason:this.writeReason(res),stderrTail:(res.data&&res.data.message)||''};
+        // REPO_FIX 01 §7.4: 경로별 결과가 오면 **어느 경로가 왜** 실패했는지 보인다.
+        const failed=((res.data&&res.data.results)||[]).filter(x=>!x.ok);
+        const tail=failed.length
+          ? failed.map(x=>x.path+': '+(x.error||'')).join('\n')
+          : ((res.data&&res.data.message)||'');
+        return {ok:false,reason:this.writeReason(res),stderrTail:tail};
       },
     });
   },

@@ -50,10 +50,15 @@ const (
 	CodeSyncNotFound    = "sync_not_found"
 	CodeJobBusy         = "job_busy"
 	CodeJobNotFound     = "job_not_found"
+	// REPO_FIX 01 §7.1: 쓰기 배타·lock·종료.
+	CodeRepoBusy       = "repo_busy"
+	CodeIndexLocked    = "index_locked"
+	CodeServerShutdown = "server_shutdown"
 
 	// ── stash ──
 	CodeNothingToStash = "nothing_to_stash"
 	CodeStashKept      = "stash_kept"
+	CodeStashMoved     = "stash_moved"
 
 	// ── 부분 스테이징 ──
 	CodeStaleObservation = "stale_observation"
@@ -62,6 +67,7 @@ const (
 	// ── 진행 중 작업 ──
 	CodeOperationMismatch = "operation_mismatch"
 	CodeNoOperation       = "no_operation"
+	CodeResolvePartial    = "resolve_partial"
 
 	// ── 미커밋 행 ──
 	CodeNoHead         = "no_head"

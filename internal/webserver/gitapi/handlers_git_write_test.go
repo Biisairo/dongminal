@@ -498,3 +498,46 @@ func TestAPIGitWrite_PostOnly(t *testing.T) {
 		t.Fatalf("GET 이 쓰기를 실행했다: %v", got)
 	}
 }
+
+// REPO_FIX 01 §7.4: 충돌 해결은 경로별 결과를 싣는다. 하나라도 실패하면 409
+// resolve_partial 이고 성공한 경로는 그대로 적용된다. 종전에는 배치 하나의 실패가
+// 전체 실패(500)였고 어느 경로가 됐는지 알 수 없었다.
+func TestAPIGitResolve_PartialCarriesPerPathResults(t *testing.T) {
+	f := newGitWriteFake(t)
+	f.writeErr = func(argv []string) (core.Output, error) {
+		if argv[0] == "checkout" && argv[len(argv)-1] == "b.txt" {
+			return core.Output{ExitCode: 1, Stderr: "error: 실패"}, nil
+		}
+		return core.Output{}, nil
+	}
+	s, _ := gitWriteServer(t, f)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/resolve", `{"repo":`+qWorkRepo+`,"side":"ours","paths":["a.txt","b.txt"],"confirm":true}`)
+	if code != http.StatusConflict || out["error"] != "resolve_partial" {
+		t.Fatalf("code = %d, body = %v", code, out)
+	}
+	results, _ := out["results"].([]any)
+	if len(results) != 2 {
+		t.Fatalf("results = %v", out["results"])
+	}
+	a, _ := results[0].(map[string]any)
+	b, _ := results[1].(map[string]any)
+	if a["ok"] != true || b["ok"] != false || b["error"] == "" {
+		t.Fatalf("경로별 결과 = %v", results)
+	}
+	if out["partial"] != true || out["status"] == nil {
+		t.Fatalf("partial·status 가 없다: %v", out)
+	}
+}
+
+// §7.4: 전부 성공하면 200 에 경로별 결과와 status 를 싣는다.
+func TestAPIGitResolve_AllOK(t *testing.T) {
+	f := newGitWriteFake(t)
+	s, _ := gitWriteServer(t, f)
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/resolve", `{"repo":`+qWorkRepo+`,"side":"theirs","paths":["a.txt"],"confirm":true}`)
+	if code != http.StatusOK || out["ok"] != true {
+		t.Fatalf("code = %d, body = %v", code, out)
+	}
+	if results, _ := out["results"].([]any); len(results) != 1 {
+		t.Fatalf("results = %v", out["results"])
+	}
+}

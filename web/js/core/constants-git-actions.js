@@ -23,9 +23,15 @@ const GIT_WRITE_ERR={
   git_timeout:t('git.write_err.git_timeout'),
   git_failed:t('git.write_err.git_failed'),
   git_unavailable:t('git.write_err.git_unavailable'),
-  // 원격 작업 고유의 거부 (FR-GIT-101). 라벨을 한 자리에 둔다.
+  // 잡의 거부 (FR-GIT-101). 라벨을 한 자리에 둔다.
   job_busy:t('git.write_err.job_busy'),
   job_not_found:t('git.write_err.job_not_found'),
+  // REPO_FIX 01 §7.1: 쓰기 배타·lock·stash·충돌 해결·종료.
+  repo_busy:t('git.write_err.repo_busy'),
+  index_locked:t('git.write_err.index_locked'),
+  stash_moved:t('git.write_err.stash_moved'),
+  resolve_partial:t('git.write_err.resolve_partial'),
+  server_shutdown:t('git.write_err.server_shutdown'),
   no_remote:t('git.write_err.no_remote'),
 };
 

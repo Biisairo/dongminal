@@ -85,6 +85,7 @@ var gitCodes = []string{
 	CodeMergeParent, CodeResetMode,
 	CodeNoRemote, CodeRemoteExists, CodeRemoteMissing, CodePublishRequired,
 	CodeSyncNotFound, CodeJobBusy, CodeJobNotFound,
+	CodeRepoBusy, CodeIndexLocked, CodeServerShutdown, CodeStashMoved, CodeResolvePartial,
 	CodeNothingToStash, CodeStashKept,
 	CodeStaleObservation, CodePatchEmpty,
 	CodeOperationMismatch, CodeNoOperation,

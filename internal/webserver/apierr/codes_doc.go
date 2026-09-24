@@ -93,6 +93,11 @@ var CodeDoc = map[string]Doc{
 	CodePublishRequired: {"이 브랜치가 아직 원격에 없습니다.", "먼저 publish(최초 push) 하세요."},
 	CodeSyncNotFound:    {"그 동기화 작업을 찾지 못했습니다.", "이미 끝났거나 취소된 작업입니다. 목록을 다시 받으세요."},
 	CodeJobBusy:         {"같은 저장소에서 다른 작업이 돌고 있습니다.", "끝나기를 기다렸다 다시 시도하세요."},
+	CodeRepoBusy:        {"같은 저장소에서 다른 쓰기가 진행 중입니다.", "잠시 뒤 다시 시도하세요."},
+	CodeIndexLocked:     {"git 이 index.lock 을 만들지 못했습니다 — 다른 git 이 실행 중이거나 남은 lock 입니다.", "터미널 등에서 git 이 돌고 있지 않다면 남은 lock 을 지운 뒤 다시 시도하세요."},
+	CodeServerShutdown:  {"서버가 종료되며 작업을 중단했습니다.", "일부가 적용됐을 수 있습니다. 서버를 다시 띄운 뒤 상태를 확인하세요."},
+	CodeStashMoved:      {"고른 stash 가 목록에 없습니다.", "stash 목록을 다시 받아 고르세요."},
+	CodeResolvePartial:  {"일부 경로의 충돌 해결이 실패했습니다.", "실패한 경로와 사유를 확인한 뒤 다시 시도하세요."},
 	CodeJobNotFound:     {"그 작업을 찾지 못했습니다.", "이미 끝난 작업입니다."},
 
 	// ── stash ──
