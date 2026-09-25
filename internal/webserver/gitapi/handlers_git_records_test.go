@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -189,6 +190,80 @@ func TestGitRecords_LimitParam(t *testing.T) {
 	code, _ := gitReq(t, s, http.MethodGet, "/api/git/records?repo="+f.root+"&n=-1", "")
 	if code != http.StatusBadRequest {
 		t.Fatalf("음수 n → %d, want 400", code)
+	}
+}
+
+// FR-OPT-4-8 (DOM-27): after=<seq> 면 그 뒤의 것만 보낸다. 커서는 리포로 거르기 전의
+// 전역 Seq 다 — 그 리포의 기록이 없던 회차에도 다음 물음이 전부를 되받지 않는다.
+func TestGitRecords_AfterCursor(t *testing.T) {
+	f := newGitRecFake(t)
+	s, svc := gitRecServer(t, f)
+	svc.Exec(context.Background(), f.root, "status")
+
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/records?repo="+f.root+"&after=0", "")
+	if code != http.StatusOK {
+		t.Fatalf("code = %d, body = %v", code, out)
+	}
+	last, ok := out["lastSeq"].(float64)
+	if !ok || last < 1 || out["gap"] != false {
+		t.Fatalf("커서가 없다: %v", out)
+	}
+	if _, ok := out["firstSeq"].(float64); !ok {
+		t.Fatalf("firstSeq 가 없다: %v", out)
+	}
+
+	svc.Exec(context.Background(), f.root, "diff")
+	_, out = gitReq(t, s, http.MethodGet, "/api/git/records?repo="+f.root+"&after="+strconv.FormatUint(uint64(last), 10), "")
+	recs, _ := out["records"].([]any)
+	for _, r := range recs {
+		m := r.(map[string]any)
+		if m["seq"].(float64) <= last {
+			t.Fatalf("커서 앞의 기록이 왔다: %v", m)
+		}
+	}
+	var argv0 []string
+	for _, r := range recs {
+		argv0 = append(argv0, r.(map[string]any)["argv"].([]any)[0].(string))
+	}
+	if len(argv0) == 0 || argv0[0] != "diff" {
+		t.Fatalf("새 기록이 맨 위가 아니다: %v", argv0)
+	}
+	for _, a := range argv0 {
+		if a == "status" {
+			t.Fatalf("이미 받은 기록이 다시 왔다: %v", argv0)
+		}
+	}
+
+	code, _ = gitReq(t, s, http.MethodGet, "/api/git/records?repo="+f.root+"&after=x", "")
+	if code != http.StatusBadRequest {
+		t.Fatalf("잘못된 after → %d, want 400", code)
+	}
+}
+
+// 서버가 다시 떠 Seq 가 처음부터면 커서가 마지막보다 크다 — 이을 수 없으니 gap 과 전량이다.
+func TestGitRecords_AfterGap(t *testing.T) {
+	f := newGitRecFake(t)
+	s, svc := gitRecServer(t, f)
+	svc.Exec(context.Background(), f.root, "status")
+	_, out := gitReq(t, s, http.MethodGet, "/api/git/records?repo="+f.root+"&after=999", "")
+	if out["gap"] != true {
+		t.Fatalf("gap = %v, want true", out["gap"])
+	}
+	if recs, _ := out["records"].([]any); len(recs) == 0 {
+		t.Fatal("gap 인데 전량이 오지 않았다")
+	}
+}
+
+// after 가 없으면 본문은 종전과 바이트가 같다 (FR-OPT-0-3) — 커서 필드가 붙지 않는다.
+func TestGitRecords_NoAfterKeepsBody(t *testing.T) {
+	f := newGitRecFake(t)
+	s, svc := gitRecServer(t, f)
+	svc.Exec(context.Background(), f.root, "status")
+	_, out := gitReq(t, s, http.MethodGet, "/api/git/records?repo="+f.root, "")
+	for _, k := range []string{"lastSeq", "firstSeq", "gap"} {
+		if _, ok := out[k]; ok {
+			t.Fatalf("after 없는 응답에 %s 가 붙었다: %v", k, out)
+		}
 	}
 }
 

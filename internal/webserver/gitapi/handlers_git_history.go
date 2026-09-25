@@ -2,6 +2,8 @@ package gitapi
 
 import (
 	"context"
+	"fmt"
+	"hash/fnv"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -28,6 +30,59 @@ type gitLogRequested struct {
 	Path   string `json:"path"`
 	Grep   string `json:"grep"`
 	Reflog bool   `json:"reflog"`
+	// Stop 은 증분 조회의 멈출 자리다 (FR-OPT-4-8). 없는 요청의 본문은 종전과 같다.
+	Stop string `json:"stop,omitempty"`
+}
+
+// gitLogTail 은 증분 조회에서 **보내지 않은 뒷부분**의 요약이다 (OPTIMIZE_REFACTOR_SRS
+// FR-OPT-4-8 · FEU-10). 클라이언트는 자기 목록 앞의 Count 개가 이 Digest 와 같을 때만
+// 새 머리 뒤에 이어 붙인다. 커밋의 내용은 oid 가 정하므로 순서만 견주면 되고, 움직일
+// 수 있는 것은 배지뿐이라 그것을 Refs 로 다시 싣는다.
+type gitLogTail struct {
+	Count  int    `json:"count"`
+	Digest string `json:"digest"`
+	// Refs 는 뒷부분 중 배지나 HEAD 표식이 있는 커밋이다. I 는 뒷부분 안의 자리다.
+	Refs []gitLogTailRef `json:"refs"`
+}
+
+type gitLogTailRef struct {
+	I      int               `json:"i"`
+	Refs   []query.CommitRef `json:"refs"`
+	IsHead bool              `json:"isHead"`
+}
+
+// gitOidDigest 는 oid 들을 순서대로 `oid\n` 으로 이은 바이트의 FNV-1a 32 비트다.
+// 클라이언트(`history-load.js` 의 `_digest`)가 같은 계산을 한다.
+func gitOidDigest(cs []query.Commit) string {
+	h := fnv.New32a()
+	for _, c := range cs {
+		h.Write([]byte(c.Oid))
+		h.Write([]byte{'\n'})
+	}
+	return fmt.Sprintf("%08x", h.Sum32())
+}
+
+// gitLogCut 은 stop 이 목록에 있으면 그 앞(새 머리)과 뒷부분의 요약을 준다. 없으면
+// 머리가 이어지지 않은 것이다 — 전량을 그대로 보낸다.
+func gitLogCut(cs []query.Commit, stop string) ([]query.Commit, *gitLogTail) {
+	k := -1
+	for i, c := range cs {
+		if c.Oid == stop {
+			k = i
+			break
+		}
+	}
+	if k < 0 {
+		return cs, nil
+	}
+	rest := cs[k:]
+	tail := &gitLogTail{Count: len(rest), Digest: gitOidDigest(rest), Refs: []gitLogTailRef{}}
+	for i, c := range rest {
+		if len(c.Refs) > 0 || c.IsHead {
+			tail.Refs = append(tail.Refs, gitLogTailRef{I: i, Refs: c.Refs, IsHead: c.IsHead})
+		}
+	}
+	return cs[:k], tail
 }
 
 type gitLogResponse struct {
@@ -51,10 +106,15 @@ type gitLogResponse struct {
 	//   이유:     빈 저장소는 실패가 아니다. `git init` 직후의 사용자가 가장
 	//             먼저 만나는 화면이 오류 문구일 이유가 없다
 	Initial bool `json:"initial,omitempty"`
+	// Tail 은 stop 을 준 요청에서 그 커밋을 찾았을 때만 붙는다. 그때 Commits 는 stop
+	// 앞의 새 머리뿐이다 (FR-OPT-4-8).
+	Tail *gitLogTail `json:"tail,omitempty"`
 }
 
-// GET /api/git/log?repo=&ref=&skip=&limit=&order=&author=&since=&until=&path=&grep=&reflog=
-// — 커밋 목록 한 페이지 (FR-GIT-113·114·123·128·130·280).
+// GET /api/git/log?repo=&ref=&skip=&limit=&order=&author=&since=&until=&path=&grep=&reflog=&stop=
+// — 커밋 목록 한 페이지 (FR-GIT-113·114·123·128·130·280). stop=<oid> 는 증분 조회다
+// (FR-OPT-4-8): 같은 목록을 계산하되 그 커밋 앞의 머리만 보낸다. `until` 은 이미 날짜
+// 필터(FR-GIT-130)의 이름이라 쓰지 않는다.
 func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
@@ -76,7 +136,12 @@ func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
 	req := gitLogRequested{
 		Repo: requested, Ref: q.Get("ref"), Skip: skip, Limit: limit, Order: q.Get("order"),
 		Author: q.Get("author"), Since: q.Get("since"), Until: q.Get("until"),
-		Path: q.Get("path"), Grep: q.Get("grep"), Reflog: reflog,
+		Path: q.Get("path"), Grep: q.Get("grep"), Reflog: reflog, Stop: q.Get("stop"),
+	}
+	// 뒷장(skip)은 목록의 머리가 아니다 — 증분의 기준이 없다.
+	if req.Stop != "" && req.Skip > 0 {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "stop 은 skip 과 함께 쓸 수 없다")
+		return
 	}
 	commits, err := query.Log(s.Git.Service(), r.Context(), query.LogQuery{
 		Repo: root, Ref: req.Ref, Skip: req.Skip, Limit: req.Limit, Order: req.Order,
@@ -124,12 +189,19 @@ func (s *GitServer) apiGitLog(w http.ResponseWriter, r *http.Request) {
 	// 목록 **뒤에** 읽는다 — 앞에 읽으면 그 사이의 변경이 목록에는 있고 값에는
 	// 없어, 클라이언트가 "낡았다" 고 한 번 더 받는다. 실패는 목록의 실패가 아니다.
 	sig, _ := s.Git.Signature(r.Context(), root)
+	// 빈 저장소 판정은 자르기 전의 목록으로 한다 — 머리가 비었다고 저장소가 빈 것은 아니다.
+	empty := len(commits) == 0
+	var tail *gitLogTail
+	if req.Stop != "" {
+		commits, tail = gitLogCut(commits, req.Stop)
+	}
 	gitJSON(w, http.StatusOK, gitLogResponse{
 		Requested: req, Repo: root, Limit: query.LogLimit(req.Limit), Commits: commits,
 		// 목록이 비어 있을 때만 뜻이 있다 — 커밋이 있는데 이 표식이 서면 화면이
 		// 거짓말을 한다.
-		Initial:   len(commits) == 0 && initial(),
+		Initial:   empty && initial(),
 		Signature: sig.Value,
+		Tail:      tail,
 	})
 }
 

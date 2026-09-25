@@ -108,6 +108,35 @@ func (r *Recorder) Recent(n int) []Record {
 	return out
 }
 
+// RecordSpan 은 Since 가 본 링의 범위다. First 는 보유분 중 가장 오래된 Seq(없으면
+// Last+1), Last 는 마지막으로 부여한 Seq 다. Gap 은 요청한 커서에서 증분으로 이을 수
+// 없다는 뜻이다 — 링이 그 사이를 버렸거나, 커서가 Last 보다 크다(서버가 다시 떠 Seq 가
+// 처음부터다).
+type RecordSpan struct {
+	First uint64
+	Last  uint64
+	Gap   bool
+}
+
+// Since 는 Seq 가 after 보다 큰 기록을 준다 (최신이 마지막, OPTIMIZE_REFACTOR_SRS
+// FR-OPT-4-8). Gap 이면 보유분 전부를 준다 — 호출자는 받은 것으로 갈아 끼운다.
+func (r *Recorder) Since(after uint64) ([]Record, RecordSpan) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	span := RecordSpan{First: r.seq - uint64(r.n) + 1, Last: r.seq}
+	span.Gap = after > span.Last || after+1 < span.First
+	n := r.n
+	if !span.Gap {
+		n = int(span.Last - after)
+	}
+	out := make([]Record, n)
+	start := (r.next - n + len(r.buf)*2) % len(r.buf)
+	for i := 0; i < n; i++ {
+		out[i] = r.buf[(start+i)%len(r.buf)]
+	}
+	return out, span
+}
+
 func (r *Recorder) Len() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()

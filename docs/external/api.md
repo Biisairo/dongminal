@@ -270,7 +270,7 @@
 | GET | `/api/git/blob` | diff 한쪽의 **원본 바이트** — 그림만 내보낸다 (`<img src>` 가 건다) |
 | GET | `/api/git/file-head` | HEAD 판의 파일 내용 |
 | GET | `/api/git/blame` | 줄별 마지막 변경자 |
-| GET | `/api/git/log` | 커밋 기록 |
+| GET | `/api/git/log` | 커밋 기록. `?stop=<oid>` 이면 증분이다 — 같은 목록을 계산하되 그 커밋 앞의 머리만 `commits` 에 싣고, 뒷부분은 `tail`(`count`·`digest`=oid 들을 `oid\n` 으로 이은 FNV-1a 32·배지가 있는 커밋의 `refs`)로 요약합니다. 그 커밋이 목록에 없으면 `tail` 없이 전량입니다. `skip` 과 함께 쓰면 400 |
 | GET | `/api/git/commit-range` | 두 지점 사이의 커밋들 |
 | POST | `/api/git/uncommitted/reset` · `/api/git/uncommitted/clean` | 미커밋 변경을 되돌리고, 추적되지 않는 파일을 지운다 (clean 은 `confirm:true`·`paths` 필수 — 확인한 목록만 지우며 지금과 다르면 409 `stale_observation`) |
 | POST | `/api/git/ignore` | `.gitignore` 에 더한다 |
@@ -328,7 +328,7 @@
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/git/records` | 이 앱이 실행한 git 명령의 기록 (Git ▸ 콘솔 탭) |
+| GET | `/api/git/records` | 이 앱이 실행한 git 명령의 기록 (Git ▸ 콘솔 탭). `?after=<seq>` 이면 그 뒤의 것만 싣고 `lastSeq`(마지막 전역 Seq)·`firstSeq`(아직 남은 가장 오래된 Seq)·`gap` 을 붙입니다 — `gap:true` 면 이을 수 없어 전량입니다 |
 | POST | `/api/git/records/replay` | 그중 하나를 다시 실행한다 |
 | POST | `/api/git/drop` | 커밋 하나를 히스토리에서 뺀다 — rebase **작업** |
 

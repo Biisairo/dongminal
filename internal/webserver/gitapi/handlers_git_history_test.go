@@ -208,6 +208,84 @@ func TestAPIGitLog_EchoesRequested(t *testing.T) {
 	}
 }
 
+// FR-OPT-4-8 (FEU-10): stop=<oid> 면 그 커밋 앞의 머리만 보내고 뒷부분은 요약한다.
+// 뒷부분의 배지는 움직일 수 있으므로(HEAD 가 새 커밋으로 옮겨 갔다) 요약에 다시 싣는다.
+func TestAPIGitLog_StopSendsHeadOnly(t *testing.T) {
+	const (
+		n1 = "c1c2c3d4e5f6a7b8c9d0a1b2c3d4e5f6a7b8c9d0"
+		o1 = "b1b2c3d4e5f6a7b8c9d0a1b2c3d4e5f6a7b8c9d0"
+	)
+	f := newGitHistFake(t)
+	f.logOut = strings.Join([]string{
+		histLogRec(n1, histOid, "HEAD -> refs/heads/main", "새 커밋"),
+		histLogRec(histOid, o1, "tag: refs/tags/v1.0", "머지"),
+		histLogRec(o1, "", "", "root"),
+	}, "\x00")
+	s := gitHistServer(t, f)
+
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/log?repo="+f.root+"&limit=300&stop="+histOid, "")
+	if code != http.StatusOK {
+		t.Fatalf("code = %d, body = %v", code, out)
+	}
+	commits, _ := out["commits"].([]any)
+	if len(commits) != 1 || commits[0].(map[string]any)["oid"] != n1 {
+		t.Fatalf("머리만 와야 한다: %v", out["commits"])
+	}
+	if req, _ := out["requested"].(map[string]any); req["stop"] != histOid {
+		t.Fatalf("requested.stop = %v", req["stop"])
+	}
+	tail, ok := out["tail"].(map[string]any)
+	if !ok {
+		t.Fatalf("tail 이 없다: %v", out)
+	}
+	if tail["count"] != float64(2) || tail["digest"] != gitOidDigest([]query.Commit{{Oid: histOid}, {Oid: o1}}) {
+		t.Fatalf("tail = %v", tail)
+	}
+	refs, _ := tail["refs"].([]any)
+	if len(refs) != 1 {
+		t.Fatalf("배지가 있는 뒷부분은 하나다: %v", refs)
+	}
+	r0 := refs[0].(map[string]any)
+	if r0["i"] != float64(0) || r0["isHead"] != false {
+		t.Fatalf("tail.refs[0] = %v", r0)
+	}
+
+	// 머리가 이어지지 않으면(리베이스·리셋) 전량이고 tail 이 없다.
+	_, out = gitReq(t, s, http.MethodGet, "/api/git/log?repo="+f.root+"&stop=deadbeef", "")
+	if cs, _ := out["commits"].([]any); len(cs) != 3 {
+		t.Fatalf("이어지지 않으면 전량이어야 한다: %v", out["commits"])
+	}
+	if _, ok := out["tail"]; ok {
+		t.Fatalf("이어지지 않았는데 tail 이 붙었다: %v", out)
+	}
+
+	// stop 이 없으면 본문은 종전과 같다 (FR-OPT-0-3).
+	_, out = gitReq(t, s, http.MethodGet, "/api/git/log?repo="+f.root, "")
+	if _, ok := out["tail"]; ok {
+		t.Fatalf("stop 없는 응답에 tail: %v", out)
+	}
+	if req, _ := out["requested"].(map[string]any); req != nil {
+		if _, ok := req["stop"]; ok {
+			t.Fatalf("stop 없는 requested 에 stop: %v", req)
+		}
+	}
+
+	code, _ = gitReq(t, s, http.MethodGet, "/api/git/log?repo="+f.root+"&skip=100&stop="+histOid, "")
+	if code != http.StatusBadRequest {
+		t.Fatalf("skip 과 stop → %d, want 400", code)
+	}
+}
+
+// 클라이언트와 같은 계산이어야 한다 — `history-load.js` 의 `_digest` 가 같은 값을 낸다.
+func TestGitOidDigest_Known(t *testing.T) {
+	if got := gitOidDigest(nil); got != "811c9dc5" {
+		t.Fatalf("빈 입력 = %s, want 811c9dc5 (FNV-1a 32 offset)", got)
+	}
+	if got := gitOidDigest([]query.Commit{{Oid: "a"}}); got != "2524c6d2" {
+		t.Fatalf(`"a\n" = %s`, got)
+	}
+}
+
 // 실제로 쓰인 개수를 알려야 한다 — 상한으로 접힌 것을 알리지 않으면 클라이언트는
 // 자기가 요청한 만큼 받았다고 믿고 페이징을 어긋나게 계산한다.
 func TestAPIGitLog_ReportsEffectiveLimit(t *testing.T) {

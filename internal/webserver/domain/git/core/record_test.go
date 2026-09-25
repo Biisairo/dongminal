@@ -144,3 +144,43 @@ func TestService_DefaultRecorder(t *testing.T) {
 		t.Fatal("기본값 상수가 계약과 다르다")
 	}
 }
+
+// FR-OPT-4-8 (DOM-27): 커서 뒤의 것만 준다. 링이 커서와 보유분 사이를 버렸거나 커서가
+// 마지막 Seq 보다 크면(서버가 다시 떴다) 증분으로 이을 수 없으므로 Gap 과 보유분 전부다.
+func TestRecorder_Since(t *testing.T) {
+	r := NewRecorder(3)
+	if recs, span := r.Since(0); len(recs) != 0 || span.Gap || span.Last != 0 || span.First != 1 {
+		t.Fatalf("빈 링: %+v %+v", recs, span)
+	}
+	for i := 0; i < 5; i++ {
+		r.Add(Record{})
+	}
+	seqs := func(recs []Record) []uint64 {
+		out := make([]uint64, 0, len(recs))
+		for _, rc := range recs {
+			out = append(out, rc.Seq)
+		}
+		return out
+	}
+	cases := []struct {
+		after uint64
+		want  []uint64
+		gap   bool
+	}{
+		{5, []uint64{}, false},
+		{4, []uint64{5}, false},
+		{2, []uint64{3, 4, 5}, false},
+		{1, []uint64{3, 4, 5}, true},
+		{0, []uint64{3, 4, 5}, true},
+		{9, []uint64{3, 4, 5}, true},
+	}
+	for _, c := range cases {
+		recs, span := r.Since(c.after)
+		if got := seqs(recs); len(got) != len(c.want) || (len(got) > 0 && (got[0] != c.want[0] || got[len(got)-1] != c.want[len(c.want)-1])) {
+			t.Fatalf("Since(%d) = %v, want %v", c.after, got, c.want)
+		}
+		if span.Gap != c.gap || span.First != 3 || span.Last != 5 {
+			t.Fatalf("Since(%d) span = %+v, want gap=%v first=3 last=5", c.after, span, c.gap)
+		}
+	}
+}
