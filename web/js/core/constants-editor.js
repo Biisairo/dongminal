@@ -331,18 +331,18 @@ const LSP_OFFER_SETTINGS=t('editor.lsp_offer_settings');
 
 // FR-EDT-108 의 조회 종단. 조작(create/rename/delete)은 M5 의 것이므로 여기 없다.
 const FS_LIST_API='/api/fs/list';
-// NOTES_LIVE_EXPLORER_SRS FR-FSL-1 — "이 겹들이 바뀌었나". 조회와 짝이며 같은
-// 루트 가드를 받는다.
-const FS_STAMP_API='/api/fs/stamp';
+// NOTES_LIVE_EXPLORER_SRS FR-FSL-1 · EDITOR_LIVE_RELOAD_SRS FR-ELR-1 — "이 겹들과
+// 열어 둔 이 파일들이 바뀌었나" 를 **한 요청**으로 묻는다 (OPTIMIZE_REFACTOR_SRS
+// FR-OPT-4-2). 겹은 조회와 같은 루트 가드를 받는다. 옛 종단 둘(`/api/fs/stamp`·
+// `/api/file/stamps`)은 서버에 남아 있다 — 옛 화면이 부른다.
+const FS_STAMPS_API='/api/fs/stamps';
 // FR-FSL-5 와 같은 값이어야 한다 — 서버가 상한을 넘긴 요청을 거절하므로,
 // 클라이언트가 먼저 잘라 보내지 않으면 겹을 아주 많이 펼친 사용자에게서 관측이
 // 통째로 멎는다.
 const FS_STAMP_MAX=512;
 
-// EDITOR_LIVE_RELOAD_SRS FR-ELR-1 — "열어 둔 이 파일들이 바뀌었나". 겹의 것
-// (`FS_STAMP_API`)과 나뉘어 있는 이유는 겹의 mtime 이 **파일 내용을 보지 않기**
-// 때문이다 — 편집기가 보는 것이 바로 그 내용이다.
-const FILE_STAMPS_API='/api/file/stamps';
+// 파일 표식이 겹 스탬프와 **다른 값**인 이유는 겹의 mtime 이 파일 내용을 보지 않기
+// 때문이다 — 편집기가 보는 것이 바로 그 내용이다 (FR-ELR-1).
 // FR-ELR-6 의 상한과 같은 값이어야 한다. 서버가 넘긴 요청을 통째로 거절하므로,
 // 먼저 자르지 않으면 탭을 아주 많이 연 사용자에게서 관측이 멎는다
 // (`FS_STAMP_MAX` 와 같은 근거).

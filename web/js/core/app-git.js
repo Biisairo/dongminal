@@ -401,6 +401,13 @@ Object.assign(App.prototype, {
   // 남기고 처리는 GitPanel 이 한다 — 디바운스와 게이팅이 한 곳에 있어야 한다.
   gitSignal(kind){ if(this.gitPanel) this.gitPanel.signal(kind) },
 
+  // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 탐색기·dirty-diff 가 나눠 쓰는 status. 요청은
+  // 이 탭의 신원을 싣는다 — 탐색기도 서버 감시의 임대를 쥔다 (IPC-8).
+  gitStatusHub(){
+    if(!this._gitHub) this._gitHub=new GitStatusHub({clientId:()=>this.clientId||''});
+    return this._gitHub;
+  },
+
   /**
    * FR-GIT-41·185 의 Open File. addTab 의 editor 분기를 그대로 쓴다 — 이미 열려
    * 있으면 그 탭으로 이동한다.
@@ -590,7 +597,7 @@ Object.assign(App.prototype, {
    */
   _onGitChanged(a){
     const repo=a&&a.repo;
-    if(!repo||!this._gitObservers) return;
+    if(!repo) return;
     /**
      * GIT_REFRESH_LIFECYCLE_SRS FR-GRF-28 (`GP-12`): **숨어 있으면 받지 않는다.**
      *
@@ -606,6 +613,9 @@ Object.assign(App.prototype, {
      * 그것이 수집으로 간다. 버리는 것이 아니라 미루는 것이다.
      */
     if(typeof document!=='undefined'&&document.hidden) return;
+    // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 탐색기도 같은 방송을 듣는다 (IPC-8).
+    this._edOnGitChanged(repo,a.mark||'');
+    if(!this._gitObservers) return;
     // 관측기는 **저장소마다** 하나다 (FR-GIT-26·29). 방송이 가리키는 저장소를
     // 보고 있는 관측기만 움직인다 — 남의 저장소 이벤트로 이 창이 요청을 내면
     // 종전에 없던 요청이 생긴다.

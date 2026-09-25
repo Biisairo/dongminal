@@ -977,7 +977,7 @@
 |---|---|---|---|
 | `D-OPT-1` | IPC 확장 방식 | `hello.features` 로 기능을 협상하고 `ProtocolVersion` 은 올리지 않는다 (데몬은 PTY 를 잃지 않고 살아남는다) | 채택 |
 | `D-OPT-2` | 숨은 터미널의 지연 연결 | 채택한다. 단 숨은 도구의 OSC 부수효과(cwd·클립보드) 소비자를 먼저 조사하고, 필요한 것은 서버 경로로 옮긴다 | 채택 |
-| `D-OPT-3` | 폴링→푸시 전환에 따른 SRS 개정 | FR-EDT-77 · FR-GIT-101a · FR-GVR-4 · `gitReposInterval` 을 "안전망 주기(기본 30 s)" 로 개정한다 | 채택 |
+| `D-OPT-3` | 폴링→푸시 전환에 따른 SRS 개정 | FR-EDT-77 · FR-GIT-101a · FR-GVR-4 · `gitReposInterval` 을 "안전망 주기(기본 30 s)" 로 개정한다. 탐색기 git 색의 안전망은 `gitStatusInterval` 이다 — FR-FSL-7 · FR-E… | 채택 |
 | `D-OPT-4` | 칸 SSE | 1단계로 `presence=1`(방송 없음)만 한다. 연결 수를 줄이는 다중 신원 SSE 는 비목표 | 채택 |
 | `D-OPT-5` | 상태 파일 지연 쓰기 | 이번에는 하지 않는다. 동일 내용 건너뛰기와 락 밖 쓰기만 한다 (FBE-17 · FR-SFD-1 유지) | 채택 |
 | `D-OPT-6` | exit stderr 사유 | 폐기한다. 필드와 주석을 지운다 | 채택 |

@@ -60,6 +60,14 @@ class FileTreeStore {
     // REPO_FIX 04 §3A-6: 직전에 적용한 git 관측의 키(저장소·접두·mark). 같으면 다시
     // 계산하지 않는다.
     this.gitKey='';
+    // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 마지막으로 **성공한** git 관측의 시각(0 은
+    // 없음 — 매 틱 묻는다), 서버가 푼 저장소 루트와 mark. 뒤의 둘은 `git_changed`
+    // 가 이 루트의 것인지, 이미 받은 관측인지 가리는 근거다.
+    this.gitOkAt=0;
+    this.gitRepo='';
+    this.gitMark='';
+    // 비행 중에 온 즉시 계기 — 끝나면 한 번 더 묻는다 (FR-GIT-21 과 같은 규약).
+    this.gitAgain=false;
     // FR-FSL-12: 종단이 없거나 4xx 면 이 루트에서는 다시 묻지 않는다
     // (`gitOff`·`ignOff` 와 같은 관례). 굳히지 않으면 옛 서버에 붙은 새
     // 브라우저가 주기마다 영영 404 를 받는다.
@@ -99,16 +107,37 @@ class FileTreeStore {
     return out.length>FS_STAMP_MAX?out.slice(0,FS_STAMP_MAX):out;
   }
 
+  /**
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-4-2: 이 루트 하나만 묻는다 (창 활성화·사이드 전환
+   * 같은 즉시 계기). 편집기 틱은 루트 전부와 열린 파일을 `edStampTick` 이 한 요청에
+   * 묶는다 — 모양은 같고 둘이 `stampBegin`·`stampEnd` 를 나눠 쓴다.
+   */
   async pollStamp(){
-    if(this.stampOff||this.stampBusy||!this.root) return;
-    const dirs=this.stampDirs();
+    const q=this.stampBegin();
+    if(!q) return;
+    const r=await apiPost(FS_STAMPS_API,{trees:[q],paths:[]});
+    await this.stampEnd(q.dirs,r);
+  }
+
+  // 물을 것이 있으면 이 루트의 몫(`{root,dirs}`)을 내고 busy 를 쥔다. 없으면 null.
+  stampBegin(){
+    if(this.stampOff||this.stampBusy||!this.root) return null;
     this.stampBusy=true;
-    const r=await apiPost(FS_STAMP_API,{root:this.root,dirs});
+    return {root:this.root,dirs:this.stampDirs()};
+  }
+
+  // `/api/fs/stamps` 의 답에서 이 루트의 몫을 읽는다. busy 는 여기서 푼다.
+  async stampEnd(dirs,r){
     this.stampBusy=false;
     if(r.status===0) return;   // 전송 실패는 판정이 아니다
-    // FR-FSL-12: 4xx 는 "이 루트로는 물을 수 없다" 는 서버의 답이다.
+    // FR-FSL-12: 4xx 는 "이 루트로는 물을 수 없다" 는 서버의 답이다. 종단이 없는
+    // 옛 서버의 404 도 여기로 온다.
     if(!r.ok){ if(r.status>=400&&r.status<500) this.stampOff=true; return }
-    const st=r.data&&r.data.stamps;
+    const e=r.data&&r.data.trees&&r.data.trees[this.root];
+    if(!e||typeof e!=='object') return;
+    // 루트마다의 판정은 옛 종단이 상태 코드로 말하던 것과 같다 — 같은 규칙이다.
+    if(e.code){ if(e.status>=400&&e.status<500) this.stampOff=true; return }
+    const st=e.stamps;
     if(!st||typeof st!=='object') return;
     const {reload,gone}=ftObsPoll(this.obs,dirs,st,Date.now());
     // T-2.3: 사라진 겹의 옛 목록은 버린다 — 펼침은 남는다. 다시 생기면 새로 읽는다.

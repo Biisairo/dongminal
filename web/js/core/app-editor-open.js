@@ -231,14 +231,26 @@ Object.assign(App.prototype, {
    * 않은 회차에는 이 요청 하나가 전부다 (`pollStamp` 와 같은 형태이며 같은 근거).
    *
    * 새 타이머를 만들지 않는다 (FR-ELR-10). `_edStartGitPoll` 의 같은 틱에 얹히므로
-   * 주기는 `Polling` 설정을 그대로 따른다.
+   * 주기는 `Polling` 설정을 그대로 따른다. 틱은 `edStampTick` 이 겹 스탬프와 한
+   * 요청에 묶는다 (FR-OPT-4-2) — 이 함수는 파일만 묻는 같은 모양이다.
    */
   async edPollDocStamps(){
-    if(this._edStampsOff||this._edStampsBusy) return;
+    const paths=this._edDocStampsBegin();
+    if(!paths) return;
+    const r=await apiPost(FS_STAMPS_API,{trees:[],paths});
+    this._edDocStampsEnd(paths,r);
+  },
+
+  // 물을 파일이 있으면 그 목록을 내고 busy 를 쥔다. 없으면 null.
+  _edDocStampsBegin(){
+    if(this._edStampsOff||this._edStampsBusy) return null;
     const paths=this._edLiveDocs();
-    if(!paths.length) return;
+    if(!paths.length) return null;
     this._edStampsBusy=true;
-    const r=await apiPost(FILE_STAMPS_API,{paths});
+    return paths;
+  },
+
+  _edDocStampsEnd(paths,r){
     this._edStampsBusy=false;
     // FR-ELR-15: 전송 실패는 판정이 아니다 — 다음 회차에 다시 묻는다.
     if(r.status===0) return;
@@ -249,7 +261,7 @@ Object.assign(App.prototype, {
       if(r.status>=400&&r.status<500) this._edStampsOff=true;
       return;
     }
-    const st=r.data&&r.data.stamps;
+    const st=r.data&&r.data.paths;
     if(!st||typeof st!=='object') return;
     for(const p of paths){
       const now=st[p];
@@ -264,6 +276,57 @@ Object.assign(App.prototype, {
       // 갱신되고 모든 뷰가 알림을 받는다. 시선은 칸마다 지켜진다 (FR-ELR-30).
       this.edDocRefresh(p);
     }
+  },
+
+  /**
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-4-2 (IPC-8): 겹 스탬프와 파일 표식을 **요청 하나**로
+   * 묻는다.
+   *
+   *   이전 동작: 틱마다 보이는 루트당 `/api/fs/stamp` 하나 + `/api/file/stamps` 하나
+   *   새  동작: `/api/fs/stamps` 하나
+   *   이유:     같은 틱의 같은 물음이다 (FR-FSL-7 · FR-ELR-10)
+   *
+   * @param {FileTreeStore[]} stores 이 틱에 볼 관측들
+   */
+  async edStampTick(stores){
+    const trees=[],owners=[];
+    for(const st of stores){
+      const q=st.stampBegin();
+      if(q){trees.push(q);owners.push(st)}
+    }
+    const paths=this._edDocStampsBegin();
+    if(!trees.length&&!paths) return;
+    const r=await apiPost(FS_STAMPS_API,{trees,paths:paths||[]});
+    if(paths) this._edDocStampsEnd(paths,r);
+    await Promise.all(owners.map((st,i)=>st.stampEnd(trees[i].dirs,r)));
+  },
+
+  /**
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-4-1 (IPC-8 · FEC-12): **탐색기도 `git_changed` 를 듣는다.**
+   *
+   *   이전 동작: 방송을 듣는 것은 Git 관측기뿐이었다. 탐색기의 색은 다음 3초 틱까지
+   *             몰랐고, 그 틱은 변화가 없어도 status 전량을 받았다
+   *   새  동작: 방송이 가리키는 저장소를 보는 탐색기가 곧바로 묻는다. 주기 status 는
+   *             안전망(`gitStatusInterval`)으로 내렸다
+   *   이유:     서버는 이미 안다 (GIT_PUSH_OBSERVE_SRS)
+   *
+   * 판정은 Git 관측기와 같다 — 요청한 루트 또는 서버가 푼 저장소 루트가 방송의 것과
+   * 같고, 이미 받은 mark 가 아니어야 한다 (FR-GPO-22). 스탬프도 같은 계기에 묻는다 —
+   * 색과 목록은 한 틱에 움직인다 (FR-FSL-7).
+   */
+  _edOnGitChanged(repo,mark){
+    const hit=new Map();
+    for(const t of this._edVisibleTrees()){
+      const st=t.store;
+      if(!st||hit.has(st)) continue;
+      if(st.root!==repo&&st.gitRepo!==repo) continue;
+      if(mark&&st.gitMark===mark) continue;
+      hit.set(st,t);
+    }
+    if(!hit.size) return;
+    // `now` 가 캐시를 넘는다 — 방송 전의 관측을 나눠 받지 않는다.
+    for(const t of hit.values()) t.pollGit({now:true});
+    this.edStampTick([...hit.keys()]);
   },
 
   /**

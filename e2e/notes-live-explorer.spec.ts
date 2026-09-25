@@ -406,7 +406,8 @@ test.describe('묶음 L — 탐색기의 살아있는 반영 (FR-FSL-1~14)', () 
 
   test('V-24: stamp 가 404 면 그 뒤로 묻지 않는다', async ({ page, request }) => {
     // 종단이 없는 옛 서버다. 디스크로 만들 수 없으므로 라우트로 세운다.
-    await page.route('**/api/fs/stamp', async (route) => {
+    // OPTIMIZE_REFACTOR_SRS FR-OPT-4-2: 묻는 종단이 `/api/fs/stamps` 하나가 됐다.
+    await page.route('**/api/fs/stamps', async (route) => {
       await route.fulfill({ status: 404, json: { code: 'not_found' } });
     });
     await addEditor(request, PLAIN);

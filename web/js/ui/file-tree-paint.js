@@ -457,15 +457,63 @@ Object.assign(FileTree.prototype, {
    *   전송 실패 · 5xx         이번 회차만 건너뛴다
    */
   async pollGit(opts){
-    if(this._gitOff||this._gitBusy||!this.root) return;
+    if(this._gitOff||!this.root) return;
+    // 비행 중에 온 즉시 계기는 버리지 않고 "끝나면 한 번 더" 로 남긴다 — 주기 물음이
+    // 안전망(30초)으로 내려간 뒤에는 버리면 그 변화를 다음 안전망까지 놓친다.
+    if(this._gitBusy){ if(opts&&opts.now) this.store.gitAgain=true; return }
     // 백오프 중이면 건너뛴다. 창 활성화 같은 즉시 계기는 그것을 무시한다
     // (FR-DIR-32) — 사용자가 방금 한 일의 결과를 늦춰 보일 이유가 없다.
     const now=Date.now();
     if(!(opts&&opts.now)&&this._gitRetryAt&&now<this._gitRetryAt) return;
     this._gitBusy=true;
-    const r=await apiGet(GIT_STATUS_API,{query:{repo:this.root}});
-    const d=r.data;
+    // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 같은 root 의 물음은 GitStatusHub 가 한 벌로
+    // 나눠 쓴다 (FEU-5). 요청은 clientId 를 실어 서버 감시의 임대를 쥔다 (IPC-8).
+    // 즉시 계기는 방금 한 일(저장·조작·활성화) **뒤의** 답이어야 하므로 캐시를 넘는다 —
+    // 그 뒤에 묻는 소비자(열린 문서들)는 이 요청을 나눠 쓴다.
+    const hub=this.app.gitStatusHub();
+    if(opts&&opts.now) hub.invalidate();
+    const r=await hub.ask(this.root);
     this._gitBusy=false;
+    this._applyGit(r,now,Date.now());
+    if(this.store.gitAgain){ this.store.gitAgain=false; return this.pollGit({now:true}) }
+  },
+
+  /**
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: **스탬프 틱에서 git 색을 캐시로 다시 칠한다.**
+   *
+   * 주기 status 는 안전망(`gitStatusInterval`)으로 내렸다. 그래도 색과 목록이 한
+   * 틱에 움직여야 한다 (FR-EDT-77 · FR-FSL-7) — 그래서 스탬프를 묻는 틱마다 hub 가
+   * 가진 마지막 관측(패널이 넘긴 것 포함, FEU-M1)으로 칠한다. 요청은 없다. 같은
+   * 관측이면 `gitKey` 가 걸러 칠하지 않는다.
+   */
+  paintGitCached(){
+    if(this._gitOff||!this.root) return;
+    const got=this.app.gitStatusHub().peek(this.root);
+    if(!got) return;
+    // 안전망의 시계는 **그 관측의 시각**으로 간다 — 오래된 캐시를 지금 칠했다고
+    // 지금 관측한 것이 되지 않는다.
+    this._applyGit({ok:true,status:200,data:got.data},Date.now(),got.at);
+  },
+
+  /**
+   * 이 틱에 status 를 물어야 하는가 (FR-OPT-4-1 안전망).
+   *
+   * 관측이 한 번도 성공하지 않았으면 매 틱 묻는다 — 일시 실패의 회복과 비저장소의
+   * 백오프(FR-DIR-31)가 종전 주기 그대로다. 성공한 뒤에는 `git_changed` 가 본줄이고
+   * 주기는 `gitStatusInterval` 이다. 0 은 "주기로 묻지 않는다" (FR-GIT-23).
+   */
+  gitDue(){
+    const at=this.store.gitOkAt;
+    if(!at) return true;
+    return gitStatusInterval>0&&Date.now()-at>=gitStatusInterval;
+  },
+
+  // `at` 은 이 관측의 시각이다 — 성공하면 안전망의 시계(`gitOkAt`)가 그것으로 간다.
+  _applyGit(r,now,at){
+    const d=r.data;
+    // 성공하지 못한 답은 관측이 아니다 — 안전망 시계를 걷어 다음 틱이 다시 묻게 한다.
+    const okAt=this.store.gitOkAt||0;
+    this.store.gitOkAt=0;
     if(r.status===0) return;
     if(!r.ok){
       // 503 은 git 자체가 없다는 답이다 — 그대로 두면 3초마다 영영 묻는다. Git
@@ -497,6 +545,9 @@ Object.assign(FileTree.prototype, {
     if(prefix===null){this._gitBack(now);this._setStatus(null);return}
     this._gitRetryAt=0;
     this._repoPrefix=prefix;
+    this.store.gitOkAt=Math.max(okAt,at);
+    this.store.gitRepo=repo;
+    this.store.gitMark=d.mark||'';
     /**
      * REPO_FIX 04 §3A-6 (T-8.1): 관측이 같으면(저장소·접두·서버 mark) 상태 맵·rollup·
      * 전체 재칠을 하지 않는다. 판정은 서버의 관측 식별자 하나로만 한다(§3A-0 X5).

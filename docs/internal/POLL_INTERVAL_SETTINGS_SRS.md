@@ -2,6 +2,12 @@
 
 > **문서 상태**: 승인·구현완료
 
+> **후속 문서가 이 SRS 의 일부를 개정했다.** 어긋나면 후속이 이긴다.
+>
+> | 개정된 것 | 어떻게 | 어디서 |
+> |---|---|---|
+> | ③ `gitStatusInterval` (Git 패널의 안전망) · ⑤ `gitReposInterval` (편집기 트리의 git 색·파일 목록) | ③ 은 **탐색기 git 색의 안전망이기도 하다**(기본 30초, 0 은 끔). 탐색기 색은 `git_changed` 가 본줄이다. ⑤ 의 편집기 틱은 스탬프(겹·열린 파일, `POST /api/fs/stamps` 하나)를 묻고 git 색을 캐시로 다시 칠한다 — status 를 묻지 않는다. FR-PIS-21 의 ⑤ 안내는 "탐색기의 파일 목록과 열어 둔 파일의 바깥 변경" 이 된다 | OPTIMIZE_REFACTOR_SRS FR-OPT-4-1·4-2 / D-OPT-3 |
+
 - 접수: 2026-09-08 (요구 ⑪)
 - 인계 노트: [`UX_BATCH7_HANDOFF`](./UX_BATCH7_HANDOFF.md) §3.1a
 

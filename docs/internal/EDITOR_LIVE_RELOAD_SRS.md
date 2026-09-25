@@ -2,6 +2,12 @@
 
 > **문서 상태**: 승인·구현완료
 
+> **후속 문서가 이 SRS 의 일부를 개정했다.** 어긋나면 후속이 이긴다.
+>
+> | 개정된 것 | 어떻게 | 어디서 |
+> |---|---|---|
+> | FR-ELR-10 (편집기 창의 기존 틱에 얹는다) | 틱은 그대로다. 물음이 **겹 스탬프와 한 요청**(`POST /api/fs/stamps` 의 `paths`)에 실린다 — 틱당 요청이 둘에서 하나가 됐다. `/api/file/stamps` 종단은 옛 화면을 위해 남는다. 그 틱의 git status 는 push·안전망으로 옮겼다 | OPTIMIZE_REFACTOR_SRS FR-OPT-4-1·4-2 / D-OPT-3 |
+
 - 접수: 사용자 보고 `U-31` (2026-09-18)
 - 선행: [`EDITOR_EXTERNAL_CHANGE_SRS`](./EDITOR_EXTERNAL_CHANGE_SRS.md) — 이 문서는
   그 문서의 `FR-EXC-8`(폴링하지 않는다)을 **대체한다.** 나머지 조항은 그대로다
@@ -122,7 +128,8 @@
 
 ### 3.2 묶음 P — 물음 (사용자 결정 D-1: 기존 틱에 편승)
 
-**FR-ELR-10** 물음은 **편집기 창의 기존 틱**에 얹는다 (`_edStartGitPoll`). 새
+**FR-ELR-10** (개정 2026-09-26 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-2: 물음은 겹 스탬프와 한 요청
+`POST /api/fs/stamps` 에 실린다) 물음은 **편집기 창의 기존 틱**에 얹는다 (`_edStartGitPoll`). 새
 타이머도 새 설정 키도 만들지 않는다. 주기는 `gitReposInterval`(기본 3000ms)이며
 `Polling` 설정이 그대로 적용된다.
 

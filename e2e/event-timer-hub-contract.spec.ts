@@ -48,6 +48,9 @@ const CONST_GIT_JS = [
 ].map((m) => join(WEB, 'core', `${m[1]}.js`));
 const EVENT_BUS_JS = join(WEB, 'core', 'event-bus.js');
 const PANEL_POLL_JS = join(WEB, 'git', 'panel-poll.js');
+// OPTIMIZE_REFACTOR_SRS FR-OPT-4-7: collect 가 `unchanged` 답을 채우는 함수
+// (`gitStatusMerge`)가 여기 산다. index.html 에서도 panel-poll 앞이다.
+const STATUS_HUB_JS = join(WEB, 'git', 'status-hub.js');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // T-1·T-2 — 푸시와 스냅샷의 경쟁 (REMOTE_STATE_SNAPSHOT_SRS FR-RSF-3·5·7)
@@ -251,6 +254,7 @@ async function loadPanelPoll(page: Page) {
     (window as any).pathJoin = (a: string, b: string) => a + '/' + b;
   });
   await page.addScriptTag({ path: API_JS });
+  await page.addScriptTag({ path: STATUS_HUB_JS });
   await page.addScriptTag({ path: PANEL_POLL_JS });
   await page.evaluate(() => {
     const p = new (window as any).GitPanel();

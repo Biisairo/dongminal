@@ -1044,7 +1044,7 @@ I18N.register('en', {
   'poll.agents.label': 'Agent activity',
   'poll.git_console.hint': 'Git\'s command history. Polled only while that tab is visible.',
   'poll.git_console.label': 'git console',
-  'poll.git_repos.hint': 'The change-count badges in the sidebar, the explorer\'s file list and git colours',
+  'poll.git_repos.hint': 'The change-count badges in the sidebar, the explorer\'s file list and outside changes to open files',
   'poll.git_repos.label': 'Repo list · explorer',
   'poll.git_status.hint': 'Normally the server reports git changes right away. This is a safety net that picks up what that misses, so it can be rare.',
   'poll.git_status.label': 'git status safety net',

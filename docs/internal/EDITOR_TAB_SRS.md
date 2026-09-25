@@ -12,6 +12,7 @@
 > | Editor 창의 좌측 = 탐색기 | 좌측은 **사이드**이고 `Explorer`·`Changes` 두 탭을 갈아 끼운다 | REPO_TAB_UNIFY_SRS FR-RTU-11·12 |
 > | 사이드바 `Editor` 탭 | `Git` 과 합쳐 `Repo` 한 탭이 됐다 (`Ctrl+Shift+2`) | REPO_TAB_UNIFY_SRS FR-RTU-1·7 |
 > | FR-EDT-76·77 (탐색기 폴링의 대상은 **활성 Editor 창**) | 그 창의 **사이드가 `Explorer` 일 때만**이다. 사이드는 탭 교체이므로 `Changes` 쪽에 있으면 트리는 화면에 없다 — 게이트가 없어 폴링을 끈 설정에서도 status 가 왔다 (실측) | REPO_TAB_UNIFY_SRS FR-RTU-12·14 / D-RTU-25 |
+> | FR-EDT-77 (탐색기 git 색의 주기 = `gitReposInterval`) | **status 는 주기로 묻지 않는다.** `git_changed` 가 본줄이고(요청에 `clientId` 를 실어 임대를 쥔다) 주기로는 **안전망(`gitStatusInterval`, 기본 30초)** 에만 묻는다. `gitReposInterval` 의 틱은 스탬프를 묻고 **캐시로 색을 다시 칠한다**(요청 없음) — 색과 목록은 여전히 한 틱에 움직인다. 같은 root 의 status 는 GitStatusHub 가 탐색기·열린 문서와 나눠 쓴다 | OPTIMIZE_REFACTOR_SRS FR-OPT-4-1 / D-OPT-3 |
 > | FR-EDT-78 (즉시 갱신의 계기) | 같은 게이트를 받는다. 대신 사이드를 `Explorer` 로 돌리는 것이 **새 계기**다 — 그동안 쉰 트리는 낡았다 | REPO_TAB_UNIFY_SRS D-RTU-25 |
 > | Editor 창의 활성 복원 | id 가 아니라 **루트**로 되살린다 (`activeEditorRoot`) — 재조정이 같은 루트의 창을 새 id 로 만들 수 있다 | REPO_TAB_UNIFY_SRS D-RTU-32 |
 > | 저장하지 않은 편집의 가드 (탭 닫기에만 있었다) | **재조정이 창을 지울 때도 지킨다** — 루트가 목록에서 빠져도 dirty 편집기가 있으면 그 창을 남긴다. 묻지 않고 미룬다 (재조정은 SSE 로 아무 때나 불리는 비동기 반영이다) | WORKBENCH_REVIEW_SRS FR-WBR-40~42 / D-WBR-9 |
@@ -663,7 +664,14 @@ DOM 재사용(`reconcileList`, `repaint.js:61`)을 쓰고 매 갱신마다 트�
 **FR-EDT-76.** 상태 갱신은 **Editor 창이 활성일 때만** 돈다. 비활성 창은 git 을
 호출하지 않는다 (FR-GIT-24 와 같은 근거).
 
-**FR-EDT-77.** (개정 2026-09-08) 활성일 때의 주기는 **`gitReposInterval`** 이다 —
+**FR-EDT-77.** (개정 2026-09-26 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-1 / D-OPT-3) **아래 문단은
+대체되었다.** 탐색기의 git 색은 `git_changed` 로 갱신하고, 주기 status 는 **안전망
+`gitStatusInterval`(기본 30초, 0 은 끔)** 이다. 관측이 한 번도 성공하지 않았으면(일시 실패·비저장소
+백오프) 종전처럼 틱마다 묻는다. `gitReposInterval` 의 틱은 스탬프를 묻고, 그 틱에 GitStatusHub 가
+가진 마지막 관측(Git 패널이 넘긴 것 포함)으로 색을 다시 칠한다 — "같은 사실을 보는 두 화면이
+다른 속도로 갱신될 이유가 없다" 는 요구는 서버 push 로 더 강하게 지켜진다.
+
+(개정 2026-09-08, 대체됨) 활성일 때의 주기는 **`gitReposInterval`** 이다 —
 사이드바 목록과 **같은 이름 하나**를 딛는다. 종전에는 `EDITOR_GIT_POLL_MS` 라는
 별칭이 `GIT_REPOS_POLL_MS` 를 가리켰고, 주기가 설정이 되면서(POLL_INTERVAL_SETTINGS_SRS
 FR-PIS-12) 그 별칭만 로드 시점 값에 굳는 자리가 됐다. "둘이 같아야 한다" 는 이 조항의

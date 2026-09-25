@@ -348,8 +348,11 @@ test.describe('묶음 X — 파일 탐색기 (FR-EDT-57~68)', () => {
       (p) => document.querySelector(`.ed-tree .ed-row[data-path="${String(p).replace(/\\/g, '\\\\')}"]`),
       j(REPO, 'bulk', 'f10.txt'));
 
+    // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1 (FR-EDT-77 개정): 틱마다 도는 것은 이제 스탬프
+    // 물음과 캐시로 다시 칠하기다 — status 는 안전망(30초)과 push 뿐이다. 재려는 것은
+    // "틱이 돌아도 시선이 유지된다" 이므로 세는 대상을 그 틱의 요청으로 옮겼다.
     const poll = await page.evaluate(() => (window as any).gitReposInterval);
-    const c = counter(page, isStatusOf(REPO));
+    const c = counter(page, (u) => u.includes('/api/fs/stamps'));
     await expect.poll(() => c.n, { timeout: poll * 3 + 5000 }).toBeGreaterThanOrEqual(2);
 
     await expect(row(page, j(REPO, 'bulk', 'f59.txt'))).toHaveCount(1);

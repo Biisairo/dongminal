@@ -7,6 +7,7 @@
 > | 개정된 것 | 어떻게 | 어디서 |
 > |---|---|---|
 > | FR-NOT-11 (`notes` 가 없으면 메모장 행 하나만 사라진다) | **그 말이 부족했다.** 메모 루트가 `edRoots()` 에서 빠지면 재조정이 **메모장 창을 통째로 지웠고**, 그때 저장하지 않은 편집이 묻지도 알리지도 않고 사라졌다. 이제 dirty 편집기가 있으면 그 창을 남긴다 | WORKBENCH_REVIEW_SRS FR-WBR-40~42 / D-WBR-9 |
+> | FR-FSL-7 (스탬프는 git 색 **폴링**과 같은 틱) | 틱은 그대로 `gitReposInterval` 이고 **스탬프 물음과 git 색의 캐시 재칠**이 같은 틱이다 — git status 는 push·안전망으로 옮겼다. 물음은 보이는 루트 전부와 열린 파일(FR-ELR-10)을 **`POST /api/fs/stamps` 한 요청**에 싣는다. `/api/fs/stamp` 종단은 옛 화면을 위해 남는다. FR-FSL-12 의 "4xx 면 묻지 않는다" 는 요청 전체의 4xx 와 **루트마다의 판정**(`{code,status}`) 둘에 같이 적용한다 | OPTIMIZE_REFACTOR_SRS FR-OPT-4-1·4-2 / D-OPT-3 |
 > | FR-NOT-13 (`_edPatchList` 하나로 간다) | 그 규약을 우회한 **넷째 자리**가 있었다 — 워크스페이스 충돌 재시도가 `_edApply({home,list})` 를 직접 불러 `notes` 를 지웠다. 이름을 `_edApplyServer` 로 바꿔 "서버 응답 전용" 을 계약으로 못박았다 | WORKBENCH_REVIEW_SRS FR-WBR-30·31 |
 
 
@@ -223,7 +224,11 @@ root 창의 근거이지만 메모 루트는 자기 행 하나의 근거일 뿐�
 **FR-FSL-6.** 클라이언트는 **관측(`FileTreeStore`)** 에 마지막 스탬프를 기억한다.
 루트마다 하나이므로 같은 루트를 보는 칸이 넷이어도 요청은 한 벌이다 (FR-SVS-20).
 
-**FR-FSL-7.** 스탬프를 묻는 주기는 **git 색 폴링과 같은 틱**이다 (`gitReposInterval`).
+**FR-FSL-7.** (개정 2026-09-26 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-1·4-2) 스탬프를 묻는 틱은
+`gitReposInterval` 이고 **그 틱에 git 색을 캐시로 다시 칠한다** — git status 요청은 push 와 안전망의
+것이 됐다. 물음은 `POST /api/fs/stamps` 하나에 보이는 루트 전부와 열린 파일을 싣는다.
+
+(대체된 원문) 스탬프를 묻는 주기는 **git 색 폴링과 같은 틱**이다 (`gitReposInterval`).
 새 타이머를 만들지 않는다 — 두 관측이 다른 속도로 도는 것은 사용자가 볼 이유가 없는
 사실이고, 두 벌로 두면 한쪽만 고쳐진다 (FR-EDT-77 과 같은 근거).
 

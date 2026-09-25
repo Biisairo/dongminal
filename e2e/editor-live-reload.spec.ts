@@ -82,11 +82,15 @@ async function typeInto(page: Page, name: string, text: string) {
   await expect.poll(() => dirtyOf(page, name)).toBe(true);
 }
 
-// `/api/file/stamps` 의 요청 본문을 모은다 — 무엇을 묻고 있는지가 곧 관측의 범위다.
+// 파일 표식 물음의 본문(`paths`)을 모은다 — 무엇을 묻고 있는지가 곧 관측의 범위다.
+// OPTIMIZE_REFACTOR_SRS FR-OPT-4-2: 물음은 겹 스탬프와 한 요청(`/api/fs/stamps`)에
+// 실린다. 파일을 묻지 않은 요청(겹만)은 세지 않는다.
 function stampsProbe(page: Page) {
   const box: { bodies: string[] } = { bodies: [] };
   page.on('request', ((req: any) => {
-    if (String(req.url()).includes('/api/file/stamps')) box.bodies.push(String(req.postData() || ''));
+    if (!String(req.url()).includes('/api/fs/stamps')) return;
+    const paths = (JSON.parse(String(req.postData() || '{}')).paths || []) as string[];
+    if (paths.length) box.bodies.push(JSON.stringify(paths));
   }) as never);
   return box;
 }
@@ -163,7 +167,7 @@ test('V-ELR-10: 보이지 않는 창의 파일은 묻지 않는다', async ({ pa
 });
 
 test('V-ELR-11: 종단이 없는 서버(404)면 묻기를 멈춘다', async ({ page, request }) => {
-  await page.route('**/api/file/stamps', r => r.fulfill({ status: 404, body: '{}' }));
+  await page.route('**/api/fs/stamps', r => r.fulfill({ status: 404, body: '{}' }));
   const { saved } = await mkroot(request, page, 'old', { 'f.txt': 'x\n' });
   await openFile(page, saved, 'f.txt');
   const probe = stampsProbe(page);

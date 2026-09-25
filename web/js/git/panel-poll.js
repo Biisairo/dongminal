@@ -481,9 +481,22 @@ Object.assign(GitPanel.prototype, {
     // 끊겼다 (GP-1). `clientId` 를 실으면 그 신원의 SSE 구독이 임대를 쥐므로,
     // 이 요청이 뜸해져도 아예 끊겨도 감시가 산다.
     const cid=this.app&&this.app.clientId?'&clientId='+encodeURIComponent(this.app.clientId):'';
-    r=await apiGet('/api/git/status?repo='+encodeURIComponent(repo)+cid,
-      {timeout:GIT_STATUS_FETCH_TIMEOUT_MS});
+    /**
+     * OPTIMIZE_REFACTOR_SRS FR-OPT-4-7 (IPC-30): **가진 관측의 mark 를 싣는다.**
+     *
+     *   이전 동작: 안전망·push 후속·가시성 복귀가 변화가 없어도 매번 목록 전량을 받았다
+     *   새  동작: 서버가 같은 관측이면 `unchanged:true` 만 답하고, 보낼 때 잡아 둔
+     *             본문으로 채워 그대로 적용한다 — 아래 경로는 달라지지 않는다
+     *   이유:     그 요청들의 대부분은 변화가 없다. 옛 서버는 인자를 무시한다
+     */
+    const prev=this._status;
+    const im=prev&&prev.mark&&prev.requested===repo?'&ifMark='+encodeURIComponent(prev.mark):'';
+    r=gitStatusMerge(await apiGet('/api/git/status?repo='+encodeURIComponent(repo)+cid+im,
+      {timeout:GIT_STATUS_FETCH_TIMEOUT_MS}),prev);
     d=r.data;
+    // FR-OPT-4-1 (FEU-M1): 이 관측을 탐색기와 나눈다 — 같은 root 를 보는 탐색기가
+    // 다음 틱에 요청 없이 칠한다.
+    if(this._seq===seq&&r.ok&&d&&this.app&&this.app.gitStatusHub) this.app.gitStatusHub().feed(repo,r);
     // 리포가 바뀌면 setRepo 가 소유권을 끊는다 — 그 뒤 도착한 응답은 플래그를
     // 건드리지 않는다.
     if(this._seq!==seq){this._applyStatus(tok,r,d);return}

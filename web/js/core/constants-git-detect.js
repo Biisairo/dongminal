@@ -41,6 +41,11 @@ const GIT_WATCHDOG_CHECK_MS=1000;
 // 넉넉하되, 백오프 상한(GIT_FAIL_BACKOFF_MAX_MS)보다는 짧다 — 시한이 그보다 길면
 // 실패가 주기를 늘리기 전에 다음 회차들이 먼저 밀린다.
 const GIT_STATUS_FETCH_TIMEOUT_MS=20000;
+// GitStatusHub 의 캐시 수명 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-1). 같은 회차의 소비자
+// (탐색기·열린 문서·방금 관측을 넘긴 패널)가 한 답을 나눠 쓸 만큼만 길다 — 즉시
+// 신호는 이 값을 기다리지 않고 `invalidate()` 로 넘는다. 서버 캐시(200ms)보다 길어야
+// 뜻이 있다.
+const GIT_STATUS_HUB_TTL_MS=500;
 /**
  * 쓰기 한 번의 시한 (GIT_REFRESH_LIFECYCLE_SRS FR-GRF-6 · D-GRF-9).
  *

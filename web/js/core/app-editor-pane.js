@@ -7,10 +7,17 @@
  */
 Object.assign(App.prototype, {
   /**
-   * FR-EDT-77: 주기는 `GIT_REPOS_POLL_MS` 와 같다. 캐시 TTL 200ms + single-flight
-   * 위에 얹히므로 Git 패널과 동시에 떠 있어도 git 실행이 겹치지 않는다 (§2.7).
+   * FR-EDT-77 (개정 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-1): 틱의 주기는 `gitReposInterval`
+   * 이고, 그 틱이 묻는 것은 **스탬프**다. git status 는 `git_changed` 가 본줄이고
+   * 주기로는 안전망(`gitStatusInterval`)에만 묻는다 (`gitDue`).
    *
-   * NOTES_LIVE_EXPLORER_SRS FR-FSL-7 / D-7: 겹의 스탬프도 **같은 틱**에 묻는다.
+   *   이전 동작: 틱마다 보이는 루트의 status 전량 + 루트마다 fs/stamp + file/stamps
+   *   새  동작: 틱마다 `/api/fs/stamps` 하나. 색은 hub 가 가진 관측으로 **같은 틱에**
+   *             다시 칠한다(요청 없음). status 는 안전망이 찼거나 관측이 없을 때만
+   *   이유:     서버가 변화를 밀어 준다 (IPC-8 · FEC-12). 변화가 없는 틱에 status
+   *             전량을 받을 까닭이 없다
+   *
+   * NOTES_LIVE_EXPLORER_SRS FR-FSL-7 / D-7: 겹의 스탬프와 색은 **같은 틱**이다.
    * 새 타이머를 만들지 않는 이유는 두 관측이 한 화면의 두 면이기 때문이다 —
    * 주기가 갈리면 사용자는 "색은 바뀌었는데 목록은 그대로인" 중간 상태를 본다.
    *
@@ -20,15 +27,20 @@ Object.assign(App.prototype, {
     if(this._edGitPoll) this._edGitPoll.stop();
     // FR-RST-23: 종전에는 숨김만 보고 **복귀 시 갱신이 없었다** — 돌아온 화면이
     // 한 주기 동안 낡은 채였다. 공용 규약이 그것을 함께 준다.
-    this._edGitPoll=visiblePoll(()=>gitReposInterval,()=>{
-      for(const t of this._edVisibleTrees()){ t.pollGit(); t.pollStamp() }
-      // EDITOR_LIVE_RELOAD_SRS FR-ELR-10: **열어 둔 파일의 내용도 같은 틱이다.**
-      // 트리와 갈라 두면 사용자는 "목록은 바뀌었는데 열어 둔 내용은 그대로인"
-      // 중간 상태를 본다 — 위 주석이 색과 목록에 대해 적은 것과 같은 근거다.
-      // 창 단위가 아니라 앱 단위로 한 번인 이유는 문서가 **파일마다 하나**이기
-      // 때문이다 (FR-SVS-50) — 창마다 부르면 같은 파일을 두 번 묻는다.
-      this.edPollDocStamps();
-    });
+    this._edGitPoll=visiblePoll(()=>gitReposInterval,()=>this._edTick());
+  },
+
+  _edTick(){
+    // 관측은 루트마다 하나다 (FR-SVS-20) — 같은 루트를 보는 칸이 넷이어도 한 번이다.
+    const stores=new Map();
+    for(const t of this._edVisibleTrees()) if(t.store&&!stores.has(t.store)) stores.set(t.store,t);
+    for(const t of stores.values()){ if(t.gitDue()) t.pollGit(); else t.paintGitCached() }
+    // EDITOR_LIVE_RELOAD_SRS FR-ELR-10: **열어 둔 파일의 내용도 같은 틱이다.**
+    // 트리와 갈라 두면 사용자는 "목록은 바뀌었는데 열어 둔 내용은 그대로인"
+    // 중간 상태를 본다 — 위 주석이 색과 목록에 대해 적은 것과 같은 근거다.
+    // 창 단위가 아니라 앱 단위로 한 번인 이유는 문서가 **파일마다 하나**이기
+    // 때문이다 (FR-SVS-50) — 창마다 부르면 같은 파일을 두 번 묻는다.
+    this.edStampTick([...stores.keys()]);
   },
 
   /**
@@ -300,6 +312,10 @@ Object.assign(App.prototype, {
 (function(){
   const base=App.prototype.gitSignal;
   App.prototype.gitSignal=function(kind){
+    // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 즉시 신호 **뒤의** 답이어야 한다 — 그 전에
+    // 떠난 요청과 캐시는 나눠 쓰지 않는다. 신호 뒤의 탐색기와 문서들은 한 요청을
+    // 나눠 쓴다 (FEU-5: 종전에는 문서마다 한 건).
+    this.gitStatusHub().invalidate();
     base.call(this,kind);
     const t=this.edActiveTree();
     // FR-DIR-32: 저장·커밋 같은 즉시 신호도 백오프를 넘긴다.
