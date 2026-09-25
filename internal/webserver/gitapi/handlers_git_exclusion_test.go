@@ -466,3 +466,41 @@ func TestLockRemove_BusyAndJob(t *testing.T) {
 		t.Fatalf("거절했는데 지웠다: %v", err)
 	}
 }
+
+// FR-OPT-1-3 (DOM-6): 잡 등록이 실패하면(job_busy) 원격 ref 삭제의 hint 를 남기지
+// 않는다 — 실행되지 않은 삭제의 복구 안내는 거짓이다 (§5.1).
+func TestRemoteRefDelete_NoHintWhenJobBusy(t *testing.T) {
+	release := make(chan struct{})
+	defer close(release)
+
+	bf := newGitM5Fake(t)
+	bf.remoteRefs["origin/feat"] = true
+	bs := gitM5Server(t, bf)
+	bs.gitJobs.run = gitRemoteHold(release)
+	tf := newGitTagFake(t)
+	ts := gitTagServer(t, tf, gitRemoteHold(release))
+
+	cases := []struct {
+		name string
+		s    *GitServer
+		path string
+		body string
+	}{
+		{"branch", bs, "/api/git/branch/delete-remote", `{"repo":` + qWorkRepo + `,"remote":"origin","branch":"feat","confirm":true}`},
+		{"tag", ts, "/api/git/tag/delete-remote", `{"repo":` + qWorkRepo + `,"name":"v1.0","confirm":true}`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if code, out := gitReq(t, c.s, http.MethodPost, c.path, c.body); code != http.StatusOK {
+				t.Fatalf("첫 삭제 = %d %v", code, out)
+			}
+			code, out := gitReq(t, c.s, http.MethodPost, c.path, c.body)
+			if code != http.StatusConflict || out["error"] != apierr.CodeJobBusy {
+				t.Fatalf("둘째 삭제 = %d %v, want 409 job_busy", code, out)
+			}
+			if h := c.s.Git.Service().Hints(0); len(h) != 1 {
+				t.Fatalf("hint 가 %d개다, want 1 — 등록되지 않은 잡의 hint 가 남았다: %+v", len(h), h)
+			}
+		})
+	}
+}

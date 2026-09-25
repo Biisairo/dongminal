@@ -217,18 +217,18 @@ func TagPushSpec(o TagRemoteOpts) (core.WriteSpec, error) {
 // hint 는 로컬의 oid 로 만든다 — 원격이 가리키던 값을 우리가 따로 물을 수 없고,
 // 로컬에 같은 태그가 있으면 그것이 되살릴 값이다. 로컬에도 없으면 **값 없이**
 // 남긴다: 조용히 빈 hint 를 만들지 않고 왜 못 얻었는지를 Note 에 적는다
-// (core.Hint 의 규약).
-func TagDeleteRemoteSpec(s *core.Service, ctx context.Context, repo string, o TagRemoteOpts) (core.WriteSpec, error) {
+// (core.Hint 의 규약). hint 는 잡 등록이 성공한 뒤 호출자가 남긴다 (REPO_FIX 01
+// §5.1 — 사전 단계는 부작용이 없다).
+func TagDeleteRemoteSpec(s *core.Service, ctx context.Context, repo string, o TagRemoteOpts) (core.WriteSpec, core.Hint, error) {
 	argv, err := TagDeleteRemoteArgs(o)
 	if err != nil {
-		return core.WriteSpec{}, err
+		return core.WriteSpec{}, core.Hint{}, err
 	}
 	oid, oidErr := query.TagOid(s, ctx, repo, o.Name)
 	if oidErr != nil {
 		oid = ""
 	}
-	s.AddHint(TagDeleteRemoteHint(repo, o.Remote, o.Name, oid))
-	return core.WriteSpec{Argv: argv, Destructive: true}, nil
+	return core.WriteSpec{Argv: argv, Destructive: true}, TagDeleteRemoteHint(repo, o.Remote, o.Name, oid), nil
 }
 
 // CheckNewTagName 은 "이 이름으로 새 태그를 만들 수 있는가" 다 — 규칙 위반과 이름

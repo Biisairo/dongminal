@@ -310,6 +310,25 @@ func TestBranchDelete_HintCarriesPreDeleteOid(t *testing.T) {
 	}
 }
 
+// FR-OPT-1-3 (DOM-5): 여러 이름 중 하나가 없으면 실행도 hint 도 없다. 앞 이름의
+// hint 가 먼저 남으면 지우지 않은 브랜치의 복구 안내가 된다.
+func TestBranchDelete_MissingNameLeavesNoHint(t *testing.T) {
+	repo := tempRepoWithBranch(t, "feat")
+	f := &writeFake{}
+	s := core.New(core.WithRunner(realReader(t, repo)), core.WithWriteRunner(f.runner))
+
+	if _, _, err := BranchDelete(s, context.Background(), repo,
+		BranchDeleteOpts{Names: []string{"feat", "ghost"}}); err == nil {
+		t.Fatal("없는 브랜치가 섞였는데 오류가 없다")
+	}
+	if h := s.Hints(0); len(h) != 0 {
+		t.Fatalf("실행하지 않았는데 hint 가 %d개다: %+v", len(h), h)
+	}
+	if len(f.argvs) != 0 {
+		t.Fatalf("없는 브랜치가 섞였는데 실행됐다: %v", f.argvs)
+	}
+}
+
 // B23 (FR-GIT-254 / V172): 삭제는 `-d` 든 `-D` 든 **파괴적으로 선언된다** —
 // 되살리려면 reflog 나 hint 의 oid 가 필요하다. 그 선언이 기록에 남는다.
 func TestBranchDelete_DestructiveInRecord(t *testing.T) {
@@ -440,7 +459,7 @@ func TestRemoteBranchSpecs(t *testing.T) {
 	repo := tempRepoWithRemote(t)
 	s := core.New()
 	ctx := context.Background()
-	dspec, err := RemoteBranchDeleteSpec(s, ctx, repo, RemoteBranchOpts{Remote: "origin", Branch: "feat"})
+	dspec, hint, err := RemoteBranchDeleteSpec(s, ctx, repo, RemoteBranchOpts{Remote: "origin", Branch: "feat"})
 	if err != nil {
 		t.Fatalf("RemoteBranchDeleteSpec: %v", err)
 	}
@@ -451,19 +470,22 @@ func TestRemoteBranchSpecs(t *testing.T) {
 	if !dspec.Destructive {
 		t.Fatal("원격 ref 삭제가 파괴적으로 선언되지 않았다")
 	}
-	hints := s.Hints(0)
-	if len(hints) != 1 || hints[0].Action != core.ActionRemoteRefDelete {
-		t.Fatalf("hint = %+v", hints)
+	// hint 는 돌려줄 뿐 남기지 않는다 — 잡 등록 전이다 (REPO_FIX 01 §5.1).
+	if h := s.Hints(0); len(h) != 0 {
+		t.Fatalf("사전 단계가 hint 를 남겼다: %+v", h)
+	}
+	if hint.Action != core.ActionRemoteRefDelete {
+		t.Fatalf("hint = %+v", hint)
 	}
 	oid, err := query.RemoteBranchOid(s, ctx, repo, "origin/feat")
 	if err != nil {
 		t.Fatalf("RemoteBranchOid: %v", err)
 	}
-	if len(hints[0].Values) != 1 || hints[0].Values[0] != oid {
-		t.Fatalf("Values = %v, want [%s] — 지우기 전 oid 가 없으면 되살릴 수 없다", hints[0].Values, oid)
+	if len(hint.Values) != 1 || hint.Values[0] != oid {
+		t.Fatalf("Values = %v, want [%s] — 지우기 전 oid 가 없으면 되살릴 수 없다", hint.Values, oid)
 	}
-	if want := "git push origin " + oid + ":refs/heads/feat"; hints[0].Command != want {
-		t.Fatalf("Command = %q, want %q", hints[0].Command, want)
+	if want := "git push origin " + oid + ":refs/heads/feat"; hint.Command != want {
+		t.Fatalf("Command = %q, want %q", hint.Command, want)
 	}
 }
 
@@ -575,7 +597,7 @@ func TestBranchPushSpec_LocalUpstreamRejected(t *testing.T) {
 // §7.3: 원격 브랜치 삭제는 완전 이름이다.
 func TestRemoteBranchDeleteSpec_FullRef(t *testing.T) {
 	repo := tempRepoWithRemote(t)
-	spec, err := RemoteBranchDeleteSpec(core.New(), context.Background(), repo, RemoteBranchOpts{Remote: "origin", Branch: "feat"})
+	spec, _, err := RemoteBranchDeleteSpec(core.New(), context.Background(), repo, RemoteBranchOpts{Remote: "origin", Branch: "feat"})
 	if err != nil {
 		t.Fatalf("RemoteBranchDeleteSpec: %v", err)
 	}

@@ -124,6 +124,35 @@ func TestParseBlame_UncommittedLine(t *testing.T) {
 	}
 }
 
+// FR-OPT-1-11 (DOM-M1): sha256 저장소의 oid 는 64자다. 미커밋 줄은 64개의 0 이다.
+func TestParseBlame_Sha256Oid(t *testing.T) {
+	oid := strings.Repeat("ab", 32)
+	null := strings.Repeat("0", 64)
+	out := "" +
+		oid + " 1 1 1\n" +
+		"author tester\n" +
+		"summary 첫\n" +
+		"filename f.txt\n" +
+		"\ta\n" +
+		null + " 2 2 1\n" +
+		"author Not Committed Yet\n" +
+		"filename f.txt\n" +
+		"\tb\n"
+	b, err := ParseBlame(out)
+	if err != nil {
+		t.Fatalf("ParseBlame: %v", err)
+	}
+	if len(b.Lines) != 2 || b.Lines[0].Oid != oid || b.Lines[1].Oid != null {
+		t.Fatalf("lines = %+v", b.Lines)
+	}
+	if b.Commits[oid].Uncommitted || b.Commits[oid].AuthorName != "tester" {
+		t.Fatalf("commit = %+v", b.Commits[oid])
+	}
+	if !b.Commits[null].Uncommitted {
+		t.Fatalf("미커밋 줄이 커밋으로 온다: %+v", b.Commits[null])
+	}
+}
+
 // 빈 파일은 줄 0개다. nil 이 아니라 빈 슬라이스여야 JSON 이 [] 가 된다.
 func TestParseBlame_EmptyIsNoLines(t *testing.T) {
 	b, err := ParseBlame("")

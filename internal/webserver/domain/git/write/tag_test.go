@@ -299,14 +299,17 @@ func TestTagDeleteRemoteSpec_HintAndDestructive(t *testing.T) {
 		t.Fatalf("TagOid: %v", err)
 	}
 
-	spec, err := TagDeleteRemoteSpec(s, ctx, repo, TagRemoteOpts{Remote: "origin", Name: "v1.0"})
+	spec, h, err := TagDeleteRemoteSpec(s, ctx, repo, TagRemoteOpts{Remote: "origin", Name: "v1.0"})
 	if err != nil {
 		t.Fatalf("TagDeleteRemoteSpec: %v", err)
 	}
 	if !spec.Destructive {
 		t.Fatalf("원격 삭제가 파괴적으로 선언되지 않았다: %v", spec.Argv)
 	}
-	h := s.Hints(0)[0]
+	// hint 는 돌려줄 뿐 남기지 않는다 — 잡 등록 전이다 (REPO_FIX 01 §5.1).
+	if got := s.Hints(0); len(got) != 0 {
+		t.Fatalf("사전 단계가 hint 를 남겼다: %+v", got)
+	}
 	if h.Action != core.ActionRemoteRefDelete {
 		t.Fatalf("action = %q, want %q", h.Action, core.ActionRemoteRefDelete)
 	}
@@ -317,11 +320,11 @@ func TestTagDeleteRemoteSpec_HintAndDestructive(t *testing.T) {
 
 	// 로컬에 없는 태그면 값을 지어내지 않는다 — 실행되지 않을 명령을 남기면
 	// 사용자가 그것을 복구 수단으로 믿는다.
-	if _, err := TagDeleteRemoteSpec(s, ctx, repo, TagRemoteOpts{Remote: "origin", Name: "ghost"}); err != nil {
+	_, g, err := TagDeleteRemoteSpec(s, ctx, repo, TagRemoteOpts{Remote: "origin", Name: "ghost"})
+	if err != nil {
 		t.Fatalf("TagDeleteRemoteSpec(ghost): %v", err)
 	}
-	hints := s.Hints(0)
-	if g := hints[len(hints)-1]; g.Command != "" || len(g.Values) != 0 {
+	if g.Command != "" || len(g.Values) != 0 {
 		t.Fatalf("값을 모르는데 명령을 남겼다: %+v", g)
 	}
 }
@@ -369,7 +372,7 @@ func TestTagDeleteRemote_DoesNotDeleteSameNamedBranch(t *testing.T) {
 	repo := tempRepoWithRemote(t) // 원격에 브랜치 feat
 	s := core.New()
 	ctx := context.Background()
-	spec, err := TagDeleteRemoteSpec(s, ctx, repo, TagRemoteOpts{Remote: "origin", Name: "feat"})
+	spec, _, err := TagDeleteRemoteSpec(s, ctx, repo, TagRemoteOpts{Remote: "origin", Name: "feat"})
 	if err != nil {
 		t.Fatalf("TagDeleteRemoteSpec: %v", err)
 	}

@@ -425,7 +425,10 @@ func BranchDelete(s *core.Service, ctx context.Context, repo string, o BranchDel
 			return denied(), plan, err
 		}
 		plan.Oids = append(plan.Oids, oid)
-		s.AddHint(branchDeleteHint(repo, n, oid))
+	}
+	// hint 는 oid 를 **모두** 읽은 뒤에 남긴다 — 중간 실패면 앞 이름의 hint 가 거짓이 된다.
+	for i, n := range o.Names {
+		s.AddHint(branchDeleteHint(repo, n, plan.Oids[i]))
 	}
 	out, err := s.ExecWrite(ctx, repo, core.WriteSpec{Argv: argv, Destructive: true})
 	return out, plan, err
@@ -518,22 +521,22 @@ func RemoteFetchSpec(o RemoteBranchOpts) (core.WriteSpec, error) {
 
 // RemoteBranchDeleteSpec 은 원격의 ref 를 지운다. **파괴적이다** (`remote_ref_delete`).
 //
-// hint 는 **되살리는 push** 이며 지우기 전 oid 를 싣는다 (FR-GIT-250.2) — 실행은
-// 나중에 job 이 하므로 hint 는 여기서, 즉 실행 전에 남긴다.
-func RemoteBranchDeleteSpec(s *core.Service, ctx context.Context, repo string, o RemoteBranchOpts) (core.WriteSpec, error) {
+// hint 는 **되살리는 push** 이며 지우기 전 oid 를 싣는다 (FR-GIT-250.2). oid 는
+// 여기서, 즉 실행 전에 읽는다. hint 는 잡 등록이 성공한 뒤 호출자가 남긴다
+// (REPO_FIX 01 §5.1 — 사전 단계는 부작용이 없다).
+func RemoteBranchDeleteSpec(s *core.Service, ctx context.Context, repo string, o RemoteBranchOpts) (core.WriteSpec, core.Hint, error) {
 	if err := checkRemoteBranch(o); err != nil {
-		return core.WriteSpec{}, err
+		return core.WriteSpec{}, core.Hint{}, err
 	}
 	oid, err := query.RemoteBranchOid(s, ctx, repo, o.Remote+"/"+o.Branch)
 	if err != nil {
-		return core.WriteSpec{}, err
+		return core.WriteSpec{}, core.Hint{}, err
 	}
-	s.AddHint(remoteBranchDeleteHint(repo, o, oid))
 	return core.WriteSpec{
 		// 완전 이름으로 지운다 (§7.3) — 짧은 이름은 같은 이름의 태그와 겹친다.
 		Argv:        []string{"push", progressFlag, o.Remote, pushDeleteFlag, query.BranchRefPrefix + o.Branch},
 		Destructive: true,
-	}, nil
+	}, remoteBranchDeleteHint(repo, o, oid), nil
 }
 
 func checkRemoteBranch(o RemoteBranchOpts) error {

@@ -53,10 +53,6 @@ var stateByPrefix = map[byte]string{
 // 마감이 더 짧으면 그것이 이긴다.
 const opTimeout = core.ManagerWriteTimeout
 
-// oidLen 은 서브모듈 상태가 싣는 커밋 해시의 길이다. 짧은 것을 받지 않는 이유는
-// 그것이 알아보지 못한 줄이라는 신호이기 때문이다.
-const oidLen = 40
-
 // Runner 는 git 한 번이다. 주입인 것은 런타임 없이 파싱과 가드를 결정적으로
 // 관찰하기 위해서다 (worktree.Runner 와 같은 모양). ctx 는 호출자의 것이다
 // (REPO_FIX 01 §5.6) — 조회는 요청, sync 는 서버 루트 파생이다.
@@ -119,22 +115,18 @@ func parseStatus(out string) []Entry {
 	for _, line := range strings.Split(out, "\n") {
 		// 앞 공백을 다듬지 않는다 — 첫 글자가 상태다.
 		line = strings.TrimRight(line, "\r\n")
-		if len(line) < 1+oidLen+1 {
+		if line == "" {
 			continue
 		}
 		state, ok := stateByPrefix[line[0]]
 		if !ok {
 			continue
 		}
-		oid := line[1 : 1+oidLen]
-		if !isHex(oid) {
+		oid, rest, ok := strings.Cut(line[1:], " ")
+		if !ok || !core.IsOid(oid) {
 			continue
 		}
-		rest := line[1+oidLen:]
-		if !strings.HasPrefix(rest, " ") {
-			continue
-		}
-		path, describe := splitDescribe(strings.TrimPrefix(rest, " "))
+		path, describe := splitDescribe(rest)
 		if path == "" {
 			continue
 		}
@@ -154,16 +146,6 @@ func splitDescribe(s string) (path, describe string) {
 		return s, ""
 	}
 	return s[:i], s[i+2 : len(s)-1]
-}
-
-func isHex(s string) bool {
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F') {
-			return false
-		}
-	}
-	return true
 }
 
 /*

@@ -472,7 +472,7 @@ func (s *GitServer) apiGitBranchFetchInto(w http.ResponseWriter, r *http.Request
 // POST /api/git/branch/delete-remote — 원격의 ref 를 지운다 (FR-GIT-268).
 //
 // **파괴적이다** (`remote_ref_delete`). `confirm:true` 없이는 실행하지 않으며,
-// 되살리는 push 는 spec 을 만들 때 hint 로 남는다.
+// 되살리는 push 는 잡 등록이 성공한 뒤 hint 로 남는다.
 func (s *GitServer) apiGitBranchDeleteRemote(w http.ResponseWriter, r *http.Request) {
 	var req gitRemoteBranchReq
 	t := s.beginWrite(w, r, &req)
@@ -483,11 +483,11 @@ func (s *GitServer) apiGitBranchDeleteRemote(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	root := t.root
-	spec, err := write.RemoteBranchDeleteSpec(s.Git.Service(), t.ctx(), root,
+	spec, hint, err := write.RemoteBranchDeleteSpec(s.Git.Service(), t.ctx(), root,
 		write.RemoteBranchOpts{Remote: req.Remote, Branch: req.Branch})
 	if err != nil {
 		gitError(w, err)
 		return
 	}
-	t.startJob("push", spec, nil)
+	t.startHintedJob("push", spec, nil, &hint)
 }

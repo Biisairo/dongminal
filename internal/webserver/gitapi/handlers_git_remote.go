@@ -166,12 +166,22 @@ func (s *GitServer) jobsHub() *jobs.Jobs { return s.gitJobs.get(s.Git, s.exclusi
 //
 // index 칸을 쓰는 kind(pull 포함)는 완료 처리에서 쓰기 이후 status 를 싣는다 (§6.3).
 func (t *gitWrite) startJob(kind string, spec core.WriteSpec, extra map[string]any) {
+	t.startHintedJob(kind, spec, extra, nil)
+}
+
+// startHintedJob 은 startJob 이되 hint 를 등록이 **성공한 뒤에만** 남긴다 (§5.1 —
+// startWriteJob 과 같은 규약). 실행이 시작되지 않은 잡의 복구 안내는 거짓이다.
+func (t *gitWrite) startHintedJob(kind string, spec core.WriteSpec, extra map[string]any, hint *core.Hint) {
 	var opts []jobs.StartOption
 	if usesIndex(kind) {
 		opts = append(opts, jobs.OnFinish(t.s.indexFinisher(t.root, t.snapshot(), nil)))
 	}
 	t.launchJob(func(h *jobs.Jobs, k jobs.Keys) (*jobs.Job, error) {
-		return h.Start(t.root, k, kind, spec, opts...)
+		jb, err := h.Start(t.root, k, kind, spec, opts...)
+		if err == nil && hint != nil {
+			t.s.Git.Service().AddHint(*hint)
+		}
+		return jb, err
 	}, extra)
 }
 

@@ -98,6 +98,24 @@ func TestListRejectsGarbageLine(t *testing.T) {
 	}
 }
 
+func TestListParsesSha256Oid(t *testing.T) {
+	// FR-OPT-1-11 (DOM-M1): object-format=sha256 저장소의 oid 는 64자다. 40자로
+	// 박으면 모든 줄이 버려져 오류 없이 빈 목록이 된다.
+	oid := strings.Repeat("a1", 32)
+	m, _ := mgr(" "+oid+" vendor/ok (heads/main)\n-"+strings.Repeat("b", 64)+" vendor/uninit", nil)
+	got, err := m.List(context.Background(), repoPath)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	want := []Entry{
+		{Path: "vendor/ok", OID: oid, State: StateOK, Describe: "heads/main"},
+		{Path: "vendor/uninit", OID: strings.Repeat("b", 64), State: StateUninitialized},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("List =\n%#v\nwant\n%#v", got, want)
+	}
+}
+
 func TestListUsesStatusSubcommand(t *testing.T) {
 	// FR-SUB-3: `--recursive` 를 쓰지 않는다 — 깊이를 섞으면 어느 행이 누구의
 	// 것인지 말할 수 없다. 중첩은 그 서브모듈을 저장소로 연 뒤 그 창에서 본다.

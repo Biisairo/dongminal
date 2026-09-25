@@ -31,9 +31,6 @@ var ErrBlamePathNotFound = errors.New("blame_path_not_found")
 // 문구로 좁힌다 — 그 밖의 128 을 404 로 뭉개면 실제 실패가 "없는 경로" 로 보인다.
 const blamePathNotFoundStderr = "no such path"
 
-// blameNullOid 는 아직 커밋되지 않은 줄의 oid 다 — git 이 40개의 0 으로 답한다.
-const blameNullOid = "0000000000000000000000000000000000000000"
-
 // BlameQuery 는 blame 한 번이다. Rev 가 비면 워킹 트리를 본다.
 type BlameQuery struct {
 	Repo string
@@ -140,7 +137,7 @@ func ParseBlame(out string) (FileBlame, error) {
 		if oid, line, ok := blameHeader(ln); ok {
 			cur = oid
 			if _, seen := b.Commits[oid]; !seen {
-				b.Commits[oid] = BlameCommit{Oid: oid, Uncommitted: oid == blameNullOid}
+				b.Commits[oid] = BlameCommit{Oid: oid, Uncommitted: core.IsNullOid(oid)}
 			}
 			b.Lines = append(b.Lines, BlameLine{Oid: oid, Line: line})
 			continue
@@ -153,11 +150,12 @@ func ParseBlame(out string) (FileBlame, error) {
 	return b, nil
 }
 
-// blameHeader 는 `<oid> <원본줄> <최종줄> [<개수>]` 를 읽는다. oid 는 40자 16진수다 —
-// 길이를 보지 않으면 `author ...` 같은 메타 줄이 헤더로 오인된다.
+// blameHeader 는 `<oid> <원본줄> <최종줄> [<개수>]` 를 읽는다. oid 는 완전한 oid
+// (core.IsOid — sha1·sha256)다 — 길이를 보지 않으면 `author ...` 같은 메타 줄이
+// 헤더로 오인된다.
 func blameHeader(ln string) (oid string, line int, ok bool) {
 	f := strings.Fields(ln)
-	if len(f) < 3 || len(f[0]) != 40 || !isHex(f[0]) {
+	if len(f) < 3 || !core.IsOid(f[0]) {
 		return "", 0, false
 	}
 	n, err := strconv.Atoi(f[2])
@@ -165,15 +163,6 @@ func blameHeader(ln string) (oid string, line int, ok bool) {
 		return "", 0, false
 	}
 	return f[0], n, true
-}
-
-func isHex(s string) bool {
-	for _, r := range s {
-		if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'f' || r >= 'A' && r <= 'F') {
-			return false
-		}
-	}
-	return true
 }
 
 // blameMeta 는 커밋 메타 한 줄을 얹는다. 모르는 키는 조용히 버린다 — porcelain 은

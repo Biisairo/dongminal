@@ -122,8 +122,9 @@ func (s *GitServer) apiGitTagDelete(w http.ResponseWriter, r *http.Request) {
 //
 // 원격 작업이므로 job 경로를 탄다 — 진행·취소·인증 안내가 공짜로 따라온다.
 func (s *GitServer) apiGitTagPush(w http.ResponseWriter, r *http.Request) {
-	s.gitTagRemoteRoute(w, r, false, func(_ context.Context, root string, o write.TagRemoteOpts) (core.WriteSpec, error) {
-		return write.TagPushSpec(o)
+	s.gitTagRemoteRoute(w, r, false, func(_ context.Context, root string, o write.TagRemoteOpts) (core.WriteSpec, *core.Hint, error) {
+		spec, err := write.TagPushSpec(o)
+		return spec, nil, err
 	})
 }
 
@@ -132,8 +133,9 @@ func (s *GitServer) apiGitTagPush(w http.ResponseWriter, r *http.Request) {
 //
 // **로컬은 건드리지 않는다** — 그것은 다른 항목이다.
 func (s *GitServer) apiGitTagDeleteRemote(w http.ResponseWriter, r *http.Request) {
-	s.gitTagRemoteRoute(w, r, true, func(ctx context.Context, root string, o write.TagRemoteOpts) (core.WriteSpec, error) {
-		return write.TagDeleteRemoteSpec(s.Git.Service(), ctx, root, o)
+	s.gitTagRemoteRoute(w, r, true, func(ctx context.Context, root string, o write.TagRemoteOpts) (core.WriteSpec, *core.Hint, error) {
+		spec, hint, err := write.TagDeleteRemoteSpec(s.Git.Service(), ctx, root, o)
+		return spec, &hint, err
 	})
 }
 
@@ -183,8 +185,9 @@ func (s *GitServer) apiGitTagValidate(w http.ResponseWriter, r *http.Request) {
 // 응답이 같고 무엇을 실행하는지와 확인을 요구하는지만 다르다.
 //
 // **spec 을 실행 전에 만든다** — 잘못된 요청과 없는 원격을 job 으로 넘기면 사유가
-// 스트림 끝에서야 오고, 그때는 이미 확인을 지난 뒤다.
-func (s *GitServer) gitTagRemoteRoute(w http.ResponseWriter, r *http.Request, confirm bool, spec func(ctx context.Context, root string, o write.TagRemoteOpts) (core.WriteSpec, error)) {
+// 스트림 끝에서야 오고, 그때는 이미 확인을 지난 뒤다. hint 는 등록이 성공한 뒤에만
+// 남긴다 (REPO_FIX 01 §5.1).
+func (s *GitServer) gitTagRemoteRoute(w http.ResponseWriter, r *http.Request, confirm bool, spec func(ctx context.Context, root string, o write.TagRemoteOpts) (core.WriteSpec, *core.Hint, error)) {
 	var req gitTagRemoteReq
 	t := s.beginWrite(w, r, &req)
 	if t.stop() {
@@ -206,12 +209,12 @@ func (s *GitServer) gitTagRemoteRoute(w http.ResponseWriter, r *http.Request, co
 		}
 		remote = got
 	}
-	sp, err := spec(t.ctx(), root, write.TagRemoteOpts{Remote: remote, Name: req.Name, All: req.All})
+	sp, hint, err := spec(t.ctx(), root, write.TagRemoteOpts{Remote: remote, Name: req.Name, All: req.All})
 	if err != nil {
 		t.reject(err)
 		return
 	}
-	t.startJob("push", sp, map[string]any{"remote": remote, "tag": req.Name, "all": req.All})
+	t.startHintedJob("push", sp, map[string]any{"remote": remote, "tag": req.Name, "all": req.All}, hint)
 }
 
 // gitTagNameTaken 은 이름 규칙과 이름 충돌을 실행 **전에** 답한다 (FR-GIT-250.3).
