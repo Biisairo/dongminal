@@ -34,12 +34,14 @@ func TestToolClientRequestResponse(t *testing.T) {
 	}
 	defer pc.Close()
 
-	resp, err := pc.call("test_method", map[string]interface{}{"key": "val"})
+	resp, err := callT[struct {
+		Echo string `json:"echo"`
+	}](pc, "test_method", map[string]interface{}{"key": "val"})
 	if err != nil {
 		t.Fatalf("call: %v", err)
 	}
-	if resp["echo"] != "test_method" {
-		t.Fatalf("echo=%q", resp["echo"])
+	if resp.Echo != "test_method" {
+		t.Fatalf("echo=%q", resp.Echo)
 	}
 }
 

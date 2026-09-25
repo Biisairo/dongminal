@@ -41,7 +41,7 @@ func (m *ToolManager) SetOutputObserver(f func(id string, data []byte, end int64
 }
 
 // SetExitObserver 는 도구의 죽음을 받는 관측자다 — 직접 모드의 에이전트 해석층이
-// 세션을 오류·휴면 상태로 옮기는 자리 (D-C-2·D-C-15). info 는 종료 코드와 stderr 꼬리다.
+// 세션을 오류·휴면 상태로 옮기는 자리 (D-C-2·D-C-15). info 는 종료 코드다 (D-OPT-6).
 // 데몬 모드의 짝은 ToolClient.SetOnExit.
 func (m *ToolManager) SetExitObserver(f func(id string, info ExitInfo)) {
 	m.mu.Lock()

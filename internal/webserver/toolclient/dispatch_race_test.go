@@ -1,7 +1,6 @@
 package toolclient
 
 import (
-	"encoding/json"
 	"sync"
 	"testing"
 )
@@ -15,7 +14,7 @@ import (
 // 않는 종류이고, e2e 서버가 실제로 그렇게 죽어 그 뒤 검사가 전부 무너졌다.
 func TestToolClient_OutputDispatchRacesWithSubscribe(t *testing.T) {
 	pc := &ToolClient{subbers: map[string]map[chan OutChunk]chan struct{}{}}
-	raw := json.RawMessage(`{"tool":"t1","data":"aGk="}`)
+	m := &wireMsg{Event: "output", Tool: "t1", Data: []byte("hi")}
 
 	// 순회가 실제로 여러 항목을 돌아야 겹칠 자리가 생긴다 — 빈 map 은 즉시 끝난다.
 	for i := 0; i < 8; i++ {
@@ -45,7 +44,7 @@ func TestToolClient_OutputDispatchRacesWithSubscribe(t *testing.T) {
 		defer wg.Done()
 		defer close(stop)
 		for i := 0; i < 50000; i++ {
-			pc.handlePush("output", raw)
+			pc.handlePush(m)
 		}
 	}()
 

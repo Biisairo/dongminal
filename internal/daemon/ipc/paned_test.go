@@ -143,25 +143,6 @@ func TestPanedUnknownMethod(t *testing.T) {
 	}
 }
 
-func TestPanedHelloReturnsToolIDs(t *testing.T) {
-	pm := toolhub.NewToolManager(toolTempDir(t), nil)
-	t.Cleanup(pm.StopSaving)
-	pm.Create("/tmp", 80, 24, toolhub.Placement{})
-	pm.Create("/tmp", 80, 24, toolhub.Placement{})
-
-	var buf bytes.Buffer
-	pc := &panedConn{pm: pm, encoder: json.NewEncoder(&buf)}
-	pc.dispatch(&toolipc.PanedRequest{ID: 1, Method: "hello", Params: json.RawMessage(`{"server_pid":1}`)})
-
-	var resp toolipc.PanedResponse
-	json.Unmarshal(bytes.TrimRight(buf.Bytes(), "\n"), &resp)
-	resultMap := resp.Result.(map[string]interface{})
-	toolIDs := resultMap["tool_ids"].([]interface{})
-	if len(toolIDs) != 2 {
-		t.Fatalf("tool_ids len=%d want 2", len(toolIDs))
-	}
-}
-
 func TestPanedKillRemovesTool(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
 	t.Cleanup(pm.StopSaving)

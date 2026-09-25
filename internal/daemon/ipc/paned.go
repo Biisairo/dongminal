@@ -38,6 +38,10 @@ type panedConn struct {
 	// wireTool is set by PanedServer to hook tool output/exit into this conn.
 	wireTool func(p *toolhub.Tool)
 
+	// serverFeatures 는 이 연결의 서버가 hello 에서 말한 기능이다 (D-OPT-1). hello 는
+	// 연결의 첫 요청이고 dispatch 는 읽기 루프 한 고루틴이 돌므로 잠금이 없다.
+	serverFeatures []string
+
 	// build 는 이 데몬 바이너리의 판이다 (VERSION_HEALTH_SRS FR-VHL-1). `hello`
 	// 가 프로토콜 판과 **따로** 싣는다 — 서버가 둘을 다르게 다루기 때문이다
 	// (프로토콜 불일치는 거부, 빌드 불일치는 기록).
@@ -131,39 +135,44 @@ func (pc *panedConn) handle() error {
 func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 	var resp interface{}
 	switch req.Method {
-	case "hello":
+	case toolipc.MethodHello:
 		resp = pc.hello(req)
-	case "create":
+	case toolipc.MethodCreate:
 		resp = pc.create(req)
-	case "restore":
+	case toolipc.MethodRestore:
 		resp = pc.restore(req)
-	case "kill":
+	case toolipc.MethodKill:
 		resp = pc.kill(req)
-	case "terminate":
+	case toolipc.MethodTerminate:
 		// 유예를 기다리는 동안 이 연결의 다른 요청을 막지 않는다 — 응답은 id 로
 		// 짝지어지므로 순서가 바뀌어도 클라이언트는 제 응답을 찾는다.
 		go pc.enqueue(pc.terminate(req), false)
 		return
-	case "write":
+	case toolipc.MethodWrite:
 		resp = pc.write(req)
-	case "paste":
+	case toolipc.MethodPaste:
 		resp = pc.paste(req)
-	case "resize":
+	case toolipc.MethodResize:
 		resp = pc.resize(req)
-	case "list":
+	case toolipc.MethodList:
 		resp = pc.list(req)
-	case "snapshot":
+	case toolipc.MethodSnapshot:
 		resp = pc.snapshot(req)
-	case "cwd":
+	case toolipc.MethodCwd:
 		resp = pc.cwd(req)
-	case "busy":
+	case toolipc.MethodBusy:
 		resp = pc.busy(req)
-	case "setbackground":
+	case toolipc.MethodSetBackground:
 		resp = pc.setBackground(req)
-	case "backgroundlist":
+	case toolipc.MethodBackgroundList:
 		resp = pc.backgroundList(req)
 	default:
 		resp = toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeMethodNotFound, Message: "unknown method: " + req.Method}}
 	}
 	pc.enqueue(resp, false)
+}
+
+// serverHas 는 이 연결의 서버가 name 기능을 말했는가다 (D-OPT-1).
+func (pc *panedConn) serverHas(name string) bool {
+	return toolipc.HasFeature(pc.serverFeatures, name)
 }

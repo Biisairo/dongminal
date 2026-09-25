@@ -1116,12 +1116,14 @@ name, sessionId, cwd, approval, permissionMode, model, dormant, reason, at, last
 프로세스가 `initialize` 에 내는 `Already initialized` 오류를 부재로 읽는다.
 
 **D-C-15 — 오류 상태는 `EvExit` 가 말한다 — 새 이벤트 종류가 아니다.** (FR-ABG-20 · D-C-6) `EvExit{Text:
-"hibernated"|"closed"|"died", Detail: "exit <code>: <stderr 마지막 줄들>", IsError: died}`. 사유는
+"hibernated"|"closed"|"died", Detail: "exit <code>", IsError: died}`. 사유는
 서버가 안다: 휴면 절차 중이면 `hibernated`, 사용자가 닫는 중이면 `closed`, 그 밖은 `died`(오류 상태 —
-`idle` 로 읽지 않는다, 활동은 `ended`). stderr 꼬리(마지막 8줄, 2 KiB)는 파이프를 든 toolhub 의 `Tool` 이
-모으고 종료와 함께 나온다 — 직접 모드 `ExitObserver(id, ExitInfo)`, 데몬 모드 `exit` push 의
-`code`·`stderr[]`(옛 데몬은 비어 온다 — 사유 없는 오류 상태). dmlog 에 남기는 것(D-C-6)은 그대로다.
+`idle` 로 읽지 않는다, 활동은 `ended`). 종료 코드는 종료와 함께 나온다 — 직접 모드
+`ExitObserver(id, ExitInfo)`, 데몬 모드 `exit` push 의 `code`. dmlog 에 남기는 것(D-C-6)은 그대로다.
 공통 어휘가 바뀌지 않으므로 소비자가 바뀌는 자리는 뷰의 `exit` 분기 하나다.
+**개정 (2026-09-25, OPTIMIZE_REFACTOR_SRS D-OPT-6):** stderr 꼬리(마지막 8줄, 2 KiB)를 `ExitInfo` ·
+`exit` push 의 `stderr[]` 로 싣던 절은 폐기한다. 두 모드 모두에서 이미 사라진 기능이었고 남은 것은
+그것이 있다고 말하는 주석뿐이었다 (FINDINGS IPC-18). 사유는 종료 코드뿐이다.
 
 **D-C-16 — 신원 없는 도구는 휴면하지 않는다.** (P4 발견 §2-28) 실제 claude 의 `system:init` 은 첫
 프롬프트 뒤에 온다 — 첫 턴 전에는 되살릴 id 가 없다. `POST /api/agent/hibernate` 는 그때 409

@@ -7,7 +7,9 @@ import (
 
 	"dongminal/internal/shared/toolipc"
 
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -40,9 +42,13 @@ type ToolClient struct {
 	mu       sync.Mutex
 	conn     net.Conn
 	enc      *json.Encoder
-	pending  map[int64]chan json.RawMessage
+	pending  map[int64]chan rpcReply
 	nextID   int64
 	connDone chan struct{} // closed when the current connection dies
+
+	// writeMu 는 소켓 쓰기만 지킨다 (IPC-22). 쓰기가 막혀도 mu 를 쥐지 않으므로
+	// readLoop 의 응답 배달·콜백 읽기가 서지 않는다.
+	writeMu sync.Mutex
 
 	stopped   atomic.Bool
 	closeOnce sync.Once
@@ -83,6 +89,15 @@ type ToolClient struct {
 	// daemonInfo 는 마지막 hello 가 말한 판이다 (FR-VHL-2). 재연결마다 갱신되므로
 	// `mu` 아래 둔다 — readLoop 와 같은 잠금이다.
 	daemonInfo DaemonInfo
+	// daemonFeatures 는 마지막 hello 에서 데몬이 말한 기능이다 (D-OPT-1). `mu` 아래.
+	daemonFeatures []string
+}
+
+// rpcReply 는 readLoop 가 호출자에게 건네는 응답 하나다. 봉투는 readLoop 가 이미
+// 해석했고 result 는 호출자가 자기 타입으로 한 번 읽는다.
+type rpcReply struct {
+	result json.RawMessage
+	err    error
 }
 
 // DaemonInfo 는 toolhub.DaemonInfo 다 — 뜻은 그쪽 주석에 있다.
@@ -107,8 +122,8 @@ func (pc *ToolClient) SetOnOutput(cb func(toolID string, data []byte, end int64)
 // **그 자리에서 재생**한다. exit 하나를 놓치면 죽은 도구의 활동·주의가 배지에
 // 남으므로(FR-ATL-3) output 과 달리 버퍼가 있다.
 //
-// info 는 데몬이 `exit` push 에 실은 종료 코드와 stderr 꼬리다 (M8_UNIFIED_SRS D-C-15).
-// 옛 데몬은 `code:0` 만 보낸다 — 그때 사유는 비어 온다.
+// info 는 데몬이 `exit` push 에 실은 종료 코드다. stderr 사유는 싣지 않는다
+// (OPTIMIZE_REFACTOR_SRS D-OPT-6 — 폐기).
 func (pc *ToolClient) SetOnExit(cb func(toolID string, info toolhub.ExitInfo)) {
 	pc.mu.Lock()
 	pc.onExit = cb
@@ -142,7 +157,7 @@ func DialPaneClientWithReconnect(sockPath string, spawnDaemon func() error) (*To
 	pc := &ToolClient{
 		sockPath:    sockPath,
 		spawnDaemon: spawnDaemon,
-		pending:     make(map[int64]chan json.RawMessage),
+		pending:     make(map[int64]chan rpcReply),
 		closed:      make(chan struct{}),
 		subbers:     map[string]map[chan OutChunk]chan struct{}{},
 	}
@@ -171,7 +186,8 @@ func (pc *ToolClient) connect() error {
 
 	// FR-VHL-2: **응답을 읽는다.** 종전에는 `_` 로 버렸고, 그래서 판이 무엇이든
 	// 연결이 성립했다 — 낡은 데몬 위에 새 서버가 붙어도 아무도 몰랐다.
-	res, err := pc.call("hello", map[string]interface{}{"server_pid": 0})
+	// 서버가 아는 기능을 싣는다 (D-OPT-1). 옛 데몬은 hello 의 params 를 읽지 않는다.
+	res, err := callT[helloReply](pc, toolipc.MethodHello, toolipc.HelloParams{Features: toolipc.ServerFeatures})
 	if err != nil {
 		conn.Close()
 		return fmt.Errorf("hello: %w", err)
@@ -189,6 +205,7 @@ func (pc *ToolClient) connect() error {
 	}
 	pc.mu.Lock()
 	pc.daemonInfo = info
+	pc.daemonFeatures = res.Features
 	pc.mu.Unlock()
 	return nil
 }
@@ -197,15 +214,28 @@ func (pc *ToolClient) connect() error {
 //
 // **말하지 않은 것은 지어내지 않는다** (FR-VHL-5). 판 키가 없는 옛 데몬은
 // 프로토콜을 현재 판으로 읽고 빌드는 비운다 — 빈 빌드는 불일치가 아니다.
-func parseHello(res map[string]interface{}) DaemonInfo {
-	info := DaemonInfo{Protocol: toolipc.ProtocolVersion}
-	if v, ok := res["version"].(float64); ok {
-		info.Protocol = int(v)
-	}
-	if b, ok := res["build"].(string); ok {
-		info.Build = b
+func parseHello(res helloReply) DaemonInfo {
+	info := DaemonInfo{Protocol: toolipc.ProtocolVersion, Build: res.Build}
+	if res.Version != nil {
+		info.Protocol = *res.Version
 	}
 	return info
+}
+
+// helloReply 는 toolipc.HelloResult 를 받는 쪽의 모양이다 — version 이 **없는 것**과
+// 0 인 것을 가르려고 포인터다.
+type helloReply struct {
+	Build    string   `json:"build"`
+	Features []string `json:"features"`
+	Version  *int     `json:"version"`
+}
+
+// daemonHas 는 지금 연결된 데몬이 name 기능을 말했는가다 (D-OPT-1). 말하지 않은
+// 옛 데몬에는 그 기능을 쓰지 않고 종전 방식으로 강등한다.
+func (pc *ToolClient) daemonHas(name string) bool {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	return toolipc.HasFeature(pc.daemonFeatures, name)
 }
 
 // DaemonInfo 는 마지막 hello 가 말한 데몬의 판이다 (FR-VHL-2).
@@ -316,35 +346,61 @@ func (pc *ToolClient) resyncAfterReconnect() {
 	}
 }
 
+// wireMsg 는 데몬이 보내는 줄 하나의 모든 모양이다 — 응답(id·result·error)과
+// push(event 와 그 필드). 한 번의 Decode 로 끝낸다 (IPC-13). 종전에는 RawMessage 로
+// 받고, 구분하려고 한 번, 처리하려고 또 한 번 해석한 뒤 base64 를 따로 풀었다.
+// []byte 필드는 encoding/json 이 표준 base64 로 푼다.
+type wireMsg struct {
+	ID     *int64               `json:"id"`
+	Result json.RawMessage      `json:"result"`
+	Error  *toolipc.PanedErrObj `json:"error"`
+
+	Event string `json:"event"`
+	Tool  string `json:"tool"`
+	Data  []byte `json:"data"`
+	End   int64  `json:"end"`
+	Code  int    `json:"code"`
+	Cols  uint16 `json:"cols"`
+	Rows  uint16 `json:"rows"`
+	Name  string `json:"name"`
+}
+
 // readLoop decodes responses and push events for a single connection. On
 // connection death it signals connLost so the supervisor can reconnect.
 func (pc *ToolClient) readLoop(conn net.Conn, cd chan struct{}) {
 	dec := json.NewDecoder(conn)
 	for {
-		var raw json.RawMessage
-		if err := dec.Decode(&raw); err != nil {
+		// 줄마다 새 값이다 — Result 는 RawMessage 라 재사용하면 앞 응답의 바이트를
+		// 덮는다.
+		var m wireMsg
+		err := dec.Decode(&m)
+		if err != nil && !isValueError(err) {
 			if !pc.stopped.Load() {
 				dmlog.Infof(nil, "toolclient read: %v", err)
 			}
 			break
 		}
-
-		// Peek at the "id" field to distinguish response from push event.
-		var peek struct {
-			ID    *int64 `json:"id"`
-			Event string `json:"event"`
-		}
-		if err := json.Unmarshal(raw, &peek); err != nil {
+		if m.Event != "" {
+			if err == nil {
+				pc.handlePush(&m)
+			}
+			// 해석 못 한 push 는 버린다 — 종전에도 그 push 만 버려졌다.
 			continue
 		}
-
-		if peek.Event != "" {
-			pc.handlePush(peek.Event, raw)
-		} else if peek.ID != nil {
-			pc.handleResponse(*peek.ID, raw)
+		if m.ID != nil {
+			pc.handleResponse(*m.ID, &m, err)
 		}
 	}
 	pc.connLost(cd)
+}
+
+// isValueError 는 줄 하나의 **값**이 틀렸을 뿐 스트림은 온전한 오류인가다. 그때
+// Decoder 는 그 줄을 이미 다 읽었으므로 다음 줄로 넘어갈 수 있다. 문법 오류·I/O
+// 오류는 스트림이 깨진 것이다.
+func isValueError(err error) bool {
+	var typ *json.UnmarshalTypeError
+	var b64 base64.CorruptInputError
+	return errors.As(err, &typ) || errors.As(err, &b64)
 }
 
 // connLost closes connDone exactly once and fails all pending calls for the
@@ -359,7 +415,7 @@ func (pc *ToolClient) connLost(cd chan struct{}) {
 	}
 	close(cd)
 	pending := pc.pending
-	pc.pending = make(map[int64]chan json.RawMessage)
+	pc.pending = make(map[int64]chan rpcReply)
 	pc.mu.Unlock()
 	for _, ch := range pending {
 		close(ch)
@@ -376,28 +432,56 @@ func (pc *ToolClient) dropIfCurrent(cd chan struct{}) {
 	pc.mu.Unlock()
 }
 
-// handleResponse delivers a response to the waiting caller.
-func (pc *ToolClient) handleResponse(id int64, raw json.RawMessage) {
+// handleResponse delivers a response to the waiting caller. decodeErr 는 봉투를
+// 해석하지 못한 사정이다 — 호출자는 시한까지 매달리지 않고 그것을 받는다.
+func (pc *ToolClient) handleResponse(id int64, m *wireMsg, decodeErr error) {
 	pc.mu.Lock()
 	ch := pc.pending[id]
 	delete(pc.pending, id)
 	pc.mu.Unlock()
-	if ch != nil {
-		ch <- raw
+	if ch == nil {
+		return
 	}
+	r := rpcReply{result: m.Result, err: decodeErr}
+	if r.err == nil && m.Error != nil {
+		r.err = &toolipc.RPCError{Code: m.Error.Code, Message: m.Error.Message}
+	}
+	ch <- r
 }
 
-// handlePush dispatches a server-pushed event to per-tool subscribers
-// and to the global OnOutput/OnExit callbacks. 이벤트마다 메서드 하나다
-// (M8 GO-21) — 모르는 이벤트는 버린다.
+// outRequest 는 보내는 요청이다. params 를 따로 Marshal 해 RawMessage 로 싣지
+// 않는다 — Encode 가 한 번에 부호화하고, 실패하면 아무것도 쓰지 않는다.
+type outRequest struct {
+	ID     int64  `json:"id"`
+	Method string `json:"method"`
+	Params any    `json:"params"`
+}
+
+// call sends a request and blocks until the response arrives, the connection
 // is lost, the call times out (FR-14), or the client closes.
-func (pc *ToolClient) call(method string, params interface{}) (map[string]interface{}, error) {
+func (pc *ToolClient) call(method string, params any) (json.RawMessage, error) {
 	return pc.callWithin(method, params, panedCallTimeout)
+}
+
+// callT 는 call 의 결과를 R 로 한 번 읽는다 (FR-OPT-2-6). 결과가 없거나 null 이면
+// R 의 제로값이다 — 필드를 모르는 옛 데몬과 같은 뜻이다.
+func callT[R any](pc *ToolClient, method string, params any) (R, error) {
+	return callWithinT[R](pc, method, params, panedCallTimeout)
+}
+
+func callWithinT[R any](pc *ToolClient, method string, params any, within time.Duration) (R, error) {
+	var r R
+	raw, err := pc.callWithin(method, params, within)
+	if err != nil || len(raw) == 0 {
+		return r, err
+	}
+	err = json.Unmarshal(raw, &r)
+	return r, err
 }
 
 // callWithin 은 시한을 따로 받는 call 이다 — 데몬 쪽에서 유예를 기다리는
 // `terminate` 처럼 기본 시한보다 오래 걸리는 것이 정상인 호출의 자리.
-func (pc *ToolClient) callWithin(method string, params interface{}, within time.Duration) (map[string]interface{}, error) {
+func (pc *ToolClient) callWithin(method string, params any, within time.Duration) (json.RawMessage, error) {
 	pc.mu.Lock()
 	if pc.enc == nil {
 		pc.mu.Unlock()
@@ -405,20 +489,18 @@ func (pc *ToolClient) callWithin(method string, params interface{}, within time.
 	}
 	id := pc.nextID
 	pc.nextID++
-	ch := make(chan json.RawMessage, 1)
+	ch := make(chan rpcReply, 1)
 	pc.pending[id] = ch
 	cd := pc.connDone
 	enc := pc.enc
 	pc.mu.Unlock()
 
-	req := toolipc.PanedRequest{ID: id, Method: method}
-	paramBytes, _ := json.Marshal(params)
-	req.Params = paramBytes
-
-	pc.mu.Lock()
-	err := enc.Encode(req)
-	pc.mu.Unlock()
+	pc.writeMu.Lock()
+	err := enc.Encode(outRequest{ID: id, Method: method, Params: params})
+	pc.writeMu.Unlock()
 	if err != nil {
+		// 부호화 실패(IPC-22)든 쓰기 실패든 호출자에게 돌려준다. 종전에는 Marshal
+		// 오류를 버려 params 가 null 로 나갔다.
 		pc.mu.Lock()
 		delete(pc.pending, id)
 		pc.mu.Unlock()
@@ -430,28 +512,13 @@ func (pc *ToolClient) callWithin(method string, params interface{}, within time.
 	timeout := time.NewTimer(within)
 	defer timeout.Stop()
 	select {
-	case raw, ok := <-ch:
+	case r, ok := <-ch:
 		if !ok {
 			return nil, fmt.Errorf("paned connection lost")
 		}
-		// 성공과 오류를 **한 번에** 읽는다 (M8 D-A-16). 종전에는 PanedResponse 로
-		// 먼저 읽었는데 오류 응답도 `id` 를 가져 그 해석이 성공했고, 오류는 "결과
-		// 없음" 으로 뭉개졌다 — Delete·Create 의 실패가 nil 로 돌아왔다.
-		var resp struct {
-			Result any                  `json:"result"`
-			Error  *toolipc.PanedErrObj `json:"error"`
-		}
-		if err := json.Unmarshal(raw, &resp); err != nil {
-			return nil, err
-		}
-		if resp.Error != nil {
-			return nil, &toolipc.RPCError{Code: resp.Error.Code, Message: resp.Error.Message}
-		}
-		result, ok := resp.Result.(map[string]interface{})
-		if !ok {
-			return map[string]interface{}{}, nil
-		}
-		return result, nil
+		// 성공과 오류는 readLoop 가 **한 번에** 갈랐다 (M8 D-A-16). 오류 응답도
+		// `id` 를 가지므로, 성공으로 먼저 읽으면 오류가 "결과 없음" 으로 뭉개진다.
+		return r.result, r.err
 	case <-cd:
 		return nil, fmt.Errorf("paned connection lost")
 	case <-timeout.C:

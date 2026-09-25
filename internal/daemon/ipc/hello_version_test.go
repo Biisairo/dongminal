@@ -23,15 +23,15 @@ func TestHelloCarriesProtocolAndBuild(t *testing.T) {
 	if !ok {
 		t.Fatal("hello 가 PanedResponse 를 내지 않았다")
 	}
-	m, ok := res.Result.(map[string]interface{})
+	m, ok := res.Result.(toolipc.HelloResult)
 	if !ok {
 		t.Fatalf("Result 형식이 다르다: %T", res.Result)
 	}
-	if m["version"] != toolipc.ProtocolVersion {
-		t.Errorf("version=%v want %d — 프로토콜 판", m["version"], toolipc.ProtocolVersion)
+	if m.Version != toolipc.ProtocolVersion {
+		t.Errorf("version=%v want %d — 프로토콜 판", m.Version, toolipc.ProtocolVersion)
 	}
-	if m["build"] != "1.2.3" {
-		t.Errorf("build=%v want 1.2.3 — 빌드 판이 실리지 않는다 (FR-VHL-1)", m["build"])
+	if m.Build != "1.2.3" {
+		t.Errorf("build=%v want 1.2.3 — 빌드 판이 실리지 않는다 (FR-VHL-1)", m.Build)
 	}
 }
 
@@ -42,8 +42,8 @@ func TestHelloWithoutBuildStamp(t *testing.T) {
 	t.Cleanup(pm.StopSaving)
 	pc := newPanedConn(nil, pm)
 	res := pc.hello(&toolipc.PanedRequest{ID: 1}).(toolipc.PanedResponse)
-	m := res.Result.(map[string]interface{})
-	if m["build"] != "" {
-		t.Errorf("build=%v — 새기지 않은 판을 지어냈다", m["build"])
+	m := res.Result.(toolipc.HelloResult)
+	if m.Build != "" {
+		t.Errorf("build=%v — 새기지 않은 판을 지어냈다", m.Build)
 	}
 }

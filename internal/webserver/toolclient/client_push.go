@@ -4,8 +4,7 @@ import (
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/toolhub"
 
-	"encoding/base64"
-	"encoding/json"
+	"dongminal/internal/shared/toolipc"
 )
 
 // M9_SRS FR-M9-15 (D-A-10 — 분리는 **이동만**이다): `client.go` 에서 옮겨 왔다.
@@ -14,16 +13,19 @@ import (
 // 연결의 수명(dial·supervise·readLoop·재접속)과 요청/응답이며, 둘은 서로 다른
 // 방향이다 — 저쪽은 우리가 묻고 이쪽은 저쪽이 말한다.
 
-func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
-	switch event {
-	case "output":
-		pc.pushOutput(raw)
-	case "fg":
-		pc.pushForeground(raw)
-	case "exit":
-		pc.pushExit(raw)
-	case "size":
-		pc.pushSize(raw)
+// handlePush dispatches a server-pushed event to per-tool subscribers
+// and to the global OnOutput/OnExit callbacks. 이벤트마다 메서드 하나다
+// (M8 GO-21) — 모르는 이벤트는 버린다. m 은 readLoop 가 이미 해석한 줄이다.
+func (pc *ToolClient) handlePush(m *wireMsg) {
+	switch m.Event {
+	case toolipc.EventOutput:
+		pc.pushOutput(m)
+	case toolipc.EventForeground:
+		pc.pushForeground(m)
+	case toolipc.EventExit:
+		pc.pushExit(m)
+	case toolipc.EventSize:
+		pc.pushSize(m)
 	}
 }
 
@@ -42,15 +44,7 @@ func (pc *ToolClient) handlePush(event string, raw json.RawMessage) {
 // 낫지 않는다.** 출력 청크와 달리 다음 청크가 메워 주지 않으며, 그 값을 다시
 // 말하는 자리는 다음 접속의 snapshot 뿐이다. 그래서 떨어뜨림을 조용히 세지 않고
 // **한 건도 남김없이** 로그로 올린다 — output 쪽은 256건마다 한 줄이다.
-func (pc *ToolClient) pushSize(raw json.RawMessage) {
-	var ev struct {
-		Tool string `json:"tool"`
-		Cols uint16 `json:"cols"`
-		Rows uint16 `json:"rows"`
-	}
-	if err := json.Unmarshal(raw, &ev); err != nil {
-		return
-	}
+func (pc *ToolClient) pushSize(ev *wireMsg) {
 	if ev.Cols == 0 || ev.Rows == 0 {
 		return
 	}
@@ -72,22 +66,12 @@ func (pc *ToolClient) pushSize(raw json.RawMessage) {
 }
 
 // pushOutput 은 `output` push 다 — 해석층(onOutput)에 한 번, 구독한 브라우저마다 한 번.
-func (pc *ToolClient) pushOutput(raw json.RawMessage) {
-	var ev struct {
-		Tool string `json:"tool"`
-		Data string `json:"data"`
-		// End 는 이 청크의 끝 절대 오프셋이다 (TERMINAL_RESUME_SRS FR-TRS-15).
-		// 이 필드를 보내지 않는 옛 데몬에서는 0 으로 읽히고, 그때 받는 쪽은
-		// 겹침 제거를 건너뛴다 — 지금 동작과 같아질 뿐 나빠지지 않는다.
-		End int64 `json:"end"`
-	}
-	if err := json.Unmarshal(raw, &ev); err != nil {
-		return
-	}
-	data, err := base64.StdEncoding.DecodeString(ev.Data)
-	if err != nil {
-		return
-	}
+//
+// End 는 이 청크의 끝 절대 오프셋이다 (TERMINAL_RESUME_SRS FR-TRS-15). 이 필드를
+// 보내지 않는 옛 데몬에서는 0 으로 읽히고, 그때 받는 쪽은 겹침 제거를 건너뛴다 —
+// 지금 동작과 같아질 뿐 나빠지지 않는다.
+func (pc *ToolClient) pushOutput(ev *wireMsg) {
+	data := ev.Data
 	// Attention/activity detection: once per chunk, in this single readLoop
 	// goroutine — independent of WS subscribers (FR-15, §6.2).
 	pc.mu.Lock()
@@ -124,14 +108,7 @@ func (pc *ToolClient) pushOutput(raw json.RawMessage) {
 }
 
 // pushForeground 는 `fg` push 다 — 전경 이름이 바뀌었다.
-func (pc *ToolClient) pushForeground(raw json.RawMessage) {
-	var ev struct {
-		Tool string `json:"tool"`
-		Name string `json:"name"`
-	}
-	if err := json.Unmarshal(raw, &ev); err != nil {
-		return
-	}
+func (pc *ToolClient) pushForeground(ev *wireMsg) {
 	pc.invalidateList()
 	pc.mu.Lock()
 	cb := pc.onForeground
@@ -141,16 +118,9 @@ func (pc *ToolClient) pushForeground(raw json.RawMessage) {
 	}
 }
 
-// pushExit 은 `exit` push 다 — 구독자를 닫고 전역 종료 콜백을 부른다.
-func (pc *ToolClient) pushExit(raw json.RawMessage) {
-	var ev struct {
-		Tool   string   `json:"tool"`
-		Code   int      `json:"code"`
-		Stderr []string `json:"stderr"`
-	}
-	if err := json.Unmarshal(raw, &ev); err != nil {
-		return
-	}
+// pushExit 은 `exit` push 다 — 구독자를 닫고 전역 종료 콜백을 부른다. 사유는
+// 종료 코드뿐이다 (D-OPT-6 — stderr 사유 폐기).
+func (pc *ToolClient) pushExit(ev *wireMsg) {
 	pc.invalidateList()
 	// Signal every WS subscriber of this tool so it can send toolhub.OpExit and
 	// tear down (parity with direct-mode tool.kill). Closing + removing
@@ -174,5 +144,3 @@ func (pc *ToolClient) pushExit(raw json.RawMessage) {
 		onExit(ev.Tool, toolhub.ExitInfo{Code: ev.Code})
 	}
 }
-
-// call sends a request and blocks until the response arrives, the connection

@@ -163,12 +163,10 @@ func (ps *PanedServer) Accept() error {
 		return err
 	}
 
+	// 연결은 **하나씩** 받는다 (IPC-24). boot.Run 의 루프는 이 함수가 돌아온 뒤에야
+	// 다음 Accept 를 부르고, 이 함수는 handle() 이 끝나야 돌아온다 — 그래서 여기
+	// 닿을 때 앞 연결은 이미 멈춰 있다. 앞 연결을 닫던 갈래는 닿을 수 없어 지웠다.
 	ps.mu.Lock()
-	// Close previous connection
-	if ps.currConn != nil {
-		ps.currConn.stop()
-	}
-
 	pc := newPanedConn(conn, ps.pm)
 	// FR-VHL-1: 연결마다 빌드 판을 내린다.
 	//
