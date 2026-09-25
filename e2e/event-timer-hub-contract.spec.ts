@@ -509,7 +509,8 @@ test.describe('T-12 — 소프트리로드의 재검증 목록 (SRS §2.4)', () 
 
     const seen = await page.evaluate(async () => {
       const app = (window as any).app;
-      const keys = ['_attnRestore', '_activityRestore', '_bgRefresh', '_focusRestore', '_fgRestore'];
+      // 전경 이름은 워크스페이스 재조회가 나른다 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-5).
+      const keys = ['_attnRestore', '_activityRestore', '_bgRefresh', '_focusRestore', '_onWorkspaceChanged'];
 
       // 존재 자체가 계약이다 — `&&` 가드는 없는 이름을 조용히 삼킨다.
       const missing = keys.filter((k) => typeof app[k] !== 'function');
@@ -527,7 +528,7 @@ test.describe('T-12 — 소프트리로드의 재검증 목록 (SRS §2.4)', () 
     });
 
     expect(seen.missing, '재검증 대상 이름이 사라졌다 — 가드가 조용히 삼킨다 (FR-WBR-95)').toEqual([]);
-    for (const k of ['_attnRestore', '_activityRestore', '_bgRefresh', '_focusRestore', '_fgRestore']) {
+    for (const k of ['_attnRestore', '_activityRestore', '_bgRefresh', '_focusRestore', '_onWorkspaceChanged']) {
       expect(seen.called, `소프트리로드가 ${k} 를 재검증하지 않았다 (SRS §2.4)`).toContain(k);
     }
   });

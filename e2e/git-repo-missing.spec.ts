@@ -3,7 +3,7 @@ import { dirname, join } from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, openGit, waitForInit, gitFixture, cleanGitFixture, copyDir, rmTreeHard, rmTree, freshDir, clickGitView, setSafetyNet } from './fixtures';
+import { test, expect, openGit, openGitTab, waitForInit, gitFixture, cleanGitFixture, copyDir, rmTreeHard, rmTree, freshDir, clickGitView, setSafetyNet } from './fixtures';
 import { tmpPath, realPath, cssPath } from './osenv';
 
 /**
@@ -250,6 +250,8 @@ test.describe('GIT_REPO_MISSING — 소실의 확정과 알림', () => {
     await page.evaluate((r) => (window as any).app.testing.gitPin(r), repo);
     const row = page.locator(`#repo-entries .ed-entry[data-git-repo="${cssPath(repo)}"]`);
     await expect(row).toHaveCount(1, { timeout: UI_WAIT_MS });
+    // 목록은 Repo 탭이 보이는 동안 push 로 선다 — 그 밖에서는 안전망(30초)이다 (FR-OPT-4-3).
+    await openGitTab(page);
 
     await vanish(repo);
 

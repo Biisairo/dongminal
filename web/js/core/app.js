@@ -150,6 +150,9 @@ class App {
       const sv=st.workspace;
       const ok=new Set(sp.map(p=>p.id));
       for(const p of sp){const pane=this.mkTool(p.id,p.name);pane._reconnecting=true;pane.el.style.opacity='0'}
+      // OPTIMIZE_REFACTOR_SRS FR-OPT-4-5: 첫 화면의 전경 이름은 이 목록에서 온다 — 첫
+      // 구독이 같은 목록을 다시 받지 않는다. 모르는 목록으로는 얹지 않는다 (FR-TLU-7).
+      if(st.toolsKnown!==false) this._fgApply(sp);
       await edReady;
       // **창이 없어도 서버가 소유한 키는 채택한다.**
       //
@@ -546,6 +549,8 @@ class App {
                   this.ws.git=rem.git;
                   for(const k of ['drafts','favorites'])
                     if(mine[k]) this.ws.git[k]=Object.assign({},rem.git[k]||{},mine[k]);
+                  // FR-OPT-4-3: 핀이 바뀌었으면 배지 목록을 받는다 — 목록의 주기는 안전망뿐이다.
+                  if(JSON.stringify(mine.pinned||[])!==JSON.stringify(rem.git.pinned||[])) this.gitReposKick();
                 }
                 // FR-EDT-21: `editors` 도 서버가 권위다. `git` 과 달리
                 // **클라이언트가 소유하는 하위 키가 없으므로** 병합 없이 서버

@@ -71,7 +71,7 @@ test.describe('복원 비행 (RESTORE_FLIGHT_SRS)', () => {
       const app = (window as any).app;
       app.testing.fgMap().clear();
       const g = eval(gateSrc)((u: string) => u.includes('/api/state'), { tools: [] });
-      app.testing.fgRestore();
+      app.testing.onWorkspaceChanged();   // 전경 이름의 복원 경로 (FR-OPT-4-5)
       app.testing.onToolForeground({ toolId: 'late', name: 'vim' });
       g.release();
       await new Promise(r => setTimeout(r, 150));
@@ -91,7 +91,7 @@ test.describe('복원 비행 (RESTORE_FLIGHT_SRS)', () => {
       // 스냅숏은 vim 이 아직 떠 있다고 말한다.
       const g = eval(gateSrc)((u: string) => u.includes('/api/state'),
         { tools: [{ id: 'dying', fgName: 'vim' }] });
-      app.testing.fgRestore();
+      app.testing.onWorkspaceChanged();   // 전경 이름의 복원 경로 (FR-OPT-4-5)
       app.testing.onToolForeground({ toolId: 'dying', name: '' });     // 프로그램이 끝났다
       g.release();
       await new Promise(r => setTimeout(r, 150));

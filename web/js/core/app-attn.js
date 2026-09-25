@@ -93,9 +93,9 @@ Object.assign(App.prototype, {
    * 개정 전의 `before`(요청 전 키 집합)는 새 알람이 지워지는 쪽만 막았고,
    * 사용자가 거둔 알람이 되살아나는 쪽은 그대로였다 (RESTORE_FLIGHT_SRS §1.1).
    */
-  _attnRestore(){
+  _attnRestore(src){
     const t=this._restoreBegin('attn');
-    apiGet('/api/tools/attention').then(res=>{
+    return stateFetch(src,'/api/tools/attention').then(res=>{
       const j=res.ok?res.data:null;
       if(!this._restoreLive('attn',t)) return;
       if(!j||!Array.isArray(j.toolIds)) return;

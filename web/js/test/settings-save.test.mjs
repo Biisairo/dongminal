@@ -12,7 +12,7 @@ import { load } from './harness.mjs';
 function setup() {
   const calls = { put: [], get: 0 };
   let putImpl = async () => ({ ok: true });
-  const ctx = load(['core/app-settings.js'], {
+  const ctx = load(['core/state-registry.js', 'core/app-settings.js'], {
     globals: {
       App: function App() {},
       SETTINGS_SCHEMA: [],

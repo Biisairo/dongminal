@@ -20,7 +20,7 @@ class InputBinding {
     // 하나만 `agentsToggle()` 을 불러 같은 줄에서 처신이 갈려 있었다.
     document.getElementById('agents-toggle').addEventListener('click',()=>this.app.actPanelOpen());
     const ap=document.getElementById('agents-panel'),aph=document.getElementById('agents-handle');
-    try{if(localStorage.getItem('agentsPanelOpen')==='1'){ap.classList.add('open');aph.classList.add('open');document.getElementById('agents-toggle').classList.add('open');this.app.agentsStartPoll()}}catch{}
+    try{if(localStorage.getItem('agentsPanelOpen')==='1'){ap.classList.add('open');aph.classList.add('open');document.getElementById('agents-toggle').classList.add('open')}}catch{}
     /**
      * UI_KIT_SRS FR-HSZ-1·10: 여섯 핸들이 `UIKit.drag` 한 골격을 쓴다.
      *

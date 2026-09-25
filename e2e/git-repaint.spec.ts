@@ -144,8 +144,8 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     await expect(page.locator(sel).first()).toBeVisible();
     const n = await markAll(page, sel);
     expect(n).toBeGreaterThan(0);
-    // GIT_REPOS_POLL_MS 는 3000 이다 — 한 회차를 확실히 넘긴다.
-    await page.waitForTimeout(4200);
+    // 목록의 회차가 하는 일을 직접 두 번 부른다 — 주기는 안전망(30초)이다 (FR-OPT-4-3).
+    for (let i = 0; i < 2; i++) await page.evaluate(() => (window as any).app.testing.gitReposRefresh());
     expect(await markCount(page, sel)).toEqual({ kept: n, total: n });
   });
 
@@ -228,9 +228,8 @@ test.describe('FR-RPT — 같은 원인의 다른 자리 (V108~V112)', () => {
     const sel = '#agents-panel .ag-card';
     await expect(page.locator(sel)).toHaveCount(1, { timeout: 10000 });
     const n = await markAll(page, sel);
-    // agentsPollMs 의 기본값을 모르지 않도록 짧게 바꿔 회차를 확실히 지나게 한다.
-    await page.evaluate(() => { (window as any).app.agentsPollMs = 1000; (window as any).app.testing.agentsStartPoll() });
-    await page.waitForTimeout(2600);
+    // 주기의 회차가 하는 일을 직접 두 번 부른다 — 주기를 기다리지 않는다.
+    for (let i = 0; i < 2; i++) await page.evaluate(() => (window as any).app.testing.activityRestore());
     expect(await markCount(page, sel)).toEqual({ kept: n, total: n });
   });
 

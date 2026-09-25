@@ -84,7 +84,6 @@ async function loadAppCmd(page: Page) {
       _activityRestore() {}
       _bgRefresh() {}
       _focusRestore() {}
-      _fgRestore() {}
     };
   });
   await page.addScriptTag({ path: API_JS });

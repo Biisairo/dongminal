@@ -2,6 +2,13 @@
 
 > **문서 상태**: 승인·구현완료
 
+> **후속 문서가 이 SRS 의 일부를 개정했다.** 어긋나면 후속이 이긴다.
+>
+> | 개정된 것 | 어떻게 | 어디서 |
+> |---|---|---|
+> | FR-RSF-2·3·7 의 전경 이름 경로 (`_fgRestore`) | **`_fgRestore` 가 사라졌다.** 합류·재연결·소프트 리로드의 전경 이름은 `_onWorkspaceChanged` 가 받은 `/api/state` 의 도구 목록으로 얹고, **그 요청이 `fg` 비행을 연다** — FR-RSF-3 의 `touched` 보호는 그대로 그 경로에 있다. 첫 화면은 `init` 이 받은 목록으로 얹는다(비행 없는 동기 경로, FR-RSF-7). 첫 구독과 부팅 조회 사이의 짧은 틈에 바뀐 이름은 다음 `tool_foreground`·재연결이 준다 | OPTIMIZE_REFACTOR_SRS FR-OPT-4-5 |
+> | 복원의 요청 | 비행 규약은 그대로이고 **요청을 누가 내는가**만 바뀌었다 — `attn`·`activity`·`background`·`settings`·`update`·`focus` 는 구독 열림·소프트 리로드마다 `/api/snapshot` 하나를 나눠 받는다. 비행은 요청이 떠나기 전에 열린다 | OPTIMIZE_REFACTOR_SRS FR-OPT-4-5 |
+
 ## 1. 개요 (Introduction)
 
 ### 1.1 목적 (Purpose)

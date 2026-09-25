@@ -13,7 +13,8 @@ import { test, expect, waitForInit } from './fixtures';
  * 겹쳤는가는 **같은 입력에 같은 답**이 나온다.
  *
  *   이전: ping → stats → git/jobs   세 왕복이 줄을 선다 (3r)
- *   지금: ping → (stats ∥ git/jobs)  뒤의 둘이 겹친다 (2r)
+ *   다음: ping → (stats ∥ git/jobs)  뒤의 둘이 겹친다 (2r)
+ *   지금: ping → stats?jobs=1        뒤의 둘이 한 요청이다 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-4)
  *
  * `ping` 은 **겹치지 않아야 한다** — 그 왕복은 지연 측정 자체가 목적이라 다른
  * 요청과 같은 줄에 서면 측정이 오염된다 (FR-PRF-36). 그래서 이 검사는 겹침을
@@ -39,7 +40,7 @@ async function timings(page: Page) {
 
 const overlaps = (a: Entry, b: Entry) => a.start < b.end && b.start < a.end;
 
-test('S1 (FR-PRF-36~38 · TC-PRF-13): 상태바 회차의 stats 와 git/jobs 가 겹치고 ping 은 겹치지 않는다', async ({ page }) => {
+test('S1 (FR-PRF-36~38 · TC-PRF-13 · FR-OPT-4-4): 상태바 회차는 ping 과 stats 둘이고 ping 은 겹치지 않는다', async ({ page }) => {
   await waitForInit(page);
   await page.evaluate(() => performance.clearResourceTimings());
 
@@ -52,15 +53,11 @@ test('S1 (FR-PRF-36~38 · TC-PRF-13): 상태바 회차의 stats 와 git/jobs 가
   const stats = all.filter((e) => e.name === '/api/stats');
   const jobs = all.filter((e) => e.name === '/api/git/jobs');
   const pings = all.filter((e) => e.name === '/api/ping');
-  expect(jobs.length, JSON.stringify(all)).toBeGreaterThanOrEqual(2);
   expect(pings.length, JSON.stringify(all)).toBeGreaterThanOrEqual(2);
+  // Git 패널이 없으면 작업 목록을 묻지 않는다 — 틱에도 따로도.
+  expect(jobs.length, JSON.stringify(all)).toBe(0);
 
-  // 회차마다 stats 와 git/jobs 가 겹친다.
-  const paired = stats.filter((s) => jobs.some((j) => overlaps(s, j)));
-  expect(paired.length, `stats ${JSON.stringify(stats)} / jobs ${JSON.stringify(jobs)}`)
-    .toBe(stats.length);
-
-  // ping 은 그 둘 중 어느 것과도 겹치지 않는다 — 지연 측정은 홀로 선다.
-  const dirty = pings.filter((p) => [...stats, ...jobs].some((o) => overlaps(p, o)));
+  // ping 은 stats 와 겹치지 않는다 — 지연 측정은 홀로 선다.
+  const dirty = pings.filter((p) => stats.some((o) => overlaps(p, o)));
   expect(dirty.length, `ping ${JSON.stringify(pings)}`).toBe(0);
 });

@@ -17,9 +17,9 @@ Object.assign(App.prototype, {
    *
    * 503 은 판 확인이 없는 서버다. 그때는 배지도 토글도 없다 — 종전의 서버다.
    */
-  _updateRestore(){
+  _updateRestore(src){
     const t=this._restoreBegin('update');
-    return apiGet('/api/update').then(r=>{
+    return stateFetch(src,'/api/update').then(r=>{
       if(!this._restoreLive('update',t)) return;
       this._update=r.ok?r.data:null;
       this._updateRender();

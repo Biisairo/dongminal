@@ -188,6 +188,11 @@ rev-parse 와 status 를 실행한다(IPC-7).
 **목표**: 터미널 창 하나일 때 정상 상태 트래픽을 ≈ 1.5 req/s 에서 **≤ 0.5 req/s** 로 줄인다 (ping 과 stats 만 남는다).
 e2e 요청 타임라인으로 잰다.
 
+> **O4b 구현 중 확인 (2026-09-26).** ping 과 stats 를 분리한 채(FR-PRF-36~38) 기본 `statsInterval` 3 s 에서는
+> 그 둘만으로 0.67 req/s 다. 실측은 30 s 에 ping 10 · stats 10 · repos ≤ 1 = **0.70 req/s** 이다
+> (`e2e/steady-traffic.spec.ts`). ≤ 0.5 는 `statsInterval` ≥ 4 s 에서 성립한다 — 기본값을 바꾸는 것은
+> 사용자 결정이므로 이 묶음은 "ping·stats 만 남는다" 를 고정한다.
+
 ### 3.5 O5 — 쓰기 경로 합치기·원자성
 
 - **FR-OPT-5-1** 워크스페이스: 마지막으로 성공한 본문과 같으면 PUT 하지 않는다. 직렬화는 한 번만 한다. 서버도 raw 바이트가 같으면 rev 를 올리지 않고 방송하지 않는다. (FEC-1 · FEC-2)
@@ -276,7 +281,7 @@ e2e 요청 타임라인으로 잰다.
 |---|---|---|---|
 | **D-OPT-1** | IPC 확장 방식 | `hello.features` 로 기능을 협상하고 `ProtocolVersion` 은 올리지 않는다 (데몬은 PTY 를 잃지 않고 살아남는다) | 2-2 · 2-4 · 2-5 |
 | **D-OPT-2** | 숨은 터미널의 지연 연결 | 채택한다. 단 숨은 도구의 OSC 부수효과(cwd·클립보드) 소비자를 먼저 조사하고, 필요한 것은 서버 경로로 옮긴다 | 4-11 |
-| **D-OPT-3** | 폴링→푸시 전환에 따른 SRS 개정 | FR-EDT-77 · FR-GIT-101a · FR-GVR-4 · `gitReposInterval` 을 "안전망 주기(기본 30 s)" 로 개정한다. 탐색기 git 색의 안전망은 `gitStatusInterval` 이다 — FR-FSL-7 · FR-ELR-10 의 "같은 틱" 은 스탬프 물음과 캐시 재칠의 틱이 된다 | 4-1 · 4-3 · 4-4 · 4-9 |
+| **D-OPT-3** | 폴링→푸시 전환에 따른 SRS 개정 | FR-EDT-77 · FR-GIT-101a · FR-GVR-4 · 저장소 목록(`/api/git/repos`)의 주기를 안전망 `gitStatusInterval`(기본 30 s)로 옮기고, `gitReposInterval` 은 탐색기 틱으로 남긴다 (O4b 구현 중 확정 — 그 틱은 FR-OPT-4-1 이후 스탬프 물음이라 30 s 로 내리면 바깥 변경 감지가 느려진다). 탐색기 git 색의 안전망도 `gitStatusInterval` 이다 — FR-FSL-7 · FR-ELR-10 의 "같은 틱" 은 스탬프 물음과 캐시 재칠의 틱이 된다 | 4-1 · 4-3 · 4-4 · 4-9 |
 | **D-OPT-4** | 칸 SSE | 1단계로 `presence=1`(방송 없음)만 한다. 연결 수를 줄이는 다중 신원 SSE 는 비목표 | 4-12 |
 | **D-OPT-5** | 상태 파일 지연 쓰기 | 이번에는 하지 않는다. 동일 내용 건너뛰기와 락 밖 쓰기만 한다 (FBE-17 · FR-SFD-1 유지) | 5-3 · 5-4 |
 | **D-OPT-6** | exit stderr 사유 | 폐기한다. 필드와 주석을 지운다 | 2-8 |

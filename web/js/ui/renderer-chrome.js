@@ -94,6 +94,21 @@ Object.assign(Renderer.prototype, {
     return label+' · '+name;
   },
 
+  /**
+   * 모바일 순회의 `n/m`. `_rLayout` 이 순회 자리(`mPaneIdx`)를 포커스에 맞추므로 그 뒤에도
+   * 칠한다 (`render`) — 종전에는 토프바에서만 칠해, 새 칸을 연 직후의 자리가 다음 목록
+   * 폴링(3초)의 다시 그리기까지 한 칸 뒤였다 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-3 이 드러냈다).
+   */
+  _rPaneIndicator(){
+    const ind=document.getElementById('m-pane-indicator');
+    if(!ind) return;
+    const n=this.app.mobilePaneCount();
+    if(n<=0){ind.textContent='0/0';return}
+    if(this.app.mPaneIdx>=n) this.app.mPaneIdx=n-1;
+    if(this.app.mPaneIdx<0) this.app.mPaneIdx=0;
+    ind.textContent=`${this.app.mPaneIdx+1}/${n}`;
+  },
+
   _rTopbar(){
     const a=this.app.aw();
     // FR-STB-11·12: 칸이 하나면 토프바가 제목을 낸다. 칸이 여럿이면 머리글이 그
@@ -124,16 +139,7 @@ Object.assign(Renderer.prototype, {
     // 않는다 — `_makeTabAdd` 를 부르지 않는다).
     const mAdd=document.getElementById('m-add-tab');
     if(mAdd) mAdd.hidden=noSplit;
-    const ind=document.getElementById('m-pane-indicator');
-    if(ind){
-      const n=this.app.mobilePaneCount();
-      if(n<=0){ind.textContent='0/0'}
-      else{
-        if(this.app.mPaneIdx>=n) this.app.mPaneIdx=n-1;
-        if(this.app.mPaneIdx<0) this.app.mPaneIdx=0;
-        ind.textContent=`${this.app.mPaneIdx+1}/${n}`;
-      }
-    }
+    this._rPaneIndicator();
     const dt=document.getElementById('m-drawer-toggle');
     // UI_KIT_SRS FR-GLY-4: 글자가 아니라 아이콘이므로 `textContent` 로 바꿀 수
     // 없다 — 그 대입은 `<svg>` 를 지운다.

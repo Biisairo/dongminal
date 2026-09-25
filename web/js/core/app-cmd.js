@@ -183,8 +183,12 @@ Object.assign(App.prototype, {
     try{
       do{
         this._wsApplyPending=false;
+        // OPTIMIZE_REFACTOR_SRS FR-OPT-4-5: 전경 이름의 복원이 이 요청에 있다 (FR-RSF-3 의
+        // 경로 개정). 그래서 여기서 `fg` 비행을 연다 — 응답을 기다리는 사이 SSE 가 만진
+        // id 는 이 스냅샷이 덮지 않는다.
+        const fgT=this._restoreBegin('fg');
         const r=await apiGet('/api/state');
-        if(!r.ok) break;
+        if(!r.ok){ this._restoreEnd('fg',fgT); break }
         const et=this._etagOf(r);
         const st=r.data;
         const sv=st&&st.workspace;
@@ -192,6 +196,10 @@ Object.assign(App.prototype, {
         // FR-TLU-1: 서버가 목록을 **모른다**고 말했는가. 옛 서버는 이 필드를
         // 보내지 않으므로, 없으면 아는 것으로 본다 (열화 경로).
         const known=!(st&&st.toolsKnown===false);
+        // 창이 없거나 워크스페이스가 낡은 스냅샷이어도 도구 목록은 응답 시점의 것이다 —
+        // 이름은 아래 두 갈래보다 먼저 얹는다.
+        if(known&&this._restoreLive('fg',fgT)) this._fgApply(sp,fgT);
+        this._restoreEnd('fg',fgT);
         if(!sv||!sv.windows) break;
         // UX_REVISION_SRS FR-GRR-4: **낡은 스냅샷을 적용하지 않는다.**
         //
@@ -203,7 +211,7 @@ Object.assign(App.prototype, {
         const now=this.wsETag?parseInt(this.wsETag,10):-1;
         const got=et?parseInt(et,10):-1;
         if(got>=0&&now>=0&&got<now) continue;
-        this._applyRemoteWorkspace(sv, sp, known);
+        this._applyRemoteWorkspace(sv, sp, known, false);
         if(et) this.wsETag=et;
       }while(this._wsApplyPending);
     }catch(err){console.error('[ws] sync',err)}
@@ -224,37 +232,16 @@ Object.assign(App.prototype, {
 
   _fgMap(){ return this.fgNames||(this.fgNames=new Map()) },
 
-  /**
-   * 합류/재연결 시의 스냅샷 복원 (`_attnRestore` 와 같은 규약). SSE 는 **변화**
-   * 만 나르므로, 합류 시점에 이미 떠 있던 전경 프로그램은 이것으로만 보인다.
-   *
-   * FR-RSF-2·3: **비행 중에 만진 id 는 스냅숏이 건드리지 않는다.** 응답은 요청
-   * 시점의 서버 상태이고, 그 사이 SSE 로 전경 이름이 붙거나 지워질 수 있다 —
-   * 이 함수는 SSE 가 열리는 바로 그 순간에 불린다(`es.onopen`).
-   *
-   * FR-FGR-1 의 `before`(요청 전 키 집합)가 여기 있었다. 그것은 새 이름이
-   * 지워지는 쪽만 막았고, **끝난 프로그램의 이름이 낡은 스냅숏으로 되살아나는
-   * 쪽은 그대로였다** (RESTORE_FLIGHT_SRS §1.1). 규약을 함수로 옮긴 것도 같은
-   * 이유다 — 주석으로 선언하고 손으로 옮겨 적으니 한 방향을 놓쳤다.
-   */
-  _fgRestore(){
-    const t=this._restoreBegin('fg');
-    apiGet('/api/state').then(res=>{
-      const j=res.ok?res.data:null;
-      if(!this._restoreLive('fg',t)) return;
-      // FR-TLU-7: 도구 목록을 모르는 스냅숏으로는 이름을 지우지 않는다 — 빈
-      // 목록을 사실로 받으면 붙어 있던 전경 이름이 전부 걷힌다.
-      if(j&&j.toolsKnown!==false) this._fgApply(j.tools||[],t);
-      this._restoreEnd('fg',t);
-    }).catch(()=>{});
-  },
-
   // `/api/state` 의 도구 목록(`fgName` 포함)을 런타임 Map 에 반영한다. 목록에
   // 없는 도구의 이름은 지운다 — 죽은 도구의 이름이 남으면 안 된다.
   //
   // `touched` 는 비행 중에 갱신된 id 의 집합이다 (FR-RSF-3). 그 id 는 스냅숏보다
   // 새로우므로 **추가도 삭제도 하지 않는다.** 주지 않으면 스냅숏이 전부를 정한다 —
-  // `_applyRemoteWorkspace` 처럼 비행이 아닌 동기 경로가 그렇게 부른다 (FR-RSF-7).
+  // 부팅(`init`)처럼 비행이 아닌 동기 경로가 그렇게 부른다 (FR-RSF-7).
+  //
+  // 합류·재연결의 복원은 `_onWorkspaceChanged` 가 받은 도구 목록으로 한다 — 그 요청이
+  // `fg` 비행을 연다 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-5, 종전 `_fgRestore`). SSE 는
+  // **변화**만 나르므로 합류 시점에 이미 떠 있던 전경 프로그램은 이것으로만 보인다.
   _fgApply(tools,touched){
     const m=this._fgMap();
     const seen=new Set();
@@ -313,7 +300,11 @@ Object.assign(App.prototype, {
    * (D-4). 모를 때 그 판정은 "어떤 도구도 죽었다고 말할 수 없다"이며, 그것을
    * 딛는 두 곳 — 죽은 도구 청소와 `clean` — 이 함께 아무 일도 하지 않는다.
    */
-  _applyRemoteWorkspace(sv, serverPanes, toolsKnown){
+  /**
+   * `fgTouched` 는 전경 이름의 비행이다 (`_onWorkspaceChanged`). `false` 면 그 비행이
+   * 추월당한 것이므로 이름을 얹지 않고, 주지 않으면 스냅숏이 전부를 정한다.
+   */
+  _applyRemoteWorkspace(sv, serverPanes, toolsKnown, fgTouched){
     const known=toolsKnown!==false;
     /**
      * FR-OPL-10: 병합의 근거는 **이 채택 이전의** 기억이다. 아래 `_wsMarkSaved`
@@ -324,12 +315,14 @@ Object.assign(App.prototype, {
      * 않는다 (V-OPL-3e 가 그것을 잡았다).
      */
     const seenBefore=this._wsSeen();
+    // FR-OPT-4-3: 핀 목록이 바뀌었으면 배지 목록을 받는다 — 목록의 주기는 안전망뿐이다.
+    const pinsBefore=JSON.stringify((this.ws.git&&this.ws.git.pinned)||[]);
     // FR-WSC-12: 이 스냅샷에 실린 창이 곧 **원격이 아는 창**이다. 아래에서
     // 마이그레이션·재조정이 `sv.windows` 를 고치므로 그 전에 적어 둔다.
     this._wsMarkSaved(sv.windows);
     // 전경 이름도 도구 목록에서 나온다 — 모르는 목록으로 지우면 탭 라벨이
     // 되돌아간다 (FR-TLU-7).
-    if(known) this._fgApply(serverPanes);
+    if(known&&fgTouched!==false) this._fgApply(serverPanes,fgTouched||undefined);
     // FR-EDT-42·103: 마이그레이션과 재조정이 창을 고쳤으면 그 결과를 서버에
     // 되쓴다 — 되쓰지 않으면 다음 동기화가 같은 일을 되풀이한다.
     let edChanged=false;
@@ -457,6 +450,7 @@ Object.assign(App.prototype, {
     this._slotTabsToWs();
     if(edChanged) this.save();
     this.render();
+    if(JSON.stringify((this.ws.git&&this.ws.git.pinned)||[])!==pinsBefore) this.gitReposKick();
   },
 
   // REMOTE_COMMAND_RESULT_SRS FR-RCR-6: 생성 명령의 새 엔터티 id 를 reqId 와 묶어

@@ -6,6 +6,7 @@
 >
 > | 개정된 것 | 어떻게 | 어디서 |
 > |---|---|---|
+> | ⑤ `gitReposInterval` 의 저장소 목록 (FR-PIS-6·21) · FR-PIS-12 의 배지 낡음 기준 | **저장소 목록은 ⑤ 를 따르지 않는다.** Repo 탭이 보이는 동안 핀 전부를 임대하고 배지는 `git_changed` 로 선다. 목록의 주기는 **안전망 ③ `gitStatusInterval`**(기본 30초, 0 은 끔)이고 핀 목록이 바뀌면(`workspace_changed`) 받는다. ⑤ 는 탐색기 틱만 남아 라벨이 `탐색기` 가 됐다. 배지 낡음 기준은 `(③ 또는 그 기본값) × GIT_BADGE_STALE_FACTOR` 다 — 트리 백오프는 그대로 ⑤ 를 딛는다 (V-6 개정) | OPTIMIZE_REFACTOR_SRS FR-OPT-4-3 |
 > | ③ `gitStatusInterval` (Git 패널의 안전망) · ⑤ `gitReposInterval` (편집기 트리의 git 색·파일 목록) | ③ 은 **탐색기 git 색의 안전망이기도 하다**(기본 30초, 0 은 끔). 탐색기 색은 `git_changed` 가 본줄이다. ⑤ 의 편집기 틱은 스탬프(겹·열린 파일, `POST /api/fs/stamps` 하나)를 묻고 git 색을 캐시로 다시 칠한다 — status 를 묻지 않는다. FR-PIS-21 의 ⑤ 안내는 "탐색기의 파일 목록과 열어 둔 파일의 바깥 변경" 이 된다 | OPTIMIZE_REFACTOR_SRS FR-OPT-4-1·4-2 / D-OPT-3 |
 
 - 접수: 2026-09-08 (요구 ⑪)

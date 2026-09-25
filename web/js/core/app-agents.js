@@ -23,9 +23,9 @@ Object.assign(App.prototype, {
   // FR-RSF-8: 응답 도착 시점의 `clear()` 후 재구성이 아니라 차분이다. 이 함수는
   // `agentsPollMs`(기본 5초)마다 불리므로 비행 창이 상시 열려 있고, 통째로 비우면
   // 그 사이 도착한 활동이 태어나자마자 사라진다 (RESTORE_FLIGHT_SRS §2.1).
-  _activityRestore(){
+  _activityRestore(src){
     const t=this._restoreBegin('activity');
-    apiGet('/api/tools/activity').then(res=>{
+    return stateFetch(src,'/api/tools/activity').then(res=>{
       const j=res.ok?res.data:null;
       if(!this._restoreLive('activity',t)) return;
       const list=(j&&Array.isArray(j.activities))?j.activities.slice():[];
@@ -55,19 +55,18 @@ Object.assign(App.prototype, {
     const btn=document.getElementById('agents-toggle');if(btn)btn.classList.toggle('open',open);
     try{localStorage.setItem('agentsPanelOpen',open?'1':'0')}catch{}
     for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
-    if(open){this.agentsRender();this.agentsStartPoll()}else{this._agentsStopPoll()}
+    if(open) this.agentsRender();
   },
 
-  // FR-AAP-19: 패널 열림 동안 주기적으로 서버 스냅샷과 동기화(자동 새로고침)
-  agentsStartPoll(){
-    this._agentsStopPoll();
-    // FR-RST-23: 종전에는 숨김 판정조차 없어 보이지 않는 탭에서도 계속 받았다.
-    // 주기는 `state-registry` 의 `tool.activity` 선언이 갖는다 (FR-HUB-3).
-    // 여기서 다시 걸면 같은 상태를 두 타이머가 묻는다.
-    this._agentsTimer=null;
-  },
-  _agentsStopPoll(){
-    if(this._agentsTimer){this._agentsTimer.stop();this._agentsTimer=null}
+  /**
+   * FR-AAP-19 (회복 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-6): 활동 스냅샷의 주기는 **패널이
+   * 열렸거나 알림이 있을 때만** 돈다. 주기는 `state-registry` 의 `tool.activity` 가
+   * 갖고 이것은 그 `when` 이다. 알림이 있으면 주의 센터가 활동의 detail 을 읽는다
+   * (`_attnDetail`). 증분은 닫혀 있어도 SSE `tool_activity` 로 온다.
+   */
+  _agentsPanelOpen(){
+    const panel=document.getElementById('agents-panel');
+    return !!(panel&&panel.classList.contains('open'));
   },
 
   /**
@@ -75,8 +74,8 @@ Object.assign(App.prototype, {
    *
    * 이 배선이 만지던 것은 Notifications 탭의 `에이전트 패널 새로고침 주기`
    * 드롭다운 하나였고, 그 손잡이는 `Polling` 탭으로 옮겼다 (D-2). 주기의 배선은
-   * 이제 `POLL_SETTINGS` 의 한 행이며, 재시작도 재무장 한 줄이 한다 —
-   * `_agentsTimer` 는 이미 `null` 이었다 (주기는 `state-registry` 의 것이다).
+   * 이제 `POLL_SETTINGS` 의 한 행이며, 재시작도 재무장 한 줄이 한다 (주기는
+   * `state-registry` 의 것이다).
    */
 
   // FR-AAP-21: 활동 카드 드래그 재배치. drop(즉시) 1순위 + dragend 폴백, done 으로 중복 차단.
@@ -132,7 +131,7 @@ Object.assign(App.prototype, {
   /**
    * FR-RPT-3: 패널을 비우고 다시 만들지 않는다.
    *
-   * `agentsStartPoll` 이 `agentsPollMs` 마다 부르고 SSE `tool_activity` 도 부른다 —
+   * 활동 주기(`agentsPollMs`)가 부르고 SSE `tool_activity` 도 부른다 —
    * 둘 다 바깥 계기다. 카드를 새로 만들면 **끌고 있던 카드가 DOM 에서 빠져 재배치가
    * 조용히 실패한다** (FR-AAP-21).
    *

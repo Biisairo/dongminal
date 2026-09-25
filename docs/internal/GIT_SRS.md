@@ -16,6 +16,7 @@
 > | FR-GIT-195~198 (히트 영역 하한 30px) | 그대로다. **통합이 넣은 사이드 컨트롤도 대상이다** — `.ed-side-tab`·`.ed-side-act` 가 24px·23px 로 서 있었다 | REPO_TAB_UNIFY_SRS D-RTU-31 |
 > | FR-GIT-282 (헤더의 리포 전환 드롭다운) | `setRepo` 가 아니라 **창 전환**(`openGitWindow`)이다. 고른 뒤 그 창의 사이드도 `Changes` 로 돌린다 | REPO_TAB_UNIFY_SRS FR-RTU-72 / D-RTU-27 |
 > | FR-GIT-244 (Worktrees 의 `활성 리포로 열기`) | 같은 이유로 **창 전환**이다 | REPO_TAB_UNIFY_SRS D-RTU-27 |
+> | FR-GIT-101a (`/api/git/jobs` 폴링) | **폴링이 아니라 push 다.** 서버가 작업의 시작·끝을 `git_jobs_changed` 로 밀고 Git 패널이 그때(와 구독 열림에) 목록을 받는다. 상태바 틱은 `/api/stats?jobs=1` 로 같은 목록을 안전망으로 싣는다. **Git 패널이 하나도 없으면 묻지 않는다** | OPTIMIZE_REFACTOR_SRS FR-OPT-4-4 |
 
 > ⚠️ **이 문서는 단독으로 최신이 아니다.**
 > MVP 구현 후 사용자 검토로 UI 를 개정했다 —
@@ -499,7 +500,8 @@ M2 부터 저장소를 변경한다. **묶음 J(안전 정책)는 묶음 H·I �
   > `GIT_SB_JOB_*` 상수 · `.sb-git-job` CSS. **상태바에 git 표면은 하나도 남지
   > 않았다** — 브랜치 chip 은 `FR-FLW-12` 가 먼저 걷어냈다.
 
-- **FR-GIT-101a (2026-09-11 신설)** `/api/git/jobs` 폴링은 **표시 설정과 무관하게
+- **FR-GIT-101a (2026-09-11 신설, 2026-09-26 개정 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-4)**
+  (대체된 원문) `/api/git/jobs` 폴링은 **표시 설정과 무관하게
   돈다.** 그 목록의 임자는 상태바가 아니라 Git 패널이다 — 다른 브라우저 창이 띄운
   작업도 같은 리포의 원격 버튼을 막아야 하기 때문이다 (`FR-GIT-101`).
 

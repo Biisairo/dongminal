@@ -8,9 +8,10 @@ Object.assign(App.prototype, {
   // ── Status Bar ──
   initStatusBar(){
     this._stats={};this._latency=null;
-    // FR-GIT-101a: 진행 중인 원격 작업 목록. **표시용이 아니다** — 다른 브라우저
-    // 창이 띄운 작업도 같은 리포의 원격 버튼을 막아야 하므로(FR-GIT-101) 이
-    // 폴링이 그 목록을 나른다. 상태바 chip 은 철회됐고 폴링은 남았다.
+    // FR-GIT-101a (개정 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-4): 진행 중인 원격 작업 목록.
+    // **표시용이 아니다** — 다른 브라우저 창이 띄운 작업도 같은 리포의 원격 버튼을
+    // 막아야 한다(FR-GIT-101). 목록은 `git_jobs_changed` 가 밀고, 상태바 틱이 stats 에
+    // 실어 안전망으로 받는다. Git 패널이 없으면 받지 않는다 — 쓸 곳이 없다.
     this._gitJobs=[];
     /**
      * UIUX_OVERHAUL_SRS FR-CHR-15 (D-7): **`#bg-btn` 이 없어졌다.**
@@ -49,7 +50,8 @@ Object.assign(App.prototype, {
    * FR-PRF-36~38 (`refactor/README.md` §4.1 항목 10).
    *
    *   이전 동작: 세 왕복이 **직렬**이었다 — ping → stats → git/jobs
-   *   새  동작: ping 은 홀로 앞에 남고 **뒤의 둘이 겹친다** (회차당 3r → 2r)
+   *   새  동작: ping 은 홀로 앞에 남고 **뒤의 둘이 겹친다** (회차당 3r → 2r).
+   *             OPTIMIZE_REFACTOR_SRS FR-OPT-4-4 로 뒤의 둘이 요청 하나가 됐다
    *   이유:     ②③이 서로를 기다릴 이유가 없다. 원격 접속(`start.sh --expose`)에서
    *             RTT 80ms 면 회차가 240ms 이고, 주기를 하한(1초)으로 내린
    *             사용자에게는 주기의 **24%** 가 대기다
@@ -67,8 +69,14 @@ Object.assign(App.prototype, {
     // 망 실패는 status 0 이다 — 그때 지연은 숫자가 아니라 "없음" 이다.
     this._latency=ping.status?Math.round(performance.now()-t0):null;
     // 통계는 따로 받는다 — ping 을 순수한 지연 측정으로 남겨 두려는 것이다.
-    const [st]=await Promise.all([apiGet('/api/stats'),this._pollGitJobs()]);
-    if(st.ok&&st.data) this._stats=st.data;
+    // git 작업 목록은 같은 요청에 싣는다 (FR-OPT-4-4 — 회차당 3r → 2r).
+    const jobs=this._gitJobsWanted();
+    const st=await apiGet('/api/stats',jobs?{query:{jobs:'1'}}:undefined);
+    if(st.ok&&st.data){
+      if(jobs&&Array.isArray(st.data.jobs)) this._gitJobsAdopt(st.data.jobs);
+      delete st.data.jobs;
+      this._stats=st.data;
+    }
     this.updateStatusBar();
   },
   /**

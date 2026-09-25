@@ -37,6 +37,7 @@ const STATE_REGISTRY=[
     restore:'_attnRestore',
     merge:'touched',      // 증분이 id 를 만진다 — 스냅샷이 그것을 덮으면 안 된다
     flight:'attn',
+    part:'attention',
     events:{
       tool_attention:'_onToolAttention',
       tool_attention_clear:'_onToolAttentionClear',
@@ -48,19 +49,33 @@ const STATE_REGISTRY=[
     restore:'_activityRestore',
     merge:'touched',
     flight:'activity',
+    part:'activity',
     events:{tool_activity:'_onToolActivity'},
     revalidateOn:['sse:open','softreload'],
     // 이 상태만 주기를 갖는다. 서버가 활동 변화를 전부 밀지는 않기 때문이다
     // (AGENT_ACTIVITY_PANEL_SRS) — 주기는 사용자가 정한다.
     every:(app)=>app.agentsPollMs,
+    // FR-AAP-19 · OPTIMIZE_REFACTOR_SRS FR-OPT-4-6: 읽는 곳이 있을 때만 돈다 — 패널,
+    // 그리고 알림의 detail (`_attnDetail`).
+    when:(app)=>app._agentsPanelOpen()||app._attn.size>0,
   },
   {
+    /**
+     * OPTIMIZE_REFACTOR_SRS FR-OPT-4-5 (RESTORE_FLIGHT FR-RSF-3 경로 개정) — **복원이
+     * 워크스페이스 적용 경로에 있다.**
+     *
+     *   이전 동작: 구독이 열릴 때마다 `_fgRestore` 가 전경 이름 하나를 얻으려고
+     *             `/api/state` 전체를 받았다 — 재연결이면 `_onWorkspaceChanged` 가
+     *             같은 것을 한 번 더 받았고, 첫 연결이면 부팅이 방금 받은 것이다
+     *   새  동작: 첫 화면은 `init` 이 받은 도구 목록으로, 재연결·소프트 리로드는
+     *             `_onWorkspaceChanged` 가 받은 목록으로 이름을 얹는다. 그 요청이
+     *             `fg` 비행을 연다 — 비행 중에 만진 id 는 스냅샷이 덮지 않는다
+     *   이유:     같은 목록을 두 번 받을 이유가 없다 (IPC-6 · FEC-10)
+     */
     id:'tool.foreground',
-    restore:'_fgRestore',
     merge:'touched',
     flight:'fg',
     events:{tool_foreground:'_onToolForeground'},
-    revalidateOn:['sse:open','softreload'],
   },
   {
     id:'tool.background',
@@ -70,6 +85,7 @@ const STATE_REGISTRY=[
     // 보호할 것도 없다 — 막아야 하는 것은 스냅샷끼리의 추월뿐이다.
     merge:'latest',
     flight:'background',
+    part:'background',
     events:{tools_background_changed:'_bgRefresh'},
     revalidateOn:['sse:open','softreload'],
   },
@@ -91,6 +107,10 @@ const STATE_REGISTRY=[
     restore:'_settingsRestore',
     merge:'latest',
     flight:'settings',
+    part:'settings',
+    // FR-OPT-4-5 (FEC-10): 첫 연결의 재검증은 건너뛴다 — 부팅(`main.js`)이 방금 받았다.
+    // 부팅 조회와 구독 사이의 짧은 틈에 바뀐 값은 다음 방송·재연결이 준다.
+    bootCovered:true,
     events:{settings_changed:'_onSettingsChanged'},
     revalidateOn:['sse:open','softreload'],
   },
@@ -113,6 +133,7 @@ const STATE_REGISTRY=[
     restore:'_updateRestore',
     merge:'latest',
     flight:'update',
+    part:'update',
     events:{update_changed:'_updateRestore'},
     revalidateOn:['sse:open','softreload'],
   },
@@ -139,12 +160,28 @@ const STATE_REGISTRY=[
     revalidateOn:['sse:open'],
   },
   {
+    /**
+     * OPTIMIZE_REFACTOR_SRS FR-OPT-4-4 (FR-GIT-101a 개정) — **서버가 밀어 준다.**
+     *
+     * 작업의 시작·끝을 서버가 `git_jobs_changed` 로 알린다. `every` 는 없다 — 상태바
+     * 틱이 `/api/stats?jobs=1` 로 같은 목록을 안전망으로 싣는다. Git 패널이 없으면
+     * `restore` 가 묻지 않는다 (`_gitJobsWanted`).
+     */
+    id:'git.jobs',
+    restore:'_pollGitJobs',
+    merge:'latest',
+    flight:'gitJobs',
+    events:{git_jobs_changed:'_pollGitJobs'},
+    revalidateOn:['sse:open','softreload'],
+  },
+  {
     id:'window.focus',
     restore:'_focusRestore',
     // 전체 소유권 맵이 온다. 증분이 아니므로 통째로 갈아치우면 되고 자기 에코
     // 필터가 필요 없다 (FR-XDF-14 — 멱등). 여기서도 추월만 막는다.
     merge:'latest',
     flight:'focus',
+    part:'focus',
     events:{window_focus:'_onWindowFocus'},
     revalidateOn:['sse:open','softreload'],
   },
@@ -170,17 +207,61 @@ function wireStateRegistry(app){
     for(const [topic,handler] of Object.entries(d.events||{})){
       bus.subscribe(topic,a=>call(handler,a),{owner:'state:'+d.id});
     }
-    for(const when of d.revalidateOn||[]){
-      bus.subscribe(when,()=>call(d.restore),{owner:'state:'+d.id});
-    }
     if(d.every){
       app.timers.every({
         id:d.id, owner:'state:'+d.id,
         every:()=>d.every(app),
+        when:d.when?()=>d.when(app):undefined,
         run:()=>call(d.restore),
       });
     }
   }
+  /**
+   * 재검증은 **계기마다 한 번** 모은다 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-5).
+   *
+   *   이전 동작: 상태마다 자기 GET 을 냈다 — 구독이 열릴 때 7건
+   *   새  동작: `part` 를 가진 상태는 `/api/snapshot` 하나를 나눠 받는다
+   *   이유:     재연결마다 왕복 여럿이 한꺼번에 나갔다 (IPC-6 · FEC-11)
+   *
+   * 비행·병합 규약은 그대로다. 복원은 여전히 **부를 때** 자기 비행을 열고(요청이
+   * 떠나기 전이다) 응답이 오면 자기 조각을 자기 규약으로 얹는다 — 바뀐 것은 요청을
+   * 누가 내는가뿐이다. `sse:open` 의 첫 연결(`gen===1`)에서는 부팅이 방금 받은
+   * 상태(`bootCovered`)를 건너뛴다 (FEC-10).
+   */
+  const topics=new Set();
+  for(const d of STATE_REGISTRY) for(const w of d.revalidateOn||[]) topics.add(w);
+  for(const topic of topics){
+    bus.subscribe(topic,a=>{
+      const first=topic==='sse:open'&&!!a&&a.gen===1;
+      const due=STATE_REGISTRY.filter(d=>(d.revalidateOn||[]).includes(topic)&&!(first&&d.bootCovered));
+      const parts=due.filter(d=>d.part).map(d=>d.part);
+      const snap=parts.length?apiGet('/api/snapshot',{query:{parts:parts.join(',')}}):null;
+      for(const d of due) call(d.restore,d.part?stateSnapshotPart(snap,d.part):undefined);
+    },{owner:'state'});
+  }
+}
+
+/**
+ * 스냅샷 봉투에서 조각 하나의 봉투를 만든다 — 그 종단을 직접 부른 것과 같은 모양이다
+ * (`core/api.js` 의 봉투). 조각이 없으면 실패 봉투다: 서버가 그 종단의 실패를 싣지 않았다.
+ * `text` 는 조각의 JSON 이다 — 설정의 자기 에코 판정이 그것을 본다 (D-OPT-7).
+ */
+function stateSnapshotPart(snap,name){
+  return snap.then(r=>{
+    const d=r&&r.ok&&r.data;
+    if(!d||!Object.prototype.hasOwnProperty.call(d,name)) return {ok:false,status:r?r.status:0,data:null,text:'',headers:null};
+    const v=d[name];
+    return {ok:true,status:200,data:v,text:JSON.stringify(v),headers:null};
+  });
+}
+
+/**
+ * 복원이 읽을 봉투. 등록부가 스냅샷 조각을 주었으면 그것이고, 아니면 그 종단을 직접
+ * 부른다 — 방송(`tools_background_changed` 등)과 손으로 부른 새로고침이 그 길이다.
+ * 방송은 인자 객체를 넘기므로 약속(then)인지로 가른다.
+ */
+function stateFetch(src,path){
+  return (src&&typeof src.then==='function')?src:apiGet(path);
 }
 
 // 재검증 계기가 `softreload` 인 상태들. `app-reload.js` 가 이것을 순회한다.

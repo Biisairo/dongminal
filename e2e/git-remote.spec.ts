@@ -87,6 +87,20 @@ const jobChip = (page: Page) => page.locator('#sb-items .sb-git-job');
 
 // 버튼이 살아났음 = status 를 읽었음이다. 이것을 기다리지 않고 클릭하면 disabled
 // 버튼을 눌러 아무 일도 일어나지 않는다.
+/**
+ * 서버의 진행 중 작업 목록을 갈아 끼운다. 목록은 두 길로 온다 — `git_jobs_changed`·구독
+ * 열림의 `/api/git/jobs` 와 상태바 틱의 `/api/stats?jobs=1` (FR-OPT-4-4). 둘 다 막는다.
+ */
+async function stubJobs(page: Page, jobs: any[]) {
+  await page.route('**/api/git/jobs', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ jobs }) }));
+  await page.route('**/api/stats?*', async (route) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    route.fulfill({ response: res, body: JSON.stringify({ ...body, jobs }) });
+  });
+}
+
 async function ready(page: Page) {
   // 관측을 기다리는 동안 사이드가 다시 그려지면 버튼 자체가 잠시 사라진다
   // (실측: `element(s) not found` 로 끝났다). 재시도로 감싸 그때 다시 잡는다.
@@ -158,14 +172,7 @@ test.describe('13단계 — 원격 작업', () => {
     // 스트림을 열어 두면 작업이 끝나지 않는다.
     await page.route('**/api/git/job/events*', () => {});
     // 상태바 폴링이 "진행 중 없음" 을 주면 화면이 작업을 놓는다 — 진행 중으로 답한다.
-    await page.route('**/api/git/jobs', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          jobs: [{ id: 'stub-job', repo, kind: 'push', argv: ['push', '--progress'], done: false }],
-        }),
-      }));
+    await stubJobs(page, [{ id: 'stub-job', repo, kind: 'push', argv: ['push', '--progress'], done: false }]);
 
     await btn(page, 'push').click();
 
@@ -391,14 +398,7 @@ test.describe('13단계 — 원격 작업', () => {
     await ready(page);
 
     // **이 창이 띄우지 않은** 작업이다 — 서버 목록에만 있다.
-    await page.route('**/api/git/jobs', (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          jobs: [{ id: 'sb-job', repo, kind: 'fetch', argv: ['fetch', '--progress'], done: false }],
-        }),
-      }));
+    await stubJobs(page, [{ id: 'sb-job', repo, kind: 'fetch', argv: ['fetch', '--progress'], done: false }]);
     await page.route('**/api/git/job/events*', () => {});
 
     // FR-GIT-101: 목록이 도착하면 같은 리포의 원격 버튼이 막힌다.

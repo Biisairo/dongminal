@@ -216,8 +216,10 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
       const app = (window as any).app;
       // 폴링이 곧 최신 값을 다시 실어 오므로, 갱신을 끊고 관측 시각만 뒤로 민다.
       app.testing.gitReposRefresh = async () => {};
+      // 기준은 안전망에서 파생한다 (FR-OPT-4-3) — 그만큼보다 조금 더 민다.
+      const by = (window as any).gitBadgeStaleMs() + 1000;
       for (const e of (app.testing.gitRepos.pinned || [])) {
-        if (e.badge) e.badge.observedAtUnixMs -= 60_000;
+        if (e.badge) e.badge.observedAtUnixMs -= by;
       }
       app.renderer._rGitSection();
     });

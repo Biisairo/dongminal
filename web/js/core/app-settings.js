@@ -323,9 +323,9 @@ Object.assign(App.prototype, {
    * `background` 와 같은 근거) — 방송은 "다시 받으라" 는 신호이고, 막아야 하는
    * 것은 스냅샷끼리의 추월뿐이다.
    */
-  _settingsRestore(){
+  _settingsRestore(src){
     const t=this._restoreBegin('settings');
-    return apiGet('/api/settings').then(r=>{
+    return stateFetch(src,'/api/settings').then(r=>{
       if(!this._restoreLive('settings',t)) return;
       /**
        * OPTIMIZE_REFACTOR_SRS D-OPT-7 (FEC-4 · FEC-M3): **자기 에코는 얹지 않는다.**

@@ -380,7 +380,7 @@ test.describe('FR-GIT-282 — 헤더의 리포 전환 드롭다운', () => {
       .poll(() => page.evaluate(() => ((window as any).app.ws?.git?.pinned || []).length),
         { timeout: 20000 })
       .toBe(2);
-    // 목록 자체는 별도 폴링으로 온다 — 도착 전에 열면 현재 리포 하나만 보인다.
+    // 목록 자체는 핀 변화를 받고 따로 온다 (FR-OPT-4-3) — 도착 전에 열면 현재 리포 하나만 보인다.
     await expect
       .poll(() => page.evaluate(() => ((window as any).app.testing.gitRepos?.pinned || []).length),
         { timeout: 20000 })

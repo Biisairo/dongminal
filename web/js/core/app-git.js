@@ -507,11 +507,47 @@ Object.assign(App.prototype, {
     return (w.focusedPane&&findPane(w.layout,w.focusedPane))?w.focusedPane:firstPane(w.layout)?.id;
   },
 
-  // 목록은 주기적으로 갱신하되 탭이 숨겨졌으면 건너뛴다 — 보이지 않는 섹션을
-  // 위해 요청을 살 이유가 없다 (_startStatsPoll 의 선례, FR-STAT-17).
+  /**
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-4-3 (IPC-7 · POLL_INTERVAL_SETTINGS 개정): 목록의 주기는
+   * **안전망**이다 — `gitStatusInterval`(기본 30초, 0 은 끔).
+   *
+   *   이전 동작: `gitReposInterval`(3초)마다 무조건 받았고, Repo 탭이 보이면 핀 전부의
+   *             rev-parse·status 가 3초마다 돌았다
+   *   새  동작: Repo 탭이 보이면 핀 전부를 임대하고(`observe=1&clientId`) 배지는
+   *             `git_changed` 로 갱신한다. 핀 목록이 바뀌면(`workspace_changed`) 받는다.
+   *             주기는 놓친 것을 줍는 그물이다
+   *   이유:     배지의 변화는 서버 감시자가 signature 게이트로 싸게 잡는다
+   *
+   * 탭이 숨으면 돌지 않고, 돌아오면 즉시 한 번 갚는다 (FR-STAT-17).
+   */
   _startGitReposPoll(){
     if(this._gitReposPoll) this._gitReposPoll.stop();
-    this._gitReposPoll=visiblePoll(()=>gitReposInterval,()=>this.gitReposRefresh(),{immediate:true});
+    this._gitReposPoll=visiblePoll(()=>gitStatusInterval,()=>this.gitReposRefresh(),{immediate:true});
+  },
+
+  /**
+   * 목록 갱신을 합친다 — 비행 중이면 끝난 뒤 한 번 더 받는다. `git_changed`·핀 목록
+   * 변화·패널 관측이 부른다 (FR-OPT-4-3). 같은 방송에 여럿이 반응해도 요청이 겹치지 않는다.
+   */
+  gitReposKick(){
+    if(this._gitReposKicking){ this._gitReposKickAgain=true; return }
+    this._gitReposKicking=true;
+    this.gitReposRefresh().finally(()=>{
+      this._gitReposKicking=false;
+      if(!this._gitReposKickAgain) return;
+      this._gitReposKickAgain=false;
+      this.gitReposKick();
+    });
+  },
+
+  /**
+   * `git_changed` 가 핀 저장소의 것이고 Repo 탭이 보이면 목록을 받는다 (FR-OPT-4-3).
+   * 방송은 git 이 푼 루트를 싣는다 — 핀의 `root` 와도 견준다 (FR-DIR-5).
+   */
+  _gitReposOnChanged(repo){
+    if(!this._gitObserveOk()) return;
+    const pinned=((this.gitRepos||{}).pinned)||[];
+    if(pinned.some(e=>e&&(e.path===repo||e.root===repo))) this.gitReposKick();
   },
 
   /**
@@ -619,6 +655,7 @@ Object.assign(App.prototype, {
       return;
     }
     this._edOnGitChanged(repo,a.mark||'');
+    this._gitReposOnChanged(repo);
     if(!this._gitObservers) return;
     // 관측기는 **저장소마다** 하나다 (FR-GIT-26·29). 방송이 가리키는 저장소를
     // 보고 있는 관측기만 움직인다 — 남의 저장소 이벤트로 이 창이 요청을 내면
@@ -679,15 +716,30 @@ Object.assign(App.prototype, {
     // FR-FLW-2: 목록은 핀만 답한다 — 도구 인자를 싣지 않는다.
     // FR-GOB-7·8: 관측 여부는 인자로 받지 않는다. 조건이 두 자리에 흩어지면
     // 한쪽이 낡는다.
-    const res=await gitFetch('/api/git/repos',
-      this._gitObserveOk()?{observe:'1'}:null,{stale});
+    //
+    // FR-OPT-4-3: 관측하면 그 신원이 핀 전부의 감시를 임대한다. 탭을 떠난 뒤의 첫
+    // 요청(`observe=0`)이 그 임대를 놓는다 — 그 밖의 요청은 임대를 건드리지 않는다.
+    const q={clientId:this.clientId};
+    if(this._gitObserveOk()){ q.observe='1'; this._gitPinsLeased=true }
+    else if(this._gitPinsLeased){ q.observe='0'; this._gitPinsLeased=false }
+    const res=await gitFetch('/api/git/repos',q,{stale});
     if(res.stale) return;
     if(res.status===503){
       // git 이 없거나 서비스가 구성되지 않은 환경이다. 섹션 전체를 숨긴다.
-      this._gitOff=true;this.renderer._rGitSection();this.renderer._rSbTabs();return;
+      this._gitOff=true;this._gitReposSig=null;this.renderer._rGitSection();this.renderer._rSbTabs();return;
     }
     if(!res.ok) return;
+    const wasOff=this._gitOff;
     this._gitOff=false;this.gitRepos=res.data;
+    /**
+     * FR-OPT-4-3 (FEC-13): **화면이 읽는 값이 같으면 칠하지 않는다.**
+     *
+     * 근거에서 관측 시각은 빼고 그것이 낡았는지만 넣는다 — 시각은 관측마다 달라
+     * 가드가 죽고, 낡음은 배지의 모양을 바꾼다(`gitBadgeStale`). 근거는 그린 뒤에
+     * 기록한다 (FR-GIT-227 과 같은 순서).
+     */
+    const sig=this._gitReposSigOf(res.data);
+    if(!wasOff&&sig===this._gitReposSig) return;
     // 전체 render() 를 부르지 않는다 — 터미널 재부착 비용이 크다.
     this.renderer._rGitSection();
     // FR-SBT-8·12: 탭의 표시 여부(`_gitOff`)와 배지(변경 있는 핀 수)가 이 값에서
@@ -707,6 +759,18 @@ Object.assign(App.prototype, {
     // "종전에는 활성 칸의 패널 하나만 `_reschedule()` 했다 — 패널이 하나뿐이었기
     // 때문이다." 폴링은 옮겨졌고 이 통지만 옛 모양으로 남아 있었다.
     this._gitNotifyPinsAll();
+    this._gitReposSig=sig;
+  },
+
+  /**
+   * `/api/git/repos` 응답의 **화면이 읽는 값** (FR-OPT-4-3 · FEC-13). 관측 시각 대신 그것이
+   * 낡았는지를 넣는다 — 시각은 관측마다 다르고, 낡음은 배지의 모양을 바꾼다.
+   */
+  _gitReposSigOf(d){
+    const pinned=((d&&d.pinned)||[]).map(e=>(e&&e.badge)
+      ?Object.assign({},e,{badge:Object.assign({},e.badge,{observedAtUnixMs:gitBadgeStale(e.badge)})})
+      :e);
+    return JSON.stringify(pinned);
   },
 
   // FR-GIT-12: 경로를 물어 핀한다. M1 에는 공통 다이얼로그가 없으므로 prompt 를
@@ -860,7 +924,7 @@ Object.assign(App.prototype, {
   },
 
   /**
-   * FR-GIT-101a: 진행 중 원격 작업 목록을 나른다.
+   * FR-GIT-101a (개정 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-4): 진행 중 원격 작업 목록.
    *
    * Git 창의 폴링(FR-GIT-22)은 창이 활성일 때만 돌므로 그것에 얹으면 다른 창이
    * 띄운 작업을 놓친다. 이 호출은 git 을 실행하지 않는다 — 서버가 들고 있는
@@ -869,21 +933,39 @@ Object.assign(App.prototype, {
    * 목록의 임자는 Git 패널이다: 다른 브라우저 창이 띄운 작업도 같은 리포의 원격
    * 버튼을 막아야 한다 (FR-GIT-101).
    *
-   *   이전 동작: `statusBar.git` 이 꺼져 있으면 **폴링을 하지 않았다**
-   *   새  동작: 표시 설정과 무관하게 돈다 (그 설정은 U-19 ① 로 사라졌다)
-   *   이유:     표시 하나가 correctness 를 가두고 있었다 — 항목을 끄면
-   *             FR-GIT-101 이 조용히 죽었다. 상태바 chip 이 철회된 지금 그
-   *             가드는 폴링 전체를 끄는 스위치만 남긴다
+   *   이전 동작: 상태바 틱마다 `/api/git/jobs` 를 따로 물었다 — 패널이 없어도
+   *   새  동작: 서버가 작업의 시작·끝을 `git_jobs_changed` 로 밀고 여기가 받는다.
+   *             틱은 `/api/stats?jobs=1` 로 같은 목록을 안전망으로 싣는다.
+   *             **Git 패널이 하나도 없으면 묻지 않는다**
+   *   이유:     시작·끝은 서버가 안다. 목록을 쓰는 곳은 패널뿐이다 (FEC-15 · IPC-9)
+   *
+   * `state-registry` 의 `git.jobs` — `merge:'latest'`. 방송은 목록을 나르지 않는다.
    */
   async _pollGitJobs(){
+    if(!this._gitJobsWanted()) return;
+    const t=this._restoreBegin('gitJobs');
     // 전역 조회다 — 리포에 매이지 않으므로 echo 가 없다 (FR-DPN-33).
     const res=await gitFetch('/api/git/jobs',null);
     const d=res.data;
-    // 받지 못했으면 이전 목록을 유지한다 — 한 번의 실패로 chip 이 사라지면
+    if(!this._restoreLive('gitJobs',t)) return;
+    this._restoreEnd('gitJobs',t);
+    // 받지 못했으면 이전 목록을 유지한다 — 한 번의 실패로 목록이 사라지면
     // "작업이 끝났다" 와 "모른다" 가 같아진다.
     if(!res.ok||!Array.isArray(d.jobs)) return;
-    this._gitJobs=d.jobs;
-    if(this.gitPanel) this.gitPanel.adoptJobs(d.jobs);
+    this._gitJobsAdopt(d.jobs);
+  },
+
+  // 목록을 쓸 곳이 있는가 — 저장소를 가진 Git 패널이 있을 때뿐이다 (`gitPanelAt`).
+  // 부팅이 세우는 옛 Git 창 자리의 패널(root '')은 저장소가 없으면 원격 버튼도 없다.
+  _gitJobsWanted(){
+    if(!this.gitPanels) return false;
+    for(const p of this.gitPanels.values()) if(p&&p.repo) return true;
+    return false;
+  },
+
+  _gitJobsAdopt(jobs){
+    this._gitJobs=jobs;
+    if(this.gitPanel) this.gitPanel.adoptJobs(jobs);
   },
 
   // U-19 ①: `_gitJobSeen`·`_gitJobEnded`·`_gitJobChip` 은 **제거됐다.** 셋 다

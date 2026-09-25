@@ -618,7 +618,7 @@ Object.assign(GitPanel.prototype, {
     const obs=d.mark?(d.repo||'')+'\u0000'+d.mark:'';
     if(!obs||obs!==this._obsSig){this.obs.paintAll(); this._obsSig=obs||null}
     // 활성 리포의 배지가 따라 갱신된다. 다른 리포는 서버의 마지막 관측값이다.
-    this.app.gitReposRefresh();
+    this.app.gitReposKick();
     // 상태바 chip 은 Git 창 밖에서도 보이므로 관측마다 갱신한다 (FR-GIT-57).
     this.app.updateStatusBar();
     // FR-GIT-111 (FR-RPT-8): 충돌 판정은 관측마다 돈다 — 다시 그리기에 업히면

@@ -486,9 +486,9 @@ Object.assign(App.prototype, {
    * 신호이므로 만진 id 라는 개념이 없다. 막아야 하는 것은 두 스냅샷이 겹칠 때
    * 늦게 떠난 것이 먼저 도착해 새 목록을 낡은 것으로 되돌리는 일이다.
    */
-  async _bgRefresh(){
+  async _bgRefresh(src){
     const t=this._restoreBegin('background');
-    const r=await apiGet('/api/tools/background');
+    const r=await stateFetch(src,'/api/tools/background');
     if(!r.ok||!r.data) return;
     if(!this._restoreLive('background',t)) return;
     this._bg=Array.isArray(r.data.background)?r.data.background:[];

@@ -200,23 +200,28 @@ test.describe('묶음 PIS·설정 — 다섯 주기 (FR-PIS-6~15)', () => {
   /**
    * FR-PIS-12: 파생이 계수로 남았으므로 기준이 바뀌면 **같은 배수로** 따라간다.
    * `const` 로 굳혀 두면 설정을 바꿔도 배지의 낡음 기준과 트리 백오프가 옛 값이다.
+   *
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-4-3: 배지 목록의 주기가 안전망(`gitStatusInterval`)으로
+   * 옮겼으므로 낡음의 기준은 그것을 따른다. 트리 백오프는 그대로 ⑤ 를 따른다.
    */
-  test('PIS8 (V-6): ⑤ 의 파생 둘이 같은 배수로 따라간다', async ({ page, request }) => {
+  test('PIS8 (V-6): 파생 둘이 제 기준을 같은 배수로 따라간다', async ({ page, request }) => {
     await waitForInit(page);
     const before = await page.evaluate(() => ({
       base: (window as any).gitReposInterval,
+      status: (window as any).gitStatusInterval,
       stale: (window as any).gitBadgeStaleMs(),
       backoff: (window as any).editorGitBackoffMs(),
     }));
-    await patchSettings(request, { gitReposInterval: (before.base as number) * 2 });
-    await expect.poll(() => page.evaluate(() => (window as any).gitReposInterval),
-      { timeout: 10000 }).toBe(before.base * 2);
+    await patchSettings(request, { gitReposInterval: (before.base as number) * 2, gitStatusInterval: 10000 });
+    await expect.poll(() => page.evaluate(() => [(window as any).gitReposInterval, (window as any).gitStatusInterval]),
+      { timeout: 10000 }).toEqual([before.base * 2, 10000]);
     const after = await page.evaluate(() => ({
       stale: (window as any).gitBadgeStaleMs(),
       backoff: (window as any).editorGitBackoffMs(),
     }));
-    expect(after.stale).toBe(before.stale * 2);
+    expect(after.stale).toBe(before.stale * 10000 / before.status);
     expect(after.backoff).toBe(before.backoff * 2);
+    await patchSettings(request, { gitReposInterval: undefined, gitStatusInterval: undefined });
   });
 
   // FR-PIS-13: 계약이 넓어질 뿐 깨지지 않는다 — 값도 함수도 돈다.

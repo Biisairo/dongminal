@@ -27,6 +27,8 @@ const SB_TAB_KEY='sidebarTab'; // FR-SBT-6: 보는 방식은 클라이언트의 
  *   onEnter(app)        탭이 보이게 된 직후. `silent` 여부와 **무관하게** 돈다
  *                       (FR-GOB-9) — 콘텐츠 전환이 아니라 "이제 이 패널이
  *                       화면에 있다" 는 사실에 딸린 일이 여기 온다
+ *   onLeave(app)        다른 탭으로 옮긴 직후 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-3) —
+ *                       `onEnter` 가 쥔 것을 놓는 자리다
  *   cycle(app,dir)      순회 키가 이 탭에서 무엇을 순회하는지 (FR-SBT-31)
  *
  * 필드는 **창 목록이 실제로 하는 일**에서 뽑았다 — 쓰이지 않는 훅은 만들지 않는다.
@@ -126,6 +128,8 @@ const SB_TAB_DEFS=[
     // FR-GOB-9: 들어간 순간 등록된 리포 전부를 관측한다. 다음 폴링(3초)을
     // 기다리면 사용자는 낡은 배지를 먼저 본다.
     onEnter:app=>{if(app.gitReposRefresh)app.gitReposRefresh()},
+    // OPTIMIZE_REFACTOR_SRS FR-OPT-4-3: 떠나면 핀 임대를 놓는다 (`observe=0`).
+    onLeave:app=>{if(app.gitReposRefresh)app.gitReposRefresh()},
     list:{
       containerId:REPO_LIST_ID,
       // FR-EDT-14 / FR-NOT-10: 고정 항목(root·메모장)의 자리는 **패널 최하단**이다.
@@ -304,6 +308,7 @@ const SidebarTabs={
   setTab(app,id,opts){
     if(app.sbBusy) return;
     const d=this.def(app,id); if(!d||app.sbTab===id) return;
+    const prev=this.def(app,app.sbTab);
     this.saveScroll(app.sbTab);
     app.sbTab=id;
     try{localStorage.setItem(SB_TAB_KEY,id)}catch{}
@@ -311,6 +316,7 @@ const SidebarTabs={
     this.restoreScroll(id);
     // FR-GOB-9: 패널이 화면에 온 사실은 `silent` 와 무관하다 — 창 쪽에서 따라온
     // 전환(FR-SBT-14)도 사용자에게는 똑같이 "그 탭에 들어갔다" 이다.
+    if(prev&&prev.onLeave) prev.onLeave(app);
     if(d.onEnter) d.onEnter(app);
     if(opts&&opts.silent) return;
     if(!d.onActivate) return;

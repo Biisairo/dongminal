@@ -20,7 +20,12 @@ const NEWER: Snap = {
 };
 const LATEST: Snap = { enabled: true, current: 'v9.9.9', latest: 'v9.9.9', newer: false, failed: false };
 
-/** `/api/update` 를 고정 응답으로 바꾼다. PUT 은 `enabled` 만 갈아 돌려준다. */
+/**
+ * `/api/update` 를 고정 응답으로 바꾼다. PUT 은 `enabled` 만 갈아 돌려준다.
+ *
+ * 구독이 열릴 때의 읽기는 `/api/snapshot` 의 `update` 조각으로 온다 (OPTIMIZE_REFACTOR_SRS
+ * FR-OPT-4-5) — 그 조각도 같은 값으로 바꾼다.
+ */
 async function stubUpdate(page: any, snap: Snap) {
   let cur = { ...snap };
   await page.route('**/api/update', async (route: any) => {
@@ -29,6 +34,12 @@ async function stubUpdate(page: any, snap: Snap) {
       cur = { ...cur, enabled: !!body.enabled };
     }
     await route.fulfill({ status: 200, headers: JSON_HDR, body: JSON.stringify(cur) });
+  });
+  await page.route('**/api/snapshot?*', async (route: any) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    if (new URL(route.request().url()).searchParams.get('parts')!.split(',').includes('update')) body.update = cur;
+    await route.fulfill({ response: res, body: JSON.stringify(body) });
   });
 }
 
@@ -98,6 +109,13 @@ test.describe('Update notice', () => {
   test('settings row is hidden when the server has no update check', async ({ page }) => {
     await page.route('**/api/update', (route: any) =>
       route.fulfill({ status: 503, headers: JSON_HDR, body: JSON.stringify({ error: 'update check unavailable' }) }));
+    // 스냅샷은 200 이 아닌 조각을 싣지 않는다 (FR-OPT-4-5) — 그 서버의 모양으로 뺀다.
+    await page.route('**/api/snapshot?*', async (route: any) => {
+      const res = await route.fetch();
+      const body = await res.json();
+      delete body.update;
+      await route.fulfill({ response: res, body: JSON.stringify(body) });
+    });
     await waitForInit(page);
 
     await expect(page.locator('#update-badge')).toBeHidden();

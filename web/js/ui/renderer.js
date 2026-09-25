@@ -116,7 +116,7 @@ class Renderer {
       this.app.researchIfOpen();
     }
     this.app.applyMobileMode();
-    this._rSbTabs();this._rLists();this._rTopbar();this._rLayout();
+    this._rSbTabs();this._rLists();this._rTopbar();this._rLayout();this._rPaneIndicator();
     // UX_BATCH6_SRS FR-SCR-2: 갈무리해 둔 스크롤을 되돌린다. **여기여야 한다** —
     // 요소가 문서에 붙은 뒤에만 `scrollTop` 이 값을 받는다.
     this._restoreScroll();

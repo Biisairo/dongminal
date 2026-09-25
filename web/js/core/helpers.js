@@ -1024,7 +1024,11 @@ function gitBadgeStale(badge){
  * 주기가 설정이 되면 그 상수만 옛 값에 남는다. 계수를 남기고 곱셈을 여기로
  * 옮기면 기준이 주기를 따라간다 — 둘은 같은 사실의 앞뒤이기 때문이다 (FR-GOB-14).
  */
-function gitBadgeStaleMs(){ return gitReposInterval*GIT_BADGE_STALE_FACTOR }
+//
+// OPTIMIZE_REFACTOR_SRS FR-OPT-4-3: 목록의 주기가 안전망(`gitStatusInterval`)으로 옮겼으므로
+// 기준도 그것을 딛는다. 배지의 갱신은 `git_changed` 가 본줄이고, 안전망이 꺼져 있으면(0)
+// 그 기본값으로 잰다.
+function gitBadgeStaleMs(){ return (gitStatusInterval||GIT_STATUS_POLL_MS)*GIT_BADGE_STALE_FACTOR }
 
 // 같은 근거의 편집기 쪽 백오프 (FR-DIR-31). 소비 지점은 트리의 `_gitBack` 과
 // dirty diff 의 `_back` 둘이다.

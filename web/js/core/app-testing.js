@@ -80,7 +80,7 @@ const APP_TESTING_NAMES = [
   // 도구는 서버(데몬)가 소유하는 실행 실체다. 전경 이름(`_fg*`)과 복원(`_restore*`)이 그 수명의 두 축이다.
   'focusedTerminal', 'findToolLocation', 'jumpToTool', '_killTool', '_toolName',
   '_onToolActivity', '_onToolAttention', '_onToolForeground', '_fgApply', '_fgMap', 'fgNames',
-  '_fgRestore', '_isToolFocusedActive', '_restoreBegin', '_restoreLive', '_restoreNote',
+  '_isToolFocusedActive', '_restoreBegin', '_restoreLive', '_restoreNote',
   '_restoreTool', '_restoreVoid', '_bg', '_runsPanel', '_onRunChanged',
   // 같은 구멍 (FR-FMB-45a).
   '_isToolBusy', '_toolsBusy',
@@ -95,12 +95,12 @@ const APP_TESTING_NAMES = [
   //
   // `_attn` 은 toolId → 사유의 Map 이다 (FR-PAN-9·16).
   '_attn', '_attnBeep', '_attnClear', '_attnRefresh', '_attnRestore', '_activity',
-  '_activityRestore', '_notify', 'agentsStartPoll', 'agentsToggle',
+  '_activityRestore', '_notify', 'agentsToggle',
 
   // ── 전파·저장 (sync) ──
   //
   // SSE 구독과 워크스페이스 저장. 두 축이 한 절에 있는 이유는 둘이 같은 경주를 만들기 때문이다 (WORKSPACE_SAVE_CONFLICT_SRS).
-  '_sse', '_sseGen', '_sseSeen', '_cmdES', '_subscribeCommands', '_execRemote', '_echoResult',
+  '_sse', '_sseGen', '_sseSeen', '_sseKick', '_cmdES', '_subscribeCommands', '_execRemote', '_echoResult',
   'save', 'saveSettings', '_onWorkspaceChanged', '_wsApplyInflight', '_focusCh',
   // 같은 구멍 (FR-FMB-45a). 저장의 **비행 중**과 **대기 중**은 다른 사실이다.
   '_applyRemoteWorkspace', '_saveInflight', '_savePending',

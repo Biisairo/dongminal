@@ -127,9 +127,9 @@ Object.assign(App.prototype, {
   /**
    * 합류·복귀 시의 스냅샷. `state-registry` 의 `merge:'latest'` — 추월만 막는다.
    */
-  _focusRestore(){
+  _focusRestore(src){
     const t=this._restoreBegin('focus');
-    apiGet('/api/focus').then(res=>{
+    return stateFetch(src,'/api/focus').then(res=>{
       const j=res.ok?res.data:null;
       if(!j) return;
       if(!this._restoreLive('focus',t)) return;
