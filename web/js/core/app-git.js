@@ -612,8 +612,12 @@ Object.assign(App.prototype, {
      * 놓친 변화는 복귀에서 갚는다 (D-GRF-7): 가시성 복귀가 `signal()` 을 내고
      * 그것이 수집으로 간다. 버리는 것이 아니라 미루는 것이다.
      */
-    if(typeof document!=='undefined'&&document.hidden) return;
-    // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 탐색기도 같은 방송을 듣는다 (IPC-8).
+    // OPTIMIZE_REFACTOR_SRS FR-OPT-4-1: 탐색기도 같은 방송을 듣는다 (IPC-8). 숨은 동안의
+    // 것은 복귀 틱(`_edTick`)이 갚는다 — 탐색기의 주기 status 는 안전망뿐이다.
+    if(typeof document!=='undefined'&&document.hidden){
+      (this._edGitHeld||(this._edGitHeld=new Map())).set(repo,a.mark||'');
+      return;
+    }
     this._edOnGitChanged(repo,a.mark||'');
     if(!this._gitObservers) return;
     // 관측기는 **저장소마다** 하나다 (FR-GIT-26·29). 방송이 가리키는 저장소를

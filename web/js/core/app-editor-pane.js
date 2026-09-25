@@ -31,6 +31,8 @@ Object.assign(App.prototype, {
   },
 
   _edTick(){
+    const held=this._edGitHeld;
+    if(held){ this._edGitHeld=null; for(const [repo,mark] of held) this._edOnGitChanged(repo,mark) }
     // 관측은 루트마다 하나다 (FR-SVS-20) — 같은 루트를 보는 칸이 넷이어도 한 번이다.
     const stores=new Map();
     for(const t of this._edVisibleTrees()) if(t.store&&!stores.has(t.store)) stores.set(t.store,t);
