@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -24,6 +25,30 @@ import (
 // 없으면 답하지 않는 네트워크에서 조달이 영영 끝나지 않고, 사용자는 버튼이 죽은
 // 것으로 읽는다.
 const FetchTimeout = 10 * time.Minute
+
+// MaxArchiveBytes 는 아카이브 하나의 크기 상한이다 (OPTIMIZE_REFACTOR_SRS
+// FR-OPT-1-11). 시간 상한만 있으면 끝없이 흘러오는 응답이 그 시간 동안 임시
+// 디스크를 채운다. 런타임이 100 MB 대이므로 넉넉히 잡는다. 검사가 낮춰 쓸 수
+// 있도록 var 다.
+var MaxArchiveBytes int64 = 1 << 30
+
+// ErrArchiveTooLarge 는 받는 중에 MaxArchiveBytes 를 넘었다는 뜻이다.
+var ErrArchiveTooLarge = errors.New("아카이브가 크기 상한을 넘었습니다")
+
+// capWriter 는 상한을 넘는 쓰기를 거절한다. 상한까지만 쓰고 끊어, 넘은 것을
+// 해시 대조 전에 가린다.
+type capWriter struct {
+	w    io.Writer
+	left int64
+}
+
+func (c *capWriter) Write(p []byte) (int, error) {
+	if int64(len(p)) > c.left {
+		return 0, ErrArchiveTooLarge
+	}
+	c.left -= int64(len(p))
+	return c.w.Write(p)
+}
 
 // Fetch 는 URL 하나를 받아 쓴다. **주입점이다** (§2.5 ③) — 네트워크도 툴체인도
 // 없는 호스트에서 조달의 판정을 잴 수 있어야 한다.
@@ -68,7 +93,7 @@ func FetchArchive(ctx context.Context, fetch Fetch, t Target, dest string) error
 	defer os.Remove(tmpName)
 
 	h := sha256.New()
-	err = fetch(ctx, t.URL, io.MultiWriter(tmp, h))
+	err = fetch(ctx, t.URL, &capWriter{w: io.MultiWriter(tmp, h), left: MaxArchiveBytes})
 	closeErr := tmp.Close()
 	if err != nil {
 		return fmt.Errorf("%s 를 받지 못했습니다: %w", t.URL, err)

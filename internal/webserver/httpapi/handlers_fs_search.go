@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 // /api/fs/{find,grep} — Editor 창의 파일 이름 찾기와 전체 내용 찾기
@@ -438,8 +439,10 @@ func clipLine(s string) string {
 	if len(s) <= fsGrepMaxLine {
 		return s
 	}
-	return s[:fsGrepMaxLine]
+	// 룬 가운데서 자르면 깨진 바이트가 화면에 실린다 — 룬의 시작으로 물린다.
+	cut := fsGrepMaxLine
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut]
 }
-
-// itoaGrep 은 테스트가 결과를 키로 묶을 때 쓴다.
-func itoaGrep(n int) string { return strconv.Itoa(n) }

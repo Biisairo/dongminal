@@ -452,7 +452,8 @@ func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {
 	// 패닉했다 (FR-CAF-4).
 	stat, err := f.Stat()
 	if err != nil {
-		httpErr(w, "stat failed: "+err.Error(), http.StatusInternalServerError, apierr.CodeIO)
+		dmlog.Errorf(nil, "file stat error: %v", err)
+		httpErr(w, "stat failed", http.StatusInternalServerError, apierr.CodeIO)
 		return
 	}
 	if stat.IsDir() {
@@ -555,7 +556,7 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	// **사용자가 쓰던 원본**이다 — 편집기의 저장이 이 종단이다.
 	if err := platform.WriteFileAtomic(target, data, perm); err != nil {
 		dmlog.Errorf(nil, "file write error: %v", err)
-		httpErr(w, "write failed: "+err.Error(), http.StatusInternalServerError, apierr.CodeIO)
+		httpErr(w, "write failed", http.StatusInternalServerError, apierr.CodeIO)
 		return
 	}
 	// REPO_FIX 02 §3A-6: 그 파일이 언어 서버에 열려 있으면 디스크 판으로 맞춘다 —
@@ -575,7 +576,8 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 func (s *Server) fileReadDecoded(w http.ResponseWriter, r *http.Request, f *os.File, stat os.FileInfo) {
 	raw, err := io.ReadAll(io.LimitReader(f, fileReadMaxBytes))
 	if err != nil {
-		httpErr(w, "read failed: "+err.Error(), http.StatusInternalServerError, apierr.CodeIO)
+		dmlog.Errorf(nil, "file read error: %v", err)
+		httpErr(w, "read failed", http.StatusInternalServerError, apierr.CodeIO)
 		return
 	}
 	var d textenc.Decoded

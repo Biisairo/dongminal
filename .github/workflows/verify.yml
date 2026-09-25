@@ -172,6 +172,10 @@ jobs:
       - name: 오류 응답의 단일 경로
         run: scripts/check-http-error.sh
 
+      # 요청 본문의 단일 경로 (SAFETY_CORRECTNESS_SRS FR-SAF-23).
+      - name: 요청 본문의 단일 경로
+        run: scripts/check-body-limit.sh
+
       # 오류 카탈로그가 코드와 맞는가 (FR-ERR-11 · M5 `G6-2`).
       # `docs/external/errors.md` 는 **생성물**이다. 착수 시 코드 47개 중 문서에
       # 있던 것이 7개였다.

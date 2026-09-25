@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/wsentry"
 )
@@ -88,17 +89,43 @@ func fsFailErr(w http.ResponseWriter, err error) {
 		fsFail(w, fe.code, fe.msg)
 		return
 	}
-	fsFail(w, fsErrIO, err.Error())
+	dmlog.Infof(nil, "fs 오류 %s: %v", fsErrIO, err)
+	fsFail(w, fsErrIO, fsOSMsg(fsErrIO))
 }
 
 // fsFromOS 는 시스템 콜의 실패를 코드로 옮긴다. 판정은 `apierr.FS` 가 소유한다
 // (FR-DPN-6). 분류되지 않은 실패는 io_failed 다 — 그 기본값은 이 표면의 것이므로
 // 등록부가 대신 정하지 않는다.
+//
+// 사유는 우리가 쓴 문구다 (OPTIMIZE_REFACTOR_SRS FR-OPT-1-9). os 오류의 전문은
+// 절대경로를 담으므로 로그로만 간다 (`fail.go`).
 func fsFromOS(err error) error {
-	if _, code, ok := apierr.FS.Lookup(err); ok {
-		return fsError{code, err.Error()}
+	code := fsErrIO
+	if _, c, ok := apierr.FS.Lookup(err); ok {
+		code = c
 	}
-	return fsError{fsErrIO, err.Error()}
+	return fsCause(code, err)
+}
+
+// fsCause 는 아래 계층의 오류를 코드의 문구로 바꾸고 전문을 로그로 보낸다.
+func fsCause(code string, err error) error {
+	dmlog.Infof(nil, "fs 오류 %s: %v", code, err)
+	return fsError{code, fsOSMsg(code)}
+}
+
+// fsOSMsg 는 os 오류를 대신할 문구다. 무엇이 틀렸는지는 코드가 말한다.
+func fsOSMsg(code string) string {
+	switch code {
+	case fsErrNotFound:
+		return "경로를 찾을 수 없다"
+	case fsErrExists:
+		return "이미 있다"
+	case fsErrPermission:
+		return "권한이 없다"
+	case fsErrBadRequest:
+		return "잘못된 경로다"
+	}
+	return "파일 작업에 실패했다"
 }
 
 func fsDecode(w http.ResponseWriter, r *http.Request, into any) bool {
@@ -133,7 +160,7 @@ func (s *Server) fsRoot(w http.ResponseWriter, raw string) (string, bool) {
 	}
 	roots, err := s.Entries.Roots()
 	if err != nil {
-		fsFail(w, fsErrIO, err.Error())
+		fsFailErr(w, err)
 		return "", false
 	}
 	norm := wsentry.NormalizePath(raw)
@@ -185,9 +212,9 @@ func fsResolveTarget(root, p string) (string, error) {
 // 알 수 없다 (FR-EDT-117).
 func fsResolveErr(err error) error {
 	if os.IsPermission(err) {
-		return fsError{fsErrPermission, err.Error()}
+		return fsCause(fsErrPermission, err)
 	}
-	return fsError{fsErrNotFound, err.Error()}
+	return fsCause(fsErrNotFound, err)
 }
 
 func fsUnderRoot(root, resolved string) (string, error) {

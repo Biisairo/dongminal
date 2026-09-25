@@ -43,8 +43,12 @@ func (s *Server) apiToolAttentionSet(w http.ResponseWriter, r *http.Request) {
 	if answered {
 		return
 	}
-	if !ok || req.ToolID == "" {
-		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeBadRequest)
+	if !ok {
+		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeInvalidJSON)
+		return
+	}
+	if req.ToolID == "" {
+		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeMissingArg)
 		return
 	}
 	reason := req.Reason
@@ -82,8 +86,12 @@ func (s *Server) apiToolAttentionClear(w http.ResponseWriter, r *http.Request) {
 	if answered {
 		return
 	}
-	if !ok || req.ToolID == "" {
-		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeBadRequest)
+	if !ok {
+		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeInvalidJSON)
+		return
+	}
+	if req.ToolID == "" {
+		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeMissingArg)
 		return
 	}
 	if s.Tools != nil {
@@ -179,7 +187,15 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 	if answered {
 		return
 	}
-	if !ok || req.ToolID == "" || !hub.ValidActivityState(req.State) {
+	if !ok {
+		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeInvalidJSON)
+		return
+	}
+	if req.ToolID == "" || req.State == "" {
+		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeMissingArg)
+		return
+	}
+	if !hub.ValidActivityState(req.State) {
 		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeBadRequest)
 		return
 	}
@@ -282,7 +298,11 @@ func (s *Server) apiToolBackgroundSet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !ok || body.ToolID == "" {
-		httpErr(w, "toolId 필요", http.StatusBadRequest, apierr.CodeMissingArg)
+		code := apierr.CodeMissingArg
+		if !ok {
+			code = apierr.CodeInvalidJSON
+		}
+		httpErr(w, "toolId 필요", http.StatusBadRequest, code)
 		return
 	}
 	if s.Tools == nil || !s.tools(r).SetBackground(body.ToolID, body.Background) {

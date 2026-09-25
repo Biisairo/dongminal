@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 )
 
 // EDITOR_GIT_UX_SRS 묶음 F·G — 이름 찾기와 내용 찾기.
@@ -261,7 +262,7 @@ func TestFSGrepEnginesAgree(t *testing.T) {
 	norm := func(ms []grepMatch) map[string]bool {
 		out := map[string]bool{}
 		for _, m := range ms {
-			out[m.Path+":"+itoaGrep(m.Line)] = true
+			out[m.Path+":"+strconv.Itoa(m.Line)] = true
 		}
 		return out
 	}
@@ -398,5 +399,19 @@ func BenchmarkGrepWithGo(b *testing.B) {
 		if _, _, err := grepWithGo(ctx, dir, "line 3999 of", 100); err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+// OPTIMIZE_REFACTOR_SRS FR-OPT-1-12 (HTTP-18): 자르는 자리가 룬 가운데면 깨진
+// 바이트가 화면에 실린다. 절단점을 룬의 시작으로 물린다.
+func TestClipLine_KeepsUTF8(t *testing.T) {
+	// 앞의 두 바이트가 3바이트 룬의 경계를 fsGrepMaxLine 에서 어긋나게 한다.
+	s := "ab" + strings.Repeat("가", fsGrepMaxLine)
+	got := clipLine(s)
+	if !utf8.ValidString(got) {
+		t.Fatalf("룬 가운데서 잘렸다: 끝 %q", got[len(got)-3:])
+	}
+	if len(got) > fsGrepMaxLine || len(got) < fsGrepMaxLine-utf8.UTFMax {
+		t.Fatalf("len = %d, want (%d-%d, %d]", len(got), fsGrepMaxLine, utf8.UTFMax, fsGrepMaxLine)
 	}
 }

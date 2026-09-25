@@ -69,6 +69,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-logging.sh
 	@echo "── 오류 응답의 단일 경로 (http.Error 를 직접 부르지 않는가)"
 	@scripts/check-http-error.sh
+	@echo "── 요청 본문의 단일 경로 (r.Body 를 httpreq 또는 등록된 예외로만 읽는가)"
+	@scripts/check-body-limit.sh
 	@echo "── 오류 카탈로그 (생성물이 코드와 맞는가)"
 	@scripts/check-error-docs.sh
 	@echo "── SRS 상태 필드 (enum 안에 있는가)"

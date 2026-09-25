@@ -25,6 +25,25 @@ const lspMaxBody = 64 << 10
 // 크다 — 도메인 계층의 `MaxTextBytes` 와 짝이며, 그쪽이 실제 판정을 한다.
 const lspAskMaxBody = lsp.MaxTextBytes + (64 << 10)
 
+// lspReadBody 는 본문을 상한까지 읽는다. 실패하면 답하고 false 다.
+//
+// **한 바이트 더 읽어 초과를 가린다** (OPTIMIZE_REFACTOR_SRS FR-OPT-1-10).
+// 종전에는 `LimitReader(r.Body, max)` 가 조용히 잘라, 상한을 넘은 본문이 잘린
+// JSON 이 되어 400 'bad request' 로 나갔다. 상한값과 이 표면이 `httpreq` 를
+// 지나지 않는다는 결정(`httpreq/body.go`)은 그대로다 — 바뀐 것은 초과의 보고뿐이다.
+func lspReadBody(w http.ResponseWriter, r *http.Request, max int64) ([]byte, bool) {
+	body, err := io.ReadAll(io.LimitReader(r.Body, max+1))
+	if err != nil {
+		writeToolIOError(w, http.StatusBadRequest, "bad request")
+		return nil, false
+	}
+	if int64(len(body)) > max {
+		writeToolIOError(w, http.StatusRequestEntityTooLarge, "body too large")
+		return nil, false
+	}
+	return body, true
+}
+
 // lspReady 는 배선을 지킨다. LSP 를 쓰지 않는 서버에서 nil 을 좇지 않고 503 을
 // 내며, **그 밖의 동작에는 영향이 없다** — 코드 탐색이 없는 편집기는 종전의
 // 편집기다 (NFR-RUN-1 과 같은 근거).
@@ -69,9 +88,8 @@ func (s *Server) apiLSPInstall(w http.ResponseWriter, r *http.Request) {
 	if !s.lspReady(w) {
 		return
 	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, lspMaxBody))
-	if err != nil {
-		writeToolIOError(w, http.StatusBadRequest, "bad request")
+	body, ok := lspReadBody(w, r, lspMaxBody)
+	if !ok {
 		return
 	}
 	var req lspInstallReq
@@ -108,9 +126,8 @@ func (s *Server) lspAsk(w http.ResponseWriter, r *http.Request) (lspAskReq, stri
 	if !s.lspReady(w) {
 		return req, "", false
 	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, lspAskMaxBody))
-	if err != nil {
-		writeToolIOError(w, http.StatusBadRequest, "bad request")
+	body, ok := lspReadBody(w, r, lspAskMaxBody)
+	if !ok {
 		return req, "", false
 	}
 	if err := json.Unmarshal(body, &req); err != nil {
@@ -208,9 +225,12 @@ func (s *Server) apiLSPPathsPut(w http.ResponseWriter, r *http.Request) {
 	if !s.lspReady(w) {
 		return
 	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, lspMaxBody))
+	body, ok := lspReadBody(w, r, lspMaxBody)
+	if !ok {
+		return
+	}
 	var req lspPathsBody
-	if err != nil || json.Unmarshal(body, &req) != nil {
+	if json.Unmarshal(body, &req) != nil {
 		lspFail(w, http.StatusBadRequest, apierr.CodeBadRequest, "bad request")
 		return
 	}
@@ -222,7 +242,7 @@ func (s *Server) apiLSPPathsPut(w http.ResponseWriter, r *http.Request) {
 		lspFail(w, http.StatusBadRequest, apierr.CodeAbsPathNeeded, err.Error())
 	case err != nil:
 		dmlog.Errorf(nil, "[lsp] 경로 표 저장 실패: %v", err)
-		lspFail(w, http.StatusInternalServerError, apierr.CodeSaveFailed, err.Error())
+		lspFail(w, http.StatusInternalServerError, apierr.CodeSaveFailed, "경로 표를 저장하지 못했다")
 	default:
 		writeJSON(w, lspPathsBody{Paths: out})
 	}
@@ -243,12 +263,15 @@ func (s *Server) apiLSPClose(w http.ResponseWriter, r *http.Request) {
 	if !s.lspReady(w) {
 		return
 	}
-	body, err := io.ReadAll(io.LimitReader(r.Body, lspMaxBody))
+	body, ok := lspReadBody(w, r, lspMaxBody)
+	if !ok {
+		return
+	}
 	var req struct {
 		Root string `json:"root"`
 		Path string `json:"path"`
 	}
-	if err != nil || json.Unmarshal(body, &req) != nil {
+	if json.Unmarshal(body, &req) != nil {
 		writeToolIOError(w, http.StatusBadRequest, "bad request")
 		return
 	}

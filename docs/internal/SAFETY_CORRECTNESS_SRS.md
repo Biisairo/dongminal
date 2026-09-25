@@ -267,11 +267,22 @@
 
 ### 3.8 묶음 V — 게이트
 
-- **FR-SAF-22** `scripts/check-error-header.sh` — `gitapi`·`httpapi` 의 모든
+- **FR-SAF-22** `scripts/check-http-error.sh` — `gitapi`·`httpapi` 의 모든
   4xx/5xx 응답 경로가 `apierr.CodeHeader` 를 세우는지 본다.
 - **FR-SAF-23** `scripts/check-body-limit.sh` — 요청 본문을 읽는 자리
   (`r.Body` 를 지나는 모든 호출)가 `httpreq` 를 경유하는지 본다.
   예외는 등록부에 **사유와 함께** 적는다.
+  > 2026-09-25 (OPTIMIZE_REFACTOR_SRS FR-OPT-1-10): 게이트를 세웠다. 예외는
+  > 업로드(`handlers_files.go`)와 LSP(`handlers_lsp.go` `lspReadBody`) 둘이다.
+  > LSP 는 `httpreq` 로 옮기지 않고 상한+1 바이트를 읽어 초과를 **413** 으로 답한다.
+  >
+  > - 이전 동작: `LimitReader` 가 조용히 잘라, 상한을 넘은 본문이 잘린 JSON 이
+  >   되어 400 `bad request`·`id required` 로 나갔다
+  > - 새 동작: 413 `too_large` (`{"error":"body too large"}`)
+  > - 이유: 형식 오류로 읽히면 사용자가 나눠 보낼 생각을 하지 못한다
+  >
+  > 탐침: 새 파일의 `io.ReadAll(r.Body)` 와 옛 LSP 모양
+  > `io.LimitReader(r.Body, lspMaxBody)` 를 둘 다 잡았다 (FR-SAF-25).
 - **FR-SAF-24** `web/js/test/` 에 "손으로 적은 슬롯 목록이 없다" 검사 —
   `slotKey(` 를 리터럴 첨자와 함께 부르는 자리를 센다.
 - **FR-SAF-25** 셋 다 **탐침으로 검출을 확인하고 지운다** (규약 3-3). 잡지
