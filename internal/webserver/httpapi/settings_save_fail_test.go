@@ -44,3 +44,32 @@ func TestSettingsPutStillOK(t *testing.T) {
 		t.Fatalf("status=%d want 200", rec.Code)
 	}
 }
+
+// OPTIMIZE_REFACTOR_SRS FR-OPT-5-2 (FEC-M3): PUT 이 `?clientId=` 를 실으면 방송의
+// `args.origin` 에 그 값이 실린다. 보낸 창이 자기 방송의 GET 을 건너뛰는 근거다.
+// 싣지 않으면(옛 클라이언트) 방송 바이트는 종전과 같다 (FR-OPT-0-3).
+func TestSettingsPutBroadcastOrigin(t *testing.T) {
+	cases := []struct {
+		name, target, want string
+	}{
+		{"with-client", "/api/settings?clientId=c-1", `{"action":"settings_changed","args":{"origin":"c-1"}}`},
+		{"legacy", "/api/settings", `{"action":"settings_changed","args":{}}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cb := &fakeCommandBroker{}
+			s := &Server{Deps: Deps{
+				Settings: newSettingsStore(filepath.Join(t.TempDir(), "settings.json")),
+				Commands: cb,
+			}}
+			rec := httptest.NewRecorder()
+			s.apiSettingsPut(rec, apiTestRequest(http.MethodPut, tc.target, strings.NewReader(`{"a":1}`)))
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status=%d", rec.Code)
+			}
+			if len(cb.published) != 1 || string(cb.published[0]) != tc.want {
+				t.Fatalf("published=%q want %s", cb.published, tc.want)
+			}
+		})
+	}
+}

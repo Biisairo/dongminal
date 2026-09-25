@@ -131,24 +131,30 @@ test.describe('설정 저장 파이프라인 (FR-OPT-5-2)', () => {
     expect(puts.n).toBe(2);
   });
 
-  // FEC-M3 · D-OPT-7: 자기 저장의 에코는 적용하지 않는다 (재적용 전 1 · 후 0).
+  // FEC-M3 · D-OPT-7: 자기 저장의 방송은 GET 도 재적용도 부르지 않는다
+  // (O5 전 GET 1 · 재적용 1 → O5 GET 1 · 재적용 0 → 지금 GET 0 · 재적용 0).
   test('D-OPT-7 자기 저장의 에코는 화면에 다시 얹지 않는다', async ({ page }) => {
     await waitForInit(page);
     await page.evaluate(() => {
       const w = window as any;
       w.__applied = 0;
-      const orig = w.app.testing.settingsApply;
-      w.app.testing.settingsApply = function (...args: unknown[]) { w.__applied++; return orig(...args); };
+      w.__echo = [];
+      const t = w.app.testing;
+      const apply = t.settingsApply;
+      t.settingsApply = function (...args: unknown[]) { w.__applied++; return apply(...args); };
+      const onChanged = t.onSettingsChanged;
+      t.onSettingsChanged = function (a: any) { w.__echo.push(a && a.origin); return onChanged(a); };
     });
     const gets = countRequests(page, 'GET', '/api/settings');
     await page.evaluate(() => {
       (window as any).pageTitle = 'echo-self';
       return (window as any).app.testing.saveSettings();
     });
-    // 에코 한 바퀴(방송 → 재조회)가 끝날 시간을 준다.
-    await expect.poll(() => gets.n, { timeout: 5000 }).toBeGreaterThanOrEqual(1);
-    // **예외 (`TEST-16`)**: 에코가 설정을 **다시 얹지 않음**을 잰다.
+    const self = await page.evaluate(() => (window as any).app.clientId);
+    await expect.poll(() => page.evaluate(() => (window as any).__echo), { timeout: 5000 }).toContain(self);
+    // **예외 (`TEST-16`)**: 방송 뒤에 GET 이 **나가지 않음**을 잰다.
     await page.waitForTimeout(300);
+    expect(gets.n).toBe(0);
     expect(await page.evaluate(() => (window as any).__applied)).toBe(0);
   });
 });

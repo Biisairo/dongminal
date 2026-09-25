@@ -88,10 +88,18 @@ func (s *Server) apiSettingsGet(w http.ResponseWriter, r *http.Request) {
 // 규약), 방송에 실으면 그 순간부터 서버가 그 모양을 아는 셈이 된다. 받는 쪽은
 // `GET /api/settings` 로 자기가 읽는다 — `tools_background_changed` 와 같은
 // 규약이며, 그래서 클라이언트의 병합 정책도 같은 `latest` 다.
-func settingsChangedPayload() []byte {
+//
+// origin 은 저장한 창의 clientId 다 (선택, OPTIMIZE_REFACTOR_SRS FR-OPT-5-2 ·
+// FEC-M3). 보낸 창은 그것을 보고 자기 방송의 GET 을 건너뛴다. 비면 싣지 않는다 —
+// 옛 클라이언트의 저장에 대한 방송 바이트는 종전과 같다.
+func settingsChangedPayload(origin string) []byte {
+	args := map[string]any{}
+	if origin != "" {
+		args["origin"] = origin
+	}
 	b, _ := json.Marshal(map[string]any{
 		"action": "settings_changed",
-		"args":   map[string]any{},
+		"args":   args,
 	})
 	return b
 }
@@ -120,7 +128,7 @@ func (s *Server) apiSettingsPut(w http.ResponseWriter, r *http.Request) {
 	// 저장이 끝난 **뒤에** 알린다 — 받은 창이 곧바로 GET 하므로, 먼저 알리면
 	// 그 GET 이 옛 값을 읽을 수 있다.
 	if s.Commands != nil {
-		s.Commands.Broadcast(settingsChangedPayload())
+		s.Commands.Broadcast(settingsChangedPayload(r.URL.Query().Get("clientId")))
 	}
 	w.WriteHeader(200)
 }

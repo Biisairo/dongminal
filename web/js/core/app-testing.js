@@ -106,6 +106,8 @@ const APP_TESTING_NAMES = [
   '_applyRemoteWorkspace', '_saveInflight', '_savePending',
   // OPTIMIZE_REFACTOR_SRS D-OPT-7: 자기 에코가 설정을 다시 얹지 않는지 센다.
   '_settingsApply',
+  // FEC-M3: 자기 방송(origin)이 닿았는지 본다 — 닿은 뒤 GET 이 없어야 한다.
+  '_onSettingsChanged',
 
   // ── 그 밖 (misc) ──
   //

@@ -91,7 +91,7 @@ const STATE_REGISTRY=[
     restore:'_settingsRestore',
     merge:'latest',
     flight:'settings',
-    events:{settings_changed:'_settingsRestore'},
+    events:{settings_changed:'_onSettingsChanged'},
     revalidateOn:['sse:open','softreload'],
   },
   {

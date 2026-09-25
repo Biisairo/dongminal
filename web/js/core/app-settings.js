@@ -152,31 +152,40 @@ Object.assign(App.prototype, {
    * OPTIMIZE_REFACTOR_SRS FR-OPT-5-2 (FEC-7): **비행은 하나다.** 비행 중에 부르면
    * 표시만 하고 그 비행의 약속을 돌려받는다 — 비행이 끝나면 최신 본문으로 한 번
    * 더 나간다. 전체 blob 두 개가 순서가 바뀌어 도착하면 옛 값이 남기 때문이다.
-   * 약속은 마지막 PUT 의 성패로 풀린다.
+   * 약속은 마지막 PUT 의 성패로 풀린다. 던지면 거부되되 비행은 풀린다 (finally).
+   * FEC-M3: `?clientId=` 가 방송의 `origin` 으로 돌아온다 (`_onSettingsChanged`).
    */
   saveSettings(){
     this._settingsDirty=true;
     if(this._settingsChain) return this._settingsChain;
     const run=async()=>{
       let ok=true;
-      while(this._settingsDirty){
-        this._settingsDirty=false;
-        const body=JSON.stringify(this._settingsBody());
-        // D-OPT-7: 보낸 본문을 **보내기 전에** 적는다 — 방송이 응답보다 먼저 온다.
-        this._settingsLastSent=body;
-        const res=await apiPut('/api/settings',body);
-        ok=res.ok;
-        if(!ok&&this._notify) this._notify(SETTINGS_SAVE_FAIL);
-      }
-      this._settingsChain=null;
-      // 비행 중에 받은 방송은 미뤄 두었다 — 남의 저장일 수 있으므로 이제 다시 본다.
-      if(this._settingsEchoMissed){
-        this._settingsEchoMissed=false;
-        this._settingsRestore();
+      try{
+        while(this._settingsDirty){
+          this._settingsDirty=false;
+          const body=JSON.stringify(this._settingsBody());
+          // D-OPT-7: 보낸 본문을 **보내기 전에** 적는다 — 방송이 응답보다 먼저 온다.
+          this._settingsLastSent=body;
+          const res=await apiPut('/api/settings?clientId='+encodeURIComponent(this.clientId),body);
+          ok=res.ok;
+          if(!ok&&this._notify) this._notify(SETTINGS_SAVE_FAIL);
+        }
+      }finally{
+        this._settingsChain=null; this._settingsDirty=false;
+        // 비행 중에 받은 방송은 미뤄 두었다 — 남의 저장일 수 있으므로 이제 다시 본다.
+        if(this._settingsEchoMissed){
+          this._settingsEchoMissed=false;
+          this._settingsRestore();
+        }
       }
       return ok;
     };
     return (this._settingsChain=run());
+  },
+
+  // SSE `settings_changed` (FEC-M3). 자기 `origin` 이면 서버 값이 곧 보낸 본문이다 (옛 서버는 origin 이 없다).
+  _onSettingsChanged(args){
+    if(!(args&&args.origin&&args.origin===this.clientId)) return this._settingsRestore();
   },
 
   _settingsBody(){

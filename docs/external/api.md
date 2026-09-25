@@ -15,7 +15,7 @@
 | GET | `/api/workspace` | workspace.json raw (`schemaVersion: 2`). ETag 헤더 포함 |
 | PUT | `/api/workspace` | workspace 저장. `If-Match: <rev>` 로 낙관적 동시성 제어. stale 시 409 + 최신 `ETag` 반환 |
 | GET | `/api/settings` | 설정 조회 |
-| PUT | `/api/settings` | 설정 저장 (`settings.json` 즉시 영속화) |
+| PUT | `/api/settings?clientId=` | 설정 저장 (`settings.json` 즉시 영속화). `clientId`(선택)는 방송 `settings_changed` 의 `args.origin` 으로 돌아간다 — 보낸 창이 자기 방송의 재조회를 건너뛰는 근거. 생략하면 `origin` 이 없다 |
 | GET | `/api/update` | 마지막 판 확인 결과 — `{ enabled, current, latest, newer, link, checkedAt, failed }`. **밖으로 나가지 않습니다** (캐시만 읽음) |
 | PUT | `/api/update` | 자동 판 확인 토글 — `{ enabled: bool }`. `server.json` 의 `updateCheck` 에 남습니다 (설정 블롭이 아닙니다) |
 | GET | `/api/stats` | `{ hostname, cpu, memUsed, memTotal, diskPct, sysUptime, srvUptime }` |
@@ -201,8 +201,18 @@
 | POST | `/api/lsp/close` | 그 문서의 마지막 뷰가 떠났다 `{root, path}` — 언어 서버에 열려 있으면 닫는다(없으면 no-op). 상대경로 400 |
 | PUT | `/api/lsp/paths` | 경로 표 전체 교체. 모르는 서버 400 `bad_request`, 상대경로 400 `path_must_be_absolute`, 저장 실패 500 `save_failed`. 바뀐 서버의 세션은 다시 선다 |
 | POST | `/api/lsp/definition` | 정의로 이동 |
-| POST | `/api/lsp/references` | 참조 찾기 |
+| POST | `/api/lsp/references` | 참조 찾기 (`includeDeclaration`) |
 | POST | `/api/lsp/hover` | 호버 정보 |
+
+정의·참조·호버의 본문은 `{root, path, text?, version?, line, col}` 이다 (줄·열은 1 부터).
+`version`(선택)은 브라우저가 붙인 문서 판이다. 판을 실으면 응답에 판 협상 필드가 붙는다:
+
+| 응답 필드 | 뜻 |
+|---|---|
+| `version` | 서버가 그 판의 텍스트를 가졌다 — 같은 판이면 다음 요청에서 `text` 를 빼도 된다 |
+| `needText: true` | 서버가 그 판을 모른다 (`text` 를 뺐는데 세션이 다시 섰거나 판이 어긋났다) — 전문을 실어 다시 묻는다. 이때 `reason` 은 없다 |
+
+`version` 을 싣지 않으면 두 필드 모두 없고 응답은 종전과 같다. 판도 `text` 도 없으면 빈 텍스트로 본다.
 
 ### 샌드박스
 
@@ -394,6 +404,7 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 | `tool_attention_clear` | 주의 상태 해제 |
 | `tool_activity` | 도구의 활동 상태 갱신 |
 | `window_focus` | 창 포커스 소유권이 바뀌었다. `args.owners` 는 **전체 맵**이다 (증분이 아니다) |
+| `settings_changed` | 설정이 저장됐다 — 본문은 없고 `GET /api/settings` 로 다시 받으라는 신호. `args.origin`(선택)은 저장한 `PUT` 의 `clientId` 다 |
 
 ## OSC 777 커스텀 이스케이프
 
