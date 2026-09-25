@@ -81,13 +81,14 @@ type Store struct {
 	// writeMu 는 디스크 쓰기를 한 줄로 세운다 (FR-OPT-5-4). save 가 mu 를 놓고
 	// 쓰므로 순서를 지키는 것은 이쪽이다 — mu 를 쥔 채 writeMu 를 잡고 나서 mu 를
 	// 놓기 때문에, 직렬화 순서가 곧 디스크 도착 순서다.
+	// persistedBlob 도 지킨다 — 쓰기가 성공한 그 자리에서 적어야 persistedBlob 이
+	// 언제나 디스크의 마지막 판이다. Load 는 기동 시 한 번이라 겹치는 쓰기가 없으므로
+	// s.mu 만으로 적는다.
 	writeMu sync.Mutex
 	// saveGen 은 직렬화한 판의 번호다. 쓰기가 실패했을 때 그 뒤에 직렬화된 판이
 	// 없을 때만 되돌린다 — 뒤의 판은 이 변경을 이미 담고 있고, 그 쓰기의 결과가
 	// 메모리를 정한다.
 	saveGen uint64
-	// persistedGen 은 persistedBlob 이 몇 번째 판인가다.
-	persistedGen uint64
 	// write 는 상태 파일 쓰기다. 검사가 느린 디스크를 흉내 내는 이음매다.
 	write func(path string, data []byte, perm os.FileMode) error
 }
@@ -308,6 +309,11 @@ func (s *Store) save() error {
 	s.writeMu.Lock()
 	s.mu.Unlock()
 	err = s.write(s.path(), blob, 0644)
+	if err == nil {
+		// s.mu 를 되찾은 뒤에 적으면, 그보다 먼저 되찾은 뒤 판의 실패가 이 판 이전으로
+		// 되돌려 디스크에 있는 이 판을 메모리에서 잃는다.
+		s.persistedBlob = blob
+	}
 	s.writeMu.Unlock()
 	s.mu.Lock()
 	if err != nil {
@@ -319,14 +325,11 @@ func (s *Store) save() error {
 		// 되돌리면 그때 메모리만 이 변경을 잃는다. 그 쓰기가 실패하면 그쪽이
 		// 되돌린다.
 		if gen == s.saveGen {
+			s.writeMu.Lock()
 			s.runs = s.rollbackRuns()
+			s.writeMu.Unlock()
 		}
 		return err
-	}
-	// 뒤에 쓴 판이 먼저 잠금을 되찾았을 수 있다 — 더 새 판을 옛 판으로 덮지 않는다.
-	if gen > s.persistedGen {
-		s.persistedBlob = blob
-		s.persistedGen = gen
 	}
 	return nil
 }

@@ -108,3 +108,53 @@ func TestSave_ConcurrentWritesLandInOrder(t *testing.T) {
 		t.Fatalf("디스크 메시지 %d개, 메모리 %d개 — 낡은 판이 나중에 도착했다", len(body.Runs[0].Messages), len(got.Messages))
 	}
 }
+
+// FBE-17 · FR-OPT-5-4: 앞 판의 쓰기가 성공하고 뒤 판의 쓰기가 실패하면, 메모리는
+// 앞 판으로 돌아가야 한다 — 디스크가 그 판이다. 두 저장이 s.mu 를 되찾는 순서와
+// 무관해야 한다: 뒤 판이 먼저 되찾아 되돌리더라도 앞 판을 잃지 않는다.
+func TestSave_LaterFailureKeepsEarlierSuccess(t *testing.T) {
+	for i := range 50 {
+		s := storeWithMember(t, "t1")
+		rec := s.List()[0]
+		msg := MsgEvent{From: "coordinator", To: rec.Members[0].ID, Kind: "agent", Size: 1}
+		entered := make(chan struct{})
+		release := make(chan struct{})
+		var calls int
+		orig := s.write
+		s.write = func(path string, data []byte, perm os.FileMode) error {
+			calls++
+			if calls == 1 {
+				close(entered)
+				<-release
+				return orig(path, data, perm)
+			}
+			return os.ErrPermission
+		}
+		errA := make(chan error, 1)
+		go func() { errA <- s.AppendMessage(rec.ID, msg) }()
+		<-entered
+		errB := make(chan error, 1)
+		go func() { errB <- s.AppendMessage(rec.ID, msg) }()
+		// B 가 s.mu 를 쥐고 writeMu 앞에 설 때까지 기다린다 — 그동안 s.mu 는 잡히지 않는다.
+		for s.mu.TryLock() {
+			s.mu.Unlock()
+			time.Sleep(time.Millisecond)
+		}
+		close(release)
+		if err := <-errA; err != nil {
+			t.Fatalf("#%d A: %v", i, err)
+		}
+		if err := <-errB; err == nil {
+			t.Fatalf("#%d B 가 성공했다", i)
+		}
+		var body fileBody
+		if err := json.Unmarshal(readRunsFile(t, s), &body); err != nil {
+			t.Fatal(err)
+		}
+		got, _ := s.Get(rec.ID)
+		if len(body.Runs[0].Messages) != 1 || len(got.Messages) != 1 {
+			t.Fatalf("#%d 디스크 메시지 %d개, 메모리 %d개 — 성공한 앞 판을 되돌림이 지웠다",
+				i, len(body.Runs[0].Messages), len(got.Messages))
+		}
+	}
+}
