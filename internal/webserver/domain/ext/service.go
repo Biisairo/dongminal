@@ -76,8 +76,11 @@ func (s *Service) Status(overrides map[string]string) ([]Status, []string) {
 
 	var out []Status
 	for _, m := range Packs(ms) {
+		// 조달 판정은 팩 단위다 (FR-EXT-5) — 서버마다 되풀이하지 않는다 (FR-OPT-6-4).
+		canInstall, missing := loc.readiness(m)
 		for _, srv := range m.Servers {
-			st := loc.Locate(m, srv)
+			st := loc.find(m, srv)
+			withReadiness(&st, canInstall, missing)
 			st.Installing = inflight[m.ID]
 			st.Note = MissingText(st)
 			out = append(out, st)
@@ -90,6 +93,18 @@ func (s *Service) Status(overrides map[string]string) ([]Status, []string) {
 	return out, problems
 }
 
+// ServerIDs 는 지금 선언이 내는 서술자 id(팩/서버)들이다 (FR-OPT-6-4). 탐색하지 않는다.
+func (s *Service) ServerIDs() map[string]bool {
+	ms, _ := s.Manifests()
+	out := map[string]bool{}
+	for _, m := range Packs(ms) {
+		for _, srv := range m.Servers {
+			out[m.ID+"/"+srv.ID] = true
+		}
+	}
+	return out
+}
+
 // Resolve 는 확장자를 (팩, 서버, 관측) 으로 푼다. 세션 계층이 이것을 딛는다.
 func (s *Service) Resolve(ext string, overrides map[string]string) (Manifest, Server, Status, bool) {
 	ms, _ := s.Manifests()
@@ -97,7 +112,15 @@ func (s *Service) Resolve(ext string, overrides map[string]string) (Manifest, Se
 	if !ok {
 		return Manifest{}, Server{}, Status{}, false
 	}
-	return m, srv, s.locator(ms, overrides).Locate(m, srv), true
+	// 세션 계층은 실행 파일만 쓴다 — 찾았으면 조달 가능성을 따지지 않는다
+	// (FR-OPT-6-4). 그래서 찾은 관측의 CanInstall 은 거짓이다.
+	loc := s.locator(ms, overrides)
+	st := loc.find(m, srv)
+	if !st.Found {
+		canInstall, missing := loc.readiness(m)
+		withReadiness(&st, canInstall, missing)
+	}
+	return m, srv, st, true
 }
 
 // Install 은 팩 하나를 조달한다 (FR-EXT-16·31·32).

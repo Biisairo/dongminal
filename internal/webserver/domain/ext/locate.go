@@ -129,7 +129,7 @@ type Locator struct {
 	Root string
 	// LookPath 는 보통 exec.LookPath 다.
 	LookPath func(string) (string, error)
-	// Overrides 는 사용자가 설정에 적은 절대경로다 (서버 id → 경로).
+	// Overrides 는 사용자가 설정에 적은 절대경로다 (팩/서버 → 경로).
 	//
 	// 화면이 실어 보낸다 (FR-LSP-4b) — 설정 블롭을 서버가 해석하지 않으므로
 	// 서버가 그것을 읽을 자리가 없다.
@@ -235,11 +235,20 @@ func archiveExe(root string, m Manifest, s Server, target string) string {
 //
 // 먼저 찾은 것을 쓰고, **어디서 찾았는지와 그것이 격리된 것인지**를 함께 낸다.
 func (l *Locator) Locate(m Manifest, s Server) Status {
+	st := l.find(m, s)
+	canInstall, missing := l.readiness(m)
+	withReadiness(&st, canInstall, missing)
+	return st
+}
+
+// find 는 실행 파일만 찾는다 — 찾으면 멈추고 조달 가능성은 따지지 않는다 (FR-OPT-6-4).
+func (l *Locator) find(m Manifest, s Server) Status {
 	st := Status{Pack: m.ID, ID: s.ID, Langs: s.Langs, Exts: s.Exts, Needs: m.Needs}
 	look := l.lookPath()
 
 	// ① 사용자가 적은 절대경로. 적었다는 것 자체가 의사표시이므로 가장 앞이다.
-	if p := l.Overrides[s.ID]; p != "" && isExecutable(p) {
+	// 키는 팩/서버다 — 서버 id 만으로는 다른 팩의 같은 id 에 번진다 (FR-OPT-6-4).
+	if p := l.Overrides[m.ID+"/"+s.ID]; p != "" && isExecutable(p) {
 		st.Found, st.Exe, st.Origin = true, p, OriginConfig
 	}
 	// ② PATH. 사용자가 이미 자기 방식으로 깔아 둔 것을 우리 것보다 앞세운다.
@@ -255,15 +264,17 @@ func (l *Locator) Locate(m Manifest, s Server) Status {
 			st.Found, st.Exe, st.Origin = true, p, OriginManaged
 		}
 	}
-
 	st.Isolated = st.Origin == OriginManaged
-	st.CanInstall, st.Missing = l.readiness(m)
-	// 찾았으면 "없는 것" 을 말하지 않는다 — 이미 서 있는 서버에 대해 무엇이
-	// 없다고 하면 그 말이 곧 고장으로 읽힌다.
-	if st.Found {
-		st.Missing = nil
-	}
 	return st
+}
+
+// withReadiness 는 팩의 조달 판정을 관측에 얹는다. 찾았으면 "없는 것" 을 말하지
+// 않는다 — 이미 서 있는 서버에 대해 무엇이 없다고 하면 그 말이 곧 고장으로 읽힌다.
+func withReadiness(st *Status, canInstall bool, missing *Missing) {
+	st.CanInstall = canInstall
+	if !st.Found {
+		st.Missing = missing
+	}
 }
 
 // readiness 는 지금 조달할 수 있는가와, 없다면 무엇이 없는가다.

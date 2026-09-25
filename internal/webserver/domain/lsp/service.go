@@ -166,12 +166,10 @@ func (s *Service) Paths() map[string]string {
 // "없음" 을 보인다. 저장에 성공하면 값이 바뀐 서술자의 세션을 모든 루트에서 정지하고
 // 실패 기억을 지운다. 바뀌지 않은 서술자의 세션은 남는다.
 func (s *Service) SetPaths(next map[string]string) (map[string]string, error) {
+	// 아는 id 는 선언에서 얻는다 — 탐색(Status)을 돌리지 않는다 (FR-OPT-6-4).
 	known := map[string]bool{}
 	if s.Ext != nil {
-		sts, _ := s.Ext.Status(nil)
-		for _, st := range sts {
-			known[st.Pack+"/"+st.ID] = true
-		}
+		known = s.Ext.ServerIDs()
 	}
 	clean := map[string]string{}
 	for k, v := range next {
@@ -230,17 +228,13 @@ func (s *Service) SetPaths(next map[string]string) (map[string]string, error) {
 	return s.Paths(), nil
 }
 
-// locatorOverrides 는 경로 표를 플러그인 계층의 표(서버 id → 경로)로 옮긴다.
+// locatorOverrides 는 경로 표의 사본이다 — 키(팩/서버)를 플러그인 계층이 그대로 쓴다.
+//
+//	이전 동작: 키를 서버 id 로 줄여 넘겼다 — 다른 팩의 같은 서버 id 에도 경로가 번졌다
+//	새  동작: 팩/서버 그대로 (세션 키 exeKeyLocked 와 같은 키)
+//	이유:     FR-OPT-6-4 (DOM-13)
 func (s *Service) locatorOverrides() map[string]string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	out := make(map[string]string, len(s.paths))
-	for desc, p := range s.paths {
-		if i := strings.LastIndex(desc, "/"); i >= 0 {
-			out[desc[i+1:]] = p
-		}
-	}
-	return out
+	return s.Paths()
 }
 
 // exeKeyLocked 는 세션 키의 exe 조각이다 — 표에 경로가 있으면 그것, 없으면 default.

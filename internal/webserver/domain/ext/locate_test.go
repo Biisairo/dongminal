@@ -131,7 +131,7 @@ func TestLocate_Order(t *testing.T) {
 	// ① 설정이 전부를 이긴다 — 적었다는 것 자체가 의사표시다
 	cfg := filepath.Join(root, "from-config"+exeSuffix())
 	mustExec(t, cfg)
-	st = testLocator(root, onPath, map[string]string{"gopls": cfg}).Locate(m, s)
+	st = testLocator(root, onPath, map[string]string{"gopls/gopls": cfg}).Locate(m, s)
 	if st.Origin != OriginConfig || st.Exe != cfg {
 		t.Fatalf("설정 경로가 이기지 않았다: %+v", st)
 	}
