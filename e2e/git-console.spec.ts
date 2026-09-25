@@ -218,4 +218,45 @@ test.describe('묶음 H — Console 의 검색·replay (FR-GIT-281)', () => {
     await expect.poll(async () => (await argvs(page)).filter((s) => s.includes('add')).length,
       { timeout: 15000 }).toBeGreaterThan(before);
   });
+
+  /**
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-4-8 (DOM-27): 주기 조회는 커서 뒤의 것만 받는다.
+   * 받은 기록은 화면에 남고, 새 쓰기는 그 위에 붙는다.
+   */
+  test('K12 (FR-OPT-4-8): 기록은 after 커서로 증분만 받는다', async ({ page }) => {
+    const repo = copyFx('basic', 'k12');
+    await waitForInit(page);
+    const seen: { after: string | null; n: number; last: number | undefined; min: number }[] = [];
+    page.on('response', async (res) => {
+      const u = new URL(res.url());
+      if (u.pathname !== '/api/git/records') return;
+      const d = await res.json().catch(() => null);
+      if (!d) return;
+      const seqs = (d.records || []).map((r: any) => r.seq as number);
+      seen.push({ after: u.searchParams.get('after'), n: seqs.length, last: d.lastSeq, min: Math.min(Infinity, ...seqs) });
+    });
+    await openGit(page, repo);
+    await page.evaluate(async (r) => {
+      await (window as any).app.gitPanel.post('/api/git/stage', { repo: r, paths: ['tracked.txt'] });
+    }, repo);
+    await clickGitView(page, 'console');
+    await expect(rows(page).filter({ hasText: 'add' }).first()).toBeVisible({ timeout: 15000 });
+    // 두 번째 조회부터 앞서 받은 응답의 lastSeq 가 커서다 (응답끼리 겹칠 수 있어 "앞서 받은
+    // 것 중 하나" 로 본다).
+    await expect.poll(() => seen.length, { timeout: 15000 }).toBeGreaterThan(2);
+    const shown = (await argvs(page)).length;
+    for (let i = 1; i < seen.length; i++) {
+      const known = ['0', ...seen.slice(0, i).map((x) => String(x.last))];
+      expect(known, JSON.stringify(seen)).toContain(seen[i].after);
+    }
+    expect(seen.some((x) => x.after !== '0'), '커서가 나아가지 않았다').toBe(true);
+    expect(seen[0].after, '첫 조회가 커서 0 으로 시작하지 않았다').toBe('0');
+    // 증분 응답은 커서 뒤의 것뿐이다 — 이미 받은 것을 되받지 않는다.
+    for (const x of seen.slice(1)) {
+      if (x.n) expect(x.min, JSON.stringify(seen)).toBeGreaterThan(Number(x.after));
+    }
+    // 받은 기록은 화면에 남는다.
+    expect((await argvs(page)).length).toBeGreaterThanOrEqual(shown);
+    expect((await argvs(page)).some((a) => a.includes('add'))).toBe(true);
+  });
 });

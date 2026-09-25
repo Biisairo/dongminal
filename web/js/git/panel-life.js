@@ -59,6 +59,8 @@ Object.assign(GitPanel.prototype, {
    */
   _repoSwitchView(path){
     this._shown.clear(); this.previewFile=null;
+    // FR-OPT-4-9: 낡음 표식은 앞 리포의 것이다 — 새 리포는 각 뷰의 `_adopt` 가 받는다.
+    if(this._staleViews) this._staleViews.clear();
     // 선택과 쓰기 안내는 리포에 붙은 것이다 — 새 리포로 넘겨 오면 다른 파일을
     // 가리킨다.
     this._sel.clear(); this._anchor=null; this._note=null;
@@ -80,6 +82,9 @@ Object.assign(GitPanel.prototype, {
   },
 
   elFor(view){
+    // FR-OPT-4-9: 아래 `_render` 가 리포를 새로 채택하는지 가르는 값이다 (`_staleTake`).
+    const vf=GIT_VIEW_FIELD_BY_KEY[view];
+    const before=vf&&this[vf]?this[vf]._repo:undefined;
     let el=this._els.get(view);
     if(!el){
       el=document.createElement('div');
@@ -106,6 +111,8 @@ Object.assign(GitPanel.prototype, {
     // (FR-STAT-17 과 같은 원칙).
     if(view==='branches'||view==='stash'||view==='console'||view==='worktrees'||view==='submodules')
       this._render(view);
+    // FR-OPT-4-9 (FR-GVR-4 개정): 보이지 않는 동안 지나간 변화를 지금 받는다.
+    this._staleTake(view,before);
     return el;
   },
 
@@ -161,6 +168,7 @@ Object.assign(GitPanel.prototype, {
     if(v&&this[v]&&this[v].unmount) this[v].unmount();
     if(el.parentNode) el.parentNode.removeChild(el);
     this._els.delete(view);
+    if(this._staleViews) this._staleViews.delete(view);
   },
 
   // Git 창이 사라졌을 때 루트를 area 로 되돌린다. 인스턴스는 살아 있다 —

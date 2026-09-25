@@ -19,6 +19,7 @@ class GitConsole {
     this._open=new Set();  // 펼친 행의 seq
     this._err='';
     this._seq=0;           // 요청 일련번호. stale 응답을 버린다 (FR-GIT-54)
+    this._after=0;         // 마지막으로 받은 전역 Seq. 증분 조회의 커서다 (FR-OPT-4-8)
     this._timer=null;
   }
 
@@ -55,7 +56,7 @@ class GitConsole {
 
   unmount(){
     this._stop();
-    this._el=null; this._recs=[]; this._open.clear(); this._err='';
+    this._el=null; this._recs=[]; this._open.clear(); this._err=''; this._after=0;
   }
 
   // 탭이 활성일 때만 받는다 — 열지 않은 탭이 500칸 버퍼를 미리 받아 둘 이유가 없다.
@@ -67,7 +68,7 @@ class GitConsole {
 
   // 리포가 바뀌면 앞 리포의 기록은 버린다 — 남으면 이력이 아니라 잡음이다.
   reset(){
-    this._recs=[]; this._open.clear(); this._err='';
+    this._recs=[]; this._open.clear(); this._err=''; this._after=0;
     this._seq++;
     if(this._el) this._paintList();
   }
@@ -94,7 +95,12 @@ class GitConsole {
     if(!repo){this.reset();return}
     const seq=++this._seq;
     const tok=this.panel.token();
-    let u='/api/git/records?repo='+encodeURIComponent(repo)+'&n='+GIT_CON_LIMIT;
+    // OPTIMIZE_REFACTOR_SRS FR-OPT-4-8 (DOM-27): 받은 것 뒤만 묻는다.
+    //   이전 동작: 주기마다 기록 최대 500건 전부를 받았다
+    //   새  동작: `after=<lastSeq>` 로 그 뒤의 것만 받아 앞에 붙인다. `gap` 이면 전량이다
+    //   이유:     기록은 쓰기로만 늘어나 주기 대부분이 같은 500건이었다
+    const after=this._after;
+    let u='/api/git/records?repo='+encodeURIComponent(repo)+'&n='+GIT_CON_LIMIT+'&after='+after;
     // FR-GRF-6: 같은 시한 (history.js 의 `_get` 과 한 쌍).
     const r=await apiGet(u,{timeout:GIT_STATUS_FETCH_TIMEOUT_MS});
     const d=r.data;
@@ -107,7 +113,13 @@ class GitConsole {
     // REPO_FIX 05 §3A-4: 대조는 요청한 값으로 한다 — 서버의 `repo` 는 저장소 최상위(심링크를
     // 푼 값)라 하위 폴더·심링크 루트에서 영영 같지 않았다(#43).
     if(((d.requested||{}).repo||'')!==repo) return;
-    this._err=''; this._recs=d.records;
+    this._err='';
+    // `firstSeq` 앞은 링이 이미 버린 것이다 — 전량을 받던 때와 같은 목록을 남긴다.
+    const inc=typeof d.lastSeq==='number'&&!d.gap&&after>0;
+    this._recs=inc
+      ?d.records.concat(this._recs.filter(r=>r.seq>=d.firstSeq)).slice(0,GIT_CON_LIMIT)
+      :d.records;
+    this._after=typeof d.lastSeq==='number'?d.lastSeq:0;
     this._paintList();
   }
 

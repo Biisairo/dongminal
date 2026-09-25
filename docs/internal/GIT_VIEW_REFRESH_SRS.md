@@ -95,6 +95,18 @@ History·Branches 는 여기서 받지 않는다 — 성공한 push·fetch 는 `
 사용자 조작 하나당 `/api/git/records` 한 번이고, 그 종단은 메모리 기록을 읽을
 뿐 git 을 실행하지 않는다.
 
+> **개정 (2026-09-26, OPTIMIZE_REFACTOR_SRS FR-OPT-4-9 · FEU-7).** 대상을 "열린 적 없는
+> 뷰" 에서 **"지금 보이지 않는 뷰"** 로 넓힌다. 관측 회차(`_reloadViews`)와 낡음 재적재
+> (`_reloadStaleViews`)는 보이지 않는 History·Branches(원격 목록 포함)·Stash·Worktrees·
+> Submodules 에 요청 대신 **표식**만 남기고, 그 뷰가 활성화될 때(`elFor`) 자리 유지로 한 번
+> 받는다. 사용자가 누른 새로고침(FR-GIT-238 · D-8)은 종전대로 보이지 않는 뷰까지 전부 받는다.
+> "보인다" 는 본문이 문서에 붙어 있고 `vis` 인 것이다 (Console 폴링 가드와 같은 판정).
+> - 이전 동작: 열어 두고 보지 않는 탭도 커밋·fetch 마다 log·refs·stash·worktree·submodule 을 받았다.
+> - 새 동작: 보이지 않는 탭은 받지 않고, 돌아왔을 때 받는다. 사용자가 보는 결과는 같다.
+> - 이유: 그릴 곳이 없는 요청이다. 같은 회차의 refs 는 History·Branches 가 하나를 나눠 쓴다.
+>
+> Console·Diff 는 대상이 아니다 — Console 은 쓰기 경로의 규약(위)을, Diff 는 FR-GLV 의 규약을 따른다.
+
 **FR-GVR-5.** 갱신은 `collect()` 의 완료를 기다리지 않는다. 서로 독립이며, 기다리면
 화면이 그만큼 늦는다.
 
@@ -194,7 +206,7 @@ _viewFp = signature | oid | branch | upstream | ahead | behind
 
 **FR-GVR-12.** 열지 않은 뷰에는 여전히 요청이 가지 않는다 (FR-GVR-4). 각 뷰의
 `_el`·`_repo` 판정이 조기 반환하므로, 폴링이 매 변화마다 돌아도 화면에 없는 것을
-받지 않는다.
+받지 않는다. 보이지 않는 뷰는 표식만 남기고 활성화할 때 받는다 (FR-GVR-4 개정).
 
 **FR-GVR-7.** 위 어느 것도 **폴링 주기를 바꾸지 않는다.** 갱신을 부르는 자리만
 는다 — 주기를 줄이면 git 실행이 늘고 FR-GIT-24 의 절약이 깨진다.

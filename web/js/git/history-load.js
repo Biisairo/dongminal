@@ -27,7 +27,8 @@ Object.assign(GitHistory.prototype, {
     //             실패 경로가 있고 그것이 사유를 보인다 (FR-GIT-132)
     //   이유:     `FR-SVS-39c` 가 지키려던 것은 "거부" 였고 "무응답" 이 아니었다
     //
-    // 이 함수는 `/api/git/log`·`refs`·`show` 가 모두 지나는 한 자리다.
+    // 이 함수는 `/api/git/log`·`commit` 이 지나는 자리다. refs 는 `panel.fetchRefs` 가
+    // 같은 시한으로 받는다 (FR-OPT-4-9).
     const r=await apiGet(path+'?'+q.toString(),{timeout:GIT_STATUS_FETCH_TIMEOUT_MS});
     if(!r.ok) return null;
     return r.data;
@@ -73,7 +74,8 @@ Object.assign(GitHistory.prototype, {
     return this._load(false,true);
   },
 
-  async _doLoad(more,keep){
+  // `full` 은 증분(FR-OPT-4-8)이 이어지지 않아 전량으로 돌아가는 한 번이다.
+  async _doLoad(more,keep,full){
     const repo=this._repo; if(!repo) return;
     const tok=this.panel.token();
     const sent={
@@ -94,6 +96,18 @@ Object.assign(GitHistory.prototype, {
       // 것인지 _sameReq 가 가른다.
       reflog:this._reflog,
     };
+    /**
+     * OPTIMIZE_REFACTOR_SRS FR-OPT-4-8 (FEU-10): 자리 유지 재적재는 **새 머리만** 받는다.
+     *
+     *   이전 동작: 관측 변화마다 이미 받은 개수(최대 2000)를 skip=0 부터 다시 받았다
+     *   새  동작: 지금 첫 커밋을 `stop` 으로 보내 그 앞의 머리와 뒷부분의 요약만 받는다.
+     *             뒷부분이 내 목록 앞과 같으면(`_joinHead`) 이어 붙이고, 아니면 전량이다
+     *   이유:     변화 대부분은 커밋 몇 개이거나 index 뿐인데 목록 전체가 오갔다
+     *
+     * 이어 붙인 목록은 전량으로 받았을 목록과 같다 — 커밋의 내용은 oid 가 정하고, 움직일
+     * 수 있는 배지는 서버가 뒷부분에 대해 다시 싣는다.
+     */
+    if(!more&&keep&&!full&&this._commits.length) sent.stop=this._commits[0].oid;
     // 받는 동안은 모른다 — 낡음 판정(`staleFor`)이 이전 목록의 값으로 이 로드를
     // 또 부르지 않게 한다. 뒷장(`more`)은 같은 목록이라 값을 바꾸지 않는다.
     if(!more) this._loadedSig=null;
@@ -117,7 +131,11 @@ Object.assign(GitHistory.prototype, {
     }
     // FR-GDT-21: 빈 저장소라는 사실. 응답마다 새로 정해진다.
     this._initial=!!d.initial;
-    const got=Array.isArray(d.commits)?d.commits:[];
+    let got=Array.isArray(d.commits)?d.commits:[];
+    if(sent.stop&&d.tail){
+      got=this._joinHead(got,d.tail);
+      if(!got) return this._doLoad(false,true,true);
+    }
     // limit 은 실효값이다 — 요청값으로 끝을 판정하면 상한 클램프에서 어긋난다.
     const eff=d.limit||sent.limit;
     this._commits=more?this._commits.concat(got):got;
@@ -128,6 +146,35 @@ Object.assign(GitHistory.prototype, {
     if(!more) this._loadedSig=(typeof d.signature==='string'&&d.signature)||null;
     this._rebuild();
     this.paint();
+  },
+
+  /**
+   * FR-OPT-4-8: 새 머리 뒤에 내 목록의 앞 `tail.count` 개를 잇는다. 그 순서가 서버의
+   * 뒷부분과 다르면(fetch 가 날짜 순 사이에 끼워 넣었다 등) null — 호출자는 전량을 받는다.
+   */
+  _joinHead(head,tail){
+    const old=this._commits;
+    if(!(tail.count>=0)||tail.count>old.length) return null;
+    const rest=old.slice(0,tail.count);
+    if(this._digest(rest)!==tail.digest) return null;
+    const deco=new Map((tail.refs||[]).map(r=>[r.i,r]));
+    return head.concat(rest.map((c,i)=>{
+      const r=deco.get(i);
+      const refs=r?r.refs:[],isHead=!!(r&&r.isHead);
+      if(!!c.isHead===isHead&&JSON.stringify(c.refs||[])===JSON.stringify(refs)) return c;
+      return Object.assign({},c,{refs,isHead});
+    }));
+  },
+
+  // 서버 `gitOidDigest` 와 같은 계산이다 — `oid\n` 을 이은 바이트의 FNV-1a 32 비트.
+  // oid 는 16진 ASCII 라 코드 단위가 곧 바이트다.
+  _digest(cs){
+    let h=0x811c9dc5;
+    for(const c of cs){
+      const s=c.oid+'\n';
+      for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,0x01000193)>>>0 }
+    }
+    return (h>>>0).toString(16).padStart(8,'0');
   },
 
   /**
@@ -161,8 +208,10 @@ Object.assign(GitHistory.prototype, {
   async _loadRefs(){
     const repo=this._repo; if(!repo) return;
     const tok=this.panel.token();
-    const d=await this._get('/api/git/refs',{repo});
+    // FR-OPT-4-9: Branches 와 같은 회차면 요청 하나를 나눠 쓴다.
+    const res=await this.panel.fetchRefs(repo);
     if(this.panel.isStale(tok)) return;
+    const d=res.ok?res.data:null;
     if(!d||!d.requested||d.requested.repo!==repo) return;
     this._refs=Array.isArray(d.refs)?d.refs:[];
     this.panel.adoptRefs(this._refs);   // FR-BMU-16h

@@ -225,6 +225,20 @@ Object.assign(GitPanel.prototype, {
    */
   adoptRefs(refs){this._knownRefs=Array.isArray(refs)?refs:[]},
 
+  /**
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-4-9 (FEU-6): `/api/git/refs` 를 받는 한 자리. 회차
+   * (`_inRefsRound`) 안이면 리포당 하나를 나눠 쓴다 — 그때는 부른 쪽의 `signal` 을 싣지
+   * 않는다(한쪽이 끊으면 다른 쪽도 잃는다). 낡음은 부른 쪽마다 따로 본다.
+   */
+  fetchRefs(repo,opts){
+    const o=opts||{};
+    const round=this._refsRound;
+    if(!round) return gitFetch('/api/git/refs',{repo},{stale:o.stale,echo:{repo},signal:o.signal});
+    if(!round.has(repo)) round.set(repo,gitFetch('/api/git/refs',{repo},{echo:{repo}}));
+    return round.get(repo).then(res=>
+      (o.stale&&o.stale())?{ok:false,data:null,stale:true,status:res.status}:res);
+  },
+
   // FR-GIT-255: 머지·리베이스의 충돌은 실패가 아니라 진행 중 상태다 — 사유를
   // Changes 탭 머리에 남기고 화면을 그리로 보낸다 (FR-GIT-111 과 같은 경로).
   branchNote(msg){this._note={msg,partial:false,changed:[]};this._paint()},

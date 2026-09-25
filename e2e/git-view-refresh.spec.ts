@@ -64,7 +64,8 @@ const tab = (page: Page, v: string) => page.locator(`#area .pn-tab[data-git-view
 // 탭을 한 번 열면 그 뷰가 만들어진다 — `if(this._xxxView)` 가드가 통과하는 조건이
 // 곧 이것이다 (FR-GVR-4). **다시 여는 것은 다시 받지 않는다** (뷰의 `paint()` 는
 // 리포가 바뀔 때만 `_adopt` 한다) — 그래서 원격 작업 뒤에 탭으로 돌아와 읽는 것이
-// 갱신을 정직하게 재는 방법이다.
+// 갱신을 정직하게 재는 방법이다. 예외는 보이지 않는 동안 표식을 받은 뷰다
+// (FR-GVR-4 개정 · FR-OPT-4-9) — 그 뷰는 활성화할 때 한 번 받는다 (G15).
 async function openTab(page: Page, v: string) {
   // REPO_TAB_UNIFY_SRS FR-RTU-32: `Changes` 는 본문 탭이 아니라 **창의 사이드**다.
   // 그 자리로 "돌아가는" 것은 사이드를 그쪽으로 돌리는 일이며, `openGit` 이 이미
@@ -476,6 +477,101 @@ test.describe('원격 작업·새로고침 뒤의 뷰 갱신', () => {
     await page.waitForTimeout(3000); // 폴링 주기의 여러 배
     page.off('request', onReq);
     expect(n, `변화가 없는데 ${n}건을 받았다`).toBe(0);
+  });
+});
+
+/**
+ * OPTIMIZE_REFACTOR_SRS FR-OPT-4-8·4-9 — 증분 조회와 회차 공유.
+ *
+ * History 의 자리 유지 재적재는 새 머리만 받고(`stop=<oid>`), 보이지 않는 뷰는 표식만
+ * 남겼다가 활성화할 때 받으며, 한 회차의 refs 는 한 번이다.
+ */
+test.describe('증분 조회·회차 공유 (FR-OPT-4-8·4-9)', () => {
+  test('G14 (FR-OPT-4-8): 창 밖 커밋은 새 머리만 받아 이어 붙이고 배지를 옮긴다', async ({ page }) => {
+    const { repo } = copyPair('g14');
+    await waitForInit(page);
+    await openGit(page, repo);
+    await openTab(page, 'history');
+    await expect(hist(page).locator('.git-hist-row').first()).toBeVisible({ timeout: 15000 });
+
+    const logs: { url: URL; body: any }[] = [];
+    page.on('response', async (res) => {
+      const u = new URL(res.url());
+      if (u.pathname !== '/api/git/log' || u.searchParams.get('limit') === '1') return;
+      logs.push({ url: u, body: await res.json().catch(() => null) });
+    });
+    writeFileSync(join(repo, 'outside.txt'), 'x');
+    git(repo, 'add', 'outside.txt');
+    git(repo, 'commit', '-qm', 'outside commit');
+
+    await expect(hist(page).locator('.git-hist-row').first()).toContainText('outside commit', { timeout: 15000 });
+    const inc = logs.find((l) => l.url.searchParams.has('stop'));
+    expect(inc, '증분 조회가 나가지 않았다: ' + logs.map((l) => l.url.search).join(' | ')).toBeTruthy();
+    expect(inc!.body.tail, '머리가 이어졌는데 tail 이 없다').toBeTruthy();
+    const st = await page.evaluate(async () => {
+      const h = (window as any).app.gitPanel._historyView;
+      const pick = (c: any) => [c.oid, !!c.isHead, JSON.stringify(c.refs || [])];
+      const full = await (await fetch('/api/git/log?' + new URLSearchParams({
+        repo: h._repo, skip: '0', limit: String(h._commits.length), order: h._order, reflog: 'false',
+      }))).json();
+      return { mine: h._commits.map(pick), full: full.commits.map(pick) };
+    });
+    // 보낸 것은 목록보다 작다 — 뒷부분은 요약(tail)으로 왔다.
+    expect(inc!.body.commits.length, '뒷부분까지 다시 보냈다').toBeLessThan(st.mine.length);
+    expect(inc!.body.commits.length + inc!.body.tail.count).toBe(st.mine.length);
+    // 이어 붙인 목록은 전량으로 받은 목록과 같다 — 순서·HEAD 표식·배지까지.
+    expect(st.mine).toEqual(st.full);
+    expect(st.mine[0][1], '새 커밋에 HEAD 표식이 없다').toBe(true);
+    expect(st.mine.filter((c: any) => c[1]).length, 'HEAD 표식이 둘이다').toBe(1);
+  });
+
+  test('G15 (FR-OPT-4-9 · FR-GVR-4 개정): 보이지 않는 History 는 표식만 남기고 활성화할 때 받는다', async ({ page }) => {
+    const { repo } = copyPair('g15');
+    await waitForInit(page);
+    await openGit(page, repo);
+    await openTab(page, 'history');
+    await expect(hist(page).locator('.git-hist-row').first()).toBeVisible({ timeout: 15000 });
+    await openTab(page, 'branches');
+    await expect(br(page)).toHaveClass(/vis/, { timeout: 10000 });
+
+    const log = counter(page, (u) => u.includes('/api/git/log') && !u.includes('limit=1'));
+    const refs = counter(page, isRefs);
+    writeFileSync(join(repo, 'outside.txt'), 'x');
+    git(repo, 'add', 'outside.txt');
+    git(repo, 'commit', '-qm', 'hidden commit');
+    // 보이는 Branches 가 받은 것이 회차가 지나갔다는 신호다.
+    await expect.poll(() => refs.n, { timeout: 15000 }).toBeGreaterThan(0);
+    // **예외 (`TEST-16`)**: 나가지 않는 요청을 잰다.
+    await page.waitForTimeout(800);
+    expect(log.n, '보이지 않는 History 가 log 를 받았다').toBe(0);
+
+    await openTab(page, 'history');
+    await expect(hist(page).locator('.git-hist-row').first()).toContainText('hidden commit', { timeout: 15000 });
+    expect(log.n).toBeGreaterThan(0);
+  });
+
+  test('G16 (FR-OPT-4-9): ref 쓰기 뒤 History 와 Branches 는 refs 하나를 나눠 쓴다', async ({ page }) => {
+    const { repo } = copyPair('g16');
+    await waitForInit(page);
+    await openGit(page, repo);
+    await openTab(page, 'history');
+    await expect(hist(page).locator('.git-hist-row').first()).toBeVisible({ timeout: 15000 });
+    await openTab(page, 'branches');
+    await expect(br(page).locator('.git-br-row').first()).toBeVisible({ timeout: 15000 });
+
+    const refs = counter(page, isRefs);
+    const loaded = await page.evaluate(async () => {
+      const p = (window as any).app.gitPanel;
+      const got: string[] = [];
+      const hist0 = p._historyView._refs, br0 = p._branchesView._refs;
+      p.afterRefWrite(null);
+      await new Promise((r) => setTimeout(r, 1500));
+      if (p._historyView._refs !== hist0) got.push('history');
+      if (p._branchesView._refs !== br0) got.push('branches');
+      return got;
+    });
+    expect(refs.n, 'refs 를 뷰마다 따로 받았다').toBe(1);
+    expect(loaded.sort(), '두 뷰가 모두 새 refs 를 받아야 한다').toEqual(['branches', 'history']);
   });
 });
 

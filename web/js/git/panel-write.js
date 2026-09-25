@@ -49,8 +49,11 @@ Object.assign(GitPanel.prototype, {
    */
   afterRefWrite(d){
     this.adopt(d);
-    if(this._branchesView) this._branchesView.reload();
-    if(this._historyView) this._historyView.reload();
+    // FR-OPT-4-9: 두 뷰가 refs 를 하나로 받는다.
+    this._inRefsRound(()=>{
+      if(this._branchesView) this._branchesView.reload();
+      if(this._historyView) this._historyView.reload();
+    });
   },
 
   /**
@@ -135,10 +138,12 @@ Object.assign(GitPanel.prototype, {
   afterStashRefWrite(res){
     this.afterStashWrite(res);
     if(!res||!res.ok) return;
-    if(this._branchesView) this._branchesView.reload();
-    // FR-GVR-20: `afterRefWrite` 와 같은 근거 — 새 브랜치는 커밋 행의 배지에도
-    // 나타나야 하고, 그 배지는 목록을 다시 받아야 갱신된다.
-    if(this._historyView) this._historyView.reload();
+    this._inRefsRound(()=>{
+      if(this._branchesView) this._branchesView.reload();
+      // FR-GVR-20: `afterRefWrite` 와 같은 근거 — 새 브랜치는 커밋 행의 배지에도
+      // 나타나야 하고, 그 배지는 목록을 다시 받아야 갱신된다.
+      if(this._historyView) this._historyView.reload();
+    });
   },
 
 });

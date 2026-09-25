@@ -201,8 +201,7 @@ class GitBranches {
     // FR-GRF-31: 앞선 조회를 끊는다. 표는 잠금의 임자도 가른다.
     const t=gitLoadTicket(this);
     this._loading=true;
-    const res=await gitFetch('/api/git/refs',{repo},
-      {stale:()=>this.panel.isStale(tok),echo:{repo},signal:t.signal});
+    const res=await this.panel.fetchRefs(repo,{stale:()=>this.panel.isStale(tok),signal:t.signal});
     if(gitLoadTaken(this,t)) return;
     // FR-GRF-24: 낡은 응답은 **그 값을 쓰지 않는 것**이지 잠금을 영원히 쥐는
     // 것이 아니다. 종전에는 여기서 `_loading=true` 인 채로 빠져나갔고, 그러면

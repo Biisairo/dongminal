@@ -161,15 +161,26 @@ Object.assign(GitPanel.prototype, {
    *
    * 열지 않은 뷰는 각자의 `_el`·`_repo` 판정이 조기 반환하므로 요청이 나가지
    * 않는다 (FR-GVR-4).
+   *
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-4-9 (FEU-6·7 · FR-GVR-4 개정):
+   *   이전 동작: 열어 두고 보지 않는 탭도 매 변화마다 log·refs·stash·worktree·submodule 을
+   *             받았고, History 와 Branches 가 같은 회차에 refs 를 각자 받았다
+   *   새  동작: 자동 회차에서 보이지 않는 뷰는 표식(`_staleViews`)만 남기고 활성화할 때
+   *             (`elFor`) 받는다. 새로고침은 종전대로 전부다. refs 는 회차당 한 번 받아
+   *             두 뷰가 나눠 쓴다(`_refsRound`)
+   *   이유:     보이지 않는 목록을 받는 것은 그릴 곳이 없는 요청이다
    */
   _reloadViews(withConsole){
     const jobs=[];
-    {
-      if(this._historyView) jobs.push(this._historyView.reload(!withConsole));  // FR-GVR-12: 자동은 자리 유지
-      if(this._branchesView) jobs.push(this._branchesView.reload());
-      // FR-GVR-6: Stash 도 대상이다 — 빠져 있어서 터미널에서 `git stash` 한 뒤
-      // 새로고침을 눌러도 목록이 그대로였다.
-      if(this._stashView) jobs.push(this._stashView.reload());
+    this._inRefsRound(()=>{
+      // FR-GVR-12: 자동은 자리 유지다 — `full` 은 사용자가 누른 새로고침이다.
+      // FR-GVR-6: Stash 도 대상이다. FR-GDT-12: 원격 목록은 Branches 와 함께 받는다.
+      // 사용자가 누른 새로고침은 보이지 않는 뷰까지 전부 받는다 (FR-GIT-238 · D-8).
+      for(const key of GIT_STALE_VIEWS){
+        if(!this[GIT_VIEW_FIELD_BY_KEY[key]]) continue;
+        if(withConsole||this._viewShown(key)) jobs.push(...this._reloadView(key,!!withConsole));
+        else this._staleMark(key);
+      }
       // Console 은 **기본으로 받지 않는다.** 그 목록은 dongminal 자신의 쓰기로만
       // 늘어나고(`post()` 와 잡의 `RecordWrite`), 터미널에서 친 git 은 기록에
       // 남지 않는다 — 폴링이 받아 봐야 늘 같은 값이다. 받는 자리는 쓰기가 끝난
@@ -179,29 +190,58 @@ Object.assign(GitPanel.prototype, {
       // 거부 표식(FR-GLV-6)도 넘어 다시 시도한다.
       if(this._diffView) jobs.push(this.reloadDiff(!!withConsole));
       if(withConsole&&this._consoleView) jobs.push(this._consoleView.reload());
-      if(this._worktreesView) jobs.push(this._worktreesView.reload());
-      if(this._submodulesView) jobs.push(this._submodulesView.reload());
-      /**
-       * GIT_DETECT_TIER_SRS FR-GDT-12 (`11 GP-11b`): **원격 목록도 대상이다.**
-       *
-       *   이전 동작: Branches 탭의 원격 목록은 **리포가 바뀔 때만** 받았다
-       *             (`GitRemoteList._adopt`). 터미널에서 친 `git remote add`
-       *             는 화면에 영영 오지 않았다
-       *   새  동작: 다른 목록과 같은 자리에서 받는다
-       *   이유:     감지가 열려도(signature 가 `.git/config` 를 보게 됐다) 받는
-       *             자리가 없으면 화면은 그대로다. 구멍은 둘이었다
-       *
-       * 열지 않은 뷰는 `_el` 판정이 조기 반환하므로 요청이 늘지 않는다 (FR-GVR-4).
-       */
-      if(this._branchesView) jobs.push(this._branchesView.reloadRemotesIfOpen());
-    }
+    });
     return jobs;
+  },
+
+  // FR-OPT-4-9: 뷰가 지금 화면에 있는가. 탭을 떠난 본문은 문서에서 떼이되 `vis` 가
+  // 남으므로 둘 다 본다 (Console 의 폴링 가드와 같은 판정, FR-RST-23).
+  _viewShown(key){
+    const el=this._els.get(key);
+    return !!el&&el.isConnected&&el.classList.contains('vis');
+  },
+
+  _staleMark(key){ (this._staleViews||(this._staleViews=new Set())).add(key) },
+
+  // 받으면 표식은 풀린다 — 활성화 때 한 번 더 받지 않는다.
+  _reloadView(key,full){
+    if(this._staleViews) this._staleViews.delete(key);
+    if(key==='history') return [this._historyView.reload(!full)];
+    if(key==='branches') return [this._branchesView.reload(),this._branchesView.reloadRemotesIfOpen()];
+    return [this[GIT_VIEW_FIELD_BY_KEY[key]].reload()];
+  },
+
+  /**
+   * FR-OPT-4-9 (FEU-7): 활성화된 뷰가 표식을 들고 있으면 자리 유지로 받는다. `elFor` 가
+   * `_render` **뒤에** 부른다 — 그 `paint()` 가 리포를 새로 채택했으면(`_adopt`) 이미
+   * 받았으므로 다시 받지 않는다(`before` 가 그 판정이다).
+   */
+  _staleTake(key,before){
+    const m=this._staleViews;
+    if(!m||!m.delete(key)) return;
+    const v=this[GIT_VIEW_FIELD_BY_KEY[key]];
+    if(!v||before!==this.repo||v._repo!==this.repo) return;
+    this._reloadView(key,false);
+  },
+
+  /**
+   * FR-OPT-4-9 (FEU-6): 이 안에서 나가는 `/api/git/refs` 는 리포당 하나다. 회차는 동기
+   * 구간이다 — 뷰의 조회 함수는 첫 `await` 앞에서 요청을 내므로 그 안에 든다.
+   */
+  _inRefsRound(fn){
+    const prev=this._refsRound;
+    if(!prev) this._refsRound=new Map();
+    try{ return fn() }
+    finally{ if(!prev) this._refsRound=null }
   },
 
   // FR-GVR-8a: 관측보다 낡은 뷰만 다시 받는다. 지금은 History 만 자기 목록의
   // signature 를 안다 — 나머지 뷰는 종전대로 변화 비교(FR-GVR-8)만 딛는다.
   _reloadStaleViews(sig){
-    if(this._historyView&&this._historyView.staleFor(sig)) this._historyView.reload(true);
+    if(!this._historyView||!this._historyView.staleFor(sig)) return;
+    // FR-OPT-4-9: 보이지 않으면 표식만 남긴다 — `_reloadViews` 와 같은 규약.
+    if(this._viewShown('history')) this._historyView.reload(true);
+    else this._staleMark('history');
   },
 
   // 받는 동안 진입점은 다시 눌리지 않는다 (FR-GIT-238). `_refreshing` 이 실제

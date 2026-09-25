@@ -179,8 +179,8 @@ rev-parse 와 status 를 실행한다(IPC-7).
 | FR-OPT-4-5 | **SSE 열림 스냅샷**: `GET /api/snapshot?parts=…` 하나로 복원 7종을 받는다. 첫 open 에서는 부팅 GET 과 겹치는 재검증을 건너뛴다. `_fgRestore` 는 워크스페이스 적용 경로에 흡수한다. | IPC-6 · FEC-10 · FEC-11 | RESTORE_FLIGHT (FR-RSF-3 경로 명시) |
 | FR-OPT-4-6 | activity 폴은 패널이 열려 있거나 알림이 있을 때만 돈다. 빈 껍데기 함수는 지운다. | FEC-9 · IPC-29 | (FR-AAP-19 회복) |
 | FR-OPT-4-7 | **조건부 응답**: `GET /api/git/status?ifMark=` 는 mark 가 같으면 `unchanged:true` 만 답한다. 파일 읽기의 304 회피는 유지한다. | HTTP-7 · IPC-30 | |
-| FR-OPT-4-8 | 증분 조회: Console 기록은 `after=<seq>` 와 `lastSeq`·`gap`, History 는 `until=<oid>` 로 머리만 받는다. 머리가 이어지지 않으면 전량으로 돌아간다. | DOM-27 · FEU-10 | |
-| FR-OPT-4-9 | Git 뷰: refs 는 회차당 한 번 받아 공유한다. 보이지 않는 뷰는 표식만 남기고 활성화할 때 받는다. | FEU-6 · FEU-7 | FR-GVR-4 |
+| FR-OPT-4-8 | 증분 조회: Console 기록은 `after=<seq>` 와 `lastSeq`·`gap`, History 는 `stop=<oid>` 로 머리만 받는다. 머리가 이어지지 않으면 전량으로 돌아간다. (O4c 구현 중 확정: 인자 이름은 `until` 이 아니라 `stop` 이다 — `until` 은 이미 날짜 필터(FR-GIT-130)다. 뒷부분은 `tail` 요약(개수·oid 다이제스트·배지)으로 오고, 클라이언트는 자기 목록 앞이 그 다이제스트와 같을 때만 잇는다 — 날짜가 같은 커밋의 순서가 바뀌면 전량이다) | DOM-27 · FEU-10 | |
+| FR-OPT-4-9 | Git 뷰: refs 는 회차당 한 번 받아 공유한다. 보이지 않는 뷰는 표식만 남기고 활성화할 때 받는다. (O4c 구현 중 확정: 표식은 자동 회차의 것이다 — 사용자가 누른 새로고침은 FR-GIT-238 대로 보이지 않는 뷰까지 받는다) | FEU-6 · FEU-7 | FR-GVR-4 |
 | FR-OPT-4-10 | 소통신: `/api/cwd` 는 포커스가 바뀌었을 때만, OSC 값이 없을 때만 묻는다. 포커스 아닌 터미널의 OSC 는 상태바를 덮지 않는다. run 목록 재조회는 합친다. 판 확인은 인사를 받았으면 건너뛴다. | FEC-3 · FEC-M1 · FEU-8 · FEU-9 · FEU-M3 | |
 | FR-OPT-4-11 | **터미널 지연 연결**: 처음 그려질 때 WS 를 연다. 숨은 도구는 붙이지 않는다. **D-OPT-2** 로 결정한다. | IPC-5 | handlers_ws 주석 |
 | FR-OPT-4-12 | **칸 SSE 경량화**: `?presence=1` 구독은 소유권 수명에만 쓰고 방송을 싣지 않는다. **D-OPT-4** 로 결정한다. | IPC-11 · FEC-16 | FR-WSL-11 · D-3 |

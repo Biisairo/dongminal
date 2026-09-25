@@ -53,6 +53,9 @@ const GIT_VIEWS=[
 const GIT_PANEL_VIEW_FIELDS=GIT_VIEWS.filter(v=>v.field).map(v=>v.field);
 const GIT_VIEW_FIELD_BY_KEY=Object.fromEntries(
   GIT_VIEWS.filter(v=>v.field).map(v=>[v.key,v.field]));
+// OPTIMIZE_REFACTOR_SRS FR-OPT-4-9: 관측 회차가 다시 받는 목록 뷰. 보이지 않으면 표식만
+// 남기고 활성화할 때 받는다 (`_reloadViews`·`_staleTake`). Console·Diff 는 자기 규약이 있다.
+const GIT_STALE_VIEWS=['history','branches','stash','worktrees','submodules'];
 // REPO_TAB_UNIFY_SRS FR-RTU-21 / D-RTU-5: Changes 사이드 머리의 진입점.
 //
 // **Changes 는 여기 없다** — 그것은 사이드 자신이고(FR-RTU-32), 나머지 여섯만
