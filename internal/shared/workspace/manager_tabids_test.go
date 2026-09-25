@@ -84,7 +84,7 @@ func TestOnIndexUpdateRunsOutsideLockInRevOrder(t *testing.T) {
 	// 훅 #1 이 막힌 동안 두 번째 Save 의 인덱스 교체는 진행돼야 한다.
 	second := make(chan error, 1)
 	go func() {
-		_, err := m.Save([]byte(sampleWS), "")
+		_, err := m.Save(variantWS(sampleWS, 2), "")
 		second <- err
 	}()
 	deadline := time.Now().Add(2 * time.Second)

@@ -46,7 +46,7 @@ func TestPersistErrIsRemembered(t *testing.T) {
 	}
 	t.Cleanup(func() { m.Close() })
 
-	if _, err := m.Save([]byte(goodWS), ""); err != nil {
+	if _, err := m.Save(variantWS(goodWS, 1), ""); err != nil {
 		t.Fatal(err)
 	}
 	if !waitPersist(t, func() bool { return m.PersistErr() != "" }) {
@@ -64,12 +64,12 @@ func TestPersistErrClearsOnSuccess(t *testing.T) {
 	}
 	t.Cleanup(func() { m.Close() })
 
-	m.Save([]byte(goodWS), "")
+	m.Save(variantWS(goodWS, 1), "")
 	if !waitPersist(t, func() bool { return m.PersistErr() != "" }) {
 		t.Fatal("실패가 기록되지 않았다")
 	}
 	st.fail = false
-	m.Save([]byte(goodWS), "")
+	m.Save(variantWS(goodWS, 2), "")
 	if !waitPersist(t, func() bool { return m.PersistErr() == "" }) {
 		t.Fatal("다시 성공했는데 실패 사실이 남아 있다")
 	}
@@ -84,9 +84,32 @@ func TestPersistErrCarriesNoPath(t *testing.T) {
 	}
 	t.Cleanup(func() { m.Close() })
 
-	m.Save([]byte(goodWS), "")
+	m.Save(variantWS(goodWS, 1), "")
 	waitPersist(t, func() bool { return m.PersistErr() != "" })
 	if got := m.PersistErr(); got != PersistFailed {
 		t.Fatalf("PersistErr=%q want %q — 분류여야 한다", got, PersistFailed)
+	}
+}
+
+// FR-OPT-5-1: 같은 바이트 건너뛰기는 **마지막 쓰기가 실패했으면 쓰지 않는다** —
+// 같은 본문의 다음 저장이 다시 써 볼 기회다.
+func TestSameBodyRetriesAfterPersistFailure(t *testing.T) {
+	st := &failingStore{blob: []byte(goodWS), fail: true}
+	m, err := New(nil, st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { m.Close() })
+	body := variantWS(goodWS, 1)
+	m.Save(body, "")
+	if !waitPersist(t, func() bool { return m.PersistErr() != "" }) {
+		t.Fatal("실패가 기록되지 않았다")
+	}
+	st.fail = false
+	if rev, _ := m.Save(body, ""); rev != 2 {
+		t.Fatalf("rev=%d want 2 — 실패 뒤 같은 본문을 건너뛰었다", rev)
+	}
+	if !waitPersist(t, func() bool { return m.PersistErr() == "" }) {
+		t.Fatal("같은 본문 재저장이 디스크에 닿지 않았다")
 	}
 }

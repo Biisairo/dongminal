@@ -1,6 +1,7 @@
 package workspace
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -276,6 +277,15 @@ func (m *Manager) Save(blob []byte, ifMatch string) (uint64, error) {
 			m.mu.Unlock()
 			return 0, ErrStale
 		}
+	}
+	// FR-OPT-5-1 (FEC-1): 바이트가 같으면 무동작이다 — rev 도, 쓰기도, 훅도 없다.
+	// 포커스·창 전환 PUT 이 rev 를 올리면 다른 화면의 대기 저장이 409 를 맞는다.
+	// 단 메모리 판이 디스크에 있다고 믿을 수 있을 때만이다: 세대에서 되살린 판은
+	// 아직 쓰이지 않았고(FR-SFD-12), 마지막 쓰기가 실패했으면 다시 써 봐야 한다.
+	if p := m.snap.Load(); p != nil && len(p.raw) > 0 && bytes.Equal(p.raw, blob) &&
+		(cur > 0 || m.loadErr == "") && m.PersistErr() == "" {
+		m.mu.Unlock()
+		return cur, nil
 	}
 	ix, err := buildIndex(blob)
 	if err != nil {

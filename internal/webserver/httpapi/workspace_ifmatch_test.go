@@ -66,3 +66,29 @@ func TestWorkspacePutStaleIsStillConflict(t *testing.T) {
 		t.Fatalf("status=%d want 409", code)
 	}
 }
+
+// FR-OPT-5-1 (FEC-1): 같은 본문의 PUT 은 rev 를 올리지 않고 workspace_changed 를
+// 방송하지 않는다 — 방송마다 다른 브라우저 전부가 GET /api/state 와 재렌더를 돈다.
+func TestWorkspacePutSameBodyDoesNotBroadcast(t *testing.T) {
+	work := newFakeWorkspaceStore()
+	cmds := &fakeCommandBroker{}
+	s := &Server{Deps: Deps{Work: work, Commands: cmds}}
+
+	if code, body := putWorkspace(t, s, okWorkspace, strconv.FormatUint(work.CurrentRev(), 10)); code != http.StatusOK {
+		t.Fatalf("status=%d: %s", code, body)
+	}
+	rev := work.CurrentRev()
+	rec := httptest.NewRecorder()
+	req := apiTestRequest(http.MethodPut, "/api/workspace", strings.NewReader(okWorkspace))
+	req.Header.Set("If-Match", strconv.FormatUint(rev, 10))
+	s.apiWorkspacePut(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d", rec.Code)
+	}
+	if got := rec.Header().Get("ETag"); got != strconv.FormatUint(rev, 10) {
+		t.Fatalf("ETag=%q want %d — 같은 본문이 rev 를 올렸다", got, rev)
+	}
+	if n := len(cmds.published); n != 1 {
+		t.Fatalf("방송 %d회 want 1 — 같은 본문 PUT 이 workspace_changed 를 냈다", n)
+	}
+}

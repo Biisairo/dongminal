@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"dongminal/internal/webserver/hub"
 	"strconv"
 
@@ -228,6 +229,10 @@ func (f *fakeWorkspaceStore) Save(blob []byte, ifMatch string) (uint64, error) {
 		if err != nil || want != f.rev {
 			return 0, workspace.ErrStale
 		}
+	}
+	// 같은 바이트는 무동작이다 (FR-OPT-5-1).
+	if len(f.raw) > 0 && bytes.Equal(f.raw, blob) {
+		return f.rev, nil
 	}
 	f.raw = append([]byte(nil), blob...)
 	f.rev++

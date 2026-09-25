@@ -315,7 +315,7 @@ func TestSaveStale(t *testing.T) {
 		t.Errorf("Save with ifMatch=abc err=%v want ErrStale", err)
 	}
 
-	rev2, err := m.Save([]byte(sampleWS), "1")
+	rev2, err := m.Save(variantWS(sampleWS, 2), "1")
 	if err != nil {
 		t.Fatalf("Save with matching ifMatch: %v", err)
 	}
@@ -332,7 +332,7 @@ func TestSaveRevIncrement(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 	for i := uint64(1); i <= 5; i++ {
-		rev, err := m.Save([]byte(sampleWS), "")
+		rev, err := m.Save(variantWS(sampleWS, int(i)), "")
 		if err != nil {
 			t.Fatalf("Save #%d: %v", i, err)
 		}
@@ -361,7 +361,7 @@ func TestSaveRevIncrement(t *testing.T) {
 	if store.wrote != 5 {
 		t.Errorf("wrote=%d want 5", store.wrote)
 	}
-	if string(m.Raw()) != sampleWS {
+	if string(m.Raw()) != string(variantWS(sampleWS, 5)) {
 		t.Errorf("Raw mismatch")
 	}
 

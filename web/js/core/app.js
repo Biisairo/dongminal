@@ -432,12 +432,18 @@ class App {
   // 탭만 사라지는 갈래(`git-head-mobile` V10-13 의 탭 7→1)를 가릴 수 없다.
   // 탭 id 는 전역 유일(UUIDv4)이므로 창별로 나누지 않는다 (FR-OPL-3).
   _wsMarkSaved(windows){
-    this._wsSavedIds=new Set((windows||[]).map(w=>w&&w.id).filter(Boolean));
+    const seen=this._wsIdsOf(windows);
+    this._wsSavedIds=seen.windows;
+    this._wsSavedTabs=seen.tabs;
+  }
+
+  // 창·탭 id 집합. 저장은 직렬화 시점의 것을 떠 두고 성공한 뒤에 적는다.
+  _wsIdsOf(windows){
     const tabs=new Set();
     for(const w of (windows||[]))
       for(const p of panesOf(w&&w.layout))
         for(const t of (p.tabs||[])) if(t&&t.id) tabs.add(t.id);
-    this._wsSavedTabs=tabs;
+    return {windows:new Set((windows||[]).map(w=>w&&w.id).filter(Boolean)),tabs};
   }
 
   // FR-OPL-1: 채택기가 미관측 로컬 변경을 가릴 때 쓰는 기억 한 쌍.
@@ -472,20 +478,33 @@ class App {
         if(hold>0) await this.timers.sleep(hold,{owner:'app',label:'hold'});
         this._savePending=false;
         try{
-          const headers={'Content-Type':'application/json'};
-          if(this.wsETag) headers['If-Match']=this.wsETag;
           // activeWindow and focusedPane are per-window; strip them so
           // remote windows aren't forced to switch views (multi-window sync).
           // REPO_FIX 03 §3A-7: 탭의 `dirty` 는 파생이다 — 싣지 않는다(옛 저장본의
           // 값은 읽혀도 쓰이지 않는다: 라벨이 `tabDirty` 로 파생한다).
-          const wsBody=JSON.parse(JSON.stringify(this.ws,(k,v)=>{
-            if(k==='activeWindow'||k==='focusedPane'||k==='dirty') return undefined;
-            return v;
-          }));
+          //
           // 서버는 schemaVersion 미달 저장을 거부한다 (FR-EM-2a). 어떤 경로로
           // this.ws 가 만들어졌든 PUT 은 항상 현재 버전을 실어 보낸다.
-          wsBody.schemaVersion=2;
-          const res=await apiPut('/api/workspace',wsBody,{headers});
+          //
+          // OPTIMIZE_REFACTOR_SRS FR-OPT-5-1 (FEC-2): 직렬화는 **한 번**이다. 이
+          // 문자열이 그대로 본문이고, 아래 같은 본문 판정의 키다.
+          const body=JSON.stringify(Object.assign({},this.ws,{schemaVersion:2}),(k,v)=>{
+            if(k==='activeWindow'||k==='focusedPane'||k==='dirty') return undefined;
+            return v;
+          });
+          /**
+           * FR-OPT-5-1 (FEC-1): **마지막으로 성공한 본문과 같으면 보내지 않는다.**
+           *
+           * 포커스·창 전환은 벗겨 내는 키만 바꾸므로 본문이 그대로다. 보내면 서버가
+           * 쓰지는 않아도 왕복이 남는다. 그 뒤에 원격 판을 채택했으면(ETag 가
+           * 바뀌었으면) 서버의 판이 우리 기억과 다를 수 있으므로 판정하지 않는다.
+           */
+          const last=this._wsLastSent;
+          if(last&&last.body===body&&last.etag===this.wsETag) continue;
+          const seen=this._wsIdsOf(this.ws.windows);
+          const headers={};
+          if(this.wsETag) headers['If-Match']=this.wsETag;
+          const res=await apiPut('/api/workspace',body,{headers});
           // STATE_FILE_DURABILITY_SRS FR-SFD-20: **428 은 409 와 같이 다룬다.**
           //
           // 428 은 "조건을 아예 보내지 않았다" 이고 409 는 "조건이 어긋났다" 인데,
@@ -601,7 +620,9 @@ class App {
             if(et) this.wsETag=et;
             // FR-WSC-12: 이 본문이 서버에 남았다 — 여기 실린 창은 이제 원격이
             // 아는 창이다.
-            this._wsMarkSaved(wsBody.windows);
+            this._wsSavedIds=seen.windows;
+            this._wsSavedTabs=seen.tabs;
+            this._wsLastSent={body,etag:this.wsETag};
             // FR-WSC-6: 성공하면 연속 충돌 수를 되돌린다.
             this._saveConflicts=0;
             this._saveHoldUntil=0;
@@ -643,8 +664,11 @@ class App {
       // 그것을 잃지 않는다. 백오프는 다음 비행의 앞머리가 지킨다.
       if(this._savePending) this.timers.defer(()=>this.save(),{owner:'app',label:'save-pending'});
     };
-    this._saveChain=run();
-    return this._saveChain;
+    // 같은 본문이면 비행이 await 없이 끝난다(FR-OPT-5-1) — 그때 끝난 약속을
+    // 비행으로 붙들면 다음 저장이 모두 그것을 돌려받고 나가지 않는다.
+    const chain=run();
+    if(this._saveInflight) this._saveChain=chain;
+    return chain;
   }
 
   rename(obj, el){
