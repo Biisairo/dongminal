@@ -369,14 +369,6 @@ func waitReady(url string, tries int, interval time.Duration) bool {
 		func() bool { return ping(url+"/api/ping", time.Second) }) == nil
 }
 
-// pingHost는 0.0.0.0/:: 로 바인드했을 때 실제로 두드릴 주소다.
-//
-// 갈리는 기준이 노출 판정과 **다르다** — 미지정 주소만 바꿔 준다. `192.168.1.5`
-// 는 노출이지만 그 주소로 두드리면 된다 (TLS-2, `dmenv.DialHost`).
-func pingHost(host string) string {
-	return dmenv.DialHost(host)
-}
-
 // withEnv는 base 에서 kv 의 키와 drop 의 키를 걷어내고 kv 의 새 값을 붙인다
 // (FR-FG-4). drop 은 자식에게 물려주면 안 되는 값을 지우는 자리다 — 새 값을
 // 주지 않으므로, 덮어쓰기로는 지울 수 없는 상속을 여기서 끊는다.

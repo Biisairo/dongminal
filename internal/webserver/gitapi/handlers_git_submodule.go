@@ -185,7 +185,7 @@ func (s *GitServer) apiGitSubmoduleSync(w http.ResponseWriter, r *http.Request) 
 		s.gitRenderFail(ctx, t, code, name, gitTail(err.Error()), err, map[string]any{})
 		return
 	}
-	// **`invalidate` 가 없다.** sync 는 `.git/config` 만 옮기고 체크아웃을 건드리지
+	// **관측 캐시를 버리지 않는다.** sync 는 `.git/config` 만 옮기고 체크아웃을 건드리지
 	// 않으므로 부모의 status 가 달라지지 않는다 (FR-SUB-5). 버릴 것이 없는 캐시를
 	// 버리면 다음 조회가 공짜로 한 번 더 돈다.
 	t.okPlain(nil)

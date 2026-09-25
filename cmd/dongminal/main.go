@@ -158,9 +158,6 @@ type builtDeps struct {
 	// 없다 — 그쪽은 인터페이스이고, 거기에 Sweeper·Shutdown 을 넣으면 httpapi 가
 	// 프로세스의 수명을 알게 되어 방향이 어긋난다 (EDITOR_LSP_SRS D-4).
 	lspSvc *lsp.Service
-	// bindServer 는 데몬 모드의 push 콜백에 서버를 늦게 묶는다 (M8_UNIFIED_SRS
-	// D-C-2) — 콜백은 서버보다 먼저 배선되고, 해석층은 서버의 것이다.
-	bindServer func(*httpapi.Server)
 }
 
 // restoreHeadlessBackground puts the restored headless tools back into the

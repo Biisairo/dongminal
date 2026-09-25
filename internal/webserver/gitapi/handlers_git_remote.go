@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -40,7 +39,6 @@ const (
 	// 없고, 가르지 못하면 클라이언트가 무엇을 할지 정할 수 없다.
 	gitErrRemoteExists  = apierr.CodeRemoteExists
 	gitErrRemoteMissing = apierr.CodeRemoteMissing
-	gitErrSyncNotFound  = apierr.CodeSyncNotFound
 )
 
 // gitJobKeepAlive 는 SSE 주석 하트비트 간격이다. /api/commands/sse 와 같은 값을
@@ -436,53 +434,4 @@ func (s *GitServer) gitRemoteWrite(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	t.ok(map[string]any{"remotes": list})
-}
-
-// gitPushTarget 은 미리보기의 대상이다. 인자가 없으면 저장소가 정한다 — upstream 이
-// 있으면 그것, 없으면 DefaultRemote 와 현재 브랜치다 (FR-GIT-100 과 같은 규칙).
-func (s *GitServer) gitPushTarget(r *http.Request, root string, st query.Status) (remote, branch string, err error) {
-	q := r.URL.Query()
-	remote, branch = q.Get("remote"), q.Get("branch")
-	if branch == "" {
-		branch = st.Branch
-	}
-	if remote == "" {
-		if up := st.Upstream; up != "" {
-			if head, _, cut := strings.Cut(up, "/"); cut {
-				remote = head
-			}
-		}
-	}
-	if remote == "" {
-		remote, err = query.DefaultRemote(s.Git.Service(), r.Context(), root)
-		if err != nil {
-			return "", "", err
-		}
-	}
-	if terr := write.CheckRemoteName(remote); terr != nil {
-		return "", "", fmt.Errorf("%w: %v", write.ErrPushTarget, terr)
-	}
-	if terr := core.CheckRefArg("branch", branch); terr != nil {
-		return "", "", fmt.Errorf("%w: %v", write.ErrPushTarget, terr)
-	}
-	return remote, branch, nil
-}
-
-// gitTrackingRef 는 `<remote>/<branch>` 가 실제로 있으면 그 이름이고, 없으면 빈
-// 문자열이다. **없는 ref 로 범위를 만들면 log 가 실패한다** — 그 실패를 "커밋이
-// 없다"로 뭉개면 사용자는 밀 것이 없다고 믿는다.
-//
-// 목록은 이미 있는 query.Refs 를 쓴다 (FR-GIT-122) — 새 조회를 만들지 않는다.
-func gitTrackingRef(svc *core.Service, ctx context.Context, root, remote, branch string) (string, error) {
-	refs, err := query.Refs(svc, ctx, root)
-	if err != nil {
-		return "", err
-	}
-	want := remote + "/" + branch
-	for _, ref := range refs {
-		if ref.Kind == query.RefKindRemote && ref.Short == want {
-			return want, nil
-		}
-	}
-	return "", nil
 }

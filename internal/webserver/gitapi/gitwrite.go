@@ -348,23 +348,6 @@ func (t *gitWrite) ok(extra map[string]any) {
 	t.done = true
 }
 
-// invalidate 는 관측 캐시를 버린다.
-//
-// `apply` 는 이것을 스스로 한다 (`handlers_git_write.go:250`). `exec` 로 도는
-// 쓰기는 **부모 저장소의 status 를 바꿨는지가 조작마다 다르므로** 호출을 남긴다 —
-// `git submodule update` 는 체크아웃을 옮겨 부모의 status 를 바꾸고, `sync` 는
-// `.git/config` 만 건드려 바꾸지 않는다. 그 차이를 파이프라인이 대신 정하면
-// 한쪽이 반드시 틀린다.
-//
-// `s.Git` 이 없는 배선에서도 무해하게 지나간다 — 이 표면들은 `s.Git` 을 실행에
-// 쓰지 않으므로 그것 없이도 돈다 (FR-GIT-246).
-func (t *gitWrite) invalidate() {
-	if t.done || t.s.Git == nil {
-		return
-	}
-	t.s.Git.Invalidate(t.root)
-}
-
 // okPlain 은 status 없이 답하는 성공이다 (FR-DRC-2).
 //
 // `ok` 와 같은 세 필드(`ok`·`repo`·`requested`)를 싣는다. `ok` 가 **클라이언트의

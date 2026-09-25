@@ -141,20 +141,6 @@ type Server struct {
 	// contextNotices 는 이미 보낸 컨텍스트 통지를 기억한다 (FR-CBG-7). 서버
 	// 수명이지 프로세스 수명이 아니다.
 	contextNotices contextNoticeLog
-
-	// agentSessions 는 **도구 단위** 세션 신원이다 (M9_SRS FR-M9-32 / M9-B15).
-	//
-	// Run 의 것(`ContextState.SessionID`)과 **따로 사는 이유**: 활동 훅은 Run 과
-	// 무관한 에이전트 전부에서 돈다(dongminal 셸이 `claude` 를 래핑하므로 사용자가
-	// 손으로 띄운 탭도 포함이다). 종전에는 그 신원이 `ObserveContext` 에서
-	// `found=false` 로 버려졌고, 그래서 `FR-AGT-10` 의 반대 방향이 설 자리가 없었다.
-	//
-	// `AttnTracker` 에 두지 않는 이유는 그것이 **daemon 모드 전용**이라서다 —
-	// 모드에 따라 신원이 사라지면 그 위에 선 기능이 모드에 따라 사라진다.
-	//
-	// 서버 수명이다. 프로세스가 다시 서면 비지만, 훅이 다음 보고에서 다시 채운다 —
-	// 그 사이는 "모른다" 이고 그때 진입점은 서지 않는다 (FR-M9-33 의 DoD).
-	agentSessions sync.Map // toolID → *AgentSessionInfo
 }
 
 // serverLimits 는 서버 하나의 상한·유예다. const 가 아닌 것은 테스트가 낮춰

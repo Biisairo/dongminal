@@ -35,7 +35,6 @@ type gitActFake struct {
 	upstream string
 	config   string
 	refs     string
-	log      string
 	wrote    [][]string
 }
 
@@ -77,16 +76,9 @@ func (f *gitActFake) read(_ context.Context, dir string, args []string) (core.Ou
 	case args[0] == "for-each-ref":
 		return core.Output{Stdout: f.refs}, nil
 	case args[0] == "log":
-		f.log = strings.Join(args, " ")
 		return core.Output{Stdout: gitActLogOut()}, nil
 	}
 	return core.Output{}, nil
-}
-
-func (f *gitActFake) logArgv() string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return f.log
 }
 
 func (f *gitActFake) wrotes() [][]string {
@@ -261,19 +253,5 @@ func TestGitRemoteRemove_MissingIsRejected(t *testing.T) {
 	}
 	if got := f.wrotes(); len(got) != 0 {
 		t.Fatalf("거부했는데 실행됐다: %v", got)
-	}
-}
-
-// ── FR-GIT-270 (V197) ──
-
-// gitActSteps 는 돈 작업의 하위 명령을 순서대로 모으는 실행기다. exit 는 kind 별로
-// 정한다 — pull 을 실패시켜 "뒤를 돌리지 않는다"를 볼 수 있어야 한다.
-func gitActSteps(seen *[]string, mu *sync.Mutex, exit map[string]int) jobs.JobRunner {
-	return func(_ context.Context, _ string, args []string, _ string, emit func(string, string)) (int, error) {
-		mu.Lock()
-		*seen = append(*seen, args[0])
-		mu.Unlock()
-		emit("stderr", "remote: "+args[0])
-		return exit[args[0]], nil
 	}
 }

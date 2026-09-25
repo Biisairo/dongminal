@@ -19,7 +19,6 @@ type ompAgent struct {
 	provider string
 	approval string
 	resumed  bool
-	seq      int
 }
 
 func ompMain(args []string, stdin io.Reader, stdout io.Writer) int {
