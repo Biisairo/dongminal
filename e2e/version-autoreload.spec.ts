@@ -48,8 +48,23 @@ test('TC-AVS-10 (FR-AVS-4·5): 서빙된 문서의 판은 치환된 해시다', 
 
 // version-watch 는 IIFE 라 밖에서 부를 손잡이가 없다. 그것이 듣고 있는 계기 —
 // 탭이 다시 보이는 순간 — 를 발생시킨다 (FR-RLC-2).
+//
+// OPTIMIZE_REFACTOR_SRS FR-OPT-4-10 (FEU-9·M3): 그 보조 확인은 **인사가 닿지 못한 상태**의
+// 길이다 — 인사를 실어 온 구독이 살아 있으면 묻지 않는다. 그래서 구독을 먼저 끊어 그
+// 상태를 만든다. 끊긴 구독은 같은 계기에 버스가 다시 연다.
 const triggerCheck = (page: Page) =>
-  page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  page.evaluate(() => {
+    const w = window as any;
+    try { w.app.bus._es.close() } catch {}
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+
+// 인사가 닿았다 — 그 뒤의 탭 복귀는 보조 확인을 내지 않는다.
+const helloSeen = (page: Page) =>
+  page.waitForFunction(() => {
+    const st = (window as any).app?.bus?.stats?.();
+    return !!st && st.topics.some((t: any) => t.topic === 'server_hello' && t.count > 0) && st.channel.alive;
+  }, undefined, { timeout: 10000 });
 
 // 문서가 다시 뜨면 사라지는 표식. 새로고침의 유일한 관측 수단이다.
 const mark = (page: Page) => page.evaluate(() => { (window as any).__alive = 1 });
@@ -116,6 +131,21 @@ test('TC-RLC-3c (FR-RLC-2a): 주기 폴링이 돌지 않는다', async ({ page }
   await page.route(/\/\?_v=\d+/, (route) => { checks++; route.continue() });
   await page.waitForTimeout(8000);
   expect(checks, '가만히 두었는데 버전 확인이 나갔다').toBe(0);
+});
+
+test('TC-OPT-4-10 (FR-RLC-2b 개정): 인사를 받은 구독이 살아 있으면 탭 복귀가 문서를 묻지 않는다', async ({ page }) => {
+  await waitForInit(page);
+  await helloSeen(page);
+  let checks = 0;
+  await page.route(/\/\?_v=\d+/, (route) => { checks++; route.continue() });
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  // **예외 (`TEST-16`)**: 나가지 않는 요청을 잰다.
+  await page.waitForTimeout(1500);
+  expect(checks, '인사를 받았는데 index.html 을 다시 받았다').toBe(0);
+
+  // 구독이 죽으면 보조 확인이 되살아난다 — 인사가 닿지 못하는 상태의 길이다.
+  await triggerCheck(page);
+  await expect.poll(() => checks, { timeout: 5000 }).toBe(1);
 });
 
 // LEAVE_CONFIRM_TOGGLE_SRS FR-LVC-11: 떠남 확인은 이제 **설정이 정하며 기본은 끔**

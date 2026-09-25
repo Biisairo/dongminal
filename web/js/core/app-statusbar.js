@@ -458,12 +458,16 @@ Object.assign(App.prototype, {
     if(tidx<0)return null;
     return `W${sidx+1}.P${pidx+1}.T${tidx+1}`;
   },
-  updateCwd(){
-    const p=this.focusedTerminal();if(!p)return;
+  updateCwd(){   // FR-OPT-4-10 (FEC-3): OSC 777;Cwd 값(`_cwd`)이 있으면 그것, 없으면 포커스가 바뀐 때만 묻는다
+    const p=this.focusedTerminal();
+    if(!p||!statusBar.cwd){this._cwdTool=null;return}
+    const moved=p.id!==this._cwdTool; this._cwdTool=p.id;
+    if(p._cwd){if(this.cwd!==p._cwd){this.cwd=p._cwd;this.updateStatusBar()}return}
+    if(!moved) return;
     apiGet('/api/cwd',{query:{tool:p.id}}).then(r=>{
-      if(!r.data) return;
-      this.cwd=r.data.cwd;
-      this.updateStatusBar();
+      const f=this.focusedTerminal();   // 늦은 답이 옮겨 간 포커스의 위치를 덮지 않는다
+      if(!r.data||!f||f.id!==p.id) return;
+      this.cwd=r.data.cwd; this.updateStatusBar();
     });
   },
   _renderStatusBarSettings(){

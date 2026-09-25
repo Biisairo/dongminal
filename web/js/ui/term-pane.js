@@ -1074,8 +1074,8 @@ class TerminalTool {
   }
   _onCwd(cwd){
     this._cwd=cwd;
-    if(app)app.cwd=cwd;
-    if(app)app.updateStatusBar();
+    const f=app&&app.focusedTerminal();   // FR-OPT-4-10 (FEC-M1): 상태바는 포커스 터미널의 위치다
+    if(f&&f.id===this.id&&app.cwd!==cwd){app.cwd=cwd;app.updateStatusBar()}
     // precmd·에이전트 hook 은 같은 OSC 경로를 탄다 — 셸 명령 직후의 즉시 신호다 (FR-GIT-18).
     if(app)app.gitSignal('cwd');
   }

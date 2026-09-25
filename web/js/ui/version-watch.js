@@ -15,7 +15,8 @@
  * 자기 판을 실어 보낸다. 주기 폴링은 같은 일을 두 벌로 하는 것이라 없앴다.
  *
  * 보조 계기 하나가 남는다 — 탭이 다시 보이는 순간. 인사가 닿지 못하는 상태(구독이
- * 죽은 채 사용자가 돌아온 경우)의 길이며, 그때만 `index.html` 을 받아 견준다.
+ * 죽은 채 사용자가 돌아온 경우)의 길이며, 그때만 `index.html` 을 받아 견준다 — 인사를
+ * 받은 구독이 살아 있으면 묻지 않는다 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-10 · FEU-9).
  *
  * **dirty 편집기가 있으면 물러난다** (D-2 개정 2026-09-11 · 로드맵 `FUI-03`).
  * 이 파일이 막으려는 것은 "옛 JS 로 계속 도는 **방치된** 화면" 인데, 저장하지 않은
@@ -133,12 +134,22 @@
   };
 
   // FR-RLC-24: SSE 를 아는 곳은 `app-cmd.js` 하나다. 둘을 잇는 것은 이 이름 하나이며
-  // 서로의 안을 들여다보지 않는다.
-  window.__dmAssetVersion=saw;
+  // 서로의 안을 들여다보지 않는다. 두 번째 인자 `live` 는 **그 인사를 실어 온 구독이
+  // 아직 살아 있는가** 를 답하는 함수다 — 판정은 SSE 를 아는 쪽이 한다.
+  let greeted=null;
+  window.__dmAssetVersion=(next,live)=>{
+    greeted=typeof live==='function'?live:null;
+    saw(next);
+  };
 
   // FR-RLC-2b: 보조 계기. 인사가 닿지 못한 채 사용자가 돌아왔을 때의 길이다.
+  //   이전 동작: 탭이 보일 때마다 `index.html` 전체를 no-store 로 받았다 — 위 머리 주석과 달리
+  //             인사를 받았는지 보지 않았다 (FEU-M3)
+  //   새  동작: 인사를 실어 온 구독이 살아 있으면 묻지 않는다. 죽었거나 인사 전이면 묻는다
+  //   이유:     살아 있는 구독의 인사가 이미 이 판을 답했다 — 서버가 바뀌면 구독이 끊긴다
   const check=async()=>{
     if(done) return;
+    if(greeted&&greeted()) return;
     const r=await apiGet('/',{query:{_v:Date.now()},cache:'no-store',parse:false});
     if(!r.ok) return;
     const m=r.text.match(/core\/main\.js\?v=([0-9a-f]+)/);

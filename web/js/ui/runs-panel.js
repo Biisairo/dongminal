@@ -89,7 +89,29 @@ Object.assign(RunsPanel.prototype, {
 
   // FR-RVZ-3: 목록은 GET /api/runs 다. 대시보드가 쓰는 /graph 와 다른 종단이며,
   // 목록에 필요한 것은 레코드 요약뿐이다.
-  async _runsRefresh() {
+  /**
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-4-10 (FEU-8): 겹친 재조회는 합친다 — 받는 중에 온 부름은
+   * 끝난 뒤 한 번 더 받는다(`_runFetch` 의 busy/pending 과 같은 규약). 돌려주는 약속은
+   * 그 뒤따르는 조회까지 끝나야 풀리므로, 삭제 뒤에 기다린 쪽은 삭제 뒤의 목록을 본다.
+   */
+  _runsRefresh() {
+    if (this._runsRefP) { this._runsRefAgain = true; return this._runsRefP }
+    this._runsRefP = (async () => {
+      try {
+        do { this._runsRefAgain = false; await this._runsFetchList() } while (this._runsRefAgain);
+      } finally { this._runsRefP = null }
+    })();
+    return this._runsRefP;
+  },
+
+  // SSE 계기는 창 하나로 모은다 — 창이 열려 있는 동안 온 것은 그 창의 조회가 받는다.
+  _runsRefreshSoon() {
+    if (this._runsSoonT) return;
+    this._runsSoonT = TIMERS.after(RUN_LIST_COALESCE_MS, () => { this._runsSoonT = null; this._runsRefresh() },
+      { owner: this, label: 'runs-list' });
+  },
+
+  async _runsFetchList() {
     let list = null, err = null;
     const r = await apiGet('/api/runs');
     if (r.ok) list = (r.data && r.data.runs) || [];
@@ -389,7 +411,7 @@ Object.assign(RunsPanel.prototype, {
     if (!runId) return;
     // FR-ACT-3: 상태바의 `⚡ n` 이 Run 을 세므로 목록이 최신이어야 한다 — 종전에는
     // 모달을 열 때만 받았고, 열지 않으면 수가 틀린 채로 있었다.
-    this._runsRefresh();
+    this._runsRefreshSoon();
     const m = this._runViewMap();
     if (!m.size) return;
     const live = this._runLiveTabIds();

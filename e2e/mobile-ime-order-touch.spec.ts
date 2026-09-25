@@ -119,7 +119,11 @@ test('TC-MTI-32 (FR-RLC-1·4): 새 버전이 감지되면 배너 없이 다시 �
   // index.html 이 다른 버전을 가리키는 상황을 만든다.
   await page.route('**/?_v=*', (route) =>
     route.fulfill({ status: 200, contentType: 'text/html', body: '<script src="js/core/main.js?v=999999"></script>' }));
-  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  // FR-OPT-4-10: 탭 복귀의 확인은 인사가 닿지 못한 상태의 길이다 — 구독을 끊어 그 상태를 만든다.
+  await page.evaluate(() => {
+    try { (window as any).app.bus._es.close() } catch {}
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
   await page.waitForFunction(() => !(window as any).__alive, undefined, { timeout: 10000 });
   await expect(page.locator('#ver-banner')).toHaveCount(0);
 });

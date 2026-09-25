@@ -622,6 +622,12 @@ const SBX_RT_TIMEOUT=t('core.sbx_rt_timeout');
 const SBX_RT_NO_CMD=t('core.sbx_rt_no_cmd');
 const SBX_RT_DOCS='https://docs.docker.com/get-started/get-docker/';
 
+// ── Run 목록 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-10) ──
+
+// FEU-8: `run_changed` 가 몰려 와도 목록(`/api/runs`) 재조회는 이 창 안에서 한 번이다.
+// 멤버 메시지 하나마다 이벤트가 오므로 합치지 않으면 이벤트 수만큼 겹쳐 나간다.
+const RUN_LIST_COALESCE_MS=250;
+
 // ── 파일 전송 (FILE_TRANSFER_SRS §3.3) ──
 
 // FR-FTR-8: 완성되지 않은 OSC 시퀀스를 보류하는 상한과, 다음 청크를 기다리는

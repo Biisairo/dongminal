@@ -75,9 +75,12 @@ Object.assign(App.prototype, {
     // RELOAD_CONTINUITY_SRS FR-RLC-20·24: 구독이 열릴 때 서버가 건네는 자기 판.
     // 자산이 바뀌는 길은 프로세스 교체뿐이고 그때 이 구독이 끊기므로, **이 인사가
     // 곧 "자산이 바뀌었을 수 있다" 의 신호**다. 판정은 version-watch 의 것이다.
+    // FR-OPT-4-10: 그 인사를 실어 온 구독이 살아 있는지도 함께 건넨다 — 살아 있는 동안
+    // 탭 복귀의 보조 확인은 같은 답을 다시 묻지 않는다.
     bus.subscribe('server_hello',a=>{
       const v=a&&a.assetVersion;
-      if(v&&window.__dmAssetVersion) window.__dmAssetVersion(String(v));
+      const gen=bus.gen();
+      if(v&&window.__dmAssetVersion) window.__dmAssetVersion(String(v),()=>bus.alive()&&bus.gen()===gen);
     },{owner:'app'});
 
     // EDITOR_LSP_SRS FR-LSP-32: 언어 서버가 밀어 준 진단. 요청 없이 오므로 이
