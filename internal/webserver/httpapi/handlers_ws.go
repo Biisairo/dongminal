@@ -115,7 +115,7 @@ func (s *Server) wsToolGone(r *http.Request, conn *toolhub.SafeConn, toolID stri
 // handleWSDirect is the original (non-daemon) WebSocket handler.
 //
 // 재생의 끝은 **등록 오프셋**이다 (FR-TRS-17). 거기서부터는 readPTY 의 broadcast
-// 가 이 소켓에 직접 나르므로, 재생이 그 자리를 넘으면 넘은 만큼 두 번 보인다.
+// 가 이 연결의 송신 큐로 나르므로, 재생이 그 자리를 넘으면 넘은 만큼 두 번 보인다.
 // sendModeRestore 는 앱이 켜 둔 터미널 모드를 재접속한 xterm 에 되세운다
 // (TERMINAL_MODE_RESTORE_SRS FR-TMR-20·21·24).
 //
@@ -177,6 +177,9 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remo
 		dmlog.Errorf(nil, "[tool %s] seq send error addr=%s: %v", tool.ID, remoteAddr, err)
 		return
 	}
+	// FR-OPT-3-1: 라이브 프레임은 등록 때부터 송신 큐에 쌓였다. 좌표 통보 뒤에야
+	// 흘려보낸다 — 그래야 OpSeq 뒤의 OpOutput 이 등록 오프셋부터의 바이트다.
+	conn.StartSender()
 
 	go pingLoop(conn, tool.Wait())
 	readWSDirect(conn, tool)

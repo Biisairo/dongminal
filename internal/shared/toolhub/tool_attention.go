@@ -15,19 +15,26 @@ func (p *Tool) observeOutput(chunk []byte) { p.observeOutputAt(chunk, attnNow())
 
 // observeOutputAt is observeOutput with an injectable timestamp (tests).
 func (p *Tool) observeOutputAt(chunk []byte, now int64) {
+	p.observeOutputClassified(chunk, now, classifyEsc(chunk, p.allowBell))
+}
+
+// observeOutputClassified 는 청크 분류(classifyEsc)를 받는 observeOutputAt 이다 —
+// readPTY 는 주의·모드 관측이 같은 분류 한 번을 나눠 쓴다 (FR-OPT-3-2).
+func (p *Tool) observeOutputClassified(chunk []byte, now int64, c escClass) {
 	p.LastOutputAt.Store(now)
 	// FR-ATF-5: 재무장이 잠긴 동안에는 출력이 무장을 세우지 못한다. 시각은
 	// 그래도 적는다 — 준비완료 사다리(FR-STA-4)가 그 값을 읽는다.
 	if !p.attnRearmLocked.Load() {
 		p.attnArmed.Store(true)
 	}
+	// 이월이 없고 OSC·BEL 의 기미도 없으면 탐지기가 할 일이 없다 (신호 없음·이월
+	// 없음·cwd 없음이 확정이다). 이월은 언제나 ESC 로 시작하므로 이월이 있으면 돈다.
+	if len(p.attnCarry) == 0 && !c.osc {
+		return
+	}
 	scan := chunk
 	if len(p.attnCarry) > 0 {
-		scan = append(append([]byte(nil), p.attnCarry...), chunk...)
-	}
-	if bytes.IndexByte(scan, 0x1b) < 0 && bytes.IndexByte(scan, 0x07) < 0 {
-		p.attnCarry = nil
-		return
+		scan = p.joinCarry(p.attnCarry, chunk)
 	}
 	// cwd 보고는 **알람 배선과 무관하게** 읽는다 (FR-WTC-2). 이 함수의 위쪽에서
 	// `onAttention == nil` 로 돌아가지 않도록 순서를 지킨다 — 알람을 켜지 않은
@@ -41,6 +48,48 @@ func (p *Tool) observeOutputAt(chunk []byte, now int64) {
 	if sig {
 		p.setAttention("signaled")
 	}
+}
+
+// escClass 는 청크에 관측할 거리가 있는지다. 거짓이면 그 탐지기는 이월 없이 돌 때
+// 아무것도 찾지 못하고 이월도 남기지 않는다 — 그래서 건너뛸 수 있다.
+type escClass struct {
+	osc   bool // ESC ] · 끝의 ESC · (allowBell 이면) BEL — 주의·cwd 탐지기
+	modes bool // ESC [ ? · 끝의 ESC · 끝의 ESC [ — 모드 탐지기
+}
+
+// classifyEsc 는 청크의 ESC 를 한 번 훑어 두 탐지기가 돌아야 하는지 가른다
+// (FR-OPT-3-2, SHR-4). TUI 출력의 대부분인 색·커서 CSI 만 있는 청크는 이 한 번으로
+// 끝난다.
+func classifyEsc(b []byte, allowBell bool) (c escClass) {
+	if allowBell && bytes.IndexByte(b, 0x07) >= 0 {
+		c.osc = true
+	}
+	for i := 0; i < len(b); i++ {
+		j := bytes.IndexByte(b[i:], 0x1b)
+		if j < 0 {
+			return c
+		}
+		i += j
+		switch {
+		case i+1 >= len(b):
+			c.osc, c.modes = true, true
+		case b[i+1] == ']':
+			c.osc = true
+		case b[i+1] == '[' && (i+2 >= len(b) || b[i+2] == '?'):
+			c.modes = true
+		}
+		if c.osc && c.modes {
+			return c
+		}
+	}
+	return c
+}
+
+// joinCarry 는 이월 뒤에 청크를 이어 붙인 것을 scanScratch 에 만든다. 결과는 다음
+// 호출이 덮으므로 보관하지 않는다 — 이월은 탐지기가 따로 복사해 돌려준다.
+func (p *Tool) joinCarry(carry, chunk []byte) []byte {
+	p.scanScratch = append(append(p.scanScratch[:0], carry...), chunk...)
+	return p.scanScratch
 }
 
 // setAttention transitions none→attention exactly once (edge), firing the

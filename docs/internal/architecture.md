@@ -1112,7 +1112,8 @@ WS 구독 쪽 규칙도 같은 뿌리다: 데몬 모드의 출력 릴레이(`rel
 
 - `ToolManager` : 내부에 `sync.RWMutex`. `Snapshot()` 은 슬라이스 복사로 외부 공개. 백그라운드 도구는 `background map[string]BackgroundEntry` 로 같은 락 아래에서 관리한다. `Create` 는 **락 밖에서** 띄운다(fork/exec + PTY open) — 상한(`ToolCap`)은 락 안에서 자리를 예약(`pending`)해 지킨다 (M8 `GO-29`). 도구 종료 콜백은 `invalidator` 를 락으로 읽는다 (`GO-30`).
 - `workspace.Manager` : `atomic.Pointer[[]byte]` + `atomic.Pointer[*index]` + `atomic.Uint64` (rev). Save 내부에서만 `sync.Mutex` 로 직렬화. 리더는 락 없이 atomic load.
-- `outbuf.Stream` : `sync.Mutex` + `atomic.Int64` (누적 카운터). Feed/Snapshot 모두 lock 내에서 slice 조작.
+- `outbuf.Stream` : `sync.Mutex` + `atomic.Int64` (누적 카운터). Feed/Snapshot 모두 lock 내에서 slice 조작. 저장은 `max` 바이트 링이다 (FR-OPT-3-3).
+- `toolhub.SafeConn` : 쓰기는 `mu` 로 직렬화. 직접 모드의 라이브 프레임(출력·크기·종료)은 연결별 송신 큐(`sendQueueCap`)와 송신 고루틴 하나가 나른다 — readPTY 는 넣기만 하고, 넘친 연결은 닫혀 브라우저가 since 로 재동기한다 (FR-OPT-3-1). 송신 고루틴은 핸들러가 OpSeq 를 보낸 뒤에 선다. 도구의 클라이언트 목록(`cls`)은 바꿀 때마다 새 슬라이스라 읽는 쪽이 복사하지 않는다.
 - `CommandHub` : SSE 구독자 list + broadcast. 내부 `sync.RWMutex`.
 - `toolclient.ToolClient` : 데몬 연결·pending RPC 맵·콜백은 `mu` 아래, 재접속 supervisor 는 `connDone` 채널로 세대를 가른다. 도구별 WS 구독자는 별도 `subMu`(RWMutex) — readLoop 가 push 를 fan-out 하는 동안 RPC 락을 쥐지 않는다. `stopped`·`reconnects`·`dropped` 는 atomic.
 - `hub.AttnTracker` : 도구 맵은 `mu`, 도구 하나의 상태(`lastOutputAt`·`attention`·`activity` 등)는 atomic — 스위퍼 틱과 출력 콜백이 같은 도구를 락 없이 읽는다. Broadcast 는 락을 놓고 부른다 (hub 락 순서 의존을 끊는다).

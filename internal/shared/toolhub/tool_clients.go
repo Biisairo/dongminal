@@ -2,8 +2,6 @@ package toolhub
 
 import (
 	"dongminal/internal/shared/dmlog"
-
-	"github.com/gorilla/websocket"
 )
 
 // AddClient registers c. Returns false when the tool has already exited; in
@@ -24,7 +22,9 @@ func (p *Tool) AddClientAt(c *SafeConn) (int64, bool) {
 		dmlog.Infof(nil, "[tool %s] addClient after exit addr=%s — sent OpExit", p.ID, c.RemoteAddr())
 		return 0, false
 	}
-	p.cls = append(p.cls, c)
+	// cls 는 바꿀 때마다 새 슬라이스다 — 읽는 쪽(feedAndClients·broadcast)이 복사
+	// 없이 들고 나간다 (FR-OPT-3-2).
+	p.cls = append(p.cls[:len(p.cls):len(p.cls)], c)
 	n := len(p.cls)
 	off := p.stream.Offset()
 	p.cmu.Unlock()
@@ -36,7 +36,8 @@ func (p *Tool) RemoveClient(c *SafeConn) {
 	p.cmu.Lock()
 	for i, v := range p.cls {
 		if v == c {
-			p.cls = append(p.cls[:i], p.cls[i+1:]...)
+			next := make([]*SafeConn, 0, len(p.cls)-1)
+			p.cls = append(append(next, p.cls[:i]...), p.cls[i+1:]...)
 			break
 		}
 	}
@@ -53,20 +54,19 @@ func (p *Tool) broadcast(msg []byte) {
 		p.cmu.Unlock()
 		return
 	}
-	snap := make([]*SafeConn, len(p.cls))
-	copy(snap, p.cls)
+	snap := p.cls
 	p.cmu.Unlock()
 	p.deliver(msg, snap)
 }
 
-// deliver 는 확보된 목록에 쓴다. 쓰기는 락 밖이다 — 느린 소켓 하나가 PTY 읽기
-// 루프를 멈추게 하면 안 된다.
+// deliver 는 확보된 목록의 송신 큐에 넣는다 (FR-OPT-3-1). 소켓에 쓰는 것은 각
+// 연결의 송신 고루틴이다 — 느린 소켓 하나가 PTY 읽기 루프도, 같은 도구의 다른
+// 클라이언트도 세우지 못한다. 넘친 연결은 Enqueue 가 닫았으므로 목록에서 뺀다.
+// msg 는 모든 연결이 읽기 전용으로 나눠 쓴다.
 func (p *Tool) deliver(msg []byte, snap []*SafeConn) {
 	for _, c := range snap {
-		if err := c.WriteMsg(websocket.BinaryMessage, msg); err != nil {
-			dmlog.Errorf(nil, "[tool %s] broadcast error addr=%s: %v", p.ID, c.RemoteAddr(), err)
+		if !c.Enqueue(msg) {
 			p.RemoveClient(c)
-			c.Close()
 		}
 	}
 }

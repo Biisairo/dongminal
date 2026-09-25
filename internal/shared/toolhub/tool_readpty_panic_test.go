@@ -49,7 +49,9 @@ func TestTool_ReadPTYPanic_KillsAndSignalsExit(t *testing.T) {
 	t.Cleanup(p.kill)
 
 	server, client := wsPair(t)
-	if !p.AddClient(NewSafeConn(server)) {
+	sc := NewSafeConn(server)
+	sc.StartSender()
+	if !p.AddClient(sc) {
 		t.Fatal("AddClient 가 거절했다")
 	}
 

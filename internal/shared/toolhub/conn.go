@@ -85,15 +85,81 @@ var Upgrader = websocket.Upgrader{
 // (최대 1 MB) 한 번이 연결마다 그만큼을 붙잡아 두지 않게 한다.
 const sendBufKeep = 64 << 10
 
+// sendQueueCap 은 직접 모드 연결 하나가 쌓아 둘 수 있는 라이브 프레임 수다
+// (FR-OPT-3-1). 데몬 모드 WS 구독 채널(handleWSDaemon 의 outputCh)과 같은 값이다.
+const sendQueueCap = 256
+
 type SafeConn struct {
 	mu sync.Mutex
 	// frame 은 op 바이트와 payload 를 이어 붙이는 재사용 버퍼다 (mu 아래).
 	frame     []byte
 	conn      *websocket.Conn
 	closeOnce sync.Once
+	closed    chan struct{}
+
+	// queue 는 라이브 프레임의 송신 큐다 (FR-OPT-3-1). 쓰는 것은 StartSender 의
+	// 고루틴 하나이므로, 느린 브라우저가 PTY 읽기 루프를 세우지 못한다. 직접
+	// 모드만 쓰므로 처음 쓸 때 만든다.
+	queueOnce sync.Once
+	queue     chan []byte
+	startOnce sync.Once
 }
 
-func NewSafeConn(c *websocket.Conn) *SafeConn { return &SafeConn{conn: c} }
+func NewSafeConn(c *websocket.Conn) *SafeConn {
+	return &SafeConn{conn: c, closed: make(chan struct{})}
+}
+
+func (s *SafeConn) sendQueue() chan []byte {
+	s.queueOnce.Do(func() { s.queue = make(chan []byte, sendQueueCap) })
+	return s.queue
+}
+
+// Enqueue 는 이미 틀을 갖춘 프레임(op 바이트 포함)을 송신 큐에 넣고 곧바로
+// 돌아온다. 호출자는 frame 을 이후에 고치지 않는다.
+//
+// 큐가 넘치면 그 연결을 닫고 false 다 — 따라잡지 못하는 연결을 기다리지 않는다.
+// 브라우저는 자기 좌표(since)로 다시 붙어 빠진 구간을 재생받는다. 데몬 모드 WS 가
+// 넘친 구독을 닫는 것과 같은 규약이다 (FR-OPT-1-2). 닫힌 연결에도 false 다.
+func (s *SafeConn) Enqueue(frame []byte) bool {
+	q := s.sendQueue()
+	select {
+	case <-s.closed:
+		return false
+	default:
+	}
+	select {
+	case q <- frame:
+		return true
+	default:
+		dmlog.Warnf(nil, "ws send queue full addr=%s cap=%d — closing for resync", s.RemoteAddr(), sendQueueCap)
+		s.Close()
+		return false
+	}
+}
+
+// StartSender 는 송신 큐를 비우는 고루틴을 띄운다 (한 번만). 그 전에 들어온
+// 프레임은 큐에서 기다린다 — 핸들러는 재생과 좌표 통보(OpSeq)를 동기로 보낸 **뒤에**
+// 이것을 불러, 라이브 프레임이 좌표 통보보다 앞서지 않게 한다 (FR-TRS-8).
+// 쓰기가 실패하거나 연결이 닫히면 끝난다.
+func (s *SafeConn) StartSender() {
+	s.startOnce.Do(func() {
+		q := s.sendQueue()
+		go func() {
+			for {
+				select {
+				case <-s.closed:
+					return
+				case f := <-q:
+					if err := s.WriteMsg(websocket.BinaryMessage, f); err != nil {
+						dmlog.Infof(nil, "ws sender addr=%s: %v", s.RemoteAddr(), err)
+						s.Close()
+						return
+					}
+				}
+			}
+		}()
+	})
+}
 
 func (s *SafeConn) WriteMsg(typ int, data []byte) error {
 	s.mu.Lock()
@@ -142,6 +208,7 @@ func (s *SafeConn) writeFrame(op byte, payload []byte) error {
 // read error while the WS handler's defer also fires).
 func (s *SafeConn) Close() {
 	s.closeOnce.Do(func() {
+		close(s.closed)
 		s.conn.Close()
 	})
 }

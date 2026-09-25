@@ -131,15 +131,19 @@ const modeMaxCarry = 64
 // 판정은 이 고루틴만 하고(modeCarryBuf 는 잠금이 필요 없다), 결과는 원자값으로
 // 입력·재접속 경로와 공유한다.
 func (p *Tool) observeModes(chunk []byte) {
+	p.observeModesClassified(chunk, classifyEsc(chunk, false).modes)
+}
+
+// observeModesClassified 는 청크 분류를 받는 observeModes 다 (FR-OPT-3-2).
+func (p *Tool) observeModesClassified(chunk []byte, need bool) {
+	// `ESC[?` 도 경계의 조각도 없으면 설정도 이월도 없다 — 뜨거운 경로를 분류
+	// 한 번으로 빠져나간다 (NFR-BP-1 유지). 이월은 언제나 ESC 로 시작한다.
+	if len(p.modeCarryBuf) == 0 && !need {
+		return
+	}
 	scan := chunk
 	if len(p.modeCarryBuf) > 0 {
-		scan = append(append([]byte(nil), p.modeCarryBuf...), chunk...)
-	}
-	// ESC 가 없으면 설정도 없다 — 뜨거운 경로를 한 번의 스캔으로 빠져나간다
-	// (NFR-BP-1 유지).
-	if bytes.IndexByte(scan, 0x1b) < 0 {
-		p.modeCarryBuf = nil
-		return
+		scan = p.joinCarry(p.modeCarryBuf, chunk)
 	}
 	cur := unpackModes(p.modes.Load())
 	next, carry := scanModes(scan, cur)
@@ -155,13 +159,15 @@ func (p *Tool) observeModes(chunk []byte) {
 // carry 는 다음 청크에 이어 붙일 꼬리다. 시퀀스가 경계에 쪼개져도 놓치지 않기
 // 위한 것이다 (FR-TMR-6).
 func scanModes(scan []byte, cur TermModes) (TermModes, []byte) {
+	// 파라미터는 스택 배열에 받는다 — 시퀀스마다 할당하지 않는다 (FR-OPT-3-2).
+	var pbuf [8]int
 	for i := 0; i < len(scan); {
 		j := bytes.IndexByte(scan[i:], 0x1b)
 		if j < 0 {
 			return cur, nil
 		}
 		start := i + j
-		params, final, end, ok := parsePrivateMode(scan[start:])
+		params, final, end, ok := parsePrivateMode(scan[start:], pbuf[:0])
 		if !ok {
 			// 완성될 가능성이 남아 있으면 이월한다. 아니면 이 ESC 를 지나친다.
 			if end < 0 && len(scan)-start < modeMaxCarry {
@@ -178,11 +184,12 @@ func scanModes(scan []byte, cur TermModes) (TermModes, []byte) {
 	return cur, nil
 }
 
-// parsePrivateMode 는 `ESC[?<n>[;<n>…]<h|l>` 하나를 읽는다.
+// parsePrivateMode 는 `ESC[?<n>[;<n>…]<h|l>` 하나를 읽는다. 파라미터는 params 에
+// 이어 붙인다 — 호출자가 재사용 버퍼를 준다.
 //
 // ok 가 거짓이고 end 가 음수면 **아직 끝나지 않은 것**이다 — 이월 대상이다.
 // 거짓이고 end 가 0 이상이면 우리가 찾는 모양이 아니다 (다른 이스케이프).
-func parsePrivateMode(b []byte) (params []int, final byte, end int, ok bool) {
+func parsePrivateMode(b []byte, params []int) (_ []int, final byte, end int, ok bool) {
 	if len(b) < 3 {
 		if bytes.HasPrefix([]byte("\x1b[?"), b) {
 			return nil, 0, -1, false

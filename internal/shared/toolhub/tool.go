@@ -128,6 +128,9 @@ type Tool struct {
 	// 켠 모드를 하나도 모르고, 재생만으로는 되살아나지 않는다.
 	modes        atomic.Uint64
 	modeCarryBuf []byte
+	// scanScratch 는 이월과 청크를 이어 붙이는 재사용 버퍼다 — 주의·모드 관측이
+	// 차례로 쓴다 (readPTY 고루틴 전용, FR-OPT-3-2).
+	scanScratch []byte
 
 	// reportedCwd 는 셸 훅이 OSC 777;Cwd 로 알린 작업 디렉터리다
 	// (WINDOWS_TOOL_CWD_SRS FR-WTC-2). readPTY 고루틴이 쓰고 아무 고루틴이나
@@ -368,24 +371,38 @@ func (p *Tool) readPTY() {
 			p.exitAfterRead()
 			return
 		}
-		// Single backpressure path: Stream.Feed never blocks; loss (if any)
-		// is recorded in Stats.TotalBytesDrop.
-		//
-		// FR-TRS-17: Feed 와 **클라이언트 목록 확보**가 한 번의 cmu 구간 안에
-		// 있어야 한다. 갈라 두면 그 사이에 붙은 클라이언트가 이 청크를 재생으로도
-		// broadcast 로도 받아 한 번 더 보게 된다. 락 순서는 언제나 cmu → stream.mu 다.
-		end, conns, live := p.feedAndClients(raw[:n])
-		if r := p.relay.Load(); r != nil && r.onOutput != nil {
-			r.onOutput(p.ID, append([]byte(nil), raw[:n]...), end)
-		}
-		p.observeOutput(raw[:n])
-		p.observeModes(raw[:n])
-		if !live {
-			continue
-		}
-		msg := make([]byte, 1+n)
+		p.handleChunk(raw[:n])
+	}
+}
+
+// handleChunk 는 읽은 청크 하나를 스트림·릴레이·관측·클라이언트로 나른다.
+// chunk 는 읽기 버퍼 그 자체이므로 보관하지 않는다.
+func (p *Tool) handleChunk(chunk []byte) {
+	// Single backpressure path: Stream.Feed never blocks; loss (if any)
+	// is recorded in Stats.TotalBytesDrop.
+	//
+	// FR-TRS-17: Feed 와 **클라이언트 목록 확보**가 한 번의 cmu 구간 안에
+	// 있어야 한다. 갈라 두면 그 사이에 붙은 클라이언트가 이 청크를 재생으로도
+	// broadcast 로도 받아 한 번 더 보게 된다. 락 순서는 언제나 cmu → stream.mu 다.
+	end, conns := p.feedAndClients(chunk)
+	r := p.relay.Load()
+	relay := r != nil && r.onOutput != nil
+	// 청크당 사본은 하나다 (FR-OPT-3-2, SHR-3). 릴레이와 클라이언트가 같은 사본을
+	// 읽기 전용으로 나눠 쓴다 — 릴레이는 msg[1:] 를 보관할 수 있으므로(데몬의 push
+	// 큐) 이 사본은 다시 쓰지 않는다. 받을 쪽이 없으면 만들지 않는다.
+	var msg []byte
+	if relay || len(conns) > 0 {
+		msg = make([]byte, 1+len(chunk))
 		msg[0] = OpOutput
-		copy(msg[1:], raw[:n])
+		copy(msg[1:], chunk)
+	}
+	if relay {
+		r.onOutput(p.ID, msg[1:], end)
+	}
+	c := classifyEsc(chunk, p.allowBell)
+	p.observeOutputClassified(chunk, attnNow(), c)
+	p.observeModesClassified(chunk, c.modes)
+	if len(conns) > 0 {
 		p.deliver(msg, conns)
 	}
 }
@@ -405,18 +422,16 @@ func (p *Tool) exitAfterRead() {
 // "이 클라이언트가 broadcast 로 받기 시작하는 자리" 와 정확히 일치한다.
 //
 // Feed 에는 읽기 버퍼를 **그대로** 넘긴다 — Stream 은 자기 버퍼에 복사하고 인자를
-// 보관하지 않는다 (outbuf.Feed 의 계약). 청크당 명시적 복사는 릴레이 쪽 하나다
-// (M8 `GO-37`).
-func (p *Tool) feedAndClients(chunk []byte) (end int64, conns []*SafeConn, live bool) {
+// 보관하지 않는다 (outbuf.Feed 의 계약, M8 `GO-37`). 목록은 cls 그 자체다 — cls 는
+// 바꿀 때마다 새 슬라이스이므로 복사하지 않는다. 받을 쪽이 없으면 nil 이다.
+func (p *Tool) feedAndClients(chunk []byte) (end int64, conns []*SafeConn) {
 	p.cmu.Lock()
 	defer p.cmu.Unlock()
 	_, end = p.stream.Feed(chunk)
-	if p.exited {
-		return end, nil, false
+	if p.exited || len(p.cls) == 0 {
+		return end, nil
 	}
-	conns = make([]*SafeConn, len(p.cls))
-	copy(conns, p.cls)
-	return end, conns, true
+	return end, p.cls
 }
 
 // Wait returns a channel closed when the tool terminates (test helper).

@@ -104,32 +104,45 @@ func AttentionAllowBell() bool { return dmenv.FlagEnv(dmenv.EnvAttentionBell) }
 // shorter than maxCarry.
 func DetectAttentionSignal(b []byte, allowBell bool, maxCarry int) (bool, []byte) {
 	i, n := 0, len(b)
+	// 판정은 ESC(와 allowBell 이면 BEL)에서만 일어난다. 그 사이는 IndexByte 로
+	// 건너뛴다 (FR-OPT-3-2) — 한 바이트씩 보던 종전과 결과가 같다.
+	bel := -1
+	if allowBell {
+		bel = bytes.IndexByte(b, 0x07)
+	}
 	for i < n {
-		c := b[i]
-		switch {
-		case c == 0x07: // BEL outside any OSC body (OSC bodies are consumed below)
-			if allowBell {
+		if bel >= 0 && bel < i {
+			if k := bytes.IndexByte(b[i:], 0x07); k >= 0 {
+				bel = i + k
+			} else {
+				bel = -1
+			}
+		}
+		esc := bytes.IndexByte(b[i:], 0x1b)
+		if esc >= 0 {
+			esc += i
+		}
+		if bel >= 0 && (esc < 0 || bel < esc) {
+			return true, nil // BEL outside any OSC body (OSC bodies are consumed below)
+		}
+		if esc < 0 {
+			return false, nil
+		}
+		i = esc
+		if i+1 >= n {
+			return false, boundedCarry(b[i:], maxCarry) // lone trailing ESC
+		}
+		if b[i+1] == ']' { // OSC introducer: ESC ]
+			end, termLen := findOSCTerminator(b, i+2)
+			if end < 0 {
+				return false, boundedCarry(b[i:], maxCarry) // unterminated OSC
+			}
+			if isAttentionOSC(b[i+2 : end]) {
 				return true, nil
 			}
-			i++
-		case c == 0x1b: // ESC
-			if i+1 >= n {
-				return false, boundedCarry(b[i:], maxCarry) // lone trailing ESC
-			}
-			if b[i+1] == ']' { // OSC introducer: ESC ]
-				end, termLen := findOSCTerminator(b, i+2)
-				if end < 0 {
-					return false, boundedCarry(b[i:], maxCarry) // unterminated OSC
-				}
-				if isAttentionOSC(b[i+2 : end]) {
-					return true, nil
-				}
-				i = end + termLen
-			} else {
-				i += 2 // other ESC sequence (CSI, etc.) — bytes that follow are ordinary
-			}
-		default:
-			i++
+			i = end + termLen
+		} else {
+			i += 2 // other ESC sequence (CSI, etc.) — bytes that follow are ordinary
 		}
 	}
 	return false, nil
@@ -151,7 +164,12 @@ func DetectCwdReport(b []byte) string {
 	out := ""
 	i, n := 0, len(b)
 	for i < n {
-		if b[i] != 0x1b || i+1 >= n || b[i+1] != ']' {
+		j := bytes.IndexByte(b[i:], 0x1b)
+		if j < 0 {
+			break
+		}
+		i += j
+		if i+1 >= n || b[i+1] != ']' {
 			i++
 			continue
 		}

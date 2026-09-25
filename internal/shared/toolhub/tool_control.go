@@ -8,8 +8,6 @@ import (
 
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/platform"
-
-	"github.com/gorilla/websocket"
 )
 
 // kill transitions the tool to exited exactly once: it marks exited under
@@ -58,15 +56,15 @@ func (p *Tool) kill() {
 		// Phase 1: atomic mark + snapshot under cmu.
 		p.cmu.Lock()
 		p.exited = true
-		snap := make([]*SafeConn, len(p.cls))
-		copy(snap, p.cls)
+		snap := p.cls
 		p.cmu.Unlock()
 
-		// Phase 2: final OpExit broadcast outside cmu. Errors are ignored —
-		// the tool is dying anyway and clients will close on their side.
+		// Phase 2: final OpExit via each client's send queue (FR-OPT-3-1) —
+		// it follows the output already queued. Overflow is ignored: the tool
+		// is dying anyway and a closed client reconnects to find it gone.
 		exitMsg := []byte{OpExit}
 		for _, c := range snap {
-			_ = c.WriteMsg(websocket.BinaryMessage, exitMsg)
+			_ = c.Enqueue(exitMsg)
 		}
 
 		// Phase 3: tear down PTY/process/stream.

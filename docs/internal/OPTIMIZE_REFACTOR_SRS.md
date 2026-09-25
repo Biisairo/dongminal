@@ -160,6 +160,8 @@ rev-parse 와 status 를 실행한다(IPC-7).
 - **FR-OPT-3-1** 직접 모드 WS 송신을 연결별 제한 큐와 writer 고루틴으로 옮긴다. 큐가 넘치면 그 연결을 닫는다.
   느린 브라우저 하나가 PTY 읽기를 막지 않는다. (SHR-2 · IPC-15)
 - **FR-OPT-3-2** readPTY 는 구독자가 0 이면 프레임을 만들지 않는다. 청크당 할당과 ESC 스캔을 한 번으로 줄인다. 읽기 버퍼를 키울지는 벤치로 정한다. (SHR-3 · SHR-4 · SHR-M1)
+  ESC 스캔은 청크를 한 번 훑어(`classifyEsc`) OSC·`ESC[?` 가 없으면 탐지기를 건너뛴다 — 색·커서 CSI 만 있는 청크가 그렇다. 있으면 종전 탐지기가 돈다.
+  읽기 버퍼는 8 KiB 를 유지한다: macOS PTY 는 버퍼 크기와 무관하게 read 한 번에 1024 B 를 넘겨 주지 않았다(16 MB 출력, 8/32/64 KiB 모두 15625 회).
 - **FR-OPT-3-3** outbuf 는 쓰지 않는 context 를 받지 않는다. 1 MB 를 미리 할당하지 않고, 넘칠 때 재할당하지 않는 링 구조를 쓴다. (SHR-25 · SHR-M2)
 - **FR-OPT-3-4** `AttnTracker.FeedOutput` 은 청크당 락을 한 번만 잡는다. (HTTP-5)
 - 검증: `-bench -benchmem` 전후 allocs/op 를 기록한다. 계수 테스트로 고정한다.
