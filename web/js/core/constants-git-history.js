@@ -22,6 +22,8 @@ const GIT_HIST_DETAIL_H=240;
 // 페이징 (FR-GIT-114·115). 서버의 LogInitialLimit·LogPageLimit 과 같은 값이다.
 const GIT_LOG_INITIAL=300;
 const GIT_LOG_PAGE=100;
+// 한 번에 받을 수 있는 최대 — 서버 LogMaxLimit 과 같은 값이다 (FR-GVR-12 의 자리 유지 재적재).
+const GIT_LOG_MAX=2000;
 // 스크롤 끝에서 이만큼 남았을 때 다음 페이지를 부른다.
 const GIT_LOG_NEAR_END_PX=200;
 

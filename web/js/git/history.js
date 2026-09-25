@@ -45,6 +45,7 @@ class GitHistory {
     this._loading=false;
     this._loadP=null;
     this._again=false;     // 받는 도중에 온 다시 받기 (FR-SVS-39d)
+    this._againFull=false; // 그 미룬 요청 중 전부 다시(새로고침)가 있었는가 (FR-GVR-12)
     this._loadedSig=null;  // 지금 목록이 받아진 시각의 저장소 signature (FR-GVR-8a)
     this._err=null;
     this._note='';

@@ -165,7 +165,7 @@ Object.assign(GitPanel.prototype, {
   _reloadViews(withConsole){
     const jobs=[];
     {
-      if(this._historyView) jobs.push(this._historyView.reload());
+      if(this._historyView) jobs.push(this._historyView.reload(!withConsole));  // FR-GVR-12: 자동은 자리 유지
       if(this._branchesView) jobs.push(this._branchesView.reload());
       // FR-GVR-6: Stash 도 대상이다 — 빠져 있어서 터미널에서 `git stash` 한 뒤
       // 새로고침을 눌러도 목록이 그대로였다.
@@ -201,7 +201,7 @@ Object.assign(GitPanel.prototype, {
   // FR-GVR-8a: 관측보다 낡은 뷰만 다시 받는다. 지금은 History 만 자기 목록의
   // signature 를 안다 — 나머지 뷰는 종전대로 변화 비교(FR-GVR-8)만 딛는다.
   _reloadStaleViews(sig){
-    if(this._historyView&&this._historyView.staleFor(sig)) this._historyView.reload();
+    if(this._historyView&&this._historyView.staleFor(sig)) this._historyView.reload(true);
   },
 
   // 받는 동안 진입점은 다시 눌리지 않는다 (FR-GIT-238). `_refreshing` 이 실제

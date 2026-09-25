@@ -576,6 +576,65 @@ test.describe('17단계 — 커밋 상세', () => {
     await expect.poll(() => list(page).evaluate((el) => el.scrollTop), { timeout: 5000 }).toBe(top);
   });
 
+  // GIT_VIEW_REFRESH_SRS FR-GVR-12: 관측이 부른 재적재는 보던 자리를 지킨다. index 만
+  // 바꾸는 터미널 `git add` 로 부른다 — signature 가 index 를 보므로 재적재가 일어난다.
+  test('H23 (FR-GVR-12): 관측 재적재는 펼친 상세와 스크롤을 지킨다', async ({ page }) => {
+    const repo = copyFx('many-commits', 'h23');
+    await waitForInit(page);
+    await openHistory(page, repo);
+    await waitLoaded(page, 300);
+
+    const firstOid = await commits(page).first().getAttribute('data-oid');
+    await list(page).evaluate((el) => { el.scrollTop = 2600; });
+    await expect.poll(() => commits(page).first().getAttribute('data-oid'), { timeout: 10000 })
+      .not.toBe(firstOid);
+    const row = commits(page).nth(3);
+    const oid = (await row.getAttribute('data-oid'))!;
+    await row.click();
+    await expect(hist(page).locator('.git-hist-detail')).toBeVisible({ timeout: 15000 });
+    const top = await list(page).evaluate((el) => el.scrollTop);
+
+    const reloaded = page.waitForResponse((r) => r.url().includes('/api/git/log?'), { timeout: 30000 });
+    writeFileSync(join(repo, 'h23-staged.txt'), 'x\n');
+    execFileSync('git', ['-C', repo, 'add', 'h23-staged.txt']);
+    await reloaded;
+
+    await expect(hist(page).locator(`.git-hist-row[data-oid="${oid}"]`)).toBeVisible();
+    await expect(hist(page).locator('.git-hist-detail')).toBeVisible();
+    await expect.poll(() => list(page).evaluate((el) => el.scrollTop), { timeout: 5000 }).toBe(top);
+  });
+
+  test('H24 (FR-GVR-12): 펼친 상세의 커밋이 목록에서 사라지면 그 상세만 닫힌다', async ({ page }) => {
+    const repo = copyFx('basic', 'h24');
+    // `basic` 은 커밋이 하나다 — 되돌려 사라질 커밋을 하나 더 만든다.
+    writeFileSync(join(repo, 'h24.txt'), 'x\n');
+    execFileSync('git', ['-C', repo, 'add', 'h24.txt']);
+    execFileSync('git', ['-C', repo, '-c', 'user.name=e2e', '-c', 'user.email=e2e@example.invalid',
+      'commit', '-q', '-m', 'h24']);
+    await waitForInit(page);
+    await openHistory(page, repo);
+    const head = commits(page).first();
+    await expect(head).toBeVisible({ timeout: 15000 });
+    const oid = (await head.getAttribute('data-oid'))!;
+    await head.click();
+    await expect(hist(page).locator('.git-hist-detail')).toBeVisible({ timeout: 15000 });
+
+    execFileSync('git', ['-C', repo, 'reset', '-q', '--hard', 'HEAD~1']);
+    await expect(hist(page).locator(`.git-hist-row[data-oid="${oid}"]`)).toHaveCount(0, { timeout: 30000 });
+    await expect(hist(page).locator('.git-hist-detail')).toHaveCount(0);
+  });
+
+  test('H25 (FR-GVR-12): 새로고침 버튼은 종전대로 펼친 상세를 닫는다', async ({ page }) => {
+    const repo = copyFx('basic', 'h25');
+    await waitForInit(page);
+    await openHistory(page, repo);
+    await commits(page).first().click();
+    await expect(hist(page).locator('.git-hist-detail')).toBeVisible({ timeout: 15000 });
+
+    await page.locator('#area .git-head-refresh').first().click();
+    await expect(hist(page).locator('.git-hist-detail')).toHaveCount(0, { timeout: 15000 });
+  });
+
   test('H21 (FR-GIT-138): 이름이 바뀐 파일은 origPath 를 함께 보낸다', async ({ page }) => {
     const repo = copyFx('with-remote', 'h21');
     execFileSync('git', ['-C', repo, 'mv', 'f.txt', 'renamed.txt']);

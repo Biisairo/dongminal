@@ -52,9 +52,11 @@ Object.assign(GitHistory.prototype, {
    * 느린 곳에서 결정적으로 났다). 추가 로드(`more`)는 대상이 아니다 — 그것은 같은
    * 목록의 뒷장이다.
    */
-  _load(more){
-    if(this._loading){ if(!more) this._again=true; return this._loadP }
-    this._loadP=this._doLoad(more).then(()=>this._drain(),()=>this._drain());
+  // `keep` 은 FR-GVR-12 의 자리 유지다 — 받는 도중 미룬 요청 중 하나라도 전부 다시면
+  // 전부 다시를 한다(`_againFull`). 사용자가 누른 것이 자동 경로에 묻히지 않는다.
+  _load(more,keep){
+    if(this._loading){ if(!more){ this._again=true; if(!keep) this._againFull=true } return this._loadP }
+    this._loadP=this._doLoad(more,keep).then(()=>this._drain(),()=>this._drain());
     return this._loadP;
   },
 
@@ -64,12 +66,14 @@ Object.assign(GitHistory.prototype, {
   // 받는다.
   _drain(){
     if(!this._again&&!this.staleFor(this.panel._lastSig)) return;
-    this._again=false;
+    const full=this._againFull;
+    this._again=false; this._againFull=false;
     if(!this._el||this.panel.repo!==this._repo) return;
-    return this._load(false);
+    if(full) return this._reload();
+    return this._load(false,true);
   },
 
-  async _doLoad(more){
+  async _doLoad(more,keep){
     const repo=this._repo; if(!repo) return;
     const tok=this.panel.token();
     const sent={
@@ -77,7 +81,9 @@ Object.assign(GitHistory.prototype, {
       // 추가 로드의 skip 은 실제로 받은 개수다 — 요청한 limit 으로 세면 상한
       // 클램프가 걸린 페이지에서 목록이 어긋난다 (계약 §2.5).
       skip:more?this._commits.length:0,
-      limit:more?GIT_LOG_PAGE:GIT_LOG_INITIAL,
+      // FR-GVR-12: 자리 유지 재적재는 이미 불러온 만큼 받는다 — 첫 장만 받으면 뒷장의
+      // 스크롤 자리가 사라진다.
+      limit:more?GIT_LOG_PAGE:keep?Math.min(GIT_LOG_MAX,Math.max(GIT_LOG_INITIAL,this._commits.length)):GIT_LOG_INITIAL,
       order:this._order,
       author:this._filters.author||'',since:this._filters.since||'',
       until:this._filters.until||'',path:this._filters.path||'',
@@ -115,6 +121,8 @@ Object.assign(GitHistory.prototype, {
     // limit 은 실효값이다 — 요청값으로 끝을 판정하면 상한 클램프에서 어긋난다.
     const eff=d.limit||sent.limit;
     this._commits=more?this._commits.concat(got):got;
+    // FR-GVR-12: 펼친 상세의 커밋이 새 목록에 없으면 그 상세만 닫는다.
+    if(keep&&this._open&&!got.some(c=>c.oid===this._open)){ this._open=null; this._detail=null; this._detailErr=null }
     this._end=got.length<eff;
     // FR-GVR-8a: 이 목록은 서버가 `git log` 직후에 읽은 저장소의 것이다.
     if(!more) this._loadedSig=(typeof d.signature==='string'&&d.signature)||null;
@@ -204,9 +212,14 @@ Object.assign(GitHistory.prototype, {
    * **스크롤과 펼친 상세가 맨 위로 돌아간다** — "전부 다시 받는다" 의 값이며
    * 사용자가 그것을 골랐다 (GIT_REVIEW4_SRS §3.6 결정 표).
    */
-  reload(){
+  //
+  // `keep` 이면 관측이 부른 재적재다 — 스크롤과 펼친 상세를 지킨다 (FR-GVR-12).
+  //   이전 동작: 자동 재적재도 새로고침처럼 상세를 닫고 첫 장으로 돌아갔다
+  //   새 동작: 자동은 이미 불러온 만큼 다시 받고 상세를 둔다. 새로고침만 맨 위로 간다
+  //   이유: signature 가 index 를 보므로 stage 한 번에도 보던 자리를 잃었다 (재현·H22)
+  reload(keep){
     if(!this._el||this.panel.repo!==this._repo) return;
-    return Promise.all([this._loadRefs(),this._reload()]);
+    return Promise.all([this._loadRefs(),keep?this._load(false,true):this._reload()]);
   },
 
   // 목록을 처음부터 다시 받는다. 실패해도 이전 목록은 화면에 남는다.
