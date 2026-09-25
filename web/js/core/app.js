@@ -4,6 +4,12 @@
 class App {
   constructor(){
     this.tools=new Map();
+    // OPTIMIZE_REFACTOR_SRS FR-OPT-4-11 (D-OPT-2): 서버가 아는 살아 있는 도구 id.
+    // `tools` 는 **그려진** 도구의 인스턴스(WS 하나씩)이고 숨은 도구는 거기 없다 —
+    // 살아 있는가를 묻는 자리(clean·죽은 도구 청소·떠남 확인)는 이것을 본다.
+    this.toolIds=new Set();
+    // 부팅 스냅숏에 있던 도구 — 처음 그려질 때 재생이 끝날 때까지 가린다.
+    this._toolsBoot=new Set();
     this.fileEditors=new Map();
     this.clientId=newUUID();
     /**
@@ -149,7 +155,9 @@ class App {
       const sp=st.tools||[];
       const sv=st.workspace;
       const ok=new Set(sp.map(p=>p.id));
-      for(const p of sp){const pane=this.mkTool(p.id,p.name);pane._reconnecting=true;pane.el.style.opacity='0'}
+      // FR-OPT-4-11 (D-OPT-2): 여기서는 id 만 적는다. 인스턴스와 WS 는 처음 그려질 때
+      // 선다(`mkTool`, renderer-pane) — 숨은 도구는 붙지 않는다.
+      for(const p of sp){this.toolIds.add(p.id);this._toolsBoot.add(p.id)}
       // OPTIMIZE_REFACTOR_SRS FR-OPT-4-5: 첫 화면의 전경 이름은 이 목록에서 온다 — 첫
       // 구독이 같은 목록을 다시 받지 않는다. 모르는 목록으로는 얹지 않는다 (FR-TLU-7).
       if(st.toolsKnown!==false) this._fgApply(sp);
@@ -304,6 +312,8 @@ class App {
     if(this.tools.has(key)) return this.tools.get(key);
     const p=new TerminalTool(id,name);
     p._slot=slot||0;
+    this.toolIds.add(id);
+    if(this._toolsBoot.delete(id)){p._reconnecting=true;p.el.style.opacity='0'}
     document.getElementById('area').appendChild(p.el);
     p.connect();
     this.tools.set(key,p);

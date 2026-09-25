@@ -334,10 +334,8 @@ Object.assign(App.prototype, {
     // FR-TLU-5·6: 살아 있음의 판정. 모를 때 전부 참인 이유는 §2.2 다 — 빈 목록을
     // 사실로 받으면 도구·pane·창이 차례로 지워진다.
     const live=known?new Set(serverIds):TOOLS_ALL_LIVE;
-    const nameOf=new Map((serverPanes||[]).map(p=>[p.id,p.name]));
-    for(const id of serverIds){
-      if(!this.tools.has(id)) this.mkTool(id, nameOf.get(id)||id);
-    }
+    // FR-OPT-4-11 (D-OPT-2): 인스턴스는 그려질 때 선다 — 여기서는 id 만 적는다.
+    for(const id of serverIds) this.toolIds.add(id);
     // FR-ATL-7: 서버가 모르는 도구는 죽은 도구다. 이름을 지우는 `_fgApply` 와
     // 같은 규약으로 알람도 함께 거둔다.
     //
@@ -349,6 +347,11 @@ Object.assign(App.prototype, {
     for(const [key,p] of Array.from(this.tools.entries())){
       const id=this.slotBase(key);
       if(!live.has(id)){ try{p.destroy()}catch{} this.tools.delete(key); if(this._attnDrop(id)) attnDropped=true }
+    }
+    for(const id of Array.from(this.toolIds)){
+      if(live.has(id)) continue;
+      this.toolIds.delete(id); this._toolsBoot.delete(id);
+      if(this._attnDrop(id)) attnDropped=true;
     }
     if(attnDropped) this._attnRefresh();
     for(const s of sv.windows){

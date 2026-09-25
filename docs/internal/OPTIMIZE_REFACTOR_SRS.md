@@ -193,6 +193,32 @@ e2e 요청 타임라인으로 잰다.
 > (`e2e/steady-traffic.spec.ts`). ≤ 0.5 는 `statsInterval` ≥ 4 s 에서 성립한다 — 기본값을 바꾸는 것은
 > 사용자 결정이므로 이 묶음은 "ping·stats 만 남는다" 를 고정한다.
 
+> **O4d 사전 조사 — 숨은 터미널 출력의 브라우저 측 소비자 (D-OPT-2, 2026-09-26).** 지연 연결 뒤에는 한 번도
+> 그려지지 않은 도구의 바이트가 이 브라우저에 오지 않는다. 그 바이트로 브라우저가 하던 일을 전수 조사했다
+> (`term-pane.js` `_onOp`·`_doFlush`, `term-clipboard.js`). 숨은 도구는 종전에도 xterm 을 열지 않았다
+> (`open()` 은 `.vis` 일 때만) — 바이트는 `_buf` 에 쌓이기만 했다.
+>
+> | 소비자 | 숨은 도구에서 종전에 하던 일 | 판정 |
+> |---|---|---|
+> | OSC 777 `Cwd` → `_cwd` · 상태바 | 포커스 터미널만 상태바를 바꾼다(FR-OPT-4-10). 숨은 도구는 `_cwd` 만 채웠다 | 서버가 이미 한다 — `reportedCwd`(toolhub). 포커스를 받으면 그려지고, OSC 값이 없으면 `/api/cwd` 가 답한다 |
+> | OSC 777 `Cwd` → `gitSignal('cwd')` | 포커스 Git 패널에 즉시 신호 | 서버가 이미 한다 — GitWatcher 의 `git_changed`(FR-GWL). 숨은 셸의 커밋도 그 경로로 온다 |
+> | OSC 777 `Download` | 연결된 **모든** 창이 내려받았다(기기 수만큼) | 옮기지 않는다 — 명령을 친 화면(그린 창)에서만 내려받는 것이 맞다. 재생분에서는 서버가 이미 지운다(`stripOSC777`) |
+> | OSC 52 (`TermClipboard.arrive`·`feed`·`_onOsc`) | 없음 — 도착 판정이 `attnUserIsWatching`·소유권을 요구하고, xterm 이 없어 파싱도 없다 | 영향 없음 |
+> | 주의·벨·알림(OSC 9/99/777 notify, BEL) · 활동 · 전경 이름(탭 제목) | 없음 — 서버 탐지(`attention.go`·activity·fg)를 SSE 로 받는다 | 서버가 이미 한다 |
+> | 터미널 답장(DA·DSR·OSC 11 등) · 응답 좌석 | 없음 — xterm 이 없으면 답하지 않는다. 오히려 먼저 붙은 숨은 연결이 좌석을 쥐어 그린 창이 답하지 못했다 | 개선 — 좌석 후보가 그린 연결뿐이다 (TERM_REPLY_SEAT §2.1 개정) |
+> | `OpExit` 오버레이 · `OpSize` · `OpSeq` · `OpReplySeat` | 연결 상태 | 붙을 때 서버가 다시 보낸다 — 옮길 것 없다 |
+> | PTY 크기(`resendWindowSizes`) | 없음 — `term` 이 없으면 건너뛴다 | 영향 없음 |
+>
+> 옮겨야 하는 것은 없다. 그래서 채택한다: `init` 과 원격 워크스페이스 적용은 id 집합(`App.toolIds` —
+> `clean()`·죽은 도구 청소·떠남 확인이 본다)만 적고, 인스턴스와 WS 는 처음 그려질 때(`mkTool`, renderer-pane)
+> 선다. 한 번 그려진 도구는 숨겨져도 붙어 있다. 처음 붙을 때 `since` 가 없으므로 전량 재생(FR-TRS-3)이다.
+> 부팅 실측(`e2e/term-lazy-connect.spec.ts` TLC1, 도구 5 · 보이는 것 1, 도구마다 재생 약 39 KB):
+> WS 5 → 1 · snapshot RPC 5 → 1(WS 연결당 1, FR-OPT-2) · WS 수신 197084 B → 39419 B.
+>
+> **O4d — 칸 SSE (D-OPT-4).** `?presence=1` 이면 서버는 `Focus.AttachFrom`·`gitWatch.Attach` 만 하고
+> `Commands.Add`·`Updates.Trigger` 를 건너뛴다. 인사(keepalive)는 그대로 보낸다. 칸 하나당 방송 1벌이 0 이
+> 된다 (`commands_presence_test.go`, TLC4). 옛 서버는 파라미터를 무시하고 전부 보내며 칸 채널은 그것을 버린다.
+
 ### 3.5 O5 — 쓰기 경로 합치기·원자성
 
 - **FR-OPT-5-1** 워크스페이스: 마지막으로 성공한 본문과 같으면 PUT 하지 않는다. 직렬화는 한 번만 한다. 서버도 raw 바이트가 같으면 rev 를 올리지 않고 방송하지 않는다. (FEC-1 · FEC-2)

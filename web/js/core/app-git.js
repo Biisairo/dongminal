@@ -577,7 +577,7 @@ Object.assign(App.prototype, {
     // 일반 창의 활성 탭이 하나도 터미널이 아닐 때만 기억이 마지막 근거다
     // (D-FLW-6). 사라진 도구를 가리키면 서버가 다시 자기 cwd 로 답하므로
     // 살아 있는 것만 쓴다.
-    if(this._lastTermTool&&this.tools.has(this._lastTermTool)) return this._lastTermTool;
+    if(this._lastTermTool&&this.toolIds.has(this._lastTermTool)) return this._lastTermTool;
     return '';
   },
 
@@ -594,7 +594,7 @@ Object.assign(App.prototype, {
       for(const p of [pn,firstPane(w.layout)]){
         if(!p) continue;
         const tab=p.tabs.find(t=>t.id===this.paneTab(p));
-        if(tab&&tab.type==='terminal'&&this.tools.has(tab.toolId)) return tab.toolId;
+        if(tab&&tab.type==='terminal'&&this.toolIds.has(tab.toolId)) return tab.toolId;
       }
     }
     return null;

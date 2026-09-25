@@ -69,7 +69,7 @@ test.describe('나가기 확인 토글', () => {
     await seedConfirmLeave(request, null);
     await waitForInit(page);
     // 가드의 종전 조건(도구가 하나라도 있다)은 충족돼 있다 — 그래도 묻지 않는다.
-    expect(await page.evaluate(() => (window as any).app.tools.size)).toBeGreaterThan(0);
+    expect(await page.evaluate(() => (window as any).app.toolIds.size)).toBeGreaterThan(0);
     expect(await guardFires(page)).toBe(false);
   });
 
@@ -201,8 +201,9 @@ test.describe('묶음 CLG — 닫기 가드 (FR-CLG-1~6)', () => {
     await page.evaluate((id: string) => {
       const a = (window as any).app;
       const w = a.ws.windows.find((x: any) => x.id === id);
-      (window as any).__tools = a.tools;
-      a.tools = new Map();
+      // FR-OPT-4-11: 가드가 세는 것은 살아 있는 도구 id 다 (그려진 인스턴스가 아니다).
+      (window as any).__tools = a.toolIds;
+      a.toolIds = new Set();
       return !!w;
     }, await page.evaluate(() => (window as any).app.testing.aw().id));
 
@@ -214,6 +215,6 @@ test.describe('묶음 CLG — 닫기 가드 (FR-CLG-1~6)', () => {
     await setLeave(false);
     expect(await fires(), '스위치를 껐는데 막았다').toBe(false);
 
-    await page.evaluate(() => { (window as any).app.tools = (window as any).__tools });
+    await page.evaluate(() => { (window as any).app.toolIds = (window as any).__tools });
   });
 });

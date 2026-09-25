@@ -603,6 +603,7 @@ Object.assign(App.prototype, {
   // FR-SAF-17·18: 칸 목록을 손으로 적지 않는다. 종전에는 `[pid, slotKey(pid,1)]`
   // 두 칸만 돌아, `SLOT_MAX` 가 4 로 자란 뒤 슬롯 2·3 의 인스턴스가 살아남았다.
   _killToolInstances(pid){
+    this.toolIds.delete(pid); this._toolsBoot.delete(pid);
     for(const k of this.slotKeysOf(pid)){
       const p=this.tools.get(k);
       if(p){try{p.destroy()}catch{}; this.tools.delete(k)}

@@ -151,5 +151,5 @@ window.addEventListener('resize',()=>{
 window.addEventListener('beforeunload',e=>{
   if(!confirmLeave) return;
   if(window.__dmReloading) return;
-  if(app.tools.size>0||app.edAnyDirty()) e.preventDefault();
+  if(app.toolIds.size>0||app.edAnyDirty()) e.preventDefault();   // FR-OPT-4-11: 그려지지 않은 도구도 센다
 });

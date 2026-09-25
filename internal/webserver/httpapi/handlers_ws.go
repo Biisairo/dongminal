@@ -189,11 +189,14 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remo
 // handleWSDaemon is the daemon-mode WebSocket handler.
 // It uses toolhub.ToolHub methods (which go through toolclient.ToolClient RPC) instead of
 // toolhub.Tool struct internals.
-// Note: we do NOT resize the PTY from the URL query params here. When a
-// new window opens, the frontend creates WS connections for ALL tools with
-// default cols/rows (120x40), which would incorrectly resize tools owned by
-// other windows. The frontend sends the correct toolhub.OpResize via the WS binary
-// protocol after terminal open+fit, guarded by resizeCheck (session ownership).
+// Note: we do NOT resize the PTY from the URL query params here. The frontend
+// opens a tool's WS when the tool is first drawn (OPTIMIZE_REFACTOR_SRS
+// FR-OPT-4-11 — hidden tools are not connected), with default cols/rows
+// (120x40) because xterm is not fitted yet; and the drawing browser need not
+// own the tool's window, so the query would incorrectly resize tools owned by
+// other windows or browsers. The frontend sends the correct toolhub.OpResize via
+// the WS binary protocol after terminal open+fit, guarded by resizeCheck
+// (session ownership).
 func (s *Server) handleWSDaemon(r *http.Request, conn *toolhub.SafeConn, pc toolhub.DaemonHub, toolID string, since int64) {
 	// Subscribe to live output BEFORE taking the snapshot so output produced
 	// during the snapshot RPC round-trip is buffered rather than lost (FR-17).
