@@ -300,6 +300,9 @@ const WS_SAVE_CONFLICT_WARN=4;
 // 뜻이 없고, 상한이 없으면 저장이 사실상 멎는다.
 const WS_SAVE_BACKOFF_MS=200;
 const WS_SAVE_BACKOFF_MAX_MS=2000;
+// 입력 중인 설정의 저장을 미루는 시간 (OPTIMIZE_REFACTOR_SRS FR-OPT-5-2).
+// 글자·드래그마다 설정 blob 전체를 PUT 하지 않는다. 확정(blur·change)은 기다리지 않는다.
+const SETTINGS_SAVE_DEBOUNCE_MS=500;
 
 const KEY_BLOCK_EXEMPT_BARE=new Set(['F5','F11','F12']);
 const KEY_BLOCK_EXEMPT_MOD=new Set(['KeyC','KeyV','KeyX','KeyA','KeyI','KeyJ','KeyR']);

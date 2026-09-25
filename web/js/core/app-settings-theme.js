@@ -235,24 +235,40 @@ Object.assign(App.prototype, {
     // UI colors
     const uiDiv=document.getElementById('ce-ui'); uiDiv.innerHTML='';
     for(const [key,label] of Object.entries(UI_LABELS)){
-      uiDiv.appendChild(this._colorInput(key,label,customTheme.ui));
+      uiDiv.appendChild(this._colorInput(key,label,'ui'));
     }
     // Terminal colors
     const termDiv=document.getElementById('ce-terminal'); termDiv.innerHTML='';
     for(const [key,label] of Object.entries(TERM_LABELS)){
-      termDiv.appendChild(this._colorInput(key,label,customTheme.terminal));
+      termDiv.appendChild(this._colorInput(key,label,'terminal'));
     }
   },
 
-  _colorInput(key,label,obj){
+  /**
+   * 색 입력 하나. `section` 은 `customTheme` 의 칸 이름이다 (`ui`·`terminal`).
+   *
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-5-2 (FEC-4): **객체를 묶지 않고 칸 이름을 묶는다.**
+   * 종전에는 `customTheme.ui` 참조를 쥐었고, 설정 방송이 `customTheme` 을 새 객체로
+   * 갈아 끼운 뒤로는 입력이 옛 객체를 고쳐 화면에도 저장에도 닿지 않았다. 입력
+   * 순간의 전역을 고친다.
+   *
+   * 끄는 동안(`input`)은 화면만 따라가고 저장은 미룬다 (FEC-5). 놓을 때(`change`)
+   * 확정한다.
+   */
+  _colorInput(key,label,section){
     const item=document.createElement('div'); item.className='ce-item';
     const lbl=document.createElement('label'); lbl.textContent=label;
-    const inp=document.createElement('input'); inp.type='color'; inp.value=obj[key]||'#000000';
+    const inp=document.createElement('input'); inp.type='color';
+    inp.value=(customTheme&&customTheme[section]&&customTheme[section][key])||'#000000';
     inp.addEventListener('input',()=>{
-      obj[key]=inp.value;
+      if(!customTheme||!customTheme[section]) return;
+      customTheme[section][key]=inp.value;
       applyThemeObj(customTheme);
       this._renderPreview();
-      this.saveSettings();
+      this._saveSettingsSoon('theme-color');
+    });
+    inp.addEventListener('change',()=>{
+      if(customTheme) this._saveSettingsNow('theme-color');
     });
     item.appendChild(lbl); item.appendChild(inp);
     return item;

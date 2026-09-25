@@ -45,9 +45,14 @@ func TestSaveSettingsDerivesFromTable(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := string(src)
-	body := between(s, "async saveSettings(){", "\n  },")
+	// 본문을 짓는 일은 `_settingsBody` 가 한다 — saveSettings 가 비행 합치기를
+	// 갖게 되면서 갈렸다 (OPTIMIZE_REFACTOR_SRS FR-OPT-5-2).
+	if save := between(s, "saveSettings(){", "\n  },"); !strings.Contains(save, "this._settingsBody()") {
+		t.Fatal("saveSettings 가 _settingsBody 로 본문을 짓지 않는다")
+	}
+	body := between(s, "_settingsBody(){", "\n  },")
 	if body == "" {
-		t.Fatal("saveSettings 를 찾지 못했다")
+		t.Fatal("_settingsBody 를 찾지 못했다")
 	}
 	if !strings.Contains(body, "for(const spec of SETTINGS_SCHEMA)") {
 		t.Error("saveSettings 가 서술자 표를 돌지 않는다 (FR-CFG-4)")

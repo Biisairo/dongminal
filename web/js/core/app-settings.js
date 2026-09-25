@@ -135,17 +135,51 @@ const SETTINGS_ACCESS={
 
 
 Object.assign(App.prototype, {
-  async saveSettings(){
-    // 블롭 전체를 갈아치우므로 읽어 쓰는 값은 전부 실어야 한다 — 여기서 빠지면
-    // 다른 설정을 건드릴 때 조용히 사라진다.
-    //
-    // **그래서 나열하지 않는다** (CONFIG_MANAGEMENT_SRS FR-CFG-4). 본문은
-    // 서술자 표에서 파생되므로, 키를 더하고 여기를 잊는 실패 모드가 없어진다.
-    // `gitSignatureInterval` 이 표에 없는 것이 곧 싣지 않는다는 뜻이다 (FR-PIS-2).
-    //
-    // `FE-7`(PRODUCTION_ROADMAP §M3): **응답을 검사한다.** 종전에는 결과를
-    // 버렸고, 그래서 디스크가 차거나 경계에 걸려 거절된 저장이 **성공처럼**
-    // 보였다 — 사용자는 설정이 바뀐 줄 알고 다음 기동에서 옛 값을 만난다.
+  /**
+   * 설정 blob 전체를 서버에 쓴다.
+   *
+   * 블롭 전체를 갈아치우므로 읽어 쓰는 값은 전부 실어야 한다 — 여기서 빠지면
+   * 다른 설정을 건드릴 때 조용히 사라진다.
+   *
+   * **그래서 나열하지 않는다** (CONFIG_MANAGEMENT_SRS FR-CFG-4). 본문은
+   * 서술자 표에서 파생되므로, 키를 더하고 여기를 잊는 실패 모드가 없어진다.
+   * `gitSignatureInterval` 이 표에 없는 것이 곧 싣지 않는다는 뜻이다 (FR-PIS-2).
+   *
+   * `FE-7`(PRODUCTION_ROADMAP §M3): **응답을 검사한다.** 종전에는 결과를
+   * 버렸고, 그래서 디스크가 차거나 경계에 걸려 거절된 저장이 **성공처럼**
+   * 보였다 — 사용자는 설정이 바뀐 줄 알고 다음 기동에서 옛 값을 만난다.
+   *
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-5-2 (FEC-7): **비행은 하나다.** 비행 중에 부르면
+   * 표시만 하고 그 비행의 약속을 돌려받는다 — 비행이 끝나면 최신 본문으로 한 번
+   * 더 나간다. 전체 blob 두 개가 순서가 바뀌어 도착하면 옛 값이 남기 때문이다.
+   * 약속은 마지막 PUT 의 성패로 풀린다.
+   */
+  saveSettings(){
+    this._settingsDirty=true;
+    if(this._settingsChain) return this._settingsChain;
+    const run=async()=>{
+      let ok=true;
+      while(this._settingsDirty){
+        this._settingsDirty=false;
+        const body=JSON.stringify(this._settingsBody());
+        // D-OPT-7: 보낸 본문을 **보내기 전에** 적는다 — 방송이 응답보다 먼저 온다.
+        this._settingsLastSent=body;
+        const res=await apiPut('/api/settings',body);
+        ok=res.ok;
+        if(!ok&&this._notify) this._notify(SETTINGS_SAVE_FAIL);
+      }
+      this._settingsChain=null;
+      // 비행 중에 받은 방송은 미뤄 두었다 — 남의 저장일 수 있으므로 이제 다시 본다.
+      if(this._settingsEchoMissed){
+        this._settingsEchoMissed=false;
+        this._settingsRestore();
+      }
+      return ok;
+    };
+    return (this._settingsChain=run());
+  },
+
+  _settingsBody(){
     const body={};
     for(const spec of SETTINGS_SCHEMA){
       const acc=SETTINGS_ACCESS[spec.key];
@@ -154,9 +188,13 @@ Object.assign(App.prototype, {
       if(!acc||!acc.get) continue;
       body[spec.key]=acc.get.call(this);
     }
-    const res=await apiPut('/api/settings',body);
-    if(!res.ok&&this._notify) this._notify(SETTINGS_SAVE_FAIL);
-    return res.ok;
+    return body;
+  },
+
+  // D-OPT-7: 로컬 저장이 대기 중인가 — 미룬 입력 · 비행 · 비행 뒤 한 번 더.
+  _settingsLocalPending(){
+    return !!(this._settingsChain||this._settingsDirty||
+      (this._settingsSaveTimers&&this._settingsSaveTimers.size));
   },
 
   /**
@@ -280,7 +318,16 @@ Object.assign(App.prototype, {
     const t=this._restoreBegin('settings');
     return apiGet('/api/settings').then(r=>{
       if(!this._restoreLive('settings',t)) return;
-      this._settingsApply(r.ok?r.data:null);
+      /**
+       * OPTIMIZE_REFACTOR_SRS D-OPT-7 (FEC-4 · FEC-M3): **자기 에코는 얹지 않는다.**
+       *
+       * 방송은 보낸 쪽에도 온다. 받은 blob 이 마지막으로 보낸 본문과 같으면 이미
+       * 화면의 값이고, 얹으면 테마·단축키를 통째로 다시 적용하며 `customTheme` 을
+       * 새 객체로 갈아 끼운다. 로컬 저장이 대기 중이면 받은 blob 은 곧 우리 것에
+       * 덮이므로 얹지 않고, 그 저장이 끝난 뒤 한 번 더 본다 (`saveSettings`).
+       */
+      if(this._settingsLocalPending()) this._settingsEchoMissed=true;
+      else if(!(r.ok&&r.text===this._settingsLastSent)) this._settingsApply(r.ok?r.data:null);
       this._restoreEnd('settings',t);
     });
   },

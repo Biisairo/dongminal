@@ -104,6 +104,8 @@ const APP_TESTING_NAMES = [
   'save', 'saveSettings', '_onWorkspaceChanged', '_wsApplyInflight', '_focusCh',
   // 같은 구멍 (FR-FMB-45a). 저장의 **비행 중**과 **대기 중**은 다른 사실이다.
   '_applyRemoteWorkspace', '_saveInflight', '_savePending',
+  // OPTIMIZE_REFACTOR_SRS D-OPT-7: 자기 에코가 설정을 다시 얹지 않는지 센다.
+  '_settingsApply',
 
   // ── 그 밖 (misc) ──
   //

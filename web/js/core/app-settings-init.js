@@ -20,6 +20,30 @@ Object.assign(App.prototype, {
     document.title=(n?'('+n+') ':'')+effectiveTitle();
   },
 
+  /**
+   * FR-OPT-5-2 (FEC-6): 입력 중인 설정의 저장을 미룬다. `key` 는 입력란 하나이고,
+   * 같은 키의 다음 입력이 타이머를 다시 건다 — 글자·드래그마다 PUT 을 보내지 않는다.
+   */
+  _saveSettingsSoon(key){
+    const timers=this._settingsSaveTimers||(this._settingsSaveTimers=new Map());
+    TIMERS.cancel(timers.get(key));
+    timers.set(key,this.timers.after(SETTINGS_SAVE_DEBOUNCE_MS,()=>{
+      timers.delete(key);
+      this.saveSettings();
+    },{owner:'app',label:'save-'+key}));
+  },
+
+  /**
+   * 확정(`blur`·`change`)은 미루지 않는다. 디바운스는 입력 **중**의 요청 수를
+   * 줄이는 장치이지 정해진 값을 늦추는 장치가 아니다 (실측 W7: 값을 바꾸고 바로
+   * 새로고침하면 입력이 통째로 날아갔다).
+   */
+  _saveSettingsNow(key){
+    const timers=this._settingsSaveTimers;
+    if(timers&&timers.has(key)){ TIMERS.cancel(timers.get(key)); timers.delete(key) }
+    return this.saveSettings();
+  },
+
   // FR-PGT-1: Settings ▸ Display 의 `페이지 제목`.
   _initPageTitle(){
     const el=document.getElementById('ds-title');
@@ -29,8 +53,7 @@ Object.assign(App.prototype, {
       // FR-PGT-9: 저장을 기다리지 않고 지금 값이 탭에서 어떻게 보이는지 보인다.
       this._applyPageTitle();
       // FR-PGT-5: 글자마다 PUT 을 보내지 않는다.
-      TIMERS.cancel(this._titleSaveTimer);
-      this._titleSaveTimer=this.timers.after(500,()=>this.saveSettings(),{owner:'app',label:'save-title'});
+      this._saveSettingsSoon('title');
     });
   },
 
@@ -58,8 +81,7 @@ Object.assign(App.prototype, {
       // 고쳐 쓰면 타이핑이 튄다 (`160` 을 지우고 `9` 를 치는 순간 `40` 이 된다).
       tabWidthPx=clampTabWidth(num.value);
       applyTabWidth();
-      TIMERS.cancel(this._tabwSaveTimer);
-      this._tabwSaveTimer=this.timers.after(500,()=>this.saveSettings(),{owner:'app',label:'save-tabw'});
+      this._saveSettingsSoon('tabw');
     });
     /**
      * 포커스를 놓을 때 두 가지를 한다.
@@ -73,8 +95,7 @@ Object.assign(App.prototype, {
      */
     num.addEventListener('blur',()=>{
       num.value=String(tabWidthPx);
-      TIMERS.cancel(this._tabwSaveTimer);
-      this.saveSettings();
+      this._saveSettingsNow('tabw');
     });
   },
 
@@ -189,16 +210,12 @@ Object.assign(App.prototype, {
       this._attnEdgePaintRow();
       this._paintFocusEdge();
       this._focusEdgePreview();
-      TIMERS.cancel(this._ufeSaveTimer);
-      this._ufeSaveTimer=this.timers.after(500,()=>this.saveSettings(),{owner:'app',label:'save-ufe'});
+      this._saveSettingsSoon('ufe');
     });
     // 손을 떼는 순간이 값이 정해지는 순간이다 — 그때는 기다리지 않고 보낸다.
     // `tabWidthPx` 가 `blur` 에서 하는 것과 같은 자리다: 디바운스는 드래그 **중**의
     // PUT 폭주를 막으려는 것이지, 정해진 값을 늦추려는 것이 아니다.
-    sl.addEventListener('change',()=>{
-      TIMERS.cancel(this._ufeSaveTimer);
-      this.saveSettings();
-    });
+    sl.addEventListener('change',()=>this._saveSettingsNow('ufe'));
   },
 
   /**
@@ -221,13 +238,9 @@ Object.assign(App.prototype, {
       this._attnEdgePreview();
       // 세기를 0 으로 내리면 지금 켜져 있던 띠도 그 자리에서 꺼져야 한다.
       this._attnRefresh();
-      TIMERS.cancel(this._aeSaveTimer);
-      this._aeSaveTimer=this.timers.after(500,()=>this.saveSettings(),{owner:'app',label:'save-ae'});
+      this._saveSettingsSoon('ae');
     });
-    sl.addEventListener('change',()=>{
-      TIMERS.cancel(this._aeSaveTimer);
-      this.saveSettings();
-    });
+    sl.addEventListener('change',()=>this._saveSettingsNow('ae'));
   },
 
   // FR-AED-11: 0 은 숫자가 아니라 상태다 — `끔` 이라 적는다.
@@ -374,7 +387,6 @@ Object.assign(App.prototype, {
   _initNumSetting(id,key,apply){
     const num=document.getElementById(id);
     if(!num) return;
-    const timer='_fontSaveTimer_'+key;
     const read=()=>clampSetting(key,num.value);
     const paint=()=>{num.value=String(SETTINGS_ACCESS[key].get()??SETTINGS_BY_KEY[key].def)};
     paint();
@@ -385,14 +397,12 @@ Object.assign(App.prototype, {
       // FR-FSS-19: 자르는 것은 **적용하는 값뿐**이다 — 입력란의 글자를 그때그때
       // 고쳐 쓰면 타이핑이 튄다 (`150` 을 지우고 `9` 를 치는 순간 80 이 된다).
       apply.call(this,read());
-      TIMERS.cancel(this[timer]);
-      this[timer]=this.timers.after(500,()=>this.saveSettings(),{owner:'app',label:'save-'+id});
+      this._saveSettingsSoon(id);
     });
     num.addEventListener('blur',()=>{
       // 잘린 사실이 **보여야** 사용자가 왜 그 크기인지 안다 (FR-TBW-4 와 같은 근거).
       num.value=String(read());
-      TIMERS.cancel(this[timer]);
-      this.saveSettings();
+      this._saveSettingsNow(id);
     });
   },
 
