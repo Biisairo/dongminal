@@ -200,20 +200,23 @@ func (s *Server) handleWSDaemon(r *http.Request, conn *toolhub.SafeConn, pc tool
 	// TUI 가 낸 델타가 두 번 들어간다 — TUI 에는 harmless 가 아니다 (SRS §2.5).
 	outputCh := make(chan toolhub.OutChunk, 256)
 	exitCh, unsub := pc.Subscribe(toolID, outputCh)
-	defer unsub()
 
 	// FR-TRS-4·10: 이어 붙일 수 있으면 그 뒤만, 없으면 지우고 전량.
 	snap, err := pc.SnapshotToolSince(toolID, since)
-	if errors.Is(err, toolhub.ErrToolNotFound) {
-		// FR-OPT-2-5: 존재 확인은 이 응답이 한다. 연결 오류는 아래로 가 닫히고
-		// 브라우저가 다시 시도한다 — Get 경로의 재접속 창과 같은 갈래다.
-		s.wsToolGone(r, conn, toolID)
-		return
-	}
 	if err != nil {
+		// 구독을 먼저 푼다 — 없는 도구의 연결은 wsToolGone 이 붙잡을 수 있고
+		// (holdMiss), 그동안 구독이 남으면 안 된다.
+		unsub()
+		if errors.Is(err, toolhub.ErrToolNotFound) {
+			// FR-OPT-2-5: 존재 확인은 이 응답이 한다. 연결 오류는 닫히고 브라우저가
+			// 다시 시도한다 — Get 경로의 재접속 창과 같은 갈래다.
+			s.wsToolGone(r, conn, toolID)
+			return
+		}
 		dmlog.Errorf(nil, "[tool %s] snapshot error: %v", toolID, err)
 		return
 	}
+	defer unsub()
 	// OpToolID 는 존재를 확인한 **뒤에** 보낸다. 없는 도구의 연결이 받는 것은 종전과
 	// 같이 OpExit 하나다. 그 사이에 나가는 프레임은 없으므로 있는 도구의 순서도 같다.
 	_ = conn.Send(toolhub.OpToolID, []byte(toolID))

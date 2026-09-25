@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http/httptest"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -86,5 +87,49 @@ func TestWSLegacyDaemonConnectUsesGet(t *testing.T) {
 	}
 	if op := wsFirstOp(t, h, "nope"); op != toolhub.OpExit {
 		t.Fatalf("없는 도구의 첫 op=0x%02x want OpExit", op)
+	}
+}
+
+// subCountingDaemon 은 살아 있는 구독 수를 센다.
+type subCountingDaemon struct {
+	toolhub.DaemonHub
+	active atomic.Int64
+}
+
+func (d *subCountingDaemon) Subscribe(id string, ch chan toolhub.OutChunk) (<-chan struct{}, func()) {
+	ex, un := d.DaemonHub.Subscribe(id, ch)
+	d.active.Add(1)
+	var once sync.Once
+	return ex, func() { once.Do(func() { d.active.Add(-1) }); un() }
+}
+
+type subCountingHub struct {
+	*toolclient.ToolClient
+	d *subCountingDaemon
+}
+
+func (h *subCountingHub) Daemon() toolhub.DaemonHub { return h.d }
+
+// 없는 도구의 구독은 OpExit 를 보내기 전에 푼다 — 붙잡는 동안(holdMiss, 최대
+// MissHoldMax) 없는 도구의 구독이 남지 않는다 (FR-OPT-2-5).
+func TestWSDaemonMissReleasesSubscription(t *testing.T) {
+	_, pc := daemonPair(t)
+	d := &subCountingDaemon{DaemonHub: pc}
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: &subCountingHub{ToolClient: pc, d: d}})
+	// 임계 바로 앞까지 미스를 쌓아 이번 연결이 붙잡히게 한다.
+	for i := 1; i < MissHoldAfter; i++ {
+		srv.misses.count("nope", time.Now())
+	}
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+	ws := mustWS(t, ts, "/ws?tool=nope")
+	defer ws.Close()
+	ws.SetReadDeadline(time.Now().Add(MissDelay + 5*time.Second))
+	_, msg, err := ws.ReadMessage()
+	if err != nil || len(msg) == 0 || msg[0] != toolhub.OpExit {
+		t.Fatalf("첫 프레임: msg=%q err=%v — OpExit 여야 한다", msg, err)
+	}
+	if n := d.active.Load(); n != 0 {
+		t.Fatalf("OpExit 뒤에 없는 도구의 구독 %d개가 남았다", n)
 	}
 }
