@@ -325,6 +325,9 @@ func readWS(conn *toolhub.SafeConn, tool *toolhub.Tool) {
 // readWSDirect is the original WS read loop kept for direct mode.
 func readWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool) { readWS(conn, tool) }
 
+// relayCoalesceMax 는 릴레이가 합쳐 보내는 출력 프레임 하나의 상한이다 (FR-OPT-2-7).
+const relayCoalesceMax = 64 << 10
+
 // relayOutput pumps live tool output to one WS client until the tool exits,
 // the handler returns, or **a write fails**.
 //
@@ -333,56 +336,113 @@ func readWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool) { readWS(conn, too
 // broken pipe 를 쏟아냈다 — 읽기 루프가 toolhub.PongWait 로 깨질 때까지 26초간 로그가
 // 7.7MB 로 불었다 (실측 2026-08-25). 소켓을 닫으면 읽기 루프가 곧바로 풀리고
 // 핸들러의 defer 가 구독을 해제한다.
+//
+// 채널에 이미 쌓인 연속 출력은 relayCoalesceMax 안에서 한 프레임으로 합친다
+// (FR-OPT-2-7). 크기 조각·구멍·닫힘을 만나면 합친 것을 먼저 내보낸 뒤 그것을 다룬다.
 func relayOutput(conn *toolhub.SafeConn, toolID string, outputCh <-chan toolhub.OutChunk, exitCh <-chan struct{}, done <-chan struct{}, sent int64) {
+	var pending *toolhub.OutChunk
+	pendingClosed := false
+	var buf []byte
+	fail := func(what string, err error) {
+		dmlog.Infof(nil, "[tool %s] %s relay stopped addr=%s: %v", toolID, what, conn.RemoteAddr(), err)
+		conn.Close()
+	}
 	for {
-		select {
-		case chunk, ok := <-outputCh:
-			// OPTIMIZE_REFACTOR_SRS FR-OPT-1-2: 구독이 끊겼다(데몬 재접속). 도구는
-			// 살아 있으므로 exit 없이 닫는다 — 브라우저가 since 로 재동기한다.
-			if !ok {
-				dmlog.Infof(nil, "[tool %s] relay resync addr=%s", toolID, conn.RemoteAddr())
+		var chunk toolhub.OutChunk
+		ok := true
+		switch {
+		case pendingClosed:
+			ok = false
+		case pending != nil:
+			chunk, pending = *pending, nil
+		default:
+			select {
+			case chunk, ok = <-outputCh:
+			case <-exitCh:
+				_ = conn.Send(toolhub.OpExit, nil)
 				conn.Close()
 				return
-			}
-			// FR-M9-3 ②: 크기 조각은 출력이 아니다. 같은 채널로 오는 이유는
-			// **순서** 때문이며(hub.go 의 OutChunk 참조), 여기서 갈라 그대로 낸다.
-			if chunk.Size != nil {
-				if err := conn.Send(toolhub.OpSize, toolhub.SizePayload(chunk.Size.Cols, chunk.Size.Rows)); err != nil {
-					dmlog.Infof(nil, "[tool %s] size relay stopped addr=%s: %v", toolID, conn.RemoteAddr(), err)
-					conn.Close()
-					return
-				}
-				continue
-			}
-			// FR-OPT-1-2: 좌표에 구멍이 났다(드롭·재접속 공백). 이어 보내면 그
-			// 바이트가 화면에서 영구히 빠지고 브라우저의 since 가 어긋난다 — 닫아서
-			// 브라우저가 자기 since 로 재접속해 빠진 구간부터 재생받게 한다.
-			if chunk.End > 0 && sent >= 0 && chunk.End-int64(len(chunk.Data)) > sent {
-				dmlog.Warnf(nil, "[tool %s] output gap sent=%d start=%d addr=%s — resync", toolID, sent, chunk.End-int64(len(chunk.Data)), conn.RemoteAddr())
-				conn.Close()
+			case <-done:
 				return
 			}
-			// FR-TRS-16: 이미 보낸 구간은 잘라낸다. 기준점(sent)은 보낸 만큼 전진한다.
-			data := trimOverlap(chunk.Data, chunk.End, sent)
-			if chunk.End > sent {
-				sent = chunk.End
-			}
-			if len(data) == 0 {
-				continue
-			}
-			if err := conn.Send(toolhub.OpOutput, data); err != nil {
-				dmlog.Infof(nil, "[tool %s] output relay stopped addr=%s: %v", toolID, conn.RemoteAddr(), err)
-				conn.Close()
-				return
-			}
-		case <-exitCh:
-			_ = conn.Send(toolhub.OpExit, nil)
+		}
+		// OPTIMIZE_REFACTOR_SRS FR-OPT-1-2: 구독이 끊겼다(데몬 재접속). 도구는
+		// 살아 있으므로 exit 없이 닫는다 — 브라우저가 since 로 재동기한다.
+		if !ok {
+			dmlog.Infof(nil, "[tool %s] relay resync addr=%s", toolID, conn.RemoteAddr())
 			conn.Close()
 			return
-		case <-done:
+		}
+		// FR-M9-3 ②: 크기 조각은 출력이 아니다. 같은 채널로 오는 이유는
+		// **순서** 때문이며(hub.go 의 OutChunk 참조), 여기서 갈라 그대로 낸다.
+		if chunk.Size != nil {
+			if err := conn.Send(toolhub.OpSize, toolhub.SizePayload(chunk.Size.Cols, chunk.Size.Rows)); err != nil {
+				fail("size", err)
+				return
+			}
+			continue
+		}
+		// FR-OPT-1-2: 좌표에 구멍이 났다(드롭·재접속 공백). 이어 보내면 그
+		// 바이트가 화면에서 영구히 빠지고 브라우저의 since 가 어긋난다 — 닫아서
+		// 브라우저가 자기 since 로 재접속해 빠진 구간부터 재생받게 한다.
+		if outputGap(chunk, sent) {
+			dmlog.Warnf(nil, "[tool %s] output gap sent=%d start=%d addr=%s — resync", toolID, sent, chunk.End-int64(len(chunk.Data)), conn.RemoteAddr())
+			conn.Close()
+			return
+		}
+		// FR-TRS-16: 이미 보낸 구간은 잘라낸다. 기준점(sent)은 보낸 만큼 전진한다.
+		frame := trimOverlap(chunk.Data, chunk.End, sent)
+		sent = advanceSent(chunk, sent)
+		joined := false
+	drain:
+		for {
+			select {
+			case next, ok := <-outputCh:
+				if !ok {
+					pendingClosed = true
+					break drain
+				}
+				if next.Size != nil || outputGap(next, sent) {
+					pending = &next
+					break drain
+				}
+				d := trimOverlap(next.Data, next.End, sent)
+				if len(frame)+len(d) > relayCoalesceMax {
+					pending = &next
+					break drain
+				}
+				if !joined && len(d) > 0 {
+					buf = append(buf[:0], frame...)
+					frame, joined = buf, true
+				}
+				frame = append(frame, d...)
+				buf = frame[:0]
+				sent = advanceSent(next, sent)
+			default:
+				break drain
+			}
+		}
+		if len(frame) == 0 {
+			continue
+		}
+		if err := conn.Send(toolhub.OpOutput, frame); err != nil {
+			fail("output", err)
 			return
 		}
 	}
+}
+
+// outputGap 은 조각의 시작이 이미 보낸 끝보다 뒤인가다 (FR-OPT-1-2). End=0(옛 데몬)은
+// 판정하지 않는다.
+func outputGap(c toolhub.OutChunk, sent int64) bool {
+	return c.End > 0 && sent >= 0 && c.End-int64(len(c.Data)) > sent
+}
+
+func advanceSent(c toolhub.OutChunk, sent int64) int64 {
+	if c.End > sent {
+		return c.End
+	}
+	return sent
 }
 
 func pingLoop(conn *toolhub.SafeConn, done <-chan struct{}) {

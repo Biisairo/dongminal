@@ -81,8 +81,14 @@ var Upgrader = websocket.Upgrader{
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
+// sendBufKeep 은 SafeConn 이 다음 송신을 위해 쥐고 있는 버퍼의 상한이다. 재생
+// (최대 1 MB) 한 번이 연결마다 그만큼을 붙잡아 두지 않게 한다.
+const sendBufKeep = 64 << 10
+
 type SafeConn struct {
-	mu        sync.Mutex
+	mu sync.Mutex
+	// frame 은 op 바이트와 payload 를 이어 붙이는 재사용 버퍼다 (mu 아래).
+	frame     []byte
 	conn      *websocket.Conn
 	closeOnce sync.Once
 }
@@ -106,13 +112,27 @@ func (s *SafeConn) WritePing() error {
 // Send writes one framed message. **에러를 반환한다** — 죽은 소켓에 계속 쓰면
 // 초당 수십 줄의 broken pipe 로그가 쌓이므로(실측 2026-08-25), 반복 송신하는
 // 호출자는 첫 실패에서 그 구독을 접어야 한다.
+//
+// op 바이트와 payload 는 연결의 재사용 버퍼에 이어 붙여 한 프레임으로 쓴다 —
+// 프레임마다 새로 할당하지 않는다 (FR-OPT-2-7, IPC-25). NextWriter 로 이어 쓰면
+// 할당은 같이 사라지지만 8 KiB 쓰기 버퍼에서 조각 프레임이 나뉘어 더 느렸다
+// (BenchmarkSafeConnSend: 3.6 µs vs 2.2 µs).
 func (s *SafeConn) Send(op byte, payload []byte) error {
-	m := make([]byte, 1+len(payload))
-	m[0] = op
-	copy(m[1:], payload)
-	err := s.WriteMsg(websocket.BinaryMessage, m)
+	err := s.writeFrame(op, payload)
 	if err != nil {
 		dmlog.Infof(nil, "ws send op=0x%02x addr=%s: %v", op, s.RemoteAddr(), err)
+	}
+	return err
+}
+
+func (s *SafeConn) writeFrame(op byte, payload []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.frame = append(append(s.frame[:0], op), payload...)
+	s.conn.SetWriteDeadline(time.Now().Add(writeWait))
+	err := s.conn.WriteMessage(websocket.BinaryMessage, s.frame)
+	if cap(s.frame) > sendBufKeep {
+		s.frame = nil
 	}
 	return err
 }

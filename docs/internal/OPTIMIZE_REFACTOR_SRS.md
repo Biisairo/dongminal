@@ -152,7 +152,7 @@ rev-parse 와 status 를 실행한다(IPC-7).
 | FR-OPT-2-4 | busy 일괄 조회: 데몬에 `busymany(ids)` RPC, 서버에 `GET /api/tools/busy?ids=` 를 둔다. 스위퍼는 로컬 판정을 먼저 하고 busy 탐침은 마지막에 부른다. RPC 오류는 판정 보류(`ok=false`)이며 "바쁘지 않음" 으로 읽지 않는다. | HTTP-2 · HTTP-M1 · IPC-10 · IPC-M2 | N 왕복 → 1 |
 | FR-OPT-2-5 | WS 연결 시 존재 확인용 Get 을 없애고 snapshot 의 `CodeNotFound` 로 판정한다. 데몬이 `snapnotfound` 를 말하지 않으면(옛 데몬) Get 경로로 강등한다. | IPC-23 | 연결당 RPC 2 → 1 |
 | FR-OPT-2-6 | IPC 계약을 `toolipc` 의 메서드·이벤트 상수와 typed 구조체로 옮긴다. 수신은 한 번만 Decode 한다. 쓰기 뮤텍스를 분리하고, Marshal 오류는 호출자에게 돌려준다. 와이어 JSON 바이트는 바꾸지 않는다. | IPC-13 · IPC-14 · IPC-22 | 청크당 JSON 해석 3 → 1 |
-| FR-OPT-2-7 | 데몬 모드 WS 중계는 채널에 쌓인 연속 출력을 64 KiB 안에서 한 프레임으로 합친다 (size·exit 앞에서 flush). WS 송신은 `NextWriter` 로 op 바이트와 payload 를 복사 없이 쓴다. | HTTP-6 · IPC-25 | 폭주 출력 때 프레임 수가 줄어든다 |
+| FR-OPT-2-7 | 데몬 모드 WS 중계는 채널에 쌓인 연속 출력을 64 KiB 안에서 한 프레임으로 합친다 (size·exit 앞에서 flush). WS 송신은 op 바이트를 붙이려고 프레임마다 할당하지 않는다 — 연결의 재사용 버퍼(상한 64 KiB 까지 유지)에 이어 붙여 한 프레임으로 쓴다. `NextWriter` 안은 8 KiB 쓰기 버퍼에서 조각 프레임이 나뉘어 더 느려(벤치 3.6 µs vs 2.2 µs) 택하지 않았다. | HTTP-6 · IPC-25 | 폭주 출력 때 프레임 수가 줄어든다 |
 | FR-OPT-2-8 | Accept 의 도달 불가 갈래와 hello 의 미사용 필드(`tool_ids`·`server_pid`)를 지운다. exit 의 stderr 사유는 **D-OPT-6** 에 따라 되살리거나 폐기한다. | IPC-24 · IPC-18 | |
 
 ### 3.3 O3 — PTY 출력 핫패스

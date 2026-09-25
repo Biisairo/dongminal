@@ -303,8 +303,11 @@ func TestRelayOutput_StopsOnWriteFailure(t *testing.T) {
 	feeding := make(chan struct{})
 	go func() {
 		defer close(feeding)
+		// 조각마다 상한 크기라 합치지 않는다 (FR-OPT-2-7) — 한 번의 송신이 한 조각이고,
+		// 합칠지 보려고 다음 하나를 더 꺼낼 뿐이다.
+		big := make([]byte, relayCoalesceMax)
 		for i := 0; i < 64; i++ {
-			out <- toolclient.OutChunk{Data: []byte("x")}
+			out <- toolclient.OutChunk{Data: big}
 		}
 	}()
 
@@ -440,15 +443,23 @@ func TestRelayOutput_AdvancesSentAndKeepsContiguous(t *testing.T) {
 	out <- toolclient.OutChunk{Data: []byte("lo"), End: 5} // 이미 보낸 구간
 	out <- toolclient.OutChunk{Data: []byte("world"), End: 10}
 	out <- toolclient.OutChunk{Data: []byte("old")} // End=0
-	for _, want := range []string{"hello", "world", "old"} {
+	// 쌓인 조각은 한 프레임으로 합쳐질 수 있다 (FR-OPT-2-7) — 프레임 경계가 아니라
+	// 이어 붙인 바이트를 본다.
+	const want = "helloworldold"
+	var got []byte
+	for len(got) < len(want) {
 		cli.SetReadDeadline(time.Now().Add(3 * time.Second))
 		_, msg, err := cli.ReadMessage()
 		if err != nil {
-			t.Fatalf("read %q: %v", want, err)
+			t.Fatalf("read after %q: %v", got, err)
 		}
-		if len(msg) == 0 || msg[0] != toolhub.OpOutput || string(msg[1:]) != want {
-			t.Fatalf("want %q, got %q", want, msg)
+		if len(msg) == 0 || msg[0] != toolhub.OpOutput {
+			t.Fatalf("예상 밖 프레임 %q", msg)
 		}
+		got = append(got, msg[1:]...)
+	}
+	if string(got) != want {
+		t.Fatalf("want %q, got %q", want, got)
 	}
 	close(done)
 	<-fin
