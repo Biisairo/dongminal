@@ -289,6 +289,11 @@ func (pc *ToolClient) SnapshotTool(id string) (toolhub.ToolSnapshot, error) {
 func (pc *ToolClient) SnapshotToolSince(id string, since int64) (toolhub.ToolSnapshot, error) {
 	resp, err := callT[toolipc.SnapshotResult](pc, toolipc.MethodSnapshot, toolipc.SnapshotParams{ID: id, Since: since})
 	if err != nil {
+		// FR-OPT-2-5: "없음" 은 코드로 건너온다 — 연결 오류(재시도)와 갈라야 한다.
+		var rpc *toolipc.RPCError
+		if errors.As(err, &rpc) && rpc.Code == toolipc.CodeNotFound {
+			return toolhub.ToolSnapshot{}, fmt.Errorf("%w: %s", toolhub.ErrToolNotFound, id)
+		}
 		return toolhub.ToolSnapshot{}, err
 	}
 	// FR-M9-3 ①: 크기. 옛 데몬은 이 필드를 보내지 않으므로 0 이 되고, 0 은

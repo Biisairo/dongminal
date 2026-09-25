@@ -296,13 +296,22 @@ func TestPanedCreateWriteSnapshotFlow(t *testing.T) {
 	pc := &panedConn{pm: pm, encoder: json.NewEncoder(&buf)}
 
 	pc.dispatch(&toolipc.PanedRequest{ID: 1, Method: "create", Params: json.RawMessage(`{"cwd":"/tmp","cols":80,"rows":24}`)})
+	// 만든 도구의 id 로 묻는다 — 없는 id 의 snapshot 은 CodeNotFound 다 (FR-OPT-2-5).
+	var created struct {
+		Result toolipc.CreateResult `json:"result"`
+	}
+	if err := json.Unmarshal(bytes.TrimRight(buf.Bytes(), "\n"), &created); err != nil || created.Result.ID == "" {
+		t.Skipf("PTY 생성 불가(환경): %s", buf.String())
+	}
+	id := created.Result.ID
+	defer pm.Delete(id)
 	buf.Reset()
 
 	data := base64.StdEncoding.EncodeToString([]byte("echo test\n"))
-	pc.dispatch(&toolipc.PanedRequest{ID: 2, Method: "write", Params: json.RawMessage(fmt.Sprintf(`{"id":"1","data":"%s"}`, data))})
+	pc.dispatch(&toolipc.PanedRequest{ID: 2, Method: "write", Params: json.RawMessage(fmt.Sprintf(`{"id":"%s","data":"%s"}`, id, data))})
 
 	buf.Reset()
-	pc.dispatch(&toolipc.PanedRequest{ID: 3, Method: "snapshot", Params: json.RawMessage(`{"id":"1"}`)})
+	pc.dispatch(&toolipc.PanedRequest{ID: 3, Method: "snapshot", Params: json.RawMessage(fmt.Sprintf(`{"id":"%s"}`, id))})
 
 	var resp toolipc.PanedResponse
 	json.Unmarshal(bytes.TrimRight(buf.Bytes(), "\n"), &resp)
@@ -401,9 +410,11 @@ func TestPanedListCarriesForegroundName(t *testing.T) {
 		return "<도구 없음>"
 	}
 
+	// list 는 캐시만 읽는다 (FR-OPT-2-1). 갱신은 데몬의 티커 몫이라 여기서 대신 돌린다.
 	deadline := time.Now().Add(10 * time.Second)
 	var got string
 	for time.Now().Before(deadline) {
+		pm.RefreshForeground()
 		if got = fgOf(); got == "sleep" {
 			return
 		}

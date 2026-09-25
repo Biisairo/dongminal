@@ -146,11 +146,11 @@ rev-parse 와 status 를 실행한다(IPC-7).
 
 | FR | 요구 | 등록부 | 기대 효과 |
 |---|---|---|---|
-| FR-OPT-2-1 | 데몬 모드에서는 **데몬이** 전경 갱신 티커를 돌리고 변화만 push 한다. 이 push 는 드롭하지 않는다. 서버의 `StartForegroundPoll` 은 직접 모드에서만 돈다. list 핸들러는 캐시만 읽는다. | IPC-1 · SHR-5 · HTTP-1 · IPC-M3 | list RPC 0.5/s → 0. dispatch 경로에서 `ps` 가 빠진다 |
+| FR-OPT-2-1 | 데몬 모드에서는 **데몬이** 전경 갱신 티커를 돌리고 변화만 push 한다. 이 push 는 드롭하지 않는다. 서버의 `StartForegroundPoll` 은 직접 모드에서만 조회를 시킨다 — 데몬 모드에서는 데몬이 `hello.features` 에 `fgtick` 을 말하지 않았을 때(옛 데몬)만 종전의 list 폴로 강등한다. list 핸들러는 캐시만 읽는다. | IPC-1 · SHR-5 · HTTP-1 · IPC-M3 | list RPC 0.5/s → 0. dispatch 경로에서 `ps` 가 빠진다 |
 | FR-OPT-2-2 | IPC 에 **응답 없는 알림**(`input`, `resize`)을 추가하고 기능 협상으로 켠다. WS 경로는 알림을 쓴다. HTTP send-input 은 오류를 돌려줘야 하므로 RPC 를 유지한다. | IPC-2 | 키 입력당 프레임 2 → 1. 응답 대기가 사라진다 |
 | FR-OPT-2-3 | `create`·`restore` 를 읽기 루프 밖에서 처리한다 (연결당 세마포어). 클라이언트 Create 시한은 전용 상수(60 s)로 둔다. 순서 전제(ListOK 캐시·skill-contract e2e)는 세대 검사로 안전한지 먼저 테스트로 확인한다. | IPC-3 | 샌드박스 생성이 다른 도구의 입력을 막지 않는다 |
 | FR-OPT-2-4 | busy 일괄 조회: 데몬에 `busymany(ids)` RPC, 서버에 `GET /api/tools/busy?ids=` 를 둔다. 스위퍼는 로컬 판정을 먼저 하고 busy 탐침은 마지막에 부른다. RPC 오류는 판정 보류(`ok=false`)이며 "바쁘지 않음" 으로 읽지 않는다. | HTTP-2 · HTTP-M1 · IPC-10 · IPC-M2 | N 왕복 → 1 |
-| FR-OPT-2-5 | WS 연결 시 존재 확인용 Get 을 없애고 snapshot 의 `CodeNotFound` 로 판정한다. | IPC-23 | 연결당 RPC 2 → 1 |
+| FR-OPT-2-5 | WS 연결 시 존재 확인용 Get 을 없애고 snapshot 의 `CodeNotFound` 로 판정한다. 데몬이 `snapnotfound` 를 말하지 않으면(옛 데몬) Get 경로로 강등한다. | IPC-23 | 연결당 RPC 2 → 1 |
 | FR-OPT-2-6 | IPC 계약을 `toolipc` 의 메서드·이벤트 상수와 typed 구조체로 옮긴다. 수신은 한 번만 Decode 한다. 쓰기 뮤텍스를 분리하고, Marshal 오류는 호출자에게 돌려준다. 와이어 JSON 바이트는 바꾸지 않는다. | IPC-13 · IPC-14 · IPC-22 | 청크당 JSON 해석 3 → 1 |
 | FR-OPT-2-7 | 데몬 모드 WS 중계는 채널에 쌓인 연속 출력을 64 KiB 안에서 한 프레임으로 합친다 (size·exit 앞에서 flush). WS 송신은 `NextWriter` 로 op 바이트와 payload 를 복사 없이 쓴다. | HTTP-6 · IPC-25 | 폭주 출력 때 프레임 수가 줄어든다 |
 | FR-OPT-2-8 | Accept 의 도달 불가 갈래와 hello 의 미사용 필드(`tool_ids`·`server_pid`)를 지운다. exit 의 stderr 사유는 **D-OPT-6** 에 따라 되살리거나 폐기한다. | IPC-24 · IPC-18 | |

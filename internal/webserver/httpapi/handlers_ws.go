@@ -5,6 +5,7 @@ import (
 	"dongminal/internal/webserver/apierr"
 
 	"dongminal/internal/shared/toolhub"
+	"dongminal/internal/shared/toolipc"
 
 	"encoding/binary"
 	"errors"
@@ -47,7 +48,11 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	cols, rows := toolhub.ParseSize(r)
 	var tool *toolhub.Tool
 
-	if toolID != "" {
+	// FR-OPT-2-5: snapshot 이 "없음" 을 말하는 데몬에는 존재 확인(Get = list RPC)을
+	// 하지 않는다 — handleWSDaemon 의 snapshot 이 같은 판정을 한다.
+	d := s.Tools.Daemon()
+	snapJudges := d != nil && d.HasFeature(toolipc.FeatureSnapshotNotFound)
+	if toolID != "" && !snapJudges {
 		tool = s.Tools.Get(toolID)
 		if tool == nil {
 			// During a daemon reconnect window Get() fails transiently. Don't
@@ -57,24 +62,10 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 				dmlog.Warnf(nil, "ws addr=%s: tool %s lookup during daemon reconnect; closing for retry", r.RemoteAddr, toolID)
 				return
 			}
-			// FR-RCS-9: 규약을 지키는 클라이언트는 이 통보 한 번으로 판정을
-			// 끝낸다. 그래도 다시 오는 쪽 — 옛 JS 를 물고 있어 배포가 닿지 않는
-			// 탭 — 만 늦춘다. 첫 미스는 늦추지 않으므로 정상 경로는 그대로다.
-			s.throttleMiss(r.Context(), toolID)
-			// Send toolhub.OpExit so the frontend knows this tool is permanently gone.
-			_ = conn.Send(toolhub.OpExit, nil)
-			dmlog.Infof(nil, "ws addr=%s: tool %s not found (sent toolhub.OpExit)", r.RemoteAddr, toolID)
-			// FR-CNR-2: 통보를 보낸 **뒤에** 붙잡는다. 임계를 넘도록 되풀이해 온
-			// 연결은 여기서 돌아오지 않으며, 그동안 소켓이 닫히지 않으므로
-			// 클라이언트에 `onclose` — 재연결의 유일한 계기 — 가 서지 않는다.
-			// 지연은 주기를 늘릴 뿐 고리를 끊지 못한다 (D-2).
-			//
-			// `conn.Close()` 는 defer 가 부른다. 여기서 따로 닫지 않는 것이
-			// 붙잡기의 전부다.
-			s.holdMiss(r.Context(), toolID, conn)
+			s.wsToolGone(r, conn, toolID)
 			return
 		}
-	} else {
+	} else if toolID == "" {
 		tool, err = s.tools(r).Create("", cols, rows, toolhub.Placement{})
 		if err != nil {
 			// 실제 오류를 화면까지 보낸다. 고정 문구만 보내면 사용자에게는
@@ -95,11 +86,30 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Branch: daemon mode vs direct mode — 모드 판별은 `Daemon()` 하나다 (`GO-46`).
-	if d := s.Tools.Daemon(); d != nil {
-		s.handleWSDaemon(conn, d, toolID, since)
+	if d != nil {
+		s.handleWSDaemon(r, conn, d, toolID, since)
 	} else {
 		s.handleWSDirect(conn, tool, r.RemoteAddr, since)
 	}
+}
+
+// wsToolGone 은 없는 도구에 붙은 연결에 끝을 알린다.
+func (s *Server) wsToolGone(r *http.Request, conn *toolhub.SafeConn, toolID string) {
+	// FR-RCS-9: 규약을 지키는 클라이언트는 이 통보 한 번으로 판정을
+	// 끝낸다. 그래도 다시 오는 쪽 — 옛 JS 를 물고 있어 배포가 닿지 않는
+	// 탭 — 만 늦춘다. 첫 미스는 늦추지 않으므로 정상 경로는 그대로다.
+	s.throttleMiss(r.Context(), toolID)
+	// Send toolhub.OpExit so the frontend knows this tool is permanently gone.
+	_ = conn.Send(toolhub.OpExit, nil)
+	dmlog.Infof(nil, "ws addr=%s: tool %s not found (sent toolhub.OpExit)", r.RemoteAddr, toolID)
+	// FR-CNR-2: 통보를 보낸 **뒤에** 붙잡는다. 임계를 넘도록 되풀이해 온
+	// 연결은 여기서 돌아오지 않으며, 그동안 소켓이 닫히지 않으므로
+	// 클라이언트에 `onclose` — 재연결의 유일한 계기 — 가 서지 않는다.
+	// 지연은 주기를 늘릴 뿐 고리를 끊지 못한다 (D-2).
+	//
+	// `conn.Close()` 는 호출자의 defer 가 부른다. 여기서 따로 닫지 않는 것이
+	// 붙잡기의 전부다.
+	s.holdMiss(r.Context(), toolID, conn)
 }
 
 // handleWSDirect is the original (non-daemon) WebSocket handler.
@@ -181,9 +191,7 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remo
 // default cols/rows (120x40), which would incorrectly resize tools owned by
 // other windows. The frontend sends the correct toolhub.OpResize via the WS binary
 // protocol after terminal open+fit, guarded by resizeCheck (session ownership).
-func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, pc toolhub.DaemonHub, toolID string, since int64) {
-	_ = conn.Send(toolhub.OpToolID, []byte(toolID))
-
+func (s *Server) handleWSDaemon(r *http.Request, conn *toolhub.SafeConn, pc toolhub.DaemonHub, toolID string, since int64) {
 	// Subscribe to live output BEFORE taking the snapshot so output produced
 	// during the snapshot RPC round-trip is buffered rather than lost (FR-17).
 	//
@@ -196,10 +204,19 @@ func (s *Server) handleWSDaemon(conn *toolhub.SafeConn, pc toolhub.DaemonHub, to
 
 	// FR-TRS-4·10: 이어 붙일 수 있으면 그 뒤만, 없으면 지우고 전량.
 	snap, err := pc.SnapshotToolSince(toolID, since)
+	if errors.Is(err, toolhub.ErrToolNotFound) {
+		// FR-OPT-2-5: 존재 확인은 이 응답이 한다. 연결 오류는 아래로 가 닫히고
+		// 브라우저가 다시 시도한다 — Get 경로의 재접속 창과 같은 갈래다.
+		s.wsToolGone(r, conn, toolID)
+		return
+	}
 	if err != nil {
 		dmlog.Errorf(nil, "[tool %s] snapshot error: %v", toolID, err)
 		return
 	}
+	// OpToolID 는 존재를 확인한 **뒤에** 보낸다. 없는 도구의 연결이 받는 것은 종전과
+	// 같이 OpExit 하나다. 그 사이에 나가는 프레임은 없으므로 있는 도구의 순서도 같다.
+	_ = conn.Send(toolhub.OpToolID, []byte(toolID))
 	full := !snap.Resumed
 	dmlog.Infof(nil, "[ws-daemon] replay tool=%s len=%d end=%d full=%v since=%d",
 		toolID, len(snap.Data), snap.End, full, since)

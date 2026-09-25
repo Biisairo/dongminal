@@ -8,6 +8,7 @@ import (
 	"dongminal/internal/shared/dmlog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"os/signal"
 
@@ -117,6 +118,12 @@ func Run(home, version, daemonBuild string) {
 		<-ctx.Done()
 		ps.Close()
 	}()
+
+	// FR-OPT-2-1: 전경 조회는 PTY 를 가진 이 프로세스가 스스로 돌리고 바뀐 것만
+	// push 한다. 서버는 이 데몬(fgtick)에 전경용 list 폴을 보내지 않는다.
+	fgTick := time.NewTicker(toolhub.ForegroundRefreshInterval)
+	defer fgTick.Stop()
+	pm.StartForegroundRefresh(ctx.Done(), fgTick.C)
 
 	dmlog.Infof(nil, "dongminald listening on %s (platform=%s)", sockPath, platform.Current().OS)
 

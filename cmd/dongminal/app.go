@@ -176,10 +176,14 @@ func (a *app) run(ctx context.Context) error {
 	if bd.sampler != nil {
 		bd.sampler.Start(ctx.Done())
 	}
-	// FR-TAN-8: 전경 조회를 돌리는 주체. 두 모드가 이 하나를 쓴다 — List() 가
-	// direct 에서는 ForegroundNames() 를 직접 부르고, 데몬에서는 list RPC 가
-	// 되어 dongminald 안에서 같은 일을 시킨다.
-	hub.StartForegroundPoll(bd.deps.Tools, ctx.Done())
+	// FR-TAN-8: direct 모드에서 전경 조회를 돌리는 주체. 데몬 모드에서는 데몬이
+	// 스스로 돌리므로 틱을 흘려보낸다 — 전경 티커가 없는 옛 데몬에만 list RPC 로
+	// 조회를 시킨다 (FR-OPT-2-1).
+	{
+		tk := time.NewTicker(hub.ForegroundInterval)
+		context.AfterFunc(ctx, tk.Stop)
+		hub.StartForegroundPoll(bd.deps.Tools, ctx.Done(), tk.C)
+	}
 	// GIT_PUSH_OBSERVE_SRS FR-GPO-1·13: 저장소 signature 를 확인해 바뀌었을 때만
 	// 알린다. 브라우저가 500ms 마다 묻던 것을 서버가 대신 본다 — 그 확인은 git 을
 	// 실행하지 않고 read 1회 + stat 2회다.

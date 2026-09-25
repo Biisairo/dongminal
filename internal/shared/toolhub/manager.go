@@ -175,7 +175,16 @@ func (m *ToolManager) Get(id string) *Tool {
 func (m *ToolManager) List() []ToolInfo {
 	// 전경 이름은 m.mu 를 잡기 전에 구한다 (FR-TAN-7/8). 자체 캐시가 있어
 	// 목록 요청이 잦아도 조회 주기는 fgRefreshInterval 로 묶여 있다.
-	fg := m.ForegroundNames()
+	return m.listWith(m.ForegroundNames())
+}
+
+// ListCached 는 전경 이름을 조회하지 않고 캐시만 싣는 List 다 (FR-OPT-2-1). 데몬의
+// list 핸들러가 쓴다 — 조회는 데몬의 티커(StartForegroundRefresh)가 돌린다.
+func (m *ToolManager) ListCached() []ToolInfo {
+	return m.listWith(m.cachedForegroundNames())
+}
+
+func (m *ToolManager) listWith(fg map[string]string) []ToolInfo {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	var out []ToolInfo

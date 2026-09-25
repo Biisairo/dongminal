@@ -436,6 +436,13 @@ func TestToolClientForegroundNameOverIPC(t *testing.T) {
 			}
 		}
 	}()
+	// 데몬의 전경 티커 (FR-OPT-2-1) — boot.Run 이 거는 것과 같다. 서버는 list 로
+	// 조회를 시키지 않는다.
+	fgTick := time.NewTicker(100 * time.Millisecond)
+	defer fgTick.Stop()
+	fgStop := make(chan struct{})
+	defer close(fgStop)
+	pm.StartForegroundRefresh(fgStop, fgTick.C)
 
 	fgCh := make(chan string, 16)
 	pc, err := DialToolClient(sockPath)
@@ -465,30 +472,21 @@ func TestToolClientForegroundNameOverIPC(t *testing.T) {
 		return "<도구 없음>"
 	}
 
-	deadline := time.Now().Add(10 * time.Second)
-	var daemonName string
-	for time.Now().Before(deadline) {
-		daemonName = fgOf(pc.List())
-		if daemonName == "sleep" {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	if daemonName != "sleep" {
-		t.Fatalf("데몬 모드 fgName=%q — sleep 이어야 한다", daemonName)
-	}
-	if direct := fgOf(pm.List()); direct != daemonName {
-		t.Fatalf("direct 모드 fgName=%q, 데몬 모드=%q — 같아야 한다 (C-1)", direct, daemonName)
-	}
-
-	// 값이 바뀐 순간에는 push 로도 나간다 (FR-TAN-9).
+	// 값이 바뀐 순간 push 로 나간다 (FR-TAN-9). list 를 부르지 않아도 온다.
 	select {
 	case name := <-fgCh:
 		if name != "sleep" {
 			t.Fatalf("fg push=%q want sleep", name)
 		}
-	case <-time.After(3 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("전경 이름이 바뀌었는데 fg push 가 오지 않았다")
+	}
+	daemonName := fgOf(pc.List())
+	if daemonName != "sleep" {
+		t.Fatalf("데몬 모드 fgName=%q — sleep 이어야 한다", daemonName)
+	}
+	if direct := fgOf(pm.List()); direct != daemonName {
+		t.Fatalf("direct 모드 fgName=%q, 데몬 모드=%q — 같아야 한다 (C-1)", direct, daemonName)
 	}
 }
 

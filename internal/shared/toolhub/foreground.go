@@ -24,6 +24,9 @@ const (
 	fgRefreshInterval = 2 * time.Second
 )
 
+// ForegroundRefreshInterval 은 배선이 전경 티커에 주는 틱의 주기다 (FR-TAN-8).
+const ForegroundRefreshInterval = fgRefreshInterval
+
 // fgShellNames 는 전경 프로그램으로 취급하지 않는 셸들이다 (FR-TAN-11).
 var fgShellNames = map[string]struct{}{
 	"sh": {}, "bash": {}, "zsh": {}, "fish": {}, "dash": {},
@@ -116,6 +119,29 @@ func (m *ToolManager) SetForegroundNotifier(notify func(id, name string)) {
 // 답한다 (FR-TAN-8, C-3).
 func (m *ToolManager) ForegroundNames() map[string]string {
 	m.refreshForeground(time.Now())
+	return m.cachedForegroundNames()
+}
+
+// RefreshForeground 는 오래된 항목을 다시 조회하고 바뀐 값을 notifier 로 민다.
+func (m *ToolManager) RefreshForeground() { m.refreshForeground(time.Now()) }
+
+// StartForegroundRefresh 는 틱마다 RefreshForeground 를 부른다 (FR-OPT-2-1). 데몬이
+// 건다 — 종전에는 서버의 2초 list 폴이 dispatch 안에서 이 조회를 일으켰다. 틱은
+// 배선이 만든다 (StartAttentionSweeper 와 같다).
+func (m *ToolManager) StartForegroundRefresh(stop <-chan struct{}, tick <-chan time.Time) {
+	go func() {
+		for {
+			select {
+			case <-tick:
+				m.RefreshForeground()
+			case <-stop:
+				return
+			}
+		}
+	}()
+}
+
+func (m *ToolManager) cachedForegroundNames() map[string]string {
 	m.fgMu.Lock()
 	defer m.fgMu.Unlock()
 	out := make(map[string]string, len(m.fgCache))

@@ -182,8 +182,10 @@ func (pc *panedConn) resize(req *toolipc.PanedRequest) interface{} {
 	return okResp(req, struct{}{})
 }
 
+// list 는 전경 이름을 캐시에서만 싣는다 (FR-OPT-2-1). 조회(ps)는 데몬의 티커가
+// 돌린다 — dispatch 안에서 돌면 그동안 이 연결의 입력·리사이즈가 줄을 선다.
 func (pc *panedConn) list(req *toolipc.PanedRequest) interface{} {
-	return okResp(req, toolipc.ListResult{Tools: pc.pm.List()})
+	return okResp(req, toolipc.ListResult{Tools: pc.pm.ListCached()})
 }
 
 func (pc *panedConn) snapshot(req *toolipc.PanedRequest) interface{} {
@@ -191,6 +193,11 @@ func (pc *panedConn) snapshot(req *toolipc.PanedRequest) interface{} {
 	p := toolipc.SnapshotParams{Since: -1}
 	if perr := decodeParamsInto(req, &p); perr != nil {
 		return *perr
+	}
+	// FR-OPT-2-5: 없는 도구는 CodeNotFound 다. 서버는 이것으로 WS 연결 때의 존재
+	// 확인(list)을 대신한다.
+	if pc.pm.Get(p.ID) == nil {
+		return errResp(req, toolipc.CodeNotFound, toolhub.ErrToolNotFound)
 	}
 	snap, err := pc.pm.SnapshotToolSince(p.ID, p.Since)
 	if err != nil {
@@ -253,18 +260,19 @@ func (pc *panedConn) pushExit(toolID string, info toolhub.ExitInfo) {
 	pc.enqueue(toolipc.ExitEvent{Event: toolipc.EventExit, Tool: toolID, Code: info.Code}, false)
 }
 
-// pushForeground notifies dongminal that a tool's foreground process name
-// changed (FR-TAN-9). Droppable: the same value also rides in every `list`
-// response, so a push lost to backpressure self-heals on the next poll — and
-// a name update must never stall the daemon.
+// pushForeground 는 도구의 전경 이름이 바뀌었다고 알린다 (FR-TAN-9).
+//
+// droppable 이 아니다 (FR-OPT-2-1). 서버는 이 데몬(fgtick)에 전경용 list 폴을 돌리지
+// 않으므로, 이 push 를 잃으면 다음 변화까지 이름이 낡은 채 남는다. 보내는 쪽은
+// 데몬의 전경 티커 고루틴이라 기다려도 dispatch 는 서지 않는다.
 func (pc *panedConn) pushForeground(toolID, name string) {
-	pc.enqueue(toolipc.ForegroundEvent{Event: toolipc.EventForeground, Tool: toolID, Name: name}, true)
+	pc.enqueue(toolipc.ForegroundEvent{Event: toolipc.EventForeground, Tool: toolID, Name: name}, false)
 }
 
 // pushSize 는 `size` push 다 — PTY 크기가 **바뀌었다** (M9_SRS FR-M9-3 ②).
 //
 // droppable 이 아니다. 크기 통보를 잃으면 그 클라이언트는 어긋난 폭으로 계속
-// 읽으며 스스로 낫지 않는다 — `fg` 처럼 다음 폴링이 메워 주는 값이 아니다.
+// 읽으며 스스로 낫지 않는다.
 // 다음에 이 값을 다시 말하는 자리는 **다음 접속의 snapshot** 뿐이다.
 func (pc *panedConn) pushSize(toolID string, cols, rows uint16) {
 	pc.enqueue(toolipc.SizeEvent{Event: toolipc.EventSize, Tool: toolID, Cols: cols, Rows: rows}, false)

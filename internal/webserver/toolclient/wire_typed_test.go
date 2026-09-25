@@ -218,10 +218,10 @@ func TestHelloFeaturesNegotiated(t *testing.T) {
 		t.Fatalf("dial: %v", err)
 	}
 	defer pc.Close()
-	if !pc.daemonHas("f1") {
+	if !pc.HasFeature("f1") {
 		t.Fatal("데몬이 말한 기능을 못 읽었다")
 	}
-	if pc.daemonHas("f2") {
+	if pc.HasFeature("f2") {
 		t.Fatal("말하지 않은 기능을 가졌다고 읽었다")
 	}
 }
@@ -236,7 +236,7 @@ func TestHelloLegacyDaemonNoFeatures(t *testing.T) {
 		t.Fatalf("옛 데몬을 거부했다: %v", err)
 	}
 	defer pc.Close()
-	if pc.daemonHas("f1") || pc.DaemonInfo().Build != "old" {
+	if pc.HasFeature("f1") || pc.DaemonInfo().Build != "old" {
 		t.Fatalf("info=%+v", pc.DaemonInfo())
 	}
 }

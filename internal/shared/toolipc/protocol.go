@@ -53,10 +53,20 @@ type HelloResult struct {
 	Version  int      `json:"version"`
 }
 
+// 기능 이름 (D-OPT-1). 데몬이 말한다.
+const (
+	// FeatureForegroundTick: 데몬이 전경 조회 티커를 스스로 돌리고 바뀐 이름을 fg
+	// push 로 빠짐없이 민다 (FR-OPT-2-1). 서버는 전경을 위한 list 폴을 돌리지 않는다.
+	FeatureForegroundTick = "fgtick"
+	// FeatureSnapshotNotFound: 없는 도구의 snapshot 을 CodeNotFound 로 답한다
+	// (FR-OPT-2-5). 서버는 WS 연결 때 존재 확인용 list 를 건너뛴다.
+	FeatureSnapshotNotFound = "snapnotfound"
+)
+
 // DaemonFeatures 는 이 데몬이 hello 에서 말하는 기능이다. ServerFeatures 는 서버가
-// 말하는 기능이다. 둘 다 아직 없다 — 새 기능이 이름을 여기 더한다.
+// 말하는 기능이다. 새 기능이 이름을 여기 더한다.
 var (
-	DaemonFeatures []string
+	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound}
 	ServerFeatures []string
 )
 

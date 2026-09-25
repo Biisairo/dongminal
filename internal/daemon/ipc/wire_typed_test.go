@@ -27,7 +27,7 @@ func TestHelloWireGolden(t *testing.T) {
 	got := wireOf(t, func(pc *panedConn) {
 		pc.dispatch(&toolipc.PanedRequest{ID: 1, Method: toolipc.MethodHello, Params: json.RawMessage(`{"server_pid":0}`)})
 	})
-	if want := `{"id":1,"result":{"build":"b","version":1}}` + "\n"; got != want {
+	if want := `{"id":1,"result":{"build":"b","features":["fgtick","snapnotfound"],"version":1}}` + "\n"; got != want {
 		t.Fatalf("hello 바이트\n got %s\nwant %s", got, want)
 	}
 }
@@ -83,6 +83,8 @@ func TestResponseWireGolden(t *testing.T) {
 		{toolipc.MethodWrite, `{"id":"x","data":"!!"}`, `{"id":1,"error":{"code":-32602,"message":"invalid base64"}}`},
 		{toolipc.MethodPaste, `{"id":"x","data":"!!"}`, `{"id":1,"error":{"code":-32602,"message":"invalid base64"}}`},
 		{"bogus", `{}`, `{"id":1,"error":{"code":-32601,"message":"unknown method: bogus"}}`},
+		// FR-OPT-2-5: 없는 도구의 snapshot 은 내부 오류가 아니라 "없음" 이다.
+		{toolipc.MethodSnapshot, `{"id":"x"}`, `{"id":1,"error":{"code":-32011,"message":"toolhub: tool not found"}}`},
 	}
 	for _, c := range cases {
 		got := wireOf(t, func(pc *panedConn) {

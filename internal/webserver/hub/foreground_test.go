@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/toolhub"
+	"dongminal/internal/shared/toolipc"
 )
 
 // TestToolForegroundPayload는 tool_foreground 의 와이어 모양을 고정한다.
@@ -83,6 +84,7 @@ func (f *fakeHub) List() []toolhub.ToolInfo {
 	f.calls.Add(1)
 	return nil
 }
+func (f *fakeHub) count() int64                       { return f.calls.Load() }
 func (f *fakeHub) ListOK() ([]toolhub.ToolInfo, bool) { return f.List(), true }
 func (f *fakeHub) Connected() bool                    { return true }
 func (f *fakeHub) Daemon() toolhub.DaemonHub          { return nil }
@@ -110,10 +112,14 @@ func (f *fakeHub) BackgroundList() []toolhub.BackgroundEntry { return nil }
 func TestStartForegroundPollStops(t *testing.T) {
 	h := &fakeHub{}
 	stop := make(chan struct{})
-	StartForegroundPoll(h, stop)
+	tick := make(chan time.Time, 1)
+	StartForegroundPoll(h, stop, tick)
 	close(stop)
-	// ③ 관측 창 — 멈춘 뒤 한 주기를 넘겨 **더 돌지 않음**을 잰다.
-	time.Sleep(ForegroundInterval + 200*time.Millisecond)
+	// ③ 관측 창 — 멈춘 뒤 틱을 넣어도 **더 돌지 않음**을 잰다. 루프가 stop 과 틱을
+	// 함께 볼 수 있으므로 멈출 시간을 먼저 준다.
+	time.Sleep(50 * time.Millisecond)
+	tick <- time.Now()
+	time.Sleep(50 * time.Millisecond)
 	if got := h.calls.Load(); got != 0 {
 		t.Fatalf("정지 후 List 호출=%d — 0 이어야 한다", got)
 	}
@@ -125,5 +131,55 @@ func TestStartForegroundPollStops(t *testing.T) {
 func TestStartForegroundPollNilHub(t *testing.T) {
 	stop := make(chan struct{})
 	defer close(stop)
-	StartForegroundPoll(nil, stop) // panic 하지 않으면 통과
+	StartForegroundPoll(nil, stop, make(chan time.Time)) // panic 하지 않으면 통과
+}
+
+// fakeDaemonHub 는 기능만 답하는 DaemonHub 대역이다.
+type fakeDaemonHub struct{ features map[string]bool }
+
+func (f fakeDaemonHub) Subscribe(string, chan toolhub.OutChunk) (<-chan struct{}, func()) {
+	return nil, func() {}
+}
+func (f fakeDaemonHub) SnapshotToolSince(string, int64) (toolhub.ToolSnapshot, error) {
+	return toolhub.ToolSnapshot{}, nil
+}
+func (f fakeDaemonHub) DaemonInfo() toolhub.DaemonInfo { return toolhub.DaemonInfo{} }
+func (f fakeDaemonHub) Reconnects() int64              { return 0 }
+func (f fakeDaemonHub) HasFeature(name string) bool    { return f.features[name] }
+
+type fakeDaemonToolHub struct {
+	fakeHub
+	d fakeDaemonHub
+}
+
+func (f *fakeDaemonToolHub) Daemon() toolhub.DaemonHub { return f.d }
+
+// OPTIMIZE_REFACTOR_SRS FR-OPT-2-1: 전경 티커를 도는 데몬에는 폴이 List 를 부르지
+// 않는다. 직접 모드와 옛 데몬에는 틱마다 한 번 부른다.
+func TestStartForegroundPollSkipsDaemonTicker(t *testing.T) {
+	cases := []struct {
+		name string
+		h    interface {
+			toolhub.ToolHub
+			count() int64
+		}
+		want int64
+	}{
+		{"direct", &fakeHub{}, 3},
+		{"legacy-daemon", &fakeDaemonToolHub{d: fakeDaemonHub{}}, 3},
+		{"fgtick-daemon", &fakeDaemonToolHub{d: fakeDaemonHub{features: map[string]bool{toolipc.FeatureForegroundTick: true}}}, 0},
+	}
+	for _, c := range cases {
+		stop := make(chan struct{})
+		tick := make(chan time.Time)
+		StartForegroundPoll(c.h, stop, tick)
+		// 버퍼 없는 틱 — 넷째 틱이 넘어갔다면 앞 셋의 일은 끝났다.
+		for i := 0; i < 4; i++ {
+			tick <- time.Now()
+		}
+		close(stop)
+		if got := c.h.count(); got < c.want || (c.want == 0 && got != 0) || got > c.want+1 {
+			t.Errorf("%s: List 호출=%d want %d", c.name, got, c.want)
+		}
+	}
 }

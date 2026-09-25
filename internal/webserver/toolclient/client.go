@@ -230,9 +230,9 @@ type helloReply struct {
 	Version  *int     `json:"version"`
 }
 
-// daemonHas 는 지금 연결된 데몬이 name 기능을 말했는가다 (D-OPT-1). 말하지 않은
+// HasFeature 는 지금 연결된 데몬이 name 기능을 말했는가다 (D-OPT-1). 말하지 않은
 // 옛 데몬에는 그 기능을 쓰지 않고 종전 방식으로 강등한다.
-func (pc *ToolClient) daemonHas(name string) bool {
+func (pc *ToolClient) HasFeature(name string) bool {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
 	return toolipc.HasFeature(pc.daemonFeatures, name)

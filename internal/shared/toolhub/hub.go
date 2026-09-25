@@ -62,6 +62,9 @@ type DaemonHub interface {
 	// 둘 다 진단 표면(health·diag)이 읽는다.
 	DaemonInfo() DaemonInfo
 	Reconnects() int64
+	// HasFeature 는 지금 연결된 데몬이 hello 에서 name 기능을 말했는가다 (D-OPT-1).
+	// 이름은 toolipc.Feature* 이다. 말하지 않은 옛 데몬에는 종전 경로로 강등한다.
+	HasFeature(name string) bool
 }
 
 // DaemonInfo 는 데몬이 hello 에서 말한 자기 판이다. 여기서 판정하지 않는다 —

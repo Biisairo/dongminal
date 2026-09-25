@@ -46,6 +46,9 @@ const (
 	CodeInternal       = -32603
 	CodeServer         = -32000
 	CodeToolCap        = -32010
+	// CodeNotFound 는 요청한 도구가 없다는 뜻이다 (FR-OPT-2-5). 내부 오류와 가른다 —
+	// 없으면 브라우저에 끝을 알리고, 오류면 다시 시도한다.
+	CodeNotFound = -32011
 )
 
 // RPCError 는 클라이언트가 받은 오류 응답이다. `errors.As` 로 코드를 읽는다.
