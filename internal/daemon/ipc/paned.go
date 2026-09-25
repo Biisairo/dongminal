@@ -19,6 +19,10 @@ import (
 // or other tools); responses/exit events block until enqueued (FR-11/FR-18).
 const panedOutQueue = 1024
 
+// panedSlowMax 는 한 연결에서 읽기 루프 밖으로 뗀 create·restore 가 동시에 도는
+// 상한이다 (FR-OPT-2-3). 샌드박스 배치는 컨테이너를 만들며 수 초를 쓴다.
+const panedSlowMax = 4
+
 type panedConn struct {
 	conn    net.Conn
 	pm      *toolhub.ToolManager
@@ -34,6 +38,9 @@ type panedConn struct {
 	doneOnce  sync.Once
 	dropped   atomic.Int64
 	writerEnd chan struct{}
+
+	// slow 는 create·restore 의 연결당 세마포어다 (panedSlowMax).
+	slow chan struct{}
 
 	// wireTool is set by PanedServer to hook tool output/exit into this conn.
 	wireTool func(p *toolhub.Tool)
@@ -56,6 +63,7 @@ func newPanedConn(conn net.Conn, pm *toolhub.ToolManager) *panedConn {
 		out:       make(chan interface{}, panedOutQueue),
 		done:      make(chan struct{}),
 		writerEnd: make(chan struct{}),
+		slow:      make(chan struct{}, panedSlowMax),
 	}
 	go pc.writeLoop()
 	return pc
@@ -138,9 +146,13 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 	case toolipc.MethodHello:
 		resp = pc.hello(req)
 	case toolipc.MethodCreate:
-		resp = pc.create(req)
+		// 배치(컨테이너 생성)가 이 연결의 입력·목록을 막지 않는다 (FR-OPT-2-3). 아직
+		// id 가 없는 도구라 같은 도구의 write 와 순서가 얽히지 않는다.
+		pc.goSlow(func() interface{} { return pc.create(req) })
+		return
 	case toolipc.MethodRestore:
-		resp = pc.restore(req)
+		pc.goSlow(func() interface{} { return pc.restore(req) })
+		return
 	case toolipc.MethodKill:
 		resp = pc.kill(req)
 	case toolipc.MethodTerminate:
@@ -154,6 +166,12 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 		resp = pc.paste(req)
 	case toolipc.MethodResize:
 		resp = pc.resize(req)
+	case toolipc.MethodInput:
+		pc.input(req)
+		return
+	case toolipc.MethodResizeNotify:
+		pc.resizeNotify(req)
+		return
 	case toolipc.MethodList:
 		resp = pc.list(req)
 	case toolipc.MethodSnapshot:
@@ -170,6 +188,26 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 		resp = toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeMethodNotFound, Message: "unknown method: " + req.Method}}
 	}
 	pc.enqueue(resp, false)
+}
+
+// goSlow 는 fn 을 읽기 루프 밖에서 돌리고 그 응답을 enqueue 한다. 동시 수는 slow 가
+// 묶는다. 자리를 기다리는 동안 연결이 멈추면 시작하지 않는다 — 받을 쪽이 없는 도구를
+// 만들지 않는다. newPanedConn 을 거치지 않은 연결(slow 가 nil 인 단위 테스트)은
+// enqueue 와 같이 제자리에서 돈다.
+func (pc *panedConn) goSlow(fn func() interface{}) {
+	if pc.slow == nil {
+		pc.enqueue(fn(), false)
+		return
+	}
+	go func() {
+		select {
+		case pc.slow <- struct{}{}:
+		case <-pc.done:
+			return
+		}
+		defer func() { <-pc.slow }()
+		pc.enqueue(fn(), false)
+	}()
 }
 
 // serverHas 는 이 연결의 서버가 name 기능을 말했는가다 (D-OPT-1).

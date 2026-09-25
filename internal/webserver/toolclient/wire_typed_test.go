@@ -16,7 +16,8 @@ import (
 // OPTIMIZE_REFACTOR_SRS FR-OPT-2-6 · FR-OPT-2-8 — 서버가 보내는 바이트와 받는 방식.
 
 // rawFake 는 받은 요청 줄을 **바이트 그대로** 모으는 가짜 데몬이다. hello 에는 hello
-// 를, 나머지에는 reply 를 답한다.
+// 를, 나머지에는 reply 를 답한다. 요청은 받은 순서대로 하나씩 답한다 — 옛 데몬의
+// 직렬 dispatch 다.
 func rawFake(t *testing.T, hello any, reply func(req toolipc.PanedRequest) any) (string, <-chan string) {
 	t.Helper()
 	sock := t.TempDir() + "/s"
@@ -49,7 +50,10 @@ func rawFake(t *testing.T, hello any, reply func(req toolipc.PanedRequest) any) 
 				enc.Encode(toolipc.PanedResponse{ID: req.ID, Result: hello})
 				continue
 			}
-			enc.Encode(reply(req))
+			// nil 은 답하지 않는다 — 응답 없는 알림(FR-OPT-2-2)을 받는 데몬의 모양이다.
+			if r := reply(req); r != nil {
+				enc.Encode(r)
+			}
 		}
 	}()
 	return sock, lines

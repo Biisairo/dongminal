@@ -182,6 +182,21 @@ func (pc *panedConn) resize(req *toolipc.PanedRequest) interface{} {
 	return okResp(req, struct{}{})
 }
 
+// input 은 응답 없는 write 다 (FR-OPT-2-2). 보낸 쪽(WS 중계)은 결과를 버리므로
+// 답하지 않는다 — 실패를 돌려줘야 하는 경로는 write RPC 를 쓴다 (GO-8).
+func (pc *panedConn) input(req *toolipc.PanedRequest) {
+	if p, perr := decodeParams[toolipc.WriteParams](req); perr == nil {
+		_ = pc.pm.Write(p.ID, p.Data)
+	}
+}
+
+// resizeNotify 는 응답 없는 resize 다 (FR-OPT-2-2).
+func (pc *panedConn) resizeNotify(req *toolipc.PanedRequest) {
+	if p, perr := decodeParams[toolipc.ResizeParams](req); perr == nil {
+		_ = pc.pm.Resize(p.ID, p.Cols, p.Rows)
+	}
+}
+
 // list 는 전경 이름을 캐시에서만 싣는다 (FR-OPT-2-1). 조회(ps)는 데몬의 티커가
 // 돌린다 — dispatch 안에서 돌면 그동안 이 연결의 입력·리사이즈가 줄을 선다.
 func (pc *panedConn) list(req *toolipc.PanedRequest) interface{} {

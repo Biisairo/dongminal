@@ -80,9 +80,12 @@ func (pc *ToolClient) ListOK() ([]toolhub.ToolInfo, bool) {
 	// 수십 번 직렬로 왕복했다. 재접속 창에서는 그 하나하나가 5초 시한에
 	// 매달렸다. 캐시는 push(`exit`·`fg`)와 이 클라이언트를 지나는 변경(create·
 	// kill·terminate·restore·setbackground)이 **보내기 전과 돌아온 뒤 두 번**
-	// 무효화한다 — 데몬은 한 연결의 요청을 직렬로 처리하므로, 변경이 진행되는
-	// 동안의 조회는 캐시가 아니라 RPC 로 가야 변경 뒤에 답을 받는다. 종전(캐시
-	// 없음)의 관측 순서가 그것이었고, e2e skill-contract 가 그 순서를 단정한다.
+	// 무효화한다 — 데몬은 kill 을 비롯한 변경을 한 연결에서 직렬로 처리하므로, 변경이
+	// 진행되는 동안의 조회는 캐시가 아니라 RPC 로 가야 변경 뒤에 답을 받는다. 종전
+	// (캐시 없음)의 관측 순서가 그것이었고, e2e skill-contract 가 그 순서를 단정한다.
+	// create·restore 는 데몬이 읽기 루프 밖에서 돌린다 (FR-OPT-2-3). 그동안의 조회는
+	// 변경 앞의 목록을 받고, 돌아온 뒤의 무효화와 세대 검사가 그 목록을 Create 뒤로
+	// 넘기지 않는다 (notify_create_test.go).
 	if tools, ok := pc.cachedList(); ok {
 		return tools, true
 	}
@@ -153,7 +156,7 @@ func (pc *ToolClient) invalidateList() {
 // 여기서는 어느 Window 의 도구인지만 실어 보낸다 (FR-SBX-11).
 func (pc *ToolClient) Create(cwd string, cols, rows uint16, place toolhub.Placement) (*toolhub.Tool, error) {
 	pc.invalidateList()
-	resp, err := callT[toolipc.CreateResult](pc, toolipc.MethodCreate, toolipc.CreateParams{
+	resp, err := callWithinT[toolipc.CreateResult](pc, toolipc.MethodCreate, toolipc.CreateParams{
 		Cwd: cwd, Cols: cols, Rows: rows,
 		Window: place.WindowUUID, Profile: place.Profile,
 		// UX_BATCH6_SRS FR-BGP-3: 셸 대신 띄울 명령. 데몬 모드에서도 프로세스를
@@ -165,7 +168,7 @@ func (pc *ToolClient) Create(cwd string, cols, rows uint16, place toolhub.Placem
 		// 값만 실어 보낸다 — 명령·작업 방식과 같은 방향이다. 필드를 모르는 옛
 		// 데몬에서는 주입이 없을 뿐 깨지지 않는다.
 		ExtraEnv: place.ExtraEnv,
-	})
+	}, toolCreateTimeout)
 	if err != nil {
 		// M8 D-A-16: 상한 초과는 코드로 건너온다 — 핸들러의 `errors.Is` 가 두 모드에서 같다.
 		var rpc *toolipc.RPCError
@@ -250,6 +253,25 @@ func (pc *ToolClient) SendPaste(id string, text []byte, submit bool) error {
 func (pc *ToolClient) Resize(id string, cols, rows uint16) error {
 	_, err := pc.call(toolipc.MethodResize, toolipc.ResizeParams{ID: id, Cols: cols, Rows: rows})
 	return err
+}
+
+// InputNotify 는 응답 없는 입력이다 (FR-OPT-2-2). 키 하나에 요청·응답 두 프레임이
+// 오가고 다음 키가 응답을 기다리던 것이 한 프레임이 된다.
+func (pc *ToolClient) InputNotify(id string, data []byte) {
+	if !pc.HasFeature(toolipc.FeatureNotify) {
+		_ = pc.Write(id, data)
+		return
+	}
+	pc.notify(toolipc.MethodInput, toolipc.WriteParams{ID: id, Data: nonNil(data)})
+}
+
+// ResizeNotify 는 응답 없는 리사이즈다 (FR-OPT-2-2).
+func (pc *ToolClient) ResizeNotify(id string, cols, rows uint16) {
+	if !pc.HasFeature(toolipc.FeatureNotify) {
+		_ = pc.Resize(id, cols, rows)
+		return
+	}
+	pc.notify(toolipc.MethodResizeNotify, toolipc.ResizeParams{ID: id, Cols: cols, Rows: rows})
 }
 
 func (pc *ToolClient) Cwd(id string) string {

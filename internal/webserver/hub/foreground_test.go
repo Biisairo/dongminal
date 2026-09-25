@@ -143,9 +143,11 @@ func (f fakeDaemonHub) Subscribe(string, chan toolhub.OutChunk) (<-chan struct{}
 func (f fakeDaemonHub) SnapshotToolSince(string, int64) (toolhub.ToolSnapshot, error) {
 	return toolhub.ToolSnapshot{}, nil
 }
-func (f fakeDaemonHub) DaemonInfo() toolhub.DaemonInfo { return toolhub.DaemonInfo{} }
-func (f fakeDaemonHub) Reconnects() int64              { return 0 }
-func (f fakeDaemonHub) HasFeature(name string) bool    { return f.features[name] }
+func (f fakeDaemonHub) DaemonInfo() toolhub.DaemonInfo      { return toolhub.DaemonInfo{} }
+func (f fakeDaemonHub) Reconnects() int64                   { return 0 }
+func (f fakeDaemonHub) HasFeature(name string) bool         { return f.features[name] }
+func (f fakeDaemonHub) InputNotify(string, []byte)          {}
+func (f fakeDaemonHub) ResizeNotify(string, uint16, uint16) {}
 
 type fakeDaemonToolHub struct {
 	fakeHub

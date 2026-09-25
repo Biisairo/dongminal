@@ -25,6 +25,10 @@ const (
 	// dropped and the supervisor reconnects (DAEMON_SPLIT_SRS FR-14).
 	panedCallTimeout = 5 * time.Second
 
+	// toolCreateTimeout 은 create 하나의 상한이다 (FR-OPT-2-3). 샌드박스 창의 도구는
+	// 데몬이 컨테이너를 만들고 띄운 뒤에야 답하므로 기본 시한으로는 모자란다.
+	toolCreateTimeout = 60 * time.Second
+
 	// panedDialTimeout 은 데몬 종단에 붙는 시도의 상한이다. 로컬 종단이므로
 	// 응답은 즉시 오거나 오지 않는다.
 	panedDialTimeout = 2 * time.Second
@@ -494,6 +498,27 @@ type outRequest struct {
 	ID     int64  `json:"id"`
 	Method string `json:"method"`
 	Params any    `json:"params"`
+}
+
+// notifyRequest 는 응답 없는 알림이다 (FR-OPT-2-2). id 가 없다 — 데몬은 답하지 않고
+// 이쪽은 기다릴 자리(pending)를 만들지 않는다.
+type notifyRequest struct {
+	Method string `json:"method"`
+	Params any    `json:"params"`
+}
+
+// notify 는 알림 한 줄을 쓴다. 실패는 버린다 — 쓰기 실패는 readLoop 가 연결의 끝으로
+// 보고 재접속이 잇는다. 알림을 쓰는 자리(WS 중계)는 종전에도 결과를 버렸다.
+func (pc *ToolClient) notify(method string, params any) {
+	pc.mu.Lock()
+	enc := pc.enc
+	pc.mu.Unlock()
+	if enc == nil {
+		return
+	}
+	pc.writeMu.Lock()
+	_ = enc.Encode(notifyRequest{Method: method, Params: params})
+	pc.writeMu.Unlock()
 }
 
 // call sends a request and blocks until the response arrives, the connection

@@ -65,6 +65,11 @@ type DaemonHub interface {
 	// HasFeature 는 지금 연결된 데몬이 hello 에서 name 기능을 말했는가다 (D-OPT-1).
 	// 이름은 toolipc.Feature* 이다. 말하지 않은 옛 데몬에는 종전 경로로 강등한다.
 	HasFeature(name string) bool
+	// InputNotify·ResizeNotify 는 결과를 기다리지 않는 입력·리사이즈다 (FR-OPT-2-2).
+	// WS 중계가 쓴다 — 그 자리는 실패를 버린다. 알림을 모르는 옛 데몬에는 Write·
+	// Resize RPC 로 강등한다. 실패를 돌려줘야 하는 자리(GO-8)는 ToolHub.Write 다.
+	InputNotify(id string, data []byte)
+	ResizeNotify(id string, cols, rows uint16)
 }
 
 // DaemonInfo 는 데몬이 hello 에서 말한 자기 판이다. 여기서 판정하지 않는다 —

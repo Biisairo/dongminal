@@ -257,10 +257,11 @@ func (s *Server) handleWSDaemon(r *http.Request, conn *toolhub.SafeConn, pc tool
 	// Read loop: input → dongminald, resize → dongminald.
 	//
 	// 데몬 배선에서는 쓰기 실패가 이 연결의 끝이 아니다 — 도구는 다른 프로세스에
-	// 있고, 재연결이 그 소유자를 되찾는다. 그래서 오류를 삼킨다.
+	// 있고, 재연결이 그 소유자를 되찾는다. 그래서 결과를 기다리지 않는 알림으로
+	// 보낸다 (FR-OPT-2-2). 키 하나가 응답을 기다리지 않는다.
 	wsReadLoop(conn, toolID,
-		func(b []byte) error { _ = s.Tools.Write(toolID, b); return nil },
-		func(c, ro uint16) { _ = s.Tools.Resize(toolID, c, ro) })
+		func(b []byte) error { pc.InputNotify(toolID, b); return nil },
+		func(c, ro uint16) { pc.ResizeNotify(toolID, c, ro) })
 }
 
 // wsReadLoop 는 클라이언트 → 도구 방향의 읽기 한 벌이다 (DRIFT_RECLAIM_SRS

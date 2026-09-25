@@ -27,7 +27,7 @@ func TestHelloWireGolden(t *testing.T) {
 	got := wireOf(t, func(pc *panedConn) {
 		pc.dispatch(&toolipc.PanedRequest{ID: 1, Method: toolipc.MethodHello, Params: json.RawMessage(`{"server_pid":0}`)})
 	})
-	if want := `{"id":1,"result":{"build":"b","features":["fgtick","snapnotfound"],"version":1}}` + "\n"; got != want {
+	if want := `{"id":1,"result":{"build":"b","features":["fgtick","snapnotfound","notify"],"version":1}}` + "\n"; got != want {
 		t.Fatalf("hello 바이트\n got %s\nwant %s", got, want)
 	}
 }

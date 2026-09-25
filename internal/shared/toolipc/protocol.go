@@ -27,6 +27,12 @@ const (
 	MethodBusy           = "busy"
 	MethodSetBackground  = "setbackground"
 	MethodBackgroundList = "backgroundlist"
+
+	// 응답 없는 알림이다 (FR-OPT-2-2). 인자는 write·resize 와 같고 id 를 싣지 않는다.
+	// 데몬은 답하지 않으므로 없는 도구에 보낸 것도 알리지 않는다 — 오류를 돌려줘야
+	// 하는 자리(GO-8, HTTP send-input)는 write·resize RPC 를 쓴다.
+	MethodInput        = "input"
+	MethodResizeNotify = "resizenotify"
 )
 
 const (
@@ -61,12 +67,15 @@ const (
 	// FeatureSnapshotNotFound: 없는 도구의 snapshot 을 CodeNotFound 로 답한다
 	// (FR-OPT-2-5). 서버는 WS 연결 때 존재 확인용 list 를 건너뛴다.
 	FeatureSnapshotNotFound = "snapnotfound"
+	// FeatureNotify: input·resizenotify 알림을 안다 (FR-OPT-2-2). 서버는 WS 의 키
+	// 입력·리사이즈를 응답 없이 보낸다.
+	FeatureNotify = "notify"
 )
 
 // DaemonFeatures 는 이 데몬이 hello 에서 말하는 기능이다. ServerFeatures 는 서버가
 // 말하는 기능이다. 새 기능이 이름을 여기 더한다.
 var (
-	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound}
+	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify}
 	ServerFeatures []string
 )
 
