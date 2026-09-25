@@ -52,6 +52,7 @@ type fakeWorkspaceStore struct {
 	raw   []byte
 	rev   uint64
 	saves int
+	reads int  // Snapshot 호출 수
 	stale bool // true 면 Save 가 항상 ErrStale 이다
 }
 
@@ -60,6 +61,7 @@ func newFakeWorkspaceStore() *fakeWorkspaceStore { return &fakeWorkspaceStore{} 
 func (f *fakeWorkspaceStore) Snapshot() ([]byte, uint64) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.reads++
 	return append([]byte(nil), f.raw...), f.rev
 }
 

@@ -3,6 +3,7 @@ package hub
 import (
 	"context"
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/fanout"
 	"encoding/json"
 	"hash/fnv"
 	"sync"
@@ -448,32 +449,19 @@ func (w *GitWatcher) Tick(ctx context.Context) int {
 		  이전 동작: 한 고루틴에서 차례로 관측했다. 저장소 하나가 3초 걸리면 그
 		            회차 전체가 3초 이상이고, `time.Ticker` 는 밀린 틱을 버리므로
 		            **다른 저장소의 감지가 함께 늦어졌다**
-		  새  동작: `gitObservePins` 와 같은 세마포어로 묶는다
+		  새  동작: `gitObservePins` 와 같은 상한 병렬(fanout.Each)로 묶는다
 		  이유:     같은 문제를 아는 자리가 이미 있었는데 감시 회차만 순차였다
 
 		상한을 두는 이유도 그쪽과 같다 — 대상이 늘어도 git 프로세스가 대상 수만큼
 		한꺼번에 뜨지 않게 한다.
 	*/
-	var (
-		wg   sync.WaitGroup
-		sem  = make(chan struct{}, GitWatchParallel)
-		sent atomic.Int64
-	)
-	for _, repo := range repos {
-		if ctx.Err() != nil {
-			break // 회차의 시한이 끝났다 (FR-GDT-9)
+	// 회차의 시한이 끝나면 남은 저장소를 시작하지 않는다 (FR-GDT-9, fanout.Each).
+	var sent atomic.Int64
+	fanout.Each(ctx, GitWatchParallel, len(repos), func(i int) {
+		if w.observe(ctx, repos[i], round) {
+			sent.Add(1)
 		}
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(repo string) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			if w.observe(ctx, repo, round) {
-				sent.Add(1)
-			}
-		}(repo)
-	}
-	wg.Wait()
+	})
 	return int(sent.Load())
 }
 

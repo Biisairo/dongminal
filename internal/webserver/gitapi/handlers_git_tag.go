@@ -148,37 +148,7 @@ func (s *GitServer) apiGitTagDeleteRemote(w http.ResponseWriter, r *http.Request
 // exists 는 규칙 위반이 아니다 — 같은 이름이 이미 있다는 사실은 따로 알려야
 // 클라이언트가 다른 이름을 권할 수 있다.
 func (s *GitServer) apiGitTagValidate(w http.ResponseWriter, r *http.Request) {
-	root, requested, ok := s.gitRepoParam(w, r)
-	if !ok {
-		return
-	}
-	name := r.URL.Query().Get("name")
-	body := map[string]any{
-		"requested": map[string]any{"repo": requested, "name": name},
-		"repo":      root,
-		"ok":        true,
-		"reason":    "",
-		"exists":    false,
-		"kinds":     write.TagKinds,
-	}
-	if err := query.ValidTagName(s.Git.Service(), r.Context(), root, name); err != nil {
-		if !errors.Is(err, core.ErrRefName) {
-			// 이름의 문제가 아니라 저장소·git 의 문제다. 판정으로 뭉개면 사용자는
-			// 이름을 고치며 헤맨다.
-			gitError(w, err)
-			return
-		}
-		body["ok"], body["reason"] = false, gitTail(err.Error())
-		gitJSON(w, http.StatusOK, body)
-		return
-	}
-	exists, err := query.TagExists(s.Git.Service(), r.Context(), root, name)
-	if err != nil {
-		gitError(w, err)
-		return
-	}
-	body["exists"] = exists
-	gitJSON(w, http.StatusOK, body)
+	s.gitNameValidateRoute(w, r, map[string]any{"kinds": write.TagKinds}, query.ValidTagName, query.TagExists)
 }
 
 // gitTagRemoteRoute 는 원격을 지나는 둘의 공통 절차다 (FR-GIT-261·262). 둘은 본문과

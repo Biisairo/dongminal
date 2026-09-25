@@ -3,6 +3,7 @@ package gitapi
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"strconv"
 	"sync/atomic"
 	"testing"
@@ -60,7 +61,8 @@ func TestGitPinnedEntries_RunsInParallel(t *testing.T) {
 		return core.Output{Stdout: dir + "\n"}, nil
 	}
 
-	out := s.gitPinnedEntries(context.Background())
+	got, err := s.gitPinsRead()
+	out := s.gitPinnedEntries(context.Background(), got, err)
 	if len(out) != pins {
 		t.Fatalf("항목 %d개, want %d", len(out), pins)
 	}
@@ -75,5 +77,31 @@ func TestGitPinnedEntries_RunsInParallel(t *testing.T) {
 	}
 	if p := peak.Load(); int(p) > gitObserveMax {
 		t.Fatalf("동시 진행 최대 %d — 상한 %d 를 넘는다", p, gitObserveMax)
+	}
+}
+
+// OPTIMIZE_REFACTOR_SRS FR-OPT-7-4 (HTTP-27): observe=1 은 핀 목록을 한 번만 읽고
+// 관측 단계와 응답 조립 단계가 그것을 나눠 쓴다 (이전: 단계마다 workspace.json 을
+// 다시 읽었다).
+func TestAPIGitRepos_ObserveReadsPinsOnce(t *testing.T) {
+	t.Setenv(testpath.HomeEnv(), t.TempDir())
+	g := newGitFake(t)
+	s, _, ws, _ := gitTestServer(t, g)
+	doc, err := json.Marshal(map[string]any{"git": map[string]any{"pinned": []string{absWorkRepo, absWorkRepo + "-2"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws.raw = doc
+
+	before := ws.reads
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/repos?observe=1", "")
+	if code != http.StatusOK {
+		t.Fatalf("code = %d, body = %v", code, out)
+	}
+	if pinned, _ := out["pinned"].([]any); len(pinned) != 2 {
+		t.Fatalf("pinned = %v", out["pinned"])
+	}
+	if n := ws.reads - before; n != 1 {
+		t.Fatalf("workspace 읽기 %d 회, want 1", n)
 	}
 }

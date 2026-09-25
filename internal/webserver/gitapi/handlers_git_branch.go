@@ -107,6 +107,16 @@ func (s *GitServer) apiGitBranchCreate(w http.ResponseWriter, r *http.Request) {
 // exists 는 규칙 위반이 아니다 (FR-GIT-156) — 같은 이름이 이미 있다는 사실은 따로
 // 알려야 클라이언트가 다른 이름을 권할 수 있다.
 func (s *GitServer) apiGitBranchValidate(w http.ResponseWriter, r *http.Request) {
+	s.gitNameValidateRoute(w, r, nil, query.ValidBranchName, query.LocalBranchExists)
+}
+
+// gitNameValidateRoute 는 branch·tag 이름 검사의 공통 절차다 (FR-GIT-159·260,
+// OPTIMIZE_REFACTOR_SRS FR-OPT-7-5). 둘은 본문 조립·ErrRefName 분기·존재 확인
+// 순서가 같고, 다른 것은 검증·존재 함수와 본문에 더할 키뿐이다. 두 벌이면 한쪽만
+// 고쳐진다.
+func (s *GitServer) gitNameValidateRoute(w http.ResponseWriter, r *http.Request, extra map[string]any,
+	valid func(*core.Service, context.Context, string, string) error,
+	exists func(*core.Service, context.Context, string, string) (bool, error)) {
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
@@ -119,7 +129,10 @@ func (s *GitServer) apiGitBranchValidate(w http.ResponseWriter, r *http.Request)
 		"reason":    "",
 		"exists":    false,
 	}
-	if err := query.ValidBranchName(s.Git.Service(), r.Context(), root, name); err != nil {
+	for k, v := range extra {
+		body[k] = v
+	}
+	if err := valid(s.Git.Service(), r.Context(), root, name); err != nil {
 		if !errors.Is(err, core.ErrRefName) {
 			// 이름의 문제가 아니라 저장소·git 의 문제다. 판정으로 뭉개면 사용자는
 			// 이름을 고치며 헤맨다.
@@ -130,12 +143,12 @@ func (s *GitServer) apiGitBranchValidate(w http.ResponseWriter, r *http.Request)
 		gitJSON(w, http.StatusOK, body)
 		return
 	}
-	exists, err := query.LocalBranchExists(s.Git.Service(), r.Context(), root, name)
+	found, err := exists(s.Git.Service(), r.Context(), root, name)
 	if err != nil {
 		gitError(w, err)
 		return
 	}
-	body["exists"] = exists
+	body["exists"] = found
 	gitJSON(w, http.StatusOK, body)
 }
 

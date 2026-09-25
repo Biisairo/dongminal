@@ -116,6 +116,7 @@ internal/
     updatecheck/         #   ③   — 최신 판 캐시 한 칸 + 트리거 넷 (끈 것은 실제로 나가지 않는다)
     settingsschema/      #   ③④  — settings-schema.js 를 같은 바이트로 읽는다 (표는 JS 가 원천)
     listorder/           #   ③   — 끌어다 놓기 한 번의 목록 반영 (gitapi·wsentry 가 공유)
+    fanout/              #   ③   — 상한 있는 병렬 반복 한 벌 (핀 관측·핀 목록·git 감시 회차가 공유, FR-OPT-7-4)
     platform/            #   ①②③④ — OS 마다 갈리는 능력을 인터페이스 뒤로 (경로·프로세스·셸·소켓)
     dmenv/               #   ①②③④ — 환경변수 이름·기본 엔드포인트·헬퍼 이름 (의존 0)
     dmlog/               #   ①②③④ — 로그가 지나는 한 자리 (수준·요청 ID)

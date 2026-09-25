@@ -10,9 +10,10 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/platform"
 )
 
 // Path 는 git 실행 파일이다. 없으면 검사를 건너뛴다 — 없는 git 은 결함이 아니라
@@ -80,7 +81,7 @@ type Counter struct {
 // 직전에 Reset 한다.
 func Count(t testing.TB) *Counter {
 	t.Helper()
-	if runtime.GOOS == "windows" {
+	if platform.Current().OS == platform.Windows {
 		t.Skip("git 계수는 셸 스크립트를 쓴다 — Windows 에서는 건너뛴다")
 	}
 	real := Path(t)

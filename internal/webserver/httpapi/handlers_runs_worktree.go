@@ -46,13 +46,19 @@ const runTreeBusyDetail = "사용 중인 worktree — 작업이 끝난 뒤 정�
 func (s *Server) gitExclusion() *jobs.Exclusion { return s.GitExclusion }
 
 // commonKey 는 repo 의 common-dir 키다 — worktree repoLock 의 키이며 사용자 worktree
-// 잡과 같은 값이다 (REPO_FIX 01 §5.1·5.6). Git 이 없는 배선에서도 core 헬퍼가 구한다.
+// 잡과 같은 값이다 (REPO_FIX 01 §5.1·5.6). Git 이 있으면 Store 의 gitdir 캐시를
+// 딛는다 (FR-OPT-7-4 — gitapi 의 gitKeys 와 같은 자리). Git 이 없는 배선에서도 core
+// 헬퍼가 구한다.
 func (s *Server) commonKey(ctx context.Context, repo string) (string, error) {
-	var svc *core.Service
-	if s.Git != nil {
-		svc = s.Git.Service()
+	if s.Git == nil {
+		var svc *core.Service
+		return svc.CommonDirKey(ctx, repo)
 	}
-	return svc.CommonDirKey(ctx, repo)
+	common, err := s.Git.CommonDir(ctx, repo)
+	if err != nil {
+		return "", err
+	}
+	return core.ExclusionKey(common), nil
 }
 
 // provisionRun 은 격리 Run 의 시작 준비다 (FR-WKT-1/2/5/11).

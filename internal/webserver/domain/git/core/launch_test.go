@@ -5,11 +5,11 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
 	"dongminal/internal/shared/gittest"
+	"dongminal/internal/shared/platform"
 )
 
 // OPTIMIZE_REFACTOR_SRS FR-OPT-7-1 — git 기동 자리는 한 벌이고 bin 탐색은 캐시된다.
@@ -50,7 +50,7 @@ func fakeGit(t *testing.T, dir string) string {
 
 // 같은 PATH 면 캐시를 쓰고, PATH 가 바뀌면 다시 찾는다.
 func TestLookGit_CachedPerPath(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if platform.Current().OS == platform.Windows {
 		t.Skip("자리표시 git 은 셸 스크립트다")
 	}
 	t.Cleanup(forgetGit)
@@ -76,7 +76,7 @@ func TestLookGit_CachedPerPath(t *testing.T) {
 
 // 캐시된 bin 이 사라지면 부재로 답하고, 다음 실행은 PATH 를 다시 훑는다.
 func TestExecGit_VanishedCachedBinIsGitMissing(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if platform.Current().OS == platform.Windows {
 		t.Skip("자리표시 git 은 셸 스크립트다")
 	}
 	real := gittest.Path(t)

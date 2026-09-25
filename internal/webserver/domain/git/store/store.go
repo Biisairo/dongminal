@@ -53,6 +53,17 @@ type Store struct {
 	lru    *list.List // front 가 최근 사용. Value 는 *repoState
 	roots  map[string]rootEntry
 	dirs   map[string]dirsEntry
+	// rootFlights 는 진행 중인 RepoRoot 해석이다 (FR-OPT-7-4). 같은 cwd 의 동시
+	// 미스가 rev-parse 를 호출자 수만큼 돌리지 않게 한다.
+	rootFlights map[string]*rootFlight
+}
+
+// rootFlight 는 진행 중인 RepoRoot 해석 하나다. joined 는 합류한 호출자 수다.
+type rootFlight struct {
+	done   chan struct{}
+	root   string
+	err    error
+	joined int
 }
 
 // repoState 는 리포 하나의 진행 중 조회 + 마지막 관측값이다. 캐시와 관측값을
@@ -87,6 +98,9 @@ type dirsEntry struct {
 	commonDir string
 	at        time.Time
 }
+
+func (e rootEntry) stamp() time.Time { return e.at }
+func (e dirsEntry) stamp() time.Time { return e.at }
 
 type StoreOption func(*Store)
 
@@ -134,6 +148,7 @@ func NewStore(svc *core.Service, opts ...StoreOption) *Store {
 		lru:         list.New(),
 		roots:       map[string]rootEntry{},
 		dirs:        map[string]dirsEntry{},
+		rootFlights: map[string]*rootFlight{},
 	}
 	for _, o := range opts {
 		o(st)
@@ -259,22 +274,59 @@ func (st *Store) Signature(ctx context.Context, repo string) (query.Signature, e
 
 // RepoRoot 는 TTL 캐시를 거친다. 핀 목록이 길어도 rev-parse 가 항목 수만큼
 // 반복되지 않아야 한다.
+//
+// 미스는 cwd 별 single-flight 다 (FR-OPT-7-4). 해석은 Status 의 flight 와 같이
+// 서버 수명 ctx 에서 돌고, 호출자는 **자기 ctx 로만** 빠져나간다 — 한 요청의 취소가
+// 합류자의 오류가 되지 않는다 (S-1 과 같은 규약).
 func (st *Store) RepoRoot(ctx context.Context, cwd string) (string, error) {
 	st.mu.Lock()
 	e, ok := st.roots[cwd]
-	fresh := ok && st.now().Sub(e.at) < st.repoRootTTL
-	st.mu.Unlock()
-	if fresh {
+	if ok && st.now().Sub(e.at) < st.repoRootTTL {
+		st.mu.Unlock()
 		return e.root, e.err
 	}
-	root, err := st.svc.RepoRoot(ctx, cwd)
-	st.mu.Lock()
-	// 실패도 캐시한다. 저장소가 아니게 된 핀은 목록을 훑을 때마다 다시 물어지고,
-	// TTL 이 2초여서 저장소가 생기면 곧 반영된다.
-	pruneCache(st.roots, st.observedCap)
-	st.roots[cwd] = rootEntry{root: root, err: err, at: st.now()}
+	f := st.rootFlights[cwd]
+	if f != nil {
+		f.joined++
+	} else {
+		f = &rootFlight{done: make(chan struct{})}
+		st.rootFlights[cwd] = f
+		go st.flyRoot(cwd, f)
+	}
 	st.mu.Unlock()
-	return root, err
+
+	select {
+	case <-f.done:
+		return f.root, f.err
+	case <-ctx.Done():
+		kind := core.ErrCanceled
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			kind = core.ErrTimeout
+		}
+		return "", fmt.Errorf("%w: %w", kind, ctx.Err())
+	}
+}
+
+// flyRoot 는 RepoRoot 해석 하나를 끝까지 돌린다.
+func (st *Store) flyRoot(cwd string, f *rootFlight) {
+	ctx, cancel := context.WithTimeout(st.root, core.DefaultTimeout)
+	root, err := st.svc.RepoRoot(ctx, cwd)
+	cancel()
+
+	st.mu.Lock()
+	// ForgetRoot 가 이 flight 를 떼어 냈으면 결과를 담지 않는다 — 그 사이의
+	// `git init` 이 참으로 바꾼 답을 낡은 실패가 덮는다.
+	if st.rootFlights[cwd] == f {
+		delete(st.rootFlights, cwd)
+		// 실패도 캐시한다. 저장소가 아니게 된 핀은 목록을 훑을 때마다 다시
+		// 물어지고, TTL 이 2초여서 저장소가 생기면 곧 반영된다.
+		pruneCache(st.roots, st.observedCap, st.now(), st.repoRootTTL)
+		st.roots[cwd] = rootEntry{root: root, err: err, at: st.now()}
+	}
+	st.mu.Unlock()
+
+	f.root, f.err = root, err
+	close(f.done)
 }
 
 /**
@@ -301,6 +353,11 @@ func (st *Store) ForgetRoot(path string) {
 			delete(st.roots, k)
 		}
 	}
+	for k := range st.rootFlights {
+		if k == path || strings.HasPrefix(k, prefix) {
+			delete(st.rootFlights, k)
+		}
+	}
 }
 
 // gitDirs 는 gitdir·common-dir 해석을 캐시한다. 실패는 캐시하지 않는다 — TTL 이
@@ -318,7 +375,7 @@ func (st *Store) gitDirs(ctx context.Context, repo string) (string, string, erro
 		return "", "", err
 	}
 	st.mu.Lock()
-	pruneCache(st.dirs, st.observedCap)
+	pruneCache(st.dirs, st.observedCap, st.now(), st.gitDirsTTL)
 	st.dirs[repo] = dirsEntry{gitDir: gitDir, commonDir: commonDir, at: st.now()}
 	st.mu.Unlock()
 	return gitDir, commonDir, nil
@@ -373,10 +430,33 @@ func (st *Store) evictLocked() {
 	}
 }
 
-// pruneCache 는 TTL 캐시가 무한히 자라지 않게 한다. 항목이 싸고 TTL 이 짧으므로
-// 개별 LRU 를 둘 값이 없다 — 상한에 닿으면 통째로 버리고 다시 채운다.
-func pruneCache[V any](m map[string]V, cap int) {
-	if len(m) >= cap {
-		clear(m)
+// stamped 는 TTL 캐시 항목이다 — 언제 채웠는지를 안다.
+type stamped interface{ stamp() time.Time }
+
+// pruneCache 는 TTL 캐시가 무한히 자라지 않게 한다 (FR-OPT-7-4). 새 항목 하나가
+// 들어갈 자리를 만든다: 상한에 닿으면 만료된 항목부터 거두고, 그래도 자리가
+// 없으면 가장 오래 전에 채운 것부터 거둔다.
+//
+//	이전 동작: 상한에 닿으면 통째로 버렸다(clear)
+//	새  동작: 필요한 만큼만 거둔다
+//	이유:     핀이 상한을 넘으면 매번 전부 비워져 TTL 이 무의미해졌다
+func pruneCache[V stamped](m map[string]V, cap int, now time.Time, ttl time.Duration) {
+	if len(m) < cap {
+		return
+	}
+	for k, v := range m {
+		if now.Sub(v.stamp()) >= ttl {
+			delete(m, k)
+		}
+	}
+	for len(m) >= cap {
+		var oldest string
+		var at time.Time
+		for k, v := range m {
+			if oldest == "" || v.stamp().Before(at) {
+				oldest, at = k, v.stamp()
+			}
+		}
+		delete(m, oldest)
 	}
 }

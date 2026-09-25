@@ -3,6 +3,7 @@ package gitapi
 import (
 	"context"
 	"dongminal/internal/shared/diagtail"
+	"dongminal/internal/shared/fanout"
 	"dongminal/internal/shared/listorder"
 	"encoding/json"
 	"net/http"
@@ -10,7 +11,6 @@ import (
 	"dongminal/internal/webserver/httpreq"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"dongminal/internal/shared/textenc"
 	"dongminal/internal/webserver/apierr"
@@ -114,11 +114,14 @@ func (s *GitServer) apiGitRepos(w http.ResponseWriter, r *http.Request) {
 		gitUnavailable(w)
 		return
 	}
-	if r.URL.Query().Get("observe") == "1" {
-		s.gitObservePins(r.Context())
+	// 핀 목록은 한 번 읽어 두 단계가 나눠 쓴다 (FR-OPT-7-4) — 단계마다
+	// workspace.json 을 다시 읽지 않는다.
+	pins, err := s.gitPinsRead()
+	if r.URL.Query().Get("observe") == "1" && err == nil {
+		s.gitObservePins(r.Context(), pins)
 	}
 	gitJSON(w, http.StatusOK, map[string]any{
-		"pinned": s.gitPinnedEntries(r.Context()),
+		"pinned": s.gitPinnedEntries(r.Context(), pins, err),
 	})
 }
 
@@ -134,33 +137,17 @@ const gitObserveMax = 4
 // 실패는 삼킨다. 한 핀이 저장소가 아니게 됐다고 목록 전체가 실패하면, 사용자는
 // 고칠 수 있는 한 줄 때문에 나머지를 전부 잃는다 (FR-GOB-4) — 그 핀은
 // `gitPinnedEntries` 가 `isRepo:false` 로 답한다.
-func (s *GitServer) gitObservePins(ctx context.Context) {
-	pins, err := s.gitPinsRead()
-	if err != nil || len(pins) == 0 {
-		return
-	}
-	sem := make(chan struct{}, gitObserveMax)
-	var wg sync.WaitGroup
-	for _, p := range pins {
-		// FR-GOB-6: 요청이 사라졌으면 남은 관측을 시작하지 않는다.
-		if ctx.Err() != nil {
-			break
+func (s *GitServer) gitObservePins(ctx context.Context, pins []string) {
+	// FR-GOB-6: 요청이 사라졌으면 남은 관측을 시작하지 않는다 (fanout.Each).
+	fanout.Each(ctx, gitObserveMax, len(pins), func(i int) {
+		root, err := s.Git.RepoRoot(ctx, pins[i])
+		if err != nil {
+			return
 		}
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(repo string) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			root, err := s.Git.RepoRoot(ctx, repo)
-			if err != nil {
-				return
-			}
-			// FR-GOB-2: Store 를 지난다 — single-flight 와 TTL 이 그대로 걸리므로
-			// 브라우저가 여럿이어도 git 실행 횟수가 창 수에 비례하지 않는다.
-			s.Git.Status(ctx, root)
-		}(p)
-	}
-	wg.Wait()
+		// FR-GOB-2: Store 를 지난다 — single-flight 와 TTL 이 그대로 걸리므로
+		// 브라우저가 여럿이어도 git 실행 횟수가 창 수에 비례하지 않는다.
+		s.Git.Status(ctx, root)
+	})
 }
 
 // GET /api/git/repo-at?tool=<toolId> — 그 도구의 cwd 가 속한 리포 (FR-FLW-6).
@@ -235,32 +222,26 @@ func (s *GitServer) gitRepoAtEntry(ctx context.Context, cwd string) map[string]a
 // 이미 정해 두었다.
 //
 // **결과는 인덱스로 쓴다.** 핀 순서는 사용자가 정한 것이고 그것이 계약이다.
-func (s *GitServer) gitPinnedEntries(ctx context.Context) []map[string]any {
-	pins, err := s.gitPinsRead()
-	if err != nil {
+//
+// pinsErr 는 목록을 읽지 못했다는 것이다 — 그때는 빈 목록이다. 요청이 떠나도 칸을
+// 비우지 않는다: 항목마다 한 칸이 계약이므로 시작 중단(ctx)을 걸지 않는다.
+func (s *GitServer) gitPinnedEntries(ctx context.Context, pins []string, pinsErr error) []map[string]any {
+	if pinsErr != nil {
 		return []map[string]any{}
 	}
 	out := make([]map[string]any, len(pins))
-	sem := make(chan struct{}, gitObserveMax)
-	var wg sync.WaitGroup
-	for i, p := range pins {
-		wg.Add(1)
-		sem <- struct{}{}
-		go func(i int, p string) {
-			defer wg.Done()
-			defer func() { <-sem }()
-			e := map[string]any{"path": p, "name": filepath.Base(p), "isRepo": false, "reason": "", "badge": nil}
-			if _, err := s.Git.RepoRoot(ctx, p); err != nil {
-				_, name := gitErrorCode(err)
-				e["reason"] = name
-			} else {
-				e["isRepo"] = true
-				e["badge"] = s.gitBadge(p)
-			}
-			out[i] = e
-		}(i, p)
-	}
-	wg.Wait()
+	fanout.Each(context.WithoutCancel(ctx), gitObserveMax, len(pins), func(i int) {
+		p := pins[i]
+		e := map[string]any{"path": p, "name": filepath.Base(p), "isRepo": false, "reason": "", "badge": nil}
+		if _, err := s.Git.RepoRoot(ctx, p); err != nil {
+			_, name := gitErrorCode(err)
+			e["reason"] = name
+		} else {
+			e["isRepo"] = true
+			e["badge"] = s.gitBadge(p)
+		}
+		out[i] = e
+	})
 	return out
 }
 
