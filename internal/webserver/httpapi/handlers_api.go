@@ -164,6 +164,9 @@ var apiRoutes = []apiRoute{
 	// 이유는 같은 것(겹)을 보는 두 물음이기 때문이다: 이쪽이 "바뀌었나", 저쪽이
 	// "무엇이 있나" 다.
 	httproute.Post("/api/fs/stamp", (*Server).apiFSStamp),
+	// OPTIMIZE_REFACTOR_SRS FR-OPT-4-2: 위 둘(겹·파일)을 한 요청으로 묻는다. 편집기
+	// 틱은 이것 하나를 부른다 — 옛 둘은 옛 화면을 위해 남는다.
+	httproute.Post("/api/fs/stamps", (*Server).apiFSStamps),
 	// EDITOR_GIT_UX_SRS 묶음 F·G — Editor 창의 파일 이름 찾기·전체 내용 찾기.
 	httproute.Get("/api/fs/find", (*Server).apiFSFind),
 	httproute.Get("/api/fs/grep", (*Server).apiFSGrep),

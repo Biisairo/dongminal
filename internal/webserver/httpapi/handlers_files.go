@@ -411,8 +411,15 @@ func (s *Server) apiFileStamps(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, fmt.Sprintf("too many paths (max %d)", fileStampsMax), http.StatusBadRequest, apierr.CodeBadRequest)
 		return
 	}
-	stamps := make(map[string]string, len(req.Paths))
-	for _, p := range req.Paths {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"stamps": s.fileStampsIn(req.Paths)})
+}
+
+// fileStampsIn 은 파일들의 표식이다. `/api/file/stamps` 와 `/api/fs/stamps` 가 같은
+// 함수를 지난다 (FR-ELR-2 와 같은 근거).
+func (s *Server) fileStampsIn(paths []string) map[string]string {
+	stamps := make(map[string]string, len(paths))
+	for _, p := range paths {
 		// FR-ELR-4: 판정은 **읽기와 같다.** 읽을 수 없는 파일의 표식도 줄 수 없다 —
 		// 그것도 그 파일이 언제 바뀌었는지를 말한다.
 		//
@@ -429,8 +436,7 @@ func (s *Server) apiFileStamps(w http.ResponseWriter, r *http.Request) {
 			stamps[p] = st
 		}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"stamps": stamps})
+	return stamps
 }
 
 func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {

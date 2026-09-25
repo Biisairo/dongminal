@@ -146,31 +146,37 @@ func fsDecode(w http.ResponseWriter, r *http.Request, into any) bool {
 // fsRoot 는 클라이언트가 보낸 root 를 **대조한 뒤에만** 기준으로 쓴다 (FR-EDT-113).
 // 서버가 신뢰하지 않는 값이므로 editors.list 또는 홈에 실재하는 루트여야 한다.
 func (s *Server) fsRoot(w http.ResponseWriter, raw string) (string, bool) {
-	if raw == "" {
-		fsFail(w, fsErrBadRequest, "root 가 없다")
-		return "", false
-	}
-	if !filepath.IsAbs(raw) {
-		fsFail(w, fsErrBadRequest, "root 는 절대경로여야 한다")
-		return "", false
-	}
-	if s.Entries == nil {
-		fsFail(w, fsErrIO, "workspace 를 쓸 수 없다")
-		return "", false
-	}
-	roots, err := s.Entries.Roots()
+	root, err := s.fsRootOf(raw)
 	if err != nil {
 		fsFailErr(w, err)
 		return "", false
 	}
+	return root, true
+}
+
+// fsRootOf 는 `fsRoot` 의 판정만이다 — 응답을 쓰지 않는다. 루트 여럿을 한 요청에
+// 받는 종단(`/api/fs/stamps`)이 루트마다의 판정을 본문에 싣는 데 쓴다.
+func (s *Server) fsRootOf(raw string) (string, error) {
+	if raw == "" {
+		return "", fsError{fsErrBadRequest, "root 가 없다"}
+	}
+	if !filepath.IsAbs(raw) {
+		return "", fsError{fsErrBadRequest, "root 는 절대경로여야 한다"}
+	}
+	if s.Entries == nil {
+		return "", fsError{fsErrIO, "workspace 를 쓸 수 없다"}
+	}
+	roots, err := s.Entries.Roots()
+	if err != nil {
+		return "", err
+	}
 	norm := wsentry.NormalizePath(raw)
 	for _, r := range roots {
 		if wsentry.NormalizePath(r) == norm {
-			return norm, true
+			return norm, nil
 		}
 	}
-	fsFail(w, fsErrOutsideRoot, "root 가 Editor 목록에 없다")
-	return "", false
+	return "", fsError{fsErrOutsideRoot, "root 가 Editor 목록에 없다"}
 }
 
 // fsResolveExisting 은 **실재하는** 경로를 전부 풀어 루트 아래인지 본다. 조회는

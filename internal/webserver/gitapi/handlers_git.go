@@ -435,7 +435,7 @@ func (s *GitServer) gitRepoParam(w http.ResponseWriter, r *http.Request) (root, 
 	return root, requested, ok
 }
 
-// GET /api/git/status?repo=<abs> — single-flight + TTL 캐시를 거친 관측 (FR-GIT-63).
+// GET /api/git/status?repo=<abs>[&ifMark=<mark>] — single-flight + TTL 캐시를 거친 관측 (FR-GIT-63).
 func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 	requested := r.URL.Query().Get("repo")
 	root, notRepo, ok := s.gitResolveRepoSoft(w, r, requested)
@@ -498,6 +498,30 @@ func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 	// 클라이언트가 이 둘을 문자열로 비교하던 동안 macOS 의 `/tmp` 아래 Editor 는
 	// 색이 영구히 꺼졌다 (§2.5).
 	resolved := wsentry.NormalizePath(requested)
+	mark := store.Mark(obs)
+	/*
+		OPTIMIZE_REFACTOR_SRS FR-OPT-4-7 (HTTP-7 · IPC-30): **가진 관측이면 목록을 싣지 않는다.**
+
+			이전 동작 — mark 가 같아도 파일 목록 전체를 다시 보냈다
+			새 동작   — `ifMark` 가 현재 mark 와 같으면 식별자와 `unchanged:true` 만 답한다
+			이유     — 안전망·push 후속·재연결 요청의 대부분은 변화가 없다
+
+		헤더(If-None-Match)를 쓰지 않는 이유는 브라우저의 자동 재검증이 끼어들지 않게
+		하기 위해서다. 옛 서버는 이 인자를 모르므로 전량으로 답한다 — 호환된다.
+		관심 표명은 위에서 이미 했다: 생략된 응답도 "보고 있다" 는 말이다.
+	*/
+	if im := r.URL.Query().Get("ifMark"); im != "" && im == mark {
+		gitJSON(w, http.StatusOK, map[string]any{
+			"repo":              root,
+			"requested":         requested,
+			"isRepo":            true,
+			"rootMatch":         resolved == root,
+			"requestedResolved": resolved,
+			"mark":              mark,
+			"unchanged":         true,
+		})
+		return
+	}
 	gitJSON(w, http.StatusOK, map[string]any{
 		"repo":      root,
 		"requested": requested,
@@ -515,7 +539,7 @@ func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 		"status":            obs.Status,
 		// REPO_FIX 04 §3A-0 X5: 관측 식별자 — git_changed 의 mark 와 같은 함수다. 화면은
 		// "관측이 같은가" 를 이것으로만 판정한다(탐색기 폴링 재칠 생략, 05 F-6.1).
-		"mark": store.Mark(obs),
+		"mark": mark,
 	})
 }
 

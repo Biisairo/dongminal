@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -359,5 +360,54 @@ func TestMark_DeterministicAndSensitive(t *testing.T) {
 	b.Status.Untracked = []query.FileEntry{{Path: "x", XY: "??"}}
 	if Mark(a) == Mark(b) {
 		t.Fatal("작업 트리 변화에 mark 가 그대로다")
+	}
+}
+
+// OPTIMIZE_REFACTOR_SRS FR-OPT-4-7: 조건부 응답은 mark 가 같으면 목록을 생략한다. 그러니
+// 응답에 실리는 필드가 하나라도 mark 밖에 있으면 그 변화는 영영 전달되지 않는다 —
+// Status 의 필드 **전부**가 mark 를 움직여야 한다 (Total·Upstream·잘림·origPath 가 빠져 있었다).
+func TestMark_CoversEveryStatusField(t *testing.T) {
+	var zero Observation
+	base := Mark(zero)
+	st := reflect.ValueOf(&zero.Status).Elem()
+	for i := 0; i < st.NumField(); i++ {
+		o := Observation{}
+		f := reflect.ValueOf(&o.Status).Elem().Field(i)
+		name := st.Type().Field(i).Name
+		switch f.Kind() {
+		case reflect.String:
+			f.SetString("x")
+		case reflect.Bool:
+			f.SetBool(true)
+		case reflect.Int:
+			f.SetInt(7)
+		case reflect.Map:
+			f.Set(reflect.ValueOf(map[string]int{"untracked": 9}))
+		case reflect.Slice:
+			continue // 원소 필드는 아래에서 따로 본다
+		case reflect.Struct:
+			f.Field(0).SetString("merge")
+		default:
+			t.Fatalf("%s: 이 검사가 모르는 종류 %s", name, f.Kind())
+		}
+		if Mark(o) == base {
+			t.Errorf("Status.%s 가 바뀌어도 mark 가 그대로다", name)
+		}
+	}
+	one := func(e query.FileEntry) Observation {
+		o := Observation{}
+		o.Status.Changes = []query.FileEntry{e}
+		return o
+	}
+	ref := Mark(one(query.FileEntry{Path: "p", XY: ".M"}))
+	for _, e := range []query.FileEntry{
+		{Path: "p", XY: ".M", OrigPath: "q"},
+		{Path: "p", XY: ".M", Score: 90},
+		{Path: "p", XY: ".M", Dir: true},
+		{Path: "p", XY: ".M", Sub: "S.M."},
+	} {
+		if Mark(one(e)) == ref {
+			t.Errorf("FileEntry %+v 가 mark 를 움직이지 않는다", e)
+		}
 	}
 }

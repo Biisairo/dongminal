@@ -1,9 +1,12 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"os"
 	"strconv"
+
+	"dongminal/internal/shared/dmlog"
 )
 
 // POST /api/fs/stamp — 겹이 바뀌었는지만 값싸게 답한다
@@ -31,6 +34,16 @@ type fsStampReq struct {
 	Dirs []string `json:"dirs"`
 }
 
+// fsStampsTreesMax 는 `/api/fs/stamps` 한 요청이 볼 수 있는 루트 수다. 화면에 선
+// 탐색기의 루트이므로 현실적으로는 한 자리 수다 — 상한은 루트마다 `fsStampMax` 겹을
+// 곱해 한 요청이 무한정 stat 하지 않게 하는 자리다.
+const fsStampsTreesMax = 16
+
+type fsStampsReq struct {
+	Trees []fsStampReq `json:"trees"`
+	Paths []string     `json:"paths"`
+}
+
 // fsStampOf 는 한 겹의 스탬프다. **문자열**인 이유는 JSON 의 수가 float64 로
 // 오가기 때문이다 — 나노초가 정밀도를 잃으면, 클라이언트가 같은지만 보는
 // 값(FR-FSL-2)이 그 손실로 같아져 변경을 통째로 놓친다.
@@ -55,8 +68,14 @@ func (s *Server) apiFSStamp(w http.ResponseWriter, r *http.Request) {
 		fsFail(w, fsErrBadRequest, "dirs 가 너무 많다")
 		return
 	}
-	stamps := make(map[string]string, len(req.Dirs))
-	for _, d := range req.Dirs {
+	fsJSON(w, http.StatusOK, map[string]any{"stamps": fsStampsIn(root, req.Dirs)})
+}
+
+// fsStampsIn 은 확정된 root 아래 겹들의 스탬프다. `/api/fs/stamp` 와
+// `/api/fs/stamps` 가 같은 함수를 지난다 (FR-FSL-10 과 같은 근거).
+func fsStampsIn(root string, dirs []string) map[string]string {
+	stamps := make(map[string]string, len(dirs))
+	for _, d := range dirs {
 		// 루트 밖·사라진 겹·파일은 **빠진다.** 오류가 아니다 — 한 겹의 사정이
 		// 나머지 겹의 답을 막지 않는다 (FR-EDT-63 과 같은 근거).
 		target, err := fsResolveExisting(root, d)
@@ -72,5 +91,55 @@ func (s *Server) apiFSStamp(w http.ResponseWriter, r *http.Request) {
 		// 짝지을 수 없다.
 		stamps[d] = fsStampOf(st)
 	}
-	fsJSON(w, http.StatusOK, map[string]any{"stamps": stamps})
+	return stamps
+}
+
+// POST /api/fs/stamps — 겹 스탬프와 파일 표식을 **한 요청**으로 묻는다
+// (OPTIMIZE_REFACTOR_SRS FR-OPT-4-2 · IPC-8).
+//
+//	이전 동작: 편집기 틱마다 보이는 루트당 `/api/fs/stamp` 하나 + `/api/file/stamps` 하나
+//	새  동작: 틱당 이 요청 하나. 두 옛 종단은 그대로 둔다 — 옛 화면이 부른다
+//	이유:     둘은 같은 틱의 같은 물음("바뀌었나")이고 답의 비용은 stat 몇 번이다
+//
+// 루트마다 판정이 따로다 — 한 루트가 거부돼도 다른 루트와 파일의 답은 나간다. 거부는
+// 그 루트의 자리에 `{code, status}` 로 실린다. 옛 종단이 상태 코드로 말하던 것과 같은
+// 값이라 클라이언트가 같은 규칙(4xx 는 굳힌다, FR-FSL-12)을 적용한다.
+func (s *Server) apiFSStamps(w http.ResponseWriter, r *http.Request) {
+	var req fsStampsReq
+	if !fsDecode(w, r, &req) {
+		return
+	}
+	if len(req.Trees) > fsStampsTreesMax {
+		fsFail(w, fsErrBadRequest, "trees 가 너무 많다")
+		return
+	}
+	if len(req.Paths) > fileStampsMax {
+		fsFail(w, fsErrBadRequest, "paths 가 너무 많다")
+		return
+	}
+	trees := make(map[string]any, len(req.Trees))
+	for _, t := range req.Trees {
+		trees[t.Root] = s.fsStampsTree(t)
+	}
+	fsJSON(w, http.StatusOK, map[string]any{"trees": trees, "paths": s.fileStampsIn(req.Paths)})
+}
+
+func (s *Server) fsStampsTree(t fsStampReq) map[string]any {
+	if len(t.Dirs) > fsStampMax {
+		return fsStampsDenied(fsErrBadRequest)
+	}
+	root, err := s.fsRootOf(t.Root)
+	if err != nil {
+		var fe fsError
+		if !errors.As(err, &fe) {
+			dmlog.Infof(nil, "fs 오류 %s: %v", fsErrIO, err)
+			return fsStampsDenied(fsErrIO)
+		}
+		return fsStampsDenied(fe.code)
+	}
+	return map[string]any{"stamps": fsStampsIn(root, t.Dirs)}
+}
+
+func fsStampsDenied(code string) map[string]any {
+	return map[string]any{"code": code, "status": fsStatus(code)}
 }

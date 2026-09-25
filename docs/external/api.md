@@ -92,6 +92,7 @@
 | POST | `/api/file/stamps` | 열어 둔 파일들이 바뀌었는지만 값싸게 묻는다. 본문 `{paths:[<abs>…]}` → `{stamps:{<abs>: "<문자열>"}}`. 값은 `/api/file/read` 가 헤더 `X-File-Stamp` 로 주는 것과 **같은 표식**이며 **해석하지 않고 같은지만 본다.** 읽을 수 없거나 없거나 디렉터리인 경로는 오류가 아니라 응답에서 **빠진다.** `paths` 는 512개까지 |
 | GET | `/api/fs/list?root=<abs>&path=<abs>&offset=<n>` | 탐색기 한 겹 조회. dot 항목 포함, 정렬은 서버가 한다. 응답 `{path, entries:[{name,dir,link,linkDir}], offset, total, truncated, stamp}`. 한 번에 최대 10,000개이며 `truncated` 는 "이 응답 뒤에 더 있다" 는 뜻이다. `offset`(기본 0, 음수·정수 아님은 0)으로 그 다음 쪽을 받아 **이어 붙인다** — 같은 `offset` 이 같은 자리를 가리키는 것은 순서가 서버의 것이기 때문이다. `offset >= total` 은 오류가 아니라 빈 배열이다. `stamp` 는 **이 응답과 같은 관측**의 변경 표식이다 (아래 `/api/fs/stamp` 와 같은 값) |
 | POST | `/api/fs/stamp` | 겹이 바뀌었는지만 값싸게 묻는다. 본문 `{root, dirs:[<abs>…]}` → `{stamps:{<abs>: "<문자열>"}}`. 값은 그 디렉터리의 mtime 이며 **해석하지 않고 같은지만 본다.** 읽을 수 없거나 루트 밖이거나 디렉터리가 아닌 겹은 오류가 아니라 응답에서 **빠진다.** `dirs` 는 512개까지 |
+| POST | `/api/fs/stamps` | 위 `/api/fs/stamp` 와 `/api/file/stamps` 를 **한 요청**으로 묻는다. 본문 `{trees:[{root, dirs:[<abs>…]}…], paths:[<abs>…]}` → `{trees:{<root>: {stamps:{…}} 또는 {code, status}}, paths:{<abs>: "<문자열>"}}`. 값은 두 종단과 같다. 루트마다 판정이 따로다 — 거부된 루트는 그 자리에 옛 종단이 답했을 `code`·`status` 를 싣고, 다른 루트와 파일의 답은 그대로 나간다. `trees` 는 16개, 루트당 `dirs` 는 512개, `paths` 는 512개까지 |
 | POST | `/api/fs/create` | 바디 `{root, path, dir}` |
 | POST | `/api/fs/rename` | 바디 `{root, from, to}`. 이동도 이 종단 |
 | POST | `/api/fs/delete` | 바디 `{root, path}`. **영구 삭제** |
@@ -248,7 +249,7 @@
 | POST | `/api/git/init` | 그 자리를 저장소로 만든다 |
 | POST | `/api/git/repos/pin` · `/api/git/repos/unpin` | 핀을 더하고 뺀다 |
 | POST | `/api/git/repos/reorder` | 핀 순서. **서버가 권위**다 |
-| GET | `/api/git/status` | 변경 목록 |
+| GET | `/api/git/status` | 변경 목록. 응답의 `mark` 는 관측 식별자다. `?ifMark=<mark>` 를 주면 그 값이 지금 관측과 같을 때 목록 없이 `{repo, requested, isRepo, rootMatch, requestedResolved, mark, unchanged:true}` 만 답한다 |
 | GET | `/api/git/signature` | 저장소의 변화 서명 — 바뀌었을 때만 알리기 위한 값 |
 | GET | `/api/git/policy` | 이 저장소에서 허용되는 동작 |
 | GET | `/api/git/preflight` | 그 동작이 지금 가능한가 (사전 점검) |
