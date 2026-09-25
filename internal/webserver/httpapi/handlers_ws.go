@@ -319,7 +319,14 @@ func readWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool) { readWS(conn, too
 func relayOutput(conn *toolhub.SafeConn, toolID string, outputCh <-chan toolhub.OutChunk, exitCh <-chan struct{}, done <-chan struct{}, sent int64) {
 	for {
 		select {
-		case chunk := <-outputCh:
+		case chunk, ok := <-outputCh:
+			// OPTIMIZE_REFACTOR_SRS FR-OPT-1-2: 구독이 끊겼다(데몬 재접속). 도구는
+			// 살아 있으므로 exit 없이 닫는다 — 브라우저가 since 로 재동기한다.
+			if !ok {
+				dmlog.Infof(nil, "[tool %s] relay resync addr=%s", toolID, conn.RemoteAddr())
+				conn.Close()
+				return
+			}
 			// FR-M9-3 ②: 크기 조각은 출력이 아니다. 같은 채널로 오는 이유는
 			// **순서** 때문이며(hub.go 의 OutChunk 참조), 여기서 갈라 그대로 낸다.
 			if chunk.Size != nil {
@@ -330,9 +337,19 @@ func relayOutput(conn *toolhub.SafeConn, toolID string, outputCh <-chan toolhub.
 				}
 				continue
 			}
-			// FR-TRS-16: 재생으로 이미 보낸 구간은 잘라낸다. 오프셋은 고정이다 —
-			// 그 자리를 지난 청크는 이 함수가 손대지 않고 그대로 나간다.
+			// FR-OPT-1-2: 좌표에 구멍이 났다(드롭·재접속 공백). 이어 보내면 그
+			// 바이트가 화면에서 영구히 빠지고 브라우저의 since 가 어긋난다 — 닫아서
+			// 브라우저가 자기 since 로 재접속해 빠진 구간부터 재생받게 한다.
+			if chunk.End > 0 && sent >= 0 && chunk.End-int64(len(chunk.Data)) > sent {
+				dmlog.Warnf(nil, "[tool %s] output gap sent=%d start=%d addr=%s — resync", toolID, sent, chunk.End-int64(len(chunk.Data)), conn.RemoteAddr())
+				conn.Close()
+				return
+			}
+			// FR-TRS-16: 이미 보낸 구간은 잘라낸다. 기준점(sent)은 보낸 만큼 전진한다.
 			data := trimOverlap(chunk.Data, chunk.End, sent)
+			if chunk.End > sent {
+				sent = chunk.End
+			}
 			if len(data) == 0 {
 				continue
 			}

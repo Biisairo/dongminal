@@ -52,7 +52,8 @@ type TermSize struct{ Cols, Rows uint16 }
 // 흐르든 바이트이고, 해석은 소비자의 몫이다 (M8_UNIFIED_SRS §9.3 ④·⑤).
 type DaemonHub interface {
 	// Subscribe 는 도구의 출력 조각을 ch 로 받는다. 돌려주는 exitCh 는 도구가
-	// 끝나면 닫힌다. unsubscribe 로 끊는다.
+	// 끝나면 닫힌다. unsubscribe 로 끊는다. 허브가 ch 를 닫으면 구독이 끊긴
+	// 것이다(데몬 재접속) — 도구는 살아 있으니 since 로 재동기한다 (FR-OPT-1-2).
 	Subscribe(toolID string, ch chan OutChunk) (exitCh <-chan struct{}, unsubscribe func())
 	// SnapshotToolSince 는 재개 지점을 실어 스냅샷을 받는다 (FR-TRS-4·10).
 	SnapshotToolSince(id string, since int64) (ToolSnapshot, error)

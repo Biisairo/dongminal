@@ -393,6 +393,92 @@ func TestRelayOutput_SendsExitOnToolExit(t *testing.T) {
 	}
 }
 
+// OPTIMIZE_REFACTOR_SRS FR-OPT-1-2 (IPC-4): 좌표에 구멍이 나면(`End-len(Data) > sent`)
+// 그 조각을 보내지 않고 소켓을 닫는다. 브라우저가 자기 since 로 재접속하면 서버가
+// 링버퍼에서 빠진 구간부터 다시 재생한다.
+func TestRelayOutput_ClosesOnGap(t *testing.T) {
+	srvConn, cli, cleanup := wsPair(t)
+	defer cleanup()
+
+	out := make(chan toolclient.OutChunk, 4)
+	exit := make(chan struct{})
+	done := make(chan struct{})
+	defer close(done)
+	fin := make(chan struct{})
+	go func() { relayOutput(srvConn, "t1", out, exit, done, 10); close(fin) }()
+
+	out <- toolclient.OutChunk{Data: []byte("abcde"), End: 15}
+	out <- toolclient.OutChunk{Data: []byte("vwxyz"), End: 25} // [20,25): 15~20 이 빠졌다
+	cli.SetReadDeadline(time.Now().Add(3 * time.Second))
+	_, msg, err := cli.ReadMessage()
+	if err != nil || len(msg) == 0 || msg[0] != toolhub.OpOutput || string(msg[1:]) != "abcde" {
+		t.Fatalf("첫 조각: msg=%q err=%v", msg, err)
+	}
+	if _, msg, err := cli.ReadMessage(); err == nil {
+		t.Fatalf("구멍 뒤의 조각이 나갔다: %q", msg)
+	}
+	select {
+	case <-fin:
+	case <-time.After(3 * time.Second):
+		t.Fatal("구멍을 보고도 릴레이가 끝나지 않았다")
+	}
+}
+
+// 이어지는 조각은 끊지 않고, 이미 보낸 구간과 다시 겹치는 조각은 잘라낸다 —
+// 기준점(sent)이 보낸 만큼 전진한다. End=0(옛 데몬)은 판정하지 않는다.
+func TestRelayOutput_AdvancesSentAndKeepsContiguous(t *testing.T) {
+	srvConn, cli, cleanup := wsPair(t)
+	defer cleanup()
+
+	out := make(chan toolclient.OutChunk, 8)
+	exit := make(chan struct{})
+	done := make(chan struct{})
+	fin := make(chan struct{})
+	go func() { relayOutput(srvConn, "t1", out, exit, done, 0); close(fin) }()
+
+	out <- toolclient.OutChunk{Data: []byte("hello"), End: 5}
+	out <- toolclient.OutChunk{Data: []byte("lo"), End: 5} // 이미 보낸 구간
+	out <- toolclient.OutChunk{Data: []byte("world"), End: 10}
+	out <- toolclient.OutChunk{Data: []byte("old")} // End=0
+	for _, want := range []string{"hello", "world", "old"} {
+		cli.SetReadDeadline(time.Now().Add(3 * time.Second))
+		_, msg, err := cli.ReadMessage()
+		if err != nil {
+			t.Fatalf("read %q: %v", want, err)
+		}
+		if len(msg) == 0 || msg[0] != toolhub.OpOutput || string(msg[1:]) != want {
+			t.Fatalf("want %q, got %q", want, msg)
+		}
+	}
+	close(done)
+	<-fin
+}
+
+// 구독이 끊기면(출력 채널이 닫히면) exit 없이 소켓을 닫는다 — 도구는 살아 있으니
+// 브라우저는 since 로 재접속한다 (IPC-M1 의 재동기).
+func TestRelayOutput_ClosesWithoutExitOnResync(t *testing.T) {
+	srvConn, cli, cleanup := wsPair(t)
+	defer cleanup()
+
+	out := make(chan toolclient.OutChunk)
+	exit := make(chan struct{})
+	done := make(chan struct{})
+	defer close(done)
+	fin := make(chan struct{})
+	go func() { relayOutput(srvConn, "t1", out, exit, done, 0); close(fin) }()
+	close(out)
+
+	cli.SetReadDeadline(time.Now().Add(3 * time.Second))
+	if _, msg, err := cli.ReadMessage(); err == nil {
+		t.Fatalf("재동기인데 프레임이 나갔다: %q", msg)
+	}
+	select {
+	case <-fin:
+	case <-time.After(3 * time.Second):
+		t.Fatal("출력 채널이 닫혔는데 릴레이가 끝나지 않았다")
+	}
+}
+
 // REQUEST_GATE_SRS §4.2 — WebSocket 의 출처 (TC-RQG-14~16).
 //
 // 종전에는 `toolhub.Upgrader.CheckOrigin` 이 **항상 true** 였다. gorilla 의 기본값

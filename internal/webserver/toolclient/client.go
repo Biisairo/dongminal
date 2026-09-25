@@ -245,6 +245,7 @@ func (pc *ToolClient) supervise() {
 			if err := pc.connect(); err == nil {
 				pc.reconnects.Add(1)
 				dmlog.Infof(nil, "toolclient: reconnected")
+				pc.resyncAfterReconnect()
 				break
 			}
 			fails++
@@ -258,6 +259,59 @@ func (pc *ToolClient) supervise() {
 					backoff = panedMaxBackoff
 				}
 			}
+		}
+	}
+}
+
+// resyncAfterReconnect 는 끊긴 동안 놓친 push 를 메운다 (OPTIMIZE_REFACTOR_SRS
+// FR-OPT-1-2). 공백 중 끝난 도구의 exit 는 오지 않았고, 살아 있는 도구의 출력에는
+// 구멍이 났다.
+//
+// 재접속 뒤의 목록과 대조해 사라진 도구(구독한 것과 직전 목록에 있던 것)는 exitCh 를
+// 닫고 onExit 를 합성한다. 살아 있는 구독은 출력 채널을 닫아 끊는다 — 릴레이가 exit
+// 없이 소켓을 닫고 브라우저가 since 로 재동기한다. 목록을 모르면(list 실패) 죽었다고
+// 판정하지 않고 전부 재동기로 돌린다 — 재접속한 브라우저의 snapshot 이 판정한다.
+func (pc *ToolClient) resyncAfterReconnect() {
+	pc.listMu.Lock()
+	known := map[string]struct{}{}
+	for _, t := range pc.listCache {
+		known[t.ID] = struct{}{}
+	}
+	pc.listMu.Unlock()
+	pc.invalidateList()
+	tools, ok := pc.ListOK()
+	alive := make(map[string]struct{}, len(tools))
+	for _, t := range tools {
+		alive[t.ID] = struct{}{}
+	}
+
+	pc.subMu.Lock()
+	subs := pc.subbers
+	pc.subbers = map[string]map[chan OutChunk]chan struct{}{}
+	pc.subMu.Unlock()
+	for id, m := range subs {
+		_, live := alive[id]
+		for ch, exitCh := range m {
+			if ok && !live {
+				close(exitCh)
+			} else {
+				close(ch)
+			}
+		}
+		known[id] = struct{}{}
+	}
+	if !ok {
+		return
+	}
+	pc.mu.Lock()
+	onExit := pc.onExit
+	pc.mu.Unlock()
+	if onExit == nil {
+		return
+	}
+	for id := range known {
+		if _, live := alive[id]; !live {
+			onExit(id, toolhub.ExitInfo{})
 		}
 	}
 }
