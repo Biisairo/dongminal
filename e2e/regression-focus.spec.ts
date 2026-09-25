@@ -169,7 +169,7 @@ test.describe('focusedPane 불변식 회귀', () => {
     await page.evaluate(async (sid) => {
       const a = (window as any).app;
       // 삭제 시 busy 확인 모달이 뜨지 않도록 fake.
-      a.testing.isToolBusy = async () => false;
+      a.testing.toolsBusy = async () => ({});
       await a.delWindow(sid);
     }, sidA);
 

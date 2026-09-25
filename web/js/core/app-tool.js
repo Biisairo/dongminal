@@ -10,6 +10,14 @@ Object.assign(App.prototype, {
     return !!(r.data&&r.data.busy);
   },
 
+  // OPTIMIZE_REFACTOR_SRS FR-OPT-2-4: 도구 N개를 요청 한 번으로 묻는다. 답하지 못하면
+  // 빈 답이다 — 단건이 실패에 false 를 내던 것과 같다.
+  async _toolsBusy(ids){
+    if(!ids.length) return {};
+    const r=await apiGet(`/api/tools/busy?ids=${ids.map(encodeURIComponent).join(',')}`);
+    return (r.data&&r.data.busy)||{};
+  },
+
   // FR-SBX-20: 도구 기동 실패의 사유를 사용자에게 보인다. 확인창과 같은
   // 껍데기를 쓰되 선택지가 없다 — 알릴 뿐 되돌릴 것이 없다.
   //

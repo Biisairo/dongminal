@@ -116,6 +116,9 @@ var apiRoutes = []apiRoute{
 	// UX_REVISION_SRS FR-DEL-5: Run 레코드 삭제. 정확 매칭이 아닌 이유는 id 가
 	// 경로에 오기 때문이며, /api/tools/ 의 DELETE 와 같은 모양이다.
 	httproute.When(http.MethodDelete, httproute.Under("/api/runs/"), (*Server).apiRunDelete),
+	// OPTIMIZE_REFACTOR_SRS FR-OPT-2-4: 일괄 조회. 단건 종단보다 먼저 와야 한다 —
+	// `/api/tools/busy` 도 `/api/tools/` 아래이며 `/busy` 로 끝난다.
+	httproute.Get("/api/tools/busy", (*Server).apiToolsBusy),
 	httproute.When(http.MethodGet, httproute.UnderWith("/api/tools/", "/busy"), (*Server).apiToolBusy),
 	httproute.When(http.MethodDelete, httproute.Under("/api/tools/"), (*Server).apiToolDelete),
 	httproute.Get("/api/focus", (*Server).apiFocusGet),
@@ -328,6 +331,36 @@ func (s *Server) apiToolBusy(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]bool{"busy": busy})
+}
+
+// maxBusyIDs 는 GET /api/tools/busy 한 번에 물을 수 있는 도구 수의 상한이다.
+const maxBusyIDs = 256
+
+// apiToolsBusy 는 GET /api/tools/busy?ids=a,b,c — {busy:{id:bool}} (FR-OPT-2-4).
+// 데몬 모드는 busymany RPC 한 번이다. 데몬이 답하지 못하면 503 이다 — 모르는 것을
+// "바쁘지 않음" 으로 내지 않는다 (IPC-M2).
+func (s *Server) apiToolsBusy(w http.ResponseWriter, r *http.Request) {
+	ids := []string{}
+	for _, id := range strings.Split(r.URL.Query().Get("ids"), ",") {
+		if id != "" {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) > maxBusyIDs {
+		fail(w, http.StatusBadRequest, fmt.Sprintf("ids 는 %d개까지입니다", maxBusyIDs), nil)
+		return
+	}
+	busy := map[string]bool{}
+	if s.Tools != nil && len(ids) > 0 {
+		got, ok := s.Tools.BusyMany(ids)
+		if !ok {
+			fail(w, http.StatusServiceUnavailable, "도구 상태를 알 수 없습니다", nil)
+			return
+		}
+		busy = got
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]map[string]bool{"busy": busy})
 }
 
 func (s *Server) apiToolDelete(w http.ResponseWriter, r *http.Request) {

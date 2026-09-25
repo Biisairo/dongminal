@@ -757,6 +757,25 @@ export async function waitShellReady(page: any, sel = '#area .pn.focused .xterm-
 }
 
 /**
+ * 모든 도구가 busy 라고 답하게 라우트를 바꿔친다 — 실제 프로세스를 띄우는 것보다
+ * 결정적이다. 단건(`/api/tools/{id}/busy`)과 일괄(`/api/tools/busy?ids=`, FR-OPT-2-4)
+ * 둘 다 덮고, 각각 몇 번 불렸는지 센다.
+ */
+export async function routeAllBusy(page: any): Promise<{ single: number; batch: number }> {
+  const n = { single: 0, batch: 0 };
+  await page.route((u: URL) => u.pathname === '/api/tools/busy', (r: any) => {
+    n.batch++;
+    const ids = (new URL(r.request().url()).searchParams.get('ids') || '').split(',').filter(Boolean);
+    return r.fulfill({ json: { busy: Object.fromEntries(ids.map((i: string) => [i, true])) } });
+  });
+  await page.route((u: URL) => /^\/api\/tools\/[^/]+\/busy$/.test(u.pathname), (r: any) => {
+    n.single++;
+    return r.fulfill({ json: { busy: true } });
+  });
+  return n;
+}
+
+/**
  * 그 도구에서 **무언가가 돌게 한다** — 전경이 비면 올릴 수 없다 (FR-M11-12).
  *
  * e2e 의 터미널에는 진짜 에이전트가 없다. 검사들은 훅이 하는 보고만 흉내 내는데

@@ -211,7 +211,8 @@ Object.assign(App.prototype, {
       if(r==='save'&&!await this._edWinSaveDirty(s)) return;
     }
     const pids=allPids(s.layout);
-    const busyChecks=await Promise.all(pids.map(pid=>this._isToolBusy(pid)));
+    const busyMap=await this._toolsBusy(pids);
+    const busyChecks=pids.map(pid=>!!busyMap[pid]);
     // FR-BG-4/4a: 일괄 전환 대상은 busy 인 도구만이다. 확인창이 뜨는 사유가
     // "실행 중인 프로세스"이고, 한가하면 그냥 종료한다는 FR-BG-1 의 기본과
     // 일관되어야 한다 — 한가한 셸까지 보존하면 백그라운드가 쓰레기로 찬다.

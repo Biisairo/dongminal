@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { test, expect, waitSettled, waitForInit } from './fixtures';
+import { test, expect, waitSettled, waitForInit, routeAllBusy } from './fixtures';
 
 /**
  * M9 P1 의 화면 요구 넷 (M9_SRS §3.1).
@@ -124,11 +124,11 @@ test.describe('FR-M9-4: 원격 닫기의 답', () => {
    * 없이도 확인 없이 닫히므로(FR-WCU-1 의 Undo 경로) 아무것도 가리지 못한다.
    *
    * busy 판정을 라우트로 바꿔친다 — 실제 프로세스를 띄우는 것보다 결정적이다
-   * (`window-close-undo.spec.ts` TC-WCU-7 과 같은 규약).
+   * (`window-close-undo.spec.ts` TC-WCU-7 과 같은 규약, `routeAllBusy`).
    */
   test('TC-M9-4b: force 를 받은 closeWindow 는 프로세스가 돌아도 묻지 않는다', async ({ page }) => {
     await waitForInit(page);
-    await page.route('**/api/tools/*/busy', (r) => r.fulfill({ json: { busy: true } }));
+    await routeAllBusy(page);
 
     const got = await page.evaluate(async () => {
       const a = (window as any).app;

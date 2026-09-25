@@ -1,6 +1,6 @@
 import { Page, APIRequestContext } from '@playwright/test';
 
-import { test, expect, waitForInit, waitSettled, liveRegionOf } from './fixtures';
+import { test, expect, waitForInit, waitSettled, liveRegionOf, routeAllBusy } from './fixtures';
 
 // WINDOW_CLOSE_UNDO_SRS §5 — TC-WCU-1~7 (M7 `UX-2`).
 //
@@ -148,7 +148,7 @@ test.describe('창 닫기의 되돌리기 (FR-WCU-1~8)', () => {
   test('TC-WCU-7: 확인을 지난 닫기는 최종이다 — Undo 가 없다', async ({ page, request }) => {
     const { victim, tools } = await setup(page);
     // busy 판정만 바꿔친다 — 실제로 프로세스를 띄우는 것보다 결정적이다.
-    await page.route('**/api/tools/*/busy', (r) => r.fulfill({ json: { busy: true } }));
+    const calls = await routeAllBusy(page);
     await closeViaX(page, victim);
     const ov = page.locator('.confirm-overlay');
     await expect(ov).toHaveCount(1);
@@ -156,5 +156,7 @@ test.describe('창 닫기의 되돌리기 (FR-WCU-1~8)', () => {
     await expect(page.locator(`#windows .si[data-sid="${victim}"]`)).toHaveCount(0);
     await expect(page.locator(TOAST)).toHaveCount(0);
     for (const t of tools) await expect.poll(() => alive(request, t), { timeout: 10000 }).toBe(false);
+    // FR-OPT-2-4: 창의 도구 수와 상관없이 busy 는 일괄 요청 한 번이다.
+    expect(calls).toEqual({ single: 0, batch: 1 });
   });
 });

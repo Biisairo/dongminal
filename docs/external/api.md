@@ -27,7 +27,8 @@
 |--------|------|------|
 | POST | `/api/tools?cols=&rows=&cwd=&cwdTool=` | 새 PTY 생성. `cwd` 또는 `cwdTool`(참조 도구 id) 중 하나로 시작 디렉터리 지정. 명시한 `cwd` 가 디렉터리가 아니면 **400** `tool_cwd_missing` — 홈으로 조용히 떨어지지 않는다 (샌드박스 창은 배치기가 판정) |
 | DELETE | `/api/tools/<id>` | PTY 종료 |
-| GET | `/api/tools/<id>/busy` | `{ busy: bool }` — foreground process 여부 |
+| GET | `/api/tools/<id>/busy` | `{ busy: bool }` — foreground process 여부. 없는 도구·데몬 오류는 `false` |
+| GET | `/api/tools/busy?ids=a,b,c` | 여러 도구를 한 번에 — `{ busy: { <id>: bool } }`. 없는 도구는 `false`, `ids` 가 없거나 비면 `{ busy: {} }`. 256개를 넘으면 **400**, 데몬이 답하지 못하면 **503** (모르는 것을 `false` 로 내지 않는다) |
 | GET | `/api/cwd?tool=<id>` | 해당 도구의 현재 작업 디렉터리. 응답 `{cwd, source}` — `source` 는 `tool`(도구의 것) 또는 `server`(폴백한 서버 프로세스 cwd). `tool` 생략·미상이면 폴백한다 |
 
 ### 에이전트 접합면

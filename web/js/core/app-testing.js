@@ -83,7 +83,7 @@ const APP_TESTING_NAMES = [
   '_fgRestore', '_isToolFocusedActive', '_restoreBegin', '_restoreLive', '_restoreNote',
   '_restoreTool', '_restoreVoid', '_bg', '_runsPanel', '_onRunChanged',
   // 같은 구멍 (FR-FMB-45a).
-  '_isToolBusy',
+  '_isToolBusy', '_toolsBusy',
 
   // ── 사이드바·상태바 (sidebar) ──
   //
