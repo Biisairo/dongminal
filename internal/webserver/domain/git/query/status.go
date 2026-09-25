@@ -324,7 +324,22 @@ func finalizeStatus(st *Status) {
 // 접힌 항목은 파일이 아니므로 이름도 diff 도 개수도 성립하지 않는다 — FR-GIT-34 가
 // 분류 대상으로 못박은 것은 "변경 **파일**" 이다.
 func StatusOf(s *core.Service, ctx context.Context, repo string) (Status, error) {
-	out, err := s.Exec(ctx, repo, "status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all")
+	return statusWith(s, ctx, repo, "--untracked-files=all")
+}
+
+// TrackedStatusOf 는 **추적되는 것만** 보는 status 다 (OPTIMIZE_REFACTOR_SRS
+// FR-OPT-7-3). Untracked 는 언제나 비어 있다.
+//
+// 관측(StatusOf)을 대신하지 않는다 — 브랜치 머리글(upstream·detached·브랜치)이나
+// 추적 변경의 유무만 쓰는 쓰기 사전 단계(PushSpec·StashPush)가 쓴다. 추적되지 않는
+// 파일을 훑는 것이 status 에서 가장 비싼 부분이고(`node_modules` 미무시), 그 답을
+// 쓰지 않는 자리가 그 값을 치를 이유가 없다.
+func TrackedStatusOf(s *core.Service, ctx context.Context, repo string) (Status, error) {
+	return statusWith(s, ctx, repo, "--untracked-files=no")
+}
+
+func statusWith(s *core.Service, ctx context.Context, repo, untracked string) (Status, error) {
+	out, err := s.Exec(ctx, repo, "status", "--porcelain=v2", "-z", "--branch", untracked)
 	if err != nil {
 		return Status{}, err
 	}

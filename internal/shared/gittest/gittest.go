@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -65,3 +66,49 @@ func Repo(t testing.TB) string {
 	Run(t, dir, "commit", "-m", "init")
 	return dir
 }
+
+// Counter 는 PATH 로 뜬 git 프로세스를 센다 (OPTIMIZE_REFACTOR_SRS FR-OPT-7-3).
+//
+// PATH 맨 앞에 진짜 git 을 부르는 얇은 스크립트를 두고, 스크립트가 argv 를 한 줄씩
+// 기록한다. 셸 스크립트이므로 Windows 에서는 건너뛴다. PATH 를 바꾸므로 병렬
+// 검사에서는 쓸 수 없다 (t.Setenv).
+type Counter struct {
+	log string
+}
+
+// Count 는 설치된 Counter 를 준다. 설치 뒤의 준비 단계(Run)도 세어지므로, 잴 호출
+// 직전에 Reset 한다.
+func Count(t testing.TB) *Counter {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("git 계수는 셸 스크립트를 쓴다 — Windows 에서는 건너뛴다")
+	}
+	real := Path(t)
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls.log")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '" + log + "'\nexec '" + real + "' \"$@\"\n"
+	if err := os.WriteFile(filepath.Join(dir, "git"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	return &Counter{log: log}
+}
+
+// Calls 는 지금까지 뜬 git 의 argv 다 (공백으로 이은 한 줄씩).
+func (c *Counter) Calls() []string {
+	b, err := os.ReadFile(c.log)
+	if err != nil {
+		return nil
+	}
+	s := strings.TrimRight(string(b), "\n")
+	if s == "" {
+		return nil
+	}
+	return strings.Split(s, "\n")
+}
+
+// N 은 지금까지 뜬 git 프로세스 수다.
+func (c *Counter) N() int { return len(c.Calls()) }
+
+// Reset 은 셈을 0 으로 되돌린다.
+func (c *Counter) Reset() { _ = os.Remove(c.log) }

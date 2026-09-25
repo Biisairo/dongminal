@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -67,29 +66,23 @@ type UnguardedSpec struct {
 // 적용한다 — `httpapi` 의 `s.Git` 은 nil 일 수 있는 배선이고, 그때 호출자가
 // 죽거나 규약 없이 실행되는 것은 둘 다 답이 아니다.
 func (s *Service) ExecUnguarded(ctx context.Context, dir string, spec UnguardedSpec) (Output, error) {
+	rec := func(out Output, err error) { s.recordUnguarded(dir, spec, out, err) }
 	if strings.TrimSpace(spec.Reason) == "" {
-		return s.denyUnguarded(dir, spec, fmt.Errorf("%w: Reason 이 비었다 — 인가를 건너뛰는 사유를 적어야 한다", ErrUnsafeArgument))
+		return reject(fmt.Errorf("%w: Reason 이 비었다 — 인가를 건너뛰는 사유를 적어야 한다", ErrUnsafeArgument), rec)
 	}
 	if len(spec.Argv) == 0 {
-		return s.denyUnguarded(dir, spec, fmt.Errorf("%w: 인자가 없다", ErrUnsafeArgument))
+		return reject(fmt.Errorf("%w: 인자가 없다", ErrUnsafeArgument), rec)
 	}
-	if strings.TrimSpace(dir) == "" || !filepath.IsAbs(dir) {
-		return s.denyUnguarded(dir, spec, fmt.Errorf("%w: cwd 는 절대 경로여야 한다: %q", ErrUnsafeArgument, dir))
+	if err := checkCwd(dir); err != nil {
+		return reject(err, rec)
 	}
 
 	ctx2, cancel := s.unguardedDeadline(ctx, spec.Timeout)
 	defer cancel()
 
 	out, err := s.unguardedRunner()(ctx2, dir, spec.Argv, spec.Stdin)
-	switch {
-	case err == nil && out.ExitCode != 0:
-		err = &ExecError{Argv: spec.Argv, Cwd: dir, ExitCode: out.ExitCode, Stderr: out.Stderr, kind: classify(ctx2, out.Stderr)}
-	case err != nil && !classified(err):
-		if k := classify(ctx2, out.Stderr); k != nil {
-			err = fmt.Errorf("%w: %v", k, err)
-		}
-	}
-	s.recordUnguarded(dir, spec, out, err)
+	err = finishExec(ctx2, dir, spec.Argv, out, err)
+	rec(out, err)
 	return out, err
 }
 
@@ -117,18 +110,7 @@ func (s *Service) unguardedDeadline(ctx context.Context, d time.Duration) (conte
 			d = s.timeout
 		}
 	}
-	if dl, ok := ctx.Deadline(); ok && time.Until(dl) <= d {
-		return context.WithCancel(ctx)
-	}
-	return context.WithTimeout(ctx, d)
-}
-
-// denyUnguarded 는 실행 없이 거부한다. exit -1 은 "프로세스가 뜨지도 않았다"는
-// 표시다 (deny·denyWrite 와 같은 규약).
-func (s *Service) denyUnguarded(dir string, spec UnguardedSpec, err error) (Output, error) {
-	out := Output{ExitCode: -1}
-	s.recordUnguarded(dir, spec, out, err)
-	return out, err
+	return deadline(ctx, d)
 }
 
 // recordUnguarded 는 공통 기록에 이 경로의 두 사실을 더한다 — **인가를 지나지
@@ -152,4 +134,24 @@ func (s *Service) recordUnguarded(dir string, spec UnguardedSpec, out Output, er
 	rec.Reason = spec.Reason
 	rec.StdinBytes = len(spec.Stdin)
 	s.rec.Add(rec)
+}
+
+// UnguardedText 는 ExecUnguarded 의 결과를 도메인의 단일 문자열로 되돌린다
+// (GIT_EXEC_UNIFY_SRS FR-GXU-8, OPTIMIZE_REFACTOR_SRS FR-OPT-7-2). worktree 와
+// submodule 이 이것을 함께 쓴다 — 두 벌이면 한쪽만 고쳐진다.
+//
+// 성공이면 **stdout 만** 준다. 실패면 stdout 다음 stderr 를 이어 진단으로 준다.
+//
+//	이전 동작: 성공에서도 stdout+stderr 를 이었다
+//	새  동작: 성공은 stdout 만이다
+//	이유:     git 이 성공하면서 stderr 에 경고 한 줄을 내면, 깨끗한 트리가 dirty 로
+//	          판정되고(worktree isDirty) rev-parse 의 경로에 경고가 붙었다
+//
+// 다듬기는 도메인이 정한다 (FR-SUB-2: submodule 은 앞을 다듬지 않는다). git 부재
+// (ErrGitMissing)는 도메인이 자기 sentinel 로 바꾸기 전에 거른다.
+func UnguardedText(argv []string, out Output, err error, trim func(string) string) (string, error) {
+	if err != nil {
+		return trim(out.Stdout + out.Stderr), fmt.Errorf("git %s: %w", strings.Join(argv, " "), err)
+	}
+	return trim(out.Stdout), nil
 }

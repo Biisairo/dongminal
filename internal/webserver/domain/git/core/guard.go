@@ -64,7 +64,11 @@ var checkRefFormatFlags = []string{CheckRefFormatBranch, CheckRefFormatNormalize
 // 그 형태가 필요한 이유는 `M6 §3` 의 발견이다: 미설정이 exit 1 이면 실행 기록의
 // `ExitCode` 가 1 이 되고, Console 의 기본 필터가 그것을 **실패한 명령**으로
 // 보인다 (`GP-10` 과 같은 부류 — Console 이 사용자의 이력이 아니게 된다).
-var configReadFlags = []string{"--get", "--get-all", "--list", "--type", "--default"}
+//
+// `--null` 은 출력 형식이다 — `key\nvalue\0` 로 끊어 값 안의 개행이 다른 키로 읽히지
+// 않게 한다. preflight 가 `config --null --list` 한 번으로 네 키를 읽는다
+// (OPTIMIZE_REFACTOR_SRS FR-OPT-7-3). 읽기 전용이며 값 인자를 받지 않는다.
+var configReadFlags = []string{"--get", "--get-all", "--list", "--type", "--default", "--null"}
 
 // guardArgs 는 읽기 경로의 인자 배열을 검사한다 (FR-GIT-2, 7).
 func guardArgs(args []string) error {

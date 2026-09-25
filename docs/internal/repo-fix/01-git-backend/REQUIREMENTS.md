@@ -270,8 +270,8 @@
 - 브랜치 메뉴 Push(`BranchPushSpec`): upstream 이 원격 R 의 브랜치 B → `push R <local>:refs/heads/B`(R 이 기본 원격이 아니어도). upstream 원격이 `.` → 거절+사유. upstream gone → 같은 refspec 으로 다시 만든다. upstream 이 있으면 `-u` 재설정 안 함. upstream 없으면 현행. 현재 브랜치 Push(`PushSpec`, 인자 없는 `git push`)는 사용자의 `push.default`·`pushRemote` 설정을 존중하므로 바꾸지 않는다. upstream 은 `%(upstream:remotename)`·`%(upstream:remoteref)` 로 원격과 ref 를 나눠 읽는다(`/` 가 든 원격 이름 대응).
 
 ### 7.4 충돌 해결 (#24, N8)
-- 선택한 쪽 S(ours|theirs, git 정의 그대로 — rebase 중 반전 안내는 기존 프런트 문구)의 stage 가 없으면 `git rm`, 양쪽 삭제(DD)는 `git rm`, 그 밖(AA 포함)은 `checkout --S` + `add`. 경로별로 실행해 한 경로의 실패가 다른 경로를 막지 않는다.
-- 응답: 전부 성공 200 `{ok:true, results, status}`. 쓰기 단계 마감 뒤 남은 경로는 `{path, ok:false, skipped:true, error:"시간 초과로 실행하지 않음"}`, 마감 순간 실행 중이던 경로는 `{ok:false, error}`. 코드 우선순위: 경로 오류에 `index_locked` 가 있으면 409 `index_locked`(results·status·lock) → 그 밖 실패·skipped 가 있으면 409 `resolve_partial`(`{error, message, requested, repo, results, status, partial}`) → 전부 성공 200. 504 는 쓰지 않는다. 실행 전 거부는 현행 400. 프런트는 실패 경로와 사유를 노트로.
+- 선택한 쪽 S(ours|theirs, git 정의 그대로 — rebase 중 반전 안내는 기존 프런트 문구)의 stage 가 없으면 `git rm`, 양쪽 삭제(DD)는 `git rm`, 그 밖(AA 포함)은 `checkout --S` + `add`. 한 경로의 실패가 다른 경로를 막지 않는다 — 개정(OPTIMIZE_REFACTOR_SRS FR-OPT-7-3): 경로를 checkout 묶음·add 묶음·rm 묶음(`MaxPathsPerCall` 단위)으로 실행하고, 묶음이 경로 때문에(분류되지 않은 종료) 실패하면 **그 묶음만** 경로별로 다시 실행한다. 분류된 실패(`index_locked`·마감)는 다시 실행하지 않고 묶음의 경로 모두에 싣는다. 종전에는 경로마다 따로 실행해 N 경로가 2N 프로세스였다.
+- 응답: 전부 성공 200 `{ok:true, results, status}`. 쓰기 단계 마감 뒤 남은 경로(묶음 단위)는 `{path, ok:false, skipped:true, error:"시간 초과로 실행하지 않음"}`, 마감 순간 실행 중이던 경로는 `{ok:false, error}`. 코드 우선순위: 경로 오류에 `index_locked` 가 있으면 409 `index_locked`(results·status·lock) → 그 밖 실패·skipped 가 있으면 409 `resolve_partial`(`{error, message, requested, repo, results, status, partial}`) → 전부 성공 200. 504 는 쓰지 않는다. 실행 전 거부는 현행 400. 프런트는 실패 경로와 사유를 노트로.
 
 ### 7.5 replay 거절 (Console 재실행)
 - 쓰기 기록의 replay 는 동기(현행), 쓰기 단계 마감 초과 504. 다음은 실행 전 400 `bad_request`: `rec.StdinBytes > 0`(커밋·패치 — 내용이 기록되지 않아 재실행은 다른 결과), `argv[0]=="stash"` 인 쓰기 기록(위치로 기록돼 다른 stash 를 건드릴 수 있다). Console 버튼 비활성은 05.

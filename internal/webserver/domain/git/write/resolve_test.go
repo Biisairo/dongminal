@@ -30,13 +30,11 @@ func TestResolve_CheckoutThenAdd(t *testing.T) {
 	if _, err := Resolve(s, context.Background(), absTmpRepo, ResolveOurs, Paths{"a.txt", "d ir/b.txt"}); err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	// REPO_FIX 01 §7.4: 경로마다 따로 실행한다 — 한 경로의 실패가 다른 경로를
-	// 막지 않는다.
+	// FR-OPT-7-3 (REPO_FIX 01 §7.4 개정): 경로를 묶어 실행한다 — 실패한 묶음만
+	// 경로별로 다시 실행한다 (TestResolve_BatchFailureFallsBackPerPath).
 	want := [][]string{
-		{"checkout", "--ours", "--", "a.txt"},
-		{"add", "--", "a.txt"},
-		{"checkout", "--ours", "--", "d ir/b.txt"},
-		{"add", "--", "d ir/b.txt"},
+		{"checkout", "--ours", "--", "a.txt", "d ir/b.txt"},
+		{"add", "--", "a.txt", "d ir/b.txt"},
 	}
 	if fmt.Sprint(argvs) != fmt.Sprint(want) {
 		t.Fatalf("argv = %v, want %v", argvs, want)
@@ -204,25 +202,57 @@ func TestResolve_KeptSideChecksOut(t *testing.T) {
 	}
 }
 
-// §7.4: 쓰기 단계 마감이 지나면 남은 경로는 실행하지 않고 skipped 로 싣는다.
+// §7.4: 쓰기 단계 마감이 지나면 남은 묶음은 실행하지 않고 skipped 로 싣는다.
+// 묶음은 MaxPathsPerCall 단위다 — 첫 묶음을 끝낸 순간 마감이면 둘째 묶음이 남는다.
 func TestResolve_DeadlineSkipsRemaining(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	calls := 0
 	s := core.New(core.WithRunner(headRunner), core.WithWriteRunner(func(_ context.Context, _ string, args []string, _ string) (core.Output, error) {
 		calls++
 		if args[0] == "add" {
-			cancel() // 첫 경로를 끝낸 순간 마감
+			cancel() // 첫 묶음을 끝낸 순간 마감
 		}
 		return core.Output{}, nil
 	}))
-	res, err := Resolve(s, ctx, absTmpRepo, ResolveOurs, Paths{"a", "b", "c"})
+	paths := make(Paths, MaxPathsPerCall+2)
+	for i := range paths {
+		paths[i] = fmt.Sprintf("p%d", i)
+	}
+	res, err := Resolve(s, ctx, absTmpRepo, ResolveOurs, paths)
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	if !res[0].OK || !res[1].Skipped || !res[2].Skipped || res[1].OK {
-		t.Fatalf("결과 = %+v", res)
+	if !res[0].OK || !res[MaxPathsPerCall-1].OK {
+		t.Fatalf("첫 묶음 = %+v", res[0])
+	}
+	for _, r := range res[MaxPathsPerCall:] {
+		if !r.Skipped || r.OK {
+			t.Fatalf("남은 묶음 = %+v", r)
+		}
 	}
 	if calls != 2 {
 		t.Fatalf("마감 뒤에도 실행했다: %d", calls)
+	}
+}
+
+// FR-OPT-7-3: 분류된 실패(index.lock)는 경로의 문제가 아니다 — 경로별로 다시
+// 실행하지 않고 묶음의 경로 모두에 싣는다 (분류는 index_locked 409 가 딛는다).
+func TestResolve_ClassifiedBatchFailureIsNotRetried(t *testing.T) {
+	calls := 0
+	s := core.New(core.WithRunner(headRunner), core.WithWriteRunner(func(_ context.Context, _ string, _ []string, _ string) (core.Output, error) {
+		calls++
+		return core.Output{ExitCode: 128, Stderr: "fatal: Unable to create '/r/.git/index.lock': File exists.\n"}, nil
+	}))
+	res, err := Resolve(s, context.Background(), absTmpRepo, ResolveOurs, Paths{"a", "b", "c"})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	for _, r := range res {
+		if r.OK || !errors.Is(r.Err, core.ErrIndexLocked) {
+			t.Fatalf("결과 = %+v", r)
+		}
+	}
+	if calls != 1 {
+		t.Fatalf("분류된 실패를 경로별로 다시 실행했다: %d", calls)
 	}
 }

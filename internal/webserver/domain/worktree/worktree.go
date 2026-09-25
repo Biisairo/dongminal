@@ -239,19 +239,10 @@ func runGit(ctx context.Context, svc *core.Service, dir string, args ...string) 
 	if errors.Is(err, core.ErrGitMissing) {
 		return "", fmt.Errorf("%w: %v", ErrGitMissing, err)
 	}
-	// 종전 CombinedOutput 의 자리를 채운다. 시간순 인터리브가 아니라 스트림별
-	// 결합이며, 성공 경로의 파싱은 stdout 만 읽으므로 실질 차이는 없다.
-	text := strings.TrimSpace(out.Stdout + out.Stderr)
-	// 사유에 텍스트를 덧붙이지 않는다 — core 의 오류가 이미 stderr 를 싣는다.
-	// 붙이면 같은 진단이 두 벌이 되고, 상한(failMax)을 먹어 실제 사유가 잘린다.
-	//
-	//	이전 동작: %v — core 의 분류(index_locked·timeout)가 사라졌다
-	//	새  동작: %w — 호출자가 errors.Is 로 본다
-	//	이유:     Manager 경유 쓰기의 실패도 lock 필드·504 를 실어야 한다 (REPO_FIX 01 §5.6)
-	if err != nil {
-		return text, fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
-	}
-	return text, nil
+	// 결합·감싸기는 submodule 과 같은 한 자리다 (FR-OPT-7-2). 성공은 stdout 만,
+	// 실패는 stdout 다음 stderr 이고 오류는 %w 로 core 의 분류를 잇는다
+	// (REPO_FIX 01 §5.6 — Manager 경유 쓰기의 실패도 lock 필드·504 를 싣는다).
+	return core.UnguardedText(args, out, err, strings.TrimSpace)
 }
 
 // WithService 는 git 실행 기록을 core 와 공유하는 실행기를 붙인다 (FR-GXU-10).
@@ -286,40 +277,69 @@ func (m *Manager) Resolve(ctx context.Context, cwd, base string) (Repo, error) {
 			return Repo{}, err
 		}
 	}
-	top, err := m.git(ctx, cwd, "rev-parse", "--show-toplevel")
+	// FR-OPT-7-3 (DOM-24): toplevel 과 base 를 **한 번에** 묻는다.
+	//
+	//	base 없음: `--show-toplevel HEAD --abbrev-ref HEAD` → toplevel · sha · 이름
+	//	base 있음: `--show-toplevel --verify --quiet <base>^{commit}` → toplevel · sha
+	//
+	// 실패하면 "저장소가 아님" 과 "HEAD·base 없음" 을 가를 수 없으므로 그때만
+	// --show-toplevel 을 다시 묻는다 (git 2.54 실측: 커밋 없는 저장소·없는 base 는
+	// 합친 호출이 실패하고 toplevel 만 답한다).
+	argv := []string{"rev-parse", "--show-toplevel", "HEAD", "--abbrev-ref", "HEAD"}
+	if base != "" {
+		argv = []string{"rev-parse", "--show-toplevel", "--verify", "--quiet", base + "^{commit}"}
+	}
+	out, err := m.git(ctx, cwd, argv...)
 	if err != nil {
 		if errors.Is(err, ErrGitMissing) {
 			return Repo{}, err
 		}
-		return Repo{}, fmt.Errorf("%w: %s 는 git 저장소가 아니다", ErrNotRepo, cwd)
+		if _, terr := m.repoTop(ctx, cwd); terr != nil {
+			return Repo{}, terr
+		}
+		if base != "" {
+			return Repo{}, fmt.Errorf("%w: base 를 찾을 수 없다: %q", ErrUnsafeArgument, base)
+		}
+		return Repo{}, fmt.Errorf("%w: HEAD 를 확인할 수 없다 (커밋이 없는 저장소인가): %v", ErrNotRepo, err)
 	}
-	// git 출력은 OS 형태로 옮겨 담는다 — parseWorktreeList 와 같은 이유다
-	// (FR-WTP-3). Repo.Root 는 이후 경로 비교·조립에 전부 쓰인다.
-	top = normalizeGitPath(strings.TrimSpace(top))
+	lines := strings.Split(out, "\n")
+	top := topOf(lines[0])
 	if top == "" {
 		return Repo{}, fmt.Errorf("%w: %s 는 git 저장소가 아니다", ErrNotRepo, cwd)
 	}
 	if base == "" {
+		if len(lines) != 3 {
+			return Repo{}, fmt.Errorf("%w: HEAD 를 확인할 수 없다: rev-parse 가 %d 줄을 줬다", ErrNotRepo, len(lines))
+		}
 		// FR-WKT-5: 기본 base 는 조정자 cwd 의 HEAD 다. 이름으로 잡아 두는 이유는
 		// "이 브랜치가 무엇에서 갈라졌나"를 사람이 읽을 수 있어야 하기 때문이며,
 		// 분리 HEAD 면 이름이 없으므로 커밋으로 떨어진다.
-		name, nerr := m.git(ctx, top, "rev-parse", "--abbrev-ref", "HEAD")
-		if nerr != nil {
-			return Repo{}, fmt.Errorf("%w: HEAD 를 확인할 수 없다 (커밋이 없는 저장소인가): %v", ErrNotRepo, nerr)
-		}
-		base = strings.TrimSpace(name)
+		base = strings.TrimSpace(lines[2])
 		if base == "HEAD" || base == "" {
-			sha, serr := m.git(ctx, top, "rev-parse", "HEAD")
-			if serr != nil {
-				return Repo{}, fmt.Errorf("%w: HEAD 를 확인할 수 없다: %v", ErrNotRepo, serr)
-			}
-			base = strings.TrimSpace(sha)
+			base = strings.TrimSpace(lines[1])
 		}
-	} else if _, verr := m.git(ctx, top, "rev-parse", "--verify", "--quiet", base+"^{commit}"); verr != nil {
-		return Repo{}, fmt.Errorf("%w: base 를 찾을 수 없다: %q", ErrUnsafeArgument, base)
 	}
 	return Repo{Root: top, Base: base}, nil
 }
+
+// repoTop 은 cwd 의 toplevel 이다. 실패는 "저장소가 아님" 이다 (git 부재는 그대로).
+func (m *Manager) repoTop(ctx context.Context, cwd string) (string, error) {
+	out, err := m.git(ctx, cwd, "rev-parse", "--show-toplevel")
+	if err != nil {
+		if errors.Is(err, ErrGitMissing) {
+			return "", err
+		}
+		return "", fmt.Errorf("%w: %s 는 git 저장소가 아니다", ErrNotRepo, cwd)
+	}
+	if top := topOf(out); top != "" {
+		return top, nil
+	}
+	return "", fmt.Errorf("%w: %s 는 git 저장소가 아니다", ErrNotRepo, cwd)
+}
+
+// topOf 는 git 이 준 toplevel 을 OS 형태로 옮겨 담는다 — parseWorktreeList 와 같은
+// 이유다 (FR-WTP-3). Repo.Root 는 이후 경로 비교·조립에 전부 쓰인다.
+func topOf(line string) string { return normalizeGitPath(strings.TrimSpace(line)) }
 
 // Spec 은 worktree 하나의 생성 인자다.
 type Spec struct {

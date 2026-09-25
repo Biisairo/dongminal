@@ -254,28 +254,23 @@ func checkRepo(repo string) error {
 /*
 checkPath 는 저장소 **안의 상대경로**만 받는다.
 
-셋을 막는다: 절대경로(저장소 밖을 가리킨다) · `..`(빠져나간다) · `-` 로 시작하는
-것(플래그로 읽힌다). 마지막은 `--` 를 붙여도 막는다 — 방어가 한 겹이면 그 겹을
-잊는 날 구멍이 된다.
+규칙의 몸통은 core.RelPath 다 (OPTIMIZE_REFACTOR_SRS FR-OPT-7-5) — 절대경로·
+볼륨·`..`·NUL·정규화되지 않은 경로. 두 벌이면 한쪽만 고쳐진다: 종전의 이 함수는
+NUL 과 볼륨 없는 루트 상대(`\foo`, Windows)를 막지 못했다.
+
+이 표면이 더 얹는 것은 둘이다: `-` 로 시작하는 것(플래그로 읽힌다 — `--` 를 붙여도
+막는다, 방어가 한 겹이면 그 겹을 잊는 날 구멍이 된다)과 드라이브 문자(`C:…` —
+POSIX 서버에서도 막는다, 요청은 어디서든 온다).
 */
 func checkPath(p string) error {
-	if strings.TrimSpace(p) == "" {
-		return fmt.Errorf("%w: 빈 경로", ErrUnsafePath)
+	if _, err := core.RelPath(p, ErrUnsafePath); err != nil {
+		return err
 	}
-	if filepath.IsAbs(p) || strings.HasPrefix(p, "/") {
-		return fmt.Errorf("%w: 절대경로: %q", ErrUnsafePath, p)
-	}
-	// 윈도우 드라이브 문자(`C:\…`). POSIX 서버에서도 막는다 — 요청은 어디서든 온다.
 	if len(p) >= 2 && p[1] == ':' {
 		return fmt.Errorf("%w: 드라이브 경로: %q", ErrUnsafePath, p)
 	}
 	if strings.HasPrefix(p, "-") {
 		return fmt.Errorf("%w: 플래그로 읽힌다: %q", ErrUnsafePath, p)
-	}
-	for _, seg := range strings.Split(filepath.ToSlash(p), "/") {
-		if seg == ".." {
-			return fmt.Errorf("%w: 경로 이탈: %q", ErrUnsafePath, p)
-		}
 	}
 	return nil
 }
@@ -288,8 +283,8 @@ const UnguardedReason = "submodule 도메인 — 화이트리스트가 argv[0] �
 ExecGit 는 Service 없이 도는 기본 Runner 다. 기록이 남지 않을 뿐 환경·마감·출력
 상한·오류 분류는 그대로 적용된다 (FR-GXU-4). 실제 배선은 RunnerFor 를 쓴다.
 
-두 스트림을 모아 드는 것이 요점이다 — 서브모듈 조작의 진단은 stderr 로 나오며,
-그것을 버리면 "왜 실패했는가" 가 통째로 사라진다.
+실패에서는 두 스트림을 모아 드는 것이 요점이다 — 서브모듈 조작의 진단은 stderr 로
+나오며, 그것을 버리면 "왜 실패했는가" 가 통째로 사라진다. 성공은 stdout 만이다.
 
 **출력의 앞을 다듬지 않는다.** `worktree.runGit` 는 `TrimSpace` 하지만 그것을
 그대로 베끼면 안 된다 — `submodule status` 는 **첫 글자가 상태**이고(FR-SUB-2),
@@ -329,13 +324,12 @@ func runGit(ctx context.Context, svc *core.Service, dir string, args ...string) 
 		return "", fmt.Errorf("%w: git 을 찾을 수 없다: %w", ErrFailed, err)
 	}
 	// 뒤의 개행만 다듬는다 — 파싱이 줄 단위이므로 끝의 빈 줄은 뜻이 없다.
-	// **앞은 손대지 않는다** (위 FR-SUB-2).
-	text := strings.TrimRight(out.Stdout+out.Stderr, "\r\n")
-	if err != nil {
-		return text, fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
-	}
-	return text, nil
+	// **앞은 손대지 않는다** (위 FR-SUB-2). 결합·감싸기는 worktree 와 같은 한
+	// 자리다 (FR-OPT-7-2): 성공은 stdout 만, 실패는 stdout 다음 stderr.
+	return core.UnguardedText(args, out, err, trimTrailingNewlines)
 }
+
+func trimTrailingNewlines(s string) string { return strings.TrimRight(s, "\r\n") }
 
 // failMax 는 `ErrFailed` 에 감싸 올릴 진단의 길이 상한이다. 이 문자열은 다시
 // `gitTail` 을 지나 응답에 실린다 — 여기서 너무 짧게 자르면 그때는 이미 사유가

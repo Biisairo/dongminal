@@ -36,12 +36,12 @@ func (f *preflightFake) runner(_ context.Context, _ string, args []string) (core
 	case "rev-parse":
 		return core.Output{Stdout: f.gitDir + "\n" + f.gitDir + "\n"}, nil
 	case "config":
-		v, ok := f.config[args[len(args)-1]]
-		if !ok {
-			// git 2.50.1 실측: 없는 키는 exit 1 이고 stderr 가 비어 있다.
-			return core.Output{ExitCode: configUnsetExit}, nil
+		// `config --null --list` 의 형식: 항목마다 `key\nvalue\0` (FR-OPT-7-3).
+		var b strings.Builder
+		for k, v := range f.config {
+			b.WriteString(k + "\n" + v + "\x00")
 		}
-		return core.Output{Stdout: v + "\n"}, nil
+		return core.Output{Stdout: b.String()}, nil
 	}
 	return core.Output{}, nil
 }

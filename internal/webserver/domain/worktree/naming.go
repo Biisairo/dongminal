@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"dongminal/internal/webserver/domain/git/core"
 )
 
 // RepoBucket 은 사용자 worktree 영역의 저장소별 버킷 이름이다 (FR-WKT-13, V159):
@@ -83,14 +85,15 @@ func slug(s string) string {
 
 // validRef 는 브랜치·base 인자를 검사한다 (FR-WKT-6). - 로 시작하는 값이 git
 // 플래그로 오인되는 것이 이 검사의 출발점이다.
+//
+// 바탕 규칙(빈 값·- 시작·NUL·`..`)은 core.CheckRefArg 하나다 (OPTIMIZE_REFACTOR_SRS
+// FR-OPT-7-5) — 두 벌이면 한쪽만 고쳐진다. 여기서는 이 표면의 더 강한 규칙만
+// 얹는다. 사유는 이 패키지의 것으로 든다 — apierr 가 그것으로 코드를 정한다.
 func validRef(name string) error {
-	if strings.TrimSpace(name) == "" {
-		return fmt.Errorf("%w: 빈 ref", ErrUnsafeArgument)
+	if err := core.CheckRefArg("ref", name); err != nil {
+		return fmt.Errorf("%w: %v", ErrUnsafeArgument, err)
 	}
-	if strings.HasPrefix(name, "-") {
-		return fmt.Errorf("%w: - 로 시작하는 ref 는 git 플래그로 오인된다: %q", ErrUnsafeArgument, name)
-	}
-	if strings.Contains(name, "..") || strings.HasSuffix(name, ".lock") {
+	if strings.HasSuffix(name, ".lock") {
 		return fmt.Errorf("%w: 잘못된 ref: %q", ErrUnsafeArgument, name)
 	}
 	if strings.HasPrefix(name, "/") || strings.HasSuffix(name, "/") || strings.Contains(name, "//") {

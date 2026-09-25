@@ -2,7 +2,6 @@ package query
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -48,11 +47,6 @@ const (
 	cherryPickHeadFile = "CHERRY_PICK_HEAD"
 	revertHeadFile     = "REVERT_HEAD"
 )
-
-// configUnsetExit 은 `git config --get` 이 없는 키에 주는 종료 코드다 (git 2.50.1
-// 실측: exit 1, stderr 비어 있음). **미설정은 실패가 아니다** — 오류로 올려보내면
-// identity 가 없는 저장소에서 preflight 자체가 막혀 차단 사유를 보일 수 없다.
-const configUnsetExit = 1
 
 // Block 은 실행을 막은 이유 하나다. **무엇이 왜 막혔고 어떻게 푸는지**를 함께
 // 준다 (FR-GIT-88) — 단순 실패 메시지로 끝내면 사용자가 갈 곳이 없다.
@@ -135,19 +129,21 @@ var inProgressChecks = []struct {
 func PreflightOf(s *core.Service, ctx context.Context, repo string) (Preflight, error) {
 	pf := Preflight{Blocks: []Block{}, Warnings: []Warning{}}
 
-	name, err := configGet(s, ctx, repo, configUserName)
+	// FR-OPT-7-3 (DOM-19): git 은 두 번이다 — 설정 한 번, gitdir 한 번.
+	//
+	//	이전 동작: config --get 네 번 + rev-parse 한 번(5회)이고, HEAD 하나를 읽으려고
+	//	          signature 전체(refs 트리 워크 포함)를 계산했다
+	//	새  동작: `config --null --list` 한 번으로 네 키를 읽고, HEAD 는 파일만 읽는다
+	//	이유:     커밋 화면을 열 때와 커밋 사전 단계마다 도는 조회다
+	cfg, err := preflightConfig(s, ctx, repo)
 	if err != nil {
 		return Preflight{}, err
 	}
-	email, err := configGet(s, ctx, repo, configUserEmail)
-	if err != nil {
-		return Preflight{}, err
-	}
-	if b, missing := identityBlock(name, email); missing {
+	if b, missing := identityBlock(cfg[configUserName], cfg[configUserEmail]); missing {
 		pf.Blocks = append(pf.Blocks, b)
 	}
 
-	gitDir, commonDir, err := s.GitDirs(ctx, repo)
+	gitDir, _, err := s.GitDirs(ctx, repo)
 	if err != nil {
 		return Preflight{}, err
 	}
@@ -160,29 +156,46 @@ func PreflightOf(s *core.Service, ctx context.Context, repo string) (Preflight, 
 	// HEAD 가 심볼릭인지는 파일이 답한다. rev-parse 로 묻지 않는 이유는 커밋이 없는
 	// 저장소에서 그것이 실패하기 때문이다 — 아직 태어나지 않은 브랜치는 detached 가
 	// 아니다.
-	sig, err := ReadSignature(gitDir, commonDir)
+	head, err := os.ReadFile(filepath.Join(gitDir, headFile))
 	if err != nil {
 		return Preflight{}, err
 	}
-	if sig.RefName == "" {
+	if !strings.HasPrefix(strings.TrimSpace(string(head)), symrefPrefix) {
 		pf.Warnings = append(pf.Warnings, Warning{
 			Code:   WarnDetachedHead,
 			Reason: "HEAD 가 브랜치를 가리키지 않습니다 (detached) — 여기서 만든 커밋은 어느 브랜치에도 속하지 않습니다",
 		})
 	}
 
-	sign, err := configGet(s, ctx, repo, configGPGSign)
-	if err != nil {
-		return Preflight{}, err
-	}
-	pf.GPGSign = gitBool(sign)
-
-	tmpl, err := configGet(s, ctx, repo, configCommitTemplate)
-	if err != nil {
-		return Preflight{}, err
-	}
-	pf.Template = readCommitTemplate(repo, tmpl)
+	pf.GPGSign = gitBool(cfg[configGPGSign])
+	pf.Template = readCommitTemplate(repo, cfg[configCommitTemplate])
 	return pf, nil
+}
+
+// preflightKeys 는 preflight 가 읽는 설정 키다. `--list` 는 키를 소문자로 준다
+// (섹션·변수 이름은 대소문자를 가리지 않는다).
+var preflightKeys = map[string]bool{
+	configUserName: true, configUserEmail: true, configGPGSign: true, configCommitTemplate: true,
+}
+
+// preflightConfig 는 네 키를 `config --null --list` 한 번으로 읽는다. 판독은
+// `config --get` 과 같다: 여러 값이면 **마지막** 값, 미설정은 빈 문자열(실패가
+// 아니다), 값은 앞뒤를 다듬는다. `--null` 이라 값 안의 개행이 다른 키로 읽히지
+// 않는다.
+func preflightConfig(s *core.Service, ctx context.Context, repo string) (map[string]string, error) {
+	out, err := s.Exec(ctx, repo, "config", "--null", "--list")
+	if err != nil {
+		return nil, err
+	}
+	cfg := map[string]string{}
+	for _, rec := range strings.Split(out.Stdout, "\x00") {
+		// 값이 없는 키(`[commit] gpgsign`)는 개행 없이 온다 — 값은 빈 문자열이다.
+		key, val, _ := strings.Cut(rec, "\n")
+		if key = strings.ToLower(key); preflightKeys[key] {
+			cfg[key] = strings.TrimSpace(val)
+		}
+	}
+	return cfg, nil
 }
 
 // identityBlock 은 없는 키를 그대로 말한다 — "설정이 없다"만으로는 무엇을 설정할지
@@ -210,35 +223,6 @@ func identityBlock(name, email string) (Block, bool) {
 		Reason: strings.Join(missing, " · ") + " 이 설정되지 않아 커밋의 작성자를 정할 수 없습니다",
 		Fix:    fix.String(),
 	}, true
-}
-
-// configGet 은 설정값 하나를 읽는다. **미설정은 빈 문자열이며 실패가 아니다.**
-//
-// `--default=` 를 주는 이유는 그 사실을 **git 의 exit code 에도** 적기 위해서다
-// (M6, `GP-10` 과 같은 부류).
-//
-//	이전 동작: `git config --get <key>` — 미설정이면 exit 1 이다. 도메인은 그것을
-//	          "미설정" 으로 읽었지만(아래 `configUnsetExit`) **실행 기록에는
-//	          `ExitCode:1` 이 남았고**, Console 의 기본 필터
-//	          (`r.write||r.exitCode!==0||r.err`)가 그것을 **실패한 명령**으로
-//	          보였다. preflight 는 커밋 화면이 설 때마다 도므로 그 줄이 사용자가
-//	          친 적 없는 "실패" 로 Console 맨 위를 차지했다 (e2e `git-console` K2)
-//	새  동작: 미설정이 exit 0 + 빈 출력이다
-//	이유:     "설정이 없다" 는 **답이지 실패가 아니다.** 그 사실을 도메인만 알고
-//	          기록은 모르면, 기록을 읽는 화면이 틀린 말을 한다
-//
-// `configUnsetExit` 처리는 그대로 둔다 — `--default` 가 없는 옛 git(2.18 미만)의
-// 열화 경로다.
-func configGet(s *core.Service, ctx context.Context, repo, key string) (string, error) {
-	out, err := s.Exec(ctx, repo, "config", "--get", "--default=", key)
-	if err != nil {
-		var xe *core.ExecError
-		if errors.As(err, &xe) && xe.Unwrap() == nil && xe.ExitCode == configUnsetExit {
-			return "", nil
-		}
-		return "", err
-	}
-	return strings.TrimSpace(out.Stdout), nil
 }
 
 // anyExists 는 gitdir 안의 이름 중 하나라도 있는지 본다. 파일인지 디렉터리인지는

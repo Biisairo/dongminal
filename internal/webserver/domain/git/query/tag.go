@@ -2,7 +2,6 @@ package query
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -51,17 +50,7 @@ func ValidTagName(s *core.Service, ctx context.Context, repo, name string) error
 // 없는 ref 의 실패는 실패가 아니다 — 그 사실 자체가 답이며, 오류로 올리면 충돌이
 // 없을 때 생성이 아예 막힌다 (LocalBranchExists 와 같은 규약).
 func TagExists(s *core.Service, ctx context.Context, repo, name string) (bool, error) {
-	if _, err := TagOid(s, ctx, repo, name); err != nil {
-		if errors.Is(err, core.ErrRefName) {
-			return false, err
-		}
-		var xe *core.ExecError
-		if errors.As(err, &xe) && xe.Unwrap() == nil {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
+	return refExists(s, ctx, repo, TagRefPrefix, name)
 }
 
 // TagOid 는 `refs/tags/<name>` 이 가리키는 객체다.
@@ -72,14 +61,10 @@ func TagExists(s *core.Service, ctx context.Context, repo, name string) (bool, e
 // 되살아나 메시지·서명이 사라진다. 삭제의 recovery hint 가 이 값을 싣는다
 // (FR-GIT-92·261).
 func TagOid(s *core.Service, ctx context.Context, repo, name string) (string, error) {
-	if err := core.CheckRefArg("name", name); err != nil {
-		return "", err
-	}
-	out, err := s.Exec(ctx, repo, "rev-parse", "--verify", TagRefPrefix+name)
+	oid, err := refOid(s, ctx, repo, TagRefPrefix, name)
 	if err != nil {
 		return "", err
 	}
-	oid := strings.TrimRight(out.Stdout, "\n")
 	if oid == "" {
 		return "", fmt.Errorf("태그 %q 의 대상을 읽지 못했다: rev-parse 가 빈 값을 줬다", name)
 	}
@@ -89,8 +74,8 @@ func TagOid(s *core.Service, ctx context.Context, repo, name string) (string, er
 // tagNameError 는 분류되지 않은 실패를 "이름 규칙 위반" 으로 갈라 준다. 저장소·git
 // 자체의 실패와 구분되지 않으면 사용자는 이름을 고치면 되는지 알 수 없다.
 func tagNameError(name string, err error) error {
-	var xe *core.ExecError
-	if !errors.As(err, &xe) || xe.Unwrap() != nil {
+	_, ok := core.PlainExit(err)
+	if !ok {
 		return err
 	}
 	return fmt.Errorf("%w: %q 는 git 의 태그 이름 규칙을 어긴다", core.ErrRefName, name)

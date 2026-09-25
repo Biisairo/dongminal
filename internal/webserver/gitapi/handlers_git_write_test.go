@@ -99,10 +99,14 @@ func (f *gitWriteFake) read(_ context.Context, dir string, args []string) (core.
 }
 
 // configValue 는 preflight 가 읽는 네 키만 답한다. 미설정은 빈 문자열이다.
+// preflight 는 `config --null --list` 한 번으로 읽는다 (FR-OPT-7-3).
 func (f *gitWriteFake) configValue(args []string) string {
 	key := args[len(args)-1]
 	if !f.identity {
 		return ""
+	}
+	if key == "--list" {
+		return "user.name\ntester\x00user.email\nt@example.com\x00"
 	}
 	switch key {
 	case "user.name":

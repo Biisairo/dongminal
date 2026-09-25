@@ -206,8 +206,8 @@ var revNotFoundStderr = []string{
 // revError 는 실패가 "없는 리비전" 이면 404 로 갈라 준다. 저장소 실패(500)와
 // 구분되지 않으면 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다.
 func revError(err error) error {
-	var xe *core.ExecError
-	if !errors.As(err, &xe) || xe.Unwrap() != nil {
+	xe, ok := core.PlainExit(err)
+	if !ok {
 		return err
 	}
 	low := strings.ToLower(xe.Stderr)

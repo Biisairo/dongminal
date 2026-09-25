@@ -99,6 +99,7 @@ func TestGuardArgs_ConfigReadOnly(t *testing.T) {
 		{"config", "--get", "user.name"},
 		{"config", "--get-all", "remote.origin.url"},
 		{"config", "--list"},
+		{"config", "--null", "--list"}, // FR-OPT-7-3: preflight 의 한 번 읽기
 		{"config", "--type=bool", "--get", "commit.gpgsign"},
 	}
 	for _, args := range ok {
@@ -113,6 +114,8 @@ func TestGuardArgs_ConfigReadOnly(t *testing.T) {
 		{"config", "--global", "--get", "user.name"},
 		{"config", "--file=/etc/passwd", "--list"},
 		{"config", "--get", "user.name", "extra"},
+		{"config", "--null", "user.name", "x"},
+		{"config", "-z", "--list"}, // 짧은 형식은 받지 않는다 — 목록이 한 표기다
 	}
 	for _, args := range bad {
 		if err := guardArgs(args); !errors.Is(err, ErrUnsafeArgument) {

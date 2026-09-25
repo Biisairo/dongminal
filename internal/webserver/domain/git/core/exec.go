@@ -93,44 +93,63 @@ func (s *Service) MaxOutput() int { return s.maxOutput }
 // 거부된 호출도 기록에 남는다 (FR-GIT-5) — 무엇이 왜 거부됐는지 Console 이
 // 보여야 하고, 조용한 거부는 디버깅할 수 없다.
 func (s *Service) Exec(ctx context.Context, dir string, args ...string) (Output, error) {
-	if strings.TrimSpace(dir) == "" || !filepath.IsAbs(dir) {
-		return s.deny(dir, args, fmt.Errorf("%w: cwd 는 절대 경로여야 한다: %q", ErrUnsafeArgument, dir))
+	rec := func(out Output, err error) { s.record(dir, args, out, err) }
+	if err := checkCwd(dir); err != nil {
+		return reject(err, rec)
 	}
 	if err := guardArgs(args); err != nil {
-		return s.deny(dir, args, err)
+		return reject(err, rec)
 	}
 
 	// 호출자가 더 짧은 마감을 주면 그것이 이긴다 (FR-GIT-3).
-	ctx2, cancel := s.withTimeout(ctx)
+	ctx2, cancel := deadline(ctx, s.timeout)
 	defer cancel()
 
 	out, err := s.run(ctx2, dir, args)
+	err = finishExec(ctx2, dir, args, out, err)
+	rec(out, err)
+	return out, err
+}
+
+// checkCwd 는 세 진입점의 공통 전제다. 상대 경로는 해석 기준이 없어 어느 저장소에서
+// 도는지 말할 수 없다.
+func checkCwd(dir string) error {
+	if strings.TrimSpace(dir) == "" || !filepath.IsAbs(dir) {
+		return fmt.Errorf("%w: cwd 는 절대 경로여야 한다: %q", ErrUnsafeArgument, dir)
+	}
+	return nil
+}
+
+// finishExec 는 세 진입점(Exec·ExecWrite·ExecUnguarded)의 오류 분류다
+// (OPTIMIZE_REFACTOR_SRS FR-OPT-7-1). 한 자리여야 한쪽만 고쳐지는 일이 없다.
+func finishExec(ctx context.Context, dir string, argv []string, out Output, err error) error {
 	switch {
 	case err == nil && out.ExitCode != 0:
-		err = &ExecError{Argv: args, Cwd: dir, ExitCode: out.ExitCode, Stderr: out.Stderr, kind: classify(ctx2, out.Stderr)}
+		return &ExecError{Argv: argv, Cwd: dir, ExitCode: out.ExitCode, Stderr: out.Stderr, kind: classify(ctx, out.Stderr)}
 	case err != nil && !classified(err):
 		// Runner 가 분류되지 않은 오류를 준 경우에도 종류는 붙인다 — 호출자가
 		// errors.Is 로 구분할 수 있어야 한다 (FR-GIT-8).
-		if k := classify(ctx2, out.Stderr); k != nil {
-			err = fmt.Errorf("%w: %v", k, err)
+		if k := classify(ctx, out.Stderr); k != nil {
+			return fmt.Errorf("%w: %v", k, err)
 		}
 	}
-	s.record(dir, args, out, err)
-	return out, err
+	return err
 }
 
-// deny 는 실행 없이 거부한다. exit -1 은 "프로세스가 뜨지도 않았다"는 표시다.
-func (s *Service) deny(dir string, args []string, err error) (Output, error) {
+// reject 는 실행 없이 거부한다. exit -1 은 "프로세스가 뜨지도 않았다"는 표시다.
+// 거부도 기록에 남는다 (FR-GIT-5) — rec 가 진입점별 기록 방식이다.
+func reject(err error, rec func(Output, error)) (Output, error) {
 	out := Output{ExitCode: -1}
-	s.record(dir, args, out, err)
+	rec(out, err)
 	return out, err
 }
 
-func (s *Service) withTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
-	if dl, ok := ctx.Deadline(); ok && time.Until(dl) <= s.timeout {
+// deadline 은 마감 d 를 걸되 호출자의 ctx 가 더 짧으면 그것이 이긴다 (FR-GIT-3).
+func deadline(ctx context.Context, d time.Duration) (context.Context, context.CancelFunc) {
+	if dl, ok := ctx.Deadline(); ok && time.Until(dl) <= d {
 		return context.WithCancel(ctx)
 	}
-	return context.WithTimeout(ctx, s.timeout)
+	return context.WithTimeout(ctx, d)
 }
 
 func (s *Service) record(dir string, args []string, out Output, err error) {
@@ -144,20 +163,13 @@ func (s *Service) record(dir string, args []string, out Output, err error) {
 // 이유는 환경·상한·마감 처리가 두 경로에서 갈라지면 안 되기 때문이다.
 func execGit(ctx context.Context, dir string, args []string, limit int, stdin string) (Output, error) {
 	started := time.Now()
-	bin, err := exec.LookPath("git")
+	cmd, err := Command(ctx, dir, args, stdin)
 	if err != nil {
-		return Output{ExitCode: -1, DurationMs: elapsedMs(started)}, fmt.Errorf("%w: %v", ErrGitMissing, err)
+		return Output{ExitCode: -1, DurationMs: elapsedMs(started)}, err
 	}
 
 	stdout := &cappedBuffer{limit: limit}
 	stderr := &cappedBuffer{limit: limit}
-	cmd := exec.CommandContext(ctx, bin, launchArgs(args)...)
-	cmd.Dir = dir
-	// 빈 stdin 에 파이프를 만들지 않는다 — 읽기 폴링이 매번 지불할 비용이 아니다.
-	if stdin != "" {
-		cmd.Stdin = strings.NewReader(stdin)
-	}
-	cmd.Env = Env()
 	// REPO_FIX 01 P-1: 잡과 같은 기동 헬퍼다 — 그룹·그룹 SIGTERM·유예 뒤 KILL.
 	runErr := Spawn(ctx, cmd, stdout.consume, stderr.consume)
 
@@ -191,15 +203,21 @@ func execGit(ctx context.Context, dir string, args []string, limit int, stdin st
 		//
 		// 새 세션으로 띄우면(REPO_FIX 01 P-2) Go 는 posix_spawn 대신 fork 경로를
 		// 타고, 그 경로의 chdir 실패는 `fork/exec <bin>` 오류로 온다. 그래서 오류
-		// 모양 대신 **디렉터리가 실제로 없는가**를 본다 — bin 은 LookPath 가 방금
-		// 찾았으므로 실패의 주인은 dir 이다.
+		// 모양 대신 **디렉터리가 실제로 없는가**를 본다.
 		//
 		//	이전 동작: 오류가 ENOENT 일 때만 소실로 봤다
 		//	새 동작: 오류 종류는 보지 않고 PathError + dir 이 실제로 없음으로 판정한다
 		//	이유: Windows 는 없는 작업 디렉터리를 ERROR_DIRECTORY("The directory
 		//	      name is invalid")로 답해 소실이 일반 실패가 됐다(CI 실측)
+		//
+		// bin 은 캐시된 값이다 (FR-OPT-7-1). 그것이 사라졌으면(git 을 지우거나 옮김)
+		// 캐시를 버리고 부재로 답한다 — 다음 실행이 PATH 를 다시 훑는다.
 		var pe *fs.PathError
 		if errors.As(runErr, &pe) {
+			if _, serr := os.Stat(cmd.Path); errors.Is(serr, fs.ErrNotExist) {
+				forgetGit()
+				return out, fmt.Errorf("%w: %v", ErrGitMissing, runErr)
+			}
 			if _, serr := os.Stat(dir); errors.Is(serr, fs.ErrNotExist) {
 				return out, fmt.Errorf("%w: chdir %s: %v", ErrRepoMissing, dir, runErr)
 			}
@@ -207,6 +225,60 @@ func execGit(ctx context.Context, dir string, args []string, limit int, stdin st
 		return out, fmt.Errorf("git %s: %w", strings.Join(args, " "), runErr)
 	}
 	return out, nil
+}
+
+// Command 는 git 프로세스 하나를 만든다 — 동기 실행(execGit)과 잡(jobs)이 함께
+// 쓰는 **유일한 기동 자리**다 (OPTIMIZE_REFACTOR_SRS FR-OPT-7-1).
+//
+//	이전 동작: 두 경로가 각자 LookPath·CommandContext 를 했고, 잡 경로에는
+//	          launchArgs(`-c log.showSignature=false`)가 없었다
+//	새  동작: bin 탐색·launchArgs·Env·Dir·Stdin 을 여기서 한 번에 붙인다
+//	이유:     REPO_FIX 01 R-4.1 은 **모든** git 실행에 중립화를 강제한다
+//
+// 띄우는 것은 호출자다 — Spawn 으로 띄워야 그룹·신호 시퀀스가 붙는다.
+func Command(ctx context.Context, dir string, args []string, stdin string) (*exec.Cmd, error) {
+	bin, err := lookGit()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrGitMissing, err)
+	}
+	cmd := exec.CommandContext(ctx, bin, launchArgs(args)...)
+	cmd.Dir = dir
+	// 빈 stdin 에 파이프를 만들지 않는다 — 읽기 폴링이 매번 지불할 비용이 아니다.
+	if stdin != "" {
+		cmd.Stdin = strings.NewReader(stdin)
+	}
+	cmd.Env = Env()
+	return cmd, nil
+}
+
+// gitBin 은 git 실행 파일의 탐색 결과다. status 폴링을 포함한 모든 실행이 PATH 를
+// 훑지 않게 한다 (FR-OPT-7-1). 키는 PATH 값이다 — PATH 가 바뀌면 다시 찾는다.
+// 찾지 못한 결과는 담지 않는다: git 을 설치하면 다음 실행이 곧 찾는다.
+var gitBin struct {
+	mu   sync.Mutex
+	path string
+	bin  string
+}
+
+func lookGit() (string, error) {
+	path := os.Getenv("PATH")
+	gitBin.mu.Lock()
+	defer gitBin.mu.Unlock()
+	if gitBin.bin != "" && gitBin.path == path {
+		return gitBin.bin, nil
+	}
+	bin, err := exec.LookPath("git")
+	if err != nil {
+		return "", err
+	}
+	gitBin.path, gitBin.bin = path, bin
+	return bin, nil
+}
+
+func forgetGit() {
+	gitBin.mu.Lock()
+	defer gitBin.mu.Unlock()
+	gitBin.path, gitBin.bin = "", ""
 }
 
 // launchArgs 는 가드를 지난 argv 앞에 사용자 설정을 중립화하는 전역 인자를 붙인다

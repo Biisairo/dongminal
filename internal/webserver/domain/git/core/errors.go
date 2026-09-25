@@ -99,3 +99,16 @@ func classified(err error) bool {
 	}
 	return false
 }
+
+// PlainExit 는 err 가 **분류되지 않은 종료**(git 이 돌았고 0 이 아닌 코드로 끝났으며
+// 저장소 없음·마감 초과 같은 사유가 붙지 않은 것)인지 답한다 (FR-OPT-7-1).
+//
+// "없는 ref"·"미설정 키"·"조상이 아님" 처럼 exit 코드가 곧 답인 조회들이 이것으로
+// 실패와 답을 가른다. 분류된 실패는 요청의 답이 아니라 저장소의 문제다.
+func PlainExit(err error) (*ExecError, bool) {
+	var xe *ExecError
+	if errors.As(err, &xe) && xe.Unwrap() == nil {
+		return xe, true
+	}
+	return nil, false
+}

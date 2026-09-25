@@ -382,8 +382,8 @@ var diffAbsentStderr = []string{
 // diffAbsent 는 실패가 "없는 blob" 인지 본다. 비교를 소문자로 하는 이유는 기본
 // Runner 가 LC_ALL=C 를 거는 이유와 같다 — 판정이 로케일에 흔들리면 안 된다.
 func diffAbsent(err error) bool {
-	var xe *core.ExecError
-	if !errors.As(err, &xe) || xe.Unwrap() != nil {
+	xe, ok := core.PlainExit(err)
+	if !ok {
 		return false
 	}
 	low := strings.ToLower(xe.Stderr)

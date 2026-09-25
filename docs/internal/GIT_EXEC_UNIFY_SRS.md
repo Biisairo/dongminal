@@ -204,11 +204,14 @@ cmd := exec.CommandContext(ctx, bin, args...)
   `exec.LookPath`·`exec.CommandContext` 를 걷어내고 `ExecUnguarded` 를 부른다.
   **시그니처·반환 형식·다듬기 규약·오류 문구는 그대로다.**
 
-- **FR-GXU-8** `Output` 을 기존의 단일 문자열로 되돌릴 때 규칙은 **`Stdout` 다음
-  `Stderr`** 다.
+- **FR-GXU-8** `Output` 을 기존의 단일 문자열로 되돌릴 때 규칙은 **성공이면
+  `Stdout` 만, 실패면 `Stdout` 다음 `Stderr`** 다. 되돌리는 자리는
+  `core.UnguardedText` 하나다 (OPTIMIZE_REFACTOR_SRS FR-OPT-7-2).
   - `CombinedOutput` 은 두 스트림을 **시간순으로 섞지만** 이 결합은 스트림별로
-    모은다. 성공 경로의 파싱이 stdout 만 읽으므로 실질 차이는 실패 경로의 문구
-    순서다 (§4 V8·V9 가 이것을 검사한다).
+    모은다. 실패 경로의 문구 순서가 그 차이다 (§4 V8·V9 가 이것을 검사한다).
+  - 개정 (FR-OPT-7-2 · DOM-17): 종전에는 성공에서도 두 스트림을 이었다. 성공한
+    git 이 stderr 에 경고 한 줄을 내면 worktree 의 `isDirty` 가 깨끗한 트리를
+    dirty 로 읽어 Run 정리가 트리를 남겼다 — 성공의 파싱 입력은 stdout 뿐이다.
   - 다듬기는 **결합 뒤 각 도메인이** 한다 — worktree 는 `TrimSpace`, submodule 은
     `TrimRight`. 규칙이 다른 채로 남는 것이 `FR-SUB-2` 의 요구다.
 

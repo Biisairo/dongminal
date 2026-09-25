@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 )
 
@@ -125,27 +124,21 @@ func WithWriteRunner(r WriteRunner) Option { return func(s *Service) { s.writeRu
 // stage/unstage/discard/commit 부터 branch/tag/remote·fetch/pull/push 까지, 쓰기
 // 표면 전부가 이 함수를 지난다.
 func (s *Service) ExecWrite(ctx context.Context, dir string, spec WriteSpec) (Output, error) {
-	if strings.TrimSpace(dir) == "" || !filepath.IsAbs(dir) {
-		return s.denyWrite(dir, spec, fmt.Errorf("%w: cwd 는 절대 경로여야 한다: %q", ErrUnsafeArgument, dir))
+	rec := func(out Output, err error) { s.RecordWrite(dir, spec, out, err) }
+	if err := checkCwd(dir); err != nil {
+		return reject(err, rec)
 	}
 	if err := GuardWriteArgs(spec.Argv); err != nil {
-		return s.denyWrite(dir, spec, err)
+		return reject(err, rec)
 	}
 
 	// 호출자가 더 짧은 마감을 주면 그것이 이긴다 (FR-GIT-3).
-	ctx2, cancel := s.withTimeout(ctx)
+	ctx2, cancel := deadline(ctx, s.timeout)
 	defer cancel()
 
 	out, err := s.writeRunner()(ctx2, dir, spec.Argv, spec.Stdin)
-	switch {
-	case err == nil && out.ExitCode != 0:
-		err = &ExecError{Argv: spec.Argv, Cwd: dir, ExitCode: out.ExitCode, Stderr: out.Stderr, kind: classify(ctx2, out.Stderr)}
-	case err != nil && !classified(err):
-		if k := classify(ctx2, out.Stderr); k != nil {
-			err = fmt.Errorf("%w: %v", k, err)
-		}
-	}
-	s.RecordWrite(dir, spec, out, err)
+	err = finishExec(ctx2, dir, spec.Argv, out, err)
+	rec(out, err)
 	return out, err
 }
 
@@ -237,13 +230,6 @@ func (s *Service) writeRunner() WriteRunner {
 	return func(ctx context.Context, dir string, args []string, stdin string) (Output, error) {
 		return execGit(ctx, dir, args, limit, stdin)
 	}
-}
-
-// denyWrite 는 실행 없이 거부한다. exit -1 은 "프로세스가 뜨지도 않았다"는 표시다.
-func (s *Service) denyWrite(dir string, spec WriteSpec, err error) (Output, error) {
-	out := Output{ExitCode: -1}
-	s.RecordWrite(dir, spec, out, err)
-	return out, err
 }
 
 // RecordWrite 는 공통 기록에 쓰기 경로의 두 사실을 더한다 — 호출자의 파괴적 선언과

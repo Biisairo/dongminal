@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -106,7 +107,7 @@ func TestExecStream_CancelKillsProcessGroup(t *testing.T) {
 	exited := make(chan struct{})
 	go func() {
 		defer close(exited)
-		execStream(ctx, dir, sh, []string{"-c", script}, "", func(string, string) {})
+		execStream(ctx, exec.CommandContext(ctx, sh, "-c", script), []string{"-c", script}, func(string, string) {})
 	}()
 
 	child := jobAwaitPid(t, pidFile)
@@ -134,7 +135,7 @@ func TestExecStream_CancelEscalatesToKill(t *testing.T) {
 	exited := make(chan struct{})
 	go func() {
 		defer close(exited)
-		execStream(ctx, dir, sh, []string{"-c", script}, "", func(string, string) {})
+		execStream(ctx, exec.CommandContext(ctx, sh, "-c", script), []string{"-c", script}, func(string, string) {})
 	}()
 
 	child := jobAwaitPid(t, pidFile)
@@ -180,7 +181,8 @@ func TestJob_ProgressLinesArriveIndividually(t *testing.T) {
 	sh := jobShell(t)
 	var got []string
 	script := `printf 'Receiving objects:  1%%\rReceiving objects: 100%%\rdone.\n' 1>&2`
-	_, err := execStream(context.Background(), t.TempDir(), sh, []string{"-c", script}, "",
+	ctx := context.Background()
+	_, err := execStream(ctx, exec.CommandContext(ctx, sh, "-c", script), []string{"-c", script},
 		func(stream, text string) {
 			if stream != LineStderr {
 				t.Errorf("stream = %q", stream)

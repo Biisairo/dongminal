@@ -142,7 +142,7 @@ func ParseStashList(out string) ([]Stash, error) {
 // "No local changes to save" 로 끝나므로(2.50.1 실측), 성공으로 답하면 사용자는
 // 만들어지지 않은 stash 를 찾는다. 사유를 오류에 담는다.
 func StashPush(s *core.Service, ctx context.Context, repo string, o StashPushOpts) (core.Output, error) {
-	st, err := query.StatusOf(s, ctx, repo)
+	st, err := stashPushStatus(s, ctx, repo, o.IncludeUntracked)
 	if err != nil {
 		return denied(), err
 	}
@@ -162,6 +162,22 @@ func StashPush(s *core.Service, ctx context.Context, repo string, o StashPushOpt
 		argv = append(argv, stashMessageFlag+o.Message)
 	}
 	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: argv})
+}
+
+// stashPushStatus 는 StashPush 가 판정에 쓸 status 다 (FR-OPT-7-3, DOM-20).
+//
+// untracked 를 담지 않으면 추적되는 것만 본다 — 추적되지 않는 파일을 훑는 것이
+// status 에서 가장 비싸다. 담을 것이 없을 때만 전체 status 를 다시 묻는다:
+// 사유 문장(StashEmptyReason)이 추적되지 않는 파일 수를 말하기 때문이다.
+func stashPushStatus(s *core.Service, ctx context.Context, repo string, includeUntracked bool) (query.Status, error) {
+	if includeUntracked {
+		return query.StatusOf(s, ctx, repo)
+	}
+	st, err := query.TrackedStatusOf(s, ctx, repo)
+	if err != nil || StashableCount(st, false) > 0 {
+		return st, err
+	}
+	return query.StatusOf(s, ctx, repo)
 }
 
 // StashableCount 는 이 옵션으로 실행했을 때 담길 항목 수다 (FR-GIT-167).
@@ -249,6 +265,12 @@ func StashPop(s *core.Service, ctx context.Context, repo, oid string, withIndex 
 	if err != nil {
 		return denied(), err
 	}
+	return stashPopAt(s, ctx, repo, target, withIndex)
+}
+
+// stashPopAt 은 이미 찾은 stash 를 pop 한다. 찾기와 실행을 가르는 이유는
+// StashPopChecked 가 찾은 결과를 버리고 다시 찾지 않게 하기 위해서다 (FR-OPT-7-3).
+func stashPopAt(s *core.Service, ctx context.Context, repo string, target Stash, withIndex bool) (core.Output, error) {
 	return s.ExecWrite(ctx, repo, core.WriteSpec{Argv: stashRestoreArgs("pop", fmt.Sprintf(stashRefFormat, target.Index), withIndex)})
 }
 
@@ -260,10 +282,11 @@ func StashPop(s *core.Service, ctx context.Context, repo, oid string, withIndex 
 //
 // pop 이 실패해도 확인한다 — 확인이 필요한 경우가 바로 실패한 경우다.
 func StashPopChecked(s *core.Service, ctx context.Context, repo, oid string, withIndex bool) (core.Output, StashPopKept, error) {
-	if _, _, err := StashLocate(s, ctx, repo, oid); err != nil {
+	target, _, err := StashLocate(s, ctx, repo, oid)
+	if err != nil {
 		return denied(), StashPopKept{}, err
 	}
-	out, popErr := StashPop(s, ctx, repo, oid, withIndex)
+	out, popErr := stashPopAt(s, ctx, repo, target, withIndex)
 	kept, listErr := stashKeptAfter(s, ctx, repo, oid,
 		"pop 이 끝나지 않아 git 이 stash(%s) 를 남겼다 — 저장한 작업은 사라지지 않았다. 충돌을 해소한 뒤 drop 하면 된다.")
 	if listErr != nil {

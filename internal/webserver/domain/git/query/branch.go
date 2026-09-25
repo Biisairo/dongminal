@@ -2,7 +2,6 @@ package query
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -58,24 +57,14 @@ func ValidBranchName(s *core.Service, ctx context.Context, repo, name string) er
 // 없는 ref 의 실패는 실패가 아니다. 그 사실 자체가 답이며, 오류로 올리면 충돌이
 // 없을 때 생성이 아예 막힌다.
 func LocalBranchExists(s *core.Service, ctx context.Context, repo, name string) (bool, error) {
-	if err := core.CheckRefArg("name", name); err != nil {
-		return false, err
-	}
-	if _, err := s.Exec(ctx, repo, "rev-parse", "--verify", BranchRefPrefix+name); err != nil {
-		var xe *core.ExecError
-		if errors.As(err, &xe) && xe.Unwrap() == nil {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
+	return refExists(s, ctx, repo, BranchRefPrefix, name)
 }
 
 // refNameError 는 실패가 "이름 규칙 위반" 이면 그것으로 갈라 준다. 저장소 실패와
 // 구분되지 않으면 사용자는 이름을 고치면 되는지 알 수 없다.
 func refNameError(name string, err error) error {
-	var xe *core.ExecError
-	if !errors.As(err, &xe) || xe.Unwrap() != nil {
+	xe, ok := core.PlainExit(err)
+	if !ok {
 		return err
 	}
 	if strings.Contains(strings.ToLower(xe.Stderr), refNameInvalidStderr) {
@@ -235,8 +224,7 @@ func revCount(s *core.Service, ctx context.Context, repo, rng string) (int, erro
 // 흔한 사실이 실패가 되어 ff 판정과 미머지 판정이 아예 막힌다.
 func isAncestor(s *core.Service, ctx context.Context, repo, child, parent string) (bool, error) {
 	if _, err := s.Exec(ctx, repo, "merge-base", mergeBaseAncestor, child, parent); err != nil {
-		var xe *core.ExecError
-		if errors.As(err, &xe) && xe.Unwrap() == nil && xe.ExitCode == notAncestorExit {
+		if xe, ok := core.PlainExit(err); ok && xe.ExitCode == notAncestorExit {
 			return false, nil
 		}
 		return false, err

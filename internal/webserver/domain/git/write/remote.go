@@ -203,7 +203,9 @@ func PushSpec(s *core.Service, ctx context.Context, repo string, o PushOpts) (co
 		return spec, plan, nil
 	}
 
-	st, err := query.StatusOf(s, ctx, repo)
+	// FR-OPT-7-3 (DOM-20): 쓰는 것은 upstream·detached·브랜치뿐이다 — 추적되지 않는
+	// 파일을 훑지 않는다.
+	st, err := query.TrackedStatusOf(s, ctx, repo)
 	if err != nil {
 		return core.WriteSpec{}, plan, err
 	}

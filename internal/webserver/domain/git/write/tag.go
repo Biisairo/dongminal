@@ -286,8 +286,7 @@ func TagDeleteRemoteHint(repo, remote, name, oid string) core.Hint {
 // tagMissing 은 "그 ref 가 없다" 는 rev-parse 의 실패를 사유로 갈라 준다. 분류된
 // 실패(저장소 없음·마감 초과)는 그대로 올린다 — 그것은 요청의 문제가 아니다.
 func tagMissing(name string, err error) error {
-	var xe *core.ExecError
-	if errors.As(err, &xe) && xe.Unwrap() == nil {
+	if _, ok := core.PlainExit(err); ok {
 		return fmt.Errorf("%w: 태그 %q 가 없다", ErrTagNotFound, name)
 	}
 	return err
