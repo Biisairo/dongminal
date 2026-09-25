@@ -41,24 +41,35 @@ async function renderEntries(page: Page, fn: () => Promise<void>) {
   return page.evaluate(() => (window as any).__dmRender as number);
 }
 
+/**
+ * 동작 **하나가 부른** `render()` 수다 — 세기 시작·동작·읽기를 한 번의 왕복 안에서 한다.
+ *
+ *   이전 동작: `renderEntries` 로 셌다 — 세 번의 왕복 사이에 도착한 남의 비동기 render
+ *             (칸을 없앤 뒤 남은 칸의 `cwd` 응답)까지 세어졌다
+ *   새 동작: 동작이 돌려준 Promise 까지만 기다린다. 그 await 사슬의 render(터미널 탭의
+ *           도구 생성 뒤)는 세고, 동작이 끝난 뒤 온 응답의 render 는 세지 않는다
+ *   이유: windows CI 에서 `칸 제거` 가 3 으로 떨어졌다 — 세는 창에 cwd 응답 둘이
+ *         들어왔다(trace 실측). 이 검사가 잠그는 것은 한 동작의 중복 호출이다
+ */
+async function actionRenders(page: Page, action: 'tab' | 'slotAdd' | 'slotRemove') {
+  await renderEntries(page, async () => {});
+  return page.evaluate(async (act) => {
+    const w = window as any, a = w.app;
+    w.__dmRender = 0;
+    if (act === 'tab') await a.addTab(a.focused, 'terminal');
+    else if (act === 'slotAdd') a.slotAdd();
+    else a.slotRemove(1);
+    return w.__dmRender as number;
+  }, action);
+}
+
 test.describe('묶음 P-A — 한 동작이 render() 를 한 번만 부른다', () => {
   test('R1 (FR-PRF-17 · TC-PRF-5): 탭 열기 · 칸 추가 · 창 전환이 각각 한 번씩만 그린다', async ({ page }) => {
     await waitForInit(page);
 
-    const tab = await renderEntries(page, async () => {
-      await page.evaluate(() => { const a = (window as any).app; return a.addTab(a.focused, 'terminal') });
-    });
-    expect(tab, '탭 열기').toBe(1);
-
-    const slot = await renderEntries(page, async () => {
-      await page.evaluate(() => (window as any).app.slotAdd());
-    });
-    expect(slot, '칸 추가').toBe(1);
-
-    const back = await renderEntries(page, async () => {
-      await page.evaluate(() => (window as any).app.slotRemove(1));
-    });
-    expect(back, '칸 제거').toBe(1);
+    expect(await actionRenders(page, 'tab'), '탭 열기').toBe(1);
+    expect(await actionRenders(page, 'slotAdd'), '칸 추가').toBe(1);
+    expect(await actionRenders(page, 'slotRemove'), '칸 제거').toBe(1);
   });
 
   test('R2 (FR-PRF-17 · TC-PRF-5): 폴링은 그리지 않는다', async ({ page }) => {
