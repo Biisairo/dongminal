@@ -148,6 +148,30 @@ test('TC-OPT-4-10 (FR-RLC-2b 개정): 인사를 받은 구독이 살아 있으�
   await expect.poll(() => checks, { timeout: 5000 }).toBe(1);
 });
 
+// FR-RLC-1 D-2 와의 결합: dirty 로 미룬 목표는 다음 탭 복귀가 이어 간다 — 구독이 살아 있어
+// 문서를 묻지 않는 경우에도 그 인사의 판으로 같은 판정을 다시 돈다.
+test('TC-OPT-4-10b (FR-RLC-2b 개정·FR-RLC-1 D-2): 살아 있는 구독의 미룬 판을 탭 복귀가 이어 간다', async ({ page }) => {
+  await waitForInit(page);
+  let checks = 0;
+  await page.route(/\/\?_v=\d+/, (route) => { checks++; route.continue() });
+  await mark(page);
+  await page.evaluate(() => {
+    const w = window as any;
+    w.__dirty = true;
+    w.app.edAnyDirty = () => w.__dirty;
+    w.__dmAssetVersion('999997', () => true);
+  });
+  await expect(page.locator('#ver-held')).toBeVisible();
+  expect(await survived(page)).toBe(true);
+
+  await page.evaluate(() => {
+    (window as any).__dirty = false;
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  expect(await waitReloaded(page), '미룬 판을 탭 복귀가 잇지 않았다').toBe(true);
+  expect(checks, '살아 있는 구독인데 index.html 을 받았다').toBe(0);
+});
+
 // LEAVE_CONFIRM_TOGGLE_SRS FR-LVC-11: 떠남 확인은 이제 **설정이 정하며 기본은 끔**
 // 이다 (FR-LVC-6 / D-1). 아래 셋은 가드가 걸리는지·걸리지 않는지를 재므로 스위치를
 // 켜고 재야 한다 — 끈 채로 재면 "묻지 않았다" 가 가드가 어떻게 망가져도 참이 되어

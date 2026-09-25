@@ -136,9 +136,10 @@
   // FR-RLC-24: SSE 를 아는 곳은 `app-cmd.js` 하나다. 둘을 잇는 것은 이 이름 하나이며
   // 서로의 안을 들여다보지 않는다. 두 번째 인자 `live` 는 **그 인사를 실어 온 구독이
   // 아직 살아 있는가** 를 답하는 함수다 — 판정은 SSE 를 아는 쪽이 한다.
+  // 그 판도 함께 둔다 — dirty 로 미룬 목표를 탭 복귀가 묻지 않고 이어 간다 (FR-RLC-1 D-2).
   let greeted=null;
   window.__dmAssetVersion=(next,live)=>{
-    greeted=typeof live==='function'?live:null;
+    greeted=typeof live==='function'?{v:next,live}:null;
     saw(next);
   };
 
@@ -149,7 +150,7 @@
   //   이유:     살아 있는 구독의 인사가 이미 이 판을 답했다 — 서버가 바뀌면 구독이 끊긴다
   const check=async()=>{
     if(done) return;
-    if(greeted&&greeted()) return;
+    if(greeted&&greeted.live()){ saw(greeted.v); return }
     const r=await apiGet('/',{query:{_v:Date.now()},cache:'no-store',parse:false});
     if(!r.ok) return;
     const m=r.text.match(/core\/main\.js\?v=([0-9a-f]+)/);
