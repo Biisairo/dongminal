@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"net/http/httptest"
 	"os"
@@ -278,7 +277,7 @@ func TestBuildReplay_IsTheOnlyAssembler(t *testing.T) {
 
 func newStream(t *testing.T, max int) *outbuf.Stream {
 	t.Helper()
-	s := outbuf.NewStream(context.Background(), max)
+	s := outbuf.NewStream(max)
 	t.Cleanup(s.Close)
 	return s
 }

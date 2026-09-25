@@ -144,14 +144,14 @@
 ### B1. Outbuf Stream (`shared/outbuf/stream.go`)
 | # | 동작 | 엣지/실패 케이스 |
 |---|------|------------------|
-| B1.1 | `NewStream` — context 기반 취소 | parent Done 시 내부 cancel |
-| B1.2 | `Feed` — 버퍼에 append | totalIn 증가 |
-| B1.3 | `Feed` — max 초과 시 compaction | len(buf) > 2*max일 때만 over만큼 잘라냄; dropped 반환; totalDrop 증가 |
-| B1.4 | `Feed` — max~2*max 구간 유지 | Snapshot 시점에 잘리지만 Feed에서는 drop 카운트 안함 |
+| B1.1 | `NewStream(max)` — 미리 할당하지 않음 | 작게 시작해 max 까지 자람 (FR-OPT-3-3) |
+| B1.2 | `Feed` — 버퍼에 복사 | totalIn 증가; 창이 찬 뒤에는 max 바이트 링에 덮어씀 (재할당 없음) |
+| B1.3 | `Feed` — drop 계산 | 종전 compaction 규칙 그대로: 보유량이 2*max 를 넘을 때 over 만큼; dropped 반환; totalDrop 증가 |
+| B1.4 | `Feed` — max~2*max 구간 | Snapshot 은 최근 max 만; Feed 는 drop 카운트 안함 |
 | B1.5 | `Snapshot` — tail 복사 | max 이상이면 최근 max만; Stats 반환 |
 | B1.6 | `Snapshot` — 동시성 안전 | mu.Lock |
 | B1.7 | `Len` — 현재 유지 바이트 수 | mu.Lock |
-| B1.8 | `Close` — cancel 및 buf nil | 이후 호출 no-op |
+| B1.8 | `Close` — buf nil | 좌표는 유지; 이후 Feed 는 빈 창에서 다시 쌓음 |
 
 ### B2. Workspace Manager (`shared/workspace/manager.go`)
 | # | 동작 | 엣지/실패 케이스 |

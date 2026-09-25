@@ -148,7 +148,7 @@ this._edApply({home:this.editors.home, list:rem.editors.list});
 
 | 자리 | 상한 |
 |---|---|
-| PTY 출력 버퍼 (`outbuf.Stream`) | `max` 보유, `2*max` 넘으면 앞을 버린다 |
+| PTY 출력 버퍼 (`outbuf.Stream`) | `max` 바이트 링 (작게 시작해 `max` 까지 자란다, FR-OPT-3-3) |
 | git 명령 출력 (`core.Service`) | `DefaultMaxOutput` **1MiB** (FR-GIT-6) |
 | git job 의 보존 줄 | `lineCap`, stderr 는 200줄 |
 | 탐색기 목록·삭제·복사 | `fsListMax`·`fsDeleteMax`·`fsCopyMax` = 10000 |

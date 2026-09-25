@@ -1,7 +1,6 @@
 package toolhub
 
 import (
-	"context"
 	"dongminal/internal/shared/dmlog"
 	"errors"
 	"io"
@@ -304,7 +303,7 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 		ID: id, Name: name,
 		sandboxed: place != nil,
 		term:      term,
-		stream:    outbuf.NewStream(context.Background(), bufMax),
+		stream:    outbuf.NewStream(bufMax),
 		done:      make(chan struct{}),
 	}
 	// Set the base exit callback before readPTY starts (race-free).

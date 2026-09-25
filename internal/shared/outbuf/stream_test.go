@@ -2,12 +2,11 @@ package outbuf
 
 import (
 	"bytes"
-	"context"
 	"testing"
 )
 
 func TestFeedBelowMax(t *testing.T) {
-	s := NewStream(context.Background(), 100)
+	s := NewStream(100)
 	dropped, _ := s.Feed(bytes.Repeat([]byte("x"), 50))
 	if dropped != 0 {
 		t.Errorf("dropped=%d, want 0", dropped)
@@ -18,7 +17,7 @@ func TestFeedBelowMax(t *testing.T) {
 }
 
 func TestFeedAboveMax(t *testing.T) {
-	s := NewStream(context.Background(), 100)
+	s := NewStream(100)
 	s.Feed(bytes.Repeat([]byte("x"), 250))
 	snap, stats := s.Snapshot()
 	if len(snap) != 100 {
@@ -30,7 +29,7 @@ func TestFeedAboveMax(t *testing.T) {
 }
 
 func TestMultipleFeeds(t *testing.T) {
-	s := NewStream(context.Background(), 100)
+	s := NewStream(100)
 	// 3회 Feed, 합계 150바이트 → tail 100바이트만 유지
 	s.Feed(bytes.Repeat([]byte("A"), 50))
 	s.Feed(bytes.Repeat([]byte("B"), 50))
@@ -52,7 +51,7 @@ func TestNoPhantomDrops(t *testing.T) {
 	// max=100, Feed(50) × 5 = 250바이트.
 	// 과거 else-if 분기에선 3·4회째에 중복 누적되어 수백 바이트로 부풀었음.
 	// 수정 후엔 5회째(250 > 2*100) compaction 1회분인 150바이트만 카운트되어야 한다.
-	s := NewStream(context.Background(), 100)
+	s := NewStream(100)
 	for i := 0; i < 5; i++ {
 		s.Feed(bytes.Repeat([]byte("x"), 50))
 	}
@@ -66,7 +65,7 @@ func TestNoPhantomDrops(t *testing.T) {
 }
 
 func TestSnapshotIsolation(t *testing.T) {
-	s := NewStream(context.Background(), 100)
+	s := NewStream(100)
 	s.Feed([]byte("hello"))
 	snap, _ := s.Snapshot()
 	// Snapshot 이후 추가 Feed
@@ -78,7 +77,7 @@ func TestSnapshotIsolation(t *testing.T) {
 
 func TestFeed_MaxTo2Max_NoDropCount(t *testing.T) {
 	// max=100, Feed 150 → buf=150 (max~2*max). No drop counted yet.
-	s := NewStream(context.Background(), 100)
+	s := NewStream(100)
 	dropped, _ := s.Feed(bytes.Repeat([]byte("x"), 150))
 	if dropped != 0 {
 		t.Errorf("dropped=%d want 0 (max~2*max range)", dropped)
@@ -100,7 +99,7 @@ func TestFeed_MaxTo2Max_NoDropCount(t *testing.T) {
 
 func TestFeed_Above2Max_Compaction(t *testing.T) {
 	// max=100, Feed 250 → buf=250 (>2*max). Compaction drops 150.
-	s := NewStream(context.Background(), 100)
+	s := NewStream(100)
 	dropped, _ := s.Feed(bytes.Repeat([]byte("x"), 250))
 	if dropped != 150 {
 		t.Errorf("dropped=%d want 150", dropped)
@@ -118,8 +117,7 @@ func TestFeed_Above2Max_Compaction(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	s := NewStream(ctx, 100)
+	s := NewStream(100)
 	s.Feed([]byte("data"))
 	s.Close()
 	// After Close, buf is nil.
@@ -128,11 +126,10 @@ func TestClose(t *testing.T) {
 	}
 	// Feed after Close should not panic.
 	s.Feed([]byte("more"))
-	cancel() // no-op, already cancelled
 }
 
 func TestSnapshot_Stats(t *testing.T) {
-	s := NewStream(context.Background(), 100)
+	s := NewStream(100)
 	s.Feed(bytes.Repeat([]byte("a"), 50))
 	snap, stats := s.Snapshot()
 	if len(snap) != 50 {
@@ -150,7 +147,7 @@ func TestSnapshot_Stats(t *testing.T) {
 }
 
 func TestLen_AboveMax(t *testing.T) {
-	s := NewStream(context.Background(), 100)
+	s := NewStream(100)
 	s.Feed(bytes.Repeat([]byte("x"), 200))
 	if s.Len() != 100 {
 		t.Errorf("Len=%d want 100", s.Len())
@@ -160,7 +157,7 @@ func TestLen_AboveMax(t *testing.T) {
 // M8 `GO-37`: Feed 는 인자를 보관하지 않는다 — readPTY 가 읽기 버퍼를 복사 없이
 // 넘길 수 있는 근거다. 넘긴 뒤 그 버퍼를 덮어써도 스트림은 바뀌지 않는다.
 func TestFeedDoesNotRetainInput(t *testing.T) {
-	s := NewStream(context.Background(), 100)
+	s := NewStream(100)
 	raw := []byte("hello")
 	s.Feed(raw)
 	copy(raw, "XXXXX")
