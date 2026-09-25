@@ -58,12 +58,11 @@ type Store struct {
 	rootFlights map[string]*rootFlight
 }
 
-// rootFlight 는 진행 중인 RepoRoot 해석 하나다. joined 는 합류한 호출자 수다.
+// rootFlight 는 진행 중인 RepoRoot 해석 하나다.
 type rootFlight struct {
-	done   chan struct{}
-	root   string
-	err    error
-	joined int
+	done chan struct{}
+	root string
+	err  error
 }
 
 // repoState 는 리포 하나의 진행 중 조회 + 마지막 관측값이다. 캐시와 관측값을
@@ -286,9 +285,7 @@ func (st *Store) RepoRoot(ctx context.Context, cwd string) (string, error) {
 		return e.root, e.err
 	}
 	f := st.rootFlights[cwd]
-	if f != nil {
-		f.joined++
-	} else {
+	if f == nil {
 		f = &rootFlight{done: make(chan struct{})}
 		st.rootFlights[cwd] = f
 		go st.flyRoot(cwd, f)

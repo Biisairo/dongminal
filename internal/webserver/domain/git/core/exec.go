@@ -212,12 +212,11 @@ func execGit(ctx context.Context, dir string, args []string, limit int, stdin st
 		//
 		// bin 은 캐시된 값이다 (FR-OPT-7-1). 그것이 사라졌으면(git 을 지우거나 옮김)
 		// 캐시를 버리고 부재로 답한다 — 다음 실행이 PATH 를 다시 훑는다.
+		if VanishedBin(cmd, runErr) {
+			return out, fmt.Errorf("%w: %v", ErrGitMissing, runErr)
+		}
 		var pe *fs.PathError
 		if errors.As(runErr, &pe) {
-			if _, serr := os.Stat(cmd.Path); errors.Is(serr, fs.ErrNotExist) {
-				forgetGit()
-				return out, fmt.Errorf("%w: %v", ErrGitMissing, runErr)
-			}
 			if _, serr := os.Stat(dir); errors.Is(serr, fs.ErrNotExist) {
 				return out, fmt.Errorf("%w: chdir %s: %v", ErrRepoMissing, dir, runErr)
 			}
@@ -273,6 +272,20 @@ func lookGit() (string, error) {
 	}
 	gitBin.path, gitBin.bin = path, bin
 	return bin, nil
+}
+
+// VanishedBin 은 기동 실패가 **캐시된 bin 이 사라진 탓**인지 본다. 그렇다면 캐시를
+// 버린다 — 다음 실행이 PATH 를 다시 훑는다. 동기 실행과 잡이 함께 쓴다 (FR-OPT-7-1).
+func VanishedBin(cmd *exec.Cmd, runErr error) bool {
+	var pe *fs.PathError
+	if !errors.As(runErr, &pe) {
+		return false
+	}
+	if _, serr := os.Stat(cmd.Path); !errors.Is(serr, fs.ErrNotExist) {
+		return false
+	}
+	forgetGit()
+	return true
 }
 
 func forgetGit() {

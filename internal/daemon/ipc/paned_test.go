@@ -102,8 +102,35 @@ func newTestConn(pm *toolhub.ToolManager) *panedConn {
 	return pc
 }
 
+// create·restore 는 읽기 루프 밖에서 돈다 (FR-OPT-2-3) — dispatch 가 돌아와도 도구는
+// 아직 서는 중이다. 응답을 모두 받은 뒤 도구를 지우고 저장을 멈춰야 TempDir 정리와
+// 겹치는 쓰기가 없다 (고정 대기 없이, 응답이 곧 완료 신호다).
 func TestPanedMethodDispatch(t *testing.T) {
-	pc := newTestConn(toolhub.NewToolManager(toolTempDir(t), nil))
+	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	t.Cleanup(func() {
+		for _, info := range pm.List() {
+			_ = pm.Delete(info.ID)
+		}
+		pm.StopSaving()
+	})
+	c1, c2 := net.Pipe()
+	pc := newPanedConn(c1, pm)
+	t.Cleanup(pc.stop)
+	answered := make(chan int64, 32)
+	go func() {
+		dec := json.NewDecoder(c2)
+		for {
+			var m struct {
+				ID int64 `json:"id"`
+			}
+			if dec.Decode(&m) != nil {
+				return
+			}
+			if m.ID != 0 {
+				answered <- m.ID
+			}
+		}
+	}()
 	tests := []struct {
 		name   string
 		method string
@@ -120,10 +147,20 @@ func TestPanedMethodDispatch(t *testing.T) {
 		{"cwd", "cwd", `{"id":"1"}`},
 		{"busy", "busy", `{"id":"1"}`},
 	}
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pc.dispatch(&toolipc.PanedRequest{ID: 1, Method: tt.method, Params: json.RawMessage(tt.params)})
+			pc.dispatch(&toolipc.PanedRequest{ID: int64(i + 1), Method: tt.method, Params: json.RawMessage(tt.params)})
 		})
+	}
+	seen := map[int64]bool{}
+	timeout := time.After(10 * time.Second)
+	for len(seen) < len(tests) {
+		select {
+		case id := <-answered:
+			seen[id] = true
+		case <-timeout:
+			t.Fatalf("응답 %d/%d 만 왔다: %v", len(seen), len(tests), seen)
+		}
 	}
 }
 

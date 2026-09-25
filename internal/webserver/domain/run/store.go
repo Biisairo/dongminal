@@ -89,6 +89,11 @@ type Store struct {
 	// 없을 때만 되돌린다 — 뒤의 판은 이 변경을 이미 담고 있고, 그 쓰기의 결과가
 	// 메모리를 정한다.
 	saveGen uint64
+	// doneGen·okGen 은 쓰기를 마친 마지막 판과 성공한 마지막 판이다 (s.mu 아래).
+	// 쓰기는 writeMu 로 판 순서대로 끝나므로 둘 다 단조 증가한다. written 은 그
+	// 변화를 기다리는 자리다 — 실패한 앞 판이 뒤 판의 결과를 기다려 자기 결과로 삼는다.
+	doneGen, okGen uint64
+	written        *sync.Cond
 	// write 는 상태 파일 쓰기다. 검사가 느린 디스크를 흉내 내는 이음매다.
 	write func(path string, data []byte, perm os.FileMode) error
 }
@@ -316,22 +321,43 @@ func (s *Store) save() error {
 	}
 	s.writeMu.Unlock()
 	s.mu.Lock()
-	if err != nil {
-		// `FBE-17`: **쓰지 못했으면 메모리도 되돌린다.** 그러지 않으면 목록과
-		// 디스크가 갈라지고, 사용자는 재기동에서야 그 사실을 만난다.
-		//
-		// 그 사이에 다른 판이 직렬화됐으면 되돌리지 않는다. 그 판은 이 변경을
-		// 담고 있고, 그 쓰기가 성공하면 디스크도 이 변경을 갖는다 — 여기서
-		// 되돌리면 그때 메모리만 이 변경을 잃는다. 그 쓰기가 실패하면 그쪽이
-		// 되돌린다.
-		if gen == s.saveGen {
-			s.writeMu.Lock()
-			s.runs = s.rollbackRuns()
-			s.writeMu.Unlock()
-		}
-		return err
+	// s.mu 를 되찾는 순서는 판 순서가 아니다 — 뒤 판이 먼저 되찾을 수 있다.
+	s.doneGen = max(s.doneGen, gen)
+	if err == nil {
+		s.okGen = max(s.okGen, gen)
 	}
-	return nil
+	if s.written == nil {
+		s.written = sync.NewCond(&s.mu)
+	}
+	s.written.Broadcast()
+	if err == nil {
+		return nil
+	}
+	// `FBE-17`: **쓰지 못했으면 메모리도 되돌린다.** 그러지 않으면 목록과
+	// 디스크가 갈라지고, 사용자는 재기동에서야 그 사실을 만난다.
+	//
+	// 그 사이에 다른 판이 직렬화됐으면 되돌리지 않는다. 그 판은 이 변경을
+	// 담고 있고, 그 쓰기가 성공하면 디스크도 이 변경을 갖는다 — 여기서
+	// 되돌리면 그때 메모리만 이 변경을 잃는다. 그 쓰기가 실패하면 그쪽이
+	// 되돌린다.
+	//
+	// 그래서 이 호출의 결과도 뒤 판이 정한다 (FR-OPT-5-4): 뒤 판 하나라도 쓰이면
+	// 이 변경은 디스크와 메모리에 남으므로 성공이다. 오류를 돌려주면 호출자가 다시
+	// 시도해 같은 변경이 두 번 들어간다. 직렬화된 판이 모두 실패로 끝나면 마지막 판이
+	// 되돌렸으므로 오류다.
+	for gen != s.saveGen {
+		if s.okGen > gen {
+			return nil
+		}
+		if s.doneGen == s.saveGen {
+			return err
+		}
+		s.written.Wait()
+	}
+	s.writeMu.Lock()
+	s.runs = s.rollbackRuns()
+	s.writeMu.Unlock()
+	return err
 }
 
 // rollbackRuns 는 마지막으로 쓰인 바이트를 목록으로 되돌린다 (FR-PRF-73).

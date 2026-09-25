@@ -386,3 +386,30 @@ func TestManager_InstallForgetsExtTable(t *testing.T) {
 		t.Fatalf("설치 뒤에도 확장자 표가 %d개 남았다", n)
 	}
 }
+
+// FR-OPT-6-3: 기동이 패닉해도 기동 표시(starting)가 남지 않는다. 남으면 같은 키의
+// 요청이 전부 영원히 기다린다.
+func TestManager_StartPanicClearsStarting(t *testing.T) {
+	var calls atomic.Int32
+	base, _ := countingStarter(t, echoHandler)
+	start := func(ctx context.Context, exe string, args []string, dir string) (io.ReadWriteCloser, func(), error) {
+		if calls.Add(1) == 1 {
+			panic("injected start panic")
+		}
+		return base(ctx, exe, args, dir)
+	}
+	svc := svcWith(t, start, map[string]string{"gopls": "/fake/gopls"})
+	func() {
+		defer func() { _ = recover() }()
+		_, _ = svc.Definition(context.Background(), "/root", Doc{Path: "/root/a.go", Text: "x\n"}, 1, 1)
+	}()
+	svc.mu.Lock()
+	n := len(svc.starting)
+	svc.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("패닉 뒤 기동 표시가 %d개 남았다", n)
+	}
+	if _, err := svc.Definition(context.Background(), "/root", Doc{Path: "/root/a.go", Text: "x\n"}, 1, 1); err != nil {
+		t.Fatal(err)
+	}
+}

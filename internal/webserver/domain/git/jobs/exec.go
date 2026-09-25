@@ -54,6 +54,8 @@ func execStream(ctx context.Context, cmd *exec.Cmd, args []string, emit func(str
 	case ctx.Err() != nil:
 		// 취소다. 사유는 호출자가 안다 — 여기서 오류로 올리면 취소가 실패로 보인다.
 		return exit, nil
+	case waitErr != nil && exit <= 0 && core.VanishedBin(cmd, waitErr):
+		return exit, fmt.Errorf("%w: %v", core.ErrGitMissing, waitErr)
 	case waitErr != nil && exit <= 0:
 		return exit, fmt.Errorf("%s %s: %w", filepath.Base(cmd.Path), strings.Join(args, " "), waitErr)
 	}

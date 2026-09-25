@@ -938,36 +938,47 @@ func TestHeadlessTool_MessageAndStatusWork(t *testing.T) {
 
 func TestBackgroundSet_RestoreRecordsMemberTab(t *testing.T) {
 	f := newHeadlessFixture(t)
+	// 화해의 마지막 단계(워크스페이스 표식)가 스냅샷을 읽는 순간을 받는다. 그때는
+	// 기록(Attach)의 디스크 쓰기까지 끝났다 — 메모리만 보고 돌아가면 뒤늦은 runs.json
+	// 쓰기가 TempDir 정리와 겹친다.
 	runID := f.startRun(t)
 	m := f.addHeadless(t, runID, "writer")
 	memberID, _ := m["id"].(string)
 	toolID, _ := m["toolId"].(string)
-
-	// 브라우저가 탭을 만드는 것을 흉내 낸다. 실물은 백그라운드 해제를 **기다린
-	// 뒤에** 탭을 만들므로, 화해는 비동기여야 한다.
-	go func() {
-		time.Sleep(20 * time.Millisecond)
-		f.wi.bind(toolID, "tab-clicked")
-	}()
+	marked := make(chan struct{}, 1)
+	f.s.Work = snapshotSignal{newFakeWorkspaceStore(), marked}
 
 	code, _ := postRun(t, f.s, "/api/tools/background/set",
 		`{"toolId":`+testpath.JSONQuote(toolID)+`,"background":false}`)
 	if code != http.StatusOK {
 		t.Fatalf("background/set want 200, got %d", code)
 	}
+	// 응답이 온 **뒤에** 탭이 생긴다 — 실물 브라우저는 백그라운드 해제를 기다린 뒤에
+	// 탭을 만든다. 화해가 동기라면 여기까지 오지 못하고 탭 없이 끝난다.
+	f.wi.bind(toolID, "tab-clicked")
 
-	// 응답은 즉시 온다 — 브라우저를 붙잡지 않는다. 기록은 곧 따라온다.
-	deadline := time.Now().Add(2 * time.Second)
-	for {
-		_, got, _ := f.store.FindMember(memberID)
-		if got.TabID == "tab-clicked" && !got.Headless {
-			break
-		}
-		if !time.Now().Before(deadline) {
-			t.Fatalf("클릭 복귀가 기록에 반영되지 않았다: %+v", got)
-		}
-		time.Sleep(10 * time.Millisecond)
+	select {
+	case <-marked:
+	case <-time.After(5 * time.Second):
+		t.Fatal("화해가 끝나지 않았다")
 	}
+	if _, got, _ := f.store.FindMember(memberID); got.TabID != "tab-clicked" || got.Headless {
+		t.Fatalf("클릭 복귀가 기록에 반영되지 않았다: %+v", got)
+	}
+}
+
+// snapshotSignal 은 Snapshot 이 불린 것을 알린다.
+type snapshotSignal struct {
+	*fakeWorkspaceStore
+	snap chan struct{}
+}
+
+func (w snapshotSignal) Snapshot() ([]byte, uint64) {
+	select {
+	case w.snap <- struct{}{}:
+	default:
+	}
+	return w.fakeWorkspaceStore.Snapshot()
 }
 
 // Run 과 무관한 도구의 복귀는 아무것도 하지 않는다.

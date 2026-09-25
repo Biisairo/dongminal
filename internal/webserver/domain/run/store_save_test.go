@@ -158,3 +158,61 @@ func TestSave_LaterFailureKeepsEarlierSuccess(t *testing.T) {
 		}
 	}
 }
+
+// FR-OPT-5-4: 앞 판(A)의 쓰기가 실패하고 뒤 판(B)의 쓰기가 성공하면, B 는 A 의 변경을
+// 담고 있으므로 A 의 변경은 디스크·메모리에 남는다. 그러면 A 의 호출자에게도 성공이다 —
+// 오류를 받은 호출자가 다시 시도하면 같은 변경(메시지 한 줄)이 두 번 들어간다.
+// B 도 실패하면 둘 다 오류이고 메모리는 마지막으로 쓰인 판으로 돌아간다.
+func TestSave_EarlierFailureCoveredByLaterSuccess(t *testing.T) {
+	for _, bOK := range []bool{true, false} {
+		s := storeWithMember(t, "t1")
+		rec := s.List()[0]
+		msg := MsgEvent{From: "coordinator", To: rec.Members[0].ID, Kind: "agent", Size: 1}
+		entered := make(chan struct{})
+		release := make(chan struct{})
+		var calls int
+		orig := s.write
+		s.write = func(path string, data []byte, perm os.FileMode) error {
+			calls++
+			if calls == 1 {
+				close(entered)
+				<-release
+				return os.ErrPermission
+			}
+			if !bOK {
+				return os.ErrPermission
+			}
+			return orig(path, data, perm)
+		}
+		errA := make(chan error, 1)
+		go func() { errA <- s.AppendMessage(rec.ID, msg) }()
+		<-entered
+		errB := make(chan error, 1)
+		go func() { errB <- s.AppendMessage(rec.ID, msg) }()
+		for s.mu.TryLock() {
+			s.mu.Unlock()
+			time.Sleep(time.Millisecond)
+		}
+		close(release)
+		ea, eb := <-errA, <-errB
+		want := 2
+		if bOK {
+			if ea != nil || eb != nil {
+				t.Fatalf("bOK: A=%v B=%v — 변경이 남았는데 A 가 오류를 받았다", ea, eb)
+			}
+		} else {
+			if ea == nil || eb == nil {
+				t.Fatalf("!bOK: A=%v B=%v want both errors", ea, eb)
+			}
+			want = 0
+		}
+		var body fileBody
+		if err := json.Unmarshal(readRunsFile(t, s), &body); err != nil {
+			t.Fatal(err)
+		}
+		got, _ := s.Get(rec.ID)
+		if len(body.Runs[0].Messages) != want || len(got.Messages) != want {
+			t.Fatalf("bOK=%v 디스크 %d개 메모리 %d개 want %d", bOK, len(body.Runs[0].Messages), len(got.Messages), want)
+		}
+	}
+}

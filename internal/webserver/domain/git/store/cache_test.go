@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -71,21 +70,29 @@ func TestPruneCache_ExpiredFirst(t *testing.T) {
 
 // RepoRoot 에 single-flight 가 있다 — 같은 cwd 의 동시 미스는 rev-parse 를 한 번만
 // 돌린다.
+//
+// 합류를 세는 것은 시계다: 만료된 항목을 심어 두면 호출자마다 s.mu 안에서 시계를
+// 한 번 읽고 **같은 임계 구역에서** 합류한다. 호출자 수만큼 읽힌 뒤 s.mu 를 한 번
+// 잡았다 놓으면 마지막 호출자도 합류를 마쳤다.
 func TestStore_RepoRootSingleFlight(t *testing.T) {
 	g := newFakeGit(t)
 	release := make(chan struct{})
-	entered := make(chan struct{}, 16)
 	svc := core.New(core.WithRunner(func(ctx context.Context, dir string, args []string) (core.Output, error) {
 		if len(args) > 1 && args[1] == "--show-toplevel" {
-			entered <- struct{}{}
 			<-release
 		}
 		return g.runner(ctx, dir, args)
 	}))
-	st := NewStore(svc, fixedClock(time.Now()))
+	const n = 8
+	now := time.Now()
+	reads := make(chan struct{}, 2*n)
+	st := NewStore(svc, WithClock(func() time.Time {
+		reads <- struct{}{}
+		return now
+	}))
+	st.roots[absR] = rootEntry{at: now.Add(-2 * st.repoRootTTL)}
 	ctx := context.Background()
 
-	const n = 8
 	var wg sync.WaitGroup
 	roots := make([]string, n)
 	errs := make([]error, n)
@@ -96,16 +103,14 @@ func TestStore_RepoRootSingleFlight(t *testing.T) {
 			roots[i], errs[i] = st.RepoRoot(ctx, absR)
 		}(i)
 	}
-	<-entered
-	// 나머지가 모두 합류할 때까지 기다린다 — 합류하지 못한 호출자는 entered 에
-	// 또 들어온다.
-	for st.rootJoined(absR) != n-1 {
-		select {
-		case <-entered:
-			t.Fatal("합류하지 않고 rev-parse 를 또 돌렸다")
-		default:
-			runtime.Gosched()
-		}
+	for i := 0; i < n; i++ {
+		<-reads
+	}
+	st.mu.Lock()
+	inFlight := st.rootFlights[absR] != nil
+	st.mu.Unlock()
+	if !inFlight {
+		t.Fatal("해석이 진행 중이 아니다 — 검사가 합류를 재지 못한다")
 	}
 	close(release)
 	wg.Wait()
@@ -117,15 +122,6 @@ func TestStore_RepoRootSingleFlight(t *testing.T) {
 	if got := g.count("rev-parse --show-toplevel"); got != 1 {
 		t.Fatalf("rev-parse %d 회, want 1", got)
 	}
-}
-
-func (st *Store) rootJoined(cwd string) int {
-	st.mu.Lock()
-	defer st.mu.Unlock()
-	if f := st.rootFlights[cwd]; f != nil {
-		return f.joined
-	}
-	return -1
 }
 
 // ForgetRoot 가 진행 중인 해석을 떼어 내면 그 결과는 캐시에 담기지 않는다 — 그 사이의

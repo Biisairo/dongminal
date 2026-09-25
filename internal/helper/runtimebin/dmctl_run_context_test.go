@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/runwait"
 )
 
@@ -337,5 +338,25 @@ func TestRunBudget_WaitFollowsRunwait(t *testing.T) {
 	}
 	if got := waitBudget(60_000); got != 60*time.Second+waitClientSlack {
 		t.Fatalf("60초 시한의 예산 %v", got)
+	}
+}
+
+// FR-OPT-1-1 후속: 안내문의 다음 명령은 조정자가 그대로 셸에 친다. 모델 값은
+// 기동줄과 같은 호스트 셸 인용을 거친다 — `claude-opus-5[1m]` 의 대괄호를 zsh 가
+// glob 으로 읽으면 `no matches found` 로 깨진다.
+func TestDmctlRunSucceed_QuotesModelInNextCommand(t *testing.T) {
+	ts, _ := runStub(t, map[string]string{
+		"/api/runs/succeed": `{"member":{"id":"m-2","role":"작가","toolId":"tool-c"},` +
+			`"prevMemberId":"m-1","prevState":"succeeded","hasSummary":true}`,
+	})
+	pointDmctlAtServer(t, ts, "tool-a")
+	const model = "claude-opus-5[1m]"
+	var out bytes.Buffer
+	if code := runDmctlRun([]string{"succeed", "--member", "m-1", "--at", "tab-c", "--model", model}, &out, io.Discard); code != 0 {
+		t.Fatalf("succeed exit = %d", code)
+	}
+	want := "dmctl run launch --member m-2 --model " + platform.Current().Shell.Quote(model)
+	if !strings.Contains(out.String(), want+"\n") {
+		t.Fatalf("안내문에 %q 가 없다:\n%s", want, out.String())
 	}
 }

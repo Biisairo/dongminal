@@ -119,3 +119,18 @@ func TestValidRef_SupersetOfCheckRefArg(t *testing.T) {
 		}
 	}
 }
+
+// FR-OPT-7-3: 합친 rev-parse 의 출력에 빈 줄이 끼어도(옛 git·CRLF) 줄 수 판정이
+// 흔들리지 않는다. 빈 줄은 답이 아니므로 세지 않는다.
+func TestResolve_TolerantOfBlankLines(t *testing.T) {
+	for _, out := range []string{
+		absRepo + "\n\nabc123\nmain",
+		absRepo + "\r\nabc123\r\n\r\nmain",
+	} {
+		m := New(t.TempDir(), WithRunner(func(context.Context, string, ...string) (string, error) { return out, nil }))
+		got, err := m.Resolve(context.Background(), absRepo, "")
+		if err != nil || got.Root != absRepo || got.Base != "main" {
+			t.Fatalf("out=%q: Resolve = %+v, %v", out, got, err)
+		}
+	}
+}

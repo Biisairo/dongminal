@@ -6,6 +6,8 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"dongminal/internal/shared/platform"
 )
 
 // 묶음 C — 컨텍스트 예산과 승계의 CLI 절반 (ORCHESTRATION_V2_SRS FR-CBG-*).
@@ -93,7 +95,8 @@ func runSubSucceed(f runFlags, stdout, stderr io.Writer) int {
 	fmt.Fprintln(stdout, "  이전 멤버의 도구는 그대로 살아 있다 — 인수인계를 다 읽었으면 /exit → close-tab 으로 정리해라")
 	launch := "dmctl run launch --member " + m.ID
 	if f.model != "" {
-		launch += " --model " + f.model
+		// 조정자가 그대로 셸에 친다 — 기동줄과 같은 호스트 셸 인용이다 (FR-OPT-1-1).
+		launch += " --model " + platform.Current().Shell.Quote(f.model)
 	}
 	fmt.Fprintf(stdout, "  다음: %s\n", launch)
 	return 0

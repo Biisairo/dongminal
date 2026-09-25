@@ -246,27 +246,39 @@ func (s *Service) session(root, path string) (*Session, error) {
 	s.starting[key] = done
 	s.mu.Unlock()
 
-	start := s.Start
-	if start == nil {
-		start = StartProcess
+	sess, err := s.launch(key, done, root, descID, exe, srv, st.Exe)
+	if err != nil {
+		return nil, err
 	}
-	// FR-LSP-32: 진단은 요청 없이 오므로 세션을 세울 때 통로를 잇는다.
-	sess := newSession(root, srv, st.Exe, start, s.OnDiagnostics)
-	sess.desc, sess.key, sess.now = descID, key, s.now
-	sess.started, sess.lastUse = s.now(), s.now()
-	if sess.initErr != nil {
-		// 기다리는 쪽이 깨어나 이 실패를 보도록 기억을 먼저 남긴다.
-		s.remember(root, descID, exe, sess.initErr)
-		s.finishStart(key, done, nil)
-		sess.Close()
-		return nil, sess.initErr
-	}
-	s.finishStart(key, done, sess)
 	// §3A-4: 통로가 죽으면 맵에서 빼고 회수한다 — 죽은 세션이 캐시에 남지 않는다.
 	sess.watch(func() { s.exited(sess) })
 
 	// FR-LSP-19: 상한을 넘으면 가장 오래 쓰이지 않은 것을 정지한다.
 	s.evictOverLimit()
+	return sess, nil
+}
+
+// launch 는 세션 하나를 띄운다. 기동 표시는 **defer 로** 걷는다 — 기동이 패닉해도
+// 표시가 남아 같은 키의 요청이 영원히 기다리지 않는다 (FR-OPT-6-3). 성공이면
+// 세션이 맵에 든 뒤에 돌아온다.
+func (s *Service) launch(key string, done chan struct{}, root, descID, exe string, srv ext.Server, runExe string) (*Session, error) {
+	var published *Session
+	defer func() { s.finishStart(key, done, published) }()
+	start := s.Start
+	if start == nil {
+		start = StartProcess
+	}
+	// FR-LSP-32: 진단은 요청 없이 오므로 세션을 세울 때 통로를 잇는다.
+	sess := newSession(root, srv, runExe, start, s.OnDiagnostics)
+	sess.desc, sess.key, sess.now = descID, key, s.now
+	sess.started, sess.lastUse = s.now(), s.now()
+	if sess.initErr != nil {
+		// 기다리는 쪽이 깨어나 이 실패를 보도록 기억을 먼저 남긴다.
+		s.remember(root, descID, exe, sess.initErr)
+		sess.Close()
+		return nil, sess.initErr
+	}
+	published = sess
 	return sess, nil
 }
 

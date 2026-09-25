@@ -302,7 +302,16 @@ func (m *Manager) Resolve(ctx context.Context, cwd, base string) (Repo, error) {
 		}
 		return Repo{}, fmt.Errorf("%w: HEAD 를 확인할 수 없다 (커밋이 없는 저장소인가): %v", ErrNotRepo, err)
 	}
-	lines := strings.Split(out, "\n")
+	// 빈 줄은 답이 아니다 — 옛 git·CRLF 가 끼운 것을 세면 줄 수 판정이 흔들린다.
+	var lines []string
+	for _, l := range strings.Split(out, "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			lines = append(lines, l)
+		}
+	}
+	if len(lines) == 0 {
+		return Repo{}, fmt.Errorf("%w: %s 는 git 저장소가 아니다", ErrNotRepo, cwd)
+	}
 	top := topOf(lines[0])
 	if top == "" {
 		return Repo{}, fmt.Errorf("%w: %s 는 git 저장소가 아니다", ErrNotRepo, cwd)
@@ -314,9 +323,9 @@ func (m *Manager) Resolve(ctx context.Context, cwd, base string) (Repo, error) {
 		// FR-WKT-5: 기본 base 는 조정자 cwd 의 HEAD 다. 이름으로 잡아 두는 이유는
 		// "이 브랜치가 무엇에서 갈라졌나"를 사람이 읽을 수 있어야 하기 때문이며,
 		// 분리 HEAD 면 이름이 없으므로 커밋으로 떨어진다.
-		base = strings.TrimSpace(lines[2])
-		if base == "HEAD" || base == "" {
-			base = strings.TrimSpace(lines[1])
+		base = lines[2]
+		if base == "HEAD" {
+			base = lines[1]
 		}
 	}
 	return Repo{Root: top, Base: base}, nil
