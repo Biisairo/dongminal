@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"dongminal/internal/shared/dmlog"
@@ -89,10 +90,12 @@ type Store struct {
 	// 없을 때만 되돌린다 — 뒤의 판은 이 변경을 이미 담고 있고, 그 쓰기의 결과가
 	// 메모리를 정한다.
 	saveGen uint64
-	// doneGen·okGen 은 쓰기를 마친 마지막 판과 성공한 마지막 판이다 (s.mu 아래).
-	// 쓰기는 writeMu 로 판 순서대로 끝나므로 둘 다 단조 증가한다. written 은 그
-	// 변화를 기다리는 자리다 — 실패한 앞 판이 뒤 판의 결과를 기다려 자기 결과로 삼는다.
-	doneGen, okGen uint64
+	// doneGen·okGen 은 쓰기를 마친 마지막 판과 성공한 마지막 판이다. writeMu 안에서
+	// 적으므로 판 순서 그대로 단조 증가한다 — s.mu 를 되찾는 순서는 판 순서가 아니라서,
+	// 되찾은 뒤에 적으면 뒤 판의 실패가 앞 판의 성공보다 먼저 보인다. written 은 그
+	// 변화를 기다리는 자리다 (s.mu 아래) — 실패한 앞 판이 뒤 판의 결과를 기다려 자기
+	// 결과로 삼는다.
+	doneGen, okGen atomic.Uint64
 	written        *sync.Cond
 	// write 는 상태 파일 쓰기다. 검사가 느린 디스크를 흉내 내는 이음매다.
 	write func(path string, data []byte, perm os.FileMode) error
@@ -318,14 +321,11 @@ func (s *Store) save() error {
 		// s.mu 를 되찾은 뒤에 적으면, 그보다 먼저 되찾은 뒤 판의 실패가 이 판 이전으로
 		// 되돌려 디스크에 있는 이 판을 메모리에서 잃는다.
 		s.persistedBlob = blob
+		s.okGen.Store(gen)
 	}
+	s.doneGen.Store(gen)
 	s.writeMu.Unlock()
 	s.mu.Lock()
-	// s.mu 를 되찾는 순서는 판 순서가 아니다 — 뒤 판이 먼저 되찾을 수 있다.
-	s.doneGen = max(s.doneGen, gen)
-	if err == nil {
-		s.okGen = max(s.okGen, gen)
-	}
 	if s.written == nil {
 		s.written = sync.NewCond(&s.mu)
 	}
@@ -346,10 +346,10 @@ func (s *Store) save() error {
 	// 시도해 같은 변경이 두 번 들어간다. 직렬화된 판이 모두 실패로 끝나면 마지막 판이
 	// 되돌렸으므로 오류다.
 	for gen != s.saveGen {
-		if s.okGen > gen {
+		if s.okGen.Load() > gen {
 			return nil
 		}
-		if s.doneGen == s.saveGen {
+		if s.doneGen.Load() == s.saveGen {
 			return err
 		}
 		s.written.Wait()

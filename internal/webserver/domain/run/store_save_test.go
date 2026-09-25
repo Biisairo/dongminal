@@ -216,3 +216,46 @@ func TestSave_EarlierFailureCoveredByLaterSuccess(t *testing.T) {
 		}
 	}
 }
+
+// FR-OPT-5-4: 판 A(실패)·B(성공)·C(실패)가 잇달아 직렬화되면 A 의 변경은 B 로 디스크에
+// 남으므로 A 도 성공이다. s.mu 를 되찾는 순서는 판 순서가 아니어서, C 의 결과가 B 의
+// 결과보다 먼저 보이면 A 가 오류를 받았다 — 쓰기 결과는 쓰기 순서(writeMu 안)로 적는다.
+func TestSave_MiddleSuccessCoversEarlierFailure(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		s := storeWithMember(t, "t1")
+		rec := s.List()[0]
+		msg := MsgEvent{From: "coordinator", To: rec.Members[0].ID, Kind: "agent", Size: 1}
+		entered, release := make(chan struct{}), make(chan struct{})
+		var calls int
+		orig := s.write
+		s.write = func(path string, data []byte, perm os.FileMode) error {
+			calls++
+			switch calls {
+			case 1:
+				close(entered)
+				<-release
+				return os.ErrPermission
+			case 2:
+				return orig(path, data, perm)
+			default:
+				return os.ErrPermission
+			}
+		}
+		errA, errs := make(chan error, 1), make(chan error, 2)
+		go func() { errA <- s.AppendMessage(rec.ID, msg) }()
+		<-entered
+		go func() { errs <- s.AppendMessage(rec.ID, msg) }()
+		for s.mu.TryLock() {
+			s.mu.Unlock()
+			time.Sleep(time.Millisecond)
+		}
+		go func() { errs <- s.AppendMessage(rec.ID, msg) }()
+		time.Sleep(time.Millisecond)
+		close(release)
+		if err := <-errA; err != nil {
+			t.Fatalf("iter %d: A=%v — 뒤 판 B 가 A 의 변경을 썼는데 A 가 오류를 받았다", i, err)
+		}
+		<-errs
+		<-errs
+	}
+}
