@@ -165,9 +165,10 @@ const SweeperInterval = 1 * time.Second
 // FeedOutput processes raw PTY output for attention detection (L1 OSC).
 // Called from handleWSDaemon when output arrives from dongminald.
 func (t *AttnTracker) FeedOutput(toolID string, data []byte) {
-	ps := t.state(toolID)
+	// 청크당 락은 한 번이다 (FR-OPT-3-4, HTTP-5) — 상태와 시계를 같은 구간에서 얻는다.
+	ps, now := t.stateAndClock(toolID)
 
-	ps.lastOutputAt.Store(t.now())
+	ps.lastOutputAt.Store(now())
 	// FR-ATF-5: 잠긴 동안 출력은 무장을 세우지 못한다. 시각은 그래도 적는다 —
 	// 준비완료 사다리(FR-STA-4)가 그 값을 읽는다.
 	if !ps.attnRearmLocked.Load() {
@@ -251,6 +252,10 @@ func (t *AttnTracker) attend(toolID string, typed bool) {
 func (t *AttnTracker) state(toolID string) *attnPaneState {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	return t.stateLocked(toolID)
+}
+
+func (t *AttnTracker) stateLocked(toolID string) *attnPaneState {
 	ps := t.tools[toolID]
 	if ps == nil {
 		ps = &attnPaneState{id: toolID, allowBell: t.allowBell}
@@ -259,14 +264,27 @@ func (t *AttnTracker) state(toolID string) *attnPaneState {
 	return ps
 }
 
+// stateAndClock 은 state 와 시계를 한 번의 락으로 얻는다. 시계는 락 밖에서 부른다.
+func (t *AttnTracker) stateAndClock(toolID string) (*attnPaneState, func() int64) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.stateLocked(toolID), t.clockLocked()
+}
+
+func (t *AttnTracker) clockLocked() func() int64 {
+	if t.nowFn == nil {
+		return wallNow
+	}
+	return t.nowFn
+}
+
+func wallNow() int64 { return time.Now().UnixNano() }
+
 // now 는 주입된 시계를 읽는다 (NFR-5).
 func (t *AttnTracker) now() int64 {
 	t.mu.Lock()
-	f := t.nowFn
+	f := t.clockLocked()
 	t.mu.Unlock()
-	if f == nil {
-		return time.Now().UnixNano()
-	}
 	return f()
 }
 
