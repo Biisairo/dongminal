@@ -128,7 +128,7 @@ func TestSession_HandshakeThenSyncThenAsk(t *testing.T) {
 	sess := newSession(tRoot(), mustDesc(t, ".go"), "/fake/gopls", start, nil)
 	defer sess.Close()
 
-	locs, err := sess.Definition(context.Background(), tFile("a.go"), "package a\n", 1, 1)
+	locs, err := sess.Definition(context.Background(), Doc{Path: tFile("a.go"), Text: "package a\n"}, 1, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,10 +168,10 @@ func TestSession_SecondAskSendsDidChange(t *testing.T) {
 	sess := newSession(tRoot(), mustDesc(t, ".go"), "/fake/gopls", start, nil)
 	defer sess.Close()
 
-	if _, err := sess.Definition(context.Background(), tFile("a.go"), "v1\n", 1, 1); err != nil {
+	if _, err := sess.Definition(context.Background(), Doc{Path: tFile("a.go"), Text: "v1\n"}, 1, 1); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := sess.Definition(context.Background(), tFile("a.go"), "v2\n", 1, 1); err != nil {
+	if _, err := sess.Definition(context.Background(), Doc{Path: tFile("a.go"), Text: "v2\n"}, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	opens, changes := 0, 0
@@ -201,7 +201,7 @@ func TestSession_HandshakeFailureFailsCalls(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		_, err := sess.Definition(context.Background(), tFile("a.go"), "x\n", 1, 1)
+		_, err := sess.Definition(context.Background(), Doc{Path: tFile("a.go"), Text: "x\n"}, 1, 1)
 		done <- err
 	}()
 	select {
@@ -235,7 +235,7 @@ func TestSession_ReferencesPassesIncludeDeclaration(t *testing.T) {
 	sess := newSession(tRoot(), mustDesc(t, ".go"), "/fake/gopls", start, nil)
 	defer sess.Close()
 
-	if _, err := sess.References(context.Background(), tFile("a.go"), "x\n", 1, 1, true); err != nil {
+	if _, err := sess.References(context.Background(), Doc{Path: tFile("a.go"), Text: "x\n"}, 1, 1, true); err != nil {
 		t.Fatal(err)
 	}
 	if !seen {
@@ -262,7 +262,7 @@ func TestSession_CloseStopsProcess(t *testing.T) {
 	})
 	sess := newSession(tRoot(), mustDesc(t, ".go"), "/fake/gopls", start, nil)
 	// 핸드셰이크가 실제로 돌게 한 뒤 닫는다.
-	if _, err := sess.Definition(context.Background(), tFile("a.go"), "x\n", 1, 1); err != nil {
+	if _, err := sess.Definition(context.Background(), Doc{Path: tFile("a.go"), Text: "x\n"}, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	sess.Close()
@@ -306,7 +306,7 @@ func TestSession_Hover(t *testing.T) {
 	sess := newSession(tRoot(), mustDesc(t, ".go"), "/fake/gopls", start, nil)
 	defer sess.Close()
 
-	got, err := sess.Hover(context.Background(), tFile("a.go"), "package a\n", 1, 1)
+	got, err := sess.Hover(context.Background(), Doc{Path: tFile("a.go"), Text: "package a\n"}, 1, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -358,7 +358,7 @@ func TestSession_HoverContentShapes(t *testing.T) {
 			})
 			sess := newSession(tRoot(), mustDesc(t, ".go"), "/fake/gopls", start, nil)
 			defer sess.Close()
-			got, err := sess.Hover(context.Background(), tFile("a.go"), "x\n", 1, 1)
+			got, err := sess.Hover(context.Background(), Doc{Path: tFile("a.go"), Text: "x\n"}, 1, 1)
 			if err != nil {
 				t.Fatal(err)
 			}

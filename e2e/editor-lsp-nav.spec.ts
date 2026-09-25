@@ -518,6 +518,59 @@ test.describe('코드 탐색 — 호버 (M3)', () => {
   });
 });
 
+test.describe('코드 탐색 — 텍스트 생략 (OPTIMIZE_REFACTOR_SRS FR-OPT-6-2)', () => {
+  // 서버가 판을 되돌리면 같은 판의 다음 호버는 텍스트를 싣지 않는다. 서버가 판을
+  // 모른다고 답하면(needText) 전문으로 한 번 더 묻고, 그 답이 말풍선이 된다.
+  test('같은 판의 두 번째 호버는 텍스트를 싣지 않고, needText 면 전문을 다시 싣는다', async ({ page, request }) => {
+    await enter(page, request);
+    await stubStatus(page, [GOPLS_MISSING]);
+    await openFile(page, 'main.go');
+
+    const seen: any[] = [];
+    let forget = false;
+    await page.route('**/api/lsp/hover', async (route: any) => {
+      const b = JSON.parse(route.request().postData() || '{}');
+      seen.push(b);
+      const need = forget && !('text' in b);
+      if (need) forget = false;
+      await route.fulfill({
+        status: 200, contentType: 'application/json',
+        body: JSON.stringify(need ? { markdown: '', needText: true }
+          : { markdown: 'func helper()', version: b.version }),
+      });
+    });
+
+    await expectHoverGround(page);
+    await page.locator('.file-editor.vis .monaco-editor').first().click();
+    const show = async (n: number) => {
+      await putCursor(page, 4, 3 + (n % 2));
+      await page.evaluate(() => {
+        const ed = (window as any).app.testing.edActiveEditor()._editor;
+        ed.trigger('test', 'editor.action.showHover', null);
+      });
+    };
+    await show(0);
+    await expect.poll(() => seen.length, { timeout: 10000 }).toBe(1);
+    expect(seen[0].text).toContain('func main()');
+    expect(typeof seen[0].version).toBe('string');
+
+    await page.keyboard.press('Escape');
+    await show(1);
+    await expect.poll(() => seen.length, { timeout: 10000 }).toBe(2);
+    expect('text' in seen[1], '같은 판인데 텍스트를 실었다').toBe(false);
+    expect(seen[1].version).toBe(seen[0].version);
+
+    forget = true;
+    await page.keyboard.press('Escape');
+    await show(0);
+    await expect.poll(() => seen.length, { timeout: 10000 }).toBe(4);
+    expect('text' in seen[2]).toBe(false);
+    expect(seen[3].text, 'needText 뒤에 전문을 싣지 않았다').toContain('func main()');
+    await expect(page.locator('.monaco-editor .monaco-hover').first())
+      .toContainText('func helper()', { timeout: 10000 });
+  });
+});
+
 test.describe('코드 탐색 — 진단 (M4)', () => {
   // 서버가 밀어 준 진단을 흉내낸다. 실제 SSE 를 타지 않는 이유는 이 검사가 재려는
   // 것이 **밑줄을 얹는 경로**이고, SSE 배선은 Go 쪽이 잰다는 것이다.

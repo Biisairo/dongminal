@@ -38,6 +38,7 @@ type fakeLSP struct {
 	askLine int
 	askCol  int
 	askIncl bool
+	askDoc  lsp.Doc
 }
 
 func (f *fakeLSP) Status() ([]ext.Status, []string) {
@@ -72,18 +73,24 @@ func (f *fakeLSP) Install(_ context.Context, id string) ext.Outcome {
 	return f.outcome
 }
 
-func (f *fakeLSP) Definition(_ context.Context, root, path, text string, line, col int) ([]lsp.Location, error) {
-	f.askRoot, f.askPath, f.askText, f.askLine, f.askCol = root, path, text, line, col
+func (f *fakeLSP) ask(root string, doc lsp.Doc, line, col int) {
+	f.askRoot, f.askPath, f.askText, f.askLine, f.askCol = root, doc.Path, doc.Text, line, col
+	f.askDoc = doc
+}
+
+func (f *fakeLSP) Definition(_ context.Context, root string, doc lsp.Doc, line, col int) ([]lsp.Location, error) {
+	f.ask(root, doc, line, col)
 	return f.locs, f.locErr
 }
 
-func (f *fakeLSP) References(_ context.Context, root, path, text string, line, col int, incl bool) ([]lsp.Location, error) {
-	f.askRoot, f.askPath, f.askText, f.askLine, f.askCol, f.askIncl = root, path, text, line, col, incl
+func (f *fakeLSP) References(_ context.Context, root string, doc lsp.Doc, line, col int, incl bool) ([]lsp.Location, error) {
+	f.ask(root, doc, line, col)
+	f.askIncl = incl
 	return f.locs, f.locErr
 }
 
-func (f *fakeLSP) Hover(_ context.Context, root, path, text string, line, col int) (string, error) {
-	f.askRoot, f.askPath, f.askText, f.askLine, f.askCol = root, path, text, line, col
+func (f *fakeLSP) Hover(_ context.Context, root string, doc lsp.Doc, line, col int) (string, error) {
+	f.ask(root, doc, line, col)
 	return f.hover, f.locErr
 }
 

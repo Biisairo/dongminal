@@ -45,6 +45,9 @@ type Service struct {
 	// failed 는 (루트, 서술자) → 실패 기억이다 (FR-LSP-16, REPO_FIX 02 §3A-4) —
 	// 매 요청마다 같은 실패를 되풀이해 프로세스를 띄우지 않는다.
 	failed map[string]*failure
+	// starting 은 지금 기동 중인 세션 키들이다 (FR-OPT-6-3) — 같은 키의 다른 요청은
+	// 이것이 닫히기를 기다린다.
+	starting map[string]chan struct{}
 
 	// paths 는 서버가 보관하는 실행 파일 경로 표다 (팩/서버 → 절대경로, §3A-3).
 	// pathsFile 은 그 영속 자리(`<dataDir>/lsp-paths.json`)다.

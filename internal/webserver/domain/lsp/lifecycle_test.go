@@ -82,7 +82,7 @@ func waitSessions(t *testing.T, svc *Service, want int) {
 }
 
 func ask(svc *Service) error {
-	_, err := svc.Definition(context.Background(), "/root", "/root/a.go", "x\n", 1, 1)
+	_, err := svc.Definition(context.Background(), "/root", Doc{Path: "/root/a.go", Text: "x\n"}, 1, 1)
 	return err
 }
 
@@ -181,7 +181,7 @@ func TestLifecycle_FailureMemoryPerRootAndTTL(t *testing.T) {
 	clk := &fakeClock{t: time.Now()}
 	svc.Now = clk.now
 	for i := 0; i < 2; i++ {
-		if _, err := svc.Definition(context.Background(), "/bad", "/bad/a.go", "x", 1, 1); err == nil {
+		if _, err := svc.Definition(context.Background(), "/bad", Doc{Path: "/bad/a.go", Text: "x"}, 1, 1); err == nil {
 			t.Fatal("기동 실패인데 성공")
 		}
 	}
@@ -192,7 +192,7 @@ func TestLifecycle_FailureMemoryPerRootAndTTL(t *testing.T) {
 		t.Fatalf("다른 루트가 막혔다: %v", err)
 	}
 	clk.add(61 * time.Second)
-	svc.Definition(context.Background(), "/bad", "/bad/a.go", "x", 1, 1)
+	svc.Definition(context.Background(), "/bad", Doc{Path: "/bad/a.go", Text: "x"}, 1, 1)
 	if n.get() != 3 {
 		t.Fatalf("TTL 뒤 재시도가 없다: 기동 %d번", n.get())
 	}
@@ -213,7 +213,7 @@ func TestLifecycle_LastUseOnlyOnResponse(t *testing.T) {
 	svc := svcWith(t, start, map[string]string{"gopls": "/fake/gopls"})
 	clk := &fakeClock{t: time.Now()}
 	svc.Now = clk.now
-	svc.Hover(context.Background(), "/root", "/root/a.go", "x", 1, 1)
+	svc.Hover(context.Background(), "/root", Doc{Path: "/root/a.go", Text: "x"}, 1, 1)
 	sess := svc.cachedSession("/root", ".go")
 	if sess == nil {
 		t.Fatal("세션이 없다")
@@ -221,11 +221,11 @@ func TestLifecycle_LastUseOnlyOnResponse(t *testing.T) {
 	clk.add(time.Minute)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
 	defer cancel()
-	svc.References(ctx, "/root", "/root/a.go", "x", 1, 1, false)
+	svc.References(ctx, "/root", Doc{Path: "/root/a.go", Text: "x"}, 1, 1, false)
 	if got := sess.LastUse(); !got.Before(clk.now()) {
 		t.Fatal("취소된 요청이 lastUse 를 늘렸다")
 	}
-	svc.Hover(context.Background(), "/root", "/root/a.go", "x", 1, 1)
+	svc.Hover(context.Background(), "/root", Doc{Path: "/root/a.go", Text: "x"}, 1, 1)
 	if got := sess.LastUse(); !got.Equal(clk.now()) {
 		t.Fatalf("오류 응답도 응답이다 — lastUse=%v want %v", got, clk.now())
 	}
@@ -249,7 +249,7 @@ func TestPaths_SetValidatesPersistsAndInvalidates(t *testing.T) {
 	if err := ask(svc); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.Definition(context.Background(), "/root", "/root/a.ts", "x", 1, 1); err != nil {
+	if _, err := svc.Definition(context.Background(), "/root", Doc{Path: "/root/a.ts", Text: "x"}, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	// Windows 는 확장자로 실행 파일을 가린다 — 접미사가 없으면 표를 무시하고

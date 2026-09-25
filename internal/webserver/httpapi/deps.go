@@ -204,13 +204,14 @@ type LSPService interface {
 	Install(ctx context.Context, packID string) ext.Outcome
 	// Definition·References 는 그 자리의 정의·참조다 (FR-LSP-21·22).
 	//
-	// `text` 를 받는 것이 이 계약의 핵심이다 (D-3) — 저장 전 편집이 브라우저에만
-	// 있으므로 디스크만 보는 서버는 방금 쓴 함수를 모른다. 줄·열은 1 부터다.
-	Definition(ctx context.Context, root, path, text string, line, col int) ([]lsp.Location, error)
-	References(ctx context.Context, root, path, text string, line, col int, includeDecl bool) ([]lsp.Location, error)
+	// 서버가 현재 텍스트를 아는 것이 이 계약의 핵심이다 (D-3) — 저장 전 편집이
+	// 브라우저에만 있으므로 디스크만 보는 서버는 방금 쓴 함수를 모른다. 텍스트를
+	// 뺀 문서의 판을 세션이 모르면 lsp.ErrNeedText 다 (FR-OPT-6-2). 줄·열은 1 부터다.
+	Definition(ctx context.Context, root string, doc lsp.Doc, line, col int) ([]lsp.Location, error)
+	References(ctx context.Context, root string, doc lsp.Doc, line, col int, includeDecl bool) ([]lsp.Location, error)
 	// Hover 는 그 자리 심볼의 타입·문서다 (FR-LSP-29). 정의 이동과 같은 세션·같은
 	// 동기화를 쓴다 (FR-LSP-30).
-	Hover(ctx context.Context, root, path, text string, line, col int) (string, error)
+	Hover(ctx context.Context, root string, doc lsp.Doc, line, col int) (string, error)
 }
 
 // StatsSnapshotter is satisfied by *sysstat.Sampler. Kept as an interface so the

@@ -3,6 +3,7 @@ package lsp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"sync"
 	"testing"
@@ -152,7 +153,7 @@ func TestSession_SyncVersionsArriveInOrder(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := 0; i < 64; i++ {
 		wg.Add(1)
-		go func() { defer wg.Done(); _ = sess.sync(tFile("a.go"), "x") }()
+		go func() { defer wg.Done(); _ = sess.sync(Doc{Path: tFile("a.go"), Text: fmt.Sprint(i)}) }()
 	}
 	wg.Wait()
 	deadline := time.Now().Add(2 * time.Second)

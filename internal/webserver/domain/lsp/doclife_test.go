@@ -77,7 +77,7 @@ func docSvc(t *testing.T) (*Service, *recorder) {
 func TestDocLife_CloseThenReopen(t *testing.T) {
 	svc, rec := docSvc(t)
 	root, p := docRoot(t)
-	if _, err := svc.Definition(context.Background(), root, p, "package a\n", 1, 1); err != nil {
+	if _, err := svc.Definition(context.Background(), root, Doc{Path: p, Text: "package a\n"}, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	svc.CloseDoc(root, filepath.Join(root, "other.go")) // 열지 않은 문서
@@ -86,7 +86,7 @@ func TestDocLife_CloseThenReopen(t *testing.T) {
 		t.Fatalf("close = %v", got)
 	}
 	svc.CloseDoc(root, p) // 두 번째는 no-op
-	if _, err := svc.Definition(context.Background(), root, p, "package a\n", 1, 1); err != nil {
+	if _, err := svc.Definition(context.Background(), root, Doc{Path: p, Text: "package a\n"}, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	if got := rec.waitN(t, 3); len(got) != 3 || got[2] != "textDocument/didOpen" {
@@ -99,7 +99,7 @@ func TestDocLife_CloseThenReopen(t *testing.T) {
 func TestDocLife_ResyncFromDisk(t *testing.T) {
 	svc, rec := docSvc(t)
 	root, p := docRoot(t)
-	if _, err := svc.Definition(context.Background(), root, p, "package a\n", 1, 1); err != nil {
+	if _, err := svc.Definition(context.Background(), root, Doc{Path: p, Text: "package a\n"}, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	svc.ResyncPath(p)
@@ -132,7 +132,7 @@ func TestDocLife_ResyncFromDisk(t *testing.T) {
 func TestDocLife_ResyncRepoScopeAndInvalidUTF8(t *testing.T) {
 	svc, rec := docSvc(t)
 	root, p := docRoot(t)
-	if _, err := svc.Definition(context.Background(), root, p, "package a\n", 1, 1); err != nil {
+	if _, err := svc.Definition(context.Background(), root, Doc{Path: p, Text: "package a\n"}, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(p, []byte{0xff, 0xfe, 0x00}, 0o644); err != nil {

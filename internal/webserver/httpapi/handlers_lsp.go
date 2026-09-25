@@ -105,10 +105,15 @@ func (s *Server) apiLSPInstall(w http.ResponseWriter, r *http.Request) {
 // `Text` 가 있는 것이 이 설계의 핵심이다 (D-3) — 저장 전 편집은 브라우저에만
 // 있으므로(§2.8) 디스크만 보는 서버는 방금 쓴 함수를 모른다. 저장을 강제하면
 // "정의를 보려면 저장하라" 가 되어 요구를 이루지 못한다.
+//
+// `Text` 가 빠지는 것은 `Version` 이 있고 브라우저가 서버에게서 그 판을 받았다는
+// 답(`version`)을 들은 뒤뿐이다 (FR-OPT-6-2 / D-3 개정). 판도 텍스트도 없으면 종전처럼
+// 빈 텍스트다.
 type lspAskReq struct {
-	Root string `json:"root"`
-	Path string `json:"path"`
-	Text string `json:"text"`
+	Root    string  `json:"root"`
+	Path    string  `json:"path"`
+	Text    *string `json:"text"`
+	Version string  `json:"version"`
 	// 줄·열은 **1 부터**다. 편집기가 그렇게 세고, 도메인 계층이 LSP 의 0-기준으로
 	// 옮긴다 — 경계가 한 곳이어야 한 줄 위로 뛰는 어긋남이 생기지 않는다.
 	Line int `json:"line"`
@@ -145,6 +150,36 @@ func (s *Server) lspAsk(w http.ResponseWriter, r *http.Request) (lspAskReq, stri
 	return req, root, true
 }
 
+// doc 은 요청의 문서다. 텍스트가 빠졌으면 판이 있을 때만 "생략" 이다.
+func (req lspAskReq) doc() lsp.Doc {
+	d := lsp.Doc{Path: req.Path, Version: req.Version}
+	switch {
+	case req.Text != nil:
+		d.Text = *req.Text
+	case req.Version != "":
+		d.NoText = true
+	}
+	return d
+}
+
+// lspSyncResult 는 판 협상의 응답 조각을 얹는다 (FR-OPT-6-2). 판을 싣지 않은 요청
+// (옛 화면)에는 아무것도 더하지 않는다 — 응답이 종전과 바이트로 같다.
+//
+//	needText  세션이 그 판을 모른다 — 전문을 실어 다시 물어라
+//	version   서버가 그 판의 텍스트를 가졌다 — 다음에는 빼도 된다
+func lspSyncResult(out map[string]any, req lspAskReq, err error) {
+	if req.Version == "" {
+		return
+	}
+	switch {
+	case errors.Is(err, lsp.ErrNeedText):
+		out["needText"] = true
+		delete(out, "reason")
+	case err == nil:
+		out["version"] = req.Version
+	}
+}
+
 // apiLSPDefinition 은 그 자리의 정의들이다 (FR-LSP-21).
 //
 // **답하지 못한 이유가 실린다** (FR-LSP-28 / D-9). 침묵은 고장과 구별되지 않으므로,
@@ -155,8 +190,10 @@ func (s *Server) apiLSPDefinition(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	locs, err := s.LSP.Definition(r.Context(), root, req.Path, req.Text, req.Line, req.Col)
-	writeJSON(w, lspLocsResult(locs, err))
+	locs, err := s.LSP.Definition(r.Context(), root, req.doc(), req.Line, req.Col)
+	out := lspLocsResult(locs, err)
+	lspSyncResult(out, req, err)
+	writeJSON(w, out)
 }
 
 // apiLSPReferences 는 그 자리의 참조들이다 (FR-LSP-22).
@@ -165,9 +202,11 @@ func (s *Server) apiLSPReferences(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	locs, err := s.LSP.References(r.Context(), root, req.Path, req.Text, req.Line, req.Col,
+	locs, err := s.LSP.References(r.Context(), root, req.doc(), req.Line, req.Col,
 		req.IncludeDeclaration)
-	writeJSON(w, lspLocsResult(locs, err))
+	out := lspLocsResult(locs, err)
+	lspSyncResult(out, req, err)
+	writeJSON(w, out)
 }
 
 // apiLSPHover 는 그 자리 심볼의 타입·문서다 (FR-LSP-29).
@@ -179,11 +218,12 @@ func (s *Server) apiLSPHover(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	text, err := s.LSP.Hover(r.Context(), root, req.Path, req.Text, req.Line, req.Col)
+	text, err := s.LSP.Hover(r.Context(), root, req.doc(), req.Line, req.Col)
 	out := map[string]any{"markdown": text}
 	if err != nil {
 		out["reason"] = err.Error()
 	}
+	lspSyncResult(out, req, err)
 	writeJSON(w, out)
 }
 

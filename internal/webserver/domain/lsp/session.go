@@ -166,10 +166,29 @@ type Session struct {
 }
 
 // sentDoc 은 서버가 알고 있는 문서 하나의 마지막 전송이다.
+//
+// client 는 그 텍스트를 실어 보낸 브라우저의 문서 판이다 (FR-OPT-6-2) — 언어 서버가
+// 지금 가진 텍스트가 그 판의 것일 때만 채워진다. 디스크 재동기화가 내용을 바꾸면 비운다.
 type sentDoc struct {
-	path string
-	hash [sha256.Size]byte
+	path   string
+	hash   [sha256.Size]byte
+	client string
 }
+
+// Doc 은 요청이 가리키는 문서다 (D-3 · FR-OPT-6-2).
+//
+// Version 은 브라우저가 붙인 문서 판이고, NoText 는 텍스트를 싣지 않았다는 뜻이다 —
+// 브라우저는 서버가 그 판을 받았다고 답한 뒤에만 텍스트를 뺀다. 세션이 그 판을 모르면
+// ErrNeedText 로 답해 전문을 다시 받는다.
+type Doc struct {
+	Path    string
+	Text    string
+	Version string
+	NoText  bool
+}
+
+// ErrNeedText 는 텍스트 없이 온 요청의 판을 세션이 모른다는 답이다 (FR-OPT-6-2).
+var ErrNeedText = errors.New("lsp: 이 판의 텍스트를 모른다")
 
 // ResyncMaxBytes 는 디스크 재동기화가 읽는 파일의 상한이다 — 파일 읽기 종단의
 // 상한(10MiB)과 같다. 넘으면 그 문서를 닫는다.
@@ -355,8 +374,16 @@ func (s *Session) handshake() {
 //
 // 저장 전 편집이 브라우저에만 있으므로(§2.8), 디스크만 보는 서버는 방금 쓴 함수를
 // 모른다. 처음이면 `didOpen`, 다음부터는 `didChange` 다.
-func (s *Session) sync(path, text string) error {
-	uri := pathToURI(path)
+//
+// 내용이 마지막 전송과 같으면 보내지 않는다 (FR-OPT-6-1) — 호버는 커서를 움직일
+// 때마다 오고, 같은 전문을 받은 언어 서버는 매번 다시 파싱한다. 텍스트 없이 온
+// 요청은 그 판을 이 세션이 받았을 때만 통과한다 (FR-OPT-6-2).
+func (s *Session) sync(doc Doc) error {
+	uri := pathToURI(doc.Path)
+	var hash [sha256.Size]byte
+	if !doc.NoText {
+		hash = sha256.Sum256([]byte(doc.Text))
+	}
 	// §3A-5: 판 증가와 전송을 한 임계구역에서 한다.
 	//	이전 동작: 판은 잠금 안에서 올리고 전송은 잠금 밖 — 동시 요청이 판 순서를
 	//	          뒤바꿔 보냈고, 서버는 낮은 판을 늦게 받아 옛 텍스트로 답했다
@@ -365,9 +392,22 @@ func (s *Session) sync(path, text string) error {
 	defer s.syncMu.Unlock()
 	s.mu.Lock()
 	ver, seen := s.open[uri]
+	prev := s.sent[uri]
+	if doc.NoText {
+		known := seen && doc.Version != "" && prev.client == doc.Version
+		s.mu.Unlock()
+		if !known {
+			return ErrNeedText
+		}
+		return nil
+	}
+	s.sent[uri] = sentDoc{path: doc.Path, hash: hash, client: doc.Version}
+	if seen && prev.hash == hash {
+		s.mu.Unlock()
+		return nil
+	}
 	ver++
 	s.open[uri] = ver
-	s.sent[uri] = sentDoc{path: path, hash: sha256.Sum256([]byte(text))}
 	// §3A-4: lastUse 는 여기서 늘리지 않는다 — 응답을 받은 요청만 늘린다.
 	s.mu.Unlock()
 
@@ -375,9 +415,9 @@ func (s *Session) sync(path, text string) error {
 		return s.c.Notify("textDocument/didOpen", map[string]any{
 			"textDocument": map[string]any{
 				"uri":        uri,
-				"languageId": s.languageFor(path),
+				"languageId": s.languageFor(doc.Path),
 				"version":    ver,
-				"text":       text,
+				"text":       doc.Text,
 			},
 		})
 	}
@@ -385,7 +425,7 @@ func (s *Session) sync(path, text string) error {
 	// 요청마다 현재 텍스트가 오는 구조에서는 얻는 것이 없다.
 	return s.c.Notify("textDocument/didChange", map[string]any{
 		"textDocument":   map[string]any{"uri": uri, "version": ver},
-		"contentChanges": []map[string]any{{"text": text}},
+		"contentChanges": []map[string]any{{"text": doc.Text}},
 	})
 }
 
@@ -482,13 +522,13 @@ func (s *Session) languageFor(path string) string {
 }
 
 // Definition 은 그 자리의 정의들이다 (FR-LSP-21).
-func (s *Session) Definition(ctx context.Context, path, text string, line, col int) ([]Location, error) {
-	return s.locate(ctx, "textDocument/definition", path, text, line, col, nil)
+func (s *Session) Definition(ctx context.Context, doc Doc, line, col int) ([]Location, error) {
+	return s.locate(ctx, "textDocument/definition", doc, line, col, nil)
 }
 
 // References 는 그 자리의 참조들이다 (FR-LSP-22).
-func (s *Session) References(ctx context.Context, path, text string, line, col int, includeDecl bool) ([]Location, error) {
-	return s.locate(ctx, "textDocument/references", path, text, line, col,
+func (s *Session) References(ctx context.Context, doc Doc, line, col int, includeDecl bool) ([]Location, error) {
+	return s.locate(ctx, "textDocument/references", doc, line, col,
 		map[string]any{"includeDeclaration": includeDecl})
 }
 
@@ -496,23 +536,9 @@ func (s *Session) References(ctx context.Context, path, text string, line, col i
 //
 // **정의 이동과 같은 세션·같은 동기화를 쓴다** (FR-LSP-30) — 두 벌로 두면 한쪽만
 // 낡아, 호버는 옛 내용을 말하고 정의는 새 내용을 가리키게 된다.
-func (s *Session) Hover(ctx context.Context, path, text string, line, col int) (string, error) {
-	if err := s.waitReady(ctx); err != nil {
-		return "", err
-	}
-	if err := s.sync(path, text); err != nil {
-		return "", err
-	}
-	l, ch := toLSPPos(line, col)
+func (s *Session) Hover(ctx context.Context, doc Doc, line, col int) (string, error) {
 	var raw map[string]any
-	err := s.c.Call(ctx, "textDocument/hover", map[string]any{
-		"textDocument": map[string]any{"uri": pathToURI(path)},
-		"position":     map[string]any{"line": l, "character": ch},
-	}, &raw)
-	if answered(err) {
-		s.touch()
-	}
-	if err != nil {
+	if err := s.request(ctx, "textDocument/hover", doc, line, col, nil, &raw); err != nil {
 		return "", err
 	}
 	return hoverText(raw["contents"]), nil
@@ -548,33 +574,44 @@ func hoverText(v any) string {
 
 // locate 는 정의·참조가 공유하는 몸통이다 — 둘은 같은 입력과 같은 응답 모양을
 // 가지며 method 와 context 만 다르다. 두 벌로 두면 좌표 변환이 한쪽만 고쳐진다.
-func (s *Session) locate(ctx context.Context, method, path, text string,
+func (s *Session) locate(ctx context.Context, method string, doc Doc,
 	line, col int, refCtx map[string]any) ([]Location, error) {
-	if err := s.waitReady(ctx); err != nil {
-		return nil, err
-	}
-	if err := s.sync(path, text); err != nil {
-		return nil, err
-	}
-	l, ch := toLSPPos(line, col)
-	params := map[string]any{
-		"textDocument": map[string]any{"uri": pathToURI(path)},
-		"position":     map[string]any{"line": l, "character": ch},
-	}
+	var extra map[string]any
 	if refCtx != nil {
-		params["context"] = refCtx
+		extra = map[string]any{"context": refCtx}
 	}
 	// 응답은 세 모양 중 하나다 — Location, Location[], LocationLink[].
 	// 서버마다 다르므로 셋을 다 받는다.
 	var raw any
-	err := s.c.Call(ctx, method, params, &raw)
-	if answered(err) {
-		s.touch()
-	}
-	if err != nil {
+	if err := s.request(ctx, method, doc, line, col, extra, &raw); err != nil {
 		return nil, err
 	}
 	return parseLocations(raw), nil
+}
+
+// request 는 자리 요청 셋(정의·참조·호버)이 함께 쓰는 몸통이다 (FR-OPT-6-3) —
+// 핸드셰이크 대기, 동기화, 좌표 변환, 응답 뒤 touch 가 한 자리에 있다.
+func (s *Session) request(ctx context.Context, method string, doc Doc,
+	line, col int, extra map[string]any, out any) error {
+	if err := s.waitReady(ctx); err != nil {
+		return err
+	}
+	if err := s.sync(doc); err != nil {
+		return err
+	}
+	l, ch := toLSPPos(line, col)
+	params := map[string]any{
+		"textDocument": map[string]any{"uri": pathToURI(doc.Path)},
+		"position":     map[string]any{"line": l, "character": ch},
+	}
+	for k, v := range extra {
+		params[k] = v
+	}
+	err := s.c.Call(ctx, method, params, out)
+	if answered(err) {
+		s.touch()
+	}
+	return err
 }
 
 // parseLocations 는 LSP 의 세 응답 모양을 하나로 모은다.

@@ -153,10 +153,11 @@ Object.assign(App.prototype, {
   // `edOpenFile` 로 되돌린다 (§2.11c 가 그 기각을 되짚었다).
 
   /**
-   * 지금 물을 자리. 활성 편집기의 **커서 위치와 현재 텍스트**다 (D-3).
+   * 지금 물을 자리. 활성 편집기의 **커서 위치와 모델**이다 (D-3).
    *
-   * 텍스트를 함께 싣는 것이 이 기능의 핵심이다 — 저장 전 편집은 브라우저에만
-   * 있으므로 디스크만 보는 서버는 방금 쓴 함수를 모른다.
+   * 서버가 현재 텍스트를 아는 것이 이 기능의 핵심이다 — 저장 전 편집은 브라우저에만
+   * 있으므로 디스크만 보는 서버는 방금 쓴 함수를 모른다. 텍스트를 실을지는
+   * `_lspAsk` 가 판으로 정한다 (FR-OPT-6-2).
    */
   _lspWhere(){
     const v=this._edActiveEditor();
@@ -170,7 +171,7 @@ Object.assign(App.prototype, {
     return {
       view:v, root,
       path:v.filePath,
-      text:model.getValue(),
+      model,
       // 편집기와 우리 종단은 둘 다 1 부터 센다 — 여기서 셈법을 바꾸지 않는다.
       line:pos.lineNumber, col:pos.column,
     };
@@ -203,9 +204,9 @@ Object.assign(App.prototype, {
     const at=this._lspWhere();
     if(!at) return;
     at.view.note(LSP_ASKING, 1500);
-    const body={root:at.root,path:at.path,text:at.text,line:at.line,col:at.col};
-    if(kind==='refs') body.includeDeclaration=false;
-    const r=await apiPost(kind==='refs'?LSP_REFS_API:LSP_DEF_API,body);
+    const extra={line:at.line,col:at.col};
+    if(kind==='refs') extra.includeDeclaration=false;
+    const r=await this._lspAsk(kind==='refs'?LSP_REFS_API:LSP_DEF_API,at,extra);
     const d=r.ok?r.data:null;
     if(!d){at.view.note(LSP_ASK_FAIL);return}
     // 서버가 사유를 적어 보냈으면 그것을 그대로 보인다 — 화면이 다시 쓰지 않는다.
@@ -319,9 +320,8 @@ Object.assign(App.prototype, {
     if(!at) return null;
     const ctl=new AbortController();
     if(token&&token.onCancellationRequested) token.onCancellationRequested(()=>ctl.abort());
-    const r=await apiPost(LSP_DEF_API,
-      {root:at.root,path:at.path,text:at.text,
-        line:position.lineNumber,col:position.column},
+    const r=await this._lspAsk(LSP_DEF_API,at,
+      {line:position.lineNumber,col:position.column},
       {signal:ctl.signal});
     const d=r.ok?r.data:null;
     const locs=(d&&d.locations)||[];
@@ -413,9 +413,8 @@ Object.assign(App.prototype, {
     if(!at) return null;
     const ctl=new AbortController();
     if(token&&token.onCancellationRequested) token.onCancellationRequested(()=>ctl.abort());
-    const r=await apiPost(LSP_HOVER_API,
-      {root:at.root,path:at.path,text:at.text,
-        line:position.lineNumber,col:position.column},
+    const r=await this._lspAsk(LSP_HOVER_API,at,
+      {line:position.lineNumber,col:position.column},
       {signal:ctl.signal});
     const d=r.ok?r.data:null;
     // 호버가 비는 것은 **흔한 일이다** — 빈 자리에 마우스를 얹으면 그렇다. 그래서
@@ -438,7 +437,41 @@ Object.assign(App.prototype, {
     if(!path) return null;
     const root=this._lspRootOfPath(path);
     if(!root) return null;
-    return {root,path,text:model.getValue()};
+    return {root,path,model};
+  },
+
+  /**
+   * FR-OPT-6-2: 자리 요청 셋(정의·참조·호버)이 지나는 한 길.
+   *
+   * **서버가 받았다고 답한 판이면 텍스트를 싣지 않는다.** 호버는 마우스가 멈출 때마다
+   * 오고, 편집이 없는 동안 그 전문은 서버가 이미 가진 것이다. 서버가 그 판을 모른다고
+   * 답하면(`needText` — 재기동·다른 탭·디스크 재동기화) 전문을 실어 한 번 더 묻는다.
+   * 판을 되돌리지 않는 서버(옛 서버)에는 늘 전문이 간다.
+   */
+  async _lspAsk(api,at,extra,opts){
+    if(!this._lspAcked) this._lspAcked=new Map();
+    const version=this._lspVersionOf(at.model);
+    const body=Object.assign({root:at.root,path:at.path,version},extra);
+    const omit=this._lspAcked.get(at.path)===version;
+    if(!omit) body.text=at.model.getValue();
+    let r=await apiPost(api,body,opts);
+    if(omit&&r.ok&&r.data&&r.data.needText){
+      body.text=at.model.getValue();
+      r=await apiPost(api,body,opts);
+    }
+    const d=r.ok?r.data:null;
+    if(d&&d.version===version) this._lspAcked.set(at.path,version);
+    else if(d) this._lspAcked.delete(at.path);
+    return r;
+  },
+
+  /**
+   * 모델의 판. 페이지마다 다른 접두를 붙인다 — 다른 탭·다시 연 모델의 같은 번호가
+   * 서버에서 같은 판으로 읽히면 안 된다. 되돌리기로 같은 내용에 돌아오면 같은 판이다.
+   */
+  _lspVersionOf(model){
+    if(!this._lspNonce) this._lspNonce=Date.now().toString(36)+Math.random().toString(36).slice(2);
+    return this._lspNonce+':'+model.id+':'+model.getAlternativeVersionId();
   },
 
   // 모델의 uri 에서 파일 경로를 되돌린다. 모델은 `edDoc` 이 파일마다 하나로
@@ -449,6 +482,8 @@ Object.assign(App.prototype, {
    */
   lspDocClosed(path){
     const root=this._lspRootOfPath(path);
+    // 서버가 그 문서를 잊으므로 받은 판도 잊는다 (FR-OPT-6-2).
+    if(this._lspAcked) this._lspAcked.delete(path);
     if(root) apiPost(LSP_CLOSE_API,{root,path});
   },
 

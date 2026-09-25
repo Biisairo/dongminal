@@ -74,48 +74,50 @@ func (s *Service) now() time.Time {
 }
 
 // Definition 은 그 자리의 정의들이다 (FR-LSP-21).
-func (s *Service) Definition(ctx context.Context, root, path, text string, line, col int) ([]Location, error) {
-	sess, err := s.session(root, path)
-	if err != nil {
-		return nil, err
-	}
-	if err := checkText(text); err != nil {
-		return nil, err
-	}
-	if err := s.ready(ctx, sess); err != nil {
-		return nil, err
-	}
-	return sess.Definition(ctx, path, text, line, col)
+func (s *Service) Definition(ctx context.Context, root string, doc Doc, line, col int) ([]Location, error) {
+	var out []Location
+	err := s.withSession(ctx, root, doc, func(sess *Session) (err error) {
+		out, err = sess.Definition(ctx, doc, line, col)
+		return err
+	})
+	return out, err
 }
 
 // References 는 그 자리의 참조들이다 (FR-LSP-22).
-func (s *Service) References(ctx context.Context, root, path, text string, line, col int, includeDecl bool) ([]Location, error) {
-	sess, err := s.session(root, path)
-	if err != nil {
-		return nil, err
-	}
-	if err := checkText(text); err != nil {
-		return nil, err
-	}
-	if err := s.ready(ctx, sess); err != nil {
-		return nil, err
-	}
-	return sess.References(ctx, path, text, line, col, includeDecl)
+func (s *Service) References(ctx context.Context, root string, doc Doc, line, col int, includeDecl bool) ([]Location, error) {
+	var out []Location
+	err := s.withSession(ctx, root, doc, func(sess *Session) (err error) {
+		out, err = sess.References(ctx, doc, line, col, includeDecl)
+		return err
+	})
+	return out, err
 }
 
 // Hover 는 그 자리 심볼의 타입·문서다 (FR-LSP-29).
-func (s *Service) Hover(ctx context.Context, root, path, text string, line, col int) (string, error) {
-	sess, err := s.session(root, path)
-	if err != nil {
-		return "", err
+func (s *Service) Hover(ctx context.Context, root string, doc Doc, line, col int) (string, error) {
+	var out string
+	err := s.withSession(ctx, root, doc, func(sess *Session) (err error) {
+		out, err = sess.Hover(ctx, doc, line, col)
+		return err
+	})
+	return out, err
+}
+
+// withSession 은 자리 요청 셋의 앞단이다 (FR-OPT-6-3) — 텍스트 상한, 세션, 핸드셰이크.
+//
+// 상한을 **세션보다 먼저** 본다: 거절할 요청 때문에 언어 서버를 띄우지 않는다.
+func (s *Service) withSession(ctx context.Context, root string, doc Doc, fn func(*Session) error) error {
+	if err := checkText(doc.Text); err != nil {
+		return err
 	}
-	if err := checkText(text); err != nil {
-		return "", err
+	sess, err := s.session(root, doc.Path)
+	if err != nil {
+		return err
 	}
 	if err := s.ready(ctx, sess); err != nil {
-		return "", err
+		return err
 	}
-	return sess.Hover(ctx, path, text, line, col)
+	return fn(sess)
 }
 
 func checkText(text string) error {
@@ -207,24 +209,42 @@ func (s *Service) session(root, path string) (*Session, error) {
 	}
 	s.extDesc[fileExt] = descID
 	key := sessionKey(root, descID, s.exeKeyLocked(descID))
-	if sess := s.sessions[key]; sess != nil {
+	// FR-OPT-6-3: 같은 키를 세우는 중이면 기다렸다가 다시 본다 (single-flight).
+	//	이전 동작: 동시에 미스를 본 요청들이 저마다 언어 서버를 띄우고 늦은 쪽이 닫았다
+	//	새  동작: 한 요청만 띄우고 나머지는 그 결과(세션 또는 기억된 실패)를 쓴다
+	//	이유:     gopls 기동 한 번이 수백 MB 다
+	for {
+		if sess := s.sessions[key]; sess != nil {
+			s.mu.Unlock()
+			return sess, nil
+		}
+		wait := s.starting[key]
+		if wait == nil {
+			break
+		}
 		s.mu.Unlock()
-		return sess, nil
+		<-wait
+		s.mu.Lock()
 	}
 	// FR-LSP-16·§3A-4: 기억된 실패는 재시도 시각 전까지 되풀이하지 않는다.
 	if err := s.recalledLocked(root, descID, exe); err != nil {
 		s.mu.Unlock()
 		return nil, err
 	}
-	s.mu.Unlock()
-
 	// 못 찾으면 **무엇이 없는지**를 사유로 낸다 (FR-EXT-29 / D-9).
 	if !st.Found {
+		s.mu.Unlock()
 		err := fmt.Errorf("%s 가 없어 코드 탐색을 할 수 없습니다 — %s (설정 ▸ Code)",
 			srv.Exe, ext.MissingText(st))
 		s.remember(root, descID, "", err)
 		return nil, err
 	}
+	if s.starting == nil {
+		s.starting = map[string]chan struct{}{}
+	}
+	done := make(chan struct{})
+	s.starting[key] = done
+	s.mu.Unlock()
 
 	start := s.Start
 	if start == nil {
@@ -235,26 +255,30 @@ func (s *Service) session(root, path string) (*Session, error) {
 	sess.desc, sess.key, sess.now = descID, key, s.now
 	sess.started, sess.lastUse = s.now(), s.now()
 	if sess.initErr != nil {
+		// 기다리는 쪽이 깨어나 이 실패를 보도록 기억을 먼저 남긴다.
 		s.remember(root, descID, exe, sess.initErr)
+		s.finishStart(key, done, nil)
 		sess.Close()
 		return nil, sess.initErr
 	}
-
-	s.mu.Lock()
-	// 그 사이 다른 요청이 세웠으면 그것을 쓴다 — 둘을 살려 두면 프로세스가 샌다.
-	if existing := s.sessions[key]; existing != nil {
-		s.mu.Unlock()
-		sess.Close()
-		return existing, nil
-	}
-	s.sessions[key] = sess
-	s.mu.Unlock()
+	s.finishStart(key, done, sess)
 	// §3A-4: 통로가 죽으면 맵에서 빼고 회수한다 — 죽은 세션이 캐시에 남지 않는다.
 	sess.watch(func() { s.exited(sess) })
 
 	// FR-LSP-19: 상한을 넘으면 가장 오래 쓰이지 않은 것을 정지한다.
 	s.evictOverLimit()
 	return sess, nil
+}
+
+// finishStart 는 기동 표시를 걷고 기다리는 요청을 깨운다. sess 가 있으면 맵에 넣는다.
+func (s *Service) finishStart(key string, done chan struct{}, sess *Session) {
+	s.mu.Lock()
+	if sess != nil {
+		s.sessions[key] = sess
+	}
+	delete(s.starting, key)
+	s.mu.Unlock()
+	close(done)
 }
 
 // cachedSession 은 확장자만으로 살아 있는 세션을 찾는다. 없으면 nil 이고, 그때만

@@ -110,7 +110,7 @@ func TestManager_OneSessionPerRootAndDescriptor(t *testing.T) {
 		t.Fatal("아무도 묻지 않았는데 프로세스가 섰다 — lazy 가 아니다")
 	}
 	for _, p := range []string{"/root/a.go", "/root/b.go"} {
-		if _, err := svc.Definition(context.Background(), "/root", p, "x\n", 1, 1); err != nil {
+		if _, err := svc.Definition(context.Background(), "/root", Doc{Path: p, Text: "x\n"}, 1, 1); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -118,7 +118,7 @@ func TestManager_OneSessionPerRootAndDescriptor(t *testing.T) {
 		t.Fatalf("프로세스가 %d 번 섰다 — 한 번이어야 한다", n.get())
 	}
 	// 다른 루트는 다른 세션이다.
-	if _, err := svc.Definition(context.Background(), "/other", "/other/a.go", "x\n", 1, 1); err != nil {
+	if _, err := svc.Definition(context.Background(), "/other", Doc{Path: "/other/a.go", Text: "x\n"}, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	if n.get() != 2 {
@@ -133,7 +133,7 @@ func TestManager_TSAndJSShareASession(t *testing.T) {
 	svc := svcWith(t, start, map[string]string{"typescript-language-server": "/fake/tsls"})
 
 	for _, p := range []string{"/root/a.ts", "/root/b.js", "/root/c.tsx"} {
-		if _, err := svc.Definition(context.Background(), "/root", p, "x\n", 1, 1); err != nil {
+		if _, err := svc.Definition(context.Background(), "/root", Doc{Path: p, Text: "x\n"}, 1, 1); err != nil {
 			t.Fatalf("%s: %v", p, err)
 		}
 	}
@@ -147,7 +147,7 @@ func TestManager_UnknownExtStartsNothing(t *testing.T) {
 	start, n := countingStarter(t, echoHandler)
 	svc := svcWith(t, start, map[string]string{"gopls": "/fake/gopls"})
 
-	_, err := svc.Definition(context.Background(), "/root", "/root/notes.txt", "x\n", 1, 1)
+	_, err := svc.Definition(context.Background(), "/root", Doc{Path: "/root/notes.txt", Text: "x\n"}, 1, 1)
 	if err == nil {
 		t.Fatal("모르는 확장자에 성공했다")
 	}
@@ -162,7 +162,7 @@ func TestManager_MissingServerSaysSo(t *testing.T) {
 	start, n := countingStarter(t, echoHandler)
 	svc := svcWith(t, start, nil) // PATH 에 아무것도 없다
 
-	_, err := svc.Definition(context.Background(), "/root", "/root/a.go", "x\n", 1, 1)
+	_, err := svc.Definition(context.Background(), "/root", Doc{Path: "/root/a.go", Text: "x\n"}, 1, 1)
 	if err == nil {
 		t.Fatal("서버가 없는데 성공했다")
 	}
@@ -184,7 +184,7 @@ func TestManager_RemembersStartFailure(t *testing.T) {
 	}, map[string]string{"gopls": "/fake/gopls"})
 
 	for i := 0; i < 3; i++ {
-		if _, err := svc.Definition(context.Background(), "/root", "/root/a.go", "x\n", 1, 1); err == nil {
+		if _, err := svc.Definition(context.Background(), "/root", Doc{Path: "/root/a.go", Text: "x\n"}, 1, 1); err == nil {
 			t.Fatal("기동이 실패했는데 성공했다")
 		}
 	}
@@ -202,7 +202,7 @@ func TestManager_InstallClearsFailureMemory(t *testing.T) {
 		return nil, nil, errors.New("exec format error")
 	}, map[string]string{"gopls": "/fake/gopls", "go": "/fake/go"})
 
-	svc.Definition(context.Background(), "/root", "/root/a.go", "x\n", 1, 1)
+	svc.Definition(context.Background(), "/root", Doc{Path: "/root/a.go", Text: "x\n"}, 1, 1)
 	if n.get() != 1 {
 		t.Fatalf("기동 시도가 %d 번", n.get())
 	}
@@ -210,7 +210,7 @@ func TestManager_InstallClearsFailureMemory(t *testing.T) {
 	svc.Ext.Exec = func(context.Context, string, []string, []string, string) ([]byte, error) { return nil, nil }
 	svc.Install(context.Background(), "gopls")
 
-	svc.Definition(context.Background(), "/root", "/root/a.go", "x\n", 1, 1)
+	svc.Definition(context.Background(), "/root", Doc{Path: "/root/a.go", Text: "x\n"}, 1, 1)
 	if n.get() != 2 {
 		t.Fatalf("설치 뒤에도 기억이 남았다: 기동 시도 %d 번", n.get())
 	}
@@ -223,7 +223,7 @@ func TestManager_SweepStopsIdle(t *testing.T) {
 	svc := svcWith(t, start, map[string]string{"gopls": "/fake/gopls"})
 	svc.IdleAfter = 1 * time.Millisecond
 
-	if _, err := svc.Definition(context.Background(), "/root", "/root/a.go", "x\n", 1, 1); err != nil {
+	if _, err := svc.Definition(context.Background(), "/root", Doc{Path: "/root/a.go", Text: "x\n"}, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	if svc.SessionCount() != 1 {
@@ -237,7 +237,7 @@ func TestManager_SweepStopsIdle(t *testing.T) {
 		t.Fatalf("idle 세션이 정지하지 않았다: %d", svc.SessionCount())
 	}
 	// 다시 물으면 다시 선다 — 정지는 포기가 아니다.
-	if _, err := svc.Definition(context.Background(), "/root", "/root/a.go", "x\n", 1, 1); err != nil {
+	if _, err := svc.Definition(context.Background(), "/root", Doc{Path: "/root/a.go", Text: "x\n"}, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	if n.get() != 2 {
@@ -253,7 +253,7 @@ func TestManager_EvictsOldestOverLimit(t *testing.T) {
 	svc.MaxSessions = 2
 
 	for _, root := range []string{"/r1", "/r2", "/r3"} {
-		if _, err := svc.Definition(context.Background(), root, root+"/a.go", "x\n", 1, 1); err != nil {
+		if _, err := svc.Definition(context.Background(), root, Doc{Path: root + "/a.go", Text: "x\n"}, 1, 1); err != nil {
 			t.Fatal(err)
 		}
 		time.Sleep(5 * time.Millisecond) // lastUse 를 벌린다
@@ -269,7 +269,7 @@ func TestManager_ShutdownStopsAll(t *testing.T) {
 	svc := svcWith(t, start, map[string]string{"gopls": "/fake/gopls"})
 
 	for _, root := range []string{"/r1", "/r2"} {
-		if _, err := svc.Definition(context.Background(), root, root+"/a.go", "x\n", 1, 1); err != nil {
+		if _, err := svc.Definition(context.Background(), root, Doc{Path: root + "/a.go", Text: "x\n"}, 1, 1); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -290,7 +290,7 @@ func TestManager_RejectsPathOutsideRoot(t *testing.T) {
 	svc := svcWith(t, start, map[string]string{"gopls": "/fake/gopls"})
 
 	for _, p := range []string{"/elsewhere/a.go", "/root/../etc/a.go"} {
-		if _, err := svc.Definition(context.Background(), "/root", p, "x\n", 1, 1); err == nil {
+		if _, err := svc.Definition(context.Background(), "/root", Doc{Path: p, Text: "x\n"}, 1, 1); err == nil {
 			t.Fatalf("%s 가 통과했다 — 루트 밖이다", p)
 		}
 	}
@@ -305,7 +305,7 @@ func TestManager_RejectsHugeText(t *testing.T) {
 	svc := svcWith(t, start, map[string]string{"gopls": "/fake/gopls"})
 
 	huge := strings.Repeat("x", MaxTextBytes+1)
-	if _, err := svc.Definition(context.Background(), "/root", "/root/a.go", huge, 1, 1); err == nil {
+	if _, err := svc.Definition(context.Background(), "/root", Doc{Path: "/root/a.go", Text: huge}, 1, 1); err == nil {
 		t.Fatal("상한을 넘긴 텍스트가 통과했다")
 	}
 }
@@ -345,7 +345,7 @@ func TestManager_LiveSessionSkipsResolve(t *testing.T) {
 	t.Cleanup(svc.Shutdown)
 
 	// 첫 요청이 세션을 세운다 — 그때는 풀어야 한다.
-	if _, err := svc.Definition(context.Background(), "/root", "/root/a.go", "x\n", 1, 1); err != nil {
+	if _, err := svc.Definition(context.Background(), "/root", Doc{Path: "/root/a.go", Text: "x\n"}, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	after := looks.Load()
@@ -355,7 +355,7 @@ func TestManager_LiveSessionSkipsResolve(t *testing.T) {
 
 	// 같은 세션을 쓰는 요청 열 번. **한 번도 더 훑지 않아야 한다.**
 	for i := 0; i < 10; i++ {
-		if _, err := svc.Definition(context.Background(), "/root", "/root/b.go", "x\n", 1, 1); err != nil {
+		if _, err := svc.Definition(context.Background(), "/root", Doc{Path: "/root/b.go", Text: "x\n"}, 1, 1); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -369,7 +369,7 @@ func TestManager_LiveSessionSkipsResolve(t *testing.T) {
 func TestManager_InstallForgetsExtTable(t *testing.T) {
 	start, _ := countingStarter(t, echoHandler)
 	svc := svcWith(t, start, map[string]string{"gopls": "/fake/gopls"})
-	if _, err := svc.Definition(context.Background(), "/root", "/root/a.go", "x\n", 1, 1); err != nil {
+	if _, err := svc.Definition(context.Background(), "/root", Doc{Path: "/root/a.go", Text: "x\n"}, 1, 1); err != nil {
 		t.Fatal(err)
 	}
 	svc.mu.Lock()
