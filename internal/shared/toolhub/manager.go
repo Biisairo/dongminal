@@ -151,12 +151,13 @@ const defaultToolName = "Shell"
 // DataDir returns the tool persistence directory (used by tests).
 func (m *ToolManager) DataDir() string { return m.dataDir }
 
+// dataPath 는 dataDir 가 비면 "" 이다 — 영속하지 않는다는 뜻이다 (FR-OPT-1-7).
+// "." 으로 풀면 테스트는 소스 트리에, 서버는 cwd 에 상태 파일을 남긴다.
 func (m *ToolManager) dataPath(name string) string {
-	dir := m.dataDir
-	if dir == "" {
-		dir = "."
+	if m.dataDir == "" {
+		return ""
 	}
-	return filepath.Join(dir, name)
+	return filepath.Join(m.dataDir, name)
 }
 
 // Placement 는 도구를 어느 Window 의 어떤 자리에 띄우는가다 (FR-SBX-10/11).

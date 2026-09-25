@@ -44,7 +44,7 @@ func TestDmctlRunLaunch_PrintsRunnableLaunchLine(t *testing.T) {
 		t.Fatalf("멤버를 지목하지 않았다: %q", q)
 	}
 	line := out.String()
-	if !strings.HasPrefix(line, "claude --model sonnet '") {
+	if !strings.HasPrefix(line, "claude --model 'sonnet' '") {
 		t.Fatalf("기동줄이 아니다: %q", line)
 	}
 	if !strings.Contains(line, "dmctl run report --run run-1 --member m-1") {
@@ -230,7 +230,7 @@ func TestDmctlRunLaunch_CodexCarriesPreambleAndModel(t *testing.T) {
 		t.Fatalf("exit = %d (%s)", code, errb.String())
 	}
 	line := out.String()
-	if !strings.HasPrefix(line, "codex --model o3 '") {
+	if !strings.HasPrefix(line, "codex --model 'o3' '") {
 		t.Fatalf("기동줄이 아니다: %q", line)
 	}
 	if !strings.Contains(line, "dmctl run report --run run-1 --member m-1") {

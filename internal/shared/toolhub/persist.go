@@ -27,7 +27,8 @@ type ToolState struct {
 // blocking concurrent Create/Delete calls, we snapshot tool pointers under
 // m.mu and then call Cwd() OUTSIDE the lock.
 func (m *ToolManager) SaveAll() {
-	if !m.mutated.Load() {
+	path := m.dataPath("tools.json")
+	if path == "" || !m.mutated.Load() {
 		return
 	}
 	// **스냅샷과 쓰기가 한 임계 구역 안에 있어야 한다** (FR-CAF-12).
@@ -98,7 +99,7 @@ func (m *ToolManager) SaveAll() {
 	}
 	// 원자적으로 쓴다 (FR-CAF-11) — 잘린 tools.json 은 다음 기동에서 도구를
 	// 통째로 잃게 한다.
-	if err := platform.WriteStateFile(m.dataPath("tools.json"), data, 0644); err != nil {
+	if err := platform.WriteStateFile(path, data, 0644); err != nil {
 		dmlog.Infof(nil, "saveTools: %v", err)
 	}
 }
@@ -116,7 +117,11 @@ func (m *ToolManager) LoadAll(referenced map[string]struct{}) {
 
 // LoadAllWith 는 `LoadAll` 이되 되살리는 일을 갈아 끼울 수 있다 (`TEST-2`).
 func (m *ToolManager) LoadAllWith(referenced map[string]struct{}, restore restoreFn) {
-	data, err := os.ReadFile(m.dataPath("tools.json"))
+	path := m.dataPath("tools.json")
+	if path == "" {
+		return
+	}
+	data, err := os.ReadFile(path)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			dmlog.Infof(nil, "loadTools: %v", err)

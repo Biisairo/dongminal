@@ -117,7 +117,7 @@ func TestLaunchLine_ArgvQuotingSurvivesShellMetacharacters(t *testing.T) {
 	if !strings.HasPrefix(line, "claude ") {
 		t.Fatalf("기동 커맨드로 시작해야 한다: %q", line)
 	}
-	if !strings.Contains(line, "--model sonnet") {
+	if !strings.Contains(line, "--model "+platform.Current().Shell.Quote("sonnet")) {
 		t.Fatalf("모델 플래그가 없다: %q", line)
 	}
 	if strings.Contains(line, `\"quoted\"`) {
@@ -158,7 +158,7 @@ func TestLaunchLine_DelegatesQuotingToTheShell(t *testing.T) {
 	sh := &recordingShell{}
 	line, _ := claude.launchLine(sh, "", "sonnet", "it's a prompt")
 
-	want := append(append([]string{}, claude.MemberArgs...), "it's a prompt")
+	want := append(append([]string{"sonnet"}, claude.MemberArgs...), "it's a prompt")
 	if !reflect.DeepEqual(sh.seen, want) {
 		t.Fatalf("인용을 거친 값 = %q, want %q", sh.seen, want)
 	}
@@ -167,9 +167,29 @@ func TestLaunchLine_DelegatesQuotingToTheShell(t *testing.T) {
 			t.Fatalf("%q 가 인용되지 않은 채 실렸다: %q", v, line)
 		}
 	}
-	// 모델 값은 플래그 뒤의 단일 토큰이라 인용 대상이 아니다 — 종전과 같다.
-	if !strings.Contains(line, "--model sonnet") {
-		t.Fatalf("모델 플래그가 바뀌었다: %q", line)
+	if !strings.Contains(line, "--model «sonnet»") {
+		t.Fatalf("모델 플래그 뒤에 인용된 값이 없다: %q", line)
+	}
+}
+
+// FR-OPT-1-1: 모델 값도 셸에 타이핑된다. `claude-opus-5[1m]` 의 대괄호는 zsh 가
+// glob 으로 읽어 `no matches found` 로 기동을 깨고, 공백·`;` 는 명령을 쪼갠다.
+// 셸별 인용 규칙은 platform 이 검증한다 — 여기서는 값이 그 인용을 거치는지만 본다.
+func TestLaunchLine_QuotesModelValue(t *testing.T) {
+	claude, _ := Get("claude")
+	for _, model := range []string{"claude-opus-5[1m]", "a b; rm -rf x", "it's"} {
+		sh := &recordingShell{}
+		line, err := claude.launchLine(sh, "", model, "x")
+		if err != nil {
+			t.Fatalf("%q: %v", model, err)
+		}
+		if !strings.Contains(line, "--model «"+model+"» ") {
+			t.Fatalf("모델 값이 인용되지 않았다: %q", line)
+		}
+		host, _ := claude.LaunchLine("", model, "x")
+		if !strings.Contains(host, "--model "+platform.Current().Shell.Quote(model)+" ") {
+			t.Fatalf("호스트 셸 인용을 거치지 않았다: %q", host)
+		}
 	}
 }
 
@@ -211,7 +231,7 @@ func TestCodex_TerminalSurfaceIsMeasured(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(got, "codex --model o3 ") || !strings.Contains(got, "안녕") {
+	if !strings.HasPrefix(got, "codex --model "+platform.Current().Shell.Quote("o3")+" ") || !strings.Contains(got, "안녕") {
 		t.Fatalf("codex 기동줄이 모델·프롬프트를 싣지 않는다: %q", got)
 	}
 }

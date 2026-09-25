@@ -9,6 +9,7 @@
 workspace.json
 settings.json
 panes.json
+tools.json*
 
 # Local env (더 이상 읽히지 않는다 — CLI_CONSOLIDATION_SRS §7)
 /.env

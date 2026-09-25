@@ -301,7 +301,7 @@ func IDs() []string {
 
 // LaunchLine 은 도구의 셸에 그대로 타이핑할 기동 명령줄이다.
 //
-// 프롬프트와 인자 값은 통째로 인용한다. 지금까지 쓰던 큰따옴표 + 역슬래시
+// 프롬프트와 모델·인자 값은 통째로 인용한다. 지금까지 쓰던 큰따옴표 + 역슬래시
 // 이스케이프는 `"`·`$`·백틱·역슬래시를 각각 처리해야 하고 하나만 빠져도 셸이
 // 프롬프트 본문을 전개해 버린다.
 //
@@ -322,7 +322,7 @@ func (a Adapter) LaunchLine(hooksDir, model, prompt string) (string, error) {
 func (a Adapter) launchLine(sh platform.ShellProvider, hooksDir, model, prompt string) (string, error) {
 	parts := append([]string{}, a.Launch...)
 	if model != "" && a.ModelFlag != "" {
-		parts = append(parts, a.ModelFlag, model)
+		parts = append(parts, a.ModelFlag, sh.Quote(model))
 	}
 	for _, arg := range a.MemberArgs {
 		// FR-OMP-22: 자리를 먼저 채우고 그 다음 인용한다. 순서를 바꾸면 인용

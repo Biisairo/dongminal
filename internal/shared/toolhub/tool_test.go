@@ -106,9 +106,9 @@ func TestToolManager_MutatedSurvivesSaveAll(t *testing.T) {
 func TestToolManager_DataPath(t *testing.T) {
 	pm := NewToolManager("", nil)
 	t.Cleanup(pm.StopSaving)
-	p := pm.dataPath("test.json")
-	if p != "test.json" {
-		t.Fatalf("dataPath with empty dir=%q want test.json", p)
+	// 빈 dataDir 은 "영속 없음" 이다 — cwd 로 풀지 않는다 (FR-OPT-1-7).
+	if p := pm.dataPath("test.json"); p != "" {
+		t.Fatalf("dataPath with empty dir=%q want \"\"", p)
 	}
 }
 
