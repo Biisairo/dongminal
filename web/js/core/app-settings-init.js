@@ -24,7 +24,6 @@ Object.assign(App.prototype, {
   _initPageTitle(){
     const el=document.getElementById('ds-title');
     if(!el) return;
-    el.value=pageTitle;
     el.addEventListener('input',()=>{
       pageTitle=el.value;
       // FR-PGT-9: 저장을 기다리지 않고 지금 값이 탭에서 어떻게 보이는지 보인다.
@@ -48,8 +47,6 @@ Object.assign(App.prototype, {
     const cb=document.getElementById('ds-tabfix');
     const num=document.getElementById('ds-tabw');
     if(!cb||!num) return;
-    cb.checked=tabFixedWidth;
-    num.value=String(tabWidthPx);
     applyTabWidth();
     cb.addEventListener('change',()=>{
       tabFixedWidth=cb.checked;
@@ -89,7 +86,6 @@ Object.assign(App.prototype, {
   _initFgNames(){
     const cb=document.getElementById('ds-fgnames');
     if(!cb) return;
-    cb.checked=fgTabNames;
     cb.addEventListener('change',()=>{
       fgTabNames=cb.checked;
       // FR-TAN-20: 끄면 **즉시** 전 탭이 기본 이름(또는 수동 이름)으로 돌아간다.
@@ -110,7 +106,6 @@ Object.assign(App.prototype, {
   _initClaudeFullscreen(){
     const cb=document.getElementById('ds-claudefs');
     if(!cb) return;
-    cb.checked=claudeFullscreen;
     cb.addEventListener('change',()=>{
       claudeFullscreen=cb.checked;
       this.saveSettings();
@@ -161,7 +156,6 @@ Object.assign(App.prototype, {
   _initConfirmLeave(){
     const cb=document.getElementById('ds-confirmleave');
     if(!cb) return;
-    cb.checked=confirmLeave;
     cb.addEventListener('change',()=>{
       confirmLeave=cb.checked;
       this.saveSettings();
@@ -292,7 +286,6 @@ Object.assign(App.prototype, {
   _initWordWrap(){
     const cb=document.getElementById('ds-wordwrap');
     if(!cb) return;
-    cb.checked=editorWordWrap;
     cb.addEventListener('change',()=>{
       editorWordWrap=cb.checked;
       this._edApplyWordWrap();
@@ -322,7 +315,6 @@ Object.assign(App.prototype, {
   _initMinimap(){
     const cb=document.getElementById('ds-minimap');
     if(!cb) return;
-    cb.checked=editorMinimap;
     cb.addEventListener('change',()=>{
       editorMinimap=cb.checked;
       this._edApplyMinimap();
@@ -343,7 +335,6 @@ Object.assign(App.prototype, {
   _initDiffMinimap(){
     const cb=document.getElementById('ds-diffminimap');
     if(!cb) return;
-    cb.checked=diffMinimap;
     cb.addEventListener('change',()=>{
       diffMinimap=cb.checked;
       this._diffApplyOptions();

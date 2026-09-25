@@ -113,9 +113,10 @@ const GIT_FILE_VIEW_TITLE={
   tree:'Group changed files by folder',
   flat:'List changed files with their full paths',
 };
-// FR-GIT-211: 트리의 들여쓰기 단위. 행의 padding 과 깊이 세로선이 **같은 값**을
-// 딛는다 — 두 곳에 적으면 한쪽만 고쳐져 선이 글자와 어긋난다. CSS 는 이 값을
-// `--git-indent` 로 받는다.
+// FR-GIT-211: 트리의 들여쓰기 단위. 탐색기 트리가 행 padding 을 이 값으로 세운다.
+// Git 트리는 padding 과 깊이 세로선을 CSS 토큰(`--git-tree-pad0`·`--git-indent`)
+// 하나에서 계산한다 (FR-OPT-1-12) — 두 곳에 적으면 한쪽만 고쳐져 선이 글자와
+// 어긋난다. 들여쓰기 단위(12)는 두 트리가 같다.
 const GIT_TREE_INDENT=12;
 const GIT_TREE_PAD0=6;
 // 우클릭 메뉴는 GIT_MENUS.file 이다 (FR-GIT-41·146, git-menu.js).

@@ -748,7 +748,7 @@ class GitRemoteList {
     this.panel=panel;
     this._el=null;
     this._repo=undefined;
-    this._items=[];
+    this._list=[];
     this._err=null;
     this._loading=false;
   }
@@ -781,7 +781,7 @@ class GitRemoteList {
     const note=this._el.querySelector('.git-rm-note');
     note.textContent=this._err||'';
     note.classList.toggle('vis',!!this._err);
-    this._el.querySelector('.git-rm-count').textContent='('+this._items.length+')';
+    this._el.querySelector('.git-rm-count').textContent='('+this._list.length+')';
     this._el.querySelector('.git-rm-add').disabled=!this._repo;
     this._paintRows();
   }
@@ -790,7 +790,7 @@ class GitRemoteList {
 
   _adopt(){
     this._repo=this.panel.repo;
-    this._items=[]; this._err=null;
+    this._list=[]; this._err=null;
     if(this._repo) this._load();
   }
 
@@ -807,7 +807,7 @@ class GitRemoteList {
    */
   _paintRows(){
     const box=this._el.querySelector('.git-rm-rows');
-    if(!this._items.length){
+    if(!this._list.length){
       // 빈 목록은 사실을 알린다 — 빈 화면은 실패와 구분되지 않는다.
       const text=(this._loading&&this._repo)?GIT_HIST_LOADING:GIT_RM_EMPTY;
       reconcileList(box,[text],{
@@ -822,7 +822,7 @@ class GitRemoteList {
     }
     // 보이는 값 전부다 (FR-RPT-2) — 이름·URL·push URL 이 행이 그리는 전부이고,
     // 지우기 버튼의 글자는 상수다.
-    reconcileList(box,this._items,{
+    reconcileList(box,this._list,{
       key:r=>r.name||'',
       sig:r=>[r.name||'',r.url||'',r.pushUrl||''].join('\u0001'),
       build:r=>this._rowEl(r),
@@ -877,7 +877,7 @@ class GitRemoteList {
     const d=(res&&res.data)||{};
     if(!res||!res.ok) return false;
     if(d.status) this.panel.adopt(d);
-    if(Array.isArray(d.remotes)) this._items=d.remotes;
+    if(Array.isArray(d.remotes)) this._list=d.remotes;
     this._err=null;
     this.paint();
     return true;
@@ -889,23 +889,10 @@ class GitRemoteList {
     this.paint();
   }
 
-  async _load(){
-    const repo=this._repo;
-    if(!repo) return;
-    const tok=this.panel.token();
-    this._loading=true;
-    const res=await gitFetch('/api/git/remotes',{repo},
-      {stale:()=>this.panel.isStale(tok),echo:{repo}});
-    if(res.stale) return;
-    this._loading=false;
-    if(!res.ok){
-      this._err=GIT_RM_LOAD_FAIL;
-      this.paint();
-      return;
-    }
-    this._err=null;
-    this._items=Array.isArray(res.data.remotes)?res.data.remotes:[];
-    this.paint();
+  // FR-OPT-1-5: 목록 뷰들과 같은 적재 규약을 지난다 — 낡은 응답에서 잠금을 푸는
+  // 순서(FR-GRF-24)와 앞선 조회를 끊는 신호(FR-GRF-31)가 거기 있다.
+  _load(){
+    return gitLoadList(this,{url:'/api/git/remotes',key:'remotes',failMsg:GIT_RM_LOAD_FAIL});
   }
 }
 

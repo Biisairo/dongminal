@@ -26,6 +26,8 @@
  *
  *   get()   블롭에 실을 값. 없으면 그 키는 PUT 본문에서 빠진다 (FR-CFG-6)
  *   set(v)  값을 얹고 화면까지 따라가게 한다
+ *   ctl     설정창의 컨트롤 `{id, kind:'check'|'value'}`. 칠하는 것은
+ *           `_paintSettingControls` 한 자리다 (FR-OPT-1-12)
  */
 const SETTINGS_ACCESS={
   // 테마는 두 키가 한 쌍이라 얹는 자리가 `_settingsApply` 에 따로 있다 —
@@ -40,64 +42,44 @@ const SETTINGS_ACCESS={
   gitStatusInterval:{get:()=>gitStatusInterval,set:v=>POLL_BY_KEY.gitStatusInterval.set(v)},
   gitReposInterval:{get:()=>gitReposInterval,set:v=>POLL_BY_KEY.gitReposInterval.set(v)},
   gitConsoleInterval:{get:()=>gitConsoleInterval,set:v=>POLL_BY_KEY.gitConsoleInterval.set(v)},
-  layoutPresets:{get:()=>layoutPresets,set:v=>{layoutPresets=v}},
-  defaultPreset:{get:()=>defaultPreset,set:v=>{defaultPreset=v}},
+  layoutPresets:{get:()=>layoutPresets,set(v){layoutPresets=v;this._presetButtonPaint()}},
+  defaultPreset:{get:()=>defaultPreset,set(v){defaultPreset=v;this._presetButtonPaint()}},
   // FR-TAN-19
-  fgTabNames:{get:()=>fgTabNames,set(v){
+  fgTabNames:{get:()=>fgTabNames,ctl:{id:'ds-fgnames',kind:'check'},set(v){
     fgTabNames=v;
     if(this._fgRepaint) this._fgRepaint();
-    const cb=document.getElementById('ds-fgnames');
-    if(cb) cb.checked=fgTabNames;
   }},
   // FR-ARE-3: 저장된 적 없으면 기본값(켬). 서버도 같은 기본값을 쓴다
   // (`agentRenderEnv`) — 두 자리가 어긋나면 화면과 실제가 갈린다.
-  claudeFullscreen:{get:()=>claudeFullscreen,set(v){
-    claudeFullscreen=v;
-    const cb=document.getElementById('ds-claudefs');
-    if(cb) cb.checked=claudeFullscreen;
-  }},
+  claudeFullscreen:{get:()=>claudeFullscreen,ctl:{id:'ds-claudefs',kind:'check'},set(v){claudeFullscreen=v}},
   // PAGE_TITLE_SRS FR-PGT-10
-  pageTitle:{get:()=>pageTitle,set(v){pageTitle=v;this._applyPageTitle()}},
+  pageTitle:{get:()=>pageTitle,ctl:{id:'ds-title',kind:'value'},set(v){pageTitle=v;this._applyPageTitle()}},
   // FR-LVC-6: 저장된 적 없으면 기본값(끔).
-  confirmLeave:{get:()=>confirmLeave,set(v){
-    confirmLeave=v;
-    const cl=document.getElementById('ds-confirmleave');
-    if(cl) cl.checked=confirmLeave;
-  }},
+  confirmLeave:{get:()=>confirmLeave,ctl:{id:'ds-confirmleave',kind:'check'},set(v){confirmLeave=v}},
   // FR-WBR-10·11: 값만 바꾸면 사용자는 설정이 듣지 않는 것으로 읽는다 —
   // 이미 열려 있는 편집기에도 얹는다.
-  editorWordWrap:{get:()=>editorWordWrap,set(v){
+  editorWordWrap:{get:()=>editorWordWrap,ctl:{id:'ds-wordwrap',kind:'check'},set(v){
     editorWordWrap=v;
-    const ww=document.getElementById('ds-wordwrap');
-    if(ww) ww.checked=editorWordWrap;
     if(this._edApplyWordWrap) this._edApplyWordWrap();
   }},
   // FR-MMT-4: 줄바꿈과 같은 근거로 열려 있는 편집기에도 얹는다.
-  editorMinimap:{get:()=>editorMinimap,set(v){
+  editorMinimap:{get:()=>editorMinimap,ctl:{id:'ds-minimap',kind:'check'},set(v){
     editorMinimap=v;
-    const mm=document.getElementById('ds-minimap');
-    if(mm) mm.checked=editorMinimap;
     if(this._edApplyMinimap) this._edApplyMinimap();
   }},
   // UX_BATCH10_SRS FR-UXB-42·43: diff 의 미니맵. 위 둘과 **같은 모양**이며,
   // 그 사실이 이 항목이 짧은 이유다 — 새 규약을 만들지 않는다.
-  diffMinimap:{get:()=>diffMinimap,set(v){
+  diffMinimap:{get:()=>diffMinimap,ctl:{id:'ds-diffminimap',kind:'check'},set(v){
     diffMinimap=v;
-    const dm=document.getElementById('ds-diffminimap');
-    if(dm) dm.checked=diffMinimap;
     if(this._diffApplyOptions) this._diffApplyOptions();
   }},
   // FR-TBW-8: 같은 근거로 곧바로 얹는다. 클래스와 변수 하나뿐이라 다시 그리지 않는다.
-  tabFixedWidth:{get:()=>tabFixedWidth,set(v){
+  tabFixedWidth:{get:()=>tabFixedWidth,ctl:{id:'ds-tabfix',kind:'check'},set(v){
     tabFixedWidth=v;
-    const tf=document.getElementById('ds-tabfix');
-    if(tf) tf.checked=tabFixedWidth;
     applyTabWidth();
   }},
-  tabWidthPx:{get:()=>tabWidthPx,set(v){
+  tabWidthPx:{get:()=>tabWidthPx,ctl:{id:'ds-tabw',kind:'value'},set(v){
     tabWidthPx=clampTabWidth(v);
-    const tw=document.getElementById('ds-tabw');
-    if(tw) tw.value=String(tabWidthPx);
     applyTabWidth();
   }},
   // FONT_SIZE_SETTING_SRS FR-FSS-3·9: 배율 하나가 CSS 토큰과 편집기 둘 다에 간다.
@@ -233,6 +215,7 @@ Object.assign(App.prototype, {
       if(v===undefined) continue;
       acc.set.call(this,v);
     }
+    this._paintSettingControls();
     // 테마는 두 키가 한 쌍이라 표 밖에 남는다 — **사용자 정의가 이름을 이긴다.**
     // 표를 돌며 각자 얹으면 순서에 따라 답이 갈린다.
     if(saved.customTheme){customTheme=saved.customTheme}
@@ -265,6 +248,24 @@ Object.assign(App.prototype, {
      * 덮는다. 이사는 한 번이고 조용하다.
      */
     if(opts&&opts.boot) this._pollMigrateAgents(saved);
+  },
+
+  /**
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-1-12 (FEC-26): `ctl` 을 선언한 컨트롤을 **지금 값으로**
+   * 칠한다. 계기는 셋이다 — 부팅(`initModal`) · 값을 얹은 뒤(`_settingsApply`) ·
+   * 설정창을 열 때 (FR-LVC-3). 종전에는 세 자리가 컨트롤을 각자 나열했다.
+   *
+   * 포커스를 쥔 입력란은 건너뛴다 — 저장의 메아리(`settings_changed`)가 치는 중인
+   * 글자를 덮지 않는다. 확정은 그 입력란의 `blur` 가 한다.
+   */
+  _paintSettingControls(){
+    for(const acc of Object.values(SETTINGS_ACCESS)){
+      if(!acc.ctl) continue;
+      const el=document.getElementById(acc.ctl.id);
+      if(!el) continue;
+      if(acc.ctl.kind==='check') el.checked=!!acc.get();
+      else if(el!==document.activeElement) el.value=String(acc.get());
+    }
   },
 
   /**
@@ -370,34 +371,19 @@ Object.assign(App.prototype, {
       const dsBp=document.getElementById('ds-bp');
       if(dsMode) dsMode.value=this.displayMode;
       if(dsBp) dsBp.value=this.mobileBreakpoint;
-      const dsTitle=document.getElementById('ds-title');
-      if(dsTitle) dsTitle.value=pageTitle;
-      const dsFg=document.getElementById('ds-fgnames');
-      if(dsFg) dsFg.checked=fgTabNames;
+      // FR-LVC-3 · FR-WBR-10 · FR-MMT-6 · FR-UXB-43: 열 때마다 현재 값을 다시
+      // 칠한다 — 다른 화면에서 바뀐 값이 이 모달에 옛 상태로 남아 있으면 사용자가
+      // 그것을 켜진 줄로 읽는다. 포커스는 다음 프레임에 오므로 여기서는 전부 칠해진다.
+      this._paintSettingControls();
       // FR-WSL-81: 슬롯 방향 세그먼트. 열 때마다 현재 값을 다시 칠한다.
       this._slotDirPaint();
-      const dsCfs=document.getElementById('ds-claudefs');
-      if(dsCfs) dsCfs.checked=claudeFullscreen;
       this._labelSettingsRows();
       // FONT_SIZE_SETTING_SRS FR-FSS-21 · AGENT_RENDER_ENV_SRS FR-ARE-10: 숫자
-      // 입력 셋도 열 때마다 다시 칠한다 (아래 FR-LVC-3 과 같은 근거).
+      // 입력 셋도 열 때마다 다시 칠한다 (FR-LVC-3 과 같은 근거).
       this._paintNumSettings();
-      // FR-LVC-3: 열 때마다 현재 값을 다시 칠한다 — 다른 화면에서 바뀐 값이
-      // 이 모달에 옛 상태로 남아 있으면 사용자가 그것을 켜진 줄로 읽는다.
-      const dsLeave=document.getElementById('ds-confirmleave');
-      if(dsLeave) dsLeave.checked=confirmLeave;
       // FR-UFE-14: 같은 근거로 이 행도 열 때마다 다시 칠한다 — 체크박스와 세기가
       // 함께 움직이므로 한 함수가 둘을 맡는다.
       this._focusEdgePaintRow();
-      // FR-WBR-10: 열 때마다 현재 값을 다시 칠한다 (FR-LVC-3 과 같은 근거).
-      const dsWrap=document.getElementById('ds-wordwrap');
-      if(dsWrap) dsWrap.checked=editorWordWrap;
-      // FR-MMT-6: 미니맵도 같은 자리에서 다시 칠한다.
-      const dsMini=document.getElementById('ds-minimap');
-      if(dsMini) dsMini.checked=editorMinimap;
-      // FR-UXB-43: diff 미니맵도 같은 근거로 열 때마다 다시 칠한다.
-      const dsDiffMini=document.getElementById('ds-diffminimap');
-      if(dsDiffMini) dsDiffMini.checked=diffMinimap;
       // Auto-close drawer when opening settings on mobile
       if(this.isMobile && this.drawerOpen){this._toggleDrawer(false);this.renderer._rTopbar()}
     });
@@ -447,6 +433,8 @@ Object.assign(App.prototype, {
     this._initWordWrap();
     this._initMinimap();
     this._initDiffMinimap();
+    // `_init*` 는 리스너만 건다. 첫 칠하기는 `ctl` 을 선언한 표가 한다 (FR-OPT-1-12).
+    this._paintSettingControls();
     this._initLocale();
     this._initLSP();
     this._initBackup();

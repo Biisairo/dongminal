@@ -578,12 +578,11 @@ Object.assign(GitPanel.prototype, {
    *
    * 트리 행은 중첩 DOM 이 아니라 패딩으로 들여쓴 평평한 목록이다 — 조상 요소가
    * 없으니 선을 걸 자리도 없다. 그래서 깊이를 행에 실어 CSS 가 배경으로 그 수만큼
-   * 반복해 그린다. 패딩과 선이 같은 상수를 딛는다.
+   * 반복해 그린다. 패딩도 CSS 가 같은 깊이에서 계산한다 (FR-OPT-1-12) — 종전에는
+   * 패딩을 JS 상수(6)로, 선을 CSS 토큰(9)으로 세워 둘이 3px 어긋났다.
    */
   _indent(el,depth){
-    const d=depth||0;
-    el.style.setProperty('--git-depth',d);
-    if(d) el.style.paddingLeft=(GIT_TREE_PAD0+d*GIT_TREE_INDENT)+'px';
+    el.style.setProperty('--git-depth',depth||0);
   },
 
   _rowEl(group,e,depth){

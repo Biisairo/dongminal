@@ -117,15 +117,20 @@ Object.assign(App.prototype, {
     el.textContent=text||'';
   },
 
+  // FR-OPT-1-12 (FEC-8): 사이드바의 기본 프리셋 버튼. 값을 얹는 자리(설정 setter)와
+  // 목록을 그리는 자리가 같은 손을 부른다 — 다른 창에서 바뀐 기본 프리셋도 따라온다.
+  _presetButtonPaint(){
+    const pbtn=document.getElementById('add-preset');
+    if(pbtn)pbtn.style.display=defaultPreset>=0&&layoutPresets[defaultPreset]?'':'none';
+  },
+
   _renderPresets(){
     // 목록이 다시 그려지는 것은 저장·삭제·이름변경이 성공했을 때다 — 지난 사유는
     // 그 순간 더 이상 사실이 아니다.
     this._presetMsg('');
     const el=document.getElementById('preset-list');if(!el)return;
     el.innerHTML='';
-    // Update sidebar preset button visibility
-    const pbtn=document.getElementById('add-preset');
-    if(pbtn)pbtn.style.display=defaultPreset>=0&&layoutPresets[defaultPreset]?'':'none';
+    this._presetButtonPaint();
     if(!layoutPresets.length){
       el.innerHTML='<div style="color:var(--text-hint);font-size:12px;text-align:center;padding:20px"></div>';
       el.firstChild.textContent=t('presets.empty');

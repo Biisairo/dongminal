@@ -573,6 +573,8 @@ test.describe('UI 개정 — 목록의 구조 (FR-GIT-211~212)', () => {
             depth: Number(s.getPropertyValue('--git-depth').trim() || 0),
             image: s.backgroundImage,
             width: s.backgroundSize.split(' ')[0],
+            pad: parseFloat(s.paddingLeft),
+            line0: parseFloat(s.backgroundPositionX),
           };
         }));
 
@@ -589,6 +591,11 @@ test.describe('UI 개정 — 목록의 구조 (FR-GIT-211~212)', () => {
     const flatRows = tree.filter((r) => r.depth === 0);
     expect(flatRows.length).toBeGreaterThan(0);
     for (const r of flatRows) expect(r.width).toBe('0px');
+    // FR-OPT-1-12 (FEU-20): 선과 글자가 같은 자리를 딛는다 — 깊이 d 의 글자는 첫
+    // 선에서 d 칸 떨어진다. 그래야 k 번째 선이 깊이 k 인 조상의 글자 밑에 선다.
+    for (const r of tree) {
+      expect(r.pad, '들여쓰기와 선이 어긋난다: ' + JSON.stringify(r)).toBe(r.line0 + r.depth * 12);
+    }
 
     // 플랫 보기에는 들여쓴 행 자체가 없다.
     await page.locator('#area .ed-side .git-files-mode[data-mode="flat"]').click();

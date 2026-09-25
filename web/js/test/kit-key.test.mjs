@@ -179,13 +179,24 @@ test('TC-CMP-10b: 알림 아홉이 킷 클래스를 단다 (FR-CMP-52)', () => {
   };
   walk('web/js');
   const src = files.map((f) => readFileSync(f, 'utf8')).join('\n');
+  // FR-OPT-1-6 (FEU-M2): 클래스 이름의 경계는 `\b` 가 아니다 — `\b` 는 하이픈을
+  // 경계로 보아 `fe-offer` 가 `fe-offer-go` 에도 맞는다. 그 오탐이 알림 안의 버튼에
+  // `ui-notice` 를 강제했다.
+  const tok = (n) => `(?<![\\w-])${n}(?![\\w-])`;
+  const classes = (re) => [...src.matchAll(re)].map((m) => m[2]);
   const bad = [];
   for (const n of NOTICE) {
     // 클래스 목록 안에서 그 이름이 나오는 자리를 모두 본다.
-    const re = new RegExp(`class(?:Name)?\\s*=\\s*(["'\`])([^"'\`\\n]*\\b${n}\\b[^"'\`\\n]*)\\1`, 'g');
-    const hits = [...src.matchAll(re)].map((m) => m[2]);
+    const re = new RegExp(`class(?:Name)?\\s*=\\s*(["'\`])([^"'\`\\n]*${tok(n)}[^"'\`\\n]*)\\1`, 'g');
+    const hits = classes(re);
     if (!hits.length) { bad.push(`.${n}: 만드는 자리를 찾지 못했다`); continue; }
-    for (const h of hits) if (!/\bui-notice\b/.test(h)) bad.push(`.${n}: class="${h}"`);
+    for (const h of hits) if (!new RegExp(tok('ui-notice')).test(h)) bad.push(`.${n}: class="${h}"`);
+  }
+  // 역으로 — `ui-notice` 는 알림 컨테이너에만 붙는다. 안의 버튼·글자에 붙으면
+  // 킷의 여백·글자·색이 버튼 치수를 덮는다 (FEU-3).
+  const any = new RegExp(`class(?:Name)?\\s*=\\s*(["'\`])([^"'\`\\n]*${tok('ui-notice')}[^"'\`\\n]*)\\1`, 'g');
+  for (const h of classes(any)) {
+    if (!NOTICE.some((n) => new RegExp(tok(n)).test(h))) bad.push(`알림이 아닌 자리: class="${h}"`);
   }
   assert.deepEqual(bad, [], `킷 클래스를 안 단 알림:\n  ${bad.join('\n  ')}`);
 });

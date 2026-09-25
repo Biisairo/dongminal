@@ -313,3 +313,31 @@ test.describe('프리셋 삭제 확인 (FUI-25)', () => {
     await expect(page.locator('#panel-presets .preset-item')).toHaveCount(n - 1);
   });
 });
+
+// OPTIMIZE_REFACTOR_SRS FR-OPT-1-12 (FEC-8) — 기본 프리셋 버튼의 표시는 **설정을 얹는
+// 길**을 따라간다. 종전에는 부팅의 한 줄(설정이 오기 전)과 프리셋 목록 그리기만
+// 버튼을 칠해, 다른 창에서 바뀐 기본 프리셋(`settings_changed`)이 반영되지 않았다.
+test.describe('기본 프리셋 버튼 (FEC-8)', () => {
+  const PRESET = { name: 'fec8', layout: { type: 'pane', tabCount: 1 } };
+
+  test.afterEach(async ({ request }) => {
+    const saved = await (await request.get('/api/settings')).json();
+    saved.layoutPresets = [];
+    saved.defaultPreset = -1;
+    await request.put('/api/settings', { data: saved });
+  });
+
+  test('다른 창이 바꾼 기본 프리셋이 버튼의 표시를 바꾼다', async ({ page, request }) => {
+    const base = await (await request.get('/api/settings')).json();
+    await request.put('/api/settings', { data: { ...base, layoutPresets: [], defaultPreset: -1 } });
+    await waitForInit(page);
+    const btn = page.locator('#add-preset');
+    await expect(btn).toBeHidden();
+
+    await request.put('/api/settings', { data: { ...base, layoutPresets: [PRESET], defaultPreset: 0 } });
+    await expect(btn).toBeVisible();
+
+    await request.put('/api/settings', { data: { ...base, layoutPresets: [PRESET], defaultPreset: -1 } });
+    await expect(btn).toBeHidden();
+  });
+});

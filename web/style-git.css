@@ -443,7 +443,10 @@ body.mobile .git-head-remote{gap:2px}
   --git-depth:0;
   /* 줄을 넘기지 않는다 — 동작 열이 자리지킴으로 **언제나** 잡혀 있으므로
      넘길 이유가 사라졌다. 좁아지면 이름이 줄고, 버튼은 제자리에 남는다. */
-  display:flex;flex-wrap:nowrap;align-items:center;gap:6px;padding:0 6px 0 9px;
+  /* FR-OPT-1-12: 들여쓰기도 선과 같은 두 토큰에서 나온다 — 행의 글자가 첫 선에서
+     깊이만큼 떨어져, k 번째 선이 깊이 k 인 조상의 글자 밑에 선다. */
+  display:flex;flex-wrap:nowrap;align-items:center;gap:6px;
+  padding:0 6px 0 calc(var(--git-tree-pad0) + var(--git-depth) * var(--git-indent));
   min-height:var(--git-row-min);font-size:var(--fs-md);white-space:nowrap;cursor:pointer;
   border-left:3px solid transparent;
   background-image:repeating-linear-gradient(to right,

@@ -660,7 +660,8 @@ body.mobile .git-repo-xslot{width:var(--touch-min);height:var(--touch-min)}
    목록이 같은 이름을 보는 것이 이 주석이 말해 온 것의 실행이다. 컨트롤의 하한
    (`--git-hit`·`--git-btn-h`)은 행이 아니라 히트 영역이라 단에 들지 않는다. */
 :root{--git-hit:30px;--git-btn-h:30px;--git-row-min:var(--row);
-  /* GIT_TREE_INDENT · GIT_TREE_PAD0 (constants.js) 과 같은 값 */
+  /* Git 트리 행의 들여쓰기와 깊이 세로선이 딛는 단 하나의 값 (FR-OPT-1-12).
+     들여쓰기 단위는 탐색기의 GIT_TREE_INDENT (constants-git-changes.js) 와 같다 */
   --git-indent:12px;--git-tree-pad0:9px}
 
 .git-view button,.git-dialog button,#git-confirm button,.git-menu-item{

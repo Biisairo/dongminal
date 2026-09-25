@@ -477,7 +477,7 @@ class GitDiffView {
     for(const a of list){
       if(!a||!a.label||typeof a.run!=='function') continue;
       const b=document.createElement('button');
-      b.className='ui-notice ui-btn ui-btn-sm git-diff-note-act';
+      b.className='ui-btn ui-btn-sm git-diff-note-act';
       b.textContent=a.label;
       if(a.title) b.title=a.title;
       b.addEventListener('click',()=>a.run());

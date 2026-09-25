@@ -31,7 +31,8 @@ const themeReady=(async()=>{try{
  * 맡는다 (FR-BTS-14, boot-screen.js).
  */
 Promise.allSettled([themeReady,app.init()]).then(()=>BootScreen.done());
-if(!(defaultPreset>=0&&layoutPresets[defaultPreset]))document.getElementById('add-preset').style.display='none';
+// 설정이 오기 전의 모양이다 — 이후는 설정을 얹는 길이 칠한다 (FR-OPT-1-12).
+app._presetButtonPaint();
 document.getElementById('add-window').addEventListener('click',async(e)=>{
   // 안쪽 박스를 눌렀으면 샌드박스 창이다. 바깥은 종전대로 일반 창.
   let sandbox='',workdir='',work='';
