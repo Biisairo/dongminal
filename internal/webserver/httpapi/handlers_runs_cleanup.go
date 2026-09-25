@@ -87,8 +87,12 @@ func (s *Server) closeRunTabs(ctx context.Context, rec run.Record, keep bool) []
 	// 가지 않은 방송이 "닫았다" 로 보고됐고, `closedTabIDs` 가 그 탭을 표식 해제에서
 	// 빼 지워진 Run 의 `runId` 가 남은 탭에 영구히 붙었다. 정리는 계속한다 —
 	// attach/detach 처럼 멈추지 않는다. 정리는 조건이 아니고 거짓 보고만 없앤다.
+	busy, known := map[string]bool{}, true
+	if s.Tools != nil {
+		busy, known = s.Tools.BusyMany(ids)
+	}
 	for i := range targets {
-		targets[i].exited = s.Tools == nil || !s.Tools.Busy(targets[i].toolID)
+		targets[i].exited = known && !busy[targets[i].toolID]
 		// `force` 인 이유는 위에서 이미 종료를 청하고 기다렸기 때문이다 —
 		// 그러고도 도는 프로세스에 확인창이 뜨면 무인 정리가 멎는다 (FR-RUN-6).
 		n := s.broadcastLayout("closeTab", map[string]any{"location": targets[i].tabID, "force": true})
@@ -115,9 +119,14 @@ func (s *Server) waitToolsIdle(ctx context.Context, ids []string) {
 	if s.Tools == nil || len(ids) == 0 {
 		return
 	}
+	// 틱마다 BusyMany 한 번이다 (FR-OPT-2-4). 모르는 답은 돌아왔다는 뜻이 아니다.
 	err := pollwait.Until(ctx, exitSettleTimeout, exitPollInterval, func() bool {
+		busy, ok := s.Tools.BusyMany(ids)
+		if !ok {
+			return false
+		}
 		for _, id := range ids {
-			if s.Tools.Busy(id) {
+			if busy[id] {
 				return false
 			}
 		}

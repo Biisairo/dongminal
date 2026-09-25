@@ -284,6 +284,35 @@ func (pc *ToolClient) Busy(id string) bool {
 	return resp.Busy
 }
 
+// BusyMany 는 busymany 한 번이다 (FR-OPT-2-4). 그것을 말하지 않는 옛 데몬에는 busy 를
+// 하나씩 보낸다. 오류가 하나라도 나면 ok=false — 모르는 것을 "바쁘지 않음" 으로
+// 읽지 않는다 (IPC-M2).
+func (pc *ToolClient) BusyMany(ids []string) (map[string]bool, bool) {
+	if len(ids) == 0 {
+		return map[string]bool{}, true
+	}
+	if pc.HasFeature(toolipc.FeatureBusyMany) {
+		resp, err := callT[toolipc.BusyManyResult](pc, toolipc.MethodBusyMany, toolipc.BusyManyParams{IDs: ids})
+		if err != nil {
+			return nil, false
+		}
+		out := make(map[string]bool, len(ids))
+		for _, id := range ids {
+			out[id] = resp.Busy[id]
+		}
+		return out, true
+	}
+	out := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		resp, err := callT[toolipc.BusyResult](pc, toolipc.MethodBusy, toolipc.IDParams{ID: id})
+		if err != nil {
+			return nil, false
+		}
+		out[id] = resp.Busy
+	}
+	return out, true
+}
+
 func (pc *ToolClient) SetBackground(id string, bg bool) bool {
 	pc.invalidateList()
 	resp, _ := callT[toolipc.SetBackgroundResult](pc, toolipc.MethodSetBackground, toolipc.SetBackgroundParams{ID: id, Background: bg})

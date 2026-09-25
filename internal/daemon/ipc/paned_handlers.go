@@ -256,6 +256,16 @@ func (pc *panedConn) busy(req *toolipc.PanedRequest) interface{} {
 	return okResp(req, toolipc.BusyResult{Busy: pc.pm.Busy(p.ID)})
 }
 
+// busyMany 는 busy 를 ids 전부에 한 번에 답한다 (FR-OPT-2-4).
+func (pc *panedConn) busyMany(req *toolipc.PanedRequest) interface{} {
+	p, perr := decodeParams[toolipc.BusyManyParams](req)
+	if perr != nil {
+		return *perr
+	}
+	busy, _ := pc.pm.BusyMany(p.IDs)
+	return okResp(req, toolipc.BusyManyResult{Busy: busy})
+}
+
 func (pc *panedConn) setBackground(req *toolipc.PanedRequest) interface{} {
 	p, perr := decodeParams[toolipc.SetBackgroundParams](req)
 	if perr != nil {

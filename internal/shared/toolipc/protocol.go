@@ -25,6 +25,7 @@ const (
 	MethodSnapshot       = "snapshot"
 	MethodCwd            = "cwd"
 	MethodBusy           = "busy"
+	MethodBusyMany       = "busymany"
 	MethodSetBackground  = "setbackground"
 	MethodBackgroundList = "backgroundlist"
 
@@ -70,12 +71,15 @@ const (
 	// FeatureNotify: input·resizenotify 알림을 안다 (FR-OPT-2-2). 서버는 WS 의 키
 	// 입력·리사이즈를 응답 없이 보낸다.
 	FeatureNotify = "notify"
+	// FeatureBusyMany: busymany(ids) 일괄 조회를 안다 (FR-OPT-2-4). 서버는 도구 N개의
+	// busy 를 RPC 한 번으로 묻는다. 말하지 않는 옛 데몬에는 busy 를 하나씩 보낸다.
+	FeatureBusyMany = "busymany"
 )
 
 // DaemonFeatures 는 이 데몬이 hello 에서 말하는 기능이다. ServerFeatures 는 서버가
 // 말하는 기능이다. 새 기능이 이름을 여기 더한다.
 var (
-	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify}
+	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify, FeatureBusyMany}
 	ServerFeatures []string
 )
 
@@ -177,6 +181,16 @@ type CwdResult struct {
 
 type BusyResult struct {
 	Busy bool `json:"busy"`
+}
+
+// BusyManyParams·BusyManyResult 는 busymany 다 (FR-OPT-2-4). 없는 도구는 false 다 —
+// busy 와 같은 뜻이다.
+type BusyManyParams struct {
+	IDs []string `json:"ids"`
+}
+
+type BusyManyResult struct {
+	Busy map[string]bool `json:"busy"`
 }
 
 type SetBackgroundParams struct {

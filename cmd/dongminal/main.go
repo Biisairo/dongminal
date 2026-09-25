@@ -274,7 +274,7 @@ func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub, gitRoot conte
 	// uses the busy RPC to dongminald to check foreground process status, so a
 	// bare prompt does not raise a bogus alarm (FR-15).
 	attnTracker := hub.NewAttnTracker(cmdHub, hub.DefaultIdleMS())
-	attnTracker.SetBusyProbe(toolHub.Busy)
+	attnTracker.SetBusyProbe(toolHub.BusyMany)
 	// FR-ATL-6: 종료 통지를 놓쳐도 죽은 도구의 알람이 복원되지 않게 한다.
 	attnTracker.SetLiveProbe(toolHub.IsLive)
 

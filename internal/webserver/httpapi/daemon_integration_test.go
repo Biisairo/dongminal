@@ -330,7 +330,7 @@ func TestDaemonAttnTrackerL2Idle(t *testing.T) {
 	cmdHub := hub.NewCommandHub()
 	tracker := hub.NewAttnTracker(cmdHub, 200) // 200ms threshold
 	// Idle only fires when a foreground process is running (FR-15).
-	tracker.SetBusyProbe(func(string) bool { return true })
+	tracker.SetBusyProbe(busyAll(true))
 
 	var sseMu sync.Mutex
 	var attentionReasons []string
@@ -585,7 +585,7 @@ func TestDaemonConcurrentPushAndRequest(t *testing.T) {
 func TestDaemonAttnTrackerL2IdleBusyGate(t *testing.T) {
 	cmdHub := hub.NewCommandHub()
 	tracker := hub.NewAttnTracker(cmdHub, 100)
-	tracker.SetBusyProbe(func(string) bool { return false }) // not busy
+	tracker.SetBusyProbe(busyAll(false)) // not busy
 
 	var mu sync.Mutex
 	var reasons []string
@@ -633,7 +633,7 @@ func TestDaemonAttnTrackerL2IdleBusyGate(t *testing.T) {
 func TestDaemonAttnTrackerL2IdleSuppressedWhileWorking(t *testing.T) {
 	cmdHub := hub.NewCommandHub()
 	tracker := hub.NewAttnTracker(cmdHub, 100)
-	tracker.SetBusyProbe(func(string) bool { return true }) // busy
+	tracker.SetBusyProbe(busyAll(true)) // busy
 
 	var mu sync.Mutex
 	var reasons []string

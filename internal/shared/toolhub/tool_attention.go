@@ -177,7 +177,7 @@ func (p *Tool) maybeIdle(now, threshold int64) {
 		return
 	}
 	p.attnArmed.Store(false)
-	if !p.agentSeen.Load() || !attnBusyProbe(p) {
+	if !p.agentSeen.Load() {
 		return
 	}
 	// FR-ATN-10: 턴이 진행 중이 아니면 알릴 것이 없다. 종결 뒤의 정적은 L1 이
@@ -186,6 +186,11 @@ func (p *Tool) maybeIdle(now, threshold int64) {
 		return
 	}
 	if ActivityStillWorking(p.activity.Load(), now) {
+		return
+	}
+	// 전경 탐침은 마지막이다 — 데몬 모드 대응물이 그 자리에서 RPC 를 한다
+	// (FR-ATF-12, OPTIMIZE_REFACTOR_SRS FR-OPT-2-4).
+	if !attnBusyProbe(p) {
 		return
 	}
 	p.setAttention("idle")

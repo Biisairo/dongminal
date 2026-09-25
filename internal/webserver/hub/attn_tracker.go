@@ -18,8 +18,8 @@ type AttnTracker struct {
 	hub   CommandBroker
 
 	// L2 idle sweeper
-	idleThreshold int64             // nanos, 0 disables
-	busyProbe     func(string) bool // foreground-process check; nil → never idle
+	idleThreshold int64         // nanos, 0 disables
+	busyProbe     BusyManyProbe // foreground-process check; nil → never idle
 
 	// allowBell 은 맨 BEL 을 알람으로 볼지다 (HOST_PARITY_SRS FR-HPR-17).
 	//
@@ -89,11 +89,15 @@ func NewAttnTracker(hub CommandBroker, idleMS int) *AttnTracker {
 	return t
 }
 
+// BusyManyProbe 는 ids 의 전경 프로세스 여부를 한 번에 묻는다 (OPTIMIZE_REFACTOR_SRS
+// FR-OPT-2-4). ok=false 는 "모른다" 이며 호출자는 판정을 보류한다 (IPC-M2).
+type BusyManyProbe func(ids []string) (busy map[string]bool, ok bool)
+
 // SetBusyProbe installs the foreground-process check used by the L2 idle
-// sweeper. In daemon mode this is wired to toolclient.ToolClient.Busy (a busy RPC to
-// dongminald). Without it, idle never fires (matching direct mode, where a
+// sweeper. In daemon mode this is wired to toolclient.ToolClient.BusyMany (one busymany
+// RPC to dongminald). Without it, idle never fires (matching direct mode, where a
 // bare prompt must not raise an alarm — DAEMON_SPLIT_SRS FR-15).
-func (t *AttnTracker) SetBusyProbe(f func(string) bool) {
+func (t *AttnTracker) SetBusyProbe(f BusyManyProbe) {
 	t.mu.Lock()
 	t.busyProbe = f
 	t.mu.Unlock()
@@ -379,8 +383,9 @@ func (t *AttnTracker) LastOutputAt(toolID string) int64 {
 // ActivitySnapshot returns current activity for all tools. A "working" card
 // whose foreground process is gone is pruned so an abnormal agent exit (no
 // Stop/SessionEnd hook) doesn't leave a stale "working" card — parity with
-// direct-mode toolhub.ToolManager.ActivitySnapshot (FR-AAP-20). The busy probe (an RPC
-// to dongminald) runs outside the lock.
+// direct-mode toolhub.ToolManager.ActivitySnapshot (FR-AAP-20). The busy probe (one RPC
+// to dongminald for all working cards, FR-OPT-2-4) runs outside the lock. When the
+// probe cannot answer, working cards are kept (IPC-M2).
 func (t *AttnTracker) ActivitySnapshot() []toolhub.ActivitySnap {
 	t.mu.Lock()
 	probe := t.busyProbe
@@ -400,9 +405,22 @@ func (t *AttnTracker) ActivitySnapshot() []toolhub.ActivitySnap {
 	}
 	t.mu.Unlock()
 
+	var working []string
+	for _, it := range items {
+		if it.State == "working" {
+			working = append(working, it.ToolID)
+		}
+	}
+	if probe == nil || len(working) == 0 {
+		return items
+	}
+	busy, ok := probe(working)
+	if !ok {
+		return items
+	}
 	out := []toolhub.ActivitySnap{}
 	for _, it := range items {
-		if it.State == "working" && probe != nil && !probe(it.ToolID) {
+		if it.State == "working" && !busy[it.ToolID] {
 			continue
 		}
 		out = append(out, it)
@@ -418,8 +436,10 @@ func (t *AttnTracker) sweepIdle() { t.SweepIdleAt(t.now()) }
 // 재야 하고, 데몬 모드에서는 그 테스트가 다른 패키지에 산다 (NFR-5).
 //
 // 판정의 순서와 뜻은 직접 모드 `Tool.maybeIdle` 과 **글자 그대로 같다**
-// (FR-ATF-12): ① 에이전트가 도는 도구인가 ② 전경 프로세스가 있는가 ③ 지금
-// 일하는 중은 아닌가(굳은 `working` 은 억제하지 못한다).
+// (FR-ATF-12): ① 에이전트가 도는 도구인가 ② 턴이 진행 중인가 ③ 지금 일하는 중은
+// 아닌가(굳은 `working` 은 억제하지 못한다) ④ 전경 프로세스가 있는가. ④ 만 데몬
+// RPC 라 마지막에, 남은 후보 전부를 한 번에 묻는다 (FR-OPT-2-4). 답을 모르면 울지
+// 않고 무장을 되돌려 다음 패스에 다시 판정한다 (IPC-M2).
 func (t *AttnTracker) SweepIdleAt(now int64) {
 	t.mu.Lock()
 	snap := make([]*attnPaneState, 0, len(t.tools))
@@ -434,6 +454,7 @@ func (t *AttnTracker) SweepIdleAt(now int64) {
 	if threshold <= 0 {
 		return
 	}
+	var cands []*attnPaneState
 	for _, ps := range snap {
 		if !ps.attnArmed.Load() {
 			continue
@@ -442,7 +463,7 @@ func (t *AttnTracker) SweepIdleAt(now int64) {
 			continue
 		}
 		ps.attnArmed.Store(false)
-		if !ps.agentSeen.Load() || probe == nil || !probe(ps.id) {
+		if !ps.agentSeen.Load() || probe == nil {
 			continue
 		}
 		// FR-ATN-10: 턴이 진행 중이 아니면 알릴 것이 없다.
@@ -450,6 +471,24 @@ func (t *AttnTracker) SweepIdleAt(now int64) {
 			continue
 		}
 		if toolhub.ActivityStillWorking(ps.activity.Load(), now) {
+			continue
+		}
+		cands = append(cands, ps)
+	}
+	if len(cands) == 0 {
+		return
+	}
+	ids := make([]string, len(cands))
+	for i, ps := range cands {
+		ids[i] = ps.id
+	}
+	busy, ok := probe(ids)
+	for _, ps := range cands {
+		if !ok {
+			ps.attnArmed.Store(true)
+			continue
+		}
+		if !busy[ps.id] {
 			continue
 		}
 		if ps.attention.CompareAndSwap(false, true) && onAttn != nil {

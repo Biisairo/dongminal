@@ -67,6 +67,16 @@ func (m *ToolManager) Busy(id string) bool {
 	return p.IsBusy()
 }
 
+// BusyMany 는 Busy 를 ids 전부에 답한다. 직접 모드는 모르는 답이 없어 ok 는 언제나
+// true 다 (FR-OPT-2-4).
+func (m *ToolManager) BusyMany(ids []string) (map[string]bool, bool) {
+	out := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		out[id] = m.Busy(id)
+	}
+	return out, true
+}
+
 // ToolSnapshot captures the outbuf state of a tool for reattach scrollback
 // restoration (DAEMON_SPLIT_SRS §6.6).
 type ToolSnapshot struct {

@@ -16,7 +16,7 @@ import (
 func firingTracker(idleMS int) (*AttnTracker, *fakeBroker) {
 	fb := &fakeBroker{}
 	tr := NewAttnTracker(fb, idleMS)
-	tr.SetBusyProbe(func(string) bool { return true })
+	tr.SetBusyProbe(busyAll(true))
 	return tr, fb
 }
 
@@ -215,7 +215,7 @@ func TestAttnTracker_ClearAll_BroadcastsOutsideLock(t *testing.T) {
 	rb := &reentrantBroker{}
 	tr := NewAttnTracker(rb, 1000)
 	rb.tr = tr
-	tr.SetBusyProbe(func(string) bool { return true })
+	tr.SetBusyProbe(busyAll(true))
 	tr.nowFn = func() int64 { return 0 }
 	startStaleWork(tr, "agent")
 	tr.FeedOutput("agent", []byte("x"))

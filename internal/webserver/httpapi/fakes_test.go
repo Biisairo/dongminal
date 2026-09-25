@@ -21,10 +21,13 @@ type fakePaneHub struct {
 	cwds      map[string]string
 	busies    map[string]bool
 	created   []string
-	nextID    int
-	lastCols  uint16
-	lastRows  uint16
-	lastCwd   string
+	// busyManyCalls 는 BusyMany 호출 수다. busyUnknown 이면 BusyMany 가 ok=false 다.
+	busyManyCalls int
+	busyUnknown   bool
+	nextID        int
+	lastCols      uint16
+	lastRows      uint16
+	lastCwd       string
 }
 
 func newFakePaneHub() *fakePaneHub {
@@ -66,6 +69,32 @@ func (f *fakePaneHub) Busy(id string) bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.busies[id]
+}
+
+// BusyMany 는 Busy 를 ids 전부에 답하고 부른 횟수를 센다. busyUnknown 이면 "모른다" 다.
+func (f *fakePaneHub) BusyMany(ids []string) (map[string]bool, bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.busyManyCalls++
+	if f.busyUnknown {
+		return nil, false
+	}
+	out := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		out[id] = f.busies[id]
+	}
+	return out, true
+}
+
+// busyAll 은 모든 도구를 b 로 답하는 탐침이다.
+func busyAll(b bool) func([]string) (map[string]bool, bool) {
+	return func(ids []string) (map[string]bool, bool) {
+		out := make(map[string]bool, len(ids))
+		for _, id := range ids {
+			out[id] = b
+		}
+		return out, true
+	}
 }
 
 func (f *fakePaneHub) List() []toolhub.ToolInfo {

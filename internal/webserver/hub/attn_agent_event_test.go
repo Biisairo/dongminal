@@ -10,7 +10,7 @@ import "testing"
 func agentEventTracker() (*AttnTracker, *fakeBroker) {
 	fb := &fakeBroker{}
 	tr := NewAttnTracker(fb, 0)
-	tr.SetBusyProbe(func(string) bool { return true })
+	tr.SetBusyProbe(busyAll(true))
 	return tr, fb
 }
 

@@ -218,7 +218,7 @@ func TestApiToolAttentionClear_TypedUnlocksRearm(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tr := hub.NewAttnTracker(hub.NewCommandHub(), idleMS)
-			tr.SetBusyProbe(func(string) bool { return true })
+			tr.SetBusyProbe(busyAll(true))
 			// 진행 중인 턴 — L2 가 울 수 있는 전제다 (FR-ATN-10). 이 테스트가
 			// 재는 것은 `typed` 가 재무장 잠금을 푸는가 이다.
 			tr.SetActivity("a", "working", "Bash", "")
