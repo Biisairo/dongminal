@@ -44,6 +44,21 @@ type fgRequest struct {
 // 테스트가 호스트의 PTY 동작에 기대지 않고 결정론적으로 대체할 수 있다.
 var fgProbe = foregroundNames
 
+// SetForegroundProbe 는 전경 조회를 교체하고 되돌리는 함수를 돌려준다. f 는 조회할
+// 도구 id 를 받는다. 다른 패키지의 테스트가 조회가 일어나는지 센다 — 데몬의 list
+// 핸들러가 조회하지 않는다는 것(OPTIMIZE_REFACTOR_SRS FR-OPT-2-1)이 그 자리다.
+func SetForegroundProbe(f func(ids []string) map[string]string) (restore func()) {
+	prev := fgProbe
+	fgProbe = func(reqs []fgRequest) map[string]string {
+		ids := make([]string, len(reqs))
+		for i, r := range reqs {
+			ids[i] = r.ID
+		}
+		return f(ids)
+	}
+	return func() { fgProbe = prev }
+}
+
 // foregroundNames 는 여러 도구를 한 번에 조회한다. 이름 읽기를 한 번의 조회로
 // 묶는 것이 이 함수가 존재하는 이유다 (NFR-XP-4).
 func foregroundNames(reqs []fgRequest) map[string]string {

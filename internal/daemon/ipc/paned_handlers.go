@@ -307,5 +307,8 @@ func (pc *panedConn) pushSize(toolID string, cols, rows uint16) {
 // 스냅샷과 겹치는 앞부분을 정확히 잘라내는 근거다. data 는 writeLoop 가 부호화할
 // 때까지 쥐고 있다 — 넘기는 쪽(readPTY 릴레이)은 청크마다 새 사본을 준다.
 func (pc *panedConn) pushOutputData(toolID string, data []byte, end int64) {
+	if data == nil {
+		data = []byte{}
+	}
 	pc.enqueue(toolipc.OutputEvent{Event: toolipc.EventOutput, Tool: toolID, Data: data, End: end}, true)
 }

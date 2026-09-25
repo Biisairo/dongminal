@@ -160,14 +160,15 @@ func SetAttnBusyProbe(f func(*Tool) bool) (restore func()) {
 // least threshold. It disarms after firing so it fires once per quiet edge;
 // new output re-arms it. threshold<=0 disables L2.
 //
-// 발화까지 세 관문이 있고, 셋은 서로 다른 것을 묻는다 (ATTENTION_FIRING_SRS
-// FR-ATF-1·3·10):
+// 발화까지 네 관문이 있고, 넷은 서로 다른 것을 묻는다 (ATTENTION_FIRING_SRS
+// FR-ATF-1·3·10, FR-ATN-10). 아래는 코드가 묻는 순서다:
 //
 //	① 에이전트가 도는 도구인가   — 활동을 보고한 적이 있는가 (agentSeen)
-//	② 전경 프로세스가 있는가     — 셸 프롬프트로 돌아간 도구는 울지 않는다
+//	② 턴이 진행 중인가           — 종결 뒤의 정적은 L1 이 이미 알렸다
 //	③ 지금 일하는 중은 아닌가    — 단, 굳은 `working` 은 억제하지 못한다
+//	④ 전경 프로세스가 있는가     — 셸 프롬프트로 돌아간 도구는 울지 않는다
 //
-// ① 이 없던 동안 `vim`·`less`·`top`·`ssh`·빌드 대기가 전부 울었다. ② 만으로는
+// ① 이 없던 동안 `vim`·`less`·`top`·`ssh`·빌드 대기가 전부 울었다. ④ 만으로는
 // "무언가 돌고 있다"까지밖에 말하지 못한다.
 func (p *Tool) maybeIdle(now, threshold int64) {
 	if threshold <= 0 || !p.attnArmed.Load() {

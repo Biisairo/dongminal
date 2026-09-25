@@ -58,6 +58,8 @@ func TestPushWireGolden(t *testing.T) {
 		want string
 	}{
 		{func(pc *panedConn) { pc.pushOutputData("a", []byte("hi"), 9) }, `{"data":"aGk=","end":9,"event":"output","tool":"a"}`},
+		// nil data 도 "" 다 — protocol.go 의 never-nil 규칙 (종전 map 부호화는 언제나 문자열).
+		{func(pc *panedConn) { pc.pushOutputData("a", nil, 9) }, `{"data":"","end":9,"event":"output","tool":"a"}`},
 		{func(pc *panedConn) { pc.pushExit("a", toolhub.ExitInfo{Code: -1}) }, `{"code":-1,"event":"exit","tool":"a"}`},
 		{func(pc *panedConn) { pc.pushForeground("a", "vim") }, `{"event":"fg","name":"vim","tool":"a"}`},
 		{func(pc *panedConn) { pc.pushSize("a", 80, 24) }, `{"cols":80,"event":"size","rows":24,"tool":"a"}`},
