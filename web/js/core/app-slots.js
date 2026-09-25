@@ -246,9 +246,11 @@ Object.assign(App.prototype, {
       const want=i<n;
       // 채널은 버스가 연다 (INV-2). 메시지를 처리하지 않으므로 topic 도 없다 —
       // 여기서 여는 것 자체가 목적이다.
+      // OPTIMIZE_REFACTOR_SRS FR-OPT-4-12: `presence=1` 이면 서버가 방송을 싣지 않는다.
+      // 옛 서버는 파라미터를 모르고 전부 보내지만 이 채널은 처리하지 않는다.
       if(want&&!this._slotSse[i]){
         this._slotSse[i]=this.bus.openChannel('slot:'+i,
-          '/api/commands/sse?clientId='+encodeURIComponent(this._slotIdentity(i)),
+          '/api/commands/sse?presence=1&clientId='+encodeURIComponent(this._slotIdentity(i)),
           {owner:'slots'});
       }else if(!want&&this._slotSse[i]){
         this.bus.closeChannel('slot:'+i);

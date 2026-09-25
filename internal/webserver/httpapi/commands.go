@@ -62,16 +62,28 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.WriteHeader(http.StatusOK)
 
-	sub := s.Commands.Add()
-	if sub == nil {
-		// 상한 초과 (04-secops P1-4). 헤더를 이미 썼으므로 상태 코드를 바꿀 수
-		// 없다 — 대신 인사 대신 사유를 한 줄 보내고 닫는다. 화면은 SSE 재연결
-		// 규약(`CONNECTIVITY_RESILIENCE_SRS`)으로 다시 붙는다.
-		fmt.Fprint(w, "data: {\"action\":\"subscribeRejected\"}\n\n")
-		flusher.Flush()
-		return
+	// OPTIMIZE_REFACTOR_SRS FR-OPT-4-12 (D-OPT-4): `presence=1` 은 칸 구독이다
+	// (WINDOW_SLOTS_SRS FR-WSL-11). 소유권 수명(Focus·git 임대)만 쥐고 방송 구독을
+	// 만들지 않는다 — 받은 메시지를 버리는 구독에 방송을 칸 수만큼 싣지 않는다.
+	// 인사(keepalive)는 그대로 보낸다. 옛 서버는 이 파라미터를 모르고 전부 보내며,
+	// 칸 구독은 그것을 처리하지 않으므로 교차 판에서도 같다.
+	presence := r.URL.Query().Get("presence") == "1"
+	var msgs <-chan []byte
+	var closed, dready <-chan struct{}
+	var sub *hub.CmdSub
+	if !presence {
+		sub = s.Commands.Add()
+		if sub == nil {
+			// 상한 초과 (04-secops P1-4). 헤더를 이미 썼으므로 상태 코드를 바꿀 수
+			// 없다 — 대신 인사 대신 사유를 한 줄 보내고 닫는다. 화면은 SSE 재연결
+			// 규약(`CONNECTIVITY_RESILIENCE_SRS`)으로 다시 붙는다.
+			fmt.Fprint(w, "data: {\"action\":\"subscribeRejected\"}\n\n")
+			flusher.Flush()
+			return
+		}
+		defer s.Commands.Remove(sub)
+		msgs, closed, dready = sub.Messages(), sub.Closed(), sub.DiagnosticsReady()
 	}
-	defer s.Commands.Remove(sub)
 
 	// FR-XDF-8: 구독에 clientId 를 결선한다. hub.cmdSub 자체에는 신원이 없으므로
 	// 이 결선 없이는 구독 해제와 소유권 해제를 이을 수 없다.
@@ -110,7 +122,10 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 	// 돌아온다는 것은 지금 구현의 성질이고, 이 연결이 막히지 않는다는 것은
 	// 이 계층의 요구다 (NFR-UPD-2). 둘을 같은 것으로 보면, 협력자가 언젠가
 	// 느려질 때 SSE 가 함께 선다.
-	if s.Updates != nil {
+	//
+	// 칸 구독(presence)은 화면이 열리는 순간이 아니다 — 같은 화면의 칸 0 구독이
+	// 이미 걸었다 (FR-OPT-4-12).
+	if s.Updates != nil && !presence {
 		go s.Updates.Trigger()
 	}
 
@@ -153,13 +168,13 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 		select {
 		case <-r.Context().Done():
 			return
-		case <-sub.Closed():
+		case <-closed:
 			return
-		case msg := <-sub.Messages():
+		case msg := <-msgs:
 			if !send("data: " + string(msg) + "\n\n") {
 				return
 			}
-		case <-sub.DiagnosticsReady():
+		case <-dready:
 			// §3A-2: 진단 슬롯(uri → 최신)을 비운다 — 새 구독은 여기로 스냅샷을 받는다.
 			for _, msg := range sub.TakeDiagnostics() {
 				if !send("data: " + string(msg) + "\n\n") {
