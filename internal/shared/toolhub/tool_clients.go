@@ -22,7 +22,7 @@ func (p *Tool) AddClientAt(c *SafeConn) (int64, bool) {
 		dmlog.Infof(nil, "[tool %s] addClient after exit addr=%s — sent OpExit", p.ID, c.RemoteAddr())
 		return 0, false
 	}
-	// cls 는 바꿀 때마다 새 슬라이스다 — 읽는 쪽(feedAndClients·broadcast)이 복사
+	// cls 는 바꿀 때마다 새 슬라이스다 — 읽는 쪽(feedAndDeliver·broadcast)이 복사
 	// 없이 들고 나간다 (FR-OPT-3-2).
 	p.cls = append(p.cls[:len(p.cls):len(p.cls)], c)
 	n := len(p.cls)
@@ -48,25 +48,32 @@ func (p *Tool) RemoveClient(c *SafeConn) {
 
 // broadcast delivers msg to all currently-registered clients. It is a no-op
 // once the tool has transitioned to exited. Caller must NOT hold cmu.
+// 큐에 넣는 것은 cmu 안이다 — kill 의 OpExit 뒤로 가지 않는다.
 func (p *Tool) broadcast(msg []byte) {
 	p.cmu.Lock()
-	if p.exited {
-		p.cmu.Unlock()
-		return
+	var dropped []*SafeConn
+	if !p.exited {
+		dropped = enqueueAll(msg, p.cls)
 	}
-	snap := p.cls
 	p.cmu.Unlock()
-	p.deliver(msg, snap)
+	p.removeClients(dropped)
 }
 
-// deliver 는 확보된 목록의 송신 큐에 넣는다 (FR-OPT-3-1). 소켓에 쓰는 것은 각
+// enqueueAll 은 확보된 목록의 송신 큐에 넣는다 (FR-OPT-3-1). 소켓에 쓰는 것은 각
 // 연결의 송신 고루틴이다 — 느린 소켓 하나가 PTY 읽기 루프도, 같은 도구의 다른
-// 클라이언트도 세우지 못한다. 넘친 연결은 Enqueue 가 닫았으므로 목록에서 뺀다.
-// msg 는 모든 연결이 읽기 전용으로 나눠 쓴다.
-func (p *Tool) deliver(msg []byte, snap []*SafeConn) {
+// 클라이언트도 세우지 못한다. 넘친 연결은 Enqueue 가 닫았으므로 돌려주어 호출자가
+// cmu 밖에서 목록에서 빼게 한다. msg 는 모든 연결이 읽기 전용으로 나눠 쓴다.
+func enqueueAll(msg []byte, snap []*SafeConn) (dropped []*SafeConn) {
 	for _, c := range snap {
 		if !c.Enqueue(msg) {
-			p.RemoveClient(c)
+			dropped = append(dropped, c)
 		}
+	}
+	return dropped
+}
+
+func (p *Tool) removeClients(cs []*SafeConn) {
+	for _, c := range cs {
+		p.RemoveClient(c)
 	}
 }

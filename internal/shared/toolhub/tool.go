@@ -384,27 +384,19 @@ func (p *Tool) handleChunk(chunk []byte) {
 	// FR-TRS-17: Feed 와 **클라이언트 목록 확보**가 한 번의 cmu 구간 안에
 	// 있어야 한다. 갈라 두면 그 사이에 붙은 클라이언트가 이 청크를 재생으로도
 	// broadcast 로도 받아 한 번 더 보게 된다. 락 순서는 언제나 cmu → stream.mu 다.
-	end, conns := p.feedAndClients(chunk)
+	//
+	// 송신 큐에 넣는 것도 같은 cmu 구간이다 — kill 이 exited 를 세운 뒤에 이 청크가
+	// 큐에 들어가면 OpExit 뒤에 출력이 온다. Enqueue 는 막히지 않는다.
 	r := p.relay.Load()
 	relay := r != nil && r.onOutput != nil
-	// 청크당 사본은 하나다 (FR-OPT-3-2, SHR-3). 릴레이와 클라이언트가 같은 사본을
-	// 읽기 전용으로 나눠 쓴다 — 릴레이는 msg[1:] 를 보관할 수 있으므로(데몬의 push
-	// 큐) 이 사본은 다시 쓰지 않는다. 받을 쪽이 없으면 만들지 않는다.
-	var msg []byte
-	if relay || len(conns) > 0 {
-		msg = make([]byte, 1+len(chunk))
-		msg[0] = OpOutput
-		copy(msg[1:], chunk)
-	}
+	end, msg, dropped := p.feedAndDeliver(chunk, relay)
+	p.removeClients(dropped)
 	if relay {
 		r.onOutput(p.ID, msg[1:], end)
 	}
 	c := classifyEsc(chunk, p.allowBell)
 	p.observeOutputClassified(chunk, attnNow(), c)
 	p.observeModesClassified(chunk, c.modes)
-	if len(conns) > 0 {
-		p.deliver(msg, conns)
-	}
 }
 
 // exitAfterRead 는 읽기 고루틴이 끝난 뒤의 정리다 — kill() 그리고 onExit, 이
@@ -417,21 +409,31 @@ func (p *Tool) exitAfterRead() {
 	}
 }
 
-// feedAndClients 는 청크를 스트림에 넣고, **같은 cmu 구간에서** 그 청크를 받을
-// 클라이언트 목록을 확보한다 (FR-TRS-17). 그래야 AddClient 가 돌려준 오프셋이
-// "이 클라이언트가 broadcast 로 받기 시작하는 자리" 와 정확히 일치한다.
+// feedAndDeliver 는 청크를 스트림에 넣고, **같은 cmu 구간에서** 붙어 있는
+// 클라이언트의 송신 큐에 넣는다 (FR-TRS-17). 그래야 AddClient 가 돌려준 오프셋이
+// "이 클라이언트가 broadcast 로 받기 시작하는 자리" 와 정확히 일치하고, kill 의
+// OpExit 이 언제나 마지막 프레임이다.
 //
 // Feed 에는 읽기 버퍼를 **그대로** 넘긴다 — Stream 은 자기 버퍼에 복사하고 인자를
-// 보관하지 않는다 (outbuf.Feed 의 계약, M8 `GO-37`). 목록은 cls 그 자체다 — cls 는
-// 바꿀 때마다 새 슬라이스이므로 복사하지 않는다. 받을 쪽이 없으면 nil 이다.
-func (p *Tool) feedAndClients(chunk []byte) (end int64, conns []*SafeConn) {
+// 보관하지 않는다 (outbuf.Feed 의 계약, M8 `GO-37`). 청크당 사본은 하나다
+// (FR-OPT-3-2, SHR-3): 릴레이와 클라이언트가 같은 사본을 읽기 전용으로 나눠 쓴다 —
+// 릴레이는 msg[1:] 를 보관할 수 있으므로(데몬의 push 큐) 이 사본은 다시 쓰지 않는다.
+// 받을 쪽이 없으면 만들지 않는다. dropped 는 넘쳐 닫힌 연결이다.
+func (p *Tool) feedAndDeliver(chunk []byte, relay bool) (end int64, msg []byte, dropped []*SafeConn) {
 	p.cmu.Lock()
 	defer p.cmu.Unlock()
 	_, end = p.stream.Feed(chunk)
-	if p.exited || len(p.cls) == 0 {
-		return end, nil
+	live := !p.exited && len(p.cls) > 0
+	if !relay && !live {
+		return end, nil, nil
 	}
-	return end, p.cls
+	msg = make([]byte, 1+len(chunk))
+	msg[0] = OpOutput
+	copy(msg[1:], chunk)
+	if live {
+		dropped = enqueueAll(msg, p.cls)
+	}
+	return end, msg, dropped
 }
 
 // Wait returns a channel closed when the tool terminates (test helper).

@@ -102,7 +102,12 @@ type SafeConn struct {
 	// 모드만 쓰므로 처음 쓸 때 만든다.
 	queueOnce sync.Once
 	queue     chan []byte
-	startOnce sync.Once
+	// qmu 아래: started 전의 프레임은 backlog 에 상한 없이 쌓인다. 핸들러가 동기
+	// 재생(최대 1 MB)·OpSeq 를 보내는 창이 브라우저 속도에 달려 있어, 그 창에
+	// 큐 상한으로 닫으면 재접속이 같은 재생을 되풀이하는 고리가 된다.
+	qmu     sync.Mutex
+	started bool
+	backlog [][]byte
 }
 
 func NewSafeConn(c *websocket.Conn) *SafeConn {
@@ -120,12 +125,19 @@ func (s *SafeConn) sendQueue() chan []byte {
 // 큐가 넘치면 그 연결을 닫고 false 다 — 따라잡지 못하는 연결을 기다리지 않는다.
 // 브라우저는 자기 좌표(since)로 다시 붙어 빠진 구간을 재생받는다. 데몬 모드 WS 가
 // 넘친 구독을 닫는 것과 같은 규약이다 (FR-OPT-1-2). 닫힌 연결에도 false 다.
+// StartSender 전에는 상한이 없다 (backlog).
 func (s *SafeConn) Enqueue(frame []byte) bool {
 	q := s.sendQueue()
+	s.qmu.Lock()
+	defer s.qmu.Unlock()
 	select {
 	case <-s.closed:
 		return false
 	default:
+	}
+	if !s.started {
+		s.backlog = append(s.backlog, frame)
+		return true
 	}
 	select {
 	case q <- frame:
@@ -138,27 +150,47 @@ func (s *SafeConn) Enqueue(frame []byte) bool {
 }
 
 // StartSender 는 송신 큐를 비우는 고루틴을 띄운다 (한 번만). 그 전에 들어온
-// 프레임은 큐에서 기다린다 — 핸들러는 재생과 좌표 통보(OpSeq)를 동기로 보낸 **뒤에**
-// 이것을 불러, 라이브 프레임이 좌표 통보보다 앞서지 않게 한다 (FR-TRS-8).
+// 프레임은 backlog 에서 기다린다 — 핸들러는 재생과 좌표 통보(OpSeq)를 동기로 보낸
+// **뒤에** 이것을 불러, 라이브 프레임이 좌표 통보보다 앞서지 않게 한다 (FR-TRS-8).
+// backlog 를 먼저 쓰고 큐로 넘어가므로 순서는 Enqueue 순서 그대로다.
 // 쓰기가 실패하거나 연결이 닫히면 끝난다.
 func (s *SafeConn) StartSender() {
-	s.startOnce.Do(func() {
-		q := s.sendQueue()
-		go func() {
-			for {
-				select {
-				case <-s.closed:
+	q := s.sendQueue()
+	s.qmu.Lock()
+	if s.started {
+		s.qmu.Unlock()
+		return
+	}
+	s.started = true
+	backlog := s.backlog
+	s.backlog = nil
+	s.qmu.Unlock()
+	go func() {
+		for _, f := range backlog {
+			if !s.sendQueued(f) {
+				return
+			}
+		}
+		for {
+			select {
+			case <-s.closed:
+				return
+			case f := <-q:
+				if !s.sendQueued(f) {
 					return
-				case f := <-q:
-					if err := s.WriteMsg(websocket.BinaryMessage, f); err != nil {
-						dmlog.Infof(nil, "ws sender addr=%s: %v", s.RemoteAddr(), err)
-						s.Close()
-						return
-					}
 				}
 			}
-		}()
-	})
+		}
+	}()
+}
+
+func (s *SafeConn) sendQueued(f []byte) bool {
+	if err := s.WriteMsg(websocket.BinaryMessage, f); err != nil {
+		dmlog.Infof(nil, "ws sender addr=%s: %v", s.RemoteAddr(), err)
+		s.Close()
+		return false
+	}
+	return true
 }
 
 func (s *SafeConn) WriteMsg(typ int, data []byte) error {
@@ -217,3 +249,5 @@ func (s *SafeConn) SetReadLimit(l int64)                { s.conn.SetReadLimit(l)
 func (s *SafeConn) SetReadDeadline(t time.Time) error   { return s.conn.SetReadDeadline(t) }
 func (s *SafeConn) SetPongHandler(h func(string) error) { s.conn.SetPongHandler(h) }
 func (s *SafeConn) ReadMessage() (int, []byte, error)   { return s.conn.ReadMessage() }
+
+func (s *SafeConn) queueLen() int { return len(s.sendQueue()) }
