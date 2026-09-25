@@ -3,6 +3,7 @@ package toolclient
 import (
 	"encoding/json"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -19,6 +20,7 @@ import (
 
 // fakeReconnectPaned 는 연결마다 lists[n] 을 list 응답으로 주는 가짜 데몬이다.
 // lists[n] 이 nil 이면 그 연결의 list 는 오류다. drop 을 닫으면 첫 연결을 끊는다.
+// 항목 "id:fg" 는 그 도구의 전경 이름을 fg 로 싣는다.
 func fakeReconnectPaned(t *testing.T, lists [][]string, drop <-chan struct{}) string {
 	t.Helper()
 	sockPath := t.TempDir() + "/s"
@@ -63,8 +65,9 @@ func serveReconnectConn(conn net.Conn, ids []string) {
 				break
 			}
 			tools := []interface{}{}
-			for _, id := range ids {
-				tools = append(tools, map[string]interface{}{"id": id, "name": id})
+			for _, e := range ids {
+				id, fg, _ := strings.Cut(e, ":")
+				tools = append(tools, map[string]interface{}{"id": id, "name": id, "fgName": fg})
 			}
 			resp = toolipc.PanedResponse{ID: req.ID, Result: map[string]interface{}{"tools": tools}}
 		default:
@@ -187,5 +190,38 @@ func TestTCResyncUnknown(t *testing.T) {
 	defer mu.Unlock()
 	if exits != 0 {
 		t.Fatalf("목록을 모르는데 exit 를 %d 번 합성했다", exits)
+	}
+}
+
+// 끊긴 동안 바뀐 전경 이름은 push 로 오지 않는다 — 데몬 티커가 그 사이에 캐시를
+// 고치고 받을 연결이 없어 버린다 (FR-OPT-2-1). 재접속 뒤 목록과 대조해 달라진 것만
+// onForeground 로 메운다. 같은 값(t2)은 되풀이하지 않는다 (FR-TAN-9).
+func TestTCResyncForeground(t *testing.T) {
+	drop := make(chan struct{})
+	sockPath := fakeReconnectPaned(t, [][]string{{"t1", "t2"}, {"t1:htop", "t2"}}, drop)
+	pc, err := DialPaneClientWithReconnect(sockPath, nil)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer pc.Close()
+
+	got := make(chan [2]string, 4)
+	pc.SetOnForeground(func(id, name string) { got <- [2]string{id, name} })
+	pc.List()
+
+	close(drop)
+
+	select {
+	case g := <-got:
+		if g != [2]string{"t1", "htop"} {
+			t.Fatalf("onForeground=%v want [t1 htop]", g)
+		}
+	case <-time.After(8 * time.Second):
+		t.Fatal("재접속 뒤 달라진 전경 이름이 알려지지 않았다")
+	}
+	select {
+	case g := <-got:
+		t.Fatalf("바뀌지 않은 도구까지 알렸다: %v", g)
+	case <-time.After(200 * time.Millisecond):
 	}
 }

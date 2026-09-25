@@ -146,7 +146,7 @@ rev-parse 와 status 를 실행한다(IPC-7).
 
 | FR | 요구 | 등록부 | 기대 효과 |
 |---|---|---|---|
-| FR-OPT-2-1 | 데몬 모드에서는 **데몬이** 전경 갱신 티커를 돌리고 변화만 push 한다. 이 push 는 드롭하지 않는다. 서버의 `StartForegroundPoll` 은 직접 모드에서만 조회를 시킨다 — 데몬 모드에서는 데몬이 `hello.features` 에 `fgtick` 을 말하지 않았을 때(옛 데몬)만 종전의 list 폴로 강등한다. list 핸들러는 캐시만 읽는다. | IPC-1 · SHR-5 · HTTP-1 · IPC-M3 | list RPC 0.5/s → 0. dispatch 경로에서 `ps` 가 빠진다 |
+| FR-OPT-2-1 | 데몬 모드에서는 **데몬이** 전경 갱신 티커를 돌리고 변화만 push 한다. 이 push 는 드롭하지 않는다. 서버의 `StartForegroundPoll` 은 직접 모드에서만 조회를 시킨다 — 데몬 모드에서는 데몬이 `hello.features` 에 `fgtick` 을 말하지 않았을 때(옛 데몬)만 종전의 list 폴로 강등한다. list 핸들러는 캐시만 읽는다. 끊긴 동안의 변화는 push 로 오지 않으므로, 서버는 재접속 뒤 목록의 전경 이름을 마지막으로 알린 값과 대조해 달라진 것만 알린다. | IPC-1 · SHR-5 · HTTP-1 · IPC-M3 | list RPC 0.5/s → 0. dispatch 경로에서 `ps` 가 빠진다 |
 | FR-OPT-2-2 | IPC 에 **응답 없는 알림**(`input`, `resize`)을 추가하고 기능 협상으로 켠다. WS 경로는 알림을 쓴다. HTTP send-input 은 오류를 돌려줘야 하므로 RPC 를 유지한다. | IPC-2 | 키 입력당 프레임 2 → 1. 응답 대기가 사라진다 |
 | FR-OPT-2-3 | `create`·`restore` 를 읽기 루프 밖에서 처리한다 (연결당 세마포어). 클라이언트 Create 시한은 전용 상수(60 s)로 둔다. 순서 전제(ListOK 캐시·skill-contract e2e)는 세대 검사로 안전한지 먼저 테스트로 확인한다. | IPC-3 | 샌드박스 생성이 다른 도구의 입력을 막지 않는다 |
 | FR-OPT-2-4 | busy 일괄 조회: 데몬에 `busymany(ids)` RPC, 서버에 `GET /api/tools/busy?ids=` 를 둔다. 스위퍼는 로컬 판정을 먼저 하고 busy 탐침은 마지막에 부른다. RPC 오류는 판정 보류(`ok=false`)이며 "바쁘지 않음" 으로 읽지 않는다. | HTTP-2 · HTTP-M1 · IPC-10 · IPC-M2 | N 왕복 → 1 |

@@ -73,6 +73,13 @@ type ToolClient struct {
 	onForeground func(toolID, name string)
 	earlyPushes  []earlyPush
 
+	// fgMu 는 onForeground 호출과 fgSeen·fgSeq 를 한 줄로 세운다. fgSeen 은 마지막으로
+	// 알린 전경 이름과 그 push 의 순번이다 — 재접속 뒤 목록과 대조해 끊긴 동안 놓친
+	// 변화만 메운다 (resyncAfterReconnect, FR-OPT-2-1).
+	fgMu   sync.Mutex
+	fgSeen map[string]fgSeen
+	fgSeq  uint64
+
 	// Per-tool WS subscribers: output channel → its exit-signal channel. The
 	// exit channel is closed when the tool exits so the WS handler can send
 	// toolhub.OpExit and tear down (parity with direct-mode tool.kill).
@@ -102,6 +109,11 @@ type rpcReply struct {
 
 // DaemonInfo 는 toolhub.DaemonInfo 다 — 뜻은 그쪽 주석에 있다.
 type DaemonInfo = toolhub.DaemonInfo
+
+type fgSeen struct {
+	name string
+	seq  uint64
+}
 
 // earlyPush 는 배선 전에 도착한 exit 다 — exit 만 버퍼한다 (SetOnExit 참조).
 type earlyPush struct {
@@ -309,6 +321,9 @@ func (pc *ToolClient) resyncAfterReconnect() {
 	}
 	pc.listMu.Unlock()
 	pc.invalidateList()
+	pc.fgMu.Lock()
+	fgFrom := pc.fgSeq
+	pc.fgMu.Unlock()
 	tools, ok := pc.ListOK()
 	alive := make(map[string]struct{}, len(tools))
 	for _, t := range tools {
@@ -333,6 +348,7 @@ func (pc *ToolClient) resyncAfterReconnect() {
 	if !ok {
 		return
 	}
+	pc.resyncForeground(tools, fgFrom)
 	pc.mu.Lock()
 	onExit := pc.onExit
 	pc.mu.Unlock()
@@ -344,6 +360,29 @@ func (pc *ToolClient) resyncAfterReconnect() {
 			onExit(id, toolhub.ExitInfo{})
 		}
 	}
+}
+
+// resyncForeground 는 끊긴 동안 바뀐 전경 이름을 알린다. 데몬은 그 사이의 변화를
+// 받을 연결이 없어 버렸고, 다음 변화 전에는 다시 밀지 않는다 (FR-OPT-2-1). 목록을
+// 묻기 시작한 뒤(fgFrom 이후) push 로 온 도구는 그 값이 더 새것이므로 건너뛴다.
+func (pc *ToolClient) resyncForeground(tools []toolhub.ToolInfo, fgFrom uint64) {
+	pc.mu.Lock()
+	cb := pc.onForeground
+	pc.mu.Unlock()
+	pc.fgMu.Lock()
+	defer pc.fgMu.Unlock()
+	seen := make(map[string]fgSeen, len(tools))
+	for _, t := range tools {
+		e := pc.fgSeen[t.ID]
+		if e.seq <= fgFrom && e.name != t.FgName {
+			e.name = t.FgName
+			if cb != nil {
+				cb(t.ID, t.FgName)
+			}
+		}
+		seen[t.ID] = e
+	}
+	pc.fgSeen = seen
 }
 
 // wireMsg 는 데몬이 보내는 줄 하나의 모든 모양이다 — 응답(id·result·error)과

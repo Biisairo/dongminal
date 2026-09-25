@@ -113,6 +113,13 @@ func (pc *ToolClient) pushForeground(ev *wireMsg) {
 	pc.mu.Lock()
 	cb := pc.onForeground
 	pc.mu.Unlock()
+	pc.fgMu.Lock()
+	defer pc.fgMu.Unlock()
+	pc.fgSeq++
+	if pc.fgSeen == nil {
+		pc.fgSeen = map[string]fgSeen{}
+	}
+	pc.fgSeen[ev.Tool] = fgSeen{name: ev.Name, seq: pc.fgSeq}
 	if cb != nil {
 		cb(ev.Tool, ev.Name)
 	}
