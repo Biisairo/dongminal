@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"bytes"
 	"dongminal/internal/shared/dmlog"
 	"fmt"
 	"os"
@@ -50,21 +51,28 @@ func genPath(path string, n int) string { return fmt.Sprintf("%s.bak.%d", path, 
 // (FR-SFD-3). 함수 자체에 세대를 넣으면 사용자의 작업 디렉터리에 `.bak.1` 이
 // 생긴다 — 그 자리의 보존은 git 과 편집기의 일이다.
 func WriteStateFile(path string, data []byte, perm os.FileMode) error {
-	rotateGenerations(path, perm)
+	cur, err := os.ReadFile(path)
+	switch {
+	case err == nil && bytes.Equal(cur, data):
+		// FR-SFD-7: 같은 바이트를 세대로 밀면 과거 판이 같은 사본으로 밀려난다.
+		return nil
+	case err == nil:
+		rotateGenerations(path, cur, perm)
+	case !os.IsNotExist(err):
+		dmlog.Infof(nil, "state file: 세대 원본 읽기 %s: %v", path, err)
+	}
 	return WriteFileAtomic(path, data, perm)
 }
 
-// rotateGenerations 는 `3→버림 · 2→3 · 1→2 · 현재→1` 이다.
+// rotateGenerations 는 `3→버림 · 2→3 · 1→2 · 현재→1` 이다. cur 는 호출자가 이미
+// 읽은 현재 내용이다.
 //
 // **실패해도 돌아간다** (FR-SFD-4). 세대는 여유이지 조건이 아니다 — 백업을 만들지
 // 못한다고 저장을 막으면 디스크가 찬 순간 제품이 멈춘다. 기록만 남기고 지나간다.
 //
-// 대상이 **없으면 아무것도 하지 않는다** (FR-SFD-6). 첫 쓰기에 빈 세대를 만들면
+// 대상이 **없으면 부르지 않는다** (FR-SFD-6). 첫 쓰기에 빈 세대를 만들면
 // 그것이 나중에 "복원할 것이 있다" 는 거짓 신호가 된다.
-func rotateGenerations(path string, perm os.FileMode) {
-	if _, err := os.Stat(path); err != nil {
-		return
-	}
+func rotateGenerations(path string, cur []byte, perm os.FileMode) {
 	n := StateFileGenerations
 	if n < 1 {
 		return
@@ -78,12 +86,7 @@ func rotateGenerations(path string, perm os.FileMode) {
 	}
 	// 현재 내용을 `.bak.1` 로 **복사**한다. rename 하면 원본이 사라지고, 그 사이에
 	// 프로세스가 죽으면 현재 판이 없는 순간이 생긴다.
-	blob, err := os.ReadFile(path)
-	if err != nil {
-		dmlog.Infof(nil, "state file: 세대 원본 읽기 %s: %v", path, err)
-		return
-	}
-	if err := WriteFileAtomic(genPath(path, 1), blob, perm); err != nil {
+	if err := WriteFileAtomic(genPath(path, 1), cur, perm); err != nil {
 		dmlog.Infof(nil, "state file: 세대 쓰기 %s: %v", genPath(path, 1), err)
 	}
 }

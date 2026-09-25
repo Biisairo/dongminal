@@ -76,11 +76,13 @@ func (s *Store) mutateMember(memberID string, fn func(*Member) error) (Record, M
 				s.runs[ri].Members[mi] = before
 				return Record{}, Member{}, err
 			}
+			// save 는 잠금을 잠시 놓는다 — 돌려줄 값은 그 전에 뜨고, 실패의 되돌림은
+			// save 가 한다 (FBE-17).
+			rec, m := cloneRun(s.runs[ri]), cloneMember(s.runs[ri].Members[mi])
 			if err := s.save(); err != nil {
-				s.runs[ri].Members[mi] = before
 				return Record{}, Member{}, err
 			}
-			return s.runs[ri], s.runs[ri].Members[mi], nil
+			return rec, m, nil
 		}
 	}
 	return Record{}, Member{}, ErrUnknownMember

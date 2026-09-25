@@ -81,6 +81,11 @@ type ToolManager struct {
 	// (sync: WaitGroup is reused before previous Wait has returned).
 	saveMu sync.Mutex
 	noSave bool
+	// saveRunning·saveQueued 는 saveAsync 의 latest-wins 합치기다 (FR-OPT-5-3).
+	// 저장 고루틴은 하나만 돌고, 그동안 들어온 요청은 몇 개든 뒤따르는 저장
+	// 하나가 된다 — SaveAll 이 매번 최신 스냅샷을 뜨므로 그 하나가 전부를 담는다.
+	saveRunning bool
+	saveQueued  bool
 
 	// saveFile 은 SaveAll 을 한 줄로 세운다 (FR-CAF-12). saveMu 와 지키는 것이
 	// 다르다 — 저쪽은 "저장을 더 시작할 것인가"(noSave·WaitGroup)를, 이쪽은
@@ -256,18 +261,38 @@ func (m *ToolManager) Delete(id string) error {
 //
 // 문 여부 확인과 Add 를 한 락 안에서 한다. 갈라 두면 StopSaving 이 Wait 에
 // 들어간 뒤에 Add 가 도착해 WaitGroup 이 패닉할 수 있다.
+//
+// 저장이 이미 돌고 있으면 표시만 하고 돌아간다 (FR-OPT-5-3, SHR-6). 도는 고루틴이
+// 끝날 때 표시를 보고 한 번 더 저장한다 — 문이 닫힌 뒤라도 닫히기 전에 받은
+// 요청이므로 그 저장은 한다.
 func (m *ToolManager) saveAsync() {
 	m.saveMu.Lock()
 	if m.noSave {
 		m.saveMu.Unlock()
 		return
 	}
+	if m.saveRunning {
+		m.saveQueued = true
+		m.saveMu.Unlock()
+		return
+	}
+	m.saveRunning = true
 	m.saves.Add(1)
 	m.saveMu.Unlock()
 
 	go func() {
 		defer m.saves.Done()
-		m.SaveAll()
+		for {
+			m.SaveAll()
+			m.saveMu.Lock()
+			if !m.saveQueued {
+				m.saveRunning = false
+				m.saveMu.Unlock()
+				return
+			}
+			m.saveQueued = false
+			m.saveMu.Unlock()
+		}
 	}()
 }
 

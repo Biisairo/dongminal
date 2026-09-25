@@ -78,6 +78,18 @@ type Store struct {
 	persistedBlob []byte
 	// alive 는 도구의 생존을 묻는 길이다 (`FBE-03`). nil 이면 묻지 않는다.
 	alive func(toolID string) bool
+	// writeMu 는 디스크 쓰기를 한 줄로 세운다 (FR-OPT-5-4). save 가 mu 를 놓고
+	// 쓰므로 순서를 지키는 것은 이쪽이다 — mu 를 쥔 채 writeMu 를 잡고 나서 mu 를
+	// 놓기 때문에, 직렬화 순서가 곧 디스크 도착 순서다.
+	writeMu sync.Mutex
+	// saveGen 은 직렬화한 판의 번호다. 쓰기가 실패했을 때 그 뒤에 직렬화된 판이
+	// 없을 때만 되돌린다 — 뒤의 판은 이 변경을 이미 담고 있고, 그 쓰기의 결과가
+	// 메모리를 정한다.
+	saveGen uint64
+	// persistedGen 은 persistedBlob 이 몇 번째 판인가다.
+	persistedGen uint64
+	// write 는 상태 파일 쓰기다. 검사가 느린 디스크를 흉내 내는 이음매다.
+	write func(path string, data []byte, perm os.FileMode) error
 }
 
 // cloneMember 는 Member 의 참조 필드를 끊는다 (SAFETY_CORRECTNESS_SRS FR-SAF-4).
@@ -181,6 +193,7 @@ func NewStore(dir, epoch string, opts ...Option) *Store {
 		epoch: epoch,
 		now:   func() int64 { return time.Now().Unix() },
 		newID: uuid.NewString,
+		write: platform.WriteStateFile,
 	}
 	for _, o := range opts {
 		o(s)
@@ -275,6 +288,12 @@ func (s *Store) runHasLiveMember(r *Record) bool {
 // 그 방법은 이제 platform.WriteFileAtomic 하나가 안다 (FR-CAF-11). 여기 있던
 // 구현이 옳았기에 그것을 공용으로 올렸고, 옳게 하던 자리를 그대로 두면 구현이
 // 둘이 되어 한쪽만 고쳐지는 날이 온다.
+//
+// 호출자는 s.mu 를 쥐고 부르고, 돌아올 때도 쥐고 있다. **그 사이에 한 번 놓는다**
+// (FR-OPT-5-4, DOM-3) — 직렬화는 잠금 안에서, 디스크 쓰기는 잠금 밖에서 한다.
+// 세대 회전과 fsync 두 번 동안 List·MemberByTool 이 줄을 서지 않게 하려는 것이다.
+// 그래서 호출자는 save 뒤에 s.runs 의 색인이나 포인터를 다시 쓰지 않는다 —
+// 돌려줄 값은 save 전에 떠 둔다.
 func (s *Store) save() error {
 	body := fileBody{SchemaVersion: schemaVersion, Runs: s.runs}
 	if body.Runs == nil {
@@ -284,13 +303,31 @@ func (s *Store) save() error {
 	if err != nil {
 		return err
 	}
-	if err := platform.WriteStateFile(s.path(), blob, 0644); err != nil {
+	s.saveGen++
+	gen := s.saveGen
+	s.writeMu.Lock()
+	s.mu.Unlock()
+	err = s.write(s.path(), blob, 0644)
+	s.writeMu.Unlock()
+	s.mu.Lock()
+	if err != nil {
 		// `FBE-17`: **쓰지 못했으면 메모리도 되돌린다.** 그러지 않으면 목록과
 		// 디스크가 갈라지고, 사용자는 재기동에서야 그 사실을 만난다.
-		s.runs = s.rollbackRuns()
+		//
+		// 그 사이에 다른 판이 직렬화됐으면 되돌리지 않는다. 그 판은 이 변경을
+		// 담고 있고, 그 쓰기가 성공하면 디스크도 이 변경을 갖는다 — 여기서
+		// 되돌리면 그때 메모리만 이 변경을 잃는다. 그 쓰기가 실패하면 그쪽이
+		// 되돌린다.
+		if gen == s.saveGen {
+			s.runs = s.rollbackRuns()
+		}
 		return err
 	}
-	s.persistedBlob = blob
+	// 뒤에 쓴 판이 먼저 잠금을 되찾았을 수 있다 — 더 새 판을 옛 판으로 덮지 않는다.
+	if gen > s.persistedGen {
+		s.persistedBlob = blob
+		s.persistedGen = gen
+	}
 	return nil
 }
 

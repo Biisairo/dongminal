@@ -2,9 +2,10 @@ package agentadapter
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
+
+	"dongminal/internal/shared/platform"
 )
 
 // OMP_AGENT_SUPPORT_SRS 묶음 B·C — omp 의 활동 shim 과 멤버 오버레이.
@@ -29,10 +30,10 @@ const OmpShimFile = "omp-activity.mjs"
 // 두었으므로 여기서 MkdirAll 을 되풀이하지 않는다.
 func installOmpAssets(s InstallSpec) error {
 	shim := filepath.Join(s.Dir, OmpShimFile)
-	if err := os.WriteFile(shim, []byte(ompShimSource(s.Dmctl)), 0o644); err != nil {
+	if err := platform.WriteFileIfChanged(shim, []byte(ompShimSource(s.Dmctl)), 0o644); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(s.Dir, OmpMemberConfigFile),
+	return platform.WriteFileIfChanged(filepath.Join(s.Dir, OmpMemberConfigFile),
 		[]byte(ompMemberOverlay), 0o644)
 }
 

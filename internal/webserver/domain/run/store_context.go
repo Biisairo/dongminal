@@ -175,14 +175,27 @@ func (s *Store) ObserveContext(toolID string, obs ContextObservation, policy Con
 	cur := &s.runs[ri].Members[mi]
 	// FR-RCX-8: 멤버와 조정자가 **같은 함수**를 지난다 — 등급 판정이 두 벌이 되면
 	// 화면의 두 자리가 다른 규칙으로 색을 고르게 된다.
+	before := cur.ContextState
 	entered = applyContextObservation(&cur.ContextState, obs, policy, s.now())
 	out := cloneMember(*cur)
+	if onlyContextAtChanged(before, cur.ContextState) {
+		return out, entered, true
+	}
 	if err := s.save(); err != nil {
 		// 영속 실패로 관측을 잃어도 훅과 activity 는 살아 있어야 한다
 		// (NFR-CBG-2). 저장소가 못 쓰게 된 사실은 save 가 이미 로그로 남긴다.
 		return out, entered, true
 	}
 	return out, entered, true
+}
+
+// onlyContextAtChanged 는 관측이 '마지막 관측 시각' 말고는 바꾼 것이 없는가다
+// (FR-OPT-5-4, DOM-3). 훅은 도구 활동마다 오므로 이런 관측이 대부분이다.
+// 그 시각은 메모리에만 두고 runs.json 은 쓰지 않는다 — 재기동 뒤 첫 관측이 다시
+// 채우고, 다른 변경의 저장이 그 값을 함께 싣는다.
+func onlyContextAtChanged(before, after ContextState) bool {
+	after.ContextAt = before.ContextAt
+	return after == before
 }
 
 /**
@@ -286,8 +299,12 @@ func (s *Store) observeCoordinator(toolID string, obs ContextObservation, policy
 		if r.Coordinator == nil {
 			r.Coordinator = &ContextState{}
 		}
+		before := *r.Coordinator
 		applyContextObservation(r.Coordinator, obs, policy, s.now())
 		out := Member{RunID: r.ID, ContextState: *r.Coordinator}
+		if onlyContextAtChanged(before, *r.Coordinator) {
+			return out, "", true
+		}
 		if err := s.save(); err != nil {
 			// 영속 실패로 관측을 잃어도 훅과 activity 는 살아 있어야 한다
 			// (NFR-CBG-2). 저장소가 못 쓰게 된 사실은 save 가 이미 로그로 남긴다.
@@ -407,10 +424,11 @@ func (s *Store) Succeed(spec SucceedSpec) (prev Member, next Member, err error) 
 
 	prev = cloneMember(*old)
 	s.runs[ri].Members = append(s.runs[ri].Members, next)
+	out := cloneMember(next)
 	if err := s.save(); err != nil {
 		return Member{}, Member{}, err
 	}
-	return prev, cloneMember(next), nil
+	return prev, out, nil
 }
 
 // Handoff 는 멤버가 후임에게 남기는 인수인계 요약을 받는다 (FR-CBG-9 의 1단계).

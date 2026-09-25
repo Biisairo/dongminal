@@ -208,7 +208,7 @@ func reapRetiredHelpers(binDir string, current []string) {
 	}
 	sorted := append([]string(nil), current...)
 	sort.Strings(sorted)
-	_ = os.WriteFile(filepath.Join(binDir, helperManifest),
+	_ = platform.WriteFileIfChanged(filepath.Join(binDir, helperManifest),
 		[]byte(strings.Join(sorted, "\n")+"\n"), 0o644)
 }
 
@@ -433,7 +433,8 @@ func installShellHooks(binDir string) error {
 }
 
 // unpackEmbedded는 embedded FS 의 root 서브트리를 dst 아래로 전개한다. 매 호출마다
-// 덮어쓰므로 바이너리가 갱신되면 전개물도 함께 갱신된다. 실행 가능해야 하는
+// 내용을 대조해 다른 것만 원자적으로 바꾸므로(FR-OPT-5-5) 바이너리가 갱신되면
+// 전개물도 함께 갱신되고, 살아 있는 셸은 잘린 파일을 보지 않는다. 실행 가능해야 하는
 // 확장자(.sh, .py)만 0755 이고 나머지는 0644 다 (FR-INJ-3).
 func unpackEmbedded(src embed.FS, root, dst string) error {
 	return fs.WalkDir(src, root, func(p string, d fs.DirEntry, err error) error {
@@ -460,6 +461,6 @@ func unpackEmbedded(src embed.FS, root, dst string) error {
 		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 			return err
 		}
-		return os.WriteFile(target, data, mode)
+		return platform.WriteFileIfChanged(target, data, mode)
 	})
 }

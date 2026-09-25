@@ -79,3 +79,67 @@ func TestSaveAllRunsEveryCall(t *testing.T) {
 		t.Fatalf("SaveAll 5회 중 %d회만 돌았다 — 저장을 버렸다", got)
 	}
 }
+
+// FR-OPT-5-3 (SHR-6): 저장 요청은 latest-wins 로 합쳐진다.
+//
+// 저장 하나가 도는 동안 요청이 N 개 쌓여도 뒤따르는 저장은 **하나**다 — 그 하나가
+// 쌓인 요청 전부의 최신 상태를 쓴다. 요청마다 고루틴·lsof·fsync 를 치르지 않는다.
+func TestSaveAsyncCoalescesWhileSaving(t *testing.T) {
+	m := NewToolManager(t.TempDir(), nil)
+	m.mutated.Store(true)
+
+	var calls atomic.Int32
+	entered := make(chan struct{}, 16)
+	release := make(chan struct{})
+	m.SetOwnedTools(func() map[string]struct{} {
+		if calls.Add(1) == 1 {
+			entered <- struct{}{}
+			<-release
+		}
+		return nil
+	})
+
+	m.saveAsync()
+	<-entered
+	const queued = 10
+	for range queued {
+		m.saveAsync()
+	}
+	close(release)
+	m.StopSaving()
+
+	// 첫 저장 1 + 쌓인 10 을 합친 1.
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("저장 %d회 — 비행 중 요청 %d개가 합쳐지지 않았다 (want 2)", got, queued)
+	}
+}
+
+// 합치기가 요청을 잃지 않는다 — 비행 중에 들어온 요청은 비행이 끝난 뒤 반드시
+// 한 번 더 저장된다.
+func TestSaveAsyncRunsTrailingSave(t *testing.T) {
+	m := NewToolManager(t.TempDir(), nil)
+	m.mutated.Store(true)
+
+	var calls atomic.Int32
+	entered := make(chan struct{}, 4)
+	release := make(chan struct{})
+	m.SetOwnedTools(func() map[string]struct{} {
+		if calls.Add(1) == 1 {
+			entered <- struct{}{}
+			<-release
+		}
+		return nil
+	})
+	m.saveAsync()
+	<-entered
+	m.saveAsync()
+	close(release)
+	m.StopSaving()
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("저장 %d회 want 2 — 비행 중 요청을 버렸다", got)
+	}
+	m.saveAsync()
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("StopSaving 뒤에 저장이 시작됐다 (%d회)", got)
+	}
+}

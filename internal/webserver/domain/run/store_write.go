@@ -64,11 +64,13 @@ func (s *Store) Start(opt StartOptions) (Record, error) {
 		CreatedAt:         s.now(),
 	}
 	s.runs = append([]Record{rec}, s.runs...)
+	// FR-SAF-4: rec.Worktree 는 호출자가 준 포인터이고 s.runs 가 같은 것을 든다.
+	// save 가 잠금을 잠시 놓으므로 복제는 그 전에 한다 (FR-OPT-5-4).
+	out := cloneRun(rec)
 	if err := s.save(); err != nil {
 		return Record{}, err
 	}
-	// FR-SAF-4: rec.Worktree 는 호출자가 준 포인터이고 s.runs 가 같은 것을 든다.
-	return cloneRun(rec), nil
+	return out, nil
 }
 
 // MemberSpec is the input of AddMember.
@@ -133,10 +135,11 @@ func (s *Store) AddMember(runID string, spec MemberSpec) (Member, error) {
 		CreatedAt: s.now(),
 	}
 	s.runs[idx].Members = append(s.runs[idx].Members, m)
+	out := cloneMember(m)
 	if err := s.save(); err != nil {
 		return Member{}, err
 	}
-	return cloneMember(m), nil
+	return out, nil
 }
 
 // ReportSpec is the input of Report. RunID/MemberID are corroboration only —

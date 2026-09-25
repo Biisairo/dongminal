@@ -117,3 +117,42 @@ func TestRetentionPolicyIsExplicit(t *testing.T) {
 		t.Error("격리본을 자동으로 지우도록 바뀌었다 — 사용자 결정(2026-09-11)에 어긋난다")
 	}
 }
+
+// V-SFD-6 · FR-SFD-7 (FR-OPT-5-3 · SHR-7): 내용이 같으면 **회전도 쓰기도 하지 않는다.**
+//
+// 같은 바이트를 세대로 밀면 `.bak.1~3` 이 같은 사본으로 채워져 되돌아갈 과거 판이
+// 사라진다.
+func TestStateFileSameContentSkipsRotationAndWrite(t *testing.T) {
+	d := t.TempDir()
+	p := filepath.Join(d, "s.json")
+	for _, v := range []string{"v1", "v2"} {
+		if err := WriteStateFile(p, []byte(v), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	before, err := os.Stat(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		if err := WriteStateFile(p, []byte("v2"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want := map[string]string{p: "v2", p + ".bak.1": "v1"}
+	for path, w := range want {
+		if got := readOrEmpty(t, path); got != w {
+			t.Errorf("%s=%q want %q — 같은 내용이 세대를 밀어냈다", filepath.Base(path), got, w)
+		}
+	}
+	if _, err := os.Stat(p + ".bak.2"); err == nil {
+		t.Error(".bak.2 가 생겼다 — 같은 내용 저장이 회전했다")
+	}
+	after, err := os.Stat(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !os.SameFile(before, after) {
+		t.Error("본 파일이 교체됐다 — 같은 내용인데 원자 쓰기를 했다")
+	}
+}

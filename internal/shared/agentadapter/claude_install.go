@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+
+	"dongminal/internal/shared/platform"
 )
 
 /*
@@ -60,7 +62,7 @@ func writeClaudeActivityHooks(s InstallSpec) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(s.Dir, claudeHooksFile), blob, 0o644)
+	return platform.WriteFileIfChanged(filepath.Join(s.Dir, claudeHooksFile), blob, 0o644)
 }
 
 // writeClaudePluginHooks 는 세션 스코프 플러그인의 SessionStart 훅이다
@@ -96,5 +98,5 @@ func writeClaudePluginHooks(s InstallSpec) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(hooksDir, "hooks.json"), blob, 0o644)
+	return platform.WriteFileIfChanged(filepath.Join(hooksDir, "hooks.json"), blob, 0o644)
 }

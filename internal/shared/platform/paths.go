@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -331,6 +332,26 @@ func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 		return err
 	}
 	return nil
+}
+
+// WriteFileIfChanged 는 설치물(셸 훅·에이전트 훅·shim)을 쓴다 (FR-OPT-5-5, SHR-12).
+//
+// 내용이 같으면 쓰지 않고 권한만 맞춘다. 다르면 WriteFileAtomic 으로 바꾼다 —
+// 다른 도구의 셸이 source 하거나 에이전트가 읽는 순간과 겹쳐도 잘린 파일을 보지
+// 않는다. 설치는 부팅마다 돌므로 같은 바이트를 다시 쓰는 IO 도 줄인다.
+func WriteFileIfChanged(path string, data []byte, perm os.FileMode) error {
+	cur, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(cur, data) {
+		return WriteFileAtomic(path, data, perm)
+	}
+	st, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if st.Mode().Perm() == perm {
+		return nil
+	}
+	return os.Chmod(path, perm)
 }
 
 func tempSibling(dst string) string {
