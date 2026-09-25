@@ -37,11 +37,22 @@ const (
 	// panedRespawnEvery: respawn dongminald after this many consecutive
 	// failed dials (socket gone → daemon likely dead).
 	panedRespawnEvery = 3
+
+	// panedHeartbeatEvery 는 생존 확인 hello 의 주기다 (FR-OPT-2-1). 정상 상태에는
+	// 서버→데몬 RPC 가 없어 답하지 않는 데몬을 RPC 시한이 잡지 못한다.
+	panedHeartbeatEvery = 15 * time.Second
 )
+
+// heartbeat 는 생존 확인의 주기와 시한이다. 배선은 panedHeartbeatEvery·
+// panedCallTimeout 을 쓰고, 테스트가 줄인다.
+type heartbeat struct {
+	every, within time.Duration
+}
 
 type ToolClient struct {
 	sockPath    string
 	spawnDaemon func() error // respawns dongminald on repeated dial failure; nil disables respawn
+	beat        heartbeat
 
 	mu       sync.Mutex
 	conn     net.Conn
@@ -170,9 +181,14 @@ func DialToolClient(sockPath string) (*ToolClient, error) {
 // DialPaneClientWithReconnect is DialToolClient plus a spawnDaemon callback the
 // supervisor invokes to respawn dongminald when dials keep failing (FR-13).
 func DialPaneClientWithReconnect(sockPath string, spawnDaemon func() error) (*ToolClient, error) {
+	return dialToolClient(sockPath, spawnDaemon, heartbeat{every: panedHeartbeatEvery, within: panedCallTimeout})
+}
+
+func dialToolClient(sockPath string, spawnDaemon func() error, beat heartbeat) (*ToolClient, error) {
 	pc := &ToolClient{
 		sockPath:    sockPath,
 		spawnDaemon: spawnDaemon,
+		beat:        beat,
 		pending:     make(map[int64]chan rpcReply),
 		closed:      make(chan struct{}),
 		subbers:     map[string]map[chan OutChunk]chan struct{}{},
@@ -264,14 +280,22 @@ func (pc *ToolClient) DaemonInfo() DaemonInfo {
 // supervise watches for connection loss and reconnects with exponential
 // backoff, respawning dongminald when dials keep failing (FR-13).
 func (pc *ToolClient) supervise() {
+	beat := time.NewTicker(pc.beat.every)
+	defer beat.Stop()
 	for {
 		pc.mu.Lock()
 		cd := pc.connDone
 		pc.mu.Unlock()
-		select {
-		case <-pc.closed:
-			return
-		case <-cd:
+	alive:
+		for {
+			select {
+			case <-pc.closed:
+				return
+			case <-cd:
+				break alive
+			case <-beat.C:
+				pc.ping()
+			}
 		}
 		if pc.stopped.Load() {
 			return
@@ -307,6 +331,22 @@ func (pc *ToolClient) supervise() {
 			}
 		}
 	}
+}
+
+// ping 은 생존 확인이다 (FR-OPT-2-1). 시한 안에 답이 없으면 callWithin 이 연결을
+// 끊고 supervisor 가 재접속한다. hello 는 모든 판의 데몬이 받는다. 인자는 접속 때와
+// 같다 — 데몬은 hello 마다 서버의 기능을 다시 적는다.
+//
+// 진행 중인 호출이 있으면 건너뛴다 — 그 호출이 자기 시한으로 무응답을 잡는다. 옛
+// 데몬은 create 를 읽기 루프 안에서 돌리므로 그동안 hello 에도 답하지 않는다.
+func (pc *ToolClient) ping() {
+	pc.mu.Lock()
+	busy := len(pc.pending) > 0
+	pc.mu.Unlock()
+	if busy {
+		return
+	}
+	_, _ = pc.callWithin(toolipc.MethodHello, toolipc.HelloParams{Features: toolipc.ServerFeatures}, pc.beat.within)
 }
 
 // resyncAfterReconnect 는 끊긴 동안 놓친 push 를 메운다 (OPTIMIZE_REFACTOR_SRS

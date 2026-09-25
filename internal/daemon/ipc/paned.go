@@ -46,7 +46,8 @@ type panedConn struct {
 	wireTool func(p *toolhub.Tool)
 
 	// serverFeatures 는 이 연결의 서버가 hello 에서 말한 기능이다 (D-OPT-1). hello 는
-	// 연결의 첫 요청이고 dispatch 는 읽기 루프 한 고루틴이 돌므로 잠금이 없다.
+	// 연결의 첫 요청이고, 뒤따르는 생존 확인 hello(FR-OPT-2-1)도 같은 값을 싣는다.
+	// dispatch 는 읽기 루프 한 고루틴이 돌므로 잠금이 없다.
 	serverFeatures []string
 
 	// build 는 이 데몬 바이너리의 판이다 (VERSION_HEALTH_SRS FR-VHL-1). `hello`
