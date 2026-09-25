@@ -278,6 +278,32 @@ func TestHandoff_AuthorityIsTheSender(t *testing.T) {
 	}
 }
 
+// OPTIMIZE_REFACTOR_SRS FR-OPT-1-4 (DOM-7): 닫힌 Run 에는 기다릴 인수인계가 없다.
+// 요약을 쓸 길(Handoff)이 열린 Run 에만 있으므로, 닫힌 Run 의 표식을 보고
+// 기다리면 시한만 먹는다. 기다림을 접는 것도 닫힌 기록을 고쳐 쓰지 않는다.
+func TestHandoffWaiting_ClosedRunHasNothingToWaitFor(t *testing.T) {
+	s := newTestStore(t, "e1")
+	rec, m := openRunWithMember(t, s, "tool-1", nil)
+	_, next, err := s.Succeed(SucceedSpec{PrevMemberID: m.ID, ToolID: "tool-2", HandoffAsked: true})
+	if err != nil {
+		t.Fatalf("Succeed: %v", err)
+	}
+	if !s.HandoffWaiting(next.ID) {
+		t.Fatal("테스트 전제: 열린 Run 에서는 청한 요약을 기다려야 한다")
+	}
+	if _, _, err := s.Close(rec.ID, true); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	if s.HandoffWaiting(next.ID) {
+		t.Fatal("닫힌 Run 의 멤버가 오지 않을 요약을 기다린다")
+	}
+	s.GiveUpHandoff(next.ID)
+	if _, prev, _ := s.FindMember(m.ID); !prev.HandoffPending {
+		t.Fatal("GiveUpHandoff 가 닫힌 Run 의 기록을 고쳐 썼다")
+	}
+}
+
 // FR-CBG-6/7 (SRS §3.3.2 "ContextLevel 은 단조가 아니다 — 닫힘"): 등급은 현재
 // 상태의 표시이며 내려간다. 저장소가 내는 entered 는 "직전보다 올라갔다"는
 // 감지일 뿐이고, **되오름도 전이로 잡는다** — FR-CBG-7 이 전제하는 경우가 그것이다.

@@ -152,10 +152,7 @@ func (s *Server) apiToolMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sender := envelopeSender(fromToolID)
-	envelope := fmt.Sprintf(
-		"[DONGMINAL-AGENT-MSG from=%s to=%s ts=%s]\n%s\n[/DONGMINAL-AGENT-MSG]",
-		sender, toolID, time.Now().Format("15:04:05"), quoteEnvelope(body.Message),
-	)
+	envelope := agentEnvelope(sender, toolID, body.Message)
 	if err := s.deliverToTool(toolID, envelope, true); err != nil {
 		writeToolIOError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -168,6 +165,24 @@ func (s *Server) apiToolMessage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"toolId": toolID, "from": sender, "to": toolID, "len": len(body.Message),
 	})
+}
+
+// envelopeServerSender 는 서버가 스스로 보내는 엔벨로프의 `from=` 값이다
+// (ORCHESTRATION_V2_SRS FR-CBG-6). 사람이 보낸 것처럼 꾸미지 않는다.
+const envelopeServerSender = "dongminal-server"
+
+// envelopeTimeLayout 은 엔벨로프 헤더의 `ts=` 형식이다.
+const envelopeTimeLayout = "15:04:05"
+
+// agentEnvelope 는 에이전트 엔벨로프 한 벌을 만든다 (OPTIMIZE_REFACTOR_SRS
+// FR-OPT-1-8). `to=` 는 수신 도구 uuid 이고(docs/external/agent-orchestration.md),
+// 본문은 발신자가 누구든 인용한다 — 서버발 본문에도 조정자가 정한 문자열(역할
+// 이름 등)이 섞인다.
+func agentEnvelope(from, toToolID, body string) string {
+	return fmt.Sprintf(
+		"[DONGMINAL-AGENT-MSG from=%s to=%s ts=%s]\n%s\n[/DONGMINAL-AGENT-MSG]",
+		from, toToolID, time.Now().Format(envelopeTimeLayout), quoteEnvelope(body),
+	)
 }
 
 // quoteEnvelope 는 본문 안의 엔벨로프 구분자를 **인용**한다 (M8_UNIFIED_SRS D-A-8,

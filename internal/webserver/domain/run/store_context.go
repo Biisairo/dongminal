@@ -449,7 +449,7 @@ func (s *Store) Handoff(senderToolID, claimedMemberID, summary string) (Member, 
 	return out, nil
 }
 
-// indexOfMember 는 열린 Run 에서 멤버 하나를 찾는다. 호출자가 s.mu 를 쥔다.
+// indexOfMember 는 모든 Run 에서 멤버 하나를 찾는다. 호출자가 s.mu 를 쥔다.
 func (s *Store) indexOfMember(memberID string) (runIdx, memberIdx int) {
 	for ri := range s.runs {
 		for mi := range s.runs[ri].Members {
@@ -461,29 +461,48 @@ func (s *Store) indexOfMember(memberID string) (runIdx, memberIdx int) {
 	return -1, -1
 }
 
+// predecessorIndex 는 m 이 승계한 전임자의 자리다. 승계가 아니거나 전임자가
+// 이 Run 에 없으면 거짓이다.
+func (r Record) predecessorIndex(m Member) (int, bool) {
+	if m.SucceededFrom == "" {
+		return -1, false
+	}
+	for i := range r.Members {
+		if r.Members[i].ID == m.SucceededFrom {
+			return i, true
+		}
+	}
+	return -1, false
+}
+
+// openPredecessor 는 열린 Run 에 있는 멤버의 전임자를 찾는다. 닫힌 Run 은 요약을
+// 받을 길(Handoff)이 없으므로 기다릴 것도, 접을 것도 없다 (OPTIMIZE_REFACTOR_SRS
+// FR-OPT-1-4). 호출자가 s.mu 를 쥔다.
+func (s *Store) openPredecessor(memberID string) (*Member, bool) {
+	ri, mi := s.indexOfMember(memberID)
+	if ri < 0 || s.runs[ri].State != Open {
+		return nil, false
+	}
+	pi, ok := s.runs[ri].predecessorIndex(s.runs[ri].Members[mi])
+	if !ok {
+		return nil, false
+	}
+	return &s.runs[ri].Members[pi], true
+}
+
 // HandoffWaiting 은 이 멤버의 전임자가 **아직 요약을 쓰고 있는가**를 답한다
 // (UX_BATCH6_SRS FR-RUN-4).
 //
-// 승계로 만들어지지 않았거나, 요약이 이미 있거나, 청한 적이 없으면 거짓이다.
-// 프리앰블을 만드는 종단이 이것으로 기다릴지 정한다.
+// 승계로 만들어지지 않았거나, 요약이 이미 있거나, 청한 적이 없거나, Run 이
+// 닫혔으면 거짓이다. 프리앰블을 만드는 종단이 이것으로 기다릴지 정한다.
 func (s *Store) HandoffWaiting(memberID string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	ri, mi := s.indexOfMember(memberID)
-	if ri < 0 {
+	prev, ok := s.openPredecessor(memberID)
+	if !ok {
 		return false
 	}
-	from := s.runs[ri].Members[mi].SucceededFrom
-	if from == "" {
-		return false
-	}
-	for _, c := range s.runs[ri].Members {
-		if c.ID != from {
-			continue
-		}
-		return c.HandoffPending && strings.TrimSpace(c.HandoffSummary) == ""
-	}
-	return false
+	return prev.HandoffPending && strings.TrimSpace(prev.HandoffSummary) == ""
 }
 
 // GiveUpHandoff 는 기다림을 접는다 (FR-RUN-5). 표식만 지우며 요약을 만들지
@@ -491,25 +510,12 @@ func (s *Store) HandoffWaiting(memberID string) bool {
 func (s *Store) GiveUpHandoff(memberID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	ri, mi := s.indexOfMember(memberID)
-	if ri < 0 {
+	prev, ok := s.openPredecessor(memberID)
+	if !ok || !prev.HandoffPending {
 		return
 	}
-	from := s.runs[ri].Members[mi].SucceededFrom
-	if from == "" {
-		return
-	}
-	for i := range s.runs[ri].Members {
-		if s.runs[ri].Members[i].ID != from {
-			continue
-		}
-		if !s.runs[ri].Members[i].HandoffPending {
-			return
-		}
-		s.runs[ri].Members[i].HandoffPending = false
-		_ = s.save()
-		return
-	}
+	prev.HandoffPending = false
+	_ = s.save()
 }
 
 // HandoffClause 는 승계로 만들어진 멤버의 프리앰블에 들어가는 인수인계 절이다
@@ -524,11 +530,8 @@ func HandoffClause(rec Record, m Member) string {
 		return ""
 	}
 	summary := ""
-	for _, c := range rec.Members {
-		if c.ID == m.SucceededFrom {
-			summary = strings.TrimSpace(c.HandoffSummary)
-			break
-		}
+	if pi, ok := rec.predecessorIndex(m); ok {
+		summary = strings.TrimSpace(rec.Members[pi].HandoffSummary)
 	}
 
 	var b strings.Builder

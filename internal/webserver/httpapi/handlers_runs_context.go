@@ -227,9 +227,7 @@ func (s *Server) notifyContextAlert(m run.Member, level string) {
 	body := fmt.Sprintf(
 		"[CONTEXT-ALERT run=%s member=%s role=%s level=%s]\n%s\n승계: dmctl run succeed --member %s --at <새 탭 uuid> | --headless",
 		rec.Short, m.ID, m.Role, level, contextAlertAdvice(m, level), m.ID)
-	envelope := fmt.Sprintf(
-		"[DONGMINAL-AGENT-MSG from=dongminal-server to=%s ts=%s]\n%s\n[/DONGMINAL-AGENT-MSG]",
-		rec.CoordinatorToolID, time.Now().Format("15:04:05"), body)
+	envelope := agentEnvelope(envelopeServerSender, rec.CoordinatorToolID, body)
 	if err := s.deliverToTool(rec.CoordinatorToolID, envelope, true); err != nil {
 		// 통지 실패는 로그로 끝난다. Run 은 그대로 살아 있다.
 		dmlog.Errorf(nil, "[run] context-alert 전달 실패 run=%s member=%s: %v", rec.Short, m.ID, err)
@@ -397,9 +395,7 @@ func (s *Server) requestHandoff(ctx context.Context, rec run.Record, prev run.Me
 			"왔는가 / 다음에 무엇을 해야 하는가 / 알아야 할 함정. 아래를 한 번 실행한다.\n"+
 			"dmctl run handoff --member %s --summary - <<'SUM'\n...본문...\nSUM",
 		rec.Short, prev.ID, prev.ID)
-	envelope := fmt.Sprintf(
-		"[DONGMINAL-AGENT-MSG from=dongminal-server to=%s ts=%s]\n%s\n[/DONGMINAL-AGENT-MSG]",
-		prev.ID, time.Now().Format("15:04:05"), ask)
+	envelope := agentEnvelope(envelopeServerSender, prev.ToolID, ask)
 	if err := s.deliverToTool(prev.ToolID, envelope, true); err != nil {
 		dmlog.Errorf(nil, "[run] handoff 요청 실패 run=%s member=%s: %v", rec.Short, prev.ID, err)
 		return baseline, false
