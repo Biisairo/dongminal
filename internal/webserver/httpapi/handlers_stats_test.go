@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/sysstat"
 )
 
@@ -164,5 +167,53 @@ func TestStats_NoExecInSource(t *testing.T) {
 	out, err := exec.Command("grep", "-n", "exec.Command", "handlers_api.go").CombinedOutput()
 	if err == nil && len(out) > 0 {
 		t.Fatalf("handlers_api.go 에 exec.Command 가 남아 있다:\n%s", out)
+	}
+}
+
+// OPTIMIZE_REFACTOR_SRS FR-OPT-4-4: 상태바 틱은 `/api/stats?jobs=1` 하나로 git 작업
+// 목록까지 받는다. 인자가 없으면 본문은 종전과 같다 (FR-OPT-0-3).
+func TestStats_JobsOnlyWhenAsked(t *testing.T) {
+	svc := core.New(core.WithRunner(func(context.Context, string, []string) (core.Output, error) {
+		return core.Output{}, nil
+	}))
+	srv, err := New(Config{DataDir: t.TempDir()}, Deps{Stats: &fakeStats{}, Git: store.NewStore(svc)})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+
+	if _, ok := fetchStats(t, ts)["jobs"]; ok {
+		t.Fatal("인자 없는 /api/stats 에 jobs 가 실렸다")
+	}
+	resp, err := http.Get(ts.URL + "/api/stats?jobs=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var body map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	jobs, ok := body["jobs"].([]any)
+	if !ok || len(jobs) != 0 {
+		t.Fatalf("jobs = %#v, want []", body["jobs"])
+	}
+}
+
+// git 이 없는 배선에서는 목록을 모른다 — 키를 싣지 않는다 (받는 쪽이 이전 목록을 유지한다).
+func TestStats_JobsOmittedWithoutGit(t *testing.T) {
+	ts, _ := statsServer(t, sysstat.Snapshot{})
+	resp, err := http.Get(ts.URL + "/api/stats?jobs=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var body map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := body["jobs"]; ok {
+		t.Fatalf("git 없는 배선에 jobs 가 실렸다: %v", body)
 	}
 }

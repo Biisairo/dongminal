@@ -667,3 +667,40 @@ func TestJobStartUnguarded_RejectsMissingReasonOrArgv(t *testing.T) {
 		t.Fatal("kind 와 argv 불일치가 통과했다")
 	}
 }
+
+// OPTIMIZE_REFACTOR_SRS FR-OPT-4-4: 목록이 바뀐 **뒤** 알린다 — 시작과 끝, 작업당 두 번.
+// 알림을 받은 쪽이 곧바로 Active 를 물으면 바뀐 목록을 받아야 한다.
+func TestJob_OnChangeAfterPublish(t *testing.T) {
+	release := make(chan struct{})
+	seen := make(chan int, 4)
+	var j *Jobs
+	j = NewJobs(jobSvc(),
+		WithJobRunner(func(context.Context, string, []string, string, func(string, string)) (int, error) {
+			<-release
+			return 0, nil
+		}),
+		WithOnChange(func() { seen <- len(j.Active()) }),
+	)
+	if _, err := j.Start(jobRepo, keysOf(jobRepo), "fetch", jobFetchSpec()); err != nil {
+		t.Fatal(err)
+	}
+	want := []int{1, 0}
+	for i, w := range want {
+		if i == 1 {
+			close(release)
+		}
+		select {
+		case got := <-seen:
+			if got != w {
+				t.Fatalf("알림 %d 에서 Active = %d, want %d", i, got, w)
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatalf("알림 %d 이 오지 않았다", i)
+		}
+	}
+	select {
+	case got := <-seen:
+		t.Fatalf("알림이 세 번 왔다 (Active=%d)", got)
+	case <-time.After(50 * time.Millisecond):
+	}
+}

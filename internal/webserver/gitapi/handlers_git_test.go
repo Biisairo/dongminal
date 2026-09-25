@@ -43,6 +43,8 @@ type gitFake struct {
 	// statusTruncated 는 git 의 출력 자체가 상한에서 잘린 상황을 흉내낸다
 	// (SAFETY_CORRECTNESS_SRS FR-SAF-19·21).
 	statusTruncated bool
+	// statusNotRepo 는 status 가 "저장소가 아니다" 로 끝나는 상황이다 — 관측 중에 사라졌다.
+	statusNotRepo bool
 }
 
 // newGitFake 은 HEAD 만 있는 gitdir 을 만든다. Store 의 관측이 signature 도 함께
@@ -71,6 +73,9 @@ func (g *gitFake) runner(_ context.Context, dir string, args []string) (core.Out
 	case args[0] == "status":
 		if g.statusHold != nil {
 			g.statusHold()
+		}
+		if g.statusNotRepo {
+			return core.Output{ExitCode: 128, Stderr: "fatal: not a git repository"}, nil
 		}
 		return core.Output{Stdout: gitStatusFixture, StdoutTruncated: g.statusTruncated}, nil
 	}
@@ -666,6 +671,10 @@ func (w *fakeRepoWatcher) Note(repo string, _ store.Observation) {
 func (w *fakeRepoWatcher) NoteFor(repo string, _ store.Observation, _ string) {
 	w.notes = append(w.notes, repo)
 }
+func (w *fakeRepoWatcher) NoteScoped(repo string, _ store.Observation, _, _ string) {
+	w.notes = append(w.notes, repo)
+}
+func (w *fakeRepoWatcher) ReleaseScope(string, string) {}
 
 func TestGitStatus_NotRepoIsNotWatched(t *testing.T) {
 	g := newGitFake(t)

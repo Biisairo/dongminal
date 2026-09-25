@@ -6,6 +6,7 @@ import (
 	"dongminal/internal/shared/fanout"
 	"encoding/json"
 	"hash/fnv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -96,6 +97,9 @@ type GitObserver interface {
 	Invalidate(repo string)
 	// Observed 는 마지막 유효 관측이다. 회차 시한이 놓친 관측을 다음 회차가 받는다.
 	Observed(repo string) (store.Observation, bool)
+	// ForgetRoot 는 루트 해석의 기억(TTL 2초)을 지운다. 탈락을 알리기 전에 부른다 —
+	// 알림을 받고 곧바로 묻는 목록(`/api/git/repos`)이 옛 해석을 받지 않게 한다 (FR-OPT-4-3).
+	ForgetRoot(path string)
 }
 
 // obsMark 는 관측 식별자다. 정의는 store.Mark 한 벌이다 (REPO_FIX 04 §3A-0 X5) —
@@ -179,7 +183,7 @@ type gitWatchEntry struct {
 	// phase 는 워크트리 회차의 위상이다 (FR-GDT-4). 저장소 경로에서 파생하므로
 	// 같은 저장소는 늘 같은 위상을 갖고, 다른 저장소는 흩어진다.
 	phase uint64
-	// holders 는 이 저장소를 보고 있는 신원들이다 (clientId → 그 구독의 epoch).
+	// holders 는 이 저장소를 보고 있는 신원들이다 (clientId[+갈래] → 그 구독의 epoch).
 	// **비어 있지 않으면 유휴로 만료되지 않는다** (FR-GWL-2).
 	holders map[string]uint64
 
@@ -240,6 +244,28 @@ NoteFor 는 **임차인을 밝힌 표명**이다 (GIT_WATCH_LEASE_SRS FR-GWL-1).
 보고 있는 연결이 있어야 하고, 그 연결이 끊기는 것이 곧 해제다.
 */
 func (w *GitWatcher) NoteFor(repo string, obs store.Observation, clientID string) {
+	w.NoteScoped(repo, obs, clientID, "")
+}
+
+// holderScopeSep 는 임차인 키에서 신원과 갈래를 가른다. clientId 에 들 수 없는 글자다.
+const holderScopeSep = "\x1f"
+
+func holderKey(clientID, scope string) string {
+	if scope == "" {
+		return clientID
+	}
+	return clientID + holderScopeSep + scope
+}
+
+/*
+NoteScoped 는 **갈래를 가진 임대**다 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-3 · IPC-7).
+
+Repo 탭은 핀 전부를 한꺼번에 임대하고, 탭을 떠나면 그것을 한꺼번에 놓는다
+(`ReleaseScope`). 같은 신원이 Git 패널의 status 로 쥔 임대(갈래 "")는 그와 별개로
+남아야 하므로 임차인 키를 갈래로 가른다. 수명 규약은 `NoteFor` 와 같다 — 구독이
+살아 있는 신원만 임차인이 되고, 구독이 끊기면 모든 갈래가 함께 풀린다.
+*/
+func (w *GitWatcher) NoteScoped(repo string, obs store.Observation, clientID, scope string) {
 	if w == nil || repo == "" {
 		return
 	}
@@ -249,13 +275,14 @@ func (w *GitWatcher) NoteFor(repo string, obs store.Observation, clientID string
 	mark := obsMark(obs)
 	// 구독이 살아 있는 신원만 임차인이 된다.
 	ep := w.live[clientID]
+	holder := holderKey(clientID, scope)
 	if clientID == "" || ep == 0 {
-		clientID = ""
+		holder = ""
 	}
 	if e, ok := w.watch[repo]; ok {
 		e.seenAt = now
-		if clientID != "" {
-			e.holders[clientID] = ep
+		if holder != "" {
+			e.holders[holder] = ep
 		}
 		// **기준선을 여기서 갱신하지 않는다.** 브라우저가 받은 관측과 감시자가
 		// 마지막으로 알린 관측은 같은 것이고, 다르다면 그 차이는 이미 방송으로
@@ -278,11 +305,26 @@ func (w *GitWatcher) NoteFor(repo string, obs store.Observation, clientID string
 		phase:   watchPhase(repo),
 		holders: map[string]uint64{},
 	}
-	if clientID != "" {
-		e.holders[clientID] = ep
+	if holder != "" {
+		e.holders[holder] = ep
 	}
 	w.watch[repo] = e
 	w.evictLocked(now)
+}
+
+// ReleaseScope 는 그 신원의 그 갈래 임대를 모든 저장소에서 놓는다 (FR-OPT-4-3). 감시는
+// 여기서 걷지 않는다 — 임차인이 빈 항목은 마지막 표명에서 `ttl` 뒤에 만료된다
+// (Detach 와 같은 규약).
+func (w *GitWatcher) ReleaseScope(clientID, scope string) {
+	if w == nil || clientID == "" {
+		return
+	}
+	key := holderKey(clientID, scope)
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for _, e := range w.watch {
+		delete(e.holders, key)
+	}
 }
 
 /*
@@ -326,8 +368,13 @@ func (w *GitWatcher) Detach(clientID string, ep uint64) {
 		return // 더 새로운 구독이 이 신원을 들고 있다
 	}
 	delete(w.live, clientID)
+	scoped := clientID + holderScopeSep
 	for _, e := range w.watch {
-		delete(e.holders, clientID)
+		for k := range e.holders {
+			if k == clientID || strings.HasPrefix(k, scoped) {
+				delete(e.holders, k)
+			}
+		}
 	}
 }
 
@@ -588,6 +635,7 @@ func (w *GitWatcher) drop(repo string, err error) bool {
 	}
 	// FR-GLW-7: 탈락은 **저장소가 읽히지 않은 것**이다 (FR-GPO-5).
 	dmlog.Errorf(nil, "[gitwatch] 저장소를 읽을 수 없어 감시에서 뺀다 (repo=%s err=%v)", repo, err)
+	w.git.ForgetRoot(repo)
 	w.announce(repo, "")
 	return true
 }

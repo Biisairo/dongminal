@@ -70,6 +70,8 @@ type apiRoute = httproute.Route[*Server]
 
 var apiRoutes = []apiRoute{
 	httproute.Get("/api/state", (*Server).apiStateGet),
+	// OPTIMIZE_REFACTOR_SRS FR-OPT-4-5: 구독이 열릴 때의 복원 조각을 한 요청으로.
+	httproute.Get("/api/snapshot", (*Server).apiSnapshot),
 	httproute.Get("/api/whoami", (*Server).apiWhoAmI),
 	httproute.Post("/api/tools", (*Server).apiToolsCreate),
 	httproute.Get("/api/tools/attention", (*Server).apiToolsAttention),
@@ -462,9 +464,16 @@ func (s *Server) apiPing(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("ok"))
 }
 
+// `?jobs=1` 이면 진행 중 git 작업 목록(`/api/git/jobs` 의 `jobs`)을 함께 싣는다 —
+// 상태바 틱이 요청 하나로 둘을 받는다 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-4). git 이 없으면
+// 키를 싣지 않는다. 인자가 없으면 본문은 종전과 같다 (FR-OPT-0-3).
 func (s *Server) apiStats(w http.ResponseWriter, r *http.Request) {
+	out := s.getStats()
+	if r.URL.Query().Get("jobs") == "1" && s.Git != nil {
+		out["jobs"] = s.git.ActiveJobs()
+	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(s.getStats())
+	json.NewEncoder(w).Encode(out)
 }
 
 // reapSandboxes 는 살아 있는 Window 목록으로 대응 컨테이너를 회수한다.

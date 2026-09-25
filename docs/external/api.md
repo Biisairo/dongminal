@@ -18,8 +18,9 @@
 | PUT | `/api/settings?clientId=` | 설정 저장 (`settings.json` 즉시 영속화). `clientId`(선택)는 방송 `settings_changed` 의 `args.origin` 으로 돌아간다 — 보낸 창이 자기 방송의 재조회를 건너뛰는 근거. 생략하면 `origin` 이 없다 |
 | GET | `/api/update` | 마지막 판 확인 결과 — `{ enabled, current, latest, newer, link, checkedAt, failed }`. **밖으로 나가지 않습니다** (캐시만 읽음) |
 | PUT | `/api/update` | 자동 판 확인 토글 — `{ enabled: bool }`. `server.json` 의 `updateCheck` 에 남습니다 (설정 블롭이 아닙니다) |
-| GET | `/api/stats` | `{ hostname, cpu, memUsed, memTotal, diskPct, sysUptime, srvUptime }` |
+| GET | `/api/stats` | `{ hostname, cpu, memUsed, memTotal, diskPct, sysUptime, srvUptime }`. `?jobs=1` 이면 `/api/git/jobs` 의 `jobs` 를 함께 싣습니다 (git 이 없으면 키가 없습니다) |
 | GET | `/api/ping` | `"ok"` (레이턴시 측정용) |
+| GET | `/api/snapshot?parts=` | 구독이 열릴 때의 복원 조각을 한 번에 — `parts` 는 `attention`·`activity`·`background`·`settings`·`update`·`focus` 의 쉼표 목록. 각 조각은 그 종단(`/api/tools/attention`·`/api/tools/activity`·`/api/tools/background`·`/api/settings`·`/api/update`·`/api/focus`)의 본문 그대로이고, 200 이 아닌 조각과 모르는 이름은 싣지 않습니다 |
 
 ### 도구
 
@@ -244,7 +245,7 @@
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/git/repos` | 핀 목록과 각 배지. `?observe=1` 이면 응답 전에 핀 전부를 관측한다 |
+| GET | `/api/git/repos` | 핀 목록과 각 배지(저장소면 git 이 푼 `root` 도). `?observe=1` 이면 응답 전에 핀 전부를 관측하고, `clientId` 를 함께 주면 그 신원이 핀 전부의 감시를 임대한다 — 배지가 바뀌면 `git_changed` 가 온다. `?observe=0&clientId=` 는 그 임대를 놓는다 |
 | GET | `/api/git/repo-at` | 그 경로가 저장소인가 (또는 어느 저장소에 속하는가) |
 | POST | `/api/git/init` | 그 자리를 저장소로 만든다 |
 | POST | `/api/git/repos/pin` · `/api/git/repos/unpin` | 핀을 더하고 뺀다 |
@@ -302,7 +303,7 @@
 | GET | `/api/git/remotes` | 원격 목록 |
 | POST | `/api/git/remote/add` · `/api/git/remote/remove` | 원격을 더하고 뺀다 |
 | POST | `/api/git/fetch` · `/api/git/pull` · `/api/git/push` | 받고 당기고 민다 |
-| GET | `/api/git/jobs` | 도는 작업 목록 — 저장소당 index·common 두 칸이라 최대 둘, 각 작업의 `slots` 가 어느 칸인지 말한다 |
+| GET | `/api/git/jobs` | 도는 작업 목록 — 저장소당 index·common 두 칸이라 최대 둘, 각 작업의 `slots` 가 어느 칸인지 말한다. 작업이 시작하고 끝날 때 `git_jobs_changed` 를 방송한다 |
 | GET | `/api/git/job/events` | 그 작업의 진행 (SSE) |
 | POST | `/api/git/job/cancel` | 작업을 취소한다 |
 | POST | `/api/git/lock/remove` | 쓰기가 `index_locked` 로 막힌 뒤 남은 `index.lock` 을 지운다 — `confirm:true` 와 확인한 `mtimeUnixMs` 가 필요하다. 서버가 스스로 지우지는 않는다 |

@@ -99,7 +99,7 @@ func gitError(w http.ResponseWriter, err error) {
 // `diagtail` 이 소유한다 (FR-DRC-9); 여기서 정하는 것은 상한 하나다.
 func gitTail(msg string) string { return diagtail.Cut(msg, gitMessageMax) }
 
-// GET /api/git/repos[?observe=1] — 핀 목록과 각 배지 (FR-FLW-2, FR-GOB-1).
+// GET /api/git/repos[?observe=1|0&clientId=] — 핀 목록과 각 배지 (FR-FLW-2, FR-GOB-1).
 //
 // **follow 는 없다.** 그 조회는 `+ Add` 가 여는 순간에만 도는 /api/git/repo-at 로
 // 옮겼다 — 목록에 실으면 아무도 읽지 않는 값을 위해 3초마다 rev-parse 가 한 번 더
@@ -117,8 +117,17 @@ func (s *GitServer) apiGitRepos(w http.ResponseWriter, r *http.Request) {
 	// 핀 목록은 한 번 읽어 두 단계가 나눠 쓴다 (FR-OPT-7-4) — 단계마다
 	// workspace.json 을 다시 읽지 않는다.
 	pins, err := s.gitPinsRead()
-	if r.URL.Query().Get("observe") == "1" && err == nil {
-		s.gitObservePins(r.Context(), pins)
+	q := r.URL.Query()
+	switch q.Get("observe") {
+	case "1":
+		if err == nil {
+			s.gitObservePins(r.Context(), pins, q.Get("clientId"))
+		}
+	case "0":
+		// Repo 탭을 떠났다 — 그 탭이 쥔 핀 임대를 놓는다 (FR-OPT-4-3).
+		if s.Watch != nil {
+			s.Watch.ReleaseScope(q.Get("clientId"), gitPinsScope)
+		}
 	}
 	gitJSON(w, http.StatusOK, map[string]any{
 		"pinned": s.gitPinnedEntries(r.Context(), pins, err),
@@ -129,6 +138,9 @@ func (s *GitServer) apiGitRepos(w http.ResponseWriter, r *http.Request) {
 // 프로세스가 핀 수만큼 한꺼번에 뜨지 않게 한다.
 const gitObserveMax = 4
 
+// gitPinsScope 는 Repo 탭이 핀 전부에 쥐는 임대의 갈래다 (FR-OPT-4-3).
+const gitPinsScope = "pins"
+
 // gitObservePins 는 핀된 저장소 전부를 관측해 배지의 근거를 새로 만든다
 // (FR-GOB-1~4). 관측값을 여기서 읽지 않는다 — 쓰는 곳은 Store 의 캐시이며
 // `gitPinnedEntries` 가 그것을 읽는다. 두 단계로 나눈 덕에 응답을 만드는 코드는
@@ -137,7 +149,12 @@ const gitObserveMax = 4
 // 실패는 삼킨다. 한 핀이 저장소가 아니게 됐다고 목록 전체가 실패하면, 사용자는
 // 고칠 수 있는 한 줄 때문에 나머지를 전부 잃는다 (FR-GOB-4) — 그 핀은
 // `gitPinnedEntries` 가 `isRepo:false` 로 답한다.
-func (s *GitServer) gitObservePins(ctx context.Context, pins []string) {
+//
+// OPTIMIZE_REFACTOR_SRS FR-OPT-4-3 (IPC-7): 관측한 핀을 그 신원의 `pins` 갈래로 감시자에
+// 임대한다. 그 뒤의 배지 변화는 감시자가 `git_changed` 로 알리고, 브라우저는 그때 목록을
+// 다시 받는다 — 3초마다 핀 전부를 관측하던 폴링이 안전망으로 내려간다. 신원이 없으면
+// 종전 TTL 표명이다 (FR-GWL-5).
+func (s *GitServer) gitObservePins(ctx context.Context, pins []string, clientID string) {
 	// FR-GOB-6: 요청이 사라졌으면 남은 관측을 시작하지 않는다 (fanout.Each).
 	fanout.Each(ctx, gitObserveMax, len(pins), func(i int) {
 		root, err := s.Git.RepoRoot(ctx, pins[i])
@@ -146,7 +163,17 @@ func (s *GitServer) gitObservePins(ctx context.Context, pins []string) {
 		}
 		// FR-GOB-2: Store 를 지난다 — single-flight 와 TTL 이 그대로 걸리므로
 		// 브라우저가 여럿이어도 git 실행 횟수가 창 수에 비례하지 않는다.
-		s.Git.Status(ctx, root)
+		obs, _, err := s.Git.Status(ctx, root)
+		if err != nil {
+			// 관측이 실패했다 — 사라지는 중일 수 있다(그때 git 은 "저장소가 아니다" 가
+			// 아닌 다른 말로 끝나기도 한다). 아래 목록이 캐시된 루트 해석으로 isRepo:true
+			// 를 싣지 않게 잊는다. 임대도 서지 않으므로 이 응답이 틀리면 안전망까지 낡는다.
+			s.Git.ForgetRoot(pins[i])
+			return
+		}
+		if s.Watch != nil {
+			s.Watch.NoteScoped(root, obs, clientID, gitPinsScope)
+		}
 	})
 }
 
@@ -233,12 +260,14 @@ func (s *GitServer) gitPinnedEntries(ctx context.Context, pins []string, pinsErr
 	fanout.Each(context.WithoutCancel(ctx), gitObserveMax, len(pins), func(i int) {
 		p := pins[i]
 		e := map[string]any{"path": p, "name": filepath.Base(p), "isRepo": false, "reason": "", "badge": nil}
-		if _, err := s.Git.RepoRoot(ctx, p); err != nil {
+		if root, err := s.Git.RepoRoot(ctx, p); err != nil {
 			_, name := gitErrorCode(err)
 			e["reason"] = name
 		} else {
 			e["isRepo"] = true
 			e["badge"] = s.gitBadge(p)
+			// FR-OPT-4-3: git 이 푼 루트 — `git_changed` 의 repo 와 견줄 값이다.
+			e["root"] = root
 		}
 		out[i] = e
 	})

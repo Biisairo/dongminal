@@ -59,12 +59,15 @@ type gitJobHolder struct {
 // ahead/behind 가 폴링 주기를 기다리면 화면이 그만큼 거짓말을 한다 (FR-GIT-107).
 //
 // 칸은 서버의 배타 상태(excl)에 둔다 — 동기 쓰기가 같은 인스턴스로 칸을 본다.
-func (h *gitJobHolder) get(store *store.Store, excl *jobs.Exclusion) *jobs.Jobs {
+//
+// changed 는 진행 중 목록이 바뀐 뒤 불린다 — `git_jobs_changed` 방송이다 (FR-OPT-4-4).
+func (h *gitJobHolder) get(store *store.Store, excl *jobs.Exclusion, changed func()) *jobs.Jobs {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.jobs == nil {
 		opts := []jobs.JobsOption{
 			jobs.WithOnDone(func(jb *jobs.Job) { store.Invalidate(jb.Repo) }),
+			jobs.WithOnChange(changed),
 			jobs.WithExclusion(excl),
 			jobs.WithRoot(store.Root()),
 		}
@@ -159,7 +162,28 @@ func (s *GitServer) apiGitPush(w http.ResponseWriter, r *http.Request) {
 }
 
 // jobsHub 는 잡 허브다. 칸은 서버의 배타 상태에 둔다 (REPO_FIX 01 §5.4).
-func (s *GitServer) jobsHub() *jobs.Jobs { return s.gitJobs.get(s.Git, s.exclusion()) }
+func (s *GitServer) jobsHub() *jobs.Jobs {
+	return s.gitJobs.get(s.Git, s.exclusion(), s.announceJobs)
+}
+
+// gitJobsChangedPayload 는 `git_jobs_changed` SSE 본문이다. 목록을 싣지 않는다 —
+// `tools_background_changed` 와 같은 규약으로 "다시 받으라" 는 신호다 (FR-OPT-4-4).
+var gitJobsChangedPayload = []byte(`{"action":"git_jobs_changed"}`)
+
+func (s *GitServer) announceJobs() {
+	if s.Commands != nil {
+		s.Commands.Broadcast(gitJobsChangedPayload)
+	}
+}
+
+// ActiveJobs 는 진행 중 작업 전부다 — `/api/git/jobs` 와 같은 목록이다. 상태바의
+// `/api/stats?jobs=1` 이 이것을 싣는다 (FR-OPT-4-4). git 이 없으면 nil 이다.
+func (s *GitServer) ActiveJobs() []*jobs.Job {
+	if s == nil || s.Git == nil {
+		return nil
+	}
+	return s.jobsHub().Active()
+}
 
 // startJob 은 작업을 띄우고 식별자를 **즉시** 돌려준다 (FR-GIT-102). 끝나기를
 // 기다리면 응답이 분 단위가 되고, 그동안 UI 는 막힌다.
@@ -282,7 +306,8 @@ func (s *GitServer) apiGitJobCancel(w http.ResponseWriter, r *http.Request) {
 	gitJSON(w, http.StatusOK, map[string]any{"ok": true, "id": req.ID, "canceled": hub.Cancel(req.ID)})
 }
 
-// GET /api/git/jobs — 진행 중 작업 전부 (FR-GIT-112). 상태바가 폴링에 얹는다.
+// GET /api/git/jobs — 진행 중 작업 전부 (FR-GIT-112). Git 패널이 `git_jobs_changed`·
+// 구독 열림에 받는다 (FR-OPT-4-4).
 func (s *GitServer) apiGitJobs(w http.ResponseWriter, r *http.Request) {
 	if s.Git == nil {
 		gitUnavailable(w)

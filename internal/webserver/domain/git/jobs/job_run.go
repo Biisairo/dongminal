@@ -174,6 +174,7 @@ func (j *Jobs) finish(st *jobState, exit int, runErr error, dur time.Duration) {
 		sub.close()
 	}
 	j.mu.Unlock()
+	j.changed()
 }
 
 // sweepLocked 는 보존 기간이 지난 작업을 버린다. 진행 중인 것은 건드리지 않는다.

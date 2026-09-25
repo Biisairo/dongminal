@@ -25,6 +25,12 @@ func (n *noteSpy) NoteFor(repo string, _ store.Observation, clientID string) {
 	n.clients = append(n.clients, clientID)
 }
 
+func (n *noteSpy) NoteScoped(repo string, obs store.Observation, clientID, _ string) {
+	n.NoteFor(repo, obs, clientID)
+}
+
+func (n *noteSpy) ReleaseScope(string, string) {}
+
 func TestApiGitStatus_NotesInterest(t *testing.T) {
 	g := newGitFake(t)
 	s, _, _, _ := gitTestServer(t, g)

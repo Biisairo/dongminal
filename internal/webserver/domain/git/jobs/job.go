@@ -147,6 +147,8 @@ type Jobs struct {
 	lineCap   int
 	now       func() time.Time
 	onDone    func(*Job)
+	// onChange 는 진행 중 목록(Active)이 바뀐 **뒤** 불린다 (FR-OPT-4-4).
+	onChange func()
 	// root 는 서버 수명이다 (§8). 잡 상한·완료 처리 ctx 가 이것에서 파생하고, 이것이
 	// 취소되면 잡은 server_shutdown 으로 끝난다.
 	root context.Context
@@ -214,6 +216,17 @@ func WithJobRunner(r JobRunner) JobsOption { return func(j *Jobs) { j.run = r } 
 // 캐시 무효화(FR-GIT-107)가 이것을 딛는다 — Jobs 는 Store 를 모르고, 알아야 할
 // 이유도 없다.
 func WithOnDone(f func(*Job)) JobsOption { return func(j *Jobs) { j.onDone = f } }
+
+// WithOnChange 는 진행 중 목록이 바뀐 뒤 불릴 훅이다 — 작업이 등록된 뒤와 끝이 공개된
+// 뒤, 작업당 두 번이다. 받은 쪽이 곧바로 Active 를 물으면 바뀐 목록을 본다
+// (OPTIMIZE_REFACTOR_SRS FR-OPT-4-4 · `git_jobs_changed`). 잠금 밖에서 부른다.
+func WithOnChange(f func()) JobsOption { return func(j *Jobs) { j.onChange = f } }
+
+func (j *Jobs) changed() {
+	if j.onChange != nil {
+		j.onChange()
+	}
+}
 
 // WithJobClock 은 테스트가 시간을 지배하게 한다. 보존 기간 검증이 실제 5분 경과에
 // 의존하면 결정론을 잃는다.
@@ -342,6 +355,7 @@ func (j *Jobs) launch(repo string, keys Keys, kind string, spec core.WriteSpec, 
 	j.byID[st.job.ID] = st
 	snapshot := st.job
 	j.mu.Unlock()
+	j.changed()
 
 	go j.run1(ctx, cancel, st)
 	return &snapshot, nil

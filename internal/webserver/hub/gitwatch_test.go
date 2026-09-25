@@ -52,6 +52,7 @@ type fakeSigner struct {
 	onInvalidate func(repo string)
 	status       func(ctx context.Context, repo string) (store.Observation, error)
 	observed     map[string]store.Observation
+	forgot       []string
 }
 
 func (f *fakeSigner) Invalidate(repo string) {
@@ -62,6 +63,12 @@ func (f *fakeSigner) Invalidate(repo string) {
 	if hook != nil {
 		hook(repo)
 	}
+}
+
+func (f *fakeSigner) ForgetRoot(repo string) {
+	f.mu.Lock()
+	f.forgot = append(f.forgot, repo)
+	f.mu.Unlock()
 }
 
 func (f *fakeSigner) Observed(repo string) (store.Observation, bool) {
@@ -1000,6 +1007,10 @@ func TestGitWatch_TerminalSignatureErrorDropsAndNotifies(t *testing.T) {
 	if got := gitChangedMarks(br); len(got) != 1 || got["/r"] != "" {
 		t.Fatalf("알림 = %v, want /r mark:\"\" 1회", got)
 	}
+	// FR-OPT-4-3: 알림을 받고 곧바로 묻는 목록이 옛 루트 해석을 받지 않는다.
+	if fmt.Sprint(sig.forgot) != "[/r]" {
+		t.Fatalf("ForgetRoot = %v, want [/r]", sig.forgot)
+	}
 }
 
 // 인수 ③: 관측이 회차 시한보다 오래 걸려도(flight 가 계속 돈다) 다음 회차가
@@ -1088,5 +1099,50 @@ func TestGitWatch_OnChangedHook(t *testing.T) {
 	defer mu.Unlock()
 	if len(got) != 2 {
 		t.Fatalf("훅 = %v, want /r 와 /g", got)
+	}
+}
+
+// OPTIMIZE_REFACTOR_SRS FR-OPT-4-3 (IPC-7): Repo 탭의 핀 임대는 **갈래(scope)** 를 가진다.
+// 탭을 떠나면 그 갈래만 놓는다 — 같은 신원이 Git 패널로 쥔 임대는 남는다.
+func TestGitWatch_ScopedLeaseReleaseKeepsOtherLease(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/pin": "a", "/both": "a"}}
+	w := newWatcher(sig, &fakeBroker{})
+	now := time.Now()
+	w.now = func() time.Time { return now }
+
+	w.Attach("c1")
+	for _, r := range []string{"/pin", "/both"} {
+		obs, _, _ := sig.Status(context.Background(), r)
+		w.NoteScoped(r, obs, "c1", "pins")
+	}
+	noteFor(t, w, sig, "/both", "c1") // 같은 신원이 패널로도 본다
+
+	now = now.Add(GitWatchTTL * 3)
+	w.Tick(context.Background())
+	if w.Watching() != 2 {
+		t.Fatalf("갈래 임대가 유휴로 만료됐다 (%d)", w.Watching())
+	}
+	w.ReleaseScope("c1", "pins")
+	w.Tick(context.Background())
+	if w.Watching() != 1 {
+		t.Fatalf("놓은 뒤 감시 %d, want 1 (/both 는 패널 임대가 남는다)", w.Watching())
+	}
+}
+
+// 구독이 끊기면 갈래 임대도 함께 풀린다 (FR-GWL-4 와 같은 규약).
+func TestGitWatch_DetachDropsScopedLease(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/pin": "a"}}
+	w := newWatcher(sig, &fakeBroker{})
+	now := time.Now()
+	w.now = func() time.Time { return now }
+
+	ep := w.Attach("c1")
+	obs, _, _ := sig.Status(context.Background(), "/pin")
+	w.NoteScoped("/pin", obs, "c1", "pins")
+	w.Detach("c1", ep)
+	now = now.Add(GitWatchTTL * 2)
+	w.Tick(context.Background())
+	if w.Watching() != 0 {
+		t.Fatalf("Detach 뒤 갈래 임대가 남았다")
 	}
 }

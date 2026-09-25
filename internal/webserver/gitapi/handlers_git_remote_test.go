@@ -511,3 +511,41 @@ func gitParseSSE(t *testing.T, body string) ([]map[string]any, map[string]any) {
 	}
 	return lines, done
 }
+
+// OPTIMIZE_REFACTOR_SRS FR-OPT-4-4: 작업의 시작·끝을 `git_jobs_changed` 로 민다 — 상태바가
+// 목록을 폴링하지 않는다. 본문은 신호뿐이다(목록은 받는 쪽이 묻는다).
+func TestGitJobs_ChangedBroadcast(t *testing.T) {
+	release := make(chan struct{})
+	s := gitRemoteServer(t, newGitRemoteFake(t), gitRemoteHold(release))
+	b := s.Commands.(*fakeCommandBroker)
+	count := func() int {
+		b.mu.Lock()
+		defer b.mu.Unlock()
+		n := 0
+		for _, p := range b.published {
+			if string(p) == `{"action":"git_jobs_changed"}` {
+				n++
+			}
+		}
+		return n
+	}
+	code, out := gitReq(t, s, http.MethodPost, "/api/git/fetch", `{"repo":`+qWorkRepo+`}`)
+	if code != http.StatusOK {
+		t.Fatalf("code = %d, body = %v", code, out)
+	}
+	if n := count(); n != 1 {
+		t.Fatalf("시작 뒤 방송 %d, want 1", n)
+	}
+	close(release)
+	gitRemoteWaitDone(t, s, gitRemoteJobID(t, out))
+	deadline := time.Now().Add(3 * time.Second)
+	for count() < 2 && time.Now().Before(deadline) {
+		time.Sleep(2 * time.Millisecond)
+	}
+	if n := count(); n != 2 {
+		t.Fatalf("끝난 뒤 방송 %d, want 2", n)
+	}
+	if got := s.ActiveJobs(); len(got) != 0 {
+		t.Fatalf("ActiveJobs = %v, want 비었다", got)
+	}
+}

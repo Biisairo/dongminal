@@ -45,6 +45,10 @@ type ToolLocator interface {
 type RepoWatcher interface {
 	Note(repo string, obs store.Observation)
 	NoteFor(repo string, obs store.Observation, clientID string)
+	// NoteScoped·ReleaseScope 는 갈래를 가진 임대다 — Repo 탭의 핀 임대가 탭을 떠날 때
+	// 한꺼번에 놓인다 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-3).
+	NoteScoped(repo string, obs store.Observation, clientID, scope string)
+	ReleaseScope(clientID, scope string)
 }
 
 // GitServer는 /api/git/* 핸들러의 리시버다. 필드는 핸들러가 실제로 쓰는 것만
