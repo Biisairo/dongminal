@@ -694,6 +694,9 @@ Object.assign(App.prototype, {
    * 걸 일이 없기 때문이다 — 주기는 `_applyCadence` 의 것이고 그것은 이미 서 있다.
    */
   _gitObserveRestore(){
+    // FR-OPT-4-3: 저장소 목록도 같다 — 끊긴 동안의 배지 변화를 갚고, 끊김이 푼 핀 임대를
+    // 새 구독에 다시 세운다. 안전망이 꺼져 있으면 그 밖의 계기가 없다.
+    if(this._gitObserveOk()) this.gitReposKick();
     if(!this._gitObservers) return;
     for(const o of this._gitObservers.values()){
       const p=o.any();

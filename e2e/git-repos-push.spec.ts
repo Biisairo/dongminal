@@ -94,4 +94,45 @@ test.describe('저장소 목록의 push (FR-OPT-4-3)', () => {
     await page.locator('.sb-tab[data-panel="windows"]').click();
     await expect.poll(() => log.slice(), { timeout: 10000 }).toContain('0');
   });
+
+  /**
+   * 구독이 끊긴 동안의 `git_changed` 는 오지 않는다 (FR-GPO-23). 구독이 다시 열리면 목록을
+   * 다시 받아 **놓친 변화를 갚고 임대를 새 구독에 다시 세운다** — 끊김(Detach)이 임대를
+   * 풀었으므로. 안전망이 꺼져 있으면 그 밖에 목록을 받을 계기가 없다.
+   *
+   * 방송이 이미 나갔음은 다른 창(구독이 살아 있는 쪽)의 배지로 안다.
+   */
+  test('재연결하면 끊긴 동안의 변화를 목록이 갚는다', async ({ page, request, browser }) => {
+    const dir = makeRepo('dm-o4b-reconn-');
+    const root = await pin(request, dir);
+    await waitForInit(page);
+    await page.evaluate(() => { (window as any).gitStatusInterval = 0; (window as any).app.timers.refreshChanged() });
+    await openGitTab(page);
+    const badge = pinned(page, root).locator('.git-badge');
+    await expect(badge).toHaveText('1', { timeout: 15000 });
+
+    const ctx = await browser.newContext();
+    const other = await ctx.newPage();
+    await waitForInit(other);
+    await openGitTab(other);
+    const otherBadge = pinned(other, root).locator('.git-badge');
+    await expect(otherBadge).toHaveText('1', { timeout: 15000 });
+
+    await page.evaluate(() => {
+      const w = window as any;
+      w.__origES = w.EventSource;
+      try { w.app.bus._es.close() } catch {}
+      w.EventSource = function () { throw new Error('offline') };
+    });
+    writeFileSync(join(dir, 'b.txt'), 'y');
+    await expect(otherBadge).toHaveText('2', { timeout: 20000 });
+    await ctx.close();
+
+    await page.evaluate(() => {
+      const w = window as any;
+      w.EventSource = w.__origES;
+      w.app.bus.reconnect();
+    });
+    await expect(badge).toHaveText('2', { timeout: 15000 });
+  });
 });
