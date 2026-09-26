@@ -218,15 +218,36 @@ func (m *ToolManager) placement(place Placement) (*platform.ProcSpec, error) {
 	return f(place)
 }
 
+// Restore 는 저장된 도구를 같은 id 로 다시 띄운다.
+//
+// OPTIMIZE_REFACTOR_SRS FR-OPT-8-6 (SHR-27): Create 와 같은 순서다 — 잠금 안에서 자리를
+// 예약하고, fork/exec + PTY open 은 잠금 밖에서, 등록은 다시 잠금 안에서 한다. 종전에는
+// 잠금을 쥔 채 띄워 그동안 Get/List/IsLive 가 전부 기다렸다. 상한(ToolCap)을 세지 않는
+// 것과 같은 id 를 덮어쓰는 것은 종전 그대로다.
 func (m *ToolManager) Restore(id, name, cwd string, cols, rows uint16) error {
 	m.mu.Lock()
+	m.pending++
+	hooks := m.attnHooks()
+	start := m.startTool
+	m.mu.Unlock()
+
+	p, err := start(id, name, cwd, cols, rows, m.toolExited, hooks, nil, nil)
+
+	m.mu.Lock()
 	defer m.mu.Unlock()
-	p, err := m.startTool(id, name, cwd, cols, rows, m.toolExited, m.attnHooks(), nil, nil)
+	m.pending--
 	if err != nil {
 		return err
 	}
 	m.tools[id] = p
 	dmlog.Infof(nil, "[tool %s] restored total=%d", id, len(m.tools))
+	// 등록보다 먼저 끝난 프로세스는 종료 경로를 다시 지나게 한다 — Create 의 같은
+	// 자리 주석이 근거다.
+	select {
+	case <-p.Wait():
+		go m.toolExited(id)
+	default:
+	}
 	return nil
 }
 

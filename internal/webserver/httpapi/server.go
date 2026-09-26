@@ -145,6 +145,10 @@ type Server struct {
 	// contextNotices 는 이미 보낸 컨텍스트 통지를 기억한다 (FR-CBG-7). 서버
 	// 수명이지 프로세스 수명이 아니다.
 	contextNotices contextNoticeLog
+
+	// waitInFlight 는 지금 붙잡힌 활동 대기 수다 (FR-STA-9). 서버 하나의 것이다
+	// (OPTIMIZE_REFACTOR_SRS FR-OPT-8-6 · HTTP-9).
+	waitInFlight atomic.Int64
 }
 
 // serverLimits 는 서버 하나의 상한·유예다. const 가 아닌 것은 테스트가 낮춰
@@ -159,6 +163,10 @@ type serverLimits struct {
 	uploadMaxBytes int64
 	// toolKillGrace 는 SIGTERM 과 SIGKILL 사이의 유예다 (FR-BGK-7).
 	toolKillGrace time.Duration
+	// waitMaxConcurrent 는 동시에 붙잡는 활동 대기의 상한이다 (FR-STA-9). 값 32 는
+	// `diag` 의 hold 임계와 같다 (FR-CNR-13) — 그 선을 치면 거절이 시작된다는 뜻이고,
+	// 로그가 그 사실을 함께 말한다.
+	waitMaxConcurrent int64
 }
 
 func defaultLimits() serverLimits {
@@ -168,6 +176,8 @@ func defaultLimits() serverLimits {
 		fsCopy:         10000,
 		uploadMaxBytes: 512 << 20,
 		toolKillGrace:  3 * time.Second,
+
+		waitMaxConcurrent: 32,
 	}
 }
 

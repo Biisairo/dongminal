@@ -5,6 +5,7 @@ import (
 
 	"dongminal/internal/webserver/sse"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
@@ -33,7 +34,13 @@ func SanitizeActivityField(s string, max int) string {
 		return r
 	}, s)
 	if len(s) > max {
-		s = s[:max]
+		// IPC-27: 상한 이하의 마지막 글자 경계까지 물린다 — 끊긴 바이트는 카드에 □ 로
+		// 보인다.
+		cut := max
+		for cut > 0 && !utf8.RuneStart(s[cut]) {
+			cut--
+		}
+		s = s[:cut]
 	}
 	return s
 }

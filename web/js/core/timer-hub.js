@@ -82,11 +82,17 @@ class TimerHub {
   }
 
   // 다음 마감을 계산해 건다. 주기 0 은 그 계층을 걸지 않는다 (FR-GIT-23).
-  _arm(job){
+  //
+  // soon 이면 재예약을 이번 마이크로태스크 묶음 끝으로 미룬다 (IPC-31). 한 회차에 발화한
+  // job 들의 `await` 뒤 재무장이 각자 전체를 훑지 않고 한 번으로 모인다.
+  _arm(job,soon){
     const ms=+job.every()||0;
     job.armedMs=ms;
     job.nextAt=ms>0?Date.now()+ms:0;
-    this._reschedule();
+    if(!soon){ this._reschedule(); return }
+    if(this._reschedulePending) return;
+    this._reschedulePending=true;
+    Promise.resolve().then(()=>{ this._reschedulePending=false; this._reschedule() });
   }
 
   /**
@@ -166,7 +172,7 @@ class TimerHub {
     job.inflight=false;
     if(failed) job.failStreak++; else job.failStreak=0;
     if(job.again){ job.again=false; this._fire(job); return }
-    this._arm(job);
+    this._arm(job,true);
   }
 
   /**
@@ -310,6 +316,9 @@ class TimerHub {
    * 백오프로 2ⁿ 배까지 변하므로, 공통 tick 은 최소 주기로 깨어나 나머지를 헛돈다.
    */
   _reschedule(){
+    // OPTIMIZE_REFACTOR_SRS FR-OPT-8-6 (IPC-31): 회차 안의 재예약은 회차 끝의 한 번으로
+    // 모은다 — `_fire → _arm` 이 job 마다 전체를 훑으면 회차 하나가 O(n²) 이다.
+    if(this._inTick) return;
     let at=0;
     for(const j of this._jobs.values()) if(j.nextAt>0&&(!at||j.nextAt<at)) at=j.nextAt;
     for(const r of this._ones.values()) if(r.kind==='after'&&(!at||r.at<at)) at=r.at;
@@ -343,6 +352,7 @@ class TimerHub {
     // FR-SAF-14: `_reschedule` 은 **어떤 경우에도** 돈다. `_nextT` 는 이 함수에
     // 들어오기 전에 이미 null 이므로, 여기서 빠져나가면 다음 예약이 서지 않고
     // 앱의 유일한 스케줄러가 멎는다 — 새 등록이 들어올 때까지.
+    this._inTick=true;
     try{
       const now=Date.now();
       for(const [id,r] of Array.from(this._ones)){
@@ -351,9 +361,12 @@ class TimerHub {
         this._safe(r.label||id,r.fn);
       }
       for(const j of Array.from(this._jobs.values())){
-        if(j.nextAt>0&&j.nextAt<=now) this._safe(j.id,()=>this._fire(j));
+        // 발화하는 job 의 지난 마감은 지운다 — 재무장(`_arm`)이 새 마감을 건다. 남겨
+        // 두면 회차 끝 재예약이 그것을 "가장 이른 마감" 으로 읽어 헛회차를 건다.
+        if(j.nextAt>0&&j.nextAt<=now){ j.nextAt=0; this._safe(j.id,()=>this._fire(j)) }
       }
     }finally{
+      this._inTick=false;
       this._reschedule();
     }
   }

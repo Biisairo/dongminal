@@ -1,6 +1,7 @@
 package sysstat
 
 import (
+	"errors"
 	"sync"
 	"time"
 )
@@ -85,12 +86,21 @@ func (s *Sampler) Snapshot() Snapshot {
 	return s.snap
 }
 
+// errBootKnown 은 "이미 읽었으니 묻지 않았다" 는 표식이다. snap 을 덮지 않는다.
+var errBootKnown = errors.New("sysstat: boot time already known")
+
 // sample 은 한 주기의 수집이다. 지표별로 독립 처리하므로 하나의 실패가 나머지를
 // 막지 않는다 (FR-STAT-7).
 func (s *Sampler) sample() {
 	cur, cpuErr := s.r.CPUTicks()
 	mem, memErr := s.r.Mem()
-	boot, bootErr := s.r.BootTime()
+	// OPTIMIZE_REFACTOR_SRS FR-OPT-8-6 (DOM-33): 부팅 시각은 바뀌지 않는다 — 한 번
+	// 읽히면 다시 읽지 않는다. 이 고루틴만 snap 을 쓰므로 잠금 없이 읽어도 된다.
+	var boot time.Time
+	bootErr := errBootKnown
+	if !s.snap.BootValid {
+		boot, bootErr = s.r.BootTime()
+	}
 	disk, diskErr := s.r.DiskPercent(s.diskPath)
 
 	s.mu.Lock()

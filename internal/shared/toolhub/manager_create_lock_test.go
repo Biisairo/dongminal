@@ -175,3 +175,41 @@ func TestToolManager_ExitReadsInvalidatorUnderLock(t *testing.T) {
 		t.Fatal("종료 콜백이 도구를 지우지 않았다")
 	}
 }
+
+// OPTIMIZE_REFACTOR_SRS FR-OPT-8-6 (SHR-27): Restore 도 Create 처럼 잠금 밖에서 띄운다.
+// 종전에는 쓰기 잠금을 쥔 채 셸과 PTY 를 띄워, 데몬의 restore 가 도는 동안 Get/List 가
+// 전부 기다렸다.
+func TestToolManager_RestoreStartsOutsideLock(t *testing.T) {
+	m := NewToolManager(t.TempDir(), nil)
+	t.Cleanup(m.StopSaving)
+	release := make(chan struct{})
+	entered := make(chan struct{})
+	m.startTool = func(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *ToolHooks, place *platform.ProcSpec, _ []string) (*Tool, error) {
+		close(entered)
+		<-release
+		return NewDetachedTool(id, hooks), nil
+	}
+	restored := make(chan error, 1)
+	go func() { restored <- m.Restore("r1", "Shell", "", 80, 24) }()
+	<-entered
+
+	listed := make(chan struct{})
+	go func() {
+		m.List()
+		m.Get("nope")
+		close(listed)
+	}()
+	select {
+	case <-listed:
+	case <-time.After(2 * time.Second):
+		close(release)
+		t.Fatal("기동 중인 Restore 가 List/Get 을 막고 있다")
+	}
+	close(release)
+	if err := <-restored; err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	if m.Get("r1") == nil {
+		t.Fatal("되살린 도구가 등록되지 않았다")
+	}
+}

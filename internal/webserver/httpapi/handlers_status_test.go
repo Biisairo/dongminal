@@ -35,7 +35,7 @@ func statusServer(t *testing.T) (*Server, *toolhub.ToolManager, *toolhub.Tool) {
 		},
 		coords: map[string]string{},
 	}
-	return &Server{Deps: Deps{Tools: m, ToolIO: io, WorkIndex: wi}}, m, p
+	return &Server{Deps: Deps{Tools: m, ToolIO: io, WorkIndex: wi}, limits: defaultLimits()}, m, p
 }
 
 func getStatus(t *testing.T, s *Server, query string) (int, map[string]any) {

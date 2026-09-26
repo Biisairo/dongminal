@@ -16,7 +16,6 @@ import (
 
 	"net/http"
 	"strconv"
-	"sync/atomic"
 	"time"
 
 	"dongminal/internal/shared/agentadapter"
@@ -40,15 +39,6 @@ const (
 	// 확인하면 30분 대기가 RPC 수만 건이 된다 — L2 idle 스위퍼와 같은 1초 주기로
 	// 낮춘다 (NFR-RUN-4).
 	waitLivenessInterval = 1 * time.Second
-)
-
-// FR-STA-9: 동시에 붙잡는 대기의 상한과 그 계수기.
-//
-// 값 32 는 `diag` 의 hold 임계와 같다 (FR-CNR-13) — 그 선을 치면 거절이
-// 시작된다는 뜻이고, 로그가 그 사실을 함께 말한다.
-var (
-	waitMaxConcurrent int64 = 32
-	waitInFlight      atomic.Int64
 )
 
 // toolStatus 는 도구 하나의 에이전트 상태 관측이다. state 는 훅이 보고한 값이며,
@@ -215,13 +205,13 @@ func (s *Server) apiToolStatusWait(w http.ResponseWriter, r *http.Request) {
 	//
 	// 자리를 **먼저 잡고** 돌려주는 것을 defer 로 건다. 아래에는 이른 반환이
 	// 여럿이고, 하나라도 빠지면 상한은 하루 만에 영구 거절이 된다.
-	if waitInFlight.Add(1) > waitMaxConcurrent {
-		waitInFlight.Add(-1)
+	if s.waitInFlight.Add(1) > s.limits.waitMaxConcurrent {
+		s.waitInFlight.Add(-1)
 		writeToolIOError(w, http.StatusTooManyRequests,
 			"동시 대기가 상한에 닿았다 — 잠시 뒤 다시 시도하세요")
 		return
 	}
-	defer waitInFlight.Add(-1)
+	defer s.waitInFlight.Add(-1)
 	cond := r.URL.Query().Get("for")
 	if cond != "ready" && cond != "done" {
 		writeToolIOError(w, http.StatusBadRequest, "for 는 ready 또는 done 이어야 한다: "+cond)

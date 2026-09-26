@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"dongminal/internal/shared/pollwait"
 	"fmt"
@@ -209,11 +210,35 @@ func ping(url string, timeout time.Duration) bool {
 	return resp.StatusCode < 400
 }
 
+// tailWindow 는 tail 이 끝에서 읽는 양이다. 알릴 줄 수(20 안팎)에는 넉넉하다.
+const tailWindow = 64 << 10
+
 // tail은 로그 파일의 마지막 n 줄이다. 기동 실패를 알릴 때 쓴다.
+//
+// OPTIMIZE_REFACTOR_SRS FR-OPT-8-6 (SHR-32): 끝의 tailWindow 만 읽는다 — 로그 상한은
+// LogMaxBytes(64 MiB)다. 창 앞에서 잘린 첫 조각은 버린다.
 func tail(path string, n int) string {
-	blob, err := os.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		return ""
+	}
+	defer f.Close()
+	st, err := f.Stat()
+	if err != nil {
+		return ""
+	}
+	off, size := int64(0), st.Size()
+	if size > tailWindow {
+		off, size = size-tailWindow, tailWindow
+	}
+	blob := make([]byte, size)
+	if _, err := f.ReadAt(blob, off); err != nil && err != io.EOF {
+		return ""
+	}
+	if off > 0 {
+		if i := bytes.IndexByte(blob, '\n'); i >= 0 {
+			blob = blob[i+1:]
+		}
 	}
 	lines := strings.Split(strings.TrimRight(string(blob), "\n"), "\n")
 	if len(lines) > n {

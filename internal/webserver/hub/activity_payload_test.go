@@ -3,6 +3,7 @@ package hub
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // NFR-AAP-3 / TC-AAP-5: SanitizeActivityField strips control chars and bounds length.
@@ -27,5 +28,20 @@ func TestToolActivityPayload(t *testing.T) {
 		!strings.Contains(s, `"tool":"Bash"`) ||
 		!strings.Contains(s, `"detail":"ls"`) {
 		t.Fatalf("unexpected payload: %s", s)
+	}
+}
+
+// OPTIMIZE_REFACTOR_SRS FR-OPT-8-6 (IPC-27) — 상한에서 자를 때 글자 중간을 끊지 않는다.
+func TestSanitizeActivityField_CutsOnRuneBoundary(t *testing.T) {
+	s := strings.Repeat("가", 200) // 3 바이트 × 200
+	got := SanitizeActivityField(s, ActivityDetailMax)
+	if !utf8.ValidString(got) {
+		t.Fatalf("잘린 결과가 UTF-8 이 아니다: % x", got[len(got)-3:])
+	}
+	if len(got) > ActivityDetailMax || len(got) != 510 {
+		t.Fatalf("len = %d, want 510 (상한 이하의 마지막 글자 경계)", len(got))
+	}
+	if got := SanitizeActivityField("abc", 2); got != "ab" {
+		t.Fatalf("ASCII = %q", got)
 	}
 }

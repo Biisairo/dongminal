@@ -319,3 +319,40 @@ func TestSampler_DiskRounding(t *testing.T) {
 		t.Fatalf("DiskPct=%v want 42.1 (소수 1자리)", got)
 	}
 }
+
+// bootCounter 는 BootTime 호출을 센다.
+type bootCounter struct {
+	*fakeReader
+	boots int
+	err   error
+}
+
+func (b *bootCounter) BootTime() (time.Time, error) {
+	b.boots++
+	if b.err != nil {
+		return time.Time{}, b.err
+	}
+	return b.fakeReader.BootTime()
+}
+
+// OPTIMIZE_REFACTOR_SRS FR-OPT-8-6 (DOM-33) — 부팅 시각은 바뀌지 않는다. 한 번 읽히면
+// 다시 읽지 않는다(linux 는 틱마다 /proc/stat 을 한 번 더 읽었다). 읽지 못했으면
+// 다음 틱에 다시 묻는다.
+func TestSampler_BootTimeReadOnce(t *testing.T) {
+	r := &bootCounter{fakeReader: &fakeReader{boot: time.Unix(1000, 0)}, err: errors.New("아직")}
+	s := NewSampler(r, time.Hour, "/")
+	s.sample()
+	if s.Snapshot().BootValid {
+		t.Fatal("읽지 못했는데 유효하다")
+	}
+	r.err = nil
+	for i := 0; i < 5; i++ {
+		s.sample()
+	}
+	if r.boots != 2 {
+		t.Fatalf("BootTime 호출 = %d, want 2 (실패 1 + 성공 1)", r.boots)
+	}
+	if snap := s.Snapshot(); !snap.BootValid || !snap.BootTime.Equal(time.Unix(1000, 0)) {
+		t.Fatalf("snap = %+v", snap)
+	}
+}

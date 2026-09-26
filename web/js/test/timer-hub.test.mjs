@@ -284,3 +284,20 @@ test('every: run 이 던져도 스케줄러가 멎지 않는다 (TC-SAF-9b)', as
   await clock.advance(500);
   assert.ok(other >= 3, `던지는 job 옆에서 멀쩡한 job 이 ${other}회만 돌았다`);
 });
+
+/**
+ * OPTIMIZE_REFACTOR_SRS FR-OPT-8-6 (IPC-31) — 한 회차에 마감이 N 개 몰려도 다음 마감
+ * 계산(전체 훑기)은 회차 끝의 한 번이다. 종전에는 `_fire → _arm → _reschedule` 이
+ * job 마다 훑어 회차 하나가 O(n²) 이었다.
+ */
+test('한 회차의 재예약은 전체 훑기 한 번이다 (IPC-31)', async () => {
+  const { clock, TIMERS } = hub();
+  for (let i = 0; i < 50; i++) TIMERS.every({ id: 'j' + i, every: () => 100, run: () => {} });
+  let scans = 0;
+  const values = TIMERS._jobs.values.bind(TIMERS._jobs);
+  TIMERS._jobs.values = () => { scans++; return values(); };
+  await clock.advance(100);
+  // _tick 이 마감 지난 job 을 고르는 한 번 + 회차 끝 재예약 한 번 + `await` 뒤
+  // 재무장들을 모은 재예약 한 번. 종전에는 54 번이었다.
+  assert.ok(scans <= 3, '한 회차에 전체를 ' + scans + ' 번 훑었다 (job 50)');
+});

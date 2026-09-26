@@ -185,10 +185,13 @@ func (h *CommandHub) BroadcastAndAwait(payload []byte, reqId string, timeout tim
 		h.clearPending(reqId)
 		return CmdResult{}, 0, false
 	}
+	// IPC-32: 응답이 먼저 오면 타이머를 곧 거둔다 — time.After 는 시한까지 남는다.
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
 	select {
 	case res := <-ch:
 		return res, n, false
-	case <-time.After(timeout):
+	case <-timer.C:
 		h.clearPending(reqId)
 		return CmdResult{}, n, true
 	}

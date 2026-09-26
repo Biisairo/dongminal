@@ -281,7 +281,11 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		payload, _ := json.Marshal(req)
 		n := s.Commands.Broadcast(payload)
 		resp["delivered"] = n
-		dmlog.Infof(nil, "[cmd] action=%s%s delivered=%d payload=%s", req.Action, locField, n, string(payload))
+		// OPTIMIZE_REFACTOR_SRS FR-OPT-8-6 (HTTP-28): 전문(openUrl 의 URL·이름 인자)은
+		// Debug 로만 남긴다 — 로그 상한(FR-LOG-1)이 있는 제품이고, 생성 명령 쪽 로그에도
+		// payload 가 없다.
+		dmlog.Infof(nil, "[cmd] action=%s%s delivered=%d bytes=%d", req.Action, locField, n, len(payload))
+		dmlog.Debugf(nil, "[cmd] action=%s payload=%s", req.Action, string(payload))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
