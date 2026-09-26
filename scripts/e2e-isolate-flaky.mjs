@@ -33,8 +33,17 @@ export const ISOLATION_ROUNDS = 3;
  */
 export const MAX_FLAKY = 8;
 
-/** 독립 재실행이 쓰는 포트 대역. 본 실행(58147~58217)과 겹치지 않는다. */
-const PORT_BASE = 59000;
+/** 본 실행의 기본 포트 뿌리 (`scripts/e2e-shard-run.sh` 와 같다). */
+const DEFAULT_ROOT = 58147;
+
+/**
+ * 독립 재실행이 쓰는 포트 대역. 본 실행 대역(뿌리 ~ 뿌리+79)과 겹치지 않게 뿌리에서
+ * 853 떨어진다 — 기본 뿌리면 59000 이다. 뿌리는 `E2E_PORT_BASE` 가 옮긴다 (FR-OPT-16-4).
+ */
+export function isolationPortBase(env) {
+  const root = parseInt(env.E2E_PORT_BASE || '', 10) || DEFAULT_ROOT;
+  return root + (59000 - DEFAULT_ROOT);
+}
 
 /**
  * 판정 (FR-EFI-7).
@@ -142,7 +151,7 @@ function assertMatchable(item) {
 function playwrightRunner(item, round) {
   // 첫 회차 전에 한 번만 묻는다 — 매 회차 물으면 값만 쓴다.
   if (round === 1) assertMatchable(item);
-  const port = PORT_BASE + round * 10;
+  const port = isolationPortBase(process.env) + round * 10;
   const r = spawnSync(
     process.execPath,
     [PW_CLI, 'test', specArg(item), '--workers=1', '--retries=0', '--reporter=line'],

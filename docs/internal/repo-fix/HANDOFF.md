@@ -73,7 +73,7 @@
    - 미사용 코드: REPO_FIX 가 남긴 2건 `516689ed`, 그 전부터의 9건 `7c2e6b9e`(세 OS 모두 미사용인 것만)
    - perf-render R1 을 동작 하나의 render 만 세게 `c8777bc6`
    - History 자동 재적재가 스크롤·펼친 상세를 지킴 `ea747384`(GIT_VIEW_REFRESH_SRS FR-GVR-12, 사용자 결정 "갱신하되 자리 유지") — H22 간헐 실패의 원인
-   - 남은 흔들림: `branch-menu-unify` "원격이 실제로 지워지면 조용하다"(격리 재실행 통과, 부하), `git-remote-actions` E3(로컬 전량 1회, 두 번째 추가 다이얼로그의 Add 가 비활성으로 남음 — 단독 5/5·재실행 전량·CI 통과, trace 미확보)
+   - 남은 흔들림: `branch-menu-unify` "원격이 실제로 지워지면 조용하다"(격리 재실행 통과 — 부하로 판정했으나 원인은 TC-BMU-20 이 공유 `remote.git` 에 건 pre-receive 훅이었다. `7ecade7b` 로 해결), `git-remote-actions` E3(로컬 전량 1회, 두 번째 추가 다이얼로그의 Add 가 비활성으로 남음 — 단독 5/5·재실행 전량·CI 통과, trace 미확보)
 
 직전 세션 말미에 사용자에게 "데이터 손실 5건(Delete both·Diff hunk 오적용·입력 유실·칸1 닫기 확인 누락·저장 권한)을 먼저 하자"고 제안했으나 **사용자는 "순서대로"를 택했다.** 제안을 다시 꺼내지 말고 위 순서대로 간다.
 
@@ -98,7 +98,7 @@
 - 완전 이름(`refs/heads/x`) 원격 삭제는 이미 없는 ref 도 경고와 함께 **성공(exit 0)** 한다(실측)
 - 픽스처 `gittest.Repo` 두 개의 첫 커밋 oid 가 같다 — 서브모듈 테스트는 서브 쪽을 한 번 더 커밋해야 한다
 - e2e 는 `npx playwright test` 가 바이너리를 스스로 빌드한다. `timeout` 명령이 없다(macOS)
-- `e2e/branch-menu-unify.spec.ts` "원격이 실제로 지워지면 조용하다" 가 부하 중 flaky(E·F 전량에서 각 1회 실패, 단독 3/3 통과). `git-dialog` D6·`git-menu` N3(Esc 계열)도 전량 부하에서 1회씩 떨어졌고 단독은 통과 — 가짜 항목만 재는 테스트라 변경과 무관으로 판정했다
+- `e2e/branch-menu-unify.spec.ts` "원격이 실제로 지워지면 조용하다" 가 전량에서 flaky(E·F 전량에서 각 1회 실패, 단독 3/3 통과). **부하가 아니었다**(정정, FR-OPT-16-4): 같은 워커에서 앞에 도는 TC-BMU-20 이 픽스처가 함께 쓰는 `remote.git` 에 pre-receive 거절 훅을 걸고 지우지 않아 push 가 거절됐고, 재시도는 새 워커(새 픽스처)라 통과했다 — `7ecade7b` 가 그 훅을 검사 전용 원격에 건다. `git-dialog` D6·`git-menu` N3(Esc 계열)도 전량 부하에서 1회씩 떨어졌고 단독은 통과 — 가짜 항목만 재는 테스트라 변경과 무관으로 판정했다
 - **(01-E·F 에서 배운 것)**
   - 쓰기 잠금 분류는 `gitapi/gitlock.go` 의 `writeLocks` 표 하나다(POST 종단 전부가 있어야 한다 — `TestWriteLocks_CoverAllPostRoutes`). 잠금은 `gitWrite.resolve` 가 쥐고 `Handle` 의 lease 가 핸들러 뒤 반납한다. 사전 단계 조회는 `t.ctx()`, 쓰기는 `t.write`, 사후는 `t.post()` 를 쓴다(`r.Context()` 를 새로 쓰지 마라)
   - `jobs/job.go` 는 **원격 표면 파일**이라 `token`·`secret` 이 든 이름·주석을 두면 `core/credentials_static_test` 가 실패한다(그래서 `Result` 는 `jobs/result.go`). `creden…` 은 저장소 전체 금지 — 주석에도 쓰지 마라

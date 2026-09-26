@@ -20,8 +20,20 @@ specs=$(node scripts/e2e-shard.mjs --list "$i/$n") || exit 1
 # 아직 도는 다른 샤드의 바이너리를 지운다.
 #
 # JSON 리포트는 `make e2e-rebalance` 의 입력이다.
+#
+# 뿌리는 `E2E_PORT_BASE` 로 옮길 수 있다 (FR-OPT-16-4) — 같은 기계에서 두 전량 실행을
+# 겹쳐 돌 때 쓴다. 기본 58147 은 운영 포트 58146 의 **바로 위**이고 대역은 위로만
+# 자란다(샤드 n × 10). 옮긴 뿌리의 대역이 운영 포트를 덮으면 돌지 않는다 — 실사용
+# 인스턴스와 포트를 다투게 된다.
+root="${E2E_PORT_BASE:-58147}"
+prod=58146
+case "$root" in ''|*[!0-9]*) echo "[샤드 $i/$n] E2E_PORT_BASE=$root 는 포트 번호가 아니다" >&2; exit 2 ;; esac
+if [ "$root" -le "$prod" ] && [ "$prod" -lt $((root + n * 10)) ]; then
+  echo "[샤드 $i/$n] E2E_PORT_BASE=$root 의 대역($root~$((root + n * 10 - 1)))이 운영 포트 $prod 를 덮는다" >&2
+  exit 2
+fi
 DM_E2E_KEEP_PEERS=1 \
-E2E_PORT_BASE=$((58147 + (i - 1) * 10)) \
+E2E_PORT_BASE=$((root + (i - 1) * 10)) \
 PLAYWRIGHT_JSON_OUTPUT_NAME="test-results/s$i/report.json" \
   npx playwright test $specs \
     --output="test-results/s$i" \
