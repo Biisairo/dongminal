@@ -134,3 +134,23 @@ test('짝이 맞지 않는 생략은 전송 실패와 같은 길로 간다 — �
   const plainR = full('m3');
   assert.equal(merge(plainR, full('m1').data), plainR, '전량 답은 그대로다');
 });
+
+// Ofix2: feed 도 seq/done 순서에 선다. 패널은 떠날 때 번호를 받고(`depart`) 그 번호로
+// feed 한다 — 먼저 떠난 요청의 늦은 답이 나중에 떠난 관측을 덮지 않는다.
+test('먼저 떠난 ask 의 늦은 답이 나중에 떠난 패널 관측(feed)을 덮지 않는다', async () => {
+  const { hub, flush } = setup(() => full('m1'));
+  const p = hub.ask('/r');
+  const t = hub.depart('/r');
+  hub.feed('/r', full('m2'), t);
+  await flush(); await p;
+  assert.equal(hub.peek('/r').data.mark, 'm2', '옛 flight 가 feed 된 새 본문을 덮었다');
+});
+
+test('먼저 떠난 패널 관측의 늦은 feed 는 나중에 떠난 ask 의 답을 덮지 않는다', async () => {
+  const { hub, flush } = setup(() => full('m2'));
+  const t = hub.depart('/r');
+  const p = hub.ask('/r');
+  await flush(); await p;
+  hub.feed('/r', full('m1'), t);
+  assert.equal(hub.peek('/r').data.mark, 'm2', '늦은 feed 가 새 답을 덮었다');
+});

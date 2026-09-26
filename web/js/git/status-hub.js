@@ -66,8 +66,25 @@ class GitStatusHub {
     return p;
   }
 
-  /** Git 패널이 스스로 받은 관측을 넘긴다. @param {string} root @param {any} r */
-  feed(root,r){ this._keep(this._entry(root),this._gen,r) }
+  /**
+   * Git 패널이 자기 요청을 떠나보낼 때 번호를 받는다 — `ask` 의 요청과 같은 줄에 선다.
+   * @param {string} root
+   * @returns {number}
+   */
+  depart(root){ return ++this._entry(root).seq }
+
+  /**
+   * Git 패널이 스스로 받은 관측을 넘긴다. `seq` 는 그 요청이 떠날 때 받은 번호다
+   * (`depart`) — 나중에 떠난 요청의 답이 이미 있으면 버린다.
+   * @param {string} root @param {any} r @param {number} [seq]
+   */
+  feed(root,r,seq){
+    const e=this._entry(root);
+    const n=typeof seq==='number'?seq:++e.seq;
+    if(n<=e.done) return;
+    e.done=n;
+    this._keep(e,this._gen,r);
+  }
 
   /**
    * 그 root 의 마지막 **성공한** 관측과 그 시각. 나이를 따지지 않는다 — 요청 없이

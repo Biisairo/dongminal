@@ -282,8 +282,10 @@ Object.assign(GitPanel.prototype, {
   // 폴링이 차이를 보고 한 번 더 재조회하는 것은 해롭지 않다.
   adopt(d){
     if(!d||!d.status||d.requested!==this.repo) return;
+    // mark 는 옛 관측의 것이다 — 남기면 다음 collect 가 그 값을 `ifMark` 로 실어, 서버의
+    // 관측이 아직 그 mark 면 이 본문 위에 틀린 `unchanged` 를 받는다 (FR-OPT-4-7).
     this._status=Object.assign({},this._status||{},
-      {requested:d.requested,repo:d.repo,status:d.status});
+      {requested:d.requested,repo:d.repo,status:d.status,mark:''});
     this._errMsg=null; this._staleNote=false;
     // 사용자가 부른 쓰기의 응답이다 — 화면은 반드시 바뀐다 (FR-RPT-5). 쓰기 응답에는
     // 관측 식별자(mark)가 없으므로 근거를 비운다 — 다음 관측이 새 mark 로 선다 (F-6.1).

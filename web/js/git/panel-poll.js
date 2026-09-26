@@ -531,12 +531,15 @@ Object.assign(GitPanel.prototype, {
      */
     const prev=this._status;
     const im=prev&&prev.mark&&prev.requested===repo?'&ifMark='+encodeURIComponent(prev.mark):'';
+    // 허브의 줄에 **떠날 때** 선다 — 먼저 떠난 쪽의 늦은 답이 나중 관측을 덮지 않는다.
+    const hub=this.app&&this.app.gitStatusHub?this.app.gitStatusHub():null;
+    const ht=hub?hub.depart(repo):0;
     r=gitStatusMerge(await apiGet('/api/git/status?repo='+encodeURIComponent(repo)+cid+im,
       {timeout:GIT_STATUS_FETCH_TIMEOUT_MS}),prev);
     d=r.data;
     // FR-OPT-4-1 (FEU-M1): 이 관측을 탐색기와 나눈다 — 같은 root 를 보는 탐색기가
     // 다음 틱에 요청 없이 칠한다.
-    if(this._seq===seq&&r.ok&&d&&this.app&&this.app.gitStatusHub) this.app.gitStatusHub().feed(repo,r);
+    if(this._seq===seq&&r.ok&&d&&hub) hub.feed(repo,r,ht);
     // 리포가 바뀌면 setRepo 가 소유권을 끊는다 — 그 뒤 도착한 응답은 플래그를
     // 건드리지 않는다.
     if(this._seq!==seq){this._applyStatus(tok,r,d);return}
