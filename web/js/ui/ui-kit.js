@@ -286,7 +286,7 @@ const UIKit = {
     const sel = 'a[href],button,input,select,textarea,summary,[tabindex]';
     return [...box.querySelectorAll(sel)].filter((e) => {
       if (e.disabled || e.getAttribute('tabindex') === '-1') return false;
-      // `.mpanel` 은 `display:none` 으로 숨으므로 상자를 뜨지 않아도 걸러진다.
+      // `.mpanel` 은 `[hidden]` 으로 숨으므로 상자를 뜨지 않아도 걸러진다.
       return e.getClientRects().length > 0;
     });
   },

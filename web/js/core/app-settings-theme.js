@@ -223,7 +223,7 @@ Object.assign(App.prototype, {
   },
 
   _hideCustomEditor(){
-    document.getElementById('custom-editor').style.display='none';
+    document.getElementById('custom-editor').hidden=true;
     document.getElementById('custom-toggle').classList.remove('active');
   },
 
@@ -231,7 +231,7 @@ Object.assign(App.prototype, {
     const base=getCurrentTheme();
     customTheme=JSON.parse(JSON.stringify(base));
     document.getElementById('custom-toggle').classList.add('active');
-    document.getElementById('custom-editor').style.display='';
+    document.getElementById('custom-editor').hidden=false;
     // UI colors
     const uiDiv=document.getElementById('ce-ui'); uiDiv.innerHTML='';
     for(const [key,label] of Object.entries(UI_LABELS)){

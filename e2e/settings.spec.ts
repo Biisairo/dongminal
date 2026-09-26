@@ -9,6 +9,38 @@ test.describe('Settings & configuration', () => {
     await expect(page.locator('#modal-overlay')).not.toBeVisible();
   });
 
+  /**
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-16-2 (FEC-36): 패널과 `#custom-editor` 의 숨김은
+   * `[hidden]` 하나다 (UI_LAYOUT_DEFAULTS_SRS FR-LAY-1). 인라인 `display` 가 남으면
+   * 같은 사실을 두 어휘가 말하고, 한쪽만 고친 코드가 보이는 패널 둘을 만든다.
+   */
+  test('settings panels and custom editor hide by [hidden], not inline display', async ({ page }) => {
+    await waitForInit(page);
+    await page.click('#settings-btn');
+    await expect(page.locator('#modal-overlay')).toBeVisible();
+    const state = () => page.evaluate(() => ({
+      inline: [...document.querySelectorAll<HTMLElement>('#modal .mpanel, #custom-editor')]
+        .filter((el) => el.style.display !== '').map((el) => el.id),
+      shown: [...document.querySelectorAll<HTMLElement>('#modal .mpanel')]
+        .filter((el) => !el.hidden).map((el) => el.id),
+      editorHidden: (document.getElementById('custom-editor') as HTMLElement).hidden,
+    }));
+    expect(await state()).toEqual({ inline: [], shown: ['panel-theme'], editorHidden: true });
+
+    await page.click('button.mtab[data-tab="shortcuts"]');
+    await expect(page.locator('#panel-shortcuts')).toBeVisible();
+    expect(await state()).toEqual({ inline: [], shown: ['panel-shortcuts'], editorHidden: true });
+
+    await page.click('button.mtab[data-tab="theme"]');
+    await page.click('#custom-toggle');
+    await expect(page.locator('#custom-editor')).toBeVisible();
+    expect(await state()).toEqual({ inline: [], shown: ['panel-theme'], editorHidden: false });
+    await page.click('#custom-toggle');
+    await expect(page.locator('#custom-editor')).toBeHidden();
+    expect((await state()).editorHidden).toBe(true);
+    await page.click('#modal-close');
+  });
+
   test('shortcuts tab shows key bindings', async ({ page }) => {
     await waitForInit(page);
     await page.click('#settings-btn');

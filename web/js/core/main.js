@@ -102,7 +102,7 @@ document.getElementById('add-preset').addEventListener('click',()=>{
 // Custom toggle handler
 document.getElementById('custom-toggle').addEventListener('click',()=>{
   const editor=document.getElementById('custom-editor');
-  if(editor.style.display==='none'){app._showCustomEditor()}
+  if(editor.hidden){app._showCustomEditor()}
   else{app._hideCustomEditor()}
 });
 

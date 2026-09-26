@@ -935,3 +935,13 @@ git 목록 뷰의 안내 띠 다섯이 `ui-notice ui-notice-attn` 을, 리사이
     `make gates`·`verify.yml` 에 있다
   · **기준선을 C1 단계에서 한 번 다시 떴다** — 그것이 무엇을 증명하지 **않는지**를
     §5.1 에 적었다
+- 2026-09-26 (`OPTIMIZE_REFACTOR_SRS` FR-OPT-16-2 · FEC-36) 설정 패널 11개와
+  `#custom-editor` 의 인라인 `style="display:none"` 을 `[hidden]` 으로 옮겼다 —
+  FR-LAY-1 의 어휘 하나다. 키가 `[hidden]` 을 품으므로(§5 `snap`) 열 화면 ×
+  `div.mpanel[hidden]`·`div[hidden]` **20키가 새로 생겼다.** 값이 달라진 자리는
+  0 이었다 (옛 `div.mpanel`·`div` 키의 첫 요소는 숨지 않은 것이다).
+  **재생성이 아니다** (D-DSY-3). darwin 에서 `LAYOUT_BASELINE=write` 로 임시로 떠
+  그 20키만 세 판에 옮겼다 — 20키의 값은 전부 `display:none` · `position:static`
+  · `inset:auto auto auto auto` 한 가지이고 글꼴이 끼어들 자리가 없다(§9 의 면제
+  조건 밖). 드리프트는 세 판 모두 40 그대로다. **`linux`·`win32` 는 파생값이라 CI
+  초록으로 확인해야 한다.**

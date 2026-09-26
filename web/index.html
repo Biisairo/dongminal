@@ -302,12 +302,12 @@
           <div class="theme-preview-panel" id="theme-preview"></div>
         </div>
         <button id="custom-toggle" class="ui-btn" title="Toggle the custom theme editor"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-pencil"/></svg><span class="ui-btn-label" data-i18n="html.custom_toggle">Customize Current Theme</span></button>
-        <div id="custom-editor" style="display:none">
+        <div id="custom-editor" hidden>
           <div class="ce-section"><div class="ce-title" data-i18n="html.ce_ui">UI Colors</div><div class="ce-colors" id="ce-ui"></div></div>
           <div class="ce-section"><div class="ce-title" data-i18n="html.ce_terminal">Terminal Colors</div><div class="ce-colors" id="ce-terminal"></div></div>
         </div>
       </div>
-      <div class="mpanel" id="panel-shortcuts" style="display:none">
+      <div class="mpanel" id="panel-shortcuts" hidden>
         <!-- UX_REVISION_SRS FR-KEY-6 철회 / FR-KEY-7 개정 (D-K2): **스위치가
              없어졌다.** 차단은 늘 돈다 — 끄는 유일한 근거가 *"입력란에서 편집
              키가 막힌다"* 였고 FR-KEY-8 이 그것을 닫았다. 남은 한 줄은 **키를
@@ -317,14 +317,14 @@
         </div>
         <div class="sc-list ui-scroll-sm" id="sc-list"></div>
       </div>
-      <div class="mpanel" id="panel-statusbar" style="display:none">
+      <div class="mpanel" id="panel-statusbar" hidden>
         <div class="sb-settings" id="sb-settings"></div>
       </div>
-      <div class="mpanel" id="panel-presets" style="display:none">
+      <div class="mpanel" id="panel-presets" hidden>
         <div class="preset-list" id="preset-list"></div>
         <button id="preset-save" class="ui-btn ui-btn-lg" title="Save the current layout as a preset" data-i18n="html.preset_save"></button>
       </div>
-      <div class="mpanel" id="panel-display" style="display:none">
+      <div class="mpanel" id="panel-display" hidden>
         <div class="display-settings">
           <div class="ds-sec" data-i18n="html.dssec_general"></div>
           <!-- M8_UNIFIED_SRS FR-B-4: UI 언어. 값은 서버 설정 `locale` 이고 바꾸면 다시 연다 (D-B-1). -->
@@ -421,7 +421,7 @@
         </div>
       </div>
       <!-- EDITOR_LSP_SRS 묶음 A — 언어 서버의 관측과 받기 (FR-LSP-46) -->
-      <div class="mpanel" id="panel-terminal" style="display:none">
+      <div class="mpanel" id="panel-terminal" hidden>
         <div class="display-settings">
           <!-- AGENT_RENDER_ENV_SRS FR-ARE-1·4 -->
           <div class="ds-row">
@@ -443,7 +443,7 @@
           <div class="ds-hint" data-i18n="html.claude_scroll_speed_hint"></div>
         </div>
       </div>
-      <div class="mpanel" id="panel-code" style="display:none">
+      <div class="mpanel" id="panel-code" hidden>
         <div class="display-settings">
           <div class="ds-hint" id="lsp-hint"></div>
           <div class="lsp-list" id="lsp-list"></div>
@@ -473,7 +473,7 @@
           <div class="ds-hint" data-i18n="html.diff_minimap_hint"></div>
         </div>
       </div>
-      <div class="mpanel" id="panel-notify" style="display:none">
+      <div class="mpanel" id="panel-notify" hidden>
         <div class="display-settings">
           <div class="ds-row">
             <span data-i18n="html.desktop_notify"></span>
@@ -503,13 +503,13 @@
       <!-- POLL_INTERVAL_SETTINGS_SRS FR-PIS-20: 행은 `_initPollingSettings` 가
            `POLL_SETTINGS` 에서 만든다 — 여기 다섯을 손으로 적으면 주기를 더할 때
            고칠 자리가 둘이 된다 (FR-PIS-6). -->
-      <div class="mpanel" id="panel-polling" style="display:none">
+      <div class="mpanel" id="panel-polling" hidden>
         <div class="display-settings" id="poll-settings"></div>
         <!-- FR-PIS-25: 주기를 늘려도 화면이 낡은 채 남지 않는 이유를 적는다. -->
         <div class="ds-hint" data-i18n="html.polling_hint"></div>
       </div>
       <!-- FR-SPT-14·15: 무엇이 실리고 무엇이 실리지 않는지를 함께 적는다. -->
-      <div class="mpanel" id="panel-access" style="display:none">
+      <div class="mpanel" id="panel-access" hidden>
         <div class="display-settings">
           <div class="ds-row">
             <span data-i18n="html.acl_enabled"></span>
@@ -545,7 +545,7 @@
           </div>
         </div>
       </div>
-      <div class="mpanel" id="panel-sandbox" style="display:none">
+      <div class="mpanel" id="panel-sandbox" hidden>
         <div class="display-settings">
           <div class="ds-row">
             <span data-i18n="html.sbx_image"></span>
@@ -570,7 +570,7 @@
           <div class="ds-hint" data-i18n-html="html.sbx_save_hint"></div>
         </div>
       </div>
-      <div class="mpanel" id="panel-backup" style="display:none">
+      <div class="mpanel" id="panel-backup" hidden>
         <div class="display-settings">
           <div class="ds-row">
             <span data-i18n="html.bk_export"></span>

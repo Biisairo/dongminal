@@ -456,8 +456,7 @@ Object.assign(App.prototype, {
         });
         tab.classList.add('active');
         tab.setAttribute('aria-selected','true');
-        modal.querySelectorAll('.mpanel').forEach(p=>p.style.display='none');
-        document.getElementById('panel-'+tab.dataset.tab).style.display='';
+        modal.querySelectorAll('.mpanel').forEach(p=>{p.hidden=p.id!=='panel-'+tab.dataset.tab});
         if(tab.dataset.tab==='presets')this._renderPresets();
         // 샌드박스 정의는 파일이 진실이다. 열 때마다 다시 읽어야 바깥에서
         // 고친 것과 어긋나지 않는다.

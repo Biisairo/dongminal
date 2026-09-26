@@ -869,6 +869,24 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "terminal|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "terminal|div.mpanel[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "terminal|div.display-settings": {
   "display": "flex",
   "overflowX": "visible",
@@ -3082,6 +3100,24 @@
  },
  "git:changes|div.mpanel": {
   "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|div.mpanel[hidden]": {
+  "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -5410,6 +5446,24 @@
  },
  "git:diff|div.mpanel": {
   "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|div.mpanel[hidden]": {
+  "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -7946,6 +8000,24 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:history|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|div.mpanel[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:history|div.display-settings": {
   "display": "flex",
   "overflowX": "visible",
@@ -10451,6 +10523,24 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:branches|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|div.mpanel[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:branches|div.display-settings": {
   "display": "flex",
   "overflowX": "visible",
@@ -12713,6 +12803,24 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:stash|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|div.mpanel[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:stash|div.display-settings": {
   "display": "flex",
   "overflowX": "visible",
@@ -14917,6 +15025,24 @@
  },
  "git:console|div.mpanel": {
   "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|div.mpanel[hidden]": {
+  "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
@@ -17210,6 +17336,24 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:worktrees|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|div.mpanel[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:worktrees|div.display-settings": {
   "display": "flex",
   "overflowX": "visible",
@@ -19430,6 +19574,24 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:submodules|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|div.mpanel[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
  "git:submodules|div.display-settings": {
   "display": "flex",
   "overflowX": "visible",
@@ -20815,6 +20977,24 @@
  },
  "editor|div.mpanel": {
   "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|div[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|div.mpanel[hidden]": {
+  "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
   "position": "static",
