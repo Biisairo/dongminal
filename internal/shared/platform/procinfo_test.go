@@ -475,3 +475,28 @@ func TestLinuxCWDsReadsEachLink(t *testing.T) {
 		t.Fatalf("CWDs = %v, want %v", got, want)
 	}
 }
+
+// ChildrenOf 는 pid 가 몇 개든 ps 한 번이다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-3).
+func TestDarwinChildrenOfIsSingleCall(t *testing.T) {
+	calls := 0
+	run := func(name string, args ...string) ([]byte, error) {
+		calls++
+		if name != "ps" {
+			t.Fatalf("명령 = %s", name)
+		}
+		// 100 의 자식 200, 300 은 자식 없음, 400 은 자기 자신을 부모로 적었다.
+		return []byte("  1     0\n 200   100\n 300     1\n 400   400\n garbage\n"), nil
+	}
+	got := darwinProcInfo{run: run}.ChildrenOf([]int{100, 300, 400, 100, 0})
+	want := map[int]bool{100: true, 300: false, 400: false}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ChildrenOf = %v, want %v", got, want)
+	}
+	if calls != 1 {
+		t.Fatalf("ps 호출 = %d회, want 1", calls)
+	}
+	calls = 0
+	if got := (darwinProcInfo{run: run}).ChildrenOf([]int{0}); len(got) != 0 || calls != 0 {
+		t.Fatalf("빈 목록: %v, 호출 %d", got, calls)
+	}
+}

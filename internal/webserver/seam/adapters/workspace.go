@@ -18,6 +18,8 @@ func (a Workspace) CoordinateOf(id string) (string, error) { return a.WS.Coordin
 
 func (a Workspace) IsKnownTabID(id string) bool { return a.WS.IsKnownTabID(id) }
 
+func (a Workspace) Changes() <-chan struct{} { return a.WS.Changes() }
+
 func (a Workspace) Entries() []toolaccess.WorkspaceEntry {
 	src := a.WS.Entries()
 	out := make([]toolaccess.WorkspaceEntry, len(src))

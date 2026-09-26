@@ -65,7 +65,7 @@ func (m *ToolManager) SaveAll() {
 			pids = append(pids, pid)
 		}
 	}
-	cwds := platform.Current().Info.CWDs(pids)
+	cwds := toolProcInfo().CWDs(pids)
 	states := make([]ToolState, 0, len(snap))
 	for _, p := range snap {
 		// FR-EM-12/FR-BG-9: 백그라운드 도구는 기재하지 않는다. 기재하면
@@ -89,7 +89,7 @@ func (m *ToolManager) SaveAll() {
 		if p.sandboxed {
 			continue
 		}
-		states = append(states, ToolState{ID: p.ID, Name: p.Name, Cwd: cwdOrServerFrom(p, cwds)})
+		states = append(states, ToolState{ID: p.ID, Name: p.Name, Cwd: cwdOrServer(p, cwds)})
 	}
 	sort.Slice(states, func(i, j int) bool { return states[i].ID < states[j].ID })
 	data, err := json.Marshal(states)

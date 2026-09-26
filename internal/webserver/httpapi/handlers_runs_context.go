@@ -50,9 +50,6 @@ const handoffWaitDefault = runwait.HandoffWaitDefault
 // 번 더 주면 조정자의 한 명령이 6분을 먹는다.
 const handoffPreambleWait = runwait.PreambleWait
 
-// handoffPollInterval 은 요약이 도착했는지 되짚어 보는 간격이다.
-const handoffPollInterval = 250 * time.Millisecond
-
 // contextNotices 는 이미 보낸 컨텍스트 통지를 기억한다 (FR-CBG-7, SRS §3.3.2).
 //
 // 같은 멤버·같은 등급에 통지는 한 번뿐이다. 등급은 단조가 아니라 내려갈 수
@@ -419,7 +416,8 @@ func (s *Server) requestHandoff(ctx context.Context, rec run.Record, prev run.Me
 		wait = time.Duration(timeoutMs) * time.Millisecond
 	}
 	var summary string
-	err := pollwait.Until(ctx, wait, handoffPollInterval, func() bool {
+	// FR-OPT-8-4 (HTTP-31): 요약은 Run 저장소(Handoff)를 지나 도착한다 — 바뀔 때만 묻는다.
+	err := pollwait.On(ctx, wait, s.Runs.Changes, func() bool {
 		if _, cur, ok := s.Runs.FindMember(prev.ID); ok && cur.HandoffSummary != baseline {
 			summary = cur.HandoffSummary
 			return true

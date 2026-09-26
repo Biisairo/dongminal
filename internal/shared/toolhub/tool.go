@@ -146,7 +146,32 @@ type Tool struct {
 // 조회 방법은 platform.ProcInfo 가 안다 — 리눅스는 /proc, darwin 은 pgrep,
 // Windows 는 toolhelp 스냅샷이다 (CROSS_PLATFORM_SRS FR-XPI-5).
 var toolBusyProbe = func(pid int) bool {
-	return platform.Current().Info.HasChildren(pid)
+	return toolProcInfo().HasChildren(pid)
+}
+
+// toolProcInfo 는 이 패키지가 프로세스를 묻는 자리다. 검사가 조회 수를 세려고
+// 바꾼다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-3).
+var toolProcInfo = func() platform.ProcInfo { return platform.Current().Info }
+
+// busyOf 는 IsBusy 를 여럿에 한 번에 답한다 — 조회는 ChildrenOf 한 번이다
+// (FR-OPT-8-3). nil 과 pid 없는 도구는 busy 가 아니다(IsBusy 와 같다).
+func busyOf(ps []*Tool) map[*Tool]bool {
+	pids := make([]int, 0, len(ps))
+	for _, p := range ps {
+		if p != nil {
+			pids = append(pids, p.CmdProcessPID())
+		}
+	}
+	children := toolProcInfo().ChildrenOf(pids)
+	out := make(map[*Tool]bool, len(ps))
+	for _, p := range ps {
+		if p != nil {
+			if pid := p.CmdProcessPID(); pid > 0 {
+				out[p] = children[pid]
+			}
+		}
+	}
+	return out
 }
 
 func (p *Tool) IsBusy() bool {

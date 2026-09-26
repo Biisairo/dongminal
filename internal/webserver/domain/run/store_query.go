@@ -27,6 +27,10 @@ func (s *Store) List() []Record {
 	return cloneRuns(s.runs)
 }
 
+// Changes 는 다음 변경에 닫힐 채널이다 (FR-OPT-8-4). 받은 뒤에 상태를 물어야 그 사이의
+// 변경을 놓치지 않는다 (pollwait.On).
+func (s *Store) Changes() <-chan struct{} { return s.changed.C() }
+
 // HasOpen 은 열린 Run 이 하나라도 있는가다. 컨텍스트 훅의 빠른 경로가 쓴다
 // (OPTIMIZE_REFACTOR_SRS FR-OPT-8-3 · HTTP-3) — 없으면 누가 말하는지 물을 까닭이 없다.
 func (s *Store) HasOpen() bool {

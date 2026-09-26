@@ -98,12 +98,20 @@ func (m *ToolManager) ActivitySnapshot() []ActivitySnap {
 		}
 	}
 	m.mu.RUnlock()
-	// busy check (pgrep) runs outside the lock. A `working` card whose agent
-	// process is gone is pruned so an abnormal exit (no Stop/SessionEnd hook)
-	// doesn't leave a stale "working" (FR-AAP-20).
+	// busy check (pgrep) runs outside the lock, once for all working tools
+	// (FR-OPT-8-3 · SHR-28). A `working` card whose agent process is gone is
+	// pruned so an abnormal exit (no Stop/SessionEnd hook) doesn't leave a stale
+	// "working" (FR-AAP-20).
+	var working []*Tool
+	for _, it := range items {
+		if it.a.State == "working" {
+			working = append(working, it.p)
+		}
+	}
+	busy := attnBusyMany(working)
 	out := []ActivitySnap{}
 	for _, it := range items {
-		if it.a.State == "working" && !attnBusyProbe(it.p) {
+		if it.a.State == "working" && !busy[it.p] {
 			continue
 		}
 		out = append(out, ActivitySnap{ToolID: it.id, State: it.a.State, Tool: it.a.Tool, Detail: it.a.Detail, UpdatedAt: it.a.UpdatedAt})

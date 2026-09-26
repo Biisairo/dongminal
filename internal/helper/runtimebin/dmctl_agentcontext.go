@@ -94,7 +94,7 @@ func noteSessionIdentity(agent string, stdin io.Reader) {
 	if ev.Transcript != "" {
 		body["transcriptPath"] = ev.Transcript
 	}
-	httpPostJSON(baseURL()+contextObservePath, body)
+	httpPostJSONWithin(baseURL()+contextObservePath, body, hookBudget)
 }
 
 // runDmctlAgentContext always exits 0: it runs as a SessionStart hook, where a

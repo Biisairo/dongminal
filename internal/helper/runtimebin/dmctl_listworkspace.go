@@ -69,6 +69,10 @@ func fetchListWorkspaceRows(stderr io.Writer) ([]listWorkspaceRow, int) {
 	var state struct {
 		Tools     []toolEntry `json:"tools"`
 		Workspace *wsTree     `json:"workspace"`
+		// FgTabNames 는 서버가 설정에서 읽어 실어 준 FR-TAN-19 의 값이다
+		// (OPTIMIZE_REFACTOR_SRS FR-OPT-8-5 · SHR-31). 없으면 옛 서버다 — 종전대로
+		// `/api/settings` 를 묻는다.
+		FgTabNames *bool `json:"fgTabNames"`
 	}
 	if err := json.Unmarshal(body, &state); err != nil {
 		fmt.Fprintf(stderr, "dmctl: invalid /api/state response: %v\n", err)
@@ -89,7 +93,11 @@ func fetchListWorkspaceRows(stderr io.Writer) ([]listWorkspaceRow, int) {
 	// FR-TAN-18: `tab="..."` 는 **화면에 보이는 이름**이다. 설정을 함께 읽는
 	// 이유가 그것이다 — 사용자가 파생을 껐으면 에이전트도 껐을 때의 이름을
 	// 봐야 한다.
-	return buildListWorkspaceRows(state.Workspace, shellPids, sizes, fg, onceBool(fgTabNamesEnabled)), 0
+	enabled := onceBool(fgTabNamesEnabled)
+	if v := state.FgTabNames; v != nil {
+		enabled = func() bool { return *v }
+	}
+	return buildListWorkspaceRows(state.Workspace, shellPids, sizes, fg, enabled), 0
 }
 
 func dmctlListWorkspace(args []string, stdout, stderr io.Writer) int {

@@ -37,10 +37,7 @@ const (
 // restoreTool·detachTab 은 생성 명령이 아니라서 reqId echo 규약에 참여하지 않는다
 // (hub/commands.go `creatingActions`). 그래서 새 탭의 uuid 를 동기적으로 받을 길이
 // 없고, 워크스페이스 색인이 갱신되기를 관측하는 수밖에 없다.
-const (
-	attachSettleTimeout = 3 * time.Second
-	attachPollInterval  = 50 * time.Millisecond
-)
+const attachSettleTimeout = 3 * time.Second
 
 // apiToolsHeadless implements POST /api/tools/headless (FR-HLM-2).
 //
@@ -254,8 +251,12 @@ func (s *Server) broadcastLayout(action string, args map[string]any) int {
 // 을 저장해야 색인이 움직이므로, 이 관측이 "화면에 실제로 반영됐다"의 유일한
 // 근거다.
 func (s *Server) awaitTab(ctx context.Context, toolID string, want bool) string {
+	if s.WorkIndex == nil {
+		return ""
+	}
 	var tabID string
-	_ = pollwait.Until(ctx, attachSettleTimeout, attachPollInterval, func() bool {
+	// FR-OPT-8-4 (HTTP-31): 색인이 바뀔 때만 다시 본다.
+	_ = pollwait.On(ctx, attachSettleTimeout, s.WorkIndex.Changes, func() bool {
 		tabID = s.tabIDOfTool(toolID)
 		return (tabID != "") == want
 	})

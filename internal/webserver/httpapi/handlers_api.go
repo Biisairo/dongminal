@@ -260,21 +260,36 @@ func (s *Server) apiStateGet(w http.ResponseWriter, r *http.Request) {
 	if s.Work != nil {
 		rawWS, rev = s.Work.Snapshot()
 	}
-	var ws interface{}
-	if len(rawWS) > 0 {
-		json.Unmarshal(rawWS, &ws)
+	// OPTIMIZE_REFACTOR_SRS FR-OPT-8-6 (HTTP-8 · IPC-21): blob 을 interface{} 로 풀었다
+	// 다시 쓰지 않는다 — 부팅·재연결·workspace_changed 마다 불리는 종단이다. 깨진
+	// blob 은 종전처럼 null 이다(종전에는 해석 오류를 버려 null 이 나갔다).
+	ws := json.RawMessage("null")
+	if len(rawWS) > 0 && json.Valid(rawWS) {
+		ws = rawWS
 	}
 	tools, known := s.Tools.ListOK()
+	resp := stateResponse{Tools: tools, ToolsKnown: known, Workspace: ws}
+	if s.Settings != nil {
+		v := s.Settings.FgTabNames()
+		resp.FgTabNames = &v
+	}
 	w.Header().Set("ETag", strconv.FormatUint(rev, 10))
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"tools": tools,
-		// TOOL_LIST_UNKNOWN_SRS FR-TLU-1: 목록과 함께 **그것을 믿어도 되는가**를
-		// 보낸다. 이 답이 없으면 받는 쪽은 빈 목록을 "도구가 하나도 없다"로 읽고
-		// 살아 있는 도구를 전부 파괴한다 (SRS §2.2).
-		"toolsKnown": known,
-		"workspace":  ws,
-	})
+	json.NewEncoder(w).Encode(resp)
+}
+
+// stateResponse 는 GET /api/state 의 본문이다. 앞의 세 키는 종전 map 의 정렬 순서와
+// 같다 (FR-OPT-0-3).
+type stateResponse struct {
+	Tools []toolhub.ToolInfo `json:"tools"`
+	// TOOL_LIST_UNKNOWN_SRS FR-TLU-1: 목록과 함께 **그것을 믿어도 되는가**를
+	// 보낸다. 이 답이 없으면 받는 쪽은 빈 목록을 "도구가 하나도 없다"로 읽고
+	// 살아 있는 도구를 전부 파괴한다 (SRS §2.2).
+	ToolsKnown bool            `json:"toolsKnown"`
+	Workspace  json.RawMessage `json:"workspace"`
+	// FgTabNames 는 설정의 FR-TAN-19 값이다 (FR-OPT-8-5 · SHR-31). dmctl list-workspace
+	// 가 `/api/settings` 를 한 번 더 받지 않게 한다. 설정 저장소가 없으면 싣지 않는다.
+	FgTabNames *bool `json:"fgTabNames,omitempty"`
 }
 
 func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {

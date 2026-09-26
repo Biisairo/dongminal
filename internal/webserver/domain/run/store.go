@@ -20,6 +20,7 @@ import (
 	"dongminal/internal/shared/dmlog"
 
 	"dongminal/internal/shared/platform"
+	"dongminal/internal/shared/pollwait"
 	"dongminal/internal/shared/uuid"
 )
 
@@ -77,6 +78,9 @@ type Store struct {
 	// 되돌릴 때 해석한다 — 그쪽은 디스크 쓰기가 실패한 드문 갈래다. 바이트가 곧
 	// 파일의 형식이므로 왕복은 `Load()` 가 이미 딛고 있는 계약이다.
 	persistedBlob []byte
+	// changed 는 메모리의 Run 이 바뀔 때마다 울린다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-4).
+	// 기다리는 쪽(프리앰블의 인수인계 대기)이 주기적으로 묻지 않게 한다.
+	changed pollwait.Signal
 	// alive 는 도구의 생존을 묻는 길이다 (`FBE-03`). nil 이면 묻지 않는다.
 	alive func(toolID string) bool
 	// writeMu 는 디스크 쓰기를 한 줄로 세운다 (FR-OPT-5-4). save 가 mu 를 놓고
@@ -304,6 +308,9 @@ func (s *Store) runHasLiveMember(r *Record) bool {
 // 그래서 호출자는 save 뒤에 s.runs 의 색인이나 포인터를 다시 쓰지 않는다 —
 // 돌려줄 값은 save 전에 떠 둔다.
 func (s *Store) save() error {
+	// 변경은 메모리에 이미 있다 — 쓰기 결과와 무관하게, 되돌림까지 끝난 뒤에 알린다.
+	// 깨어난 쪽이 보는 것은 이 호출이 남긴 최종 상태다.
+	defer s.changed.Notify()
 	body := fileBody{SchemaVersion: schemaVersion, Runs: s.runs}
 	if body.Runs == nil {
 		body.Runs = []Record{}

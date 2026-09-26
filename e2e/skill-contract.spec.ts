@@ -531,7 +531,9 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
 
     // 8. TC-SKL-1: 사용자 공간이 전후로 같다 — 전용 창은 흔적을 남기지 않는다.
     const wsAfter = await (await request.get('/api/state')).json();
-    expect(JSON.stringify(wsAfter)).toBe(JSON.stringify(wsBefore));
+    // 값으로 견준다 — /api/state 는 저장된 바이트를 그대로 싣는다(OPTIMIZE_REFACTOR_SRS
+    // FR-OPT-8-6). 서버가 표식을 달고 걷으며 다시 쓴 판은 키 순서만 다를 수 있다.
+    expect(wsAfter).toEqual(wsBefore);
     expect(await windowFocusMap(request)).toEqual(focusBefore);
     expect(await clientActive()).toBe(activeBefore);
   });

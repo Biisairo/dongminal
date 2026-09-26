@@ -10,7 +10,7 @@
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| GET | `/api/state` | `{ tools, workspace }` 스냅샷. 응답 헤더 `ETag: <rev>` 포함 |
+| GET | `/api/state` | `{ tools, toolsKnown, workspace, fgTabNames? }` 스냅샷. `fgTabNames` 는 설정의 탭 이름 파생 여부(설정 저장소가 있을 때). 응답 헤더 `ETag: <rev>` 포함 |
 | GET | `/api/whoami?toolId=<id>` | 요청자의 도구 식별 정보. `toolId` 생략 시 remoteAddr → PID 부모 체인으로 역추적 |
 | GET | `/api/workspace` | workspace.json raw (`schemaVersion: 2`). ETag 헤더 포함 |
 | PUT | `/api/workspace` | workspace 저장. `If-Match: <rev>` 로 낙관적 동시성 제어. stale 시 409 + 최신 `ETag` 반환 |

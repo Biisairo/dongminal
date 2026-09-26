@@ -108,6 +108,10 @@ func (f *fakeWorkIndex) CoordinateOf(id string) (string, error) {
 	}
 	return id, nil
 }
+
+// Changes 는 닫히지 않는다 — 이 색인은 검사 중에 바뀌지 않는다.
+func (f *fakeWorkIndex) Changes() <-chan struct{} { return nil }
+
 func (f *fakeWorkIndex) IsKnownTabID(id string) bool {
 	_, ok := f.coords[id]
 	return ok

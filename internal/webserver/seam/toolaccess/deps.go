@@ -59,6 +59,9 @@ type WorkspaceReader interface {
 	// IsKnownTabID reports whether id matches a known tab.id. /api/commands
 	// uses this to reject non-uuid location inputs (FR-DMC-9).
 	IsKnownTabID(id string) bool
+	// Changes 는 다음 색인 교체에 닫힐 채널이다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-4).
+	// 색인을 기다리는 쪽이 주기적으로 묻지 않게 한다.
+	Changes() <-chan struct{}
 }
 
 // TabRef pairs a new tab's uuid with its toolId (REMOTE_COMMAND_RESULT_SRS).

@@ -128,3 +128,29 @@ func TestTranscriptUsage_CarriesNoContent(t *testing.T) {
 		t.Fatalf("본문이 모델 이름으로 새 나왔다: %q", u.Model)
 	}
 }
+
+// OPTIMIZE_REFACTOR_SRS FR-OPT-8-5 (SHR-9 ①) — 꼬리 256 KiB 를 string 으로 복사해 Split
+// 하지 않는다. 뒤에서부터 줄을 끊어 보고 마지막 usage 줄에서 멈춘다.
+func BenchmarkTranscriptUsage_256KiBTail(b *testing.B) {
+	var lines []string
+	filler := strings.Repeat("x", 200)
+	for len(strings.Join(lines, "\n")) < 400*1024 {
+		lines = append(lines, `{"type":"user","message":{"content":"`+filler+`"}}`)
+	}
+	lines = append(lines, assistantLine("claude-opus-5", 1, 2, 3, 4, "끝"))
+	p := filepath.Join(b.TempDir(), "t.jsonl")
+	if err := os.WriteFile(p, []byte(strings.Join(lines, "\n")+"\n"), 0o644); err != nil {
+		b.Fatal(err)
+	}
+	a, err := agentadapter.Get("claude")
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, ok := transcriptUsage(a, p); !ok {
+			b.Fatal("usage 를 읽지 못했다")
+		}
+	}
+}

@@ -196,6 +196,19 @@ func attnBusyProbe(p *Tool) bool {
 	return p.IsBusy()
 }
 
+// attnBusyMany 는 attnBusyProbe 를 여럿에 한 번에 답한다. 검사가 판정을 바꿔 두었으면
+// 그것을 도구마다 부르고, 아니면 조회 한 번이다 (FR-OPT-8-3).
+func attnBusyMany(ps []*Tool) map[*Tool]bool {
+	if f := attnBusyProbeFn.Load(); f != nil {
+		out := make(map[*Tool]bool, len(ps))
+		for _, p := range ps {
+			out[p] = (*f)(p)
+		}
+		return out
+	}
+	return busyOf(ps)
+}
+
 // SetAttnBusyProbe는 유휴 탐지와 활동 스냅샷 정리가 쓰는 전경 프로세스 검사를
 // 교체하고, 이전 검사로 되돌리는 함수를 돌려준다. 다른 패키지의 테스트가 이것을
 // 필요로 하는 이유는 NewDetachedTool 로 만든 도구에 프로세스가 없어 항상

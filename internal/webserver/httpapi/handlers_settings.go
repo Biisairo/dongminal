@@ -31,15 +31,17 @@ type settingsStore struct {
 
 // settingsView 는 서버가 blob 에서 읽는 것 전부다.
 type settingsView struct {
-	renderEnv []string
-	policy    run.ContextPolicy
+	renderEnv  []string
+	policy     run.ContextPolicy
+	fgTabNames bool
 }
 
 func (s *settingsStore) view() *settingsView {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.parsed == nil {
-		s.parsed = &settingsView{renderEnv: agentRenderEnv(s.raw), policy: parseContextPolicy(s.raw)}
+		s.parsed = &settingsView{renderEnv: agentRenderEnv(s.raw), policy: parseContextPolicy(s.raw),
+			fgTabNames: parseFgTabNames(s.raw)}
 	}
 	return s.parsed
 }
@@ -51,6 +53,21 @@ func (s *settingsStore) RenderEnv() []string {
 
 // ContextPolicy 는 컨텍스트 추정 공식과 임계다 (FR-CBG-2).
 func (s *settingsStore) ContextPolicy() run.ContextPolicy { return s.view().policy }
+
+// FgTabNames 는 탭 이름을 전경 프로그램에서 파생하는가다 (CONVENIENCE_SRS FR-TAN-19).
+func (s *settingsStore) FgTabNames() bool { return s.view().fgTabNames }
+
+// parseFgTabNames 는 blob 의 `fgTabNames` 다. 없거나 읽히지 않으면 켬이다 — dmctl
+// list-workspace 의 종전 기본과 같다.
+func parseFgTabNames(blob []byte) bool {
+	var cfg struct {
+		FgTabNames *bool `json:"fgTabNames"`
+	}
+	if json.Unmarshal(blob, &cfg) != nil || cfg.FgTabNames == nil {
+		return true
+	}
+	return *cfg.FgTabNames
+}
 
 func newSettingsStore(path string) *settingsStore {
 	s := &settingsStore{path: path}

@@ -69,10 +69,20 @@ func (m *ToolManager) Busy(id string) bool {
 
 // BusyMany 는 Busy 를 ids 전부에 답한다. 직접 모드는 모르는 답이 없어 ok 는 언제나
 // true 다 (FR-OPT-2-4).
+//
+// 조회는 도구 수와 무관하게 한 번이다 (FR-OPT-8-3 · SHR-28) — 데몬의 busymany RPC 가
+// 도구마다 pgrep 을 띄우지 않는다.
 func (m *ToolManager) BusyMany(ids []string) (map[string]bool, bool) {
+	m.mu.RLock()
+	tools := make([]*Tool, len(ids))
+	for i, id := range ids {
+		tools[i] = m.tools[id]
+	}
+	m.mu.RUnlock()
+	busy := busyOf(tools)
 	out := make(map[string]bool, len(ids))
-	for _, id := range ids {
-		out[id] = m.Busy(id)
+	for i, id := range ids {
+		out[id] = tools[i] != nil && busy[tools[i]]
 	}
 	return out, true
 }
@@ -240,10 +250,16 @@ func (m *ToolManager) BackgroundList() []BackgroundEntry {
 	}
 	m.mu.RUnlock()
 
-	// Cwd() shells out (lsof on macOS) — never hold the lock across it.
+	// cwd 조회는 외부 명령이다(macOS lsof) — 잠금 밖에서, 도구 수와 무관하게 한 번
+	// 한다 (FR-OPT-8-3 · SHR-8, SaveAll 의 FR-PRF-76 과 같다).
+	pids := make([]int, 0, len(pairs))
+	for _, p := range pairs {
+		pids = append(pids, p.t.CmdProcessPID())
+	}
+	cwds := toolProcInfo().CWDs(pids)
 	out := make([]BackgroundEntry, 0, len(pairs))
 	for _, p := range pairs {
-		out = append(out, BackgroundEntry{ToolID: p.t.ID, Name: p.t.Name, Cwd: cwdOrServer(p.t), Since: p.since})
+		out = append(out, BackgroundEntry{ToolID: p.t.ID, Name: p.t.Name, Cwd: cwdOrServer(p.t, cwds), Since: p.since})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Since < out[j].Since })
 	return out

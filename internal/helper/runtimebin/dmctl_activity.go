@@ -1,6 +1,7 @@
 package runtimebin
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -83,7 +84,7 @@ func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 	if rep.SessionID != "" {
 		body["sessionId"] = rep.SessionID
 	}
-	httpPostJSON(baseURL()+"/api/tools/activity/set", body)
+	httpPostJSONWithin(baseURL()+"/api/tools/activity/set", body, hookBudget)
 	reportContext(adapter, rep, toolID)
 	return 0
 }
@@ -144,7 +145,7 @@ func reportContext(a agentadapter.Adapter, rep agentadapter.Report, toolID strin
 			body["model"] = u.Model
 		}
 	}
-	httpPostJSON(baseURL()+contextObservePath, body)
+	httpPostJSONWithin(baseURL()+contextObservePath, body, hookBudget)
 }
 
 // usageTailMax 는 뒤에서부터 읽을 상한이다 (NFR-CBG-1 의 개정).
@@ -178,28 +179,46 @@ func transcriptUsage(a agentadapter.Adapter, path string) (agentadapter.Usage, b
 	if err != nil || st.IsDir() || st.Size() == 0 {
 		return agentadapter.Usage{}, false
 	}
-	off, n := int64(0), st.Size()
-	if n > usageTailMax {
-		off, n = st.Size()-usageTailMax, usageTailMax
-	}
-	buf := make([]byte, n)
-	if _, err := f.ReadAt(buf, off); err != nil && err != io.EOF {
-		return agentadapter.Usage{}, false
-	}
-	lines := strings.Split(string(buf), "\n")
-	// 처음부터 읽지 않았으면 첫 조각은 잘린 줄이다 — 해석하면 오답이 아니라
-	// 실패이지만, 애초에 후보에서 뺀다.
-	if off > 0 && len(lines) > 0 {
-		lines = lines[1:]
-	}
-	// FR-AAC-11: 뒤에서부터 훑는 것은 **파일 다루는 법**이라 여기 남고, 한 줄의
-	// 뜻은 어댑터가 안다.
-	for i := len(lines) - 1; i >= 0; i-- {
-		if u, ok := a.ParseUsage(lines[i]); ok {
-			return u, true
+	// FR-OPT-8-5 (SHR-9 ①): 짧은 꼬리를 먼저 본다 — 마지막 assistant 줄은 대개 거기
+	// 있다. 못 찾았을 때만 상한까지 넓힌다.
+	for _, window := range []int64{usageTailFirst, usageTailMax} {
+		if u, ok, done := usageInTail(a, f, st.Size(), window); done {
+			return u, ok
 		}
 	}
 	return agentadapter.Usage{}, false
+}
+
+// usageTailFirst 는 먼저 읽는 꼬리의 크기다.
+const usageTailFirst = 32 * 1024
+
+// usageInTail 은 파일 끝 window 바이트를 뒤에서부터 줄 단위로 훑는다. string 사본과
+// Split 없이 줄 하나씩 어댑터에 넘기고, 마지막 usage 줄에서 멈춘다. done 은 더 넓혀
+// 볼 필요가 없다는 뜻이다 — 찾았거나, 파일 전체를 이미 봤거나, 읽지 못했다.
+func usageInTail(a agentadapter.Adapter, f *os.File, size, window int64) (u agentadapter.Usage, ok, done bool) {
+	off, n := int64(0), size
+	if n > window {
+		off, n = size-window, window
+	}
+	buf := make([]byte, n)
+	if _, err := f.ReadAt(buf, off); err != nil && err != io.EOF {
+		return agentadapter.Usage{}, false, true
+	}
+	// FR-AAC-11: 뒤에서부터 훑는 것은 **파일 다루는 법**이라 여기 남고, 한 줄의
+	// 뜻은 어댑터가 안다.
+	for end := len(buf); end > 0; {
+		start := bytes.LastIndexByte(buf[:end], '\n') + 1
+		// 처음부터 읽지 않았으면 첫 조각은 잘린 줄이다 — 해석하면 오답이 아니라
+		// 실패이지만, 애초에 후보에서 뺀다.
+		if start == 0 && off > 0 {
+			break
+		}
+		if u, ok := a.ParseUsage(string(buf[start:end])); ok {
+			return u, true, true
+		}
+		end = start - 1
+	}
+	return agentadapter.Usage{}, false, off == 0
 }
 
 // transcriptSize 는 transcript 의 **크기만** 잰다 — stat 1회이며 파일을 열지도
@@ -246,8 +265,8 @@ func reportNotifyActivity(label string, args []string, toolID string) {
 				// (FR-ATN-12 — `done`·`waiting` 이 아닌 라벨은 무조건 알람).
 				// 여기서 id 를 실으면 `Signals.UserTurn=false` 가 무조건 알람을
 				// 한 번 더 만들어 **같은 턴이 두 번 운다.**
-				httpPostJSON(baseURL()+"/api/tools/activity/set",
-					map[string]any{"toolId": toolID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail})
+				httpPostJSONWithin(baseURL()+"/api/tools/activity/set",
+					map[string]any{"toolId": toolID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail}, hookBudget)
 			}
 			return
 		}

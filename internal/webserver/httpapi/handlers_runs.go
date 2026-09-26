@@ -389,7 +389,9 @@ func (s *Server) apiRunPreamble(w http.ResponseWriter, r *http.Request) {
 // 사실은 프리앰블의 인수인계 절이 이미 적는다. 요청이 먼저 끊기면 접지 않고
 // 그 오류를 돌려준다 — 오지 않은 것과 묻는 쪽이 사라진 것은 다르다.
 func (s *Server) waitHandoff(ctx context.Context, memberID string) error {
-	err := pollwait.Until(ctx, handoffPreambleWait, handoffPollInterval, func() bool {
+	// FR-OPT-8-4 (HTTP-31): 요약은 Run 저장소를 지나 도착한다 — 저장소가 바뀔 때만
+	// 다시 묻는다.
+	err := pollwait.On(ctx, handoffPreambleWait, s.Runs.Changes, func() bool {
 		return !s.Runs.HandoffWaiting(memberID)
 	})
 	if !errors.Is(err, pollwait.ErrTimeout) {

@@ -84,6 +84,7 @@ type SettingsStore interface {
 	// 다시 해석한다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-2 · HTTP-26).
 	RenderEnv() []string
 	ContextPolicy() run.ContextPolicy
+	FgTabNames() bool
 }
 
 // RunStore 는 /api/runs* 가 Run 레코드 저장소에 요구하는 표면이다 (M8 `GO-44`).
@@ -107,6 +108,7 @@ type RunStore interface {
 	Succeed(spec run.SucceedSpec) (prev run.Member, next run.Member, err error)
 	Handoff(senderToolID, claimedMemberID, summary string) (run.Member, error)
 	HandoffWaiting(memberID string) bool
+	Changes() <-chan struct{}
 	GiveUpHandoff(memberID string)
 	ObserveContext(toolID string, obs run.ContextObservation, policy run.ContextPolicy) (m run.Member, entered string, found bool)
 	MarkWorktrees(runID string, marks []run.WorktreeMark) error

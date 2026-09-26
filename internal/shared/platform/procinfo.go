@@ -18,6 +18,12 @@ type ProcInfo interface {
 	// HasChildren 은 pid 에 직계 자식이 있는지다. 도구 busy 판정의 근거다.
 	HasChildren(pid int) bool
 
+	// ChildrenOf 는 pid 들의 HasChildren 을 **한 번에** 답한다 (OPTIMIZE_REFACTOR_SRS
+	// FR-OPT-8-3). `CWDs`·`Names` 와 같은 이유다 — darwin 에서 도구마다 pgrep 을
+	// 띄우면 활동 스냅샷·busy 일괄 조회가 도구 수만큼 fork 한다.
+	// 읽지 못하면 false 다 — HasChildren 과 같은 규약이다.
+	ChildrenOf(pids []int) map[int]bool
+
 	// CWD 는 프로세스의 현재 작업 디렉터리다.
 	CWD(pid int) (string, bool)
 
@@ -103,6 +109,52 @@ func (d darwinProcInfo) HasChildren(pid int) bool {
 	}
 	out, err := d.run("pgrep", "-P", strconv.Itoa(pid))
 	return err == nil && len(strings.TrimSpace(string(out))) > 0
+}
+
+// ChildrenOf 는 `ps` 를 **한 번** 띄워 모든 프로세스의 부모를 읽는다.
+func (d darwinProcInfo) ChildrenOf(pids []int) map[int]bool {
+	pids = dedupPositive(pids)
+	out := make(map[int]bool, len(pids))
+	if len(pids) == 0 {
+		return out
+	}
+	raw, err := d.run("ps", "-A", "-o", "pid=,ppid=")
+	if err != nil {
+		return out
+	}
+	return childrenFromPairs(parsePidPpid(string(raw)), pids)
+}
+
+// parsePidPpid 는 `ps -o pid=,ppid=` 의 줄들을 (pid, ppid) 쌍으로 읽는다.
+func parsePidPpid(out string) [][2]int {
+	var pairs [][2]int
+	for _, line := range strings.Split(out, "\n") {
+		f := strings.Fields(line)
+		if len(f) != 2 {
+			continue
+		}
+		pid, err1 := strconv.Atoi(f[0])
+		ppid, err2 := strconv.Atoi(f[1])
+		if err1 == nil && err2 == nil {
+			pairs = append(pairs, [2]int{pid, ppid})
+		}
+	}
+	return pairs
+}
+
+// childrenFromPairs 는 (pid, ppid) 표에서 want 각각에 자식이 있는지 판정한다.
+// 자기 자신을 부모로 적은 항목은 자식으로 세지 않는다 (windows HasChildren 과 같다).
+func childrenFromPairs(pairs [][2]int, want []int) map[int]bool {
+	out := make(map[int]bool, len(want))
+	for _, pid := range want {
+		out[pid] = false
+	}
+	for _, pp := range pairs {
+		if _, asked := out[pp[1]]; asked && pp[0] != pp[1] {
+			out[pp[1]] = true
+		}
+	}
+	return out
 }
 
 func (d darwinProcInfo) CWD(pid int) (string, bool) {
@@ -331,6 +383,16 @@ func (l linuxProcInfo) HasChildren(pid int) bool {
 		}
 	}
 	return false
+}
+
+// ChildrenOf 는 pid 마다 HasChildren 이다. /proc 을 읽을 뿐 fork 가 없다 (CWDs 와
+// 같은 근거).
+func (l linuxProcInfo) ChildrenOf(pids []int) map[int]bool {
+	out := map[int]bool{}
+	for _, pid := range dedupPositive(pids) {
+		out[pid] = l.HasChildren(pid)
+	}
+	return out
 }
 
 func (l linuxProcInfo) CWD(pid int) (string, bool) {

@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/pollwait"
 )
 
 var ErrStale = errors.New("workspace: stale revision")
@@ -90,6 +91,9 @@ type Manager struct {
 	mu   sync.Mutex
 	snap atomic.Pointer[snap]
 	idx  atomic.Pointer[index]
+	// changed 는 색인이 바뀔 때마다 울린다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-4). 부착
+	// 대기처럼 "브라우저가 저장하기를" 기다리는 쪽이 주기적으로 묻지 않게 한다.
+	changed pollwait.Signal
 
 	// OnIndexUpdate, when non-nil, runs synchronously after the in-memory index
 	// is replaced (initial load + every Save). Use it to reconcile satellite
@@ -296,6 +300,7 @@ func (m *Manager) Save(blob []byte, ifMatch string) (uint64, error) {
 	newRev := cur + 1
 	m.snap.Store(&snap{raw: buf, rev: newRev})
 	m.idx.Store(ix)
+	m.changed.Notify()
 	m.enqueueWrite(buf)
 	hook := m.OnIndexUpdate
 	if hook == nil {
@@ -311,6 +316,9 @@ func (m *Manager) Save(blob []byte, ifMatch string) (uint64, error) {
 	m.hookMu.Unlock()
 	return newRev, nil
 }
+
+// Changes 는 다음 색인 교체에 닫힐 채널이다 (FR-OPT-8-4).
+func (m *Manager) Changes() <-chan struct{} { return m.changed.C() }
 
 func (m *Manager) Entries() []TabEntry {
 	ix := m.idx.Load()

@@ -38,7 +38,7 @@ func runDmctlNotify(args []string, stdout, stderr io.Writer) int {
 	}
 	url := baseURL() + "/api/tools/attention/set"
 	body := map[string]any{"toolId": toolID, "reason": sanitizeNotifyLabel(label)}
-	status, resp, err := httpPostJSON(url, body)
+	status, resp, err := httpPostJSONWithin(url, body, hookBudget)
 	// Report codex activity on every notify attempt, even if the attention
 	// POST itself fails. Best-effort and silent — never affects exit status.
 	reportNotifyActivity(label, args, toolID)

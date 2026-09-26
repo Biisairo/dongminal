@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"dongminal/internal/shared/pollwait"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/domain/run"
 	"dongminal/internal/webserver/hub"
@@ -161,7 +162,11 @@ type syncWorkIndex struct {
 	mu      sync.Mutex
 	resolve map[string]string
 	entries []toolaccess.WorkspaceEntry
+	changed pollwait.Signal
 }
+
+// Changes 는 실물처럼 색인이 바뀔 때 울린다 (FR-OPT-8-4).
+func (w *syncWorkIndex) Changes() <-chan struct{} { return w.changed.C() }
 
 func newSyncWorkIndex() *syncWorkIndex {
 	return &syncWorkIndex{resolve: map[string]string{}}
@@ -177,6 +182,7 @@ func (w *syncWorkIndex) setResolve(id, toolID string) {
 func (w *syncWorkIndex) bind(toolID, tabID string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	defer w.changed.Notify()
 	w.entries = append(w.entries, toolaccess.WorkspaceEntry{ToolID: toolID, TabUUID: tabID})
 	w.resolve[tabID] = toolID
 }
@@ -186,6 +192,7 @@ func (w *syncWorkIndex) bind(toolID, tabID string) {
 func (w *syncWorkIndex) setWindow(tabID, windowID string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	defer w.changed.Notify()
 	for i := range w.entries {
 		if w.entries[i].TabUUID == tabID {
 			w.entries[i].WindowUUID = windowID
@@ -196,6 +203,7 @@ func (w *syncWorkIndex) setWindow(tabID, windowID string) {
 func (w *syncWorkIndex) unbind(toolID string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	defer w.changed.Notify()
 	kept := make([]toolaccess.WorkspaceEntry, 0, len(w.entries))
 	for _, e := range w.entries {
 		if e.ToolID != toolID {
