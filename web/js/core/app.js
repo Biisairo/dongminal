@@ -386,7 +386,7 @@ class App {
    * 이것을 딛고 있다. 이 요구는 값이 사는 곳을 localStorage 에서 서버 설정으로
    * 옮기는 것이지 선언을 고치는 것이 아니므로(D-4), 이름은 그대로 둔다.
    *
-   * 값의 검사는 `pollValue` 한 자리다 — 여기서 다시 하면 두 벌이 된다.
+   * 값의 검사는 표 한 자리다 (`settingValue`) — 여기서 다시 하면 두 벌이 된다.
    */
   get agentsPollMs(){return agentsPollInterval}
 

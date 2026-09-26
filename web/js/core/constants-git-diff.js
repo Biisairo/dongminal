@@ -163,6 +163,5 @@ const GIT_CON_CWD='cwd';
 const GIT_CON_LIMIT=500;
 // 쓰기가 끝나면 곧바로 다시 읽는다 — 방금 한 일이 이력의 맨 위에 있어야 한다.
 // 그 밖에는 탭이 활성일 때만 받는다 (History·Branches·Stash 와 같은 규약).
-const GIT_CON_POLL_MS=2000;
-// FR-PIS-6·11: 콘솔 주기도 설정이 든다. 자리가 여기인 이유는 위 주석과 같다.
-var gitConsoleInterval=GIT_CON_POLL_MS;
+// 주기의 기본값 `GIT_CON_POLL_MS` 와 설정 변수 `gitConsoleInterval` 은
+// settings-defaults.js 에 있다 (FR-PIS-6·11 · FR-OPT-11-4).

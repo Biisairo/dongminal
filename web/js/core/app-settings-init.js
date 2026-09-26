@@ -79,7 +79,7 @@ Object.assign(App.prototype, {
     num.addEventListener('input',()=>{
       // FR-TBW-4: 자르는 것은 적용하는 값뿐이다 — 입력란의 글자를 그때그때
       // 고쳐 쓰면 타이핑이 튄다 (`160` 을 지우고 `9` 를 치는 순간 `40` 이 된다).
-      tabWidthPx=clampTabWidth(num.value);
+      tabWidthPx=clampSetting('tabWidthPx',num.value);
       applyTabWidth();
       this._saveSettingsSoon('tabw');
     });

@@ -508,10 +508,7 @@ const STATUS_ITEMS={
 };
 var statusBar={}; // {itemKey: true/false}
 for(const[k,v]of Object.entries(STATUS_ITEMS))statusBar[k]=v.def;
-// POLL_INTERVAL_SETTINGS_SRS FR-PIS-11: 기본값은 상수로 세운다 — 값이 깨졌을 때
-// 돌아갈 자리이며, 그 자리가 리터럴이면 `pollValue` 가 딛을 것이 없다.
-const STATS_INTERVAL_DEFAULT=3000;
-var statsInterval=STATS_INTERVAL_DEFAULT;
+// `statsInterval` 과 그 기본값은 settings-defaults.js 에 있다 (FR-OPT-11-4).
 var layoutPresets=[]; // [{name, layout}] — layout = stripped layout tree
 var defaultPreset=-1; // index into layoutPresets, -1 = none
 // CONVENIENCE_SRS FR-TAN-19: 전경 프로세스 이름을 탭 이름으로 쓸지. 기본은 켬.
@@ -554,19 +551,7 @@ var confirmLeave=false;
 // 같은 언어여야 한다. **활성 로케일은 `I18N.locale` 이고 이 값은 저장할 값이다** —
 // 둘이 다른 순간은 사용자가 고르고 페이지가 다시 열리기 전뿐이다 (D-B-1).
 var uiLocale=I18N.locale;
-/**
- * UNFOCUSED_EDGE_SRS FR-UFE-10·12·13: 포커스를 잃은 창의 가장자리 표시 세기(0~10).
- *
- * `/api/settings` blob 에 실린다 — `confirmLeave` 와 같은 근거(D-7): 취향 스위치가
- * 기기마다 어긋나면 같은 사람이 기기를 옮길 때마다 다시 끈다.
- *
- * 기본이 0 이 아닌 것은 이 기능이 **모르는 사이 잘못 친 키**를 줄이기 위한 것이기
- * 때문이다 — 켜야만 보이는 안전장치는 그것이 필요한 사람에게 닿지 않는다.
- */
-var focusEdgeLevel=UFE_LEVEL_DEFAULT;
-// FR-AED-8·9: 알림 가장자리의 세기. 같은 blob 에 실리고 같은 규약을 쓴다 —
-// 취향 스위치가 기기마다 어긋나면 같은 사람이 기기를 옮길 때마다 다시 끈다.
-var attnEdgeLevel=ATTN_EDGE_LEVEL_DEFAULT;
+// `focusEdgeLevel`·`attnEdgeLevel` 은 settings-defaults.js 에 있다 (FR-OPT-11-4).
 /**
  * TAB_WIDTH_SRS FR-TBW-1·2: 탭 너비 고정과 그 폭.
  *
@@ -575,7 +560,6 @@ var attnEdgeLevel=ATTN_EDGE_LEVEL_DEFAULT;
  * 같은 값이다.
  */
 var tabFixedWidth=false;
-var tabWidthPx=TAB_WIDTH_DEFAULT;
 
 /**
  * 폭을 **CSS 변수 하나**로 전달한다 (NFR-TBW-1) — 탭마다 인라인 스타일을 쓰면
@@ -585,7 +569,7 @@ var tabWidthPx=TAB_WIDTH_DEFAULT;
  * 않으므로 스크롤 위치와 드래그 상태가 그대로 남는다.
  */
 function applyTabWidth(){
-  const px=clampTabWidth(tabWidthPx);
+  const px=clampSetting('tabWidthPx',tabWidthPx);
   document.documentElement.style.setProperty('--tab-w',px+'px');
   document.body.classList.toggle('tabfix',!!tabFixedWidth);
 }
@@ -640,13 +624,6 @@ function migrateUiFontScale(blob){
   return blob;
 }
 
-// FR-TBW-4: 범위 밖은 **자른다** — 거부하지 않는다. 숫자 입력은 타이핑 도중에
-// 잠깐 범위 밖이 되며, 그때마다 오류를 내면 입력 자체가 불가능해진다.
-function clampTabWidth(v){
-  const n=Math.round(Number(v));
-  if(!isFinite(n)) return TAB_WIDTH_DEFAULT;
-  return Math.min(TAB_WIDTH_MAX,Math.max(TAB_WIDTH_MIN,n));
-}
 // EDITOR_LSP_SRS FR-LSP-36: 진단(에러·경고 밑줄)을 켤지. 기본은 켬 — 언어 서버를
 // 세웠다면 그것이 찾은 문제를 보는 것이 기본값으로 옳다. **기기별**인 이유는
 // 화면의 시끄러움에 대한 취향이기 때문이다.

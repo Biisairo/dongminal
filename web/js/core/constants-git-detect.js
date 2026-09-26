@@ -21,8 +21,8 @@
 //
 // FR-GPO-20: status 폴링은 **안전망**이다. 두 가지를 겸한다 —
 // 푸시가 끊겼을 때의 회복(C-5)과 관심 표명의 갱신(FR-GPO-11 의 90초보다 세 배
-// 잦다). 종전 1초는 푸시가 없을 때의 주기였다.
-const GIT_STATUS_POLL_MS=30000;
+// 잦다). 종전 1초는 푸시가 없을 때의 주기였다. 기본값 `GIT_STATUS_POLL_MS` 는
+// 표에서 파생한다 (settings-defaults.js).
 
 // UX_BATCH9_SRS FR-GLR-2: 관측이 주기의 몇 배까지 낡으면 멈춘 것으로 보는가.
 //
@@ -98,14 +98,5 @@ const GIT_REPO_MISSING_POLL_MS=30000;
 const GIT_FAIL_BACKOFF_MAX_MS=300000;
 // 안내에 실을 재확인 주기 (초). 상수에서 파생한다 — 두 곳에 적으면 갈린다.
 const GIT_RMS_AUTO_NOTE=t('git.rms_auto_note',{sec:GIT_REPO_MISSING_POLL_MS/1000});
-/**
- * 주기는 설정으로 덮을 수 있다 (FR-GIT-23) — statsInterval 과 같은 방식이다.
- *
- * POLL_INTERVAL_SETTINGS_SRS FR-PIS-6·11: **상수는 기본값으로 남고 변수가 설정을
- * 든다.** 아래 셋이 같은 모양이며, 값을 얹는 자리는 `_settingsApply` 하나다
- * (FR-PIS-7) — 여기서 다시 읽는 코드를 만들지 않는다.
- */
-var gitStatusInterval=GIT_STATUS_POLL_MS;
-var gitReposInterval=GIT_REPOS_POLL_MS;
-// `gitConsoleInterval` 은 `constants-git-diff.js` 에 있다 — `GIT_CON_POLL_MS` 선언
-// **뒤**여야 하고(`const` 의 TDZ), 그 상수가 Console 절의 것이기 때문이다.
+// 주기는 설정으로 덮을 수 있다 (FR-GIT-23). 주기 변수 다섯은 settings-defaults.js
+// 에 있다 — 초기값이 표의 기본값이기 때문이다 (FR-OPT-11-4).

@@ -11,8 +11,11 @@
  * `saveSettings` 의 키 목록과 `_settingsApply` 와 화면이 세 벌이 되고, 그중
  * 하나를 빠뜨린 실패는 다른 브라우저 창을 열어 보기 전까지 아무도 모른다.
  *
- * 로드 순서 계약: constants-git.js·constants.js **뒤**(기본값 상수를 읽는다),
- * app-settings.js **앞**(`_settingsApply` 가 이 표를 지난다).
+ * 키·범위·기본값은 여기 없다 — `SETTINGS_SCHEMA` 가 갖는다 (FR-CFG-1 · FR-OPT-11-4).
+ * 선택지의 최소·최대가 표의 min·max 와 같은지는 `settings-source.test.mjs` 가 본다.
+ *
+ * 로드 순서 계약: settings-schema.js **뒤**, app-settings.js **앞**(`_settingsApply`
+ * 가 이 표를 지난다).
  */
 
 /**
@@ -22,30 +25,25 @@
  *   id        `Polling` 탭에 서는 `<select>` 의 id
  *   label     사용자가 보는 이름
  *   hint      **무엇을 얼마나 자주 묻는지** (FR-PIS-21). 값 이름이 아니라 화면의 말이다
- *   def()     기본값. 값이 깨졌을 때 돌아갈 자리이기도 하다 (FR-PIS-11)
- *   get/set   전역 변수의 읽기·쓰기. 변수는 파일이 저마다 달라 이름만으로는 닿지 않는다
+ *   get/set   전역 변수의 읽기·쓰기. 변수가 전역이라 표에서 이름만으로는 닿지 않는다
  *   opts      선택지 [ms, 라벨]. 주기마다 다르다 (D-6)
- *   off       `0`(끔)을 값으로 받는가. 안전망 하나뿐이다 (FR-PIS-9)
  */
 const POLL_SETTINGS=[
   {
     key:'agentsPollInterval', id:'pi-agents', label:t('poll.agents.label'),
     hint:t('poll.agents.hint'),
-    def:()=>AGENTS_POLL_DEFAULT,
     get:()=>agentsPollInterval, set:v=>{agentsPollInterval=v},
     opts:[[2000,tn('core.dur_sec',2)],[3000,tn('core.dur_sec',3)],[5000,tn('core.dur_sec',5)],[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)]],
   },
   {
     key:'statsInterval', id:'pi-stats', label:t('poll.stats.label'),
     hint:t('poll.stats.hint'),
-    def:()=>STATS_INTERVAL_DEFAULT,
     get:()=>statsInterval, set:v=>{statsInterval=v},
     opts:[[1000,tn('core.dur_sec',1)],[2000,tn('core.dur_sec',2)],[3000,tn('core.dur_sec',3)],[5000,tn('core.dur_sec',5)],[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)]],
   },
   {
     key:'gitStatusInterval', id:'pi-gitstatus', label:t('poll.git_status.label'),
     hint:t('poll.git_status.hint'),
-    def:()=>GIT_STATUS_POLL_MS,
     get:()=>gitStatusInterval, set:v=>{gitStatusInterval=v},
     // FR-PIS-9: `0` 이 뜻을 갖는 유일한 자리 — 본줄이 따로 있으므로 꺼도 멎지 않는다.
     //
@@ -53,48 +51,24 @@ const POLL_SETTINGS=[
     // 임대가 이 폴링에 매달려 있어서, 끄면 본줄인 push 까지 죽었다 (GP-1). 임대를
     // SSE 구독으로 옮겨 참으로 만들었고, 그러면서 `1분`·`2분` 을 뺐다 — 놓친 것을
     // 줍는 그물이 1~2분에 한 번이면 그물이 아니고, 그 사이는 push 가 이미 덮는다.
-    // 짧게 두거나 끄거나 둘 중 하나다.
-    off:true,
+    // 짧게 두거나 끄거나 둘 중 하나다. `0` 을 값으로 받는다는 사실은 표의 `off` 다.
     opts:[[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)],[0,t('core.off')]],
   },
   {
     key:'gitReposInterval', id:'pi-gitrepos', label:t('poll.git_repos.label'),
     hint:t('poll.git_repos.hint'),
-    def:()=>GIT_REPOS_POLL_MS,
     get:()=>gitReposInterval, set:v=>{gitReposInterval=v},
     opts:[[1000,tn('core.dur_sec',1)],[2000,tn('core.dur_sec',2)],[3000,tn('core.dur_sec',3)],[5000,tn('core.dur_sec',5)],[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)]],
   },
   {
     key:'gitConsoleInterval', id:'pi-gitconsole', label:t('poll.git_console.label'),
     hint:t('poll.git_console.hint'),
-    def:()=>GIT_CON_POLL_MS,
     get:()=>gitConsoleInterval, set:v=>{gitConsoleInterval=v},
     opts:[[1000,tn('core.dur_sec',1)],[2000,tn('core.dur_sec',2)],[5000,tn('core.dur_sec',5)],[10000,tn('core.dur_sec',10)]],
   },
 ];
 
 const POLL_BY_KEY=Object.fromEntries(POLL_SETTINGS.map(s=>[s.key,s]));
-
-/**
- * FR-PIS-8: 저장된 값 하나를 **쓸 수 있는 주기**로 만든다.
- *
- * 미저장·정수 아님·범위 밖은 전부 기본값으로 떨어진다. 손으로 고친
- * `settings.json` 하나가 초당 폴링을 만들지 않아야 하기 때문이며, 하한은 그
- * 주기의 선택지 최소값이다 — 화면에서 고를 수 없는 값을 파일로는 넣을 수 있다면
- * 선택지를 나눈 이유(D-6)가 사라진다.
- *
- * `0` 은 `off:true` 인 주기에서만 통과한다 (FR-PIS-9).
- */
-function pollValue(raw,spec){
-  const d=spec.def();
-  if(raw===undefined||raw===null) return d;
-  const n=Math.round(Number(raw));
-  if(!Number.isFinite(n)) return d;
-  if(n===0) return spec.off?0:d;
-  const vals=spec.opts.map(o=>o[0]).filter(v=>v>0);
-  const lo=Math.min(...vals), hi=Math.max(...vals);
-  return (n>=lo&&n<=hi)?n:d;
-}
 
 Object.assign(App.prototype, {
   /**
@@ -120,7 +94,8 @@ Object.assign(App.prototype, {
         sel.appendChild(o);
       }
       sel.addEventListener('change',()=>{
-        spec.set(pollValue(parseInt(sel.value,10),spec));
+        // FR-PIS-8: 값의 판정은 표 한 자리다 (`settingValue`, FR-OPT-11-4).
+        spec.set(settingValue(parseInt(sel.value,10),SETTINGS_BY_KEY[spec.key]));
         this.saveSettings();
         // 값이 바뀐 즉시 도는 타이머에 닿는다 — 저장 왕복을 기다리면 사용자는
         // 설정이 듣지 않는 것으로 읽는다 (FR-WBR-10·11 과 같은 근거).
@@ -163,7 +138,7 @@ Object.assign(App.prototype, {
     if(old===null) return;
     try{ localStorage.removeItem('agentsPollMs') }catch{}
     if(saved&&saved.agentsPollInterval!==undefined) return;
-    const v=pollValue(parseInt(old,10),POLL_BY_KEY.agentsPollInterval);
+    const v=settingValue(parseInt(old,10),SETTINGS_BY_KEY.agentsPollInterval);
     if(v===agentsPollInterval) return;
     agentsPollInterval=v;
     TIMERS.refreshChanged();

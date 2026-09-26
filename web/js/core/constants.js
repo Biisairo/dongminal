@@ -75,8 +75,7 @@ const WIN_UNFOCUSED_CLASS='win-unfocused';
  * 레벨 5(기본)가 알파 .2 다 — 눈에 띄는 값 중 가장 옅은 쪽. 10 이면 .4 이고,
  * 그보다 진해지면 가장자리의 글자가 반전색에 삼켜진다.
  */
-const UFE_LEVEL_DEFAULT=5;
-const UFE_LEVEL_MAX=10;
+// 기본값·최댓값(`UFE_LEVEL_DEFAULT`·`UFE_LEVEL_MAX`)은 표에서 파생한다 (settings-defaults.js).
 /* D-5a: 레벨당 .1 이다 (종전 .04).
  *
  *   이전 동작: 기본 5 에서 알파 .2 — 반전이 20% 만 섞여 어느 테마에서든 옅은
@@ -106,8 +105,7 @@ const UFE_PREVIEW_CLASS='ufe-preview';
  * 레벨당 .1 이므로 기본 5 가 알파 .5 다. 이 띠는 맥박하며 사라졌다 나타나므로
  * 정지한 띠보다 눈에 잘 들어온다 — 같은 세기라도 더 강하게 읽힌다.
  */
-const ATTN_EDGE_LEVEL_DEFAULT=5;
-const ATTN_EDGE_LEVEL_MAX=10;
+// 기본값·최댓값은 표에서 파생한다 (settings-defaults.js).
 const ATTN_EDGE_ALPHA_PER_LEVEL=.1;
 const ATTN_EDGE_PREVIEW_MS=1400;
 const ATTN_EDGE_PREVIEW_CLASS='ae-preview';
@@ -123,17 +121,6 @@ const ATTN_EDGE_ON_CLASS='attn-edge-on';
  */
 const ATTN_DETAIL_VIEW_MAX=140;
 
-// 활동 패널 자동 새로고침 주기 기본값(ms). 설정에서 변경(per-device localStorage).
-// 비정상 종료·hook 누락으로 SSE 가 안 와도 주기적으로 서버와 동기화 (FR-AAP-19).
-const AGENTS_POLL_DEFAULT=5000;
-/**
- * POLL_INTERVAL_SETTINGS_SRS FR-PIS-16 / D-3: **저장 자리가 서버 설정으로 옮겼다.**
- *
- * 종전에는 `localStorage` 였고(app.js 의 접근자), 그래서 다섯 주기 중 이것 하나만
- * 다른 브라우저 창에 전파되지 않았다. 나머지 넷과 같은 자리에 두면 `settings_changed`
- * 전파(FR-SYN)를 그대로 받는다. 상수는 기본값으로 남는다 (FR-PIS-11).
- */
-var agentsPollInterval=AGENTS_POLL_DEFAULT;
 // 에이전트 활동 상태의 어휘 (OPTIMIZE_REFACTOR_SRS FR-OPT-10-1). 짝은 Go 의
 // `internal/shared/activity` 이고, `scripts/check-activity-vocab.sh` 가 두 목록을 대조한다.
 // `ENDED` 는 종료 신호 — 카드를 거둔다.
@@ -537,9 +524,7 @@ const SANDBOX_COPY_BADGE_TITLE=t('core.sandbox_copy_badge_title');
 // 하한 40 의 근거는 실측이다 (D-3): `.pn-tab` 은 좌우 패딩 20px + gap 4px +
 // 닫기(`×`, 11px 글자 ≈ 8px) 를 쓰므로 **32px 이 이름 이전에 소비된다.** 그보다
 // 좁으면 닫기가 잘려 **닫을 수 없는 탭**이 된다.
-const TAB_WIDTH_DEFAULT=160;
-const TAB_WIDTH_MIN=40;
-const TAB_WIDTH_MAX=480;
+// 값은 표(`tabWidthPx`)가 갖고 `TAB_WIDTH_*` 는 거기서 파생한다 (settings-defaults.js).
 
 const TAB_ADD_TITLE='Add a tab to this pane';
 // UI_KIT_SRS FR-GLY-6: 아이콘만 있는 자리는 툴팁이 유일한 이름이다.

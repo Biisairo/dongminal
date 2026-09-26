@@ -79,7 +79,7 @@ const SETTINGS_ACCESS={
     applyTabWidth();
   }},
   tabWidthPx:{get:()=>tabWidthPx,ctl:{id:'ds-tabw',kind:'value'},set(v){
-    tabWidthPx=clampTabWidth(v);
+    tabWidthPx=clampSetting('tabWidthPx',v);
     applyTabWidth();
   }},
   // FONT_SIZE_SETTING_SRS FR-FSS-3·9: 배율 하나가 CSS 토큰과 편집기 둘 다에 간다.

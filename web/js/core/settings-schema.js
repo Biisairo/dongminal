@@ -11,8 +11,10 @@
  *
  * 아래는 `const SETTINGS_SCHEMA = <JSON 배열>;` **한 덩어리**이며 JS 표현식을
  * 쓰지 않는다. Go 가 embed 된 **같은 바이트**를 JSON 으로 읽기 때문이다
- * (FR-CFG-10, `internal/shared/settingsschema`). 상수를 참조하고 싶어도
- * 값을 적어라 — 그 상수와 어긋나면 `TC-CFG-2` 가 잡는다.
+ * (FR-CFG-10, `internal/shared/settingsschema`). 상수를 참조하지 말고 값을
+ * 적어라 — 방향은 반대다: 기본값·범위 상수가 **이 표에서 파생된다**
+ * (`settings-defaults.js`, FR-OPT-11-4). 파생과 선언 자리는 `TC-CFG-2x`
+ * (`web/js/test/settings-source.test.mjs`)가 지킨다.
  *
  * 생성기를 두지 않은 이유는 D-CFG-2 다. 생성기는 원천을 Go 로 옮기고 이 파일을
  * 산출물로 만든다 — 그러면 게이트 밖에서 여기를 고친 사람이 조용히 되돌려진다.
@@ -21,7 +23,8 @@
  * 없고, `app-settings.js` 의 `SETTINGS_ACCESS` 가 그것을 진다 (FR-CFG-5).
  * 두 표의 키 집합이 같은지는 검사가 강제한다.
  *
- * 로드 순서: constants*.js 뒤, app-settings.js 앞.
+ * 로드 순서: 가장 앞쪽 — i18n 카탈로그 뒤, settings-defaults.js·constants*.js 앞.
+ * 로드 시점에 아무것도 읽지 않는다.
  */
 const SETTINGS_SCHEMA = [
   {"key":"themeName","type":"string","def":"dark","where":"Theme"},
@@ -96,8 +99,9 @@ function settingValue(raw,spec){
  * 밖이 되고(`150` 을 지우고 `9` 를 치는 순간), 그때마다 기본값으로 튕기면
  * 입력 자체가 불가능해진다 (FR-TBW-4 가 `clampTabWidth` 로 먼저 겪은 일이다).
  *
- * **범위를 다시 적지 않는다.** `clampTabWidth` 는 상수 셋을 따로 들고 있으나
- * 그 값은 이미 표에 있다 — 두 벌이 되면 한쪽만 고쳐진다 (FR-CFG-1).
+ * **범위를 다시 적지 않는다.** 탭 너비를 자르던 `clampTabWidth` 가 상수 셋을
+ * 따로 들고 있었고, 이제 이 함수로 합쳤다 (FR-OPT-11-4) — 두 벌이 되면 한쪽만
+ * 고쳐진다 (FR-CFG-1).
  */
 function clampSetting(key,v){
   const spec=SETTINGS_BY_KEY[key];

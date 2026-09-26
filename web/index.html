@@ -666,6 +666,11 @@
 <script src="js/core/i18n.js?v=__ASSETV__"></script>
 <script src="js/i18n/ko.js?v=__ASSETV__"></script>
 <script src="js/i18n/en.js?v=__ASSETV__"></script>
+<!-- 설정 블롭의 서술자 표 (CONFIG_MANAGEMENT_SRS FR-CFG-1). 기본값·범위 상수가
+     이 표에서 파생되므로(settings-defaults.js, FR-OPT-11-4) constants*.js **앞**이다.
+     Go 도 embed 된 같은 바이트를 읽으므로(FR-CFG-10) 파일 형태가 계약이다. -->
+<script src="js/core/settings-schema.js?v=__ASSETV__"></script>
+<script src="js/core/settings-defaults.js?v=__ASSETV__"></script>
 <script src="js/core/constants.js?v=__ASSETV__"></script>
 <script src="js/core/constants-git.js?v=__ASSETV__"></script>
 <!-- 탭별 git 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1). 순서는 원본 파일의 절
@@ -839,10 +844,6 @@
 <!-- 폴링 주기 설정 (POLL_INTERVAL_SETTINGS_SRS). 표가 진실이므로 app-settings.js
      **앞**이어야 한다 — 그쪽 `_settingsApply` 가 `POLL_SETTINGS` 를 지난다. -->
 <script src="js/core/app-polling.js?v=__ASSETV__"></script>
-<!-- 설정 블롭의 서술자 표 (CONFIG_MANAGEMENT_SRS FR-CFG-1). app-settings.js **앞**
-     이어야 한다 — `_saveSettings`·`_settingsApply` 가 이 표를 돈다. Go 도 embed 된
-     같은 바이트를 읽으므로(FR-CFG-10) 파일 형태가 계약이다. -->
-<script src="js/core/settings-schema.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings.js?v=__ASSETV__"></script>
 <!-- 설정창의 패널들 (FE_MODULE_BOUNDARY_SRS FR-FMB-10). 전부 App.prototype 증강이라
      app.js 뒤이기만 하면 되고, 서로를 로드 시점에 참조하지 않는다.
