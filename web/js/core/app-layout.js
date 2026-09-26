@@ -150,7 +150,7 @@ Object.assign(App.prototype, {
     // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-2: keepFocus 면 창은 사이드바에만
     // 추가 — activeWindow/focused 무변화 (백그라운드 잡 컨테이너 패턴).
     if(!opts.keepFocus){
-      this.ws.activeWindow=s.id;
+      this._activateWindow(s.id);
       // FR-WSL-54: **여는 경로는 포커스 칸에 연다** — 창을 만드는 것도 그 경로다.
       //
       // 화면은 `ws.activeWindow` 가 아니라 **칸이 가리키는 창**을 그린다
@@ -160,7 +160,6 @@ Object.assign(App.prototype, {
       //
       // `switchWindow` 가 밟는 걸음과 같다. 다른 칸은 건드리지 않는다.
       this._slotOnSwitch(s.id);
-      try{sessionStorage.setItem('activeWindow', s.id)}catch{}
       this.setFocusState(r, s);
       this._focusWindow(s.id);
     }
@@ -271,8 +270,7 @@ Object.assign(App.prototype, {
       // 옮겨 놓았다 (FR-CLS-3). 그 경로도 여기 규칙과 같은 곳으로 간다.
       const next=this._nextActiveWindow(i);
       if(next){
-        this.ws.activeWindow=next.id;
-        try{sessionStorage.setItem('activeWindow', this.ws.activeWindow)}catch{}
+        this._activateWindow(next.id);
       }else{
         // FR-CLS-2: 일반 창이 남지 않았다. Git 창만 남기고 사용자를 그 안에
         // 가두지 않는다 — 새 창을 만들고 그리로 간다.
@@ -338,8 +336,7 @@ Object.assign(App.prototype, {
     this.ws.windows.splice(at,0,u.win);
     for(const pid of u.pids) this._setToolBackground(pid,false);
     this._bgRefresh();
-    this.ws.activeWindow=u.win.id;
-    try{sessionStorage.setItem('activeWindow',u.win.id)}catch{}
+    this._activateWindow(u.win.id);
     const next=(u.win.focusedPane&&findPane(u.win.layout,u.win.focusedPane))?u.win.focusedPane:firstPane(u.win.layout)?.id||null;
     this.setFocusState(next,u.win);
     this._focusWindow(u.win.id);
@@ -360,22 +357,13 @@ Object.assign(App.prototype, {
     // 건너지 못해, 새로고침 뒤 Windows 탭이 늘 첫 창으로 갔다 (SRS §2.2).
     // 적는 자리는 여기 하나다 — 두 벌로 만들면 한쪽만 갱신된다.
     if(cur&&!this.isGitWin(cur)&&!this.isEditorWin(cur)) this._rememberReturn('plain',cur.id);
-    this.ws.activeWindow=sid;
+    this._activateWindow(sid);
     // WINDOW_SLOTS_SRS FR-WSL-54: 포커스 슬롯이 이 창을 받는다. 다른 슬롯은
     // 건드리지 않는다 — 그것이 두 칸을 나란히 두는 이유다.
     this._slotOnSwitch(sid);
     // FR-EDT-7: Editor 탭이 돌아갈 창을 같은 규약으로 기억한다 — 들어가는
     // 순간에 적는다. 나갈 때 적으면 한 번도 떠난 적 없는 창을 기억하지 못한다.
     if(this.isEditorWin(this.aw())) this._rememberReturn('editor',sid);
-    // Persist per-window activeWindow to sessionStorage (survives refresh,
-    // independent across windows).
-    try{sessionStorage.setItem('activeWindow', sid)}catch{}
-    // D-RTU-18: 루트도 함께 적는다 — 새로고침 뒤 id 는 바뀔 수 있고 루트는 아니다.
-    try{
-      const w=this.aw();
-      if(this.isEditorWin(w)) sessionStorage.setItem(ACTIVE_EDITOR_ROOT_KEY,this.edRootOf(w));
-      else sessionStorage.removeItem(ACTIVE_EDITOR_ROOT_KEY);
-    }catch{}
     const a=this.aw();
     if(a&&a.layout){
       const next=(a.focusedPane&&findPane(a.layout,a.focusedPane))?a.focusedPane:firstPane(a.layout)?.id||null;
@@ -395,12 +383,7 @@ Object.assign(App.prototype, {
    * REPO_TAB_UNIFY_SRS FR-RTU-40·43: 창의 **미리보기 탭**. 하나뿐이다.
    */
   _findPreviewTab(s){
-    if(!s||!s.layout) return null;
-    for(const pn of this.flattenPanes(s.layout)){
-      const tab=(pn.tabs||[]).find(t=>t&&t.preview);
-      if(tab) return {win:s,pane:pn,tab};
-    }
-    return null;
+    return s?findTabWhere([s],t=>t.preview):null;
   },
 
   /**
@@ -426,38 +409,13 @@ Object.assign(App.prototype, {
    * 한다. 전체를 훑으면 다른 저장소의 History 로 끌려간다.
    */
   findGitViewTab(s, view) {
-    if (!s || !s.layout) return null;
-    for (const pn of this.flattenPanes(s.layout)) {
-      const tab = (pn.tabs || []).find(t => t && t.type === TAB_TYPE_GIT && t.gitView === view);
-      if (tab) return { win: s, pane: pn, tab };
-    }
-    return null;
+    return s ? findTabWhere([s], t => t.type === TAB_TYPE_GIT && t.gitView === view) : null;
   },
 
   _findEditorTab(filePath) {
-    for (const s of this.ws.windows) {
-      if (!s || !s.layout) continue;
-      let result = null;
-      const walk = n => {
-        if (!n || result) return;
-        if (n.type === 'pane' && n.tabs) {
-          for (const t of n.tabs) {
-            // FR-DRV-10: **소스 탭만이다.** 렌더 탭이 이 판정에 걸리면 탐색기에서
-            // 연 파일이 소스가 아니라 렌더로 열린다.
-            if (t.type === 'editor' && !t.render && t.filePath === filePath) {
-              result = { tab: t, pane: n, win: s };
-              return;
-            }
-          }
-        }
-        if (n.type === 'split' && n.children) {
-          for (const c of n.children) walk(c);
-        }
-      };
-      walk(s.layout);
-      if (result) return result;
-    }
-    return null;
+    // FR-DRV-10: **소스 탭만이다.** 렌더 탭이 이 판정에 걸리면 탐색기에서 연 파일이
+    // 소스가 아니라 렌더로 열린다.
+    return findTabWhere(this.ws.windows, t => t.type === 'editor' && !t.render && t.filePath === filePath);
   },
 
   async addTab(rid, type = 'terminal', opts = {}) {
@@ -493,9 +451,7 @@ Object.assign(App.prototype, {
       // (아래 editor 의 중복 방지와 같은 규약).
       const existing = this._findRunTab(opts.runId);
       if (existing) {
-        const cur = this.aw(); if (cur) cur.focusedPane = this.focused;
-        this.ws.activeWindow = existing.win.id;
-        try{sessionStorage.setItem('activeWindow', existing.win.id)}catch{}
+        this._activateWindow(existing.win.id, { rememberFocus: true });
         this.paneTabSet(existing.pane, existing.tab.id);
         this.setFocusState(existing.pane.id, existing.win);
         this._focusWindow(existing.win.id);
@@ -574,9 +530,7 @@ Object.assign(App.prototype, {
         }
       }
       if (existing) {
-        const cur = this.aw(); if (cur) cur.focusedPane = this.focused;
-        this.ws.activeWindow = existing.win.id;
-        try{sessionStorage.setItem('activeWindow', existing.win.id)}catch{}
+        this._activateWindow(existing.win.id, { rememberFocus: true });
         this.paneTabSet(existing.pane, existing.tab.id);
         this.setFocusState(existing.pane.id, existing.win);
         this._focusWindow(existing.win.id);
@@ -829,8 +783,7 @@ Object.assign(App.prototype, {
       // FR-SKF-1: 저장된 사용자 포커스를 그대로 복원. activeWindow / focused 모두.
       // FR-SKF-3: 저장된 pane 이 사후 layout 에서 사라졌으면 무동작 + 경고.
       if(this.ws.activeWindow!==savedWindow && this.ws.windows.some(x=>x.id===savedWindow)){
-        this.ws.activeWindow=savedWindow;
-        try{sessionStorage.setItem('activeWindow', savedWindow)}catch{}
+        this._activateWindow(savedWindow);
       }
       const a=this.aw();
       if(a && savedFocused && findPane(a.layout,savedFocused)){
@@ -840,9 +793,7 @@ Object.assign(App.prototype, {
       }
     } else {
       if(this.ws.activeWindow!==tgtWindowId){
-        const cur=this.aw(); if(cur) cur.focusedPane=this.focused;
-        this.ws.activeWindow=tgtWindowId;
-        try{sessionStorage.setItem('activeWindow', tgtWindowId)}catch{}
+        this._activateWindow(tgtWindowId,{rememberFocus:true});
       }
       const next = lastR || tgtPaneId;
       this.setFocusState(next, s);

@@ -630,16 +630,7 @@ Object.assign(App.prototype, {
     if(!toolId) return false;
     const s=this.aw();
     if(!s||!s.layout) return false;
-    let found=false;
-    const walk=n=>{
-      if(!n||found) return;
-      if(n.type==='pane'&&n.tabs){
-        for(const t of n.tabs) if(t.toolId===toolId){found=true;return}
-      }
-      if(n.type==='split'&&n.children) for(const c of n.children) walk(c);
-    };
-    walk(s.layout);
-    return found;
+    return !!findTabWhere([s],t=>t.toolId===toolId);
   },
 
   /**
@@ -651,19 +642,8 @@ Object.assign(App.prototype, {
     return toolDisplayName(toolId,this.fgNames,loc&&loc.tab,fallback);
   },
 
-  // 모든 창 layout 트리를 walk 해 toolId 를 가진 tab 위치 반환 (FR-PAN-16)
+  // toolId 를 가진 tab 의 위치 (FR-PAN-16)
   findToolLocation(toolId){
-    if(!toolId) return null;
-    const walk=(node,win)=>{
-      if(!node) return null;
-      if(node.type==='pane'){
-        const tab=(node.tabs||[]).find(t=>t.toolId===toolId);
-        return tab?{win,pane:node,tab}:null;
-      }
-      if(node.children) for(const c of node.children){const f=walk(c,win);if(f)return f}
-      return null;
-    };
-    for(const s of this.ws.windows){const f=walk(s.layout,s);if(f)return f}
-    return null;
+    return toolId?findTabWhere(this.ws.windows,t=>t.toolId===toolId):null;
   },
 });

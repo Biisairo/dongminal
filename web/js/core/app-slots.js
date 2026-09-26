@@ -303,7 +303,7 @@ Object.assign(App.prototype, {
     // 이전에 적힌 키에는 `tabs` 가 아예 없다.
     for(let i=0;i<this._slots.windows.length;i++) this._slotTabsSeed(i);
     const cur=this._slots.windows[this._slots.focused];
-    if(cur) this.ws.activeWindow=cur;
+    if(cur) this._activateWindow(cur);
     this._slotSyncSubs();
   },
 
@@ -373,8 +373,7 @@ Object.assign(App.prototype, {
       this._slotReap();
       this._slotsPersist();
       if(keep){
-        this.ws.activeWindow=keep;
-        try{sessionStorage.setItem('activeWindow',keep)}catch{}
+        this._activateWindow(keep);
       }
       this.render();
       if(this.ws.activeWindow) this._focusWindow(this.ws.activeWindow,0);
@@ -503,8 +502,7 @@ Object.assign(App.prototype, {
   _slotSyncActive(){
     const s=this.slotWindow(this.slotFocused());
     if(!s) return;
-    this.ws.activeWindow=s.id;
-    try{sessionStorage.setItem('activeWindow',s.id)}catch{}
+    this._activateWindow(s.id);
     // FR-SVS-14: 워크스페이스의 활성 탭은 **포커스 칸이 보는 것**이다. 포커스가
     // 칸을 옮기면 그것도 따라온다.
     if(this._slotTabsToWs()) this.save();

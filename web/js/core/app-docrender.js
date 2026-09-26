@@ -164,8 +164,7 @@ Object.assign(App.prototype, {
     // `_findEditorTab` 은 소스 탭만 찾는다 (FR-DRV-10).
     const ex = this._findEditorTab(view.filePath);
     if (ex) {
-      this.ws.activeWindow = ex.win.id;
-      try { sessionStorage.setItem('activeWindow', ex.win.id) } catch { /* 사생활 모드 */ }
+      this._activateWindow(ex.win.id);
       this.paneTabSet(ex.pane, ex.tab.id);
       this.setFocusState(ex.pane.id, ex.win);
       this.render();
@@ -178,14 +177,7 @@ Object.assign(App.prototype, {
   // 렌더 탭 찾기. `_findEditorTab` 과 **갈라져 있는 것이 요점이다** (FR-DRV-10) —
   // 한 함수가 둘 다 찾으면 탐색기에서 연 파일이 렌더로 열린다.
   _findRenderTab(filePath) {
-    for (const s of this.ws.windows) {
-      if (!s || !s.layout) continue;
-      for (const pn of this.flattenPanes(s.layout)) {
-        const tab = (pn.tabs || []).find(t => t && t.render && t.filePath === filePath);
-        if (tab) return { win: s, pane: pn, tab };
-      }
-    }
-    return null;
+    return findTabWhere(this.ws.windows, t => t.render && t.filePath === filePath);
   },
 
   /**

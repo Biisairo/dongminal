@@ -108,8 +108,7 @@ Object.assign(App.prototype, {
     if(!Array.isArray(this.ws.agentsOrder)||!this.ws.agentsOrder.length) return;
     const present=new Set();
     for(const w of this.ws.windows||[]){
-      const panes=[]; this._collectPanes(w.layout,panes);
-      for(const pn of panes) for(const t of (pn.tabs||[])) if(t.toolId) present.add(t.toolId);
+      for(const pn of panesOf(w.layout)) for(const t of (pn.tabs||[])) if(t.toolId) present.add(t.toolId);
     }
     const kept=this.ws.agentsOrder.filter(id=>present.has(id));
     if(kept.length!==this.ws.agentsOrder.length) this.ws.agentsOrder=kept;

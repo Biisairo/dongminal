@@ -23,7 +23,7 @@ Object.assign(App.prototype, {
     for(const s of ws){
       if(!s||!s.layout) continue;
       if(this.isEditorWin(s)||this.isGitWin(s)) continue;
-      const panes=[];this._collectPanes(s.layout,panes);
+      const panes=panesOf(s.layout);
       for(const p of panes){
         const before=(p.tabs||[]).length;
         p.tabs=(p.tabs||[]).filter(t=>!t||t.type!=='editor');
@@ -184,18 +184,13 @@ Object.assign(App.prototype, {
       // FR-ELR-11a: 보이지 않는 창은 묻지 않는다 (FR-STAT-17). 돌아오면 그 틱의
       // 첫 회차가 낡음을 갚는다 (`visiblePoll` 의 복귀 갱신).
       if(!this.windowVisible(s.id)) continue;
-      const walk=n=>{
-        if(!n) return;
-        if(n.type==='pane'&&n.tabs) for(const t of n.tabs){
-          if(t&&t.type==='editor'&&t.filePath) seen.add(t.filePath);
-          // REPO_FIX 05 §3A-3: git Diff 탭의 작업 트리 쪽도 편집기 문서다 — 바깥 변경은
-          // 문서 refresh 가 나른다(03). 빼면 Diff 만 연 파일이 낡는다.
-          if(t&&t.type===TAB_TYPE_GIT&&t.gitView==='diff')
-            for(const p of this._gitDiffDocPaths(this.edRootOf(s))) seen.add(p);
-        }
-        if(n.type==='split'&&n.children) for(const c of n.children) walk(c);
-      };
-      walk(s.layout);
+      for(const n of panesOf(s.layout)) for(const t of (n.tabs||[])){
+        if(t&&t.type==='editor'&&t.filePath) seen.add(t.filePath);
+        // REPO_FIX 05 §3A-3: git Diff 탭의 작업 트리 쪽도 편집기 문서다 — 바깥 변경은
+        // 문서 refresh 가 나른다(03). 빼면 Diff 만 연 파일이 낡는다.
+        if(t&&t.type===TAB_TYPE_GIT&&t.gitView==='diff')
+          for(const p of this._gitDiffDocPaths(this.edRootOf(s))) seen.add(p);
+      }
     }
     return seen;
   },

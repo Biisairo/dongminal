@@ -96,16 +96,9 @@ class App {
     return window.innerWidth < this.mobileBreakpoint;
   }
 
-  // Flatten split tree → array of pane nodes (in-order: L→R, T→B)
-  flattenPanes(node, out){
-    out = out || [];
-    if(!node) return out;
-    if(node.type==='pane') out.push(node);
-    else if(node.type==='split' && node.children){
-      for(const c of node.children) this.flattenPanes(c, out);
-    }
-    return out;
-  }
+  // 분할 트리 → pane 배열 (L→R, T→B). 순회는 `panesOf` 한 벌이다 (FR-OPT-11-1 · FEC-21) —
+  // 이 이름은 호출처와 e2e 계약(app.testing)을 위해 남는다.
+  flattenPanes(node){ return panesOf(node) }
 
   /**
    * TOOL_LIST_UNKNOWN_SRS FR-TLU-9: 첫 화면은 **도구를 아는 스냅숏**으로 세운다.
@@ -182,42 +175,13 @@ class App {
       let sideWidthMoved=false;
       if(sv&&sv.windows&&sv.windows.length){
         this.ws=sv;
-        // Migration: displayMode/mobileBreakpoint were briefly stored in workspace.
-        // Now per-device (localStorage); strip from synced state.
-        if('displayMode' in this.ws) delete this.ws.displayMode;
-        if('mobileBreakpoint' in this.ws) delete this.ws.mobileBreakpoint;
-        // FR-UXB-8: 폭 둘도 같은 자리에서 걷어낸다 — 치수는 창의 것이다
-        // (UX_BATCH10_SRS D-UXB-1). 화면에 세우는 일은 하지 않는다: 첫 페인트
-        // 스크립트가 이 창의 값으로 이미 세웠고, 서버의 값이 그것을 덮으면
-        // 다른 기기에서 끈 폭이 이 화면에 강제된다.
-        if('sidebarWidth' in this.ws){ delete this.ws.sidebarWidth; sideWidthMoved=true }
-        sideWidthMoved=this._edMigrateSideWidth()||sideWidthMoved;
-        for(const s of this.ws.windows){
-          if(!s||!s.id) continue;
-          s.layout=clean(s.layout,ok);
-          if(s.layout) normalizeLayout(s.layout);
-        }
-        // FR-EDT-49 / D-13: **layout 이 없는 Editor 창은 지워지지 않는다.**
-        // 갓 만든 Editor 창은 pane 이 없고(FR-EDT-55) 그것이 정상이다 — 이
-        // 예외가 없으면 다음 `workspace_changed` 한 번에 사라진다 (§2.4).
-        this.ws.windows=this.ws.windows.filter(s=>s&&(s.layout||this.isEditorWin(s)));
-        // FR-GIT-186: 개정 이전에 Git 창 안에 들어간 탭을 일반 창으로 옮긴다.
-        this._migrateGitWindow();
-        // FR-EDT-103·104 / D-19: 일반 창에 남은 편집기 탭을 걷어낸다. `clean()`
-        // 이 아니라 여기다 — `clean` 은 편집기 탭을 보존하도록 만들어져 있고
-        // 창 타입을 알지 못한다 (§2.9).
-        if(this._migrateEditorTabs()){
-          // FR-EDT-105: 탭이 0이 된 pane 은 붕괴하고, layout 이 빈 **일반** 창은
-          // 사라진다. Editor 창은 위 필터와 같은 예외로 남는다.
-          this.ws.windows=this.ws.windows.filter(s=>s&&(s.layout||this.isEditorWin(s)));
-          this.save();
-        }
-        // FR-EDT-45 (FR-CLS-1 과 같은 근거): 활성 창의 폴백은 Editor 창이 아니다.
-        // `save()` 가 activeWindow 를 싣지 않으므로 다른 브라우저가 만든
-        // 워크스페이스를 처음 읽을 때 이 자리가 늘 도는데, 배열의 첫 자리를
-        // 그대로 쓰면 아무 조작도 하지 않은 사용자가 편집기 화면에 떨어진다.
-        if(!this.ws.windows.find(s=>s.id===this.ws.activeWindow))
-          this.ws.activeWindow=(this.ws.windows.find(s=>!this.isEditorWin(s))||this.ws.windows[0])?.id||null;
+        // FR-UXB-8: 폭은 걷어내기만 한다 — 치수는 창의 것이다 (D-UXB-1). 화면에
+        // 세우는 일은 하지 않는다: 첫 페인트 스크립트가 이 창의 값으로 이미 세웠고,
+        // 서버의 값이 그것을 덮으면 다른 기기에서 끈 폭이 이 화면에 강제된다.
+        sideWidthMoved=this._stripDeviceKeys();
+        // FR-OPT-11-1 (FEC-17): 원격 채택과 같은 한 벌이다.
+        if(this._normalizeIncomingWorkspace(this.ws,ok)) this.save();
+        this._fallbackActiveWindow(this.ws);
       }
       // 일반 창 하나는 늘 있어야 한다 — Editor 창만 남기고 사용자를 그 안에
       // 가두지 않는다 (FR-CLS-2 와 같은 근거). **재조정보다 먼저** 한다: 창
@@ -239,7 +203,7 @@ class App {
     try{
       const saved=sessionStorage.getItem('activeWindow');
       if(saved && this.ws.windows.some(s=>s.id===saved)){
-        this.ws.activeWindow=saved;
+        this._activateWindow(saved);
       }else{
         /**
          * REPO_TAB_UNIFY_SRS D-RTU-18: **Repo 창의 신원은 id 가 아니라 루트다.**
@@ -255,7 +219,7 @@ class App {
         let root=null;
         try{root=sessionStorage.getItem(ACTIVE_EDITOR_ROOT_KEY)}catch{}
         const w=root?this.edWindowFor(root):null;
-        if(w) this.ws.activeWindow=w.id;
+        if(w) this._activateWindow(w.id);
       }
       // FR-RLC-8: 사이드바 탭이 돌아갈 창의 기억도 같은 성질이다 — 같은 블록에서
       // 되살린다.
@@ -298,11 +262,8 @@ class App {
     this._initSlots();
   }
 
-  _collectPanes(n, out){
-    if(!n) return;
-    if(n.type==='pane'){out.push(n);return}
-    if(n.children) for(const c of n.children) this._collectPanes(c,out);
-  }
+  // e2e 계약(app.testing)에 남은 옛 이름. 제품 코드는 `panesOf` 를 쓴다.
+  _collectPanes(n, out){ out.push(...panesOf(n)) }
 
   // FR-WSL-20: 슬롯을 명시하지 않으면 슬롯 0 이다 — 단일 슬롯 모드의 호출부가
   // 한 글자도 바뀌지 않아야 한다. 같은 도구를 두 슬롯에 그리면 인스턴스가 둘이고

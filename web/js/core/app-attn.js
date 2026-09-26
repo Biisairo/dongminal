@@ -223,8 +223,7 @@ Object.assign(App.prototype, {
     const loc=this.findToolLocation(toolId);
     if(!loc){this._attnLand(toolId);return}
     this._attnClear(toolId);
-    this.ws.activeWindow=loc.win.id;
-    try{sessionStorage.setItem('activeWindow', loc.win.id)}catch{}
+    this._activateWindow(loc.win.id);
     /**
      * UX_BATCH6_SRS FR-RUN-1: **포커스 칸이 그 창을 받는다.**
      *

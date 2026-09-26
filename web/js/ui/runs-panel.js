@@ -303,22 +303,7 @@ Object.assign(RunsPanel.prototype, {
   // addTab 의 run 분기가 이것을 부른다. app-runs.js 는 app-layout.js 뒤에 로드되므로
   // 호출 시점에는 이미 프로토타입에 있다.
   _findRunTab(runId) {
-    for (const s of this.app.ws.windows) {
-      if (!s || !s.layout) continue;
-      let result = null;
-      const walk = n => {
-        if (!n || result) return;
-        if (n.type === 'pane' && n.tabs) {
-          for (const t of n.tabs) {
-            if (t.type === 'run' && t.runId === runId) { result = { tab: t, pane: n, win: s }; return }
-          }
-        }
-        if (n.type === 'split' && n.children) for (const c of n.children) walk(c);
-      };
-      walk(s.layout);
-      if (result) return result;
-    }
-    return null;
+    return findTabWhere(this.app.ws.windows, t => t.type === 'run' && t.runId === runId);
   },
 
   // 지금 워크스페이스에 살아 있는 run 탭의 id 집합. 캐시(_runViews)를 이것에
@@ -326,12 +311,8 @@ Object.assign(RunsPanel.prototype, {
   // 심지 않고 여기서 스스로 맞춘다.
   _runLiveTabIds() {
     const live = new Set();
-    const walk = n => {
-      if (!n) return;
-      for (const t of n.tabs || []) if (t.type === 'run') live.add(t.id);
-      for (const c of n.children || []) walk(c);
-    };
-    for (const s of this.app.ws.windows) walk(s && s.layout);
+    for (const s of this.app.ws.windows)
+      for (const pn of panesOf(s && s.layout)) for (const t of pn.tabs || []) if (t.type === 'run') live.add(t.id);
     return live;
   },
 

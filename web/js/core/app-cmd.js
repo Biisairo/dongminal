@@ -351,23 +351,8 @@ Object.assign(App.prototype, {
       if(this._attnDrop(id)) attnDropped=true;
     }
     if(attnDropped) this._attnRefresh();
-    for(const s of sv.windows){
-      if(!s||!s.id) continue;
-      s.layout=clean(s.layout, live);
-      if(s.layout) normalizeLayout(s.layout);
-    }
-    // FR-EDT-49 / D-13: 이 필터가 `workspace_changed` 경로다. `git pin` 하나에도
-    // 이 이벤트가 오므로(§2.4) 예외가 없으면 pane 없는 Editor 창이 다음 핀 한
-    // 번에 사라진다.
-    sv.windows=sv.windows.filter(s=>s&&(s.layout||this.isEditorWin(s)));
-    // FR-GIT-186: 다른 브라우저 창이 개정 이전 모양을 보내올 수 있다.
-    this._migrateGitWindow(sv.windows);
-    // FR-EDT-103·106: 상시 불변식이다 — 다른 브라우저가 만든 편집기 탭도 여기서
-    // 걷힌다.
-    if(this._migrateEditorTabs(sv.windows)){
-      sv.windows=sv.windows.filter(s=>s&&(s.layout||this.isEditorWin(s)));
-      edChanged=true;
-    }
+    // FR-OPT-11-1 (FEC-17): 첫 로드와 같은 한 벌이다.
+    if(this._normalizeIncomingWorkspace(sv,live)) edChanged=true;
     // FR-EDT-20·43: **재조정보다 목록이 먼저다.** 목록은 서버 권위이고
     // `editors.list` 는 워크스페이스에 살므로 이 스냅샷이 최신값을 싣고 있다.
     // 갱신하지 않으면 재조정이 낡은 `editors` 를 딛어, 다른 브라우저가(또는
@@ -378,9 +363,8 @@ Object.assign(App.prototype, {
     // **루트로** 다시 찾는다. 아래 폴백보다 먼저여야 한다: 폴백은 id 가 없으면
     // 일반 창을 고르므로, 여기서 잇지 않으면 방금 연 Repo 창을 잃는다.
     this._edKeepActive(sv);
-    // FR-EDT-45: 활성 창의 폴백은 Editor 창이 아니다 (app.js 의 같은 자리와 한 쌍).
-    if(!sv.windows.find(s=>s.id===sv.activeWindow))
-      sv.activeWindow=(sv.windows.find(s=>!this.isEditorWin(s))||sv.windows[0])?.id||null;
+    // FR-EDT-45: 활성 창의 폴백은 Editor 창이 아니다 (첫 로드와 같은 한 자리).
+    this._fallbackActiveWindow(sv);
     // Preserve per-window viewport state: activeWindow and each window's
     // focusedPane. Remote structural changes (splits/tabs) are applied
     // but this window stays on its own window/pane.
@@ -415,12 +399,11 @@ Object.assign(App.prototype, {
       // 되얹은 창이 활성 창 폴백보다 뒤에 왔다 — 폴백이 고른 창이 그 창이어야
       // 했을 수 있으므로 다시 본다. 아래 `localActive` 복원이 있으나 그것은
       // 로컬 활성 창이 살아 있을 때만 돈다.
-      if(!sv.windows.find(s=>s.id===sv.activeWindow))
-        sv.activeWindow=(sv.windows.find(s=>!this.isEditorWin(s))||sv.windows[0])?.id||null;
+      this._fallbackActiveWindow(sv);
     }
     this.ws=sv;
     if(localActive && this.ws.windows.some(s=>s.id===localActive)){
-      this.ws.activeWindow=localActive;
+      this._activateWindow(localActive);
     }
     // Restore each window's focusedPane if the pane still exists.
     for(const s of this.ws.windows){
@@ -433,14 +416,8 @@ Object.assign(App.prototype, {
       const gw=this.gitWindow();
       if(gw){ if(!gw.git) gw.git={}; gw.git.repo=localRepo }
     }
-    if('displayMode' in this.ws) delete this.ws.displayMode;
-    if('mobileBreakpoint' in this.ws) delete this.ws.mobileBreakpoint;
-    // REPO_SIDE_WIDTH_SRS FR-RSW-5: 다른 브라우저가 개정 이전 모양을 보내올 수
-    // 있다 — 옮긴 키를 지우는 자리는 첫 로드와 여기 둘이다.
-    // FR-UXB-8: 옛 판의 브라우저가 폭을 계속 실어 보낼 수 있다 — 지우는 자리는
-    // 첫 로드와 여기 둘이다.
-    if('sidebarWidth' in this.ws){ delete this.ws.sidebarWidth; edChanged=true }
-    if(this._edMigrateSideWidth()) edChanged=true;
+    // FR-RSW-5 · FR-UXB-8: 옛 판의 브라우저가 옮긴 키를 계속 실어 보낼 수 있다.
+    if(this._stripDeviceKeys()) edChanged=true;
     const a=this.aw();
     if(a&&a.layout){
       const saved=a.focusedPane;
@@ -675,9 +652,7 @@ Object.assign(App.prototype, {
   _viewRestore(back){
     if(!back) return;
     if(this.ws.activeWindow!==back.win && this.ws.windows.some(x=>x.id===back.win)){
-      const cur=this.aw(); if(cur) cur.focusedPane=this.focused;
-      this.ws.activeWindow=back.win;
-      try{sessionStorage.setItem('activeWindow', back.win)}catch{}
+      this._activateWindow(back.win,{rememberFocus:true});
       this._focusWindow(back.win);
     }
     const a=this.aw();
@@ -701,57 +676,43 @@ Object.assign(App.prototype, {
    */
   _resolveLocation(loc){
     if(!loc) return null;
-    const m=String(loc).toUpperCase().trim().match(/^W?(\d+)(?:[.\s]+P?(\d+))?(?:[.\s]+T?(\d+))?$/);
     // 좌표 모양이 아니면 uuid 다. **좌표를 먼저 본다** — 옛 워크스페이스의 짧은
     // 숫자 id 가 좌표로도 읽히는 경우에 뜻이 갈리지 않게 한다.
-    if(!m) return this._findTabById(String(loc));
-    const si=parseInt(m[1],10)-1;
-    const pi=m[2]?parseInt(m[2],10)-1:0;
-    const ti=m[3]?parseInt(m[3],10)-1:0;
-    const sess=this.ws.windows[si]; if(!sess) return null;
-    const panes=[]; this._collectPanes(sess.layout,panes);
-    const pn=panes[pi]; if(!pn) return null;
-    const tab=pn.tabs[ti]; if(!tab) return null;
-    return {windowId:sess.id,paneId:pn.id,tabId:tab.id,win:sess,pane:pn,tab:tab};
+    const at=this._parseLocation(loc);
+    return at?this._locationAt(at):this._findTabById(String(loc));
+  },
+
+  // "4.1.1", "W4.P1.T1", "4", "4.2" 등. 1-base positional (window.pane.tab) → 0-base.
+  _parseLocation(loc){
+    const m=String(loc).toUpperCase().trim().match(/^W?(\d+)(?:[.\s]+P?(\d+))?(?:[.\s]+T?(\d+))?$/);
+    if(!m) return null;
+    return {si:parseInt(m[1],10)-1, pi:m[2]?parseInt(m[2],10)-1:0, ti:m[3]?parseInt(m[3],10)-1:0};
+  },
+
+  _locationAt({si,pi,ti}){
+    const win=this.ws.windows[si]; if(!win) return null;
+    const pane=panesOf(win.layout)[pi]; if(!pane) return null;
+    const tab=pane.tabs[ti]; if(!tab) return null;
+    return {windowId:win.id,paneId:pane.id,tabId:tab.id,win,pane,tab};
   },
 
   // 탭 uuid 로 그 자리를 찾는다. 없으면 null 이다 (FR-RUN-6a).
   _findTabById(id){
-    for(const win of this.ws.windows){
-      const panes=[]; this._collectPanes(win.layout,panes);
-      for(const pn of panes){
-        for(const tab of (pn.tabs||[])){
-          if(tab.id!==id) continue;
-          return {windowId:win.id,paneId:pn.id,tabId:tab.id,win,pane:pn,tab};
-        }
-      }
-    }
-    return null;
+    const r=findTabWhere(this.ws.windows,t=>t.id===id);
+    return r&&{windowId:r.win.id,paneId:r.pane.id,tabId:r.tab.id,...r};
   },
 
-  // "4.1.1", "W4.P1.T1", "4", "4.2" 등을 지원. 1-base positional (window.pane.tab).
+  // `focus` 명령은 좌표만 받는다 (uuid 는 `_resolveLocation` 을 지나는 명령의 것이다).
   _focusLocation(loc){
     if(!loc){console.warn('[cmd] focus: location 누락');return}
-    const m=String(loc).toUpperCase().trim().match(/^W?(\d+)(?:[.\s]+P?(\d+))?(?:[.\s]+T?(\d+))?$/);
-    if(!m){console.warn('[cmd] focus: 형식 오류',loc);return}
-    const si=parseInt(m[1],10)-1;
-    const pi=m[2]?parseInt(m[2],10)-1:0;
-    const ti=m[3]?parseInt(m[3],10)-1:0;
-    const sess=this.ws.windows[si];
-    if(!sess){console.warn('[cmd] focus: window #'+(si+1)+' 없음');return}
-    const panes=[]; this._collectPanes(sess.layout, panes);
-    const pn=panes[pi];
-    if(!pn){console.warn('[cmd] focus: pane #'+(pi+1)+' 없음');return}
-    const tab=pn.tabs[ti];
-    if(!tab){console.warn('[cmd] focus: tab #'+(ti+1)+' 없음');return}
-    if(this.ws.activeWindow!==sess.id){
-      const cur=this.aw(); if(cur) cur.focusedPane=this.focused;
-      this.ws.activeWindow=sess.id;
-      try{sessionStorage.setItem('activeWindow', sess.id)}catch{}
-    }
-    this.paneTabSet(pn,tab.id);
-    this.setFocusState(pn.id, sess);
-    this._focusWindow(sess.id);
+    const at=this._parseLocation(loc);
+    if(!at){console.warn('[cmd] focus: 형식 오류',loc);return}
+    const r=this._locationAt(at);
+    if(!r){console.warn('[cmd] focus: 자리 없음',loc);return}
+    this._activateWindow(r.win.id,{rememberFocus:true});
+    this.paneTabSet(r.pane,r.tab.id);
+    this.setFocusState(r.pane.id, r.win);
+    this._focusWindow(r.win.id);
     this.save(); this.render();
   },
 });

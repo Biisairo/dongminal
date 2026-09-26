@@ -73,7 +73,7 @@ Object.assign(App.prototype, {
      * 엉뚱한 일반 창을 고른다. 실측: 새로고침 뒤 Changes 사이드가 사라졌다
      * (V33·FR-GIT-76).
      */
-    try{sessionStorage.setItem('activeWindow',next.id)}catch{}
+    this._persistActiveWindow(next.id,next);
   },
 
   /**
@@ -240,8 +240,7 @@ Object.assign(App.prototype, {
     const pre=p==='/'?'/':p+pathSep(p);
     for(const s of this.ws.windows){
       if(!s||!s.layout) continue;
-      const panes=[];this._collectPanes(s.layout,panes);
-      for(const pn of panes){
+      for(const pn of panesOf(s.layout)){
         for(const t of pn.tabs||[]){
           if(!t||t.type!=='editor'||typeof t.filePath!=='string') continue;
           if(t.filePath===p||t.filePath.startsWith(pre)) out.push({win:s,pane:pn,tab:t});

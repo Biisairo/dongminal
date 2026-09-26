@@ -797,6 +797,20 @@ function panesOf(n){
 }
 
 /**
+ * OPTIMIZE_REFACTOR_SRS FR-OPT-11-1 (FEC-21): 창 목록에서 `pred(tab,win,pane)` 가 참인
+ * 첫 탭의 자리 `{win,pane,tab}`. 없으면 null. 탭 찾기마다 트리를 손으로 걷던 것을
+ * `panesOf` 한 순회 위로 모은다 — 순서는 창 순서, 그 안에서 L→R·T→B 다.
+ */
+function findTabWhere(windows,pred){
+  for(const win of windows||[]){
+    if(!win||!win.layout) continue;
+    for(const pane of panesOf(win.layout))
+      for(const tab of (pane.tabs||[])) if(tab&&pred(tab,win,pane)) return {win,pane,tab};
+  }
+  return null;
+}
+
+/**
  * OPTIMISTIC_LAYOUT_SRS FR-OPL-1~8: **원격이 본 적 없는 로컬 레이아웃 변경을
  * 원격 스냅샷에 되얹는다.**
  *

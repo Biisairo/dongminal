@@ -108,8 +108,7 @@ Object.assign(Renderer.prototype, {
   _gcWidgets(){
     const app=this.app;
     const allTabIds=new Set();
-    const walk=n=>{if(!n)return;if(n.type==='pane'&&n.tabs)n.tabs.forEach(t=>allTabIds.add(t.id));if(n.type==='split'&&n.children)n.children.forEach(walk)};
-    for(const sess of app.ws.windows){if(sess&&sess.layout)walk(sess.layout)}
+    for(const sess of app.ws.windows){if(sess&&sess.layout)for(const pn of panesOf(sess.layout))(pn.tabs||[]).forEach(t=>allTabIds.add(t.id))}
     // 편집기 Map 의 키는 복합키다 (FR-WSL-75) — 회수는 탭 id 로 판정한다.
     // FR-SVS-60: 파싱은 `slotBase` 한 자리다. 여기서 `@1` 만 잘라 내던 동안
     // 칸 2·3 의 편집기는 살아 있는 탭인데도 매 render 마다 파괴됐다.

@@ -444,13 +444,7 @@ Object.assign(App.prototype, {
     const s=this.aw();if(!s||!s.layout||!this.focused)return null;
     const sidx=this.ws.windows.findIndex(x=>x.id===this.ws.activeWindow);
     if(sidx<0)return null;
-    const panes=[];
-    const walk=n=>{
-      if(!n)return;
-      if(n.type==='pane')panes.push(n);
-      else if(n.type==='split')for(const c of(n.children||[]))walk(c);
-    };
-    walk(s.layout);
+    const panes=panesOf(s.layout);
     const pidx=panes.findIndex(r=>r.id===this.focused);
     if(pidx<0)return null;
     const pn=panes[pidx];
