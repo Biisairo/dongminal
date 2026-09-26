@@ -148,43 +148,22 @@ Object.assign(App.prototype, {
    * 줄의 배열**을 받는다 — 파일 이름이 그대로 들어가는 자리라 innerHTML 로 조립할
    * 수 없다.
    *
-   * 기본 선택지는 안전한 쪽이다 (FR-GIT-97 과 같은 규약) — 초기 포커스가 취소이고
-   * `Enter`·`Esc`·바깥 클릭이 모두 취소다.
+   * 초기 포커스는 목적 버튼이고(FR-PDA-1) `Esc`·바깥 클릭이 취소다.
    */
   _edConfirm(lines,okLabel){
-    return new Promise(resolve=>{
-      const returnTo=document.activeElement;   // FR-KIT-24
-      const ov=document.createElement('div');
-      ov.className='confirm-overlay ui-modal ed-confirm';
-      const box=document.createElement('div'); box.className='confirm-box ui-modal-box';
-      const msg=document.createElement('div'); msg.className='confirm-msg';
-      for(const t of lines){
-        const l=document.createElement('div'); l.className='ed-confirm-line';
-        l.textContent=t; msg.appendChild(l);
-      }
-      const btns=document.createElement('div'); btns.className='confirm-btns';
-      const ok=document.createElement('button'); ok.className='ui-btn ui-btn-danger confirm-ok'; ok.textContent=okLabel;
-      ok.title=TIP_DEL_OK;
-      const no=document.createElement('button'); no.className='ui-btn confirm-cancel'; no.textContent=EDITOR_DEL_CANCEL;
-      no.title=TIP_DEL_CANCEL;
-      btns.appendChild(ok); btns.appendChild(no);
-      box.appendChild(msg); box.appendChild(btns); ov.appendChild(box);
-      document.body.appendChild(ov);
-      // FR-KIT-24·25: 이름은 줄 묶음(`.confirm-msg`)이 준다 — 머리가 없는 상자다.
-      const releaseDlg=UIKit.dialogOpen(box,{labelledBy:msg,label:lines.join(' '),returnTo,focus:ok});
-      const done=v=>{releaseDlg();ov.remove();document.removeEventListener('keydown',onKey,true);resolve(v)};
-      const onKey=e=>{
-        if(e.key==='Escape'){e.preventDefault();e.stopPropagation();done(false)}
-      };
-      document.addEventListener('keydown',onKey,true);
-      ok.addEventListener('click',()=>done(true));
-      no.addEventListener('click',()=>done(false));
-      ov.addEventListener('click',e=>{if(e.target===ov)done(false)});
-      // FR-PDA-1: 기본 포커스는 목적 버튼 — 이 창은 삭제하려고 열렸다.
-      // `Enter` 는 그 포커스를 브라우저가 누르는 것이며 (FR-PDA-2) 여기서
-      // 가로채지 않는다. 탈출구는 `Esc` 다 (위 `onKey`).
-      ok.focus();
-    });
+    const msg=document.createElement('div'); msg.className='confirm-msg';
+    for(const line of lines){
+      const l=document.createElement('div'); l.className='ed-confirm-line';
+      l.textContent=line; msg.appendChild(l);
+    }
+    // FR-KIT-24·25: 이름은 줄 묶음(`.confirm-msg`)이 준다 — 머리가 없는 상자다.
+    // FR-PDA-1: 기본 포커스는 목적 버튼 — 이 창은 삭제하려고 열렸다.
+    // `Enter` 는 그 포커스를 브라우저가 누르는 것이며 (FR-PDA-2) 가로채지 않는다.
+    // 탈출구는 `Esc`·바깥 클릭이다 (FR-OPT-11-5: 골격은 `UIKit.ask` 가 갖는다).
+    return UIKit.ask({body:msg,labelledBy:msg,label:lines.join(' '),cls:'ed-confirm',escValue:false,actions:[
+      {label:okLabel,kind:'danger',cls:'confirm-ok',tip:TIP_DEL_OK,value:true,default:true},
+      {label:EDITOR_DEL_CANCEL,cls:'confirm-cancel',tip:TIP_DEL_CANCEL,value:false},
+    ]});
   },
 
   // FR-EDT-83·84 의 문장을 조립하는 한 자리. 폴더면 재귀와 항목 수를, dirty 탭이

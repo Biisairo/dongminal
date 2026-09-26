@@ -130,15 +130,11 @@ Object.assign(App.prototype, {
     const hostBox=document.getElementById('acl-host-list');
     const status=document.getElementById('acl-status');
     if(!box) return;
-    box.innerHTML='';status.textContent='';status.classList.remove('err');
+    box.innerHTML='';
     if(hostBox) hostBox.innerHTML='';
-    try{
+    await statusRun(status,{fail:t('acl.read_fail')},async()=>{
       const r=await apiGet('/api/access');
-      if(!r.ok){
-        status.textContent=apiErrText(r,t('acl.read_fail'));
-        status.classList.add('err');
-        return;
-      }
+      if(!r.ok) return r;
       const v=r.data||{};
       this._aclKnown=v.entries||[];
       this._aclYou=v.you||'';
@@ -154,31 +150,20 @@ Object.assign(App.prototype, {
       const hnow=document.getElementById('acl-host-now');
       if(hnow) hnow.textContent=v.host||t('core.unknown_paren');
       if(hostBox) for(const e of (v.hosts||[])) hostBox.appendChild(this._aclHostRow(e));
-    }catch(e){
-      status.textContent=t('acl.read_fail')+' — '+((e&&e.message)||e);
-      status.classList.add('err');
-    }
+      return r;
+    });
   },
 
   async _aclSave(cfg){
-    const status=document.getElementById('acl-status');
-    status.classList.remove('err');status.textContent=t('core.saving');
-    try{
-      const r=await apiPut('/api/access',cfg);
-      if(!r.ok){
-        // 거부 사유가 그대로 온다 — 어느 줄이 잘못됐는지 모르면 고칠 수 없다.
-        status.textContent=apiErrText(r,t('core.save_fail'));
-        status.classList.add('err');
-        return;
-      }
-      // 재로드가 상태줄을 비우므로 문구는 그 **뒤에** 쓴다. 순서가 바뀌면
-      // 저장에 성공해도 화면에는 아무 말도 남지 않는다.
-      await this._loadAccessPanel();
-      status.textContent=t('core.saved');
-    }catch(e){
-      status.textContent=t('core.save_fail')+' — '+((e&&e.message)||e);
-      status.classList.add('err');
-    }
+    // 거부 사유가 그대로 온다 — 어느 줄이 잘못됐는지 모르면 고칠 수 없다.
+    // 재로드가 상태줄을 비우므로 문구(`ok`)는 그 **뒤에** 쓰인다. 순서가 바뀌면
+    // 저장에 성공해도 화면에는 아무 말도 남지 않는다.
+    await statusRun(document.getElementById('acl-status'),
+      {pending:t('core.saving'),ok:t('core.saved'),fail:t('core.save_fail')},async()=>{
+        const r=await apiPut('/api/access',cfg);
+        if(r.ok) await this._loadAccessPanel();
+        return r;
+      });
   },
 
   _initAccessPanel(){

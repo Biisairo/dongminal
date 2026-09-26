@@ -176,6 +176,26 @@ function escHtml(s){
 // FR-OPT-11-5 (FEC-28): 오류 문구는 앞말 + ' — ' + 사유다. 사유가 Error 면 그 message 다.
 function errText(prefix,err){ return prefix+' — '+((err&&err.message)||err) }
 
+/**
+ * FR-OPT-11-5 (FEC-28): 상태줄의 '진행 중 → 됐음 | 오류' 한 벌.
+ *
+ * `fn` 은 API 봉투를 돌려준다 — 봉투를 여는 일(목록 채우기·다시 읽기)은 `fn` 안에서
+ * 한다. 봉투가 실패면 `apiErrText(r, fail)` 을 적고 `err` 를 단다. 성공이면 `ok` 를
+ * 적는다(주지 않으면 그대로 둔다). 봉투는 망 실패에도 던지지 않으므로 여기서 잡는
+ * 예외는 `fn` 안의 결함뿐이다 — 그것도 상태줄에 사유를 남긴다 (자리마다 적던 catch 를
+ * 한 자리로 모은 것이다).
+ */
+async function statusRun(el,msgs,fn){
+  el.classList.remove('err');
+  el.textContent=msgs.pending||'';
+  let r=null, err=null;
+  try{ r=await fn() }catch(e){ err=e }
+  const bad=err?errText(msgs.fail,err):(!r||!r.ok)?apiErrText(r,msgs.fail):null;
+  if(bad){ el.textContent=bad; el.classList.add('err'); return false }
+  if(msgs.ok!=null) el.textContent=msgs.ok;
+  return true;
+}
+
 // FR-OPT-11-7 (FEC-31): Run 의 짧은 id (FR-RVZ-8).
 function runShortId(id){ return String(id).slice(0,RUN_SHORT_ID_LEN) }
 

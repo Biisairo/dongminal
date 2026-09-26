@@ -25,24 +25,12 @@ Object.assign(App.prototype, {
   // 오류 메시지이며, innerHTML 에 끼우면 그 내용이 마크업으로 해석된다.
   // (`_confirmClose` 가 종전에 그랬고, 지금은 같은 규약으로 수렴했다.)
   _notify(msg){
-    // FR-KIT-24: 돌아갈 자리는 **포커스를 옮기기 전**에 잡는다 — 뒤에 잡으면
-    // 창을 연 컨트롤이 아니라 창 **안의** 버튼이 `returnTo` 가 된다.
-    const returnTo=document.activeElement;
-    const ov=document.createElement('div');ov.className='confirm-overlay ui-modal';
-    ov.innerHTML='<div class="confirm-box ui-modal-box"><div class="confirm-msg notify-msg ui-scroll"></div>'+
-      '<div class="confirm-btns"><button class="ui-btn ui-btn-primary confirm-ok" title="'+TIP_NOTIFY_OK+'">'+escHtml(t('core.ok'))+'</button></div></div>';
-    ov.querySelector('.confirm-msg').textContent=msg;
-    document.body.appendChild(ov);
-    const btn=ov.querySelector('.confirm-ok');btn.focus();
-    // FR-KIT-24: 계약은 골격이 아니라 함수가 갖는다 (D-A11Y-7). 여기서 부르는 것이
-    // `Escape` 와 겹치지 않는 이유는 `_dlgOnKey` 가 **`Tab` 만** 다루기 때문이다.
-    const releaseDlg=UIKit.dialogOpen(ov.querySelector('.confirm-box'),
-      {labelledBy:ov.querySelector('.confirm-msg'),label:t('core.ok'),returnTo,focus:btn});
-    const cleanup=()=>{releaseDlg();ov.remove();document.removeEventListener('keydown',onKey)};
-    const onKey=e=>{if(e.key==='Enter'||e.key==='Escape'){e.preventDefault();cleanup()}};
-    document.addEventListener('keydown',onKey);
-    btn.addEventListener('click',cleanup);
-    ov.addEventListener('click',e=>{if(e.target===ov)cleanup()});
+    // FR-OPT-11-5 (FEC-27): 골격·닫는 길·접근성 계약은 `UIKit.ask` 가 갖는다. 닫는 키는
+    // `Esc` 와, 포커스된 확인 버튼을 브라우저가 누르는 `Enter` 다 (FR-PDA-2).
+    const body=document.createElement('div'); body.className='confirm-msg notify-msg ui-scroll';
+    body.textContent=msg;
+    UIKit.ask({body,labelledBy:body,label:t('core.ok'),
+      actions:[{label:t('core.ok'),kind:'primary',cls:'confirm-ok',tip:TIP_NOTIFY_OK}]});
   },
 
   /**
@@ -91,99 +79,81 @@ Object.assign(App.prototype, {
    * 오는 문자열은 런타임이 만든 진단이라 마크업으로 해석되면 안 된다.
    */
   _sbxRuntimeModal(st){
-    return new Promise(resolve=>{
-      const returnTo=document.activeElement;   // FR-KIT-24
-      const missing=st.state===SBX_RT_MISSING;
-      const ov=document.createElement('div');
-      ov.className='confirm-overlay ui-modal'; ov.dataset.state=st.state;
-      const box=document.createElement('div'); box.className='confirm-box ui-modal-box sbx-rt';
-      const title=document.createElement('div'); title.className='confirm-msg';
-      title.textContent=missing?SBX_RT_TITLE_MISSING:SBX_RT_TITLE_STOPPED;
-      box.appendChild(title);
+    const missing=st.state===SBX_RT_MISSING;
+    // FR-OPT-11-5 (FEC-27): 본문만 여기서 세우고 골격은 `UIKit.ask` 가 갖는다.
+    const body=document.createDocumentFragment();
+    const title=document.createElement('div'); title.className='confirm-msg';
+    title.textContent=missing?SBX_RT_TITLE_MISSING:SBX_RT_TITLE_STOPPED;
+    body.appendChild(title);
 
-      const msg=document.createElement('div'); msg.className='sbx-rt-msg';
-      // 실행할 수 없는 OS 에서는 "실행할까요" 가 아니라 "직접 실행하세요" 다 (D-5).
-      msg.textContent=missing?SBX_RT_MSG_MISSING
-        :(st.startTryable?SBX_RT_MSG_STOPPED:SBX_RT_MSG_MANUAL);
-      box.appendChild(msg);
+    const msg=document.createElement('div'); msg.className='sbx-rt-msg';
+    // 실행할 수 없는 OS 에서는 "실행할까요" 가 아니라 "직접 실행하세요" 다 (D-5).
+    msg.textContent=missing?SBX_RT_MSG_MISSING
+      :(st.startTryable?SBX_RT_MSG_STOPPED:SBX_RT_MSG_MANUAL);
+    body.appendChild(msg);
 
-      // 보일 명령은 상태가 정한다 — 설치인지 기동인지.
-      const cmd=missing?(st.installCommand||''):(st.startCommand||'');
-      // 실행 버튼이 있으면 명령을 함께 보이지 않는다: 누를 것이 둘이면 어느 쪽이
-      // 진짜인지 말할 수 없다. 실행할 수 없을 때에만 칠 것을 준다.
-      const showCmd=!!cmd&&(missing||!st.startTryable);
-      if(showCmd){
-        const row=document.createElement('div'); row.className='sbx-rt-cmdrow';
-        const code=document.createElement('code'); code.className='sbx-rt-cmd ui-scroll';
-        code.textContent=cmd;
-        const copy=document.createElement('button');
-        copy.type='button'; copy.className='ui-btn ui-btn-sm sbx-rt-copy'; copy.textContent=SBX_RT_COPY;
-        copy.addEventListener('click',async()=>{
-          // 복사가 막힌 환경(비 HTTPS·권한)에서도 명령은 화면에 남아 있다 —
-          // 실패를 알릴 뿐 흐름을 막지 않는다.
-          //
-          //   이전 동작: `navigator.clipboard.writeText` 하나. secure context
-          //             밖에서는 `navigator.clipboard` 가 **아예 없어** 호출이
-          //             TypeError 로 던지고 빈 catch 가 그것을 삼켰다 — 버튼을
-          //             눌러도 **아무 일이 안 일어난다.** 주석이 "실패를 알릴 뿐"
-          //             이라 적었는데 알리지 않았다.
-          //   새  동작: 3단까지 내려가고 **성공 여부를 돌려받는다.** 실패하면
-          //             글자를 바꾸지 않으므로 눌린 것이 되지 않는다 (FR-STR-16).
-          //   이유:     FR-STR-14·15 · FR-ETR-40.
-          if(await ClipboardWriter.write(cmd)) copy.textContent=SBX_RT_COPIED;
-        });
-        row.appendChild(code); row.appendChild(copy);
-        box.appendChild(row);
-      }else if(missing){
-        // 명령을 모르는 OS 다. 안내만 남기고 지어내지 않는다.
-        const n=document.createElement('div'); n.className='sbx-rt-msg';
-        n.textContent=SBX_RT_NO_CMD; box.appendChild(n);
-      }
-      if(missing){
-        const rs=document.createElement('div'); rs.className='sbx-rt-restart';
-        rs.textContent=SBX_RT_MSG_RESTART;
-        box.appendChild(rs);
-        const docs=document.createElement('div'); docs.className='sbx-rt-docs';
-        // 바깥 링크를 열지 않는다 — 글자로 둔다 (FR-SRT-6).
-        docs.textContent=SBX_RT_DOCS;
-        box.appendChild(docs);
-      }
+    // 보일 명령은 상태가 정한다 — 설치인지 기동인지.
+    const cmd=missing?(st.installCommand||''):(st.startCommand||'');
+    // 실행 버튼이 있으면 명령을 함께 보이지 않는다: 누를 것이 둘이면 어느 쪽이
+    // 진짜인지 말할 수 없다. 실행할 수 없을 때에만 칠 것을 준다.
+    const showCmd=!!cmd&&(missing||!st.startTryable);
+    if(showCmd){
+      const row=document.createElement('div'); row.className='sbx-rt-cmdrow';
+      const code=document.createElement('code'); code.className='sbx-rt-cmd ui-scroll';
+      code.textContent=cmd;
+      const copy=document.createElement('button');
+      copy.type='button'; copy.className='ui-btn ui-btn-sm sbx-rt-copy'; copy.textContent=SBX_RT_COPY;
+      copy.addEventListener('click',async()=>{
+        // 복사가 막힌 환경(비 HTTPS·권한)에서도 명령은 화면에 남아 있다 —
+        // 실패를 알릴 뿐 흐름을 막지 않는다.
+        //
+        //   이전 동작: `navigator.clipboard.writeText` 하나. secure context
+        //             밖에서는 `navigator.clipboard` 가 **아예 없어** 호출이
+        //             TypeError 로 던지고 빈 catch 가 그것을 삼켰다 — 버튼을
+        //             눌러도 **아무 일이 안 일어난다.** 주석이 "실패를 알릴 뿐"
+        //             이라 적었는데 알리지 않았다.
+        //   새  동작: 3단까지 내려가고 **성공 여부를 돌려받는다.** 실패하면
+        //             글자를 바꾸지 않으므로 눌린 것이 되지 않는다 (FR-STR-16).
+        //   이유:     FR-STR-14·15 · FR-ETR-40.
+        if(await ClipboardWriter.write(cmd)) copy.textContent=SBX_RT_COPIED;
+      });
+      row.appendChild(code); row.appendChild(copy);
+      body.appendChild(row);
+    }else if(missing){
+      // 명령을 모르는 OS 다. 안내만 남기고 지어내지 않는다.
+      const n=document.createElement('div'); n.className='sbx-rt-msg';
+      n.textContent=SBX_RT_NO_CMD; body.appendChild(n);
+    }
+    if(missing){
+      const rs=document.createElement('div'); rs.className='sbx-rt-restart';
+      rs.textContent=SBX_RT_MSG_RESTART;
+      body.appendChild(rs);
+      const docs=document.createElement('div'); docs.className='sbx-rt-docs';
+      // 바깥 링크를 열지 않는다 — 글자로 둔다 (FR-SRT-6).
+      docs.textContent=SBX_RT_DOCS;
+      body.appendChild(docs);
+    }
 
-      // 진행과 사유가 함께 사는 자리. 닫히지 않으므로 읽을 시간이 있다.
-      const note=document.createElement('div'); note.className='ui-notice sbx-rt-note ui-scroll';
-      note.hidden=true;
-      box.appendChild(note);
+    // 진행과 사유가 함께 사는 자리. 닫히지 않으므로 읽을 시간이 있다.
+    const note=document.createElement('div'); note.className='ui-notice sbx-rt-note ui-scroll';
+    note.hidden=true;
+    body.appendChild(note);
 
-      const btns=document.createElement('div'); btns.className='confirm-btns';
-      let start=null;
-      if(!missing&&st.startTryable){
-        start=document.createElement('button');
-        start.type='button'; start.className='ui-btn ui-btn-primary confirm-ok sbx-rt-start';
-        start.textContent=SBX_RT_START;
-        btns.appendChild(start);
-      }
-      const close=document.createElement('button');
-      close.type='button'; close.className='ui-btn confirm-cancel'; close.textContent=SBX_RT_CLOSE;
-      btns.appendChild(close);
-      box.appendChild(btns);
-      ov.appendChild(box);
-      document.body.appendChild(ov);
-      // FR-KIT-24·25: 이름은 머리(`.confirm-msg`)가 준다.
-      const releaseDlg=UIKit.dialogOpen(box,{labelledBy:title,label:title.textContent,returnTo,focus:start||close});
-
-      let done=false;
-      const cleanup=v=>{
-        if(done) return; done=true;
-        releaseDlg();
-        ov.remove(); document.removeEventListener('keydown',onKey); resolve(v);
-      };
-      const onKey=e=>{if(e.key==='Escape'){e.preventDefault();cleanup(false)}};
-      document.addEventListener('keydown',onKey);
-      close.addEventListener('click',()=>cleanup(false));
-      ov.addEventListener('click',e=>{if(e.target===ov)cleanup(false)});
-      if(start) start.addEventListener('click',()=>this._sbxRuntimeStart(start,note,cleanup));
-      (start||close).focus();
-    });
+    const canStart=!missing&&st.startTryable;
+    let start=null, done=null;
+    const actions=[];
+    if(canStart){
+      actions.push({label:SBX_RT_START,kind:'primary',cls:'confirm-ok sbx-rt-start',keepOpen:true,
+        onClick:()=>this._sbxRuntimeStart(start,note,done)});
+    }
+    actions.push({label:SBX_RT_CLOSE,cls:'confirm-cancel',value:false});
+    // FR-KIT-24·25: 이름은 머리(`.confirm-msg`)가 준다.
+    return UIKit.ask({body,labelledBy:title,label:title.textContent,boxCls:'sbx-rt',
+      actions,escValue:false,onOpen:(m,fin)=>{
+        done=fin;
+        m.el.dataset.state=st.state;
+        start=m.foot.querySelector('.sbx-rt-start');
+      }});
   },
 
   /**
@@ -235,158 +205,149 @@ Object.assign(App.prototype, {
   },
 
   _pickSandbox(list,here){
-    return new Promise(resolve=>{
-      const returnTo=document.activeElement;   // FR-KIT-24
-      const ov=document.createElement('div');ov.className='confirm-overlay ui-modal';
-      const box=document.createElement('div');box.className='confirm-box ui-modal-box';
-      const msg=document.createElement('div');msg.className='confirm-msg';
-      msg.textContent=t('sbx.profile_title');
-      box.appendChild(msg);
-      let input=null;
-      // SANDBOX_PICK_COPY_SRS FR-SPK-3: 작업 폴더 입력은 **언제나** 보인다.
+    // FR-OPT-11-5 (FEC-27): 본문만 여기서 세우고 골격은 `UIKit.ask` 가 갖는다.
+    const body=document.createDocumentFragment();
+    const msg=document.createElement('div');msg.className='confirm-msg';
+    msg.textContent=t('sbx.profile_title');
+    body.appendChild(msg);
+    let input=null;
+    // SANDBOX_PICK_COPY_SRS FR-SPK-3: 작업 폴더 입력은 **언제나** 보인다.
+    //
+    // 옛 조건(`list.some(p=>p.workspace)`)은 scratch 하나뿐인 환경에서 거짓이라
+    // 입력란이 아예 없었고, 그 위의 `mustAsk` 가 창 자체를 띄우지 않았다 —
+    // 사용자에게는 "설정창이 안 뜬다" 로 보였다 (§2.1 실측).
+    {
+      const wrap=document.createElement('div');wrap.className='sbx-workdir';
+      const label=document.createElement('label');label.textContent=SANDBOX_WORKDIR_LABEL;
+      input=document.createElement('input');
+      input.type='text';input.placeholder=SANDBOX_WORKDIR_PLACEHOLDER;
+      wrap.appendChild(label);wrap.appendChild(input);
+      // 지금 있는 자리는 입력란 바로 오른쪽에 둔다 — 가장 자주 고를 값이고,
+      // 입력란과 한 줄에 있어야 "여기에 넣는 것" 임이 보인다.
       //
-      // 옛 조건(`list.some(p=>p.workspace)`)은 scratch 하나뿐인 환경에서 거짓이라
-      // 입력란이 아예 없었고, 그 위의 `mustAsk` 가 창 자체를 띄우지 않았다 —
-      // 사용자에게는 "설정창이 안 뜬다" 로 보였다 (§2.1 실측).
-      {
-        const wrap=document.createElement('div');wrap.className='sbx-workdir';
-        const label=document.createElement('label');label.textContent=SANDBOX_WORKDIR_LABEL;
-        input=document.createElement('input');
-        input.type='text';input.placeholder=SANDBOX_WORKDIR_PLACEHOLDER;
-        wrap.appendChild(label);wrap.appendChild(input);
-        // 지금 있는 자리는 입력란 바로 오른쪽에 둔다 — 가장 자주 고를 값이고,
-        // 입력란과 한 줄에 있어야 "여기에 넣는 것" 임이 보인다.
-        //
-        // **채워 두지는 않는다.** 기본은 마운트하지 않는 것이고, 넣는 것은
-        // 고르는 행위여야 한다 (FR-SBX-40).
-        if(here){
-          const now=document.createElement('button');
-          now.type='button';now.className='ui-btn ui-btn-sm sbx-now';now.textContent=t('sbx.here');now.title=here;
-          now.addEventListener('click',()=>{input.value=here;input.focus()});
-          wrap.appendChild(now);
-        }
-        box.appendChild(wrap);
-
-        // 최근에 연 자리는 아랫줄에 모은다. 경로를 매번 타이핑하게 하면 이
-        // 창은 절차만 늘리는 자리가 된다.
-        const recent=this._sbxRecent().filter(p=>p!==here);
-        if(recent.length){
-          const bar=document.createElement('div');bar.className='sbx-recent';
-          for(const path of recent){
-            const b=document.createElement('button');
-            b.type='button';b.className='ui-btn ui-btn-sm sbx-recent-item';b.textContent=path;b.title=path;
-            b.addEventListener('click',()=>{input.value=path;input.focus()});
-            bar.appendChild(b);
-          }
-          box.appendChild(bar);
-        }
+      // **채워 두지는 않는다.** 기본은 마운트하지 않는 것이고, 넣는 것은
+      // 고르는 행위여야 한다 (FR-SBX-40).
+      if(here){
+        const now=document.createElement('button');
+        now.type='button';now.className='ui-btn ui-btn-sm sbx-now';now.textContent=t('sbx.here');now.title=here;
+        now.addEventListener('click',()=>{input.value=here;input.focus()});
+        wrap.appendChild(now);
       }
-      /**
-       * UX_BATCH6_SRS FR-SBM-1·2: **작업 방식을 고르는 자리.**
-       *
-       *   이전 동작: 프로파일이 방식을 고정했고 버튼은 그것을 표기만 했다.
-       *             `sandbox.json` 에 dev 를 정의하지 않은 사용자에게는 마운트를
-       *             고를 길이 화면 어디에도 없었다 (SRS §2.3)
-       *   새  동작: 마운트·복사를 언제나 고른다. 프로파일이 정하는 것은 **기본
-       *             선택**뿐이다
-       *   이유:     접수 ② — "마운트가 없어도 마운트 선택 가능. 마운트가 없는
-       *             마운트 프로파일일 뿐"
-       *
-       * `none` 인 프로파일을 고르면 방식도 폴더도 **버려진다** (FR-SBM-2 / FR-SPK-6).
-       * 이 줄을 프로파일마다 잠그지 않는 이유는 순서다 — 방식을 고르는 것이
-       * 프로파일을 고르는 것보다 앞이고, 앞선 선택을 뒤의 선택이 되돌아가 잠그면
-       * 창이 손 밑에서 움직인다.
-       */
-      let work=null;
-      const workBtns=new Map();
-      {
-        const wrap=document.createElement('div');wrap.className='sbx-work-pick';
-        const label=document.createElement('label');label.textContent=SANDBOX_WORK_PICK_LABEL;
-        wrap.appendChild(label);
-        for(const k of SANDBOX_WORK_PICKS){
+      body.appendChild(wrap);
+
+      // 최근에 연 자리는 아랫줄에 모은다. 경로를 매번 타이핑하게 하면 이
+      // 창은 절차만 늘리는 자리가 된다.
+      const recent=this._sbxRecent().filter(p=>p!==here);
+      if(recent.length){
+        const bar=document.createElement('div');bar.className='sbx-recent';
+        for(const path of recent){
           const b=document.createElement('button');
-          b.type='button';b.className='ui-btn ui-btn-sm sbx-work-opt sbx-work-'+k;b.dataset.work=k;
-          b.textContent=SANDBOX_WORK_LABEL[k];b.title=SANDBOX_WORK_TITLE[k]||'';
-          b.addEventListener('click',()=>setWork(k));
-          workBtns.set(k,b);wrap.appendChild(b);
+          b.type='button';b.className='ui-btn ui-btn-sm sbx-recent-item';b.textContent=path;b.title=path;
+          b.addEventListener('click',()=>{input.value=path;input.focus()});
+          bar.appendChild(b);
         }
-        box.appendChild(wrap);
+        body.appendChild(bar);
       }
-      // FR-SBM-5: 고른 것의 결과. 등급 배지와 **다른 자리**여야 한다 — 배지는
-      // 프로파일의 것이고(FR-SBM-4) 이 줄은 이번 선택의 것이다.
-      const warn=document.createElement('div');warn.className='sbx-work-warn';
-      box.appendChild(warn);
-      const syncWarn=()=>{
-        const on=work===SANDBOX_WORK_MOUNT&&!!(input&&input.value.trim());
-        warn.textContent=on?SANDBOX_MOUNT_WARN:'';
-        warn.classList.toggle('vis',on);
-      };
-      const setWork=k=>{
-        work=k;
-        for(const [key,b] of workBtns) b.classList.toggle('on',key===k);
-        syncWarn();
-      };
-      if(input) input.addEventListener('input',syncWarn);
-
-      const btns=document.createElement('div');btns.className='confirm-btns sbx-pick';
-      let releaseDlg=null;
-      const cleanup=v=>{if(releaseDlg)releaseDlg();ov.remove();document.removeEventListener('keydown',onKey);resolve(v)};
-      const onKey=e=>{if(e.key==='Escape'){e.preventDefault();cleanup(null)}};
-      for(const p of list){
+    }
+    /**
+     * UX_BATCH6_SRS FR-SBM-1·2: **작업 방식을 고르는 자리.**
+     *
+     *   이전 동작: 프로파일이 방식을 고정했고 버튼은 그것을 표기만 했다.
+     *             `sandbox.json` 에 dev 를 정의하지 않은 사용자에게는 마운트를
+     *             고를 길이 화면 어디에도 없었다 (SRS §2.3)
+     *   새  동작: 마운트·복사를 언제나 고른다. 프로파일이 정하는 것은 **기본
+     *             선택**뿐이다
+     *   이유:     접수 ② — "마운트가 없어도 마운트 선택 가능. 마운트가 없는
+     *             마운트 프로파일일 뿐"
+     *
+     * `none` 인 프로파일을 고르면 방식도 폴더도 **버려진다** (FR-SBM-2 / FR-SPK-6).
+     * 이 줄을 프로파일마다 잠그지 않는 이유는 순서다 — 방식을 고르는 것이
+     * 프로파일을 고르는 것보다 앞이고, 앞선 선택을 뒤의 선택이 되돌아가 잠그면
+     * 창이 손 밑에서 움직인다.
+     */
+    let work=null;
+    const workBtns=new Map();
+    {
+      const wrap=document.createElement('div');wrap.className='sbx-work-pick';
+      const label=document.createElement('label');label.textContent=SANDBOX_WORK_PICK_LABEL;
+      wrap.appendChild(label);
+      for(const k of SANDBOX_WORK_PICKS){
         const b=document.createElement('button');
-        b.className='ui-btn ui-btn-primary confirm-ok sbx-opt';
-        const grade=document.createElement('span');
-        grade.className='sbx-grade'+(p.isolated?' iso':'');
-        grade.textContent=p.isolated?t('sbx.isolated'):t('sbx.not_isolated');
-        b.textContent=p.name+' ';
-        b.appendChild(grade);
-        // FR-SPK-5 (FR-SBM-1 로 개정): 방식은 이제 **위에서 고른다.** 프로파일이
-        // 정하는 것은 기본 선택뿐이므로 버튼에 표기를 겹치지 않는다 — 두 자리가
-        // 같은 것을 말하면 어느 쪽이 지금 값인지 알 수 없다.
-        const def=p.work||SANDBOX_WORK_NONE;
-        b.title=(p.image?p.image+String.fromCharCode(10):'')+
-          (p.isolated
-            ? t('sbx.isolated_note')
-            : t('sbx.not_isolated_note'))+
-          String.fromCharCode(10)+(SANDBOX_WORK_TITLE[def]||'');
-        // FR-SPK-6 / FR-SBM-2: `none` 인 프로파일에서는 입력한 폴더가 버려진다.
-        b.addEventListener('click',()=>cleanup({profile:p.name,
+        b.type='button';b.className='ui-btn ui-btn-sm sbx-work-opt sbx-work-'+k;b.dataset.work=k;
+        b.textContent=SANDBOX_WORK_LABEL[k];b.title=SANDBOX_WORK_TITLE[k]||'';
+        b.addEventListener('click',()=>setWork(k));
+        workBtns.set(k,b);wrap.appendChild(b);
+      }
+      body.appendChild(wrap);
+    }
+    // FR-SBM-5: 고른 것의 결과. 등급 배지와 **다른 자리**여야 한다 — 배지는
+    // 프로파일의 것이고(FR-SBM-4) 이 줄은 이번 선택의 것이다.
+    const warn=document.createElement('div');warn.className='sbx-work-warn';
+    body.appendChild(warn);
+    const syncWarn=()=>{
+      const on=work===SANDBOX_WORK_MOUNT&&!!(input&&input.value.trim());
+      warn.textContent=on?SANDBOX_MOUNT_WARN:'';
+      warn.classList.toggle('vis',on);
+    };
+    const setWork=k=>{
+      work=k;
+      for(const [key,b] of workBtns) b.classList.toggle('on',key===k);
+      syncWarn();
+    };
+    if(input) input.addEventListener('input',syncWarn);
+
+    let done=null;
+    const actions=list.map(p=>{
+      // FR-SPK-5 (FR-SBM-1 로 개정): 방식은 이제 **위에서 고른다.** 프로파일이
+      // 정하는 것은 기본 선택뿐이므로 버튼에 표기를 겹치지 않는다 — 두 자리가
+      // 같은 것을 말하면 어느 쪽이 지금 값인지 알 수 없다.
+      const def=p.work||SANDBOX_WORK_NONE;
+      const tip=(p.image?p.image+String.fromCharCode(10):'')+
+        (p.isolated
+          ? t('sbx.isolated_note')
+          : t('sbx.not_isolated_note'))+
+        String.fromCharCode(10)+(SANDBOX_WORK_TITLE[def]||'');
+      // FR-SPK-6 / FR-SBM-2: `none` 인 프로파일에서는 입력한 폴더가 버려진다.
+      // 값은 누르는 순간의 입력이라 `value` 가 아니라 `done` 으로 닫는다.
+      return {label:p.name,kind:'primary',cls:'confirm-ok sbx-opt',tip,keepOpen:true,
+        onClick:()=>done({profile:p.name,
           work:def===SANDBOX_WORK_NONE?SANDBOX_WORK_NONE:work,
-          workdir:(input&&def!==SANDBOX_WORK_NONE)?input.value.trim():''}));
-        btns.appendChild(b);
-      }
-      const cancel=document.createElement('button');
-      cancel.className='ui-btn confirm-cancel';cancel.textContent=t('core.cancel');cancel.title=TIP_SBX_CANCEL;
-      cancel.addEventListener('click',()=>cleanup(null));
-      btns.appendChild(cancel);
-      box.appendChild(btns);
-      // FR-SPK-7: 고를 것이 scratch 하나뿐이면 늘리는 길을 안내한다. 이것이
-      // 없으면 사용자는 `sandbox.json` 이라는 자리가 있다는 것 자체를 모른다 —
-      // 접수한 말("프로파일 설정창이 안 뜬다")의 나머지 절반이 이쪽이다.
-      if(list.length===1&&list[0]&&list[0].name===SANDBOX_PROFILE_SCRATCH){
-        const hint=document.createElement('div');hint.className='sbx-hint';
-        hint.textContent=SANDBOX_DEV_HINT;
-        const open=document.createElement('button');
-        open.type='button';open.className='ui-btn ui-btn-sm sbx-settings';open.textContent=SANDBOX_DEV_SETTINGS;
-        open.title=TIP_SBX_SETTINGS;
-        // 선택창을 닫고 설정을 연다 — 두 창이 겹치면 어느 쪽이 살아 있는지
-        // 알 수 없다.
-        open.addEventListener('click',()=>{cleanup(null);this._openSettings('sandbox')});
-        hint.appendChild(open);
-        box.appendChild(hint);
-      }
-      // FR-SBM-2: 기본 선택은 **첫 프로파일의 방식**이다. 그것이 `none` 이거나
-      // 없으면 복사로 떨어진다 — 되돌아오는 통로가 없는 쪽이 안전한 기본이다.
-      const first=(list[0]&&list[0].work)||'';
-      setWork(SANDBOX_WORK_PICKS.includes(first)?first:SANDBOX_WORK_COPY);
-      ov.appendChild(box);document.body.appendChild(ov);
-      document.addEventListener('keydown',onKey);
-      ov.addEventListener('click',e=>{if(e.target===ov)cleanup(null)});
-      const want=input||btns.querySelector('.sbx-opt');
-      if(want) want.focus();
-      // FR-KIT-24·25: 이름은 머리(`.confirm-msg`)가 준다.
-      releaseDlg=UIKit.dialogOpen(box,{labelledBy:msg,label:t('sbx.profile_title'),returnTo,focus:want});
+          workdir:(input&&def!==SANDBOX_WORK_NONE)?input.value.trim():''})};
     });
+    actions.push({label:t('core.cancel'),cls:'confirm-cancel',tip:TIP_SBX_CANCEL,value:null});
+    // FR-SPK-7: 고를 것이 scratch 하나뿐이면 늘리는 길을 안내한다. 이것이
+    // 없으면 사용자는 `sandbox.json` 이라는 자리가 있다는 것 자체를 모른다 —
+    // 접수한 말("프로파일 설정창이 안 뜬다")의 나머지 절반이 이쪽이다.
+    let hint=null;
+    if(list.length===1&&list[0]&&list[0].name===SANDBOX_PROFILE_SCRATCH){
+      hint=document.createElement('div');hint.className='sbx-hint';
+      hint.textContent=SANDBOX_DEV_HINT;
+      const open=document.createElement('button');
+      open.type='button';open.className='ui-btn ui-btn-sm sbx-settings';open.textContent=SANDBOX_DEV_SETTINGS;
+      open.title=TIP_SBX_SETTINGS;
+      // 선택창을 닫고 설정을 연다 — 두 창이 겹치면 어느 쪽이 살아 있는지
+      // 알 수 없다.
+      open.addEventListener('click',()=>{done(null);this._openSettings('sandbox')});
+      hint.appendChild(open);
+    }
+    // FR-SBM-2: 기본 선택은 **첫 프로파일의 방식**이다. 그것이 `none` 이거나
+    // 없으면 복사로 떨어진다 — 되돌아오는 통로가 없는 쪽이 안전한 기본이다.
+    const first=(list[0]&&list[0].work)||'';
+    setWork(SANDBOX_WORK_PICKS.includes(first)?first:SANDBOX_WORK_COPY);
+    // FR-KIT-24·25: 이름은 머리(`.confirm-msg`)가 준다.
+    return UIKit.ask({body,labelledBy:msg,label:t('sbx.profile_title'),footCls:'sbx-pick',
+      actions,escValue:null,focus:input,onOpen:(m,fin)=>{
+        done=fin;
+        // 등급 배지는 버튼 글자 옆에 선다 — 이름과 한 버튼이어야 무엇의 등급인지 읽힌다.
+        m.foot.querySelectorAll('.sbx-opt').forEach((b,i)=>{
+          const p=list[i];
+          const grade=document.createElement('span');
+          grade.className='sbx-grade'+(p.isolated?' iso':'');
+          grade.textContent=p.isolated?t('sbx.isolated'):t('sbx.not_isolated');
+          b.append(' ',grade);
+        });
+        if(hint) m.body.appendChild(hint);
+      }});
   },
 
   /**
@@ -410,60 +371,28 @@ Object.assign(App.prototype, {
    * `msg` 는 도구 이름을 담고, 도구 이름은 터미널이 정한다.
    */
   _confirmClose(msg, opts = {}){
-    return new Promise(resolve=>{
-      const returnTo=document.activeElement;   // FR-KIT-24
-      const ov=document.createElement('div');ov.className='confirm-overlay ui-modal';
-      const box=document.createElement('div');box.className='confirm-box ui-modal-box';
-      const text=document.createElement('div');text.className='confirm-msg';
-      text.textContent=msg;
-      const row=document.createElement('div');row.className='confirm-btns';
-      box.appendChild(text);box.appendChild(row);ov.appendChild(box);
-
-      const mk=(cls,tip,label)=>{
-        const b=document.createElement('button');
-        b.className='ui-btn '+cls; b.title=tip; b.textContent=label;
-        row.appendChild(b);
-        return b;
-      };
-      // 순서는 종전 그대로다 — 백그라운드·저장이 앞, 닫기·취소가 뒤.
-      const bgBtn=opts.bgBtn?mk('ui-btn-primary confirm-bg',TIP_CLOSE_BG,opts.bgLabel||t('core.to_background')):null;
-      // 문구를 바꿀 수 있다 — 대상 전환의 확인(REPO_FIX 05 F-2.4)은 "닫기" 가 아니다.
-      const saveBtn=opts.saveBtn?mk('ui-btn-primary confirm-save',TIP_CLOSE_SAVE,opts.saveLabel||t('core.save_and_close')):null;
-      const okBtn=mk('ui-btn-danger confirm-ok',TIP_CLOSE_TOOL,opts.okLabel||t('core.close'));
-      const cancelBtn=mk('confirm-cancel',TIP_CLOSE_CANCEL,t('core.cancel'));
-
-      document.body.appendChild(ov);
-      /**
-       * FR-PDA-1 / D-4: 기본 포커스는 **목적 버튼**이다.
-       *
-       * 사용자가 누른 것은 "닫기" 지만 **이 창이 뜨는 이유는 저장 안 된 편집이
-       * 있기 때문**이다. 그 상황에서 사용자가 원하는 결과는 "편집을 잃지 않고
-       * 닫는 것" 이므로 `저장 후 닫기` 가 목적이다 (사용자 결정 2026-09-10).
-       * `U-10`(FR-RTU-103)이 방금 그 손실을 막는 일이었으므로 일관된다.
-       *
-       * 저장 갈래가 없는 호출(실행 중인 프로세스)에서는 `닫기` 가 목적이다.
-       */
-      (saveBtn||okBtn).focus();
-      // FR-KIT-24·25: 머리가 없는 상자라 이름은 본문(`.confirm-msg`)이 준다.
-      const releaseDlg=UIKit.dialogOpen(box,{labelledBy:text,label:msg,returnTo,focus:saveBtn||okBtn});
-
-      const cleanup=v=>{releaseDlg();ov.remove();document.removeEventListener('keydown',onKey,true);resolve(v)};
-      // FR-PDA-2: `Enter` 는 가로채지 않는다 — 포커스된 버튼을 누르는 브라우저
-      // 기본 동작이 곧 이 규약이다. 종전에는 capture 로 그것까지 막고 언제나
-      // 취소했다 (POPUP_DEFAULT_ACTION_SRS D-1).
-      const onKey=e=>{
-        if(e.key!=='Escape') return;
-        e.preventDefault(); e.stopPropagation();
-        cleanup(false);
-      };
-      document.addEventListener('keydown',onKey,true);
-
-      if(saveBtn) saveBtn.addEventListener('click',()=>cleanup('save'));
-      if(bgBtn) bgBtn.addEventListener('click',()=>cleanup('background'));
-      okBtn.addEventListener('click',()=>cleanup(true));
-      cancelBtn.addEventListener('click',()=>cleanup(false));
-      ov.addEventListener('click',e=>{if(e.target===ov)cleanup(false)});
-    });
+    // 순서는 종전 그대로다 — 백그라운드·저장이 앞, 닫기·취소가 뒤.
+    const actions=[];
+    if(opts.bgBtn) actions.push({label:opts.bgLabel||t('core.to_background'),kind:'primary',cls:'confirm-bg',tip:TIP_CLOSE_BG,value:'background'});
+    // 문구를 바꿀 수 있다 — 대상 전환의 확인(REPO_FIX 05 F-2.4)은 "닫기" 가 아니다.
+    if(opts.saveBtn) actions.push({label:opts.saveLabel||t('core.save_and_close'),kind:'primary',cls:'confirm-save',tip:TIP_CLOSE_SAVE,value:'save'});
+    /**
+     * FR-PDA-1 / D-4: 기본 포커스는 **목적 버튼**이다.
+     *
+     * 사용자가 누른 것은 "닫기" 지만 **이 창이 뜨는 이유는 저장 안 된 편집이
+     * 있기 때문**이다. 그 상황에서 사용자가 원하는 결과는 "편집을 잃지 않고
+     * 닫는 것" 이므로 `저장 후 닫기` 가 목적이다 (사용자 결정 2026-09-10).
+     * `U-10`(FR-RTU-103)이 방금 그 손실을 막는 일이었으므로 일관된다.
+     *
+     * 저장 갈래가 없는 호출(실행 중인 프로세스)에서는 `닫기` 가 목적이다.
+     */
+    if(opts.saveBtn) actions[actions.length-1].default=true;
+    actions.push({label:opts.okLabel||t('core.close'),kind:'danger',cls:'confirm-ok',tip:TIP_CLOSE_TOOL,value:true,default:!opts.saveBtn});
+    actions.push({label:t('core.cancel'),cls:'confirm-cancel',tip:TIP_CLOSE_CANCEL,value:false});
+    // FR-KIT-24·25: 머리가 없는 상자라 이름은 본문(`.confirm-msg`)이 준다.
+    // FR-PDA-2: `Enter` 는 가로채지 않는다 — 포커스된 버튼을 누르는 브라우저
+    // 기본 동작이 곧 이 규약이다 (POPUP_DEFAULT_ACTION_SRS D-1). `Esc`·바깥 클릭은 취소다.
+    return UIKit.ask({msg,actions,escValue:false});
   },
 
   // ── 백그라운드 도구 (FR-BG) ──

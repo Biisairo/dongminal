@@ -56,23 +56,17 @@ Object.assign(App.prototype, {
     const box=document.getElementById('sbx-mounts');
     const status=document.getElementById('sbx-status');
     if(!box) return;
-    box.innerHTML='';status.textContent='';status.classList.remove('err');
-    try{
+    box.innerHTML='';
+    // 런타임이 없으면 설정할 대상 자체가 없다. 빈 화면보다 이유가 낫다.
+    await statusRun(status,{fail:t('sbx.config_read_fail')},async()=>{
       const r=await apiGet('/api/sandbox/config');
-      if(!r.ok){
-        // 런타임이 없으면 설정할 대상 자체가 없다. 빈 화면보다 이유가 낫다.
-        status.textContent=apiErrText(r,t('sbx.config_read_fail'));
-        status.classList.add('err');
-        return;
-      }
+      if(!r.ok) return r;
       const cfg=r.data||{};
       document.getElementById('sbx-image').value=(cfg.dev&&cfg.dev.image)||'';
       document.getElementById('sbx-ports').value=(cfg.dev&&cfg.dev.ports||[]).join(', ');
       for(const m of cfg.mounts||[]) box.appendChild(this._sbxMountRow(m));
-    }catch(e){
-      status.textContent=t('sbx.config_read_fail')+' — '+((e&&e.message)||e);
-      status.classList.add('err');
-    }
+      return r;
+    });
   },
 
   _initSandboxPanel(){
@@ -82,21 +76,10 @@ Object.assign(App.prototype, {
     add.addEventListener('click',()=>
       document.getElementById('sbx-mounts').appendChild(this._sbxMountRow()));
     save.addEventListener('click',async()=>{
-      const status=document.getElementById('sbx-status');
-      status.classList.remove('err');status.textContent=t('core.saving');
-      try{
-        const r=await apiPut('/api/sandbox/config',this._sbxCollect());
-        if(!r.ok){
-          // 거부 사유가 그대로 온다 — 무엇이 잘못됐는지 모르면 고칠 수 없다.
-          status.textContent=apiErrText(r,t('core.save_fail'));
-          status.classList.add('err');
-          return;
-        }
-        status.textContent=t('core.saved');
-      }catch(e){
-        status.textContent=t('core.save_fail')+' — '+((e&&e.message)||e);
-        status.classList.add('err');
-      }
+      // 거부 사유가 그대로 온다 — 무엇이 잘못됐는지 모르면 고칠 수 없다.
+      await statusRun(document.getElementById('sbx-status'),
+        {pending:t('core.saving'),ok:t('core.saved'),fail:t('core.save_fail')},
+        ()=>apiPut('/api/sandbox/config',this._sbxCollect()));
     });
   },
 });

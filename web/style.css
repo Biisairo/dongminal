@@ -1248,6 +1248,11 @@ body.mobile .status-bar.sb-expanded::after{content:'⌄'}
    원인이 잘리므로 스크롤시킨다. */
 .notify-msg{max-height:40vh;overflow:auto;white-space:pre-wrap;text-align:left}
 .confirm-btns{display:flex;gap:8px;justify-content:flex-end}
+/* FR-OPT-11-5 (FEC-27): 확인 상자는 `UIKit.ask` 로 서서 본문·버튼 줄이 `.ui-modal-body`·
+   `.ui-modal-foot` 안에 산다. 여백은 상자(`.confirm-box`)의 것이므로 둘은 여백·구분선을
+   더하지 않는다 — 종전 골격과 같은 모양이다. */
+.confirm-box>.confirm-body{padding:0;overflow:visible}
+.confirm-box>.confirm-btns{padding:0;border-top:0}
 /* 버튼의 형태와 역할 색은 키트 등급이다 (DESIGN_TOKENS_SRS §7.3) — 파괴적 닫기·
    삭제는 `ui-btn-danger`, 저장·확인·실행은 `ui-btn-primary`, 나머지는 기본.
    종전에는 `.confirm-ok` 가 어디서나 붉었다 — 오류 알림의 `확인` 과 런타임의

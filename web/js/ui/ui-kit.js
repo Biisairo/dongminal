@@ -357,36 +357,48 @@ const UIKit = {
    * onClose 로 간다** — 지금까지 셋 중 둘만 있는 상자가 있었다.
    *
    * 돌려주는 것은 `{el, close}` 다. 붙이고 지우는 것은 부르는 쪽의 일이다.
+   *
+   * FR-OPT-11-5 (FEC-27): 머리 없는 확인 상자도 이 골격을 쓴다 —
+   *   head:false   머리(제목·닫기 버튼)를 세우지 않는다. 이름은 `labelledBy` 가 준다
+   *   boxCls·bodyCls·footCls  상자·본문·버튼 줄에 더할 클래스
+   *   focus        열 때 포커스를 줄 자리(목적 버튼 대신)
+   *   action.value 그 버튼으로 닫으면 `onClose(value)` 로 간다. 다른 닫는 길은 값이 없다
+   *   action.tip   툴팁만 준다 — 이름(aria-label)은 글자가 준다
+   *   action.default  목적 버튼으로 삼는다
+   * `close(v)` 도 값을 받는다 — 비동기로 끝나는 동작이 결과를 싣고 닫는 자리다.
    */
   modal(spec) {
     const s = spec || {};
     const ov = document.createElement('div');
     ov.className = ['ui-modal', s.cls || ''].filter(Boolean).join(' ');
     const box = document.createElement('div');
-    box.className = 'ui-modal-box';
+    box.className = ['ui-modal-box', s.boxCls || ''].filter(Boolean).join(' ');
     if (s.width) box.style.width = s.width;
     ov.appendChild(box);
 
-    const head = document.createElement('div');
-    head.className = 'ui-modal-head';
-    const t = document.createElement('span');
-    t.className = 'ui-modal-title';
-    t.textContent = s.title || '';
-    head.appendChild(t);
-    const sp = document.createElement('span');
-    sp.className = 'ui-modal-spacer';
-    head.appendChild(sp);
-    box.appendChild(head);
+    let head = null, t = null;
+    if (s.head !== false) {
+      head = document.createElement('div');
+      head.className = 'ui-modal-head';
+      t = document.createElement('span');
+      t.className = 'ui-modal-title';
+      t.textContent = s.title || '';
+      head.appendChild(t);
+      const sp = document.createElement('span');
+      sp.className = 'ui-modal-spacer';
+      head.appendChild(sp);
+      box.appendChild(head);
+    }
 
     const body = document.createElement('div');
-    body.className = 'ui-modal-body';
+    body.className = ['ui-modal-body', s.bodyCls || ''].filter(Boolean).join(' ');
     if (s.body) body.appendChild(s.body);
     box.appendChild(body);
 
     let foot = null;
     if (s.actions && s.actions.length) {
       foot = document.createElement('div');
-      foot.className = 'ui-modal-foot';
+      foot.className = ['ui-modal-foot', s.footCls || ''].filter(Boolean).join(' ');
       box.appendChild(foot);
     }
 
@@ -394,17 +406,17 @@ const UIKit = {
     // FR-A11Y-18: 접근성 계약은 `dialogOpen` 이 갖는다. `defBtn` 을 알아야
     // 포커스를 줄 수 있으므로 아래에서 열고, 여기서는 닫을 손잡이만 잡아 둔다.
     let releaseDlg = null;
-    const close = () => {
+    const close = (v) => {
       if (closed) return;
       closed = true;
       if (releaseDlg) releaseDlg();
       document.removeEventListener('keydown', onKey, true);
       if (ov.parentNode) ov.parentNode.removeChild(ov);
-      if (s.onClose) s.onClose();
+      if (s.onClose) s.onClose(v);
     };
     const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close() } };
     document.addEventListener('keydown', onKey, true);
-    head.appendChild(this.button({ icon: 'x', title: s.closeTitle || 'Close', kind: 'ghost', cls: 'ui-modal-close', onClick: close }));
+    if (head) head.appendChild(this.button({ icon: 'x', title: s.closeTitle || 'Close', kind: 'ghost', cls: 'ui-modal-close', onClick: () => close() }));
     ov.addEventListener('mousedown', e => { if (e.target === ov) close() });
     /**
      * FR-PDA-1·11: 목적 버튼은 **기제가 정한다** — `kind` 가 `primary` 또는
@@ -419,14 +431,16 @@ const UIKit = {
      * `focusDefault()` 를 부르게 하면 그것이 곧 종전의 "호출자마다 각자" 이고,
      * 한 자리가 빠지는 것이 지금 고치는 결함이다.
      */
-    let primary = null, last = null;
+    let primary = null, last = null, def = null;
     for (const a of (s.actions || [])) {
       const b = this.button(Object.assign({}, a, {
-        onClick: () => { if (!a.keepOpen) close(); if (a.onClick) a.onClick() },
+        onClick: () => { if (!a.keepOpen) close(a.value); if (a.onClick) a.onClick() },
       }));
+      if (a.tip) b.title = a.tip;
       foot.appendChild(b);
       last = b;
       if (a.kind === 'primary' || a.kind === 'danger') primary = b;
+      if (a.default) def = b;
     }
     /**
      * FR-A11Y-30 / D-A11Y-13: 액션 줄을 `←`/`→` 로도 옮긴다.
@@ -445,11 +459,52 @@ const UIKit = {
         items: () => [...foot.querySelectorAll('.ui-btn')].filter((b) => !b.disabled),
       });
     }
-    const defBtn = primary || last;
+    const defBtn = def || primary || last;
     // 어느 버튼에 포커스를 주는지는 여전히 여기가 정한다(위 FR-PDA-1·11) — 옮긴
     // 것은 **주는 방법**이고, 그것이 트랩·복귀와 한 벌이어야 한다 (FR-A11Y-18).
-    releaseDlg = UIKit.dialogOpen(box, { labelledBy: t, label: s.title || '', focus: defBtn });
+    releaseDlg = UIKit.dialogOpen(box, {
+      labelledBy: s.labelledBy || t, label: s.label || s.title || '', returnTo: s.returnTo, focus: s.focus || defBtn,
+    });
     return { el: ov, box, body, foot, close, defBtn };
+  },
+
+  /**
+   * FR-OPT-11-5 (FEC-27): 머리 없는 확인·알림 상자. 고른 버튼의 `value` 로 풀리는
+   * 약속을 돌려준다 — Escape·바깥 클릭은 `escValue` 다.
+   *
+   * spec: `{msg | body, labelledBy, label, cls, actions, escValue, focus, onOpen}`
+   *   msg     본문 글자 (`textContent` — 마크업으로 해석되지 않는다). `.confirm-msg` 가 된다
+   *   body    글자 대신 세운 본문. 이름을 줄 요소는 `labelledBy` 로 준다
+   *   onOpen  `(m, done)` — 붙인 뒤 부른다. `done(v)` 는 그 값으로 닫는다
+   *
+   * 옛 골격의 클래스(`.confirm-overlay`·`.confirm-box`·`.confirm-btns`)는 그대로 붙는다 —
+   * 모양과 e2e 선택자가 그것을 딛는다. `returnTo` 는 부르는 순간의 포커스다 (FR-KIT-24).
+   */
+  ask(spec) {
+    const s = spec || {};
+    const returnTo = document.activeElement;
+    let body = s.body, lab = s.labelledBy;
+    if (!body) {
+      body = document.createElement('div');
+      body.className = 'confirm-msg';
+      body.textContent = s.msg == null ? '' : String(s.msg);
+      lab = lab || body;
+    }
+    return new Promise((resolve) => {
+      const m = this.modal({
+        head: false, cls: ['confirm-overlay', s.cls || ''].filter(Boolean).join(' '),
+        boxCls: ['confirm-box', s.boxCls || ''].filter(Boolean).join(' '),
+        bodyCls: 'confirm-body', footCls: ['confirm-btns', s.footCls || ''].filter(Boolean).join(' '),
+        body, labelledBy: lab, label: s.label || s.msg || '', returnTo, focus: s.focus,
+        actions: s.actions,
+        onClose: (v) => resolve(v === undefined ? s.escValue : v),
+      });
+      document.body.appendChild(m.el);
+      // 목적 버튼은 붙인 즉시 포커스를 받는다 — 여는 즉시 `Enter` 를 치는 손이 있다.
+      const want = s.focus || m.defBtn;
+      if (want) want.focus();
+      if (s.onOpen) s.onOpen(m, (v) => m.close(v));
+    });
   },
 
   /**
