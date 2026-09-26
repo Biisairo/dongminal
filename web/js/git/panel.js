@@ -20,6 +20,7 @@
  *   panel-write.js    쓰기 한 번의 전과 후 — 후처리 훅 · 결과 해석 · 오퍼레이션
  *   panel-files.js    파일 작업 · 선택 · 스테이징 · discard
  *   panel-diff.js     선택 → diff · blame · hunk · 미리보기
+ *   panel-dir-entry.js 디렉터리 항목의 사유 · 진입점
  *   panel-poll.js     보기 설정 · 폴링 · 상태 적용
  *
  * 관측(`GitObserver`)은 observer.js, Monaco diff(`GitDiffView`)는 diff-view.js 다.

@@ -410,18 +410,22 @@ E 를 마지막에 두는 이유는 리스크가 가장 크고, 앞의 넷이 �
 코드가 아니거나 검사 코드이고, `i18n/ko.js`·`en.js` 는 **데이터**라 키가 늘면 줄이
 늘고 분할이 뜻을 갖지 않는다.
 
-    500줄초과=19 · 최대=1020
+    500줄초과=18 · 최대=1020
 
 | 지표 | §2.1 기준선 (2026-09-12) | §7.1 달성 (2026-09-13) | 게이트를 세운 순간 (2026-09-21) | **게이트 기준선 (2026-09-21)** |
 |---|---:|---:|---:|---:|
-| 500줄 초과 파일 (i18n 제외) | 27 | 22 | 24 | **19** |
+| 500줄 초과 파일 (i18n 제외) | 27 | 22 | 24 | **18** |
 | 최대 파일 | 1,336 | 1,336 | 1,586 (`ui/renderer.js`) | **1,020** (`core/app-git.js`) |
+
+> 19 → 18 (2026-09-26, `OPTIMIZE_REFACTOR_SRS` FR-OPT-12-4 후속). `panel-diff.js` 가 디렉터리 항목의 사유·진입점
+> (`_dirEntryNote`·`_dirEntryActs`)을 `panel-dir-entry.js` 로 내보내 450 이 됐다 — `_showTarget` 이 diff 대신
+> 그리는 한 주제이고, 증강 분할이다.
 
 > 21 → 19 · 1,174 → 1,020 (2026-09-26, `OPTIMIZE_REFACTOR_SRS` FR-OPT-12-1·12-4). `term-pane.js` 는 WS 배선
 > (`term-socket.js`)과 입력·IME·터치(`term-input.js`)를 내보내 727, `runs-panel.js` 는 대시보드
 > (`run-dashboard.js`)를 내보내 413, `renderer-pane.js` 는 탭·끌어놓기 배선(`renderer-pane-wire.js`)을
 > 내보내 436 이 됐다. `panel-diff.js` 는 blame(`panel-blame.js`)·조각 툴바(`panel-hunks.js`)를
-> 내보냈으나 508 로 아직 경계 위다. 모두 증강 분할(`Object.assign(X.prototype, …)`)이다.
+> 내보냈으나 508 로 아직 경계 위였다(위 19 → 18 에서 내려왔다). 모두 증강 분할(`Object.assign(X.prototype, …)`)이다.
 
 > 23 → 21 (2026-09-26, `OPTIMIZE_REFACTOR_SRS` FR-OPT-11-2·6). `app-mobile.js` 는 키바의 키 표가
 > 상수로 나가며(FEC-34), `helpers.js` 는 주제별 일곱 파일로 갈리며(FEC-24, N4 개정) 500 아래로
