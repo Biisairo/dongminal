@@ -538,6 +538,25 @@ func TestHandleWS_CrossOriginRejected(t *testing.T) {
 	}
 }
 
+// TC-ROP-2: 같은 기계의 다른 포트가 연 WebSocket 은 업그레이드 전에 막히고 셸이
+// 생기지 않는다 (REQUEST_GATE_ORIGIN_PORT_SRS §1.1 재현).
+func TestHandleWS_OtherPortOriginRejected(t *testing.T) {
+	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	t.Cleanup(pm.StopSaving)
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Tools: pm})
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+	before := len(pm.List())
+	h := http.Header{}
+	h.Set("Origin", "http://127.0.0.1:3000")
+	if got := dialWS(t, ts, "/ws?cols=80&rows=24", h); got != http.StatusForbidden {
+		t.Fatalf("status=%d want 403 — 다른 포트의 페이지가 셸을 얻는다", got)
+	}
+	if after := len(pm.List()); after != before {
+		t.Fatalf("도구 수 %d → %d — 거절된 핸드셰이크가 셸을 만들었다", before, after)
+	}
+}
+
 // TC-RQG-15: `Origin` 없는 업그레이드는 통과한다 (비브라우저 클라이언트).
 func TestHandleWS_NoOriginAllowed(t *testing.T) {
 	ts := wsGateServer(t)

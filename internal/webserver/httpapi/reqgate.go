@@ -83,6 +83,26 @@ func normalizeHost(raw string) string {
 	return strings.ToLower(strings.TrimSuffix(raw, "."))
 }
 
+// sameAuthority 는 `Origin` 의 authority 가 `Host` 의 것과 같은지 본다 (FR-ROP-2).
+//
+// 포트는 적힌 문자열 그대로 비교한다 — 기본 포트를 추론하려면 스킴이 필요한데,
+// `tailscale serve` 뒤에서 브라우저의 스킴은 서버가 믿을 수 있는 값이 아니다.
+// 같은 이유로 스킴도 비교하지 않는다. `null`·비 http(s) Origin 은 거절이다 (FR-ROP-3).
+func sameAuthority(origin, host string) bool {
+	if host == "" {
+		return false
+	}
+	u, err := url.Parse(strings.TrimSpace(origin))
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return false
+	}
+	hh, hp := host, ""
+	if h, p, err := net.SplitHostPort(host); err == nil {
+		hh, hp = h, p
+	}
+	return normalizeHost(u.Hostname()) == normalizeHost(hh) && u.Port() == hp
+}
+
 // ok 는 정규화된 호스트 하나가 허용 집합에 드는지 본다.
 func (h *hostAllow) ok(host string) bool {
 	if host == "" {
@@ -197,9 +217,17 @@ func requestGate(allow *hostAllow, next http.Handler) http.Handler {
 		//
 		// 비브라우저 클라이언트(`dmctl`·`curl`·CI)는 `Origin` 을 싣지 않는다.
 		// 거부하면 `helper/runtimebin` 을 지나는 호출 17곳이 전부 막힌다.
-		if o := r.Header.Get("Origin"); o != "" && !allow.ok(normalizeHost(o)) {
-			gateDeny(w, r, http.StatusForbidden, "origin", "forbidden")
-			return
+		if o := r.Header.Get("Origin"); o != "" {
+			if !allow.ok(normalizeHost(o)) {
+				gateDeny(w, r, http.StatusForbidden, "origin", "forbidden")
+				return
+			}
+			// 호스트만 보면 **같은 기계의 다른 포트**가 이 서버의 출처가 된다
+			// (FR-ROP-1). 브라우저는 자기 출처에서 두 헤더에 같은 authority 를 싣는다.
+			if !sameAuthority(o, r.Host) {
+				gateDeny(w, r, http.StatusForbidden, "origin-authority", "forbidden")
+				return
+			}
 		}
 
 		if !isStateChanging(r.Method) {
