@@ -870,10 +870,8 @@ Object.assign(App.prototype, {
       return {cwd: dir};
     }
     const toolId = tab.toolId;
-    if (toolId) {
-      const p = this.tools.get(toolId);
-      if (p) return { cwdTool: toolId };
-    }
+    // FR-OPT-4-11: 그려지지 않은 도구(다른 창)도 살아 있으면 기준이다 — cwd 는 서버가 안다.
+    if (toolId && this.toolIds.has(toolId)) return { cwdTool: toolId };
     return {};
   },
   switchTabPrev(){

@@ -145,3 +145,24 @@ test('TLC4 (IPC-11): 칸 구독은 presence 로 열리고 방송을 받지 않�
   await page.waitForTimeout(800);
   expect(await page.evaluate(() => (window as any).__slotMsgs), '칸 구독이 방송을 받았다').toEqual([]);
 });
+
+test('TLC5 (IPC-5): 그려지지 않은 창의 칸을 나누어도 새 도구는 그 칸 도구의 cwd 를 잇는다', async ({ page, request }) => {
+  await waitForInit(page);
+  const s = await seedHidden(page, request);
+  await measureBoot(page);
+  const ref = await page.evaluate((hidden) => {
+    const app = (window as any).app;
+    for (const id of hidden) {
+      const loc = app.findToolLocation(id);
+      if (loc && loc.win.id !== app.ws.activeWindow) return { tool: id, win: loc.win.id, pane: loc.pane.id, drawn: !!app.toolAny(id) };
+    }
+    return null;
+  }, s.hidden);
+  expect(ref, '다른 창의 도구가 없다').not.toBeNull();
+  expect(ref!.drawn, '다른 창의 도구가 이미 그려졌다').toBe(false);
+  const [req] = await Promise.all([
+    page.waitForRequest((r) => r.method() === 'POST' && /\/api\/tools\?/.test(r.url())),
+    page.evaluate((r) => (window as any).app.split('horizontal', { targetWindow: r.win, targetPane: r.pane, keepFocus: true }), ref!),
+  ]);
+  expect(new URL(req.url()).searchParams.get('cwdTool'), '그려지지 않은 도구의 cwd 를 잇지 않았다').toBe(ref!.tool);
+});
