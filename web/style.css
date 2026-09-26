@@ -179,7 +179,7 @@
                  팔레트에서 뽑아 `CONTRAST_FLOORS.strong`(4.5)로 끌어올린 값이다
        이유:     *"전역 테마에 추가 색이 없으므로 값을 이 한 자리에서 정한다"* 는
                  이 주석의 옛 근거가 `.run-view{--run-ok:var(--term-green)}`
-                 (style-git-views.css:916)의 선례가 생긴 뒤로 낡았다 — 그 주석이
+                 (style-runs.css:97)의 선례가 생긴 뒤로 낡았다 — 그 주석이
                  이미 이 토큰을 이름으로 들고 있었다. 게이트는
                  `check-contrast.mjs` 의 `CSS_TOKENS` 다 (FR-WRD-12).
      `:root` 의 `--term-green`(아래)은 첫 페인트용 폴백이고 `applyThemeObj` 가
