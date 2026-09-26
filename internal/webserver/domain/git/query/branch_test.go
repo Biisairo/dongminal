@@ -91,6 +91,39 @@ func TestBranchMerged_MatchesGitCriterion(t *testing.T) {
 	}
 }
 
+// upstream 이 설정돼 있지만 그 추적 ref 가 없을 때(원격에서 지워진 gone, 또는
+// fetch 전) git 의 branch_merged 는 HEAD 로 판정한다. 없는 ref 로 merge-base 를
+// 돌려 로컬 삭제 자체를 실패시키지 않는다.
+func TestBranchMerged_GoneUpstreamFallsBackToHead(t *testing.T) {
+	repo := tempRepo(t)
+	s := core.New()
+	ctx := context.Background()
+
+	gitRun(t, repo, "remote", "add", "origin", repo)
+	gitRun(t, repo, "branch", "test")
+	gitRun(t, repo, "config", "branch.test.remote", "origin")
+	gitRun(t, repo, "config", "branch.test.merge", "refs/heads/test")
+
+	merged, err := BranchMerged(s, ctx, repo, "test")
+	if err != nil {
+		t.Fatalf("BranchMerged(gone upstream): %v — 없는 upstream 이 로컬 삭제를 막는다", err)
+	}
+	if !merged {
+		t.Fatal("HEAD 에 합쳐진 브랜치가 미머지로 판정됐다")
+	}
+
+	gitRun(t, repo, "checkout", "-q", "test")
+	gitRun(t, repo, "commit", "-q", "--allow-empty", "-m", "only-here")
+	gitRun(t, repo, "checkout", "-q", "main")
+	merged, err = BranchMerged(s, ctx, repo, "test")
+	if err != nil {
+		t.Fatalf("BranchMerged(gone upstream, unmerged): %v", err)
+	}
+	if merged {
+		t.Fatal("HEAD 에 없는 커밋이 있는데 머지된 것으로 판정됐다")
+	}
+}
+
 // B22 (FR-GIT-255 / V182): 영향 범위는 실행 전에 답한다 — ff 로 끝나는지와 들어올
 // 커밋 수. 둘 중 하나만으로는 사용자가 무엇이 생기는지 알 수 없다.
 func TestMergePreview_FFAndCounts(t *testing.T) {

@@ -153,13 +153,21 @@ func BranchUpstreamTarget(s *core.Service, ctx context.Context, repo, name strin
 // 본다 (git 의 `branch_merged`). 판정을 미리 하는 이유는 하나뿐이다 — 거부를 실패로
 // 끝내지 않고 `-D` 로 올릴 선택지를 **실행 전에** 줘야 하기 때문이다 (FR-GIT-254).
 // 실제 삭제는 그래도 `-d` 로 나가므로 마지막 판정은 여전히 git 이 한다.
+//
+// upstream 이 설정돼 있어도 그 추적 ref 가 없으면(원격에서 지워졌거나 fetch 전,
+// `%(upstream:track)` 이 `[gone]`) git 처럼 HEAD 로 판정한다. 없는 ref 로
+// merge-base 를 돌리면 로컬만 지우려는 요청이 실패로 끝난다.
 func BranchMerged(s *core.Service, ctx context.Context, repo, name string) (bool, error) {
-	up, err := BranchUpstream(s, ctx, repo, name)
+	if err := core.CheckRefArg("branch", name); err != nil {
+		return false, err
+	}
+	out, err := s.Exec(ctx, repo, "for-each-ref", "--format=%(upstream:short)%00%(upstream:track)", BranchRefPrefix+name)
 	if err != nil {
 		return false, err
 	}
+	up, track, _ := strings.Cut(strings.TrimRight(out.Stdout, "\n"), "\x00")
 	base := up
-	if base == "" {
+	if base == "" || track == refTrackGone {
 		base = "HEAD"
 	}
 	return isAncestor(s, ctx, repo, name, base)
