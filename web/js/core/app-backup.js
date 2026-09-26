@@ -240,7 +240,7 @@ Object.assign(App.prototype, {
       const btn=document.createElement('button');
       btn.type='button';
       btn.className='ds-toggle ui-btn';
-      btn.title='Revert the window layout to this generation';
+      btn.title=TIP_BACKUP_REVERT;
       btn.textContent=t('backup.revert_to');
       btn.addEventListener('click',()=>this._bkRevert(g.gen));
       row.append(when,size,btn);

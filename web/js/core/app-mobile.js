@@ -121,7 +121,7 @@ Object.assign(App.prototype, {
       const xb=document.createElement('button');
       xb.id='drawer-close'; xb.className='ui-btn ui-btn-icon ui-btn-ghost drawer-close';
       xb.appendChild(UIKit.icon('x'));
-      xb.title='Close the sidebar';xb.setAttribute('aria-label','Close the sidebar');
+      xb.title=TIP_SIDEBAR_CLOSE;xb.setAttribute('aria-label',TIP_SIDEBAR_CLOSE);
       xb.addEventListener('click',()=>{this._toggleDrawer(false);this.renderer._rTopbar()});
       sb.insertBefore(xb, sb.firstChild);
       // 로드맵 M7 `FUI-27`: 모바일에서 활동에 닿는 길. 단축키는 물리 키가 없는
@@ -131,7 +131,7 @@ Object.assign(App.prototype, {
       // `Agents` 는 같은 패널을 열고 있었다 — 서랍 머리에서도 문은 하나다.
       const acts=document.createElement('div');
       acts.id='m-drawer-acts'; acts.className='m-drawer-acts mobile-only';
-      const activity=UIKit.button({label:'Activity',title:'Show everything that is running',kind:'attn',size:'lg'});
+      const activity=UIKit.button({label:'Activity',title:TIP_MOBILE_ACTIVITY,kind:'attn',size:'lg'});
       activity.addEventListener('click',()=>{this._toggleDrawer(false);this.renderer._rTopbar();this.actPanelOpen()});
       acts.append(activity);
       sb.insertBefore(acts, xb.nextSibling);

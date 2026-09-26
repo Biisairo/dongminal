@@ -64,7 +64,7 @@ Object.assign(App.prototype, {
     // focusable`) — 그리고 테마를 **고르는** 일도 키보드로 되어야 한다 (2.1.1).
     // 목록은 listbox, 항목은 option, 키 계약은 `UIKit.roving` 한 벌이다 (D-A11Y-11).
     list.setAttribute('role','listbox');
-    list.setAttribute('aria-label','Theme');
+    list.setAttribute('aria-label',TIP_THEME_LIST);
     if(!list._kbNav){
       list._kbNav=true;
       UIKit.roving(list,{
@@ -154,7 +154,7 @@ Object.assign(App.prototype, {
     // 접근성 트리에서 표현용이 되고, axe 의 대비 규칙도 그림 안을 읽지 않는다.
     const pv=document.getElementById('theme-preview');
     pv.setAttribute('role','img');
-    pv.setAttribute('aria-label','Theme preview: '+(customTheme?'Custom':currentThemeName));
+    pv.setAttribute('aria-label',TIP_THEME_PREVIEW+(customTheme?'Custom':currentThemeName));
     pv.innerHTML=`
     <div style="display:flex;height:100%">
       <div class="pv-sidebar" style="background:${u.sidebarBg};border-right:1px solid ${u.border}">

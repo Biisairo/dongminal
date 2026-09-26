@@ -149,12 +149,12 @@ Object.assign(App.prototype, {
       // UI_KIT_SRS FR-GLY-4: 채움과 획으로 기본 여부를 가른다 — 별 두 글자가
       // 하던 일을 같은 모양의 두 상태가 한다.
       const star=UIKit.button({icon:'star',iconFill:i===defaultPreset,
-        title:'Make this the default preset',kind:'ghost'});
+        title:TIP_PRESET_DEFAULT,kind:'ghost'});
       star.addEventListener('click',e=>{e.stopPropagation();defaultPreset=defaultPreset===i?-1:i;this.saveSettings();this._renderPresets()});
       item.appendChild(star);
       // Load button. 로드맵 M7 `FUI-25`: 실패는 **보인다** — 도구 생성이
       // 거절되면 종전에는 창만 비어 있었다.
-      const load=UIKit.button({icon:'play',title:'Load this preset',kind:'ghost'});
+      const load=UIKit.button({icon:'play',title:TIP_PRESET_LOAD,kind:'ghost'});
       load.addEventListener('click',e=>{e.stopPropagation();this._loadPreset(i).catch(err=>this._notify(PRESET_LOAD_FAIL.replace('%s',String(err&&err.message||err))))});
       item.appendChild(load);
       // Delete button. `FUI-25`: 인라인 확인을 지난다 (Runs·백그라운드 목록의
@@ -162,14 +162,14 @@ Object.assign(App.prototype, {
       if(this._presetConfirm===i){
         const wrap=document.createElement('span'); wrap.className='preset-confirm';
         const q=document.createElement('span'); q.className='preset-q'; q.textContent=PRESET_DEL_Q;
-        const yes=UIKit.button({label:t('core.yes'),title:'Delete this preset',kind:'danger',size:'sm',cls:'preset-yes'});
+        const yes=UIKit.button({label:t('core.yes'),title:TIP_PRESET_DEL,kind:'danger',size:'sm',cls:'preset-yes'});
         yes.addEventListener('click',e=>{e.stopPropagation();this._presetConfirm=-1;this._deletePreset(i)});
-        const no=UIKit.button({label:t('core.no'),title:'Keep this preset',size:'sm',cls:'preset-no'});
+        const no=UIKit.button({label:t('core.no'),title:TIP_PRESET_KEEP,size:'sm',cls:'preset-no'});
         no.addEventListener('click',e=>{e.stopPropagation();this._presetConfirm=-1;this._renderPresets()});
         wrap.append(q,yes,no);
         item.appendChild(wrap);
       }else{
-        const del=UIKit.button({icon:'x',title:'Delete this preset',kind:'ghost',cls:'preset-del'});
+        const del=UIKit.button({icon:'x',title:TIP_PRESET_DEL,kind:'ghost',cls:'preset-del'});
         del.addEventListener('click',e=>{e.stopPropagation();this._presetConfirm=i;this._renderPresets()});
         item.appendChild(del);
       }

@@ -14,6 +14,8 @@
  *   가려짐  `t`·`tn` 호출이 지역 변수 `t`/`tn` 에 덮이지 않는다
  *   카탈로그  ko·en 의 키 집합이 같고, 키가 규약(`seg(.seg)+`, `[a-z0-9_]`)이며,
  *            `t('…')`/`tn('…')` 의 리터럴 키가 ko 에 있다
+ *   미사용  ko 의 키가 소스(JS 문자열 리터럴·index.html)에 한 번은 나오거나 동적
+ *            접두 등록부(`DYNAMIC_PREFIXES`)에 든다 (OPTIMIZE_REFACTOR_SRS FR-OPT-14-3)
  *
  * ## 예외 등록부 — 줄마다 사유
  *
@@ -80,6 +82,14 @@ function isThrownError(anc) {
 const SKIP_PROPS = [
   { file: /^web\/js\/core\/settings-schema\.js$/, prop: 'where',
     why: '문서 필드 — Go 가 같은 바이트를 JSON 으로 읽으므로 키로 바꿀 수 없다 (FR-CFG-2)' },
+];
+
+/**
+ * 동적 접두 등록부 — 키를 문자열 조립으로 만드는 자리. 이 접두의 키는 미사용 검사를
+ * 지난다. 접두 리터럴이 소스에서 사라지면 등록이 낡은 것이므로 그것도 잡는다.
+ */
+const DYNAMIC_PREFIXES = [
+  { prefix: 'err.', why: "api.js 가 서버의 오류 코드로 `t('err.' + code)` 를 조립한다 (ERROR_CONTRACT)" },
 ];
 
 const problems = [];
@@ -237,6 +247,24 @@ function usedKeys(file, src, out) {
   visit(ast);
 }
 
+/** 문자열 리터럴·템플릿 조각 전부 — 키가 어디서든 한 번은 적혀 있는지 본다. */
+function stringLiterals(src, out) {
+  let ast;
+  try { ast = espree.parse(src, { ecmaVersion: 2022, sourceType: 'script' }) } catch { return }
+  const visit = (n) => {
+    if (!n || typeof n.type !== 'string') return;
+    if (n.type === 'Literal' && typeof n.value === 'string') out.add(n.value);
+    if (n.type === 'TemplateLiteral') for (const q of n.quasis) out.add(q.value.cooked);
+    for (const k of Object.keys(n)) {
+      if (k === 'loc' || k === 'range') continue;
+      const v = n[k];
+      if (Array.isArray(v)) v.forEach(visit);
+      else if (v && typeof v.type === 'string') visit(v);
+    }
+  };
+  visit(ast);
+}
+
 // ── 가려짐 — `t`·`tn` 이 지역 이름에 덮이면 호출이 조용히 다른 것을 부른다 ──
 
 function checkShadow(file, src) {
@@ -273,13 +301,20 @@ function checkShadow(file, src) {
 
 const jsFiles = walkDir(join(ROOT, 'web', 'js'), []).filter((p) => p.endsWith('.js')).map(rel).sort();
 const used = [];
+const literals = new Set();
 for (const f of jsFiles) {
   const src = readFileSync(join(ROOT, f), 'utf8');
   if (!SKIP_FILES.some((s) => s.re.test(f))) checkJs(f, src);
   if (!/^web\/js\/test\//.test(f)) checkShadow(f, src);
-  if (!/^web\/js\/(i18n|test)\//.test(f)) usedKeys(f, src, used);
+  if (!/^web\/js\/(i18n|test)\//.test(f)) {
+    usedKeys(f, src, used);
+    stringLiterals(src, literals);
+  }
 }
-checkHtml('web/index.html', readFileSync(join(ROOT, 'web', 'index.html'), 'utf8'));
+const indexHtml = readFileSync(join(ROOT, 'web', 'index.html'), 'utf8');
+checkHtml('web/index.html', indexHtml);
+// index.html 은 `data-i18n="a.b"` 꼴로 키를 든다. 따옴표 안의 키 모양 값을 전부 센다.
+for (const m of indexHtml.matchAll(/"([a-z0-9_]+(?:\.[a-z0-9_]+)+)"/g)) literals.add(m[1]);
 for (const f of readdirSync(join(ROOT, 'web')).filter((n) => n.endsWith('.css')).sort()) {
   checkCss('web/' + f, readFileSync(join(ROOT, 'web', f), 'utf8'));
 }
@@ -296,10 +331,24 @@ for (const u of used) {
   if (!ok) say(u.file, u.line, `카탈로그에 없는 키: ${u.key}${u.plural ? '.other' : ''}`);
 }
 
+// 미사용 키 (FR-OPT-14-3). 쓰이지 않는 키는 번역 비용만 들고, 지워진 기능의 문구가
+// 카탈로그에 남아 다음 사람이 그 기능이 있다고 믿게 한다. `tn` 의 키는 `.other`·
+// `.one` 을 뗀 이름으로 적힌다.
+for (const d of DYNAMIC_PREFIXES) {
+  if (!literals.has(d.prefix)) say('scripts/check-i18n.mjs', 0, `동적 접두 등록이 낡았다 — 소스에 '${d.prefix}' 리터럴이 없다`);
+}
+let unused = 0;
+for (const k of Object.keys(ko)) {
+  if (literals.has(k) || literals.has(k.replace(/\.(other|one)$/, ''))) continue;
+  if (DYNAMIC_PREFIXES.some((d) => k.startsWith(d.prefix))) continue;
+  say('web/js/i18n/ko.js', 0, `쓰이지 않는 키: ${k} — 지우거나, 조립으로 쓰면 DYNAMIC_PREFIXES 에 사유와 함께 등록한다`);
+  unused++;
+}
+
 if (problems.length) {
   console.error('i18n 게이트 실패 (FR-B-3):');
   for (const p of problems) console.error('  ' + p);
   console.error(`\n  ${problems.length} 건. 문구는 web/js/i18n/<locale>.js 로, 코드는 t('key') 로.`);
   process.exit(1);
 }
-console.log(`i18n ok — 한글 리터럴 0 · 카탈로그 ${Object.keys(ko).length} 키 · 호출 ${used.length}`);
+console.log(`i18n ok — 한글 리터럴 0 · 카탈로그 ${Object.keys(ko).length} 키 · 호출 ${used.length} · 미사용 ${unused}`);

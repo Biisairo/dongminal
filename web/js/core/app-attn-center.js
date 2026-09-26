@@ -48,7 +48,7 @@ Object.assign(App.prototype, {
     if(!this._attn.size){this._attnCenterClose();return}
     const head=document.createElement('div');
     head.className='attn-head';
-    head.innerHTML=`<span class="attn-title">${escHtml(t('attn.title',{n:this._attn.size}))}</span><button class="ui-btn ui-btn-sm ui-btn-attn attn-clear-all" title="Clear every attention alert">${escHtml(t('attn.clear_all'))}</button>`;
+    head.innerHTML=`<span class="attn-title">${escHtml(t('attn.title',{n:this._attn.size}))}</span><button class="ui-btn ui-btn-sm ui-btn-attn attn-clear-all" title="${escHtml(TIP_ATTN_CLEAR_ALL)}">${escHtml(t('attn.clear_all'))}</button>`;
     head.querySelector('.attn-clear-all').addEventListener('click',e=>{e.stopPropagation();this._attnClearAll()});
     center.appendChild(head);
     for(const [toolId,info] of this._attn){
@@ -76,7 +76,7 @@ Object.assign(App.prototype, {
       // 로드맵 M7 `FUI-22`: **하나만** 뗀다. 항목 클릭은 이동이고 "모두 제거" 는
       // 전부다 — 보고 넘기려는 알림 하나를 위해 그 둘 중 하나를 고르게 하지 않는다.
       // 서버에도 알린다(`_attnClear`) — 다른 브라우저의 배지도 함께 내려간다.
-      const x=UIKit.button({icon:'x',title:'Dismiss this alert',kind:'ghost',size:'sm',cls:'attn-x'});
+      const x=UIKit.button({icon:'x',title:TIP_ATTN_DISMISS,kind:'ghost',size:'sm',cls:'attn-x'});
       x.addEventListener('click',e=>{e.stopPropagation();this._attnClear(toolId,false);this._attnCenterRender()});
       item.appendChild(x);
       center.appendChild(item);

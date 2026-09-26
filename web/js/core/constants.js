@@ -589,6 +589,20 @@ const TIP_RUNS_DETACH='Detach this member — the tab closes, the tool keeps run
 // 툴팁만 말할 수 있다.
 const SHORTCUT_REBIND_TITLE='Click, then press the keys you want for this action';
 const SHORTCUT_RESET_TITLE='Reset this shortcut to its default';
+// FR-TIP-4 (OPTIMIZE_REFACTOR_SRS FR-OPT-14-3): 요소를 만드는 자리에 적혀 있던 것들.
+const TIP_BACKUP_REVERT='Revert the window layout to this generation';
+const TIP_ATTN_CLEAR_ALL='Clear every attention alert';
+const TIP_ATTN_DISMISS='Dismiss this alert';
+const TIP_PRESET_DEFAULT='Make this the default preset';
+const TIP_PRESET_LOAD='Load this preset';
+const TIP_PRESET_DEL='Delete this preset';
+const TIP_PRESET_KEEP='Keep this preset';
+const TIP_ACCESS_DEL='Remove this entry';
+const TIP_SBX_MOUNT_DEL='Remove this mount';
+const TIP_THEME_LIST='Theme';
+const TIP_THEME_PREVIEW='Theme preview: ';
+const TIP_SIDEBAR_CLOSE='Close the sidebar';
+const TIP_MOBILE_ACTIVITY='Show everything that is running';
 
 // ── 컨테이너 런타임의 상태 (UX_BATCH5_SRS 묶음 B / FR-SRT-1~8) ──
 //

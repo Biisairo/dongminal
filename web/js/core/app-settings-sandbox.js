@@ -25,7 +25,7 @@ Object.assign(App.prototype, {
     const ro=flag('ro',t('sbx.mount_ro'),m.readonly);
     // 이 표식이 켜지면 그 창은 더 이상 격리 경계가 아니다 (FR-SBX-39b).
     const sc=flag('scratch',t('sbx.mount_scratch'),m.scratch);
-    const del=UIKit.button({icon:'x',title:'Remove this mount',kind:'ghost',size:'sm'});
+    const del=UIKit.button({icon:'x',title:TIP_SBX_MOUNT_DEL,kind:'ghost',size:'sm'});
     del.addEventListener('click',()=>row.remove());
     row.append(host,cont,ro,sc,del);
     return row;
