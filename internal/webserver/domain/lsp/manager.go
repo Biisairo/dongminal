@@ -26,7 +26,10 @@ const MaxSessions = 6
 // 파일은 재동기화로는 보내지고 요청으로는 거절됐다.
 //
 // 요청마다 현재 텍스트가 오는 구조이므로(D-3) 이 값이 곧 한 요청의 크기다.
-const MaxTextBytes = editorlimit.FileMaxBytes
+//
+// var 인 것은 경계 검사가 낮춰 쓰기 위해서다 — 실제 값으로 재면 32 MiB 를 JSON 으로
+// 싣고 푸는 데 -race 에서 초 단위가 걸린다. 기본값은 TestLimit_TextIsEditorLimit 이 지킨다.
+var MaxTextBytes = editorlimit.FileMaxBytes
 
 // SweepEvery 는 idle 정리의 주기다.
 const SweepEvery = 2 * time.Minute

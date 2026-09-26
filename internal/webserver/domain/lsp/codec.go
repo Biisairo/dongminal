@@ -18,7 +18,7 @@ import (
 // 진단 한 묶음도 수 MB 가 되기 때문이다. 그래서 텍스트 상한(`MaxTextBytes`)을 JSON
 // 문자열로 실은 최악의 크기다 (OPTIMIZE_REFACTOR_SRS FR-OPT-15-1) — 종전의 32 MiB
 // 고정값은 텍스트 상한이 32 MiB 가 되면 didOpen 한 프레임을 담지 못한다.
-var maxFrame = int(editorlimit.BodyMaxBytes(MaxTextBytes))
+var maxFrame = int(editorlimit.BodyMaxBytes(int64(MaxTextBytes)))
 
 // LSP 의 전송은 HTTP 를 닮은 헤더와 본문이다:
 //

@@ -471,7 +471,7 @@ func (s *Session) resync(path string) {
 		return
 	}
 	st, err := os.Stat(path)
-	if err != nil || !st.Mode().IsRegular() || st.Size() > MaxTextBytes {
+	if err != nil || !st.Mode().IsRegular() || st.Size() > int64(MaxTextBytes) {
 		s.closeLocked(uri)
 		return
 	}

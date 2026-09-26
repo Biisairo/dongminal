@@ -26,7 +26,7 @@ const lspMaxBody = 64 << 10
 // 크다 — 도메인 계층의 `MaxTextBytes` 를 JSON 문자열로 실은 최악의 크기이며, 텍스트
 // 판정은 그쪽이 한다. 종전의 `MaxTextBytes + 64 KiB` 는 개행이 많은 상한 안의
 // 텍스트를 413 으로 거절했다 (OPTIMIZE_REFACTOR_SRS FR-OPT-15-1).
-var lspAskMaxBody = editorlimit.BodyMaxBytes(lsp.MaxTextBytes)
+var lspAskMaxBody = editorlimit.BodyMaxBytes(int64(lsp.MaxTextBytes))
 
 // lspReadBody 는 본문을 상한까지 읽는다. 실패하면 답하고 false 다.
 //

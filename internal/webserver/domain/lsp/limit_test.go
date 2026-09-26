@@ -20,7 +20,13 @@ func TestLimit_TextIsEditorLimit(t *testing.T) {
 
 // 상한과 같은 크기의 텍스트는 요청으로 실리고, 같은 크기의 디스크 판은 재동기화된다.
 // 한 바이트 넘으면 재동기화는 문서를 닫는다.
+//
+// 상한을 낮춰 잰다. 32 MiB 그대로면 가짜 서버가 didChange 를 JSON 으로 푸는 데
+// -race 의 CI 러너에서 waitN 의 2초를 넘겨 [didOpen] 만 보였다.
 func TestLimit_AtLimitRequestAndResync(t *testing.T) {
+	prev := MaxTextBytes
+	MaxTextBytes = 64 << 10
+	t.Cleanup(func() { MaxTextBytes = prev })
 	svc, rec := docSvc(t)
 	root, p := docRoot(t)
 	at := strings.Repeat("a", MaxTextBytes)
