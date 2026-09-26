@@ -281,6 +281,28 @@ e2e 요청 타임라인으로 잰다.
 - **FR-OPT-11-6** helpers.js 를 주제별로 분할한다. App 필드를 접두 가족별 소유 클래스로 뺀다. (FEC-24 · FEC-35)
 - **FR-OPT-11-7** 소항목: FEC-31 · FEC-32 · FEC-33 · FEC-36.
 
+> **O11a 구현 기록 (2026-09-26).**
+>
+> - **FR-OPT-11-1.** 두 로드 경로(`init`·`_applyRemoteWorkspace`)가 `app-window-state.js` 의
+>   `_normalizeIncomingWorkspace`·`_fallbackActiveWindow`·`_stripDeviceKeys` 를 함께 지난다. 활성 창을 바꾸는
+>   자리는 `_activateWindow(id,{rememberFocus})` 하나이고, 탭별 기억(창 id·Repo 루트)은 `_persistActiveWindow`
+>   만 적는다. 창을 바꾸며 하는 나머지 일(칸·포커스·소유권·git 재예약)은 자리마다 달라 호출부에 남겼다 — 옵션으로
+>   올리면 호출부마다 조합이 하나씩 생긴다. 트리 순회는 `panesOf` 한 벌이고 탭 찾기는 `findTabWhere` 위에 선다.
+>   `flattenPanes`·`_collectPanes` 는 e2e 계약(app.testing)이라 위임 껍데기로 남는다. `app-focus-owner.js` 의 두
+>   순회는 저장소 없이 단독으로 실리는 단위 검사(focus-size-owner)가 있어 옮기지 않았다.
+> - **FR-OPT-11-3.** 저장소는 `PrefStore.local`·`PrefStore.session`(core/pref-store.js)만 지난다. 막힌 저장소는
+>   오류가 아니고(읽기 null·쓰기 false) `ErrorLog.push('storage',…)` 로 흔적을 남긴다. 의도된 무시는
+>   `ErrorLog.quiet(kind,fn)` 이다. 게이트 둘: `check-storage.mjs`(직접 호출 금지 · core 의 빈 `catch{}` 0) ·
+>   `check-preinject.mjs`(선주입 키·폭 범위·로케일·영역을 원천 상수와 대조). 예외는 `i18n.js` 하나 — 카탈로그는
+>   PrefStore 없이 단독으로 실리는 모듈이다(i18n.test 가 localStorage 대역을 넣는다). `event-bus.js` 도 e2e 하네스(timer-hub-bus · sse-resilience)에 단독으로 실려 `ErrorLog` 를 딛지 못하므로 닫기 실패의 무시를 사유 주석을 단 `catch{ /* 이미 닫혔다 */ }` 로 적었다. 빈 catch 의 범위는 core 다 —
+>   ui/git 의 저장소 아닌 빈 catch(term-pane 등)는 O12 의 몫이다. `window-local-state.test` 의 slotDir 세 검사는
+>   저장 경로를 글자로 재던 것이라 `PrefStore.<영역>` 도 받도록 고쳤다(재는 것 — 영역 — 은 그대로다).
+> - **FR-OPT-11-4.** 기본값·범위 상수는 `settings-defaults.js` 가 `SETTINGS_BY_KEY` 에서 파생하고 그 기본값으로
+>   시작하는 설정 전역 여덟도 거기서 선다(`settings-schema.js` 는 constants 앞으로). 검증기는 표 위의 둘이다 —
+>   저장된 값을 해석하는 `settingValue`(범위 밖 → 기본값, FR-CFG-3)와 치는 값을 자르는 `clampSetting`(FR-FSS-19).
+>   `pollValue`·`clampTabWidth` 는 폐기했다. 동작 변경: 탭 너비 입력란을 비우면 40 이 아니라 160 이다
+>   (TAB_WIDTH_SRS FR-TBW-4 개정). TC-CFG-2x 는 `web/js/test/settings-source.test.mjs` 다.
+
 ### 3.12 O12 — FE ui/git
 
 - **FR-OPT-12-1** TermPane 의 WS 배선을 `TermSocket` 하나로 모은다. 백오프는 상수로 두고 지터를 더한다. 키 매핑·큐 상한을 상수로 옮긴다. (FEU-14 · IPC-16 · FEU-15)

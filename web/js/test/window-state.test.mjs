@@ -26,9 +26,12 @@ function memStore() {
 
 function world() {
   const sessionStorage = memStore();
-  const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js',
+  const ctx = load(['core/pref-store.js', 'core/i18n.js', 'i18n/ko.js', 'core/constants.js',
     'core/helpers.js', 'core/app-window-state.js'], {
-    globals: { App: function App() {}, sessionStorage, ACTIVE_EDITOR_ROOT_KEY: 'activeEditorRoot' },
+    globals: {
+      App: function App() {}, sessionStorage, ACTIVE_EDITOR_ROOT_KEY: 'activeEditorRoot',
+      ErrorLog: { push() {} },
+    },
     expose: ['findTabWhere'],
   });
   const a = new ctx.App();

@@ -343,7 +343,7 @@ Object.assign(App.prototype, {
     let attnDropped=false;
     for(const [key,p] of Array.from(this.tools.entries())){
       const id=this.slotBase(key);
-      if(!live.has(id)){ try{p.destroy()}catch{} this.tools.delete(key); if(this._attnDrop(id)) attnDropped=true }
+      if(!live.has(id)){ ErrorLog.quiet('destroy',()=>p.destroy()); this.tools.delete(key); if(this._attnDrop(id)) attnDropped=true }
     }
     for(const id of Array.from(this.toolIds)){
       if(live.has(id)) continue;

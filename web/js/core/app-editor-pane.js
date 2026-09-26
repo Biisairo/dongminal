@@ -157,15 +157,14 @@ Object.assign(App.prototype, {
    * 안에서는 여전히 하나다.
    */
   edSideWidth(){
-    let w=NaN;
-    try{ w=parseInt(sessionStorage.getItem(REPO_SIDE_W_KEY),10) }catch{}
+    const w=parseInt(PrefStore.session.get(REPO_SIDE_W_KEY),10);
     if(!Number.isFinite(w)) return REPO_SIDE_W_DEFAULT;
     return Math.max(REPO_SIDE_W_MIN,Math.min(REPO_SIDE_W_MAX,w));
   },
 
   edSetSideWidth(w){
     const v=Math.max(REPO_SIDE_W_MIN,Math.min(REPO_SIDE_W_MAX,Math.round(w)));
-    try{ sessionStorage.setItem(REPO_SIDE_W_KEY,v) }catch{}
+    PrefStore.session.set(REPO_SIDE_W_KEY,v);
   },
 
   /**

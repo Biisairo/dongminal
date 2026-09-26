@@ -93,6 +93,10 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@node scripts/check-file-size.mjs
 	@echo "── 로드 순서 (스크립트가 아직 서지 않은 이름을 읽지 않는가)"
 	@node scripts/check-load-order.mjs
+	@echo "── 저장소의 단일 경로 (localStorage·sessionStorage 가 PrefStore 를 지나는가 · core 에 빈 catch 가 없는가)"
+	@node scripts/check-storage.mjs
+	@echo "── 첫 페인트 선주입 (index.html 의 키·범위가 원천 상수와 같은가)"
+	@node scripts/check-preinject.mjs
 	@echo "── e2e 의 고정 대기 (근거가 있는 예외만인가)"
 	@node scripts/check-e2e-waits.mjs
 	@echo "── 프론트 계층 경계 (ui/·git/ 이 App 의 내부를 파고들지 않는가)"

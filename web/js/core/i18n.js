@@ -177,7 +177,8 @@ function tn(key,n,params){
 // 로케일은 로드 시점에 한 번 정해진다 (D-B-1).
 (function(){
   let v=null;
-  try{v=localStorage.getItem(I18N_STORAGE_KEY)}catch{}
+  // PrefStore 를 딛지 않는다 — 이 모듈은 단독으로 실린다 (scripts/check-storage.mjs 예외표).
+  try{v=localStorage.getItem(I18N_STORAGE_KEY)}catch{ v=null }
   I18N.locale=I18N.resolve(v);
   // FR-B-5: `<html lang>` 은 활성 로케일이다. head 스크립트가 먼저 세웠어도 같은 값이다.
   const html=typeof document!=='undefined'&&document.documentElement;

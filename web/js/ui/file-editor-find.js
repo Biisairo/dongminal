@@ -422,11 +422,7 @@ const ED_FIND_OPT_KEYS = ['case', 'regex', 'word', 'replace'];
 
 function edFindOptsLoad() {
   const o = { case: false, regex: false, word: false, replace: false };
-  let raw = null;
-  try { raw = localStorage.getItem(ED_FIND_OPTS_KEY) } catch { raw = null }
-  if (!raw) return o;
-  let saved = null;
-  try { saved = JSON.parse(raw) } catch { saved = null }
+  const saved = PrefStore.local.json(ED_FIND_OPTS_KEY, null);
   if (!saved || typeof saved !== 'object') return o;
   for (const k of ED_FIND_OPT_KEYS) o[k] = !!saved[k];
   return o;
@@ -435,7 +431,7 @@ function edFindOptsLoad() {
 function edFindOptsSave(o) {
   const out = {};
   for (const k of ED_FIND_OPT_KEYS) out[k] = !!o[k];
-  try { localStorage.setItem(ED_FIND_OPTS_KEY, JSON.stringify(out)) } catch { /* 사생활 모드 */ }
+  PrefStore.local.setJson(ED_FIND_OPTS_KEY, out);
 }
 
 /**

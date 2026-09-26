@@ -30,7 +30,7 @@ const BACKUP_VERSION=1;
 
 Object.assign(App.prototype, {
   _bkStore(name){
-    return name==='session'?sessionStorage:localStorage;
+    return name==='session'?PrefStore.session:PrefStore.local;
   },
 
   // FR-SPT-5 / D-6: **저장된 키만** 담는다. 없는 키를 기본값으로 채우면 나중에
@@ -38,8 +38,7 @@ Object.assign(App.prototype, {
   _bkCollect(){
     const out={local:{},session:{}};
     for(const {store,key} of BACKUP_KEYS){
-      let v=null;
-      try{v=this._bkStore(store).getItem(key)}catch{}
+      const v=this._bkStore(store).get(key);
       if(v!==null) out[store][key]=v;
     }
     return out;
@@ -159,10 +158,8 @@ Object.assign(App.prototype, {
     for(const {store,key} of BACKUP_KEYS){
       const src=store==='session'?env.session:env.local;
       const v=src?src[key]:undefined;
-      try{
-        if(v===undefined||v===null) this._bkStore(store).removeItem(key);
-        else this._bkStore(store).setItem(key,String(v));
-      }catch{}
+      if(v===undefined||v===null) this._bkStore(store).remove(key);
+      else this._bkStore(store).set(key,v);
     }
     this._bkPending=null;
     // §2.5 / FR-RLC-5a: 앱이 스스로 여는 새로고침은 이탈 가드를 지난다.
@@ -195,7 +192,7 @@ Object.assign(App.prototype, {
       return false;
     }
     for(const {store,key} of BACKUP_KEYS){
-      try{this._bkStore(store).removeItem(key)}catch{}
+      this._bkStore(store).remove(key);
     }
     window.__dmReloading=true;
     BootScreen.show(BOOT_STEP_BACKUP);

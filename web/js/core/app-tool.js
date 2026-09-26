@@ -223,17 +223,15 @@ Object.assign(App.prototype, {
   // (FR-SBX-23/24).
   // 최근에 연 작업 폴더. 이 브라우저에만 남는 편의값이라 서버로 보내지 않는다.
   _sbxRecent(){
-    try{return JSON.parse(localStorage.getItem('dm.sbx.recent')||'[]').filter(Boolean).slice(0,5)}
-    catch{return []}
+    const v=PrefStore.local.json(STORE_KEYS.sandboxRecent,[]);
+    return Array.isArray(v)?v.filter(Boolean).slice(0,5):[];
   },
 
   _sbxRemember(path){
     if(!path) return;
-    try{
-      const cur=this._sbxRecent().filter(p=>p!==path);
-      cur.unshift(path);
-      localStorage.setItem('dm.sbx.recent',JSON.stringify(cur.slice(0,5)));
-    }catch{}
+    const cur=this._sbxRecent().filter(p=>p!==path);
+    cur.unshift(path);
+    PrefStore.local.setJson(STORE_KEYS.sandboxRecent,cur.slice(0,5));
   },
 
   _pickSandbox(list,here){
@@ -606,7 +604,7 @@ Object.assign(App.prototype, {
     this.toolIds.delete(pid); this._toolsBoot.delete(pid);
     for(const k of this.slotKeysOf(pid)){
       const p=this.tools.get(k);
-      if(p){try{p.destroy()}catch{}; this.tools.delete(k)}
+      if(p){ErrorLog.quiet('destroy',()=>p.destroy()); this.tools.delete(k)}
     }
   },
 

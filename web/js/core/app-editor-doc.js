@@ -61,7 +61,7 @@ Object.assign(App.prototype, {
     const prev=monaco.editor.getModel(uri);
     // 어느 문서에도 속하지 않는 같은 URI 모델은 고아다 — 다음 열기가 그것을 집으면
     // 낡은 내용·표식 없는 모델을 쓴다 (#9). 버리고 방금 읽은 내용으로 새로 만든다.
-    if(prev&&![...this._edDocs.values()].some(x=>x.model===prev)){try{prev.dispose()}catch{}}
+    if(prev&&![...this._edDocs.values()].some(x=>x.model===prev)) ErrorLog.quiet('dispose',()=>prev.dispose());
     d.model=monaco.editor.createModel(r.text,monacoLang(filePath),uri);
     this._edDocWatch(d);
     this._edDocMeta(d,r);
@@ -111,7 +111,7 @@ Object.assign(App.prototype, {
   // dirty 는 **모델**의 변화에서 잰다 — 편집기 뷰가 없는(DocRender 만 연) 문서도,
   // undo 도 같은 길이다.
   _edDocWatch(d){
-    if(d.modelSub){try{d.modelSub.dispose()}catch{}}
+    if(d.modelSub) ErrorLog.quiet('dispose',()=>d.modelSub.dispose());
     d.modelSub=d.model?d.model.onDidChangeContent(()=>this.edDocDirtySync(d)):null;
   },
 
@@ -372,7 +372,7 @@ Object.assign(App.prototype, {
       if(old&&typeof monaco!=='undefined'){
         const uri=monaco.Uri.file(np);
         const stray=monaco.editor.getModel(uri);
-        if(stray){try{stray.dispose()}catch{}}
+        if(stray) ErrorLog.quiet('dispose',()=>stray.dispose());
         const wasDirty=d.dirty;
         d.model=monaco.editor.createModel(old.getValue(),monacoLang(np),uri);
         this._edDocWatch(d);
@@ -396,7 +396,7 @@ Object.assign(App.prototype, {
       }
       if(old){
         if(this.lspClearDiagnostics) this.lspClearDiagnostics(old);
-        try{old.dispose()}catch{}
+        ErrorLog.quiet('dispose',()=>old.dispose());
       }
       this.lspDocClosed(p);
       out.moved.push([p,np]);

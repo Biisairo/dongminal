@@ -73,21 +73,21 @@ class App {
 
   // displayMode / mobileBreakpoint are per-tab (sessionStorage), NOT synced via workspace.
   get displayMode(){
-    try{const v=sessionStorage.getItem('displayMode');if(v==='mobile'||v==='desktop'||v==='auto')return v}catch{}
-    return 'auto';
+    const v=PrefStore.session.get(STORE_KEYS.displayMode);
+    return (v==='mobile'||v==='desktop'||v==='auto')?v:'auto';
   }
   set displayMode(v){
     if(v!=='mobile'&&v!=='desktop'&&v!=='auto') v='auto';
-    try{sessionStorage.setItem('displayMode', v)}catch{}
+    PrefStore.session.set(STORE_KEYS.displayMode,v);
   }
   get mobileBreakpoint(){
-    try{const v=parseInt(sessionStorage.getItem('mobileBreakpoint'),10);if(v>=320&&v<=2000)return v}catch{}
-    return 768;
+    const v=parseInt(PrefStore.session.get(STORE_KEYS.mobileBreakpoint),10);
+    return (v>=320&&v<=2000)?v:768;
   }
   set mobileBreakpoint(v){
     const n=parseInt(v,10);
     if(!(n>=320&&n<=2000)) return;
-    try{sessionStorage.setItem('mobileBreakpoint', String(n))}catch{}
+    PrefStore.session.set(STORE_KEYS.mobileBreakpoint,n);
   }
   get isMobile(){
     const m=this.displayMode;
@@ -200,8 +200,8 @@ class App {
     }
     // Restore per-window activeWindow from sessionStorage (survives refresh).
     // Only apply if the window still exists in the loaded workspace.
-    try{
-      const saved=sessionStorage.getItem('activeWindow');
+    {
+      const saved=PrefStore.session.get(STORE_KEYS.activeWindow);
       if(saved && this.ws.windows.some(s=>s.id===saved)){
         this._activateWindow(saved);
       }else{
@@ -216,8 +216,7 @@ class App {
          *
          * 그래서 루트로 한 번 더 찾는다. 사용자에게 같은 저장소의 창은 같은 창이다.
          */
-        let root=null;
-        try{root=sessionStorage.getItem(ACTIVE_EDITOR_ROOT_KEY)}catch{}
+        const root=PrefStore.session.get(ACTIVE_EDITOR_ROOT_KEY);
         const w=root?this.edWindowFor(root):null;
         if(w) this._activateWindow(w.id);
       }
@@ -225,15 +224,14 @@ class App {
       // 되살린다.
       this._restoreReturn();
       // Restore per-window focusedPane for each window from sessionStorage.
-      const savedFocus=sessionStorage.getItem('focusedPanes');
-      if(savedFocus){
-        const map=JSON.parse(savedFocus);
+      const map=PrefStore.session.json(STORE_KEYS.focusedPanes,null);
+      if(map&&typeof map==='object'){
         for(const s of this.ws.windows){
           const rid=map[s.id];
           if(rid && s.layout && findPane(s.layout, rid)) s.focusedPane=rid;
         }
       }
-    }catch{}
+    }
     // FR-WSL-2·7: 슬롯 복원은 activeWindow 복원 **뒤**다 — 포커스 슬롯의 창이
     // activeWindow 를 덮는다 (FR-WSL-3). 워크스페이스에 없는 창 id 는 그 슬롯만
     // 비운다.
@@ -304,8 +302,8 @@ class App {
 
   // 설정 영속화는 localStorage(per-device), 기존 /api/settings 스키마 무변경 (FR-PAN-14)
   // 데스크톱 알림은 기본 ON(권한 허용 시 동작) — '0' 으로 명시 비활성만 끈다 (FR-PAN-13a)
-  get attnDesktop(){try{return localStorage.getItem('attnDesktop')!=='0'}catch{return true}}
-  set attnDesktop(v){try{localStorage.setItem('attnDesktop',v?'1':'0')}catch{}}
+  get attnDesktop(){return PrefStore.local.bool(STORE_KEYS.attnDesktop,true)}
+  set attnDesktop(v){PrefStore.local.setBool(STORE_KEYS.attnDesktop,v)}
   /**
    * 알림음 (`TLS-1`, PRODUCTION_ROADMAP §M5).
    *
@@ -323,13 +321,11 @@ class App {
    * 끄는 것과 같은 규약이다.
    */
   get attnSound(){
-    try{
-      const v=localStorage.getItem('attnSound');
-      if(v!==null) return v==='1';
-      return !window.isSecureContext;
-    }catch{return false}
+    const v=PrefStore.local.get(STORE_KEYS.attnSound);
+    if(v!==null) return v==='1';
+    return !window.isSecureContext;
   }
-  set attnSound(v){try{localStorage.setItem('attnSound',v?'1':'0')}catch{}}
+  set attnSound(v){PrefStore.local.setBool(STORE_KEYS.attnSound,v)}
   /**
    * 데스크톱 알림이 이 환경에서 **동작할 수 있는가** (`TLS-1`).
    *
@@ -575,7 +571,7 @@ class App {
                   this._applyRemoteWorkspace(rem,[],false);
                 }
               }
-            }catch{}
+            }catch(e){ ErrorLog.push('workspace',(e&&e.message)||e) }
             // FR-WSC-7: 다음 저장을 잠시 미룬다 — 두 화면이 서로 밀어내는 동안
             // 그 사이를 벌린다. 저장을 잃지는 않는다 (FR-WSC-9): 대기 중인
             // 것이 있으면 이 지연 뒤에 나간다.

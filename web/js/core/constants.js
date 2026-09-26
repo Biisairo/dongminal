@@ -268,7 +268,7 @@ const SIDEBAR_W_KEY='sidebarWidth';
  */
 function sidebarWidthStore(w){
   const v=clampSidebarWidth(w);
-  try{sessionStorage.setItem(SIDEBAR_W_KEY,v)}catch{}
+  PrefStore.session.set(SIDEBAR_W_KEY,v);
   return v;
 }
 

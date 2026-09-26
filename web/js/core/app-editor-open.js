@@ -139,8 +139,8 @@ Object.assign(App.prototype, {
     // FR-EDD-16·55: 표시의 수명은 문서의 수명이다. 모델보다 **먼저** 걷는다 —
     // 데코레이션을 버려진 모델에서 지우려 하면 그 자리가 예외다.
     if(d.dd){d.dd.dispose();d.dd=null}
-    if(d.modelSub){try{d.modelSub.dispose()}catch{}d.modelSub=null}
-    if(d.model){try{d.model.dispose()}catch{}}
+    if(d.modelSub){ErrorLog.quiet('dispose',()=>d.modelSub.dispose());d.modelSub=null}
+    if(d.model) ErrorLog.quiet('dispose',()=>d.model.dispose());
     this._edDocs.delete(filePath);
   },
 

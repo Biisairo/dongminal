@@ -94,10 +94,8 @@ Object.assign(App.prototype, {
    */
   _persistActiveWindow(id,win){
     const w=win||this.ws.windows.find(s=>s&&s.id===id);
-    try{
-      sessionStorage.setItem('activeWindow',id);
-      if(this.isEditorWin(w)) sessionStorage.setItem(ACTIVE_EDITOR_ROOT_KEY,this.edRootOf(w));
-      else sessionStorage.removeItem(ACTIVE_EDITOR_ROOT_KEY);
-    }catch{}
+    PrefStore.session.set(STORE_KEYS.activeWindow,id);
+    if(this.isEditorWin(w)) PrefStore.session.set(ACTIVE_EDITOR_ROOT_KEY,this.edRootOf(w));
+    else PrefStore.session.remove(ACTIVE_EDITOR_ROOT_KEY);
   },
 });

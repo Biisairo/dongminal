@@ -133,10 +133,9 @@ Object.assign(App.prototype, {
    * 바뀌었다면 그때는 덮는다.
    */
   _pollMigrateAgents(saved){
-    let old=null;
-    try{ old=localStorage.getItem('agentsPollMs') }catch{}
+    const old=PrefStore.local.get(STORE_KEYS.legacyAgentsPollMs);
     if(old===null) return;
-    try{ localStorage.removeItem('agentsPollMs') }catch{}
+    PrefStore.local.remove(STORE_KEYS.legacyAgentsPollMs);
     if(saved&&saved.agentsPollInterval!==undefined) return;
     const v=settingValue(parseInt(old,10),SETTINGS_BY_KEY.agentsPollInterval);
     if(v===agentsPollInterval) return;

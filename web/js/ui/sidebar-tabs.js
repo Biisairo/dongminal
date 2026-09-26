@@ -294,8 +294,7 @@ const SidebarTabs={
 
   // FR-SBT-7: 보관된 값이 없거나 알 수 없는 값이면 첫 탭이다.
   restore(){
-    let v=null;
-    try{v=localStorage.getItem(SB_TAB_KEY)}catch{}
+    const v=PrefStore.local.get(SB_TAB_KEY);
     return SB_TAB_DEFS.some(d=>d.id===v)?v:SB_TAB_DEFS[0].id;
   },
 
@@ -314,7 +313,7 @@ const SidebarTabs={
     const prev=this.def(app,app.sbTab);
     this.saveScroll(app.sbTab);
     app.sbTab=id;
-    try{localStorage.setItem(SB_TAB_KEY,id)}catch{}
+    PrefStore.local.set(SB_TAB_KEY,id);
     this.paint(app);
     this.restoreScroll(id);
     // FR-GOB-9: 패널이 화면에 온 사실은 `silent` 와 무관하다 — 창 쪽에서 따라온

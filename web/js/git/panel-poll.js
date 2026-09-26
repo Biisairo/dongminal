@@ -19,32 +19,26 @@ Object.assign(GitPanel.prototype, {
 
   // 보기 모드와 공백무시는 기기별 취향이라 localStorage 에 남는다 (§3.3).
   _sideBySidePref(){
-    if(this._sideBy==null){
-      let v=null; try{v=localStorage.getItem(GIT_DIFF_SIDE_KEY)}catch{}
-      this._sideBy=v!=='0';
-    }
+    if(this._sideBy==null) this._sideBy=PrefStore.local.bool(GIT_DIFF_SIDE_KEY,true);
     return this._sideBy;
   },
 
   _ignoreWsPref(){
-    if(this._ignWs==null){
-      let v=null; try{v=localStorage.getItem(GIT_DIFF_WS_KEY)}catch{}
-      // 기본은 공백을 무시하지 않는다 — git 과 같은 판정이다 (FR-GIT-50).
-      this._ignWs=v==='1';
-    }
+    // 기본은 공백을 무시하지 않는다 — git 과 같은 판정이다 (FR-GIT-50).
+    if(this._ignWs==null) this._ignWs=PrefStore.local.bool(GIT_DIFF_WS_KEY,false);
     return this._ignWs;
   },
 
   _toggleSideBySide(){
     this._sideBy=!this._sideBySidePref();
-    try{localStorage.setItem(GIT_DIFF_SIDE_KEY,this._sideBy?'1':'0')}catch{}
+    PrefStore.local.setBool(GIT_DIFF_SIDE_KEY,this._sideBy);
     this._diff().setSideBySide(this._sideBy);
     this._paint();
   },
 
   _setIgnoreWs(on){
     this._ignWs=!!on;
-    try{localStorage.setItem(GIT_DIFF_WS_KEY,this._ignWs?'1':'0')}catch{}
+    PrefStore.local.setBool(GIT_DIFF_WS_KEY,this._ignWs);
     if(this._diffView) this._diffView.setIgnoreWhitespace(this._ignWs);
     this._paint();
   },
@@ -52,16 +46,13 @@ Object.assign(GitPanel.prototype, {
   // FR-DOR-2·4: 변경 없는 구간의 접기. **기본은 꺼짐**이다 — 접으면 개요 눈금이
   // 접힌 좌표계 위에 서서 실제 파일의 줄 위치와 어긋난다.
   _foldPref(){
-    if(this._fold==null){
-      let v=null; try{v=localStorage.getItem(GIT_DIFF_FOLD_KEY)}catch{}
-      this._fold=v==='1';
-    }
+    if(this._fold==null) this._fold=PrefStore.local.bool(GIT_DIFF_FOLD_KEY,false);
     return this._fold;
   },
 
   _setFold(on){
     this._fold=!!on;
-    try{localStorage.setItem(GIT_DIFF_FOLD_KEY,this._fold?'1':'0')}catch{}
+    PrefStore.local.setBool(GIT_DIFF_FOLD_KEY,this._fold);
     if(this._diffView) this._diffView.setHideUnchanged(this._fold);
     this._paint();
   },

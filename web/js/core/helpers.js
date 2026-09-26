@@ -314,14 +314,12 @@ function applyThemeObj(t){
   // FR-BTS-2: 기록 실패는 다음 부팅의 첫 페인트가 기본값이 된다는 뜻일 뿐이다.
   // FR-STF-5: 추종이 켜져 있으면 **두 슬롯의 맵**을 캐시한다 — 선주입이 시스템
   // 모드로 하나를 고른다. 꺼져 있으면 종전 키 하나이고 스위치 키는 지운다.
-  try{
-    localStorage.setItem(THEME_VARS_KEY,JSON.stringify(vars));
-    if(typeof themeFollowSystem!=='undefined'&&themeFollowSystem&&THEMES[themeNameDark]&&THEMES[themeNameLight]){
-      localStorage.setItem(THEME_FOLLOW_KEY,'1');
-      localStorage.setItem(THEME_VARS_KEY+'.dark',JSON.stringify(themeVarsOf(THEMES[themeNameDark])));
-      localStorage.setItem(THEME_VARS_KEY+'.light',JSON.stringify(themeVarsOf(THEMES[themeNameLight])));
-    }else localStorage.removeItem(THEME_FOLLOW_KEY);
-  }catch{}
+  PrefStore.local.setJson(THEME_VARS_KEY,vars);
+  if(typeof themeFollowSystem!=='undefined'&&themeFollowSystem&&THEMES[themeNameDark]&&THEMES[themeNameLight]){
+    PrefStore.local.set(THEME_FOLLOW_KEY,'1');
+    PrefStore.local.setJson(THEME_VARS_KEY+'.dark',themeVarsOf(THEMES[themeNameDark]));
+    PrefStore.local.setJson(THEME_VARS_KEY+'.light',themeVarsOf(THEMES[themeNameLight]));
+  }else PrefStore.local.remove(THEME_FOLLOW_KEY);
   TOPTS.theme=t.terminal;
   document.getElementById('area').style.background=ui.bg;
   for(const p of app.tools.values()){if(p.term)p.term.options.theme=t.terminal}
@@ -624,17 +622,7 @@ function migrateUiFontScale(blob){
   return blob;
 }
 
-// EDITOR_LSP_SRS FR-LSP-36: 진단(에러·경고 밑줄)을 켤지. 기본은 켬 — 언어 서버를
-// 세웠다면 그것이 찾은 문제를 보는 것이 기본값으로 옳다. **기기별**인 이유는
-// 화면의 시끄러움에 대한 취향이기 때문이다.
-var lspDiagOn=true;
-try{
-  const raw=localStorage.getItem('lspDiagnostics');
-  if(raw!==null) lspDiagOn=raw!=='0';
-}catch{}
-// REPO_FIX 02 §3A-3: 언어 서버 경로는 이제 서버가 보관한다(설정 ▸ Code). 옛 기기별
-// 값은 이관하지 않고 버린다 — 쓰는 UI 가 없어 개발자 도구로 넣은 값뿐이었다.
-try{ localStorage.removeItem('lspServerPaths') }catch{}
+// `lspDiagOn` 은 app-lsp-paths.js 에 있다 — 저장소(PrefStore)를 딛는 초기값이라서다.
 function effectiveTitle(){return (pageTitle||'').trim()||DEFAULT_PAGE_TITLE}
 
 // ── Layout helpers ──

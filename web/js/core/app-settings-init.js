@@ -171,7 +171,7 @@ Object.assign(App.prototype, {
 
   /** 거울을 쓴다. 되읽어 같아야 참이다 — 사생활 모드에서는 거짓이다. */
   _localeMirror(v){
-    try{localStorage.setItem(I18N_STORAGE_KEY,v);return localStorage.getItem(I18N_STORAGE_KEY)===v}catch{return false}
+    return PrefStore.local.set(I18N_STORAGE_KEY,v)&&PrefStore.local.get(I18N_STORAGE_KEY)===v;
   },
 
   _initConfirmLeave(){

@@ -144,13 +144,11 @@ Object.assign(App.prototype, {
   // Persist per-window focusedPane map to sessionStorage so a refresh
   // restores the same view (multi-window: each window owns its viewport).
   _persistFocusedPanes(){
-    try{
-      const map={};
-      for(const s of this.ws.windows){
-        if(s.focusedPane) map[s.id]=s.focusedPane;
-      }
-      sessionStorage.setItem('focusedPanes', JSON.stringify(map));
-    }catch{}
+    const map={};
+    for(const s of this.ws.windows){
+      if(s.focusedPane) map[s.id]=s.focusedPane;
+    }
+    PrefStore.session.setJson(STORE_KEYS.focusedPanes,map);
   },
 
   setFocus(rid){

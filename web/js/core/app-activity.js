@@ -116,7 +116,7 @@ Object.assign(App.prototype, {
   _actFoldToggle(key){
     const f=this._agFolded(),k='sec:'+key;
     if(f.has(k)) f.delete(k); else f.add(k);
-    try{localStorage.setItem('agentsGroupFold',JSON.stringify(Array.from(f)))}catch{}
+    PrefStore.local.setJson(STORE_KEYS.agentsGroupFold,Array.from(f));
     this.agentsRender();
   },
 

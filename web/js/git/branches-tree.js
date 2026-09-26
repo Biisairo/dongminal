@@ -279,10 +279,8 @@ Object.assign(GitBranches.prototype, {
 
   _collapsedSet(){
     if(this._cset&&this._csetRepo===this._repo) return this._cset;
-    let raw=null;
-    try{raw=localStorage.getItem(this._collapseKey())}catch{}
-    let arr=[];
-    if(raw){try{const v=JSON.parse(raw);if(Array.isArray(v))arr=v}catch{}}
+    const v=PrefStore.local.json(this._collapseKey(),null);
+    const arr=Array.isArray(v)?v:[];
     this._csetRepo=this._repo; this._cset=new Set(arr);
     return this._cset;
   },
@@ -292,7 +290,7 @@ Object.assign(GitBranches.prototype, {
   _toggleCollapse(key){
     const s=this._collapsedSet();
     if(s.has(key)) s.delete(key); else s.add(key);
-    try{localStorage.setItem(this._collapseKey(),JSON.stringify([...s]))}catch{}
+    PrefStore.local.setJson(this._collapseKey(),[...s]);
     this._paintTree();
   },
 });

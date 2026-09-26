@@ -136,18 +136,14 @@ Object.assign(GitHistory.prototype, {
   _refKey(){return GIT_HIST_REF_KEY+':'+(this._repo||'')},
 
   _savedRef(){
-    let v=null;
-    try{v=localStorage.getItem(this._refKey())}catch{}
-    return v||null;
+    return PrefStore.local.get(this._refKey())||null;
   },
 
   _setRef(name){
     if(this._ref===name) return;
     this._ref=name||null;
-    try{
-      if(this._ref) localStorage.setItem(this._refKey(),this._ref);
-      else localStorage.removeItem(this._refKey());
-    }catch{}
+    if(this._ref) PrefStore.local.set(this._refKey(),this._ref);
+    else PrefStore.local.remove(this._refKey());
     this._reload();
   },
 });

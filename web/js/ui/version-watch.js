@@ -52,9 +52,7 @@
    * 없어야 한다 (RECONNECT_STORM_SRS FR-RCS-6 과 같은 근거).
    */
   const KEY='verReloadTried';
-  const readTried=()=>{
-    try{ return JSON.parse(sessionStorage.getItem(KEY)||'null') }catch{ return null }
-  };
+  const readTried=()=>PrefStore.session.json(KEY,null);
   const tried=(next)=>{
     const t=readTried();
     return !!t && t.from===self && t.to===next;
@@ -65,7 +63,7 @@
   const reload=(next)=>{
     if(done) return; done=true;
     // 적고 나서 연다. 순서가 뒤집히면 되풀이를 막을 근거가 남지 않는다.
-    try{ sessionStorage.setItem(KEY,JSON.stringify({from:self,to:next})) }catch{}
+    PrefStore.session.setJson(KEY,{from:self,to:next});
     // FR-RLC-5a: 떠남 확인(`main.js` 의 `beforeunload`)은 **사용자의 실수**로
     // 세션을 잃는 것을 막는 장치다. 앱이 스스로 여는 새로고침은 그 대상이 아니며,
     // 물으면 자동이 아니게 된다 — 사용자가 화면을 보고 있지 않으면 대화만 떠 있고

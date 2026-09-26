@@ -795,15 +795,14 @@ Object.assign(GitPanel.prototype, {
   // 보기 선택은 localStorage 에 남긴다 (기기별 취향이다). 기본은 플랫이다.
   _treeMode(){
     if(this._fileView==null){
-      let v=null; try{v=localStorage.getItem(GIT_FILE_VIEW_KEY)}catch{}
-      this._fileView=v==='tree'?'tree':'flat';
+      this._fileView=PrefStore.local.get(GIT_FILE_VIEW_KEY)==='tree'?'tree':'flat';
     }
     return this._fileView==='tree';
   },
 
   _setFileView(mode){
     this._fileView=mode==='tree'?'tree':'flat';
-    try{localStorage.setItem(GIT_FILE_VIEW_KEY,this._fileView)}catch{}
+    PrefStore.local.set(GIT_FILE_VIEW_KEY,this._fileView);
     this._paint();
   },
 

@@ -53,7 +53,7 @@ Object.assign(App.prototype, {
     panel.classList.toggle('open',open);
     handle.classList.toggle('open',open);
     const btn=document.getElementById('agents-toggle');if(btn)btn.classList.toggle('open',open);
-    try{localStorage.setItem('agentsPanelOpen',open?'1':'0')}catch{}
+    PrefStore.local.setBool(STORE_KEYS.agentsPanelOpen,open);
     for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
     if(open) this.agentsRender();
   },
@@ -212,8 +212,7 @@ Object.assign(App.prototype, {
   // 워크스페이스의 것이 아니다 (FR-SBT-6 과 같은 근거).
   _agFolded(){
     if(!this._agFold){
-      let ids=null;
-      try{ids=JSON.parse(localStorage.getItem('agentsGroupFold')||'[]')}catch{}
+      const ids=PrefStore.local.json(STORE_KEYS.agentsGroupFold,[]);
       this._agFold=new Set(Array.isArray(ids)?ids:[]);
     }
     return this._agFold;
@@ -222,7 +221,7 @@ Object.assign(App.prototype, {
   _agFoldToggle(winId){
     const f=this._agFolded();
     if(f.has(winId)) f.delete(winId); else f.add(winId);
-    try{localStorage.setItem('agentsGroupFold',JSON.stringify(Array.from(f)))}catch{}
+    PrefStore.local.setJson(STORE_KEYS.agentsGroupFold,Array.from(f));
     this.agentsRender();
   },
 

@@ -56,17 +56,18 @@ test('워크스페이스가 두 폭을 들지 않는다 (FR-UXB-6·7·8)', () =>
 
 test('슬롯 방향은 localStorage 에 쓰이지 않는다 (FR-UXB-1)', () => {
   const src = stripComments(read('core/app-slots.js'));
-  assert.ok(!/localStorage\.setItem\(\s*SLOT_DIR_KEY/.test(src),
+  // FR-OPT-11-3: 저장소는 PrefStore 를 지난다 — 영역(local|session)이 곧 그 이름이다.
+  assert.ok(!/(localStorage\.setItem|PrefStore\.local\.set)\(\s*SLOT_DIR_KEY/.test(src),
     'slotDir 는 sessionStorage 의 것이다');
-  assert.ok(!/localStorage\.getItem\(\s*SLOT_DIR_KEY/.test(src),
+  assert.ok(!/(localStorage\.getItem|PrefStore\.local\.get)\(\s*SLOT_DIR_KEY/.test(src),
     'slotDir 를 localStorage 에서 읽으면 다른 창의 값을 본다');
-  assert.ok(/sessionStorage\.(get|set)Item\(\s*SLOT_DIR_KEY/.test(src),
+  assert.ok(/(sessionStorage\.(get|set)Item|PrefStore\.session\.(get|set))\(\s*SLOT_DIR_KEY/.test(src),
     'slotDir 는 sessionStorage 를 지난다');
 });
 
 test('옛 localStorage 키를 부팅에서 지운다 (FR-UXB-4)', () => {
   const src = stripComments(read('core/app-slots.js'));
-  assert.ok(/localStorage\.removeItem\(\s*SLOT_DIR_KEY\s*\)/.test(src),
+  assert.ok(/(localStorage\.removeItem|PrefStore\.local\.remove)\(\s*SLOT_DIR_KEY\s*\)/.test(src),
     '읽지 않는 키는 남기지 않는다 — 다음 사람이 그것을 진실로 읽는다');
 });
 

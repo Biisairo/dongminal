@@ -116,8 +116,7 @@ class GitCommit {
   // 기본 줄 수를 쓴다.
   _height(){
     if(this._h===undefined){
-      let v=null; try{v=localStorage.getItem(GIT_COMMIT_HEIGHT_KEY)}catch{}
-      const n=parseInt(v,10);
+      const n=parseInt(PrefStore.local.get(GIT_COMMIT_HEIGHT_KEY),10);
       this._h=(Number.isFinite(n)&&n>0)?n:0;
     }
     return this._h;
@@ -181,7 +180,7 @@ class GitCommit {
         ];
       },
       end:()=>{
-        try{localStorage.setItem(GIT_COMMIT_HEIGHT_KEY,String(this._height()))}catch{}
+        PrefStore.local.set(GIT_COMMIT_HEIGHT_KEY,this._height());
         this._grow();
       },
     });

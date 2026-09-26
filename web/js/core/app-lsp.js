@@ -575,22 +575,15 @@ Object.assign(App.prototype, {
   // FR-LSP-45: 닫으면 그 언어에 다시 뜨지 않는다. 기기별인 이유는 "이 화면에서
   // 그만 보겠다" 는 뜻이기 때문이다.
   _lspDismissed(id){
-    try{
-      const raw=localStorage.getItem(LSP_OFFER_KEY);
-      if(!raw) return false;
-      const o=JSON.parse(raw);
-      return !!(o&&o[id]);
-    }catch{return false}
+    const o=PrefStore.local.json(LSP_OFFER_KEY,null);
+    return !!(o&&o[id]);
   },
 
   lspDismiss(id){
-    try{
-      let o={};
-      const raw=localStorage.getItem(LSP_OFFER_KEY);
-      if(raw){const p=JSON.parse(raw); if(p&&typeof p==='object') o=p}
-      o[id]=true;
-      localStorage.setItem(LSP_OFFER_KEY,JSON.stringify(o));
-    }catch{}
+    const p=PrefStore.local.json(LSP_OFFER_KEY,null);
+    const o=(p&&typeof p==='object')?p:{};
+    o[id]=true;
+    PrefStore.local.setJson(LSP_OFFER_KEY,o);
   },
 
   /**
@@ -664,7 +657,7 @@ Object.assign(App.prototype, {
    */
   _lspSetDiag(on){
     lspDiagOn=!!on;
-    try{localStorage.setItem(LSP_DIAG_KEY,lspDiagOn?'1':'0')}catch{}
+    PrefStore.local.setBool(LSP_DIAG_KEY,lspDiagOn);
     if(lspDiagOn) return;
     for(const v of this.fileEditors.values()){
       if(v&&v._editor) this.lspClearDiagnostics(v._editor.getModel());

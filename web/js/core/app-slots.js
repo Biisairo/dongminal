@@ -269,24 +269,19 @@ Object.assign(App.prototype, {
   // ── 영속 (FR-WSL-2·72) ──
 
   _slotsPersist(){
-    try{
-      if(!this._slots){sessionStorage.removeItem(SLOT_KEY);return}
-      sessionStorage.setItem(SLOT_KEY,JSON.stringify(this._slots));
-    }catch{}
+    if(!this._slots){PrefStore.session.remove(SLOT_KEY);return}
+    PrefStore.session.setJson(SLOT_KEY,this._slots);
   },
 
   // 형식이 어긋나면 키를 지우고 단일 슬롯 모드로 떨어진다 (FR-WSL-72). 창 id 가
   // 워크스페이스에 없으면 그 칸만 비운다 (FR-WSL-7).
   _slotsRestore(){
-    let raw=null;
-    try{raw=sessionStorage.getItem(SLOT_KEY)}catch{}
-    if(!raw) return;
-    let v=null;
-    try{v=JSON.parse(raw)}catch{}
+    if(!PrefStore.session.get(SLOT_KEY)) return;
+    const v=PrefStore.session.json(SLOT_KEY,null);
     const n=v&&Array.isArray(v.windows)?v.windows.length:0;
     const ok=n>=2&&n<=SLOT_MAX&&Array.isArray(v.sizes)&&v.sizes.length===n
       &&Number.isInteger(v.focused)&&v.focused>=0&&v.focused<n;
-    if(!ok){try{sessionStorage.removeItem(SLOT_KEY)}catch{};return}
+    if(!ok){PrefStore.session.remove(SLOT_KEY);return}
     const has=id=>!!id&&this.ws.windows.some(s=>s.id===id);
     const windows=v.windows.map(id=>has(id)?id:null);
     const sizes=v.sizes.map(x=>(typeof x==='number'&&x>0)?x:SLOT_SIZE_DEFAULT);
@@ -624,13 +619,13 @@ Object.assign(App.prototype, {
     for(const [k,p] of [...this.tools]){
       const i=this._slotOf(k); if(!i) continue;
       if(keepTools.get(i)?.has(this.slotBase(k))) continue;
-      try{p.destroy()}catch{}
+      ErrorLog.quiet('destroy',()=>p.destroy());
       this.tools.delete(k);
     }
     for(const [k,v] of [...this.fileEditors]){
       const i=this._slotOf(k); if(!i) continue;
       if(keepTabs.get(i)?.has(this.slotBase(k))) continue;
-      try{v.destroy()}catch{}
+      ErrorLog.quiet('destroy',()=>v.destroy());
       this.fileEditors.delete(k);
     }
     // SLOT_RUN_VIEW_SRS FR-SRV-4.2: Run 뷰도 칸의 것이다 — 편집기와 같은 판정을
@@ -653,7 +648,7 @@ Object.assign(App.prototype, {
   _initSlots(){
     // FR-UXB-4: 방향이 창의 것이 되면서 기기의 키는 읽는 자리를 잃었다. 남겨
     // 두면 다음 사람이 그것을 진실로 읽는다 — 부팅에서 한 번 지운다.
-    try{localStorage.removeItem(SLOT_DIR_KEY)}catch{}
+    PrefStore.local.remove(SLOT_DIR_KEY);
     const add=document.getElementById('slot-add');
     if(add) add.addEventListener('click',()=>this.slotAdd());
     const rm=document.getElementById('slot-remove');
@@ -770,15 +765,12 @@ Object.defineProperties(App.prototype,{
    */
   slotDir:{
     get(){
-      try{
-        const v=sessionStorage.getItem(SLOT_DIR_KEY);
-        if(v==='vertical'||v==='horizontal') return v;
-      }catch{}
-      return SLOT_DIR_DEFAULT;
+      const v=PrefStore.session.get(SLOT_DIR_KEY);
+      return (v==='vertical'||v==='horizontal')?v:SLOT_DIR_DEFAULT;
     },
     set(v){
       const d=v==='vertical'?'vertical':'horizontal';
-      try{sessionStorage.setItem(SLOT_DIR_KEY,d)}catch{}
+      PrefStore.session.set(SLOT_DIR_KEY,d);
       // FR-WSL-83: 열려 있는 칸은 즉시 재배치된다. 배분값은 방향과 무관하므로
       // 그대로 둔다. PTY 크기 맞추기는 render 의 rAF 가 doFit 으로 한다.
       this.render();

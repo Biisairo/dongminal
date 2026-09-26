@@ -20,7 +20,7 @@ class InputBinding {
     // 하나만 `agentsToggle()` 을 불러 같은 줄에서 처신이 갈려 있었다.
     document.getElementById('agents-toggle').addEventListener('click',()=>this.app.actPanelOpen());
     const ap=document.getElementById('agents-panel'),aph=document.getElementById('agents-handle');
-    try{if(localStorage.getItem('agentsPanelOpen')==='1'){ap.classList.add('open');aph.classList.add('open');document.getElementById('agents-toggle').classList.add('open')}}catch{}
+    if(PrefStore.local.bool(STORE_KEYS.agentsPanelOpen,false)){ap.classList.add('open');aph.classList.add('open');document.getElementById('agents-toggle').classList.add('open')}
     /**
      * UI_KIT_SRS FR-HSZ-1·10: 여섯 핸들이 `UIKit.drag` 한 골격을 쓴다.
      *
@@ -45,10 +45,10 @@ class InputBinding {
       },
       end:()=>{
         for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();
-        try{localStorage.setItem('agentsWidth',ap.offsetWidth)}catch{}
+        PrefStore.local.set(STORE_KEYS.agentsWidth,ap.offsetWidth);
       },
     });
-    try{const aw=parseInt(localStorage.getItem('agentsWidth'));if(aw>=160&&aw<=480)document.documentElement.style.setProperty('--ag-w',aw+'px')}catch{}
+    {const aw=parseInt(PrefStore.local.get(STORE_KEYS.agentsWidth));if(aw>=160&&aw<=480)document.documentElement.style.setProperty('--ag-w',aw+'px')}
     // 문서 전역 DnD 수락(1회 바인딩): 드래그 중 화면 전체를 드롭 수락 영역으로 만들어
     // native snap-back(미수락 release 시 원위치 복귀 애니메이션)을 패널 안/밖 어디서든 제거,
     // drop 에서 마지막 dragover 가 기록한 대상 기준 즉시 커밋. FR-AAP-21 / 창 사이드바 공유.

@@ -47,6 +47,15 @@ const ErrorLog=(()=>{
     total:()=>total,
     clear(){items.length=0;total=0},
     push,
+    /**
+     * 의도된 무시 (OPTIMIZE_REFACTOR_SRS FR-OPT-11-3). `fn` 이 던져도 흐름을 멈추지
+     * 않아야 하는 자리 — 이미 닫힌 것을 닫기, 이미 파괴된 것을 파괴하기 — 에서 쓴다.
+     * 삼키되 **흔적을 남긴다**: 빈 `catch{}` 는 여기에도 남지 않았다.
+     */
+    quiet(kind,fn){
+      try{ return fn() }
+      catch(e){ push(kind,(e&&e.message)||e); return undefined }
+    },
   };
 })();
 

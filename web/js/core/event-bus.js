@@ -180,7 +180,9 @@ class EventBus {
       this.publish('sse:open',{gen:this._gen});
     };
     es.onmessage=(e)=>this._onMessage(e);
-    es.onerror=()=>{ try{es.close()}catch{} this.publish('sse:error',{}); this._schedule() };
+    // 닫기의 실패는 무시한다 — 이미 닫힌 연결이다. 이 파일은 e2e 하네스에 단독으로 실려
+    // `ErrorLog` 를 딛지 못한다 (timer-hub-bus · sse-resilience).
+    es.onerror=()=>{ try{es.close()}catch{ /* 이미 닫혔다 */ } this.publish('sse:error',{}); this._schedule() };
     // 침묵 감시. 종전에는 방어가 하나도 없는 raw setInterval 이었다.
     if(!this._silentJob&&this._t.every){
       this._silentJob=this._t.every({
@@ -206,7 +208,7 @@ class EventBus {
   reconnect(){
     if(this._pendingT){ this._pendingT.stop&&this._pendingT.stop(); this._pendingT=null }
     this._retry=SSE_RETRY_MIN_MS;
-    try{ if(this._es) this._es.close() }catch{}
+    try{ if(this._es) this._es.close() }catch{ /* 이미 닫혔다 */ }
     this.connect();
   }
 
@@ -280,7 +282,7 @@ class EventBus {
   closeChannel(id){
     const m=this._extra;
     if(!m||!m.has(id)) return false;
-    try{ m.get(id).es.close() }catch{}
+    try{ m.get(id).es.close() }catch{ /* 이미 닫혔다 */ }
     m.delete(id);
     return true;
   }

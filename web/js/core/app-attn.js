@@ -360,7 +360,7 @@ Object.assign(App.prototype, {
     this._attnCloseNotif(toolId);
     const detail=this._attnDetail(toolId);
     const body=[detail,where||('pane '+toolId)].filter(Boolean).join('\n');
-    try{this._attnNotifs[toolId]=new Notification(head,{body})}catch{}
+    ErrorLog.quiet('notify',()=>{this._attnNotifs[toolId]=new Notification(head,{body})});
   },
 
   /**
@@ -384,7 +384,7 @@ Object.assign(App.prototype, {
   // 저장해 둔 데스크톱 알림 객체를 닫는다(있으면).
   _attnCloseNotif(toolId){
     if(this._attnNotifs&&this._attnNotifs[toolId]){
-      try{this._attnNotifs[toolId].close()}catch{}
+      ErrorLog.quiet('notify',()=>this._attnNotifs[toolId].close());
       delete this._attnNotifs[toolId];
     }
   },
@@ -449,7 +449,7 @@ Object.assign(App.prototype, {
     if(!this.attnDesktopBlocked&&Notification.permission==='default'&&this.attnDesktop&&!this._attnPermAsked){
       this._attnPermAsked=true;
       let asked=false;
-      const ask=()=>{if(asked)return;asked=true;try{const r=Notification.requestPermission();if(r&&r.then)r.then(()=>this.initAttn&&this._attnRefresh())}catch{}};
+      const ask=()=>{if(asked)return;asked=true;ErrorLog.quiet('notify',()=>{const r=Notification.requestPermission();if(r&&r.then)r.then(()=>this.initAttn&&this._attnRefresh())})};
       document.addEventListener('pointerdown',ask,{once:true,capture:true});
       document.addEventListener('keydown',ask,{once:true,capture:true});
     }

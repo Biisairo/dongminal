@@ -217,7 +217,7 @@ Object.assign(App.prototype, {
     const sendToFocused=(s)=>{
       const p=this.focusedTerminal();
       if(!p) return;
-      if(p.term){try{p.term.focus()}catch{}}
+      if(p.term) ErrorLog.quiet('focus',()=>p.term.focus());
       p._sendText(p._applyStickyMods(s));
     };
     const showTip=(text, btn)=>{
@@ -270,7 +270,7 @@ Object.assign(App.prototype, {
           // 터미널이 아닌 것(편집기·git 입력)에 포커스가 있을 수 있다. 그쪽은
           // 이 규칙의 대상이 아니므로(FR-MKB-14) 종전대로 내리기만 한다.
           if(!p||!p._kbSuppressed){
-            const ae=document.activeElement;if(ae&&ae.blur)try{ae.blur()}catch{}
+            const ae=document.activeElement;if(ae&&ae.blur)ErrorLog.quiet('focus',()=>ae.blur());
             this.mkbRefresh();
             return;
           }
@@ -282,7 +282,7 @@ Object.assign(App.prototype, {
         if(k.raw!==undefined){
           const p=this.focusedTerminal();
           if(!p) return;
-          if(p.term){try{p.term.focus()}catch{}}
+          if(p.term) ErrorLog.quiet('focus',()=>p.term.focus());
           p._sendText(k.raw);
           return;
         }

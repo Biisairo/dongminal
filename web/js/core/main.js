@@ -18,7 +18,7 @@ const themeReady=(async()=>{try{
   // 지난다 — 종전에는 이 자리와 `app-settings.js` 의 IIFE 가 키를 각자 나열해,
   // 다른 창에서 바뀐 값을 받아 얹을 자리가 아예 없었다.
   if(r.ok) app._settingsApply(r.data,{boot:true});
-}catch{}
+}catch(e){ ErrorLog.push('settings',(e&&e.message)||e) }
   // FR-BTS-11: 설정이 왔든 오지 않았든, 남은 것은 워크스페이스다.
   BootScreen.step(t('boot.step_workspace'));
 })();

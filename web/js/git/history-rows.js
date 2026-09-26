@@ -318,7 +318,7 @@ Object.assign(GitHistory.prototype, {
 
   _dateFmt(){
     if(this._df==null){
-      let v=null; try{v=localStorage.getItem(GIT_DATE_FORMAT_KEY)}catch{}
+      const v=PrefStore.local.get(GIT_DATE_FORMAT_KEY);
       this._df=v===GIT_DATE_ABSOLUTE?GIT_DATE_ABSOLUTE:GIT_DATE_RELATIVE;
     }
     return this._df;

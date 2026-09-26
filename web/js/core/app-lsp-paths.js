@@ -9,7 +9,18 @@
  *   이전 동작: 경로는 기기별 localStorage 에서 읽혀 상태 조회에만 실렸고 기동은 무시했다
  *   새  동작: 서버 표를 여기서 편집한다. 옛 localStorage 값은 버린다
  *   이유:     실행 파일은 서버 기계의 사실이고 세션은 서버에서 공유된다
+ *
+ * 기기별 LSP 선호(진단 켬/끔)의 초기값도 여기서 선다 — app-lsp.js 는 저장소 없이
+ * 단독으로 실려 계수 검사(lsp-text-sync.test)를 받는다.
  */
+// EDITOR_LSP_SRS FR-LSP-36: 진단(에러·경고 밑줄)을 켤지. 기본은 켬 — 언어 서버를
+// 세웠다면 그것이 찾은 문제를 보는 것이 기본값으로 옳다. **기기별**인 이유는
+// 화면의 시끄러움에 대한 취향이기 때문이다.
+var lspDiagOn=PrefStore.local.bool(LSP_DIAG_KEY,true);
+// REPO_FIX 02 §3A-3: 언어 서버 경로는 이제 서버가 보관한다(설정 ▸ Code). 옛 기기별
+// 값은 이관하지 않고 버린다 — 쓰는 UI 가 없어 개발자 도구로 넣은 값뿐이었다.
+PrefStore.local.remove(STORE_KEYS.legacyLspServerPaths);
+
 Object.assign(App.prototype, {
 
   // 패널이 열릴 때마다 읽는다 — 방송 없음, 상태는 관측이다 (FR-LSP-47).

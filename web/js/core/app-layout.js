@@ -17,7 +17,7 @@ Object.assign(App.prototype, {
    */
   _rememberReturn(kind,id){
     if(kind==='plain') this._lastPlainWindow=id; else this._lastEditorWindow=id;
-    try{sessionStorage.setItem(RETURN_WINDOW_KEY[kind],id)}catch{}
+    PrefStore.session.set(RETURN_WINDOW_KEY[kind],id);
   },
 
   /**
@@ -30,8 +30,7 @@ Object.assign(App.prototype, {
   _restoreReturn(){
     const has=id=>!!id&&this.ws.windows.some(s=>s&&s.id===id);
     for(const kind of Object.keys(RETURN_WINDOW_KEY)){
-      let id=null;
-      try{id=sessionStorage.getItem(RETURN_WINDOW_KEY[kind])}catch{}
+      const id=PrefStore.session.get(RETURN_WINDOW_KEY[kind]);
       if(!has(id)) continue;
       if(kind==='plain') this._lastPlainWindow=id; else this._lastEditorWindow=id;
     }
@@ -912,10 +911,8 @@ Object.assign(App.prototype, {
     on=!!on;
     if(this.sidebarCollapsed()===on) return;
     document.documentElement.classList.toggle(SIDEBAR_COLLAPSED_CLASS,on);
-    try{
-      if(on) localStorage.setItem(SIDEBAR_COLLAPSED_KEY,'1');
-      else localStorage.removeItem(SIDEBAR_COLLAPSED_KEY);
-    }catch{}
+    if(on) PrefStore.local.set(SIDEBAR_COLLAPSED_KEY,'1');
+    else PrefStore.local.remove(SIDEBAR_COLLAPSED_KEY);
     for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
   },
 
