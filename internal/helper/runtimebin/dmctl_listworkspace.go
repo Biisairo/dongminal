@@ -271,6 +271,7 @@ const (
 
 // fgTabNamesEnabled 는 FR-TAN-19 의 설정을 읽는다. 기본은 켬이며, 설정을 읽지
 // 못하면 기본으로 간다 — 이름 하나 때문에 목록 조회가 실패하면 안 된다.
+// null 도 값이 없는 것이다 (서버 parseFgTabNames 와 같은 표).
 func fgTabNamesEnabled() bool {
 	status, body, err := httpGet(baseURL() + "/api/settings")
 	if err != nil || status < 200 || status >= 300 {
@@ -280,15 +281,11 @@ func fgTabNamesEnabled() bool {
 	if json.Unmarshal(body, &s) != nil {
 		return true
 	}
-	raw, ok := s[fgTabNamesSetting]
-	if !ok {
+	var v *bool
+	if json.Unmarshal(s[fgTabNamesSetting], &v) != nil || v == nil {
 		return true
 	}
-	var v bool
-	if json.Unmarshal(raw, &v) != nil {
-		return true
-	}
-	return v
+	return *v
 }
 
 type listWorkspaceRow struct {

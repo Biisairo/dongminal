@@ -19,6 +19,26 @@ import (
 // 경로를 가리켜야 하기 때문이다. 두 벌이면 한쪽만 새겨진다.
 var Version = "dev"
 
+// ParseVersion 은 `version` 의 인자를 읽는다. 옵션이 없으므로 -h/--help 만
+// 받고 나머지는 다른 액션과 같이 옵션 오류다 (FR-CLI-6/7).
+func ParseVersion(args []string) error {
+	switch {
+	case len(args) == 0:
+		return nil
+	case args[0] == "-h" || args[0] == "--help":
+		return ErrHelp
+	default:
+		return unknownFlag("version", args[0])
+	}
+}
+
+func usageVersion() string {
+	return `사용법: dongminal version
+
+판·대상(OS/아키텍처)·go 런타임을 찍는다. --version 도 같다.
+`
+}
+
 // RunVersion 은 `dongminal version` 이다.
 //
 // 대상과 go 런타임을 함께 찍는다 — "무엇을 받았는가" 가 곧 첫 질문이고, 특히

@@ -61,7 +61,7 @@ func TestDispatch_UnknownAction(t *testing.T) {
 
 // FR-CLI-6: 액션 help 는 부수효과 없이 rc=0.
 func TestDispatch_ActionHelp(t *testing.T) {
-	for _, a := range Actions {
+	for _, a := range actionNames() {
 		code, out, _ := dispatch(t, a, "--help")
 		if code != 0 {
 			t.Errorf("%s --help → rc=%d", a, code)
@@ -74,7 +74,7 @@ func TestDispatch_ActionHelp(t *testing.T) {
 
 // FR-CLI-7: 알 수 없는 옵션은 부수효과 없이 rc=2.
 func TestDispatch_UnknownFlag(t *testing.T) {
-	for _, a := range Actions {
+	for _, a := range actionNames() {
 		code, out, errOut := dispatch(t, a, "--bogus")
 		if code != 2 {
 			t.Errorf("%s --bogus → rc=%d", a, code)
@@ -86,4 +86,13 @@ func TestDispatch_UnknownFlag(t *testing.T) {
 			t.Errorf("%s --bogus → stdout=%q", a, out)
 		}
 	}
+}
+
+// actionNames 는 액션 표(actionsOf)의 이름이다 — 검사가 도는 목록의 출처가 하나다 (SHR-30).
+func actionNames() []string {
+	var names []string
+	for _, a := range actionsOf() {
+		names = append(names, a.name)
+	}
+	return names
 }

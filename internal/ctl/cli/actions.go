@@ -150,10 +150,14 @@ func actionsOf() []action {
 				}
 				return RunVerify(o, out, errw)
 			}},
-		// version 은 파서가 없다 — 옵션이 없기 때문이다. `--version` 별칭은
-		// Dispatch 가 처리한다.
-		{"version", "판·대상·go 런타임을 찍는다 (--version 도 동일)", nil,
-			func(_ []string, _ Serve, out, _ io.Writer) int { return RunVersion(out) }},
+		// `--version` 별칭은 Dispatch 가 처리한다.
+		{"version", "판·대상·go 런타임을 찍는다 (--version 도 동일)", usageVersion,
+			func(rest []string, _ Serve, out, errw io.Writer) int {
+				if code, done := settle("version", ParseVersion(rest), out, errw); done {
+					return code
+				}
+				return RunVersion(out)
+			}},
 	}
 }
 

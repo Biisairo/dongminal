@@ -120,13 +120,13 @@ func TestParseVerify_HelpAndUnknown(t *testing.T) {
 
 func TestVerifyActionIsListed(t *testing.T) {
 	var found bool
-	for _, a := range Actions {
+	for _, a := range actionNames() {
 		if a == "verify" {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatal("Actions 에 verify 가 없다")
+		t.Fatal("액션 표에 verify 가 없다")
 	}
 	if u := Usage("verify"); !strings.Contains(u, "dongminal verify") {
 		t.Fatalf("Usage(verify) 가 비었다: %q", u)

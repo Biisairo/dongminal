@@ -141,3 +141,27 @@ func TestTabDisplayNameSkipsSettingsWhenNoDerivedName(t *testing.T) {
 		t.Fatalf("설정을 %d회 물었다 — 1이어야 한다", asked)
 	}
 }
+
+// fgTabNames 가 null 이면 값이 없는 것이다 — 서버의 parseFgTabNames 와 같이
+// SETTINGS_SCHEMA 기본(켬)으로 읽는다. 읽는 자리가 갈리면 dmctl 이름과 화면이 어긋난다.
+func TestFgTabNamesEnabledReadsLikeServer(t *testing.T) {
+	for _, tc := range []struct {
+		blob string
+		want bool
+	}{
+		{`{"fgTabNames":null}`, true},
+		{`{}`, true},
+		{`{"fgTabNames":false}`, false},
+		{`{"fgTabNames":true}`, true},
+		{`{"fgTabNames":"no"}`, true},
+	} {
+		blob := tc.blob
+		cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte(blob))
+		})
+		if got := fgTabNamesEnabled(); got != tc.want {
+			t.Errorf("%s: fgTabNamesEnabled=%v want %v", tc.blob, got, tc.want)
+		}
+		cleanup()
+	}
+}

@@ -69,10 +69,6 @@ func defaultLogFile(home string) string {
 	return platform.Current().Paths.DefaultLogFile()
 }
 
-// Actions는 help 에 나열되는 액션 이름이다. 내부 진입점 `d`(데몬)는 여기
-// 없다 — 사용자가 직접 부를 것이 아니다 (FR-CLI-8).
-var Actions = []string{"start", "stop", "migrate", "health", "doctor", "verify"}
-
 // Common은 모든 액션이 공유하는 옵션이다 (FR-CLI-9).
 type Common struct {
 	Port string // "" = 미지정

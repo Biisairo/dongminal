@@ -75,6 +75,8 @@ func ParseRollback(args []string) (RollbackOpts, error) {
 	var o RollbackOpts
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
+		case "-h", "--help":
+			return RollbackOpts{}, ErrHelp
 		case "--gen":
 			if i+1 >= len(args) {
 				return o, fmt.Errorf("--gen 에 번호가 필요합니다")

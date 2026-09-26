@@ -173,7 +173,7 @@ func TestResolveHome_ExpandsTilde(t *testing.T) {
 
 func TestHelp_ListsEveryAction(t *testing.T) {
 	h := Help()
-	for _, a := range Actions {
+	for _, a := range actionNames() {
 		if !strings.Contains(h, a) {
 			t.Errorf("help 에 %q 가 없다", a)
 		}
@@ -187,7 +187,7 @@ func TestHelp_ListsEveryAction(t *testing.T) {
 }
 
 func TestUsage_MentionsOwnAction(t *testing.T) {
-	for _, a := range Actions {
+	for _, a := range actionNames() {
 		if !strings.Contains(Usage(a), "dongminal "+a) {
 			t.Errorf("%s 사용법에 자기 이름이 없다", a)
 		}
