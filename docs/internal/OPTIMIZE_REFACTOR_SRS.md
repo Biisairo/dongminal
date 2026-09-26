@@ -1,7 +1,6 @@
 # SRS: 통신 최소화·성능·리팩토링 — 프로덕션 승격 2차 감사 (IEEE 29148)
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: O15 (D-OPT-9 에디터 상한) · §6 보류 항목
+> **문서 상태**: 승인·구현완료
 
 - 접수: 2026-09-25 · 기준 커밋 `67261463` (v1.1.7)
 - 요청: 데몬-서버-클라이언트 통신 요소 최소화, 그 밖의 성능 개선, 하드코딩·중복·상수·복잡도·크기·추상화·가독성
@@ -499,7 +498,14 @@ diff 는 요청이 끊기면 git 실행이 함께 죽는다. 셋이 겹친 최�
 - 도구 히스토리 회수 (SHR-33, TOOL_HISTORY_ISOLATION §6 이 제외했다) · 문자 아이콘 교체 잔여 (FEU-30, UI_KIT 사용자 결정).
 - 번들러·타입스크립트 도입.
 - diff 의 `cat-file --batch` 전환 (DOM-23, FR-OPT-7-3 일부). 읽기 초크포인트(`Exec`)에 stdin 이 없고, `--batch` 의
-  `missing` 응답은 stderr 로 가르던 부재/gitlink 구분을 잃는다. 초크포인트 확장 결정이 먼저다 (2026-09-25 구현 중 확정).
+  `missing` 응답은 stderr 로 가르던 부재/gitlink 구분을 잃는다. 초크포인트 확장 결정이 먼저다 (2026-09-25 구현 중 확정, D-OPT-12).
+- 구현 중 보류로 확정한 것 (사유는 §8 각 행):
+  - 훅 1회 HTTP 합치기 (SHR-9 ②, D-OPT-10) · Run 표면 하위 패키지 분리 (HTTP-24, D-OPT-11).
+  - App 필드 가족의 소유 클래스 추출 (FEC-35) — APP_STATE_EXTRACT §2.3 접근자 계약이 먼저다.
+  - FEC-36 일부(설정 패널 `[hidden]` 전환·전역 `t()` 개명) · FEC-32 의 증분 갱신 · FEU-17 폭 손잡이 통합.
+  - 서버 activity 대기의 100 ms 폴링 (HTTP-31 잔여) — 조건이 시간이라 신호로 바꿀 대상이 없다.
+  - claude 델타 이중 디코드 (SHR-29) — 실측 이득 5.7%.
+  - 상태바 주기 기본값 3 s 유지로 O4 목표 0.5 req/s 는 기본값에서 0.70 (D-OPT-8).
 
 ## 7. 리스크
 
@@ -531,7 +537,7 @@ diff 는 요청이 끊기면 git 실행이 함께 죽는다. 셋이 겹친 최�
 | O4 | 부분 | 터미널 창 정상 상태 ≈ 1.5 req/s · 재연결 GET 8 · 에디터 트리 30 s 요청 30 · 부팅 WS 5(도구 5·보이는 1) 197 KB | ≈ 0.70 req/s (**목표 0.5 미달** — statsInterval 기본 3 s 에서는 ping+stats 만으로 0.67. 기본값 변경은 사용자 결정) · 2 · 10 · WS 1, 394 B · Console/History 증분 · 칸 SSE 방송 0 | `e6d0f466`~`d624b26e` |
 | Ofix2 | 완료 | O4 검토 잔여 6건 | 쓰기 적용 mark 초기화 · 허브 feed 출발 순서 · 목록 요청 직렬화 · Console 커서 서버 세대 | `bd5fd59d`~`a6eab4de` |
 | O8 | 부분 | job events flush 6 · SSE 큐 16(버스트 17번째에 구독 폐기) · access 매처 2387 ns/64 allocs · /api/state 56 µs/1709 allocs · tail 8 MiB 21.5 MB | 2 · 256(ToolCap) · 141 ns/0 · 20 µs/13 · 165 KB · cwd·pgrep 일괄 N→1. **보류**: HTTP-31 일부(시간 조건 대기), SHR-9 ②(NFR-CBG-2 충돌), SHR-29(실측 이득 5.7% 로 제외) | 주제별 4 + `26015d7a` |
-| O10 | 부분 | 활동 어휘 리터럴 ≈30곳 | 0 (Go·JS 원천 각 1, 대조 게이트). **보류**: DOM-30 LSP 상한 통일(8 vs 10 MiB, 값 결정 필요), SHR-30 Actions 파생(`rollback --help` rc=2 결함 후보) | 3 커밋 |
+| O10 | 부분 | 활동 어휘 리터럴 ≈30곳 | 0 (Go·JS 원천 각 1, 대조 게이트). DOM-30 은 O15 에서 32 MiB 로, SHR-30 은 Ofix3 에서 `rollback·version --help` 결함과 함께 해결 | 3 커밋 |
 | O9 | 부분 | 파서 4벌 · 결과→종료 코드 7벌 · 이중 분기 11곳 · buildCommonDeps 123줄 · 커맨드 표 3개 | 1 · 1 · 0 · 38줄 · 1. **보류**: HTTP-24 Run 표면 하위 패키지(공유 도우미 인터페이스화를 담은 별도 SRS 필요) | 9 + `538dcc29` |
 | O14 | 완료 | 도움말 누락 43 · 미사용 i18n 키 2 | 0 · 0 (게이트 추가) · architecture.md 동기화 | 3 커밋 |
 | Ofix3 | 완료 | 검토 잔여 8건 | `rollback·version --help` 규약 · fgTabNames null 일치 · busy 탐침 이음새 1 · 대기표 3→1 · Roots 정규화 시점 · 폴·jobs 재조회 | `cc474f11`~`f38bdee4` |
@@ -540,7 +546,9 @@ diff 는 요청이 끊기면 git 실행이 함께 죽는다. 셋이 겹친 최�
 | O12 | 완료 | WS 배선 2벌 · 재시도 200 ms 고정 · 손 버튼 38 · panel-diff 1056 · term-pane 1174 · `/api/` 리터럴 68 | 1 · 160~240 ms 지터 · 2(등록 예외) · 508 · 727 · 0 | 3 + `196ac8d5` |
 | O13 | 완료 | transition 리터럴 27곳 8종 · 안내 띠 규칙 5벌 | 토큰 3 · 1벌 · Runs·사이드바 CSS 분리 | 2 + `bd8843ed` |
 | 후속 | 완료 | 로컬 브랜치 삭제가 사라진 upstream 에서 실패 | HEAD 기준 판정 (git 과 같음) | `ea8f8f59` |
-| O15 | 대기 | 에디터 저장 1 MiB · 읽기 10 · LSP 8/10 · diff 1 | 32 MiB 통일 (D-OPT-9) | |
+| O15 | 완료 | 에디터 저장 본문 1 MiB(1~10 MiB 파일 저장 불가) · 읽기 10 · LSP 8/10 · diff 1 | 전부 `editorlimit.FileMaxBytes` 32 MiB 에서 파생 · 저장 본문 64 MiB+64 KiB · 요청 1건 최악 메모리 §3.15 | `90b01c13`·`d20799e3` |
+| Ofix4 | 완료 | 옛 helpers.js 참조 18 · panel-diff 508줄 · 킷 모달 Esc 가 preventDefault 누락 · steady-traffic flaky | 0 · 450 · 수정 · 결정론화(앞 스펙 Run 수거) | `74d91353`~`5d72590d` |
+| 최종 | 완료 | — | `make all`(golangci-lint 0 issues) · Go 53 패키지 · unit 496/496 · **e2e 8샤드 1916 통과 / 실패 0 / flaky 0** · 새 서버 + v1.1.7 데몬 교차 실측 통과 · CHANGELOG Unreleased | `7ecade7b`·`0fb40525` |
 
 **O1 구현 중 결정**: HTTP-17 은 본문 문구를 바꾸지 않고 `X-Error-Code` 만 갈랐다 (ERROR_CONTRACT FR-ERR-5 · FR-OPT-0-3).
 본문 문구를 바꾸려던 초안은 되돌렸다. HTTP-16(os 오류 원문 제거)은 SEC-17 판정에 따른 보안 수정이라 본문이 바뀐다.
