@@ -27,6 +27,12 @@ import vm from 'node:vm';
 export const HELPERS = ['core/path.js', 'core/helpers.js', 'core/theme-vars.js', 'core/shortcuts.js',
   'core/settings-state.js', 'core/layout-tree.js', 'core/git-status-helpers.js'];
 
+/**
+ * 터미널 칸 한 벌 — index.html 의 순서다 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-1·12-4). WS 배선
+ * (`term-socket.js`)과 입력·IME·터치(`term-input.js`)가 `term-pane.js` 에서 갈라졌다.
+ */
+export const TERM_PANE = ['ui/term-socket.js', 'ui/term-pane.js', 'ui/term-input.js'];
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS_ROOT = join(HERE, '..');
 

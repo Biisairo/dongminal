@@ -96,7 +96,7 @@
 | C-2 | 번들러가 없다. `index.html` 의 `<script>` 순서가 곧 의존성이며, 증강 파일은 **클래스 정의 뒤**여야 한다 | `architecture.md` · C-3 of `SPLIT_REFACTOR_SRS` |
 | C-3 | `Object.assign` 은 접근자를 **값으로 복사**한다. getter/setter 는 클래스 본문에 남는다 | 접근자 제약 |
 | C-4 | 자산 판은 `?v=__ASSETV__` 로 **내용에서 파생**된다. 손으로 올릴 것이 없다 | `ASSET_VERSION_SINGLE_SOURCE_SRS` |
-| C-5 | 격리 하네스는 전역을 손으로 싣는다 — `reconnect-storm` 은 `term-pane.js` 를 홀로 싣는다. **상수를 옮기면 그 하네스가 죽는다** | `M6_NEXT_SESSION.md` "비싸게 배운 것" 4 |
+| C-5 | 격리 하네스는 전역을 손으로 싣는다 — `reconnect-storm` 은 터미널 칸(`term-socket.js`·`term-pane.js`·`term-input.js`, FR-OPT-12-1·12-4)과 `ui-kit.js` 만 싣는다. **상수를 옮기면 그 하네스가 죽는다** | `M6_NEXT_SESSION.md` "비싸게 배운 것" 4 |
 | C-6 | e2e 단정 변경 **0** | 로드맵 §M6 DoD |
 | C-7 | 외부 관측 동작(UI 픽셀 · HTTP/WS 본문)은 불변이다 | C-7 of `SPLIT_REFACTOR_SRS` |
 
@@ -410,12 +410,18 @@ E 를 마지막에 두는 이유는 리스크가 가장 크고, 앞의 넷이 �
 코드가 아니거나 검사 코드이고, `i18n/ko.js`·`en.js` 는 **데이터**라 키가 늘면 줄이
 늘고 분할이 뜻을 갖지 않는다.
 
-    500줄초과=21 · 최대=1174
+    500줄초과=19 · 최대=1020
 
 | 지표 | §2.1 기준선 (2026-09-12) | §7.1 달성 (2026-09-13) | 게이트를 세운 순간 (2026-09-21) | **게이트 기준선 (2026-09-21)** |
 |---|---:|---:|---:|---:|
-| 500줄 초과 파일 (i18n 제외) | 27 | 22 | 24 | **21** |
-| 최대 파일 | 1,336 | 1,336 | 1,586 (`ui/renderer.js`) | **1,174** (`ui/term-pane.js`) |
+| 500줄 초과 파일 (i18n 제외) | 27 | 22 | 24 | **19** |
+| 최대 파일 | 1,336 | 1,336 | 1,586 (`ui/renderer.js`) | **1,020** (`core/app-git.js`) |
+
+> 21 → 19 · 1,174 → 1,020 (2026-09-26, `OPTIMIZE_REFACTOR_SRS` FR-OPT-12-1·12-4). `term-pane.js` 는 WS 배선
+> (`term-socket.js`)과 입력·IME·터치(`term-input.js`)를 내보내 727, `runs-panel.js` 는 대시보드
+> (`run-dashboard.js`)를 내보내 413, `renderer-pane.js` 는 탭·끌어놓기 배선(`renderer-pane-wire.js`)을
+> 내보내 436 이 됐다. `panel-diff.js` 는 blame(`panel-blame.js`)·조각 툴바(`panel-hunks.js`)를
+> 내보냈으나 508 로 아직 경계 위다. 모두 증강 분할(`Object.assign(X.prototype, …)`)이다.
 
 > 23 → 21 (2026-09-26, `OPTIMIZE_REFACTOR_SRS` FR-OPT-11-2·6). `app-mobile.js` 는 키바의 키 표가
 > 상수로 나가며(FEC-34), `helpers.js` 는 주제별 일곱 파일로 갈리며(FEC-24, N4 개정) 500 아래로

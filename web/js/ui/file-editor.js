@@ -383,7 +383,33 @@ class FileEditor {
 
   _createEditor(model) {
     this.el.innerHTML = '';
+    this._mountMonaco(model);
+    this._notifyIntegrations();
+    this._wireModelEvents();
+    this._wireKeys();
+    this._wireFocus();
+    // FR-EKB-5: `addCommand` 로 굳히지 않는다. 그것은 조합을 코드에 박는 일이고,
+    // 박으면 설정에서 바꾼 키가 Monaco 안에서만 듣지 않는다 — 위의 keydown 이
+    // 그 자리를 대신한다. 전역 keydown 은 편집기에 포커스가 있는 동안 한 줄도
+    // 돌지 않으므로(input-binding.js 의 activeElement 게이트) 이 배선이 필요하다.
+    //
+    // UX_BATCH9_SRS FR-ESV-2: **저장도 여기 합류했다.** 그것만 `addCommand` 로
+    // 남아 있었고, 그 등록이 인스턴스가 아니라 전역이라 편집기를 둘 열면 `Cmd+S`
+    // 가 마지막에 만든 편집기로 갔다 (SRS §2.1).
 
+    // EDITOR_DIRTY_DIFF_SRS FR-EDD-15: 변경 표시는 **모델**의 것이다 — 이 칸은
+    // 클릭과 팝업만 갖는다. `file-editor-diff.js` 가 없으면 편집기는 지금까지와
+    // 똑같이 동작한다 (NFR-EDD-3).
+    if (this._ddInit) this._ddInit();
+
+    if (this._pendingReveal) {
+      const r = this._pendingReveal; this._pendingReveal = null;
+      this.revealLine(r.line, r.col);
+    }
+  }
+
+  // OPTIMIZE_REFACTOR_SRS FR-OPT-12-4 (FEU-27): `_createEditor` 의 다섯 조각.
+  _mountMonaco(model) {
     // FR-SVS-51·52: 모델 하나를 여러 에디터에 붙인다 (D-6). Monaco 가 공식으로
     // 지원하는 형태이며, 그때 **커서·선택·스크롤·접힘은 에디터별로 남는다** —
     // 그것이 시선이고 칸마다 달라야 하는 것이다. 내용만 공유된다.
@@ -419,8 +445,9 @@ class FileEditor {
       // 덩이가 든다 (FR-MMT-5 · UX_BATCH8_SRS FR-MMP-2).
       minimap: edMinimapOpts(editorMinimap),
     }));
+  }
 
-
+  _notifyIntegrations() {
     // Ensure Monaco fills the container after DOM insertion
     TIMERS.frame(() => {
       if (this._editor) this._editor.layout();
@@ -440,7 +467,9 @@ class FileEditor {
     // 파일의 렌더 뷰에 모델이 생겼음을 알린다. 판정과 버튼은 app 이 갖는다 —
     // 편집기는 자기가 무슨 문서인지 알 필요가 없다.
     if (window.app && window.app.docRenderMount) window.app.docRenderMount(this);
+  }
 
+  _wireModelEvents() {
     // Track dirty state
     // 모델이 공유되므로 이 이벤트는 같은 파일을 보는 에디터 **모두**에 온다.
     // dirty 설정은 멱등이고, 라벨은 칸마다 있으므로 전부 갱신한다 (FR-SVS-54).
@@ -468,7 +497,9 @@ class FileEditor {
       // 모델이 공유되므로 이 이벤트는 칸마다 오고, 계산은 한 번이어야 한다.
       if (this._dd) this._dd.schedule();
     });
+  }
 
+  _wireKeys() {
     /**
      * EDITOR_FIND_PANEL_SRS FR-EFP-1·2·3: 검색 키 판정은 **capture** 단계다.
      *
@@ -485,25 +516,13 @@ class FileEditor {
      * FR-EKB-1·5 는 그대로다: 판정은 app 이 한 벌로 갖는다. 여기서 조합을 다시
      * 적으면 설정에서 바꾼 키가 안쪽에만 반영되지 않는다.
      */
-    this.el.addEventListener('keydown', (e) => {
-      if (window.app && window.app.edTrySearchKey(e)) return;
-      // UX_BATCH9_SRS FR-ESV-1·2: **이 편집기의** 액션. 여섯과 같은 자리에서
-      // 판정하되 수행은 인스턴스가 한다 — 포커스가 있는 편집기가 곧 이 요소의
-      // 임자이므로, "어느 편집기를 저장할 것인가" 를 따로 고르지 않는다.
-      this._edViewKey(e);
-    }, true);
-
-    // FR-EDD-34: 팝업을 닫는 길 둘 중 하나. 찾기 패널이 포커스를 갖고 있으면
+    // FR-EDD-34 (`_onKeyCapture` 의 뒷부분): 팝업을 닫는 길 둘 중 하나. 찾기 패널이 포커스를 갖고 있으면
     // 그 패널의 핸들러가 먼저 먹고 전파를 멈추므로(`_findWire`) 이 자리는 돌지
     // 않는다 — 두 Escape 가 다투지 않는다.
     // REPO_FIX 03 E-9.2: capture 는 조상이 먼저 받으므로 찾기 입력의 Esc 도 여기 먼저
     // 온다 — 찾기 패널 안에서 누른 Esc 는 찾기 패널의 것이다(팝업은 두고 그 패널만
     // 닫는다). 이전: 팝업과 찾기 패널이 함께 닫혔다.
-    this.el.addEventListener('keydown', (e) => {
-      if (e.key !== 'Escape' || !this._ddZone) return;
-      if (this._find && this._find.contains(/** @type {Node} */ (e.target))) return;
-      e.preventDefault(); this._ddClose();
-    }, true);
+    this.el.addEventListener('keydown', (e) => this._onKeyCapture(e), true);
 
     // Keyboard interop: prevent terminal shortcuts from firing in editor
     this.el.addEventListener('keydown', (e) => {
@@ -511,7 +530,25 @@ class FileEditor {
       // Let Monaco handle everything inside the editor
       e.stopPropagation();
     });
+  }
 
+  /**
+   * capture keydown 한 벌 (FEU-27). 종전에는 같은 요소에 capture 리스너가 둘이었다 — 검색·뷰
+   * 키가 먼저, dirty-diff 팝업의 Esc 가 다음. 앞의 둘은 키를 잡으면 `stopImmediatePropagation`
+   * 하므로 잡힌 키는 뒤로 가지 않았다. 그 순서를 그대로 적는다.
+   */
+  _onKeyCapture(e) {
+    if (window.app && window.app.edTrySearchKey(e)) return;
+    // UX_BATCH9_SRS FR-ESV-1·2: **이 편집기의** 액션. 여섯과 같은 자리에서
+    // 판정하되 수행은 인스턴스가 한다 — 포커스가 있는 편집기가 곧 이 요소의
+    // 임자이므로, "어느 편집기를 저장할 것인가" 를 따로 고르지 않는다.
+    if (this._edViewKey(e)) return;
+    if (e.key !== 'Escape' || !this._ddZone) return;
+    if (this._find && this._find.contains(/** @type {Node} */ (e.target))) return;
+    e.preventDefault(); this._ddClose();
+  }
+
+  _wireFocus() {
     // Focus handling — notify app when editor receives focus
     this.el.addEventListener('focusin', (e) => {
       // FR-EFP-5: 찾기 패널은 **자기 포커스를 갖는다.** 여기서 되돌리면 질의 칸이
@@ -520,25 +557,6 @@ class FileEditor {
       if (e.target && e.target.closest && e.target.closest('.fe-find')) return;
       if (this._editor) this._editor.focus();
     });
-
-    // FR-EKB-5: `addCommand` 로 굳히지 않는다. 그것은 조합을 코드에 박는 일이고,
-    // 박으면 설정에서 바꾼 키가 Monaco 안에서만 듣지 않는다 — 위의 keydown 이
-    // 그 자리를 대신한다. 전역 keydown 은 편집기에 포커스가 있는 동안 한 줄도
-    // 돌지 않으므로(input-binding.js 의 activeElement 게이트) 이 배선이 필요하다.
-    //
-    // UX_BATCH9_SRS FR-ESV-2: **저장도 여기 합류했다.** 그것만 `addCommand` 로
-    // 남아 있었고, 그 등록이 인스턴스가 아니라 전역이라 편집기를 둘 열면 `Cmd+S`
-    // 가 마지막에 만든 편집기로 갔다 (SRS §2.1).
-
-    // EDITOR_DIRTY_DIFF_SRS FR-EDD-15: 변경 표시는 **모델**의 것이다 — 이 칸은
-    // 클릭과 팝업만 갖는다. `file-editor-diff.js` 가 없으면 편집기는 지금까지와
-    // 똑같이 동작한다 (NFR-EDD-3).
-    if (this._ddInit) this._ddInit();
-
-    if (this._pendingReveal) {
-      const r = this._pendingReveal; this._pendingReveal = null;
-      this.revealLine(r.line, r.col);
-    }
   }
 
   /**

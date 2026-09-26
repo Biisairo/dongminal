@@ -8,15 +8,16 @@ class TerminalTool {
     // WINDOW_SLOTS_SRS FR-WSL-14: 같은 도구가 두 슬롯에 서면 toolId 가 같다.
     // 크기 권한을 물을 때 **어느 칸의 인스턴스인지**를 함께 밝혀야 한다.
     this._slot=0;
-    this.ws=null; this.term=null; this.fit=null; this._opened=false; this._buf=[]; this._reconnecting=false; this._destroyed=false; this._retryDelay=0;
+    // FR-OPT-12-1: 연결·재접속·송신 큐는 `TermSocket` 이 갖는다.
+    this._sock=new TermSocket(this);
+    this.term=null; this.fit=null; this._opened=false; this._buf=[]; this._reconnecting=false; this._destroyed=false;
     // FR-RCS-1: 도구가 사라졌다는 서버의 통보(OP.EXIT)를 받았는가. 서면 재연결을
-    // 영구히 멈춘다. FR-RCS-3 의 healthy 타이머는 "이 연결이 유효했는가"의 근거다.
-    this._exited=false; this._healthyTimer=null;
+    // 영구히 멈춘다.
+    this._exited=false;
     // M9_SRS FR-M9-3: 서버가 통보한 **PTY 의 크기**. 0 은 "아직 모른다" 이며,
     // 그때는 종전대로 자기 `fit()` 이 화면을 정한다 — 옛 서버에 붙은 탭의 동작이
     // 그대로여야 한다 (FR-TRS-9 와 같은 규약).
     this._ptyCols=0; this._ptyRows=0;
-    this._sendQueue=[]; this._sendQueueMax=64; this._sendDropCount=0;
     this._decoder=new TextDecoder('utf-8',{fatal:false}); this._outputBuf=''; this._flushScheduled=false; this._carryTimer=null;
     // TERMINAL_RESUME_SRS FR-TRS-7: `_seq` 는 **마지막으로 본 바이트 오프셋**이고
     // 다음 접속의 `since` 다. -1 은 "모른다" — 그때는 서버가 전량을 뿌린다.
@@ -40,32 +41,14 @@ class TerminalTool {
     // FR-B-6 (UX-11): 드롭 안내는 DOM 텍스트다. `.dragover` 일 때만 CSS 가 보인다.
     const drop=document.createElement('div'); drop.className='tp-drop-hint'; drop.textContent=DROP_FILES_HINT;
     this.el.appendChild(drop);
-    // Drag & drop upload
+    this._wireDnd();
+    this._wireContextMenu();
+  }
+  // 파일·폴더 드롭 업로드.
+  _wireDnd(){
     // FR-M9-30: 아래 `drop` 과 **같은 판정**이다. 두 문장이 갈리면 그 차이가 곧 결함이다.
     this.el.addEventListener('dragover',e=>{e.preventDefault();if(isFileDrag(e)){e.stopPropagation();this.el.classList.add('dragover')}});
     this.el.addEventListener('dragleave',()=>this.el.classList.remove('dragover'));
-    /**
-     * CONTEXT_MENU_UNIFY_SRS FR-CMU-10 (`FUI-17`): 본문의 컨텍스트 메뉴. 복사는
-     * `TermClipboard.write`(세 단 폴백), 붙여넣기는 xterm 의 `paste`. 못 하는 것은
-     * 감추지 않고 사유를 든다 — 권한이 없는 붙여넣기는 조용히 실패하지 않는다
-     * (D-CMU-3).
-     */
-    this.el.addEventListener('contextmenu',e=>{
-      if(!this.term||this._exited) return;
-      e.preventDefault(); e.stopPropagation();
-      const sel=this.term.hasSelection()?this.term.getSelection():'';
-      const canRead=!!(navigator.clipboard&&navigator.clipboard.readText);
-      UIKit.menu([
-        {id:'copy',label:TERM_MENU_COPY,disabled:sel?false:TERM_MENU_COPY_NO,onClick:()=>TermClipboard.write(sel,this.id)},
-        {id:'paste',label:TERM_MENU_PASTE,disabled:canRead?false:TERM_MENU_PASTE_NO,onClick:()=>{
-          navigator.clipboard.readText().then(t=>{if(t)this.term.paste(t)},()=>Toast.show(TERM_MENU_PASTE_DENIED,'err'));
-        }},
-        {id:'selectAll',label:TERM_MENU_SELECT_ALL,onClick:()=>this.term.selectAll()},
-        {sep:true},
-        {id:'find',label:TERM_MENU_FIND,onClick:()=>{if(window.app&&app.toggleSearch)app.toggleSearch()}},
-        {id:'newTab',label:TAB_MENU_NEW,onClick:()=>{if(window.app&&app.addTabFocused)app.addTabFocused()}},
-      ],{at:{x:e.clientX,y:e.clientY},cls:'term-menu'});
-    });
     /**
      * TERMINAL_FOLDER_DROP_SRS FR-TFD-10: **폴더도 받는다.**
      *
@@ -114,6 +97,30 @@ class TerminalTool {
       });
     });
   }
+  _wireContextMenu(){
+    /**
+     * CONTEXT_MENU_UNIFY_SRS FR-CMU-10 (`FUI-17`): 본문의 컨텍스트 메뉴. 복사는
+     * `TermClipboard.write`(세 단 폴백), 붙여넣기는 xterm 의 `paste`. 못 하는 것은
+     * 감추지 않고 사유를 든다 — 권한이 없는 붙여넣기는 조용히 실패하지 않는다
+     * (D-CMU-3).
+     */
+    this.el.addEventListener('contextmenu',e=>{
+      if(!this.term||this._exited) return;
+      e.preventDefault(); e.stopPropagation();
+      const sel=this.term.hasSelection()?this.term.getSelection():'';
+      const canRead=!!(navigator.clipboard&&navigator.clipboard.readText);
+      UIKit.menu([
+        {id:'copy',label:TERM_MENU_COPY,disabled:sel?false:TERM_MENU_COPY_NO,onClick:()=>TermClipboard.write(sel,this.id)},
+        {id:'paste',label:TERM_MENU_PASTE,disabled:canRead?false:TERM_MENU_PASTE_NO,onClick:()=>{
+          navigator.clipboard.readText().then(t=>{if(t)this.term.paste(t)},()=>Toast.show(TERM_MENU_PASTE_DENIED,'err'));
+        }},
+        {id:'selectAll',label:TERM_MENU_SELECT_ALL,onClick:()=>this.term.selectAll()},
+        {sep:true},
+        {id:'find',label:TERM_MENU_FIND,onClick:()=>{if(window.app&&app.toggleSearch)app.toggleSearch()}},
+        {id:'newTab',label:TAB_MENU_NEW,onClick:()=>{if(window.app&&app.addTabFocused)app.addTabFocused()}},
+      ],{at:{x:e.clientX,y:e.clientY},cls:'term-menu'});
+    });
+  }
   open() {
     if(this._opened) return; this._opened=true;
     /**
@@ -130,58 +137,11 @@ class TerminalTool {
     this.term=new Terminal(Object.assign({},TOPTS,{fontSize:termFontSizeNow()}));
     this.fit=new FitAddon.FitAddon();
     this.term.loadAddon(this.fit);
-    try{this.term.loadAddon(new WebLinksAddon.WebLinksAddon((_e,uri)=>{
-      window.open(uri,'_blank');
-    }))}catch(e){}
-    try{this.term.loadAddon(new Unicode11Addon.Unicode11Addon());this.term.unicode.activeVersion='11'}catch(e){}
-    try{this.search=new SearchAddon.SearchAddon();this.term.loadAddon(this.search)}catch(e){}
-    // FR-ETR-37: OSC 52(클립보드 쓰기). xterm 은 이것을 스스로 처리하지 않으므로
-    // 붙이지 않으면 셸이 보낸 복사가 **받는 사람 없이 버려진다** — 그것이
-    // "복사가 원격에서만 안 된다" 의 정체였다 (§2.5).
-    try{TermClipboard.attach(this.term,this.id,this)}catch(e){}
-    this.term.open(this.box); for(const f of ['h','l']) this.term.parser.registerCsiHandler({prefix:'?',final:f},ps=>this._onAltMode(ps,f==='h')); this.term.parser.registerCsiHandler({final:'J'},ps=>this._onEraseDisplay(ps));
-    this.term.attachCustomKeyEventHandler(e=>{
-      // UX_BATCH6_SRS FR-IME-1: 조합이 아직 끝나지 않았으면 이 키는 xterm 이
-      // 보아서는 안 된다. 가장 앞에 둔다 — 뒤의 갈래들도 조합보다 앞서면 안 된다.
-      if(!this._imeGate(e)) return false;
-      if(e.key==='Enter'&&e.shiftKey&&!e.ctrlKey&&!e.altKey&&!e.metaKey){
-        if(e.type==='keydown') this._send(new Uint8Array([OP.INPUT,0x1b,0x0d]));
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-      return true;
-    });
-    // Block browser Ctrl+ shortcuts → let them go to terminal
-    // Cmd+ shortcuts left for browser (copy/paste/tab close etc)
-    this.box.addEventListener('keydown',e=>{
-      /**
-       * UX_BATCH9_SRS FR-IMK-1·2: **조합이 정리되기 전에는 이 자리도 지나지 않는다.**
-       *
-       * 이 리스너는 xterm 의 `attachCustomKeyEventHandler` 밖이다. 게이트가 거기서
-       * `false` 를 돌려줘도 `stopPropagation` 은 하지 않으므로 keydown 은 그대로
-       * 여기까지 버블하고, 그때 이 자리가 커서 이동을 **즉시** 보내 왔다 —
-       * 조합 문자가 그다음에 나가므로 옮겨진 자리에 글자가 찍힌다 (SRS §2.7).
-       *
-       * 게이트를 여기서 다시 부르지 않는다. 그것은 보류 큐에 넣는 일이고, 이미
-       * 넣은 키를 한 번 더 넣으면 재생 때 두 번 움직인다 (FR-IMK-2). 상태만 묻고
-       * 물러난다 — 보류분은 `_imeFlush` 가 되발행하며, 그 이벤트는 `__dmImeReplay`
-       * 를 달고 오므로 이 자리를 정상적으로 지난다.
-       */
-      if(this._imeBusy()&&!e.__dmImeReplay) return;
-      // Cmd+Left/Right → Home/End
-      if(e.metaKey&&!e.ctrlKey&&!e.altKey){
-        if(e.key==='ArrowLeft'){e.preventDefault();this._send(new Uint8Array([OP.INPUT,0x01]));return}
-        if(e.key==='ArrowRight'){e.preventDefault();this._send(new Uint8Array([OP.INPUT,0x05]));return}
-      }
-      // Alt+Left/Right → word jump
-      if(e.altKey&&!e.ctrlKey&&!e.metaKey){
-        if(e.key==='ArrowLeft'){e.preventDefault();this._send(new Uint8Array([OP.INPUT,0x1b,0x62]));return}
-        if(e.key==='ArrowRight'){e.preventDefault();this._send(new Uint8Array([OP.INPUT,0x1b,0x66]));return}
-      }
-      // Ctrl+ shortcuts → bypass to terminal, block browser
-      if(e.ctrlKey&&!e.metaKey) e.preventDefault();
-    });
+    this._loadAddons();
+    this.term.open(this.box);
+    for(const f of ['h','l']) this.term.parser.registerCsiHandler({prefix:'?',final:f},ps=>this._onAltMode(ps,f==='h'));
+    this.term.parser.registerCsiHandler({final:'J'},ps=>this._onEraseDisplay(ps));
+    this._wireKeys();
     this.term.onData(d=>this._onTermData(d));
     this.term.onResize(({cols,rows})=>{
       // Only the OS-focused window that owns the pane's window may send resize.
@@ -197,35 +157,7 @@ class TerminalTool {
     // FR-MKB-1: 터치해도 소프트 키보드가 올라오지 않는다. 터미널이 서는 이 자리가
     // textarea 가 처음 존재하는 순간이다 — 늦게 걸면 첫 터치 한 번이 새어 나간다.
     this._kbApply();
-    if(ta){
-      // FR-MTI-19: 물리 키보드로 들어온 키는 xterm 이 이미 전송한다. 그 키에
-      // 딸린 beforeinput 까지 우리가 보내면 글자가 두 번 들어간다. 두 신호로
-      // 판정한다 — 둘 중 하나만으로는 새지 않는 경로가 남는다:
-      //   · keydown 이 preventDefault 됐다 → xterm 이 _keyDown 에서 전송했다
-      //   · keypress 가 왔다 → xterm 이 _keyPress 에서 전송했다. Space 가 이
-      //     경로이며 preventDefault 를 하지 않아 beforeinput 이 그대로 온다
-      // 소프트 키보드는 keypress 를 내지 않으므로 두 경로가 정확히 갈린다.
-      ta.addEventListener('keydown',e=>{this._xtHandledKey=e.defaultPrevented},false);
-      ta.addEventListener('keypress',()=>{this._xtHandledKey=true},false);
-      ta.addEventListener('keyup',()=>{this._xtHandledKey=false},false);
-      ta.addEventListener('beforeinput',e=>this._onBeforeInput(e),true);
-      // FR-MTI-30(개정): 조합 자체는 xterm 에 맡기고, 조합을 확정시키는 문자만
-      // 그 뒤로 미룬다.
-      //
-      // 확정 문자(스페이스·마침표)는 isComposing=false 로 오지만 compositionend
-      // 보다 앞선다. 즉시 보내면 조합 문자열보다 먼저 나가 순서가 뒤집힌다 —
-      //     SEND " " → compositionend "여전히" → SEND "여전히"   ⇒ " 여전히"
-      // 그래서 조합이 닫힐 때까지 보류한다.
-      //
-      // 조합의 전송·미리보기는 건드리지 않는다. CompositionHelper 를 끄면
-      // .composition-view 가 죽어 조합 중인 글자가 보이지 않고(데스크톱까지),
-      // 증분 계산(_dataAlreadySent)도 사라져 확정마다 누적 전체가 다시 나간다.
-      ta.addEventListener('compositionstart',()=>{this._imeOpen=true},true);
-      ta.addEventListener('compositionend',()=>this._imeClose(),true);
-      // FR-IME-5: `compositionend` 가 오지 않는 경로(포커스 상실)에서 보류분이
-      // 영영 갇히지 않게 하는 그물이다. 이미 정리됐으면 아무 일도 하지 않는다.
-      ta.addEventListener('blur',()=>{if(this._imeBusy())this._imeClose()},true);
-    }
+    if(ta) this._wireIme(ta);
     this._initTouchScroll();
     try{this.fit.fit()}catch{}
     for(const d of this._buf) try{this.term.write(d)}catch{}
@@ -233,347 +165,25 @@ class TerminalTool {
     if(this.term) this.term.scrollToBottom();
   }
 
-  // ── 입력 (MOBILE_TUI_INPUT_SCROLL_SRS §3.1 / §3.5) ──
-
   /**
-   * `onData` 로 오는 것은 두 종류다 — 사용자가 친 키와, 터미널이 **스스로 내는
-   * 보고**(`TERM_REPORT_RE`)다. 여기서 가른다.
+   * 선택 애드온. 하나가 없거나 실패해도 터미널은 선다 — 그래서 하나씩 따로 싣는다.
    *
-   * 갈라야 하는 이유는 sticky 다. 그것은 대상이 아니어도 **소비된다**(그것이
-   * FR-MTI-15~17 의 규약이다). 보고가 그 그물을 지나면 사용자가 눌러 둔 Ctrl 이
-   * 조용히 사라진다 — 키바에서 Ctrl 을 누르고 글자를 누르는 사이에 포커스가
-   * 오가거나 앱이 터미널에 질의를 내는 것은 모바일에서 흔한 일이다.
-   * (Windows CI 에서 실측: 그 OS 는 포커스 보고가 늦게 도착해 매번 재현됐다.)
-   *
-   * 종전에는 포커스 보고(`ESC[I`·`ESC[O`) **하나만** `_applyStickyMods` 안에서
-   * 특례로 빠져 있었다. 색·모드 질의의 답은 그 그물을 그대로 지났고, 앱이
-   * 기동하며 내는 질의가 정확히 그것이다.
+   * FR-ETR-37: OSC 52(클립보드 쓰기). xterm 은 이것을 스스로 처리하지 않으므로 붙이지 않으면
+   * 셸이 보낸 복사가 **받는 사람 없이 버려진다** — 그것이 "복사가 원격에서만 안 된다" 의
+   * 정체였다 (§2.5).
    */
-  _onTermData(d){
-    if(TERM_REPORT_RE.test(d)){
-      // TERM_REPLY_SEAT_SRS FR-RPS-7: 질의의 **답**은 좌석의 주인만 보낸다. 같은
-      // 도구에 창이 둘 붙으면 질의 하나를 두 xterm 이 다 보고 각자 답하는데,
-      // 앱은 답을 하나만 먹으므로 나머지가 입력 줄에 남는다.
-      //
-      // 포커스 보고는 예외다 (FR-RPS-8) — 그것은 질의의 답이 아니라 **그 창
-      // 고유의 사실**이다.
-      if(!this._replySeat && !TERM_FOCUS_RE.test(d)) return;
-      this._sendText(d);
-      return;
-    }
-    this._sendText(this._applyStickyMods(d));
-  }
-
-  _sendText(s){
-    if(!s) return;
-    const b=enc.encode(s);
-    const m=new Uint8Array(1+b.length);m[0]=OP.INPUT;m.set(b,1);
-    this._send(m);
-  }
-
-  // FR-MTI-15~17: sticky 는 입력 길이와 무관하게 첫 코드포인트로 판정하고,
-  // 대상이 아니어도 소비한다 — 잔존하면 다음 입력을 오염시킨다.
-  _applyStickyMods(s){
-    // 보고는 여기 오지 않는다 — `_onTermData` 가 앞에서 갈랐다.
-    const A=window.app;
-    if(!(A && A.isMobile && A.modKbd)) return s;
-    const mk=A.modKbd;
-    if(!mk.ctrl && !mk.alt) return s;
-    let out=s;
-    const c=out.codePointAt(0);
-    if(mk.ctrl && c>=0x40 && c<=0x7e) out=String.fromCharCode(c & 0x1f)+out.slice(1);
-    if(mk.alt && c>=0x20 && c<=0x7e) out='\x1b'+out;
-    let changed=false;
-    if(mk.ctrl===true){mk.ctrl=false;changed=true}
-    if(mk.alt===true){mk.alt=false;changed=true}
-    if(changed && A.mkbRefresh) A.mkbRefresh();
-    return out;
-  }
-
-  _onBeforeInput(e){
-    const handled=this._xtHandledKey;
-    this._xtHandledKey=false;                     // 일회 소비
-    const A=window.app;
-    if(!A || !A.isMobile) return;                 // FR-MTI-4
-    if(e.inputType!=='insertText') return;        // FR-MTI-3
-    if(e.isComposing) return;                     // FR-MTI-2
-    if(handled) return;                           // FR-MTI-19
-    if(!e.data) return;
-    e.preventDefault();
-    // FR-MTI-30 / UX_BATCH6_SRS FR-IME-6: 조합이 아직 정리되지 않았으면 보류한다.
-    if(this._imeBusy()){
-      this._imePush({t:'text',v:e.data});
-      return;
-    }
-    this._sendText(this._applyStickyMods(e.data));
-  }
-
-  /**
-   * UX_BATCH6_SRS FR-IME-1·4: 조합이 정리되기 전에 들어온 키를 붙잡는다.
-   *
-   * `false` 를 돌려주면 xterm 은 이 키를 보지 않는다. 그것이 요점이다 —
-   * `CompositionHelper.keydown` 은 조합 중에 다른 키를 보면 그 자리에서
-   * `_finalizeComposition(false)` 로 **아직 낡은** 조합 조각을 내보내고
-   * (`_compositionPosition.end` 가 `setTimeout` 으로 갱신되므로 한 글자 뒤진다),
-   * 이어서 그 키의 데이터를 보낸다. 그래서 "마지막 글자 전에 엔터" 가 된다
-   * (SRS §2.2).
-   *
-   * 제외 목록은 `CompositionHelper.keydown` 이 쓰는 것과 **같은 것**이다 —
-   * IME 가 나르는 229 와 수식키 셋. 다른 목록을 두면 어느 한쪽만 고쳐질 때
-   * 조합 자체가 깨진다.
-   *
-   * 보류하는 형태가 둘인 이유는 xterm 의 전송 경로가 둘이기 때문이다 (FR-IME-2).
-   * 인쇄 가능한 한 글자는 `_keyPress` 가 보내므로 키다운만 다시 발행해서는
-   * 되살아나지 않는다 — 그것은 **글자로** 보류한다. 나머지(Enter·Tab·Esc·커서·
-   * Ctrl 조합)는 `_keyDown` 이 표를 보고 만들며, 그 표는 xterm 의 것이므로
-   * **이벤트를 다시 발행**해 그쪽이 만들게 한다.
-   */
-  _imeGate(e){
-    if(e.type!=='keydown') return true;
-    if(e.__dmImeReplay) return true;
-    if(!this._imeBusy()) return true;
-    const kc=e.keyCode;
-    if(kc===229||kc===16||kc===17||kc===18) return true;
-    const one=!!e.key&&[...e.key].length===1;
-    this._imePush(one&&!e.ctrlKey&&!e.altKey&&!e.metaKey
-      ?{t:'text',v:e.key}
-      :{t:'key',v:this._imeKeyInit(e)});
-    // 기본 동작을 막지 않으면 이 키가 textarea 를 고쳐 xterm 의 조합 계산을
-    // 어긋나게 하고, `keypress`·`beforeinput` 으로 같은 글자가 한 번 더 나간다.
-    e.preventDefault();
-    return false;
-  }
-
-  // 다시 발행할 때 `evaluateKeyboardEvent` 가 읽는 값 전부다. 하나라도 빠지면
-  // 그 키의 해석이 원본과 달라진다.
-  _imeKeyInit(e){
-    return {key:e.key,code:e.code,keyCode:e.keyCode,which:e.which,
-      location:e.location,repeat:e.repeat,
-      ctrlKey:e.ctrlKey,altKey:e.altKey,shiftKey:e.shiftKey,metaKey:e.metaKey,
-      bubbles:true,cancelable:true};
-  }
-
-  // 조합이 열려 있거나, 닫혔지만 xterm 의 전송이 아직 나가지 않았다.
-  _imeBusy(){ return !!(this._imeOpen||this._imeSettling) }
-
-  _imePush(item){ (this._imeQ||(this._imeQ=[])).push(item) }
-
-  /**
-   * FR-MTI-30 / UX_BATCH6_SRS FR-IME-3: 조합이 닫혔다. 보류분은 **xterm 이 조합
-   * 문자열을 보낸 뒤**에 나간다.
-   *
-   *   이전 동작: `compositionend` 를 보면 곧바로 `_imeOpen` 을 내렸다
-   *   새  동작: 내리되 **정리 중**(`_imeSettling`)으로 들어가고, 두 tick 뒤에
-   *             보류분을 흘려 보내며 그 창을 닫는다
-   *   이유:     xterm 은 자기 `compositionend`(bubble) 안에서 `setTimeout(0)` 으로
-   *             조합을 보낸다. 우리 캡처 핸들러가 먼저 도므로, 그 사이에 도착한
-   *             확정 문자를 즉시 보내면 조합보다 앞선다 — 접수한 모바일 증상이
-   *             그것이다(" 여전히"). 종전 가드는 `compositionend` **앞에** 온
-   *             문자만 잡았고, 뒤에 온 문자는 그대로 새 나갔다 (SRS §2.2)
-   */
-  _imeClose(){
-    this._imeOpen=false;
-    this._imeSettling=true;
-    // 중첩이 계약이다 — xterm 이 자기 `compositionend`(bubble) 안에서 거는
-    // `setTimeout(0)` **뒤에** 서야 한다. `defer` 는 큐잉도 병합도 하지 않고
-    // 원시 호출을 그대로 쓴다 (FR-SCH-13).
-    TIMERS.defer(()=>TIMERS.defer(()=>this._imeFlush(),{owner:this}),{owner:this,label:'ime-flush'});
-  }
-
-  _imeFlush(){
-    // 다음 조합이 이미 열렸으면 아직 흘릴 때가 아니다 — 그 조합이 닫힐 때 다시
-    // 이 자리로 온다. 순서는 도착 순 그대로 유지된다.
-    if(this._imeOpen) return;
-    this._imeSettling=false;
-    const q=this._imeQ; this._imeQ=null;
-    if(!q||!q.length) return;
-    const ta=this.box&&this.box.querySelector('.xterm-helper-textarea');
-    for(const it of q){
-      if(it.t==='text'){ this._sendText(this._applyStickyMods(it.v)); continue }
-      if(!ta) continue;
-      const ev=new KeyboardEvent('keydown',it.v);
-      // 게이트가 다시 잡지 않게 표식을 단다 — 이 시점에는 조합이 닫혀 있지만,
-      // 다음 조합이 열린 뒤에 흘려 보내는 경우가 남는다.
-      ev.__dmImeReplay=true;
-      ta.dispatchEvent(ev);
+  _loadAddons(){
+    const steps=[
+      ()=>this.term.loadAddon(new WebLinksAddon.WebLinksAddon((_e,uri)=>{window.open(uri,'_blank')})),
+      ()=>{this.term.loadAddon(new Unicode11Addon.Unicode11Addon());this.term.unicode.activeVersion='11'},
+      ()=>{this.search=new SearchAddon.SearchAddon();this.term.loadAddon(this.search)},
+      ()=>TermClipboard.attach(this.term,this.id,this),
+    ];
+    for(const step of steps){
+      try{ step() }catch{ /* 애드온이 없는 판 — 그 기능만 빠진다 */ }
     }
   }
 
-  // ── 터치 스크롤 (MOBILE_TUI_INPUT_SCROLL_SRS §3.2) ──
-
-  // FR-MTI-8: capture 단계에서 가로채 xterm 의 1:1 터치 경로와 선택 경로에
-  // 도달하지 않게 한다. xterm 쪽은 감도 배율도 관성도 없다.
-  _initTouchScroll(){
-    const opt={capture:true,passive:false};
-    this.el.addEventListener('touchstart',e=>this._tsStart(e),opt);
-    this.el.addEventListener('touchmove',e=>this._tsMove(e),opt);
-    this.el.addEventListener('touchend',e=>this._tsEnd(e),opt);
-    this.el.addEventListener('touchcancel',e=>this._tsEnd(e),opt);
-    // FR-MTI-29: Chrome 은 제스처가 끝난 뒤 합성 마우스 이벤트를 낸다. 마우스
-    // 리포팅이 켜진 TUI 에는 그것이 클릭으로 전달된다 — 실기기 로그에서 스크롤
-    // 제스처가 ESC[<0;32;22M/m 을 보내고 있었다. 스크롤한 것을 클릭으로 받으면
-    // TUI 가 엉뚱하게 반응한다. 스크롤로 판정된 제스처의 합성분만 막는다.
-    for(const t of ['mousedown','mouseup','click']){
-      this.el.addEventListener(t,e=>{
-        if(!this._tsSuppressUntil||Date.now()>this._tsSuppressUntil) return;
-        e.preventDefault();e.stopPropagation();
-      },true);
-    }
-  }
-
-  _tsMobile(){return !!(window.app && window.app.isMobile)}
-
-  _tsStart(e){
-    this._flingStop();
-    this._tsY0=null;
-    if(!this._tsMobile()) return;
-    if(!e.touches || e.touches.length!==1) return;
-    this._tsY0=e.touches[0].clientY;
-    this._tsY=this._tsY0;
-    this._tsActive=false;this._tsResid=0;this._tsV=0;
-  }
-
-  _tsMove(e){
-    if(this._tsY0===null||this._tsY0===undefined) return;
-    if(!this._tsMobile()) return;
-    if(!e.touches || e.touches.length!==1) return;
-    const y=e.touches[0].clientY;
-    if(!this._tsActive){
-      // FR-MTI-9: slop 이내는 탭이다 — 그대로 통과시켜 포커스·선택을 남긴다.
-      // 여기서 preventDefault 하면 Chrome 이 이 제스처의 합성 마우스 이벤트를
-      // 억제해 탭 → 포커스 경로까지 죽는다 (FR-MTI-24 철회 근거).
-      if(Math.abs(y-this._tsY0)<MTI_TOUCH_SLOP_PX) return;
-      this._tsActive=true;
-      this._tsY=y;   // slop 소진분은 버린다. 시작이 튀지 않는다
-      // FR-MTI-22: Android Chrome 은 focus 된 입력 요소가 있는 동안 페이지를
-      // 탭하면 키보드를 재표시한다. 스크롤하려고 만졌을 뿐인데 키보드가 올라오고,
-      // 그것이 window resize → fit → 재렌더로 이어진다. 제스처가 스크롤로
-      // 확정된 순간 포커스를 놓는다. 제스처가 끝나도 되돌리지 않는다 —
-      // 되돌리면 키보드가 다시 올라온다.
-      this._blurInput();
-    }
-    const dy=this._tsY-y;
-    this._tsY=y;this._tsV=dy;
-    e.preventDefault();e.stopPropagation();
-    this._touchScrollBy(dy*MTI_TOUCH_GAIN);
-  }
-
-  _tsEnd(e){
-    const wasActive=this._tsActive;
-    this._tsY0=null;this._tsActive=false;
-    if(!wasActive) return;
-    e.preventDefault();e.stopPropagation();
-    this._tsSuppressUntil=Date.now()+MTI_SYNTH_MOUSE_MS;   // FR-MTI-29
-    // FR-MTI-7: 마지막 관측 속도에서 시작해 프레임마다 감쇠한다.
-    let v=this._tsV*MTI_TOUCH_GAIN;
-    if(Math.abs(v)>MTI_FLING_MAX_V) v=v<0?-MTI_FLING_MAX_V:MTI_FLING_MAX_V;
-    if(Math.abs(v)<MTI_FLING_MIN_V) return;
-    const step=()=>{
-      this._flingId=null;
-      this._touchScrollBy(v);
-      v*=MTI_FLING_DECAY;
-      if(Math.abs(v)<MTI_FLING_MIN_V) return;
-      this._flingId=TIMERS.frame(step,{owner:this,label:'fling'});
-    };
-    this._flingId=TIMERS.frame(step,{owner:this,label:'fling'});
-  }
-
-  _flingStop(){
-    if(this._flingId){TIMERS.cancel(this._flingId);this._flingId=null}
-    if(this._wheelRaf){TIMERS.cancel(this._wheelRaf);this._wheelRaf=null;this._wheelPend=0}
-  }
-
-  // FR-MTI-22/26: 소프트 키보드를 내린다. 모바일에서만 의미가 있다.
-  _blurInput(){
-    const ta=this.el.querySelector('.xterm-helper-textarea');
-    if(ta && document.activeElement===ta){try{ta.blur()}catch{}}
-  }
-
-  /**
-   * ALERT_MOBILE_CONTEXT_SRS FR-MKB-2·3 / D-10 — **`inputmode` 의 주인은 여기다.**
-   *
-   * 접수한 말은 "`⌨` 눌렀을때만 키보드가 올라오게" 다. 지금은 터미널을 터치하면
-   * xterm 이 `.xterm-helper-textarea` 에 포커스를 주고 소프트 키보드가 따라
-   * 올라온다 — 화면의 절반이 사라지고, 그것을 내리려면 `⌨` 를 눌러야 한다.
-   *
-   * **포커스를 막지 않는다.** 막으면 물리 키보드·선택·붙여넣기·키바 전송이 함께
-   * 죽는다. 막는 것은 소프트 키보드뿐이며 그 손잡이가 `inputmode='none'` 이다.
-   *
-   * 키바가 이 메서드를 부르고 속성을 직접 쓰지 않는다 (D-10) — 두 곳이 쓰면
-   * "올라와 있는데 none" 같은 상태가 생기고, 그때 어느 쪽이 맞는지 알 수 없다.
-   */
-  _kbTextarea(){ return this.el.querySelector('.xterm-helper-textarea') }
-
-  // FR-MKB-13: 데스크톱은 영향을 받지 않는다. 모바일이 아니게 되면 속성을 걷는다 —
-  // 남겨 두면 브라우저 폭을 넓힌 뒤 물리 키보드 사용자가 IME 를 잃는다.
-  _kbApply(){
-    const ta=this._kbTextarea();
-    if(!ta) return;
-    if(!document.body.classList.contains('mobile')){ta.removeAttribute('inputmode');return}
-    ta.setAttribute('inputmode','none');
-  }
-
-  _kbSuppressed(){
-    const ta=this._kbTextarea();
-    return !!ta && ta.getAttribute('inputmode')==='none';
-  }
-
-  // FR-MKB-4: `⌨` 가 푸는 유일한 자리. 속성을 걷고 **포커스를 다시 준다** —
-  // 이미 포커스가 있으면 브라우저가 키보드를 올리지 않으므로 한 번 놓았다 잡는다.
-  _kbAllow(){
-    const ta=this._kbTextarea();
-    if(!ta) return;
-    ta.removeAttribute('inputmode');
-    try{ta.blur()}catch{}
-    this.focus();
-    try{ta.focus()}catch{}
-  }
-
-  // FR-MKB-5: 같은 버튼의 반대 방향. 속성을 되걸고 내린다.
-  _kbSuppress(){
-    const ta=this._kbTextarea();
-    if(!ta) return;
-    if(document.body.classList.contains('mobile')) ta.setAttribute('inputmode','none');
-    this._blurInput();
-  }
-
-  // FR-MTI-28: 스크롤을 직접 처리하지 않고 xterm 의 wheel 경로로 넘긴다.
-  //
-  // scrollLines 로 직접 움직이던 이전 구현은 스크롤백이 있을 때만 동작했다.
-  // 실기기 로그에서 이 TUI 는 마우스 리포팅을 켜고 있었고(SGR 리포트가 실제로
-  // 전송됐다), 그런 TUI 는 스크롤을 스크롤백이 아니라 자기가 처리한다 — 화면을
-  // 재렌더하므로 스크롤백은 rows 만큼밖에 없다(실측 len==rows, 제스처 내내 vY=0).
-  //
-  // 합성 wheel 을 넘기면 xterm 이 상태에 맞게 갈라준다:
-  //   · 마우스 리포팅 ON  → 프로토콜(SGR/일반)에 맞는 휠 리포트 전송 → TUI 가 스크롤
-  //   · OFF, 스크롤백 있음 → viewport 스크롤
-  //   · OFF, alt screen    → 위/아래 방향키로 변환
-  // 픽셀→행 누적도 xterm 의 getLinesScrolled 가 이미 한다(_wheelPartialScroll).
-  // FR-MTI-32: 터치는 한 프레임에 여러 번 발화한다. 그때마다 wheel 을 보내면
-  // 마우스 리포팅이 켜진 TUI 가 리포트 폭주를 받아 프레임을 따라 그리다 밀린다
-  // — 실기기에서 "버벅인다" 로 나타난다. 프레임당 한 번, 누적 delta 로 보낸다.
-  _touchScrollBy(px){
-    if(!px) return;
-    this._wheelPend=(this._wheelPend||0)+px;
-    this._wheelRaf=TIMERS.frame(()=>{
-      this._wheelRaf=null;
-      const d=this._wheelPend; this._wheelPend=0;
-      if(d) this._dispatchWheel(d);
-    },{owner:this,coalesce:'wheel'});
-  }
-
-  _dispatchWheel(px){
-    const el=this.term&&this.term.element;
-    if(!el) return;
-    const r=el.getBoundingClientRect();
-    try{
-      el.dispatchEvent(new WheelEvent('wheel',{
-        deltaY:px, deltaX:0, deltaMode:0,
-        clientX:r.left+r.width/2, clientY:r.top+r.height/2,
-        bubbles:true, cancelable:true,
-      }));
-    }catch{}
-  }
   _wsURL(){
     const p=location.protocol==='https:'?'wss:':'ws:';
     const cols=(this.term&&this.term.cols)||120;
@@ -600,7 +210,7 @@ class TerminalTool {
   _markExited(){
     if(this._exited) return;
     this._exited=true;
-    this._clearHealthy();
+    this._sock.clearHealthy();
     this.write('\r\n\x1b[90m── exited ──\x1b[0m\r\n');
     this.el.style.opacity='1'; this._reconnecting=false;
     /**
@@ -644,14 +254,6 @@ class TerminalTool {
     await app.addTab(loc.pane.id,'terminal',{windowId:loc.win.id});
     app.closeTab(loc.pane.id,loc.tab.id,loc.win.id);
   }
-  // FR-RCS-3: 연결이 WS_HEALTHY_MS 이상 유지되어야 백오프를 되돌린다.
-  _markHealthy(){
-    this._clearHealthy();
-    this._healthyTimer=TIMERS.after(WS_HEALTHY_MS,()=>{this._healthyTimer=null;this._retryDelay=0},{owner:this,label:'ws-healthy'});
-  }
-  _clearHealthy(){
-    if(this._healthyTimer){TIMERS.cancel(this._healthyTimer);this._healthyTimer=null}
-  }
   _sendResize(cols,rows){
     const m=new Uint8Array(5);m[0]=OP.RESIZE;
     const dv=new DataView(m.buffer);
@@ -660,7 +262,7 @@ class TerminalTool {
     this._send(m);
   }
   _onWsOpen(){
-    this._markHealthy();
+    this._sock.markHealthy();
     // FR-TRS-7: 새 소켓이다. 좌표 통보를 받기 전까지는 세지 않는다 — 그 전에 오는
     // OpOutput 은 재생분이고, 그것을 더하면 좌표가 재생 길이만큼 앞질러 간다.
     this._seqLive=false;
@@ -720,30 +322,26 @@ class TerminalTool {
   connect() {
     // 명시적인 connect 는 새 시도다 — 이전의 종료 판정을 지운다.
     this._exited=false;
-    this.ws=new WebSocket(this._wsURL()); this.ws.binaryType='arraybuffer';
-    this.ws.onopen=()=>{
-      this._onWsOpen();
-      if(this._reconnecting){
-        // `_hideOverlay()` 가 여기 **있어야 한다.** 이 경로는 최초 연결 전용이라
-        // 지울 오버레이가 없었고, 그래서 빠져 있었다. `reconnectNow()` 가
-        // 오버레이를 띄운 채 이 함수를 부르게 되면서 그것이 결함이 됐다 —
-        // 연결은 붙는데 "다시 연결" 화면이 영영 남는다 (실측).
-        TIMERS.after(300,()=>{this._hideOverlay();this.el.style.opacity='1';this._reconnecting=false;if(this.term)this.term.scrollToBottom()},{owner:this,label:'overlay-hide'});
-      }
-    };
-    this.ws.onmessage=e=>{
-      const d=new Uint8Array(e.data); if(d.length) this._onOp(d);
-    };
-    this.ws.onclose=()=>{
-      if(this._destroyed||this._exited) return;
-      this._showOverlay(t('term.disconnected'), t('term.reconnecting'));
-      this._scheduleReconnect();
-    };
-    this.ws.onerror=()=>{
-      if(this._destroyed||this._exited) return;
-      this._showOverlay(t('term.conn_error'), t('term.reconnecting'));
-      this._scheduleReconnect();
-    };
+    this._sock.open();
+  }
+  // ── TermSocket 의 주인 쪽 (FR-OPT-12-1) ──
+  _wsStopped(){ return this._destroyed||this._exited }
+  /**
+   * 소켓이 열렸다. 재시도로 붙었거나 `reconnectNow()` 가 오버레이를 띄웠으면 걷는다 —
+   * 걷지 않으면 연결은 붙는데 "다시 연결" 화면이 영영 남는다 (실측).
+   */
+  _wsOpened(viaRetry){
+    this._onWsOpen();
+    if(viaRetry||this._reconnecting) TIMERS.after(TERM_OVERLAY_HIDE_MS,()=>this._onWsReady(),{owner:this,label:'overlay-hide'});
+  }
+  _onWsReady(){
+    this._hideOverlay(); this.el.style.opacity='1'; this._reconnecting=false;
+    if(this.term) this.term.scrollToBottom();
+  }
+  _wsLost(kind){
+    if(kind==='close') this._showOverlay(t('term.disconnected'),t('term.reconnecting'));
+    else this._showOverlay(t('term.conn_error'),t('term.reconnecting'));
+    this._scheduleReconnect();
   }
   /**
    * SOFT_RELOAD_SRS FR-SRL-5·6·7: 내부 새로고침이 부르는 재연결.
@@ -761,18 +359,10 @@ class TerminalTool {
     // FR-M10-2: `quiet` 는 **우리가 거는 갱신**이다 — 사용자가 고른 일이 아니므로
     // "다시 연결" 화면을 띄우지 않는다. 연결 자체의 절차는 완전히 같다.
     const quiet=!!(opts&&opts.quiet);
-    this._clearHealthy();
-    this._reconnectPending=false;
     // 옛 소켓의 콜백을 먼저 끊는다 — 살려 두면 close 가 `_scheduleReconnect` 를
-    // 불러 재연결이 두 벌로 돈다.
-    for(const k of ['ws','_pendingWs']){
-      const s=this[k];
-      if(!s) continue;
-      try{s.onclose=null;s.onerror=null;s.onmessage=null;s.onopen=null;s.close()}catch{}
-      this[k]=null;
-    }
-    // 사용자가 부른 재연결이므로 즉시 시도한다 — 백오프는 실패가 이어질 때의 것이다.
-    this._retryDelay=0;
+    // 불러 재연결이 두 벌로 돈다. 사용자가 부른 재연결이므로 즉시 시도한다 —
+    // 백오프는 실패가 이어질 때의 것이다.
+    this._sock.reset();
     this._resetDecoderIfNoResume();
     this._reconnecting=!quiet;
     if(!quiet) this._showOverlay(t('term.reconnect'), t('term.soft_reload'));
@@ -783,12 +373,9 @@ class TerminalTool {
   _scheduleReconnect(){
     // FR-RCS-1: 도구가 사라졌다는 통보를 받았으면 다시 붙지 않는다. 이 한 줄이
     // 없으면 없는 도구를 향해 지연 0 으로 무한히 재접속한다 (§2.1).
-    if(this._destroyed||this._exited||this._reconnectPending) return;
-    this._reconnectPending=true;
-    this._clearHealthy();
-    if(this.ws){try{this.ws.onclose=null;this.ws.onerror=null;this.ws.onmessage=null;this.ws.close()}catch{}this.ws=null}
+    if(!this._sock.arm()) return;
     this._resetDecoderIfNoResume();
-    this._reconnect();
+    this._sock.retry();
   }
   /**
    * 끊긴 연결의 반쪽 멀티바이트가 새 연결의 바이트와 이어 붙는 것을 막는다.
@@ -933,44 +520,21 @@ class TerminalTool {
     return this.reconnectNow({quiet:true});
   }
   focus(){if(this.term)try{this.term.focus()}catch{}}
-  _onEraseDisplay(ps){if(ps[0]===3&&!this._ed3Follow&&this.term.buffer.active.type!=='alternate'){const d=this.term.onWriteParsed(()=>{d.dispose();this._ed3Follow=false;if(this.term)this.term.scrollToBottom()});this._ed3Follow=true}return false} _onAltMode(ps,on){if(ps.some(v=>v===1049||v===47||v===1047)){this._srvAlt=on;if(!on&&this._widthDebt&&this._seqLive&&!this._followsPty())this._refreshForWidth()}return false}   // FR-ESF-1~5 · FR-OTR-7·9
-  _reconnect(){
-    if(this._destroyed||this._exited) return;
-    // Instant first attempt, then fast backoff: 200, 500, 1s, 1.2x up to 10s.
-    // FR-RCS-4: 이 값은 _markHealthy 의 타이머가 깨어날 때만 0 으로 돌아간다.
-    let delay=this._retryDelay;
-    if(this._retryDelay===0){ delay=0; this._retryDelay=200 }
-    else if(this._retryDelay<=500){ this._retryDelay=Math.min(this._retryDelay*2.5,1000) }
-    else{ this._retryDelay=Math.min(this._retryDelay*1.2,10000) }
-    TIMERS.after(delay,()=>{
-      // FR-RCS-5: 대기 중에 판정이 섰을 수 있다. 깨어난 뒤에 다시 본다.
-      if(this._destroyed||this._exited) return;
-      const ws=new WebSocket(this._wsURL()); ws.binaryType='arraybuffer';
-      this._pendingWs=ws;
-      this._reconnectPending=false;
-      ws.onopen=()=>{
-        this.ws=ws;
-        this._pendingWs=null;
-        this._onWsOpen();
-        TIMERS.after(300,()=>{this._hideOverlay();this.el.style.opacity='1';this._reconnecting=false;if(this.term)this.term.scrollToBottom()},{owner:this,label:'overlay-hide'});
-      };
-      ws.onmessage=e=>{
-        const d=new Uint8Array(e.data); if(d.length) this._onOp(d);
-      };
-      ws.onclose=()=>{
-        if(this._destroyed||this._exited)return;
-        if(this.ws&&this.ws!==ws) return;
-        if(this.ws===ws) this.ws=null;
-        this._showOverlay(t('term.disconnected'),t('term.reconnecting'));
-        this._scheduleReconnect();
-      };
-      ws.onerror=()=>{
-        if(this._destroyed||this._exited)return;
-        if(this.ws&&this.ws!==ws) return;
-        this._showOverlay(t('term.conn_error'),t('term.reconnecting'));
-        this._scheduleReconnect();
-      };
-    },{owner:this,label:'ws-retry'});
+  // FR-ESF-1~5: 스크롤백을 지운(ED3) 뒤에는 바닥을 따른다.
+  _onEraseDisplay(ps){
+    if(ps[0]===3&&!this._ed3Follow&&this.term.buffer.active.type!=='alternate'){
+      const d=this.term.onWriteParsed(()=>{d.dispose();this._ed3Follow=false;if(this.term)this.term.scrollToBottom()});
+      this._ed3Follow=true;
+    }
+    return false;
+  }
+  // FR-OTR-7·9: 대체 화면을 나오면 미뤄 둔 폭 빚을 갚는다.
+  _onAltMode(ps,on){
+    if(ps.some(v=>v===1049||v===47||v===1047)){
+      this._srvAlt=on;
+      if(!on&&this._widthDebt&&this._seqLive&&!this._followsPty()) this._refreshForWidth();
+    }
+    return false;
   }
   // 오버레이는 **DOM 으로 세운다** — `_confirmClose` 를 `GitConfirm` 규약으로
   // 옮긴 것과 같은 근거다 (M2 `UX-1`). `textContent` 는 이스케이프를 부를 필요가
@@ -1146,29 +710,21 @@ class TerminalTool {
   destroy(){
     this._destroyed=true;
     this._flingStop();
-    this._clearHealthy();
     if(this._carryTimer){TIMERS.cancel(this._carryTimer);this._carryTimer=null}
-    if(this._pendingWs&&this._pendingWs!==this.ws){
-      try{this._pendingWs.onopen=null;this._pendingWs.onclose=null;this._pendingWs.onerror=null;this._pendingWs.onmessage=null;this._pendingWs.close()}catch{}
-      this._pendingWs=null;
-    }
-    if(this.ws){this.ws.onclose=null;this.ws.onerror=null;this.ws.close();this.ws=null}
+    this._sock.close();
     if(this.term){this.term.dispose();this.term=null}
     this.el.remove(); this._opened=false;
   }
-  _send(m){
-    const ws=this.ws;
-    if(ws&&ws.readyState===1){ws.send(m);return}
-    if(ws&&ws.readyState===0){
-      if(this._sendQueue.length>=this._sendQueueMax){this._sendQueue.shift();this._sendDropCount++}
-      this._sendQueue.push(m);
-      return;
-    }
-    this._sendDropCount++;
-  }
-  _flushSendQueue(){
-    if(!this.ws||this.ws.readyState!==1)return;
-    const q=this._sendQueue;this._sendQueue=[];
-    for(const m of q){this.ws.send(m)}
-  }
+  _send(m){ this._sock.send(m) }
+  _flushSendQueue(){ this._sock.flush() }
+  // 옛 필드 이름 — e2e(terminal·reconnect-storm)와 진단(main.js `sendDropCount`)이 읽는다.
+  // 값은 TermSocket 이 갖는다.
+  get ws(){ return this._sock.ws }
+  set ws(v){ this._sock.ws=v }
+  get _retryDelay(){ return this._sock.retryDelay }
+  set _retryDelay(v){ this._sock.retryDelay=v }
+  get _sendQueue(){ return this._sock.queue }
+  set _sendQueue(v){ this._sock.queue=v }
+  get _sendQueueMax(){ return TERM_SEND_QUEUE_MAX }
+  get _sendDropCount(){ return this._sock.dropCount }
 }

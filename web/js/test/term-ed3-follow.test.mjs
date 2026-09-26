@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, fakeClock } from './harness.mjs';
+import { load, fakeClock, TERM_PANE } from './harness.mjs';
 
 /**
  * `web/js/ui/term-pane.js` — 스크롤백을 지운 뒤에는 바닥을 따른다
@@ -12,7 +12,7 @@ import { load, fakeClock } from './harness.mjs';
  * 쓰기"가 맨 위에서 멈추는 이유다 (SRS §2.2).
  */
 function pane() {
-  const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/timer-hub.js', 'ui/clipboard.js', 'ui/term-clipboard.js', 'ui/term-pane.js'], {
+  const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/timer-hub.js', 'ui/clipboard.js', 'ui/term-clipboard.js', ...TERM_PANE], {
     clock: fakeClock(),
     expose: ['TerminalTool'],
   });

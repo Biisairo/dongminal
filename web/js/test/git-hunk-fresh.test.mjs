@@ -8,7 +8,7 @@ import { load } from './harness.mjs';
  * 곧바로 다시 받는다. 그 사이 툴바는 낡은 조각을 쓰지 않는다(#44).
  */
 function panel() {
-  const ctx = load(['git/panel-diff.js'], {
+  const ctx = load(['git/panel-diff.js', 'git/panel-hunks.js'], {
     globals: {
       GitPanel: class {},
       GIT_HUNK_AXES: new Set(['unstaged']),

@@ -225,6 +225,25 @@ const RESTORE_PANE_WAIT_TRIES=20;
 // 무효로 가르면서 정상 사용 중의 짧은 끊김은 유효로 인정하는 자리다.
 const WS_HEALTHY_MS=3000;
 
+// OPTIMIZE_REFACTOR_SRS FR-OPT-12-1: 터미널 WS 재접속 백오프(`TermSocket`). 첫 시도는 즉시,
+// 이후 200 → ×2.5(500 까지는 빠르게, 1000 상한) → ×1.2(10 s 상한). 기다리는 시간에만 ±20%
+// 지터를 얹는다 — 서버가 다시 뜬 뒤 모든 탭이 같은 순간에 몰리지 않게 한다. 다음 지연 값
+// 자체(`_retryDelay`)에는 얹지 않는다: 백오프가 자라는지(FR-RCS-3)는 그 값으로 잰다.
+const TERM_WS_RETRY_FIRST_MS=200;
+const TERM_WS_RETRY_FAST_UNTIL_MS=500;
+const TERM_WS_RETRY_FAST_FACTOR=2.5;
+const TERM_WS_RETRY_FAST_MAX_MS=1000;
+const TERM_WS_RETRY_FACTOR=1.2;
+const TERM_WS_RETRY_MAX_MS=10000;
+const TERM_WS_RETRY_JITTER=0.2;
+// 다시 붙은 뒤 "다시 연결" 오버레이를 걷기까지의 여유.
+const TERM_OVERLAY_HIDE_MS=300;
+// 연결 중(readyState 0)에 쌓아 두는 송신 프레임 상한. 넘치면 가장 오래된 것을 버린다.
+const TERM_SEND_QUEUE_MAX=64;
+// FR-OPT-12-1 (FEU-15): 터미널이 xterm 대신 직접 보내는 키. 조합(수식키) → 키 → 바이트열.
+const TERM_KEY_SEQ={shiftEnter:[0x1b,0x0d],lineStart:[0x01],lineEnd:[0x05],wordBack:[0x1b,0x62],wordFwd:[0x1b,0x66]};
+const TERM_KEY_MAP={meta:{ArrowLeft:'lineStart',ArrowRight:'lineEnd'},alt:{ArrowLeft:'wordBack',ArrowRight:'wordFwd'}};
+
 // RECONNECT_STORM_SRS FR-RCS-6: 커맨드 SSE 의 재접속 백오프. **상한만 있고
 // 포기는 없다.** 종전에는 20회 실패 후 영구히 포기했는데, SSE 가 죽으면
 // `_applyRemoteWorkspace` 의 자가 치유(서버가 모르는 도구를 destroy)가 영영

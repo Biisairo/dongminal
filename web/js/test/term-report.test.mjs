@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load, fakeClock } from './harness.mjs';
+import { load, fakeClock, TERM_PANE } from './harness.mjs';
 
 /**
  * `web/js/ui/term-pane.js` — 터미널이 스스로 내는 보고와 사용자의 키를 가르는
@@ -13,7 +13,7 @@ import { load, fakeClock } from './harness.mjs';
  */
 function pane(mods = {}) {
   const clock = fakeClock();
-  const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/timer-hub.js', 'ui/clipboard.js', 'ui/term-clipboard.js', 'ui/term-pane.js'], {
+  const ctx = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/timer-hub.js', 'ui/clipboard.js', 'ui/term-clipboard.js', ...TERM_PANE], {
     clock,
     expose: ['TerminalTool', 'TIMERS', 'TERM_REPORT_RE', 'OP'],
   });

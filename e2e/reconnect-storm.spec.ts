@@ -22,6 +22,10 @@ import { test, expect, liveRegionOf } from './fixtures';
 // 않으므로, 빠뜨리면 `apiGet is not defined` 로 그 자리에서 터진다.
 const API_JS = join(process.cwd(), 'web', 'js', 'core', 'api.js');
 const TERM_PANE_JS = join(process.cwd(), 'web', 'js', 'ui', 'term-pane.js');
+// OPTIMIZE_REFACTOR_SRS FR-OPT-12-1·12-4: WS 배선(`TermSocket`)과 입력 증강이 갈라졌다.
+// 재는 것은 그대로다 — 소켓을 몇 개 여는가. 싣는 파일만 셋이 됐다.
+const TERM_SOCKET_JS = join(process.cwd(), 'web', 'js', 'ui', 'term-socket.js');
+const TERM_INPUT_JS = join(process.cwd(), 'web', 'js', 'ui', 'term-input.js');
 // TERMINAL_FOLDER_DROP_SRS FR-TFD-1 / C-2: `term-pane.js` 의 드롭 경로가 이
 // 순수 함수를 쓴다. 이 하네스는 전역을 손으로 세우므로 **같은 변경에서** 여기
 // 한 줄이 늘어야 한다 — 격리가 이 검사의 값이고, 그래서 값을 치르는 자리다.
@@ -39,6 +43,18 @@ async function loadTermPane(page: Page) {
     (window as any).dec = new TextDecoder();
     (window as any).enc = new TextEncoder();
     (window as any).WS_HEALTHY_MS = 3000;
+    // FR-OPT-12-1: 백오프·오버레이·송신 큐 상수 (`constants.js` 와 같은 값).
+    Object.assign(window as any, {
+      TERM_WS_RETRY_FIRST_MS: 200,
+      TERM_WS_RETRY_FAST_UNTIL_MS: 500,
+      TERM_WS_RETRY_FAST_FACTOR: 2.5,
+      TERM_WS_RETRY_FAST_MAX_MS: 1000,
+      TERM_WS_RETRY_FACTOR: 1.2,
+      TERM_WS_RETRY_MAX_MS: 10000,
+      TERM_WS_RETRY_JITTER: 0.2,
+      TERM_OVERLAY_HIDE_MS: 300,
+      TERM_SEND_QUEUE_MAX: 64,
+    });
     (window as any).OSC_CARRY_MS = 50;
     // `12-func-ui.md FUI-14`: 종료 오버레이의 문구·라벨. 이 하네스는 `term-pane.js`
     // 를 **홀로** 싣고 `constants.js` 를 싣지 않으므로(그것이 이 검사의 격리다)
@@ -77,7 +93,9 @@ async function loadTermPane(page: Page) {
   await page.addScriptTag({ path: TIMER_HUB_JS });
   await page.addScriptTag({ path: API_JS });
   await page.addScriptTag({ path: DROP_ENTRIES_JS });
+  await page.addScriptTag({ path: TERM_SOCKET_JS });
   await page.addScriptTag({ path: TERM_PANE_JS });
+  await page.addScriptTag({ path: TERM_INPUT_JS });
   // `class` 선언은 전역 렉시컬 환경에 들어가고 window 에는 붙지 않는다
   // (repaint.js 의 `function` 선언과 다른 점). 이름으로 꺼내 올려둔다.
   // eval 의 인자는 고정 리터럴이고 외부 입력이 닿지 않는다 — 테스트 전용 배선이다.
