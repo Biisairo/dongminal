@@ -57,3 +57,50 @@ test('UIKit.modal 의 Escape 는 preventDefault·stopPropagation 을 하고 닫�
   assert.equal(stopped, 1, '전파를 끊지 않았다');
   assert.equal(prevented, 1, '기본 동작을 막지 않았다');
 });
+
+/**
+ * FR-OPT-16-4: 킷 모달이 겹치면 Escape 는 **가장 안쪽** 하나만 닫는다.
+ *
+ * 모달마다 document 에 캡처 리스너를 건다. 같은 노드의 리스너는 등록 순서로 돌고
+ * `stopPropagation()` 은 같은 노드의 다른 리스너를 막지 못한다 — 그래서 먼저 연
+ * 바깥 것이 먼저 받아 닫혔다. 대역은 그 규칙(등록 순서·`stopImmediatePropagation`
+ * 만 멈춘다)을 그대로 흉내낸다. `dialogOpen` 은 진짜를 쓴다 — 스택이 거기 있다.
+ */
+test('겹친 UIKit.modal 의 Escape 는 가장 안쪽만 닫는다', () => {
+  let keys = [];
+  const el = () => ({
+    className: '', style: {}, children: [], parentNode: null, attrs: {}, isConnected: true,
+    appendChild(c) { this.children.push(c); c.parentNode = this; return c },
+    removeChild(c) { c.parentNode = null },
+    addEventListener() {},
+    setAttribute(k, v) { this.attrs[k] = v },
+    hasAttribute(k) { return k in this.attrs },
+    querySelector: () => null,
+    querySelectorAll: () => [],
+    focus() {},
+  });
+  const document = {
+    createElement: el,
+    activeElement: null,
+    addEventListener: (t, fn, cap) => { if (t === 'keydown' && cap) keys.push(fn) },
+    removeEventListener: (t, fn, cap) => { if (t === 'keydown' && cap) keys = keys.filter((f) => f !== fn) },
+  };
+  const TIMERS = { frame() {} };
+  const ctx = load(['ui/ui-kit.js'], { expose: ['UIKit'], globals: { document, TIMERS } });
+  const closed = [];
+  ctx.UIKit.modal({ head: false, onClose: () => { closed.push('outer') } });
+  ctx.UIKit.modal({ head: false, onClose: () => { closed.push('inner') } });
+
+  const press = () => {
+    let halt = false;
+    const e = {
+      key: 'Escape', preventDefault() {}, stopPropagation() {},
+      stopImmediatePropagation() { halt = true },
+    };
+    for (const fn of [...keys]) { if (halt) break; fn(e) }
+  };
+  press();
+  assert.deepEqual(closed, ['inner'], '바깥이 먼저(또는 함께) 닫혔다');
+  press();
+  assert.deepEqual(closed, ['inner', 'outer']);
+});

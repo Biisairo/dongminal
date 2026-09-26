@@ -267,10 +267,10 @@ const UIKit = {
    * 저장하면 `.acl-confirm` 이 그 위에 뜬다. `Tab` 트랩은 **맨 위 것**만 걸려야
    * 하고, 닫을 때 포커스는 **그 아래 것**으로 돌아가야 한다.
    *
-   * `Escape` 순서는 여기서 다루지 않는다. 실측으로 이미 맞다: `modal()` 의
-   * Escape 리스너는 **캡처**이고 `stopPropagation()` 하며, 설정 모달의 것은
-   * **버블**이다 — 그래서 안쪽이 먼저 먹고 바깥은 못 받는다. 맞는 것을 옮기면
-   * 옮기는 동안만 틀릴 수 있으므로 그대로 둔다 (`TC-A11Y-9` 가 고정한다).
+   * `Escape` 는 이 스택을 본다: `modal()` 의 Escape 리스너는 **캡처**이고 맨 위가
+   * 자기일 때만 닫고 `stopPropagation()` 한다. 설정 모달의 것은 **버블**이라 안쪽
+   * 킷 모달이 먼저 먹는다 (`TC-A11Y-9`). 킷 모달끼리 겹치면 리스너가 같은 노드에
+   * 등록 순서로 돌므로 스택 없이는 바깥이 먼저 닫혔다 (FR-OPT-16-4).
    *
    * ## 왜 `Tab` 을 캡처에서 잡나
    *
@@ -428,7 +428,15 @@ const UIKit = {
       if (s.onClose) s.onClose(v);
     };
     // UI_KIT_SRS FR-UIK-25·§3.6: 옮겨 온 다섯 상자가 하던 대로 기본 동작도 막는다.
-    const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close() } };
+    // FR-OPT-16-4: 리스너는 모달마다 document 캡처에 걸리고 등록 순서로 돈다 —
+    // `stopPropagation()` 은 같은 노드의 다른 리스너를 막지 못한다. 그래서 대화
+    // 상자 스택의 맨 위가 자기일 때만 닫는다.
+    const onKey = e => {
+      if (e.key !== 'Escape') return;
+      const st = UIKit._dlgStack, top = st[st.length - 1];
+      if (top && top.box !== box) return;
+      e.preventDefault(); e.stopPropagation(); close();
+    };
     document.addEventListener('keydown', onKey, true);
     if (head) head.appendChild(this.button({ icon: 'x', title: s.closeTitle || 'Close', kind: 'ghost', cls: 'ui-modal-close', onClick: () => close() }));
     ov.addEventListener('mousedown', e => { if (e.target === ov) close() });
