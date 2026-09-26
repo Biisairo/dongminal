@@ -65,33 +65,15 @@ type waitResult struct {
 	TimeoutMs int64  `json:"timeoutMs"`
 }
 
-// toolActivity reads the hook-reported activity. Daemon mode keeps it in the
-// hub.AttnTracker (dongminald owns the PTY, dongminal owns the observation);
-// direct mode keeps it on the toolhub.Tool itself.
+// toolActivity reads the hook-reported activity (attentionService 가 모드를 가른다).
 func (s *Server) toolActivity(toolID string) *toolhub.ActivityState {
-	if s.AttnTracker != nil {
-		return s.AttnTracker.Activity(toolID)
-	}
-	if s.Tools != nil {
-		if p := s.Tools.Get(toolID); p != nil {
-			return p.Activity()
-		}
-	}
-	return nil
+	return s.attention().Activity(toolID)
 }
 
 // toolLastOutputAt reports the last observed output time in unix nanos, 0 when
-// no output was ever observed. Mode split mirrors toolActivity.
+// no output was ever observed.
 func (s *Server) toolLastOutputAt(toolID string) int64 {
-	if s.AttnTracker != nil {
-		return s.AttnTracker.LastOutputAt(toolID)
-	}
-	if s.Tools != nil {
-		if p := s.Tools.Get(toolID); p != nil {
-			return p.LastOutputAt.Load()
-		}
-	}
-	return 0
+	return s.attention().LastOutputAt(toolID)
 }
 
 // toolLive probes liveness. In daemon mode this is an RPC, so callers that

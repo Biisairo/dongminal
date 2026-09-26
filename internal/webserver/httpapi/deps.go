@@ -127,7 +127,7 @@ type Deps struct {
 	Sandbox     SandboxReaper
 	Commands    hub.CommandBroker
 	Settings    SettingsStore
-	AttnTracker *hub.AttnTracker // daemon mode: attention/activity tracking in dongminal
+	AttnTracker *hub.AttnTracker // daemon mode: attention/activity tracking in dongminal (nil = 직접 모드 — Server.attention 이 가른다)
 	// WhoAmI resolves a request's RemoteAddr to the originating tool via
 	// PID parent-chain walking. /api/whoami uses it (FR-API-WAI-1). Nil → 500.
 	WhoAmI toolaccess.ClientToolResolver

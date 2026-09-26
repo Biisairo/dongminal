@@ -4,7 +4,6 @@ import (
 	"dongminal/internal/webserver/apierr"
 	"net/http"
 
-	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/httpresp"
@@ -12,21 +11,13 @@ import (
 )
 
 // 주의(attention)·활동(activity)·배경(background) 종단. 셋은 직교하는 레이어지만
-// 모두 "도구가 지금 어떤 상태인가"를 브라우저에 알리는 같은 목적이고, AttnTracker
-// 라는 같은 상태를 읽는다.
+// 모두 "도구가 지금 어떤 상태인가"를 브라우저에 알리는 같은 목적이고, 같은 상태
+// (attentionService)를 읽는다.
 
 // apiToolsAttention returns the ids of tools currently needing attention, so a
 // late-joining / reconnecting client can restore highlights (FR-PAN-8).
 func (s *Server) apiToolsAttention(w http.ResponseWriter, r *http.Request) {
-	ids := []string{}
-	if s.AttnTracker != nil {
-		ids = s.AttnTracker.AttentionIDs()
-	} else if al, ok := s.Tools.(interface{ AttentionIDs() []string }); ok {
-		if got := al.AttentionIDs(); got != nil {
-			ids = got
-		}
-	}
-	httpresp.JSON(w, http.StatusOK, map[string]any{"toolIds": ids})
+	httpresp.JSON(w, http.StatusOK, map[string]any{"toolIds": s.attention().AttentionIDs()})
 }
 
 // apiToolAttentionSet flags a tool as needing attention. Used by `dmctl notify`
@@ -55,16 +46,7 @@ func (s *Server) apiToolAttentionSet(w http.ResponseWriter, r *http.Request) {
 	if reason == "" {
 		reason = "signaled"
 	}
-	if s.Tools != nil {
-		if s.AttnTracker != nil {
-			// Verify tool exists before flagging attention
-			if s.Tools.Get(req.ToolID) != nil {
-				s.AttnTracker.SignalAttention(req.ToolID, reason)
-			}
-		} else if tool := s.Tools.Get(req.ToolID); tool != nil {
-			tool.SignalAttention(reason)
-		}
-	}
+	s.attention().SignalAttention(req.ToolID, reason)
 	httpresp.JSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
@@ -93,48 +75,20 @@ func (s *Server) apiToolAttentionClear(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeMissingArg)
 		return
 	}
-	if s.Tools != nil {
-		if s.AttnTracker != nil {
-			if req.Typed {
-				s.AttnTracker.AttendTyped(req.ToolID)
-			} else {
-				s.AttnTracker.Attend(req.ToolID)
-			}
-		} else if tool := s.Tools.Get(req.ToolID); tool != nil {
-			if req.Typed {
-				tool.AttendTyped()
-			} else {
-				tool.Attend()
-			}
-		}
-	}
+	s.attention().Attend(req.ToolID, req.Typed)
 	httpresp.JSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 // apiToolAttentionClearAll dismisses every tool's attention at once (FR-PAN-17).
 func (s *Server) apiToolAttentionClearAll(w http.ResponseWriter, r *http.Request) {
-	cleared := 0
-	if s.AttnTracker != nil {
-		cleared = s.AttnTracker.ClearAllAttention()
-	} else if ca, ok := s.Tools.(interface{ ClearAllAttention() int }); ok {
-		cleared = ca.ClearAllAttention()
-	}
-	httpresp.JSON(w, http.StatusOK, map[string]int{"cleared": cleared})
+	httpresp.JSON(w, http.StatusOK, map[string]int{"cleared": s.attention().ClearAllAttention()})
 }
 
 // apiToolsActivity returns the current activity snapshot of every tool that has
 // reported one, so a late-joining / reconnecting client can restore cards
 // (FR-AAP-4).
 func (s *Server) apiToolsActivity(w http.ResponseWriter, r *http.Request) {
-	acts := []toolhub.ActivitySnap{}
-	if s.AttnTracker != nil {
-		acts = s.AttnTracker.ActivitySnapshot()
-	} else if al, ok := s.Tools.(interface{ ActivitySnapshot() []toolhub.ActivitySnap }); ok {
-		if got := al.ActivitySnapshot(); got != nil {
-			acts = got
-		}
-	}
-	httpresp.JSON(w, http.StatusOK, map[string]any{"activities": acts})
+	httpresp.JSON(w, http.StatusOK, map[string]any{"activities": s.attention().ActivitySnapshot()})
 }
 
 // agentReportsUserTurn 은 그 에이전트가 **턴의 출처를 말할 수 있는지**다
@@ -211,32 +165,9 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 // 늘고 **두 요청의 순서가 다시 문제가 된다.** 한 요청 안에서는 순서가 확정되고,
 // 직접·데몬 두 모드가 같은 자리를 지난다 (FR-AEV-14).
 func (s *Server) reportActivity(toolID, state, tool, detail string, userPrompt, turnKnown bool) {
-	if s.Tools == nil {
-		return
-	}
-	alarm := state == activity.Done || state == activity.Waiting
 	tool = hub.SanitizeActivityField(tool, hub.ActivityToolMax)
 	detail = hub.SanitizeActivityField(detail, hub.ActivityDetailMax)
-	if s.AttnTracker != nil {
-		// FR-ATN-1: 표시를 먼저 세운다. 활동 보고와 별도 경로인 것은 둘이
-		// 다른 것을 말하기 때문이다 — 활동은 "지금 무엇을 하는가", 이것은
-		// "이 턴이 왜 시작되었는가" 다.
-		if userPrompt {
-			s.AttnTracker.NoteUserPrompt(toolID)
-		}
-		s.AttnTracker.SetActivity(toolID, state, tool, detail)
-		if alarm {
-			s.AttnTracker.SignalAgentEvent(toolID, state, turnKnown)
-		}
-	} else if t := s.Tools.Get(toolID); t != nil {
-		if userPrompt {
-			t.NoteUserPrompt()
-		}
-		t.SetActivity(state, tool, detail)
-		if alarm {
-			t.SignalAgentEvent(state, turnKnown)
-		}
-	}
+	s.attention().ReportActivity(toolID, state, tool, detail, userPrompt, turnKnown)
 }
 
 // backgroundRow is a background tool plus its Run membership, when it has one
