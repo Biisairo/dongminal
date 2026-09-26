@@ -87,7 +87,7 @@ make gates          # 커밋 전에 도는 것 전부 (CI 와 같은 목록)
 | `docs/internal/decisions.md` | **생성** | SRS 안의 결정 항목 |
 | `docs/external/commands.md` | 대조 | `dmctl.go` |
 | `docs/external/api.md` | 대조 | 라우트 표 |
-| `docs/external/shortcuts.md` | 대조 | `helpers.js` |
+| `docs/external/shortcuts.md` | 대조 | `shortcuts.js` |
 | `docs/external/getting-started.md` 환경변수 표 | 대조 | 코드의 `DONGMINAL_*` |
 
 생성물은 직접 고치지 마세요. 원천을 고치고 다시 만듭니다:

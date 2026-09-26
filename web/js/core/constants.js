@@ -139,7 +139,7 @@ const MKB_GHOST_CLICK_MS=700;
 /**
  * FR-OPT-11-2 (FEC-34): 모바일 키바의 키 표. 보내는 바이트는 이스케이프로 적는다 —
  * 날 제어 문자는 편집기에서 보이지 않는다.
-
+ *
  * `send` 는 sticky 수식을 거치고, `raw` 는 거치지 않는다. `mod` 는 수식 키, `act` 는 동작이다.
  */
 const MKB_KEYS=Object.freeze([
@@ -338,18 +338,18 @@ const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','Meta
 //
 // 연속 충돌이 이만큼 이어지면 그 사실을 기록한다 (FR-WSC-8). 조용히 되풀이하면
 // 아무도 그것이 일어나는지 모른다 — 접수한 409 로그가 그 증거였다.
-// 워크스페이스 스키마 판. 서버는 이보다 낮은 판의 저장을 거부한다 (FR-EM-2a).
-const WS_SCHEMA_VERSION=2;
-// Run 짧은 id 의 길이 — 탭 이름·상태바 배지가 같은 길이를 쓴다 (FR-RVZ-8).
-const RUN_SHORT_ID_LEN=8;
-// 사이드바 탭 직행 단축키의 수 — 숫자 키 1..9 (FR-SBT-21).
-const SB_JUMP_MAX=9;
 const WS_SAVE_CONFLICT_WARN=4;
 // 충돌 뒤 다음 저장을 미루는 시간 (FR-WSC-7). 두 화면이 서로 밀어내는 동안 그
 // 사이를 벌린다. 연속 충돌 수에 비례해 늘리되 상한을 둔다 — 늘지 않으면 벌리는
 // 뜻이 없고, 상한이 없으면 저장이 사실상 멎는다.
 const WS_SAVE_BACKOFF_MS=200;
 const WS_SAVE_BACKOFF_MAX_MS=2000;
+// 워크스페이스 스키마 판. 서버는 이보다 낮은 판의 저장을 거부한다 (FR-EM-2a).
+const WS_SCHEMA_VERSION=2;
+// Run 짧은 id 의 길이 — 탭 이름·상태바 배지가 같은 길이를 쓴다 (FR-RVZ-8).
+const RUN_SHORT_ID_LEN=8;
+// 사이드바 탭 직행 단축키의 수 — 숫자 키 1..9 (FR-SBT-21).
+const SB_JUMP_MAX=9;
 // 입력 중인 설정의 저장을 미루는 시간 (OPTIMIZE_REFACTOR_SRS FR-OPT-5-2).
 // 글자·드래그마다 설정 blob 전체를 PUT 하지 않는다. 확정(blur·change)은 기다리지 않는다.
 const SETTINGS_SAVE_DEBOUNCE_MS=500;
