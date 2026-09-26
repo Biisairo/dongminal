@@ -3,7 +3,7 @@ import {
   test, expect, waitForInit, gotoSettled,
 } from './fixtures';
 
-// 페이지 전역 (web/js/core/helpers.js).
+// 페이지 전역 (web/js/core/shortcuts.js).
 declare const SHORTCUT_DEFAULTS: Record<string, string>;
 
 // PANEL_SHORTCUTS_SRS — 상단 툴바의 `Background`·`Runs` 를 키로 연다.

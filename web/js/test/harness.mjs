@@ -20,6 +20,13 @@ import vm from 'node:vm';
  * e2e 로 돌리고 있었다는 뜻이다.
  */
 
+/**
+ * 옛 `core/helpers.js` 를 이루던 주제 파일들 — index.html 의 순서다 (OPTIMIZE_REFACTOR_SRS
+ * FR-OPT-11-6). 옛 파일 하나를 싣던 검사는 이것을 펼쳐 싣는다.
+ */
+export const HELPERS = ['core/path.js', 'core/helpers.js', 'core/theme-vars.js', 'core/shortcuts.js',
+  'core/settings-state.js', 'core/layout-tree.js', 'core/git-status-helpers.js'];
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS_ROOT = join(HERE, '..');
 

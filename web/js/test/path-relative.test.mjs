@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { load, HELPERS } from './harness.mjs';
 
 /**
- * `web/js/core/helpers.js` 의 `pathRelative` — M9_SRS FR-M9-19 / D-M9-10.
+ * `web/js/core/path.js` 의 `pathRelative` — M9_SRS FR-M9-19 / D-M9-10.
  *
  * 탐색기의 "상대 경로 복사" 가 이 함수 하나를 딛는다. 여기서 어긋나면 사용자가
  * 붙여넣은 경로가 **다른 파일을 가리킨다** — 조용히 틀리는 종류다.
@@ -13,9 +13,9 @@ import { load } from './harness.mjs';
  * 구분자(POSIX·Windows) · 루트의 꼬리 구분자 · 접두가 겹치는 형제(`/a/bc` vs `/a/b`).
  * 브라우저를 띄워도 같은 것을 볼 뿐이다 (`hunk-coords` 와 같은 근거).
  */
-// `helpers.js` 는 로드 시점에 `t()` 로 단축키 이름표를 세운다 — 카탈로그가 먼저
+// `shortcuts.js` 는 로드 시점에 `t()` 로 단축키 이름표를 세운다 — 카탈로그가 먼저
 // 서야 한다 (`optimistic-layout.test.mjs` 와 같은 벌).
-const { pathRelative } = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/helpers.js']);
+const { pathRelative } = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', ...HELPERS]);
 
 test('POSIX: 루트 아래의 경로가 루트를 뗀 나머지가 된다', () => {
   assert.equal(pathRelative('/a/b', '/a/b/c/d.txt'), 'c/d.txt');

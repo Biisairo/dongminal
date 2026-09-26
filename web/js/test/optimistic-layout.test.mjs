@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { load, plain } from './harness.mjs';
+import { load, plain, HELPERS } from './harness.mjs';
 
 /**
  * 낙관적 레이아웃 보호 (`OPTIMISTIC_LAYOUT_SRS` §5 · V-OPL-3~8).
@@ -12,7 +12,7 @@ import { load, plain } from './harness.mjs';
  */
 
 // `constants.js` 가 `t()` 로 문구를 읽으므로 카탈로그가 앞선다 (index.html 과 같은 순서).
-const h = () => load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/helpers.js'], {
+const h = () => load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', ...HELPERS], {
   expose: ['mergeUnseenLayout', 'WINDOW_TYPE_EDITOR'],
 });
 

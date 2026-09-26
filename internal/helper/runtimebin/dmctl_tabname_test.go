@@ -56,7 +56,7 @@ func TestRunDmctlRenameTabAutoRejects(t *testing.T) {
 }
 
 // FR-TAN-18: `dmctl list-workspace` 의 tab= 컬럼은 **화면에 보이는 이름**이다.
-// 규칙이 helpers.js 의 tabName·tabNameSource 와 어긋나면 에이전트가 사용자와
+// 규칙이 layout-tree.js 의 tabName·tabNameSource 와 어긋나면 에이전트가 사용자와
 // 다른 것을 보게 된다.
 func TestTabDisplayName(t *testing.T) {
 	fg := map[string]string{"p1": "vim", "p2": "claude"}

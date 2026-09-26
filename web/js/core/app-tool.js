@@ -493,19 +493,20 @@ Object.assign(App.prototype, {
   // win 은 이 도구가 들어갈 창이다. 샌드박스 창이면 도구가 그 창의 대응
   // 컨테이너 안에서 뜬다 (SANDBOX_WINDOW_SRS FR-SBX-11).
   async _newTool(cwd,cwdTool,win){
-    let q='';
-    if(cwd) q='&cwd='+encodeURIComponent(cwd);
-    else if(cwdTool) q='&cwdTool='+encodeURIComponent(cwdTool);
+    // FR-OPT-11-7 (FEC-31): 쿼리는 `apiPost` 의 `query` 가 조립한다 — 손으로 잇지 않는다.
+    const query={cols:TOOL_COLS_DEFAULT,rows:TOOL_ROWS_DEFAULT};
+    if(cwd) query.cwd=cwd;
+    else if(cwdTool) query.cwdTool=cwdTool;
     // 프로파일을 창 id 와 **함께** 보낸다. 서버가 workspace 를 조회하게 하면,
     // 창이 저장되기 전에 탭이 만들어지는 순간 샌드박스 창이 일반 창으로 읽혀
     // 호스트에서 뜬다 (FR-SBX-10).
     if(win&&win.sandbox&&win.id){
-      q+='&window='+encodeURIComponent(win.id)+'&sandbox='+encodeURIComponent(win.sandbox);
+      query.window=win.id; query.sandbox=win.sandbox;
       // UX_BATCH6_SRS FR-SBM-3: 이 창이 고른 작업 방식. 창 레코드에 사는 이유는
       // 뒤에 만드는 탭도 **같은 컨테이너**에 들어가기 때문이다 — 프로파일과 같다.
-      if(win.sandboxWork) q+='&sandboxWork='+encodeURIComponent(win.sandboxWork);
+      if(win.sandboxWork) query.sandboxWork=win.sandboxWork;
     }
-    const r=await apiPost('/api/tools?cols=120&rows=40'+q);
+    const r=await apiPost(TOOLS_API,null,{query});
     if(!r.ok){
       // FR-SBX-20: 샌드박스 기동 실패의 사유는 사용자에게 닿아야 한다 — 런타임
       // 미설치·데몬 미실행·이미지 없음이 모두 여기로 온다. 뭉개면 "창이 안 열린다"

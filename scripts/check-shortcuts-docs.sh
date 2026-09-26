@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# `shortcuts.md` ↔ `helpers.js` 양방향 대조 (M5 `DOC-3`).
+# `shortcuts.md` ↔ `shortcuts.js` 양방향 대조 (M5 `DOC-3`).
 #
 # 착수 시 `sidebarToggle`·`edSave` 가 문서에 없었다. 조사에서 더 나왔다 —
 # `edSave` 는 **라벨도 없었고**, 코드 탐색 셋(`edGotoDef`·`edFindRefs`·

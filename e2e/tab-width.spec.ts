@@ -23,7 +23,7 @@ async function makeTabs(page: Page) {
     const pane = a.focused;
     for (let i = 0; i < 3; i++) await a.addTab(pane, 'terminal');
     // 이름은 **탭 목록에 직접** 박는다 — 파생 이름(FR-TAN-*)에 기대면 이 시험이
-    // 그 규칙까지 딛게 된다. `findPane` 은 전역이다 (helpers.js:427).
+    // 그 규칙까지 딛게 된다. `findPane` 은 전역이다 (layout-tree.js).
     const s = a.testing.aw();
     const pn = (window as any).findPane(s.layout, pane);
     const names = ['a', 'a very long tab name indeed', 'mid'];

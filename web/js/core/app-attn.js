@@ -295,6 +295,11 @@ Object.assign(App.prototype, {
       const pid=at?at.dataset.toolid:null;
       pn.classList.toggle('attn', !!(pid&&this.attnHas(pid)));
     });
+    // 열린 센터는 배지보다 **먼저** 다시 그린다 — 마지막 알림이 떨어지면 그리기가 목록을
+    // 비우고 닫는다. 배지가 먼저 닫으면 `.open` 이 사라져 옛 항목이 닫힌 센터에 남는다
+    // (x 클릭의 두 번째 그리기가 그것을 치우고 있었다, FR-OPT-11-7 · FEC-32).
+    const center=document.getElementById('attn-center');
+    if(center&&center.classList.contains('open')) this._attnCenterRender();
     const badge=document.getElementById('attn-badge');
     if(badge){
       const cnt=badge.querySelector('.attn-count');
@@ -303,8 +308,6 @@ Object.assign(App.prototype, {
       // FR-ACT-8: 배지가 내려가면 띄워 둘 목록도 없다.
       if(!n) this._attnCenterClose();
     }
-    const center=document.getElementById('attn-center');
-    if(center&&center.classList.contains('open')) this._attnCenterRender();
     this.agentsRender(); // FR-AAP-18: 활동 카드의 alarm 표시도 함께 갱신
   },
 

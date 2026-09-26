@@ -1,10 +1,11 @@
-// `shortcuts.md` ↔ `helpers.js` 대조의 본체 (M5 `DOC-3`).
+// `shortcuts.md` ↔ `shortcuts.js` 대조의 본체 (M5 `DOC-3`). 표는 옛 helpers.js 에서
+// core/shortcuts.js 로 옮겼다 (OPTIMIZE_REFACTOR_SRS FR-OPT-11-6).
 //
 // node 로 쓴 이유는 대상이 JS 객체 리터럴이기 때문이다 — 중첩된 따옴표와
 // 주석을 bash 로 읽으면 그 파서가 곧 두 번째 결함이 된다.
 import { readFileSync } from 'node:fs';
 
-const H = readFileSync('web/js/core/helpers.js', 'utf8');
+const H = readFileSync('web/js/core/shortcuts.js', 'utf8');
 // 단축키 패널은 `app-settings.js` 에서 갈라져 나왔다 (FE_MODULE_BOUNDARY_SRS
 // FR-FMB-10) — `_renderShortcutList` 가 사는 자리가 곧 이 파일이다.
 const A = readFileSync('web/js/core/app-settings-keys.js', 'utf8');

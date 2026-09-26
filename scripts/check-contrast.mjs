@@ -134,7 +134,7 @@ const bad = [];
 const rows = [];
 for (const name of names) {
   const t = THEMES[name];
-  // `syntax.*` 는 터미널 팔레트가 있어야 선다 — `themeVarsOf`(helpers.js:223)가
+  // `syntax.*` 는 터미널 팔레트가 있어야 선다 — `themeVarsOf`(theme-vars.js)가
   // 넘기는 것과 **같은 인자**로 부른다. 여기서만 다르게 부르면 게이트와 화면이
   // 갈라진다 (D-TOK-5).
   const d = deriveContrastTokens(t.ui, t.mode, null, t.terminal);

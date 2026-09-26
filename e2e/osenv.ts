@@ -71,7 +71,7 @@ export function realPath(p: string): string {
 }
 
 /**
- * 앱이 절대경로를 만드는 **그 규약**으로 잇는다 (`web/js/core/helpers.js` 의
+ * 앱이 절대경로를 만드는 **그 규약**으로 잇는다 (`web/js/core/path.js` 의
  * `pathJoin`).
  *
  * 검사가 `repo + '/' + rel` 로 지어내면 Windows 에서 구분자가 섞인 문자열이 되고

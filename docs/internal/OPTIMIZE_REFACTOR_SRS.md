@@ -303,6 +303,42 @@ e2e 요청 타임라인으로 잰다.
 >   `pollValue`·`clampTabWidth` 는 폐기했다. 동작 변경: 탭 너비 입력란을 비우면 40 이 아니라 160 이다
 >   (TAB_WIDTH_SRS FR-TBW-4 개정). TC-CFG-2x 는 `web/js/test/settings-source.test.mjs` 다.
 
+> **O11b 구현 기록 (2026-09-26).**
+>
+> - **FR-OPT-11-2.** `_execRemote` 는 `REMOTE_ACTIONS` 표(`app-cmd.js`)를 찾는다. 표의 이름 집합은
+>   서버 허용 표(`hub/commands.go` `cmdActions`)와 같고 `remote-actions.test` 가 두 표를 대조한다 —
+>   한 원천으로 만들지는 않았다(Go 표를 JS 가 싣는 길이 없다). 표에 없는 action 은 종전대로
+>   `executeAction` 으로 간다. 생성 명령은 처리기가 echo 결과를 약속으로 돌려주고 echo 는 한 자리에서
+>   한다. `addTab` 은 `TAB_OPENERS` 표, `closeTab`·`save`·`init` 은 이름 붙은 하위 메서드로 갈랐다.
+>   모바일 키바의 키는 `MKB_KEYS`·`MKB_FULL_NAMES`(constants, 제어 문자는 이스케이프)다. 버튼 배선은
+>   이벤트 위임으로 바꾸지 않았다 — 버튼마다 두 번 탭·롱프레스 상태가 있어 위임하면 그 상태를 요소
+>   키로 다시 들어야 한다. `method-size.test` 가 여섯 메서드를 코드 50줄 이하로 고정한다.
+> - **FR-OPT-11-5.** 확인·알림 상자 다섯은 `UIKit.ask`(→ `UIKit.modal`)를 지난다. `UIKit.modal` 은
+>   `head:false`·`boxCls`/`bodyCls`/`footCls`·`focus`·`action.value`/`tip`/`default`·`close(v)` 를
+>   더 받는다(기존 호출 무변경). 옛 클래스(`.confirm-*`)는 그대로 달린다. 동작 변경: 알림(`_notify`)의
+>   `Enter` 는 문서 전체를 가로채지 않고 포커스된 확인 버튼을 누른다(FR-PDA-2 와 같은 길) · 바깥
+>   닫기는 `mousedown` 이다(키트 규약). 상태줄 관용구는 `statusRun`·`errText` 한 벌이다.
+> - **FR-OPT-11-6.** `helpers.js` 를 `path`·`helpers`(주제 밖 소도구)·`theme-vars`·`shortcuts`·
+>   `settings-state`·`layout-tree`·`git-status-helpers` 로 갈랐다(본문 무변경). `FE_MODULE_BOUNDARY_SRS`
+>   §5 N4 를 개정했고 §7.1a 기준선은 23 → 21 이다. **App 필드 가족의 소유 클래스 추출(FEC-35)은
+>   미뤘다** — 한 파일 안에서만 쓰이는 가족은 필드 5개 남짓이고, 큰 가족(`_ed*`·`_git*` 12개)은 여섯
+>   파일에 걸치며 e2e 가 `_attn` 등을 직접 만진다. 위임 껍데기와 접근자 계약(APP_STATE_EXTRACT §2.3)을
+>   세우는 별도 단계가 필요하다.
+> - **FR-OPT-11-7.** FEC-31: `TAB_TYPE_{TERMINAL,EDITOR,RUN}`·`WS_SCHEMA_VERSION`·`RUN_SHORT_ID_LEN`·
+>   `SB_JUMP_MAX`·`TOOLS_API`/`TOOL_{COLS,ROWS}_DEFAULT` · 탭 레코드의 'Shell' 은 `TAB_NAME_DEFAULT`
+>   (`DEFAULT_TOOL_NAME` 과는 뜻이 달라 합치지 않았다 — 감사 AUDIT-fe-core 의 권고) · `_newTool` 은
+>   `apiPost(…,{query})`. 생성 직후 크기를 칸에 맞춰 싣는 것과 `/api` 경로 표 정리는 하지 않았다(동작
+>   변경 · O12 FR-OPT-12-5). FEC-32: x 클릭의 중복 그리기를 지웠다(2→1, `attn-center.test`). 목록
+>   재조정(reconcileList)과 `_attnRefresh` 증분은 하지 않았다 — 목록이 알림 수만큼이고 등록부가 '가드'
+>   로 판정해 둔 자리다(PERFORMANCE_BUDGET). FEC-33: 검색 장식은 `applyThemeObj` 가 한 번 계산한다
+>   (키 입력마다 `getComputedStyle` 3 → 0, `search-decor.test`). 열린 센터는 배지가 닫기 **전에**
+>   다시 그린다 — 두 번째 그리기가 마지막 항목을 치우던 일을 그 순서가 맡는다. FEC-36: `executeAction` 의 맵은 한 번
+>   만든다. 설정 패널·`#custom-editor` 의 인라인 `display:none` → `[hidden]` 은 미뤘다 — V-LAY-1 의
+>   계산값 기준선(`e2e/baseline/`)이 속성까지 키로 삼아 20자리가 '지금에만' 으로 바뀐다. 기준선을
+>   다시 뜨는 절차(UI_LAYOUT_DEFAULTS_SRS §9)와 함께 한다. 전역 `t()` 가림(web/js 254자리,
+>   core 100 — 화살표 인자 포함)의 일괄 개명과 린트 규칙은 미뤘다 — 이번에 고친 메서드 안의 것만
+>   바꿨고, 나머지는 AST 기반 일괄 변경으로 따로 한다.
+
 ### 3.12 O12 — FE ui/git
 
 - **FR-OPT-12-1** TermPane 의 WS 배선을 `TermSocket` 하나로 모은다. 백오프는 상수로 두고 지터를 더한다. 키 매핑·큐 상한을 상수로 옮긴다. (FEU-14 · IPC-16 · FEU-15)

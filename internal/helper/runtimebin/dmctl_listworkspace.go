@@ -214,7 +214,7 @@ func collectPanes(n *wsLayout, out *[]*wsLayout) {
 	}
 }
 
-// tabNameSource 는 web/js/core/helpers.js 의 같은 이름 함수와 **같은 규칙**이다
+// tabNameSource 는 web/js/core/layout-tree.js 의 같은 이름 함수와 **같은 규칙**이다
 // (FR-TAN-1/3/4). 두 곳이 갈라지면 에이전트가 화면과 다른 것을 보게 된다
 // (FR-TAN-18).
 func tabNameSource(t wsTab) string {
@@ -234,7 +234,7 @@ func tabNameSource(t wsTab) string {
 	return nameSourceManual
 }
 
-// tabDisplayName 은 화면에 보이는 이름이다 — helpers.js 의 tabName 과 같다.
+// tabDisplayName 은 화면에 보이는 이름이다 — layout-tree.js 의 tabName 과 같다.
 // auto 인 탭만 파생 이름을 받고, manual 은 어떤 경우에도 덮이지 않는다
 // (FR-TAN-15).
 //

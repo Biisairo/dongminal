@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { load } from './harness.mjs';
+import { load, HELPERS } from './harness.mjs';
 
 /**
  * REPO_FIX 05 §3A-4 (F-3) — 저장소 최상위는 **요청 루트에서 어휘적으로** 계산한다.
@@ -9,7 +9,7 @@ import { load } from './harness.mjs';
  * 서버의 `repo` 는 심볼릭 링크를 푼 값이라 편집기 경로와 다를 수 있다 — 그 값으로
  * 열면 같은 파일에 문서가 둘 생긴다(03 문서 키가 경로 문자열).
  */
-const { gitRepoPrefix, gitLexicalTop } = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', 'core/helpers.js', 'core/git-path.js']);
+const { gitRepoPrefix, gitLexicalTop } = load(['core/i18n.js', 'i18n/ko.js', 'core/constants.js', ...HELPERS, 'core/git-path.js']);
 
 test('접두: 저장소 루트에서 요청 루트까지 — 탐색기·변경 표시와 같은 규약', () => {
   assert.equal(gitRepoPrefix('/r/app', '/r/app'), '');

@@ -708,10 +708,17 @@
 <script src="js/core/event-bus.js?v=__ASSETV__"></script>
 <script src="js/core/state-registry.js?v=__ASSETV__"></script>
 <script src="js/ui/boot-screen.js?v=__ASSETV__"></script>
-<!-- 색 대비와 파생 (DESIGN_TOKENS_SRS). **helpers.js 앞이어야 한다** — 옮겨 온
+<!-- 색 대비와 파생 (DESIGN_TOKENS_SRS). **theme-vars.js 앞이어야 한다** — 옮겨 온
      `hexRgb`·`mixHex` 를 `pickAttnColor`·`applyThemeObj` 가 쓴다 (FR-TOK-13·14). -->
 <script src="js/core/contrast.js?v=__ASSETV__"></script>
+<!-- 옛 helpers.js 의 주제별 조각 (OPTIMIZE_REFACTOR_SRS FR-OPT-11-6). 로드 시점 의존은 check-load-order 가 잰다. -->
+<script src="js/core/path.js?v=__ASSETV__"></script>
 <script src="js/core/helpers.js?v=__ASSETV__"></script>
+<script src="js/core/theme-vars.js?v=__ASSETV__"></script>
+<script src="js/core/shortcuts.js?v=__ASSETV__"></script>
+<script src="js/core/settings-state.js?v=__ASSETV__"></script>
+<script src="js/core/layout-tree.js?v=__ASSETV__"></script>
+<script src="js/core/git-status-helpers.js?v=__ASSETV__"></script>
 <script src="js/core/git-path.js?v=__ASSETV__"></script>
 <script src="js/ui/repaint.js?v=__ASSETV__"></script>
 <!-- 공통 UI 키트 (UI_KIT_SRS). repaint.js 뒤·sidebar-tabs.js 앞이어야 한다 —

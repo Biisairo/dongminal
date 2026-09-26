@@ -770,6 +770,11 @@ const FILE_DOWNLOAD_API='/api/download';
 
 // FR-EDT-110 의 종단. M2 는 목록 조회·추가·제거·재정렬만 쓴다.
 const EDITORS_API='/api/editors';
+// 도구 생성 (FR-OPT-11-7 · FEC-31). 첫 크기는 서버가 PTY 를 여는 크기이고, 붙은 뒤
+// 화면에 맞춰 다시 잰다.
+const TOOLS_API='/api/tools';
+const TOOL_COLS_DEFAULT=120;
+const TOOL_ROWS_DEFAULT=40;
 
 // ── 터미널의 복사 (EXPLORER_TRANSFER_IGNORE_SRS 묶음 F · FR-ETR-40·41) ──
 //

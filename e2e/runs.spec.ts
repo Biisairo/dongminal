@@ -364,7 +364,7 @@ test.describe('Run 시각화 (묶음 V)', () => {
     expect(w).toBeGreaterThan(msgW);
   });
 
-  // 이 테스트가 "탭 0개" 로 실패하면 원인은 화면이 아니라 `web/js/core/helpers.js`
+  // 이 테스트가 "탭 0개" 로 실패하면 원인은 화면이 아니라 `web/js/core/layout-tree.js`
   // 의 `clean()` 이다 — 도구에 매이지 않은 탭의 면제 목록이 타입 이름으로
   // 열거돼 있어서, 거기 'run' 이 없으면 로드마다 탭이 버려진다.
   test('V-RVZ-8: Run 탭은 새로고침 후에도 남고 대시보드가 복원된다', async ({ page, request }) => {

@@ -76,8 +76,10 @@ Object.assign(App.prototype, {
       // 로드맵 M7 `FUI-22`: **하나만** 뗀다. 항목 클릭은 이동이고 "모두 제거" 는
       // 전부다 — 보고 넘기려는 알림 하나를 위해 그 둘 중 하나를 고르게 하지 않는다.
       // 서버에도 알린다(`_attnClear`) — 다른 브라우저의 배지도 함께 내려간다.
+      // 다시 그리기는 `_attnClear` → `_attnRefresh` 가 한다(센터가 열려 있으면) — 여기서
+      // 한 번 더 그리지 않는다 (FR-OPT-11-7 · FEC-32).
       const x=UIKit.button({icon:'x',title:TIP_ATTN_DISMISS,kind:'ghost',size:'sm',cls:'attn-x'});
-      x.addEventListener('click',e=>{e.stopPropagation();this._attnClear(toolId,false);this._attnCenterRender()});
+      x.addEventListener('click',e=>{e.stopPropagation();this._attnClear(toolId,false)});
       item.appendChild(x);
       center.appendChild(item);
     }

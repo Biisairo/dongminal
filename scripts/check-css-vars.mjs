@@ -17,7 +17,7 @@
  *
  *   ① `web/*.css` 의 `:root{ --x: … }`          — 첫 페인트 기본값
  *   ② 선택자에 매인 정의 (`.run-view{--run-ok:…}`) — 그 하위에서만 산다
- *   ③ `applyThemeObj` 의 `vars` 맵 (`helpers.js`) — 테마마다 다시 세운다
+ *   ③ `applyThemeObj` 의 `vars` 맵 (`theme-vars.js`) — 테마마다 다시 세운다
  *   ④ JS 의 `setProperty('--x', …)`              — 레이아웃·측정값
  *
  * ② 을 **범위까지 보지는 않는다.** 이 검사가 답하는 물음은 "이 이름이 세워지기는

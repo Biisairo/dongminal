@@ -82,6 +82,13 @@ Object.assign(App.prototype, {
     el.textContent=at?(at+'/'+r.resultCount):String(r.resultCount);
   },
 
+  // 테마를 아직 적용하지 않았으면(부팅 중) 지금의 계산 스타일로 한 번 만든다.
+  _searchDecorNow(){
+    const cs=getComputedStyle(document.documentElement);
+    const v=(k)=>cs.getPropertyValue(k).trim();
+    return searchDecorOf({'--accent':v('--accent'),'--accent-border':v('--accent-border'),'--danger':v('--danger')});
+  },
+
   doSearch(dir){
     const p=this.focusedTerminal();if(!p||!p.search)return;
     const q=document.getElementById('search-input').value;
@@ -96,12 +103,8 @@ Object.assign(App.prototype, {
       try{ new RegExp(q) }catch{ count.textContent=SEARCH_BAD_REGEX; return }
     }
     this._searchBindResults(p);
-    const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
-    const ab=getComputedStyle(document.documentElement).getPropertyValue('--accent-border').trim();
-    const danger=getComputedStyle(document.documentElement).getPropertyValue('--danger').trim();
     const opts={regex,wholeWord:word,caseSensitive:cs,incremental:true,
-      decorations:{matchBackground:hexToRgba(accent,.4),matchBorder:ab,
-        activeMatchBackground:hexToRgba(danger,.5),activeMatchBorder:danger}};
+      decorations:searchDecor||this._searchDecorNow()};
     const found=dir==='prev'?p.search.findPrevious(q,opts):p.search.findNext(q,opts);
     // 구독이 없는(옛) addon 에서도 화면이 비지 않게 여기서 한 번 적는다.
     // 구독이 있으면 그쪽이 같은 값을 곧 덮는다.

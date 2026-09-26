@@ -24,7 +24,7 @@
  * 팔레트가 한 화면에서 검토된다 — 그 규칙은 그대로다. 다만 *"`:root` 면 무엇이든
  * 좋다"* 는 너무 넓었다. `:root` 의 리터럴은 둘 중 하나여야 한다:
  *
- *   ① **런타임이 덮는 이름** — `themeVarsOf`(helpers.js)가 세우는 이름이면 그
+ *   ① **런타임이 덮는 이름** — `themeVarsOf`(theme-vars.js)가 세우는 이름이면 그
  *      값은 첫 페인트용 폴백이다. 이 목록은 **손으로 적지 않고 그 함수에서
  *      파생한다** (FR-WRD-2) — 손으로 적으면 주입 맵이 자랄 때 조용히 갈린다.
  *   ② **등록부에 사유를 가진 이름** — 아래 `ROOT_EXEMPT`.
@@ -66,7 +66,7 @@ const SKIP_FILES = [
 
 /** 줄 단위 예외 — 그 파일의 그 모양만 지나간다. */
 const SKIP_LINES = [
-  { file: 'web/js/core/helpers.js', re: /rgba\(\$\{/, why: '`hexToRgba` — 리터럴이 아니라 생성자다' },
+  { file: 'web/js/core/theme-vars.js', re: /rgba\(\$\{/, why: '`hexToRgba` — 리터럴이 아니라 생성자다' },
   { file: 'web/js/core/app-settings-theme.js', re: /inp\.value\s*=/, why: '`<input type="color">` 의 빈 값 자리표 — 화면에 칠해지지 않는다' },
 ];
 
@@ -141,11 +141,11 @@ function walk(dir, out) {
 const rel = (p) => relative(ROOT, p).split('\\').join('/');
 
 /**
- * 런타임이 덮는 이름 — `themeVarsOf`(helpers.js)의 맵 키와 구문 강조 여섯.
+ * 런타임이 덮는 이름 — `themeVarsOf`(theme-vars.js)의 맵 키와 구문 강조 여섯.
  * **손으로 적지 않는다** (FR-WRD-2): 주입 맵이 자라면 이 목록도 함께 자란다.
  */
 function injectedNames() {
-  const helpers = readFileSync(join(ROOT, 'web/js/core/helpers.js'), 'utf8');
+  const helpers = readFileSync(join(ROOT, 'web/js/core/theme-vars.js'), 'utf8');
   const body = helpers.slice(helpers.indexOf('function themeVarsOf'));
   const mapBody = body.slice(0, body.indexOf('\n}'));
   const names = new Set([...mapBody.matchAll(/'(--[a-z0-9-]+)'\s*:/g)].map((m) => m[1]));
