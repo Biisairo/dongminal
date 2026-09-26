@@ -31,9 +31,8 @@ const (
 type ContextPolicy struct {
 	// BytesPerToken 은 transcript 바이트를 토큰으로 환산하는 제수다.
 	BytesPerToken float64
-	// LimitTokens 는 모델의 컨텍스트 한계다. 멤버 레코드에 모델이 없으므로
-	// (기록되는 것은 agent 이지 model 이 아니다) 실제로는 늘 이 기본값이 쓰인다.
-	// 모델별 표는 그것을 키로 삼을 입력이 생긴 뒤에 연다.
+	// LimitTokens 는 모델의 컨텍스트 한계의 기본값이다. 관측이 모델을 말하면
+	// WindowForModel(FR-CTX-5)이 이기고, 모르는 동안에만 이 값에서 출발한다.
 	LimitTokens float64
 	// WarnRatio·CriticalRatio 는 등급 경계다.
 	WarnRatio     float64

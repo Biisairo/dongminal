@@ -265,6 +265,9 @@ func toolPath(binDir string) string {
 	return base + string(os.PathListSeparator) + binDir
 }
 
+// bufMax 는 도구 출력 링(outbuf)의 상한이다 — 새로 붙는 클라이언트가 재생받는 창.
+const bufMax = 1 << 20
+
 // StartTool spawns a shell under a new PTY. Exported for tool manager + tests.
 //
 // place 는 **호스트 셸 대신 띄울 것**이다. 샌드박스 창의 도구가 대응 컨테이너

@@ -209,10 +209,6 @@ func fsResolveTarget(root, p string) (string, error) {
 	return fsUnderRoot(root, filepath.Join(parent, filepath.Base(cleaned)))
 }
 
-// fsUnderRoot 은 safeResolve 를 쓰지 않는다. 그쪽의 경계 검사는
-// `strings.HasPrefix(rel, "..")` 라 `..b` · `...` 처럼 **점 둘로 시작하는 정상
-// 이름**까지 거부한다 (실측: rel="..b" → 거부). 탐색기는 모든 파일·폴더를 보여야
-// 하므로(FR-EDT-58) 그 오탐을 물려받을 수 없다. 경계는 경로 **조각**으로 판정한다.
 // fsResolveErr 는 경로 해석 실패를 가른다. 전부 not_found 로 접으면 "권한이
 // 없어서 못 본 것"과 "없는 것"이 같은 답을 받아, 사용자가 무엇을 고쳐야 할지
 // 알 수 없다 (FR-EDT-117).
@@ -223,6 +219,10 @@ func fsResolveErr(err error) error {
 	return fsCause(fsErrNotFound, err)
 }
 
+// fsUnderRoot 은 safeResolve 를 쓰지 않는다. 그쪽의 경계 검사는
+// `strings.HasPrefix(rel, "..")` 라 `..b` · `...` 처럼 **점 둘로 시작하는 정상
+// 이름**까지 거부한다 (실측: rel="..b" → 거부). 탐색기는 모든 파일·폴더를 보여야
+// 하므로(FR-EDT-58) 그 오탐을 물려받을 수 없다. 경계는 경로 **조각**으로 판정한다.
 func fsUnderRoot(root, resolved string) (string, error) {
 	rel, err := filepath.Rel(root, resolved)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
@@ -348,9 +348,6 @@ type fsCreateReq struct {
 	Dir  bool   `json:"dir"`
 }
 
-// POST /api/fs/create (FR-EDT-109·115).
-//
-// **Stat 후 생성하지 않는다.** 검사와 생성 사이의 경합은 os.Mkdir 와
 // fsRootTarget 은 요청의 root 와 경로를 실제 자리 하나로 옮긴다
 // (DRIFT_RECLAIM_SRS FR-DRC-11).
 //
@@ -379,6 +376,9 @@ func fsTargetIn(w http.ResponseWriter, root, p string) (string, bool) {
 	return target, true
 }
 
+// POST /api/fs/create (FR-EDT-109·115).
+//
+// **Stat 후 생성하지 않는다.** 검사와 생성 사이의 경합은 os.Mkdir 와
 // os.OpenFile(O_EXCL) 의 원자성으로 막는다 — 편집기의 저장과 겹칠 수 있다
 // (FR-EDT-93).
 func (s *Server) apiFSCreate(w http.ResponseWriter, r *http.Request) {

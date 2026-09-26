@@ -60,7 +60,6 @@ const (
 	writeWait  = 10 * time.Second
 	PongWait   = 60 * time.Second
 	PingPeriod = (PongWait * 9) / 10
-	bufMax     = 1 << 20
 )
 
 // Upgrader 는 `/ws` 의 업그레이드다. 유일한 사용처가 `httpapi.handleWS` 이고,

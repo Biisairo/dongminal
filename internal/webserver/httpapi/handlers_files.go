@@ -424,7 +424,7 @@ func (s *Server) fileStampsIn(paths []string) map[string]string {
 		// FR-ELR-5: 통과하지 못한 경로·없는 파일·디렉터리는 **빠진다.** 오류가
 		// 아니다 — 한 경로의 사정이 나머지의 답을 막으면, 루트 밖의 파일 하나를
 		// 열어 둔 것만으로 열린 파일 전부의 관측이 멎는다.
-		target, den := s.fileAllow(p, false)
+		target, den := s.fileAllow(p)
 		if den != nil {
 			continue
 		}
@@ -441,7 +441,7 @@ func (s *Server) apiFileRead(w http.ResponseWriter, r *http.Request) {
 	// FR-FAB-11: 읽기도 같은 판정이다. 쓰기만 막고 읽기를 열어 두면 SSH 개인키나
 	// 클라우드 자격 파일이 그대로 나간다 — 이쪽은 응답을 돌려주므로 오히려 더
 	// 직접적이다.
-	fp, ok := s.fileGuard(w, r, r.URL.Query().Get("path"), false)
+	fp, ok := s.fileGuard(w, r.URL.Query().Get("path"))
 	if !ok {
 		return
 	}
@@ -520,7 +520,7 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	//
 	// 종전에는 `IsAbs` 하나만 봤고, 그래서 `~/.ssh/authorized_keys` 를 요청 하나로
 	// 덮을 수 있었다 — 응답을 읽을 필요조차 없다.
-	target, ok := s.fileGuard(w, r, req.Path, true)
+	target, ok := s.fileGuard(w, req.Path)
 	if !ok {
 		return
 	}

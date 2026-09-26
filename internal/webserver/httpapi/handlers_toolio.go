@@ -198,14 +198,6 @@ func quoteEnvelope(msg string) string {
 	return r.Replace(msg)
 }
 
-// resolveSender resolves the envelope's `from` party to a tool uuid under the
-// same rule as `to` — labels are rejected (FR-IDU-9). An empty `from` is allowed
-// and returns "", which the header renders as "unknown".
-//
-// --to 와 규칙을 같이 두는 이유: 헤더의 `from=` 값이 곧 답장의 `--to` 다. 표시
-// 전용이라며 라벨을 받아 주면 메시지 경로에 좌표 라벨이 남고, 그 값은 창이 닫히면
-// 다른 도구를 가리킨다 (§1.3 reflow). 존재 검사(`ToolIO.Has`)는 하지 않는다 —
-// 발신자의 PTY 생존은 배달과 무관하고, 라우팅은 --to 가 정한다.
 // decodeJSONBody 는 요청 본문을 읽고, 실패를 이 표면의 오류로 답한다
 // (DRIFT_RECLAIM_SRS FR-DRC-11).
 //
@@ -236,6 +228,14 @@ func decodeJSONBody(w http.ResponseWriter, r *http.Request, body any, limit ...i
 	return true
 }
 
+// resolveSender resolves the envelope's `from` party to a tool uuid under the
+// same rule as `to` — labels are rejected (FR-IDU-9). An empty `from` is allowed
+// and returns "", which the header renders as "unknown".
+//
+// --to 와 규칙을 같이 두는 이유: 헤더의 `from=` 값이 곧 답장의 `--to` 다. 표시
+// 전용이라며 라벨을 받아 주면 메시지 경로에 좌표 라벨이 남고, 그 값은 창이 닫히면
+// 다른 도구를 가리킨다 (§1.3 reflow). 존재 검사(`ToolIO.Has`)는 하지 않는다 —
+// 발신자의 PTY 생존은 배달과 무관하고, 라우팅은 --to 가 정한다.
 func (s *Server) resolveSender(w http.ResponseWriter, from string) (string, bool) {
 	if from == "" {
 		return "", true

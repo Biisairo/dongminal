@@ -11,10 +11,6 @@ import (
 	"dongminal/internal/shared/platform"
 )
 
-// kill transitions the tool to exited exactly once: it marks exited under
-// cmu, fans out a final OpExit to the clients that were registered at that
-// moment (outside cmu), then tears down the PTY/process and stream.
-//
 // terminateWait 는 프로세스에 정중한 종료(SIGTERM)를 청하고 grace 안에 끝나기를
 // 기다린다 (FR-BGK-7). 강제 종료는 하지 않는다 — 그것은 kill() 의 몫이다. 유예는
 // 상한이지 대기 시간이 아니다: 먼저 끝나면 그 자리에서 돌아온다. 프로세스가 없는
@@ -40,7 +36,11 @@ func (p *Tool) terminateWait(grace time.Duration) {
 // 3초 유예는 위층(`httpapi` 의 `toolKillGrace`)이 따로 든다 (FR-BGK-7).
 const terminateGrace = 50 * time.Millisecond
 
-// kill is race-free by design:
+// kill transitions the tool to exited exactly once: it marks exited under
+// cmu, fans out a final OpExit to the clients that were registered at that
+// moment (outside cmu), then tears down the PTY/process and stream.
+//
+// It is race-free by design:
 //   - sync.Once guarantees the body executes at most once, even when the
 //     readPTY goroutine calls kill() on EOF while an external caller (API
 //     handler, watchdog) concurrently calls kill().

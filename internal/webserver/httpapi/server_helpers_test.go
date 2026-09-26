@@ -63,7 +63,7 @@ func TestLoggingMiddleware(t *testing.T) {
 	})
 	mux := http.NewServeMux()
 	mux.Handle("/test/", handler)
-	wrapped := loggingMiddleware(mux)
+	wrapped := loggingMiddlewareFor(nil, mux)
 
 	req := apiTestRequest("GET", "/test/path", nil)
 	rec := httptest.NewRecorder()

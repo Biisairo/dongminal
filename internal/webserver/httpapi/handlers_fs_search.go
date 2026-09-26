@@ -104,11 +104,6 @@ type fsFindHit struct {
 	Name string `json:"name"`
 }
 
-// findFiles 는 root 아래를 훑어 상대경로가 q 를 품는 파일을 모은다.
-//
-// 심링크를 따라가지 않는다 (FR-EQO-6). `filepath.WalkDir` 은 심링크를 열지 않고
-// 항목으로만 보므로 순환이 성립하지 않는다 — 이것이 `filepath.Walk` 대신
-// `WalkDir` 을 쓰는 이유의 절반이고, 나머지 절반은 Lstat 를 아끼는 것이다.
 // fsWalkFiles 는 두 검색 구현이 공유하는 순회다 (DRIFT_RECLAIM_SRS FR-DRC-11).
 //
 // 정책이 여기 하나로 있다: 읽을 수 없는 가지는 건너뛰고, 취소는 즉시 올리고,
@@ -154,6 +149,11 @@ func fsWalkFiles(ctx context.Context, root string, visit func(path, rel string, 
 	})
 }
 
+// findFiles 는 root 아래를 훑어 상대경로가 q 를 품는 파일을 모은다.
+//
+// 심링크를 따라가지 않는다 (FR-EQO-6). `filepath.WalkDir` 은 심링크를 열지 않고
+// 항목으로만 보므로 순환이 성립하지 않는다 — 이것이 `filepath.Walk` 대신
+// `WalkDir` 을 쓰는 이유의 절반이고, 나머지 절반은 Lstat 를 아끼는 것이다.
 func findFiles(ctx context.Context, root, q string, limit int) ([]fsFindHit, bool, error) {
 	needle := strings.ToLower(filepath.ToSlash(q))
 	out := make([]fsFindHit, 0, 32)

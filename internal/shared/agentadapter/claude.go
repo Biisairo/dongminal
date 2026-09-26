@@ -125,7 +125,11 @@ func parseClaudeHook(data []byte) (Report, bool) {
 //
 // 배경 알림은 이 꼴로 온다 — 백그라운드 작업의 완료 통지와 시스템 알림이다.
 // 사람이 친 프롬프트가 이 표식으로 시작하는 일은 없다.
-var backgroundPromptMarks = []string{"<task-notification>", "<system-reminder>"}
+var backgroundPromptMarks = []string{claudeTaskNotificationMark, "<system-reminder>"}
+
+// claudeTaskNotificationMark 는 배경 작업 완료 통지의 여는 표식이다. 배경 턴 판정과
+// 하네스 항목 판정이 함께 쓴다 — 표식이 바뀌면 이 한 줄만 고친다 (SHR-34).
+const claudeTaskNotificationMark = "<task-notification>"
 
 // isBackgroundPrompt 는 프롬프트의 **모양**으로 배경 턴을 가른다.
 //

@@ -257,7 +257,7 @@ func TestToolClientAutoReconnect(t *testing.T) {
 	}
 	go acceptLoop(ps1)
 
-	pc, err := DialPaneClientWithReconnect(sockPath, nil)
+	pc, err := DialToolClientWithReconnect(sockPath, nil)
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
@@ -329,13 +329,13 @@ func TestToolClientCallTimeout(t *testing.T) {
 	}()
 
 	start := time.Now()
-	_, err = DialPaneClientWithReconnect(sockPath, nil)
+	_, err = DialToolClientWithReconnect(sockPath, nil)
 	elapsed := time.Since(start)
 	if err == nil {
 		t.Fatal("expected hello to time out, got nil error")
 	}
-	if elapsed < panedCallTimeout || elapsed > panedCallTimeout+3*time.Second {
-		t.Fatalf("timeout elapsed=%v, expected ~%v", elapsed, panedCallTimeout)
+	if elapsed < toolCallTimeout || elapsed > toolCallTimeout+3*time.Second {
+		t.Fatalf("timeout elapsed=%v, expected ~%v", elapsed, toolCallTimeout)
 	}
 }
 

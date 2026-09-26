@@ -130,8 +130,6 @@ type BackgroundEntry struct {
 	Name   string `json:"name"`
 	Cwd    string `json:"cwd"`
 	Since  int64  `json:"since"`
-	// Kind 는 도구의 종류다 (M8_UNIFIED_SRS FR-ABG-1) — 되살릴 때 어느 뷰의 탭으로
-	// 돌아가는가. 비어 있으면 터미널.
 }
 
 // NewToolManager builds an empty manager. dataDir is where tools.json lives;
@@ -164,12 +162,6 @@ func (m *ToolManager) dataPath(name string) string {
 	}
 	return filepath.Join(m.dataDir, name)
 }
-
-// Placement 는 도구를 어느 Window 의 어떤 자리에 띄우는가다 (FR-SBX-10/11).
-//
-// 프로파일을 **함께 받는** 것이 요점이다. Window UUID 만 받고 프로파일을
-// workspace 에서 조회하면, 브라우저가 창을 저장하기 전에 탭을 만드는 순간
-// 샌드박스 창이 일반 창으로 읽혀 호스트에서 뜬다 — 조용한 강등이다 (§2.3).
 
 func (m *ToolManager) Get(id string) *Tool {
 	m.mu.RLock()

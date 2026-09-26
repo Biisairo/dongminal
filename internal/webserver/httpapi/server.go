@@ -395,6 +395,16 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 	}
 }
 
+// assetVersion 은 지금 서빙하는 자산의 판을 준다. 모르면 빈 문자열이다.
+//
+// ASSET_VERSION_SINGLE_SOURCE_SRS FR-AVS-3: 판을 아는 자리는 **하나**다. 문서에 넣는
+// 값과 인사에 싣는 값이 여기서 함께 나온다.
+//
+// 종전에는 서빙되는 `index.html` 을 되읽어 `?v=` 를 정규식으로 긁었다. 그때는 문서가
+// 판을 손으로 적었고, 손으로 적은 상수와 갈라지는 것을 막을 길이 그것뿐이었다
+// (RELOAD_CONTINUITY_SRS FR-RLC-21). 이제 문서를 **쓰는 쪽**이 여기이므로 갈릴 수가
+// 없다 — 되읽는 것은 같은 값을 두 번 만드는 일이며, 깨질 정규식을 하나 더 두는 것이다.
+//
 // 판을 모르는 경우는 정적 자산이 아예 없는 구성 하나다 (FR-AVS-10).
 func (s *Server) assetVersion() string {
 	s.assetVerOnce.Do(func() {

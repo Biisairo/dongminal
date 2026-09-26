@@ -378,8 +378,9 @@ func (st *Store) gitDirs(ctx context.Context, repo string) (string, string, erro
 	return gitDir, commonDir, nil
 }
 
-// observe 는 status 와 signature 를 한 번에 채운다. signature 는 stat 2회라
-// 사실상 무료이고, 클라이언트가 status 직후 signature 를 또 부르지 않게 한다.
+// observe 는 status 와 signature 를 한 번에 채운다. signature 는 git 을 실행하지
+// 않는 파일 조회라(query.ReadSignature) status 에 비해 싸고, 클라이언트가 status
+// 직후 signature 를 또 부르지 않게 한다.
 func (st *Store) observe(ctx context.Context, repo string) (Observation, error) {
 	status, err := query.StatusOf(st.svc, ctx, repo)
 	if err != nil {

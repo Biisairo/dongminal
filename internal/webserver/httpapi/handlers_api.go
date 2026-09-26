@@ -218,22 +218,6 @@ var apiRoutes = []apiRoute{
 	// 메모리에 올리기 때문이다.
 	httproute.Get("/api/workspace/revisions", (*Server).apiWorkspaceRevisions),
 	httproute.Post("/api/workspace/revert", (*Server).apiWorkspaceRevert),
-	// 묶음 B·C — 리포 해석·핀·변경 감지 (GIT_SRS FR-GIT-60/61). UI 는 이 표면
-	// 위에만 서고, git 실행 결과를 다른 경로로 얻지 않는다.
-	// FR-GIT-223: 핀 순서는 서버가 권위로 쓴다 (O1) — 재배치도 서버를 지난다.
-	// 묶음 F — diff 양쪽 내용 (GIT_SRS FR-GIT-44~48). commit-parent 축은 M4 다.
-	// 묶음 J — 안전 정책 (GIT_SRS FR-GIT-86~93). 파괴적 경로가 열리는 시점과
-	// 방어가 서는 시점이 같아야 한다.
-	// 묶음 H·I — 스테이징·커밋 (GIT_SRS FR-GIT-64~85). 저장소를 바꾸는 표면이므로
-	// POST 만 받고, 확인·preflight·undo 만료를 서버가 다시 검사한다.
-	// FR-GIT-224: 충돌 파일을 한쪽으로 해결한다. 파괴적이라 discard 와 같은 규약이다.
-	// 묶음 L·M — 히스토리 조회 (GIT_SRS FR-GIT-113·122·136~139). 전부 읽기다.
-	// 묶음 Q — Console 탭의 실행 기록 (FR-GIT-218).
-	// 묶음 K — 원격 작업 (GIT_SRS FR-GIT-98~112). fetch/pull/push 는 작업 식별자만
-	// 돌려주고, 진행은 job/events 로 흐른다.
-	// 준다 (FR-GIT-147) — 여기에 새 조회를 만들지 않는다.
-	// 묶음 O — stash (GIT_SRS FR-GIT-161~170). drop 은 파괴적이므로 confirm 을
-	// 서버가 다시 검사한다.
 	httproute.Get("/api/stats", (*Server).apiStats),
 }
 

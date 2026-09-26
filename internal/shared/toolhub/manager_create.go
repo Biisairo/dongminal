@@ -16,6 +16,11 @@ import (
 // 옮기고, 띄우고, 되살린다. `manager.go` 에 남은 것은 세워진 뒤의 일(목록·조회·
 // 종료·저장)이며, 둘은 서로 다른 시각에 산다.
 
+// Placement 는 도구를 어느 Window 의 어떤 자리에 띄우는가다 (FR-SBX-10/11).
+//
+// 프로파일을 **함께 받는** 것이 요점이다. Window UUID 만 받고 프로파일을
+// workspace 에서 조회하면, 브라우저가 창을 저장하기 전에 탭을 만드는 순간
+// 샌드박스 창이 일반 창으로 읽혀 호스트에서 뜬다 — 조용한 강등이다 (§2.3).
 type Placement struct {
 	// WindowUUID 는 대응 컨테이너의 키다.
 	WindowUUID string
@@ -56,7 +61,6 @@ type Placement struct {
 	ToolID  string
 }
 
-// Create spawns a new tool.
 // ToolCap 은 동시에 살아 있는 도구 수의 상한이다 (04-secops P1-4).
 //
 // 도구 하나는 PTY 와 로그인 셸 프로세스다. 상한이 없으면 요청 수천 개가 프로세스
@@ -72,9 +76,7 @@ const ToolCap = 256
 // 서버 결함으로 읽고 재시도하며, 재시도가 곧 이 상황을 만든 것이다.
 var ErrToolCap = errors.New("도구 수가 상한에 이르렀다")
 
-// ErrToolExists 는 `Placement.ReuseID` 가 살아 있는 도구를 가리킨다 — 재개할 것이 없다.
-var ErrToolExists = errors.New("tool_exists")
-
+// Create spawns a new tool.
 func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*Tool, error) {
 	// FR-UNI-7: toolId 는 uuid 다. 카운터는 영속되지 않아 모든 도구가 닫힌 상태로
 	// 재기동하면 "1" 부터 재사용됐다 (SRS §2.7 (3)).
@@ -108,10 +110,6 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 		m.mu.Unlock()
 		dmlog.Infof(nil, "[tool] 상한 초과로 생성을 거절한다 (cap=%d)", ToolCap)
 		return nil, ErrToolCap
-	}
-	if _, live := m.tools[id]; live {
-		m.mu.Unlock()
-		return nil, ErrToolExists
 	}
 	m.pending++
 	hooks := m.attnHooks()

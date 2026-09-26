@@ -18,8 +18,13 @@ import (
 // 스냅샷. `client.go` 에 남은 것은 그 계약을 떠받치는 **연결**이며, 계약이 늘어도
 // 연결은 늘지 않는다.
 
+// OutChunk 는 구독자가 받는 출력 한 조각이다 — toolhub.OutChunk 이고, 조각의 뜻은
+// 그쪽 주석에 있다.
 type OutChunk = toolhub.OutChunk
 
+// Subscribe registers an output channel for a tool. It returns exitCh (closed
+// when the tool exits) and an unsubscribe function. unsubscribe removes the
+// channel; it does not close exitCh (the tool-exit path owns that close).
 func (pc *ToolClient) Subscribe(toolID string, ch chan OutChunk) (exitCh <-chan struct{}, unsubscribe func()) {
 	ex := make(chan struct{})
 	pc.subMu.Lock()
@@ -208,7 +213,7 @@ func (pc *ToolClient) Terminate(id string, grace time.Duration) error {
 	pc.invalidateList()
 	_, err := pc.callWithin(toolipc.MethodTerminate, toolipc.TerminateParams{
 		ID: id, GraceMs: grace.Milliseconds(),
-	}, panedCallTimeout+grace)
+	}, toolCallTimeout+grace)
 	pc.invalidateList()
 	return err
 }

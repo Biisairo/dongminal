@@ -17,6 +17,9 @@ type Client struct {
 	Hub toolhub.ToolHub
 }
 
+// tools 는 같은 두 필드로 도구 목록을 읽는 Tool 어댑터다.
+func (r Client) tools() Tool { return Tool{PM: r.PM, Hub: r.Hub} }
+
 func (r Client) ResolveClientPane(remoteAddr string) (string, int, error) {
 	// 클라이언트 pid 역추적과 부모 거슬러 오르기는 OS 마다 방법이 다르다.
 	// 그 차이는 platform.ProcInfo 뒤에 있다 (CROSS_PLATFORM_SRS FR-XPI-7).
@@ -26,7 +29,7 @@ func (r Client) ResolveClientPane(remoteAddr string) (string, int, error) {
 		return "", 0, fmt.Errorf("클라이언트 PID를 찾을 수 없음 (remoteAddr=%s)", remoteAddr)
 	}
 	toolShellPids := map[int]string{}
-	for _, p := range Tool(r).List() {
+	for _, p := range r.tools().List() {
 		if p.ShellPID > 0 {
 			toolShellPids[p.ShellPID] = p.ID
 		}

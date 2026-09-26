@@ -252,15 +252,15 @@ func TestStaleListAfterCreate(t *testing.T) {
 	}
 }
 
-// 샌드박스 배치는 기본 시한(panedCallTimeout)보다 오래 걸린다. Create 는 전용 시한
+// 샌드박스 배치는 기본 시한(toolCallTimeout)보다 오래 걸린다. Create 는 전용 시한
 // (toolCreateTimeout)을 쓴다 — 기본 시한이 지나도 연결을 끊지 않고 답을 받는다.
 func TestCreateOutlivesCallTimeout(t *testing.T) {
 	t.Parallel()
-	if toolCreateTimeout <= panedCallTimeout {
-		t.Fatalf("toolCreateTimeout=%v — panedCallTimeout(%v) 보다 길어야 한다", toolCreateTimeout, panedCallTimeout)
+	if toolCreateTimeout <= toolCallTimeout {
+		t.Fatalf("toolCreateTimeout=%v — toolCallTimeout(%v) 보다 길어야 한다", toolCreateTimeout, toolCallTimeout)
 	}
 	f := newConcFake()
-	f.delay = panedCallTimeout + 300*time.Millisecond
+	f.delay = toolCallTimeout + 300*time.Millisecond
 	close(f.release)
 	pc := dialFake(t, f.serve(t))
 	tl, err := pc.Create("/tmp", 80, 24, toolhub.Placement{})

@@ -64,29 +64,6 @@ type WorkspaceReader interface {
 	Changes() <-chan struct{}
 }
 
-// TabRef pairs a new tab's uuid with its toolId (REMOTE_COMMAND_RESULT_SRS).
-type TabRef struct {
-	UUID   string `json:"uuid"`
-	ToolID string `json:"toolId"`
-}
-
-// CmdResult is the set of entities a creating command produced.
-type CmdResult struct {
-	NewWindows []string `json:"newWindows"`
-	NewPanes   []string `json:"newPanes"`
-	NewTabs    []TabRef `json:"newTabs"`
-}
-
-// CommandBroadcaster delivers workspace UI commands to connected browsers.
-type CommandBroadcaster interface {
-	AllowedAction(action string) bool
-	Broadcast(payload []byte) int
-	// 생성 명령 결과 correlation (REMOTE_COMMAND_RESULT_SRS FR-RCR-8).
-	IsCreatingAction(action string) bool
-	NewReqId() string
-	BroadcastAndAwait(payload []byte, reqId string) (CmdResult, int, bool)
-}
-
 // ClientToolResolver maps a caller's remote address to the tool whose shell
 // hosts it (via PID parent-chain walking). /api/whoami falls back to this when
 // the request carries no toolId (DMCTL_WHO_AM_I_SRS FR-API-WAI-1).

@@ -268,10 +268,6 @@ func (s *GitServer) apiGitRefs(w http.ResponseWriter, r *http.Request) {
 	gitJSON(w, http.StatusOK, gitRefsResponse{Requested: gitRefsRequested{Repo: requested}, Repo: root, Refs: refs})
 }
 
-// gitCountParam 은 0 이상의 정수 인자를 읽는다. 값이 없으면 0 이다.
-//
-// 읽지 못한 값을 조용히 0 으로 낮추지 않는다 — skip 이 0 이 되면 추가 로드가 같은
-// 페이지를 되풀이하고, 사용자는 목록이 늘지 않는 이유를 알 수 없다.
 // gitBoolParam 은 토글 하나를 읽는다. 빈 값은 꺼짐이고, 모르는 값은 **거부한다** —
 // 조용히 꺼진 것으로 낮추면 사용자는 켰다고 믿는 토글이 꺼진 목록을 본다.
 func gitBoolParam(w http.ResponseWriter, q url.Values, name string) (bool, bool) {
@@ -287,6 +283,10 @@ func gitBoolParam(w http.ResponseWriter, q url.Values, name string) (bool, bool)
 	return v, true
 }
 
+// gitCountParam 은 0 이상의 정수 인자를 읽는다. 값이 없으면 0 이다.
+//
+// 읽지 못한 값을 조용히 0 으로 낮추지 않는다 — skip 이 0 이 되면 추가 로드가 같은
+// 페이지를 되풀이하고, 사용자는 목록이 늘지 않는 이유를 알 수 없다.
 func gitCountParam(w http.ResponseWriter, q url.Values, name string) (int, bool) {
 	raw := q.Get(name)
 	if raw == "" {

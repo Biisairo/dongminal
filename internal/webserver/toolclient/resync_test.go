@@ -105,7 +105,7 @@ func assertOpen[T any](t *testing.T, ch <-chan T, what string) {
 func TestTCResyncSubs(t *testing.T) {
 	drop := make(chan struct{})
 	sockPath := fakeReconnectPaned(t, [][]string{{"t1", "t2", "t3"}, {"t1"}}, drop)
-	pc, err := DialPaneClientWithReconnect(sockPath, nil)
+	pc, err := DialToolClientWithReconnect(sockPath, nil)
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestTCResyncSubs(t *testing.T) {
 func TestTCResyncUnknown(t *testing.T) {
 	drop := make(chan struct{})
 	sockPath := fakeReconnectPaned(t, [][]string{{"t1"}, nil}, drop)
-	pc, err := DialPaneClientWithReconnect(sockPath, nil)
+	pc, err := DialToolClientWithReconnect(sockPath, nil)
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
@@ -199,7 +199,7 @@ func TestTCResyncUnknown(t *testing.T) {
 func TestTCResyncForeground(t *testing.T) {
 	drop := make(chan struct{})
 	sockPath := fakeReconnectPaned(t, [][]string{{"t1", "t2"}, {"t1:htop", "t2"}}, drop)
-	pc, err := DialPaneClientWithReconnect(sockPath, nil)
+	pc, err := DialToolClientWithReconnect(sockPath, nil)
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}

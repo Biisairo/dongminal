@@ -18,24 +18,19 @@ type Tool struct {
 	Hub toolhub.ToolHub
 }
 
-func (a Tool) listPanes() []*toolhub.Tool {
-	if a.PM != nil {
-		return a.PM.Snapshot()
+// pmSnapshot 은 직접 모드의 도구 목록이다. 데몬 모드는 List 가 hub 목록으로 먼저
+// 답하므로 여기 오지 않는다.
+func (a Tool) pmSnapshot() []*toolhub.Tool {
+	if a.PM == nil {
+		return nil
 	}
-	// ToolHub doesn't have Snapshot; build from List
-	var out []*toolhub.Tool
-	if a.Hub != nil {
-		for _, t := range a.Hub.List() {
-			out = append(out, &toolhub.Tool{ID: t.ID, Name: t.Name})
-		}
-	}
-	return out
+	return a.PM.Snapshot()
 }
 
 func (a Tool) List() []toolaccess.ToolInfo {
 	// Daemon mode: read the shell PID directly from the hub's list payload.
-	// Synthetic Tools built in listPanes() have no os/exec handle, so
-	// CmdProcessPID() would return 0 and break whoami PID matching (FR-16).
+	// Synthetic Tools have no os/exec handle, so CmdProcessPID() would
+	// return 0 and break whoami PID matching (FR-16).
 	if a.PM == nil && a.Hub != nil {
 		infos := a.Hub.List()
 		out := make([]toolaccess.ToolInfo, 0, len(infos))
@@ -53,7 +48,7 @@ func (a Tool) List() []toolaccess.ToolInfo {
 	if a.PM != nil {
 		fg = a.PM.ForegroundNames()
 	}
-	tools := a.listPanes()
+	tools := a.pmSnapshot()
 	out := make([]toolaccess.ToolInfo, 0, len(tools))
 	for _, p := range tools {
 		out = append(out, toolaccess.ToolInfo{

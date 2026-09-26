@@ -264,7 +264,8 @@ const gitDrainWait = 2*core.KillGrace + time.Second
 //     남아 있기 때문이다 — 다음 기동에서 그 창을 열면 하던 자리로 돌아간다 (FR-SBX-44).
 //  5. LSP — 언어 서버는 **정지**한다 (FR-LSP-18). 남겨 둘 상태가 없고, 정지하지 않으면
 //     큰 저장소에서 수백 MB 를 쓰는 프로세스가 서버보다 오래 산다.
-//  6. 워크스페이스 — 비동기 writer 를 flush 한다.
+//  6. 판 확인 — 최신 판 캐시의 시계를 멈춘다 (UPDATE_NOTICE_SRS).
+//  7. 워크스페이스 — 비동기 writer 를 flush 한다.
 func (a *app) shutdownSteps() []shutdownStep {
 	return []shutdownStep{
 		{"git 잡·쓰기 대기", func() {

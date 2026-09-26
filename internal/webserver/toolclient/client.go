@@ -17,38 +17,38 @@ import (
 	"time"
 )
 
-// ToolClient is a dongminal-side client that connects to dongminald
-// over a Unix socket and implements the toolhub.ToolHub interface via JSON-RPC
-// style request/response (DAEMON_SPLIT_SRS Phase 3).
 const (
-	// panedCallTimeout bounds a single RPC. On expiry the connection is
+	// toolCallTimeout bounds a single RPC. On expiry the connection is
 	// dropped and the supervisor reconnects (DAEMON_SPLIT_SRS FR-14).
-	panedCallTimeout = 5 * time.Second
+	toolCallTimeout = 5 * time.Second
 
 	// toolCreateTimeout 은 create 하나의 상한이다 (FR-OPT-2-3). 샌드박스 창의 도구는
 	// 데몬이 컨테이너를 만들고 띄운 뒤에야 답하므로 기본 시한으로는 모자란다.
 	toolCreateTimeout = 60 * time.Second
 
-	// panedDialTimeout 은 데몬 종단에 붙는 시도의 상한이다. 로컬 종단이므로
+	// toolDialTimeout 은 데몬 종단에 붙는 시도의 상한이다. 로컬 종단이므로
 	// 응답은 즉시 오거나 오지 않는다.
-	panedDialTimeout = 2 * time.Second
-	// panedMaxBackoff caps the reconnect backoff (FR-13).
-	panedMaxBackoff = 30 * time.Second
-	// panedRespawnEvery: respawn dongminald after this many consecutive
+	toolDialTimeout = 2 * time.Second
+	// toolMaxBackoff caps the reconnect backoff (FR-13).
+	toolMaxBackoff = 30 * time.Second
+	// toolRespawnEvery: respawn dongminald after this many consecutive
 	// failed dials (socket gone → daemon likely dead).
-	panedRespawnEvery = 3
+	toolRespawnEvery = 3
 
-	// panedHeartbeatEvery 는 생존 확인 hello 의 주기다 (FR-OPT-2-1). 정상 상태에는
+	// toolHeartbeatEvery 는 생존 확인 hello 의 주기다 (FR-OPT-2-1). 정상 상태에는
 	// 서버→데몬 RPC 가 없어 답하지 않는 데몬을 RPC 시한이 잡지 못한다.
-	panedHeartbeatEvery = 15 * time.Second
+	toolHeartbeatEvery = 15 * time.Second
 )
 
-// heartbeat 는 생존 확인의 주기와 시한이다. 배선은 panedHeartbeatEvery·
-// panedCallTimeout 을 쓰고, 테스트가 줄인다.
+// heartbeat 는 생존 확인의 주기와 시한이다. 배선은 toolHeartbeatEvery·
+// toolCallTimeout 을 쓰고, 테스트가 줄인다.
 type heartbeat struct {
 	every, within time.Duration
 }
 
+// ToolClient is a dongminal-side client that connects to dongminald
+// over a Unix socket and implements the toolhub.ToolHub interface via JSON-RPC
+// style request/response (DAEMON_SPLIT_SRS Phase 3).
 type ToolClient struct {
 	sockPath    string
 	spawnDaemon func() error // respawns dongminald on repeated dial failure; nil disables respawn
@@ -175,13 +175,13 @@ func (pc *ToolClient) SetOnForeground(cb func(toolID, name string)) {
 // DialToolClient connects to the dongminald Unix socket, sends hello, and
 // returns a ready-to-use ToolClient with auto-reconnect (no daemon respawn).
 func DialToolClient(sockPath string) (*ToolClient, error) {
-	return DialPaneClientWithReconnect(sockPath, nil)
+	return DialToolClientWithReconnect(sockPath, nil)
 }
 
-// DialPaneClientWithReconnect is DialToolClient plus a spawnDaemon callback the
+// DialToolClientWithReconnect is DialToolClient plus a spawnDaemon callback the
 // supervisor invokes to respawn dongminald when dials keep failing (FR-13).
-func DialPaneClientWithReconnect(sockPath string, spawnDaemon func() error) (*ToolClient, error) {
-	return dialToolClient(sockPath, spawnDaemon, heartbeat{every: panedHeartbeatEvery, within: panedCallTimeout})
+func DialToolClientWithReconnect(sockPath string, spawnDaemon func() error) (*ToolClient, error) {
+	return dialToolClient(sockPath, spawnDaemon, heartbeat{every: toolHeartbeatEvery, within: toolCallTimeout})
 }
 
 func dialToolClient(sockPath string, spawnDaemon func() error, beat heartbeat) (*ToolClient, error) {
@@ -203,7 +203,7 @@ func dialToolClient(sockPath string, spawnDaemon func() error, beat heartbeat) (
 // connect establishes one connection, starts its readLoop, and completes the
 // hello handshake. Safe to call repeatedly (initial dial + each reconnect).
 func (pc *ToolClient) connect() error {
-	conn, err := platform.Current().IPC.Dial(pc.sockPath, panedDialTimeout)
+	conn, err := platform.Current().IPC.Dial(pc.sockPath, toolDialTimeout)
 	if err != nil {
 		return err
 	}
@@ -319,14 +319,14 @@ func (pc *ToolClient) supervise() {
 				break
 			}
 			fails++
-			if pc.spawnDaemon != nil && fails%panedRespawnEvery == 0 {
+			if pc.spawnDaemon != nil && fails%toolRespawnEvery == 0 {
 				dmlog.Errorf(nil, "toolclient: respawning dongminald after %d failed dials", fails)
 				_ = pc.spawnDaemon()
 			}
-			if backoff < panedMaxBackoff {
+			if backoff < toolMaxBackoff {
 				backoff *= 2
-				if backoff > panedMaxBackoff {
-					backoff = panedMaxBackoff
+				if backoff > toolMaxBackoff {
+					backoff = toolMaxBackoff
 				}
 			}
 		}
@@ -564,13 +564,13 @@ func (pc *ToolClient) notify(method string, params any) {
 // call sends a request and blocks until the response arrives, the connection
 // is lost, the call times out (FR-14), or the client closes.
 func (pc *ToolClient) call(method string, params any) (json.RawMessage, error) {
-	return pc.callWithin(method, params, panedCallTimeout)
+	return pc.callWithin(method, params, toolCallTimeout)
 }
 
 // callT 는 call 의 결과를 R 로 한 번 읽는다 (FR-OPT-2-6). 결과가 없거나 null 이면
 // R 의 제로값이다 — 필드를 모르는 옛 데몬과 같은 뜻이다.
 func callT[R any](pc *ToolClient, method string, params any) (R, error) {
-	return callWithinT[R](pc, method, params, panedCallTimeout)
+	return callWithinT[R](pc, method, params, toolCallTimeout)
 }
 
 func callWithinT[R any](pc *ToolClient, method string, params any, within time.Duration) (R, error) {
@@ -649,11 +649,3 @@ func (pc *ToolClient) Close() {
 		}
 	})
 }
-
-// Subscribe registers an output channel for a tool. It returns exitCh (closed
-// when the tool exits) and an unsubscribe function. unsubscribe removes the
-// channel; it does not close exitCh (the tool-exit path owns that close).
-// OutChunk 는 구독자가 받는 출력 한 조각이다.
-//
-// 바이트만으로는 부족하다 — 구독은 스냅샷 **앞에** 서므로 둘이 겹치고, 겹친
-// OutChunk 는 toolhub.OutChunk 다 — 조각의 뜻은 그쪽 주석에 있다.

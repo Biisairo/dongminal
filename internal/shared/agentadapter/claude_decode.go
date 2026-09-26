@@ -228,7 +228,7 @@ var claudeHarnessPrefixes = []string{
 	"<command-name>",
 	"<command-message>",
 	"<command-args>",
-	"<task-notification>",
+	claudeTaskNotificationMark,
 	"[Request interrupted by user",
 }
 

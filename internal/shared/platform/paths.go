@@ -279,13 +279,6 @@ func windowsLogFile(env envFn, tempDir func() string) string {
 
 // ── 공통 ─────────────────────────────────────────────
 
-// tempSibling 은 dst 를 원자적으로 덮기 위한 **같은 디렉터리의** 임시 이름이다
-// (FR-ATI-4). 같은 디렉터리여야 하는 이유는 rename 의 원자성이 파일시스템 안에서만
-// 성립하기 때문이다 — /tmp 를 거치면 EXDEV 로 실패하거나 복사로 떨어진다.
-//
-// pid 를 넣는 이유는 두 프로세스가 동시에 설치해도 서로의 임시 파일을 건드리지
-// 않게 하려는 것이고, 카운터는 한 프로세스 안의 동시 설치를 가른다. 랜덤이 아닌
-// 이유는 실패로 남은 잔여물을 사람이 추적할 수 있게 하기 위해서다.
 // WriteFileAtomic 은 data 를 path 에 **통째로** 쓴다 (FR-CAF-8).
 //
 // `os.WriteFile` 을 쓰면 안 되는 자리를 위한 것이다. 저쪽은 O_TRUNC 로 연 뒤
@@ -354,6 +347,13 @@ func WriteFileIfChanged(path string, data []byte, perm os.FileMode) error {
 	return os.Chmod(path, perm)
 }
 
+// tempSibling 은 dst 를 원자적으로 덮기 위한 **같은 디렉터리의** 임시 이름이다
+// (FR-ATI-4). 같은 디렉터리여야 하는 이유는 rename 의 원자성이 파일시스템 안에서만
+// 성립하기 때문이다 — /tmp 를 거치면 EXDEV 로 실패하거나 복사로 떨어진다.
+//
+// pid 를 넣는 이유는 두 프로세스가 동시에 설치해도 서로의 임시 파일을 건드리지
+// 않게 하려는 것이고, 카운터는 한 프로세스 안의 동시 설치를 가른다. 랜덤이 아닌
+// 이유는 실패로 남은 잔여물을 사람이 추적할 수 있게 하기 위해서다.
 func tempSibling(dst string) string {
 	n := tempSeq.Add(1)
 	return dst + ".tmp" + strconv.Itoa(os.Getpid()) + "." + strconv.FormatUint(n, 10)

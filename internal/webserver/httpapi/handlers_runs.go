@@ -121,7 +121,6 @@ func writeRunError(w http.ResponseWriter, err error, extra map[string]any) {
 	httpresp.JSON(w, status, body)
 }
 
-// apiRunsGet implements GET /api/runs[?id=] (FR-RUN-8).
 // runMember 는 memberId 를 회원으로 옮기고, 없으면 이 표면의 오류로 답한다
 // (DRIFT_RECLAIM_SRS FR-DRC-11).
 //
@@ -137,6 +136,7 @@ func (s *Server) runMember(w http.ResponseWriter, memberID string) (run.Record, 
 	return rec, m, true
 }
 
+// apiRunsGet implements GET /api/runs[?id=] (FR-RUN-8).
 func (s *Server) apiRunsGet(w http.ResponseWriter, r *http.Request) {
 	if !s.runsReady(w) {
 		return

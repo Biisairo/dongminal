@@ -37,18 +37,6 @@ import (
 	"dongminal/internal/webserver/toolclient"
 )
 
-// dialOrStartDaemon connects to a running dongminald or starts one,
-// returning a ToolClient ready for use. Falls back to nil if the daemon
-// is not available and the direct ToolManager path should be used.
-//
-// Goroutine lifecycle: DialPaneClientWithReconnect spawns a supervise()
-// goroutine that watches for connection loss and reconnects with backoff.
-// When the caller is done with the ToolClient, it MUST call Close(), which
-// closes pc.closed and sets pc.stopped. Both the outer and inner reconnect
-// loops in supervise() check <-pc.closed and pc.stopped in their select
-// statements, ensuring the goroutine exits promptly. The wrapper goroutine
-// here (lines 50-53) is fire-and-forget: it writes its result to a buffered
-// channel and exits, regardless of whether the outer select consumes it.
 // daemonBusyWait 는 첫 dial 이 옛 연결에 막혀 있다고 판정하는 시한이고,
 // daemonReadyTries·daemonReadyPoll 은 새로 띄운 데몬의 소켓이 서기를 기다리는
 // 횟수·간격이다 (M8 `GO-40`).
@@ -58,6 +46,18 @@ const (
 	daemonReadyPoll  = 100 * time.Millisecond
 )
 
+// dialOrStartDaemon connects to a running dongminald or starts one,
+// returning a ToolClient ready for use. Falls back to nil if the daemon
+// is not available and the direct ToolManager path should be used.
+//
+// Goroutine lifecycle: DialToolClientWithReconnect spawns a supervise()
+// goroutine that watches for connection loss and reconnects with backoff.
+// When the caller is done with the ToolClient, it MUST call Close(), which
+// closes pc.closed and sets pc.stopped. Both the outer and inner reconnect
+// loops in supervise() check <-pc.closed and pc.stopped in their select
+// statements, ensuring the goroutine exits promptly. The dial goroutine below
+// is fire-and-forget: it writes its result to a buffered channel and exits,
+// regardless of whether the outer select consumes it.
 func dialOrStartDaemon(home string) *toolclient.ToolClient {
 	// 종단 주소는 platform 이 만든다 — 데몬(boot.Run)이 listen 하는 주소와 같은
 	// 함수에서 나와야 표현이 바뀌어도 양쪽이 함께 옮겨간다 (FR-XIP-1).
@@ -76,7 +76,7 @@ func dialOrStartDaemon(home string) *toolclient.ToolClient {
 	}
 	ch := make(chan result, 1)
 	go func() {
-		pc, err := toolclient.DialPaneClientWithReconnect(endpoint, spawn)
+		pc, err := toolclient.DialToolClientWithReconnect(endpoint, spawn)
 		ch <- result{pc, err}
 	}()
 
@@ -107,7 +107,7 @@ func dialOrStartDaemon(home string) *toolclient.ToolClient {
 	// Wait for daemon socket to appear (M8 D-A-15 — 상한은 tries×poll).
 	var pc *toolclient.ToolClient
 	err := pollwait.Until(context.Background(), daemonReadyTries*daemonReadyPoll, daemonReadyPoll, func() bool {
-		c, err := toolclient.DialPaneClientWithReconnect(endpoint, spawn)
+		c, err := toolclient.DialToolClientWithReconnect(endpoint, spawn)
 		if err != nil {
 			return false
 		}

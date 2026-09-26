@@ -290,7 +290,7 @@ func TestStore_RepoRootTTLCache(t *testing.T) {
 }
 
 // Store.Signature 는 gitdir 해석을 캐시해 두 번째 호출에서 git 을 부르지 않는다 —
-// signature 는 read 1회 + stat 2회여야 한다 (§2.6).
+// signature 는 git 을 실행하지 않는 파일 조회여야 한다 (§2.6).
 func TestStore_SignatureCachesGitDirs(t *testing.T) {
 	g := newFakeGit(t)
 	st := NewStore(core.New(core.WithRunner(g.runner)), fixedClock(time.Now()))

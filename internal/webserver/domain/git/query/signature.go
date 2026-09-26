@@ -11,7 +11,8 @@ import (
 	"dongminal/internal/webserver/domain/git/core"
 )
 
-// Signature 는 .git 상태 변화를 싸게 감지하는 값이다 (FR-GIT-19, §2.6: 0.02ms).
+// Signature 는 .git 상태 변화를 싸게 감지하는 값이다 (FR-GIT-19). 비용은
+// ReadSignature 의 주석에 있다.
 // 값이 그대로면 status 재조회를 생략한다.
 type Signature struct {
 	Head         string `json:"head"`    // .git/HEAD 내용 (trim)
@@ -75,7 +76,11 @@ func SignatureOf(s *core.Service, ctx context.Context, repo string) (Signature, 
 	return ReadSignature(gitDir, commonDir)
 }
 
-// ReadSignature 는 read 1회 + stat 2회다. git 을 실행하지 않는다.
+// ReadSignature 는 git 을 실행하지 않는다. 비용은 read 1회(HEAD) + stat 7~8회
+// (index·현재 ref·packed-refs 폴백·refs 트리의 packed-refs·extras 넷) + refs 아래
+// 디렉터리마다 ReadDir·stat 1회씩 + worktrees ReadDir 1회다. refs 트리가 ref 수에
+// 비례하는 몫이며, 실측은 signature_perf_test.go 머리말에 있다 (refs=10 약 32 µs,
+// 1,000 약 0.4 ms).
 func ReadSignature(gitDir, commonDir string) (Signature, error) {
 	head, err := os.ReadFile(filepath.Join(gitDir, headFile))
 	if err != nil {

@@ -81,7 +81,7 @@ func looksLikeSVG(head []byte) bool { return mimeprobe.LooksLikeSVG(head) }
 // FILE_API_BOUNDARY_SRS FR-FAB-11: `probe`·`raw` 도 `read`·`write` 와 같은 경계다.
 // 넷 중 하나만 열려 있으면 그것이 곧 우회 경로다.
 func (s *Server) openRegularFile(w http.ResponseWriter, r *http.Request) (*os.File, os.FileInfo, bool) {
-	fp, ok := s.fileGuard(w, r, r.URL.Query().Get("path"), false)
+	fp, ok := s.fileGuard(w, r.URL.Query().Get("path"))
 	if !ok {
 		return nil, nil, false
 	}

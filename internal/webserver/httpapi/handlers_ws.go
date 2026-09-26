@@ -112,10 +112,6 @@ func (s *Server) wsToolGone(r *http.Request, conn *toolhub.SafeConn, toolID stri
 	s.holdMiss(r.Context(), toolID, conn)
 }
 
-// handleWSDirect is the original (non-daemon) WebSocket handler.
-//
-// 재생의 끝은 **등록 오프셋**이다 (FR-TRS-17). 거기서부터는 readPTY 의 broadcast
-// 가 이 연결의 송신 큐로 나르므로, 재생이 그 자리를 넘으면 넘은 만큼 두 번 보인다.
 // sendModeRestore 는 앱이 켜 둔 터미널 모드를 재접속한 xterm 에 되세운다
 // (TERMINAL_MODE_RESTORE_SRS FR-TMR-20·21·24).
 //
@@ -140,6 +136,10 @@ func sendModeRestore(conn *toolhub.SafeConn, toolID string, modes toolhub.TermMo
 	return true
 }
 
+// handleWSDirect is the original (non-daemon) WebSocket handler.
+//
+// 재생의 끝은 **등록 오프셋**이다 (FR-TRS-17). 거기서부터는 readPTY 의 broadcast
+// 가 이 연결의 송신 큐로 나르므로, 재생이 그 자리를 넘으면 넘은 만큼 두 번 보인다.
 func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remoteAddr string, since int64) {
 	regOff, ok := tool.AddClientAt(conn)
 	if !ok {
@@ -182,7 +182,7 @@ func (s *Server) handleWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool, remo
 	conn.StartSender()
 
 	go pingLoop(conn, tool.Wait())
-	readWSDirect(conn, tool)
+	readWS(conn, tool)
 	dmlog.Infof(nil, "ws disconnected addr=%s tool=%s", remoteAddr, tool.ID)
 }
 
@@ -331,9 +331,6 @@ func readWS(conn *toolhub.SafeConn, tool *toolhub.Tool) {
 	}()
 	wsReadLoop(conn, tool.ID, tool.Write, func(c, ro uint16) { tool.Resize(c, ro) })
 }
-
-// readWSDirect is the original WS read loop kept for direct mode.
-func readWSDirect(conn *toolhub.SafeConn, tool *toolhub.Tool) { readWS(conn, tool) }
 
 // relayCoalesceMax 는 릴레이가 합쳐 보내는 출력 프레임 하나의 상한이다 (FR-OPT-2-7).
 const relayCoalesceMax = 64 << 10

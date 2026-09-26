@@ -1,7 +1,6 @@
 package adapters
 
 import (
-	"dongminal/internal/webserver/hub"
 	"time"
 
 	"dongminal/internal/shared/toolhub"
@@ -69,16 +68,6 @@ func TestWorkspaceAdapter_EntriesShape(t *testing.T) {
 	entries := a.Entries()
 	if len(entries) != 1 || entries[0].ToolID != "42" || entries[0].Label != "W1.P1.T1" {
 		t.Fatalf("entries=%+v", entries)
-	}
-}
-
-func TestCommandAdapter_Wraps(t *testing.T) {
-	hub := hub.NewCommandHub()
-	a := Command{Hub: hub}
-	// AllowedAction is determined by hub policy; just ensure the call doesn't panic.
-	_ = a.AllowedAction("workspace_changed")
-	if got := a.Broadcast([]byte(`{"action":"x"}`)); got < 0 {
-		t.Errorf("Broadcast=%d", got)
 	}
 }
 
