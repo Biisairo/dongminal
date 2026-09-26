@@ -143,7 +143,7 @@ class GitHistory {
       // 가상 목록 안에 끼우지 않고 목록 바로 위의 줄로 둔다 — 행 창의 좌표 계산이
       // 항목 수와 1:1 이어서, 목록에 없는 항목을 끼우면 그 계약이 깨진다.
       '<div class="git-hist-rev"></div>'+
-      '<div class="git-hist-note">'+
+      '<div class="ui-notice ui-notice-attn git-hist-note">'+
         '<span class="git-hist-note-msg"></span>'+
         '<button class="ui-btn ui-btn-sm git-hist-retry"></button>'+
       '</div>'+

@@ -128,6 +128,15 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "terminal|div.ui-resize-handle": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "0px 0px 0px 0px",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
  "terminal|div.ui-scroll": {
   "display": "flex",
   "overflowX": "visible",
@@ -1409,6 +1418,15 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "git:changes|div.ui-resize-handle": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "0px 0px 0px 0px",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
  "git:changes|div.ui-scroll": {
   "display": "flex",
   "overflowX": "visible",
@@ -2633,7 +2651,7 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
- "git:changes|div.ed-ex-handle": {
+ "git:changes|div.ed-ex-handle.ui-resize-handle": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -2816,7 +2834,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:changes|div.git-sub-note": {
+ "git:changes|div.git-sub-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -3619,6 +3637,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:diff|div.ui-resize-handle": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "0px 0px 0px 0px",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:diff|div.ui-scroll": {
   "display": "flex",
@@ -4844,7 +4871,7 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
- "git:diff|div.ed-ex-handle": {
+ "git:diff|div.ed-ex-handle.ui-resize-handle": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -5938,6 +5965,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:history|div.ui-resize-handle": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "0px 0px 0px 0px",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:history|div.ui-scroll": {
   "display": "flex",
@@ -7163,7 +7199,7 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
- "git:history|div.ed-ex-handle": {
+ "git:history|div.ed-ex-handle.ui-resize-handle": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -7382,7 +7418,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "git:history|div.git-hist-note": {
+ "git:history|div.git-hist-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -8458,6 +8494,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:branches|div.ui-resize-handle": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "0px 0px 0px 0px",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:branches|div.ui-scroll": {
   "display": "flex",
@@ -9683,7 +9728,7 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
- "git:branches|div.ed-ex-handle": {
+ "git:branches|div.ed-ex-handle.ui-resize-handle": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -9866,7 +9911,7 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
- "git:branches|div.git-br-note": {
+ "git:branches|div.git-br-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -10954,6 +10999,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:stash|div.ui-resize-handle": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "0px 0px 0px 0px",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:stash|div.ui-scroll": {
   "display": "flex",
@@ -12179,7 +12233,7 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
- "git:stash|div.ed-ex-handle": {
+ "git:stash|div.ed-ex-handle.ui-resize-handle": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -12365,7 +12419,7 @@
   "clippedX": false,
   "scrollsY": false
  },
- "git:stash|div.git-stash-note": {
+ "git:stash|div.git-stash-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -13207,6 +13261,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:console|div.ui-resize-handle": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "0px 0px 0px 0px",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:console|div.ui-scroll": {
   "display": "flex",
@@ -14432,7 +14495,7 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
- "git:console|div.ed-ex-handle": {
+ "git:console|div.ed-ex-handle.ui-resize-handle": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -15409,6 +15472,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:worktrees|div.ui-resize-handle": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "0px 0px 0px 0px",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:worktrees|div.ui-scroll": {
   "display": "flex",
@@ -16634,7 +16706,7 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
- "git:worktrees|div.ed-ex-handle": {
+ "git:worktrees|div.ed-ex-handle.ui-resize-handle": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -16808,7 +16880,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:worktrees|div.git-wt-note": {
+ "git:worktrees|div.git-wt-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -17686,6 +17758,15 @@
   "inset": "auto auto auto auto",
   "flexDirection": "row",
   "minHeight": "0px"
+ },
+ "git:submodules|div.ui-resize-handle": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "0px 0px 0px 0px",
+  "flexDirection": "row",
+  "minHeight": "auto"
  },
  "git:submodules|div.ui-scroll": {
   "display": "flex",
@@ -18911,7 +18992,7 @@
   "flexDirection": "row",
   "minHeight": "30px"
  },
- "git:submodules|div.ed-ex-handle": {
+ "git:submodules|div.ed-ex-handle.ui-resize-handle": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -19094,7 +19175,7 @@
   "flexDirection": "row",
   "minHeight": "auto"
  },
- "git:submodules|div.git-sub-note": {
+ "git:submodules|div.git-sub-note.ui-notice.ui-notice-attn": {
   "display": "none",
   "overflowX": "visible",
   "overflowY": "visible",
@@ -19898,6 +19979,15 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
+ "editor|div.ui-resize-handle": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "relative",
+  "inset": "0px 0px 0px 0px",
+  "flexDirection": "row",
+  "minHeight": "auto"
+ },
  "editor|div.ui-scroll": {
   "display": "flex",
   "overflowX": "visible",
@@ -20486,7 +20576,7 @@
   "flexDirection": "row",
   "minHeight": "0px"
  },
- "editor|div.ed-ex-handle": {
+ "editor|div.ed-ex-handle.ui-resize-handle": {
   "display": "block",
   "overflowX": "visible",
   "overflowY": "visible",

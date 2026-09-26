@@ -136,7 +136,14 @@ test('TC-CMP-6b: 킷이 .ui-section-head 를 갖는다 (FR-CMP-30)', () => {
  * 같은 컴포넌트로 묶으면 둘 다 어정쩡해진다 (§6-예외표 E-3).
  */
 const NOTICE = ['git-job-note', 'git-stale-note', 'git-partial-note', 'git-diff-note',
-  'git-con-note', 'git-blame-note', 'git-job-opts-note', 'sbx-rt-note', 'fe-offer'];
+  'git-con-note', 'git-blame-note', 'git-job-opts-note', 'sbx-rt-note', 'fe-offer',
+  // FR-CMP-54 (FEU-29): git 목록 뷰의 안내 띠. 착수 시 킷 없이 같은 모양을 자기 값으로 그렸다.
+  'git-hist-note', 'git-br-note', 'git-stash-note'];
+/**
+ * 접두사로 만드는 안내 띠 (`list-tab.js` 의 `p+'-note'`). 이름이 마크업에 글자
+ * 그대로 나오지 않으므로 만드는 자리 하나를 따로 본다.
+ */
+const NOTICE_PREFIXED = ['git-wt-note', 'git-sub-note'];
 
 test('TC-CMP-10a: 킷이 .ui-notice 와 주의 등급을 갖는다 (FR-CMP-50)', () => {
   const kit = rules().filter((r) => r.file === 'web/style-kit.css');
@@ -150,11 +157,11 @@ test('TC-CMP-10a: 킷이 .ui-notice 와 주의 등급을 갖는다 (FR-CMP-50)',
   assert.match(attn.decls, /var\(--attn-subtle\)/);
 });
 
-test('TC-CMP-10: 알림 아홉이 공통 선언을 킷에서 받는다 (FR-CMP-52)', () => {
+test('TC-CMP-10: 알림 열넷이 공통 선언을 킷에서 받는다 (FR-CMP-52 · FR-CMP-54)', () => {
   const bad = [];
   for (const r of rules()) {
     if (r.file === 'web/style-kit.css') continue;
-    const n = NOTICE.find((x) => new RegExp(`(^|,)\\s*\\.${x}\\s*$`).test(r.sel));
+    const n = [...NOTICE, ...NOTICE_PREFIXED].find((x) => new RegExp(`(^|,)\\s*\\.${x}\\s*(,|$)`).test(r.sel));
     if (!n) continue;
     // 킷이 주는 것 — 여백·글자·역할색. 남으면 킷을 덮어 수렴하지 않는다.
     for (const p of ['padding', 'font-size']) {
@@ -166,7 +173,7 @@ test('TC-CMP-10: 알림 아홉이 공통 선언을 킷에서 받는다 (FR-CMP-5
   assert.deepEqual(bad, [], `킷과 겹치는 선언이 남았다:\n  ${bad.join('\n  ')}`);
 });
 
-test('TC-CMP-10b: 알림 아홉이 킷 클래스를 단다 (FR-CMP-52)', () => {
+test('TC-CMP-10b: 알림 열넷이 킷 클래스를 단다 (FR-CMP-52 · FR-CMP-54)', () => {
   // 클래스는 **만드는 자리**에서 단다 (FR-KIT-11 과 같은 규약). 마크업을 훑어
   // 그 이름이 나오는 자리마다 킷이 함께 있는지 본다.
   const files = ['web/index.html'];
@@ -192,6 +199,11 @@ test('TC-CMP-10b: 알림 아홉이 킷 클래스를 단다 (FR-CMP-52)', () => {
     if (!hits.length) { bad.push(`.${n}: 만드는 자리를 찾지 못했다`); continue; }
     for (const h of hits) if (!new RegExp(tok('ui-notice')).test(h)) bad.push(`.${n}: class="${h}"`);
   }
+  // 접두사로 만드는 둘 — 목록 탭의 골격 한 자리가 둘을 다 만든다.
+  const lt = readFileSync('web/js/git/list-tab.js', 'utf8');
+  const suffix = [...lt.matchAll(/'<div class="([^"']*)'\+p\+'-note">'/g)].map((m) => m[1]);
+  if (suffix.length !== 1) bad.push(`list-tab.js: p+'-note' 를 만드는 자리가 ${suffix.length}개다`);
+  else if (!new RegExp(tok('ui-notice')).test(suffix[0])) bad.push(`${NOTICE_PREFIXED.join('·')}: class="${suffix[0]}'+p+'-note"`);
   // 역으로 — `ui-notice` 는 알림 컨테이너에만 붙는다. 안의 버튼·글자에 붙으면
   // 킷의 여백·글자·색이 버튼 치수를 덮는다 (FEU-3).
   const any = new RegExp(`class(?:Name)?\\s*=\\s*(["'\`])([^"'\`\\n]*${tok('ui-notice')}[^"'\`\\n]*)\\1`, 'g');

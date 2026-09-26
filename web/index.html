@@ -26,6 +26,8 @@
   <link rel="stylesheet" href="style.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-git.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-git-views.css?v=__ASSETV__">
+  <link rel="stylesheet" href="style-runs.css?v=__ASSETV__">
+  <link rel="stylesheet" href="style-sidebar.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-editor.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-docrender.css?v=__ASSETV__">
   <!-- SIDEBAR_COLLAPSE_SRS FR-SBC-5 / D-2: 폭과 접힘을 **같은 걸음**에서 읽는다.
@@ -174,7 +176,7 @@
        오른쪽으로 끌면 펼쳐진다. 접는 것과 좁히는 것은 같은 손짓의 끝과 끝이므로
        손이 이미 여기 있고, 화면에 버튼을 따로 세울 이유가 없다.
        키로도 같은 일을 한다 (`sidebarToggle`, 기본 Ctrl+Shift+E). -->
-  <div id="sb-handle" title="Drag to resize — drag all the way in to collapse"></div>
+  <div id="sb-handle" class="ui-resize-handle" title="Drag to resize — drag all the way in to collapse"></div>
   <div id="content">
     <div id="topbar">
       <span id="window-name"></span>
@@ -245,7 +247,7 @@
       <a id="update-badge" class="sb-update" hidden target="_blank" rel="noopener noreferrer"></a>
     </div>
   </div>
-  <div id="agents-handle"></div>
+  <div id="agents-handle" class="ui-resize-handle"></div>
   <div id="agents-panel" class="ui-scroll"></div>
   <div id="mobile-keybar" class="mobile-only"></div>
 </div>

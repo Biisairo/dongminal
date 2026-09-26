@@ -53,7 +53,7 @@ class GitListTab {
       '<div class="'+p+'-head">'+this._headHTML()+
         '<span class="'+p+'-spacer"></span>'+
       '</div>'+
-      '<div class="'+p+'-note">'+
+      '<div class="ui-notice ui-notice-attn '+p+'-note">'+
         '<span class="'+p+'-note-msg"></span>'+
         '<button class="ui-btn ui-btn-sm '+p+'-note-close"></button>'+
       '</div>'+

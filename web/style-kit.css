@@ -510,3 +510,18 @@ body.mobile .ui-switch{
 .ui-scroll::-webkit-scrollbar-thumb:hover,.ui-scroll-sm::-webkit-scrollbar-thumb:hover,.ui-modal-body::-webkit-scrollbar-thumb:hover,.xterm-viewport::-webkit-scrollbar-thumb:hover{
   background:var(--text-muted);
 }
+
+/* ── 리사이즈 손잡이 (KIT_COMPONENTS_SRS 묶음 R · FR-CMP-86~88) ─────────────
+   끄는 선은 3px 인데 손은 그보다 크다 — 선 양옆으로 히트 영역을 `::before` 로
+   넓힌다. 착수 시 손잡이 다섯이 같은 선언을 일곱 번 각자 적었다.
+
+   기본 축은 **가로로 끄는 것**(좌우로 넓힌다)이다. 세로로 끄는 축은 부모의
+   속성(`#area[data-slotdir]`·`.sp[data-d]`)이 정하므로 킷이 알 수 없고, 그 자리가
+   `inset` 한 줄로 방향을 뒤집는다 (FR-CMP-87). 배율을 걸지 않는다 — 스크롤바와
+   같은 근거다 (FR-KIT-6). */
+:root{--ui-resize-hit:6px}
+.ui-resize-handle{position:relative}
+.ui-resize-handle::before{
+  content:'';position:absolute;top:0;bottom:0;
+  left:calc(var(--ui-resize-hit) * -1);right:calc(var(--ui-resize-hit) * -1);
+}

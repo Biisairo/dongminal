@@ -80,7 +80,7 @@ class GitBranches {
         '<span class="git-br-spacer"></span>'+
         '<button class="ui-btn ui-btn-sm git-br-new"></button>'+
       '</div>'+
-      '<div class="git-br-note">'+
+      '<div class="ui-notice ui-notice-attn git-br-note">'+
         '<span class="git-br-note-msg"></span>'+
         '<button class="ui-btn ui-btn-sm git-br-retry"></button>'+
       '</div>'+

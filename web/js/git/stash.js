@@ -62,7 +62,7 @@ class GitStash {
         '<input class="git-stash-filter" type="text">'+
         '<span class="git-stash-why"></span>'+
       '</div>'+
-      '<div class="git-stash-note">'+
+      '<div class="ui-notice ui-notice-attn git-stash-note">'+
         '<span class="git-stash-note-msg"></span>'+
         '<button class="ui-btn ui-btn-sm ui-btn-attn git-stash-note-close"></button>'+
       '</div>'+

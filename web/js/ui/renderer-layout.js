@@ -86,7 +86,7 @@ Object.assign(Renderer.prototype, {
         if(i<n-1){
           kids.push(this._keep('slot:'+i+'/handle',()=>{
             const h=document.createElement('div');
-            h.className='slot-handle';
+            h.className='slot-handle ui-resize-handle';
             h.dataset.slotHandle=String(i);
             app.slotHandleBind(h,i);            // FR-WSL-32 — 배선은 만들 때 한 번
             return h;
@@ -361,7 +361,7 @@ Object.assign(Renderer.prototype, {
       kids.push(side);
       if(!mob){
         const h=this._keep(key+'/exh',()=>{
-          const x=document.createElement('div'); x.className='ed-ex-handle';
+          const x=document.createElement('div'); x.className='ed-ex-handle ui-resize-handle';
           this._rEdHandle(x);                    // FR-PDR-7: 배선은 한 번
           return x;
         });

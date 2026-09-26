@@ -1,0 +1,70 @@
+/* Dongminal — 사이드바 탭 (GIT_SIDEBAR_TABS_SRS).
+ *
+ * style-git-views.css 뒤에 붙어 있던 것을 내용 그대로 옮겼다 (FR-OPT-13-1 · FEU-24).
+ * `<link>` 는 style-runs.css 바로 뒤다.
+ */
+
+/* --- track: sidebar-tabs (WS-6 · GIT_SIDEBAR_TABS_SRS) --- */
+
+/* FR-SBT-1·5 / NFR-EDT-3: 탭 바. 균등 분할하고 이름이 넘치면 말줄임한다.
+
+   **균등 분할(`flex:1 1 0`)을 지킨다** (V-SBT-16). 내용 기준(`flex:1 1 auto`)으로
+   바꿔 봤으나 폭 최소값 100px 에서 **셋 다** 잘렸다 — 짧은 이름(`Git`)까지 자기
+   몫을 빼앗긴다. 균등 분할은 짧은 이름을 지켜 준다.
+
+   대신 셋이 되면서 기본 폭의 3등분이 칸당 50px 이 되어 `Windows` 가 좌우 패딩에
+   밀려 `Wind…` 로 잘렸으므로(실측), **글자와 패딩을 그만큼 줄인다.** 값은 실측에서
+   나온 것이다 — 11px·좌우 4px 면 42px 이 남아 48px 짜리 이름이 잘리고,
+   10px·좌우 3px 면 44px 이 남아 44px 짜리 이름이 들어간다. */
+#sb-tabs{
+  display:flex;flex:0 0 auto;
+  border-bottom:1px solid var(--border);
+}
+.sb-tab{
+  flex:1 1 0;min-width:0;height:30px;
+  display:flex;align-items:center;justify-content:center;gap:4px;
+  background:transparent;border:none;border-bottom:2px solid transparent;
+  color:var(--text-muted);font-family:inherit;font-size:var(--fs-sm);font-weight:600;
+  cursor:pointer;padding:0 3px;transition:background var(--dur-fast),color var(--dur-fast);
+}
+.sb-tab-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sb-tab:hover{background:var(--accent-hover);color:var(--accent-text)}
+.sb-tab.active{color:var(--text-bright);border-bottom-color:var(--accent);background:var(--accent-active)}
+/* FR-LAY-2: `[hidden]` 이 한 자리에서 한다 (style.css). */
+
+/* FR-SBT-12·13: 배지는 **비활성 탭에서만** 보인다 — 활성 탭은 목록에 그 정보가
+   이미 있다. 색은 테마 변수에서 온다 (NFR-SBT-3). */
+.sb-tab-badge{
+  flex-shrink:0;min-width:14px;padding:0 4px;border-radius:7px;
+  font-size:var(--fs-xs);font-weight:700;line-height:14px;text-align:center;
+  background:var(--accent-subtle);color:var(--accent-text);
+}
+/* FR-LAY-2: 같은 근거. */
+.sb-tab[data-panel="windows"] .sb-tab-badge{background:var(--attn-subtle);color:var(--attn-text);
+  animation:attn-pulse-chip 2s ease-in-out infinite}
+
+/* FR-ATP-5: 움직임을 원하지 않는 사람에게는 개정 전의 정지 표식이 남는다 —
+   끄는 쪽이 기본 상태보다 어두워서는 안 되므로 정적 선언을 그대로 둔 채 맥박만 멎힌다. */
+@media (prefers-reduced-motion:reduce){
+  .pn.attn::after,.pn-tab.attn,.sbl-item.attn,.sbl-item.attn .sbl-dot,
+  .ag-card.attn,.ag-card.focused.attn,#attn-badge,
+  .sb-tab[data-panel="windows"] .sb-tab-badge{animation:none}
+}
+
+/* FR-SBT-2·3: 숨김은 display:none 이다. visibility/opacity 로 숨기면 숨은 패널이
+   자리를 차지해 "보이는 쪽이 전체 높이를 쓴다" 는 목적 자체가 무너진다. */
+/* 옛 `.sb-title` 이 만들던 탭 바와 본문 사이의 간격을 여기서 준다. */
+/* UX_REVISION_SRS FR-BLP-7: 사이드바 리스트의 공통 클래스. 값은 두지 않는다 —
+   생김새는 목록마다의 고유 클래스(`.si`·`.git-repo`)가 여전히 정하고, 여기는
+   **두 목록이 공유하는 것을 쓸 자리**다. 지금 공유하는 것은 드래그 표식 하나다. */
+.sbl-item.dragging{opacity:.35}
+.sb-panel{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;padding-top:8px}
+/* FR-LAY-2: 같은 근거. */
+
+/* FR-SBT-16·17: 모바일 드로어에서 탭 바는 상단에 고정되고 패널만 스크롤한다.
+   터치 타깃은 최소 44px (데스크톱 30px 은 `.si`·버튼과 맞춘 값이다). */
+/* 드로어 닫기 `✕` 는 사이드바 우상단에 절대 배치된다 (app-mobile.js) — 자리를
+   비워 두지 않으면 마지막 탭 위에 겹친다. */
+body.mobile #sb-tabs{position:sticky;top:0;z-index:var(--z-sticky);background:var(--sidebar-bg);padding-right:36px}
+body.mobile .sb-tab{height:var(--touch-min);font-size:var(--fs-md)}
+body.mobile .sb-tab-badge{min-width:18px;padding:0 6px;font-size:var(--fs-sm);line-height:18px;border-radius:9px}

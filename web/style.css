@@ -396,9 +396,9 @@ textarea,
 #add-preset{color:var(--text-hint);opacity:.7}
 #add-preset:hover{opacity:1}
 
-#sb-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border-strong);position:relative}
+/* 히트 영역은 킷 `.ui-resize-handle` 이 넓힌다 (FR-CMP-86). */
+#sb-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border-strong)}
 #sb-handle:hover{background:var(--accent)}
-#sb-handle::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
 
 /* ── 접힌 사이드바 = 아이콘 레일 (SIDEBAR_COLLAPSE_SRS 묶음 SBC) ──
 
@@ -522,7 +522,7 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
   position:relative;
   width:var(--slot-marker-size);height:var(--slot-marker-size);padding:0;
 }
-/* 사각형은 작고 과녁은 크다. `.slot-handle::before` 가 쓰는 것과 같은 수다. */
+/* 사각형은 작고 과녁은 크다. 손잡이의 히트 영역(`.ui-resize-handle::before`)과 같은 수법이다. */
 .slot-marker-cell::before{
   content:'';position:absolute;
   left:calc(var(--slot-marker-hit) * -1);right:calc(var(--slot-marker-hit) * -1);
@@ -614,12 +614,12 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
    끄는 축만 방향을 따른다 — 창 안 분할의 `.sh` 가 이미 그렇게 갈라져 있다. */
 /* FR-STB-20·24: 슬롯 계층은 분할 손잡이(`.sh`, 3px·`--border`)와 **다른 색과
    굵기**로 선다. 같은 색에 굵기만 1px 다르던 동안 두 계층은 구분되지 않았다. */
-.slot-handle{position:relative;flex:0 0 8px;background:var(--slot-edge);z-index:var(--z-raised)}
+.slot-handle{flex:0 0 8px;background:var(--slot-edge);z-index:var(--z-raised)}
 .slot-handle:hover{background:var(--accent)}
 #area[data-slotdir="horizontal"] .slot-handle{cursor:col-resize}
 #area[data-slotdir="vertical"] .slot-handle{cursor:row-resize}
-#area[data-slotdir="horizontal"] .slot-handle::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
-#area[data-slotdir="vertical"] .slot-handle::before{content:'';position:absolute;left:0;right:0;top:-6px;bottom:-6px}
+/* 히트 영역은 킷이 넓힌다 — 세로로 끄는 축만 방향을 뒤집는다 (FR-CMP-87). */
+#area[data-slotdir="vertical"] .slot-handle::before{inset:calc(var(--ui-resize-hit) * -1) 0}
 /* FR-WSL-50: 상단바의 `− Slot +`. 두 버튼이 한 덩어리로 읽혀야 창 안 분할과
    섞이지 않는다 (§7 R-3). **FR-CHR-10 (D-6) 이 이 자리를 확정했다** — 칸 `±` 는
    창 **밖**을 쪼개므로 전역이고, 그래서 탭줄이 아니라 상단바에 산다. */
@@ -637,12 +637,12 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
    이것을 `--border-strong` 으로 올렸다가 되돌렸다 — 슬롯 손잡이(`--slot-edge`)와의
    거리가 54종에서 평균 116·최소 73 에서 평균 57·최소 11 로 무너지고 41종이 옛
    최소값 아래로 내려간다(실측). 두 계층을 가르는 것이 FR-STB-20 의 목적이다. */
-.sh{flex-shrink:0;background:var(--border);transition:background var(--dur-base);position:relative;z-index:var(--z-raised)}
+.sh{flex-shrink:0;background:var(--border);transition:background var(--dur-base);z-index:var(--z-raised)}
 .sh:hover{background:var(--accent)}
 .sp[data-d="horizontal"]>.sh{width:3px;cursor:col-resize}
 .sp[data-d="vertical"]>.sh{height:3px;cursor:row-resize}
-.sp[data-d="horizontal"]>.sh::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
-.sp[data-d="vertical"]>.sh::before{content:'';position:absolute;left:0;right:0;top:-6px;bottom:-6px}
+/* 히트 영역은 킷이 넓힌다 — 세로로 끄는 축만 방향을 뒤집는다 (FR-CMP-87). */
+.sp[data-d="vertical"]>.sh::before{inset:calc(var(--ui-resize-hit) * -1) 0}
 
 /* ── Pane (분할 칸) ── */
 /* UIUX_OVERHAUL_SRS FR-HIE-2: 포커스는 **한 변**으로 말한다.
@@ -789,10 +789,9 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   animation:attn-pulse-dot 2s ease-in-out infinite}
 
 /* 에이전트 활동 모아보기 패널 (AGENT_ACTIVITY_PANEL_SRS) — 좌측 사이드바와 대칭 */
-#agents-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border-strong);position:relative;display:none}
+#agents-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border-strong);display:none}
 #agents-handle:hover{background:var(--accent)}
 #agents-handle.open{display:block}
-#agents-handle::before{content:'';position:absolute;top:0;bottom:0;left:-6px;right:-6px}
 #agents-panel{width:var(--ag-w,260px);min-width:var(--ag-w,260px);background:var(--sidebar-bg);border-left:1px solid var(--border-strong);display:none;flex-direction:column;overflow-y:auto}
 #agents-panel.open{display:flex}
 .ag-head{display:flex;align-items:center;gap:6px;padding:8px 10px;font-size:var(--fs-sm);font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border)}
@@ -1027,8 +1026,6 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .ce-item input[type=color]{width:22px;height:22px;border:1px solid var(--border);border-radius:3px;padding:1px;cursor:pointer;background:transparent}
 
 /* ── Shortcuts ── */
-/* FR-UIK-13: 스크롤은 `.modal-body` 하나다 (종전 `max-height:60vh` 를 걷었다). */
-.sc-list{}
 .sc-group-title{font-size:var(--fs-sm);font-weight:600;color:var(--accent-text);margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--border)}
 .sc-group-title:first-child{margin-top:0}
 .sc-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-weak)}
@@ -1211,9 +1208,6 @@ body.mobile .status-bar.sb-folded::after{content:'⌃'}
 body.mobile .status-bar.sb-expanded::after{content:'⌄'}
 
 /* ── Status Bar Settings ── */
-/* FR-UIK-13: 스크롤은 `.modal-body` 하나다 (종전 `max-height:60vh` 를 걷었다) —
-   `.sc-list` 가 이미 같은 이유로 비어 있다. */
-.sb-settings{}
 .sbs-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:6px 0;border-bottom:1px solid var(--border-weak)}
 .sbs-row span{color:var(--text);font-size:var(--fs-md)}
 .sbs-row>span{flex:1 1 auto;min-width:0;line-height:1.5;overflow-wrap:anywhere}

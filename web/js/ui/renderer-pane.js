@@ -381,7 +381,7 @@ Object.assign(Renderer.prototype, {
       kids.push(sc);
       if(i<n.children.length-1){
         kids.push(this._keep(key+'/sh'+i,()=>{
-          const h=document.createElement('div'); h.className='sh';
+          const h=document.createElement('div'); h.className='sh ui-resize-handle';
           this._handle(h,el);                    // FR-PDR-7: 배선은 만들 때 한 번
           return h;
         }));
