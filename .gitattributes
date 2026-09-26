@@ -1,0 +1,3 @@
+# 골든 파일은 바이트로 대조한다. Windows 체크아웃의 core.autocrlf 가 CRLF 로
+# 바꾸면 눈으로는 같은 줄이 전부 어긋난다 (runtimebin 골든 테스트).
+*.golden -text
