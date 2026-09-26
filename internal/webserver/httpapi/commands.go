@@ -206,7 +206,7 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "invalid json: "+err.Error(), http.StatusBadRequest, apierr.CodeInvalidJSON)
 		return
 	}
-	if !hub.AllowedCmdActions[req.Action] {
+	if !hub.IsAllowedCmdAction(req.Action) {
 		httpErr(w, "unknown action: "+req.Action, http.StatusBadRequest, apierr.CodeUnknownAction)
 		return
 	}

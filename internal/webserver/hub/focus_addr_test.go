@@ -72,10 +72,10 @@ func TestExecutorAddr_DetachClearsAddr(t *testing.T) {
 }
 
 // V2: openUrl 은 화이트리스트에 있고 한 클라이언트만 실행한다. 엔티티를 만들지
-// 않으므로 reqId 에코(creatingActions)에는 들지 않는다 (FR-VUO-16).
+// 않으므로 reqId 에코(cmdActions 의 creating)에는 들지 않는다 (FR-VUO-16).
 func TestOpenUrlAction_Registration(t *testing.T) {
-	if !AllowedCmdActions["openUrl"] {
-		t.Error("openUrl 이 AllowedCmdActions 에 없다 — POST /api/commands 가 400 으로 거절한다")
+	if !IsAllowedCmdAction("openUrl") {
+		t.Error("openUrl 이 허용 표에 없다 — POST /api/commands 가 400 으로 거절한다")
 	}
 	if !IsSingleExecutorAction("openUrl") {
 		t.Error("openUrl 이 단일 실행자 액션이 아니다 — 붙어 있는 모든 기기에서 창이 열린다")

@@ -4,6 +4,7 @@ import (
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/toolhub"
+	"sort"
 	"sync"
 	"time"
 
@@ -93,38 +94,34 @@ func NewCommandHub() *CommandHub {
 	}
 }
 
-// creatingActions are the commands that produce new entities and thus support
-// result correlation. Others broadcast immediately with no await.
-var creatingActions = map[string]bool{
-	"newWindow": true,
-	"newTab":    true,
-	"splitH":    true,
-	"splitV":    true,
-}
-
-// IsCreatingAction reports whether action creates new entities (FR-RCR-1).
-func IsCreatingAction(action string) bool { return creatingActions[action] }
-
-// singleExecutorActions are the commands that add an entity to the workspace
-// tree and therefore must run on exactly ONE client
-// (WORKSPACE_IDENTITY_SRS FR-SXE-1). It is wider than creatingActions:
-// openEditorTab and restoreTool allocate a tab id without taking part in the
-// reqId echo protocol.
+// cmdSpec 은 action 하나의 판정이다. 표에 있으면 허용이다.
 //
-// M11_SRS FR-M11-10 이 이 목록을 넓혔다. 종전 문장은 *"Everything else stays
+//   - creating: 새 엔티티를 만들어 결과 상관(reqId 에코)을 쓴다 (FR-RCR-1). 나머지는
+//     기다리지 않고 곧바로 방송한다.
+//   - single: 정확히 **한** 클라이언트만 수행한다 (WORKSPACE_IDENTITY_SRS FR-SXE-1).
+//     creating 보다 넓다 — openEditorTab·restoreTool 은 탭 id 를 할당하지만 reqId
+//     에코에는 들지 않는다. creating ⇒ single 이다 (검사가 고정한다).
+//
+// 세 판정을 한 표에서 파생하는 이유 (FR-OPT-9-5): 표가 셋이던 때는 새 action 을
+// 허용 표에만 넣으면 게이팅 없이 모든 브라우저에서 돌았다 (FR-SXE 결함 부류).
+type cmdSpec struct{ creating, single bool }
+
+// cmdActions 는 POST /api/commands 가 받는 action 전부다.
+//
+// M11_SRS FR-M11-10 이 single 을 넓혔다. 종전 문장은 *"Everything else stays
 // ungated — focus is per-client by definition, and the remaining mutations are
 // idempotent across clients"* 였고, **뒷부분이 틀렸다**: 트리는 수렴하지만 시선은
 // 수렴하지 않는다. 지금 게이팅 밖에 남는 것은 `renameTab`·`renameWindow` 뿐이다.
-var singleExecutorActions = map[string]bool{
-	"newWindow":     true,
-	"newTab":        true,
-	"splitH":        true,
-	"splitV":        true,
-	"openEditorTab": true,
-	"restoreTool":   true,
+var cmdActions = map[string]cmdSpec{
+	"newWindow":     {creating: true, single: true},
+	"newTab":        {creating: true, single: true},
+	"splitH":        {creating: true, single: true},
+	"splitV":        {creating: true, single: true},
+	"openEditorTab": {single: true},
+	"restoreTool":   {single: true},
 	// VIEWER_URL_OPEN_SRS FR-VUO-16: 엔티티를 만들지는 않지만 **한 곳에서만**
 	// 열려야 한다. 게이팅하지 않으면 붙어 있는 기기마다 같은 URL 이 열린다.
-	"openUrl": true,
+	"openUrl": {single: true},
 
 	// M11_SRS FR-M11-10 (M11-B9): **시선을 옮기는 명령도 한 곳에서만 돈다.**
 	//
@@ -136,25 +133,46 @@ var singleExecutorActions = map[string]bool{
 	// 지우는 셋(`closeTab`·`closeWindow`·`detachTab`)이 여기 드는 이유는 **시선
 	// 부작용** 때문이다. 나머지는 `workspace_changed` 로 트리만 따라가며, 그 경로는
 	// 이미 로컬 `activeWindow` 를 보존한다 (`app-cmd.js`).
-	//
-	// `renameTab`·`renameWindow` 는 **들지 않는다** — 순수 데이터이고 시선을
+	"focus":       {single: true},
+	"closeTab":    {single: true},
+	"closeWindow": {single: true},
+	"detachTab":   {single: true},
+	"windowNext":  {single: true},
+	"windowPrev":  {single: true},
+	"tabNext":     {single: true},
+	"tabPrev":     {single: true},
+	"paneUp":      {single: true},
+	"paneDown":    {single: true},
+	"paneLeft":    {single: true},
+	"paneRight":   {single: true},
+
+	// `renameTab`·`renameWindow` 는 **지명하지 않는다** — 순수 데이터이고 시선을
 	// 건드리지 않는다. 좁히면 지명된 클라이언트가 없을 때 이름이 영영 안 바뀐다.
-	"focus":       true,
-	"closeTab":    true,
-	"closeWindow": true,
-	"detachTab":   true,
-	"windowNext":  true,
-	"windowPrev":  true,
-	"tabNext":     true,
-	"tabPrev":     true,
-	"paneUp":      true,
-	"paneDown":    true,
-	"paneLeft":    true,
-	"paneRight":   true,
+	"renameTab":    {},
+	"renameWindow": {},
 }
 
+// IsAllowedCmdAction reports whether action is accepted by POST /api/commands.
+func IsAllowedCmdAction(action string) bool {
+	_, ok := cmdActions[action]
+	return ok
+}
+
+// AllowedCmdActionNames 는 허용된 action 이름의 정렬된 사본이다.
+func AllowedCmdActionNames() []string {
+	out := make([]string, 0, len(cmdActions))
+	for a := range cmdActions {
+		out = append(out, a)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// IsCreatingAction reports whether action creates new entities (FR-RCR-1).
+func IsCreatingAction(action string) bool { return cmdActions[action].creating }
+
 // IsSingleExecutorAction reports whether action must run on one client only.
-func IsSingleExecutorAction(action string) bool { return singleExecutorActions[action] }
+func IsSingleExecutorAction(action string) bool { return cmdActions[action].single }
 
 const defaultCommandResultTimeout = 3 * time.Second
 
@@ -322,29 +340,5 @@ func (h *CommandHub) BroadcastDiagnostics(key string, payload []byte, clear bool
 	}
 }
 
-var AllowedCmdActions = map[string]bool{
-	"newWindow":     true,
-	"newTab":        true,
-	"splitH":        true,
-	"splitV":        true,
-	"focus":         true,
-	"closeTab":      true,
-	"closeWindow":   true,
-	"windowNext":    true,
-	"windowPrev":    true,
-	"tabNext":       true,
-	"tabPrev":       true,
-	"paneUp":        true,
-	"paneDown":      true,
-	"paneLeft":      true,
-	"paneRight":     true,
-	"openEditorTab": true,
-	"renameTab":     true,
-	"renameWindow":  true,
-	"detachTab":     true,
-	"restoreTool":   true,
-	"openUrl":       true,
-}
-
 // AllowedAction reports whether the action is accepted by the hub.
-func (h *CommandHub) AllowedAction(a string) bool { return AllowedCmdActions[a] }
+func (h *CommandHub) AllowedAction(a string) bool { return IsAllowedCmdAction(a) }

@@ -35,7 +35,7 @@ const (
 // attachSettleTimeout 은 부착·분리를 브라우저가 반영하기를 기다리는 상한이다.
 //
 // restoreTool·detachTab 은 생성 명령이 아니라서 reqId echo 규약에 참여하지 않는다
-// (hub/commands.go `creatingActions`). 그래서 새 탭의 uuid 를 동기적으로 받을 길이
+// (hub/commands.go `cmdActions` 의 `creating`). 그래서 새 탭의 uuid 를 동기적으로 받을 길이
 // 없고, 워크스페이스 색인이 갱신되기를 관측하는 수밖에 없다.
 const attachSettleTimeout = 3 * time.Second
 

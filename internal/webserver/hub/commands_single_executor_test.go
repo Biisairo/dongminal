@@ -25,7 +25,7 @@ var entityCreating = []string{
 
 func TestSingleExecutor_CoversViewMovingActions(t *testing.T) {
 	for _, a := range viewMoving {
-		if !AllowedCmdActions[a] {
+		if !IsAllowedCmdAction(a) {
 			t.Fatalf("%q 가 허용 목록에 없다 — 표가 어긋났다", a)
 		}
 		if !IsSingleExecutorAction(a) {
@@ -64,7 +64,7 @@ func TestSingleExecutor_EveryAllowedActionIsClassified(t *testing.T) {
 	}
 	known["renameTab"], known["renameWindow"] = true, true
 
-	for a := range AllowedCmdActions {
+	for _, a := range AllowedCmdActionNames() {
 		if !known[a] {
 			t.Errorf("%q 가 어느 갈래에도 없다 — 지명할지 정하지 않은 명령이다", a)
 		}

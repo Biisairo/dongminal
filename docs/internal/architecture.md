@@ -315,7 +315,7 @@ Editor 탭:    [일반 행들 …] ── 구분선 ── [root 행 `~`]   ← 
 `[home, ...editors.list]` 이고, 재조정은 **멱등**이며 같은 루트의 창이 둘이면 id
 사전순으로 하나만 남긴다. 창을 만드는 주체가 브라우저인데 목록 변경은 SSE 로 모든
 브라우저에 도달하므로, 결정론적 중복 제거가 단일 실행자 지명
-(`singleExecutorActions`)의 자리를 대신한다.
+(`cmdActions` 의 `single`)의 자리를 대신한다.
 
 **`layout` 이 없는 Editor 창은 살아남는다.** 로드·SSE 동기화의 창 필터가
 `s.layout || s.type === 'editor'` 다 (`app.js`·`app-cmd.js`). 갓 만든 Editor 창은
@@ -884,9 +884,9 @@ fingerprint·수동 `sleep` 루프·삭제된 자산 참조·손으로 조립한
 
 ## 커맨드 브로드캐스트 (`internal/webserver/hub/commands.go`)
 
-`CommandHub` 는 SSE 구독자 집합과 구독당 채널(`cmdSubQueue` — 한 번의 가장 큰 버스트인 `ClearAllAttention` 을 담도록 `toolhub.ToolCap`)을 관리. `POST /api/commands` 로 들어온 action 을 `hub.AllowedCmdActions` 화이트리스트로 검증 후 구독자 전원에게 브로드캐스트. 버퍼가 꽉 차면 그 구독을 닫고 로그를 남긴다 — 클라이언트가 재연결해 다시 받는다. SSE 핸들러는 `internal/webserver/sse` 의 작성기로 쌓인 메시지를 한 번에 쓰고 한 번 flush 한다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-1).
+`CommandHub` 는 SSE 구독자 집합과 구독당 채널(`cmdSubQueue` — 한 번의 가장 큰 버스트인 `ClearAllAttention` 을 담도록 `toolhub.ToolCap`)을 관리. `POST /api/commands` 로 들어온 action 을 `hub.IsAllowedCmdAction`(표 `cmdActions`) 화이트리스트로 검증 후 구독자 전원에게 브로드캐스트. 버퍼가 꽉 차면 그 구독을 닫고 로그를 남긴다 — 클라이언트가 재연결해 다시 받는다. SSE 핸들러는 `internal/webserver/sse` 의 작성기로 쌓인 메시지를 한 번에 쓰고 한 번 flush 한다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-1).
 
-**허용 목록은 `hub.AllowedCmdActions` 가 갖는다** — 여기 베끼지 않는다.
+**허용 목록은 `hub.cmdActions` 가 갖는다** (허용·생성·단일실행자를 한 표에서 파생) — 여기 베끼지 않는다.
 
 > 이전: 이 자리에 스무 개를 열거하고 *"20개를 허용한다"* 라고 적었다.
 > 새: 심볼을 가리킨다.
@@ -897,7 +897,7 @@ fingerprint·수동 `sleep` 루프·삭제된 자산 참조·손으로 조립한
 > 다시 심는 일이다 (`DOC_SYNC_SRS` D-DSY-6). 한 줄 위의 검증 자리
 > (`httpapi/commands.go`)와 아래의 대조 검사가 그 목록의 진실을 지킨다.
 
-그중 **엔터티를 만드는 것**(`newWindow`·`newTab`·`splitH`·`splitV`·`openEditorTab`·`restoreTool` — 목록은 `singleExecutorActions` 가 갖는다)은 `singleExecutorActions` 로, 서버가 `FocusRegistry.Executor()` 로 실행자 하나를 지명해 페이로드에 `execClientId` 를 싣는다. 지명되지 않은 브라우저는 그 명령을 건너뛴다. 게이팅이 없으면 구독 중인 브라우저 수만큼 PTY 가 생기고 하나만 참조돼 나머지가 고아가 된다 (WORKSPACE_IDENTITY_SRS FR-SXE-\*).
+그중 **엔터티를 만드는 것**(`newWindow`·`newTab`·`splitH`·`splitV`·`openEditorTab`·`restoreTool` — 목록은 `cmdActions` 의 `single` 이 갖는다)은 단일 실행자 명령으로, 서버가 `FocusRegistry.Executor()` 로 실행자 하나를 지명해 페이로드에 `execClientId` 를 싣는다. 지명되지 않은 브라우저는 그 명령을 건너뛴다. 게이팅이 없으면 구독 중인 브라우저 수만큼 PTY 가 생기고 하나만 참조돼 나머지가 고아가 된다 (WORKSPACE_IDENTITY_SRS FR-SXE-\*).
 
 엔터티 id(Window·Pane·Tab)는 브라우저가 `crypto.randomUUID()` 로 만든다. 마이그레이션된 구 id(`s1`/`r1`/`t1`)도 그대로 유효하며 id 는 전 계층에서 opaque 문자열이다 (FR-WID-1/2).
 
