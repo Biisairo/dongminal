@@ -3,6 +3,8 @@ package platform
 import (
 	"path/filepath"
 	"strings"
+
+	"dongminal/internal/shared/dmenv"
 )
 
 // ShellSpec 은 도구 하나를 띄울 셸의 명세다 (FR-XSH-1).
@@ -268,7 +270,7 @@ func dotSource(path string) string {
 
 func (s windowsShell) pick() string {
 	// 사용자가 정한 셸이 있으면 그것이 우선이다.
-	if v := s.env("DONGMINAL_SHELL"); v != "" {
+	if v := s.env(dmenv.EnvShell); v != "" {
 		return v
 	}
 	for _, c := range winShellCandidates {

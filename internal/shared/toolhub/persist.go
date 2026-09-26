@@ -12,8 +12,10 @@ import (
 
 // ToolManager 의 영속화 — tools.json.
 //
-// 탭이 참조하는 도구만 기록된다. 백그라운드 도구가 기록되지 않아 데몬 재시작을
-// 넘기지 않는 것이 여기서 정해진다 (architecture.md).
+// 기록은 **소유자 없는 백그라운드 도구와 샌드박스 도구를 뺀 전부**다(SaveAll).
+// 탭이 참조하는 것만 되살리는 필터는 적재 때 걸린다(LoadAll, FR-EM-14).
+// 백그라운드 도구가 기록되지 않아 데몬 재시작을 넘기지 않는 것이 여기서 정해진다
+// (architecture.md).
 
 type ToolState struct {
 	ID   string `json:"id"`
@@ -105,13 +107,13 @@ func (m *ToolManager) SaveAll() {
 	}
 }
 
-// LoadAll reads tools.json and respawns the shells that referenced still
-// points at. Unreferenced entries are discarded (FR-EM-14).
 // restoreFn 은 도구 하나를 되살리는 일이다. 이음매인 이유(`TEST-2`): 실물은
 // **진짜 PTY 를 띄운다** — 이 경로가 묻는 것은 셸이 뜨는가가 아니라 **무엇을
 // 되살릴지 고르는 규칙**이고, 그 규칙을 재려면 띄우지 않고도 관측할 수 있어야 한다.
 type restoreFn func(id, name, cwd string, cols, rows uint16) error
 
+// LoadAll reads tools.json and respawns the shells that referenced still
+// points at. Unreferenced entries are discarded (FR-EM-14).
 func (m *ToolManager) LoadAll(referenced map[string]struct{}) {
 	m.LoadAllWith(referenced, m.Restore)
 }

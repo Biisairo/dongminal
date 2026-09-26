@@ -30,7 +30,7 @@ Browser (xterm.js)                    ┌─ ② dongminald ──────�
 - 프론트엔드는 `go:embed` 로 바이너리에 포함.
 - 런타임 헬퍼(`dmctl`, `edit`, `download`, `detach`)는 multi-call CLI — `$DONGMINAL_HOME/bin/` 에 바이너리를 가리키는 symlink 로 설치된다. zsh/bash cwd 훅은 `go:embed` 로 풀린다. 각 터미널의 shell 은 자동으로 이 경로를 `PATH` 에 얹고 `ZDOTDIR`(zsh)·`--rcfile`(bash) 로 훅 연결.
 - PTY 프로세스는 브라우저 새로고침해도 유지 (서버 메모리 버퍼).
-- 워크스페이스(창/분할 칸/탭) 는 `workspace.json` 에 비동기 영속화 (H5 latest-wins coalescing). 탭이 참조하는 도구는 `tools.json` 에 기록되고, 백그라운드 도구는 기록되지 않아 데몬 재시작을 넘기지 않는다.
+- 워크스페이스(창/분할 칸/탭) 는 `workspace.json` 에 비동기 영속화 (H5 latest-wins coalescing). 도구는 `tools.json` 에 기록되고(소유자 없는 백그라운드 도구·샌드박스 도구 제외), 되살릴 때 탭이 참조하는 것만 고른다(FR-EM-14). 백그라운드 도구는 기록되지 않아 데몬 재시작을 넘기지 않는다.
 - 에이전트 접합면: 액션은 `dmctl` 서브커맨드, 정책은 `--plugin-dir`/`--settings` 로 세션 스코프 주입되는 스킬·훅. 등록 절차 없음. 자세히는 [docs/external/agent-orchestration.md](docs/external/agent-orchestration.md).
 - 주의 알림: 서버가 도구 출력을 관찰(OSC 9/99/777·idle)하거나 `dmctl notify`(claude/codex 투명 래퍼가 자동 주입한 hook 이 호출)로 주의 상태를 잡아 SSE(`tool_attention`) 로 브라우저에 전달. 자세히는 [docs/internal/archive/PANE_ATTENTION_NOTIFY_SRS.md](docs/internal/archive/PANE_ATTENTION_NOTIFY_SRS.md).
 - 에이전트 활동: attention 과 직교하는 "현재 작업 상태(activity)" 레이어. 에이전트 hook 이 `dmctl activity` 로 보고(stdin hook JSON 파싱) → `POST /api/tools/activity/set` → SSE(`tool_activity`) 발행. 도구당 최신 1개 상태만 보관(히스토리 없음). 자세히는 [docs/internal/archive/AGENT_ACTIVITY_PANEL_SRS.md](docs/internal/archive/AGENT_ACTIVITY_PANEL_SRS.md).
@@ -55,13 +55,13 @@ internal/
     toolline/            #   dmctl 공용 한 줄 렌더러 (byte-level 동일 출력 보장)
   daemon/                # ② dongminald 프로세스 — PTY 를 소유한다
     boot/                #   데몬 진입점 (Run). 웹 서버를 재시작해도 세션이 살아남는 이유
-    ipc/                 #   PanedServer — Unix socket accept 루프 (연결 하나를 직렬 처리)
+    ipc/                 #   PanedServer — Unix socket accept 루프 (연결 하나의 요청은 차례로, create·restore 만 읽기 루프 밖 — FR-OPT-2-3)
   webserver/             # ③ 웹 서버 프로세스
     httpapi/             #   HTTP/WS/SSE 라우팅 + settingsStore + 잔여 핸들러 (Server)
     httproute/           #   라우팅표 한 벌 — httpapi·gitapi 가 타입 매개변수로 공유
     httpreq/             #   요청 본문을 읽는 한 자리 (표면별 크기 상한)
     httpresp/            #   성공 JSON 응답을 쓰는 한 자리 (오류 방언 렌더러는 각자 둔다)
-    gitapi/              #   /api/git/* 핸들러 74개 (GitServer). 라우트 테이블을 스스로 소유
+    gitapi/              #   /api/git/* 핸들러 (GitServer). 라우트 테이블(routes.go)을 스스로 소유 — 수는 그 표가 답한다
                          #     gitwrite.go — 쓰기 한 번의 순서를 타입이 강제한다
     apierr/              #   sentinel → (status, code) 등록부 + 와이어 코드 단일 소유
     hub/                 #   CommandHub·SSE 브로커 · FocusRegistry · AttnTracker
@@ -97,8 +97,8 @@ internal/
                          #     conn(SafeConn) · tool(PTY 하나의 수명) · manager(레지스트리)
                          #     persist(tools.json) · manager_hub(ToolHub 구현) — 타입이 곧 파일
                          #     tool_{attention,clients,control,cwd,env,exitinfo} — Tool 의 관심사별 (M8 D-A-10)
-    toolipc/             #   ②③  — paned 와이어 포맷만 (25줄)
-    outbuf/              #   ②③  — PTY 출력 바운디드 버퍼 (Stream)
+    toolipc/             #   ②③  — paned 와이어 포맷만: wire.go(봉투·ProtocolVersion) · protocol.go(메서드·이벤트 이름, typed 인자·결과, hello.features) · files.go(데몬 지문 이름)
+    outbuf/              #   ②③  — PTY 출력 바운디드 링 (Stream — 좌표는 누적 입력 바이트, FR-OPT-3-3)
     runtime/             #   ②③  — helper symlink 설치 + 셸 훅 embed + agent-hooks 생성
       shellhooks/        #     bash-hook.sh, zdotdir/.zshrc (실제 파일)
       agentplugin/       #     세션 스코프 주입 플러그인 (skills/team, skills/workflow)
@@ -126,14 +126,15 @@ internal/
     testpath/            #   테스트 전용 — OS 마다 다른 경로 전제를 분기 없이 다룬다 (+ 셸 고정 PinShell, M8 D-A-21)
     gittest/             #   테스트 전용 — git 저장소 픽스처 한 벌 (M8 D-A-20). 제품 코드는 import 하지 않는다
 web/                     # 프론트엔드 자산 + embed.FS()
-  style{,-git,-git-views,-editor}.css   # 넷의 <link> 순서 = 원본 선언 순서 (캐스케이드)
-  js/core/               #   App 클래스 (app.js + 주제별 app-*.js 17) + helpers·main
-                         #     constants{,-git,-editor}.js — 주제별 상수 (로드 순서가 그 순서)
+  style*.css             # <link> 순서 = 캐스케이드 순서. 목록: grep 'rel="stylesheet"' web/index.html
+  js/core/               #   App 클래스 (app.js + 주제별 app-*.js — 수: ls web/js/core/app-*.js | wc -l) + helpers·main
+                         #     constants*.js — 주제별 상수 (로드 순서 = index.html 의 순서. 목록: ls web/js/core/constants*.js)
   js/ui/                 #   themes·renderer·term-pane·clipboard·file-editor 등
                          #     file-tree{,-store,-paint,-edit,-xfer}.js — 탐색기 5파일
   js/git/                #   git 패널. api.js — gitFetch/gitPost (stale·echo 가드 소유)
                          #     observer(관측 하나) · panel(칸마다 하나) · diff-view(Monaco)
                          #     panel-{life,changes,views,write,files,diff,poll}.js — 주제별 증강
+                         #     status-hub.js — GitStatusHub: root 별 status 한 벌 (탐색기·dirty-diff 공유, FR-OPT-4-1)
 e2e/                     # Playwright 스펙 + git 픽스처(git_fixture.sh)
 scripts/                 # build.sh — 빌드 · verify-isolated.sh — `dongminal verify` 껍데기 · check-*.sh — 게이트
   gen-decisions/         #   `docs/internal/decisions.md` 생성기 (ctl/decidx)
@@ -164,7 +165,10 @@ docs/
 `handlers_files.go` 가 경로를 사용자 입력에서 받는 유일한 면이고(`safeResolve`·
 `uniquePath` 가 여기 있다), `handlers_attention.go` 는 같은 `AttnTracker` 상태를 읽는
 종단 8개, `handlers_settings.go` 는 서버가 해석하지 않는 JSON blob 이다.
-`handlers_api.go` 에는 라우트 테이블과 디스패처가 남는다.
+`handlers_api.go` 에는 라우트 테이블(`apiRoutes`)과 디스패처(`handleAPI`), 그리고 아직
+제 파일로 나가지 않은 종단 — `/api/state`·도구 생성·busy(단건·일괄)·삭제·workspace
+GET/PUT·ping·stats·sandbox 다섯 — 과 `reapSandboxes` 가 있다. SSE 열림 복원은
+`handlers_snapshot.go`(`GET /api/snapshot`, FR-OPT-4-5)다.
 
 **프론트엔드는 번들러가 없다.** `index.html` 이 `<script>` 로 원본을 순서대로 로드하므로
 **로드 순서가 곧 의존성**이다. `app-*.js` 는 `Object.assign(App.prototype, …)` 로 클래스를
@@ -178,7 +182,7 @@ docs/
 빌려 오기 때문이다). `static` 은 prototype 이 아니라 클래스 자체에 얹는다
 (`GitPanel.headHTML`, `FileTree._asUploadItems` 등 5개).
 
-**CSS 도 같은 문제를 다르게 푼다.** `style.css` 는 넷으로 갈렸고 `<link>` 순서가
+**CSS 도 같은 문제를 다르게 푼다.** `style.css` 는 여럿으로 갈렸고 `<link>` 순서가
 원본의 선언 순서다 — 캐스케이드는 순서가 곧 의미라서, 파일을 옮기는 것과 순서를
 바꾸는 것을 구별해야 한다. 그래서 Monaco 규칙은 `style-editor.css` 가 아니라
 `style.css` 에 남아 있다.
@@ -356,7 +360,7 @@ Editor 탭:    [일반 행들 …] ── 구분선 ── [root 행 `~`]   ← 
 `safeResolve` 를 **재사용하지 않는다** — 그쪽은 `..` 접두 문자열로 판정해 `..b`·`...`
 같은 정상 이름을 이탈로 오인한다.
 
-도구 타입은 `terminal` 과 `editor` 두 가지다 (`web/js/core/helpers.js` 의 capability 맵). `editor` 는 `backgroundCapable=false` 이므로 detach 대상이 아니다 (FR-BG-11).
+도구의 capability 맵(`web/js/core/helpers.js` 의 `TOOL_CAPABILITIES`)은 `terminal`·`editor`·`git` 셋을 싣고, 탭 타입은 여기에 `run` 을 더해 넷이다. `backgroundCapable` 은 `terminal` 만 참이므로 나머지는 detach 대상이 아니다 (FR-BG-11).
 
 과거의 code-server 통합(`internal/server/codeserver.go`, `/cs/<id>/` 리버스 프록시, `CodeServerManager`)은 `8dc0a3f` 에서 이 내장 편집기로 대체되며 제거됐다.
 
@@ -379,7 +383,9 @@ Editor 창에는 여전히 편집기 탭만 산다.
 
 탐색기도 같은 모양으로 갈렸다. `FileTreeStore`(`file-tree.js`) 가 **루트마다 하나**로
 디렉터리 캐시·git 색·무시된 이름을 들고, `FileTree` 는 **칸마다 하나**로 펼침·선택·
-스크롤을 갖는다. 칸이 넷이어도 `/api/fs/list`·`/api/git/status` 는 한 벌만 나가고,
+스크롤을 갖는다. 칸이 넷이어도 `/api/fs/list`·`/api/git/status` 는 한 벌만 나가고
+(status 는 `GitStatusHub`(`git/status-hub.js`)가 root 별 single-flight·짧은 TTL·`ifMark`
+조건부 물음으로 탐색기·dirty-diff 에 나눠 준다, FR-OPT-4-1·4-7),
 관측이 갱신되면 `paintAll` 이 그 루트를 보는 칸 전부를 칠한다. store 는 뷰가 무엇을
 그리는지 모른다 — "다시 칠하라" 만 말한다.
 
@@ -908,6 +914,39 @@ fingerprint·수동 `sleep` 루프·삭제된 자산 참조·손으로 조립한
 
 이 화이트리스트는 생산자(브라우저 `_execRemote`, `dmctl`, `detach`)와 대조 검증된다 (`internal/webserver/httpapi/commands_browser_test.go`). 생산자가 처리하는 action 이 여기 없으면 `POST /api/commands` 가 400 으로 거부해 브라우저 코드에 도달하지 못하는데, 스텁 서버로 테스트하는 CLI 쪽은 그 결함을 볼 수 없다.
 
+### 열림 복원과 칸 구독
+
+SSE 가 열릴 때의 복원은 **요청 하나**다 — `GET /api/snapshot?parts=attention,activity,…`
+(`handlers_snapshot.go`, FR-OPT-4-5)가 고른 조각을 한 본문에 싣는다. 200 이 아닌 조각과 모르는
+이름은 빠지고, 받는 쪽(`state-registry`)은 없는 조각을 그 종단이 실패한 것과 같이 다룬다.
+
+슬롯 칸의 두 번째 구독은 `?presence=1` 이다 (D-OPT-4, FR-OPT-4-12). 서버는 소유권(`Focus`)과
+GitWatcher 임대만 붙이고 `Commands.Add`·`Updates.Trigger` 를 건너뛴다 — 방송을 싣지 않는다.
+허브에 등록되지 않으므로 구독 상한(`hub.SubCap`)은 `presenceSubs` 가 따로 센다. 옛 서버는
+파라미터를 무시하고 전부 보내며, 칸 채널은 그것을 버린다.
+
+## 데몬 IPC (`internal/shared/toolipc`)
+
+서버(`toolclient`)와 데몬(`daemon/ipc`)은 서로를 import 하지 않고 `toolipc` 의 타입만 본다.
+메서드·이벤트 이름과 인자·결과는 `protocol.go` 의 상수와 typed 구조체다 (FR-OPT-2-6) — 필드는
+JSON 키의 사전순이라 종전 map 부호화와 **바이트가 같다** (`protocol_test.go` 골든, FR-OPT-0-3).
+
+**확장은 `hello.features` 로 협상한다** (D-OPT-1). `ProtocolVersion` 을 올리면 서버가 연결을
+거부하고, 데몬은 서버 업그레이드를 넘어 PTY 를 쥐고 산다 — 판을 올리는 것은 사용자의 세션을
+끊는 일이다. 그래서 새 메서드는 이름을 `DaemonFeatures` 에 싣고, 서버는 데몬이 그 이름을 말했을
+때만 쓴다. 말하지 않는 옛 데몬에는 종전 경로로 강등한다:
+
+| 기능 | 새 경로 | 옛 데몬 강등 |
+|---|---|---|
+| `fgtick` | 데몬이 전경 조회 티커를 돌리고 바뀐 이름을 `fg` push 로 민다 | 서버의 list 폴 |
+| `notify` | WS 의 키 입력·리사이즈를 응답 없는 `input`·`resizenotify` 로 | `write`·`resize` RPC |
+| `busymany` | 도구 N 개의 busy 를 RPC 한 번으로 | busy 를 하나씩 |
+| `snapnotfound` | 없는 도구의 snapshot 을 `CodeNotFound` 로 — WS 연결당 RPC 1 | 존재 확인 list 를 먼저 |
+
+정상 상태에 RPC 가 없으므로, 받되 답하지 않는 데몬은 RPC 시한(FR-14)으로 잡히지 않는다. 서버가
+15 s 마다 `hello` 로 생존을 확인하고 시한 안에 답이 없으면 끊고 재접속한다 (FR-OPT-2-1) — `hello` 는
+모든 판의 데몬이 받는다.
+
 ## git 실행 계층 (`internal/webserver/domain/git`)
 
 저장소의 git 실행은 **이 패키지 밖에서 일어나지 않는다** (FR-GIT-1). 그 규칙을
@@ -947,14 +986,15 @@ HTTP 표면은 `webserver/gitapi` 다. 그쪽도 같은 이유로 `*Server` 가 
 
 ## 어댑터 패턴
 
-`internal/webserver/seam/toolaccess` 는 `ToolReader`, `WorkspaceReader`, `CommandBroadcaster`, `ClientToolResolver` 같은 **인터페이스만** 정의한다. 구체 타입(`toolhub.ToolManager`, `workspace.Manager`, `hub.CommandHub`)은 그 인터페이스를 직접 구현하지 않는다. 대신 `internal/webserver/seam/adapters` 가 브리지 역할을 한다.
+`internal/webserver/seam/toolaccess` 는 `ToolReader`, `WorkspaceReader`, `ClientToolResolver` 같은 **인터페이스만** 정의한다. 구체 타입(`toolhub.ToolManager`·`toolhub.ToolHub`, `workspace.Manager`)은 그 인터페이스를 직접 구현하지 않는다. 대신 `internal/webserver/seam/adapters` 가 브리지 역할을 한다.
 
-- `adapters.Tool` — `*toolhub.ToolManager` 를 `toolaccess.ToolReader` 로.
+- `adapters.Tool` — `*toolhub.ToolManager`(직접 모드) 또는 `toolhub.ToolHub`(데몬 모드)를 `toolaccess.ToolReader` 로.
 - `adapters.Workspace` — `*workspace.Manager` 를 `toolaccess.WorkspaceReader` 로.
-- `adapters.Command` — `*hub.CommandHub` 를 `toolaccess.CommandBroadcaster` 로.
-- `adapters.Client` — `*toolhub.ToolManager` + `clientpid` 를 `toolaccess.ClientToolResolver` 로.
+- `adapters.Client` — 같은 두 필드 + `platform.ProcInfo` 를 `toolaccess.ClientToolResolver` 로. 도구 목록은 `tools()` 가 만드는 `adapters.Tool` 로 읽는다.
 
-import 방향은 단방향 (`adapters → {toolaccess, server, workspace, clientpid}`). server/workspace 는 toolaccess 를 몰라도 되며, toolaccess 는 server/workspace 의 구체 타입을 몰라도 된다. 테스트에서 인터페이스를 mock 하기 쉽다.
+커맨드 허브(`*hub.CommandHub`)는 어댑터를 거치지 않고 `httpapi` 가 직접 쓴다 — 종전의 `adapters.Command`·`toolaccess.CommandBroadcaster` 는 비테스트 참조가 0이라 지웠다 (HTTP-20).
+
+import 방향은 단방향 (`adapters → {toolaccess, toolhub, workspace, platform}`). server/workspace 는 toolaccess 를 몰라도 되며, toolaccess 는 server/workspace 의 구체 타입을 몰라도 된다. 테스트에서 인터페이스를 mock 하기 쉽다.
 
 `adapters.Tool` 은 direct 모드(`*toolhub.ToolManager`)와 daemon 모드(`server.ToolHub`) 의 이중 경로, bracketed paste, submit 지연을 한곳에 캡슐화한다. `/api/tools/{output,input,message}` 가 두 모드에서 동일하게 동작하는 근거다 — 이 어댑터를 우회해 핸들러에서 PTY 를 직접 만지면 daemon 모드가 깨진다.
 
@@ -998,7 +1038,7 @@ HTTP `PUT /api/workspace` 핸들러는 `Save(blob, ifMatch)` 호출 → 인덱�
 
 - `writeCh chan []byte` (버퍼 크기 1) + 전용 writer 고루틴.
 - `enqueueWrite` 는 latest-wins 코얼레싱: 대기 중인 blob 이 있으면 덮어쓴다. 다수의 빠른 Save 가 들어와도 디스크 쓰기는 하나로 합쳐진다.
-- `Manager.Close()` 는 `sync.Once` 로 writer 를 종료하고 마지막 blob 을 flush. `main.go` 의 shutdown 경로에서 `bd.pm.SaveAll()` 뒤 `bd.wsMgr.Close()` 로 호출.
+- `Manager.Close()` 는 `sync.Once` 로 writer 를 종료하고 마지막 blob 을 flush. 종료 표(`cmd/dongminal/app.go` 의 `shutdownSteps`)의 마지막 단계다.
 - 측정치: 101.7 ms/call (동기 `os.WriteFile`) → 18 µs/call (atomic swap 만). 자세한 배경은 [FOLLOWUP_HOTFIX_RFC.md](./archive/FOLLOWUP_HOTFIX_RFC.md) §4-ter.
 
 ### 로깅 스킵 (H5 Track A)
@@ -1116,12 +1156,12 @@ WS 구독 쪽 규칙도 같은 뿌리다: 데몬 모드의 출력 릴레이(`rel
 
 ## 동시성
 
-- `ToolManager` : 내부에 `sync.RWMutex`. `Snapshot()` 은 슬라이스 복사로 외부 공개. 백그라운드 도구는 `background map[string]BackgroundEntry` 로 같은 락 아래에서 관리한다. `Create` 는 **락 밖에서** 띄운다(fork/exec + PTY open) — 상한(`ToolCap`)은 락 안에서 자리를 예약(`pending`)해 지킨다 (M8 `GO-29`). 도구 종료 콜백은 `invalidator` 를 락으로 읽는다 (`GO-30`).
-- `workspace.Manager` : `atomic.Pointer[[]byte]` + `atomic.Pointer[*index]` + `atomic.Uint64` (rev). Save 내부에서만 `sync.Mutex` 로 직렬화. 리더는 락 없이 atomic load.
+- `ToolManager` : 내부에 `sync.RWMutex`. `Snapshot()` 은 슬라이스 복사로 외부 공개. 백그라운드 도구는 `background map[string]int64`(id → 백그라운드로 보낸 시각)로 같은 락 아래에서 관리한다 — 조회 결과 `BackgroundEntry` 는 그 위에서 만든다. `Create` 는 **락 밖에서** 띄운다(fork/exec + PTY open) — 상한(`ToolCap`)은 락 안에서 자리를 예약(`pending`)해 지킨다 (M8 `GO-29`). 도구 종료 콜백은 `invalidator` 를 락으로 읽는다 (`GO-30`).
+- `workspace.Manager` : `atomic.Pointer[snap]`(raw 와 rev 를 **한 쌍으로** 싣는다 — 따로 두면 리더가 새 raw 와 옛 rev 를 짝지을 수 있다) + `atomic.Pointer[index]`. Save 내부에서만 `sync.Mutex` 로 직렬화. 리더는 락 없이 atomic load.
 - `outbuf.Stream` : `sync.Mutex` + `atomic.Int64` (누적 카운터). Feed/Snapshot 모두 lock 내에서 slice 조작. 저장은 `max` 바이트 링이다 (FR-OPT-3-3).
 - `toolhub.SafeConn` : 쓰기는 `mu` 로 직렬화. 직접 모드의 라이브 프레임(출력·크기·종료)은 연결별 송신 큐(`sendQueueCap`)와 송신 고루틴 하나가 나른다 — readPTY 는 넣기만 하고, 넘친 연결은 닫혀 브라우저가 since 로 재동기한다 (FR-OPT-3-1). 송신 고루틴은 핸들러가 OpSeq 를 보낸 뒤에 선다. 도구의 클라이언트 목록(`cls`)은 바꿀 때마다 새 슬라이스라 읽는 쪽이 복사하지 않는다.
 - `CommandHub` : SSE 구독자 list + broadcast. 내부 `sync.RWMutex`.
-- `toolclient.ToolClient` : 데몬 연결·pending RPC 맵·콜백은 `mu` 아래, 재접속 supervisor 는 `connDone` 채널로 세대를 가른다. 도구별 WS 구독자는 별도 `subMu`(RWMutex) — readLoop 가 push 를 fan-out 하는 동안 RPC 락을 쥐지 않는다. `stopped`·`reconnects`·`dropped` 는 atomic.
+- `toolclient.ToolClient` : 데몬 연결·pending RPC 맵·콜백은 `mu` 아래, 쓰기는 `writeMu` 로 따로 직렬화한다. 재접속 supervisor 는 `connDone` 채널로 세대를 가르고, 정상 상태에 RPC 가 없어도 `hello` 생존 확인(`toolHeartbeatEvery` 15 s, 시한 `toolCallTimeout`)으로 답하지 않는 데몬을 끊는다 — 진행 중인 호출이 있으면 건너뛴다 (FR-OPT-2-1). 도구별 WS 구독자는 별도 `subMu`(RWMutex) — readLoop 가 push 를 fan-out 하는 동안 RPC 락을 쥐지 않는다. `stopped`·`reconnects`·`dropped` 는 atomic.
 - `hub.AttnTracker` : 도구 맵은 `mu`, 도구 하나의 상태(`lastOutputAt`·`attention`·`activity` 등)는 atomic — 스위퍼 틱과 출력 콜백이 같은 도구를 락 없이 읽는다. Broadcast 는 락을 놓고 부른다 (hub 락 순서 의존을 끊는다).
 - `git/jobs.Jobs` : 리포당 진행 중 작업 하나(`active`), 작업 맵과 구독자 집합은 `mu`. 구독은 채널 하나 + `sync.Once` 로 닫히고, 러너 goroutine 은 `context.CancelFunc` 로 끊는다.
 
@@ -1137,11 +1177,14 @@ WS 구독 쪽 규칙도 같은 뿌리다: 데몬 모드의 출력 릴레이(`rel
 
 1. `signal.NotifyContext` 가 `SIGINT`/`SIGTERM` 포착 → ctx cancel.
 2. `srv.Run` 이 리턴 (http.Server.Shutdown 내부 호출).
-3. `panedClient.Close()` — 데몬 연결을 **가장 먼저** 닫아 `dongminald` 가 새 연결을 받을 수 있게 한다.
-4. `bd.pm.SaveAll()` — `tools.json` 에 도구별 cwd 등 상태를 기록. 탭이 참조하는 도구만 기록하므로 백그라운드 도구는 데몬 재시작을 넘기지 않는다 (FR-BG-9).
-5. `bd.wsMgr.Close()` — workspace writer 고루틴 flush + 종료.
+3. 종료 표(`cmd/dongminal/app.go` 의 `shutdownSteps`, D-A-12)를 순서대로 돈다. **표의 순서가 계약이고**
+   테스트가 이름 순서를 잰다. 단계와 근거는 그 함수의 머리말에 있다 — 여기 베끼지 않는다.
+   요점만: git 잡 대기가 정상 종료 마커 **앞**, 데몬 연결(`panedClient.Close()`)이 도구 저장 **앞**
+   (`dongminald` 가 새 서버의 연결을 받도록), 워크스페이스 writer flush 가 **마지막**이다.
 
-순서 중요: `wsMgr.Close` 가 `SaveAll` 뒤여야 한다. 도구 상태 저장 중 workspace writer 가 살아 있어야 한다.
+도구 저장(`SaveAll`)은 소유자 없는 백그라운드 도구와 샌드박스 도구를 뺀 전부를 기록한다. 백그라운드 도구가
+데몬 재시작을 넘기지 않는 것이 여기서 정해진다 (FR-BG-9 · FR-SBX-33). 탭이 참조하지 않는 항목을 버리는
+것은 적재(`LoadAll`, FR-EM-14) 쪽이다.
 
 ## 테스트
 

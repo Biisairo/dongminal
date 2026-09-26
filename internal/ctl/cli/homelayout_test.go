@@ -269,3 +269,21 @@ func TestKeepSetUnchangedBySplit(t *testing.T) {
 		}
 	}
 }
+
+// SHR-20 (FR-OPT-14-1) — backup·uninstall 도움말의 목록은 homeLayout 에서 나온다.
+// 손으로 베낀 목록은 lsp-paths.json·git-worktrees·panes.json 이 빠진 채 낡았다.
+func TestHelpListsDeriveFromHomeLayout(t *testing.T) {
+	backup, uninstall := usageBackup(), usageUninstall()
+	for _, e := range homeLayout() {
+		name := e.Name
+		if e.IsDir {
+			name += "/"
+		}
+		if !strings.Contains(backup, name) {
+			t.Errorf("backup 도움말에 %s 가 없다", name)
+		}
+		if !e.KeepOnUninstall && !strings.Contains(uninstall, name) {
+			t.Errorf("uninstall 도움말의 지우는 목록에 %s 가 없다", name)
+		}
+	}
+}

@@ -52,6 +52,10 @@ const (
 	// 이름이 늘지 않는다.
 	EnvAgentBinDir = "DONGMINAL_AGENT_BIN_DIR"
 
+	// EnvShell 은 도구 셸로 띄울 프로그램이다. **Windows 에서만** 읽는다
+	// (CROSS_PLATFORM_SRS FR-XSH-3). POSIX 는 $SHELL 을 따른다.
+	EnvShell = "DONGMINAL_SHELL"
+
 	// DefaultHomeDir 은 EnvHome 이 비었을 때 사용자 홈 아래에 잡는 이름이다.
 	// cli 의 기본값 계산과 데몬 진입점이 같은 값을 딛어야 한다 — 갈라지면 한쪽이
 	// 다른 인스턴스를 본다.

@@ -165,11 +165,10 @@ func usageBackup() string {
 
   홈 전체를 zip 하나로 담는다 (G4-3).
 
-  담는 것:   workspace.json · settings.json · access.json · runs.json ·
-             tools.json · server.json · sandbox.json · notes/
-  담지 않는 것: 로그 · 소켓 · pid · bin/ · tool-history/
-             — 다음 기동이 다시 만드는 것들이고, 소켓은 zip 에 담기지도 않는다
-
+  담는 것:
+` + layoutList(func(e homeEntry) bool { return e.InBackup }) + `
+  담지 않는 것 — 다음 기동이 다시 만드는 것들이고, 소켓은 zip 에 담기지도 않는다:
+` + layoutList(func(e homeEntry) bool { return !e.InBackup }) + `
   되돌리는 것은 dongminal restore 다.
   상태 파일 하나를 세대로 되돌리는 것은 dongminal rollback 이다 — 이쪽이 더 좁다.
 `
@@ -196,8 +195,8 @@ func usageUninstall() string {
 
   무엇을 지울지 보인다 (G3-4).
 
-  기본은 **다시 만들어지는 것만** 지운다 — 로그·소켓·pid·bin/·tool-history/.
-  설정과 배치는 남으므로, 다시 설치하면 그대로 돌아온다.
+  기본은 **다시 만들어지는 것만** 지운다:
+` + layoutList(func(e homeEntry) bool { return !e.KeepOnUninstall }) + `  설정과 배치는 남으므로, 다시 설치하면 그대로 돌아온다.
 
   --purge    되살릴 수 있는 상태까지 전부 지운다 (설정·배치·메모장)
   --dry-run  목록만 내고 아무것도 지우지 않는다
@@ -205,6 +204,30 @@ func usageUninstall() string {
 
   되돌릴 수 없다. 먼저: dongminal backup --out <파일.zip>
 `
+}
+
+// layoutList 는 homeLayout 에서 고른 이름을 도움말 목록으로 낸다 (SHR-20).
+// 손으로 베끼면 표가 자랄 때 도움말만 낡는다.
+func layoutList(keep func(homeEntry) bool) string {
+	const indent, width = "    ", 72
+	var b strings.Builder
+	line := indent
+	for _, e := range homeLayout() {
+		if !keep(e) {
+			continue
+		}
+		name := e.Name
+		if e.IsDir {
+			name += "/"
+		}
+		if line != indent && len(line)+len(name)+3 > width {
+			b.WriteString(strings.TrimRight(line, " ·") + "\n")
+			line = indent
+		}
+		line += name + " · "
+	}
+	b.WriteString(strings.TrimRight(line, " ·") + "\n")
+	return b.String()
 }
 
 func usageService() string {
