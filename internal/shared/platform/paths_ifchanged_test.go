@@ -33,6 +33,9 @@ func TestWriteFileIfChangedReplacesAtomically(t *testing.T) {
 		t.Fatal(err)
 	}
 	before, _ := os.Stat(p)
+	// Windows 의 os.Stat 은 파일 ID 를 SameFile 이 처음 불릴 때 **경로로** 읽는다.
+	// 교체 뒤에 읽으면 before 도 새 파일의 ID 를 갖게 되므로 지금 고정한다.
+	os.SameFile(before, before)
 	if err := WriteFileIfChanged(p, []byte("new"), 0o755); err != nil {
 		t.Fatal(err)
 	}
