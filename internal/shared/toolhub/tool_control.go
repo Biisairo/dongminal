@@ -137,7 +137,7 @@ func (p *Tool) Write(data []byte) error {
 }
 
 // Resize is the exported wrapper around the unexported resize for
-// ToolManager delegation. It calls pty.Setsize on the PTY master.
+// ToolManager delegation. It resizes the PTY master.
 //
 // **크기가 실제로 바뀌었으면 붙어 있는 클라이언트에게 통보한다**
 // (M9_SRS FR-M9-3). 비소유자는 PTY 폭을 알 길이 없어 같은 바이트를 자기 폭으로

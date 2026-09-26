@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/creack/pty"
+	"golang.org/x/sys/unix"
 )
 
 type posixPTY struct{}
@@ -40,15 +41,38 @@ func (t *posixTerminal) Write(b []byte) (int, error) { return t.ptmx.Write(b) }
 func (t *posixTerminal) Close() error                { return t.ptmx.Close() }
 
 func (t *posixTerminal) Resize(cols, rows uint16) error {
-	return pty.Setsize(t.ptmx, &pty.Winsize{Cols: cols, Rows: rows})
+	return t.control(func(fd int) error {
+		return unix.IoctlSetWinsize(fd, unix.TIOCSWINSZ, &unix.Winsize{Col: cols, Row: rows})
+	})
 }
 
 func (t *posixTerminal) Size() (uint16, uint16, error) {
-	rows, cols, err := pty.Getsize(t.ptmx)
+	var ws *unix.Winsize
+	err := t.control(func(fd int) error {
+		var err error
+		ws, err = unix.IoctlGetWinsize(fd, unix.TIOCGWINSZ)
+		return err
+	})
 	if err != nil {
 		return 0, 0, err
 	}
-	return uint16(cols), uint16(rows), nil
+	return ws.Col, ws.Row, nil
+}
+
+// control 은 ptmx 의 fd 로 f 를 부른다. pty.Getsize·Setsize 는 os.File.Fd() 를
+// 쓰는데, 그것은 fd 참조를 잡지 않아 readPTY 가 Close 로 끝나며 fd 를 거두는
+// 것과 경쟁하고(-race), fd 를 블로킹 모드로 되돌린다. SyscallConn().Control 은
+// 참조를 잡고 부르며, 닫혔으면 부르지 않고 오류를 준다.
+func (t *posixTerminal) control(f func(fd int) error) error {
+	rc, err := t.ptmx.SyscallConn()
+	if err != nil {
+		return err
+	}
+	var ferr error
+	if err := rc.Control(func(fd uintptr) { ferr = f(int(fd)) }); err != nil {
+		return err
+	}
+	return ferr
 }
 
 // ForegroundPGID 는 tcgetpgrp 로 전경 그룹을 읽고, 그것이 셸 자신의 그룹이면
