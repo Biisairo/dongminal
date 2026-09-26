@@ -15,6 +15,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 // WorkspaceStore 는 두 목록을 읽고 쓰기 위한 최소 표면이다. *workspace.Manager 가
@@ -71,6 +72,20 @@ type Store struct {
 	// 이기 때문이다 (FR-EXT-9). 자리가 Editor 루트 밖이면 루트 가드가 막아
 	// 열 길이 없고, 그러면 파일 관리자로 숨은 디렉터리를 찾아가라는 말이 된다.
 	PluginsDir string
+
+	// rootsMemo 는 Roots 의 기억이다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-2 · DOM-25).
+	rootsMu   sync.Mutex
+	rootsMemo *rootsMemo
+}
+
+// rootsMemo 는 정규화된 루트 목록과 그것을 만든 입력이다. 입력 하나라도 다르면
+// 다시 만든다 — workspace rev(목록), 홈 원문, 메모·플러그인 자리의 존재.
+type rootsMemo struct {
+	rev       uint64
+	home      string
+	notesOK   bool
+	pluginsOK bool
+	roots     []string
 }
 
 // Home 은 정규화된 홈 디렉터리다. 저장하지 않고 매번 파생한다 (FR-EDT-17).
@@ -143,21 +158,55 @@ func (s *Store) List() (string, []string, error) {
 // FR-NOT-4: 메모 루트가 여기 드는 **한 줄**이 메모장의 전부다. 이 목록이 곧 루트
 // 가드(fsRoot)이므로, 드는 순간 메모 루트 아래의 조회·생성·이름변경·삭제·전송이
 // 함께 열린다. 메모 루트를 쓸 수 없는 환경(FR-NOT-11)에서는 그냥 빠진다.
+//
+// 파일 API 요청마다 불리므로 기억한다 (DOM-25). 목록의 파싱과 루트마다의 정규화는
+// workspace rev 가 바뀔 때만 다시 한다. 메모·플러그인 자리는 매번 보장한다 — 그것은
+// 디렉터리가 있으면 stat 하나다. 준 목록은 **정규화된** 사본이다.
 func (s *Store) Roots() ([]string, error) {
-	home, list, err := s.List()
+	homeFn := s.HomeFn
+	if homeFn == nil {
+		homeFn = os.UserHomeDir
+	}
+	home, err := homeFn()
 	if err != nil {
 		return nil, err
 	}
-	out := make([]string, 0, len(list)+3)
-	out = append(out, home)
-	if notes, err := s.Notes(); err == nil {
-		out = append(out, notes)
+	if s.Work == nil {
+		return nil, ErrUnavailable
+	}
+	raw, rev := s.Work.Snapshot()
+	notesOK := ensureDir(s.NotesDir)
+	pluginsOK := ensureDir(s.PluginsDir)
+
+	s.rootsMu.Lock()
+	defer s.rootsMu.Unlock()
+	if m := s.rootsMemo; m != nil && m.rev == rev && m.home == home && m.notesOK == notesOK && m.pluginsOK == pluginsOK {
+		return append([]string(nil), m.roots...), nil
+	}
+	_, l, err := parse(raw)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(l.Editors)+3)
+	out = append(out, NormalizePath(home))
+	if notesOK {
+		out = append(out, NormalizePath(s.NotesDir))
 	}
 	// FR-EXT-9b: 선언을 편집기로 열려면 루트 가드를 지나야 한다.
-	if plugins, err := s.Plugins(); err == nil {
-		out = append(out, plugins)
+	if pluginsOK {
+		out = append(out, NormalizePath(s.PluginsDir))
 	}
-	return append(out, list...), nil
+	for _, e := range l.Editors {
+		out = append(out, NormalizePath(e))
+	}
+	s.rootsMemo = &rootsMemo{rev: rev, home: home, notesOK: notesOK, pluginsOK: pluginsOK, roots: out}
+	return append([]string(nil), out...), nil
+}
+
+// ensureDir 는 Notes·Plugins 의 "없으면 만든다" 다. 자리가 비었거나 만들 수 없으면
+// false — 그 행 하나가 빠진다 (FR-NOT-11).
+func ensureDir(dir string) bool {
+	return dir != "" && os.MkdirAll(dir, 0o755) == nil
 }
 
 // EditorAdd 는 Editor 행을 더한다 (FR-EDT-23~25·33).

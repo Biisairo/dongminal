@@ -80,6 +80,10 @@ type SettingsStore interface {
 	// Save 는 **실패를 돌려준다** (M3 DoD). 종전에는 반환이 없어 PUT 이 쓰기
 	// 실패에도 200 을 답했고, 사용자는 설정이 바뀐 줄 알았다.
 	Save() error
+	// RenderEnv·ContextPolicy 는 서버가 blob 에서 읽는 가지다. blob 이 바뀔 때만
+	// 다시 해석한다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-2 · HTTP-26).
+	RenderEnv() []string
+	ContextPolicy() run.ContextPolicy
 }
 
 // RunStore 는 /api/runs* 가 Run 레코드 저장소에 요구하는 표면이다 (M8 `GO-44`).
@@ -89,6 +93,7 @@ type RunStore interface {
 	Start(opt run.StartOptions) (run.Record, error)
 	Get(runID string) (run.Record, bool)
 	List() []run.Record
+	HasOpen() bool
 	Close(runID string, force bool) (run.Record, []run.Member, error)
 	Delete(runID string) (run.Record, error)
 	Sweep(runID string) (run.Record, error)

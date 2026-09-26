@@ -237,10 +237,14 @@ var apiRoutes = []apiRoute{
 }
 
 func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
-	if httproute.Dispatch(apiRoutes, s, w, r) {
-		return
-	}
-	if s.git != nil && s.git.Handle(w, r) {
+	// OPTIMIZE_REFACTOR_SRS FR-OPT-8-2 (HTTP-25): git 표면은 이 표를 훑지 않고 곧바로
+	// 넘긴다. 이 표에 git 경로를 잡는 항목이 없다는 것이 전제다
+	// (TestAPIRoutes_DoNotClaimGitPaths). 표는 여전히 한 벌씩이다 (FR-DRC-10).
+	if strings.HasPrefix(r.URL.Path, "/api/git/") {
+		if s.git != nil && s.git.Handle(w, r) {
+			return
+		}
+	} else if httproute.Dispatch(apiRoutes, s, w, r) {
 		return
 	}
 	httpErr(w, "not found", 404, apierr.CodeNotFound)
@@ -311,7 +315,7 @@ func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 		// UX_BATCH6_SRS FR-SBM-3: 창이 고른 작업 방식. 비면 프로파일의 것이다.
 		Work: r.URL.Query().Get("sandboxWork"),
 		// AGENT_RENDER_ENV_SRS FR-ARE-1: 에이전트가 화면을 망가뜨리지 않게 띄운다.
-		ExtraEnv: agentRenderEnv(s.Settings.Get()),
+		ExtraEnv: s.Settings.RenderEnv(),
 	})
 	if err != nil {
 		// 상한 초과는 **429** 다 (04-secops P1-4). 500 으로 답하면 클라이언트가

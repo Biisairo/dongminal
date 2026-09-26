@@ -96,6 +96,12 @@ func (s *Server) contextPolicy() run.ContextPolicy {
 	if s.Settings == nil {
 		return run.DefaultContextPolicy()
 	}
+	return s.Settings.ContextPolicy()
+}
+
+// parseContextPolicy 는 blob 에서 정책 가지를 푼다. settingsStore 가 blob 이 바뀔
+// 때만 부른다 (HTTP-26).
+func parseContextPolicy(blob []byte) run.ContextPolicy {
 	var cfg struct {
 		Orchestration struct {
 			ContextBytesPerToken float64 `json:"contextBytesPerToken"`
@@ -104,7 +110,7 @@ func (s *Server) contextPolicy() run.ContextPolicy {
 			ContextCriticalRatio float64 `json:"contextCriticalRatio"`
 		} `json:"orchestration"`
 	}
-	if err := json.Unmarshal(s.Settings.Get(), &cfg); err != nil {
+	if err := json.Unmarshal(blob, &cfg); err != nil {
 		return run.DefaultContextPolicy()
 	}
 	o := cfg.Orchestration
@@ -162,6 +168,13 @@ func (s *Server) apiRunContext(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.Tokens != nil && *body.Tokens >= 0 {
 		obs.Tokens, obs.HasTokens = *body.Tokens, true
+	}
+	// FR-OPT-8-3 (HTTP-3): 열린 Run 이 없으면 멤버도 조정자도 없다 — PID 사슬 해석
+	// (darwin 에서 lsof·ps fork)을 건너뛴다. 해석 우선 규약(스푸핑 방지)은 앉을
+	// 자리가 있을 때만 의미가 있다.
+	if !s.Runs.HasOpen() {
+		writeJSON(w, map[string]any{"observed": false})
+		return
 	}
 	sender := s.callerToolID(r, body.ToolID)
 	m, entered, found := s.Runs.ObserveContext(sender, obs, s.contextPolicy())
@@ -436,6 +449,13 @@ func (s *Server) apiRunHandoff(w http.ResponseWriter, r *http.Request) {
 		Summary  string `json:"summary"`
 	}
 	if !decodeJSONBody(w, r, &body) {
+		return
+	}
+	// FR-OPT-8-3 (HTTP-3): 열린 Run 이 없으면 멤버도 조정자도 없다 — PID 사슬 해석
+	// (darwin 에서 lsof·ps fork)을 건너뛴다. 해석 우선 규약(스푸핑 방지)은 앉을
+	// 자리가 있을 때만 의미가 있다.
+	if !s.Runs.HasOpen() {
+		writeJSON(w, map[string]any{"observed": false})
 		return
 	}
 	sender := s.callerToolID(r, body.ToolID)

@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"dongminal/internal/webserver/domain/wsentry"
 	"strings"
 )
 
@@ -213,7 +212,7 @@ func (s *Server) fsDeletable(root, target string) error {
 		// 그 아래 전부가 사라진다 (FR-EDT-114).
 		if roots, err := s.Entries.Roots(); err == nil {
 			for _, r := range roots {
-				if wsentry.NormalizePath(r) == target {
+				if r == target {
 					return fsError{fsErrBadRequest, "다른 Editor 루트는 지울 수 없다"}
 				}
 			}

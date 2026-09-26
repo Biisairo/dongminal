@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/workspace"
+	"dongminal/internal/webserver/domain/run"
 )
 
 // ── fakePaneHub ─────────────────────────────────────
@@ -336,6 +337,9 @@ func (f *fakeSettingsStore) Save() error {
 	f.saves++
 	return f.saveErr
 }
+
+func (f *fakeSettingsStore) RenderEnv() []string              { return agentRenderEnv(f.Get()) }
+func (f *fakeSettingsStore) ContextPolicy() run.ContextPolicy { return parseContextPolicy(f.Get()) }
 
 // ── fakeUnknownHub ─────────────────────────────────────
 //

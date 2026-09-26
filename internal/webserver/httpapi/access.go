@@ -14,6 +14,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"dongminal/internal/shared/platform"
@@ -89,6 +90,11 @@ type accessStore struct {
 	resErr   map[string]string       // 호스트명 → 해석 실패 사유
 	self     []netip.Addr            // 이 머신의 인터페이스 주소 (FR-ACL-5)
 
+	// match 는 요청 경로가 읽는 불변 스냅샷이다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-2 ·
+	// HTTP-4). 위 셋이 바뀌는 자리(setConfig·restore·refresh·적재)에서 mu 를 쥔 채
+	// rebuild 로 갈아 끼운다 — 요청마다 전역 락을 잡고 항목을 다시 파싱하지 않는다.
+	match atomic.Pointer[accessMatcher]
+
 	// 주입 지점. 테스트가 이 기계의 DNS·인터페이스 상태에 좌우되지 않게 한다.
 	lookupHost     func(string) ([]string, error)
 	interfaceAddrs func() ([]netip.Addr, error)
@@ -102,6 +108,7 @@ func newAccessStore(path string) *accessStore {
 		lookupHost:     net.LookupHost,
 		interfaceAddrs: localInterfaceAddrs,
 	}
+	s.rebuildLocked()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -116,6 +123,7 @@ func newAccessStore(path string) *accessStore {
 		return s
 	}
 	s.cfg = cfg
+	s.rebuildLocked()
 	dmlog.Infof(nil, "access loaded: enabled=%v entries=%d hosts=%d", cfg.Enabled, len(cfg.Entries), len(cfg.Hosts))
 	return s
 }
@@ -176,6 +184,7 @@ func (s *accessStore) setConfig(cfg accessConfig) error {
 	s.mu.Lock()
 	prev := s.cfg
 	s.cfg = accessConfig{Enabled: cfg.Enabled, Entries: entries, Hosts: hosts}
+	s.rebuildLocked()
 	data, err := json.MarshalIndent(s.cfg, "", "  ")
 	s.mu.Unlock()
 	if err != nil {
@@ -205,6 +214,7 @@ func (s *accessStore) setConfig(cfg accessConfig) error {
 func (s *accessStore) restore(prev accessConfig) {
 	s.mu.Lock()
 	s.cfg = prev
+	s.rebuildLocked()
 	s.mu.Unlock()
 }
 
@@ -327,6 +337,7 @@ func (s *accessStore) refresh() {
 	s.self = self
 	s.resolved = resolved
 	s.resErr = resErr
+	s.rebuildLocked()
 	s.mu.Unlock()
 }
 
@@ -357,7 +368,6 @@ func isPlainHostname(v string) bool {
 	return isHostname(v)
 }
 
-// allowed 는 이 출발지를 들여보낼지의 판정 전부다.
 // isSelf 는 그 주소가 **이 기계의 것**인지 본다 (REQUEST_GATE_SRS FR-RQG-6).
 //
 // `allowed` 와 가르는 이유는 묻는 것이 다르기 때문이다. `allowed` 는 "이 출발지를
@@ -365,18 +375,7 @@ func isPlainHostname(v string) bool {
 // 무관하다. 한 함수로 묶으면 ACL 이 꺼져 있을 때 `allowed` 가 전부 참이 되므로
 // Host 판정이 통째로 무력해진다.
 func (s *accessStore) isSelf(addr netip.Addr) bool {
-	addr = addr.Unmap()
-	if addr.IsLoopback() {
-		return true
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, a := range s.self {
-		if a == addr {
-			return true
-		}
-	}
-	return false
+	return s.match.Load().isSelf(addr.Unmap())
 }
 
 // hasHostAlias 는 그 이름이 축②의 활성 항목인지 본다 (FR-ACL-31).
@@ -392,63 +391,89 @@ func (s *accessStore) hasHostAlias(name string) bool {
 	if name == "" {
 		return false
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, e := range s.cfg.Hosts {
-		if !e.Enabled {
-			continue
-		}
-		// 손으로 고친 `access.json` 은 정규화를 지나지 않았을 수 있다.
-		if strings.EqualFold(strings.TrimSuffix(e.Value, "."), name) {
+	_, ok := s.match.Load().aliases[strings.ToLower(name)]
+	return ok
+}
+
+// allowed 는 이 출발지를 들여보낼지의 판정 전부다.
+func (s *accessStore) allowed(addr netip.Addr) bool {
+	m := s.match.Load()
+	addr = addr.Unmap()
+	// FR-ACL-5: 자기 주소는 목록·토글과 무관하다. loopback 은 인터페이스 수집이
+	// 실패해도 남아야 하므로 목록 대조가 아니라 성질로 판정한다.
+	if m.isSelf(addr) {
+		return true
+	}
+	// FR-ACL-7: 꺼져 있으면 전부 통과 — 기존 동작 그대로다.
+	if !m.enabled {
+		return true
+	}
+	if _, ok := m.addrs[addr]; ok {
+		return true
+	}
+	for _, p := range m.prefixes {
+		if p.Contains(addr) {
 			return true
 		}
 	}
 	return false
 }
 
-func (s *accessStore) allowed(addr netip.Addr) bool {
-	addr = addr.Unmap()
-	s.mu.Lock()
-	defer s.mu.Unlock()
+// accessMatcher 는 판정에 필요한 것을 미리 파싱해 둔 불변 스냅샷이다 (HTTP-4).
+type accessMatcher struct {
+	enabled  bool
+	self     map[netip.Addr]struct{}
+	addrs    map[netip.Addr]struct{} // 켜진 IP 항목 + 켜진 호스트명의 해석 결과
+	prefixes []netip.Prefix          // 켜진 CIDR 항목
+	aliases  map[string]struct{}     // 켜진 축② 이름 (소문자, 끝 점 없음)
+}
 
-	// FR-ACL-5: 자기 주소는 목록·토글과 무관하다. loopback 은 인터페이스 수집이
-	// 실패해도 남아야 하므로 목록 대조가 아니라 성질로 판정한다.
+// isSelf 와 allowed 의 판정은 나뉘어 있다(위 isSelf 주석). 공유하는 것은 자기 집합
+// 조회뿐이다.
+func (m *accessMatcher) isSelf(addr netip.Addr) bool {
 	if addr.IsLoopback() {
 		return true
 	}
-	for _, a := range s.self {
-		if a == addr {
-			return true
-		}
+	_, ok := m.self[addr]
+	return ok
+}
+
+// rebuildLocked 는 cfg·self·resolved 로 스냅샷을 새로 만든다. s.mu 를 쥔 채 부른다.
+func (s *accessStore) rebuildLocked() {
+	m := &accessMatcher{
+		enabled: s.cfg.Enabled,
+		self:    make(map[netip.Addr]struct{}, len(s.self)),
+		addrs:   map[netip.Addr]struct{}{},
+		aliases: map[string]struct{}{},
 	}
-	// FR-ACL-7: 꺼져 있으면 전부 통과 — 기존 동작 그대로다.
-	if !s.cfg.Enabled {
-		return true
+	for _, a := range s.self {
+		m.self[a] = struct{}{}
 	}
 	for _, e := range s.cfg.Entries {
 		if !e.Enabled {
 			continue // FR-ACL-17
 		}
 		if a, err := netip.ParseAddr(e.Value); err == nil {
-			if a.Unmap() == addr {
-				return true
-			}
+			m.addrs[a.Unmap()] = struct{}{}
 			continue
 		}
 		if p, err := netip.ParsePrefix(e.Value); err == nil {
-			if p.Contains(addr) {
-				return true
-			}
+			m.prefixes = append(m.prefixes, p)
 			continue
 		}
 		// FR-ACL-16: 해석되지 않은 호스트명은 아무도 통과시키지 않는다.
 		for _, a := range s.resolved[e.Value] {
-			if a == addr {
-				return true
-			}
+			m.addrs[a] = struct{}{}
 		}
 	}
-	return false
+	// FR-ACL-31: 축②의 켜진 항목만. 손으로 고친 `access.json` 은 정규화를 지나지
+	// 않았을 수 있다 — 대소문자와 끝 점을 여기서 맞춘다.
+	for _, e := range s.cfg.Hosts {
+		if e.Enabled {
+			m.aliases[strings.ToLower(strings.TrimSuffix(e.Value, "."))] = struct{}{}
+		}
+	}
+	s.match.Store(m)
 }
 
 func (s *accessStore) view() accessView {
@@ -507,7 +532,7 @@ func accessGate(store *accessStore, next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		if !ok && !store.config().Enabled {
+		if !ok && !store.match.Load().enabled {
 			// 출발지를 읽지 못했고 목록도 꺼져 있다 — 막을 근거가 없다.
 			next.ServeHTTP(w, r)
 			return

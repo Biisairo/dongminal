@@ -171,8 +171,9 @@ func (s *Server) fsRootOf(raw string) (string, error) {
 		return "", err
 	}
 	norm := wsentry.NormalizePath(raw)
+	// Roots 는 정규화된 목록이다 (FR-OPT-8-2).
 	for _, r := range roots {
-		if wsentry.NormalizePath(r) == norm {
+		if r == norm {
 			return norm, nil
 		}
 	}

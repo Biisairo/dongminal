@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"dongminal/internal/shared/platform"
+	"dongminal/internal/webserver/domain/run"
 	"dongminal/internal/webserver/sse"
 )
 
@@ -22,7 +23,34 @@ type settingsStore struct {
 	mu   sync.Mutex
 	raw  []byte
 	path string
+	// parsed 는 raw 에서 서버가 읽는 가지다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-2 · HTTP-26).
+	// Set 이 비우고 view 가 처음 물을 때 한 번 푼다 — blob 자체는 여전히 해석하지
+	// 않고 그대로 저장·응답한다.
+	parsed *settingsView
 }
+
+// settingsView 는 서버가 blob 에서 읽는 것 전부다.
+type settingsView struct {
+	renderEnv []string
+	policy    run.ContextPolicy
+}
+
+func (s *settingsStore) view() *settingsView {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.parsed == nil {
+		s.parsed = &settingsView{renderEnv: agentRenderEnv(s.raw), policy: parseContextPolicy(s.raw)}
+	}
+	return s.parsed
+}
+
+// RenderEnv 는 새 도구에 얹을 환경의 사본이다 (FR-ARE-7).
+func (s *settingsStore) RenderEnv() []string {
+	return append([]string(nil), s.view().renderEnv...)
+}
+
+// ContextPolicy 는 컨텍스트 추정 공식과 임계다 (FR-CBG-2).
+func (s *settingsStore) ContextPolicy() run.ContextPolicy { return s.view().policy }
 
 func newSettingsStore(path string) *settingsStore {
 	s := &settingsStore{path: path}
@@ -45,6 +73,7 @@ func (s *settingsStore) Get() []byte {
 func (s *settingsStore) Set(b []byte) {
 	s.mu.Lock()
 	s.raw = b
+	s.parsed = nil
 	s.mu.Unlock()
 }
 

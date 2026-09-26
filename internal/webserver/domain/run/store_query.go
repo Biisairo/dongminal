@@ -27,6 +27,19 @@ func (s *Store) List() []Record {
 	return cloneRuns(s.runs)
 }
 
+// HasOpen 은 열린 Run 이 하나라도 있는가다. 컨텍스트 훅의 빠른 경로가 쓴다
+// (OPTIMIZE_REFACTOR_SRS FR-OPT-8-3 · HTTP-3) — 없으면 누가 말하는지 물을 까닭이 없다.
+func (s *Store) HasOpen() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i := range s.runs {
+		if s.runs[i].State == Open {
+			return true
+		}
+	}
+	return false
+}
+
 // MemberByTool resolves a tool to its member in an open Run. This is the
 // authority check behind Report (FR-PRE-5).
 func (s *Store) MemberByTool(toolID string) (Member, bool) {
