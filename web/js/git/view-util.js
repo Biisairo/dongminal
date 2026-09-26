@@ -45,16 +45,16 @@ function gitLoadTicket(view){
 }
 
 /** 이 표가 아직 최신인가. 아니면 더 새로운 조회가 이 자리를 이어받았다. */
-function gitLoadTaken(view,t){ return t.gen!==view._loadGen }
+function gitLoadTaken(view,ticket){ return ticket.gen!==view._loadGen }
 
 async function gitLoadList(view, spec){
   const repo=view._repo; if(!repo) return;
   const tok=view.panel.token();
-  const t=gitLoadTicket(view);
+  const ticket=gitLoadTicket(view);
   view._loading=true;
   const res=await gitFetch(spec.url,{repo},
-    {stale:()=>view.panel.isStale(tok),echo:{repo},signal:t.signal});
-  if(gitLoadTaken(view,t)) return;
+    {stale:()=>view.panel.isStale(tok),echo:{repo},signal:ticket.signal});
+  if(gitLoadTaken(view,ticket)) return;
   // FR-GRF-24: 낡은 응답은 **그 값을 쓰지 않는 것**이지 잠금을 영원히 쥐는 것이
   // 아니다. 종전에는 여기서 `_loading=true` 인 채로 빠져나갔다.
   view._loading=false;

@@ -31,8 +31,8 @@
  * 이 파일은 의존이 0 이라 어느 쪽 하네스에도 짐이 되지 않는다.
  */
 function isFileDrag(e){
-  const t=e&&e.dataTransfer&&e.dataTransfer.types;
-  return !!t&&[...t].includes('Files');
+  const types=e&&e.dataTransfer&&e.dataTransfer.types;
+  return !!types&&[...types].includes('Files');
 }
 
 /**

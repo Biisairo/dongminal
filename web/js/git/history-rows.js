@@ -246,13 +246,13 @@ Object.assign(GitHistory.prototype, {
     const a=document.createElement('span'); a.className='git-hist-author';
     a.textContent=c.authorName; a.title=c.authorName+' <'+c.authorMail+'>';
     // O12: 상대시간이 기본이고 절대시간은 title 로 항상 닿는다.
-    const t=document.createElement('span'); t.className='git-hist-date';
+    const dateEl=document.createElement('span'); dateEl.className='git-hist-date';
     const abs=GitHistory.absTime(c.authorAtUnixMs);
-    t.textContent=this._dateFmt()===GIT_DATE_ABSOLUTE?abs:GitHistory.relTime(c.authorAtUnixMs);
-    t.title=abs;
+    dateEl.textContent=this._dateFmt()===GIT_DATE_ABSOLUTE?abs:GitHistory.relTime(c.authorAtUnixMs);
+    dateEl.title=abs;
     const h=document.createElement('span'); h.className='git-hist-hash';
     h.textContent=c.abbrev; h.title=c.oid;
-    d.appendChild(g); d.appendChild(m); d.appendChild(a); d.appendChild(t); d.appendChild(h);
+    d.appendChild(g); d.appendChild(m); d.appendChild(a); d.appendChild(dateEl); d.appendChild(h);
     // FR-GIT-232: 두 번째 클릭으로 상세를 여닫지 않는다 — 더블클릭이 제스처로 쓰이는
     // 자리에서 첫 클릭의 되돌림이 되면 목록이 두 번 다시 그려진다 (refs 사이드바와
     // 같은 규약. MouseEvent.detail 이 클릭 횟수다).

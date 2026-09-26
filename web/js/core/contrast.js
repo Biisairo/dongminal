@@ -57,10 +57,10 @@ function hexRgb(hex){if(typeof hex!=='string'||hex[0]!=='#'||hex.length<7)return
 // 없고, `--text-dim` 같은 기존 토큰을 빌리면 테마마다 밝기 관계가 달라 어떤 테마
 // 에서는 오히려 흐려진다 — border 를 text 쪽으로 섞으면 밝은 테마·어두운 테마 모두
 // 에서 바탕과의 대비가 반드시 커진다.
-function mixHex(a,b,t){
+function mixHex(a,b,ratio){
   const x=hexRgb(a),y=hexRgb(b);
   if(!x||!y) return a;
-  const c=k=>Math.round(x[k]+(y[k]-x[k])*t).toString(16).padStart(2,'0');
+  const c=k=>Math.round(x[k]+(y[k]-x[k])*ratio).toString(16).padStart(2,'0');
   return '#'+c('r')+c('g')+c('b');
 }
 
@@ -94,9 +94,9 @@ function liftContrast(raw,anchor,bgs,floor){
   if(ok(raw)) return {color:raw,mix:0};
   const steps=Math.round(1/CONTRAST_STEP);
   for(let i=1;i<=steps;i++){
-    const t=+(i*CONTRAST_STEP).toFixed(2);
-    const c=mixHex(raw,anchor,t);
-    if(ok(c)) return {color:c,mix:t};
+    const ratio=+(i*CONTRAST_STEP).toFixed(2);
+    const c=mixHex(raw,anchor,ratio);
+    if(ok(c)) return {color:c,mix:ratio};
   }
   // **닿지 못하는 팔레트가 있다.** 배경이 중간 밝기면(가령 `#808080`) 흰색도
   // 검은색도 7.0 에 미치지 못한다 — 그 배경 위에서 그 대비는 존재하지 않는다.

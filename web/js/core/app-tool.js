@@ -414,12 +414,12 @@ Object.assign(App.prototype, {
    * 늦게 떠난 것이 먼저 도착해 새 목록을 낡은 것으로 되돌리는 일이다.
    */
   async _bgRefresh(src){
-    const t=this._restoreBegin('background');
+    const flight=this._restoreBegin('background');
     const r=await stateFetch(src,'/api/tools/background');
     if(!r.ok||!r.data) return;
-    if(!this._restoreLive('background',t)) return;
+    if(!this._restoreLive('background',flight)) return;
     this._bg=Array.isArray(r.data.background)?r.data.background:[];
-    this._restoreEnd('background',t);
+    this._restoreEnd('background',flight);
     this.updateStatusBar();
     this._bgPanelPaint();
   },
@@ -481,10 +481,10 @@ Object.assign(App.prototype, {
       Toast.show(BG_RESTORE_FAIL,'err');
       return;
     }
-    const t=newEntityId();
+    const tabId=newEntityId();
     if(!this.tools.has(toolId)) this.mkTool(toolId,DEFAULT_TOOL_NAME);
-    pn.tabs.push({id:t,name:TAB_NAME_DEFAULT,type:TAB_TYPE_TERMINAL,toolId});
-    this.paneTabSet(pn,t);
+    pn.tabs.push({id:tabId,name:TAB_NAME_DEFAULT,type:TAB_TYPE_TERMINAL,toolId});
+    this.paneTabSet(pn,tabId);
     this.render();
     this.save();
     this._bgRefresh();
@@ -558,7 +558,7 @@ Object.assign(App.prototype, {
     if(!toolId) return false;
     const s=this.aw();
     if(!s||!s.layout) return false;
-    return !!findTabWhere([s],t=>t.toolId===toolId);
+    return !!findTabWhere([s],tab=>tab.toolId===toolId);
   },
 
   /**
@@ -572,6 +572,6 @@ Object.assign(App.prototype, {
 
   // toolId 를 가진 tab 의 위치 (FR-PAN-16)
   findToolLocation(toolId){
-    return toolId?findTabWhere(this.ws.windows,t=>t.toolId===toolId):null;
+    return toolId?findTabWhere(this.ws.windows,tab=>tab.toolId===toolId):null;
   },
 });

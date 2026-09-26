@@ -164,9 +164,9 @@ Object.assign(GitBranches.prototype, {
   },
 
   _twist(open){
-    const t=document.createElement('span'); t.className='git-br-twist';
-    t.textContent=open?'▾':'▸';
-    return t;
+    const twist=document.createElement('span'); twist.className='git-br-twist';
+    twist.textContent=open?'▾':'▸';
+    return twist;
   },
 
   _rowEl(r){

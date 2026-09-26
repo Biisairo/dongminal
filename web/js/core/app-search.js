@@ -35,7 +35,7 @@ Object.assign(App.prototype, {
     if(!this.focused)return null;
     const s=this.aw();if(!s)return null;
     const pn=findPane(s.layout,this.focused);if(!pn)return null;
-    const tab=pn.tabs.find(t=>t.id===this.paneTab(pn));
+    const tab=pn.tabs.find(x=>x.id===this.paneTab(pn));
     if(!tab||tab.type!==TAB_TYPE_TERMINAL)return null;
     return this.tools.get(tab.toolId);
   },

@@ -57,8 +57,8 @@ function docMarkdown() {
    */
   const baseRender = docMD.renderer.renderToken.bind(docMD.renderer);
   docMD.renderer.renderToken = (tokens, idx, options) => {
-    const t = tokens[idx];
-    if (t.map && t.nesting !== -1) t.attrSet('data-line', String(t.map[0] + 1));
+    const tok = tokens[idx];
+    if (tok.map && tok.nesting !== -1) tok.attrSet('data-line', String(tok.map[0] + 1));
     return baseRender(tokens, idx, options);
   };
   return docMD;
@@ -622,8 +622,8 @@ class DocRender {
    */
   keepView() {
     if (!this._body || !this.el.isConnected || !this.el.classList.contains('vis')) return;
-    const t = this._body.scrollTop;
-    if (t) this._keptTop = t;
+    const st = this._body.scrollTop;
+    if (st) this._keptTop = st;
   }
 
   restoreView() {

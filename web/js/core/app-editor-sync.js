@@ -195,7 +195,7 @@ Object.assign(App.prototype, {
     if(!this.fileEditors) return false;
     const ids=new Set();
     for(const pn of this.flattenPanes(s.layout))
-      for(const t of (pn.tabs||[])) if(t&&t.type===TAB_TYPE_EDITOR) ids.add(t.id);
+      for(const tab of (pn.tabs||[])) if(tab&&tab.type===TAB_TYPE_EDITOR) ids.add(tab.id);
     if(!ids.size) return false;
     for(const[k,v] of this.fileEditors)
       if(v&&v._dirty&&ids.has(this.slotBase(k))) return true;
@@ -206,8 +206,8 @@ Object.assign(App.prototype, {
   _edWinGitDirty(s){
     const root=this.edRootOf(s);
     for(const pn of this.flattenPanes(s.layout))
-      for(const t of (pn.tabs||[]))
-        if(t&&t.type===TAB_TYPE_GIT&&this._gitViewDirty(root,t.gitView,true)) return true;
+      for(const tab of (pn.tabs||[]))
+        if(tab&&tab.type===TAB_TYPE_GIT&&this._gitViewDirty(root,tab.gitView,true)) return true;
     return false;
   },
 
@@ -256,12 +256,12 @@ Object.assign(App.prototype, {
     const root=this.edRootOf(s);
     let ok=true;
     for(const pn of this.flattenPanes(s.layout))
-      for(const t of (pn.tabs||[]))
-        if(t&&t.type===TAB_TYPE_GIT&&!await this._gitViewSave(root,t.gitView)) ok=false;
+      for(const tab of (pn.tabs||[]))
+        if(tab&&tab.type===TAB_TYPE_GIT&&!await this._gitViewSave(root,tab.gitView)) ok=false;
     if(!this.fileEditors) return ok;
     const ids=new Set();
     for(const pn of this.flattenPanes(s.layout))
-      for(const t of (pn.tabs||[])) if(t&&t.type===TAB_TYPE_EDITOR) ids.add(t.id);
+      for(const tab of (pn.tabs||[])) if(tab&&tab.type===TAB_TYPE_EDITOR) ids.add(tab.id);
     const done=new Set();
     for(const[k,v] of this.fileEditors){
       const base=this.slotBase(k);
@@ -315,12 +315,12 @@ Object.assign(App.prototype, {
     if(!this._edTrees||!this._edTrees.size) return;
     const alive=new Set((ws||this.ws.windows||[]).map(s=>s&&s.id).filter(Boolean));
     const n=this.slotCount();
-    for(const[key,t] of this._edTrees){
+    for(const[key,tree] of this._edTrees){
       // FR-SVS-24: 키는 복합키다 — 창 id 와 칸을 갈라 본다.
       const id=this.slotBase(key);
       // FR-SVS-23: 창이 사라졌거나 그 칸 자체가 사라졌으면 시선을 거둔다.
       if(alive.has(id)&&this._slotOf(key)<n) continue;
-      t.destroy();
+      tree.destroy();
       this._edTrees.delete(key);
       if(this._edLastActive===id&&!this._edTrees.has(id)) this._edLastActive=null;
     }

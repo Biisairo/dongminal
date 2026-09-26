@@ -13,16 +13,16 @@ const TERM_LABELS={background:'BG',foreground:'FG',cursor:'Cursor',selectionBack
 function hexToRgba(hex,a){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return`rgba(${r},${g},${b},${a})`}
 // 알림 강조색: 팔레트(테마 terminal 색) 중 accent(포커스)와 가장 대비되는 색을 고른다.
 // 색을 하드코딩하지 않고, accent 가 노랑/주황인 테마에서도 포커스와 겹치지 않게 한다(FR-PAN-10).
-function pickAttnColor(t){
-  const T=t.terminal||{};
+function pickAttnColor(theme){
+  const T=theme.terminal||{};
   // WORDING_COLOR_SRS FR-WRD-36: 최후 폴백도 **테마 안**이다.
   //   이전 동작: `'#e0af68'`(Tokyo Night 의 yellow) — 팔레트가 없는 테마에서
   //             54종과 무관한 한 색이 섰다
   //   새  동작: 그 테마의 `accent` 로 떨어진다
   //   이유:     닿는 일이 드문 자리여도 색이 테마 밖으로 나가면 게이트가 재는
   //             면적이 줄고, 그 자리는 다음에 또 는다
-  const fallback=T.brightYellow||T.yellow||(t.ui&&t.ui.accent);
-  const acc=hexRgb(t.ui&&t.ui.accent);
+  const fallback=T.brightYellow||T.yellow||(theme.ui&&theme.ui.accent);
+  const acc=hexRgb(theme.ui&&theme.ui.accent);
   const cands=[T.brightYellow||T.yellow,T.brightMagenta||T.magenta,T.brightCyan||T.cyan,T.brightGreen||T.green].filter(Boolean);
   if(!acc||!cands.length) return fallback;
   let best=cands[0],bestD=-1;
@@ -52,10 +52,10 @@ const SLOT_EDGE_MIX=.55;
  * SYSTEM_THEME_FOLLOW_SRS FR-STF-6: 맵 **계산**은 적용과 분리된다 — 반대 모드의
  * 슬롯은 화면에 닿지 않고 계산돼 캐시로만 간다 (FR-STF-5).
  */
-function themeVarsOf(t){
-  const ui=t.ui;
+function themeVarsOf(theme){
+  const ui=theme.ui;
   // 주의 알림색은 팔레트 중 accent(포커스)와 가장 대비되는 색 — 포커스와 겹치지 않게 (FR-PAN-10)
-  const attn=pickAttnColor(t);
+  const attn=pickAttnColor(theme);
   /**
    * DESIGN_TOKENS_SRS FR-TOK-13: 대비 파생은 **여기 한 자리**에서만 일어난다.
    *
@@ -64,7 +64,7 @@ function themeVarsOf(t){
    * 함수**를 부른다 (D-TOK-5) — 둘이 갈라지면 게이트는 초록인데 화면은 미달이
    * 된다.
    */
-  const aa=deriveContrastTokens(ui,t.mode,attn,t.terminal);
+  const aa=deriveContrastTokens(ui,theme.mode,attn,theme.terminal);
   /**
    * BOOT_SCREEN_SRS FR-BTS-1 / D-4: 세우는 변수를 **맵으로 한 번에** 만든다.
    *
@@ -125,7 +125,7 @@ function themeVarsOf(t){
      * 그대로다 — 뜻은 둘이고(붙은 것·떠 있는 것) 그 뜻이 값에 실려 있어야 한다.
      * 그래서 여기서도 색이 아니라 전체 값을 만든다 (FR-WRD-31).
      */
-    ...deriveShade(ui,t.mode),
+    ...deriveShade(ui,theme.mode),
   };
   // FR-DRV-13d: 구문 강조색을 **실제로** 터미널 팔레트에서 세운다. 그 주석이
   // 약속한 지 오래인데 파생이 없어 여섯 다 폴백으로 떨어지고 있었다.
@@ -150,9 +150,9 @@ function searchDecorOf(vars){
     activeMatchBackground:hexToRgba(danger,.5),activeMatchBorder:danger};
 }
 
-function applyThemeObj(t){
-  const ui=t.ui;
-  const vars=themeVarsOf(t);
+function applyThemeObj(theme){
+  const ui=theme.ui;
+  const vars=themeVarsOf(theme);
   searchDecor=searchDecorOf(vars);
   const s=document.documentElement.style;
   for(const k in vars) s.setProperty(k,vars[k]);
@@ -165,9 +165,9 @@ function applyThemeObj(t){
     PrefStore.local.setJson(THEME_VARS_KEY+'.dark',themeVarsOf(THEMES[themeNameDark]));
     PrefStore.local.setJson(THEME_VARS_KEY+'.light',themeVarsOf(THEMES[themeNameLight]));
   }else PrefStore.local.remove(THEME_FOLLOW_KEY);
-  TOPTS.theme=t.terminal;
+  TOPTS.theme=theme.terminal;
   document.getElementById('area').style.background=ui.bg;
-  for(const p of app.tools.values()){if(p.term)p.term.options.theme=t.terminal}
+  for(const p of app.tools.values()){if(p.term)p.term.options.theme=theme.terminal}
   if(typeof FileEditor!=='undefined'&&FileEditor.applyTheme) FileEditor.applyTheme();
   // FR-GIT-119: 레인 색은 테마 팔레트에서 파생한다 — 테마를 바꾸면 그래프도
   // 따라 바뀐다 (V47).

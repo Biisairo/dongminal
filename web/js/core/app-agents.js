@@ -24,23 +24,23 @@ Object.assign(App.prototype, {
   // `agentsPollMs`(기본 5초)마다 불리므로 비행 창이 상시 열려 있고, 통째로 비우면
   // 그 사이 도착한 활동이 태어나자마자 사라진다 (RESTORE_FLIGHT_SRS §2.1).
   _activityRestore(src){
-    const t=this._restoreBegin('activity');
+    const flight=this._restoreBegin('activity');
     return stateFetch(src,'/api/tools/activity').then(res=>{
       const j=res.ok?res.data:null;
-      if(!this._restoreLive('activity',t)) return;
+      if(!this._restoreLive('activity',flight)) return;
       const list=(j&&Array.isArray(j.activities))?j.activities.slice():[];
       list.sort((a,b)=>(a.updatedAt||0)-(b.updatedAt||0)); // 오래된→최신: 끝이 가장 최근
       const seen=new Set();
       for(const a of list){
         if(!a||!a.toolId) continue;
         seen.add(a.toolId);
-        if(t.has(a.toolId)) continue;
+        if(flight.has(a.toolId)) continue;
         this._activity.set(a.toolId,{state:a.state,tool:a.tool||'',detail:a.detail||''});
       }
       for(const id of Array.from(this._activity.keys())){
-        if(!seen.has(id)&&!t.has(id)) this._activity.delete(id);
+        if(!seen.has(id)&&!flight.has(id)) this._activity.delete(id);
       }
-      this._restoreEnd('activity',t);
+      this._restoreEnd('activity',flight);
       this.agentsRender();
     }).catch(()=>{});
   },
@@ -108,7 +108,7 @@ Object.assign(App.prototype, {
     if(!Array.isArray(this.ws.agentsOrder)||!this.ws.agentsOrder.length) return;
     const present=new Set();
     for(const w of this.ws.windows||[]){
-      for(const pn of panesOf(w.layout)) for(const t of (pn.tabs||[])) if(t.toolId) present.add(t.toolId);
+      for(const pn of panesOf(w.layout)) for(const tab of (pn.tabs||[])) if(tab.toolId) present.add(tab.toolId);
     }
     const kept=this.ws.agentsOrder.filter(id=>present.has(id));
     if(kept.length!==this.ws.agentsOrder.length) this.ws.agentsOrder=kept;

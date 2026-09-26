@@ -95,10 +95,10 @@ const UIKit = {
     if (s.title) { b.title = s.title; if (!s.label) b.setAttribute('aria-label', s.title) }
     if (s.icon) b.appendChild(this.icon(s.icon, { fill: s.iconFill, size: s.iconSize }));
     if (s.label) {
-      const t = document.createElement('span');
-      t.className = 'ui-btn-label';
-      t.textContent = s.label;
-      b.appendChild(t);
+      const labelEl = document.createElement('span');
+      labelEl.className = 'ui-btn-label';
+      labelEl.textContent = s.label;
+      b.appendChild(labelEl);
     }
     if (s.dataset) for (const k in s.dataset) if (s.dataset[k] != null) b.dataset[k] = s.dataset[k];
     if (s.disabled) b.disabled = true;
@@ -323,10 +323,10 @@ const UIKit = {
 
     // **이름이 뜻을 가져야 한다.** `aria-labelledby` 가 빈 요소를 가리키면 접근
     // 이름은 여전히 없고, axe 도 그것을 잡지 못한다 (`TC-A11Y-8a` 가 글자를 본다).
-    const t = typeof s.labelledBy === 'string' ? box.querySelector(s.labelledBy) : s.labelledBy;
-    if (t && (t.textContent || '').trim()) {
-      if (!t.id) t.id = 'ui-dlg-title-' + (++this._dlgSeq);
-      box.setAttribute('aria-labelledby', t.id);
+    const labelEl = typeof s.labelledBy === 'string' ? box.querySelector(s.labelledBy) : s.labelledBy;
+    if (labelEl && (labelEl.textContent || '').trim()) {
+      if (!labelEl.id) labelEl.id = 'ui-dlg-title-' + (++this._dlgSeq);
+      box.setAttribute('aria-labelledby', labelEl.id);
     } else if (s.label) {
       box.setAttribute('aria-label', s.label);
     }
@@ -389,14 +389,14 @@ const UIKit = {
     if (s.width) box.style.width = s.width;
     ov.appendChild(box);
 
-    let head = null, t = null;
+    let head = null, titleEl = null;
     if (s.head !== false) {
       head = document.createElement('div');
       head.className = 'ui-modal-head';
-      t = document.createElement('span');
-      t.className = 'ui-modal-title';
-      t.textContent = s.title || '';
-      head.appendChild(t);
+      titleEl = document.createElement('span');
+      titleEl.className = 'ui-modal-title';
+      titleEl.textContent = s.title || '';
+      head.appendChild(titleEl);
       const sp = document.createElement('span');
       sp.className = 'ui-modal-spacer';
       head.appendChild(sp);
@@ -485,7 +485,7 @@ const UIKit = {
     // 어느 버튼에 포커스를 주는지는 여전히 여기가 정한다(위 FR-PDA-1·11) — 옮긴
     // 것은 **주는 방법**이고, 그것이 트랩·복귀와 한 벌이어야 한다 (FR-A11Y-18).
     releaseDlg = UIKit.dialogOpen(box, {
-      labelledBy: s.labelledBy || t, label: s.label || s.title || '', returnTo: s.returnTo, focus: s.focus || defBtn,
+      labelledBy: s.labelledBy || titleEl, label: s.label || s.title || '', returnTo: s.returnTo, focus: s.focus || defBtn,
     });
     return { el: ov, box, body, foot, close, defBtn };
   },

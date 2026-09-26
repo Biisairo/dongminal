@@ -244,27 +244,27 @@ Object.assign(Renderer.prototype, {
       const b=document.createElement('div'); b.className='ed-side-tabs';
       // FR-PDR-7: 배선은 한 번. 탭 목록은 고정이므로 버튼도 한 번 만든다.
       for(const d of REPO_SIDE_TABS){
-        const t=document.createElement('button');
-        t.className='ui-tab ed-side-tab';
-        t.dataset.side=d.id; t.textContent=d.label;
-        if(d.title) t.title=d.title;
+        const btn=document.createElement('button');
+        btn.className='ui-tab ed-side-tab';
+        btn.dataset.side=d.id; btn.textContent=d.label;
+        if(d.title) btn.title=d.title;
         // `s` 를 가두지 않는다 — 이 골격은 창 id 로 키를 갖지만 그 객체는
         // 채택마다 새로 온다. 지금 그 id 의 창을 찾아 넘긴다.
-        t.addEventListener('click',()=>{
+        btn.addEventListener('click',()=>{
           const w=app.ws.windows.find(x=>x&&x.id===((s&&s.id)||''));
           app.edSetSide(w||s,d.id);
         });
-        b.appendChild(t);
+        b.appendChild(btn);
       }
       return b;
     });
     // FR-M9-22: 설 수 없는 탭은 **숨긴다** — 없앴다 만들면 그 위의 손이 클릭을
     // 잃는다 (FR-GRF-14, 새로고침 버튼과 같은 처리다).
     const allowed=new Set(app.edSideTabs(s).map(d=>d.id));
-    for(const t of bar.children)
-      if(t.dataset&&t.dataset.side){
-        t.hidden=!allowed.has(t.dataset.side);
-        t.classList.toggle('active',t.dataset.side===active);
+    for(const btn of bar.children)
+      if(btn.dataset&&btn.dataset.side){
+        btn.hidden=!allowed.has(btn.dataset.side);
+        btn.classList.toggle('active',btn.dataset.side===active);
       }
     /**
      * GIT_CHANGES_CONTROLS_SRS FR-GCC-10 / D-7·D-8: 새로고침은 **창의 최상단**,

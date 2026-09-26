@@ -6,9 +6,9 @@ import globals from 'globals';
 /**
  * ESLint 최소 설정 (CI_GATES_SRS B3 · 02-fe-arch 의 P1 "린트·타입 안전망 전무").
  *
- * **규칙이 셋뿐인 것은 의도다.** 스타일 규칙을 켜면 35,120 LOC 가 한꺼번에
- * 빨개지고, 그러면 아무도 보지 않는 게이트가 된다. 셋은 전부 결함 탐지이지
- * 취향이 아니다 — 없는 이름, 죽은 변수, 빈 블록.
+ * **규칙이 넷뿐인 것은 의도다.** 스타일 규칙을 켜면 35,120 LOC 가 한꺼번에
+ * 빨개지고, 그러면 아무도 보지 않는 게이트가 된다. 넷은 전부 결함 탐지이지
+ * 취향이 아니다 — 없는 이름, 죽은 변수, 빈 블록, 전역 `t()` 가림.
  *
  * ── 전역 목록을 손으로 적지 않는 이유 ──
  *
@@ -85,6 +85,39 @@ const VENDOR_GLOBALS = {
   require: 'readonly',           // monaco 의 AMD 로더 (`file-editor.js:64-81`)
 };
 
+/**
+ * OPTIMIZE_REFACTOR_SRS FR-OPT-16-2 (FEC-36): 지역 이름 `t` 를 막는다.
+ *
+ * `t()` 는 i18n 의 전역 번역 함수다(`web/js/core/i18n.js`). 지역 `t` 가 그것을 가리면
+ * 그 스코프 안에서 문구를 번역하려는 호출이 **조용히 다른 것을 부른다** — 가리기 전
+ * 까지는 멀쩡하던 줄이 탭 객체나 타이머를 함수로 부르며 죽는다. 한때 259자리였다.
+ *
+ * 코어 `no-shadow` 는 쓰지 않는다: `builtinGlobals` 를 켜면 전역 1,254개와 브라우저
+ * 전역 전부가 대상이 되고, 끄면 `t` 가 전역 선언이라 잡히지 않는다. 가리면 안 되는
+ * 이름은 이 하나다.
+ */
+const SHADOW_DENY = new Set(['t']);
+const localPlugin = {
+  rules: {
+    'no-shadow-i18n': {
+      meta: { type: 'problem', schema: [], messages: { shadow: "지역 이름 '{{name}}' 이 전역 i18n 함수 {{name}}() 를 가린다" } },
+      create(ctx) {
+        return {
+          'Program:exit'() {
+            for (const scope of ctx.sourceCode.scopeManager.scopes) {
+              if (scope.type === 'global') continue;
+              for (const v of scope.variables) {
+                if (!SHADOW_DENY.has(v.name)) continue;
+                for (const d of v.defs) ctx.report({ node: d.name, messageId: 'shadow', data: { name: v.name } });
+              }
+            }
+          },
+        };
+      },
+    },
+  },
+};
+
 export default [
   {
     // vendor 는 남의 코드이고 최소화돼 있다. 검사할 것도 고칠 것도 없다.
@@ -98,6 +131,7 @@ export default [
       sourceType: 'script',
       globals: { ...globals.browser, ...VENDOR_GLOBALS, ...appGlobals('web/js') },
     },
+    plugins: { local: localPlugin },
     rules: {
       'no-undef': 'error',
       // `vars: 'local'` 이 핵심이다. 최상위 `class`/`const` 는 이 구조에서 **다른
@@ -106,6 +140,7 @@ export default [
       // 함수 안의 죽은 변수는 그대로 잡힌다 — 그쪽이 재려던 것이다.
       'no-unused-vars': ['error', { vars: 'local', args: 'none', caughtErrors: 'none' }],
       'no-empty': ['error', { allowEmptyCatch: true }],
+      'local/no-shadow-i18n': 'error',
     },
   },
   {

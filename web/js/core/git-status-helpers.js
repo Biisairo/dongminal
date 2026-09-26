@@ -52,11 +52,11 @@ function editorGitBackoffMs(){ return gitReposInterval*EDITOR_GIT_BACKOFF_FACTOR
  * 낸다 — `gitGroupEntries` 가 합치는 그 키들이다.
  */
 function gitGroupTruncated(status,key){
-  const t=status&&status.truncated;
-  if(!t) return 0;
+  const truncated=status&&status.truncated;
+  if(!truncated) return 0;
   const src=GIT_GROUP_SRC[key]||[key];
   let n=0;
-  for(const k of src) n+=t[k]||0;
+  for(const k of src) n+=truncated[k]||0;
   return n;
 }
 

@@ -236,10 +236,10 @@ class GitStash {
     const b=document.createElement('span'); b.className='git-stash-base';
     b.textContent=s.base||'';
     // O12 와 같은 규약: 상대시간이 기본이고 절대시간은 title 로 항상 닿는다.
-    const t=document.createElement('span'); t.className='git-stash-date';
+    const dateEl=document.createElement('span'); dateEl.className='git-stash-date';
     const abs=GitHistory.absTime(s.atUnixMs);
-    t.textContent=GitHistory.relTime(s.atUnixMs); t.title=abs;
-    d.appendChild(r); d.appendChild(m); d.appendChild(b); d.appendChild(t);
+    dateEl.textContent=GitHistory.relTime(s.atUnixMs); dateEl.title=abs;
+    d.appendChild(r); d.appendChild(m); d.appendChild(b); d.appendChild(dateEl);
     d.addEventListener('click',()=>this._select(s.oid));
     d.addEventListener('contextmenu',ev=>{ev.preventDefault();GitMenu.open('stash',s,ev)});
     return d;
@@ -305,11 +305,11 @@ class GitStash {
     const repo=this._repo; if(!repo) return;
     const tok=this.panel.token();
     // FR-GRF-31: 앞선 조회를 끊는다 (branches.js 의 같은 자리와 한 쌍).
-    const t=gitLoadTicket(this);
+    const ticket=gitLoadTicket(this);
     this._loading=true;
     const res=await gitFetch(GIT_API.stash,{repo},
-      {stale:()=>this.panel.isStale(tok),echo:{repo},signal:t.signal});
-    if(gitLoadTaken(this,t)) return;
+      {stale:()=>this.panel.isStale(tok),echo:{repo},signal:ticket.signal});
+    if(gitLoadTaken(this,ticket)) return;
     // FR-GRF-24: 낡은 응답이 잠금을 쥔 채 나가지 않는다.
     this._loading=false;
     if(res.stale) return;

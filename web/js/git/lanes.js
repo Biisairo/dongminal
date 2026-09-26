@@ -238,11 +238,11 @@ function clampLanes(graph,max){
   const foldPass=arr=>{
     const out=[],seen=new Set();
     for(const s of arr){
-      const t=Math.min(s.top,lim),b=Math.min(s.bottom,lim);
-      const k=t+':'+b;
+      const tp=Math.min(s.top,lim),b=Math.min(s.bottom,lim);
+      const k=tp+':'+b;
       if(seen.has(k)) continue;
       seen.add(k);
-      out.push({top:t,bottom:b,color:s.color});
+      out.push({top:tp,bottom:b,color:s.color});
     }
     return out.sort((a,b)=>a.top-b.top||a.bottom-b.bottom);
   };

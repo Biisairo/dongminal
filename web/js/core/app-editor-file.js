@@ -45,8 +45,8 @@ Object.assign(App.prototype, {
     // 옮긴다 — 사용자가 고른 것은 파일이 아니라 그 줄이다.
     const ln=(opts||{}).line;
     if(ln){
-      const t=this._findEditorTab(filePath);
-      const v=t&&this.editorAny(t.tab.id);
+      const tab=this._findEditorTab(filePath);
+      const v=tab&&this.editorAny(tab.tab.id);
       if(v&&v.revealLine) v.revealLine(ln,(opts||{}).col);
     }
     // 연 파일이 **탐색기에서도** 보이게 한다. 파일 검색·전체 검색으로 열면 그

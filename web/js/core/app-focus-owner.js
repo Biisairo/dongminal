@@ -128,12 +128,12 @@ Object.assign(App.prototype, {
    * 합류·복귀 시의 스냅샷. `state-registry` 의 `merge:'latest'` — 추월만 막는다.
    */
   _focusRestore(src){
-    const t=this._restoreBegin('focus');
+    const flight=this._restoreBegin('focus');
     return stateFetch(src,'/api/focus').then(res=>{
       const j=res.ok?res.data:null;
       if(!j) return;
-      if(!this._restoreLive('focus',t)) return;
-      this._restoreEnd('focus',t);
+      if(!this._restoreLive('focus',flight)) return;
+      this._restoreEnd('focus',flight);
       this._windowFocusOwner=j.owners||{};
       this.applyFocusOverlay();
       // FR-WSL-12: 슬롯이 둘이면 둘 다 재주장한다 — 각 슬롯의 구독이 따로 끊기고
@@ -176,8 +176,8 @@ Object.assign(App.prototype, {
       const slot=slotEl?(parseInt(slotEl.dataset.slot,10)||0):0;
       const mine=this._slotIdentity(slot);
       let dim=false;
-      for(const t of pn.querySelectorAll('.pn-tab[data-toolid]')){
-        const sid=this._toolWindowId(t.dataset.toolid);
+      for(const tabEl of pn.querySelectorAll('.pn-tab[data-toolid]')){
+        const sid=this._toolWindowId(tabEl.dataset.toolid);
         if(!sid) continue;
         const owner=this._windowFocusOwner[sid];
         if(owner&&owner!==mine){dim=true;break}
@@ -198,7 +198,7 @@ Object.assign(App.prototype, {
       const walk=n=>{
         if(!n||found) return;
         if(n.type==='pane'&&n.tabs){
-          for(const t of n.tabs) if(t.toolId===toolId){found=s.id;return}
+          for(const tab of n.tabs) if(tab.toolId===toolId){found=s.id;return}
         }
         if(n.type==='split'&&n.children) for(const c of n.children) walk(c);
       };
@@ -223,7 +223,7 @@ Object.assign(App.prototype, {
     const walk=n=>{
       if(!n) return;
       if(n.type==='pane'&&n.tabs){
-        for(const t of n.tabs) if(t.toolId) toolIds.add(t.toolId);
+        for(const tab of n.tabs) if(tab.toolId) toolIds.add(tab.toolId);
       }
       if(n.type==='split'&&n.children) for(const c of n.children) walk(c);
     };

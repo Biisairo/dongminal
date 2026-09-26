@@ -428,7 +428,7 @@ class App {
     const tabs=new Set();
     for(const w of (windows||[]))
       for(const p of panesOf(w&&w.layout))
-        for(const t of (p.tabs||[])) if(t&&t.id) tabs.add(t.id);
+        for(const tab of (p.tabs||[])) if(tab&&tab.id) tabs.add(tab.id);
     return {windows:new Set((windows||[]).map(w=>w&&w.id).filter(Boolean)),tabs};
   }
 

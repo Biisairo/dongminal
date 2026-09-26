@@ -137,10 +137,10 @@ function edDdDecoOptions(type){
   if(!edDdOpts){
     edDdOpts={};
     const st=getComputedStyle(document.documentElement);
-    for(const t of [ED_DD_ADD,ED_DD_MOD,ED_DD_DEL]){
-      const color=st.getPropertyValue(ED_DD_COLOR_VAR[t]).trim();
-      edDdOpts[t]={
-        linesDecorationsClassName:'fe-dd-'+t,
+    for(const kind of [ED_DD_ADD,ED_DD_MOD,ED_DD_DEL]){
+      const color=st.getPropertyValue(ED_DD_COLOR_VAR[kind]).trim();
+      edDdOpts[kind]={
+        linesDecorationsClassName:'fe-dd-'+kind,
         // 조각의 자리는 **계산이 정한다.** 편집 중에 데코레이션이 스스로 자라면
         // 다음 계산이 오기 전까지 화면이 실제와 어긋난다.
         stickiness:monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
@@ -420,9 +420,9 @@ Object.assign(FileEditor.prototype,{
     this._dd.views.add(this);
     this._dd.attach(this._editor.getModel());
     this._editor.onMouseDown((e)=>{
-      const t=e&&e.target;
-      if(!t||t.type!==monaco.editor.MouseTargetType.GUTTER_LINE_DECORATIONS) return;
-      const ln=t.position&&t.position.lineNumber;
+      const target=e&&e.target;
+      if(!target||target.type!==monaco.editor.MouseTargetType.GUTTER_LINE_DECORATIONS) return;
+      const ln=target.position&&target.position.lineNumber;
       const ch=ln&&this._dd?this._dd.changeAt(ln):null;
       if(!ch){this._ddClose();return}
       this._ddOpen(ch);

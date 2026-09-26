@@ -133,20 +133,20 @@ Object.assign(GitPanel.prototype, {
 
   // 묶음 B — 브랜치 동작 (GIT_ACTIONS_SRS §3.2 FR-GIT-253~259 · §3.5 FR-GIT-268).
   // 여기도 포워더뿐이다 — 실행은 git-branches.js 에 있다.
-  branchRename(t){return GitBranches.rename(this,t)},
-  branchDelete(t,names){return GitBranches.del(this,t,names)},
-  branchDeleteTargets(t){return GitBranches.targetsOf(this,t)},
+  branchRename(target){return GitBranches.rename(this,target)},
+  branchDelete(target,names){return GitBranches.del(this,target,names)},
+  branchDeleteTargets(target){return GitBranches.targetsOf(this,target)},
   branchMerge(ref){return GitBranches.merge(this,ref)},
   branchRebase(ref){return GitBranches.rebase(this,ref)},
-  branchSetUpstream(t){return GitBranches.setUpstream(this,t)},
-  branchUnsetUpstream(t){return GitBranches.unsetUpstream(this,t)},
-  branchPush(t){return GitBranches.push(this,t)},
+  branchSetUpstream(target){return GitBranches.setUpstream(this,target)},
+  branchUnsetUpstream(target){return GitBranches.unsetUpstream(this,target)},
+  branchPush(target){return GitBranches.push(this,target)},
   branchFetchInto(short){return GitBranches.fetchInto(this,short)},
   branchDeleteRemote(short){return GitBranches.deleteRemote(this,short)},
   // BRANCH_MENU_UNIFY_SRS FR-BMU-10: 로컬과 원격을 한 번에.
-  branchDeleteBoth(t,names){return GitBranches.delBoth(this,t,names)},
+  branchDeleteBoth(target,names){return GitBranches.delBoth(this,target,names)},
   // FR-BMU-16e: 메뉴가 짝과 그 사유를 묻는다 — 판정은 한 자리에 있다.
-  branchDeletePair(t){return GitBranches.pairOf(this,t)},
+  branchDeletePair(target){return GitBranches.pairOf(this,target)},
   /**
    * FR-BMU-16h: ref 목록을 받는 자리. 부르는 쪽은 둘이다 (Branches · History).
    *

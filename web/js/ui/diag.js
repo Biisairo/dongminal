@@ -134,9 +134,9 @@
   for(const type of ['touchstart','touchmove','touchend','touchcancel']){
     window.addEventListener(type,(e)=>{
       const p=pane();
-      const t=e.touches&&e.touches[0];
+      const touch=e.touches&&e.touches[0];
       const info=type+' n='+(e.touches?e.touches.length:0)+
-        (t?(' y='+Math.round(t.clientY)):'')+
+        (touch?(' y='+Math.round(touch.clientY)):'')+
         ' cancelable='+e.cancelable+' tgt='+cn(e.target)+
         ' tsActive='+(p?!!p._tsActive:'?');
       setTimeout(()=>put(info+' dp='+e.defaultPrevented+' | '+scrollState()),0);

@@ -257,33 +257,33 @@ Object.assign(FileTree.prototype, {
     this._clearErr();
     // 세는 것이 확인창보다 먼저다. 합산이므로 폴더가 여럿이면 그 합이다.
     let count=null,isDir=false;
-    for(const t of targets){
-      if(this._kindOf(t)!=='dir') continue;
+    for(const target of targets){
+      if(this._kindOf(target)!=='dir') continue;
       isDir=true;
-      const c=await this.app.edCountTree(this.root,t);
+      const c=await this.app.edCountTree(this.root,target);
       if(!c) continue;
       count={n:((count&&count.n)||0)+(c.n||0),more:!!((count&&count.more)||c.more)};
     }
     const dirty=[];
-    for(const t of targets) for(const n of this.app.edDirtyUnder(t)) if(!dirty.includes(n)) dirty.push(n);
+    for(const target of targets) for(const n of this.app.edDirtyUnder(target)) if(!dirty.includes(n)) dirty.push(n);
     if(!await this.app.edConfirmDelete(targets,isDir,count,dirty)) return;
 
     const dirs=[];
-    for(const t of targets){const d=this._parent(t);if(!dirs.includes(d))dirs.push(d)}
+    for(const target of targets){const d=this._parent(target);if(!dirs.includes(d))dirs.push(d)}
     // `UX-25`: 복구 길은 **지우기 전에** 판정한다 — 지운 뒤에는 상태가 없다.
-    const recover=targets.filter(t=>this._recoverable(t)).map(t=>this._repoRel(t));
-    for(const t of targets) this._optimDel(t);
+    const recover=targets.filter(target=>this._recoverable(target)).map(target=>this._repoRel(target));
+    for(const target of targets) this._optimDel(target);
     this._paintAll();
     const failed=[];
     const done=[];
-    for(const t of targets){
-      const r=await this.app.edFs(FS_DELETE_API,{root:this.root,path:t});
-      if(!r.ok){failed.push({path:t,msg:r.msg});continue}
+    for(const target of targets){
+      const r=await this.app.edFs(FS_DELETE_API,{root:this.root,path:target});
+      if(!r.ok){failed.push({path:target,msg:r.msg});continue}
       // FR-EDT-91: 그 파일의 탭을 닫는다. 폴더면 하위 전부. 확인창은 다시 띄우지
       // 않는다 — FR-EDT-84 에서 이미 밝혔다.
-      await this.app.edCloseTabsUnder(t);
-      this._forget(t);
-      done.push(this._repoRel(t));
+      await this.app.edCloseTabsUnder(target);
+      this._forget(target);
+      done.push(this._repoRel(target));
     }
     /**
      * `UX-25` (`03 §P2` "파일 삭제는 영구인데 되돌릴 길이 없다"): **되돌릴 길이

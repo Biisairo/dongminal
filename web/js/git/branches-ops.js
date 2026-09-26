@@ -392,20 +392,20 @@ Object.assign(GitBranches, {
    *
    * `why` 는 비활성 사유이고 비어 있으면 짝이 섰다는 뜻이다.
    */
-  pairOf(panel,t){
-    if(!t) return {local:null,remote:'',why:GIT_BR_WHY_NO_UPSTREAM};
-    if(t.kind!==GIT_REF_KIND_REMOTE){
-      const up=((t.upstream||'')+'').trim();
-      return {local:t,remote:up,why:up?'':GIT_BR_WHY_NO_UPSTREAM};
+  pairOf(panel,target){
+    if(!target) return {local:null,remote:'',why:GIT_BR_WHY_NO_UPSTREAM};
+    if(target.kind!==GIT_REF_KIND_REMOTE){
+      const up=((target.upstream||'')+'').trim();
+      return {local:target,remote:up,why:up?'':GIT_BR_WHY_NO_UPSTREAM};
     }
     // FR-BMU-16h: **뷰가 아니라 패널에게 묻는다.** 종전에는 Branches 뷰의 사본을
     // 읽어서, 그 탭을 한 번도 열지 않으면 추적하는 로컬이 있어도 "없다" 가 됐다.
     const refs=Array.isArray(panel&&panel._knownRefs)?panel._knownRefs:[];
     const hits=refs.filter(r=>r&&r.kind===GIT_REF_KIND_LOCAL
-      &&((r.upstream||'')+'').trim()===t.short);
-    if(!hits.length) return {local:null,remote:t.short,why:GIT_BR_WHY_NO_LOCAL};
-    if(hits.length>1) return {local:null,remote:t.short,why:GIT_BR_WHY_MANY_LOCAL};
-    return {local:hits[0],remote:t.short,why:''};
+      &&((r.upstream||'')+'').trim()===target.short);
+    if(!hits.length) return {local:null,remote:target.short,why:GIT_BR_WHY_NO_LOCAL};
+    if(hits.length>1) return {local:null,remote:target.short,why:GIT_BR_WHY_MANY_LOCAL};
+    return {local:hits[0],remote:target.short,why:''};
   },
 
   /**
@@ -414,8 +414,8 @@ Object.assign(GitBranches, {
    *	새 동작: 확인창의 한 쌍만 지운다
    *	이유: Delete both 는 짝지어진 둘을 지우는 항목이다(#1)
    */
-  async delBoth(panel,t,names){
-    if(!panel||!panel.repo||!t||!Array.isArray(names)) return;
+  async delBoth(panel,target,names){
+    if(!panel||!panel.repo||!target||!Array.isArray(names)) return;
     // FR-BMU-16d·16g: 어느 행에서 눌렀든 같은 쌍을 같은 순서로 지운다.
     const [local,up]=names;
     if(names.length!==2||!local||!up) return;
@@ -477,9 +477,9 @@ Object.assign(GitBranches, {
    * 그 값을 이미 준다 (/api/git/refs). 값이 없으면 명령을 만들지 않는다: 되살리지
    * 못하는 명령을 보이는 것이 빈 안내문보다 나쁘다.
    */
-  restoreRemoteCmd(t){
-    const p=GitBranches._split((t&&t.short)||'');
-    if(!p.branch||!t.oid) return '';
-    return 'git push '+p.remote+' '+t.oid+':refs/heads/'+p.branch;
+  restoreRemoteCmd(target){
+    const p=GitBranches._split((target&&target.short)||'');
+    if(!p.branch||!target.oid) return '';
+    return 'git push '+p.remote+' '+target.oid+':refs/heads/'+p.branch;
   },
 });

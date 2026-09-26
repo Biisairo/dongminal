@@ -82,8 +82,8 @@ const Toast = {
     return {
       el,
       close,
-      update(t,k,d){
-        if(textEl) textEl.textContent=t; else el.textContent=t;
+      update(msg,k,d){
+        if(textEl) textEl.textContent=msg; else el.textContent=msg;
         el.className=['toast',k||'',o.cls||''].filter(Boolean).join(' ');
         arm(d===undefined?TOAST_MS:d);
       },

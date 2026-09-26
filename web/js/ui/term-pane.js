@@ -112,7 +112,7 @@ class TerminalTool {
       UIKit.menu([
         {id:'copy',label:TERM_MENU_COPY,disabled:sel?false:TERM_MENU_COPY_NO,onClick:()=>TermClipboard.write(sel,this.id)},
         {id:'paste',label:TERM_MENU_PASTE,disabled:canRead?false:TERM_MENU_PASTE_NO,onClick:()=>{
-          navigator.clipboard.readText().then(t=>{if(t)this.term.paste(t)},()=>Toast.show(TERM_MENU_PASTE_DENIED,'err'));
+          navigator.clipboard.readText().then(text=>{if(text)this.term.paste(text)},()=>Toast.show(TERM_MENU_PASTE_DENIED,'err'));
         }},
         {id:'selectAll',label:TERM_MENU_SELECT_ALL,onClick:()=>this.term.selectAll()},
         {sep:true},
@@ -557,9 +557,9 @@ class TerminalTool {
       ov.setAttribute('role','status');
       this.el.appendChild(ov);
     }
-    const t=document.createElement('div');t.className='tp-ov-title';t.textContent=title;
+    const titleEl=document.createElement('div');titleEl.className='tp-ov-title';titleEl.textContent=title;
     const b=document.createElement('div');b.className='tp-ov-sub';b.textContent=sub;
-    const kids=[t,b];
+    const kids=[titleEl,b];
     if(acts&&acts.length){
       const bar=document.createElement('div');bar.className='tp-ov-acts';
       for(const a of acts){
@@ -681,7 +681,7 @@ class TerminalTool {
         // FR-TFD-13: 보이는 이름은 `relPath` 다 — `a/b/c.txt` 를 `c.txt` 로만
         // 보이면 어느 것이 끝났는지 알 수 없다.
         const label=rel||f.name;
-        const t=this._toast(TERM_UPLOAD_BUSY.replace('%s',label),'',0);
+        const toast=this._toast(TERM_UPLOAD_BUSY.replace('%s',label),'',0);
         apiPost(UPLOAD_API,fd,{query:{dir:cwd}})
           .then(r=>(r.ok&&r.data)?r.data:Promise.reject(r))
           .then(d=>{
@@ -689,10 +689,10 @@ class TerminalTool {
             // 충돌 시 개명하므로(`c (1).txt`) 그 사실이 보여야 하고, 그렇다고
             // 마지막 조각만 보이면 어느 폴더의 것인지 알 수 없다.
             const at=rel?rel.replace(/[^/]*$/,'')+d.name:d.name;
-            if(t)t.update(TERM_UPLOAD_OK.replace('%s',at).replace('%z',this._fmtSize(d.size)),'ok');
+            if(toast)toast.update(TERM_UPLOAD_OK.replace('%s',at).replace('%z',this._fmtSize(d.size)),'ok');
             uploadNext();
           }).catch(()=>{
-            if(t)t.update(TERM_UPLOAD_FAIL.replace('%s',label),'err',TOAST_ERR_MS);
+            if(toast)toast.update(TERM_UPLOAD_FAIL.replace('%s',label),'err',TOAST_ERR_MS);
             uploadNext();
           });
       };

@@ -68,8 +68,8 @@ Object.assign(App.prototype, {
       // 같은 루트를 보는 칸이 여럿이어도 요청은 한 벌이다 — `_busy` 가 store 로
       // 위임하므로 둘째 호출이 그 자리에서 돌아간다 (FR-SVS-20).
       this._softStep('trees',()=>{
-        for(const t of (this._edTrees?this._edTrees.values():[])){
-          if(t&&typeof t.refresh==='function') t.refresh();
+        for(const tree of (this._edTrees?this._edTrees.values():[])){
+          if(tree&&typeof tree.refresh==='function') tree.refresh();
         }
       });
       // ⑤ 터미널 (FR-SRL-5, D-2): **전부** 다시 붙인다. 화면이 어긋난 것 같을 때

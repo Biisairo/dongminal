@@ -108,7 +108,7 @@ Object.assign(Renderer.prototype, {
   _gcWidgets(){
     const app=this.app;
     const allTabIds=new Set();
-    for(const sess of app.ws.windows){if(sess&&sess.layout)for(const pn of panesOf(sess.layout))(pn.tabs||[]).forEach(t=>allTabIds.add(t.id))}
+    for(const sess of app.ws.windows){if(sess&&sess.layout)for(const pn of panesOf(sess.layout))(pn.tabs||[]).forEach(tab=>allTabIds.add(tab.id))}
     // 편집기 Map 의 키는 복합키다 (FR-WSL-75) — 회수는 탭 id 로 판정한다.
     // FR-SVS-60: 파싱은 `slotBase` 한 자리다. 여기서 `@1` 만 잘라 내던 동안
     // 칸 2·3 의 편집기는 살아 있는 탭인데도 매 render 마다 파괴됐다.
@@ -224,7 +224,7 @@ Object.assign(Renderer.prototype, {
     const s=app.aw();
     if(app.focused && !app.isMobile && s?.layout && !held){
       const pn=findPane(s.layout,app.focused);
-      if(pn){const tab=pn.tabs.find(t=>t.id===app.paneTab(pn));if(tab){
+      if(pn){const tab=pn.tabs.find(x=>x.id===app.paneTab(pn));if(tab){
         // 포커스 슬롯의 인스턴스를 focus 한다 (FR-WSL-20).
         if(tab.type==='editor'){const v=app.editorAny(tab.id);if(v)v.el.focus()}
         else{

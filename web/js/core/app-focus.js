@@ -96,7 +96,7 @@ Object.assign(App.prototype, {
     if(!p) return false;
     const s=this.ws.windows.find(x=>x&&x.id===p.win); if(!s||!s.layout) return false;
     const pn=findPane(s.layout,p.pane); if(!pn) return false;
-    return !p.tab||(pn.tabs||[]).some(t=>t&&t.id===p.tab);
+    return !p.tab||(pn.tabs||[]).some(tab=>tab&&tab.id===p.tab);
   },
 
   /**

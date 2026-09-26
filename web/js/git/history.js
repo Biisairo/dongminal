@@ -87,8 +87,8 @@ class GitHistory {
    * 바꿔도 그래프가 따라오지 않는다. 값은 현재 테마의 터미널 팔레트에서 온다.
    */
   static palette(){
-    const t=(typeof getCurrentTheme==='function'&&getCurrentTheme())||null;
-    const term=(t&&t.terminal)||{};
+    const theme=(typeof getCurrentTheme==='function'&&getCurrentTheme())||null;
+    const term=(theme&&theme.terminal)||{};
     const out=[];
     for(const k of GIT_LANE_COLOR_KEYS){
       const c=term[k];

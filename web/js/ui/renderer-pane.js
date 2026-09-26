@@ -157,7 +157,7 @@ Object.assign(Renderer.prototype, {
     const shown=app.paneTab(n,slot);
     // FR-WSL-35: 포커스로 그리는 것은 포커스 칸 하나다.
     const focused=n.id===app.focused&&slot===app.slotFocused();
-    const at=(n.tabs||[]).find(t=>t.id===shown);
+    const at=(n.tabs||[]).find(tab=>tab.id===shown);
     el.classList.toggle('focused',focused);
     // FR-ATV-1: 알람 표식은 포커스 여부와 **무관하게** 그려진다. 여기 남아 있던
     // 옛 FR-PAN-9 의 포커스 예외가 `_attnRefresh` 의 토글을 다음 render() 마다
@@ -178,7 +178,7 @@ Object.assign(Renderer.prototype, {
     const kids=[];
     for(const tab of(n.tabs||[])){
       const tkey=key+'/tab:'+tab.id;
-      let t=this._keep(tkey,()=>this._makeTab());
+      let tabEl=this._keep(tkey,()=>this._makeTab());
       /**
        * 이름 변경은 라벨을 **input 으로 갈아 끼운다** (`renameTab` 의
        * `el.replaceWith(input)`). 그 경로는 확정 뒤의 다시 그리기가 DOM 을 새로
@@ -188,31 +188,31 @@ Object.assign(Renderer.prototype, {
        *
        * 그 탭만 다시 만든다. 되돌릴 상태가 없는 요소이므로 값이 싸다.
        */
-      if(!t.querySelector('.pn-tab-label')){
+      if(!tabEl.querySelector('.pn-tab-label')){
         this._dom.delete(tkey);
-        t=this._keep(tkey,()=>this._makeTab());
+        tabEl=this._keep(tkey,()=>this._makeTab());
       }
-      t._ctx={tab};
-      t.dataset.tabId=tab.id;
-      if(tab.toolId) t.dataset.toolid=tab.toolId; else delete t.dataset.toolid;
+      tabEl._ctx={tab};
+      tabEl.dataset.tabId=tab.id;
+      if(tab.toolId) tabEl.dataset.toolid=tab.toolId; else delete tabEl.dataset.toolid;
       const isGit=tab.type===TAB_TYPE_GIT;
-      if(isGit) t.dataset.gitView=tab.gitView; else delete t.dataset.gitView;
+      if(isGit) tabEl.dataset.gitView=tab.gitView; else delete tabEl.dataset.gitView;
       // FR-ATV-1·3: 보고 있는 탭도 알람을 그린다. 활성 배경은 활성 색에 머물고
       // 밑줄만 맥박하므로(`.pn-tab.active.attn`) 알람이 활성 표시를 빼앗지 않는다.
       const active=tab.id===shown;
       const attn=app.attnHas(tab.toolId);
       // FR-RTU-41: 미리보기 탭은 기울임이다 — "이 자리는 곧 대체된다".
-      t.className='pn-tab'+(active?' active':'')+(attn?' attn':'')+(isGit?' git':'')
+      tabEl.className='pn-tab'+(active?' active':'')+(attn?' attn':'')+(isGit?' git':'')
         +(tab.preview?' '+REPO_PREVIEW_CLASS:'');
       // FR-A11Y-16: 선택은 클래스와 **같은 것**을 말한다 (TC-A11Y-6b).
-      t.setAttribute('aria-selected',active?'true':'false');
+      tabEl.setAttribute('aria-selected',active?'true':'false');
       const name=this._tabDisplayName(tab);
-      const lab=t.querySelector('.pn-tab-label');
+      const lab=tabEl.querySelector('.pn-tab-label');
       if(lab.textContent!==name) lab.textContent=name;
       // TAB_WIDTH_SRS FR-TBW-6 / D-5: **언제나** 붙인다 — 잘리지 않는 폭에서는
       // 보이지 않을 뿐이므로 해가 없다.
-      t.title=tab.preview?REPO_PREVIEW_TITLE:name;
-      kids.push(t);
+      tabEl.title=tab.preview?REPO_PREVIEW_TITLE:name;
+      kids.push(tabEl);
     }
     // D-A11Y-11: 탭은 `tablist` 안에, 동작은 그 **밖**에 — tablist 의 자식은 tab
     // 뿐이어야 한다.
@@ -241,7 +241,7 @@ Object.assign(Renderer.prototype, {
     this._place(acts,actKids);
     // `Tab` 에 닿는 탭은 하나다 — 포커스가 줄 안에 있으면 그 탭, 아니면 활성 탭.
     const ae=document.activeElement;
-    UIKit.rove(kids,kids.includes(ae)?ae:kids.find(t=>t.classList.contains('active')));
+    UIKit.rove(kids,kids.includes(ae)?ae:kids.find(tabEl=>tabEl.classList.contains('active')));
     // UX-24: 탭이 늘거나 줄면 넘침을 다시 판정한다 (`_makePane` 의 표식).
     const pn=tabs.parentNode;
     if(pn&&pn._markTabOverflow) pn._markTabOverflow();
@@ -288,11 +288,11 @@ Object.assign(Renderer.prototype, {
     UIKit.roving(list,{
       horizontal:true,
       items:()=>[...list.querySelectorAll('.pn-tab')],
-      activate:t=>{
-        if(!t.classList.contains('active')) app.focusHandoff=true;
-        t.click();
+      activate:tabEl=>{
+        if(!tabEl.classList.contains('active')) app.focusHandoff=true;
+        tabEl.click();
       },
-      remove:t=>{const x=t.querySelector('.pn-tab-x');if(x)x.click()},
+      remove:tabEl=>{const x=tabEl.querySelector('.pn-tab-x');if(x)x.click()},
     });
     this._wireTabScroll(el,scroll,node);
     this._wireTabsDrop(tabs,node,slotOf);

@@ -217,8 +217,8 @@ Object.assign(App.prototype, {
     const btn=document.getElementById('settings-btn');
     if(btn) btn.click();
     if(!tab) return;
-    const t=document.querySelector('#modal .mtab[data-tab="'+tab+'"]');
-    if(t) t.click();
+    const tabEl=document.querySelector('#modal .mtab[data-tab="'+tab+'"]');
+    if(tabEl) tabEl.click();
   },
 
   /**
@@ -324,9 +324,9 @@ Object.assign(App.prototype, {
    * 것은 스냅샷끼리의 추월뿐이다.
    */
   _settingsRestore(src){
-    const t=this._restoreBegin('settings');
+    const flight=this._restoreBegin('settings');
     return stateFetch(src,'/api/settings').then(r=>{
-      if(!this._restoreLive('settings',t)) return;
+      if(!this._restoreLive('settings',flight)) return;
       /**
        * OPTIMIZE_REFACTOR_SRS D-OPT-7 (FEC-4 · FEC-M3): **자기 에코는 얹지 않는다.**
        *
@@ -337,7 +337,7 @@ Object.assign(App.prototype, {
        */
       if(this._settingsLocalPending()) this._settingsEchoMissed=true;
       else if(!(r.ok&&r.text===this._settingsLastSent)) this._settingsApply(r.ok?r.data:null);
-      this._restoreEnd('settings',t);
+      this._restoreEnd('settings',flight);
     });
   },
 
@@ -383,16 +383,16 @@ Object.assign(App.prototype, {
      */
     const tabs=[...modal.querySelectorAll('.mtab')];
     modal.querySelector('.modal-tabs').setAttribute('role','tablist');
-    for(const t of tabs){
-      const id='panel-'+t.dataset.tab;
-      t.setAttribute('role','tab');
-      t.setAttribute('aria-controls',id);
-      t.setAttribute('aria-selected',String(t.classList.contains('active')));
+    for(const tab of tabs){
+      const id='panel-'+tab.dataset.tab;
+      tab.setAttribute('role','tab');
+      tab.setAttribute('aria-controls',id);
+      tab.setAttribute('aria-selected',String(tab.classList.contains('active')));
       const pn=document.getElementById(id);
       if(pn){
         pn.setAttribute('role','tabpanel');
-        if(!t.id)t.id='mtab-'+t.dataset.tab;
-        pn.setAttribute('aria-labelledby',t.id);
+        if(!tab.id)tab.id='mtab-'+tab.dataset.tab;
+        pn.setAttribute('aria-labelledby',tab.id);
       }
     }
     /**
@@ -448,11 +448,11 @@ Object.assign(App.prototype, {
     document.addEventListener('keydown',e=>{if(e.key==='Escape'&&overlay.classList.contains('open')){e.preventDefault();closeSettings()}});
     modal.querySelectorAll('.mtab').forEach(tab=>{
       tab.addEventListener('click',()=>{
-        modal.querySelectorAll('.mtab').forEach(t=>{
-          t.classList.remove('active');
+        modal.querySelectorAll('.mtab').forEach(tabEl=>{
+          tabEl.classList.remove('active');
           // `aria-selected` 와 `.active` 가 **같은 것을 말해야** 한다 — 갈라지면
           // 화면과 접근성 트리가 다른 탭을 가리킨다 (`TC-A11Y-8b` 가 짝을 본다).
-          t.setAttribute('aria-selected','false');
+          tabEl.setAttribute('aria-selected','false');
         });
         tab.classList.add('active');
         tab.setAttribute('aria-selected','true');

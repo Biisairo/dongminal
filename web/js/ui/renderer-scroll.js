@@ -223,8 +223,8 @@ Object.assign(Renderer.prototype, {
   _keepScrollAll(){
     const keep=this._scrollKeep=[];
     const push=n=>{
-      const t=n.scrollTop,l=n.scrollLeft;
-      if(t||l) keep.push([n,t,l]);
+      const st=n.scrollTop,l=n.scrollLeft;
+      if(st||l) keep.push([n,st,l]);
     };
     const take=el=>{
       // 이미 떼여 있으면 잴 것이 없다 — 떨어진 요소의 `scrollTop` 은 0 이다.
@@ -297,10 +297,10 @@ Object.assign(Renderer.prototype, {
   _restoreScroll(){
     const list=this._scrollKeep; this._scrollKeep=null;
     if(!list) return;
-    for(const [n,t,l] of list){
+    for(const [n,st,l] of list){
       // 이번 render 에서 결국 붙지 않은 요소는 되돌릴 자리가 없다.
       if(!n.isConnected) continue;
-      if(t) n.scrollTop=t;
+      if(st) n.scrollTop=st;
       if(l) n.scrollLeft=l;
     }
   },

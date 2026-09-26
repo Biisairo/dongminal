@@ -199,10 +199,10 @@ class GitBranches {
     const repo=this._repo; if(!repo) return;
     const tok=this.panel.token();
     // FR-GRF-31: 앞선 조회를 끊는다. 표는 잠금의 임자도 가른다.
-    const t=gitLoadTicket(this);
+    const ticket=gitLoadTicket(this);
     this._loading=true;
-    const res=await this.panel.fetchRefs(repo,{stale:()=>this.panel.isStale(tok),signal:t.signal});
-    if(gitLoadTaken(this,t)) return;
+    const res=await this.panel.fetchRefs(repo,{stale:()=>this.panel.isStale(tok),signal:ticket.signal});
+    if(gitLoadTaken(this,ticket)) return;
     // FR-GRF-24: 낡은 응답은 **그 값을 쓰지 않는 것**이지 잠금을 영원히 쥐는
     // 것이 아니다. 종전에는 여기서 `_loading=true` 인 채로 빠져나갔고, 그러면
     // 위 `paint()` 의 재조회도 함께 막혔다.

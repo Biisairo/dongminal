@@ -21,7 +21,7 @@ Object.assign(App.prototype, {
     for(let i=0;i<n;i++){
       // 그 칸이 이 창을 보고 있지 않으면 그 칸의 시선은 이 판정과 무관하다.
       if(this._slots&&this.slotWindow(i)!==s) continue;
-      const at=tabs.find(t=>t.id===this.paneTab(pn,i));
+      const at=tabs.find(tab=>tab.id===this.paneTab(pn,i));
       if(at&&at.toolId===toolId) return true;
     }
     return false;
@@ -94,15 +94,15 @@ Object.assign(App.prototype, {
    * 사용자가 거둔 알람이 되살아나는 쪽은 그대로였다 (RESTORE_FLIGHT_SRS §1.1).
    */
   _attnRestore(src){
-    const t=this._restoreBegin('attn');
+    const flight=this._restoreBegin('attn');
     return stateFetch(src,'/api/tools/attention').then(res=>{
       const j=res.ok?res.data:null;
-      if(!this._restoreLive('attn',t)) return;
+      if(!this._restoreLive('attn',flight)) return;
       if(!j||!Array.isArray(j.toolIds)) return;
       const live=new Set(j.toolIds);
-      for(const pid of live){if(!t.has(pid)&&!this._attn.has(pid))this._attn.set(pid,{reason:'signaled'})}
-      for(const pid of Array.from(this._attn.keys())){if(!live.has(pid)&&!t.has(pid))this._attnDrop(pid)}
-      this._restoreEnd('attn',t);
+      for(const pid of live){if(!flight.has(pid)&&!this._attn.has(pid))this._attn.set(pid,{reason:'signaled'})}
+      for(const pid of Array.from(this._attn.keys())){if(!live.has(pid)&&!flight.has(pid))this._attnDrop(pid)}
+      this._restoreEnd('attn',flight);
       this._attnRefresh();
       // FR-ATA-1: 복원도 포커스를 이유로 지우지 않는다. 개정 전에는 FR-ATL-10
       // 이 여기서 "보고 있으면 해제" 를 했으나, 그 규약 자체가 사라졌다 —
@@ -179,7 +179,7 @@ Object.assign(App.prototype, {
     if(!s||!s.layout||!this._attn.size) return false;
     const walk=(node)=>{
       if(!node) return false;
-      if(node.type==='pane') return (node.tabs||[]).some(t=>t.toolId&&this._attn.has(t.toolId));
+      if(node.type==='pane') return (node.tabs||[]).some(tab=>tab.toolId&&this._attn.has(tab.toolId));
       if(node.children) return node.children.some(walk);
       return false;
     };
@@ -287,8 +287,8 @@ Object.assign(App.prototype, {
     // 탭/리전 강조도 타깃 토글 — 전체 render() 를 피해 포커스 플리커(xterm blur/refocus)를 막는다.
     // FR-ATV-1: 포커스 예외가 없다. 표식이 맥박을 얻은 뒤로 둘은 시간축에서
     // 갈라지므로, 같은 자리에 겹쳐도 서로를 가리지 않는다 (§2.4).
-    document.querySelectorAll('#area .pn-tab[data-toolid]').forEach(t=>{
-      t.classList.toggle('attn', this.attnHas(t.dataset.toolid));
+    document.querySelectorAll('#area .pn-tab[data-toolid]').forEach(tabEl=>{
+      tabEl.classList.toggle('attn', this.attnHas(tabEl.dataset.toolid));
     });
     document.querySelectorAll('#area .pn[data-paneid]').forEach(pn=>{
       const at=pn.querySelector('.pn-tab.active[data-toolid]');
@@ -405,11 +405,11 @@ Object.assign(App.prototype, {
     osc.frequency.value=880;
     gain.gain.value=.05;
     osc.connect(gain);gain.connect(ctx.destination);
-    const t=ctx.currentTime;
-    osc.start(t);
-    gain.gain.setValueAtTime(.05,t);
-    gain.gain.exponentialRampToValueAtTime(.0001,t+.18);
-    osc.stop(t+.2);
+    const now=ctx.currentTime;
+    osc.start(now);
+    gain.gain.setValueAtTime(.05,now);
+    gain.gain.exponentialRampToValueAtTime(.0001,now+.18);
+    osc.stop(now+.2);
   },
 
   // notification center 배지/팝오버 이벤트 바인딩 + 설정 토글

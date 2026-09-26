@@ -694,7 +694,7 @@ class FileEditor {
     for (const s of app.ws.windows || []) {
       if (!s || !s.layout) continue;
       for (const pn of app.flattenPanes(s.layout)) {
-        const tab = (pn.tabs || []).find((t) => t && t.id === this.id);
+        const tab = (pn.tabs || []).find((x) => x && x.id === this.id);
         if (tab) { app.pinPreviewTab(tab); return }
       }
     }

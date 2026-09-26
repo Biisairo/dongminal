@@ -119,8 +119,8 @@ Object.assign(GitPanel.prototype, {
     }
     const w=app.gitWindow(); if(!w||!w.layout) return;
     for(const pn of app.flattenPanes(w.layout)){
-      const t=(pn.tabs||[]).find(x=>x.type===TAB_TYPE_GIT&&x.gitView===view);
-      if(t){app.switchTab(pn.id,t.id);return}
+      const target=(pn.tabs||[]).find(x=>x.type===TAB_TYPE_GIT&&x.gitView===view);
+      if(target){app.switchTab(pn.id,target.id);return}
     }
   },
 
@@ -287,8 +287,8 @@ Object.assign(GitPanel.prototype, {
     let i=cur<0?this._diffPos:cur+delta;
     i=Math.max(0,Math.min(list.length-1,i));
     this._diffPos=i;
-    const t=list[i];
-    this._select(t.group,{path:t.path,origPath:t.origPath,untracked:t.untracked});
+    const target=list[i];
+    this._select(target.group,{path:target.path,origPath:target.origPath,untracked:target.untracked});
   },
 
   // 대상이 그대로면 다시 부르지 않는다 — status 폴링마다 diff 를 재요청하면
@@ -393,7 +393,7 @@ Object.assign(GitPanel.prototype, {
       hideUnchanged:this._foldPref(),
       isStale:tok=>this.isStale(tok),
       // §3A-4: 작업 트리 쪽 문서의 경로는 패널이 안다(어휘적 저장소 최상위 기준).
-      absPath:t=>this.absPath(t),
+      absPath:target=>this.absPath(target),
       // FR-RTU-53: 저장되지 않은 변경은 탭 이름에 `●` 로 선다 — 편집기 탭과
       // 같은 표시이며, 렌더가 공유 문서의 dirty 에서 파생한다 (`app.tabDirty`, F-2.5).
       onDirty:v=>this._setDiffDirty(v),
@@ -430,8 +430,8 @@ Object.assign(GitPanel.prototype, {
     this.signal('write');
     this.blameStale();
     // 탐색기의 색도 같은 사실을 딛는다 (FR-EDT-78).
-    const t=this.app.edActiveTree&&this.app.edActiveTree();
-    if(t&&t.pollGit) t.pollGit({now:true});
+    const tree=this.app.edActiveTree&&this.app.edActiveTree();
+    if(tree&&tree.pollGit) tree.pollGit({now:true});
   },
 
   _destroyViews(){

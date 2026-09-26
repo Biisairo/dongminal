@@ -11,24 +11,24 @@ Object.assign(Renderer.prototype, {
   // 어느 탭인지는 `_ctx` 가 답한다 (FR-PDR-8).
   _makeTab(){
     const app=this.app;
-    const t=document.createElement('div');
+    const el=document.createElement('div');
     // D-A11Y-10: `×` 는 포인터 전용 표식이다 — `tab` 안의 컨트롤은 접근성 트리에
     // 설 수 없다. 키보드는 탭에서 `Delete` 로 닫는다 (`_makePane` 의 roving).
-    t.innerHTML='<span class="pn-tab-label"></span>'
+    el.innerHTML='<span class="pn-tab-label"></span>'
       +'<span class="pn-tab-x" aria-hidden="true" title="'+TAB_CLOSE_TITLE+'">'+UIKit.iconHTML('x','ui-icon-sm')+'</span>';
-    t.setAttribute('role','tab');
-    t.tabIndex=-1;
-    t.draggable=true;
+    el.setAttribute('role','tab');
+    el.tabIndex=-1;
+    el.draggable=true;
     const ctx=()=>{
-      const pn=t.closest('.pn');
+      const pn=el.closest('.pn');
       const c=(pn&&pn._ctx)||{};
-      return {pane:c.node||null,slot:c.slot||0,tab:(t._ctx&&t._ctx.tab)||null};
+      return {pane:c.node||null,slot:c.slot||0,tab:(el._ctx&&el._ctx.tab)||null};
     };
     const clearMarks=()=>{
-      const bar=t.parentNode;
+      const bar=el.parentNode;
       if(bar) bar.querySelectorAll('.pn-tab').forEach(r=>r.classList.remove('drag-left','drag-right'));
     };
-    t.addEventListener('click',e=>{
+    el.addEventListener('click',e=>{
       e.stopPropagation();
       const c=ctx(); if(!c.pane||!c.tab) return;
       if(e.target.classList.contains('pn-tab-x')) app.closeTab(c.pane.id,c.tab.id,null,{slot:c.slot});
@@ -39,12 +39,12 @@ Object.assign(Renderer.prototype, {
      * 이미 있는 길을 부른다 — 더블클릭·`×`·`+` 와 같은 함수다. 못 하는 것은
      * 감추지 않고 사유를 든다 (FR-CMU-1).
      */
-    t.addEventListener('contextmenu',e=>{
+    el.addEventListener('contextmenu',e=>{
       const c=ctx(); if(!c.pane||!c.tab) return;
       e.preventDefault(); e.stopPropagation();
       const aw=app.aw();
       const noNew=app.isGitWin(aw)||app.isEditorWin(aw);
-      const label=t.querySelector('.pn-tab-label');
+      const label=el.querySelector('.pn-tab-label');
       UIKit.menu([
         {id:'new',label:TAB_MENU_NEW,disabled:noNew?TAB_MENU_NEW_NO:false,onClick:()=>app.addTab(c.pane.id,'terminal')},
         {id:'rename',label:TAB_MENU_RENAME,disabled:c.tab.type===TAB_TYPE_GIT?TAB_MENU_RENAME_GIT_NO:false,
@@ -53,7 +53,7 @@ Object.assign(Renderer.prototype, {
       ],{at:{x:e.clientX,y:e.clientY},cls:'tab-menu'});
     });
     // FR-RTU-42: 탭 자체의 더블클릭이 고정한다.
-    t.addEventListener('dblclick',e=>{
+    el.addEventListener('dblclick',e=>{
       const c=ctx(); if(!c.tab||!c.tab.preview) return;
       e.stopPropagation();
       app.pinPreviewTab(c.tab);
@@ -61,32 +61,32 @@ Object.assign(Renderer.prototype, {
     // 탭은 `renameTab` 이다 — 창의 `rename` 과 달리 빈 문자열에 뜻이 있다
     // (FR-TAN-21). git 뷰 탭의 이름은 뷰에서 파생하므로 고쳐도 다음 그리기가
     // 되돌린다 — 그래서 그 타입에서는 아무 일도 하지 않는다 (FR-RTU-33).
-    t.querySelector('.pn-tab-label').addEventListener('dblclick',e=>{
+    el.querySelector('.pn-tab-label').addEventListener('dblclick',e=>{
       const c=ctx(); if(!c.tab||c.tab.type===TAB_TYPE_GIT) return;
       e.stopPropagation();
       if(c.tab.preview){app.pinPreviewTab(c.tab);return}
       app.renameTab(c.tab,e.target);
     });
-    t.addEventListener('dragstart',e=>{
+    el.addEventListener('dragstart',e=>{
       const c=ctx(); if(!c.pane||!c.tab) return;
       app.drag={type:'tab',srcPaneId:c.pane.id,tabId:c.tab.id};
       e.dataTransfer.effectAllowed='move';
       e.stopPropagation();
-      TIMERS.defer(()=>t.classList.add('dragging'),{label:'drag-class'});
+      TIMERS.defer(()=>el.classList.add('dragging'),{label:'drag-class'});
     });
-    t.addEventListener('dragend',()=>{
-      app.drag=null; t.classList.remove('dragging'); clearMarks();
+    el.addEventListener('dragend',()=>{
+      app.drag=null; el.classList.remove('dragging'); clearMarks();
       document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none');
     });
-    t.addEventListener('dragover',e=>{
+    el.addEventListener('dragover',e=>{
       if(!app.drag||app.drag.type!=='tab')return;
       e.preventDefault(); e.stopPropagation();
       clearMarks();
-      const rect=t.getBoundingClientRect();
-      t.classList.add(e.clientX<rect.left+rect.width/2?'drag-left':'drag-right');
+      const rect=el.getBoundingClientRect();
+      el.classList.add(e.clientX<rect.left+rect.width/2?'drag-left':'drag-right');
       document.querySelectorAll('.pn-drop-indicator').forEach(ind=>ind.style.display='none');
     });
-    t.addEventListener('drop',e=>{
+    el.addEventListener('drop',e=>{
       e.preventDefault(); e.stopPropagation();
       if(!app.drag||app.drag.type!=='tab')return;
       const c=ctx(); if(!c.pane||!c.tab) return;
@@ -94,7 +94,7 @@ Object.assign(Renderer.prototype, {
       app.drag=null;
       clearMarks();
       const s=app.aw(); if(!s)return;
-      const rect=t.getBoundingClientRect();
+      const rect=el.getBoundingClientRect();
       const insBefore=e.clientX<rect.left+rect.width/2;
       if(srcPaneId===c.pane.id){
         const pn=findPane(s.layout,c.pane.id); if(!pn)return;
@@ -112,7 +112,7 @@ Object.assign(Renderer.prototype, {
         app.moveTabToPane(srcPaneId,tabId,c.pane.id,c.tab.id,insBefore);
       }
     });
-    return t;
+    return el;
   },
 
   /**
@@ -206,7 +206,7 @@ Object.assign(Renderer.prototype, {
       const s=app.aw(); if(!s)return;
       if(srcPaneId===n.id){
         const pn=findPane(s.layout,n.id); if(!pn)return;
-        const si=pn.tabs.findIndex(t=>t.id===tabId); if(si<0)return;
+        const si=pn.tabs.findIndex(tab=>tab.id===tabId); if(si<0)return;
         const[moved]=pn.tabs.splice(si,1);
         pn.tabs.push(moved);
         app.paneTabSet(pn,tabId,slotOf());
@@ -280,7 +280,7 @@ Object.assign(Renderer.prototype, {
       // 않으므로 여기서 하지 않으면 모바일에서 입력을 시작할 길이 없다.
       if(app.isMobile){
         const pn=findPane(app.aw()?.layout,n.id);
-        const tab=pn&&(pn.tabs||[]).find(t=>t.id===app.paneTab(pn,slotOf()));
+        const tab=pn&&(pn.tabs||[]).find(x=>x.id===app.paneTab(pn,slotOf()));
         if(tab&&tab.type!=='editor'){
           const p=app.toolAny(tab.toolId);
           if(p) p.focus();

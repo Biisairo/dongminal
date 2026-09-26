@@ -261,8 +261,8 @@ class GitConfirm extends GitModalBase {
     b.querySelector('.gc-count').textContent=
       GIT_CONFIRM_COUNT_LABEL+' '+tn('git.count_items',this.targets.length);
     const ul=b.querySelector('.gc-targets'); ul.innerHTML='';
-    const put=t=>{
-      const li=document.createElement('li'); li.className='gc-target'; li.textContent=t;
+    const put=text=>{
+      const li=document.createElement('li'); li.className='gc-target'; li.textContent=text;
       ul.appendChild(li);
     };
     if(this.sections.length>1){
@@ -271,10 +271,10 @@ class GitConfirm extends GitModalBase {
         h.className='gc-target-sect';
         h.textContent=sec.label+' '+tn('git.count_items',sec.paths.length);
         ul.appendChild(h);
-        for(const t of sec.paths) put(t);
+        for(const p of sec.paths) put(p);
       }
     }else{
-      for(const t of this.targets) put(t);
+      for(const p of this.targets) put(p);
     }
     // FR-COS-2·3: 영향 범위와 recovery hint 를 **같은 화면**에 함께 보인다.
     //

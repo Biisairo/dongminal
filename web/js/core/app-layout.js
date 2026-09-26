@@ -139,13 +139,13 @@ Object.assign(App.prototype, {
     // 자기 창을 모른 채 떠서, 샌드박스 창인데 첫 탭만 호스트에서 돈다.
     const wid=newEntityId();
     const p=await this._newTool(cwd, cwd?null:refTool, {id:wid,sandbox,sandboxWork:sandbox?work:''});
-    const r=newEntityId(),t=newEntityId();
+    const r=newEntityId(),tabId=newEntityId();
     const name=clampEntityName(typeof opts.name==='string'&&opts.name?opts.name:'Window');
     const s={
       id:wid,name,
       // `opts.name` 은 **창** 이름이다 — 안의 탭은 이름을 받은 적이 없으므로
       // auto 로 태어난다 (FR-TAN-1). `nameSource` 를 적지 않는 것이 auto 다.
-      layout:{type:'pane',id:r,tabs:[{id:t,name:TAB_NAME_DEFAULT,type:TAB_TYPE_TERMINAL,toolId:p.id}],activeTab:t}
+      layout:{type:'pane',id:r,tabs:[{id:tabId,name:TAB_NAME_DEFAULT,type:TAB_TYPE_TERMINAL,toolId:p.id}],activeTab:tabId}
     };
     // FR-SBX-18: 선택 필드다. 일반 창에는 키 자체를 두지 않는다.
     if(sandbox) s.sandbox=sandbox;
@@ -178,7 +178,7 @@ Object.assign(App.prototype, {
     // this pattern).
     this.save();
     // REMOTE_COMMAND_RESULT_SRS FR-RCR-6/7: 생성한 엔터티 id 반환 (echo 용).
-    return {win:s.id, pane:r, tab:{uuid:t, toolId:p.id}};
+    return {win:s.id, pane:r, tab:{uuid:tabId, toolId:p.id}};
   },
 
   async addWindow(opts){await this._mkWindow(opts||{});this.render()},
@@ -393,7 +393,7 @@ Object.assign(App.prototype, {
    * REPO_TAB_UNIFY_SRS FR-RTU-40·43: 창의 **미리보기 탭**. 하나뿐이다.
    */
   _findPreviewTab(s){
-    return s?findTabWhere([s],t=>t.preview):null;
+    return s?findTabWhere([s],tab=>tab.preview):null;
   },
 
   /**
@@ -419,13 +419,13 @@ Object.assign(App.prototype, {
    * 한다. 전체를 훑으면 다른 저장소의 History 로 끌려간다.
    */
   findGitViewTab(s, view) {
-    return s ? findTabWhere([s], t => t.type === TAB_TYPE_GIT && t.gitView === view) : null;
+    return s ? findTabWhere([s], tab => tab.type === TAB_TYPE_GIT && tab.gitView === view) : null;
   },
 
   _findEditorTab(filePath) {
     // FR-DRV-10: **소스 탭만이다.** 렌더 탭이 이 판정에 걸리면 탐색기에서 연 파일이
     // 소스가 아니라 렌더로 열린다.
-    return findTabWhere(this.ws.windows, t => t.type === TAB_TYPE_EDITOR && !t.render && t.filePath === filePath);
+    return findTabWhere(this.ws.windows, tab => tab.type === TAB_TYPE_EDITOR && !tab.render && tab.filePath === filePath);
   },
 
   async addTab(rid, type = TAB_TYPE_TERMINAL, opts = {}) {
@@ -824,8 +824,8 @@ Object.assign(App.prototype, {
     const newPanes=[]; let lastR=null;
     for(let i=0;i<count-1;i++){
       const p=await this._newTool(ref.cwd || null, refPaneId, s);
-      const r=newEntityId(),t=newEntityId();
-      newPanes.push({type:'pane',id:r,tabs:[{id:t,name:TAB_NAME_DEFAULT,type:TAB_TYPE_TERMINAL,toolId:p.id}],activeTab:t});
+      const r=newEntityId(),tabId=newEntityId();
+      newPanes.push({type:'pane',id:r,tabs:[{id:tabId,name:TAB_NAME_DEFAULT,type:TAB_TYPE_TERMINAL,toolId:p.id}],activeTab:tabId});
       lastR=r;
     }
     // Re-fetch window after awaits: this.ws may have been replaced by an
@@ -867,7 +867,7 @@ Object.assign(App.prototype, {
 
   _paneNewToolRef(sess,rid){
     const pn=findPane(sess.layout,rid);if(!pn)return {};
-    const tab=pn.tabs.find(t=>t.id===this.paneTab(pn));
+    const tab=pn.tabs.find(x=>x.id===this.paneTab(pn));
     if(!tab) return {};
     // 절대경로 판정과 부모 자르기를 `/` 로 굳히지 않는다 — Windows 의 절대경로는
     // `C:\…` 로 시작하고 그 안에 `/` 가 없다. 굳히면 편집기 탭에서 만든 도구가
@@ -885,13 +885,13 @@ Object.assign(App.prototype, {
   switchTabPrev(){
     const s=this.aw();if(!s||!this.focused)return;
     const pn=findPane(s.layout,this.focused);if(!pn)return;
-    const i=pn.tabs.findIndex(t=>t.id===this.paneTab(pn));if(i<0)return;
+    const i=pn.tabs.findIndex(tab=>tab.id===this.paneTab(pn));if(i<0)return;
     this.switchTab(pn.id,pn.tabs[(i-1+pn.tabs.length)%pn.tabs.length].id);
   },
   switchTabNext(){
     const s=this.aw();if(!s||!this.focused)return;
     const pn=findPane(s.layout,this.focused);if(!pn)return;
-    const i=pn.tabs.findIndex(t=>t.id===this.paneTab(pn));if(i<0)return;
+    const i=pn.tabs.findIndex(tab=>tab.id===this.paneTab(pn));if(i<0)return;
     this.switchTab(pn.id,pn.tabs[(i+1)%pn.tabs.length].id);
   },
   // 순회 키(Ctrl+Shift+[ ])의 **단일 디스패치 지점**이다.
@@ -901,7 +901,7 @@ Object.assign(App.prototype, {
   // cycle 을 제공하지 않는 탭이 활성이면 아무 일도 하지 않는다 (FR-SBT-20).
   //
   _cycleActive(step){
-    const d=this._sbTabs.find(t=>t.id===this.sbTab);
+    const d=this._sbTabs.find(tab=>tab.id===this.sbTab);
     if(!d) return;
     // UX_REVISION_SRS FR-BLP-15: 순회 규약은 블루프린트 한 자리에 있다. 탭마다
     // 자기 순회를 구현하던 때는 같은 규약이라고 적어 두고도 서로 달랐다.

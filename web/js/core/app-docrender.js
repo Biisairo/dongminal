@@ -177,7 +177,7 @@ Object.assign(App.prototype, {
   // 렌더 탭 찾기. `_findEditorTab` 과 **갈라져 있는 것이 요점이다** (FR-DRV-10) —
   // 한 함수가 둘 다 찾으면 탐색기에서 연 파일이 렌더로 열린다.
   _findRenderTab(filePath) {
-    return findTabWhere(this.ws.windows, t => t.render && t.filePath === filePath);
+    return findTabWhere(this.ws.windows, tab => tab.render && tab.filePath === filePath);
   },
 
   /**

@@ -26,9 +26,9 @@ Object.assign(App.prototype, {
       const panes=panesOf(s.layout);
       for(const p of panes){
         const before=(p.tabs||[]).length;
-        p.tabs=(p.tabs||[]).filter(t=>!t||t.type!==TAB_TYPE_EDITOR);
+        p.tabs=(p.tabs||[]).filter(tab=>!tab||tab.type!==TAB_TYPE_EDITOR);
         n+=before-p.tabs.length;
-        if(!p.tabs.find(t=>t.id===p.activeTab)) p.activeTab=p.tabs.length?p.tabs[0].id:null;
+        if(!p.tabs.find(tab=>tab.id===p.activeTab)) p.activeTab=p.tabs.length?p.tabs[0].id:null;
       }
       // FR-EDT-105: 탭이 0이 된 pane 은 붕괴 규약대로 사라지고, layout 이 빈
       // 일반 창도 사라진다 (호출처의 필터가 거둔다).
@@ -184,11 +184,11 @@ Object.assign(App.prototype, {
       // FR-ELR-11a: 보이지 않는 창은 묻지 않는다 (FR-STAT-17). 돌아오면 그 틱의
       // 첫 회차가 낡음을 갚는다 (`visiblePoll` 의 복귀 갱신).
       if(!this.windowVisible(s.id)) continue;
-      for(const n of panesOf(s.layout)) for(const t of (n.tabs||[])){
-        if(t&&t.type===TAB_TYPE_EDITOR&&t.filePath) seen.add(t.filePath);
+      for(const n of panesOf(s.layout)) for(const tab of (n.tabs||[])){
+        if(tab&&tab.type===TAB_TYPE_EDITOR&&tab.filePath) seen.add(tab.filePath);
         // REPO_FIX 05 §3A-3: git Diff 탭의 작업 트리 쪽도 편집기 문서다 — 바깥 변경은
         // 문서 refresh 가 나른다(03). 빼면 Diff 만 연 파일이 낡는다.
-        if(t&&t.type===TAB_TYPE_GIT&&t.gitView==='diff')
+        if(tab&&tab.type===TAB_TYPE_GIT&&tab.gitView==='diff')
           for(const p of this._gitDiffDocPaths(this.edRootOf(s))) seen.add(p);
       }
     }
@@ -311,16 +311,16 @@ Object.assign(App.prototype, {
    */
   _edOnGitChanged(repo,mark){
     const hit=new Map();
-    for(const t of this._edVisibleTrees()){
-      const st=t.store;
+    for(const tree of this._edVisibleTrees()){
+      const st=tree.store;
       if(!st||hit.has(st)) continue;
       if(st.root!==repo&&st.gitRepo!==repo) continue;
       if(mark&&st.gitMark===mark) continue;
-      hit.set(st,t);
+      hit.set(st,tree);
     }
     if(!hit.size) return;
     // `now` 가 캐시를 넘는다 — 방송 전의 관측을 나눠 받지 않는다.
-    for(const t of hit.values()) t.pollGit({now:true});
+    for(const tree of hit.values()) tree.pollGit({now:true});
     this.edStampTick([...hit.keys()]);
   },
 
@@ -350,15 +350,15 @@ Object.assign(App.prototype, {
     // 재조정을 지나지 않는 경로로 창이 사라졌을 때의 그물이다.
     this._edReapTrees();
     const key=this.slotKey(s.id,slot||0);
-    let t=this._edTrees.get(key);
-    if(t&&t.root!==this.edRootOf(s)){t.destroy();t=null}
-    if(!t){t=new FileTree(this,s);this._edTrees.set(key,t)}
+    let tree=this._edTrees.get(key);
+    if(tree&&tree.root!==this.edRootOf(s)){tree.destroy();tree=null}
+    if(!tree){tree=new FileTree(this,s);this._edTrees.set(key,tree)}
     // FR-DSP-1c: 트리가 없던 동안 열린 파일을 이제 드러낸다. 한 번만이다 —
     // 지운 뒤에 부르므로 다음 render 가 같은 일을 되풀이하지 않는다.
     if(this._edReveal&&this._edReveal.has(s.id)){
       const want=this._edReveal.get(s.id);
       this._edReveal.delete(s.id);
-      if(t.revealPath) t.revealPath(want);
+      if(tree.revealPath) tree.revealPath(want);
     }
     // FR-EDT-78: 창 활성화가 즉시 갱신의 계기 하나다. 여기가 그 사실을 아는
     // 유일한 자리다 — 마운트는 활성 창에만 일어난다. 관측이 공유되므로 어느
@@ -366,8 +366,8 @@ Object.assign(App.prototype, {
     // FR-FSL-7 과 같은 짝: 활성화는 색과 목록 **둘 다**의 계기다. 색만 새로
     // 받으면 사용자는 창을 바꾸자마자 "색은 맞는데 목록은 옛것" 을 본다.
     // FR-DIR-32: 활성화는 사용자가 방금 한 일이다 — 백오프를 넘겨 곧바로 묻는다.
-    if(this._edLastActive!==s.id){this._edLastActive=s.id;t.pollGit({now:true});t.pollStamp()}
-    return t;
+    if(this._edLastActive!==s.id){this._edLastActive=s.id;tree.pollGit({now:true});tree.pollStamp()}
+    return tree;
   },
 
   // FR-EDT-76: 폴링의 대상은 **활성 Editor 창 하나**다. 비활성 창의 트리는 살아
@@ -394,7 +394,7 @@ Object.assign(App.prototype, {
     if(this.edSideOf(s)!==REPO_SIDE_EXPLORER) return null;
     const mine=this._edTrees.get(this.slotKey(s.id,this.slotFocused()));
     if(mine) return mine;
-    for(const[key,t] of this._edTrees) if(this.slotBase(key)===s.id) return t;
+    for(const[key,tree] of this._edTrees) if(this.slotBase(key)===s.id) return tree;
     return null;
   },
 
@@ -421,17 +421,17 @@ Object.assign(App.prototype, {
    */
   edRefreshTreesFor(root,dir){
     if(!this._edTrees||!root||!dir) return;
-    for(const t of this._edTrees.values()){
-      if(!t||t.root!==root) continue;
-      t.load(dir);
+    for(const tree of this._edTrees.values()){
+      if(!tree||tree.root!==root) continue;
+      tree.load(dir);
     }
   },
 
   _edVisibleTrees(){
     if(!this._edTrees) return [];
     const out=[];
-    for(const [key,t] of this._edTrees){
-      if(!t) continue;
+    for(const [key,tree] of this._edTrees){
+      if(!tree) continue;
       const id=this.slotBase(key);
       if(!this.windowVisible(id)) continue;
       /**
@@ -446,7 +446,7 @@ Object.assign(App.prototype, {
        */
       const w=this.ws.windows.find(x=>x&&x.id===id);
       if(this.isEditorWin(w)&&this.edSideOf(w)!==REPO_SIDE_EXPLORER) continue;
-      out.push(t);
+      out.push(tree);
     }
     return out;
   },

@@ -47,10 +47,10 @@ Object.assign(GitPanel.prototype, {
    * 이미 있던 줄은 서버가 `skipped` 로 답한다 — "추가했습니다" 로 뭉개면 사용자는
    * 아무 일도 아니었던 것을 성공으로 읽는다 (V200).
    */
-  async ignorePath(t){
-    if(!t||!t.path) return;
+  async ignorePath(target){
+    if(!target||!target.path) return;
     if(this._writing){this.busyNote();return}
-    const res=await this.post(GIT_API.ignore,{repo:this.repo,paths:[t.path]});
+    const res=await this.post(GIT_API.ignore,{repo:this.repo,paths:[target.path]});
     if(!res.ok){
       this._note={msg:GIT_IGNORE_FAIL+': '+this.writeError(res)};
       this._paint();
@@ -60,19 +60,19 @@ Object.assign(GitPanel.prototype, {
     this._after(res,[]);
     // 이미 있던 줄은 `skipped` 로 온다 — 그 사실을 보이지 않으면 사용자는 아무 일도
     // 아니었던 것을 성공으로 읽는다 (V200).
-    if(!(d.added||[]).length){this._note={msg:GIT_IGNORE_DUP+': '+t.path};this._paint()}
+    if(!(d.added||[]).length){this._note={msg:GIT_IGNORE_DUP+': '+target.path};this._paint()}
   },
 
   // FR-GIT-275: path 필터를 채워 History 탭을 연다. **새 조회를 만들지 않는다** —
   // 필터는 FR-GIT-129 로 이미 있다.
-  openFileHistory(t){
-    if(!t||!t.path) return;
+  openFileHistory(target){
+    if(!target||!target.path) return;
     // **탭을 먼저 연다.** 아직 마운트되지 않은 History 는 mount 가 `_repo` 를 비우고,
     // 그 뒤 첫 paint 의 `_adopt` → `reset` 이 방금 채운 필터를 지운다. 열어 둔 뒤에
     // 채우면 두 경우 모두 성립한다 — 이미 받아들였으면 그대로, 아니면 filterPath 가
     // 스스로 받아들인다.
     this.openView('history');
-    this._history().filterPath(t.path);
+    this._history().filterPath(target.path);
   },
 
   /**
@@ -81,9 +81,9 @@ Object.assign(GitPanel.prototype, {
    * 여는 자리는 Open File 과 같은 규약이다 — Git 창이 아닌 창이다
    * (FR-GIT-179·185). 조회는 서버가 diff 의 `cat-file` 경로를 그대로 쓴다.
    */
-  async openFileAtHead(t){
-    if(!t||!t.path||!this.repo) return;
-    const q=new URLSearchParams({repo:this.repo,path:t.path});
+  async openFileAtHead(target){
+    if(!target||!target.path||!this.repo) return;
+    const q=new URLSearchParams({repo:this.repo,path:target.path});
     const res=await gitFetch(GIT_API.fileHead,Object.fromEntries(q));
     const d=res.data;
     if(!res.ok||!d||!d.openPath){
@@ -93,7 +93,7 @@ Object.assign(GitPanel.prototype, {
       return;
     }
     this._note=null;
-    this.app.gitOpenFileHead(d.openPath,t.path);
+    this.app.gitOpenFileHead(d.openPath,target.path);
   },
 
   // 워킹 트리에 남은 변경의 개수. History 의 미커밋 변경 행(FR-GIT-127)과

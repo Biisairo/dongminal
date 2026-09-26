@@ -92,9 +92,9 @@ class GitTag {
    * 그래도 모르면 **값을 지어내지 않는다.** 서버가 실행 전에 진짜 oid 로 hint 를
    * 남기므로 복구 수단 자체가 사라지는 것은 아니다.
    */
-  static oidOf(panel,t){
-    if(t&&t.oid) return t.oid;
-    const short=(t&&t.short)||'';
+  static oidOf(panel,target){
+    if(target&&target.oid) return target.oid;
+    const short=(target&&target.short)||'';
     for(const v of [panel&&panel._branchesView,panel&&panel._historyView]){
       const list=(v&&v._refs)||[];
       const hit=list.find(r=>r.kind===GIT_REF_KIND_TAG&&r.short===short);

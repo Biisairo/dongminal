@@ -205,7 +205,7 @@ Object.assign(App.prototype, {
     if(this.edSideOf(w)===REPO_SIDE_CHANGES) return true;
     if(!w.layout) return false;
     for(const pn of this.flattenPanes(w.layout))
-      if((pn.tabs||[]).some(t=>t&&t.type===TAB_TYPE_GIT)) return true;
+      if((pn.tabs||[]).some(tab=>tab&&tab.type===TAB_TYPE_GIT)) return true;
     return false;
   },
 
@@ -594,7 +594,7 @@ Object.assign(App.prototype, {
       const pn=w.focusedPane?findPane(w.layout,w.focusedPane):firstPane(w.layout);
       for(const p of [pn,firstPane(w.layout)]){
         if(!p) continue;
-        const tab=p.tabs.find(t=>t.id===this.paneTab(p));
+        const tab=p.tabs.find(x=>x.id===this.paneTab(p));
         if(tab&&tab.type===TAB_TYPE_TERMINAL&&this.toolIds.has(tab.toolId)) return tab.toolId;
       }
     }
@@ -947,12 +947,12 @@ Object.assign(App.prototype, {
    */
   async _pollGitJobs(){
     if(!this._gitJobsWanted()) return;
-    const t=this._restoreBegin('gitJobs');
+    const flight=this._restoreBegin('gitJobs');
     // 전역 조회다 — 리포에 매이지 않으므로 echo 가 없다 (FR-DPN-33).
     const res=await gitFetch(GIT_API.jobs,null);
     const d=res.data;
-    if(!this._restoreLive('gitJobs',t)) return;
-    this._restoreEnd('gitJobs',t);
+    if(!this._restoreLive('gitJobs',flight)) return;
+    this._restoreEnd('gitJobs',flight);
     // 받지 못했으면 이전 목록을 유지한다 — 한 번의 실패로 목록이 사라지면
     // "작업이 끝났다" 와 "모른다" 가 같아진다.
     if(!res.ok||!Array.isArray(d.jobs)) return;
@@ -978,15 +978,15 @@ Object.assign(App.prototype, {
   _gitJobsBegin(){
     if(!this._gitJobsWanted()) return null;
     const displaced=this.bus.inFlight('gitJobs');
-    const t=this._restoreBegin('gitJobs');
-    this._gitJobsDisplacer=displaced?t:null;
-    return t;
+    const flight=this._restoreBegin('gitJobs');
+    this._gitJobsDisplacer=displaced?flight:null;
+    return flight;
   },
 
-  _gitJobsSettle(t,jobs){
-    if(!this._restoreLive('gitJobs',t)) return;
-    this._restoreEnd('gitJobs',t);
-    const requery=this._gitJobsDisplacer===t;
+  _gitJobsSettle(flight,jobs){
+    if(!this._restoreLive('gitJobs',flight)) return;
+    this._restoreEnd('gitJobs',flight);
+    const requery=this._gitJobsDisplacer===flight;
     this._gitJobsDisplacer=null;
     if(Array.isArray(jobs)) this._gitJobsAdopt(jobs);
     else if(requery) this._pollGitJobs();

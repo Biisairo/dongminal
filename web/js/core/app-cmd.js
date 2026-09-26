@@ -82,11 +82,11 @@ Object.assign(App.prototype, {
   // `background` 와 `focus` 는 같은 경쟁에 열려 있었다 (SRS §2.5). 소유자가
   // 하나가 되면 다섯 전부가 같은 규약을 받는다.
   _restoreBegin(key){ return this.bus.beginSnapshot(key) },
-  _restoreLive(key,t){ return this.bus.isLive(key,t) },
+  _restoreLive(key,flight){ return this.bus.isLive(key,flight) },
   _restoreNote(key,id){ this.bus.noteTouched(key,id) },
   // FR-RSF-5: 전체 초기화는 만진 id 로 표현되지 않는다. 그 비행은 통째로 버린다.
   _restoreVoid(key){ this.bus.voidSnapshot(key) },
-  _restoreEnd(key,t){ this.bus.endSnapshot(key,t) },
+  _restoreEnd(key,flight){ this.bus.endSnapshot(key,flight) },
 
   /**
    * 외부 CLI(dmctl) → 서버 → SSE 브로드캐스트 수신 → `_execRemote` 재사용.
@@ -745,7 +745,7 @@ Object.assign(App.prototype, {
 
   // 탭 uuid 로 그 자리를 찾는다. 없으면 null 이다 (FR-RUN-6a).
   _findTabById(id){
-    const r=findTabWhere(this.ws.windows,t=>t.id===id);
+    const r=findTabWhere(this.ws.windows,tab=>tab.id===id);
     return r&&{windowId:r.win.id,paneId:r.pane.id,tabId:r.tab.id,...r};
   },
 

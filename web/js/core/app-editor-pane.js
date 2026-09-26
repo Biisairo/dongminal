@@ -35,8 +35,8 @@ Object.assign(App.prototype, {
     if(held){ this._edGitHeld=null; for(const [repo,mark] of held) this._edOnGitChanged(repo,mark) }
     // 관측은 루트마다 하나다 (FR-SVS-20) — 같은 루트를 보는 칸이 넷이어도 한 번이다.
     const stores=new Map();
-    for(const t of this._edVisibleTrees()) if(t.store&&!stores.has(t.store)) stores.set(t.store,t);
-    for(const t of stores.values()){ if(t.gitDue()) t.pollGit(); else t.paintGitCached() }
+    for(const tree of this._edVisibleTrees()) if(tree.store&&!stores.has(tree.store)) stores.set(tree.store,tree);
+    for(const tree of stores.values()){ if(tree.gitDue()) tree.pollGit(); else tree.paintGitCached() }
     // EDITOR_LIVE_RELOAD_SRS FR-ELR-10: **열어 둔 파일의 내용도 같은 틱이다.**
     // 트리와 갈라 두면 사용자는 "목록은 바뀌었는데 열어 둔 내용은 그대로인"
     // 중간 상태를 본다 — 위 주석이 색과 목록에 대해 적은 것과 같은 근거다.
@@ -131,8 +131,8 @@ Object.assign(App.prototype, {
     // FR-DIR-32 와 같은 근거: 사이드를 Explorer 로 돌린 것은 사용자가 방금 한
     // 일이다. 그동안 게이트에 막혀 쉰 트리는 낡았으므로 곧바로 묻는다.
     if(id===REPO_SIDE_EXPLORER){
-      const t=this._edTreeFor(s);
-      if(t){ t.pollGit({now:true}); t.pollStamp() }
+      const tree=this._edTreeFor(s);
+      if(tree){ tree.pollGit({now:true}); tree.pollStamp() }
     }
     // FR-RTU-62: 사이드 탭 전환은 **관측 조건의 계기**다. Changes 를 떠나면 그
     // 표면이 화면에서 사라지므로(본문에 git 뷰 탭이 없다면) 폴링도 멎어야 한다 —
@@ -240,9 +240,9 @@ Object.assign(App.prototype, {
     for(const s of this.ws.windows){
       if(!s||!s.layout) continue;
       for(const pn of panesOf(s.layout)){
-        for(const t of pn.tabs||[]){
-          if(!t||t.type!==TAB_TYPE_EDITOR||typeof t.filePath!=='string') continue;
-          if(t.filePath===p||t.filePath.startsWith(pre)) out.push({win:s,pane:pn,tab:t});
+        for(const tab of pn.tabs||[]){
+          if(!tab||tab.type!==TAB_TYPE_EDITOR||typeof tab.filePath!=='string') continue;
+          if(tab.filePath===p||tab.filePath.startsWith(pre)) out.push({win:s,pane:pn,tab:tab});
         }
       }
     }
@@ -317,9 +317,9 @@ Object.assign(App.prototype, {
     // 나눠 쓴다 (FEU-5: 종전에는 문서마다 한 건).
     this.gitStatusHub().invalidate();
     base.call(this,kind);
-    const t=this.edActiveTree();
+    const tree=this.edActiveTree();
     // FR-DIR-32: 저장·커밋 같은 즉시 신호도 백오프를 넘긴다.
-    if(t) t.pollGit({now:true});
+    if(tree) tree.pollGit({now:true});
     // EDITOR_DIRTY_DIFF_SRS FR-EDD-50·51: 편집기의 기준도 이 신호로 따라온다.
     // 편집기는 자기 주기의 폴링을 갖지 않으므로(D-5) 이 자리가 그 유일한 계기다.
     if(this._edDocs) for(const d of this._edDocs.values()) if(d.dd) d.dd.refresh();

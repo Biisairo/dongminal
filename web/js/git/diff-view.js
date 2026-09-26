@@ -429,8 +429,8 @@ class GitDiffView {
   // 그린 대상의 식별자. `_showTarget` 의 키와 같은 축이되 `origPath` 는 빼지
   // 않는다 — 이름이 바뀐 파일도 다른 대상이다.
   _drawKey(target,path){
-    const t=target||{};
-    return [t.repo||'',t.axis||'',path||'',t.origPath||'',t.oid||'',t.parentOid||''].join(RPT_SEP);
+    const tg=target||{};
+    return [tg.repo||'',tg.axis||'',path||'',tg.origPath||'',tg.oid||'',tg.parentOid||''].join(RPT_SEP);
   }
 
   // 대상의 절대경로. 저장소 루트와 상대경로에서 만든다 — 서버가 그 둘을 주므로

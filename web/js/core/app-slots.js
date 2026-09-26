@@ -129,8 +129,8 @@ Object.assign(App.prototype, {
     const i=(slot==null)?this.slotFocused():slot;
     const m=this._slots&&Array.isArray(this._slots.tabs)?this._slots.tabs[i]:null;
     const tid=m&&m[pn.id];
-    if(tid&&tabs.some(t=>t.id===tid)) return tid;
-    if(pn.activeTab&&tabs.some(t=>t.id===pn.activeTab)) return pn.activeTab;
+    if(tid&&tabs.some(tab=>tab.id===tid)) return tid;
+    if(pn.activeTab&&tabs.some(tab=>tab.id===pn.activeTab)) return pn.activeTab;
     return (tabs[0]&&tabs[0].id)||null;
   },
 
@@ -184,7 +184,7 @@ Object.assign(App.prototype, {
     let changed=false;
     for(const pn of this.flattenPanes(s.layout)){
       const tid=m[pn.id];
-      if(tid&&pn.activeTab!==tid&&(pn.tabs||[]).some(t=>t.id===tid)){pn.activeTab=tid;changed=true}
+      if(tid&&pn.activeTab!==tid&&(pn.tabs||[]).some(tab=>tab.id===tid)){pn.activeTab=tid;changed=true}
     }
     return changed;
   },
@@ -360,7 +360,7 @@ Object.assign(App.prototype, {
       if(km&&kw&&kw.layout){
         for(const pn of this.flattenPanes(kw.layout)){
           const tid=km[pn.id];
-          if(tid&&(pn.tabs||[]).some(t=>t.id===tid)) pn.activeTab=tid;
+          if(tid&&(pn.tabs||[]).some(tab=>tab.id===tid)) pn.activeTab=tid;
         }
       }
       this._slots=null;
@@ -608,9 +608,9 @@ Object.assign(App.prototype, {
       const s=(i<n)?this.slotWindow(i):null;
       if(s&&s.layout){
         for(const pn of this.flattenPanes(s.layout)){
-          for(const t of (pn.tabs||[])){
-            if(t.toolId) tools.add(t.toolId);
-            tabs.add(t.id);
+          for(const tab of (pn.tabs||[])){
+            if(tab.toolId) tools.add(tab.toolId);
+            tabs.add(tab.id);
           }
         }
       }
@@ -654,9 +654,9 @@ Object.assign(App.prototype, {
     const rm=document.getElementById('slot-remove');
     if(rm) rm.addEventListener('click',()=>this.slotRemove());
     // FR-WSL-81 / SETTINGS_CONTROLS_SRS FR-SCT-5: 값이 둘뿐이라 누를 때마다 뒤집는다.
-    const t=document.getElementById('ds-slotdir');
-    if(t){
-      const sw=t.querySelector('button');
+    const el=document.getElementById('ds-slotdir');
+    if(el){
+      const sw=el.querySelector('button');
       if(sw) sw.addEventListener('click',()=>{
         this.slotDir=this.slotDir==='vertical'?'horizontal':'vertical';
         this._slotDirPaint();
@@ -668,11 +668,11 @@ Object.assign(App.prototype, {
   // FR-SCT-1·3: 지금 값은 컨테이너의 `data-v` 하나가 말한다 — 손잡이의 자리도,
   // 켜진 이름도 CSS 가 그것에서 그린다. 값을 밖에서 읽는 자리를 하나로 남긴다.
   _slotDirPaint(){
-    const t=document.getElementById('ds-slotdir');
-    if(!t) return;
+    const el=document.getElementById('ds-slotdir');
+    if(!el) return;
     const cur=this.slotDir==='vertical'?'vertical':'horizontal';
-    t.dataset.v=cur;
-    const sw=t.querySelector('button');
+    el.dataset.v=cur;
+    const sw=el.querySelector('button');
     if(!sw) return;
     sw.setAttribute('aria-checked',cur==='vertical'?'true':'false');
     sw.title=SLOT_DIR_TITLE[cur];

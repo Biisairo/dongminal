@@ -18,38 +18,38 @@ Object.assign(GitPanel.prototype, {
 
   _paintBlame(el){
     const box=el.querySelector('.git-blame'); if(!box) return;
-    const t=this._blameTarget();
-    box.classList.toggle('vis',!!t);
+    const target=this._blameTarget();
+    box.classList.toggle('vis',!!target);
     // FR-LAY-3: `.off` 를 `[hidden]` 으로 옮겼다.
-    el.querySelector('.git-diff-body').hidden=!!t;
-    if(!t){
+    el.querySelector('.git-diff-body').hidden=!!target;
+    if(!target){
       this._blameKey=null; this._blameData=null; this._blameErr=null;
       this._blameAll=false;
       box.dataset.sig=''; return;
     }
     // 대상이 그대로면 다시 부르지 않는다 — 폴링마다 재요청하면 스크롤이 매초
     // 초기화된다 (_paintHunks 와 같은 규약).
-    const key=[this.repo||'',t.rev,t.path].join(RPT_SEP);
+    const key=[this.repo||'',target.rev,target.path].join(RPT_SEP);
     if(this._blameKey!==key){
       this._blameKey=key; this._blameData=null; this._blameErr=null;
       // FR-PRF-18: "전체 보기" 는 **그 파일에 대한 선택**이다 — 다른 파일로 옮기면
       // 다시 상한이 선다. 남겨 두면 파일을 옮겨 다니는 동안 상한이 조용히 사라진다.
       this._blameAll=false;
-      this._loadBlame(t,key);
+      this._loadBlame(target,key);
     }
     this._drawBlame(box);
   },
 
-  async _loadBlame(t,key){
+  async _loadBlame(target,key){
     const tok=this.token();
     // FR-GRF-6: 조회에는 시한이 있다 (gitFetch 의 기본).
-    const r=await gitFetch(GIT_API.blame,{repo:this.repo||'',rev:t.rev,path:t.path});
+    const r=await gitFetch(GIT_API.blame,{repo:this.repo||'',rev:target.rev,path:target.path});
     const d=r.data;
     if(this.isStale(tok)||this._blameKey!==key) return;
     // 서버가 되돌려준 요청값도 확인한다 — 같은 세대 안에서도 응답 순서가 뒤바뀔 수
     // 있다 (FR-GIT-54).
     const q=(d&&d.requested)||{};
-    if(!r.ok||!d||q.path!==t.path||q.rev!==t.rev){
+    if(!r.ok||!d||q.path!==target.path||q.rev!==target.rev){
       // 거부 사유는 **누른 자리**에 보인다 — 서버가 준 문구가 있으면 그것을 쓴다.
       this._blameErr=(d&&d.message)||GIT_BLAME_FAIL;
       this._paint(); return;
@@ -128,17 +128,17 @@ Object.assign(GitPanel.prototype, {
   },
 
   // FR-GIT-276: 파일 메뉴의 진입점. Diff 탭을 열고 그 파일을 blame 으로 본다.
-  openBlame(t){
-    if(!t||!t.path) return;
+  openBlame(target){
+    if(!target||!target.path) return;
     this._blameOn=true;
-    this._openDiff(t.group,{path:t.path,origPath:t.origPath||''});
+    this._openDiff(target.group,{path:target.path,origPath:target.origPath||''});
   },
 
   // F-5.2: 작업 트리 파일의 Blame 을 다시 받게 한다 — 저장·git_changed·새로고침이 부른다.
   // 커밋 축(rev 있음)의 blame 은 낡지 않는다.
   blameStale(){
-    const t=this._blameTarget();
-    if(!t||t.rev) return;
+    const target=this._blameTarget();
+    if(!target||target.rev) return;
     this._blameKey=null;
     this._paint();
   },

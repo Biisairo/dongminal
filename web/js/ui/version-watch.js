@@ -54,8 +54,8 @@
   const KEY='verReloadTried';
   const readTried=()=>PrefStore.session.json(KEY,null);
   const tried=(next)=>{
-    const t=readTried();
-    return !!t && t.from===self && t.to===next;
+    const rec=readTried();
+    return !!rec && rec.from===self && rec.to===next;
   };
 
   let done=false;

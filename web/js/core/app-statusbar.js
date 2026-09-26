@@ -202,9 +202,9 @@ Object.assign(App.prototype, {
       sig:i=>i.html!==undefined?i.html:i.el.outerHTML,
       build:i=>{
         if(i.el) return i.el;
-        const t=document.createElement('template');
-        t.innerHTML=i.html;
-        return t.content.firstElementChild;
+        const tpl=document.createElement('template');
+        tpl.innerHTML=i.html;
+        return tpl.content.firstElementChild;
       },
     });
     // FR-HIE-4: 순위를 행에 싣는다. `reconcileList` 가 키를 `dataset.rkey` 로
@@ -448,7 +448,7 @@ Object.assign(App.prototype, {
     const pidx=panes.findIndex(r=>r.id===this.focused);
     if(pidx<0)return null;
     const pn=panes[pidx];
-    const tidx=pn.tabs.findIndex(t=>t.id===this.paneTab(pn));
+    const tidx=pn.tabs.findIndex(tab=>tab.id===this.paneTab(pn));
     if(tidx<0)return null;
     return `W${sidx+1}.P${pidx+1}.T${tidx+1}`;
   },

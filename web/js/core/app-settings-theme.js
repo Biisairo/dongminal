@@ -13,7 +13,7 @@ Object.assign(App.prototype, {
   _applyThemeChoice(){
     if(themeFollowSystem){
       const name=systemColorMode()==='dark'?themeNameDark:themeNameLight;
-      const t=THEMES[name]; if(t){currentThemeName=name;applyThemeObj(t);return}
+      const theme=THEMES[name]; if(theme){currentThemeName=name;applyThemeObj(theme);return}
     }
     applyThemeObj(customTheme||THEMES[currentThemeName]);
   },
@@ -47,8 +47,8 @@ Object.assign(App.prototype, {
           themeFollowSystem=cb.checked;
           // FR-STF-4: 켜는 순간 지금 테마가 자기 모드의 슬롯에 들어간다.
           if(themeFollowSystem&&!customTheme){
-            const t=THEMES[currentThemeName];
-            if(t&&t.mode==='light') themeNameLight=currentThemeName; else if(t) themeNameDark=currentThemeName;
+            const theme=THEMES[currentThemeName];
+            if(theme&&theme.mode==='light') themeNameLight=currentThemeName; else if(theme) themeNameDark=currentThemeName;
           }
           this._applyThemeChoice(); this._renderThemePanel(); this.saveSettings();
         });
@@ -74,8 +74,8 @@ Object.assign(App.prototype, {
     }
     const groups={dark:[],light:[]};
     for(const name of Object.keys(THEMES)){
-      const t=THEMES[name];
-      (t.mode==='light'?groups.light:groups.dark).push(name);
+      const theme=THEMES[name];
+      (theme.mode==='light'?groups.light:groups.dark).push(name);
     }
     const renderGroup=(label,names)=>{
       if(!names.length) return;
@@ -89,7 +89,7 @@ Object.assign(App.prototype, {
       grp.appendChild(hdr);
       list.appendChild(grp);
       for(const name of names){
-        const t=THEMES[name];
+        const theme=THEMES[name];
         const item=document.createElement('div');
         item.className='tl-item'+(name===activeName?' active':'')+(name===slotName?' slot':'');
         item.setAttribute('role','option');
@@ -103,7 +103,7 @@ Object.assign(App.prototype, {
         dots.className='tl-dots';
         for(const k of keys){
           const dot=document.createElement('span');
-          dot.style.background=t.ui[k];
+          dot.style.background=theme.ui[k];
           dots.appendChild(dot);
         }
         const label=document.createElement('span');
@@ -114,12 +114,12 @@ Object.assign(App.prototype, {
           // FR-STF-3: 추종 중에는 그 테마의 모드에 맞는 슬롯이 바뀐다 — 지금
           // 시스템 모드와 같은 쪽이면 즉시 적용되고, 아니면 저장만 된다.
           if(themeFollowSystem){
-            if(t.mode==='light') themeNameLight=name; else themeNameDark=name;
+            if(theme.mode==='light') themeNameLight=name; else themeNameDark=name;
             this._applyThemeChoice(); this._renderThemePanel(); this.saveSettings();
             return;
           }
           currentThemeName=name; customTheme=null;
-          applyThemeObj(t); this._renderThemePanel(); this._hideCustomEditor();
+          applyThemeObj(theme); this._renderThemePanel(); this._hideCustomEditor();
           this.saveSettings();
         });
         grp.appendChild(item);
@@ -133,8 +133,8 @@ Object.assign(App.prototype, {
   },
 
   _renderPreview(){
-    const t=getCurrentTheme();
-    const tr=t.terminal;
+    const theme=getCurrentTheme();
+    const tr=theme.terminal;
     /**
      * `G7-1` 첫 판: 미리보기의 글자는 **화면이 실제로 쓸 값**이어야 한다.
      * 종전에는 팔레트의 원시값(`ui.textMuted`)으로 그렸고, 그것은 파생(FR-TOK-13)
@@ -142,8 +142,8 @@ Object.assign(App.prototype, {
      * 흐렸고 axe 가 그 흐림을 잡았다(2.9:1). 파생을 같은 함수로 얹어 미리보기가
      * 곧 화면이 되게 한다 (D-TOK-5 의 "같은 함수" 규약).
      */
-    const aa=deriveContrastTokens(t.ui,t.mode,pickAttnColor(t),tr);
-    const u=Object.assign({},t.ui,{text:aa.text,textBright:aa.textBright,textMuted:aa.textMuted});
+    const aa=deriveContrastTokens(theme.ui,theme.mode,pickAttnColor(theme),tr);
+    const u=Object.assign({},theme.ui,{text:aa.text,textBright:aa.textBright,textMuted:aa.textMuted});
     const ah=hexToRgba(u.accent,.08);
     const c=tr; // shorthand
     // ANSI 16색은 **글자가 아니라 칠**로 보인다. 종전의 `● Bk`(검정 위의 검정,

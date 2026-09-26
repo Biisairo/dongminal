@@ -195,9 +195,9 @@ class GitConsole {
     if(rec.destructive) row.dataset.destructive='1';
     if(failed) row.dataset.fail='1';
 
-    const t=document.createElement('span'); t.className='git-con-time';
-    t.textContent=GitConsole.time(rec.atUnixMs);
-    t.title=GitConsole.stamp(rec.atUnixMs);
+    const timeEl=document.createElement('span'); timeEl.className='git-con-time';
+    timeEl.textContent=GitConsole.time(rec.atUnixMs);
+    timeEl.title=GitConsole.stamp(rec.atUnixMs);
     const a=document.createElement('span'); a.className='git-con-argv';
     a.textContent='git '+(rec.argv||[]).join(' ');
     const b=document.createElement('span'); b.className='git-con-badges';
@@ -214,7 +214,7 @@ class GitConsole {
     const rp=UIKit.button({label:GIT_CON_REPLAY,title:GIT_TIP_CON_REPLAY,size:'sm',cls:'git-con-replay',
       onClick:ev=>{ev.stopPropagation();this._replay(rec)}});
 
-    row.appendChild(t); row.appendChild(a); row.appendChild(b);
+    row.appendChild(timeEl); row.appendChild(a); row.appendChild(b);
     row.appendChild(dur); row.appendChild(ex); row.appendChild(rp);
     row.addEventListener('click',()=>{
       if(this._open.has(rec.seq)) this._open.delete(rec.seq); else this._open.add(rec.seq);

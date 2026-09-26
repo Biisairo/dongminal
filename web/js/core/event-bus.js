@@ -109,13 +109,13 @@ class EventBus {
    * `background`·`focus` 는 같은 경쟁에 열려 있었다 (SRS §2.5). 버스가 소유하면
    * 다섯 전부가 같은 규약을 받는다.
    */
-  beginSnapshot(key){ const t=new Set(); this._flight[key]=t; return t }
-  isLive(key,t){ return this._flight[key]===t }
+  beginSnapshot(key){ const flight=new Set(); this._flight[key]=flight; return flight }
+  isLive(key,flight){ return this._flight[key]===flight }
   inFlight(key){ return !!this._flight[key] }
-  noteTouched(key,id){ const t=this._flight[key]; if(t&&id) t.add(id) }
+  noteTouched(key,id){ const flight=this._flight[key]; if(flight&&id) flight.add(id) }
   // 전체 초기화는 만진 id 로 표현되지 않는다. 그 비행은 통째로 버린다 (FR-RSF-5).
   voidSnapshot(key){ this._flight[key]=null }
-  endSnapshot(key,t){ if(this.isLive(key,t)) this._flight[key]=null }
+  endSnapshot(key,flight){ if(this.isLive(key,flight)) this._flight[key]=null }
 
   // ── 생명주기 (FR-BUS-8) ─────────────────────────────────────────────────
 
@@ -307,12 +307,12 @@ class EventBus {
   stats(){
     const now=Date.now(), out=[];
     const topics=new Set([...this._subs.keys(), ...this._counts.keys()]);
-    for(const t of topics){
-      const set=this._subs.get(t);
+    for(const topic of topics){
+      const set=this._subs.get(topic);
       out.push({
-        topic:t, subs:set?set.size:0,
-        count:this._counts.get(t)||0,
-        agoMs:this._last.has(t)?now-this._last.get(t):null,
+        topic:topic, subs:set?set.size:0,
+        count:this._counts.get(topic)||0,
+        agoMs:this._last.has(topic)?now-this._last.get(topic):null,
       });
     }
     out.sort((a,b)=>a.topic<b.topic?-1:1);

@@ -203,10 +203,10 @@ class GitCommit {
   // 템플릿이 다음 폴링에 되살아나면 지울 수 없다.
   _applyTemplate(repo){
     if(this._tmplRepo===repo) return;
-    const t=(this._pf&&this._pf.template)||'';
-    if(!t||this._msg.value||this._draftGet(repo)) return;
+    const tpl=(this._pf&&this._pf.template)||'';
+    if(!tpl||this._msg.value||this._draftGet(repo)) return;
     this._tmplRepo=repo;
-    this._setValue(t);
+    this._setValue(tpl);
   }
 
   _warning(code){

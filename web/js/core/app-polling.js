@@ -88,9 +88,9 @@ Object.assign(App.prototype, {
       label.textContent=spec.label;
       const sel=document.createElement('select');
       sel.id=spec.id; sel.className='sbs-select';
-      for(const [v,t] of spec.opts){
+      for(const [v,text] of spec.opts){
         const o=document.createElement('option');
-        o.value=String(v); o.textContent=t;
+        o.value=String(v); o.textContent=text;
         sel.appendChild(o);
       }
       sel.addEventListener('change',()=>{

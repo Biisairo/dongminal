@@ -7,9 +7,9 @@
 
 // ── Layout helpers ──
 
-function normalizeTab(t) {
-  if (!t.type) t.type = t.toolId ? TAB_TYPE_TERMINAL : TAB_TYPE_EDITOR;
-  return t;
+function normalizeTab(tab) {
+  if (!tab.type) tab.type = tab.toolId ? TAB_TYPE_TERMINAL : TAB_TYPE_EDITOR;
+  return tab;
 }
 
 // FR-EM-13: 도구 타입별 능력. 백그라운드로 보낼 수 있는 도구는 서버(데몬)가
@@ -63,7 +63,7 @@ function migrateGitWindows(windows,mkWindow){
     if(!s||s.type!==WINDOW_TYPE_GIT) continue;
     const out=[];
     for(const p of panesOf(s.layout))
-      for(const t of (p.tabs||[])) if(t&&t.type!==TAB_TYPE_GIT) out.push(t);
+      for(const tab of (p.tabs||[])) if(tab&&tab.type!==TAB_TYPE_GIT) out.push(tab);
     if(out.length){
       // 받는 곳은 **일반 창**이다 — Repo 창에는 터미널 탭이 들어갈 수 없다
       // (FR-RTU-16).
@@ -72,7 +72,7 @@ function migrateGitWindows(windows,mkWindow){
       const dp=dst&&firstPane(dst.layout);
       if(dp){
         if(!Array.isArray(dp.tabs)) dp.tabs=[];
-        for(const t of out){dp.tabs.push(t);changed++}
+        for(const tab of out){dp.tabs.push(tab);changed++}
         if(!dp.activeTab&&dp.tabs.length) dp.activeTab=dp.tabs[0].id;
       }
     }
@@ -148,7 +148,7 @@ function firstPane(n){
 function allPids(n){
   if(!n) return [];
   // M8_UNIFIED_SRS D-C-1: "도구가 있는 탭" 이다 — 터미널과 에이전트 둘 다.
-  if(n.type==='pane') return (n.tabs||[]).filter(t=>t.toolId).map(t=>t.toolId);
+  if(n.type==='pane') return (n.tabs||[]).filter(tab=>tab.toolId).map(tab=>tab.toolId);
   if(n.children) return n.children.flatMap(c=>allPids(c));
   return [];
 }
@@ -214,7 +214,7 @@ function mergeUnseenLayout(local,remote,seen){
       if(r&&!edByRoot.has(r)) edByRoot.set(r,w);
     }
     for(const p of panesOf(w.layout))
-      for(const t of (p.tabs||[])) if(t&&t.id) remTabs.add(t.id);
+      for(const tab of (p.tabs||[])) if(tab&&tab.id) remTabs.add(tab.id);
   }
   let merged=0;
   for(const w of local){
@@ -231,7 +231,7 @@ function mergeUnseenLayout(local,remote,seen){
       if(seenWins.has(w.id)) continue;
       remote.push(w);
       for(const p of panesOf(w.layout))
-        for(const t of (p.tabs||[])) if(t&&t.id) remTabs.add(t.id);
+        for(const tab of (p.tabs||[])) if(tab&&tab.id) remTabs.add(tab.id);
       merged++;
       continue;
     }
@@ -248,8 +248,8 @@ function mergeUnseenTabs(lw,rw,seenTabs,remTabs){
   for(const lp of panesOf(lw.layout)){
     const tabs=lp.tabs||[];
     for(let i=0;i<tabs.length;i++){
-      const t=tabs[i];
-      if(!t||!t.id||remTabs.has(t.id)||seenTabs.has(t.id)) continue;
+      const tab=tabs[i];
+      if(!tab||!tab.id||remTabs.has(tab.id)||seenTabs.has(tab.id)) continue;
       // FR-OPL-6: 같은 id 의 칸 → 첫 칸 → 칸이 없으면 로컬 칸을 그대로 옮긴다.
       // 마지막 갈래는 `layout:null` 로 태어나는 Repo 창의 첫 탭이 정확히 그것이다
       // (FR-EDT-55 · `edEnsurePane`).
@@ -272,11 +272,11 @@ function mergeUnseenTabs(lw,rw,seenTabs,remTabs){
         const j=dst.tabs.findIndex(x=>x&&x.id===a.id);
         if(j>=0){at=j+1;break}
       }
-      dst.tabs.splice(at,0,t);
-      remTabs.add(t.id);
+      dst.tabs.splice(at,0,tab);
+      remTabs.add(tab.id);
       merged++;
       // FR-OPL-8: 되얹은 것이 로컬의 활성 탭이었으면 그 자리도 살린다.
-      if(lp.activeTab===t.id) dst.activeTab=t.id;
+      if(lp.activeTab===tab.id) dst.activeTab=tab.id;
     }
   }
   return merged;
@@ -285,18 +285,18 @@ function mergeUnseenTabs(lw,rw,seenTabs,remTabs){
 function clean(n,ok){
   if(!n) return null;
   if(n.type==='pane'){
-    if(n.tabs) n.tabs=n.tabs.filter(t=>{
+    if(n.tabs) n.tabs=n.tabs.filter(tab=>{
       // 서버 도구에 매인 탭만 검사한다. editor·git·run 탭은 toolId 가 없어
       // 그대로 두지 않으면 로드마다 사라진다 (FR-GIT-25, FR-RVZ-9).
       //
       // `!t.toolId` 로 일반화하지 않는 이유는 toolId 없는 terminal 탭
       // (저장 중 끊긴 손상 워크스페이스)이 그때 영원히 남기 때문이다 —
       // 클릭해도 아무것도 열리지 않는 그 유령 탭을 버리는 것이 clean() 의 목적이다.
-      if(t.type===TAB_TYPE_EDITOR||t.type===TAB_TYPE_RUN||t.type===TAB_TYPE_GIT) return true;
-      return ok.has(t.toolId);
+      if(tab.type===TAB_TYPE_EDITOR||tab.type===TAB_TYPE_RUN||tab.type===TAB_TYPE_GIT) return true;
+      return ok.has(tab.toolId);
     });
     if(!n.tabs||!n.tabs.length) return null;
-    if(!n.tabs.find(t=>t.id===n.activeTab)) n.activeTab=n.tabs[0].id;
+    if(!n.tabs.find(tab=>tab.id===n.activeTab)) n.activeTab=n.tabs[0].id;
     return n;
   }
   if(!n.children) return null;

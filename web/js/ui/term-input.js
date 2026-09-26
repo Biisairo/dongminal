@@ -264,8 +264,8 @@ Object.assign(TerminalTool.prototype, {
     // 리포팅이 켜진 TUI 에는 그것이 클릭으로 전달된다 — 실기기 로그에서 스크롤
     // 제스처가 ESC[<0;32;22M/m 을 보내고 있었다. 스크롤한 것을 클릭으로 받으면
     // TUI 가 엉뚱하게 반응한다. 스크롤로 판정된 제스처의 합성분만 막는다.
-    for(const t of ['mousedown','mouseup','click']){
-      this.el.addEventListener(t,e=>{
+    for(const type of ['mousedown','mouseup','click']){
+      this.el.addEventListener(type,e=>{
         if(!this._tsSuppressUntil||Date.now()>this._tsSuppressUntil) return;
         e.preventDefault();e.stopPropagation();
       },true);

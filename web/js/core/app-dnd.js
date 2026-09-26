@@ -50,7 +50,7 @@ Object.assign(App.prototype, {
     // 탭 타입 자리(:22)에 넣으면 편집기 탭이 자기 창 안에서도 못 움직인다 (§2.2).
     const srcRg=findPane(s.layout,srcRid);const dstRg=findPane(s.layout,dstRid);
     if(!srcRg||!dstRg)return;
-    const ti=srcRg.tabs.findIndex(t=>t.id===tabId);if(ti<0)return;
+    const ti=srcRg.tabs.findIndex(x=>x.id===tabId);if(ti<0)return;
     // REPO_TAB_UNIFY_SRS FR-RTU-33: **git 뷰 탭도 옮긴다.** 옛 FR-GIT-28 이
     // 그것을 막은 근거는 Git 창의 탭이 **고정 일곱**이어서 자리가 늘 같아야
     // 근육 기억이 선다는 것이었다. 그 창이 사라지고 뷰가 본문의 탭이 된 지금
@@ -60,7 +60,7 @@ Object.assign(App.prototype, {
     if(srcRg.tabs.length===0){s.layout=doRemove(s.layout,srcRid);if(this.focused===srcRid)this.setFocusState(dstRid, s)}
     else if(srcRg.activeTab===tabId)srcRg.activeTab=srcRg.tabs[0].id;
     const dst=findPane(s.layout,dstRid);if(!dst)return;
-    if(beforeTabId){let ins=dst.tabs.findIndex(t=>t.id===beforeTabId);if(ins<0)ins=dst.tabs.length;else if(!insertBefore)ins++;dst.tabs.splice(ins,0,tab)}
+    if(beforeTabId){let ins=dst.tabs.findIndex(x=>x.id===beforeTabId);if(ins<0)ins=dst.tabs.length;else if(!insertBefore)ins++;dst.tabs.splice(ins,0,tab)}
     else dst.tabs.push(tab);
     this.paneTabSet(dst,tab.id);this.setFocusState(dstRid, s);
     // FR-EDT-55: pane 이 없는 Editor 창은 정상 상태다 — 여기서 터미널 창을
@@ -86,7 +86,7 @@ Object.assign(App.prototype, {
     // FR-EDT-53: 밖에서 들어오지도 못한다.
     if(!dst||dst.id===src.id||this.isGitWin(dst)||this.isEditorWin(dst)||!dst.layout) return;
     const srcPane=findPane(src.layout,srcRid); if(!srcPane) return;
-    const ti=srcPane.tabs.findIndex(t=>t.id===tabId); if(ti<0) return;
+    const ti=srcPane.tabs.findIndex(x=>x.id===tabId); if(ti<0) return;
     // FR-MOV-6: git 탭은 옮기지 않는다 (FR-GIT-28).
     if(srcPane.tabs[ti].type===TAB_TYPE_GIT) return;
     // FR-MOV-4: 창의 마지막 탭은 내주지 않는다 — 탭 없는 창이 남으면 그 창으로
@@ -128,7 +128,7 @@ Object.assign(App.prototype, {
     if(this.isGitWin(src)||this.isEditorWin(src)) return;
     if(this.isGitWin(dst)||this.isEditorWin(dst)||!dst.layout) return;
     const srcPane=findPane(src.layout,srcRid); if(!srcPane) return;
-    const ti=srcPane.tabs.findIndex(t=>t.id===tabId); if(ti<0) return;
+    const ti=srcPane.tabs.findIndex(x=>x.id===tabId); if(ti<0) return;
     if(srcPane.tabs[ti].type===TAB_TYPE_GIT) return;
     if(this._windowTabCount(src)<=1) return;
     const dstPane=findPane(dst.layout,dstRid); if(!dstPane) return;
@@ -143,7 +143,7 @@ Object.assign(App.prototype, {
     }
     // 놓은 자리가 곧 넣을 자리다 (`moveTabToPane` 과 같은 삽입 규칙).
     if(beforeTabId){
-      let ins=dstPane.tabs.findIndex(t=>t.id===beforeTabId);
+      let ins=dstPane.tabs.findIndex(x=>x.id===beforeTabId);
       if(ins<0) ins=dstPane.tabs.length; else if(!insertBefore) ins++;
       dstPane.tabs.splice(ins,0,tab);
     }else dstPane.tabs.push(tab);
@@ -181,7 +181,7 @@ Object.assign(App.prototype, {
     // (`_splitInner`) 쪽이다 (FR-EDT-50).
     const srcRg=findPane(s.layout,srcRid);if(!srcRg)return;
     if(srcRid===targetRid&&srcRg.tabs.length<=1)return;
-    const ti=srcRg.tabs.findIndex(t=>t.id===tabId);if(ti<0)return;
+    const ti=srcRg.tabs.findIndex(x=>x.id===tabId);if(ti<0)return;
     // FR-RTU-33: git 뷰 탭도 분할로 떼어낸다 (`moveTabToPane` 과 같은 근거).
     const[tab]=srcRg.tabs.splice(ti,1);
     if(srcRg.tabs.length===0)s.layout=doRemove(s.layout,srcRid);

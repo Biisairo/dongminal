@@ -298,7 +298,7 @@ Object.assign(RunsPanel.prototype, {
   // addTab 의 run 분기가 이것을 부른다. app-runs.js 는 app-layout.js 뒤에 로드되므로
   // 호출 시점에는 이미 프로토타입에 있다.
   _findRunTab(runId) {
-    return findTabWhere(this.app.ws.windows, t => t.type === 'run' && t.runId === runId);
+    return findTabWhere(this.app.ws.windows, tab => tab.type === 'run' && tab.runId === runId);
   },
 
   // 지금 워크스페이스에 살아 있는 run 탭의 id 집합. 캐시(_runViews)를 이것에
@@ -307,7 +307,7 @@ Object.assign(RunsPanel.prototype, {
   _runLiveTabIds() {
     const live = new Set();
     for (const s of this.app.ws.windows)
-      for (const pn of panesOf(s && s.layout)) for (const t of pn.tabs || []) if (t.type === 'run') live.add(t.id);
+      for (const pn of panesOf(s && s.layout)) for (const tab of pn.tabs || []) if (tab.type === 'run') live.add(tab.id);
     return live;
   },
 
