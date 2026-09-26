@@ -82,67 +82,9 @@ func (j *Jobs) finish(st *jobState, exit int, runErr error, dur time.Duration) {
 	tail := strings.Join(st.stderr, "\n")
 	j.mu.Unlock()
 
-	final.Done = true
-	final.ExitCode = exit
-	final.Canceled = canceled
-	final.StderrTail = tail
-	remote := remoteKinds[final.Kind]
 	shutdown := j.root.Err() != nil
-	switch {
-	case shutdown:
-		// §8: 서버 종료로 끊긴 것은 사용자의 취소가 아니다 — 최우선 분류다.
-		final.Canceled = false
-		final.ErrorCode = ErrorServerShutdown
-		final.Err = "서버 종료로 중단했다 — 일부가 적용됐을 수 있다"
-	case canceled && remote:
-		final.Err = "취소했다. 원격에 일부가 적용됐을 수 있다"
-	case canceled:
-		final.Err = "취소했다. 일부가 적용됐을 수 있다 — 상태를 확인하라"
-	case errors.Is(runErr, core.ErrTimeout):
-		final.ErrorCode = ErrorTimeout
-		final.Err = core.SanitizeRemote(runErr.Error())
-	case runErr != nil:
-		final.Err = core.SanitizeRemote(runErr.Error())
-	case exit != 0:
-		// exit 만으로도 실패는 실패다. 사유를 비워 두면 클라이언트가 exitCode 를
-		// 직접 해석해야 하고, 그 판정이 두 벌이 된다. 자세한 내용은 StderrTail 이다.
-		final.Err = fmt.Sprintf("git %s 가 exit %d 로 끝났다", final.Kind, exit)
-	}
-	// 원격 전용 판정은 원격 kind 에서만 (§6.3) — merge 의 stderr 에 "rejected" 가
-	// 있다고 force push 를 권하지 않는다.
-	if !canceled && !shutdown && remote {
-		final.AuthRequired = matchesAny(tail, authPatterns)
-		final.Rejected = matchesAny(tail, rejectPatterns)
-		if final.Rejected {
-			final.Options = append([]string(nil), RemoteRejectOptions...)
-		}
-	}
-
-	// 기록은 **지운 argv** 로 남는다 (FR-GIT-104). 파괴적 선언은 호출자가 준
-	// spec 을 그대로 옮긴다 (I5).
-	//
-	// M9_SRS FR-M9-18: **기록도 끝이 공개되기 전에 쓴다.** 아래 훅과 같은 규칙이고
-	// 같은 사유다 (FR-GIT-107).
-	//
-	//   이전 동작: `st.job = final` 로 Done 을 공개한 **뒤**에 기록을 썼다
-	//   새  동작: 공개 전에 쓴다
-	//   이유:     `done` 을 본 쪽이 곧바로 기록을 물으면 아직 없었다. Console 이
-	//             "무엇이 돌았는가" 에 답하는 근거가 그 기록이다 (FR-GXU-1 · D-A-27).
-	//             M8 이 훅에서 고친 창을 기록이 그대로 들고 있었고, `-race -shuffle`
-	//             이 12회 중 3회 잡았다 (M9 P1 실측)
-	var recErr error
-	if final.Err != "" {
-		recErr = errors.New(final.Err)
-	}
-	out := core.Output{Stderr: tail, ExitCode: exit, DurationMs: dur.Milliseconds()}
-	if st.unguarded != "" {
-		// 인가를 건너뛴 실행은 그 표식과 사유로 남는다 (D-A-27) — Console 이 그것으로
-		// "왜 화이트리스트를 지나지 않았는가" 에 답한다 (FR-GXU-1).
-		j.svc.RecordUnguarded(final.Repo, core.UnguardedSpec{Argv: final.Argv, Reason: st.unguarded}, out, recErr)
-	} else {
-		j.svc.RecordWrite(final.Repo,
-			core.WriteSpec{Argv: final.Argv, Destructive: st.spec.Destructive, Stdin: st.spec.Stdin}, out, recErr)
-	}
+	final = classifyOutcome(final, canceled, shutdown, runErr, exit, tail)
+	j.recordFinal(st, final, tail, exit, dur)
 
 	// 훅은 **끝이 공개되기 전에** 돈다 (FR-GIT-107). Done 을 세우고 구독자를
 	// 닫은 뒤에 부르면, 그 사이에 `done` 을 본 쪽이 status 를 물어 만료되지 않은
@@ -175,6 +117,76 @@ func (j *Jobs) finish(st *jobState, exit int, runErr error, dur time.Duration) {
 	}
 	j.mu.Unlock()
 	j.changed()
+}
+
+// classifyOutcome 은 끝난 작업의 결말을 정한다 — 서버 종료·취소·시한·실행 오류·exit 순의
+// 분류와, 원격 kind 에서만의 인증·거부 판정. 부수효과가 없다.
+func classifyOutcome(final Job, canceled, shutdown bool, runErr error, exit int, tail string) Job {
+	final.Done = true
+	final.ExitCode = exit
+	final.Canceled = canceled
+	final.StderrTail = tail
+	remote := remoteKinds[final.Kind]
+	switch {
+	case shutdown:
+		// §8: 서버 종료로 끊긴 것은 사용자의 취소가 아니다 — 최우선 분류다.
+		final.Canceled = false
+		final.ErrorCode = ErrorServerShutdown
+		final.Err = "서버 종료로 중단했다 — 일부가 적용됐을 수 있다"
+	case canceled && remote:
+		final.Err = "취소했다. 원격에 일부가 적용됐을 수 있다"
+	case canceled:
+		final.Err = "취소했다. 일부가 적용됐을 수 있다 — 상태를 확인하라"
+	case errors.Is(runErr, core.ErrTimeout):
+		final.ErrorCode = ErrorTimeout
+		final.Err = core.SanitizeRemote(runErr.Error())
+	case runErr != nil:
+		final.Err = core.SanitizeRemote(runErr.Error())
+	case exit != 0:
+		// exit 만으로도 실패는 실패다. 사유를 비워 두면 클라이언트가 exitCode 를
+		// 직접 해석해야 하고, 그 판정이 두 벌이 된다. 자세한 내용은 StderrTail 이다.
+		final.Err = fmt.Sprintf("git %s 가 exit %d 로 끝났다", final.Kind, exit)
+	}
+	// 원격 전용 판정은 원격 kind 에서만 (§6.3) — merge 의 stderr 에 "rejected" 가
+	// 있다고 force push 를 권하지 않는다.
+	if !canceled && !shutdown && remote {
+		final.AuthRequired = matchesAny(tail, authPatterns)
+		final.Rejected = matchesAny(tail, rejectPatterns)
+		if final.Rejected {
+			final.Options = append([]string(nil), RemoteRejectOptions...)
+		}
+	}
+
+	return final
+}
+
+// recordFinal 은 끝난 작업을 실행 기록에 남긴다.
+func (j *Jobs) recordFinal(st *jobState, final Job, tail string, exit int, dur time.Duration) {
+	// 기록은 **지운 argv** 로 남는다 (FR-GIT-104). 파괴적 선언은 호출자가 준
+	// spec 을 그대로 옮긴다 (I5).
+	//
+	// M9_SRS FR-M9-18: **기록도 끝이 공개되기 전에 쓴다.** 아래 훅과 같은 규칙이고
+	// 같은 사유다 (FR-GIT-107).
+	//
+	//   이전 동작: `st.job = final` 로 Done 을 공개한 **뒤**에 기록을 썼다
+	//   새  동작: 공개 전에 쓴다
+	//   이유:     `done` 을 본 쪽이 곧바로 기록을 물으면 아직 없었다. Console 이
+	//             "무엇이 돌았는가" 에 답하는 근거가 그 기록이다 (FR-GXU-1 · D-A-27).
+	//             M8 이 훅에서 고친 창을 기록이 그대로 들고 있었고, `-race -shuffle`
+	//             이 12회 중 3회 잡았다 (M9 P1 실측)
+	var recErr error
+	if final.Err != "" {
+		recErr = errors.New(final.Err)
+	}
+	out := core.Output{Stderr: tail, ExitCode: exit, DurationMs: dur.Milliseconds()}
+	if st.unguarded != "" {
+		// 인가를 건너뛴 실행은 그 표식과 사유로 남는다 (D-A-27) — Console 이 그것으로
+		// "왜 화이트리스트를 지나지 않았는가" 에 답한다 (FR-GXU-1).
+		j.svc.RecordUnguarded(final.Repo, core.UnguardedSpec{Argv: final.Argv, Reason: st.unguarded}, out, recErr)
+	} else {
+		j.svc.RecordWrite(final.Repo,
+			core.WriteSpec{Argv: final.Argv, Destructive: st.spec.Destructive, Stdin: st.spec.Stdin}, out, recErr)
+	}
 }
 
 // sweepLocked 는 보존 기간이 지난 작업을 버린다. 진행 중인 것은 건드리지 않는다.
