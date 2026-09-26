@@ -212,11 +212,14 @@ e2e 요청 타임라인으로 잰다.
 > 옮겨야 하는 것은 없다. 그래서 채택한다: `init` 과 원격 워크스페이스 적용은 id 집합(`App.toolIds` —
 > `clean()`·죽은 도구 청소·떠남 확인이 본다)만 적고, 인스턴스와 WS 는 처음 그려질 때(`mkTool`, renderer-pane)
 > 선다. 한 번 그려진 도구는 숨겨져도 붙어 있다. 처음 붙을 때 `since` 가 없으므로 전량 재생(FR-TRS-3)이다.
+> 살아 있는가를 묻는 자리는 인스턴스가 아니라 `toolIds` 를 본다 — 새 도구의 cwd 기준(`_paneNewToolRef` 의
+> `cwdTool`)도 그렇다. 그려지지 않은 창을 겨눈 분할·새 탭도 그 칸 도구의 cwd 를 잇는다(TLC5).
 > 부팅 실측(`e2e/term-lazy-connect.spec.ts` TLC1, 도구 5 · 보이는 것 1, 도구마다 재생 약 39 KB):
 > WS 5 → 1 · snapshot RPC 5 → 1(WS 연결당 1, FR-OPT-2) · WS 수신 197084 B → 39419 B.
 >
 > **O4d — 칸 SSE (D-OPT-4).** `?presence=1` 이면 서버는 `Focus.AttachFrom`·`gitWatch.Attach` 만 하고
-> `Commands.Add`·`Updates.Trigger` 를 건너뛴다. 인사(keepalive)는 그대로 보낸다. 칸 하나당 방송 1벌이 0 이
+> `Commands.Add`·`Updates.Trigger` 를 건너뛴다. 인사(keepalive)는 그대로 보낸다. 허브에 등록되지 않으므로
+> 구독 상한(04-secops P1-4 `SubCap`)은 서버가 presence 구독을 따로 세어 지킨다(`TestSSE_PresenceSubCap`). 칸 하나당 방송 1벌이 0 이
 > 된다 (`commands_presence_test.go`, TLC4). 옛 서버는 파라미터를 무시하고 전부 보내며 칸 채널은 그것을 버린다.
 
 ### 3.5 O5 — 쓰기 경로 합치기·원자성
