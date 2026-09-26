@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"os"
-	"os/user"
 	"path/filepath"
 	"runtime/debug"
 	"sync"
@@ -211,13 +210,20 @@ func (p *Tool) ExitInfo() ExitInfo {
 // hooks 가 nil 이면 훅 없는 빈 Tool 이 된다.
 func NewDetachedTool(id string, hooks *ToolHooks) *Tool {
 	p := &Tool{ID: id}
-	if hooks != nil {
-		p.onAttention = hooks.OnAttention
-		p.onAttentionClear = hooks.OnAttentionClear
-		p.onActivity = hooks.OnActivity
-		p.allowBell = hooks.AllowBell
-	}
+	p.applyHooks(hooks)
 	return p
+}
+
+// applyHooks 는 주의·활동 배선을 옮겨 싣는다. OnSize·OnOutput 은 싣지 않는다 —
+// 그 둘은 PTY 가 있는 StartTool 만의 것이다. readPTY 가 돌기 전에 불러야 한다.
+func (p *Tool) applyHooks(hooks *ToolHooks) {
+	if hooks == nil {
+		return
+	}
+	p.onAttention = hooks.OnAttention
+	p.onAttentionClear = hooks.OnAttentionClear
+	p.onActivity = hooks.OnActivity
+	p.allowBell = hooks.AllowBell
 }
 
 // NewAttendingTool은 주의 상태가 이미 올라간 PTY 없는 도구를 만든다. armed 가
@@ -268,49 +274,14 @@ func toolPath(binDir string) string {
 // 완성된 명세를 받는 것이 요점이다. 그래야 toolhub 가 컨테이너도 프로파일도
 // 알지 않는다 — invalidator·ownedProvider 와 같은 방향이다.
 func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hooks *ToolHooks, place *platform.ProcSpec, extraEnv []string) (*Tool, error) {
-	home := toolHome()
 	binDir := toolBinDir()
 
 	// 셸 선택과 훅 주입 방식은 OS 마다 다르다. 그 차이는 platform.ShellProvider
 	// 뒤에 있고, 여기서는 어느 셸인지 묻지 않는다 (CROSS_PLATFORM_SRS FR-XSH-6).
 	sh := platform.Current().Shell.Shell(binDir)
 	shell, shellArgs := sh.Path, sh.Args
-
-	// Ensure critical env vars are always present (os.Environ() may lack
-	// these when the server runs as a daemon / LaunchAgent).
-	env := []string{
-		"TERM=xterm-256color", "COLORTERM=truecolor",
-		// PATH 구분자는 OS 마다 다르다 — 문자를 박지 않는다.
-		"PATH=" + toolPath(binDir),
-		"HOME=" + home,
-		// PANE_ATTENTION_NOTIFY_SRS: lets `dmctl notify` (incl. detached agent
-		// hooks that have no controlling tty) identify this tool to the server.
-		dmenv.EnvToolID + "=" + id,
-		// VIEWER_URL_OPEN_SRS FR-VUO-13: 브라우저를 직접 찾는 라이브러리가
-		// 존중하는 변수다. 셸 함수(open/xdg-open)로는 덮이지 않는 경로를 덮는다.
-		toolBrowserEnv(binDir),
-	}
-	if u, err := user.Current(); err == nil {
-		env = append(env, "USER="+u.Username, "LOGNAME="+u.Username)
-	}
-	env = append(env, sh.Env...)
-	// TOOL_HISTORY_ISOLATION_SRS FR-THI-1·21: 이 도구만의 히스토리 파일. 심을 수
-	// 없으면 비어 있고, 그때 셸은 종전대로 사용자 히스토리를 공유한다.
-	env = append(env, toolHistEnv(id, shell)...)
-	// FR-ARE-5: 호출자가 정한 추가 환경. **해석하지 않는다** — 무엇을 왜 넣는지는
-	// 띄우는 쪽의 지식이다. 자리가 맨 뒤인 것은 같은 키가 있을 때 이쪽이 이기게
-	// 하기 위해서다 (`dedupEnv` 가 뒤를 남긴다).
-	env = append(env, extraEnv...)
-	env = append(os.Environ(), env...)
-	startDir := userHome()
-	if cwd != "" {
-		if info, err := os.Stat(cwd); err == nil && info.IsDir() {
-			startDir = cwd
-		}
-	}
-	if startDir == "" {
-		startDir = "."
-	}
+	env := toolEnv(id, shell, binDir, sh.Env, extraEnv)
+	startDir := toolStartDir(cwd)
 	spec := platform.ProcSpec{
 		Path: shell,
 		Args: append([]string{shell}, shellArgs...),
@@ -340,11 +311,8 @@ func StartTool(id, name, cwd string, cols, rows uint16, onExit func(string), hoo
 		relay.onOutput = hooks.OnOutput
 	}
 	p.relay.Store(relay)
+	p.applyHooks(hooks)
 	if hooks != nil {
-		p.onAttention = hooks.OnAttention
-		p.onAttentionClear = hooks.OnAttentionClear
-		p.onActivity = hooks.OnActivity
-		p.allowBell = hooks.AllowBell
 		p.onSize = hooks.OnSize
 	}
 	// **뜬 자리를 기억한다** (WINDOWS_TOOL_CWD_SRS FR-WTC-6).

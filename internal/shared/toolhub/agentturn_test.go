@@ -160,7 +160,8 @@ func TestAgentTurn_TypedAttendKeepsTheWaitingMark(t *testing.T) {
 		t.Fatal("첫 대기가 알람이 되지 않았다")
 	}
 
-	turn.NoteAttendTyped()
+	// 주목(AttendTyped)은 AgentTurn 을 만지지 않는다 — 그 경로는 도구·추적기 쪽
+	// 검사가 덮는다 (TestTool_SignalWaiting_FiresOncePerWait · hub attn_novel_test).
 	if turn.AllowSignal("waiting") {
 		t.Fatal("주목이 대기 표시를 내렸다 — 같은 대기가 다시 울린다")
 	}

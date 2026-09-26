@@ -231,11 +231,8 @@ func (t *AttnTracker) attend(toolID string, typed bool) {
 	ps := t.state(toolID)
 	ps.attnArmed.Store(false)
 	ps.attnRearmLocked.Store(!typed)
-	// FR-ATN-16: 키를 누른 주목은 L1 명시 신호의 대기 표시도 함께 푼다
-	// (FR-ATF-12·NFR-4 — 직접 모드 `Tool.AttendTyped` 와 같은 자리다).
-	if typed {
-		ps.turn.NoteAttendTyped()
-	}
+	// 키를 누른 주목도 L1 명시 신호의 대기 표시는 건드리지 않는다 (FR-ATN-16a —
+	// 직접 모드 `Tool.AttendTyped` 와 같은 판정, FR-ATF-12·NFR-4).
 	if ps.attention.CompareAndSwap(true, false) {
 		t.onAttentionClear(toolID)
 	}

@@ -179,9 +179,17 @@ func (p *Tool) Attend() {
 func (p *Tool) AttendTyped() {
 	p.attnArmed.Store(false)
 	p.attnRearmLocked.Store(false)
-	// FR-ATN-16: 같은 구분을 L1 명시 신호에도 준다 — 키를 눌렀으면 그다음의
-	// 대기는 새 사건이다.
-	p.turn.NoteAttendTyped()
+	// **L1 명시 신호의 대기 표시는 건드리지 않는다** (FR-ATN-16a, 사용자 보고 `U-24`).
+	//
+	//	이전 동작 — `waitingSignaled` 를 풀어 다음 대기를 새 사건으로 만들었다 (FR-ATN-16)
+	//	새 동작   — 풀지 않는다. 대기가 끝났다고 말할 수 있는 것은 `working` 뿐이다
+	//	이유     — 권한 요청을 기다리는 중에 그 터미널을 만진 것은 일을 시킨 것이
+	//	           아니다. 대기는 그대로인데 표시만 풀리고, 에이전트가 같은 대기로
+	//	           `Notification` 을 재전송하면 또 운다
+	//
+	// `NoteActivity("working")` 의 리셋은 그대로다 — 에이전트가 실제로 다시 일을
+	// 시작했다는 보고가 곧 이전 대기의 해소다. 재무장 잠금의 구분(FR-ATF-5·6)은 정적
+	// 감지(idle)의 것이고, 대기 표시는 명시 신호(waiting)의 것이다.
 	p.clearAttention()
 }
 

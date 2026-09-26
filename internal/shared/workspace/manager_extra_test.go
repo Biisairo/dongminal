@@ -71,16 +71,6 @@ func TestManager_Entries_Empty(t *testing.T) {
 	}
 }
 
-func TestManager_InvalidateTool(t *testing.T) {
-	store := &memPersister{empty: true}
-	m, err := New(newFakeLive(), store)
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-	// Should not panic.
-	m.InvalidateTool("any")
-}
-
 func TestManager_Close_Idempotent(t *testing.T) {
 	store := &memPersister{empty: true}
 	m, err := New(newFakeLive(), store)

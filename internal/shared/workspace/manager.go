@@ -329,11 +329,3 @@ func (m *Manager) Entries() []TabEntry {
 	copy(out, ix.entries)
 	return out
 }
-
-func (m *Manager) InvalidateTool(toolID string) {
-	// Labels are positional (derived from workspace.json). Tool death doesn't
-	// shift labels; liveness is queried via Liveness at Resolve time. Kept as
-	// an explicit hook so callers (onExit) can signal the manager without
-	// caring about current semantics.
-	_ = toolID
-}

@@ -23,7 +23,7 @@ import (
 // WorkspaceStore is implemented by *workspace.Manager; kept as an interface so
 // tests can inject a fake without bringing up the real persister. Only the
 // methods actually consumed by HTTP handlers in this package are listed —
-// Resolve / Labels / Entries / InvalidateTool are callers' concerns
+// Resolve / Labels / Entries are callers' concerns
 // (internal/webserver/seam/adapters/* + main).
 type WorkspaceStore interface {
 	Raw() []byte

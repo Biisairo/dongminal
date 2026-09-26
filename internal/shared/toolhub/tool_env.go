@@ -2,6 +2,7 @@ package toolhub
 
 import (
 	"os"
+	"os/user"
 	"path/filepath"
 
 	"dongminal/internal/shared/dmenv"
@@ -36,4 +37,49 @@ func userHome() string {
 // 확장자는 설치와 같은 규칙을 따른다 — Windows 에서는 open-url.exe 다.
 func toolBrowserEnv(binDir string) string {
 	return "BROWSER=" + filepath.Join(binDir, "open-url"+platform.Current().Paths.ExeSuffix())
+}
+
+// toolEnv 는 도구 셸의 환경이다. os.Environ 이 앞이고 도구 기본값이 그 뒤,
+// 호출자의 추가 환경이 맨 뒤다 — 같은 키면 뒤가 이긴다 (`dedupEnv` 가 뒤를 남긴다).
+func toolEnv(id, shell, binDir string, shellEnv, extraEnv []string) []string {
+	// Ensure critical env vars are always present (os.Environ() may lack
+	// these when the server runs as a daemon / LaunchAgent).
+	env := []string{
+		"TERM=xterm-256color", "COLORTERM=truecolor",
+		// PATH 구분자는 OS 마다 다르다 — 문자를 박지 않는다.
+		"PATH=" + toolPath(binDir),
+		"HOME=" + toolHome(),
+		// PANE_ATTENTION_NOTIFY_SRS: lets `dmctl notify` (incl. detached agent
+		// hooks that have no controlling tty) identify this tool to the server.
+		dmenv.EnvToolID + "=" + id,
+		// VIEWER_URL_OPEN_SRS FR-VUO-13: 브라우저를 직접 찾는 라이브러리가
+		// 존중하는 변수다. 셸 함수(open/xdg-open)로는 덮이지 않는 경로를 덮는다.
+		toolBrowserEnv(binDir),
+	}
+	if u, err := user.Current(); err == nil {
+		env = append(env, "USER="+u.Username, "LOGNAME="+u.Username)
+	}
+	env = append(env, shellEnv...)
+	// TOOL_HISTORY_ISOLATION_SRS FR-THI-1·21: 이 도구만의 히스토리 파일. 심을 수
+	// 없으면 비어 있고, 그때 셸은 종전대로 사용자 히스토리를 공유한다.
+	env = append(env, toolHistEnv(id, shell)...)
+	// FR-ARE-5: 호출자가 정한 추가 환경. **해석하지 않는다** — 무엇을 왜 넣는지는
+	// 띄우는 쪽의 지식이다.
+	env = append(env, extraEnv...)
+	return append(os.Environ(), env...)
+}
+
+// toolStartDir 은 도구가 열릴 자리다. cwd 가 있는 디렉터리면 그것, 아니면 사용자
+// 홈, 홈도 모르면 ".".
+func toolStartDir(cwd string) string {
+	dir := userHome()
+	if cwd != "" {
+		if info, err := os.Stat(cwd); err == nil && info.IsDir() {
+			dir = cwd
+		}
+	}
+	if dir == "" {
+		dir = "."
+	}
+	return dir
 }

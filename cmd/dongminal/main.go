@@ -239,7 +239,6 @@ func buildDeps(cfg httpapi.Config, gitRoot context.Context) (builtDeps, error) {
 		return builtDeps{}, err
 	}
 
-	pm.SetInvalidator(bd.wsMgr.InvalidateTool)
 	// 소유 판별을 꽂아야 SaveAll 이 헤드리스 도구를 기재한다 (FR-HLM-3). 이것이
 	// 없으면 FR-BG-9 의 제외 규칙이 그대로 적용돼 다음 부팅에 되살릴 것이 없다.
 	pm.SetOwnedTools(func() map[string]struct{} { return run.HeadlessToolIDs(cfg.DataDir) })
