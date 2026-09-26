@@ -59,3 +59,38 @@ func On(ctx context.Context, max time.Duration, changed func() <-chan struct{}, 
 		}
 	}
 }
+
+// OnOrAt 은 On 에 시간축을 더한 것이다 (OPTIMIZE_REFACTOR_SRS FR-OPT-16-3): cond 는
+// 서지 않았으면 다음에 물을 시각을 함께 돌려준다 — 조건이 "경과 시간" 을 품을 때 그
+// 시각이 곧 판정이 바뀔 수 있는 가장 이른 때다. changed 가 준 채널이 닫히거나 그
+// 시각에 이르면 다시 묻는다. 시각이 영값이면 알림만 기다린다. 상한 max 에 이르면
+// 마지막으로 한 번 묻는다. 오류의 뜻은 Until 과 같다.
+func OnOrAt(ctx context.Context, max time.Duration, changed func() <-chan struct{}, cond func(now time.Time) (bool, time.Time)) error {
+	deadline := time.Now().Add(max)
+	timer := time.NewTimer(max)
+	defer timer.Stop()
+	for {
+		ch := changed()
+		ok, next := cond(time.Now())
+		if ok {
+			return nil
+		}
+		wake := deadline
+		if !next.IsZero() && next.Before(deadline) {
+			wake = next
+		}
+		timer.Reset(time.Until(wake))
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			if !time.Now().Before(deadline) {
+				if ok, _ := cond(time.Now()); ok {
+					return nil
+				}
+				return ErrTimeout
+			}
+		case <-ch:
+		}
+	}
+}
