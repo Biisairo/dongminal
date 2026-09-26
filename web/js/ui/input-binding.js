@@ -44,31 +44,15 @@ class InputBinding {
     const ap=document.getElementById('agents-panel'),aph=document.getElementById('agents-handle');
     if(PrefStore.local.bool(STORE_KEYS.agentsPanelOpen,false)){ap.classList.add('open');aph.classList.add('open');document.getElementById('agents-toggle').classList.add('open')}
     /**
-     * UI_KIT_SRS FR-HSZ-1·10: 여섯 핸들이 `UIKit.drag` 한 골격을 쓴다.
+     * UI_KIT_SRS FR-HSZ-1·10: 여섯 핸들이 `UIKit.drag` 한 골격을 쓴다. 폭 손잡이 둘은
+     * 그 위에서 다시 한 구현이다 (`_bindWidthHandle`, FR-OPT-16-2 · FEU-17).
      *
-     * `sides` 가 이 핸들의 **양쪽이 무엇인가**를 말한다 — 왼쪽은 콘텐츠(터미널이
-     * 들어 있으므로 `C×R` 이 나온다), 오른쪽은 Agents 패널이다. 자리로 어느
-     * 값인지 말하므로 라벨을 붙이지 않는다 (FR-HSZ-3).
+     * 이 패널은 콘텐츠의 **오른쪽**에 있다 — 왼쪽으로 끌면 넓어진다.
      */
-    UIKit.drag(aph,{
-      axis:'x',
-      start:()=>({w0:ap.offsetWidth,c0:contentEl?contentEl.offsetWidth:0}),
-      move:(ctx,ev)=>{
-        const w=ctx.w0-(ev.clientX-ctx.sx0);
-        if(agentsWidthOk(w)) document.documentElement.style.setProperty('--ag-w',w+'px');
-      },
-      sides:(ctx)=>{
-        const aw=ap.offsetWidth, cw=contentEl?contentEl.offsetWidth:0, tot=aw+cw;
-        return [
-          {px:cw,cell:UIKit.grid(this.app.focusedTerminal&&this.app.focusedTerminal(),'x',cw-ctx.c0,0),
-            pct:tot?cw/tot*100:null},
-          {px:aw,pct:tot?aw/tot*100:null},
-        ];
-      },
-      end:()=>{
-        for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();
-        PrefStore.local.set(STORE_KEYS.agentsWidth,ap.offsetWidth);
-      },
+    this._bindWidthHandle(aph,{
+      el:ap, contentEl, side:'right', min:AGENTS_W_MIN_PX, max:AGENTS_W_MAX_PX,
+      apply:w=>document.documentElement.style.setProperty('--ag-w',w+'px'),
+      save:w=>PrefStore.local.set(STORE_KEYS.agentsWidth,w),
     });
     {const aw=parseInt(PrefStore.local.get(STORE_KEYS.agentsWidth));if(agentsWidthOk(aw))document.documentElement.style.setProperty('--ag-w',aw+'px')}
   }
@@ -113,42 +97,64 @@ class InputBinding {
      * 키로도 같은 일을 한다 (`sidebarToggle`) — 손잡이는 마우스의 길이고, 그것이
      * 유일한 길이면 키보드만 쓰는 사람에게는 길이 없다.
      */
-    UIKit.drag(sbh,{
-      axis:'x',
+    this._bindWidthHandle(sbh,{
+      el:sb, contentEl, side:'left', min:SIDEBAR_W_MIN_PX, max:SIDEBAR_W_MAX_PX,
+      apply:w=>document.documentElement.style.setProperty('--sb-w',w+'px'),
       // 접힘에서 시작하면 기준은 레일의 폭이다 — 그 자리에서 오른쪽으로 끌면
       // 임계를 넘어 펼쳐진다.
-      start:()=>({w0:sb.offsetWidth,c0:contentEl?contentEl.offsetWidth:0}),
-      move:(ctx,ev)=>{
-        const raw=ctx.w0+(ev.clientX-ctx.sx0);
+      collapse:raw=>{
         const collapse=raw<SIDEBAR_COLLAPSE_AT_PX;
         // 접힘 자체는 `setSidebarCollapsed` 한 자리에서 정한다 — 클래스·저장·
         // 터미널 재적합이 거기 묶여 있고, 두 벌로 두면 한쪽만 고쳐진다.
         if(collapse!==this.app.sidebarCollapsed()) this.app.setSidebarCollapsed(collapse);
-        // 펼친 동안에만 폭을 따라간다. 접힌 폭(레일)은 고정이다 (FR-SBC-2·16).
-        // FE-18: 구간은 상수 둘이 정한다 — 드래그로 갈 수 없는 폭이 저장에서
-        // 살아남는(또는 그 반대의) 어긋남을 막는다.
-        if(!collapse&&raw>=SIDEBAR_W_MIN_PX&&raw<=SIDEBAR_W_MAX_PX){
-          document.documentElement.style.setProperty('--sb-w',raw+'px');
-          // FR-UXB-6: 놓을 때 담을 값을 든다. 접힌 채로 놓았으면 레일의 폭이지
-          // 사용자가 정한 폭이 아니므로 여기를 지나지 않는다.
-          ctx.w=raw;
-        }
-      },
-      // FR-HSZ-3: 왼쪽은 사이드바, 오른쪽은 콘텐츠다. 사이드바에는 `C×R` 이
-      // 없다 — 터미널이 아니다 (FR-HSZ-5).
-      sides:(ctx)=>{
-        const sw=sb.offsetWidth, cw=contentEl?contentEl.offsetWidth:0, tot=sw+cw;
-        return [
-          {px:sw,pct:tot?sw/tot*100:null},
-          {px:cw,cell:UIKit.grid(this.app.focusedTerminal&&this.app.focusedTerminal(),'x',cw-ctx.c0,0),
-            pct:tot?cw/tot*100:null},
-        ];
+        // 접힌 폭(레일)은 고정이다 (FR-SBC-2·16) — 폭을 따라가지 않는다.
+        return collapse;
       },
       // FR-UXB-6: 폭이 워크스페이스를 떠나면서 `save()` 도 떠났다 — 올릴 것이
       // 없는 저장은 다른 창의 화면을 한 번씩 흔드는 일만 한다.
+      save:w=>sidebarWidthStore(w),
+    });
+  }
+
+  /**
+   * 폭 손잡이 한 벌 (FR-HSZ-1·3 · FR-OPT-16-2 · FEU-17).
+   *
+   *   el·contentEl  폭을 가진 쪽과 그 반대쪽(콘텐츠 영역)
+   *   side          el 이 콘텐츠의 어느 쪽에 있는가 — 'left' 는 오른쪽으로, 'right' 는
+   *                 왼쪽으로 끌면 넓어진다. HUD 의 양쪽 값 순서도 이것이 정한다
+   *   min·max       구간. FE-18: 구간은 상수 둘이 정한다 — 드래그로 갈 수 없는 폭이
+   *                 저장에서 살아남는(또는 그 반대의) 어긋남을 막는다
+   *   apply(w)      폭을 CSS 변수에 싣는다. 변수 이름을 문자열 인자로 넘기지 않는 것은
+   *                 `check-css-vars.mjs` 가 `setProperty('--x'` 꼴로 세우는 자리를 읽기 때문이다
+   *   collapse(raw) 참이면 이 걸음은 폭을 따라가지 않는다 (사이드바의 접기)
+   *   save(w)       놓을 때 **구간 안에서 마지막으로 든 폭**을 담는다. 든 적이 없으면
+   *                 부르지 않는다 (FR-UXB-6 — 접힌 채로 놓았으면 레일의 폭이다)
+   */
+  _bindWidthHandle(handle,o){
+    const contentEl=o.contentEl;
+    UIKit.drag(handle,{
+      axis:'x',
+      start:()=>({w0:o.el.offsetWidth,c0:contentEl?contentEl.offsetWidth:0}),
+      move:(ctx,ev)=>{
+        const dx=ev.clientX-ctx.sx0;
+        const raw=o.side==='left'?ctx.w0+dx:ctx.w0-dx;
+        if(o.collapse&&o.collapse(raw)) return;
+        if(raw<o.min||raw>o.max) return;
+        o.apply(raw);
+        ctx.w=raw;
+      },
+      // FR-HSZ-3: 자리로 어느 값인지 말하므로 라벨을 붙이지 않는다. 콘텐츠 쪽만 `C×R`
+      // 을 갖는다 — 터미널이 거기 있다 (FR-HSZ-5).
+      sides:(ctx)=>{
+        const w=o.el.offsetWidth, cw=contentEl?contentEl.offsetWidth:0, tot=w+cw;
+        const mine={px:w,pct:tot?w/tot*100:null};
+        const content={px:cw,cell:UIKit.grid(this.app.focusedTerminal&&this.app.focusedTerminal(),'x',cw-ctx.c0,0),
+          pct:tot?cw/tot*100:null};
+        return o.side==='left'?[mine,content]:[content,mine];
+      },
       end:(ctx)=>{
         for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();
-        if(ctx.w) sidebarWidthStore(ctx.w);
+        if(ctx.w) o.save(ctx.w);
       },
     });
   }
