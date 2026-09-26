@@ -1,0 +1,556 @@
+list-workspace []
+  code=0 proceed=true f={jsonOut:false windowFilter: tabFilter:}
+  stdout=""
+  stderr=""
+list-workspace ["-h"]
+  code=0 proceed=false f={jsonOut:false windowFilter: tabFilter:}
+  stdout="<731 bytes, sum 16338ff8>"
+  stderr=""
+list-workspace ["--help"]
+  code=0 proceed=false f={jsonOut:false windowFilter: tabFilter:}
+  stdout="<731 bytes, sum 16338ff8>"
+  stderr=""
+list-workspace ["--json"]
+  code=0 proceed=true f={jsonOut:true windowFilter: tabFilter:}
+  stdout=""
+  stderr=""
+list-workspace ["--json" "-h" "--bogus"]
+  code=0 proceed=false f={jsonOut:true windowFilter: tabFilter:}
+  stdout="<731 bytes, sum 16338ff8>"
+  stderr=""
+list-workspace ["--bogus" "-h"]
+  code=2 proceed=false f={jsonOut:false windowFilter: tabFilter:}
+  stdout=""
+  stderr="list-workspace: unknown argument: --bogus\n"
+list-workspace ["--json=1"]
+  code=2 proceed=false f={jsonOut:false windowFilter: tabFilter:}
+  stdout=""
+  stderr="list-workspace: unknown argument: --json=1\n"
+list-workspace ["="]
+  code=2 proceed=false f={jsonOut:false windowFilter: tabFilter:}
+  stdout=""
+  stderr="list-workspace: unknown argument: =\n"
+list-workspace ["-"]
+  code=2 proceed=false f={jsonOut:false windowFilter: tabFilter:}
+  stdout=""
+  stderr="list-workspace: unknown argument: -\n"
+list-workspace ["x"]
+  code=2 proceed=false f={jsonOut:false windowFilter: tabFilter:}
+  stdout=""
+  stderr="list-workspace: unknown argument: x\n"
+list-workspace ["--"]
+  code=2 proceed=false f={jsonOut:false windowFilter: tabFilter:}
+  stdout=""
+  stderr="list-workspace: unknown argument: --\n"
+list-workspace ["--window"]
+  code=2 proceed=false f={jsonOut:false windowFilter: tabFilter:}
+  stdout=""
+  stderr="list-workspace: flag --window requires value\n"
+list-workspace ["--tab"]
+  code=2 proceed=false f={jsonOut:false windowFilter: tabFilter:}
+  stdout=""
+  stderr="list-workspace: flag --tab requires value\n"
+list-workspace ["--window" "a" "--tab" "b"]
+  code=0 proceed=true f={jsonOut:false windowFilter:a tabFilter:b}
+  stdout=""
+  stderr=""
+list-workspace ["--window" "--json"]
+  code=0 proceed=true f={jsonOut:false windowFilter:--json tabFilter:}
+  stdout=""
+  stderr=""
+list-workspace ["--json" "--window" "w"]
+  code=0 proceed=true f={jsonOut:true windowFilter:w tabFilter:}
+  stdout=""
+  stderr=""
+status []
+  code=0 proceed=true f={target:self-tool cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr=""
+status ["-h"]
+  code=0 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout="<892 bytes, sum 9b46d9d0>"
+  stderr=""
+status ["--help"]
+  code=0 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout="<892 bytes, sum 9b46d9d0>"
+  stderr=""
+status ["--json"]
+  code=0 proceed=true f={target:self-tool cond: timeoutMS:0 jsonOut:true member:}
+  stdout=""
+  stderr=""
+status ["--json" "-h" "--bogus"]
+  code=0 proceed=false f={target: cond: timeoutMS:0 jsonOut:true member:}
+  stdout="<892 bytes, sum 9b46d9d0>"
+  stderr=""
+status ["--bogus" "-h"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: unknown argument: --bogus\n"
+status ["--json=1"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: unknown argument: --json=1\n"
+status ["="]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: unknown argument: =\n"
+status ["-"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: unknown argument: -\n"
+status ["x"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: unknown argument: x\n"
+status ["--"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: unknown argument: --\n"
+status ["--at"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: flag --at requires value\n"
+status ["--at" "t1"]
+  code=0 proceed=true f={target:t1 cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr=""
+status ["--at=t1"]
+  code=0 proceed=true f={target:t1 cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr=""
+status ["--at="]
+  code=0 proceed=true f={target:self-tool cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr=""
+status ["-l" "t1"]
+  code=0 proceed=true f={target:t1 cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr=""
+status ["-l=t1"]
+  code=0 proceed=true f={target:t1 cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr=""
+status ["-l="]
+  code=0 proceed=true f={target:self-tool cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr=""
+status ["--at=a=b"]
+  code=0 proceed=true f={target:a=b cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr=""
+status ["--member"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: flag --member requires value\n"
+status ["--member" "m1"]
+  code=0 proceed=true f={target: cond: timeoutMS:0 jsonOut:false member:m1}
+  stdout=""
+  stderr=""
+status ["--member=m1"]
+  code=0 proceed=true f={target: cond: timeoutMS:0 jsonOut:false member:m1}
+  stdout=""
+  stderr=""
+status ["--at" "t1" "--member" "m1"]
+  code=2 proceed=false f={target:t1 cond: timeoutMS:0 jsonOut:false member:m1}
+  stdout=""
+  stderr="status: --at 과 --member 는 함께 쓸 수 없다 — 하나만 지정하라\n"
+status ["--at" "--json"]
+  code=0 proceed=true f={target:--json cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr=""
+status ["--for"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: unknown argument: --for\n"
+status ["--for" "ready" "--at" "t"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: unknown argument: --for\n"
+status ["--for=done" "--at" "t"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: unknown argument: --for=done\n"
+status ["--for" "bad" "--at" "t"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: unknown argument: --for\n"
+status ["--at" "t"]
+  code=0 proceed=true f={target:t cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr=""
+status ["--timeout-ms"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: unknown argument: --timeout-ms\n"
+status ["--timeout-ms" "abc" "--bogus"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: unknown argument: --timeout-ms\n"
+status ["--timeout-ms=0" "--at" "t"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: unknown argument: --timeout-ms=0\n"
+status ["--timeout-ms" "-5" "--at" "t"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: unknown argument: --timeout-ms\n"
+status ["--timeout-ms=100" "--for" "ready" "--at" "t"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: unknown argument: --timeout-ms=100\n"
+status ["--timeout-ms" "100" "--for" "done" "--at" "t" "--json"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="status: unknown argument: --timeout-ms\n"
+wait []
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["-h"]
+  code=0 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout="<1583 bytes, sum b6a141b0>"
+  stderr=""
+wait ["--help"]
+  code=0 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout="<1583 bytes, sum b6a141b0>"
+  stderr=""
+wait ["--json"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:true member:}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--json" "-h" "--bogus"]
+  code=0 proceed=false f={target: cond: timeoutMS:0 jsonOut:true member:}
+  stdout="<1583 bytes, sum b6a141b0>"
+  stderr=""
+wait ["--bogus" "-h"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: unknown argument: --bogus\n"
+wait ["--json=1"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: unknown argument: --json=1\n"
+wait ["="]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: unknown argument: =\n"
+wait ["-"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: unknown argument: -\n"
+wait ["x"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: unknown argument: x\n"
+wait ["--"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: unknown argument: --\n"
+wait ["--at"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: flag --at requires value\n"
+wait ["--at" "t1"]
+  code=2 proceed=false f={target:t1 cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--at=t1"]
+  code=2 proceed=false f={target:t1 cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--at="]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["-l" "t1"]
+  code=2 proceed=false f={target:t1 cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["-l=t1"]
+  code=2 proceed=false f={target:t1 cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["-l="]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--at=a=b"]
+  code=2 proceed=false f={target:a=b cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--member"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: flag --member requires value\n"
+wait ["--member" "m1"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:m1}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--member=m1"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:m1}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--at" "t1" "--member" "m1"]
+  code=2 proceed=false f={target:t1 cond: timeoutMS:0 jsonOut:false member:m1}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--at" "--json"]
+  code=2 proceed=false f={target:--json cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--for"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: flag --for requires value\n"
+wait ["--for" "ready" "--at" "t"]
+  code=0 proceed=true f={target:t cond:ready timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr=""
+wait ["--for=done" "--at" "t"]
+  code=0 proceed=true f={target:t cond:done timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr=""
+wait ["--for" "bad" "--at" "t"]
+  code=2 proceed=false f={target:t cond:bad timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"bad\"\n"
+wait ["--at" "t"]
+  code=2 proceed=false f={target:t cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: --for 는 ready 또는 done 이어야 한다: \"\"\n"
+wait ["--timeout-ms"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: flag --timeout-ms requires value\n"
+wait ["--timeout-ms" "abc" "--bogus"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: --timeout-ms 는 양의 정수여야 한다: abc\n"
+wait ["--timeout-ms=0" "--at" "t"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: --timeout-ms 는 양의 정수여야 한다: 0\n"
+wait ["--timeout-ms" "-5" "--at" "t"]
+  code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
+  stdout=""
+  stderr="wait: --timeout-ms 는 양의 정수여야 한다: -5\n"
+wait ["--timeout-ms=100" "--for" "ready" "--at" "t"]
+  code=0 proceed=true f={target:t cond:ready timeoutMS:100 jsonOut:false member:}
+  stdout=""
+  stderr=""
+wait ["--timeout-ms" "100" "--for" "done" "--at" "t" "--json"]
+  code=0 proceed=true f={target:t cond:done timeoutMS:100 jsonOut:true member:}
+  stdout=""
+  stderr=""
+run []
+  code=0 proceed=true f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  stdout=""
+  stderr=""
+run ["-h"]
+  code=0 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  stdout="<6437 bytes, sum ecf70a3d>"
+  stderr=""
+run ["--help"]
+  code=0 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  stdout="<6437 bytes, sum ecf70a3d>"
+  stderr=""
+run ["--json"]
+  code=0 proceed=true f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:true headless:false timeoutMs:}
+  stdout=""
+  stderr=""
+run ["--json" "-h" "--bogus"]
+  code=0 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:true headless:false timeoutMs:}
+  stdout="<6437 bytes, sum ecf70a3d>"
+  stderr=""
+run ["--bogus" "-h"]
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  stdout=""
+  stderr="run sub: unknown argument: --bogus\n"
+run ["--json=1"]
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  stdout=""
+  stderr="run sub: unknown argument: --json=1\n"
+run ["="]
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  stdout=""
+  stderr="run sub: unknown argument: =\n"
+run ["-"]
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  stdout=""
+  stderr="run sub: unknown argument: -\n"
+run ["x"]
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  stdout=""
+  stderr="run sub: unknown argument: x\n"
+run ["--"]
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  stdout=""
+  stderr="run sub: unknown argument: --\n"
+run ["--run"]
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  stdout=""
+  stderr="run sub: flag --run requires value\n"
+run ["--run" "r1" "--member" "m" "--force" "--headless" "--keep-worktrees" "--keep-tools" "--json" "--text"]
+  code=0 proceed=true f={run:r1 member:m role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:true keepTrees:true keepTools:true textOut:true jsonOut:true headless:true timeoutMs:}
+  stdout=""
+  stderr=""
+run ["--run=r1" "--role=x" "-l=t" "--timeout-ms=5"]
+  code=0 proceed=true f={run:r1 member: role:x agent: brief: model: at:t objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:5}
+  stdout=""
+  stderr=""
+run ["--run="]
+  code=0 proceed=true f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  stdout=""
+  stderr=""
+run ["-l"]
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  stdout=""
+  stderr="run sub: flag -l requires value\n"
+run ["--force=1"]
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  stdout=""
+  stderr="run sub: unknown argument: --force=1\n"
+run ["--at" "--brief"]
+  code=0 proceed=true f={run: member: role: agent: brief: model: at:--brief objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  stdout=""
+  stderr=""
+run ["--brief" "-"]
+  code=0 proceed=true f={run: member: role: agent: brief:- model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  stdout=""
+  stderr=""
+run ["--bogus=1"]
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  stdout=""
+  stderr="run sub: unknown argument: --bogus=1\n"
+run ["--objective" "o" "--projection" "p" "--isolation" "i" "--window" "w" "--outcome" "o" "--summary" "s" "--files" "f" "--base" "b" "--agent" "a" "--model" "m"]
+  code=0 proceed=true f={run: member: role: agent:a brief: model:m at: objective:o projection:p isolation:i window:w outcome:o summary:s files:f base:b force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  stdout=""
+  stderr=""
+dmctl []
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["-h"]
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--help"]
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--json"]
+  err=unknown flag: --json p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--json" "-h" "--bogus"]
+  err=unknown flag: --json p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--bogus" "-h"]
+  err=unknown flag: --bogus p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--json=1"]
+  err=unknown flag: --json=1 p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["="]
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional:= force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["-"]
+  err=unknown flag: - p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["x"]
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional:x force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--"]
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--at"]
+  err=flag --at requires value p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--at" "1.2"]
+  err=<nil> p={location:1.2 count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--at="]
+  err=unknown flag: --at= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--at=1"]
+  err=<nil> p={location:1 count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["-l="]
+  err=unknown flag: -l= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["-l=2"]
+  err=<nil> p={location:2 count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--name"]
+  err=flag --name requires value p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--name="]
+  err=unknown flag: --name= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--name=n"]
+  err=<nil> p={location: count:<nil> keepFocus:false name:n auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--name" "n" "a" "b"]
+  err=<nil> p={location: count:<nil> keepFocus:false name:n auto:false sandbox: workdir: cwd: positional:a b force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--sandbox" "p" "--workdir" "w" "--cwd" "c"]
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox:p workdir:w cwd:c positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--sandbox=" "x"]
+  err=unknown flag: --sandbox= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--sandbox=p" "--workdir=w" "--cwd=c"]
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox:p workdir:w cwd:c positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--workdir="]
+  err=unknown flag: --workdir= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--cwd="]
+  err=unknown flag: --cwd= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["--no-focus" "-n" "--auto" "--force" "--background"]
+  err=<nil> p={location: count:<nil> keepFocus:true name: auto:true sandbox: workdir: cwd: positional: force:true background:true}
+  stdout=""
+  stderr=""
+dmctl ["--no-focus=1"]
+  err=unknown flag: --no-focus=1 p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["a" "--" "--at" "b"]
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional:a --at b force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["-h" "a"]
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional:a force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["a" "--bogus"]
+  err=unknown flag: --bogus p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""
+dmctl ["-5"]
+  err=unknown flag: -5 p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  stdout=""
+  stderr=""

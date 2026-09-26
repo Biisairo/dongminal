@@ -363,85 +363,36 @@ func (p dmctlParsed) buildArgs() map[string]any {
 func parseDmctlFlags(args []string) (dmctlParsed, error) {
 	var p dmctlParsed
 	var positional []string
-	i := 0
-	for i < len(args) {
-		a := args[i]
-		switch {
-		case a == "--at" || a == "-l":
-			if i+1 >= len(args) {
-				return p, fmt.Errorf("flag %s requires value", a)
-			}
-			p.location = args[i+1]
-			i += 2
-			continue
-		case len(a) > 5 && a[:5] == "--at=":
-			p.location = a[5:]
-		case len(a) > 3 && a[:3] == "-l=":
-			p.location = a[3:]
-		case a == "--name":
-			if i+1 >= len(args) {
-				return p, fmt.Errorf("flag %s requires value", a)
-			}
-			p.name = args[i+1]
-			i += 2
-			continue
-		case len(a) > 7 && a[:7] == "--name=":
-			p.name = a[7:]
-		case a == "--no-focus" || a == "-n":
-			p.keepFocus = true
-		// CONVENIENCE_SRS FR-TAN-22: 탭 이름을 자동(전경 프로세스 파생)으로
-		// 되돌린다. rename-tab 전용이며 이름과 함께 쓰지 않는다.
-		case a == "--auto":
-			p.auto = true
-		// FR-SBX-11: new-window 전용. 그 창의 모든 도구가 대응 컨테이너 안에서 돈다.
-		case a == "--sandbox":
-			if i+1 >= len(args) {
-				return p, fmt.Errorf("flag %s requires value", a)
-			}
-			p.sandbox = args[i+1]
-			i += 2
-			continue
-		case len(a) > 10 && a[:10] == "--sandbox=":
-			p.sandbox = a[10:]
-		// FR-SBX-40: 그 창의 작업 폴더. 생략하면 부르는 자리를 승계한다.
-		case a == "--workdir":
-			if i+1 >= len(args) {
-				return p, fmt.Errorf("flag %s requires value", a)
-			}
-			p.workdir = args[i+1]
-			i += 2
-			continue
-		case len(a) > 10 && a[:10] == "--workdir=":
-			p.workdir = a[10:]
-		// WORKBENCH_REVIEW_SRS FR-WBR-23: 새 창의 첫 도구가 뜰 자리. 생략하면
-		// 홈이다 (FR-WBR-20·22) — 승계는 더 이상 없다.
-		case a == "--cwd":
-			if i+1 >= len(args) {
-				return p, fmt.Errorf("flag %s requires value", a)
-			}
-			p.cwd = args[i+1]
-			i += 2
-			continue
-		case len(a) > 6 && a[:6] == "--cwd=":
-			p.cwd = a[6:]
-		// M9_SRS FR-M9-4: close-tab·close-window 전용. 브라우저가 이미 받는 두 답
-		// (`force`·`keepTool`)을 dmctl 이 보낼 수 있게 한다.
-		case a == "--force":
-			p.force = true
-		case a == "--background":
-			p.background = true
-		case a == "-h" || a == "--help":
-			// caller handles top-level help; ignore here
-		case a == "--":
-			positional = append(positional, args[i+1:]...)
-			i = len(args)
-			continue
-		case len(a) > 0 && a[0] == '-':
-			return p, fmt.Errorf("unknown flag: %s", a)
-		default:
-			positional = append(positional, a)
+	spec := argSpec{
+		vals: map[string]func(string) error{
+			"--at": setStr(&p.location), "-l": setStr(&p.location),
+			"--name": setStr(&p.name),
+			// FR-SBX-11: new-window 전용. 그 창의 모든 도구가 대응 컨테이너 안에서 돈다.
+			"--sandbox": setStr(&p.sandbox),
+			// FR-SBX-40: 그 창의 작업 폴더. 생략하면 부르는 자리를 승계한다.
+			"--workdir": setStr(&p.workdir),
+			// WORKBENCH_REVIEW_SRS FR-WBR-23: 새 창의 첫 도구가 뜰 자리. 생략하면
+			// 홈이다 (FR-WBR-20·22) — 승계는 더 이상 없다.
+			"--cwd": setStr(&p.cwd),
+		},
+		bools: map[string]*bool{
+			"--no-focus": &p.keepFocus, "-n": &p.keepFocus,
+			// CONVENIENCE_SRS FR-TAN-22: 탭 이름을 자동(전경 프로세스 파생)으로
+			// 되돌린다. rename-tab 전용이며 이름과 함께 쓰지 않는다.
+			"--auto": &p.auto,
+			// M9_SRS FR-M9-4: close-tab·close-window 전용. 브라우저가 이미 받는 두 답
+			// (`force`·`keepTool`)을 dmctl 이 보낼 수 있게 한다.
+			"--force": &p.force, "--background": &p.background,
+		},
+		// -h/--help 는 최상위 도움말의 몫이다 — 여기서는 건너뛴다.
+		rest:     &positional,
+		strictEq: true,
+	}
+	if _, e := spec.parse(args); e != nil {
+		if e.kind == argNeedsValue {
+			return p, fmt.Errorf("flag %s requires value", e.arg)
 		}
-		i++
+		return p, fmt.Errorf("unknown flag: %s", e.arg)
 	}
 	if len(positional) > 0 {
 		p.positional = positional[0]
@@ -482,9 +433,14 @@ func dmctlHTTPResult(prefix string, status int, resp []byte, err error, echo boo
 }
 
 func dmctlPost(action string, args map[string]any, stdout, stderr io.Writer) int {
-	url := baseURL() + "/api/commands"
+	return dmctlPostRaw(action, args, stdout, stderr)
+}
+
+// dmctlPostRaw 는 `/api/commands` 에 action 하나를 보낸다. args 는 JSON 으로 옮길 수
+// 있는 무엇이든 된다 — `send` 는 사용자가 준 JSON 을 해석 없이 싣는다.
+func dmctlPostRaw(action string, args any, stdout, stderr io.Writer) int {
 	body := map[string]any{"action": action, "args": args}
-	status, resp, err := httpPostJSON(url, body)
+	status, resp, err := httpPostJSON(baseURL()+"/api/commands", body)
 	if code := dmctlHTTPResult("dmctl", status, resp, err, true, stdout, stderr); code != 0 {
 		return code
 	}
@@ -535,11 +491,5 @@ func dmctlSend(args []string, stdout, stderr io.Writer) int {
 			return 2
 		}
 	}
-	url := baseURL() + "/api/commands"
-	body := map[string]any{"action": action, "args": rawArgs}
-	status, resp, err := httpPostJSON(url, body)
-	if code := dmctlHTTPResult("dmctl", status, resp, err, true, stdout, stderr); code != 0 {
-		return code
-	}
-	return dmctlDelivery(resp, stderr)
+	return dmctlPostRaw(action, rawArgs, stdout, stderr)
 }

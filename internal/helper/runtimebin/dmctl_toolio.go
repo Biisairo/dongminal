@@ -103,13 +103,8 @@ func runDmctlRead(cmd string, args []string, stdout, stderr io.Writer) int {
 		q.Set("strip", "1")
 	}
 	status, body, err := httpGet(baseURL() + "/api/tools/output?" + q.Encode())
-	if err != nil {
-		fmt.Fprintf(stderr, "dmctl: %v\n", err)
-		return 1
-	}
-	if status < 200 || status >= 300 {
-		printAPIError(stderr, status, "/api/tools/output", body)
-		return 1
+	if _, code := apiResult("/api/tools/output", status, body, err, stderr); code != 0 {
+		return code
 	}
 	var rec struct {
 		Text    string `json:"text"`
@@ -201,13 +196,8 @@ func runDmctlSendInput(args []string, stdin io.Reader, stdout, stderr io.Writer)
 
 	status, body, err := httpPostJSON(baseURL()+"/api/tools/input",
 		map[string]any{"id": target, "text": text, "execute": execute})
-	if err != nil {
-		fmt.Fprintf(stderr, "dmctl: %v\n", err)
-		return 1
-	}
-	if status < 200 || status >= 300 {
-		printAPIError(stderr, status, "/api/tools/input", body)
-		return 1
+	if _, code := apiResult("/api/tools/input", status, body, err, stderr); code != 0 {
+		return code
 	}
 	mode := "타이핑만 (엔터 대기)"
 	if execute {
@@ -293,13 +283,8 @@ func runDmctlMsg(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 	status, body, err := httpPostJSON(baseURL()+"/api/tools/message",
 		map[string]any{"to": to, "from": from, "message": message})
-	if err != nil {
-		fmt.Fprintf(stderr, "dmctl: %v\n", err)
-		return 1
-	}
-	if status < 200 || status >= 300 {
-		printAPIError(stderr, status, "/api/tools/message", body)
-		return 1
+	if _, code := apiResult("/api/tools/message", status, body, err, stderr); code != 0 {
+		return code
 	}
 	var rec struct {
 		ToolID string `json:"toolId"`
@@ -381,6 +366,26 @@ func readBody(positional []string, stdin io.Reader, stderr io.Writer, cmd string
 		return "", 2
 	}
 	return text, 0
+}
+
+// apiResult 는 HTTP 결과 하나를 dmctl 의 종료 코드로 옮긴다 (FR-OPT-9-2 · SHR-16):
+// 전송 오류는 `dmctl: <err>`, 비2xx 는 printAPIError, 성공이면 본문과 0.
+func apiResult(path string, status int, body []byte, err error, stderr io.Writer) ([]byte, int) {
+	return apiResultWith(status, body, err, stderr, func(w io.Writer, st int, b []byte) { printAPIError(w, st, path, b) })
+}
+
+// apiResultWith 는 apiResult 에서 비2xx 의 렌더러만 바꾼 것이다 — 종단마다 거부를
+// 풀어 보이는 방식이 다르다 (run 의 미보고 목록 등).
+func apiResultWith(status int, body []byte, err error, stderr io.Writer, refuse func(w io.Writer, status int, body []byte)) ([]byte, int) {
+	if err != nil {
+		fmt.Fprintf(stderr, "dmctl: %v\n", err)
+		return nil, 1
+	}
+	if status < 200 || status >= 300 {
+		refuse(stderr, status, body)
+		return nil, 1
+	}
+	return body, 0
 }
 
 // printAPIError renders the {"error": …} body servers send, falling back to raw.

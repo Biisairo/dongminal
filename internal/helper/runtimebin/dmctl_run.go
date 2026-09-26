@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 )
 
 const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
@@ -184,70 +183,26 @@ func runDmctlRunStdin(stdin io.Reader, args []string, stdout, stderr io.Writer) 
 	return 2
 }
 
-func parseRunFlags(sub string, args []string, stdout, stderr io.Writer) (runFlags, int, bool) {
-	f := runFlags{}
-	str := map[string]*string{
+func parseRunFlags(sub string, args []string, stdout, stderr io.Writer) (f runFlags, code int, proceed bool) {
+	vals := map[string]func(string) error{}
+	for name, p := range map[string]*string{
 		"--run": &f.run, "--member": &f.member, "--role": &f.role, "--agent": &f.agent,
 		"--brief": &f.brief, "--model": &f.model,
 		"--at": &f.at, "-l": &f.at, "--objective": &f.objective, "--projection": &f.projection,
 		"--isolation": &f.isolation, "--window": &f.window, "--outcome": &f.outcome,
 		"--summary": &f.summary, "--files": &f.files, "--base": &f.base,
 		"--timeout-ms": &f.timeoutMs,
+	} {
+		vals[name] = setStr(p)
 	}
-	for i := 0; i < len(args); {
-		a := args[i]
-		if a == "-h" || a == "--help" {
-			fmt.Fprint(stdout, dmctlRunHelp)
-			return f, 0, false
-		}
-		if a == "--force" {
-			f.force = true
-			i++
-			continue
-		}
-		if a == "--headless" {
-			f.headless = true
-			i++
-			continue
-		}
-		if a == "--keep-worktrees" {
-			f.keepTrees = true
-			i++
-			continue
-		}
-		if a == "--keep-tools" {
-			f.keepTools = true
-			i++
-			continue
-		}
-		if a == "--json" {
-			f.jsonOut = true
-			i++
-			continue
-		}
-		if a == "--text" {
-			f.textOut = true
-			i++
-			continue
-		}
-		if p, ok := str[a]; ok {
-			if i+1 >= len(args) {
-				fmt.Fprintf(stderr, "run %s: flag %s requires value\n", sub, a)
-				return f, 2, false
-			}
-			*p = args[i+1]
-			i += 2
-			continue
-		}
-		if eq := strings.IndexByte(a, '='); eq > 0 {
-			if p, ok := str[a[:eq]]; ok {
-				*p = a[eq+1:]
-				i++
-				continue
-			}
-		}
-		fmt.Fprintf(stderr, "run %s: unknown argument: %s\n", sub, a)
-		return f, 2, false
+	spec := argSpec{
+		help: dmctlRunHelp,
+		vals: vals,
+		bools: map[string]*bool{
+			"--force": &f.force, "--headless": &f.headless, "--keep-worktrees": &f.keepTrees,
+			"--keep-tools": &f.keepTools, "--json": &f.jsonOut, "--text": &f.textOut,
+		},
 	}
-	return f, 0, true
+	code, proceed = spec.run("run "+sub, args, stdout, stderr)
+	return f, code, proceed
 }

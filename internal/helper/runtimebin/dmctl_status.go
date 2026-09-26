@@ -80,76 +80,30 @@ type statusFlags struct {
 // `status --for x` is a usage error rather than a silently ignored argument.
 func parseStatusFlags(cmd string, args []string, wantCond bool, stdout, stderr io.Writer) (statusFlags, int, bool) {
 	f := statusFlags{}
-	help := dmctlStatusHelp
+	spec := argSpec{
+		help: dmctlStatusHelp,
+		vals: map[string]func(string) error{
+			"--at": setStr(&f.target), "-l": setStr(&f.target),
+			// M8 D-A-5 (FBE-13): --member 는 status 도 받는다 — 헤드리스 멤버는 탭 uuid 가
+			// 없어 이것이 유일한 지목 수단이고, 종전에는 wait 만 그 문을 열어 두었다.
+			"--member": setStr(&f.member),
+		},
+		bools: map[string]*bool{"--json": &f.jsonOut},
+	}
 	if wantCond {
-		help = dmctlWaitHelp
-	}
-	take := func(i int, name string) (string, int, bool) {
-		if i+1 >= len(args) {
-			fmt.Fprintf(stderr, "%s: flag %s requires value\n", cmd, name)
-			return "", 0, false
-		}
-		return args[i+1], 2, true
-	}
-	for i := 0; i < len(args); {
-		a := args[i]
-		step := 1
-		switch {
-		case a == "-h" || a == "--help":
-			fmt.Fprint(stdout, help)
-			return f, 0, false
-		case a == "--json":
-			f.jsonOut = true
-		case a == "--at" || a == "-l":
-			v, n, ok := take(i, a)
-			if !ok {
-				return f, 2, false
-			}
-			f.target, step = v, n
-		case strings.HasPrefix(a, "--at="):
-			f.target = a[len("--at="):]
-		case strings.HasPrefix(a, "-l="):
-			f.target = a[len("-l="):]
-		case wantCond && a == "--for":
-			v, n, ok := take(i, a)
-			if !ok {
-				return f, 2, false
-			}
-			f.cond, step = v, n
-		case wantCond && strings.HasPrefix(a, "--for="):
-			f.cond = a[len("--for="):]
-		// M8 D-A-5 (FBE-13): --member 는 status 도 받는다 — 헤드리스 멤버는 탭 uuid 가
-		// 없어 이것이 유일한 지목 수단이고, 종전에는 wait 만 그 문을 열어 두었다.
-		case a == "--member":
-			v, n, ok := take(i, a)
-			if !ok {
-				return f, 2, false
-			}
-			f.member, step = v, n
-		case strings.HasPrefix(a, "--member="):
-			f.member = a[len("--member="):]
-		case wantCond && (a == "--timeout-ms" || strings.HasPrefix(a, "--timeout-ms=")):
-			raw := ""
-			if a == "--timeout-ms" {
-				v, n, ok := take(i, a)
-				if !ok {
-					return f, 2, false
-				}
-				raw, step = v, n
-			} else {
-				raw = a[len("--timeout-ms="):]
-			}
+		spec.help = dmctlWaitHelp
+		spec.vals["--for"] = setStr(&f.cond)
+		spec.vals["--timeout-ms"] = func(raw string) error {
 			n, err := strconv.ParseInt(raw, 10, 64)
 			if err != nil || n <= 0 {
-				fmt.Fprintf(stderr, "%s: --timeout-ms 는 양의 정수여야 한다: %s\n", cmd, raw)
-				return f, 2, false
+				return fmt.Errorf("--timeout-ms 는 양의 정수여야 한다: %s", raw)
 			}
 			f.timeoutMS = n
-		default:
-			fmt.Fprintf(stderr, "%s: unknown argument: %s\n", cmd, a)
-			return f, 2, false
+			return nil
 		}
-		i += step
+	}
+	if code, proceed := spec.run(cmd, args, stdout, stderr); !proceed {
+		return f, code, false
 	}
 	if wantCond && f.cond != "ready" && f.cond != "done" {
 		fmt.Fprintf(stderr, "%s: --for 는 ready 또는 done 이어야 한다: %q\n", cmd, f.cond)
@@ -304,15 +258,7 @@ func waitBudget(timeoutMS int64) time.Duration {
 // timeout<=0 uses the shared short-lived client.
 func statusGet(fullURL, apiPath string, timeout time.Duration, stderr io.Writer) ([]byte, int) {
 	status, body, err := httpGetWithin(fullURL, timeout)
-	if err != nil {
-		fmt.Fprintf(stderr, "dmctl: %v\n", err)
-		return nil, 1
-	}
-	if status < 200 || status >= 300 {
-		printAPIError(stderr, status, apiPath, body)
-		return nil, 1
-	}
-	return body, 0
+	return apiResult(apiPath, status, body, err, stderr)
 }
 
 func optionalFields(tool, detail string) string {

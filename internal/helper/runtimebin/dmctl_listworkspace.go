@@ -20,50 +20,26 @@ type listWorkspaceFlags struct {
 	tabFilter    string
 }
 
-// parseListWorkspaceFlags 는 인자를 읽는다. 두 번째 반환값이 참이면 이미 답했다
-// (헬프 또는 오류) — 그 종료 코드가 첫 번째 값이다.
-func parseListWorkspaceFlags(args []string, stdout, stderr io.Writer) (listWorkspaceFlags, int, bool) {
-	var f listWorkspaceFlags
-	i := 0
-	for i < len(args) {
-		a := args[i]
-		switch {
-		case a == "-h" || a == "--help":
-			fmt.Fprint(stdout, dmctlListWorkspaceHelp)
-			return f, 0, true
-		case a == "--json":
-			f.jsonOut = true
-		case a == "--window" || a == "--tab":
-			if i+1 >= len(args) {
-				fmt.Fprintf(stderr, "list-workspace: flag %s requires value\n", a)
-				return f, 2, true
-			}
-			if a == "--window" {
-				f.windowFilter = args[i+1]
-			} else {
-				f.tabFilter = args[i+1]
-			}
-			i += 2
-			continue
-		default:
-			fmt.Fprintf(stderr, "list-workspace: unknown argument: %s\n", a)
-			return f, 2, true
-		}
-		i++
+// parseListWorkspaceFlags 는 인자를 읽는다. proceed 가 거짓이면 이미 답했다
+// (헬프 또는 오류) — 그 종료 코드가 code 다.
+func parseListWorkspaceFlags(args []string, stdout, stderr io.Writer) (f listWorkspaceFlags, code int, proceed bool) {
+	spec := argSpec{
+		help:  dmctlListWorkspaceHelp,
+		vals:  map[string]func(string) error{"--window": setStr(&f.windowFilter), "--tab": setStr(&f.tabFilter)},
+		bools: map[string]*bool{"--json": &f.jsonOut},
 	}
-	return f, 0, false
+	code, proceed = spec.run("list-workspace", args, stdout, stderr)
+	return f, code, proceed
 }
 
 // fetchListWorkspaceRows 는 `/api/state` 를 읽어 행으로 만든다.
 func fetchListWorkspaceRows(stderr io.Writer) ([]listWorkspaceRow, int) {
 	status, body, err := httpGet(baseURL() + "/api/state")
-	if err != nil {
-		fmt.Fprintf(stderr, "dmctl: %v\n", err)
-		return nil, 1
-	}
-	if status < 200 || status >= 300 {
-		fmt.Fprintf(stderr, "dmctl: /api/state returned status %d: %s\n", status, body)
-		return nil, 1
+	body, code := apiResultWith(status, body, err, stderr, func(w io.Writer, st int, b []byte) {
+		fmt.Fprintf(w, "dmctl: /api/state returned status %d: %s\n", st, b)
+	})
+	if code != 0 {
+		return nil, code
 	}
 
 	var state struct {
@@ -101,8 +77,8 @@ func fetchListWorkspaceRows(stderr io.Writer) ([]listWorkspaceRow, int) {
 }
 
 func dmctlListWorkspace(args []string, stdout, stderr io.Writer) int {
-	f, code, done := parseListWorkspaceFlags(args, stdout, stderr)
-	if done {
+	f, code, proceed := parseListWorkspaceFlags(args, stdout, stderr)
+	if !proceed {
 		return code
 	}
 	rows, code := fetchListWorkspaceRows(stderr)

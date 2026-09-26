@@ -27,21 +27,8 @@ func dmctlWhoAmI(args []string, stdout, stderr io.Writer) int {
 	}
 
 	status, body, err := httpGet(baseURL() + "/api/whoami?toolId=" + selfToolID())
-	if err != nil {
-		fmt.Fprintf(stderr, "dmctl: %v\n", err)
-		return 1
-	}
-	if status < 200 || status >= 300 {
-		// 서버 오류 JSON 의 error 필드만 깨끗하게 출력. 실패 시 raw body.
-		var e struct {
-			Error string `json:"error"`
-		}
-		if err := json.Unmarshal(body, &e); err == nil && e.Error != "" {
-			fmt.Fprintf(stderr, "dmctl: %s\n", e.Error)
-		} else {
-			fmt.Fprintf(stderr, "dmctl: /api/whoami returned status %d: %s\n", status, body)
-		}
-		return 1
+	if _, code := apiResult("/api/whoami", status, body, err, stderr); code != 0 {
+		return code
 	}
 
 	if jsonOut {

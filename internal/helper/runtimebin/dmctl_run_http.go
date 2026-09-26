@@ -60,15 +60,7 @@ func runDelete(path string, stderr io.Writer) ([]byte, int) {
 }
 
 func runResult(path string, status int, raw []byte, err error, stderr io.Writer) ([]byte, int) {
-	if err != nil {
-		fmt.Fprintf(stderr, "dmctl: %v\n", err)
-		return nil, 1
-	}
-	if status < 200 || status >= 300 {
-		printRunRefusal(stderr, status, path, raw)
-		return nil, 1
-	}
-	return raw, 0
+	return apiResultWith(status, raw, err, stderr, func(w io.Writer, st int, b []byte) { printRunRefusal(w, st, path, b) })
 }
 
 // printRunRefusal renders the enumerated reason plus any list the server
