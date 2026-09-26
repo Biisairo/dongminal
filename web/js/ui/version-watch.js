@@ -122,11 +122,7 @@
     el.className='ver-held';
     const msg=document.createElement('span');
     msg.textContent=VER_HELD_MSG;
-    const go=document.createElement('button');
-    go.type='button';
-    go.className='ui-btn ui-btn-sm ver-held-go';
-    go.textContent=VER_HELD_GO;
-    go.addEventListener('click',()=>reload(next));
+    const go=UIKit.button({label:VER_HELD_GO,size:'sm',cls:'ver-held-go',onClick:()=>reload(next)});
     el.appendChild(msg); el.appendChild(go);
     document.body.appendChild(el);
   };

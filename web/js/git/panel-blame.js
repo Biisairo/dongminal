@@ -86,21 +86,15 @@ Object.assign(GitPanel.prototype, {
     note.textContent=msg; note.classList.toggle('vis',!!msg||cut);
     // F-5.2: 조회 실패는 다시 시도할 수 있다 — 사유 옆에 길을 둔다.
     if(this._blameErr){
-      const b=document.createElement('button');
-      b.type='button'; b.className='ui-btn ui-btn-sm git-blame-retry';
-      b.textContent=GIT_BLAME_RETRY;
-      b.addEventListener('click',()=>{this._blameKey=null;this._paint()});
-      note.appendChild(b);
+      note.appendChild(UIKit.button({label:GIT_BLAME_RETRY,size:'sm',cls:'git-blame-retry',
+        onClick:()=>{this._blameKey=null;this._paint()}}));
     }
     rows.innerHTML='';
     if(!d||!all) return;
     if(cut){
       note.textContent=GIT_BLAME_CUT.replace('%r',String(all)).replace('%n',String(shown));
-      const b=document.createElement('button');
-      b.type='button'; b.className='ui-btn ui-btn-sm git-blame-all';
-      b.textContent=GIT_BLAME_SHOW_ALL;
-      b.addEventListener('click',()=>{this._blameAll=true;this._paint()});
-      note.appendChild(b);
+      note.appendChild(UIKit.button({label:GIT_BLAME_SHOW_ALL,size:'sm',cls:'git-blame-all',
+        onClick:()=>{this._blameAll=true;this._paint()}}));
     }
     const frag=document.createDocumentFragment();
     for(let i=0;i<shown;i++){

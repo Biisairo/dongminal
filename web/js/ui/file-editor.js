@@ -859,12 +859,8 @@ class FileEditor {
     this._note.textContent = text;
     this._note.classList.toggle('fe-note-act', !!action);
     if (action) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'ui-btn ui-btn-sm fe-note-btn';
-      b.textContent = action.label;
-      b.addEventListener('click', () => { this._note.classList.remove('vis'); action.run() });
-      this._note.appendChild(b);
+      this._note.appendChild(UIKit.button({ label: action.label, size: 'sm', cls: 'fe-note-btn',
+        onClick: () => { this._note.classList.remove('vis'); action.run() } }));
     }
     // FR-TOK-22: 같은 층에서 겹치는 순서는 DOM 이 정한다 — 보일 때 맨 뒤로
     // 옮긴다 (`file-editor-find.js` 의 `findOpen` 이 같은 규약이다).

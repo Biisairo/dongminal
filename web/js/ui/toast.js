@@ -65,13 +65,9 @@ const Toast = {
       textEl.textContent=text;
       el.appendChild(textEl);
       for(const a of acts){
-        const b=document.createElement('button');
-        b.type='button';
-        b.className=['ui-btn','ui-btn-sm','ui-btn-primary','toast-act',a.cls||''].filter(Boolean).join(' ');
-        b.textContent=a.label;
-        if(a.title) b.title=a.title;
-        b.addEventListener('click',ev=>{ev.stopPropagation();if(a.onClick)a.onClick()});
-        el.appendChild(b);
+        el.appendChild(UIKit.button({label:a.label,title:a.title,kind:'primary',size:'sm',
+          cls:['toast-act',a.cls||''].filter(Boolean).join(' '),
+          onClick:ev=>{ev.stopPropagation();if(a.onClick)a.onClick()}}));
       }
     }else{
       el.textContent=text;

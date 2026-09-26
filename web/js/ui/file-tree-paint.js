@@ -896,10 +896,7 @@ Object.assign(FileTree.prototype, {
       this._pad(d,it.depth);
       d.appendChild(this._span('ed-op-err-msg',it.msg));
       // §3A-3: 사용자가 닫을 수 있다 — 다음 조작을 시작하지 않아도 걷을 길이 있다.
-      const x=document.createElement('button');
-      x.className='ui-btn ui-btn-icon ui-btn-ghost ed-op-err-x';
-      x.type='button'; x.textContent='✕'; x.title=EDITOR_TREE_ERR_CLOSE;
-      d.appendChild(x);
+      d.appendChild(UIKit.button({label:'✕',title:EDITOR_TREE_ERR_CLOSE,kind:'ghost',cls:'ui-btn-icon ed-op-err-x'}));
       return d;
     }
     if(it.t==='in') return this._elInput(it);

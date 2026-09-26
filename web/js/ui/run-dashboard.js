@@ -378,14 +378,10 @@ Object.assign(RunsPanel.prototype, {
   },
 
   _runDetachBtn(m) {
-    const btn = document.createElement('button');
-    btn.className = 'ui-btn ui-btn-sm run-card-detach'; btn.textContent = t('runs.detach');
-    btn.title = TIP_RUNS_DETACH;
-    btn.dataset.member = m.id;
     // 카드 클릭은 "그 도구로 간다" 이므로 여기서 멈춘다 — 분리하려는 손이
     // 그 도구로 끌려가면 무엇이 일어났는지 읽히지 않는다.
-    btn.addEventListener('click', e => { e.stopPropagation(); this._runDetachMember(m) });
-    return btn;
+    return UIKit.button({ label: t('runs.detach'), title: TIP_RUNS_DETACH, size: 'sm', cls: 'run-card-detach',
+      dataset: { member: m.id }, onClick: e => { e.stopPropagation(); this._runDetachMember(m) } });
   },
 
   /**

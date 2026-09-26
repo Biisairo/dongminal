@@ -277,13 +277,9 @@ class GitRemote {
     n.className='ui-notice git-job-opts-note'; n.textContent=GIT_JOB_REJECT_NOTE;
     opts.appendChild(n);
     for(const fix of list){
-      const b=document.createElement('button');
       // 클래스가 하나뿐인 것이 요구사항이다 — force 를 눈에 띄게 만들지 않는다.
-      b.className='ui-btn ui-btn-sm git-job-opt'; b.dataset.fix=fix; b.type='button';
-      b.textContent=GIT_JOB_FIX_LABEL[fix]||fix;
-      b.title=GIT_TIP_JOB_FIX;
-      b.addEventListener('click',()=>this._fix(fix));
-      opts.appendChild(b);
+      opts.appendChild(UIKit.button({label:GIT_JOB_FIX_LABEL[fix]||fix,title:GIT_TIP_JOB_FIX,size:'sm',
+        cls:'git-job-opt',dataset:{fix},onClick:()=>this._fix(fix)}));
     }
   }
 
@@ -835,11 +831,8 @@ class GitRemoteList {
     // 있다고 읽힌다.
     url.title=url.textContent.includes(GIT_RM_MASK)?GIT_RM_MASK_TITLE:url.textContent;
     d.appendChild(url);
-    const rm=document.createElement('button');
-    rm.type='button'; rm.className='ui-btn ui-btn-sm git-rm-del';
-    rm.textContent=GIT_RM_REMOVE; rm.title=GIT_TIP_RM_REMOVE;
-    rm.addEventListener('click',()=>this.remove(r));
-    d.appendChild(rm);
+    d.appendChild(UIKit.button({label:GIT_RM_REMOVE,title:GIT_TIP_RM_REMOVE,size:'sm',cls:'git-rm-del',
+      onClick:()=>this.remove(r)}));
     return d;
   }
 

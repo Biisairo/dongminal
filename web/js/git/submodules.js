@@ -89,12 +89,9 @@ class GitSubmodules extends GitListTab {
 
     const acts=document.createElement('span'); acts.className='git-sub-acts';
     for(const a of this._actsOf(e)){
-      const btn=document.createElement('button');
-      btn.className='ui-btn ui-btn-sm git-sub-act'; btn.dataset.act=a;
-      btn.textContent=GIT_SUB_ACT_LABEL[a]; btn.title=GIT_SUB_ACT_TITLE[a];
-      btn.disabled=!!this._busy;
-      btn.addEventListener('click',ev=>{ev.stopPropagation();this._act(a,e)});
-      acts.appendChild(btn);
+      acts.appendChild(UIKit.button({label:GIT_SUB_ACT_LABEL[a],title:GIT_SUB_ACT_TITLE[a],size:'sm',
+        cls:'git-sub-act',dataset:{act:a},disabled:!!this._busy,
+        onClick:ev=>{ev.stopPropagation();this._act(a,e)}}));
     }
     d.appendChild(acts);
     return d;

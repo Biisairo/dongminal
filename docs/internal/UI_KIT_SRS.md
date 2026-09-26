@@ -207,8 +207,8 @@
 | ID | 요구사항 | 우선 |
 |----|---------|------|
 | FR-UIK-20 | `web/js/ui/ui-kit.js` 가 `UIKit` 을 정의한다. `repaint.js` 뒤·`sidebar-tabs.js` 앞에서 로드된다 (뒤의 것들이 이것을 딛는다). | 필수 |
-| FR-UIK-21 | `UIKit.button({icon,label,title,kind,cls,size,onClick,disabled,dataset})` 이 `<button type=button>` 을 돌려준다. `title` 이 없고 `label` 도 없으면 **만들지 않고 던진다** — 이름 없는 아이콘 버튼은 접근 불가다. | 필수 |
-| FR-UIK-22 | `icon` 만 준 버튼은 `.ui-btn-icon` 이 자동으로 붙고 `aria-label` 이 `title` 에서 채워진다. | 필수 |
+| FR-UIK-21 | `UIKit.button({icon,label,title,kind,cls,size,iconSize,onClick,disabled,dataset})` 이 `<button type=button>` 을 돌려준다. `title` 이 없고 `label` 도 없으면 **만들지 않고 던진다** — 이름 없는 아이콘 버튼은 접근 불가다. | 필수 |
+| FR-UIK-22 | `icon` 만 준 버튼은 `.ui-btn-icon` 이 자동으로 붙고 `aria-label` 이 `title` 에서 채워진다. **보이는 글자(`label`)가 있는 버튼에는 `aria-label` 을 달지 않는다** — 그 글자가 이름이다 (2026-09-26 개정, OPTIMIZE_REFACTOR_SRS FR-OPT-12-3: 종전 구현은 `title` 이 있으면 라벨 버튼에도 달아 영어 툴팁이 한국어 라벨을 덮어 읽혔다). | 필수 |
 | FR-UIK-23 | `UIKit.icon(name,{size})` 이 `<svg><use href="#i-<name>"></svg>` 를 돌려준다. 없는 이름은 **콘솔 경고 후 빈 자리**다 — 화면이 깨지지 않는다. | 필수 |
 | FR-UIK-24 | `UIKit.tab({id,label,icon,badge,title,active,onClick})` 이 탭 버튼을 돌려준다. `SB_TAB_DEFS` 의 서술자 필드(FR-SBT-19)와 이름이 같아야 한다 — 두 어휘를 만들지 않는다. | 필수 |
 | FR-UIK-25 | `UIKit.modal({title,body,actions,onClose})` 이 오버레이+상자를 돌려주고, `Esc`·바깥 클릭·닫기 버튼 셋이 같은 `onClose` 로 간다. | 필수 |

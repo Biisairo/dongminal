@@ -348,6 +348,51 @@ e2e 요청 타임라인으로 잰다.
 - **FR-OPT-12-5** API 경로 리터럴을 상수 표로 모으고 git GET 호출 방식을 하나로 통일한다. (FEU-32)
 - **FR-OPT-12-6** 소항목: 보이지 않는 렌더 탭은 다시 그리기를 미룬다(FEU-11). FEU-17 · FEU-19 · FEU-21.
 
+> **O12 구현 기록 (2026-09-26).**
+>
+> - **FR-OPT-12-1.** WS 배선은 `ui/term-socket.js` 의 `TermSocket` 한 벌이다 — 소켓을 만드는 곳(`_make`)과
+>   콜백을 다는 곳(`_wire`)이 하나씩이고, stale 가드(`this.ws&&this.ws!==ws`)가 최초 연결에도 선다. 주인
+>   (`TerminalTool`)은 `_wsURL`·`_wsStopped`·`_wsOpened`·`_wsLost`·`_onOp` 만 준다. O4d 지연 연결(처음 그려질 때
+>   `connect`)과 O1 재동기(좌표 구멍이면 서버가 닫고 `since` 로 다시 붙는다)의 경로는 바뀌지 않았다. e2e 와
+>   진단(`main.js`)이 읽는 옛 필드(`ws`·`_retryDelay`·`_sendQueue`·`_sendQueueMax`·`_sendDropCount`)는 접근자로
+>   남는다. 백오프·오버레이·큐 상한·키 바이트열은 `constants.js`(`TERM_WS_RETRY_*`·`TERM_OVERLAY_HIDE_MS`·
+>   `TERM_SEND_QUEUE_MAX`·`TERM_KEY_SEQ`/`TERM_KEY_MAP`)다. **동작 변경(의도)**: 이전 — 재접속 대기가 0·200·500·
+>   1000… 로 모든 탭에서 같았다 / 새 — 기다리는 시간에만 ±20% 지터(`termRetryWait`), 저장된 다음 지연
+>   (`_retryDelay`, FR-RCS-3 이 재는 값)과 첫 시도(0)는 그대로 / 이유 — 서버 재시작 뒤 모든 탭의 list+snapshot
+>   RPC 가 같은 순간에 몰렸다(IPC-16). `term-socket.test`.
+> - **FR-OPT-12-2.** `git/modal-base.js` 의 `GitModalBase` 가 여는 순서·실행 상태기계(`_exec` — 던짐도 실패로
+>   싣는다)·오류/actions 칠하기·닫기·앞으로·복사를 갖고, `GitConfirm`·`GitDialog` 는 본문만 갖는다(`_cur` 는
+>   클래스마다). panel-views 의 목록 뷰 여섯은 `GIT_VIEW_KINDS` 서술자와 `_viewOf`·`_renderView` 한 벌이다
+>   (게으른 getter 여섯은 호출부 10곳 때문에 한 줄 위임으로 남는다). `git-modal-base.test`.
+> - **FR-OPT-12-3.** ui·git 의 `createElement('button')` 38곳 중 36곳이 `UIKit.button` 을 지난다. 남은 둘은
+>   `check-button-kit.mjs` ④의 예외 등록부에 사유와 함께 있다 — 칸 표식(만들 때 이름이 없다, FR-SMK-13)과
+>   사이드 탭(`ui-tab` — `UIKit.tab` 은 role=tab 을 세운다). 킷은 `iconSize` 를 더 받는다. **동작 변경**: 이전 —
+>   킷이 `title` 이 있으면 라벨 버튼에도 `aria-label=title` 을 달았다(기존 킷 버튼 4곳) / 새 — 보이는 글자가
+>   없는 버튼에만 단다(UI_KIT_SRS FR-UIK-22 개정) / 이유 — 라벨 버튼 36곳을 옮기며 영어 툴팁이 한국어 라벨을
+>   덮어 읽히지 않게. 아이콘 전용 버튼(그룹 일괄·폴더 동작·새로고침·탐색기 머리 등)은 이제 `type=button` 과
+>   `aria-label` 을 갖는다. innerHTML 골격 안의 버튼(`UIKit.buttonHTML`)은 38곳에 들지 않아 하지 않았다.
+> - **FR-OPT-12-4.** 모두 증강 분할(`Object.assign(X.prototype,…)`)이다. term-pane → `term-socket.js`·`term-input.js`
+>   (생성자는 `_wireDnd`·`_wireContextMenu`, `open` 은 `_loadAddons`·`_wireKeys`·`_wireIme`, 451자 줄을 풀었다),
+>   panel-diff → `panel-blame.js`·`panel-hunks.js`(508줄 — 아직 경계 위), runs-panel → `run-dashboard.js`(배치
+>   여백은 `RUN_NODE_GAP_X` 등 넷), renderer-pane → `renderer-pane-wire.js`(`_wireTabScroll`·`_wireTabsDrop`·
+>   `_wireBodyDrop`·`_wirePaneFocus`; 본문 dragover 는 표식이 선 탭만 찾는다), `FileEditor._createEditor` →
+>   `_mountMonaco`·`_notifyIntegrations`·`_wireModelEvents`·`_wireKeys`·`_wireFocus`. 같은 요소의 capture keydown
+>   둘은 `_onKeyCapture` 하나이며 순서(검색·뷰 키 → dirty-diff Esc)와 "잡힌 키는 뒤로 가지 않는다" 를 지킨다.
+>   FE_MODULE_BOUNDARY_SRS §7.1 기준선 21/1174 → 19/1020.
+> - **FR-OPT-12-5.** `/api/git/…` 경로는 `core/constants-api.js` 의 `GIT_API` 표 하나다(의존 없음 — 단위 검사가
+>   홀로 싣는다). ui·git 의 조회는 전부 `gitFetch(GIT_API.x, params)` 이다 — status(허브·패널)·records·
+>   diff-content·blame·hunks·History `_get`(echo 는 글자 비교인 `_sameReq` 가 그대로 본다). 시한은 gitFetch
+>   의 기본(같은 상수)이다. 쓰이지 않던 `GitJobs._get` 과 대체된 `GIT_STATUS_API` 를 지웠다. `check-fetch.sh`
+>   가 ui·git 의 `'/api/…'` 리터럴과 `web/js/git/api.js` 밖의 git `apiGet` 을 막는다(탐침으로 검출 확인).
+>   쿼리는 `URLSearchParams` 로 조립되므로 공백이 `%20` 대신 `+` 로 나간다 — 서버(`url.Query`)는 같게 읽는다.
+> - **FR-OPT-12-6.** FEU-11: 가려진 렌더 탭(`.vis` 없음)은 디바운스가 깨어나도 그리지 않고 표식만 남기며,
+>   다시 보일 때(`restoreView`) 한 번 그린다 — 가려진 탭에서 편집 5번의 렌더 5 → 0(보일 때 1,
+>   `doc-render-hidden.test`). FEU-17: `AGENTS_W_MIN_PX`·`AGENTS_W_MAX_PX`·`agentsWidthOk` 와 `bind()` 의
+>   다섯 조각 분할(키는 O11 에서 이미 PrefStore). 두 폭 손잡이를 한 함수로 합치는 것은 하지 않았다 — 사이드바
+>   손잡이만 접기 임계를 갖는다. FEU-19: `UIK_MENU_EDGE_PX`·`UIK_HUD_EDGE_{X,Y}_PX`·`uikClamp`. FEU-21:
+>   ui·git 의 서명·캐시 키 구분자는 `RPT_SEP`(`'\u0001'`)·`rptKey` 하나다(비교에만 쓰인다). core 의 두 자리
+>   (`app-editor-sync`·`app-agents`)는 범위 밖이라 두었다.
+
 ### 3.13 O13 — CSS
 
 - **FR-OPT-13-1** transition 시간을 모션 토큰으로 바꾼다. git 뷰의 안내 띠·툴바·리사이즈 CSS 를 kit 규칙으로 모은다. Runs·사이드바 CSS 를 제자리 파일로 옮긴다(캐스케이드 순서를 보존한다). (FEU-28 · FEU-29 · FEU-24)

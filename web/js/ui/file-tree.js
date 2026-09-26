@@ -202,11 +202,9 @@ class FileTree {
     // UX_BATCH10_SRS FR-UXB-31: 기본 크기다 (`ui-btn-sm` 이 아니다) — 세 버튼이
     // 눌러야 할 것으로 보이지 않을 만큼 작았다. 아이콘 치수는 CSS 가 이 높이에서
     // 파생한다 (FR-UXB-30).
-    const b=document.createElement('button'); b.className='ui-btn ui-btn-icon ui-btn-ghost ed-head-btn '+cls;
+    const b=UIKit.button({title,kind:'ghost',cls:'ui-btn-icon ed-head-btn '+cls,onClick:fn});
     if(EDITOR_HEAD_ICONS.has(label)) b.innerHTML=label;
     else b.textContent=label;
-    b.title=title;
-    b.addEventListener('click',fn);
     return b;
   }
 

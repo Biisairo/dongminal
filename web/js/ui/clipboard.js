@@ -137,19 +137,15 @@ const ClipboardWriter={
 
     const row=document.createElement('div');
     row.className='tc-copy-row';
-    const copy=document.createElement('button');
-    copy.type='button'; copy.className='ui-btn ui-btn-sm ui-btn-primary tc-copy-do'; copy.textContent=TERM_COPY_DO;
-    copy.title=TIP_COPY_DO;
+    const copy=UIKit.button({label:TERM_COPY_DO,title:TIP_COPY_DO,kind:'primary',size:'sm',cls:'tc-copy-do'});
     copy.addEventListener('click',()=>{
       // 이 클릭이 곧 제스처다 — 2단이 여기서는 통한다 (D-12).
       ta.focus(); ta.select();
       if(ClipboardWriter._execCopy(text)) ClipboardWriter.close();
       else copy.textContent=TERM_COPY_MANUAL;
     });
-    const close=document.createElement('button');
-    close.type='button'; close.className='ui-btn ui-btn-sm tc-copy-close'; close.textContent=TERM_COPY_CLOSE;
-    close.title=TIP_COPY_CLOSE;
-    close.addEventListener('click',()=>ClipboardWriter.close());
+    const close=UIKit.button({label:TERM_COPY_CLOSE,title:TIP_COPY_CLOSE,size:'sm',cls:'tc-copy-close',
+      onClick:()=>ClipboardWriter.close()});
     row.appendChild(copy); row.appendChild(close);
     box.appendChild(row);
 

@@ -268,12 +268,9 @@ class GitDialog extends GitModalBase {
   // 기본 선택은 제시 순서와 별개다 — 포커스가 그것을 가리킨다 (O14).
   _optsEl(host){
     for(const o of this.choices){
-      const b=document.createElement('button');
-      b.type='button';
-      b.className='ui-btn '+(o.danger?'ui-btn-danger ':'')+'git-dialog-opt '+this.ns+'-opt'+(o.danger?' danger':'');
-      b.dataset.opt=o.id;
-      b.textContent=o.label||o.id;
-      b.addEventListener('click',()=>this._pick(o.id));
+      const b=UIKit.button({label:o.label||o.id,kind:o.danger?'danger':'',
+        cls:'git-dialog-opt '+this.ns+'-opt'+(o.danger?' danger':''),dataset:{opt:o.id},
+        onClick:()=>this._pick(o.id)});
       host.appendChild(b);
       if(o.id===this.def) this._defBtn=b;
     }

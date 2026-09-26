@@ -285,12 +285,9 @@ Object.assign(GitPanel.prototype, {
         el.dataset.sig=sig;
         el.innerHTML='';
         for(const act of acts){
-          const b=document.createElement('button');
-          b.className='ui-btn ui-btn-lg git-hunk-act'; b.dataset.act=act;
-          b.textContent=lines?GIT_HUNK_LINE_LABEL[act]:GIT_HUNK_LABEL[act];
-          b.title=blocked||GIT_HUNK_TITLE[act];
-          b.disabled=!!this._writing||!!blocked;
-          el.appendChild(b);
+          el.appendChild(UIKit.button({label:lines?GIT_HUNK_LINE_LABEL[act]:GIT_HUNK_LABEL[act],
+            title:blocked||GIT_HUNK_TITLE[act],size:'lg',cls:'git-hunk-act',dataset:{act},
+            disabled:!!this._writing||!!blocked}));
         }
       }
     }

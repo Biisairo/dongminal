@@ -16,6 +16,14 @@
  *
  * 로드 순서 계약: repaint.js **뒤**, sidebar-tabs.js **앞** (FR-UIK-20).
  */
+// OPTIMIZE_REFACTOR_SRS FR-OPT-12-6 (FEU-19): 화면 가장자리 여백. 메뉴는 창 안쪽 4px 에 머물고,
+// 리사이즈 HUD 는 가운데 정렬된 자기 크기의 반쯤(가로 48 · 세로 28)을 남긴다.
+const UIK_MENU_EDGE_PX = 4;
+const UIK_HUD_EDGE_X_PX = 48;
+const UIK_HUD_EDGE_Y_PX = 28;
+/** `v` 를 [lo, hi] 로 자른다 — 가장자리 여백을 지키는 한 자리. */
+function uikClamp(v, lo, hi) { return Math.min(Math.max(v, lo), hi) }
+
 const UIKit = {
   /**
    * FR-UIK-23 / FR-GLY-2: 스프라이트의 심볼 하나를 참조하는 `<svg>`.
@@ -65,7 +73,12 @@ const UIKit = {
    *   title     툴팁. 아이콘만인 버튼에는 **필수**이며 aria-label 도 여기서 온다
    *   kind      'primary' | 'danger' | 'ghost' | 'attn' (없으면 기본)
    *   size      'sm' | 'lg' (없으면 표준)
+   *   iconSize  아이콘 치수 (`UIKit.icon` 의 size)
    *   cls       함께 붙일 기존 클래스 (D-5)
+   *
+   * FR-UIK-22 (개정, OPTIMIZE_REFACTOR_SRS FR-OPT-12-3): aria-label 은 **보이는 글자(label)가
+   * 없을 때만** title 에서 온다. 글자가 있으면 그 글자가 이름이다 — 영어 툴팁(FR-TIP-2)이
+   * 한국어 라벨을 덮어 읽히면 보이는 것과 읽히는 것이 갈린다.
    */
   button(spec) {
     const s = spec || {};
@@ -79,8 +92,8 @@ const UIKit = {
       s.size ? 'ui-btn-' + s.size : '',
       s.cls || ''].filter(Boolean).join(' ');
     if (s.id) b.id = s.id;
-    if (s.title) { b.title = s.title; b.setAttribute('aria-label', s.title) }
-    if (s.icon) b.appendChild(this.icon(s.icon, { fill: s.iconFill }));
+    if (s.title) { b.title = s.title; if (!s.label) b.setAttribute('aria-label', s.title) }
+    if (s.icon) b.appendChild(this.icon(s.icon, { fill: s.iconFill, size: s.iconSize }));
     if (s.label) {
       const t = document.createElement('span');
       t.className = 'ui-btn-label';
@@ -563,10 +576,11 @@ const UIKit = {
     const r = m.getBoundingClientRect();
     let x = at.x, y = at.y;
     if (o.align === 'right') x = at.x - r.width;
-    if (x + r.width > innerWidth - 4) x = innerWidth - r.width - 4;
-    if (y + r.height > innerHeight - 4) y = Math.max(4, at.y - r.height - (o.flipGap || 0));
-    m.style.left = Math.max(4, x) + 'px';
-    m.style.top = Math.max(4, y) + 'px';
+    const edge = UIK_MENU_EDGE_PX;
+    if (x + r.width > innerWidth - edge) x = innerWidth - r.width - edge;
+    if (y + r.height > innerHeight - edge) y = Math.max(edge, at.y - r.height - (o.flipGap || 0));
+    m.style.left = Math.max(edge, x) + 'px';
+    m.style.top = Math.max(edge, y) + 'px';
     this._menu = m;
     this._menuReturnTo = returnTo;
     /**
@@ -748,8 +762,8 @@ const UIKit = {
       let x = axis === 'y' ? px : px + sign * gapX;
       let y = axis === 'y' ? py + sign * gapY : py;
       // 화면 밖으로 나가면 안쪽으로 민다.
-      x = Math.min(Math.max(x, 48), innerWidth - 48);
-      y = Math.min(Math.max(y, 28), innerHeight - 28);
+      x = uikClamp(x, UIK_HUD_EDGE_X_PX, innerWidth - UIK_HUD_EDGE_X_PX);
+      y = uikClamp(y, UIK_HUD_EDGE_Y_PX, innerHeight - UIK_HUD_EDGE_Y_PX);
       b.style.left = x + 'px';
       b.style.top = y + 'px';
     }

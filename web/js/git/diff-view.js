@@ -222,21 +222,16 @@ class GitDiffView {
     const bar=document.createElement('div');
     bar.className='git-img-bar';
     for(const m of [GIT_IMG_MODE_SIDE,GIT_IMG_MODE_OVER]){
-      const btn=document.createElement('button');
-      btn.className='ui-btn ui-btn-sm git-img-mode'+(this._imgMode===m?' active':'');
-      btn.dataset.mode=m; btn.textContent=GIT_IMG_MODE_LABEL[m];
-      btn.addEventListener('click',()=>{
-        if(this._imgMode===m) return;
-        this._imgMode=m;
-        this._drawImage(target,mime,a,b);
-      });
-      bar.appendChild(btn);
+      bar.appendChild(UIKit.button({label:GIT_IMG_MODE_LABEL[m],size:'sm',
+        cls:'git-img-mode'+(this._imgMode===m?' active':''),dataset:{mode:m},onClick:()=>{
+          if(this._imgMode===m) return;
+          this._imgMode=m;
+          this._drawImage(target,mime,a,b);
+        }}));
     }
     // SVG 는 텍스트 diff 도 갖는다 — 돌아갈 길을 같은 줄에 둔다.
     if(GIT_DIFF_DRAWABLE.has(a.kind)&&GIT_DIFF_DRAWABLE.has(b.kind)){
-      const back=document.createElement('button');
-      back.className='ui-btn ui-btn-sm git-img-as-text';
-      back.textContent=GIT_IMG_AS_TEXT;
+      const back=UIKit.button({label:GIT_IMG_AS_TEXT,size:'sm',cls:'git-img-as-text'});
       // **다시 받지 않는다.** `show()` 를 부르면 stale 가드의 토큰이 없어
       // 그 호출이 자기 세대에 걸러지고(실측), 무엇보다 우리가 이미 두 벌의
       // 본문을 손에 들고 있다 — 같은 것을 다시 묻는 것은 왕복 하나를 버리는 일이다.
@@ -475,12 +470,8 @@ class GitDiffView {
     const list=acts||[];
     for(const a of list){
       if(!a||!a.label||typeof a.run!=='function') continue;
-      const b=document.createElement('button');
-      b.className='ui-btn ui-btn-sm git-diff-note-act';
-      b.textContent=a.label;
-      if(a.title) b.title=a.title;
-      b.addEventListener('click',()=>a.run());
-      this._note.appendChild(b);
+      this._note.appendChild(UIKit.button({label:a.label,title:a.title,size:'sm',cls:'git-diff-note-act',
+        onClick:()=>a.run()}));
     }
     this._note.classList.toggle('vis',!!(text||lines.length||list.length));
   }

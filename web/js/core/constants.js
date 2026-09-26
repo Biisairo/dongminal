@@ -316,6 +316,11 @@ const SIDEBAR_COLLAPSE_AT_PX=70;
  */
 const SIDEBAR_W_MIN_PX=100;
 const SIDEBAR_W_MAX_PX=400;
+// OPTIMIZE_REFACTOR_SRS FR-OPT-12-6 (FEU-17): Agents 패널 폭의 구간. 드래그와 복원이 같은
+// 구간을 지난다 — 두 자리에 숫자를 적으면 드래그로 갈 수 없는 폭이 복원에서 살아남는다.
+const AGENTS_W_MIN_PX=160;
+const AGENTS_W_MAX_PX=480;
+function agentsWidthOk(w){ return w>=AGENTS_W_MIN_PX&&w<=AGENTS_W_MAX_PX }
 /** 그 구간으로 접는다. 저장·복원·드래그가 전부 이 한 자리를 지난다. */
 function clampSidebarWidth(w){
   return Math.max(SIDEBAR_W_MIN_PX,Math.min(SIDEBAR_W_MAX_PX,w));

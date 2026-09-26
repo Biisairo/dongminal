@@ -34,7 +34,8 @@ function ctxWith({ writeText, exec }) {
     execCommand: exec,
   };
   const navigator = writeText ? { clipboard: { writeText } } : {};
-  const ctx = load(['ui/clipboard.js'], {
+  // 3단 복사창의 버튼은 UIKit.button 이 만든다 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-3).
+  const ctx = load(['ui/ui-kit.js', 'ui/clipboard.js'], {
     expose: ['ClipboardWriter'],
     globals: {
       document, navigator,

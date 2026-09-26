@@ -385,18 +385,12 @@ Object.assign(GitPanel.prototype, {
     // FR-RMS-10: 핀되지 않은 리포에 핀 제거를 보이지 않는다 — 없는 핀을 지우는
     // 버튼은 거짓말이다.
     if(this._missingPinned()){
-      const un=document.createElement('button');
-      un.className='ui-btn ui-btn-sm git-missing-unpin'; un.textContent=GIT_RMS_UNPIN;
-      un.title=GIT_TIP_MISSING_UNPIN;
-      un.addEventListener('click',()=>this._missingUnpin());
-      acts.appendChild(un);
+      acts.appendChild(UIKit.button({label:GIT_RMS_UNPIN,title:GIT_TIP_MISSING_UNPIN,size:'sm',
+        cls:'git-missing-unpin',onClick:()=>this._missingUnpin()}));
     }
-    const re=document.createElement('button');
-    re.className='ui-btn ui-btn-sm git-missing-recheck'; re.textContent=GIT_RMS_RECHECK;
-    re.title=GIT_TIP_MISSING_RECHECK;
     // FR-RMS-16·27: 사용자의 계기는 주기를 기다리지 않는다. 기존 새로고침을 지난다.
-    re.addEventListener('click',()=>this.refresh());
-    acts.appendChild(re);
+    acts.appendChild(UIKit.button({label:GIT_RMS_RECHECK,title:GIT_TIP_MISSING_RECHECK,size:'sm',
+      cls:'git-missing-recheck',onClick:()=>this.refresh()}));
     box.appendChild(acts);
     add('git-missing-auto',GIT_RMS_AUTO_NOTE);
     return box;

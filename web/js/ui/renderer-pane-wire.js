@@ -130,9 +130,10 @@ Object.assign(Renderer.prototype, {
    */
   _makeSplitBtn(dir){
     const app=this.app, h=dir==='horizontal';
-    const b=document.createElement('button');
-    b.className='ui-btn ui-btn-icon ui-btn-ghost pn-act pn-split';
-    b.appendChild(UIKit.icon(h?'columns':'rows',{size:'sm'}));
+    const sk=h?'splitH':'splitV';
+    const kl=()=>displayKey((typeof shortcuts==='object'&&shortcuts[sk])||'');
+    const b=UIKit.button({icon:h?'columns':'rows',iconSize:'sm',kind:'ghost',cls:'pn-act pn-split',
+      title:t(h?'html.split_h_title':'html.split_v_title',{key:kl()})});
     /**
      * **이름은 단축키를 기다리지 않는다.** `I18N.apply` 는 `data-i18n-shortcut` 이
      * 붙은 요소를 **단축키 표가 아직 없으면 통째로 건너뛴다**(`i18n.js` 의
@@ -146,10 +147,7 @@ Object.assign(Renderer.prototype, {
      * 뒤에 채워지게 둔다. `applyShortcuts(document)` 가 설정 변경 때 이 요소도
      * 다시 채운다 (FR-B-7).
      */
-    const sk=h?'splitH':'splitV';
-    const kl=()=>displayKey((typeof shortcuts==='object'&&shortcuts[sk])||'');
     b.setAttribute('aria-label',t(h?'html.btn_split_h':'html.btn_split_v'));
-    b.title=t(h?'html.split_h_title':'html.split_v_title',{key:kl()});
     b.dataset.i18nTitle=h?'html.split_h_title':'html.split_v_title';
     b.dataset.i18nShortcut=sk;
     b.addEventListener('click',e=>{
@@ -165,9 +163,7 @@ Object.assign(Renderer.prototype, {
 
   _makeTabAdd(){
     const app=this.app;
-    const add=document.createElement('button'); add.className='ui-btn ui-btn-icon ui-btn-ghost pn-tab-add';
-    add.appendChild(UIKit.icon('plus',{size:'sm'}));
-    add.title=TAB_ADD_TITLE;
+    const add=UIKit.button({icon:'plus',iconSize:'sm',title:TAB_ADD_TITLE,kind:'ghost',cls:'pn-tab-add'});
     add.addEventListener('click',e=>{
       e.stopPropagation();
       const pn=add.closest('.pn');

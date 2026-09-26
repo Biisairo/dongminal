@@ -129,4 +129,37 @@ if (bad.length) {
   process.exit(1);
 }
 
-console.log(`✓ 버튼 ${sites.length}자리 전부 킷 등급을 갖는다 — 예외 ${skipped.length} (FR-KIT-21)`);
+/**
+ * ④ OPTIMIZE_REFACTOR_SRS FR-OPT-12-3 (FEU-16): ui·git 의 버튼은 **`UIKit.button` 이 만든다.**
+ *
+ * 등급(①~③)만 재면 조립은 여전히 손으로 하고, 킷이 보장하는 계약 — `type=button`, 보이는 글자가
+ * 없는 버튼의 `aria-label`, 이름 없는 버튼 금지 — 이 자리마다 갈린다. 그래서 `ui-kit.js` 밖의
+ * `createElement('button')` 을 센다. 예외는 창(WINDOW 줄) 안의 표지로 찾는다 — 줄 번호는 움직인다.
+ * core 는 이 규칙의 범위가 아니다 (FEU-16 의 범위가 ui·git 이다).
+ */
+const FACTORY_SCOPE = /^web\/js\/(ui|git)\//;
+const FACTORY_EXEMPT = [
+  { at: 'web/js/ui/renderer-chrome.js', mark: /slot-marker-cell/,
+    why: '만들 때 이름이 없다 — 이름은 칠하기가 낱말 키로 세운다(FR-SMK-13). 킷은 이름 없는 버튼을 만들지 않는다',
+    until: '킷이 aria 이름을 따로 받으면' },
+  { at: 'web/js/ui/renderer-chrome.js', mark: /ed-side-tab/,
+    why: '탭 줄의 탭(`ui-tab`)이다 — `UIKit.tab` 은 role=tab·aria-selected 를 세워 이 줄의 의미가 바뀐다',
+    until: '사이드 탭 줄이 tablist 계약(D-KIT-8)을 받으면' },
+];
+const hand = [];
+for (const f of files.filter((x) => FACTORY_SCOPE.test(x) && x !== 'web/js/ui/ui-kit.js')) {
+  const lines = readFileSync(f, 'utf8').split('\n');
+  lines.forEach((l, i) => {
+    if (!/createElement\(\s*['"]button['"]\s*\)/.test(l)) return;
+    const win = lines.slice(i, i + 1 + WINDOW).join('\n');
+    if (FACTORY_EXEMPT.some((e) => e.at === f && e.mark.test(win))) return;
+    hand.push(`${f}:${i + 1} ${l.trim().slice(0, 90)}`);
+  });
+}
+if (hand.length) {
+  console.error(`✗ ui·git 에서 손으로 조립한 버튼 ${hand.length}자리 — UIKit.button 을 쓰세요 (FR-OPT-12-3):`);
+  for (const h of hand) console.error('    ' + h);
+  process.exit(1);
+}
+
+console.log(`✓ 버튼 ${sites.length}자리 전부 킷 등급을 갖는다 — 예외 ${skipped.length} (FR-KIT-21) · ui·git 조립은 UIKit.button (예외 ${FACTORY_EXEMPT.length})`);

@@ -308,7 +308,17 @@ class DocRender {
 
   _schedule(ms) {
     TIMERS.cancel(this._timer);
-    this._timer = TIMERS.after(ms == null ? DOC_RENDER_DEBOUNCE_MS : ms, () => this._paint(), {owner:this, label:'doc-paint'});
+    this._timer = TIMERS.after(ms == null ? DOC_RENDER_DEBOUNCE_MS : ms, () => this._paintIfShown(), {owner:this, label:'doc-paint'});
+  }
+
+  /**
+   * OPTIMIZE_REFACTOR_SRS FR-OPT-12-6 (FEU-11): 가려진 탭(`.vis` 없음)은 그리지 않고 표식만
+   * 남긴다 — 렌더는 markdown → 정화 → innerHTML 전체라 편집마다 돌기에 비싸다. 다시 보일 때
+   * (`restoreView` — 가려진 탭은 문서에서 떼였으므로 보일 때 언제나 그 길을 지난다) 그린다.
+   */
+  _paintIfShown() {
+    if (!this.el.classList.contains('vis')) { this._stale = true; return }
+    this._paint();
   }
 
   /**
@@ -617,6 +627,7 @@ class DocRender {
   }
 
   restoreView() {
+    if (this._stale) { this._stale = false; this._paint() }
     if (!this._body || !this._keptTop) return;
     this._wantTop = this._keptTop;
     this._applyWant(false);

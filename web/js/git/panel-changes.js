@@ -48,9 +48,7 @@ Object.assign(GitPanel.prototype, {
     msg.textContent=GIT_INIT_NOT_REPO;
     const path=document.createElement('div'); path.className='git-init-path';
     path.textContent=this.root; path.title=this.root;
-    const btn=document.createElement('button');
-    btn.className='ui-btn ui-btn-lg ui-btn-primary git-init-btn'; btn.textContent=GIT_INIT_RUN;
-    btn.addEventListener('click',()=>this.runInit());
+    const btn=UIKit.button({label:GIT_INIT_RUN,kind:'primary',size:'lg',cls:'git-init-btn',onClick:()=>this.runInit()});
     box.appendChild(msg); box.appendChild(path); box.appendChild(btn);
     // 실패는 그 자리에 남는다 — 알림창은 닫는 순간 사유가 사라진다.
     if(this._initErr){
@@ -249,15 +247,13 @@ Object.assign(GitPanel.prototype, {
       acts.className='git-act-cols git-group-acts';
       for(const c of this._actCols(GIT_GROUP_BULK[g.key]||[],GIT_BULK_COLS)){
         if(!c.act){acts.appendChild(this._actGap());continue}
-        const b=document.createElement('button');
-        b.className='ui-btn ui-btn-icon ui-btn-lg ui-btn-ghost git-group-bulk'; b.dataset.act=c.act;
         // FR-WBR-52: 행 동작과 **같은 어휘**의 아이콘이다. FR-WBR-52a: 뜻이
         // 갈리는 자리는 툴팁이다 — 워킹 그룹의 폐기는 삭제를 포함한다.
-        b.appendChild(UIKit.icon(GIT_ACT_ICON[c.act]));
-        b.title=(GIT_BULK_TITLE_GROUP[g.key]||{})[c.act]||GIT_BULK_TITLE[c.act];
         // 헤더 클릭은 접기다 — 일괄 버튼이 그것을 함께 일으키지 않는다.
-        b.addEventListener('click',ev=>{ev.stopPropagation();this._bulk(g.key,c.act)});
-        acts.appendChild(b);
+        acts.appendChild(UIKit.button({icon:GIT_ACT_ICON[c.act],
+          title:(GIT_BULK_TITLE_GROUP[g.key]||{})[c.act]||GIT_BULK_TITLE[c.act],
+          kind:'ghost',size:'lg',cls:'git-group-bulk',dataset:{act:c.act},
+          onClick:ev=>{ev.stopPropagation();this._bulk(g.key,c.act)}}));
       }
       d.querySelector('.git-group-head').appendChild(acts);
       files.appendChild(d);
@@ -555,15 +551,12 @@ Object.assign(GitPanel.prototype, {
     const own=GIT_DIR_ACTS[it.group]||[];
     for(const c of (own.length?this._actCols(own,GIT_BULK_COLS):[])){
       if(!c.act){acts.appendChild(this._actGap());continue}
-      const b=document.createElement('button');
-      b.className='ui-btn ui-btn-icon ui-btn-ghost ui-btn-lg git-file-act'; b.dataset.act=c.act;
-      b.appendChild(UIKit.icon(GIT_ACT_ICON[c.act]));
       // FR-CMG-9: 폴더 아래에 두 출신이 섞일 수 있다 — 정확한 내역은 확인창이 보인다.
-      b.title=(GIT_DIR_ACT_TITLE_GROUP[it.group]||{})[c.act]||
-        GIT_DIR_ACT_TITLE[c.act]||GIT_ACT_TITLE[c.act];
       // 행 클릭은 접기다 — 동작 버튼이 그것을 함께 일으키지 않는다.
-      b.addEventListener('click',ev=>{ev.stopPropagation();this._dirBulk(it.group,it.path,c.act)});
-      acts.appendChild(b);
+      acts.appendChild(UIKit.button({icon:GIT_ACT_ICON[c.act],
+        title:(GIT_DIR_ACT_TITLE_GROUP[it.group]||{})[c.act]||GIT_DIR_ACT_TITLE[c.act]||GIT_ACT_TITLE[c.act],
+        kind:'ghost',size:'lg',cls:'git-file-act',dataset:{act:c.act},
+        onClick:ev=>{ev.stopPropagation();this._dirBulk(it.group,it.path,c.act)}}));
     }
     d.addEventListener('click',()=>{
       if(this._dirCollapsed.has(key)) this._dirCollapsed.delete(key);
@@ -625,14 +618,9 @@ Object.assign(GitPanel.prototype, {
     for(const c of this._actCols(GIT_ROW_ACTS[group]||[])){
       if(!c.act){acts.appendChild(this._actGap());continue}
       const a=c.act;
-      const b=document.createElement('button');
-      b.className='ui-btn ui-btn-ghost ui-btn-lg git-file-act'; b.dataset.act=a;
-      // `ours`·`theirs` 는 어휘이지 아이콘이 아니다 (FR-GLY-8) — 정사각이 아니다.
-      if(GIT_ACT_ICON[a]){b.classList.add('ui-btn-icon');b.appendChild(UIKit.icon(GIT_ACT_ICON[a]))}
-      else{b.classList.add('git-act-word');b.textContent=GIT_ACT_LABEL[a]}
       // ours·theirs 는 진행 중인 조작에 따라 뜻이 뒤집힌다 (FR-GIT-224).
       // FR-CMG-5: 폐기의 뜻은 그 행의 출신이 정한다 — 새 파일의 폐기는 삭제다.
-      b.title=(a==='ours'||a==='theirs')
+      let title=(a==='ours'||a==='theirs')
         ? (GIT_SIDE_TITLE[this._op()]||GIT_SIDE_TITLE[''])[a]
         : ((e.untracked&&GIT_ACT_TITLE_UNTRACKED[a])||GIT_ACT_TITLE[a]);
       /**
@@ -643,10 +631,15 @@ Object.assign(GitPanel.prototype, {
        * 사용자는 툴팁을 열기 전에 버튼을 먼저 누르고, 아무 일도 일어나지 않는
        * 것을 고장으로 읽는다 (접수: "여전히 staging 조차 되지 않는다").
        */
+      let off=false;
       if(a==='stage'){
         const sp=gitSubParts(e.sub);
-        if(sp.inner&&!sp.commit){b.disabled=true; b.title=GIT_TIP_SUB_STAGE_OFF}
+        if(sp.inner&&!sp.commit){off=true; title=GIT_TIP_SUB_STAGE_OFF}
       }
+      // `ours`·`theirs` 는 어휘이지 아이콘이 아니다 (FR-GLY-8) — 정사각이 아니다.
+      const b=UIKit.button(GIT_ACT_ICON[a]
+        ?{icon:GIT_ACT_ICON[a],title,kind:'ghost',size:'lg',cls:'git-file-act',dataset:{act:a},disabled:off}
+        :{label:GIT_ACT_LABEL[a],title,kind:'ghost',size:'lg',cls:'git-file-act git-act-word',dataset:{act:a},disabled:off});
       b.addEventListener('click',ev=>{
         ev.stopPropagation();
         // FR-GIT-236: Open File 은 선택을 끌어오지 않는다 — `_rowTargets` 는 쓰기

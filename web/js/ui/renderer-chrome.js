@@ -280,12 +280,10 @@ Object.assign(Renderer.prototype, {
      * 갈아 끼운다 (FR-GRF-14) — 버튼을 없앴다 만들면 그 위의 손이 클릭을 잃는다.
      */
     const rf=this._keep(key+'/refresh',()=>{
-      const b=document.createElement('button');
-      b.className='ui-btn ui-btn-icon ui-btn-lg ui-btn-ghost ed-side-refresh git-head-refresh';
       // 요구 ③/⑤: 글자가 아니라 아이콘이다. 크기는 `.ui-icon` 이 정한다.
-      b.appendChild(UIKit.icon(GIT_REFRESH_LABEL)); b.title=GIT_REFRESH_TITLE;
-      b.addEventListener('click',()=>app.gitPanelAt(app.edRootOf(s),slot).refresh());
-      return b;
+      return UIKit.button({icon:GIT_REFRESH_LABEL,title:GIT_REFRESH_TITLE,kind:'ghost',size:'lg',
+        cls:'ed-side-refresh git-head-refresh',
+        onClick:()=>app.gitPanelAt(app.edRootOf(s),slot).refresh()});
     });
     rf.hidden=active!==REPO_SIDE_CHANGES;
     this._place(bar,[...[...bar.children].filter(c=>c!==rf),rf]);
@@ -326,15 +324,11 @@ Object.assign(Renderer.prototype, {
       const b=document.createElement('div'); b.className='ed-side-acts';
       for(const a of GIT_SIDE_ACTIONS){
         // FR-GLY-4·6 / FR-UIK-10: 스프라이트로 바꾸되 기존 클래스는 그대로 둔다.
-        const x=document.createElement('button');
-        x.className='ui-btn ui-btn-icon ui-btn-ghost ui-btn-lg ed-side-act'; x.dataset.view=a.key;
-        x.appendChild(UIKit.icon(a.icon));
-        x.title=a.title; x.setAttribute('aria-label',a.title);
         // 패널 **인스턴스**는 캡처하지 않는다 — 창이 사라졌다 서면 다시 만들어지고,
         // 그러면 이 버튼이 죽은 패널에 뷰를 연다. 루트와 칸만 들고 그때 조회한다
         // (`_makeSlot` 이 인덱스를 드는 것과 같은 규약).
-        x.addEventListener('click',()=>this.app.gitPanelAt(root,slot).openView(a.key));
-        b.appendChild(x);
+        b.appendChild(UIKit.button({icon:a.icon,title:a.title,kind:'ghost',size:'lg',cls:'ed-side-act',
+          dataset:{view:a.key},onClick:()=>this.app.gitPanelAt(root,slot).openView(a.key)}));
       }
       return b;
     });

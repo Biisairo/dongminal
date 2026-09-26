@@ -211,9 +211,8 @@ class GitConsole {
     ex.textContent=failed?'exit '+rec.exitCode:'';
     // FR-GIT-281: 같은 명령을 다시 돌린다. **클릭이 행으로 올라가지 않는다** —
     // 올라가면 상세가 여닫혀 목록이 다시 그려지고 버튼이 사라진다.
-    const rp=document.createElement('button'); rp.className='ui-btn ui-btn-sm git-con-replay';
-    rp.textContent=GIT_CON_REPLAY; rp.title=GIT_TIP_CON_REPLAY;
-    rp.addEventListener('click',ev=>{ev.stopPropagation();this._replay(rec)});
+    const rp=UIKit.button({label:GIT_CON_REPLAY,title:GIT_TIP_CON_REPLAY,size:'sm',cls:'git-con-replay',
+      onClick:ev=>{ev.stopPropagation();this._replay(rec)}});
 
     row.appendChild(t); row.appendChild(a); row.appendChild(b);
     row.appendChild(dur); row.appendChild(ex); row.appendChild(rp);

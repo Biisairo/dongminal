@@ -26,6 +26,8 @@ const TERM_PANE_JS = join(process.cwd(), 'web', 'js', 'ui', 'term-pane.js');
 // 재는 것은 그대로다 — 소켓을 몇 개 여는가. 싣는 파일만 셋이 됐다.
 const TERM_SOCKET_JS = join(process.cwd(), 'web', 'js', 'ui', 'term-socket.js');
 const TERM_INPUT_JS = join(process.cwd(), 'web', 'js', 'ui', 'term-input.js');
+// FR-OPT-12-3: 종료 오버레이의 출구 버튼은 `UIKit.button` 이 만든다 (의존 없는 파일이다).
+const UI_KIT_JS = join(process.cwd(), 'web', 'js', 'ui', 'ui-kit.js');
 // TERMINAL_FOLDER_DROP_SRS FR-TFD-1 / C-2: `term-pane.js` 의 드롭 경로가 이
 // 순수 함수를 쓴다. 이 하네스는 전역을 손으로 세우므로 **같은 변경에서** 여기
 // 한 줄이 늘어야 한다 — 격리가 이 검사의 값이고, 그래서 값을 치르는 자리다.
@@ -93,6 +95,7 @@ async function loadTermPane(page: Page) {
   await page.addScriptTag({ path: TIMER_HUB_JS });
   await page.addScriptTag({ path: API_JS });
   await page.addScriptTag({ path: DROP_ENTRIES_JS });
+  await page.addScriptTag({ path: UI_KIT_JS });
   await page.addScriptTag({ path: TERM_SOCKET_JS });
   await page.addScriptTag({ path: TERM_PANE_JS });
   await page.addScriptTag({ path: TERM_INPUT_JS });

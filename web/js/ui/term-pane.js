@@ -563,10 +563,7 @@ class TerminalTool {
     if(acts&&acts.length){
       const bar=document.createElement('div');bar.className='tp-ov-acts';
       for(const a of acts){
-        const btn=document.createElement('button');
-        btn.className='ui-btn '+a.cls; btn.type='button'; btn.textContent=a.label;
-        btn.addEventListener('click',ev=>{ev.stopPropagation();a.run()});
-        bar.appendChild(btn);
+        bar.appendChild(UIKit.button({label:a.label,cls:a.cls,onClick:ev=>{ev.stopPropagation();a.run()}}));
       }
       kids.push(bar);
     }

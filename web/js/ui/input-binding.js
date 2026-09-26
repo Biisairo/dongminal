@@ -11,6 +11,28 @@ class InputBinding {
     const sbEl=document.getElementById('sidebar');
     // FR-HSZ-3: 두 핸들의 반대쪽이 같은 요소다 — 콘텐츠 영역.
     const contentEl=document.getElementById('content');
+    this._bindAgentsPanel(contentEl);
+    this._bindDocDnd(sbEl);
+    this._bindSidebarHandle(sbEl,contentEl);
+    this._bindKeys();
+    this._bindSearch();
+    this.app.initModal();
+    this.app.initStatusBar();
+    // UPDATE_NOTICE_SRS FR-UPD-15: 토글의 리스너를 한 번만 붙인다 — `#bg-btn`
+    // 과 같은 규약이다 (FR-BGU-4). 값은 `_updateRender` 가 채운다.
+    this.app.initUpdateSettings();
+    this.app.initPresets();
+    this.app.initMobile();
+    this.app.initMobileKeybar();
+    this.app.initAttn();
+    // POLL_INTERVAL_SETTINGS_SRS FR-PIS-20: `Polling` 탭의 행을 표에서 만든다.
+    // 옛 `_initAgentsSettings` 가 있던 자리이며, 그 드롭다운이 이 탭으로 옮겼다.
+    this.app.initPollingSettings();
+  }
+
+
+  // Agents 패널 — 여닫기·폭 손잡이 (FR-CHR-15 · FR-HSZ-1).
+  _bindAgentsPanel(contentEl){
     // UIUX_OVERHAUL_SRS FR-CHR-10 (D-6): 분할은 **상단바에 없다** — pane 탭줄의
     // 고정 구가 그 자리이고 배선도 거기서 한다 (`renderer-pane.js` 의
     // `_makeSplitBtn`). 여기서 `getElementById('split-h')` 를 가드 없이 읽으면
@@ -33,7 +55,7 @@ class InputBinding {
       start:()=>({w0:ap.offsetWidth,c0:contentEl?contentEl.offsetWidth:0}),
       move:(ctx,ev)=>{
         const w=ctx.w0-(ev.clientX-ctx.sx0);
-        if(w>=160&&w<=480) document.documentElement.style.setProperty('--ag-w',w+'px');
+        if(agentsWidthOk(w)) document.documentElement.style.setProperty('--ag-w',w+'px');
       },
       sides:(ctx)=>{
         const aw=ap.offsetWidth, cw=contentEl?contentEl.offsetWidth:0, tot=aw+cw;
@@ -48,7 +70,11 @@ class InputBinding {
         PrefStore.local.set(STORE_KEYS.agentsWidth,ap.offsetWidth);
       },
     });
-    {const aw=parseInt(PrefStore.local.get(STORE_KEYS.agentsWidth));if(aw>=160&&aw<=480)document.documentElement.style.setProperty('--ag-w',aw+'px')}
+    {const aw=parseInt(PrefStore.local.get(STORE_KEYS.agentsWidth));if(agentsWidthOk(aw))document.documentElement.style.setProperty('--ag-w',aw+'px')}
+  }
+
+  // 문서 전역 DnD 수락 (FR-AAP-21 · FR-BLP-13 · FR-MOV-1).
+  _bindDocDnd(sbEl){
     // 문서 전역 DnD 수락(1회 바인딩): 드래그 중 화면 전체를 드롭 수락 영역으로 만들어
     // native snap-back(미수락 release 시 원위치 복귀 애니메이션)을 패널 안/밖 어디서든 제거,
     // drop 에서 마지막 dragover 가 기록한 대상 기준 즉시 커밋. FR-AAP-21 / 창 사이드바 공유.
@@ -68,6 +94,10 @@ class InputBinding {
       const def=SidebarList.defByDragType(dr.type);
       if(def){e.preventDefault();SidebarList.commit(this.app,def,dr)}
     });
+  }
+
+  // 사이드바 폭·접기 손잡이 (FR-SBC-7·9).
+  _bindSidebarHandle(sbEl,contentEl){
     // SIDEBAR_COLLAPSE_SRS FR-SBC-7·9: 접기 토글. 리사이즈 핸들 바로 옆에 배선을
     // 두는 것은 둘이 같은 것(사이드바의 폭)을 건드리기 때문이다.
     const sb=sbEl,sbh=document.getElementById('sb-handle');
@@ -121,6 +151,10 @@ class InputBinding {
         if(ctx.w) sidebarWidthStore(ctx.w);
       },
     });
+  }
+
+  // 단축키·녹화·마우스 앞뒤 버튼 (FR-KEY · FR-M9-26·44).
+  _bindKeys(){
     this.app.recording=null;
     window.addEventListener('keydown',e=>{
       if(this.app.recording){e.preventDefault();e.stopImmediatePropagation();
@@ -207,7 +241,10 @@ class InputBinding {
     },true);
     // 같은 버튼의 두 번째 계기. 여기서는 **막기만 한다** — 실행은 위가 이미 했다.
     window.addEventListener('auxclick',e=>{ if(navBtn[e.button]) e.preventDefault() },true);
+  }
 
+  // 터미널 검색 줄 (FUI-15).
+  _bindSearch(){
     const si=document.getElementById('search-input');
     si.addEventListener('input',()=>this.app.doSearch('next'));
     si.addEventListener('keydown',e=>{
@@ -229,18 +266,6 @@ class InputBinding {
       });
     }
     document.getElementById('search-close').addEventListener('click',()=>this.app.closeSearch());
-    this.app.initModal();
-    this.app.initStatusBar();
-    // UPDATE_NOTICE_SRS FR-UPD-15: 토글의 리스너를 한 번만 붙인다 — `#bg-btn`
-    // 과 같은 규약이다 (FR-BGU-4). 값은 `_updateRender` 가 채운다.
-    this.app.initUpdateSettings();
-    this.app.initPresets();
-    this.app.initMobile();
-    this.app.initMobileKeybar();
-    this.app.initAttn();
-    // POLL_INTERVAL_SETTINGS_SRS FR-PIS-20: `Polling` 탭의 행을 표에서 만든다.
-    // 옛 `_initAgentsSettings` 가 있던 자리이며, 그 드롭다운이 이 탭으로 옮겼다.
-    this.app.initPollingSettings();
   }
 
   /**

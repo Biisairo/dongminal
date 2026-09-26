@@ -201,24 +201,16 @@ Object.assign(RunsPanel.prototype, {
 
   // FR-DEL-1·2: 항상 보인다 (터치에 hover 가 없다). 행 클릭으로 새지 않는다.
   _runsDelBtn(rv) {
-    const btn = document.createElement('button');
-    btn.className = 'ui-btn ui-btn-sm runs-del'; btn.textContent = t('runs.delete');
     // FR-TIP-2: 툴팁은 영어다. 어느 Run 인지는 라벨 옆의 행이 이미 말한다.
-    btn.title = TIP_RUNS_DEL;
-    btn.dataset.runid = rv.id;
-    btn.addEventListener('click', e => { e.stopPropagation(); this._runsConfirmSet(rv.id) });
-    return btn;
+    return UIKit.button({ label: t('runs.delete'), title: TIP_RUNS_DEL, size: 'sm', cls: 'runs-del',
+      dataset: { runid: rv.id }, onClick: e => { e.stopPropagation(); this._runsConfirmSet(rv.id) } });
   },
 
   // FUI-04: 종료. **삭제와 나란히 서고 확인도 같은 규약이다** — 두 출구가
   // 다른 모양이면 사용자가 어느 쪽이 무엇을 지우는지 배워야 한다.
   _runsCloseBtn(rv) {
-    const btn = document.createElement('button');
-    btn.className = 'ui-btn ui-btn-sm runs-close'; btn.textContent = t('runs.close');
-    btn.title = TIP_RUNS_CLOSE;
-    btn.dataset.runid = rv.id;
-    btn.addEventListener('click', e => { e.stopPropagation(); this._runsConfirmSet(rv.id, 'close') });
-    return btn;
+    return UIKit.button({ label: t('runs.close'), title: TIP_RUNS_CLOSE, size: 'sm', cls: 'runs-close',
+      dataset: { runid: rv.id }, onClick: e => { e.stopPropagation(); this._runsConfirmSet(rv.id, 'close') } });
   },
 
   // FR-DEL-4: 확인은 행 안에서 한다 — 모달 위의 모달은 Escape 처리와 포커스
@@ -235,16 +227,13 @@ Object.assign(RunsPanel.prototype, {
     wrap.appendChild(runDiv('runs-q', closing
       ? t('runs.q_close')
       : (open ? t('runs.q_delete_open') : t('runs.q_delete'))));
-    const yes = document.createElement('button');
-    yes.className = 'ui-btn ui-btn-sm ui-btn-danger runs-yes'; yes.textContent = t('core.yes');
-    yes.title = closing ? TIP_RUNS_CLOSE_YES : TIP_RUNS_YES;
-    yes.addEventListener('click', e => {
-      e.stopPropagation();
-      if (closing) this._runsClose(rv.id); else this._runsDelete(rv.id);
-    });
-    const no = document.createElement('button');
-    no.className = 'ui-btn ui-btn-sm runs-no'; no.textContent = t('core.no'); no.title = TIP_RUNS_NO;
-    no.addEventListener('click', e => { e.stopPropagation(); this._runsConfirmSet(null) });
+    const yes = UIKit.button({ label: t('core.yes'), title: closing ? TIP_RUNS_CLOSE_YES : TIP_RUNS_YES,
+      kind: 'danger', size: 'sm', cls: 'runs-yes', onClick: e => {
+        e.stopPropagation();
+        if (closing) this._runsClose(rv.id); else this._runsDelete(rv.id);
+      } });
+    const no = UIKit.button({ label: t('core.no'), title: TIP_RUNS_NO, size: 'sm', cls: 'runs-no',
+      onClick: e => { e.stopPropagation(); this._runsConfirmSet(null) } });
     wrap.appendChild(yes); wrap.appendChild(no);
     return wrap;
   },
