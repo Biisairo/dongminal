@@ -5,6 +5,50 @@
 
 ## [Unreleased]
 
+데몬·서버·브라우저 사이의 통신을 줄이고 구조 부채를 정리했습니다 (OPTIMIZE_REFACTOR).
+아무것도 하지 않을 때 나가는 요청이 크게 줄었고, 폴링 대신 서버가 변화를 알립니다.
+
+### 고침
+
+- **데몬과의 연결이 조용히 끊긴 채 남지 않습니다.** 서버가 15초마다 데몬 생존을 확인하고,
+  답이 없으면 다시 붙은 뒤 끊긴 동안 바뀐 탭 이름과 출력 구멍을 메웁니다.
+- **에디터 파일 상한을 32 MiB 한 값으로 맞췄습니다.** 종전에는 읽기 10 MiB·저장 본문 1 MiB 로
+  갈려 열린 파일이 저장되지 않을 수 있었습니다. 코드 탐색(LSP)과 git diff 도 같은 상한을 따릅니다.
+- **설정을 빠르게 여러 번 바꿔도 한 번으로 저장되고, 자기 저장을 다시 받아 오지 않습니다.**
+- **서버가 다시 뜬 뒤 Git ▸ 콘솔이 엉뚱한 기록에 이어 붙지 않습니다.**
+- **upstream 이 사라진 브랜치도 로컬 삭제 때 HEAD 기준으로 병합 여부를 판정합니다.**
+- 오류 본문에 운영체제 오류 전문이 실리지 않습니다. SHA-256 저장소의 oid 를 읽습니다.
+
+### 변경
+
+- **탐색기·편집기의 git 색은 서버가 변화를 알릴 때 곧바로 바뀝니다.** 탐색기의 변경 추적 주기는
+  `탐색기` 설정을 따릅니다.
+- **터미널은 처음 화면에 그려질 때 연결합니다.** 숨은 창의 도구는 붙지 않습니다.
+- **복원·작업 목록·저장소 목록·Console·History 가 한 번에, 또는 바뀐 만큼만 받습니다.**
+  창을 닫을 때 도구마다 하던 실행 중 확인 요청을 한 번으로 묻습니다.
+- **CLI 도움말:** `dongminal rollback --help`·`version --help` 가 사용법을 보이고(종전 rc=2 / 판 출력),
+  `version` 에 모르는 옵션을 주면 rc=2 입니다. `backup`·`uninstall` 도움말의 목록이 홈의 실제
+  항목 전부를 적습니다. `dmctl` 은 설정의 `"fgTabNames": null` 을 기본(켬)으로 읽습니다.
+
+### 변경 (외부 API)
+
+`docs/external/api.md` 의 HTTP API 를 직접 부르는 스크립트는 다음을 확인하세요. **모두 선택적
+추가이며, 새 파라미터를 주지 않으면 응답은 종전과 같습니다** (상한 변경 제외).
+
+- 새 종단: `GET /api/snapshot?parts=` (복원 조각 묶음), `GET /api/tools/busy?ids=` (여러 도구의
+  busy — 256개 초과 400, 데몬 무응답 503), `POST /api/fs/stamps` (`/api/fs/stamp` 와
+  `/api/file/stamps` 를 한 요청으로).
+- `GET /api/git/status?ifMark=<mark>` — 관측이 같으면 목록 없이 `unchanged:true` 만 답합니다.
+- `GET /api/git/records?after=<seq>&epoch=` — 증분 조회. `lastSeq`·`firstSeq`·`gap`·`epoch` 를 붙입니다.
+- `GET /api/git/log?stop=<oid>` — 증분 조회. 뒷부분은 `tail` 로 요약합니다. `skip` 과 함께 쓰면 400.
+- `GET /api/git/repos?observe=1&clientId=` 는 핀 감시를 임대합니다(`observe=0` 으로 놓음).
+  `GET /api/stats?jobs=1` 은 git 작업 목록을 함께 싣고, 작업 시작·끝에 `git_jobs_changed` 가 방송됩니다.
+- 칸 SSE 구독 `?presence=1` — 창 소유권 수명만 쥐고 방송을 받지 않습니다. 구독 상한을 따릅니다.
+- `PUT /api/settings?clientId=` — 방송 `settings_changed` 의 `args.origin` 으로 돌아갑니다.
+- LSP 정의·참조·호버 본문의 `version`(선택) — 실으면 응답에 `version` 또는 `needText:true` 가 붙습니다.
+- 상한: `/api/file/read`·`/api/file/write` 의 파일 상한 32 MiB(413 `too_large`), 저장 본문 64 MiB + 64 KiB
+  (413 `body_too_large`), `/api/git/diff-content` 는 한 쪽이 32 MiB 를 넘으면 `kind:"too_large"`.
+
 ## [1.1.7] — 2026-09-25
 
 에디터·탐색기·git 쪽의 자잘한 결함을 한꺼번에, 근본 원인부터 고쳤습니다 (REPO_FIX).
