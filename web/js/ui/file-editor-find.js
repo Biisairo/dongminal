@@ -446,7 +446,7 @@ function edFindReOk(src) {
 
 Object.assign(FileEditor.prototype, ED_FIND_MIXIN);
 
-// 테마 전환 훅 (helpers.js applyThemeObj). 이름이 같은 테마를 다시 정의하고
+// 테마 전환 훅 (theme-vars.js applyThemeObj). 이름이 같은 테마를 다시 정의하고
 // setTheme 을 부르면 살아 있는 에디터와 diff 뷰가 함께 따라온다 (FR-GIT-49).
 FileEditor.applyTheme = function() {
   if (typeof monaco === 'undefined') return;

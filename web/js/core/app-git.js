@@ -292,7 +292,7 @@ Object.assign(App.prototype, {
 
   // FR-RTU-70: 옛 워크스페이스의 Git 창을 걷어낸다. 그 안의 남의 탭은 일반
   // 창으로 건져 내고 고정 뷰 탭은 버린다 (D-RTU-14).
-  // 판정과 이동은 helpers 의 순수 함수가 한다 — 로드 경로가 둘이라 여기서 두 벌로
+  // 판정과 이동은 layout-tree.js 의 순수 함수(`migrateGitWindows`)가 한다 — 로드 경로가 둘이라 여기서 두 벌로
   // 만들면 한쪽만 고쳐진다.
   _migrateGitWindow(list){
     const ws=list||this.ws.windows;

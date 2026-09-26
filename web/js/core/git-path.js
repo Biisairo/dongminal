@@ -1,7 +1,7 @@
 /**
  * 저장소 경로의 두 계산 (REPO_FIX 05 §3A-4) — 탐색기·변경 표시·git 프런트가 함께 쓴다.
  *
- * `helpers.js` 의 `pathSep` 위에 선다(그 뒤에 싣는다).
+ * `path.js` 의 `pathSep` 위에 선다(그 뒤에 싣는다).
  */
 /**
  * FR-DIR-41 / REPO_FIX 05 §3A-4: 저장소 루트(`repo`)에서 요청 루트(`resolved`)까지의

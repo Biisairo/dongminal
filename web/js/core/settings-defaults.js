@@ -50,5 +50,5 @@ var gitConsoleInterval=GIT_CON_POLL_MS;
  */
 var focusEdgeLevel=UFE_LEVEL_DEFAULT;
 var attnEdgeLevel=ATTN_EDGE_LEVEL_DEFAULT;
-// TAB_WIDTH_SRS FR-TBW-2: 고정 폭. 켜고 끄는 `tabFixedWidth` 는 helpers.js 에 있다.
+// TAB_WIDTH_SRS FR-TBW-2: 고정 폭. 켜고 끄는 `tabFixedWidth` 는 settings-state.js 에 있다.
 var tabWidthPx=TAB_WIDTH_DEFAULT;

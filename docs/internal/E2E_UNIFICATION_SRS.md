@@ -127,8 +127,12 @@ git 표면의 동작 변경인데, 그 표면이 Linux·Windows 에서 한 번�
 
 ### 3.1 묶음 A — 진입점 (FR-E2C)
 
-**FR-E2C-1** 서브커맨드 `dongminal verify` 를 신설한다. `Actions` 에 추가하고
-`Usage`/`help` 에 싣는다.
+**FR-E2C-1** 서브커맨드 `dongminal verify` 를 신설한다. 액션 표(`internal/ctl/cli/actions.go`
+`actionsOf()`)에 행 하나로 더하며, `Help()`·`Usage()` 는 그 표에서 나온다.
+
+> 개정 (2026-09-26, OPTIMIZE_REFACTOR_SRS FR-OPT-10-2 · SHR-30): 종전 문구의 `Actions` 는 help 에
+> 나열할 이름을 따로 적은 `var Actions` 였다. 그 목록이 액션 15개 중 6개만 담아 검사가 도움말
+> 결함을 놓쳤으므로 지웠다 — 이름 목록은 이제 `actionsOf()` 하나다.
 
 **FR-E2C-2** `verify` 는 **격리 전용**이다. 격리를 끄는 수단을 제공하지 않는다.
 
@@ -418,7 +422,7 @@ CI 는 잡 넷이 전부 초록이어야 한다.
 회귀 게이트: 기존 테스트 전량 + darwin doctor 실행.
 
 **2단계 — 옵션·진입점 (FR-E2C)**
-`VerifyOpts`·`ParseVerify`·`Actions`·`Usage`. 아직 검사는 비어 있다.
+`VerifyOpts`·`ParseVerify`·액션 표 행(당시 `var Actions`, 지금 `actionsOf()`)·`Usage`. 아직 검사는 비어 있다.
 테스트: 옵션 거부·도움말.
 
 **3단계 — 격리 가드 (FR-E2G-1,2,6)**

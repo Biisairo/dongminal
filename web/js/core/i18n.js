@@ -64,7 +64,7 @@ const I18N={
    * `data-i18n-title` · `data-i18n-placeholder` · `data-i18n-aria-label` 은 그 속성이다.
    * `data-i18n-shortcut="<action>"` 이 있으면 `{key}` 에 단축키 표기가 든다
    * (FR-B-7) — 표기는 `opts.shortcut(action)` 이 주고, 없으면 전역
-   * `shortcuts`·`displayKey` 를 본다 (helpers.js 가 뒤에 선다). 그 둘이 아직
+   * `shortcuts`·`displayKey` 를 본다 (shortcuts.js 가 뒤에 선다). 그 둘이 아직
    * 없으면 단축키 툴팁은 건너뛴다 — `applyShortcuts` 가 설정 뒤에 채운다.
    */
   apply(root,opts){

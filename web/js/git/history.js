@@ -102,7 +102,7 @@ class GitHistory {
     return out;
   }
 
-  // 테마 전환 훅 (helpers.js applyThemeObj). 살아 있는 목록의 색을 다시 계산한다.
+  // 테마 전환 훅 (theme-vars.js applyThemeObj). 살아 있는 목록의 색을 다시 계산한다.
   static applyTheme(){
     const h=window.app&&app.gitPanel&&app.gitPanel._historyView;
     if(!h||!h._el) return;

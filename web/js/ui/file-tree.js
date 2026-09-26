@@ -279,11 +279,11 @@ class FileTree {
 
   // ── 조회 (FR-EDT-59·63·65) ──
 
-  // 구분자는 `pathJoin` 이 정한다 (helpers.js) — 그 OS 의 것을 따른다.
+  // 구분자는 `pathJoin` 이 정한다 (path.js) — 그 OS 의 것을 따른다.
   _join(dir,name){ return pathJoin(dir,name) }
 
   // 루트 기준 상대경로. git status 의 경로가 그 형식이다.
-  // 키는 git 의 것이다 — 어느 OS 에서도 `/` 다 (helpers.js `pathRel`).
+  // 키는 git 의 것이다 — 어느 OS 에서도 `/` 다 (path.js `pathRel`).
   _rel(p){ return pathRel(this.root,p) }
 }
 

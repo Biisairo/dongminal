@@ -18,7 +18,6 @@ function setup() {
     globals: {
       TIMERS: { cancel() {} },
       FileEditor: class {},
-      GIT_STATUS_API: '/api/git/status',
       ED_DD_AXIS: 'index', ED_DD_KIND_TEXT: 'text',
       ED_DD_ADD: 'add', ED_DD_MOD: 'mod', ED_DD_DEL: 'del', ED_DD_COLOR_VAR: {},
       ED_DD_STAGE_FAIL: 'f', ED_DD_STAGE_STALE: 's', ED_DD_SAVE_FAIL: 'v', ENC_DD_STAGE_UTF16: 'u', GIT_WRITE_ERR: {}, GIT_PATCH_STAGE: 'stage',

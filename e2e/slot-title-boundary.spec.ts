@@ -152,7 +152,7 @@ test.describe('경계 — 슬롯 계층의 색과 굵기', () => {
   test('모든 테마에서 slot-edge 가 border·accent·bg 와 구별된다', async ({ page }) => {
     await waitForInit(page);
     const bad = await page.evaluate(() => {
-      // themes.js·helpers.js 는 classic script 다 — 최상위 `const` 는 window 의
+      // themes.js·contrast.js·theme-vars.js 는 classic script 다 — 최상위 `const` 는 window 의
       // 프로퍼티가 아니라 전역 렉시컬 스코프에 있으므로 이름으로 집는다.
       const T = THEMES;
       const mix = mixHex;

@@ -16,10 +16,10 @@
  *
  * ## `hexRgb`·`mixHex` 가 여기 있는 이유
  *
- * `core/helpers.js` 에 있던 것을 **옮겼다** (복사가 아니다). 고전 스크립트는 하나의
+ * 옛 `core/helpers.js` 에 있던 것을 **옮겼다** (복사가 아니다). 고전 스크립트는 하나의
  * 전역 렉시컬 환경을 공유하므로 같은 이름을 두 파일에 두면 뒤가 앞을 덮는다 —
  * M6 §4-A-2 가 `_setFocus` 승격에서 무한 재귀로 겪은 그 일이다. 이 파일은
- * `helpers.js` **앞에** 실린다 (`index.html`).
+ * 그 조각들(`path.js`~`git-status-helpers.js`, 쓰는 쪽은 `theme-vars.js`) **앞에** 실린다 (`index.html`).
  */
 
 /**

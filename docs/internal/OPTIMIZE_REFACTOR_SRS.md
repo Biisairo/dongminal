@@ -192,6 +192,12 @@ e2e 요청 타임라인으로 잰다.
 > 그 둘만으로 0.67 req/s 다. 실측은 30 s 에 ping 10 · stats 10 · repos ≤ 1 = **0.70 req/s** 이다
 > (`e2e/steady-traffic.spec.ts`). ≤ 0.5 는 `statsInterval` ≥ 4 s 에서 성립한다 — 기본값을 바꾸는 것은
 > 사용자 결정이므로 이 묶음은 "ping·stats 만 남는다" 를 고정한다.
+>
+> **Ofix4 — `/api/runs` 1회 흔들림 (2026-09-26).** 원인은 화면이 아니라 워커 서버의 공유 상태다. 앞 스펙
+> `skill-contract` 가 남긴 Run(닫혔거나 조정자가 사라진 것)을 수거 루프(`reapInterval` 15 s, FR-DEL-14)가 창
+> 안에서 지우며 `run_changed` 를 방송하고, 화면은 FR-OPT-4-10 대로 목록을 한 번 다시 받는다. 두 스펙을 한 워커로
+> 이어 돌리면 재현된다(수정 전 실패 → 후 통과, `--workers=1`). 스펙은 페이지를 열기 전에 남은 Run 을 지운다(`clearRuns`) —
+> 화면의 동작은 바꾸지 않는다.
 
 > **O4d 사전 조사 — 숨은 터미널 출력의 브라우저 측 소비자 (D-OPT-2, 2026-09-26).** 지연 연결 뒤에는 한 번도
 > 그려지지 않은 도구의 바이트가 이 브라우저에 오지 않는다. 그 바이트로 브라우저가 하던 일을 전수 조사했다
@@ -252,6 +258,7 @@ e2e 요청 타임라인으로 잰다.
 
 - **FR-OPT-8-1** SSE 작성기를 하나로 모은다: 쓰기 시한, 쌓인 이벤트를 합쳐 한 번에 Flush, payload 빌더 한 벌. 큐 상한은 버스트 실측으로 정한다. (HTTP-10 · HTTP-M2 · IPC-12 · IPC-20 · HTTP-15)
 - **FR-OPT-8-2** 요청 경로 캐시: access 매처 스냅샷(설정이 바뀔 때만 다시 만든다), settings 뷰 캐시, `wsentry.Roots` 캐시(workspace rev 로 무효화), 라우팅 인덱스(접두 맵). (HTTP-4 · HTTP-26 · DOM-25 · HTTP-25)
+  - *개정 메모 (2026-09-26, Ofix3·Ofix4):* `wsentry.Roots` 가 rev 로 기억하는 것은 workspace.json 의 **파싱 결과(editors.list)뿐**이다. 정규화(`NormalizePath` — EvalSymlinks)와 메모·플러그인 자리 보장(`ensureDir`)은 **호출마다** 한다 — 요청 경로가 요청 시점에 정규화되므로(`fsRootOf`) 루트도 같은 시점의 파일시스템을 따라야 루트 가드(FR-EDT-113)·다른 루트 삭제 가드(FR-EDT-114)가 어긋나지 않는다(`wsentry.go` `rootsMemo`).
 - **FR-OPT-8-3** fork 일괄화: BackgroundList 의 cwd 와 ActivitySnapshot 의 busy 를 한 번의 lsof·pgrep 으로 조회한다. `/api/runs/context` 는 비멤버를 빠른 경로로 처리한다. (SHR-8 · SHR-28 · HTTP-3)
 - **FR-OPT-8-4** 서버 내부 폴링 대기(100 ms·250 ms·50 ms)를 조건 변수 또는 채널 대기로 바꾼다. (HTTP-31)
 - **FR-OPT-8-5** 훅 보고 경로: dmctl 은 훅 한 번에 HTTP 한 번만 부르고, 전사본 꼬리를 스트리밍으로 읽는다. fire-and-forget 시한은 짧게 한다. list-workspace 의 이중 호출을 없앤다. (SHR-9 · SHR-10 · SHR-31)
@@ -277,6 +284,7 @@ e2e 요청 타임라인으로 잰다.
 - **FR-OPT-11-2** 거대 메서드를 분할한다: addTab·save·init·closeTab, `_execRemote` 는 action 표로, initMobileKeybar 는 키 표로. (FEC-22 · FEC-23 · IPC-17 · FEC-34)
 - **FR-OPT-11-3** 저장소 접근(`localStorage`·`sessionStorage`)을 키 상수와 PrefStore 한 벌로 모은다. 빈 `catch{}` 를 없앤다. index.html 선주입 키는 게이트로 대조한다. (FEC-19 · FEC-20 · FEU-18)
 - **FR-OPT-11-4** 설정 기본값·범위는 `SETTINGS_SCHEMA` 만 원천으로 하고 검증기는 하나만 둔다. (FEC-25 · FEC-M2)
+  - *개정 메모 (2026-09-26, Ofix4):* "하나" 는 **원천이 하나**라는 뜻으로 읽는다. 같은 표 위의 판정 함수는 둘이며 뜻이 달라 합치지 않는다 — `settingValue`(저장된 값을 해석한다: 범위 밖·형식 오류 → 기본값, FR-CFG-3)와 `clampSetting`(사용자가 치는 값을 범위로 자른다, FR-FSS-19). 앞의 것을 자르기로 바꾸면 손상된 저장값이 경계값으로 살아나고, 뒤의 것을 기본값 복귀로 바꾸면 입력란이 치는 도중에 튄다(`settings-schema.js`).
 - **FR-OPT-11-5** 손으로 짠 모달 5벌을 `UIKit.modal` 로 옮긴다. 상태줄 관용구를 헬퍼로 모은다. (FEC-27 · FEC-28)
 - **FR-OPT-11-6** helpers.js 를 주제별로 분할한다. App 필드를 접두 가족별 소유 클래스로 뺀다. (FEC-24 · FEC-35)
 - **FR-OPT-11-7** 소항목: FEC-31 · FEC-32 · FEC-33 · FEC-36.
@@ -317,7 +325,8 @@ e2e 요청 타임라인으로 잰다.
 >   `head:false`·`boxCls`/`bodyCls`/`footCls`·`focus`·`action.value`/`tip`/`default`·`close(v)` 를
 >   더 받는다(기존 호출 무변경). 옛 클래스(`.confirm-*`)는 그대로 달린다. 동작 변경: 알림(`_notify`)의
 >   `Enter` 는 문서 전체를 가로채지 않고 포커스된 확인 버튼을 누른다(FR-PDA-2 와 같은 길) · 바깥
->   닫기는 `mousedown` 이다(키트 규약). 상태줄 관용구는 `statusRun`·`errText` 한 벌이다.
+>   닫기는 `mousedown` 이다(키트 규약) · 버튼 줄은 `←`/`→` 로도 오가고 `Esc` 는 다섯 다 캡처에서
+>   먹는다(UI_KIT_SRS §3.6 이전/새/이유, 킷에 빠졌던 `preventDefault` 는 Ofix4 에서 되돌렸다). 상태줄 관용구는 `statusRun`·`errText` 한 벌이다.
 > - **FR-OPT-11-6.** `helpers.js` 를 `path`·`helpers`(주제 밖 소도구)·`theme-vars`·`shortcuts`·
 >   `settings-state`·`layout-tree`·`git-status-helpers` 로 갈랐다(본문 무변경). `FE_MODULE_BOUNDARY_SRS`
 >   §5 N4 를 개정했고 §7.1a 기준선은 23 → 21 이다. **App 필드 가족의 소유 클래스 추출(FEC-35)은
@@ -344,6 +353,7 @@ e2e 요청 타임라인으로 잰다.
 - **FR-OPT-12-1** TermPane 의 WS 배선을 `TermSocket` 하나로 모은다. 백오프는 상수로 두고 지터를 더한다. 키 매핑·큐 상한을 상수로 옮긴다. (FEU-14 · IPC-16 · FEU-15)
 - **FR-OPT-12-2** GitDialog 와 GitConfirm 의 모달 골격을 공통 기반으로 모은다. panel-views 렌더를 서술자 표로 바꾼다. (FEU-12 · FEU-13)
 - **FR-OPT-12-3** 버튼 38곳을 `UIKit.button` 으로 옮기고, 아이콘 버튼에 type·aria-label 을 단다. (FEU-16)
+  - *개정 메모 (2026-09-26, Ofix4):* 달성은 **36/38** 이다. 예외 둘은 `check-button-kit.mjs` 의 `FACTORY_EXEMPT` 에 사유와 함께 있다 — 칸 표식(`slot-marker-cell`: 만들 때 이름이 없어 킷이 던진다, FR-UIK-21 · FR-SMK-13)과 사이드 탭(`ui-tab`: `UIKit.tab` 은 role=tab·aria-selected 를 세워 그 줄의 뜻이 바뀐다).
 - **FR-OPT-12-4** 분할: panel-diff(FEU-22), runs-panel(FEU-23), term-pane(FEU-25), renderer-pane(FEU-26), FileEditor._createEditor(FEU-27).
 - **FR-OPT-12-5** API 경로 리터럴을 상수 표로 모으고 git GET 호출 방식을 하나로 통일한다. (FEU-32)
 - **FR-OPT-12-6** 소항목: 보이지 않는 렌더 탭은 다시 그리기를 미룬다(FEU-11). FEU-17 · FEU-19 · FEU-21.
@@ -373,12 +383,12 @@ e2e 요청 타임라인으로 잰다.
 >   `aria-label` 을 갖는다. innerHTML 골격 안의 버튼(`UIKit.buttonHTML`)은 38곳에 들지 않아 하지 않았다.
 > - **FR-OPT-12-4.** 모두 증강 분할(`Object.assign(X.prototype,…)`)이다. term-pane → `term-socket.js`·`term-input.js`
 >   (생성자는 `_wireDnd`·`_wireContextMenu`, `open` 은 `_loadAddons`·`_wireKeys`·`_wireIme`, 451자 줄을 풀었다),
->   panel-diff → `panel-blame.js`·`panel-hunks.js`(508줄 — 아직 경계 위), runs-panel → `run-dashboard.js`(배치
+>   panel-diff → `panel-blame.js`·`panel-hunks.js`·`panel-dir-entry.js`(508 → 450줄, 디렉터리 항목은 후속), runs-panel → `run-dashboard.js`(배치
 >   여백은 `RUN_NODE_GAP_X` 등 넷), renderer-pane → `renderer-pane-wire.js`(`_wireTabScroll`·`_wireTabsDrop`·
 >   `_wireBodyDrop`·`_wirePaneFocus`; 본문 dragover 는 표식이 선 탭만 찾는다), `FileEditor._createEditor` →
 >   `_mountMonaco`·`_notifyIntegrations`·`_wireModelEvents`·`_wireKeys`·`_wireFocus`. 같은 요소의 capture keydown
 >   둘은 `_onKeyCapture` 하나이며 순서(검색·뷰 키 → dirty-diff Esc)와 "잡힌 키는 뒤로 가지 않는다" 를 지킨다.
->   FE_MODULE_BOUNDARY_SRS §7.1 기준선 21/1174 → 19/1020.
+>   FE_MODULE_BOUNDARY_SRS §7.1 기준선 21/1174 → 19/1020 → 18/1020.
 > - **FR-OPT-12-5.** `/api/git/…` 경로는 `core/constants-api.js` 의 `GIT_API` 표 하나다(의존 없음 — 단위 검사가
 >   홀로 싣는다). ui·git 의 조회는 전부 `gitFetch(GIT_API.x, params)` 이다 — status(허브·패널)·records·
 >   diff-content·blame·hunks·History `_get`(echo 는 글자 비교인 `_sameReq` 가 그대로 본다). 시한은 gitFetch

@@ -183,7 +183,7 @@
                  이미 이 토큰을 이름으로 들고 있었다. 게이트는
                  `check-contrast.mjs` 의 `CSS_TOKENS` 다 (FR-WRD-12).
      `:root` 의 `--term-green`(아래)은 첫 페인트용 폴백이고 `applyThemeObj` 가
-     곧 덮는다 (helpers.js:272). */
+     곧 덮는다 (theme-vars.js `themeVarsOf`). */
   --git-st-add:var(--term-green);
   /* ACCESSIBILITY_BASELINE_SRS FR-A11Y-27 (`UX-7`): 모바일 터치 타겟의 하한.
      **AA 요건이 아니다** — WCAG 2.1 에는 타겟 크기 SC 가 없고 44 는 AAA 의

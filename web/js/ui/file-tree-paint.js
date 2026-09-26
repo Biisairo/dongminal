@@ -299,7 +299,7 @@ Object.assign(FileTree.prototype, {
     /**
      * FR-EMS-3·4·5: **고르는 클릭은 여는 클릭이 아니다.**
      *
-     * `Mod` 는 Ctrl 과 Meta 중 정확히 하나다 (`helpers.js` 의 규약) — 둘 다 누른
+     * `Mod` 는 Ctrl 과 Meta 중 정확히 하나다 (`shortcuts.js` 의 규약) — 둘 다 누른
      * 조합까지 받으면 그것을 따로 쓰는 사람의 손짓을 가로챈다.
      */
     if(e.shiftKey&&!e.altKey){

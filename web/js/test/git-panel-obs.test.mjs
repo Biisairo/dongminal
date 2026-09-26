@@ -26,7 +26,6 @@ function setup(answer) {
     expose: ['GitStatusHub'],
     globals: {
       GitPanel: class {},
-      GIT_STATUS_API: '/api/git/status',
       GIT_STATUS_FETCH_TIMEOUT_MS: 20000,
       GIT_STATUS_HUB_TTL_MS: 500,
       apiGet,

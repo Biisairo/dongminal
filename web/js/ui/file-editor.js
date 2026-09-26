@@ -618,7 +618,7 @@ class FileEditor {
    * 목록, 뒤로 가기 스택이 전부 그쪽에 있다. 계기가 둘이어도 동작이 하나여야
    * 사용자가 두 가지를 배우지 않는다.
    *
-   * `Mod` 는 Ctrl 과 Meta 중 **정확히 하나**다 (`helpers.js` 의 규약) — 그래야
+   * `Mod` 는 Ctrl 과 Meta 중 **정확히 하나**다 (`shortcuts.js` 의 규약) — 그래야
    * `Ctrl+Cmd+클릭` 을 따로 쓰는 사람의 조합을 가로채지 않는다.
    */
   _lspBindClick() {

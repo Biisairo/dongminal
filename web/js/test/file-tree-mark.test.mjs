@@ -24,7 +24,6 @@ function tree(responses, opts = {}) {
     clock,
     globals: {
       FileTree: class {},
-      GIT_STATUS_API: '/api/git/status',
       gitStatusInterval: opts.safety ?? 30000,
       apiGet: async () => { throw new Error('탐색기가 hub 를 지나지 않고 직접 물었다') },
       editorGitBackoffMs: () => 1000,
