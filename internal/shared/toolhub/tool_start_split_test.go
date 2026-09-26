@@ -34,6 +34,8 @@ func TestToolStartDir(t *testing.T) {
 }
 
 func TestToolEnvOrderAndIdentity(t *testing.T) {
+	// toolEnv 는 히스토리 파일을 심는다 — 사용자의 인스턴스 홈에 쓰지 않게 가른다.
+	t.Setenv(dmenv.EnvHome, t.TempDir())
 	env := toolEnv("tid", "/bin/zsh", "/x/bin", []string{"SHELLVAR=1"}, []string{"EXTRA=1", "TERM=dumb"})
 	idx := func(kv string) int {
 		for i := len(env) - 1; i >= 0; i-- {
