@@ -20,29 +20,9 @@ Object.assign(App.prototype, {
     document.title=(n?'('+n+') ':'')+effectiveTitle();
   },
 
-  /**
-   * FR-OPT-5-2 (FEC-6): 입력 중인 설정의 저장을 미룬다. `key` 는 입력란 하나이고,
-   * 같은 키의 다음 입력이 타이머를 다시 건다 — 글자·드래그마다 PUT 을 보내지 않는다.
-   */
-  _saveSettingsSoon(key){
-    const timers=this._settingsSaveTimers||(this._settingsSaveTimers=new Map());
-    TIMERS.cancel(timers.get(key));
-    timers.set(key,this.timers.after(SETTINGS_SAVE_DEBOUNCE_MS,()=>{
-      timers.delete(key);
-      this.saveSettings();
-    },{owner:'app',label:'save-'+key}));
-  },
+  _saveSettingsSoon(key){ return this._settingsSync()._saveSettingsSoon(key) },
 
-  /**
-   * 확정(`blur`·`change`)은 미루지 않는다. 디바운스는 입력 **중**의 요청 수를
-   * 줄이는 장치이지 정해진 값을 늦추는 장치가 아니다 (실측 W7: 값을 바꾸고 바로
-   * 새로고침하면 입력이 통째로 날아갔다).
-   */
-  _saveSettingsNow(key){
-    const timers=this._settingsSaveTimers;
-    if(timers&&timers.has(key)){ TIMERS.cancel(timers.get(key)); timers.delete(key) }
-    return this.saveSettings();
-  },
+  _saveSettingsNow(key){ return this._settingsSync()._saveSettingsNow(key) },
 
   // FR-PGT-1: Settings ▸ Display 의 `페이지 제목`.
   _initPageTitle(){

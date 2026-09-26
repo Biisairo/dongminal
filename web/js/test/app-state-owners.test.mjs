@@ -98,3 +98,42 @@ test('FR-ASE-8 · A-6: app 에 갈아 끼운 gitReposRefresh 를 가족 안의 g
   assert.equal(n, 1);
   assert.equal(a._reposList.app, a);
 });
+
+// ── FR-ASE-9 · 설정 저장 ──
+
+const SYNC_METHODS = ['saveSettings', '_settingsLocalPending', '_saveSettingsSoon', '_saveSettingsNow', '_settingsAcceptRemote'];
+const SYNC_SHELLS = ['saveSettings', '_settingsLocalPending', '_saveSettingsSoon', '_saveSettingsNow', '_settingsSync'];
+
+function loadSync() {
+  const puts = [];
+  const ctx = load(['core/state-registry.js', 'core/settings-sync.js', 'core/app-settings.js', 'core/app-settings-init.js'], {
+    expose: ['SettingsSync'],
+    globals: {
+      App: function App() {}, SETTINGS_SCHEMA: [], SETTINGS_SAVE_FAIL: 'fail',
+      apiPut: async (path, body) => { puts.push(body); return { ok: true } },
+    },
+  });
+  return { ctx, puts };
+}
+
+test('FR-ASE-9: SettingsSync 가 저장 파이프라인을 갖고 App 에는 껍데기 넷과 지연 생성이 남는다', () => {
+  const { ctx } = loadSync();
+  assert.deepEqual(ownNames(ctx.SettingsSync.prototype), [...SYNC_METHODS].sort());
+  for (const n of SYNC_SHELLS) assert.equal(typeof ctx.App.prototype[n], 'function', n);
+  assert.equal(ctx.App.prototype._settingsAcceptRemote, undefined, '에코 판정이 App 에 남았다');
+});
+
+test('FR-ASE-9 · A-6: 에코 판정은 app 에 갈아 끼운 _settingsApply 를 부르고 보낸 본문은 얹지 않는다', async () => {
+  const { ctx, puts } = loadSync();
+  const app = new ctx.App();
+  app.clientId = 'c';
+  const applied = [];
+  app._settingsApply = (d) => applied.push(d);
+  await app.saveSettings();
+  const sync = app._settingsSync();
+  assert.equal(sync.app, app);
+  sync._settingsAcceptRemote({ ok: true, text: puts[0], data: {} });
+  assert.equal(applied.length, 0, '자기 에코를 얹었다');
+  sync._settingsAcceptRemote({ ok: true, text: '{"x":1}', data: { x: 1 } });
+  assert.equal(applied.length, 1);
+});

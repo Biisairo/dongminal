@@ -406,3 +406,55 @@ web/js/**/*.js 의 Object.assign(App.prototype,{…}) · class App 본문에서
 사실이지만, 그 전용 필드들이 **파일 경계와 정렬돼 있지 않다.**
 
 추가 추출은 위임 계층만 늘린다. **하지 않는 것이 이 SRS 의 결과다.**
+
+> **§9 가 이 결론을 개정한다** (2026-09-26, FR-OPT-16-1). 위 판정은 **파일**을 단위로
+> 했다. 단위를 **필드 가족**(§2.3a)으로 바꾸면 파일 안에 조건 셋을 만족하는 덩어리가 있다.
+
+---
+
+## 9. 묶음 E — 필드 가족 추출 (FR-OPT-16-1, 2026-09-26)
+
+### 9.1 무엇이 달라졌나
+
+§8 은 `app-editor.js` 처럼 **파일 전체**를 떼어 보고 "바깥이 부르는 것이 본체를 압도한다"
+고 했다. FEC-35 가 다시 센 것은 파일이 아니라 **접두 가족**이었다 — 한 주제의 상태와 그
+상태만 만지는 메서드. 가족 단위로 §7.3 의 조건 셋(상태 전용 · 바깥 호출 적음 · 앱으로 나가는
+길 좁음)을 다시 대 보았고, §2.3a 의 접근자 계약으로 셋을 옮겼다. 가족마다 별도 커밋이다.
+
+### 9.2 결과
+
+| 가족 | 소유 클래스 | 옮긴 상태 | 옮긴 메서드 | `App` 에 남은 것 | A-6 |
+|---|---|---|---|---|---|
+| LSP (FR-ASE-7) | `LspClient` (`core/lsp-client.js`·`lsp-paths.js`) | 10 | 41 | 지연 생성 1 · 껍데기 15 · 접근자 2 | 없음 |
+| Repo 목록 (FR-ASE-8) | `GitReposList` (`core/git-repos-list.js`) | 6 | 5 | 지연 생성 1 · 껍데기 4 | `gitReposRefresh` |
+| 설정 저장 (FR-ASE-9) | `SettingsSync` (`core/settings-sync.js`) | 5 | 4 + 에코 판정 1 | 지연 생성 1 · 껍데기 4 | `_settingsApply`·`_settingsRestore` |
+
+`web/js/core/app*.js` 의 서로 다른 `this.X=` 대입 대상(FEC-35 셈법):
+**135 → 117** (옮긴 상태 21, 소유 필드 3 추가). FR-ASE-10 의 예측과 같다.
+
+`APP_TESTING_NAMES` 는 한 글자도 바뀌지 않았다(A-7). e2e 가 읽는 `lspHoverLangs`·
+`lspDefLangs` 는 접근자가, `gitReposRefresh` 갈아 끼우기는 A-6 이 지킨다. 단위 검사
+`app-state-owners.test.mjs` 가 TC-ASE-5~7 을 고정한다.
+
+### 9.3 옮기지 않은 가족과 사유
+
+| 가족 | 실측 | 사유 |
+|---|---|---|
+| `_ed*` (편집기 7파일) | 메서드 104 중 **72** 를 바깥이 부름 · 전용 필드 7개가 **7파일에 흩어짐** | 조건 1·2. 가족이 아니라 여러 주제의 접두일 뿐이다 — `_edClip`·`_edReveal`·`_edStampsBusy` 는 서로 만나지 않는다. §8.3 판정 유지 |
+| `_attn*` (알림) | 메서드 28 중 **15** 를 바깥이 부름 · 중심 상태 `_attn` 이 공유(`app.js`·`app-settings-init`·`state-registry`·e2e 가 `testing.attn` 에 **새 Map 을 쓴다**) | 중심 상태는 `App` 에 남아야 한다. 남는 전용 필드 다섯(`_attnNotifs _attnTyped _audioCtx _attnPermAsked _attnInteractBound`)은 데스크톱 알림·재무장 잠금·알림음·초기화 가드의 **네 주제에 1~2개씩**이고, 그것을 만지는 메서드는 전부 `App` 에 남는 수명 메서드(`_onToolAttention`·`_attnClear`·`_attnDrop`·`_attnClearAll`·`initAttn`)가 부른다 — 상태 5개를 옮기려고 껍데기 7개와 A-6(`_attnBeep`)을 세우게 된다. 접근자로 호환은 가능하지만 이득이 없어 **제외한다** |
+| `_ws*`·`_save*` (워크스페이스 저장) | 11개 · `app.js`·`app-cmd.js` 두 파일 | 저장 경주(WORKSPACE_SAVE_CONFLICT)와 채택(`_applyRemoteWorkspace`)이 창·칸 배치 전체를 만진다 — 앱으로 나가는 길이 넓다(조건 3). e2e 계약이 6개 이름을 본다. 이번 범위에서 뺀다 |
+| `_slot*` | 5개 | `_slots` 가 `app-attn`·`app-focus-owner`·e2e 와 공유다. 조건 1 |
+
+### 9.4 검증
+
+- `make unit` 520 통과 · `make gates` 통과 · `make test`(전체 `go test -race`) 통과.
+  소스를 읽는 Go 검사 `TestSaveSettingsDerivesFromTable` 은 `saveSettings` 를 `settings-sync.js` 에서
+  찾도록 고쳤다 — 재는 것(본문을 `_settingsBody` 로 짓는다)은 같다 (A-8).
+- 가족마다 관련 e2e: LSP 62(`editor-lsp-nav`·`editor-lsp`·`ux-batch10`·`settings`·`focus-nav`),
+  Repo 목록 128(`git-sidebar`·`git-repos-push`·`sidebar-tabs`·`poll-interval`·`git-worktree-repo`·
+  `editor-traffic`·`git-polling`·`repo-tab`·`git-repo-missing`), 설정 저장 132(`save-pipeline`·
+  `settings`·`settings-reset-revert`·`settings-backup`·`theme`·`poll-interval`·`panel-shortcuts`·
+  `editor-ops`·`sidebar-tabs`).
+- Repo 목록 묶음에서 `git-repos-push` "안전망이 꺼져 있어도…" 1건이 9스펙을 한 번에 돌릴 때
+  실패한다. **변경 전 HEAD 에서도 같은 묶음으로 2회 모두 같은 자리에서 실패**했고 단독으로는
+  5회 반복 전부 통과한다 — 앞 스펙이 남긴 상태에 기대는 기존 순서 의존이며 이 묶음의 결함이 아니다.

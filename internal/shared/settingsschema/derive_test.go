@@ -46,8 +46,13 @@ func TestSaveSettingsDerivesFromTable(t *testing.T) {
 	}
 	s := string(src)
 	// 본문을 짓는 일은 `_settingsBody` 가 한다 — saveSettings 가 비행 합치기를
-	// 갖게 되면서 갈렸다 (OPTIMIZE_REFACTOR_SRS FR-OPT-5-2).
-	if save := between(s, "saveSettings(){", "\n  },"); !strings.Contains(save, "this._settingsBody()") {
+	// 갖게 되면서 갈렸다 (OPTIMIZE_REFACTOR_SRS FR-OPT-5-2). 비행은 `SettingsSync` 의
+	// 것이고 본문은 앱이 짓는다 (APP_STATE_EXTRACT_SRS FR-ASE-9).
+	syncSrc, err := os.ReadFile("../../../web/js/core/settings-sync.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if save := between(string(syncSrc), "saveSettings(){", "\n  },"); !strings.Contains(save, "this.app._settingsBody()") {
 		t.Fatal("saveSettings 가 _settingsBody 로 본문을 짓지 않는다")
 	}
 	body := between(s, "_settingsBody(){", "\n  },")

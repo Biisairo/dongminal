@@ -875,6 +875,8 @@
 <!-- 폴링 주기 설정 (POLL_INTERVAL_SETTINGS_SRS). 표가 진실이므로 app-settings.js
      **앞**이어야 한다 — 그쪽 `_settingsApply` 가 `POLL_SETTINGS` 를 지난다. -->
 <script src="js/core/app-polling.js?v=__ASSETV__"></script>
+<!-- 설정 저장 파이프라인 (APP_STATE_EXTRACT_SRS FR-ASE-9). `app-settings.js` 의 껍데기가 부른다. -->
+<script src="js/core/settings-sync.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings.js?v=__ASSETV__"></script>
 <!-- 설정창의 패널들 (FE_MODULE_BOUNDARY_SRS FR-FMB-10). 전부 App.prototype 증강이라
      app.js 뒤이기만 하면 되고, 서로를 로드 시점에 참조하지 않는다.
