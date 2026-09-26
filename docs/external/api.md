@@ -88,8 +88,8 @@
 |--------|------|------|
 | POST | `/api/upload?dir=<path>` | multipart 업로드 (`file` 필드, 선택 `relPath`). 중복 파일은 `(1)`, `(2)` suffix. `relPath` 가 있으면 `dir` **아래로** 구조를 세운다(중간 디렉터리는 만들되 `dir` 자신은 만들지 않는다) — 터미널에 폴더를 끌어다 놓는 길이다. 개명은 **마지막 조각에만** 걸린다. `{ name, size, path }` 반환. 본문 상한 512MiB(초과 413), `dir` 은 실재하는 디렉터리여야 한다(아니면 400) |
 | GET | `/api/download?path=<path>` | 파일 다운로드. 이름은 `filename` + `filename*`(RFC 5987) 두 벌로 나간다. 디렉터리는 400 |
-| GET | `/api/file/read?path=<abs>` | 편집기 탭이 파일을 읽는 경로. 절대경로만 허용 — **경로 경계는 없다**(아래) |
-| POST | `/api/file/write` | 바디 `{path, content}`. 편집기 탭의 저장 |
+| GET | `/api/file/read?path=<abs>` | 편집기 탭이 파일을 읽는 경로. 절대경로만 허용 — **경로 경계는 없다**(아래). 32 MiB 를 넘으면 413 `too_large` |
+| POST | `/api/file/write` | 바디 `{path, content}`. 편집기 탭의 저장. 저장할 파일이 32 MiB 를 넘으면 413 `too_large`(쓰지 않는다), 본문이 64 MiB + 64 KiB 를 넘으면 413 `body_too_large` |
 | POST | `/api/file/stamps` | 열어 둔 파일들이 바뀌었는지만 값싸게 묻는다. 본문 `{paths:[<abs>…]}` → `{stamps:{<abs>: "<문자열>"}}`. 값은 `/api/file/read` 가 헤더 `X-File-Stamp` 로 주는 것과 **같은 표식**이며 **해석하지 않고 같은지만 본다.** 읽을 수 없거나 없거나 디렉터리인 경로는 오류가 아니라 응답에서 **빠진다.** `paths` 는 512개까지 |
 | GET | `/api/fs/list?root=<abs>&path=<abs>&offset=<n>` | 탐색기 한 겹 조회. dot 항목 포함, 정렬은 서버가 한다. 응답 `{path, entries:[{name,dir,link,linkDir}], offset, total, truncated, stamp}`. 한 번에 최대 10,000개이며 `truncated` 는 "이 응답 뒤에 더 있다" 는 뜻이다. `offset`(기본 0, 음수·정수 아님은 0)으로 그 다음 쪽을 받아 **이어 붙인다** — 같은 `offset` 이 같은 자리를 가리키는 것은 순서가 서버의 것이기 때문이다. `offset >= total` 은 오류가 아니라 빈 배열이다. `stamp` 는 **이 응답과 같은 관측**의 변경 표식이다 (아래 `/api/fs/stamp` 와 같은 값) |
 | POST | `/api/fs/stamp` | 겹이 바뀌었는지만 값싸게 묻는다. 본문 `{root, dirs:[<abs>…]}` → `{stamps:{<abs>: "<문자열>"}}`. 값은 그 디렉터리의 mtime 이며 **해석하지 않고 같은지만 본다.** 읽을 수 없거나 루트 밖이거나 디렉터리가 아닌 겹은 오류가 아니라 응답에서 **빠진다.** `dirs` 는 512개까지 |
@@ -204,7 +204,7 @@
 | PUT | `/api/lsp/paths` | 경로 표 전체 교체. 모르는 서버 400 `bad_request`, 상대경로 400 `path_must_be_absolute`, 저장 실패 500 `save_failed`. 바뀐 서버의 세션은 다시 선다 |
 | POST | `/api/lsp/definition` | 정의로 이동 |
 | POST | `/api/lsp/references` | 참조 찾기 (`includeDeclaration`) |
-| POST | `/api/lsp/hover` | 호버 정보 |
+| POST | `/api/lsp/hover` | 호버 정보. 정의·참조·호버가 싣는 텍스트는 32 MiB 까지다(넘으면 사유로 답한다) |
 
 정의·참조·호버의 본문은 `{root, path, text?, version?, line, col}` 이다 (줄·열은 1 부터).
 `version`(선택)은 브라우저가 붙인 문서 판이다. 판을 실으면 응답에 판 협상 필드가 붙는다:
@@ -266,7 +266,7 @@
 | POST | `/api/git/discard` | 변경을 버린다 |
 | POST | `/api/git/commit` | 커밋 — **작업**이다: `{job}` 을 돌려주고 oid·undoToken·실행 후 status 는 끝난 작업의 `result` 에 온다 |
 | POST | `/api/git/undo-last` | 마지막 커밋 되돌리기 (창이 지나면 거절) |
-| GET | `/api/git/diff-content` | diff 본문 |
+| GET | `/api/git/diff-content` | diff 본문. 한 쪽이 32 MiB 를 넘으면 그 쪽은 `kind:"too_large"` 와 크기만 온다 |
 | GET | `/api/git/blob` | diff 한쪽의 **원본 바이트** — 그림만 내보낸다 (`<img src>` 가 건다) |
 | GET | `/api/git/file-head` | HEAD 판의 파일 내용 |
 | GET | `/api/git/blame` | 줄별 마지막 변경자 |

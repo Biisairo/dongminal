@@ -44,6 +44,9 @@ type Service struct {
 	maxOutput int
 	rec       *Recorder
 	hints     HintLog // FR-GIT-93. 제로값이 곧 기본 용량의 링이다
+	// ownRun 은 run 이 New 가 만든 기본 실행기라는 뜻이다. 기본 실행기는 출력 상한을
+	// 쥐고 있어 Sized 가 새로 만들어야 하고, 주입한 실행기는 그대로 넘긴다.
+	ownRun bool
 }
 
 type Option func(*Service)
@@ -73,12 +76,31 @@ func New(opts ...Option) *Service {
 		s.rec = NewRecorder(DefaultRecordCap)
 	}
 	if s.run == nil {
-		limit := s.maxOutput
-		s.run = func(ctx context.Context, dir string, args []string) (Output, error) {
-			return execGit(ctx, dir, args, limit, "")
-		}
+		s.run = cappedRunner(s.maxOutput)
+		s.ownRun = true
 	}
 	return s
+}
+
+func cappedRunner(limit int) Runner {
+	return func(ctx context.Context, dir string, args []string) (Output, error) {
+		return execGit(ctx, dir, args, limit, "")
+	}
+}
+
+// Sized 는 출력 상한만 n 인 Service 를 준다 (OPTIMIZE_REFACTOR_SRS FR-OPT-15-1).
+//
+// 출력 상한은 서비스 전체에 하나다(FR-GIT-6). 편집기 파일 상한까지 본문을 내야 하는
+// 조회(diff 본문 · HEAD 판 열기)만 이것을 쓴다. 실행기·시한·**실행 기록**은 원본과
+// 나눈다 — 따로 `New` 하면 그 실행이 Console 에서 사라진다. 복구 기록(hints)은 나누지
+// 않으므로 **조회 전용**이다.
+func (s *Service) Sized(n int) *Service {
+	d := &Service{run: s.run, writeRun: s.writeRun, timeout: s.timeout, maxOutput: n, rec: s.rec}
+	if s.ownRun {
+		d.run = cappedRunner(n)
+		d.ownRun = true
+	}
+	return d
 }
 
 // Records 는 최근 기록을 준다 (최신이 마지막). n<=0 이면 보유분 전부다.

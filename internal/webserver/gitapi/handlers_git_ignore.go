@@ -123,7 +123,7 @@ func (s *GitServer) apiGitFileHead(w http.ResponseWriter, r *http.Request) {
 	p := r.URL.Query().Get("path")
 	req := gitHeadFileRequested{Repo: requested, Path: p}
 
-	dc, err := query.DiffContentOf(s.Git.Service(), r.Context(), root, query.AxisWorktreeHead, p, "")
+	dc, err := query.DiffContentOf(s.diffGit(), r.Context(), root, query.AxisWorktreeHead, p, "")
 	if err != nil {
 		gitError(w, err)
 		return

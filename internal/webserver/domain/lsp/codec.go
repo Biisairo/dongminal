@@ -7,14 +7,18 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"dongminal/internal/shared/editorlimit"
 )
 
 // maxFrame 은 한 프레임의 본문 상한이다 (FR-LSP-53).
 //
 // 상한이 없으면 언어 서버가 보낸 (또는 망가진) 길이 하나로 서버 메모리가 통째로
 // 잡힌다. 큰 이유는 `textDocument/didOpen` 이 파일 전체를 싣고, 큰 저장소의
-// 진단 한 묶음도 수 MB 가 되기 때문이다.
-const maxFrame = 32 << 20
+// 진단 한 묶음도 수 MB 가 되기 때문이다. 그래서 텍스트 상한(`MaxTextBytes`)을 JSON
+// 문자열로 실은 최악의 크기다 (OPTIMIZE_REFACTOR_SRS FR-OPT-15-1) — 종전의 32 MiB
+// 고정값은 텍스트 상한이 32 MiB 가 되면 didOpen 한 프레임을 담지 못한다.
+var maxFrame = int(editorlimit.BodyMaxBytes(MaxTextBytes))
 
 // LSP 의 전송은 HTTP 를 닮은 헤더와 본문이다:
 //

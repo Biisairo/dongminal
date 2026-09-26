@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/editorlimit"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/lsp"
 )
@@ -22,8 +23,10 @@ import (
 const lspMaxBody = 64 << 10
 
 // lspAskMaxBody 는 정의·참조 요청의 상한이다. 파일 텍스트가 실리므로(D-3) 훨씬
-// 크다 — 도메인 계층의 `MaxTextBytes` 와 짝이며, 그쪽이 실제 판정을 한다.
-const lspAskMaxBody = lsp.MaxTextBytes + (64 << 10)
+// 크다 — 도메인 계층의 `MaxTextBytes` 를 JSON 문자열로 실은 최악의 크기이며, 텍스트
+// 판정은 그쪽이 한다. 종전의 `MaxTextBytes + 64 KiB` 는 개행이 많은 상한 안의
+// 텍스트를 413 으로 거절했다 (OPTIMIZE_REFACTOR_SRS FR-OPT-15-1).
+var lspAskMaxBody = editorlimit.BodyMaxBytes(lsp.MaxTextBytes)
 
 // lspReadBody 는 본문을 상한까지 읽는다. 실패하면 답하고 false 다.
 //

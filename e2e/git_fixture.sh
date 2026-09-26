@@ -135,12 +135,14 @@ version https://git-lfs.github.com/spec/v1
 oid sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 size 123456789
 PTR
-# 1MB 상한(O2)을 넘기는 텍스트 파일
-awk 'BEGIN{for(i=0;i<40000;i++) printf "line %d — 상한 초과 확인용 여백 텍스트\n", i}' > "$d/huge.txt"
+# 편집기 파일 상한(32 MiB, O2 · OPTIMIZE_REFACTOR_SRS D-OPT-9)을 넘기는 텍스트 파일.
+# 줄 하나가 64 바이트이므로 530000 줄 ≈ 32.3 MiB 다. 같은 줄의 반복이라 저장소
+# 객체는 작다.
+awk 'BEGIN{s=sprintf("%063d", 0); for(i=0;i<530000;i++) print s}' > "$d/huge.txt"
 git -C "$d" add -A; git -C "$d" commit -qm "blobs"
 printf '\x00changed\n' >> "$d/bin.dat"
 printf 'tail\n' >> "$d/huge.txt"
-say blobs "바이너리 + LFS 포인터 + 1MB 초과 텍스트"
+say blobs "바이너리 + LFS 포인터 + 32 MiB 초과 텍스트"
 
 # ── 6b. 그림 — M9_SRS FR-M9-20·21, V-M9-20 ──
 #

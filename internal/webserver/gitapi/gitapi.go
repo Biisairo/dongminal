@@ -8,6 +8,7 @@
 package gitapi
 
 import (
+	"sync"
 	"time"
 
 	"dongminal/internal/webserver/domain/git/jobs"
@@ -15,6 +16,7 @@ import (
 	"dongminal/internal/webserver/domain/submodule"
 	"dongminal/internal/webserver/domain/worktree"
 
+	"dongminal/internal/shared/editorlimit"
 	"dongminal/internal/webserver/domain/git/core"
 )
 
@@ -69,6 +71,13 @@ type GitServer struct {
 	// 종단은 503 이다. 주입하지 않은 판이 조용히 공용 서비스로 떨어져 1MiB 에서
 	// 잘리는 것보다, 없다고 말하는 쪽이 낫다.
 	Images *core.Service
+
+	// diffs 는 diff 본문과 HEAD 판 열기의 실행기다 (OPTIMIZE_REFACTOR_SRS FR-OPT-15-1).
+	// 공용 Service 의 출력 상한(1 MiB)으로는 편집기 파일 상한(32 MiB)의 본문을 낼 수
+	// 없다. 처음 쓸 때 공용 Service 에서 출력 상한만 올려 만든다(`diffGit`) — 실행
+	// 기록은 공용과 나누므로 Console 이 그 실행을 그대로 본다.
+	diffsOnce sync.Once
+	diffs     *core.Service
 
 	// RepoGuard 는 `repo` 가 다뤄도 되는 자리인가다. 판정 대상은 요청 문자열이
 	// 아니라 **푼 저장소 루트**다.
@@ -127,4 +136,10 @@ type GitServer struct {
 	// 판정) — Run 의 Manager 전체를 들고 오지 않는다. 이 패키지가 그 Manager 로
 	// git 을 실행할 일이 없기 때문이다(worktree 실행은 UserWorktrees 하나로 충분).
 	RunWorktreeRoot string
+}
+
+// diffGit 은 diff 본문·HEAD 판 열기가 쓰는 실행기다 (`diffs` 필드 주석).
+func (s *GitServer) diffGit() *core.Service {
+	s.diffsOnce.Do(func() { s.diffs = s.Git.Service().Sized(editorlimit.FileMaxBytes) })
+	return s.diffs
 }

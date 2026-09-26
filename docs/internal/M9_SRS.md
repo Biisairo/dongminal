@@ -203,7 +203,7 @@ diff 가 보여 준 것과 다른 바이트를 내주게 된다.
   SVG **만** 내보낸다 · `X-Content-Type-Options: nosniff` · SVG 에는
   `Content-Security-Policy: sandbox`. 임의의 파일을 추론된 MIME 으로 같은 출처에서 인라인
   제공하면 저장형 XSS 이고, **그것은 저장소 안의 파일이라고 달라지지 않는다**
-- 크기 상한은 `fileReadMaxBytes`(10MiB)다. `DiffMaxBytes`(1MiB)가 아니다 — 그쪽은 **Monaco 에
+- 크기 상한은 `fileReadMaxBytes`(10MiB — 2026-09-26 부터 32 MiB, OPTIMIZE_REFACTOR_SRS D-OPT-9)다. `DiffMaxBytes`(1MiB)가 아니다 — 그쪽은 **Monaco 에
   줄 텍스트**의 상한이고 그림에는 뜻이 없다 (D-M9-14). 블롭 쪽은 **전용 git 서비스**가 낸다 —
   공용 `core.Service` 의 출력 상한이 서비스 전체에 하나이기 때문이다 (D-M9-16)
 - **`imageMime` 판정도 그 전용 서비스를 쓴다.** 1MiB 를 넘는 그림이 `too_large` 로 갈려

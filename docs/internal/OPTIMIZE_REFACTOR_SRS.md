@@ -414,6 +414,39 @@ e2e 요청 타임라인으로 잰다.
   파일 상한에 JSON 인코딩 여유를 더한 값이다.
 - 검증: 상한 바로 아래 파일의 읽기·저장·LSP·diff 가 성공하고 상한 초과는 기존 코드(`too_large`)로 거절된다.
 
+**구현 (O15, 2026-09-26)**
+
+- 원천은 `internal/shared/editorlimit` 한 곳이다: `FileMaxBytes = 32 MiB` 와
+  `BodyMaxBytes(n) = 2n + 64 KiB`. 파생: `httpapi.fileReadMaxBytes`(read·raw·probe·write, 그림
+  전용 git 실행기) · `lsp.MaxTextBytes`(요청 텍스트와 재동기화 — DOM-30 의 8/10 MiB 두 벌을
+  하나로) · LSP 요청 본문 `lspAskMaxBody` · LSP 프레임 상한 `maxFrame` · `query.DiffMaxBytes`
+  (diff 본문 · HEAD 판 열기 · 커밋 템플릿 읽기) · `dongminal verify` 의 상한 초과 검사. 브라우저는
+  값을 들지 않는다 — `probe.maxBytes` 를 쓴다 (FR-FAB-9).
+- **저장 본문 = 파일 상한 × 2 + 64 KiB.** JSON 문자열에서 개행·따옴표·역슬래시·탭은 두
+  바이트가 된다. 그 밖의 제어 문자(`\u00XX`, 여섯 바이트)가 절반을 넘는 파일은 413
+  `body_too_large` 일 수 있다 — 여섯 배를 받으면 본문 하나가 192 MiB 까지 앉는다. 인코딩한
+  결과(디스크 바이트)가 파일 상한을 넘으면 413 `too_large` 이고 쓰지 않는다 — 쓰게 두면
+  방금 저장한 파일을 다시 열 수 없다.
+- **git 출력 상한.** 공용 `core.Service` 의 출력 상한(1 MiB, FR-GIT-6)은 그대로다. diff 본문과
+  HEAD 판 열기만 `Service.Sized(FileMaxBytes)` 를 쓴다 — 실행기·시한·실행 기록을 공용과
+  나누므로 Console 이 그 실행을 그대로 본다. 부분 스테이징의 unified diff(`HunksOf`)는
+  편집기가 파일을 여는 경로가 아니므로 공용 상한 그대로다 (1 MiB 를 넘는 패치는 종전처럼
+  `diff_truncated`).
+
+**최악 메모리 (요청 하나, 서버 힙, 언어 서버 제외)**
+
+| 경로 | 구성 | 최악 |
+|---|---|---|
+| 읽기 (`/api/file/read` 판별 경로) | 원문 32 + 디코드 결과 ≤ 64 | ≈ 96 MiB |
+| 저장 | 본문 ≤ 64 + `content` 32 + 인코딩 결과 ≤ 64 (UTF-16) | ≈ 160 MiB |
+| LSP 요청 | 본문 ≤ 64 + 텍스트 32 + didOpen/didChange 프레임 ≤ 64 | ≈ 160 MiB |
+| diff (두 쪽 32 MiB) | git 출력 버퍼 ≤ 64(append 성장) + 문자열 32 · 워킹 트리 32 + 32 · JSON 응답 ≤ 128 | ≈ 290 MiB |
+
+동시성 상한은 두지 않는다. 한 사용자의 로컬 서버이고 네 경로 모두 사용자 조작 하나에
+요청 하나다 — LSP 는 판이 바뀐 요청만 텍스트를 싣고(FR-OPT-6-2) 호버는 앞 요청을 끊으며,
+diff 는 요청이 끊기면 git 실행이 함께 죽는다. 셋이 겹친 최악은 ≈ 610 MiB 의 일시 할당이다
+(리스크 MEDIUM — 실측에서 문제가 되면 경로 공용 가중 세마포어를 둔다).
+
 ## 4. 결정 (2026-09-25 사용자 승인 — 권장안 일괄 확정)
 
 권장안을 먼저 적었다. 권장안과 다르게 정하면 해당 FR 을 개정한다.

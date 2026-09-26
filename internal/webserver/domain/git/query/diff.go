@@ -13,6 +13,7 @@ import (
 
 	"dongminal/internal/webserver/domain/git/core"
 
+	"dongminal/internal/shared/editorlimit"
 	"dongminal/internal/shared/textenc"
 )
 
@@ -40,10 +41,15 @@ const gitlinkMode = "160000"
 
 // 상한은 상수로 못박는다 — 호출 지점마다 다른 숫자가 흩어지면 상한이 상한이
 // 아니게 된다.
+//
+// DiffMaxBytes 는 편집기 파일 상한이다 (O2 · FR-GIT-48, OPTIMIZE_REFACTOR_SRS
+// FR-OPT-15-1 · D-OPT-9). `git show` 로 본문을 읽으므로 부르는 쪽은 출력 상한이 이
+// 값 이상인 Service 를 준다 (`core.Service.Sized`) — 공용 Service(1 MiB)로 부르면
+// 1 MiB 를 넘는 쪽은 잘려 `too_large` 가 된다.
 const (
-	DiffMaxBytes       = 1 << 20 // 1MiB (O2, FR-GIT-48)
-	LFSMaxPointerBytes = 1024    // LFS 포인터는 작다
-	BinarySniffBytes   = 8000    // git 의 휴리스틱과 같은 폭
+	DiffMaxBytes       = editorlimit.FileMaxBytes
+	LFSMaxPointerBytes = 1024 // LFS 포인터는 작다
+	BinarySniffBytes   = 8000 // git 의 휴리스틱과 같은 폭
 )
 
 // 거부 사유는 열거한다 — 서버가 400·404 를 구분해 답해야 하고, 전부 500 으로

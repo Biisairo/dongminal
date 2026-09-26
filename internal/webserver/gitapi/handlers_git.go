@@ -629,9 +629,9 @@ func (s *GitServer) apiGitDiffContent(w http.ResponseWriter, r *http.Request) {
 	var dc query.DiffContent
 	var err error
 	if req.Axis == query.AxisCommitParent {
-		dc, err = query.DiffCommit(s.Git.Service(), r.Context(), root, req.Oid, req.ParentOid, req.Path, req.OrigPath)
+		dc, err = query.DiffCommit(s.diffGit(), r.Context(), root, req.Oid, req.ParentOid, req.Path, req.OrigPath)
 	} else {
-		dc, err = query.DiffContentOf(s.Git.Service(), r.Context(), root, req.Axis, req.Path, req.OrigPath)
+		dc, err = query.DiffContentOf(s.diffGit(), r.Context(), root, req.Axis, req.Path, req.OrigPath)
 	}
 	if err != nil {
 		gitError(w, err)
@@ -647,7 +647,7 @@ func (s *GitServer) apiGitDiffContent(w http.ResponseWriter, r *http.Request) {
 	}
 	// M9_SRS FR-M9-20: **그림으로 볼 수 있는가.** 판정은 내용이고 전용 실행기를
 	// 쓴다 (D-M9-16) — 1MiB 를 넘는 그림이 `too_large` 로 갈려 "그림이 아닌 것" 이
-	// 되면 상한을 10MiB 로 올린 뜻이 사라진다.
+	// 되면 그림에 파일 종단의 상한을 준 뜻이 사라진다.
 	//
 	// `Images` 가 없으면 비워 둔다. 비어 있으면 화면은 종전대로 안내만 보인다 —
 	// 새 갈래가 서지 않는 것이지 틀린 답을 주는 것이 아니다.

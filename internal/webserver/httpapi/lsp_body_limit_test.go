@@ -15,7 +15,7 @@ import (
 func TestLSP_OversizeBodyIs413(t *testing.T) {
 	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{LSP: &fakeLSP{}})
 	h := srv.Handler()
-	pad := strings.Repeat("x", lspAskMaxBody)
+	pad := strings.Repeat("x", int(lspAskMaxBody))
 	cases := []struct {
 		method, path string
 	}{

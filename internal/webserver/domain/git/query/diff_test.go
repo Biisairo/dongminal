@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"dongminal/internal/shared/editorlimit"
 	"dongminal/internal/webserver/domain/git/core"
 )
 
@@ -559,5 +560,12 @@ func TestDiffContent_RealGit(t *testing.T) {
 	}
 	if dc.Original.Kind != DiffKindAbsent || dc.Modified.Kind != DiffKindText {
 		t.Fatalf("초기 저장소 = %q/%q", dc.Original.Kind, dc.Modified.Kind)
+	}
+}
+
+// OPTIMIZE_REFACTOR_SRS FR-OPT-15-1 · D-OPT-9: diff 본문 상한은 편집기 파일 상한과 같다.
+func TestDiffMaxBytes_IsEditorLimit(t *testing.T) {
+	if DiffMaxBytes != editorlimit.FileMaxBytes {
+		t.Fatalf("DiffMaxBytes=%d want editorlimit.FileMaxBytes=%d", DiffMaxBytes, editorlimit.FileMaxBytes)
 	}
 }

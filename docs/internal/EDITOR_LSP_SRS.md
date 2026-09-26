@@ -431,6 +431,12 @@ EDITOR_FIND_PANEL_SRS FR-EFP-1 이 `el` 의 keydown 을 capture 로 옮겼다. �
   않는다.
 - **FR-LSP-53** 요청이 싣는 텍스트에 크기 상한이 있다. 넘으면 거절하고 그 사실을
   알린다.
+  > **값 (OPTIMIZE_REFACTOR_SRS FR-OPT-15-1 · D-OPT-9, 2026-09-26).** 편집기 파일 상한
+  > **32 MiB** (`lsp.MaxTextBytes = editorlimit.FileMaxBytes`)이며 디스크 재동기화도 같은
+  > 값이다 — 종전에는 요청 8 MiB · 재동기화 10 MiB 로 갈려(DOM-30) 8~10 MiB 파일은
+  > 재동기화로는 보내지고 요청으로는 거절됐다. 요청 본문 상한은 텍스트를 JSON 문자열로
+  > 실은 최악(두 배)에 64 KiB 를 더한 것이고(종전 텍스트 + 64 KiB — 개행이 많은 상한 안의
+  > 텍스트가 413 이었다), 언어 서버 프레임 상한도 같은 값에서 나온다.
 
 ---
 

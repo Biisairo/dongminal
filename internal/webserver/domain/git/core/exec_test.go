@@ -339,3 +339,54 @@ func gitPath(t *testing.T) string { return gittest.Path(t) }
 
 // tempRepo 는 커밋 하나를 가진 임시 저장소다 (`gittest.Repo`, M8 D-A-20).
 func tempRepo(t *testing.T) string { return gittest.Repo(t) }
+
+// OPTIMIZE_REFACTOR_SRS FR-OPT-15-1: Sized 는 출력 상한만 다르다 — 실행 기록은 원본과
+// 같은 링에 남고(Console 이 그 실행을 본다), 원본의 상한은 그대로다.
+func TestService_SizedSharesRecordsOnly(t *testing.T) {
+	if testing.Short() {
+		t.Skip("실제 git 이 필요하다")
+	}
+	repo := tempRepo(t)
+	if err := os.WriteFile(filepath.Join(repo, "big.txt"), []byte(strings.Repeat("0123456789", 500)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(gitPath(t), "add", "big.txt")
+	cmd.Dir = repo
+	if o, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git add: %v\n%s", err, o)
+	}
+
+	base := New(WithMaxOutput(1024))
+	big := base.Sized(1 << 20)
+	if base.MaxOutput() != 1024 || big.MaxOutput() != 1<<20 {
+		t.Fatalf("상한 base=%d big=%d", base.MaxOutput(), big.MaxOutput())
+	}
+	out, err := big.Exec(context.Background(), repo, "show", ":big.txt")
+	if err != nil {
+		t.Fatalf("Exec: %v", err)
+	}
+	if out.StdoutTruncated || len(out.Stdout) != 5000 {
+		t.Fatalf("큰 상한에서 잘렸다: truncated=%v len=%d", out.StdoutTruncated, len(out.Stdout))
+	}
+	if out, _ := base.Exec(context.Background(), repo, "show", ":big.txt"); !out.StdoutTruncated {
+		t.Fatal("원본의 상한이 바뀌었다")
+	}
+	if recs := base.Records(0); len(recs) != 2 {
+		t.Fatalf("기록이 원본 링에 둘 다 남지 않았다: %d", len(recs))
+	}
+}
+
+// 주입한 실행기(테스트의 가짜)는 Sized 뒤에도 그대로다.
+func TestService_SizedKeepsInjectedRunner(t *testing.T) {
+	called := 0
+	base := New(WithRunner(func(context.Context, string, []string) (Output, error) {
+		called++
+		return Output{Stdout: "ok"}, nil
+	}))
+	if _, err := base.Sized(1<<20).Exec(context.Background(), t.TempDir(), "status"); err != nil {
+		t.Fatalf("Exec: %v", err)
+	}
+	if called != 1 {
+		t.Fatalf("주입 실행기 호출 %d want 1", called)
+	}
+}

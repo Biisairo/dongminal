@@ -556,7 +556,7 @@ test.describe('묶음 F — Diff 뷰', () => {
     await huge.click();
     await expect(diff(page).locator('.git-diff-note'))
       .toContainText('상한', { timeout: 20000 });
-    // 상한을 얼마나 넘었는지는 안내가 아니라 크기가 답한다 (1MiB 초과).
+    // 상한을 얼마나 넘었는지는 안내가 아니라 크기가 답한다 (32 MiB 초과).
     expect(await noteLines(page)).toMatch(/\d+\.\d MB/);
   });
 });

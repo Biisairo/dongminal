@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"dongminal/internal/shared/editorlimit"
 	"dongminal/internal/webserver/domain/ext"
 )
 
@@ -19,10 +20,13 @@ const IdleAfter = 20 * time.Minute
 // MaxSessions 는 동시에 살아 있는 세션의 상한이다 (FR-LSP-19).
 const MaxSessions = 6
 
-// MaxTextBytes 는 요청이 실을 수 있는 파일 텍스트의 상한이다 (FR-LSP-53).
+// MaxTextBytes 는 요청이 실을 수 있는 파일 텍스트의 상한이자 디스크 재동기화가 읽는
+// 파일의 상한이다 (FR-LSP-53). 편집기 파일 상한과 같다 (OPTIMIZE_REFACTOR_SRS
+// FR-OPT-15-1 · DOM-30) — 종전에는 요청 8 MiB · 재동기화 10 MiB 로 갈려 8~10 MiB
+// 파일은 재동기화로는 보내지고 요청으로는 거절됐다.
 //
 // 요청마다 현재 텍스트가 오는 구조이므로(D-3) 이 값이 곧 한 요청의 크기다.
-const MaxTextBytes = 8 << 20
+const MaxTextBytes = editorlimit.FileMaxBytes
 
 // SweepEvery 는 idle 정리의 주기다.
 const SweepEvery = 2 * time.Minute

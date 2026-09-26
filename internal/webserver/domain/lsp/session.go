@@ -190,10 +190,6 @@ type Doc struct {
 // ErrNeedText 는 텍스트 없이 온 요청의 판을 세션이 모른다는 답이다 (FR-OPT-6-2).
 var ErrNeedText = errors.New("lsp: 이 판의 텍스트를 모른다")
 
-// ResyncMaxBytes 는 디스크 재동기화가 읽는 파일의 상한이다 — 파일 읽기 종단의
-// 상한(10MiB)과 같다. 넘으면 그 문서를 닫는다.
-const ResyncMaxBytes = 10 << 20
-
 // newSession 은 세션을 만든다. 프로세스는 여기서 서고, 핸드셰이크는 **첫 요청이**
 // 기다린다 — 기동만 해 두고 아무도 묻지 않는 경우에 그 비용을 미리 내지 않는다.
 func newSession(root string, d ext.Server, exe string, start Starter,
@@ -475,12 +471,12 @@ func (s *Session) resync(path string) {
 		return
 	}
 	st, err := os.Stat(path)
-	if err != nil || !st.Mode().IsRegular() || st.Size() > ResyncMaxBytes {
+	if err != nil || !st.Mode().IsRegular() || st.Size() > MaxTextBytes {
 		s.closeLocked(uri)
 		return
 	}
 	data, err := os.ReadFile(path)
-	if err != nil || len(data) > ResyncMaxBytes || !utf8.Valid(data) {
+	if err != nil || len(data) > MaxTextBytes || !utf8.Valid(data) {
 		s.closeLocked(uri)
 		return
 	}
