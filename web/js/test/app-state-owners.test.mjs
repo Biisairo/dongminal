@@ -1,0 +1,69 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+import { load } from './harness.mjs';
+
+/**
+ * APP_STATE_EXTRACT_SRS 묶음 E (FR-OPT-16-1) — App 필드 가족을 소유 클래스로 옮긴다.
+ *
+ * 재는 것은 §2.3a 의 계약이다:
+ *   TC-ASE-5  소유 클래스의 메서드 집합이 옮기기 전과 같고, App 에 남은 그 가족의 이름이
+ *             정확히 껍데기·접근자 목록이다
+ *   TC-ASE-6  접근자는 accessor 서술자다 — 읽기가 소유자를 만들지 않고 쓰기가 소유자에 닿는다
+ *   TC-ASE-7  e2e 가 app 에 갈아 끼운 메서드를 가족 안의 호출이 부른다 (A-6)
+ */
+const ownNames = (proto) => Object.getOwnPropertyNames(proto).filter((n) => n !== 'constructor').sort();
+
+// ── FR-ASE-7 · LSP ──
+
+const LSP_METHODS = ['_initLSP', '_lspAsk', '_lspCanBack', '_lspDismissed', '_lspExtOf', '_lspFindRefs',
+  '_lspGo', '_lspGotoDef', '_lspHover', '_lspHoverWhere', '_lspInstall', '_lspInstallOnce', '_lspJump',
+  '_lspList', '_lspNavBack', '_lspOnDiagnostics', '_lspOpenerRegister', '_lspPaint', '_lspPathOfModel',
+  '_lspPathPut', '_lspPathRows', '_lspPathsBind', '_lspPathsLoad', '_lspProvideDef', '_lspPush',
+  '_lspRefresh', '_lspRel', '_lspRootOfPath', '_lspSetDiag', '_lspStatusCached', '_lspStatusInvalidate',
+  '_lspUriPathOf', '_lspVersionOf', '_lspWhere', 'lspClearDiagnostics', 'lspClickDef', 'lspDismiss',
+  'lspDocClosed', 'lspHoverRegister', 'lspOfferFor', 'lspOfferInstall'];
+const LSP_SHELLS = ['_initLSP', '_lspRefresh', '_lspGotoDef', '_lspFindRefs', '_lspNavBack', '_lspCanBack',
+  '_lspOnDiagnostics', '_lspRootOfPath', 'lspClickDef', 'lspDocClosed', 'lspClearDiagnostics',
+  'lspHoverRegister', 'lspOfferFor', 'lspOfferInstall', 'lspDismiss'];
+const LSP_ACCESSORS = ['_lspHoverLangs', '_lspDefLangs'];
+
+function loadLsp() {
+  const store = { bool: (_k, d) => d, remove() {}, json: () => null, setJson() {}, setBool() {} };
+  return load(['core/lsp-client.js', 'core/lsp-paths.js', 'core/app-lsp.js'], {
+    expose: ['LspClient'],
+    globals: { App: class {}, PrefStore: { local: store }, LSP_DIAG_KEY: 'k', STORE_KEYS: {}, LSP_BACK_MAX: 50 },
+  });
+}
+
+test('FR-ASE-7: LspClient 가 LSP 메서드 41개를 갖고 App 에는 껍데기·접근자만 남는다', () => {
+  const ctx = loadLsp();
+  assert.deepEqual(ownNames(ctx.LspClient.prototype), [...LSP_METHODS].sort());
+  assert.deepEqual(ownNames(ctx.App.prototype), [...LSP_SHELLS, ...LSP_ACCESSORS, '_lspClient'].sort());
+});
+
+test('FR-ASE-7: 접근자는 accessor 서술자이고 읽기가 LspClient 를 만들지 않는다', () => {
+  const ctx = loadLsp();
+  for (const n of LSP_ACCESSORS) {
+    const d = Object.getOwnPropertyDescriptor(ctx.App.prototype, n);
+    assert.equal(typeof d.get, 'function', n + ' 에 게터가 없다 — Object.assign 이 값으로 복사했다');
+    assert.equal(typeof d.set, 'function', n);
+  }
+  const app = new ctx.App();
+  assert.equal(app._lspHoverLangs, undefined);
+  assert.equal(app._lsp, undefined, '읽기가 소유자를 만들었다');
+  const s = new Set(['go']);
+  app._lspHoverLangs = s;
+  assert.equal(app._lsp._lspHoverLangs, s);
+  assert.equal(app._lspHoverLangs, s);
+});
+
+test('FR-ASE-7: 껍데기는 같은 LspClient 에 위임한다', () => {
+  const ctx = loadLsp();
+  const app = new ctx.App();
+  assert.equal(app._lspCanBack(), false);
+  app._lspClient()._lspPush({ path: '/r/a.go', line: 1, col: 1 });
+  assert.equal(app._lspCanBack(), true);
+  assert.equal(app._lspClient(), app._lsp);
+  assert.equal(app._lsp.app, app);
+});

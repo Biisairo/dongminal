@@ -111,6 +111,25 @@ app._onRunChanged({ runId: rid });                                      // 내�
 바깥이 읽는 필드, 그리고 **같은 `this` 를 공유하는 형제 파일이 만지는 필드**.
 마지막 것이 프로토타입 증강 분할의 함정이다 — 파일은 갈렸어도 `this` 는 하나다.
 
+### 2.3a 접근자 계약 (OPTIMIZE_REFACTOR_SRS FR-OPT-16-1, 2026-09-26)
+
+§8 은 **파일**을 떼어 보고 넷 다 부적합이라 했다. FEC-35 가 가리킨 단위는 파일이
+아니라 **필드 가족**이다 — 한 주제의 상태와, 그 상태만 만지는 메서드. 가족을 뗄 때
+무엇이 소유 클래스로 가고 `App` 에 무엇이 남는지를 여기서 먼저 정한다. §9 가 이
+계약으로 가족을 하나씩 옮긴다.
+
+| # | 계약 | 근거 |
+|---|---|---|
+| A-1 | 소유 클래스는 `constructor(app)` 으로 앱을 받고, `App` 의 **지연 생성 메서드 하나**가 그것을 만든다 (`_runsPanel()` 과 같은 규약). 인스턴스는 `App` 의 필드 하나에 든다 | FR-ASE-1·3 |
+| A-2 | **옮기는 것**: 그 가족의 상태 필드 전부와, 그 상태를 만지는 메서드. 메서드 본문은 구간 이동이고 이름을 바꾸지 않는다. 편집은 **앱으로 나가는 자리**(`this.X` → `this.app.X`)뿐이다 | FR-ASE-2 · N5 |
+| A-3 | **남는 것 ①** — 바깥(형제 `app-*.js`·`ui/`·`git/`·e2e 계약·단위 검사)이 `app.<이름>` 으로 부르는 메서드는 같은 이름의 **위임 껍데기**로 남는다 | C-3 |
+| A-4 | **남는 것 ②** — 바깥이 읽거나 쓰는 **필드**는 `App.prototype` 의 **접근자**(get/set)로 남는다. 읽기는 소유 인스턴스가 없으면 만들지 않고 `undefined` 를 준다(종전의 "아직 없다" 와 같다). 쓰기는 소유 인스턴스에 쓴다 | §2.3 |
+| A-5 | **접근자는 `Object.defineProperty` 로 단다.** `Object.assign(App.prototype,{ get x(){…} })` 은 게터를 **그 자리에서 불러 값을 복사**하고 세터를 버린다 — 로드 시점의 `undefined` 가 데이터 속성으로 박혀 영영 소유자를 보지 않는다. `testing` 게터(app-testing.js)가 같은 이유로 `defineProperty` 다 | ECMAScript `Object.assign` 은 `[[Get]]` 으로 읽는다 |
+| A-6 | **갈아 끼우기 호환** (§2.2) — e2e 가 계약의 세터로 `App` 의 메서드를 갈아 끼우고 그 메서드를 **가족 안에서** 부르면, 그 호출은 `this.app.<이름>` 을 지나야 한다. 갈아 끼운 것은 `app` 인스턴스의 속성이므로 소유자 안의 `this.<이름>` 으로는 보이지 않는다. 가족마다 목록을 §9 에 적는다 | FR-ATC-5a |
+| A-7 | e2e 계약(`APP_TESTING_NAMES`)은 **바이트 그대로**다. 이름이 가리키는 것이 껍데기·접근자로 바뀌어도 e2e 가 보는 이름·값·쓰기는 같다. `check-e2e-private` 는 손대지 않는다 | FR-ATC-2 |
+| A-8 | 단위 검사가 옮긴 **내부**(껍데기가 아닌 것)를 `App` 에서 부르거나 대역으로 세우면 소유 클래스를 대상으로 고친다. **재는 내용은 같다** | FR-ASE-5 |
+| A-9 | 소유 클래스는 `web/js/core/` 에 둔다 — 앱 내부에 닿는 것이 그 역할이고 `check-layer` 는 `ui/`·`git/` 이 앱 내부를 파는 것을 막는다 | `scripts/check-layer.sh` |
+
 ### 2.4 제약 (Constraints)
 
 | # | 제약 | 출처 |
@@ -166,6 +185,39 @@ this.findToolLocation (1)  this.slotKey (1)  this.slotBase (1)
 **FR-ASE-6** `App` 의 인스턴스 필드가 11개 줄어든다. 그것이 이 묶음의 측정 가능한
 결과다.
 
+아래 넷은 **묶음 E**(FR-OPT-16-1, §2.3a 의 계약)다. 가족마다 별도 커밋이다.
+
+**FR-ASE-7** (LSP) `app-lsp.js`·`app-lsp-paths.js` 의 메서드 41개와 상태 10개
+(`_lspAcked _lspBack _lspDefLangs _lspHoverLangs _lspNonce _lspOpener _lspPathMap
+_lspStatus _lspStatusP _lspUriPath`)를 `web/js/core/lsp-client.js`·`lsp-paths.js` 의
+`class LspClient` 로 옮긴다. `App` 에는 지연 생성 `_lspClient()`(필드 `_lsp`), 위임 껍데기
+15개(`_initLSP _lspRefresh _lspGotoDef _lspFindRefs _lspNavBack _lspCanBack
+_lspOnDiagnostics _lspRootOfPath lspClickDef lspDocClosed lspClearDiagnostics
+lspHoverRegister lspOfferFor lspOfferInstall lspDismiss`), 접근자 2개(`_lspHoverLangs
+_lspDefLangs` — e2e 계약이 읽는다)가 남는다. 갈아 끼우기 호환(A-6) 대상은 없다.
+
+**FR-ASE-8** (Repo 목록) `app-git.js` 의 Repo 목록 갱신 가족 — 상태 6개(`_gitReposPoll
+_gitReposKicking _gitReposKickAgain _gitReposSeq _gitReposSig _gitPinsLeased`)와 메서드 5개
+(`_startGitReposPoll gitReposKick gitReposRefresh _gitReposSigOf _gitReposOnChanged`)를
+`web/js/core/git-repos-list.js` 의 `class GitReposList` 로 옮긴다. `gitRepos`·`_gitOff` 는
+공유 상태라 `App` 에 남는다(렌더러·e2e·다른 파일이 읽는다). 5개 모두 바깥이 부르므로
+위임 껍데기로 남는다. **A-6**: e2e(`git-sidebar`)와 단위 검사(`app-git-lists`)가
+`gitReposRefresh` 를 갈아 끼우고 `gitReposKick` 이 그것을 부르므로, 가족 안의
+`gitReposRefresh`·`gitReposKick` 호출은 `this.app.` 을 지난다.
+
+**FR-ASE-9** (설정 저장) `app-settings.js`·`app-settings-init.js` 의 설정 저장 파이프라인
+— 상태 5개(`_settingsChain _settingsDirty _settingsEchoMissed _settingsLastSent
+_settingsSaveTimers`)와 메서드 4개(`saveSettings _settingsLocalPending _saveSettingsSoon
+_saveSettingsNow`), 그리고 `_settingsRestore` 안의 에코 판정 두 줄을 `web/js/core/settings-sync.js`
+의 `class SettingsSync` 로 옮긴다(두 줄은 `_settingsAcceptRemote(r)` 가 된다). `App` 에는
+지연 생성 `_settingsSync()`(필드 `_setSync`)와 껍데기 4개가 남는다. **A-6**: e2e
+(`save-pipeline`)가 `_settingsApply`·`_onSettingsChanged` 를 갈아 끼운다 — 가족 안의
+`_settingsApply`·`_settingsRestore` 호출은 `this.app.` 을 지나고, `_onSettingsChanged` 는
+`App` 에 남는다.
+
+**FR-ASE-10** 세 가족을 옮긴 뒤 `web/js/core/app*.js` 의 서로 다른 `this.X=` 대입 대상
+(FEC-35 의 셈법)이 착수 시 135 에서 **21 줄고 소유 필드 3이 늘어 117** 이 된다.
+
 ---
 
 ## 4. 검증 (Verification)
@@ -176,6 +228,10 @@ this.findToolLocation (1)  this.slotKey (1)  this.slotBase (1)
 | TC-ASE-2 | e2e **927개 전량 통과**, 개수 동일 (C-2) |
 | TC-ASE-3 | `RunsPanel` 의 메서드 이름 집합이 옮기기 전 `app-runs.js` 의 것과 일치 |
 | TC-ASE-4 | `App.prototype` 에 남은 run 관련 메서드가 정확히 여섯 |
+| TC-ASE-5 | 가족마다 소유 클래스의 메서드 이름 집합이 옮기기 전의 것과 같고, `App.prototype` 에 남은 그 가족의 이름이 정확히 껍데기·접근자 목록이다 (`web/js/test/app-state-owners.test.mjs`) |
+| TC-ASE-6 | 접근자가 `App.prototype` 의 **accessor 서술자**(get/set)이고, 읽기가 소유 인스턴스를 만들지 않으며 쓰기가 소유 인스턴스에 닿는다 (A-4·A-5) |
+| TC-ASE-7 | A-6 대상: `app` 에 갈아 끼운 메서드를 가족 안의 호출이 부른다 (같은 파일) |
+| TC-ASE-8 | `APP_TESTING_NAMES` 가 바이트 그대로이고 `check-e2e-private`·관련 e2e(`editor-lsp-nav`·`ux-batch10`·`git-sidebar`·`git-polling`·`save-pipeline`·`settings`)가 통과한다 |
 
 ---
 

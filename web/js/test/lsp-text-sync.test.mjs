@@ -4,7 +4,8 @@ import { test } from 'node:test';
 import { load } from './harness.mjs';
 
 /**
- * `web/js/core/app-lsp.js` 의 `_lspAsk` — OPTIMIZE_REFACTOR_SRS FR-OPT-6-2.
+ * `web/js/core/lsp-client.js` 의 `_lspAsk` — OPTIMIZE_REFACTOR_SRS FR-OPT-6-2.
+ * 대상은 `LspClient` 다 (APP_STATE_EXTRACT_SRS FR-ASE-7 · §2.3a A-8).
  *
  * **계수 검사다.** 재는 것은 서버로 나간 요청 수와 그중 텍스트를 실은 수다. 서버는
  * 가짜이며 세 모양을 흉내낸다: 판을 되돌리는 새 서버, 판을 모르는 옛 서버, 판을
@@ -16,16 +17,16 @@ function setup(server) {
     posts.push({ api, body: JSON.parse(JSON.stringify(body)) });
     return { ok: true, status: 200, data: server(body) };
   };
-  const ctx = load(['core/app-lsp.js'], {
+  const ctx = load(['core/lsp-client.js'], {
+    expose: ['LspClient'],
     globals: {
-      App: class {},
       apiPost,
       AbortController,
       LSP_HOVER_API: '/api/lsp/hover', LSP_DEF_API: '/api/lsp/definition',
       LSP_REFS_API: '/api/lsp/references', LSP_CLOSE_API: '/api/lsp/close',
     },
   });
-  const app = Object.create(ctx.App.prototype);
+  const app = new ctx.LspClient({});
   app._lspRootOfPath = () => '/r';
   const model = { id: '$model1', ver: 1, value: 'package a\n',
     getAlternativeVersionId() { return this.ver }, getValue() { return this.value } };

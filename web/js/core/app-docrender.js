@@ -91,7 +91,7 @@ Object.assign(App.prototype, {
    * 이 경로를 품은 Editor 루트. 루트가 겹쳐 있을 때 **가장 긴 것**이 답이다 —
    * 짧은 쪽을 고르면 `/` 로 시작하는 참조가 엉뚱한 저장소를 가리킨다.
    *
-   * `app-lsp.js` 의 `_lspRootOfPath` 와 같은 계산이다. 지금 한 벌로 접지 않는 것은
+   * `lsp-client.js` 의 `_lspRootOfPath` 와 같은 계산이다. 지금 한 벌로 접지 않는 것은
    * 그 파일이 다른 작업의 손에 있기 때문이며, 자리가 안정되면 `app-editor.js` 로
    * 함께 옮기는 것이 옳다.
    */

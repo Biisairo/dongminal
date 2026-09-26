@@ -860,8 +860,11 @@
 <script src="js/core/app-editor-file.js?v=__ASSETV__"></script>
 <script src="js/core/app-editor-section.js?v=__ASSETV__"></script>
 <script src="js/core/app-docrender.js?v=__ASSETV__"></script>
+<!-- 코드 탐색 (APP_STATE_EXTRACT_SRS FR-ASE-7). 본체 `LspClient` 와 그 증강이 먼저,
+     바깥이 부르는 이름을 지키는 `app-lsp.js` 가 그 뒤다. -->
+<script src="js/core/lsp-client.js?v=__ASSETV__"></script>
+<script src="js/core/lsp-paths.js?v=__ASSETV__"></script>
 <script src="js/core/app-lsp.js?v=__ASSETV__"></script>
-<script src="js/core/app-lsp-paths.js?v=__ASSETV__"></script>
 <script src="js/core/app-edsearch.js?v=__ASSETV__"></script>
 <!-- Run 시각화 (ORCHESTRATION_V2_SRS 묶음 V). app.js 뒤 — prototype 확장. -->
 <script src="js/core/app-runs.js?v=__ASSETV__"></script>
