@@ -9,7 +9,7 @@ Object.assign(App.prototype, {
   _onToolActivity({toolId,state,tool,detail}={}){
     if(!toolId||!state) return;
     this._restoreNote('activity',toolId);   // FR-RSF-4
-    if(state==='ended'){ // 종료 → 카드 제거
+    if(state===ACTIVITY_STATE.ENDED){ // 종료 → 카드 제거
       if(this._activity.delete(toolId)) this.agentsRender();
       return;
     }

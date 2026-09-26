@@ -9,6 +9,8 @@
 // 디스크의 `runs.json` 이 함께 바뀐다 — `schemaVersion` 의 근거가 그 사실이다.
 package run
 
+import "dongminal/internal/shared/activity"
+
 // State 는 Run 의 생명주기다.
 type State string
 
@@ -46,9 +48,9 @@ type MemberState string
 const (
 	Starting MemberState = "starting"
 	Ready    MemberState = "ready"
-	Working  MemberState = "working"
-	Waiting  MemberState = "waiting"
-	Done     MemberState = "done"
+	Working  MemberState = activity.Working
+	Waiting  MemberState = activity.Waiting
+	Done     MemberState = activity.Done
 	Failed   MemberState = "failed"
 	Lost     MemberState = "lost"
 	Released MemberState = "released"

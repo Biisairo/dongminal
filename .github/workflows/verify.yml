@@ -152,6 +152,11 @@ jobs:
       - name: 에이전트 이름
         run: scripts/check-agent-names.sh
 
+      # 활동 상태 어휘 대조 (OPTIMIZE_REFACTOR_SRS FR-OPT-10-1 · SHR-14).
+      # 서버가 싣는 낱말과 화면이 읽는 낱말이 두 언어에 한 벌씩 있다.
+      - name: 활동 상태 어휘
+        run: scripts/check-activity-vocab.sh
+
       # 환경변수 문서 대조 (CONFIG_MANAGEMENT_SRS FR-CFG-18 · M5 `G5-2`).
       #
       # 문서는 **조용히** 낡는다. 이 검사가 없던 동안 여섯이 표 밖에 있었고,

@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"time"
 
+	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/platform"
 )
@@ -113,7 +114,7 @@ func (p *Tool) kill() {
 		}
 		// tool 종료 → 활동 카드 제거(셸 exit/Ctrl+C 등, SessionEnd hook 없이도).
 		if p.activity.Load() != nil {
-			p.SetActivity("ended", "", "")
+			p.SetActivity(activity.Ended, "", "")
 		}
 		// FR-ATL-1·2 (NFR-PAN-8): 주의도 같은 자리에서 내린다. 활동만 정리하고
 		// 주의를 남겨 두었던 것이, 닫은 탭의 알람이 배지에 남던 원인이다.

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/hub"
@@ -219,7 +220,7 @@ func (s *Server) reportActivity(toolID, state, tool, detail string, userPrompt, 
 	if s.Tools == nil {
 		return
 	}
-	alarm := state == "done" || state == "waiting"
+	alarm := state == activity.Done || state == activity.Waiting
 	tool = hub.SanitizeActivityField(tool, hub.ActivityToolMax)
 	detail = hub.SanitizeActivityField(detail, hub.ActivityDetailMax)
 	if s.AttnTracker != nil {

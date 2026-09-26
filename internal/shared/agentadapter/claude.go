@@ -3,6 +3,8 @@ package agentadapter
 import (
 	"encoding/json"
 	"strings"
+
+	"dongminal/internal/shared/activity"
 )
 
 // claudeID 는 이 어댑터의 식별자다. 선언 밖에 두는 이유는 설치물이 훅 명령에 그
@@ -85,13 +87,13 @@ func parseClaudeHook(data []byte) (Report, bool) {
 	var rep Report
 	switch ev.Event {
 	case "PreToolUse", "PostToolUse":
-		rep = Report{State: "working", Tool: ev.ToolName, Detail: claudeToolDetail(ev.ToolName, ev.ToolInput)}
+		rep = Report{State: activity.Working, Tool: ev.ToolName, Detail: claudeToolDetail(ev.ToolName, ev.ToolInput)}
 	case "SubagentStop":
-		rep = Report{State: "working"}
+		rep = Report{State: activity.Working}
 	case "PreCompact":
 		// 압축은 추정이 아니라 확정이다. 크기가 작아 보여도 정보는 이미
 		// 유실됐으므로 소비자는 이 신호를 크기보다 우선한다 (FR-CBG-1).
-		rep = Report{State: "working", Compacted: true}
+		rep = Report{State: activity.Working, Compacted: true}
 	case "UserPromptSubmit":
 		// FR-ATN-3: 턴의 출처를 말하는 훅은 이것 하나뿐이다. 다른 훅도
 		// `working` 을 보고하지만 **왜** 시작되었는지는 말하지 않는다.
@@ -102,15 +104,15 @@ func parseClaudeHook(data []byte) (Report, bool) {
 		// 사용자 턴으로 읽으면 **알림 하나가 `done` 알람 하나를 낳는다.**
 		// §2.7 이 "배경 이벤트로 깨어난 턴의 종료는 사건이 아니다" 로 막으려던
 		// 바로 그 자리다.
-		rep = Report{State: "working", Detail: ev.Prompt, UserPrompt: !isBackgroundPrompt(ev.Prompt)}
+		rep = Report{State: activity.Working, Detail: ev.Prompt, UserPrompt: !isBackgroundPrompt(ev.Prompt)}
 	case "Notification":
-		rep = Report{State: "waiting", Detail: ev.Message}
+		rep = Report{State: activity.Waiting, Detail: ev.Message}
 	case "Stop":
-		rep = Report{State: "done"}
+		rep = Report{State: activity.Done}
 	case "SessionEnd":
-		rep = Report{State: "ended"}
+		rep = Report{State: activity.Ended}
 	case "SessionStart":
-		rep = Report{State: "idle", Detail: ev.Source}
+		rep = Report{State: activity.Idle, Detail: ev.Source}
 	default:
 		return Report{}, false
 	}

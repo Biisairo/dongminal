@@ -3,6 +3,8 @@ package agentadapter
 import (
 	"encoding/json"
 	"errors"
+
+	"dongminal/internal/shared/activity"
 )
 
 // 프로토콜 표면 (M8_UNIFIED_SRS §3.4.1 묶음 P, FR-APS-1~10 · §9.3 ③).
@@ -455,15 +457,15 @@ type ModelChoice struct {
 func (e Event) Activity() (state string, ok bool) {
 	switch e.Kind {
 	case EvSession:
-		return "idle", true
+		return activity.Idle, true
 	case EvTurnStart, EvApprovalClosed:
-		return "working", true
+		return activity.Working, true
 	case EvApprovalOpen:
-		return "waiting", true
+		return activity.Waiting, true
 	case EvTurnEnd:
-		return "done", true
+		return activity.Done, true
 	case EvExit:
-		return "ended", true
+		return activity.Ended, true
 	}
 	return "", false
 }

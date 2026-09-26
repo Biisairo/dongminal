@@ -134,8 +134,12 @@ const AGENTS_POLL_DEFAULT=5000;
  * 전파(FR-SYN)를 그대로 받는다. 상수는 기본값으로 남는다 (FR-PIS-11).
  */
 var agentsPollInterval=AGENTS_POLL_DEFAULT;
+// 에이전트 활동 상태의 어휘 (OPTIMIZE_REFACTOR_SRS FR-OPT-10-1). 짝은 Go 의
+// `internal/shared/activity` 이고, `scripts/check-activity-vocab.sh` 가 두 목록을 대조한다.
+// `ENDED` 는 종료 신호 — 카드를 거둔다.
+const ACTIVITY_STATE=Object.freeze({WORKING:'working',WAITING:'waiting',DONE:'done',IDLE:'idle',ENDED:'ended'});
 // 상태별 글꼴 기호(이모지 아님) — 색(.ag-state.<state>)과 함께 상태를 구분.
-const AGENT_STATE_ICON={working:'●',done:'✓',waiting:'…',idle:'○'};
+const AGENT_STATE_ICON={[ACTIVITY_STATE.WORKING]:'●',[ACTIVITY_STATE.DONE]:'✓',[ACTIVITY_STATE.WAITING]:'…',[ACTIVITY_STATE.IDLE]:'○'};
 
 
 // 모바일 키바 제스처 상수 (USER_CHECKLIST_FIXES_SRS FR-MTB-2/4/5).

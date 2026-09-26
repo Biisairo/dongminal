@@ -120,6 +120,7 @@ internal/
     fanout/              #   ③   — 상한 있는 병렬 반복 한 벌 (핀 관측·핀 목록·git 감시 회차가 공유, FR-OPT-7-4)
     platform/            #   ①②③④ — OS 마다 갈리는 능력을 인터페이스 뒤로 (경로·프로세스·셸·소켓)
     dmenv/               #   ①②③④ — 환경변수 이름·기본 엔드포인트·헬퍼 이름 (의존 0)
+    activity/            #   ①②③ — 에이전트 활동 상태의 어휘 다섯 (JS 짝은 constants.js, FR-OPT-10-1)
     dmlog/               #   ①②③④ — 로그가 지나는 한 자리 (수준·요청 ID)
     testpath/            #   테스트 전용 — OS 마다 다른 경로 전제를 분기 없이 다룬다 (+ 셸 고정 PinShell, M8 D-A-21)
     gittest/             #   테스트 전용 — git 저장소 픽스처 한 벌 (M8 D-A-20). 제품 코드는 import 하지 않는다

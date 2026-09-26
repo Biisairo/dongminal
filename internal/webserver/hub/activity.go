@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/toolhub"
 
 	"dongminal/internal/webserver/sse"
@@ -13,15 +14,8 @@ const (
 	ActivityDetailMax = 512
 )
 
-var activityStates = map[string]bool{
-	"working": true,
-	"done":    true,
-	"waiting": true,
-	"idle":    true,
-	"ended":   true, // 종료 신호 — 카드 제거(상태로 저장하지 않음)
-}
-
-func ValidActivityState(s string) bool { return activityStates[s] }
+// ValidActivityState 는 어휘 판정이다. `ended` 는 종료 신호 — 카드 제거(상태로 저장하지 않음).
+func ValidActivityState(s string) bool { return activity.Valid(s) }
 
 // SanitizeActivityField strips control chars and bounds the length of a
 // tool/detail field before it is stored or rendered (NFR-AAP-3). Mirrors

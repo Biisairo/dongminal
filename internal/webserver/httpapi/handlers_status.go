@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"time"
 
+	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/agentadapter"
 )
 
@@ -160,14 +161,14 @@ func evaluateWait(cond string, st toolStatus, allowQuiescence bool) (status, rea
 		return "gone", "tool 이 사라졌다", true
 	}
 	switch st.State {
-	case "waiting":
+	case activity.Waiting:
 		// 권한 확인 대기는 시간이 지난다고 풀리지 않는다. 매달리지 말고 알린다.
-		return "blocked", "waiting", true
-	case "idle":
+		return "blocked", activity.Waiting, true
+	case activity.Idle:
 		if cond == "ready" {
 			return "ready", "hook", true
 		}
-	case "done":
+	case activity.Done:
 		if cond == "ready" {
 			return "ready", "hook", true
 		}

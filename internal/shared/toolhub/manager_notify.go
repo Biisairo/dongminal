@@ -3,6 +3,8 @@ package toolhub
 import (
 	"sort"
 	"time"
+
+	"dongminal/internal/shared/activity"
 )
 
 // M9_SRS FR-M9-15 (D-A-10 — 분리는 **이동만**이다): `manager.go` 에서 옮겨 왔다.
@@ -104,14 +106,14 @@ func (m *ToolManager) ActivitySnapshot() []ActivitySnap {
 	// "working" (FR-AAP-20).
 	var working []*Tool
 	for _, it := range items {
-		if it.a.State == "working" {
+		if it.a.State == activity.Working {
 			working = append(working, it.p)
 		}
 	}
 	busy := attnBusyMany(working)
 	out := []ActivitySnap{}
 	for _, it := range items {
-		if it.a.State == "working" && !busy[it.p] {
+		if it.a.State == activity.Working && !busy[it.p] {
 			continue
 		}
 		out = append(out, ActivitySnap{ToolID: it.id, State: it.a.State, Tool: it.a.Tool, Detail: it.a.Detail, UpdatedAt: it.a.UpdatedAt})

@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/toolhub"
 
 	"bytes"
@@ -352,9 +353,9 @@ func (t *AttnTracker) SetActivity(toolID, state, tool, detail string) {
 	ps := t.state(toolID)
 
 	// FR-ATF-2: 보고했다는 사실이 에이전트 표시를 세우고, `ended` 가 내린다.
-	ps.agentSeen.Store(state != "ended")
+	ps.agentSeen.Store(state != activity.Ended)
 	ps.turn.NoteActivity(state)
-	if state == "ended" {
+	if state == activity.Ended {
 		ps.activity.Store(nil)
 	} else {
 		ps.activity.Store(&toolhub.ActivityState{
@@ -418,7 +419,7 @@ func (t *AttnTracker) ActivitySnapshot() []toolhub.ActivitySnap {
 
 	var working []string
 	for _, it := range items {
-		if it.State == "working" {
+		if it.State == activity.Working {
 			working = append(working, it.ToolID)
 		}
 	}
@@ -431,7 +432,7 @@ func (t *AttnTracker) ActivitySnapshot() []toolhub.ActivitySnap {
 	}
 	out := []toolhub.ActivitySnap{}
 	for _, it := range items {
-		if it.State == "working" && !busy[it.ToolID] {
+		if it.State == activity.Working && !busy[it.ToolID] {
 			continue
 		}
 		out = append(out, it)

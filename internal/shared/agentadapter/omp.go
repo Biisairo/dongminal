@@ -1,6 +1,10 @@
 package agentadapter
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"dongminal/internal/shared/activity"
+)
 
 // ompAdapter 는 omp(oh my pi) 선언이다 (OMP_AGENT_SUPPORT_SRS 묶음 A).
 //
@@ -95,25 +99,25 @@ func parseOmpHook(data []byte) (Report, bool) {
 	var rep Report
 	switch ev.Event {
 	case "session_start":
-		rep = Report{State: "idle", Detail: ev.Detail}
+		rep = Report{State: activity.Idle, Detail: ev.Detail}
 	case "agent_start":
 		// FR-ATN-2·3: 이 턴이 **사용자 프롬프트에서 시작했다**고 말하는 이벤트는
 		// 이것 하나다. turn_start 는 루프의 한 바퀴이며 출처를 말하지 않는다.
-		rep = Report{State: "working", Detail: ev.Detail, UserPrompt: true}
+		rep = Report{State: activity.Working, Detail: ev.Detail, UserPrompt: true}
 	case "turn_start", "turn_end":
-		rep = Report{State: "working"}
+		rep = Report{State: activity.Working}
 	case "tool_call", "tool_result":
-		rep = Report{State: "working", Tool: ev.Tool, Detail: ev.Detail}
+		rep = Report{State: activity.Working, Tool: ev.Tool, Detail: ev.Detail}
 	case "compaction":
 		// 압축은 추정이 아니라 확정이다 (FR-CBG-1). omp 쪽 계기는
 		// `auto_compaction_start`·`session_compact` 이며 shim 이 둘을 여기로 접는다.
-		rep = Report{State: "working", Compacted: true}
+		rep = Report{State: activity.Working, Compacted: true}
 	case "agent_end":
 		// FR-AEV-15: shim 이 이미 실어 보낸 내용을 **알람에서도** 쓴다. 종전에는
 		// 파싱해 두고 버렸다 — `working` 에만 싣고 `done` 에서 비웠다.
-		rep = Report{State: "done", Detail: ev.Detail}
+		rep = Report{State: activity.Done, Detail: ev.Detail}
 	case "session_shutdown":
-		rep = Report{State: "ended"}
+		rep = Report{State: activity.Ended}
 	default:
 		return Report{}, false
 	}

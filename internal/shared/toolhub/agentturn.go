@@ -1,6 +1,10 @@
 package toolhub
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+
+	"dongminal/internal/shared/activity"
+)
 
 // AgentTurn 은 에이전트 훅이 말한 **턴의 상태**다 (ATTENTION_FIRING_SRS 묶음 N).
 //
@@ -44,15 +48,15 @@ func (t *AgentTurn) NoteUserPrompt() { t.userTurn.Store(true) }
 // 않으므로, 판정의 재료가 판정 대상과 같은 훅에서 오면 경합이 판정을 뒤집는다.
 func (t *AgentTurn) NoteActivity(state string) {
 	switch state {
-	case "working":
+	case activity.Working:
 		t.inProgress.Store(true)
 		// FR-ATN-16: 다시 일하기 시작했다면 그다음의 대기는 **새 사건**이다.
 		// 사용자가 권한 요청에 응답한 경로가 여기다 — 웹 UI 를 지나지 않고
 		// 터미널에서 직접 눌렀을 때도 이 보고는 온다.
 		t.waitingSignaled.Store(false)
-	case "done":
+	case activity.Done:
 		t.inProgress.Store(false)
-	case "ended":
+	case activity.Ended:
 		// FR-ATN-5: 세션이 끝나면 표시를 함께 버린다. 남은 표시가 같은 도구의
 		// 다음 세션을 흔들면 안 된다.
 		t.userTurn.Store(false)
@@ -100,7 +104,7 @@ func (t *AgentTurn) NoteAttendTyped() {}
 // **한 번도 울지 않는다** (codex 가 그 자리였고, 지금은 라벨로 규칙을 우회하고
 // 있다 — SRS §2.4).
 func (t *AgentTurn) AllowActivitySignal(state string, turnKnown bool) bool {
-	if state == "done" && !turnKnown {
+	if state == activity.Done && !turnKnown {
 		return true
 	}
 	return t.AllowSignal(state)
@@ -119,9 +123,9 @@ func (t *AgentTurn) AllowActivitySignal(state string, turnKnown bool) bool {
 //	          보냈든 알람이다 (FR-ATF-4). codex 의 `notify codex` 가 여기다
 func (t *AgentTurn) AllowSignal(reason string) bool {
 	switch reason {
-	case "done":
+	case activity.Done:
 		return t.userTurn.CompareAndSwap(true, false)
-	case "waiting":
+	case activity.Waiting:
 		// FR-ATN-15: 표시는 **소비된다** — done 이 사용자 턴 표시를 소비하는
 		// 것과 같은 규약이다. 한 번의 대기가 낳는 알람은 한 번뿐이고, 훅이
 		// 되풀이 보내는 그다음의 waiting 은 조용하다.

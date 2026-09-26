@@ -1,6 +1,10 @@
 package agentadapter
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"dongminal/internal/shared/activity"
+)
 
 // codexAdapter 는 codex 선언이며 **best-effort 다** (FR-ADP-4 / D-D).
 //
@@ -59,7 +63,7 @@ func parseCodexHook(data []byte) (Report, bool) {
 		return Report{}, false
 	}
 	if ev.Type == "agent-turn-complete" {
-		return Report{State: "done", Detail: ev.LastMessage}, true
+		return Report{State: activity.Done, Detail: ev.LastMessage}, true
 	}
 	return Report{}, false
 }

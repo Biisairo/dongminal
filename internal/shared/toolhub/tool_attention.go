@@ -3,6 +3,8 @@ package toolhub
 import (
 	"bytes"
 	"sync/atomic"
+
+	"dongminal/internal/shared/activity"
 )
 
 // 도구 하나의 주의(L1 OSC·L2 유휴)·활동 상태기다 — tool.go 의 PTY 수명과 갈라
@@ -267,7 +269,7 @@ func (p *Tool) maybeIdle(now, threshold int64) {
 // 공개인 이유는 데몬 모드가 **같은 판정**을 써야 하기 때문이다 (FR-ATF-12).
 // 두 벌로 적으면 한쪽만 고쳐지는 날이 온다.
 func ActivityStillWorking(a *ActivityState, now int64) bool {
-	return a != nil && a.State == "working" && now-a.UpdatedAt < AttnWorkingStale
+	return a != nil && a.State == activity.Working && now-a.UpdatedAt < AttnWorkingStale
 }
 
 // Attention reports whether the tool currently needs attention.
@@ -296,9 +298,9 @@ func (p *Tool) NoteUserPrompt() { p.turn.NoteUserPrompt() }
 func (p *Tool) SetActivity(state, tool, detail string) {
 	// FR-ATF-2: 보고했다는 사실이 에이전트 표시를 세우고, `ended` 가 내린다.
 	// 상태의 종류는 묻지 않는다 — 에이전트만이 활동을 보고하기 때문이다.
-	p.agentSeen.Store(state != "ended")
+	p.agentSeen.Store(state != activity.Ended)
 	p.turn.NoteActivity(state)
-	if state == "ended" {
+	if state == activity.Ended {
 		p.activity.Store(nil) // 종료 → 카드 제거(스냅샷에서 빠짐)
 	} else {
 		p.activity.Store(&ActivityState{State: state, Tool: tool, Detail: detail, UpdatedAt: attnNow()})

@@ -61,6 +61,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-skeleton.sh
 	@echo "── 에이전트 이름 (등록부 밖에 리터럴이 없는가)"
 	@scripts/check-agent-names.sh
+	@echo "── 활동 상태 어휘 (Go 와 JS 의 두 벌이 같은 집합인가)"
+	@scripts/check-activity-vocab.sh
 	@echo "── 환경변수 문서 (코드와 표가 양방향으로 같은가)"
 	@scripts/check-env-docs.sh
 	@echo "── 설정 문서 (설정 화면에 있는 것이 사용자 문서에도 있는가)"

@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"dongminal/internal/shared/activity"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/run"
 )
@@ -60,11 +61,11 @@ func (s *Server) deriveMemberState(m run.Member) run.MemberState {
 		return run.Lost
 	}
 	switch s.toolStatusOf(m.ToolID, true).State {
-	case "working":
+	case activity.Working:
 		return run.Working
-	case "waiting":
+	case activity.Waiting:
 		return run.Waiting
-	case "idle", "done":
+	case activity.Idle, activity.Done:
 		return run.Ready
 	}
 	return run.Starting
