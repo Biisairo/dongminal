@@ -8,14 +8,17 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/editorlimit"
 )
 
 // FILE_API_BOUNDARY_SRS §4.3 — 읽기 크기 상한 (TC-FAB-16~20).
 //
 // 상한이 없던 동안 `apiFileRead` 는 `io.Copy` 로 **전량**을 실었다. 값은 제품
-// 결정이라 비어 있었고(M2 §3.3), 2026-09-11 에 **10 MiB** 로 확정됐다.
+// 결정이라 비어 있었고(M2 §3.3), 2026-09-11 에 **10 MiB** 로 확정됐고 2026-09-26 에 **32 MiB** 로 올렸다
+// (OPTIMIZE_REFACTOR_SRS D-OPT-9).
 //
-// 여기 테스트들은 상한을 **낮춰서** 돈다 — 10 MiB 파일을 만드는 비용을 치르지
+// 여기 테스트들은 상한을 **낮춰서** 돈다 — 상한 크기의 파일을 만드는 비용을 치르지
 // 않고도 판정의 자리는 같기 때문이며, `zipMaxBytes` 테스트가 쓰는 관례와 같다.
 // 기본값 자체는 TestFileReadMaxDefault 가 따로 지킨다.
 
@@ -127,7 +130,7 @@ func TestFileProbe_CarriesMaxBytes(t *testing.T) {
 // 기본값 자체를 지킨다 — 위 테스트들이 값을 바꿔 돌기 때문에, 그 관례가 기본값의
 // 회귀를 가릴 수 있다.
 func TestFileReadMaxDefault(t *testing.T) {
-	if fileReadMaxBytes != 10<<20 {
-		t.Fatalf("기본 상한=%d want %d (FR-FAB-8, 2026-09-11 판정)", fileReadMaxBytes, int64(10<<20))
+	if fileReadMaxBytes != editorlimit.FileMaxBytes {
+		t.Fatalf("기본 상한=%d want %d (FR-FAB-8 · D-OPT-9)", fileReadMaxBytes, int64(editorlimit.FileMaxBytes))
 	}
 }

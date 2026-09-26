@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/editorlimit"
 	"dongminal/internal/webserver/apierr"
 	"net/http"
 	"path/filepath"
@@ -17,16 +18,17 @@ import (
 // 전체가 함께 샌다."* **그 배치를 걷어냈다** — 이제 게이트가 새면 파일시스템
 // 전체가 함께 샌다. 그 사실은 `SECURITY.md` §4-5 에 적혀 있다.
 
-// fileReadMaxBytes 는 `/api/file/{read,raw}` 가 내보내는 한 파일의 상한이다
-// (FR-FAB-8). **10 MiB** 다 — Monaco 가 실용적으로 다루는 상한선이며, 그 위의
-// 파일에는 터미널과 다운로드라는 길이 이미 있다.
+// fileReadMaxBytes 는 `/api/file/{read,raw}` 가 내보내고 `/api/file/write` 가 받는 한
+// 파일의 상한이다 (FR-FAB-8 · OPTIMIZE_REFACTOR_SRS FR-OPT-15-1). 값은
+// `editorlimit.FileMaxBytes`(32 MiB, D-OPT-9)이고 LSP·git diff 가 같은 원천을 읽는다.
+// 그 위의 파일에는 터미널과 다운로드라는 길이 이미 있다.
 //
 // 값을 클라이언트가 따로 들고 있지 않다. `/api/file/probe` 가 이 값을 실어 보내고
 // 편집기는 그것으로 판정한다 (FR-FAB-9) — 상수가 두 벌이면 언젠가 한쪽만 고쳐지고,
 // 그때 사용자는 "열린다고 했는데 안 열린다" 를 만난다.
 //
 // var 인 것은 테스트가 낮춰 쓰기 위해서다 (`zipMaxBytes` 와 같은 관례).
-var fileReadMaxBytes int64 = 10 << 20
+var fileReadMaxBytes int64 = editorlimit.FileMaxBytes
 
 // fileDenial 은 판정이 거절한 까닭이다 (EDITOR_LIVE_RELOAD_SRS FR-ELR-8).
 //

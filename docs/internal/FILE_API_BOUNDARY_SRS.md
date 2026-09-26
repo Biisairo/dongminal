@@ -297,11 +297,14 @@ LAN 에 열린 서버에서 파일시스템 전체를 여는 조합은 사용자
 
 ### 3.3 묶음 S — 크기
 
-**FR-FAB-8** `apiFileRead`·`apiFileRaw` 에 상한을 둔다. **값은 10 MiB** (`10 << 20`,
-2026-09-11 사용자 판정). 넘으면 **413** 이고 응답에 실제 크기를 실어 클라이언트가
-안내를 만들 수 있게 한다.
+**FR-FAB-8** `apiFileRead`·`apiFileRaw` 에 상한을 둔다. **값은 32 MiB**
+(`editorlimit.FileMaxBytes`, 2026-09-26 사용자 결정 OPTIMIZE_REFACTOR_SRS D-OPT-9 — 종전
+10 MiB, 2026-09-11 판정). 넘으면 **413** 이고 응답에 실제 크기를 실어 클라이언트가
+안내를 만들 수 있게 한다. `apiFileWrite` 가 같은 상한을 지킨다 — 인코딩한 결과가 넘으면
+413 `too_large` 이고 쓰지 않는다. 저장 본문 상한은 그 값을 JSON 문자열로 실은 최악(두 배)에
+64 KiB 를 더한 것이다 (FR-OPT-15-2).
 
-> **왜 10 MiB 인가.** Monaco 가 실용적으로 다루는 상한선이다. 소스·설정·보통 로그는
+> **왜 10 MiB 였나** (2026-09-26 에 32 MiB 로 올렸다 — 에디터의 읽기·저장·LSP·diff 를 한 값으로 묶는 D-OPT-9). Monaco 가 실용적으로 다루는 상한선이다. 소스·설정·보통 로그는
 > 전부 그 아래이고, 그 위는 브라우저 메모리와 체감이 함께 무너진다. 그 파일들에는
 > 터미널과 다운로드라는 길이 이미 있다.
 
@@ -432,3 +435,4 @@ TC-FAB-27~32 는 폐기됐다. `RepoGuard` 를 주입하지 않으므로 `repo` 
 | 2026-09-20 | **경계 조항 폐기** (사용자 결정). 묶음 B·W·G·O 가 효력을 잃었다. 코드에서 `fileAllow` 의 루트 대조 · `homeWriteDenied` · `gitRepoAllowed` · `fileRoots` · `fileUnrestricted` 가 사라졌고, 그것을 단정하던 검사들(`git_repo_guard_test.go` · `handlers_files_home_write_test.go` 외)도 함께 지웠다. `SECURITY.md` 의 "막는 것" 표에서 파일 경계 줄을 빼고 잔여 위험에 옮겨 적었다 — **코드가 안 막는 것을 문서가 막는다고 적어 두는 상태가 가장 위험하다.** 남은 것은 §3.3 크기 상한뿐이다 |
 | 2026-09-10 | 초안. M2 착수. |
 | 2026-09-11 | **FR-FAB-8 의 값이 10 MiB 로 확정**(사용자 판정). FR-FAB-9 를 "서버가 `probe.maxBytes` 로 값을 준다" 로 구체화 — 상수 두 벌을 만들지 않는다. **묶음 W 신설**(FR-FAB-12·13, `SEC-16`): 홈 아래 쓰기는 노트만 허용. 조사로 확정한 사실이 근거다 — `fileRoots` 가 홈 전체를 루트로 넣고 그 아래 `ext` 매니페스트·`access.json`·`settings.json` 이 산다. |
+| 2026-09-26 | **FR-FAB-8 의 값을 32 MiB 로 올렸다** (OPTIMIZE_REFACTOR_SRS D-OPT-9 · FR-OPT-15-1·2). 원천은 `internal/shared/editorlimit` 하나이고 LSP·git diff 가 같은 값을 읽는다. 저장이 같은 상한을 지키게 됐다 — 종전에는 저장 본문이 `httpreq.DefaultLimit`(1 MiB)이라 1~10 MiB 파일이 열리고도 저장되지 않았다. |

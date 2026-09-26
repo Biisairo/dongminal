@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"dongminal/internal/shared/editorlimit"
 )
 
 // `dongminal verify` 의 경계 검사 (M2, 2026-09-11 사용자 판정).
@@ -49,7 +51,7 @@ func (s *verifySession) registerRepo() (string, error) {
 // 상한 초과는 **실제 파일**로 확인한다. sparse 로 만들어 디스크를 쓰지 않는다 —
 // 크기는 `Stat` 이 답하므로 내용이 필요 없다.
 func (s *verifySession) fileOverLimitIs413() (string, error) {
-	const over = 10<<20 + 1
+	const over = editorlimit.FileMaxBytes + 1
 	p := filepath.Join(s.home, "verify-too-large.bin")
 	f, err := os.Create(p)
 	if err != nil {
@@ -69,7 +71,7 @@ func (s *verifySession) fileOverLimitIs413() (string, error) {
 	if code != http.StatusRequestEntityTooLarge {
 		return "", fmt.Errorf("%d바이트 읽기 → %d, want 413", over, code)
 	}
-	return "10MiB 초과 → 413", nil
+	return fmt.Sprintf("%dMiB 초과 → 413", editorlimit.FileMaxBytes>>20), nil
 }
 
 func (s *verifySession) staticSecurityHeaders() (string, error) {

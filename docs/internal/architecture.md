@@ -113,6 +113,7 @@ internal/
     mimeprobe/           #   ②③  — 바이트 앞머리로 그림인지 (파일 종단·git 블롭 종단이 같은 한 벌, M9 FR-M9-21)
     diagtail/            #   ②③  — 실행 진단 문자열의 절단 규칙 하나 (상한은 표면마다)
     textenc/             #   ③   — 텍스트 인코딩 판별·엄격 디코드·재인코딩 (파일 종단·git diff 가 같은 한 벌, REPO_FIX 03)
+    editorlimit/         #   ③④  — 편집기가 여는 한 파일의 상한 32 MiB (읽기·저장·LSP·git diff·verify 가 같은 한 벌, D-OPT-9)
     serverconf/          #   ③④  — 서버 기동값 네 계층 (플래그 > 환경 > server.json > 기본)
     release/             #   ①③  — 최신 릴리스가 무엇인가 하나만 (update --check 와 서버 확인이 같은 판정)
     updatecheck/         #   ③   — 최신 판 캐시 한 칸 + 트리거 넷 (끈 것은 실제로 나가지 않는다)

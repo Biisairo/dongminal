@@ -16,12 +16,17 @@ import { test, expect, waitForInit } from './fixtures';
 import { tmpPath, realPath } from './osenv';
 
 const ROOT = tmpPath('dm-esv-' + process.pid);
+// OPTIMIZE_REFACTOR_SRS FR-OPT-15-2: 1 MiB(종전 저장 본문 상한)를 넘는 파일. 줄 하나가
+// 64 바이트이므로 5 MiB 에 딱 맞는다.
+const BIG_LINE = 'x'.repeat(63) + '\n';
+const BIG_BYTES = 5 * 1024 * 1024;
 const fx = () => realPath(ROOT);
 
 test.beforeAll(() => {
   mkdirSync(ROOT, { recursive: true });
   writeFileSync(join(ROOT, 'one.txt'), 'ONE-0\n');
   writeFileSync(join(ROOT, 'two.txt'), 'TWO-0\n');
+  writeFileSync(join(ROOT, 'big5.txt'), BIG_LINE.repeat(BIG_BYTES / BIG_LINE.length));
 });
 
 /**
@@ -164,5 +169,31 @@ test.describe('묶음 A — 저장은 내가 보고 있는 편집기가 한다',
     await expect
       .poll(() => readFileSync(join(ROOT, 'one.txt'), 'utf8'), { timeout: 10000 })
       .toBe('BY-ALT-KEY\n');
+  });
+});
+
+test.describe('OPTIMIZE_REFACTOR_SRS FR-OPT-15-2 — 연 파일은 저장된다', () => {
+  // 종전에는 저장 본문 상한이 1 MiB 여서, 1~10 MiB 파일은 열리고 고쳐지지만 저장이
+  // 413 으로 거절됐다.
+  test('5 MiB 파일을 고쳐 저장한다', async ({ page }) => {
+    await waitForInit(page, { clearLocalStorage: true });
+    await openEditorWindow(page);
+    await openFile(page, 'big5.txt');
+    await activateFile(page, 'big5.txt');
+    await page.evaluate(() => {
+      const app = (window as any).app;
+      const v = [...app.fileEditors.values()]
+        .find((x: any) => String(x.filePath).replace(/\\/g, '/').endsWith('big5.txt')) as any;
+      v._editor.setValue(v._editor.getValue() + 'EDITED\n');
+    });
+    await focusOnly(page, 'big5.txt');
+    const res = page.waitForResponse((r) => r.url().includes('/api/file/write'));
+    await page.keyboard.press(saveKey());
+    expect((await res).status(), '저장이 거절됐다').toBe(200);
+
+    await expect
+      .poll(() => readFileSync(join(ROOT, 'big5.txt'), 'utf8').length, { timeout: 15000 })
+      .toBe(BIG_BYTES + 'EDITED\n'.length);
+    expect(readFileSync(join(ROOT, 'big5.txt'), 'utf8').endsWith('EDITED\n')).toBe(true);
   });
 });

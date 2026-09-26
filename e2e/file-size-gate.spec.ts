@@ -1,7 +1,7 @@
 /**
  * FILE_API_BOUNDARY_SRS 묶음 S — 읽기 크기 상한 (TC-FAB-17).
  *
- * 값은 **10 MiB** 이고 서버와 클라이언트가 그것을 **한 벌로** 쓴다 —
+ * 값은 **32 MiB**(OPTIMIZE_REFACTOR_SRS D-OPT-9)이고 서버와 클라이언트가 그것을 **한 벌로** 쓴다 —
  * `/api/file/probe` 가 `maxBytes` 를 실어 보내고 편집기가 그 값으로 판정한다
  * (FR-FAB-9). 상수를 두 벌로 두면 언젠가 한쪽만 고쳐지고, 그때 사용자는
  * "열린다고 했는데 안 열린다" 를 만난다.
@@ -27,8 +27,8 @@ test.afterAll(() => { rmTree(BASE) });
 test('TC-FAB-17: 상한을 넘는 텍스트 파일은 Monaco 를 세우지 않고 사유를 보인다', async ({ page, request }) => {
   const root = join(BASE, 'sizegate');
   mkdirSync(root, { recursive: true });
-  // 10 MiB + 1 바이트. 상한과 **같은 크기**는 통과해야 하므로 경계 바로 위다.
-  writeFileSync(join(root, 'big.txt'), Buffer.alloc(10 * 1024 * 1024 + 1, 0x61));
+  // 32 MiB + 1 바이트. 상한과 **같은 크기**는 통과해야 하므로 경계 바로 위다.
+  writeFileSync(join(root, 'big.txt'), Buffer.alloc(32 * 1024 * 1024 + 1, 0x61));
   writeFileSync(join(root, 'small.txt'), 'hello\n');
 
   const saved = await addEditorRoot(request, root);

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/editorlimit"
 	"dongminal/internal/webserver/apierr"
 	"encoding/json"
 	"errors"
@@ -506,7 +507,11 @@ type fileWriteReq struct {
 }
 
 func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
-	body, err := httpreq.Read(w, r, 0)
+	// OPTIMIZE_REFACTOR_SRS FR-OPT-15-2: 읽을 수 있는 파일은 저장할 수 있어야 한다.
+	//	이전 동작: 본문 상한이 `httpreq.DefaultLimit`(1 MiB) — 1~10 MiB 파일은 열리고
+	//	          고쳐지지만 저장이 413 이었다
+	//	새  동작: 파일 상한을 JSON 문자열로 실은 최악의 크기 (`editorlimit.BodyMaxBytes`)
+	body, err := httpreq.Read(w, r, editorlimit.BodyMaxBytes(fileReadMaxBytes))
 	if err != nil {
 		httpErr(w, "read body", httpreq.Status(err), bodyReadCode(err))
 		return
@@ -554,6 +559,12 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"error": apierr.CodeEncodingUnmappable, "line": un.Line, "col": un.Col, "char": un.Char,
 		})
+		return
+	}
+	// 읽기와 같은 상한이다 — 넘는 파일을 쓰게 두면 방금 저장한 파일을 다시 열 수 없다.
+	if int64(len(data)) > fileReadMaxBytes {
+		httpErrf(w, apierr.CodeTooLarge, fmt.Sprintf("file too large: %d bytes (max %d)", len(data), fileReadMaxBytes),
+			http.StatusRequestEntityTooLarge)
 		return
 	}
 	// 원자적으로 쓴다 (FR-CAF-11). 여기서 잘리는 것은 우리 상태 파일이 아니라
