@@ -41,8 +41,8 @@ func TestCommandHub_Broadcast(t *testing.T) {
 func TestCommandHub_Broadcast_DropWhenFull(t *testing.T) {
 	h := NewCommandHub()
 	s := h.Add()
-	// Fill channel to capacity (16).
-	for i := 0; i < 16; i++ {
+	// Fill channel to capacity (cmdSubQueue).
+	for i := 0; i < cap(s.ch); i++ {
 		s.ch <- []byte("fill")
 	}
 	// REPO_FIX 02 §3A-2: 가득 찬 구독은 조용히 버리지 않고 **닫는다** — 클라이언트가

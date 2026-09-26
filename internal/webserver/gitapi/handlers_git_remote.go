@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"sync"
@@ -17,6 +15,7 @@ import (
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/git/write"
+	"dongminal/internal/webserver/sse"
 )
 
 // /api/git/{fetch,pull,push} + /api/git/job{s,/cancel,/events} — 원격 작업 표면
@@ -325,8 +324,7 @@ func (s *GitServer) apiGitJobEvents(w http.ResponseWriter, r *http.Request) {
 		gitUnavailable(w)
 		return
 	}
-	flusher, ok := w.(http.Flusher)
-	if !ok {
+	if !sse.Supported(w) {
 		gitFail(w, http.StatusInternalServerError, gitErrFailed, "스트리밍을 지원하지 않는다")
 		return
 	}
@@ -345,12 +343,13 @@ func (s *GitServer) apiGitJobEvents(w http.ResponseWriter, r *http.Request) {
 	}
 	defer unsub()
 
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, ": connected\n\n")
-	flusher.Flush()
+	// OPTIMIZE_REFACTOR_SRS FR-OPT-8-1 (HTTP-10): 작성기는 commands SSE 와 한 벌이다 —
+	// 쓰기 시한이 있어 멎은 클라이언트가 구독 고루틴을 붙들지 않는다.
+	st := sse.Start(w, 0)
+	st.Comment("connected")
+	if !st.Flush() {
+		return
+	}
 
 	keep := time.NewTicker(gitJobKeepAlive)
 	defer keep.Stop()
@@ -359,16 +358,18 @@ func (s *GitServer) apiGitJobEvents(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case ln, more := <-ch:
-			if !more {
+			if !drainJobLines(st, ch, ln, more) {
 				// 채널이 닫혔다 = 작업이 끝났다. 마지막으로 작업 자체를 보낸다 —
 				// 종료 사유·인증 안내·후속 선택지가 여기서 클라이언트에 닿는다.
-				gitJobEvent(w, flusher, "done", s.gitJobFinal(hub, id))
+				gitJobEvent(st, "done", s.gitJobFinal(hub, id))
+				st.Flush()
 				return
 			}
-			gitJobEvent(w, flusher, "line", ln)
 		case <-keep.C:
-			fmt.Fprint(w, ": keep\n\n")
-			flusher.Flush()
+			st.Comment("keep")
+		}
+		if !st.Flush() {
+			return
 		}
 	}
 }
@@ -382,13 +383,29 @@ func (s *GitServer) gitJobFinal(hub *jobs.Jobs, id string) any {
 	return map[string]any{"id": id, "done": true}
 }
 
-func gitJobEvent(w io.Writer, flusher http.Flusher, name string, payload any) {
+// drainJobLines 는 받은 줄과 이미 쌓인 줄을 함께 버퍼에 더한다 — 한 번에 쓴다
+// (HTTP-M2). 채널이 닫혔으면(작업이 끝났으면) false 다.
+func drainJobLines(st *sse.Stream, ch <-chan jobs.Line, ln jobs.Line, more bool) bool {
+	for more {
+		gitJobEvent(st, "line", ln)
+		if st.Full() {
+			return true
+		}
+		select {
+		case ln, more = <-ch:
+		default:
+			return true
+		}
+	}
+	return false
+}
+
+func gitJobEvent(st *sse.Stream, name string, payload any) {
 	b, err := json.Marshal(payload)
 	if err != nil {
 		return
 	}
-	fmt.Fprintf(w, "event: %s\ndata: %s\n\n", name, b)
-	flusher.Flush()
+	st.Event(name, b)
 }
 
 // ── 묶음 E — 원격 목록 · Sync · Push preview (FR-GIT-269·270·271) ──

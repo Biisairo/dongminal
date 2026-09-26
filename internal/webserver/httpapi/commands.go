@@ -6,12 +6,11 @@ import (
 	"dongminal/internal/webserver/hub"
 
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"net/http"
 
 	"dongminal/internal/webserver/httpreq"
+	"dongminal/internal/webserver/sse"
 	"time"
 )
 
@@ -52,15 +51,14 @@ func translateLocationUUID(rawArgs *json.RawMessage, ws WorkspaceStore) (orig, f
 }
 
 func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
-	flusher, ok := w.(http.Flusher)
-	if !ok {
+	if !sse.Supported(w) {
 		httpErr(w, "streaming unsupported", http.StatusInternalServerError, apierr.CodeStreamUnsupport)
 		return
 	}
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.WriteHeader(http.StatusOK)
+	// REPO_FIX 02 §3A-2: 매 flush 에 시한을 건다 — 읽지 않는 클라이언트에서 쓰기가
+	// 막혀도 핸들러가 돌아가 구독 정리(Remove·Detach)가 돈다 (#21). 시한과 프레임
+	// 조립은 `sse.Stream` 한 벌이다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-1).
+	st := sse.Start(w, sseWriteTimeout)
 
 	// OPTIMIZE_REFACTOR_SRS FR-OPT-4-12 (D-OPT-4): `presence=1` 은 칸 구독이다
 	// (WINDOW_SLOTS_SRS FR-WSL-11). 소유권 수명(Focus·git 임대)만 쥐고 방송 구독을
@@ -72,8 +70,8 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 	// 없다 — 대신 인사 대신 사유를 한 줄 보내고 닫는다. 화면은 SSE 재연결
 	// 규약(`CONNECTIVITY_RESILIENCE_SRS`)으로 다시 붙는다.
 	reject := func() {
-		fmt.Fprint(w, "data: {\"action\":\"subscribeRejected\"}\n\n")
-		flusher.Flush()
+		st.Data([]byte(`{"action":"subscribeRejected"}`))
+		st.Flush()
 	}
 	var msgs <-chan []byte
 	var closed, dready <-chan struct{}
@@ -140,31 +138,15 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 		go s.Updates.Trigger()
 	}
 
-	// REPO_FIX 02 §3A-2: 매 쓰기 전에 시한을 건다 — 읽지 않는 클라이언트에서 쓰기가
-	// 막혀도 핸들러가 돌아가 구독 정리(Remove·Detach)가 돈다. 시한을 지원하지 않는
-	// 응답(테스트의 Recorder)에서는 시한 없이 쓴다.
-	//
-	//	이전 동작: 시한 없음 — 막힌 Fprintf 에서 빠져나오지 못해 sub.Close() 뒤에도 남았다
-	//	새  동작: 쓰기마다 now+sseWriteTimeout, 실패하면 반환
-	//	이유:     막힌 구독 하나가 허브의 구독 자리와 임대를 영구히 쥐었다 (#21)
-	rc := http.NewResponseController(w)
-	send := func(frame string) bool {
-		if err := rc.SetWriteDeadline(time.Now().Add(sseWriteTimeout)); err != nil && !errors.Is(err, http.ErrNotSupported) {
-			return false
-		}
-		if _, err := io.WriteString(w, frame); err != nil {
-			return false
-		}
-		return rc.Flush() == nil
-	}
-
 	// RELOAD_CONTINUITY_SRS FR-RLC-20: **첫 이벤트로 자기 판을 말한다.** 자산은
 	// 바이너리에 박혀 있어(`web/embed.go`) 그것이 바뀌는 길은 프로세스 교체뿐이고,
 	// 프로세스가 바뀌면 이 구독은 반드시 끊긴다 — 그러므로 **구독이 열리는 순간이
 	// 곧 "자산이 바뀌었을 수 있는 순간"** 이며, 화면은 주기적으로 물어볼 필요가 없다.
 	hello := s.helloEvent()
 	// 연결 주석과 인사는 한 번에 flush 한다(종전과 같다) — 첫 읽기가 인사를 본다.
-	if !send(": connected\n\n" + "data: " + string(hello) + "\n\n") {
+	st.Comment("connected")
+	st.Data(hello)
+	if !st.Flush() {
 		return
 	}
 
@@ -182,20 +164,21 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 		case <-closed:
 			return
 		case msg := <-msgs:
-			if !send("data: " + string(msg) + "\n\n") {
-				return
-			}
+			// IPC-12: 이미 쌓인 것을 함께 꺼내 한 번에 쓴다 — 버스트 하나가 flush
+			// (syscall) N번이 되지 않는다.
+			st.Data(msg)
+			st.DrainData(msgs)
 		case <-dready:
 			// §3A-2: 진단 슬롯(uri → 최신)을 비운다 — 새 구독은 여기로 스냅샷을 받는다.
+			// HTTP-M2: N건을 한 번에 쓴다.
 			for _, msg := range sub.TakeDiagnostics() {
-				if !send("data: " + string(msg) + "\n\n") {
-					return
-				}
+				st.Data(msg)
 			}
 		case <-keep.C:
-			if !send("data: " + string(hello) + "\n\n") {
-				return
-			}
+			st.Data(hello)
+		}
+		if !st.Flush() {
+			return
 		}
 	}
 }
@@ -340,8 +323,8 @@ func (s *Server) handleCommandResult(w http.ResponseWriter, r *http.Request) {
 // 종전 keepalive 주석과 같은 값이라 오가는 양이 늘지 않는다.
 const sseHelloEvery = 15 * time.Second
 
-// sseWriteTimeout 은 SSE 쓰기 하나의 시한이다 (REPO_FIX 02 §3A-2). 테스트만 줄인다.
-var sseWriteTimeout = 10 * time.Second
+// sseWriteTimeout 은 SSE flush 하나의 시한이다 (REPO_FIX 02 §3A-2). 테스트만 줄인다.
+var sseWriteTimeout = sse.WriteTimeout
 
 func (s *Server) helloInterval() time.Duration {
 	if s.helloEvery > 0 {
@@ -356,13 +339,9 @@ func (s *Server) helloInterval() time.Duration {
 // 인사를 통째로 거르면 생존 신호가 함께 사라져 화면이 멀쩡한 구독을 죽었다고
 // 판정한다 (FR-RLC-25).
 func (s *Server) helloEvent() []byte {
-	m := map[string]any{"action": "server_hello"}
+	var args any
 	if v := s.assetVersion(); v != "" {
-		m["args"] = map[string]any{"assetVersion": v}
+		args = map[string]any{"assetVersion": v}
 	}
-	b, err := json.Marshal(m)
-	if err != nil {
-		return []byte(`{"action":"server_hello"}`)
-	}
-	return b
+	return sse.Payload("server_hello", args)
 }

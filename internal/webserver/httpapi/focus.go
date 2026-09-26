@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"dongminal/internal/webserver/apierr"
+	"dongminal/internal/webserver/sse"
 	"encoding/json"
 	"net/http"
 )
@@ -14,14 +15,7 @@ func (s *Server) broadcastFocusOwners() {
 	if s.Focus == nil || s.Commands == nil {
 		return
 	}
-	payload, err := json.Marshal(map[string]any{
-		"action": "window_focus",
-		"args":   map[string]any{"owners": s.Focus.Snapshot()},
-	})
-	if err != nil {
-		return
-	}
-	s.Commands.Broadcast(payload)
+	s.Commands.Broadcast(sse.Payload("window_focus", map[string]any{"owners": s.Focus.Snapshot()}))
 }
 
 // apiFocusGet returns the ownership snapshot. Read-only; used by a client on

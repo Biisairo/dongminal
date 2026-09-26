@@ -4,7 +4,7 @@ import (
 	"context"
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/fanout"
-	"encoding/json"
+	"dongminal/internal/webserver/sse"
 	"hash/fnv"
 	"strings"
 	"sync"
@@ -121,11 +121,7 @@ func obsMark(o store.Observation) string { return store.Mark(o) }
 // 통째로 삼켰다 (§2.9). 식별자는 방송을 내보내게 만든 그 판단과 **같은 것**이어야
 // 한다.
 func gitChangedPayload(repo, mark string) []byte {
-	b, _ := json.Marshal(map[string]any{
-		"action": "git_changed",
-		"args":   map[string]any{"repo": repo, "mark": mark},
-	})
-	return b
+	return sse.Payload("git_changed", map[string]any{"repo": repo, "mark": mark})
 }
 
 // GitWatcher 는 관심 표명을 받아 두었다가 회차마다 그 저장소들의 signature 를

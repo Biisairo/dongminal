@@ -549,3 +549,33 @@ func TestGitJobs_ChangedBroadcast(t *testing.T) {
 		t.Fatalf("ActiveJobs = %v, want 비었다", got)
 	}
 }
+
+// flushCounter 는 flush 수를 센다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-1 · HTTP-10).
+type flushCounter struct {
+	*httptest.ResponseRecorder
+	n int
+}
+
+func (f *flushCounter) Flush() { f.n++; f.ResponseRecorder.Flush() }
+
+// 쌓인 줄과 종료는 flush 한 번으로 나간다 — 종전에는 줄마다 flush 했다.
+func TestGitJobEvents_QueuedLinesOneFlush(t *testing.T) {
+	s := gitRemoteServer(t, newGitRemoteFake(t), gitRemoteEmit("가", "나", "다", "라"))
+	_, out := gitReq(t, s, http.MethodPost, "/api/git/fetch", `{"repo":`+qWorkRepo+`}`)
+	id := gitRemoteJobID(t, out)
+	gitRemoteWaitDone(t, s, id)
+
+	fc := &flushCounter{ResponseRecorder: httptest.NewRecorder()}
+	s.handler().ServeHTTP(fc, httptest.NewRequest(http.MethodGet, "/api/git/job/events?id="+id, nil))
+	lines, done := gitParseSSE(t, fc.Body.String())
+	if len(lines) != 4 || done == nil {
+		t.Fatalf("line = %v, done = %v", lines, done)
+	}
+	if !strings.HasPrefix(fc.Body.String(), ": connected\n\n") {
+		t.Fatalf("첫 프레임 = %q", fc.Body.String())
+	}
+	// 연결 주석 1 + 줄 4·종료 1.
+	if fc.n != 2 {
+		t.Fatalf("flush = %d, want 2", fc.n)
+	}
+}

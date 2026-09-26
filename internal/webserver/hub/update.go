@@ -1,6 +1,6 @@
 package hub
 
-import "encoding/json"
+import "dongminal/internal/webserver/sse"
 
 // 판 확인 결과 변화의 SSE (UPDATE_NOTICE_SRS FR-UPD-8a).
 //
@@ -11,6 +11,5 @@ import "encoding/json"
 // 바뀌었을 때만 나간다 (FR-UPD-8b). 하루에 한 번 바뀌는 값이 연결마다 방송되면
 // 그것은 소음이다.
 func UpdateChangedPayload() []byte {
-	b, _ := json.Marshal(map[string]any{"action": "update_changed"})
-	return b
+	return sse.Payload("update_changed", nil)
 }

@@ -77,15 +77,8 @@ func NewAttnTracker(hub CommandBroker, idleMS int) *AttnTracker {
 		allowBell:     toolhub.AttentionAllowBell(),
 		nowFn:         func() int64 { return time.Now().UnixNano() },
 	}
-	t.onAttention = func(id, reason string) {
-		hub.Broadcast(toolAttentionPayload(id, reason))
-	}
-	t.onAttentionClear = func(id string) {
-		hub.Broadcast(toolAttentionClearPayload(id))
-	}
-	t.onActivity = func(id, state, tool, detail string) {
-		hub.Broadcast(toolActivityPayload(id, state, tool, detail))
-	}
+	b := attnBroadcastsOf(hub)
+	t.onAttention, t.onAttentionClear, t.onActivity = b.attention, b.attentionClear, b.activity
 	return t
 }
 

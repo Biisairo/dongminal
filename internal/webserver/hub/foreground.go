@@ -6,7 +6,7 @@ import (
 )
 
 import (
-	"encoding/json"
+	"dongminal/internal/webserver/sse"
 	"time"
 )
 
@@ -20,11 +20,7 @@ const ForegroundInterval = toolhub.ForegroundRefreshInterval
 // lowerCamelCase. name 이 빈 문자열이면 전경 프로그램이 없다는 뜻이며, 브라우저는
 // 그때 기본 이름으로 되돌린다 (FR-TAN-12).
 func toolForegroundPayload(toolID, name string) []byte {
-	b, _ := json.Marshal(map[string]any{
-		"action": "tool_foreground",
-		"args":   map[string]any{"toolId": toolID, "name": name},
-	})
-	return b
+	return sse.Payload("tool_foreground", map[string]any{"toolId": toolID, "name": name})
 }
 
 // BroadcastForeground 는 전경 이름 변화를 SSE 로 내보내는 콜백이다. 데몬 모드는

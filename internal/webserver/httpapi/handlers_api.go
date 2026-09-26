@@ -18,6 +18,7 @@ import (
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/httproute"
+	"dongminal/internal/webserver/sse"
 )
 
 func fmtDuration(d time.Duration) string {
@@ -452,11 +453,7 @@ func (s *Server) apiWorkspacePut(w http.ResponseWriter, r *http.Request) {
 	// FR-OPT-5-1: 같은 바이트면 Save 가 rev 를 그대로 돌려준다 — 바뀐 것이 없으니
 	// 다른 브라우저에 재조회를 시키지 않는다.
 	if s.Commands != nil && strconv.FormatUint(rev, 10) != ifMatch {
-		payload, _ := json.Marshal(map[string]any{
-			"action": "workspace_changed",
-			"args":   map[string]any{"rev": rev},
-		})
-		s.Commands.Broadcast(payload)
+		s.Commands.Broadcast(sse.WorkspaceChanged(rev))
 	}
 }
 

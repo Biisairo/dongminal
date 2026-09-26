@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/platform"
+	"dongminal/internal/webserver/sse"
 )
 
 // 접속 허용 목록과 그 게이트 (ACCESS_ALLOWLIST_SRS).
@@ -615,11 +616,7 @@ func (s *Server) apiAccessPut(w http.ResponseWriter, r *http.Request) {
 }
 
 func accessChangedPayload() []byte {
-	b, _ := json.Marshal(map[string]any{
-		"action": "access_changed",
-		"args":   map[string]any{},
-	})
-	return b
+	return sse.Payload("access_changed", map[string]any{})
 }
 
 // StartAccessRefresh 는 허용 목록의 주기 갱신을 서버 수명에 건다. 다른 Start*

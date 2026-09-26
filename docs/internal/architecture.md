@@ -64,6 +64,7 @@ internal/
                          #     gitwrite.go — 쓰기 한 번의 순서를 타입이 강제한다
     apierr/              #   sentinel → (status, code) 등록부 + 와이어 코드 단일 소유
     hub/                 #   CommandHub·SSE 브로커 · FocusRegistry · AttnTracker
+    sse/                 #   SSE 작성기(쓰기 시한·쌓인 이벤트 한 번에 flush) · 방송 본문 봉투
     toolclient/          #   ToolClient — 데몬에 붙는 IPC 클라 (재접속 supervisor 포함)
     seam/
       adapters/          #     toolaccess 인터페이스 ↔ 구체 타입 브리지
@@ -882,7 +883,7 @@ fingerprint·수동 `sleep` 루프·삭제된 자산 참조·손으로 조립한
 
 ## 커맨드 브로드캐스트 (`internal/webserver/hub/commands.go`)
 
-`CommandHub` 는 SSE 구독자 집합과 버퍼 크기 16 의 채널을 관리. `POST /api/commands` 로 들어온 action 을 `hub.AllowedCmdActions` 화이트리스트로 검증 후 구독자 전원에게 브로드캐스트. 버퍼가 꽉 차면 해당 구독자에 한해 드롭 + `[cmd] subscriber channel full` 로그.
+`CommandHub` 는 SSE 구독자 집합과 구독당 채널(`cmdSubQueue` — 한 번의 가장 큰 버스트인 `ClearAllAttention` 을 담도록 `toolhub.ToolCap`)을 관리. `POST /api/commands` 로 들어온 action 을 `hub.AllowedCmdActions` 화이트리스트로 검증 후 구독자 전원에게 브로드캐스트. 버퍼가 꽉 차면 그 구독을 닫고 로그를 남긴다 — 클라이언트가 재연결해 다시 받는다. SSE 핸들러는 `internal/webserver/sse` 의 작성기로 쌓인 메시지를 한 번에 쓰고 한 번 flush 한다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-1).
 
 **허용 목록은 `hub.AllowedCmdActions` 가 갖는다** — 여기 베끼지 않는다.
 

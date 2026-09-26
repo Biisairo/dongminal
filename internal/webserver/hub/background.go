@@ -1,9 +1,8 @@
 package hub
 
 import (
-	"encoding/json"
-
 	"dongminal/internal/shared/toolhub"
+	"dongminal/internal/webserver/sse"
 )
 
 // 백그라운드 목록 변화의 SSE (UX_BATCH6_SRS FR-BGP-2).
@@ -21,8 +20,7 @@ import (
 // 종전 규약 그대로) — 목록을 실으면 같은 것을 두 형태로 나르게 되고, 그 둘이
 // 어긋날 때 어느 쪽이 진실인지 말할 수 없다.
 func BackgroundChangedPayload() []byte {
-	b, _ := json.Marshal(map[string]any{"action": "tools_background_changed"})
-	return b
+	return sse.Payload("tools_background_changed", nil)
 }
 
 // WireBackground 는 백그라운드 목록 변화를 SSE 로 잇는다 (FR-BGP-2).

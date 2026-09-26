@@ -3,7 +3,7 @@ package hub
 import (
 	"dongminal/internal/shared/toolhub"
 
-	"encoding/json"
+	"dongminal/internal/webserver/sse"
 	"strings"
 )
 
@@ -42,17 +42,11 @@ func SanitizeActivityField(s string, max int) string {
 // CommandHub. Server-published only (not in allowedCmdActions). Keys are
 // lowerCamelCase.
 func toolActivityPayload(toolID, state, tool, detail string) []byte {
-	b, _ := json.Marshal(map[string]any{
-		"action": "tool_activity",
-		"args":   map[string]any{"toolId": toolID, "state": state, "tool": tool, "detail": detail},
-	})
-	return b
+	return sse.Payload("tool_activity", map[string]any{"toolId": toolID, "state": state, "tool": tool, "detail": detail})
 }
 
 // WireActivity connects tool activity transitions to SSE broadcasts. Called
 // from the composition root once both the toolhub.ToolManager and CommandHub exist.
 func WireActivity(pm *toolhub.ToolManager, hub CommandBroker) {
-	pm.SetActivityNotifier(func(id, state, tool, detail string) {
-		hub.Broadcast(toolActivityPayload(id, state, tool, detail))
-	})
+	pm.SetActivityNotifier(attnBroadcastsOf(hub).activity)
 }

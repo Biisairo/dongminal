@@ -8,6 +8,7 @@ import (
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/domain/run"
+	"dongminal/internal/webserver/sse"
 )
 
 // tabIDOfTool finds the tab uuid that hosts a tool. Empty when the tool is not
@@ -85,11 +86,7 @@ func (s *Server) markWorkspaceRunExcept(rec run.Record, tabID, runID string, ski
 		newRev, err := s.Work.Save(out, strconv.FormatUint(rev, 10))
 		if err == nil {
 			if s.Commands != nil {
-				payload, _ := json.Marshal(map[string]any{
-					"action": "workspace_changed",
-					"args":   map[string]any{"rev": newRev},
-				})
-				s.Commands.Broadcast(payload)
+				s.Commands.Broadcast(sse.WorkspaceChanged(newRev))
 			}
 			return
 		}

@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"dongminal/internal/shared/platform"
+	"dongminal/internal/webserver/sse"
 )
 
 // settingsStore 와 그 종단. 브라우저 설정은 서버가 해석하지 않는 JSON blob 이라
@@ -97,11 +98,7 @@ func settingsChangedPayload(origin string) []byte {
 	if origin != "" {
 		args["origin"] = origin
 	}
-	b, _ := json.Marshal(map[string]any{
-		"action": "settings_changed",
-		"args":   args,
-	})
-	return b
+	return sse.Payload("settings_changed", args)
 }
 
 func (s *Server) apiSettingsPut(w http.ResponseWriter, r *http.Request) {

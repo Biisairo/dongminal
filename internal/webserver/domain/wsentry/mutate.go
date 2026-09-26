@@ -7,18 +7,18 @@ import (
 	"strconv"
 
 	"dongminal/internal/shared/workspace"
+	"dongminal/internal/webserver/sse"
 )
 
 // 두 목록은 workspace.json 최상위에 산다 — 창 트리 밖이다 (FR-EDT-19, FR-GIT-11).
 const (
-	gitKey       = "git"
-	pinnedKey    = "pinned"
-	editorsKey   = "editors"
-	listKey      = "list"
-	schemaKey    = "schemaVersion"
-	schemaVer    = 2
-	saveTries    = 2 // 낙관적 동시성 경합 시 한 번 다시 읽어 재시도한다 (FR-EDT-22)
-	broadcastAct = "workspace_changed"
+	gitKey     = "git"
+	pinnedKey  = "pinned"
+	editorsKey = "editors"
+	listKey    = "list"
+	schemaKey  = "schemaVersion"
+	schemaVer  = 2
+	saveTries  = 2 // 낙관적 동시성 경합 시 한 번 다시 읽어 재시도한다 (FR-EDT-22)
 )
 
 // Mutate 는 두 목록을 **한 번의** read-modify-write 로 바꾼다 (FR-EDT-22·35).
@@ -140,11 +140,7 @@ func (s *Store) broadcast(rev uint64) {
 	if s.Commands == nil {
 		return
 	}
-	payload, _ := json.Marshal(map[string]any{
-		"action": broadcastAct,
-		"args":   map[string]any{"rev": rev},
-	})
-	s.Commands.Broadcast(payload)
+	s.Commands.Broadcast(sse.WorkspaceChanged(rev))
 }
 
 // sameLists 는 두 목록이 순서까지 같은지 본다. 저장을 건너뛸지 판단하는 유일한

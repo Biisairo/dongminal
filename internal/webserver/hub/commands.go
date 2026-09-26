@@ -3,6 +3,7 @@ package hub
 import (
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/toolhub"
 	"sync"
 	"time"
 
@@ -223,7 +224,13 @@ func (h *CommandHub) pendingCount() int {
 
 // cmdSubQueue는 구독당 미수신 payload 버퍼 크기다. 넘치면 그 구독을 닫는다
 // — 느린 브라우저 하나가 다른 구독을 막지 않고, 닫힌 쪽은 재연결해 다시 받는다.
-const cmdSubQueue = 16
+//
+// OPTIMIZE_REFACTOR_SRS FR-OPT-8-1 (IPC-12): 한 곳이 한 번에 내는 가장 큰 버스트를
+// 담는다. 그것은 ClearAllAttention 이며 도구마다 방송 하나라 최대 ToolCap 건이다.
+// 종전 16 은 쓰기 하나가 막힌 사이 17번째에서 구독을 닫았다(실측,
+// TestSSE_BurstWhileStalledIsBatchedAndKeepsSubscription) — 닫힌 화면은 재연결해
+// 복원 GET 묶음을 다시 낸다. 비용은 구독당 슬라이스 머리 256개(6 KiB)다.
+const cmdSubQueue = toolhub.ToolCap
 
 // NewCmdSub는 허브에 등록되지 않은 홀로 선 구독을 만든다. Close는 그 구독을
 // 닫는다(중복 호출 안전). CommandHub.Add/Remove 가 내부에서 하는 일과 같으며,

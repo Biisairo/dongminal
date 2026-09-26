@@ -87,8 +87,8 @@
 
 | 항목 | 확정 |
 |------|------|
-| 넘침 | 큐(16칸, 값 유지)가 가득 차면 그 구독을 닫는다(Close + 로그 1줄). 조용한 드롭은 없다 |
-| 쓰기 시한 | SSE 핸들러는 인사·메시지·keepalive 의 **매 쓰기 전에** `http.ResponseController.SetWriteDeadline(now+10s)` 를 건다. 쓰기·Flush 오류면 핸들러가 반환하고, 반환 경로의 구독 제거·`gitWatch.Detach` 가 돈다 |
+| 넘침 | 큐가 가득 차면 그 구독을 닫는다(Close + 로그 1줄). 조용한 드롭은 없다. 큐 크기는 OPTIMIZE_REFACTOR_SRS FR-OPT-8-1 이 개정했다 — 종전 "16칸, 값 유지" 는 쓰기 하나가 막힌 사이 `ClearAllAttention` 버스트의 17번째에서 구독을 닫았으므로, 한 번의 가장 큰 버스트(`toolhub.ToolCap`)를 담는다 |
+| 쓰기 시한 | SSE 핸들러는 인사·메시지·keepalive 의 **매 쓰기 전에** `http.ResponseController.SetWriteDeadline(now+10s)` 를 건다(FR-OPT-8-1 이후 쓰기 하나는 쌓인 프레임을 합친 flush 하나다 — `internal/webserver/sse`). 쓰기·Flush 오류면 핸들러가 반환하고, 반환 경로의 구독 제거·`gitWatch.Detach` 가 돈다 |
 | 진단 합치기 | `lsp_diagnostics` 는 큐가 아니라 구독별 슬롯(uri → 최신 진단)에 덮어쓴다. SSE 루프는 큐와 슬롯을 함께 비운다. 같은 uri 는 최신만 전달된다. 넘침 판정은 큐에만 적용된다 |
 | 진단 스냅샷 | LSP 서비스는 "uri → 최신 진단" 표를 유지한다. 빈 배열이 publish 되면 그 uri 를 지운다. 세션이 끝나면(정지·크래시·무효화) 그 세션이 publish 한 uri 들에 빈 진단을 방송하고 표에서 지운다 |
 | 재연결 | 새 구독이 열리면 인사 직후 스냅샷 전부를 그 구독 슬롯에 넣는다. 새 HTTP 종단은 없다 |
