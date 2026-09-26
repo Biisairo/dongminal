@@ -328,7 +328,7 @@
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/git/records` | 이 앱이 실행한 git 명령의 기록 (Git ▸ 콘솔 탭). `?after=<seq>` 이면 그 뒤의 것만 싣고 `lastSeq`(마지막 전역 Seq)·`firstSeq`(아직 남은 가장 오래된 Seq)·`gap` 을 붙입니다 — `gap:true` 면 이을 수 없어 전량입니다 |
+| GET | `/api/git/records` | 이 앱이 실행한 git 명령의 기록 (Git ▸ 콘솔 탭). `?after=<seq>` 이면 그 뒤의 것만 싣고 `lastSeq`(마지막 전역 Seq)·`firstSeq`(아직 남은 가장 오래된 Seq)·`gap`·`epoch`(기록의 세대 — 서버가 다시 뜨면 바뀝니다)를 붙입니다. 받은 `epoch` 를 `&epoch=` 로 되돌려 주면 세대가 다를 때도 `gap` 입니다 — `gap:true` 면 이을 수 없어 전량입니다 |
 | POST | `/api/git/records/replay` | 그중 하나를 다시 실행한다 |
 | POST | `/api/git/drop` | 커밋 하나를 히스토리에서 뺀다 — rebase **작업** |
 

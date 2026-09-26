@@ -1,6 +1,7 @@
 package core
 
 import (
+	"crypto/rand"
 	"sync"
 	"time"
 )
@@ -69,14 +70,20 @@ type Recorder struct {
 	next int    // 다음에 쓸 자리
 	n    int    // 보유량
 	seq  uint64 // 마지막으로 부여한 Seq
+	// epoch 는 이 링의 세대다. 서버가 다시 뜨면 Seq 가 처음부터라 커서만으로는 옛 세대의
+	// 커서를 가려내지 못한다 — 새 Seq 가 옛 커서를 넘어서면 증분처럼 보인다 (FR-OPT-4-8).
+	epoch string
 }
 
 func NewRecorder(cap int) *Recorder {
 	if cap <= 0 {
 		cap = DefaultRecordCap
 	}
-	return &Recorder{buf: make([]Record, cap)}
+	return &Recorder{buf: make([]Record, cap), epoch: rand.Text()}
 }
+
+// Epoch 는 이 링의 세대다. 링마다 다르고 수명 동안 바뀌지 않는다.
+func (r *Recorder) Epoch() string { return r.epoch }
 
 // Add 는 Seq 를 부여해 기록한다. 링이 넘쳐 오래된 것이 버려져도 Seq 는 되돌아가지
 // 않는다 — Console 이 "무엇이 유실됐는지" 알 수 있어야 한다.
@@ -111,20 +118,22 @@ func (r *Recorder) Recent(n int) []Record {
 // RecordSpan 은 Since 가 본 링의 범위다. First 는 보유분 중 가장 오래된 Seq(없으면
 // Last+1), Last 는 마지막으로 부여한 Seq 다. Gap 은 요청한 커서에서 증분으로 이을 수
 // 없다는 뜻이다 — 링이 그 사이를 버렸거나, 커서가 Last 보다 크다(서버가 다시 떠 Seq 가
-// 처음부터다).
+// 처음부터다), 커서의 세대가 이 링의 것이 아니다.
 type RecordSpan struct {
 	First uint64
 	Last  uint64
 	Gap   bool
+	Epoch string
 }
 
 // Since 는 Seq 가 after 보다 큰 기록을 준다 (최신이 마지막, OPTIMIZE_REFACTOR_SRS
 // FR-OPT-4-8). Gap 이면 보유분 전부를 준다 — 호출자는 받은 것으로 갈아 끼운다.
-func (r *Recorder) Since(after uint64) ([]Record, RecordSpan) {
+// epoch 는 커서를 받은 세대다. 빈 값(세대를 모르는 물음)이면 Seq 로만 판정한다.
+func (r *Recorder) Since(after uint64, epoch string) ([]Record, RecordSpan) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	span := RecordSpan{First: r.seq - uint64(r.n) + 1, Last: r.seq}
-	span.Gap = after > span.Last || after+1 < span.First
+	span := RecordSpan{First: r.seq - uint64(r.n) + 1, Last: r.seq, Epoch: r.epoch}
+	span.Gap = after > span.Last || after+1 < span.First || (epoch != "" && epoch != r.epoch)
 	n := r.n
 	if !span.Gap {
 		n = int(span.Last - after)

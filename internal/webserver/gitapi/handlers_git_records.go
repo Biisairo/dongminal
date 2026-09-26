@@ -35,11 +35,14 @@ type gitRecordsCursor struct {
 	FirstSeq uint64 `json:"firstSeq"`
 	// Gap 이면 records 는 증분이 아니라 전량이다.
 	Gap bool `json:"gap"`
+	// Epoch 는 기록 링의 세대다. 클라이언트는 다음 물음에 `epoch=` 로 되돌려 준다 —
+	// 서버가 다시 떠 세대가 바뀌었으면 Seq 가 커서를 넘어서도 Gap 이다.
+	Epoch string `json:"epoch"`
 }
 
-// GET /api/git/records?repo=<abs>&n=<int>[&after=<seq>] — 그 리포에서 dongminal 이
-// 실행한 git 명령의 기록. 최신이 앞이다 (FR-GIT-218). after 를 주면 그 Seq 뒤의 것만
-// 보낸다 (FR-OPT-4-8).
+// GET /api/git/records?repo=<abs>&n=<int>[&after=<seq>[&epoch=<e>]] — 그 리포에서
+// dongminal 이 실행한 git 명령의 기록. 최신이 앞이다 (FR-GIT-218). after 를 주면 그
+// Seq 뒤의 것만 보낸다 (FR-OPT-4-8).
 //
 // **리포로 거른다.** Git 창은 리포 하나에 매인 창이고, 다른 리포의 실행이 섞이면
 // 이력이 아니라 잡음이다. 거르는 기준은 요청값이 아니라 rev-parse 로 확정한
@@ -63,8 +66,8 @@ func (s *GitServer) apiGitRecords(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var span core.RecordSpan
-		all, span = s.Git.Service().RecordsSince(after)
-		cur = &gitRecordsCursor{LastSeq: span.Last, FirstSeq: span.First, Gap: span.Gap}
+		all, span = s.Git.Service().RecordsSince(after, q.Get("epoch"))
+		cur = &gitRecordsCursor{LastSeq: span.Last, FirstSeq: span.First, Gap: span.Gap, Epoch: span.Epoch}
 	} else {
 		// 보유분 전부를 받아 거른 뒤 자른다 — 먼저 자르면 다른 리포의 기록이 자리를
 		// 차지해 그 리포의 이력이 조용히 짧아진다.

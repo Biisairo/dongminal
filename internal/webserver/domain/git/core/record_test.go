@@ -149,7 +149,7 @@ func TestService_DefaultRecorder(t *testing.T) {
 // 마지막 Seq 보다 크면(서버가 다시 떴다) 증분으로 이을 수 없으므로 Gap 과 보유분 전부다.
 func TestRecorder_Since(t *testing.T) {
 	r := NewRecorder(3)
-	if recs, span := r.Since(0); len(recs) != 0 || span.Gap || span.Last != 0 || span.First != 1 {
+	if recs, span := r.Since(0, ""); len(recs) != 0 || span.Gap || span.Last != 0 || span.First != 1 {
 		t.Fatalf("빈 링: %+v %+v", recs, span)
 	}
 	for i := 0; i < 5; i++ {
@@ -175,12 +175,34 @@ func TestRecorder_Since(t *testing.T) {
 		{9, []uint64{3, 4, 5}, true},
 	}
 	for _, c := range cases {
-		recs, span := r.Since(c.after)
+		recs, span := r.Since(c.after, "")
 		if got := seqs(recs); len(got) != len(c.want) || (len(got) > 0 && (got[0] != c.want[0] || got[len(got)-1] != c.want[len(c.want)-1])) {
 			t.Fatalf("Since(%d) = %v, want %v", c.after, got, c.want)
 		}
 		if span.Gap != c.gap || span.First != 3 || span.Last != 5 {
 			t.Fatalf("Since(%d) span = %+v, want gap=%v first=3 last=5", c.after, span, c.gap)
 		}
+	}
+}
+
+// FR-OPT-4-8 후속: 서버가 다시 떠 Seq 가 처음부터 다시 쌓여 커서를 넘으면 Seq 만으로는
+// 이을 수 없음을 모른다. 링은 세대(epoch)를 갖고, 다른 세대의 커서는 Gap 이다. 세대를
+// 싣지 않은 물음(옛 클라이언트)은 종전 판정 그대로다.
+func TestRecorder_SinceEpoch(t *testing.T) {
+	old, r := NewRecorder(8), NewRecorder(8)
+	if old.Epoch() == "" || old.Epoch() == r.Epoch() {
+		t.Fatalf("세대가 링마다 달라야 한다: %q %q", old.Epoch(), r.Epoch())
+	}
+	for i := 0; i < 5; i++ {
+		r.Add(Record{})
+	}
+	if recs, span := r.Since(2, old.Epoch()); !span.Gap || len(recs) != 5 || span.Epoch != r.Epoch() {
+		t.Fatalf("다른 세대의 커서: %d건 %+v, want gap 과 전량", len(recs), span)
+	}
+	if recs, span := r.Since(2, r.Epoch()); span.Gap || len(recs) != 3 {
+		t.Fatalf("같은 세대의 커서: %d건 %+v, want 증분 3건", len(recs), span)
+	}
+	if recs, span := r.Since(2, ""); span.Gap || len(recs) != 3 {
+		t.Fatalf("세대 없는 커서: %d건 %+v, want 종전 판정", len(recs), span)
 	}
 }

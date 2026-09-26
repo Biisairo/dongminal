@@ -254,6 +254,33 @@ func TestGitRecords_AfterGap(t *testing.T) {
 	}
 }
 
+// FR-OPT-4-8 후속: 서버가 다시 떠 새 Seq 가 옛 커서를 넘어서도 이을 수 없음을 안다 —
+// 응답이 세대(epoch)를 싣고, 다른 세대의 커서를 받으면 gap 과 전량이다.
+func TestGitRecords_AfterEpoch(t *testing.T) {
+	f := newGitRecFake(t)
+	s, svc := gitRecServer(t, f)
+	for i := 0; i < 3; i++ {
+		svc.Exec(context.Background(), f.root, "status")
+	}
+	_, out := gitReq(t, s, http.MethodGet, "/api/git/records?repo="+f.root+"&after=0", "")
+	epoch, _ := out["epoch"].(string)
+	all, _ := out["records"].([]any)
+	if epoch == "" {
+		t.Fatalf("세대가 없다: %v", out)
+	}
+	_, out = gitReq(t, s, http.MethodGet, "/api/git/records?repo="+f.root+"&after=1&epoch="+epoch, "")
+	if out["gap"] != false {
+		t.Fatalf("같은 세대인데 gap = %v", out["gap"])
+	}
+	_, out = gitReq(t, s, http.MethodGet, "/api/git/records?repo="+f.root+"&after=1&epoch=stale", "")
+	if out["gap"] != true || out["epoch"] != epoch {
+		t.Fatalf("다른 세대의 커서: gap=%v epoch=%v, want true·%s", out["gap"], out["epoch"], epoch)
+	}
+	if recs, _ := out["records"].([]any); len(recs) != len(all) {
+		t.Fatalf("gap 인데 전량이 아니다: %d건, want %d", len(recs), len(all))
+	}
+}
+
 // after 가 없으면 본문은 종전과 바이트가 같다 (FR-OPT-0-3) — 커서 필드가 붙지 않는다.
 func TestGitRecords_NoAfterKeepsBody(t *testing.T) {
 	f := newGitRecFake(t)

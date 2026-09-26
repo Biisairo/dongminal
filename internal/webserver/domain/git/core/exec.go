@@ -84,8 +84,11 @@ func New(opts ...Option) *Service {
 // Records 는 최근 기록을 준다 (최신이 마지막). n<=0 이면 보유분 전부다.
 func (s *Service) Records(n int) []Record { return s.rec.Recent(n) }
 
-// RecordsSince 는 Seq 가 after 보다 큰 기록과 링의 범위를 준다 (FR-OPT-4-8).
-func (s *Service) RecordsSince(after uint64) ([]Record, RecordSpan) { return s.rec.Since(after) }
+// RecordsSince 는 Seq 가 after 보다 큰 기록과 링의 범위를 준다 (FR-OPT-4-8). epoch 는
+// 커서를 받은 세대다 — 다르면 Gap 이다.
+func (s *Service) RecordsSince(after uint64, epoch string) ([]Record, RecordSpan) {
+	return s.rec.Since(after, epoch)
+}
 
 // MaxOutput 은 출력 상한이다 (FR-GIT-6). 상한에서 잘린 출력을 "온전한 결과"로
 // 답할 수 없는 조회들이 사유에 이 값을 적으므로, 패키지 밖에서도 읽어야 한다.

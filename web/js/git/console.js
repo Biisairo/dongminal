@@ -20,6 +20,7 @@ class GitConsole {
     this._err='';
     this._seq=0;           // 요청 일련번호. stale 응답을 버린다 (FR-GIT-54)
     this._after=0;         // 마지막으로 받은 전역 Seq. 증분 조회의 커서다 (FR-OPT-4-8)
+    this._epoch='';        // 그 커서의 세대. 서버가 다시 뜨면 바뀐다
     this._timer=null;
   }
 
@@ -56,7 +57,7 @@ class GitConsole {
 
   unmount(){
     this._stop();
-    this._el=null; this._recs=[]; this._open.clear(); this._err=''; this._after=0;
+    this._el=null; this._recs=[]; this._open.clear(); this._err=''; this._after=0; this._epoch='';
   }
 
   // 탭이 활성일 때만 받는다 — 열지 않은 탭이 500칸 버퍼를 미리 받아 둘 이유가 없다.
@@ -68,7 +69,7 @@ class GitConsole {
 
   // 리포가 바뀌면 앞 리포의 기록은 버린다 — 남으면 이력이 아니라 잡음이다.
   reset(){
-    this._recs=[]; this._open.clear(); this._err=''; this._after=0;
+    this._recs=[]; this._open.clear(); this._err=''; this._after=0; this._epoch='';
     this._seq++;
     if(this._el) this._paintList();
   }
@@ -101,6 +102,8 @@ class GitConsole {
     //   이유:     기록은 쓰기로만 늘어나 주기 대부분이 같은 500건이었다
     const after=this._after;
     let u='/api/git/records?repo='+encodeURIComponent(repo)+'&n='+GIT_CON_LIMIT+'&after='+after;
+    // 커서의 세대를 되돌려 준다 — 서버가 다시 떠 Seq 가 커서를 넘어서도 gap 이 선다.
+    if(this._epoch) u+='&epoch='+encodeURIComponent(this._epoch);
     // FR-GRF-6: 같은 시한 (history.js 의 `_get` 과 한 쌍).
     const r=await apiGet(u,{timeout:GIT_STATUS_FETCH_TIMEOUT_MS});
     const d=r.data;
@@ -120,6 +123,7 @@ class GitConsole {
       ?d.records.concat(this._recs.filter(r=>r.seq>=d.firstSeq)).slice(0,GIT_CON_LIMIT)
       :d.records;
     this._after=typeof d.lastSeq==='number'?d.lastSeq:0;
+    this._epoch=typeof d.epoch==='string'?d.epoch:'';
     this._paintList();
   }
 
