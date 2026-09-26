@@ -211,7 +211,7 @@
 | FR-UIK-22 | `icon` 만 준 버튼은 `.ui-btn-icon` 이 자동으로 붙고 `aria-label` 이 `title` 에서 채워진다. **보이는 글자(`label`)가 있는 버튼에는 `aria-label` 을 달지 않는다** — 그 글자가 이름이다 (2026-09-26 개정, OPTIMIZE_REFACTOR_SRS FR-OPT-12-3: 종전 구현은 `title` 이 있으면 라벨 버튼에도 달아 영어 툴팁이 한국어 라벨을 덮어 읽혔다). | 필수 |
 | FR-UIK-23 | `UIKit.icon(name,{size})` 이 `<svg><use href="#i-<name>"></svg>` 를 돌려준다. 없는 이름은 **콘솔 경고 후 빈 자리**다 — 화면이 깨지지 않는다. | 필수 |
 | FR-UIK-24 | `UIKit.tab({id,label,icon,badge,title,active,onClick})` 이 탭 버튼을 돌려준다. `SB_TAB_DEFS` 의 서술자 필드(FR-SBT-19)와 이름이 같아야 한다 — 두 어휘를 만들지 않는다. | 필수 |
-| FR-UIK-25 | `UIKit.modal({title,body,actions,onClose})` 이 오버레이+상자를 돌려주고, `Esc`·바깥 클릭·닫기 버튼 셋이 같은 `onClose` 로 간다. | 필수 |
+| FR-UIK-25 | `UIKit.modal({title,body,actions,onClose})` 이 오버레이+상자를 돌려주고, `Esc`·바깥 클릭·닫기 버튼 셋이 같은 `onClose` 로 간다. `Esc` 는 문서 **캡처**에서 잡아 `preventDefault`·`stopPropagation` 하고 닫는다 — 안쪽 상자 하나만 닫히고 바깥(설정 모달의 버블 처리기·창의 단축키)은 받지 않는다 (2026-09-26 보강, OPTIMIZE_REFACTOR_SRS FR-OPT-11-5 후속). | 필수 |
 | FR-UIK-26 | `UIKit.menu(items,{at})` 이 드롭다운을 연다. 바깥 `mousedown`·`Esc`·스크롤에 닫히는 규약은 `GitMenu`(`menu.js:381`)가 이미 쓰는 것을 옮긴 것이다. | 필수 |
 | FR-UIK-27 | `UIKit.field({label,control,hint})` 이 설정 행을 돌려준다. `.ds-row` 의 구조와 1:1 이다. | 필수 |
 | FR-UIK-28 | 팩토리는 상태를 갖지 않는다 — 만든 요소를 어디에도 등록하지 않는다 (D-9). | 필수 |
@@ -296,6 +296,8 @@
 | 핸들을 끌 때 | 아무 표시 없음 | 양쪽 크기가 세로로 실시간 | 놓아 보지 않고 안다 (요구 ⑧) |
 | 설정창 크기 | 탭마다 높이가 달라짐(`max-height:80vh`) | 고정, 본문만 스크롤 | 상자의 크기는 그 안의 탭이 정할 성질이 아니다 (추가 접수) |
 | 드래그 구현 | 여섯 곳에 여섯 벌 | `UIKit.drag` 하나 | 표시를 붙일 자리가 하나여야 한다 |
+| 확인·알림 상자 다섯의 버튼 줄 (2026-09-26, FR-OPT-11-5) | `_notify`·`_sbxRuntimeModal`·`_pickSandbox`·`_confirmClose`·`_edConfirm` 은 `Tab` 으로만 버튼을 오갔다 | `UIKit.ask`(→ `UIKit.modal`)를 지나며 `←`/`→` 로도 오간다. `Tab` 정지점은 그대로다 (FR-A11Y-30 `keepTabStops`) | 킷 모달의 버튼 줄 규약을 그대로 받는다 — 상자마다 키 규약이 갈리지 않는다 |
+| 확인·알림 상자 다섯의 `Esc` (2026-09-26, FR-OPT-11-5) | `_confirmClose`·`_edConfirm` 은 캡처 + `preventDefault`·`stopPropagation`. `_notify`·`_sbxRuntimeModal`·`_pickSandbox` 는 **버블** + `preventDefault` 만이라 키가 계속 올라가 바깥 처리기(설정 모달의 버블 `Esc` 등)도 받았다 | 다섯 다 캡처 + `preventDefault`·`stopPropagation` (FR-UIK-25) — 안쪽 상자 하나만 닫힌다. 이주 직후 킷에 `preventDefault` 가 빠져 있던 것은 되돌렸다 (`modal-unify.test`) | 안쪽이 먹고 바깥은 못 받는 것이 킷의 중첩 규약이다 (TC-A11Y-9). 버블 셋이 바깥까지 닫던 것은 의도가 아니었다 |
 
 ---
 

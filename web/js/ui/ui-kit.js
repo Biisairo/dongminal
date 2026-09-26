@@ -427,7 +427,8 @@ const UIKit = {
       if (ov.parentNode) ov.parentNode.removeChild(ov);
       if (s.onClose) s.onClose(v);
     };
-    const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close() } };
+    // UI_KIT_SRS FR-UIK-25·§3.6: 옮겨 온 다섯 상자가 하던 대로 기본 동작도 막는다.
+    const onKey = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close() } };
     document.addEventListener('keydown', onKey, true);
     if (head) head.appendChild(this.button({ icon: 'x', title: s.closeTitle || 'Close', kind: 'ghost', cls: 'ui-modal-close', onClick: () => close() }));
     ov.addEventListener('mousedown', e => { if (e.target === ov) close() });

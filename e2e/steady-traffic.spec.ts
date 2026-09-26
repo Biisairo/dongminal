@@ -1,6 +1,6 @@
-import { Page } from '@playwright/test';
+import { APIRequestContext, Page } from '@playwright/test';
 
-import { test, expect, waitForInit, waitSettled } from './fixtures';
+import { test, expect, waitForInit, waitSettled, JSON_HDR } from './fixtures';
 
 /**
  * OPTIMIZE_REFACTOR_SRS 묶음 O4b — 터미널 창 하나의 정상 상태 트래픽 (§3.4 목표 · FR-OPT-0-4).
@@ -30,6 +30,23 @@ function timeline(page: Page) {
   return box;
 }
 
+/**
+ * 워커의 서버는 앞 스펙과 함께 쓴다. 앞 스펙(`skill-contract` 등)이 남긴 Run 은 수거
+ * 루프(`reapInterval` 15초, FR-DEL-14)가 창 안에서 지우고 `run_changed` 를 방송하며, 화면은
+ * 그것을 받아 `/api/runs` 를 한 번 다시 받는다(FR-OPT-4-10) — 화면의 정상 동작이지만 이
+ * 창의 "아무것도 하지 않는다" 를 깬다. 페이지를 열기 **전에** 지워 둔다(방송을 받을 화면이 없다).
+ */
+async function clearRuns(request: APIRequestContext) {
+  const list = await (await request.get('/api/runs')).json();
+  // 수거 루프와 겹치면 이미 지워져 404 다 — 지워졌다는 결과는 같다.
+  for (const rv of list.runs || []) {
+    const r = await request.delete('/api/runs/' + encodeURIComponent(rv.id), { headers: JSON_HDR });
+    expect([200, 404], `DELETE /api/runs/${rv.id} → ${r.status()}`).toContain(r.status());
+  }
+  const left = await (await request.get('/api/runs')).json();
+  expect(left.runs || [], '남은 Run 이 창 안에서 수거되며 /api/runs 를 부른다').toEqual([]);
+}
+
 function byPath(box: string[]) {
   const out: Record<string, number> = {};
   for (const p of box) out[p] = (out[p] || 0) + 1;
@@ -37,8 +54,9 @@ function byPath(box: string[]) {
 }
 
 test.describe('터미널 창 하나의 정상 상태 트래픽 (FR-OPT-4-3~4-6)', () => {
-  test('30초 동안 ping·stats 와 안전망만 남는다', async ({ page }) => {
+  test('30초 동안 ping·stats 와 안전망만 남는다', async ({ page, request }) => {
     test.setTimeout(WINDOW_MS + 60000);
+    await clearRuns(request);
     await waitForInit(page);
     await waitSettled(page);
     const box = timeline(page);
