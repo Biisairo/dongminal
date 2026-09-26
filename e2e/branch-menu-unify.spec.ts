@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { Page } from '@playwright/test';
 
-import { test, expect, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit, openRowMenu, gitFixture, cleanGitFixture } from './fixtures';
+import { test, expect, makeCopyFx, GIT_VIEW_TABS, clickGitView, waitForInit, openRowMenu, gitFixture, cleanGitFixture, freshDir, copyDir } from './fixtures';
 import { tmpPath } from './osenv';
 
 // BRANCH_MENU_UNIFY_SRS §5 TC-BMU-*
@@ -354,6 +354,12 @@ test.describe('묶음 F — 반쪽 실패를 말한다', () => {
   // TC-BMU-20
   test('원격 삭제가 지면 그 사유가 화면에 뜬다', async ({ page }) => {
     const repo = copyFx('with-remote', 'bmu-f1');
+    // 훅은 **이 검사만의 원격**에 건다. 픽스처의 `remote.git` 은 이 파일의 사본이 함께
+    // 쓰므로, 거기 걸면 같은 워커에서 뒤에 도는 검사의 push 까지 막힌다 — TC-BMU-21 이
+    // 첫 시도마다 그렇게 지고 새 워커의 재시도에서만 통과했다(전량 flaky 1).
+    const remote = freshDir(join(FIXTURES, 'remote-bmu-f1.git'));
+    copyDir(git(repo, 'remote', 'get-url', 'origin'), remote);
+    git(repo, 'remote', 'set-url', 'origin', remote);
     git(repo, 'push', '-q', '-u', 'origin', 'no-upstream:feature/ghost');
     git(repo, 'branch', '-q', '--set-upstream-to=origin/feature/ghost', 'no-upstream');
     git(repo, 'fetch', '-q', 'origin');
@@ -363,7 +369,6 @@ test.describe('묶음 F — 반쪽 실패를 말한다', () => {
     // 원격 삭제가 완전 이름(refs/heads/…)을 쓰게 된 뒤로 git 은 이미 없는 ref 의
     // 삭제를 경고와 함께 **성공**(exit 0)으로 끝낸다(실측 — 원하는 결과에 이미
     // 닿았다). 그래서 진짜 거절로 바꾼다. 검사하는 것(반쪽 실패의 사유 표시)은 같다.
-    const remote = git(repo, 'remote', 'get-url', 'origin');
     const hook = join(remote, 'hooks', 'pre-receive');
     writeFileSync(hook, '#!/bin/sh\necho "deletes are not allowed here" >&2\nexit 1\n');
     chmodSync(hook, 0o755);
