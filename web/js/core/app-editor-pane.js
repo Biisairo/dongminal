@@ -241,7 +241,7 @@ Object.assign(App.prototype, {
       if(!s||!s.layout) continue;
       for(const pn of panesOf(s.layout)){
         for(const t of pn.tabs||[]){
-          if(!t||t.type!=='editor'||typeof t.filePath!=='string') continue;
+          if(!t||t.type!==TAB_TYPE_EDITOR||typeof t.filePath!=='string') continue;
           if(t.filePath===p||t.filePath.startsWith(pre)) out.push({win:s,pane:pn,tab:t});
         }
       }

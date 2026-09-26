@@ -554,7 +554,7 @@ Object.assign(App.prototype, {
     }
     const t=newEntityId();
     if(!this.tools.has(toolId)) this.mkTool(toolId,DEFAULT_TOOL_NAME);
-    pn.tabs.push({id:t,name:'Shell',type:'terminal',toolId});
+    pn.tabs.push({id:t,name:TAB_NAME_DEFAULT,type:TAB_TYPE_TERMINAL,toolId});
     this.paneTabSet(pn,t);
     this.render();
     this.save();

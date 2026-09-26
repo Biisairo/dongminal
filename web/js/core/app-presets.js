@@ -54,7 +54,7 @@ Object.assign(App.prototype, {
         const tabs=[];
         for(let i=0;i<tpl.tabCount;i++){
           const p=await this._newTool();
-          tabs.push({id:newEntityId(),name:'Shell',type:'terminal',toolId:p.id});
+          tabs.push({id:newEntityId(),name:TAB_NAME_DEFAULT,type:TAB_TYPE_TERMINAL,toolId:p.id});
         }
         const rid=newEntityId();
         return{type:'pane',id:rid,tabs,activeTab:tabs[0].id};

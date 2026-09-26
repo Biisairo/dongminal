@@ -362,7 +362,7 @@ Object.assign(App.prototype, {
   // 내 도구" 다. short 는 uuid 앞 8자 (run/store.go 의 shortID 와 같은 규약).
   _bgRun(b){
     if(!b.runId) return null;
-    return {short:String(b.runId).slice(0,8),role:b.role||''};
+    return {short:runShortId(b.runId),role:b.role||''};
   },
 
   _bgKillQuestion(b){

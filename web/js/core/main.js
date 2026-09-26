@@ -91,7 +91,7 @@ document.getElementById('add-window').addEventListener('click',async(e)=>{
   // "눌러도 아무 일이 없다" 로만 남는다 (FR-SBX-20). 복사 상한을 넘긴 거부도
   // 이 길로 온다 (FR-SPK-14).
   app.addWindow(sandbox?{sandbox,cwd:workdir||undefined,sandboxWork:work}:undefined)
-    .catch(err=>app._notify(t('core.open_window_fail')+' — '+((err&&err.message)||err)))
+    .catch(err=>app._notify(errText(t('core.open_window_fail'),err)))
     .finally(()=>{if(done)done()});
 });
 document.getElementById('add-preset').addEventListener('click',()=>{

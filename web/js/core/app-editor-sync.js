@@ -195,7 +195,7 @@ Object.assign(App.prototype, {
     if(!this.fileEditors) return false;
     const ids=new Set();
     for(const pn of this.flattenPanes(s.layout))
-      for(const t of (pn.tabs||[])) if(t&&t.type==='editor') ids.add(t.id);
+      for(const t of (pn.tabs||[])) if(t&&t.type===TAB_TYPE_EDITOR) ids.add(t.id);
     if(!ids.size) return false;
     for(const[k,v] of this.fileEditors)
       if(v&&v._dirty&&ids.has(this.slotBase(k))) return true;
@@ -261,7 +261,7 @@ Object.assign(App.prototype, {
     if(!this.fileEditors) return ok;
     const ids=new Set();
     for(const pn of this.flattenPanes(s.layout))
-      for(const t of (pn.tabs||[])) if(t&&t.type==='editor') ids.add(t.id);
+      for(const t of (pn.tabs||[])) if(t&&t.type===TAB_TYPE_EDITOR) ids.add(t.id);
     const done=new Set();
     for(const[k,v] of this.fileEditors){
       const base=this.slotBase(k);

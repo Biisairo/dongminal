@@ -33,7 +33,7 @@ Object.assign(App.prototype, {
       {label:t('keys.group_ed_edit'),keys:['edSave','edSaveAll']},
       // FR-SBT-21·30: 직행 키는 서술자 배열에서 파생한다 — 탭이 늘어도 이 목록을
       // 손으로 늘리지 않는다.
-      {label:t('keys.group_sidebar_tabs'),keys:SB_TAB_DEFS.slice(0,9).map((d,i)=>sbTabAction(i))},
+      {label:t('keys.group_sidebar_tabs'),keys:SB_TAB_DEFS.slice(0,SB_JUMP_MAX).map((d,i)=>sbTabAction(i))},
     ];
     for(const g of groups){
       const title=document.createElement('div');title.className='sc-group-title';title.textContent=g.label;

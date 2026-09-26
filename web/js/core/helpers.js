@@ -173,6 +173,12 @@ function escHtml(s){
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// FR-OPT-11-5 (FEC-28): 오류 문구는 앞말 + ' — ' + 사유다. 사유가 Error 면 그 message 다.
+function errText(prefix,err){ return prefix+' — '+((err&&err.message)||err) }
+
+// FR-OPT-11-7 (FEC-31): Run 의 짧은 id (FR-RVZ-8).
+function runShortId(id){ return String(id).slice(0,RUN_SHORT_ID_LEN) }
+
 // ── Theme helpers ──
 
 const UI_LABELS={bg:'Background',sidebarBg:'Sidebar',border:'Border',accent:'Accent',text:'Text',textMuted:'Muted',textBright:'Bright',textDim:'Dim',danger:'Danger',accentBorder:'Accent Bd'};
@@ -628,7 +634,7 @@ function effectiveTitle(){return (pageTitle||'').trim()||DEFAULT_PAGE_TITLE}
 // ── Layout helpers ──
 
 function normalizeTab(t) {
-  if (!t.type) t.type = t.toolId ? 'terminal' : 'editor';
+  if (!t.type) t.type = t.toolId ? TAB_TYPE_TERMINAL : TAB_TYPE_EDITOR;
   return t;
 }
 
@@ -642,7 +648,7 @@ const TOOL_CAPABILITIES = {
   git:      { backgroundCapable: false },
 };
 function toolBackgroundCapable(type) {
-  const cap = TOOL_CAPABILITIES[type || 'terminal'];
+  const cap = TOOL_CAPABILITIES[type || TAB_TYPE_TERMINAL];
   return !!(cap && cap.backgroundCapable);
 }
 function normalizeLayout(n) {
@@ -912,7 +918,7 @@ function clean(n,ok){
       // `!t.toolId` 로 일반화하지 않는 이유는 toolId 없는 terminal 탭
       // (저장 중 끊긴 손상 워크스페이스)이 그때 영원히 남기 때문이다 —
       // 클릭해도 아무것도 열리지 않는 그 유령 탭을 버리는 것이 clean() 의 목적이다.
-      if(t.type==='editor'||t.type==='run'||t.type===TAB_TYPE_GIT) return true;
+      if(t.type===TAB_TYPE_EDITOR||t.type===TAB_TYPE_RUN||t.type===TAB_TYPE_GIT) return true;
       return ok.has(t.toolId);
     });
     if(!n.tabs||!n.tabs.length) return null;
@@ -928,6 +934,9 @@ function clean(n,ok){
 
 // ── 탭 이름의 출처 (CONVENIENCE_SRS 묶음 N) ──
 
+// 새 터미널 탭의 이름이자 auto/manual 판정의 기준값이다 (FR-TAN-4). 탭 레코드를 만드는
+// 자리는 전부 이것을 쓴다 (FEC-31). `DEFAULT_TOOL_NAME` 과 값이 같은 것은 우연이다 —
+// 저쪽은 탭 없는 도구의 표시 이름(FR-UNI-8)이라 한쪽을 바꿔도 다른 쪽은 그대로여야 한다.
 const TAB_NAME_DEFAULT='Shell';
 const NAME_SOURCE_AUTO='auto';
 const NAME_SOURCE_MANUAL='manual';
@@ -949,7 +958,7 @@ function tabNameSource(tab){
   if(!tab) return NAME_SOURCE_AUTO;
   // FR-TAN-3: editor·run·git 탭의 이름은 콘텐츠에서 파생된다 — 본 묶음의
   // 대상이 아니므로 manual 로 고정한다.
-  if(tab.type==='editor'||tab.type==='run'||tab.type===TAB_TYPE_GIT) return NAME_SOURCE_MANUAL;
+  if(tab.type===TAB_TYPE_EDITOR||tab.type===TAB_TYPE_RUN||tab.type===TAB_TYPE_GIT) return NAME_SOURCE_MANUAL;
   if(tab.nameSource===NAME_SOURCE_MANUAL||tab.nameSource===NAME_SOURCE_AUTO) return tab.nameSource;
   return tab.name===TAB_NAME_DEFAULT?NAME_SOURCE_AUTO:NAME_SOURCE_MANUAL;
 }

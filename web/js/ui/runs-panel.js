@@ -133,7 +133,7 @@ Object.assign(RunsPanel.prototype, {
     row.dataset.runid = rv.id;
     row.title = t('runs.row_title');
 
-    row.appendChild(runDiv('runs-short', rv.short || String(rv.id || '').slice(0, 8)));
+    row.appendChild(runDiv('runs-short', rv.short || runShortId(rv.id || '')));
     row.appendChild(runDiv('runs-obj', rv.objective || ''));
 
     const st = runDiv('runs-state st-' + (rv.state || ''), rv.state || '');
@@ -468,7 +468,7 @@ Object.assign(RunsPanel.prototype, {
     const el = root.querySelector('.run-summary');
     const headless = members.filter(m => m.headless).length;
     const parts = [
-      ['short', 'Run ' + (d.short || String(d.runId || '').slice(0, 8))],
+      ['short', 'Run ' + (d.short || runShortId(d.runId || ''))],
       ['obj', d.objective ? t('runs.objective', { v: d.objective }) : ''],
       ['state', 'state=' + (d.state || '')],
       ['iso', 'isolation=' + (d.isolation || 'none')],

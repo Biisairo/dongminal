@@ -26,7 +26,7 @@ Object.assign(App.prototype, {
       const panes=panesOf(s.layout);
       for(const p of panes){
         const before=(p.tabs||[]).length;
-        p.tabs=(p.tabs||[]).filter(t=>!t||t.type!=='editor');
+        p.tabs=(p.tabs||[]).filter(t=>!t||t.type!==TAB_TYPE_EDITOR);
         n+=before-p.tabs.length;
         if(!p.tabs.find(t=>t.id===p.activeTab)) p.activeTab=p.tabs.length?p.tabs[0].id:null;
       }
@@ -109,7 +109,7 @@ Object.assign(App.prototype, {
    */
   tabDirty(win,tab){
     if(!tab) return false;
-    if(tab.type==='editor'){
+    if(tab.type===TAB_TYPE_EDITOR){
       const d=this._edDocs&&this._edDocs.get(tab.filePath);
       if(d) return !!d.dirty;
       const v=this.editorAny(tab.id);
@@ -185,7 +185,7 @@ Object.assign(App.prototype, {
       // 첫 회차가 낡음을 갚는다 (`visiblePoll` 의 복귀 갱신).
       if(!this.windowVisible(s.id)) continue;
       for(const n of panesOf(s.layout)) for(const t of (n.tabs||[])){
-        if(t&&t.type==='editor'&&t.filePath) seen.add(t.filePath);
+        if(t&&t.type===TAB_TYPE_EDITOR&&t.filePath) seen.add(t.filePath);
         // REPO_FIX 05 §3A-3: git Diff 탭의 작업 트리 쪽도 편집기 문서다 — 바깥 변경은
         // 문서 refresh 가 나른다(03). 빼면 Diff 만 연 파일이 낡는다.
         if(t&&t.type===TAB_TYPE_GIT&&t.gitView==='diff')

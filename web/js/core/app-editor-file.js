@@ -33,7 +33,7 @@ Object.assign(App.prototype, {
     // addTab 의 editor 분기가 중복 방지와 refresh 를 이미 한다.
     // FR-RTU-40: `preview` 는 그대로 넘긴다 — 미리보기 탭을 만들지 대체할지는
     // addTab 한 자리가 정한다.
-    await this.addTab(rid,'editor',
+    await this.addTab(rid,TAB_TYPE_EDITOR,
       {filePath,name:(opts||{}).name,windowId:w.id,preview:!!(opts||{}).preview});
     // FR-EDT-102: 열면 그 창으로 전환된다. 열었는데 보이지 않으면 사용자는
     // 실패로 읽는다. 사이드바 탭은 FR-EDT-8 로 따라온다.

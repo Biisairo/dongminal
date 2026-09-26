@@ -4,6 +4,17 @@
  * class App 본문에서 옮겨온 메서드 21개. 본문은 수정하지 않았다 (FR-APP-3).
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
+/**
+ * OPTIMIZE_REFACTOR_SRS FR-OPT-11-2 (FEC-22): 탭 타입 → 여는 길. `addTab` 은 창 해석과
+ * 창 타입 불변식만 하고 나머지는 여기 이름 붙은 메서드가 한다.
+ */
+const TAB_OPENERS=Object.freeze({
+  [TAB_TYPE_RUN]:(app,s,pn,rid,o)=>app._addRunTab(s,pn,o),
+  [TAB_TYPE_GIT]:(app,s,pn,rid,o)=>app._addGitTab(s,pn,o),
+  [TAB_TYPE_EDITOR]:(app,s,pn,rid,o)=>app._addEditorTab(s,pn,o),
+  [TAB_TYPE_TERMINAL]:(app,s,pn,rid,o)=>app._addTerminalTab(s,pn,rid,o),
+});
+
 Object.assign(App.prototype, {
   /**
    * RELOAD_CONTINUITY_SRS FR-RLC-6·10: 사이드바 탭이 **돌아갈 창**을 적는다.
@@ -134,7 +145,7 @@ Object.assign(App.prototype, {
       id:wid,name,
       // `opts.name` 은 **창** 이름이다 — 안의 탭은 이름을 받은 적이 없으므로
       // auto 로 태어난다 (FR-TAN-1). `nameSource` 를 적지 않는 것이 auto 다.
-      layout:{type:'pane',id:r,tabs:[{id:t,name:TAB_NAME_DEFAULT,type:'terminal',toolId:p.id}],activeTab:t}
+      layout:{type:'pane',id:r,tabs:[{id:t,name:TAB_NAME_DEFAULT,type:TAB_TYPE_TERMINAL,toolId:p.id}],activeTab:t}
     };
     // FR-SBX-18: 선택 필드다. 일반 창에는 키 자체를 두지 않는다.
     if(sandbox) s.sandbox=sandbox;
@@ -414,16 +425,25 @@ Object.assign(App.prototype, {
   _findEditorTab(filePath) {
     // FR-DRV-10: **소스 탭만이다.** 렌더 탭이 이 판정에 걸리면 탐색기에서 연 파일이
     // 소스가 아니라 렌더로 열린다.
-    return findTabWhere(this.ws.windows, t => t.type === 'editor' && !t.render && t.filePath === filePath);
+    return findTabWhere(this.ws.windows, t => t.type === TAB_TYPE_EDITOR && !t.render && t.filePath === filePath);
   },
 
-  async addTab(rid, type = 'terminal', opts = {}) {
+  async addTab(rid, type = TAB_TYPE_TERMINAL, opts = {}) {
     // opts.windowId 지정 시 비활성 창의 pane 에도 추가 가능 (FR-RST-4).
     const s = opts.windowId ? this.ws.windows.find(x => x.id === opts.windowId) : this.aw();
-    if (!s) return;
+    if (!s || !this._tabTypeFits(s, type)) return;
+    const pn = findPane(s.layout, rid); if (!pn) return;
+    // FR-OPT-11-2 (FEC-22): 타입별 여는 길은 `TAB_OPENERS` 표다. 모르는 타입은 종전대로
+    // 터미널이다.
+    const open = Object.hasOwn(TAB_OPENERS, type) ? TAB_OPENERS[type] : TAB_OPENERS[TAB_TYPE_TERMINAL];
+    return open(this, s, pn, rid, opts);
+  },
+
+  // 창 타입의 불변식 — 이 창에 이 타입의 탭이 설 수 있는가.
+  _tabTypeFits(s, type) {
     // FR-GIT-179: Git 창의 탭은 GIT_VIEWS 의 고정 탭뿐이다 — 더할 수 없다
     // (FR-GIT-28 개정으로 7개다. 숫자를 여기 적지 않는다 — 선언이 하나뿐이다).
-    if (this.isGitWin(s)) return;
+    if (this.isGitWin(s)) return false;
     // FR-EDT-54 → REPO_TAB_UNIFY_SRS FR-RTU-16 으로 개정: Repo 창의 본문에는
     // **편집기 탭과 git 뷰 탭**이 산다. 터미널·run 탭은 여전히 만들 수 없다.
     //
@@ -431,147 +451,160 @@ Object.assign(App.prototype, {
     //   새  동작: editor 와 git 탭 (Diff·History·Branches·Stash·Console·Worktrees)
     //   이유:     diff·history 는 좁은 사이드가 아니라 본문에서 봐야 읽힌다.
     //             그리고 그 탭들은 편집기 탭과 같은 자격이어야 한다 (FR-RTU-33)
-    if (this.isEditorWin(s) && type !== 'editor' && type !== TAB_TYPE_GIT) return;
+    if (this.isEditorWin(s) && type !== TAB_TYPE_EDITOR && type !== TAB_TYPE_GIT) return false;
     // FR-EDT-94·106: 그 반대도 불변식이다 — 편집기 탭은 어떤 경로로도 일반
     // 창에 생기지 않는다. Editor 표면이 없는 환경(FR-EDT-120)에서는 갈 곳이
     // 없으므로 옛 경로가 그대로 남는다.
-    if (type === 'editor' && !this.isEditorWin(s) && this.edOn()) {
+    if (type === TAB_TYPE_EDITOR && !this.isEditorWin(s) && this.edOn()) {
       console.warn('[addTab] editor tab belongs to an Editor window (FR-EDT-94)');
+      return false;
+    }
+    return true;
+  },
+
+  // FR-RVZ-7 · FR-EDT-101: 이미 열린 탭으로 옮긴다 — 창을 바꾸고 그 탭을 보이며 칸을 잡는다.
+  _revealTab(found) {
+    this._activateWindow(found.win.id, { rememberFocus: true });
+    this.paneTabSet(found.pane, found.tab.id);
+    this.setFocusState(found.pane.id, found.win);
+    this._focusWindow(found.win.id);
+  },
+
+  // 새 탭 레코드를 칸에 넣고 보인다. `focus` 면 그 칸을 포커스한다 (FR-RTU-80).
+  _pushTab(s, pn, tab, focus) {
+    pn.tabs.push(tab);
+    this.paneTabSet(pn, tab.id);
+    if (focus) this.setFocusState(pn.id, s);
+  },
+
+  // FR-RVZ-6: 네 번째 탭 타입. editor 와 같은 비-PTY 경로다 — 도구를 만들지
+  // 않고 탭 레코드만 넣는다. editor 가 filePath 를 요구하듯 run 은 opts.runId 를
+  // 요구한다. _findRunTab 은 app-runs.js 에 있다 (그 파일이 이 파일 뒤에
+  // 로드되므로 호출 시점에는 프로토타입에 있다).
+  _addRunTab(s, pn, opts) {
+    if (!opts.runId) { console.warn('[addTab] run tab requires runId'); return }
+    // FR-RVZ-7: 같은 Run 의 탭이 이미 있으면 새로 만들지 않고 그리로 옮긴다
+    // (editor 의 중복 방지와 같은 규약).
+    const existing = this._findRunTab(opts.runId);
+    if (existing) {
+      this._revealTab(existing);
+      this.render();
+      this.save();
       return;
     }
-    const pn = findPane(s.layout, rid); if (!pn) return;
-    // FR-RVZ-6: 네 번째 탭 타입. editor 와 같은 비-PTY 경로다 — 도구를 만들지
-    // 않고 탭 레코드만 넣는다. editor 가 filePath 를 요구하듯 run 은 opts.runId 를
-    // 요구한다. _findRunTab 은 app-runs.js 에 있다 (그 파일이 이 파일 뒤에
-    // 로드되므로 호출 시점에는 프로토타입에 있다).
-    if (type === 'run') {
-      if (!opts.runId) { console.warn('[addTab] run tab requires runId'); return }
-      // FR-RVZ-7: 같은 Run 의 탭이 이미 있으면 새로 만들지 않고 그리로 옮긴다
-      // (아래 editor 의 중복 방지와 같은 규약).
-      const existing = this._findRunTab(opts.runId);
-      if (existing) {
-        this._activateWindow(existing.win.id, { rememberFocus: true });
-        this.paneTabSet(existing.pane, existing.tab.id);
-        this.setFocusState(existing.pane.id, existing.win);
-        this._focusWindow(existing.win.id);
-        this.render();
-        this.save();
-        return;
-      }
-      // FR-RVZ-8: 이름은 `Run <short>` 다. 여기서 한 번만 정한다 — 사용자가
-      // rename 하면 그것이 이기려면 이 값을 나중에 덮어쓰지 않아야 한다.
-      const short = opts.short || String(opts.runId).slice(0, 8);
-      const t = newEntityId();
-      pn.tabs.push({ id: t, name: clampEntityName(opts.name || 'Run ' + short), type: 'run', runId: opts.runId });
-      this.paneTabSet(pn, t);
+    // FR-RVZ-8: 이름은 `Run <short>` 다. 여기서 한 번만 정한다 — 사용자가
+    // rename 하면 그것이 이기려면 이 값을 나중에 덮어쓰지 않아야 한다.
+    const short = opts.short || runShortId(opts.runId);
+    const id = newEntityId();
+    this._pushTab(s, pn, { id, name: clampEntityName(opts.name || 'Run ' + short), type: TAB_TYPE_RUN, runId: opts.runId }, false);
+    this.render();
+    this.save();
+    return { uuid: id };
+  },
+
+  /**
+   * REPO_TAB_UNIFY_SRS FR-RTU-30·31: git 뷰 탭. editor·run 과 같은 비-PTY
+   * 경로이며 도구를 만들지 않는다.
+   *
+   * **창에 하나씩만** 연다 — 같은 History 를 두 탭으로 여는 것은 뜻이 없고,
+   * 뷰의 DOM 이 패널에 하나뿐이라 둘째 탭은 첫째에서 그것을 떼어 온다.
+   * 중복 방지가 editor·run 과 다른 점은 **창 안에서만** 찾는다는 것이다:
+   * 저장소마다 자기 History 가 있어야 한다.
+   */
+  _addGitTab(s, pn, opts) {
+    const view = opts.gitView;
+    const def = GIT_VIEWS.find(v => v.key === view);
+    if (!def) { console.warn('[addTab] git tab requires a known gitView'); return }
+    const existing = this.findGitViewTab(s, view);
+    if (existing) {
+      this.paneTabSet(existing.pane, existing.tab.id);
+      this.setFocusState(existing.pane.id, s);
       this.render();
       this.save();
-      return { uuid: t };
+      return { uuid: existing.tab.id };
     }
-    /**
-     * REPO_TAB_UNIFY_SRS FR-RTU-30·31: git 뷰 탭. editor·run 과 같은 비-PTY
-     * 경로이며 도구를 만들지 않는다.
-     *
-     * **창에 하나씩만** 연다 — 같은 History 를 두 탭으로 여는 것은 뜻이 없고,
-     * 뷰의 DOM 이 패널에 하나뿐이라 둘째 탭은 첫째에서 그것을 떼어 온다.
-     * 중복 방지가 editor·run 과 다른 점은 **창 안에서만** 찾는다는 것이다:
-     * 저장소마다 자기 History 가 있어야 한다.
-     */
-    if (type === TAB_TYPE_GIT) {
-      const view = opts.gitView;
-      const def = GIT_VIEWS.find(v => v.key === view);
-      if (!def) { console.warn('[addTab] git tab requires a known gitView'); return }
-      const existing = this.findGitViewTab(s, view);
-      if (existing) {
-        this.paneTabSet(existing.pane, existing.tab.id);
-        this.setFocusState(existing.pane.id, s);
-        this.render();
-        this.save();
-        return { uuid: existing.tab.id };
-      }
-      const t = newEntityId();
-      pn.tabs.push({ id: t, name: def.name, type: TAB_TYPE_GIT, gitView: view });
-      this.paneTabSet(pn, t);
-      // 새 탭도 **그 칸을 포커스**한다 — 위의 "이미 있으면" 분기가 이미 그렇게
-      // 한다. 그러지 않으면 모바일에서 사이드 자리에 머물러 방금 연 탭이 보이지
-      // 않는다 (FR-RTU-80).
-      this.setFocusState(pn.id, s);
-      this.render();
-      // FR-RTU-62: git 뷰 탭이 생기는 것은 **그 창에 git 표면이 서는** 일이다 —
-      // 사이드가 Explorer 여도 이제 관측을 쓰는 화면이 있다.
-      this._gitRescheduleAll();
-      this.save();
-      return { uuid: t };
+    const id = newEntityId();
+    // 새 탭도 **그 칸을 포커스**한다 — 위의 "이미 있으면" 분기가 이미 그렇게
+    // 한다. 그러지 않으면 모바일에서 사이드 자리에 머물러 방금 연 탭이 보이지
+    // 않는다 (FR-RTU-80).
+    this._pushTab(s, pn, { id, name: def.name, type: TAB_TYPE_GIT, gitView: view }, true);
+    this.render();
+    // FR-RTU-62: git 뷰 탭이 생기는 것은 **그 창에 git 표면이 서는** 일이다 —
+    // 사이드가 Explorer 여도 이제 관측을 쓰는 화면이 있다.
+    this._gitRescheduleAll();
+    this.save();
+    return { uuid: id };
+  },
+
+  _addEditorTab(s, pn, opts) {
+    if (!opts.filePath) { console.warn('[addTab] editor tab requires filePath'); return }
+    const existing = this._findEditorTab(opts.filePath);
+    // FR-RTU-45: 이미 **고정된** 탭이 있으면 미리보기를 만들지 않는다 —
+    // 아래 기존 분기가 그 탭으로 옮긴다 (FR-EDT-101 을 미리보기까지 넓힌 것).
+    if (!existing && opts.preview) {
+      const r = this._retargetPreview(s, opts);
+      if (r) return r;
     }
-    if (type === 'editor') {
-      if (!opts.filePath) { console.warn('[addTab] editor tab requires filePath'); return }
-      const existing = this._findEditorTab(opts.filePath);
-      // FR-RTU-45: 이미 **고정된** 탭이 있으면 미리보기를 만들지 않는다 —
-      // 아래 기존 분기가 그 탭으로 옮긴다 (FR-EDT-101 을 미리보기까지 넓힌 것).
-      // FR-RTU-40: 미리보기 요청이면 기존 미리보기 탭을 **대체한다.** 새 탭을
-      // 만들지 않으므로 목록을 훑어도 탭이 쌓이지 않는다.
-      if (!existing && opts.preview) {
-        const prev = this._findPreviewTab(s);
-        if (prev) {
-          prev.tab.filePath = opts.filePath;
-          prev.tab.name = clampEntityName(opts.name || pathBase(opts.filePath) || '');
-          // 편집기 인스턴스는 탭 id 로 산다 — 대상이 바뀌었으므로 버린다.
-          for (const [k, v] of [...this.fileEditors]) {
-            if (this.slotBase(k) !== prev.tab.id) continue;
-            try { v.destroy() } catch { /* 이미 파괴된 것은 오류가 아니다 */ }
-            this.fileEditors.delete(k);
-          }
-          this.paneTabSet(prev.pane, prev.tab.id);
-          this.setFocusState(prev.pane.id, s);
-          this.render();
-          this.save();
-          return { uuid: prev.tab.id };
-        }
-      }
-      if (existing) {
-        this._activateWindow(existing.win.id, { rememberFocus: true });
-        this.paneTabSet(existing.pane, existing.tab.id);
-        this.setFocusState(existing.pane.id, existing.win);
-        this._focusWindow(existing.win.id);
-        const editor = this.editorAny(existing.tab.id);
-        if (editor) editor.refresh();
-        this.render();
-        this.save();
-        return;
-      }
-      const name = opts.name || pathBase(opts.filePath);
-      const t = newEntityId();
-      const tab = { id: t, name, type: 'editor', filePath: opts.filePath };
-      // FR-RTU-40·44: 미리보기라는 사실은 **워크스페이스에 남는다.** 저장하지
-      // 않으면 새로고침 뒤 모든 탭이 고정으로 되살아나 사용자가 정리해야 한다.
-      if (opts.preview) tab.preview = true;
-      pn.tabs.push(tab);
-      this.paneTabSet(pn, t);
-      // git 뷰 탭과 같은 근거 — 새 탭도 그 칸을 포커스한다 (FR-RTU-80).
-      this.setFocusState(pn.id, s);
+    if (existing) {
+      this._revealTab(existing);
+      const editor = this.editorAny(existing.tab.id);
+      if (editor) editor.refresh();
       this.render();
       this.save();
-      return { uuid: t };
+      return;
     }
+    const id = newEntityId();
+    const tab = { id, name: opts.name || pathBase(opts.filePath), type: TAB_TYPE_EDITOR, filePath: opts.filePath };
+    // FR-RTU-40·44: 미리보기라는 사실은 **워크스페이스에 남는다.** 저장하지
+    // 않으면 새로고침 뒤 모든 탭이 고정으로 되살아나 사용자가 정리해야 한다.
+    if (opts.preview) tab.preview = true;
+    // git 뷰 탭과 같은 근거 — 새 탭도 그 칸을 포커스한다 (FR-RTU-80).
+    this._pushTab(s, pn, tab, true);
+    this.render();
+    this.save();
+    return { uuid: id };
+  },
+
+  // FR-RTU-40: 미리보기 요청이면 기존 미리보기 탭을 **대체한다.** 새 탭을
+  // 만들지 않으므로 목록을 훑어도 탭이 쌓이지 않는다. 대체할 탭이 없으면 null.
+  _retargetPreview(s, opts) {
+    const prev = this._findPreviewTab(s);
+    if (!prev) return null;
+    prev.tab.filePath = opts.filePath;
+    prev.tab.name = clampEntityName(opts.name || pathBase(opts.filePath) || '');
+    // 편집기 인스턴스는 탭 id 로 산다 — 대상이 바뀌었으므로 버린다.
+    for (const [k, v] of [...this.fileEditors]) {
+      if (this.slotBase(k) !== prev.tab.id) continue;
+      try { v.destroy() } catch { /* 이미 파괴된 것은 오류가 아니다 */ }
+      this.fileEditors.delete(k);
+    }
+    this.paneTabSet(prev.pane, prev.tab.id);
+    this.setFocusState(prev.pane.id, s);
+    this.render();
+    this.save();
+    return { uuid: prev.tab.id };
+  },
+
+  async _addTerminalTab(s, pn, rid, opts) {
     const ref = this._paneNewToolRef(s, rid);
     // FR-GIT-244: 호출자가 cwd 를 주면 그것이 이긴다 — worktree 에서 터미널을 열 때
     // 기준은 pane 의 cwd 가 아니라 그 worktree 다. 주지 않으면 기존 동작 그대로다.
     const cwd = opts.cwd || ref.cwd || null;
     const p = await this._newTool(cwd, cwd ? null : (ref.cwdTool || null), s);
-    const t = newEntityId();
+    const id = newEntityId();
     const given = typeof opts.name === 'string' && opts.name;
     const name = clampEntityName(given ? opts.name : TAB_NAME_DEFAULT);
     // FR-TAN-2: `dmctl new-tab --name` 으로 받은 이름은 manual 이다 — 워크플로우·
     // team 스킬의 역할명이 이 경로를 지나므로 그것만으로 만족된다.
-    const tab = { id: t, name, type: 'terminal', toolId: p.id };
+    const tab = { id, name, type: TAB_TYPE_TERMINAL, toolId: p.id };
     if (given) tab.nameSource = NAME_SOURCE_MANUAL;
     pn.tabs.push(tab);
     // FR-RST-4: keepFocus 면 대상 pane 의 활성 탭도 바꾸지 않는다 (백그라운드 추가).
-    if (!opts.keepFocus) this.paneTabSet(pn, t);
+    if (!opts.keepFocus) this.paneTabSet(pn, id);
     this.render();
     this.save();
     // REMOTE_COMMAND_RESULT_SRS FR-RCR-7: 생성한 tab id+toolId 반환 (echo 용).
-    return { uuid: t, toolId: p.id };
+    return { uuid: id, toolId: p.id };
   },
 
   async closeTab(rid,tid,sid,opts={}){
@@ -580,122 +613,32 @@ Object.assign(App.prototype, {
     const s = sid ? this.ws.windows.find(x=>x.id===sid) : this.aw();
     if(!s) return;
     const pn=findPane(s.layout,rid); if(!pn) return;
-    const tab=pn.tabs.find(t=>t.id===tid); if(!tab) return;
-    /**
-     * REPO_TAB_UNIFY_SRS FR-RTU-33·34: **git 뷰 탭은 닫을 수 있다.**
-     *
-     *   이전 동작: `TAB_TYPE_GIT` 은 조기 반환 — 닫히지 않았다 (FR-GIT-28)
-     *   새  동작: 편집기 탭과 같이 닫힌다. 확인은 없다 (잃는 편집이 없다)
-     *   이유:     그 금지의 근거는 Git 창의 탭이 **고정 일곱**이라 자리가 늘
-     *             같아야 한다는 것이었다. 뷰가 본문의 탭이 된 지금 자리를
-     *             정하는 것은 사용자다 (FR-RTU-30·33)
-     *
-     * 뷰의 상태(스크롤·선택·diff 대상)는 **패널**이 들고 있으므로 다시 열면
-     * 그대로다 (FR-RTU-34). 놓는 것은 그 뷰의 DOM 과 Monaco 뿐이며, 그것이
-     * NFR-RTU-3 이 요구하는 것이다 — 탭이 없는 뷰는 인스턴스도 없다.
-     */
+    const tab=pn.tabs.find(x=>x.id===tid); if(!tab) return;
     const gitTab=tab.type===TAB_TYPE_GIT;
-    /**
-     * FR-RTU-103: Diff 의 저장하지 않은 편집도 확인을 지난다.
-     *
-     * 위 FR-RTU-33 의 "확인은 없다 (잃는 편집이 없다)" 는 **그 시점의 전제**였다.
-     * 그 뒤 Diff 가 unstaged·conflict 축에서 편집을 받게 되면서(FR-RTU-54,
-     * `GIT_AXIS_EDITABLE`) 전제가 깨졌다 — `GitDiffView` 는 자기 `_dirty` 와
-     * `save()`·`Cmd+S` 를 든다.
-     *
-     * **확인이 `_gitDropView` 앞에 선다.** 뒤에 두면 뷰가 이미 `destroy()` 된
-     * 뒤라서, 취소를 눌러도 편집은 돌아오지 않는다.
-     */
-    if(gitTab&&!opts.force){
-      const root=this.edRootOf(s);
-      if(this._gitViewDirty(root,tab.gitView,true)){
-        const r=await this._confirmClose(CLOSE_DIRTY_MSG,{saveBtn:true});
-        if(!r) return;
-        // 저장이 실패하면 닫지 않는다 — 저장한 줄 알고 닫는 것이 곧 손실이다.
-        if(r==='save'&&!await this._gitViewSave(root,tab.gitView)) return;
-      }
-    }
+    const isEditor=tab.type===TAB_TYPE_EDITOR;
+    // FR-OPT-11-2 (FEC-22): 묻기 → 탭 빼기 → 시선 옮기기 → 도구 처분 순서다.
+    // 물을 것이 없으면 기다리지 않는다 — 부른 쪽이 await 없이 곧바로 그리는 자리가 있고
+    // (Run 탭 닫기), 종전에도 그 경로는 같은 틱에 탭을 뺐다.
+    let ask=this._closeTabAsk(s,tab,opts);
+    if(ask&&typeof ask.then==='function') ask=await ask;
+    if(!ask) return;
+    opts=ask;
     if(gitTab) this._gitDropView(this.edRootOf(s),tab.gitView);
-    const isEditor=tab.type==='editor';
-    if(isEditor){
-      const editor=this.editorAny(tab.id);
-      // EDITOR_TAB_SRS FR-EDT-91: 파일이 삭제되어 닫는 경로는 확인을 건너뛴다 —
-      // dirty 라는 사실은 삭제 확인창이 이미 밝혔고(FR-EDT-84), 여기서 취소해도
-      // 파일은 이미 없다.
-      if(editor && editor._dirty && !opts.force){
-        const result=await this._confirmClose(CLOSE_DIRTY_MSG, { saveBtn: true });
-        // EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-13: **저장이 실패하면 닫지 않는다.**
-        // 위 Diff 경로가 이미 그렇게 한다 — 편집기 경로에만 그 가드가 없었다.
-        //
-        //   이전 동작: `await editor.save()` 뒤 무조건 닫았다
-        //   새  동작: 저장이 거짓을 주면 탭이 남는다 (dirty 도 남는다)
-        //   이유:     경합(FR-EXC-5)이면 저장이 막힌다. 저장한 줄 알고 닫는 것이
-        //             곧 손실이다 (FR-RTU-103)
-        if(result==='save'){
-          if(!await editor.save()) return;
-        }else if(!result){
-          return;
-        }
-      }
-      // REPO_FIX 03 E-4: 칸 1 이상의 인스턴스도 함께 거둔다.
-      this.editorsDrop(tab.id);
-    }else{
-      // FR-BG-1: 한가하면 확인 없이 닫고 도구를 종료한다.
-      // FR-BG-3: 실행 중이면 살려둘 선택지를 준다. 프로세스가 도는 탭에는
-      // 셸 프롬프트가 없어 detach 를 입력할 수 없고, 바로 그 탭이 이 창을
-      // 띄우는 탭이다.
-      // run·editor 는 도구가 없다 — toolId 없이 busy 를 물으면
-      // /api/tools/undefined/busy 404 가 콘솔에 남는다 (FR-RVZ-6).
-      // editor 는 위 isEditor 게이트로 이 경로를 피하지만 run 은 그 게이트가 없다.
-      // UX_BATCH6_SRS FR-RUN-6: `force` 는 **이미 물었다**는 뜻이다. Run 정리가
-      // 그 길로 온다 — 서버가 에이전트에게 종료를 청하고 셸로 돌아오기를 기다린
-      // 뒤이며, 그러고도 도는 프로세스에 확인창을 띄우면 무인 정리가 그 자리에서
-      // 막힌다. 사용자의 결정은 `dmctl run close` 를 부른 순간에 이미 있었다.
-      if(tab.toolId && !opts.keepTool && !opts.force && await this._isToolBusy(tab.toolId)){
-        const r=await this._confirmClose(t('core.q_close_tab'),
-          {bgBtn:toolBackgroundCapable(tab.type)});
-        if(!r) return;
-        if(r==='background') opts={...opts,keepTool:true};
-      }
-    }
+    // REPO_FIX 03 E-4: 칸 1 이상의 인스턴스도 함께 거둔다.
+    if(isEditor) this.editorsDrop(tab.id);
     const toolId=tab.toolId;
-    const closingIdx=pn.tabs.findIndex(t=>t.id===tid);
-    pn.tabs=pn.tabs.filter(t=>t.id!==tid);
+    const closingIdx=pn.tabs.findIndex(x=>x.id===tid);
+    pn.tabs=pn.tabs.filter(x=>x.id!==tid);
     // FR-RTU-62: 마지막 git 뷰 탭이 닫히면 그 창의 git 표면이 사라진다 —
     // 사이드가 Explorer 면 관측을 쓰는 화면이 없으므로 폴링도 멎어야 한다.
     if(gitTab) this._gitRescheduleAll();
-    const prevClosestId=pn.tabs.length?pn.tabs[Math.min(closingIdx,pn.tabs.length-1)].id:null;
     const isActive = s.id === this.ws.activeWindow;
+    const tool=isEditor?null:toolId;
     if(pn.tabs.length===0){
-      s.layout=doRemove(s.layout,rid);
-      // FR-EDT-52·55·56: Editor 창은 pane 이 0이 되어도 남는다 — 창의 수명은
-      // 행의 수명이다 (FR-EDT-42). 빈 pane 을 남기지 않는 것과 창을 지우는 것은
-      // 다른 일이다.
-      if(!s.layout&&this.isEditorWin(s)){
-        if(isActive){this.setFocusState(null,s);this._focusWindow(s.id)}
-        this.render();
-        this.save();
-        return;
-      }
-      if(!s.layout){
-        // FR-BG-6f: 마지막 탭이 닫혀 창까지 사라지는 경로. 아래 공통 처리에
-        // 도달하지 못하고 조기 반환하므로 도구 처분을 여기서 마쳐야 한다.
-        // keepTool 이면 백그라운드로 등록한다 — 등록을 빠뜨리면 종료되지도,
-        // 목록에 오르지도 않아 어디서도 닿을 수 없는 도구가 된다.
-        if(!isEditor&&toolId){
-          if(opts.keepTool) await this._setToolBackground(toolId,true);
-          else this._killTool(toolId);
-        }
-        await this.delWindow(s.id);
-        if(!isEditor&&toolId&&opts.keepTool) this._bgRefresh();
-        return;
-      }
-      if(isActive){
-        const fallback=this.focused===rid?prevClosestId:this.focused;
-        const next=fallback&&findPane(s.layout,fallback)?fallback:firstPane(s.layout)?.id||null;
-        this.setFocusState(next,s);
-        this._focusWindow(s.id);
-      }
+      // 창까지 지우는 갈래만 약속이다 — 나머지는 종전처럼 같은 틱에 이어진다.
+      const done=this._closeTabLastInPane(s,rid,isActive,tool,opts);
+      if(done&&typeof done.then==='function'){ await done; return }
+      if(done) return;
     }else{
       const nextId=pn.tabs[Math.min(closingIdx,pn.tabs.length-1)].id;
       // FR-SVS-10: 닫은 칸의 시선이 이웃 탭으로 간다. 다른 칸은 자기 오버라이드가
@@ -710,15 +653,130 @@ Object.assign(App.prototype, {
       }
     }
     this.render();
-    if(!isEditor&&toolId){
+    if(tool){
       if(opts.keepTool){
         // 탭만 제거한다 — 도구는 백그라운드에서 계속 실행된다 (FR-BG-2/3).
-        this._setToolBackground(toolId,true).then(()=>this._bgRefresh());
+        this._setToolBackground(tool,true).then(()=>this._bgRefresh());
       }else{
-        this._killTool(toolId);
+        this._killTool(tool);
       }
     }
     this.save();
+  },
+
+  /**
+   * 닫기 전에 묻는다. 닫지 않으면 null, 닫으면 (답이 더해졌을 수 있는) opts 다.
+   * 물어야 할 때만 그 답의 약속을 돌려준다 — 묻지 않는 갈래는 동기다.
+   *
+   * REPO_TAB_UNIFY_SRS FR-RTU-33·34: **git 뷰 탭은 닫을 수 있다.**
+   *
+   *   이전 동작: `TAB_TYPE_GIT` 은 조기 반환 — 닫히지 않았다 (FR-GIT-28)
+   *   새  동작: 편집기 탭과 같이 닫힌다. 확인은 없다 (잃는 편집이 없다)
+   *   이유:     그 금지의 근거는 Git 창의 탭이 **고정 일곱**이라 자리가 늘
+   *             같아야 한다는 것이었다. 뷰가 본문의 탭이 된 지금 자리를
+   *             정하는 것은 사용자다 (FR-RTU-30·33)
+   *
+   * 뷰의 상태(스크롤·선택·diff 대상)는 **패널**이 들고 있으므로 다시 열면
+   * 그대로다 (FR-RTU-34). 놓는 것은 그 뷰의 DOM 과 Monaco 뿐이며, 그것이
+   * NFR-RTU-3 이 요구하는 것이다 — 탭이 없는 뷰는 인스턴스도 없다.
+   */
+  _closeTabAsk(s,tab,opts){
+    if(tab.type===TAB_TYPE_GIT){
+      /**
+       * FR-RTU-103: Diff 의 저장하지 않은 편집도 확인을 지난다.
+       *
+       * 위 FR-RTU-33 의 "확인은 없다 (잃는 편집이 없다)" 는 **그 시점의 전제**였다.
+       * 그 뒤 Diff 가 unstaged·conflict 축에서 편집을 받게 되면서(FR-RTU-54,
+       * `GIT_AXIS_EDITABLE`) 전제가 깨졌다 — `GitDiffView` 는 자기 `_dirty` 와
+       * `save()`·`Cmd+S` 를 든다.
+       *
+       * **확인이 `_gitDropView` 앞에 선다.** 뒤에 두면 뷰가 이미 `destroy()` 된
+       * 뒤라서, 취소를 눌러도 편집은 돌아오지 않는다.
+       */
+      if(opts.force) return opts;
+      const root=this.edRootOf(s);
+      if(!this._gitViewDirty(root,tab.gitView,true)) return opts;
+      return (async()=>{
+        const r=await this._confirmClose(CLOSE_DIRTY_MSG,{saveBtn:true});
+        if(!r) return null;
+        // 저장이 실패하면 닫지 않는다 — 저장한 줄 알고 닫는 것이 곧 손실이다.
+        if(r==='save'&&!await this._gitViewSave(root,tab.gitView)) return null;
+        return opts;
+      })();
+    }
+    if(tab.type===TAB_TYPE_EDITOR){
+      const editor=this.editorAny(tab.id);
+      // EDITOR_TAB_SRS FR-EDT-91: 파일이 삭제되어 닫는 경로는 확인을 건너뛴다 —
+      // dirty 라는 사실은 삭제 확인창이 이미 밝혔고(FR-EDT-84), 여기서 취소해도
+      // 파일은 이미 없다.
+      if(!editor || !editor._dirty || opts.force) return opts;
+      return (async()=>{
+        const result=await this._confirmClose(CLOSE_DIRTY_MSG, { saveBtn: true });
+        // EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-13: **저장이 실패하면 닫지 않는다.**
+        // 위 Diff 경로가 이미 그렇게 한다 — 편집기 경로에만 그 가드가 없었다.
+        //
+        //   이전 동작: `await editor.save()` 뒤 무조건 닫았다
+        //   새  동작: 저장이 거짓을 주면 탭이 남는다 (dirty 도 남는다)
+        //   이유:     경합(FR-EXC-5)이면 저장이 막힌다. 저장한 줄 알고 닫는 것이
+        //             곧 손실이다 (FR-RTU-103)
+        if(result==='save') return (await editor.save())?opts:null;
+        return result?opts:null;
+      })();
+    }
+    // FR-BG-1: 한가하면 확인 없이 닫고 도구를 종료한다.
+    // FR-BG-3: 실행 중이면 살려둘 선택지를 준다. 프로세스가 도는 탭에는
+    // 셸 프롬프트가 없어 detach 를 입력할 수 없고, 바로 그 탭이 이 창을
+    // 띄우는 탭이다.
+    // run 은 도구가 없다 — toolId 없이 busy 를 물으면
+    // /api/tools/undefined/busy 404 가 콘솔에 남는다 (FR-RVZ-6).
+    // UX_BATCH6_SRS FR-RUN-6: `force` 는 **이미 물었다**는 뜻이다. Run 정리가
+    // 그 길로 온다 — 서버가 에이전트에게 종료를 청하고 셸로 돌아오기를 기다린
+    // 뒤이며, 그러고도 도는 프로세스에 확인창을 띄우면 무인 정리가 그 자리에서
+    // 막힌다. 사용자의 결정은 `dmctl run close` 를 부른 순간에 이미 있었다.
+    if(!tab.toolId || opts.keepTool || opts.force) return opts;
+    return (async()=>{
+      if(!await this._isToolBusy(tab.toolId)) return opts;
+      const r=await this._confirmClose(t('core.q_close_tab'),{bgBtn:toolBackgroundCapable(tab.type)});
+      if(!r) return null;
+      return r==='background'?{...opts,keepTool:true}:opts;
+    })();
+  },
+
+  // 칸의 마지막 탭을 닫았다 — 칸을 지운다. 여기서 끝났으면 true, 창을 지우는 갈래는
+  // 그 끝의 약속, 공통 처리로 이어가면 false.
+  _closeTabLastInPane(s,rid,isActive,toolId,opts){
+    s.layout=doRemove(s.layout,rid);
+    // FR-EDT-52·55·56: Editor 창은 pane 이 0이 되어도 남는다 — 창의 수명은
+    // 행의 수명이다 (FR-EDT-42). 빈 pane 을 남기지 않는 것과 창을 지우는 것은
+    // 다른 일이다.
+    if(!s.layout&&this.isEditorWin(s)){
+      if(isActive){this.setFocusState(null,s);this._focusWindow(s.id)}
+      this.render();
+      this.save();
+      return true;
+    }
+    if(!s.layout){
+      // FR-BG-6f: 마지막 탭이 닫혀 창까지 사라지는 경로. 공통 처리에
+      // 도달하지 못하고 조기 반환하므로 도구 처분을 여기서 마쳐야 한다.
+      // keepTool 이면 백그라운드로 등록한다 — 등록을 빠뜨리면 종료되지도,
+      // 목록에 오르지도 않아 어디서도 닿을 수 없는 도구가 된다.
+      return (async()=>{
+        if(toolId){
+          if(opts.keepTool) await this._setToolBackground(toolId,true);
+          else this._killTool(toolId);
+        }
+        await this.delWindow(s.id);
+        if(toolId&&opts.keepTool) this._bgRefresh();
+      })();
+    }
+    if(isActive){
+      // 칸이 사라졌으므로 이웃 탭은 없다 — 닫은 칸이 포커스였으면 첫 칸으로 간다.
+      const fallback=this.focused===rid?null:this.focused;
+      const next=fallback&&findPane(s.layout,fallback)?fallback:firstPane(s.layout)?.id||null;
+      this.setFocusState(next,s);
+      this._focusWindow(s.id);
+    }
+    return false;
   },
 
   // FR-SVS-4: 탭을 고르는 **단일 통로**다. `slot` 을 주면 그 칸의 시선만 바뀌고,
@@ -767,7 +825,7 @@ Object.assign(App.prototype, {
     for(let i=0;i<count-1;i++){
       const p=await this._newTool(ref.cwd || null, refPaneId, s);
       const r=newEntityId(),t=newEntityId();
-      newPanes.push({type:'pane',id:r,tabs:[{id:t,name:'Shell',type:'terminal',toolId:p.id}],activeTab:t});
+      newPanes.push({type:'pane',id:r,tabs:[{id:t,name:TAB_NAME_DEFAULT,type:TAB_TYPE_TERMINAL,toolId:p.id}],activeTab:t});
       lastR=r;
     }
     // Re-fetch window after awaits: this.ws may have been replaced by an
@@ -814,7 +872,7 @@ Object.assign(App.prototype, {
     // 절대경로 판정과 부모 자르기를 `/` 로 굳히지 않는다 — Windows 의 절대경로는
     // `C:\…` 로 시작하고 그 안에 `/` 가 없다. 굳히면 편집기 탭에서 만든 도구가
     // 그 파일의 폴더가 아니라 서버의 자리에서 뜬다.
-    if(tab.type==='editor' && typeof tab.filePath==='string' && isAbsPath(tab.filePath)){
+    if(tab.type===TAB_TYPE_EDITOR && typeof tab.filePath==='string' && isAbsPath(tab.filePath)){
       const i=Math.max(tab.filePath.lastIndexOf('/'),tab.filePath.lastIndexOf('\\'));
       const dir = i>0 ? tab.filePath.substring(0,i) : pathSep(tab.filePath);
       return {cwd: dir};
@@ -875,7 +933,7 @@ Object.assign(App.prototype, {
     }
     return this.slotNavigate(dir);
   },
-  addTabFocused(){if(this.focused)this.addTab(this.focused,'terminal').catch(err=>this._notify(t('core.open_tab_fail')+' — '+((err&&err.message)||err)))},
+  addTabFocused(){if(this.focused)this.addTab(this.focused,TAB_TYPE_TERMINAL).catch(err=>this._notify(errText(t('core.open_tab_fail'),err)))},
   closeTabFocused(){
     const s=this.aw();if(!s||!this.focused)return;
     const pn=findPane(s.layout,this.focused);if(!pn)return;

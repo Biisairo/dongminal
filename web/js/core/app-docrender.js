@@ -141,7 +141,7 @@ Object.assign(App.prototype, {
     // FR-DRV-9 / D-1: **새 탭 타입을 만들지 않는다.** `render` 하나가 갈림길이며,
     // 그래서 저장·복원·회수·창 가드가 이미 이 탭을 안다.
     src.tabs.push({
-      id, type: 'editor', render: true, filePath,
+      id, type: TAB_TYPE_EDITOR, render: true, filePath,
       name: name || pathBase(filePath) || '',
     });
     const sib = this._paneSiblingOf(src.id);

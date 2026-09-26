@@ -424,7 +424,7 @@ Object.assign(App.prototype, {
     if(this.edOn()){ await this.edOpenFile(filePath,{anchor:this._gitActiveRepo()}); return }
     const w=await this._gitPlainTarget(); if(!w) return;
     const rid=this._gitPaneOf(w);
-    if(rid) await this.addTab(rid,'editor',{filePath,windowId:w.id});
+    if(rid) await this.addTab(rid,TAB_TYPE_EDITOR,{filePath,windowId:w.id});
   },
 
   /**
@@ -444,7 +444,7 @@ Object.assign(App.prototype, {
     if(this.edOn()){ await this.edOpenFile(openPath,{name,anchor:this._gitActiveRepo()}); return }
     const w=await this._gitPlainTarget(); if(!w) return;
     const rid=this._gitPaneOf(w);
-    if(rid) await this.addTab(rid,'editor',{filePath:openPath,name,windowId:w.id});
+    if(rid) await this.addTab(rid,TAB_TYPE_EDITOR,{filePath:openPath,name,windowId:w.id});
   },
 
   /**
@@ -455,7 +455,7 @@ Object.assign(App.prototype, {
     if(!cwd) return;
     const w=await this._gitPlainTarget(); if(!w) return;
     const rid=this._gitPaneOf(w);
-    if(rid) await this.addTab(rid,'terminal',{cwd,windowId:w.id,name:pathBase(cwd)});
+    if(rid) await this.addTab(rid,TAB_TYPE_TERMINAL,{cwd,windowId:w.id,name:pathBase(cwd)});
   },
 
   /**
@@ -595,7 +595,7 @@ Object.assign(App.prototype, {
       for(const p of [pn,firstPane(w.layout)]){
         if(!p) continue;
         const tab=p.tabs.find(t=>t.id===this.paneTab(p));
-        if(tab&&tab.type==='terminal'&&this.toolIds.has(tab.toolId)) return tab.toolId;
+        if(tab&&tab.type===TAB_TYPE_TERMINAL&&this.toolIds.has(tab.toolId)) return tab.toolId;
       }
     }
     return null;

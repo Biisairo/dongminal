@@ -136,6 +136,59 @@ const MKB_LONG_PRESS_MS=600;
 const MKB_DOUBLE_TAP_MS=350;
 const MKB_TAP_SLOP_PX=10;
 const MKB_GHOST_CLICK_MS=700;
+/**
+ * FR-OPT-11-2 (FEC-34): 모바일 키바의 키 표. 보내는 바이트는 이스케이프로 적는다 —
+ * 날 제어 문자는 편집기에서 보이지 않는다.
+
+ * `send` 는 sticky 수식을 거치고, `raw` 는 거치지 않는다. `mod` 는 수식 키, `act` 는 동작이다.
+ */
+const MKB_KEYS=Object.freeze([
+  // FR-MKB-8: `⌨` 는 **맨 왼쪽**이다. 종전에는 열일곱 개 중 열일곱 번째였고,
+  // 키보드를 내리려면 키바를 끝까지 가로로 밀어야 했다. 이제 이 버튼은
+  // 키보드를 **올리는** 유일한 길이기도 하므로(FR-MKB-4) 손이 먼저 닿는
+  // 자리에 있어야 한다.
+  {label:'⌨',act:'kb'},
+  {label:'Esc',send:'\x1b'},
+  {label:'Tab',send:'\t'},
+  // FR-MKB-15: 소프트 키보드를 내려 둔 채 쓰는 길이 `⌨` 로 생겼으므로
+  // (FR-MKB-4), 그 상태에서 줄을 넘길 자리가 있어야 한다. `Tab` 옆인 것은
+  // 둘 다 **입력을 확정하는 키**이기 때문이고, `Ctrl`–`^C` 쌍(D-4)은
+  // 건드리지 않는다.
+  {label:'⏎',send:'\r'},
+  {label:'Ctrl',mod:'ctrl'},
+  // FR-MKB-9·10 / D-4·D-12: `Ctrl` 바로 옆이다. 소프트 키보드를 올리지
+  // 않기로 하면(③) `Ctrl` 을 켠 뒤 `c` 를 칠 자리가 사라지므로, 접수한 말이
+  // 그 둘을 한 문장에 담고 있었다. **모디파이어를 거치지 않고** 곧바로
+  // `0x03` 을 보낸다 — 중단은 급할 때 누르는 것이고, 두 번 눌러야 하는
+  // 중단은 중단이 아니다. `Ctrl` 의 sticky 를 읽지도 바꾸지도 않는다.
+  {label:'^C',raw:'\x03'},
+  {label:'Alt',mod:'alt'},
+  {label:'↑',send:'\x1b[A'},
+  {label:'↓',send:'\x1b[B'},
+  {label:'←',send:'\x1b[D'},
+  {label:'→',send:'\x1b[C'},
+  {label:'|',send:'|'},
+  {label:'~',send:'~'},
+  {label:'/',send:'/'},
+  {label:'-',send:'-'},
+  {label:'Home',send:'\x1b[H'},
+  {label:'End',send:'\x1b[F'},
+  {label:'PgUp',send:'\x1b[5~'},
+  {label:'PgDn',send:'\x1b[6~'},
+]);
+// 키바 버튼의 전체 이름 — title·aria-label 이 된다.
+const MKB_FULL_NAMES=Object.freeze({
+  'Esc':'Escape','Tab':'Tab','⏎':'Enter','Ctrl':'Control (modifier)','Alt':'Alt (modifier)',
+  '↑':'Arrow Up','↓':'Arrow Down','←':'Arrow Left','→':'Arrow Right',
+  '|':'Pipe','~':'Tilde','/':'Slash','-':'Hyphen',
+  'Home':'Home','End':'End','PgUp':'Page Up','PgDn':'Page Down',
+  // UX_BATCH5_SRS FR-TIP-2: 이 표는 전부 영어다 — long-press 툴팁도 같은
+  // 값을 쓰므로 접수한 말("영어로 무슨 버튼인지")이 그대로 성립한다.
+  // FR-MKB-5: 버튼 하나가 두 방향을 가지므로 이름도 방향을 말하지 않는다.
+  '⌨':'Toggle keyboard',
+  // FR-MKB-11: 무엇을 보내는지 이름이 말한다.
+  '^C':'Interrupt (Ctrl+C)',
+});
 
 // 모바일 TUI 입력·스크롤 교정 (MOBILE_TUI_INPUT_SCROLL_SRS FR-MTI-18).
 // TOUCH_GAIN: xterm 의 터치 경로는 손가락 이동을 1:1 픽셀로만 스크롤한다 —
@@ -285,6 +338,12 @@ const MOD_CODES=new Set(['ControlLeft','ControlRight','AltLeft','AltRight','Meta
 //
 // 연속 충돌이 이만큼 이어지면 그 사실을 기록한다 (FR-WSC-8). 조용히 되풀이하면
 // 아무도 그것이 일어나는지 모른다 — 접수한 409 로그가 그 증거였다.
+// 워크스페이스 스키마 판. 서버는 이보다 낮은 판의 저장을 거부한다 (FR-EM-2a).
+const WS_SCHEMA_VERSION=2;
+// Run 짧은 id 의 길이 — 탭 이름·상태바 배지가 같은 길이를 쓴다 (FR-RVZ-8).
+const RUN_SHORT_ID_LEN=8;
+// 사이드바 탭 직행 단축키의 수 — 숫자 키 1..9 (FR-SBT-21).
+const SB_JUMP_MAX=9;
 const WS_SAVE_CONFLICT_WARN=4;
 // 충돌 뒤 다음 저장을 미루는 시간 (FR-WSC-7). 두 화면이 서로 밀어내는 동안 그
 // 사이를 벌린다. 연속 충돌 수에 비례해 늘리되 상한을 둔다 — 늘지 않으면 벌리는
@@ -471,6 +530,10 @@ const TERM_FOCUS_RE=/^\x1b\[[IO]$/;
 const WINDOW_TYPE_TERMINAL='terminal';
 const WINDOW_TYPE_GIT='git';
 const TAB_TYPE_GIT='git';
+// FR-OPT-11-7 (FEC-31): 나머지 탭 타입. 워크스페이스에 저장되는 값이라 바꾸지 않는다.
+const TAB_TYPE_TERMINAL='terminal';
+const TAB_TYPE_EDITOR='editor';
+const TAB_TYPE_RUN='run';
 
 // ── 샌드박스 창의 작업 방식 (SANDBOX_PICK_COPY_SRS FR-SPK-10·23) ──
 //

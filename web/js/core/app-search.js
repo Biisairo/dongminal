@@ -36,7 +36,7 @@ Object.assign(App.prototype, {
     const s=this.aw();if(!s)return null;
     const pn=findPane(s.layout,this.focused);if(!pn)return null;
     const tab=pn.tabs.find(t=>t.id===this.paneTab(pn));
-    if(!tab||tab.type!=='terminal')return null;
+    if(!tab||tab.type!==TAB_TYPE_TERMINAL)return null;
     return this.tools.get(tab.toolId);
   },
   // FUI-15: 토글 하나의 상태. id 하나로 묻는 자리가 넷이라 여기 모은다.

@@ -164,187 +164,8 @@ Object.assign(App.prototype, {
     const bar=document.getElementById('mobile-keybar');
     if(!bar) return;
     bar.innerHTML='';
-    const keys=[
-      // FR-MKB-8: `⌨` 는 **맨 왼쪽**이다. 종전에는 열일곱 개 중 열일곱 번째였고,
-      // 키보드를 내리려면 키바를 끝까지 가로로 밀어야 했다. 이제 이 버튼은
-      // 키보드를 **올리는** 유일한 길이기도 하므로(FR-MKB-4) 손이 먼저 닿는
-      // 자리에 있어야 한다.
-      {label:'⌨',act:'kb'},
-      {label:'Esc',send:''},
-      {label:'Tab',send:'\t'},
-      // FR-MKB-15: 소프트 키보드를 내려 둔 채 쓰는 길이 `⌨` 로 생겼으므로
-      // (FR-MKB-4), 그 상태에서 줄을 넘길 자리가 있어야 한다. `Tab` 옆인 것은
-      // 둘 다 **입력을 확정하는 키**이기 때문이고, `Ctrl`–`^C` 쌍(D-4)은
-      // 건드리지 않는다.
-      {label:'⏎',send:'\r'},
-      {label:'Ctrl',mod:'ctrl'},
-      // FR-MKB-9·10 / D-4·D-12: `Ctrl` 바로 옆이다. 소프트 키보드를 올리지
-      // 않기로 하면(③) `Ctrl` 을 켠 뒤 `c` 를 칠 자리가 사라지므로, 접수한 말이
-      // 그 둘을 한 문장에 담고 있었다. **모디파이어를 거치지 않고** 곧바로
-      // `0x03` 을 보낸다 — 중단은 급할 때 누르는 것이고, 두 번 눌러야 하는
-      // 중단은 중단이 아니다. `Ctrl` 의 sticky 를 읽지도 바꾸지도 않는다.
-      {label:'^C',raw:''},
-      {label:'Alt',mod:'alt'},
-      {label:'↑',send:'[A'},
-      {label:'↓',send:'[B'},
-      {label:'←',send:'[D'},
-      {label:'→',send:'[C'},
-      {label:'|',send:'|'},
-      {label:'~',send:'~'},
-      {label:'/',send:'/'},
-      {label:'-',send:'-'},
-      {label:'Home',send:'[H'},
-      {label:'End',send:'[F'},
-      {label:'PgUp',send:'[5~'},
-      {label:'PgDn',send:'[6~'},
-    ];
-    const FULL_NAMES={
-      'Esc':'Escape','Tab':'Tab','⏎':'Enter','Ctrl':'Control (modifier)','Alt':'Alt (modifier)',
-      '↑':'Arrow Up','↓':'Arrow Down','←':'Arrow Left','→':'Arrow Right',
-      '|':'Pipe','~':'Tilde','/':'Slash','-':'Hyphen',
-      'Home':'Home','End':'End','PgUp':'Page Up','PgDn':'Page Down',
-      // UX_BATCH5_SRS FR-TIP-2: 이 표는 전부 영어다 — long-press 툴팁도 같은
-      // 값을 쓰므로 접수한 말("영어로 무슨 버튼인지")이 그대로 성립한다.
-      // FR-MKB-5: 버튼 하나가 두 방향을 가지므로 이름도 방향을 말하지 않는다.
-      '⌨':'Toggle keyboard',
-      // FR-MKB-11: 무엇을 보내는지 이름이 말한다.
-      '^C':'Interrupt (Ctrl+C)',
-    };
     this.modKbd={ctrl:false,alt:false};
-    const refresh=()=>this.mkbRefresh();
-    // FR-MTI-15~17: sticky 규칙은 TerminalTool 한 곳에만 둔다 — 키바 경로와
-    // 키보드 경로가 서로 다른 규칙을 쓰면 어느 쪽도 신뢰할 수 없다.
-    const sendToFocused=(s)=>{
-      const p=this.focusedTerminal();
-      if(!p) return;
-      if(p.term) ErrorLog.quiet('focus',()=>p.term.focus());
-      p._sendText(p._applyStickyMods(s));
-    };
-    const showTip=(text, btn)=>{
-      let tip=document.getElementById('mkb-tip');
-      if(!tip){tip=document.createElement('div');tip.id='mkb-tip';document.body.appendChild(tip)}
-      tip.textContent=text;
-      const r=btn.getBoundingClientRect();
-      tip.style.left=(r.left+r.width/2)+'px';
-      tip.style.top=(r.top-8)+'px';
-    };
-    const hideTip=()=>{const t=document.getElementById('mkb-tip');if(t)t.remove()};
-    for(const k of keys){
-      const b=document.createElement('button');
-      b.className='ui-btn mkb-btn';b.textContent=k.label;b.type='button';
-      // FR-MTI-14: 버튼이 포커스를 가져가면 소프트 키보드가 내려가고, 이어지는
-      // term.focus() 가 다시 올려 visualViewport 이벤트가 폭주한다. 스와이프로
-      // 판정된 터치(preventDefault 를 하지 않는 경로)에서도 그 일이 없어야 한다.
-      b.tabIndex=-1;
-      const full=FULL_NAMES[k.label]||k.label;
-      b.title=full;b.setAttribute('aria-label',full);
-      if(k.mod){b.dataset.mod=k.mod}
-      if(k.act){b.dataset.act=k.act}
-      // 마우스 경로에서만 포커스 탈취를 막는다. touchstart 에서 preventDefault
-      // 하면 브라우저가 합성 click 과 스크롤을 함께 취소해, 실기기에서 버튼이
-      // 아무 반응도 하지 않고 키바 슬라이드도 막힌다 (FR-MTB-1/3).
-      b.addEventListener('mousedown',e=>e.preventDefault());
-
-      let lastTap=0;          // 모디파이어 더블탭(lock) 판정
-      let pressTimer=null;
-      let longPressFired=false;
-      let startPt=null;       // 터치 시작 좌표 — 이동 거리 판정의 기준
-      let moved=false;        // TAP_SLOP 초과 = 스크롤 제스처
-      let lastTouchEndAt=0;   // 합성 click(ghost click) 억제용
-
-      const cancelPress=()=>{
-        if(pressTimer){TIMERS.cancel(pressTimer);pressTimer=null}
-      };
-      const activate=()=>{
-        /**
-         * FR-MKB-4·5·6: **버튼 하나가 두 방향을 갖는다.**
-         *
-         *   막혀 있으면 푼다 → 소프트 키보드가 올라온다
-         *   그렇지 않으면 막고 내린다
-         *
-         * 판정도 조작도 `TerminalTool` 이 갖는다 (D-10) — 여기서 속성을 직접
-         * 쓰면 두 곳이 `inputmode` 의 진실을 다툰다.
-         */
-        if(k.act==='kb'){
-          const p=this.focusedTerminal();
-          // 터미널이 아닌 것(편집기·git 입력)에 포커스가 있을 수 있다. 그쪽은
-          // 이 규칙의 대상이 아니므로(FR-MKB-14) 종전대로 내리기만 한다.
-          if(!p||!p._kbSuppressed){
-            const ae=document.activeElement;if(ae&&ae.blur)ErrorLog.quiet('focus',()=>ae.blur());
-            this.mkbRefresh();
-            return;
-          }
-          if(p._kbSuppressed()) p._kbAllow(); else p._kbSuppress();
-          this.mkbRefresh();
-          return;
-        }
-        // FR-MKB-10 / D-12: sticky 를 거치지 않는 날것의 바이트.
-        if(k.raw!==undefined){
-          const p=this.focusedTerminal();
-          if(!p) return;
-          if(p.term) ErrorLog.quiet('focus',()=>p.term.focus());
-          p._sendText(k.raw);
-          return;
-        }
-        if(k.mod){
-          const now=Date.now();
-          const dbl=(now-lastTap)<MKB_DOUBLE_TAP_MS;
-          lastTap=now;
-          const cur=this.modKbd[k.mod];
-          if(dbl){this.modKbd[k.mod]=(cur==='lock')?false:'lock'}
-          else{this.modKbd[k.mod]=cur?false:true}
-          refresh();
-        }else{
-          sendToFocused(k.send);
-        }
-      };
-
-      b.addEventListener('touchstart',e=>{
-        const t=e.touches[0];
-        startPt=t?{x:t.clientX,y:t.clientY}:null;
-        moved=false;longPressFired=false;
-        cancelPress();
-        pressTimer=TIMERS.after(MKB_LONG_PRESS_MS,()=>{longPressFired=true;showTip(full,b)},{owner:'mkb',label:'long-press'});
-      },{passive:true});
-
-      // FR-MTB-5: 이동 거리 임계값으로 판정한다. touchmove 발생만으로 취소하면
-      // 손떨림에도 롱프레스가 죽고, 스크롤과 공존할 수 없다.
-      b.addEventListener('touchmove',e=>{
-        if(!startPt||moved) return;
-        const t=e.touches[0];
-        if(!t) return;
-        if(Math.abs(t.clientX-startPt.x)>MKB_TAP_SLOP_PX||Math.abs(t.clientY-startPt.y)>MKB_TAP_SLOP_PX){
-          moved=true;cancelPress();hideTip();longPressFired=false;
-        }
-      },{passive:true});
-
-      b.addEventListener('touchcancel',()=>{
-        cancelPress();hideTip();
-        startPt=null;moved=false;longPressFired=false;
-        lastTouchEndAt=Date.now();
-      });
-
-      b.addEventListener('touchend',e=>{
-        cancelPress();
-        const wasLong=longPressFired, wasMoved=moved;
-        startPt=null;moved=false;longPressFired=false;
-        lastTouchEndAt=Date.now();
-        if(wasLong){hideTip();e.preventDefault();return}
-        if(wasMoved) return;              // 스크롤 제스처 — 키를 보내지 않는다
-        e.preventDefault();               // 합성 click 억제. 여기서 직접 처리한다
-        activate();
-      });
-
-      b.addEventListener('click',e=>{
-        e.preventDefault();
-        // FR-MTB-2: 터치 제스처가 합성한 click 은 무시한다 — touchend 가 이미
-        // 처리했다. 시간 기준을 쓰는 이유는, 플래그를 쓰면 preventDefault 로
-        // click 이 오지 않은 경우 플래그가 남아 다음 마우스 클릭을 먹는다.
-        if(Date.now()-lastTouchEndAt<MKB_GHOST_CLICK_MS) return;
-        activate();
-      });
-      bar.appendChild(b);
-    }
+    for(const k of MKB_KEYS) bar.appendChild(this._mkbButton(k));
     // M9_SRS FR-M9-8 / D-M9-7: **가려진 키가 있다는 것을 보인다.**
     //
     // 키바는 한 줄에 열아홉이 서는 가로 스크롤 스트립이고(ACCESSIBILITY_BASELINE_SRS
@@ -362,6 +183,147 @@ Object.assign(App.prototype, {
       vv.addEventListener('scroll', apply);
       apply();
     }
+  },
+
+  // FR-MTI-15~17: sticky 수식은 TerminalTool 한 곳에서 읽는다 — 키바 경로와
+  // 키보드 경로가 서로 다른 수식을 쓰면 어느 쪽도 신뢰할 수 없다.
+  _mkbSend(s){
+    const p=this.focusedTerminal();
+    if(!p) return;
+    if(p.term) ErrorLog.quiet('focus',()=>p.term.focus());
+    p._sendText(p._applyStickyMods(s));
+  },
+
+  _mkbShowTip(text, btn){
+    let tip=document.getElementById('mkb-tip');
+    if(!tip){tip=document.createElement('div');tip.id='mkb-tip';document.body.appendChild(tip)}
+    tip.textContent=text;
+    const r=btn.getBoundingClientRect();
+    tip.style.left=(r.left+r.width/2)+'px';
+    tip.style.top=(r.top-8)+'px';
+  },
+
+  _mkbHideTip(){const tip=document.getElementById('mkb-tip');if(tip)tip.remove()},
+
+  // 키 하나를 누른 효과. `st` 는 그 버튼의 두 번 탭 판정 상태다.
+  _mkbActivate(k,st){
+    /**
+     * FR-MKB-4·5·6: **버튼 하나가 두 방향을 갖는다.**
+     *
+     *   막혀 있으면 푼다 → 소프트 키보드가 올라온다
+     *   그렇지 않으면 막고 내린다
+     *
+     * 판정도 조작도 `TerminalTool` 이 갖는다 (D-10) — 여기서 속성을 직접
+     * 쓰면 두 곳이 `inputmode` 의 진실을 다툰다.
+     */
+    if(k.act==='kb'){
+      const p=this.focusedTerminal();
+      // 터미널이 아닌 것(편집기·git 입력)에 포커스가 있을 수 있다. 그쪽은
+      // 이 규칙의 대상이 아니므로(FR-MKB-14) 종전대로 내리기만 한다.
+      if(!p||!p._kbSuppressed){
+        const ae=document.activeElement;if(ae&&ae.blur)ErrorLog.quiet('focus',()=>ae.blur());
+        this.mkbRefresh();
+        return;
+      }
+      if(p._kbSuppressed()) p._kbAllow(); else p._kbSuppress();
+      this.mkbRefresh();
+      return;
+    }
+    // FR-MKB-10 / D-12: sticky 를 거치지 않는 날것의 바이트.
+    if(k.raw!==undefined){
+      const p=this.focusedTerminal();
+      if(!p) return;
+      if(p.term) ErrorLog.quiet('focus',()=>p.term.focus());
+      p._sendText(k.raw);
+      return;
+    }
+    if(k.mod){
+      const now=Date.now();
+      const dbl=(now-st.lastTap)<MKB_DOUBLE_TAP_MS;
+      st.lastTap=now;
+      const cur=this.modKbd[k.mod];
+      if(dbl){this.modKbd[k.mod]=(cur==='lock')?false:'lock'}
+      else{this.modKbd[k.mod]=cur?false:true}
+      this.mkbRefresh();
+    }else{
+      this._mkbSend(k.send);
+    }
+  },
+
+  // 버튼 하나를 세우고 터치·클릭을 배선한다. 판정 상태는 버튼마다 따로다.
+  _mkbButton(k){
+    const b=document.createElement('button');
+    b.className='ui-btn mkb-btn';b.textContent=k.label;b.type='button';
+    // FR-MTI-14: 버튼이 포커스를 가져가면 소프트 키보드가 내려가고, 이어지는
+    // term.focus() 가 다시 올려 visualViewport 이벤트가 폭주한다. 스와이프로
+    // 판정된 터치(preventDefault 를 하지 않는 경로)에서도 그 일이 없어야 한다.
+    b.tabIndex=-1;
+    const full=MKB_FULL_NAMES[k.label]||k.label;
+    b.title=full;b.setAttribute('aria-label',full);
+    if(k.mod){b.dataset.mod=k.mod}
+    if(k.act){b.dataset.act=k.act}
+    // 마우스 경로에서만 포커스 탈취를 막는다. touchstart 에서 preventDefault
+    // 하면 브라우저가 합성 click 과 스크롤을 함께 취소해, 실기기에서 버튼이
+    // 아무 반응도 하지 않고 키바 슬라이드도 막힌다 (FR-MTB-1/3).
+    b.addEventListener('mousedown',e=>e.preventDefault());
+
+    let pressTimer=null;
+    let longPressFired=false;
+    let startPt=null;       // 터치 시작 좌표 — 이동 거리 판정의 기준
+    let moved=false;        // TAP_SLOP 초과 = 스크롤 제스처
+    let lastTouchEndAt=0;   // 합성 click(ghost click) 억제용
+
+    const cancelPress=()=>{
+      if(pressTimer){TIMERS.cancel(pressTimer);pressTimer=null}
+    };
+    const st={lastTap:0};          // 모디파이어 더블탭(lock) 판정
+    const activate=()=>this._mkbActivate(k,st);
+
+    b.addEventListener('touchstart',e=>{
+      const tch=e.touches[0];
+      startPt=tch?{x:tch.clientX,y:tch.clientY}:null;
+      moved=false;longPressFired=false;
+      cancelPress();
+      pressTimer=TIMERS.after(MKB_LONG_PRESS_MS,()=>{longPressFired=true;this._mkbShowTip(full,b)},{owner:'mkb',label:'long-press'});
+    },{passive:true});
+
+    // FR-MTB-5: 이동 거리 임계값으로 판정한다. touchmove 발생만으로 취소하면
+    // 손떨림에도 롱프레스가 죽고, 스크롤과 공존할 수 없다.
+    b.addEventListener('touchmove',e=>{
+      if(!startPt||moved) return;
+      const tch=e.touches[0];
+      if(!tch) return;
+      if(Math.abs(tch.clientX-startPt.x)>MKB_TAP_SLOP_PX||Math.abs(tch.clientY-startPt.y)>MKB_TAP_SLOP_PX){
+        moved=true;cancelPress();this._mkbHideTip();longPressFired=false;
+      }
+    },{passive:true});
+
+    b.addEventListener('touchcancel',()=>{
+      cancelPress();this._mkbHideTip();
+      startPt=null;moved=false;longPressFired=false;
+      lastTouchEndAt=Date.now();
+    });
+
+    b.addEventListener('touchend',e=>{
+      cancelPress();
+      const wasLong=longPressFired, wasMoved=moved;
+      startPt=null;moved=false;longPressFired=false;
+      lastTouchEndAt=Date.now();
+      if(wasLong){this._mkbHideTip();e.preventDefault();return}
+      if(wasMoved) return;              // 스크롤 제스처 — 키를 보내지 않는다
+      e.preventDefault();               // 합성 click 억제. 여기서 직접 처리한다
+      activate();
+    });
+
+    b.addEventListener('click',e=>{
+      e.preventDefault();
+      // FR-MTB-2: 터치 제스처가 합성한 click 은 무시한다 — touchend 가 이미
+      // 처리했다. 시간 기준을 쓰는 이유는, 플래그를 쓰면 preventDefault 로
+      // click 이 오지 않은 경우 플래그가 남아 다음 마우스 클릭을 먹는다.
+      if(Date.now()-lastTouchEndAt<MKB_GHOST_CLICK_MS) return;
+      activate();
+    });
+    return b;
   },
 
   /**

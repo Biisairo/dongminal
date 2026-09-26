@@ -116,7 +116,7 @@ test('Repo 탭의 onEnter·onLeave 는 목록 갱신을 합치는 줄로 보낸�
     expose: ['SB_TAB_DEFS'],
     globals: {
       t: (k) => k, REPO_TAB_ID: 'repo', REPO_TAB_LABEL: 'Repo', REPO_PANEL_ID: 'p', REPO_LIST_ID: 'l',
-      REPO_ROOT_ID: 'r', REPO_ENTRIES_NONE: 'REPO_ENTRIES_NONE', REPO_ADD_ID: 'a', SHORTCUT_DEFAULTS: {}, SHORTCUT_LABELS: {}, shortcuts: {},
+      REPO_ROOT_ID: 'r', REPO_ENTRIES_NONE: 'REPO_ENTRIES_NONE', REPO_ADD_ID: 'a', SHORTCUT_DEFAULTS: {}, SHORTCUT_LABELS: {}, shortcuts: {}, SB_JUMP_MAX: 9,
     },
   });
   const repo = ctx.SB_TAB_DEFS.find((d) => d.id === 'repo');

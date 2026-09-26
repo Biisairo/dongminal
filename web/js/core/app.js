@@ -26,7 +26,7 @@ class App {
       every:(spec)=>this.timers.every(spec),
       after:(ms,fn,o)=>this.timers.after(ms,fn,o),
     });
-    this.ws={schemaVersion:2,windows:[],activeWindow:null};
+    this.ws={schemaVersion:WS_SCHEMA_VERSION,windows:[],activeWindow:null};
     this.wsETag=null;
     // FR-WSC-12: **원격이 본 적 있는 창의 id.** 채택이 무엇을 지워도 되는지의
     // 유일한 근거다 (D-6) — 여기 없으면서 원격에도 없는 창은 원격이 한 번도 본
@@ -142,55 +142,7 @@ class App {
     // 알려준 홈과 어긋난 채로 남는다.
     const edReady=this._edLoad();
     try{
-      const stRes=await this._fetchStateKnown();
-      this.wsETag=this._etagOf(stRes);
-      const st=stRes.data||{};
-      const sp=st.tools||[];
-      const sv=st.workspace;
-      const ok=new Set(sp.map(p=>p.id));
-      // FR-OPT-4-11 (D-OPT-2): 여기서는 id 만 적는다. 인스턴스와 WS 는 처음 그려질 때
-      // 선다(`mkTool`, renderer-pane) — 숨은 도구는 붙지 않는다.
-      for(const p of sp){this.toolIds.add(p.id);this._toolsBoot.add(p.id)}
-      // OPTIMIZE_REFACTOR_SRS FR-OPT-4-5: 첫 화면의 전경 이름은 이 목록에서 온다 — 첫
-      // 구독이 같은 목록을 다시 받지 않는다. 모르는 목록으로는 얹지 않는다 (FR-TLU-7).
-      if(st.toolsKnown!==false) this._fgApply(sp);
-      await edReady;
-      // **창이 없어도 서버가 소유한 키는 채택한다.**
-      //
-      // 아래 분기는 `sv.windows.length` 가 0 이면 서버 스냅샷을 통째로 버린다.
-      // 그런데 `git.pinned`·`editors.list` 는 **창과 무관하게 서버가 권위**이고
-      // (FR-EDT-20, FR-GIT-31), 창이 아직 없는 워크스페이스에도 들어 있다.
-      // 버린 채로 `_mkWindow()`·재조정이 `save()` 를 부르면 그 PUT 이 두 키를
-      // **지운다** — 핀을 걸어 둔 채 브라우저를 처음 열면 핀이 사라졌다(실측).
-      if(sv){
-        if(sv.git) this.ws.git=sv.git;
-        if(sv.editors) this.ws.editors=sv.editors;
-        // FR-WSC-12: 첫 로드도 원격이 아는 창을 알려 주는 자리다. 비어 있으면
-        // 비어 있는 것이 사실이며, 그 뒤 우리가 만드는 창은 전부 "원격이 본 적
-        // 없는 창" 이다.
-        this._wsMarkSaved(sv.windows);
-      }
-      // REPO_SIDE_WIDTH_SRS FR-RSW-5: 마이그레이션이 무언가 옮겼는지. 저장은 아래
-      // 재조정의 `save()` 와 겹치므로 여기서는 표시만 든다.
-      let sideWidthMoved=false;
-      if(sv&&sv.windows&&sv.windows.length){
-        this.ws=sv;
-        // FR-UXB-8: 폭은 걷어내기만 한다 — 치수는 창의 것이다 (D-UXB-1). 화면에
-        // 세우는 일은 하지 않는다: 첫 페인트 스크립트가 이 창의 값으로 이미 세웠고,
-        // 서버의 값이 그것을 덮으면 다른 기기에서 끈 폭이 이 화면에 강제된다.
-        sideWidthMoved=this._stripDeviceKeys();
-        // FR-OPT-11-1 (FEC-17): 원격 채택과 같은 한 벌이다.
-        if(this._normalizeIncomingWorkspace(this.ws,ok)) this.save();
-        this._fallbackActiveWindow(this.ws);
-      }
-      // 일반 창 하나는 늘 있어야 한다 — Editor 창만 남기고 사용자를 그 안에
-      // 가두지 않는다 (FR-CLS-2 와 같은 근거). **재조정보다 먼저** 한다: 창
-      // 목록의 순서가 곧 사이드바의 순서이고, 사용자가 만든 적 없는 Editor 창이
-      // 그 앞자리를 차지할 이유가 없다.
-      if(!this.plainWindows().length) await this._mkWindow();
-      // FR-EDT-42·43: 재조정이 도는 첫 번째 자리. 워크스페이스가 비어 있어도
-      // root 에디터 창은 있어야 한다 (FR-EDT-13).
-      if(this._edReconcile()||sideWidthMoved) this.save();
+      await this._initAdoptWorkspace(edReady);
     }catch(e){
       console.error('[App] init error:',e);
       // FR-SFD-22: 여기서 세우는 창은 **화면을 위한 것**이다. 이 판이 디스크로
@@ -198,40 +150,7 @@ class App {
       this._bootFailed=true;
       if(!this.ws.windows.length) await this._mkWindow();
     }
-    // Restore per-window activeWindow from sessionStorage (survives refresh).
-    // Only apply if the window still exists in the loaded workspace.
-    {
-      const saved=PrefStore.session.get(STORE_KEYS.activeWindow);
-      if(saved && this.ws.windows.some(s=>s.id===saved)){
-        this._activateWindow(saved);
-      }else{
-        /**
-         * REPO_TAB_UNIFY_SRS D-RTU-18: **Repo 창의 신원은 id 가 아니라 루트다.**
-         *
-         * 그 창은 `editors.list` 에서 **재조정이 만든다** (FR-EDT-42) — 저장이
-         * 아직 서버에 닿지 않았거나 다른 브라우저가 쓴 워크스페이스를 처음 읽으면
-         * 같은 루트의 창이 **새 id 로** 선다. 그때 id 만 보면 사용자가 보던 창을
-         * 찾지 못하고 폴백이 엉뚱한 일반 창을 고른다 (실측: 새로고침 뒤 Repo 탭이
-         * `Windows` 로 돌아갔다, V-SBT-4).
-         *
-         * 그래서 루트로 한 번 더 찾는다. 사용자에게 같은 저장소의 창은 같은 창이다.
-         */
-        const root=PrefStore.session.get(ACTIVE_EDITOR_ROOT_KEY);
-        const w=root?this.edWindowFor(root):null;
-        if(w) this._activateWindow(w.id);
-      }
-      // FR-RLC-8: 사이드바 탭이 돌아갈 창의 기억도 같은 성질이다 — 같은 블록에서
-      // 되살린다.
-      this._restoreReturn();
-      // Restore per-window focusedPane for each window from sessionStorage.
-      const map=PrefStore.session.json(STORE_KEYS.focusedPanes,null);
-      if(map&&typeof map==='object'){
-        for(const s of this.ws.windows){
-          const rid=map[s.id];
-          if(rid && s.layout && findPane(s.layout, rid)) s.focusedPane=rid;
-        }
-      }
-    }
+    this._initRestoreSession();
     // FR-WSL-2·7: 슬롯 복원은 activeWindow 복원 **뒤**다 — 포커스 슬롯의 창이
     // activeWindow 를 덮는다 (FR-WSL-3). 워크스페이스에 없는 창 id 는 그 슬롯만
     // 비운다.
@@ -258,6 +177,94 @@ class App {
     this._initSoftReload();
     // FR-WSL-50·81: 슬롯 토글 버튼과 방향 설정. 다른 `_init*` 과 같은 자리다.
     this._initSlots();
+  }
+
+  // 부팅의 워크스페이스 채택 — 서버 스냅숏을 받아 정규화하고, 창이 없으면 세운다.
+  async _initAdoptWorkspace(edReady){
+    const stRes=await this._fetchStateKnown();
+    this.wsETag=this._etagOf(stRes);
+    const st=stRes.data||{};
+    const sp=st.tools||[];
+    const sv=st.workspace;
+    const ok=new Set(sp.map(p=>p.id));
+    // FR-OPT-4-11 (D-OPT-2): 여기서는 id 만 적는다. 인스턴스와 WS 는 처음 그려질 때
+    // 선다(`mkTool`, renderer-pane) — 숨은 도구는 붙지 않는다.
+    for(const p of sp){this.toolIds.add(p.id);this._toolsBoot.add(p.id)}
+    // OPTIMIZE_REFACTOR_SRS FR-OPT-4-5: 첫 화면의 전경 이름은 이 목록에서 온다 — 첫
+    // 구독이 같은 목록을 다시 받지 않는다. 모르는 목록으로는 얹지 않는다 (FR-TLU-7).
+    if(st.toolsKnown!==false) this._fgApply(sp);
+    await edReady;
+    // **창이 없어도 서버가 소유한 키는 채택한다.**
+    //
+    // 아래 분기는 `sv.windows.length` 가 0 이면 서버 스냅샷을 통째로 버린다.
+    // 그런데 `git.pinned`·`editors.list` 는 **창과 무관하게 서버가 권위**이고
+    // (FR-EDT-20, FR-GIT-31), 창이 아직 없는 워크스페이스에도 들어 있다.
+    // 버린 채로 `_mkWindow()`·재조정이 `save()` 를 부르면 그 PUT 이 두 키를
+    // **지운다** — 핀을 걸어 둔 채 브라우저를 처음 열면 핀이 사라졌다(실측).
+    if(sv){
+      if(sv.git) this.ws.git=sv.git;
+      if(sv.editors) this.ws.editors=sv.editors;
+      // FR-WSC-12: 첫 로드도 원격이 아는 창을 알려 주는 자리다. 비어 있으면
+      // 비어 있는 것이 사실이며, 그 뒤 우리가 만드는 창은 전부 "원격이 본 적
+      // 없는 창" 이다.
+      this._wsMarkSaved(sv.windows);
+    }
+    // REPO_SIDE_WIDTH_SRS FR-RSW-5: 마이그레이션이 무언가 옮겼는지. 저장은 아래
+    // 재조정의 `save()` 와 겹치므로 여기서는 표시만 든다.
+    let sideWidthMoved=false;
+    if(sv&&sv.windows&&sv.windows.length){
+      this.ws=sv;
+      // FR-UXB-8: 폭은 걷어내기만 한다 — 치수는 창의 것이다 (D-UXB-1). 화면에
+      // 세우는 일은 하지 않는다: 첫 페인트 스크립트가 이 창의 값으로 이미 세웠고,
+      // 서버의 값이 그것을 덮으면 다른 기기에서 끈 폭이 이 화면에 강제된다.
+      sideWidthMoved=this._stripDeviceKeys();
+      // FR-OPT-11-1 (FEC-17): 원격 채택과 같은 한 벌이다.
+      if(this._normalizeIncomingWorkspace(this.ws,ok)) this.save();
+      this._fallbackActiveWindow(this.ws);
+    }
+    // 일반 창 하나는 늘 있어야 한다 — Editor 창만 남기고 사용자를 그 안에
+    // 가두지 않는다 (FR-CLS-2 와 같은 근거). **재조정보다 먼저** 한다: 창
+    // 목록의 순서가 곧 사이드바의 순서이고, 사용자가 만든 적 없는 Editor 창이
+    // 그 앞자리를 차지할 이유가 없다.
+    if(!this.plainWindows().length) await this._mkWindow();
+    // FR-EDT-42·43: 재조정이 도는 첫 번째 자리. 워크스페이스가 비어 있어도
+    // root 에디터 창은 있어야 한다 (FR-EDT-13).
+    if(this._edReconcile()||sideWidthMoved) this.save();
+  }
+
+  // Restore per-window activeWindow from sessionStorage (survives refresh).
+  // Only apply if the window still exists in the loaded workspace.
+  _initRestoreSession(){
+    const saved=PrefStore.session.get(STORE_KEYS.activeWindow);
+    if(saved && this.ws.windows.some(s=>s.id===saved)){
+      this._activateWindow(saved);
+    }else{
+      /**
+       * REPO_TAB_UNIFY_SRS D-RTU-18: **Repo 창의 신원은 id 가 아니라 루트다.**
+       *
+       * 그 창은 `editors.list` 에서 **재조정이 만든다** (FR-EDT-42) — 저장이
+       * 아직 서버에 닿지 않았거나 다른 브라우저가 쓴 워크스페이스를 처음 읽으면
+       * 같은 루트의 창이 **새 id 로** 선다. 그때 id 만 보면 사용자가 보던 창을
+       * 찾지 못하고 폴백이 엉뚱한 일반 창을 고른다 (실측: 새로고침 뒤 Repo 탭이
+       * `Windows` 로 돌아갔다, V-SBT-4).
+       *
+       * 그래서 루트로 한 번 더 찾는다. 사용자에게 같은 저장소의 창은 같은 창이다.
+       */
+      const root=PrefStore.session.get(ACTIVE_EDITOR_ROOT_KEY);
+      const w=root?this.edWindowFor(root):null;
+      if(w) this._activateWindow(w.id);
+    }
+    // FR-RLC-8: 사이드바 탭이 돌아갈 창의 기억도 같은 성질이다 — 같은 블록에서
+    // 되살린다.
+    this._restoreReturn();
+    // Restore per-window focusedPane for each window from sessionStorage.
+    const map=PrefStore.session.json(STORE_KEYS.focusedPanes,null);
+    if(map&&typeof map==='object'){
+      for(const s of this.ws.windows){
+        const rid=map[s.id];
+        if(rid && s.layout && findPane(s.layout, rid)) s.focusedPane=rid;
+      }
+    }
   }
 
   // e2e 계약(app.testing)에 남은 옛 이름. 제품 코드는 `panesOf` 를 쓴다.
@@ -347,7 +354,16 @@ class App {
    */
   get agentsPollMs(){return agentsPollInterval}
 
+  /**
+   * 앱 action 을 실행한다. 표는 처음 부를 때 한 번 세운다 (FR-OPT-11-7 · FEC-36) — 종전에는
+   * 키 입력마다 클로저 30여 개짜리 맵을 새로 만들었다.
+   */
   executeAction(action){
+    const map=this._actionMap||(this._actionMap=this._buildActionMap());
+    return Object.hasOwn(map,action)?map[action]():undefined;
+  }
+
+  _buildActionMap(){
     const map={
       // FR-M9-24·25: 마우스 4·5번 버튼과 **같은 함수**를 부른다 (FR-M9-26).
       focusBack:()=>this.navBack(),focusForward:()=>this.navForward(),
@@ -356,7 +372,7 @@ class App {
       paneUp:()=>this.paneNavigate('up'),paneDown:()=>this.paneNavigate('down'),
       paneLeft:()=>this.paneNavigate('left'),paneRight:()=>this.paneNavigate('right'),
       splitH:()=>this.split('horizontal'),splitV:()=>this.split('vertical'),
-      newWindow:()=>this.addWindow().catch(err=>this._notify(t('core.open_window_fail')+' — '+((err&&err.message)||err))),
+      newWindow:()=>this.addWindow().catch(err=>this._notify(errText(t('core.open_window_fail'),err))),
       newTab:()=>this.addTabFocused(),
       closeWindow:()=>this.closeWindowActive(),closeTab:()=>this.closeTabFocused(),
       // FR-PSC-3 · FR-CHR-15 (D-7): 버튼과 **같은 함수**다.
@@ -391,8 +407,8 @@ class App {
     };
     // FR-SBT-21·26: 직행 키는 서술자 배열에서 파생한다 — 탭이 늘어도 이 맵을
     // 손으로 늘리지 않는다.
-    for(let i=0;i<SB_TAB_DEFS.length&&i<9;i++) map[sbTabAction(i)]=()=>this._sbJumpTo(i+1);
-    return map[action]?.();
+    for(let i=0;i<SB_TAB_DEFS.length&&i<SB_JUMP_MAX;i++) map[sbTabAction(i)]=()=>this._sbJumpTo(i+1);
+    return map;
   }
 
   // FR-WSC-12: 원격이 아는 창 id 를 갈아 끼운다. 저장 성공과 원격 채택이 그
@@ -458,7 +474,7 @@ class App {
           //
           // OPTIMIZE_REFACTOR_SRS FR-OPT-5-1 (FEC-2): 직렬화는 **한 번**이다. 이
           // 문자열이 그대로 본문이고, 아래 같은 본문 판정의 키다.
-          const body=JSON.stringify(Object.assign({},this.ws,{schemaVersion:2}),(k,v)=>{
+          const body=JSON.stringify(Object.assign({},this.ws,{schemaVersion:WS_SCHEMA_VERSION}),(k,v)=>{
             if(k==='activeWindow'||k==='focusedPane'||k==='dirty') return undefined;
             return v;
           });
@@ -496,92 +512,7 @@ class App {
              * 일이다. 그래서 원격이 이긴다 (I-1 / D-1) — 남의 창이 사라지는 것은
              * 되돌릴 수 없고, 내 폭 조정이 사라지는 것은 다시 하면 된다.
              */
-            // FR-WSC-6: **비행을 넘어 이어지는** 수다. 409 는 재시도하지 않으므로
-            // (FR-WSC-1) 한 비행에 한 번뿐이고, 비행 안의 지역 변수로 세면 늘
-            // 1 이 되어 상한에 닿지 않는다 — 잦음을 재려면 연속이어야 한다.
-            const conflicts=(this._saveConflicts=(this._saveConflicts||0)+1);
-            try{
-              const gr=await apiGet('/api/workspace');
-              if(gr.ok){
-                this.wsETag=this._etagOf(gr);
-                // git.pinned 는 서버가 권위로 쓴다 (FR-GIT-11). 409 재시도가 우리
-                // 본문으로 덮으면 핀이 사라진다 — 서버의 git 을 채택한다.
-                //
-                // 단, git.drafts 와 git.favorites 는 클라이언트가 주인이다
-                // (O6·O13) — 통째로 채택하면 방금 입력한 커밋 메시지와 방금 고정한
-                // 즐겨찾기가 재시도에서 사라진다 (FR-GIT-75·149).
-                const rem=gr.data;
-                if(rem&&rem.git){
-                  const mine=this.ws.git||{};
-                  this.ws.git=rem.git;
-                  for(const k of ['drafts','favorites'])
-                    if(mine[k]) this.ws.git[k]=Object.assign({},rem.git[k]||{},mine[k]);
-                  // FR-OPT-4-3: 핀이 바뀌었으면 배지 목록을 받는다 — 목록의 주기는 안전망뿐이다.
-                  if(JSON.stringify(mine.pinned||[])!==JSON.stringify(rem.git.pinned||[])) this.gitReposKick();
-                }
-                // FR-EDT-21: `editors` 도 서버가 권위다. `git` 과 달리
-                // **클라이언트가 소유하는 하위 키가 없으므로** 병합 없이 서버
-                // 값을 통째로 쓴다. 목록이 바뀌었으면 창도 따라와야 한다.
-                if(rem&&rem.editors&&this.edOn()){
-                  this.ws.editors=rem.editors;
-                  // WORKBENCH_REVIEW_SRS FR-WBR-30: **목록만** 갈아끼운다.
-                  //
-                  //   이전 동작: `_edApplyServer({home,list})` 를 직접 불렀다 —
-                  //             `notes` 가 빠져 이 경로를 한 번 지나면 메모장
-                  //             행과 창이 사라졌다 (FR-NOT-11 이 없으면 지운다)
-                  //   새  동작: `_edPatchList` 하나로 간다
-                  //   이유:     그 함수가 있는 이유가 바로 이것이다 — "아는 값은
-                  //             그대로, 목록만". 여기가 그 규약을 우회한 넷째
-                  //             자리였다
-                  this._edPatchList(rem.editors.list);
-                  this._edReconcile();
-                }
-                /**
-                 * FR-WSC-2: **창까지 채택한다.** 위의 둘(git·editors)만 받고
-                 * `windows` 를 우리 것으로 두었던 것이 §2.5 의 손실이었다.
-                 *
-                 * 적용기는 이미 있는 것을 쓴다 (D-2) — 낡은 모양의 마이그레이션,
-                 * 편집기 탭 정리, Editor 창 재조정이 그 안에 있다. 두 번째
-                 * 적용기를 만들면 그 둘이 갈라진다.
-                 *
-                 * 도구 목록은 **모른다고 말한다** (세 번째 인자 `false`).
-                 * `/api/workspace` 는 도구를 싣지 않으므로 안다고 하면 빈 목록이
-                 * 사실이 되어 살아 있는 도구·pane·창이 차례로 지워진다
-                 * (FR-TLU-5·6 이 그 함정을 적고 있다).
-                 */
-                if(rem&&rem.windows){
-                  /**
-                   * FR-WSC-12·14: **원격이 본 적 없는 창은 지우지 않는다** (§2.9).
-                   *
-                   * OPTIMISTIC_LAYOUT_SRS FR-OPL-11 로 개정: 그 병합을 여기서
-                   * 하지 않는다.
-                   *
-                   *   이전 동작: 이 자리가 `_wsSavedIds` 로 미관측 창을 가려
-                   *             `rem.windows` 에 얹은 뒤 적용기를 불렀다
-                   *   새  동작: **적용기가 한다.** 여기는 부르기만 한다
-                   *   이유:     같은 판정이 SSE 채택 경로(`_onWorkspaceChanged`)
-                   *             에는 없었고, 흔들림이 오는 자리는 그쪽이었다
-                   *             (`11 §5` 의 3·4·5·6·7). 판정이 두 벌이면 한쪽만
-                   *             고쳐진다 — 적용기는 두 경로가 반드시 지나는 목이다.
-                   *             그리고 적용기의 것은 **탭까지** 본다
-                   *
-                   * 저장 예약(`FR-WSC-13`)도 적용기가 한다 — 병합이 일어났는지를
-                   * 아는 자리가 거기다 (FR-OPL-9).
-                   */
-                  this._applyRemoteWorkspace(rem,[],false);
-                }
-              }
-            }catch(e){ ErrorLog.push('workspace',(e&&e.message)||e) }
-            // FR-WSC-7: 다음 저장을 잠시 미룬다 — 두 화면이 서로 밀어내는 동안
-            // 그 사이를 벌린다. 저장을 잃지는 않는다 (FR-WSC-9): 대기 중인
-            // 것이 있으면 이 지연 뒤에 나간다.
-            this._saveHoldUntil=Date.now()+Math.min(
-              WS_SAVE_BACKOFF_MS*conflicts,WS_SAVE_BACKOFF_MAX_MS);
-            // FR-WSC-8: 잦으면 그 사실을 남긴다.
-            if(conflicts>=WS_SAVE_CONFLICT_WARN){
-              console.warn('[save] workspace 저장 충돌이 '+conflicts+
-                '번 이어졌다 — 다른 화면이 같은 워크스페이스를 함께 고치고 있다');
-            }
+            await this._saveAdoptRemote();
             // **재시도하지 않는다** (FR-WSC-1). 사용자가 그 사이 새로 조작했으면
             // 그것은 다음 저장으로 나간다 (FR-WSC-5) — 포기하는 것은 이번 본문이며
             // 사용자의 다음 의도가 아니다.
@@ -603,44 +534,142 @@ class App {
       }
       this._saveChain=null;
       this._saveInflight=false;
-      // Deferred workspace_changed events from during the save were almost
-      // certainly echoes of our own PUT (now reflected in the updated
-      // wsETag). Drop them — any genuinely newer external change will land
-      // as a future SSE event with rev > our new wsETag and be applied
-      // through the normal rev check.
-      //
-      // **409 로 포기한 경우는 다르다** (FR-WSC-3). 그때 그 미뤄 둔 알림은 우리
-      // PUT 의 에코가 아니라 **남이 실제로 바꾼 것**이고, 우리는 아무것도 쓰지
-      // 않았으므로 "나중에 또 온다" 는 가정이 성립하지 않는다 — 우리가 버리면
-      // 그 변경은 이 화면에 영영 닿지 않는다.
-      //
-      // 채택은 SSE 경로에게 맡긴다 (D-2) — 낡은 스냅샷 가드(FR-GRR-4)와 도구
-      // 목록 치유를 그것이 이미 갖고 있다. 비행이 끝난 **뒤에** 부른다:
-      // 그 함수는 비행 중이면 스스로 미루기 때문이다 (FR-WSC-4).
-      //
-      // **위 가정은 §2.10 이 반증했다.** 저장 중에 온 알림이 남의 변경일 수
-      // 있고(핀이 그렇다), 그것을 버리면 다시 올 것이 없어 화면과 서버가 영영
-      // 갈린다. 409 로 포기한 경우의 에코는 FR-WSC-2 가 이미 채택했으므로 같은
-      // 판정에 걸린다 — 그 rev 는 채택으로 갱신된 ETag 를 넘지 못한다.
-      // FR-WSC-16: 유예한 rev 가 우리 ETag 보다 **새로우면 적용한다.** 낡거나
-      // 같으면 그것은 우리 PUT 의 에코이므로 버린다 — 위 문단이 지키려던 것이
-      // 그것이고, 그 판정을 **시점이 아니라 rev 로** 한다 (D-7).
-      const deferred=this._wsDeferRev;
-      this._wsApplyPending=false;
-      this._wsDeferRev=undefined;
-      const seenRev=this.wsETag?parseInt(this.wsETag,10):-1;
-      if(deferred!==undefined&&!(deferred<=seenRev)){
-        this.timers.defer(()=>this._onWorkspaceChanged(deferred===Infinity?undefined:deferred),{owner:'app',label:'ws-deferred'});
-      }
-      // FR-WSC-9: 채택 중에 새 저장이 예약됐으면(재조정이 창을 고친 경우가 그렇다)
-      // 그것을 잃지 않는다. 백오프는 다음 비행의 앞머리가 지킨다.
-      if(this._savePending) this.timers.defer(()=>this.save(),{owner:'app',label:'save-pending'});
+      this._saveFlushDeferred();
     };
     // 같은 본문이면 비행이 await 없이 끝난다(FR-OPT-5-1) — 그때 끝난 약속을
     // 비행으로 붙들면 다음 저장이 모두 그것을 돌려받고 나가지 않는다.
     const chain=run();
     if(this._saveInflight) this._saveChain=chain;
     return chain;
+  }
+
+  /**
+   * FR-WSC-1·2: 409·428 — 이 저장을 포기하고 원격의 판을 채택한다. 다음 저장은
+   * 백오프 뒤에 나간다 (FR-WSC-7·9).
+   */
+  async _saveAdoptRemote(){
+    // FR-WSC-6: **비행을 넘어 이어지는** 수다. 409 는 재시도하지 않으므로
+    // (FR-WSC-1) 한 비행에 한 번뿐이고, 비행 안의 지역 변수로 세면 늘
+    // 1 이 되어 상한에 닿지 않는다 — 잦음을 재려면 연속이어야 한다.
+    const conflicts=(this._saveConflicts=(this._saveConflicts||0)+1);
+    try{
+      const gr=await apiGet('/api/workspace');
+      if(gr.ok){
+        this.wsETag=this._etagOf(gr);
+        // git.pinned 는 서버가 권위로 쓴다 (FR-GIT-11). 409 재시도가 우리
+        // 본문으로 덮으면 핀이 사라진다 — 서버의 git 을 채택한다.
+        //
+        // 단, git.drafts 와 git.favorites 는 클라이언트가 주인이다
+        // (O6·O13) — 통째로 채택하면 방금 입력한 커밋 메시지와 방금 고정한
+        // 즐겨찾기가 재시도에서 사라진다 (FR-GIT-75·149).
+        const rem=gr.data;
+        if(rem&&rem.git){
+          const mine=this.ws.git||{};
+          this.ws.git=rem.git;
+          for(const k of ['drafts','favorites'])
+            if(mine[k]) this.ws.git[k]=Object.assign({},rem.git[k]||{},mine[k]);
+          // FR-OPT-4-3: 핀이 바뀌었으면 배지 목록을 받는다 — 목록의 주기는 안전망뿐이다.
+          if(JSON.stringify(mine.pinned||[])!==JSON.stringify(rem.git.pinned||[])) this.gitReposKick();
+        }
+        // FR-EDT-21: `editors` 도 서버가 권위다. `git` 과 달리
+        // **클라이언트가 소유하는 하위 키가 없으므로** 병합 없이 서버
+        // 값을 통째로 쓴다. 목록이 바뀌었으면 창도 따라와야 한다.
+        if(rem&&rem.editors&&this.edOn()){
+          this.ws.editors=rem.editors;
+          // WORKBENCH_REVIEW_SRS FR-WBR-30: **목록만** 갈아끼운다.
+          //
+          //   이전 동작: `_edApplyServer({home,list})` 를 직접 불렀다 —
+          //             `notes` 가 빠져 이 경로를 한 번 지나면 메모장
+          //             행과 창이 사라졌다 (FR-NOT-11 이 없으면 지운다)
+          //   새  동작: `_edPatchList` 하나로 간다
+          //   이유:     그 함수가 있는 이유가 바로 이것이다 — "아는 값은
+          //             그대로, 목록만". 여기가 그 규약을 우회한 넷째
+          //             자리였다
+          this._edPatchList(rem.editors.list);
+          this._edReconcile();
+        }
+        /**
+         * FR-WSC-2: **창까지 채택한다.** 위의 둘(git·editors)만 받고
+         * `windows` 를 우리 것으로 두었던 것이 §2.5 의 손실이었다.
+         *
+         * 적용기는 이미 있는 것을 쓴다 (D-2) — 낡은 모양의 마이그레이션,
+         * 편집기 탭 정리, Editor 창 재조정이 그 안에 있다. 두 번째
+         * 적용기를 만들면 그 둘이 갈라진다.
+         *
+         * 도구 목록은 **모른다고 말한다** (세 번째 인자 `false`).
+         * `/api/workspace` 는 도구를 싣지 않으므로 안다고 하면 빈 목록이
+         * 사실이 되어 살아 있는 도구·pane·창이 차례로 지워진다
+         * (FR-TLU-5·6 이 그 함정을 적고 있다).
+         */
+        if(rem&&rem.windows){
+          /**
+           * FR-WSC-12·14: **원격이 본 적 없는 창은 지우지 않는다** (§2.9).
+           *
+           * OPTIMISTIC_LAYOUT_SRS FR-OPL-11 로 개정: 그 병합을 여기서
+           * 하지 않는다.
+           *
+           *   이전 동작: 이 자리가 `_wsSavedIds` 로 미관측 창을 가려
+           *             `rem.windows` 에 얹은 뒤 적용기를 불렀다
+           *   새  동작: **적용기가 한다.** 여기는 부르기만 한다
+           *   이유:     같은 판정이 SSE 채택 경로(`_onWorkspaceChanged`)
+           *             에는 없었고, 흔들림이 오는 자리는 그쪽이었다
+           *             (`11 §5` 의 3·4·5·6·7). 판정이 두 벌이면 한쪽만
+           *             고쳐진다 — 적용기는 두 경로가 반드시 지나는 목이다.
+           *             그리고 적용기의 것은 **탭까지** 본다
+           *
+           * 저장 예약(`FR-WSC-13`)도 적용기가 한다 — 병합이 일어났는지를
+           * 아는 자리가 거기다 (FR-OPL-9).
+           */
+          this._applyRemoteWorkspace(rem,[],false);
+        }
+      }
+    }catch(e){ ErrorLog.push('workspace',(e&&e.message)||e) }
+    // FR-WSC-7: 다음 저장을 잠시 미룬다 — 두 화면이 서로 밀어내는 동안
+    // 그 사이를 벌린다. 저장을 잃지는 않는다 (FR-WSC-9): 대기 중인
+    // 것이 있으면 이 지연 뒤에 나간다.
+    this._saveHoldUntil=Date.now()+Math.min(
+      WS_SAVE_BACKOFF_MS*conflicts,WS_SAVE_BACKOFF_MAX_MS);
+    // FR-WSC-8: 잦으면 그 사실을 남긴다.
+    if(conflicts>=WS_SAVE_CONFLICT_WARN){
+      console.warn('[save] workspace 저장 충돌이 '+conflicts+
+        '번 이어졌다 — 다른 화면이 같은 워크스페이스를 함께 고치고 있다');
+    }
+  }
+
+  // 비행이 끝났다 — 유예한 원격 알림과 대기 중인 저장을 처리한다 (FR-WSC-9·16).
+  _saveFlushDeferred(){
+    // Deferred workspace_changed events from during the save were almost
+    // certainly echoes of our own PUT (now reflected in the updated
+    // wsETag). Drop them — any genuinely newer external change will land
+    // as a future SSE event with rev > our new wsETag and be applied
+    // through the normal rev check.
+    //
+    // **409 로 포기한 경우는 다르다** (FR-WSC-3). 그때 그 미뤄 둔 알림은 우리
+    // PUT 의 에코가 아니라 **남이 실제로 바꾼 것**이고, 우리는 아무것도 쓰지
+    // 않았으므로 "나중에 또 온다" 는 가정이 성립하지 않는다 — 우리가 버리면
+    // 그 변경은 이 화면에 영영 닿지 않는다.
+    //
+    // 채택은 SSE 경로에게 맡긴다 (D-2) — 낡은 스냅샷 가드(FR-GRR-4)와 도구
+    // 목록 치유를 그것이 이미 갖고 있다. 비행이 끝난 **뒤에** 부른다:
+    // 그 함수는 비행 중이면 스스로 미루기 때문이다 (FR-WSC-4).
+    //
+    // **위 가정은 §2.10 이 반증했다.** 저장 중에 온 알림이 남의 변경일 수
+    // 있고(핀이 그렇다), 그것을 버리면 다시 올 것이 없어 화면과 서버가 영영
+    // 갈린다. 409 로 포기한 경우의 에코는 FR-WSC-2 가 이미 채택했으므로 같은
+    // 판정에 걸린다 — 그 rev 는 채택으로 갱신된 ETag 를 넘지 못한다.
+    // FR-WSC-16: 유예한 rev 가 우리 ETag 보다 **새로우면 적용한다.** 낡거나
+    // 같으면 그것은 우리 PUT 의 에코이므로 버린다 — 위 문단이 지키려던 것이
+    // 그것이고, 그 판정을 **시점이 아니라 rev 로** 한다 (D-7).
+    const deferred=this._wsDeferRev;
+    this._wsApplyPending=false;
+    this._wsDeferRev=undefined;
+    const seenRev=this.wsETag?parseInt(this.wsETag,10):-1;
+    if(deferred!==undefined&&!(deferred<=seenRev)){
+      this.timers.defer(()=>this._onWorkspaceChanged(deferred===Infinity?undefined:deferred),{owner:'app',label:'ws-deferred'});
+    }
+    // FR-WSC-9: 채택 중에 새 저장이 예약됐으면(재조정이 창을 고친 경우가 그렇다)
+    // 그것을 잃지 않는다. 백오프는 다음 비행의 앞머리가 지킨다.
+    if(this._savePending) this.timers.defer(()=>this.save(),{owner:'app',label:'save-pending'});
   }
 
   rename(obj, el){

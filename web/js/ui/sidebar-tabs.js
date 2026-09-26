@@ -249,7 +249,7 @@ const SB_TAB_DEFS=[
  * 이 파일보다 먼저 로드되어 `{...SHORTCUT_DEFAULTS}` 를 이미 떠 갔기 때문이다.
  */
 function sbTabAction(i){return 'sidebarTab'+(i+1)}
-for(let i=0;i<SB_TAB_DEFS.length&&i<9;i++){
+for(let i=0;i<SB_TAB_DEFS.length&&i<SB_JUMP_MAX;i++){
   const k=sbTabAction(i);
   SHORTCUT_DEFAULTS[k]='Ctrl+Shift+Digit'+(i+1);
   SHORTCUT_LABELS[k]=t('shortcut.sidebar_tab',{label:SB_TAB_DEFS[i].label});
@@ -263,7 +263,7 @@ for(let i=0;i<SB_TAB_DEFS.length&&i<9;i++){
  * 두면 설정 화면에 **아무 데도 가지 않는 단축키**가 남는다 — 눌러도 아무 일이
  * 없는 항목은 고장으로 읽힌다.
  */
-for(let i=SB_TAB_DEFS.length;i<9;i++){
+for(let i=SB_TAB_DEFS.length;i<SB_JUMP_MAX;i++){
   const k=sbTabAction(i);
   delete SHORTCUT_DEFAULTS[k];
   delete SHORTCUT_LABELS[k];
