@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"dongminal/internal/shared/testpath"
 	"dongminal/internal/webserver/domain/git/core"
 )
 
@@ -14,7 +15,7 @@ func TestRunnerFor_SuccessIsStdoutOnly(t *testing.T) {
 	svc := core.New(core.WithWriteRunner(func(_ context.Context, _ string, _ []string, _ string) (core.Output, error) {
 		return core.Output{Stdout: " abc sub (heads/main)\n", Stderr: "warning: x\n"}, nil
 	}))
-	out, err := RunnerFor(svc)(context.Background(), "/repo", "submodule", "status")
+	out, err := RunnerFor(svc)(context.Background(), testpath.Abs("repo"), "submodule", "status")
 	if err != nil {
 		t.Fatalf("run: %v", err)
 	}
