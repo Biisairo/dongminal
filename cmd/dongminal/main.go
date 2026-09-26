@@ -252,14 +252,7 @@ func buildDeps(cfg httpapi.Config, gitRoot context.Context) (builtDeps, error) {
 	pm.LoadAll(refs)
 	restoreHeadlessBackground(pm, headless)
 	bd.pm = pm
-
-	// 부팅 시 고아 회수 (FR-SBX-8). 지난 세대가 남긴 컨테이너 중 이제 없는
-	// Window 의 것을 치운다.
-	if placer != nil {
-		bd.deps.Sandbox = placer
-		placer.Reap(liveWindowUUIDs(bd.wsMgr.Windows()))
-	}
-
+	attachSandbox(&bd, placer)
 	return bd, nil
 }
 
@@ -285,86 +278,83 @@ func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub, gitRoot conte
 	if err != nil {
 		return bd, err
 	}
-	if reaper != nil {
-		bd.deps.Sandbox = reaper
-		// 부팅 시 고아 회수 (FR-SBX-8).
-		reaper.Reap(liveWindowUUIDs(bd.wsMgr.Windows()))
-	}
+	attachSandbox(&bd, reaper)
 	return bd, nil
 }
 
-// buildCommonDeps wires up the managers shared by both direct and daemon modes.
-// toolHub provides Liveness (IsLive) for the workspace manager and ToolHub for
-// the tool adapters.
-// gitRoot 는 git 의 서버 수명 ctx 다 (REPO_FIX 01 §8) — Store flight·잡·동기 쓰기의
-// 쓰기·사후 단계·완료 처리가 모두 이것에서 파생한다. 종료가 취소한다.
-func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.CommandHub, attnTracker *hub.AttnTracker, gitRoot context.Context) (builtDeps, error) {
-
-	wsMgr, err := workspace.New(toolHub, workspace.FilePersister{Path: filepath.Join(cfg.DataDir, dmenv.WorkspaceFile)})
-	if err != nil {
-		return builtDeps{}, err
+// attachSandbox 는 샌드박스 표면을 싣고 부팅 시 고아를 회수한다 (FR-SBX-8) — 지난
+// 세대가 남긴 컨테이너 중 이제 없는 Window 의 것을 치운다. 런타임이 없으면(nil)
+// 아무것도 하지 않는다.
+func attachSandbox(bd *builtDeps, pl *sandboxplace.Placer) {
+	if pl == nil {
+		return
 	}
+	bd.deps.Sandbox = pl
+	pl.Reap(liveWindowUUIDs(bd.wsMgr.Windows()))
+}
 
-	var pa adapters.Tool
-	var resolver adapters.Client
-	if _, ok := toolHub.(*toolhub.ToolManager); ok {
-		// Direct mode: use the concrete ToolManager for richer adapter access.
-		pa = adapters.Tool{PM: toolHub.(*toolhub.ToolManager)}
-		resolver = adapters.Client{PM: toolHub.(*toolhub.ToolManager)}
-	} else {
-		pa = adapters.Tool{Hub: toolHub}
-		resolver = adapters.Client{Hub: toolHub}
+// newToolAdapters 는 toolaccess 어댑터 둘을 만든다. 직접 모드는 구체 ToolManager 로
+// 더 넓은 접근을 쓰고, 데몬 모드는 허브(ToolClient)를 쓴다.
+func newToolAdapters(toolHub toolhub.ToolHub) (adapters.Tool, adapters.Client) {
+	if pm, ok := toolHub.(*toolhub.ToolManager); ok {
+		return adapters.Tool{PM: pm}, adapters.Client{PM: pm}
 	}
+	return adapters.Tool{Hub: toolHub}, adapters.Client{Hub: toolHub}
+}
 
-	wa := adapters.Workspace{WS: wsMgr}
+// gitDeps 는 git 실행의 단일 지점과 그것을 받는 것들이다.
+type gitDeps struct {
+	store                    *store.Store
+	worktrees, userWorktrees *worktree.Manager
+}
 
-	// Run 레코드 저장소 (RUN_ORCHESTRATION_SRS 묶음 R). epoch 는 이 기동의
-	// 식별자이며, 이전 세대가 열어둔 Run 을 로드 시 aborted 로 확정한다
-	// (FR-RUN-5). Load 는 파일이 없거나 손상돼도 부팅을 막지 않는다.
-	//
-	// **`FBE-03`(2026-09-11): 그 판정에 생존을 함께 묻는다.** 옛 주석은
-	// "백그라운드 도구가 재기동을 넘지 못하므로 되살릴 실체가 없다" 였는데,
-	// 데몬 모드에서 그 전제는 **거짓**이다 — PTY 를 가진 것은 데몬이고 데몬은
-	// 서버보다 오래 산다. 웹서버만 갈아 끼워도 멤버가 죽던 자리가 그것이다.
+// newGitDeps 는 git 실행의 단일 지점(FR-GIT-1)을 **worktree 보다 먼저** 만든다 —
+// worktree 가 이것을 받아야 실행 환경과 기록을 함께 쓴다 (GIT_EXEC_UNIFY_SRS
+// FR-GXU-10). 종전에는 그것들이 git 을 각자 띄워 `core.Env()` 도 실행 기록도 지나지
+// 않았고, 그래서 Console 이 그 실행들을 보지 못했다.
+func newGitDeps(cfg httpapi.Config, gitRoot context.Context) gitDeps {
+	svc := core.New()
+	return gitDeps{
+		// git 조회 앞의 single-flight + TTL 캐시 (GIT_SRS 묶음 C). 브라우저 창이
+		// 여러 개여도 git 실행 횟수가 창 수에 비례하지 않게 한다 (FR-GIT-63).
+		store: store.NewStore(svc, store.WithRoot(gitRoot)),
+		// worktree 격리의 관리자 (묶음 W). 자기 영역은 $DONGMINAL_HOME/worktrees
+		// 아래뿐이고, 정리 대상은 Run 레코드가 정한다 (FR-WKT-9/10). 격리를 쓰지
+		// 않는 Run 은 이 객체를 건드리지 않는다.
+		worktrees: worktree.New(filepath.Join(cfg.DataDir, dmenv.WorktreesDir), worktree.WithService(svc)),
+		// Git 창 Worktrees 탭의 사용자 worktree 관리자 (FR-WKT-13) — 위 worktrees 와는
+		// 별개의 Manager 인스턴스이며 root 만 형제(git-worktrees)다. checkPath 가 서로의
+		// root 밖을 거부하므로 이 둘이 갈라진 것만으로 Run 정리가 사용자 worktree 를
+		// 건드리지 않는다는 것이 구조적으로 보장된다 — 그 사실이 I7 안전의 전부다.
+		userWorktrees: worktree.New(filepath.Join(cfg.DataDir, dmenv.GitWorktreesDir), worktree.WithService(svc)),
+	}
+}
+
+// newRunStore 는 Run 레코드 저장소다 (RUN_ORCHESTRATION_SRS 묶음 R). epoch 는 이
+// 기동의 식별자이며, 이전 세대가 열어둔 Run 을 로드 시 aborted 로 확정한다
+// (FR-RUN-5). Load 는 파일이 없거나 손상돼도 부팅을 막지 않는다.
+//
+// **`FBE-03`(2026-09-11): 그 판정에 생존을 함께 묻는다.** 옛 주석은
+// "백그라운드 도구가 재기동을 넘지 못하므로 되살릴 실체가 없다" 였는데,
+// 데몬 모드에서 그 전제는 **거짓**이다 — PTY 를 가진 것은 데몬이고 데몬은
+// 서버보다 오래 산다. 웹서버만 갈아 끼워도 멤버가 죽던 자리가 그것이다.
+func newRunStore(cfg httpapi.Config, toolHub toolhub.ToolHub) *run.Store {
 	runStore := run.NewStore(cfg.DataDir, uuid.NewString(),
 		run.WithLiveness(func(toolID string) bool { return toolHub.IsLive(toolID) }))
 	if err := runStore.Load(); err != nil {
 		dmlog.Infof(nil, "run store load: %v", err)
 	}
+	return runStore
+}
 
-	// git 실행의 단일 지점 (FR-GIT-1). **worktree·submodule 보다 먼저 만든다** —
-	// 그 둘이 이것을 받아야 실행 환경과 기록을 함께 쓴다
-	// (GIT_EXEC_UNIFY_SRS FR-GXU-10). 종전에는 그 둘이 git 을 각자 띄워
-	// `core.Env()` 도 실행 기록도 지나지 않았고, 그래서 Console 이 그 실행들을
-	// 보지 못했다.
-	gitSvc := core.New()
-
-	// worktree 격리의 관리자 (묶음 W). 자기 영역은 $DONGMINAL_HOME/worktrees
-	// 아래뿐이고, 정리 대상은 Run 레코드가 정한다 (FR-WKT-9/10). 격리를 쓰지
-	// 않는 Run 은 이 객체를 건드리지 않는다.
-	worktrees := worktree.New(filepath.Join(cfg.DataDir, dmenv.WorktreesDir), worktree.WithService(gitSvc))
-
-	// Git 창 Worktrees 탭의 사용자 worktree 관리자 (FR-WKT-13) — 위 worktrees 와는
-	// 별개의 Manager 인스턴스이며 root 만 형제(git-worktrees)다. checkPath 가 서로의
-	// root 밖을 거부하므로 이 둘이 갈라진 것만으로 Run 정리가 사용자 worktree 를
-	// 건드리지 않는다는 것이 구조적으로 보장된다 — 그 사실이 I7 안전의 전부다.
-	userWorktrees := worktree.New(filepath.Join(cfg.DataDir, dmenv.GitWorktreesDir), worktree.WithService(gitSvc))
-
-	// 상태바 지표 샘플러. 커널을 주기적으로 읽어 스냅샷을 유지하므로 /api/stats 가
-	// 요청 경로에서 커널을 호출하지 않는다 (SYSTEM_STATS_SRS FR-STAT-8/9/11).
-	sampler := sysstat.NewSampler(sysstat.NewReader(), sysstat.DefaultInterval, "/")
-
-	// git 조회 앞의 single-flight + TTL 캐시 (GIT_SRS 묶음 C). 브라우저 창이
-	// 여러 개여도 git 실행 횟수가 창 수에 비례하지 않게 한다 (FR-GIT-63).
-	gitStore := store.NewStore(gitSvc, store.WithRoot(gitRoot))
-
-	// 편집기 코드 탐색의 언어 서버 (LSP_PLUGIN_SRS). 격리 칸은 worktrees 와 같은
-	// 규약으로 홈 아래에 잡는다 — **우리가 받은 것만** 그 안에 살고, 그 칸 하나를
-	// 지우면 원상복구된다 (FR-EXT-22). 시스템·사용자 전역은 건드리지 않는다.
-	//
-	// 무엇이 있는지는 **플러그인 선언**이 정한다 (FR-EXT-1). 여기서 하는 일은
-	// 동봉 선언을 한 번 펴 두는 것뿐이며(FR-EXT-34), 서버도 런타임도 받지 않는다 —
-	// 그것은 사용자가 눌러야 일어난다 (FR-EXT-16).
+// newLSPService 는 편집기 코드 탐색의 언어 서버다 (LSP_PLUGIN_SRS). 격리 칸은
+// worktrees 와 같은 규약으로 홈 아래에 잡는다 — **우리가 받은 것만** 그 안에 살고,
+// 그 칸 하나를 지우면 원상복구된다 (FR-EXT-22). 시스템·사용자 전역은 건드리지 않는다.
+//
+// 무엇이 있는지는 **플러그인 선언**이 정한다 (FR-EXT-1). 여기서 하는 일은
+// 동봉 선언을 한 번 펴 두는 것뿐이며(FR-EXT-34), 서버도 런타임도 받지 않는다 —
+// 그것은 사용자가 눌러야 일어난다 (FR-EXT-16).
+func newLSPService(cfg httpapi.Config, cmdHub *hub.CommandHub) *lsp.Service {
 	extSvc := ext.NewService(filepath.Join(cfg.DataDir, ext.DirName))
 	for _, err := range extSvc.Deploy() {
 		dmlog.Warnf(nil, "플러그인 선언을 펴지 못했습니다: %v", err)
@@ -388,6 +378,26 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 		// 폭주가 git 이벤트를 밀어내지 않고, 재연결 구독이 스냅샷을 받는다.
 		cmdHub.BroadcastDiagnostics(d.Path, payload, len(d.Items) == 0)
 	}
+	return lspSvc
+}
+
+// buildCommonDeps wires up the managers shared by both direct and daemon modes.
+// toolHub provides Liveness (IsLive) for the workspace manager and ToolHub for
+// the tool adapters.
+// gitRoot 는 git 의 서버 수명 ctx 다 (REPO_FIX 01 §8) — Store flight·잡·동기 쓰기의
+// 쓰기·사후 단계·완료 처리가 모두 이것에서 파생한다. 종료가 취소한다.
+func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.CommandHub, attnTracker *hub.AttnTracker, gitRoot context.Context) (builtDeps, error) {
+	wsMgr, err := workspace.New(toolHub, workspace.FilePersister{Path: filepath.Join(cfg.DataDir, dmenv.WorkspaceFile)})
+	if err != nil {
+		return builtDeps{}, err
+	}
+	pa, resolver := newToolAdapters(toolHub)
+	runStore := newRunStore(cfg, toolHub)
+	git := newGitDeps(cfg, gitRoot)
+	// 상태바 지표 샘플러. 커널을 주기적으로 읽어 스냅샷을 유지하므로 /api/stats 가
+	// 요청 경로에서 커널을 호출하지 않는다 (SYSTEM_STATS_SRS FR-STAT-8/9/11).
+	sampler := sysstat.NewSampler(sysstat.NewReader(), sysstat.DefaultInterval, "/")
+	lspSvc := newLSPService(cfg, cmdHub)
 
 	return builtDeps{
 		deps: httpapi.Deps{
@@ -397,12 +407,12 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 			AttnTracker:   attnTracker,
 			WhoAmI:        resolver,
 			ToolIO:        pa,
-			WorkIndex:     wa,
+			WorkIndex:     adapters.Workspace{WS: wsMgr},
 			Stats:         sampler,
 			Runs:          runStore,
-			Worktrees:     worktrees,
-			UserWorktrees: userWorktrees,
-			Git:           gitStore,
+			Worktrees:     git.worktrees,
+			UserWorktrees: git.userWorktrees,
+			Git:           git.store,
 			GitExclusion:  jobs.NewExclusion(),
 			// REPO_FIX 02 §3A-6: 저장소 변화(브랜치 전환 포함) 뒤 열린 문서만 디스크 판으로.
 			OnGitChanged: lspSvc.ResyncRepo,
