@@ -56,7 +56,7 @@ func claudeDecodeFrame(fr claudeFrame, st *ProtoState) ([]Event, bool) {
 	case "user":
 		return claudeDecodeUser(fr)
 	case "result":
-		x.inTurn = false
+		x.end()
 		/**
 		 * M12_SRS FR-M12-11 (V-M12-27): **컨텍스트는 마지막 요청의 것이다.**
 		 *
@@ -128,8 +128,7 @@ func claudeDecodeSystem(fr claudeFrame, x *claudeExt, st *ProtoState) ([]Event, 
 			Status: &ProtoStatus{Model: fr.Model, PermissionMode: fr.PermMode}}}, true
 	case "status":
 		var evs []Event
-		if fr.Status != nil && *fr.Status == "requesting" && !x.inTurn {
-			x.inTurn = true
+		if fr.Status != nil && *fr.Status == "requesting" && x.start() {
 			evs = append(evs, Event{Kind: EvTurnStart, SessionID: fr.SessionID})
 		}
 		if fr.PermMode != "" {
@@ -177,8 +176,7 @@ func claudeDecodeStream(fr claudeFrame, x *claudeExt) ([]Event, bool) {
 	switch ev.Type {
 	case "message_start":
 		var evs []Event
-		if !x.inTurn {
-			x.inTurn = true
+		if x.start() {
 			evs = append(evs, Event{Kind: EvTurnStart, SessionID: fr.SessionID})
 		}
 		// FR-M12-6: `init` 이 아직 안 왔으면 이 이름이라도 들고 있는다 — 정본 이름이라

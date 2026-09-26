@@ -66,13 +66,14 @@ func ompDecode(line []byte, st *ProtoState) ([]Event, bool) {
 		}
 		return nil, true
 	case "agent_start":
-		x.inAgent = true
+		// edge 를 보지 않고 매번 낸다 (종전 동작).
+		x.start()
 		return []Event{{Kind: EvTurnStart, SessionID: sid}}, true
 	case "agent_end":
 		if fr.IsTerminal != nil && !*fr.IsTerminal {
 			return nil, true
 		}
-		x.inAgent = false
+		x.end()
 		return []Event{{Kind: EvTurnEnd, SessionID: sid, Text: "completed", Outcome: OutcomeCompleted}}, true
 	case "message_start", "turn_start", "turn_end", "model_changed", "thinking_level_changed",
 		"auto_retry_start", "auto_retry_end", "retry_fallback_applied", "retry_fallback_succeeded",

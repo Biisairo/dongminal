@@ -165,10 +165,9 @@ func codexDecodeNotification(fr codexFrame, x *codexExt, st *ProtoState) ([]Even
 		if p.Turn.ID != "" {
 			x.turnID = p.Turn.ID
 		}
-		if x.inTurn {
+		if !x.start() {
 			return nil, true
 		}
-		x.inTurn = true
 		return []Event{{Kind: EvTurnStart, SessionID: sid}}, true
 	case "turn/completed":
 		var p struct {
@@ -180,7 +179,7 @@ func codexDecodeNotification(fr codexFrame, x *codexExt, st *ProtoState) ([]Even
 			} `json:"turn"`
 		}
 		_ = json.Unmarshal(fr.Params, &p)
-		x.inTurn = false
+		x.end()
 		// FR-M12-23: 종류는 **상태**에서 나온다 — 아래에서 Text 가 오류 문장으로
 		// 갈릴 수 있으므로, 문장을 보는 갈래는 메시지가 바뀔 때마다 틀린다.
 		ev := Event{Kind: EvTurnEnd, SessionID: sid, Text: p.Turn.Status, Outcome: codexTurnOutcome(p.Turn.Status)}

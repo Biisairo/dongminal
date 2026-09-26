@@ -57,10 +57,10 @@ type claudeExt struct {
 	// pending 은 우리가 보낸 제어 요청의 대기표다 — request_id → 무엇을 물었나.
 	// 응답 프레임은 request_id 만 되돌리므로 이것 없이는 뜻을 알 수 없다.
 	pending map[string]claudePending
-	seq     int
-	// inTurn 은 턴이 진행 중인가다. `status:requesting` 은 모델 요청마다 오므로
+	reqSeq
+	// turnEdge 는 턴이 진행 중인가다. `status:requesting` 은 모델 요청마다 오므로
 	// 첫 것만 turn_start 다 — 턴의 끝은 `result` 하나다.
-	inTurn bool
+	turnEdge
 	// model 은 **이 세션이 도는 모델**이다 (M12_SRS FR-M12-6).
 	//
 	// `result.modelUsage` 에서 어느 항목이 이 대화의 것인지는 이 값으로만 가릴 수
@@ -76,17 +76,7 @@ type claudePending struct {
 }
 
 func claudeExtOf(st *ProtoState) *claudeExt {
-	if x, ok := st.Ext.(*claudeExt); ok {
-		return x
-	}
-	x := &claudeExt{pending: map[string]claudePending{}}
-	st.Ext = x
-	return x
-}
-
-func (x *claudeExt) nextID() string {
-	x.seq++
-	return "dm-" + strconv.Itoa(x.seq)
+	return extOf(st, func() *claudeExt { return &claudeExt{pending: map[string]claudePending{}} })
 }
 
 // claudeProtoLaunch 는 §9.3 ③ 의 매핑이다. `--permission-prompt-tool stdio` 는 헬프에

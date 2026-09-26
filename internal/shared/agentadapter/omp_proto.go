@@ -3,7 +3,6 @@ package agentadapter
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -38,27 +37,17 @@ const ompDefaultApproval = "always-ask"
 
 // ompExt 는 이 어댑터의 사적 상태다 (ProtoState.Ext).
 type ompExt struct {
-	seq     int
+	reqSeq
 	pending map[string]string // 우리 명령 id → command
-	// inAgent 는 `agent_start`~`agent_end` 사이다. omp 의 `turn_*` 는 루프의 한 바퀴라
+	// turnEdge 는 `agent_start`~`agent_end` 사이다. omp 의 `turn_*` 는 루프의 한 바퀴라
 	// 공통 turn 은 agent 경계에서 난다.
-	inAgent bool
+	turnEdge
 	// ui 는 열린 UI 요청의 method 다 (답의 모양이 method 마다 다르다).
 	ui map[string]string
 }
 
 func ompExtOf(st *ProtoState) *ompExt {
-	if x, ok := st.Ext.(*ompExt); ok {
-		return x
-	}
-	x := &ompExt{pending: map[string]string{}, ui: map[string]string{}}
-	st.Ext = x
-	return x
-}
-
-func (x *ompExt) nextID() string {
-	x.seq++
-	return "dm-" + strconv.Itoa(x.seq)
+	return extOf(st, func() *ompExt { return &ompExt{pending: map[string]string{}, ui: map[string]string{}} })
 }
 
 // ompProtoLaunch 는 §9.3 ③ 의 매핑이다. `--resume` 은 id 접두로도 된다 (실측).
@@ -103,7 +92,7 @@ func ompHandshake(_ LaunchOpts, st *ProtoState) [][]byte {
 func ompPrompt(text string, _ []Attachment, st *ProtoState) [][]byte {
 	x := ompExtOf(st)
 	body := map[string]any{"message": text}
-	if x.inAgent {
+	if x.active() {
 		body["streamingBehavior"] = "steer"
 	}
 	return [][]byte{ompCommand(x, "prompt", body)}

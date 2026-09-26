@@ -3,7 +3,6 @@ package agentadapter
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 )
 
 // codex 의 프로토콜 표면 — `codex app-server`, stdio JSON-RPC 2.0 (M8_UNIFIED_SRS §2.3.3 ·
@@ -32,11 +31,11 @@ var codexProto = Proto{
 
 // codexExt 는 이 어댑터의 사적 상태다 (ProtoState.Ext).
 type codexExt struct {
-	seq     int
+	reqSeq
 	pending map[string]codexPending // 우리 요청 id → 무엇을 물었나
 	// threadID 는 이 도구의 thread 다 (F-3). turnID 는 진행 중(또는 마지막) 턴.
 	threadID, turnID string
-	inTurn           bool
+	turnEdge
 	// model·approval 은 다음 `turn/start` 에 실을 재정의다 — codex 에는 세션 중 설정을
 	// 바로 바꾸는 요청이 없다 (§9.3 ① "다음 turn/start").
 	model, approval string
@@ -59,18 +58,10 @@ type codexItem struct {
 }
 
 func codexExtOf(st *ProtoState) *codexExt {
-	if x, ok := st.Ext.(*codexExt); ok {
-		return x
-	}
-	x := &codexExt{pending: map[string]codexPending{}, reqIDs: map[string]json.RawMessage{},
-		items: map[string]codexItem{}, questions: map[string]map[string]string{}}
-	st.Ext = x
-	return x
-}
-
-func (x *codexExt) nextID() string {
-	x.seq++
-	return "dm-" + strconv.Itoa(x.seq)
+	return extOf(st, func() *codexExt {
+		return &codexExt{pending: map[string]codexPending{}, reqIDs: map[string]json.RawMessage{},
+			items: map[string]codexItem{}, questions: map[string]map[string]string{}}
+	})
 }
 
 // codexProtoLaunch 는 `app-server` 하나다 — 모델·재개·정책은 핸드셰이크의 요청에 실린다.

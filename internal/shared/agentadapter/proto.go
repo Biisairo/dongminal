@@ -3,6 +3,7 @@ package agentadapter
 import (
 	"encoding/json"
 	"errors"
+	"strconv"
 
 	"dongminal/internal/shared/activity"
 )
@@ -472,3 +473,42 @@ func (e Event) Activity() (state string, ok bool) {
 
 // HasProto 는 이 에이전트가 에이전트 도구로 뜰 수 있는가다 (FR-APS-9).
 func (a Adapter) HasProto() bool { return a.Proto != nil }
+
+// 어댑터 사적 상태(ProtoState.Ext)의 공통 부품이다 (FR-OPT-9-1). 디코더의 스키마는
+// 어댑터마다 다르지만 요청 id 발급·Ext 설치·턴 시작 edge 는 같다.
+
+// protoReqIDPrefix 는 우리가 보내는 요청 id 의 접두다 — 상대가 되돌린 id 가 우리 것인지 가린다.
+const protoReqIDPrefix = "dm-"
+
+// reqSeq 는 우리 요청 id 발급기다.
+type reqSeq struct{ seq int }
+
+func (r *reqSeq) nextID() string {
+	r.seq++
+	return protoReqIDPrefix + strconv.Itoa(r.seq)
+}
+
+// extOf 는 st.Ext 가 *T 이면 그것을, 아니면 mk 로 만들어 설치한 것을 돌려준다.
+func extOf[T any](st *ProtoState, mk func() *T) *T {
+	if x, ok := st.Ext.(*T); ok {
+		return x
+	}
+	x := mk()
+	st.Ext = x
+	return x
+}
+
+// turnEdge 는 턴 진행 여부다. start 는 턴 밖에서 불렸을 때만 참(= turn_start 를 낼 edge)이다.
+type turnEdge struct{ inTurn bool }
+
+func (t *turnEdge) start() bool {
+	if t.inTurn {
+		return false
+	}
+	t.inTurn = true
+	return true
+}
+
+func (t *turnEdge) end() { t.inTurn = false }
+
+func (t *turnEdge) active() bool { return t.inTurn }
