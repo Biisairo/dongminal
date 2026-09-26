@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"dongminal/internal/shared/browser"
 	"errors"
 	"os/signal"
 	"path/filepath"
@@ -40,6 +41,9 @@ type app struct {
 	// cancelGit 은 git 의 서버 수명 ctx 를 끝낸다 (REPO_FIX 01 §8). 신호가 오면
 	// AfterFunc 가, 신호 없는 오류 종료면 종료 표의 첫 단계가 부른다.
 	cancelGit context.CancelFunc
+	// browser 는 직접 모드의 브라우저 매니저다 (BROWSER_TAB_SRS FR-BRT-8). 데몬
+	// 모드에서는 데몬이 소유하므로 nil 이다.
+	browser *browser.Manager
 }
 
 // buildApp 은 조립이다 — 로그 계층·헬퍼 설치·데몬 연결·의존 배선·서버·해석층
@@ -83,6 +87,16 @@ func buildApp(gitRoot context.Context, home, host, port string) (*app, error) {
 	}
 	if err != nil {
 		return nil, err
+	}
+	// FR-BRT-8: 데몬 모드는 데몬이 매니저를 소유하고 ToolClient 가 그 표면을 낸다.
+	// 직접 모드는 이 프로세스가 소유한다 (`toolhub` 와 같은 이중 실행).
+	if a.panedClient != nil {
+		a.bd.deps.Browser = a.panedClient
+	} else {
+		a.browser = browser.New(browser.Config{Home: home, Engine: platform.Current().Chrome, Proc: platform.Current().Process,
+			ServerAudio: func() bool { return browser.ServerAudioSetting(home) },
+			DownloadDir: func() string { return browser.DownloadDirSetting(home) }})
+		a.bd.deps.Browser = a.browser
 	}
 	dmlog.Infof(nil, "workspace manager ready rev=%d bytes=%d", a.bd.wsMgr.CurrentRev(), len(a.bd.wsMgr.Raw()))
 
@@ -290,6 +304,11 @@ func (a *app) shutdownSteps() []shutdownStep {
 			if a.bd.pm != nil {
 				a.bd.pm.StopSaving()
 				a.bd.pm.SaveAll()
+			}
+		}},
+		{"브라우저", func() {
+			if a.browser != nil {
+				a.browser.Close()
 			}
 		}},
 		{"샌드박스", func() {

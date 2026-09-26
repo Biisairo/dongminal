@@ -51,8 +51,9 @@ const EXEMPT = [
   // 336 → 338 로 밀었고, FR-ACT-1 이 `#attn-center` 를 걷으면서 338 → 337 로
   // 되밀었다. UIUX_OVERHAUL_SRS FR-CHR-8 (D-6) 이 상단바를 되살리며 338 → 340,
   // SLOT_MARKER_SRS FR-SMK-1 의 마커 그릇과 그 주석이 340 → 346. D-7 이 상단바의
-  // 버튼 둘을 걷고 `#attn-center` 를 되살려 346 → 351.
-  { at: 'web/index.html', line: 353,
+  // 버튼 둘을 걷고 `#attn-center` 를 되살려 346 → 351. BROWSER_TAB_SRS 가 설정창에
+  // Browser 탭 버튼과 주석 줄을 더하고 스타일시트 한 줄을 더해 353 → 356.
+  { at: 'web/index.html', line: 356,
     why: '`role="switch"` — 토글 스위치이지 버튼이 아니다',
     until: '묶음 B3 이 킷에 `.ui-switch` 를 세우면' },
   // 줄 번호는 파일이 자라면 함께 움직인다 — UX_BATCH10_SRS FR-UXB-44 가 덩이를

@@ -227,6 +227,7 @@ Object.assign(Renderer.prototype, {
       if(pn){const tab=pn.tabs.find(x=>x.id===app.paneTab(pn));if(tab){
         // 포커스 슬롯의 인스턴스를 focus 한다 (FR-WSL-20).
         if(tab.type==='editor'){const v=app.editorAny(tab.id);if(v)v.el.focus()}
+        else if(tab.type===TAB_TYPE_BROWSER){const v=app.browserViewAny(tab.id);if(v)v.focus()}
         else{
           /**
            * M11_SRS FR-M11-47 (M11-B48): **에이전트 탭도 여기서 포커스를 받는다.**

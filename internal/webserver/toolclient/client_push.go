@@ -26,6 +26,8 @@ func (pc *ToolClient) handlePush(m *wireMsg) {
 		pc.pushExit(m)
 	case toolipc.EventSize:
 		pc.pushSize(m)
+	case toolipc.EventBrowser:
+		pc.pushBrowser(m)
 	}
 }
 

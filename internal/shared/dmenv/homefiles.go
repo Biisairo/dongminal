@@ -26,4 +26,6 @@ const (
 	WorktreesDir    = "worktrees"
 	GitWorktreesDir = "git-worktrees"
 	ExtDir          = "ext"
+	// BrowserDir 는 브라우저 탭의 프로필들이다 (BROWSER_TAB_SRS FR-BRT-10).
+	BrowserDir = "browser"
 )

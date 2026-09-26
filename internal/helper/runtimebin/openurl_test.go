@@ -2,152 +2,207 @@ package runtimebin
 
 import (
 	"bytes"
-	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
-
-	"dongminal/internal/shared/dmenv"
 )
 
-// V4: dmctl open-url — 서버가 "local" 이라 답할 때만 이 셸이 직접 연다
-// (VIEWER_URL_OPEN_SRS FR-VUO-2/3).
-
-// recordOpen 은 로컬 실행 대역이다. 무엇을 열려 했는지 기록한다.
-func recordOpen(dst *string, err error) func(string) error {
-	return func(u string) error { *dst = u; return err }
-}
-
-func TestOpenURL_SendsAction(t *testing.T) {
+// TC-BRT-50 (dmctl 절반): open-url·dmctl open-url 은 `dmctl browser open --focus` 와
+// 같은 길로 브라우저 탭을 연다 (FR-BRT-70). 호출 칸은 이 도구다.
+func TestOpenURL_OpensBrowserTab(t *testing.T) {
 	var got map[string]any
-	defer captureAPI(t, `{"ok":true,"where":"remote"}`, &got, nil, nil)()
-
-	var opened string
+	var path string
+	defer captureAPI(t, `{"ok":true,"tab":"T1"}`, &got, &path, nil)()
+	t.Setenv("DONGMINAL_TOOL_ID", "tool-9")
 	var stdout, stderr bytes.Buffer
-	rc := openURLWith([]string{"https://example.com/a?b=1"}, &stdout, &stderr, recordOpen(&opened, nil))
-	if rc != 0 {
+	if rc := runOpenURL([]string{"https://example.com/a?b=1"}, &stdout, &stderr); rc != 0 {
 		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
 	}
-	if got["action"] != "openUrl" {
-		t.Fatalf("action=%v", got["action"])
+	if path != "/api/browser/open" {
+		t.Fatalf("path=%s", path)
 	}
-	args := got["args"].(map[string]any)
-	if args["url"] != "https://example.com/a?b=1" {
-		t.Fatalf("args=%+v", args)
-	}
-	if opened != "" {
-		t.Fatalf("where=remote 인데 이 셸이 %q 를 열었다 — 두 곳에서 열린다", opened)
+	if got["url"] != "https://example.com/a?b=1" || got["focus"] != true || got["tool"] != "tool-9" {
+		t.Fatalf("body=%v", got)
 	}
 }
 
-func TestOpenURL_LocalWhereOpensHere(t *testing.T) {
-	defer captureAPI(t, `{"ok":true,"where":"local"}`, nil, nil, nil)()
-
-	var opened string
+// FR-BRT-65: 열 수 없는 scheme 은 서버에 가지 않고 1 로 끝난다.
+func TestOpenURL_RejectsScheme(t *testing.T) {
+	var path string
+	defer captureAPI(t, `{}`, nil, &path, nil)()
 	var stdout, stderr bytes.Buffer
-	rc := openURLWith([]string{"https://example.com/"}, &stdout, &stderr, recordOpen(&opened, nil))
-	if rc != 0 {
+	if rc := runOpenURL([]string{"javascript:alert(1)"}, &stdout, &stderr); rc != 1 {
+		t.Fatalf("rc=%d", rc)
+	}
+	if path != "" {
+		t.Fatalf("서버에 갔다: %s", path)
+	}
+}
+
+func TestOpenURL_Usage(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if rc := runOpenURL(nil, &stdout, &stderr); rc != 2 {
+		t.Fatalf("rc=%d", rc)
+	}
+}
+
+// FR-BRT-66: 경로는 이 셸의 cwd 로 풀어 file:// 로 연다.
+func TestBrowserOpen_PathBecomesFileURL(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "a.html"), []byte("x"), 0o600)
+	wd, _ := os.Getwd()
+	os.Chdir(dir)
+	defer os.Chdir(wd)
+	var got map[string]any
+	defer captureAPI(t, `{"ok":true,"tab":"T1"}`, &got, nil, nil)()
+	var stdout, stderr bytes.Buffer
+	if rc := runDmctlBrowser([]string{"open", "a.html", "--split", "none", "--isolated"}, &stdout, &stderr); rc != 0 {
 		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
 	}
-	if opened != "https://example.com/" {
-		t.Fatalf("opened=%q, 기대 https://example.com/", opened)
+	u, _ := got["url"].(string)
+	if !strings.HasPrefix(u, "file://") || !strings.HasSuffix(u, "/a.html") {
+		t.Fatalf("url=%q", u)
+	}
+	if got["split"] != "none" || got["isolated"] != true || got["focus"] != false {
+		t.Fatalf("body=%v", got)
+	}
+	if !strings.Contains(stdout.String(), "tab=T1") {
+		t.Fatalf("stdout=%q", stdout.String())
 	}
 }
 
-// FR-VUO-4: 서버에 닿지 못해도 열기 요청은 소실되지 않는다.
-func TestOpenURL_ServerUnreachableStillOpensHere(t *testing.T) {
-	t.Setenv("DONGMINAL_PORT", "1") // 아무도 듣지 않는 포트
-	t.Setenv("DONGMINAL_HOST", "127.0.0.1")
-
-	var opened string
+// FR-BRT-78: 사용법 오류는 2, 동작 실패는 1.
+func TestBrowserExitCodes(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	rc := openURLWith([]string{"https://example.com/"}, &stdout, &stderr, recordOpen(&opened, nil))
-	if rc != 0 {
-		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
+	for _, args := range [][]string{{"open"}, {"viewport", "12x"}, {"open", "x", "--split", "left"}, {"nope"}} {
+		if rc := runDmctlBrowser(args, &stdout, &stderr); rc != 2 {
+			t.Errorf("%v → %d want 2", args, rc)
+		}
 	}
-	if opened != "https://example.com/" {
-		t.Fatalf("opened=%q — 서버가 없으면 이 셸이 연다", opened)
+	defer withDmctlServerStatus(t, 409, "Google Chrome 을 찾지 못했습니다")()
+	stderr.Reset()
+	if rc := runDmctlBrowser([]string{"reload"}, &stdout, &stderr); rc != 1 {
+		t.Fatalf("동작 실패 rc=%d", rc)
 	}
-}
-
-// 서버가 거절하면(400) 열지 않는다 — 거절은 "열어서는 안 되는 URL" 이라는 판정이다.
-func TestOpenURL_ServerRejectDoesNotOpen(t *testing.T) {
-	defer withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("openUrl: http/https 만 허용: file:///etc/passwd"))
-	})()
-
-	var opened string
-	var stdout, stderr bytes.Buffer
-	rc := openURLWith([]string{"file:///etc/passwd"}, &stdout, &stderr, recordOpen(&opened, nil))
-	if rc == 0 {
-		t.Fatal("rc=0 — 거절을 성공으로 보고했다")
-	}
-	if opened != "" {
-		t.Fatalf("opened=%q — 서버가 거절한 URL 을 열었다", opened)
-	}
-	if !strings.Contains(stderr.String(), "http/https") {
-		t.Fatalf("stderr=%q — 거절 사유가 보이지 않는다", stderr.String())
-	}
-}
-
-// 로컬 실행 자체가 실패하면 사유를 알린다.
-func TestOpenURL_LocalOpenFailureIsReported(t *testing.T) {
-	defer captureAPI(t, `{"ok":true,"where":"local"}`, nil, nil, nil)()
-
-	var opened string
-	var stdout, stderr bytes.Buffer
-	rc := openURLWith([]string{"https://example.com/"}, &stdout, &stderr,
-		recordOpen(&opened, errors.New("브라우저 없음")))
-	if rc == 0 {
-		t.Fatal("rc=0 — 열지 못했는데 성공으로 보고했다")
-	}
-	if !strings.Contains(stderr.String(), "브라우저 없음") {
+	if !strings.Contains(stderr.String(), "Chrome") {
 		t.Fatalf("stderr=%q", stderr.String())
 	}
 }
 
-func TestOpenURL_UsageErrors(t *testing.T) {
-	for _, args := range [][]string{{}, {"a", "b"}} {
-		var stdout, stderr bytes.Buffer
-		if rc := openURLWith(args, &stdout, &stderr, recordOpen(new(string), nil)); rc == 0 {
-			t.Errorf("args=%v rc=0 — 인자 오류를 통과시켰다", args)
+// --tab 이 없으면 도구 id 를 실어 서버가 마지막 탭을 고르게 한다 (FR-BRT-75).
+func TestBrowserTabCallCarriesTool(t *testing.T) {
+	var got map[string]any
+	var path string
+	defer captureAPI(t, `{"ok":true}`, &got, &path, nil)()
+	t.Setenv("DONGMINAL_TOOL_ID", "tool-3")
+	var stdout, stderr bytes.Buffer
+	if rc := runDmctlBrowser([]string{"reload", "--hard"}, &stdout, &stderr); rc != 0 {
+		t.Fatalf("rc=%d %s", rc, stderr.String())
+	}
+	if path != "/api/browser/nav" || got["action"] != "reload" || got["hard"] != true || got["tool"] != "tool-3" || got["tab"] != "" {
+		t.Fatalf("path=%s body=%v", path, got)
+	}
+	if rc := runDmctlBrowser([]string{"viewport", "1280x800", "--tab", "U"}, &stdout, &stderr); rc != 0 {
+		t.Fatal(stderr.String())
+	}
+	if path != "/api/browser/viewport" || got["w"] != float64(1280) || got["h"] != float64(800) || got["tab"] != "U" {
+		t.Fatalf("viewport body=%v", got)
+	}
+}
+
+func withDmctlServerStatus(t *testing.T, code int, body string) func() {
+	return withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(code)
+		w.Write([]byte(body))
+	})
+}
+
+// FR-BRT-75·78: 2단계 명령은 /api/browser/act 한 곳을 지나고, 사용법 오류는 2 다.
+func TestBrowserActCommands(t *testing.T) {
+	var got map[string]any
+	var path string
+	defer captureAPI(t, `{"snapshot":"- button \"x\" [ref=e1]","value":3,"url":"https://u","title":"T","items":[{"type":"log","text":"hi"}]}`, &got, &path, nil)()
+	var stdout, stderr bytes.Buffer
+	if rc := runDmctlBrowser([]string{"snapshot", "--dom"}, &stdout, &stderr); rc != 0 {
+		t.Fatalf("rc=%d %s", rc, stderr.String())
+	}
+	if path != "/api/browser/act" || got["op"] != "snapshot" || got["dom"] != true || !strings.Contains(stdout.String(), "[ref=e1]") {
+		t.Fatalf("snapshot: %s %v %q", path, got, stdout.String())
+	}
+	stdout.Reset()
+	runDmctlBrowser([]string{"fill", "e3", "hello world"}, &stdout, &stderr)
+	if got["op"] != "fill" || got["ref"] != "e3" || got["text"] != "hello world" {
+		t.Fatalf("fill: %v", got)
+	}
+	runDmctlBrowser([]string{"wait", "--text", "done", "--timeout", "2s"}, &stdout, &stderr)
+	if got["op"] != "wait" || got["text"] != "done" || got["timeoutMs"] != float64(2000) {
+		t.Fatalf("wait: %v", got)
+	}
+	stdout.Reset()
+	runDmctlBrowser([]string{"url"}, &stdout, &stderr)
+	if got["op"] != "state" || stdout.String() != "https://u\n" {
+		t.Fatalf("url: %v %q", got, stdout.String())
+	}
+	stdout.Reset()
+	runDmctlBrowser([]string{"console"}, &stdout, &stderr)
+	if stdout.String() != "[log] hi\n" {
+		t.Fatalf("console: %q", stdout.String())
+	}
+	for _, args := range [][]string{{"wait"}, {"click"}, {"fill", "e1"}, {"console", "--limit", "0"}, {"wait", "--text", "x", "--timeout", "soon"}} {
+		if rc := runDmctlBrowser(args, &stdout, &stderr); rc != 2 {
+			t.Errorf("%v → %d want 2", args, rc)
 		}
 	}
 }
 
-// 헬퍼로 등록되어야 BROWSER 가 가리킬 실행 파일이 생긴다 (FR-VUO-12).
-func TestOpenURL_RegisteredAsHelper(t *testing.T) {
-	found := false
-	for _, n := range dmenv.HelperNames() {
-		if n == "open-url" {
-			found = true
+// screenshot 은 PNG 를 이 셸의 폴더(서버)에 쓰고 경로를 낸다.
+func TestBrowserScreenshotWritesFile(t *testing.T) {
+	dir := t.TempDir()
+	defer captureAPI(t, `{"png":"iVBORw0KGgo="}`, nil, nil, nil)()
+	var stdout, stderr bytes.Buffer
+	out := filepath.Join(dir, "s.png")
+	if rc := runDmctlBrowser([]string{"screenshot", "-o", out}, &stdout, &stderr); rc != 0 {
+		t.Fatalf("rc=%d %s", rc, stderr.String())
+	}
+	b, err := os.ReadFile(out)
+	if err != nil || string(b[1:4]) != "PNG" || strings.TrimSpace(stdout.String()) != out {
+		t.Fatalf("파일: %v %q %q", err, b, stdout.String())
+	}
+}
+
+// FR-BRT-80·84·85: 3단계 명령 — 대화상자의 답·DevTools 는 act, 다운로드는 목록 GET 이다.
+func TestBrowserFidelityCommands(t *testing.T) {
+	var got map[string]any
+	var path string
+	defer captureAPI(t, `{"downloads":[{"guid":"g","name":"a.zip","path":"/d/a.zip","state":"completed","received":3,"total":3}]}`, &got, &path, nil)()
+	var stdout, stderr bytes.Buffer
+	if rc := runDmctlBrowser([]string{"dialog", "--accept", "--text", "yes"}, &stdout, &stderr); rc != 0 {
+		t.Fatalf("rc=%d %s", rc, stderr.String())
+	}
+	if path != "/api/browser/act" || got["op"] != "dialog" || got["accept"] != true || got["text"] != "yes" {
+		t.Fatalf("dialog: %s %v", path, got)
+	}
+	runDmctlBrowser([]string{"dialog", "--dismiss"}, &stdout, &stderr)
+	if got["op"] != "dialog" || got["accept"] != false {
+		t.Fatalf("dismiss: %v", got)
+	}
+	runDmctlBrowser([]string{"devtools", "--panel", "console"}, &stdout, &stderr)
+	if got["op"] != "devtools" || got["panel"] != "console" {
+		t.Fatalf("devtools: %v", got)
+	}
+	stdout.Reset()
+	got = nil
+	if rc := runDmctlBrowser([]string{"downloads"}, &stdout, &stderr); rc != 0 {
+		t.Fatalf("downloads rc=%d %s", rc, stderr.String())
+	}
+	if path != "/api/browser/downloads" || stdout.String() != "completed 3/3 /d/a.zip\n" {
+		t.Fatalf("downloads: %s %q", path, stdout.String())
+	}
+	for _, args := range [][]string{{"dialog"}, {"dialog", "--accept", "--dismiss"}, {"devtools", "x"}, {"downloads", "x"}} {
+		if rc := runDmctlBrowser(args, &stdout, &stderr); rc != 2 {
+			t.Errorf("%v → %d want 2", args, rc)
 		}
-	}
-	if !found {
-		t.Fatalf("open-url 이 헬퍼 목록에 없다: %v", dmenv.HelperNames())
-	}
-}
-
-// 최상위 도움말이 이 명령을 말해야 사용자가 찾을 수 있다.
-func TestOpenURL_ListedInDmctlHelp(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	if rc := runDmctl(nil, &stdout, &stderr); rc != 0 {
-		t.Fatalf("rc=%d stderr=%s", rc, stderr.String())
-	}
-	if !strings.Contains(stdout.String(), "open-url") {
-		t.Error("최상위 도움말에 open-url 없음")
-	}
-}
-
-// dmctl 서브커맨드로도 닿아야 한다.
-func TestOpenURL_ReachableAsDmctlSubcommand(t *testing.T) {
-	var stdout, stderr bytes.Buffer
-	rc, handled := runDmctlSpecial("open-url", []string{"--help"}, &stdout, &stderr)
-	if !handled {
-		t.Fatal("dmctl open-url 이 디스패치되지 않는다")
-	}
-	if rc != 0 || stdout.Len() == 0 {
-		t.Fatalf("rc=%d stdout=%q", rc, stdout.String())
 	}
 }

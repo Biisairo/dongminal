@@ -119,6 +119,8 @@ const APP_TESTING_NAMES = [
   '_docRenderOpen',
   // SYSTEM_THEME_FOLLOW_SRS TC-STF-1·2: 슬롯을 읽고 세운다.
   'themeSlots', 'setThemeSlots',
+  // BROWSER_TAB_SRS: 브라우저 탭의 뷰 — 첫 프레임이 그려졌는지 본다.
+  '_brvViews',
 ];
 
 /**

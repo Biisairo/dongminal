@@ -8,7 +8,7 @@ import (
 	"dongminal/internal/shared/platform"
 )
 
-// FR-VUO-13: 도구 셸의 BROWSER 는 dongminal 의 open-url 을 가리킨다. xdg-open
+// FR-BRT-70: 도구 셸의 BROWSER 는 dongminal 의 open-url 을 가리킨다. xdg-open
 // 을 거치지 않고 브라우저를 직접 찾는 라이브러리(python webbrowser, node open)가
 // 이 변수를 존중하므로, 셸 함수만으로는 덮이지 않는 경로가 여기서 덮인다.
 func TestToolBrowserEnv_PointsAtHelper(t *testing.T) {

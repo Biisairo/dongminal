@@ -292,7 +292,8 @@ function clean(n,ok){
       // `!t.toolId` 로 일반화하지 않는 이유는 toolId 없는 terminal 탭
       // (저장 중 끊긴 손상 워크스페이스)이 그때 영원히 남기 때문이다 —
       // 클릭해도 아무것도 열리지 않는 그 유령 탭을 버리는 것이 clean() 의 목적이다.
-      if(tab.type===TAB_TYPE_EDITOR||tab.type===TAB_TYPE_RUN||tab.type===TAB_TYPE_GIT) return true;
+      // 브라우저 탭도 도구가 없다 — 페이지는 서버의 매니저가 든다 (BROWSER_TAB_SRS FR-BRT-30).
+      if(tab.type===TAB_TYPE_EDITOR||tab.type===TAB_TYPE_RUN||tab.type===TAB_TYPE_GIT||tab.type===TAB_TYPE_BROWSER) return true;
       return ok.has(tab.toolId);
     });
     if(!n.tabs||!n.tabs.length) return null;
@@ -332,7 +333,8 @@ function tabNameSource(tab){
   if(!tab) return NAME_SOURCE_AUTO;
   // FR-TAN-3: editor·run·git 탭의 이름은 콘텐츠에서 파생된다 — 본 묶음의
   // 대상이 아니므로 manual 로 고정한다.
-  if(tab.type===TAB_TYPE_EDITOR||tab.type===TAB_TYPE_RUN||tab.type===TAB_TYPE_GIT) return NAME_SOURCE_MANUAL;
+  // 브라우저 탭의 이름은 페이지 제목이다 — 전경 프로세스에서 파생하지 않는다.
+  if(tab.type===TAB_TYPE_EDITOR||tab.type===TAB_TYPE_RUN||tab.type===TAB_TYPE_GIT||tab.type===TAB_TYPE_BROWSER) return NAME_SOURCE_MANUAL;
   if(tab.nameSource===NAME_SOURCE_MANUAL||tab.nameSource===NAME_SOURCE_AUTO) return tab.nameSource;
   return tab.name===TAB_NAME_DEFAULT?NAME_SOURCE_AUTO:NAME_SOURCE_MANUAL;
 }

@@ -101,9 +101,7 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 	// grace period 없음. epoch 로 재연결 경합을 막는다 (FR-XDF-10).
 	cid := r.URL.Query().Get("clientId")
 	if cid != "" && s.Focus != nil {
-		// VIEWER_URL_OPEN_SRS FR-VUO-1: 구독의 원격 주소를 함께 남긴다. 이 값이
-		// "보고 있는 기기가 서버와 같은 컴퓨터인가" 의 유일한 근거다.
-		ep := s.Focus.AttachFrom(cid, r.RemoteAddr)
+		ep := s.Focus.Attach(cid)
 		defer func() {
 			if s.Focus.Detach(cid, ep) {
 				s.broadcastFocusOwners()
@@ -211,19 +209,6 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "unknown action: "+req.Action, http.StatusBadRequest, apierr.CodeUnknownAction)
 		return
 	}
-	// VIEWER_URL_OPEN_SRS: 열 URL 을 먼저 거르고(FR-VUO-18) 어디서 열지 정한다.
-	// 로컬이면 브로드캐스트하지 않는다 — 부른 쉘이 직접 연다 (FR-VUO-2).
-	openURLWhere := ""
-	if req.Action == OpenURLAction {
-		if _, verr := openURLTarget(req.Args); verr != nil {
-			// `openurl.go` 가 사용자에게 하려고 쓴 말이다 — 어느 인자가 왜
-			// 거부됐는지가 그 문구에 있고, 내부 사정은 담기지 않는다.
-			fail(w, http.StatusBadRequest, verr.Error(), nil)
-			return
-		}
-		openURLWhere, _ = s.openURLWhere()
-	}
-
 	origLoc, finalLoc, err := translateLocationUUID(&req.Args, s.Work)
 	if err != nil {
 		// 사용자가 보낸 `location` 값에 대한 말이다 (commands.go:36).
@@ -253,17 +238,6 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		"requestedLocation": origLoc,
 	}
 
-	if openURLWhere != "" {
-		// FR-VUO-1: dmctl 이 이 값을 보고 로컬 실행 여부를 정한다.
-		resp["where"] = openURLWhere
-	}
-	if openURLWhere == whereLocal {
-		resp["delivered"] = 0
-		dmlog.Infof(nil, "[cmd] action=%s where=local (뷰어가 서버와 같은 컴퓨터 — 부른 셸이 연다)", req.Action)
-		httpresp.JSON(w, http.StatusOK, resp)
-		return
-	}
-
 	if hub.IsCreatingAction(req.Action) {
 		// FR-RCR-4: reqId 발급 → broadcast → 브라우저 echo 대기 → 새 id 포함 반환.
 		req.ReqId = hub.NewReqId()
@@ -281,7 +255,7 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		payload, _ := json.Marshal(req)
 		n := s.Commands.Broadcast(payload)
 		resp["delivered"] = n
-		// OPTIMIZE_REFACTOR_SRS FR-OPT-8-6 (HTTP-28): 전문(openUrl 의 URL·이름 인자)은
+		// OPTIMIZE_REFACTOR_SRS FR-OPT-8-6 (HTTP-28): 전문(이름 인자 등)은
 		// Debug 로만 남긴다 — 로그 상한(FR-LOG-1)이 있는 제품이고, 생성 명령 쪽 로그에도
 		// payload 가 없다.
 		dmlog.Infof(nil, "[cmd] action=%s%s delivered=%d bytes=%d", req.Action, locField, n, len(payload))

@@ -64,6 +64,8 @@ type Server struct {
 	Deps
 
 	cfg Config
+	// browser 는 브라우저 탭의 웹 서버 면이다 (BROWSER_TAB_SRS). nil 이면 그 종단이 503.
+	browser *browserHub
 	// Focus holds window→client ownership (FR-XDF-1). in-memory only.
 	Focus *hub.FocusRegistry
 	// Seats 는 도구마다 **답장을 보낼 연결 하나**를 정한다
@@ -286,6 +288,11 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		// `RepoGuard` 를 주입하지 않는다 — nil 이면 제한하지 않는다는 규약이
 		// 이미 있으므로(gitapi.go 의 필드 주석) 새 갈래를 만들지 않는다.
 	}
+	// BROWSER_TAB_SRS FR-BRT-8: 매니저는 데몬 또는 이 프로세스에 산다. 없으면 브라우저
+	// 탭 종단이 503 이다.
+	if deps.Browser != nil {
+		srv.browser = newBrowserHub(srv, deps.Browser)
+	}
 	return srv, nil
 }
 
@@ -302,8 +309,6 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/commands", s.handleCommandPost)
 	mux.HandleFunc("/api/commands/sse", s.handleCommandSSE)
 	mux.HandleFunc("/api/command-result", s.handleCommandResult)
-	// VIEWER_URL_OPEN_SRS FR-VUO-19: 부작용 없는 판정 조회.
-	mux.HandleFunc("/api/open-url/where", s.handleOpenURLWhere)
 	// 그물이 로깅 **안쪽**에 있어야 한다 (FR-CAF-6). 그래야 패닉으로 끝난
 	// 요청도 로그에 남고, 그물이 `responseWriter` 를 보고 "응답이 이미
 	// 시작됐는가" 를 판정할 수 있다.

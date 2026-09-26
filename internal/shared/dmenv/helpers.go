@@ -13,7 +13,7 @@ import "path/filepath"
 // 표는 이 목록과 같아야 한다 — 그 일치는 `runtimebin` 의 테스트가 지킨다.
 //
 // `open-url`: BROWSER 는 실행 파일을 요구하므로 쉘 함수로는 대신할 수 없다.
-// 헬퍼로 서야 그 변수가 가리킬 자리가 생긴다 (VIEWER_URL_OPEN_SRS FR-VUO-12).
+// 헬퍼로 서야 그 변수가 가리킬 자리가 생긴다 (BROWSER_TAB_SRS FR-BRT-70).
 func HelperNames() []string {
 	return []string{"dmctl", "edit", "download", "detach", "open-url"}
 }

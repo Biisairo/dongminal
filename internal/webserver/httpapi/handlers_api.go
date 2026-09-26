@@ -125,6 +125,23 @@ var apiRoutes = []apiRoute{
 	httproute.Get("/api/tools/busy", (*Server).apiToolsBusy),
 	httproute.When(http.MethodGet, httproute.UnderWith("/api/tools/", "/busy"), (*Server).apiToolBusy),
 	httproute.When(http.MethodDelete, httproute.Under("/api/tools/"), (*Server).apiToolDelete),
+	// BROWSER_TAB_SRS — 전부 `/api/` 아래다 (NFR-BRT-S1).
+	httproute.Get("/api/browser/profiles", (*Server).apiBrowserProfiles),
+	httproute.Post("/api/browser/profiles", (*Server).apiBrowserProfileCreate),
+	httproute.Post("/api/browser/profiles/delete", (*Server).apiBrowserProfileDelete),
+	httproute.Get("/api/browser/tabs", (*Server).apiBrowserTabs),
+	httproute.Post("/api/browser/open", (*Server).apiBrowserOpen),
+	httproute.Post("/api/browser/close", (*Server).apiBrowserClose),
+	httproute.Post("/api/browser/nav", (*Server).apiBrowserNav),
+	httproute.Post("/api/browser/viewport", (*Server).apiBrowserViewport),
+	httproute.Post("/api/browser/focus", (*Server).apiBrowserFocus),
+	httproute.Post("/api/browser/placements/claim", (*Server).apiBrowserClaim),
+	httproute.Get("/api/browser/stream", (*Server).apiBrowserStream),
+	httproute.Post("/api/browser/act", (*Server).apiBrowserAct),
+	httproute.Get("/api/browser/cdpurl", (*Server).apiBrowserCDPURL),
+	httproute.Get("/api/browser/downloads", (*Server).apiBrowserDownloads),
+	// FR-BRT-22: `/api/browser/<프로필>/cdp/…` — 위의 정확 매칭 뒤에 온다 (첫 매칭이 이긴다).
+	httproute.When(http.MethodGet, httproute.Under("/api/browser/"), (*Server).apiBrowserProfileRoute),
 	httproute.Get("/api/focus", (*Server).apiFocusGet),
 	httproute.Post("/api/focus/claim", (*Server).apiFocusClaim),
 	httproute.Get("/api/sandbox/profiles", (*Server).apiSandboxProfiles),
@@ -448,6 +465,10 @@ func (s *Server) apiWorkspacePut(w http.ResponseWriter, r *http.Request) {
 	// 직후가 그것을 알 수 있는 자리다 — 브라우저가 어떤 경로로 창을 닫았든
 	// (크래시 포함) 결국 여기를 지난다.
 	s.reapSandboxes()
+	// FR-BRT-31: 탭 목록과 페이지 목록을 맞춘다 — 창을 닫든 탭을 닫든 결국 여기를 지난다.
+	if s.browser != nil {
+		go s.browser.reconcile()
+	}
 
 	w.Header().Set("ETag", strconv.FormatUint(rev, 10))
 	w.WriteHeader(http.StatusOK)

@@ -166,7 +166,6 @@
 | GET | `/api/health` | 사람이 읽는 상태. 판·가동 시간·도구 수·데몬 연결과 **판 불일치**·워크스페이스 rev·마지막 적재/영속 실패. 어긋난 것이 있어도 200 이며 사실은 본문에 있다 |
 | GET | `/api/diag` | 기계가 읽는 집계. `tools`·`ws`·`goroutines`·`allocMB`·`persistErr`·`gate.{access,request}`(게이트별 거절 수)·`reconnects`·`uptime`·`version`·`logLevel`. **개별 식별 정보를 싣지 않는다** — 주소·경로·도구 이름이 없다 |
 | GET | `/api/access` | 접속 허용 목록(ACL)의 현재 설정 |
-| ANY | `/api/open-url/where` | URL 을 **어디서** 열지의 판정만 낸다 (부작용 없음) |
 
 ### 워크스페이스 되돌리기
 
@@ -331,6 +330,29 @@
 | GET | `/api/git/records` | 이 앱이 실행한 git 명령의 기록 (Git ▸ 콘솔 탭). `?after=<seq>` 이면 그 뒤의 것만 싣고 `lastSeq`(마지막 전역 Seq)·`firstSeq`(아직 남은 가장 오래된 Seq)·`gap`·`epoch`(기록의 세대 — 서버가 다시 뜨면 바뀝니다)를 붙입니다. 받은 `epoch` 를 `&epoch=` 로 되돌려 주면 세대가 다를 때도 `gap` 입니다 — `gap:true` 면 이을 수 없어 전량입니다 |
 | POST | `/api/git/records/replay` | 그중 하나를 다시 실행한다 |
 | POST | `/api/git/drop` | 커밋 하나를 히스토리에서 뺀다 — rebase **작업** |
+
+### 브라우저 탭 (BROWSER_TAB_SRS)
+
+서버 기기의 Chrome 을 탭으로 다룬다. 엔진이 없거나 판이 낮으면 **409** 이고 본문이 설치
+안내다. `tab` 이 비면 `tool`(부른 도구 id)이 마지막으로 열거나 다룬 탭이다.
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/browser/profiles` | 프로필 목록 `{profiles:[{name,running,tabs}]}` — 폴더가 곧 목록이다 |
+| POST | `/api/browser/profiles` | `{name}` 프로필을 만든다 (`[a-z0-9][a-z0-9_-]{0,31}`) |
+| POST | `/api/browser/profiles/delete` | `{name}` 그 프로필의 탭을 닫고 폴더를 지운다. `default` 는 거절 |
+| GET | `/api/browser/tabs` | 탭 목록 `{tabs:[{tab,profile,isolated,url,title,live}]}`. `live:false` 는 아직 페이지가 없는(지연 복원) 탭이다 |
+| POST | `/api/browser/open` | `{url, profile?, isolated?, split?: right\|down\|none, focus?, tool?}` 페이지를 **즉시** 만들고 `{tab}` 을 낸다. 배치는 화면이 한다 |
+| POST | `/api/browser/close` | `{tab?, tool?}` 페이지와 탭을 닫는다 |
+| POST | `/api/browser/nav` | `{tab?, tool?, action: goto\|back\|forward\|reload\|stop, url?, hard?}` |
+| POST | `/api/browser/viewport` | `{tab?, tool?, w, h}` 고정 크기 · `{auto:true}` 고정 해제 |
+| POST | `/api/browser/focus` | `{tab?, tool?}` 그 탭으로 시선을 옮긴다 |
+| POST | `/api/browser/placements/claim` | 받을 화면이 없어 서버가 들고 있던 배치를 한 번에 가져간다 (화면용) |
+| POST | `/api/browser/act` | `{tab?, tool?, op, timeoutMs?, …}` 2단계 조작. `op`: `snapshot{dom?}` · `screenshot{full?}`(`{png}` base64) · `state` · `click{ref}` · `hover{ref}` · `fill{ref,text}` · `select{ref,value}` · `type{text}` · `press{key}` · `scroll{ref: up\|down\|eN}` · `upload{ref,files}` · `wait{text?,ref?,url?,load?}` · `eval{expr}` · `console{limit?}` · `network{limit?}` · `dialog{accept, text?}`(떠 있는 대화상자에 답한다) · `devtools{panel?}`(그 탭의 DevTools 를 새 탭으로). 대화상자가 떠 있으면 조작은 409 다. ref 는 snapshot 이 준 `eN` 이고 페이지가 바뀌면 무효다(409) |
+| GET | `/api/browser/downloads` | 다운로드 목록 `{downloads:[{guid,tab,url,name,path,state,received,total}]}`. 저장 폴더는 설정 ▸ 브라우저 ▸ 다운로드 폴더(기본 `~/Downloads`) |
+| GET | `/api/browser/cdpurl?profile=&tool=` | CDP 프록시 주소 `{ws, http}` (`dmctl browser cdp-url`) |
+| GET | `/api/browser/<프로필의 cdp 경로>` | CDP 프록시 (FR-BRT-22). `…/<프로필>/cdp/json/version` 은 Playwright·puppeteer 의 http 형태이고 `webSocketDebuggerUrl` 이 `…/<프로필>/cdp/ws` 다. 그 WebSocket 은 브라우저 수준 CDP 이며 **`Origin` 헤더가 있으면 403**(브라우저의 페이지는 붙지 못한다). 도구마다 자기 브라우저 세션을 받는다. `Browser.close`·`crash`·남의 컨텍스트 삭제는 오류, `Browser.setDownloadBehavior`·`Page.setInterceptFileChooserDialog(false)` 는 보내지 않고 빈 성공이다 |
+| GET | `/api/browser/stream` | WebSocket — `?tab=&url=&profile=&isolated=`. 뷰어 스트림. 서버→뷰어는 `[4바이트 길이][메타 JSON][JPEG]` 바이너리 프레임과 `{t:state\|error\|closed\|report\|dialog\|chooser\|download\|auth\|find, info}` 텍스트, 뷰어→서버는 `{op: input\|nav\|viewport\|zoom\|find\|widget\|dialog\|chooser\|auth\|devtools, …}` |
 
 ## WebSocket: `/ws?tool=<id>&cols=&rows=&since=`
 

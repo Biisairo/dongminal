@@ -61,6 +61,14 @@ Object.assign(App.prototype, {
    * 것은 고장으로 읽힌다.
    */
   initUpdateSettings(){
+    // BROWSER_TAB_SRS FR-BRT-68: 배지의 링크도 설정을 따른다 — 클릭 안에서 연다.
+    const badge=document.getElementById('update-badge');
+    if(badge) badge.addEventListener('click',e=>{
+      const href=badge.getAttribute('href');
+      if(!href) return;
+      e.preventDefault();
+      this.openLink(href,e);
+    });
     const cb=document.getElementById('ds-update-check');
     if(!cb) return;
     cb.addEventListener('change',()=>{

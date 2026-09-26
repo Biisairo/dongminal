@@ -333,7 +333,6 @@ CI 가 잡습니다 (`scripts/check-env-docs.sh`) — 문서는 조용히 낡으
 | `DONGMINAL_ATTENTION_IDLE_MS` | `10000` | 도구가 이만큼 조용하면 "대기" 로 봅니다(L2 판정). `0` 이면 그 판정을 끕니다 |
 | `DONGMINAL_ATTENTION_BELL` | (꺼짐) | `1` 이면 맨 BEL(`\a`) 하나도 주의 신호로 셉니다. 기본이 꺼짐인 것은 BEL 이 시끄럽기 때문입니다 — 탭 자동완성 하나에도 울립니다 |
 | `DONGMINAL_CMD_RESULT_TIMEOUT_MS` | `3000` | 명령 결과를 기다리는 long-poll 상한 |
-| `DONGMINAL_URL_OPEN` | (자동 판정) | `local` 또는 `viewer`. 서버가 URL 을 **어디서** 열지의 판정을 강제합니다 |
 
 ### 빌드
 
@@ -422,6 +421,7 @@ dongminal config validate      # 설정 파일을 스키마에 대조 (불일치
 | `panes.json` | 변환 전 레이아웃 (`migrate` 가 옮깁니다) | ✅ |
 | `bin/` | 런타임 헬퍼 | ❌ 기동마다 다시 채웁니다 |
 | `ext/` | 편집기 플러그인·언어 서버 | ❌ 다시 받을 수 있습니다 |
+| `browser/` | 브라우저 탭의 프로필 (쿠키·로그인) | ❌ 다른 기기에서 풀리지 않습니다. `uninstall` 은 보존합니다 |
 | `cache/` | 컨테이너용 리눅스 헬퍼 | ❌ |
 | `worktrees/` | Run 격리 worktree | ❌ |
 | `tool-history/` | 도구 셸의 히스토리 | ❌ |

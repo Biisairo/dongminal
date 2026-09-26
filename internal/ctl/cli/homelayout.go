@@ -107,6 +107,10 @@ func homeLayout() []homeEntry {
 
 		{Name: dmenv.WorktreesDir, IsDir: true, What: "Run 격리 worktree (정리는 Run 레코드가 정한다)", Ephemeral: true},
 		{Name: dmenv.ExtDir, IsDir: true, What: "편집기 플러그인·언어 서버 (다시 받을 수 있다)", Ephemeral: true},
+		// BROWSER_TAB_SRS NFR-BRT-S3: 쿠키·로그인이 산다. **담지 않는다** — Chrome 이
+		// 기기 키로 암호화하므로 다른 기기에서 풀리지 않는다. 사용자의 로그인이라
+		// 맨 uninstall 은 보존한다 (`--purge` 가 지운다).
+		{Name: dmenv.BrowserDir, IsDir: true, What: "브라우저 탭의 프로필 (쿠키·로그인 — 다른 기기에서 풀리지 않는다)", KeepOnUninstall: true},
 		// 이름의 출처는 `shared/sandbox` 의 `helperCacheDir` 인데 그것은 내보내지
 		// 않았고, 여기서 그 패키지를 끌어오면 축 경계가 흔들린다. 값이 두 자리에
 		// 있는 것을 `check-home-layout.sh` 가 대조한다.

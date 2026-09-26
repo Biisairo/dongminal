@@ -30,6 +30,38 @@ type WsTab struct {
 	// RunID는 이 탭의 도구를 소유한 Run (FR-EM-17 접합면). 비어 있으면
 	// 어느 Run 에도 속하지 않는다 — 사람이 직접 만든 도구의 정상 상태다.
 	RunID string `json:"runId,omitempty"`
+	// 아래는 브라우저 탭의 필드다 (BROWSER_TAB_SRS FR-BRT-30). 없던 파일의 뜻이
+	// 그대로이므로 스키마 판을 올리지 않는다 (`Sandbox` 선례).
+	Type     string `json:"type,omitempty"`
+	URL      string `json:"url,omitempty"`
+	Profile  string `json:"profile,omitempty"`
+	Isolated bool   `json:"isolated,omitempty"`
+}
+
+// TabTypeBrowser 는 브라우저 탭의 type 이다 (`TAB_TYPE_BROWSER`).
+const TabTypeBrowser = "browser"
+
+// BrowserTabsOf 는 blob 의 브라우저 탭 전부다 — 서버가 탭 목록과 페이지 목록을
+// 맞추고(FR-BRT-31) `dmctl` 이 탭을 찾는 근거다. 해석할 수 없는 blob 은 nil 이며,
+// 호출자는 그것을 "탭이 없다" 가 아니라 "판단 근거가 없다" 로 다룬다.
+func BrowserTabsOf(blob []byte) []WsTab {
+	st, err := decodeState(blob)
+	if err != nil || st == nil {
+		return nil
+	}
+	out := []WsTab{}
+	for _, w := range st.Windows {
+		var panes []*WsLayout
+		CollectPanes(w.Layout, &panes)
+		for _, p := range panes {
+			for _, t := range p.Tabs {
+				if t.Type == TabTypeBrowser {
+					out = append(out, t)
+				}
+			}
+		}
+	}
+	return out
 }
 
 type wsWindow struct {

@@ -118,17 +118,17 @@ var cmdActions = map[string]cmdSpec{
 	"splitH":        {creating: true, single: true},
 	"splitV":        {creating: true, single: true},
 	"openEditorTab": {single: true},
-	"restoreTool":   {single: true},
-	// VIEWER_URL_OPEN_SRS FR-VUO-16: 엔티티를 만들지는 않지만 **한 곳에서만**
-	// 열려야 한다. 게이팅하지 않으면 붙어 있는 기기마다 같은 URL 이 열린다.
-	"openUrl": {single: true},
+	// BROWSER_TAB_SRS FR-BRT-35: 브라우저 탭 배치. 탭 uuid 는 서버가 먼저 정하므로
+	// (페이지를 즉시 만든다, FR-BRT-36) 에코를 기다리지 않는다 — 한 곳에서만 놓는다.
+	"openBrowserTab": {single: true},
+	"restoreTool":    {single: true},
 
 	// M11_SRS FR-M11-10 (M11-B9): **시선을 옮기는 명령도 한 곳에서만 돈다.**
 	//
 	// 종전 근거는 위 문단의 *"the remaining mutations are idempotent across
 	// clients"* 였다. **트리는 그렇지만 시선은 그렇지 않다** — 실측에서 한 기기가
 	// 낸 `window-next` 하나가 두 브라우저를 함께 옮겼고, `close-window` 는 그 창을
-	// 보지도 않던 쪽까지 끌고 갔다 (SRS §2.7). `openUrl` 과 같은 성질이다.
+	// 보지도 않던 쪽까지 끌고 갔다 (SRS §2.7). `openBrowserTab` 과 같은 성질이다.
 	//
 	// 지우는 셋(`closeTab`·`closeWindow`·`detachTab`)이 여기 드는 이유는 **시선
 	// 부작용** 때문이다. 나머지는 `workspace_changed` 로 트리만 따라가며, 그 경로는

@@ -13,6 +13,7 @@ const TAB_OPENERS=Object.freeze({
   [TAB_TYPE_GIT]:(app,s,pn,rid,o)=>app._addGitTab(s,pn,o),
   [TAB_TYPE_EDITOR]:(app,s,pn,rid,o)=>app._addEditorTab(s,pn,o),
   [TAB_TYPE_TERMINAL]:(app,s,pn,rid,o)=>app._addTerminalTab(s,pn,rid,o),
+  [TAB_TYPE_BROWSER]:(app,s,pn,rid,o)=>app._addBrowserTab(s,pn,o),
 });
 
 Object.assign(App.prototype, {
@@ -627,6 +628,8 @@ Object.assign(App.prototype, {
     // REPO_FIX 03 E-4: 칸 1 이상의 인스턴스도 함께 거둔다.
     if(isEditor) this.editorsDrop(tab.id);
     const toolId=tab.toolId;
+    // BROWSER_TAB_SRS FR-BRT-37: 탭 닫기 → 페이지 닫기.
+    if(tab.type===TAB_TYPE_BROWSER) this._brvClosePage(tab);
     const closingIdx=pn.tabs.findIndex(x=>x.id===tid);
     pn.tabs=pn.tabs.filter(x=>x.id!==tid);
     // FR-RTU-62: 마지막 git 뷰 탭이 닫히면 그 창의 git 표면이 사라진다 —

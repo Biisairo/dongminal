@@ -56,6 +56,12 @@ const SETTINGS_ACCESS={
   pageTitle:{get:()=>pageTitle,ctl:{id:'ds-title',kind:'value'},set(v){pageTitle=v;this._applyPageTitle()}},
   // FR-LVC-6: 저장된 적 없으면 기본값(끔).
   confirmLeave:{get:()=>confirmLeave,ctl:{id:'ds-confirmleave',kind:'check'},set(v){confirmLeave=v}},
+  // BROWSER_TAB_SRS FR-BRT-32·68·14·90 — Settings ▸ Browser.
+  browserOpenPlacement:{get:()=>browserOpenPlacement,ctl:{id:'brv-set-placement',kind:'value'},set(v){browserOpenPlacement=v==='tab'?'tab':'split'}},
+  browserLinkTarget:{get:()=>browserLinkTarget,ctl:{id:'brv-set-link',kind:'value'},set(v){browserLinkTarget=v==='viewer'?'viewer':'internal'}},
+  browserDefaultProfile:{get:()=>browserDefaultProfile,ctl:{id:'brv-set-profile',kind:'value'},set(v){browserDefaultProfile=v||'default'}},
+  browserServerAudio:{get:()=>browserServerAudio,ctl:{id:'brv-set-audio',kind:'check'},set(v){browserServerAudio=!!v}},
+  browserDownloadDir:{get:()=>browserDownloadDir,ctl:{id:'brv-set-dldir',kind:'value'},set(v){browserDownloadDir=String(v||'')}},
   // FR-WBR-10·11: 값만 바꾸면 사용자는 설정이 듣지 않는 것으로 읽는다 —
   // 이미 열려 있는 편집기에도 얹는다.
   editorWordWrap:{get:()=>editorWordWrap,ctl:{id:'ds-wordwrap',kind:'check'},set(v){
@@ -412,6 +418,8 @@ Object.assign(App.prototype, {
         // 허용 목록도 파일이 진실이다. 게다가 해석 상태는 관측값이라 캐시할
         // 수 없다 — 열 때마다 서버에 묻는다.
         if(tab.dataset.tab==='access')this._loadAccessPanel();
+        // BROWSER_TAB_SRS FR-BRT-12: 프로필 목록은 폴더가 진실이다 — 열 때마다 묻는다.
+        if(tab.dataset.tab==='browser')this._loadBrowserPanel();
         // FR-LSP-47: 언어 서버의 상태는 캐시가 아니라 관측이다 — 샌드박스와
         // 같은 근거로 열 때마다 다시 읽는다.
         if(tab.dataset.tab==='code'){
@@ -443,5 +451,6 @@ Object.assign(App.prototype, {
     this._initBackup();
     this._initSandboxPanel();
     this._initAccessPanel();
+    this._initBrowserPanel();
   },
 });

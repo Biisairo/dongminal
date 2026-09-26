@@ -2,9 +2,6 @@ import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit } from './fixtures';
 
-// 브라우저 쪽 전역 렉시컬 바인딩 (classic script 의 최상위 `const`).
-declare const OpenUrl: { handle: (url: string) => void };
-
 // ACCESSIBILITY_BASELINE_SRS §5.1 — TC-A11Y-8·9 (FR-A11Y-18 / M7 `UX-3`).
 //
 // **재는 것은 "속성이 있다" 가 아니다.** `role="dialog"` 를 붙이는 것은 한 줄이고,
@@ -275,11 +272,12 @@ test.describe('모달 골격 — 다섯이 한 벌이다 (FR-TOK-40~42 / UX-16 �
 // 빼앗지 않았는가** 를 함께 단정한다 — `roving` 을 그대로 걸면 `tabindex` 가 한
 // 자리로 모여 `Tab` 으로 버튼 사이를 오가던 길이 사라진다 (D-A11Y-13).
 test.describe('접근성 — 버튼 줄의 화살표 이동 (FR-A11Y-30)', () => {
-  /** 액션 버튼 둘을 가진 대화상자. `OpenUrl` 이 이 저장소에서 가장 짧은 경로다. */
+  /**
+   * 액션 버튼 둘을 가진 대화상자 — 닫기 확인(닫기·취소)이 가장 짧은 경로다. 종전의 뷰어
+   * URL 확인 모달은 BROWSER_TAB_SRS FR-BRT-71 로 걷혔다.
+   */
   async function openDialog(page: Page) {
-    // classic script 의 최상위 `const` 는 `window` 에 붙지 않는다 — 이름으로
-    // 직접 부른다 (`slot-title-boundary.spec.ts` 가 `THEMES` 를 쓰는 것과 같다).
-    await page.evaluate(() => OpenUrl.handle('https://example.com/'));
+    await page.evaluate(() => { (window as any).app.testing.confirmClose('a11y') });
     await expect(page.locator('.ui-modal-foot .ui-btn').first()).toBeVisible({ timeout: 10000 });
   }
 

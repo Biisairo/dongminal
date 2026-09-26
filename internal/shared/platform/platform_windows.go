@@ -18,6 +18,6 @@ func newPlatform() Platform {
 		IPC:     unixSocketIPC{isSocket: windowsIsSocket},
 		Paths:   windowsPaths{},
 		Browser: winBrowser(exec.LookPath, os.Getenv, statFile),
-		Opener:  winOpener(),
+		Chrome:  chromeEngine{finder: winChromeFinder(exec.LookPath, os.Getenv, statFile), start: startPipedWindows},
 	}
 }

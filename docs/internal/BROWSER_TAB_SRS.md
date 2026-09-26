@@ -1,7 +1,7 @@
 # SRS: 브라우저 탭 — 서버에서 도는 Chrome 을 탭 안에, 터미널에서 조종한다 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 전 단계(1~4) — 구현 세션에 인계됨. 선행 0단계는 `REQUEST_GATE_ORIGIN_PORT_SRS`.
+> **남은 것**: 3단계(충실도 묶음 F·Q) · 4단계(소리) · TC-BRT-6 의 Windows 판정(CI)
 
 | 항목 | 값 |
 |---|---|
@@ -461,12 +461,13 @@ ref 는 `backendNodeId` 에 매이고 **이동·문서 교체 뒤 무효**다 �
 ### 3.10 묶음 F — 파일 (3단계)
 
 **FR-BRT-80 (다운로드)** `Browser.setDownloadBehavior(allowAndName → 이름 복원, eventsEnabled)` 로
-**서버에만** 저장한다 (D16). 저장 폴더는 설정 `browser.downloadDir`(기본: 서버의 `~/Downloads`).
+**서버에만** 저장한다 (D16). 저장 폴더는 설정 `browserDownloadDir`(기본: 서버의 `~/Downloads`).
+받는 동안은 프로필 폴더 안의 대기 폴더에 두고, 끝날 때 **그때의** 설정 폴더로 옮긴다 (결정 ⑲).
 진행·완료를 다운로드 줄에 보이고, 완료 항목에는 "탐색기에서 보기" 만 둔다. 뷰어로 보내지 않는다 —
 필요하면 기존 download 기능으로 받는다. `dmctl browser downloads` 가 목록과 경로를 낸다.
 
 **FR-BRT-81 (업로드)** `Page.setInterceptFileChooserDialog(true)` → `Page.fileChooserOpened` 에서
-뷰어에 **서버 파일 선택 창**(기존 탐색기 트리 재사용, `multiple` 존중)을 띄우고 고른 경로를
+뷰어에 **서버 파일 선택 창**(서버 폴더 목록 모달, `multiple` 존중 — 결정 ㉑)을 띄우고 고른 경로를
 `DOM.setFileInputFiles` 로 넘긴다 (D17). 뷰어 기기의 파일은 다루지 않는다 — 먼저 기존 업로드로
 서버에 올린다. 취소하면 빈 목록을 넘긴다.
 
@@ -481,8 +482,8 @@ ref 는 `backendNodeId` 에 매이고 **이동·문서 교체 뒤 무효**다 �
 
 **FR-BRT-84 (DevTools, D15)** `Target.openDevTools(targetId, panelId?)` 가 돌려준 페이지를 탭으로
 연다 — `devtoolsOf` = 대상 탭, 위치 FR-BRT-32(호출 칸 = 대상 탭의 칸), 제목 "DevTools · <대상
-제목>". 대상 탭이 닫히면 함께 닫는다. 그 페이지가 CDP 프록시에 붙을 때의 `Origin: devtools://devtools`
-만 FR-BRT-23 의 예외다.
+제목>". 대상 탭이 닫히면 함께 닫는다. 그 페이지는 Chrome 안에서 대상에 붙으므로 CDP 프록시를
+지나지 않는다 — FR-BRT-23 의 예외는 없다 (결정 ⑮).
 
 **FR-BRT-85 (대화상자)** `Page.javascriptDialogOpening`(alert·confirm·prompt·beforeunload) →
 뷰어 모달 → `Page.handleJavaScriptDialog`. 한 대화상자에 답은 한 번이다(중복 답은 첫 답을 따른다).
@@ -500,7 +501,7 @@ ref 는 `backendNodeId` 에 매이고 **이동·문서 교체 뒤 무효**다 �
 **FR-BRT-88 (커서·툴팁·위젯)** 격리 world 가 보고한다 — 계산된 `cursor`(canvas 에 반영), `title`
 툴팁, 검증 말풍선(`invalid`), `<input type=date|time|datetime-local|month|week|color>` 와
 `<datalist>` 가 열리려는 순간. 뷰어는 캔버스 위 같은 자리에 **자기 기기의 입력 요소**(가능하면
-`showPicker()`) 또는 자체 목록을 띄우고, 고른 값을 `Runtime.callFunctionOn` 으로 넣은 뒤 `input`·
+`showPicker()`) 또는 자체 목록을 띄우고, 고른 값을 격리 world 의 함수(`Runtime.evaluate`, 결정 ㉒)로 넣은 뒤 `input`·
 `change` 를 일으킨다. 네이티브 팝업은 열리지 않게 막는다. `<select>` 를 이 방식으로 옮길지는
 FR-BRT-60 의 모양 문제를 실제 사이트에서 본 뒤 정한다 (이 문서를 개정한다).
 
@@ -715,3 +716,15 @@ FR-BRT-60 의 모양 문제를 실제 사이트에서 본 뒤 정한다 (이 문
 | 날짜 | 내용 |
 |---|---|
 | 2026-09-27 | 초안. 조사·인터뷰(D1~D17)와 macOS PoC(P1~P8) 반영. 사용자 지시로 구현 세션에 인계 |
+| 2026-09-27 | **1단계 구현.** `shared/platform`(Chrome 탐색·pipe 기동, Windows `lpReserved2`) · `shared/cdp`(NUL 프레이밍·id 재매김 다중화·거절 메서드) · `shared/browser`(매니저) · 데몬 IPC `browser` · `/api/browser/*` · `dmctl browser` · 브라우저 탭 뷰어 · 설정 ▸ Browser · 링크 라우팅 · 옛 방식 제거. **구현 중 결정** 아래 열셋 |
+| 2026-09-27 | 결정 ① **FR-BRT-4 개정**: 기동 인자에 `--no-startup-window` 를 더한다 — Chrome 이 스스로 연 새 탭은 탭 목록과 페이지 목록을 어긋나게 하고(FR-BRT-31), 뒤늦게 닫으면 렌더러를 나눠 쓰던 첫 페이지의 이동이 깨진다(실측). ② `Emulation.setFocusEmulationEnabled` 를 쓰지 않는다 — Chrome 153 에서 교차 프로세스 이동 때 렌더러가 죽는다(실측). ③ 새 페이지는 `waitForDebuggerOnStart` 로 멈춘 채 붙고, 준비 요청은 **답을 기다리지 않고** 흘려보낸 뒤 풀어 준다(멈춘 페이지는 `Page.enable` 에 답하지 않는다). 풀린 뒤 이동 전에 왕복 한 번(`Page.getFrameTree`)을 기다린다 — 곧바로 교차 프로세스 이동을 걸면 Page 이벤트가 오지 않았다(실측) |
+| 2026-09-27 | 결정 ④ **설정 키는 기존 평면 관례를 따른다**: `browser.openPlacement`→`browserOpenPlacement`, `browser.linkTarget`→`browserLinkTarget`, `browser.defaultProfile`→`browserDefaultProfile`, `browser.serverAudio`→`browserServerAudio` (`settings-schema.js`). ⑤ **FR-BRT-35 개정**: `openBrowserTab` 은 `single` 이고 `creating` 이 아니다 — 페이지를 즉시 만들어야 하므로(FR-BRT-36) 탭 uuid 는 서버가 먼저 정하고 `POST /api/browser/open` 이 그것을 돌려준다. 에코를 기다릴 일이 없다. ⑥ 배치 대기(FR-BRT-36)는 `POST /api/browser/placements/claim` 로 화면이 가져간다(SSE 구독이 열릴 때). 서버가 한 번만 내준다 |
+| 2026-09-27 | 결정 ⑦ 탭 목록과 페이지 목록의 정합(FR-BRT-31)은 **워크스페이스 저장 뒤** 서버가 한다 — 한 번 워크스페이스에 나타났다가 사라진 탭의 페이지를 닫는다. 아직 배치되지 않은 탭은 건드리지 않는다. 화면의 탭 닫기는 그와 별도로 `POST /api/browser/close` 를 부른다. ⑧ `F5`·`Alt+←/→` 는 **고정 보조 키**다 — 단축키 표에는 `Mod` 조합 여덟만 든다(FR-BRT-56 의 "사용자가 바꿀 수 있다" 는 그 여덟). ⑨ `dmctl browser open`·주소창은 스킴 없는 `host:port`(`localhost:3000`)를 http 로 읽는다 — 그 밖은 FR-BRT-66 대로 경로다 |
+| 2026-09-27 | 결정 ⑩ 에이전트 `open_url`(FR-BRT-70·TC-BRT-55)은 해석층이 `open_url` 이벤트(`EvOpenURL`)로 낸다. **그 이벤트를 소비하는 실행 경로가 지금 없다**(AGENT_GUI_REMOVAL 뒤 프로토콜 표면은 해석까지만 선다) — 터미널에서 도는 에이전트는 `$BROWSER`·`open` 으로 같은 길을 탄다. 소비처가 생기면 `POST /api/browser/open`(focus) 으로 보낸다. ⑪ 데몬 IPC 는 메서드 `browser`(`{op, params}`) 하나·이벤트 `browser` 하나다. 조작은 읽기 루프 밖에서 돌고 입력만 안에서 줄에 선다 — 입력은 페이지마다 한 줄로 차례로 가고 하나에 5초 상한이 있다 |
+| 2026-09-27 | 결정 ⑫ 매니저의 거절(엔진 없음·판 낮음·scheme·프로필 이름)은 HTTP **409** 로 문구 그대로 간다 — `dmctl` 은 그것을 보이고 1 로 끝난다. ⑬ 홈 목록: `browser/` 는 `InBackup:false`·`KeepOnUninstall:true` — 사용자의 로그인이라 맨 uninstall 은 보존한다(`--purge` 가 지운다). **검증 한계**: TC-BRT-6 의 Windows 판정·Linux CI 의 Chrome 샌드박스(ubuntu 의 AppArmor userns 제한)는 이 기기에서 잴 수 없다 — CI 가 판정한다 |
+| 2026-09-27 | **2단계 구현.** 매니저의 조작(`act.go`: 접근성 snapshot·`--dom`·ref·actionability·click/hover/fill/select/type/press/scroll/upload·wait·eval·screenshot·console/network 기록) · `/api/browser/act` · CDP 프록시(`/api/browser/<프로필>/cdp/json/version`·`…/cdp/ws`, `dmctl browser cdp-url`) · 외부 도구 페이지의 탭화 · 에이전트 동작 오버레이. **구현 중 결정** 아래 넷 |
+| 2026-09-27 | 결정 ⑭ **FR-BRT-24 개정**: `Browser.setDownloadBehavior` 와 `Page.setInterceptFileChooserDialog(enabled:false)` 는 **보내지 않고 빈 성공**으로 답한다 — Playwright 가 컨텍스트마다 전자를 부르고 실패하면 컨텍스트를 만들지 못한다(`crBrowser.js:305`). 뜻(경로·가로채기를 dongminal 이 소유)은 그대로다. `Browser.close`·`crash`·`crashGpuProcess`·남의 컨텍스트 삭제는 종전대로 오류다 (TC-BRT-22 개정). ⑮ **FR-BRT-23 개정**: `Origin: devtools://devtools` 예외를 두지 않는다 — 0단계 FR-ROP-3 이 비 http(s) Origin 을 게이트에서 먼저 거절하고, `Target.openDevTools` 의 페이지는 Chrome 안에서 대상에 붙으므로 프록시를 지나지 않는다 (TC-BRT-23 개정: 셋 다 403) |
+| 2026-09-27 | 결정 ⑯ 외부 도구마다 `Target.attachToBrowserTarget` 로 **자기 브라우저 세션**을 준다 — 세션 없는 요청은 그 세션으로 가고 그 세션의 소식은 세션을 떼고 돌아온다. 루트 연결을 나눠 쓰면 매니저가 이미 건 `setAutoAttach` 가 도구의 자동 부착을 삼키고, 매니저의 부착이 도구에 새어 "Duplicate target" 이 났다(실측). ⑰ 교차 출처 iframe 은 페이지 세션의 `Target.setAutoAttach` 로 붙이고, 그 안의 ref 는 `DOM.getFrameOwner` 의 `<iframe>` 위치를 더해 최상위 좌표로 옮긴다. 조작은 pipe 가 있는 매니저 안에서 돈다(요청 하나가 CDP 왕복 수십 번) |
+| 2026-09-27 | **3단계 구현.** `browser/fidelity.go`(대화상자·파일 선택·HTTP 인증·다운로드·DevTools) · `browser/agent.go`(격리 world 보고자: 커서·툴팁·검증 말풍선·위젯·컨텍스트 메뉴·복사·캐럿·찾기) · 뷰어 `browser-view-fid.js` · `dmctl browser dialog`·`devtools`·`downloads` · `GET /api/browser/downloads` · 설정 ▸ Browser ▸ 다운로드 폴더 · 단축키 `brvFind`(Mod+F)·`brvDevtools`(Mod+Alt+I, `F12` 고정). **구현 중 결정** 아래 |
+| 2026-09-27 | 결정 ⑱ **FR-BRT-86 판정**: `Fetch.enable` 의 `patterns` 를 비우면 `authRequired` 가 오지 않는다(실측, Chrome 153) — 인증을 받으려면 모든 요청을 멈춰야 한다. 멈춘 요청은 매니저가 곧바로 `Fetch.continueRequest` 로 풀고, 그 지연은 요청당 약 0.28ms 였다(실측) — NFR-BRT-P1 안이므로 FR 을 유지한다. ⑲ **FR-BRT-80 개정**: 다운로드는 프로필 안의 대기 폴더(`DMDownloads`)에 guid 로 받고, 끝날 때 설정을 읽어 제안된 이름으로 옮긴다(같은 이름이면 ` (1)`, 다른 볼륨이면 복사) — 설정을 바꾸면 브라우저를 다시 띄우지 않아도 다음 다운로드부터 적용된다. ⑳ DevTools 페이지는 target 종류가 `page` 가 아니라 `other` 로 온다(실측) — `devtools://` 주소의 `other` 는 페이지로 받는다. 이동(`nav`)은 답을 기다리지 않는다 — HTTP 인증처럼 페이지가 멈춘 동안에도 이동 요청이 막히지 않는다 |
+| 2026-09-27 | 결정 ㉑ **FR-BRT-81 개정**: 파일 선택 창은 탐색기 트리를 재사용하지 않고 `/api/fs/list` 로 폴더를 걷는 목록 모달이다 — 트리는 에디터 창의 상태(열린 폴더·선택)를 품어 모달 안에서 따로 쓰기 어렵다. ㉒ 위젯 값은 격리 world 가 들고 있는 요소에 `Runtime.evaluate` 로 넣는다 — 페이지의 main world 에 흔적을 남기지 않는다. ㉓ 붙여넣기는 뷰어의 `paste` 이벤트 텍스트를 `Input.insertText` 로 보낸다. 복사는 격리 world 가 보고한 글을 기존 클립보드 쓰기 경로(포커스가 있을 때만)로 쓴다. ㉔ 찾기는 CSS Custom Highlight — 칠한 것은 페이지 문서의 `CSS.highlights` 에 들어가므로 페이지 스크립트가 볼 수 있다(이름 `dm-find*`). ㉕ `F12` 는 `F5` 와 같은 고정 보조 키다(결정 ⑧) |

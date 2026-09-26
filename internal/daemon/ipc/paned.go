@@ -1,6 +1,7 @@
 package ipc
 
 import (
+	"dongminal/internal/shared/browser"
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/toolhub"
 
@@ -49,6 +50,9 @@ type panedConn struct {
 	// 연결의 첫 요청이고, 뒤따르는 생존 확인 hello(FR-OPT-2-1)도 같은 값을 싣는다.
 	// dispatch 는 읽기 루프 한 고루틴이 돌므로 잠금이 없다.
 	serverFeatures []string
+
+	// browser 는 브라우저 매니저다 (FR-BRT-8). nil 이면 browser 요청은 오류다.
+	browser *browser.Manager
 
 	// build 는 이 데몬 바이너리의 판이다 (VERSION_HEALTH_SRS FR-VHL-1). `hello`
 	// 가 프로토콜 판과 **따로** 싣는다 — 서버가 둘을 다르게 다루기 때문이다
@@ -187,6 +191,9 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 		resp = pc.setBackground(req)
 	case toolipc.MethodBackgroundList:
 		resp = pc.backgroundList(req)
+	case toolipc.MethodBrowser:
+		pc.browserCall(req)
+		return
 	default:
 		resp = toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeMethodNotFound, Message: "unknown method: " + req.Method}}
 	}

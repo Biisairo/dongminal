@@ -425,6 +425,12 @@ class DocRender {
     const a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
     if (!a) return;
     const href = a.getAttribute('href') || '';
+    // BROWSER_TAB_SRS FR-BRT-68: 외부 링크도 설정을 따른다 — 기본은 내장 브라우저다.
+    if (/^https?:/i.test(href) && window.app && window.app.openLink) {
+      e.preventDefault();
+      window.app.openLink(href, e);
+      return;
+    }
     if (!href || /^(https?|mailto):/i.test(href)) return;
     e.preventDefault();
     const hash = href.indexOf('#');

@@ -15,6 +15,31 @@
   수 있었습니다. 이제 `Origin` 의 호스트와 포트가 `Host` 와 같아야 하고, `null`·비 http(s)
   `Origin` 은 거절합니다 (SECURITY.md §6).
 
+### 추가
+
+- **브라우저 탭.** 서버 기기의 Google Chrome 을 탭 안에 띄웁니다 — 페이지는 서버에서 돌고 화면만
+  옵니다. 터미널의 `open https://…`·`$BROWSER`, `dmctl browser open <url|경로>`, 화면의 링크 클릭이
+  이 탭으로 엽니다. 뒤로·앞으로·새로고침·주소창, 한글 입력, 확대, 여러 프로필(설정 ▸ Browser)과
+  임시 탭(`--isolated`), `dmctl browser list·close·focus·goto·back·forward·reload·viewport`.
+  Chrome 135 이상이 필요합니다.
+- **터미널에서 브라우저 조작.** `dmctl browser snapshot`(접근성 트리 · `--dom`)의 ref 로
+  `click`·`fill`·`select`·`hover`·`type`·`press`·`scroll`·`upload`·`wait`·`eval`·`screenshot`·
+  `console`·`network`. 요소가 보이고 가려지지 않을 때까지 기다리며, 누르는 자리가 탭 위에 표시됩니다.
+- **CDP 프록시.** `dmctl browser cdp-url` 의 주소로 Playwright·puppeteer 가 같은 브라우저에 붙습니다 —
+  디버깅 포트를 열지 않고, 도구가 연 페이지도 탭이 됩니다.
+- **브라우저 탭의 페이지 밖 요소.** 커서 모양·툴팁·검증 말풍선·날짜/색 선택기·오른쪽 클릭 메뉴를 이
+  기기에서 그리고, alert·confirm·prompt·HTTP 인증은 탭 위 대화상자로, 파일 선택은 서버 파일 목록으로
+  뜹니다. 복사·붙여넣기, `Ctrl/Cmd+F` 페이지 찾기, `F12`·`Ctrl/Cmd+Alt+I` DevTools(새 탭). 다운로드는
+  서버의 다운로드 폴더(설정 ▸ Browser)에 저장되고 탭 아래에 진행이 보입니다 —
+  `dmctl browser dialog·devtools·downloads`.
+
+### 변경 (동작)
+
+- **쉘이 여는 URL 은 언제나 서버 기기의 브라우저 탭입니다.** 종전에는 보고 있는 기기가 서버와
+  같으면 그 기기의 기본 브라우저를, 원격이면 확인 창 뒤 보고 있는 기기의 브라우저를 열었습니다.
+  `DONGMINAL_URL_OPEN` 과 `/api/open-url/where` 는 없어졌습니다. 화면의 링크 클릭은 설정
+  ▸ Browser ▸ 링크를 클릭하면 열 곳(기본 내장 브라우저)을 따르고, ⇧⌘/Ctrl+Shift 클릭은 반대로 엽니다.
+
 ### 고침
 
 - **데몬과의 연결이 조용히 끊긴 채 남지 않습니다.** 서버가 15초마다 데몬 생존을 확인하고,

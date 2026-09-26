@@ -16,6 +16,6 @@ func newPlatform() Platform {
 		IPC:     unixSocketIPC{isSocket: posixIsSocket},
 		Paths:   posixPaths{},
 		Browser: macBrowser(),
-		Opener:  macOpener(),
+		Chrome:  chromeEngine{finder: macChromeFinder(os.Getenv, statFile), start: startPipedPosix, modMeta: true},
 	}
 }

@@ -25,7 +25,7 @@ function serverActions() {
 
 function world() {
   const ctx = load(['core/app-cmd.js'], {
-    globals: { App: function App() {}, OpenUrl: { handle() {} }, TAB_TYPE_TERMINAL: 'terminal' },
+    globals: { App: function App() {}, TAB_TYPE_TERMINAL: 'terminal' },
     expose: ['REMOTE_ACTIONS'],
   });
   const calls = [];

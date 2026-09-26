@@ -71,6 +71,17 @@ var confirmLeave=false;
 // 같은 언어여야 한다. **활성 로케일은 `I18N.locale` 이고 이 값은 저장할 값이다** —
 // 둘이 다른 순간은 사용자가 고르고 페이지가 다시 열리기 전뿐이다 (D-B-1).
 var uiLocale=I18N.locale;
+/**
+ * BROWSER_TAB_SRS FR-BRT-14·32·68·90: 브라우저 탭 설정. 값을 쓰는 것은 셋이다 —
+ * 서버(여는 위치·새 탭의 프로필·소리는 `settings.json` 에서 읽는다)와 이 화면(링크).
+ * 기기를 옮겨도 같은 판단이 서야 하므로 /api/settings blob 에 실린다.
+ */
+var browserOpenPlacement='split';
+var browserLinkTarget='internal';
+var browserDefaultProfile='default';
+var browserServerAudio=false;
+// FR-BRT-80: 비면 서버 사용자의 ~/Downloads 다. 브라우저를 다음에 띄울 때 적용된다.
+var browserDownloadDir='';
 // `focusEdgeLevel`·`attnEdgeLevel` 은 settings-defaults.js 에 있다 (FR-OPT-11-4).
 /**
  * TAB_WIDTH_SRS FR-TBW-1·2: 탭 너비 고정과 그 폭.

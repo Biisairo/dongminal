@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"dongminal/internal/shared/dmenv"
 	"os"
 	"path/filepath"
 	"strings"
@@ -199,6 +200,10 @@ func TestHomeLayoutHasDerivedEntries(t *testing.T) {
 func TestHomeEntry_TwoQuestionsAgreeToday(t *testing.T) {
 	n := 0
 	for _, e := range homeLayout() {
+		// 의도한 갈림: 브라우저 프로필은 보존하되 담지 않는다 (BROWSER_TAB_SRS NFR-BRT-S3).
+		if e.Name == dmenv.BrowserDir {
+			continue
+		}
 		if e.InBackup != e.KeepOnUninstall {
 			t.Errorf("%s: InBackup=%v · KeepOnUninstall=%v — 답이 갈렸다. "+
 				"의도한 것이라면 이 검사에 사유와 함께 예외를 적어라 (FR-DSY-61)",
@@ -226,6 +231,11 @@ func TestBackupSetUnchangedBySplit(t *testing.T) {
 	for _, e := range homeLayout() {
 		// 착수 시의 규칙: 담는 것 = 다시 만들어지지 않는 것.
 		want := !e.Ephemeral
+		// 갈린 뒤 처음으로 두 답이 다른 항목이다 — 보존하지만 담지 않는다
+		// (BROWSER_TAB_SRS NFR-BRT-S3: 쿠키는 기기 키로 암호화돼 다른 기기에서 풀리지 않는다).
+		if e.Name == dmenv.BrowserDir {
+			want = false
+		}
 		if got[e.Name] != want {
 			t.Errorf("%s: backup 대상 %v, want %v", e.Name, got[e.Name], want)
 		}

@@ -185,6 +185,8 @@ Object.assign(App.prototype, {
       if(pn.classList.contains('pn-dimmed')&&!dim) freed=true;
       pn.classList.toggle('pn-dimmed',dim);
     }
+    // BROWSER_TAB_SRS FR-BRT-51: 브라우저 탭의 뷰포트도 창의 주인이 정한다.
+    if(this._brvViews) this._brvOwnersChanged();
     return freed;
   },
 

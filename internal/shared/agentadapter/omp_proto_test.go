@@ -252,9 +252,10 @@ func TestOmpProto_QuestionConfirmInput(t *testing.T) {
 	if !strings.Contains(string(frame), `"cancelled":true`) {
 		t.Fatalf("editor cancel: %s", frame)
 	}
-	// 답 없는 표시들 — 로그인 흐름(open_url·notify)은 본문으로, 위젯은 조용히.
+	// 답 없는 표시들 — 로그인 흐름의 open_url 은 여는 요청으로(TC-BRT-55), notify 는 본문으로,
+	// 위젯은 조용히.
 	evs = decode1(t, p, st, `{"type":"extension_ui_request","id":"o1","method":"open_url","url":"https://example.test/auth"}`)
-	if kinds(evs) != "user" || evs[0].Text != "https://example.test/auth" {
+	if kinds(evs) != "open_url" || evs[0].Text != "https://example.test/auth" {
 		t.Fatalf("open_url: %+v", evs)
 	}
 	evs = decode1(t, p, st, `{"type":"extension_ui_request","id":"n1","method":"notify","message":"Waiting for browser authentication...","notifyType":"info"}`)

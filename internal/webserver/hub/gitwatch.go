@@ -326,7 +326,7 @@ func (w *GitWatcher) ReleaseScope(clientID, scope string) {
 /*
 Attach 는 SSE 구독 하나를 신원에 결선한다 (FR-GWL-3).
 
-`FocusRegistry.AttachFrom` 과 같은 규약이고 같은 자리에서 불린다
+`FocusRegistry.Attach` 와 같은 규약이고 같은 자리에서 불린다
 (`httpapi/commands.go`). epoch 를 주는 이유도 같다 — 재연결 뒤 도착한 옛 연결의
 정리가 새 임대를 지우면 안 된다 (FR-XDF-10 의 선례).
 

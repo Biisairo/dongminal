@@ -30,10 +30,9 @@ function _closeOpts(args){
  */
 const REMOTE_ACTIONS=Object.freeze({
   focus:(app,a)=>app._remoteFocus(a),
-  // VIEWER_URL_OPEN_SRS FR-VUO-3: 서버가 원격 뷰어라 판정했을 때만 온다.
-  // 지명(execClientId)은 event-bus 가 이미 걸렀으므로 여기 오면 이 기기가
-  // 열 차례다.
-  openUrl:(app,a)=>OpenUrl.handle(a.url),
+  // BROWSER_TAB_SRS FR-BRT-35: 서버가 이미 만든 페이지의 탭을 놓는다. 지명은
+  // event-bus 가 걸렀다 — 여기 오면 이 기기가 놓을 차례다.
+  openBrowserTab:(app,a)=>app._remoteOpenBrowserTab(a),
   openEditorTab:(app,a)=>app._remoteOpenEditorTab(a),
   renameTab:(app,a)=>app._remoteRename('renameTab',a),
   renameWindow:(app,a)=>app._remoteRename('renameWindow',a),
@@ -156,6 +155,9 @@ Object.assign(App.prototype, {
      * `_gen` 은 `connect()` 마다 오르므로 첫 연결이 1 이다 (`event-bus.js`).
      */
     bus.subscribe('sse:open',(a)=>{ if(a&&a.gen>1) this._onWorkspaceChanged() },{owner:'app'});
+    // BROWSER_TAB_SRS FR-BRT-36: 받을 화면이 없는 동안 서버가 들고 있던 배치를 가져온다.
+    // 먼저 가져간 화면이 놓는다 — 서버가 한 번만 내준다.
+    bus.subscribe('sse:open',()=>{ this._brvClaimPending() },{owner:'app'});
 
     // FR-RVZ-16: Run 이 바뀌었다. 열려 있는 그 Run 의 탭만 /graph 를 다시 부른다 —
     // 폴링하지 않으며, 열린 Run 탭이 없으면 아무 요청도 나가지 않는다.

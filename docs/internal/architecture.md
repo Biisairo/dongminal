@@ -121,6 +121,8 @@ internal/
     listorder/           #   ③   — 끌어다 놓기 한 번의 목록 반영 (gitapi·wsentry 가 공유)
     fanout/              #   ③   — 상한 있는 병렬 반복 한 벌 (핀 관측·핀 목록·git 감시 회차가 공유, FR-OPT-7-4)
     platform/            #   ①②③④ — OS 마다 갈리는 능력을 인터페이스 뒤로 (경로·프로세스·셸·소켓)
+    browser/             #   ②③  — 브라우저 매니저: 프로필 브라우저(서버 기기의 headless Chrome)·탭↔페이지 대응 (BROWSER_TAB_SRS)
+    cdp/                 #   ②③  — Chrome DevTools Protocol: pipe NUL 프레이밍·클라이언트별 id 재매김 다중화·거절 메서드
     dmenv/               #   ①②③④ — 환경변수 이름·기본 엔드포인트·헬퍼 이름·홈 아래 이름 (의존 0)
     activity/            #   ①②③ — 에이전트 활동 상태의 어휘 다섯 (JS 짝은 constants.js, FR-OPT-10-1)
     dmlog/               #   ①②③④ — 로그가 지나는 한 자리 (수준·요청 ID)

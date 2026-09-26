@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"dongminal/internal/shared/browser"
 
 	"dongminal/internal/webserver/hub"
 
@@ -120,7 +121,10 @@ var _ RunStore = (*run.Store)(nil)
 // Deps is the full injection surface for New.
 type Deps struct {
 	Tools toolhub.ToolHub
-	Work  WorkspaceStore
+	// Browser 는 브라우저 매니저의 표면이다 (BROWSER_TAB_SRS FR-BRT-8). 직접 모드는
+	// 이 프로세스의 Manager, 데몬 모드는 ToolClient 다. nil 이면 브라우저 탭 종단이 503.
+	Browser browser.Host
+	Work    WorkspaceStore
 	// Sandbox 는 샌드박스 창의 대응 컨테이너 회수자다. nil 이면 컨테이너
 	// 런타임이 없거나 샌드박스가 구성되지 않은 서버이며, 그때 회수는 일어나지
 	// 않는다 — 만든 적이 없으므로 치울 것도 없다.

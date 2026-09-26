@@ -1,6 +1,7 @@
 package ipc
 
 import (
+	"dongminal/internal/shared/browser"
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/toolhub"
@@ -37,6 +38,8 @@ type PanedServer struct {
 	mu       sync.Mutex
 	listener net.Listener
 	currConn *panedConn
+	// browser 는 브라우저 매니저다 (FR-BRT-8). SetBrowser 가 싣는다.
+	browser *browser.Manager
 }
 
 // dialProbeTimeout 은 "이미 살아 있는 데몬이 있는가" 를 묻는 시도의 상한이다.
@@ -174,6 +177,7 @@ func (ps *PanedServer) Accept() error {
 	// `sync.Mutex` 는 재진입이 아니다. 한 번 그렇게 걸었더니 hello 가 영영
 	// 답하지 않았고, 증상은 "연결이 그냥 실패한다" 였다 (2026-09-11).
 	pc.build = ps.buildVersion
+	pc.browser = ps.browser
 
 	// Wire output/exit from each tool through whichever dongminal connection
 	// is current. The closures resolve ps.currConn dynamically, so a tool only

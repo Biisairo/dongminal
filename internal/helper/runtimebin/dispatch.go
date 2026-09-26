@@ -22,7 +22,7 @@ var commands = map[string]runFunc{
 	"edit":     runEdit,
 	"download": runDownload,
 	"detach":   runDetach,
-	// VIEWER_URL_OPEN_SRS FR-VUO-12: BROWSER 는 실행 파일을 요구하므로 쉘
+	// BROWSER_TAB_SRS FR-BRT-70: BROWSER 는 실행 파일을 요구하므로 쉘
 	// 함수로는 대신할 수 없다. 헬퍼로 서야 그 변수가 가리킬 자리가 생긴다.
 	"open-url": runOpenURL,
 }

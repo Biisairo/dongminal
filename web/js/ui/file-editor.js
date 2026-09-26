@@ -73,7 +73,11 @@ function loadMonaco() {
   monacoLoading = new Promise((resolve, reject) => {
     const boot = () => {
       require.config({ paths: { vs: MONACO_BASE } });
-      require(['vs/editor/editor.main'], () => resolve(), (err) => reject(err));
+      require(['vs/editor/editor.main'], () => {
+        // BROWSER_TAB_SRS FR-BRT-68: 편집기의 URL(⌘/Ctrl-클릭)도 링크 설정을 따른다.
+        if (typeof browserLinkOpenerInstall === 'function') browserLinkOpenerInstall();
+        resolve();
+      }, (err) => reject(err));
     };
     // loader.js 는 이미 붙어 있을 수 있다 — 앞선 시도가 모듈 단계에서 실패한
     // 경우다. 그때 script 를 다시 붙이면 loader 가 중복 정의된다.

@@ -30,6 +30,7 @@
   <link rel="stylesheet" href="style-sidebar.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-editor.css?v=__ASSETV__">
   <link rel="stylesheet" href="style-docrender.css?v=__ASSETV__">
+  <link rel="stylesheet" href="style-browser.css?v=__ASSETV__">
   <!-- SIDEBAR_COLLAPSE_SRS FR-SBC-5 / D-2: 폭과 접힘을 **같은 걸음**에서 읽는다.
        자리를 나누면 폭은 첫 프레임에, 접힘은 스크립트 로드 뒤에 걸려 사이드바가
        한 번 펄럭인다. body 가 아직 없으므로 클래스는 documentElement 에 붙는다.
@@ -285,6 +286,8 @@
       <button class="ui-tab mtab" data-tab="access" title="Network access allowlist">Access</button>
       <!-- SETTINGS_PORTABILITY_SRS FR-SPT-14: 설정을 파일로 옮기는 자리. -->
       <button class="ui-tab mtab" data-tab="sandbox" title="Sandbox profile settings">Sandbox</button>
+      <!-- BROWSER_TAB_SRS FR-BRT-12 -->
+      <button class="ui-tab mtab" data-tab="browser" title="Browser tab settings" data-i18n="brv.set_title">Browser</button>
       <button class="ui-tab mtab" data-tab="backup" title="Backup and restore settings">Backup</button>
     </div>
     <div class="modal-body ui-scroll">
@@ -570,6 +573,47 @@
           <div class="ds-hint" data-i18n-html="html.sbx_save_hint"></div>
         </div>
       </div>
+      <div class="mpanel" id="panel-browser" hidden>
+        <div class="display-settings">
+          <div class="ds-row">
+            <span data-i18n="brv.set_placement"></span>
+            <select id="brv-set-placement" class="sbs-select">
+              <option value="split" data-i18n="brv.set_placement_split"></option>
+              <option value="tab" data-i18n="brv.set_placement_tab"></option>
+            </select>
+          </div>
+          <div class="ds-row">
+            <span data-i18n="brv.set_link"></span>
+            <select id="brv-set-link" class="sbs-select">
+              <option value="internal" data-i18n="brv.set_link_internal"></option>
+              <option value="viewer" data-i18n="brv.set_link_viewer"></option>
+            </select>
+          </div>
+          <div class="ds-hint" data-i18n="brv.set_link_hint"></div>
+          <div class="ds-row">
+            <span data-i18n="brv.set_profile"></span>
+            <select id="brv-set-profile" class="sbs-select"></select>
+          </div>
+          <div class="ds-row">
+            <span data-i18n="brv.set_audio"></span>
+            <input type="checkbox" class="ui-switch" id="brv-set-audio">
+          </div>
+          <div class="ds-hint" data-i18n="brv.set_audio_hint"></div>
+          <div class="ds-row">
+            <span data-i18n="brv.set_dldir"></span>
+            <input type="text" id="brv-set-dldir" class="sbx-input" data-i18n-placeholder="brv.set_dldir_ph">
+          </div>
+          <div class="ds-hint" data-i18n="brv.set_dldir_hint"></div>
+          <div class="ds-row"><span data-i18n="brv.set_profiles"></span></div>
+          <div id="brv-profiles" class="brv-profiles"></div>
+          <div class="ds-row">
+            <input type="text" id="brv-profile-name" class="sbx-input" data-i18n-placeholder="brv.set_profile_name">
+            <button type="button" class="ds-toggle ui-btn" id="brv-profile-add" data-i18n="brv.set_profile_add"></button>
+          </div>
+          <div class="ds-hint" data-i18n="brv.set_profiles_hint"></div>
+          <div class="ds-row"><span id="brv-profile-status" class="sbx-status"></span></div>
+        </div>
+      </div>
       <div class="mpanel" id="panel-backup" hidden>
         <div class="display-settings">
           <div class="ds-row">
@@ -724,6 +768,7 @@
 <script src="js/core/layout-tree.js?v=__ASSETV__"></script>
 <script src="js/core/git-status-helpers.js?v=__ASSETV__"></script>
 <script src="js/core/git-path.js?v=__ASSETV__"></script>
+<script src="js/core/browser-place.js?v=__ASSETV__"></script>
 <script src="js/ui/repaint.js?v=__ASSETV__"></script>
 <!-- 공통 UI 키트 (UI_KIT_SRS). repaint.js 뒤·sidebar-tabs.js 앞이어야 한다 —
      뒤의 것들이 이 팩토리로 버튼·탭을 만든다 (FR-UIK-20). -->
@@ -736,7 +781,6 @@
 <script src="js/ui/sidebar-list.js?v=__ASSETV__"></script>
 <script src="js/ui/themes.js?v=__ASSETV__"></script>
 <script src="js/ui/toast.js?v=__ASSETV__"></script>
-<script src="js/ui/open-url.js?v=__ASSETV__"></script>
 <!-- OS 클립보드에 쓰는 한 자리 (STRUCTURE_CLEANUP_SRS FR-STR-10). git 패널·
      확인창·샌드박스·터미널이 함께 쓴다 — 부르는 넷보다 앞이기만 하면 된다. -->
 <script src="js/ui/clipboard.js?v=__ASSETV__"></script>
@@ -823,6 +867,8 @@
 <script src="js/ui/file-tree-xfer.js?v=__ASSETV__"></script>
 <script src="js/ui/runs-panel.js?v=__ASSETV__"></script>
 <script src="js/ui/run-dashboard.js?v=__ASSETV__"></script>
+<script src="js/ui/browser-view.js?v=__ASSETV__"></script>
+<script src="js/ui/browser-view-fid.js?v=__ASSETV__"></script>
 <script src="js/ui/renderer.js?v=__ASSETV__"></script>
 <!-- Renderer.prototype 증강 넷 (STRUCTURE_CLEANUP_SRS FR-STR-44·45).
      클래스 정의 **뒤**여야 한다 — check-load-order.mjs 가 그것을 지킨다 (C-2). -->
@@ -870,6 +916,7 @@
 <script src="js/core/app-edsearch.js?v=__ASSETV__"></script>
 <!-- Run 시각화 (ORCHESTRATION_V2_SRS 묶음 V). app.js 뒤 — prototype 확장. -->
 <script src="js/core/app-runs.js?v=__ASSETV__"></script>
+<script src="js/core/app-browser.js?v=__ASSETV__"></script>
 <script src="js/core/app-search.js?v=__ASSETV__"></script>
 <script src="js/core/app-mobile.js?v=__ASSETV__"></script>
 <!-- 폴링 주기 설정 (POLL_INTERVAL_SETTINGS_SRS). 표가 진실이므로 app-settings.js
@@ -886,6 +933,7 @@
 <script src="js/core/app-settings-keys.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-sandbox.js?v=__ASSETV__"></script>
 <script src="js/core/app-settings-access.js?v=__ASSETV__"></script>
+<script src="js/core/app-settings-browser.js?v=__ASSETV__"></script>
 <!-- 설정 내보내기·가져오기 (SETTINGS_PORTABILITY_SRS). app.js 뒤·main.js 앞이면 된다. -->
 <script src="js/core/app-backup.js?v=__ASSETV__"></script>
 <script src="js/core/app-statusbar.js?v=__ASSETV__"></script>

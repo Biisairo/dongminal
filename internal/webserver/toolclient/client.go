@@ -1,6 +1,7 @@
 package toolclient
 
 import (
+	"dongminal/internal/shared/browser"
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/toolhub"
@@ -86,7 +87,9 @@ type ToolClient struct {
 	onOutput     func(toolID string, data []byte, end int64)
 	onExit       func(toolID string, info toolhub.ExitInfo)
 	onForeground func(toolID, name string)
-	earlyPushes  []earlyPush
+	// onBrowser 는 browser push 를 받는다 (FR-BRT-8). `mu` 아래.
+	onBrowser   func(browser.Event)
+	earlyPushes []earlyPush
 
 	// fgMu 는 onForeground 호출과 fgSeen·fgSeq 를 한 줄로 세운다. fgSeen 은 마지막으로
 	// 알린 전경 이름과 그 push 의 순번이다 — 재접속 뒤 목록과 대조해 끊긴 동안 놓친
@@ -446,6 +449,10 @@ type wireMsg struct {
 	Cols  uint16 `json:"cols"`
 	Rows  uint16 `json:"rows"`
 	Name  string `json:"name"`
+	// browser push (FR-BRT-8)
+	Kind string          `json:"kind"`
+	Tab  string          `json:"tab"`
+	Info json.RawMessage `json:"info"`
 }
 
 // readLoop decodes responses and push events for a single connection. On

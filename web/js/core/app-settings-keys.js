@@ -22,6 +22,8 @@ Object.assign(App.prototype, {
       {label:t('keys.group_panel'),keys:['runsToggle','bgToggle','agentsToggle','sidebarToggle']},
       {label:t('keys.group_reload'),keys:['softReload']},
       {label:t('keys.group_help'),keys:['shortcutsHelp']},
+      // BROWSER_TAB_SRS FR-BRT-56: 브라우저 탭에 포커스가 있을 때만 도는 셋.
+      {label:t('keys.group_browser'),keys:['brvAddress','brvReload','brvHardReload','brvBack','brvForward','brvZoomIn','brvZoomOut','brvZoomReset','brvFind','brvDevtools']},
       // EDITOR_GIT_UX_SRS FR-EKB-5: 편집기의 검색 셋. 좁은 것부터 넓은 것으로
       // 늘어놓는다 — 파일 안 → 파일 이름 → 파일 내용 전체.
       {label:t('keys.group_ed_search'),keys:['edFindInFile','edQuickOpen','edGrep']},

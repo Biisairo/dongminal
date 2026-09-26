@@ -1,7 +1,7 @@
 //go:build !windows
 
 // posix 셸 훅의 검증이다. Windows 의 도구 셸은 PowerShell 이고 그쪽에는 이 훅이
-// 주입되지 않으므로(VIEWER_URL_OPEN_SRS 비목표), 러너에 Git Bash 가 있더라도
+// 주입되지 않으므로(BROWSER_TAB_SRS 비목표 8), 러너에 Git Bash 가 있더라도
 // 검증 대상이 아니다. OS 를 묻는 대신 파일을 가른다 — 이 저장소가 OS 를 가르는
 // 유일한 방식이다 (CROSS_PLATFORM_SRS FR-XPL-5, scripts/check-seams.sh).
 
@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-// V10 (VIEWER_URL_OPEN_SRS FR-VUO-14): 쉘 훅의 `open`/`xdg-open` 은 URL 만
+// TC-BRT-50 (VUO V10 승계): 쉘 훅의 `open`/`xdg-open` 은 URL 만
 // 가로채고 나머지는 원래 명령에 위임한다.
 //
 // **실제 쉘로 잰다.** 문자열 검사로는 함수가 도는지 알 수 없고, 이 함수가

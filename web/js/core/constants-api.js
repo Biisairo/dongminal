@@ -87,3 +87,12 @@ const RUNS_ATTACH_API='/api/runs/attach';
 const RUNS_DETACH_API='/api/runs/detach';
 const CWD_API='/api/cwd';
 const UPLOAD_API='/api/upload';
+// BROWSER_TAB_SRS — 브라우저 탭의 종단. 전부 `/api/` 아래다 (NFR-BRT-S1).
+const BROWSER_API=Object.freeze({
+  close:'/api/browser/close',
+  claim:'/api/browser/placements/claim',
+  open:'/api/browser/open',
+  profiles:'/api/browser/profiles',
+  profileDelete:'/api/browser/profiles/delete',
+  stream:'/api/browser/stream',
+});

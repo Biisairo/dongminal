@@ -55,7 +55,12 @@ const SETTINGS_SCHEMA = [
   {"key":"themeFollowSystem","type":"bool","def":false,"where":"Theme ▸ 시스템 추종"},
   {"key":"themeNameDark","type":"string","def":"Tokyo Night","where":"Theme ▸ 다크 슬롯"},
   {"key":"themeNameLight","type":"string","def":"GitHub Light","where":"Theme ▸ 라이트 슬롯"},
-  {"key":"locale","type":"string","def":"ko","where":"Display ▸ 언어"}
+  {"key":"locale","type":"string","def":"ko","where":"Display ▸ 언어"},
+  {"key":"browserOpenPlacement","type":"string","def":"split","where":"Browser ▸ 터미널에서 열 때 위치"},
+  {"key":"browserLinkTarget","type":"string","def":"internal","where":"Browser ▸ 링크를 클릭하면 열 곳"},
+  {"key":"browserDefaultProfile","type":"string","def":"default","where":"Browser ▸ 새 탭의 프로필"},
+  {"key":"browserServerAudio","type":"bool","def":false,"where":"Browser ▸ 서버에서 소리 재생"},
+  {"key":"browserDownloadDir","type":"string","def":"","where":"Browser ▸ 다운로드 폴더"}
 ];
 
 const SETTINGS_BY_KEY=Object.fromEntries(SETTINGS_SCHEMA.map(s=>[s.key,s]));

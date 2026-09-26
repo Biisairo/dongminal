@@ -33,7 +33,7 @@ func userHome() string {
 	return home
 }
 
-// toolBrowserEnv 는 도구 셸의 BROWSER 다 (VIEWER_URL_OPEN_SRS FR-VUO-13).
+// toolBrowserEnv 는 도구 셸의 BROWSER 다 (BROWSER_TAB_SRS FR-BRT-70).
 // 확장자는 설치와 같은 규칙을 따른다 — Windows 에서는 open-url.exe 다.
 func toolBrowserEnv(binDir string) string {
 	return "BROWSER=" + filepath.Join(binDir, "open-url"+platform.Current().Paths.ExeSuffix())
@@ -52,7 +52,7 @@ func toolEnv(id, shell, binDir string, shellEnv, extraEnv []string) []string {
 		// PANE_ATTENTION_NOTIFY_SRS: lets `dmctl notify` (incl. detached agent
 		// hooks that have no controlling tty) identify this tool to the server.
 		dmenv.EnvToolID + "=" + id,
-		// VIEWER_URL_OPEN_SRS FR-VUO-13: 브라우저를 직접 찾는 라이브러리가
+		// BROWSER_TAB_SRS FR-BRT-70: 브라우저를 직접 찾는 라이브러리가
 		// 존중하는 변수다. 셸 함수(open/xdg-open)로는 덮이지 않는 경로를 덮는다.
 		toolBrowserEnv(binDir),
 	}

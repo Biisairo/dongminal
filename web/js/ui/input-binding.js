@@ -192,7 +192,10 @@ class InputBinding {
        *             `KEY_BLOCK_EXEMPT_MOD` 가 지킨다 — 면제가 근거보다 넓었다
        */
       const ae=document.activeElement;
-      const inText=!!ae&&(ae.tagName==='INPUT'||(ae.tagName==='TEXTAREA'&&!ae.classList.contains('xterm-helper-textarea')));
+      // BROWSER_TAB_SRS FR-BRT-56: 브라우저 탭의 숨긴 입력은 글자를 받는 표면이 아니다 —
+      // 키는 전역 단축키 → 탭 UI 단축키 → 페이지 순으로 간다.
+      const inBrv=!!ae&&ae.classList&&ae.classList.contains('brv-input');
+      const inText=!!ae&&!inBrv&&(ae.tagName==='INPUT'||(ae.tagName==='TEXTAREA'&&!ae.classList.contains('xterm-helper-textarea')));
       /**
        * 글자를 받는 표면에서는 브라우저 기본만 막고 물러난다 — xterm 의 도우미
        * textarea 는 위 조건에서 이미 빠진다.
@@ -209,16 +212,21 @@ class InputBinding {
       // 터미널 검색의 관용 배선과 같은 조합이기 때문이다 — Editor 창이면 편집기
       // 검색이, 아니면 터미널 검색이 뜬다. Editor 창이 아닐 때 이 함수는 키를
       // 삼키지 않고 false 를 돌려준다 (FR-EKB-4).
-      if(this.app.edTrySearchKey(e)) return;
-      for(const h of BUILTIN_HOTKEYS){
+      if(!inBrv&&this.app.edTrySearchKey(e)) return;
+      for(const h of inBrv?[]:BUILTIN_HOTKEYS){
         if(h.match(e)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(h.action);return}
       }
       for(const[action,key]of Object.entries(shortcuts)){
         // 편집기 검색·코드 탐색 셋은 위에서 이미 판정했다. 여기서 다시 잡으면
         // Editor 창이 아닐 때 그 키를 삼켜 터미널 검색이 죽는다 (FR-EKB-4).
         if(ED_CAPTURE_ACTIONS[action]) continue;
+        // 탭 UI 단축키는 그 탭에 포커스가 있을 때만 뜻이 있다 — 아래에서 판정한다.
+        if(BRV_ACTIONS[action]) continue;
         if(matchShortcut(e,key)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(action);return}
       }
+      // 여기까지 온 키는 페이지의 것이다 — 뷰의 입력이 받아 보낸다. 브라우저 기본은
+      // 뷰가 막는다 (그러지 않으면 `Mod+S` 가 dongminal 페이지를 저장한다).
+      if(inBrv){ this.app.brvTryKey(e); return }
       this._blockBrowserDefault(e,inText);
     },true);
     /**

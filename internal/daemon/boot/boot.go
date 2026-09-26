@@ -13,6 +13,7 @@ import (
 	"os/signal"
 
 	"dongminal/internal/daemon/ipc"
+	"dongminal/internal/shared/browser"
 	"dongminal/internal/shared/runfile"
 	"dongminal/internal/shared/runtime"
 	"dongminal/internal/shared/sandboxplace"
@@ -106,6 +107,12 @@ func Run(home, version, daemonBuild string) {
 	// FR-DFP-4: 소켓을 열면서 지문을 남긴다. 자리는 `paned.pid` 의 옆이고 수명도
 	// 같다 — 하나는 누가, 하나는 무엇이 도는지다.
 	ps.SetDaemonBuild(filepath.Join(home, toolipc.DaemonBuildFile), daemonBuild)
+	// FR-BRT-8: 브라우저 매니저는 PTY 와 같은 자리 — 데몬이 소유한다.
+	bm := browser.New(browser.Config{Home: home, Engine: platform.Current().Chrome, Proc: platform.Current().Process,
+		ServerAudio: func() bool { return browser.ServerAudioSetting(home) },
+		DownloadDir: func() string { return browser.DownloadDirSetting(home) }})
+	ps.SetBrowser(bm)
+	defer bm.Close()
 	if err := ps.Listen(); err != nil {
 		dmlog.Errorf(nil, "dongminald listen: %v", err)
 		os.Exit(1)

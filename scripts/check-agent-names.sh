@@ -41,8 +41,8 @@ ADAPTER_DIR=internal/shared/agentadapter
 fail=0
 
 # 등록된 id 를 **선언에서** 얻는다. 여기 다시 적으면 목록이 두 벌이 된다.
-ids=$(grep -hoE '(ID:[[:space:]]*"[a-z0-9_-]+"|^const [a-zA-Z]*ID = "[a-z0-9_-]+")' \
-        "$ADAPTER_DIR"/*.go 2>/dev/null |
+# 시험 파일의 가짜 어댑터(`ID: "x"`)는 등록부가 아니다 — 읽으면 `json:"x"` 같은 모든 리터럴이 걸린다.
+ids=$(ls "$ADAPTER_DIR"/*.go 2>/dev/null | grep -v '_test\.go$' | xargs grep -hoE '(ID:[[:space:]]*"[a-z0-9_-]+"|^const [a-zA-Z]*ID = "[a-z0-9_-]+")' 2>/dev/null |
       grep -oE '"[a-z0-9_-]+"' | tr -d '"' | sort -u)
 
 if [[ -z "$ids" ]]; then

@@ -60,7 +60,33 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | 명령 | 설명 |
 |------|------|
 | `dmctl open-editor --at <uuid> [--name <이름>] <파일 절대경로>` | 그 분할 칸에 **편집기 탭**을 엽니다. 경로는 절대 경로여야 합니다 |
-| `dmctl open-url <url>` | **보고 있는 기기의 브라우저**로 엽니다. 서버가 도는 기계가 아닙니다 — 원격에서 쓰는 것이 이 제품의 기본 형태이기 때문입니다. 판정을 강제하려면 `DONGMINAL_URL_OPEN=local\|viewer` |
+| `dmctl open-url <url\|경로>` | **서버 기기의 브라우저 탭**으로 엽니다 — `dmctl browser open --focus` 와 같습니다. 쉘의 `open`/`xdg-open`(http·https 한 개)과 `$BROWSER` 도 이 길입니다 |
+
+#### 브라우저 탭 — `dmctl browser`
+
+서버 기기의 Google Chrome 을 탭으로 열고 다룹니다. `--tab` 이 없으면 **이 도구가 마지막으로
+열거나 다룬 브라우저 탭**입니다. 종료 코드: 0 성공 · 1 동작 실패(엔진 없음·탭 없음) · 2 사용법 오류.
+
+| 명령 | 설명 |
+|------|------|
+| `dmctl browser open <url\|경로> [--profile P] [--isolated] [--split right\|down\|none] [--focus]` | 탭을 엽니다. 경로는 이 셸의 폴더 기준으로 `file://` 가 됩니다. `localhost:3000` 은 http 입니다. 열 수 있는 것은 http·https·file·about:blank 입니다 |
+| `dmctl browser list [--json]` | 브라우저 탭 목록 |
+| `dmctl browser close` · `focus` | 닫기 · 그 탭으로 시선 옮기기 |
+| `dmctl browser goto <url>` · `back` · `forward` · `reload [--hard]` | 이동 |
+| `dmctl browser viewport <W>x<H>\|auto` | 탭을 고정 크기로 · 고정 해제 |
+| `dmctl browser profile list [--json]` | 프로필 목록 |
+| `dmctl browser snapshot [--dom] [--json]` | 페이지의 **접근성 트리**를 `- <역할> "<이름>" [ref=eN]` 목록으로 냅니다. `--dom` 은 접근성 정보가 없는 `onclick`·`cursor:pointer` 요소까지 번호를 붙입니다. ref 는 페이지가 바뀌면 무효입니다 |
+| `dmctl browser click <ref>` · `hover <ref>` · `fill <ref> <글>` · `select <ref> <값>` | 조작. 요소가 붙어 있고·보이고·멈추고·가려지지 않을 때까지 기다립니다(기본 10초, `--timeout`). 실패하면 이유를 냅니다 |
+| `dmctl browser type <글>` · `press <키>` | 포커스된 요소에 입력 · 키 하나(`Enter`, `Mod+A`, `Shift+Tab`) |
+| `dmctl browser scroll up\|down\|<ref>` · `upload <ref> <서버 경로>…` | 스크롤 · 파일 입력에 **서버의** 파일을 넣습니다 |
+| `dmctl browser wait --text T \| --ref R \| --url GLOB \| --load [--timeout 30s]` | 조건이 설 때까지 기다립니다 |
+| `dmctl browser eval <js>` · `url` · `title` | 페이지에서 식을 계산해 JSON 으로 냅니다 · 주소 · 제목 |
+| `dmctl browser screenshot [--full] [-o 파일]` | PNG 를 **서버에** 쓰고 경로를 냅니다 |
+| `dmctl browser console [--limit N]` · `network [--limit N]` | 최근 콘솔 · 요청 기록 |
+| `dmctl browser dialog --accept [--text T] \| --dismiss` | 떠 있는 alert·confirm·prompt 에 답합니다. 대화상자가 떠 있는 동안 다른 조작은 이 명령을 안내하며 실패합니다 |
+| `dmctl browser devtools [--panel P]` | 그 탭의 DevTools 를 새 브라우저 탭으로 엽니다 (`--panel console` 등) |
+| `dmctl browser downloads [--json]` | 다운로드 목록 — `<상태> <받은>/<전체> <경로>` |
+| `dmctl browser cdp-url [--profile P]` | 같은 브라우저에 Playwright·puppeteer 를 붙일 CDP 주소 (`chromium.connectOverCDP(<주소>)`). 그 도구가 연 페이지도 이 도구의 칸에 탭으로 열립니다 |
 
 #### 오케스트레이션 실행 기록 — 누가 어느 Run 의 팀원인가
 

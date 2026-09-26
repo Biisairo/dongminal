@@ -174,7 +174,10 @@ class TerminalTool {
    */
   _loadAddons(){
     const steps=[
-      ()=>this.term.loadAddon(new WebLinksAddon.WebLinksAddon((_e,uri)=>{window.open(uri,'_blank')})),
+      // BROWSER_TAB_SRS FR-BRT-68: 링크 클릭은 설정을 따른다(기본 내장 브라우저).
+      ()=>this.term.loadAddon(new WebLinksAddon.WebLinksAddon((e,uri)=>{
+        if(window.app&&window.app.openLink) window.app.openLink(uri,e); else window.open(uri,'_blank');
+      })),
       ()=>{this.term.loadAddon(new Unicode11Addon.Unicode11Addon());this.term.unicode.activeVersion='11'},
       ()=>{this.search=new SearchAddon.SearchAddon();this.term.loadAddon(this.search)},
       ()=>TermClipboard.attach(this.term,this.id,this),

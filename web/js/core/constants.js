@@ -559,6 +559,8 @@ const TAB_TYPE_GIT='git';
 const TAB_TYPE_TERMINAL='terminal';
 const TAB_TYPE_EDITOR='editor';
 const TAB_TYPE_RUN='run';
+// BROWSER_TAB_SRS FR-BRT-30: 서버 기기의 Chrome 페이지 하나를 그리는 탭.
+const TAB_TYPE_BROWSER='browser';
 
 // ── 샌드박스 창의 작업 방식 (SANDBOX_PICK_COPY_SRS FR-SPK-10·23) ──
 //

@@ -1,6 +1,10 @@
 package toolipc
 
-import "dongminal/internal/shared/toolhub"
+import (
+	"encoding/json"
+
+	"dongminal/internal/shared/toolhub"
+)
 
 // 메서드·이벤트 이름과 그 인자·결과의 모양이다 (OPTIMIZE_REFACTOR_SRS FR-OPT-2-6).
 // 데몬과 서버가 같은 한 벌을 본다 — 두 벌로 적으면 한쪽만 바뀐다.
@@ -34,6 +38,11 @@ const (
 	// 하는 자리(GO-8, HTTP send-input)는 write·resize RPC 를 쓴다.
 	MethodInput        = "input"
 	MethodResizeNotify = "resizenotify"
+
+	// MethodBrowser 는 브라우저 매니저의 조작 하나다 (BROWSER_TAB_SRS FR-BRT-8). 매니저의
+	// 표면 전체가 `op` 이름 하나로 들어가므로 메서드는 하나뿐이다 — 조작이 늘어도 이
+	// 와이어는 바뀌지 않는다.
+	MethodBrowser = "browser"
 )
 
 const (
@@ -41,6 +50,8 @@ const (
 	EventForeground = "fg"
 	EventExit       = "exit"
 	EventSize       = "size"
+	// EventBrowser 는 브라우저 매니저의 소식 하나다 — 프레임·상태·닫힘·생성.
+	EventBrowser = "browser"
 )
 
 // HelloParams 는 서버가 hello 에 싣는 것이다. Features 는 서버가 아는 기능 이름이다
@@ -74,12 +85,15 @@ const (
 	// FeatureBusyMany: busymany(ids) 일괄 조회를 안다 (FR-OPT-2-4). 서버는 도구 N개의
 	// busy 를 RPC 한 번으로 묻는다. 말하지 않는 옛 데몬에는 busy 를 하나씩 보낸다.
 	FeatureBusyMany = "busymany"
+	// FeatureBrowser: browser 메서드·이벤트를 안다 (FR-BRT-8). 말하지 않는 옛 데몬과
+	// 붙으면 브라우저 탭은 "데몬을 다시 시작하세요" 를 안내한다.
+	FeatureBrowser = "browser"
 )
 
 // DaemonFeatures 는 이 데몬이 hello 에서 말하는 기능이다. ServerFeatures 는 서버가
 // 말하는 기능이다. 새 기능이 이름을 여기 더한다.
 var (
-	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify, FeatureBusyMany}
+	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify, FeatureBusyMany, FeatureBrowser}
 	ServerFeatures []string
 )
 
@@ -239,4 +253,21 @@ type SizeEvent struct {
 	Event string `json:"event"`
 	Rows  uint16 `json:"rows"`
 	Tool  string `json:"tool"`
+}
+
+// BrowserParams 는 browser 메서드의 인자다 — 매니저의 `Do(op, params)` 그대로다.
+type BrowserParams struct {
+	Op     string          `json:"op"`
+	Params json.RawMessage `json:"params"`
+	// TimeoutMs 는 부른 쪽의 상한이다 — `dmctl browser wait --timeout` 처럼 기본보다 길 수 있다.
+	TimeoutMs int64 `json:"timeoutMs,omitempty"`
+}
+
+// BrowserEvent 는 browser push 다 — 매니저의 `Event` 그대로다. Data 는 프레임의 JPEG 다.
+type BrowserEvent struct {
+	Data  []byte          `json:"data,omitempty"`
+	Event string          `json:"event"`
+	Info  json.RawMessage `json:"info,omitempty"`
+	Kind  string          `json:"kind"`
+	Tab   string          `json:"tab,omitempty"`
 }

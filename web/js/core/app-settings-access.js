@@ -213,7 +213,7 @@ Object.assign(App.prototype, {
         width:'min(460px,90vw)',
         body,
         // title 을 주면 그것이 aria-label 이 되어 접근 이름이 라벨을 덮는다.
-        // 라벨만 둔다 (open-url.js 와 같은 규약).
+        // 라벨만 둔다 (다른 확인 상자와 같은 규약).
         actions:[
           {label:t('core.cancel')},
           {label:t('acl.save_anyway'),kind:'danger',onClick:()=>this._aclSave(cfg)},

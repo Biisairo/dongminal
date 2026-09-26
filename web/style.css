@@ -1100,16 +1100,6 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 }
 /* 동작 버튼의 외형은 `Toast` 가 붙이는 `.ui-btn.ui-btn-sm.ui-btn-primary` 다 (§7.3). */
 
-/* ── 여기서 열기 확인 (VIEWER_URL_OPEN_SRS FR-VUO-7) ──
-   상자·백드롭·중앙 정렬은 `.ui-modal` 이 갖는다. 여기에는 주소가 길어도 상자를
-   밀지 않게 하는 규칙만 둔다. */
-.openurl-ask{display:flex;flex-direction:column;gap:8px}
-.openurl-lead{color:var(--text-muted);font-size:var(--fs-md)}
-.openurl-addr{
-  color:var(--text-bright);font-size:var(--fs-lg);line-height:1.5;
-  word-break:break-all;
-}
-
 .tp-overlay{
   position:absolute;inset:0;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:6px;

@@ -12,7 +12,7 @@ function world() {
   const ctx = load(['core/app-layout.js'], {
     globals: {
       App: function App() {}, TAB_TYPE_TERMINAL: 'terminal', TAB_TYPE_EDITOR: 'editor', TAB_TYPE_RUN: 'run',
-      TAB_TYPE_GIT: 'git',
+      TAB_TYPE_GIT: 'git', TAB_TYPE_BROWSER: 'browser',
       findPane: (layout, id) => (layout && layout.id === id ? layout : null),
       doRemove: () => null, firstPane: () => null,
     },

@@ -107,6 +107,20 @@ const SHORTCUT_DEFAULTS={
   focusBack:'Ctrl+Shift+Comma',
   focusForward:'Ctrl+Shift+Period',
   shortcutsHelp:'Ctrl+Shift+Slash',
+  // BROWSER_TAB_SRS FR-BRT-56: 브라우저 탭 UI 단축키. **그 탭에 포커스가 있을 때만**
+  // 돈다 — 전역 배선은 이 이름들을 건너뛴다(`BRV_ACTIONS`). `Mod` 인 것은 두 OS 의
+  // 브라우저 관용이 다르기 때문이다. `F5`·`Alt+←/→` 는 고정 보조 키다(app-browser.js).
+  brvAddress:'Mod+KeyL',
+  brvReload:'Mod+KeyR',
+  brvHardReload:'Mod+Shift+KeyR',
+  brvBack:'Mod+BracketLeft',
+  brvForward:'Mod+BracketRight',
+  brvZoomIn:'Mod+Equal',
+  brvZoomOut:'Mod+Minus',
+  brvZoomReset:'Mod+Digit0',
+  // 3단계: 찾기 · DevTools (`F12` 는 고정 보조 키 — 표의 `edGotoDef` 와 같은 조합이다).
+  brvFind:'Mod+KeyF',
+  brvDevtools:'Mod+Alt+KeyI',
 };
 const SHORTCUT_LABELS={
   // GIT_SIDEBAR_TABS_SRS FR-SBT-31·33: 이 키는 **활성 사이드바 탭의 목록**을 순회한다
@@ -137,6 +151,16 @@ const SHORTCUT_LABELS={
   edSave:t('shortcut.ed_save'),
   edSaveAll:t('shortcut.ed_save_all'),
   shortcutsHelp:t('shortcut.shortcuts_help'),
+  brvAddress:t('shortcut.brv_address'),
+  brvReload:t('shortcut.brv_reload'),
+  brvHardReload:t('shortcut.brv_hard_reload'),
+  brvBack:t('shortcut.brv_back'),
+  brvForward:t('shortcut.brv_forward'),
+  brvZoomIn:t('shortcut.brv_zoom_in'),
+  brvZoomOut:t('shortcut.brv_zoom_out'),
+  brvZoomReset:t('shortcut.brv_zoom_reset'),
+  brvFind:t('shortcut.brv_find'),
+  brvDevtools:t('shortcut.brv_devtools'),
   // `DOC-3` (M5): 기본값은 있는데 **라벨이 없었다.** 라벨이 없으면 Settings ▸
   // Shortcuts 의 목록에 뜨지 않고, 뜨지 않으면 사용자가 바꿀 수 없다 — 바꿀 수
   // 있다고 적힌 문서가 그 순간 거짓이 된다.

@@ -20,7 +20,7 @@ var viewMoving = []string{
 
 // entityCreating 은 종전부터 지명되던 것들이다 — 이 조항이 되돌리지 않는다.
 var entityCreating = []string{
-	"newWindow", "newTab", "splitH", "splitV", "openEditorTab", "restoreTool", "openUrl",
+	"newWindow", "newTab", "splitH", "splitV", "openEditorTab", "restoreTool", "openBrowserTab",
 }
 
 func TestSingleExecutor_CoversViewMovingActions(t *testing.T) {

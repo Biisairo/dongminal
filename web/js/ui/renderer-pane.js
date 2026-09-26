@@ -81,6 +81,9 @@ Object.assign(Renderer.prototype, {
     }else if(at.type==='run'){
       // FR-RVZ-6: 네 번째 타입. 루트 DOM 은 탭마다 캐시된다 (NFR-RVZ-2).
       el=this.app.runViewEl(at,slot);
+    }else if(at.type===TAB_TYPE_BROWSER){
+      // BROWSER_TAB_SRS FR-BRT-41: 뷰는 (탭, 슬롯)마다 하나다 — Run 뷰와 같은 규약.
+      el=this.app.browserViewEl(at,slot);
     }else{
       // 슬롯 1 의 인스턴스는 그 슬롯이 처음 이 도구를 그릴 때 선다 (FR-WSL-20).
       const p=at.toolId?this.app.mkTool(at.toolId,at.name||'',slot):null;
