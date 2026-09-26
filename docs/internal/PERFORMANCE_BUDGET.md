@@ -126,12 +126,7 @@
 | `web/js/git/panel-life.js` | `_render` | `el` | 1 | 사용자 | 뷰 전환 |
 | `web/js/git/panel-life.js` | `_renderBody` | `el` | 1 | 사용자 | 뷰 전환 |
 | `web/js/git/panel-life.js` | `_renderMissing` | `el` | 1 | 사용자 | 리포 소실 — 상태 전이 한 번 |
-| `web/js/git/panel-views.js` | `_renderBranches` | `el` | 1 | 가드 | `el.dataset.built` |
-| `web/js/git/panel-views.js` | `_renderConsole` | `el` | 1 | 가드 | `el.dataset.built` |
-| `web/js/git/panel-views.js` | `_renderHistory` | `el` | 1 | 가드 | `el.dataset.built` |
-| `web/js/git/panel-views.js` | `_renderStash` | `el` | 1 | 가드 | `el.dataset.built` |
-| `web/js/git/panel-views.js` | `_renderSubmodules` | `el` | 1 | 가드 | `el.dataset.built` |
-| `web/js/git/panel-views.js` | `_renderWorktrees` | `el` | 1 | 가드 | `el.dataset.built` |
+| `web/js/git/panel-views.js` | `_renderView` | `el` | 1 | 가드 | `el.dataset.built` (목록 뷰 여섯의 한 골격 — OPTIMIZE_REFACTOR_SRS FR-OPT-12-2) |
 | `web/js/git/panel-write.js` | `_paintNote` | `ul` | 1 | 사용자 | 사용자가 연 부분 스테이지 대화상자 |
 | `web/js/git/remote.js` | `_paintFail` | `opts` | 1 | 가드 | `opts.dataset.opts` |
 | `web/js/git/remote.js` | `_paintLog` | `log` | 1 | 가드 | `log.dataset.job` — job 이 바뀔 때만 |

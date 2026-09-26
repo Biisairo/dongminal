@@ -18,7 +18,7 @@ Object.assign(GitPanel.prototype, {
   // mixed 다 — index 만 HEAD 로 되돌리고 워킹 트리는 그대로 둔다.
   async uncommittedReset(){
     if(this._writing){this.busyNote();return}
-    const res=await this.post('/api/git/uncommitted/reset',{repo:this.repo});
+    const res=await this.post(GIT_API.uncommittedReset,{repo:this.repo});
     this._after(res,[]);
   },
 
@@ -36,7 +36,7 @@ Object.assign(GitPanel.prototype, {
       Toast.show(GIT_UNC_CLEAN_CHANGED,'err',TOAST_ERR_MS);
       return;
     }
-    const res=await this.post('/api/git/uncommitted/clean',
+    const res=await this.post(GIT_API.uncommittedClean,
       {repo:this.repo,confirm:true,paths:shown});
     this._after(res,[]);
   },
@@ -50,7 +50,7 @@ Object.assign(GitPanel.prototype, {
   async ignorePath(t){
     if(!t||!t.path) return;
     if(this._writing){this.busyNote();return}
-    const res=await this.post('/api/git/ignore',{repo:this.repo,paths:[t.path]});
+    const res=await this.post(GIT_API.ignore,{repo:this.repo,paths:[t.path]});
     if(!res.ok){
       this._note={msg:GIT_IGNORE_FAIL+': '+this.writeError(res)};
       this._paint();
@@ -84,7 +84,7 @@ Object.assign(GitPanel.prototype, {
   async openFileAtHead(t){
     if(!t||!t.path||!this.repo) return;
     const q=new URLSearchParams({repo:this.repo,path:t.path});
-    const res=await gitFetch('/api/git/file-head',Object.fromEntries(q));
+    const res=await gitFetch(GIT_API.fileHead,Object.fromEntries(q));
     const d=res.data;
     if(!res.ok||!d||!d.openPath){
       // 사유를 그 자리에 보인다 — 빈 편집기를 열면 사용자는 파일이 비었다고 읽는다.
@@ -244,7 +244,7 @@ Object.assign(GitPanel.prototype, {
       });
       if(!ok) return;
     }
-    const url=act==='stage'?'/api/git/stage':'/api/git/unstage';
+    const url=act==='stage'?GIT_API.stage:GIT_API.unstage;
     // F-4.2: 연타는 버리지 않고 큐로 차례로 보낸다. 버려진 항목(null)은 뒷정리가 없다.
     const res=await this.wqPost(url,{repo:this.repo,paths:this._paths(act,items)});
     if(res) this._after(res,items);
@@ -282,7 +282,7 @@ Object.assign(GitPanel.prototype, {
       hint:{note:label+'. '+GIT_RESOLVE_SIDE_NOTE,
         command:'git checkout -m -- '+paths.map(gitShQuote).join(' ')},
       run:async()=>{
-        const res=await this.post('/api/git/resolve',{repo,side,paths,confirm:true});
+        const res=await this.post(GIT_API.resolve,{repo,side,paths,confirm:true});
         this._after(res,items);
         if(res.ok) return {ok:true};
         // REPO_FIX 01 §7.4: 경로별 결과가 오면 **어느 경로가 왜** 실패했는지 보인다.
@@ -326,7 +326,7 @@ Object.assign(GitPanel.prototype, {
         command:'git stash push -u -- '+targets.map(gitShQuote).join(' '),
       },
       run:async()=>{
-        const res=await this.wqPost('/api/git/discard',{repo,tracked,untracked,confirm:true});
+        const res=await this.wqPost(GIT_API.discard,{repo,tracked,untracked,confirm:true});
         if(!res) return {ok:false,reason:GIT_WQ_DROPPED,stderrTail:''};
         this._after(res,items);
         if(res.ok) return {ok:true};

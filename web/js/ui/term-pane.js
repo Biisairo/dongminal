@@ -651,7 +651,7 @@ class TerminalTool {
 
   _downloadFile(path){
     const a=document.createElement('a');
-    a.href='/api/download?path='+encodeURIComponent(path);
+    a.href=FILE_DOWNLOAD_API+'?path='+encodeURIComponent(path);
     a.download='';document.body.appendChild(a);a.click();a.remove();
     // 앵커 클릭은 끝나는 시점을 알려 주지 않는다 — 진행 문구를 잠시 보이고
     // 스스로 사라진다 (FR-TXN-8).
@@ -660,7 +660,7 @@ class TerminalTool {
   _uploadFiles(files){
     if(!files||!files.length)return;
     // Get cwd from server for this pane
-    apiGet('/api/cwd',{query:{tool:this.id}}).then(res=>{
+    apiGet(CWD_API,{query:{tool:this.id}}).then(res=>{
       const {cwd,source}=res.data||{};
       // FR-FTR-11: 서버의 cwd 는 이 도구의 폴더가 아니다 — 보고 있지 않은 곳에
       // 파일을 떨어뜨리지 않는다. `source` 는 그 구분을 위해 있다 (D-4).
@@ -685,7 +685,7 @@ class TerminalTool {
         // 보이면 어느 것이 끝났는지 알 수 없다.
         const label=rel||f.name;
         const t=this._toast(TERM_UPLOAD_BUSY.replace('%s',label),'',0);
-        apiPost('/api/upload',fd,{query:{dir:cwd}})
+        apiPost(UPLOAD_API,fd,{query:{dir:cwd}})
           .then(r=>(r.ok&&r.data)?r.data:Promise.reject(r))
           .then(d=>{
             // FR-TFD-13: 폴더 맥락과 **실제 저장된 이름**을 함께 보인다. 서버는

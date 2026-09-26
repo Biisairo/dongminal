@@ -149,7 +149,7 @@ class GitWorktrees extends GitListTab {
   // ── 질의 ──
 
   async _load(){
-    await gitLoadList(this,{url:'/api/git/worktrees',key:'worktrees',failMsg:GIT_WT_LOAD_FAIL});
+    await gitLoadList(this,{url:GIT_API.worktrees,key:'worktrees',failMsg:GIT_WT_LOAD_FAIL});
   }
 
 
@@ -178,7 +178,7 @@ class GitWorktrees extends GitListTab {
   }
 
   async _runRemove(e){
-    const res=await this.panel.post('/api/git/worktrees/remove',{
+    const res=await this.panel.post(GIT_API.worktreesRemove,{
       repo:this.panel.repo,path:e.path,
       // 서버는 이 값을 받지만 UI 는 늘 false 다 (FR-GIT-243) — API 를 좁히지 않는다.
       deleteBranch:false,confirm:true,
@@ -241,7 +241,7 @@ class GitWorktreeCreate {
   }
 
   async _run(v){
-    const res=await this.panel.post('/api/git/worktrees/create',{
+    const res=await this.panel.post(GIT_API.worktreesCreate,{
       repo:this.repo,name:(v.name||'').trim(),ref:(v.ref||'').trim(),
       newBranch:!!v.newBranch,
     });

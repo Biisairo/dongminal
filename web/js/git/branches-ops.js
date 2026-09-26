@@ -33,7 +33,7 @@ Object.assign(GitBranches, {
     if(pick!==GIT_DIRTY_OPT_STASH) return;
     // stash 후 진행. untracked 까지 담는다 — 담지 않으면 untracked 뿐인 저장소에서
     // 서버가 `nothing_to_stash` 로 막고 사용자는 갈 곳이 없다 (FR-GIT-167).
-    const res=await panel.post('/api/git/stash/push',
+    const res=await panel.post(GIT_API.stashPush,
       {repo:panel.repo,message:GIT_STASH_BEFORE_MSG,includeUntracked:true});
     panel.afterStashWrite(res);
     if(!res.ok) return;
@@ -101,7 +101,7 @@ Object.assign(GitBranches, {
   // 목록·상태 갱신(FR-GIT-160)은 잡이 끝날 때 한다. 실행 전 거부(이름 충돌 등)는
   // 호출자가 다룬다.
   async _post(panel,opts){
-    const res=await panel.postJob('/api/git/checkout',opts,r=>{
+    const res=await panel.postJob(GIT_API.checkout,opts,r=>{
       if(r.ok) panel.afterRefWrite(r.data); else panel.applyWriteFail(r);
     });
     if(res.ok&&!res.started) panel.afterRefWrite(res.data);
@@ -223,7 +223,7 @@ Object.assign(GitBranches, {
   },
 
   async _delete(panel,names,force){
-    const res=await panel.post('/api/git/branch/delete',
+    const res=await panel.post(GIT_API.branchDelete,
       {repo:panel.repo,names,force:!!force,confirm:true});
     if(res.ok){
       if(panel._branchesView) panel._branchesView.clearSelection();
@@ -275,7 +275,7 @@ Object.assign(GitBranches, {
       body:GitBranches._impact(ref,pv),
       fields:GIT_BR_MERGE_FIELDS,
       run:async v=>{
-        const res=await GitBranches._run(panel,'/api/git/branch/merge',
+        const res=await GitBranches._run(panel,GIT_API.branchMerge,
           {ref,mode:v.mode||''});
         if(res.ok) return {ok:true};
         // 충돌이면 화면은 이미 Changes 탭으로 옮겨 갔다 — 다이얼로그가 실패를
@@ -291,7 +291,7 @@ Object.assign(GitBranches, {
   // 영향 범위 조회. 실패해도 머지를 막지 않는다 — 그 사실을 문구로 알린다.
   async _preview(panel,ref){
     const q=new URLSearchParams({repo:panel.repo,ref});
-    const res=await gitFetch('/api/git/branch/merge-preview',Object.fromEntries(q),
+    const res=await gitFetch(GIT_API.branchMergePreview,Object.fromEntries(q),
       {echo:{repo:panel.repo,ref}});
     return res.ok?(res.data.preview||null):null;
   },
@@ -312,7 +312,7 @@ Object.assign(GitBranches, {
   // 여기서는 `confirm` 을 실어 보낸다 — 서버도 그것을 요구한다.
   rebase(panel,ref){
     if(!panel||!panel.repo||!ref) return;
-    return GitBranches._run(panel,'/api/git/branch/rebase',{ref,confirm:true});
+    return GitBranches._run(panel,GIT_API.branchRebase,{ref,confirm:true});
   },
 
   // FR-GIT-257: upstream 설정. 후보는 **이미 받아 둔 원격 ref 목록**에서 온다.
@@ -323,7 +323,7 @@ Object.assign(GitBranches, {
 
   unsetUpstream(panel,target){
     if(!panel||!panel.repo||!target) return;
-    return GitBranches._run(panel,'/api/git/branch/upstream',
+    return GitBranches._run(panel,GIT_API.branchUpstream,
       {branch:target.short||'',unset:true});
   },
 

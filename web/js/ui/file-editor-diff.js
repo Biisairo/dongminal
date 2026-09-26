@@ -227,7 +227,7 @@ class EdDirtyDiff{
     const doc=this.app.edDocAt(this.filePath);
     const params={repo:d.repo,axis:ED_DD_AXIS,path:rel};
     if(doc&&doc.encoding) params.encoding=doc.encoding;
-    const dc=await gitFetch('/api/git/diff-content',params);
+    const dc=await gitFetch(GIT_API.diffContent,params);
     if(!dc.ok) return false;
     const side=(dc.data||{}).original;
     // FR-EDD-6: absent(untracked)·binary·LFS·상한은 **표시하지 않는다.** 빈 기준과
@@ -368,12 +368,12 @@ class EdDirtyDiff{
     // 저장이 기준을 바꿀 수 있으므로(방금 쓴 내용이 워킹 트리다) 좌표는 저장
     // **뒤에** 받는다.
     if(!this.repo||!this.rel) return {ok:false,msg:ED_DD_STAGE_FAIL};
-    const hu=await gitFetch('/api/git/hunks',
+    const hu=await gitFetch(GIT_API.hunks,
       {repo:this.repo,axis:ED_DD_AXIS,path:this.rel});
     if(!hu.ok) return {ok:false,msg:ED_DD_STAGE_FAIL};
     const co=gitHunkCoordsForChange((hu.data||{}).hunks,ch);
     if(!co) return {ok:false,msg:ED_DD_STAGE_STALE};
-    const res=await gitPost('/api/git/patch',{
+    const res=await gitPost(GIT_API.patch,{
       repo:this.repo,axis:ED_DD_AXIS,path:this.rel,op:GIT_PATCH_STAGE,
       hunk:co.hunk,from:co.from,to:co.to,diffId:(hu.data||{}).diffId||'',
     });

@@ -31,7 +31,7 @@ Object.assign(GitPanel.prototype, {
     }
     // 대상이 그대로면 다시 부르지 않는다 — 폴링마다 재요청하면 관측이 매초
     // 바뀌고 그때마다 툴바의 좌표가 흔들린다 (_showTarget 과 같은 규약).
-    const key=[f.repo,f.axis,f.path].join('\u0000');
+    const key=[f.repo,f.axis,f.path].join(RPT_SEP);
     if(this._hunkKey!==key){
       this._hunkKey=key; this._hunks=null;
       // 대상이 바뀌면 툴바가 가리키던 조각은 없는 것이다.
@@ -50,10 +50,8 @@ Object.assign(GitPanel.prototype, {
 
   async _loadHunks(f,key){
     const tok=this.token();
-    const u='/api/git/hunks?repo='+encodeURIComponent(f.repo)+
-      '&axis='+encodeURIComponent(f.axis)+'&path='+encodeURIComponent(f.path);
-    // FR-GRF-6: 조회에는 시한이 있다.
-    const r=await apiGet(u,{timeout:GIT_STATUS_FETCH_TIMEOUT_MS});
+    // FR-GRF-6: 조회에는 시한이 있다 (gitFetch 의 기본).
+    const r=await gitFetch(GIT_API.hunks,{repo:f.repo,axis:f.axis,path:f.path});
     const d=r.data;
     if(this.isStale(tok)||this._hunkKey!==key) return;
     // 서버가 되돌려준 요청값도 확인한다 — 같은 세대 안에서도 응답 순서가 뒤바뀔 수
@@ -96,7 +94,7 @@ Object.assign(GitPanel.prototype, {
   _hunkNote(el,text){
     if(!el) return;
     const fail=!!text&&text===this._hunkErr;
-    const sig=text+'\u0000'+(fail?'1':'');
+    const sig=rptKey(text,fail?'1':'');
     if(el.dataset.sig===sig) return;
     el.dataset.sig=sig;
     // 서버가 보낸 사유가 이 자리에 닿는다 — 텍스트 노드로만 넣는다 (NFR-DHB-3).
@@ -340,7 +338,7 @@ Object.assign(GitPanel.prototype, {
     const body={repo:f.repo,axis:f.axis,path:f.path,op,
       hunk:co.hunk,from:co.from,to:co.to,diffId:h.diffId};
     if(op===GIT_PATCH_REVERT){this._hunkRevert(body,f,hunk,co);return}
-    this._afterHunk(await this.post('/api/git/patch',body));
+    this._afterHunk(await this.post(GIT_API.patch,body));
   },
 
   /**
@@ -361,7 +359,7 @@ Object.assign(GitPanel.prototype, {
       // O8 의 선례: stash 를 자동 생성하지 않는다 — 실행할 명령을 보여 준다.
       hint:{note:GIT_HUNK_REVERT_NOTE,command:'git stash push -- '+gitShQuote(f.path)},
       run:async()=>{
-        const res=await this.post('/api/git/patch',Object.assign({confirm:true},body));
+        const res=await this.post(GIT_API.patch,Object.assign({confirm:true},body));
         this._afterHunk(res);
         if(res.ok) return {ok:true};
         return {ok:false,reason:this.writeReason(res),stderrTail:(res.data&&res.data.message)||''};

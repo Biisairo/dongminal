@@ -104,7 +104,7 @@ class GitCommit {
     if(repo!==this._repo) this._reset(repo);
     // REPO_FIX 05 F-7.1: HEAD 가 바뀐 관측이면 preflight 를 다시 받는다 — detached 경고와
     // 진행 중 작업 차단이 현재 HEAD 를 따른다 (FR-GIT-87).
-    const hk=st?[st.oid||'',st.branch||'',st.detached?1:0].join('\u0000'):'';
+    const hk=st?[st.oid||'',st.branch||'',st.detached?1:0].join(RPT_SEP):'';
     if(repo&&this._headKey!==null&&hk!==this._headKey) this._loadPreflight(repo);
     this._headKey=hk;
     this._paint();
@@ -191,7 +191,7 @@ class GitCommit {
   // 커밋 차단은 서버가 커밋 시점에 다시 판정한다 (FR-GIT-86). 이 조회는 화면에
   // 필요한 것 — template·서명 표시·detached 경고 — 을 얻기 위한 것이다.
   async _loadPreflight(repo){
-    const res=await gitFetch('/api/git/preflight',{repo},
+    const res=await gitFetch(GIT_API.preflight,{repo},
       {stale:()=>this.panel.repo!==repo,echo:{repo}});
     if(res.stale||!res.ok||!res.data.preflight) return;
     this._pf=res.data.preflight; this._pfRepo=repo;
@@ -320,7 +320,7 @@ class GitCommit {
     }
     const amend=this._amend;
     this._busy=true; this._blocks=null; this._err=null; this._paint();
-    const res=await this.panel.post('/api/git/commit',{
+    const res=await this.panel.post(GIT_API.commit,{
       repo,message:msg,amend,
       signoff:this._opts.signoff,noVerify:this._opts.noVerify,all:this._opts.all,
     });
@@ -408,7 +408,7 @@ class GitCommit {
     const u=this._undo; if(!u) return;
     // 진입점을 먼저 없앤다 — 한 번의 커밋에 한 번의 undo 다.
     this._undoHide();
-    const res=await this.panel.post('/api/git/undo-last',{repo:u.repo,undoToken:u.token});
+    const res=await this.panel.post(GIT_API.undoLast,{repo:u.repo,undoToken:u.token});
     const d=res.data||{};
     if(!res.ok){
       this._err=d.error===GIT_ERR_UNDO_EXPIRED?GIT_UNDO_FAIL:this.panel.writeError(res);

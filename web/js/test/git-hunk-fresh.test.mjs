@@ -8,7 +8,7 @@ import { load } from './harness.mjs';
  * 곧바로 다시 받는다. 그 사이 툴바는 낡은 조각을 쓰지 않는다(#44).
  */
 function panel() {
-  const ctx = load(['git/panel-diff.js', 'git/panel-hunks.js'], {
+  const ctx = load(['ui/repaint.js', 'git/panel-diff.js', 'git/panel-hunks.js'], {
     globals: {
       GitPanel: class {},
       GIT_HUNK_AXES: new Set(['unstaged']),
@@ -25,7 +25,7 @@ function panel() {
     repo: '/r', commitFile: null, previewFile: f, _blameOn: false, _writing: false,
     _els: new Map([['diff', el]]),
     _diffView: { dirty: false, docEncoding: () => '' },
-    _hunkKey: ['/r', 'unstaged', 'a.txt'].join('\u0000'),
+    _hunkKey: ['/r', 'unstaged', 'a.txt'].join('\u0001'),
     _hunks: { diffId: 'old', list: [{ index: 0, header: '@@' }], note: '' },
     _hunkBarPos: null, _hunkBarHunk: 0,
     _hunkBarCoords: () => ({ hunk: 0, from: 0, to: 0 }),

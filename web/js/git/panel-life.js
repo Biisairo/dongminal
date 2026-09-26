@@ -97,7 +97,7 @@ Object.assign(GitPanel.prototype, {
     if(view==='diff'&&this._diffView) TIMERS.frame(()=>this._diffView.layout(),{owner:this,label:'diff-layout'});
     // History 는 탭이 활성일 때만 목록을 받는다 — 열지 않은 탭이 10,000 커밋을
     // 미리 받아 둘 이유가 없다.
-    // 아래의 탭별 재조회는 **`_render` 를 지난다** — 직접 `_renderHistory` 를 부르면
+    // 아래의 탭별 재조회는 **`_render` 를 지난다** — 직접 `_renderView` 를 부르면
     // 소실 분기(FR-RMS-20)를 건너뛰어 소실 안내가 제 내용으로 덮인다.
     if(view==='history'){
       this._render(view);
@@ -241,18 +241,9 @@ Object.assign(GitPanel.prototype, {
   _renderBody(view,el){
     if(view==='changes') return this._renderChanges(el);
     if(view==='diff') return this._renderDiff(el);
-    if(view==='history') return this._renderHistory(el);
-    if(view==='branches') return this._renderBranches(el);
-    if(view==='stash') return this._renderStash(el);
-    if(view==='console') return this._renderConsole(el);
-    if(view==='worktrees') return this._renderWorktrees(el);
-    if(view==='submodules') return this._renderSubmodules(el);
+    if(GIT_VIEW_KINDS[view]) return this._renderView(view,el);
     el.innerHTML='';
-    if(!this.repo){
-      const d=document.createElement('div'); d.className='ui-empty ui-empty-center git-empty';
-      d.textContent=GIT_NO_REPO_HINT;
-      el.appendChild(d);
-    }
+    if(!this.repo) this._emptyHint(el,GIT_NO_REPO_HINT);
   },
 
   /**

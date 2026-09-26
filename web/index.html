@@ -675,6 +675,8 @@
 <script src="js/core/settings-schema.js?v=__ASSETV__"></script>
 <script src="js/core/settings-defaults.js?v=__ASSETV__"></script>
 <script src="js/core/constants.js?v=__ASSETV__"></script>
+<!-- API 경로 표 (FR-OPT-12-5). 의존이 없고 constants-git*.js 가 로드 시점에 딛는다. -->
+<script src="js/core/constants-api.js?v=__ASSETV__"></script>
 <script src="js/core/constants-git.js?v=__ASSETV__"></script>
 <!-- 탭별 git 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1). 순서는 원본 파일의 절
      순서와 같다 — 그 순서가 곧 로드 시점 참조의 순서였다.
@@ -774,6 +776,8 @@
 <script src="js/git/diff-view.js?v=__ASSETV__"></script>
 <script src="js/git/diff-view-parity.js?v=__ASSETV__"></script>
 <script src="js/git/diff-view-doc.js?v=__ASSETV__"></script>
+<!-- 확인·다이얼로그의 공통 골격 (FR-OPT-12-2). 두 클래스가 extends 하므로 앞이어야 한다. -->
+<script src="js/git/modal-base.js?v=__ASSETV__"></script>
 <script src="js/git/confirm.js?v=__ASSETV__"></script>
 <script src="js/git/dialog.js?v=__ASSETV__"></script>
 <script src="js/git/commit.js?v=__ASSETV__"></script>

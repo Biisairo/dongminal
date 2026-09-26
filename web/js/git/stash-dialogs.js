@@ -49,7 +49,7 @@ class GitStashCreate {
   }
 
   async _run(v){
-    const res=await this.panel.post('/api/git/stash/push',{
+    const res=await this.panel.post(GIT_API.stashPush,{
       repo:this.repo,
       message:(v.message||'').trim(),
       includeUntracked:!!v.includeUntracked,
@@ -100,7 +100,7 @@ class GitStashBranch {
   }
 
   async _run(v){
-    const res=await this.panel.post('/api/git/stash/branch',{
+    const res=await this.panel.post(GIT_API.stashBranch,{
       repo:this.repo,oid:this.stash.oid,name:(v.name||'').trim(),
     });
     // 조작 응답은 실행 후 목록과 status 를 함께 싣고 온다 (FR-GIT-170) — 실패

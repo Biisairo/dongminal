@@ -511,7 +511,8 @@ Object.assign(GitPanel.prototype, {
     // 않으면 감시가 걷히고 `git_changed` 방송이 멎었다. 그래서 안전망을 끄면 본줄이
     // 끊겼다 (GP-1). `clientId` 를 실으면 그 신원의 SSE 구독이 임대를 쥐므로,
     // 이 요청이 뜸해져도 아예 끊겨도 감시가 산다.
-    const cid=this.app&&this.app.clientId?'&clientId='+encodeURIComponent(this.app.clientId):'';
+    const q={repo};
+    if(this.app&&this.app.clientId) q.clientId=this.app.clientId;
     /**
      * OPTIMIZE_REFACTOR_SRS FR-OPT-4-7 (IPC-30): **가진 관측의 mark 를 싣는다.**
      *
@@ -521,12 +522,11 @@ Object.assign(GitPanel.prototype, {
      *   이유:     그 요청들의 대부분은 변화가 없다. 옛 서버는 인자를 무시한다
      */
     const prev=this._status;
-    const im=prev&&prev.mark&&prev.requested===repo?'&ifMark='+encodeURIComponent(prev.mark):'';
+    if(prev&&prev.mark&&prev.requested===repo) q.ifMark=prev.mark;
     // 허브의 줄에 **떠날 때** 선다 — 먼저 떠난 쪽의 늦은 답이 나중 관측을 덮지 않는다.
     const hub=this.app&&this.app.gitStatusHub?this.app.gitStatusHub():null;
     const ht=hub?hub.depart(repo):0;
-    r=gitStatusMerge(await apiGet('/api/git/status?repo='+encodeURIComponent(repo)+cid+im,
-      {timeout:GIT_STATUS_FETCH_TIMEOUT_MS}),prev);
+    r=gitStatusMerge(await gitFetch(GIT_API.status,q),prev);
     d=r.data;
     // FR-OPT-4-1 (FEU-M1): 이 관측을 탐색기와 나눈다 — 같은 root 를 보는 탐색기가
     // 다음 틱에 요청 없이 칠한다.
@@ -649,7 +649,7 @@ Object.assign(GitPanel.prototype, {
     // REPO_FIX 05 §3A-6 (F-6.1 / §3A-0 X5): 관측 동일성은 서버의 `mark` 하나로 판정한다 —
     // (저장소, mark) 가 직전 적용분과 같으면 재조정을 건너뛴다. `mark:""` 는 비교하지 않는다.
     // 이전: 매 회차 status 전체를 JSON 으로 만들어 견줬다.
-    const obs=d.mark?(d.repo||'')+'\u0000'+d.mark:'';
+    const obs=d.mark?rptKey(d.repo||'',d.mark):'';
     if(!obs||obs!==this._obsSig){this.obs.paintAll(); this._obsSig=obs||null}
     // 활성 리포의 배지가 따라 갱신된다. 다른 리포는 서버의 마지막 관측값이다.
     this.app.gitReposKick();

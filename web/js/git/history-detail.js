@@ -92,7 +92,7 @@ Object.assign(GitHistory.prototype, {
     const box=el.querySelector('.git-hist-d-files');
     reconcileList(box,files,{
       key:f=>f.path,
-      sig:f=>[f.status,f.path,f.origPath||'',f.score||''].join('\u0001'),
+      sig:f=>[f.status,f.path,f.origPath||'',f.score||''].join(RPT_SEP),
       build:f=>this._fileEl(d,f),
     });
   },

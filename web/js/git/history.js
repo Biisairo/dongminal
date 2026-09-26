@@ -315,7 +315,7 @@ class GitHistory {
     const c=this._rev;
     box.classList.toggle('vis',!!c);
     if(!c){box.innerHTML='';box.onclick=null;return}
-    const sig=c.oid+'\u0001'+(c.subject||'');
+    const sig=rptKey(c.oid,c.subject||'');
     if(box.dataset.sig===sig) return;
     box.dataset.sig=sig;
     box.innerHTML='';

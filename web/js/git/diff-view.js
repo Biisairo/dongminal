@@ -340,17 +340,16 @@ class GitDiffView {
   _stale(seq,token){return this._dead||seq!==this._seq||this._isStale(token)}
 
   async _fetch(target,enc){
-    let u='/api/git/diff-content?repo='+encodeURIComponent(target.repo)+
-      '&axis='+encodeURIComponent(target.axis)+'&path='+encodeURIComponent(target.path);
+    const q={repo:target.repo,axis:target.axis,path:target.path};
     // REPO_FIX 03 §3A-3: 문서의 인코딩이면 쪽마다 그것으로 디코드한다.
-    if(enc) u+='&encoding='+encodeURIComponent(enc);
-    if(target.origPath) u+='&origPath='+encodeURIComponent(target.origPath);
+    if(enc) q.encoding=enc;
+    if(target.origPath) q.origPath=target.origPath;
     // 커밋 축만 리비전을 싣는다 (FR-GIT-138). oid 는 필수이고, parentOid 가 비면
     // 루트 커밋이다 — 서버가 그것을 absent 로 답한다.
-    if(target.oid) u+='&oid='+encodeURIComponent(target.oid);
-    if(target.parentOid) u+='&parentOid='+encodeURIComponent(target.parentOid);
-    // FR-GRF-6: 조회에는 시한이 있다.
-    const r=await apiGet(u,{timeout:GIT_STATUS_FETCH_TIMEOUT_MS});
+    if(target.oid) q.oid=target.oid;
+    if(target.parentOid) q.parentOid=target.parentOid;
+    // FR-GRF-6: 조회에는 시한이 있다 (gitFetch 의 기본).
+    const r=await gitFetch(GIT_API.diffContent,q);
     const d=r.data;
     // 닿지 못한 것과 거부당한 것을 가른다 (UX_BATCH6_SRS FR-GLV-6). 앞은
     // 일시적일 수 있고 뒤는 다시 물어도 같은 답이 온다.
@@ -436,7 +435,7 @@ class GitDiffView {
   // 않는다 — 이름이 바뀐 파일도 다른 대상이다.
   _drawKey(target,path){
     const t=target||{};
-    return [t.repo||'',t.axis||'',path||'',t.origPath||'',t.oid||'',t.parentOid||''].join('\u0000');
+    return [t.repo||'',t.axis||'',path||'',t.origPath||'',t.oid||'',t.parentOid||''].join(RPT_SEP);
   }
 
   // 대상의 절대경로. 저장소 루트와 상대경로에서 만든다 — 서버가 그 둘을 주므로

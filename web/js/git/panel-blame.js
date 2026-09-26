@@ -29,7 +29,7 @@ Object.assign(GitPanel.prototype, {
     }
     // 대상이 그대로면 다시 부르지 않는다 — 폴링마다 재요청하면 스크롤이 매초
     // 초기화된다 (_paintHunks 와 같은 규약).
-    const key=[this.repo||'',t.rev,t.path].join('\u0000');
+    const key=[this.repo||'',t.rev,t.path].join(RPT_SEP);
     if(this._blameKey!==key){
       this._blameKey=key; this._blameData=null; this._blameErr=null;
       // FR-PRF-18: "전체 보기" 는 **그 파일에 대한 선택**이다 — 다른 파일로 옮기면
@@ -42,10 +42,8 @@ Object.assign(GitPanel.prototype, {
 
   async _loadBlame(t,key){
     const tok=this.token();
-    const u='/api/git/blame?repo='+encodeURIComponent(this.repo||'')+
-      '&rev='+encodeURIComponent(t.rev)+'&path='+encodeURIComponent(t.path);
-    // FR-GRF-6: 조회에는 시한이 있다.
-    const r=await apiGet(u,{timeout:GIT_STATUS_FETCH_TIMEOUT_MS});
+    // FR-GRF-6: 조회에는 시한이 있다 (gitFetch 의 기본).
+    const r=await gitFetch(GIT_API.blame,{repo:this.repo||'',rev:t.rev,path:t.path});
     const d=r.data;
     if(this.isStale(tok)||this._blameKey!==key) return;
     // 서버가 되돌려준 요청값도 확인한다 — 같은 세대 안에서도 응답 순서가 뒤바뀔 수
@@ -79,7 +77,7 @@ Object.assign(GitPanel.prototype, {
     const shown=cut?GIT_BLAME_MAX_ROWS:all;
     // 판정 근거는 이 렌더러가 읽는 값 전부다 (FR-RPT-2) — 보인 줄 수가 여기 있어야
     // "전체 보기" 가 실제로 다시 그린다.
-    const sig=[this._blameKey,this._blameErr||'',d?all:-1,shown].join('\u0000');
+    const sig=[this._blameKey,this._blameErr||'',d?all:-1,shown].join(RPT_SEP);
     if(box.dataset.sig===sig) return;
     box.dataset.sig=sig;
     const note=box.querySelector('.git-blame-note');

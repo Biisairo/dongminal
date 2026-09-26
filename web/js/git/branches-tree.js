@@ -129,7 +129,7 @@ Object.assign(GitBranches.prototype, {
     const picked=r.kind===GIT_REF_KIND_LOCAL&&this._sel.has(r.short);
     const fav=this._favs().indexOf(r.short)>=0;
     return [r.short||'',r.name||'',r.kind||'',r.isHead?1:0,picked?1:0,fav?1:0,
-      r.ahead||0,r.behind||0,r.upstream||'',r.gone?1:0,r.subject||''].join('\u0000');
+      r.ahead||0,r.behind||0,r.upstream||'',r.gone?1:0,r.subject||''].join(RPT_SEP);
   },
 
   _pfxShell(key,pfx){

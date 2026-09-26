@@ -83,7 +83,7 @@ const GIT_DIFF_DRAWABLE=new Set(['text','absent']);
  * 종단을 그대로 걸고, 브라우저의 이미지 캐시와 조건부 요청이 그 위에서 공짜로
  * 돈다.
  */
-const GIT_BLOB_API='/api/git/blob';
+const GIT_BLOB_API=GIT_API.blob;
 const GIT_IMG_SIDE_ORIGINAL='original';
 const GIT_IMG_SIDE_MODIFIED='modified';
 // D-M9-12: 나란히가 기본이고 겹쳐 보기는 전환이다. 좌우는 "이게 무엇인가" 에,

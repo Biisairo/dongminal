@@ -20,7 +20,7 @@ function tree(responses, opts = {}) {
     ask: async () => { hub.fetches++; return responses[Math.min(i++, responses.length - 1)] },
     peek: () => hub.peeked,
   };
-  const ctx = load(['ui/file-tree-paint.js'], {
+  const ctx = load(['ui/repaint.js', 'ui/file-tree-paint.js'], {
     clock,
     globals: {
       FileTree: class {},

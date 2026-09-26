@@ -28,13 +28,13 @@ class GitCommitOps {
    */
   static cherryPick(panel,c){
     if(!GitCommitOps._merge(c))
-      return GitCommitOps._send(panel,'/api/git/cherry-pick',{oid:c.oid});
+      return GitCommitOps._send(panel,GIT_API.cherryPick,{oid:c.oid});
     return GitDialog.open({
       id:'git-cherry-pick',ns:'gco',action:'cherry_pick',
       title:GIT_CO_CHERRY_TITLE,runLabel:GIT_CO_CHERRY_RUN,
       body:GIT_CO_CONFLICT_NOTE,
       fields:[GitCommitOps._mainlineField(c)],
-      run:v=>GitCommitOps._send(panel,'/api/git/cherry-pick',
+      run:v=>GitCommitOps._send(panel,GIT_API.cherryPick,
         {oid:c.oid,mainline:GitCommitOps._mainline(v)}),
     });
   }
@@ -56,7 +56,7 @@ class GitCommitOps {
       id:'git-revert',ns:'gco',action:'revert',
       title:GIT_CO_REVERT_TITLE,runLabel:GIT_CO_REVERT_RUN,
       body:GIT_CO_CONFLICT_NOTE,fields,
-      run:v=>GitCommitOps._send(panel,'/api/git/revert',{
+      run:v=>GitCommitOps._send(panel,GIT_API.revert,{
         oid:c.oid,noCommit:!!v.noCommit,
         mainline:merge?GitCommitOps._mainline(v):0,
       }),
@@ -99,14 +99,14 @@ class GitCommitOps {
   static _reset(panel,c,mode){
     const body={oid:c.oid,mode};
     if(mode!==GIT_CO_RESET_MODE_HARD)
-      return GitCommitOps._send(panel,'/api/git/reset',body);
+      return GitCommitOps._send(panel,GIT_API.reset,body);
     // `reset_hard` 는 서버의 파괴적 목록에 있는 이름이다 — 단계 수를 여기서
     // 정하지 않는다 (FR-GIT-89·90).
     return GitDialog.confirm({
       action:GIT_ACT_RESET_HARD,title:GIT_CO_RESET_HARD_TITLE,
       targets:[GitCommitOps.label(c)],
       hint:{note:GIT_CO_RESET_HARD_NOTE,command:GitCommitOps._restoreCmd(panel)},
-      run:()=>GitCommitOps._send(panel,'/api/git/reset',
+      run:()=>GitCommitOps._send(panel,GIT_API.reset,
         Object.assign({},body,{confirm:true})),
     });
   }
@@ -116,7 +116,7 @@ class GitCommitOps {
   // 파괴적 확인과 recovery hint 는 `GIT_MENUS.commit` 의 `destructive:true` 가 이미
   // 거쳤다 — 여기서는 확인을 거쳤음을 함께 보낸다. 서버도 그것을 요구한다.
   static drop(panel,c){
-    return GitCommitOps._send(panel,'/api/git/drop',{oid:c.oid,confirm:true});
+    return GitCommitOps._send(panel,GIT_API.drop,{oid:c.oid,confirm:true});
   }
 
   // ── Compare with (FR-GIT-267) ──
@@ -165,7 +165,7 @@ class GitCommitOps {
     const r=GitCommitOps.parseRange(rev,c.oid);
     const q=new URLSearchParams({repo:panel.repo,from:r.from,to:r.to});
     if(r.symmetric) q.set('symmetric','1');
-    const rr=await gitFetch('/api/git/commit-range',Object.fromEntries(q),
+    const rr=await gitFetch(GIT_API.commitRange,Object.fromEntries(q),
       {echo:{repo:panel.repo}});
     const d=rr.data;
     if(!rr.ok||!d||!d.from||!d.to) return {ok:false,reason:GIT_CO_COMPARE_FAIL};
@@ -247,7 +247,7 @@ class GitCommitOps {
    */
   static async _count(panel,oid){
     const q=new URLSearchParams({repo:panel.repo,from:oid,to:'HEAD'});
-    const rr=await gitFetch('/api/git/commit-range',Object.fromEntries(q),
+    const rr=await gitFetch(GIT_API.commitRange,Object.fromEntries(q),
       {echo:{repo:panel.repo}});
     const d=rr.data;
     return rr.ok&&d&&typeof d.count==='number'?d.count:null;

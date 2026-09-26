@@ -358,7 +358,7 @@ class GitRemote {
     // 라우트는 kind 에서 파생한다. 기본 규칙(`/api/git/<kind>`)과 다른 것만
     // GIT_REMOTE_URL 에 있다 — 태그 push·원격 삭제가 그것이며(FR-GIT-262), 그것들도
     // **같은 job 경로**를 타야 하므로 새 실행 경로를 만들지 않는다.
-    const res=await this._post(GIT_REMOTE_URL[kind]||('/api/git/'+kind),
+    const res=await this._post(GIT_REMOTE_URL[kind]||(GIT_API_PREFIX+kind),
       Object.assign({repo},body||{}));
     this._busy=false; this._busyKey='';
     const job=res.data&&res.data.job;
@@ -449,7 +449,7 @@ class GitRemote {
     });
     if(!ok||!this._job||this._job.id!==job.id) return;
     this._canceling=true; this._paint();
-    const res=await this._post('/api/git/job/cancel',{id:job.id});
+    const res=await this._post(GIT_API.jobCancel,{id:job.id});
     if(res.ok) return;
     this._canceling=false;
     this._err=this._reason(res);
@@ -488,7 +488,7 @@ class GitRemote {
     // 채널은 버스가 연다 (FR-BUS-7 · INV-2). 재시도는 이 클래스의 것이다 —
     // `_retries`·`GIT_JOB_RETRY_MS` 가 job 의 수명에 매여 있기 때문이다.
     const es=this.app.bus.openChannel('git-job',
-      '/api/git/job/events?id='+encodeURIComponent(id)+'&after='+this._seq,
+      apiUrl(GIT_API.jobEvents,{id,after:this._seq}),
       {owner:this});
     if(!es) return;
     this._stream=es;
@@ -668,13 +668,6 @@ class GitRemote {
     return {ok:r.ok,code:r.status,data:r.data||{}};
   }
 
-  // 읽기 쪽도 같은 모양으로 답한다 — 두 왕복의 결과 해석이 갈리면 실패 사유가
-  // 두 벌이 된다.
-  async _get(url){
-    const r=await apiGet(url);
-    return {ok:r.ok,code:r.status,data:r.data||{}};
-  }
-
   _reason(res){
     const d=res.data||{};
     const base=GIT_WRITE_ERR[d.error]||GIT_JOB_START_FAIL;
@@ -824,7 +817,7 @@ class GitRemoteList {
     // 지우기 버튼의 글자는 상수다.
     reconcileList(box,this._list,{
       key:r=>r.name||'',
-      sig:r=>[r.name||'',r.url||'',r.pushUrl||''].join('\u0001'),
+      sig:r=>[r.name||'',r.url||'',r.pushUrl||''].join(RPT_SEP),
       build:r=>this._rowEl(r),
     });
   }
@@ -865,7 +858,7 @@ class GitRemoteList {
         command:'git -C '+gitShQuote(repo)+' remote add '+r.name+' '+(r.url||'')},
     });
     if(!ok) return;
-    const res=await this.panel.post('/api/git/remote/remove',{repo,name:r.name});
+    const res=await this.panel.post(GIT_API.remoteRemove,{repo,name:r.name});
     if(!this.adoptWrite(res)) this._fail(GIT_RM_REMOVE_FAIL,res);
   }
 
@@ -892,7 +885,7 @@ class GitRemoteList {
   // FR-OPT-1-5: 목록 뷰들과 같은 적재 규약을 지난다 — 낡은 응답에서 잠금을 푸는
   // 순서(FR-GRF-24)와 앞선 조회를 끊는 신호(FR-GRF-31)가 거기 있다.
   _load(){
-    return gitLoadList(this,{url:'/api/git/remotes',key:'remotes',failMsg:GIT_RM_LOAD_FAIL});
+    return gitLoadList(this,{url:GIT_API.remotes,key:'remotes',failMsg:GIT_RM_LOAD_FAIL});
   }
 }
 
@@ -933,7 +926,7 @@ class GitRemoteAdd {
   }
 
   async _run(v){
-    const res=await this.panel.post('/api/git/remote/add',{
+    const res=await this.panel.post(GIT_API.remoteAdd,{
       repo:this.repo,name:(v.name||'').trim(),url:(v.url||'').trim(),
     });
     if(this.list.adoptWrite(res)) return {ok:true};

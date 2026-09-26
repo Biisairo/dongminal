@@ -21,7 +21,7 @@ function setup(answer) {
     const r = answer(u);
     return new Promise((resolve) => waits.push(() => resolve(r)));
   };
-  const ctx = load(['git/status-hub.js', 'git/panel-poll.js', 'git/panel-write.js'], {
+  const ctx = load(['core/constants-api.js', 'git/api.js', 'git/status-hub.js', 'git/panel-poll.js', 'git/panel-write.js'], {
     clock,
     expose: ['GitStatusHub'],
     globals: {

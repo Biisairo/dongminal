@@ -32,7 +32,7 @@
  * - 열린 동안에도 폴링은 계속된다. 대상 상태 지문이 바뀌면 상단에 알리되
  *   **실행을 막지 않는다** (FR-GIT-178).
  */
-class GitDialog {
+class GitDialog extends GitModalBase {
   /**
    * 확인만 하는 다이얼로그는 `GitConfirm` 그 자체다 (FR-GIT-172) — 골격을 다시
    * 세울 것이 없으므로 그대로 넘긴다.
@@ -93,6 +93,8 @@ class GitDialog {
   }
 
   constructor(o){
+    super();
+    this._pfx='git-dialog';
     // id·클래스 접두는 흡수한 다이얼로그가 자기 것을 유지한다 — 공유하는 것은
     // 골격이고 이름은 각자의 것이다.
     this.id=o.id||GIT_DIALOG_ID;
@@ -145,21 +147,7 @@ class GitDialog {
     this._paint();
   }
 
-  _show(){
-    // FR-KIT-24: 돌아갈 자리는 `_focus()` **전에** 잡는다 (`GitConfirm` 과 같은 이유).
-    const returnTo=document.activeElement;
-    this._build();
-    GitDialog._cur=this;
-    this._revalidate('');
-    this._paint();
-    this._focus();
-    // FR-KIT-24·25: 이름은 머리(`.git-dialog-head`)가 준다 — `_paint` 뒤라야 한다.
-    this._releaseDlg=UIKit.dialogOpen(this.box,{
-      labelledBy:this.box.querySelector('.git-dialog-head'), label:this.title||'',
-      returnTo, focus:document.activeElement,
-    });
-    return new Promise(res=>{this._resolve=res});
-  }
+  _beforePaint(){ this._revalidate('') }
 
   _build(){
     const ns=this.ns;
@@ -201,7 +189,7 @@ class GitDialog {
       this.box.querySelector('.git-dialog-cancel').addEventListener('click',()=>this._cancel());
       this.box.querySelector('.git-dialog-go').addEventListener('click',()=>this._run());
     }
-    this._key=e=>{
+    this._listenKeys(e=>{
       if(e.key!=='Enter'&&e.key!=='Escape') return;
       // FR-PDA-2·5: **버튼에 포커스가 있으면 그 버튼의 것이다.** 흘려보내
       // 브라우저가 그것을 누르게 한다 — 그래야 취소에 포커스를 두고 누른
@@ -217,8 +205,7 @@ class GitDialog {
       if(e.key==='Escape'){this._cancel();return}
       if(this.choices.length){this._pick(this.def);return}
       this._run();
-    };
-    document.addEventListener('keydown',this._key,true);
+    });
   }
 
   _fieldsEl(host){
@@ -316,9 +303,7 @@ class GitDialog {
     const b=this.box; if(!b) return;
     b.classList.toggle('mobile',this.mobile);
     b.querySelector('.git-dialog-head').textContent=this.title;
-    const ch=b.querySelector('.git-dialog-changed');
-    ch.textContent=this.changed?GIT_CONFIRM_CHANGED:'';
-    ch.classList.toggle('vis',this.changed);
+    this._paintChanged();
     const bd=b.querySelector('.git-dialog-body');
     bd.textContent=this.body;
     bd.classList.toggle('vis',!!this.body);
@@ -327,37 +312,18 @@ class GitDialog {
     w.textContent=this.why;
     w.dataset.why=this.whyKind===GIT_DIALOG_WHY_PENDING?'':this.whyKind;
     w.classList.toggle('vis',!!this.why);
-    // FR-GIT-175: 사유와 stderr tail 을 남기고 닫지 않는다.
-    const err=b.querySelector('.git-dialog-err');
-    err.classList.toggle('vis',!!this.err);
-    err.querySelector('.git-dialog-err-reason').textContent=(this.err&&this.err.reason)||'';
-    const tail=err.querySelector('.git-dialog-err-tail');
-    tail.textContent=(this.err&&this.err.tail)||'';
-    tail.classList.toggle('vis',!!tail.textContent);
-    const dlgCopy=err.querySelector('.git-dialog-copy');
-    dlgCopy.textContent=GIT_CONFIRM_COPY; dlgCopy.title=GIT_CONFIRM_COPY_TITLE;
+    this._paintErr(b.querySelector('.git-dialog-copy'),true);
     // FR-GIT-174: 실행 중에는 진행을 보이고 옵션·버튼을 전부 막는다.
     for(const i of b.querySelectorAll('.git-dialog-fields input')) i.disabled=this.busy;
-    const go=b.querySelector('.git-dialog-go');
-    if(!go) return;
-    b.querySelector('.git-dialog-progress').textContent=this.busy?GIT_CONFIRM_RUNNING:'';
-    const cancel=b.querySelector('.git-dialog-cancel');
-    cancel.textContent=GIT_CONFIRM_CANCEL; cancel.title=GIT_CONFIRM_CANCEL_TITLE;
+    // 선택지 모드에는 actions 행이 없다.
+    if(!b.querySelector('.git-dialog-go')) return;
     // 실행 라벨은 다이얼로그마다 다르므로(`Create`·`Push`…) 툴팁도 그 라벨을
     // 딛는다 — 여기서 무엇이 실행되는지는 그 라벨이 유일한 근거다.
-    go.textContent=this.runLabel; go.title=this.runLabel;
-    cancel.disabled=this.busy;
-    go.disabled=this.busy||!!this.whyKind;
+    this._paintActions(this.runLabel,this.runLabel,!!this.whyKind);
   }
 
   // 텍스트 필드가 있으면 그것이 첫 입력 자리다 (FR-GIT-173 · FR-PDA-5).
   // 그 밖에는 **목적 버튼**인 실행에 둔다 (FR-PDA-1) — 종전에는 취소였다.
-  // F-9.3: 겹쳐 온 요청에 열린 창을 보인다.
-  _front(){
-    if(this.ov&&this.ov.parentNode) document.body.appendChild(this.ov);
-    this._focus();
-  }
-
   _focus(){
     if(this._defBtn){this._defBtn.focus();return}
     const b=this.box;
@@ -372,37 +338,14 @@ class GitDialog {
     // 중복 실행 차단 (FR-GIT-174). 사유가 있으면 실행 자체가 열려 있지 않다.
     if(this.busy||this.whyKind||!this.run) return;
     const v=this.values();
-    this.busy=true; this.err=null; this._paint();
-    let res=null;
-    try{res=await this.run(v,this)}catch(e){res={ok:false,reason:String(e)}}
-    this.busy=false;
-    if(res&&res.ok){this._close(true);return}
-    this.err={reason:(res&&res.reason)||GIT_CONFIRM_FAIL,tail:(res&&res.stderrTail)||''};
-    this._paint();
-    this._focus();
+    await this._exec(()=>this.run(v,this));
   }
 
   _pick(id){this._close(id||'')}
 
   _cancel(){this._close(this.choices.length?this.def:false)}
 
-  _close(v){
-    document.removeEventListener('keydown',this._key,true);
-    if(this._releaseDlg){this._releaseDlg();this._releaseDlg=null}
-    if(this.ov) this.ov.remove();
-    this.ov=null; this.box=null; this._defBtn=null;
-    if(GitDialog._cur===this) GitDialog._cur=null;
-    const r=this._resolve; this._resolve=null;
-    if(r) r(this.choices.length?String(v||''):!!v);
-  }
-
-  // 클립보드 접근이 막힌 환경에서도 동작해야 한다 — 그 3단은 한 자리에 있다
-  // (FR-STR-10). 종전에는 2단만 여기 복사돼 있었고, 그래서 제스처가 거부되면
-  // 조용히 실패했다 (FR-STR-14·15).
-  _copy(text){
-    if(!text) return;
-    ClipboardWriter.write(text);
-  }
+  _result(v){ return this.choices.length?String(v||''):!!v }
 }
 
 GitDialog._cur=null;

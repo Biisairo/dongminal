@@ -152,8 +152,8 @@ const GIT_TAG_REMOTE_FALLBACK='origin';
 const GIT_TAG_KIND_PUSH='tag-push';
 const GIT_TAG_KIND_DELETE_REMOTE='tag-delete-remote';
 const GIT_REMOTE_URL={
-  [GIT_TAG_KIND_PUSH]:'/api/git/tag/push',
-  [GIT_TAG_KIND_DELETE_REMOTE]:'/api/git/tag/delete-remote',
+  [GIT_TAG_KIND_PUSH]:GIT_API.tagPush,
+  [GIT_TAG_KIND_DELETE_REMOTE]:GIT_API.tagDeleteRemote,
 };
 // ── stash·파일·미커밋 동작 (FR-GIT-272~277) ──
 // 안내문은 한국어, 버튼은 영어다 (FR-GIT-202). 확인은 항목이 쓰지 않는다 —
@@ -490,6 +490,3 @@ Object.assign(GIT_WRITE_ERR,{
   branch_is_current:t('git.br_remote_delete_note.branch_is_current'),
   publish_required:t('git.br_remote_delete_note.publish_required'),
 });
-// FR-EDT-71: 색의 근거는 status **하나**다 — 펼침마다 중첩 저장소를 찾으면
-// 펼침 수만큼 rev-parse 가 붙는다 (D-6).
-const GIT_STATUS_API='/api/git/status';

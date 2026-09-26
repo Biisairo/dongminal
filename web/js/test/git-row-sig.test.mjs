@@ -32,7 +32,7 @@ test('F-6.1: 행이 읽는 필드는 전부 서명 목록에 있다', () => {
 });
 
 test('F-6.1: 서브모듈 상태가 바뀌면 행 서명이 바뀐다', () => {
-  const ctx = load(['git/panel-changes.js'], {
+  const ctx = load(['ui/repaint.js', 'git/panel-changes.js'], {
     globals: { GitPanel: class {}, GIT_ROW_FIELDS: rowFields() },
   });
   const p = Object.create(ctx.GitPanel.prototype);

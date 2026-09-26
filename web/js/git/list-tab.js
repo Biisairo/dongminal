@@ -126,7 +126,7 @@ class GitListTab {
    * 소스에 두면 diff 와 검색이 그것을 놓친다).
    */
   _sig(e){
-    return this._sigParts(e).join('\u0001');
+    return this._sigParts(e).join(RPT_SEP);
   }
 
   // ── 하위가 채우는 자리 ──

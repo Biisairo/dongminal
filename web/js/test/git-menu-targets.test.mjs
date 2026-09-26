@@ -13,7 +13,7 @@ import { load, plain } from './harness.mjs';
  * 계산을 따른다. 항목은 메뉴 정의에서 열거한다 — 새 파괴적 항목이 표에 없으면
  * 이 검사가 실패한다.
  */
-const FILES = ['git/menu.js', 'git/branches-ops.js', 'git/panel-views.js'];
+const FILES = ['core/constants-api.js', 'git/menu.js', 'git/branches-ops.js', 'git/panel-views.js'];
 const SRC = FILES.map((f) =>
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', f), 'utf8')).join('\n');
 
@@ -113,7 +113,7 @@ const EXPECT = {
 
 function patch(w) {
   // panel-files.js 의 Clean 을 실제로 쓴다 — 대상 대조가 그 안에 있다.
-  const pf = load(['git/panel-files.js'], { globals: {
+  const pf = load(['core/constants-api.js', 'git/panel-files.js'], { globals: {
     GitPanel: class {}, Toast: w.ctx.Toast, TOAST_ERR_MS: 0, GIT_UNC_CLEAN_CHANGED: 'changed' } });
   w.panel.uncommittedClean = pf.GitPanel.prototype.uncommittedClean;
 }

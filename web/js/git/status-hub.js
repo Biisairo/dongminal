@@ -39,7 +39,7 @@ class GitStatusHub {
   invalidate(){ this._gen++ }
 
   /**
-   * 그 root 의 status. 응답 모양은 `apiGet` 의 것이다 (`{ok,status,data}`).
+   * 그 root 의 status. 응답 모양은 `gitFetch` 의 것이다 (`{ok,status,data,stale}`).
    * @param {string} root
    * @returns {Promise<any>}
    */
@@ -55,7 +55,7 @@ class GitStatusHub {
     const cid=this._cid();
     if(cid) query.clientId=cid;
     if(prev&&prev.mark) query.ifMark=prev.mark;
-    const p=apiGet(GIT_STATUS_API,{query,timeout:GIT_STATUS_FETCH_TIMEOUT_MS}).then(r=>{
+    const p=gitFetch(GIT_API.status,query).then(r=>{
       const out=gitStatusMerge(r,prev);
       if(e.flight&&e.flight.p===p) e.flight=null;
       // 늦게 떠난 요청의 답이 먼저 와도, 먼저 떠난 요청의 답이 그것을 덮지 않는다.

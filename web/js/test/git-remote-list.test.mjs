@@ -11,7 +11,7 @@ import { load } from './harness.mjs';
  * 새 조회는 앞선 조회를 끊는다 (FR-GRF-31).
  */
 const calls = [];
-const ctx = load(['git/view-util.js', 'git/remote.js'], {
+const ctx = load(['core/constants-api.js', 'git/view-util.js', 'git/remote.js'], {
   globals: {
     gitFetch: (url, params, opts) => new Promise((resolve) => calls.push({ url, params, opts, resolve })),
     GIT_RM_LOAD_FAIL: 'load-fail',

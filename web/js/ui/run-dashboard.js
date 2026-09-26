@@ -398,7 +398,7 @@ Object.assign(RunsPanel.prototype, {
   async _runDetachMember(m) {
     if (!m || !m.id) return;
     this._runDetachErr = null; this._runDetachMsg = '';
-    const r = await apiPost('/api/runs/detach', { memberId: m.id });
+    const r = await apiPost(RUNS_DETACH_API, { memberId: m.id });
     if (!r.ok) { this._runCardFail(m, r, t('runs.detach_fail')); return }
     // 이 멤버를 보고 있는 대시보드 탭들이 결과를 따라온다. 분리는 서버의 사실을
     // 바꾸므로 `run_changed` 가 오지만, **실패한 경우에는 오지 않는다** — 그
@@ -422,7 +422,7 @@ Object.assign(RunsPanel.prototype, {
     if (m.toolId && this.app.findToolLocation(m.toolId)) { this.app.jumpToTool(m.toolId); return }
     try {
       // location 을 비워 둔다 — 그래야 지금 포커스된 분할 칸이 대상이 된다.
-      const r = await apiPost('/api/runs/attach', { memberId: m.id });
+      const r = await apiPost(RUNS_ATTACH_API, { memberId: m.id });
       /**
        * `12-func-ui.md FUI-20`: **실패를 카드가 말한다.**
        *

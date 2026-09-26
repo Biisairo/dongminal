@@ -88,20 +88,20 @@ Object.assign(GitPanel.prototype, {
   // 다른 stash 를 가리킨다. 서버가 실행 직전에 현재 위치를 찾는다.
 
   async stashApply(oid,withIndex){
-    const res=await this.post('/api/git/stash/apply',
+    const res=await this.post(GIT_API.stashApply,
       {repo:this.repo,oid,withIndex:!!withIndex});
     this.afterStashWrite(res);
   },
 
   async stashPop(oid){
-    const res=await this.post('/api/git/stash/pop',{repo:this.repo,oid});
+    const res=await this.post(GIT_API.stashPop,{repo:this.repo,oid});
     this.afterStashWrite(res);
   },
 
   // drop 은 파괴적이다 (FR-GIT-89·168). 파괴적 확인과 recovery hint 는 GitMenu 가
   // 이미 거쳤으므로 여기서는 `confirm` 을 실어 보낸다 — 서버도 그것을 요구한다.
   async stashDrop(oid){
-    const res=await this.post('/api/git/stash/drop',
+    const res=await this.post(GIT_API.stashDrop,
       {repo:this.repo,oid,confirm:true});
     this.afterStashWrite(res);
   },
@@ -175,7 +175,7 @@ Object.assign(GitPanel.prototype, {
       action:GIT_ACT_INDEX_LOCK_REMOVE,title:GIT_LOCK_TITLE,targets:[lock.path],
       hint:{note:GIT_LOCK_NOTE.replace('{when}',GitHistory.relTime(lock.mtimeUnixMs))},
       run:async()=>{
-        const res=await this.post('/api/git/lock/remove',
+        const res=await this.post(GIT_API.lockRemove,
           {repo,confirm:true,mtimeUnixMs:lock.mtimeUnixMs});
         if(res.ok) return {ok:true};
         return {ok:false,reason:this.writeReason(res),stderrTail:(res.data&&res.data.message)||''};
@@ -366,7 +366,7 @@ Object.assign(GitPanel.prototype, {
       if(r.ok){this._note=null; this.adopt(r.data)}
       else this.applyWriteFail(r);
     };
-    const res=await this.postJob('/api/git/operation',
+    const res=await this.postJob(GIT_API.operation,
       {repo:this.repo,kind,action,confirm:!!confirm},after);
     if(!res.started) after(res);
     return res;

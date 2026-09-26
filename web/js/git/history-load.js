@@ -11,11 +11,11 @@ Object.assign(GitHistory.prototype, {
   // ── 질의 ──
 
   async _get(path,params){
-    const q=new URLSearchParams();
+    const q={};
     for(const k of Object.keys(params)){
       const v=params[k];
       if(v===''||v==null) continue;
-      q.set(k,String(v));
+      q[k]=String(v);
     }
     // GIT_REFRESH_LIFECYCLE_SRS FR-GRF-6 (`GP-5`): **시한이 있다.**
     //
@@ -29,7 +29,9 @@ Object.assign(GitHistory.prototype, {
     //
     // 이 함수는 `/api/git/log`·`commit` 이 지나는 자리다. refs 는 `panel.fetchRefs` 가
     // 같은 시한으로 받는다 (FR-OPT-4-9).
-    const r=await apiGet(path+'?'+q.toString(),{timeout:GIT_STATUS_FETCH_TIMEOUT_MS});
+    // echo 는 `_sameReq` 가 본다 — 서버가 숫자로 되싣는 값을 글자로 견주어야 해서
+    // gitFetch 의 엄격한 대조를 쓰지 않는다.
+    const r=await gitFetch(path,q);
     if(!r.ok) return null;
     return r.data;
   },
@@ -122,7 +124,7 @@ Object.assign(GitHistory.prototype, {
      * 화면에는 "한쪽만 살아 있는" 모양으로 나타난다 (접수한 관찰).
      */
     let d=null;
-    try{ d=await this._get('/api/git/log',sent) }
+    try{ d=await this._get(GIT_API.log,sent) }
     finally{ this._loading=false }
     if(this.panel.isStale(tok)) return;
     if(!d||!d.requested||!this._sameReq(d.requested,sent)){
@@ -241,7 +243,7 @@ Object.assign(GitHistory.prototype, {
     const sent={repo,oid,parent:this._parentIdx};
     this._detail=null; this._detailErr=null;
     this._ver++; this._paintRows();
-    const d=await this._get('/api/git/commit',sent);
+    const d=await this._get(GIT_API.commit,sent);
     // FR-GIT-145: 리포가 바뀌었거나 대상이 바뀌었으면 버린다.
     if(this.panel.isStale(tok)) return;
     if(this._open!==oid||this._parentIdx!==sent.parent) return;
@@ -367,7 +369,7 @@ Object.assign(GitHistory.prototype, {
   async _revLookup(q){
     if(!q||!this._repo){this._rev=null;this._paintRev();return}
     const tok=this.panel.token();
-    const d=await this._get('/api/git/log',{repo:this._repo,ref:q,limit:1});
+    const d=await this._get(GIT_API.log,{repo:this._repo,ref:q,limit:1});
     if(this.panel.isStale(tok)||!this._el) return;
     // 늦게 온 응답이 지금 치고 있는 말을 덮지 않는다.
     if(this._q.trim()!==q) return;

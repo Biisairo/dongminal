@@ -119,7 +119,7 @@ Object.assign(RunsPanel.prototype, {
 
   async _runsFetchList() {
     let list = null, err = null;
-    const r = await apiGet('/api/runs');
+    const r = await apiGet(RUNS_API);
     if (r.ok) list = (r.data && r.data.runs) || [];
     else err = apiErrText(r, t('runs.list_fail'));
     this._runsList = list || [];
@@ -274,7 +274,7 @@ Object.assign(RunsPanel.prototype, {
     this._runsConfirm = null; this._runsConfirmKind = null; this._runsDelErr = null;
     this._runsPending = runId; this._runsPendingKind = 'close';
     this._runsPanelPaint();
-    const r = await apiPost('/api/runs/close', { runId, force: true });
+    const r = await apiPost(RUNS_CLOSE_API, { runId, force: true });
     let msg = '';
     if (!r.ok) {
       msg = apiErrText(r, t('runs.close_fail'));
@@ -293,7 +293,7 @@ Object.assign(RunsPanel.prototype, {
     this._runsPending = runId; this._runsPendingKind = 'delete';
     this._runsPanelPaint();
     let ok = false, msg = '';
-    const r = await apiDel('/api/runs/' + encodeURIComponent(runId));
+    const r = await apiDel(RUNS_API + '/' + encodeURIComponent(runId));
     ok = r.ok;
     if (!ok) msg = apiErrText(r, t('runs.delete_fail'));
     this._runsPending = null; this._runsPendingKind = null;
@@ -379,7 +379,7 @@ Object.assign(RunsPanel.prototype, {
     if (v.busy) { v.pending = true; return }
     v.busy = true; v.pending = false;
     let data = null, err = null;
-    const r = await apiGet('/api/runs/' + encodeURIComponent(v.runId) + '/graph');
+    const r = await apiGet(RUNS_API + '/' + encodeURIComponent(v.runId) + '/graph');
     if (r.status === 404) err = 'gone';
     else if (!r.ok) err = apiErrText(r, t('runs.graph_fail'));
     else data = r.data;

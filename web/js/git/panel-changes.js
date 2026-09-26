@@ -74,7 +74,7 @@ Object.assign(GitPanel.prototype, {
       // F-6.3: 실패는 서버 사유로 말한다 — 확인창 안에서, 그리고 닫은 뒤 그 자리에.
       // 이전: 응답 모양을 그대로 돌려 사유가 비어 "동작이 실패했습니다" 만 보였다.
       run:async()=>{
-        const r=await this.post('/api/git/init',{path:this.root});
+        const r=await this.post(GIT_API.init,{path:this.root});
         if(r.ok) return {ok:true};
         const why=(r.data&&r.data.message)||'';
         this._initErr=why||GIT_INIT_FAIL;
@@ -312,7 +312,7 @@ Object.assign(GitPanel.prototype, {
     // 이유: `_paintHead` 는 status 폴링이 부르고, 배지는 detached·upstream·충돌
     //       셋으로만 정해져 **거의 언제나 그대로다.** 이 자리는 감사가 든 여섯에
     //       없었고 **등록부를 채우는 과정에서 나왔다** (SRS §2.2 · D-PRF-2).
-    const sig=!s?'':[s.detached?1:0,s.hasUpstream?1:0,(s.conflicts||[]).length].join('\u0001');
+    const sig=!s?'':[s.detached?1:0,s.hasUpstream?1:0,(s.conflicts||[]).length].join(RPT_SEP);
     paintIfChanged(badges,sig,()=>{
       badges.innerHTML='';
       const add=(cls,text)=>{
@@ -454,7 +454,7 @@ Object.assign(GitPanel.prototype, {
   // 행의 **보이는 값 전부**다 (FR-RPT-2). 하나라도 빠지면 그 값의 변화가 화면에
   // 닿지 않는다 — 좁히지 않는다.
   _itemSig(it){
-    if(it.t==='dir') return [it.depth,it.label,it.collapsed?1:0].join('\u0001');
+    if(it.t==='dir') return [it.depth,it.label,it.collapsed?1:0].join(RPT_SEP);
     if(it.t==='more') return String(it.n);
     const e=it.e,group=it.group;
     // REPO_FIX 05 F-6.1: 항목 필드는 `GIT_ROW_FIELDS` 에서 파생한다. 이전: 필드를 손으로
@@ -467,7 +467,7 @@ Object.assign(GitPanel.prototype, {
       this._treeMode()?1:0,
       // ours·theirs 의 title 이 진행 중인 조작에 따라 뒤집힌다 (FR-GIT-224).
       this._op()||'',
-    ].join('\u0001');
+    ].join(RPT_SEP);
   },
 
   _itemEl(it){

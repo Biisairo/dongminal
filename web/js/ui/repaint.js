@@ -22,6 +22,11 @@
 const RPT_SIG='psig';
 const RPT_KEY='rkey';
 const RPT_ROW_SIG='rsig';
+// OPTIMIZE_REFACTOR_SRS FR-OPT-12-6 (FEU-21): 서명·캐시 키의 구분자 한 벌. 비교에만 쓰이므로
+// 값은 무엇이든 되지만, 두 벌('\u0001'·'\u0000')이면 읽는 사람이 둘을 다른 규약으로 읽는다.
+const RPT_SEP='\u0001';
+/** 조각들을 `RPT_SEP` 로 이은 키. */
+function rptKey(...parts){ return parts.join(RPT_SEP) }
 
 /**
  * FR-RPT-1·2: sig 가 지난 회차와 같으면 draw 를 부르지 않는다.

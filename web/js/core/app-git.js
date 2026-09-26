@@ -726,7 +726,7 @@ Object.assign(App.prototype, {
     const q={clientId:this.clientId};
     if(this._gitObserveOk()){ q.observe='1'; this._gitPinsLeased=true }
     else if(this._gitPinsLeased){ q.observe='0'; this._gitPinsLeased=false }
-    const res=await gitFetch('/api/git/repos',q,{stale});
+    const res=await gitFetch(GIT_API.repos,q,{stale});
     if(res.stale) return;
     if(res.status===503){
       // git 이 없거나 서비스가 구성되지 않은 환경이다. 섹션 전체를 숨긴다.
@@ -821,7 +821,7 @@ Object.assign(App.prototype, {
     const tool=this._gitTermToolId();
     if(!tool) return null;
     // gitFetch 는 던지지 않는다 — 망 실패도 {ok:false} 로 돌아온다.
-    const res=await gitFetch('/api/git/repo-at',{tool});
+    const res=await gitFetch(GIT_API.repoAt,{tool});
     return res.ok?res.data:null;
   },
 
@@ -857,7 +857,7 @@ Object.assign(App.prototype, {
   async _gitReorder(dr){
     if(!dr||!dr.src||!dr.target||dr.src===dr.target) return;
     const path=k=>String(k||'').replace(/^pin:/,'');
-    const res=await gitPost('/api/git/repos/reorder',
+    const res=await gitPost(GIT_API.reposReorder,
       {src:path(dr.src),target:path(dr.target),before:!!dr.before});
     const d=res.data;
     if(!res.ok){
@@ -898,7 +898,7 @@ Object.assign(App.prototype, {
    */
   async gitPin(path){
     if(!path) return {ok:false,reason:GIT_PIN_FAIL_LABEL};
-    const res=await gitPost('/api/git/repos/pin',{path});
+    const res=await gitPost(GIT_API.reposPin,{path});
     const d=res.data;
     if(!res.ok) return {ok:false,reason:(d&&d.message)||GIT_PIN_FAIL_LABEL};
     this._gitPinsApply(d.pinned);
@@ -909,7 +909,7 @@ Object.assign(App.prototype, {
 
   async gitUnpin(path){
     if(!path) return false;
-    const res=await gitPost('/api/git/repos/unpin',{path});
+    const res=await gitPost(GIT_API.reposUnpin,{path});
     const d=res.data;
     if(!res.ok) return false;
     this._gitPinsApply(d.pinned);
@@ -949,7 +949,7 @@ Object.assign(App.prototype, {
     if(!this._gitJobsWanted()) return;
     const t=this._restoreBegin('gitJobs');
     // 전역 조회다 — 리포에 매이지 않으므로 echo 가 없다 (FR-DPN-33).
-    const res=await gitFetch('/api/git/jobs',null);
+    const res=await gitFetch(GIT_API.jobs,null);
     const d=res.data;
     if(!this._restoreLive('gitJobs',t)) return;
     this._restoreEnd('gitJobs',t);

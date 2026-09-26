@@ -41,7 +41,7 @@ class GitTag {
    */
   static async deleteLocal(panel,name){
     if(!panel||!panel.repo||!name) return;
-    const res=await panel.post('/api/git/tag/delete',
+    const res=await panel.post(GIT_API.tagDelete,
       {repo:panel.repo,name,confirm:true});
     if(res.ok){panel.afterRefWrite(res.data);return res}
     panel.applyWriteFail(res);
@@ -193,7 +193,7 @@ class GitTagCreate {
     const seq=++this._seq;
     // 뒤늦게 온 이전 이름의 판정을 지금 이름의 것으로 읽지 않는다 — 그 가드가
     // 이제 echo 로 선다.
-    const res=await gitFetch('/api/git/tag/validate',{repo:this.repo,name},
+    const res=await gitFetch(GIT_API.tagValidate,{repo:this.repo,name},
       {stale:()=>seq!==this._seq||!d.alive(),echo:{repo:this.repo,name}});
     if(res.stale) return;
     if(!res.ok){this._tell(d,'fail',GIT_TAG_VALIDATE_FAIL); return}
@@ -216,7 +216,7 @@ class GitTagCreate {
 
   async _run(v){
     const kind=v.kind===undefined?GIT_TAG_KIND_LIGHT:v.kind;
-    const res=await this.panel.post('/api/git/tag',{
+    const res=await this.panel.post(GIT_API.tag,{
       repo:this.repo,
       name:(v.name||'').trim(),
       ref:(v.ref||'').trim(),

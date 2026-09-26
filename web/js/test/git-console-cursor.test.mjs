@@ -11,14 +11,15 @@ import { load } from './harness.mjs';
  */
 function setup(answers) {
   const sent = [];
-  const ctx = load(['git/console.js'], {
+  const ctx = load(['core/constants-api.js', 'git/api.js', 'git/console.js'], {
     expose: ['GitConsole'],
     globals: {
       GIT_CON_LIMIT: 500,
       GIT_CON_FAIL: 'fail',
       GIT_STATUS_FETCH_TIMEOUT_MS: 20000,
       visiblePoll: () => ({ stop() {} }),
-      apiGet: async (u) => { sent.push(u); return answers.shift() },
+      // 조회는 gitFetch → apiGet(path, {query}) 를 지난다 (FR-OPT-12-5). 보낸 URL 을 조립해 잡는다.
+      apiGet: async (p, o) => { sent.push(o && o.query ? p + '?' + new URLSearchParams(o.query) : p); return answers.shift() },
     },
   });
   const panel = { repo: '/r', token: () => ({}), isStale: () => false };

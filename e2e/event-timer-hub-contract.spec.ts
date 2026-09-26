@@ -46,6 +46,10 @@ const CONST_GIT_JS = [
   ...readFileSync(join(process.cwd(), 'web', 'index.html'), 'utf8')
     .matchAll(/<script src="js\/core\/(constants-git[\w.-]*)\.js\?/g),
 ].map((m) => join(WEB, 'core', `${m[1]}.js`));
+// OPTIMIZE_REFACTOR_SRS FR-OPT-12-5: git 경로 표는 constants-git*.js 가 로드 시점에 딛고,
+// git 조회는 `gitFetch`(git/api.js) 한 길이다. 합성 페이지도 그 둘을 싣는다.
+const CONST_API_JS = join(WEB, 'core', 'constants-api.js');
+const GIT_API_JS = join(WEB, 'git', 'api.js');
 const EVENT_BUS_JS = join(WEB, 'core', 'event-bus.js');
 const PANEL_POLL_JS = join(WEB, 'git', 'panel-poll.js');
 // OPTIMIZE_REFACTOR_SRS FR-OPT-4-7: collect 가 `unchanged` 답을 채우는 함수
@@ -197,6 +201,7 @@ test.describe('T-1·T-2 — 스냅샷과 증분의 경쟁 (FR-RSF-3·5·7)', () 
 async function loadPanelPoll(page: Page) {
   await page.setContent('<!doctype html><title>panel-poll</title>');
   await page.addScriptTag({ path: TIMER_HUB_JS });
+  await page.addScriptTag({ path: CONST_API_JS });
   for (const p of CONST_GIT_JS) await page.addScriptTag({ path: p });
   await page.evaluate(() => {
     // panel-poll.js 는 GitPanel.prototype 에 얹는다. 폴링 계층이 딛는 것만 세운다.
@@ -254,6 +259,7 @@ async function loadPanelPoll(page: Page) {
     (window as any).pathJoin = (a: string, b: string) => a + '/' + b;
   });
   await page.addScriptTag({ path: API_JS });
+  await page.addScriptTag({ path: GIT_API_JS });
   await page.addScriptTag({ path: STATUS_HUB_JS });
   await page.addScriptTag({ path: PANEL_POLL_JS });
   await page.evaluate(() => {

@@ -101,11 +101,11 @@ class GitConsole {
     //   새  동작: `after=<lastSeq>` 로 그 뒤의 것만 받아 앞에 붙인다. `gap` 이면 전량이다
     //   이유:     기록은 쓰기로만 늘어나 주기 대부분이 같은 500건이었다
     const after=this._after;
-    let u='/api/git/records?repo='+encodeURIComponent(repo)+'&n='+GIT_CON_LIMIT+'&after='+after;
+    const q={repo,n:GIT_CON_LIMIT,after};
     // 커서의 세대를 되돌려 준다 — 서버가 다시 떠 Seq 가 커서를 넘어서도 gap 이 선다.
-    if(this._epoch) u+='&epoch='+encodeURIComponent(this._epoch);
-    // FR-GRF-6: 같은 시한 (history.js 의 `_get` 과 한 쌍).
-    const r=await apiGet(u,{timeout:GIT_STATUS_FETCH_TIMEOUT_MS});
+    if(this._epoch) q.epoch=this._epoch;
+    // FR-GRF-6: 시한은 gitFetch 의 기본이다 (history 의 `_get` 과 한 쌍).
+    const r=await gitFetch(GIT_API.records,q);
     const d=r.data;
     // 세대·리포·일련번호 셋을 다 본다 (FR-GIT-54) — 같은 세대 안에서도 응답
     // 순서가 뒤바뀔 수 있다.
@@ -263,7 +263,7 @@ class GitConsole {
   }
 
   async _postReplay(rec){
-    const res=await this.panel.post('/api/git/records/replay',
+    const res=await this.panel.post(GIT_API.recordsReplay,
       {repo:this.panel.repo,seq:rec.seq,confirm:!!rec.write});
     // 방금 실행한 것이 목록 맨 위에 있어야 한다 (FR-GIT-218) — panel.post 가 이미
     // reload 를 부르지만, 상태도 함께 갱신한다.

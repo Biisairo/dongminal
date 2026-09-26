@@ -74,7 +74,7 @@ class GitBranchCreate {
     const seq=++this._seq;
     // 뒤늦게 온 이전 이름의 판정을 지금 이름의 것으로 읽지 않는다 — 그 가드가
     // 이제 echo 로 선다.
-    const res=await gitFetch('/api/git/branch/validate',{repo:this.repo,name},
+    const res=await gitFetch(GIT_API.branchValidate,{repo:this.repo,name},
       {stale:()=>seq!==this._seq||!d.alive(),echo:{repo:this.repo,name}});
     if(res.stale) return;
     if(!res.ok){this._tell(d,'fail',GIT_BR_VALIDATE_FAIL); return}
@@ -99,9 +99,9 @@ class GitBranchCreate {
       if(r.ok) this.panel.afterRefWrite(r.data); else this.panel.applyWriteFail(r);
     };
     const res=this.track
-      ? await this.panel.postJob('/api/git/checkout',
+      ? await this.panel.postJob(GIT_API.checkout,
           {repo:this.repo,ref:'',create:name,track:this.track},settle)
-      : await this.panel.postJob('/api/git/branch',{
+      : await this.panel.postJob(GIT_API.branch,{
           repo:this.repo,name,
           startRef:(v.startRef||'').trim(),
           checkout:!!v.checkout,
@@ -146,7 +146,7 @@ class GitBranchRename extends GitBranchCreate {
   }
 
   async _run(v){
-    const res=await this.panel.post('/api/git/branch/rename',
+    const res=await this.panel.post(GIT_API.branchRename,
       {repo:this.repo,from:this.from,to:(v.name||'').trim()});
     if(res.ok){
       // 조작 후 목록·상태를 갱신한다 (FR-GIT-160) — 상태바의 브랜치 이름도 따라간다.
@@ -204,7 +204,7 @@ class GitBranchUpstream {
   }
 
   async _run(v){
-    const res=await this.panel.post('/api/git/branch/upstream',
+    const res=await this.panel.post(GIT_API.branchUpstream,
       {repo:this.repo,branch:this.branch,upstream:(v.upstream||'').trim()});
     if(res.ok){
       this.panel.afterRefWrite(res.data);

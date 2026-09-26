@@ -13,7 +13,7 @@ function setup() {
   const waits = [];
   const hold = (path, r) => new Promise((resolve) => waits.push({ path, go: () => resolve(r) }));
   const answers = {};
-  const ctx = load(['core/event-bus.js', 'core/app-cmd.js', 'core/app-statusbar.js', 'core/app-git.js'], {
+  const ctx = load(['core/constants-api.js', 'core/event-bus.js', 'core/app-cmd.js', 'core/app-statusbar.js', 'core/app-git.js'], {
     expose: ['EventBus'],
     globals: {
       App: class {},
@@ -90,7 +90,7 @@ test('아무것도 밀어내지 않은 틱의 실패는 다시 조회하지 않�
 // 요청이 둘 뜨면 서버 도착 순서가 뒤바뀔 수 있다.
 test('안전망 주기 폴은 gitReposKick 을 지나 비행 중인 갱신과 겹치지 않는다', async () => {
   let tickFn = null;
-  const ctx = load(['core/app-git.js'], {
+  const ctx = load(['core/constants-api.js', 'core/app-git.js'], {
     globals: {
       App: class {},
       visiblePoll: (_iv, fn) => { tickFn = fn; return { stop() {} }; },
@@ -112,7 +112,7 @@ test('안전망 주기 폴은 gitReposKick 을 지나 비행 중인 갱신과 �
 // Repo 탭의 들고 남은 목록 갱신을 합치는 줄(`gitReposKick`)로 보낸다 — `observe=1` 과
 // `observe=0` 이 동시에 떠 서버에 도착 순서가 뒤바뀌면 임대가 남거나 사라진다.
 test('Repo 탭의 onEnter·onLeave 는 목록 갱신을 합치는 줄로 보낸다', () => {
-  const ctx = load(['ui/sidebar-tabs.js'], {
+  const ctx = load(['core/constants-api.js', 'ui/sidebar-tabs.js'], {
     expose: ['SB_TAB_DEFS'],
     globals: {
       t: (k) => k, REPO_TAB_ID: 'repo', REPO_TAB_LABEL: 'Repo', REPO_PANEL_ID: 'p', REPO_LIST_ID: 'l',

@@ -13,7 +13,7 @@ function setup(answer) {
   const clock = fakeClock();
   const sent = [];
   const waits = [];
-  const ctx = load(['git/status-hub.js'], {
+  const ctx = load(['core/constants-api.js', 'git/api.js', 'git/status-hub.js'], {
     clock,
     expose: ['GitStatusHub', 'gitStatusMerge'],
     globals: {

@@ -208,7 +208,7 @@ class GitStash {
 
   // 행의 보이는 값 전부 (FR-RPT-2 · FR-GRF-19).
   _rowSig(s){
-    return [s.index,s.message||'',s.base||'',s.atUnixMs||0,this._sel===s.oid?1:0].join('\u0000');
+    return [s.index,s.message||'',s.base||'',s.atUnixMs||0,this._sel===s.oid?1:0].join(RPT_SEP);
   }
 
   /**
@@ -271,7 +271,7 @@ class GitStash {
     }
     reconcileList(box,files,{
       key:f=>f.path,
-      sig:f=>[f.status,f.path,f.origPath||'',sel].join('\u0000'),
+      sig:f=>[f.status,f.path,f.origPath||'',sel].join(RPT_SEP),
       build:f=>this._fileEl(sel,f),
     });
   }
@@ -307,7 +307,7 @@ class GitStash {
     // FR-GRF-31: 앞선 조회를 끊는다 (branches.js 의 같은 자리와 한 쌍).
     const t=gitLoadTicket(this);
     this._loading=true;
-    const res=await gitFetch('/api/git/stash',{repo},
+    const res=await gitFetch(GIT_API.stash,{repo},
       {stale:()=>this.panel.isStale(tok),echo:{repo},signal:t.signal});
     if(gitLoadTaken(this,t)) return;
     // FR-GRF-24: 낡은 응답이 잠금을 쥔 채 나가지 않는다.
@@ -329,7 +329,7 @@ class GitStash {
     const tok=this.panel.token();
     // 뒤늦게 온 다른 stash 의 응답을 자기 것으로 읽지 않는다 — 선택이 바뀐 것은
     // stale 이고, oid 가 어긋난 것은 echo 가 잡는다.
-    const res=await gitFetch('/api/git/stash/show',{repo,oid},
+    const res=await gitFetch(GIT_API.stashShow,{repo,oid},
       {stale:()=>this.panel.isStale(tok)||this._sel!==oid,echo:{repo,oid}});
     if(res.stale) return;
     if(!res.ok){

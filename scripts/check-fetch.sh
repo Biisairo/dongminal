@@ -25,6 +25,10 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     web/js/core/timer-hub.js  주입 fetch(`ctx.fetch`) — 잡의 시한을 붙여 넘긴다
 
   새 호출은 apiGet/apiPost/apiPut/apiDel 을 쓴다.
+
+  OPTIMIZE_REFACTOR_SRS FR-OPT-12-5 도 잰다:
+    · web/js/ui·git 에 '/api/…' 경로 리터럴이 없다 (core/constants-api.js 의 표)
+    · git 조회는 gitFetch 한 길이다 (apiGet 은 web/js/git/api.js 만 부른다)
 USAGE
   exit 0
 fi
@@ -46,4 +50,25 @@ if [[ -n "$hits" ]]; then
   exit 1
 fi
 
-echo "✓ 브라우저의 API 호출이 전부 core/api.js 를 지난다"
+# OPTIMIZE_REFACTOR_SRS FR-OPT-12-5 (FEU-32) ① ui·git 의 API 경로는 상수 표에서 온다.
+# 리터럴이 다시 흩어지면 같은 종단을 두 이름으로 부르고, 한쪽만 고쳐진다.
+lits="$(grep -rnE "['\"\`]/api/" web/js/ui web/js/git --include='*.js' \
+        | grep -vE ':[0-9]+: *(\*|//)' || true)"
+if [[ -n "$lits" ]]; then
+  echo "✗ ui·git 에 API 경로 리터럴이 있습니다 — core/constants-api.js 의 표(GIT_API 등)를 쓰세요:"
+  echo "$lits"
+  exit 1
+fi
+
+# ② git 조회(GET)는 gitFetch 한 길이다 — 시한·echo·stale 이 그 자리에 있다.
+# `web/js/git/api.js` 만 apiGet 을 부르고, 누구도 apiGet 에 GIT_API 를 넘기지 않는다.
+gets="$( { grep -rn 'apiGet(' web/js/git --include='*.js' | grep -v '^web/js/git/api\.js:'; \
+          grep -rn 'apiGet(GIT_API' web/js --include='*.js'; } \
+        | grep -vE ':[0-9]+: *(\*|//)' || true)"
+if [[ -n "$gets" ]]; then
+  echo "✗ git 조회가 gitFetch 를 지나지 않습니다 (FR-OPT-12-5):"
+  echo "$gets"
+  exit 1
+fi
+
+echo "✓ 브라우저의 API 호출이 전부 core/api.js 를 지나고, git 조회는 gitFetch 한 길이다"

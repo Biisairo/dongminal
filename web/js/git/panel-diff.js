@@ -303,7 +303,7 @@ Object.assign(GitPanel.prototype, {
   _showTarget(view,f,slot,force){
     // 식별자는 (리포, 축, 경로, 리비전) 이다 (FR-GIT-54·145) — 리비전이 빠지면
     // 머지 커밋에서 부모를 바꿔도 같은 대상으로 보여 다시 받지 않는다.
-    const key=f?[f.repo,f.axis,f.path,f.origPath,f.oid||'',f.parentOid||''].join('\u0000'):'';
+    const key=f?[f.repo,f.axis,f.path,f.origPath,f.oid||'',f.parentOid||''].join(RPT_SEP):'';
     if(this[slot]===key&&!force) return;
     /**
      * REPO_FIX 05 §3A-3 (F-2.4): dirty 문서에서 다른 대상으로 옮길 때 — 이 뷰가 그

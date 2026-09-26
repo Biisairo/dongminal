@@ -33,7 +33,7 @@
  * 받아 캐시한다. 서버에 새 파괴적 동작이 생기면 클라이언트가 자동으로 그것을
  * 막는다 (FR-GIT-89).
  */
-class GitConfirm {
+class GitConfirm extends GitModalBase {
   /**
    * open 은 확인을 띄우고 사용자가 끝까지 진행했을 때만 true 로 resolve 한다.
    *
@@ -118,7 +118,7 @@ class GitConfirm {
 
   static async _fetchPolicy(){
     // 전역 조회이므로 echo·stale 이 없다 (FR-DPN-33) — 리포에 매이지 않는다.
-    const res=await gitFetch('/api/git/policy',null);
+    const res=await gitFetch(GIT_API.policy,null);
     if(!res.ok) return null;
     const d=res.data;
     if(!d||!Array.isArray(d.destructive)) return null;
@@ -145,6 +145,8 @@ class GitConfirm {
   }
 
   constructor(o){
+    super();
+    this._pfx='gc';
     this.action=o.action||'';
     this.title=o.title||GIT_CONFIRM_TITLE;
     this.targets=Array.isArray(o.targets)?o.targets:[];
@@ -168,23 +170,6 @@ class GitConfirm {
     this.changed=false;
     this.err=null;   // {reason,tail}
     this._sig0=GitConfirm._sig();
-  }
-
-  _show(){
-    // FR-KIT-24: 돌아갈 자리는 `_focus()` **전에** 잡는다 — 뒤에 잡으면 창을 연
-    // 컨트롤이 아니라 창 **안의** 버튼이 `returnTo` 가 된다.
-    const returnTo=document.activeElement;
-    this._build();
-    GitConfirm._cur=this;
-    this._paint();
-    this._focus();
-    // FR-KIT-24·25: 이름은 머리(`.gc-head`)가 준다. `_paint` 가 그 글자를 세운
-    // 뒤라야 한다 — 빈 요소를 가리키면 접근 이름은 여전히 없다.
-    this._releaseDlg=UIKit.dialogOpen(this.box,{
-      labelledBy:this.box.querySelector('.gc-head'), label:this.title||'',
-      returnTo, focus:document.activeElement,
-    });
-    return new Promise(res=>{this._resolve=res});
   }
 
   _build(){
@@ -250,12 +235,11 @@ class GitConfirm {
      * 실행 중에는 두 버튼이 `disabled` 라 브라우저가 click 을 합성하지 않는다 —
      * 새 가드 없이 FR-GIT-174 가 그대로 선다 (FR-PDA-6).
      */
-    this._key=e=>{
+    this._listenKeys(e=>{
       if(e.key!=='Escape') return;
       e.preventDefault(); e.stopPropagation();
       if(!this.busy) this._cancel();
-    };
-    document.addEventListener('keydown',this._key,true);
+    });
   }
 
   _paint(){
@@ -272,9 +256,7 @@ class GitConfirm {
     // 검증이 조용히 무의미해지는 것이 사라지는 것보다 나쁘기 때문이다 (D-3).
     b.dataset.stage='1';
     b.querySelector('.gc-head').textContent=this.title;
-    const ch=b.querySelector('.gc-changed');
-    ch.textContent=this.changed?GIT_CONFIRM_CHANGED:'';
-    ch.classList.toggle('vis',this.changed);
+    this._paintChanged();
     // 개수는 목록과 **함께** 보인다 (FR-GIT-91).
     b.querySelector('.gc-count').textContent=
       GIT_CONFIRM_COUNT_LABEL+' '+tn('git.count_items',this.targets.length);
@@ -307,18 +289,9 @@ class GitConfirm {
     hint.querySelector('.gc-hint-cmd').textContent=(this.hint&&this.hint.command)||'';
     const copyHint=hint.querySelector('.gc-copy-hint');
     copyHint.textContent=GIT_CONFIRM_COPY; copyHint.title=GIT_CONFIRM_COPY_TITLE;
-    const err=b.querySelector('.gc-err');
-    err.classList.toggle('vis',!!this.err);
-    err.querySelector('.gc-err-reason').textContent=(this.err&&this.err.reason)||'';
-    err.querySelector('.gc-err-tail').textContent=(this.err&&this.err.tail)||'';
-    const copyErr=err.querySelector('.gc-copy-err');
-    copyErr.textContent=GIT_CONFIRM_COPY; copyErr.title=GIT_CONFIRM_COPY_TITLE;
-    b.querySelector('.gc-progress').textContent=this.busy?GIT_CONFIRM_RUNNING:'';
-    const cancel=b.querySelector('.gc-cancel'),go=b.querySelector('.gc-go');
-    cancel.textContent=GIT_CONFIRM_CANCEL; cancel.title=GIT_CONFIRM_CANCEL_TITLE;
+    this._paintErr(b.querySelector('.gc-copy-err'),false);
     // FR-COS-4: 넘어갈 다음 걸음이 없으므로 버튼은 언제나 실행이다.
-    go.textContent=GIT_CONFIRM_RUN; go.title=GIT_CONFIRM_RUN_TITLE;
-    cancel.disabled=this.busy; go.disabled=this.busy;
+    this._paintActions(GIT_CONFIRM_RUN,GIT_CONFIRM_RUN_TITLE,false);
   }
 
   /**
@@ -338,45 +311,13 @@ class GitConfirm {
     if(g) g.focus();
   }
 
-  // F-9.3: 겹쳐 온 요청에 열린 창을 보인다 — 맨 위로 올리고 포커스를 되돌린다.
-  _front(){
-    if(this.ov&&this.ov.parentNode) document.body.appendChild(this.ov);
-    this._focus();
-  }
-
   async _advance(){
     if(this.busy) return;
     if(!this.run){this._close(true);return}
-    this.busy=true; this.err=null; this._paint();
-    let res=null;
-    try{res=await this.run()}catch(e){res={ok:false,reason:String(e)}}
-    this.busy=false;
-    if(res&&res.ok){this._close(true);return}
-    // FR-GIT-96·175: 사유와 stderr tail 을 남기고 다이얼로그를 닫지 않는다 —
-    // 닫아 버리면 복사할 자리가 사라진다.
-    this.err={reason:(res&&res.reason)||GIT_CONFIRM_FAIL,tail:(res&&res.stderrTail)||''};
-    this._paint(); this._focus();
+    await this._exec(()=>this.run());
   }
 
   _cancel(){ this._close(false) }
-
-  _close(v){
-    document.removeEventListener('keydown',this._key,true);
-    if(this._releaseDlg){this._releaseDlg();this._releaseDlg=null}
-    if(this.ov) this.ov.remove();
-    this.ov=null; this.box=null;
-    if(GitConfirm._cur===this) GitConfirm._cur=null;
-    const r=this._resolve; this._resolve=null;
-    if(r) r(!!v);
-  }
-
-  // 클립보드 접근이 막힌 환경에서도 동작해야 한다 — 그 3단은 한 자리에 있다
-  // (FR-STR-10). 종전에는 2단만 여기 복사돼 있었고, 그래서 제스처가 거부되면
-  // 조용히 실패했다 (FR-STR-14·15).
-  _copy(text){
-    if(!text) return;
-    ClipboardWriter.write(text);
-  }
 }
 
 GitConfirm._cur=null;

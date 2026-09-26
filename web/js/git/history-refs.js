@@ -70,7 +70,7 @@ Object.assign(GitHistory.prototype, {
    */
   _refRowSig(r){
     return [r.kind,r.name,r.short,r.ahead,r.behind,
-      r.isHead?1:0,r.gone?1:0,r.subject||'',r.upstream||''].join('\u0001');
+      r.isHead?1:0,r.gone?1:0,r.subject||'',r.upstream||''].join(RPT_SEP);
   },
 
   /**

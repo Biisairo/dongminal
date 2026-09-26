@@ -302,7 +302,7 @@
       const fd=new FormData();
       fd.append('file',new Blob([body],{type:'text/plain'}),name);
       e.target.textContent='...';
-      apiPost('/api/upload',fd,{query:{dir:'/tmp'}})
+      apiPost(UPLOAD_API,fd,{query:{dir:'/tmp'}})
         .then(r=>{
           if(!r.ok){e.target.textContent=t('diag.fail');put('UPLOAD FAIL '+r.status);return}
           e.target.textContent=t('diag.sent');put('UPLOADED '+(r.data&&r.data.name));

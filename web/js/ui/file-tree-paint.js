@@ -553,7 +553,7 @@ Object.assign(FileTree.prototype, {
      * 전체 재칠을 하지 않는다. 판정은 서버의 관측 식별자 하나로만 한다(§3A-0 X5).
      *   이전 동작: 매 응답마다 전부 다시 계산하고 다시 칠했다(수천 행에서 폴링마다)
      */
-    const key=d.mark?repo+'\u0000'+prefix+'\u0000'+d.mark:'';
+    const key=d.mark?rptKey(repo,prefix,d.mark):'';
     if(key&&key===this.store.gitKey) return;
     this._setStatus(d.status);
     this.store.gitKey=key;
@@ -739,7 +739,7 @@ Object.assign(FileTree.prototype, {
       errPut=true;
       const msg=this._err.more?t('editor.tree_fail_more',{msg:this._err.msg,n:this._err.more}):this._err.msg;
       return {t:'operr',depth,msg,
-        k:'oe',s:'oe\u0001'+depth+'\u0001'+msg};
+        k:'oe',s:rptKey('oe',depth,msg)};
     };
     const errAt=(anchor,depth)=>{
       if(!this._err||errPut||this._err.anchor!==anchor) return;
@@ -748,7 +748,7 @@ Object.assign(FileTree.prototype, {
     // FR-EDT-81·82: 인라인 입력. 만들기는 대상 폴더의 **첫 자리**에, 이름 변경은
     // 그 행 **자리 그대로** 선다.
     const input=depth=>({t:'in',depth,mode:ed.mode,isDir:!!ed.isDir,init:ed.init,
-      k:'in',s:'in\u0001'+ed.mode+'\u0001'+depth+'\u0001'+(ed.isDir?1:0)});
+      k:'in',s:rptKey('in',ed.mode,depth,ed.isDir?1:0)});
     const walk=(dir,depth)=>{
       const st=this._kids.get(dir);
       if(!st) return;
@@ -780,7 +780,7 @@ Object.assign(FileTree.prototype, {
         // 근거는 이 행이 읽는 값 **전부**다 — 좁히면 갱신이 조용히 멈춘다 (FR-RPT-2).
         it.s=[kind,depth,it.open?1:0,it.busy?1:0,it.err,it.sel?1:0,it.st,it.linkDir?1:0,
           it.partial?1:0,it.ignored?1:0,it.stale?1:0,it.drop?1:0]
-          .join('\u0001');
+          .join(RPT_SEP);
         if(ed&&ed.mode==='rename'&&ed.path===p){
           out.push(input(depth));
           errAt('input',depth);
@@ -797,14 +797,13 @@ Object.assign(FileTree.prototype, {
           k:'m:'+dir,
           // 서명에 상태를 실어야 `reconcileList` 가 같은 행을 다시 그린다 —
           // 빠뜨리면 "받는 중…" 이 화면에 서지 않는다.
-          s:'m\u0001'+st.entries.length+'\u0001'+(st.total||0)+'\u0001'+depth
-            +'\u0001'+(st.moreBusy?1:0)+(st.moreErr?1:0)});
+          s:rptKey('m',st.entries.length,st.total||0,depth,''+(st.moreBusy?1:0)+(st.moreErr?1:0))});
       }
     };
     // 뿌리에는 행이 없으므로(이름은 머리가 보인다) 뿌리의 실패는 여기 실어 보인다.
     const rs=this._kids.get(this.root);
-    if(rs&&rs.err) out.push({t:'err',depth:0,msg:rs.err,k:'e:root',s:'e\u0001'+rs.err});
-    else if(rs&&rs.stale) out.push({t:'err',depth:0,msg:EDITOR_TREE_STALE,k:'e:root',s:'e\u0001stale'});
+    if(rs&&rs.err) out.push({t:'err',depth:0,msg:rs.err,k:'e:root',s:rptKey('e',rs.err)});
+    else if(rs&&rs.stale) out.push({t:'err',depth:0,msg:EDITOR_TREE_STALE,k:'e:root',s:rptKey('e','stale')});
     walk(this.root,0);
     // §3A-3: 붙을 행이 보이지 않으면 **가장 가까운 보이는 조상** 행 뒤, 그것도 없으면
     // 맨 앞(루트)이다.

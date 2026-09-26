@@ -8,6 +8,22 @@
  * 뒤쪽 한 줄짜리들(`branchMerge`·`tagPush` 등)은 파사드다 — 메뉴와 다이얼로그가
  * 패널 하나만 알면 되도록, 하위 모듈의 정적 메서드를 여기서 받는다.
  */
+/**
+ * OPTIMIZE_REFACTOR_SRS FR-OPT-12-2 (FEU-13): 목록 뷰 서술자. `make` 는 지연 생성, `afterPaint`
+ * 는 뷰가 칠한 뒤 패널이 더 칠할 것이다.
+ *
+ * FR-GHM-3·5: History 의 머리는 History 의 것이 아니라 관측의 것이다 — GitHistory 는 자리만
+ * 내주고 칠하기는 패널이 한다.
+ */
+const GIT_VIEW_KINDS={
+  history:{make:p=>new GitHistory(p),afterPaint:(p,el)=>p._paintHeadIn(el)},
+  branches:{make:p=>new GitBranches(p)},
+  stash:{make:p=>new GitStash(p)},
+  console:{make:p=>new GitConsole(p)},
+  worktrees:{make:p=>new GitWorktrees(p)},
+  submodules:{make:p=>new GitSubmodules(p)},
+};
+
 Object.assign(GitPanel.prototype, {
   // 커밋 영역은 지연 생성한다 — Git 창을 열지 않은 브라우저 창은 만들지 않는다.
   _commit(){
@@ -43,128 +59,42 @@ Object.assign(GitPanel.prototype, {
     this._paint();
   },
 
-  // ── History 탭 (FR-GIT-113~139) ──
+  // ── 목록 뷰: History(FR-GIT-113~139) · Branches(FR-GIT-147~160) · Stash(FR-GIT-161~170) ·
+  //    Console(FR-GIT-218) · Worktrees(FR-GIT-240~244) · Submodules(FR-SUB-6~11) ──
+  // 여섯이 같은 골격이다 — 서술자는 `GIT_VIEW_KINDS`, 필드 이름은 `GIT_VIEWS` 가 갖는다.
 
-  _history(){
-    if(!this._historyView) this._historyView=new GitHistory(this);
-    return this._historyView;
+  _viewOf(key){
+    const f=GIT_VIEW_FIELD_BY_KEY[key];
+    if(!this[f]) this[f]=GIT_VIEW_KINDS[key].make(this);
+    return this[f];
   },
+  _history(){return this._viewOf('history')},
+  _branches(){return this._viewOf('branches')},
+  _console(){return this._viewOf('console')},
+  _worktrees(){return this._viewOf('worktrees')},
+  _submodules(){return this._viewOf('submodules')},
+  _stash(){return this._viewOf('stash')},
 
-  _renderHistory(el){
+  _renderView(key,el){
+    const v=this._viewOf(key);
     if(!this.repo){
       el.dataset.built=''; el.innerHTML='';
-      // 골격을 버렸으므로 History 도 자기 DOM 을 놓아야 한다.
-      this._history().unmount();
-      const d=document.createElement('div'); d.className='ui-empty ui-empty-center git-empty';
-      d.textContent=this._errMsg||GIT_NO_REPO_HINT;
-      el.appendChild(d);
+      // 골격을 버렸으므로 뷰도 자기 DOM 을 놓아야 한다.
+      v.unmount();
+      this._emptyHint(el,this._errMsg||GIT_NO_REPO_HINT);
       return;
     }
-    if(el.dataset.built!=='1'){this._history().mount(el);el.dataset.built='1'}
-    this._history().paint();
-    // FR-GHM-3·5: 머리는 History 의 것이 아니라 관측의 것이다 — GitHistory 는
-    // 자리만 내주고 칠하기는 여기서 한다.
-    this._paintHeadIn(el);
+    if(el.dataset.built!=='1'){v.mount(el);el.dataset.built='1'}
+    v.paint();
+    const after=GIT_VIEW_KINDS[key].afterPaint;
+    if(after) after(this,el);
   },
 
-  // ── Branches 탭 (FR-GIT-147~160) ──
-
-  _branches(){
-    if(!this._branchesView) this._branchesView=new GitBranches(this);
-    return this._branchesView;
-  },
-
-  _renderBranches(el){
-    if(!this.repo){
-      el.dataset.built=''; el.innerHTML='';
-      this._branches().unmount();
-      const d=document.createElement('div'); d.className='ui-empty ui-empty-center git-empty';
-      d.textContent=this._errMsg||GIT_NO_REPO_HINT;
-      el.appendChild(d);
-      return;
-    }
-    if(el.dataset.built!=='1'){this._branches().mount(el);el.dataset.built='1'}
-    this._branches().paint();
-  },
-
-  // ── Console 탭 (FR-GIT-218) ──
-
-  _console(){
-    if(!this._consoleView) this._consoleView=new GitConsole(this);
-    return this._consoleView;
-  },
-
-  _renderConsole(el){
-    if(!this.repo){
-      el.dataset.built=''; el.innerHTML='';
-      this._console().unmount();
-      const d=document.createElement('div'); d.className='ui-empty ui-empty-center git-empty';
-      d.textContent=this._errMsg||GIT_NO_REPO_HINT;
-      el.appendChild(d);
-      return;
-    }
-    if(el.dataset.built!=='1'){this._console().mount(el);el.dataset.built='1'}
-    this._console().paint();
-  },
-
-  // ── Worktrees 탭 (GIT_REVIEW4_SRS §3.6.5 / FR-GIT-240~244) ──
-
-  _worktrees(){
-    if(!this._worktreesView) this._worktreesView=new GitWorktrees(this);
-    return this._worktreesView;
-  },
-
-  _renderWorktrees(el){
-    if(!this.repo){
-      el.dataset.built=''; el.innerHTML='';
-      this._worktrees().unmount();
-      const d=document.createElement('div'); d.className='ui-empty ui-empty-center git-empty';
-      d.textContent=this._errMsg||GIT_NO_REPO_HINT;
-      el.appendChild(d);
-      return;
-    }
-    if(el.dataset.built!=='1'){this._worktrees().mount(el);el.dataset.built='1'}
-    this._worktrees().paint();
-  },
-
-  // ── Submodules 탭 (UX_BATCH5_SRS 묶음 D / FR-SUB-6~11) ──
-
-  _submodules(){
-    if(!this._submodulesView) this._submodulesView=new GitSubmodules(this);
-    return this._submodulesView;
-  },
-
-  _renderSubmodules(el){
-    if(!this.repo){
-      el.dataset.built=''; el.innerHTML='';
-      this._submodules().unmount();
-      const d=document.createElement('div'); d.className='ui-empty ui-empty-center git-empty';
-      d.textContent=this._errMsg||GIT_NO_REPO_HINT;
-      el.appendChild(d);
-      return;
-    }
-    if(el.dataset.built!=='1'){this._submodules().mount(el);el.dataset.built='1'}
-    this._submodules().paint();
-  },
-
-  // ── Stash 탭 (FR-GIT-161~170) ──
-
-  _stash(){
-    if(!this._stashView) this._stashView=new GitStash(this);
-    return this._stashView;
-  },
-
-  _renderStash(el){
-    if(!this.repo){
-      el.dataset.built=''; el.innerHTML='';
-      this._stash().unmount();
-      const d=document.createElement('div'); d.className='ui-empty ui-empty-center git-empty';
-      d.textContent=this._errMsg||GIT_NO_REPO_HINT;
-      el.appendChild(d);
-      return;
-    }
-    if(el.dataset.built!=='1'){this._stash().mount(el);el.dataset.built='1'}
-    this._stash().paint();
+  // 저장소가 없을 때의 안내 한 줄.
+  _emptyHint(el,text){
+    const d=document.createElement('div'); d.className='ui-empty ui-empty-center git-empty';
+    d.textContent=text;
+    el.appendChild(d);
   },
 
   // 마지막 유효 status. Branches 의 현재 브랜치와 Stash 의 "담을 것이 있는지" 가
@@ -184,7 +114,7 @@ Object.assign(GitPanel.prototype, {
     const st=(d&&d.status)||{};
     return [(d&&d.signature&&d.signature.value)||'',
       st.oid||'',st.branch||'',st.upstream||'',
-      st.ahead||0,st.behind||0].join('\u0000');
+      st.ahead||0,st.behind||0].join(RPT_SEP);
   },
 
   // 지금 HEAD 가 가리키는 이름. detached 면 커밋 해시다 — 둘을 같게 보면 detached
@@ -233,8 +163,8 @@ Object.assign(GitPanel.prototype, {
   fetchRefs(repo,opts){
     const o=opts||{};
     const round=this._refsRound;
-    if(!round) return gitFetch('/api/git/refs',{repo},{stale:o.stale,echo:{repo},signal:o.signal});
-    if(!round.has(repo)) round.set(repo,gitFetch('/api/git/refs',{repo},{echo:{repo}}));
+    if(!round) return gitFetch(GIT_API.refs,{repo},{stale:o.stale,echo:{repo},signal:o.signal});
+    if(!round.has(repo)) round.set(repo,gitFetch(GIT_API.refs,{repo},{echo:{repo}}));
     return round.get(repo).then(res=>
       (o.stale&&o.stale())?{ok:false,data:null,stale:true,status:res.status}:res);
   },

@@ -133,7 +133,7 @@ class GitSubmodules extends GitListTab {
   // ── 질의 ──
 
   async _load(){
-    await gitLoadList(this,{url:'/api/git/submodules',key:'submodules',failMsg:GIT_SUB_LOAD_FAIL});
+    await gitLoadList(this,{url:GIT_API.submodules,key:'submodules',failMsg:GIT_SUB_LOAD_FAIL});
   }
 
 
@@ -154,7 +154,7 @@ class GitSubmodules extends GitListTab {
       action:GIT_SUB_UPDATE_ACTION,title:GIT_SUB_UPDATE_TITLE,targets:[target],
       hint:{note:GIT_SUB_UPDATE_NOTE,command:argv.join(' ')},
       stages:2,
-      run:()=>this._runJob('/api/git/submodules/update',
+      run:()=>this._runJob(GIT_API.submodulesUpdate,
         {repo,path,init,recursive:false,confirm:true},GIT_SUB_UPDATED+target,GIT_SUB_UPDATE_FAIL),
     });
   }
@@ -173,7 +173,7 @@ class GitSubmodules extends GitListTab {
       action:GIT_SUB_SYNC_ACTION,title:GIT_SUB_SYNC_TITLE,targets:[target],
       hint:{note:GIT_SUB_SYNC_NOTE,command:argv.join(' ')},
       stages:1,
-      run:()=>this._run('/api/git/submodules/sync',
+      run:()=>this._run(GIT_API.submodulesSync,
         {repo,path,confirm:true},GIT_SUB_SYNCED+target,GIT_SUB_SYNC_FAIL),
     });
   }
@@ -241,7 +241,7 @@ class GitSubmodules extends GitListTab {
     // 채널은 버스가 연다 (FR-BUS-7). 원격 탭의 `git-job` 과 다른 id 다 — 같은 id 는
     // 서로를 닫는다.
     const es=this.app.bus.openChannel('git-sub-job',
-      '/api/git/job/events?id='+encodeURIComponent(id)+'&after='+this._seq,{owner:this});
+      apiUrl(GIT_API.jobEvents,{id,after:this._seq}),{owner:this});
     if(!es) return;
     this._stream=es;
     es.addEventListener('line',ev=>{
@@ -305,7 +305,7 @@ class GitSubmodules extends GitListTab {
     if(!ok||!this._job||this._job.id!==job.id) return;
     this._canceling=true;
     if(this._el) this._paintHead();
-    const r=await apiPost('/api/git/job/cancel',{id:job.id});
+    const r=await apiPost(GIT_API.jobCancel,{id:job.id});
     if(r.ok) return; // 끝은 스트림의 done 으로 온다
     this._canceling=false;
     if(this._el) this._paintHead();

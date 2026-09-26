@@ -106,7 +106,7 @@ Object.assign(GitCommit.prototype, {
   // 직전 커밋 메시지. 전용 진입점이 없으므로 커밋 상세의 body 를 쓴다
   // (FR-GIT-136). 커밋이 없는 저장소에서는 null 이다 — amend 할 것이 없다.
   async _lastMessage(repo){
-    const res=await gitFetch('/api/git/commit',{repo,oid:'HEAD'},{echo:{repo}});
+    const res=await gitFetch(GIT_API.commit,{repo,oid:'HEAD'},{echo:{repo}});
     if(!res.ok||typeof res.data.body!=='string') return null;
     return res.data.body.replace(/\n+$/,'');
   },

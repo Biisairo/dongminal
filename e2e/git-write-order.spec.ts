@@ -121,7 +121,8 @@ test('W1 (F-4.1): 쓰기 전에 출발한 status 응답은 쓰기 결과를 덮�
     w.__statusCalls = 0;
     w.apiGet = async (u: string, o: any) => {
       w.apiGet = async (u2: string, o2: any) => {
-        if (String(u2).startsWith('/api/git/status?')) w.__statusCalls++;
+        // FR-OPT-12-5: git 조회는 gitFetch → apiGet(경로, {query}) 이다 — 경로와 쿼리가 갈려 온다.
+        if (String(u2).split('?')[0] === '/api/git/status') w.__statusCalls++;
         return orig(u2, o2);
       };
       const r = await orig(u, o);

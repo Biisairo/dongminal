@@ -13,7 +13,7 @@ import { load } from './harness.mjs';
 function setup() {
   const calls = { status: 0, diff: 0, direct: 0, hunks: 0, patch: 0 };
   const hub = { ask: async (root) => { calls.status++; return { ok: true, status: 200, data: { repo: root, rootMatch: true, isRepo: true } } } };
-  const ctx = load(['ui/file-editor-diff.js'], {
+  const ctx = load(['core/constants-api.js', 'ui/file-editor-diff.js'], {
     expose: ['EdDirtyDiff'],
     globals: {
       TIMERS: { cancel() {} },
