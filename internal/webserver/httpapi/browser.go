@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -89,6 +90,7 @@ func (h *browserHub) onEvent(e browser.Event) {
 		json.Unmarshal(e.Info, &c)
 		args := map[string]any{"tab": e.Tab, "url": c.URL, "profile": c.Profile, "isolated": c.Isolated,
 			"opener": c.Opener, "background": c.Background, "popup": c.Popup, "tool": c.Tool,
+			"name": c.Name, "devtoolsOf": c.DevtoolsOf,
 			// FR-BRT-33·34: 페이지가 연 탭은 Chrome 관례, 외부 도구의 페이지는 옮기지 않는다.
 			"focus": c.Opener != "" && !c.Background}
 		h.place(args)
@@ -166,6 +168,37 @@ func (h *browserHub) resolveTab(tab, tool string) (string, error) {
 		return "", errors.New("대상 브라우저 탭이 없습니다 — --tab <uuid> 로 지정하거나 먼저 dmctl browser open 으로 여세요")
 	}
 	return t, nil
+}
+
+// ensureTab 은 지연 복원이다 (FR-BRT-39) — `dmctl`·화면이 가리킨 탭에 페이지가 없으면
+// 워크스페이스에 적힌 url·프로필·고정 크기로 만든다. 데몬이 다시 뜨면 매니저는 그 탭을
+// 모르므로 근거는 워크스페이스뿐이다.
+// 워크스페이스에 없으면(막 연 탭의 저장이 아직이다) `fallback` 으로 만든다.
+func (h *browserHub) ensureTab(ctx context.Context, tab string, fallback browser.OpenReq) error {
+	req := fallback
+	req.Tab = tab
+	if h.s.Work != nil {
+		for _, t := range workspace.BrowserTabsOf(h.s.Work.Raw()) {
+			if t.ID != tab {
+				continue
+			}
+			req.URL, req.Profile, req.Isolated = t.URL, t.Profile, t.Isolated
+			if t.Viewport != nil {
+				req.Viewport = &browser.Size{W: t.Viewport.W, H: t.Viewport.H}
+			}
+			break
+		}
+	}
+	// DevTools 탭은 대상에 붙은 Chrome 안의 페이지라 다시 만들 수 없다 — 탭을 닫는다 (FR-BRT-84).
+	if strings.HasPrefix(req.URL, "devtools://") {
+		if raw, err := h.host.Call(ctx, "state", map[string]any{"tab": tab}); err == nil && len(raw) > 0 {
+			return nil
+		}
+		h.broadcast("closeTab", map[string]any{"location": tab, "force": true})
+		return errors.New("DevTools 탭은 다시 열 수 없습니다 — 대상 탭에서 다시 여세요")
+	}
+	_, err := h.host.Call(ctx, "ensure", req)
+	return err
 }
 
 // reconcile 은 워크스페이스에서 사라진 탭의 페이지를 닫는다 (FR-BRT-31). 한 번도
@@ -379,6 +412,7 @@ func (s *Server) apiBrowserNav(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	s.browser.ensureTab(r.Context(), body.Tab, browser.OpenReq{})
 	s.apiBrowserCall(w, r, "nav", map[string]any{"tab": body.Tab, "action": body.Action, "url": body.URL, "hard": body.Hard})
 }
 
@@ -393,6 +427,7 @@ func (s *Server) apiBrowserViewport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fixed := !body.Auto
+	s.browser.ensureTab(r.Context(), body.Tab, browser.OpenReq{})
 	s.apiBrowserCall(w, r, "viewport", map[string]any{"tab": body.Tab, "w": body.W, "h": body.H, "dpr": 1, "fixed": fixed})
 }
 
@@ -446,7 +481,9 @@ func (s *Server) apiBrowserClaim(w http.ResponseWriter, r *http.Request) {
 // viewerOps 는 뷰어가 부를 수 있는 조작이다. 나머지(프로필·열기·cdp)는 막는다.
 var viewerOps = map[string]bool{"input": true, "nav": true, "viewport": true, "zoom": true,
 	// 3단계 — 찾기·위젯 값·대화상자·파일 선택·인증의 답·DevTools (FR-BRT-81·84~89).
-	"find": true, "widget": true, "dialog": true, "chooser": true, "auth": true, "devtools": true}
+	"find": true, "widget": true, "dialog": true, "chooser": true, "auth": true, "devtools": true,
+	// 4단계 — 소리의 신호 (FR-BRT-91). 이미지 복사 (FR-BRT-87).
+	"audio": true, "copyImage": true}
 
 // browserViewer 는 붙은 뷰어 하나다. 프레임은 **최신 하나만** 든다 — 느린 뷰어는
 // 밀린 프레임을 받지 않는다 (FR-BRT-50).
@@ -457,6 +494,9 @@ type browserViewer struct {
 	mu    sync.Mutex
 	frame []byte
 	texts [][]byte
+	// peers 는 이 뷰어가 받는 소리다 — 연결이 끊기면 서버가 끝낸다 (FR-BRT-91).
+	peers  map[string]bool
+	closed bool
 }
 
 func (v *browserViewer) signal() {
@@ -544,8 +584,8 @@ func (s *Server) apiBrowserStream(w http.ResponseWriter, r *http.Request) {
 
 	h := s.browser
 	ctx := context.Background()
-	if _, err := h.host.Call(ctx, "ensure", browser.OpenReq{Tab: tab, URL: q.Get("url"),
-		Profile: q.Get("profile"), Isolated: q.Get("isolated") == "1"}); err != nil {
+	fromQuery := browser.OpenReq{URL: q.Get("url"), Profile: q.Get("profile"), Isolated: q.Get("isolated") == "1"}
+	if err := h.ensureTab(ctx, tab, fromQuery); err != nil {
 		info, _ := json.Marshal(map[string]string{"message": err.Error()})
 		v.sendText(viewerText("error", info))
 		// 읽기를 이어 간다 — 뷰어가 다시 시도(nav reload)하거나 닫을 때까지 연결을 둔다.
@@ -573,6 +613,13 @@ func (s *Server) apiBrowserStream(w http.ResponseWriter, r *http.Request) {
 		if last {
 			h.host.Call(context.Background(), "watch", map[string]any{"tab": tab, "on": false})
 		}
+		v.mu.Lock()
+		peers := v.peers
+		v.peers, v.closed = nil, true
+		v.mu.Unlock()
+		for p := range peers {
+			h.host.Call(context.Background(), "audio", map[string]any{"tab": tab, "action": "stop", "peer": p})
+		}
 	}()
 
 	for {
@@ -590,12 +637,22 @@ func (s *Server) apiBrowserStream(w http.ResponseWriter, r *http.Request) {
 		}
 		delete(m, "op")
 		m["tab"] = tab
+		if op == "audio" {
+			// offer 는 ICE 수집까지 몇 초 걸린다 — 입력을 막지 않게 따로 돈다.
+			go h.viewerAudio(v, m)
+			continue
+		}
 		if op == "nav" {
 			// 되살리기 — 브라우저가 끝나 페이지를 잃은 탭은 다시 연다 (FR-BRT-38).
-			h.host.Call(ctx, "ensure", browser.OpenReq{Tab: tab, URL: q.Get("url"), Profile: q.Get("profile"),
-				Isolated: q.Get("isolated") == "1"})
+			h.ensureTab(ctx, tab, fromQuery)
 		}
 		res, err := h.host.Call(ctx, op, m)
+		if err != nil && op == "copyImage" {
+			// 복사 실패는 화면을 가리지 않는다 — 뷰어가 주소 복사로 물러선다.
+			info, _ := json.Marshal(map[string]string{"error": err.Error()})
+			v.sendText(viewerText("image", info))
+			continue
+		}
 		if err != nil && op != "input" {
 			info, _ := json.Marshal(map[string]string{"message": err.Error()})
 			v.sendText(viewerText("error", info))
@@ -604,5 +661,51 @@ func (s *Server) apiBrowserStream(w http.ResponseWriter, r *http.Request) {
 		if op == "find" {
 			v.sendText(viewerText("find", res))
 		}
+		if op == "copyImage" {
+			v.sendText(viewerText("image", res))
+		}
+	}
+}
+
+// viewerAudio 는 뷰어 하나의 소리 신호다 (FR-BRT-91). 거절은 화면을 가리지 않는다 —
+// `{t:audio, info:{error}}` 로만 알린다.
+func (h *browserHub) viewerAudio(v *browserViewer, m map[string]any) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	action, _ := m["action"].(string)
+	peer, _ := m["peer"].(string)
+	res, err := h.host.Call(ctx, "audio", m)
+	if err != nil {
+		if action == "offer" {
+			info, _ := json.Marshal(map[string]string{"error": err.Error()})
+			v.sendText(viewerText("audio", info))
+		}
+		return
+	}
+	switch action {
+	case "offer":
+		var r struct {
+			Peer string `json:"peer"`
+		}
+		json.Unmarshal(res, &r)
+		v.mu.Lock()
+		gone := v.closed
+		if !gone {
+			if v.peers == nil {
+				v.peers = map[string]bool{}
+			}
+			v.peers[r.Peer] = true
+		}
+		v.mu.Unlock()
+		if gone {
+			// 답을 기다리는 사이 뷰어가 떠났다 — 받을 이가 없다.
+			h.host.Call(ctx, "audio", map[string]any{"tab": m["tab"], "action": "stop", "peer": r.Peer})
+			return
+		}
+		v.sendText(viewerText("audio", res))
+	case "stop":
+		v.mu.Lock()
+		delete(v.peers, peer)
+		v.mu.Unlock()
 	}
 }

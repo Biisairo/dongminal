@@ -49,6 +49,12 @@ type PipedProcess struct {
 	kill      func() error
 }
 
+// NewPipedProcess 는 pipe 두 끝과 수명 함수로 PipedProcess 를 만든다 — 실제 Chrome 대신
+// 가짜 피어를 세우는 시험이 쓴다 (BROWSER_TAB_SRS TC-BRT-3).
+func NewPipedProcess(toChild io.WriteCloser, fromChild io.ReadCloser, pid int, wait, kill func() error) *PipedProcess {
+	return &PipedProcess{ToChild: toChild, FromChild: fromChild, Pid: pid, wait: wait, kill: kill}
+}
+
 // Wait 는 자식이 끝날 때까지 기다린다.
 func (p *PipedProcess) Wait() error { return p.wait() }
 

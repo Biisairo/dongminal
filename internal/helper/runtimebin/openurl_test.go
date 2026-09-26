@@ -2,6 +2,7 @@ package runtimebin
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -204,5 +205,18 @@ func TestBrowserFidelityCommands(t *testing.T) {
 		if rc := runDmctlBrowser(args, &stdout, &stderr); rc != 2 {
 			t.Errorf("%v → %d want 2", args, rc)
 		}
+	}
+}
+
+// TC-BRT-63: `--json` 은 서버의 답을 그대로 한 줄로 낸다 — 기계가 읽는다.
+func TestBrowserJSONOutput(t *testing.T) {
+	defer captureAPI(t, `{"snapshot":"- button [ref=e1]","refs":1}`, nil, nil, nil)()
+	var stdout, stderr bytes.Buffer
+	if rc := runDmctlBrowser([]string{"snapshot", "--json"}, &stdout, &stderr); rc != 0 {
+		t.Fatalf("rc=%d %s", rc, stderr.String())
+	}
+	var v map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &v); err != nil || v["snapshot"] != "- button [ref=e1]" || !strings.HasSuffix(stdout.String(), "}\n") {
+		t.Fatalf("--json: %q %v", stdout.String(), err)
 	}
 }

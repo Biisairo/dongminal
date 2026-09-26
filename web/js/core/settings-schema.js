@@ -59,7 +59,7 @@ const SETTINGS_SCHEMA = [
   {"key":"browserOpenPlacement","type":"string","def":"split","where":"Browser ▸ 터미널에서 열 때 위치"},
   {"key":"browserLinkTarget","type":"string","def":"internal","where":"Browser ▸ 링크를 클릭하면 열 곳"},
   {"key":"browserDefaultProfile","type":"string","def":"default","where":"Browser ▸ 새 탭의 프로필"},
-  {"key":"browserServerAudio","type":"bool","def":false,"where":"Browser ▸ 서버에서 소리 재생"},
+  {"key":"browserAudio","type":"string","def":"off","where":"Browser ▸ 소리"},
   {"key":"browserDownloadDir","type":"string","def":"","where":"Browser ▸ 다운로드 폴더"}
 ];
 

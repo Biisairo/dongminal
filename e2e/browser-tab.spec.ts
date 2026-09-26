@@ -24,7 +24,8 @@ function startSite(): Promise<{ url: string; reports: Report[]; hits: Map<string
 #blank{position:absolute;left:20px;top:100px;display:block;width:300px;height:40px;background:#9cf}
 #close{position:absolute;left:20px;top:180px;width:300px;height:40px}</style>
 <script>const rep=(k,v)=>fetch('/report?k='+encodeURIComponent(k)+'&v='+encodeURIComponent(v));
-addEventListener('load',()=>rep('width',innerWidth));</script>${body}`;
+addEventListener('load',()=>rep('width',innerWidth));addEventListener('resize',()=>rep('rw',innerWidth));
+</script>${body}`;
   const srv: Server = createServer((req: IncomingMessage, res: ServerResponse) => {
     const u = new URL(req.url || '/', 'http://x');
     hits.set(u.pathname, (hits.get(u.pathname) || 0) + 1);
@@ -34,6 +35,9 @@ addEventListener('load',()=>rep('width',innerWidth));</script>${body}`;
       return;
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    if (u.pathname === '/keys') { res.end(page(`<input id=i><script>addEventListener('keydown',e=>rep('key',(e.ctrlKey?'C-':'')+(e.shiftKey?'S-':'')+e.key))</script>`)); return }
+    if (u.pathname === '/tip') { res.end(page(`<button id=close title="<img src=x onerror=alert(1)>">tip</button>`)); return }
+    if (u.pathname === '/tone') { res.end(page(`<button id=close onclick="const c=new AudioContext();const o=c.createOscillator();o.connect(c.destination);o.start();c.resume().then(()=>rep('tone',c.state))">tone</button>`)); return }
     if (u.pathname === '/confirm') { res.end(page(`<button id=close onclick="rep('confirm',String(confirm('go?')))">ask</button>`)); return }
     if (u.pathname === '/file.bin') { res.setHeader('Content-Type', 'application/octet-stream'); res.setHeader('Content-Disposition', 'attachment; filename="file.bin"'); res.end('abc'); return }
     if (u.pathname === '/other') { res.end(page('<h1>other</h1><button id=close onclick="window.close()">close</button>')); return }
@@ -210,6 +214,9 @@ test.describe('BROWSER_TAB — 브라우저 탭', () => {
     await waitForInit(page);
     await waitShellReady(page);
     await openTab(request, { url: site.url + '/', tool: await focusedTool(page), split: 'right', focus: true });
+    // 탭이 놓이며 포커스가 캔버스로 가기 전에 치면 그 이동이 입력을 덮는다 — 첫 프레임 뒤에 친다.
+    await waitReport(site, 'width', () => true);
+    await waitFrame(page);
     const addr = page.locator('.brv.vis .brv-addr');
     await addr.fill('javascript:alert(1)');
     await addr.press('Enter');
@@ -293,8 +300,8 @@ test.describe('BROWSER_TAB — 브라우저 탭', () => {
     await b2.close();
   });
 
-  // TC-BRT-85: confirm 은 탭 위의 대화상자이고 그 답이 페이지로 간다.
-  test('TC-BRT-85: confirm 대화상자의 확인이 페이지에 닿는다', async ({ page, request }) => {
+  // TC-BRT-72: confirm 은 탭 위의 대화상자이고 그 답이 페이지로 간다.
+  test('TC-BRT-72: confirm 대화상자의 확인이 페이지에 닿는다', async ({ page, request }) => {
     await waitForInit(page);
     await waitShellReady(page);
     await openTab(request, { url: site.url + '/confirm', tool: await focusedTool(page), split: 'right', focus: true });
@@ -306,8 +313,8 @@ test.describe('BROWSER_TAB — 브라우저 탭', () => {
     await waitReport(site, 'confirm', (v) => v === 'true');
   });
 
-  // TC-BRT-80: 다운로드는 서버의 다운로드 폴더에 쌓이고 목록에 보인다.
-  test('TC-BRT-80: 다운로드가 목록에 완료로 보인다', async ({ page, request }) => {
+  // TC-BRT-70: 다운로드는 서버의 다운로드 폴더에 쌓이고 목록에 보인다.
+  test('TC-BRT-70: 다운로드가 목록에 완료로 보인다', async ({ page, request }) => {
     await waitForInit(page);
     await waitShellReady(page);
     // 사용자의 ~/Downloads 를 더럽히지 않는다 — 폴더는 다운로드가 끝날 때 읽는다.
@@ -326,4 +333,195 @@ test.describe('BROWSER_TAB — 브라우저 탭', () => {
     await request.put('/api/settings', { data: cur });
     rmSync(dir, { recursive: true, force: true });
   });
+
+  // TC-BRT-81: 소리를 이 기기로 — 시험 페이지의 톤이 뷰어의 WebRTC 트랙에 도착한다.
+  test('TC-BRT-81: 탭의 소리가 뷰어에 도착한다', async ({ page, request }) => {
+    await waitForInit(page);
+    await waitShellReady(page);
+    // 설정은 브라우저를 띄울 때 읽는다 — 새 프로필이 새 브라우저다.
+    const cur = await (await request.get('/api/settings')).json();
+    await request.put('/api/settings', { data: { ...cur, browserAudio: 'viewer' } });
+    await page.evaluate(() => { (window as any).browserAudio = 'viewer' });
+    await request.post('/api/browser/profiles', { data: { name: 'snd' }, headers: JSON_HDR });
+    try {
+      await openTab(request, { url: site.url + '/tone', profile: 'snd', tool: await focusedTool(page), split: 'right', focus: true });
+      await waitReport(site, 'width', () => true);
+      await clickPage(page, 100, 200);
+      await waitReport(site, 'tone', (v) => v === 'running');
+      await expect.poll(() => page.evaluate(async () => {
+        const v = [...((window as any).app.testing.brvViews || new Map()).values()].find((x: any) => x.visible);
+        const pc = v && v._audio && v._audio.pc;
+        if (!pc) return 0;
+        let e = 0;
+        (await pc.getStats()).forEach((r: any) => { if (r.type === 'inbound-rtp' && r.kind === 'audio') e = r.totalAudioEnergy || 0 });
+        return e;
+      }), { timeout: 20000 }).toBeGreaterThan(0);
+    } finally {
+      await request.put('/api/settings', { data: cur });
+      await page.evaluate(() => { (window as any).browserAudio = 'off' });
+      await request.post('/api/browser/profiles/delete', { data: { name: 'snd' }, headers: JSON_HDR });
+    }
+  });
+
+  /** 보이는 브라우저 탭의 레코드. */
+  const brvRecord = (page: any, id: string) => page.evaluate((tid: string) => {
+    const a = (window as any).app;
+    let out: any = null;
+    const walk = (n: any) => { if (!n || out) return; if (n.type === 'pane') out = n.tabs.find((t: any) => t.id === tid) || null; else (n.children || []).forEach(walk) };
+    for (const w of a.ws.windows) walk(w.layout);
+    return out && JSON.parse(JSON.stringify(out));
+  }, id);
+
+  // TC-BRT-44: 전역 단축키는 페이지에 가지 않고, 나머지 키는 간다.
+  test('TC-BRT-44: 전역 단축키는 페이지로 가지 않는다', async ({ page, request }) => {
+    await waitForInit(page);
+    await waitShellReady(page);
+    await openTab(request, { url: site.url + '/keys', tool: await focusedTool(page), split: 'right', focus: true });
+    await waitReport(site, 'width', () => true);
+    await clickPage(page, 100, 40);
+    await page.keyboard.press('Control+Shift+KeyB');
+    await expect(page.locator('#agents-panel.open')).toHaveCount(1);
+    await page.keyboard.press('Control+Shift+KeyB');
+    await clickPage(page, 100, 40);
+    // 탭 단축키(새로고침·확대)도 페이지에 가지 않는다 — 짝 없는 keyup·엉뚱한 키도 없다.
+    await page.keyboard.press('ControlOrMeta+Equal');
+    await page.keyboard.press('ControlOrMeta+Digit0');
+    await page.keyboard.press('x');
+    await waitReport(site, 'key', (v) => v === 'x');
+    const keys = site.reports.filter((r) => r.k === 'key').map((r) => r.v);
+    expect(keys.filter((v) => !/^(C-)?(S-)?(Meta|Control|Shift|Alt)$/.test(v) && v !== 'x'), JSON.stringify(keys)).toEqual([]);
+  });
+
+  // TC-BRT-76: 이 기기의 붙여넣기가 페이지 입력란에 들어간다.
+  test('TC-BRT-76: 붙여넣기가 페이지에 닿는다', async ({ page, request }) => {
+    await waitForInit(page);
+    await waitShellReady(page);
+    await openTab(request, { url: site.url + '/', tool: await focusedTool(page), split: 'right', focus: true });
+    await waitReport(site, 'width', () => true);
+    await clickPage(page, 100, 40);
+    await page.evaluate(() => {
+      const v = [...(window as any).app.testing.brvViews.values()].find((x: any) => x.visible);
+      const dt = new DataTransfer();
+      dt.setData('text/plain', 'pasted-here');
+      v.input.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
+    });
+    await waitReport(site, 'value', (v) => v === 'pasted-here');
+  });
+
+  // TC-BRT-S3: 격리 world 가 보낸 문자열은 뷰어에서 마크업이 되지 않는다.
+  test('TC-BRT-S3: 툴팁 문자열은 텍스트로만 그린다', async ({ page, request }) => {
+    await waitForInit(page);
+    await waitShellReady(page);
+    await openTab(request, { url: site.url + '/tip', tool: await focusedTool(page), split: 'right', focus: true });
+    await waitReport(site, 'width', () => true);
+    await waitFrame(page);
+    const box = await page.locator('.brv.vis .brv-canvas').boundingBox();
+    await page.mouse.move(box!.x + 100, box!.y + 195);
+    await page.mouse.move(box!.x + 110, box!.y + 200);
+    const tip = page.locator('.brv.vis .brv-tip');
+    await expect(tip).toHaveText('<img src=x onerror=alert(1)>', { timeout: 15000 });
+    expect(await tip.locator('img').count()).toBe(0);
+  });
+
+  // TC-BRT-52: 프로그램이 연 URL 은 linkTarget=viewer 여도 브라우저 탭이다.
+  test('TC-BRT-52: linkTarget=viewer 에서도 쉘의 open 은 브라우저 탭', async ({ page }) => {
+    await waitForInit(page);
+    await waitShellReady(page);
+    await page.evaluate(() => { (window as any).browserLinkTarget = 'viewer' });
+    try {
+      await page.locator('#area .pn.focused .xterm-helper-textarea').focus();
+      await page.keyboard.type(`open ${site.url}/other\n`);
+      await expect.poll(() => paneTypes(page), { timeout: 20000 }).toEqual([['terminal'], ['browser']]);
+    } finally {
+      await page.evaluate(() => { (window as any).browserLinkTarget = 'internal' });
+    }
+  });
+
+  // TC-BRT-32: Ctrl/⌘ 클릭으로 연 탭은 뒤에 열린다 — 보던 탭이 그대로 앞이다.
+  test('TC-BRT-32: 수정키 클릭은 뒤 탭으로 연다', async ({ page, request }) => {
+    await waitForInit(page);
+    await waitShellReady(page);
+    const tab = await openTab(request, { url: site.url + '/', tool: await focusedTool(page), split: 'right', focus: true });
+    await waitReport(site, 'width', () => true);
+    await waitFrame(page);
+    const box = await page.locator('.brv.vis .brv-canvas').boundingBox();
+    // 서버 OS 의 관례 — macOS 에서 Ctrl+클릭은 우클릭이다.
+    const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
+    await page.keyboard.down(mod);
+    await page.mouse.click(box!.x + 100, box!.y + 120);
+    await page.keyboard.up(mod);
+    await expect.poll(() => paneTypes(page)).toEqual([['terminal'], ['browser', 'browser']]);
+    const active = await page.evaluate((id: string) => {
+      const a = (window as any).app;
+      const walk = (n: any): any => n && (n.type === 'pane' ? (n.tabs.some((t: any) => t.id === id) ? n : null) : (n.children || []).map(walk).find(Boolean));
+      return a.paneTab(walk(a.aw().layout));
+    }, tab);
+    expect(active).toBe(tab);
+  });
+
+  // TC-BRT-77·FR-BRT-84: F12 → DevTools 탭 — 대상 탭의 칸을 호출 칸으로 놓이고 이름이 "DevTools · <제목>".
+  test('TC-BRT-77: F12 가 DevTools 탭을 연다', async ({ page, request }) => {
+    await waitForInit(page);
+    await waitShellReady(page);
+    const tab = await openTab(request, { url: site.url + '/', tool: await focusedTool(page), split: 'right', focus: true });
+    await waitReport(site, 'width', () => true);
+    await clickPage(page, 300, 300);
+    await page.keyboard.press('F12');
+    await expect.poll(() => page.evaluate((id: string) => {
+      const a = (window as any).app;
+      let hit: any = null;
+      const walk = (n: any) => { if (!n || hit) return; if (n.type === 'pane') hit = n.tabs.find((t: any) => t.devtoolsOf === id) || null; else (n.children || []).forEach(walk) };
+      walk(a.aw().layout);
+      return hit ? hit.name : '';
+    }, tab), { timeout: 20000 }).toBe('DevTools · site');
+    await expect.poll(() => paneTypes(page)).toEqual([['terminal'], ['browser'], ['browser']]);
+  });
+
+  // TC-BRT-41·FR-BRT-52: 탭 메뉴의 고정 크기 → 페이지 폭이 고정되고 탭 레코드에 남는다. 맞춤이 푼다.
+  test('TC-BRT-41: 탭 메뉴의 고정 크기', async ({ page, request }) => {
+    await waitForInit(page);
+    await waitShellReady(page);
+    const tab = await openTab(request, { url: site.url + '/', tool: await focusedTool(page), split: 'right', focus: true });
+    await waitReport(site, 'width', () => true);
+    await page.locator('.brv.vis .brv-bar button').last().click();
+    await page.locator('.brv-menu [data-id="vp390x844"], .brv-menu .ui-menu-item:has-text("390")').first().click();
+    await waitReport(site, 'rw', (v) => v === '390');
+    await expect.poll(async () => (await brvRecord(page, tab))?.viewport).toEqual({ w: 390, h: 844 });
+    await page.locator('.brv.vis .brv-bar button').last().click();
+    await page.locator('.brv-menu .ui-menu-item:has-text("Fit"), .brv-menu .ui-menu-item:has-text("맞춤")').first().click();
+    await expect.poll(async () => (await brvRecord(page, tab))?.viewport).toBeUndefined();
+  });
+
+  // TC-BRT-40: 다른 기기가 입력하면 그 기기가 창의 주인이 되고 페이지 크기가 그 기기를 따른다.
+  test('TC-BRT-40: 창 주인이 바뀌면 뷰포트가 새 주인을 따른다', async ({ page, request, browser }) => {
+    await waitForInit(page);
+    await waitShellReady(page);
+    const tab = await openTab(request, { url: site.url + '/', tool: await focusedTool(page), split: 'right', focus: true });
+    await waitReport(site, 'width', () => true);
+    await clickPage(page, 100, 40);
+    const vpOf = (pg: any) => pg.evaluate(() => {
+      const v = [...(window as any).app.testing.brvViews.values()].find((x: any) => x.visible);
+      return v ? Number(String(v._lastVp || '').split('x')[0]) : 0;
+    });
+    const pageWidth = async () => {
+      const r = await request.post('/api/browser/act', { data: { tab, op: 'eval', expr: 'innerWidth' }, headers: JSON_HDR });
+      return (await r.json()).value;
+    };
+    await expect.poll(pageWidth).toBe(await vpOf(page));
+    const ctx2 = await browser.newContext({ viewport: { width: 900, height: 700 } });
+    const p2 = await ctx2.newPage();
+    try {
+      await p2.goto(page.url());
+      await waitForInit(p2);
+      await clickPage(p2, 60, 30);
+      const w2 = await vpOf(p2);
+      expect(w2).not.toBe(await vpOf(page));
+      await expect.poll(pageWidth, { timeout: 20000 }).toBe(w2);
+      await expect(page.locator('.brv.vis')).toHaveClass(/brv-dim/, { timeout: 15000 });
+      await expect(p2.locator('.brv.vis')).not.toHaveClass(/brv-dim/);
+    } finally {
+      await ctx2.close();
+    }
+  });
+
 });

@@ -561,6 +561,12 @@ const TAB_TYPE_EDITOR='editor';
 const TAB_TYPE_RUN='run';
 // BROWSER_TAB_SRS FR-BRT-30: 서버 기기의 Chrome 페이지 하나를 그리는 탭.
 const TAB_TYPE_BROWSER='browser';
+// FR-BRT-90·91: 소리 설정의 셋 — 끔 · 서버 기기 · 이 기기.
+const BRV_AUDIO=['off','server','viewer'];
+// FR-BRT-91: 뷰어가 answer 의 ICE 수집을 기다리는 상한.
+const BRV_AUDIO_ICE_MS=5000;
+// FR-BRT-52: 탭 메뉴의 고정 크기 — 데스크톱 둘 · 모바일 하나.
+const BRV_FIXED_SIZES=Object.freeze([{w:1280,h:800},{w:1024,h:768},{w:390,h:844}]);
 
 // ── 샌드박스 창의 작업 방식 (SANDBOX_PICK_COPY_SRS FR-SPK-10·23) ──
 //

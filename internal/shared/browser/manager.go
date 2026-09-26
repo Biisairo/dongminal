@@ -65,6 +65,15 @@ type TabState struct {
 	CanForward bool    `json:"canForward"`
 	Crashed    bool    `json:"crashed,omitempty"`
 	Zoom       float64 `json:"zoom,omitempty"`
+	// Viewport 는 고정 크기다 — null 이면 창 주인의 크기를 따른다 (FR-BRT-52). 화면이 탭 레코드에
+	// 적고, 풀면 지운다 — 그래서 null 도 싣는다.
+	Viewport *Size `json:"viewport"`
+}
+
+// Size 는 고정 뷰포트의 CSS 크기다.
+type Size struct {
+	W int `json:"w"`
+	H int `json:"h"`
 }
 
 // Created 는 매니저가 스스로 만든 탭이다 — 배치는 화면이 한다.
@@ -103,8 +112,8 @@ type Config struct {
 	// Home 은 DONGMINAL_HOME 이다. 프로필은 `<Home>/browser/profiles/<이름>/` 다.
 	Home   string
 	Engine platform.Chrome
-	// ServerAudio 는 프로필 브라우저를 띄울 때 읽는다 (FR-BRT-90). nil 이면 끔.
-	ServerAudio func() bool
+	// Audio 는 소리 설정이다 — 프로필 브라우저를 띄울 때 읽는다 (FR-BRT-90·91). nil 이면 끔.
+	Audio func() string
 	// Euid 는 실행 사용자다. 0 이면 root 로 보고 거절한다 (FR-BRT-4). nil 이면 os.Geteuid.
 	Euid func() int
 	// VersionTimeout 은 기동 뒤 Browser.getVersion 을 기다리는 상한이다 (FR-BRT-6). 0 이면 5초.
@@ -120,6 +129,7 @@ type Config struct {
 // Manager 는 프로필 브라우저와 탭 대응을 소유한다.
 type Manager struct {
 	cfg Config
+	dls downloads
 
 	mu       sync.Mutex
 	sink     func(Event)
@@ -338,6 +348,8 @@ type OpenReq struct {
 	URL      string `json:"url"`
 	Profile  string `json:"profile"`
 	Isolated bool   `json:"isolated"`
+	// Viewport 는 복원할 고정 크기다 (FR-BRT-52) — 페이지를 **만들 때만** 적용한다.
+	Viewport *Size `json:"viewport,omitempty"`
 }
 
 // Open 은 페이지를 **즉시** 만든다 (FR-BRT-36) — 배치는 화면이 한다. 이미 그 탭이
@@ -386,7 +398,8 @@ func (m *Manager) Ensure(ctx context.Context, r OpenReq) error {
 	if live {
 		return nil
 	}
-	if isGhost && r.URL == "" {
+	// 매니저가 기억하는 주소가 가장 새것이다 — 워크스페이스의 url 은 저장이 늦을 수 있다.
+	if isGhost {
 		r.URL, r.Profile, r.Isolated = g.url, g.profile, g.isolated
 	}
 	return m.Open(ctx, r)
@@ -577,7 +590,7 @@ var okResult = map[string]bool{"ok": true}
 
 // launchArgs 는 프로필 브라우저의 기동 인자다 (FR-BRT-4). 디버깅 포트를 열지 않는다
 // (FR-BRT-5) — `--remote-debugging-port` 는 어떤 경로로도 붙지 않는다.
-func launchArgs(profileDir string, serverAudio bool) []string {
+func launchArgs(profileDir, audio string) []string {
 	args := []string{
 		"--headless=new",
 		"--remote-debugging-pipe",
@@ -589,8 +602,12 @@ func launchArgs(profileDir string, serverAudio bool) []string {
 		// 깨진다(실측).
 		"--no-startup-window",
 	}
-	if !serverAudio {
+	if audio != AudioServer {
 		args = append(args, "--mute-audio")
+	}
+	if audio == AudioViewer {
+		// FR-BRT-91: allowlist 가 있어야 사용자의 확장 호출 없이 탭 소리를 받는다.
+		args = append(args, "--enable-unsafe-extension-debugging", "--allowlisted-extension-id="+audioExtID)
 	}
 	return args
 }

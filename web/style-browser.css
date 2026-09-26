@@ -53,6 +53,7 @@
   padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--bg)}
 .brv-find-q{width:200px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--text);padding:2px 6px}
 .brv-find-n{color:var(--text-muted);font-size:var(--fs-xs);min-width:40px}
+.brv-find-note{color:var(--text-muted);font-size:var(--fs-xs);cursor:help}
 .brv-dialog{display:flex;flex-direction:column;gap:8px}
 .brv-chooser{display:flex;flex-direction:column;gap:6px;min-width:min(520px,80vw)}
 .brv-chooser-list{max-height:50vh;overflow:auto;border:1px solid var(--border);border-radius:4px}

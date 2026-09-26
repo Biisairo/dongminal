@@ -336,3 +336,52 @@ func browserOf(m *Manager, profile string) *profileBrowser {
 	defer m.mu.Unlock()
 	return m.browsers[profile]
 }
+
+// FR-BRT-52: 복원할 고정 크기는 페이지를 만들 때 걸리고 상태에 실린다. auto 는 푼다.
+func TestRealOpenWithFixedViewport(t *testing.T) {
+	m, r := realManager(t)
+	ctx := context.Background()
+	if err := m.Open(ctx, OpenReq{Tab: "t", URL: "about:blank", Viewport: &Size{W: 640, H: 480}}); err != nil {
+		t.Fatal(err)
+	}
+	waitEval(t, m, "t", `innerWidth+'x'+innerHeight`, `"640x480"`)
+	// 창 주인의 크기는 고정 중에는 적용되지 않는다 (TC-BRT-41).
+	if _, err := m.Call(ctx, "viewport", map[string]any{"tab": "t", "w": 1000, "h": 700}); err != nil {
+		t.Fatal(err)
+	}
+	waitEval(t, m, "t", `innerWidth+'x'+innerHeight`, `"640x480"`)
+	if _, err := m.Call(ctx, "viewport", map[string]any{"tab": "t", "fixed": false}); err != nil {
+		t.Fatal(err)
+	}
+	r.wait(t, 5*time.Second, func(e Event) bool {
+		var st TabState
+		json.Unmarshal(e.Info, &st)
+		return e.Kind == EvState && e.Tab == "t" && st.Viewport == nil
+	})
+	waitEval(t, m, "t", `innerWidth+'x'+innerHeight`, `"1000x700"`)
+}
+
+// TC-BRT-7: 매니저가 끝나면 프로필 브라우저(자식 트리)가 남지 않는다.
+func TestRealCloseLeavesNoChrome(t *testing.T) {
+	eng := platform.Current().Chrome
+	if _, err := eng.Find(); err != nil {
+		t.Skip("Chrome 없음")
+	}
+	m := New(Config{Home: t.TempDir(), Engine: eng})
+	if err := m.Open(context.Background(), OpenReq{Tab: "t", URL: "about:blank"}); err != nil {
+		t.Fatal(err)
+	}
+	pid := browserOf(m, DefaultProfile).proc.Pid
+	proc := platform.Current().Process
+	if !proc.Alive(pid) {
+		t.Fatal("브라우저가 떠 있지 않다")
+	}
+	m.Close()
+	end := time.Now().Add(5 * time.Second)
+	for proc.Alive(pid) && time.Now().Before(end) {
+		time.Sleep(50 * time.Millisecond)
+	}
+	if proc.Alive(pid) {
+		t.Fatalf("매니저가 끝났는데 Chrome(pid %d)이 남았다", pid)
+	}
+}

@@ -32,6 +32,7 @@ class BrowserView{
     this.app=app;this.tabId=tab.id;this.slot=slot||0;
     this.tab=tab;
     this.ws=null;this.meta=null;this.state={url:tab.url||'',title:tab.name||''};
+    this._keysDown=new Set();
     this.zoom=1;this.visible=false;this._hideTimer=null;this._pending=null;this._decoding=false;
     this._composing=false;this._lastVp='';
     this._build();
@@ -83,8 +84,10 @@ class BrowserView{
       if(this._hideTimer){TIMERS.cancel(this._hideTimer);this._hideTimer=null}
       this._connect();
       this._sendViewport(true);
+      this._audioStart();
       return;
     }
+    this._audioStop();
     if(this._hideTimer) return;
     this._hideTimer=TIMERS.after(BRV_HIDE_GRACE_MS,()=>{this._hideTimer=null;if(!this.visible) this._disconnect()},{owner:this,label:'brv-hide'});
   }
@@ -107,7 +110,7 @@ class BrowserView{
     const ws=new WebSocket(proto+'//'+location.host+BROWSER_API.stream+'?'+q.toString());
     ws.binaryType='arraybuffer';
     ws.onmessage=ev=>this._onMessage(ev);
-    ws.onopen=()=>{this._lastVp='';this._sendViewport(true);if(this.zoom!==1) this._send({op:'zoom',zoom:this.zoom})};
+    ws.onopen=()=>{this._lastVp='';this._sendViewport(true);if(this.zoom!==1) this._send({op:'zoom',zoom:this.zoom});this._audioStart()};
     ws.onclose=()=>{
       if(this.ws!==ws) return;
       this.ws=null;
@@ -118,6 +121,7 @@ class BrowserView{
   }
 
   _disconnect(){
+    this._audioStop(true);
     const ws=this.ws;this.ws=null;
     if(ws){try{ws.close()}catch{}}
   }
@@ -156,6 +160,10 @@ class BrowserView{
       this._onDownload(info);
     }else if(m.t==='find'){
       this._onFind(info);
+    }else if(m.t==='audio'){
+      this._onAudio(info);
+    }else if(m.t==='image'){
+      this._onImage(info);
     }else if(m.t==='closed'){
       this._showOverlay(t('brv.closed'),null,null);
     }
@@ -312,6 +320,11 @@ class BrowserView{
       {id:'zoomOut',label:t('brv.zoom_out'),onClick:()=>this.setZoom(-1)},
       {id:'zoomReset',label:t('brv.zoom_reset')+' ('+Math.round((this.zoom||1)*100)+'%)',onClick:()=>this.setZoom(0)},
       {sep:true},
+      // FR-BRT-52: 고정 크기 — 고정 중에는 창 주인의 크기를 따르지 않는다.
+      ...BRV_FIXED_SIZES.map(v=>({id:'vp'+v.w+'x'+v.h,label:t('brv.viewport_fixed',{size:v.w+'×'+v.h}),
+        onClick:()=>this._send({op:'viewport',w:v.w,h:v.h,dpr:1,fixed:true})})),
+      {id:'vpAuto',label:t('brv.viewport_auto'),disabled:!this.state.viewport,onClick:()=>this._send({op:'viewport',fixed:false})},
+      {sep:true},
       {id:'hardReload',label:t('brv.hard_reload'),onClick:()=>this._send({op:'nav',action:'reload',hard:true})},
       {id:'viewer',label:t('brv.open_viewer'),onClick:()=>{if(this.state.url) window.open(this.state.url,'_blank','noopener')}},
     ],{at:{x:r.left,y:r.bottom},cls:'brv-menu'});
@@ -394,6 +407,9 @@ class BrowserView{
       // 붙여넣기는 이 기기의 클립보드다 — 키를 보내지 않고 paste 이벤트로 글을 넣는다 (FR-BRT-82).
       if(e.code==='KeyV'&&(IS_MAC?e.metaKey:e.ctrlKey)&&!e.altKey) return;
       e.preventDefault();
+      // 누름을 보내지 않은 키(단축키가 가져갔다)의 뗌은 보내지 않는다 — 페이지에 짝 없는 keyup 이 간다.
+      if(type==='keyDown') this._keysDown.add(e.code);
+      else if(!this._keysDown.delete(e.code)) return;
       this._send({op:'input',t:'key',type,key:e.key,code:e.code,keyCode:e.keyCode,location:e.location,
         mods:brvMods(e),repeat:e.repeat,mac:IS_MAC});
     };
@@ -437,5 +453,9 @@ function browserAddressURL(raw){
     return null;
   }
   if(/^(localhost|\[[0-9a-f:]+\]|[a-z0-9-]+(\.[a-z0-9-]+)+)(:\d{1,5})?(\/.*)?$/i.test(s)) return 'http://'+s;
+  // 서버의 절대 경로 — 주소창에는 기준 폴더가 없으므로 상대 경로는 받지 않는다 (FR-BRT-41·66).
+  if(s.startsWith('/')) return 'file://'+s.split('/').map(encodeURIComponent).join('/');
+  const w=/^([a-z]):[\\/](.*)$/i.exec(s);
+  if(w) return 'file:///'+w[1].toUpperCase()+':/'+w[2].split(/[\\/]/).map(encodeURIComponent).join('/');
   return null;
 }

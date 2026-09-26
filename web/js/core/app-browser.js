@@ -25,12 +25,14 @@ const BRV_ACTIONS={
   brvDevtools:v=>v._send({op:'devtools'}),
 };
 
-// 고정 보조 키 — 관용이라 표에 두지 않는다 (F5 새로고침 · Alt+←/→ 뒤로/앞으로).
+// 고정 키 — 관용이라 표에 두지 않는다 (F5 새로고침 · Alt+←/→ 뒤로/앞으로 · F12 DevTools ·
+// Mod+F 찾기 — 터미널 검색과 같은 규약이고 표의 Editor 찾기와 겹치지 않게 한다).
 const BRV_FIXED_KEYS=[
   {match:e=>e.code==='F5'&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!e.shiftKey,act:'brvReload'},
   {match:e=>e.code==='ArrowLeft'&&e.altKey&&!e.ctrlKey&&!e.metaKey&&!e.shiftKey,act:'brvBack'},
   {match:e=>e.code==='ArrowRight'&&e.altKey&&!e.ctrlKey&&!e.metaKey&&!e.shiftKey,act:'brvForward'},
   {match:e=>e.code==='F12'&&!e.ctrlKey&&!e.metaKey&&!e.altKey&&!e.shiftKey,act:'brvDevtools'},
+  {match:e=>matchShortcut(e,'Mod+KeyF'),act:'brvFind'},
 ];
 
 Object.assign(App.prototype, {
@@ -126,6 +128,11 @@ Object.assign(App.prototype, {
     const name=clampEntityName(st.title||st.url||'');
     if(name&&f.tab.name!==name){f.tab.name=name;changed=true}
     if(st.url&&st.url!=='about:blank'&&f.tab.url!==st.url){f.tab.url=st.url;changed=true}
+    // FR-BRT-52: 고정 크기는 탭 레코드에 적어 복원 때 다시 건다.
+    const vp=st.viewport&&st.viewport.w>0&&st.viewport.h>0?{w:st.viewport.w,h:st.viewport.h}:null;
+    const had=f.tab.viewport||null;
+    if(vp&&(!had||had.w!==vp.w||had.h!==vp.h)){f.tab.viewport=vp;changed=true}
+    else if(!vp&&had&&st.viewport===null){delete f.tab.viewport;changed=true}
     if(!changed) return;
     this.renderTabTitles?this.renderTabTitles():this.render();
     if(this._brvSaveTimer) TIMERS.cancel(this._brvSaveTimer);
@@ -150,6 +157,7 @@ Object.assign(App.prototype, {
     if(a.profile&&a.profile!=='default') tab.profile=a.profile;
     if(a.isolated) tab.isolated=true;
     if(a.popup) tab.popup=true;
+    if(a.devtoolsOf) tab.devtoolsOf=String(a.devtoolsOf);
     return tab;
   },
 
@@ -162,6 +170,25 @@ Object.assign(App.prototype, {
     if(findTabWhere(this.ws.windows,tab=>tab.id===a.tab)) return;
     const tab=this._brvTabRecord(a);
     const focus=!!a.focus;
+    // DevTools — 호출 칸은 대상 탭의 칸이고 여는 자리는 설정을 따른다 (FR-BRT-84·32).
+    if(a.devtoolsOf){
+      const o=findTabWhere(this.ws.windows,x=>x.id===a.devtoolsOf);
+      if(o){
+        const place=browserPlace(o.win.layout,o.pane.id,browserOpenPlacement==='tab'?'none':'right',o.win.focusedPane);
+        if(place&&place.pane){
+          const pn=findPane(o.win.layout,place.pane);
+          pn.tabs.push(tab);
+          this._brvPlaced(o.win,pn,tab,true);
+          return;
+        }
+        if(place){
+          const np={type:'pane',id:newEntityId(),tabs:[tab],activeTab:tab.id};
+          o.win.layout=browserSplitInsert(o.win.layout,place.split.target,place.split.dir,np);
+          this._brvPlaced(o.win,np,tab,true);
+          return;
+        }
+      }
+    }
     // 페이지가 연 탭 — 연 탭의 칸, 바로 뒤 (FR-BRT-33).
     if(a.opener){
       const o=findTabWhere(this.ws.windows,x=>x.id===a.opener);

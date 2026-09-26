@@ -43,21 +43,43 @@ const agentScript = `(() => {
     return String(getSelection() || '');
   };
   for (const k of ['copy', 'cut']) addEventListener(k, () => { const s = selected(); if (s) send({t: 'copy', v: s}) }, true);
+  // 입력란의 캐럿은 DOM 에 거울을 세우지 않고 글자 폭으로 잰다 — 페이지에 흔적을 남기지 않는다.
+  // 줄 바꿈은 '\n' 만 센다(자동 줄 바꿈은 근사).
+  const meter = document.createElement('canvas').getContext('2d');
+  const fieldCaret = (a) => {
+    const cs = getComputedStyle(a), r = a.getBoundingClientRect(), px = (v) => parseFloat(v) || 0;
+    meter.font = cs.font || (cs.fontSize + ' ' + cs.fontFamily);
+    const before = a.value.substring(0, a.selectionEnd == null ? a.value.length : a.selectionEnd);
+    const lines = a.tagName === 'TEXTAREA' ? before.split('\n') : [before];
+    const lh = px(cs.lineHeight) || px(cs.fontSize) * 1.2;
+    const text = a.type === 'password' ? '\u2022'.repeat(lines[lines.length - 1].length) : lines[lines.length - 1];
+    const x = r.left + px(cs.borderLeftWidth) + px(cs.paddingLeft) + meter.measureText(text).width - a.scrollLeft;
+    const y = a.tagName === 'TEXTAREA'
+      ? r.top + px(cs.borderTopWidth) + px(cs.paddingTop) + lines.length * lh - a.scrollTop
+      : r.top + (r.height + lh) / 2;
+    return {x: Math.min(Math.max(x, r.left), r.right), y: Math.min(Math.max(y, r.top), r.bottom)};
+  };
   const caret = () => {
     const a = document.activeElement;
     if (!a || a === document.body) return;
+    if ((a.tagName === 'INPUT' || a.tagName === 'TEXTAREA') && typeof a.selectionEnd === 'number') {
+      const c = fieldCaret(a); send({t: 'caret', x: c.x, y: c.y}); return;
+    }
     let r = null;
     if (a.isContentEditable) { const s = getSelection(); if (s && s.rangeCount) r = s.getRangeAt(0).getBoundingClientRect() }
     if (!r || (!r.width && !r.height)) r = a.getBoundingClientRect();
     send({t: 'caret', x: r.left, y: r.bottom});
   };
+  addEventListener('input', caret, true);
   document.addEventListener('selectionchange', caret);
   addEventListener('focusin', caret, true);
   addEventListener('contextmenu', (e) => {
     if (e.defaultPrevented) return;
     const t = e.target instanceof Element ? e.target : null;
     const a = t && t.closest('a[href]'), img = t && t.closest('img');
-    send({t: 'menu', x: e.clientX, y: e.clientY, href: a ? a.href : '', img: img ? img.currentSrc || img.src : '', sel: selected()});
+    const ir = img ? img.getBoundingClientRect() : null;
+    send({t: 'menu', x: e.clientX, y: e.clientY, href: a ? a.href : '', img: img ? img.currentSrc || img.src : '', sel: selected(),
+      imgRect: ir ? {x: ir.left + scrollX, y: ir.top + scrollY, w: ir.width, h: ir.height} : null});
   });
   addEventListener('invalid', (e) => {
     const el = e.target; if (!(el instanceof Element)) return;

@@ -179,10 +179,9 @@ type Download struct {
 // downloadStaging 은 받는 중인 파일을 두는 프로필 안의 폴더다.
 const downloadStaging = "DMDownloads"
 
+// downloads 는 매니저가 든다 — 프로필 브라우저가 끝나도 기록은 남는다 (`dmctl browser downloads`).
 type downloads struct {
-	mu sync.Mutex
-	// dir 은 대기 폴더다 — 저장 폴더는 끝날 때 설정에서 읽는다.
-	dir  string
+	mu   sync.Mutex
 	list []*Download
 	by   map[string]*Download
 }
@@ -249,7 +248,7 @@ func moveFile(src, dst string) error {
 // onDownload 는 브라우저 수준의 다운로드 이벤트다. `allowAndName` 은 guid 로 저장하므로
 // 끝나면 제안된 이름으로 옮긴다.
 func (b *profileBrowser) onDownload(method string, params json.RawMessage) {
-	d := &b.dl
+	d := &b.m.dls
 	switch method {
 	case "Browser.downloadWillBegin":
 		var p struct {
@@ -284,11 +283,11 @@ func (b *profileBrowser) onDownload(method string, params json.RawMessage) {
 			out := b.m.downloadDir()
 			os.MkdirAll(out, 0o755)
 			dst := uniquePath(out, x.Name)
-			if err := moveFile(filepath.Join(d.dir, p.GUID), dst); err == nil {
+			if err := moveFile(filepath.Join(b.dlDir, p.GUID), dst); err == nil {
 				x.Path = dst
 				x.Name = filepath.Base(dst)
 			} else {
-				x.Path = filepath.Join(d.dir, p.GUID)
+				x.Path = filepath.Join(b.dlDir, p.GUID)
 			}
 		}
 		cp := *x
@@ -302,19 +301,11 @@ func (b *profileBrowser) onDownload(method string, params json.RawMessage) {
 
 // Downloads 는 모든 프로필의 다운로드 목록이다 (`dmctl browser downloads`).
 func (m *Manager) Downloads() []Download {
-	m.mu.Lock()
-	bs := make([]*profileBrowser, 0, len(m.browsers))
-	for _, b := range m.browsers {
-		bs = append(bs, b)
-	}
-	m.mu.Unlock()
-	var out []Download
-	for _, b := range bs {
-		b.dl.mu.Lock()
-		for _, x := range b.dl.list {
-			out = append(out, *x)
-		}
-		b.dl.mu.Unlock()
+	m.dls.mu.Lock()
+	defer m.dls.mu.Unlock()
+	out := make([]Download, 0, len(m.dls.list))
+	for _, x := range m.dls.list {
+		out = append(out, *x)
 	}
 	return out
 }
@@ -411,6 +402,12 @@ func (pg *page) doFidelity(ctx context.Context, op string, params json.RawMessag
 		return okResult, true, pg.answerChooser(ctx, p.ID, p.Files)
 	case "devtools":
 		return okResult, true, pg.openDevTools(ctx, p.Panel)
+	case "audio":
+		v, err := pg.audio(ctx, params)
+		return v, true, err
+	case "copyImage":
+		v, err := pg.copyImage(ctx, params)
+		return v, true, err
 	case "auth":
 		var a struct {
 			ID     string `json:"id"`
@@ -428,4 +425,26 @@ func (pg *page) doFidelity(ctx context.Context, op string, params json.RawMessag
 		return okResult, true, err
 	}
 	return nil, false, nil
+}
+
+// copyImage 는 컨텍스트 메뉴의 "이미지 복사" 다 (FR-BRT-87). 이미지 요소의 자리(문서 CSS 좌표)를
+// 떠서 PNG 로 돌려준다 — 원본을 받지 않으므로 교차 출처 이미지도 된다. 뷰어가 제 클립보드에 쓴다.
+func (pg *page) copyImage(ctx context.Context, params json.RawMessage) (any, error) {
+	var p struct {
+		X, Y, W, H float64
+	}
+	json.Unmarshal(params, &p)
+	if p.W < 1 || p.H < 1 || p.W > 8192 || p.H > 8192 {
+		return nil, errors.New("이미지 크기가 없습니다")
+	}
+	res, err := pg.call(ctx, "Page.captureScreenshot", map[string]any{"format": "png", "captureBeyondViewport": true,
+		"clip": map[string]any{"x": p.X, "y": p.Y, "width": p.W, "height": p.H, "scale": 1}})
+	if err != nil {
+		return nil, err
+	}
+	var r struct {
+		Data string `json:"data"`
+	}
+	json.Unmarshal(res, &r)
+	return map[string]string{"png": r.Data}, nil
 }

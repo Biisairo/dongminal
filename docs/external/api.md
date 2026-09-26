@@ -352,7 +352,7 @@
 | GET | `/api/browser/downloads` | 다운로드 목록 `{downloads:[{guid,tab,url,name,path,state,received,total}]}`. 저장 폴더는 설정 ▸ 브라우저 ▸ 다운로드 폴더(기본 `~/Downloads`) |
 | GET | `/api/browser/cdpurl?profile=&tool=` | CDP 프록시 주소 `{ws, http}` (`dmctl browser cdp-url`) |
 | GET | `/api/browser/<프로필의 cdp 경로>` | CDP 프록시 (FR-BRT-22). `…/<프로필>/cdp/json/version` 은 Playwright·puppeteer 의 http 형태이고 `webSocketDebuggerUrl` 이 `…/<프로필>/cdp/ws` 다. 그 WebSocket 은 브라우저 수준 CDP 이며 **`Origin` 헤더가 있으면 403**(브라우저의 페이지는 붙지 못한다). 도구마다 자기 브라우저 세션을 받는다. `Browser.close`·`crash`·남의 컨텍스트 삭제는 오류, `Browser.setDownloadBehavior`·`Page.setInterceptFileChooserDialog(false)` 는 보내지 않고 빈 성공이다 |
-| GET | `/api/browser/stream` | WebSocket — `?tab=&url=&profile=&isolated=`. 뷰어 스트림. 서버→뷰어는 `[4바이트 길이][메타 JSON][JPEG]` 바이너리 프레임과 `{t:state\|error\|closed\|report\|dialog\|chooser\|download\|auth\|find, info}` 텍스트, 뷰어→서버는 `{op: input\|nav\|viewport\|zoom\|find\|widget\|dialog\|chooser\|auth\|devtools, …}` |
+| GET | `/api/browser/stream` | WebSocket — `?tab=&url=&profile=&isolated=`. 뷰어 스트림. 서버→뷰어는 `[4바이트 길이][메타 JSON][JPEG]` 바이너리 프레임과 `{t:state\|error\|closed\|report\|dialog\|chooser\|download\|auth\|find\|audio\|image, info}` 텍스트, 뷰어→서버는 `{op: input\|nav\|viewport\|zoom\|find\|widget\|dialog\|chooser\|auth\|devtools\|audio\|copyImage, …}`. `copyImage{x,y,w,h}` 는 그 자리의 PNG 를 `{t:image, info:{png}}` 로 돌려준다(실패는 `{error}`). `audio` 는 소리의 WebRTC 신호다(`action: offer\|answer\|stop` — offer 의 답은 그 뷰어에게만 `{t:audio, info:{peer, sdp}}`, 거절은 `{error}`) |
 
 ## WebSocket: `/ws?tool=<id>&cols=&rows=&since=`
 

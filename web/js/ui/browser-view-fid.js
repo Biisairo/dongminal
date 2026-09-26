@@ -76,11 +76,35 @@ Object.assign(BrowserView.prototype, {
         {id:'viewer',label:t('brv.open_viewer'),onClick:()=>window.open(href,'_blank','noopener')});
     }
     const img=String(a.img||'');
-    if(img) items.push({sep:true},{id:'copyImg',label:t('brv.copy_image_url'),onClick:()=>ClipboardWriter.write(img)});
+    if(img){
+      items.push({sep:true});
+      const ir=a.imgRect;
+      if(ir&&ir.w>=1&&ir.h>=1) items.push({id:'copyImgData',label:t('brv.copy_image'),onClick:()=>this._copyImage(ir,img)});
+      items.push({id:'copyImg',label:t('brv.copy_image_url'),onClick:()=>ClipboardWriter.write(img)});
+    }
     const sel=String(a.sel||'');
     if(sel) items.push({sep:true},{id:'copySel',label:t('brv.copy_selection'),onClick:()=>ClipboardWriter.write(sel)});
     items.push({sep:true},{id:'inspect',label:t('brv.inspect'),onClick:()=>this._send({op:'devtools'})});
     UIKit.menu(items,{at:{x:b.left+p.x,y:b.top+p.y},cls:'brv-menu'});
+  },
+
+  /**
+   * FR-BRT-87: 이미지 복사 — 서버가 그 자리를 PNG 로 떠 준다. 클립보드 쓰기는 누른 그 순간에
+   * 약속으로 건다(사용자 활성화를 잃지 않는다). 이미지 쓰기가 막힌 기기면 주소를 복사한다.
+   */
+  _copyImage(r,src){
+    const png=new Promise((resolve,reject)=>{this._imgWait={resolve,reject}});
+    this._send({op:'copyImage',x:r.x,y:r.y,w:r.w,h:r.h});
+    const blob=png.then(b64=>new Blob([Uint8Array.from(atob(b64),c=>c.charCodeAt(0))],{type:'image/png'}));
+    const fallback=()=>ClipboardWriter.write(src);
+    if(!window.ClipboardItem||!navigator.clipboard||!navigator.clipboard.write){png.catch(()=>{});fallback();return}
+    navigator.clipboard.write([new ClipboardItem({'image/png':blob})]).catch(fallback);
+  },
+
+  _onImage(info){
+    const w=this._imgWait;this._imgWait=null;
+    if(!w) return;
+    if(info&&info.png) w.resolve(String(info.png));else w.reject(new Error(String((info&&info.error)||'')));
   },
 
   /**
@@ -229,7 +253,10 @@ Object.assign(BrowserView.prototype, {
     const bar=document.createElement('div');bar.className='brv-find';
     const q=document.createElement('input');q.type='text';q.className='brv-find-q';q.setAttribute('aria-label',t('brv.find'));q.placeholder=t('brv.find');
     const n=document.createElement('span');n.className='brv-find-n';
-    bar.append(q,n);
+    // FR-BRT-89: 한계를 드러낸다 — 교차 출처 iframe 안은 찾지 않는다.
+    const note=document.createElement('span');note.className='brv-find-note';note.textContent='ⓘ';note.title=t('brv.find_limit');
+    note.setAttribute('aria-label',t('brv.find_limit'));
+    bar.append(q,n,note);
     this.stage.appendChild(bar);
     this._find=bar;this._findN=n;
     const go=(dir)=>this._send({op:'find',q:q.value,dir});

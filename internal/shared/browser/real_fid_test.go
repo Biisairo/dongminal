@@ -1,9 +1,11 @@
 package browser
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -35,7 +37,9 @@ func fidSite(t *testing.T) *httptest.Server {
 <input id=f type=file multiple> <input id=d type=date> <input id=l list=opts><datalist id=opts><option value=one><option value=two></datalist>
 <span id=tip title="hello tip" style="cursor:help">tip</span>
 <form id=fm><input id=req required></form>
-<p id=txt>findme here and findme there</p>`)
+<p id=txt>findme here and findme there</p>
+<input id=cq style="font:16px monospace;width:400px">
+<img id=im width=40 height=40 src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect width='40' height='40' fill='red'/%3E%3C/svg%3E">`)
 		}
 	}))
 	t.Cleanup(srv.Close)
@@ -149,6 +153,18 @@ func TestRealDownload(t *testing.T) {
 	res, _ := m.Call(context.Background(), "downloads", map[string]any{})
 	if !strings.Contains(string(res), "report.txt") {
 		t.Fatalf("목록: %s", res)
+	}
+	// 마지막 탭이 닫혀 프로필 브라우저가 끝나도 기록은 남는다.
+	m.CloseTab(context.Background(), "t")
+	end := time.Now().Add(10 * time.Second)
+	for browserOf(m, DefaultProfile) != nil && time.Now().Before(end) {
+		time.Sleep(100 * time.Millisecond)
+	}
+	if browserOf(m, DefaultProfile) != nil {
+		t.Fatal("브라우저가 끝나지 않았다")
+	}
+	if res, _ := m.Call(context.Background(), "downloads", map[string]any{}); !strings.Contains(string(res), "report.txt") {
+		t.Fatalf("브라우저가 끝난 뒤 목록: %s", res)
 	}
 }
 
@@ -280,6 +296,67 @@ func TestRealDevTools(t *testing.T) {
 	if c.DevtoolsOf != "t" || !strings.HasPrefix(c.Name, "DevTools") || !strings.HasPrefix(c.URL, "devtools://") {
 		t.Fatalf("devtools: %+v", c)
 	}
+	// DevTools 페이지가 제 제목을 싣고 와도 탭 이름은 "DevTools · <대상 제목>" 이다.
+	time.Sleep(1500 * time.Millisecond)
+	for _, ti := range m.Tabs() {
+		if ti.Tab == e.Tab && ti.Title != "DevTools · fid" {
+			t.Fatalf("DevTools 탭 이름: %q", ti.Title)
+		}
+	}
 	m.CloseTab(ctx, "t")
 	r.wait(t, 10*time.Second, func(x Event) bool { return x.Kind == EvClosed && x.Tab == e.Tab })
+}
+
+// TC-BRT-83(FR-BRT-83): 입력란의 캐럿 좌표는 글이 길어지면 오른쪽으로 간다 — 요소의 왼쪽 끝이 아니다.
+func TestRealCaretInField(t *testing.T) {
+	m, r, _ := openFid(t)
+	ctx := context.Background()
+	clickSel(t, m, "#cq")
+	left := report(t, r, "caret")["x"].(float64)
+	pg, _ := m.page("t")
+	if _, err := pg.call(ctx, "Input.insertText", map[string]any{"text": "abcdefghijklmnop"}); err != nil {
+		t.Fatal(err)
+	}
+	e := r.wait(t, 10*time.Second, func(e Event) bool {
+		var v map[string]any
+		json.Unmarshal(e.Info, &v)
+		x, _ := v["x"].(float64)
+		return e.Kind == EvReport && v["t"] == "caret" && x > left+100
+	})
+	var v map[string]any
+	json.Unmarshal(e.Info, &v)
+	raw := evalIn(t, m, "t", `document.getElementById('cq').getBoundingClientRect().right`)
+	var right float64
+	json.Unmarshal(raw, &right)
+	if v["x"].(float64) > right {
+		t.Fatalf("캐럿이 입력란 밖이다: %v > %v", v["x"], right)
+	}
+}
+
+// TC-BRT-74(FR-BRT-87): "이미지 복사" 는 이미지의 자리를 PNG 로 떠 준다.
+func TestRealCopyImage(t *testing.T) {
+	m, _, _ := openFid(t)
+	raw := evalIn(t, m, "t", `(()=>{const im=document.getElementById('im');im.scrollIntoView();const r=im.getBoundingClientRect();return {x:r.left+scrollX,y:r.top+scrollY,w:r.width,h:r.height}})()`)
+	var p map[string]any
+	json.Unmarshal(raw, &p)
+	res, err := m.Call(context.Background(), "copyImage", map[string]any{"tab": "t", "x": p["x"], "y": p["y"], "w": p["w"], "h": p["h"]})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out struct {
+		PNG []byte `json:"png"`
+	}
+	json.Unmarshal(res, &out)
+	img, err := png.Decode(bytes.NewReader(out.PNG))
+	if err != nil {
+		t.Fatalf("PNG: %v", err)
+	}
+	b := img.Bounds()
+	r, g, _, _ := img.At(b.Dx()/2, b.Dy()/2).RGBA()
+	if b.Dx() < 30 || r>>8 < 200 || g>>8 > 60 {
+		t.Fatalf("이미지가 아니다: %v %v/%v", b, r>>8, g>>8)
+	}
+	if _, err := m.Call(context.Background(), "copyImage", map[string]any{"tab": "t", "w": 0, "h": 0}); err == nil {
+		t.Fatal("크기 없는 복사를 받았다")
+	}
 }

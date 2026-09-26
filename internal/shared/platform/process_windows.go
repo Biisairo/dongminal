@@ -105,12 +105,24 @@ func (windowsProcess) Detach(cmd *exec.Cmd) {
 // 그 손자는 Job 밖에 남아 그룹 종료가 닿지 않는다.
 func (windowsProcess) NewGroup(cmd *exec.Cmd) Group {
 	g := &windowsGroup{cmd: cmd}
-	job, err := windows.CreateJobObject(nil, nil)
+	job, err := newKillOnCloseJob()
 	if err != nil {
-		g.err = fmt.Errorf("create job object: %w", err)
+		g.err = err
 		return g
 	}
-	// 마지막 핸들이 닫히면 남은 구성원을 함께 끝낸다 (Group.Close 주석).
+	g.job = job
+	sysProcAttr(cmd).CreationFlags |= windows.CREATE_SUSPENDED | windows.CREATE_NEW_PROCESS_GROUP
+	return g
+}
+
+// newKillOnCloseJob 은 프로세스 그룹의 Job Object 다 — 마지막 핸들이 닫히면 남은 구성원을
+// 함께 끝낸다 (Group.Close 주석). 도구의 그룹과 브라우저의 pipe 기동(chrome_windows.go)이
+// 이 한 길을 지난다 (BROWSER_TAB_SRS FR-BRT-5).
+func newKillOnCloseJob() (windows.Handle, error) {
+	job, err := windows.CreateJobObject(nil, nil)
+	if err != nil {
+		return 0, fmt.Errorf("create job object: %w", err)
+	}
 	info := windows.JOBOBJECT_EXTENDED_LIMIT_INFORMATION{
 		BasicLimitInformation: windows.JOBOBJECT_BASIC_LIMIT_INFORMATION{
 			LimitFlags: windows.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
@@ -120,12 +132,9 @@ func (windowsProcess) NewGroup(cmd *exec.Cmd) Group {
 		windows.JobObjectExtendedLimitInformation,
 		uintptr(unsafe.Pointer(&info)), uint32(unsafe.Sizeof(info))); err != nil {
 		windows.CloseHandle(job)
-		g.err = fmt.Errorf("set job limits: %w", err)
-		return g
+		return 0, fmt.Errorf("set job limits: %w", err)
 	}
-	g.job = job
-	sysProcAttr(cmd).CreationFlags |= windows.CREATE_SUSPENDED | windows.CREATE_NEW_PROCESS_GROUP
-	return g
+	return job, nil
 }
 
 type windowsGroup struct {

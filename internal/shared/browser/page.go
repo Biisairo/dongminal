@@ -101,6 +101,9 @@ func (pg *page) backgroundOpen() bool {
 // onInfo 는 `Target.targetInfoChanged` — 제목과 주소가 바뀐다.
 func (pg *page) onInfo(ti targetInfo) {
 	pg.mu.Lock()
+	if pg.devtoolsOf != "" {
+		ti.Title = pg.st.Title // FR-BRT-84: "DevTools · <대상 제목>" 을 지킨다
+	}
 	changed := pg.st.Title != ti.Title || pg.st.URL != ti.URL
 	pg.st.Title = ti.Title
 	if ti.URL != "" {
@@ -211,7 +214,8 @@ func (pg *page) refreshHistory() {
 		pg.st.CanBack = h.CurrentIndex > 0
 		pg.st.CanForward = h.CurrentIndex < len(h.Entries)-1
 		if h.CurrentIndex >= 0 && h.CurrentIndex < len(h.Entries) {
-			if e := h.Entries[h.CurrentIndex]; e.Title != "" {
+			// DevTools 탭의 이름은 "DevTools · <대상 제목>" 으로 둔다 (FR-BRT-84).
+			if e := h.Entries[h.CurrentIndex]; e.Title != "" && pg.devtoolsOf == "" {
 				pg.st.Title = e.Title
 			}
 		}
@@ -465,8 +469,10 @@ func (pg *page) setViewport(ctx context.Context, v viewport, fixed *bool) error 
 			v.DPR = 1
 		}
 		pg.fixed = &v
+		pg.st.Viewport = &Size{W: v.W, H: v.H}
 	case fixed != nil:
 		pg.fixed = nil
+		pg.st.Viewport = nil
 	default:
 		if v.W <= 0 || v.H <= 0 {
 			pg.mu.Unlock()
@@ -480,6 +486,9 @@ func (pg *page) setViewport(ctx context.Context, v viewport, fixed *bool) error 
 		}
 	}
 	pg.mu.Unlock()
+	if fixed != nil {
+		pg.emitState()
+	}
 	return pg.applyMetrics(ctx)
 }
 

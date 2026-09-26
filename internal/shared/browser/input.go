@@ -60,7 +60,6 @@ func translateKey(k KeyInput, serverMac bool) map[string]any {
 		"key":                   key,
 		"code":                  code,
 		"windowsVirtualKeyCode": vk,
-		"nativeVirtualKeyCode":  vk,
 		"modifiers":             mods,
 		"location":              k.Location,
 		"autoRepeat":            k.Repeat,

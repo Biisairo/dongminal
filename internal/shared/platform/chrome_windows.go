@@ -101,20 +101,12 @@ func startPipedWindows(spec PipedSpec) (*PipedProcess, error) {
 		return nil, err
 	}
 
-	job, err := windows.CreateJobObject(nil, nil)
+	// 도구의 프로세스 그룹과 같은 Job 이다 — CREATE_SUSPENDED → 배정 → 재개 (FR-BRT-5).
+	// 기동만 CreateProcessW 를 직접 부른다: os/exec 는 lpReserved2 를 채울 길이 없다.
+	job, err := newKillOnCloseJob()
 	if err != nil {
 		closeAll(childR, parentW, parentR, childW, nul)
-		return nil, fmt.Errorf("create job object: %w", err)
-	}
-	info := windows.JOBOBJECT_EXTENDED_LIMIT_INFORMATION{
-		BasicLimitInformation: windows.JOBOBJECT_BASIC_LIMIT_INFORMATION{
-			LimitFlags: windows.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
-		},
-	}
-	if _, err := windows.SetInformationJobObject(job, windows.JobObjectExtendedLimitInformation,
-		uintptr(unsafe.Pointer(&info)), uint32(unsafe.Sizeof(info))); err != nil {
-		closeAll(childR, parentW, parentR, childW, nul, job)
-		return nil, fmt.Errorf("set job limits: %w", err)
+		return nil, err
 	}
 
 	var pi windows.ProcessInformation

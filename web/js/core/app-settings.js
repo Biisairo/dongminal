@@ -60,7 +60,7 @@ const SETTINGS_ACCESS={
   browserOpenPlacement:{get:()=>browserOpenPlacement,ctl:{id:'brv-set-placement',kind:'value'},set(v){browserOpenPlacement=v==='tab'?'tab':'split'}},
   browserLinkTarget:{get:()=>browserLinkTarget,ctl:{id:'brv-set-link',kind:'value'},set(v){browserLinkTarget=v==='viewer'?'viewer':'internal'}},
   browserDefaultProfile:{get:()=>browserDefaultProfile,ctl:{id:'brv-set-profile',kind:'value'},set(v){browserDefaultProfile=v||'default'}},
-  browserServerAudio:{get:()=>browserServerAudio,ctl:{id:'brv-set-audio',kind:'check'},set(v){browserServerAudio=!!v}},
+  browserAudio:{get:()=>browserAudio,ctl:{id:'brv-set-audio',kind:'value'},set(v){browserAudio=BRV_AUDIO.includes(v)?v:'off'}},
   browserDownloadDir:{get:()=>browserDownloadDir,ctl:{id:'brv-set-dldir',kind:'value'},set(v){browserDownloadDir=String(v||'')}},
   // FR-WBR-10·11: 값만 바꾸면 사용자는 설정이 듣지 않는 것으로 읽는다 —
   // 이미 열려 있는 편집기에도 얹는다.

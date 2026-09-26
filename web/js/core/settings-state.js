@@ -79,7 +79,7 @@ var uiLocale=I18N.locale;
 var browserOpenPlacement='split';
 var browserLinkTarget='internal';
 var browserDefaultProfile='default';
-var browserServerAudio=false;
+var browserAudio='off';
 // FR-BRT-80: 비면 서버 사용자의 ~/Downloads 다. 브라우저를 다음에 띄울 때 적용된다.
 var browserDownloadDir='';
 // `focusEdgeLevel`·`attnEdgeLevel` 은 settings-defaults.js 에 있다 (FR-OPT-11-4).

@@ -46,6 +46,10 @@ func (f *fakeHost) Call(ctx context.Context, op string, params any) (json.RawMes
 		return json.RawMessage(`{"client":"C1"}`), nil
 	case "version":
 		return json.RawMessage(`{"product":"HeadlessChrome/153","protocolVersion":"1.3"}`), nil
+	case "audio":
+		if m["action"] == "offer" {
+			return json.RawMessage(`{"peer":"p1","sdp":"v=0"}`), nil
+		}
 	}
 	return json.RawMessage(`{"ok":true}`), nil
 }
@@ -105,7 +109,9 @@ func bPost(t *testing.T, ts *httptest.Server, path, body string) (int, map[strin
 func TestBrowserRoutesAreGated(t *testing.T) {
 	for _, p := range []string{"/api/browser/profiles", "/api/browser/tabs", "/api/browser/stream", "/api/browser/open",
 		"/api/browser/close", "/api/browser/nav", "/api/browser/viewport", "/api/browser/focus",
-		"/api/browser/placements/claim", "/api/browser/profiles/delete"} {
+		"/api/browser/placements/claim", "/api/browser/profiles/delete", "/api/browser/act", "/api/browser/cdpurl",
+		"/api/browser/downloads", "/api/browser/default/cdp/json/version", "/api/browser/default/cdp/json",
+		"/api/browser/default/cdp/ws"} {
 		for _, m := range []string{"GET", "POST"} {
 			r := httptest.NewRequest(m, p, nil)
 			if gateExempt(r) {
@@ -270,6 +276,42 @@ func TestBrowserStreamLimitsOps(t *testing.T) {
 	}
 }
 
+// FR-BRT-91: offer 는 그 뷰어에게만 가고, 뷰어가 끊기면 그 peer 를 끝낸다.
+func TestBrowserStreamAudioSignal(t *testing.T) {
+	ts, fh, _ := browserSrv(t)
+	c := dialBrowser(t, ts, "tab=T")
+	other := dialBrowser(t, ts, "tab=T")
+	c.WriteMessage(websocket.TextMessage, []byte(`{"op":"audio","action":"offer"}`))
+	c.SetReadDeadline(time.Now().Add(3 * time.Second))
+	for {
+		_, msg, err := c.ReadMessage()
+		if err != nil {
+			t.Fatalf("offer 를 받지 못했다: %v", err)
+		}
+		if strings.Contains(string(msg), `"t":"audio"`) {
+			if !strings.Contains(string(msg), `"peer":"p1"`) {
+				t.Fatalf("offer: %s", msg)
+			}
+			break
+		}
+	}
+	other.SetReadDeadline(time.Now().Add(300 * time.Millisecond))
+	for {
+		_, msg, err := other.ReadMessage()
+		if err != nil {
+			break
+		}
+		if strings.Contains(string(msg), `"t":"audio"`) {
+			t.Fatal("다른 뷰어가 offer 를 받았다")
+		}
+	}
+	c.Close()
+	bWait(t, func() bool {
+		a := fh.lastArgs("audio")
+		return a != nil && a["action"] == "stop" && a["peer"] == "p1" && a["tab"] == "T"
+	})
+}
+
 // 페이지가 스스로 닫히면 탭을 닫게 한다 (FR-BRT-37).
 func TestBrowserPageClosedClosesTab(t *testing.T) {
 	_, fh, srv := browserSrv(t)
@@ -366,5 +408,71 @@ func TestBrowserActOps(t *testing.T) {
 	a := fh.lastArgs("click")
 	if a["ref"] != "e1" || a["tab"] != "T" || a["op"] != nil {
 		t.Fatalf("click 인자: %v", a)
+	}
+}
+
+// FR-BRT-39·52: 데몬이 다시 떠 매니저가 탭을 모를 때, `dmctl` 이 가리키면 워크스페이스의
+// url·프로필·고정 크기로 페이지를 만든다.
+func TestBrowserActRestoresFromWorkspace(t *testing.T) {
+	fh := &fakeHost{}
+	ws := &fakeWorkspaceStore{raw: []byte(`{"activeWindow":"s1","schemaVersion":2,"windows":[{"id":"s1","name":"x","focusedPane":"p1",` +
+		`"layout":{"type":"pane","id":"p1","activeTab":"B","tabs":[{"id":"B","name":"site","type":"browser","url":"https://example.com/a",` +
+		`"profile":"work","viewport":{"w":800,"h":600}}]}}]}`)}
+	srv, err := New(Config{DataDir: t.TempDir()}, Deps{Browser: fh, Work: ws})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+	// TC-BRT-36: 보이기 전에는 페이지가 없다 — 목록에는 이름으로 있고 live 가 아니다.
+	resp, err := http.Get(ts.URL + "/api/browser/tabs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var list struct {
+		Tabs []browser.TabInfo `json:"tabs"`
+	}
+	json.NewDecoder(resp.Body).Decode(&list)
+	resp.Body.Close()
+	if len(list.Tabs) != 1 || list.Tabs[0].Tab != "B" || list.Tabs[0].Live || list.Tabs[0].Title != "site" || fh.opCount("ensure") != 0 {
+		t.Fatalf("지연 복원 전 목록: %+v ensure=%d", list.Tabs, fh.opCount("ensure"))
+	}
+	for _, c := range []struct{ path, body string }{
+		{"/api/browser/act", `{"tab":"B","op":"snapshot"}`},
+		{"/api/browser/nav", `{"tab":"B","action":"reload"}`},
+		{"/api/browser/viewport", `{"tab":"B","w":1024,"h":768}`},
+	} {
+		if code, _ := bPost(t, ts, c.path, c.body); code != 200 {
+			t.Fatalf("%s → %d", c.path, code)
+		}
+		a := fh.lastArgs("ensure")
+		vp, _ := a["viewport"].(map[string]any)
+		if a["url"] != "https://example.com/a" || a["profile"] != "work" || vp["w"] != float64(800) {
+			t.Fatalf("%s 의 복원: %v", c.path, a)
+		}
+	}
+}
+
+// TC-BRT-S2: file:// 페이지(Origin: null)·같은 기계 다른 포트의 페이지는 브라우저 API 와
+// CDP 프록시에 닿지 못한다 — 0단계 게이트(FR-ROP)와 FR-BRT-23 의 합.
+func TestBrowserForeignOriginsRejected(t *testing.T) {
+	h := requestGate(newHostAllow(nil, nil), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	for _, origin := range []string{"null", "http://localhost:3000", "file://"} {
+		for _, c := range []struct{ method, path string }{
+			{"POST", "/api/browser/act"}, {"POST", "/api/browser/open"}, {"GET", "/api/browser/cdpurl"},
+			{"GET", "/api/browser/default/cdp/json/version"}, {"GET", "/api/browser/default/cdp/ws"},
+		} {
+			req := httptest.NewRequest(c.method, c.path, strings.NewReader(`{}`))
+			req.Host = "localhost:58146"
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Origin", origin)
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, req)
+			if rec.Code != http.StatusForbidden {
+				t.Errorf("Origin %q %s %s → %d want 403", origin, c.method, c.path, rec.Code)
+			}
+		}
 	}
 }

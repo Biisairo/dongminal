@@ -20,7 +20,7 @@ const CTLS = {
   'ds-wordwrap': 'check', 'ds-minimap': 'check', 'ds-diffminimap': 'check',
   'ds-tabfix': 'check', 'ds-tabw': 'value', 'ds-title': 'value',
   // BROWSER_TAB_SRS — Settings ▸ Browser.
-  'brv-set-placement': 'value', 'brv-set-link': 'value', 'brv-set-profile': 'value', 'brv-set-audio': 'check', 'brv-set-dldir': 'value',
+  'brv-set-placement': 'value', 'brv-set-link': 'value', 'brv-set-profile': 'value', 'brv-set-audio': 'value', 'brv-set-dldir': 'value',
 };
 
 test('FEC-26: 컨트롤이 서술자 표에 한 번씩 선언된다', () => {
@@ -40,7 +40,7 @@ test('FEC-26: _paintSettingControls 가 전역 값으로 칠하고, 치는 중�
   Object.assign(ctx, {
     fgTabNames: true, claudeFullscreen: true, confirmLeave: false, editorWordWrap: true,
     editorMinimap: false, diffMinimap: true, tabFixedWidth: true, tabWidthPx: 180, pageTitle: 'T',
-    browserOpenPlacement: 'split', browserLinkTarget: 'internal', browserDefaultProfile: 'default', browserServerAudio: false, browserDownloadDir: '',
+    browserOpenPlacement: 'split', browserLinkTarget: 'internal', browserDefaultProfile: 'default', browserAudio: 'off', browserDownloadDir: '',
   });
   ctx.document.activeElement = els['ds-title'];
   els['ds-title'].value = 'typing';

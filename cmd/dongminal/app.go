@@ -94,7 +94,7 @@ func buildApp(gitRoot context.Context, home, host, port string) (*app, error) {
 		a.bd.deps.Browser = a.panedClient
 	} else {
 		a.browser = browser.New(browser.Config{Home: home, Engine: platform.Current().Chrome, Proc: platform.Current().Process,
-			ServerAudio: func() bool { return browser.ServerAudioSetting(home) },
+			Audio:       func() string { return browser.AudioSetting(home) },
 			DownloadDir: func() string { return browser.DownloadDirSetting(home) }})
 		a.bd.deps.Browser = a.browser
 	}

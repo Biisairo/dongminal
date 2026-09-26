@@ -38,6 +38,9 @@ type profileBrowser struct {
 	sessions map[string]*page // sessionId → 페이지
 	// own 은 매니저가 만들고 있는 target 이다 — 그 페이지는 외부의 것이 아니다.
 	own map[string]*page
+	// audioExt 는 소리 확장이 실렸는가, audioSess 는 그 offscreen 문서의 세션이다 (FR-BRT-91).
+	audioExt  bool
+	audioSess string
 	// unclaimed 는 주인을 아직 모르는 page target 이다 (targetId → sessionId).
 	unclaimed map[string]string
 	// contexts 는 임시 컨텍스트 → 그 안의 페이지 수다 (FR-BRT-15).
@@ -45,7 +48,8 @@ type profileBrowser struct {
 	// opens 는 페이지가 연 `window.open` 의 기능 문자열이다 — 팝업 판정 (FR-BRT-42).
 	opens map[string]windowOpen
 	// dl 은 다운로드 기록이다 (FR-BRT-80). devtools 는 DevTools target → 대상 페이지다.
-	dl       downloads
+	// dlDir 은 받는 중인 다운로드의 대기 폴더다 (FR-BRT-80).
+	dlDir    string
 	devtools map[string]*page
 	// foreign 은 외부 도구가 만든 target → 그 연결의 도구 id 다 (FR-BRT-44).
 	foreign map[string]string
@@ -93,7 +97,10 @@ func (b *profileBrowser) start() {
 		close(b.exited)
 		return
 	}
-	audio := b.m.cfg.ServerAudio != nil && b.m.cfg.ServerAudio()
+	audio := AudioOff
+	if b.m.cfg.Audio != nil {
+		audio = b.m.cfg.Audio()
+	}
 	dir := filepath.Join(b.m.profilesDir(), b.profile)
 	if b.m.cfg.Proc != nil {
 		reapStaleSingleton(dir, b.m.cfg.Proc)
@@ -165,10 +172,13 @@ func (b *profileBrowser) start() {
 	}
 	// FR-BRT-80: 다운로드는 서버에만. 받는 동안은 프로필 안의 대기 폴더에 guid 로 두고,
 	// 끝나면 그때의 다운로드 폴더 설정으로 제안된 이름을 달아 옮긴다.
-	b.dl.dir = filepath.Join(dir, downloadStaging)
-	os.MkdirAll(b.dl.dir, 0o700)
+	b.dlDir = filepath.Join(dir, downloadStaging)
+	os.MkdirAll(b.dlDir, 0o700)
 	b.cl.Call(bg, "", "Browser.setDownloadBehavior", map[string]any{"behavior": "allowAndName",
-		"downloadPath": b.dl.dir, "eventsEnabled": true})
+		"downloadPath": b.dlDir, "eventsEnabled": true})
+	if audio == AudioViewer {
+		b.loadAudioExt(bg)
+	}
 	dmlog.Infof(nil, "[browser] 프로필 %s 브라우저 기동 pid=%d %s", b.profile, proc.Pid, v.Product)
 }
 
@@ -286,6 +296,25 @@ func (b *profileBrowser) handle(msg *cdp.Message) {
 	}
 }
 
+// recentModClicker 는 그 컨텍스트에서 방금 수정키·가운데 버튼으로 누른 페이지다.
+func (b *profileBrowser) recentModClicker(ctxID string) *page {
+	b.mu.Lock()
+	pages := make([]*page, 0, len(b.pages))
+	for _, pg := range b.pages {
+		// 기본 컨텍스트의 페이지는 context 를 비워 둔다.
+		if pg.context == ctxID || (pg.context == "" && ctxID == b.defaultCtx) {
+			pages = append(pages, pg)
+		}
+	}
+	b.mu.Unlock()
+	for _, pg := range pages {
+		if pg.backgroundOpen() {
+			return pg
+		}
+	}
+	return nil
+}
+
 func (b *profileBrowser) byTarget(id string) *page {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -321,6 +350,13 @@ func (b *profileBrowser) onAttached(session string, ti targetInfo, waiting bool)
 		b.mu.Unlock()
 		b.bind(pg, session)
 		return
+	}
+	// 수정키·가운데 클릭으로 연 탭에는 Chrome 이 opener 를 싣지 않는다(실측) — 같은 컨텍스트에서
+	// 방금 그렇게 누른 페이지가 연 것으로 본다 (FR-BRT-33).
+	if ti.OpenerID == "" {
+		if o := b.recentModClicker(ti.BrowserContextID); o != nil {
+			ti.OpenerID = o.target
+		}
 	}
 	if ti.OpenerID != "" {
 		b.adoptOpened(session, ti)
@@ -521,6 +557,10 @@ func (b *profileBrowser) openPage(ctx context.Context, r OpenReq) error {
 	pg := b.newPage(r.Tab, t.TargetID, contextID)
 	pg.isolated = r.Isolated
 	pg.st.URL = r.URL
+	if r.Viewport != nil && r.Viewport.W > 0 && r.Viewport.H > 0 {
+		pg.fixed = &viewport{W: r.Viewport.W, H: r.Viewport.H, DPR: 1}
+		pg.st.Viewport = r.Viewport
+	}
 	b.mu.Lock()
 	b.own[t.TargetID] = pg
 	session, early := b.unclaimed[t.TargetID]
@@ -559,6 +599,9 @@ func (b *profileBrowser) openPage(ctx context.Context, r OpenReq) error {
 	// 걸면 새 렌더러에서 Page 이벤트(frameNavigated·load)가 오지 않는다(실측).
 	if _, err := b.cl.Call(ctx, pg.session, "Page.getFrameTree", nil); err != nil {
 		return err
+	}
+	if r.Viewport != nil {
+		pg.applyMetrics(ctx)
 	}
 	if r.URL != "about:blank" {
 		_, err = b.cl.Call(ctx, pg.session, "Page.navigate", map[string]any{"url": r.URL})

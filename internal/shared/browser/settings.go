@@ -13,7 +13,7 @@ const (
 	SettingOpenPlacement  = "browserOpenPlacement"
 	SettingLinkTarget     = "browserLinkTarget"
 	SettingDefaultProfile = "browserDefaultProfile"
-	SettingServerAudio    = "browserServerAudio"
+	SettingAudio          = "browserAudio"
 	SettingDownloadDir    = "browserDownloadDir"
 )
 
@@ -26,11 +26,21 @@ func DownloadDirSetting(home string) string {
 	return ""
 }
 
-// ServerAudioSetting 은 `settings.json` 의 서버 재생 여부다 (FR-BRT-90). 값은
-// 프로필 브라우저를 **다음에 띄울 때** 읽는다 — CDP 에 탭 단위 음소거가 없다.
-// 읽지 못하면 끔이다(기본).
-func ServerAudioSetting(home string) bool {
-	return readSetting(home, SettingServerAudio) == true
+// 소리의 셋 (FR-BRT-90·91).
+const (
+	AudioOff    = "off"
+	AudioServer = "server"
+	AudioViewer = "viewer"
+)
+
+// AudioSetting 은 `settings.json` 의 소리 설정이다. 값은 프로필 브라우저를 **다음에 띄울 때**
+// 읽는다 — CDP 에 탭 단위 음소거가 없다. 없거나 모르는 값은 끔이다(기본).
+func AudioSetting(home string) string {
+	switch v, _ := readSetting(home, SettingAudio).(string); v {
+	case AudioServer, AudioViewer:
+		return v
+	}
+	return AudioOff
 }
 
 // DefaultProfileSetting 은 새 탭의 프로필이다 (FR-BRT-14). 없으면 default.

@@ -36,6 +36,14 @@ type WsTab struct {
 	URL      string `json:"url,omitempty"`
 	Profile  string `json:"profile,omitempty"`
 	Isolated bool   `json:"isolated,omitempty"`
+	// Viewport 는 고정 크기다 (FR-BRT-52) — 복원 때 다시 건다.
+	Viewport *WsViewport `json:"viewport,omitempty"`
+}
+
+// WsViewport 는 브라우저 탭의 고정 크기다.
+type WsViewport struct {
+	W int `json:"w"`
+	H int `json:"h"`
 }
 
 // TabTypeBrowser 는 브라우저 탭의 type 이다 (`TAB_TYPE_BROWSER`).

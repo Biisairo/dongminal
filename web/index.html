@@ -596,7 +596,11 @@
           </div>
           <div class="ds-row">
             <span data-i18n="brv.set_audio"></span>
-            <input type="checkbox" class="ui-switch" id="brv-set-audio">
+            <select id="brv-set-audio" class="sbs-select">
+              <option value="off" data-i18n="brv.set_audio_off"></option>
+              <option value="server" data-i18n="brv.set_audio_server"></option>
+              <option value="viewer" data-i18n="brv.set_audio_viewer"></option>
+            </select>
           </div>
           <div class="ds-hint" data-i18n="brv.set_audio_hint"></div>
           <div class="ds-row">
@@ -869,6 +873,7 @@
 <script src="js/ui/run-dashboard.js?v=__ASSETV__"></script>
 <script src="js/ui/browser-view.js?v=__ASSETV__"></script>
 <script src="js/ui/browser-view-fid.js?v=__ASSETV__"></script>
+<script src="js/ui/browser-view-audio.js?v=__ASSETV__"></script>
 <script src="js/ui/renderer.js?v=__ASSETV__"></script>
 <!-- Renderer.prototype 증강 넷 (STRUCTURE_CLEANUP_SRS FR-STR-44·45).
      클래스 정의 **뒤**여야 한다 — check-load-order.mjs 가 그것을 지킨다 (C-2). -->

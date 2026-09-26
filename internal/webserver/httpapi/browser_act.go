@@ -71,7 +71,7 @@ func (s *Server) apiBrowserAct(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), timeout)
 	defer cancel()
 	// 페이지가 없는(지연 복원) 탭이면 먼저 만든다 — `dmctl` 이 가리키면 생긴다 (FR-BRT-39).
-	s.browser.host.Call(ctx, "ensure", browser.OpenReq{Tab: tab})
+	s.browser.ensureTab(ctx, tab, browser.OpenReq{})
 	res, err := s.browser.host.Call(ctx, op, body)
 	if err != nil {
 		browserFail(w, err)

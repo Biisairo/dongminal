@@ -118,8 +118,8 @@ const SHORTCUT_DEFAULTS={
   brvZoomIn:'Mod+Equal',
   brvZoomOut:'Mod+Minus',
   brvZoomReset:'Mod+Digit0',
-  // 3단계: 찾기 · DevTools (`F12` 는 고정 보조 키 — 표의 `edGotoDef` 와 같은 조합이다).
-  brvFind:'Mod+KeyF',
+  // 3단계: DevTools (`F12` 는 고정 보조 키 — 표의 `edGotoDef` 와 같은 조합이다). 찾기(`Mod+F`)는
+  // 터미널 검색처럼 고정 키다 — 표의 `edFindInFile` 과 같은 조합이다.
   brvDevtools:'Mod+Alt+KeyI',
 };
 const SHORTCUT_LABELS={
@@ -159,7 +159,6 @@ const SHORTCUT_LABELS={
   brvZoomIn:t('shortcut.brv_zoom_in'),
   brvZoomOut:t('shortcut.brv_zoom_out'),
   brvZoomReset:t('shortcut.brv_zoom_reset'),
-  brvFind:t('shortcut.brv_find'),
   brvDevtools:t('shortcut.brv_devtools'),
   // `DOC-3` (M5): 기본값은 있는데 **라벨이 없었다.** 라벨이 없으면 Settings ▸
   // Shortcuts 의 목록에 뜨지 않고, 뜨지 않으면 사용자가 바꿀 수 없다 — 바꿀 수

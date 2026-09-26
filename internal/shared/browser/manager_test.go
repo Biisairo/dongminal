@@ -6,11 +6,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/dmenv"
 )
 
 // TC-BRT-4: 기동 인자 — 포트 없음, 프로필 폴더, 소리 끔.
 func TestLaunchArgs(t *testing.T) {
-	a := strings.Join(launchArgs("/h/browser/profiles/default", false), " ")
+	a := strings.Join(launchArgs("/h/browser/profiles/default", AudioOff), " ")
 	if strings.Contains(a, "remote-debugging-port") {
 		t.Fatalf("포트가 열린다: %s", a)
 	}
@@ -19,12 +21,51 @@ func TestLaunchArgs(t *testing.T) {
 			t.Fatalf("%s 가 없다: %s", want, a)
 		}
 	}
-	// TC-BRT-80: serverAudio=true 는 --mute-audio 가 없다.
-	if strings.Contains(strings.Join(launchArgs("/x", true), " "), "--mute-audio") {
-		t.Fatal("serverAudio 인데 음소거다")
-	}
 	if strings.Contains(a, "--no-sandbox") {
 		t.Fatal("--no-sandbox 를 쓴다")
+	}
+}
+
+// TC-BRT-80: 소리 셋 — server 만 음소거가 없고, viewer 만 확장 인자가 있다.
+func TestLaunchArgsAudio(t *testing.T) {
+	ext := "--allowlisted-extension-id=" + audioExtID
+	for mode, want := range map[string][2]bool{AudioOff: {true, false}, AudioServer: {false, false}, AudioViewer: {true, true}} {
+		a := strings.Join(launchArgs("/x", mode), " ")
+		if strings.Contains(a, "--mute-audio") != want[0] {
+			t.Errorf("%s: --mute-audio=%v want %v", mode, !want[0], want[0])
+		}
+		if strings.Contains(a, ext) != want[1] || strings.Contains(a, "--enable-unsafe-extension-debugging") != want[1] {
+			t.Errorf("%s: 확장 인자 want %v: %s", mode, want[1], a)
+		}
+	}
+}
+
+// TC-BRT-80: 설정 값 — 없거나 모르는 값은 off 다.
+func TestAudioSetting(t *testing.T) {
+	home := t.TempDir()
+	if got := AudioSetting(home); got != AudioOff {
+		t.Fatalf("없음 → %q", got)
+	}
+	for in, want := range map[string]string{`"server"`: AudioServer, `"viewer"`: AudioViewer, `"loud"`: AudioOff, `true`: AudioOff} {
+		os.WriteFile(filepath.Join(home, dmenv.SettingsFile), []byte(`{"browserAudio":`+in+`}`), 0o600)
+		if got := AudioSetting(home); got != want {
+			t.Errorf("%s → %q want %q", in, got, want)
+		}
+	}
+}
+
+// TC-BRT-82: 내장 확장의 key 에서 계산한 ID 가 기동 인자의 ID 다.
+func TestAudioExtID(t *testing.T) {
+	if got := extensionID(audioExtKey); got != audioExtID {
+		t.Fatalf("key → %s, 상수 %s", got, audioExtID)
+	}
+	dir := t.TempDir()
+	if err := installAudioExt(dir); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
+	if err != nil || !strings.Contains(string(b), audioExtKey) {
+		t.Fatalf("manifest: %v %s", err, b)
 	}
 }
 
@@ -132,5 +173,15 @@ func TestReapStaleSingleton(t *testing.T) {
 	reapStaleSingleton(dir, p)
 	if len(p.killed) != 1 {
 		t.Fatalf("죽은 주인을 죽였다: %v", p.killed)
+	}
+}
+
+// TC-BRT-3: 가짜 피어 — 주 버전 134 는 기동 중에 거절하고 안내한다.
+func TestOpenRejectsOldChrome(t *testing.T) {
+	m := New(Config{Home: t.TempDir(), Engine: peerEngine{product: "HeadlessChrome/134.0.6998.0"}})
+	t.Cleanup(m.Close)
+	err := m.Open(context.Background(), OpenReq{Tab: "t", URL: "about:blank"})
+	if err == nil || !strings.Contains(err.Error(), "135") {
+		t.Fatalf("134 를 받았다: %v", err)
 	}
 }

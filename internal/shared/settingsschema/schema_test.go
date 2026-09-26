@@ -20,7 +20,7 @@ func TestLoadReadsEmbeddedTable(t *testing.T) {
 	//    + FONT_SIZE_SETTING_SRS FR-FSS-2a·12 의 `uiFontSize`·`termFontSize`
 	//    + AGENT_RENDER_ENV_SRS FR-ARE-8 의 `claudeScrollSpeed`
 	//    + UX_BATCH10_SRS FR-UXB-42 의 `diffMinimap`
-	//    + BROWSER_TAB_SRS 의 넷(`browserOpenPlacement`·`browserLinkTarget`·`browserDefaultProfile`·`browserServerAudio`) + `browserDownloadDir`.
+	//    + BROWSER_TAB_SRS 의 넷(`browserOpenPlacement`·`browserLinkTarget`·`browserDefaultProfile`·`browserAudio`) + `browserDownloadDir`.
 	//    `agentApprovalMode` 는 에이전트 GUI 와 함께 빠졌다 (AGENT_GUI_REMOVAL_SRS FR-AGR-4).
 	//    `blockBrowserKeys` 는 스위치와 함께 빠졌다 — 차단은 끌 수 없고 늘 돈다
 	//    (UX_REVISION_SRS FR-KEY-6 철회 / D-K2). 이미 쓰인 값은 Validate 가

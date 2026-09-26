@@ -1,5 +1,5 @@
 /**
- * Dongminal — 설정창의 **브라우저 패널** (BROWSER_TAB_SRS FR-BRT-12·14·32·68·90).
+ * Dongminal — 설정창의 **브라우저 패널** (BROWSER_TAB_SRS FR-BRT-12·14·32·68·90·91).
  *
  * 프로필 목록은 **서버의 폴더가 진실**이다 (FR-BRT-10) — 설정 blob 에 목록을 두지
  * 않는다. 추가·삭제는 `/api/browser/profiles` 가 한다.
@@ -12,7 +12,7 @@ Object.assign(App.prototype, {
     bind('brv-set-placement','change',el=>{browserOpenPlacement=el.value==='tab'?'tab':'split';this.saveSettings()});
     bind('brv-set-link','change',el=>{browserLinkTarget=el.value==='viewer'?'viewer':'internal';this.saveSettings()});
     bind('brv-set-profile','change',el=>{browserDefaultProfile=el.value||'default';this.saveSettings()});
-    bind('brv-set-audio','change',el=>{browserServerAudio=el.checked;this.saveSettings()});
+    bind('brv-set-audio','change',el=>{browserAudio=BRV_AUDIO.includes(el.value)?el.value:'off';this.saveSettings()});
     bind('brv-set-dldir','change',el=>{browserDownloadDir=el.value.trim();this.saveSettings()});
     const add=document.getElementById('brv-profile-add');
     const name=document.getElementById('brv-profile-name');

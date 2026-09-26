@@ -56,3 +56,17 @@ func TestTranslateKey(t *testing.T) {
 		t.Fatalf("Meta 키: %v", got)
 	}
 }
+
+// TC-BRT-42: Windows 가상 키코드를 네이티브 키코드로 싣지 않는다 — macOS 에서 Meta(91)는
+// Keypad8 로 읽혀 페이지에 "8" 이 들어갔다(실측).
+func TestTranslateKeyNoNativeCode(t *testing.T) {
+	for _, mac := range []bool{true, false} {
+		got := translateKey(KeyInput{Type: "keyDown", Key: "Meta", Code: "MetaLeft", KeyCode: 91, Mods: ModMeta, ViewerMac: true}, mac)
+		if _, ok := got["nativeVirtualKeyCode"]; ok {
+			t.Fatalf("serverMac=%v: nativeVirtualKeyCode 를 실었다: %v", mac, got)
+		}
+		if got["windowsVirtualKeyCode"] == nil {
+			t.Fatal("windowsVirtualKeyCode 가 없다")
+		}
+	}
+}

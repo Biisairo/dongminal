@@ -1,7 +1,6 @@
 # SRS: 브라우저 탭 — 서버에서 도는 Chrome 을 탭 안에, 터미널에서 조종한다 — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: 3단계(충실도 묶음 F·Q) · 4단계(소리) · TC-BRT-6 의 Windows 판정(CI)
+> **문서 상태**: 승인·구현완료
 
 | 항목 | 값 |
 |---|---|
@@ -138,7 +137,8 @@ Edge·배포판 `chromium` 은 찾지 않는다. `dongminal window` 의 탐색 �
 
 `--no-sandbox` 를 쓰지 않는다. Linux 에서 root 로 실행 중이면 Chrome 이 샌드박스 없이는 뜨지
 않으므로 FR-BRT-2 경로로 "root 에서는 브라우저 탭을 쓸 수 없습니다" 를 알린다.
-`--enable-unsafe-extension-debugging` 은 4단계(FR-BRT-91)가 필요로 할 때만 더한다.
+`--enable-unsafe-extension-debugging`·`--allowlisted-extension-id` 는 `browserAudio=viewer` 일 때만
+더한다 (FR-BRT-91).
 
 **FR-BRT-5 (pipe)** CDP 는 **pipe 로만** 잇는다 (D2). 디버깅 포트를 열지 않는다.
 
@@ -505,19 +505,34 @@ ref 는 `backendNodeId` 에 매이고 **이동·문서 교체 뒤 무효**다 �
 `change` 를 일으킨다. 네이티브 팝업은 열리지 않게 막는다. `<select>` 를 이 방식으로 옮길지는
 FR-BRT-60 의 모양 문제를 실제 사이트에서 본 뒤 정한다 (이 문서를 개정한다).
 
-**FR-BRT-89 (찾기)** `Mod+F` 는 탭의 찾기 막대를 연다. 격리 world 가 CSS Custom Highlight 로 칠하고
-다음/이전으로 스크롤한다. 교차 출처 iframe 안은 찾지 않는다(한계로 표시).
+**FR-BRT-89 (찾기)** `Mod+F`(고정 키, 결정 ㊵)는 탭의 찾기 막대를 연다. 격리 world 가 CSS Custom
+Highlight 로 칠하고 다음/이전으로 스크롤한다. 교차 출처 iframe 안은 찾지 않는다 — 막대의 ⓘ 가 그 한계를
+알린다.
 
 ### 3.12 묶음 U — 소리 (1·4단계)
 
-**FR-BRT-90** 기본은 **소리 끔**(`--mute-audio`) (D14). 설정 `browser.serverAudio`(기본 `false`)를
-켜면 서버 스피커로 낸다. CDP 에 탭 단위 음소거가 없으므로 값은 **프로필 브라우저를 다음에 띄울 때**
-적용된다 — 설정 설명에 그렇게 적는다.
+**FR-BRT-90** 기본은 **소리 끔**(`--mute-audio`) (D14). 설정 `browserAudio` 는 `off`(기본)·`server`·
+`viewer` 셋이다 — `server` 는 `--mute-audio` 없이 서버 스피커로 내고, `viewer` 는 FR-BRT-91 이다. CDP 에 탭
+단위 음소거가 없으므로 값은 **프로필 브라우저를 다음에 띄울 때** 적용된다 — 설정 설명에 그렇게 적는다.
+(개정: 1단계의 `browserServerAudio` 켬/끔을 이 셋으로 바꾼다 — 출시 전이라 옮길 값이 없다.)
 
-**FR-BRT-91 (4단계, PoC 게이트)** 확장 프로그램(`Extensions.loadUnpacked` — P7 로 pipe 에서 확인)의
-`chrome.tabCapture` → WebRTC 로 소리를 뷰어에 보낸다. 신호 교환은 스트림 종단(FR-BRT-50)을 쓴다.
-설정 값은 `off`(기본)·`server`·`viewer` 가 된다. **PoC 가 headless 에서 소리를 얻지 못하면** 이 FR 을
-비목표로 옮긴다.
+**FR-BRT-91 (4단계, 뷰어로 소리)** `browserAudio=viewer` 면 소리를 **보고 있는 기기**로 보낸다.
+
+1. **확장**: 매니저가 내장 확장(고정 `key` → 고정 ID)을 `<Home>/browser/audio-ext/` 에 쓰고, 기동 인자에
+   `--enable-unsafe-extension-debugging`·`--allowlisted-extension-id=<ID>` 를 더한 뒤(`--mute-audio` 는
+   유지한다 — 음소거여도 캡처된다, 실측) `Extensions.loadUnpacked` 로 싣는다. allowlist 가 있으면
+   `chrome.tabCapture.getMediaStreamId` 가 사용자의 확장 호출 없이 된다(실측, Chrome 153). 확장은
+   offscreen 문서에서 탭 소리를 받는다. 확장은 페이지 main world·격리 world 어느 것에도 스크립트를
+   넣지 않는다.
+2. **신호**: 뷰어 WS 의 `{op:'audio', action:'offer'}` → 매니저가 offscreen 문서에서 그 탭의 소리로
+   `RTCPeerConnection` 을 만들고 ICE 수집이 끝난 offer 를 돌려준다 → 서버가 그 뷰어에게만
+   `{t:'audio', info:{peer, sdp}}` 로 보낸다 → 뷰어의 `{op:'audio', action:'answer', peer, sdp}` →
+   연결. `{action:'stop', peer}` 로 끝낸다. 뷰어 WS 가 끊기면 서버가 그 뷰어의 peer 를 모두 끝낸다.
+   trickle 없이 한 번에 주고받고, STUN·TURN 을 쓰지 않는다(외부 서버에 닿지 않는다) — 뷰어가 서버에
+   **UDP 로 직접** 닿아야 한다(같은 LAN·VPN). 닿지 못하면 소리 없이 탭은 그대로 돈다.
+3. **뷰어**: 설정이 `viewer` 이고 탭이 **보이는** 동안만 받는다 — 숨기면 끝낸다. 재생이 자동 재생
+   정책에 막히면 다음 입력(포인터·키) 때 다시 튼다.
+4. **한계**: `--isolated` 탭(임시 컨텍스트)은 확장이 닿지 않아 소리가 없다.
 
 ### 3.13 비기능 요구 (NFR)
 
@@ -557,7 +572,7 @@ FR-BRT-60 의 모양 문제를 실제 사이트에서 본 뒤 정한다 (이 문
 | TC-BRT-1 | OS 별 탐색 표(FR-BRT-1) — 주입한 `look`/`stat`/`env` 로 세 체인 전부를 어느 호스트에서도 시험. Edge·chromium 만 있으면 "없음" |
 | TC-BRT-2 | 엔진 없음 → 안내 문구 · `dmctl browser open` 종료 코드 1 |
 | TC-BRT-3 | 주 버전 134 → 거절, 135 → 통과 (가짜 피어) |
-| TC-BRT-4 | 기동 인자에 `--remote-debugging-port` 가 **없고** `--user-data-dir` 이 프로필 폴더다. `serverAudio=false` 면 `--mute-audio` 가 있다 |
+| TC-BRT-4 | 기동 인자에 `--remote-debugging-port` 가 **없고** `--user-data-dir` 이 프로필 폴더다. `browserAudio` 가 `server` 가 아니면 `--mute-audio` 가 있다 |
 | TC-BRT-5 | pipe 전송: NUL 구분·부분 읽기·큰 메시지(>1MiB 프레임) (가짜 피어) |
 | TC-BRT-6 | **Windows**: `lpReserved2` 로 띄운 자식이 fd 3 을 읽고 fd 4 에 쓴다 (도우미 자식 프로세스로), 그리고 실제 Chrome 에서 `Browser.getVersion` |
 | TC-BRT-7 | 프로필의 마지막 페이지가 닫히면 프로필 브라우저가 끝난다. 매니저 종료 시 자식이 남지 않는다 (Windows: Job) |
@@ -580,7 +595,7 @@ FR-BRT-60 의 모양 문제를 실제 사이트에서 본 뒤 정한다 (이 문
 | TC-BRT-20 | id 재매김 — 두 클라이언트가 같은 id 를 보내도 응답이 섞이지 않는다 |
 | TC-BRT-21 | 세션 이벤트가 붙인 클라이언트에만 간다 |
 | TC-BRT-22 | 거절 메서드 표(FR-BRT-24) 전부 오류, Chrome 에 가지 않는다 |
-| TC-BRT-23 | CDP 프록시 WS 에 `Origin: http://localhost:58146` → 403, `Origin` 없음 → 101, `devtools://devtools` → 101 |
+| TC-BRT-23 | CDP 프록시 WS 에 `Origin: http://localhost:58146` → 403, `Origin` 없음 → 101, `devtools://devtools` → 403 (결정 ⑮) |
 | TC-BRT-24 | Playwright `chromium.connectOverCDP(<ws 주소>)` 와 `(<http 접두 주소>)` 가 붙어 `page.goto`·`click` 이 된다 (e2e) |
 
 ### 4.4 탭·배치 (JS 단위 + e2e)
@@ -655,8 +670,9 @@ FR-BRT-60 의 모양 문제를 실제 사이트에서 본 뒤 정한다 (이 문
 
 | ID | 확인 |
 |---|---|
-| TC-BRT-80 | 기본 `--mute-audio` · `serverAudio=true` 는 다음 기동에서 인자에 없다 |
-| TC-BRT-81 | (PoC 통과 시) 시험 페이지의 톤이 뷰어의 WebRTC 트랙에 도착 |
+| TC-BRT-80 | 기본(`off`)·`viewer` 는 `--mute-audio` · `server` 는 인자에 없다 · `viewer` 만 확장 인자 둘이 있다 · 모르는 값은 `off` |
+| TC-BRT-81 | 시험 페이지의 톤이 뷰어의 WebRTC 트랙에 도착한다(수신 에너지 > 0) · 뷰어가 끊기면 peer 가 끝난다 |
+| TC-BRT-82 | 내장 확장의 `key` 에서 계산한 ID 가 기동 인자의 ID 와 같다 |
 
 ### 4.11 보안·문서
 
@@ -728,3 +744,11 @@ FR-BRT-60 의 모양 문제를 실제 사이트에서 본 뒤 정한다 (이 문
 | 2026-09-27 | **3단계 구현.** `browser/fidelity.go`(대화상자·파일 선택·HTTP 인증·다운로드·DevTools) · `browser/agent.go`(격리 world 보고자: 커서·툴팁·검증 말풍선·위젯·컨텍스트 메뉴·복사·캐럿·찾기) · 뷰어 `browser-view-fid.js` · `dmctl browser dialog`·`devtools`·`downloads` · `GET /api/browser/downloads` · 설정 ▸ Browser ▸ 다운로드 폴더 · 단축키 `brvFind`(Mod+F)·`brvDevtools`(Mod+Alt+I, `F12` 고정). **구현 중 결정** 아래 |
 | 2026-09-27 | 결정 ⑱ **FR-BRT-86 판정**: `Fetch.enable` 의 `patterns` 를 비우면 `authRequired` 가 오지 않는다(실측, Chrome 153) — 인증을 받으려면 모든 요청을 멈춰야 한다. 멈춘 요청은 매니저가 곧바로 `Fetch.continueRequest` 로 풀고, 그 지연은 요청당 약 0.28ms 였다(실측) — NFR-BRT-P1 안이므로 FR 을 유지한다. ⑲ **FR-BRT-80 개정**: 다운로드는 프로필 안의 대기 폴더(`DMDownloads`)에 guid 로 받고, 끝날 때 설정을 읽어 제안된 이름으로 옮긴다(같은 이름이면 ` (1)`, 다른 볼륨이면 복사) — 설정을 바꾸면 브라우저를 다시 띄우지 않아도 다음 다운로드부터 적용된다. ⑳ DevTools 페이지는 target 종류가 `page` 가 아니라 `other` 로 온다(실측) — `devtools://` 주소의 `other` 는 페이지로 받는다. 이동(`nav`)은 답을 기다리지 않는다 — HTTP 인증처럼 페이지가 멈춘 동안에도 이동 요청이 막히지 않는다 |
 | 2026-09-27 | 결정 ㉑ **FR-BRT-81 개정**: 파일 선택 창은 탐색기 트리를 재사용하지 않고 `/api/fs/list` 로 폴더를 걷는 목록 모달이다 — 트리는 에디터 창의 상태(열린 폴더·선택)를 품어 모달 안에서 따로 쓰기 어렵다. ㉒ 위젯 값은 격리 world 가 들고 있는 요소에 `Runtime.evaluate` 로 넣는다 — 페이지의 main world 에 흔적을 남기지 않는다. ㉓ 붙여넣기는 뷰어의 `paste` 이벤트 텍스트를 `Input.insertText` 로 보낸다. 복사는 격리 world 가 보고한 글을 기존 클립보드 쓰기 경로(포커스가 있을 때만)로 쓴다. ㉔ 찾기는 CSS Custom Highlight — 칠한 것은 페이지 문서의 `CSS.highlights` 에 들어가므로 페이지 스크립트가 볼 수 있다(이름 `dm-find*`). ㉕ `F12` 는 `F5` 와 같은 고정 보조 키다(결정 ⑧) |
+| 2026-09-27 | **4단계 구현.** PoC 통과(Chrome 153 headless=new·pipe): `Extensions.loadUnpacked` 확장의 `chrome.tabCapture` 가 탭 소리를 받는다 — `--mute-audio` 여도 캡처된다. FR-BRT-91 을 구현 수준으로 개정하고(위 §3.12) `browser/audio.go`(내장 확장·offscreen 문서의 WebRTC·신호) · 뷰어 `browser-view-audio.js` · 뷰어 WS `audio` · 설정 `browserAudio` 를 더한다. **구현 중 결정** 아래 |
+| 2026-09-27 | 결정 ㉖ 사용자의 확장 호출(activeTab) 없이는 `getMediaStreamId` 가 거절된다(실측). `Extensions.triggerAction`(tab target) 으로 호출을 흉내내는 길도 됐지만(실측) page target → tab target 대응을 찾을 CDP 가 없어, `--allowlisted-extension-id` 로 허용하는 쪽을 택한다(실측으로 된다). ID 는 manifest `key` 로 고정한다. page target → Chrome 탭 id 는 확장의 `chrome.debugger.getTargets()` 가 준다(붙지 않으므로 경고 막대가 없다). ㉗ 신호는 trickle 없이 offer·answer 한 번씩이고 STUN·TURN 을 쓰지 않는다 — 외부 서버에 닿지 않는 대신 뷰어가 서버에 UDP 로 닿아야 한다. ㉘ 한 탭을 여러 뷰어가 받으면 캡처 하나를 나눠 쓴다(같은 탭을 두 번 캡처하면 Chrome 이 거절한다). offer 는 ICE 수집까지 몇 초 걸리므로 뷰어 WS 의 읽기 루프 밖에서 돈다. 신호의 거절은 화면 오류 막을 띄우지 않는다. ㉙ **FR-BRT-90 개정**: `browserServerAudio`(켬/끔)를 `browserAudio`(off·server·viewer)로 바꾼다 — 출시 전이라 옮길 값이 없다. **검증 한계**(1단계 결정 ⑬ 승계): TC-BRT-6 의 Windows 판정·Linux CI 의 Chrome 샌드박스는 이 기기에서 잴 수 없어 CI 가 판정한다 |
+| 2026-09-27 | **추적 감사 보완.** FR·TC 전수 대조에서 드러난 빈 곳을 채운다. **구현 중 결정** 아래 |
+| 2026-09-27 | 결정 ㉚ **FR-BRT-39**: `dmctl`·화면이 가리킨 탭에 페이지가 없으면 `/api/browser/act`·`nav`·`viewport`·스트림이 **워크스페이스의 탭 레코드**(url·프로필·임시·고정 크기)로 만든다 — 데몬이 다시 뜨면 매니저의 기억(ghost)이 없기 때문이다. ghost 가 있으면 그것이 더 새것이라 그쪽을 쓴다. ㉛ **FR-BRT-84**: DevTools 탭은 대상 탭의 칸을 호출 칸으로 여는 자리 설정(FR-BRT-32)을 따른다. 이름은 DevTools 페이지가 제 제목을 실어 와도 "DevTools · <대상 제목>" 으로 둔다. 데몬이 다시 뜬 뒤의 DevTools 탭은 다시 만들 수 없어 닫는다(대상에서 다시 연다). ㉜ **FR-BRT-30·52**: 탭 메뉴에 고정 크기 셋(1280×800·1024×768·390×844)과 "창 크기에 맞춤" 을 둔다. 상태의 `viewport` 는 고정이면 `{w,h}`, 아니면 `null` 이고, 화면이 그것을 탭 레코드 `viewport` 로 적고 지운다. 복원 때 페이지를 **만들면서** 건다. `devtoolsOf` 도 탭 레코드에 적는다 |
+| 2026-09-27 | 결정 ㉝ **FR-BRT-41**: 주소창의 경로는 **절대 경로만**(POSIX `/…`·Windows `C:\…`) 받는다 — 주소창에는 기준 폴더가 없다. 상대 경로는 `dmctl browser open` 이 셸의 폴더로 푼다. ㉞ **FR-BRT-83**: 입력란·textarea 의 캐럿은 격리 world 가 글자 폭(붙이지 않은 canvas 의 `measureText`)으로 잰다 — DOM 에 거울 요소를 세우면 페이지의 MutationObserver 가 본다. 줄 바꿈은 `\n` 만 세고 자동 줄 바꿈은 근사다. ㉟ **FR-BRT-87**: "이미지 복사" 는 이미지 요소의 자리를 `Page.captureScreenshot(clip)` 으로 뜬 PNG 다 — 원본을 받지 않으므로 교차 출처 이미지도 된다. 뷰어는 누른 순간에 약속으로 클립보드 쓰기를 걸고, 이미지 쓰기가 막힌 기기(비보안 문맥)면 주소를 복사한다. "이미지 주소 복사" 도 둔다. ㊱ **FR-BRT-89**: 찾기 막대의 ⓘ 가 교차 출처 iframe 한계를 알린다 |
+| 2026-09-27 | 결정 ㊲ **FR-BRT-80**: 다운로드 기록은 매니저가 든다 — 프로필 브라우저가 끝나도 남고 데몬이 끝나면 사라진다(파일은 남는다). 설정 문구를 결정 ⑲("다음 다운로드부터") 에 맞춘다. ㊳ **FR-BRT-5**: Job Object 생성·한도(`KILL_ON_JOB_CLOSE`)를 `process_windows.go` 의 `newKillOnCloseJob` 하나로 모아 도구의 그룹과 브라우저 기동이 함께 쓴다. 기동 자체는 `CreateProcessW` 를 직접 부른다 — os/exec 는 `lpReserved2` 를 채울 길이 없다. ㊴ **FR-BRT-33**: ⌘/Ctrl·가운데 클릭으로 연 탭에는 Chrome 이 `openerId` 를 싣지 않는다(실측) — 같은 컨텍스트에서 2초 안에 그렇게 누른 페이지가 연 것으로 보고 그 탭 바로 뒤, 뒤 탭으로 둔다 |
+| 2026-09-27 | 결정 ㊵ **FR-BRT-56·89**: 찾기 `Mod+F` 를 단축키 표에서 빼 **고정 키**로 둔다 — 표의 Editor 찾기(`edFindInFile`)와 같은 조합이라 기본 키 중복 검사(V-PSC-1)에 걸린다. 터미널 검색(`Mod+F` 고정)과 같은 규약이다. ㊶ **NFR-BRT-P1 측정**: 서버 몫(입력이 매니저에 닿은 때 → 그 결과의 screencast 프레임)은 p50 9.5ms · p90 10.0ms(n=20, macOS·Chrome 153, `TestRealInputToFrameLatency`)다. 네트워크 구간은 LAN 에서 이 위에 더해진다. 시험은 서버 몫 p50 ≤ 100ms 를 고정한다 |
+| 2026-09-27 | 결정 ㊷ **FR-BRT-54 개정(결함 수정)**: `nativeVirtualKeyCode` 를 싣지 않는다 — Windows 가상 키코드를 그 자리에 넣으면 macOS 서버에서 다른 키로 읽힌다(Meta 91 → Keypad8, 페이지에 "8" 이 들어갔다, 실측). `windowsVirtualKeyCode`·`code`·`key` 로 충분하다(Playwright 와 같다). ㊸ 뷰어는 누름을 보내지 않은 키(탭·전역 단축키가 가져갔다)의 뗌을 보내지 않는다 — 짝 없는 keyup 이 페이지에 갔다. TC-BRT-44 가 둘을 고정한다 |
