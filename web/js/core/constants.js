@@ -44,7 +44,8 @@ const DROP_FILES_HINT=t('core.drop_files_hint');
 const CLICK_TO_FOCUS_HINT=t('core.click_to_focus_hint');
 // SYSTEM_THEME_FOLLOW_SRS FR-STF-5: 선주입이 두 맵 중 하나를 고를지의 스위치.
 const THEME_FOLLOW_KEY='dm.themeFollow';
-// 걷힘 애니메이션. 화면이 이미 준비된 뒤의 시간이므로 짧다.
+// 걷힘 애니메이션. 화면이 이미 준비된 뒤의 시간이므로 짧다. `#boot` 의 페이드
+// (`--dur-base`, .15s)가 끝난 뒤에 떼므로 그보다 짧아지면 안 된다.
 const BOOT_FADE_MS=180;
 // FR-BTS-14: 준비 신호가 오지 않아도 이 시간이 지나면 걷는다. 서버가 답하지
 // 않는다고 화면이 영구히 잠기면, 사용자는 무엇이 잘못됐는지 볼 길조차 없다.

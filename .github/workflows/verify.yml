@@ -295,6 +295,11 @@ jobs:
       - name: z-index 층
         run: node scripts/check-z-index.mjs
 
+      # FEU-28 — 착수 시 `transition` 27선언이 시간 여덟 종(.08s~.3s)을 제각각
+      # 적었다. 눈금은 셋(`--dur-fast|base|slow`)이다 (FR-TOK-46·47 / D-TOK-12).
+      - name: 전환 시간
+        run: node scripts/check-motion.mjs
+
       # `UX-14`·`UX-15` — 착수 시 `:root` 밖 색 리터럴 116곳이었고 Tokyo Night
       # 값이 박힌 자리는 **기본 테마에서만 맞고 나머지 53종에서 어긋났다.**
       # `:root` 안은 통과시킨다: 규칙은 "리터럴을 쓰지 마라" 가 아니라 "리터럴은

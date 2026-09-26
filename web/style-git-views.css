@@ -349,7 +349,7 @@ body.mobile .git-refs{width:110px}
 .git-con-exit{flex:0 0 auto;color:var(--danger-text);font-size:var(--fs-sm)}
 /* replay 는 hover 로만 보인다 — 기록은 읽는 자리이지 누르는 자리가 아니다
    (.git-wt-act 와 같은 어휘). */
-.git-con-replay{flex:0 0 auto;opacity:0;transition:opacity .1s}
+.git-con-replay{flex:0 0 auto;opacity:0;transition:opacity var(--dur-fast)}
 .git-con-row:hover .git-con-replay,.git-con-row:focus-within .git-con-replay{opacity:1}
 .git-con-replay:hover{color:var(--text-bright);border-color:var(--accent)}
 .git-con-row[data-destructive="1"] .git-con-replay:hover{color:var(--danger-text);border-color:var(--danger)}
@@ -719,7 +719,7 @@ input[type="checkbox"]:not(.ui-switch),input[type="radio"]{
   flex-shrink:0;align-self:center;
   width:14px;height:14px;min-width:14px;min-height:14px;margin:0;
   background:transparent;border:1px solid var(--text-dim);border-radius:3px;
-  cursor:pointer;transition:background .1s,border-color .1s;
+  cursor:pointer;transition:background var(--dur-fast),border-color var(--dur-fast);
 }
 input[type="radio"]{border-radius:50%}
 input[type="checkbox"]:not(.ui-switch):hover:not(:disabled),
@@ -1015,7 +1015,7 @@ body.mobile .run-view .run-card-detach{min-height:var(--touch-min);padding:0 12p
   display:flex;align-items:center;justify-content:center;gap:4px;
   background:transparent;border:none;border-bottom:2px solid transparent;
   color:var(--text-muted);font-family:inherit;font-size:var(--fs-sm);font-weight:600;
-  cursor:pointer;padding:0 3px;transition:background .1s,color .1s;
+  cursor:pointer;padding:0 3px;transition:background var(--dur-fast),color var(--dur-fast);
 }
 .sb-tab-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sb-tab:hover{background:var(--accent-hover);color:var(--accent-text)}

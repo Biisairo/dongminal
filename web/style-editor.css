@@ -442,7 +442,7 @@ body.mobile .ed-row{height:var(--touch-min)}
   border:1px solid var(--border);border-radius:6px;
   background:var(--sidebar-bg);color:var(--text-bright);
   font-size:var(--fs-sm);line-height:1.4;box-shadow:var(--shadow-1);
-  opacity:0;pointer-events:none;transition:opacity .12s;
+  opacity:0;pointer-events:none;transition:opacity var(--dur-fast);
   overflow-wrap:anywhere;
 }
 .fe-note.vis{opacity:1}

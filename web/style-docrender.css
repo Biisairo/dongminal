@@ -105,7 +105,7 @@
  *
  * FR-DRB-3a: 테두리와 글자가 기본 상태에서 **강조색**이다. `--text`·`opacity:.9`
  * 는 밝은 배경의 문서 위에서 여전히 잠겼다 — 그것이 U-2 의 접수 내용이다. */
-.fe-render{position:absolute;bottom:8px;left:8px;z-index:var(--z-raised);border:1px solid var(--accent);color:var(--accent-text);opacity:1;transition:background .12s,color .12s}
+.fe-render{position:absolute;bottom:8px;left:8px;z-index:var(--z-raised);border:1px solid var(--accent);color:var(--accent-text);opacity:1;transition:background var(--dur-fast),color var(--dur-fast)}
 .fe-render:hover{background:var(--accent);color:var(--bg)}
 
 /* ── SVG (FR-DRV-14) ──

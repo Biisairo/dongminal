@@ -76,6 +76,12 @@
   --z-popover:500;   /* 모달 위에 뜨는 것 — 메뉴·토스트·HUD·드롭다운 */
   --z-edge:600;      /* 창 수준의 비상호작용 표식 — 포커스·알림 테두리 */
 
+  /* DESIGN_TOKENS_SRS FR-TOK-46 (FEU-28): 전환 시간은 **셋**이다. 착수 시 27선언이
+     여덟 종(.08s~.3s)을 제각각 적었다. 사상표는 §3.10, 게이트는 check-motion.mjs. */
+  --dur-fast:.1s;    /* hover·즉시 반응 */
+  --dur-base:.15s;   /* 상태 전환 */
+  --dur-slow:.2s;    /* 덮는 것의 등장·퇴장 */
+
   /* DESIGN_TOKENS_SRS FR-TOK-6 (`UX-14`): 백드롭과 그림자. 착수 시 `:root` 밖
      검정 리터럴이 백드롭 12곳(알파 여섯 종)·그림자 23곳(geometry 11종 × 알파
      다섯 종)이었다.
@@ -254,7 +260,7 @@ textarea,
    (x 의 hover 배경이 서로 달랐고 gap 도 달랐다).
    기준은 WINDOWS 목록의 값이다. */
 .sbl-list{--sbl-hit:30px}
-.sbl-item{display:flex;align-items:center;gap:8px;height:var(--row);padding:0 10px;font-size:var(--fs-md);cursor:pointer;transition:background .1s}
+.sbl-item{display:flex;align-items:center;gap:8px;height:var(--row);padding:0 10px;font-size:var(--fs-md);cursor:pointer;transition:background var(--dur-fast)}
 .sbl-item:focus-visible{outline:1px solid var(--focus-ring);outline-offset:-1px}
 .sbl-item:hover{background:var(--accent-hover)}
 .sbl-item.active{background:var(--accent-active)}
@@ -631,7 +637,7 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
    이것을 `--border-strong` 으로 올렸다가 되돌렸다 — 슬롯 손잡이(`--slot-edge`)와의
    거리가 54종에서 평균 116·최소 73 에서 평균 57·최소 11 로 무너지고 41종이 옛
    최소값 아래로 내려간다(실측). 두 계층을 가르는 것이 FR-STB-20 의 목적이다. */
-.sh{flex-shrink:0;background:var(--border);transition:background .15s;position:relative;z-index:var(--z-raised)}
+.sh{flex-shrink:0;background:var(--border);transition:background var(--dur-base);position:relative;z-index:var(--z-raised)}
 .sh:hover{background:var(--accent)}
 .sp[data-d="horizontal"]>.sh{width:3px;cursor:col-resize}
 .sp[data-d="vertical"]>.sh{height:3px;cursor:row-resize}
@@ -820,7 +826,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .ag-group-fold{flex:none}
 .ag-group-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ag-group.attn .ag-group-name{color:var(--attn-text)}
-.ag-card{padding:8px 10px;border-bottom:1px solid var(--border-weak);cursor:pointer;transition:background .1s}
+.ag-card{padding:8px 10px;border-bottom:1px solid var(--border-weak);cursor:pointer;transition:background var(--dur-fast)}
 .ag-card:hover{background:var(--accent-hover)}
 .ag-card.attn{box-shadow:inset 3px 0 0 var(--attn);animation:attn-pulse-bar 2s ease-in-out infinite}
 .ag-card.focused{background:var(--accent-active)}
@@ -852,7 +858,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .pn-body{flex:1;position:relative;overflow:hidden}
 
 /* ── term pane ── */
-.tp{position:absolute;inset:0;display:none;padding:1px;transition:opacity .15s ease}
+.tp{position:absolute;inset:0;display:none;padding:1px;transition:opacity var(--dur-base) ease}
 .tp.vis{display:block}
 .tp.vis>.xterm{height:100%}
 
@@ -870,7 +876,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   padding:6px;min-height:30px;
   background:transparent;border:1px solid var(--border);border-radius:4px;
   color:var(--text-muted);font-size:var(--fs-lg);cursor:pointer;text-align:center;
-  transition:background .15s,color .15s;
+  transition:background var(--dur-base),color var(--dur-base);
 }
 #soft-reload-btn:hover:not(:disabled){background:var(--accent-hover);color:var(--accent-text)}
 /* FR-SRL-11: 도는 동안 그 사실을 보인다. 표시가 없으면 사용자는 눌린 줄 모르고
@@ -883,7 +889,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   margin:0;padding:6px;min-height:30px;
   background:transparent;border:1px solid var(--border);border-radius:4px;
   color:var(--text-muted);font-size:var(--fs-lg);cursor:pointer;text-align:center;
-  transition:background .15s,color .15s;
+  transition:background var(--dur-base),color var(--dur-base);
 }
 #settings-btn:hover{background:var(--accent-hover);color:var(--accent-text)}
 
@@ -961,7 +967,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   display:flex;align-items:center;gap:6px;
   padding:7px 10px;cursor:pointer;
   border-bottom:1px solid var(--border-weak);
-  transition:background .1s;
+  transition:background var(--dur-fast);
 }
 .tl-item:last-child{border-bottom:none}
 .tl-item:hover{background:var(--accent-hover)}
@@ -1009,7 +1015,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 #custom-toggle{
   width:100%;padding:8px;border:2px dashed var(--border);border-radius:6px;
   background:transparent;color:var(--text-muted);font-size:var(--fs-md);cursor:pointer;
-  transition:border-color .15s,color .15s;
+  transition:border-color var(--dur-base),color var(--dur-base);
 }
 #custom-toggle:hover{border-color:var(--accent-border);color:var(--accent-text)}
 #custom-toggle.active{border-color:var(--accent);color:var(--accent-text);border-style:solid}
@@ -1028,7 +1034,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .sc-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-weak)}
 .sc-row>span{color:var(--text);font-size:var(--fs-md);flex:1;min-width:0}
 .sc-btns{display:flex;align-items:center;gap:4px;flex-shrink:0}
-.sc-key{cursor:pointer;min-width:80px;transition:border-color .15s}
+.sc-key{cursor:pointer;min-width:80px;transition:border-color var(--dur-base)}
 .sc-key:hover{border-color:var(--accent-border)}
 .sc-key.recording{border-color:var(--accent);color:var(--accent-text);animation:sc-pulse 1s infinite}
 @keyframes sc-pulse{0%,100%{border-color:var(--accent)}50%{border-color:transparent}}
@@ -1111,7 +1117,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   position:absolute;inset:0;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:6px;
   background:var(--backdrop);z-index:var(--z-overlay);
-  opacity:0;transition:opacity .3s;pointer-events:none;
+  opacity:0;transition:opacity var(--dur-slow);pointer-events:none;
 }
 .tp-overlay.visible{opacity:1}
 .tp-ov-title{color:var(--danger-text);font-size:var(--fs-lg);font-weight:600}
@@ -1225,7 +1231,7 @@ body.mobile .status-bar.sb-expanded::after{content:'⌄'}
 .preset-item{
   display:flex;align-items:center;gap:8px;
   padding:7px 10px;border:1px solid var(--border);border-radius:6px;
-  transition:border-color .15s,background .15s;
+  transition:border-color var(--dur-base),background var(--dur-base);
 }
 .preset-item:hover{border-color:var(--accent-border);background:var(--accent-hover)}
 .preset-info{flex:1;min-width:0}
@@ -1307,19 +1313,19 @@ body.mobile .status-bar.sb-expanded::after{content:'⌄'}
    두고, 지금 값은 손잡이의 자리와 켜진 이름이 함께 말한다 — 값이 적힌 버튼 하나는
    "지금 무엇인가" 만 말하고 "무엇을 고를 수 있는가" 를 숨겼다. */
 .ds-switch{display:inline-flex;align-items:center;gap:8px}
-.ds-switch .ds-sw-lbl{font-size:var(--fs-sm);color:var(--text-hint);transition:color .15s}
+.ds-switch .ds-sw-lbl{font-size:var(--fs-sm);color:var(--text-hint);transition:color var(--dur-base)}
 .ds-switch[data-v="horizontal"] .ds-sw-lbl.l,
 .ds-switch[data-v="vertical"] .ds-sw-lbl.r{color:var(--text-bright)}
 .ds-switch button{
   position:relative;flex:0 0 auto;width:34px;height:18px;padding:0;
   background:var(--bg);border:1px solid var(--border);border-radius:9px;
-  cursor:pointer;transition:background .15s,border-color .15s;
+  cursor:pointer;transition:background var(--dur-base),border-color var(--dur-base);
 }
 .ds-switch button:hover{border-color:var(--accent)}
 .ds-switch button:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
 .ds-switch button i{
   position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;
-  background:var(--accent);transition:transform .15s ease;
+  background:var(--accent);transition:transform var(--dur-base) ease;
 }
 /* 오른쪽 값(세로)일 때만 손잡이가 옮겨 앉는다 — 트랙 폭(34) - 손잡이(12) - 여백(2·2) */
 .ds-switch[data-v="vertical"] button{background:var(--accent-active);border-color:var(--accent-border)}
@@ -1428,13 +1434,13 @@ body.mobile #sidebar{
   height:auto;max-height:min(75vh,520px);
   z-index:var(--z-overlay);
   transform:translateY(-100%);
-  transition:transform .22s ease;
+  transition:transform var(--dur-slow) ease;
   border-right:none;border-bottom:1px solid var(--border-strong);
   box-shadow:var(--shadow-2);
   overflow-y:auto;
 }
 body.mobile.drawer-open #sidebar{transform:translateY(0)}
-#drawer-backdrop{display:none;position:fixed;inset:0;background:var(--backdrop);z-index:var(--z-overlay);opacity:0;transition:opacity .2s ease}
+#drawer-backdrop{display:none;position:fixed;inset:0;background:var(--backdrop);z-index:var(--z-overlay);opacity:0;transition:opacity var(--dur-slow) ease}
 body.mobile.drawer-open #drawer-backdrop{display:block;opacity:1}
 
 /* drawer close button shown only on mobile when drawer open. 외형은 키트, 자리와
@@ -1491,7 +1497,7 @@ body.mobile #window-name{flex:0 1 auto;overflow:hidden;text-overflow:ellipsis;wh
   content:'';position:sticky;flex:0 0 18px;width:18px;align-self:stretch;
   /* 키 위에 뜬다. 키바 자신이 쌓임 문맥을 만들므로(position:fixed + z-index)
      이 값은 그 안에서만 뜻이 있다 — 형제인 버튼들보다 위라는 말이다. */
-  pointer-events:none;opacity:0;transition:opacity .12s;z-index:var(--z-raised);
+  pointer-events:none;opacity:0;transition:opacity var(--dur-fast);z-index:var(--z-raised);
 }
 #mobile-keybar::before{left:0;margin-right:-18px;background:linear-gradient(to right,var(--sidebar-bg),transparent)}
 #mobile-keybar::after{right:0;margin-left:-18px;background:linear-gradient(to left,var(--sidebar-bg),transparent)}
@@ -1598,7 +1604,7 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
   position:absolute;pointer-events:none;
   background:var(--accent);opacity:.18;
   border:2px solid var(--accent);border-radius:2px;z-index:var(--z-raised);
-  transition:all .08s;
+  transition:all var(--dur-fast);
 }
 .pn-drop-indicator[data-zone="left"]  {top:0;left:0;width:33%;height:100%}
 .pn-drop-indicator[data-zone="right"] {top:0;right:0;width:33%;height:100%;left:auto}
@@ -1724,7 +1730,7 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
      않는다. 좁고 옅게 둔다. */
   background:radial-gradient(34% 30% at 50% 45%,var(--boot-glow),transparent 70%),var(--bg);
   color:var(--text-muted);
-  transition:opacity .18s ease;
+  transition:opacity var(--dur-base) ease;
 }
 /* FR-BTS-8·12: 걷히는 동안에는 입력을 아래로 흘려보낸다 — 화면은 이미 준비됐다. */
 #boot.gone{opacity:0;pointer-events:none}
@@ -1851,7 +1857,7 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
  * 아니다 — 터미널 글자는 한 번도 뭉개지지 않는다. */
 #focus-edge{
   position:fixed;inset:0;z-index:var(--z-edge);pointer-events:none;
-  opacity:0;transition:opacity .2s ease;
+  opacity:0;transition:opacity var(--dur-slow) ease;
   /* 보이지 않는 동안에는 필터를 걸지 않는다 — `backdrop-filter` 는 그 아래가
      다시 그려질 때마다(터미널은 늘 그렇다) 재합성을 부른다. */
   backdrop-filter:none;-webkit-backdrop-filter:none;
