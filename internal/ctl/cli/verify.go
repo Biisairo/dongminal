@@ -35,13 +35,10 @@ const (
 	// verifyMarker 는 왕복 검사가 셸에 시키고 되받을 표시다. 현행 CI 와 같은 값을
 	// 승계한다 (D-5).
 	verifyMarker = "dongminal-e2e-ok"
-	// verifyShellWait·verifyShellQuiet 는 "셸이 프롬프트를 그렸다" 로 볼 조건이다.
-	// 고정 대기를 쓰지 않는다 — 대상마다 셸 기동 시간이 다르고, 고정 대기가 실제로
-	// 플레이크를 냈다 (FR-E2K-2).
-	verifyShellWait  = 20 * time.Second
-	verifyShellQuiet = 700 * time.Millisecond
-	verifyPollEvery  = 100 * time.Millisecond
-	verifyRoundTrip  = 30 * time.Second
+	// verifyShellWait 는 셸이 프롬프트를 그리기를 기다리는 상한이다 (판정은 waitQuiet).
+	verifyShellWait = 20 * time.Second
+	verifyPollEvery = 100 * time.Millisecond
+	verifyRoundTrip = 30 * time.Second
 	// verifyTermGrace 는 정중한 종료를 기다리는 시간이다.
 	verifyTermGrace = 3 * time.Second
 	verifyLogTail   = 40
@@ -338,7 +335,7 @@ func (s *verifySession) toolInState() (string, error) {
 // 터미널이 실제로 입출력을 왕복해야만 통과한다 — 이 트랙이 겨누는 결함이 정확히
 // 그 자리에서 났다 (CROSS_PLATFORM_SRS §11.6).
 func (s *verifySession) roundTrip() (string, error) {
-	if err := s.waitToolQuiet(verifyShellWait, verifyShellQuiet); err != nil {
+	if err := s.waitToolQuiet(verifyShellWait); err != nil {
 		return "", err
 	}
 	body := fmt.Sprintf(`{"id":%s,"text":%s,"execute":true}`,
@@ -377,29 +374,21 @@ func (s *verifySession) toolOutput() (string, error) {
 	return s.body("/api/tools/output?id=" + url.QueryEscape(s.toolID) + "&strip=1")
 }
 
-// waitToolQuiet 는 셸이 무언가를 그리고 **조용해질 때까지** 기다린다. doctor 가
-// 쓰는 것과 같은 판정이며, 고정 대기를 쓰지 않는 이유는 FR-E2K-2 다.
-func (s *verifySession) waitToolQuiet(limit, quiet time.Duration) error {
-	deadline := time.Now().Add(limit)
-	var last string
-	var lastChange time.Time
-	for time.Now().Before(deadline) {
-		out, err := s.toolOutput()
-		if err == nil {
-			switch {
-			case out != last:
-				last, lastChange = out, time.Now()
-			case last != "" && time.Since(lastChange) >= quiet:
-				return nil
-			}
+// waitToolQuiet 는 셸이 무언가를 그리고 **조용해질 때까지** 기다린다 (waitQuiet).
+// 조회 실패는 변화 없음으로 본다. 계속 변하고 있으면 그린 것은 있으므로 진행한다.
+func (s *verifySession) waitToolQuiet(limit time.Duration) error {
+	var c changeTracker
+	err := waitQuiet(func() (int, time.Time, error) {
+		if out, err := s.toolOutput(); err == nil {
+			n, at := c.observe(out)
+			return n, at, nil
 		}
-		time.Sleep(verifyPollEvery)
-	}
-	if last != "" {
-		// 계속 변하고 있다 — 그린 것은 있으므로 진행한다.
+		return len(c.last), c.at, nil
+	}, limit, shellQuietFor)
+	if errors.Is(err, errNotQuiet) {
 		return nil
 	}
-	return errors.New("셸이 아무 것도 그리지 않았다")
+	return err
 }
 
 // staticAssets 는 index.html 이 **실제로 참조하는** script 전량을 두드린다.

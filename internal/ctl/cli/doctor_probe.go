@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -143,16 +144,21 @@ func doctorRoundTrip(term platform.Terminal, input, want string, limit time.Dura
 
 	// 준비 대기: 출력이 한 번이라도 오고, 그 뒤 조용해지면 프롬프트가 선 것이다.
 	// 입력이 없으면 기다릴 이유가 없다 — 바로 결과를 기다린다.
-	ready := time.Now().Add(doctorReadyWait)
-	for input != "" && time.Now().Before(ready) {
-		if _, n, quiet := snapshot(); n > 0 && quiet > doctorQuietFor {
-			break
-		}
-		select {
-		case err := <-readErr:
+	if input != "" {
+		err := waitQuiet(func() (int, time.Time, error) {
+			select {
+			case err := <-readErr:
+				return 0, time.Time{}, err
+			default:
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			return seen.Len(), lastAt, nil
+		}, doctorReadyWait, shellQuietFor)
+		// 상한을 넘긴 것은 끊긴 것이 아니다 — 입력은 넣어 본다.
+		if err != nil && !errors.Is(err, errNothingDrawn) && !errors.Is(err, errNotQuiet) {
 			got, _, _ := snapshot()
 			return got, fmt.Errorf("셸이 준비되기 전에 끊겼다: %w", err)
-		case <-time.After(doctorPoll):
 		}
 	}
 

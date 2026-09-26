@@ -34,14 +34,10 @@ const (
 	// doctorDetachedWait 은 콘솔 없는 자식의 결과를 기다리는 상한이다. 자식이
 	// 스스로 doctorProbeTimeout 을 걸고 결과를 쓰므로 그보다 넉넉해야 한다.
 	doctorDetachedWait = doctorProbeTimeout + 30*time.Second
-	// doctorReadyWait·doctorQuietFor 는 "셸이 프롬프트를 그렸다" 로 볼 조건이다.
-	// 출력이 오고 이만큼 조용하면 준비된 것으로 본다.
+	// doctorReadyWait 는 셸이 프롬프트를 그리기를 기다리는 상한이다 (판정은 waitQuiet).
 	doctorReadyWait = 15 * time.Second
-	doctorQuietFor  = 700 * time.Millisecond
 	// doctorIPCTimeout 은 IPC 종단 왕복의 접속·읽기 상한이다.
 	doctorIPCTimeout = 3 * time.Second
-	// doctorPromptWait 은 도구 셸이 프롬프트를 그리기를 기다리는 시간이다.
-	doctorPromptWait = 3 * time.Second
 	// doctorPoll 은 출력·생존을 다시 보는 간격이고, doctorResultPoll 은 콘솔 없는
 	// 자식의 결과 파일을 다시 보는 간격이다.
 	doctorPoll       = 100 * time.Millisecond
@@ -417,8 +413,14 @@ func doctorTool(r *checkReport, home string) {
 	r.ok("도구 기동 pid=%d", tool.CmdProcessPID())
 
 	const marker = "dongminal-tool-ok"
-	// 셸이 프롬프트를 그릴 때까지 기다린다 (doctorRoundTrip 의 사정과 같다).
-	time.Sleep(doctorPromptWait)
+	// 셸이 프롬프트를 그릴 때까지 기다린다 (doctorRoundTrip 의 사정과 같다). 상한을
+	// 넘겨도 입력은 넣어 본다 — 판정은 아래 왕복이 한다.
+	var screen changeTracker
+	_ = waitQuiet(func() (int, time.Time, error) {
+		blob, _ := tool.Stream().Snapshot()
+		n, at := screen.observe(string(blob))
+		return n, at, nil
+	}, doctorReadyWait, shellQuietFor)
 	if err := tool.Write([]byte("echo " + marker + "\r")); err != nil {
 		r.bad("입력 실패: %v", err)
 		return
