@@ -506,13 +506,17 @@ func HunksOf(s *core.Service, ctx context.Context, repo, axis, p string) (FileDi
 	}
 	argv = append(argv, "--", rel)
 
-	out, err := s.Exec(ctx, repo, argv...)
+	// FR-OPT-16-4: 공용 출력 상한(1 MiB)이면 편집기가 여는 파일이 여기서 잘린다. 읽기
+	// 조회이므로 `Sized` 로 상한만 바꾼다 — 실행 기록은 공용과 나누고, 패치 적용(쓰기)은
+	// 부르는 쪽이 원래 Service 의 ExecWrite 로 한다.
+	ds := s.Sized(int(editorlimit.PatchDiffMaxBytes(DiffMaxBytes)))
+	out, err := ds.Exec(ctx, repo, argv...)
 	if err != nil {
 		return FileDiff{}, err
 	}
 	if out.StdoutTruncated {
-		return FileDiff{}, fmt.Errorf("%w: %s 의 diff 가 상한(%dKiB)에서 잘렸다",
-			ErrDiffTruncated, rel, s.MaxOutput()/1024)
+		return FileDiff{}, fmt.Errorf("%w: %s 의 diff 가 상한(%dMiB)에서 잘렸다",
+			ErrDiffTruncated, rel, ds.MaxOutput()>>20)
 	}
 	fd := FileDiff{Repo: repo, Axis: axis, Path: rel, DiffID: hunkDiffID(axis, rel, out.Stdout)}
 	fd.Preamble, fd.Hunks = parseHunks(out.Stdout)

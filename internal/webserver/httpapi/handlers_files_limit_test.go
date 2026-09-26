@@ -56,6 +56,22 @@ func TestFileWrite_EscapedWorstCaseSaves(t *testing.T) {
 	}
 }
 
+// FR-OPT-16-4: JSON 이스케이프의 진짜 최악은 `\u00XX`(여섯 바이트)다. 제어 문자로만 된
+// 파일도 파일 상한 안이면 저장된다 — 종전에는 두 배 여유라 `body_too_large` 였다.
+func TestFileWrite_ControlCharWorstCaseSaves(t *testing.T) {
+	withFileReadMax(t, 2<<20)
+	e := newFileBoundaryEnv(t)
+	target := filepath.Join(e.root, "ctl.bin.txt")
+	content := strings.Repeat("\x01", 2<<20)
+	code, errCode := writeLimitReq(t, e, target, content)
+	if code != http.StatusOK {
+		t.Fatalf("status=%d code=%q want 200 — 제어 문자 이스케이프(6배) 여유가 본문 상한에 없다", code, errCode)
+	}
+	if st, err := os.Stat(target); err != nil || st.Size() != 2<<20 {
+		t.Fatalf("저장된 크기=%v err=%v want %d", st, err, 2<<20)
+	}
+}
+
 // 파일 상한을 넘는 저장은 읽기와 같은 코드(`too_large`)로 거절되고 아무것도 쓰지 않는다.
 // 쓰게 두면 방금 저장한 파일을 다시 열 수 없다.
 func TestFileWrite_OverLimitIsTooLarge(t *testing.T) {

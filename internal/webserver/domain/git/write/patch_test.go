@@ -479,3 +479,38 @@ func splitContentLines(s string) []string {
 	}
 	return out
 }
+
+// FR-OPT-16-4: 편집기가 여는 크기(공용 출력 상한 1 MiB 초과)의 파일도 조각 하나를
+// 스테이지할 수 있다. 쓰기는 여전히 공용 Service 의 ExecWrite 를 지난다 — 기록에 남는다.
+func TestPatch_LargeFileStagesHunk(t *testing.T) {
+	dir := tempRepo(t)
+	line := strings.Repeat("y", 63) + "\n"
+	n := (2 << 20) / len(line)
+	if err := os.WriteFile(filepath.Join(dir, "big.txt"), []byte(strings.Repeat(line, n)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitIn(t, dir, "add", "big.txt")
+	gitIn(t, dir, "commit", "-m", "big")
+	if err := os.WriteFile(filepath.Join(dir, "big.txt"), []byte(strings.Repeat(strings.ToUpper(line), n)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := core.New()
+	ctx := context.Background()
+	fd, err := query.HunksOf(s, ctx, dir, query.AxisWorktreeIndex, "big.txt")
+	if err != nil {
+		t.Fatalf("HunksOf: %v", err)
+	}
+	if _, err := Patch(s, ctx, dir, PatchOpts{
+		Op: PatchStage, Axis: query.AxisWorktreeIndex, Path: "big.txt", Hunk: 0, DiffID: fd.DiffID,
+	}); err != nil {
+		t.Fatalf("Patch: %v", err)
+	}
+	idx := indexLines(t, dir, "big.txt")
+	if len(idx) == 0 || idx[0] != strings.ToUpper(strings.TrimSuffix(line, "\n")) {
+		t.Fatalf("스테이지되지 않았다: %.80v", idx)
+	}
+	recs := s.Records(0)
+	if last := recs[len(recs)-1]; !last.Write || len(last.Argv) == 0 || last.Argv[0] != "apply" {
+		t.Fatalf("마지막 기록이 공용 Service 의 쓰기(apply)가 아니다: %+v", last)
+	}
+}

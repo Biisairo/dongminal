@@ -174,3 +174,30 @@ func TestHunksOf_NoChangeIsEmpty(t *testing.T) {
 		t.Fatalf("hunk 수 = %d, 기대 0", len(fd.Hunks))
 	}
 }
+
+// FR-OPT-16-4: 부분 스테이징 diff 는 공용 출력 상한(1 MiB)이 아니라 편집기 파일 상한에서
+// 파생한 상한을 쓴다. 편집기가 여는 2 MiB 파일을 통째로 고쳐도 잘리지 않는다.
+func TestHunksOf_LargeFileUnderEditorLimitNotTruncated(t *testing.T) {
+	dir := tempRepo(t)
+	line := strings.Repeat("x", 63) + "\n"
+	n := (2 << 20) / len(line)
+	if err := os.WriteFile(filepath.Join(dir, "big.txt"), []byte(strings.Repeat(line, n)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitRun(t, dir, "add", "big.txt")
+	gitRun(t, dir, "commit", "-m", "big")
+	if err := os.WriteFile(filepath.Join(dir, "big.txt"), []byte(strings.Repeat(strings.ToUpper(line), n)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := core.New()
+	fd, err := HunksOf(s, context.Background(), dir, AxisWorktreeIndex, "big.txt")
+	if err != nil {
+		t.Fatalf("HunksOf: %v (공용 상한 %d 에서 잘렸다)", err, s.MaxOutput())
+	}
+	if len(fd.Hunks) != 1 {
+		t.Fatalf("hunk 수 = %d, 기대 1", len(fd.Hunks))
+	}
+	if s.MaxOutput() != core.DefaultMaxOutput {
+		t.Fatalf("공용 Service 의 상한이 바뀌었다: %d", s.MaxOutput())
+	}
+}

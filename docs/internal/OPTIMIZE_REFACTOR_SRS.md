@@ -427,34 +427,40 @@ e2e 요청 타임라인으로 잰다.
 **구현 (O15, 2026-09-26)**
 
 - 원천은 `internal/shared/editorlimit` 한 곳이다: `FileMaxBytes = 32 MiB` 와
-  `BodyMaxBytes(n) = 2n + 64 KiB`. 파생: `httpapi.fileReadMaxBytes`(read·raw·probe·write, 그림
+  `BodyMaxBytes(n) = 6n + 64 KiB` (FR-OPT-16-4 에서 2n 을 개정). 파생: `httpapi.fileReadMaxBytes`(read·raw·probe·write, 그림
   전용 git 실행기) · `lsp.MaxTextBytes`(요청 텍스트와 재동기화 — DOM-30 의 8/10 MiB 두 벌을
   하나로) · LSP 요청 본문 `lspAskMaxBody` · LSP 프레임 상한 `maxFrame` · `query.DiffMaxBytes`
   (diff 본문 · HEAD 판 열기 · 커밋 템플릿 읽기) · `dongminal verify` 의 상한 초과 검사. 브라우저는
   값을 들지 않는다 — `probe.maxBytes` 를 쓴다 (FR-FAB-9).
-- **저장 본문 = 파일 상한 × 2 + 64 KiB.** JSON 문자열에서 개행·따옴표·역슬래시·탭은 두
-  바이트가 된다. 그 밖의 제어 문자(`\u00XX`, 여섯 바이트)가 절반을 넘는 파일은 413
-  `body_too_large` 일 수 있다 — 여섯 배를 받으면 본문 하나가 192 MiB 까지 앉는다. 인코딩한
+- **저장 본문 = 파일 상한 × 6 + 64 KiB** (FR-OPT-16-4 개정). JSON 문자열에서 개행·따옴표·
+  역슬래시·탭은 두 바이트, 그 밖의 제어 문자는 `\u00XX` 여섯 바이트다.
+  이전: × 2 — 제어 문자가 절반을 넘는 파일은 파일 상한 안이어도 413 `body_too_large` 였다.
+  새: 최악 이스케이프를 받는다. 이유: 열 수 있는 파일은 저장할 수 있어야 한다(FR-OPT-15-2).
+  이 값은 받을 수 있는 천장이고 버퍼는 실제 본문만큼만 자란다(최악 192 MiB). 인코딩한
   결과(디스크 바이트)가 파일 상한을 넘으면 413 `too_large` 이고 쓰지 않는다 — 쓰게 두면
   방금 저장한 파일을 다시 열 수 없다.
 - **git 출력 상한.** 공용 `core.Service` 의 출력 상한(1 MiB, FR-GIT-6)은 그대로다. diff 본문과
   HEAD 판 열기만 `Service.Sized(FileMaxBytes)` 를 쓴다 — 실행기·시한·실행 기록을 공용과
   나누므로 Console 이 그 실행을 그대로 본다. 부분 스테이징의 unified diff(`HunksOf`)는
-  편집기가 파일을 여는 경로가 아니므로 공용 상한 그대로다 (1 MiB 를 넘는 패치는 종전처럼
-  `diff_truncated`).
+  `Service.Sized(PatchDiffMaxBytes(FileMaxBytes))` 로 읽는다 (FR-OPT-16-4 개정 — 이전: 공용 상한
+  1 MiB 라 편집기가 여는 1 MiB 초과 파일이 `diff_truncated` 였다). `PatchDiffMaxBytes(n) = 4n + 64 KiB`
+  — 전면 재작성이면 두 판이 줄마다 접두어 한 바이트를 달고 나온다. 패치 적용(쓰기)은 그대로
+  공용 Service 의 `ExecWrite` 를 지난다.
 
 **최악 메모리 (요청 하나, 서버 힙, 언어 서버 제외)**
 
 | 경로 | 구성 | 최악 |
 |---|---|---|
 | 읽기 (`/api/file/read` 판별 경로) | 원문 32 + 디코드 결과 ≤ 64 | ≈ 96 MiB |
-| 저장 | 본문 ≤ 64 + `content` 32 + 인코딩 결과 ≤ 64 (UTF-16) | ≈ 160 MiB |
-| LSP 요청 | 본문 ≤ 64 + 텍스트 32 + didOpen/didChange 프레임 ≤ 64 | ≈ 160 MiB |
+| 저장 | 본문 ≤ 192 (제어 문자뿐, FR-OPT-16-4) + `content` 32 + 인코딩 결과 ≤ 64 (UTF-16) | ≈ 290 MiB |
+| LSP 요청 | 본문 ≤ 192 + 텍스트 32 + didOpen/didChange 프레임 ≤ 64 | ≈ 290 MiB |
 | diff (두 쪽 32 MiB) | git 출력 버퍼 ≤ 64(append 성장) + 문자열 32 · 워킹 트리 32 + 32 · JSON 응답 ≤ 128 | ≈ 290 MiB |
+| 부분 스테이징 diff (FR-OPT-16-4) | git 출력 버퍼 ≤ 256(append 성장) + 문자열 128 (빈 줄뿐인 파일의 전면 재작성) | ≈ 390 MiB |
 
 동시성 상한은 두지 않는다. 한 사용자의 로컬 서버이고 네 경로 모두 사용자 조작 하나에
 요청 하나다 — LSP 는 판이 바뀐 요청만 텍스트를 싣고(FR-OPT-6-2) 호버는 앞 요청을 끊으며,
-diff 는 요청이 끊기면 git 실행이 함께 죽는다. 셋이 겹친 최악은 ≈ 610 MiB 의 일시 할당이다
+diff 는 요청이 끊기면 git 실행이 함께 죽는다. 셋이 겹친 최악은 ≈ 870 MiB 의 일시 할당이다
+(FR-OPT-16-4 로 저장·LSP 본문 천장이 여섯 배가 되며 ≈ 610 에서 늘었다 — 제어 문자뿐인 32 MiB 파일에서만 닿는다)
 (리스크 MEDIUM — 실측에서 문제가 되면 경로 공용 가중 세마포어를 둔다).
 
 ### 3.16 O16 — 보류분 재개와 검토 잔여 (2026-09-26 사용자 요청)
