@@ -3,7 +3,6 @@ package httpapi
 import (
 	"bytes"
 	"dongminal/internal/webserver/apierr"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 
 	"dongminal/internal/shared/mimeprobe"
 	"dongminal/internal/shared/textenc"
+	"dongminal/internal/webserver/httpresp"
 )
 
 // /api/file/{probe,raw} — 편집기가 "이 파일을 열 수 있는가"를 묻는 자리
@@ -112,13 +112,12 @@ func (s *Server) apiFileProbe(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "cannot read file", http.StatusForbidden, apierr.CodePermission)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
 	// FR-FAB-9: **상한을 함께 준다.** 편집기가 자기 상수를 들고 있으면 두 벌이 되고,
 	// 그때 한쪽만 고쳐진 채 "열린다고 했는데 안 열린다" 가 된다.
 	//
 	// probe 자체에는 상한을 걸지 않는다 — 큰 파일이라고 답하려면 먼저 물음에
 	// 답할 수 있어야 한다.
-	json.NewEncoder(w).Encode(map[string]any{
+	httpresp.JSON(w, http.StatusOK, map[string]any{
 		"kind": kind, "mime": mime, "size": st.Size(), "maxBytes": fileReadMaxBytes,
 	})
 }

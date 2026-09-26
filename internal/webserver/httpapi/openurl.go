@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"dongminal/internal/webserver/apierr"
+	"dongminal/internal/webserver/httpresp"
 	"encoding/json"
 	"errors"
 	"net"
@@ -127,6 +128,5 @@ func (s *Server) handleOpenURLWhere(w http.ResponseWriter, r *http.Request) {
 		"loopback": isLoopbackAddr(addr),
 	}
 	_ = cid
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(out)
+	httpresp.JSON(w, http.StatusOK, out)
 }

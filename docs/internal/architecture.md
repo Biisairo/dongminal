@@ -60,6 +60,7 @@ internal/
     httpapi/             #   HTTP/WS/SSE 라우팅 + settingsStore + 잔여 핸들러 (Server)
     httproute/           #   라우팅표 한 벌 — httpapi·gitapi 가 타입 매개변수로 공유
     httpreq/             #   요청 본문을 읽는 한 자리 (표면별 크기 상한)
+    httpresp/            #   성공 JSON 응답을 쓰는 한 자리 (오류 방언 렌더러는 각자 둔다)
     gitapi/              #   /api/git/* 핸들러 74개 (GitServer). 라우트 테이블을 스스로 소유
                          #     gitwrite.go — 쓰기 한 번의 순서를 타입이 강제한다
     apierr/              #   sentinel → (status, code) 등록부 + 와이어 코드 단일 소유
@@ -200,7 +201,9 @@ docs/
 
 **통일하지 않는다** — 그것은 리팩터가 아니라 파괴적 변경이다. 대신
 `internal/webserver/apierr` 가 **매핑과 어휘**를 소유하고 렌더링은 각 표면에 남는다
-(DEEPENING_REFACTOR_SRS 묶음 A).
+(DEEPENING_REFACTOR_SRS 묶음 A). 성공 JSON 은 모양이 하나라 `httpresp.JSON` 한 자리가
+쓴다 (OPTIMIZE_REFACTOR_SRS FR-OPT-9-4) — 이 결정은 오류 본문의 것이고, 성공 응답의
+헤더·인코딩을 모으는 것은 그 밖이다.
 
 **코드는 방언 밖으로도 나간다** (M5 `G6-1`, `ERROR_CONTRACT_SRS`). 모든 오류 응답이
 `X-Error-Code` 헤더에 코드를 싣는다 — **본문은 한 바이트도 바뀌지 않는다.** 본문이

@@ -17,6 +17,7 @@ import (
 	"dongminal/internal/shared/sandbox"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/workspace"
+	"dongminal/internal/webserver/httpresp"
 	"dongminal/internal/webserver/httproute"
 	"dongminal/internal/webserver/sse"
 )
@@ -274,8 +275,7 @@ func (s *Server) apiStateGet(w http.ResponseWriter, r *http.Request) {
 		resp.FgTabNames = &v
 	}
 	w.Header().Set("ETag", strconv.FormatUint(rev, 10))
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	httpresp.JSON(w, http.StatusOK, resp)
 }
 
 // stateResponse 는 GET /api/state 의 본문이다. 앞의 세 키는 종전 map 의 정렬 순서와
@@ -347,8 +347,7 @@ func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, "도구를 만들지 못했습니다", err)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"id": tool.ID, "name": tool.Name})
+	httpresp.JSON(w, http.StatusOK, map[string]string{"id": tool.ID, "name": tool.Name})
 }
 
 func (s *Server) apiToolBusy(w http.ResponseWriter, r *http.Request) {
@@ -357,8 +356,7 @@ func (s *Server) apiToolBusy(w http.ResponseWriter, r *http.Request) {
 	if s.Tools != nil {
 		busy = s.Tools.Busy(id)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"busy": busy})
+	httpresp.JSON(w, http.StatusOK, map[string]bool{"busy": busy})
 }
 
 // maxBusyIDs 는 GET /api/tools/busy 한 번에 물을 수 있는 도구 수의 상한이다.
@@ -387,8 +385,7 @@ func (s *Server) apiToolsBusy(w http.ResponseWriter, r *http.Request) {
 		}
 		busy = got
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]map[string]bool{"busy": busy})
+	httpresp.JSON(w, http.StatusOK, map[string]map[string]bool{"busy": busy})
 }
 
 func (s *Server) apiToolDelete(w http.ResponseWriter, r *http.Request) {
@@ -491,8 +488,7 @@ func (s *Server) apiStats(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("jobs") == "1" && s.Git != nil {
 		out["jobs"] = s.git.ActiveJobs()
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(out)
+	httpresp.JSON(w, http.StatusOK, out)
 }
 
 // reapSandboxes 는 살아 있는 Window 목록으로 대응 컨테이너를 회수한다.
@@ -524,8 +520,7 @@ func (s *Server) apiSandboxProfiles(w http.ResponseWriter, r *http.Request) {
 	if s.Sandbox != nil {
 		list = s.Sandbox.Profiles()
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(list)
+	httpresp.JSON(w, http.StatusOK, list)
 }
 
 /**
@@ -543,8 +538,7 @@ func (s *Server) apiSandboxRuntime(w http.ResponseWriter, r *http.Request) {
 	// 규칙을 깬다 (FR-XPL-5). 표시·기록용 값이라는 `OSKind` 의 성질과도 맞는다:
 	// 명령을 **고르는** 일은 sandbox 안에서 하고 여기서는 값만 넘긴다.
 	st := sandbox.Probe(string(platform.Current().OS), sandbox.LookPath, sandbox.CLIExec)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(st)
+	httpresp.JSON(w, http.StatusOK, st)
 }
 
 /**
@@ -556,8 +550,7 @@ func (s *Server) apiSandboxRuntime(w http.ResponseWriter, r *http.Request) {
  */
 func (s *Server) apiSandboxRuntimeStart(w http.ResponseWriter, r *http.Request) {
 	res := sandbox.StartRuntime(string(platform.Current().OS), sandbox.StartExec)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(res)
+	httpresp.JSON(w, http.StatusOK, res)
 }
 
 // apiSandboxConfigGet 은 지금 저장된 샌드박스 정의를 낸다 (FR-SBX-43).
@@ -571,8 +564,7 @@ func (s *Server) apiSandboxConfigGet(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, "샌드박스 정의를 읽지 못했습니다", err)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cfg)
+	httpresp.JSON(w, http.StatusOK, cfg)
 }
 
 // apiSandboxConfigPut 은 정의를 저장한다.

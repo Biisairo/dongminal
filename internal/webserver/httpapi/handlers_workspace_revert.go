@@ -14,6 +14,7 @@ import (
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/httpreq"
+	"dongminal/internal/webserver/httpresp"
 )
 
 // 워크스페이스 되돌리기 (M5 `G4-7`).
@@ -62,8 +63,7 @@ func (s *Server) apiWorkspaceRevisions(w http.ResponseWriter, r *http.Request) {
 			Modified: st.ModTime().UTC().Format("2006-01-02T15:04:05Z"),
 		})
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(out)
+	httpresp.JSON(w, http.StatusOK, out)
 }
 
 // apiWorkspaceRevert 는 세대 하나를 현재로 올린다.
@@ -117,8 +117,7 @@ func (s *Server) apiWorkspaceRevert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dmlog.Info(r.Context(), "workspace reverted", "gen", req.Gen, "rev", rev)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"rev": rev, "gen": req.Gen})
+	httpresp.JSON(w, http.StatusOK, map[string]any{"rev": rev, "gen": req.Gen})
 }
 
 // workspacePath 는 워크스페이스 파일의 자리다. `DataDir` 이 비면 작업 디렉터리다

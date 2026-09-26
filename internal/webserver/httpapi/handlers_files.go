@@ -16,6 +16,7 @@ import (
 
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/textenc"
+	"dongminal/internal/webserver/httpresp"
 )
 
 // 파일 종단 — 업로드·다운로드·읽기·쓰기와 그 기준 경로(cwd). 경로를 사용자 입력에서
@@ -217,8 +218,7 @@ func (s *Server) apiUpload(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"name": filepath.Base(outPath), "size": written, "path": outPath})
+	httpresp.JSON(w, http.StatusOK, map[string]interface{}{"name": filepath.Base(outPath), "size": written, "path": outPath})
 }
 
 // ── 다운로드 (FILE_TRANSFER_SRS §3.1) ───────────────
@@ -342,8 +342,7 @@ func (s *Server) apiCwd(w http.ResponseWriter, r *http.Request) {
 		cwd, _ = os.Getwd()
 		source = "server"
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"cwd": cwd, "source": source})
+	httpresp.JSON(w, http.StatusOK, map[string]string{"cwd": cwd, "source": source})
 }
 
 // EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-11 — 저장의 경합을 가릴 **표식**.
@@ -411,8 +410,7 @@ func (s *Server) apiFileStamps(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, fmt.Sprintf("too many paths (max %d)", fileStampsMax), http.StatusBadRequest, apierr.CodeBadRequest)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"stamps": s.fileStampsIn(req.Paths)})
+	httpresp.JSON(w, http.StatusOK, map[string]any{"stamps": s.fileStampsIn(req.Paths)})
 }
 
 // fileStampsIn 은 파일들의 표식이다. `/api/file/stamps` 와 `/api/fs/stamps` 가 같은
@@ -570,11 +568,10 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	if s.LSP != nil {
 		go s.LSP.ResyncPath(target)
 	}
-	w.Header().Set("Content-Type", "application/json")
 	// FR-EXC-11: **새 표식을 함께 준다.** 없으면 클라이언트가 든 표식이 방금 쓴
 	// 내용보다 낡아서, 다음 저장이 제 손으로 만든 변경에 걸려 409 가 된다 —
 	// 한 번 저장하면 그 뒤로 아무것도 저장되지 않는다는 뜻이다.
-	json.NewEncoder(w).Encode(map[string]any{"ok": true, "stamp": stampOfPath(target)})
+	httpresp.JSON(w, http.StatusOK, map[string]any{"ok": true, "stamp": stampOfPath(target)})
 }
 
 // fileReadDecoded 는 §3A-1 의 판별·변환 읽기다. `encoding=` 이 있으면 그것으로 엄격

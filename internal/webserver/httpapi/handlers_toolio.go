@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/workspace"
+	"dongminal/internal/webserver/httpresp"
 )
 
 // toolIOReady reports whether the toolaccess deps were injected. Daemon/test
@@ -271,8 +272,7 @@ func envelopeSender(fromToolID string) string {
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(v)
+	httpresp.JSON(w, http.StatusOK, v)
 }
 
 func writeToolIOError(w http.ResponseWriter, status int, msg string) {

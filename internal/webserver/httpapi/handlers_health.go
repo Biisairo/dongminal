@@ -1,9 +1,10 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"net/http"
 	"time"
+
+	"dongminal/internal/webserver/httpresp"
 )
 
 // VERSION_HEALTH_SRS 묶음 H — `GET /api/health`.
@@ -82,6 +83,5 @@ func (s *Server) apiHealth(w http.ResponseWriter, r *http.Request) {
 		out.Workspace.LastPersistErr = s.Work.PersistErr()
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(out)
+	httpresp.JSON(w, http.StatusOK, out)
 }

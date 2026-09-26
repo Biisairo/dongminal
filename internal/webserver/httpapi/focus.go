@@ -2,8 +2,8 @@ package httpapi
 
 import (
 	"dongminal/internal/webserver/apierr"
+	"dongminal/internal/webserver/httpresp"
 	"dongminal/internal/webserver/sse"
-	"encoding/json"
 	"net/http"
 )
 
@@ -25,8 +25,7 @@ func (s *Server) apiFocusGet(w http.ResponseWriter, r *http.Request) {
 	if s.Focus != nil {
 		owners = s.Focus.Snapshot()
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"owners": owners})
+	httpresp.JSON(w, http.StatusOK, map[string]any{"owners": owners})
 }
 
 // apiFocusClaim records a client's ownership of a window.
@@ -51,6 +50,5 @@ func (s *Server) apiFocusClaim(w http.ResponseWriter, r *http.Request) {
 	if s.Focus.Claim(body.ClientID, body.WindowID) {
 		s.broadcastFocusOwners()
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	httpresp.JSON(w, http.StatusOK, map[string]any{"ok": true})
 }

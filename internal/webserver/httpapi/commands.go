@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"dongminal/internal/webserver/httpreq"
+	"dongminal/internal/webserver/httpresp"
 	"dongminal/internal/webserver/sse"
 	"time"
 )
@@ -259,8 +260,7 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 	if openURLWhere == whereLocal {
 		resp["delivered"] = 0
 		dmlog.Infof(nil, "[cmd] action=%s where=local (뷰어가 서버와 같은 컴퓨터 — 부른 셸이 연다)", req.Action)
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(resp)
+		httpresp.JSON(w, http.StatusOK, resp)
 		return
 	}
 
@@ -288,8 +288,7 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		dmlog.Debugf(nil, "[cmd] action=%s payload=%s", req.Action, string(payload))
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	httpresp.JSON(w, http.StatusOK, resp)
 }
 
 // handleCommandResult receives the browser's echo for a creating command and

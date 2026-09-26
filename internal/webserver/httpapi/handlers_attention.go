@@ -2,12 +2,12 @@ package httpapi
 
 import (
 	"dongminal/internal/webserver/apierr"
-	"encoding/json"
 	"net/http"
 
 	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/toolhub"
+	"dongminal/internal/webserver/httpresp"
 	"dongminal/internal/webserver/hub"
 )
 
@@ -26,8 +26,7 @@ func (s *Server) apiToolsAttention(w http.ResponseWriter, r *http.Request) {
 			ids = got
 		}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"toolIds": ids})
+	httpresp.JSON(w, http.StatusOK, map[string]any{"toolIds": ids})
 }
 
 // apiToolAttentionSet flags a tool as needing attention. Used by `dmctl notify`
@@ -66,8 +65,7 @@ func (s *Server) apiToolAttentionSet(w http.ResponseWriter, r *http.Request) {
 			tool.SignalAttention(reason)
 		}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+	httpresp.JSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 // apiToolAttentionClear clears a tool's attention (and broadcasts the clear)
@@ -110,8 +108,7 @@ func (s *Server) apiToolAttentionClear(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+	httpresp.JSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 // apiToolAttentionClearAll dismisses every tool's attention at once (FR-PAN-17).
@@ -122,8 +119,7 @@ func (s *Server) apiToolAttentionClearAll(w http.ResponseWriter, r *http.Request
 	} else if ca, ok := s.Tools.(interface{ ClearAllAttention() int }); ok {
 		cleared = ca.ClearAllAttention()
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]int{"cleared": cleared})
+	httpresp.JSON(w, http.StatusOK, map[string]int{"cleared": cleared})
 }
 
 // apiToolsActivity returns the current activity snapshot of every tool that has
@@ -138,8 +134,7 @@ func (s *Server) apiToolsActivity(w http.ResponseWriter, r *http.Request) {
 			acts = got
 		}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"activities": acts})
+	httpresp.JSON(w, http.StatusOK, map[string]any{"activities": acts})
 }
 
 // agentReportsUserTurn 은 그 에이전트가 **턴의 출처를 말할 수 있는지**다
@@ -201,8 +196,7 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.reportActivity(req.ToolID, req.State, req.Tool, req.Detail, req.UserPrompt, agentReportsUserTurn(req.Agent))
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+	httpresp.JSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 // reportActivity 는 활동 보고의 **한 자리**다 — 훅 표면(`dmctl activity`)과 프로토콜
@@ -281,8 +275,7 @@ func (s *Server) apiToolsBackground(w http.ResponseWriter, r *http.Request) {
 		}
 		rows = append(rows, row)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"background": rows})
+	httpresp.JSON(w, http.StatusOK, map[string]any{"background": rows})
 }
 
 // apiToolBackgroundSet detaches a tool from its tab or restores it.
@@ -329,6 +322,5 @@ func (s *Server) apiToolBackgroundSet(w http.ResponseWriter, r *http.Request) {
 	 * 구독자가 없다.
 	 */
 	s.broadcastLayout("tools_background_changed", nil)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	httpresp.JSON(w, http.StatusOK, map[string]any{"ok": true})
 }

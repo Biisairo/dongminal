@@ -2,7 +2,7 @@ package httpapi
 
 import (
 	"dongminal/internal/webserver/apierr"
-	"encoding/json"
+	"dongminal/internal/webserver/httpresp"
 	"net/http"
 )
 
@@ -49,6 +49,5 @@ func (s *Server) apiToolKill(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "toolId="+body.ToolID+" 존재하지 않음", http.StatusNotFound, apierr.CodeToolNotFound)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	httpresp.JSON(w, http.StatusOK, map[string]any{"ok": true})
 }

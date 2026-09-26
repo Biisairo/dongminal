@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"dongminal/internal/webserver/apierr"
+	"dongminal/internal/webserver/httpresp"
 	"encoding/json"
 	"net/http"
 )
@@ -76,8 +77,7 @@ func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	httpresp.JSON(w, http.StatusOK, resp)
 }
 
 func writeWhoAmIError(w http.ResponseWriter, status int, msg string) {

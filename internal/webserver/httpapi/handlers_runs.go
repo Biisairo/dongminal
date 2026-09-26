@@ -9,7 +9,6 @@ import (
 	"context"
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/pollwait"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -17,6 +16,7 @@ import (
 	"dongminal/internal/shared/activity"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/run"
+	"dongminal/internal/webserver/httpresp"
 )
 
 // runsReady guards every handler: a wiring without the store answers 503
@@ -118,9 +118,7 @@ func writeRunError(w http.ResponseWriter, err error, extra map[string]any) {
 	}
 	// FR-ERR-7: 본문의 `error` 와 같은 값을 헤더로도 낸다.
 	w.Header().Set(apierr.CodeHeader, name)
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(body)
+	httpresp.JSON(w, status, body)
 }
 
 // apiRunsGet implements GET /api/runs[?id=] (FR-RUN-8).

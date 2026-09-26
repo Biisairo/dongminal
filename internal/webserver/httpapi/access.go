@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/platform"
+	"dongminal/internal/webserver/httpresp"
 	"dongminal/internal/webserver/sse"
 )
 
@@ -602,8 +603,7 @@ func (s *Server) apiAccessGet(w http.ResponseWriter, r *http.Request) {
 		v.Hostname = s.hosts.hostname
 	}
 	v.Host = normalizeHost(r.Host)
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(v)
+	httpresp.JSON(w, http.StatusOK, v)
 }
 
 func (s *Server) apiAccessPut(w http.ResponseWriter, r *http.Request) {

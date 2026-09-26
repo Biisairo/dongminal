@@ -1,13 +1,13 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"net/http"
 	"runtime"
 	"sync/atomic"
 	"time"
 
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/webserver/httpresp"
 )
 
 // `GET /api/diag` — **기계가 읽는 자리** (OBSERVABILITY_SRS 묶음 D).
@@ -83,8 +83,7 @@ func (s *Server) apiDiag(w http.ResponseWriter, r *http.Request) {
 		// 사유**이고 여기서는 "있는가 없는가" 를 기계가 본다.
 		out.PersistErr = s.Work.PersistErr()
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(out)
+	httpresp.JSON(w, http.StatusOK, out)
 }
 
 // logLevelName 은 지금 로그 하한이다. 진단이 이것을 싣는 이유는 신고를 받을 때

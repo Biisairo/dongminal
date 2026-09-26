@@ -15,6 +15,7 @@ import (
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/wsentry"
+	"dongminal/internal/webserver/httpresp"
 )
 
 // /api/fs/* · /api/editors/* — 탐색기의 조회·조작과 Editor 목록
@@ -63,9 +64,7 @@ func (e fsError) Error() string { return e.msg }
 func fsStatus(code string) int { return apierr.FSStatus(code) }
 
 func fsJSON(w http.ResponseWriter, status int, body any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(body)
+	httpresp.JSON(w, status, body)
 }
 
 // fsFail 은 탐색기 방언의 오류 하나다 (`{code,message}`).

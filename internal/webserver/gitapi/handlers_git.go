@@ -17,6 +17,7 @@ import (
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/wsentry"
+	"dongminal/internal/webserver/httpresp"
 )
 
 // /api/git/* — 리포 해석·핀·상태·시그니처 (GIT_SRS §3.8 FR-GIT-60~63).
@@ -43,9 +44,7 @@ const (
 const gitMessageMax = 2048
 
 func gitJSON(w http.ResponseWriter, code int, body any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(body)
+	httpresp.JSON(w, code, body)
 }
 
 // gitErrJSON 은 git 방언의 오류 응답 **하나뿐인 문**이다
