@@ -407,7 +407,7 @@ func diffNote(orig, mod DiffSide) string {
 	for _, kind := range []string{orig.Kind, mod.Kind} {
 		switch kind {
 		case DiffKindTooLarge:
-			return fmt.Sprintf("파일이 상한(%dKiB)을 넘습니다 — 본문을 표시하지 않습니다", DiffMaxBytes/1024)
+			return fmt.Sprintf("파일이 상한(%dMiB)을 넘습니다 — 본문을 표시하지 않습니다", DiffMaxBytes>>20)
 		case DiffKindLFS:
 			return "Git LFS 포인터입니다 — 실제 내용은 받아오지 않았습니다"
 		case DiffKindBinary:
