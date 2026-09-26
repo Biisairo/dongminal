@@ -1,7 +1,6 @@
 # SRS: 요청 게이트 — `Origin` 의 포트까지 본다 — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: 전건 (FR-ROP-1~9) — 구현 세션에 인계됨. 조사와 결정은 `BROWSER_TAB_INVESTIGATION.md` §6.
+> **문서 상태**: 승인·구현완료
 
 | 항목 | 값 |
 |---|---|
@@ -234,3 +233,4 @@ URL 의 출처로, `Host` 를 같은 URL 의 authority 로 싣는다. 기본 포
 | 날짜 | 내용 |
 |---|---|
 | 2026-09-27 | 초안. `BROWSER_TAB_INVESTIGATION` §6 에서 발견·실측. 사용자 지시로 브라우저 탭의 0단계로 선행 |
+| 2026-09-27 | 구현 완료. `reqgate.go` 의 `sameAuthority` · 거절 사유 `origin-authority` · TC-ROP-1~9 · TC-RQG-30 개정 · TC-ROP-12 실측(격리 서버, `Origin: http://localhost:3000` → 403, 자기 출처 → 101). **구현 중 결정**: 잔여 위험 R-ROP-1 은 `SECURITY.md` §4-6 으로 적는다 |

@@ -325,14 +325,18 @@ func TestReqGate_HostAliasNormalization(t *testing.T) {
 	}
 }
 
-// TC-RQG-30: 같은 목록이 `Origin` 에도 적용된다 — 두 헤더가 한 판정 함수를
-// 지나는 것이 FR-RQG-3 의 설계다 (FR-ACL-31).
+// TC-RQG-30 (개정, FR-ROP-1): 같은 목록이 `Origin` 에도 적용된다 (FR-ACL-31). 단
+// `Origin` 의 authority 가 `Host` 와 같아야 한다 — 브라우저는 그 이름으로 접속했을
+// 때 두 헤더에 같은 값을 싣는다. `Origin` 만 별명이면 다른 출처다.
 func TestReqGate_HostAliasAppliesToOrigin(t *testing.T) {
 	ts := gateSrvWith(t, accessConfig{Hosts: []accessEntry{entry("macmini-office")}}, nil)
+	if got := hostOriginStatus(t, ts, "macmini-office:58146", "http://macmini-office:58146"); got == http.StatusForbidden {
+		t.Fatalf("status=%d — 등록된 별명의 Origin 이 막혔다", got)
+	}
 	h := okHeaders(ts)
 	h["Origin"] = "http://macmini-office:58146"
-	if got := gateReq(t, ts, "POST", "/api/tools/headless", h); got == http.StatusForbidden {
-		t.Fatalf("status=%d — 등록된 별명의 Origin 이 막혔다", got)
+	if got := gateReq(t, ts, "POST", "/api/tools/headless", h); got != http.StatusForbidden {
+		t.Fatalf("status=%d want 403 — Host 와 다른 authority 의 Origin 이 통과했다", got)
 	}
 }
 
@@ -378,5 +382,137 @@ func TestReqGate_AllowedHostWildcardStillWorks(t *testing.T) {
 	ts := gateSrvWith(t, accessConfig{}, []string{"*.ts.net"})
 	if got, _ := hostStatus(t, ts, "macmini-office.tail5da9ae.ts.net"); got == http.StatusMisdirectedRequest {
 		t.Fatalf("status=%d — --allowed-host 접미사 경로가 깨졌다", got)
+	}
+}
+
+// ── TC-ROP-1~9 — Origin 의 authority(호스트+포트) 판정 (REQUEST_GATE_ORIGIN_PORT_SRS) ──
+//
+// 호스트만 보면 **같은 기계의 다른 포트**(dev 서버·Jupyter·`python -m http.server`)가
+// 이 서버의 출처로 인정된다. `/ws` 는 `GET` 이라 Sec-Fetch-Site 판정도 받지 않는다.
+
+// hostOriginStatus 는 `Host`·`Origin` 한 쌍을 실은 same-origin 모양의 POST 상태다.
+func hostOriginStatus(t *testing.T, ts *httptest.Server, host, origin string) int {
+	t.Helper()
+	req, err := http.NewRequest("POST", ts.URL+"/api/tools/headless", strings.NewReader(`{}`))
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+	req.Host = host
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
+	if origin != "" {
+		req.Header.Set("Origin", origin)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode
+}
+
+// TC-ROP-1: 같은 기계의 다른 포트에서 온 상태 변경 요청은 403 이다.
+func TestReqGate_OtherPortOriginRejected(t *testing.T) {
+	ts := gateSrv(t)
+	if got := hostOriginStatus(t, ts, "localhost:58146", "http://localhost:3000"); got != http.StatusForbidden {
+		t.Fatalf("status=%d want 403 — 다른 포트의 페이지가 이 서버의 출처로 인정됐다", got)
+	}
+}
+
+// TC-ROP-3: 정상 배치(§2.3 표)는 전부 통과한다 — 브라우저는 자기 출처에서 두 헤더에
+// 같은 authority 를 싣는다.
+func TestReqGate_DeploymentOriginsPass(t *testing.T) {
+	ts := gateSrvWith(t, accessConfig{Hosts: []accessEntry{entry("macmini-office")}},
+		[]string{"*.ts.net", "192.168.1.5"})
+	for _, c := range []struct{ host, origin string }{
+		{"localhost:58146", "http://localhost:58146"},
+		{"192.168.1.5:58146", "http://192.168.1.5:58146"},
+		{"macmini-office:58146", "http://macmini-office:58146"},
+		{"localhost:8080", "http://localhost:8080"},
+		{"x.tail.ts.net", "https://x.tail.ts.net"},
+	} {
+		if got := hostOriginStatus(t, ts, c.host, c.origin); got == http.StatusForbidden ||
+			got == http.StatusMisdirectedRequest {
+			t.Errorf("Host %q · Origin %q → %d — 정상 배치가 막혔다", c.host, c.origin, got)
+		}
+	}
+}
+
+// TC-ROP-4: 허용 집합 안의 두 이름이라도 서로 다르면 다른 출처다.
+func TestReqGate_OriginHostMismatchRejected(t *testing.T) {
+	ts := gateSrv(t)
+	if got := hostOriginStatus(t, ts, "localhost:58146", "http://127.0.0.1:58146"); got != http.StatusForbidden {
+		t.Fatalf("status=%d want 403", got)
+	}
+}
+
+// TC-ROP-5: 해석할 수 없는 Origin 은 우연이 아니라 규칙으로 거절된다 (FR-ROP-3).
+func TestReqGate_OpaqueOriginRejected(t *testing.T) {
+	ts := gateSrv(t)
+	for _, o := range []string{"null", "file://", "chrome-extension://abc", "http://%zz"} {
+		if got := hostOriginStatus(t, ts, "localhost:58146", o); got != http.StatusForbidden {
+			t.Errorf("Origin %q → %d want 403", o, got)
+		}
+	}
+}
+
+// TC-ROP-6: `Host` 없이 `Origin` 만 있는 요청은 정상 경로에 없다 (FR-ROP-4).
+func TestReqGate_OriginWithoutHostRejected(t *testing.T) {
+	h := requestGate(newHostAllow(nil, nil), http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	req := httptest.NewRequest("POST", "/api/tools/headless", strings.NewReader(`{}`))
+	req.Host = ""
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", "http://localhost:58146")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("status=%d want 403", rec.Code)
+	}
+}
+
+// TC-ROP-7: 대소문자·후행 점·IPv6 대괄호는 결과를 바꾸지 않는다.
+func TestReqGate_OriginAuthorityNormalized(t *testing.T) {
+	ts := gateSrv(t)
+	for _, c := range []struct{ host, origin string }{
+		{"[::1]:58146", "http://[::1]:58146"},
+		{"LOCALHOST:58146", "http://localhost:58146"},
+		{"localhost.:58146", "http://localhost:58146"},
+	} {
+		if got := hostOriginStatus(t, ts, c.host, c.origin); got == http.StatusForbidden {
+			t.Errorf("Host %q · Origin %q → 403", c.host, c.origin)
+		}
+	}
+}
+
+// TC-ROP-8: 기본 포트를 추론하지 않는다 — 없음은 없음과만 같다 (FR-ROP-2).
+func TestReqGate_OriginDefaultPortNotInferred(t *testing.T) {
+	ts := gateSrv(t)
+	if got := hostOriginStatus(t, ts, "localhost:58146", "http://localhost"); got != http.StatusForbidden {
+		t.Fatalf("status=%d want 403", got)
+	}
+}
+
+// TC-ROP-9: 거절 사유가 호스트 불일치와 갈리고, 본문은 목록을 흘리지 않는다.
+func TestReqGate_OriginAuthorityDenyReason(t *testing.T) {
+	ts := gateSrv(t)
+	buf := captureLog(t)
+	req, _ := http.NewRequest("POST", ts.URL+"/api/tools/headless", strings.NewReader(`{}`))
+	req.Host = "localhost:58146"
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Origin", "http://localhost:3000")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	defer resp.Body.Close()
+	b := make([]byte, 512)
+	n, _ := resp.Body.Read(b)
+	if !strings.Contains(buf.String(), "why=origin-authority") {
+		t.Fatalf("거절 사유가 origin-authority 가 아니다: %q", buf.String())
+	}
+	if body := string(b[:n]); strings.Contains(body, "127.0.0.1") || strings.Contains(body, "localhost") {
+		t.Fatalf("응답 본문이 허용 목록을 흘렸다: %q", body)
 	}
 }
