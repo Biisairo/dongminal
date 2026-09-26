@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -104,5 +105,33 @@ func TestSSE_WithoutPresenceStillBroadcast(t *testing.T) {
 	defer resp.Body.Close()
 	if n := cmd.Broadcast([]byte(`{"action":"x"}`)); n != 1 {
 		t.Fatalf("delivered=%d want 1", n)
+	}
+}
+
+// 04-secops P1-4: presence 구독도 상한 안에 있다 — 방송 구독을 만들지 않는다고
+// 연결을 여는 것만으로 goroutine 을 무한히 세울 수 있으면 안 된다.
+func TestSSE_PresenceSubCap(t *testing.T) {
+	_, _, ts := sseServer(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	open := func(i int) string {
+		t.Helper()
+		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL+"/api/commands/sse?presence=1&clientId=p"+strconv.Itoa(i), nil)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { resp.Body.Close() })
+		buf := make([]byte, 256)
+		n, _ := resp.Body.Read(buf)
+		return string(buf[:n])
+	}
+	for i := 0; i < hub.SubCap; i++ {
+		if got := open(i); strings.Contains(got, "subscribeRejected") {
+			t.Fatalf("상한 안(%d/%d)인데 거절됐다", i, hub.SubCap)
+		}
+	}
+	if got := open(hub.SubCap); !strings.Contains(got, "subscribeRejected") {
+		t.Fatalf("상한을 넘긴 presence 구독이 열렸다: %q", got)
 	}
 }

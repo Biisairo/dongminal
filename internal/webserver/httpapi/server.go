@@ -116,6 +116,10 @@ type Server struct {
 	// 포함된다 — 그것이 자원을 쓰고 있다는 사실이 진단에 실려야 한다.
 	wsOpen atomic.Int64
 
+	// presenceSubs 는 지금 열린 칸 SSE(`presence=1`) 수다 (FR-OPT-4-12). 방송
+	// 구독이 아니어서 허브의 상한(04-secops P1-4)에 잡히지 않으므로 여기서 센다.
+	presenceSubs atomic.Int64
+
 	// assetVer 는 지금 서빙하는 자산의 판이다
 	// (ASSET_VERSION_SINGLE_SOURCE_SRS FR-AVS-1·3). 서빙하는 `index.html` 의
 	// 자리표시자를 채우고, SSE 를 여는 화면에게 인사로 건넨다 — 두 곳이 같은 값을

@@ -68,17 +68,28 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 	// 인사(keepalive)는 그대로 보낸다. 옛 서버는 이 파라미터를 모르고 전부 보내며,
 	// 칸 구독은 그것을 처리하지 않으므로 교차 판에서도 같다.
 	presence := r.URL.Query().Get("presence") == "1"
+	// 상한 초과 (04-secops P1-4). 헤더를 이미 썼으므로 상태 코드를 바꿀 수
+	// 없다 — 대신 인사 대신 사유를 한 줄 보내고 닫는다. 화면은 SSE 재연결
+	// 규약(`CONNECTIVITY_RESILIENCE_SRS`)으로 다시 붙는다.
+	reject := func() {
+		fmt.Fprint(w, "data: {\"action\":\"subscribeRejected\"}\n\n")
+		flusher.Flush()
+	}
 	var msgs <-chan []byte
 	var closed, dready <-chan struct{}
 	var sub *hub.CmdSub
-	if !presence {
+	if presence {
+		// presence 구독도 goroutine 하나다 — 방송 구독과 같은 상한을 따로 센다.
+		if s.presenceSubs.Add(1) > hub.SubCap {
+			s.presenceSubs.Add(-1)
+			reject()
+			return
+		}
+		defer s.presenceSubs.Add(-1)
+	} else {
 		sub = s.Commands.Add()
 		if sub == nil {
-			// 상한 초과 (04-secops P1-4). 헤더를 이미 썼으므로 상태 코드를 바꿀 수
-			// 없다 — 대신 인사 대신 사유를 한 줄 보내고 닫는다. 화면은 SSE 재연결
-			// 규약(`CONNECTIVITY_RESILIENCE_SRS`)으로 다시 붙는다.
-			fmt.Fprint(w, "data: {\"action\":\"subscribeRejected\"}\n\n")
-			flusher.Flush()
+			reject()
 			return
 		}
 		defer s.Commands.Remove(sub)
