@@ -3,6 +3,7 @@ package ipc
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/toolipc"
@@ -34,6 +35,9 @@ func TestBusyManyWire(t *testing.T) {
 }
 
 // 살아 있는 도구의 답은 busy 한 건씩 물은 것과 같다.
+//
+// 막 뜬 셸은 시작 스크립트가 자식을 띄우는 동안 busy 가 오간다. 두 번 물은 사이에
+// 답이 바뀌면 비교가 깜빡이므로 셸이 가라앉은 뒤에 묻는다.
 func TestBusyManyMatchesBusy(t *testing.T) {
 	pm := toolhub.NewToolManager(toolTempDir(t), nil)
 	t.Cleanup(pm.StopSaving)
@@ -42,6 +46,17 @@ func TestBusyManyMatchesBusy(t *testing.T) {
 		t.Skipf("PTY 생성 불가(환경): %v", err)
 	}
 	defer pm.Delete(tl.ID)
+	idle := 0
+	for deadline := time.Now().Add(10 * time.Second); idle < 5 && time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+		if pm.Busy(tl.ID) {
+			idle = 0
+		} else {
+			idle++
+		}
+	}
+	if idle < 5 {
+		t.Fatal("셸이 가라앉지 않았다")
+	}
 	pc := newTestConn(pm)
 	params, _ := json.Marshal(toolipc.BusyManyParams{IDs: []string{tl.ID, "gone"}})
 	res, ok := pc.busyMany(&toolipc.PanedRequest{ID: 1, Params: params}).(toolipc.PanedResponse)
