@@ -1,7 +1,6 @@
 # SRS: 통신 최소화·성능·리팩토링 — 프로덕션 승격 2차 감사 (IEEE 29148)
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: O16 (2026-09-26 재개 — §3.16)
+> **문서 상태**: 승인·구현완료
 
 - 접수: 2026-09-25 · 기준 커밋 `67261463` (v1.1.7)
 - 요청: 데몬-서버-클라이언트 통신 요소 최소화, 그 밖의 성능 개선, 하드코딩·중복·상수·복잡도·크기·추상화·가독성
@@ -563,9 +562,9 @@ diff 는 요청이 끊기면 git 실행이 함께 죽는다. 셋이 겹친 최�
 | O12 | 완료 | WS 배선 2벌 · 재시도 200 ms 고정 · 손 버튼 38 · panel-diff 1056 · term-pane 1174 · `/api/` 리터럴 68 | 1 · 160~240 ms 지터 · 2(등록 예외) · 508 · 727 · 0 | 3 + `196ac8d5` |
 | O13 | 완료 | transition 리터럴 27곳 8종 · 안내 띠 규칙 5벌 | 토큰 3 · 1벌 · Runs·사이드바 CSS 분리 | 2 + `bd8843ed` |
 | 후속 | 완료 | 로컬 브랜치 삭제가 사라진 upstream 에서 실패 | HEAD 기준 판정 (git 과 같음) | `ea8f8f59` |
-| O15 | 완료 | 에디터 저장 본문 1 MiB(1~10 MiB 파일 저장 불가) · 읽기 10 · LSP 8/10 · diff 1 | 전부 `editorlimit.FileMaxBytes` 32 MiB 에서 파생 · 저장 본문 64 MiB+64 KiB · 요청 1건 최악 메모리 §3.15 | `90b01c13`·`d20799e3` |
+| O15 | 완료 | 에디터 저장 본문 1 MiB(1~10 MiB 파일 저장 불가) · 읽기 10 · LSP 8/10 · diff 1 | 전부 `editorlimit.FileMaxBytes` 32 MiB 에서 파생 · 저장 본문 64 MiB+64 KiB (O16 에서 192 MiB+64 KiB 로 — 최악 이스케이프 6배) · 요청 1건 최악 메모리 §3.15 | `90b01c13`·`d20799e3` |
 | Ofix4 | 완료 | 옛 helpers.js 참조 18 · panel-diff 508줄 · 킷 모달 Esc 가 preventDefault 누락 · steady-traffic flaky | 0 · 450 · 수정 · 결정론화(앞 스펙 Run 수거) | `74d91353`~`5d72590d` |
-| O16 | 대기 | | | |
+| O16 | 완료 | 지역 t 가림 259 · 인라인 display 12 · 주의 센터 무변경 재그리기 DOM 변이 12 · 폭 손잡이 2벌 · activity 대기 1.5 s 재평가 16 · App 필드 135 · 겹친 모달 Esc 둘 다 닫힘 · 부분 스테이징 1 MiB · 제어 문자 파일 저장 413 | 0 (린트) · 0 · 0 · 1 · 3 · 117 (LspClient·GitReposList·SettingsSync) · 안쪽만 · 4n+64 KiB · 저장됨 · e2e 포트 뿌리 설정 가능 | `a57932c7`~`78491739` |
 | 최종 | 완료 | — | `make all`(golangci-lint 0 issues) · Go 53 패키지 · unit 496/496 · **e2e 8샤드 1916 통과 / 실패 0 / flaky 0** · 새 서버 + v1.1.7 데몬 교차 실측 통과 · CHANGELOG Unreleased | `7ecade7b`·`0fb40525` |
 
 **O1 구현 중 결정**: HTTP-17 은 본문 문구를 바꾸지 않고 `X-Error-Code` 만 갈랐다 (ERROR_CONTRACT FR-ERR-5 · FR-OPT-0-3).
