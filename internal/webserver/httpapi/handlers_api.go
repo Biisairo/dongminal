@@ -247,12 +247,12 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 	} else if httproute.Dispatch(apiRoutes, s, w, r) {
 		return
 	}
-	httpErr(w, "not found", 404, apierr.CodeNotFound)
+	httpErr(w, "not found", http.StatusNotFound, apierr.CodeNotFound)
 }
 
 func (s *Server) apiStateGet(w http.ResponseWriter, r *http.Request) {
 	if s.Tools == nil {
-		httpErr(w, "tools unavailable", 500, apierr.CodeToolsUnready)
+		httpErr(w, "tools unavailable", http.StatusInternalServerError, apierr.CodeToolsUnready)
 		return
 	}
 	var rawWS []byte
@@ -294,13 +294,16 @@ type stateResponse struct {
 
 func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 	if s.Tools == nil {
-		httpErr(w, "tools unavailable", 500, apierr.CodeToolsUnready)
+		httpErr(w, "tools unavailable", http.StatusInternalServerError, apierr.CodeToolsUnready)
 		return
 	}
 	cols, rows := toolhub.ParseSize(r)
-	cwd := r.URL.Query().Get("cwd")
+	q := r.URL.Query()
+	// explicitCwd 는 사용자가 고른 자리, cwd 는 `cwdTool` 폴백까지 거친 자리다.
+	explicitCwd := q.Get("cwd")
+	cwd := explicitCwd
 	if cwd == "" {
-		if refID := r.URL.Query().Get("cwdTool"); refID != "" {
+		if refID := q.Get("cwdTool"); refID != "" {
 			cwd = s.Tools.Cwd(refID)
 		}
 	}
@@ -315,20 +318,20 @@ func (s *Server) apiToolsCreate(w http.ResponseWriter, r *http.Request) {
 	// 샌드박스는 종전대로 배치기가 판정한다 (FR-SBX-41). `cwdTool` 로 물려받은 값은
 	// 사용자가 고른 것이 아니라 여기 들지 않는다 — 참조 도구의 자리가 사라졌으면
 	// 홈이 맞다. toolhub 의 폴백은 되살림(`Restore`)의 길이라 남는다.
-	profile := r.URL.Query().Get("sandbox")
-	if explicit := r.URL.Query().Get("cwd"); explicit != "" && profile == "" {
-		if info, err := os.Stat(explicit); err != nil || !info.IsDir() {
-			httpErr(w, "cwd is not a directory: "+explicit, http.StatusBadRequest, apierr.CodeToolCwdMissing)
+	profile := q.Get("sandbox")
+	if explicitCwd != "" && profile == "" {
+		if info, err := os.Stat(explicitCwd); err != nil || !info.IsDir() {
+			httpErr(w, "cwd is not a directory: "+explicitCwd, http.StatusBadRequest, apierr.CodeToolCwdMissing)
 			return
 		}
 	}
 	// FR-SBX-11: 어느 Window 의 어떤 프로파일인지는 호출자가 실어 보낸다.
 	// 프로파일이 비어 있으면 종전대로 호스트에서 뜬다.
 	tool, err := s.tools(r).Create(cwd, cols, rows, toolhub.Placement{
-		WindowUUID: r.URL.Query().Get("window"),
+		WindowUUID: q.Get("window"),
 		Profile:    profile,
 		// UX_BATCH6_SRS FR-SBM-3: 창이 고른 작업 방식. 비면 프로파일의 것이다.
-		Work: r.URL.Query().Get("sandboxWork"),
+		Work: q.Get("sandboxWork"),
 		// AGENT_RENDER_ENV_SRS FR-ARE-1: 에이전트가 화면을 망가뜨리지 않게 띄운다.
 		ExtraEnv: s.Settings.RenderEnv(),
 	})
@@ -401,7 +404,7 @@ func (s *Server) apiToolDelete(w http.ResponseWriter, r *http.Request) {
 	if s.AttnTracker != nil {
 		s.AttnTracker.Forget(id)
 	}
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) apiWorkspaceGet(w http.ResponseWriter, r *http.Request) {
@@ -421,7 +424,7 @@ func (s *Server) apiWorkspaceGet(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) apiWorkspacePut(w http.ResponseWriter, r *http.Request) {
 	if s.Work == nil {
-		httpErr(w, "workspace unavailable", 500, apierr.CodeWorkUnready)
+		httpErr(w, "workspace unavailable", http.StatusInternalServerError, apierr.CodeWorkUnready)
 		return
 	}
 	// 워크스페이스는 창·탭·핀이 쌓이면 커진다 — 기본 상한보다 넉넉히 준다.
@@ -468,7 +471,7 @@ func (s *Server) apiWorkspacePut(w http.ResponseWriter, r *http.Request) {
 	s.reapSandboxes()
 
 	w.Header().Set("ETag", strconv.FormatUint(rev, 10))
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 	// FR-OPT-5-1: 같은 바이트면 Save 가 rev 를 그대로 돌려준다 — 바뀐 것이 없으니
 	// 다른 브라우저에 재조회를 시키지 않는다.
 	if s.Commands != nil && strconv.FormatUint(rev, 10) != ifMatch {
@@ -560,7 +563,7 @@ func (s *Server) apiSandboxRuntimeStart(w http.ResponseWriter, r *http.Request) 
 // apiSandboxConfigGet 은 지금 저장된 샌드박스 정의를 낸다 (FR-SBX-43).
 func (s *Server) apiSandboxConfigGet(w http.ResponseWriter, r *http.Request) {
 	if s.Sandbox == nil {
-		httpErr(w, "샌드박스를 쓸 수 없습니다 — 컨테이너 런타임(docker)을 확인하세요", 503, apierr.CodeSandboxUnready)
+		httpErr(w, "샌드박스를 쓸 수 없습니다 — 컨테이너 런타임(docker)을 확인하세요", http.StatusServiceUnavailable, apierr.CodeSandboxUnready)
 		return
 	}
 	cfg, err := s.Sandbox.Config()
@@ -578,7 +581,7 @@ func (s *Server) apiSandboxConfigGet(w http.ResponseWriter, r *http.Request) {
 // 규칙이 갈리지 않는다. 400 으로 돌려주는 사유가 그대로 사용자에게 보인다.
 func (s *Server) apiSandboxConfigPut(w http.ResponseWriter, r *http.Request) {
 	if s.Sandbox == nil {
-		httpErr(w, "샌드박스를 쓸 수 없습니다 — 컨테이너 런타임(docker)을 확인하세요", 503, apierr.CodeSandboxUnready)
+		httpErr(w, "샌드박스를 쓸 수 없습니다 — 컨테이너 런타임(docker)을 확인하세요", http.StatusServiceUnavailable, apierr.CodeSandboxUnready)
 		return
 	}
 	body, err := httpreq.Read(w, r, 0)
@@ -596,5 +599,5 @@ func (s *Server) apiSandboxConfigPut(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
-	w.WriteHeader(204)
+	w.WriteHeader(http.StatusNoContent)
 }

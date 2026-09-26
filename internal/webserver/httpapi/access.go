@@ -637,7 +637,7 @@ func (s *Server) apiAccessPut(w http.ResponseWriter, r *http.Request) {
 	if s.Commands != nil {
 		s.Commands.Broadcast(accessChangedPayload())
 	}
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 }
 
 func accessChangedPayload() []byte {

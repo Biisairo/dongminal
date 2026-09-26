@@ -23,6 +23,7 @@ import (
 	"dongminal/internal/webserver/domain/submodule"
 	"dongminal/internal/webserver/domain/wsentry"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/webserver/domain/git/core"
 )
 
@@ -188,12 +189,8 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	if cmds == nil {
 		cmds = hub.NewCommandHub()
 	}
-	settingsPath := ""
-	if cfg.DataDir != "" {
-		settingsPath = filepath.Join(cfg.DataDir, "settings.json")
-	} else {
-		settingsPath = "settings.json"
-	}
+	// DataDir 이 비면 Join 이 이름만 남긴다 — 작업 디렉터리의 그 파일이다.
+	settingsPath := filepath.Join(cfg.DataDir, dmenv.SettingsFile)
 	settings := deps.Settings
 	if settings == nil {
 		settings = newSettingsStore(settingsPath)
@@ -208,10 +205,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	if deps.GitExclusion == nil {
 		deps.GitExclusion = jobs.NewExclusion()
 	}
-	accessPath := "access.json"
-	if cfg.DataDir != "" {
-		accessPath = filepath.Join(cfg.DataDir, "access.json")
-	}
+	accessPath := filepath.Join(cfg.DataDir, dmenv.AccessFile)
 	access := newAccessStore(accessPath)
 	// 부팅 시 1회 — 자기 인터페이스 주소를 모른 채로 서면 자기 이름으로 붙는
 	// 첫 요청이 막힌다 (FR-ACL-5a).
@@ -244,7 +238,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	// NotesDir 도 비고, 그것이 곧 FR-NOT-11 의 "메모장 표면이 없다" 이다.
 	notesDir := ""
 	if cfg.DataDir != "" {
-		notesDir = filepath.Join(cfg.DataDir, "notes")
+		notesDir = filepath.Join(cfg.DataDir, dmenv.NotesDir)
 	}
 	// FR-EXT-9b: 플러그인 선언의 자리. 칸 이름은 `ext` 가 정한다 — 여기서 따로
 	// 적으면 탐색기가 보는 곳과 조달이 쓰는 곳이 갈린다.
@@ -342,6 +336,13 @@ func (s *Server) Handler() http.Handler {
 // **진행 중인 짧은 요청을 지키는 데까지만** 준다.
 const ShutdownGrace = 2 * time.Second
 
+// readHeaderTimeout·idleTimeout 은 `http.Server` 의 두 시한이다 (REQUEST_GATE_SRS
+// FR-RQG-18 — 근거는 Run 의 주석).
+const (
+	readHeaderTimeout = 10 * time.Second
+	idleTimeout       = 120 * time.Second
+)
+
 func (s *Server) Run(ctx context.Context, addr string) error {
 	srv := &http.Server{
 		Addr:    addr,
@@ -355,8 +356,8 @@ func (s *Server) Run(ctx context.Context, addr string) error {
 		// (`handleCommandSSE`)·WebSocket·대기 종단(`handlers_status.go`, 최대
 		// 30분)이 그 시각에 끊긴다. 그 셋은 오래 사는 것이 설계다. 핸들러별
 		// 마감이 필요하면 `http.ResponseController` 가 그 자리다.
-		ReadHeaderTimeout: 10 * time.Second,
-		IdleTimeout:       120 * time.Second,
+		ReadHeaderTimeout: readHeaderTimeout,
+		IdleTimeout:       idleTimeout,
 	}
 
 	// FR-CNR-8·12: 끊긴 순간이 기록에 남게 한다. 서버 수명과 함께 시작하고

@@ -173,5 +173,5 @@ func (s *Server) apiSettingsPut(w http.ResponseWriter, r *http.Request) {
 	if s.Commands != nil {
 		s.Commands.Broadcast(settingsChangedPayload(r.URL.Query().Get("clientId")))
 	}
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 }

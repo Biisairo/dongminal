@@ -72,7 +72,7 @@ func loggingMiddlewareFor(srv *Server, next http.Handler) http.Handler {
 		if srv != nil {
 			srv.lastReq.Store(start.UnixNano())
 		}
-		rw := &responseWriter{ResponseWriter: w, status: 200}
+		rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(rw, r)
 		if shouldLogRequest(r.URL.Path, rw.status) {
 			// FR-OBS-9: 접근 로그가 요청 ID 를 싣는다 — 이 줄과 핸들러가 남긴
