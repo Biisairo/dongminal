@@ -143,6 +143,10 @@ DNS 리바인딩 방어의 본체이며, 그 공격은 `GET` 으로 응답을 �
 **FR-RQG-3 (Origin)** `Origin` 이 있으면 그 호스트를 같은 목록과 대조한다. 불일치는 403.
 **`Origin` 부재는 거부가 아니다** (§2.6).
 
+> **개정 (2026-09-27, `REQUEST_GATE_ORIGIN_PORT_SRS`)**: 호스트 대조만으로는 **같은 기계의
+> 다른 포트**에서 서빙되는 페이지가 통과했다(`/ws` 로 셸 생성, 실측). 호스트 대조에 더해
+> `Origin` 의 authority(호스트+포트)가 `Host` 와 같아야 한다 — FR-ROP-1~4.
+
 **FR-RQG-4 (Sec-Fetch-Site)** 상태 변경 메서드에서 `Sec-Fetch-Site` 가 있고 그 값이
 `same-origin`·`same-site`·`none` 중 하나가 아니면 403. 헤더가 없으면 판정하지 않는다
 (비브라우저 클라이언트와 구형 브라우저).
@@ -168,6 +172,10 @@ DNS 리바인딩 방어의 본체이며, 그 공격은 `GET` 으로 응답을 �
 
 **FR-RQG-7 (정규화)** 판정은 **스킴을 하드코딩하지 않는다** — 평문과 TLS 둘 다 유효한
 배치가 있다. 포트 유무를 정규화한다: `net.SplitHostPort` 실패는 "포트 없음" 으로 읽는다.
+
+> **개정 (2026-09-27)**: "포트 유무가 판정을 바꾸지 않는다" 는 **허용 집합 대조**의 규칙이다.
+> `Origin` ↔ `Host` 의 authority 일치는 포트를 문자열로 비교한다 (`REQUEST_GATE_ORIGIN_PORT_SRS`
+> FR-ROP-2).
 
 **FR-RQG-8 (예외 경로)** 다음은 게이트를 지나지 않는다. 목록은 이 문서가 진실이다.
 
@@ -345,7 +353,7 @@ M4 가 미들웨어 자리를 다시 여는 것보다 싸다.
 | TC-RQG-27 | `hosts` 에 `macmini-office` 가 있으면 `Host: macmini-office:58146` 이 통과한다 (**U-18 재현**) |
 | TC-RQG-28 | 없으면 421 이고 본문에 목록이 없다 |
 | TC-RQG-29 | 별명 판정에서 포트 유무·대소문자·후행 점이 결과를 바꾸지 않는다 |
-| TC-RQG-30 | 같은 이름의 `Origin` 도 통과한다 (FR-ACL-31) |
+| TC-RQG-30 | 같은 이름의 `Origin` 도 통과한다 (FR-ACL-31). **개정 (2026-09-27)**: `Host` 도 같은 이름이어야 한다 — 실제 브라우저는 둘을 같게 싣는다 (`REQUEST_GATE_ORIGIN_PORT_SRS` TC-RQG-30) |
 | TC-RQG-31 | 별명 항목 `enabled=false` 는 통과시키지 않는다 (FR-ACL-26) |
 | TC-RQG-32 | **적용 토글이 꺼져 있어도 `hosts` 가 적용된다** (FR-ACL-26) |
 | TC-RQG-33 | **동작 변경 회귀**: 축① `entries` 에만 있는 이름은 이제 421 이다 (FR-ACL-32) |
@@ -432,3 +440,4 @@ M4 가 미들웨어 자리를 다시 여는 것보다 싸다.
 | 2026-09-10 | **U-18** — FR-RQG-6 항목 4 개정(`hasHostname` 제거 → `access.json` 의 `hosts`), FR-RQG-9 에 Host 거절 본문 문구, §4.1 TC-RQG-27~33 추가. 목록의 소유·검증·UI 는 `ACCESS_ALLOWLIST_SRS` 묶음 H |
 | 2026-09-12 | **M5 `TLS-2`** — `FR-RQG-24` 신설: 노출 판정을 `dmenv.IsExposedHost` 한 벌로 모은다. 종전에는 게이트(`host != DefaultHost`)와 표시(`0.0.0.0`/`::` 만)가 갈라져, `::1` 바인드는 ACL 을 강제받고 `DONGMINAL_HOST=192.168.1.5` 는 `local-only` 로 거짓 표시됐다. `TC-RQG-34~36` 추가. §5 비목표 2(TLS)를 **영구 비목표**로 개정(결정 9) |
 | 2026-09-14 | **M9 P1** — `FR-RQG-20` **철회**(노출 게이트 삭제, 사용자 결정 · `M9_SRS` FR-M9-1/D-M9-1). `--insecure-no-acl` 도 함께 사라졌다. `TC-RQG-22`·`23` ⊘, `TC-RQG-35` 문구 정정. `FR-RQG-21`·`24` 는 그대로. 남은 위험(무인증 노출)은 §3.5 에 기록 |
+| 2026-09-27 | **`REQUEST_GATE_ORIGIN_PORT_SRS`** — FR-RQG-3·7·TC-RQG-30 개정. `Origin` 의 포트를 버려 같은 기계 다른 포트의 페이지가 `/ws` 로 셸을 얻던 결함. authority 일치 판정(FR-ROP-1~7)을 더한다 |
