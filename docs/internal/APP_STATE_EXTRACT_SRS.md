@@ -200,10 +200,12 @@ _lspDefLangs` — e2e 계약이 읽는다)가 남는다. 갈아 끼우기 호환
 _gitReposKicking _gitReposKickAgain _gitReposSeq _gitReposSig _gitPinsLeased`)와 메서드 5개
 (`_startGitReposPoll gitReposKick gitReposRefresh _gitReposSigOf _gitReposOnChanged`)를
 `web/js/core/git-repos-list.js` 의 `class GitReposList` 로 옮긴다. `gitRepos`·`_gitOff` 는
-공유 상태라 `App` 에 남는다(렌더러·e2e·다른 파일이 읽는다). 5개 모두 바깥이 부르므로
-위임 껍데기로 남는다. **A-6**: e2e(`git-sidebar`)와 단위 검사(`app-git-lists`)가
+공유 상태라 `App` 에 남는다(렌더러·e2e·다른 파일이 읽는다). `App` 에는 지연 생성
+`_gitReposList()`(필드 `_reposList`)와 바깥이 부르는 넷의 껍데기(`_startGitReposPoll
+gitReposKick _gitReposOnChanged gitReposRefresh`)가 남고, 내부 계산 `_gitReposSigOf` 는
+남지 않는다. **A-6**: e2e(`git-sidebar`)와 단위 검사(`app-git-lists`)가 앱의
 `gitReposRefresh` 를 갈아 끼우고 `gitReposKick` 이 그것을 부르므로, 가족 안의
-`gitReposRefresh`·`gitReposKick` 호출은 `this.app.` 을 지난다.
+`gitReposRefresh` 호출은 `this.app.` 을 지난다.
 
 **FR-ASE-9** (설정 저장) `app-settings.js`·`app-settings-init.js` 의 설정 저장 파이프라인
 — 상태 5개(`_settingsChain _settingsDirty _settingsEchoMissed _settingsLastSent

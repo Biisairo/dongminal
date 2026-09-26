@@ -90,7 +90,7 @@ test('아무것도 밀어내지 않은 틱의 실패는 다시 조회하지 않�
 // 요청이 둘 뜨면 서버 도착 순서가 뒤바뀔 수 있다.
 test('안전망 주기 폴은 gitReposKick 을 지나 비행 중인 갱신과 겹치지 않는다', async () => {
   let tickFn = null;
-  const ctx = load(['core/constants-api.js', 'core/app-git.js'], {
+  const ctx = load(['core/constants-api.js', 'core/git-repos-list.js', 'core/app-git.js'], {
     globals: {
       App: class {},
       visiblePoll: (_iv, fn) => { tickFn = fn; return { stop() {} }; },

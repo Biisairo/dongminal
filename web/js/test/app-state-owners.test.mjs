@@ -67,3 +67,34 @@ test('FR-ASE-7: 껍데기는 같은 LspClient 에 위임한다', () => {
   assert.equal(app._lspClient(), app._lsp);
   assert.equal(app._lsp.app, app);
 });
+
+// ── FR-ASE-8 · Repo 목록 ──
+
+const REPOS_METHODS = ['_startGitReposPoll', 'gitReposKick', '_gitReposOnChanged', 'gitReposRefresh', '_gitReposSigOf'];
+const REPOS_SHELLS = ['_startGitReposPoll', 'gitReposKick', '_gitReposOnChanged', 'gitReposRefresh', '_gitReposList'];
+
+function loadRepos(globals = {}) {
+  return load(['core/constants-api.js', 'core/git-repos-list.js', 'core/app-git.js'], {
+    expose: ['GitReposList'],
+    globals: { App: class {}, visiblePoll: () => ({ stop() {} }), gitStatusInterval: 30000, ...globals },
+  });
+}
+
+test('FR-ASE-8: GitReposList 가 목록 갱신 메서드 다섯을 갖고 App 에는 껍데기 넷과 지연 생성이 남는다', () => {
+  const ctx = loadRepos();
+  assert.deepEqual(ownNames(ctx.GitReposList.prototype), [...REPOS_METHODS].sort());
+  const left = ownNames(ctx.App.prototype).filter((n) => /Repos/.test(n));
+  assert.deepEqual(left, [...REPOS_SHELLS].sort());
+  assert.equal(ctx.App.prototype._gitReposSigOf, undefined, '내부 계산이 App 에 남았다');
+});
+
+test('FR-ASE-8 · A-6: app 에 갈아 끼운 gitReposRefresh 를 가족 안의 gitReposKick 이 부른다', async () => {
+  const ctx = loadRepos();
+  const a = new ctx.App();
+  let n = 0;
+  a.gitReposRefresh = async () => { n++ };
+  a.gitReposKick();
+  await new Promise((r) => setImmediate(r));
+  assert.equal(n, 1);
+  assert.equal(a._reposList.app, a);
+});
