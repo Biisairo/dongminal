@@ -14,7 +14,7 @@ func TestClaudeDecode_InitializeCarriesCommandHints(t *testing.T) {
 	p := claudeProto
 	p.Handshake(LaunchOpts{}, st)
 	var reqID string
-	for id := range claudeExtOf(st).pending {
+	for id := range claudeExtOf(st).pending.m {
 		reqID = id
 	}
 	if reqID == "" {

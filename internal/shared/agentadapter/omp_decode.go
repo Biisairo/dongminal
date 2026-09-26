@@ -112,11 +112,10 @@ func ompDecode(line []byte, st *ProtoState) ([]Event, bool) {
 // ompDecodeResponse 는 우리 명령의 답이다. 대기표에 없는 id(unknown command 의 id 없는
 // 응답 포함)는 모르는 프레임이다.
 func ompDecodeResponse(fr ompFrame, x *ompExt, st *ProtoState) ([]Event, bool) {
-	cmd, ok := x.pending[fr.ID]
+	cmd, ok := x.pending.take(fr.ID)
 	if !ok {
 		return nil, false
 	}
-	delete(x.pending, fr.ID)
 	sid := st.SessionID
 	if fr.Success != nil && !*fr.Success {
 		return []Event{{Kind: EvError, SessionID: sid, Text: cmd + ": " + fr.Error}}, true

@@ -160,7 +160,7 @@ func (m *ToolManager) Create(cwd string, cols, rows uint16, place Placement) (*T
 }
 
 // toolExited 는 도구 프로세스가 끝났을 때의 콜백이다 (readPTY 의 onExit).
-// 레지스트리에서 지우고 위층(workspace)에 알린다. invalidator 는 SetInvalidator
+// 레지스트리에서 지우고 종료 관찰자·invalidator 에 알린다. invalidator 는 SetInvalidator
 // 가 잠금으로 쓰므로 **잠금으로 읽는다** (M8 `GO-30`) — 종전의 클로저는 맨 읽기였다.
 func (m *ToolManager) toolExited(toolID string) {
 	// 종료 사유는 지우기 전에 집는다 (D-C-15) — 지운 뒤에는 Tool 이 없다.

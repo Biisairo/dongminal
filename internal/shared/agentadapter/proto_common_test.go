@@ -48,3 +48,23 @@ func TestTurnEdgeStartsOnceUntilEnd(t *testing.T) {
 		t.Fatal("start after end must be an edge again")
 	}
 }
+
+func TestPendingReqsIssueTakeOnce(t *testing.T) {
+	var p pendingReqs[string]
+	a, b := p.issue("initialize"), p.issue("set_model")
+	if a != "dm-1" || b != "dm-2" {
+		t.Fatalf("ids = %q %q", a, b)
+	}
+	if v, ok := p.take(b); !ok || v != "set_model" {
+		t.Fatalf("take(%s) = %q %v", b, v, ok)
+	}
+	if _, ok := p.take(b); ok {
+		t.Fatal("같은 id 를 두 번 꺼냈다 — 대기표에서 지워지지 않았다")
+	}
+	if _, ok := p.take("dm-99"); ok {
+		t.Fatal("발급하지 않은 id 를 꺼냈다")
+	}
+	if v, ok := p.take(a); !ok || v != "initialize" {
+		t.Fatalf("take(%s) = %q %v", a, v, ok)
+	}
+}

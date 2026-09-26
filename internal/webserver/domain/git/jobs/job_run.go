@@ -165,8 +165,8 @@ func (j *Jobs) recordFinal(st *jobState, final Job, tail string, exit int, dur t
 	// 기록은 **지운 argv** 로 남는다 (FR-GIT-104). 파괴적 선언은 호출자가 준
 	// spec 을 그대로 옮긴다 (I5).
 	//
-	// M9_SRS FR-M9-18: **기록도 끝이 공개되기 전에 쓴다.** 아래 훅과 같은 규칙이고
-	// 같은 사유다 (FR-GIT-107).
+	// M9_SRS FR-M9-18: **기록도 끝이 공개되기 전에 쓴다.** finish 가 이 뒤에 부르는
+	// 훅과 같은 규칙이고 같은 사유다 (FR-GIT-107).
 	//
 	//   이전 동작: `st.job = final` 로 Done 을 공개한 **뒤**에 기록을 썼다
 	//   새  동작: 공개 전에 쓴다

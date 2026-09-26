@@ -59,11 +59,10 @@ func codexDecode(line []byte, st *ProtoState) ([]Event, bool) {
 // codexDecodeResponse 는 우리 요청의 답이다. 대기표에 없는 id 는 모르는 프레임이다.
 func codexDecodeResponse(fr codexFrame, x *codexExt, st *ProtoState) ([]Event, bool) {
 	key := codexIDKey(fr.ID)
-	p, ok := x.pending[key]
+	p, ok := x.pending.take(key)
 	if !ok {
 		return nil, false
 	}
-	delete(x.pending, key)
 	if fr.Error != nil {
 		// 살아 있는 프로세스에 핸드셰이크를 다시 보내면(서버 재시동의 채택, D-C-14) `initialize` 만
 		// "Already initialized" 로 거절된다 — 그 뒤 `thread/resume`·`model/list` 는 정상이다 (P5

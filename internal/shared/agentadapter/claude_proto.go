@@ -56,8 +56,7 @@ var claudeProto = Proto{
 type claudeExt struct {
 	// pending 은 우리가 보낸 제어 요청의 대기표다 — request_id → 무엇을 물었나.
 	// 응답 프레임은 request_id 만 되돌리므로 이것 없이는 뜻을 알 수 없다.
-	pending map[string]claudePending
-	reqSeq
+	pending pendingReqs[claudePending]
 	// turnEdge 는 턴이 진행 중인가다. `status:requesting` 은 모델 요청마다 오므로
 	// 첫 것만 turn_start 다 — 턴의 끝은 `result` 하나다.
 	turnEdge
@@ -76,7 +75,7 @@ type claudePending struct {
 }
 
 func claudeExtOf(st *ProtoState) *claudeExt {
-	return extOf(st, func() *claudeExt { return &claudeExt{pending: map[string]claudePending{}} })
+	return extOf(st, func() *claudeExt { return &claudeExt{} })
 }
 
 // claudeProtoLaunch 는 §9.3 ③ 의 매핑이다. `--permission-prompt-tool stdio` 는 헬프에
@@ -131,8 +130,7 @@ func isDir(p string) bool {
 // controlRequest 는 호스트→CLI 제어 프레임이다. 대기표를 남긴다.
 func claudeControlRequest(st *ProtoState, subtype, value string, body map[string]any) []byte {
 	x := claudeExtOf(st)
-	id := x.nextID()
-	x.pending[id] = claudePending{subtype: subtype, value: value}
+	id := x.pending.issue(claudePending{subtype: subtype, value: value})
 	req := map[string]any{"subtype": subtype}
 	for k, v := range body {
 		req[k] = v

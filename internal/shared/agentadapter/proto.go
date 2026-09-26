@@ -488,6 +488,31 @@ func (r *reqSeq) nextID() string {
 	return protoReqIDPrefix + strconv.Itoa(r.seq)
 }
 
+// pendingReqs 는 우리 요청의 id 발급과 대기표다 — 응답 프레임은 id 만 되돌리므로
+// 무엇을 물었는지는 이 표로만 안다. 영값을 그대로 쓴다.
+type pendingReqs[V any] struct {
+	reqSeq
+	m map[string]V
+}
+
+// issue 는 새 id 를 발급하고 v 를 대기표에 남긴다.
+func (p *pendingReqs[V]) issue(v V) string {
+	id := p.nextID()
+	if p.m == nil {
+		p.m = map[string]V{}
+	}
+	p.m[id] = v
+	return id
+}
+
+// take 는 id 의 대기 항목을 꺼내 지운다. 없으면 ok=false 다.
+func (p *pendingReqs[V]) take(id string) (v V, ok bool) {
+	if v, ok = p.m[id]; ok {
+		delete(p.m, id)
+	}
+	return v, ok
+}
+
 // extOf 는 st.Ext 가 *T 이면 그것을, 아니면 mk 로 만들어 설치한 것을 돌려준다.
 func extOf[T any](st *ProtoState, mk func() *T) *T {
 	if x, ok := st.Ext.(*T); ok {

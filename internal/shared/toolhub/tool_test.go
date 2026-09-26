@@ -112,22 +112,25 @@ func TestToolManager_DataPath(t *testing.T) {
 	}
 }
 
-func TestTool_IsBusy_UsesProbe(t *testing.T) {
-	orig := toolBusyProbe
-	t.Cleanup(func() { toolBusyProbe = orig })
+// IsBusy 와 busyOf 는 같은 이음새(toolProcInfo)를 지난다 — 탐침 경로가 하나다.
+func TestTool_IsBusy_UsesProcInfo(t *testing.T) {
+	info := &countingInfo{busy: map[int]bool{4242: true}}
+	withProcInfo(t, info)
 
-	called := 0
-	toolBusyProbe = func(pid int) bool {
-		called++
-		return pid == 4242
-	}
-
-	p := &Tool{ID: "x"}
-	if p.IsBusy() {
+	if (&Tool{ID: "x"}).IsBusy() {
 		t.Errorf("IsBusy with no cmd should be false")
 	}
-	if called != 0 {
+	if info.children != 0 {
 		t.Errorf("probe should not be called when cmd is nil")
+	}
+	busy := &Tool{ID: "b", term: pidTerm{pid: 4242}}
+	idle := &Tool{ID: "i", term: pidTerm{pid: 4243}}
+	if !busy.IsBusy() || idle.IsBusy() {
+		t.Fatalf("IsBusy busy=%v idle=%v", busy.IsBusy(), idle.IsBusy())
+	}
+	got := busyOf([]*Tool{busy, idle})
+	if got[busy] != busy.IsBusy() || got[idle] != idle.IsBusy() {
+		t.Fatalf("busyOf=%v 가 IsBusy 와 다르다", got)
 	}
 }
 

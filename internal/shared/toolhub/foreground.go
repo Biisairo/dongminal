@@ -40,7 +40,7 @@ type fgRequest struct {
 	ShellPID int
 }
 
-// fgProbe 는 전경 조회 구현이다. toolBusyProbe 와 같은 이유로 패키지 변수다 —
+// fgProbe 는 전경 조회 구현이다. toolProcInfo 와 같은 이유로 패키지 변수다 —
 // 테스트가 호스트의 PTY 동작에 기대지 않고 결정론적으로 대체할 수 있다.
 var fgProbe = foregroundNames
 

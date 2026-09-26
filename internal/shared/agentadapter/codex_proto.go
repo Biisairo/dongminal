@@ -31,8 +31,7 @@ var codexProto = Proto{
 
 // codexExt 는 이 어댑터의 사적 상태다 (ProtoState.Ext).
 type codexExt struct {
-	reqSeq
-	pending map[string]codexPending // 우리 요청 id → 무엇을 물었나
+	pending pendingReqs[codexPending] // 우리 요청 id → 무엇을 물었나
 	// threadID 는 이 도구의 thread 다 (F-3). turnID 는 진행 중(또는 마지막) 턴.
 	threadID, turnID string
 	turnEdge
@@ -59,7 +58,7 @@ type codexItem struct {
 
 func codexExtOf(st *ProtoState) *codexExt {
 	return extOf(st, func() *codexExt {
-		return &codexExt{pending: map[string]codexPending{}, reqIDs: map[string]json.RawMessage{},
+		return &codexExt{reqIDs: map[string]json.RawMessage{},
 			items: map[string]codexItem{}, questions: map[string]map[string]string{}}
 	})
 }
@@ -71,8 +70,7 @@ func codexProtoLaunch(o LaunchOpts) []string {
 
 // codexRequest 는 우리→서버 요청 프레임이다. 대기표를 남긴다.
 func codexRequest(x *codexExt, method string, params any) []byte {
-	id := x.nextID()
-	x.pending[id] = codexPending{method: method}
+	id := x.pending.issue(codexPending{method: method})
 	m := map[string]any{"jsonrpc": "2.0", "id": id, "method": method}
 	if params != nil {
 		m["params"] = params

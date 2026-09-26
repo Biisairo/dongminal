@@ -219,8 +219,9 @@ func (m *ToolManager) ownedTools() map[string]struct{} {
 	return f()
 }
 
-// SetInvalidator lets main register the workspace invalidation hook after
-// wsMgr has been constructed (avoids a chicken-and-egg ordering issue).
+// SetInvalidator 는 도구 종료 알림 훅을 건다. 제품 배선에서는 거는 쪽이 없다
+// (workspace.InvalidateTool 을 지웠다, FR-OPT-9-5 · SHR-24) — 지금은 검사가
+// 종료 경로를 관측하는 자리다.
 func (m *ToolManager) SetInvalidator(f func(string)) {
 	m.mu.Lock()
 	m.invalidator = f

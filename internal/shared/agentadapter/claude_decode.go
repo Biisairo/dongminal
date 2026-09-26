@@ -450,11 +450,10 @@ func claudeDecodeControlResponse(fr claudeFrame, x *claudeExt, st *ProtoState) (
 	if err := json.Unmarshal(fr.Response, &resp); err != nil {
 		return nil, false
 	}
-	p, ok := x.pending[resp.RequestID]
+	p, ok := x.pending.take(resp.RequestID)
 	if !ok {
 		return nil, false
 	}
-	delete(x.pending, resp.RequestID)
 	if resp.Subtype == "error" {
 		return []Event{{Kind: EvError, Text: p.subtype + ": " + resp.Error}}, true
 	}

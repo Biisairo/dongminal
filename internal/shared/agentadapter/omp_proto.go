@@ -37,8 +37,7 @@ const ompDefaultApproval = "always-ask"
 
 // ompExt 는 이 어댑터의 사적 상태다 (ProtoState.Ext).
 type ompExt struct {
-	reqSeq
-	pending map[string]string // 우리 명령 id → command
+	pending pendingReqs[string] // 우리 명령 id → command
 	// turnEdge 는 `agent_start`~`agent_end` 사이다. omp 의 `turn_*` 는 루프의 한 바퀴라
 	// 공통 turn 은 agent 경계에서 난다.
 	turnEdge
@@ -47,7 +46,7 @@ type ompExt struct {
 }
 
 func ompExtOf(st *ProtoState) *ompExt {
-	return extOf(st, func() *ompExt { return &ompExt{pending: map[string]string{}, ui: map[string]string{}} })
+	return extOf(st, func() *ompExt { return &ompExt{ui: map[string]string{}} })
 }
 
 // ompProtoLaunch 는 §9.3 ③ 의 매핑이다. `--resume` 은 id 접두로도 된다 (실측).
@@ -68,8 +67,7 @@ func ompProtoLaunch(o LaunchOpts) []string {
 
 // ompCommand 는 우리→omp 명령 프레임이다. 대기표를 남긴다.
 func ompCommand(x *ompExt, typ string, body map[string]any) []byte {
-	id := x.nextID()
-	x.pending[id] = typ
+	id := x.pending.issue(typ)
 	m := map[string]any{"id": id, "type": typ}
 	for k, v := range body {
 		m[k] = v

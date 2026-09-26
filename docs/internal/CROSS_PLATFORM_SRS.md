@@ -328,6 +328,9 @@ type ProcInfo interface {
 | `cli/proc.go:42` `pidsOnPort` | `lsof -ti` | `ProcInfo.ListenerPIDs` |
 
 `toolBusyProbe` 가 이미 패키지 변수(테스트 대체용)인 성질은 유지한다.
+(개정, OPTIMIZE_REFACTOR_SRS FR-OPT-8-3 후속: `toolBusyProbe` 는 지웠다 — busy 조회의
+테스트 대체 자리는 `toolProcInfo` 하나이며 `IsBusy`·`busyOf` 가 함께 지난다.
+대체 자리가 둘이면 한쪽 검사가 다른 경로를 비워 둔다.)
 
 **FR-XPI-6** `ProcInfo.CWD` 가 `false` 를 내면 도구의 cwd 추적은 **셸 훅의 OSC 777
 경로만** 남는다. 그 경로는 이미 존재하며(`shellhooks/bash-hook.sh:1`) Windows 에서도

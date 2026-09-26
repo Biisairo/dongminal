@@ -137,19 +137,10 @@ type Tool struct {
 	reportedCwd atomic.Value
 }
 
-// toolBusyProbe is the busy-detection function used by Tool.IsBusy. It is a
-// package variable so tests can substitute a deterministic probe instead of
-// relying on the host's behavior. The default implementation matches the
-// historical behavior: a tool is "busy" when it has any direct child process.
-//
-// 조회 방법은 platform.ProcInfo 가 안다 — 리눅스는 /proc, darwin 은 pgrep,
-// Windows 는 toolhelp 스냅샷이다 (CROSS_PLATFORM_SRS FR-XPI-5).
-var toolBusyProbe = func(pid int) bool {
-	return toolProcInfo().HasChildren(pid)
-}
-
-// toolProcInfo 는 이 패키지가 프로세스를 묻는 자리다. 검사가 조회 수를 세려고
-// 바꾼다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-3).
+// toolProcInfo 는 이 패키지가 프로세스를 묻는 유일한 자리다 — IsBusy 와 busyOf 가
+// 같은 이음새를 지난다. 검사가 호스트 대신 결정론적 답을 넣고 조회 수를 센다
+// (OPTIMIZE_REFACTOR_SRS FR-OPT-8-3). busy 는 직계 자식 프로세스가 있는가다;
+// 조회 방법은 platform.ProcInfo 가 안다 (CROSS_PLATFORM_SRS FR-XPI-5).
 var toolProcInfo = func() platform.ProcInfo { return platform.Current().Info }
 
 // busyOf 는 IsBusy 를 여럿에 한 번에 답한다 — 조회는 ChildrenOf 한 번이다
@@ -178,7 +169,7 @@ func (p *Tool) IsBusy() bool {
 	if pid <= 0 {
 		return false
 	}
-	return toolBusyProbe(pid)
+	return toolProcInfo().HasChildren(pid)
 }
 
 // ToolHooks carries the attention wiring StartTool applies before launching

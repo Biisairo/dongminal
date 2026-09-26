@@ -28,9 +28,8 @@ func (a Tool) pmSnapshot() []*toolhub.Tool {
 }
 
 func (a Tool) List() []toolaccess.ToolInfo {
-	// Daemon mode: read the shell PID directly from the hub's list payload.
-	// Synthetic Tools have no os/exec handle, so CmdProcessPID() would
-	// return 0 and break whoami PID matching (FR-16).
+	// 데몬 모드: 셸 PID 는 hub 목록 응답에 실린 값이다 — 이 프로세스에는 도구의
+	// 프로세스 핸들이 없으므로 whoami 의 PID 대조(FR-16)가 이 값에 기댄다.
 	if a.PM == nil && a.Hub != nil {
 		infos := a.Hub.List()
 		out := make([]toolaccess.ToolInfo, 0, len(infos))

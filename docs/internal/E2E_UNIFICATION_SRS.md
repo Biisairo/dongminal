@@ -113,7 +113,7 @@ git 표면의 동작 변경인데, 그 표면이 Linux·Windows 에서 한 번�
 | 임시 홈 + 빈 포트 | `resolveStartTarget` (`start.go`) — `MkdirTemp("dongminal-iso-")` + `FreePort()` |
 | 데몬 모드 기동 | `startDetached` — 자기 자신을 `start --foreground` 로 끊어 띄운다 |
 | ✅/❌ 보고 + 실패 재수집 + exit code | `doctorReport` (`doctor.go`) |
-| 셸 준비 판정 | doctor 의 "출력이 오고 조용해지면 준비" (`doctorReadyWait`·`doctorQuietFor`) |
+| 셸 준비 판정 | doctor 의 "출력이 오고 조용해지면 준비" (`doctorReadyWait`·`doctorQuietFor` — 지금은 `waitQuiet`·`shellQuietFor`, FR-OPT-9-2) |
 | 프로세스 종료 | `platform.Process.Terminate`/`Kill`/`Alive` |
 | 소켓 존재 판정 | `platform.IPC.Exists` — **Windows 의 AF_UNIX 종단이 소켓 비트를 세우지 않는 차이를 이미 흡수한다.** 종단 이름도 `paned.sock` 로 세 OS 가 같다 |
 | OS 분기 없는 전제 처리 | `internal/shared/testpath` 의 능력 질의 3종이 선례 |
