@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -233,6 +234,9 @@ func TestDiagSnapshotWarnsOverThreshold(t *testing.T) {
 
 // 평시에는 울지 않는다. 평시에 우는 경고는 신호가 아니다.
 func TestDiagSnapshotQuietWhenNormal(t *testing.T) {
+	// 같은 프로세스의 앞선 테스트(상한 경계 본문 등)가 남긴 쓰레기가 allocMB 에 잡힌다.
+	// -shuffle 순서에 따라 임계를 넘으므로 평시를 만들고 잰다.
+	runtime.GC()
 	buf := captureLog(t)
 	s := &Server{}
 	s.logDiagSnapshot()
