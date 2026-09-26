@@ -144,5 +144,5 @@ function migrateUiFontScale(blob){
   return blob;
 }
 
-// `lspDiagOn` 은 app-lsp-paths.js 에 있다 — 저장소(PrefStore)를 딛는 초기값이라서다.
+// `lspDiagOn` 은 lsp-paths.js 에 있다 — 저장소(PrefStore)를 딛는 초기값이라서다.
 function effectiveTitle(){return (pageTitle||'').trim()||DEFAULT_PAGE_TITLE}
