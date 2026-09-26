@@ -70,10 +70,10 @@ Object.assign(App.prototype, {
     this._latency=ping.status?Math.round(performance.now()-t0):null;
     // 통계는 따로 받는다 — ping 을 순수한 지연 측정으로 남겨 두려는 것이다.
     // git 작업 목록은 같은 요청에 싣는다 (FR-OPT-4-4 — 회차당 3r → 2r).
-    const jobs=this._gitJobsWanted();
-    const st=await apiGet('/api/stats',jobs?{query:{jobs:'1'}}:undefined);
+    const jt=this._gitJobsBegin();
+    const st=await apiGet('/api/stats',jt?{query:{jobs:'1'}}:undefined);
+    if(jt) this._gitJobsSettle(jt,st.ok&&st.data?st.data.jobs:null);
     if(st.ok&&st.data){
-      if(jobs&&Array.isArray(st.data.jobs)) this._gitJobsAdopt(st.data.jobs);
       delete st.data.jobs;
       this._stats=st.data;
     }

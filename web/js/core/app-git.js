@@ -966,6 +966,19 @@ Object.assign(App.prototype, {
     return false;
   },
 
+  /**
+   * 상태바 틱이 싣는 목록도 `_pollGitJobs` 와 같은 `gitJobs` 비행에 선다 (Ofix2) — 틱이
+   * 떠난 뒤 떠난 조회의 새 목록을 늦게 온 틱의 응답이 덮지 않는다 (`merge:'latest'`).
+   * 목록을 쓸 곳이 없으면 비행을 열지 않는다 — 그때 틱은 목록을 묻지 않는다.
+   */
+  _gitJobsBegin(){ return this._gitJobsWanted()?this._restoreBegin('gitJobs'):null },
+
+  _gitJobsSettle(t,jobs){
+    if(!this._restoreLive('gitJobs',t)) return;
+    this._restoreEnd('gitJobs',t);
+    if(Array.isArray(jobs)) this._gitJobsAdopt(jobs);
+  },
+
   _gitJobsAdopt(jobs){
     this._gitJobs=jobs;
     if(this.gitPanel) this.gitPanel.adoptJobs(jobs);

@@ -214,7 +214,7 @@ Object.assign(App.prototype, {
         const now=this.wsETag?parseInt(this.wsETag,10):-1;
         const got=et?parseInt(et,10):-1;
         if(got>=0&&now>=0&&got<now) continue;
-        this._applyRemoteWorkspace(sv, sp, known, false);
+        this._applyRemoteWorkspace(sv, sp, known);
         if(et) this.wsETag=et;
       }while(this._wsApplyPending);
     }catch(err){console.error('[ws] sync',err)}
@@ -304,10 +304,10 @@ Object.assign(App.prototype, {
    * 딛는 두 곳 — 죽은 도구 청소와 `clean` — 이 함께 아무 일도 하지 않는다.
    */
   /**
-   * `fgTouched` 는 전경 이름의 비행이다 (`_onWorkspaceChanged`). `false` 면 그 비행이
-   * 추월당한 것이므로 이름을 얹지 않고, 주지 않으면 스냅숏이 전부를 정한다.
+   * 전경 이름은 여기서 얹지 않는다 — `_onWorkspaceChanged` 가 연 `fg` 비행 안에서 얹는다
+   * (FR-OPT-4-5).
    */
-  _applyRemoteWorkspace(sv, serverPanes, toolsKnown, fgTouched){
+  _applyRemoteWorkspace(sv, serverPanes, toolsKnown){
     const known=toolsKnown!==false;
     /**
      * FR-OPL-10: 병합의 근거는 **이 채택 이전의** 기억이다. 아래 `_wsMarkSaved`
@@ -323,9 +323,6 @@ Object.assign(App.prototype, {
     // FR-WSC-12: 이 스냅샷에 실린 창이 곧 **원격이 아는 창**이다. 아래에서
     // 마이그레이션·재조정이 `sv.windows` 를 고치므로 그 전에 적어 둔다.
     this._wsMarkSaved(sv.windows);
-    // 전경 이름도 도구 목록에서 나온다 — 모르는 목록으로 지우면 탭 라벨이
-    // 되돌아간다 (FR-TLU-7).
-    if(known&&fgTouched!==false) this._fgApply(serverPanes,fgTouched||undefined);
     // FR-EDT-42·103: 마이그레이션과 재조정이 창을 고쳤으면 그 결과를 서버에
     // 되쓴다 — 되쓰지 않으면 다음 동기화가 같은 일을 되풀이한다.
     let edChanged=false;
