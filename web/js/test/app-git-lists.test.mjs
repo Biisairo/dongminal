@@ -33,7 +33,7 @@ function setup() {
     waits.splice(i, 1)[0].go();
     await new Promise((r) => setImmediate(r));
   };
-  return { a, answers, arrive, adopted };
+  return { a, answers, arrive, adopted, waits };
 }
 
 test('옛 /api/stats 의 jobs 가 나중에 떠난 /api/git/jobs 의 새 목록을 덮지 않는다', async () => {
@@ -60,6 +60,53 @@ test('틱이 늦게 떠났으면 그 목록이 선다', async () => {
   await arrive('/api/stats'); await tick;
   await arrive('/api/git/jobs'); await push;
   assert.deepEqual(a._gitJobs, [{ id: 'tick' }]);
+});
+
+// Ofix3: 틱이 비행 중인 push 조회를 밀어낸 뒤 /api/stats 가 실패하면 그 목록이
+// 사라진다 — 밀어낸 틱이 실패하면 다시 조회해 세운다.
+test('밀어낸 틱이 실패하면 목록을 다시 조회한다', async () => {
+  const { a, answers, arrive } = setup();
+  answers['/api/stats'] = { ok: false, status: 0, data: null };
+  answers['/api/git/jobs'] = { ok: true, status: 200, data: { jobs: [{ id: 'push' }] } };
+  const push = a._pollGitJobs();
+  const tick = a._pollStats();
+  await new Promise((r) => setImmediate(r));
+  await arrive('/api/git/jobs'); await push;
+  await arrive('/api/stats'); await tick;
+  await arrive('/api/git/jobs');
+  assert.deepEqual(a._gitJobs, [{ id: 'push' }], '밀려난 조회의 목록이 사라졌다');
+});
+
+test('아무것도 밀어내지 않은 틱의 실패는 다시 조회하지 않는다', async () => {
+  const { a, answers, arrive, waits } = setup();
+  answers['/api/stats'] = { ok: false, status: 0, data: null };
+  const tick = a._pollStats();
+  await new Promise((r) => setImmediate(r));
+  await arrive('/api/stats'); await tick;
+  assert.equal(waits.length, 0, '실패한 틱마다 조회가 하나씩 늘었다');
+});
+
+// 안전망 주기도 목록 갱신을 합치는 줄로 선다 — 비행 중인 갱신과 겹쳐 `observe=1`
+// 요청이 둘 뜨면 서버 도착 순서가 뒤바뀔 수 있다.
+test('안전망 주기 폴은 gitReposKick 을 지나 비행 중인 갱신과 겹치지 않는다', async () => {
+  let tickFn = null;
+  const ctx = load(['core/app-git.js'], {
+    globals: {
+      App: class {},
+      visiblePoll: (_iv, fn) => { tickFn = fn; return { stop() {} }; },
+      gitStatusInterval: 30000,
+    },
+  });
+  const a = new ctx.App();
+  const holds = [];
+  a.gitReposRefresh = () => new Promise((r) => holds.push(r));
+  a._startGitReposPoll();
+  a.gitReposKick();
+  tickFn();
+  assert.equal(holds.length, 1, '주기 폴이 비행 중인 갱신 옆에 하나를 더 띄웠다');
+  holds[0]();
+  await new Promise((r) => setImmediate(r));
+  assert.equal(holds.length, 2, '비행 중에 온 주기 폴은 끝난 뒤 한 번 더 받아야 한다');
 });
 
 // Repo 탭의 들고 남은 목록 갱신을 합치는 줄(`gitReposKick`)로 보낸다 — `observe=1` 과

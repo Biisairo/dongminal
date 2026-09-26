@@ -111,6 +111,7 @@ class EventBus {
    */
   beginSnapshot(key){ const t=new Set(); this._flight[key]=t; return t }
   isLive(key,t){ return this._flight[key]===t }
+  inFlight(key){ return !!this._flight[key] }
   noteTouched(key,id){ const t=this._flight[key]; if(t&&id) t.add(id) }
   // 전체 초기화는 만진 id 로 표현되지 않는다. 그 비행은 통째로 버린다 (FR-RSF-5).
   voidSnapshot(key){ this._flight[key]=null }

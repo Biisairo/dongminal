@@ -522,7 +522,8 @@ Object.assign(App.prototype, {
    */
   _startGitReposPoll(){
     if(this._gitReposPoll) this._gitReposPoll.stop();
-    this._gitReposPoll=visiblePoll(()=>gitStatusInterval,()=>this.gitReposRefresh(),{immediate:true});
+    // 주기도 합치는 줄로 선다 (Ofix3) — 비행 중인 갱신 옆에 `observe=1` 이 하나 더 뜨지 않는다.
+    this._gitReposPoll=visiblePoll(()=>gitStatusInterval,()=>this.gitReposKick(),{immediate:true});
   },
 
   /**
@@ -970,13 +971,25 @@ Object.assign(App.prototype, {
    * 상태바 틱이 싣는 목록도 `_pollGitJobs` 와 같은 `gitJobs` 비행에 선다 (Ofix2) — 틱이
    * 떠난 뒤 떠난 조회의 새 목록을 늦게 온 틱의 응답이 덮지 않는다 (`merge:'latest'`).
    * 목록을 쓸 곳이 없으면 비행을 열지 않는다 — 그때 틱은 목록을 묻지 않는다.
+   *
+   * 비행 중인 조회를 밀어낸 틱이 목록을 받지 못하면 다시 조회한다 (Ofix3) — 밀려난
+   * 조회의 답은 이미 버려졌으므로, 그대로 두면 그 목록이 다음 방송·틱까지 사라진다.
    */
-  _gitJobsBegin(){ return this._gitJobsWanted()?this._restoreBegin('gitJobs'):null },
+  _gitJobsBegin(){
+    if(!this._gitJobsWanted()) return null;
+    const displaced=this.bus.inFlight('gitJobs');
+    const t=this._restoreBegin('gitJobs');
+    this._gitJobsDisplacer=displaced?t:null;
+    return t;
+  },
 
   _gitJobsSettle(t,jobs){
     if(!this._restoreLive('gitJobs',t)) return;
     this._restoreEnd('gitJobs',t);
+    const requery=this._gitJobsDisplacer===t;
+    this._gitJobsDisplacer=null;
     if(Array.isArray(jobs)) this._gitJobsAdopt(jobs);
+    else if(requery) this._pollGitJobs();
   },
 
   _gitJobsAdopt(jobs){

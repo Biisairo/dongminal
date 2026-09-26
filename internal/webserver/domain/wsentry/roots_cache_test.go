@@ -81,3 +81,38 @@ func TestRoots_MemoStillEnsuresNotesDir(t *testing.T) {
 		t.Fatalf("roots = %v", roots)
 	}
 }
+
+// 기억은 파싱만이다 — 정규화는 요청 시점의 파일시스템을 따른다. fsRootOf 는 요청
+// 경로를 그 시점에 정규화하므로, 옛 정규화를 기억해 두면 rev 가 오르기 전까지
+// 같은 루트를 거부하거나(FR-EDT-113) 다른 루트 삭제 가드(FR-EDT-114)를 비껴간다.
+func TestRoots_NormalizesAtCallTime(t *testing.T) {
+	dir := t.TempDir()
+	home := filepath.Join(dir, "home")
+	real := filepath.Join(dir, "real")
+	link := filepath.Join(dir, "link")
+	for _, d := range []string{home, real} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	s, w, _ := newTestStore(t, home)
+	later := filepath.Join(link, "later")
+	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":["` + later + `"]}}`)
+	w.rev = 1
+	if _, err := s.Roots(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(real, "later"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Roots()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := NormalizePath(later); got[len(got)-1] != want {
+		t.Fatalf("Roots 끝 = %q, want %q (요청 경로 정규화와 어긋난다)", got[len(got)-1], want)
+	}
+}
