@@ -11,13 +11,6 @@ import (
 	"dongminal/internal/shared/dmenv"
 )
 
-func envOr(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
-
 // baseURL 의 기본값은 dmenv 가 갖는다 — 정상 경로에서는 server 가 자식
 // 프로세스에 주소를 항상 주입하고, 여기 값은 그것이 비었을 때의 안전망이다.
 //
@@ -28,12 +21,12 @@ func envOr(key, fallback string) string {
 // (FR-STR-21·26) — IPv6 의 대괄호가 `dmenv.BaseURL` 에서 붙는다.
 func baseURL() string {
 	return dmenv.BaseURL(
-		envOr(dmenv.EnvHost, dmenv.DefaultHost),
-		envOr(dmenv.EnvPort, dmenv.DefaultPort),
+		dmenv.Or(dmenv.EnvHost, dmenv.DefaultHost),
+		dmenv.Or(dmenv.EnvPort, dmenv.DefaultPort),
 	)
 }
 
-func currentPort() string { return envOr(dmenv.EnvPort, dmenv.DefaultPort) }
+func currentPort() string { return dmenv.Or(dmenv.EnvPort, dmenv.DefaultPort) }
 
 // selfToolID 는 이 셸이 속한 도구다. --at 이 생략됐을 때의 기본 대상이고,
 // 자신을 서버에 알리는 모든 명령의 신원이다.

@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 )
 
@@ -27,7 +28,7 @@ type ToolState struct {
 // blocking concurrent Create/Delete calls, we snapshot tool pointers under
 // m.mu and then call Cwd() OUTSIDE the lock.
 func (m *ToolManager) SaveAll() {
-	path := m.dataPath("tools.json")
+	path := m.dataPath(dmenv.ToolsFile)
 	if path == "" || !m.mutated.Load() {
 		return
 	}
@@ -117,7 +118,7 @@ func (m *ToolManager) LoadAll(referenced map[string]struct{}) {
 
 // LoadAllWith 는 `LoadAll` 이되 되살리는 일을 갈아 끼울 수 있다 (`TEST-2`).
 func (m *ToolManager) LoadAllWith(referenced map[string]struct{}, restore restoreFn) {
-	path := m.dataPath("tools.json")
+	path := m.dataPath(dmenv.ToolsFile)
 	if path == "" {
 		return
 	}

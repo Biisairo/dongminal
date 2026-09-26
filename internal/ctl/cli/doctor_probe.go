@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 )
 
@@ -151,7 +152,7 @@ func doctorRoundTrip(term platform.Terminal, input, want string, limit time.Dura
 		case err := <-readErr:
 			got, _, _ := snapshot()
 			return got, fmt.Errorf("셸이 준비되기 전에 끊겼다: %w", err)
-		case <-time.After(100 * time.Millisecond):
+		case <-time.After(doctorPoll):
 		}
 	}
 
@@ -231,7 +232,7 @@ func doctorDetached(r *checkReport, p platform.Platform, home string) {
 			}
 			return
 		}
-		time.Sleep(200 * time.Millisecond)
+		time.Sleep(doctorResultPoll)
 	}
 	// 결과 파일조차 없으면 자식이 결과를 쓰기 전에 막힌 것이다. 콘솔 없는
 	// 프로세스에서 의사 터미널의 읽기가 돌아오지 않는 경우가 여기 해당한다.
@@ -244,7 +245,7 @@ func doctorDetached(r *checkReport, p platform.Platform, home string) {
 // path 에 적는다. 콘솔이 없으므로 화면에 적을 자리가 없다 — 그래서 파일이다.
 func runPTYProbe(path string, p platform.Platform, home string) int {
 	var b strings.Builder
-	spec := p.Shell.Shell(filepath.Join(home, "bin"))
+	spec := p.Shell.Shell(filepath.Join(home, dmenv.BinDir))
 
 	term, err := p.PTY.Start(platform.ProcSpec{
 		Path: spec.Path,

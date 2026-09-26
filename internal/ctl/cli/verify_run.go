@@ -42,7 +42,7 @@ func RunVerify(o VerifyOpts, stdout, stderr io.Writer) int {
 	r.section("격리 인스턴스 기동")
 	host := dmenv.DefaultHost
 	// 서버 로그도 격리 홈 안에 둔다 — 운영 인스턴스의 로그에 섞이지 않는다.
-	cmd, logFile, serverLog, err := prepareServerCmd(home, host, port, filepath.Join(home, "server.log"))
+	cmd, logFile, serverLog, err := prepareServerCmd(home, host, port, filepath.Join(home, logFileName))
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
@@ -123,7 +123,7 @@ func verifySummary(r *checkReport, pass int, stdout io.Writer, home, serverLog s
 		fmt.Fprintf(stdout, "  ❌ %s\n", b)
 	}
 	for _, l := range []struct{ name, path string }{
-		{"데몬 로그", filepath.Join(home, "daemon.log")},
+		{"데몬 로그", filepath.Join(home, dmenv.DaemonLogFile)},
 		{"서버 로그", serverLog},
 	} {
 		if t := tail(l.path, verifyLogTail); t != "" {

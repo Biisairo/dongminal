@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"dongminal/internal/shared/dmenv"
 )
 
 // 로그 크기 상한 (RECONNECT_STORM_SRS 묶음 L).
@@ -82,7 +84,7 @@ func capLog(path string, max, keep int64) error {
 //
 // 상한 기계는 처음부터 있었으나 **서버 로그에만** 걸려 있었다. 데몬은 서버보다
 // 오래 살고 재시작 로그는 조작마다 덧붙는다 — 상한이 가장 필요한 쪽이 빠져 있었다.
-var homeLogs = []string{"server.log", "daemon.log", restartLogFile}
+var homeLogs = []string{logFileName, dmenv.DaemonLogFile, restartLogFile}
 
 // capHomeLogs 는 홈 아래 로그 전부에 상한을 건다.
 //

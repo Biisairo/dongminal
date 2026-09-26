@@ -24,7 +24,11 @@ import (
 
 // contextWindows 는 아는 창 크기다. **오름차순이어야 한다** — 넓히기가 이 순서를
 // 딛는다. 상수를 코드 여기저기 적지 않으려고 목록 하나에서 파생시킨다.
-var contextWindows = []float64{200000, 1000000}
+var contextWindows = []float64{DefaultWindowTokens, 1000000}
+
+// DefaultWindowTokens 는 아는 가장 작은 창이다 — 모델을 모를 때의 기본 상한
+// (`DefaultContextPolicy`)이 이 값이다 (DOM-30).
+const DefaultWindowTokens = 200000
 
 // WindowForModel 은 **그 에이전트의** 모델 문자열이 말하는 창 크기다 (FR-CTX-5).
 //

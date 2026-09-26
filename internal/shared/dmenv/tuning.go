@@ -35,3 +35,11 @@ func MillisEnv(name string, def time.Duration, min int) time.Duration {
 
 // FlagEnv 는 "1" 일 때만 참이다. 다른 값은 전부 거짓 — 켜는 값은 하나다.
 func FlagEnv(name string) bool { return os.Getenv(name) == "1" }
+
+// Or 는 key 가 비었으면 fallback 이다 — 엔드포인트 변수의 안전망 규칙 한 벌 (SHR-30).
+func Or(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}

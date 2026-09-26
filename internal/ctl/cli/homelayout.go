@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
+	"dongminal/internal/shared/runfile"
+	"dongminal/internal/shared/serverconf"
 	"dongminal/internal/shared/toolipc"
 )
 
@@ -47,6 +50,9 @@ type homeEntry struct {
 	// Ephemeral 은 **다음 기동이 다시 만드는 것**인가다. 담아도 뜻이 없고,
 	// 소켓은 zip 에 담기지도 않는다.
 	Ephemeral bool
+	// Rollback 은 **`rollback` 이 되돌릴 수 있는가**다 — `WriteStateFile` 이 세대를
+	// 남기는 상태 파일만 true 다. `rollbackTargets` 가 이 표에서 파생한다 (SHR-19).
+	Rollback bool
 }
 
 // homeLayout 은 홈의 전수 목록이다.
@@ -56,26 +62,26 @@ type homeEntry struct {
 func homeLayout() []homeEntry {
 	return []homeEntry{
 		// ── 되살릴 수 있는 상태 ──
-		{Name: "workspace.json", What: "창·칸·탭의 배치와 도구 연결", InBackup: true, KeepOnUninstall: true},
-		{Name: "settings.json", What: "테마·단축키·상태바·레이아웃 프리셋", InBackup: true, KeepOnUninstall: true},
-		{Name: "access.json", What: "접속 허용 목록 (기기·호스트 이름)", InBackup: true, KeepOnUninstall: true},
-		{Name: "lsp-paths.json", What: "언어 서버 실행 파일 경로 표 (설정 ▸ Code)", InBackup: true, KeepOnUninstall: true},
-		{Name: "runs.json", What: "Run(오케스트레이션) 기록", InBackup: true, KeepOnUninstall: true},
-		{Name: "tools.json", What: "도구의 이름·작업 폴더 등 복원 정보", InBackup: true, KeepOnUninstall: true},
-		{Name: "server.json", What: "서버 기동값 (host·port·로그)", InBackup: true, KeepOnUninstall: true},
+		{Name: dmenv.WorkspaceFile, What: "창·칸·탭의 배치와 도구 연결", InBackup: true, KeepOnUninstall: true, Rollback: true},
+		{Name: dmenv.SettingsFile, What: "테마·단축키·상태바·레이아웃 프리셋", InBackup: true, KeepOnUninstall: true, Rollback: true},
+		{Name: dmenv.AccessFile, What: "접속 허용 목록 (기기·호스트 이름)", InBackup: true, KeepOnUninstall: true, Rollback: true},
+		{Name: dmenv.LSPPathsFile, What: "언어 서버 실행 파일 경로 표 (설정 ▸ Code)", InBackup: true, KeepOnUninstall: true},
+		{Name: runfile.FileName, What: "Run(오케스트레이션) 기록", InBackup: true, KeepOnUninstall: true, Rollback: true},
+		{Name: dmenv.ToolsFile, What: "도구의 이름·작업 폴더 등 복원 정보", InBackup: true, KeepOnUninstall: true, Rollback: true},
+		{Name: serverconf.FileName, What: "서버 기동값 (host·port·로그)", InBackup: true, KeepOnUninstall: true},
 		{Name: "sandbox.json", What: "샌드박스 프로파일 정의", InBackup: true, KeepOnUninstall: true},
 
 		// ── 사용자가 만든 내용 ──
-		{Name: "notes", IsDir: true, What: "메모장", InBackup: true, KeepOnUninstall: true},
+		{Name: dmenv.NotesDir, IsDir: true, What: "메모장", InBackup: true, KeepOnUninstall: true},
 
 		// ── 다시 만들어지는 것 ──
-		{Name: "bin", IsDir: true, What: "런타임 헬퍼 (서버가 기동마다 다시 채운다)", Ephemeral: true},
+		{Name: dmenv.BinDir, IsDir: true, What: "런타임 헬퍼 (서버가 기동마다 다시 채운다)", Ephemeral: true},
 		{Name: "tool-history", IsDir: true, What: "도구 셸의 히스토리 파일", Ephemeral: true},
 		{Name: daemonSockFile, What: "데몬 IPC 소켓", Ephemeral: true},
 		{Name: daemonPIDFile, What: "데몬 pidfile", Ephemeral: true},
 		{Name: platform.LastExitFile, What: "마지막 종료가 정상이었는지의 표시", Ephemeral: true},
-		{Name: "server.log", What: "웹 서버 로그", Ephemeral: true},
-		{Name: "daemon.log", What: "dongminald 로그", Ephemeral: true},
+		{Name: dmenv.ServerLogFile, What: "웹 서버 로그", Ephemeral: true},
+		{Name: dmenv.DaemonLogFile, What: "dongminald 로그", Ephemeral: true},
 		{Name: restartLogFile, What: "재시작 대리의 출력", Ephemeral: true},
 
 		// ── 2026-09-21 에 더한 것 (STRUCTURE_CLEANUP_SRS FR-STR-30) ──
@@ -96,11 +102,11 @@ func homeLayout() []homeEntry {
 		//
 		// 갈라 두었으므로 이제 이 둘을 **따로** 뒤집을 수 있다. 종전에는 한쪽을
 		// 바꾸면 다른 쪽이 끌려갔다.
-		{Name: "git-worktrees", IsDir: true, What: "Git 창에서 만든 사용자 worktree", InBackup: true, KeepOnUninstall: true},
-		{Name: "panes.json", What: "변환 전 레이아웃 (migrate 가 workspace.json 으로 옮긴다)", InBackup: true, KeepOnUninstall: true},
+		{Name: dmenv.GitWorktreesDir, IsDir: true, What: "Git 창에서 만든 사용자 worktree", InBackup: true, KeepOnUninstall: true},
+		{Name: dmenv.PanesFile, What: "변환 전 레이아웃 (migrate 가 workspace.json 으로 옮긴다)", InBackup: true, KeepOnUninstall: true},
 
-		{Name: "worktrees", IsDir: true, What: "Run 격리 worktree (정리는 Run 레코드가 정한다)", Ephemeral: true},
-		{Name: "ext", IsDir: true, What: "편집기 플러그인·언어 서버 (다시 받을 수 있다)", Ephemeral: true},
+		{Name: dmenv.WorktreesDir, IsDir: true, What: "Run 격리 worktree (정리는 Run 레코드가 정한다)", Ephemeral: true},
+		{Name: dmenv.ExtDir, IsDir: true, What: "편집기 플러그인·언어 서버 (다시 받을 수 있다)", Ephemeral: true},
 		// 이름의 출처는 `shared/sandbox` 의 `helperCacheDir` 인데 그것은 내보내지
 		// 않았고, 여기서 그 패키지를 끌어오면 축 경계가 흔들린다. 값이 두 자리에
 		// 있는 것을 `check-home-layout.sh` 가 대조한다.

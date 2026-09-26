@@ -15,5 +15,5 @@ func AgentHooksDir() string {
 	if home == "" {
 		return ""
 	}
-	return dmenv.AgentHooksDirIn(filepath.Join(home, "bin"))
+	return dmenv.AgentHooksDirIn(filepath.Join(home, dmenv.BinDir))
 }

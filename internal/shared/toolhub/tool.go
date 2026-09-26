@@ -246,7 +246,7 @@ func toolBinDir() string {
 	if home == "" {
 		return ""
 	}
-	return filepath.Join(home, "bin")
+	return filepath.Join(home, dmenv.BinDir)
 }
 
 // toolPath 는 도구의 PATH 다. 자리를 모르면 **더하지 않는다** — 빈 조각을 얹으면

@@ -3,17 +3,12 @@ package cli
 import (
 	"fmt"
 	"io"
-	"time"
 )
 
 // Opener 는 URL 하나로 frameless window 를 여는 수단이다. 기본은
 // openFrameless 이고, 테스트가 여기를 갈아 끼운다 — `serve` 를 주입받는
 // RunStart 와 같은 관행이다 (WINDOW_COMMAND_SRS V-WIN-2/3/4).
 type Opener func(url string) error
-
-// windowPingTimeout 은 준비 확인 한 번의 제한이다. 기다리지 않는 명령이므로
-// 재시도가 없다 (D-5).
-const windowPingTimeout = 2 * time.Second
 
 // RunWindow는 `dongminal window` 다 (FR-WIN-1..7).
 //
@@ -38,7 +33,8 @@ func RunWindow(o WindowOpts, open Opener, stdout, stderr io.Writer) int {
 	url := tgt.URL
 
 	// FR-WIN-3: 죽은 서버에 창을 띄우면 사용자는 빈 화면에서 원인을 찾게 된다.
-	if !ping(url+"/api/ping", windowPingTimeout) {
+	// 준비 확인은 한 번이다. 기다리지 않는 명령이므로 재시도가 없다 (D-5).
+	if !ping(url+"/api/ping", localPingTimeout) {
 		fmt.Fprintf(stderr, "❌ %s 에서 응답이 없습니다 — 서버가 떠 있지 않습니다\n", url)
 		fmt.Fprintln(stderr, "   먼저 띄웁니다: dongminal start")
 		return 1

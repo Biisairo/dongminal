@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"dongminal/internal/ctl/cli"
+	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/platform"
@@ -57,7 +58,7 @@ func buildApp(gitRoot context.Context, home, host, port string) (*app, error) {
 	}
 	dmlog.Init(dmlog.Options{Level: conf.LogLevel.Value})
 
-	if err := runtime.Install(filepath.Join(home, "bin")); err != nil {
+	if err := runtime.Install(filepath.Join(home, dmenv.BinDir)); err != nil {
 		return nil, errors.Join(errRuntimeInstall, err)
 	}
 
@@ -130,7 +131,7 @@ func (a *app) wireDaemonPushes() {
 	// 남는다. 두 레이어를 같은 콜백에서 함께 정리한다 — Forget 이
 	// 주의 해제(에지)와 상태 폐기를 한 번에 한다.
 	a.panedClient.SetOnExit(func(toolID string, info toolhub.ExitInfo) {
-		attnTracker.SetActivity(toolID, "ended", "", "")
+		attnTracker.SetActivity(toolID, activity.Ended, "", "")
 		attnTracker.Forget(toolID)
 		// UX_BATCH6_SRS FR-BGP-1·2: 백그라운드 목록은 살아 있는
 		// 프로세스의 목록이다. 데몬 모드에서 그 죽음을 웹서버가 아는

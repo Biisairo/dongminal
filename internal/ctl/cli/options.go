@@ -25,10 +25,10 @@ import (
 var ErrHelp = errors.New("help requested")
 
 const (
-	EnvPort = "PORT"
+	EnvPort = serverconf.EnvPort
 	EnvHome = dmenv.EnvHome
 	EnvHost = dmenv.EnvHost
-	EnvLog  = "DONGMINAL_LOG"
+	EnvLog  = serverconf.EnvLogFile
 
 	// EnvRestartRunner는 이 실행이 위임된 재시작 대리임을 알린다 — 대리가
 	// 다시 위임하지 않게 하는 표시다 (FR-ACT-3b).
@@ -48,7 +48,7 @@ const (
 
 // logFileName 은 홈 아래 서버 로그의 이름이다. `homeLogs` 와 `homeLayout()` 이
 // 같은 이름을 쓴다.
-const logFileName = "server.log"
+const logFileName = dmenv.ServerLogFile
 
 // defaultLogFile 은 배경 모드 기동이 출력을 남길 자리다 (04-secops P1-6).
 //

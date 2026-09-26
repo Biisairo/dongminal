@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/workspace"
@@ -26,7 +27,7 @@ import (
 // **되돌리기도 되돌릴 수 있게** 된다 — 새 장치 없이.
 
 // workspaceFile 은 홈 안의 워크스페이스 파일 이름이다.
-const workspaceFile = "workspace.json"
+const workspaceFile = dmenv.WorkspaceFile
 
 type revisionEntry struct {
 	Gen      int    `json:"gen"`

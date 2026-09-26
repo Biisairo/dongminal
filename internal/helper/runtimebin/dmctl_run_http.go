@@ -14,8 +14,12 @@ import (
 // 여기 모인 것은 **서버와의 왕복**이다 — 경로·예산·응답 판정·거절 문안. 위쪽의
 // 서브커맨드들은 이 함수들만 부르며, HTTP 의 사정을 알지 않는다.
 
+// clientSlack 은 서버 상한 위에 클라이언트가 얹는 여유다 — run 과 wait 가 같은
+// 뜻의 값을 따로 들고 있었다 (FR-OPT-10-2 · SHR-17).
+const clientSlack = 10 * time.Second
+
 const (
-	runClientSlack  = 10 * time.Second
+	runClientSlack  = clientSlack
 	preambleBudget  = runwait.PreambleWait + runClientSlack
 	closeClientRoom = 40 * time.Second // /exit 대기 뒤의 헤드리스 종료 유예·worktree 정리
 	closeBudget     = runwait.ExitSettle + closeClientRoom

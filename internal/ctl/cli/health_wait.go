@@ -22,9 +22,6 @@ type healthState struct {
 	Mismatch        bool
 }
 
-// healthTimeout 은 한 번의 조회 상한이다. 로컬 종단이므로 짧다.
-const healthTimeout = 2 * time.Second
-
 // fetchHealth 는 `/api/health` 한 번이다.
 //
 // **없으면 실패가 아니라 "모른다" 다.** 헬스가 없는 옛 서버에 붙을 수 있고, 그때
@@ -69,7 +66,7 @@ func fetchHealth(url string, timeout time.Duration) (healthState, bool) {
 func waitDaemonConnected(url string, tries int, interval time.Duration) (healthState, bool) {
 	var last healthState
 	err := pollwait.Until(context.Background(), time.Duration(tries)*interval, interval, func() bool {
-		st, ok := fetchHealth(url, healthTimeout)
+		st, ok := fetchHealth(url, localPingTimeout)
 		if ok {
 			last = st
 		}

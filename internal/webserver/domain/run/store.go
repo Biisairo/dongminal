@@ -21,6 +21,7 @@ import (
 
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/pollwait"
+	"dongminal/internal/shared/runfile"
 	"dongminal/internal/shared/uuid"
 )
 
@@ -28,7 +29,7 @@ import (
 // 구조가 아니라 필드만 늘어나므로 판별에 버전이 필요 없다.
 const schemaVersion = 1
 
-const fileName = "runs.json"
+const fileName = runfile.FileName
 
 type fileBody struct {
 	SchemaVersion int      `json:"schemaVersion"`

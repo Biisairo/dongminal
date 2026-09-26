@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 )
 
@@ -17,11 +18,11 @@ import (
 var ErrDaemonRunning = errors.New("dongminald 가 실행 중입니다 — `dongminal stop --all` 로 정지한 뒤 다시 실행하세요")
 
 const (
-	workspaceFile = "workspace.json"
-	daemonPIDFile = "paned.pid"
-	panesFile     = "panes.json"
-	toolsFile     = "tools.json"
-	settingsFile  = "settings.json"
+	workspaceFile = dmenv.WorkspaceFile
+	daemonPIDFile = dmenv.PanedPIDFile
+	panesFile     = dmenv.PanesFile
+	toolsFile     = dmenv.ToolsFile
+	settingsFile  = dmenv.SettingsFile
 	backupSuffix  = ".v1.bak"
 	// preUUIDSuffix는 구 식별자 재작성 직전 상태의 백업이다 (FR-MGU-8).
 	// `.v1.bak` 을 재사용할 수 없다 — backupOnce 는 백업이 이미 있으면

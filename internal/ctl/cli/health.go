@@ -14,6 +14,11 @@ import (
 // 짧다 — 떠 있으면 즉시 답하고, 떠 있지 않으면 재시도해도 답하지 않는다.
 const healthPingTimeout = 3 * time.Second
 
+// localPingTimeout 은 한 번 묻고 끝나는 로컬 조회(`/api/ping`·`/api/health`)의
+// 상한이다 (FR-OPT-10-2 · SHR-17). 로컬 종단이므로 답은 즉시 오거나 오지 않는다.
+// `migrate` 의 실행 중 확인·`window` 의 준비 확인·기동 뒤 헬스 조회가 쓴다.
+const localPingTimeout = 2 * time.Second
+
 // RunHealth는 `dongminal health` 다 (FR-ACT-9/10).
 func RunHealth(o HealthOpts, stdout, stderr io.Writer) int {
 	tgt, err := o.ResolveTarget()
@@ -71,7 +76,7 @@ func RunHealth(o HealthOpts, stdout, stderr io.Writer) int {
 	// 멀쩡하다 — 그래서 지금까지 아무도 알려 주지 않았고, 에이전트 훅이 실패할
 	// 때에야 드러났다. 기동은 이것을 스스로 고치지만(§2.4), **다시 띄우기 전에**
 	// 아는 수단이 필요하다.
-	binDir := filepath.Join(home, "bin")
+	binDir := filepath.Join(home, dmenv.BinDir)
 	switch st := runtime.InspectHelpers(binDir); {
 	case !st.Installed:
 		// 아직 기동 전인 홈이다. 소켓 부재를 실패로 세지 않는 것과 같은 이유다.

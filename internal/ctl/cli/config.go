@@ -101,7 +101,7 @@ func RunConfig(o ConfigOpts, stdout, stderr io.Writer) int {
 		rep.Errors = append(rep.Errors, schemaErr.Error())
 	} else {
 		rep.Schema = specs
-		if blob, err := os.ReadFile(filepath.Join(home, "settings.json")); err == nil {
+		if blob, err := os.ReadFile(filepath.Join(home, dmenv.SettingsFile)); err == nil {
 			probs, unknown, err := settingsschema.Validate(specs, blob)
 			if err != nil {
 				rep.Errors = append(rep.Errors, "settings.json: "+err.Error())

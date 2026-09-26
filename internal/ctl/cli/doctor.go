@@ -38,6 +38,14 @@ const (
 	// 출력이 오고 이만큼 조용하면 준비된 것으로 본다.
 	doctorReadyWait = 15 * time.Second
 	doctorQuietFor  = 700 * time.Millisecond
+	// doctorIPCTimeout 은 IPC 종단 왕복의 접속·읽기 상한이다.
+	doctorIPCTimeout = 3 * time.Second
+	// doctorPromptWait 은 도구 셸이 프롬프트를 그리기를 기다리는 시간이다.
+	doctorPromptWait = 3 * time.Second
+	// doctorPoll 은 출력·생존을 다시 보는 간격이고, doctorResultPoll 은 콘솔 없는
+	// 자식의 결과 파일을 다시 보는 간격이다.
+	doctorPoll       = 100 * time.Millisecond
+	doctorResultPoll = 200 * time.Millisecond
 )
 
 // RunDoctor 는 `dongminal doctor` 다.
@@ -79,7 +87,7 @@ func RunDoctor(o DoctorOpts, stdout, stderr io.Writer) int {
 	probeBin, cleanup, err := doctorProbeBin()
 	if err != nil {
 		r.bad("검사용 임시 bin 을 만들지 못했습니다: %v", err)
-		probeBin = filepath.Join(home, "bin")
+		probeBin = filepath.Join(home, dmenv.BinDir)
 	}
 	defer cleanup()
 	for _, c := range doctorChecks(p, home, probeBin) {
@@ -116,7 +124,7 @@ func doctorChecks(p platform.Platform, home, probeBin string) []doctorCheck {
 	return []doctorCheck{
 		{"환경", func(r *checkReport) { doctorEnvironment(r, p, home) }},
 		{"설치", func(r *checkReport) { doctorInstall(r, p, home, probeBin) }},
-		{"설치된 헬퍼", func(r *checkReport) { doctorHelpers(r, filepath.Join(home, "bin")) }},
+		{"설치된 헬퍼", func(r *checkReport) { doctorHelpers(r, filepath.Join(home, dmenv.BinDir)) }},
 		{"셸", func(r *checkReport) { doctorShell(r, p, probeBin) }},
 		{"터미널", func(r *checkReport) { doctorTerminal(r, p, probeBin, home) }},
 		{"도구", func(r *checkReport) { doctorTool(r, home) }},
@@ -156,7 +164,7 @@ func doctorProbeBin() (string, func(), error) {
 	if err != nil {
 		return "", func() {}, err
 	}
-	return filepath.Join(dir, "bin"), func() { _ = os.RemoveAll(dir) }, nil
+	return filepath.Join(dir, dmenv.BinDir), func() { _ = os.RemoveAll(dir) }, nil
 }
 
 // doctorHelpers 는 **운영 홈**에 설치된 헬퍼가 실제로 실행 가능한지 본다
@@ -329,7 +337,7 @@ func doctorIPC(r *checkReport, p platform.Platform, home string) {
 		echoed <- err
 	}()
 
-	conn, err := p.IPC.Dial(ep, 3*time.Second)
+	conn, err := p.IPC.Dial(ep, doctorIPCTimeout)
 	if err != nil {
 		r.bad("종단 접속 실패: %v", err)
 		return
@@ -340,7 +348,7 @@ func doctorIPC(r *checkReport, p platform.Platform, home string) {
 		return
 	}
 	buf := make([]byte, 4)
-	_ = conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(doctorIPCTimeout))
 	if _, err := conn.Read(buf); err != nil {
 		r.bad("종단 읽기 실패: %v", err)
 		return
@@ -410,7 +418,7 @@ func doctorTool(r *checkReport, home string) {
 
 	const marker = "dongminal-tool-ok"
 	// 셸이 프롬프트를 그릴 때까지 기다린다 (doctorRoundTrip 의 사정과 같다).
-	time.Sleep(3 * time.Second)
+	time.Sleep(doctorPromptWait)
 	if err := tool.Write([]byte("echo " + marker + "\r")); err != nil {
 		r.bad("입력 실패: %v", err)
 		return
@@ -428,7 +436,7 @@ func doctorTool(r *checkReport, home string) {
 			r.info("그때까지 받은 것: %q", doctorTrim(string(blob)))
 			return
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(doctorPoll)
 	}
 	blob, _ := tool.Stream().Snapshot()
 	if len(blob) == 0 {

@@ -12,6 +12,7 @@ import (
 
 	gitcore "dongminal/internal/webserver/domain/git/core"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 )
 
@@ -31,7 +32,7 @@ const bundleLogTail = 64 << 10
 
 // bundleSettings 는 그대로 담는 설정 파일들이다. 사용자가 만든 값이고 비밀이
 // 들어갈 자리가 아니다 — `access.json` 은 **허용 출발지 목록**이지 자격이 아니다.
-var bundleSettings = []string{"settings.json", "access.json"}
+var bundleSettings = []string{dmenv.SettingsFile, dmenv.AccessFile}
 
 // RunDoctorBundle 은 `dongminal doctor --bundle <파일>` 이다.
 func RunDoctorBundle(o DoctorOpts, stdout, stderr io.Writer) int {

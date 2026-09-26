@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 )
 
@@ -39,9 +40,22 @@ type RollbackOpts struct {
 // `settings.json` 이 여기 있는 것이 `G4-4` 다 — 설정 가져오기는 현재 설정을
 // 통째로 덮는데, 그 직전 판은 이미 `.bak.1` 로 남는다. 없던 것은 **그것을
 // 되돌릴 길**이었다. 기계를 새로 만들지 않고 이 명령을 넓힌다.
-var rollbackTargets = []string{"workspace.json", "settings.json", "access.json", "runs.json", "tools.json"}
+//
+// 목록은 `homeLayout()` 의 `Rollback` 에서 파생한다 (FR-OPT-10-2 · SHR-19) — 손으로
+// 다시 적은 목록은 표가 바뀔 때 따라오지 않는다. 순서는 표의 순서다.
+var rollbackTargets = rollbackNames()
 
-const defaultRollbackTarget = "workspace.json"
+const defaultRollbackTarget = dmenv.WorkspaceFile
+
+func rollbackNames() []string {
+	var out []string
+	for _, e := range homeLayout() {
+		if e.Rollback {
+			out = append(out, e.Name)
+		}
+	}
+	return out
+}
 
 // resolveTarget 은 고른 파일이 되돌릴 수 있는 것인지 본다.
 func resolveTarget(name string) (string, error) {

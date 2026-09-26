@@ -20,6 +20,7 @@ import (
 	"dongminal/internal/shared/toolipc"
 	"dongminal/internal/shared/workspace"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 )
 
@@ -60,7 +61,7 @@ func Run(home, version, daemonBuild string) {
 	// FR-PRF-78: **점검만 한다.** 정상 경로에서는 서버가 이미 깔았다 — 데몬은
 	// 서버의 자식이다. 없거나 깨졌을 때만 깐다 (사람이 `dongminald` 를 직접 부른
 	// 경우가 그 자리다).
-	if err := runtime.EnsureInstalled(filepath.Join(home, "bin")); err != nil {
+	if err := runtime.EnsureInstalled(filepath.Join(home, dmenv.BinDir)); err != nil {
 		dmlog.Errorf(nil, "runtime install: %v", err)
 		os.Exit(1)
 	}
@@ -79,7 +80,7 @@ func Run(home, version, daemonBuild string) {
 	// 파일만 읽는 `shared/runfile` 의 술어를 위에서 꽂는다. toolhub 자신은 Run 을 모른 채로
 	// 남으며(의존 방향), 이 배선 패키지가 둘을 잇는 자리다.
 	pm.SetOwnedTools(func() map[string]struct{} { return runfile.HeadlessToolIDs(home) })
-	refs := referencedTools(filepath.Join(home, "workspace.json"))
+	refs := referencedTools(filepath.Join(home, dmenv.WorkspaceFile))
 	headless := runfile.HeadlessToolIDs(home)
 	for id := range headless {
 		refs[id] = struct{}{}
@@ -95,7 +96,7 @@ func Run(home, version, daemonBuild string) {
 	}
 
 	sockPath := platform.Current().IPC.Endpoint(home)
-	pidPath := filepath.Join(home, "paned.pid")
+	pidPath := filepath.Join(home, dmenv.PanedPIDFile)
 
 	ps := ipc.NewPanedServer(pm, sockPath, pidPath)
 	// VERSION_HEALTH_SRS FR-VHL-1: 이 데몬의 빌드 판을 `hello` 에 싣는다. 값은

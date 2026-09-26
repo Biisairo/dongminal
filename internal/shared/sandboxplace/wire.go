@@ -38,14 +38,7 @@ func Wire(home, version, port string) *Placer {
 	sandbox.PruneHelperCache(helper)
 
 	if port == "" {
-		port = envOr(dmenv.EnvPort, dmenv.DefaultPort)
+		port = dmenv.Or(dmenv.EnvPort, dmenv.DefaultPort)
 	}
 	return New(sandbox.New(sandbox.CLIRunner(dockerPath), home), dockerPath, profiles, helper, port, home)
-}
-
-func envOr(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
 }

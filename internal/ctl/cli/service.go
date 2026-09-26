@@ -158,7 +158,7 @@ func launchdPlist(exe, home string, conf serverconf.Resolved) string {
   <dict>
     <key>` + dmenv.EnvHome + `</key><string>` + xmlEsc(home) + `</string>
     <key>` + dmenv.EnvHost + `</key><string>` + xmlEsc(conf.Host.Value) + `</string>
-    <key>PORT</key><string>` + xmlEsc(conf.Port.Value) + `</string>
+    <key>` + EnvPort + `</key><string>` + xmlEsc(conf.Port.Value) + `</string>
     <key>` + serverconf.EnvLogLevel + `</key><string>` + xmlEsc(conf.LogLevel.Value) + `</string>
   </dict>
   <key>StandardOutPath</key><string>` + xmlEsc(conf.LogFile.Value) + `</string>

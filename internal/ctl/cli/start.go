@@ -25,6 +25,9 @@ type Serve func(home, host, port string) int
 const (
 	readyTries    = 10
 	readyInterval = 500 * time.Millisecond
+	// readyPingTimeout 은 준비 대기 중 ping 한 번의 상한이다. 되풀이하므로
+	// 한 번은 짧다 — 전체 상한은 readyTries×readyInterval 이다.
+	readyPingTimeout = time.Second
 )
 
 // RunStart는 `dongminal start` 다 (FR-ACT-1..4, FR-ISO-*, FR-FG-*).
@@ -366,7 +369,7 @@ const daemonReadyTries = 10
 func waitReady(url string, tries int, interval time.Duration) bool {
 	// tries×interval 이 상한이다 (M8 D-A-15) — 세는 것은 횟수가 아니라 시간이다.
 	return pollwait.Until(context.Background(), time.Duration(tries)*interval, interval,
-		func() bool { return ping(url+"/api/ping", time.Second) }) == nil
+		func() bool { return ping(url+"/api/ping", readyPingTimeout) }) == nil
 }
 
 // withEnv는 base 에서 kv 의 키와 drop 의 키를 걷어내고 kv 의 새 값을 붙인다

@@ -122,18 +122,22 @@ func dialOrStartDaemon(home string) *toolclient.ToolClient {
 	return nil
 }
 
+// daemonSubcommand 는 데몬 진입점의 인자다 — startDaemon 이 띄우고 main 이 알아본다.
+// 내부 진입점이므로 액션 목록에 없다 (FR-CLI-8).
+const daemonSubcommand = "d"
+
 // startDaemon spawns dongminald as a fully detached child process.
 func startDaemon(home string) error {
 	exe, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(exe, "d")
-	cmd.Env = append(os.Environ(), "DONGMINAL_HOME="+home)
+	cmd := exec.Command(exe, daemonSubcommand)
+	cmd.Env = append(os.Environ(), dmenv.EnvHome+"="+home)
 	// Detach from parent: dongminald survives dongminal restart.
 	platform.Current().Process.Detach(cmd)
 	// Redirect output to log file so terminal stays clean.
-	logPath := filepath.Join(home, "daemon.log")
+	logPath := filepath.Join(home, dmenv.DaemonLogFile)
 	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
 	if err == nil {
 		cmd.Stdout = logFile
@@ -297,7 +301,7 @@ func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub, gitRoot conte
 // 쓰기·사후 단계·완료 처리가 모두 이것에서 파생한다. 종료가 취소한다.
 func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.CommandHub, attnTracker *hub.AttnTracker, gitRoot context.Context) (builtDeps, error) {
 
-	wsMgr, err := workspace.New(toolHub, workspace.FilePersister{Path: filepath.Join(cfg.DataDir, "workspace.json")})
+	wsMgr, err := workspace.New(toolHub, workspace.FilePersister{Path: filepath.Join(cfg.DataDir, dmenv.WorkspaceFile)})
 	if err != nil {
 		return builtDeps{}, err
 	}
@@ -339,13 +343,13 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 	// worktree 격리의 관리자 (묶음 W). 자기 영역은 $DONGMINAL_HOME/worktrees
 	// 아래뿐이고, 정리 대상은 Run 레코드가 정한다 (FR-WKT-9/10). 격리를 쓰지
 	// 않는 Run 은 이 객체를 건드리지 않는다.
-	worktrees := worktree.New(filepath.Join(cfg.DataDir, "worktrees"), worktree.WithService(gitSvc))
+	worktrees := worktree.New(filepath.Join(cfg.DataDir, dmenv.WorktreesDir), worktree.WithService(gitSvc))
 
 	// Git 창 Worktrees 탭의 사용자 worktree 관리자 (FR-WKT-13) — 위 worktrees 와는
 	// 별개의 Manager 인스턴스이며 root 만 형제(git-worktrees)다. checkPath 가 서로의
 	// root 밖을 거부하므로 이 둘이 갈라진 것만으로 Run 정리가 사용자 worktree 를
 	// 건드리지 않는다는 것이 구조적으로 보장된다 — 그 사실이 I7 안전의 전부다.
-	userWorktrees := worktree.New(filepath.Join(cfg.DataDir, "git-worktrees"), worktree.WithService(gitSvc))
+	userWorktrees := worktree.New(filepath.Join(cfg.DataDir, dmenv.GitWorktreesDir), worktree.WithService(gitSvc))
 
 	// 상태바 지표 샘플러. 커널을 주기적으로 읽어 스냅샷을 유지하므로 /api/stats 가
 	// 요청 경로에서 커널을 호출하지 않는다 (SYSTEM_STATS_SRS FR-STAT-8/9/11).
@@ -362,13 +366,13 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 	// 무엇이 있는지는 **플러그인 선언**이 정한다 (FR-EXT-1). 여기서 하는 일은
 	// 동봉 선언을 한 번 펴 두는 것뿐이며(FR-EXT-34), 서버도 런타임도 받지 않는다 —
 	// 그것은 사용자가 눌러야 일어난다 (FR-EXT-16).
-	extSvc := ext.NewService(filepath.Join(cfg.DataDir, "ext"))
+	extSvc := ext.NewService(filepath.Join(cfg.DataDir, ext.DirName))
 	for _, err := range extSvc.Deploy() {
 		dmlog.Warnf(nil, "플러그인 선언을 펴지 못했습니다: %v", err)
 	}
 	lspSvc := lsp.NewService(extSvc)
 	// REPO_FIX 02 §3A-3: 실행 파일 경로 표는 서버가 보관한다 — 설정 ▸ Code 가 편집한다.
-	if err := lspSvc.LoadPaths(filepath.Join(cfg.DataDir, "lsp-paths.json")); err != nil {
+	if err := lspSvc.LoadPaths(filepath.Join(cfg.DataDir, dmenv.LSPPathsFile)); err != nil {
 		dmlog.Warnf(nil, "LSP 경로 표를 읽지 못했습니다: %v", err)
 	}
 	// FR-LSP-32: 진단은 **요청 없이** 오므로 이미 있는 push 길로 밀어낸다 (D-2).
@@ -428,7 +432,7 @@ func main() {
 	// 이 `exe d` 로 자식을 띄우는 계약을 유지한다.
 	// argv[0] 은 확장자를 떼고 본다 — Windows 의 실행 파일은 `dongminald.exe` 다
 	// (`runtimebin.helperName` 과 같은 근거).
-	if (len(os.Args) > 1 && os.Args[1] == "d") || runtimebin.HelperName(os.Args[0]) == "dongminald" {
+	if (len(os.Args) > 1 && os.Args[1] == daemonSubcommand) || runtimebin.HelperName(os.Args[0]) == "dongminald" {
 		home, err := resolveHome()
 		if err != nil {
 			dmlog.Errorf(nil, "%v", err)

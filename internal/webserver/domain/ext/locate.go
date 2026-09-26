@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 )
 
@@ -20,7 +21,7 @@ const (
 //
 // 배선이 이 문자열을 따로 적으면 두 자리가 되고, 한쪽만 고쳐졌을 때 탐색기가 보는
 // 곳과 조달이 쓰는 곳이 갈린다.
-const DirName = "ext"
+const DirName = dmenv.ExtDir
 
 // RootIn 은 데이터 디렉터리 아래 격리 칸이다.
 func RootIn(dataDir string) string { return filepath.Join(dataDir, DirName) }

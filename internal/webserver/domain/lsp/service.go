@@ -242,5 +242,8 @@ func (s *Service) exeKeyLocked(descID string) string {
 	if p := s.paths[descID]; p != "" {
 		return p
 	}
-	return "default"
+	return defaultExeKey
 }
+
+// defaultExeKey 는 경로 표에 그 서술자의 경로가 없을 때의 exe 키다.
+const defaultExeKey = "default"

@@ -42,7 +42,7 @@ type ContextPolicy struct {
 
 // DefaultContextPolicy 는 SRS §3.3.1 이 적은 기본값이다.
 func DefaultContextPolicy() ContextPolicy {
-	return ContextPolicy{BytesPerToken: 3.6, LimitTokens: 200000, WarnRatio: 0.70, CriticalRatio: 0.85}
+	return ContextPolicy{BytesPerToken: 3.6, LimitTokens: DefaultWindowTokens, WarnRatio: 0.70, CriticalRatio: 0.85}
 }
 
 // withDefaults 는 빠지거나 무의미한 값을 기본값으로 되돌린다. 설정 파일 한 줄의

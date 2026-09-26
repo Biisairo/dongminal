@@ -25,6 +25,9 @@ func DefaultHelperDeps(home, version string) HelperDeps {
 	}
 }
 
+// helperFetchTimeout 은 릴리스 자산 하나를 받는 요청의 상한이다.
+const helperFetchTimeout = 5 * time.Minute
+
 // fetchHelper 는 릴리스 자산을 내려받아 실행 가능하게 놓는다.
 //
 // 임시 파일에 받아 두었다가 옮기는 것은, 받다 만 파일이 캐시에 남으면 다음
@@ -33,7 +36,7 @@ func fetchHelper(url, dest string) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
 	}
-	client := &http.Client{Timeout: 5 * time.Minute}
+	client := &http.Client{Timeout: helperFetchTimeout}
 	resp, err := client.Get(url)
 	if err != nil {
 		return err

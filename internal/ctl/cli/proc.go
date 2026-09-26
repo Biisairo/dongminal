@@ -14,11 +14,12 @@ import (
 	"strings"
 	"time"
 
+	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/platform"
 )
 
 const (
-	daemonPIDFile  = "paned.pid"
+	daemonPIDFile  = dmenv.PanedPIDFile
 	daemonSockFile = platform.SocketFileName
 )
 
