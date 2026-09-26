@@ -449,13 +449,6 @@ func (s *Server) apiRunHandoff(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSONBody(w, r, &body) {
 		return
 	}
-	// FR-OPT-8-3 (HTTP-3): 열린 Run 이 없으면 멤버도 조정자도 없다 — PID 사슬 해석
-	// (darwin 에서 lsof·ps fork)을 건너뛴다. 해석 우선 규약(스푸핑 방지)은 앉을
-	// 자리가 있을 때만 의미가 있다.
-	if !s.Runs.HasOpen() {
-		writeJSON(w, map[string]any{"observed": false})
-		return
-	}
 	sender := s.callerToolID(r, body.ToolID)
 	m, err := s.Runs.Handoff(sender, body.MemberID, body.Summary)
 	if err != nil {

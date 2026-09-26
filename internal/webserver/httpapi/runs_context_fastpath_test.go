@@ -56,3 +56,22 @@ func TestRunContext_NoOpenRunSkipsCallerResolution(t *testing.T) {
 		t.Fatalf("닫힌 Run 만 남았는데 PID 해석을 했다: %d", got)
 	}
 }
+
+// 빠른 경로는 관측 훅(/api/runs/context) 한 곳의 것이다. 인수인계 요약 제출은 명령이라
+// 열린 Run 이 없을 때도 종전의 거절(빈 요약 400, 비멤버·닫힌 Run 오류)을 낸다 —
+// 200 {"observed":false} 로 답하면 `dmctl run handoff` 가 실패를 성공으로 읽는다.
+func TestRunHandoff_NoOpenRunStillRejects(t *testing.T) {
+	s, _, _, _ := runsServer(t, "tool-a")
+
+	code, out := postRun(t, s, "/api/runs/handoff", `{"toolId":"tool-a","summary":""}`)
+	if code != 400 {
+		t.Fatalf("빈 요약: code=%d out=%v, want 400", code, out)
+	}
+	code, out = postRun(t, s, "/api/runs/handoff", `{"toolId":"tool-a","summary":"요약"}`)
+	if code == 200 {
+		t.Fatalf("열린 Run 이 없는데 인수인계가 200 이다: out=%v", out)
+	}
+	if _, ok := out["observed"]; ok {
+		t.Fatalf("인수인계 응답에 관측 필드가 섞였다: %v", out)
+	}
+}
