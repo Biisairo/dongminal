@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // NOTES_LIVE_EXPLORER_SRS 묶음 N 의 서버측 (V-1·V-2·V-3·V-5).
@@ -69,7 +71,7 @@ func TestNotes_UnavailableWithoutDir(t *testing.T) {
 		t.Fatal(err)
 	}
 	s, w, _ := newTestStore(t, home)
-	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":["/x"]}}`)
+	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":[` + testpath.JSONQuote(absX) + `]}}`)
 
 	if _, err := s.Notes(); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("Notes err=%v, want ErrUnavailable", err)
@@ -78,7 +80,7 @@ func TestNotes_UnavailableWithoutDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Roots: %v", err)
 	}
-	if want := []string{NormalizePath(home), "/x"}; !reflect.DeepEqual(roots, want) {
+	if want := []string{NormalizePath(home), absX}; !reflect.DeepEqual(roots, want) {
 		t.Fatalf("Roots()=%v, want %v", roots, want)
 	}
 }
@@ -94,13 +96,14 @@ func TestRoots_IncludesNotesAfterHome(t *testing.T) {
 	}
 	s, w, _ := newTestStore(t, home)
 	s.NotesDir = notes
-	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":["/x","/y"]}}`)
+	absY := testpath.Abs("y")
+	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":[` + testpath.JSONQuote(absX) + `,` + testpath.JSONQuote(absY) + `]}}`)
 
 	roots, err := s.Roots()
 	if err != nil {
 		t.Fatalf("Roots: %v", err)
 	}
-	want := []string{NormalizePath(home), NormalizePath(notes), "/x", "/y"}
+	want := []string{NormalizePath(home), NormalizePath(notes), absX, absY}
 	if !reflect.DeepEqual(roots, want) {
 		t.Fatalf("Roots()=%v, want %v", roots, want)
 	}

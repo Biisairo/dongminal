@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // OPTIMIZE_REFACTOR_SRS FR-OPT-8-2 (DOM-25) — Roots 는 파일 API 요청마다 불린다. workspace
@@ -23,7 +25,7 @@ func TestRoots_MemoizedByWorkspaceRev(t *testing.T) {
 		t.Fatal(err)
 	}
 	s, w, _ := newTestStore(t, home)
-	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":["` + link + `"]}}`)
+	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":[` + testpath.JSONQuote(link) + `]}}`)
 	w.rev = 1
 
 	got, err := s.Roots()
@@ -37,19 +39,20 @@ func TestRoots_MemoizedByWorkspaceRev(t *testing.T) {
 	}
 
 	// 같은 rev 에서 바이트만 바뀐 것은 보지 않는다 — 기억은 rev 로 무효화된다.
-	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":["/elsewhere"]}}`)
+	elsewhere := testpath.Abs("elsewhere")
+	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":[` + testpath.JSONQuote(elsewhere) + `]}}`)
 	if again, _ := s.Roots(); !reflect.DeepEqual(again, want) {
 		t.Fatalf("같은 rev 에서 다시 파싱했다: %v", again)
 	}
 	// 받은 쪽이 고쳐도 기억이 오염되지 않는다.
-	got[0] = "/mutated"
+	got[0] = testpath.Abs("mutated")
 	if again, _ := s.Roots(); again[0] != NormalizePath(home) {
 		t.Fatalf("Roots 가 기억을 그대로 내준다: %v", again)
 	}
 
 	// 무효화 조건: rev.
 	w.rev = 2
-	if again, _ := s.Roots(); !reflect.DeepEqual(again, []string{NormalizePath(home), "/elsewhere"}) {
+	if again, _ := s.Roots(); !reflect.DeepEqual(again, []string{NormalizePath(home), elsewhere}) {
 		t.Fatalf("rev 가 바뀌었는데 옛 목록이다: %v", again)
 	}
 }
@@ -100,7 +103,7 @@ func TestRoots_NormalizesAtCallTime(t *testing.T) {
 	}
 	s, w, _ := newTestStore(t, home)
 	later := filepath.Join(link, "later")
-	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":["` + later + `"]}}`)
+	w.raw = []byte(`{"schemaVersion":2,"editors":{"list":[` + testpath.JSONQuote(later) + `]}}`)
 	w.rev = 1
 	if _, err := s.Roots(); err != nil {
 		t.Fatal(err)
