@@ -24,6 +24,7 @@ import (
 	"dongminal/internal/webserver/domain/wsentry"
 
 	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/pollwait"
 	"dongminal/internal/webserver/domain/git/core"
 )
 
@@ -150,6 +151,9 @@ type Server struct {
 	// waitInFlight 는 지금 붙잡힌 활동 대기 수다 (FR-STA-9). 서버 하나의 것이다
 	// (OPTIMIZE_REFACTOR_SRS FR-OPT-8-6 · HTTP-9).
 	waitInFlight atomic.Int64
+	// activityChanged 는 활동 보고의 알림이다 — 활동 대기가 이것과 마감 시각에만
+	// 재평가한다 (OPTIMIZE_REFACTOR_SRS FR-OPT-16-3).
+	activityChanged pollwait.Signal
 }
 
 // serverLimits 는 서버 하나의 상한·유예다. const 가 아닌 것은 테스트가 낮춰

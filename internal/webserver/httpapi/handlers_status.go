@@ -6,14 +6,17 @@
 // 여기서 두 엔드포인트로 그 경로를 연다 — 조회(get)와 대기(wait).
 //
 // 대기는 서버가 붙잡는다 (FR-STA-3). 클라이언트가 sleep 루프를 돌지 않게 하는 것이
-// 목적이며, 서버 내부는 짧은 주기로 재평가한다 — 정적 판정(FR-STA-4 3단계)은 이벤트가
-// 아니라 "마지막 출력 이후 경과 시간"이라 시간축 재평가가 원리적으로 필요하다.
+// 목적이며, 서버 내부는 활동 보고의 알림과 판정이 바뀔 수 있는 가장 이른 시각에만
+// 재평가한다 (OPTIMIZE_REFACTOR_SRS FR-OPT-16-3) — 정적 판정(FR-STA-4 3단계)은 이벤트가
+// 아니라 "마지막 출력 이후 경과 시간"이라 그 마감(마지막 출력 + 3 s)이 시각의 하나다.
 package httpapi
 
 import (
+	"dongminal/internal/shared/pollwait"
 	"dongminal/internal/shared/runwait"
 	"dongminal/internal/shared/toolhub"
 
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -34,11 +37,10 @@ const (
 	waitMaxTimeoutMS     = int64(runwait.ActivityWaitMax / time.Millisecond)
 	waitMinTimeoutMS     = 100
 
-	// 상태 재평가는 메모리 읽기라 촘촘해도 싸다.
-	waitPollInterval = 100 * time.Millisecond
-	// liveness 는 daemon 모드에서 데몬 RPC 다 (toolclient.ToolClient.Get → list). 매 tick
-	// 확인하면 30분 대기가 RPC 수만 건이 된다 — L2 idle 스위퍼와 같은 1초 주기로
-	// 낮춘다 (NFR-RUN-4).
+	// liveness 는 daemon 모드에서 데몬 RPC 다 (toolclient.ToolClient.Get → list). 매
+	// 재평가마다 확인하면 30분 대기가 RPC 수만 건이 된다 — L2 idle 스위퍼와 같은 1초
+	// 주기로 낮춘다 (NFR-RUN-4). 이 주기는 알림 밖의 변화(보고를 지나지 않은 활동
+	// 변화·종료)를 줍는 안전망이기도 하다.
 	waitLivenessInterval = 1 * time.Second
 )
 
@@ -222,33 +224,45 @@ func (s *Server) apiToolStatusWait(w http.ResponseWriter, r *http.Request) {
 	}
 
 	start := time.Now()
-	deadline := start.Add(time.Duration(timeoutMS) * time.Millisecond)
-	ticker := time.NewTicker(waitPollInterval)
-	defer ticker.Stop()
-	// 폴백 적용 여부는 대기 중에 바뀌지 않는다 — 루프 밖에서 한 번만 정한다.
+	// 폴백 적용 여부는 대기 중에 바뀌지 않는다 — 한 번만 정한다.
 	allowQuiescence := s.quiescenceAllowed(toolID)
 	// resolveToolID 가 방금 liveness 를 증명했다.
-	live, liveCheckedAt := true, time.Now()
-	for {
-		if time.Since(liveCheckedAt) >= waitLivenessInterval {
-			live, liveCheckedAt = s.toolLive(toolID), time.Now()
-		}
-		st := s.toolStatusOf(toolID, live)
-		if status, reason, settled := evaluateWait(cond, st, allowQuiescence); settled {
-			writeWaitResult(w, st, status, reason, start, timeoutMS)
-			return
-		}
-		if !time.Now().Before(deadline) {
-			writeWaitResult(w, st, "timeout", "", start, timeoutMS)
-			return
-		}
-		select {
-		case <-r.Context().Done():
-			// 호출자가 끊었다. 응답할 상대가 없다.
-			return
-		case <-ticker.C:
+	live, liveCheckedAt := true, start
+	var st toolStatus
+	var status, reason string
+	err := pollwait.OnOrAt(r.Context(), time.Duration(timeoutMS)*time.Millisecond, s.activityChanged.C,
+		func(now time.Time) (bool, time.Time) {
+			if now.Sub(liveCheckedAt) >= waitLivenessInterval {
+				live, liveCheckedAt = s.toolLive(toolID), now
+			}
+			st = s.toolStatusOf(toolID, live)
+			var settled bool
+			if status, reason, settled = evaluateWait(cond, st, allowQuiescence); settled {
+				return true, time.Time{}
+			}
+			return false, nextWaitEval(cond, st, allowQuiescence, liveCheckedAt)
+		})
+	switch {
+	case err == nil:
+		writeWaitResult(w, st, status, reason, start, timeoutMS)
+	case errors.Is(err, pollwait.ErrTimeout):
+		writeWaitResult(w, st, "timeout", "", start, timeoutMS)
+	}
+	// 그 밖은 호출자가 끊은 것이다. 응답할 상대가 없다.
+}
+
+// nextWaitEval 은 알림 없이 판정이 바뀔 수 있는 가장 이른 시각이다 — 다음 liveness
+// 확인, 그리고 정적 폴백이 걸린 도구면 "마지막 출력 + readyQuietMS". 첫 출력은
+// 알림이 없으므로 liveness 확인에서 줍는다 (그 주기가 readyQuietMS 보다 짧아 마감은
+// 늦지 않는다).
+func nextWaitEval(cond string, st toolStatus, allowQuiescence bool, liveCheckedAt time.Time) time.Time {
+	next := liveCheckedAt.Add(waitLivenessInterval)
+	if allowQuiescence && cond == "ready" && st.State == activityStateUnknown && st.LastOutputAt > 0 {
+		if quiet := time.Unix(0, st.LastOutputAt).Add(readyQuietMS * time.Millisecond); quiet.Before(next) {
+			next = quiet
 		}
 	}
+	return next
 }
 
 func writeWaitResult(w http.ResponseWriter, st toolStatus, status, reason string, start time.Time, timeoutMS int64) {

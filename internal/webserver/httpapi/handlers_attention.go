@@ -168,6 +168,7 @@ func (s *Server) reportActivity(toolID, state, tool, detail string, userPrompt, 
 	tool = hub.SanitizeActivityField(tool, hub.ActivityToolMax)
 	detail = hub.SanitizeActivityField(detail, hub.ActivityDetailMax)
 	s.attention().ReportActivity(toolID, state, tool, detail, userPrompt, turnKnown)
+	s.activityChanged.Notify()
 }
 
 // backgroundRow is a background tool plus its Run membership, when it has one
