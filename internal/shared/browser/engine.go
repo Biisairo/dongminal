@@ -487,11 +487,13 @@ func (b *profileBrowser) adoptForeign(ti targetInfo) {
 		of.mu.Lock()
 		title := of.st.Title
 		of.mu.Unlock()
-		pg.st.Title = "DevTools · " + title
+		name := "DevTools · " + title
+		pg.st.Title = name
+		// 등록하면 이벤트 작업자가 이 페이지를 만진다 — 그 뒤로는 pg.st 를 잠금 없이 읽지 않는다.
 		b.register(pg)
 		b.bind(pg, session)
 		b.m.emitInfo(EvCreated, pg.tab, Created{URL: ti.URL, Profile: b.profile, Opener: of.tab, DevtoolsOf: of.tab,
-			Name: pg.st.Title, Tool: of.tool})
+			Name: name, Tool: of.tool})
 		return
 	}
 	b.register(pg)

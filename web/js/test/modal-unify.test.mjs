@@ -104,3 +104,33 @@ test('겹친 UIKit.modal 의 Escape 는 가장 안쪽만 닫는다', () => {
   press();
   assert.deepEqual(closed, ['inner', 'outer']);
 });
+
+/**
+ * dialogOpen 은 기본 포커스를 **다음 프레임**에 준다. 그 사이 사용자가 창 안의 다른 것으로
+ * 옮겼으면 덮지 않는다 — 느린 기기에서 취소로 옮긴 포커스가 실행으로 되돌아갔다(CI 실측, J6).
+ */
+test('dialogOpen 의 늦은 기본 포커스는 창 안으로 옮긴 포커스를 덮지 않는다', () => {
+  let frame = null;
+  const TIMERS = { frame(fn) { frame = fn } };
+  const node = (name) => ({ name, isConnected: true, focus() { document.activeElement = this } });
+  const go = node('go'), cancel = node('cancel');
+  const box = {
+    attrs: {}, isConnected: true,
+    setAttribute(k, v) { this.attrs[k] = v }, hasAttribute(k) { return k in this.attrs },
+    querySelector: () => null, querySelectorAll: () => [go, cancel],
+    contains(n) { return n === go || n === cancel || n === this },
+    focus() { document.activeElement = this },
+  };
+  const document = { activeElement: null, addEventListener() {}, removeEventListener() {} };
+  const ctx = load(['ui/ui-kit.js'], { expose: ['UIKit'], globals: { document, TIMERS } });
+
+  ctx.UIKit.dialogOpen(box, { focus: go });
+  cancel.focus();
+  frame();
+  assert.equal(document.activeElement, cancel, '옮긴 포커스를 기본 포커스가 덮었다');
+
+  document.activeElement = null;
+  ctx.UIKit.dialogOpen(box, { focus: go });
+  frame();
+  assert.equal(document.activeElement, go, '창 밖에 있으면 기본 포커스를 준다');
+});

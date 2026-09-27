@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"dongminal/internal/shared/platform"
 )
 
 // TC-BRT-35: 렌더러가 죽으면 상태가 crashed 가 된다 — 뷰어가 "페이지가 멈췄습니다" 와 새로고침을 띄운다.
@@ -17,9 +19,30 @@ func TestRealCrashState(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitEval(t, m, "t", `document.title`, `"hello"`)
-	// Page.crash 는 Linux headless 에서 렌더러를 죽이지 않았다(CI 실측) — Puppeteer 처럼
-	// chrome://crash 로 이동해 죽인다. 매니저의 이동(nav)은 이 scheme 을 거절하므로 CDP 로 간다.
-	go m.Do(ctx, "cdp", mustJSON(map[string]any{"tab": "t", "method": "Page.navigate", "params": map[string]any{"url": "chrome://crash"}}))
+	// 렌더러 프로세스를 죽인다 — 실제 크래시(OOM·강제 종료)와 같은 모양이다. Page.crash 와
+	// chrome://crash 는 Linux headless 에서 렌더러를 죽이지 않았다(CI 실측).
+	res, err := browserOf(m, DefaultProfile).cl.Call(ctx, "", "SystemInfo.getProcessInfo", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pi struct {
+		ProcessInfo []struct {
+			Type string `json:"type"`
+			ID   int    `json:"id"`
+		} `json:"processInfo"`
+	}
+	json.Unmarshal(res, &pi)
+	killed := 0
+	for _, p := range pi.ProcessInfo {
+		if p.Type == "renderer" && p.ID > 0 {
+			if platform.Current().Process.Kill(p.ID) == nil {
+				killed++
+			}
+		}
+	}
+	if killed == 0 {
+		t.Fatalf("렌더러를 찾지 못했다: %s", res)
+	}
 	r.wait(t, 10*time.Second, func(e Event) bool {
 		var st TabState
 		json.Unmarshal(e.Info, &st)

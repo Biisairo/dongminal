@@ -43,7 +43,7 @@ addEventListener('load',()=>rep('width',innerWidth));addEventListener('resize',(
     if (u.pathname === '/confirm') { res.end(page(`<button id=close onclick="rep('confirm',String(confirm('go?')))">ask</button>`)); return }
     if (u.pathname === '/file.bin') { res.setHeader('Content-Type', 'application/octet-stream'); res.setHeader('Content-Disposition', 'attachment; filename="file.bin"'); res.end('abc'); return }
     if (u.pathname === '/other') { res.end(page('<h1>other</h1><button id=close onclick="window.close()">close</button>')); return }
-    res.end(page(`<input id=i oninput="rep('value',this.value)">
+    res.end(page(`<input id=i oninput="rep('value',this.value)" onfocus="rep('focus','i')">
 <a id=blank href="/other" target="_blank">new tab</a>
 <button id=close onclick="window.close()">close</button>`));
   });
@@ -403,6 +403,8 @@ test.describe('BROWSER_TAB — 브라우저 탭', () => {
     await openTab(request, { url: site.url + '/', tool: await focusedTool(page), split: 'right', focus: true });
     await waitReport(site, 'width', () => true);
     await clickPage(page, 100, 40);
+    // 페이지 입력란에 포커스가 선 뒤에 붙인다 — 클릭 직후 붙이면 글이 갈 곳이 아직 없다.
+    await waitReport(site, 'focus', (v) => v === 'i');
     await page.evaluate(() => {
       const v = [...(window as any).app.testing.brvViews.values()].find((x: any) => x.visible);
       const dt = new DataTransfer();

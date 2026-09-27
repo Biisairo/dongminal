@@ -110,10 +110,15 @@ class BrowserView{
     const ws=new WebSocket(proto+'//'+location.host+BROWSER_API.stream+'?'+q.toString());
     ws.binaryType='arraybuffer';
     ws.onmessage=ev=>this._onMessage(ev);
-    ws.onopen=()=>{this._lastVp='';this._sendViewport(true);if(this.zoom!==1) this._send({op:'zoom',zoom:this.zoom});this._audioStart()};
+    ws.onopen=()=>{
+      this._lastVp='';this._sendViewport(true);if(this.zoom!==1) this._send({op:'zoom',zoom:this.zoom});
+      const q=this._outbox;this._outbox=null;
+      if(q) for(const m of q) this._send(m);
+      this._audioStart();
+    };
     ws.onclose=()=>{
       if(this.ws!==ws) return;
-      this.ws=null;
+      this.ws=null;this._outbox=null;
       // 보이는 동안 끊겼으면 다시 붙는다 — 서버 재시작·네트워크 끊김.
       if(this.visible) TIMERS.after(1000,()=>{if(this.visible&&!this.ws) this._connect()},{owner:this,label:'brv-reconnect'});
     };
@@ -121,13 +126,20 @@ class BrowserView{
   }
 
   _disconnect(){
+    this._outbox=null;
     this._audioStop(true);
     const ws=this.ws;this.ws=null;
     if(ws){try{ws.close()}catch{}}
   }
 
+  /**
+   * 열려 있으면 보내고, 여는 중이면 모았다가 열리면 보낸다 — 탭이 뜨자마자 누른 메뉴(고정 크기
+   * 등)가 조용히 사라졌다(CI 실측). 끊겨 있으면 버린다: 다시 붙으면 상태를 새로 받는다.
+   */
   _send(m){
-    if(this.ws&&this.ws.readyState===1) this.ws.send(JSON.stringify(m));
+    const ws=this.ws;
+    if(ws&&ws.readyState===1){ws.send(JSON.stringify(m));return}
+    if(ws&&ws.readyState===0&&(this._outbox||(this._outbox=[])).length<BRV_OUTBOX_MAX) this._outbox.push(m);
   }
 
   // ── 받기 ──
