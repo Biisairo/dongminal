@@ -236,3 +236,22 @@ func TestClampQuality(t *testing.T) {
 		}
 	}
 }
+
+// TC-BRT-90 (FR-BRT-97): Chrome 로그인의 확인 창만 페이지로 받는다.
+func TestSigninDialogURL(t *testing.T) {
+	for u, want := range map[string]bool{
+		"chrome://managed-user-profile-notice/":          true,
+		"chrome://sync-confirmation/":                    true,
+		"chrome://signin-dice-web-intercept.top-chrome/": true,
+		"chrome://enterprise-profile-welcome/?x=1":       true,
+		"chrome://signin-error/":                         true,
+		"chrome://omnibox-popup.top-chrome/":             false,
+		"chrome://settings/":                             false,
+		"https://accounts.google.com/signin/chrome/sync": false,
+		"chrome://sync-confirmation-evil.example/":       false,
+	} {
+		if got := isSigninDialog(u); got != want {
+			t.Errorf("isSigninDialog(%q) = %v, want %v", u, got, want)
+		}
+	}
+}

@@ -335,10 +335,52 @@ func (b *profileBrowser) recentModClicker(ctxID string) *page {
 	return nil
 }
 
+// lastInputPage 는 그 컨텍스트에서 가장 최근에 입력을 받은 탭이다. 없으면 nil (FR-BRT-33a).
+func (b *profileBrowser) lastInputPage(ctxID string) *page {
+	b.mu.Lock()
+	pages := make([]*page, 0, len(b.pages))
+	for _, pg := range b.pages {
+		if pg.context == ctxID || (pg.context == "" && ctxID == b.defaultCtx) {
+			pages = append(pages, pg)
+		}
+	}
+	b.mu.Unlock()
+	var best *page
+	var at time.Time
+	for _, pg := range pages {
+		pg.mu.Lock()
+		t := pg.lastInput
+		pg.mu.Unlock()
+		if t.After(at) {
+			best, at = pg, t
+		}
+	}
+	return best
+}
+
 func (b *profileBrowser) byTarget(id string) *page {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.pages[id]
+}
+
+// signinDialogs 는 Chrome 로그인 흐름의 확인 창 WebUI 호스트다 (FR-BRT-97).
+var signinDialogs = []string{"managed-user-profile-notice", "sync-confirmation", "signin-dice-web-intercept",
+	"enterprise-profile-welcome", "signin-error"}
+
+func isSigninDialog(u string) bool {
+	rest, ok := strings.CutPrefix(u, "chrome://")
+	if !ok {
+		return false
+	}
+	host, _, _ := strings.Cut(rest, "/")
+	host = strings.TrimSuffix(host, ".top-chrome")
+	for _, h := range signinDialogs {
+		if host == h {
+			return true
+		}
+	}
+	return false
 }
 
 // onAttached 는 새로 붙은 target 하나를 다룬다. page 가 아니면 풀어 주기만 한다.
@@ -346,6 +388,12 @@ func (b *profileBrowser) onAttached(session string, ti targetInfo, waiting bool)
 	// DevTools 페이지는 Chrome 153 에서 type "other" 로 온다(실측) — 페이지로 다룬다.
 	if ti.Type == "other" && strings.HasPrefix(ti.URL, "devtools://") {
 		ti.Type = "page"
+	}
+	// FR-BRT-97: 로그인의 확인 창은 창이 없는 headless 에서 탭이 되어야 보인다.
+	if isSigninDialog(ti.URL) {
+		ti.Type = "page"
+	} else if ti.Type != "page" && strings.HasPrefix(ti.URL, "chrome://") {
+		dmlog.Infof(nil, "[browser] 페이지로 받지 않는 target %s %s", ti.Type, ti.URL)
 	}
 	b.mu.Lock()
 	probe := ti.BrowserContextID != "" && ti.BrowserContextID == b.probeCtx
@@ -515,9 +563,17 @@ func (b *profileBrowser) adoptForeign(ti targetInfo) {
 			Name: name, Tool: of.tool})
 		return
 	}
+	c := Created{URL: ti.URL, Profile: b.profile, Isolated: pg.isolated, Background: true, Tool: tool}
+	// FR-BRT-33a: 외부 도구가 아니면 Chrome 이 연 것이다 — 최근에 입력받은 탭이 연 것으로 본다.
+	if tool == "" {
+		if o := b.lastInputPage(ti.BrowserContextID); o != nil {
+			c.Opener, c.Background, c.Tool = o.tab, false, o.tool
+			pg.tool = o.tool
+		}
+	}
 	b.register(pg)
 	b.bind(pg, session)
-	b.m.emitInfo(EvCreated, pg.tab, Created{URL: ti.URL, Profile: b.profile, Isolated: pg.isolated, Background: true, Tool: tool})
+	b.m.emitInfo(EvCreated, pg.tab, c)
 }
 
 func (b *profileBrowser) isTempContext(id string) bool {

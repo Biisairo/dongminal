@@ -58,6 +58,8 @@ type page struct {
 	zoom  float64
 	// quality 는 screencast JPEG 품질이다 — 0 이면 QualityMax (FR-BRT-95).
 	quality int
+	// lastInput 은 이 탭이 마지막으로 입력을 받은 때다 (FR-BRT-33a).
+	lastInput time.Time
 	// acts 는 2단계 상태(ref·기록)다 (act.go). fids 는 3단계(대화상자·파일 선택)다.
 	acts *actState
 	fids *fidelityState
@@ -558,6 +560,9 @@ func (pg *page) setZoom(ctx context.Context, z float64) error {
 // enqueueInput 은 입력을 줄에 세우고 곧바로 돌아온다. 데몬은 입력을 읽기 루프 안에서
 // 부르므로 순서가 지켜지고, 느린 렌더러가 다른 탭의 조작을 막지 않는다.
 func (pg *page) enqueueInput(params json.RawMessage) error {
+	pg.mu.Lock()
+	pg.lastInput = time.Now()
+	pg.mu.Unlock()
 	pg.inOnce.Do(func() {
 		pg.inq = make(chan json.RawMessage, 512)
 		go pg.inputLoop()

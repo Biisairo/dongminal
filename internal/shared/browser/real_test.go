@@ -461,3 +461,37 @@ func TestRealNavSignin(t *testing.T) {
 	// 설정은 shadow DOM 이다 — 안으로 내려가며 찾는다.
 	waitEval(t, m, "t", `(()=>{const f=n=>{if(!n)return false;if(n.id==='signIn')return true;if(n.shadowRoot&&f(n.shadowRoot))return true;for(const c of n.children||[])if(f(c))return true;return false};return f(document.documentElement)})()`, `true`)
 }
+
+// TC-BRT-91 (FR-BRT-33a): Chrome 이 연(opener 없는) 페이지는 최근에 입력받은 탭 옆에 앞으로 연다.
+func TestRealBrowserOpenedFollowsLastInput(t *testing.T) {
+	m, r := realManager(t)
+	site := testSite(t)
+	ctx := context.Background()
+	for _, tab := range []string{"a", "b"} {
+		if err := m.Open(ctx, OpenReq{Tab: tab, URL: site.URL + "/"}); err != nil {
+			t.Fatal(err)
+		}
+		waitEval(t, m, tab, `document.title`, `"hello"`)
+	}
+	created := func(path string) Created {
+		if _, err := browserOf(m, DefaultProfile).cl.Call(ctx, "", "Target.createTarget", map[string]any{"url": site.URL + path}); err != nil {
+			t.Fatal(err)
+		}
+		e := r.wait(t, 15*time.Second, func(e Event) bool {
+			var c Created
+			return e.Kind == EvCreated && json.Unmarshal(e.Info, &c) == nil && strings.HasSuffix(c.URL, path)
+		})
+		var c Created
+		json.Unmarshal(e.Info, &c)
+		return c
+	}
+	if c := created("/other?none"); c.Opener != "" || !c.Background {
+		t.Fatalf("입력 전: %+v", c)
+	}
+	if _, err := m.Call(ctx, "input", map[string]any{"tab": "a", "t": "mouse", "type": "mouseMoved", "x": 5, "y": 5}); err != nil {
+		t.Fatal(err)
+	}
+	if c := created("/other?after"); c.Opener != "a" || c.Background {
+		t.Fatalf("a 에 입력한 뒤: %+v", c)
+	}
+}

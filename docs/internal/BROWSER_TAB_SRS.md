@@ -281,6 +281,17 @@ DevTools 페이지는 FR-BRT-84 로만 탭이 된다.
 포커스는 Chrome 관례를 따른다 — 일반 클릭·`window.open` 은 앞으로, Ctrl/⌘/가운데 클릭은 뒤에.
 판별 근거는 `Target.targetCreated` 의 `openerId` 다.
 
+**FR-BRT-33a (Chrome 이 연 페이지)** opener 가 없고 외부 도구(CDP 프록시)가 연 것도 아닌 새 페이지 —
+Chrome 자신이 연 것(설정의 로그인 버튼이 연 로그인 페이지, 확장의 설치 안내 등) — 는 같은 컨텍스트에서
+**가장 최근에 입력을 받은 탭**을 연 탭으로 보고 FR-BRT-33 처럼 그 칸, 그 뒤에 앞으로 연다. 입력받은 탭이
+없으면 종전대로 둔다(뒤에, 여는 위치 설정).
+
+**FR-BRT-97 (Chrome 로그인의 확인 창)** Chrome 로그인 흐름이 띄우는 브라우저 창 WebUI —
+`chrome://managed-user-profile-notice`·`sync-confirmation`·`signin-dice-web-intercept`·
+`enterprise-profile-welcome`·`signin-error` — 는 target 종류와 무관하게 페이지로 받아 탭으로 연다
+(FR-BRT-33a). headless 에는 창이 없어 이것이 보이지 않으면 로그인이 마지막 확인에서 멈춘다. 그 밖의
+`chrome://` target 은 페이지로 받지 않고, 붙을 때 종류와 주소를 로그에 남긴다(진단).
+
 **FR-BRT-34 (포커스)** 쉘 훅(FR-BRT-70)으로 연 탭은 포커스를 옮긴다. `dmctl browser open` 은
 기본으로 옮기지 않고 `--focus` 가 옮긴다. 외부 도구가 만든 페이지(FR-BRT-44)는 옮기지 않는다.
 
@@ -658,6 +669,8 @@ Highlight 로 칠하고 다음/이전으로 스크롤한다. 교차 출처 ifram
 | TC-BRT-46 | 확대 `Mod+=` → `innerWidth` 가 `1/z` |
 | TC-BRT-88 | 실제 Chrome: `nav signin` → 탭이 `chrome://settings/people` 이고 로그인 버튼(`#signIn`)이 있다. `goto chrome://settings` 는 여전히 거절된다 (FR-BRT-96) |
 | TC-BRT-89 | e2e: 탭 메뉴 "Chrome 에 로그인" → 탭 주소가 `chrome://settings/people` (FR-BRT-96) |
+| TC-BRT-90 | 단위: 확인 창 주소 판정 — 표의 다섯은 참, `chrome://omnibox-popup.top-chrome/`·`chrome://settings/`·`https://…` 는 거짓 (FR-BRT-97) |
+| TC-BRT-91 | 실제 Chrome: 탭 `a`·`b` 중 `a` 에 입력한 뒤 opener 없는 페이지가 생기면 그 `Created` 의 opener 가 `a` 이고 뒤에 열지 않는다. 입력이 없던 컨텍스트면 opener 가 없다 (FR-BRT-33a) |
 | TC-BRT-85 | `ack=1` 뷰어: 확인 없이는 프레임이 2장까지만 오고, 확인하면 최신 프레임이 온다. `ack` 없는 뷰어는 종전대로 받는다 (FR-BRT-94) |
 | TC-BRT-86 | 화질 결정(순수 함수): 기다림 + 30장 미만 → 10 내림(1초 간격, 40 에서 멈춤) · 5초 기다림 없음 → 10 올림(70 에서 멈춤) · 기다렸어도 30장 이상이면 그대로 (FR-BRT-95) |
 | TC-BRT-87 | 매니저 `quality`: 범위 밖은 40·70 으로 자른다(단위). 실제 Chrome: 보는 중에 바꾸면 screencast 가 다시 켜져 프레임이 오고, 같은 화면의 q40 프레임이 q70 보다 작다 (FR-BRT-95) |
@@ -765,6 +778,7 @@ Highlight 로 칠하고 다음/이전으로 스크롤한다. 교차 출처 ifram
 | **D-BRT-18** | 페이지는 뷰어 유무와 무관하게 즉시 만들고 배치만 미룬다 | `claude login` 류는 페이지가 떠야 진행한다. 탭 배치는 프론트가 소유하므로 클라이언트가 붙을 때 한다 |
 | **D-BRT-19** | 새 종단은 전부 `/api/` 아래 | `gateExempt` 가 그 밖을 정적 자산으로 보고 게이트를 건너뛴다 |
 | **D-BRT-20** | UA 에서 `HeadlessChrome` 한 낱말만 `Chrome` 으로 바꾼다 | 사용자 결정(2026-09-27) — 실측: `console.typesafe.ai` 가 기본 UA 는 Cloudflare 403 차단, 바꾼 UA 는 확인 화면. 지문 위장(webdriver·플러그인 등)은 하지 않는다 — 최소 변경. webdriver 는 D-BRT-21 이 바꾼다 |
+| **D-BRT-24** | Chrome 이 연 페이지는 최근에 입력받은 탭 옆에, 로그인 확인 창은 탭으로 | 사용자 실사용(2026-09-27): ① 로그인은 됐으나 프로필 파일에 관리 수락이 없다(`is_managed:1`, `user_accepted_account_management` 없음, `is_consented_primary_account:false`) — 확인 창이 headless 에서 보이지 않았다. 확인 창이 target 으로 오는지는 **미확인**(계정 필요) — 오지 않으면 로그로 안다 ② 로그인 탭·AdBlock 안내가 분할로 열렸다(opener 없음 → 외부 도구 취급) |
 | **D-BRT-23** | 회사 계정의 "Chrome 에 로그인해야 합니다" 는 탭 안에서 Chrome 로그인으로 푼다 — 설정 페이지 하나만 연다 | 사용자 결정(2026-09-27, 안 A) — "your organization requires you to sign into chrome". PoC(Chrome 153 headless): `chrome://signin-internals` 는 DICE·미로그인, `chrome://settings/people` 에 `Sign in to Chrome`(`#signIn`) 이 있고 누르면 `accounts.google.com/signin/chrome/sync`(`GlifDesktopChromeSync`) 가 **새 페이지 탭**으로 열린다. 로그인 뒤의 확인 창(동기화·관리 프로필)이 headless 에서 보이는지는 **미확인** — 실사용으로 본다. 서버 화면에 일반 창을 띄우는 안(B)은 원격에서 쓸 수 없다 |
 | **D-BRT-22** | 느린 링크는 받음 확인(2장) + JPEG 품질 적응(40~70)으로 맞춘다. 초당 30장을 지키는 쪽으로 품질을 먼저 내리고, 해상도는 건드리지 않는다 | 사용자 결정(2026-09-27) — "못해도 30프레임, 너무 프레임을 낮춰도·화질을 낮춰도 안 된다. 간단하지만 효과적인 방법." 실측: 로컬 전 구간 클릭→그림 p50 21ms, 스크롤 중 약 50장/초 × 76KB ≈ 31~34Mbps — 원격(Tailscale, 인터넷 경유 RTT 21ms)에서 업로드가 그보다 좁으면 프레임이 쌓인다. H.264·WebRTC 는 의존과 복잡도가 커서 두지 않는다 |
 | **D-BRT-21** | `navigator.webdriver` 를 기동 스위치 하나로 끈다(FR-BRT-93). 숨긴 headful 창 전환(조사의 C1)은 보류한다 | 사용자 결정(2026-09-27) — 실사용에서 `webdriver === true` 로 Turnstile 이 끝없이 다시 떴다. PoC: headful + pipe 도 `true`(원인은 pipe 스위치), headless + pipe + 이 스위치는 최상위·교차 출처 iframe 모두 `false`. 창 숨김·포커스 문제가 없는 가장 작은 변경이다. 그래도 막히면 교차 출처 iframe 의 `Runtime.enable`, 그다음 headful 을 다시 본다 |
@@ -807,3 +821,4 @@ Highlight 로 칠하고 다음/이전으로 스크롤한다. 교차 출처 ifram
 | 2026-09-27 | 결정 58 **FR-BRT-93 추가 (동작 변경)**: 이전 — 페이지의 `navigator.webdriver` 가 `true` 였다. 새 — `false` 다(기동 인자 `--disable-blink-features=AutomationControlled`). 이유 — 실사용에서 UA 를 고친 뒤에도 Cloudflare Turnstile 체크박스가 끝없이 다시 떴다(사용자 확인, `webdriver === true`). PoC(macOS · Chrome 153): headful + pipe 도 `true` — 숨긴 headful 로는 풀리지 않는다. 같은 PoC 에서 교차 출처 iframe 안의 CDP 클릭은 `screenX ≠ clientX`(172 대 100)로, 알려진 좌표 결함(Chromium 40280325)은 이 판에 없다. TC-BRT-84 를 더한다 (D-BRT-21). 적용 뒤 사용자가 실사용으로 Cloudflare 통과를 확인했다 |
 | 2026-09-27 | 결정 59 **FR-BRT-94·95 추가 (동작 변경)**: 이전 — 매니저가 프레임을 받자마자 ack 해 Chrome 이 뷰어의 속도와 무관하게 최대로 찍었고, 품질은 70 고정이었다. 새 — 뷰어가 받음을 확인하고(미확인 2장까지), 링크가 막혀 초당 30장 아래로 떨어지면 품질을 40 까지 내렸다가 여유가 생기면 되돌린다. 이유 — 원격에서 "반응이 느리다"(사용자). 서버 몫은 5ms 로 빠르고, 스트림이 30Mbps 를 넘어 좁은 링크에서 쌓였다(측정은 D-BRT-22). TC-BRT-85~87 을 더한다. 측정(뷰어 쪽 DevTools 스로틀 10Mbps·지연 20ms, 스크롤 8초, 색 있는 줄 400개 페이지 642×787): 종전 초당 7장·115KB/장 → 새 9.5장·85KB/장(품질이 3초 안에 40 까지 내려감), 스크롤 직후 클릭→화면 22~133ms → 6~128ms. 미확인 프레임 상한을 3 으로 올려도 같았다(대역폭이 한계). **잔여**: 이 정도 화면은 q40 에서도 10Mbps 로 초당 30장이 되지 않는다 — 약 20Mbps 가 필요하다 |
 | 2026-09-27 | 결정 60 **FR-BRT-96 추가**: 탭 메뉴 "Chrome 에 로그인" → `chrome://settings/people`. FR-BRT-65 의 예외는 이 고정 주소 하나다. TC-BRT-88·89 를 더한다 (D-BRT-23) |
+| 2026-09-27 | 결정 61 **FR-BRT-33a·97 추가 (동작 변경)**: 이전 — opener 없는 새 페이지는 외부 도구의 것처럼 뒤에, 여는 위치 설정(분할)으로 열렸고, 페이지가 아닌 target 은 모두 버렸다. 새 — Chrome 이 연 페이지는 최근에 입력받은 탭 뒤에 앞으로 열고, Chrome 로그인의 확인 창 WebUI 는 탭이 된다. 이유 — D-BRT-24. TC-BRT-90·91 을 더한다 |
