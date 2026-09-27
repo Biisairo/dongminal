@@ -60,6 +60,9 @@ test.describe('FR-GRF 묶음 A — 첫 관측', () => {
        * 계기는 포커스와 새로고침 버튼뿐이고, 종전 워치독은 `st<=0` 에서 통째로
        * 물러났으므로 status 는 **0건**이었다.
        */
+      // 세기는 상태를 세우기 **전에** 건다 — 워치독은 1초마다 한 번만 시도하므로, 뒤에
+      // 걸면 느린 러너에서 그 1회가 셈 밖으로 나간다(Windows CI).
+      const c = counter(page, '/api/git/status');
       await page.evaluate(() => {
         const p = (window as any).app.gitPanel;
         p._lastObsAt = 0;      // 한 번도 관측 없음
@@ -67,7 +70,6 @@ test.describe('FR-GRF 묶음 A — 첫 관측', () => {
         p._pollOn = true; p._pollSt = 0;
       });
 
-      const c = counter(page, '/api/git/status');
       // 워치독은 `GIT_WATCHDOG_CHECK_MS`(1초)마다 돈다.
       await expect.poll(() => c.n, { timeout: 10000 })
         .toBeGreaterThanOrEqual(1);
@@ -79,11 +81,11 @@ test.describe('FR-GRF 묶음 A — 첫 관측', () => {
       await patchSettings(request, { gitStatusInterval: 0 });
       await waitForInit(page);
       await openGit(page, fx('basic'));
+      const c = counter(page, '/api/git/status');   // 세우기 전에 — V-GRF-1 과 같은 이유
       await page.evaluate(() => {
         const p = (window as any).app.gitPanel;
         p._lastObsAt = 0; p._wdTryAt = 0; p._pollOn = true; p._pollSt = 0;
       });
-      const c = counter(page, '/api/git/status');
       await expect.poll(() => c.n, { timeout: 10000 }).toBeGreaterThanOrEqual(1);
       // 사용자가 끈 것은 **주기**다. 되살리지 않는다 (FR-GRF-2).
       const armed = await page.evaluate(() => !!(window as any).app.gitPanel._stPoll);
