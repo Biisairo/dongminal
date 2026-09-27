@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { test, expect, waitForInit, waitShellReady, rmTree } from './fixtures';
-import { TMP, realPath } from './osenv';
+import { TMP, realPath, echoCmd } from './osenv';
 
 /**
  * BARE_DOMAIN_LINK_SRS TC-BDL-4 — 터미널의 맨 도메인 링크.
@@ -31,7 +31,8 @@ test('TC-BDL-4 터미널: naver.com 은 링크, cwd 의 파일 README.md 는 아
     const pane = [...app.tools.values()].find((p: any) => p.el.classList.contains('vis')) as any;
     return String(pane._cwd || '').endsWith(b);
   }, base), { timeout: 15000 }).toBe(true);
-  await page.keyboard.type('echo naver.com README.md');
+  // PowerShell 의 `echo a b` 는 인자마다 한 줄이다 — 한 문자열로 낸다.
+  await page.keyboard.type(echoCmd('naver.com README.md'));
   await page.keyboard.press('Enter');
 
   await expect.poll(() => page.evaluate(async () => {
