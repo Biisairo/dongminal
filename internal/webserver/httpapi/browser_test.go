@@ -51,6 +51,8 @@ func (f *fakeHost) Call(ctx context.Context, op string, params any) (json.RawMes
 		return json.RawMessage(`{"client":"C1"}`), nil
 	case "version":
 		return json.RawMessage(`{"product":"HeadlessChrome/153","protocolVersion":"1.3"}`), nil
+	case "downloads":
+		return json.RawMessage(`{"downloads":[{"guid":"g1","tab":"T","name":"a.zip","state":"completed"},{"guid":"g2","tab":"OTHER","name":"b.zip","state":"completed"}]}`), nil
 	case "pending":
 		return json.RawMessage(`{"items":[{"t":"chooser","info":{"id":3,"multiple":false}}]}`), nil
 	case "audio":
@@ -550,5 +552,25 @@ func TestBrowserPlacementNamesOneExecutor(t *testing.T) {
 		case <-time.After(2 * time.Second):
 			t.Fatal("배치 명령이 오지 않았다")
 		}
+	}
+}
+
+// FR-BRT-80: 뷰어가 붙기 전에 끝난 다운로드도 그 탭의 줄에 보인다 — 붙을 때 그 탭의 것만 받는다.
+func TestBrowserStreamReplaysDownloads(t *testing.T) {
+	ts, _, _ := browserSrv(t)
+	c := dialBrowser(t, ts, "tab=T")
+	c.SetReadDeadline(time.Now().Add(2 * time.Second))
+	got := ""
+	for {
+		_, msg, err := c.ReadMessage()
+		if err != nil {
+			break
+		}
+		if strings.Contains(string(msg), `"t":"download"`) {
+			got += string(msg)
+		}
+	}
+	if !strings.Contains(got, `"guid":"g1"`) || strings.Contains(got, `"guid":"g2"`) {
+		t.Fatalf("다운로드 재전송: %s", got)
 	}
 }

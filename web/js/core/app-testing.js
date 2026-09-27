@@ -63,7 +63,7 @@ const APP_TESTING_NAMES = [
   // M9_SRS FR-M9-24: 보던 자리의 기록. 검사가 재는 것은 **자리 셋**과 두 더미의
   // 길이다 — 화면만 보면 "돌아갔다" 와 "새로 갔다" 를 가를 수 없다.
   '_navPlace', '_navCounts',
-  'edEnsurePane', '_edGitInterval', 'edSideOf', 'edSideWidth',
+  'edEnsurePane', '_edGitPoll', 'edSideOf', 'edSideWidth',
   'edSetSideWidth', '_edMigrateSideWidth', 'edStore', 'edTree',
 
   // ── git ──

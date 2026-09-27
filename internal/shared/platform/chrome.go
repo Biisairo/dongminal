@@ -3,6 +3,7 @@ package platform
 import (
 	"errors"
 	"io"
+	"path"
 	"path/filepath"
 )
 
@@ -107,7 +108,8 @@ const (
 func macChromeFinder(env envFn, stat statFn) chromeFinder {
 	fixed := []string{"/Applications/" + macChromeRel}
 	if userDir := env("HOME"); userDir != "" {
-		fixed = append(fixed, filepath.Join(userDir, "Applications", macChromeRel))
+		// macOS 경로는 POSIX 다 — 시험이 어느 호스트에서 돌아도 같은 문자열이다 (TC-BRT-1).
+		fixed = append(fixed, path.Join(userDir, "Applications", macChromeRel))
 	}
 	return chromeFinder{look: noLook, env: env, stat: stat, fixed: fixed,
 		hint: "Google Chrome 을 설치하세요: " + chromeDownloadURL}

@@ -6,8 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/testpath"
 )
 
 // TC-BRT-4: 기동 인자 — 포트 없음, 프로필 폴더, 소리 끔.
@@ -89,7 +91,9 @@ func TestProfiles(t *testing.T) {
 	if err != nil || len(ps) != 1 || ps[0].Name != DefaultProfile {
 		t.Fatalf("default 가 없다: %v %v", ps, err)
 	}
-	if fi, err := os.Stat(filepath.Join(home, "browser")); err != nil || fi.Mode().Perm() != 0o700 {
+	// NFR-BRT-S3: 홈과 같은 0700 — Windows 는 권한 비트가 없어 폴더가 있는지만 본다.
+	fi, err := os.Stat(filepath.Join(home, "browser"))
+	if err != nil || !fi.IsDir() || (testpath.PermChecked() && fi.Mode().Perm() != 0o700) {
 		t.Fatalf("browser/ 권한: %v %v", fi, err)
 	}
 	for _, bad := range []string{"", "A", "-x", "a/b", strings.Repeat("a", 33), "..", "한글"} {
@@ -183,5 +187,21 @@ func TestOpenRejectsOldChrome(t *testing.T) {
 	err := m.Open(context.Background(), OpenReq{Tab: "t", URL: "about:blank"})
 	if err == nil || !strings.Contains(err.Error(), "135") {
 		t.Fatalf("134 를 받았다: %v", err)
+	}
+}
+
+// TC-BRT-12: 프로필 폴더 지우기 — 있으면 지우고, 없어도 오류가 아니다.
+func TestRemoveAllSettled(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "p")
+	os.MkdirAll(filepath.Join(dir, "Default"), 0o700)
+	os.WriteFile(filepath.Join(dir, "Default", "x"), []byte("x"), 0o600)
+	if err := removeAllSettled(dir, time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Fatalf("남았다: %v", err)
+	}
+	if err := removeAllSettled(dir, time.Second); err != nil {
+		t.Fatalf("없는 폴더: %v", err)
 	}
 }

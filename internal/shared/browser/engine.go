@@ -283,6 +283,14 @@ func (b *profileBrowser) handle(msg *cdp.Message) {
 		}
 		json.Unmarshal(msg.Params, &p)
 		b.onDestroyed(p.TargetID)
+	case "Target.targetCrashed":
+		var p struct {
+			TargetID string `json:"targetId"`
+		}
+		json.Unmarshal(msg.Params, &p)
+		if pg := b.byTarget(p.TargetID); pg != nil {
+			pg.markCrashed()
+		}
 	default:
 		if msg.SessionID == "" {
 			return

@@ -21421,5 +21421,95 @@
   "inset": "668px 16px 52px 1264px",
   "flexDirection": "column",
   "minHeight": "0px"
+ },
+ "terminal|div.brv-profiles": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px"
+ },
+ "git:changes|div.brv-profiles": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px"
+ },
+ "git:diff|div.brv-profiles": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px"
+ },
+ "git:history|div.brv-profiles": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px"
+ },
+ "git:branches|div.brv-profiles": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px"
+ },
+ "git:stash|div.brv-profiles": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px"
+ },
+ "git:console|div.brv-profiles": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px"
+ },
+ "git:worktrees|div.brv-profiles": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px"
+ },
+ "git:submodules|div.brv-profiles": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px"
+ },
+ "editor|div.brv-profiles": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "column",
+  "minHeight": "0px"
  }
 }

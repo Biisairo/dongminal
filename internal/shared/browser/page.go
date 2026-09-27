@@ -191,10 +191,20 @@ func (pg *page) onEvent(msg *cdp.Message) {
 		"Network.responseReceived", "Network.loadingFailed":
 		pg.onLogEvent(msg.Method, msg.Params)
 	case "Inspector.targetCrashed":
-		pg.mu.Lock()
-		pg.st.Crashed = true
-		pg.st.Loading = false
-		pg.mu.Unlock()
+		pg.markCrashed()
+	}
+}
+
+// markCrashed 는 렌더러가 죽은 페이지다 — 뷰어가 "페이지가 멈췄습니다" 를 띄운다 (FR-BRT-38).
+// 페이지 세션의 Inspector.targetCrashed 와 브라우저 수준의 Target.targetCrashed 가 둘 다 여기로
+// 온다 — Linux headless 는 뒤의 것만 왔다(CI 실측). 두 번 와도 한 번만 알린다.
+func (pg *page) markCrashed() {
+	pg.mu.Lock()
+	was := pg.st.Crashed
+	pg.st.Crashed = true
+	pg.st.Loading = false
+	pg.mu.Unlock()
+	if !was {
 		pg.emitState()
 	}
 }

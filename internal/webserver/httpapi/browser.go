@@ -657,6 +657,22 @@ func (s *Server) apiBrowserStream(w http.ResponseWriter, r *http.Request) {
 			v.sendText(viewerText(it.T, it.Info))
 		}
 	}
+	// 붙기 전에 시작·완료된 이 탭의 다운로드도 줄에 보인다 (FR-BRT-80).
+	if raw, err := h.host.Call(ctx, "downloads", map[string]any{}); err == nil {
+		var d struct {
+			Downloads []json.RawMessage `json:"downloads"`
+		}
+		json.Unmarshal(raw, &d)
+		for _, x := range d.Downloads {
+			var head struct {
+				Tab string `json:"tab"`
+			}
+			json.Unmarshal(x, &head)
+			if head.Tab == tab {
+				v.sendText(viewerText(browser.EvDownload, x))
+			}
+		}
+	}
 	defer func() {
 		h.mu.Lock()
 		delete(h.viewers[tab], v)

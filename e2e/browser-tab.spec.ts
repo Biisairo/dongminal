@@ -230,6 +230,8 @@ test.describe('BROWSER_TAB — 브라우저 탭', () => {
 
   // TC-BRT-50: 쉘의 open 은 브라우저 탭을 연다 (실 셸). 경로 인자는 위임한다.
   test('TC-BRT-50: 터미널의 open <url> 이 브라우저 탭을 연다', async ({ page }) => {
+    // 쉘의 open 훅은 bash·zsh 의 것이다 — Windows(PowerShell)는 비목표 8.
+    test.skip(process.platform === 'win32', 'POSIX 셸 훅');
     await waitForInit(page);
     await waitShellReady(page);
     await page.locator('#area .pn.focused .xterm-helper-textarea').focus();
@@ -427,6 +429,8 @@ test.describe('BROWSER_TAB — 브라우저 탭', () => {
 
   // TC-BRT-52: 프로그램이 연 URL 은 linkTarget=viewer 여도 브라우저 탭이다.
   test('TC-BRT-52: linkTarget=viewer 에서도 쉘의 open 은 브라우저 탭', async ({ page }) => {
+    // 쉘의 open 훅은 bash·zsh 의 것이다 — Windows(PowerShell)는 비목표 8.
+    test.skip(process.platform === 'win32', 'POSIX 셸 훅');
     await waitForInit(page);
     await waitShellReady(page);
     await page.evaluate(() => { (window as any).browserLinkTarget = 'viewer' });

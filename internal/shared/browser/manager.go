@@ -116,7 +116,8 @@ type Config struct {
 	Audio func() string
 	// Euid 는 실행 사용자다. 0 이면 root 로 보고 거절한다 (FR-BRT-4). nil 이면 os.Geteuid.
 	Euid func() int
-	// VersionTimeout 은 기동 뒤 Browser.getVersion 을 기다리는 상한이다 (FR-BRT-6). 0 이면 5초.
+	// VersionTimeout 은 기동 뒤 Browser.getVersion 을 기다리는 상한이다 (FR-BRT-6). 0 이면 15초 —
+	// Windows 러너의 첫 기동이 5초를 넘었다(CI 실측).
 	VersionTimeout time.Duration
 	// ClaimWait 는 주인 모를 페이지를 외부의 것으로 판정하기까지 기다리는 시간이다.
 	ClaimWait time.Duration
@@ -151,7 +152,7 @@ type ghost struct {
 // New 는 매니저를 만든다. 브라우저는 필요해질 때 뜬다 (FR-BRT-7).
 func New(cfg Config) *Manager {
 	if cfg.VersionTimeout == 0 {
-		cfg.VersionTimeout = 5 * time.Second
+		cfg.VersionTimeout = 15 * time.Second
 	}
 	if cfg.ClaimWait == 0 {
 		cfg.ClaimWait = 1500 * time.Millisecond
@@ -298,7 +299,20 @@ func (m *Manager) DeleteProfile(name string) error {
 		b.kill()
 		b.waitExit(5 * time.Second)
 	}
-	return os.RemoveAll(dir)
+	return removeAllSettled(dir, 5*time.Second)
+}
+
+// removeAllSettled 는 폴더를 지우되, 끝나 가는 자식 프로세스가 아직 파일을 쥐고 있으면
+// 잠시 다시 해 본다 — Windows 는 Job 의 나머지 자식이 핸들을 조금 늦게 놓는다(CI 실측).
+func removeAllSettled(dir string, within time.Duration) error {
+	end := time.Now().Add(within)
+	for {
+		err := os.RemoveAll(dir)
+		if err == nil || time.Now().After(end) {
+			return err
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
 }
 
 // ── 탭 목록 ─────────────────────────────────────────────────────

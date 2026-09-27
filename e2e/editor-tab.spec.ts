@@ -349,7 +349,12 @@ test.describe('묶음 E — 목록의 반영 (FR-EDT-19~21)', () => {
       }
       return route.continue();
     });
-    await page.evaluate(() => (window as any).app.testing.save());
+    // 본문이 마지막 저장과 같으면 save() 는 보내지 않는다(FR-OPT-5-1) — 409 를 받으려면 보내야 한다.
+    await page.evaluate(() => {
+      const a = (window as any).app;
+      a.ws.windows[0].name = a.ws.windows[0].name + ' ';
+      return a.testing.save();
+    });
     await expect.poll(() => page.evaluate(() => (window as any).app.testing.editors.list.slice()),
       { timeout: 10000 }).toEqual([PROJ2_DIR]);
     // 목록이 바뀌었으면 창도 따라온다 (FR-EDT-42).
