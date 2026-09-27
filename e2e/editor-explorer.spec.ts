@@ -413,8 +413,16 @@ test.describe('묶음 X — 탐색기의 git 색 (FR-EDT-69~78)', () => {
      * 멈추는 쪽도 함께 재는 셈이다 — FR-DSP-1a 가 없으면 Changes 사이드가
      * 기준 주기로 영원히 물어 이 단정이 곧바로 깨진다.
      */
-    const seen = c.n;
+    // 여는 순간의 물음들은 한 번에 몰려 오지만 도착 순서는 러너 속도를 탄다 — 느린
+    // Windows 러너에서 셋째가 셈 뒤에 왔다(430ms 안의 셋, 5b4d5f34 CI trace). 반 주기
+    // 동안 수가 멎으면 몰림이 끝난 것이다 — 되풀이는 주기보다 먼저 올 수 없다.
     const poll = await page.evaluate(() => (window as any).gitReposInterval);
+    await expect.poll(async () => {
+      const n = c.n;
+      await page.waitForTimeout(poll / 2);
+      return c.n === n;
+    }, { timeout: 15000 }).toBe(true);
+    const seen = c.n;
     await page.waitForTimeout(poll * 2);
     expect(c.n).toBe(seen);
   });
