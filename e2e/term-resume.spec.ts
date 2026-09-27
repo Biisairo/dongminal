@@ -105,13 +105,14 @@ test.describe('터미널 재접속 (TERMINAL_RESUME_SRS)', () => {
    * 무관하게 결정적이다. 화면이 그대로인지도 함께 본다 — 싸고, 델타 재개가
    * 엉뚱한 자리에 붙는 회귀를 잡는다.
    *
-   * **0 이 아니라 상한으로 잰다.** 재접속은 `_onWsOpen` 에서 크기 보고를 한 번
-   * 보내고, ConPTY 는 그것에 화면을 되그릴 수 있다 — 그 몇 바이트는 재생이
-   * 아니라 라이브 출력이다. 기준은 "스크롤백을 다시 보냈는가" 이므로 도구가
-   * 지금까지 낸 총량(`_seq`)의 절반을 선으로 둔다.
+   * **받은 양이 아니라 다시 받은 양을 잰다.** 재접속은 `_onWsOpen` 에서 크기 보고를
+   * 한 번 보내고, ConPTY 는 그것에 화면을 되그린다 — 그 바이트는 재생이 아니라
+   * 라이브 출력이고 좌표(`_seq`)를 올린다. 재생·델타는 좌표 통보 앞에 오므로 좌표에
+   * 더해지지 않는다(FR-TRS-8). 그래서 "받은 양 − 좌표가 는 양" 이 다시 받은 양이고,
+   * 끊기 전까지 본 양의 절반을 선으로 둔다.
    *
-   * 같은 시나리오의 실측(macOS, 2026-09-12): 옛 코드 rx=2,256 / 지금 rx=0,
-   * `seq`=792 이므로 선은 396 이다 — 5.7 배의 여유로 갈린다.
+   * 실측: macOS(2026-09-12) 옛 코드 rx=2,256 / 지금 rx=0. Windows 러너(2026-09-28)
+   * rx=840(재접속마다 되그림 280) 중 816 이 좌표를 올렸다 — 다시 받은 것은 24.
    */
   test('V-TRS-16 재접속이 이미 본 바이트를 다시 보내지 않는다', async ({ page }) => {
     await waitForInit(page);
@@ -146,7 +147,11 @@ test.describe('터미널 재접속 (TERMINAL_RESUME_SRS)', () => {
     // 선이 무슨 뜻인지 말할 수 없다.
     expect(seq).toBeGreaterThan(0);
     const chunks = await page.evaluate(() => (window as any).__rxChunks);
-    expect(rx, JSON.stringify({ seqBefore, seq, chunks })).toBeLessThan(seq / 2);
+    // **다시 받은 것만 센다.** 재생·델타는 좌표 통보 앞에 오고 좌표에 더해지지 않는다(FR-TRS-8).
+    // 좌표를 올린 바이트는 라이브 출력이다 — ConPTY 는 재접속의 크기 보고에 화면을 되그린다
+    // (Windows 러너 실측: 재접속마다 280 바이트, 좌표도 그만큼 늘었다).
+    const replayed = rx - (seq - seqBefore);
+    expect(replayed, JSON.stringify({ rx, seqBefore, seq, chunks })).toBeLessThan(seqBefore / 2);
     expect(await bufferText(page)).toBe(before);
   });
 
