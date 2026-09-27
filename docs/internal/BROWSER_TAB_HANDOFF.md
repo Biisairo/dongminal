@@ -9,7 +9,7 @@
   macOS 는 `--window-position=-32000,-32000` 을 화면 안(0,31)으로 되돌렸다.
 - 사용자 결정(D-BRT-21): headful 전환은 **보류**, `--disable-blink-features=AutomationControlled` 로 끈다 — `b11d62ac` (FR-BRT-93 · TC-BRT-84).
   CI verify·e2e 초록, 로컬 e2e 1935 통과. 같은 PoC 에서 교차 출처 iframe 의 CDP 클릭 좌표 결함(Chromium 40280325)은 Chrome 153 에 없었다.
-- **다음**: 사용자가 데몬을 다시 띄워 실사용으로 Cloudflare 통과를 확인한다. 막히면 ① 교차 출처 iframe 세션에 `Runtime.enable`(`engine.go` `setupSession`)을
+- **사용자가 실사용으로 Cloudflare 통과를 확인했다(2026-09-27).** 다시 막히는 사이트가 나오면 ① 교차 출처 iframe 세션에 `Runtime.enable`(`engine.go` `setupSession`)을
   보내지 않는다(FR-BRT-75·76 조정 필요 — Orca PR #18749 가 같은 수정) ② 그다음 headful 을 다시 본다.
 - V-TRS-16: `2cf96026` 에서 실패 시 받은 조각·`seqBefore`·`seq` 를 메시지에 싣게 했다. 그 run 에서는 Windows 샤드 7 이 첫 시도에 통과 — 증거 미확보, 재발 시 로그를 읽는다.
 - 권한: `Bash(git commit:*)`·`Bash(git push:*)`·`Bash(go test:*)` 허용 규칙이 있다.
