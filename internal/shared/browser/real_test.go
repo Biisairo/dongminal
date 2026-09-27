@@ -385,3 +385,41 @@ func TestRealCloseLeavesNoChrome(t *testing.T) {
 		t.Fatalf("매니저가 끝났는데 Chrome(pid %d)이 남았다", pid)
 	}
 }
+
+// TC-BRT-83 (FR-BRT-92): 첫 요청부터 UA 에 headless 표식이 없다.
+func TestRealUserAgentHasNoHeadless(t *testing.T) {
+	m, _ := realManager(t)
+	uas := make(chan [2]string, 8)
+	site := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case uas <- [2]string{r.UserAgent(), r.Header.Get("Sec-CH-UA")}:
+		default:
+		}
+		fmt.Fprint(w, "<title>ua</title>")
+	}))
+	defer site.Close()
+	if err := m.Open(context.Background(), OpenReq{Tab: "t", URL: site.URL + "/"}); err != nil {
+		t.Fatal(err)
+	}
+	var got [2]string
+	select {
+	case got = <-uas:
+	case <-time.After(15 * time.Second):
+		t.Fatal("요청이 오지 않았다")
+	}
+	first := got[0]
+	if strings.Contains(first, "HeadlessChrome") || !strings.Contains(first, "Chrome/") {
+		t.Fatalf("첫 요청 UA: %q", first)
+	}
+	// UA 만 덮으면 Chrome 이 Client Hints 를 비운다(실측) — 비지 않아야 한다.
+	if !strings.Contains(got[1], "Chrome") {
+		t.Fatalf("첫 요청 Sec-CH-UA: %q", got[1])
+	}
+	waitEval(t, m, "t", `document.title`, `"ua"`)
+	var nav string
+	json.Unmarshal(evalIn(t, m, "t", `navigator.userAgent`), &nav)
+	if nav != first {
+		t.Fatalf("navigator.userAgent %q ≠ 헤더 %q", nav, first)
+	}
+	waitEval(t, m, "t", `navigator.userAgentData.brands.length > 0`, `true`)
+}

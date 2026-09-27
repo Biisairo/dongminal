@@ -83,6 +83,19 @@ func TestParseMajor(t *testing.T) {
 	}
 }
 
+// TC-BRT-83 (FR-BRT-92): headless 표식 한 낱말만 바꾼다. 없으면 그대로다.
+func TestVisibleUserAgent(t *testing.T) {
+	for in, want := range map[string]string{
+		"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+		"Mozilla/5.0 Chrome/153.0.0.0": "Mozilla/5.0 Chrome/153.0.0.0",
+		"":                             "",
+	} {
+		if got := visibleUserAgent(in); got != want {
+			t.Errorf("%q → %q want %q", in, got, want)
+		}
+	}
+}
+
 // TC-BRT-10·11: 폴더 목록 = 프로필 목록, 이름 규칙, default 는 있고 지울 수 없다.
 func TestProfiles(t *testing.T) {
 	home := t.TempDir()

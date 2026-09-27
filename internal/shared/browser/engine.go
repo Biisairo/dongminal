@@ -41,6 +41,12 @@ type profileBrowser struct {
 	// audioExt 는 소리 확장이 실렸는가, audioSess 는 그 offscreen 문서의 세션이다 (FR-BRT-91).
 	audioExt  bool
 	audioSess string
+	// uaOverride 는 붙는 target 마다 거는 `Network.setUserAgentOverride` 의 인자다 —
+	// headless 표식을 뺀 UA 와 Chrome 자신의 Client Hints (FR-BRT-92). nil 이면 걸지 않는다.
+	uaOverride map[string]any
+	// probeCtx 는 그 탐침의 컨텍스트다 — 탐침이 붙으며 낸 attachedToTarget 은 작업자가
+	// 뒤늦게 다루므로 그때 페이지로 세지 않는다.
+	probeCtx string
 	// unclaimed 는 주인을 아직 모르는 page target 이다 (targetId → sessionId).
 	unclaimed map[string]string
 	// contexts 는 임시 컨텍스트 → 그 안의 페이지 수다 (FR-BRT-15).
@@ -140,7 +146,8 @@ func (b *profileBrowser) start() {
 		return
 	}
 	var v struct {
-		Product string `json:"product"`
+		Product   string `json:"product"`
+		UserAgent string `json:"userAgent"`
 	}
 	json.Unmarshal(res, &v)
 	if major := parseMajor(v.Product); major < MinChromeMajor {
@@ -149,6 +156,11 @@ func (b *profileBrowser) start() {
 		return
 	}
 	bg := context.Background()
+	// 자동 붙기 전이다 — 탐침 페이지는 탭이 되지 않는다.
+	ov := b.probeUserAgent(ctx, v.UserAgent)
+	b.mu.Lock()
+	b.uaOverride = ov
+	b.mu.Unlock()
 	if _, err := b.cl.Call(bg, "", "Target.setDiscoverTargets", map[string]any{"discover": true}); err != nil {
 		b.kill()
 		b.startErr = engineError("Chrome 을 준비하지 못했습니다: "+err.Error(), "")
@@ -335,6 +347,13 @@ func (b *profileBrowser) onAttached(session string, ti targetInfo, waiting bool)
 	if ti.Type == "other" && strings.HasPrefix(ti.URL, "devtools://") {
 		ti.Type = "page"
 	}
+	b.mu.Lock()
+	probe := ti.BrowserContextID != "" && ti.BrowserContextID == b.probeCtx
+	b.mu.Unlock()
+	if probe {
+		return
+	}
+	b.overrideUserAgent(session)
 	if ti.Type != "page" {
 		if waiting {
 			b.cl.Fire(session, "Runtime.runIfWaitingForDebugger", nil)
@@ -753,9 +772,79 @@ func (b *profileBrowser) onChildAttached(parent, session string, ti targetInfo, 
 		b.mu.Unlock()
 		b.cl.Fire(session, "Target.setAutoAttach", map[string]any{"autoAttach": true, "waitForDebuggerOnStart": true, "flatten": true})
 	}
+	b.overrideUserAgent(session)
 	if waiting {
 		b.cl.Fire(session, "Runtime.runIfWaitingForDebugger", nil)
 	}
+}
+
+// overrideUserAgent 는 풀기 전에 UA 를 건다 — 한 세션의 요청은 받은 순서대로 처리되므로
+// 첫 요청부터 바뀐 값이 나간다 (FR-BRT-92). UA 를 모르는 target(확장 문서 등)이 거절해도
+// 해가 없다.
+func (b *profileBrowser) overrideUserAgent(session string) {
+	b.mu.Lock()
+	ov := b.uaOverride
+	b.mu.Unlock()
+	if ov != nil {
+		b.cl.Fire(session, "Network.setUserAgentOverride", ov)
+	}
+}
+
+// probeUserAgent 는 UA 만 덮으면 Chrome 이 Client Hints 를 비우므로(실측) 그 값을 Chrome
+// 에게서 읽어 함께 건다. Client Hints 는 보안 문맥에만 있어 `chrome://version/` 에서 읽는다 —
+// 버리는 컨텍스트에 열고 곧 치운다. 못 읽으면 nil 이다 — 빈 Client Hints 로 내보내느니
+// 덮지 않는다 (FR-BRT-92).
+func (b *profileBrowser) probeUserAgent(ctx context.Context, ua string) map[string]any {
+	res, err := b.cl.Call(ctx, "", "Target.createBrowserContext", nil)
+	if err != nil {
+		return nil
+	}
+	var bc struct {
+		BrowserContextID string `json:"browserContextId"`
+	}
+	json.Unmarshal(res, &bc)
+	b.mu.Lock()
+	b.probeCtx = bc.BrowserContextID
+	b.mu.Unlock()
+	defer b.cl.Call(context.Background(), "", "Target.disposeBrowserContext", map[string]any{"browserContextId": bc.BrowserContextID})
+	res, err = b.cl.Call(ctx, "", "Target.createTarget", map[string]any{"url": "chrome://version/", "browserContextId": bc.BrowserContextID})
+	if err != nil {
+		return nil
+	}
+	var tg struct {
+		TargetID string `json:"targetId"`
+	}
+	json.Unmarshal(res, &tg)
+	res, err = b.cl.Call(ctx, "", "Target.attachToTarget", map[string]any{"targetId": tg.TargetID, "flatten": true})
+	if err != nil {
+		return nil
+	}
+	var at struct {
+		SessionID string `json:"sessionId"`
+	}
+	json.Unmarshal(res, &at)
+	const expr = `location.protocol === 'chrome:' && navigator.userAgentData ? navigator.userAgentData.getHighEntropyValues(['platform', 'platformVersion', 'architecture', 'model', 'bitness', 'wow64', 'fullVersionList']) : null`
+	for ctx.Err() == nil {
+		res, err := b.cl.Call(ctx, at.SessionID, "Runtime.evaluate", map[string]any{"expression": expr, "awaitPromise": true, "returnByValue": true})
+		if err != nil {
+			return nil
+		}
+		var r struct {
+			Result struct {
+				Value map[string]any `json:"value"`
+			} `json:"result"`
+		}
+		json.Unmarshal(res, &r)
+		if hi := r.Result.Value; hi != nil {
+			meta := map[string]any{}
+			for _, k := range []string{"brands", "fullVersionList", "platform", "platformVersion", "architecture", "model", "mobile", "bitness", "wow64"} {
+				meta[k] = hi[k]
+			}
+			return map[string]any{"userAgent": visibleUserAgent(ua), "userAgentMetadata": meta}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return nil
 }
 
 // framesOf 는 그 페이지의 교차 출처 iframe 세션들이다.
@@ -782,4 +871,10 @@ func (pg *page) frameOwner(ctx context.Context, f *frameSession) (int, error) {
 	}
 	json.Unmarshal(res, &r)
 	return r.BackendNodeID, nil
+}
+
+// visibleUserAgent 는 UA 의 headless 표식 한 낱말을 같은 판의 Chrome 이 내는 값으로 바꾼다
+// (FR-BRT-92). 판 번호·OS 는 그대로다.
+func visibleUserAgent(ua string) string {
+	return strings.Replace(ua, "HeadlessChrome/", "Chrome/", 1)
 }
