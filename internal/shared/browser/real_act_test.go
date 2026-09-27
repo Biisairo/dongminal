@@ -177,9 +177,17 @@ func TestRealLogsScreenshotEval(t *testing.T) {
 	s := snap(t, m, false)
 	do(t, m, "click", map[string]any{"ref": refOf(t, s, `"Press me"`)})
 	waitEval(t, m, "t", `document.title`, `"clicked"`)
-	res, _ := do(t, m, "console", map[string]any{"limit": 10})
-	if !strings.Contains(string(res), "hello-console") {
-		t.Fatalf("console: %s", res)
+	// 기록은 이벤트 작업자를 거친다 — 제목을 본 evaluate 의 응답보다 늦게 적힐 수 있다
+	// (Ubuntu CI 실측: 빈 기록).
+	var res json.RawMessage
+	for end := time.Now().Add(5 * time.Second); ; time.Sleep(50 * time.Millisecond) {
+		res, _ = do(t, m, "console", map[string]any{"limit": 10})
+		if strings.Contains(string(res), "hello-console") {
+			break
+		}
+		if time.Now().After(end) {
+			t.Fatalf("console: %s", res)
+		}
 	}
 	res, _ = do(t, m, "network", map[string]any{})
 	if !strings.Contains(string(res), site.URL) || !strings.Contains(string(res), `"status":200`) {
