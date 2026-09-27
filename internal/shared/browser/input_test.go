@@ -1,6 +1,9 @@
 package browser
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -67,6 +70,40 @@ func TestTranslateKeyNoNativeCode(t *testing.T) {
 		}
 		if got["windowsVirtualKeyCode"] == nil {
 			t.Fatal("windowsVirtualKeyCode 가 없다")
+		}
+	}
+}
+
+// TC-BRT-92 (FR-BRT-98): 이어진 이동은 뒤의 것, 이어진 휠은 합이다. 나머지는 합치지 않는다.
+func TestMergeInput(t *testing.T) {
+	move := func(x int) json.RawMessage {
+		return json.RawMessage(fmt.Sprintf(`{"t":"mouse","type":"mouseMoved","x":%d,"y":1,"button":"none"}`, x))
+	}
+	wheel := func(dy float64, mods int) json.RawMessage {
+		return json.RawMessage(fmt.Sprintf(`{"t":"wheel","x":10,"y":20,"dx":1,"dy":%g,"mods":%d}`, dy, mods))
+	}
+	press := json.RawMessage(`{"t":"mouse","type":"mousePressed","x":1,"y":1,"button":"left","clickCount":1}`)
+	if got, ok := mergeInput(move(1), move(2)); !ok || !bytes.Equal(got, move(2)) {
+		t.Fatalf("이동+이동: %s %v", got, ok)
+	}
+	got, ok := mergeInput(wheel(30, 0), wheel(12.5, 0))
+	var w struct {
+		DX, DY float64
+		X, Y   float64
+		Mods   int
+	}
+	json.Unmarshal(got, &w)
+	if !ok || w.DX != 2 || w.DY != 42.5 || w.X != 10 || w.Y != 20 {
+		t.Fatalf("휠+휠: %s %v", got, ok)
+	}
+	for name, pair := range map[string][2]json.RawMessage{
+		"수정키가 다른 휠": {wheel(1, 0), wheel(1, 8)},
+		"이동+휠":      {move(1), wheel(1, 0)},
+		"이동+누름":     {move(1), press},
+		"누름+누름":     {press, press},
+	} {
+		if _, ok := mergeInput(pair[0], pair[1]); ok {
+			t.Errorf("%s 를 합쳤다", name)
 		}
 	}
 }

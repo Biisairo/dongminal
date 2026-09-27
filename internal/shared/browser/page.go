@@ -576,18 +576,65 @@ func (pg *page) enqueueInput(params json.RawMessage) error {
 }
 
 func (pg *page) inputLoop() {
+	var next json.RawMessage
 	for {
-		select {
-		case p := <-pg.inq:
-			// 답하지 않는 입력 하나가 줄 전체를 영원히 막지 않는다 — 렌더러가 이동 중이면
-			// Chrome 은 입력의 답을 미룬다.
-			ctx, cancel := context.WithTimeout(context.Background(), inputTimeout)
-			pg.input(ctx, p)
-			cancel()
-		case <-pg.gone:
-			return
+		p := next
+		next = nil
+		if p == nil {
+			select {
+			case p = <-pg.inq:
+			case <-pg.gone:
+				return
+			}
 		}
+		// FR-BRT-98: 줄에서 이어 기다리는 이동·휠을 합친다 — Chrome 은 하나마다 다음 화면까지
+		// 답을 미루므로, 하나씩 넣으면 120Hz 입력이 쌓인다.
+	merge:
+		for {
+			select {
+			case q := <-pg.inq:
+				if m, ok := mergeInput(p, q); ok {
+					p = m
+					continue
+				}
+				next = q
+				break merge
+			default:
+				break merge
+			}
+		}
+		// 답하지 않는 입력 하나가 줄 전체를 영원히 막지 않는다 — 렌더러가 이동 중이면
+		// Chrome 은 입력의 답을 미룬다.
+		ctx, cancel := context.WithTimeout(context.Background(), inputTimeout)
+		pg.input(ctx, p)
+		cancel()
 	}
+}
+
+// mergeInput 은 이어진 두 입력을 하나로 합친다 (FR-BRT-98). 이동+이동은 뒤의 것, 수정키가 같은
+// 휠+휠은 이동량의 합과 뒤의 위치다. 그 밖은 합치지 않는다.
+func mergeInput(a, b json.RawMessage) (json.RawMessage, bool) {
+	type head struct {
+		T    string  `json:"t"`
+		Type string  `json:"type"`
+		X    float64 `json:"x"`
+		Y    float64 `json:"y"`
+		DX   float64 `json:"dx"`
+		DY   float64 `json:"dy"`
+		Mods int     `json:"mods"`
+	}
+	var ha, hb head
+	if json.Unmarshal(a, &ha) != nil || json.Unmarshal(b, &hb) != nil {
+		return nil, false
+	}
+	switch {
+	case ha.T == "mouse" && ha.Type == "mouseMoved" && hb.T == "mouse" && hb.Type == "mouseMoved":
+		return b, true
+	case ha.T == "wheel" && hb.T == "wheel" && ha.Mods == hb.Mods:
+		m, _ := json.Marshal(map[string]any{"t": "wheel", "x": hb.X, "y": hb.Y, "dx": ha.DX + hb.DX, "dy": ha.DY + hb.DY, "mods": hb.Mods})
+		return m, true
+	}
+	return nil, false
 }
 
 // inputTimeout 은 입력 하나의 상한이다.

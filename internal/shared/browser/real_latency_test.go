@@ -2,6 +2,7 @@ package browser
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -132,5 +133,41 @@ func TestRealQualityRestartsScreencast(t *testing.T) {
 	t.Logf("q40=%d q70=%d", lo, hi)
 	if lo >= hi {
 		t.Fatalf("q40 프레임(%d)이 q70(%d)보다 작지 않다", lo, hi)
+	}
+}
+
+// TC-BRT-93 (FR-BRT-98): 120Hz 의 이동·휠이 쌓이지 않는다 — 보내기를 마친 뒤 1초 안에 다 반영된다.
+func TestRealInputDoesNotBackLog(t *testing.T) {
+	m, _ := realManager(t)
+	site := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<!doctype html><title>in</title><style>p:hover{background:#fc0}</style><body>` + strings.Repeat(`<p>hover row lorem ipsum</p>`, 600) +
+			`<script>window.mx=0;window.sy=0;addEventListener('mousemove',e=>mx=e.clientX);addEventListener('scroll',()=>sy=scrollY)</script>`))
+	}))
+	t.Cleanup(site.Close)
+	ctx := context.Background()
+	if err := m.Open(ctx, OpenReq{Tab: "t", URL: site.URL}); err != nil {
+		t.Fatal(err)
+	}
+	waitEval(t, m, "t", `document.title`, `"in"`)
+	m.Call(ctx, "viewport", map[string]any{"tab": "t", "w": 800, "h": 600, "dpr": 1})
+	m.Call(ctx, "watch", map[string]any{"tab": "t", "on": true})
+	const n = 200
+	for i := 0; i < n; i++ {
+		m.Call(ctx, "input", map[string]any{"tab": "t", "t": "mouse", "type": "mouseMoved", "x": 100 + i, "y": 300, "button": "none"})
+		time.Sleep(8 * time.Millisecond)
+	}
+	t0 := time.Now()
+	waitEval(t, m, "t", `mx`, fmt.Sprint(100+n-1))
+	moveLag := time.Since(t0)
+	for i := 0; i < n; i++ {
+		m.Call(ctx, "input", map[string]any{"tab": "t", "t": "wheel", "x": 200, "y": 200, "dx": 0, "dy": 20})
+		time.Sleep(8 * time.Millisecond)
+	}
+	t0 = time.Now()
+	waitEval(t, m, "t", `sy`, fmt.Sprint(n*20))
+	wheelLag := time.Since(t0)
+	t.Logf("밀림: 이동 %v · 휠 %v", moveLag.Round(time.Millisecond), wheelLag.Round(time.Millisecond))
+	if moveLag > time.Second || wheelLag > time.Second {
+		t.Fatalf("입력이 쌓였다: 이동 %v · 휠 %v", moveLag, wheelLag)
 	}
 }
