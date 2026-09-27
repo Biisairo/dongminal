@@ -282,6 +282,12 @@ func TestRealContextMenuPrevented(t *testing.T) {
 func TestRealFind(t *testing.T) {
 	m, _, _ := openFid(t)
 	ctx := context.Background()
+	// 찾기는 격리 world 에서 돈다 — 그 문맥은 main world 의 제목보다 늦게 올 수 있다
+	// (Windows CI 실측: "페이지가 아직 준비되지 않았습니다").
+	pg, _ := m.page("t")
+	for end := time.Now().Add(10 * time.Second); pg.worldContext() == 0 && time.Now().Before(end); {
+		time.Sleep(20 * time.Millisecond)
+	}
 	res, err := m.Call(ctx, "find", map[string]any{"tab": "t", "q": "findme", "dir": 1})
 	if err != nil {
 		t.Fatal(err)
