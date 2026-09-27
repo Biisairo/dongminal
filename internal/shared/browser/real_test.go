@@ -423,3 +423,23 @@ func TestRealUserAgentHasNoHeadless(t *testing.T) {
 	}
 	waitEval(t, m, "t", `navigator.userAgentData.brands.length > 0`, `true`)
 }
+
+// TC-BRT-84 (FR-BRT-93): 최상위 페이지와 교차 출처 iframe 모두 `navigator.webdriver` 가 false 다.
+func TestRealNoWebdriver(t *testing.T) {
+	m, _ := realManager(t)
+	inner := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `<script>parent.postMessage(String(navigator.webdriver), '*')</script>`)
+	}))
+	defer inner.Close()
+	outer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintf(w, `<title>wd</title><script>addEventListener('message', e => { window.__inner = e.data })</script><iframe src="%s/"></iframe>`, inner.URL)
+	}))
+	defer outer.Close()
+	// 바깥은 localhost, 안은 127.0.0.1 — 출처가 다르다.
+	if err := m.Open(context.Background(), OpenReq{Tab: "t", URL: strings.Replace(outer.URL, "127.0.0.1", "localhost", 1) + "/"}); err != nil {
+		t.Fatal(err)
+	}
+	waitEval(t, m, "t", `document.title`, `"wd"`)
+	waitEval(t, m, "t", `navigator.webdriver`, `false`)
+	waitEval(t, m, "t", `window.__inner`, `"false"`)
+}

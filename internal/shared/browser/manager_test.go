@@ -42,6 +42,15 @@ func TestLaunchArgsAudio(t *testing.T) {
 	}
 }
 
+// TC-BRT-84: 자동화 표식을 끄는 스위치 — 소리 설정과 무관하게 붙는다.
+func TestLaunchArgsNoWebdriver(t *testing.T) {
+	for _, mode := range []string{AudioOff, AudioServer, AudioViewer} {
+		if a := strings.Join(launchArgs("/x", mode), " "); !strings.Contains(a, "--disable-blink-features=AutomationControlled") {
+			t.Errorf("%s: 스위치가 없다: %s", mode, a)
+		}
+	}
+}
+
 // TC-BRT-80: 설정 값 — 없거나 모르는 값은 off 다.
 func TestAudioSetting(t *testing.T) {
 	home := t.TempDir()

@@ -615,6 +615,8 @@ func launchArgs(profileDir, audio string) []string {
 		// (FR-BRT-31), 그 새 탭을 뒤늦게 닫으면 렌더러를 나눠 쓰던 첫 페이지의 이동이
 		// 깨진다(실측).
 		"--no-startup-window",
+		// FR-BRT-93: headless·pipe 만으로 `navigator.webdriver` 가 true 가 된다.
+		"--disable-blink-features=AutomationControlled",
 	}
 	if audio != AudioServer {
 		args = append(args, "--mute-audio")

@@ -133,6 +133,7 @@ Edge·배포판 `chromium` 은 찾지 않는다. `dongminal window` 의 탐색 �
 --headless=new --remote-debugging-pipe
 --user-data-dir=<프로필 폴더> --no-first-run --no-default-browser-check
 --mute-audio            (FR-BRT-90 의 "서버에서 재생" 이 꺼져 있을 때 — 기본)
+--disable-blink-features=AutomationControlled   (FR-BRT-93)
 ```
 
 `--no-sandbox` 를 쓰지 않는다. Linux 에서 root 로 실행 중이면 Chrome 이 샌드박스 없이는 뜨지
@@ -174,6 +175,12 @@ Chrome 이 Client Hints(`Sec-CH-UA`·`navigator.userAgentData`)를 비우므로(
 자신의 값을 `chrome://version/`(보안 문맥)에서 읽어 함께 건다 — 자동 붙기 전, 버리는 컨텍스트
 에서 읽으므로 탭이 되지 않는다. 그 값을 못 읽으면 덮지 않는다(종전 UA). 봇 차단(Cloudflare 등)이
 headless 표식만으로 막는 것을 피하려는 것이고, 차단 우회를 약속하지는 않는다 (D-BRT-20).
+
+**FR-BRT-93 (`navigator.webdriver`)** 페이지와 iframe(교차 출처 포함)의 `navigator.webdriver` 는
+`false` 다. Chrome 은 `--headless`·`--remote-debugging-pipe` 중 하나만 있어도 이 값을 `true` 로
+두므로(Chromium `content/child/runtime_features.cc`; headful + pipe 도 `true`, 실측) 기동 인자에
+`--disable-blink-features=AutomationControlled` 를 더한다 — 그 파일에서 이 스위치가 앞의 판정보다
+뒤에 적용된다. headless·pipe 는 그대로다(FR-BRT-4·5). 차단 우회를 약속하지는 않는다 (D-BRT-21).
 
 ### 3.2 묶음 P — 프로필 (1단계)
 
@@ -586,6 +593,7 @@ Highlight 로 칠하고 다음/이전으로 스크롤한다. 교차 출처 ifram
 | TC-BRT-7 | 프로필의 마지막 페이지가 닫히면 프로필 브라우저가 끝난다. 매니저 종료 시 자식이 남지 않는다 (Windows: Job) |
 | TC-BRT-8 | 데몬 기능 플래그 없는 옛 데몬 → 안내 |
 | TC-BRT-83 | 실제 Chrome: 새 페이지의 첫 요청 User-Agent 헤더와 `navigator.userAgent` 에 `HeadlessChrome` 이 없고 `Chrome/<판>` 이 있다. `Sec-CH-UA` 와 `navigator.userAgentData.brands` 가 비지 않는다 (FR-BRT-92) |
+| TC-BRT-84 | 기동 인자에 `--disable-blink-features=AutomationControlled` 가 있다(소리 설정 셋 모두). 실제 Chrome: 최상위 페이지와 교차 출처 iframe 의 `navigator.webdriver` 가 `false` 다 (FR-BRT-93) |
 
 ### 4.2 프로필
 
@@ -735,7 +743,8 @@ Highlight 로 칠하고 다음/이전으로 스크롤한다. 교차 출처 ifram
 | **D-BRT-17** | 업로드는 서버 파일만 | 사용자 결정 — 파일 입출력은 서버 기준, 기기 간 이동은 기존 전송 기능 |
 | **D-BRT-18** | 페이지는 뷰어 유무와 무관하게 즉시 만들고 배치만 미룬다 | `claude login` 류는 페이지가 떠야 진행한다. 탭 배치는 프론트가 소유하므로 클라이언트가 붙을 때 한다 |
 | **D-BRT-19** | 새 종단은 전부 `/api/` 아래 | `gateExempt` 가 그 밖을 정적 자산으로 보고 게이트를 건너뛴다 |
-| **D-BRT-20** | UA 에서 `HeadlessChrome` 한 낱말만 `Chrome` 으로 바꾼다 | 사용자 결정(2026-09-27) — 실측: `console.typesafe.ai` 가 기본 UA 는 Cloudflare 403 차단, 바꾼 UA 는 확인 화면. 지문 위장(webdriver·플러그인 등)은 하지 않는다 — 최소 변경 |
+| **D-BRT-20** | UA 에서 `HeadlessChrome` 한 낱말만 `Chrome` 으로 바꾼다 | 사용자 결정(2026-09-27) — 실측: `console.typesafe.ai` 가 기본 UA 는 Cloudflare 403 차단, 바꾼 UA 는 확인 화면. 지문 위장(webdriver·플러그인 등)은 하지 않는다 — 최소 변경. webdriver 는 D-BRT-21 이 바꾼다 |
+| **D-BRT-21** | `navigator.webdriver` 를 기동 스위치 하나로 끈다(FR-BRT-93). 숨긴 headful 창 전환(조사의 C1)은 보류한다 | 사용자 결정(2026-09-27) — 실사용에서 `webdriver === true` 로 Turnstile 이 끝없이 다시 떴다. PoC: headful + pipe 도 `true`(원인은 pipe 스위치), headless + pipe + 이 스위치는 최상위·교차 출처 iframe 모두 `false`. 창 숨김·포커스 문제가 없는 가장 작은 변경이다. 그래도 막히면 교차 출처 iframe 의 `Runtime.enable`, 그다음 headful 을 다시 본다 |
 
 ---
 
@@ -772,3 +781,4 @@ Highlight 로 칠하고 다음/이전으로 스크롤한다. 교차 출처 ifram
 | 2026-09-27 | **검증 한계 해소**(결정 ⑬·㉙): TC-BRT-6 의 Windows 판정·Linux CI 의 Chrome 샌드박스를 CI 가 판정했다 — `77df484b` 에서 verify `test (windows-latest)`·`test (ubuntu-latest)` 가 초록이고(Windows 전용 `TestPipedChildReadsFD3WritesFD4` 포함), e2e 의 `browser-tab.spec.ts` 가 두 판 모두 실제 Chrome 으로 돌았다(건너뜀은 Windows 의 POSIX 셸 훅 둘뿐) |
 | 2026-09-27 | 결정 56 **FR-BRT-92 추가 (동작 변경)**: 이전 — 페이지의 UA 가 `HeadlessChrome/<판>` 이었다. 새 — `Chrome/<판>` 이다. 이유 — 실사용에서 Cloudflare 가 headless 표식만으로 사이트를 막았다(사용자 캡처, `console.typesafe.ai`; 같은 판 Chrome 으로 UA 만 바꾸면 차단 대신 확인 화면). TC-BRT-83 을 더한다 (D-BRT-20) |
 | 2026-09-27 | 결정 57 **FR-BRT-91 결함**: offscreen 문서가 target 으로 보이는 순간 붙어 식을 계산했는데, 그때 그 스크립트가 아직 돌지 않았을 수 있다 — offer 가 `__dmOffer is not defined` 로 거절되고(verify CI `d06f48f7` 실측) 뷰어는 다시 청하지 않아 소리가 끝내 오지 않았다. 새 프로필을 띄우자마자 offer 를 보내는 TC-BRT-81(e2e)의 Ubuntu flaky 가 같은 경로다(재시도는 데워진 뒤라 통과). 신호 식은 함수가 정의된 뒤(5초 상한)에 계산한다 |
+| 2026-09-27 | 결정 58 **FR-BRT-93 추가 (동작 변경)**: 이전 — 페이지의 `navigator.webdriver` 가 `true` 였다. 새 — `false` 다(기동 인자 `--disable-blink-features=AutomationControlled`). 이유 — 실사용에서 UA 를 고친 뒤에도 Cloudflare Turnstile 체크박스가 끝없이 다시 떴다(사용자 확인, `webdriver === true`). PoC(macOS · Chrome 153): headful + pipe 도 `true` — 숨긴 headful 로는 풀리지 않는다. 같은 PoC 에서 교차 출처 iframe 안의 CDP 클릭은 `screenX ≠ clientX`(172 대 100)로, 알려진 좌표 결함(Chromium 40280325)은 이 판에 없다. TC-BRT-84 를 더한다 (D-BRT-21) |
