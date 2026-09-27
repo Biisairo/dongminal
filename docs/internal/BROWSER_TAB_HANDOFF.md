@@ -36,8 +36,15 @@
 | `889143a2` | 뒷정리 4 — TC-BRT-81 소리 flaky 의 원인: offscreen 문서가 target 으로 보여도 스크립트가 아직 안 돌아 `__dmOffer is not defined` 로 거절, 뷰어는 재청하지 않음. 신호 식을 함수 정의 뒤에 계산 (FR-BRT-91) |
 | `69cb46eb` | 뒷정리 5 — TC-GLR-1: 워치독 문턱을 연 뒤 멈춤과 확인을 두 evaluate 로 나눠 그 틈에 되살아났다. 같은 동기 식에서 읽는다 |
 
-`a0d2b787`·`69cb46eb` CI 는 초록이었다(verify·e2e). 이 문서를 싣는 커밋의 CI 와 로컬 e2e 결과는 뒤에 나온다 —
-`gh run list --branch main -R Biisairo/dongminal` 로 확인하고, 빨가면 그것부터 고친다.
+`a0d2b787`·`69cb46eb` CI 는 초록이었다. 그 뒤 고친 흔들림: `36cd15a9`(console 기록 대기) · `7f7c1bb9`(TC-BRT-32·35 크기 확정 대기) ·
+`beffc37e`(V-GRF-1·2 셈을 먼저). **`beffc37e` 의 로컬 e2e 는 초록(1935·flaky 0), CI 는 verify 초록 · e2e 빨강 — 아래 한 건이다.**
+
+**착수 전에 먼저 할 일 — `V-TRS-16`(e2e `term-resume.spec.ts:110`, Windows 샤드 7) 이 세 번 모두 `rx=840` vs 선 `seq/2`(785~830) 로 실패.**
+- 840 = 재접속 3회 × 약 280 바이트로 **일정**하다. 마지막 단정 `bufferText == before` 는 통과했다 — 이미 본 바이트의 재생이면 버퍼에
+  줄이 겹쳐 그것이 깨졌어야 하므로, 280 바이트는 **ConPTY 가 재접속마다 새로 내는 출력(다시 그리기)** 일 가능성이 크다(미검증).
+  그러면 시험의 전제("사이에 새 출력이 없다")가 Windows 에서 거짓이고, 전에 통과한 것은 PowerShell 기동 출력이 커서 `seq/2` 가 840 을 넘었기 때문이다.
+- trace 에는 WS 프레임 내용이 없다(`screencast-frame`·`frame-snapshot` 뿐). 280 바이트의 정체를 보려면 시험에서 재접속 뒤 받은 조각을 기록해
+  (예: `__rx` 를 셀 때 앞 몇십 바이트를 `console.log`) CI 에 한 번 태운다. 원인이 확인되기 전에는 선만 바꾸지 않는다.
 
 ## 2. 남은 일과 순서
 
