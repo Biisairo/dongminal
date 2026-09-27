@@ -178,6 +178,8 @@ class TerminalTool {
       ()=>this.term.loadAddon(new WebLinksAddon.WebLinksAddon((e,uri)=>{
         if(window.app&&window.app.openLink) window.app.openLink(uri,e); else window.open(uri,'_blank');
       })),
+      // BARE_DOMAIN_LINK_SRS FR-BDL-4: 스킴 없는 도메인. cwd 의 파일 이름은 빠진다.
+      ()=>{this._bareLinks=bareLinkProvider(this.term,()=>this._cwd||'');this.term.registerLinkProvider(this._bareLinks)},
       ()=>{this.term.loadAddon(new Unicode11Addon.Unicode11Addon());this.term.unicode.activeVersion='11'},
       ()=>{this.search=new SearchAddon.SearchAddon();this.term.loadAddon(this.search)},
       ()=>TermClipboard.attach(this.term,this.id,this),

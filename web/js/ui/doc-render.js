@@ -61,6 +61,19 @@ function docMarkdown() {
     if (tok.map && tok.nesting !== -1) tok.attrSet('data-line', String(tok.map[0] + 1));
     return baseRender(tokens, idx, options);
   };
+  // BARE_DOMAIN_LINK_SRS FR-BDL-5: 맨 도메인도 링크다. 그것에 표를 달아 두면 그리고 난 뒤
+  // 같은 폴더의 파일 이름인 것을 글자로 되돌린다.
+  docMD.linkify.set({ fuzzyLink: true });
+  docMD.core.ruler.after('linkify', 'bare_link', (state) => {
+    for (const blk of state.tokens) {
+      if (blk.type !== 'inline' || !blk.children) continue;
+      blk.children.forEach((tok, i) => {
+        const txt = blk.children[i + 1];
+        if (tok.type !== 'link_open' || tok.markup !== 'linkify' || !txt) return;
+        if (/^https?:/i.test(tok.attrGet('href') || '') && !/^[a-z][a-z0-9+.-]*:/i.test(txt.content)) tok.attrSet('data-bare', '1');
+      });
+    }
+  });
   return docMD;
 }
 
@@ -407,6 +420,16 @@ class DocRender {
     docFixImages(this._body, this.filePath, this.fsRoot);
     this._body.scrollTop = top;
     this._applyWant(true);
+    this._unwrapBareFiles(gen);
+  }
+
+  /** FR-BDL-5: 맨 도메인 링크 중 이 문서 폴더의 파일 이름인 것은 글자로 되돌린다. */
+  async _unwrapBareFiles(gen) {
+    const as = [...this._body.querySelectorAll('a[data-bare]')];
+    if (!as.length) return;
+    const files = await bareLinkFiles(as.map((a) => a.textContent), docDirOf(this.filePath));
+    if (gen !== this._gen) return;
+    for (const a of as) if (files.has(a.textContent)) a.replaceWith(document.createTextNode(a.textContent));
   }
 
   /**

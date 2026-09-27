@@ -10,6 +10,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 
 | 문서 | 내용 |
 |------|------|
+| [BARE_DOMAIN_LINK_SRS.md](./BARE_DOMAIN_LINK_SRS.md) | **스킴 없는 도메인 링크** (IEEE 29148, `FR-BDL-*`). 터미널·문서 렌더에서 `naver.com` 같은 맨 도메인을 번들된 linkify-it 의 fuzzy link 로 잡아 `app.openLink` 로 연다. `README.md` 같은 파일 이름 오탐은 기준 폴더(터미널 cwd·문서 폴더)에 그 파일이 있는지 `/api/file/stamps` 로 가린다(D-BDL-2) |
 | [BROWSER_TAB_SRS.md](./BROWSER_TAB_SRS.md) | **브라우저 탭 — 서버에서 도는 Chrome 을 탭 안에, 터미널에서 조종한다** (IEEE 29148, `FR-BRT-*`). 서버 기기의 Google Chrome 을 headless·**pipe** 로 띄워(포트 없음) CDP screencast 를 `browser` 탭으로 스트리밍하고, `dmctl browser`(Playwright 방식 신뢰 입력·접근성 snapshot)와 CDP 프록시로 사람과 에이전트가 **같은 브라우저**를 만진다. 쉘 훅은 브라우저 탭으로 전환하고 `VIEWER_URL_OPEN_SRS` 의 판정·모달·`platform.Opener` 를 걷는다. 단계 0~4, 결정 D-BRT-1~19, macOS PoC P1~P8(pipe·screencast·`base-select`·한글 IME·`openDevTools`·`loadUnpacked`) |
 | [REQUEST_GATE_ORIGIN_PORT_SRS.md](./REQUEST_GATE_ORIGIN_PORT_SRS.md) | **요청 게이트 — `Origin` 의 포트까지 본다** (IEEE 29148, `FR-ROP-*`). `normalizeHost` 가 `Origin` 의 포트를 버려 **같은 기계의 다른 포트**(dev 서버·`http.server`·Jupyter)에서 서빙되는 페이지가 `/ws` 로 로그인 셸을 얻었다(실측 101). `Origin` 의 authority(호스트+포트)가 `Host` 와 같아야 통과한다. 스킴은 비교하지 않고(`tailscale serve`) 기본 포트는 추론하지 않는다. 잔여 R-ROP-1: 포트 없는 `Host` 배치의 같은 이름 기본 포트. `BROWSER_TAB_SRS` 의 0단계 |
 | [BROWSER_TAB_INVESTIGATION.md](./BROWSER_TAB_INVESTIGATION.md) | **워크스페이스 안의 서버 측 브라우저 탭 — 조사와 결정 D1~D17.** terminal-browser·Orca·page-agent·Playwright 분석, 구조안 판정(시스템 Chrome headless + CDP pipe 채택), 확인된 제약(Chrome 136 전용 프로필·137 확장 차단·Windows pipe·screencast 가 못 잡는 위젯), 게이트 결함 발견, 미검증 PoC 목록 |
