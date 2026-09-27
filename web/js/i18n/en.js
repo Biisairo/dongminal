@@ -1075,6 +1075,7 @@ I18N.register('en', {
   'brv.error': 'Could not open the browser',
   'brv.forward': 'Forward',
   'brv.hard_reload': 'Hard reload',
+  'brv.signin': 'Sign in to Chrome',
   'brv.menu': 'Menu',
   'brv.open_fail': 'Could not open a browser tab',
   'brv.open_viewer': 'Open in this device\'s browser',

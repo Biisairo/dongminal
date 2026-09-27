@@ -1098,6 +1098,7 @@ I18N.register('ko', {
   'brv.error': '브라우저를 열지 못했습니다',
   'brv.forward': '앞으로',
   'brv.hard_reload': '강력 새로고침',
+  'brv.signin': 'Chrome 에 로그인',
   'brv.menu': '메뉴',
   'brv.open_fail': '브라우저 탭을 열지 못했습니다',
   'brv.open_viewer': '이 기기의 브라우저에서 열기',

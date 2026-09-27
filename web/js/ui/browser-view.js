@@ -349,6 +349,8 @@ class BrowserView{
       {id:'vpAuto',label:t('brv.viewport_auto'),disabled:!this.state.viewport,onClick:()=>this._send({op:'viewport',fixed:false})},
       {sep:true},
       {id:'hardReload',label:t('brv.hard_reload'),onClick:()=>this._send({op:'nav',action:'reload',hard:true})},
+      // FR-BRT-96: 회사 계정이 Chrome 로그인을 요구할 때 — 그 페이지의 버튼이 로그인 탭을 연다.
+      {id:'signin',label:t('brv.signin'),onClick:()=>this._send({op:'nav',action:'signin'})},
       {id:'viewer',label:t('brv.open_viewer'),onClick:()=>{if(this.state.url) window.open(this.state.url,'_blank','noopener')}},
     ],{at:{x:r.left,y:r.bottom},cls:'brv-menu'});
   }

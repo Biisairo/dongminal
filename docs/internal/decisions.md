@@ -233,6 +233,7 @@
 | `D-BRT-20` | UA 에서 `HeadlessChrome` 한 낱말만 `Chrome` 으로 바꾼다 | 사용자 결정(2026-09-27) — 실측: `console.typesafe.ai` 가 기본 UA 는 Cloudflare 403 차단, 바꾼 UA 는 확인 화면. 지문 위장(webdriver·플러그인 등)은 하지 않는다 — 최소 변경. webdrive… | 채택 |
 | `D-BRT-21` | `navigator.webdriver` 를 기동 스위치 하나로 끈다(FR-BRT-93). 숨긴 headful 창 전환(조사의 C1)은 보류한다 | 사용자 결정(2026-09-27) — 실사용에서 `webdriver === true` 로 Turnstile 이 끝없이 다시 떴다. PoC: headful + pipe 도 `true`(원인은 pipe 스위치), headless + pipe + 이 스위치… | 채택 |
 | `D-BRT-22` | 느린 링크는 받음 확인(2장) + JPEG 품질 적응(40~70)으로 맞춘다. 초당 30장을 지키는 쪽으로 품질을 먼저 내리고, 해상도는 건드리지 않는다 | 사용자 결정(2026-09-27) — "못해도 30프레임, 너무 프레임을 낮춰도·화질을 낮춰도 안 된다. 간단하지만 효과적인 방법." 실측: 로컬 전 구간 클릭→그림 p50 21ms, 스크롤 중 약 50장/초 × 76KB ≈ 31~34Mbps — 원격… | 채택 |
+| `D-BRT-23` | 회사 계정의 "Chrome 에 로그인해야 합니다" 는 탭 안에서 Chrome 로그인으로 푼다 — 설정 페이지 하나만 연다 | 사용자 결정(2026-09-27, 안 A) — "your organization requires you to sign into chrome". PoC(Chrome 153 headless): `chrome://signin-internals` 는 DICE… | 채택 |
 
 ## [`CI_E2E_MATRIX_SRS`](./CI_E2E_MATRIX_SRS.md)
 
@@ -1773,4 +1774,4 @@
 
 ---
 
-결정 **1055건** · 문서 **139개**.
+결정 **1056건** · 문서 **139개**.

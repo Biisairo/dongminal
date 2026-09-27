@@ -354,6 +354,9 @@ func (pg *page) do(ctx context.Context, op string, params json.RawMessage) (any,
 	return nil, errors.New("모르는 조작입니다: " + op)
 }
 
+// chromeSigninURL 은 Chrome 에 로그인하는 자리다 (FR-BRT-96).
+const chromeSigninURL = "chrome://settings/people"
+
 // nav 는 도구 막대와 `dmctl browser goto/back/forward/reload` 다 (FR-BRT-58).
 func (pg *page) nav(ctx context.Context, action, url string, hard bool) error {
 	// 이동은 **답을 기다리지 않는다** — 커밋까지 답하지 않으므로(인증 대기 동안은 끝없이)
@@ -364,6 +367,10 @@ func (pg *page) nav(ctx context.Context, action, url string, hard bool) error {
 			return err
 		}
 		pg.b.cl.Fire(pg.session, "Page.navigate", map[string]any{"url": url})
+		return nil
+	case "signin":
+		// FR-BRT-96: 고정 주소라 CheckURL 을 지나지 않는다 — FR-BRT-65 의 유일한 예외다.
+		pg.b.cl.Fire(pg.session, "Page.navigate", map[string]any{"url": chromeSigninURL})
 		return nil
 	case "reload":
 		pg.b.cl.Fire(pg.session, "Page.reload", map[string]any{"ignoreCache": hard})

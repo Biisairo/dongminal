@@ -523,6 +523,20 @@ test.describe('BROWSER_TAB — 브라우저 탭', () => {
     await expect.poll(async () => (await brvRecord(page, tab))?.viewport).toBeUndefined();
   });
 
+  // TC-BRT-89 (FR-BRT-96): 탭 메뉴 "Chrome 에 로그인" 이 그 탭을 Chrome 설정의 로그인 자리로 옮긴다.
+  test('TC-BRT-89: 탭 메뉴의 Chrome 에 로그인', async ({ page, request }) => {
+    await waitForInit(page);
+    await waitShellReady(page);
+    const tab = await openTab(request, { url: site.url + '/', tool: await focusedTool(page), split: 'right', focus: true });
+    await waitFrame(page);
+    await page.locator('.brv.vis .brv-bar button').last().click();
+    await page.locator('.brv-menu [data-id="signin"]').click();
+    await expect.poll(async () => {
+      const r = await request.post('/api/browser/act', { data: { tab, op: 'eval', expr: 'location.href' }, headers: JSON_HDR });
+      return (await r.json()).value;
+    }, { timeout: 20000 }).toBe('chrome://settings/people');
+  });
+
   // TC-BRT-40: 다른 기기가 입력하면 그 기기가 창의 주인이 되고 페이지 크기가 그 기기를 따른다.
   test('TC-BRT-40: 창 주인이 바뀌면 뷰포트가 새 주인을 따른다', async ({ page, request, browser }) => {
     await waitForInit(page);

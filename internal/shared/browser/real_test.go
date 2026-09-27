@@ -443,3 +443,21 @@ func TestRealNoWebdriver(t *testing.T) {
 	waitEval(t, m, "t", `navigator.webdriver`, `false`)
 	waitEval(t, m, "t", `window.__inner`, `"false"`)
 }
+
+// TC-BRT-88 (FR-BRT-96): `nav signin` 은 Chrome 설정의 로그인 자리로 간다. 사용자가 적은 chrome: 주소는 여전히 거절이다.
+func TestRealNavSignin(t *testing.T) {
+	m, _ := realManager(t)
+	ctx := context.Background()
+	if err := m.Open(ctx, OpenReq{Tab: "t", URL: "about:blank"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.Call(ctx, "nav", map[string]any{"tab": "t", "action": "goto", "url": "chrome://settings/people"}); err == nil {
+		t.Fatal("goto chrome: 가 거절되지 않았다")
+	}
+	if _, err := m.Call(ctx, "nav", map[string]any{"tab": "t", "action": "signin"}); err != nil {
+		t.Fatal(err)
+	}
+	waitEval(t, m, "t", `location.href`, `"chrome://settings/people"`)
+	// 설정은 shadow DOM 이다 — 안으로 내려가며 찾는다.
+	waitEval(t, m, "t", `(()=>{const f=n=>{if(!n)return false;if(n.id==='signIn')return true;if(n.shadowRoot&&f(n.shadowRoot))return true;for(const c of n.children||[])if(f(c))return true;return false};return f(document.documentElement)})()`, `true`)
+}
