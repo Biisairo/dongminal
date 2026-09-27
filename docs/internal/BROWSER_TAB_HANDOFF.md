@@ -1,103 +1,93 @@
-# 인수인계 — 브라우저 탭 구현 (0단계 → 4단계)
+# 인수인계 — 브라우저 탭 뒷정리 (남은 결함·흔들리는 시험)
 
-> 근거 SRS: `REQUEST_GATE_ORIGIN_PORT_SRS.md`(0단계) · `BROWSER_TAB_SRS.md`(1~4단계).
-> 조사·결정: `BROWSER_TAB_INVESTIGATION.md`. 브랜치 `main`.
+> 근거 SRS: `BROWSER_TAB_SRS.md`(승인·구현완료) · `REQUEST_GATE_ORIGIN_PORT_SRS.md`(승인·구현완료).
+> 브랜치 `main`. 직전 커밋은 엔벨로프에 있다.
 
 ## 착수 블록 — 이번 세션의 지시 전부
 
-1. **사용자에게 묻지 않고 끝까지 진행한다** (사용자 지시). 결정이 필요하면 SRS 와 조사 문서의
-   결정(D1~D17, D-BRT-1~19)에서 답을 찾고, 거기 없으면 **더 단순한 쪽**을 골라 그 SRS 의 변경
-   기록에 "구현 중 결정" 으로 적는다. 스펙과 코드가 충돌하면 스펙을 먼저 개정하고 진행한다.
-2. 순서는 고정: **0단계 → 1단계 → 2단계 → 3단계 → 4단계.** 단계마다 Spec → Test(RED) → Code(GREEN).
-3. **모든 구현이 끝나면 사용자에게 알린다** — 최종 보고(단계별 결과·남은 위험·커밋 목록)를 화면에
-   남기고 `dmctl notify "브라우저 탭 구현 완료"` 로 주의 알림을 세운다.
-4. 먼저 `REQUEST_GATE_ORIGIN_PORT_SRS.md` §3·§4 부터 시작한다.
+1. 아래 §2 의 다섯을 **순서대로 전부** 끝낸다. 결정이 필요하면 SRS·조사 문서의 결정에서 답을 찾고,
+   없으면 **더 단순한 쪽**을 골라 해당 SRS 변경 기록에 "구현 중 결정" 으로 적는다. 사용자에게 되묻지
+   않는다 — 단, **되돌리기 어렵거나 밖으로 나가는 일**(원격 브랜치 삭제, 남의 PR 닫기 등)은 먼저 묻는다.
+2. 항목마다 원인 확인 → Spec(필요하면) → Test(RED) → Code(GREEN). 원인을 모르고 재시도·시간만 늘리는
+   "고침" 은 하지 않는다 — 원인이 시험의 시간 가정이면 그 사실을 근거와 함께 적고 시험을 고친다.
+3. 항목(또는 묶음)마다 **자기 파일만 경로로 골라** 커밋하고 `git push origin main` 으로 CI(verify·e2e)를
+   돌린다. 사용자가 main push 로 CI 를 돌리라고 했다(2026-09-27). CI 가 초록이 될 때까지 고친다.
+4. 끝나면 최종 보고(항목별 결과·근거·남은 위험·커밋 목록)를 화면에 남기고
+   `dmctl notify "브라우저 탭 뒷정리 완료"` 를 부른다.
 
 ## 0. 한 줄 상태
 
-**문서만 끝났다. 코드는 한 줄도 바뀌지 않았다.** 조사·인터뷰(결정 17건)·macOS PoC 8건·SRS 두 벌이
-저장소에 있다.
+브라우저 탭 0~4단계와 SRS 전수 대조의 빈 곳까지 끝났다. **`77df484b` 에서 CI 가 전부 초록**
+(verify Ubuntu·Windows, e2e 16 샤드), 로컬 e2e 1935건 통과. 남은 것은 이 SRS 밖에서 찾은 결함 하나,
+문서 한 줄, 가끔 흔들리는 시험 셋이다.
 
 ## 1. 어디까지 왔나
 
-| 산출물 | 상태 |
+| 커밋 | 내용 |
 |---|---|
-| `BROWSER_TAB_INVESTIGATION.md` | 조사·결정 기록 (갱신하지 않는다 — 기록이다) |
-| `REQUEST_GATE_ORIGIN_PORT_SRS.md` | 승인·구현중 (구현 0건) |
-| `BROWSER_TAB_SRS.md` | 승인·구현중 (구현 0건) |
-| `REQUEST_GATE_SRS.md` | FR-RQG-3·7·TC-RQG-30 개정 표시 반영됨 |
-| `README.md`(내부) · `decisions.md` | 색인 등록 · 재생성(`go run ./scripts/gen-decisions`) |
+| `9ffc0423` | 0단계 — 요청 게이트가 Origin 의 포트까지 대조 (FR-ROP) |
+| `9c5b2a00` | 1~3단계 — 브라우저 탭·`dmctl browser`·CDP 프록시·충실도 |
+| `ddea8eb9` | 4단계 소리(WebRTC) + SRS 대조 보완 |
+| `cf5bcd3e` | 대기 중인 파일 선택·대화상자 재전송, 에이전트 `open_url` 제거(비목표 11), `<select>` 는 base-select 확정 |
+| `6ea8eb7c` · `a14fdcda` · `77df484b` | CI 가 드러낸 Windows·Linux 결함과 회귀 수정 |
 
-근거 커밋: 이 문서와 함께 들어간 `docs(browser): …` 커밋 (엔벨로프에 해시).
+`BROWSER_TAB_SRS.md` §7 변경 기록의 결정 ①~55 가 모든 판단의 근거다.
 
 ## 2. 남은 일과 순서
 
 | # | 할 일 | 끝나는 조건 |
 |---|---|---|
-| 0 | 요청 게이트 authority 판정 (FR-ROP-1~8) — `reqgate.go` · 시험 · TC-RQG-30 수정 · `SECURITY.md` §6 · `CHANGELOG.md` | ROP §4 전부. **§1.1 의 curl 재현이 403** |
-| 1a | **위험 먼저**: Windows pipe(`lpReserved2` + `CreateProcessW` + Job Object) — FR-BRT-5 · TC-BRT-6 | Windows CI 에서 초록. 이 기기(macOS)에서는 돌릴 수 없다 — CI 잡이 판정한다 |
-| 1b | 엔진 탐색·기동·수명·프로필·CDP 층(pipe·다중화) — 묶음 E·P·C(FR-BRT-20·21) | §4.1~4.3(TC-BRT-24 제외) |
-| 1c | `browser` 탭 — 스트림 종단·뷰어(canvas·입력·IME 기본·키 배분·확대·주소창)·`base-select` — 묶음 T·V | §4.4·4.5 |
-| 1d | 훅 전환·옛 방식 제거·링크 라우팅·scheme·`dmctl browser` 1단계 명령 — 묶음 H·L·S·A(1단계) | §4.6 |
-| 2 | 관찰·조작·대기·진단·CDP 프록시·외부 도구 페이지·오버레이 | §4.7·4.8, TC-BRT-24 |
-| 3 | 충실도 묶음 F·Q | §4.9 |
-| 4 | 오디오 PoC → 성공 시 FR-BRT-91, 실패 시 비목표로 옮기고 SRS 개정 | §4.10 |
-| 끝 | 두 SRS 의 상태를 `승인·구현완료` 로, `VIEWER_URL_OPEN_SRS` 를 `대체` 로. 문서 검사 전부 | 아래 §5 |
+| 1 | **`internal/daemon/ipc/paned.go:166`** `go pc.enqueue(pc.terminate(req), false)` — `go` 문의 인자는 부르는 고루틴에서 먼저 계산되므로 `terminate` 가 **IPC 읽기 루프에서** 돈다. 종료가 오래 걸리면 그동안 데몬 IPC 전체가 멎는다. `paned_browser.go:61~67` 이 같은 결함을 고친 선례다(`go func(){ pc.enqueue(run(), false) }()` + 회귀 시험 `paned_browser_test.go`) | 읽기 루프가 막히지 않음을 재는 회귀 시험이 수정 전 RED · 수정 후 GREEN |
+| 2 | **`BROWSER_TAB_SRS.md`** 변경 기록의 "검증 한계 — TC-BRT-6 의 Windows 판정·Linux CI 의 Chrome 샌드박스는 CI 가 판정한다"(결정 ⑬·㉙) 를 해소로 적는다: `77df484b` 의 verify(windows-latest·ubuntu-latest) 초록이 근거 | `check-srs-status`·`check-srs-progress`·`check-decisions`·`gen-decisions -check` |
+| 3 | **`TestDaemonConcurrentPushAndRequest`** — 부하 중 가끔 실패(브라우저 작업 전 HEAD 에서도 실패했다). 결함인지 시험의 시간 가정인지 가린다 | 원인이 적히고, `-count=20 -race` 가 로컬에서 초록, CI 초록 |
+| 4 | **TC-BRT-81**(e2e `browser-tab.spec.ts` "탭의 소리가 뷰어에 도착한다") — Ubuntu 에서 재시도에 통과(flaky). 후보: 톤 시작과 offer 의 순서, ICE(호스트 후보) 수집, `Audio.play()` 의 자동 재생 거절. CI 산출물 trace 로 본다 | 원인 확인·수정, CI 두 회차 연속 flaky 0 |
+| 5 | **TC-GLR-1**(e2e `git-observe-revive.spec.ts:231` "폴링이 멎어 있으면 그리기 한 번에 되살아난다") — Windows 에서 재시도에 통과. 브라우저 탭과 무관 | 원인 확인·수정, CI 초록 |
 
 ## 3. 먼저 읽을 것
 
-1. `BROWSER_TAB_INVESTIGATION.md` 전체 — 특히 §5(제약 근거)·§7(결정)
-2. `REQUEST_GATE_ORIGIN_PORT_SRS.md` 전체
-3. `BROWSER_TAB_SRS.md` §2.2(PoC 결과)·§2.3(제약)·§3·§4·§6
-4. `REQUEST_GATE_SRS.md` §3.1·§3.2 — 게이트의 기존 계약
-5. `docs/internal/architecture.md` — 프로세스 역할 넷(데몬/웹서버/direct mode)
-6. 코드 자리는 `BROWSER_TAB_SRS.md` §1.4 에 줄 번호까지 있다
+1. `BROWSER_TAB_SRS.md` §7 변경 기록의 마지막 여덟 행(추적 감사 보완 이후) — 무엇을 왜 바꿨는지
+2. `internal/daemon/ipc/paned_browser.go` 의 `browserCall` 과 그 시험 — 항목 1 의 선례
+3. `.github/workflows/e2e.yml`·`verify.yml` — 샤드 분할은 `scripts/e2e-shard.mjs` 한 자리, 워커 2
+4. `e2e/parity-reporter.ts` — flaky 는 실패로 올리지 않지만 기록된다(CI_GATES_SRS §3)
 
 ## 4. 이 세션이 값을 치르고 배운 것
 
-- **`gateExempt`(`reqgate.go:157`) 는 `/api/` 로 시작하지 않고 `/ws` 도 아닌 경로를 정적 자산으로 보고
-  게이트를 건너뛴다.** 새 종단(`/ws/browser` 같은)을 그 밖에 두면 게이트 없는 셸이 된다 → 전부 `/api/` 아래.
-- **Origin 판정의 포트 무시**는 실측으로 확인했다: `Origin: http://localhost:3000` 의 `/ws` 핸드셰이크가
-  101. 재현은 가짜 tool id 로 하라(`/ws?tool=nonexistent-…`) — `tool` 을 빼면 셸이 실제로 생긴다.
-- `tailscale serve` 는 `Host` 를 원본 보존한다(포트 없음). authority 비교는 **스킴을 보지 않고, 기본 포트를
-  추론하지 않는다** — 이유는 ROP FR-ROP-2.
-- **PoC 코드**: `/tmp/brres/poc/main.go` (표준 라이브러리만, pipe 로 Chrome 조종). `/tmp` 라 사라질 수 있다 —
-  핵심은 SRS §2.2 에 옮겨 두었다. 레퍼런스 클론: `/tmp/brres/{terminal-browser,orca,page-agent}`.
-- **`base-select` 함정 둘**: ① `select, ::picker(select){…}` 를 한 선택자 목록으로 묶으면 규칙 전체가 무효 —
-  규칙 둘로 ② 문서 시작 시점에 `<style>` 을 붙이면 `head` 가 없어 실패 — 격리 world 의
-  `document.adoptedStyleSheets` 로 붙인다(`runImmediately:true`, `worldName`). 이렇게 하면 문서 시작부터 적용되고
-  페이지 DOM 에 흔적이 없다.
-- 한글 IME: `Input.imeSetComposition`(ㅎ→하→한→한ㄱ→한그→한글) 뒤 `Input.insertText("한글")` 가 정확한 composition
-  이벤트 열을 낸다.
-- `Target.openDevTools` 는 headless 에서 동작한다 — `devtools://devtools/bundled/devtools_app.html…` 페이지 target.
-- `Extensions.loadUnpacked` 는 pipe + `--enable-unsafe-extension-debugging` 에서 동작한다.
-- `Target.getTargets` 에는 `browser_ui`·`service_worker`·`background_page`(Chrome 내장 확장)가 섞여 나온다 —
-  **`type=="page"` 만 탭**이고, DevTools 페이지(`devtools://`)는 FR-BRT-84 경로로만.
-- Playwright `connectOverCDP`: `ws…` 는 그대로, `http…` 는 경로 접두사를 보존하고 `json/version/` 을 붙인다
-  (`node_modules/playwright-core/lib/server/chromium/chromium.js:343-350`).
-- macOS 에 `timeout` 명령이 없다 — 시간 제한은 Go 코드나 도구 인자로.
-- **이 작업 트리에서 다른 세션이 동시에 `main` 에 커밋하고 있다.** 커밋할 때 **자기 파일만 경로로 골라
-  `git add`** 하라(`git add -A` 금지). 커밋 전 `git status` 로 남의 변경이 섞였는지 본다.
+- **CI 조회**: `gh` 계정(`dongyo12`)은 이 저장소의 collaborator 가 아니다 — `gh workflow run`(403)·`gh pr create` 가
+  거절된다. **push 는 SSH(`bii:Biisairo/dongminal.git`)로 된다.** CI 는 main push 로 돈다.
+  run 목록·로그·산출물은 읽힌다: `gh run list --branch main`, `gh run view <id> --log-failed`,
+  `gh run download <id> -R Biisairo/dongminal -n playwright-report-<os>-<샤드>` (trace.zip 을 풀면
+  `*.trace` 는 JSON 줄 — `type=="before"` 의 `title`·`startTime` 으로 시험 걸음을, `*.network` 로 요청을 본다).
+  실행 중인 run 의 로그는 끝나야 받을 수 있다.
+- **`sleep` 이 막힌다** — 기다릴 때는 `until …; do sleep N; done` 을 `run_in_background` 로 돌린다.
+- **zsh 는 `$specs` 를 낱말로 쪼개지 않는다** — 샤드 재현은 `bash -c 'specs=$(node scripts/e2e-shard.mjs --list 6/8); npx playwright test $specs'`.
+- **게이트는 시험 파일에도 적용된다**: `runtime.GOOS`·`os.FindProcess` 는 platform 밖 금지 — 권한 비트는
+  `testpath.PermChecked()`, 프로세스 죽이기는 `platform.Current().Process.Kill(pid)`.
+- **Linux headless Chrome**: `Page.crash`·`chrome://crash` 는 렌더러를 죽이지 않는다 — 크래시 시험은
+  `SystemInfo.getProcessInfo` 의 renderer pid 를 죽인다. 크래시는 `Target.targetCrashed` 로도 받는다.
+- **Windows 러너**: Chrome 첫 기동이 5초를 넘는다(getVersion 상한 15초). 프로필 폴더는 주 프로세스가 끝난 뒤에도
+  Job 의 자식이 핸들을 늦게 놓는다(지우기 재시도). resize 이벤트 보고를 믿지 말고 `innerWidth` 를 직접 읽는다.
+- **느린 러너가 드러낸 제품 결함 유형** — 다음에도 먼저 의심할 것: ① 연결이 열리기 전 보낸 메시지를 버림
+  ② 다음 프레임에 주는 기본값이 그 사이의 사용자 조작을 덮음 ③ 등록(공개) 뒤 잠금 없이 필드를 읽음.
+- **다른 세션의 리팩터(OPTIMIZE_REFACTOR)가 e2e 가정을 깼던 두 사례**: 같은 본문이면 `save()` 가 PUT 을 보내지
+  않는다(FR-OPT-5-1) · 탐색기 폴링이 `_edGitPoll`(visiblePoll) 로 옮겼다(FR-OPT-4-2). 시험 계약
+  (`app-testing.js`) 에 죽은 이름이 남아 있을 수 있다 — `app.testing.<이름>` 이 undefined 면 의심한다.
+- 레이아웃 기준선(`e2e/baseline/ui-layout.<os>.json`)은 판마다 하나다. 새 DOM 요소가 늘면 "지금에만" 키가
+  세 판 모두에서 뜬다 — 새 키만 더하고 흔들리는 기존 키는 건드리지 않는다.
+- **이 작업 트리에서 다른 세션이 동시에 `main` 에 커밋할 수 있다.** 커밋할 때 자기 파일만 경로로
+  `git add` 한다(`git add -A` 금지). push 전에 `git fetch` 로 앞선 커밋이 없는지 본다.
 
 ## 5. 변하지 않는 규약
 
-- `~/.claude/CLAUDE.md` — SDD(스펙 먼저, IEEE 29148) · TDD(단위·경계·실패 시험, 구현 전에 RED) · 최소 구현 ·
-  국소 변경 · 심볼 탐색은 LSP → Serena → grep · 동작 변경은 이전/새/이유 기록.
-- **커밋 메시지에 AI 서명(`Co-Authored-By` 등)을 넣지 않는다** (사내 규정). 형식은 저장소 관례
-  (`feat(scope): 한국어 요약 (FR-…)`). 사용자가 "묻지 말고 끝까지" 를 지시했으므로 **단계(또는 묶음)마다
-  커밋한다** — 넘긴 뒤 커밋할 사람이 없다.
-- 새 런타임 의존 금지 (`go.mod` 의 넷만). CDP 클라이언트는 직접 짓는다. `platform` 밖에 OS 분기 금지
-  (`scripts/check-seams.sh`).
-- 검사: `make all`(gates·lint·typecheck·unit·test) · `npm run e2e` · 문서 검사
-  `scripts/check-{srs-status,srs-progress,decisions,settings-docs,shortcuts-docs,env-docs,commands-docs,api-docs}.sh` ·
-  `go run ./scripts/gen-decisions -check`. SRS 상태 줄은 enum, `승인·구현중` 이면 `남은 것` 줄 필수.
-- 구현을 끝낸 커밋이 그 SRS 의 상태를 함께 고친다 (`check-srs-status.sh` 규약 ②).
+- `~/.claude/CLAUDE.md` — SDD(IEEE 29148) · TDD(구현 전에 RED) · 최소 구현 · 국소 변경 · 동작 변경은
+  이전/새/이유 기록.
+- **커밋 메시지에 AI 서명(`Co-Authored-By` 등)을 넣지 않는다** (사내 규정). 형식 `fix(scope): 한국어 요약 (FR-…)`.
+- 새 런타임 의존 금지. `platform` 밖 OS 분기 금지(시험 포함).
+- 검사: `make all` · `npm run e2e` · `scripts/check-{srs-status,srs-progress,decisions,settings-docs,shortcuts-docs,env-docs,commands-docs,api-docs}.sh` ·
+  `go run ./scripts/gen-decisions -check`.
 
 ## 6. 아직 유효한 사용자 결정
 
-`BROWSER_TAB_INVESTIGATION.md` §7 의 D1~D17 전부, `BROWSER_TAB_SRS.md` §6 의 D-BRT-1~19. 요지:
-
-- Chrome 만(없으면 설치 요구) · pipe + CDP 프록시, 포트 없음 · 프로필 여럿 동시·설정에서 추가/제거 ·
-  여는 위치 토글(분할 기본 = 오른쪽 칸 있으면 새 탭, 없으면 분할 / 새 탭), 재사용 없음, 브라우저 안에서 연 탭은
-  그 칸 · 링크 클릭은 설정(기본 내장)·수정키 반대, 프로그램 URL 은 언제나 내장 · 소리 기본 끔 · 다운로드는
-  서버에만 · 업로드는 서버 파일만 · 클립보드는 터미널과 같이 뷰어 연동 · `dongminal window` 는 건드리지 않는다.
+- 에이전트 `open_url` 은 걷었다(비목표 11) · `<select>` 는 base-select 로 확정 (2026-09-27).
+- CI 는 **main 에 push** 해서 돌린다 (2026-09-27).
+- 원격의 `dependabot/*` 브랜치 넷은 Dependabot 의 것이다 — 지우지 않는다(지우면 PR 이 닫힌다).
+- 그 밖: `BROWSER_TAB_INVESTIGATION.md` §7 D1~D17, `BROWSER_TAB_SRS.md` §6 D-BRT-1~19.
