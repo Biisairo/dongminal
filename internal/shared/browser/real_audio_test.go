@@ -82,3 +82,26 @@ func TestRealAudioViewer(t *testing.T) {
 		t.Fatal("임시 탭의 소리를 받았다")
 	}
 }
+
+// FR-BRT-91: offscreen 문서가 target 으로 보여도 그 스크립트가 아직 돌지 않았을 수 있다
+// (CI 실측: "__dmOffer is not defined" — 거절받은 뷰어는 다시 청하지 않는다). 그 순간을
+// 흉내 낸다 — 함수를 잠시 치웠다가 되돌리는 사이에 offer 가 온다.
+func TestRealAudioOfferWaitsForScript(t *testing.T) {
+	m, _ := realManager(t)
+	m.cfg.Audio = func() string { return AudioViewer }
+	ctx := context.Background()
+	if err := m.Open(ctx, OpenReq{Tab: "t", URL: "about:blank"}); err != nil {
+		t.Fatal(err)
+	}
+	b := browserOf(m, DefaultProfile)
+	if _, err := b.audioEval(ctx, `(window.__dmOfferHeld = window.__dmOffer, delete window.__dmOffer, setTimeout(() => { window.__dmOffer = window.__dmOfferHeld }, 300), true)`); err != nil {
+		t.Fatal(err)
+	}
+	res, err := m.Call(ctx, "audio", map[string]any{"tab": "t", "action": "offer"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(res), "m=audio") {
+		t.Fatalf("offer: %s", res)
+	}
+}

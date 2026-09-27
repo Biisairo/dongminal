@@ -193,7 +193,7 @@ func (b *profileBrowser) audioEval(ctx context.Context, expr string) (json.RawMe
 		if err != nil {
 			return nil, err
 		}
-		res, err := b.cl.Call(ctx, s, "Runtime.evaluate", map[string]any{"expression": expr, "awaitPromise": true, "returnByValue": true})
+		res, err := b.cl.Call(ctx, s, "Runtime.evaluate", map[string]any{"expression": audioWhenReady(expr), "awaitPromise": true, "returnByValue": true})
 		if err != nil {
 			b.mu.Lock()
 			if b.audioSess == s {
@@ -226,6 +226,13 @@ func (b *profileBrowser) audioEval(ctx context.Context, expr string) (json.RawMe
 		}
 		return r.Result.Value, nil
 	}
+}
+
+// audioWhenReady 는 offscreen 문서의 스크립트가 신호 함수를 정의한 뒤에 expr 을 계산한다.
+// 문서는 target 으로 보여도 스크립트가 아직 돌지 않았을 수 있다(CI 실측: `__dmOffer is not
+// defined`) — 세 함수는 한 번에 정의되므로 하나로 본다. 5초면 그대로 계산해 오류를 낸다.
+func audioWhenReady(expr string) string {
+	return `(async () => { for (let i = 0; i < 50 && typeof __dmOffer !== 'function'; i++) await new Promise(r => setTimeout(r, 100)); return await (` + expr + `) })()`
 }
 
 // audio 는 뷰어의 신호다 — offer 는 {peer, sdp} 를 돌려주고, answer·stop 은 그 peer 에 대한 것이다.
