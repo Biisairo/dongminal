@@ -1,93 +1,97 @@
-# 인수인계 — 브라우저 탭 뒷정리 (남은 결함·흔들리는 시험)
+# 인수인계 — 브라우저 탭을 Orca 방식(숨긴 headful Chrome)으로 옮긴다
 
-> 근거 SRS: `BROWSER_TAB_SRS.md`(승인·구현완료) · `REQUEST_GATE_ORIGIN_PORT_SRS.md`(승인·구현완료).
+> 근거 SRS: `BROWSER_TAB_SRS.md`(승인·구현완료 — 이번 일로 개정한다) · `BROWSER_TAB_INVESTIGATION.md`.
 > 브랜치 `main`. 직전 커밋은 엔벨로프에 있다.
 
 ## 착수 블록 — 이번 세션의 지시 전부
 
-1. 아래 §2 의 다섯을 **순서대로 전부** 끝낸다. 결정이 필요하면 SRS·조사 문서의 결정에서 답을 찾고,
-   없으면 **더 단순한 쪽**을 골라 해당 SRS 변경 기록에 "구현 중 결정" 으로 적는다. 사용자에게 되묻지
-   않는다 — 단, **되돌리기 어렵거나 밖으로 나가는 일**(원격 브랜치 삭제, 남의 PR 닫기 등)은 먼저 묻는다.
-2. 항목마다 원인 확인 → Spec(필요하면) → Test(RED) → Code(GREEN). 원인을 모르고 재시도·시간만 늘리는
-   "고침" 은 하지 않는다 — 원인이 시험의 시간 가정이면 그 사실을 근거와 함께 적고 시험을 고친다.
-3. 항목(또는 묶음)마다 **자기 파일만 경로로 골라** 커밋하고 `git push origin main` 으로 CI(verify·e2e)를
-   돌린다. 사용자가 main push 로 CI 를 돌리라고 했다(2026-09-27). CI 가 초록이 될 때까지 고친다.
-4. 끝나면 최종 보고(항목별 결과·근거·남은 위험·커밋 목록)를 화면에 남기고
-   `dmctl notify "브라우저 탭 뒷정리 완료"` 를 부른다.
+1. **먼저 권한부터 확인한다 (§4 첫 항목).** 이 일은 자동 모드 분류기가 두 번 거부한 결과와 같은 목적이다.
+   사용자가 권한을 풀었는지(기본 권한 모드로 바꿨거나 허용 규칙을 더했는지) 묻고, 풀리지 않았으면
+   **착수하지 말고** 그 사실을 말한다. 분류기의 판단을 다른 경로로 돌아가지 않는다.
+2. §2 의 순서대로 간다: PoC → SRS 개정 → Test(RED) → Code(GREEN) → CI + 로컬 e2e.
+   PoC 결과로 갈래가 갈린다(C1 확정 / C2 검토) — C2 로 갈 때는 사용자에게 먼저 보고한다.
+3. 결정이 필요하면 SRS·조사 문서에서 답을 찾고, 없으면 **더 단순한 쪽**을 골라 SRS 변경 기록에
+   "구현 중 결정" 으로 적는다. 되돌리기 어렵거나 밖으로 나가는 일은 먼저 묻는다.
+4. 항목(또는 묶음)마다 **자기 파일만 경로로 골라** 커밋하고 `git push origin main` 으로 CI 를 돌린다.
+   **사용자 지시: CI 를 돌릴 때 로컬 e2e(`npm run e2e`)도 함께 돌린다.** CI 가 초록이 될 때까지 고친다.
+5. 끝나면 최종 보고를 화면에 남기고 `dmctl notify "브라우저 탭 headful 전환 완료"` 를 부른다.
 
 ## 0. 한 줄 상태
 
-브라우저 탭 0~4단계와 SRS 전수 대조의 빈 곳까지 끝났다. **`77df484b` 에서 CI 가 전부 초록**
-(verify Ubuntu·Windows, e2e 16 샤드), 로컬 e2e 1935건 통과. 남은 것은 이 SRS 밖에서 찾은 결함 하나,
-문서 한 줄, 가끔 흔들리는 시험 셋이다.
+뒷정리 다섯 항목은 끝났다(§1). 실사용에서 Cloudflare 가 브라우저 탭을 막는다. UA 의 `HeadlessChrome` 은
+`a0d2b787` 로 걷었지만 **`navigator.webdriver === true`** 가 남아 Turnstile 체크박스가 끝없이 다시 뜬다
+(사용자 확인). 사용자 결정: **Orca 와 같은 방식 — 서버의 Chrome 을 숨긴 headful 창으로 띄운다(C1).**
+사이트를 기기의 일반 브라우저로 여는 우회는 **거부**됐다.
 
 ## 1. 어디까지 왔나
 
 | 커밋 | 내용 |
 |---|---|
-| `9ffc0423` | 0단계 — 요청 게이트가 Origin 의 포트까지 대조 (FR-ROP) |
-| `9c5b2a00` | 1~3단계 — 브라우저 탭·`dmctl browser`·CDP 프록시·충실도 |
-| `ddea8eb9` | 4단계 소리(WebRTC) + SRS 대조 보완 |
-| `cf5bcd3e` | 대기 중인 파일 선택·대화상자 재전송, 에이전트 `open_url` 제거(비목표 11), `<select>` 는 base-select 확정 |
-| `6ea8eb7c` · `a14fdcda` · `77df484b` | CI 가 드러낸 Windows·Linux 결함과 회귀 수정 |
+| `6c7b979b` | 뒷정리 1 — `paned.go` terminate 가 IPC 읽기 루프에서 유예를 기다리던 결함 (FR-BGK-7). 회귀 시험 RED→GREEN |
+| `3b7ce400` | 뒷정리 2 — SRS "검증 한계(TC-BRT-6 Windows·Linux Chrome 샌드박스)" 해소 기록 |
+| `5a487abd` | 뒷정리 3 — `TestDaemonConcurrentPushAndRequest` 는 시험의 시간 가정(darwin 은 cwd·busy 마다 lsof·pgrep, 400회 13~25초 vs 상한 30초; 실제 겹침은 첫 0.1초뿐). 출력 끝 표식에서 멈춘다 |
+| `5b4d5f34` | (추가) `TestRealFind` — 찾기가 격리 world 준비 전에 불렸다 (Windows CI) |
+| `d06f48f7` | (추가) e2e X9 (V-EDT-47) — 여는 순간의 git/status 셋이 셈 뒤에 도착 (Windows CI trace) |
+| `a0d2b787` | **FR-BRT-92** — UA 에서 `HeadlessChrome` 을 뺀다. UA 만 덮으면 Chrome 이 Client Hints 를 비우므로 기동 때 `chrome://version/` 에서 자신의 값을 읽어 함께 건다(탐침 컨텍스트의 attach 는 페이지로 세지 않는다). D-BRT-20 |
+| `889143a2` | 뒷정리 4 — TC-BRT-81 소리 flaky 의 원인: offscreen 문서가 target 으로 보여도 스크립트가 아직 안 돌아 `__dmOffer is not defined` 로 거절, 뷰어는 재청하지 않음. 신호 식을 함수 정의 뒤에 계산 (FR-BRT-91) |
+| `69cb46eb` | 뒷정리 5 — TC-GLR-1: 워치독 문턱을 연 뒤 멈춤과 확인을 두 evaluate 로 나눠 그 틈에 되살아났다. 같은 동기 식에서 읽는다 |
 
-`BROWSER_TAB_SRS.md` §7 변경 기록의 결정 ①~55 가 모든 판단의 근거다.
+`a0d2b787` CI 는 초록이었다(verify·e2e). `69cb46eb` 의 CI·로컬 e2e 결과는 이 문서를 쓴 뒤에 나온다 —
+`gh run list --branch main -R Biisairo/dongminal` 로 확인하고, 빨가면 그것부터 고친다.
 
 ## 2. 남은 일과 순서
 
 | # | 할 일 | 끝나는 조건 |
 |---|---|---|
-| 1 | **`internal/daemon/ipc/paned.go:166`** `go pc.enqueue(pc.terminate(req), false)` — `go` 문의 인자는 부르는 고루틴에서 먼저 계산되므로 `terminate` 가 **IPC 읽기 루프에서** 돈다. 종료가 오래 걸리면 그동안 데몬 IPC 전체가 멎는다. `paned_browser.go:61~67` 이 같은 결함을 고친 선례다(`go func(){ pc.enqueue(run(), false) }()` + 회귀 시험 `paned_browser_test.go`) | 읽기 루프가 막히지 않음을 재는 회귀 시험이 수정 전 RED · 수정 후 GREEN |
-| 2 | **`BROWSER_TAB_SRS.md`** 변경 기록의 "검증 한계 — TC-BRT-6 의 Windows 판정·Linux CI 의 Chrome 샌드박스는 CI 가 판정한다"(결정 ⑬·㉙) 를 해소로 적는다: `77df484b` 의 verify(windows-latest·ubuntu-latest) 초록이 근거 | `check-srs-status`·`check-srs-progress`·`check-decisions`·`gen-decisions -check` |
-| 3 | **`TestDaemonConcurrentPushAndRequest`** — 부하 중 가끔 실패(브라우저 작업 전 HEAD 에서도 실패했다). 결함인지 시험의 시간 가정인지 가린다 | 원인이 적히고, `-count=20 -race` 가 로컬에서 초록, CI 초록 |
-| 4 | **TC-BRT-81**(e2e `browser-tab.spec.ts` "탭의 소리가 뷰어에 도착한다") — Ubuntu 에서 재시도에 통과(flaky). 후보: 톤 시작과 offer 의 순서, ICE(호스트 후보) 수집, `Audio.play()` 의 자동 재생 거절. CI 산출물 trace 로 본다 | 원인 확인·수정, CI 두 회차 연속 flaky 0 |
-| 5 | **TC-GLR-1**(e2e `git-observe-revive.spec.ts:231` "폴링이 멎어 있으면 그리기 한 번에 되살아난다") — Windows 에서 재시도에 통과. 브라우저 탭과 무관 | 원인 확인·수정, CI 초록 |
+| 0 | 권한 확인 (착수 블록 1) | 사용자가 풀었다고 답함 |
+| 1 | **PoC**: `launchArgs`(`internal/shared/browser/manager.go`)에서 `--headless=new` 를 뺀 숨긴 창 + `--remote-debugging-pipe` 로 띄워 **로컬 httptest 페이지**에서 `navigator.webdriver` 를 잰다. 외부 사이트 통과 여부는 사용자가 실사용으로 확인한다 | 값이 적힘. `false` → C1 확정. `true` → 원격 디버깅 스위치가 원인 — **C2 를 사용자에게 보고하고 멈춘다** |
+| 2 | **SRS 개정**: A1(headless) → 숨긴 headful. 이전/새/이유. 창을 숨기는 방법(macOS·Windows — 화면 밖 위치·`--window-position` 등 후보를 실측으로 고른다), 화면이 없는 Linux 의 동작(가상 디스플레이 요구 또는 headless 로 떨어지기 — 더 단순한 쪽), 포커스를 뺏지 않을 것(A2 기각 사유), 창 크기와 뷰포트(FR-BRT-40·57)의 관계 | `check-srs-status`·`check-srs-progress`·`check-decisions`·`gen-decisions -check` |
+| 3 | Test(RED): TC 추가 — 실제 Chrome 로컬 페이지에서 `navigator.webdriver === false`, 창이 보이지 않음/포커스를 뺏지 않음(잴 수 있는 만큼), 기존 TC-BRT-83 유지 | 구현 전 RED |
+| 4 | Code(GREEN) + 전량 | `make all` · browser 패키지 `-race` · CI(verify·e2e) · 로컬 e2e |
 
 ## 3. 먼저 읽을 것
 
-1. `BROWSER_TAB_SRS.md` §7 변경 기록의 마지막 여덟 행(추적 감사 보완 이후) — 무엇을 왜 바꿨는지
-2. `internal/daemon/ipc/paned_browser.go` 의 `browserCall` 과 그 시험 — 항목 1 의 선례
-3. `.github/workflows/e2e.yml`·`verify.yml` — 샤드 분할은 `scripts/e2e-shard.mjs` 한 자리, 워커 2
-4. `e2e/parity-reporter.ts` — flaky 는 실패로 올리지 않지만 기록된다(CI_GATES_SRS §3)
+1. `BROWSER_TAB_INVESTIGATION.md` §3(레퍼런스 — Orca 는 데스크톱 `<webview>`, 원격은 **숨긴 `BrowserWindow` + CDP screencast**) · §4(A1 채택·A2 기각 사유) · §7 D1·D2
+2. `BROWSER_TAB_SRS.md` §1.1 · FR-BRT-4~7(기동·수명) · FR-BRT-92 · §6 D-BRT-20 · §7 마지막 행들
+3. `internal/shared/browser/manager.go` `launchArgs` · `engine.go` 기동(`Browser.getVersion`·`probeUserAgent`·`setAutoAttach`)
+4. `platform` 패키지의 Chrome 기동(`StartPiped`) — OS 분기는 `platform` 안에서만
 
 ## 4. 이 세션이 값을 치르고 배운 것
 
-- **CI 조회**: `gh` 계정(`dongyo12`)은 이 저장소의 collaborator 가 아니다 — `gh workflow run`(403)·`gh pr create` 가
-  거절된다. **push 는 SSH(`bii:Biisairo/dongminal.git`)로 된다.** CI 는 main push 로 돈다.
-  run 목록·로그·산출물은 읽힌다: `gh run list --branch main`, `gh run view <id> --log-failed`,
-  `gh run download <id> -R Biisairo/dongminal -n playwright-report-<os>-<샤드>` (trace.zip 을 풀면
-  `*.trace` 는 JSON 줄 — `type=="before"` 의 `title`·`startTime` 으로 시험 걸음을, `*.network` 로 요청을 본다).
-  실행 중인 run 의 로그는 끝나야 받을 수 있다.
-- **`sleep` 이 막힌다** — 기다릴 때는 `until …; do sleep N; done` 을 `run_in_background` 로 돌린다.
-- **zsh 는 `$specs` 를 낱말로 쪼개지 않는다** — 샤드 재현은 `bash -c 'specs=$(node scripts/e2e-shard.mjs --list 6/8); npx playwright test $specs'`.
-- **게이트는 시험 파일에도 적용된다**: `runtime.GOOS`·`os.FindProcess` 는 platform 밖 금지 — 권한 비트는
-  `testpath.PermChecked()`, 프로세스 죽이기는 `platform.Current().Process.Kill(pid)`.
-- **Linux headless Chrome**: `Page.crash`·`chrome://crash` 는 렌더러를 죽이지 않는다 — 크래시 시험은
-  `SystemInfo.getProcessInfo` 의 renderer pid 를 죽인다. 크래시는 `Target.targetCrashed` 로도 받는다.
-- **Windows 러너**: Chrome 첫 기동이 5초를 넘는다(getVersion 상한 15초). 프로필 폴더는 주 프로세스가 끝난 뒤에도
-  Job 의 자식이 핸들을 늦게 놓는다(지우기 재시도). resize 이벤트 보고를 믿지 말고 `innerWidth` 를 직접 읽는다.
-- **느린 러너가 드러낸 제품 결함 유형** — 다음에도 먼저 의심할 것: ① 연결이 열리기 전 보낸 메시지를 버림
-  ② 다음 프레임에 주는 기본값이 그 사이의 사용자 조작을 덮음 ③ 등록(공개) 뒤 잠금 없이 필드를 읽음.
-- **다른 세션의 리팩터(OPTIMIZE_REFACTOR)가 e2e 가정을 깼던 두 사례**: 같은 본문이면 `save()` 가 PUT 을 보내지
-  않는다(FR-OPT-5-1) · 탐색기 폴링이 `_edGitPoll`(visiblePoll) 로 옮겼다(FR-OPT-4-2). 시험 계약
-  (`app-testing.js`) 에 죽은 이름이 남아 있을 수 있다 — `app.testing.<이름>` 이 undefined 면 의심한다.
-- 레이아웃 기준선(`e2e/baseline/ui-layout.<os>.json`)은 판마다 하나다. 새 DOM 요소가 늘면 "지금에만" 키가
-  세 판 모두에서 뜬다 — 새 키만 더하고 흔들리는 기존 키는 건드리지 않는다.
-- **이 작업 트리에서 다른 세션이 동시에 `main` 에 커밋할 수 있다.** 커밋할 때 자기 파일만 경로로
-  `git add` 한다(`git add -A` 금지). push 전에 `git fetch` 로 앞선 커밋이 없는지 본다.
+- **권한**: 자동 모드 분류기가 거부한 것 — ① 외부 사이트(`console.typesafe.ai`)에서 webdriver 를 끄고 통과되는지 재는 임시 시험
+  ("Third-Party Attack") ② 그 목적의 `launchArgs` 시험 읽기(사유 없음). 거부는 "같은 결과" 전체에 걸린다. 다시 시도하지 말고
+  사용자에게 권한을 받는다. 로컬 e2e 결과 로그 읽기도 한 번 거부됐다가 사용자가 직접 요청해 풀렸다.
+- **실측(사용자의 실사용 탭, 새 빌드)**: `navigator.userAgent` = `…Chrome/153.0.0.0…`, brands 정상, **`navigator.webdriver` = true**.
+  Cloudflare: 기본 UA → 403 "Attention Required", UA 수정 → "Just a moment..." 에서 멈춤, 체크박스를 눌러도 다시 뜸.
+- **확인이 필요한 기술 가정(미검증)**: Chrome 은 headless 가 아니어도 `--remote-debugging-pipe/port` 가 있으면 자동화로 표시할 수 있다.
+  Orca 에 표식이 없는 것은 Electron 이 디버거를 프로세스 안에서 붙이기 때문으로 보인다. 그래서 PoC 가 첫 걸음이다.
+  C2 = 평소처럼 뜬 Chrome + dongminal 확장의 `chrome.debugger`(branded Chrome 은 `--load-extension` 차단 — 설치 경로가 문제, "디버깅 중" 막대).
+  C3 = OS webview(WebView2·WKWebView) — 단일 바이너리 원칙과 충돌(B3 기각).
+- **UA 만 덮으면 Client Hints 가 빈다**(`Sec-CH-UA`·`userAgentData.brands`). `about:blank` 는 보안 문맥이 아니라 `userAgentData` 가 없다 — `chrome://version/` 에서 읽었다.
+  탐침에서 부른 `Target.attachToTarget` 은 `attachedToTarget` **이벤트**를 내고 작업자가 dispose 뒤에 처리한다 — 그 컨텍스트를 적어 두고 건너뛴다(안 그러면 탭이 하나 생긴다; `TestRealDevTools` 가 잡았다).
+- **실사용 확인 요령**: 데몬이 브라우저를 소유한다(FR-BRT-8). 웹서버만 다시 띄우면 옛 Chrome 이 남는다 — `ps` 로 `--user-data-dir=~/.dongminal/browser/…` Chrome 의 기동 시각을 본다.
+  탭 안의 값은 `dmctl browser eval "<js>" --tab <uuid>` 로 읽는다(읽기만).
+- **느림(미해결)**: 사용자가 "반응이 너무 느리다" 고 했다. 원인 미확인 — 후보는 원격 뷰어(Tailscale `100.x`, 두 기기 동시 시청 시 프레임 두 벌), 프레임 크기(JPEG q70 × CSS폭×DPR, `page.go` `startScreencast`), 로컬 e2e 부하. headful 전환과 함께 다시 잰다. 사용자에게 로딩/입력 중 무엇이 느린지·원격 여부를 아직 못 들었다.
+- **CI**: `gh` 계정은 collaborator 가 아니다 — push 는 SSH, run 목록·로그·산출물은 읽힌다. flaky 는 산출물을 남기지 않는다(`if: failure()`) — 첫 시도의 실패는 run 로그에서 읽는다.
+  `gh run download <id> -n playwright-report-<os>-<샤드>` · trace.zip 의 `*.network` 로 요청 시각을 본다.
+- **로컬 e2e 를 다른 시험과 함께 돌릴 때**: `E2E_PORT_BASE=59147` 로 포트 뿌리를 가른다(FR-EPL-14). macOS 에 `timeout` 명령이 없다.
+- **관찰만 한 흔들림**: `TestRealCloseLeavesNoChrome`(Ubuntu, `5b4d5f34`) — Chrome 이 `getVersion` 에 15초 무응답. 증거가 없어 고치지 않았다. 다시 나오면 조사.
+- 그 밖(이전 인계에서 이어짐): `sleep` 은 `until …; do sleep N; done` 을 `run_in_background` 로. 게이트는 시험 파일에도 적용 —
+  `runtime.GOOS` 금지. 이 작업 트리에서 다른 세션이 동시에 커밋할 수 있다 — `git add -A` 금지, push 전 `git fetch`.
 
 ## 5. 변하지 않는 규약
 
-- `~/.claude/CLAUDE.md` — SDD(IEEE 29148) · TDD(구현 전에 RED) · 최소 구현 · 국소 변경 · 동작 변경은
-  이전/새/이유 기록.
-- **커밋 메시지에 AI 서명(`Co-Authored-By` 등)을 넣지 않는다** (사내 규정). 형식 `fix(scope): 한국어 요약 (FR-…)`.
-- 새 런타임 의존 금지. `platform` 밖 OS 분기 금지(시험 포함).
+- `~/.claude/CLAUDE.md` — SDD(IEEE 29148) · TDD(구현 전에 RED) · 최소 구현 · 국소 변경 · 동작 변경은 이전/새/이유 기록.
+- **커밋 메시지에 AI 서명(`Co-Authored-By` 등)을 넣지 않는다** (사내 규정). 형식 `feat|fix|test|docs(scope): 한국어 요약 (FR-…)`.
+- 새 런타임 의존 금지. `platform` 밖 OS 분기 금지(시험 포함). 단일 바이너리.
 - 검사: `make all` · `npm run e2e` · `scripts/check-{srs-status,srs-progress,decisions,settings-docs,shortcuts-docs,env-docs,commands-docs,api-docs}.sh` ·
-  `go run ./scripts/gen-decisions -check`.
+  `go run ./scripts/gen-decisions -check`(`decisions.md` 는 생성물 — `go run ./scripts/gen-decisions` 로 다시 만든다).
+- 프로젝트 루트의 스크린샷(`스크린샷 2026-09-27 오후 1.28.01.png`)은 사용자의 것이다 — 커밋하지 않는다.
 
 ## 6. 아직 유효한 사용자 결정
 
-- 에이전트 `open_url` 은 걷었다(비목표 11) · `<select>` 는 base-select 로 확정 (2026-09-27).
-- CI 는 **main 에 push** 해서 돌린다 (2026-09-27).
-- 원격의 `dependabot/*` 브랜치 넷은 Dependabot 의 것이다 — 지우지 않는다(지우면 PR 이 닫힌다).
-- 그 밖: `BROWSER_TAB_INVESTIGATION.md` §7 D1~D17, `BROWSER_TAB_SRS.md` §6 D-BRT-1~19.
+- **Orca 방식(C1, 숨긴 headful Chrome)으로 간다** (2026-09-27). 기기의 일반 브라우저로 여는 우회는 거부.
+- CI 는 **main 에 push** 해서 돌린다. **CI 와 함께 로컬 e2e 도 돌린다.**
+- 에이전트 `open_url` 은 걷었다(비목표 11) · `<select>` 는 base-select.
+- 원격의 `dependabot/*` 브랜치 넷은 지우지 않는다.
+- 그 밖: `BROWSER_TAB_INVESTIGATION.md` §7 D1~D17, `BROWSER_TAB_SRS.md` §6 D-BRT-1~20.
