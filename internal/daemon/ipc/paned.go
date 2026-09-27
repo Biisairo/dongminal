@@ -158,8 +158,9 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 		resp = pc.kill(req)
 	case toolipc.MethodTerminate:
 		// 유예를 기다리는 동안 이 연결의 다른 요청을 막지 않는다 — 응답은 id 로
-		// 짝지어지므로 순서가 바뀌어도 클라이언트는 제 응답을 찾는다.
-		go pc.enqueue(pc.terminate(req), false)
+		// 짝지어지므로 순서가 바뀌어도 클라이언트는 제 응답을 찾는다. go 문의 인자는
+		// 부르는 고루틴에서 먼저 평가되므로 terminate 를 클로저 안에서 부른다.
+		go func() { pc.enqueue(pc.terminate(req), false) }()
 		return
 	case toolipc.MethodWrite:
 		resp = pc.write(req)
