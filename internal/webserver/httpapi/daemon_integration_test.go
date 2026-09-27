@@ -9,6 +9,7 @@ import (
 
 	"dongminal/internal/shared/toolhub"
 
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"os"
@@ -558,6 +559,11 @@ func TestDaemonConcurrentPushAndRequest(t *testing.T) {
 	}
 
 	// ... while concurrently issuing many RPCs (responses).
+	//
+	// 겹침은 출력이 흐르는 동안에만 있다 — 끝 표식이 보이면 멈춘다. 종전의 고정 400회는
+	// darwin 에서 cwd·busy 마다 lsof·pgrep 을 띄워 시험 한 번에 13초(부하 아래 25초)를 써서
+	// 30초 상한에 부하만으로 걸렸다. 표식을 내지 않는 셸(Windows)은 400회에서 멈춘다.
+	floodEnd := []byte("concurrency_probe_2000")
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
@@ -565,6 +571,9 @@ func TestDaemonConcurrentPushAndRequest(t *testing.T) {
 			pc.List()
 			_ = pc.Cwd(tool.ID)
 			_ = pc.Busy(tool.ID)
+			if s, _ := pm.SnapshotTool(tool.ID); bytes.Contains(s.Data, floodEnd) {
+				return
+			}
 		}
 	}()
 
