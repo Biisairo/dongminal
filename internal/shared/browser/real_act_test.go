@@ -134,8 +134,11 @@ func TestRealActCovered(t *testing.T) {
 	site, _ := actSite(t)
 	m.Open(context.Background(), OpenReq{Tab: "t", URL: site.URL + "/"})
 	waitEval(t, m, "t", `document.title`, `"act"`)
+	// iframe 까지 다 읽히고 덮개가 그려진 뒤에 잰다 — 부하 걸린 러너에서 1.5초 안에 첫 판정도
+	// 못 해 "보이지 않음" 으로 끝났다(CI 실측). 재는 것은 이유가 "가림" 인가다.
+	waitEval(t, m, "t", `document.readyState==='complete'&&document.getElementById('hid').getBoundingClientRect().width>0`, `true`)
 	s := snap(t, m, false)
-	ctx, cancel := context.WithTimeout(context.Background(), 1500*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	_, err := m.Call(ctx, "click", map[string]any{"tab": "t", "ref": refOf(t, s, `"Covered"`)})
 	if err == nil || !strings.Contains(err.Error(), "가림") {

@@ -491,7 +491,11 @@ test.describe('BROWSER_TAB — 브라우저 탭', () => {
     await waitReport(site, 'width', () => true);
     await page.locator('.brv.vis .brv-bar button').last().click();
     await page.locator('.brv-menu [data-id="vp390x844"], .brv-menu .ui-menu-item:has-text("390")').first().click();
-    await waitReport(site, 'rw', (v) => v === '390');
+    // resize 보고는 Windows 에서 오지 않았다(CI 실측) — 페이지의 폭을 직접 읽는다.
+    await expect.poll(async () => {
+      const r = await request.post('/api/browser/act', { data: { tab, op: 'eval', expr: 'innerWidth' }, headers: JSON_HDR });
+      return (await r.json()).value;
+    }, { timeout: 20000 }).toBe(390);
     await expect.poll(async () => (await brvRecord(page, tab))?.viewport).toEqual({ w: 390, h: 844 });
     await page.locator('.brv.vis .brv-bar button').last().click();
     await page.locator('.brv-menu .ui-menu-item:has-text("Fit"), .brv-menu .ui-menu-item:has-text("맞춤")').first().click();

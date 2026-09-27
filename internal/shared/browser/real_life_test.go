@@ -17,7 +17,9 @@ func TestRealCrashState(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitEval(t, m, "t", `document.title`, `"hello"`)
-	go m.Do(ctx, "cdp", mustJSON(map[string]any{"tab": "t", "method": "Page.crash"}))
+	// Page.crash 는 Linux headless 에서 렌더러를 죽이지 않았다(CI 실측) — Puppeteer 처럼
+	// chrome://crash 로 이동해 죽인다. 매니저의 이동(nav)은 이 scheme 을 거절하므로 CDP 로 간다.
+	go m.Do(ctx, "cdp", mustJSON(map[string]any{"tab": "t", "method": "Page.navigate", "params": map[string]any{"url": "chrome://crash"}}))
 	r.wait(t, 10*time.Second, func(e Event) bool {
 		var st TabState
 		json.Unmarshal(e.Info, &st)
