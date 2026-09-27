@@ -36,7 +36,7 @@
 | `889143a2` | 뒷정리 4 — TC-BRT-81 소리 flaky 의 원인: offscreen 문서가 target 으로 보여도 스크립트가 아직 안 돌아 `__dmOffer is not defined` 로 거절, 뷰어는 재청하지 않음. 신호 식을 함수 정의 뒤에 계산 (FR-BRT-91) |
 | `69cb46eb` | 뒷정리 5 — TC-GLR-1: 워치독 문턱을 연 뒤 멈춤과 확인을 두 evaluate 로 나눠 그 틈에 되살아났다. 같은 동기 식에서 읽는다 |
 
-`a0d2b787` CI 는 초록이었다(verify·e2e). `69cb46eb` 의 CI·로컬 e2e 결과는 이 문서를 쓴 뒤에 나온다 —
+`a0d2b787`·`69cb46eb` CI 는 초록이었다(verify·e2e). 이 문서를 싣는 커밋의 CI 와 로컬 e2e 결과는 뒤에 나온다 —
 `gh run list --branch main -R Biisairo/dongminal` 로 확인하고, 빨가면 그것부터 고친다.
 
 ## 2. 남은 일과 순서
@@ -75,6 +75,7 @@
 - **CI**: `gh` 계정은 collaborator 가 아니다 — push 는 SSH, run 목록·로그·산출물은 읽힌다. flaky 는 산출물을 남기지 않는다(`if: failure()`) — 첫 시도의 실패는 run 로그에서 읽는다.
   `gh run download <id> -n playwright-report-<os>-<샤드>` · trace.zip 의 `*.network` 로 요청 시각을 본다.
 - **로컬 e2e 를 다른 시험과 함께 돌릴 때**: `E2E_PORT_BASE=59147` 로 포트 뿌리를 가른다(FR-EPL-14). macOS 에 `timeout` 명령이 없다.
+- **고친 흔들림(`889143a2` verify Ubuntu)**: `TestRealLogsScreenshotEval` — console 기록은 이벤트 작업자를 거쳐 evaluate 응답보다 늦게 적힐 수 있다. 시험이 기록을 기다린다.
 - **관찰만 한 흔들림**: `TestRealCloseLeavesNoChrome`(Ubuntu, `5b4d5f34`) — Chrome 이 `getVersion` 에 15초 무응답. 증거가 없어 고치지 않았다. 다시 나오면 조사.
 - 그 밖(이전 인계에서 이어짐): `sleep` 은 `until …; do sleep N; done` 을 `run_in_background` 로. 게이트는 시험 파일에도 적용 —
   `runtime.GOOS` 금지. 이 작업 트리에서 다른 세션이 동시에 커밋할 수 있다 — `git add -A` 금지, push 전 `git fetch`.
