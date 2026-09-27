@@ -73,6 +73,10 @@ test.beforeAll(() => {
   fs.mkdirSync(j(ROOT, 'sub'), { recursive: true });
   fs.writeFileSync(j(ROOT, 'sub', 'deep.md'),
     '# 깊은 문서\n\n![루트기준](/img/root.png)\n\n[밖으로](../../etc/hosts)\n');
+  // BARE_DOMAIN_LINK_SRS TC-BDL-5 — 맨 도메인과, 같은 폴더의 파일 이름.
+  fs.writeFileSync(j(ROOT, 'notes.md'), '# n\n');
+  fs.writeFileSync(j(ROOT, 'bare.md'),
+    '# 맨\n\nnaver.com 그리고 notes.md 그리고 https://a.example.com 그리고 [t](https://b.example.com)\n');
   // M5 — 링크 셋: 상대 · 외부 · 앵커.
   fs.writeFileSync(j(ROOT, 'links.md'),
     '# 위\n\n[다른 문서](./doc.md)\n\n[바깥](https://example.invalid/x)\n\n' +
@@ -344,6 +348,21 @@ test.describe('문서 렌더 뷰', () => {
     await expect(ext).toBeVisible({ timeout: 15000 });
     expect(await ext.getAttribute('target')).toBe('_blank');
     expect((await ext.getAttribute('rel'))?.includes('noopener')).toBeTruthy();
+  });
+
+  // TC-BDL-5 (FR-BDL-5·6): 맨 도메인은 링크, 같은 폴더의 파일 이름은 글자, 나머지는 그대로.
+  test('TC-BDL-5 맨 도메인은 링크이고 같은 폴더의 파일 이름은 아니다', async ({ page }) => {
+    await openFile(page, 'bare.md');
+    await page.locator(RENDER_BTN).click();
+    await expect(page.locator(RENDER_BODY + ' h1')).toHaveText('맨', { timeout: 15000 });
+    const hrefs = () => page.locator(RENDER_BODY + ' a').evaluateAll((as) => as.map((a) => a.getAttribute('href')));
+    await expect.poll(hrefs, { timeout: 15000 })
+      .toEqual(['http://naver.com', 'https://a.example.com', 'https://b.example.com']);
+    await expect(page.locator(RENDER_BODY + ' p')).toContainText('notes.md');
+    // FR-BDL-6: 외부 링크와 같이 새 창으로 나간다.
+    const bare = page.locator(RENDER_BODY + ' a[href="http://naver.com"]');
+    expect(await bare.getAttribute('target')).toBe('_blank');
+    expect((await bare.getAttribute('rel'))?.includes('noopener')).toBeTruthy();
   });
 
   // FR-DRV-28: 앵커는 렌더 뷰 안에서 움직인다 — 다른 문서를 열지 않는다.

@@ -747,6 +747,10 @@ const WINDOW_TYPE_EDITOR='editor';
 // EDITOR_GIT_UX_SRS 묶음 V — 열 수 있는 형식인가.
 const FILE_PROBE_API='/api/file/probe';
 const FILE_RAW_API='/api/file/raw';
+// BARE_DOMAIN_LINK_SRS FR-BDL-2·3: 맨 도메인이 기준 폴더의 파일인지 묻는 자리와 그 답의 수명.
+const FILE_STAMPS_API='/api/file/stamps';
+const BARE_LINK_CACHE_MS=5000;
+const BARE_LINK_CACHE_MAX=500;
 // M9_SRS FR-M9-24: 보던 자리의 기록 상한 (사용자 결정 2026-09-14). 넘으면 오래된
 // 쪽부터 버린다 — 무한히 쌓으면 그 자체가 새는 자리다.
 const FOCUS_NAV_MAX=100;

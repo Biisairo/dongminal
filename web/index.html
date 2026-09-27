@@ -744,6 +744,8 @@
 <!-- 드롭을 {file, relPath} 로 펴는 순수 함수 (TERMINAL_FOLDER_DROP_SRS FR-TFD-1).
      탐색기와 터미널이 함께 쓴다 — 의존이 0 이라 순서는 둘보다 앞이기만 하면 된다. -->
 <script src="js/ui/drop-entries.js?v=__ASSETV__"></script>
+<!-- 맨 도메인 링크 (BARE_DOMAIN_LINK_SRS). 터미널과 문서 렌더가 함께 쓴다 — 둘보다 앞이어야 한다. -->
+<script src="js/ui/bare-link.js?v=__ASSETV__"></script>
 <!-- 터미널 칸: WS 배선(TermSocket) → TerminalTool → 입력 증강 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-1·12-4).
      term-input.js 는 TerminalTool.prototype 에 얹으므로 term-pane.js 뒤여야 한다. -->
 <script src="js/ui/term-socket.js?v=__ASSETV__"></script>
