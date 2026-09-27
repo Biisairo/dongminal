@@ -206,6 +206,62 @@ func TestPanedKillRemovesTool(t *testing.T) {
 	}
 }
 
+// CONVENIENCE_SRS FR-BGK-7: terminate 는 유예를 **읽기 루프 밖에서** 기다린다. 대화형
+// 셸은 SIGTERM 을 무시하므로 유예를 다 채운다 — 그동안 같은 연결의 hello 가 막히면
+// 안 된다 (실측 결함: `go f(pc.terminate(req))` 가 terminate 를 읽기 루프에서 돌렸다).
+func TestPanedTerminateDoesNotBlockReadLoop(t *testing.T) {
+	pm := toolhub.NewToolManager(toolTempDir(t), nil)
+	t.Cleanup(pm.StopSaving)
+	tl, err := pm.Create("/tmp", 80, 24, toolhub.Placement{})
+	if err != nil {
+		t.Skipf("PTY 생성 불가(환경): %v", err)
+	}
+	// 셸이 신호 처리를 세운 뒤에 보낸다 — 출력이 곧 기동 완료 신호다.
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		if s, _ := pm.SnapshotTool(tl.ID); len(s.Data) > 0 {
+			break
+		}
+	}
+	c1, c2 := net.Pipe()
+	pc := newPanedConn(c1, pm)
+	t.Cleanup(pc.stop)
+	answered := make(chan int64, 4)
+	go func() {
+		dec := json.NewDecoder(c2)
+		for {
+			var m struct {
+				ID int64 `json:"id"`
+			}
+			if dec.Decode(&m) != nil {
+				return
+			}
+			answered <- m.ID
+		}
+	}()
+	params, _ := json.Marshal(toolipc.TerminateParams{ID: tl.ID, GraceMs: 3000})
+	dispatched := make(chan struct{})
+	go func() {
+		pc.dispatch(&toolipc.PanedRequest{ID: 1, Method: toolipc.MethodTerminate, Params: params})
+		pc.dispatch(&toolipc.PanedRequest{ID: 2, Method: toolipc.MethodHello, Params: json.RawMessage(`{}`)})
+		close(dispatched)
+	}()
+	select {
+	case <-dispatched:
+	case <-time.After(1 * time.Second):
+		t.Fatal("terminate 가 읽기 루프를 막았다")
+	}
+	// 도구가 지워진 뒤 끝낸다 — TempDir 정리와 저장이 겹치지 않게.
+	timeout := time.After(10 * time.Second)
+	for seen := map[int64]bool{}; !seen[1]; {
+		select {
+		case id := <-answered:
+			seen[id] = true
+		case <-timeout:
+			t.Fatal("terminate 응답이 오지 않았다")
+		}
+	}
+}
+
 // ── Push event tests ────────────────────────────────────────────────────
 
 func TestPanedPushOutputBase64(t *testing.T) {
