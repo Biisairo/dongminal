@@ -35,6 +35,8 @@ addEventListener('load',()=>rep('width',innerWidth));addEventListener('resize',(
       return;
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    if (u.pathname === '/widgets') { res.end(page(`<input id=i type=date><a id=blank href="mailto:a@b.example">mail</a><span id=close style="cursor:help">help</span>`)); return }
+    if (u.pathname === '/file') { res.end(page(`<input id=f type=file onchange="rep('file',this.files.length)">`)); return }
     if (u.pathname === '/keys') { res.end(page(`<input id=i><script>addEventListener('keydown',e=>rep('key',(e.ctrlKey?'C-':'')+(e.shiftKey?'S-':'')+e.key))</script>`)); return }
     if (u.pathname === '/tip') { res.end(page(`<button id=close title="<img src=x onerror=alert(1)>">tip</button>`)); return }
     if (u.pathname === '/tone') { res.end(page(`<button id=close onclick="const c=new AudioContext();const o=c.createOscillator();o.connect(c.destination);o.start();c.resume().then(()=>rep('tone',c.state))">tone</button>`)); return }
@@ -524,4 +526,43 @@ test.describe('BROWSER_TAB — 브라우저 탭', () => {
     }
   });
 
+
+  // TC-BRT-71·FR-BRT-81: 누른 화면이 없는(에이전트의 클릭) 파일 선택도 창 주인 화면에 뜨고, 취소가 페이지로 간다.
+  test('TC-BRT-71: 포커스 없이 열린 파일 선택은 주인 화면에 뜬다', async ({ page, request }) => {
+    await waitForInit(page);
+    await waitShellReady(page);
+    const tab = await openTab(request, { url: site.url + '/file', tool: await focusedTool(page), split: 'right' });
+    await waitReport(site, 'width', () => true);
+    await waitFrame(page);
+    await page.locator('#area .pn .xterm-helper-textarea').first().focus();
+    const snap = await (await request.post('/api/browser/act', { data: { tab, op: 'snapshot' }, headers: JSON_HDR })).json();
+    const ref = /\[ref=(e\d+)\]/.exec(snap.snapshot)![1];
+    await request.post('/api/browser/act', { data: { tab, op: 'click', ref }, headers: JSON_HDR });
+    const modal = page.locator('.brv-chooser-modal');
+    await expect(modal).toBeVisible({ timeout: 15000 });
+    await modal.locator('.ui-btn').first().click();
+    await expect(modal).toHaveCount(0);
+  });
+
+  // TC-BRT-75·79: 커서 모양·날짜 선택기는 이 기기에서 다시 그리고, 비웹 링크는 확인을 묻는다.
+  test('TC-BRT-75·79: 커서·위젯은 뷰어가 그리고 mailto 는 확인을 묻는다', async ({ page, request }) => {
+    await waitForInit(page);
+    await waitShellReady(page);
+    await openTab(request, { url: site.url + '/widgets', tool: await focusedTool(page), split: 'right', focus: true });
+    await waitReport(site, 'width', () => true);
+    await waitFrame(page);
+    const canvas = page.locator('.brv.vis .brv-canvas');
+    const box = await canvas.boundingBox();
+    await page.mouse.move(box!.x + 60, box!.y + 195);
+    await page.mouse.move(box!.x + 70, box!.y + 200);
+    await expect.poll(() => canvas.evaluate((el: HTMLElement) => el.style.cursor), { timeout: 15000 }).toBe('help');
+    await clickPage(page, 100, 40);
+    await expect(page.locator('.brv.vis .brv-widget[type="date"]')).toHaveCount(1, { timeout: 15000 });
+    await page.keyboard.press('Escape');
+    await clickPage(page, 100, 120);
+    const ask = page.getByText('mailto:a@b.example');
+    await expect(ask).toBeVisible({ timeout: 15000 });
+    await page.keyboard.press('Escape');
+    await expect(ask).toHaveCount(0);
+  });
 });

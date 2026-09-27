@@ -148,6 +148,8 @@ Object.assign(BrowserView.prototype, {
 
   _onDialog(d){
     if(d.closed){ if(this._dlg&&this._dlg.id===d.id){this._dlg.close();this._dlg=null} return }
+    // 다시 붙으면 서버가 기다리는 것을 또 보낸다 — 이미 띄운 것이면 그대로 둔다.
+    if(this._dlg&&this._dlg.id===d.id) return;
     const body=document.createElement('div');body.className='brv-dialog';
     const msg=document.createElement('div');msg.className='confirm-msg';msg.textContent=String(d.message||'');
     body.appendChild(msg);
@@ -165,6 +167,7 @@ Object.assign(BrowserView.prototype, {
 
   _onAuth(a){
     if(a.closed){ if(this._auth&&this._auth.id===a.id){this._auth.close();this._auth=null} return }
+    if(this._auth&&this._auth.id===a.id) return;
     const body=document.createElement('div');body.className='brv-dialog';
     const msg=document.createElement('div');msg.className='confirm-msg';
     msg.textContent=t('brv.auth_msg',{origin:String(a.origin||''),realm:String(a.realm||'')});
@@ -185,7 +188,11 @@ Object.assign(BrowserView.prototype, {
    * 고르고, 경로를 직접 적을 수도 있다. 취소하면 빈 목록이다.
    */
   async _onChooser(c){
-    if(document.activeElement!==this.input&&!this.el.contains(document.activeElement)) return;
+    if(c.closed){ if(this._chooser&&this._chooser.id===c.id){this._chooser.close();this._chooser=null} return }
+    if(this._chooser&&this._chooser.id===c.id) return;
+    // 누른 화면이 띄운다. 누른 화면이 없으면(에이전트의 클릭·뒤늦게 붙음) 창의 주인 화면이 띄운다.
+    const focused=document.activeElement===this.input||this.el.contains(document.activeElement);
+    if(!focused&&!(this.visible&&this.app.brvOwns(this.tabId,this.slot))) return;
     const body=document.createElement('div');body.className='brv-chooser';
     const path=document.createElement('input');path.type='text';path.className='sbx-input brv-chooser-path';
     path.setAttribute('aria-label',t('brv.chooser_path'));
@@ -214,8 +221,9 @@ Object.assign(BrowserView.prototype, {
       {label:t('core.cancel'),value:0,onClick:()=>this._send({op:'chooser',id:c.id,files:[]})},
       {label:t('brv.chooser_pick'),kind:'primary',default:true,value:1,onClick:()=>this._send({op:'chooser',id:c.id,
         files:picked.size?[...picked]:(path.value&&!path.value.endsWith('/')?[path.value]:[])})}],
-      onClose:(v)=>{if(v===undefined) this._send({op:'chooser',id:c.id,files:[]})}});
+      onClose:(v)=>{if(v===undefined) this._send({op:'chooser',id:c.id,files:[]});this._chooser=null}});
     document.body.appendChild(m.el);
+    this._chooser={id:c.id,close:()=>m.close(null)};
     load(c.home||'/');
   },
 

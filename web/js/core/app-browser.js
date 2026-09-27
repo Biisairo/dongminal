@@ -94,13 +94,15 @@ Object.assign(App.prototype, {
     return f?f.win:null;
   },
 
-  /** 이 뷰가 뷰포트를 정하는가 — 그 창의 주인이거나 주인이 없다. */
+  /**
+   * 이 뷰가 뷰포트를 정하는가 — 그 창의 주인이다. 주인은 OS 포커스를 잃어도 주인이다(다른 앱으로
+   * 옮겨도 흐려지지 않는다). 주인이 없으면 OS 포커스가 있는 화면만 정한다 — 두 화면이 다투지 않는다.
+   */
   brvOwns(tabId,slot){
-    if(!this.windowFocused) return false;
     const win=this._brvWindowOf(tabId);
-    if(!win) return true;
-    const owner=this._windowFocusOwner&&this._windowFocusOwner[win.id];
-    return !owner||owner===this._slotIdentity(slot||0);
+    const owner=win&&this._windowFocusOwner&&this._windowFocusOwner[win.id];
+    if(owner) return owner===this._slotIdentity(slot||0);
+    return !!this.windowFocused;
   },
 
   /**

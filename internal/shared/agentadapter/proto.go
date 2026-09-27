@@ -223,9 +223,6 @@ const (
 	EvError          EventKind = "error"           // 오류 — Text 는 사유
 	EvExit           EventKind = "exit"            // 프로세스 종료 (해석층이 낸다)
 	EvRaw            EventKind = "raw"             // 모르는 프레임 원문 (FR-APS-8)
-	// EvOpenURL 은 에이전트가 열려는 주소다 — Text 가 URL 이다. 받는 쪽은 설정과 무관하게
-	// 서버 기기의 브라우저 탭으로 연다 (BROWSER_TAB_SRS FR-BRT-69·70).
-	EvOpenURL EventKind = "open_url"
 )
 
 // TurnOutcome 은 턴이 **어떻게 끝났는가**다 (M12_SRS FR-M12-23). `EvTurnEnd` 만 쓴다.

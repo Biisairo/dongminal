@@ -49,6 +49,8 @@ type browserHub struct {
 	last map[string]string
 	// proxies 는 CDP 프록시로 붙은 외부 도구의 WS 다 (FR-BRT-22).
 	proxies map[string]*cdpConn
+	// recovered 는 첫 claim 에서 잃은 배치를 되찾았는가다 (FR-BRT-36).
+	recovered bool
 }
 
 func newBrowserHub(s *Server, host browser.Host) *browserHub {
@@ -473,7 +475,47 @@ func (s *Server) apiBrowserClaim(w http.ResponseWriter, r *http.Request) {
 	if !s.browserReady(w) {
 		return
 	}
+	s.browser.recoverPlacements(r.Context())
 	httpresp.JSON(w, http.StatusOK, map[string]any{"placements": s.browser.claimPending()})
+}
+
+// recoverPlacements 는 웹서버가 다시 떠 들고 있던 배치를 잃었을 때다 (FR-BRT-36). 배치는
+// 웹서버의 메모리에 있고 페이지는 데몬에 있다 — 매니저에 살아 있는데 워크스페이스에 없는
+// 탭은 놓이지 못한 것이다. 이 웹서버의 첫 claim 에서 한 번만 본다: 그 뒤의 배치는 평소 길로 오고,
+// 막 열려 저장을 기다리는 탭을 두 번 놓지 않는다.
+func (h *browserHub) recoverPlacements(ctx context.Context) {
+	h.mu.Lock()
+	done := h.recovered
+	h.recovered = true
+	h.mu.Unlock()
+	if done || h.s.Work == nil {
+		return
+	}
+	raw, err := h.host.Call(ctx, "tabs", map[string]any{})
+	if err != nil {
+		return
+	}
+	var list struct {
+		Tabs []browser.TabInfo `json:"tabs"`
+	}
+	json.Unmarshal(raw, &list)
+	in := map[string]bool{}
+	for _, t := range workspace.BrowserTabsOf(h.s.Work.Raw()) {
+		in[t.ID] = true
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for _, p := range h.pending {
+		if id, _ := p["tab"].(string); id != "" {
+			in[id] = true
+		}
+	}
+	for _, t := range list.Tabs {
+		if t.Live && !in[t.Tab] {
+			h.pending = append(h.pending, map[string]any{"tab": t.Tab, "url": t.URL, "name": t.Title,
+				"profile": t.Profile, "isolated": t.Isolated})
+		}
+	}
 }
 
 // ── 뷰어 WS (FR-BRT-50) ─────────────────────────────────────────
@@ -601,6 +643,19 @@ func (s *Server) apiBrowserStream(w http.ResponseWriter, r *http.Request) {
 		h.host.Call(ctx, "watch", map[string]any{"tab": tab, "on": true})
 	} else if st, err := h.host.Call(ctx, "state", map[string]any{"tab": tab}); err == nil {
 		v.sendText(viewerText("state", st))
+	}
+	// 답을 기다리는 것 — 뷰어가 없던 때 열린 파일 선택·대화상자·인증 (FR-BRT-81·85·86).
+	if raw, err := h.host.Call(ctx, "pending", map[string]any{"tab": tab}); err == nil {
+		var p struct {
+			Items []struct {
+				T    string          `json:"t"`
+				Info json.RawMessage `json:"info"`
+			} `json:"items"`
+		}
+		json.Unmarshal(raw, &p)
+		for _, it := range p.Items {
+			v.sendText(viewerText(it.T, it.Info))
+		}
 	}
 	defer func() {
 		h.mu.Lock()

@@ -126,10 +126,20 @@ func TestRealFileChooser(t *testing.T) {
 	if !c.Multiple {
 		t.Fatalf("multiple 이 아니다: %s", e.Info)
 	}
+	// 뒤늦게 붙은 뷰어도 답을 기다리는 파일 선택을 받는다 — 아무도 없던 때 열린 것도 (FR-BRT-81).
+	res, err := m.Call(ctx, "pending", map[string]any{"tab": "t"})
+	if err != nil || !strings.Contains(string(res), `"t":"chooser"`) || !strings.Contains(string(res), `"multiple":true`) {
+		t.Fatalf("pending: %s %v", res, err)
+	}
 	if _, err := m.Call(ctx, "chooser", map[string]any{"tab": "t", "id": c.ID, "files": []string{a, b}}); err != nil {
 		t.Fatal(err)
 	}
 	waitEval(t, m, "t", `[...document.getElementById('f').files].map(f=>f.name).join(',')`, `"a.txt,b.txt"`)
+	// 답이 나면 다른 뷰어의 창을 닫게 알리고, 기다리는 것은 없다.
+	r.wait(t, 5*time.Second, func(e Event) bool { return e.Kind == EvChooser && strings.Contains(string(e.Info), `"closed":true`) })
+	if res, _ := m.Call(ctx, "pending", map[string]any{"tab": "t"}); strings.Contains(string(res), "chooser") {
+		t.Fatalf("답한 뒤에도 남았다: %s", res)
+	}
 }
 
 // TC-BRT-70: 다운로드 → 서버 폴더에 파일, 이름 복원, 목록.
@@ -182,10 +192,16 @@ func TestRealHTTPAuth(t *testing.T) {
 	if a.Realm != "dm" {
 		t.Fatalf("auth: %s", e.Info)
 	}
+	if res, _ := m.Call(ctx, "pending", map[string]any{"tab": "t"}); !strings.Contains(string(res), `"realm":"dm"`) {
+		t.Fatalf("pending 에 인증이 없다: %s", res)
+	}
 	if _, err := m.Call(ctx, "auth", map[string]any{"tab": "t", "id": a.ID, "user": "user", "pass": "pw"}); err != nil {
 		t.Fatal(err)
 	}
 	waitEval(t, m, "t", `document.title`, `"authed"`)
+	if res, _ := m.Call(ctx, "pending", map[string]any{"tab": "t"}); strings.Contains(string(res), "auth") {
+		t.Fatalf("답한 뒤에도 남았다: %s", res)
+	}
 }
 
 // TC-BRT-75·79·74·76: 커서·툴팁·검증 말풍선·위젯·비웹 링크·복사·컨텍스트 메뉴 보고.

@@ -440,8 +440,7 @@ func ompDecodeUIRequest(fr ompFrame, x *ompExt, st *ProtoState) ([]Event, bool) 
 		}
 		return []Event{{Kind: EvUser, SessionID: sid, Text: msg}}, true
 	case "open_url":
-		// BROWSER_TAB_SRS FR-BRT-70: 본문 줄이 아니라 여는 요청이다 — 브라우저 탭으로 간다.
-		return []Event{{Kind: EvOpenURL, SessionID: sid, Text: fr.URL}}, true
+		return []Event{{Kind: EvUser, SessionID: sid, Text: fr.URL}}, true
 	case "setWidget", "setStatus", "setTitle", "set_editor_text", "cancel":
 		return nil, true
 	default:

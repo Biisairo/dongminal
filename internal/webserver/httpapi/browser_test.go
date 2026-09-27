@@ -23,6 +23,8 @@ type fakeHost struct {
 	args  []map[string]any
 	sink  func(browser.Event)
 	fail  error
+	// tabs 는 "tabs" 의 답이다 — 비면 빈 목록.
+	tabs string
 }
 
 func (f *fakeHost) Call(ctx context.Context, op string, params any) (json.RawMessage, error) {
@@ -39,6 +41,9 @@ func (f *fakeHost) Call(ctx context.Context, op string, params any) (json.RawMes
 	}
 	switch op {
 	case "tabs":
+		if f.tabs != "" {
+			return json.RawMessage(f.tabs), nil
+		}
 		return json.RawMessage(`{"tabs":[]}`), nil
 	case "profiles":
 		return json.RawMessage(`{"profiles":[{"name":"default"}]}`), nil
@@ -46,6 +51,8 @@ func (f *fakeHost) Call(ctx context.Context, op string, params any) (json.RawMes
 		return json.RawMessage(`{"client":"C1"}`), nil
 	case "version":
 		return json.RawMessage(`{"product":"HeadlessChrome/153","protocolVersion":"1.3"}`), nil
+	case "pending":
+		return json.RawMessage(`{"items":[{"t":"chooser","info":{"id":3,"multiple":false}}]}`), nil
 	case "audio":
 		if m["action"] == "offer" {
 			return json.RawMessage(`{"peer":"p1","sdp":"v=0"}`), nil
@@ -473,6 +480,75 @@ func TestBrowserForeignOriginsRejected(t *testing.T) {
 			if rec.Code != http.StatusForbidden {
 				t.Errorf("Origin %q %s %s → %d want 403", origin, c.method, c.path, rec.Code)
 			}
+		}
+	}
+}
+
+// FR-BRT-81·85·86: 뷰어가 붙으면 답을 기다리는 것(대화상자·파일 선택·인증)을 먼저 받는다.
+func TestBrowserStreamReplaysPending(t *testing.T) {
+	ts, _, _ := browserSrv(t)
+	c := dialBrowser(t, ts, "tab=T")
+	c.SetReadDeadline(time.Now().Add(3 * time.Second))
+	for {
+		_, msg, err := c.ReadMessage()
+		if err != nil {
+			t.Fatalf("기다리는 파일 선택을 받지 못했다: %v", err)
+		}
+		if strings.Contains(string(msg), `"t":"chooser"`) && strings.Contains(string(msg), `"id":3`) {
+			return
+		}
+	}
+}
+
+// FR-BRT-36: 웹서버만 다시 떠 들고 있던 배치를 잃었어도, 매니저에 살아 있는데 워크스페이스에
+// 없는 탭은 첫 claim 에서 배치로 돌려준다. 한 번뿐이다 — 그 뒤의 배치는 평소 길로 온다.
+func TestBrowserClaimRecoversAfterWebRestart(t *testing.T) {
+	fh := &fakeHost{tabs: `{"tabs":[{"tab":"A","profile":"default","url":"https://a.example/","title":"A","live":true},` +
+		`{"tab":"B","profile":"work","url":"https://b.example/","title":"B","live":true,"isolated":true}]}`}
+	ws := &fakeWorkspaceStore{raw: []byte(`{"activeWindow":"s1","schemaVersion":2,"windows":[{"id":"s1","name":"x","focusedPane":"p1",` +
+		`"layout":{"type":"pane","id":"p1","activeTab":"A","tabs":[{"id":"A","name":"A","type":"browser","url":"https://a.example/"}]}}]}`)}
+	srv, err := New(Config{DataDir: t.TempDir()}, Deps{Browser: fh, Work: ws})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(srv.Handler())
+	t.Cleanup(ts.Close)
+	_, claim := bPost(t, ts, "/api/browser/placements/claim", `{}`)
+	ps, _ := claim["placements"].([]any)
+	if len(ps) != 1 {
+		t.Fatalf("배치: %v", claim)
+	}
+	p := ps[0].(map[string]any)
+	if p["tab"] != "B" || p["profile"] != "work" || p["isolated"] != true || p["url"] != "https://b.example/" {
+		t.Fatalf("되찾은 배치: %v", p)
+	}
+	if _, again := bPost(t, ts, "/api/browser/placements/claim", `{}`); len(again["placements"].([]any)) != 0 {
+		t.Fatalf("두 번째 claim: %v", again)
+	}
+}
+
+// TC-BRT-38: 여러 화면이 붙어 있어도 배치는 한 화면(실행자)만 한다 — 명령에 실행자가 실린다.
+func TestBrowserPlacementNamesOneExecutor(t *testing.T) {
+	_, fh, srv := browserSrv(t)
+	srv.Focus.Attach("c1")
+	srv.Focus.Attach("c2")
+	want := srv.Focus.Executor()
+	if want == "" {
+		t.Fatal("실행자가 없다")
+	}
+	ch := srv.Commands.(*hub.CommandHub)
+	a, b := ch.Add(), ch.Add()
+	defer ch.Remove(a)
+	defer ch.Remove(b)
+	fh.sink(browser.Event{Kind: browser.EvCreated, Tab: "N", Info: json.RawMessage(`{"url":"https://x.example/","profile":"default"}`)})
+	for _, sub := range []*hub.CmdSub{a, b} {
+		select {
+		case msg := <-sub.Messages():
+			if !strings.Contains(string(msg), `"openBrowserTab"`) || !strings.Contains(string(msg), `"execClientId":"`+want+`"`) {
+				t.Fatalf("배치 명령: %s", msg)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("배치 명령이 오지 않았다")
 		}
 	}
 }

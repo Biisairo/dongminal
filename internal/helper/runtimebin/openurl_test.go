@@ -87,6 +87,10 @@ func TestBrowserExitCodes(t *testing.T) {
 	if rc := runDmctlBrowser([]string{"reload"}, &stdout, &stderr); rc != 1 {
 		t.Fatalf("동작 실패 rc=%d", rc)
 	}
+	// TC-BRT-2: 엔진이 없으면 open 도 안내를 내고 1 로 끝난다.
+	if rc := runDmctlBrowser([]string{"open", "https://example.com"}, &stdout, &stderr); rc != 1 {
+		t.Fatalf("open 의 엔진 없음 rc=%d", rc)
+	}
 	if !strings.Contains(stderr.String(), "Chrome") {
 		t.Fatalf("stderr=%q", stderr.String())
 	}

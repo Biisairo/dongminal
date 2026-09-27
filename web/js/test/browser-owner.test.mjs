@@ -30,6 +30,11 @@ test('슬롯까지 묻는다 — 같은 창의 다른 슬롯은 주인이 아니
   assert.equal(world('me#1', true).brvOwns('B', 1), true);
 });
 
-test('이 브라우저 창에 OS 포커스가 없으면 보내지 않는다', () => {
-  assert.equal(world('me', false).brvOwns('B', 0), false);
+test('주인은 OS 포커스를 잃어도 주인이다 — 다른 앱으로 옮겨도 흐려지지 않는다', () => {
+  assert.equal(world('me', false).brvOwns('B', 0), true);
+  assert.equal(world('other', false).brvOwns('B', 0), false);
+});
+
+test('주인이 없으면 OS 포커스가 있는 화면만 보낸다 — 두 화면이 크기를 다투지 않는다', () => {
+  assert.equal(world(null, false).brvOwns('B', 0), false);
 });

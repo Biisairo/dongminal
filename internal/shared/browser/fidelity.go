@@ -39,13 +39,16 @@ type chooser struct {
 	id       int
 	backend  int
 	multiple bool
+	info     map[string]any
 }
 
 // fidelityState 는 페이지 하나의 3단계 상태다. pg.mu 아래.
 type fidelityState struct {
 	dialog  *dialogInfo
 	chooser *chooser
-	seq     int
+	// auth 는 답을 기다리는 HTTP 인증이다 (requestId → 뷰어에 보낸 것).
+	auth map[string]map[string]any
+	seq  int
 }
 
 func (pg *page) fid() *fidelityState {
@@ -91,8 +94,16 @@ func (pg *page) onFidelityEvent(method string, params json.RawMessage) {
 			} `json:"authChallenge"`
 		}
 		json.Unmarshal(params, &p)
-		pg.b.m.emitInfo(EvAuth, pg.tab, map[string]any{"id": p.RequestID, "origin": p.AuthChallenge.Origin,
-			"scheme": p.AuthChallenge.Scheme, "realm": p.AuthChallenge.Realm})
+		info := map[string]any{"id": p.RequestID, "origin": p.AuthChallenge.Origin,
+			"scheme": p.AuthChallenge.Scheme, "realm": p.AuthChallenge.Realm}
+		pg.mu.Lock()
+		f := pg.fid()
+		if f.auth == nil {
+			f.auth = map[string]map[string]any{}
+		}
+		f.auth[p.RequestID] = info
+		pg.mu.Unlock()
+		pg.b.m.emitInfo(EvAuth, pg.tab, info)
 	case "Page.fileChooserOpened":
 		var p struct {
 			Mode          string `json:"mode"`
@@ -102,11 +113,12 @@ func (pg *page) onFidelityEvent(method string, params json.RawMessage) {
 		pg.mu.Lock()
 		f := pg.fid()
 		f.seq++
+		home, _ := os.UserHomeDir()
 		c := &chooser{id: f.seq, backend: p.BackendNodeID, multiple: p.Mode == "selectMultiple"}
+		c.info = map[string]any{"id": c.id, "multiple": c.multiple, "home": home}
 		f.chooser = c
 		pg.mu.Unlock()
-		home, _ := os.UserHomeDir()
-		pg.b.m.emitInfo(EvChooser, pg.tab, map[string]any{"id": c.id, "multiple": c.multiple, "home": home})
+		pg.b.m.emitInfo(EvChooser, pg.tab, c.info)
 	}
 }
 
@@ -152,6 +164,7 @@ func (pg *page) answerChooser(ctx context.Context, id int, files []string) error
 	}
 	f.chooser = nil
 	pg.mu.Unlock()
+	pg.b.m.emitInfo(EvChooser, pg.tab, map[string]any{"id": id, "closed": true})
 	if len(files) > 1 && !c.multiple {
 		files = files[:1]
 	}
@@ -405,6 +418,8 @@ func (pg *page) doFidelity(ctx context.Context, op string, params json.RawMessag
 	case "audio":
 		v, err := pg.audio(ctx, params)
 		return v, true, err
+	case "pending":
+		return pg.pending(), true, nil
 	case "copyImage":
 		v, err := pg.copyImage(ctx, params)
 		return v, true, err
@@ -420,6 +435,9 @@ func (pg *page) doFidelity(ctx context.Context, op string, params json.RawMessag
 		if a.Cancel {
 			resp = map[string]any{"response": "CancelAuth"}
 		}
+		pg.mu.Lock()
+		delete(pg.fid().auth, a.ID)
+		pg.mu.Unlock()
 		_, err := pg.call(ctx, "Fetch.continueWithAuth", map[string]any{"requestId": a.ID, "authChallengeResponse": resp})
 		pg.b.m.emitInfo(EvAuth, pg.tab, map[string]any{"id": a.ID, "closed": true})
 		return okResult, true, err
@@ -447,4 +465,24 @@ func (pg *page) copyImage(ctx context.Context, params json.RawMessage) (any, err
 	}
 	json.Unmarshal(res, &r)
 	return map[string]string{"png": r.Data}, nil
+}
+
+// pending 은 답을 기다리는 대화상자·파일 선택·인증이다 — 뒤늦게 붙은 뷰어가 받는다
+// (FR-BRT-81·85·86). 아무 뷰어도 없던 때 열린 것도 여기 남는다.
+func (pg *page) pending() map[string]any {
+	pg.mu.Lock()
+	defer pg.mu.Unlock()
+	items := []map[string]any{}
+	if f := pg.fids; f != nil {
+		if f.dialog != nil {
+			items = append(items, map[string]any{"t": EvDialog, "info": *f.dialog})
+		}
+		if f.chooser != nil {
+			items = append(items, map[string]any{"t": EvChooser, "info": f.chooser.info})
+		}
+		for _, a := range f.auth {
+			items = append(items, map[string]any{"t": EvAuth, "info": a})
+		}
+	}
+	return map[string]any{"items": items}
 }

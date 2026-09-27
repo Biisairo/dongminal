@@ -394,7 +394,7 @@ select { appearance: base-select }
 `viewer` 로 열 때는 클릭 핸들러 안에서 `window.open(url,'_blank')` 한다(제스처 안).
 **브라우저 탭 안의 클릭은 이 규칙의 대상이 아니다** — 키와 클릭은 페이지로 간다(FR-BRT-56).
 
-**FR-BRT-69** 프로그램이 여는 URL(쉘 훅 FR-BRT-70 · 에이전트 `open_url`)은 설정과 무관하게
+**FR-BRT-69** 프로그램이 여는 URL(쉘 훅 FR-BRT-70)은 설정과 무관하게
 **언제나 브라우저 탭**으로 연다.
 
 ### 3.8 묶음 H — 쉘 훅 전환과 옛 방식 제거 (1단계)
@@ -402,7 +402,7 @@ select { appearance: base-select }
 **FR-BRT-70 (훅 전환)** 진입점은 그대로 둔다 — `BROWSER=$DONGMINAL_HOME/bin/open-url`,
 bash/zsh 의 `open`/`xdg-open` 함수(http/https 한 개 인자만), `dmctl open-url`. 셋 다
 `dmctl browser open <url>` 과 **같은 코드 경로**로 브라우저 탭을 연다(호출 칸 = 호출 도구,
-포커스 이동). 에이전트 어댑터의 `open_url`(`omp_decode.go:442`)도 같은 경로로 연다.
+포커스 이동). 에이전트 프로토콜의 `open_url` 은 다루지 않는다 (비목표 11, 결정 ㊹).
 
 **FR-BRT-71 (제거)** 다음을 걷는다. 걷은 뒤 쓰이지 않게 되는 코드·키·스타일·시험도 함께 걷는다.
 
@@ -502,8 +502,7 @@ ref 는 `backendNodeId` 에 매이고 **이동·문서 교체 뒤 무효**다 �
 툴팁, 검증 말풍선(`invalid`), `<input type=date|time|datetime-local|month|week|color>` 와
 `<datalist>` 가 열리려는 순간. 뷰어는 캔버스 위 같은 자리에 **자기 기기의 입력 요소**(가능하면
 `showPicker()`) 또는 자체 목록을 띄우고, 고른 값을 격리 world 의 함수(`Runtime.evaluate`, 결정 ㉒)로 넣은 뒤 `input`·
-`change` 를 일으킨다. 네이티브 팝업은 열리지 않게 막는다. `<select>` 를 이 방식으로 옮길지는
-FR-BRT-60 의 모양 문제를 실제 사이트에서 본 뒤 정한다 (이 문서를 개정한다).
+`change` 를 일으킨다. 네이티브 팝업은 열리지 않게 막는다. `<select>` 는 이 방식으로 옮기지 않는다 — FR-BRT-60 의 `base-select` 로 확정한다 (결정 ㊺).
 
 **FR-BRT-89 (찾기)** `Mod+F`(고정 키, 결정 ㊵)는 탭의 찾기 막대를 연다. 격리 world 가 CSS Custom
 Highlight 로 칠하고 다음/이전으로 스크롤한다. 교차 출처 iframe 안은 찾지 않는다 — 막대의 ⓘ 가 그 한계를
@@ -633,7 +632,7 @@ Highlight 로 칠하고 다음/이전으로 스크롤한다. 교차 출처 ifram
 | TC-BRT-52 | 프로그램이 연 URL 은 `linkTarget=viewer` 에서도 브라우저 탭 |
 | TC-BRT-53 | scheme 표 — 허용 넷 통과, `javascript:`·`data:`·`chrome:` 거절 · 상대 경로·Windows 경로 → `file://` |
 | TC-BRT-54 | 제거 확인 — `openUrl` 액션·`/api/open-url/where`·`open-url.js`·`platform.Opener`·`DONGMINAL_URL_OPEN` 이 저장소에 없다 (grep 0건, 문서의 이력 제외) |
-| TC-BRT-55 | 에이전트 `open_url` → 브라우저 탭 |
+| TC-BRT-55 | (삭제 — 비목표 11, 결정 ㊹) |
 
 ### 4.7 터미널 제어 (2단계)
 
@@ -698,6 +697,8 @@ Highlight 로 칠하고 다음/이전으로 스크롤한다. 교차 출처 ifram
    호출만 잡힌다(`VIEWER_URL_OPEN_SRS` 비목표 승계).
 9. 녹화·PDF·기기 프리셋 등 Playwright 의 넓은 표면 — CDP 프록시로 진짜 Playwright 를 쓴다.
 10. 뷰어 기기 파일의 직접 업로드, 다운로드의 뷰어 자동 전송 — D16·D17.
+11. 에이전트 프로토콜(omp `extension_ui_request`)의 `open_url` 을 브라우저 탭으로 여는 것 — 그 이벤트를
+    받아 실행할 경로가 없다(AGENT_GUI_REMOVAL). 터미널에서 도는 에이전트는 `open`·`$BROWSER` 로 연다 (결정 ㊹).
 
 ---
 
@@ -752,3 +753,5 @@ Highlight 로 칠하고 다음/이전으로 스크롤한다. 교차 출처 ifram
 | 2026-09-27 | 결정 ㊲ **FR-BRT-80**: 다운로드 기록은 매니저가 든다 — 프로필 브라우저가 끝나도 남고 데몬이 끝나면 사라진다(파일은 남는다). 설정 문구를 결정 ⑲("다음 다운로드부터") 에 맞춘다. ㊳ **FR-BRT-5**: Job Object 생성·한도(`KILL_ON_JOB_CLOSE`)를 `process_windows.go` 의 `newKillOnCloseJob` 하나로 모아 도구의 그룹과 브라우저 기동이 함께 쓴다. 기동 자체는 `CreateProcessW` 를 직접 부른다 — os/exec 는 `lpReserved2` 를 채울 길이 없다. ㊴ **FR-BRT-33**: ⌘/Ctrl·가운데 클릭으로 연 탭에는 Chrome 이 `openerId` 를 싣지 않는다(실측) — 같은 컨텍스트에서 2초 안에 그렇게 누른 페이지가 연 것으로 보고 그 탭 바로 뒤, 뒤 탭으로 둔다 |
 | 2026-09-27 | 결정 ㊵ **FR-BRT-56·89**: 찾기 `Mod+F` 를 단축키 표에서 빼 **고정 키**로 둔다 — 표의 Editor 찾기(`edFindInFile`)와 같은 조합이라 기본 키 중복 검사(V-PSC-1)에 걸린다. 터미널 검색(`Mod+F` 고정)과 같은 규약이다. ㊶ **NFR-BRT-P1 측정**: 서버 몫(입력이 매니저에 닿은 때 → 그 결과의 screencast 프레임)은 p50 9.5ms · p90 10.0ms(n=20, macOS·Chrome 153, `TestRealInputToFrameLatency`)다. 네트워크 구간은 LAN 에서 이 위에 더해진다. 시험은 서버 몫 p50 ≤ 100ms 를 고정한다 |
 | 2026-09-27 | 결정 ㊷ **FR-BRT-54 개정(결함 수정)**: `nativeVirtualKeyCode` 를 싣지 않는다 — Windows 가상 키코드를 그 자리에 넣으면 macOS 서버에서 다른 키로 읽힌다(Meta 91 → Keypad8, 페이지에 "8" 이 들어갔다, 실측). `windowsVirtualKeyCode`·`code`·`key` 로 충분하다(Playwright 와 같다). ㊸ 뷰어는 누름을 보내지 않은 키(탭·전역 단축키가 가져갔다)의 뗌을 보내지 않는다 — 짝 없는 keyup 이 페이지에 갔다. TC-BRT-44 가 둘을 고정한다 |
+| 2026-09-27 | 결정 ㊹ **사용자 결정 — 에이전트 `open_url` 을 걷는다.** 결정 ⑩ 에서 더한 `EvOpenURL` 은 받는 곳이 없어 남길 이유가 없다 — 해석층을 1단계 전으로 되돌리고(`open_url` 은 종전대로 본문 줄), FR-BRT-69·70 에서 에이전트를 빼고 TC-BRT-55 를 지우며 비목표 11 로 둔다. ㊺ **사용자 결정 — `<select>` 는 `base-select` 로 확정한다**(FR-BRT-88 의 열린 조항을 닫는다). 목록이 페이지 안에 그려져 화면으로 오고 옵션을 누르면 값이 바뀐다(TC-BRT-45) |
+| 2026-09-27 | 결정 ㊻ **FR-BRT-81·85·86**: 매니저가 답을 기다리는 대화상자·파일 선택·HTTP 인증을 들고, 뷰어가 붙으면 그것부터 보낸다(`pending`) — 뷰어가 없던 때 열린 것이 답 없이 남지 않는다. 파일 선택 창은 누른 화면이 띄우고, 누른 화면이 없으면(에이전트의 클릭·뒤늦게 붙음) **창 주인 화면**이 띄운다. 한 곳에서 답하면 다른 화면의 창은 닫힌다. ㊼ **FR-BRT-36**: 배치 대기는 웹서버의 메모리에 있다 — 웹서버만 다시 뜨면 잃는다. 그래서 웹서버의 **첫** claim 에서 매니저에 살아 있는데 워크스페이스에 없는 탭을 배치로 되돌려 준다(한 번뿐 — 막 열려 저장을 기다리는 탭을 두 번 놓지 않는다). ㊽ **FR-BRT-51 동작 변경**: 이전 — OS 포커스를 잃은 화면은 창 주인이어도 흐려지고 크기를 정하지 않았다. 새 — 주인은 포커스를 잃어도 주인이다; 주인이 없을 때만 포커스가 있는 화면이 정한다. 이유 — 한 기기만 쓸 때 다른 앱으로 옮기면 탭이 흐려졌고, 두 화면이 다투지 않게 하는 데는 "주인이 없을 때" 의 조건이면 충분하다 |
