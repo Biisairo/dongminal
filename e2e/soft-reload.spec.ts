@@ -219,7 +219,8 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
       // 폴링을 세운다 — 3초 주기가 대신 읽어 주면 이 시험이 무엇을 재는지 알 수 없다.
       await page.evaluate(() => {
         const a = (window as any).app;
-        if (a.testing.edGitInterval) { clearInterval(a.testing.edGitInterval); a.testing.edGitInterval = null }
+        // 탐색기의 틱(색·겹 스탬프·열린 파일, FR-OPT-4-2)을 멈춘다 — 새로고침 버튼만이 다시 읽게.
+        if (a.testing.edGitPoll) a.testing.edGitPoll.stop();
       });
       fs.writeFileSync(path.join(sub, 'b.txt'), 'B\n');
       // 폴링이 서 있으므로 저절로는 오지 않는다.

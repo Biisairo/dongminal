@@ -141,6 +141,8 @@ Object.assign(GitHistory.prototype, {
 
   _setRef(name){
     if(this._ref===name) return;
+    // 사용자가 ref 를 다시 고르면 "사라진 ref" 사유는 할 일을 다했다.
+    if(name) this._refGone='';
     this._ref=name||null;
     if(this._ref) PrefStore.local.set(this._refKey(),this._ref);
     else PrefStore.local.remove(this._refKey());

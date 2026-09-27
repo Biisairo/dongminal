@@ -224,7 +224,9 @@ Object.assign(GitHistory.prototype, {
     if(this._ref&&!this._refs.some(r=>r.name===this._ref)){
       const gone=this._ref;
       this._setRef(null);
-      this._note=GIT_HIST_REF_GONE.replace('%s',gone);
+      // 뒤이은 자동 재적재가 지우지 않게 따로 든다 — 느린 러너에서 사유가 보이기 전에 사라졌다.
+      this._refGone=GIT_HIST_REF_GONE.replace('%s',gone);
+      this._note=this._refGone;
       this._paintBar();
       return;
     }
@@ -276,7 +278,7 @@ Object.assign(GitHistory.prototype, {
   // 목록을 처음부터 다시 받는다. 실패해도 이전 목록은 화면에 남는다.
   _reload(){
     this._open=null; this._detail=null; this._detailErr=null;
-    this._jumped=null; this._note=this._markNote();
+    this._jumped=null; this._note=this._markNote()||this._refGone||'';
     return this._load(false);
   },
 

@@ -347,6 +347,10 @@ const UIKit = {
      */
     TIMERS.frame(() => {
       if (!box.isConnected) return;
+      // 그 사이 창 안으로 포커스가 이미 들어왔으면(부른 쪽이 먼저 줬거나 사용자가 옮겼다)
+      // 덮지 않는다 — 느린 기기에서 취소로 옮긴 포커스가 실행으로 되돌아갔다(CI 실측).
+      const cur = document.activeElement;
+      if (cur && cur !== box && box.contains && box.contains(cur)) return;
       const want = s.focus && s.focus.isConnected ? s.focus : this._dlgFocusables(box)[0];
       (want || box).focus();
     }, { label: 'dialog-focus' });
