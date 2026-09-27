@@ -98,6 +98,24 @@ async function clickPage(page: any, x: number, y: number) {
   await page.mouse.click(box.x + x, box.y + y);
 }
 
+/**
+ * n 번째 페이지가 뜨고 **칸 크기로 바뀐 뒤**까지 기다린다. 페이지는 기본 폭으로 뜬 뒤 칸의
+ * 폭으로 바뀌는데, 그 사이의 클릭은 페이지에 닿지 않았다(로컬 1/10·Windows CI 재현 —
+ * mousedown 이 오지 않았다).
+ */
+async function waitSized(page: any, site: { reports: Report[] }, n: number) {
+  await expect.poll(async () => {
+    const loads = site.reports.filter((r) => r.k === 'width').length;
+    if (loads < n) return false;
+    const last = [...site.reports].reverse().find((r) => r.k === 'width' || r.k === 'rw');
+    const w = await page.evaluate(() => {
+      const v = [...((window as any).app.testing.brvViews || new Map()).values()].find((x: any) => x.visible);
+      return v && v._rect ? v._rect.w : -1;
+    });
+    return !!last && Number(last.v) === w;
+  }, { timeout: 20000 }).toBe(true);
+}
+
 async function waitReport(site: { reports: Report[] }, k: string, pred: (v: string) => boolean) {
   await expect.poll(() => site.reports.filter((r) => r.k === k).some((r) => pred(r.v)), { timeout: 20000 }).toBe(true);
 }
@@ -182,7 +200,7 @@ test.describe('BROWSER_TAB — 브라우저 탭', () => {
     await waitForInit(page);
     await waitShellReady(page);
     const tab = await openTab(request, { url: site.url + '/', tool: await focusedTool(page), split: 'right', focus: true });
-    await waitReport(site, 'width', () => true);
+    await waitSized(page, site, 1);
     await clickPage(page, 100, 120);
     await expect.poll(() => paneTypes(page)).toEqual([['terminal'], ['browser', 'browser']]);
     const order = await page.evaluate((id: string) => {
@@ -194,6 +212,7 @@ test.describe('BROWSER_TAB — 브라우저 탭', () => {
     expect(order.ids[0]).toBe(tab);
     expect(order.active).toBe(order.ids[1]);
     // 스크립트는 기록이 한 칸인 창만 닫을 수 있다 — 새로 열린 탭에서 닫는다.
+    await waitSized(page, site, 2);
     await clickPage(page, 100, 200);
     await expect.poll(() => paneTypes(page)).toEqual([['terminal'], ['browser']]);
   });
