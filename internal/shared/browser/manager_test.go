@@ -227,3 +227,12 @@ func TestRemoveAllSettled(t *testing.T) {
 		t.Fatalf("없는 폴더: %v", err)
 	}
 }
+
+// TC-BRT-87: 품질은 40~70 으로 자른다.
+func TestClampQuality(t *testing.T) {
+	for in, want := range map[int]int{0: QualityMin, 10: QualityMin, 40: 40, 55: 55, 70: 70, 100: QualityMax} {
+		if got := clampQuality(in); got != want {
+			t.Errorf("clampQuality(%d) = %d, want %d", in, got, want)
+		}
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -74,5 +75,62 @@ func TestRealInputToFrameLatency(t *testing.T) {
 	t.Logf("입력→프레임 p50=%v p90=%v (n=%d)", p50, p90, len(lat))
 	if p50 > 100*time.Millisecond {
 		t.Fatalf("p50 %v > 100ms (NFR-BRT-P1)", p50)
+	}
+}
+
+// TC-BRT-87 (FR-BRT-95): 보는 중에 품질을 바꾸면 screencast 가 새 품질로 다시 켜진다.
+func TestRealQualityRestartsScreencast(t *testing.T) {
+	m, _ := realManager(t)
+	var mu sync.Mutex
+	var frames [][]byte
+	m.SetSink(func(e Event) {
+		if e.Kind == EvFrame && e.Tab == "t" {
+			mu.Lock()
+			frames = append(frames, e.Data)
+			mu.Unlock()
+		}
+	})
+	site := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 같은 화면이 품질만으로 크기가 갈리도록 결이 많은 그림을 둔다.
+		w.Write([]byte(`<!doctype html><title>q</title><body style="margin:0;background:repeating-linear-gradient(45deg,#123,#9ab 3px,#fe8 5px,#123 7px)">` +
+			`<p style="font:14px serif;color:#fff">` + strings.Repeat("quality probe ", 400) + `</p>`))
+	}))
+	t.Cleanup(site.Close)
+	ctx := context.Background()
+	if err := m.Open(ctx, OpenReq{Tab: "t", URL: site.URL}); err != nil {
+		t.Fatal(err)
+	}
+	waitEval(t, m, "t", `document.title`, `"q"`)
+	if _, err := m.Call(ctx, "viewport", map[string]any{"tab": "t", "w": 800, "h": 600, "dpr": 1}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.Call(ctx, "watch", map[string]any{"tab": "t", "on": true}); err != nil {
+		t.Fatal(err)
+	}
+	// q 로 바꾼 뒤 처음 오는 screencast 프레임의 크기.
+	sizeAt := func(q int) int {
+		time.Sleep(300 * time.Millisecond)
+		mu.Lock()
+		n := len(frames)
+		mu.Unlock()
+		if _, err := m.Call(ctx, "quality", map[string]any{"tab": "t", "q": q}); err != nil {
+			t.Fatal(err)
+		}
+		for end := time.Now().Add(5 * time.Second); time.Now().Before(end); time.Sleep(10 * time.Millisecond) {
+			mu.Lock()
+			if len(frames) > n {
+				sz := len(frames[len(frames)-1])
+				mu.Unlock()
+				return sz
+			}
+			mu.Unlock()
+		}
+		t.Fatalf("q=%d 뒤 프레임이 오지 않는다", q)
+		return 0
+	}
+	lo, hi := sizeAt(40), sizeAt(70)
+	t.Logf("q40=%d q70=%d", lo, hi)
+	if lo >= hi {
+		t.Fatalf("q40 프레임(%d)이 q70(%d)보다 작지 않다", lo, hi)
 	}
 }

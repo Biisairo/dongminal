@@ -51,6 +51,8 @@ type browserHub struct {
 	proxies map[string]*cdpConn
 	// recovered 는 첫 claim 에서 잃은 배치를 되찾았는가다 (FR-BRT-36).
 	recovered bool
+	// quality 는 탭 → screencast 품질 결정이다 (FR-BRT-95, browser_flow.go).
+	quality map[string]*qualityCtl
 }
 
 func newBrowserHub(s *Server, host browser.Host) *browserHub {
@@ -539,6 +541,12 @@ type browserViewer struct {
 	// peers 는 이 뷰어가 받는 소리다 — 연결이 끊기면 서버가 끝낸다 (FR-BRT-91).
 	peers  map[string]bool
 	closed bool
+	// ack 뷰어는 받은 프레임을 확인한다 — 확인받지 못한 것이 inflight 다. waited·sent 는
+	// 1초 결산이다 (FR-BRT-94·95).
+	ack      bool
+	inflight int
+	waited   bool
+	sent     int
 }
 
 func (v *browserViewer) signal() {
@@ -583,7 +591,19 @@ func (v *browserViewer) writeLoop(done <-chan struct{}) {
 		}
 		v.mu.Lock()
 		texts, frame := v.texts, v.frame
-		v.texts, v.frame = nil, nil
+		v.texts = nil
+		switch {
+		case frame == nil:
+		case v.ack && v.inflight >= frameInflightMax:
+			// 확인을 기다린다 — 최신 한 장은 들고 있고, 확인이 오면 깨운다.
+			frame, v.waited = nil, true
+		default:
+			v.frame = nil
+			if v.ack {
+				v.inflight++
+			}
+			v.sent++
+		}
 		v.mu.Unlock()
 		for _, t := range texts {
 			v.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
@@ -619,7 +639,7 @@ func (s *Server) apiBrowserStream(w http.ResponseWriter, r *http.Request) {
 	}
 	defer raw.Close()
 	raw.SetReadLimit(wsReadLimit)
-	v := &browserViewer{conn: raw, wake: make(chan struct{}, 1)}
+	v := &browserViewer{conn: raw, wake: make(chan struct{}, 1), ack: q.Get("ack") == "1"}
 	done := make(chan struct{})
 	defer close(done)
 	go v.writeLoop(done)
@@ -639,7 +659,11 @@ func (s *Server) apiBrowserStream(w http.ResponseWriter, r *http.Request) {
 	}
 	h.viewers[tab][v] = struct{}{}
 	h.mu.Unlock()
+	if v.ack {
+		go h.qualityLoop(tab, v, done)
+	}
 	if first {
+		h.startQuality(ctx, tab)
 		h.host.Call(ctx, "watch", map[string]any{"tab": tab, "on": true})
 	} else if st, err := h.host.Call(ctx, "state", map[string]any{"tab": tab}); err == nil {
 		v.sendText(viewerText("state", st))
@@ -703,6 +727,10 @@ func (s *Server) apiBrowserStream(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		op, _ := m["op"].(string)
+		if op == "frameAck" {
+			v.frameAcked()
+			continue
+		}
 		if !viewerOps[op] {
 			continue
 		}

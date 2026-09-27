@@ -102,6 +102,16 @@ var (
 // MinChromeMajor 는 받는 Chrome 의 최소 주 버전이다 (FR-BRT-3, `base-select`).
 const MinChromeMajor = 135
 
+// FR-BRT-95: screencast JPEG 품질의 범위. 뷰어 쪽이 링크에 맞춰 이 안에서 고른다.
+const (
+	QualityMin = 40
+	QualityMax = 70
+)
+
+func clampQuality(q int) int {
+	return max(QualityMin, min(QualityMax, q))
+}
+
 // DefaultProfile 은 언제나 있는 프로필이다 (FR-BRT-11).
 const DefaultProfile = "default"
 

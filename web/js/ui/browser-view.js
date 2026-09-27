@@ -106,6 +106,8 @@ class BrowserView{
     if(this.tab.url) q.set('url',this.tab.url);
     if(this.tab.profile) q.set('profile',this.tab.profile);
     if(this.tab.isolated) q.set('isolated','1');
+    // FR-BRT-94: 받은 프레임을 확인한다 — 서버는 확인받지 못한 것을 2장까지만 보낸다.
+    q.set('ack','1');
     const proto=location.protocol==='https:'?'wss:':'ws:';
     const ws=new WebSocket(proto+'//'+location.host+BROWSER_API.stream+'?'+q.toString());
     ws.binaryType='arraybuffer';
@@ -188,8 +190,16 @@ class BrowserView{
     const n=dv.getUint32(0);
     let meta=null;
     try{meta=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,4,n)))}catch{meta=null}
+    // 그리지 못하고 밀려난 프레임도 받은 것이다.
+    if(this._pending) this._ackFrame();
     this._pending={meta,blob:new Blob([new Uint8Array(buf,4+n)],{type:'image/jpeg'})};
     if(!this._decoding) this._drawNext();
+  }
+
+  /** FR-BRT-94: 받음 확인. 여는 중·끊긴 소켓에는 보내지 않는다 — 새 연결은 셈이 새로 시작한다. */
+  _ackFrame(){
+    const ws=this.ws;
+    if(ws&&ws.readyState===1) ws.send('{"op":"frameAck"}');
   }
 
   async _drawNext(){
@@ -202,6 +212,7 @@ class BrowserView{
       this._draw(bmp);
       bmp.close&&bmp.close();
     }catch{ /* 깨진 프레임은 건너뛴다 — 다음 프레임이 메운다 */ }
+    this._ackFrame();
     this._decoding=false;
     if(this._pending) this._drawNext();
   }

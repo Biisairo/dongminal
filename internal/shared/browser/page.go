@@ -56,6 +56,8 @@ type page struct {
 	vp    viewport
 	fixed *viewport
 	zoom  float64
+	// quality 는 screencast JPEG 품질이다 — 0 이면 QualityMax (FR-BRT-95).
+	quality int
 	// acts 는 2단계 상태(ref·기록)다 (act.go). fids 는 3단계(대화상자·파일 선택)다.
 	acts *actState
 	fids *fidelityState
@@ -293,6 +295,14 @@ func (pg *page) do(ctx context.Context, op string, params json.RawMessage) (any,
 			return nil, err
 		}
 		return okResult, pg.setViewport(ctx, p.viewport, p.Fixed)
+	case "quality":
+		var p struct {
+			Q int `json:"q"`
+		}
+		if err := json.Unmarshal(params, &p); err != nil {
+			return nil, err
+		}
+		return okResult, pg.setQuality(ctx, p.Q)
 	case "zoom":
 		var p struct {
 			Zoom float64 `json:"zoom"`
@@ -420,13 +430,33 @@ func (pg *page) frameMeta() map[string]any {
 
 func (pg *page) startScreencast(ctx context.Context) error {
 	w, h, dpr := pg.effective()
-	params := map[string]any{"format": "jpeg", "quality": 70, "everyNthFrame": 1}
+	pg.mu.Lock()
+	q := pg.quality
+	pg.mu.Unlock()
+	if q == 0 {
+		q = QualityMax
+	}
+	params := map[string]any{"format": "jpeg", "quality": q, "everyNthFrame": 1}
 	if w > 0 && h > 0 {
 		params["maxWidth"] = int(math.Round(float64(w) * dpr))
 		params["maxHeight"] = int(math.Round(float64(h) * dpr))
 	}
 	_, err := pg.call(ctx, "Page.startScreencast", params)
 	return err
+}
+
+// setQuality 는 screencast 품질을 바꾼다. 보고 있으면 새 품질로 다시 켠다 (FR-BRT-95).
+func (pg *page) setQuality(ctx context.Context, q int) error {
+	q = clampQuality(q)
+	pg.mu.Lock()
+	same, watching := pg.quality == q, pg.watching
+	pg.quality = q
+	pg.mu.Unlock()
+	if same || !watching {
+		return nil
+	}
+	pg.call(ctx, "Page.stopScreencast", nil)
+	return pg.startScreencast(ctx)
 }
 
 // effective 는 지금 적용할 CSS 폭·높이·DPR 이다. 확대는 CSS 뷰포트를 `1/z` 로
