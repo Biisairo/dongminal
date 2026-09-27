@@ -238,8 +238,10 @@ test.describe('묶음 B — 자동 갱신은 스스로 되살아난다', () => {
     // 워치독의 검사 문턱(GIT_WATCHDOG_CHECK_MS)을 연다 — 방금 그린 직후라 그
     // 문턱이 닫혀 있고, 이 검사가 재려는 것은 문턱이 아니라 되살리기다.
     // 문턱 둘을 함께 연다 — 근거는 `staleButPolling`.
-    await page.evaluate(`(() => {${PANEL} p._stop(); p._lastObsAt = Date.now() - 5 * 60 * 1000; window.app.testing.gitWdAt = 0; p._wdTryAt = 0 })()`);
-    expect((await panelState(page)).pollOn).toBe(false);
+    // 멎음은 같은 동기 식에서 읽는다 — 문턱이 열린 뒤에는 다른 계기의 그리기 한 번도
+    // 워치독을 부른다. 식을 나누면 그 틈에 되살아나 멎음을 못 본다(Windows CI 실측).
+    const stopped = await page.evaluate(`(() => {${PANEL} p._stop(); p._lastObsAt = Date.now() - 5 * 60 * 1000; window.app.testing.gitWdAt = 0; p._wdTryAt = 0; return !p._pollOn })()`);
+    expect(stopped).toBe(true);
 
     // 워치독의 계기는 이미 도는 것에 얹혀 있다 (D-4).
     await page.evaluate('window.app.render()');
