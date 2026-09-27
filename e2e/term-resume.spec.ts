@@ -66,8 +66,14 @@ const countRx = (page: any) =>
     const app = (window as any).app;
     const pane = [...app.tools.values()].find((p: any) => p.el.classList.contains('vis')) as any;
     (window as any).__rx = 0;
+    // 받은 조각의 앞부분 — 선을 넘었을 때 그것이 재생인지 새 출력인지 가르는 증거다.
+    (window as any).__rxChunks = [];
     const orig = pane._handleOutput.bind(pane);
-    pane._handleOutput = (d: any) => { (window as any).__rx += d.length; orig(d) };
+    pane._handleOutput = (d: any) => {
+      (window as any).__rx += d.length;
+      (window as any).__rxChunks.push({ n: d.length, seq: pane._seq, head: new TextDecoder().decode(d.subarray(0, 120)) });
+      orig(d);
+    };
   });
 
 /** 새 소켓이 붙을 때까지 기다린다. */
@@ -123,6 +129,7 @@ test.describe('터미널 재접속 (TERMINAL_RESUME_SRS)', () => {
     // 셸이 더 낼 것이 없을 때까지 기다린다. 출력이 흐르는 중에 재면 아래의
     // "다시 받은 것" 에 **새 출력**이 섞인다 (실측: 기준선이 1 과 2 를 오갔다).
     const before = await settled(page);
+    const seqBefore = await seqOf(page);
     await countRx(page);
 
     for (let i = 0; i < 3; i++) {
@@ -138,7 +145,8 @@ test.describe('터미널 재접속 (TERMINAL_RESUME_SRS)', () => {
     // 이어 붙였다는 사실 자체를 먼저 확인한다 (FR-TRS-6) — 좌표가 없으면 아래
     // 선이 무슨 뜻인지 말할 수 없다.
     expect(seq).toBeGreaterThan(0);
-    expect(rx).toBeLessThan(seq / 2);
+    const chunks = await page.evaluate(() => (window as any).__rxChunks);
+    expect(rx, JSON.stringify({ seqBefore, seq, chunks })).toBeLessThan(seq / 2);
     expect(await bufferText(page)).toBe(before);
   });
 
