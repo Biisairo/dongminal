@@ -76,6 +76,9 @@
   `gh run download <id> -n playwright-report-<os>-<샤드>` · trace.zip 의 `*.network` 로 요청 시각을 본다.
 - **로컬 e2e 를 다른 시험과 함께 돌릴 때**: `E2E_PORT_BASE=59147` 로 포트 뿌리를 가른다(FR-EPL-14). macOS 에 `timeout` 명령이 없다.
 - **고친 흔들림(`889143a2` verify Ubuntu)**: `TestRealLogsScreenshotEval` — console 기록은 이벤트 작업자를 거쳐 evaluate 응답보다 늦게 적힐 수 있다. 시험이 기록을 기다린다.
+- **고친 흔들림(`2f002dd7` e2e Windows)**: TC-BRT-32·35 — 페이지는 기본 폭(756)으로 뜬 뒤 칸 폭(562)으로 바뀌는데, 그 사이의
+  클릭은 페이지에 **닿지 않았다**(계측: mousedown 없음, 로컬 1/10 재현). 시험은 `waitSized` 로 크기가 확정된 뒤 누른다.
+  **제품 쪽 미해결 가능성**: 실사용에서도 탭이 막 뜬 직후의 클릭이 사라질 수 있다 — headful 전환 때 뷰포트 적용 순서와 함께 다시 본다.
 - **관찰만 한 흔들림**: `TestRealCloseLeavesNoChrome`(Ubuntu, `5b4d5f34`) — Chrome 이 `getVersion` 에 15초 무응답. 증거가 없어 고치지 않았다. 다시 나오면 조사.
 - 그 밖(이전 인계에서 이어짐): `sleep` 은 `until …; do sleep N; done` 을 `run_in_background` 로. 게이트는 시험 파일에도 적용 —
   `runtime.GOOS` 금지. 이 작업 트리에서 다른 세션이 동시에 커밋할 수 있다 — `git add -A` 금지, push 전 `git fetch`.
