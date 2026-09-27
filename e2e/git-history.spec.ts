@@ -557,9 +557,10 @@ test.describe('17단계 — 커밋 상세', () => {
     // 되면서 다른 행에 닿는다.
     await expect.poll(() => commits(page).first().getAttribute('data-oid'), { timeout: 10000 })
       .not.toBe(firstOid);
-    const row = commits(page).nth(3);
-    const oid = (await row.getAttribute('data-oid'))!;
-    await row.click();
+    const oid = (await commits(page).nth(3).getAttribute('data-oid'))!;
+    // `nth(3)` 는 누르는 순간 다시 풀린다 — 그 사이 가상 목록이 다시 그려지면 다른 커밋을
+    // 누른다(Windows CI 실측: 읽은 d93d… 대신 77ed… 의 상세를 불렀다). 읽은 oid 로 누른다.
+    await hist(page).locator(`.git-hist-row[data-oid="${oid}"]`).click();
     await expect(hist(page).locator('.git-hist-detail')).toBeVisible({ timeout: 15000 });
     const top = await list(page).evaluate((el) => el.scrollTop);
     expect(top).toBeGreaterThan(0);
@@ -588,9 +589,10 @@ test.describe('17단계 — 커밋 상세', () => {
     await list(page).evaluate((el) => { el.scrollTop = 2600; });
     await expect.poll(() => commits(page).first().getAttribute('data-oid'), { timeout: 10000 })
       .not.toBe(firstOid);
-    const row = commits(page).nth(3);
-    const oid = (await row.getAttribute('data-oid'))!;
-    await row.click();
+    const oid = (await commits(page).nth(3).getAttribute('data-oid'))!;
+    // `nth(3)` 는 누르는 순간 다시 풀린다 — 그 사이 가상 목록이 다시 그려지면 다른 커밋을
+    // 누른다(Windows CI 실측: 읽은 d93d… 대신 77ed… 의 상세를 불렀다). 읽은 oid 로 누른다.
+    await hist(page).locator(`.git-hist-row[data-oid="${oid}"]`).click();
     await expect(hist(page).locator('.git-hist-detail')).toBeVisible({ timeout: 15000 });
     const top = await list(page).evaluate((el) => el.scrollTop);
 
