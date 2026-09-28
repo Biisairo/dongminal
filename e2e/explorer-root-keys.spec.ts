@@ -142,7 +142,8 @@ test.describe('묶음 A — 빈 여백과 머리는 루트다 (FR-EXR-1~6)', () 
     await input(page).press('Enter');
 
     await expect(row(page, j(root, 'top.txt'))).toBeVisible({ timeout: 10000 });
-    expect(fs.existsSync(j(root, 'top.txt'))).toBe(true);
+    // 행은 낙관적으로 먼저 선다 — 디스크는 기다려서 본다 (V-EXR-10 과 같다).
+    await expect.poll(() => fs.existsSync(j(root, 'top.txt')), { timeout: 10000 }).toBe(true);
     expect(fs.existsSync(j(root, 'sub', 'top.txt'))).toBe(false);
   });
 });
@@ -161,7 +162,10 @@ test.describe('묶음 B — 빈 여백 더블클릭은 루트에 파일을 만�
 
       await expect(row(page, j(root, 'made.txt'))).toHaveAttribute('data-kind', 'file',
         { timeout: 10000 });
-      expect(fs.statSync(j(root, 'made.txt')).isFile()).toBe(true);
+      // 행은 서버의 답보다 먼저 선다(낙관적 반영) — 디스크는 기다려서 본다. 곧바로 stat 하면
+      // 느린 러너에서 만들기 요청이 아직 끝나지 않았다(Windows CI 2회 ENOENT).
+      await expect.poll(() => fs.existsSync(j(root, 'made.txt')) && fs.statSync(j(root, 'made.txt')).isFile(),
+        { timeout: 10000 }).toBe(true);
     });
 
   test('V-EXR-11 (FR-EXR-12): 머리 더블클릭은 인라인 입력을 만들지 않는다',
