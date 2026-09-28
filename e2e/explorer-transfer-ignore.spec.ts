@@ -545,12 +545,25 @@ test.describe('묶음 F — OSC 52 (FR-ETR-37~43)', () => {
       window.dispatchEvent(new Event('blur'));
     });
 
+    // B 가 OSC 52 **바이트 자체**를 받았는지 센다. 명령의 메아리(글자)는 그보다 먼저 온다 —
+    // Windows 에서는 `printf` 가 늦게 떠 출력이 한참 뒤에 왔고, 그 사이 B 가 포커스를 받으면
+    // 그 출력은 재생이 아니라 **B 가 보는 중에 온 라이브 출력**이 되어 창이 섰다(CI 실측 3회).
+    await B.page.evaluate(() => {
+      const t = (window as any).app.testing.focusedTerminal();
+      (window as any).__osc52 = 0;
+      const orig = t._handleOutput.bind(t);
+      t._handleOutput = (d: Uint8Array) => {
+        if (new TextDecoder().decode(d).includes('\x1b]52;')) (window as any).__osc52++;
+        orig(d);
+      };
+    });
+
     // A 가 주인이 되고, A 의 셸이 OSC 52 를 낸다.
     await A.page.evaluate(() => (window as any).app.setFocus((window as any).app.focused));
     await A.page.locator('#area .pn.focused .xterm-helper-textarea').focus();
     await A.page.keyboard.type("printf '\\033]52;c;%s\\007' " + b64('from-A') + '\n');
-    // B 가 그 바이트를 받았다 — 명령의 메아리가 B 의 화면에도 선다.
-    await expect(B.page.locator('#area .pn.focused .xterm-rows')).toContainText(b64('from-A'), { timeout: 15000 });
+    // B 가 그 바이트를 받았다 — 메아리가 아니라 OSC 52 가 도착한 것을 본다.
+    await expect.poll(() => B.page.evaluate(() => (window as any).__osc52), { timeout: 15000 }).toBeGreaterThan(0);
 
     // 사용자가 B 로 온다 — 포커스를 받고 되찾는다. 그리고 전량 재생을 받는다.
     await B.page.evaluate(() => { (document as any).hasFocus = () => true; window.dispatchEvent(new Event('focus')) });
