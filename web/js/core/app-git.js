@@ -794,6 +794,10 @@ Object.assign(App.prototype, {
    */
   async gitPin(path){
     if(!path) return {ok:false,reason:GIT_PIN_FAIL_LABEL};
+    // WORKSPACE_SAVE_CONFLICT_SRS FR-WSC-18: 핀은 서버의 워크스페이스를 고친다 — 이 화면의
+    // 저장을 먼저 끝낸다. 그러지 않으면 방금 한 조작(탭 전환)을 실은 저장이 핀의 rev 에
+    // 409 를 받고 원격 채택으로 그 조작이 사라진다.
+    await this.save();
     const res=await gitPost(GIT_API.reposPin,{path});
     const d=res.data;
     if(!res.ok) return {ok:false,reason:(d&&d.message)||GIT_PIN_FAIL_LABEL};
@@ -805,6 +809,8 @@ Object.assign(App.prototype, {
 
   async gitUnpin(path){
     if(!path) return false;
+    // FR-WSC-18: 핀과 같다.
+    await this.save();
     const res=await gitPost(GIT_API.reposUnpin,{path});
     const d=res.data;
     if(!res.ok) return false;
