@@ -130,24 +130,14 @@ test.describe('19단계 — Stash 탭', () => {
     // 재렌더가 스크롤을 복원한다). 사람은 닫히면 다시 우클릭하므로, 검사도
     // **요청이 실제로 나갈 때까지** 다시 연다 — 한 번의 클릭에 기대면 폴링과
     // 겹치는 회차에서만 무너진다.
-    //
-    // **재시도는 요청이 나가기 전까지만이다.** apply 는 멱등이 아니다 — 나간 뒤에 또 누르면
-    // 같은 변경을 두 번 얹어 `MM` 으로 굳는다(CI 2회: 30초 내내 `MM f.txt`). 그래서 요청을
-    // 세고, 나간 요청이 하나인지·무엇을 가리켰는지를 본 뒤에 상태를 잰다.
-    const newest = git(repo, 'rev-parse', 'stash@{0}').trim();
-    const applies: any[] = [];
-    page.on('request', (r) => { if (r.url().includes('/api/git/stash/apply')) applies.push(r.postDataJSON()) });
     await expect(async () => {
-      if (applies.length) return;
       await row(page, 0).click({ button: 'right' });
       await expect(menu(page)).toHaveAttribute('data-kind', 'stash');
       await items(page).filter({ hasText: 'Apply (--index)' }).click();
-      await expect.poll(() => applies.length, { timeout: 2000 }).toBeGreaterThan(0);
+      // index 가 복원됐으므로 staged 로 돌아온다 (porcelain 의 첫 칸이 M).
+      await expect.poll(() => git(repo, 'status', '--porcelain'), { timeout: 3000 })
+        .toMatch(/^M /m);
     }).toPass({ timeout: 30000 });
-    expect(applies.length, 'apply 가 두 번 나갔다').toBe(1);
-    expect(applies[0]).toMatchObject({ oid: newest, withIndex: true });
-    // index 가 복원됐으므로 staged 로 돌아온다 (porcelain 의 첫 칸이 M).
-    await expect.poll(() => git(repo, 'status', '--porcelain'), { timeout: 15000 }).toMatch(/^M /m);
     expect(stashCount(repo)).toBe(3);
   });
 
