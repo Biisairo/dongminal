@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [1.1.8] — 2026-09-28
+
 데몬·서버·브라우저 사이의 통신을 줄이고 구조 부채를 정리했습니다 (OPTIMIZE_REFACTOR).
 아무것도 하지 않을 때 나가는 요청이 크게 줄었고, 폴링 대신 서버가 변화를 알립니다.
 
@@ -15,8 +17,22 @@
   수 있었습니다. 이제 `Origin` 의 호스트와 포트가 `Host` 와 같아야 하고, `null`·비 http(s)
   `Origin` 은 거절합니다 (SECURITY.md §6).
 
+### 추가
+
+- **스킴 없이 적은 도메인도 링크가 됩니다.** 터미널 출력과 문서 미리보기에서 `naver.com`·
+  `github.com/a/b` 처럼 `https://` 없이 적은 주소를 누르면 새 창으로 열립니다. 그 폴더에 같은
+  이름의 파일이 있으면(`README.md` 등) 링크로 잡지 않습니다.
+
 ### 고침
 
+- **Worktrees 에서 핀·해제한 뒤 보던 탭이 다른 탭으로 바뀌지 않습니다.** 핀 요청과 화면 저장이
+  부딪혀 서버의 판을 받아들이면서 방금 고른 탭이 사라졌습니다. 이제 핀·해제 전에 화면 저장을
+  먼저 끝냅니다.
+- **확인 창에서 취소로 옮긴 포커스가 실행 버튼으로 되돌아가지 않습니다.** 창이 늦게 주는 기본
+  포커스가 그 사이 사용자가 옮긴 포커스를 덮었습니다.
+- **Git 기록의 "사라진 ref" 안내가 곧바로 지워지지 않습니다.** 뒤이은 자동 새로고침이 지웠습니다.
+- **SIGTERM 을 무시하는 셸을 닫는 동안 다른 터미널의 입력이 멎지 않습니다.** 데몬이 종료 유예를
+  요청을 읽는 자리에서 기다렸습니다.
 - **데몬과의 연결이 조용히 끊긴 채 남지 않습니다.** 서버가 15초마다 데몬 생존을 확인하고,
   답이 없으면 다시 붙은 뒤 끊긴 동안 바뀐 탭 이름과 출력 구멍을 메웁니다.
 - **에디터 파일 상한을 32 MiB 한 값으로 맞췄습니다.** 종전에는 읽기 10 MiB·저장 본문 1 MiB 로
@@ -1833,6 +1849,9 @@
   에이전트 간 메시지와 API 입력 주입이 그 셸에서 통째로 깨져 있었다. 이제 셸이
   그 모드를 켰을 때만 감싼다
 
+[1.1.8]: https://github.com/Biisairo/dongminal/releases/tag/v1.1.8
+[1.1.7]: https://github.com/Biisairo/dongminal/releases/tag/v1.1.7
+[1.1.6]: https://github.com/Biisairo/dongminal/releases/tag/v1.1.6
 [1.1.5]: https://github.com/Biisairo/dongminal/releases/tag/v1.1.5
 [1.1.4]: https://github.com/Biisairo/dongminal/releases/tag/v1.1.4
 [1.1.3]: https://github.com/Biisairo/dongminal/releases/tag/v1.1.3
