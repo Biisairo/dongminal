@@ -183,8 +183,22 @@ func TestTCResyncUnknown(t *testing.T) {
 	ex1, _ := pc.Subscribe("t1", ch1)
 
 	close(drop)
+	dropped := time.Now()
 
-	waitClosed(t, ch1, "t1 의 출력 채널")
+	// Windows CI 에서 한 번 8초를 넘겼다(원인 미확정). 넘기면 어디서 늦었는지 남긴다 —
+	// 재접속이 늦었는지(reconnects=0), 재접속 뒤 재동기가 늦었는지(reconnects≥1).
+	select {
+	case _, ok := <-ch1:
+		if ok {
+			t.Fatal("t1 의 출력 채널: 닫히지 않고 값이 왔다")
+		}
+	case <-time.After(8 * time.Second):
+		pc.mu.Lock()
+		pending, connected := len(pc.pending), pc.conn != nil
+		pc.mu.Unlock()
+		t.Fatalf("t1 의 출력 채널: 재접속 뒤에도 닫히지 않았다 (경과 %v, reconnects=%d, connected=%v, pending=%d)",
+			time.Since(dropped).Round(time.Millisecond), pc.reconnects.Load(), connected, pending)
+	}
 	assertOpen(t, ex1, "t1 의 exitCh")
 	mu.Lock()
 	defer mu.Unlock()
