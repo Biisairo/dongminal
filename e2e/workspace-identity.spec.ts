@@ -271,7 +271,15 @@ test.describe('묶음 X — 생성 명령은 한 클라이언트만 수행한다
     }
     await expect.poll(() => focusedOf(A.page), { timeout: 10000 }).toBe(away);
     await expect.poll(() => focusedOf(B.page), { timeout: 10000 }).toBe(away);
-    await B.page.evaluate(() => (window as any).app.setFocus((window as any).app.focused));
+    // B 가 **마지막으로 주장했다** 는 것을 기다려서 만든다. 주장은 창 단위이고 소유가 바뀔 때만
+    // 나가므로(`_focusWindow`), 같은 창 안의 `setFocus` 는 아무것도 보내지 않는다 — 그러면
+    // 실행자는 페이지를 연 순서·SSE 재접속의 재주장 순서가 정한다(Windows CI 에서 A 가 뽑혔다).
+    const claimed = await B.page.evaluate(async () => {
+      const a = (window as any).app;
+      const r = await (window as any).apiPost('/api/focus/claim', { clientId: a.clientId, windowId: a.ws.activeWindow });
+      return r.ok;
+    });
+    expect(claimed, 'B 의 주장이 받아들여지지 않았다').toBe(true);
 
     const r = await request.post('/api/commands', { data: { action: 'focus', args: { location: target.id } } });
     expect(r.status()).toBe(200);
