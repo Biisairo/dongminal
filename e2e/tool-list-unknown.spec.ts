@@ -83,6 +83,10 @@ async function stubState(page: Page, opts: { known: boolean; tools?: unknown[] }
 const applyState = (page: Page) =>
   page.evaluate(() => (window as any).app.testing.onWorkspaceChanged());
 
+// 가로채기는 시험이 끝나도 남는다 — 페이지가 닫히는 순간 날고 있던 `/api/state` 를
+// `route.fetch` 하면 "page has been closed" 로 시험이 진다(Windows CI 2회). 끝에 걷는다.
+test.afterEach(async ({ page }) => { await page.unrouteAll({ behavior: 'ignoreErrors' }) });
+
 test.describe('묶음 L — 도구 목록을 모를 때 하지 않는 일', () => {
   test('TC-TLU-4·5 (FR-TLU-5·6): 모르는 스냅숏은 도구도 창도 지우지 않는다', async ({ page }) => {
     await waitForInit(page);
