@@ -219,7 +219,10 @@ func (m *ToolManager) Terminate(id string, grace time.Duration) error {
 		return ErrToolNotFound
 	}
 	p.terminateWait(grace)
-	return m.Delete(id)
+	// 유예 동안 프로세스가 끝나면 종료 콜백(`toolExited`)이 먼저 지울 수 있다. 그것도
+	// 이 요청이 낳은 결과이므로 "없음" 이 아니다 (CONVENIENCE_SRS FR-BGK-6a).
+	_ = m.Delete(id)
+	return nil
 }
 
 func (m *ToolManager) Delete(id string) error {

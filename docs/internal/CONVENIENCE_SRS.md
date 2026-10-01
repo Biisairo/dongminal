@@ -346,6 +346,19 @@ cross-platform 후속 트랙이 이 자리 하나만 채우면 된다 (C-4).
 서버는 `ToolManager.Delete(id)` 를 부르며, 그 함수가 `background` 맵에서도 제거한다
 (§2.1(e)).
 
+**FR-BGK-6a** 종료 요청이 도구를 찾았다면 그 응답은 **성공**이다. 유예 동안 프로세스가
+끝나 종료 콜백이 먼저 도구를 지웠어도 마찬가지다.
+
+> **정정 (2026-10-01, CI `verify` 실패 `TestApiToolKill_RemovesFromBackgroundList`)**
+>
+>   이전 동작: `Terminate` 가 SIGTERM 뒤 자기 `Delete` 의 결과를 그대로 돌려줬다.
+>             셸이 SIGTERM 에 곧바로 끝나면 읽기 고루틴의 종료 콜백(`toolExited` →
+>             `Delete`)이 먼저 지우는 일이 있어, 종료에 성공하고도 404 가 났다
+>             (로컬 200회 중 4회 재현)
+>   새  동작: 시작 시점에 도구가 있었으면 누가 지웠든 성공을 돌려준다. 시작 시점에
+>             없던 도구는 종전대로 404 다
+>   이유:     모달이 성공한 종료를 실패로 표시하고 행을 남긴다 (FR-BGK-10 의 오작동)
+
 **FR-BGK-7** 종료는 **SIGTERM 후 유예, 그 다음 SIGKILL** 이다. `tool.go:644` 가 이미
 SIGTERM 경로를 갖고 있다. 유예는 3초.
 
