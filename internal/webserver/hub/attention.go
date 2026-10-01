@@ -1,13 +1,19 @@
 package hub
 
 import (
+	"sync/atomic"
+
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/sse"
 )
 
+// attnSeq 는 알람 방송의 번호다 (ATTENTION_FIRING_SRS FR-ATD-1). 창들은 이 번호로
+// "같은 알람" 을 알아보고, 한 컴퓨터에서 하나만 배너·소리를 맡는다.
+var attnSeq atomic.Uint64
+
 // broadcast via CommandHub. Keys are lowerCamelCase.
 func toolAttentionPayload(toolID, reason string) []byte {
-	return sse.Payload("tool_attention", map[string]any{"toolId": toolID, "reason": reason})
+	return sse.Payload("tool_attention", map[string]any{"toolId": toolID, "reason": reason, "seq": attnSeq.Add(1)})
 }
 
 func toolAttentionClearPayload(toolID string) []byte {

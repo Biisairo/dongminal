@@ -54,6 +54,7 @@
 | POST | `/api/tools/attention/set` | 주의 상태 설정 (`dmctl notify` 가 사용) |
 | POST | `/api/tools/attention/clear` | 도구 하나의 주의 상태 해제 |
 | POST | `/api/tools/attention/clear-all` | 전체 해제 |
+| POST | `/api/tools/attention/claim` | `{seq, kinds:["banner"\|"sound"]}` → `{granted:[…]}` — 알람 하나의 배너·소리를 이 창이 맡는다. 같은 컴퓨터(출발지 주소)에서는 처음 온 청구만 승낙된다 |
 | GET | `/api/tools/activity` | 도구별 현재 활동 상태 (도구당 최신 1건) |
 | POST | `/api/tools/activity/set` | 활동 상태 보고 (`dmctl activity` 가 사용) |
 

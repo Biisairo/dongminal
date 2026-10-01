@@ -43,13 +43,13 @@ Object.assign(App.prototype, {
    * 시끄러움에 대한 판단은 설정의 두 스위치가 맡는다 (Settings ▸ Notifications) —
    * 우리가 사용자를 대신해 짐작하지 않는다.
    */
-  _onToolAttention({toolId,reason}={}){
+  _onToolAttention({toolId,reason,seq}={}){
     if(!toolId) return;
     this._restoreNote('attn',toolId);   // FR-RSF-4
     this._attn.set(toolId,{reason});
     this._attnRefresh();
-    this._attnDesktopNotify(reason,toolId); // FR-PAN-13a
-    this._attnBeep(); // FR-PAN-13c
+    // FR-ATD-2: 표식은 모든 창에. 배너·소리는 한 컴퓨터에서 한 번 (app-attn-claim.js).
+    this._attnAnnounce(reason,toolId,seq);
   },
 
   /**

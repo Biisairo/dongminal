@@ -96,6 +96,11 @@ type Server struct {
 	// `Access` 의 `self` 를 읽으므로 그 뒤에 만들어진다.
 	hosts *hostAllow
 
+	// attnClaims 는 알람의 배너·소리를 어느 창이 맡았는지다 (ATTENTION_FIRING_SRS
+	// FR-ATD-4). 테스트가 Server 를 직접 짓기도 하므로 처음 쓸 때 만든다.
+	attnClaims     *attnClaims
+	attnClaimsOnce sync.Once
+
 	started time.Time
 
 	// misses 는 "없는 도구를 향한 WebSocket 요청"의 되풀이를 센다

@@ -139,6 +139,9 @@ test.describe('Pane attention', () => {
     await page.evaluate(() => {
       const app = (window as any).app;
       (window as any).__beeps = 0;
+      // 알림음을 켠다 — 소리를 낼 수 없는 창은 소리를 청구하지 않는다 (FR-ATD-3).
+      // 종전에는 가로챈 `_attnBeep` 이 설정 검사를 건너뛰어 꺼진 기본값에서도 셌다.
+      app.attnSound = true;
       app.testing.attnBeep = () => { (window as any).__beeps++; };
       (window as any).__notifs = [];
       const Spy: any = function (this: any, title: string) {

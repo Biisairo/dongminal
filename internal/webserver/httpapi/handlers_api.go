@@ -80,6 +80,7 @@ var apiRoutes = []apiRoute{
 	httproute.Post("/api/tools/attention/set", (*Server).apiToolAttentionSet),
 	httproute.Post("/api/tools/attention/clear", (*Server).apiToolAttentionClear),
 	httproute.Post("/api/tools/attention/clear-all", (*Server).apiToolAttentionClearAll),
+	httproute.Post("/api/tools/attention/claim", (*Server).apiToolAttentionClaim),
 	httproute.Get("/api/tools/activity", (*Server).apiToolsActivity),
 	// 에이전트 접합면 (SKILL_INJECTION_SRS FR-API-1/2/3). dmctl read-screen /
 	// read-output / send-input / msg 가 호출한다.
