@@ -1,83 +1,83 @@
 <!-- 이 파일은 전체가 새 세션의 첫 메시지다. 열어서 전체 선택 → 붙여넣기. -->
 
-dongminal 저장소에서 크로스플랫폼 작업을 이어서 한다. 브랜치는 `crossplatform` 이다.
+dongminal 저장소에서 **Claude Code 를 띄웠을 때의 주의 알람 오류**를 조사하고 고친다. 브랜치는 `main` 이다.
 
 ## 0. 가장 먼저
 
-**`docs/internal/CROSS_PLATFORM_HANDOFF.md` 를 전부 읽어라.** 이 프롬프트는 그
-문서의 착수 순서일 뿐이다.
-
 ```bash
-git branch --show-current      # crossplatform 이어야 한다
+git branch --show-current      # main
 git status --short             # 비어 있어야 한다
-go build ./... && go vet ./...
+git log -1 --format='%h %s'    # 5d9c6ae7 이후여야 한다
 ```
 
-## 1. 한 줄 상태
+`CLAUDE.md`(사용자 전역 규약)를 따른다 — 중·대 규모는 **인터뷰 → 스펙(IEEE 29148) → 테스트 → 구현**,
+커밋은 **사용자 확인 후에만**, 커밋 메시지에 AI 서명(`Co-Authored-By` 등) 금지.
 
-**네 트랙이 끝났다** — ConPTY, Windows 단위테스트(제품 결함 11건), 코드 감사,
-e2e 통일. **남은 일은 `main` 병합이다.**
+## 1. 이번 세션의 일
 
-근거 문서 넷:
-- `CROSS_PLATFORM_HANDOFF.md` — 전체 상태. §7 이 감사 결과, §7.3 이 "손대지 않은 것"
-- `CROSS_PLATFORM_SRS.md` §11 — ConPTY 트랙 (§11.8 이 원인 확정)
-- `WINDOWS_TEST_PARITY_SRS.md` — Windows 단위테스트 트랙 (§10 이 결과)
-- `E2E_UNIFICATION_SRS.md` — e2e 통일 트랙 (§9 가 결과)
+사용자 접수(2026-10-01):
 
-## 2. 이번 세션의 일 — `main` 병합
+1. **Claude Code 가 대기 중(입력 대기·유휴)인데 알람이 울린다.**
+2. **알람이 연달아 여러 번 울린다.**
 
-병합 전에 세 대상을 한 번 훑는다. 이제 그것이 **한 명령**이다.
+재현 조건은 아직 사용자에게 받지 않았다 — 어떤 상황(작업 끝·권한 요청·그냥 유휴), 어떤
+알람(탭·창 깜빡임 · 🔔 배지 · OS 알림 · 알림음), "연달아" 가 몇 번·몇 초 간격인지. **코드로 답할 수
+있는 것은 먼저 조사하고, 그래도 갈리는 것만 하나씩 묻는다.**
 
-```bash
-gofmt -l internal cmd
-go build ./... && go vet ./...
-GOOS=windows go vet ./...          # 테스트 파일까지 타입검사 — Windows 유일의 로컬 수단
-go test ./internal/... ./cmd/... -count=1
-scripts/check-cross.sh             # 5개 대상 build + vet
-scripts/check-seams.sh             # OS 이음매
-scripts/verify-isolated.sh         # darwin 실동작 — dongminal verify 22항목
-```
+## 2. 먼저 읽을 것 (순서대로)
 
-**Windows·Linux 는 CI 로만 검증된다.** 푸시하면 `verify` 워크플로우가 돈다 (5~8분).
+1. `docs/internal/ATTENTION_FIRING_SRS.md` 전부 — 특히 **§1.7 "AS-2 는 반증되었다"**, **§1.8 "대기 중에도
+   알람이 선다 (2026-09-06 재접수)"**, §1.9 인터뷰 결정. 같은 계열의 증상이 한 번 접수·수정됐다 —
+   이번 것이 재발인지 다른 경로인지부터 가른다
+2. `docs/internal/ATTENTION_LIFECYCLE_GIT_OBSERVE_SRS.md` — 알람의 생애(켜짐·걷힘)
+3. `docs/internal/AGENT_ADAPTER_COMPLETION_SRS.md` · `AGENT_EVENT_ABSTRACTION_SRS.md` — claude 훅이 무엇을
+   언제 보고하는가(`SessionStart` 가 기동 직후 `idle` 을 보고한다는 실측이 있다 — `dmctl wait --for ready`
+   가 `waitedMs=0` 으로 돌아오는 이유)
+4. 코드: `web/js/core/app-attn.js`(판정·발화·`attnUserIsWatching`), `web/js/core/app-attn-center.js`(배지·팝오버),
+   `internal/shared/agentadapter/claude*.go`(훅 해석), `internal/helper/runtimebin/dmctl_activity.go`(활동 보고)
+5. 실기기 진단: `?diag=1` 오버레이(`web/js/ui/diag.js`)가 이벤트 순서를 기록하고 [전송]으로 올린다 —
+   에뮬레이션으로 재현되지 않으면 이것으로 사용자에게 로그를 받는다
 
-```bash
-gh run list --repo Biisairo/dongminal --branch crossplatform --limit 1
-JOB=$(gh run view <runId> --repo Biisairo/dongminal --json jobs \
-      --jq '.jobs[]|select(.name=="windows-runtime")|.databaseId')
-gh api "repos/Biisairo/dongminal/actions/jobs/$JOB/logs" | sed 's/^[0-9T:.Z-]* //'
-```
+## 3. 어디까지 왔나 (직전 세션, 전부 `main` 에 푸시됨)
 
-`gh` 계정은 READ 권한뿐이라 **run 취소·재실행은 안 된다.** 로그 조회는 되고,
-푸시는 SSH 로 나가므로 문제없다.
+| 커밋 | 내용 |
+|---|---|
+| `f644468e` | UX_BATCH11 — 터미널 복사·붙여넣기 키, 파일 경로 링크, 끊긴 동안의 입력 보류, 주의 맥박 opacity 합성(`--z-under` 층 신설), 모바일 터치 스크롤(행 단위 wheel · 1:1 · 관성 재측정), 모바일 터미널 위 OS 기본 선택 — `docs/internal/UX_BATCH11_SRS.md` |
+| `4ad7c161` | 전체 검색이 실린 선택으로 곧바로 검색 — `EDITOR_REPLACE_AND_SEED_SRS` FR-ERS-25 |
+| `5d9c6ae7` | 목록에서 빠진 루트의 Editor 창을 병합이 되살리지 않음 — `OPTIMISTIC_LAYOUT_SRS` FR-OPL-14 (CI `editor-link` L2 의 진짜 원인) |
 
-## 3. 다시 파지 마라 — 이미 끝난 것
+검증 상태(`5d9c6ae7`): CI `verify`·`e2e` 성공 · 로컬 `make e2e` 8샤드 `e2e ok`(1,940 통과, flaky 2 —
+`git-branch-actions` BR8, `window-slots` TC-WSL-2, 둘 다 격리 판정 "부하") · `make gates` 통과 · 단위 546 통과.
 
-- **ConPTY**: 원인은 `STARTF_USESTDHANDLES` 하나였다. 라이브러리 교체는 하지
-  않았고 새 의존도 없다 (SRS §11.8)
-- **경로 계열 결함 D1~D11**: 전수 감사까지 끝났다 (`WINDOWS_TEST_PARITY_SRS`
-  §2.3~2.8). 슬래시를 박은 13곳 중 대부분은 정당했다(URL·git ref·map 키)
-- **코드 감사**: HANDOFF §7. **§7.3 이 "손대지 않은 것" 목록**이다
-- **e2e 하네스**: 검사 정의는 `internal/ctl/cli/verify.go` **한 곳**이다. CI 나
-  `verify-isolated.sh` 에 검사를 다시 적지 마라 — 그것이 이 트랙이 접은 문제다
+**주의 맥박과 이번 일의 경계**: UX_BATCH11 은 알람의 **모습**(깜빡임을 opacity 겹으로)만 바꿨다 — 알람이
+**언제 켜지는가**는 건드리지 않았다. 다만 표식 CSS 가 바뀌었으므로(`.pn-tab.attn::before` 등, `UX_BATCH11_SRS`
+§3.4) 화면 증상을 볼 때 그 구조를 안다.
 
-## 4. e2e 를 건드릴 일이 생기면
+## 4. 직전 세션이 값을 치르고 배운 것
 
-- 검사를 더할 자리는 `verifyChecks()` 의 표다. 항목 수·이름을 붙드는 골든
-  테스트(`TestVerifyChecks_Golden`)를 함께 고쳐야 한다 — 그것이 자물쇠다
-- **대상별 갈래를 만들지 마라.** OS 차이는 `platform` 인터페이스 아래로 밀어
-  넣는다 (FR-E2S-0). 검사에 갈래가 필요해 보이면 인터페이스가 덜 흡수한 것이다
-- 건너뜀의 근거는 **호스트 환경**이지 OS 가 아니다. `TestVerifyChecks_NoOSDrivenSkips`
-  가 그것을 붙든다
-- `verify` 는 `--port`·`--home` 을 **거부한다.** 격리 가드를 무르게 하지 마라 —
-  그 가드가 없어서 운영 인스턴스를 죽인 사고가 있었다
+1. **e2e 전량(`make e2e`)이 도는 동안 다른 e2e 를 같은 기계에서 돌리지 마라.** 포트·CPU 가 겹쳐 샤드 7·8 의
+   동기화 계열 25건이 가짜로 졌다. 단독 재실행에서 68건 전부 통과했다
+2. **격리 3회 "부하" 판정이 결함을 놓칠 수 있다.** `editor-link:58` L2 는 두 번 "부하" 로 판정됐지만 실제로는
+   병합이 Editor 창을 되살리는 경합이었다(`E2E_FLAKY_ISOLATION_SRS` §8.3h). 같은 자리에서 **재시도까지** 지면
+   부하가 아니라 상태를 의심하라 — 실패 지점의 값(무엇이 남았나)이 원인을 가리킨다
+3. **실측 전에 결론 내지 마라.** 모바일 스크롤은 "배율이 낮아서" 가 아니라 "xterm 이 wheel 하나당 마우스 리포트를
+   하나만 보내는데 우리가 프레임당 wheel 하나로 합쳤다" 였다 — 옛 방식을 임시로 되살려 수치(300 px → 리포트 3)로
+   확인했다. 알람도 "어느 이벤트가 몇 번 오는가" 를 세어서 가른다
+4. **CSS 리터럴 게이트**: `font-size`·`z-index` 는 토큰만(`var(--fs-*)`·`var(--z-*)`), 구르는 표면에는 킷 스크롤바
+   클래스(`.ui-scroll*`). 모듈 500줄 기준을 넘으면 **가른다**(기준선을 옮기지 않는다). SRS 상태 필드는 enum 이고
+   `승인·구현중` 이면 `> **남은 것**:` 줄이 필요하다. SRS 를 고치면 `go run ./scripts/gen-decisions`
+5. CI 재실행(`gh run rerun`)은 이 계정에 저장소 관리자 권한이 없어 안 된다 — 고쳐서 다시 푸시하는 수밖에 없다
 
-## 5. 작업 규약
+## 5. 변하지 않는 규약
 
-- 커밋 메시지에 AI 서명(`Co-Authored-By` 등)을 넣지 마라
-- 커밋은 사용자 확인 후에. **푸시는 CI 검증에 필요하므로 해도 된다**
-- 심볼 탐색은 LSP → Serena 순. grep 은 텍스트·파일명 검색에만
-- **서브에이전트에 프로세스·파일시스템을 만지는 일을 시킬 때는 격리 수단을 먼저
-  지시하라.** 지난 세션에 수정 에이전트가 개발 호스트의 실제 pid 에
-  SIGTERM/SIGKILL 을 보낸 사고가 있었다 (HANDOFF §7.4)
-- **다른 에이전트의 보고를 그대로 믿지 마라.** 파일에서 직접 확인한 것만 사실로
-  다뤄라
+- 커밋 전: `make gates` · `npm run unit` · `npm run lint` · `npm run typecheck`
+- 동작 변경은 **이전 / 새 / 이유** 를 SRS 에 남긴다
+- e2e 는 `app._x` 를 직접 만지지 않는다(`app.testing.x`, 게이트 `check-e2e-private`). 고정 대기는 `TEST-16` 표식과 사유가 있어야 한다
+- 사용자가 커밋·푸시를 말하면 CI(`gh run list`)와 로컬 `make e2e` 를 **동시에** 돌리고 둘의 결과를 함께 보고한다
+
+## 6. 아직 유효한 사용자 결정
+
+- 인증은 지원하지 않는다(확정된 경계 — README "노출해서 쓸 때")
+- 에이전트별 GUI(채팅 뷰·승인 카드)는 만들지 않는다
+- HTTPS 를 쓰지 않으므로 Web Push·Wake Lock 은 범위 밖이다 — OS 알림은 탭이 열려 있을 때의 `Notification` 뿐
+- 터미널 출력 흐름 제어(ACK)는 측정부터 하는 별도 과제, 전역 명령 팔레트는 차후 과제로 분리돼 있다
