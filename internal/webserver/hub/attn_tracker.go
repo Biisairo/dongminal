@@ -177,7 +177,9 @@ func (t *AttnTracker) FeedOutput(toolID string, data []byte) {
 	if bytes.IndexByte(scan, 0x1b) >= 0 || bytes.IndexByte(scan, 0x07) >= 0 {
 		sig, carry := toolhub.DetectAttentionSignal(scan, ps.allowBell, toolhub.AttnMaxCarry)
 		ps.attnCarry = carry
-		if sig {
+		// FR-ATN-22: 에이전트 도구의 알림 시퀀스는 알람이 아니다 — 직접 모드
+		// `Tool.observeOutputAt` 과 같은 판정이다 (FR-ATN-25).
+		if sig && !ps.agentSeen.Load() {
 			if ps.attention.CompareAndSwap(false, true) {
 				t.onAttention(toolID, "signaled")
 			}

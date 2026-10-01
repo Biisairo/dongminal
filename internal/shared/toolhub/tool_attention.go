@@ -47,7 +47,10 @@ func (p *Tool) observeOutputClassified(chunk []byte, now int64, c escClass) {
 	}
 	sig, carry := DetectAttentionSignal(scan, p.allowBell, AttnMaxCarry)
 	p.attnCarry = carry
-	if sig {
+	// FR-ATN-22: 에이전트 도구의 알림 시퀀스는 알람이 아니다. 같은 사건(입력 유휴·
+	// 권한 요청)을 훅이 이미 보고하고, 그쪽은 묶음 N 의 판정을 거친다 — 여기서
+	// 그대로 세우면 판정이 막은 대기 중의 알람이 이 경로로 샌다 (§1.11).
+	if sig && !p.agentSeen.Load() {
 		p.setAttention("signaled")
 	}
 }
