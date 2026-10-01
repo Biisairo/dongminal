@@ -196,8 +196,10 @@ function findTabWhere(windows,pred){
  * @param {any[]} local  이 화면의 창 배열 (`this.ws.windows`)
  * @param {any[]} remote 채택할 원격 창 배열 — 제자리에서 고쳐진다
  * @param {{windows:Set<string>,tabs:Set<string>}} seen 원격이 아는 것
+ * @param {(root:string)=>boolean} [wantRoot] Editor 창의 루트가 아직 목록에 있는가 (FR-OPL-14).
+ *   주지 않으면 종전대로 모두 되얹는다.
  */
-function mergeUnseenLayout(local,remote,seen){
+function mergeUnseenLayout(local,remote,seen,wantRoot){
   if(!Array.isArray(local)||!Array.isArray(remote)) return 0;
   const seenWins=(seen&&seen.windows)||new Set();
   const seenTabs=(seen&&seen.tabs)||new Set();
@@ -229,6 +231,9 @@ function mergeUnseenLayout(local,remote,seen){
     if(!rw){
       // 원격이 아는 창인데 스냅샷에 없다 = 삭제다. 되살리지 않는다.
       if(seenWins.has(w.id)) continue;
+      // FR-OPL-14: Editor 창은 목록에서 파생된다 — 목록에서 빠진 루트의 창은 미관측이어도
+      // 되살리지 않는다. 병합이 재조정보다 뒤라(FR-OPL-13) 여기서 막지 않으면 아무도 거두지 않는다.
+      if(wantRoot&&w.type===WINDOW_TYPE_EDITOR&&!wantRoot((w.editor&&w.editor.root)||'')) continue;
       remote.push(w);
       for(const p of panesOf(w.layout))
         for(const tab of (p.tabs||[])) if(tab&&tab.id) remTabs.add(tab.id);

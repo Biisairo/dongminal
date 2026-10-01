@@ -45,6 +45,22 @@ test('V-OPL-4: 원격이 알았다가 없앤 창은 되살아나지 않는다', 
   assert.equal(remote.length, 0);
 });
 
+test('V-OPL-11: 미관측 Editor 창은 루트가 목록에 있을 때만 되얹는다 (FR-OPL-14)', () => {
+  const c = h();
+  const ed = () => win('e1', null, { type: c.WINDOW_TYPE_EDITOR, editor: { root: '/r' } });
+  // 언핀 스냅샷: 목록에서 빠진 루트의 창은 되살리지 않는다.
+  let remote = [];
+  assert.equal(c.mergeUnseenLayout([ed()], remote, seen([], []), () => false), 0);
+  assert.equal(remote.length, 0);
+  // 루트가 아직 목록에 있으면 종전대로 되얹는다.
+  remote = [];
+  assert.equal(c.mergeUnseenLayout([ed()], remote, seen([], []), (r) => r === '/r'), 1);
+  assert.equal(remote[0].id, 'e1');
+  // Editor 가 아닌 창은 판정을 받지 않는다.
+  remote = [];
+  assert.equal(c.mergeUnseenLayout([win('w1', pane('p1', [tab('t1')]))], remote, seen([], []), () => false), 1);
+});
+
 // ── 탭 (FR-OPL-5·6·7·8) ────────────────────────────────────────────────────
 
 test('V-OPL-3a: 원격이 본 적 없는 로컬 탭은 대응 창에 되얹힌다', () => {

@@ -430,7 +430,9 @@ Object.assign(App.prototype, {
      *
      * 판정의 근거는 **이 채택 이전의** 기억이다 (`seenBefore`, FR-OPL-10).
      */
-    if(mergeUnseenLayout(this.ws.windows,sv.windows,seenBefore)){
+    // FR-OPL-14: 판정의 목록은 위에서 스냅샷으로 갈아 끼운 것이다(FR-EDT-20·43).
+    const edWant=new Set(this.edOn()?this.edRoots():[]);
+    if(mergeUnseenLayout(this.ws.windows,sv.windows,seenBefore,this.edOn()?(r=>edWant.has(r)):null)){
       // FR-OPL-9 (= FR-WSC-13): 화면에만 남기면 다음 새로고침에서 사라진다.
       edChanged=true;
       // 되얹은 창이 활성 창 폴백보다 뒤에 왔다 — 폴백이 고른 창이 그 창이어야
