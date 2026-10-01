@@ -1,6 +1,6 @@
 module dongminal
 
-go 1.25.13
+go 1.26.0
 
 require (
 	github.com/creack/pty v1.1.24
@@ -9,4 +9,4 @@ require (
 
 require golang.org/x/sys v0.36.0
 
-require golang.org/x/text v0.40.0
+require golang.org/x/text v0.42.0
