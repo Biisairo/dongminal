@@ -36,6 +36,9 @@ func (f *fakeWorktrees) Remove(_ context.Context, s worktree.RemoveSpec) worktre
 	r.Path, r.Branch = s.Path, s.Branch
 	return r
 }
+func (f *fakeWorktrees) RemoveListed(context.Context, worktree.RemoveSpec) worktree.Result {
+	return worktree.Result{}
+}
 
 // fakeRuns 는 RunStore 중 이 테스트가 쓰는 메서드만 채운다 — 나머지는 임베드된
 // nil 인터페이스라 호출되면 패닉이고, 그것이 곧 "이 경로는 그것을 쓰지 않는다"

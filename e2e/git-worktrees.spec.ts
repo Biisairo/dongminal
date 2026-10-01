@@ -185,7 +185,7 @@ test.describe('묶음 M — I7 Worktrees 목록 (FR-GIT-240)', () => {
   // 따로 심링크 픽스처를 만들지 않았다: Run 것(runPath, addRunWorktree)의 소유가
   // `run`(=outside 로 잘못 떨어지지 않음)으로 정확히 나오는 것 자체가 심링크를 지나는
   // 환경에서 `gitWorktreeOwner`(handlers_git_worktree.go)의 소유 판정이 옳다는 증거다.
-  test('V146 (FR-GIT-241 · V163): Run 것·바깥 것에 제거 진입점이 없다 — 비활성으로도 보이지 않는다', async ({ page, request }) => {
+  test('V146 (FR-GIT-241 개정 · FR-WRA-7 · V163): Run 것·바깥 것에도 제거가 있고 main 엔 없다', async ({ page, request }) => {
     const repo = await wtRepo(request, 'v146');
     addOutsideWorktree(repo, 'v146-outside');
     const runPath = await addRunWorktree(request, repo);
@@ -200,16 +200,21 @@ test.describe('묶음 M — I7 Worktrees 목록 (FR-GIT-240)', () => {
       path: (e.querySelector('.git-wt-path')?.getAttribute('title')
         || e.querySelector('.git-wt-path')?.textContent || '').trim(),
       own: e.querySelector('.git-wt-own')?.getAttribute('data-own') || '',
+      main: e.classList.contains('main'),
       hasRemove: !!e.querySelector('.git-wt-act[data-act="remove"]'),
     })));
 
     const runRow = rows.find((r) => r.own === 'run' || r.path === runPath || runPath.endsWith(r.path));
-    const outsideRow = rows.find((r) => r.own === 'outside');
+    // main 도 소유는 outside 다 — main 이 아닌 것을 고른다.
+    const outsideRow = rows.find((r) => r.own === 'outside' && !r.main);
     expect(runRow, `Run 소유 행을 못 찾았다: ${JSON.stringify(rows)}`).toBeTruthy();
     expect(outsideRow, `바깥 소유 행을 못 찾았다: ${JSON.stringify(rows)}`).toBeTruthy();
-    // 비활성 버튼조차 없다 — 누를 수 없는 버튼은 고장으로 읽힌다(FR-GIT-180).
-    expect(runRow!.hasRemove, 'Run 것에 제거 버튼이 있다(비활성 포함)').toBe(false);
-    expect(outsideRow!.hasRemove, '바깥 것에 제거 버튼이 있다(비활성 포함)').toBe(false);
+    const mainRow = rows.find((r) => r.main);
+    expect(mainRow, `main 행을 못 찾았다: ${JSON.stringify(rows)}`).toBeTruthy();
+    // FR-WRA-7: 소유는 표식일 뿐이다 — main 이 아니면 전부 지울 수 있다.
+    expect(runRow!.hasRemove, 'Run 것에 제거 버튼이 없다').toBe(true);
+    expect(outsideRow!.hasRemove, '바깥 것에 제거 버튼이 없다').toBe(true);
+    expect(mainRow!.hasRemove, 'main 에 제거 버튼이 있다').toBe(false);
   });
 
   test('V147 (FR-GIT-242): 이름 + ref 로 생성되고, 경로가 파생 규칙과 같으며 화면에 보인다', async ({ page, request }) => {
@@ -254,7 +259,7 @@ test.describe('묶음 M — I7 Worktrees 목록 (FR-GIT-240)', () => {
 });
 
 test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () => {
-  test('V149 (FR-GIT-243): 더러운 worktree 제거가 거부되고 사유가 보인다 — 사용자의 작업이 남는다', async ({ page, request }) => {
+  test('V149 (FR-GIT-243 개정 · FR-WRA-8): 더러운 worktree 는 두 번째 확인을 거쳐 강제로 지운다 — 취소하면 사유가 남는다', async ({ page, request }) => {
     const repo = await wtRepo(request, 'v149');
     // newBranch:true 가 필요하다 — 'main' 은 이미 main worktree(repo 자신)가 물고
     // 있어서, 새 브랜치 없이 'main' 을 그대로 체크아웃하면 git 이 "이미 다른
@@ -263,26 +268,44 @@ test.describe('묶음 N — I7 Worktrees 제거·동작 (FR-GIT-243·244)', () =
     const wtPath = await createUserWorktree(request, repo, 'v149-dirty', 'main', true);
     writeFileSync(join(wtPath, 'dirty.txt'), 'uncommitted\n');
 
+    const forces: unknown[] = [];
+    await page.route('**/api/git/worktrees/remove', async (route) => {
+      forces.push(route.request().postDataJSON()?.force);
+      await route.continue();
+    });
+
     await waitForInit(page);
     await openWorktrees(page, repo);
 
     const row = wtRows(page).filter({ hasText: 'v149-dirty' });
-    await expect(row, '만든 worktree 행이 안 보인다').toHaveCount(1, { timeout: 15000 });
+    await expect(row, '만든 worktree 행이 안 보인다').toHaveCount(1, { timeout: 45000 });
+    const forceBox = page.locator('#git-confirm .gc-box').filter({ hasText: '--force' });
+
+    // ① 첫 확인 → dirty → 두 번째 확인(강제)이 뜬다. 취소하면 남고 사유가 보인다.
     await row.hover();
     await row.locator('.git-wt-act[data-act="remove"]').click();
-
-    // 파괴적 동작이므로 기존 GitConfirm 규약을 지난다(e2e/git-confirm.spec.ts 의
-    // #git-confirm .gc-box·.gc-go 어휘). 확인은 한 걸음이다 (FR-COS-1).
     await expect(page.locator('#git-confirm .gc-box'), '제거 확인 대화상자가 없다')
       .toBeVisible({ timeout: 5000 });
     await page.locator('#git-confirm .gc-go').click();
-
-    // 제거 실패는 200 으로 온다(removed:false + residue, worktrees.js:244-251) —
-    // 4xx 가 아니라 뷰 자신의 안내 자리에 사유가 뜬다.
-    await expect(wt(page).locator('.git-wt-note.vis'), '실패 사유(.git-wt-note.vis)가 보이지 않는다')
+    await expect(forceBox, '강제 제거 확인이 뜨지 않았다').toBeVisible({ timeout: 10000 });
+    await page.locator('#git-confirm .gc-cancel').click();
+    await expect(page.locator('#git-confirm')).toHaveCount(0);
+    await expect(wt(page).locator('.git-wt-note.vis'), '취소 뒤 dirty 사유가 보이지 않는다')
       .toBeVisible({ timeout: 10000 });
-    expect(existsSync(wtPath), '더러운 worktree 가 실제로 지워졌다').toBe(true);
-    await expect(wtRows(page).filter({ hasText: 'v149-dirty' }), '목록에서도 사라졌다').toHaveCount(1);
+    expect(existsSync(join(wtPath, 'dirty.txt')), '취소했는데 사용자 작업이 사라졌다').toBe(true);
+
+    // ② 다시 → 두 번째 확인에서 실행하면 지워진다.
+    await row.hover();
+    await row.locator('.git-wt-act[data-act="remove"]').click();
+    await page.locator('#git-confirm .gc-go').click();
+    await expect(forceBox).toBeVisible({ timeout: 10000 });
+    await page.locator('#git-confirm .gc-go').click();
+    await expect(page.locator('#git-confirm'), '강제 제거 성공 뒤 확인 상자가 안 닫혔다').toHaveCount(0, { timeout: 10000 });
+    await expect.poll(() => existsSync(wtPath), { timeout: 15000 }).toBe(false);
+    await expect(wtRows(page).filter({ hasText: 'v149-dirty' }), '지운 뒤에도 목록에 남아 있다')
+      .toHaveCount(0, { timeout: 10000 });
+    // 첫 요청은 force 없이, 강제는 두 번째 확인 뒤에만 실린다.
+    expect(forces, `요청의 force 순서가 어긋난다: ${JSON.stringify(forces)}`).toEqual([false, false, true]);
   });
 
   // 스펙 개정(조정자, 구현에서 드러난 사실): GitConfirm 은 옵션 폼을 받지 않는다

@@ -68,6 +68,7 @@ type Service interface {
 	Create(ctx context.Context, s Spec) error
 	Rollback(ctx context.Context, s Spec)
 	Remove(ctx context.Context, s RemoveSpec) Result
+	RemoveListed(ctx context.Context, s RemoveSpec) Result
 	BranchExists(ctx context.Context, repo, branch string) bool
 	List(ctx context.Context, repo string) ([]Entry, error)
 	// AddSpec·Configure 는 worktree add 를 잡으로 돌리는 호출자의 두 절반이다
@@ -509,6 +510,22 @@ func (m *Manager) List(ctx context.Context, repo string) ([]Entry, error) {
 // checkPath 는 위험 경로를 거부한다 (FR-WKT-10). 제거 전에 경로가 실제로
 // worktrees 루트 **아래**인지 확인하는 것이 이 함수의 존재 이유다.
 func (m *Manager) checkPath(p string) error {
+	if err := checkAbsPath(p); err != nil {
+		return err
+	}
+	clean := filepath.Clean(p)
+	if clean == m.root {
+		return fmt.Errorf("%w: worktrees 루트 자신", ErrUnsafePath)
+	}
+	if !strings.HasPrefix(clean, m.root+string(filepath.Separator)) {
+		return fmt.Errorf("%w: %s 아래가 아니다: %q", ErrUnsafePath, m.root, p)
+	}
+	return nil
+}
+
+// checkAbsPath 는 영역과 무관한 위험 경로 거부다 — checkPath 와 RemoveListed 가
+// 함께 쓴다 (FR-WRA-2).
+func checkAbsPath(p string) error {
 	if strings.TrimSpace(p) == "" {
 		return fmt.Errorf("%w: 빈 경로", ErrUnsafePath)
 	}
@@ -522,15 +539,8 @@ func (m *Manager) checkPath(p string) error {
 			return fmt.Errorf("%w: 경로 이탈: %q", ErrUnsafePath, p)
 		}
 	}
-	clean := filepath.Clean(p)
-	if clean == string(filepath.Separator) {
+	if filepath.Clean(p) == string(filepath.Separator) {
 		return fmt.Errorf("%w: 파일시스템 루트", ErrUnsafePath)
-	}
-	if clean == m.root {
-		return fmt.Errorf("%w: worktrees 루트 자신", ErrUnsafePath)
-	}
-	if !strings.HasPrefix(clean, m.root+string(filepath.Separator)) {
-		return fmt.Errorf("%w: %s 아래가 아니다: %q", ErrUnsafePath, m.root, p)
 	}
 	return nil
 }

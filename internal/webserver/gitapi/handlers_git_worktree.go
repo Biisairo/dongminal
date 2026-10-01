@@ -31,8 +31,8 @@ func gitWorktreesUnavailable(w http.ResponseWriter) {
 	gitFail(w, http.StatusServiceUnavailable, gitErrUnavailable, "사용자 worktree 관리자가 구성되지 않았다")
 }
 
-// 소유 판정 (FR-GIT-240) — 경로만 본다. Run 것과 바깥 것을 여기서 가려내는 이유는
-// FR-GIT-241 이 그 둘의 제거 진입점을 아예 막기 때문이다.
+// 소유 판정 (FR-GIT-240) — 경로만 본다. 표식일 뿐 제거 여부를 정하지 않는다
+// (FR-GIT-241 개정, FR-WRA-6).
 const (
 	worktreeOwnerUser    = "user"
 	worktreeOwnerRun     = "run"
@@ -257,15 +257,20 @@ type gitWorktreeRemoveReq struct {
 	Path         string `json:"path"`
 	DeleteBranch bool   `json:"deleteBranch"`
 	Confirm      bool   `json:"confirm"`
+	// Force 는 dirty 여도 지운다 — UI 가 dirty 응답 뒤 두 번째 확인을 거쳐서만 싣는다
+	// (WORKTREE_REMOVE_ALL_SRS FR-WRA-5·8).
+	Force bool `json:"force"`
 }
 
-// POST /api/git/worktrees/remove — 사용자 worktree 를 지운다 (FR-GIT-243).
+// POST /api/git/worktrees/remove — main 이 아닌 등록된 worktree 를 지운다
+// (FR-GIT-243 개정, WORKTREE_REMOVE_ALL_SRS FR-WRA-5).
 //
-// **"Run 것과 바깥 것은 제거할 수 없다"(FR-GIT-241)를 여기서 따로 판정하지
-// 않는다.** UserWorktrees.Remove 가 지나는 checkPath 가 자기 root(사용자 영역)
-// 밖의 모든 경로를 unsafe_path 로 거부한다 — Run 영역도 그 형제이므로 밖이다
-// (FR-WKT-13). 소유 판정을 다시 구현하면 그 판정이 checkPath 와 어긋날 때 구멍이
-// 생긴다.
+// 인가를 여기서 따로 판정하지 않는다 — UserWorktrees.RemoveListed 가 repoLock 을
+// 쥔 뒤 등록·main 여부를 확인한다. 소유(user·run·outside)는 표식일 뿐이다.
+//
+//	이전 동작: 사용자 영역(checkPath) 밖은 unsafe-path, dirty 는 언제나 보존
+//	새  동작: 등록된 비main 전부 제거, force:true 면 dirty 도 제거
+//	이유:     사용자 지시 — "워크트리라면 전부"
 //
 // **요청 worktree 의 칸·뮤텍스는 보지 않는다** (REPO_FIX 01 §5.6) — `git worktree
 // remove` 는 대상 작업 트리와 `$GIT_COMMON_DIR/worktrees/<n>` 만 바꾼다. 순서:
@@ -339,8 +344,8 @@ func (s *GitServer) apiGitWorktreeRemove(w http.ResponseWriter, r *http.Request)
 
 	var res worktree.Result
 	ran, err := t.writeWithin(s.gitManagerWrite(), func(ctx context.Context) error {
-		res = s.UserWorktrees.Remove(ctx, worktree.RemoveSpec{
-			Repo: t.root, Path: req.Path, Branch: branch, LockKey: keys.Common,
+		res = s.UserWorktrees.RemoveListed(ctx, worktree.RemoveSpec{
+			Repo: t.root, Path: req.Path, Branch: branch, LockKey: keys.Common, Force: req.Force,
 		})
 		return res.Err
 	})

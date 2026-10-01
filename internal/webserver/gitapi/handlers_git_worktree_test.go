@@ -328,9 +328,9 @@ func TestAPIGitWorktrees_MainStaysOnOriginWhenQueriedFromLinkedWorktree(t *testi
 	}
 }
 
-// FR-GIT-241/243: 사용자 영역 밖의 worktree(직접 git 으로 만든 것)는 제거되지
-// 않는다 — checkPath 의 구조적 거부이지 별도 소유 판정이 아니다.
-func TestAPIGitWorktreeRemove_RejectsOutsideUserArea(t *testing.T) {
+// W6 (WORKTREE_REMOVE_ALL_SRS FR-WRA-5): 사용자 영역 밖의 worktree(직접 git 으로
+// 만든 것)도 등록돼 있으면 지워진다. 브랜치는 deleteBranch 없이 남는다.
+func TestAPIGitWorktreeRemove_RemovesOutsideUserArea(t *testing.T) {
 	s, repo, _ := worktreeTestServer(t)
 	// 심볼릭 링크를 미리 푼다 — git 이 물리 경로로 답하므로(맥OS /var → /private/var)
 	// 안 풀면 List() 의 경로 비교가 어긋난다.
@@ -343,19 +343,50 @@ func TestAPIGitWorktreeRemove_RejectsOutsideUserArea(t *testing.T) {
 
 	body := fmt.Sprintf(`{"repo":%q,"path":%q,"confirm":true}`, repo, outside)
 	code, out := wtReq(t, s, http.MethodPost, "/api/git/worktrees/remove", body)
-	if code != http.StatusOK || out["removed"] != false || out["residue"] != "unsafe-path" {
-		t.Fatalf("사용자 영역 밖 경로가 거부되지 않았다: %d %+v", code, out)
+	if code != http.StatusOK || out["ok"] != true || out["removed"] != true {
+		t.Fatalf("사용자 영역 밖 worktree 가 지워지지 않았다: %d %+v", code, out)
 	}
-	// V164: checkPath 의 구조적 거부도 "요청은 처리했다"이므로 ok:true 다 — 거부
-	// 사유(residue)를 클라이언트가 읽으려면 이 필드가 있어야 한다.
-	if out["ok"] != true {
-		t.Fatalf("거부 응답에 ok:true 가 없다: %+v", out)
-	}
-	if _, err := os.Stat(outside); err != nil {
-		t.Fatalf("경로가 지워졌다: %v", err)
+	if _, err := os.Stat(outside); !os.IsNotExist(err) {
+		t.Fatal("경로가 남았다")
 	}
 	if br := wtGitRun(t, repo, "branch", "--list", "outside-branch"); br == "" {
 		t.Fatal("브랜치가 사라졌다")
+	}
+}
+
+// W6 (FR-WRA-5): main worktree 는 제거 요청이 와도 지우지 않는다.
+func TestAPIGitWorktreeRemove_RejectsMain(t *testing.T) {
+	s, repo, _ := worktreeTestServer(t)
+	body := fmt.Sprintf(`{"repo":%q,"path":%q,"confirm":true}`, repo, repo)
+	code, out := wtReq(t, s, http.MethodPost, "/api/git/worktrees/remove", body)
+	if code != http.StatusOK || out["removed"] != false || out["residue"] != "unsafe-path" {
+		t.Fatalf("main worktree 가 거부되지 않았다: %d %+v", code, out)
+	}
+	if _, err := os.Stat(repo); err != nil {
+		t.Fatalf("저장소가 지워졌다: %v", err)
+	}
+}
+
+// W6 (FR-WRA-5): force:true 면 dirty worktree 도 지워진다.
+func TestAPIGitWorktreeRemove_ForceRemovesDirty(t *testing.T) {
+	s, repo, _ := worktreeTestServer(t)
+	body := fmt.Sprintf(`{"repo":%q,"name":"feature","ref":"main","newBranch":true}`, repo)
+	_, out := wtCreateAwait(t, s, body)
+	path, _ := out["path"].(string)
+	if path == "" {
+		t.Fatalf("생성 실패: %+v", out)
+	}
+	if err := os.WriteFile(filepath.Join(path, "작업물.txt"), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	rmBody := fmt.Sprintf(`{"repo":%q,"path":%q,"confirm":true,"force":true}`, repo, path)
+	code, out := wtReq(t, s, http.MethodPost, "/api/git/worktrees/remove", rmBody)
+	if code != http.StatusOK || out["removed"] != true {
+		t.Fatalf("force 제거 실패: %d %+v", code, out)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Error("경로가 남았다")
 	}
 }
 

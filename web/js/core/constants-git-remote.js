@@ -154,8 +154,8 @@ const GIT_WT_OWN_TITLE={
   run:t('git.wt_own_title.run'),
   outside:t('git.wt_own_title.outside'),
 };
-// 행 동작 (FR-GIT-244). 제거는 사용자 것에만 붙고, 열기는 활성 리포 행에 붙지
-// 않는다 — 눌리지만 아무 일도 하지 않는 버튼은 고장으로 읽힌다 (FR-GIT-180).
+// 행 동작 (FR-GIT-244). 제거는 main 이 아닌 행에 붙고(FR-WRA-7), 열기는 활성 리포
+// 행에 붙지 않는다 — 눌리지만 아무 일도 하지 않는 버튼은 고장으로 읽힌다 (FR-GIT-180).
 // FR-GIT-249: 핀은 **상태의 토글**이다 — 이미 핀된 것에 Pin 을 다시 보이면 눌러도
 // 아무 일이 없고(서버 pin 은 멱등이다) 사용자는 그것을 고장으로 읽는다.
 const GIT_WT_ACT_LABEL={open:'Open',pin:'Pin',unpin:'Unpin',term:'Shell',remove:'Remove'};
@@ -251,8 +251,11 @@ const GIT_WT_UNPINNED=t('git.wt_unpinned');
 const GIT_WT_UNPIN_FAIL=t('git.wt_unpin_fail');
 const GIT_WT_REMOVE_TITLE=t('git.wt_remove_title');
 const GIT_WT_REMOVE_NOTE=t('git.wt_remove_note');
+// FR-WRA-8: dirty 응답 뒤의 두 번째 확인.
+const GIT_WT_FORCE_TITLE=t('git.wt_force_title');
+const GIT_WT_FORCE_NOTE=t('git.wt_force_note');
 // 제거는 200 으로 오면서 `removed:false` 일 수 있다 — 사유를 그 자리에 보인다
-// (FR-GIT-243: 사용자의 작업을 지우지 않는다).
+// (FR-GIT-243: 사용자의 작업을 묻지 않고 지우지 않는다).
 const GIT_WT_RESIDUE={
   'dirty':t('git.wt_residue.dirty'),
   'unsafe-path':t('git.wt_residue.unsafe_path'),

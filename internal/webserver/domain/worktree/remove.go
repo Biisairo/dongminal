@@ -16,6 +16,9 @@ type RemoveSpec struct {
 	Path   string
 	Branch string
 	Keep   bool
+	// Force 는 dirty 여도 지운다 — RemoveListed 만 읽는다 (FR-WRA-3). Remove(자동
+	// 정리)는 무시한다: 거기에는 다시 확인할 사람이 없다.
+	Force bool
 	// LockKey 는 repoLock 의 키 — common-dir 키다 (Spec.LockKey 와 같다).
 	LockKey string
 }
@@ -62,7 +65,59 @@ func (m *Manager) Remove(ctx context.Context, s RemoveSpec) Result {
 		return res
 	}
 	defer release()
+	return m.removeLocked(ctx, s, false, res)
+}
 
+// RemoveListed 는 Remove 와 같되 경로 인가가 영역이 아니라 **등록**이다
+// (WORKTREE_REMOVE_ALL_SRS FR-WRA-1~3) — 그 저장소의 `git worktree list` 에 main 이
+// 아닌 항목으로 있어야 한다. 등록 확인은 repoLock 을 쥔 뒤에 한다. Force 면 dirty
+// 판정을 건너뛰고 `--force` 로 지운다 — 사람이 다시 확인한 뒤에만 오는 요청이다.
+func (m *Manager) RemoveListed(ctx context.Context, s RemoveSpec) Result {
+	res := Result{Path: s.Path, Branch: s.Branch}
+	if err := checkAbsPath(s.Path); err != nil {
+		res.Residue, res.Detail = ResidueUnsafePath, err.Error()
+		return res
+	}
+	if s.Repo != "" && filepath.Clean(s.Path) == filepath.Clean(s.Repo) {
+		res.Residue, res.Detail = ResidueUnsafePath, "저장소 자신은 제거하지 않는다"
+		return res
+	}
+
+	release, err := m.lock(ctx, s.LockKey, s.Repo)
+	if err != nil {
+		res.Residue, res.Detail, res.Err = ResidueRemoveFailed, err.Error(), err
+		return res
+	}
+	defer release()
+
+	entries, err := m.List(ctx, s.Repo)
+	if err != nil {
+		res.Residue, res.Detail = ResidueRemoveFailed, err.Error()
+		return res
+	}
+	target := filepath.Clean(s.Path)
+	listed := false
+	for _, e := range entries {
+		if e.Path != target {
+			continue
+		}
+		if e.Main {
+			res.Residue, res.Detail = ResidueUnsafePath, "main worktree 는 제거하지 않는다"
+			return res
+		}
+		listed = true
+		break
+	}
+	if !listed {
+		res.Residue, res.Detail = ResidueUnsafePath, fmt.Sprintf("등록된 worktree 가 아니다: %q", s.Path)
+		return res
+	}
+	return m.removeLocked(ctx, s, s.Force, res)
+}
+
+// removeLocked 는 인가가 끝나고 repoLock 을 쥔 뒤의 정리 흐름이다 (FR-WKT-8).
+// force 면 dirty 판정을 건너뛰고 `--force` 로 지운다.
+func (m *Manager) removeLocked(ctx context.Context, s RemoveSpec, force bool, res Result) Result {
 	if _, err := os.Stat(s.Path); errors.Is(err, os.ErrNotExist) {
 		// 경로가 이미 없다 — 등록만 남았을 수 있으므로 정리하고 성공으로 본다.
 		_, _ = m.git(ctx, s.Repo, "worktree", "prune")
@@ -70,16 +125,18 @@ func (m *Manager) Remove(ctx context.Context, s RemoveSpec) Result {
 		m.deleteBranch(ctx, s, &res)
 		return res
 	}
-	dirty, err := m.isDirty(ctx, s.Path)
-	if err != nil {
-		res.Residue, res.Detail = ResidueRemoveFailed, err.Error()
-		return res
+	if !force {
+		dirty, err := m.isDirty(ctx, s.Path)
+		if err != nil {
+			res.Residue, res.Detail = ResidueRemoveFailed, err.Error()
+			return res
+		}
+		if dirty {
+			res.Residue = ResidueDirty
+			return res
+		}
 	}
-	if dirty {
-		res.Residue = ResidueDirty
-		return res
-	}
-	if err := m.removeWithRetry(ctx, s); err != nil {
+	if err := m.removeWithRetry(ctx, s, force); err != nil {
 		// 조회·제거 실패를 "사라졌다"의 증거로 쓰지 않는다 — prune 뒤 실제로
 		// 사라졌는지 재확인하고, 아니면 잔여물로 보고한다.
 		_, _ = m.git(ctx, s.Repo, "worktree", "prune")
@@ -111,11 +168,16 @@ func (m *Manager) Remove(ctx context.Context, s RemoveSpec) Result {
 // 걸리면 여섯 번을 다 되풀이해 최악 18분을 잠근 채였다 — 되풀이는 관측의 짧은
 // 틈을 만나기 위한 것이지 느린 git 을 기다리기 위한 것이 아니므로, 예산을 넘긴
 // 실패는 그대로 실패다.
-func (m *Manager) removeWithRetry(ctx context.Context, s RemoveSpec) error {
+func (m *Manager) removeWithRetry(ctx context.Context, s RemoveSpec, force bool) error {
+	args := []string{"worktree", "remove"}
+	if force {
+		args = append(args, "--force")
+	}
+	args = append(args, s.Path)
 	start := time.Now()
 	var err error
 	for i := 0; i < removeRetryTries; i++ {
-		if _, err = m.git(ctx, s.Repo, "worktree", "remove", s.Path); err == nil {
+		if _, err = m.git(ctx, s.Repo, args...); err == nil {
 			return nil
 		}
 		if i == removeRetryTries-1 || time.Since(start) > removeRetryBudget {

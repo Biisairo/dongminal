@@ -5,15 +5,13 @@
  * 사용자가 "내가 만든 게 어디 갔지" 를 헛갈린다. 그래서 **main worktree 도, Run
  * 격리가 만든 것도, dongminal 밖에서 만든 것도 함께 보인다.**
  *
- * 보이는 것과 지울 수 있는 것은 다르다 (FR-GIT-241). Run 것과 바깥 것에는 제거
- * 진입점을 **만들지 않는다** — 비활성으로 보이지도 않는다: 눌리지만 아무 일도 하지
- * 않는 버튼은 고장으로 읽힌다 (FR-GIT-180). 서버도 같은 것을 따로 판정하지 않고
- * `checkPath` 가 자기 영역 밖을 거부하는 것으로 막는다 — 판정을 두 벌로 두면 둘이
- * 어긋날 때 구멍이 생긴다.
+ * main 이 아닌 worktree 는 소유와 무관하게 전부 지울 수 있다 (FR-GIT-241 개정,
+ * WORKTREE_REMOVE_ALL_SRS FR-WRA-7). 소유는 표식일 뿐이다. 서버는 등록·main 여부를
+ * 스스로 확인한다 — 판정을 두 벌로 두지 않는다.
  *
  * 제거는 실패해도 **200 으로 온다.** `removed:false` 와 `residue` 가 사유이며, 그중
- * `dirty` 는 "사용자 작업이 있어 지우지 않았다" 다 (FR-GIT-243). 조용히 넘기지 않고
- * 그 자리에 보인다 — 눌렀는데 아무 일도 없으면 사용자는 고장으로 읽는다.
+ * `dirty` 는 "사용자 작업이 있어 지우지 않았다" 다 (FR-GIT-243). 그때는 두 번째
+ * 확인을 열어 강제 제거를 묻는다 (FR-WRA-8). 취소하면 사유가 그 자리에 남는다.
  */
 class GitWorktrees extends GitListTab {
   constructor(panel){
@@ -98,8 +96,8 @@ class GitWorktrees extends GitListTab {
   /**
    * 행이 가질 수 있는 동작 (FR-GIT-244).
    *
-   * **제거는 사용자 것에만, main 이 아닐 때만** 붙는다 (FR-GIT-241) — main worktree
-   * 는 저장소 자신이므로 지울 대상이 아니다.
+   * **제거는 main 이 아닐 때** 붙는다 (FR-WRA-7) — main worktree 는 저장소 자신이므로
+   * 지울 대상이 아니다.
    */
   _actsOf(e){
     const acts=[];
@@ -108,7 +106,7 @@ class GitWorktrees extends GitListTab {
     // 멱등 응답이 성공으로 와서 "핀했습니다" 만 뜨고 아무 일도 일어나지 않는다 —
     // 사용자는 그것을 고장으로 읽는다 (FR-GIT-180 과 같은 근거).
     acts.push(this._isPinned(e.path)?'unpin':'pin','term');
-    if(e.owner==='user'&&!e.main) acts.push('remove');
+    if(!e.main) acts.push('remove');
     return acts;
   }
 
@@ -165,23 +163,42 @@ class GitWorktrees extends GitListTab {
    * "옵션 폼을 얹은 파괴적 동작은 아직 없다" 고 적어 두었다 (`dialog.js`). 한 동작에
    * 창을 둘 띄우지도 않는다. 브랜치 삭제의 자리는 Branches 탭이다.
    */
-  _remove(e){
-    return GitDialog.confirm({
+  async _remove(e){
+    this._dirty=false;
+    const done=await GitDialog.confirm({
       action:'worktree_remove',title:GIT_WT_REMOVE_TITLE,targets:[e.path],
       hint:{note:GIT_WT_REMOVE_NOTE,command:'git worktree remove '+gitShQuote(e.path)},
       stages:2,
-      run:()=>this._runRemove(e),
+      run:()=>this._runRemove(e,false),
+    });
+    if(!done||!this._dirty) return done;
+    // FR-WRA-8: 저장하지 않은 변경을 잃는 것은 "지운다" 와 다른 동의다 — 첫 창이
+    // 닫힌 뒤 따로 묻는다.
+    return GitDialog.confirm({
+      action:'worktree_remove',title:GIT_WT_FORCE_TITLE,targets:[e.path],
+      hint:{note:GIT_WT_FORCE_NOTE,command:'git worktree remove --force '+gitShQuote(e.path)},
+      stages:2,
+      run:()=>this._runRemove(e,true),
     });
   }
 
-  async _runRemove(e){
+  async _runRemove(e,force){
     const res=await this.panel.post(GIT_API.worktreesRemove,{
       repo:this.panel.repo,path:e.path,
       // 서버는 이 값을 받지만 UI 는 늘 false 다 (FR-GIT-243) — API 를 좁히지 않는다.
-      deleteBranch:false,confirm:true,
+      deleteBranch:false,confirm:true,force,
     });
     const d=(res&&res.data)||{};
     if(res.ok){
+      // FR-WRA-8: 첫 요청의 dirty 는 실패가 아니라 두 번째 확인의 계기다. 첫 창은
+      // 닫고(사유는 안내 줄에 남긴다 — 두 번째를 취소하면 그대로 보인다) `_remove`
+      // 가 강제 제거를 묻는다.
+      if(d.residue==='dirty'&&!force){
+        this._dirty=true;
+        this._note={kind:'dirty',msg:GIT_WT_RESIDUE.dirty};
+        this._load();
+        return {ok:true};
+      }
       // **`residue` 는 `removed` 와 독립이다.** 지우지 않은 경우(`dirty`)뿐 아니라
       // "지웠으나 남은 것이 있는" 경우(`branch-retained`)도 성공 응답으로 온다 —
       // `removed` 만 보면 뒤쪽을 조용히 넘긴다.
