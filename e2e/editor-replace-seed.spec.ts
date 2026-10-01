@@ -244,6 +244,18 @@ test.describe('고른 것을 들고 들어간다 (묶음 S)', () => {
     expect(all, '실린 글자가 전체 선택되지 않았다').toBeTruthy();
   });
 
+  // V-ERS-11 · FR-ERS-25 — 실린 글자로 곧바로 검색한다. 타이핑 없이 결과가 서야 한다.
+  test('실린 글자로 열자마자 검색한다', async ({ page, request }) => {
+    await enter(page, request);
+    await openFile(page, 'rep.txt');
+    await focusBody(page);
+    await select(page, 1, 7, 13); // "needle"
+
+    await page.keyboard.press('Control+Shift+f');
+    await expect(gq(page)).toHaveValue('needle', { timeout: 5000 });
+    await expect(page.locator('.ed-find.vis .ed-find-row').first()).toBeVisible({ timeout: 10000 });
+  });
+
   // V-ERS-9 · FR-ERS-21
   test('여러 줄 선택은 싣지 않는다', async ({ page, request }) => {
     await enter(page, request);

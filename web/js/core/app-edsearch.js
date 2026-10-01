@@ -194,7 +194,9 @@ Object.assign(App.prototype, {
     p.classList.add('vis');
     q.focus();
     // FR-ERS-22: 실린 글자는 전체 선택이다 — 한 번의 타이핑으로 갈아 칠 수 있다.
-    if(q.value) q.select();
+    // FR-ERS-25: 그 글자로 곧바로 검색한다. 코드로 넣은 값은 `input` 을 내지 않으므로
+    // 기다리는 검색이 없다 — 여기서 부른다.
+    if(q.value){ q.select(); TIMERS.cancel(p._t); this._edPanelQuery(p) }
     // 패널을 **돌려준다.** 부르는 쪽이 항목을 직접 채우는 경우가 있다 —
     // 참조·정의 목록은 이미 손에 있는 자리들을 그린다 (FR-LSP-25).
     return p;
