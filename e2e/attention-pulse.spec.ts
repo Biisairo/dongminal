@@ -13,15 +13,17 @@ import { test, expect, waitForInit } from './fixtures';
 
 // §2.1 의 일곱 자리. 각 항목은 [이름, 표식을 붙일 selector, 읽을 속성, 겹(pseudo)].
 //
-// 분할 칸만 겹(`::after`)에 산다 — 링을 자식이 덮지 못하게 띄운 결과다(FR-ATP-8).
+// UX_BATCH11_SRS FR-APC-1·2: 표식은 전부 **겹**에 살고 맥박은 그 겹의 `opacity` 하나다 —
+// 요소 자신의 `box-shadow`·`background` 를 움직이면 맥박이 도는 동안 매 프레임 다시 그린다.
+// 분할 칸만 `::after` 다 — 링을 자식이 덮지 못하게 띄운 결과다(FR-ATP-8).
 const TARGETS: Array<[string, string, string, string?]> = [
   ['분할 칸', '#area .pn', 'opacity', '::after'],
-  ['탭', '#area .pn .pn-tab', 'boxShadow'],
-  ['사이드바 창 항목', '#windows .sbl-item', 'boxShadow'],
-  ['사이드바 항목의 점', '#windows .sbl-item .sbl-dot', 'backgroundColor'],
-  ['에이전트 카드', '#agents-panel .ag-card', 'boxShadow'],
-  ['상단바 배지', '#attn-badge', 'borderTopColor'],
-  ['사이드바 탭 배지', '.sb-tab[data-panel="windows"] .sb-tab-badge', 'backgroundColor'],
+  ['탭', '#area .pn .pn-tab', 'opacity', '::before'],
+  ['사이드바 창 항목', '#windows .sbl-item', 'opacity', '::before'],
+  ['사이드바 항목의 점', '#windows .sbl-item .sbl-dot', 'opacity', '::before'],
+  ['에이전트 카드', '#agents-panel .ag-card', 'opacity', '::before'],
+  ['상단바 배지', '#attn-badge', 'opacity', '::before'],
+  ['사이드바 탭 배지', '.sb-tab[data-panel="windows"] .sb-tab-badge', 'opacity', '::before'],
 ];
 
 // 알람이 없는 상태에서도 일곱 자리를 세운다 — 표식의 처신만 보기 때문이다.
@@ -126,9 +128,10 @@ test.describe('주의 표식의 맥박', () => {
 
     const sel = '#area .pn .pn-tab';
     // 밑줄은 숨쉰다.
-    const peak = await sampleAt(page, sel, 'boxShadow', 0);
-    const trough = await sampleAt(page, sel, 'boxShadow', 1000);
+    const peak = await sampleAt(page, sel, 'opacity', 0, '::before');
+    const trough = await sampleAt(page, sel, 'opacity', 1000, '::before');
     expect(trough, '밑줄이 맥박하지 않는다').not.toBe(peak);
+    expect(await sampleAt(page, sel, 'boxShadow', 0, '::before'), '겹이 밑줄을 그리지 않는다').toContain('inset');
     // 배경은 어느 위상에서도 활성 색 그대로다.
     const bg0 = await sampleAt(page, sel, 'backgroundColor', 0);
     const bg1 = await sampleAt(page, sel, 'backgroundColor', 1000);
@@ -171,10 +174,45 @@ test.describe('주의 표식의 맥박', () => {
       getComputedStyle(document.querySelector(s as string)!, (ps as string) || null).animationName,
     [sel, pseudo] as const);
 
-    for (const t of [['#area .pn', '::after'], ['#windows .sbl-item', '']] as Array<[string, string]>) {
+    for (const t of [['#area .pn', '::after'], ['#windows .sbl-item', '::before']] as Array<[string, string]>) {
       expect(await anim(t), `${t[0]}: 맥박이 없다`).toMatch(/^attn-pulse-/);
       await page.evaluate((s) => document.querySelector(s)!.classList.remove('attn'), t[0]);
       expect(await anim(t), `${t[0]}: 알람이 걷혔는데 맥박이 남았다`).toBe('none');
+    }
+  });
+  // UX_BATCH11_SRS TC-APC-1: 요소 자신은 움직이지 않고, 겹의 키프레임은 opacity 만 움직인다.
+  test('맥박은 겹의 opacity 하나만 움직인다 (TC-APC-1)', async ({ page }) => {
+    await waitForInit(page);
+    await markAll(page);
+    for (const [name, sel] of TARGETS) {
+      const got = await page.evaluate((s) => {
+        const el = document.querySelector(s as string)!;
+        const own = getComputedStyle(el).animationName;
+        const props = new Set<string>();
+        for (const a of el.getAnimations({ subtree: true })) {
+          const fx = a.effect as KeyframeEffect;
+          if (fx.target !== el) continue;
+          for (const k of fx.getKeyframes()) for (const p of Object.keys(k)) props.add(p);
+        }
+        return { own, props: [...props].filter((p) => !['offset', 'computedOffset', 'easing', 'composite'].includes(p)) };
+      }, sel);
+      expect(got.own, `${name}: 요소 자신이 움직인다`).toBe('none');
+      expect(got.props, `${name}: opacity 밖의 속성이 움직인다`).toEqual(['opacity']);
+    }
+  });
+
+  // UX_BATCH11_SRS TC-APC-3 · FR-ATP-5: 움직임을 줄이면 맥박이 멎고 표식은 늘 보인다.
+  test('움직임을 줄이면 맥박이 없고 표식이 보인다 (TC-APC-3)', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await waitForInit(page);
+    await markAll(page);
+    for (const [name, sel, , pseudo] of TARGETS) {
+      const got = await page.evaluate(([s, ps]) => {
+        const cs = getComputedStyle(document.querySelector(s as string)!, ps as string);
+        return { anim: cs.animationName, op: cs.opacity };
+      }, [sel, pseudo || ''] as const);
+      expect(got.anim, `${name}: 맥박이 돈다`).toBe('none');
+      expect(got.op, `${name}: 표식이 보이지 않는다`).toBe('1');
     }
   });
 });

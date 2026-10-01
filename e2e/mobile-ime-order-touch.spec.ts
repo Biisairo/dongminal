@@ -96,18 +96,22 @@ test('TC-MTI-33 (FR-MTI-35): 조합 미리보기가 살아 있다 — 치는 과
   expect(view.text).toBe('가나');
 });
 
-test('TC-MTI-31 (FR-MTI-32): wheel 은 프레임당 한 번, 누적 delta 로 나간다', async ({ page }) => {
+// UX_BATCH11_SRS FR-MTS-1 로 개정: 프레임당 한 번 내는 것은 그대로이고, 그 프레임의 누적을 **한 행마다
+// wheel 하나**로 낸다 — xterm 은 마우스 리포팅 TUI 에 wheel 하나당 리포트 하나만 보내기 때문이다.
+test('TC-MTI-31 (FR-MTI-32 · FR-MTS-1): 한 프레임의 누적이 행마다 wheel 하나로 나간다', async ({ page }) => {
   await gotoMobile(page);
-  const n = await page.evaluate(async () => {
+  const r = await page.evaluate(async () => {
     const p = (window as any).app.testing.focusedTerminal();
     const got: number[] = [];
     p.term.element.addEventListener('wheel', (e: WheelEvent) => got.push(e.deltaY), true);
+    const rh = p._rowHeight();
     for (let i = 0; i < 10; i++) p._touchScrollBy(-10);
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    return got;
+    let frames = 0;
+    await new Promise<void>((res) => { const f = () => (++frames < 2 ? requestAnimationFrame(f) : res()); requestAnimationFrame(f) });
+    return { got, rh };
   });
-  expect(n.length).toBe(1);
-  expect(n[0]).toBe(-100);
+  expect(r.got.length).toBe(Math.floor(100 / r.rh));
+  for (const d of r.got) expect(d).toBeCloseTo(-r.rh, 5);
 });
 
 // RELOAD_CONTINUITY_SRS FR-RLC-1·4 로 개정: 새 버전은 배너를 띄우지 않고 **곧바로

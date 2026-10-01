@@ -59,8 +59,10 @@ test('TC-MTI-25 (FR-MTI-28): 터치 드래그가 xterm 의 wheel 경로로 넘�
   expect(got.length).toBeGreaterThan(0);
   // 아래로 끌면(위로 스크롤) deltaY 는 음수여야 한다.
   expect(got.every((d) => d < 0)).toBe(true);
-  // 감도 배율이 실려 있어야 한다 — 이동 픽셀 총합보다 크다.
-  expect(Math.abs(got.reduce((a, b) => a + b, 0))).toBeGreaterThan(200);
+  // UX_BATCH11_SRS FR-MTS-1·2 로 개정: wheel 은 한 행씩(같은 크기) 나간다. 합은 관성 몫까지 실리므로
+  // 하한만 본다 — 1:1 의 끈 거리에서 한 행을 뺀 것보다 작지 않다.
+  expect(new Set(got.map((d) => Math.round(d * 100))).size).toBe(1);
+  expect(Math.abs(got.reduce((a, b) => a + b, 0))).toBeGreaterThan(200 - Math.abs(got[0]));
 });
 
 test('TC-MTI-26 (FR-MTI-28): 마우스 리포팅이 켜진 TUI 에는 휠 리포트가 전송된다', async ({ page }) => {

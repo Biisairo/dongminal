@@ -10,6 +10,16 @@ Object.assign(TerminalTool.prototype, {
       // UX_BATCH6_SRS FR-IME-1: 조합이 아직 끝나지 않았으면 이 키는 xterm 이
       // 보아서는 안 된다. 가장 앞에 둔다 — 뒤의 갈래들도 조합보다 앞서면 안 된다.
       if(!this._imeGate(e)) return false;
+      // UX_BATCH11_SRS FR-TCP-1·6: 선택이 있을 때의 Ctrl+C 는 복사다. 비-mac 의 Ctrl+V 는 xterm 이
+      // 보지 않고 기본 동작도 막지 않는다 — 브라우저의 `paste` 가 xterm 의 붙여넣기 경로로 간다.
+      const clip=this._clipKey(e);
+      if(clip==='copy'){
+        if(e.type==='keydown') this._copySelection();
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }
+      if(clip==='paste') return false;
       if(e.key==='Enter'&&e.shiftKey&&!e.ctrlKey&&!e.altKey&&!e.metaKey){
         if(e.type==='keydown') this._sendKey('shiftEnter');
         e.preventDefault();
@@ -37,8 +47,23 @@ Object.assign(TerminalTool.prototype, {
       const k=this._mappedKey(e);
       if(k){e.preventDefault();this._sendKey(k);return}
       // Ctrl+ shortcuts → bypass to terminal, block browser
-      if(e.ctrlKey&&!e.metaKey) e.preventDefault();
+      if(e.ctrlKey&&!e.metaKey&&this._clipKey(e)!=='paste') e.preventDefault();
     });
+  },
+
+  /**
+   * 사용자 입력의 한 자리 (FR-TCP-9 · FR-HIN-1). 선택이 있을 때의 `0x03` 은 복사가 되고, 끊긴 동안의
+   * 입력은 보류된다. 보고 응답은 이 자리를 지나지 않는다 (D-14).
+   */
+  _userInput(s){
+    if(s==='\x03'&&this.term&&this.term.hasSelection()){ this._copySelection(); return }
+    this._sendText(s,true);
+  },
+
+  // FR-HIN-1: 사용자 입력 프레임. 끊긴 동안은 보내지 않고 보류함에 넣는다.
+  _sendUserFrame(m){
+    if(this._sock.holding()){ this._sock.hold(m); return }
+    this._send(m);
   },
 
   /** FEU-15: 수식키 조합 하나(다른 수식키 없이)가 `TERM_KEY_MAP` 에 있으면 그 이름. */
@@ -50,7 +75,7 @@ Object.assign(TerminalTool.prototype, {
   _sendKey(name){
     const seq=TERM_KEY_SEQ[name];
     const m=new Uint8Array(1+seq.length); m[0]=OP.INPUT; m.set(seq,1);
-    this._send(m);
+    this._sendUserFrame(m);
   },
 
   // IME 조합 배선 — 조합은 xterm 에 맡기고 확정 문자만 그 뒤로 미룬다 (FR-MTI-19·30 · FR-IME-5).
@@ -112,14 +137,16 @@ Object.assign(TerminalTool.prototype, {
       this._sendText(d);
       return;
     }
-    this._sendText(this._applyStickyMods(d));
+    this._userInput(this._applyStickyMods(d));
   },
 
-  _sendText(s){
+  // `user` 면 사용자 입력이다 — 끊긴 동안 보류된다 (FR-HIN-1).
+  _sendText(s,user){
     if(!s) return;
     const b=enc.encode(s);
     const m=new Uint8Array(1+b.length);m[0]=OP.INPUT;m.set(b,1);
-    this._send(m);
+    if(user) this._sendUserFrame(m);
+    else this._send(m);
   },
 
   // FR-MTI-15~17: sticky 는 입력 길이와 무관하게 첫 코드포인트로 판정하고,
@@ -156,7 +183,7 @@ Object.assign(TerminalTool.prototype, {
       this._imePush({t:'text',v:e.data});
       return;
     }
-    this._sendText(this._applyStickyMods(e.data));
+    this._userInput(this._applyStickyMods(e.data));
   },
 
   /**
@@ -240,7 +267,7 @@ Object.assign(TerminalTool.prototype, {
     if(!q||!q.length) return;
     const ta=this.box&&this.box.querySelector('.xterm-helper-textarea');
     for(const it of q){
-      if(it.t==='text'){ this._sendText(this._applyStickyMods(it.v)); continue }
+      if(it.t==='text'){ this._userInput(this._applyStickyMods(it.v)); continue }
       if(!ta) continue;
       const ev=new KeyboardEvent('keydown',it.v);
       // 게이트가 다시 잡지 않게 표식을 단다 — 이 시점에는 조합이 닫혀 있지만,
@@ -248,90 +275,6 @@ Object.assign(TerminalTool.prototype, {
       ev.__dmImeReplay=true;
       ta.dispatchEvent(ev);
     }
-  },
-
-  // ── 터치 스크롤 (MOBILE_TUI_INPUT_SCROLL_SRS §3.2) ──
-
-  // FR-MTI-8: capture 단계에서 가로채 xterm 의 1:1 터치 경로와 선택 경로에
-  // 도달하지 않게 한다. xterm 쪽은 감도 배율도 관성도 없다.
-  _initTouchScroll(){
-    const opt={capture:true,passive:false};
-    this.el.addEventListener('touchstart',e=>this._tsStart(e),opt);
-    this.el.addEventListener('touchmove',e=>this._tsMove(e),opt);
-    this.el.addEventListener('touchend',e=>this._tsEnd(e),opt);
-    this.el.addEventListener('touchcancel',e=>this._tsEnd(e),opt);
-    // FR-MTI-29: Chrome 은 제스처가 끝난 뒤 합성 마우스 이벤트를 낸다. 마우스
-    // 리포팅이 켜진 TUI 에는 그것이 클릭으로 전달된다 — 실기기 로그에서 스크롤
-    // 제스처가 ESC[<0;32;22M/m 을 보내고 있었다. 스크롤한 것을 클릭으로 받으면
-    // TUI 가 엉뚱하게 반응한다. 스크롤로 판정된 제스처의 합성분만 막는다.
-    for(const type of ['mousedown','mouseup','click']){
-      this.el.addEventListener(type,e=>{
-        if(!this._tsSuppressUntil||Date.now()>this._tsSuppressUntil) return;
-        e.preventDefault();e.stopPropagation();
-      },true);
-    }
-  },
-
-  _tsMobile(){return !!(window.app && window.app.isMobile)},
-
-  _tsStart(e){
-    this._flingStop();
-    this._tsY0=null;
-    if(!this._tsMobile()) return;
-    if(!e.touches || e.touches.length!==1) return;
-    this._tsY0=e.touches[0].clientY;
-    this._tsY=this._tsY0;
-    this._tsActive=false;this._tsResid=0;this._tsV=0;
-  },
-
-  _tsMove(e){
-    if(this._tsY0===null||this._tsY0===undefined) return;
-    if(!this._tsMobile()) return;
-    if(!e.touches || e.touches.length!==1) return;
-    const y=e.touches[0].clientY;
-    if(!this._tsActive){
-      // FR-MTI-9: slop 이내는 탭이다 — 그대로 통과시켜 포커스·선택을 남긴다.
-      // 여기서 preventDefault 하면 Chrome 이 이 제스처의 합성 마우스 이벤트를
-      // 억제해 탭 → 포커스 경로까지 죽는다 (FR-MTI-24 철회 근거).
-      if(Math.abs(y-this._tsY0)<MTI_TOUCH_SLOP_PX) return;
-      this._tsActive=true;
-      this._tsY=y;   // slop 소진분은 버린다. 시작이 튀지 않는다
-      // FR-MTI-22: Android Chrome 은 focus 된 입력 요소가 있는 동안 페이지를
-      // 탭하면 키보드를 재표시한다. 스크롤하려고 만졌을 뿐인데 키보드가 올라오고,
-      // 그것이 window resize → fit → 재렌더로 이어진다. 제스처가 스크롤로
-      // 확정된 순간 포커스를 놓는다. 제스처가 끝나도 되돌리지 않는다 —
-      // 되돌리면 키보드가 다시 올라온다.
-      this._blurInput();
-    }
-    const dy=this._tsY-y;
-    this._tsY=y;this._tsV=dy;
-    e.preventDefault();e.stopPropagation();
-    this._touchScrollBy(dy*MTI_TOUCH_GAIN);
-  },
-
-  _tsEnd(e){
-    const wasActive=this._tsActive;
-    this._tsY0=null;this._tsActive=false;
-    if(!wasActive) return;
-    e.preventDefault();e.stopPropagation();
-    this._tsSuppressUntil=Date.now()+MTI_SYNTH_MOUSE_MS;   // FR-MTI-29
-    // FR-MTI-7: 마지막 관측 속도에서 시작해 프레임마다 감쇠한다.
-    let v=this._tsV*MTI_TOUCH_GAIN;
-    if(Math.abs(v)>MTI_FLING_MAX_V) v=v<0?-MTI_FLING_MAX_V:MTI_FLING_MAX_V;
-    if(Math.abs(v)<MTI_FLING_MIN_V) return;
-    const step=()=>{
-      this._flingId=null;
-      this._touchScrollBy(v);
-      v*=MTI_FLING_DECAY;
-      if(Math.abs(v)<MTI_FLING_MIN_V) return;
-      this._flingId=TIMERS.frame(step,{owner:this,label:'fling'});
-    };
-    this._flingId=TIMERS.frame(step,{owner:this,label:'fling'});
-  },
-
-  _flingStop(){
-    if(this._flingId){TIMERS.cancel(this._flingId);this._flingId=null}
-    if(this._wheelRaf){TIMERS.cancel(this._wheelRaf);this._wheelRaf=null;this._wheelPend=0}
   },
 
   // FR-MTI-22/26: 소프트 키보드를 내린다. 모바일에서만 의미가 있다.
@@ -386,43 +329,5 @@ Object.assign(TerminalTool.prototype, {
     if(!ta) return;
     if(document.body.classList.contains('mobile')) ta.setAttribute('inputmode','none');
     this._blurInput();
-  },
-
-  // FR-MTI-28: 스크롤을 직접 처리하지 않고 xterm 의 wheel 경로로 넘긴다.
-  //
-  // scrollLines 로 직접 움직이던 이전 구현은 스크롤백이 있을 때만 동작했다.
-  // 실기기 로그에서 이 TUI 는 마우스 리포팅을 켜고 있었고(SGR 리포트가 실제로
-  // 전송됐다), 그런 TUI 는 스크롤을 스크롤백이 아니라 자기가 처리한다 — 화면을
-  // 재렌더하므로 스크롤백은 rows 만큼밖에 없다(실측 len==rows, 제스처 내내 vY=0).
-  //
-  // 합성 wheel 을 넘기면 xterm 이 상태에 맞게 갈라준다:
-  //   · 마우스 리포팅 ON  → 프로토콜(SGR/일반)에 맞는 휠 리포트 전송 → TUI 가 스크롤
-  //   · OFF, 스크롤백 있음 → viewport 스크롤
-  //   · OFF, alt screen    → 위/아래 방향키로 변환
-  // 픽셀→행 누적도 xterm 의 getLinesScrolled 가 이미 한다(_wheelPartialScroll).
-  // FR-MTI-32: 터치는 한 프레임에 여러 번 발화한다. 그때마다 wheel 을 보내면
-  // 마우스 리포팅이 켜진 TUI 가 리포트 폭주를 받아 프레임을 따라 그리다 밀린다
-  // — 실기기에서 "버벅인다" 로 나타난다. 프레임당 한 번, 누적 delta 로 보낸다.
-  _touchScrollBy(px){
-    if(!px) return;
-    this._wheelPend=(this._wheelPend||0)+px;
-    this._wheelRaf=TIMERS.frame(()=>{
-      this._wheelRaf=null;
-      const d=this._wheelPend; this._wheelPend=0;
-      if(d) this._dispatchWheel(d);
-    },{owner:this,coalesce:'wheel'});
-  },
-
-  _dispatchWheel(px){
-    const el=this.term&&this.term.element;
-    if(!el) return;
-    const r=el.getBoundingClientRect();
-    try{
-      el.dispatchEvent(new WheelEvent('wheel',{
-        deltaY:px, deltaX:0, deltaMode:0,
-        clientX:r.left+r.width/2, clientY:r.top+r.height/2,
-        bubbles:true, cancelable:true,
-      }));
-    }catch{}
   },
 });

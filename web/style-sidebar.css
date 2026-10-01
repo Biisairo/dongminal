@@ -40,15 +40,19 @@
   background:var(--accent-subtle);color:var(--accent-text);
 }
 /* FR-LAY-2: 같은 근거. */
-.sb-tab[data-panel="windows"] .sb-tab-badge{background:var(--attn-subtle);color:var(--attn-text);
-  animation:attn-pulse-chip 2s ease-in-out infinite}
+.sb-tab[data-panel="windows"] .sb-tab-badge{background:transparent;color:var(--attn-text)}
+/* 겹의 기준은 보일 때만 세운다 — 숨은 배지의 계산값(UI_LAYOUT_DEFAULTS 기준선)을 바꾸지 않는다. */
+.sb-tab[data-panel="windows"] .sb-tab-badge:not([hidden]){position:relative;isolation:isolate}
+/* UX_BATCH11_SRS FR-APC-1·2: 맥박은 겹의 opacity 다. 겹은 글자 아래에 깔린다 (FR-APC-4). */
+.sb-tab[data-panel="windows"] .sb-tab-badge::before{content:'';position:absolute;inset:0;z-index:var(--z-under);border-radius:inherit;
+  pointer-events:none;background:var(--attn-subtle);animation:attn-pulse-fade 2s ease-in-out infinite}
 
 /* FR-ATP-5: 움직임을 원하지 않는 사람에게는 개정 전의 정지 표식이 남는다 —
    끄는 쪽이 기본 상태보다 어두워서는 안 되므로 정적 선언을 그대로 둔 채 맥박만 멎힌다. */
 @media (prefers-reduced-motion:reduce){
-  .pn.attn::after,.pn-tab.attn,.sbl-item.attn,.sbl-item.attn .sbl-dot,
-  .ag-card.attn,.ag-card.focused.attn,#attn-badge,
-  .sb-tab[data-panel="windows"] .sb-tab-badge{animation:none}
+  .pn.attn::after,.pn-tab.attn::before,.sbl-item.attn::before,.sbl-item.attn .sbl-dot::before,
+  .ag-card.attn::before,#attn-badge::before,
+  .sb-tab[data-panel="windows"] .sb-tab-badge::before{animation:none}
 }
 
 /* FR-SBT-2·3: 숨김은 display:none 이다. visibility/opacity 로 숨기면 숨은 패널이

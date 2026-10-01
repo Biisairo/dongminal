@@ -9,6 +9,22 @@
  * 한쪽에만 들어가는 사고의 자리였다 (FR-RCS-1).
  */
 
+/**
+ * UX_BATCH11_SRS FR-HIN-4: 보류한 입력의 미리보기. 제어 문자는 `^X`(ESC 는 `^[`, DEL 은 `^?`),
+ * CR·LF 는 `⏎` 로 적고 `TERM_HELD_PREVIEW_CHARS` 자에서 자른다.
+ */
+function termHeldPreview(s){
+  let out='';
+  for(const ch of String(s||'')){
+    const c=ch.codePointAt(0);
+    if(c===0x0d||c===0x0a) out+='⏎';
+    else if(c<0x20) out+='^'+String.fromCharCode(c+0x40);
+    else if(c===0x7f) out+='^?';
+    else out+=ch;
+  }
+  return Array.from(out).slice(0,TERM_HELD_PREVIEW_CHARS).join('');
+}
+
 /** 다음 재시도 지연(지터 없음). FR-RCS-4: 0 으로는 `markHealthy` 의 타이머만 되돌린다. */
 function termNextRetryDelay(d){
   if(!(d>0)) return TERM_WS_RETRY_FIRST_MS;
@@ -32,6 +48,11 @@ class TermSocket {
     this.healthyTimer=null;
     this.queue=[];
     this.dropCount=0;
+    // UX_BATCH11_SRS FR-HIN-1: 한 번이라도 열렸는가. 그 뒤의 끊김에서만 사용자 입력을 붙잡는다.
+    this.everOpen=false;
+    this.held=[];
+    this.heldBytes=0;
+    this.heldOver=false;
   }
 
   /** 명시적인 연결. 소켓을 곧바로 지금 소켓으로 삼는다. */
@@ -53,6 +74,7 @@ class TermSocket {
     ws.binaryType='arraybuffer';
     ws.onopen=()=>{
       if(viaRetry){ this.ws=ws; this.pending=null }
+      this.everOpen=true;
       this.host._wsOpened(viaRetry);
     };
     ws.onmessage=e=>{
@@ -133,6 +155,23 @@ class TermSocket {
       return;
     }
     this.dropCount++;
+  }
+  /** FR-HIN-1·2: 사용자 입력을 지금 보내지 않고 붙잡아야 하는가. */
+  holding(){
+    return this.everOpen&&!(this.ws&&this.ws.readyState===1);
+  }
+  /** FR-HIN-3: 상한을 넘는 입력은 담지 않는다 — 앞부분이 뜻이다. `m` 은 op 바이트가 붙은 프레임이다. */
+  hold(m){
+    const n=m.length-1;
+    if(this.heldBytes+n>TERM_HELD_MAX){ this.heldOver=true; return }
+    this.held.push(m);
+    this.heldBytes+=n;
+  }
+  /** FR-HIN-5·7: 보류함을 비우고 담겼던 것을 돌려준다. */
+  takeHeld(){
+    const h=this.held;
+    this.held=[];this.heldBytes=0;this.heldOver=false;
+    return h;
   }
   flush(){
     if(!this.ws||this.ws.readyState!==1)return;

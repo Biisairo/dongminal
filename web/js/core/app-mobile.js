@@ -191,7 +191,7 @@ Object.assign(App.prototype, {
     const p=this.focusedTerminal();
     if(!p) return;
     if(p.term) ErrorLog.quiet('focus',()=>p.term.focus());
-    p._sendText(p._applyStickyMods(s));
+    p._userInput(p._applyStickyMods(s));
   },
 
   _mkbShowTip(text, btn){
@@ -234,7 +234,8 @@ Object.assign(App.prototype, {
       const p=this.focusedTerminal();
       if(!p) return;
       if(p.term) ErrorLog.quiet('focus',()=>p.term.focus());
-      p._sendText(k.raw);
+      // UX_BATCH11_SRS FR-TCP-9: 선택이 있으면 `^C` 는 복사다 — 사용자 입력의 한 자리를 지난다.
+      p._userInput(k.raw);
       return;
     }
     if(k.mod){

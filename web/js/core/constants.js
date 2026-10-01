@@ -192,17 +192,20 @@ const MKB_FULL_NAMES=Object.freeze({
 });
 
 // 모바일 TUI 입력·스크롤 교정 (MOBILE_TUI_INPUT_SCROLL_SRS FR-MTI-18).
-// TOUCH_GAIN: xterm 의 터치 경로는 손가락 이동을 1:1 픽셀로만 스크롤한다 —
-//   실측 200px = 11행(화면 37행). 2.5배면 200px 이 화면 3/4 를 넘긴다.
+// TOUCH_GAIN: 1 — 글자가 손가락을 따라온다 (UX_BATCH11_SRS FR-MTS-2). 종전 2.5 는 프레임당 wheel
+//   하나로 합치며 마우스 리포팅 TUI 의 행을 버리던 손실(FR-MTS-1 이 고쳤다)을 메우던 값이다.
 // TOUCH_SLOP: 이 거리를 넘기 전에는 탭으로 보고 xterm 에 그대로 넘긴다.
-// FLING_*: 손을 뗀 뒤의 관성. 프레임당 DECAY 를 곱하고 MIN_V 밑에서 멈춘다.
+// FLING_*: 손을 뗀 뒤의 관성 (FR-MTS-5). 속도는 px/ms, DECAY 는 FRAME_MS 당 곱하는 값이고
+//   MIN_V 밑에서 멈춘다. VELOCITY_WINDOW: 처음 속도를 재는 최근 표본의 창.
 // KB_EPS: 키보드 높이 잡음. 이 미만의 변화로는 재적용하지 않는다.
 // KB_UP: 이 높이를 넘으면 소프트 키보드가 떠 있다고 본다.
-const MTI_TOUCH_GAIN=2.5;
+const MTI_TOUCH_GAIN=1;
 const MTI_TOUCH_SLOP_PX=8;
 const MTI_FLING_DECAY=0.93;
-const MTI_FLING_MIN_V=0.4;
-const MTI_FLING_MAX_V=120;
+const MTI_FRAME_MS=1000/60;
+const MTI_FLING_MIN_V=0.4/MTI_FRAME_MS;
+const MTI_FLING_MAX_V=120/MTI_FRAME_MS;
+const MTI_VELOCITY_WINDOW_MS=100;
 const MTI_KB_EPS_PX=4;
 const MOBILE_KB_UP_PX=80;
 // 스크롤 제스처 뒤에 오는 합성 마우스 이벤트를 무시하는 창 (FR-MTI-29).
@@ -241,6 +244,10 @@ const TERM_WS_RETRY_JITTER=0.2;
 const TERM_OVERLAY_HIDE_MS=300;
 // 연결 중(readyState 0)에 쌓아 두는 송신 프레임 상한. 넘치면 가장 오래된 것을 버린다.
 const TERM_SEND_QUEUE_MAX=64;
+// UX_BATCH11_SRS FR-HIN-3·4: 한 번 연결된 뒤 끊긴 동안 붙잡는 사용자 입력의 상한(UTF-8 바이트)과
+// 배너 미리보기의 글자 수.
+const TERM_HELD_MAX=64*1024;
+const TERM_HELD_PREVIEW_CHARS=200;
 // FR-OPT-12-1 (FEU-15): 터미널이 xterm 대신 직접 보내는 키. 조합(수식키) → 키 → 바이트열.
 const TERM_KEY_SEQ={shiftEnter:[0x1b,0x0d],lineStart:[0x01],lineEnd:[0x05],wordBack:[0x1b,0x62],wordFwd:[0x1b,0x66]};
 const TERM_KEY_MAP={meta:{ArrowLeft:'lineStart',ArrowRight:'lineEnd'},alt:{ArrowLeft:'wordBack',ArrowRight:'wordFwd'}};
@@ -511,6 +518,8 @@ var TOPTS={
   // `termFontSize` 이며 `term-pane.js` 가 생성 시점에 읽는다 — 같은 수를 두 자리에
   // 적으면 한쪽만 바뀐다. 종전에는 그 자리가 CSS 토큰 `--fs-lg` 였다 (FR-M11-15).
   lineHeight:1.2,allowProposedApi:true,logLevel:'off',
+  // UX_BATCH11_SRS FR-TCP-5: mac 에서 마우스를 쓰는 TUI 위에서도 Option+드래그로 선택한다.
+  macOptionClickForcesSelection:true,
   fontFamily:"'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace",
   theme:null,
 };

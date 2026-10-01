@@ -176,7 +176,9 @@ test.describe('FR-MTI-1~5: 모바일 IME 입력이 유실되지 않는다', () =
 });
 
 test.describe('FR-MTI-6~11: 터치 스크롤', () => {
-  test('TC-MTI-5: 200px 드래그가 1:1(11행) 보다 크게 스크롤한다', async ({ page }) => {
+  // UX_BATCH11_SRS FR-MTS-2 로 개정: 배율이 1 이 됐다 — 끌기는 스크롤이 **된다**는 것만 여기서 보고,
+  // 끈 만큼(1:1)인지는 `term-scroll-touch.spec.ts` TC-MTS-4 가 잰다.
+  test('TC-MTI-5: 200px 드래그가 스크롤한다', async ({ page }) => {
     await gotoMobile(page);
     await fill(page);
     const before = await paneState(page);
@@ -184,10 +186,7 @@ test.describe('FR-MTI-6~11: 터치 스크롤', () => {
     await touchDrag(client, await screenCenter(page), 200);
     await expect
       .poll(async () => before.viewportY - (await paneState(page)).viewportY, { timeout: 10000 })
-      .toBeGreaterThan(20);
-    const after = await paneState(page);
-    const moved = before.viewportY - after.viewportY;
-    expect(moved).toBeGreaterThan(20);
+      .toBeGreaterThan(5);
   });
 
   test('TC-MTI-6: 손을 뗀 뒤에도 관성으로 더 스크롤된다', async ({ page }) => {

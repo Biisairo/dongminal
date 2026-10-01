@@ -1192,5 +1192,11 @@ I18N.register('ko', {
   'term.disconnected': '연결 끊김',
   'term.reconnect': '다시 연결',
   'term.reconnecting': '재연결 중...',
+  // UX_BATCH11_SRS FR-TCP-4·8 · FR-HIN-4·8
+  'term.copied': '복사됨',
+  'term.held_title': '연결이 끊긴 동안 입력한 %d바이트가 보내지 않은 채 남아 있습니다.',
+  'term.held_over': '일부는 담지 못했습니다.',
+  'term.held_send': '보내기',
+  'term.held_discard': '버리기',
   'term.soft_reload': '내부 새로고침...',
 });

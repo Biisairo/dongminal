@@ -1173,5 +1173,11 @@ I18N.register('en', {
   'term.disconnected': 'Disconnected',
   'term.reconnect': 'Reconnecting',
   'term.reconnecting': 'Reconnecting...',
+  // UX_BATCH11_SRS FR-TCP-4·8 · FR-HIN-4·8
+  'term.copied': 'Copied',
+  'term.held_title': '%d bytes typed while disconnected have not been sent.',
+  'term.held_over': 'Some input could not be kept.',
+  'term.held_send': 'Send',
+  'term.held_discard': 'Discard',
   'term.soft_reload': 'Soft reload...',
 });

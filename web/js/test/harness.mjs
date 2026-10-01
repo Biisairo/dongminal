@@ -29,9 +29,10 @@ export const HELPERS = ['core/path.js', 'core/helpers.js', 'core/theme-vars.js',
 
 /**
  * 터미널 칸 한 벌 — index.html 의 순서다 (OPTIMIZE_REFACTOR_SRS FR-OPT-12-1·12-4). WS 배선
- * (`term-socket.js`)과 입력·IME·터치(`term-input.js`)가 `term-pane.js` 에서 갈라졌다.
+ * (`term-socket.js`)과 입력·IME(`term-input.js`)가 `term-pane.js` 에서 갈라졌다. 복사·텍스트 시트
+ * (`term-clip.js`)와 터치 스크롤(`term-touch.js`)은 `term-input.js` 에서 갈라졌다 (UX_BATCH11_SRS).
  */
-export const TERM_PANE = ['ui/term-socket.js', 'ui/term-pane.js', 'ui/term-input.js'];
+export const TERM_PANE = ['ui/term-socket.js', 'ui/term-pane.js', 'ui/term-input.js', 'ui/term-clip.js', 'ui/term-touch.js'];
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const JS_ROOT = join(HERE, '..');

@@ -102,8 +102,8 @@ if (literals.length) {
   for (const l of literals.slice(0, 12)) bad.push(`  ${l.at}  ${l.ctx}`);
   if (literals.length > 12) bad.push(`  … 그리고 ${literals.length - 12}곳 (--list 로 전부 본다)`);
   bad.push('');
-  bad.push('  var(--z-raised|sticky|overlay|modal|popover|edge) 를 쓰세요.');
-  bad.push('  뜻이 여섯에 없으면 층이 부족한 것이고, 층을 더하는 것은 SRS §3.4 를 고치는 일입니다.');
+  bad.push('  var(--z-raised|sticky|overlay|modal|popover|edge|under) 를 쓰세요.');
+  bad.push('  뜻이 일곱에 없으면 층이 부족한 것이고, 층을 더하는 것은 SRS §3.4 를 고치는 일입니다.');
 }
 if (arith.length) {
   bad.push(`층에 산술을 했다 (${arith.length}곳, FR-TOK-22):`);

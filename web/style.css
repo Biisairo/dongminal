@@ -75,6 +75,7 @@
   --z-modal:400;     /* 앱을 덮는 차단 화면 — 모달 상자·확인창·부팅 화면 */
   --z-popover:500;   /* 모달 위에 뜨는 것 — 메뉴·토스트·HUD·드롭다운 */
   --z-edge:600;      /* 창 수준의 비상호작용 표식 — 포커스·알림 테두리 */
+  --z-under:-1;      /* 요소 안의 바닥 겹 — isolation 을 세운 요소에서 바탕 위·내용 아래 (UX_BATCH11_SRS) */
 
   /* DESIGN_TOKENS_SRS FR-TOK-46 (FEU-28): 전환 시간은 **셋**이다. 착수 시 27선언이
      여덟 종(.08s~.3s)을 제각각 적었다. 사상표는 §3.10, 게이트는 check-motion.mjs. */
@@ -539,8 +540,12 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
    활동 패널의 한 구역으로 접었는데, 거기 질문이 **둘**이었다 — 주의는 *"나를
    기다리는 것이 있나"* 이고 나머지 셋은 *"지금 뭐가 돌고 있나"* 다. 자리를
    계산해 띄우던 규칙이 그대로 돌아온다. 행(`.attn-item`)은 지운 적이 없다. */
-#attn-badge{position:relative;color:var(--attn-text);border-color:var(--attn);
-  animation:attn-pulse-badge 2s ease-in-out infinite}
+/* UX_BATCH11_SRS FR-APC-1·2: 맥박은 겹의 opacity 하나다 — 요소 자신의 색을 움직이면 맥박이 도는 동안
+   매 프레임 다시 그린다. 바탕에는 50% 의 모습(옅은 테두리)을 두고 겹이 진한 테두리를 얹는다.
+   `:hover` 도 같은 바탕이다 — 종전에는 애니메이션이 hover 의 테두리색을 늘 덮었다. */
+#attn-badge,#attn-badge:hover{position:relative;color:var(--attn-text);border-color:var(--attn-subtle)}
+#attn-badge::before{content:'';position:absolute;inset:-1px;border:1px solid var(--attn);border-radius:inherit;
+  pointer-events:none;animation:attn-pulse-fade 2s ease-in-out infinite}
 #attn-badge .attn-count{margin-left:4px;font-size:var(--fs-sm);font-weight:600}
 #attn-center{
   display:none;position:fixed;z-index:var(--z-popover);
@@ -728,46 +733,22 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
    FR-ATP-4: 두께를 가진 표식은 색만 잃고 크기를 유지한다 — 글자가 흔들리면
    알림이 아니라 방해다.
    FR-ATP-7: 양 끝(0%·100%)의 모습이 개정 전의 정지 표식과 같다. */
-@keyframes attn-pulse-ring{
+/* UX_BATCH11_SRS FR-APC-1·2: 맥박 일곱 자리가 이 하나를 쓴다. 표식은 겹에 살고, 50% 의 모습은 그
+   요소의 바탕이다 — 겹이 사라지면 바탕이 보인다. 배지 둘은 글자가 곧 내용이라 겹이 글자를 덮지
+   않는다 (D-2 · FR-APC-4). */
+@keyframes attn-pulse-fade{
   0%,100%{opacity:1}
   50%{opacity:0}
 }
-@keyframes attn-pulse-tab{
-  0%,100%{background:var(--attn-subtle);box-shadow:inset 0 -3px 0 var(--attn)}
-  50%{background:transparent;box-shadow:inset 0 -3px 0 transparent}
-}
-/* 활성 탭의 알람은 밑줄만 숨쉰다 (FR-ATV-3) — 배경은 활성 색에 머문다. */
-@keyframes attn-pulse-tab-active{
-  0%,100%{box-shadow:inset 0 -3px 0 var(--attn)}
-  50%{box-shadow:inset 0 -3px 0 transparent}
-}
-/* 왼쪽 3px 바 하나로 알리는 자리들 — 사이드바 항목과 에이전트 카드가 같은 표식이다. */
-@keyframes attn-pulse-bar{
-  0%,100%{box-shadow:inset 3px 0 0 var(--attn)}
-  50%{box-shadow:inset 3px 0 0 transparent}
-}
-/* 점은 사라지지 않고 평소 색으로 돌아간다 — 자리가 비면 목록이 흔들린다. */
-@keyframes attn-pulse-dot{
-  0%,100%{background:var(--attn);box-shadow:0 0 6px var(--attn-glow)}
-  50%{background:var(--text-dim);box-shadow:0 0 6px transparent}
-}
-/* 배지 둘은 글자가 곧 내용이다 — 글자색을 두고 테두리·배경만 숨쉰다 (D-2). */
-@keyframes attn-pulse-badge{
-  0%,100%{border-color:var(--attn)}
-  50%{border-color:var(--attn-subtle)}
-}
-@keyframes attn-pulse-chip{
-  0%,100%{background:var(--attn-subtle)}
-  50%{background:transparent}
-}
 
-.pn-tab.attn{color:var(--attn-text);background:var(--attn-subtle);font-weight:600;box-shadow:inset 0 -3px 0 var(--attn);
-  animation:attn-pulse-tab 2s ease-in-out infinite}
+.pn-tab.attn{color:var(--attn-text);background:transparent;font-weight:600;position:relative;isolation:isolate}
+.pn-tab.attn::before{content:'';position:absolute;inset:0;z-index:var(--z-under);pointer-events:none;
+  background:var(--attn-subtle);box-shadow:inset 0 -3px 0 var(--attn);animation:attn-pulse-fade 2s ease-in-out infinite}
 /* ATTENTION_FIRING_SRS FR-ATV-3: 활성이면서 알람인 탭. 배경은 활성 색으로 두고
    밑줄만 숨쉰다 — 배경까지 맥박에 실으면 반주기 동안 어느 탭이 열려 있는지
    알 수 없게 된다. 알람이 활성 표시를 빼앗지 않는다. */
-.pn-tab.active.attn{color:var(--attn-text);background:var(--accent-subtle);
-  animation:attn-pulse-tab-active 2s ease-in-out infinite}
+.pn-tab.active.attn{color:var(--attn-text);background:var(--accent-subtle)}
+.pn-tab.active.attn::before{background:none}
 /* FR-ATP-8: 분할 칸의 링은 **자식 위에 뜬 겹**이다.
    개정 전에는 2px 테두리 + 안쪽 2px 그림자였는데, 안쪽 그림자는 요소의 배경 층에
    그려지고 자식(탭 줄·터미널)이 그 위를 덮는다. 덮이는 정도가 면마다 달라 실측
@@ -781,12 +762,17 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .pn.attn::after{
   content:'';position:absolute;inset:0;z-index:var(--z-overlay);pointer-events:none;
   box-shadow:inset 0 0 0 3px var(--attn),0 0 12px -1px var(--attn-glow);
-  animation:attn-pulse-ring 2s ease-in-out infinite;
+  animation:attn-pulse-fade 2s ease-in-out infinite;
 }
 /* FR-PAN-16: 알람 표식. 공통 클래스로 쓴다 — 다음 목록도 `attn` 을 줄 수 있다. */
-.sbl-item.attn{box-shadow:inset 3px 0 0 var(--attn);animation:attn-pulse-bar 2s ease-in-out infinite}
-.sbl-item.attn .sbl-dot{background:var(--attn);box-shadow:0 0 6px var(--attn-glow);
-  animation:attn-pulse-dot 2s ease-in-out infinite}
+/* 왼쪽 3px 바 하나로 알리는 자리들 — 사이드바 항목과 에이전트 카드가 같은 표식이다. */
+.sbl-item.attn,.ag-card.attn{position:relative}
+.sbl-item.attn::before,.ag-card.attn::before{content:'';position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 3px 0 0 var(--attn);animation:attn-pulse-fade 2s ease-in-out infinite}
+/* 점은 사라지지 않고 평소 색으로 돌아간다 — 자리가 비면 목록이 흔들린다. */
+.sbl-item.attn .sbl-dot{background:var(--text-dim);position:relative}
+.sbl-item.attn .sbl-dot::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:var(--attn);box-shadow:0 0 6px var(--attn-glow);animation:attn-pulse-fade 2s ease-in-out infinite}
 
 /* 에이전트 활동 모아보기 패널 (AGENT_ACTIVITY_PANEL_SRS) — 좌측 사이드바와 대칭 */
 #agents-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border-strong);display:none}
@@ -827,9 +813,7 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .ag-group.attn .ag-group-name{color:var(--attn-text)}
 .ag-card{padding:8px 10px;border-bottom:1px solid var(--border-weak);cursor:pointer;transition:background var(--dur-fast)}
 .ag-card:hover{background:var(--accent-hover)}
-.ag-card.attn{box-shadow:inset 3px 0 0 var(--attn);animation:attn-pulse-bar 2s ease-in-out infinite}
 .ag-card.focused{background:var(--accent-active)}
-.ag-card.focused.attn{box-shadow:inset 3px 0 0 var(--attn);animation:attn-pulse-bar 2s ease-in-out infinite}
 .ag-card.dragging{opacity:.35}
 .ag-card.drag-above{box-shadow:inset 0 2px 0 var(--accent)}
 .ag-card.drag-below{box-shadow:inset 0 -2px 0 var(--accent)}
@@ -1117,6 +1101,17 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
   opacity:0;transition:opacity var(--dur-slow);pointer-events:none;
 }
 .tp-overlay.visible{opacity:1}
+/* UX_BATCH11_SRS FR-HIN-4: 끊긴 동안 친 입력. 터미널 위에 떠서 사용자가 고를 때까지 남는다 —
+   재연결 오버레이(.tp-overlay)가 걷힌 뒤에 선다. */
+.tp-held{
+  position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:var(--z-overlay);
+  display:flex;flex-direction:column;gap:6px;
+  padding:8px 12px;border-radius:6px;max-width:min(560px,calc(100% - 24px));
+  background:var(--bg-alt);color:var(--text-bright);
+  border:1px solid var(--attn);box-shadow:var(--shadow-1);font-size:var(--fs-md);
+}
+.tp-held-pre{font-family:var(--mono);white-space:pre-wrap;word-break:break-all;max-height:4.5em;overflow:auto;color:var(--text-muted)}
+.tp-held-acts{display:flex;gap:6px;justify-content:flex-end}
 .tp-ov-title{color:var(--danger-text);font-size:var(--fs-lg);font-weight:600}
 .tp-ov-sub{color:var(--text-muted);font-size:var(--fs-sm)}
 /* FUI-14: 종료된 도구의 출구 둘.
@@ -1459,6 +1454,8 @@ body.mobile .sh{display:none !important}
    선점된 뒤에는 preventDefault 가 무시되어 브라우저의 scrollTop 변경과
    우리의 scrollLines 가 같은 상태를 양쪽에서 밀며 서로 상쇄한다. */
 body.mobile .tp{touch-action:none}
+/* UX_BATCH11_SRS FR-MTS-6: 데스크톱 레이아웃의 터치 기기도 터치 스크롤을 우리가 한다. */
+@media (pointer:coarse){.tp{touch-action:none}}
 
 /* mobile content takes full width (no sidebar push) */
 body.mobile #content{width:100%}

@@ -159,6 +159,8 @@ class TerminalTool {
     this._kbApply();
     if(ta) this._wireIme(ta);
     this._initTouchScroll();
+    // UX_BATCH11_SRS FR-TCP-2·4: Cmd+C 는 xterm 이 스스로 복사한다 — 알림만 같게 단다.
+    this.box.addEventListener('copy',()=>{ if(this.term&&this.term.hasSelection()) Toast.show(t('term.copied'),'ok',TOAST_MS) });
     try{this.fit.fit()}catch{}
     for(const d of this._buf) try{this.term.write(d)}catch{}
     this._buf=[];
@@ -177,6 +179,8 @@ class TerminalTool {
       ()=>this.term.loadAddon(new WebLinksAddon.WebLinksAddon((_e,uri)=>{window.open(uri,'_blank')})),
       // BARE_DOMAIN_LINK_SRS FR-BDL-4: 스킴 없는 도메인. cwd 의 파일 이름은 빠진다.
       ()=>{this._bareLinks=bareLinkProvider(this.term,()=>this._cwd||'');this.term.registerLinkProvider(this._bareLinks)},
+      // UX_BATCH11_SRS FR-FPL-4: 출력의 파일 경로 → 편집기의 그 줄.
+      ()=>{this._fileLinks=fileLinkProvider(this.term,()=>this._cwd||'');this.term.registerLinkProvider(this._fileLinks)},
       ()=>{this.term.loadAddon(new Unicode11Addon.Unicode11Addon());this.term.unicode.activeVersion='11'},
       ()=>{this.search=new SearchAddon.SearchAddon();this.term.loadAddon(this.search)},
       ()=>TermClipboard.attach(this.term,this.id,this),
@@ -213,6 +217,8 @@ class TerminalTool {
     if(this._exited) return;
     this._exited=true;
     this._sock.clearHealthy();
+    // FR-HIN-7: 도구가 끝났다 — 보낼 곳이 없다.
+    this._sock.takeHeld(); this._heldHide();
     this.write('\r\n\x1b[90m── exited ──\x1b[0m\r\n');
     this.el.style.opacity='1'; this._reconnecting=false;
     /**
@@ -335,10 +341,47 @@ class TerminalTool {
   _wsOpened(viaRetry){
     this._onWsOpen();
     if(viaRetry||this._reconnecting) TIMERS.after(TERM_OVERLAY_HIDE_MS,()=>this._onWsReady(),{owner:this,label:'overlay-hide'});
+    else this._heldMaybeShow();
   }
   _onWsReady(){
     this._hideOverlay(); this.el.style.opacity='1'; this._reconnecting=false;
     if(this.term) this.term.scrollToBottom();
+    this._heldMaybeShow();
+  }
+
+  // ── 끊긴 동안의 입력 (UX_BATCH11_SRS FR-HIN-4~8) ──
+  // FR-HIN-4: 다시 붙었고 보류분이 있으면 배너를 세운다. 저절로 보내지 않는다.
+  _heldMaybeShow(){ if(this._sock.heldBytes>0) this._heldBanner() }
+  _heldBanner(){
+    let b=this.el.querySelector('.tp-held');
+    if(!b){
+      b=document.createElement('div');b.className='tp-held';
+      b.setAttribute('role','status');
+      const msg=document.createElement('div');msg.className='tp-held-msg';
+      const pre=document.createElement('code');pre.className='tp-held-pre ui-scroll-sm';
+      const acts=document.createElement('div');acts.className='tp-held-acts';
+      acts.appendChild(UIKit.button({label:t('term.held_send'),kind:'primary',size:'sm',onClick:()=>this._heldSend()}));
+      acts.appendChild(UIKit.button({label:t('term.held_discard'),size:'sm',onClick:()=>this._heldDiscard()}));
+      b.append(msg,pre,acts);
+      this.el.appendChild(b);
+    }
+    const n=this._sock.heldBytes;
+    b.querySelector('.tp-held-msg').textContent=t('term.held_title').replace('%d',n)+(this._sock.heldOver?' '+t('term.held_over'):'');
+    // 공유 `dec` 를 쓰지 않는다 — 프레임 경계에서 갈린 글자를 잇느라 stream 상태를 쥔다.
+    const d=new TextDecoder();
+    b.querySelector('.tp-held-pre').textContent=termHeldPreview(this._sock.held.map(m=>d.decode(m.subarray(1),{stream:true})).join('')+d.decode());
+  }
+  _heldHide(){ const b=this.el.querySelector('.tp-held'); if(b) b.remove() }
+  // FR-HIN-5: 담긴 순서대로. 그 사이 다시 끊기면 다시 보류된다.
+  _heldSend(){
+    for(const m of this._sock.takeHeld()) this._sendUserFrame(m);
+    this._heldHide();
+    this.focus();
+  }
+  _heldDiscard(){
+    this._sock.takeHeld();
+    this._heldHide();
+    this.focus();
   }
   _wsLost(kind){
     if(kind==='close') this._showOverlay(t('term.disconnected'),t('term.reconnecting'));
