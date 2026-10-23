@@ -121,7 +121,8 @@
 .dr-svg-meta{flex:0 0 auto;color:var(--text-hint);font-size:var(--fs-sm)}
 
 /* ── HTML (FR-DRV-15·22) ── */
-.dr-html-wrap{display:flex;flex-direction:column;height:100%;min-height:0;gap:6px}
+/* `.dr-body` 가 가로 flex 라 폭을 주지 않으면 iframe 기본 폭(300px)으로 줄어든다. */
+.dr-html-wrap{display:flex;flex-direction:column;flex:1 1 auto;min-width:0;height:100%;min-height:0;gap:6px}
 /* 스크립트가 돌지 않는다는 사실. 이 줄이 없으면 빈 화면이 우리 버그로 읽힌다. */
 .dr-html-note{
   flex:0 0 auto;padding:3px 8px;border:1px solid var(--border);border-radius:4px;
