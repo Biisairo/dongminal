@@ -67,7 +67,8 @@ function fileLinkProvider(term,cwdOf){
             const o={};
             if(cand.line) o.line=cand.line;
             if(cand.col) o.col=cand.col;
-            window.app.edOpenFile(abs,o);
+            // FR-FPL-7: 이 mouseup 이 document 에 닿기 전에 터미널을 떼면 release 보고가 NaN 좌표로 나간다.
+            TIMERS.defer(()=>window.app.edOpenFile(abs,o),{label:'file-link'});
           },
         }));
         cb(links.length?links:undefined);

@@ -152,6 +152,7 @@
 | FR-FPL-4 | 링크를 누르면 `app.edOpenFile(abs, {line, col})` 을 부른다. `line`·`col` 이 없으면 넘기지 않는다. `app.edOn()` 이 거짓이면 공급자는 링크를 만들지 않는다. | 필수 |
 | FR-FPL-5 | 줄 읽기는 `bareLinkProvider` 와 같이 칸 단위이고, 줄바꿈으로 갈린 경로는 잡지 않는다 (D-BDL-6). | 필수 |
 | FR-FPL-6 | 같은 글자가 파일 링크와 맨 도메인 둘 다의 후보이면 파일 링크만 선다 (D-13). | 필수 |
+| FR-FPL-7 | (개정 3) FR-FPL-4 의 `app.edOpenFile` 은 링크를 누른 **마우스 이벤트의 디스패치가 끝난 뒤**에 부른다. xterm 은 링크를 mouseup 처리 도중에 활성화하고, 같은 mouseup 이 `document` 에 닿아야 마우스 리포팅 앱에 release 보고가 나간다. 그 사이에 편집기가 같은 칸의 탭을 바꾸면 터미널 요소가 문서에서 떨어지고, xterm 은 그 요소로 좌표를 재어 `ESC[<0;NaN;NaNm` 을 보낸다 — 앱은 `ESC[<0;N` 까지만 시퀀스로 읽고 `aN;NaNm` 을 입력 줄에 남긴다. 마우스 리포팅 앱에서 링크를 누르면 press·release 보고가 둘 다 수치 좌표로 나간다. | 필수 |
 
 ### 3.3 끊긴 동안의 입력 (FR-HIN)
 
@@ -228,6 +229,7 @@
 | TC-FPL-2 | 확인: 상대 후보 + cwd → 한 요청의 절대 경로들. 답에 있는 것만 링크. cwd 가 비면 상대 후보는 묻지 않는다. 요청 실패면 링크 없음. 5초 기억 | 단위 |
 | TC-FPL-3 | e2e: cwd 에 `src/a.go` 가 있을 때 `echo src/a.go:2 nope/x.go:1 main.go` → `src/a.go:2` 만 링크이고, 누르면 편집기에 `a.go` 가 열리고 2행으로 간다 | e2e |
 | TC-FPL-4 | e2e: 그 cwd 에 `README.md` 가 있을 때 `README.md:1` 은 파일 링크 하나만 선다(맨 도메인 링크 없음) (FR-FPL-6) | e2e |
+| TC-FPL-5 | e2e: 마우스 리포팅(1002+1006)을 켠 앱의 화면에 있는 파일 링크를 실제 마우스로 누르면 편집기가 열리고, 나간 마우스 보고에 `NaN` 이 없으며 release(`…m`) 가 수치 좌표로 나간다 (FR-FPL-7) | e2e |
 | TC-HIN-1 | 단위: 한 번 열린 소켓이 닫힌 동안의 `send(사용자)` 는 보류함에 쌓이고 보내지지 않는다. 보고 응답·리사이즈는 보류함에 들지 않는다. 한 번도 열린 적 없는 여는 중 큐는 열리면 자동으로 보낸다 | 단위 |
 | TC-HIN-2 | 단위: 64KiB 경계 — 상한을 넘는 입력은 버려지고 넘침 표시가 선다. 앞부분은 그대로 | 단위 |
 | TC-HIN-3 | 단위: 미리보기 변환 — `ls\r` → `ls⏎`, `\x1b[A` → `^[[A`, `\x03` → `^C`, 200자 자르기 | 단위 |
@@ -289,3 +291,5 @@
 | 2026-10-01 | **개정 2** — 사용자 결정 D-20(텍스트 시트 철회, 터미널 위 OS 기본 선택으로 시험). FR-TCP-7·8 · TC-TCP-6 개정, A-1 무효. 근거: xterm 의 DOM 렌더러는 보이는 줄을 실제 글자로 그리지만 `.xterm{user-select:none}` 으로 막고 자기 선택(마우스 전용, 터치 없음)을 쓴다 — 줄만 다시 열면 OS 선택이 그 글자에 닿는다 |
 | 2026-10-01 | 개정 2 구현 — 실측: `style.css` 224~238 이 이미 `.xterm` 을 `user-select:text` 로 열어 두었다. 모바일에서 바로 선택이 안 되던 것은 CSS 가 아니라 **손짓을 가로채는 코드**였다 — Android 의 길게 누르기 `contextmenu` 에 터미널 메뉴가 서며 기본 동작을 막았고, 개정 1 은 길게 누르기를 시트로 가로챘다. 그래서 시트·길게 누르기 타이머를 걷고 `_wireNativeSelect`(터치 기기의 `contextmenu` 에서 터미널 메뉴만 세우지 않음 · OS 선택 복사의 `\xa0`→공백)를 둔다 |
 | 2026-10-01 | 실기기 확인 — 사용자가 터미널 위 기본 선택·터치 스크롤을 써 보고 "잘 된다" 로 판정. 상태 `승인·구현완료` |
+| 2026-10-28 | **개정 3** — 증상: Claude Code 입력 줄에 `aN;NaNm` 이 남는다. 격리 e2e 로 재현: 마우스 리포팅 앱 화면의 파일 링크를 누르면 `ESC[<0;NaN;NaNm` 이 나가고 터미널 요소의 `isConnected` 가 `false` 다. 원인은 링크 활성화(mouseup 처리 중)가 `edOpenFile` → render → `_hideOthers` 로 터미널을 동기로 떼어, 같은 mouseup 의 `document` 리스너가 떨어진 요소의 `getComputedStyle` 패딩(`""` → `NaN`)으로 좌표를 잰 것이다. FR-FPL-7 · TC-FPL-5 신설 |
+| 2026-10-28 | 개정 3 구현 — `ui/file-link.js` 의 `activate` 가 `app.edOpenFile` 을 `TIMERS.defer` 로 미룬다(`queueMicrotask` 는 리스너 사이에 돌아 `document` 리스너보다 앞설 수 있다). TC-FPL-3 은 여는 호출을 동기로 잡던 것을 poll 로 바꾼다. 검증: TC-FPL-5 는 구현 전 실패(`NaN` 보고) · 구현 후 통과, `file-path-link.spec.ts` 5회 반복 15/15 · `bare-link.spec.ts` 통과 · 단위 553 통과 · `make gates` · typecheck 통과 |
