@@ -47,7 +47,7 @@ Object.assign(App.prototype, {
   _edActiveDiff(){
     const p=this.gitPanel;
     const d=p&&p._diffView;
-    if(!d||!d._editor||!d.el) return null;
+    if(!d||!d._cm||!d.el) return null;
     return d.el.offsetParent!==null?d:null;
   },
 

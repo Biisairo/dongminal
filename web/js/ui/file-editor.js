@@ -1,95 +1,9 @@
 /**
  * Remote Terminal — file editor tab (CodeMirror 6)
  *
- * CODEMIRROR_MIGRATION_SRS 단계 A: 편집기 칸은 CodeMirror 다(M3). 아래의 `MONACO_*`·`monaco*`
- * 도우미는 아직 Monaco 로 서 있는 Git Diff 뷰가 쓴다 — M6 에서 함께 걷는다.
+ * CODEMIRROR_MIGRATION_SRS 단계 A: 편집기 칸은 CodeMirror 다(M3). 편집기 묶음은 바이너리 안에서 온다
+ * (`web/vendor/codemirror`, 묶음 V) — 외부 호스트에서 받지 않는다.
  */
-
-// 편집기는 **바이너리 안에서** 온다 (MONACO_VENDORING_SRS FR-MVN-3).
-//
-// 종전에는 `cdn.jsdelivr.net` 에서 SRI 없이 받았다 — 그 호스트가 주는 것이 무엇이든
-// 이 페이지에서 실행됐고, 이 페이지에는 셸과 파일 API 가 열려 있다. 그리고 인터넷이
-// 없으면 편집기·Diff·LSP 뷰가 통째로 서지 않았다.
-//
-// 담긴 파일은 `.gz` 이고 서버가 그대로 흘린다 — raw 23.3MB 가 5.4MB 로 들어간 이유다.
-const MONACO_BASE = '/vendor/monaco/vs';
-
-// Language map: file extension → Monaco language id
-const LANG_MAP = {
-  '.js': 'javascript', '.mjs': 'javascript', '.cjs': 'javascript',
-  '.ts': 'typescript', '.tsx': 'typescript',
-  '.jsx': 'javascript',
-  '.json': 'json', '.jsonc': 'json',
-  '.html': 'html', '.htm': 'html',
-  '.css': 'css', '.scss': 'scss', '.less': 'less',
-  '.md': 'markdown', '.mdown': 'markdown', '.markdown': 'markdown',
-  '.py': 'python', '.pyw': 'python',
-  '.go': 'go',
-  '.rs': 'rust',
-  '.java': 'java',
-  '.c': 'c', '.h': 'c',
-  '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp', '.hpp': 'cpp',
-  '.cs': 'csharp',
-  '.rb': 'ruby',
-  '.php': 'php',
-  '.swift': 'swift',
-  '.kt': 'kotlin', '.kts': 'kotlin',
-  '.scala': 'scala',
-  '.sh': 'shell', '.bash': 'shell', '.zsh': 'shell',
-  '.yaml': 'yaml', '.yml': 'yaml',
-  '.xml': 'xml', '.svg': 'xml',
-  '.sql': 'sql',
-  '.toml': 'ini',
-  '.ini': 'ini', '.cfg': 'ini', '.conf': 'ini',
-  '.dockerfile': 'dockerfile',
-  '.makefile': 'makefile', '.mk': 'makefile',
-  '.bat': 'bat', '.cmd': 'bat',
-  '.ps1': 'powershell',
-  '.lua': 'lua',
-  '.r': 'r',
-  '.pl': 'perl', '.pm': 'perl',
-  '.vim': 'viml',
-};
-
-// Monaco 테마 이름. CSS 변수에서 파생하므로 테마가 바뀌면 이 이름의 정의가
-// 갱신된다 — 에디터와 diff 뷰가 같은 이름을 쓰므로 함께 따라온다.
-const MONACO_THEME = 'dongminal';
-const MONACO_THEME_FALLBACK = 'vs-dark';
-
-// diff 의 추가·삭제 색은 **현재 테마의 터미널 팔레트**(green·red)에서 파생한다 —
-// 색을 하드코딩하지 않는다 (FR-GIT-119, V47). 여기 두는 것은 색이 아니라 배경과
-// 섞는 비율이다: 줄 배경은 옅게, 낱말 배경은 그 위에서 구분되도록 진하게.
-const MONACO_DIFF_LINE_MIX = 0.2;
-const MONACO_DIFF_TEXT_MIX = 0.36;
-
-// 진행 중인 로드 Promise. 대기 중인 호출자들이 이것을 공유한다.
-let monacoLoading = null;
-
-/**
- * Monaco 는 CDN 로드다. 한 번만 로드하고 대기 중인 호출자들이 같은 Promise 를
- * 공유한다. 실패는 캐시하지 않는다 — 네트워크가 돌아오면 다시 시도할 수 있어야
- * 한다.
- */
-function loadMonaco() {
-  if (typeof monaco !== 'undefined') return Promise.resolve();
-  if (monacoLoading) return monacoLoading;
-  monacoLoading = new Promise((resolve, reject) => {
-    const boot = () => {
-      require.config({ paths: { vs: MONACO_BASE } });
-      require(['vs/editor/editor.main'], () => resolve(), (err) => reject(err));
-    };
-    // loader.js 는 이미 붙어 있을 수 있다 — 앞선 시도가 모듈 단계에서 실패한
-    // 경우다. 그때 script 를 다시 붙이면 loader 가 중복 정의된다.
-    if (typeof require !== 'undefined' && require.config) { boot(); return }
-    const script = document.createElement('script');
-    script.src = MONACO_BASE + '/loader.js';
-    script.onload = boot;
-    script.onerror = () => reject(new Error('Failed to load Monaco loader'));
-    document.head.appendChild(script);
-  });
-  monacoLoading.catch(() => { monacoLoading = null });
-  return monacoLoading;
-}
 
 // CODEMIRROR_MIGRATION_SRS 묶음 V. 출력은 `scripts/build-codemirror.mjs` 가 만든다.
 const CM_ENTRY = '/vendor/codemirror/cm.js';
@@ -101,7 +15,7 @@ let cmAttempt = 0;
 
 /**
  * FR-CMR-6: 진입 모듈을 전역 `CM` 하나로 세운다. 대기 중인 호출자는 같은 Promise 를
- * 공유하고, 실패는 기억하지 않는다 (`loadMonaco` 와 같은 규약).
+ * 공유하고, 실패는 기억하지 않는다 — 네트워크가 돌아오면 다시 시도할 수 있어야 한다.
  */
 function loadCodeMirror() {
   if (window.CM) return Promise.resolve();
@@ -111,121 +25,6 @@ function loadCodeMirror() {
   cmLoading = import(url).then((m) => { window.CM = m });
   cmLoading.catch(() => { cmLoading = null });
   return cmLoading;
-}
-
-// 테마는 CSS 변수에서 파생한다. 테마를 바꾸면 diff 색도 따라 바뀐다.
-function monacoTheme() {
-  if (typeof monaco === 'undefined') return MONACO_THEME_FALLBACK;
-  try {
-    const style = getComputedStyle(document.documentElement);
-    const bg = style.getPropertyValue('--bg').trim();
-    const fg = style.getPropertyValue('--text').trim();
-    const accent = style.getPropertyValue('--accent').trim();
-    // M9_SRS FR-M9-9: 현재 일치를 다른 색으로 찍는 데 쓴다. 없으면 전경색이다 —
-    // 없는 색을 발명하지 않는다 (아래 add·del 과 같은 규약).
-    const bright = style.getPropertyValue('--text-bright').trim() || fg;
-    if (!bg || !fg) return MONACO_THEME_FALLBACK;
-
-    const [br, gr, bb] = monacoRGB(bg);
-    const lum = (0.299 * br + 0.587 * gr + 0.114 * bb) / 255;
-
-    // 팔레트를 얻지 못하면 전경색으로 물러선다 — 없는 색을 발명하지 않는다.
-    const term = (typeof getCurrentTheme === 'function' && (getCurrentTheme() || {}).terminal) || {};
-    const add = term.green || fg;
-    const del = term.red || fg;
-
-    monaco.editor.defineTheme(MONACO_THEME, {
-      base: lum < 0.5 ? 'vs-dark' : 'vs',
-      inherit: true,
-      rules: [],
-      colors: {
-        'editor.background': bg,
-        'editor.foreground': fg,
-        'editorCursor.foreground': accent || fg,
-        'editor.lineHighlightBackground': monacoMix(fg, bg, 0.08),
-        'editor.selectionBackground': monacoMix(fg, bg, 0.15),
-        'editorLineNumber.foreground': monacoMix(fg, bg, 0.4),
-        'editorLineNumber.activeForeground': fg,
-        // diffEditor.* 를 매핑하지 않으면 Monaco 의 기본 초록·빨강이 그대로 남아
-        // 테마를 바꿔도 diff 색만 따라오지 않는다 (FR-GIT-119).
-        'diffEditor.insertedLineBackground': monacoMix(add, bg, MONACO_DIFF_LINE_MIX),
-        'diffEditor.removedLineBackground': monacoMix(del, bg, MONACO_DIFF_LINE_MIX),
-        'diffEditor.insertedTextBackground': monacoMix(add, bg, MONACO_DIFF_TEXT_MIX),
-        'diffEditor.removedTextBackground': monacoMix(del, bg, MONACO_DIFF_TEXT_MIX),
-        'diffEditorGutter.insertedLineBackground': monacoMix(add, bg, MONACO_DIFF_LINE_MIX),
-        'diffEditorGutter.removedLineBackground': monacoMix(del, bg, MONACO_DIFF_LINE_MIX),
-        'diffEditorOverview.insertedForeground': add,
-        'diffEditorOverview.removedForeground': del,
-        /**
-         * M9_SRS FR-M9-9: **찾기 일치의 색은 여기서 온다.**
-         *
-         * 접수 — "파일에서 글자 검색 시 결과 위치가 미니맵과 스크롤에 보이면 좋겠다".
-         * 장식은 `file-editor-find.js` 의 `_findPaint` 가 붙이고 색은 이 매핑이 준다.
-         * 거기서 색을 다시 정하면 테마를 바꿔도 이 표식만 따라오지 않는다
-         * (`diffEditor.*` 가 그랬던 자리, FR-GIT-119).
-         *
-         * 현재 일치가 다른 키를 쓰는 이유는 본문의 두 겹과 같다 (FR-EFP-14) —
-         * 둘이 같은 색이면 이전/다음이 무엇을 옮겼는지 눈금에서 보이지 않는다.
-         */
-        'editorOverviewRuler.findMatchForeground': accent || fg,
-        'editorOverviewRuler.rangeHighlightForeground': bright,
-        'minimap.findMatchHighlight': accent || fg,
-        'minimap.selectionHighlight': bright,
-      },
-    });
-    return MONACO_THEME;
-  } catch (e) {
-    console.error('[Monaco] defineTheme error:', e);
-    return MONACO_THEME_FALLBACK;
-  }
-}
-
-// 파일 경로 → Monaco 언어 id. 확장자를 모르면 plaintext 다.
-function monacoLang(path) {
-  return LANG_MAP[monacoExt(path)] || 'plaintext';
-}
-
-function monacoRGB(color) {
-  if (!color) return [0, 0, 0];
-  if (color.startsWith('#')) {
-    const h = color.replace('#', '');
-    return [
-      parseInt(h.substring(0, 2), 16),
-      parseInt(h.substring(2, 4), 16),
-      parseInt(h.substring(4, 6), 16),
-    ];
-  }
-  const m = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-  if (m) return [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])];
-  return [0, 0, 0];
-}
-
-function monacoMix(c1, c2, ratio) {
-  const [r1, g1, b1] = monacoRGB(c1);
-  const [r2, g2, b2] = monacoRGB(c2);
-  return '#' + [r1, g1, b1].map((v, i) =>
-    Math.round(v * ratio + [r2, g2, b2][i] * (1 - ratio)).toString(16).padStart(2, '0')
-  ).join('');
-}
-
-function monacoExt(path) {
-  const base = pathBase(path);
-  const dot = base.lastIndexOf('.');
-  if (dot >= 0) {
-    const ext = base.substring(dot).toLowerCase();
-    if (LANG_MAP[ext]) return ext;
-  }
-  if (dot >= 0) {
-    const prev = base.lastIndexOf('.', dot - 1);
-    if (prev >= 0) {
-      const doubleExt = base.substring(prev).toLowerCase();
-      if (LANG_MAP[doubleExt]) return doubleExt;
-    }
-  }
-  const lower = base.toLowerCase();
-  if (lower === 'dockerfile') return '.dockerfile';
-  if (lower === 'makefile' || lower === 'gnumakefile') return '.makefile';
-  return '';
 }
 
 class FileEditor {

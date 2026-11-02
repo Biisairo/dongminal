@@ -12,19 +12,13 @@
  *   새  동작: 파일 하나에 문서 하나(FR-SVS-50 의 확장)
  *   이유:     N4·X2, #2·#4
  *
- * 문서 뷰는 GitDiffView 자신이 아니라 **대상마다의 작은 객체**(`_docViewOf`)다 —
- * 레지스트리는 뷰의 `_editor` 를 편집기로 알고 `setModel(model)` 을 부르는데, diff
- * 에디터는 모델 둘을 받는다. 그래서 `_editor` 대신 `gazeEditor`·`onDocMoved` 를 준다.
+ * 문서 뷰는 GitDiffView 자신이 아니라 **대상마다의 작은 객체**(`_docViewOf`)다 — 레지스트리가
+ * 부르는 자리(라벨·경로 이동·읽기 전용·경합 확인·저장 실패)만 갖는다. 내용은 수정본 편집기가 그 문서
+ * 버퍼의 칸으로 붙어 나눈다 (CODEMIRROR_MIGRATION_SRS FR-CMR-54).
  */
 Object.assign(GitDiffView.prototype, {
-  // 편집 가능한 축의 절대경로. 그 밖 축은 '' — 양쪽 모두 자체 모델(읽기 전용)이다.
-  //
-  // CODEMIRROR_MIGRATION_SRS §7.1: 문서는 이제 CodeMirror 버퍼(`EdBuffer`)이고 이 뷰는 아직
-  // Monaco 다. 둘이 한 문서를 나눌 수 없으므로 M6(Diff 뷰 이전)까지 공유하지 않는다 —
-  // 모든 축이 읽기 전용 비교다. 공유한 채로 두면 이 뷰의 편집이 버퍼에 닿지 않아 저장에서
-  // 사라진다.
+  // 편집 가능한 축의 절대경로. 그 밖 축은 '' — 양쪽 모두 자체 문서(읽기 전용)다.
   _shareAbs(target){
-    if(!GIT_DIFF_SHARES_DOC) return '';
     const axis=(target&&target.axis)||'';
     if(!GIT_AXIS_EDITABLE.has(axis)||!window.app||!window.app.edDoc) return '';
     return this._absPath(target);
@@ -42,11 +36,11 @@ Object.assign(GitDiffView.prototype, {
       dv=this._docViewOf(abs);
       window.app.edDoc(abs).views.add(dv);
     }
-    const model=await window.app.edDocLoad(abs).catch(e=>{
+    const buf=await window.app.edDocLoad(abs).catch(e=>{
       console.error('[GitDiffView] doc load failed:',e); return null;
     });
     if(this._stale(seq,token)){this._docLeaveIfIdle(dv);return false}
-    if(!model){this._docLeaveIfIdle(dv);return null}
+    if(!buf){this._docLeaveIfIdle(dv);return null}
     return dv;
   },
 
@@ -60,7 +54,7 @@ Object.assign(GitDiffView.prototype, {
     if(dv) window.app.edDocDrop(dv.filePath,dv);
   },
 
-  // 새 모델을 붙인 뒤에 부른다 — 앞 문서의 마지막 뷰였으면 그 모델이 여기서 버려진다.
+  // 새 칸을 붙인 뒤에 부른다 — 앞 문서의 마지막 뷰였으면 그 버퍼가 여기서 버려진다.
   _docSwitch(dv){
     if(this._dv===dv) return;
     this._docLeave();
@@ -73,9 +67,9 @@ Object.assign(GitDiffView.prototype, {
     return d&&d.views.has(dv)?d:null;
   },
 
-  _docModelOf(dv){
+  _docBufOf(dv){
     const d=dv&&window.app.edDocAt(dv.filePath);
-    return (d&&d.views.has(dv)&&d.model)||null;
+    return (d&&d.views.has(dv)&&d.buf)||null;
   },
 
   _docEncOf(dv){
@@ -93,16 +87,10 @@ Object.assign(GitDiffView.prototype, {
     const me=this;
     const dv={
       filePath:abs,
-      // 03 의 시선 보존(`_edDocGazes`)이 refresh 뒤 커서·스크롤을 되돌리는 자리.
-      get gazeEditor(){return me._dv===dv&&me._editor?me._editor.getModifiedEditor():null},
       // 문서의 dirty 가 바뀌었다 — 누가 쳤든(편집기 탭이어도) 이 뷰의 라벨이 따라온다.
       _updateTabLabel(){ if(me._dv===dv&&me.onDirty) me.onDirty(me.dirty) },
-      // 03 `edDocMove`: 새 URI 의 새 모델이다 — diff 모델을 다시 짠다 (§3A-3 경로 이동).
-      onDocMoved(np,model){
-        if(me._dv!==dv) return;
-        me._editTarget=np;
-        if(me._editor&&me._orig&&model){me._mod=model; me._editor.setModel({original:me._orig,modified:model})}
-      },
+      // 03 `edDocMove`: 버퍼는 그대로이고 경로만 옮겨 간다 (§3A-3 경로 이동).
+      onDocMoved(np){ if(me._dv===dv) me._editTarget=np },
       onDocReadOnly(ro){ if(me._dv===dv) me._bindEdit() },
       _confirmConflict(){ return window.app.edConfirmConflict(pathBase(dv.filePath),dv.filePath) },
       _noteUnmappable(u,d){ me._docUnmappable(u,d) },
@@ -120,7 +108,8 @@ Object.assign(GitDiffView.prototype, {
     this._editable=!!d;
     this._editTarget=d?this._dv.filePath:'';
     const undecodable=!!(d&&d.decodable===false);
-    if(this._editor) this._editor.updateOptions({readOnly:!d||undecodable,originalEditable:false});
+    const c=this._cm;
+    if(c) c.b.dispatch({effects:c.cmpB.ro.reconfigure(CM.EditorState.readOnly.of(!d||undecodable))});
     if(undecodable) this._setNote(FILE_UNDECODABLE_NOTE);
   },
 
@@ -149,8 +138,11 @@ Object.assign(GitDiffView.prototype, {
   // 03 §3A-2: 문서 인코딩으로 쓸 수 없는 글자가 있다 — 그 자리로 옮기고 변환 저장을 권한다.
   _docUnmappable(u,d){
     const line=Number(u.line)||1,col=Number(u.col)||1;
-    const ed=this._editor&&this._editor.getModifiedEditor();
-    if(ed){ed.setPosition({lineNumber:line,column:col});ed.revealPositionInCenter({lineNumber:line,column:col})}
+    const c=this._cm;
+    if(c){
+      const pos=edCmPos(c.b.state.doc,line,col);
+      c.b.dispatch({selection:{anchor:pos},effects:CM.EditorView.scrollIntoView(pos,{y:'center'})});
+    }
     const enc=d&&d.encoding?(ENC_LABEL[d.encoding]||d.encoding):'';
     const path=this._dv?this._dv.filePath:'';
     this._setNote(t('editor.enc_unmappable',{line,col,char:u.char||'',enc}),null,

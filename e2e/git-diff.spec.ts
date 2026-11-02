@@ -55,8 +55,8 @@ const noteLines = (page: Page) =>
 
 // diff 의 추가·삭제 줄 배경. 색을 테스트가 발명하지 않으려면 **읽어서 비교**해야
 // 한다 — 기대값을 적으면 하드코딩 금지(FR-GIT-119)를 테스트가 어긴다.
-const bgOf = (page: Page, cls: string) =>
-  diffEditor(page).locator('.' + cls).first()
+const bgOf = (page: Page, sel: string) =>
+  diffEditor(page).locator(sel).first()
     .evaluate((el) => getComputedStyle(el).backgroundColor);
 
 test.describe('묶음 F — Diff 뷰', () => {
@@ -415,10 +415,11 @@ test.describe('묶음 F — Diff 뷰', () => {
     await row(page, 'working', 'tracked.txt').click();
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
 
-    const ins = () => bgOf(page, 'line-insert');
-    const del = () => bgOf(page, 'line-delete');
-    await expect.poll(ins, { timeout: 20000 }).toMatch(/^rgb/);
-    await expect.poll(del, { timeout: 20000 }).toMatch(/^rgb/);
+    const ins = () => bgOf(page, ED_SEL.diffInsLine);
+    const del = () => bgOf(page, ED_SEL.diffDelLine);
+    // 색은 테마 변수를 섞어 만든다 — 계산값은 `rgb(…)` 또는 `color(srgb …)` 다.
+    await expect.poll(ins, { timeout: 20000 }).toMatch(/^(rgb|color\()/);
+    await expect.poll(del, { timeout: 20000 }).toMatch(/^(rgb|color\()/);
     const ins0 = await ins();
     const del0 = await del();
     expect(ins0, '추가와 삭제가 같은 색이다').not.toBe(del0);

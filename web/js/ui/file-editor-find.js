@@ -7,9 +7,8 @@
  *
  * 편집 엔진의 기본 찾기 위젯을 쓰지 않는다 (FR-EFP-25 가 FR-EKB-3 을 개정했다).
  * 패널이 편집기에 닿는 자리(선택 글자·일치 계산·칠하기·바꾸기·이동·포커스)는 **엔진**
- * 하나로 모았다 (`_findEngine`). CodeMirror 편집기는 `edFindEngineCm`(cm-find.js), 아직
- * Monaco 로 서 있는 Git Diff 뷰는 `edFindEngineMonaco` 를 받는다 — 후자는
- * CODEMIRROR_MIGRATION_SRS M6 에서 걷는다.
+ * 하나로 모았다 (`_findEngine` → `edFindEngineCm`, cm-find.js). 기본 찾기 키는 편집기에 처음부터
+ * 넣지 않는다 (CODEMIRROR_MIGRATION_SRS FR-CMR-17·30).
  *
  * `file-editor.js` 뒤에 실려야 한다 — 얹을 prototype 이 그때 있다.
  *
@@ -19,41 +18,14 @@
  * 동일하게 기능해야 한다"). 그래서 본문을 `FileEditor.prototype` 에 **직접**
  * 얹지 않고 이름 있는 덩이로 두고, 그 덩이를 얹는다.
  *
- * 이 덩이가 기대하는 것은 둘뿐이다 — `el`(패널이 살 자리)과 편집기(`_view` 는
- * CodeMirror, `_editor` 는 Monaco). 나머지 `_find*` 는 자기 상태다. 그래서 그 둘을 든
+ * 이 덩이가 기대하는 것은 둘뿐이다 — `el`(패널이 살 자리)과 편집기(`_view`). 나머지 `_find*` 는
+ * 자기 상태다. 그래서 그 둘을 든
  * 그릇이면 무엇이든 이 패널을 세울 수 있다 (`git/diff-view.js` 의 `_findHostFor`).
  */
 const ED_FIND_MIXIN = {
-  /**
-   * FR-EFP-4: Monaco 의 find 위젯을 **여는 모든 키를 닫는다** — Monaco 편집기(Git Diff 뷰)에만
-   * 해당한다. CodeMirror 편집기에는 기본 찾기 키를 처음부터 넣지 않는다 (FR-CMR-17·30).
-   *
-   * **인스턴스별로 건다** (`monaco.editor.addKeybindingRules` 가 아니다) — 전역 규칙은
-   * 다른 편집기의 위젯까지 죽인다 (SRS §2.12 / D-5b).
-   */
-  _findKillMonacoKeys() {
-    if (!this._editor || typeof monaco === 'undefined') return;
-    const M = monaco.KeyMod, K = monaco.KeyCode;
-    const noop = () => {};
-    const kill = [
-      M.CtrlCmd | K.KeyF,               // 찾기
-      M.CtrlCmd | K.KeyH,               // 바꾸기 (Windows·Linux)
-      M.CtrlCmd | M.Alt | K.KeyF,       // 바꾸기 (macOS)
-      M.CtrlCmd | K.KeyE,               // 선택으로 찾기 (macOS)
-      M.CtrlCmd | K.F3,                 // 선택으로 찾기 (Windows·Linux)
-      K.F3,                             // 다음 일치
-      M.Shift | K.F3,                   // 이전 일치
-      M.CtrlCmd | K.KeyG,               // 다음 일치 (macOS)
-      M.CtrlCmd | M.Shift | K.KeyG,     // 이전 일치 (macOS)
-    ];
-    for (const kb of kill) this._editor.addCommand(kb, noop);
-  },
-
   // 이 그릇의 편집기에 닿는 엔진. 편집기가 아직 없으면 null.
   _findEngine() {
-    if (this._view) return edFindEngineCm(this._view);
-    if (this._editor) return edFindEngineMonaco(this._editor, this);
-    return null;
+    return this._view ? edFindEngineCm(this._view) : null;
   },
 
   _findVis() { return !!(this._find && this._find.classList.contains('vis')) },
@@ -420,62 +392,10 @@ function edFindReOk(src) {
   try { new RegExp(src); return true } catch { return false }
 }
 
-/**
- * Git Diff 뷰(아직 Monaco)의 찾기 엔진. 일치는 `{range, caps}` 다 — 계약은 `edFindEngineCm` 과
- * 같다. CODEMIRROR_MIGRATION_SRS M6 에서 Diff 뷰가 CodeMirror 로 옮겨 가면 함께 걷는다.
- */
-// 데코레이션 컬렉션은 그릇(`host._findDecos`)이 든다 — 엔진은 부를 때마다 새로 서므로
-// 엔진에 두면 앞의 강조가 지워지지 않는다.
-function edFindEngineMonaco(ed, host) {
-  return {
-    selText() {
-      const sel = ed.getSelection();
-      if (!sel || sel.isEmpty() || sel.startLineNumber !== sel.endLineNumber) return null;
-      return ed.getModel().getValueInRange(sel);
-    },
-    hits(query, o) {
-      const found = ed.getModel().findMatches(query, false, !!o.regex, !!o.case,
-        o.word ? ED_FIND_WORD_SEPARATORS : null, !!o.regex, ED_FIND_MAX_HITS);
-      return found.map((m) => (o.regex ? { range: m.range, caps: m.matches } : { range: m.range }));
-    },
-    paint(hits, cur) {
-      if (!host._findDecos) host._findDecos = ed.createDecorationsCollection([]);
-      host._findDecos.set(hits.map((h, i) => {
-        const isCur = i === cur;
-        return {
-          range: h.range,
-          options: {
-            className: isCur ? ED_FIND_HIT_CLASS + ' ' + ED_FIND_HIT_CUR_CLASS : ED_FIND_HIT_CLASS,
-            overviewRuler: {
-              color: { id: isCur ? ED_FIND_RULER_COLOR_CUR : ED_FIND_RULER_COLOR },
-              position: monaco.editor.OverviewRulerLane.Right,
-            },
-            minimap: {
-              color: { id: isCur ? ED_FIND_MINIMAP_COLOR_CUR : ED_FIND_MINIMAP_COLOR },
-              position: monaco.editor.MinimapPosition.Inline,
-            },
-          },
-        };
-      }));
-    },
-    replace(edits) {
-      ed.executeEdits(ED_FIND_EDIT_SOURCE, edits.map((e) => ({ range: e.hit.range, text: e.text, forceMoveMarkers: true })));
-    },
-    reveal: (h) => ed.revealRangeInCenterIfOutsideViewport(h.range),
-    focus: () => ed.focus(),
-  };
-}
-
 Object.assign(FileEditor.prototype, ED_FIND_MIXIN);
 
-// 테마 전환 훅 (theme-vars.js applyThemeObj). 이름이 같은 테마를 다시 정의하고
-// setTheme 을 부르면 살아 있는 에디터와 diff 뷰가 함께 따라온다 (FR-GIT-49).
+// 테마 전환 훅 (theme-vars.js applyThemeObj). 편집기와 diff 의 색은 CSS 변수라 스스로 따라온다 (FR-GIT-49) —
+// canvas 에 그리는 것(변경 표시의 ruler·미니맵)만 다시 칠한다 (EDITOR_DIRTY_DIFF_SRS FR-EDD-23b).
 FileEditor.applyTheme = function() {
-  // EDITOR_DIRTY_DIFF_SRS FR-EDD-23b: 변경 표시의 색도 CSS 변수에서 왔으므로
-  // 여기서 함께 다시 칠한다. 두 번째 테마 훅을 만들지 않는다. CodeMirror 칸은 Monaco 가 없어도 칠한다.
   if (window.app && window.app.edDirtyDiffRepaint) window.app.edDirtyDiffRepaint();
-  if (typeof monaco === 'undefined') return;
-  const name = monacoTheme();
-  if (name !== MONACO_THEME) return;
-  monaco.editor.setTheme(name);
 };

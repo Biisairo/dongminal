@@ -307,8 +307,8 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
     await expect.poll(() => modOpt(page, 'wordWrap')).toBe('off');
   });
 
-  // V-UXB-12 · FR-UXB-42
-  test('미니맵은 기본이 끔이고, 켜면 수정 쪽 하나만 뜬다', async ({ page }) => {
+  // V-UXB-12 · FR-UXB-42 — CODEMIRROR_MIGRATION_SRS FR-CMR-56 개정 (§3.16): Diff 에는 미니맵이 없고, 켜는 설정도 없다.
+  test('diff 에는 미니맵이 없고 켜는 스위치도 없다', async ({ page }) => {
     const repo = copyFx('basic', 'mini');
     writeFileSync(join(repo, 'm.txt'), 'a\n'); git(repo, 'add', 'm.txt'); git(repo, 'commit', '-m', 'm');
     writeFileSync(join(repo, 'm.txt'), 'b\n');
@@ -317,18 +317,11 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
     await openGit(page, repo);
     await openDiff(page, 'm.txt');
 
-    const widths = () => page.evaluate(() => {
-      const d = (window as any).app.gitPanel._diffView;
-      return { orig: edT.minimapWidth(edT.diffSide(d, 'orig')), mod: edT.minimapWidth(edT.diffSide(d, 'mod')) };
-    });
-    expect(await widths()).toEqual({ orig: 0, mod: 0 });
-
-    await setSwitch(page, 'ds-diffminimap', true);
-    await expect.poll(async () => (await widths()).mod).toBeGreaterThan(0);
-    expect((await widths()).orig, '원본 쪽에도 미니맵이 떴다').toBe(0);
-
-    await setSwitch(page, 'ds-diffminimap', false);
-    await expect.poll(async () => (await widths()).mod).toBe(0);
+    const width = await page.evaluate(() => edT.minimapWidth(edT.diffSide((window as any).app.gitPanel._diffView, 'mod')));
+    expect(width).toBe(0);
+    await openPanel(page, 'code');
+    await expect(page.locator('#ds-diffminimap')).toHaveCount(0);
+    await closePanel(page);
   });
 
   /**

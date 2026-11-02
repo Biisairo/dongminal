@@ -84,6 +84,24 @@
    서서, 칸이 둘일 때 남의 칸 위에 뜬다 — 편집기 탭에서 `.file-editor` 가 이미
    같은 일을 한다 (EDITOR_FIND_PANEL_SRS §2.8). */
 .git-diff-host{flex:1 1 auto;min-height:0;position:relative}
+/* CodeMirror 의 Diff (CODEMIRROR_MIGRATION_SRS §11.4). 본문 칸과 그 **밖**의 ruler(FR-CMR-57·FR-DOR-1)가 나란히
+   선다. 나란히 보기의 스크롤 그릇은 `.cm-mergeView`, 인라인은 편집기 자신의 `.cm-scroller` 다. */
+.git-diff-cm{position:absolute;inset:0;display:flex}
+.git-diff-pane{flex:1 1 auto;min-width:0;position:relative}
+.git-diff-pane>.cm-mergeView,.git-diff-pane>.cm-editor{position:absolute;inset:0}
+.git-diff-pane>.cm-mergeView{overflow:auto}
+.git-diff-ruler{flex:0 0 auto;width:14px;border-left:1px solid var(--border)}
+/* FR-GIT-119: 추가·삭제 색은 테마 팔레트의 초록·빨강(`--diff-add`·`--diff-del`, theme-vars.js)에서 온다 — 테마를 바꾸면 따라온다. 섞는 비율은 줄 20% ·
+   글자 36% (Monaco 시절의 MONACO_DIFF_LINE_MIX·TEXT_MIX). 엔진의 기본 색을 이기도록 그릇부터 적는다. */
+.git-diff-cm .git-diff-pane .git-diff-side-mod .cm-changedLine{background:color-mix(in srgb,var(--diff-add) 20%,var(--bg))}
+.git-diff-cm .git-diff-pane .git-diff-side-orig .cm-changedLine,
+.git-diff-cm .git-diff-pane .cm-deletedChunk{background:color-mix(in srgb,var(--diff-del) 20%,var(--bg))}
+.git-diff-cm .git-diff-pane .git-diff-side-mod .cm-changedText{background:color-mix(in srgb,var(--diff-add) 36%,var(--bg))}
+.git-diff-cm .git-diff-pane .git-diff-side-orig .cm-changedText,
+.git-diff-cm .git-diff-pane .cm-deletedChunk .cm-deletedText{background:color-mix(in srgb,var(--diff-del) 36%,var(--bg))}
+.git-diff-cm .git-diff-pane .git-diff-side-mod .cm-changedLineGutter{background:var(--diff-add)}
+.git-diff-cm .git-diff-pane .git-diff-side-orig .cm-changedLineGutter,
+.git-diff-cm .git-diff-pane .cm-deletedLineGutter{background:var(--diff-del)}
 
 /* ── 그림 diff (M9_SRS FR-M9-20 · D-M9-12) ──
    두 판을 나란히 두는 것이 기본이고, `겹쳐` 는 같은 자리에 포개 반투명으로
@@ -737,10 +755,8 @@ select:focus-visible{outline:1px solid var(--focus-ring);outline-offset:1px}
    `.git-hunk-line`·`.git-hunk-header`·`.git-hunk-range`·`.git-hunk-spacer`·
    `.git-hunk-clear`·`.git-hunk-note`. */
 
-/* hover 툴바 (FR-DHB-10~17). Monaco 가 자리를 잡아 주므로 여기서 정하는 것은
-   생김새뿐이다. 버튼의 치수 하한은 `.git-view button` 이 이미 준다 (FR-GIT-226) —
-   그런데 이 위젯은 Monaco 의 오버플로 컨테이너로 나갈 수 있어(allowEditorOverflow)
-   그 조상 밖에 설 수 있으므로, 최소 높이를 자기 자리에서 한 번 더 세운다. */
+/* 커서 툴바 (FR-DHB-10~17). 편집기의 tooltip 이 자리를 잡아 주므로 여기서 정하는 것은
+   생김새뿐이다 (CODEMIRROR_MIGRATION_SRS FR-CMR-55). */
 .git-hunk-bar{
   display:flex;align-items:center;gap:4px;
   padding:2px 4px;

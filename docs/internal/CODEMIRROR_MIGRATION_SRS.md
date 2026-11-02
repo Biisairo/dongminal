@@ -1,7 +1,7 @@
 # SRS: 편집기 엔진 교체 — Monaco 에서 CodeMirror 6 으로 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: M6~M9 (단계 A) · M10~ (단계 B). M1~M5 완료.
+> **남은 것**: M6 마무리(e2e 전체 확인·§7.2 갱신) · M7~M9 (단계 A) · M10~ (단계 B). M1~M5 완료, M6 진행 중.
 
 - 근거: 사용자 인터뷰(2026-11-02) · PoC(`/tmp/cm-poc`, §2.6).
 - 대체 문서: `MONACO_VENDORING_SRS.md` 의 묶음 V 는 이 문서의 묶음 V 가 대체한다.
@@ -294,8 +294,8 @@ Diff 의 추가·삭제 색은 지금처럼 터미널 팔레트에서 파생한�
 **FR-CMR-55** hunk 조작 막대는 `showTooltip` 으로 hunk 의 첫 줄 위에, 자리가 없으면 아래에 띄운다.
 hunk 좌표는 `getChunks()` 에서 얻는다.
 
-**FR-CMR-56** 수정본 쪽에는 일반 편집기와 같은 LSP·찾기·미니맵 확장을 붙인다 (UX_BATCH10_SRS 묶음 D).
-Diff 에는 지금처럼 미니맵이 없다 (D-M9-5).
+**FR-CMR-56** 수정본 쪽에는 일반 편집기와 같은 LSP·찾기 확장을 붙인다 (UX_BATCH10_SRS 묶음 D).
+Diff 에는 미니맵이 없다 (D-M9-5). `diffMinimap` 설정(UX_BATCH10_SRS FR-UXB-42)은 걷는다 (동작 변경 §3.16, 2026-11-02 사용자 결정).
 
 **FR-CMR-57** Diff 전체의 변경 위치를 overview ruler 에 찍는다 (FR-DOR-1).
 
@@ -454,6 +454,8 @@ B 착수 전에 §8 의 미해결 질문을 해소한다.
 | Diff 공백 무시 | Monaco `ignoreTrimWhitespace` | 줄 단위 정규화 비교 | 같은 결과를 목표로 한다. 줄 안의 강조 범위는 다를 수 있다 |
 | `.tsx`·`.jsx` 강조 | Monaco `typescript`·`javascript` | TSX·JSX | language-data 에 전용 문법이 있다 — 태그가 강조된다 (M3) |
 | 파일 이동·이름 변경 뒤 실행 취소 | 새 경로의 새 모델이라 사라졌다 | 남는다 | 경로로 찾는 모델 등록소가 없다 — 버퍼는 그대로이고 레지스트리 키만 옮긴다 (M3) |
+| Diff 의 미니맵 | `diffMinimap` 설정(기본 끔)을 켜면 수정본 쪽에 미니맵 | 없음 — 설정도 걷는다 | 사용자 결정 (M6). MergeView 는 두 쪽이 한 스크롤 그릇을 나눠 써서 한쪽 미니맵이 따로 서지 않는다. FR-CMR-56·D-M9-5 와 맞춘다 |
+| Diff 폭 전환 뒤 실행 취소 | 나란히 보기 ↔ 인라인 전환에도 수정본 모델의 기록이 남았다 | 전환하면 그 Diff 칸의 기록이 끊긴다 (내용·dirty 는 문서에 남는다) | 두 보기가 서로 다른 편집기(MergeView 와 unifiedMergeView 편집기)다. 기록은 칸의 것이다(FR-CMR-22) (M6) |
 | 비동기 적용 토큰 | 모델 판(alternativeVersionId)이 같으면 유효 — 고쳤다 되돌리면 유효 | 버퍼 판 번호가 같아야 유효 — 고쳤다 되돌려도 무효 | 판 번호는 실행 취소에도 오른다. 덮어쓸 위험 쪽으로 기울지 않는다 (M3) |
 
 ### 3.17 비기능 요구 (NFR)
@@ -668,6 +670,17 @@ e2e 의 브라우저는 Windows 로 보인다(`navigator.platform` = `Win32`). C
 ruler·미니맵 표식이 "있는가" 를 e2e 가 재는 길: ruler 는 그린 항목 목록, 미니맵은 포크가 마지막으로 그린 표식 목록이다.
 표식의 색 값은 묻지 않는다 (FR-EDD-23 이 값을 박지 않는다).
 
+### 11.4 M6 — Git Diff 뷰
+
+| 모듈 | 책임 | 비고 |
+|---|---|---|
+| `web/js/git/diff-cm.js` | 순수: `gitDiffIgnoreWs(a, b)` — 줄마다 앞뒤 공백을 걷은 줄 diff(`edDiffLines`)를 원문 offset 의 `Change` 로 (FR-CMR-53) · `gitDiffRulerItems(chunks, side)` — 조각을 ruler 항목으로. CodeMirror: hunk 툴바 tooltip 필드 · 커서 관측 | 상한(`ED_DD_MAX_LINES`)을 넘으면 기본 `diff` 로 돌아간다 |
+| `GitDiffView` (`diff-view.js`) | 폭이 `renderSideBySideInlineBreakpoint`(900px) 이상이면 `MergeView`, 미만이면 `unifiedMergeView` 편집기 하나(FR-CMR-50·51). 폭이 문턱을 넘으면 다시 세우고 위쪽 줄을 지킨다. 원본 쪽은 늘 읽기 전용(FR-CMR-54). 변경 없는 구간 접기는 `collapseUnchanged`(FR-CMR-52). 오른쪽 밖에 Diff 전체의 ruler(`.git-diff-ruler`, FR-CMR-57) | 핸들: `_cm = {kind:'split'\|'unified', a?, b, scroller}`. `_orig`·`_mod` 는 쪽의 표지다 (`lspPathOf`) |
+| `diff-view-doc.js` | 편집 가능한 축이면 수정본 편집기가 그 문서 버퍼의 칸이다 (`updateListener` → `EdBuffer.fromSink`, FR-CMR-54) — `GIT_DIFF_SHARES_DOC=true` 로 되돌린다 | 편집기 칸과 같은 실행 취소 규약(칸마다 따로) |
+| `diff-view-parity.js` | 설정 반영(줄바꿈·글자 크기 Compartment) · 찾기 패널은 포커스 쪽 편집기의 `edFindEngineCm` · `lspPathOf` | 미니맵 갈래를 걷는다 |
+| `panel-hunks.js` | 툴바는 수정본 편집기의 tooltip 이고 자리는 커서 줄이다(FR-CMR-55). 편집기에 닿는 자리는 `GitDiffView` 가 넘기는 커서 관측(`{sel, onCursor, onFocus, onBlur, place, unplace}`) 하나다 | hunk **좌표**는 지금처럼 서버의 `hunks` 다 — 패치는 서버가 만든다(D6). `getChunks()` 는 그리기에만 쓴다 |
+| `e2e/editor.ts` | Diff 갈래 — `diffSide` 는 `{_view}` 핸들, `counts()` 는 살아 있는 Diff 편집기·Diff 뷰 수 | |
+
 ## 10. 변경 기록
 
 | 날짜 | 내용 |
@@ -675,5 +688,6 @@ ruler·미니맵 표식이 "있는가" 를 e2e 가 재는 길: ruler 는 그린 
 | 2026-11-02 | 초안 — 인터뷰 결정·PoC 결과 반영 |
 | 2026-11-02 | FR-CMR-1·4·60 개정, FR-CMR-1a·5a 추가 — 묶음 입력이 `web/vendor` 에 있으면 바이너리와 정적 서빙에 실린다 (M1 착수 중 발견) |
 | 2026-11-02 | FR-CMR-121 개정 — 앱에 훅을 새로 두지 않고 어댑터가 엔진 핸들을 읽는다. 엔진을 바꿀 때 고칠 자리를 어댑터 하나로 둔다 (M2 착수 중 결정) |
+| 2026-11-02 | FR-CMR-56 개정 — Diff 미니맵과 `diffMinimap` 설정을 걷는다 (M6 착수 중 사용자 결정) |
 | 2026-11-02 | FR-CMR-74 추가 — 세로 스크롤바를 직접 그린다 (M5 착수 중 사용자 결정) |
 | 2026-11-02 | FR-CMR-23 을 M8 로 옮겼다 — 사용자 정의 `Workspace` 는 `lsp-client` 에 붙는다. M4 완료: §11.2 (M4 착수 중 결정) |

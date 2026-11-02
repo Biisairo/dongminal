@@ -45,7 +45,6 @@ var editorMinimap=true;
 // UX_BATCH10_SRS FR-UXB-42: **diff 의 미니맵.** 기본은 끔 — M9_SRS D-M9-5 가
 // 좁은 칸의 폭을 지키려 아예 끈 자리이고, 이 설정은 그 결정을 폐기하는 것이
 // 아니라 기본값으로 강등한다 (D-UXB-7). 켜도 뜨는 것은 **수정 쪽 하나**다.
-var diffMinimap=false;
 // UX_REVISION_SRS FR-KEY-6 철회 (D-K2): **`blockBrowserKeys` 가 없어졌다.**
 // 차단은 늘 돈다 — 기본값이 이미 켬이었고, 끄는 유일한 근거였던 *"입력란에서
 // 편집 키가 막힌다"* 는 면제표의 결함이었다 (FR-KEY-8 이 닫았다).

@@ -9,9 +9,11 @@
  */
 // DiffEditor 옵션. ignoreTrimWhitespace 는 Monaco 기본값(true)을 뒤집는다 —
 // git 은 공백 변경을 변경으로 취급하기 때문이다 (FR-GIT-50).
-// CODEMIRROR_MIGRATION_SRS §7.1: Diff 뷰가 편집기 문서를 나눠 쓰는가. 문서는 CodeMirror 버퍼이고
-// Diff 뷰는 아직 Monaco 라 M6 까지 거짓이다 — M6 에서 이 상수와 그 분기를 함께 걷는다.
-const GIT_DIFF_SHARES_DOC=false;
+// CODEMIRROR_MIGRATION_SRS FR-CMR-57: Diff ruler 의 두 칸 색 — 지운 것(왼쪽)·더한 것(오른쪽).
+const GIT_DIFF_RULER_DEL='--diff-del';
+const GIT_DIFF_RULER_ADD='--diff-add';
+// FR-CMR-52: 변경 없는 구간을 접을 때 남기는 줄 수와 접는 최소 줄 수 (Monaco hideUnchangedRegions 의 기본과 같다).
+const GIT_DIFF_COLLAPSE={margin:3,minSize:4};
 
 const GIT_DIFF_OPTIONS={
   renderSideBySide:true,
@@ -62,8 +64,7 @@ const GIT_DIFF_OPTIONS={
    */
   overviewRulerLanes:0,
 };
-// FR-DOR-6: 눈금의 색은 `monacoTheme()` 의 diffEditorOverview.* 매핑에서 온다.
-// 그 매핑은 이미 있다 — 여기서 색을 다시 정하면 두 자리가 갈린다.
+// FR-DOR-6: 눈금의 색은 `GIT_DIFF_RULER_ADD`·`_DEL` 이 가리키는 테마 변수다 (`--diff-add`·`--diff-del`).
 // Changes 탭의 미리보기는 좁다. 접기와 inline 전환을 더 이르게 건다.
 const GIT_PREVIEW_INLINE_BREAKPOINT=560;
 

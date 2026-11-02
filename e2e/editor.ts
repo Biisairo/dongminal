@@ -33,14 +33,17 @@
  * 엔진의 DOM 이름. Node 쪽(locator)과 페이지 쪽(`edT.sel`)이 **이 한 벌**을 쓴다.
  */
 export const ED_SEL = {
-  /** 편집기 하나의 바깥 요소. 편집기 칸은 CodeMirror, Git Diff 뷰는 M6 까지 Monaco 다. */
+  /** 편집기 하나의 바깥 요소. */
   surface: ':is(.cm-editor, .monaco-editor)',
   /** Diff 편집기 하나의 바깥 요소. */
-  diffSurface: '.monaco-diff-editor',
+  diffSurface: ':is(.git-diff-cm, .monaco-diff-editor)',
   /** Diff 의 수정본 쪽 편집기. */
-  diffModified: '.monaco-diff-editor .editor.modified',
+  diffModified: ':is(.git-diff-side-mod, .monaco-diff-editor .editor.modified)',
   /** Diff 전체의 overview ruler. */
-  diffRuler: '.diffOverviewRuler',
+  diffRuler: ':is(.git-diff-ruler, .diffOverviewRuler)',
+  /** Diff 의 더한 줄·지운 줄. */
+  diffInsLine: ':is(.git-diff-side-mod .cm-changedLine, .line-insert)',
+  diffDelLine: ':is(.git-diff-side-orig .cm-changedLine, .cm-deletedChunk, .line-delete)',
   /** 글자가 그려지는 영역 — 눌러서 포커스를 주는 자리. */
   text: ':is(.cm-content, .view-lines)',
   /** 키 입력을 받는 요소. */
@@ -66,7 +69,7 @@ export const ED_SEL = {
 } as const;
 
 /** 엔진 자산의 요청 경로 (로드 실패를 흉내 낼 때 막는다). */
-export const ED_VENDOR_ROUTE = '**/vendor/monaco/**';
+export const ED_VENDOR_ROUTE = '**/vendor/{monaco,codemirror}/**';
 
 // ── 페이지 안 어댑터 ───────────────────────────────────────────────────────
 
@@ -148,13 +151,15 @@ export function installEdAdapter(sel: typeof ED_SEL) {
     // 핸들
     of: (v: any) => (v && v._view ? v : null),
     has: (v: any) => !!(v && v._view),
+    // 인라인 보기에는 원본 편집기가 없다 — 그때 'orig' 는 null 이다.
     diffSide: (dv: any, side: 'orig' | 'mod') => {
-      const d = dv && dv._editor;
-      if (!d) return null;
-      return side === 'orig' ? d.getOriginalEditor() : d.getModifiedEditor();
+      const c = dv && dv._cm;
+      if (!c) return null;
+      const v = side === 'orig' ? c.a : c.b;
+      return v ? { _view: v } : null;
     },
     /** Diff 뷰에 편집기가 섰는가. */
-    diffReady: (dv: any) => !!(dv && dv._editor),
+    diffReady: (dv: any) => !!(dv && dv._cm),
     /** 핸들의 바깥 DOM 요소. */
     dom: (h: any) => (cm(h) ? V(h).dom : h.getDomNode()),
     /** 이 페이지의 첫 편집기 칸. */
@@ -318,33 +323,40 @@ export function installEdAdapter(sel: typeof ED_SEL) {
     /** 경로의 문서가 아직 살아 있는가. */
     docAlive: (path: string) => { const d = w.app.testing.edDocs.get(path); return !!(d && d.buf) },
 
-    // Diff 뷰 (`gitPanel._diffView` 등) — M6 까지 Monaco
-    diffText: (dv: any, side: 'orig' | 'mod') => (side === 'orig' ? dv._orig : dv._mod).getValue(),
-    diffSetText: (dv: any, s: string) => dv._mod.setValue(s),
-    /** Diff 의 수정본 끝에 덧붙이는 편집 (편집기를 거치지 않는다). */
+    // Diff 뷰 (`gitPanel._diffView` 등)
+    diffText: (dv: any, side: 'orig' | 'mod') => (side === 'orig'
+      ? (dv._cm.a ? dv._cm.a.state.doc.toString() : CMg().getOriginalDoc(dv._cm.b.state).toString())
+      : dv._cm.b.state.doc.toString()),
+    /** 수정본 내용을 통째로 바꾸는 편집 — 문서를 나누면 그 문서도 바뀐다. */
+    diffSetText: (dv: any, s: string) => {
+      const b = dv._cm.b;
+      b.dispatch({ changes: { from: 0, to: b.state.doc.length, insert: s } });
+    },
+    /** Diff 의 수정본 끝에 덧붙이는 편집 (사용자 입력 표식 없이). */
     diffAppend: (dv: any, s: string) => {
-      const m = dv._mod;
-      const end = m.getFullModelRange().getEndPosition();
-      m.applyEdits([{ range: { startLineNumber: end.lineNumber, startColumn: end.column, endLineNumber: end.lineNumber, endColumn: end.column }, text: s }]);
+      const b = dv._cm.b;
+      b.dispatch({ changes: { from: b.state.doc.length, insert: s } });
     },
     /** Diff 의 수정본이 그 문서 레지스트리 항목과 같은 문서인가. */
-    diffSharesDoc: (dv: any, d: any) => !!d.buf && dv._mod === d.buf,
-    diffHasMod: (dv: any) => !!(dv && dv._mod),
-    diffHasOrig: (dv: any) => !!(dv && dv._orig),
+    diffSharesDoc: (dv: any, d: any) => !!d.buf && dv._buf === d.buf,
+    diffHasMod: (dv: any) => !!(dv && dv._cm),
+    diffHasOrig: (dv: any) => !!(dv && dv._cm),
     /** Diff 의 두 쪽이 LSP 에 어느 파일로 보이는가 (`lspPathOf`). */
     diffLspPaths: (dv: any) => ({ mod: dv.lspPathOf(dv._mod), orig: dv.lspPathOf(dv._orig) }),
     /** hunk 툴바가 지금 붙어 있는 줄 (`gitPanel`). 없으면 -1. */
-    hunkBarLine: (gp: any) => gp._hunkBarPos?.position?.lineNumber ?? -1,
+    hunkBarLine: (gp: any) => gp._hunkBarPos?.line ?? -1,
     diffChangeCount: (dv: any) => {
-      const ch = dv && dv._editor ? dv._editor.getLineChanges() : null;
+      const ch = dv && dv.chunks ? dv.chunks() : null;
       return ch ? ch.length : -1;
     },
 
-    // 집계 — 누수 판정 (Diff 뷰의 Monaco 인스턴스·모델)
+    // 집계 — 누수 판정. diffs 는 편집기를 든 Diff 뷰, docs 는 그 편집기 수다.
     counts: () => {
-      const m = M();
-      if (!m) return { editors: 0, diffs: 0, docs: 0 };
-      return { editors: m.editor.getEditors().length, diffs: m.editor.getDiffEditors().length, docs: m.editor.getModels().length };
+      // `GitDiffView` 는 클래식 스크립트의 class 라 `window` 의 속성이 아니다 — 전역 이름으로 읽는다.
+      const G = (0, eval)('typeof GitDiffView === "undefined" ? null : GitDiffView');
+      const live = [...(G ? G.live : [])] as any[];
+      const editors = live.reduce((n, v) => n + (v._cm ? (v._cm.a ? 2 : 1) : 0), 0);
+      return { editors, diffs: live.length, docs: editors };
     },
 
     /** 앱 밖에 엔진 편집기를 하나 세운다 — 앱의 설정이 다른 편집기로 새지 않는지 볼 때. */
@@ -359,15 +371,9 @@ export function installEdAdapter(sel: typeof ED_SEL) {
     },
     /** 앱 밖에 Diff 편집기를 세우고, 그 DOM 이 섰는지 답한 뒤 거둔다. */
     probeDiff: (host: HTMLElement, a: string, b: string) => {
-      const m = M();
-      const e = m.editor.createDiffEditor(host, { automaticLayout: false });
-      const original = m.editor.createModel(a, 'plaintext');
-      const modified = m.editor.createModel(b, 'plaintext');
-      e.setModel({ original, modified });
-      const mounted = !!host.querySelector(sel.diffSurface);
-      e.dispose();
-      original.dispose();
-      modified.dispose();
+      const mv = new (CMg().MergeView)({ a: { doc: a }, b: { doc: b }, parent: host });
+      const mounted = !!host.querySelector('.cm-mergeView');
+      mv.destroy();
       return mounted;
     },
   };

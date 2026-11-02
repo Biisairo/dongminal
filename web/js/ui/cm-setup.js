@@ -85,7 +85,9 @@ function edCmLineCol(doc, pos) {
 /**
  * 편집기 하나의 확장과 그 Compartment 들.
  *
- * @param {{readOnly?: boolean, wordWrap?: boolean, fontSize?: number, minimap?: boolean}} o
+ * `diff` 이면 Git Diff 뷰의 한쪽이다 — 변경 막대·직접 그린 스크롤바·미니맵이 없다 (FR-CMR-56, Diff 에는 자기 ruler 가 있다).
+ *
+ * @param {{readOnly?: boolean, wordWrap?: boolean, fontSize?: number, minimap?: boolean, diff?: boolean}} o
  * @returns {{extensions: any[], cmp: {wrap: any, font: any, ro: any, lang: any, minimap: any}}}
  */
 function edCmExtensions(o) {
@@ -93,7 +95,7 @@ function edCmExtensions(o) {
   const extensions = [
     CM.lineNumbers(),
     // EDITOR_DIRTY_DIFF_SRS: 변경 막대는 줄 번호 바로 뒤다 (Monaco 의 linesDecorations 자리).
-    typeof edDdExtensions === 'function' ? edDdExtensions() : [],
+    !o.diff && typeof edDdExtensions === 'function' ? edDdExtensions() : [],
     CM.highlightActiveLineGutter(),
     CM.foldGutter(),
     CM.drawSelection(),
@@ -117,7 +119,7 @@ function edCmExtensions(o) {
     edCmSelectionWhitespace(),
     edFindMarks().field,
     edFindSources(),
-    edCmScrollbar(),
+    o.diff ? [] : edCmScrollbar(),
     edCmBracketColors(),
     CM.keymap.of([
       ...CM.closeBracketsKeymap, ...CM.defaultKeymap, ...CM.historyKeymap,
@@ -128,7 +130,7 @@ function edCmExtensions(o) {
     cmp.font.of(edCmFontTheme(o.fontSize)),
     cmp.ro.of(CM.EditorState.readOnly.of(!!o.readOnly)),
     cmp.lang.of([]),
-    cmp.minimap.of(edCmMinimap(!!o.minimap)),
+    cmp.minimap.of(edCmMinimap(!o.diff && !!o.minimap)),
   ];
   return { extensions, cmp };
 }

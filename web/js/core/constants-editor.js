@@ -113,16 +113,6 @@ const ED_FIND_HIT_CUR_CLASS='fe-find-hit-cur';
 // FR-EFP-20: 단어 단위의 경계. Monaco 의 기본 구분자와 같은 값이며, 켜지 않았을
 // 때는 `null` 을 넘겨 경계를 보지 않게 한다.
 const ED_FIND_WORD_SEPARATORS='`~!@#$%^&*()-=+[{]}\\|;:\'",.<>/?';
-/**
- * M9_SRS FR-M9-9: 찾기 일치가 **개요 눈금과 미니맵**에 찍힐 때 쓰는 테마 색 키.
- *
- * 값이 색이 아니라 **키**인 이유는 `monacoTheme()` 이 색의 주인이기 때문이다 —
- * 테마를 바꾸면 이 표식도 함께 바뀐다.
- */
-const ED_FIND_RULER_COLOR='editorOverviewRuler.findMatchForeground';
-const ED_FIND_RULER_COLOR_CUR='editorOverviewRuler.rangeHighlightForeground';
-const ED_FIND_MINIMAP_COLOR='minimap.findMatchHighlight';
-const ED_FIND_MINIMAP_COLOR_CUR='minimap.selectionHighlight';
 // 한 문서에서 셀 일치의 상한. 넘으면 Monaco 가 거기서 끊는다 — 수십만 건을 세는
 // 동안 화면이 멎는 것보다 낫다.
 const ED_FIND_MAX_HITS=20000;

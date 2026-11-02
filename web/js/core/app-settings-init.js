@@ -322,20 +322,6 @@ Object.assign(App.prototype, {
   },
 
   /**
-   * UX_BATCH10_SRS FR-UXB-42·43: diff 미니맵 스위치. 편집기 미니맵과 **같은
-   * 모양**이다 (FR-MMT-1·4).
-   */
-  _initDiffMinimap(){
-    const cb=document.getElementById('ds-diffminimap');
-    if(!cb) return;
-    cb.addEventListener('change',()=>{
-      diffMinimap=cb.checked;
-      this._diffApplyOptions();
-      this.saveSettings();
-    });
-  },
-
-  /**
    * FR-UXB-40·41·42: **열려 있는 diff 전부**에 지금 값을 얹는다.
    *
    * 편집기 쪽이 셋(`_edApplyWordWrap`·`_edApplyMinimap`·`_edApplyFontSize`)인

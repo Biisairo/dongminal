@@ -1017,8 +1017,6 @@ I18N.register('en', {
   'html.word_wrap_hint': 'Wraps long lines to the editor width. When off, lines stay single and scroll horizontally (default). Applies immediately to editors that are already open. The diff view puts two sides next to each other and does not follow this setting.',
   'html.minimap': 'Editor minimap',
   'html.minimap_hint': 'Shows the document preview on the right of the editor (on by default). Turning it off gives that width back to the text. Applies immediately to editors that are already open.',
-  'html.diff_minimap': 'Diff minimap',
-  'html.diff_minimap_hint': 'Shows the document preview in the diff view too (off by default). Only the modified side gets one, on the right edge — a narrow pane cannot give that width away twice. Applies immediately to diffs that are already open.',
 
   // ── keys ──
   'keys.group_ed_edit': 'Editor editing',
