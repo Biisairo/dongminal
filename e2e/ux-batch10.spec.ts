@@ -407,6 +407,34 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
     await page.keyboard.press('Escape');
     await expect(panel).toBeHidden({ timeout: 5000 });
   });
+
+  // FR-UXB-49 — 원본 쪽은 읽기 전용이지만 찾기는 된다. 포커스가 원본에 있으면 원본을 찾는다.
+  test('나란히 보기에서 원본 쪽에 포커스가 있으면 찾기가 원본을 찾고, 원본은 고쳐지지 않는다', async ({ page }) => {
+    const repo = copyFx('basic', 'find-orig');
+    writeFileSync(join(repo, 'f.txt'), 'alpha one\noldword two\n');
+    git(repo, 'add', 'f.txt'); git(repo, 'commit', '-m', 'f');
+    writeFileSync(join(repo, 'f.txt'), 'alpha one\nnew two\n');
+
+    await waitForInit(page);
+    await openGit(page, repo);
+    await openDiff(page, 'f.txt');
+    await expect(diffView(page).locator(ED_SEL.diffSurface)).toHaveClass(/side-by-side/);
+
+    const orig = diffView(page).locator(`.git-diff-side-orig ${ED_SEL.text}`);
+    await orig.click();
+    await page.keyboard.type('x');
+    await page.keyboard.press('Control+f');
+
+    const panel = diffView(page).locator('.fe-find.vis');
+    await expect(panel).toBeVisible({ timeout: 5000 });
+    await panel.locator('.fe-find-q').fill('oldword');
+    await expect(panel.locator('.fe-find-count')).toContainText('1', { timeout: 5000 });
+    expect(await page.evaluate(() =>
+      edT.text(edT.diffSide((window as any).app.gitPanel._diffView, 'orig'))), '원본이 고쳐졌다').toBe('alpha one\noldword two\n');
+
+    await page.keyboard.press('Escape');
+    await expect(panel).toBeHidden({ timeout: 5000 });
+  });
 });
 
 // 묶음 X 는 **맨 뒤다.** `enterExplorer` 가 등록하는 편집기 루트는 서버에 남고,

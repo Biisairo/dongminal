@@ -28,11 +28,11 @@ function makeRepo(base: string) {
   git(d, 'config', 'user.name', 'Fixture');
   git(d, 'config', 'user.email', 'fixture@example.invalid');
   git(d, 'config', 'commit.gpgsign', 'false');
-  for (const n of ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt', 'f.txt', 'g.txt']) fs.writeFileSync(j(d, n), 'one\n');
+  for (const n of ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt', 'f.txt', 'g.txt', 'h.txt']) fs.writeFileSync(j(d, n), 'one\n');
   fs.writeFileSync(j(d, 'k.txt'), Buffer.concat([HANGUL_CP949, NL]));
   git(d, 'add', '-A');
   git(d, 'commit', '-qm', 'init');
-  for (const n of ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt', 'f.txt', 'g.txt']) fs.appendFileSync(j(d, n), 'two\n');
+  for (const n of ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt', 'f.txt', 'g.txt', 'h.txt']) fs.appendFileSync(j(d, n), 'two\n');
   fs.appendFileSync(j(d, 'k.txt'), Buffer.concat([HANGUL_CP949, NL]));
   return realPath(d);
 }
@@ -213,5 +213,30 @@ test.describe('F-2 — Diff 뷰는 편집기 문서를 공유한다', () => {
     page.on('request', (r) => { if (r.url().includes('/api/git/patch')) patches.push(r.url()) });
     await page.evaluate(() => (window as any).app.gitPanel._hunkAct('stage'));
     expect(patches.length).toBe(0);
+  });
+
+  // CODEMIRROR_MIGRATION_SRS FR-CMR-54 — 수정본 쪽은 contenteditable 이다. 위 검사들은 편집기에
+  // 바로 dispatch 한다. 이 검사는 실제 키 입력이 문서에 닿고 편집기 탭에 보이고 저장되는지 잰다.
+  test('S8 (FR-CMR-54): Diff 수정본 쪽에 키보드로 친 글자가 편집기 탭에 보이고 저장된다', async ({ page, request }) => {
+    await enter(page, request);
+    const abs = j(REPO, 'h.txt');
+    await openDiff(page, 'h.txt');
+    await page.evaluate((f: string) => (window as any).app.testing.edOpenFile(f), abs);
+    await page.waitForFunction((p: string) => {
+      const d = (window as any).app.testing.edDocs?.get(p);
+      return !!d && d.views.size >= 2 && edT.docHasModel(d);
+    }, abs, { timeout: 20000 });
+
+    await diffTab(page).click();
+    await modified(page).locator(ED_SEL.text).click();
+    await page.keyboard.press('Control+End');
+    await page.keyboard.type('typed');
+    await expect.poll(async () => (await docOf(page, abs))?.value, { timeout: 10000 }).toBe('one\ntwo\ntyped');
+    const edTab = page.locator('#area .ed-area .pn-tab', { hasText: 'h.txt' }).and(page.locator(':not([data-git-view])'));
+    await expect(edTab.first()).toContainText('●', { timeout: 10000 });
+
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+s' : 'Control+s');
+    await expect.poll(() => fs.readFileSync(abs, 'utf8'), { timeout: 10000 }).toBe('one\ntwo\ntyped');
+    await expect(edTab.first()).not.toContainText('●', { timeout: 10000 });
   });
 });

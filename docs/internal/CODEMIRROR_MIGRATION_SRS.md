@@ -1,7 +1,7 @@
 # SRS: 편집기 엔진 교체 — Monaco 에서 CodeMirror 6 으로 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: M6 마무리(e2e 전체 확인·§7.2 갱신) · M7~M9 (단계 A) · M10~ (단계 B). M1~M5 완료, M6 진행 중.
+> **남은 것**: M7~M9 (단계 A) · M10~ (단계 B). M1~M6 완료.
 
 - 근거: 사용자 인터뷰(2026-11-02) · PoC(`/tmp/cm-poc`, §2.6).
 - 대체 문서: `MONACO_VENDORING_SRS.md` 의 묶음 V 는 이 문서의 묶음 V 가 대체한다.
@@ -586,12 +586,13 @@ M2 를 엔진 교체보다 먼저 두는 이유: 테스트를 옮기는 일과 �
 측정: M3 마무리 작업 트리, 편집기 관련 e2e 42개 파일 — 534건 중 통과 485 · 실패 49 (2026-11-02). 표에 없는 실패는 없다.
 M4 에서 `editor-multi-slot` 3건을 더했다 — 모두 통과(반복 3회). M4 는 앱 코드를 바꾸지 않았으므로 표는 그대로다.
 M5 측정: 43개 파일(`editor-multi-slot` 포함) — 537건 중 통과 502 · 실패 35, 모두 아래 표의 M6·M8·M9 몫이다 (2026-11-02). `editor-scrollbar` 2건은 따로 통과(반복 3회).
+M6 측정: 44개 파일(`codemirror-load` 포함) — 539건 중 통과 517 · 실패 22, 모두 아래 표의 M8·M9 몫이다 (2026-11-02). Diff 문서 공유 줄의 검사(`git-diff-doc` S1~S7 · `repo-diff-edit` D1·D3·E1·E2 · `git-subroot` F-3.1 두 건)와 `monaco-offline` TC-MVN-16 이 통과해 그 줄을 지웠다.
+그 뒤 `git-diff-doc` S8(Diff 수정본 쪽 실제 키 입력)·`ux-batch10` "원본 쪽에 포커스가 있으면 찾기가 원본을 찾는다"(FR-UXB-49)를 더했다 — 모두 통과(반복 3회).
 
 | 스펙 · 테스트 | 실패 이유 | 닫는 마일스톤 |
 |---|---|---|
-| `git-diff-doc` S1~S7 · `repo-diff-edit` D1·D3·E1·E2 · `git-subroot` F-3.1 | Diff 뷰의 문서 공유를 껐다 (`GIT_DIFF_SHARES_DOC=false`) | M6 |
 | `editor-lsp-nav` 18건 · `slot-view-state` E-9.1 · `repo-tab` M4 · `ux-batch10` 호버 | LSP 연결이 아직 Monaco 편집기에 서 있다 (제안 띠 포함) | M8 |
-| `editor-find-panel` "다른 Monaco 는 자기 위젯을 갖는다" · `monaco-offline` TC-MVN-16 | Monaco 고유 동작을 재는 검사다 — 편집기 칸에 Monaco 가 없다 | M6/M9 에서 폐기 또는 대체 |
+| `editor-find-panel` "다른 Monaco 는 자기 위젯을 갖는다" | Monaco 고유 동작을 재는 검사다 — 편집기 칸에 Monaco 가 없다 (`edT.probe`) | M9 에서 폐기 또는 대체 |
 
 ---
 
@@ -680,6 +681,7 @@ ruler·미니맵 표식이 "있는가" 를 e2e 가 재는 길: ruler 는 그린 
 | `diff-view-parity.js` | 설정 반영(줄바꿈·글자 크기 Compartment) · 찾기 패널은 포커스 쪽 편집기의 `edFindEngineCm` · `lspPathOf` | 미니맵 갈래를 걷는다 |
 | `panel-hunks.js` | 툴바는 수정본 편집기의 tooltip 이고 자리는 커서 줄이다(FR-CMR-55). 편집기에 닿는 자리는 `GitDiffView` 가 넘기는 커서 관측(`{sel, onCursor, onFocus, onBlur, place, unplace}`) 하나다 | hunk **좌표**는 지금처럼 서버의 `hunks` 다 — 패치는 서버가 만든다(D6). `getChunks()` 는 그리기에만 쓴다 |
 | `e2e/editor.ts` | Diff 갈래 — `diffSide` 는 `{_view}` 핸들, `counts()` 는 살아 있는 Diff 편집기·Diff 뷰 수 | |
+| e2e 추가 | `git-diff-doc` S8 — 수정본 쪽에 키보드로 친 글자가 편집기 탭의 문서에 닿고 `Mod+S` 로 저장된다 (FR-CMR-54) · `ux-batch10` — 나란히 보기에서 원본 쪽에 포커스가 있으면 찾기 패널이 원본을 찾고 원본은 고쳐지지 않는다 (FR-UXB-49) | 앞의 검사들은 편집기에 바로 dispatch 해 contenteditable 의 키 경로를 지나지 않았다 |
 
 ## 10. 변경 기록
 
@@ -691,3 +693,4 @@ ruler·미니맵 표식이 "있는가" 를 e2e 가 재는 길: ruler 는 그린 
 | 2026-11-02 | FR-CMR-56 개정 — Diff 미니맵과 `diffMinimap` 설정을 걷는다 (M6 착수 중 사용자 결정) |
 | 2026-11-02 | FR-CMR-74 추가 — 세로 스크롤바를 직접 그린다 (M5 착수 중 사용자 결정) |
 | 2026-11-02 | FR-CMR-23 을 M8 로 옮겼다 — 사용자 정의 `Workspace` 는 `lsp-client` 에 붙는다. M4 완료: §11.2 (M4 착수 중 결정) |
+| 2026-11-02 | M6 완료 — §7.2 에서 Diff 문서 공유 줄과 TC-MVN-16 을 지웠다. e2e 2건 추가 (§11.4) |
