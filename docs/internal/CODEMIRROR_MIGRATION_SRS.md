@@ -1,7 +1,7 @@
 # SRS: 편집기 엔진 교체 — Monaco 에서 CodeMirror 6 으로 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: M8·M9 (단계 A) · M10~ (단계 B). M1~M7 완료.
+> **남은 것**: M9 (단계 A) · M10~ (단계 B). M1~M8 완료.
 
 - 근거: 사용자 인터뷰(2026-11-02) · PoC(`/tmp/cm-poc`, §2.6).
 - 대체 문서: `MONACO_VENDORING_SRS.md` 의 묶음 V 는 이 문서의 묶음 V 가 대체한다.
@@ -436,7 +436,9 @@ Monaco 도 스크롤바를 직접 그렸다)
 monaco 전용이 아니므로 유지한다.
 
 **FR-CMR-132** 완료 시점에 `git grep -i monaco` 결과는 다음 자리에만 남는다: `CHANGELOG.md`,
-`docs/internal/archive/`, 이 문서, `MONACO_VENDORING_SRS.md`(대체 표시).
+`docs/internal/archive/`, 이 문서, 이 작업의 인계 문서(`CODEMIRROR_MIGRATION_HANDOFF.md`).
+글꼴 차례의 `'Monaco'`(macOS 글꼴)도 예외가 아니다 — 뺀다. 끝난 문서는 `archive/` 로 옮기고,
+아직 유효한 문서만 본문을 고친다(§11.7). `scripts/check-no-monaco.sh` 가 검사한다 (M9 착수 중 사용자 결정).
 
 **FR-CMR-133** `check-font-family.mjs` · `check-vendor.sh` · `eslint.config.mjs` · `playwright.config.ts` 의
 Monaco 언급을 CodeMirror 에 맞춘다.
@@ -484,6 +486,9 @@ B 착수 전에 §8 의 미해결 질문을 해소한다.
 | Diff 의 미니맵 | `diffMinimap` 설정(기본 끔)을 켜면 수정본 쪽에 미니맵 | 없음 — 설정도 걷는다 | 사용자 결정 (M6). MergeView 는 두 쪽이 한 스크롤 그릇을 나눠 써서 한쪽 미니맵이 따로 서지 않는다. FR-CMR-56·D-M9-5 와 맞춘다 |
 | Diff 폭 전환 뒤 실행 취소 | 나란히 보기 ↔ 인라인 전환에도 수정본 모델의 기록이 남았다 | 전환하면 그 Diff 칸의 기록이 끊긴다 (내용·dirty 는 문서에 남는다) | 두 보기가 서로 다른 편집기(MergeView 와 unifiedMergeView 편집기)다. 기록은 칸의 것이다(FR-CMR-22) (M6) |
 | Diff 의 sticky scroll | 두 쪽 편집기에 Monaco 기본 sticky scroll | 없음 | 사용자 결정 (M7). MergeView 의 두 편집기는 스스로 스크롤하지 않는다(바깥 그릇이 스크롤한다). 편집기 칸만 FR-CMR-80 을 따른다 |
+| 고정폭 글꼴 차례 | `'Menlo','Monaco','Consolas',…` | `'Menlo','Consolas',…` | 사용자 결정 (M9) — FR-CMR-132 에 예외를 두지 않는다. macOS 는 10.6 부터 Menlo 를 싣는다. Menlo 가 없는 macOS 에서만 다음 글꼴로 넘어간다 |
+| e2e: 찾기 위젯 무력화의 범위 | `editor-find-panel` 이 따로 세운 Monaco 의 기본 find 위젯이 살아 있는지 잰다 | Git Diff 뷰에서 `Ctrl+F` 를 누르면 앱 찾기 패널이 그 Diff 의 편집기를 찾고, 엔진 기본 찾기 패널(`.cm-search`)은 어느 편집기에도 뜨지 않는다 | 사용자 결정 (M9) — CodeMirror 설정에는 막을 기본 위젯이 없다(`searchKeymap` 을 넣지 않는다). 지켜야 할 것은 "모든 편집 표면이 앱 패널 하나를 쓴다" 이다 |
+| e2e: Diff 옵션 상수 검사 (V-DOR-1/2 · V-MMP-2b) | Monaco 옵션 덩이 `GIT_DIFF_OPTIONS` 의 값을 읽는다 | 화면을 잰다 — Diff 의 ruler 가 서 있고, 접기 토글은 꺼져 있고, Diff 에 미니맵이 없다 | M9 — 옵션 덩이는 Monaco 의 것이다. 앱이 읽는 값은 폭 문턱 하나뿐이라 그것만 `GIT_DIFF_INLINE_BREAKPOINT` 로 남긴다 |
 | 비동기 적용 토큰 | 모델 판(alternativeVersionId)이 같으면 유효 — 고쳤다 되돌리면 유효 | 버퍼 판 번호가 같아야 유효 — 고쳤다 되돌려도 무효 | 판 번호는 실행 취소에도 오른다. 덮어쓸 위험 쪽으로 기울지 않는다 (M3) |
 
 ### 3.17 비기능 요구 (NFR)
@@ -873,6 +878,41 @@ REST 처리기가 사라지면 REST 세션을 만드는 자리가 없어진다. 
 - 상한: 통로만 센다 — 상한 수만큼 열면 다음 통로가 `ErrLimit`, 하나를 닫으면 다시 열린다.
 - 게이트·e2e 46개 파일 전부. 호출처가 남지 않았는지는 컴파일(Go)·eslint `no-undef`·`check-*` 로 본다.
 
+### 11.7 M9 — Monaco 제거 (X)
+
+착수 중 결정 (2026-11-03, 사용자 · 사용자가 위임한 것은 권장 답):
+
+| # | 결정 | 반영 |
+|---|---|---|
+| 1 | FR-CMR-132 에 글꼴 예외를 두지 않는다. 끝난 문서는 `archive/` 로, 유효한 문서만 본문을 고친다 | FR-CMR-132 · §3.16 |
+| 2 | `editor-find-panel` 의 Monaco 위젯 검사는 대체한다 — Diff 뷰도 앱 패널을 쓰고 `.cm-search` 는 뜨지 않는다 | §3.16 |
+| 3 | 찾기는 앱 패널을 유지한다. `@codemirror/search` 의 패널·keymap 은 넣지 않는다 (일치 수·ruler/미니맵 표식·정규식 오류·옵션 보존·Diff 쪽 전환이 패널에 있다) | — |
+| 4 | `GIT_DIFF_OPTIONS` 는 걷고 폭 문턱만 `GIT_DIFF_INLINE_BREAKPOINT` 로 남긴다. 그 상수를 읽던 e2e 는 화면을 잰다 (위임) | §3.16 |
+| 5 | NFR-CMR-3 은 e2e(`codemirror-load`), NFR-CMR-5 는 Go 테스트(가짜 프로세스, 서버 몫만)로 잰다 (위임) | §7 |
+| 6 | 문서 분류는 아래 표의 규칙을 따른다 (위임) | §6 |
+
+문서 분류 (`git grep -il monaco -- docs/internal`, `archive/` 밖):
+
+| 분류 | 규칙 | 문서 |
+|---|---|---|
+| 남긴다 — 본문을 고친다 | 검사 스크립트·CI 가 근거로 읽는 문서 · 색인·구조·결정 기록 · 아직 진행 중인 문서 · 지금의 LSP·접근성 근거 | `README.md` · `architecture.md` · `decisions.md` · `VENDOR_VERSIONS.md` · `test-checklist.md` · `GIT_MANUAL_CHECKLIST.md` · `ACCESSIBILITY_BASELINE_SRS` · `DESIGN_TOKENS_SRS` · `FE_MODULE_BOUNDARY_SRS` · `UIUX_OVERHAUL_SRS` · `UI_LAYOUT_DEFAULTS_SRS` · `OPTIMIZE_REFACTOR_SRS` · `PERFORMANCE_HARDENING_SRS` · `REQUEST_GATE_SRS` · `CI_E2E_MATRIX_SRS` · `LSP_PLUGIN_SRS` · `production/PRODUCTION_ROADMAP.md` · `production/00-INDEX.md` · `production/02-fe-arch.md` |
+| 남긴다 — 예외 | FR-CMR-132 | 이 문서 · `CODEMIRROR_MIGRATION_HANDOFF.md` |
+| `archive/` 로 옮긴다 | 그 밖의 것 — 구현이 끝났거나 폐기·대체된 SRS, 진행 기록·인계·계약·감사·분석 | 나머지 전부 (하위 폴더는 `archive/<폴더>/` 로) |
+
+옮긴 문서를 가리키는 경로(`docs/internal/X.md`·`./X.md`·`(X.md)`)는 함께 고친다. `README.md` 의 현행 표에서 그 줄을
+보관 표로 옮긴다. 보관 문서는 갱신하지 않는다(`README.md` 의 규칙) — 옮기기만 한다.
+
+단위와 순서 (게이트를 먼저 세운다 — 고치는 동안 다시 새는 것을 잡는다):
+
+| 단위 | 내용 | 검증 |
+|---|---|---|
+| G | `scripts/check-no-monaco.sh` (FR-CMR-132 의 허용 자리 밖 `git grep -il monaco` 가 0) · `verify.yml` | 세운 직후 실패(RED), V 끝에 통과 |
+| X1 | `web/vendor/monaco/` 삭제 · `VENDOR_VERSIONS.md` 의 줄·각주 ③ · `check-vendor.sh` 도움말 · `static.go` 주석(사전압축 규칙은 남긴다, FR-CMR-131) · `static_test.go` 의 픽스처 경로를 중립 이름으로 · `eslint.config.mjs` 전역 `monaco`·`require` · `playwright.config.ts` 주석 · `ED_VENDOR_ROUTE` | Go `web` 패키지 검사: 묶인 자산에 `vendor/monaco/` 가 없다(RED 먼저) · `check-vendor.sh` · `go test ./...` |
+| X2 | `e2e/editor.ts` 의 Monaco 갈래(`M()`·`opt`·`markersOf`·`probe`·`probeDiff`·`.monaco-*` 선택자 대안) · `LSP_DIAG_OWNER`(상수·`globals.d.ts`) · `editor-find-panel` 대체 검사 · `GIT_DIFF_OPTIONS` → `GIT_DIFF_INLINE_BREAKPOINT` 와 V-DOR-1/2·V-MMP-2b 의 화면 검사 · `monaco-offline.spec.ts` → `editor-offline.spec.ts` · `e2e-editor-boundary.test.mjs` 가 어댑터에도 엔진 전역을 금한다 | 단위: 어댑터에 `monaco` 가 없다(RED 먼저) · 대체 검사는 `searchKeymap` 을 넣으면 실패하는지 본다 · 해당 e2e |
+| X3 | `GIT_DIFF_MONACO_FAIL`·`git.diff_monaco_fail` → `GIT_DIFF_EDITOR_FAIL`·`git.diff_editor_fail` · 글꼴 차례 다섯 자리 · 코드 주석(`web/`·`internal/`·`scripts/`·`e2e/`) · `README.md` · `docs/external` | `check-i18n` · `check-font-family` · 단위 · Go |
+| V | 문서 분류 표대로 옮기고 고친다 · `MONACO_VENDORING_SRS` 는 상태 `대체` 로 `archive/` · §6 의 개정 표시는 남긴 SRS 에만 | G 통과 · `check-srs-status` · `check-decisions` |
+| N | NFR-CMR-3·5 측정 · e2e 46개 파일(`monaco-offline` 은 `editor-offline` 으로) · §7.2 · 단계 A 완료 점검 | §7 |
+
 ## 10. 변경 기록
 
 | 날짜 | 내용 |
@@ -892,3 +932,4 @@ REST 처리기가 사라지면 REST 세션을 만드는 자리가 없어진다. 
 | 2026-11-03 | §11.6 W 설계 — 끼워 넣기·`RepoWatch`·저장 시 알림 |
 | 2026-11-03 | FR-CMR-102 개정(상한은 통로만 센다) · §11.6 R 설계 — REST 세션과 딸린 것을 함께 걷는다 |
 | 2026-11-03 | M8 완료 — §7.2 에 측정을 적었다. `SetPaths` 는 값이 바뀐 서술자의 통로를 닫는다(§11.6 R) |
+| 2026-11-03 | FR-CMR-132 개정(글꼴 예외 없음·문서는 보관 또는 수정·인계 문서 허용·검사 스크립트) · §3.16 세 줄 · §11.7 M9 설계 (M9 착수 중 결정) |
