@@ -108,30 +108,6 @@ func TestSSE_BurstWhileStalledIsBatchedAndKeepsSubscription(t *testing.T) {
 	<-done
 }
 
-// 진단 N건은 flush 한 번이다 (HTTP-M2).
-func TestSSE_DiagnosticsSnapshotOneFlush(t *testing.T) {
-	srv, cmd, _ := sseServer(t)
-	for _, p := range []string{"/a", "/b", "/c", "/d", "/e"} {
-		cmd.BroadcastDiagnostics(p, []byte(`{"action":"lsp_diagnostics","args":{"path":"`+p+`"}}`), false)
-	}
-	gw := newGateWriter()
-	close(gw.gate)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	req := httptest.NewRequest(http.MethodGet, "/api/commands/sse", nil).WithContext(ctx)
-	done := make(chan struct{})
-	go func() { srv.handleCommandSSE(gw, req); close(done) }()
-	sseWaitFor(t, "진단 5건을 쓰지 않았다", func() bool {
-		b, _ := gw.snapshot()
-		return strings.Count(b, `"lsp_diagnostics"`) == 5
-	})
-	if _, f := gw.snapshot(); f != 2 {
-		t.Fatalf("flush = %d, want 2 (인사 1 + 진단 1)", f)
-	}
-	cancel()
-	<-done
-}
-
 // 큐 상한은 버스트를 담는다 — 기본값을 지키는 검사 (CONTRIBUTING §4 "상한은 var").
 func TestSSE_QueueHoldsToolCapBurst(t *testing.T) {
 	sub := hub.NewCmdSub()

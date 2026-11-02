@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/platform"
 )
 
 // LSP FileChangeType (CODEMIRROR_MIGRATION_SRS FR-CMR-112).
@@ -79,6 +80,11 @@ func (s *Service) NotifyFiles(events []FileEvent) {
 			dmlog.Warnf(nil, "lsp: 끼워 넣기 줄이 찼다 (%s) — 변경 %d개를 버린다", t.root, len(n.Params.Changes))
 		}
 	}
+}
+
+// pathToURI 는 절대경로의 file URI 다. 판정은 `platform` 이 한다 (CROSS_PLATFORM_SRS FR-XPL-5).
+func pathToURI(path string) string {
+	return platform.Current().Paths.FileURI(path)
 }
 
 // NameStatus 는 두 커밋 사이에서 바뀐 파일 하나다 (`git diff-tree --name-status`).

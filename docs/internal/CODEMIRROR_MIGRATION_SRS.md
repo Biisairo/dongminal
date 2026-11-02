@@ -385,10 +385,10 @@ Monaco 도 스크롤바를 직접 그렸다)
 **FR-CMR-102** 기존의 동시 실행 상한(`MaxSessions`=6)과 유휴 정리(`IdleAfter`=20분, `Sweep`)를 통로 프로세스에도 적용한다.
 (M8 착수 중 결정 3·4)
 
-- 상한은 REST 세션과 통로 프로세스를 합쳐 센다. 상한에 걸리면 새 통로를 **거절**한다 — WebSocket 을 close code
+- 상한은 통로 프로세스(열린 것과 띄우는 중인 것)를 센다. 상한에 걸리면 새 통로를 **거절**한다 — WebSocket 을 close code
   `LSP_WS_CLOSE_LIMIT`(4001), reason `limit` 으로 닫는다. 브라우저는 그것을 상태 패널에 보인다.
-- 기존 LRU 정지(`evictOverLimit`)는 통로 프로세스를 정지 대상으로 고르지 않는다. 정지할 REST 세션이 없으면
-  새 REST 세션은 상한 오류로 실패한다 (REST 가 사라지는 R 단위까지의 과도기).
+- 열려 있는 통로를 정지해 자리를 만들지 않는다(종전 LRU 정지 없음). R 전까지는 REST 세션과 합쳐 셌고 LRU 는
+  REST 세션만 골랐다 — R 에서 REST 세션이 사라졌다 (§11.6 R).
 - 유휴 판단의 기준(`LastUse`)은 통로를 지나는 프레임(양방향)마다 갱신한다. `IdleAfter` 동안 프레임이 없으면
   `Sweep` 이 프로세스를 끝내고 WebSocket 을 닫는다(FR-CMR-103). 브라우저는 다음에 그 연결을 쓸 때 다시 연다(FR-CMR-91).
 
@@ -624,6 +624,7 @@ M6 측정: 44개 파일(`codemirror-load` 포함) — 539건 중 통과 517 · �
 M7 측정: 45개 파일(`editor-sticky` 포함) — 544건 중 통과 522 · 실패 22, 모두 아래 표의 M8·M9 몫이다 (2026-11-02). `editor-sticky` 3건은 따로 통과(반복 3회).
 M8 T 측정: 46개 파일(`editor-lsp` 포함, `editor-lsp-nav` 는 실제 gopls 로 다시 씀) — 543건 중 통과 541 · 실패 2 (2026-11-03). 하나는 아래 표의 M9 몫이다. 다른 하나(`editor-scrollbar` thumb 끌기)는 L3 로 되살아난 설치 제안 띠(그 기계에 markdown 서버가 없다)가 thumb 를 덮은 것이다 — 띠는 처음부터 편집기 위쪽을 덮는 겹이므로 그 스펙이 상태를 세워 띠를 빼고 잰다. 고친 뒤 반복 3회 통과. M8 줄(`editor-lsp-nav` · `slot-view-state` E-9.1 · `repo-tab` M4 · `ux-batch10` 호버)은 모두 통과해 지웠다.
 M8 W 측정: 46개 파일(`editor-lsp-nav` 에 열리지 않은 파일의 변경 2건 추가) — 545건 중 통과 544 · 실패 1, 아래 표의 M9 몫이다 (2026-11-03). 추가한 2건은 Go 쪽 W 를 빼면 실패하고(RED 확인), 넣으면 반복 2회 통과.
+M8 R 측정(M8 완료): 46개 파일(`/api/lsp/close` 검사를 지웠다) — 544건 중 통과 543 · 실패 1, 아래 표의 M9 몫이다 (2026-11-03).
 
 | 스펙 · 테스트 | 실패 이유 | 닫는 마일스톤 |
 |---|---|---|
@@ -849,6 +850,29 @@ W 설계 (FR-CMR-110~114 열리지 않은 파일의 변경 알림):
 - 작업 트리 집합은 git status 관측의 그룹 상한(`StatusGroupCap`)에서 잘릴 수 있다. 잘린 나머지는 알리지 않는다 — 한 번에 보내는 수도 어차피 `LSP_WATCH_MAX` 에서 잘린다.
 - 끼워 넣기의 쓰기가 막히면(서버가 stdin 을 읽지 않는다) 그 통로의 작업 goroutine 만 기다린다. 저장 응답·gitwatch·다른 통로는 기다리지 않는다.
 
+R 설계 (FR-CMR-105 · W 뒤):
+
+REST 처리기가 사라지면 REST 세션을 만드는 자리가 없어진다. 그래서 세션과 그것에만 딸린 것을 함께 걷는다.
+
+| 자리 | 걷는 것 | 남는 것 |
+|---|---|---|
+| `httpapi` | 경로 `/api/lsp/{definition,references,hover,close}` 와 처리기·요청 형식(`handlers_lsp.go`) · `LSPService` 의 `Definition`·`References`·`Hover`·`CloseDoc`·`ResyncPath` · 저장 처리기의 `ResyncPath` 호출 · `Deps.OnGitChanged` 의 `ResyncRepo` 배선 | `status`·`install`·`paths`·`ws` (FR-CMR-95·100) · 저장 처리기의 `NotifyFiles` |
+| `domain/lsp` 세션 | `Session`·`Doc`·`Location`·`Diagnostic(s)`·`DiagFunc`·`ErrNeedText`·핸드셰이크·`serverRequestResult`·`languageFor`·위치 변환 (`session.go`) · rpc 연결 (`conn.go`) · 세션 표·기동 대기·실패 기억·LRU(`evictOverLimit`)·확장자 표 캐시(`extDesc`)·`Resync*`·`CloseDoc`·`SessionCount` (`manager.go`) · `Service.OnDiagnostics`·`forgetPack`·`exeKeyLocked` (`service.go`) | `Service`(`Ext`·`Start`·`Now`·`IdleAfter`·`MaxSessions`·`WatchMax`·경로 표·통로) · `Status`·`Install`(= `Ext.Install`)·`Paths`·`SetPaths`·`LoadPaths` · `OpenTunnel` · `Sweep`·`Shutdown`(통로만) · `RunSweeper` · `Starter`·`StartProcess`(→ `process.go`) · 프레이밍(`codec.go`) · `pathToURI`(→ `watch.go`) · `underRoot` |
+| `hub` | 진단 슬롯 — `CmdSub.diag`·`dready`·`DiagnosticsReady`·`TakeDiagnostics`·`putDiag`, `CommandHub.diagLatest`·`BroadcastDiagnostics`, SSE 처리기의 슬롯 비우기 갈래 | 그 밖의 명령 방송 |
+| 합성 루트 | `OnDiagnostics` → hub 배선 · `OnGitChanged` 의 `ResyncRepo` | `OnGitChanged` = `go repoWatch.Changed` · `OnGitBaseline` |
+| 브라우저 `lsp-client.js` | Monaco 갈래 — `lspHoverRegister`·`_lspOpenerRegister`·`_lspProvideDef`·`_lspHover`·`_lspHoverWhere`·`_lspAsk`·`_lspPathOfModel`·`_lspUriPathOf`·`_lspVersionOf`·`lspDocClosed`·`lspClearDiagnostics` · `app-lsp.js` 의 그 껍데기와 접근자(`_lspHoverLangs`·`_lspDefLangs`) · `app.testing` 의 그 이름 · `lspDocClosed` 호출처(`app-editor-doc.js`·`app-editor-open.js`) · 상수 `LSP_DEF_API`·`LSP_REFS_API`·`LSP_HOVER_API`·`LSP_CLOSE_API` | `LSP_DIAG_OWNER` 는 e2e 어댑터의 Monaco 갈래가 아직 읽는다 — M9 에서 그 갈래와 함께 걷는다 |
+| 테스트 | `lsp-text-sync.test.mjs` · Go 의 세션·rpc·문서 수명·텍스트 생략·실패 기억·LRU·확장자 표 캐시·REST 처리기·진단 슬롯 검사 · e2e `/api/lsp/close` 검사 | 통로·끼워 넣기·상태·경로·설치 검사. 통로 상한 검사는 "REST 와 합쳐 센다" 대신 "통로만 센다" |
+| 문서 | `docs/external/api.md` 의 네 경로 | — |
+
+검증 (§4.2 "제거"):
+
+- 경로 표(`SetPaths`)가 바뀌면 종전에는 그 서술자의 REST 세션을 정지했다. 같은 뜻을 통로에 잇는다 — 통로가 서술자를
+  기억하고, 값이 바뀐 서술자의 통로를 닫는다(4003 `ended`). 브라우저는 다음 쓰임에 새 실행 파일로 다시 연다 (FR-CMR-91).
+- Go: 걷은 네 경로가 404 다 (`TestLSP_RemovedRoutes404`) — 걷기 전에 실패를 본다.
+- 단위: `app-state-owners.test.mjs` 의 이름 표가 남는 이름만 갖는다.
+- 상한: 통로만 센다 — 상한 수만큼 열면 다음 통로가 `ErrLimit`, 하나를 닫으면 다시 열린다.
+- 게이트·e2e 46개 파일 전부. 호출처가 남지 않았는지는 컴파일(Go)·eslint `no-undef`·`check-*` 로 본다.
+
 ## 10. 변경 기록
 
 | 날짜 | 내용 |
@@ -866,3 +890,5 @@ W 설계 (FR-CMR-110~114 열리지 않은 파일의 변경 알림):
 | 2026-11-02 | §11.6 L2 설계 — 진단은 그룹의 버퍼에 보관하고 모든 칸에 그린다. 켜기/끄기는 처리기와 토글이 본다 |
 | 2026-11-03 | FR-CMR-93 개정·§3.16 한 줄 — 정의·참조가 비면 표시하지 않는다 (M8 T 착수 중 사용자 결정). §11.6 T 설계 |
 | 2026-11-03 | §11.6 W 설계 — 끼워 넣기·`RepoWatch`·저장 시 알림 |
+| 2026-11-03 | FR-CMR-102 개정(상한은 통로만 센다) · §11.6 R 설계 — REST 세션과 딸린 것을 함께 걷는다 |
+| 2026-11-03 | M8 완료 — §7.2 에 측정을 적었다. `SetPaths` 는 값이 바뀐 서술자의 통로를 닫는다(§11.6 R) |

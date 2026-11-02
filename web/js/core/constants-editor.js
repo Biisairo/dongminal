@@ -208,8 +208,6 @@ const LSP_STATUS_API='/api/lsp/status';
 const LSP_INSTALL_API='/api/lsp/install';
 // REPO_FIX 02 §3A-3: 서버가 보관하는 실행 파일 경로 표 (GET 조회 · PUT 전체 교체).
 const LSP_PATHS_API='/api/lsp/paths';
-// REPO_FIX 02 §3A-6: 문서의 마지막 뷰가 떠날 때 언어 서버에서 닫는다.
-const LSP_CLOSE_API='/api/lsp/close';
 // CODEMIRROR_MIGRATION_SRS FR-CMR-91·102: 언어 서버 통로와 그 close code (Go `handlers_lsp_ws.go` 와 같은 값).
 const LSP_WS_API='/api/lsp/ws';
 const LSP_WS_CLOSE_LIMIT=4001;
@@ -279,23 +277,12 @@ const LSP_INSTALL_OK=t('editor.lsp_install_ok');
 const LSP_PANEL_HINT=t('editor.lsp_panel_hint');
 
 // ── 코드 탐색: 정의·참조 이동 (EDITOR_LSP_SRS 묶음 C·F · M2) ──
-const LSP_DEF_API='/api/lsp/definition';
-const LSP_REFS_API='/api/lsp/references';
 // FR-LSP-28: 언어 서버에 닿지 못했다. 결과가 빈 것은 알리지 않는다 (CODEMIRROR_MIGRATION_SRS §3.16).
 const LSP_ASK_FAIL=t('editor.lsp_ask_fail');
 // 알림 줄이 스스로 사라지기까지. 닫는 조작을 배워야 하는 알림은 알림이 아니라 창이다.
 const FE_NOTE_MS=4000;
 // REPO_FIX 03 §3A-2: 버튼이 있는 알림(UTF-8 로 변환해 저장)은 눌러야 하므로 더 오래 남는다.
 const FE_NOTE_ACTION_MS=15000;
-
-// ── 코드 탐색: 호버 (묶음 D · M3) ──
-const LSP_HOVER_API='/api/lsp/hover';
-// FR-LSP-39: provider 는 **언어마다 한 번** 등록된다. 편집기를 여럿 세워도
-// 등록이 늘지 않아야 한다 — 늘면 같은 호버가 여러 번 뜬다.
-//
-// **언어 목록이 여기 없다** (FR-EXT-1). 종전에는 이 표와 서술자 표가 두 자리에
-// 적혀 있어, 언어를 더할 때 한쪽만 고치면 그 언어에서 호버가 붙지 않았다. 이제
-// 상태 응답의 `langs` 가 그 목록이며 등록은 그것을 따라간다.
 
 // ── 코드 탐색: 진단 (묶음 E · M4) ──
 // FR-LSP-34: owner 는 우리 것 **하나**다. 그래야 갱신이 앞선 것을 덮고 밑줄이

@@ -3,7 +3,6 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -26,20 +25,7 @@ type fakeLSP struct {
 	setPaths map[string]string
 	setErr   error
 
-	closed   chan [2]string
-	resynced chan string
 	notified chan []lsp.FileEvent
-
-	locs    []lsp.Location
-	hover   string
-	locErr  error
-	askRoot string
-	askPath string
-	askText string
-	askLine int
-	askCol  int
-	askIncl bool
-	askDoc  lsp.Doc
 
 	tunnel       lsp.Tunnel
 	tunnelErr    error
@@ -53,18 +39,6 @@ func (f *fakeLSP) Status() ([]ext.Status, []string) {
 }
 
 func (f *fakeLSP) Paths() map[string]string { return f.paths }
-
-func (f *fakeLSP) CloseDoc(root, path string) {
-	if f.closed != nil {
-		f.closed <- [2]string{root, path}
-	}
-}
-
-func (f *fakeLSP) ResyncPath(path string) {
-	if f.resynced != nil {
-		f.resynced <- path
-	}
-}
 
 func (f *fakeLSP) NotifyFiles(e []lsp.FileEvent) {
 	if f.notified != nil {
@@ -84,27 +58,6 @@ func (f *fakeLSP) SetPaths(p map[string]string) (map[string]string, error) {
 func (f *fakeLSP) Install(_ context.Context, id string) ext.Outcome {
 	f.installID = id
 	return f.outcome
-}
-
-func (f *fakeLSP) ask(root string, doc lsp.Doc, line, col int) {
-	f.askRoot, f.askPath, f.askText, f.askLine, f.askCol = root, doc.Path, doc.Text, line, col
-	f.askDoc = doc
-}
-
-func (f *fakeLSP) Definition(_ context.Context, root string, doc lsp.Doc, line, col int) ([]lsp.Location, error) {
-	f.ask(root, doc, line, col)
-	return f.locs, f.locErr
-}
-
-func (f *fakeLSP) References(_ context.Context, root string, doc lsp.Doc, line, col int, incl bool) ([]lsp.Location, error) {
-	f.ask(root, doc, line, col)
-	f.askIncl = incl
-	return f.locs, f.locErr
-}
-
-func (f *fakeLSP) Hover(_ context.Context, root string, doc lsp.Doc, line, col int) (string, error) {
-	f.ask(root, doc, line, col)
-	return f.hover, f.locErr
 }
 
 // TC-LSP-30 (FR-LSP-46): 상태 조회가 서술자 목록을 돌려준다.
@@ -301,200 +254,6 @@ func lspBody(name, extra string) string {
 		b += "," + extra
 	}
 	return b + "}"
-}
-
-// TC-LSP-35 (FR-LSP-21·23 / D-3): 정의 요청은 **현재 텍스트를 함께** 싣고, 줄·열은
-// 1 부터다. 텍스트가 없으면 디스크만 보는 서버가 방금 쓴 함수를 모른다.
-func TestLSPDefinition(t *testing.T) {
-	f := &fakeLSP{locs: []lsp.Location{{Path: "/root/other.go", Line: 42, Col: 8}}}
-	srv, ts := lspServerWithRoot(t, f)
-	defer ts.Close()
-
-	body := lspBody("a.go", `"text":"package a\n","line":3,"col":5`)
-	resp, err := http.Post(ts.URL+"/api/lsp/definition", "application/json", strings.NewReader(body))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		t.Fatalf("정의 종단이 %d 를 냈다", resp.StatusCode)
-	}
-	var got struct {
-		Locations []lsp.Location `json:"locations"`
-		Reason    string         `json:"reason"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
-		t.Fatal(err)
-	}
-	if len(got.Locations) != 1 || got.Locations[0].Line != 42 {
-		t.Fatalf("자리가 오지 않았다: %+v", got)
-	}
-	if f.askText != "package a\n" {
-		t.Fatalf("현재 텍스트가 넘어가지 않았다: %q", f.askText)
-	}
-	if f.askLine != 3 || f.askCol != 5 {
-		t.Fatalf("좌표가 넘어가지 않았다: %d,%d", f.askLine, f.askCol)
-	}
-	_ = srv
-}
-
-// TC-LSP-36 (FR-LSP-28 / D-9): 답하지 못한 이유가 **사유로** 온다. 침묵은 고장과
-// 구별되지 않는다.
-func TestLSPDefinition_ReasonOnFailure(t *testing.T) {
-	f := &fakeLSP{locErr: errors.New("gopls 가 없어 코드 탐색을 할 수 없습니다")}
-	_, ts := lspServerWithRoot(t, f)
-	defer ts.Close()
-
-	body := lspBody("a.go", `"text":"x","line":1,"col":1`)
-	resp, err := http.Post(ts.URL+"/api/lsp/definition", "application/json", strings.NewReader(body))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		t.Fatalf("사유를 실은 결과는 200 이다: %d", resp.StatusCode)
-	}
-	var got struct {
-		Locations []lsp.Location `json:"locations"`
-		Reason    string         `json:"reason"`
-	}
-	json.NewDecoder(resp.Body).Decode(&got)
-	if got.Reason == "" {
-		t.Fatal("사유가 없다 — 조용한 실패다")
-	}
-	if got.Locations == nil {
-		t.Fatal("locations 가 null 이다 — 빈 배열이어야 화면이 그것을 셀 수 있다")
-	}
-}
-
-// TC-LSP-37 (FR-LSP-22): 참조는 선언 포함 여부를 그대로 넘긴다.
-func TestLSPReferences_PassesIncludeDeclaration(t *testing.T) {
-	f := &fakeLSP{}
-	_, ts := lspServerWithRoot(t, f)
-	defer ts.Close()
-
-	body := lspBody("a.go", `"text":"x","line":1,"col":1,"includeDeclaration":true`)
-	resp, err := http.Post(ts.URL+"/api/lsp/references", "application/json", strings.NewReader(body))
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	if !f.askIncl {
-		t.Fatal("includeDeclaration 이 넘어가지 않았다")
-	}
-}
-
-// TC-LSP-38 (FR-LSP-24·49): 루트 가드는 `fsRoot` 다 — Editor 목록에 없는 루트는
-// 거절된다. 새 가드를 쓰지 않는 것이 규칙이다 (두 벌이면 한쪽만 고쳐진다).
-func TestLSPDefinition_RootGuard(t *testing.T) {
-	f := &fakeLSP{}
-	_, ts := lspServerWithRoot(t, f)
-	defer ts.Close()
-
-	body := `{"root":"/not/registered","path":"/not/registered/a.go","text":"x","line":1,"col":1}`
-	resp, err := http.Post(ts.URL+"/api/lsp/definition", "application/json", strings.NewReader(body))
-	if err != nil {
-		t.Fatal(err)
-	}
-	code := resp.StatusCode
-	resp.Body.Close()
-	if code == 200 {
-		t.Fatal("등록되지 않은 루트가 통과했다")
-	}
-	if f.askPath != "" {
-		t.Fatalf("가드를 지나기 전에 서비스가 불렸다: %q", f.askPath)
-	}
-}
-
-// TC-LSP-39 (FR-LSP-29): 호버는 마크다운을 낸다. 루트 가드와 텍스트 싣기는 정의와
-// 같은 앞부분을 지난다.
-func TestLSPHover(t *testing.T) {
-	f := &fakeLSP{hover: "func helper()"}
-	_, ts := lspServerWithRoot(t, f)
-	defer ts.Close()
-
-	body := lspBody("a.go", `"text":"x","line":2,"col":3`)
-	resp, err := http.Post(ts.URL+"/api/lsp/hover", "application/json", strings.NewReader(body))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	var got struct {
-		Markdown string `json:"markdown"`
-		Reason   string `json:"reason"`
-	}
-	json.NewDecoder(resp.Body).Decode(&got)
-	if got.Markdown != "func helper()" {
-		t.Fatalf("호버가 오지 않았다: %+v", got)
-	}
-	if f.askLine != 2 || f.askCol != 3 {
-		t.Fatalf("좌표가 넘어가지 않았다: %d,%d", f.askLine, f.askCol)
-	}
-}
-
-// REPO_FIX 02 §3A-6: close 는 절대경로만 받고 서비스로 넘긴다.
-func TestLSPClose(t *testing.T) {
-	f := &fakeLSP{closed: make(chan [2]string, 1)}
-	_, ts := lspServerWithRoot(t, f)
-	defer ts.Close()
-
-	rel := `{"root":` + testpath.JSONQuote(lspTestRoot) + `,"path":"rel/a.go"}`
-	resp, err := http.Post(ts.URL+"/api/lsp/close", "application/json", strings.NewReader(rel))
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != 400 {
-		t.Fatalf("상대경로 = %d, want 400", resp.StatusCode)
-	}
-	resp, err = http.Post(ts.URL+"/api/lsp/close", "application/json", strings.NewReader(lspBody("a.go", "")))
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != 200 {
-		t.Fatalf("close = %d", resp.StatusCode)
-	}
-	select {
-	case got := <-f.closed:
-		if got[1] != filepath.Join(lspTestRoot, "a.go") {
-			t.Fatalf("닫은 문서 = %v", got)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("서비스로 넘어가지 않았다")
-	}
-}
-
-// REPO_FIX 02 §3A-6 ②: 파일을 쓰면 그 문서를 디스크 판으로 맞추라고 알린다.
-func TestFileWrite_ResyncsLSP(t *testing.T) {
-	root, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	f := &fakeLSP{resynced: make(chan string, 1)}
-	ws := newFakeWorkspaceStore()
-	seedRoot(t, ws, root)
-	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{LSP: f, Work: ws})
-	ts := httptest.NewServer(srv.Handler())
-	defer ts.Close()
-	p := filepath.Join(root, "a.go")
-	body, _ := json.Marshal(map[string]string{"path": p, "content": "package a\n"})
-	resp, err := http.Post(ts.URL+"/api/file/write", "application/json", strings.NewReader(string(body)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != 200 {
-		t.Fatalf("write = %d", resp.StatusCode)
-	}
-	select {
-	case got := <-f.resynced:
-		if got != p {
-			t.Fatalf("재동기화 경로 = %q", got)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("쓰기 뒤 재동기화가 없다")
-	}
 }
 
 func (f *fakeLSP) OpenTunnel(root, descID string) (lsp.Tunnel, error) {

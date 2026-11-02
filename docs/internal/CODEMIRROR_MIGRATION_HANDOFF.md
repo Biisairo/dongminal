@@ -1,14 +1,14 @@
-# 인계: 편집기 엔진 교체 (Monaco → CodeMirror 6) — M8 L2 부터
+# 인계: 편집기 엔진 교체 (Monaco → CodeMirror 6) — M9 부터
 
-> 작성: 2026-11-02 · 브랜치 `codemirror-migration` · 근거 SRS `docs/internal/CODEMIRROR_MIGRATION_SRS.md`
+> 작성: 2026-11-03 · 브랜치 `codemirror-migration` · 근거 SRS `docs/internal/CODEMIRROR_MIGRATION_SRS.md`
 
 ## 착수 블록 (이번 세션의 지시 전부)
 
-1. 이 문서를 끝까지 읽는다. 그다음 SRS 의 §3.10~§3.12 · §3.16 · §4 · §7.2 · **§11.6(M8 결정·S·L1 설계)** 을 읽는다.
-2. `git status` 와 `git log --oneline -5` 로 출발점을 확인한다. 맨 위 커밋은 L1 WIP 커밋이다(`wip(lsp): 브라우저 LSP 클라이언트 …`).
-3. M8 결정 8건은 **끝났다** (SRS §11.6). 다시 묻지 않는다.
-4. 남은 단위: **R** (L2·T·W 끝). 단위마다 SRS §11.6 에 설계를 먼저 적고 Spec → Test(RED 확인) → Code.
-5. M8 끝에 편집기·Diff e2e 45개 파일(+ `editor-lsp.spec.ts` 검토)을 돌려 §7.2 를 갱신하고, **사용자 확인 후** 커밋한다(AI 서명 금지). 단위 끝마다 WIP 커밋할지 사용자에게 묻는다. 그다음 M9.
+1. 이 문서를 끝까지 읽는다. 그다음 SRS 의 §3.14(묶음 X) · §3.16 · §4 · §6 · §7 · §7.2 · §11 을 읽는다.
+2. `git status` 와 `git log --oneline -5` 로 출발점을 확인한다. 맨 위 커밋은 M8 완료 커밋이다(`feat(lsp): REST·서버 문서 동기화·hub 진단 제거 — M8 완료 …`).
+3. M8 은 끝났다(L3·S·L1·L2·T·W·R). 이번 일은 **M9** (아래 "M9") 다. M9 착수 전 결정이 필요하면 사용자에게 하나씩 묻는다(권장 답과 함께).
+4. M9 를 단위로 나누고, 단위마다 SRS §11 에 설계를 먼저 적고 Spec → Test(RED 확인) → Code. 단위 끝마다 WIP 커밋할지 사용자에게 묻는다(AI 서명 금지).
+5. M9 끝에 아래 46개 파일 e2e 를 돌려 §7.2 를 갱신하고(실패 0 이 목표 — `editor-find-panel` 1건은 폐기·대체), 단계 A 완료 조건(§7 — e2e 전체 통과·NFR 측정)을 점검한 뒤 **사용자 확인 후** 커밋한다.
 
 ## 어디까지 왔나
 
@@ -17,7 +17,7 @@
 | M1~M5 | 완료 | `6633910c` · `a81a3920` · `e5d03f72` · `ef0d5953` · `6971b5ee` |
 | M6 Git Diff 뷰 | 완료 | `b1418594`(WIP) + `b195ab47` |
 | M7 sticky scroll | 완료 | `eb16d707` |
-| **M8 LSP (S·W·L + FR-CMR-23)** | **진행 중 — 결정·L3·S·L1·L2·T·W 끝, R 남음** | `8213444d`(L3·S) + L1 WIP 커밋 · SRS §11.6 |
+| **M8 LSP (S·W·L + FR-CMR-23)** | **완료** — L3·S·L1·L2·T·W·R | `8213444d`(L3·S) + L1 WIP 커밋 · SRS §11.6 |
 | M9 Monaco 제거 | 대기 | 아래 "M9" |
 
 마지막 e2e 측정(M7, 45개 파일): 544건 중 통과 522 · 실패 22. 실패는 모두 §7.2 표의 M8(21건) · M9(1건) 몫이다.
@@ -30,6 +30,9 @@
 - L1: `web/js/ui/cm-lsp.js` (`edLspUri`·`edLspPath`·`edLspLangId`·`edLspServerReply`·`edLspWorkspaceClass`·`EdLspSocket`·`EdLspConn`), `lsp-client.js` 의 정의·참조 구간 교체(`lspExtFor`·`_lspConn`·`_lspRun`·`_lspDisplay`·`_lspClickExt`), `cm-setup.js` `cmp.lsp` + `edCmLspAttach`, `FileEditor.whenView()`·`_lspAttach()`, Diff 는 `_bindEdit` 에서 붙인다. URI 벡터 `internal/shared/platform/testdata/file_uri_vectors.json`(Go `TestFileURIVectorsShared` 와 JS 가 함께 읽는다). 단위 `cm-lsp.test.mjs` 22건. 상수 `LSP_WS_*`·`ED_LSP_TIMEOUT_MS`·`ED_LSP_RETRY_MS` 는 `constants-editor.js`
 - L2: `EdBuffer.diagnostics`·`setDiagnostics`·`sinks`(편집을 따라 위치를 옮기고, 디스크 재읽기면 비운다), `cm-lsp.js` 의 `edLspDiagItems`·`edLspDiagShow`·`edLspDiagnostics`(라이브러리 `serverDiagnostics` 의 능력·autoSync 를 쓰고 처리기만 바꾼다), Workspace `hooks.joined`, `_lspSetDiag` 는 레지스트리의 모든 버퍼를 다시 그린다. 어댑터 `edT.diagnostics`·`docDiagnostics`·`docSetDiagnostic` CodeMirror 갈래. 단위 13건 추가. `slot-view-state` E-9.1 이 풀렸다. 실제 gopls 스모크(진단 표시·끄기/켜기·고친 뒤 걷힘) 통과. `editor-lsp-nav` 남은 14건 실패는 모두 T 몫(REST stub · hub seam `lspOnDiagnostics` 진단 3건)
 - T: `editor-lsp-nav` 를 실제 gopls 픽스처(go.mod)로 다시 썼다 — `lspTap`(`routeWebSocket` 이 실제 서버에 잇고 프레임 method 를 기록)·`ready`(첫 진단 알림) · 실패 주입 2건(4001 상한 → 알림 줄·상태 패널, 4003 끊김 → 다시 연결). `ux-batch10` 호버도 실제 gopls. `edLspCloseNote`·`_lspConnNote`(상태 패널 `.lsp-msg`)·`LSP_WS_LIMIT_NOTE`. 어댑터 `showHover` CodeMirror 갈래·`ED_SEL.refPanel`·`refItem`·`lintError`. 걷기: `edNavBack` 전부, `_lspPush`·`_lspNavBack`·`_lspCanBack`, hub seam(`_lspOnDiagnostics`·구독·`LSP_DIAG_ACTION`·`LSP_DIAG_SEVERITY`), 쓰이지 않는 LSP 상수·i18n, 문서 `shortcuts.md`·`features.md`. CI `e2e.yml` gopls v0.20.0 설치. **사용자 결정: 정의·참조 결과가 비면 아무것도 표시하지 않는다** (FR-CMR-93·§3.16)
+- R: REST 4종(`definition`·`references`·`hover`·`close`)과 REST 세션 전부(`session.go`·`conn.go`·세션 표·실패 기억·LRU·확장자 표 캐시·`Resync*`·`CloseDoc`)를 걷었다. `Starter`·`StartProcess` 는 `process.go`, `pathToURI` 는 `watch.go` 로. 상한은 통로만 센다(FR-CMR-102 개정). `SetPaths` 는 값이 바뀐 서술자의 통로를 닫는다(4003 → 브라우저가 새 실행 파일로 다시 연다). hub 진단 슬롯·SSE 갈래·`OnDiagnostics` 배선 제거. 브라우저 Monaco 갈래(`lspHoverRegister` 등 11개)·접근자 `_lspHoverLangs`·`_lspDefLangs`·`lspDocClosed` 호출처·REST 상수 제거, `lsp-text-sync.test.mjs` 폐기. `api.md` 갱신. Go `TestLSP_RemovedRoutes404`·`TestSetPaths_ClosesTunnelsOfChangedDesc`
+- R 에서 발견: W 의 어댑터 검사(`cmd/dongminal/lsp_watch_test.go`)가 git 을 직접 띄워 `TestNoDirectGitExecOutsidePackage`(FR-GIT-1)에 걸렸다 — `gittest` 로 바꿨다. **게이트의 `go test` 는 바뀐 패키지만이 아니라 `./...` 로 돌린다**
+- e2e(M8 끝): 46개 파일 544건 중 543 통과, 실패는 `editor-find-panel` 1건(M9)
 - W: `domain/lsp/watch.go` — `NotifyFiles`(루트 아래만, `WatchMax`=2000, 통로마다 순서 있는 줄 16 + 작업 goroutine, `initialized` 전에는 넣지 않음, `LastUse` 를 옮기지 않음), `RepoWatch`(`Seen` 기준선·`Changed`, HEAD 가 바뀔 때만 name-status), 순수 `repoEvents`. gitwatch 는 첫 표명에 `git_changed` 를 내지 않으므로 기준선 훅 `SetOnBaseline`(→ `Deps.OnGitBaseline` → `RepoWatch.Seen`)을 더했다. 합성 루트 `cmd/dongminal/lsp_watch.go` 의 `lspRepoView`(`Store.Observed` + `diff-tree --name-status -r -z -M`). 저장 처리기가 쓰기 전 존재 여부로 Created/Changed. 브라우저 `clientCapabilities.workspace.didChangeWatchedFiles`. e2e 2건(열지 않은 파일 저장 · 브랜치 전환 — 실제 gopls 진단이 따라 바뀐다)
 - e2e(W 끝): 46개 파일 545건 중 544 통과, 실패는 `editor-find-panel` 1건(M9)
 - e2e(T 끝): 46개 파일 543건 중 541 통과. `editor-find-panel` 1건(M9)·`editor-scrollbar` 1건(띠가 thumb 를 덮음 — 스펙이 상태를 세워 고침, 반복 3회 통과)
@@ -125,7 +128,7 @@ URI ↔ 경로 변환은 브라우저가 맡는다(FR-CMR-101 은 서버가 내�
 
 ## M9 (M8 뒤)
 
-`web/vendor/monaco/` 삭제, `static.go` 정리, `e2e/editor.ts` 의 Monaco 갈래·`probe` 제거(`editor-find-panel` "다른 Monaco 는 자기 위젯을 갖는다" 폐기·대체 — §7.2), `GIT_DIFF_OPTIONS`(e2e V-MMP-2b·editor-git-ux 가 읽는다)와 그 검사 정리, i18n `git.diff_monaco_fail` 이름 정리, 문서 개정.
+`LSP_DIAG_OWNER`(`constants-editor.js`)는 e2e 어댑터의 Monaco 갈래(`markersOf`·`docSetDiagnostic`)와 `e2e/globals.d.ts` 만 읽는다 — 그 갈래와 함께 걷는다. `web/vendor/monaco/` 삭제, `static.go` 정리, `e2e/editor.ts` 의 Monaco 갈래·`probe` 제거(`editor-find-panel` "다른 Monaco 는 자기 위젯을 갖는다" 폐기·대체 — §7.2), `GIT_DIFF_OPTIONS`(e2e V-MMP-2b·editor-git-ux 가 읽는다)와 그 검사 정리, i18n `git.diff_monaco_fail` 이름 정리, 문서 개정.
 
 ## 먼저 읽을 것
 

@@ -15,6 +15,7 @@ import (
 	"github.com/gorilla/websocket"
 
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/shared/editorlimit"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/domain/lsp"
 )
@@ -35,7 +36,7 @@ const lspWSReasonMax = 123
 // 1MiB 는 쓰지 않는다 — didOpen 한 번이 파일 전체를 싣는다.
 //
 // var 인 것은 검사가 낮춰 쓰기 위해서다.
-var lspWSReadLimit = lspAskMaxBody
+var lspWSReadLimit = editorlimit.BodyMaxBytes(int64(lsp.MaxTextBytes))
 
 // lspWSCloseWait 는 close 프레임을 쓰는 데 기다리는 시간이다.
 const lspWSCloseWait = time.Second

@@ -20,22 +20,9 @@ Object.assign(App.prototype, {
   _lspFindRefs() { return this._lspClient()._lspFindRefs() },
   _lspRootOfPath(path) { return this._lspClient()._lspRootOfPath(path) },
   lspClickDef(view, position) { return this._lspClient().lspClickDef(view, position) },
-  lspDocClosed(path) { return this._lspClient().lspDocClosed(path) },
-  lspClearDiagnostics(model) { return this._lspClient().lspClearDiagnostics(model) },
-  lspHoverRegister() { return this._lspClient().lspHoverRegister() },
   lspExtFor(path) { return this._lspClient().lspExtFor(path) },
   lspOfferFor(view) { return this._lspClient().lspOfferFor(view) },
   lspOfferInstall(id, view) { return this._lspClient().lspOfferInstall(id, view) },
   lspDismiss(id) { return this._lspClient().lspDismiss(id) },
 
 });
-
-// e2e 계약이 읽는 필드 둘 (§2.3a A-4·A-5). `Object.assign` 에 게터를 넣으면 그 자리에서
-// 값으로 복사되므로 `defineProperty` 로 단다. 읽기는 `LspClient` 를 만들지 않는다.
-for (const name of ['_lspHoverLangs', '_lspDefLangs']) {
-  Object.defineProperty(App.prototype, name, {
-    get() { return this._lsp ? this._lsp[name] : undefined },
-    set(v) { this._lspClient()[name] = v },
-    configurable: true,
-  });
-}

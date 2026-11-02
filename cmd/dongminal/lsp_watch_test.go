@@ -3,58 +3,41 @@ package main
 import (
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 
+	"dongminal/internal/shared/gittest"
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/store"
 	"dongminal/internal/webserver/domain/lsp"
 )
 
-func gitT(t *testing.T, dir string, args ...string) string {
-	t.Helper()
-	cmd := exec.Command("git", append([]string{"-c", "user.name=t", "-c", "user.email=t@example.invalid",
-		"-c", "init.defaultBranch=main", "-c", "core.autocrlf=false"}, args...)...)
-	cmd.Dir = dir
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("git %v: %v\n%s", args, err, out)
-	}
-	return strings.TrimSpace(string(out))
-}
-
 // §11.6 W: 관측의 HEAD·작업 트리 변경(새 파일인가)과, 두 커밋 사이의 name-status.
 func TestLSPRepoView_SnapshotAndNameStatus(t *testing.T) {
-	repo, err := filepath.EvalSymlinks(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	repo := gittest.Init(t)
 	write := func(rel, s string) {
 		t.Helper()
 		if err := os.WriteFile(filepath.Join(repo, rel), []byte(s), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	gitT(t, repo, "init", "-q")
 	write("a.go", "package a\n")
 	write("b.go", "package a\n\n// b 는 지워진다.\nfunc B() {}\n")
 	write("r.go", "package a\n\n// r 은 이름이 바뀐다.\nfunc R() int { return 42 }\n")
-	gitT(t, repo, "add", ".")
-	gitT(t, repo, "commit", "-qm", "1")
-	c1 := gitT(t, repo, "rev-parse", "HEAD")
-	gitT(t, repo, "rm", "-q", "b.go")
-	gitT(t, repo, "mv", "r.go", "r2.go")
+	gittest.Run(t, repo, "add", ".")
+	gittest.Run(t, repo, "commit", "-qm", "1")
+	c1 := gittest.Run(t, repo, "rev-parse", "HEAD")
+	gittest.Run(t, repo, "rm", "-q", "b.go")
+	gittest.Run(t, repo, "mv", "r.go", "r2.go")
 	write("c.go", "package a\n\nvar c = map[string]int{\"zz\": 9}\n")
-	gitT(t, repo, "add", ".")
-	gitT(t, repo, "commit", "-qm", "2")
-	c2 := gitT(t, repo, "rev-parse", "HEAD")
+	gittest.Run(t, repo, "add", ".")
+	gittest.Run(t, repo, "commit", "-qm", "2")
+	c2 := gittest.Run(t, repo, "rev-parse", "HEAD")
 	write("a.go", "package a\n\nvar x = 1\n")
 	write("u.go", "package a\n")
 	write("s.go", "package a\n")
-	gitT(t, repo, "add", "s.go")
+	gittest.Run(t, repo, "add", "s.go")
 
 	st := store.NewStore(core.New())
 	v := lspRepoView{st: st}

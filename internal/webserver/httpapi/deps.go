@@ -207,10 +207,6 @@ type LSPService interface {
 	// Paths·SetPaths 는 실행 파일 경로 표(팩/서버 → 절대경로)의 조회·전체 교체다.
 	Paths() map[string]string
 	SetPaths(map[string]string) (map[string]string, error)
-	// CloseDoc·ResyncPath 는 문서 수명이다 (REPO_FIX 02 §3A-6) — 브라우저의 마지막
-	// 뷰가 떠날 때 닫고, 파일을 쓴 뒤 열린 문서를 디스크 판으로 맞춘다.
-	CloseDoc(root, path string)
-	ResyncPath(path string)
 	// NotifyFiles 는 열린 통로에 열리지 않은 파일의 변경을 끼워 넣는다
 	// (CODEMIRROR_MIGRATION_SRS FR-CMR-110).
 	NotifyFiles(events []lsp.FileEvent)
@@ -218,16 +214,6 @@ type LSPService interface {
 	// 하나이기 때문이다 — 서버 다섯을 내는 패키지를 서버마다 받으면 같은 것을
 	// 다섯 번 받는다. 같은 것의 두 번째 요청은 거절된다 (FR-EXT-32).
 	Install(ctx context.Context, packID string) ext.Outcome
-	// Definition·References 는 그 자리의 정의·참조다 (FR-LSP-21·22).
-	//
-	// 서버가 현재 텍스트를 아는 것이 이 계약의 핵심이다 (D-3) — 저장 전 편집이
-	// 브라우저에만 있으므로 디스크만 보는 서버는 방금 쓴 함수를 모른다. 텍스트를
-	// 뺀 문서의 판을 세션이 모르면 lsp.ErrNeedText 다 (FR-OPT-6-2). 줄·열은 1 부터다.
-	Definition(ctx context.Context, root string, doc lsp.Doc, line, col int) ([]lsp.Location, error)
-	References(ctx context.Context, root string, doc lsp.Doc, line, col int, includeDecl bool) ([]lsp.Location, error)
-	// Hover 는 그 자리 심볼의 타입·문서다 (FR-LSP-29). 정의 이동과 같은 세션·같은
-	// 동기화를 쓴다 (FR-LSP-30).
-	Hover(ctx context.Context, root string, doc lsp.Doc, line, col int) (string, error)
 }
 
 // StatsSnapshotter is satisfied by *sysstat.Sampler. Kept as an interface so the

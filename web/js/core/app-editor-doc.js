@@ -340,7 +340,6 @@ Object.assign(App.prototype, {
         v.filePath=np;
         if(v.onDocMoved) v.onDocMoved(np,d.buf);
       }
-      this.lspDocClosed(p);
       out.moved.push([p,np]);
     }
     return out;

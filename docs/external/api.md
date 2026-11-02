@@ -201,22 +201,10 @@
 | POST | `/api/lsp/status` | 그 언어의 서버가 설치·기동돼 있는가 |
 | POST | `/api/lsp/install` | 그 언어의 서버를 설치한다 |
 | GET | `/api/lsp/paths` | 서버가 보관하는 언어 서버 실행 파일 경로 표 `{paths:{"팩/서버":"절대경로"}}` |
-| POST | `/api/lsp/close` | 그 문서의 마지막 뷰가 떠났다 `{root, path}` — 언어 서버에 열려 있으면 닫는다(없으면 no-op). 상대경로 400 |
-| PUT | `/api/lsp/paths` | 경로 표 전체 교체. 모르는 서버 400 `bad_request`, 상대경로 400 `path_must_be_absolute`, 저장 실패 500 `save_failed`. 바뀐 서버의 세션은 다시 선다 |
-| POST | `/api/lsp/definition` | 정의로 이동 |
-| POST | `/api/lsp/references` | 참조 찾기 (`includeDeclaration`) |
-| POST | `/api/lsp/hover` | 호버 정보. 정의·참조·호버가 싣는 텍스트는 32 MiB 까지다(넘으면 사유로 답한다) |
+| PUT | `/api/lsp/paths` | 경로 표 전체 교체. 모르는 서버 400 `bad_request`, 상대경로 400 `path_must_be_absolute`, 저장 실패 500 `save_failed`. 바뀐 서버의 통로는 닫힌다(4003) — 브라우저가 다음 쓰임에 새 실행 파일로 다시 연다 |
 | GET | `/api/lsp/ws` | 언어 서버 통로(WebSocket) `?root=<루트>&server=<팩/서버>`. 메시지는 LSP JSON-RPC 본문(머리 없음)이다. 루트가 Editor 목록에 없거나 `server` 가 없으면 업그레이드 전에 4xx. 닫힘 code: 4001 `limit`(동시 실행 상한) · 4002(기동 실패, reason 은 사유) · 4003 `ended`(프로세스 종료·유휴 정리) · 1009(메시지 상한 초과) |
 
-정의·참조·호버의 본문은 `{root, path, text?, version?, line, col}` 이다 (줄·열은 1 부터).
-`version`(선택)은 브라우저가 붙인 문서 판이다. 판을 실으면 응답에 판 협상 필드가 붙는다:
-
-| 응답 필드 | 뜻 |
-|---|---|
-| `version` | 서버가 그 판의 텍스트를 가졌다 — 같은 판이면 다음 요청에서 `text` 를 빼도 된다 |
-| `needText: true` | 서버가 그 판을 모른다 (`text` 를 뺐는데 세션이 다시 섰거나 판이 어긋났다) — 전문을 실어 다시 묻는다. 이때 `reason` 은 없다 |
-
-`version` 을 싣지 않으면 두 필드 모두 없고 응답은 종전과 같다. 판도 `text` 도 없으면 빈 텍스트로 본다.
+정의·참조·호버·진단은 브라우저가 통로(`/api/lsp/ws`)로 언어 서버와 직접 주고받는다. 서버는 메시지를 해석하지 않는다 — 파일 저장과 git 변화의 `workspace/didChangeWatchedFiles` 를 끼워 넣을 뿐이다.
 
 ### 샌드박스
 

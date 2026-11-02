@@ -35,6 +35,8 @@ type Tunnel interface {
 type tunnel struct {
 	svc  *Service
 	root string
+	// desc 는 팩/서버 서술자다 — 경로 표가 바뀐 서술자의 통로를 SetPaths 가 닫는다.
+	desc string
 	rwc  io.ReadWriteCloser
 	br   *bufio.Reader
 	stop func()
@@ -55,8 +57,7 @@ const tunnelInjectQueue = 16
 
 // OpenTunnel 은 (루트, 서술자)의 언어 서버를 새로 띄워 통로로 낸다.
 //
-// 통로 수가 이미 상한이면 프로세스를 띄우지 않고 ErrLimit 다. 띄운 뒤 REST 세션과
-// 합쳐 상한을 넘으면 REST 세션만 LRU 로 정지한다 (FR-CMR-102).
+// 통로 수(열린 것 + 띄우는 중)가 이미 상한이면 프로세스를 띄우지 않고 ErrLimit 다 (FR-CMR-102).
 func (s *Service) OpenTunnel(root, descID string) (Tunnel, error) {
 	if root == "" {
 		return nil, fmt.Errorf("루트가 없습니다")
@@ -91,7 +92,7 @@ func (s *Service) OpenTunnel(root, descID string) (Tunnel, error) {
 		s.mu.Unlock()
 		return nil, fmt.Errorf("lsp: %s 를 띄우지 못했습니다: %w", descID, err)
 	}
-	t := &tunnel{svc: s, root: root, rwc: rwc, br: bufio.NewReader(rwc), stop: stop, lastUse: s.now(),
+	t := &tunnel{svc: s, root: root, desc: descID, rwc: rwc, br: bufio.NewReader(rwc), stop: stop, lastUse: s.now(),
 		injq: make(chan []byte, tunnelInjectQueue), done: make(chan struct{})}
 	go t.injectLoop()
 	if s.tunnels == nil {
@@ -99,7 +100,6 @@ func (s *Service) OpenTunnel(root, descID string) (Tunnel, error) {
 	}
 	s.tunnels[t] = struct{}{}
 	s.mu.Unlock()
-	s.evictOverLimit()
 	return t, nil
 }
 

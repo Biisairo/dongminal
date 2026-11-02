@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -178,67 +179,6 @@ func TestTunnel_LimitRejectsWithoutStarting(t *testing.T) {
 	}
 }
 
-// FR-CMR-102: REST 세션은 통로를 빼앗지 못한다 — 통로가 상한을 채우면 REST 가 거절된다.
-func TestTunnel_RESTCannotEvictTunnel(t *testing.T) {
-	start, ends, _ := pipeStarter(t)
-	svc := goTunnelSvc(t, start)
-	svc.MaxSessions = 1
-	tn, err := svc.OpenTunnel("/root", "gopls/gopls")
-	if err != nil {
-		t.Fatal(err)
-	}
-	e := nextEnd(t, ends)
-	_, err = svc.Definition(context.Background(), "/root", Doc{Path: "/root/a.go", Text: "x\n"}, 1, 1)
-	if !errors.Is(err, ErrLimit) {
-		t.Fatalf("err=%v want ErrLimit", err)
-	}
-	select {
-	case <-e.stopped:
-		t.Fatal("REST 요청이 통로의 프로세스를 정지했다")
-	default:
-	}
-	_ = tn
-}
-
-// FR-CMR-102: 상한은 REST 와 합쳐 센다. 통로가 서면 REST 세션이 LRU 로 정지된다.
-func TestTunnel_OpenEvictsRESTSession(t *testing.T) {
-	start, ends, _ := countingPipe(t)
-	svc := goTunnelSvc(t, start)
-	svc.MaxSessions = 1
-	if _, err := svc.Definition(context.Background(), "/root", Doc{Path: "/root/a.go", Text: "x\n"}, 1, 1); err != nil {
-		t.Fatal(err)
-	}
-	if svc.SessionCount() != 1 {
-		t.Fatalf("REST 세션 수 %d", svc.SessionCount())
-	}
-	if _, err := svc.OpenTunnel("/root", "gopls/gopls"); err != nil {
-		t.Fatal(err)
-	}
-	nextEnd(t, ends)
-	if svc.SessionCount() != 0 {
-		t.Fatalf("상한을 넘었는데 REST 세션이 남았다: %d", svc.SessionCount())
-	}
-}
-
-// countingPipe 는 첫 기동(REST 세션)은 응답하는 가짜로, 그 뒤는 pipeStarter 로 띄운다.
-func countingPipe(t *testing.T) (Starter, chan *pipeEnd, *int32Counter) {
-	t.Helper()
-	rest, _ := fakeStarter(t, echoHandler)
-	pipe, ends, n := pipeStarter(t)
-	first := true
-	var mu sync.Mutex
-	return func(ctx context.Context, exe string, args []string, dir string) (io.ReadWriteCloser, func(), error) {
-		mu.Lock()
-		f := first
-		first = false
-		mu.Unlock()
-		if f {
-			return rest(ctx, exe, args, dir)
-		}
-		return pipe(ctx, exe, args, dir)
-	}, ends, n
-}
-
 // FR-CMR-102: 프레임이 오가면 LastUse 가 오른다. 프레임 없이 IdleAfter 가 지나면 Sweep 이 닫는다.
 func TestTunnel_IdleSweep(t *testing.T) {
 	start, ends, _ := pipeStarter(t)
@@ -316,5 +256,31 @@ func TestTunnel_UnknownOrMissingServer(t *testing.T) {
 	}
 	if _, err := svc.OpenTunnel("", "gopls/gopls"); err == nil {
 		t.Fatal("루트 없이 통로가 열렸다")
+	}
+}
+
+// §11.6 R: 경로 표에서 값이 바뀐 서술자의 통로를 닫는다 — 다음 연결이 새 실행 파일로 선다. 바뀌지 않은 것은 남는다.
+func TestSetPaths_ClosesTunnelsOfChangedDesc(t *testing.T) {
+	start, ends, _ := pipeStarter(t)
+	svc := goTunnelSvc(t, start)
+	gotn, err := svc.OpenTunnel(t.TempDir(), "gopls/gopls")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ge := nextEnd(t, ends)
+	if _, err := svc.SetPaths(map[string]string{"typescript/typescript-language-server": filepath.Join(t.TempDir(), "tsls")}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-ge.stopped:
+		t.Fatal("바뀌지 않은 서술자의 통로가 닫혔다")
+	case <-time.After(100 * time.Millisecond):
+	}
+	if _, err := svc.SetPaths(map[string]string{"gopls/gopls": filepath.Join(t.TempDir(), "gopls")}); err != nil {
+		t.Fatal(err)
+	}
+	waitStopped(t, ge, "경로가 바뀐 서술자의 통로가 닫히지 않았다")
+	if _, err := gotn.Recv(); err == nil {
+		t.Fatal("닫힌 통로가 읽힌다")
 	}
 }

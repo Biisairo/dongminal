@@ -16,17 +16,13 @@ const ownNames = (proto) => Object.getOwnPropertyNames(proto).filter((n) => n !=
 
 // ── FR-ASE-7 · LSP ──
 
-const LSP_METHODS = ['_initLSP', '_lspAsk', '_lspClickExt', '_lspConn', '_lspConnNote', '_lspConnOf', '_lspDismissed',
-  '_lspDisplay', '_lspExtOf', '_lspFindRefs', '_lspGotoDef', '_lspHover', '_lspHoverWhere', '_lspInstall', '_lspInstallOnce',
-  '_lspOpenerRegister', '_lspPaint', '_lspPathOfModel',
-  '_lspPathPut', '_lspPathRows', '_lspPathsBind', '_lspPathsLoad', '_lspProvideDef',
+const LSP_METHODS = ['_initLSP', '_lspClickExt', '_lspConn', '_lspConnNote', '_lspConnOf', '_lspDismissed',
+  '_lspDisplay', '_lspExtOf', '_lspFindRefs', '_lspGotoDef', '_lspInstall', '_lspInstallOnce', '_lspPaint',
+  '_lspPathPut', '_lspPathRows', '_lspPathsBind', '_lspPathsLoad',
   '_lspRefresh', '_lspRootOfPath', '_lspRun', '_lspRunOn', '_lspSetDiag', '_lspStatusCached', '_lspStatusInvalidate',
-  '_lspUriPathOf', '_lspVersionOf', 'lspClearDiagnostics', 'lspClickDef', 'lspDismiss',
-  'lspDocClosed', 'lspExtFor', 'lspHoverRegister', 'lspOfferFor', 'lspOfferInstall'];
+  'lspClickDef', 'lspDismiss', 'lspExtFor', 'lspOfferFor', 'lspOfferInstall'];
 const LSP_SHELLS = ['_initLSP', '_lspRefresh', '_lspGotoDef', '_lspFindRefs',
-  '_lspRootOfPath', 'lspClickDef', 'lspDocClosed', 'lspClearDiagnostics',
-  'lspHoverRegister', 'lspExtFor', 'lspOfferFor', 'lspOfferInstall', 'lspDismiss'];
-const LSP_ACCESSORS = ['_lspHoverLangs', '_lspDefLangs'];
+  '_lspRootOfPath', 'lspClickDef', 'lspExtFor', 'lspOfferFor', 'lspOfferInstall', 'lspDismiss'];
 
 function loadLsp() {
   const store = { bool: (_k, d) => d, remove() {}, json: () => null, setJson() {}, setBool() {} };
@@ -36,26 +32,10 @@ function loadLsp() {
   });
 }
 
-test('FR-ASE-7: LspClient 가 LSP 메서드 40개를 갖고 App 에는 껍데기·접근자만 남는다', () => {
+test('FR-ASE-7: LspClient 가 LSP 메서드 29개를 갖고 App 에는 껍데기·접근자만 남는다', () => {
   const ctx = loadLsp();
   assert.deepEqual(ownNames(ctx.LspClient.prototype), [...LSP_METHODS].sort());
-  assert.deepEqual(ownNames(ctx.App.prototype), [...LSP_SHELLS, ...LSP_ACCESSORS, '_lspClient'].sort());
-});
-
-test('FR-ASE-7: 접근자는 accessor 서술자이고 읽기가 LspClient 를 만들지 않는다', () => {
-  const ctx = loadLsp();
-  for (const n of LSP_ACCESSORS) {
-    const d = Object.getOwnPropertyDescriptor(ctx.App.prototype, n);
-    assert.equal(typeof d.get, 'function', n + ' 에 게터가 없다 — Object.assign 이 값으로 복사했다');
-    assert.equal(typeof d.set, 'function', n);
-  }
-  const app = new ctx.App();
-  assert.equal(app._lspHoverLangs, undefined);
-  assert.equal(app._lsp, undefined, '읽기가 소유자를 만들었다');
-  const s = new Set(['go']);
-  app._lspHoverLangs = s;
-  assert.equal(app._lsp._lspHoverLangs, s);
-  assert.equal(app._lspHoverLangs, s);
+  assert.deepEqual(ownNames(ctx.App.prototype), [...LSP_SHELLS, '_lspClient'].sort());
 });
 
 test('FR-ASE-7: 껍데기는 같은 LspClient 에 위임한다', () => {

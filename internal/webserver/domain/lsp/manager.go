@@ -2,359 +2,34 @@ package lsp
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"dongminal/internal/shared/editorlimit"
-	"dongminal/internal/webserver/domain/ext"
 )
 
-// IdleAfter 는 쓰이지 않은 세션을 정지시키기까지의 시간이다 (FR-LSP-17).
+// IdleAfter 는 프레임이 오가지 않은 통로를 정리하기까지의 시간이다 (FR-LSP-17 · CODEMIRROR_MIGRATION_SRS FR-CMR-102).
 //
 // 언어 서버는 큰 저장소에서 수백 MB 를 쓴다. 짧게 두면 잠깐 다른 일을 하고 돌아온
 // 사용자가 매번 기동을 기다리고, 길게 두면 쓰지 않는 메모리가 남는다.
 const IdleAfter = 20 * time.Minute
 
-// MaxSessions 는 동시에 살아 있는 세션의 상한이다 (FR-LSP-19).
+// MaxSessions 는 동시에 살아 있는 통로 프로세스의 상한이다 (FR-LSP-19 · FR-CMR-102).
 const MaxSessions = 6
 
-// MaxTextBytes 는 요청이 실을 수 있는 파일 텍스트의 상한이자 디스크 재동기화가 읽는
-// 파일의 상한이다 (FR-LSP-53). 편집기 파일 상한과 같다 (OPTIMIZE_REFACTOR_SRS
-// FR-OPT-15-1 · DOM-30) — 종전에는 요청 8 MiB · 재동기화 10 MiB 로 갈려 8~10 MiB
-// 파일은 재동기화로는 보내지고 요청으로는 거절됐다.
-//
-// 요청마다 현재 텍스트가 오는 구조이므로(D-3) 이 값이 곧 한 요청의 크기다.
-//
-// var 인 것은 경계 검사가 낮춰 쓰기 위해서다 — 실제 값으로 재면 32 MiB 를 JSON 으로
-// 싣고 푸는 데 -race 에서 초 단위가 걸린다. 기본값은 TestLimit_TextIsEditorLimit 이 지킨다.
+// MaxTextBytes 는 편집기 파일 상한이다 (OPTIMIZE_REFACTOR_SRS FR-OPT-15-1). 통로 메시지의 상한이
+// 이것에 JSON 머리 몫을 더한 값이다 (FR-CMR-104).
 var MaxTextBytes = editorlimit.FileMaxBytes
 
 // SweepEvery 는 idle 정리의 주기다.
 const SweepEvery = 2 * time.Minute
-
-// sessionKey 는 (루트, 서술자, exe키) 다 (FR-LSP-13, REPO_FIX 02 §3A-3).
-//
-// 서술자가 단위인 것이 규칙이다 — 언어를 단위로 삼으면 TS·JS 가 같은 서버를 두 번
-// 띄운다. exe키는 서버 경로 표에 그 서술자의 경로가 있으면 그 경로, 없으면
-// "default" 다 — 경로가 바뀌면 옛 세션을 재사용하지 않는다.
-func sessionKey(root, descID, exeKey string) string {
-	return root + "\x00" + descID + "\x00" + exeKey
-}
-
-// FailureTTL 은 실패 기억의 수명이다 (§3A-4) — 터미널에서 설치한 뒤 재시작 없이
-// 이 안에 동작해야 한다. EarlyCrash 는 "기동 직후 크래시" 로 세는 시간이다.
-const (
-	FailureTTL      = 60 * time.Second
-	FailureMaxDelay = 60 * time.Second
-	EarlyCrash      = 60 * time.Second
-)
-
-// failure 는 (루트, 서술자)의 실패 기억이다. exe 가 바뀌면(설치·경로 변경) 무효다.
-type failure struct {
-	desc string
-	exe  string
-	err  error
-	at   time.Time
-	n    int
-}
-
-// retryAt 은 at + min(2^(n-1)s, 60s) 다.
-func (f *failure) retryAt() time.Time {
-	d := FailureMaxDelay
-	if f.n <= 6 {
-		if b := time.Duration(1<<(f.n-1)) * time.Second; b < d {
-			d = b
-		}
-	}
-	return f.at.Add(d)
-}
-
-func failKey(root, descID string) string { return root + "\x00" + descID }
 
 func (s *Service) now() time.Time {
 	if s.Now != nil {
 		return s.Now()
 	}
 	return time.Now()
-}
-
-// Definition 은 그 자리의 정의들이다 (FR-LSP-21).
-func (s *Service) Definition(ctx context.Context, root string, doc Doc, line, col int) ([]Location, error) {
-	var out []Location
-	err := s.withSession(ctx, root, doc, func(sess *Session) (err error) {
-		out, err = sess.Definition(ctx, doc, line, col)
-		return err
-	})
-	return out, err
-}
-
-// References 는 그 자리의 참조들이다 (FR-LSP-22).
-func (s *Service) References(ctx context.Context, root string, doc Doc, line, col int, includeDecl bool) ([]Location, error) {
-	var out []Location
-	err := s.withSession(ctx, root, doc, func(sess *Session) (err error) {
-		out, err = sess.References(ctx, doc, line, col, includeDecl)
-		return err
-	})
-	return out, err
-}
-
-// Hover 는 그 자리 심볼의 타입·문서다 (FR-LSP-29).
-func (s *Service) Hover(ctx context.Context, root string, doc Doc, line, col int) (string, error) {
-	var out string
-	err := s.withSession(ctx, root, doc, func(sess *Session) (err error) {
-		out, err = sess.Hover(ctx, doc, line, col)
-		return err
-	})
-	return out, err
-}
-
-// withSession 은 자리 요청 셋의 앞단이다 (FR-OPT-6-3) — 텍스트 상한, 세션, 핸드셰이크.
-//
-// 상한을 **세션보다 먼저** 본다: 거절할 요청 때문에 언어 서버를 띄우지 않는다.
-func (s *Service) withSession(ctx context.Context, root string, doc Doc, fn func(*Session) error) error {
-	if err := checkText(doc.Text); err != nil {
-		return err
-	}
-	sess, err := s.session(root, doc.Path)
-	if err != nil {
-		return err
-	}
-	if err := s.ready(ctx, sess); err != nil {
-		return err
-	}
-	return fn(sess)
-}
-
-func checkText(text string) error {
-	if len(text) > MaxTextBytes {
-		return fmt.Errorf("파일이 너무 큽니다 (%d 바이트, 상한 %d)", len(text), MaxTextBytes)
-	}
-	return nil
-}
-
-// ready 는 핸드셰이크를 기다린다. 핸드셰이크가 실패(initialize 오류·시한 초과)했으면
-// 그 세션을 맵에서 빼고 정지하고 실패를 기억한다 (§3A-4) — 캐시에 고착되지 않는다.
-// 호출자 ctx 로 빠진 것은 실패가 아니다.
-func (s *Service) ready(ctx context.Context, sess *Session) error {
-	err := sess.waitReady(ctx)
-	if err == nil {
-		return nil
-	}
-	if herr := sess.handshakeErr(); herr != nil {
-		s.discard(sess, herr)
-		return herr
-	}
-	return err
-}
-
-// discard 는 죽은 세션을 맵에서 빼고(그 세션일 때만 — 재기동된 새 세션을 지우지
-// 않는다) 정지(회수)한다. 이 세션의 죽음을 처음 보고하는 쪽이면 기억한다.
-func (s *Service) discard(sess *Session, cause error) {
-	s.mu.Lock()
-	if s.sessions[sess.key] == sess {
-		delete(s.sessions, sess.key)
-	}
-	s.mu.Unlock()
-	if cause != nil && sess.markDead() {
-		s.remember(sess.root, sess.desc, sess.exe, cause)
-	}
-	sess.Close()
-}
-
-// exited 는 통로가 죽은 세션의 뒷정리다 (§3A-4 회수). 기동 후 EarlyCrash 안에 죽은
-// 것만 실패로 센다 — 그 뒤의 크래시는 다음 요청이 곧바로 재기동한다.
-func (s *Service) exited(sess *Session) {
-	var cause error
-	if s.now().Sub(sess.started) < EarlyCrash {
-		cause = fmt.Errorf("lsp: %s 가 기동 직후 종료됐습니다", sess.srv.ID)
-	} else {
-		sess.markDead()
-	}
-	s.discard(sess, cause)
-}
-
-// session 은 이 파일을 맡을 세션을 얻는다. 없으면 세우고, 실패는 기억한다.
-//
-// **사유가 있는 오류만 낸다** (D-9). LSP 는 안 되는 경우가 많고 — 서술자 없음,
-// 실행 파일 없음, 기동 실패 — 그 전부가 "아무 일도 일어나지 않음" 으로 보이면
-// 사용자는 모두 우리 버그로 읽는다.
-func (s *Service) session(root, path string) (*Session, error) {
-	if root == "" {
-		return nil, fmt.Errorf("루트가 없습니다")
-	}
-	// FR-LSP-24·49: 루트 밖은 거절한다.
-	if !underRoot(root, path) {
-		return nil, fmt.Errorf("루트 밖의 경로입니다")
-	}
-	if s.Ext == nil {
-		return nil, fmt.Errorf("플러그인 계층이 배선되지 않았습니다")
-	}
-	// FR-PRF-70: **캐시를 먼저 본다.** 살아 있는 세션이 있으면 `Resolve` 를 아예
-	// 부르지 않는다 — 호버는 커서를 움직일 때마다 온다. 키는 extDesc → 서술자 →
-	// 서버 경로 표 조회 한 번으로 만든다 (§3A-3).
-	fileExt := filepath.Ext(path)
-	if sess := s.cachedSession(root, fileExt); sess != nil {
-		return sess, nil
-	}
-	m, srv, st, ok := s.Ext.Resolve(fileExt, s.locatorOverrides())
-	if !ok {
-		return nil, fmt.Errorf("%s 는 코드 탐색을 지원하는 언어가 아닙니다", filepath.Ext(path))
-	}
-	descID := m.ID + "/" + srv.ID
-	exe := ""
-	if st.Found {
-		exe = st.Exe
-	}
-	s.mu.Lock()
-	if s.sessions == nil {
-		s.sessions = map[string]*Session{}
-	}
-	if s.extDesc == nil {
-		s.extDesc = map[string]string{}
-	}
-	s.extDesc[fileExt] = descID
-	key := sessionKey(root, descID, s.exeKeyLocked(descID))
-	// FR-OPT-6-3: 같은 키를 세우는 중이면 기다렸다가 다시 본다 (single-flight).
-	//	이전 동작: 동시에 미스를 본 요청들이 저마다 언어 서버를 띄우고 늦은 쪽이 닫았다
-	//	새  동작: 한 요청만 띄우고 나머지는 그 결과(세션 또는 기억된 실패)를 쓴다
-	//	이유:     gopls 기동 한 번이 수백 MB 다
-	for {
-		if sess := s.sessions[key]; sess != nil {
-			s.mu.Unlock()
-			return sess, nil
-		}
-		wait := s.starting[key]
-		if wait == nil {
-			break
-		}
-		s.mu.Unlock()
-		<-wait
-		s.mu.Lock()
-	}
-	// FR-LSP-16·§3A-4: 기억된 실패는 재시도 시각 전까지 되풀이하지 않는다.
-	if err := s.recalledLocked(root, descID, exe); err != nil {
-		s.mu.Unlock()
-		return nil, err
-	}
-	// 못 찾으면 **무엇이 없는지**를 사유로 낸다 (FR-EXT-29 / D-9).
-	if !st.Found {
-		s.mu.Unlock()
-		err := fmt.Errorf("%s 가 없어 코드 탐색을 할 수 없습니다 — %s (설정 ▸ Code)",
-			srv.Exe, ext.MissingText(st))
-		s.remember(root, descID, "", err)
-		return nil, err
-	}
-	// CODEMIRROR_MIGRATION_SRS FR-CMR-102: REST 세션은 통로를 빼앗지 못한다.
-	if s.tunnelSlotsLocked() >= s.limit() {
-		s.mu.Unlock()
-		return nil, ErrLimit
-	}
-	if s.starting == nil {
-		s.starting = map[string]chan struct{}{}
-	}
-	done := make(chan struct{})
-	s.starting[key] = done
-	s.mu.Unlock()
-
-	sess, err := s.launch(key, done, root, descID, exe, srv, st.Exe)
-	if err != nil {
-		return nil, err
-	}
-	// §3A-4: 통로가 죽으면 맵에서 빼고 회수한다 — 죽은 세션이 캐시에 남지 않는다.
-	sess.watch(func() { s.exited(sess) })
-
-	// FR-LSP-19: 상한을 넘으면 가장 오래 쓰이지 않은 것을 정지한다.
-	s.evictOverLimit()
-	return sess, nil
-}
-
-// launch 는 세션 하나를 띄운다. 기동 표시는 **defer 로** 걷는다 — 기동이 패닉해도
-// 표시가 남아 같은 키의 요청이 영원히 기다리지 않는다 (FR-OPT-6-3). 성공이면
-// 세션이 맵에 든 뒤에 돌아온다.
-func (s *Service) launch(key string, done chan struct{}, root, descID, exe string, srv ext.Server, runExe string) (*Session, error) {
-	var published *Session
-	defer func() { s.finishStart(key, done, published) }()
-	start := s.Start
-	if start == nil {
-		start = StartProcess
-	}
-	// FR-LSP-32: 진단은 요청 없이 오므로 세션을 세울 때 통로를 잇는다.
-	sess := newSession(root, srv, runExe, start, s.OnDiagnostics)
-	sess.desc, sess.key, sess.now = descID, key, s.now
-	sess.started, sess.lastUse = s.now(), s.now()
-	if sess.initErr != nil {
-		// 기다리는 쪽이 깨어나 이 실패를 보도록 기억을 먼저 남긴다.
-		s.remember(root, descID, exe, sess.initErr)
-		sess.Close()
-		return nil, sess.initErr
-	}
-	published = sess
-	return sess, nil
-}
-
-// finishStart 는 기동 표시를 걷고 기다리는 요청을 깨운다. sess 가 있으면 맵에 넣는다.
-func (s *Service) finishStart(key string, done chan struct{}, sess *Session) {
-	s.mu.Lock()
-	if sess != nil {
-		s.sessions[key] = sess
-	}
-	delete(s.starting, key)
-	s.mu.Unlock()
-	close(done)
-}
-
-// cachedSession 은 확장자만으로 살아 있는 세션을 찾는다. 없으면 nil 이고, 그때만
-// `Ext.Resolve` 를 지난다 (FR-PRF-70).
-func (s *Service) cachedSession(root, fileExt string) *Session {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	descID, ok := s.extDesc[fileExt]
-	if !ok {
-		return nil
-	}
-	return s.sessions[sessionKey(root, descID, s.exeKeyLocked(descID))]
-}
-
-// recalledLocked 는 기억된 실패가 아직 유효하고 재시도 시각 전이면 그 사유다.
-// exe 가 달라졌거나(설치·경로) TTL 이 지났으면 기억을 버린다.
-func (s *Service) recalledLocked(root, descID, exe string) error {
-	k := failKey(root, descID)
-	f := s.failed[k]
-	if f == nil {
-		return nil
-	}
-	now := s.now()
-	if f.exe != exe || now.Sub(f.at) > FailureTTL {
-		delete(s.failed, k)
-		return nil
-	}
-	if now.Before(f.retryAt()) {
-		return f.err
-	}
-	return nil
-}
-
-// remember 는 (루트, 서술자, exe)의 실패를 기억한다 — 기동·핸드셰이크·시한 초과·
-// 기동 직후 크래시가 모두 여기로 온다 (§3A-4). 같은 exe 의 연속 실패는 n 을 올린다.
-//
-//	이전 동작: 키가 서술자뿐이라 한 루트의 실패가 모든 루트를 막았고, 지워지지 않았으며,
-//	          핸드셰이크 실패 세션은 맵에 남아 같은 오류를 되풀이했다
-//	새  동작: (루트, 서술자, exe), TTL 60s, 재시도 간격 min(2^(n-1)s, 60s)
-//	이유:     설치한 뒤에도 재시작 전까지 영영 안 됐다 (#17, N7)
-func (s *Service) remember(root, descID, exe string, err error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.failed == nil {
-		s.failed = map[string]*failure{}
-	}
-	k := failKey(root, descID)
-	n := 1
-	if f := s.failed[k]; f != nil && f.exe == exe && s.now().Sub(f.at) <= FailureTTL {
-		n = f.n + 1
-	}
-	s.failed[k] = &failure{desc: descID, exe: exe, err: err, at: s.now(), n: n}
 }
 
 // limit 은 동시 실행 상한이다.
@@ -365,99 +40,17 @@ func (s *Service) limit() int {
 	return s.MaxSessions
 }
 
-// evictOverLimit 은 상한을 넘긴 만큼 가장 오래 쓰이지 않은 세션을 정지시킨다.
-//
-// 상한은 REST 세션과 통로를 합쳐 세지만 정지 대상은 REST 세션뿐이다
-// (CODEMIRROR_MIGRATION_SRS FR-CMR-102) — 보고 있는 탭의 LSP 가 끊기지 않는다.
-func (s *Service) evictOverLimit() {
-	limit := s.limit()
-	for {
-		s.mu.Lock()
-		if len(s.sessions) == 0 || len(s.sessions)+s.tunnelSlotsLocked() <= limit {
-			s.mu.Unlock()
-			return
-		}
-		var oldKey string
-		var oldest *Session
-		for k, sess := range s.sessions {
-			if oldest == nil || sess.LastUse().Before(oldest.LastUse()) {
-				oldKey, oldest = k, sess
-			}
-		}
-		delete(s.sessions, oldKey)
-		s.mu.Unlock()
-		if oldest != nil {
-			oldest.Close()
-		}
-	}
-}
-
-// liveSessions 는 지금 세션들의 사본이다 — 잠금 밖에서 세션에 말을 걸기 위해서다.
-func (s *Service) liveSessions() []*Session {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	out := make([]*Session, 0, len(s.sessions))
-	for _, sess := range s.sessions {
-		out = append(out, sess)
-	}
-	return out
-}
-
-// CloseDoc 은 그 루트의 세션들에서 그 문서를 닫는다 (REPO_FIX 02 §3A-6 — 브라우저의
-// 마지막 뷰가 떠날 때). 열려 있지 않으면 아무것도 하지 않는다.
-//
-//	이전 동작: 한 번 연 문서는 세션이 끝날 때까지 열린 채 남았다
-//	새  동작: 마지막 뷰가 닫히면 didClose — 다음 요청이 다시 연다
-//	이유:     한 번 호버한 파일이 옛 판으로 영구히 남았다 (#19)
-func (s *Service) CloseDoc(root, path string) {
-	for _, sess := range s.liveSessions() {
-		if sess.root == root {
-			sess.closeDoc(path)
-		}
-	}
-}
-
-// ResyncPath 는 파일 쓰기 뒤 그 파일이 열린 세션의 문서를 디스크 판으로 맞춘다.
-func (s *Service) ResyncPath(path string) {
-	for _, sess := range s.liveSessions() {
-		sess.resync(path)
-	}
-}
-
-// ResyncRepo 는 저장소 변화(gitwatch 의 git_changed — 브랜치 전환 포함) 뒤 그 아래의
-// **열린 문서만** 디스크 판으로 맞춘다. 열지 않은 파일은 알리지 않는다(비목표).
-func (s *Service) ResyncRepo(repo string) {
-	for _, sess := range s.liveSessions() {
-		for _, p := range sess.openPaths() {
-			if underRoot(repo, p) {
-				sess.resync(p)
-			}
-		}
-	}
-}
-
-// Sweep 은 쓰이지 않은 세션을 정지시킨다 (FR-LSP-17).
-//
-// 정지는 포기가 아니다 — 다시 물으면 다시 선다.
+// Sweep 은 IdleAfter 동안 프레임이 오가지 않은 통로를 닫는다 (FR-CMR-102·103). 브라우저는
+// 다음에 그 연결을 쓸 때 다시 연다.
 func (s *Service) Sweep() {
 	after := s.IdleAfter
 	if after <= 0 {
 		after = IdleAfter
 	}
 	cut := s.now().Add(-after)
-	var stop []*Session
 	s.mu.Lock()
-	for k, sess := range s.sessions {
-		if sess.LastUse().Before(cut) {
-			stop = append(stop, sess)
-			delete(s.sessions, k)
-		}
-	}
 	idle := s.tunnelsLocked()
 	s.mu.Unlock()
-	for _, sess := range stop {
-		sess.Close()
-	}
 	for _, t := range idle {
 		if t.LastUse().Before(cut) {
 			t.Close()
@@ -479,31 +72,14 @@ func (s *Service) RunSweeper(ctx context.Context) {
 	}
 }
 
-// Shutdown 은 모든 세션을 정지시킨다 (FR-LSP-18).
+// Shutdown 은 모든 통로를 닫는다 (FR-LSP-18).
 func (s *Service) Shutdown() {
 	s.mu.Lock()
-	all := s.sessions
-	s.sessions = map[string]*Session{}
-	// 확장자→서술자 표도 함께 버린다 — 세션이 없으면 그 표는 아무것도 가리키지
-	// 않고, 남겨 두면 선언이 바뀐 뒤에도 옛 배정을 붙든다 (FR-PRF-70).
-	s.extDesc = nil
-	// §3A-4: 정지는 실패 기억도 버린다.
-	s.failed = nil
 	tunnels := s.tunnelsLocked()
 	s.mu.Unlock()
-	for _, sess := range all {
-		sess.Close()
-	}
 	for _, t := range tunnels {
 		t.Close()
 	}
-}
-
-// SessionCount 는 지금 살아 있는 세션 수다. 진단과 검사가 읽는다.
-func (s *Service) SessionCount() int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return len(s.sessions)
 }
 
 // underRoot 는 그 경로가 루트 아래인가다.
