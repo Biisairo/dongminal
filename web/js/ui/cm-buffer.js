@@ -21,10 +21,15 @@ class EdBuffer {
     this._subs = new Set();
     this.version = 0;
     this.disposed = false;
+    this.diagnostics = [];
   }
 
   get doc() { return this._doc }
   get sinkCount() { return this._sinks.size }
+  get sinks() { return [...this._sinks] }
+
+  /** 그룹이 보관하는 LSP 진단 (lint `Diagnostic`). 칸에 그리는 일은 `edLspDiagShow` 가 한다. */
+  setDiagnostics(list) { this.diagnostics = Array.isArray(list) ? list.slice() : [] }
   value() { return this._doc.toString() }
   /** 디스크에 쓸 내용. 줄 끝은 문서의 것(`eol`)이다 — 문서 줄에는 `\r` 이 없다. */
   text(doc = this._doc) { return doc.sliceString(0, doc.length, this.eol) }
@@ -50,6 +55,7 @@ class EdBuffer {
     for (const tr of trs) {
       if (!tr.docChanged || tr.annotation(EdBuffer.REMOTE)) continue;
       this._doc = tr.state.doc;
+      this._mapDiagnostics(tr.changes);
       for (const other of this._sinks) {
         if (other === sink) continue;
         other.dispatch({
@@ -70,6 +76,8 @@ class EdBuffer {
     this.eol = EdBuffer._eol(text);
     const next = EdBuffer._text(text);
     if (next.eq(this._doc)) return true;
+    // 위치의 근거가 사라졌다 — 언어 서버가 didChange 뒤 다시 보낸다.
+    this.diagnostics = [];
     const prev = this._doc;
     this._doc = next;
     for (const sink of this._sinks) {
@@ -99,6 +107,15 @@ class EdBuffer {
     this.disposed = true;
     this._sinks.clear();
     this._subs.clear();
+  }
+
+  // 지워진 범위의 진단은 빈 범위로 접는다.
+  _mapDiagnostics(changes) {
+    if (!this.diagnostics.length) return;
+    this.diagnostics = this.diagnostics.map((d) => {
+      const to = changes.mapPos(d.to, -1);
+      return { ...d, from: Math.min(changes.mapPos(d.from, 1), to), to };
+    });
   }
 
   _bump(flush) {

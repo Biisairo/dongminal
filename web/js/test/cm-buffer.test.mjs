@@ -247,3 +247,53 @@ test('CRLF: text(doc) 는 넘겨받은 판을 문서의 줄 끝으로 내보낸�
   type(a, 0, 'Z');
   assert.equal(buf.text(sent), 'a\r\nb');
 });
+
+// ── 진단 보관 (FR-CMR-92 · §11.6 L2) ──
+
+const diag = (from, to, message = 'm') => ({ from, to, severity: 'error', message });
+const plain = (list) => JSON.parse(JSON.stringify(list));
+
+test('L2: 보관한 진단은 칸의 편집을 따라 옮겨진다', () => {
+  const buf = new EdBuffer('abcdef\n');
+  const a = sink(buf);
+  sink(buf);
+  buf.setDiagnostics([diag(2, 4)]);
+  type(a, 0, 'XY');
+  assert.deepEqual(plain(buf.diagnostics), [diag(4, 6)]);
+});
+
+test('L2: 범위가 지워지면 진단은 빈 범위로 접힌다', () => {
+  const buf = new EdBuffer('abcdef\n');
+  const a = sink(buf);
+  buf.setDiagnostics([diag(2, 4)]);
+  a.dispatch({ changes: { from: 1, to: 5 }, userEvent: 'delete' });
+  const [d] = buf.diagnostics;
+  assert.equal(d.from, 1);
+  assert.equal(d.to, 1);
+});
+
+test('L2: 디스크 재읽기는 보관한 진단을 비운다', () => {
+  const buf = new EdBuffer('abc\n');
+  sink(buf);
+  buf.setDiagnostics([diag(0, 1)]);
+  buf.replace('xyz\n');
+  assert.equal(buf.diagnostics.length, 0);
+});
+
+test('L2: 같은 내용으로 재읽으면 진단을 남긴다', () => {
+  const buf = new EdBuffer('abc\n');
+  sink(buf);
+  buf.setDiagnostics([diag(0, 1)]);
+  buf.replace('abc\n');
+  assert.equal(buf.diagnostics.length, 1);
+});
+
+test('L2: sinks 는 붙은 칸들이고 떼면 빠진다', () => {
+  const buf = new EdBuffer('a');
+  const a = sink(buf), b = sink(buf);
+  assert.deepEqual(buf.sinks.length, 2);
+  assert.ok(buf.sinks.includes(a) && buf.sinks.includes(b));
+  buf.detach(a);
+  assert.equal(buf.sinks.length, 1);
+  assert.equal(buf.sinks[0], b);
+});

@@ -140,6 +140,13 @@ export function installEdAdapter(sel: typeof ED_SEL) {
   const SEV: Record<number, string> = { 8: 'error', 4: 'warning', 2: 'info', 1: 'hint' };
   const markersOf = (model: any) => M().editor.getModelMarkers({ resource: model.uri, owner: LSP_DIAG_OWNER })
     .map((m: any) => ({ line: m.startLineNumber, sev: SEV[m.severity] || String(m.severity), msg: m.message }));
+  // CodeMirror lint 상태의 진단 (§11.6 L2). 심각도 이름은 lint 의 것이 곧 엔진 중립 이름이다.
+  const cmDiags = (v: any) => {
+    const out: any[] = [];
+    const st = v.state;
+    CMg().forEachDiagnostic(st, (d: any, from: number) => out.push({ line: st.doc.lineAt(from).number, sev: d.severity, msg: d.message }));
+    return out;
+  };
   // 문서 레지스트리 항목 → 그 문서를 보는 CodeMirror 칸 하나.
   const viewOfDoc = (d: any) => [...d.views].find((v: any) => v && v._view) || null;
   const docKey = (d: any) => {
@@ -291,12 +298,21 @@ export function installEdAdapter(sel: typeof ED_SEL) {
     marks: (h: any, re: string) => (cm(h) ? cmMarks(h, new RegExp(re)) : deco(h, 'className', new RegExp(re))),
     lineMarks: (h: any, re: string) => (cm(h) ? cmLineMarks(h, new RegExp(re)) : deco(h, 'linesDecorationsClassName', new RegExp(re))),
 
-    // 진단 — 심각도는 엔진 중립 이름이다 ('error' | 'warning' | 'info' | 'hint'). 편집기 칸은 M8 에서 선다.
-    diagnostics: (h: any) => (cm(h) ? [] : markersOf(h.getModel())),
-    docDiagnostics: (d: any) => (d.buf ? [] : markersOf(d.model)),
-    /** 문서에 진단 하나를 직접 얹는다 (서버를 거치지 않고). */
+    // 진단 — 심각도는 엔진 중립 이름이다 ('error' | 'warning' | 'info' | 'hint').
+    diagnostics: (h: any) => (cm(h) ? cmDiags(V(h)) : markersOf(h.getModel())),
+    docDiagnostics: (d: any) => {
+      if (!d.buf) return markersOf(d.model);
+      const v = viewOfDoc(d);
+      return v ? cmDiags(V(v)) : [];
+    },
+    /** 문서에 진단 하나를 직접 얹는다 (서버를 거치지 않고). 그룹의 모든 칸에 그려진다. */
     docSetDiagnostic: (d: any, line: number, msg: string) => {
-      if (d.buf) return;
+      if (d.buf) {
+        const ln = d.buf.doc.line(line);
+        d.buf.setDiagnostics([{ from: ln.from, to: Math.min(ln.from + 1, ln.to), severity: 'error', message: msg }]);
+        w.edLspDiagShow(d.buf, w.lspDiagOn);
+        return;
+      }
       M().editor.setModelMarkers(d.model, LSP_DIAG_OWNER, [{
         startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: 2,
         message: msg, severity: M().MarkerSeverity.Error,

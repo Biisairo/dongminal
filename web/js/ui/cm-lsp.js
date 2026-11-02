@@ -100,12 +100,74 @@ function edLspServerReply(method, params, root) {
   return { error: { code: -32601, message: 'Method not implemented: ' + method } };
 }
 
+// LSP DiagnosticSeverity → lint 심각도.
+const ED_LSP_SEVERITY = { 1: 'error', 2: 'warning', 3: 'info', 4: 'hint' };
+
+// LSP 위치 → offset. 문서 밖이면 문서 안으로 접는다.
+function edLspOffset(doc, pos) {
+  const p = pos || {};
+  const line = doc.line(Math.min(Math.max(p.line | 0, 0), doc.lines - 1) + 1);
+  return line.from + Math.min(Math.max(p.character | 0, 0), line.length);
+}
+
+/**
+ * LSP 진단 → lint 진단 (FR-CMR-92 · §11.6 L2). 위치는 플러그인이 동기화한 문서 기준이고
+ * 그 뒤의 미동기 변경으로 옮긴다 — 라이브러리 `serverDiagnostics` 와 같다.
+ */
+function edLspDiagItems(plugin, items) {
+  const doc = plugin.syncedDoc;
+  const ch = plugin.unsyncedChanges;
+  return (Array.isArray(items) ? items : []).map((it) => {
+    const r = it.range || {};
+    const a = ch.mapPos(edLspOffset(doc, r.start));
+    const b = ch.mapPos(edLspOffset(doc, r.end));
+    const d = { from: Math.min(a, b), to: Math.max(a, b), severity: ED_LSP_SEVERITY[it.severity] || 'error', message: String(it.message || '') };
+    if (it.source) d.source = String(it.source);
+    return d;
+  });
+}
+
+/** 그룹의 모든 칸에 진단을 그린다 — 꺼져 있으면 빈 진단(지운다). 보관분은 그대로 둔다. */
+function edLspDiagShow(buf, on) {
+  if (!buf) return;
+  const list = on ? buf.diagnostics : [];
+  for (const s of buf.sinks) s.dispatch(CM.setDiagnostics(s.state, list));
+}
+
+/**
+ * `LSPClient` 확장 — 능력과 autoSync(`didChange`)는 라이브러리 것을 그대로 쓰고, 진단 처리기만
+ * 바꾼다: 그룹의 버퍼에 보관하고 모든 칸에 그린다. 켜기/끄기는 처리기가 본다 (FR-CMR-92).
+ *
+ * hooks.bufOf(path): 그 파일의 `EdBuffer`. hooks.on(): 진단을 그리는가.
+ */
+function edLspDiagnostics(hooks) {
+  const base = CM.serverDiagnostics();
+  return {
+    clientCapabilities: base.clientCapabilities,
+    editorExtension: base.editorExtension,
+    notificationHandlers: {
+      'textDocument/publishDiagnostics': (client, params) => {
+        const file = client.workspace.getFile(params.uri);
+        if (!file || (params.version != null && params.version !== file.version)) return true;
+        const view = file.getView();
+        const plugin = view && CM.LSPPlugin.get(view);
+        const buf = plugin && hooks.bufOf(edLspPath(file.uri));
+        if (!buf) return true;
+        buf.setDiagnostics(edLspDiagItems(plugin, params.diagnostics));
+        edLspDiagShow(buf, hooks.on());
+        return true;
+      },
+    },
+  };
+}
+
 let edLspWorkspaceCls = null;
 
 /**
  * 같은 파일의 칸들을 문서 하나로 세는 Workspace (FR-CMR-23). `CM` 이 선 뒤에 만든다.
  *
- * hooks.display(path) 는 앱이 그 파일을 열고 편집기가 선 뒤 그 뷰를 낸다.
+ * hooks.display(path) 는 앱이 그 파일을 열고 편집기가 선 뒤 그 뷰를 낸다. hooks.joined(path, view) 는
+ * 이미 열린 파일에 칸이 하나 더 붙었다는 알림이다 — 그 칸에 보관한 진단을 그린다.
  */
 function edLspWorkspaceClass() {
   if (edLspWorkspaceCls) return edLspWorkspaceCls;
@@ -187,7 +249,11 @@ function edLspWorkspaceClass() {
 
     openFile(uri, languageId, view) {
       const f = this.getFile(uri);
-      if (f) { f.views.add(view); return }
+      if (f) {
+        f.views.add(view);
+        if (this._hooks.joined) this._hooks.joined(edLspPath(f.uri), view);
+        return;
+      }
       const nf = new EdLspFile(uri, languageId, this._nextVersion(uri), view.state.doc);
       nf.views.add(view);
       this.files.push(nf);
@@ -277,7 +343,7 @@ class EdLspSocket {
 /**
  * 연결 하나 — 페이지의 (루트, 서술자) (FR-CMR-90·91).
  *
- * o: {root, desc, display(path), extensions, sanitizeHTML, timeout, now}
+ * o: {root, desc, display(path), joined(path, view), extensions, sanitizeHTML, timeout, now}
  */
 class EdLspConn {
   constructor(o) {
@@ -294,7 +360,7 @@ class EdLspConn {
     this.client = new CM.LSPClient({
       rootUri: edLspUri(o.root),
       timeout: o.timeout || ED_LSP_TIMEOUT_MS,
-      workspace: (c) => new W(c, { display: o.display }),
+      workspace: (c) => new W(c, { display: o.display, joined: o.joined }),
       sanitizeHTML: o.sanitizeHTML,
       extensions: o.extensions || [],
     });

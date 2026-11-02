@@ -211,12 +211,16 @@ Object.assign(LspClient.prototype, {
     const key=root+'\0'+desc;
     let c=this._lspConns.get(key);
     if(!c){
+      // FR-CMR-92: 진단은 그룹의 버퍼에 보관하고 모든 칸에 그린다 (§11.6 L2).
+      const bufOf=(path)=>{ const d=this.app.edDocAt(path); return (d&&d.buf)||null };
       c=new EdLspConn({
         root, desc,
         display:(path)=>this._lspDisplay(path),
+        // 갱신 도중에 불린다 — 그리기는 그 뒤로 미룬다.
+        joined:(path)=>queueMicrotask(()=>edLspDiagShow(bufOf(path),lspDiagOn)),
         // FR-CMR-94: hover Markdown 은 DOMPurify 를 지난다.
         sanitizeHTML:(html)=>DOMPurify.sanitize(html),
-        extensions:[CM.hoverTooltips(),this._lspClickExt()],
+        extensions:[CM.hoverTooltips(),this._lspClickExt(),edLspDiagnostics({bufOf,on:()=>lspDiagOn})],
       });
       this._lspConns.set(key,c);
     }
@@ -642,16 +646,14 @@ Object.assign(LspClient.prototype, {
   },
 
   /**
-   * FR-LSP-36: 진단 토글. 끄면 지금 서 있는 밑줄을 **즉시 걷는다** — 껐는데 남아
-   * 있으면 설정이 듣지 않는 것으로 보인다.
+   * FR-LSP-36 · FR-CMR-92: 진단 토글. 끄면 지금 서 있는 밑줄을 **즉시 걷는다** — 껐는데
+   * 남아 있으면 설정이 듣지 않는 것으로 보인다. 켜면 그룹마다 보관한 진단을 다시 그린다.
    */
   _lspSetDiag(on){
     lspDiagOn=!!on;
     PrefStore.local.setBool(LSP_DIAG_KEY,lspDiagOn);
-    if(lspDiagOn) return;
-    for(const v of this.app.fileEditors.values()){
-      if(v&&v._editor) this.lspClearDiagnostics(v._editor.getModel());
-    }
+    if(!this.app._edDocs) return;
+    for(const d of this.app._edDocs.values()) if(d&&d.buf) edLspDiagShow(d.buf,lspDiagOn);
   },
 
   // ── 뒤로 가기 (FR-LSP-27) ──

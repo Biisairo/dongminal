@@ -788,6 +788,23 @@ L1 설계:
   능력은 브라우저의 `clientCapabilities` 에 넣는다.
 - 기본 `Workspace` 는 같은 파일을 두 번 열면 throw 한다. 사용자 정의 `Workspace` 가 그룹의 칸 수를 센다.
 
+L2 설계 (FR-CMR-92 진단):
+
+| 자리 | 내용 |
+|---|---|
+| `EdBuffer.diagnostics` · `setDiagnostics(list)` | 그룹이 보관하는 진단(`{from, to, severity, message, source?}` — CodeMirror lint 의 `Diagnostic`). 기본은 빈 배열. 칸의 편집(`fromSink`)이 바꾼 위치는 그 변경으로 옮긴다(`ChangeSet.mapPos`, 범위가 지워져 `from > to` 가 되면 `from = to`). 디스크 재읽기(`replace`)는 보관분을 비운다 — 위치의 근거가 사라졌고, 서버가 `didChange` 뒤 다시 보낸다 |
+| `EdBuffer.sinks` | 붙은 칸들 (읽기 전용 배열). 진단을 그릴 때 그룹의 모든 칸을 돈다 |
+| `edLspDiagItems(plugin, items)` (`cm-lsp.js`) | LSP `Diagnostic[]` → lint `Diagnostic[]`. 위치는 `plugin.syncedDoc` 기준 (줄·글자)을 offset 으로 바꾸고 `plugin.unsyncedChanges` 로 옮긴다(라이브러리 `serverDiagnostics` 와 같다). 줄·글자가 문서 밖이면 문서 안으로 접는다(라이브러리는 이때 throw 한다). 심각도 1·2·3·4 → `error`·`warning`·`info`·`hint`, 없으면 `error`. `source` 는 있으면 싣는다 |
+| `edLspDiagShow(buf, on)` | 그룹의 모든 칸에 `setDiagnostics` — `on` 이면 `buf.diagnostics`, 아니면 빈 배열 |
+| `edLspDiagnostics(hooks)` | `LSPClient` 의 `extensions` 에 넣을 확장. `clientCapabilities`·`editorExtension`(autoSync)은 `CM.serverDiagnostics()` 의 것을 그대로 쓰고, `textDocument/publishDiagnostics` 처리기만 바꾼다. 처리기: `workspace.getFile(uri)` 가 없거나 `version` 이 파일 판과 다르면 버린다. 있으면 그룹 칸 하나의 플러그인으로 위치를 바꾸고, `hooks.bufOf(path)` 의 버퍼에 보관한 뒤 `edLspDiagShow(buf, hooks.on())`. 버퍼가 없으면 버린다 |
+| `EdLspWorkspace.openFile` | 이미 열린 파일에 칸이 하나 더 붙으면 `hooks.joined(path, view)` 를 부른다 — 앱이 그 칸에 보관분을 그린다(갱신 도중이므로 `queueMicrotask` 로 미룬다) |
+| `LspClient` | `_lspConn` 이 `edLspDiagnostics({bufOf, on: () => lspDiagOn})` 를 `extensions` 에 더한다. `bufOf(path)` = `app.edDocAt(path).buf`. `_lspSetDiag(on)` 은 레지스트리의 모든 버퍼에 `edLspDiagShow(buf, on)` — 끄면 지우고(보관분은 남는다), 켜면 보관분을 그린다 |
+
+- 꺼져 있는 동안 온 진단도 보관한다 — 다시 켤 때 그린다 (FR-CMR-92).
+- 칸 하나가 닫혀도 다른 칸의 진단은 남는다 (E-9.1) — 칸마다 lint 상태가 따로이고, 보관분은 버퍼(그룹)의 것이다.
+- 기존 hub 경로(`_lspOnDiagnostics`·`app.testing.lspOnDiagnostics`·`app-cmd.js` 의 `LSP_DIAG_ACTION` 구독)는 L2 에서 건드리지 않는다. T 가 e2e 를 실제 gopls 로 옮기며 `_lspOnDiagnostics`·seam·구독을 걷고, R 이 hub 의 액션·슬롯을 걷는다. `lspClearDiagnostics` 는 R 의 목록이다.
+- e2e 어댑터: `edT.diagnostics(h)` = 칸의 lint 상태(`forEachDiagnostic`) → `{line, sev, msg}`. `edT.docDiagnostics(d)` = 그 문서를 보는 칸 하나의 것. `edT.docSetDiagnostic(d, line, msg)` = 버퍼에 보관하고 `edLspDiagShow(d.buf, lspDiagOn)`.
+
 ## 10. 변경 기록
 
 | 날짜 | 내용 |
@@ -802,3 +819,4 @@ L1 설계:
 | 2026-11-02 | FR-CMR-80·81·82·83 구체화, FR-CMR-84 추가 — sticky 는 편집기 칸만, Diff 에는 없다 (M7 착수 중 사용자 결정). FR-CMR-82 는 누른 줄이 고정된 줄에 덮이지 않도록 고쳤다. §11.5 |
 | 2026-11-02 | M7 완료 — §7.2 에 측정을 적었다 |
 | 2026-11-02 | FR-CMR-90·92·93·100·102 개정, §3.16·§4.2·§4.3·§9 갱신, §11.6 추가 — M8 착수 중 사용자 결정 8건 |
+| 2026-11-02 | §11.6 L2 설계 — 진단은 그룹의 버퍼에 보관하고 모든 칸에 그린다. 켜기/끄기는 처리기와 토글이 본다 |

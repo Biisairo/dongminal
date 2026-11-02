@@ -37,8 +37,9 @@ class FakeWS {
   methods() { return this.msgs().map((m) => m.method || `#${m.id}`) }
 }
 
-const ctx = load(['ui/cm-lsp.js'], {
-  expose: ['edLspUri', 'edLspPath', 'edLspLangId', 'edLspServerReply', 'edLspWorkspaceClass', 'EdLspSocket', 'EdLspConn'],
+const ctx = load(['ui/cm-buffer.js', 'ui/cm-lsp.js'], {
+  expose: ['edLspUri', 'edLspPath', 'edLspLangId', 'edLspServerReply', 'edLspWorkspaceClass', 'EdLspSocket', 'EdLspConn',
+    'EdBuffer', 'edLspDiagItems', 'edLspDiagShow', 'edLspDiagnostics'],
   globals: {
     CM, WebSocket: FakeWS, TextEncoder, TextDecoder, URLSearchParams, queueMicrotask,
     location: { protocol: 'http:', host: 'h:1' },
@@ -46,7 +47,8 @@ const ctx = load(['ui/cm-lsp.js'], {
     ED_LSP_TIMEOUT_MS: 15000, ED_LSP_RETRY_MS: 5000,
   },
 });
-const { edLspUri, edLspPath, edLspLangId, edLspWorkspaceClass, EdLspSocket, EdLspConn } = ctx;
+const { edLspUri, edLspPath, edLspLangId, edLspWorkspaceClass, EdLspSocket, EdLspConn,
+  EdBuffer, edLspDiagItems, edLspDiagShow, edLspDiagnostics } = ctx;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const VECTORS = JSON.parse(readFileSync(join(HERE, '../../../internal/shared/platform/testdata/file_uri_vectors.json'), 'utf8'));
@@ -244,6 +246,141 @@ test('displayFile 은 앱이 연 편집기의 뷰를 낸다', async () => {
   const { ws: ws2 } = workspace({ display: async () => null });
   assert.equal(await ws2.displayFile(U), null);
   assert.equal(await ws2.displayFile('http://x'), null);
+});
+
+test('같은 파일에 칸이 하나 더 붙으면 joined 를 부른다 (첫 칸은 부르지 않는다)', () => {
+  const seen = [];
+  const { ws } = workspace({ joined: (p, v) => seen.push([p, v]) });
+  const a = fakeView('x'), b = fakeView('x');
+  ws.openFile('file:///r/b%20c.go', 'go', a);
+  assert.equal(seen.length, 0);
+  ws.openFile('file:///r/b%20c.go', 'go', b);
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0][0], '/r/b c.go');
+  assert.equal(seen[0][1], b);
+});
+
+// ── 진단 (FR-CMR-92 · §11.6 L2) ──
+
+const lspDiag = (l1, c1, l2, c2, extra = {}) => ({ range: { start: { line: l1, character: c1 }, end: { line: l2, character: c2 } }, message: 'm', ...extra });
+const plain = (x) => JSON.parse(JSON.stringify(x));
+
+/** `EditorState` 로 선 가짜 칸 (cm-buffer.test.mjs 와 같다). */
+function bufSink(buf) {
+  const s = {
+    state: CM.EditorState.create({ doc: buf.doc }),
+    dispatch(spec) {
+      const tr = s.state.update(spec);
+      s.state = tr.state;
+      buf.fromSink(s, [tr]);
+    },
+  };
+  buf.attach(s);
+  return s;
+}
+
+const shown = (s) => {
+  const out = [];
+  CM.forEachDiagnostic(s.state, (d, from, to) => out.push({ from, to, severity: d.severity, message: d.message }));
+  return out;
+};
+
+test('진단 위치는 동기화된 문서 기준이고 미동기 변경으로 옮겨진다', () => {
+  const v = fakeView('ab\ncd\n');
+  v.edit({ changes: { from: 0, insert: 'XX' } }); // 동기화 뒤 앞에 두 글자
+  const got = plain(edLspDiagItems(v.lsp, [lspDiag(1, 0, 1, 2)]));
+  assert.equal(got.length, 1);
+  assert.equal(got[0].from, 5);
+  assert.equal(got[0].to, 7);
+});
+
+test('심각도 1·2·3·4 는 error·warning·info·hint, 없으면 error 다. source 를 싣는다', () => {
+  const v = fakeView('abcdef\n');
+  const got = plain(edLspDiagItems(v.lsp, [
+    lspDiag(0, 0, 0, 1, { severity: 1 }), lspDiag(0, 0, 0, 1, { severity: 2 }),
+    lspDiag(0, 0, 0, 1, { severity: 3 }), lspDiag(0, 0, 0, 1, { severity: 4 }),
+    lspDiag(0, 0, 0, 1, { source: 'compiler', message: 'boom' }),
+  ]));
+  assert.deepEqual(got.map((d) => d.severity), ['error', 'warning', 'info', 'hint', 'error']);
+  assert.equal(got[4].source, 'compiler');
+  assert.equal(got[4].message, 'boom');
+});
+
+test('문서 밖의 줄·글자는 문서 안으로 접힌다 (던지지 않는다)', () => {
+  const v = fakeView('ab\ncd');
+  const got = plain(edLspDiagItems(v.lsp, [lspDiag(0, 9, 7, 3), lspDiag(-1, -2, 0, 1)]));
+  assert.deepEqual(got.map((d) => [d.from, d.to]), [[2, 5], [0, 1]]);
+});
+
+test('edLspDiagShow: 켜져 있으면 그룹의 모든 칸에 보관분을, 꺼져 있으면 빈 진단을 그린다', () => {
+  const buf = new EdBuffer('abcdef\n');
+  const a = bufSink(buf), b = bufSink(buf);
+  buf.setDiagnostics([{ from: 1, to: 3, severity: 'warning', message: 'w' }]);
+  edLspDiagShow(buf, true);
+  assert.deepEqual(shown(a), [{ from: 1, to: 3, severity: 'warning', message: 'w' }]);
+  assert.deepEqual(shown(b), shown(a));
+  edLspDiagShow(buf, false);
+  assert.deepEqual(shown(a), []);
+  assert.deepEqual(shown(b), []);
+  assert.equal(buf.diagnostics.length, 1, '끄면 그림만 지우고 보관분은 남는다');
+});
+
+function diagSetup(on) {
+  const buf = new EdBuffer('package a\nfunc f() {}\n');
+  const a = bufSink(buf), b = bufSink(buf);
+  const { ws } = workspace();
+  const va = fakeView(buf.doc.toString()), vb = fakeView(buf.doc.toString());
+  ws.openFile(U, 'go', va);
+  ws.openFile(U, 'go', vb);
+  const st = { on };
+  const paths = [];
+  const ext = edLspDiagnostics({ bufOf: (p) => { paths.push(p); return p === '/r/a.go' ? buf : null }, on: () => st.on });
+  const handle = ext.notificationHandlers['textDocument/publishDiagnostics'];
+  const client = { workspace: ws };
+  return { buf, a, b, ws, st, paths, handle: (params) => handle(client, params) };
+}
+
+test('publishDiagnostics: 버퍼에 보관하고 그룹의 모든 칸에 그린다', () => {
+  const t = diagSetup(true);
+  const r = t.handle({ uri: U, diagnostics: [lspDiag(1, 5, 1, 6, { severity: 2 })] });
+  assert.equal(r, true);
+  assert.deepEqual(t.paths, ['/r/a.go']);
+  assert.equal(t.buf.diagnostics.length, 1);
+  assert.deepEqual(shown(t.a).map((d) => [d.from, d.to, d.severity]), [[15, 16, 'warning']]);
+  assert.deepEqual(shown(t.b), shown(t.a));
+  // 빈 진단은 "이제 깨끗하다" 이다 — 앞 밑줄을 걷는다.
+  t.handle({ uri: U, diagnostics: [] });
+  assert.equal(t.buf.diagnostics.length, 0);
+  assert.deepEqual(shown(t.a), []);
+});
+
+test('publishDiagnostics: 꺼져 있으면 보관만 하고 그리지 않는다 — 다시 켜면 보관분을 그린다', () => {
+  const t = diagSetup(false);
+  t.handle({ uri: U, diagnostics: [lspDiag(0, 0, 0, 7)] });
+  assert.equal(t.buf.diagnostics.length, 1);
+  assert.deepEqual(shown(t.a), []);
+  edLspDiagShow(t.buf, true);
+  assert.equal(shown(t.a).length, 1);
+  assert.equal(shown(t.b).length, 1);
+});
+
+test('publishDiagnostics: 판이 다르거나 열리지 않은 파일이면 버린다', () => {
+  const t = diagSetup(true);
+  const ver = t.ws.getFile(U).version;
+  t.handle({ uri: U, version: ver + 1, diagnostics: [lspDiag(0, 0, 0, 1)] });
+  t.handle({ uri: 'file:///r/zz.go', diagnostics: [lspDiag(0, 0, 0, 1)] });
+  assert.equal(t.buf.diagnostics.length, 0);
+  assert.deepEqual(shown(t.a), []);
+  t.handle({ uri: U, version: ver, diagnostics: [lspDiag(0, 0, 0, 1)] });
+  assert.equal(t.buf.diagnostics.length, 1, '판이 같으면 받는다');
+});
+
+test('edLspDiagnostics: 능력과 autoSync 는 라이브러리 serverDiagnostics 의 것이다', () => {
+  const ext = edLspDiagnostics({ bufOf: () => null, on: () => true });
+  const base = CM.serverDiagnostics();
+  assert.equal(ext.editorExtension, base.editorExtension);
+  assert.deepEqual(plain(ext.clientCapabilities), plain(base.clientCapabilities));
+  assert.equal(typeof ext.notificationHandlers['textDocument/publishDiagnostics'], 'function');
 });
 
 // ── 소켓 ──
