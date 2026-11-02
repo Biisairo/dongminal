@@ -161,6 +161,14 @@ function edLspDiagnostics(hooks) {
   };
 }
 
+/** 닫힌 사유의 사람 말 — 상한·기동 실패만 (FR-CMR-93·102). 그 밖은 null 이다. */
+function edLspCloseNote(lastClose) {
+  if (!lastClose) return null;
+  if (lastClose.code === LSP_WS_CLOSE_LIMIT) return LSP_WS_LIMIT_NOTE;
+  if (lastClose.code === LSP_WS_CLOSE_START) return lastClose.reason || null;
+  return null;
+}
+
 let edLspWorkspaceCls = null;
 
 /**

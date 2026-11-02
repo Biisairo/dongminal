@@ -366,7 +366,8 @@ Monaco 도 스크롤바를 직접 그렸다)
 **FR-CMR-93** 정의로 이동은 라이브러리의 `jumpToDefinition`, 참조 찾기는 라이브러리의 `findReferences`
 (그 패널)다. 앱 단축키 `edGotoDef`·`edFindRefs` 가 이 명령을 부른다. 정의가 다른 파일을 가리키면
 `Workspace.displayFile` 이 앱으로 그 파일을 열고, 편집기가 준비된 뒤 그 뷰를 돌려준다. 기존 결과 목록
-(`_lspList`)과 뒤로 가기(`_lspNavBack`·`edNavBack`)는 걷는다. (M8 착수 중 결정 6, 동작 변경 §3.16)
+(`_lspList`)과 뒤로 가기(`_lspNavBack`·`edNavBack`)는 걷는다. 정의·참조의 결과가 비면 아무것도 표시하지 않는다(라이브러리
+동작). 연결하지 못했으면(상한·기동 실패) 그 사유를 알림 줄에 보인다. (M8 착수 중 결정 6, T 착수 중 결정, 동작 변경 §3.16)
 
 **FR-CMR-94** hover Markdown 의 `sanitizeHTML` 은 `purify.js`(DOMPurify)다.
 
@@ -473,6 +474,7 @@ B 착수 전에 §8 의 미해결 질문을 해소한다.
 | LSP 동시 상한에 걸릴 때 | 가장 오래 안 쓴 세션을 정지(LRU) | 새 통로를 거절하고 상태 패널에 보인다. 열려 있는 통로는 빼앗기지 않는다 | 사용자가 보는 탭의 LSP 가 갑자기 끊기지 않게 한다 (M8 결정 3) |
 | 정의가 여러 곳일 때 | 결과 목록(`_lspList`)에서 고른다 | 첫 항목으로 간다 | 사용자 결정 — 라이브러리 명령을 쓴다 (M8 결정 6) |
 | 참조 찾기 | 앱의 결과 목록(`_lspList`). 열리지 않은 파일의 참조도 보인다 | `lsp-client` 의 참조 패널. 열리지 않은 파일의 참조는 빠진다 | 위와 같다. 라이브러리의 `requestFile` 은 열린 파일만 돌려준다 |
+| 정의·참조가 없을 때 | 알림 줄에 "정의를 찾지 못했습니다"·"참조를 찾지 못했습니다" | 아무것도 표시하지 않는다 | 사용자 결정 (M8 T) — 라이브러리 명령은 빈 결과에 아무것도 하지 않는다. 연결 실패의 사유는 그대로 보인다 |
 | 정의로 이동 뒤 돌아가기 | `edNavBack`(`Mod+Alt+Minus`)으로 직전 위치로 | 없음 — 단축키·설정 항목도 걷는다 | 사용자 결정 — 라이브러리에 대응 기능이 없다 (M8 결정 6) |
 | e2e: 호버 provider 1회 · 요청 텍스트 생략(needText) | `editor-lsp-nav` 가 잰다 | 검사를 지운다 | Monaco provider 등록과 REST 텍스트 동기화의 개념이다 — CodeMirror·WS 통로에는 대응물이 없다 (M8 결정 8) |
 | e2e: 참조 결과 목록 · 뒤로 가기 | `editor-lsp-nav` 가 잰다 | 목록 검사는 라이브러리 참조 패널 검사로 바꾸고, 뒤로 가기 검사는 지운다 | 위 두 줄의 동작 변경을 따른다 (M8 결정 6·8) |
@@ -620,10 +622,10 @@ M5 측정: 43개 파일(`editor-multi-slot` 포함) — 537건 중 통과 502 ·
 M6 측정: 44개 파일(`codemirror-load` 포함) — 539건 중 통과 517 · 실패 22, 모두 아래 표의 M8·M9 몫이다 (2026-11-02). Diff 문서 공유 줄의 검사(`git-diff-doc` S1~S7 · `repo-diff-edit` D1·D3·E1·E2 · `git-subroot` F-3.1 두 건)와 `monaco-offline` TC-MVN-16 이 통과해 그 줄을 지웠다.
 그 뒤 `git-diff-doc` S8(Diff 수정본 쪽 실제 키 입력)·`ux-batch10` "원본 쪽에 포커스가 있으면 찾기가 원본을 찾는다"(FR-UXB-49)를 더했다 — 모두 통과(반복 3회).
 M7 측정: 45개 파일(`editor-sticky` 포함) — 544건 중 통과 522 · 실패 22, 모두 아래 표의 M8·M9 몫이다 (2026-11-02). `editor-sticky` 3건은 따로 통과(반복 3회).
+M8 T 측정: 46개 파일(`editor-lsp` 포함, `editor-lsp-nav` 는 실제 gopls 로 다시 씀) — 543건 중 통과 541 · 실패 2 (2026-11-03). 하나는 아래 표의 M9 몫이다. 다른 하나(`editor-scrollbar` thumb 끌기)는 L3 로 되살아난 설치 제안 띠(그 기계에 markdown 서버가 없다)가 thumb 를 덮은 것이다 — 띠는 처음부터 편집기 위쪽을 덮는 겹이므로 그 스펙이 상태를 세워 띠를 빼고 잰다. 고친 뒤 반복 3회 통과. M8 줄(`editor-lsp-nav` · `slot-view-state` E-9.1 · `repo-tab` M4 · `ux-batch10` 호버)은 모두 통과해 지웠다.
 
 | 스펙 · 테스트 | 실패 이유 | 닫는 마일스톤 |
 |---|---|---|
-| `editor-lsp-nav` 18건 · `slot-view-state` E-9.1 · `repo-tab` M4 · `ux-batch10` 호버 | LSP 연결이 아직 Monaco 편집기에 서 있다 (제안 띠 포함) | M8 |
 | `editor-find-panel` "다른 Monaco 는 자기 위젯을 갖는다" | Monaco 고유 동작을 재는 검사다 — 편집기 칸에 Monaco 가 없다 (`edT.probe`) | M9 에서 폐기 또는 대체 |
 
 ---
@@ -803,7 +805,29 @@ L2 설계 (FR-CMR-92 진단):
 - 꺼져 있는 동안 온 진단도 보관한다 — 다시 켤 때 그린다 (FR-CMR-92).
 - 칸 하나가 닫혀도 다른 칸의 진단은 남는다 (E-9.1) — 칸마다 lint 상태가 따로이고, 보관분은 버퍼(그룹)의 것이다.
 - 기존 hub 경로(`_lspOnDiagnostics`·`app.testing.lspOnDiagnostics`·`app-cmd.js` 의 `LSP_DIAG_ACTION` 구독)는 L2 에서 건드리지 않는다. T 가 e2e 를 실제 gopls 로 옮기며 `_lspOnDiagnostics`·seam·구독을 걷고, R 이 hub 의 액션·슬롯을 걷는다. `lspClearDiagnostics` 는 R 의 목록이다.
-- e2e 어댑터: `edT.diagnostics(h)` = 칸의 lint 상태(`forEachDiagnostic`) → `{line, sev, msg}`. `edT.docDiagnostics(d)` = 그 문서를 보는 칸 하나의 것. `edT.docSetDiagnostic(d, line, msg)` = 버퍼에 보관하고 `edLspDiagShow(d.buf, lspDiagOn)`.
+- e2e 어댑터(L2): `edT.diagnostics(h)` = 칸의 lint 상태(`forEachDiagnostic`) → `{line, sev, msg}`. `edT.docDiagnostics(d)` = 그 문서를 보는 칸 하나의 것. `edT.docSetDiagnostic(d, line, msg)` = 버퍼에 보관하고 `edLspDiagShow(d.buf, lspDiagOn)`.
+
+T 설계 (e2e 이관·걷기):
+
+착수 중 결정 (2026-11-03, 사용자): 정의·참조 결과가 비면 아무것도 표시하지 않는다 — FR-CMR-93 · §3.16.
+
+| 자리 | 내용 |
+|---|---|
+| `e2e/editor-lsp-nav` 픽스처 | 실제 gopls. `go.mod`(`module example.com/lspnav`) · `main.go`(`deep.Helper()` 를 부른다) · `pkg/deep/helper.go`(`func Helper() int`) · `bad/bad.go`(정의되지 않은 이름을 부른다) · `notes.txt`. `beforeAll` 에서 `/api/lsp/status` 의 gopls 가 `found` 가 아니면 실패한다 — 건너뛰지 않는다 (§4.3) |
+| 준비 신호 · 관측 | `page.routeWebSocket('**/api/lsp/ws')` 가 실제 서버에 잇고(`connectToServer`) 두 방향 프레임의 `method` 를 기록한다(`lspTap`). 검사는 그 파일의 첫 `textDocument/publishDiagnostics` 를 기다린 뒤 시작한다 — gopls 는 패키지를 다 읽기 전의 요청에 빈 답을 줄 수 있다 |
+| 정의 | F12 → 다른 파일이 탭으로 열리고 그 줄·열로 가며 탐색기의 조상이 펼쳐진다 · Mod+클릭 제스처 → 같다 · 설정에서 바꾼 키로 된다(옛 키는 듣지 않는다) · LSP 가 없는 파일(`notes.txt`)·편집기가 없는 탭에서는 `textDocument/definition` 이 나가지 않는다 |
+| 참조 | Shift+F12 → 라이브러리 참조 패널에 열린 두 파일의 참조가 보이고, 다른 파일의 항목을 고르면 그 줄로 열린다 |
+| 호버 | 심볼 → 타입(`func Helper() int`)이 보인다 · 빈 줄 → 말풍선도 알림도 없다 |
+| 진단 | `bad.go` → 그 줄에 error 하나 · 고치면 걷힌다 · 다른 잘못으로 바꾸면 앞 진단을 덮는다 · `main.go` 에는 없다 · 설정에서 끄면 걷히고 켜면 보관분이 다시 선다 |
+| 실패 주입 (`routeWebSocket` 가짜 — 서버에 잇지 않는다) | 상한: 소켓을 4001 `limit` 로 닫는다 → F12 의 알림 줄과 설정 ▸ Code 상태 패널에 `LSP_WS_LIMIT_NOTE` · 끊김 뒤 다시 연결: 실제 서버에 이은 첫 소켓을 4003 `ended` 로 닫는다 → 다음 F12 가 새 소켓을 열고 정의로 간다 |
+| 지우는 검사 | 커맨드클릭(`revealDefinition` — Monaco 명령, 제스처 검사가 같은 경로) · 뒤로 가기 · 서버 사유(REST `reason` — 상한 실패 주입이 대신한다) · 정의가 없으면 알림(T 결정) · 호버 provider 1회·needText(결정 8) · 진단 seam 3건(실제 gopls 로 바꾼다). 설치 제안(M5)과 `/api/lsp/close` 검사는 그대로 둔다(close 는 R) |
+| `ux-batch10` 호버 | 실제 gopls. Diff 수정본 쪽에서 작업 트리에만 있는 심볼의 타입이 보인다. 원본 쪽은 경로를 답하지 않는다(`diffLspPaths`) |
+| `edLspCloseNote(lastClose)` (`cm-lsp.js`) | 닫힌 사유의 사람 말: 4001 → `LSP_WS_LIMIT_NOTE`, 4002 → 서버가 준 reason(비면 null), 그 밖은 null. `_lspRunOn` 은 `edLspCloseNote(lc) \|\| LSP_ASK_FAIL` 을 알림 줄에 보인다 |
+| 상태 패널 (`_lspPaint`) | 팩의 서버(서술자) 연결 중 `state === 'closed'` 이고 `edLspCloseNote` 가 값을 내는 것이 있으면 그 팩 줄의 `.lsp-msg` 에 보인다 (FR-CMR-102) |
+| 어댑터 | `edT.showHover(h)` CodeMirror 갈래 — 커서 자리 좌표의 요소에 `mousemove` 를 보낸다(라이브러리가 `hoverTime` 뒤 묻는다). `ED_SEL.refPanel`·`ED_SEL.refItem` (라이브러리 참조 패널·항목) |
+| 걷기 | `edNavBack`(기본값·라벨·액션 표·`app.js`·`app-edsearch.js` 게이트·설정 그룹·i18n `shortcut.ed_nav_back`·`editor.lsp_no_back`·`shortcuts.md`·`features.md`) · `_lspPush`·`_lspNavBack`·`_lspCanBack` 과 껍데기 · `LSP_BACK_MAX`·`LSP_NO_BACK` · 쓰이지 않는 `LSP_NO_DEF`·`LSP_NO_REFS`·`LSP_REFS_*`·`LSP_DEFS_*`·`LSP_ASKING` 과 i18n · hub seam `_lspOnDiagnostics`·껍데기·`app.testing` 이름·`app-cmd.js` 구독·`LSP_DIAG_ACTION`·`LSP_DIAG_SEVERITY`·`sse-resilience` 의 `LSP_DIAG_ACTION` 줄 |
+| CI | `e2e.yml` 이 `go install golang.org/x/tools/gopls@v0.20.0` 로 판을 고정해 설치한다(`setup-go` 가 GOPATH/bin 을 PATH 에 둔다) |
+| 단위 | `app-state-owners.test.mjs` 의 이름 표 · `edLspCloseNote` |
 
 ## 10. 변경 기록
 
@@ -820,3 +844,4 @@ L2 설계 (FR-CMR-92 진단):
 | 2026-11-02 | M7 완료 — §7.2 에 측정을 적었다 |
 | 2026-11-02 | FR-CMR-90·92·93·100·102 개정, §3.16·§4.2·§4.3·§9 갱신, §11.6 추가 — M8 착수 중 사용자 결정 8건 |
 | 2026-11-02 | §11.6 L2 설계 — 진단은 그룹의 버퍼에 보관하고 모든 칸에 그린다. 켜기/끄기는 처리기와 토글이 본다 |
+| 2026-11-03 | FR-CMR-93 개정·§3.16 한 줄 — 정의·참조가 비면 표시하지 않는다 (M8 T 착수 중 사용자 결정). §11.6 T 설계 |

@@ -112,7 +112,7 @@ const APP_TESTING_NAMES = [
   // ── 그 밖 (misc) ──
   //
   // 위 어느 축에도 들지 않는 것. **이 절이 길어지면 축이 하나 빠진 것이다.**
-  '_applyPageTitle', '_lspDefLangs', '_lspOnDiagnostics', '_mKbH', 'modKbd', '_mobileVvApply',
+  '_applyPageTitle', '_lspDefLangs', '_mKbH', 'modKbd', '_mobileVvApply',
   '_scheduleMobileFit', 'resizeCheck',
   '_lspHoverLangs', '_lspRootOfPath',
   // REPO_FIX 03 E-7.1: 렌더 탭을 여는 자리 — 렌더 탭만 남은 문서의 갱신을 잰다.

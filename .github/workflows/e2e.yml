@@ -80,6 +80,11 @@ jobs:
         with:
           node-version: 22
 
+      # CODEMIRROR_MIGRATION_SRS §4.3: LSP 기능 e2e 는 실제 gopls 로 잰다. 판을 고정하고, 없으면
+      # 그 검사가 건너뛰지 않고 실패한다. `setup-go` 가 GOPATH/bin 을 PATH 에 둔다.
+      - name: gopls
+        run: go install golang.org/x/tools/gopls@v0.20.0
+
       # 픽스처가 만드는 저장소의 전제다 (FR-CEM-5).
       #
       # `git_fixture.sh` 는 `reset --hard main` 을 쓴다 — 개발 호스트에는

@@ -114,7 +114,7 @@ Object.assign(LspClient.prototype, {
         '<div class="lsp-path">'+escHtml((srvs.find(x=>x.found)||{}).exe||'')+'</div>'+
         '<div class="lsp-act">'+btn+'</div>'+
         this._lspPathRows(pack,srvs)+
-        '<div class="lsp-msg"></div>'+
+        '<div class="lsp-msg">'+escHtml(this._lspConnNote(srvs))+'</div>'+
       '</div>');
     }
     list.innerHTML=rows.join('');
@@ -181,8 +181,7 @@ Object.assign(LspClient.prototype, {
     if(!conn){ if(fe&&fe.note) fe.note(LSP_ASK_FAIL); return }
     const ok=await conn.ensure().then(()=>true,()=>false);
     if(!ok){
-      const lc=conn.lastClose;
-      if(fe&&fe.note) fe.note((lc&&lc.reason)||LSP_ASK_FAIL);
+      if(fe&&fe.note) fe.note(edLspCloseNote(conn.lastClose)||LSP_ASK_FAIL);
       return;
     }
     cmd(view);
@@ -225,6 +224,17 @@ Object.assign(LspClient.prototype, {
       this._lspConns.set(key,c);
     }
     return c;
+  },
+
+  // FR-CMR-102: 그 팩의 서버 연결 중 상한·기동 실패로 닫힌 것의 사유. 없으면 빈 값이다.
+  _lspConnNote(srvs){
+    if(!this._lspConns) return '';
+    const descs=new Set(srvs.map(s=>(s.pack?s.pack+'/':'')+s.id));
+    for(const c of this._lspConns.values()){
+      const n=descs.has(c.desc)&&c.state==='closed'?edLspCloseNote(c.lastClose):null;
+      if(n) return n;
+    }
+    return '';
   },
 
   _lspConnOf(client){
@@ -362,9 +372,6 @@ Object.assign(LspClient.prototype, {
         const sel=selectionOrPosition||{};
         const line=sel.startLineNumber||sel.lineNumber||1;
         const col=sel.startColumn||sel.column||1;
-        // FR-LSP-64: 계기가 둘이어도 돌아오는 길은 하나다 — 여기서도 쌓는다.
-        const at=this._lspWhere();
-        if(at) this._lspPush(at);
         this.app.edOpenFile(path,{line,col});
         return true;
       },
@@ -604,37 +611,6 @@ Object.assign(LspClient.prototype, {
   // 없다. 우리가 하는 일은 그 파일의 모델을 찾아 marker 를 얹는 것뿐이다.
 
   /**
-   * FR-LSP-32·33·34: 서버가 밀어 준 진단을 그 파일에 얹는다.
-   *
-   * owner 가 우리 것 **하나**인 것이 규칙이다 (FR-LSP-34) — 그래야 갱신이 앞선
-   * 것을 덮고 밑줄이 겹쳐 남지 않는다. 그리고 **빈 진단도 얹는다**: 그것이 "이
-   * 파일은 이제 깨끗하다" 는 뜻이며, 걷지 않으면 고친 줄에 밑줄이 남는다.
-   */
-  _lspOnDiagnostics(d){
-    if(!d||!d.path) return;
-    // FR-LSP-36: 꺼져 있으면 얹지 않는다. 서버는 계속 밀어 주지만 그것을 막을
-    // 이유는 없다 — 세션은 어차피 정의 이동을 위해 서 있고, 진단 계산은 언어
-    // 서버가 자기 판단으로 한다.
-    if(!lspDiagOn) return;
-    if(typeof monaco==='undefined'||!monaco.editor) return;
-    const items=Array.isArray(d.items)?d.items:[];
-    for(const v of this.app.fileEditors.values()){
-      if(!v||v.filePath!==d.path||!v._editor) continue;
-      const model=v._editor.getModel();
-      if(!model) continue;
-      monaco.editor.setModelMarkers(model,LSP_DIAG_OWNER,items.map(it=>({
-        // Monaco 도 1 부터 센다 — 서버가 이미 우리 셈법으로 보냈으므로 여기서
-        // 셈법을 바꾸지 않는다.
-        startLineNumber:it.line, startColumn:it.col,
-        endLineNumber:it.endLine||it.line, endColumn:it.endCol||it.col,
-        message:it.message||'',
-        source:it.source||'',
-        severity:LSP_DIAG_SEVERITY[it.severity]||2,
-      })));
-    }
-  },
-
-  /**
    * FR-LSP-35: 탭을 닫으면 그 파일의 진단을 걷는다.
    *
    * 모델이 파일마다 하나이고 탭을 닫아도 남을 수 있으므로(`edDocDrop` 이 수명을
@@ -654,33 +630,5 @@ Object.assign(LspClient.prototype, {
     PrefStore.local.setBool(LSP_DIAG_KEY,lspDiagOn);
     if(!this.app._edDocs) return;
     for(const d of this.app._edDocs.values()) if(d&&d.buf) edLspDiagShow(d.buf,lspDiagOn);
-  },
-
-  // ── 뒤로 가기 (FR-LSP-27) ──
-
-  _lspPush(at){
-    this._lspBack=this._lspBack||[];
-    this._lspBack.push({path:at.path,line:at.line,col:at.col});
-    // 무한히 쌓으면 그 자체가 새는 자리가 된다.
-    if(this._lspBack.length>LSP_BACK_MAX) this._lspBack.shift();
-  },
-
-  _lspCanBack(){ return !!(this._lspBack&&this._lspBack.length) },
-
-  /**
-   * FR-LSP-27: 뛴 자리에서 돌아온다.
-   *
-   * 갈 자리가 없으면 **키를 삼키지 않는다** — 그 판정은 `_edKeyGate` 가 이미 했다.
-   * 여기 오는 것은 갈 자리가 있는 경우뿐이지만, 다른 진입점(설정의 액션 실행)도
-   * 이것을 부르므로 한 번 더 본다.
-   */
-  _lspNavBack(){
-    const v=this.app._edActiveEditor();
-    if(!this._lspCanBack()){
-      if(v) v.note(LSP_NO_BACK);
-      return;
-    }
-    const to=this._lspBack.pop();
-    this.app.edOpenFile(to.path,{line:to.line,col:to.col});
   },
 });

@@ -29,7 +29,7 @@ Object.assign(App.prototype, {
       // Settings ▸ Shortcuts 에 뜨지 않았고, 뜨지 않으면 바꿀 수 없다 —
       // `shortcuts.md` 첫 줄의 "모든 앱 단축키는 커스터마이징 가능합니다" 가
       // 그 순간 거짓이 된다. `scripts/check-shortcuts-docs.sh` 가 재발을 막는다.
-      {label:t('keys.group_ed_nav'),keys:['edGotoDef','edFindRefs','edNavBack']},
+      {label:t('keys.group_ed_nav'),keys:['edGotoDef','edFindRefs']},
       {label:t('keys.group_ed_edit'),keys:['edSave','edSaveAll']},
       // FR-SBT-21·30: 직행 키는 서술자 배열에서 파생한다 — 탭이 늘어도 이 목록을
       // 손으로 늘리지 않는다.

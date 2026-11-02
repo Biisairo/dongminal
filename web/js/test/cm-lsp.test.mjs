@@ -39,16 +39,16 @@ class FakeWS {
 
 const ctx = load(['ui/cm-buffer.js', 'ui/cm-lsp.js'], {
   expose: ['edLspUri', 'edLspPath', 'edLspLangId', 'edLspServerReply', 'edLspWorkspaceClass', 'EdLspSocket', 'EdLspConn',
-    'EdBuffer', 'edLspDiagItems', 'edLspDiagShow', 'edLspDiagnostics'],
+    'EdBuffer', 'edLspDiagItems', 'edLspDiagShow', 'edLspDiagnostics', 'edLspCloseNote'],
   globals: {
     CM, WebSocket: FakeWS, TextEncoder, TextDecoder, URLSearchParams, queueMicrotask,
     location: { protocol: 'http:', host: 'h:1' },
     LSP_WS_API: '/api/lsp/ws', LSP_WS_CLOSE_LIMIT: 4001, LSP_WS_CLOSE_START: 4002, LSP_WS_CLOSE_ENDED: 4003,
-    ED_LSP_TIMEOUT_MS: 15000, ED_LSP_RETRY_MS: 5000,
+    ED_LSP_TIMEOUT_MS: 15000, ED_LSP_RETRY_MS: 5000, LSP_WS_LIMIT_NOTE: 'LIMIT',
   },
 });
 const { edLspUri, edLspPath, edLspLangId, edLspWorkspaceClass, EdLspSocket, EdLspConn,
-  EdBuffer, edLspDiagItems, edLspDiagShow, edLspDiagnostics } = ctx;
+  EdBuffer, edLspDiagItems, edLspDiagShow, edLspDiagnostics, edLspCloseNote } = ctx;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const VECTORS = JSON.parse(readFileSync(join(HERE, '../../../internal/shared/platform/testdata/file_uri_vectors.json'), 'utf8'));
@@ -541,4 +541,15 @@ test('연결: initialize 전에 닫혀도 처리되지 않은 rejection 이 남�
     process.off('unhandledRejection', on);
   }
   assert.deepEqual(leaks, []);
+});
+
+// ── 닫힌 사유 (FR-CMR-93·102 · §11.6 T) ──
+
+test('닫힌 사유: 4001 은 상한 문구, 4002 는 서버가 준 사유, 그 밖은 null', () => {
+  assert.equal(edLspCloseNote({ code: 4001, reason: 'limit' }), 'LIMIT');
+  assert.equal(edLspCloseNote({ code: 4002, reason: 'exec: gopls not found' }), 'exec: gopls not found');
+  assert.equal(edLspCloseNote({ code: 4002, reason: '' }), null);
+  for (const lc of [{ code: 4003, reason: 'ended' }, { code: 1006, reason: '' }, null, undefined]) {
+    assert.equal(edLspCloseNote(lc), null, JSON.stringify(lc));
+  }
 });

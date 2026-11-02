@@ -215,6 +215,8 @@ const LSP_WS_API='/api/lsp/ws';
 const LSP_WS_CLOSE_LIMIT=4001;
 const LSP_WS_CLOSE_START=4002;
 const LSP_WS_CLOSE_ENDED=4003;
+// FR-CMR-102: 상한에 걸려 거절된 통로의 사람 말 (알림 줄·상태 패널).
+const LSP_WS_LIMIT_NOTE=t('editor.lsp_ws_limit');
 // 요청 timeout — 콜드 gopls 의 첫 요청은 라이브러리 기본값(3000ms)을 넘는다 (§11.6 L1).
 const ED_LSP_TIMEOUT_MS=15000;
 // 상한·기동 실패로 닫힌 뒤 다시 열지 않는 시간. 입력마다 오는 동기화가 연결을 거듭 열지 않게 한다.
@@ -279,22 +281,8 @@ const LSP_PANEL_HINT=t('editor.lsp_panel_hint');
 // ── 코드 탐색: 정의·참조 이동 (EDITOR_LSP_SRS 묶음 C·F · M2) ──
 const LSP_DEF_API='/api/lsp/definition';
 const LSP_REFS_API='/api/lsp/references';
-// FR-LSP-27: 뒤로 갈 자리를 담는 깊이. 무한히 쌓으면 그 자체가 새는 자리가 된다.
-const LSP_BACK_MAX=64;
-// FR-LSP-28 / D-9: **침묵은 고장과 구별되지 않는다.** 아래 넷이 "아무 일도
-// 일어나지 않음" 을 서로 다른 문장으로 갈라 놓는 자리다.
-const LSP_NO_DEF=t('editor.lsp_no_def');
-const LSP_NO_REFS=t('editor.lsp_no_refs');
+// FR-LSP-28: 언어 서버에 닿지 못했다. 결과가 빈 것은 알리지 않는다 (CODEMIRROR_MIGRATION_SRS §3.16).
 const LSP_ASK_FAIL=t('editor.lsp_ask_fail');
-const LSP_NO_BACK=t('editor.lsp_no_back');
-// 참조 목록은 전체 검색과 **같은 껍데기**를 쓴다 (§2.11) — 사용자가 이미 아는
-// 조작(↑↓·Enter)이 그대로다.
-const LSP_REFS_PLACEHOLDER=t('editor.lsp_refs_placeholder');
-const LSP_REFS_HINT=t('editor.lsp_refs_hint');
-const LSP_DEFS_PLACEHOLDER=t('editor.lsp_defs_placeholder');
-const LSP_DEFS_HINT=t('editor.lsp_defs_hint');
-// 요청이 오래 걸리면 진행 중임이 보인다 (FR-LSP-43).
-const LSP_ASKING=t('editor.lsp_asking');
 // 알림 줄이 스스로 사라지기까지. 닫는 조작을 배워야 하는 알림은 알림이 아니라 창이다.
 const FE_NOTE_MS=4000;
 // REPO_FIX 03 §3A-2: 버튼이 있는 알림(UTF-8 로 변환해 저장)은 눌러야 하므로 더 오래 남는다.
@@ -310,17 +298,9 @@ const LSP_HOVER_API='/api/lsp/hover';
 // 상태 응답의 `langs` 가 그 목록이며 등록은 그것을 따라간다.
 
 // ── 코드 탐색: 진단 (묶음 E · M4) ──
-//
-// 진단은 **요청 없이** 온다 (FR-LSP-32) — 이미 있는 SSE 길로 밀려 오며 그 action
-// 이름이 이것이다.
-const LSP_DIAG_ACTION='lsp_diagnostics';
 // FR-LSP-34: owner 는 우리 것 **하나**다. 그래야 갱신이 앞선 것을 덮고 밑줄이
 // 겹쳐 남지 않는다.
 const LSP_DIAG_OWNER='dongminal-lsp';
-// LSP 의 severity(1=에러 2=경고 3=정보 4=힌트)를 Monaco 의 MarkerSeverity 로
-// 옮기는 자리는 여기 하나다. Monaco 는 8=Error 4=Warning 2=Info 1=Hint 다 —
-// 숫자가 겹치므로(둘 다 1·4를 쓴다) 표 없이 넘기면 조용히 뒤바뀐다.
-const LSP_DIAG_SEVERITY={1:8,2:4,3:2,4:1};
 // FR-LSP-36: 진단을 켜고 끈다. 큰 저장소에서 저장하지 않은 파일마다 경고가 서는
 // 것을 원하지 않는 사용자가 있다. **기기별**이다 — 화면의 시끄러움에 대한 취향이다.
 const LSP_DIAG_KEY='lspDiagnostics';

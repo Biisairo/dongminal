@@ -50,6 +50,11 @@ export const ED_SEL = {
   input: ':is(.cm-content, textarea)',
   /** 호버 툴팁. */
   hover: ':is(.cm-tooltip-hover, .monaco-hover)',
+  /** LSP 참조 패널과 그 항목 (`@codemirror/lsp-client`). Monaco 에는 대응물이 없다. */
+  refPanel: '.cm-lsp-reference-panel',
+  refItem: '.cm-lsp-reference',
+  /** 진단 밑줄 (error). */
+  lintError: ':is(.cm-lintRange-error, .squiggly-error)',
   /** 엔진 기본 찾기 위젯이 떠 있는 상태. 우리 패널이 대신하므로 떠서는 안 된다. */
   builtinFind: ':is(.cm-search, .find-widget.visible)',
   /** 줄 번호 옆 장식 칸 (dirty diff 막대가 서는 곳). */
@@ -320,7 +325,16 @@ export function installEdAdapter(sel: typeof ED_SEL) {
     },
 
     // 명령 — 편집기 칸은 M8 에서 선다.
-    showHover: (h: any) => { if (!cm(h)) h.trigger('e2e', 'editor.action.showHover', null) },
+    /** 커서 자리에 마우스를 올린 것처럼 한다 — 라이브러리가 hoverTime 뒤에 묻는다. */
+    showHover: (h: any) => {
+      if (!cm(h)) { h.trigger('e2e', 'editor.action.showHover', null); return }
+      const v = V(h);
+      const c = v.coordsAtPos(v.state.selection.main.head);
+      if (!c) return;
+      const x = c.left + 1, y = (c.top + c.bottom) / 2;
+      const el = document.elementFromPoint(x, y) || v.contentDOM;
+      el.dispatchEvent(new MouseEvent('mousemove', { clientX: x, clientY: y, bubbles: true }));
+    },
     goToDefinition: (h: any) => { if (!cm(h)) h.trigger('e2e', 'editor.action.revealDefinition', {}) },
 
     // 문서 레지스트리 (`app.testing.edDocs` 의 값)

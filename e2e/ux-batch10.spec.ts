@@ -327,50 +327,43 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
   /**
    * V-UXB-14 · FR-UXB-47·48 — **언어 기능도 같은 곳을 딛는다.**
    *
-   * 서버의 있고 없음에 기대지 않는다 (`editor-lsp-nav.spec.ts` 가 세운 규약) —
-   * 재려는 것은 우리 경로이지 이 기계에 gopls 가 깔렸는가가 아니다.
+   * 실제 gopls 로 잰다 (CODEMIRROR_MIGRATION_SRS §4.3). 작업 트리에만 있는 심볼(`helper2`)의 타입이
+   * 보이면, 수정본 쪽이 디스크의 그 파일로 언어 서버에 열렸다는 뜻이다.
    */
-  test('편집 가능 축의 diff 에서 호버가 그 파일의 좌표로 나간다', async ({ page }) => {
+  test('편집 가능 축의 diff 에서 호버가 그 파일의 내용으로 답한다', async ({ page }) => {
     const repo = copyFx('basic', 'lsp');
-    writeFileSync(join(repo, 'main.go'), 'package main\n\nfunc main() {\n\thelper()\n}\n');
-    git(repo, 'add', 'main.go'); git(repo, 'commit', '-m', 'go');
-    writeFileSync(join(repo, 'main.go'), 'package main\n\nfunc main() {\n\thelper2()\n}\n');
+    writeFileSync(join(repo, 'go.mod'), 'module example.com/uxb\n\ngo 1.21\n');
+    writeFileSync(join(repo, 'main.go'), 'package main\n\nfunc main() {\n}\n');
+    git(repo, 'add', 'go.mod', 'main.go'); git(repo, 'commit', '-m', 'go');
+    writeFileSync(join(repo, 'main.go'),
+      'package main\n\nfunc helper2() int { return 2 }\n\nfunc main() {\n\thelper2()\n}\n');
 
-    await waitForInit(page);
-    await page.route('**/api/lsp/status', (r: any) => r.fulfill({
-      status: 200, contentType: 'application/json',
-      body: JSON.stringify({ servers: [{ id: 'gopls', langs: ['go'], exts: ['.go'], found: false }] }),
-    }));
-    const seen: any[] = [];
-    await page.route('**/api/lsp/hover', async (route: any) => {
-      seen.push(JSON.parse(route.request().postData() || '{}'));
-      await route.fulfill({
-        status: 200, contentType: 'application/json',
-        body: JSON.stringify({ markdown: 'func helper2()' }),
+    // 통로를 실제 서버에 잇고, gopls 가 그 파일을 다 읽은 신호(첫 진단 알림)를 본다.
+    let ready = false;
+    await page.routeWebSocket(/\/api\/lsp\/ws/, (ws) => {
+      const server = ws.connectToServer();
+      ws.onMessage((m) => server.send(m));
+      server.onMessage((m) => {
+        const o = JSON.parse(String(m));
+        if (o.method === 'textDocument/publishDiagnostics' && decodeURIComponent(String(o.params.uri)).endsWith('main.go')) ready = true;
+        ws.send(m);
       });
     });
 
+    await waitForInit(page);
     await openGit(page, repo);
     await openDiff(page, 'main.go');
-
-    // provider 등록은 `/api/lsp/status` 의 답 뒤다 — 걸리기 전에 물으면 Monaco 는
-    // 아무에게도 묻지 않는다 (LSP 스펙이 같은 함정을 적어 두었다).
-    await expect.poll(
-      () => page.evaluate(() => [...((window as any).app.testing.lspHoverLangs || [])]),
-      { timeout: 15000 }).toContain('go');
+    await expect.poll(() => ready, { timeout: 60000, message: '수정본 쪽이 언어 서버에 열리지 않았다' }).toBe(true);
 
     await page.evaluate(() => {
       const d = (window as any).app.gitPanel._diffView;
       const ed = edT.diffSide(d, 'mod');
       edT.focus(ed);
-      edT.setCursor(ed, 4, 3);
+      edT.setCursor(ed, 6, 3);
       edT.showHover(ed);
     });
-
-    await expect.poll(() => seen.length, { timeout: 10000 }).toBeGreaterThan(0);
-    // FR-UXB-47: **그 파일의 좌표**로 물었다 — 모델이 어느 파일인지 답했다는 뜻이다.
-    expect(String(seen[0].path).endsWith('main.go'), JSON.stringify(seen[0])).toBe(true);
-    expect(seen[0].text).toContain('helper2()');
+    await expect(diffView(page).locator(`${ED_SEL.surface} ${ED_SEL.hover}`).first())
+      .toContainText('func helper2() int', { timeout: 15000 });
 
     // FR-UXB-48: 왼쪽은 **디스크의 파일이 아니다** — 과거의 내용이고, 그 좌표로
     // 받은 답은 없는 답보다 나쁘다. 그래서 경로를 답하지 않는다.

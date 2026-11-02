@@ -138,10 +138,7 @@ Object.assign(App.prototype, {
    *    일부다. 아니면 false 를 돌려 그 키가 터미널로 내려간다 (FR-EKB-4).
    */
   _edKeyGate(action){
-    if(ED_LSP_ACTIONS[action]){
-      if(action==='edNavBack') return this._lspCanBack();
-      return this._edFindReady()&&!!this._edSearchRoot();
-    }
+    if(ED_LSP_ACTIONS[action]) return this._edFindReady()&&!!this._edSearchRoot();
     if(action==='edFindInFile') return this._edFindReady();
     if(action==='edSaveAll') return this.isEditorWin(this.aw());
     return !!this._edSearchRoot();

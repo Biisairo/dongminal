@@ -16,15 +16,15 @@ const ownNames = (proto) => Object.getOwnPropertyNames(proto).filter((n) => n !=
 
 // ── FR-ASE-7 · LSP ──
 
-const LSP_METHODS = ['_initLSP', '_lspAsk', '_lspCanBack', '_lspClickExt', '_lspConn', '_lspConnOf', '_lspDismissed',
+const LSP_METHODS = ['_initLSP', '_lspAsk', '_lspClickExt', '_lspConn', '_lspConnNote', '_lspConnOf', '_lspDismissed',
   '_lspDisplay', '_lspExtOf', '_lspFindRefs', '_lspGotoDef', '_lspHover', '_lspHoverWhere', '_lspInstall', '_lspInstallOnce',
-  '_lspNavBack', '_lspOnDiagnostics', '_lspOpenerRegister', '_lspPaint', '_lspPathOfModel',
-  '_lspPathPut', '_lspPathRows', '_lspPathsBind', '_lspPathsLoad', '_lspProvideDef', '_lspPush',
+  '_lspOpenerRegister', '_lspPaint', '_lspPathOfModel',
+  '_lspPathPut', '_lspPathRows', '_lspPathsBind', '_lspPathsLoad', '_lspProvideDef',
   '_lspRefresh', '_lspRootOfPath', '_lspRun', '_lspRunOn', '_lspSetDiag', '_lspStatusCached', '_lspStatusInvalidate',
   '_lspUriPathOf', '_lspVersionOf', 'lspClearDiagnostics', 'lspClickDef', 'lspDismiss',
   'lspDocClosed', 'lspExtFor', 'lspHoverRegister', 'lspOfferFor', 'lspOfferInstall'];
-const LSP_SHELLS = ['_initLSP', '_lspRefresh', '_lspGotoDef', '_lspFindRefs', '_lspNavBack', '_lspCanBack',
-  '_lspOnDiagnostics', '_lspRootOfPath', 'lspClickDef', 'lspDocClosed', 'lspClearDiagnostics',
+const LSP_SHELLS = ['_initLSP', '_lspRefresh', '_lspGotoDef', '_lspFindRefs',
+  '_lspRootOfPath', 'lspClickDef', 'lspDocClosed', 'lspClearDiagnostics',
   'lspHoverRegister', 'lspExtFor', 'lspOfferFor', 'lspOfferInstall', 'lspDismiss'];
 const LSP_ACCESSORS = ['_lspHoverLangs', '_lspDefLangs'];
 
@@ -32,11 +32,11 @@ function loadLsp() {
   const store = { bool: (_k, d) => d, remove() {}, json: () => null, setJson() {}, setBool() {} };
   return load(['core/lsp-client.js', 'core/lsp-paths.js', 'core/app-lsp.js'], {
     expose: ['LspClient'],
-    globals: { App: class {}, PrefStore: { local: store }, LSP_DIAG_KEY: 'k', STORE_KEYS: {}, LSP_BACK_MAX: 50 },
+    globals: { App: class {}, PrefStore: { local: store }, LSP_DIAG_KEY: 'k', STORE_KEYS: {} },
   });
 }
 
-test('FR-ASE-7: LspClient 가 LSP 메서드 43개를 갖고 App 에는 껍데기·접근자만 남는다', () => {
+test('FR-ASE-7: LspClient 가 LSP 메서드 40개를 갖고 App 에는 껍데기·접근자만 남는다', () => {
   const ctx = loadLsp();
   assert.deepEqual(ownNames(ctx.LspClient.prototype), [...LSP_METHODS].sort());
   assert.deepEqual(ownNames(ctx.App.prototype), [...LSP_SHELLS, ...LSP_ACCESSORS, '_lspClient'].sort());
@@ -61,9 +61,10 @@ test('FR-ASE-7: 접근자는 accessor 서술자이고 읽기가 LspClient 를 �
 test('FR-ASE-7: 껍데기는 같은 LspClient 에 위임한다', () => {
   const ctx = loadLsp();
   const app = new ctx.App();
-  assert.equal(app._lspCanBack(), false);
-  app._lspClient()._lspPush({ path: '/r/a.go', line: 1, col: 1 });
-  assert.equal(app._lspCanBack(), true);
+  const seen = [];
+  app._lspClient()._lspRootOfPath = (p) => { seen.push(p); return '/r' };
+  assert.equal(app._lspRootOfPath('/r/a.go'), '/r');
+  assert.deepEqual(seen, ['/r/a.go']);
   assert.equal(app._lspClient(), app._lsp);
   assert.equal(app._lsp.app, app);
 });

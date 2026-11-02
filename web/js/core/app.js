@@ -396,11 +396,10 @@ class App {
       // UX-22: 설정 버튼과 **같은 길**로 열고 Shortcuts 탭으로 간다.
       shortcutsHelp:()=>this._openSettings('shortcuts'),
       toggleSearch:()=>this.toggleSearch(),
-      // FR-EKB-5: 키 배선과 **같은 함수**를 부른다. 셋 다 Editor 창이 아니면
+      // FR-EKB-5: 키 배선과 **같은 함수**를 부른다. 둘 다 Editor 창이 아니면
       // 스스로 아무 일도 하지 않으므로 여기에 가드를 겹치지 않는다.
       edGotoDef:()=>this._lspGotoDef(),
       edFindRefs:()=>this._lspFindRefs(),
-      edNavBack:()=>this._lspNavBack(),
       edFindInFile:()=>this._edFindInFile(),
       edQuickOpen:()=>this._edQuickOpen(),
       edGrep:()=>this._edSearchOpen(),

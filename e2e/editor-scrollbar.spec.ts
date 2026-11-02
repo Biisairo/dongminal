@@ -16,6 +16,13 @@ import { TMP, realPath } from './osenv';
 let BASE = '';
 test.beforeAll(() => { BASE = realPath(mkdtempSync(join(TMP, 'dm-vsb-'))) });
 test.afterAll(() => { rmTree(BASE) });
+// 언어 서버 설치 제안 띠는 편집기 위쪽을 덮는 겹이다 — 그 기계에 markdown 서버가 없으면 띠가
+// thumb 를 덮어 끌기가 띠에 먹힌다. 재려는 것은 스크롤바이므로 상태를 세워 띠를 빼고 잰다.
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/lsp/status', (r) => r.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ servers: [] }),
+  }));
+});
 
 const scrollTop = (page: Page) => page.evaluate(() => {
   const v = [...(window as any).app.fileEditors.values()].find((e: any) => edT.has(e) && e.name === 'doc.md');

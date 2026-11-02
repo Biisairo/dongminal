@@ -7,7 +7,7 @@
 1. 이 문서를 끝까지 읽는다. 그다음 SRS 의 §3.10~§3.12 · §3.16 · §4 · §7.2 · **§11.6(M8 결정·S·L1 설계)** 을 읽는다.
 2. `git status` 와 `git log --oneline -5` 로 출발점을 확인한다. 맨 위 커밋은 L1 WIP 커밋이다(`wip(lsp): 브라우저 LSP 클라이언트 …`).
 3. M8 결정 8건은 **끝났다** (SRS §11.6). 다시 묻지 않는다.
-4. 남은 단위를 순서대로: **L2 → T → W → R**. 단위마다 SRS §11.6 에 설계를 먼저 적고 Spec → Test(RED 확인) → Code.
+4. 남은 단위를 순서대로: **W → R** (L2·T 끝). 단위마다 SRS §11.6 에 설계를 먼저 적고 Spec → Test(RED 확인) → Code.
 5. M8 끝에 편집기·Diff e2e 45개 파일(+ `editor-lsp.spec.ts` 검토)을 돌려 §7.2 를 갱신하고, **사용자 확인 후** 커밋한다(AI 서명 금지). 단위 끝마다 WIP 커밋할지 사용자에게 묻는다. 그다음 M9.
 
 ## 어디까지 왔나
@@ -17,7 +17,7 @@
 | M1~M5 | 완료 | `6633910c` · `a81a3920` · `e5d03f72` · `ef0d5953` · `6971b5ee` |
 | M6 Git Diff 뷰 | 완료 | `b1418594`(WIP) + `b195ab47` |
 | M7 sticky scroll | 완료 | `eb16d707` |
-| **M8 LSP (S·W·L + FR-CMR-23)** | **진행 중 — 결정·L3·S·L1·L2 끝, T·W·R 남음** | `8213444d`(L3·S) + L1 WIP 커밋 · SRS §11.6 |
+| **M8 LSP (S·W·L + FR-CMR-23)** | **진행 중 — 결정·L3·S·L1·L2·T 끝, W·R 남음** | `8213444d`(L3·S) + L1 WIP 커밋 · SRS §11.6 |
 | M9 Monaco 제거 | 대기 | 아래 "M9" |
 
 마지막 e2e 측정(M7, 45개 파일): 544건 중 통과 522 · 실패 22. 실패는 모두 §7.2 표의 M8(21건) · M9(1건) 몫이다.
@@ -29,6 +29,8 @@
 - S: `domain/lsp/tunnel.go` (`OpenTunnel`·`Tunnel`·`ErrLimit`, 상한 합산·REST 만 LRU·Sweep·Shutdown), `ext.Service.ResolveID`, `httpapi/handlers_lsp_ws.go` (`GET /api/lsp/ws`, close 4001 `limit`·4002 사유·4003 `ended`, 읽기 한도 1009). Go 테스트 `tunnel_test.go` 10건 · `handlers_lsp_ws_test.go` 8건. `docs/external/api.md` 에 종단
 - L1: `web/js/ui/cm-lsp.js` (`edLspUri`·`edLspPath`·`edLspLangId`·`edLspServerReply`·`edLspWorkspaceClass`·`EdLspSocket`·`EdLspConn`), `lsp-client.js` 의 정의·참조 구간 교체(`lspExtFor`·`_lspConn`·`_lspRun`·`_lspDisplay`·`_lspClickExt`), `cm-setup.js` `cmp.lsp` + `edCmLspAttach`, `FileEditor.whenView()`·`_lspAttach()`, Diff 는 `_bindEdit` 에서 붙인다. URI 벡터 `internal/shared/platform/testdata/file_uri_vectors.json`(Go `TestFileURIVectorsShared` 와 JS 가 함께 읽는다). 단위 `cm-lsp.test.mjs` 22건. 상수 `LSP_WS_*`·`ED_LSP_TIMEOUT_MS`·`ED_LSP_RETRY_MS` 는 `constants-editor.js`
 - L2: `EdBuffer.diagnostics`·`setDiagnostics`·`sinks`(편집을 따라 위치를 옮기고, 디스크 재읽기면 비운다), `cm-lsp.js` 의 `edLspDiagItems`·`edLspDiagShow`·`edLspDiagnostics`(라이브러리 `serverDiagnostics` 의 능력·autoSync 를 쓰고 처리기만 바꾼다), Workspace `hooks.joined`, `_lspSetDiag` 는 레지스트리의 모든 버퍼를 다시 그린다. 어댑터 `edT.diagnostics`·`docDiagnostics`·`docSetDiagnostic` CodeMirror 갈래. 단위 13건 추가. `slot-view-state` E-9.1 이 풀렸다. 실제 gopls 스모크(진단 표시·끄기/켜기·고친 뒤 걷힘) 통과. `editor-lsp-nav` 남은 14건 실패는 모두 T 몫(REST stub · hub seam `lspOnDiagnostics` 진단 3건)
+- T: `editor-lsp-nav` 를 실제 gopls 픽스처(go.mod)로 다시 썼다 — `lspTap`(`routeWebSocket` 이 실제 서버에 잇고 프레임 method 를 기록)·`ready`(첫 진단 알림) · 실패 주입 2건(4001 상한 → 알림 줄·상태 패널, 4003 끊김 → 다시 연결). `ux-batch10` 호버도 실제 gopls. `edLspCloseNote`·`_lspConnNote`(상태 패널 `.lsp-msg`)·`LSP_WS_LIMIT_NOTE`. 어댑터 `showHover` CodeMirror 갈래·`ED_SEL.refPanel`·`refItem`·`lintError`. 걷기: `edNavBack` 전부, `_lspPush`·`_lspNavBack`·`_lspCanBack`, hub seam(`_lspOnDiagnostics`·구독·`LSP_DIAG_ACTION`·`LSP_DIAG_SEVERITY`), 쓰이지 않는 LSP 상수·i18n, 문서 `shortcuts.md`·`features.md`. CI `e2e.yml` gopls v0.20.0 설치. **사용자 결정: 정의·참조 결과가 비면 아무것도 표시하지 않는다** (FR-CMR-93·§3.16)
+- e2e(T 끝): 46개 파일 543건 중 541 통과. `editor-find-panel` 1건(M9)·`editor-scrollbar` 1건(띠가 thumb 를 덮음 — 스펙이 상태를 세워 고침, 반복 3회 통과)
 - 실제 gopls 스모크(임시 스펙, 지움): 호버 `func helper() int` · Shift+F12 참조 2건 · F12 로 다른 파일 4줄 — 모두 동작
 - e2e 지금: `editor-lsp-nav` 24건 중 15건 실패 — REST stub 검사(T 에서 실제 gopls 로 다시 쓴다)와 진단(L2). LSP 와 무관한 편집기·Diff 6개 파일 68건은 통과
 
@@ -148,20 +150,20 @@ URI ↔ 경로 변환은 브라우저가 맡는다(FR-CMR-101 은 서버가 내�
 - **클래식 스크립트의 `class`·`const` 는 `window` 의 속성이 아니다.** 어댑터에서는 `(0, eval)('typeof X === "undefined" ? null : X')`
 - **zsh 는 `$var` 를 단어로 나누지 않는다.** check 목록: `grep -oE "run: (node )?scripts/check-[A-Za-z0-9_.-]+" .github/workflows/verify.yml | sed 's/^run: //' | while IFS= read -r c; do eval "$c" >/dev/null 2>&1 || echo "FAIL $c"; done`
 - **e2e 를 두 벌 동시에 돌릴 때는 `DM_E2E_KEEP_PEERS=1` 과 다른 `E2E_PORT_BASE`(예: 59300)**. 돌리는 중에 작업 트리를 고치면 결과가 섞인다
-- **e2e 전체**: 목록 `/tmp/cm-e2e-files.txt` 가 없으면 이 문서 아래 목록으로 만든다. `xargs npx playwright test --reporter=json < 목록 > /tmp/out.json` (약 12분). 집계는 `suites[].specs[].tests[].status` (`expected` 가 통과)
+- **e2e 전체**: 목록 `/tmp/cm-e2e-files.txt` 가 없으면 이 문서 아래 목록으로 만든다 (`grep '^e2e/a11y-axe' 이 문서 | tr ' ' '\n' | grep .` — 코드 블록 범위를 sed 로 자르면 여는 줄에서 끝나 빈 목록이 된다). `xargs npx playwright test --reporter=json < 목록 > /tmp/out.json` (약 12분). 집계는 `suites[].specs[].tests[].status` (`expected` 가 통과)
 - **벤더 묶음을 다시 만들면** `node scripts/build-codemirror.mjs` 뒤 `bash scripts/check-vendor.sh` 가 알려 주는 집계 해시로 `VENDOR_VERSIONS.md` 를 고친다
 - **단위 테스트 RED 는 빈 자리 함수로 단언 실패를 본다** (파일이 없어서 나는 실패는 RED 로 치지 않는다)
 - **화면 배치는 스크린샷으로 확인한다** — M7 에서 sticky 가 미니맵을 가리는 것을 그렇게 찾았다. 임시 스펙(`e2e/zz-tmp-*.spec.ts`)으로 찍고 지운다
 - **Serena 는 이 프로젝트에서 활성 프로젝트가 없다고 실패할 수 있다.** Go·JS 심볼은 Claude Code 의 LSP 도구(gopls·tsserver)가 동작한다. `Object.assign` 믹스인 메서드는 findReferences 가 놓친다 — 그때만 텍스트 검색으로 폴백한다
 - 인계한 세션은 넘긴 뒤 탭을 닫으므로 `dmctl msg` 응답이 가지 않을 수 있다
 
-## e2e 파일 목록 (45개)
+## e2e 파일 목록 (46개)
 
 ```
-e2e/a11y-axe.spec.ts e2e/a11y-keyboard.spec.ts e2e/codemirror-load.spec.ts e2e/doc-render.spec.ts e2e/editor-dirty-derived.spec.ts e2e/editor-dirty-diff.spec.ts e2e/editor-doc-registry.spec.ts e2e/editor-encoding.spec.ts e2e/editor-external-change.spec.ts e2e/editor-find-panel.spec.ts e2e/editor-git-ux.spec.ts e2e/editor-live-reload.spec.ts e2e/editor-lsp-nav.spec.ts e2e/editor-minimap.spec.ts e2e/editor-multi-slot.spec.ts e2e/editor-ops.spec.ts e2e/editor-replace-seed.spec.ts e2e/editor-save.spec.ts e2e/editor-scrollbar.spec.ts e2e/editor-traffic.spec.ts e2e/explorer-root-keys.spec.ts e2e/file-size-gate.spec.ts e2e/font-size.spec.ts e2e/git-diff-doc.spec.ts e2e/git-diff.spec.ts e2e/git-dir-entry.spec.ts e2e/git-history.spec.ts e2e/git-hunk.spec.ts e2e/git-stash.spec.ts e2e/git-subroot.spec.ts e2e/git-view-refresh.spec.ts e2e/git-write-order.spec.ts e2e/kit-button.spec.ts e2e/kit-components.spec.ts e2e/kit-scroll.spec.ts e2e/monaco-offline.spec.ts e2e/notes-live-explorer.spec.ts e2e/repo-diff-edit.spec.ts e2e/repo-tab.spec.ts e2e/slot-view-state.spec.ts e2e/tooltips.spec.ts e2e/touch-targets.spec.ts e2e/ux-batch10.spec.ts e2e/view-scroll-restore.spec.ts e2e/editor-sticky.spec.ts
+e2e/a11y-axe.spec.ts e2e/a11y-keyboard.spec.ts e2e/codemirror-load.spec.ts e2e/doc-render.spec.ts e2e/editor-dirty-derived.spec.ts e2e/editor-dirty-diff.spec.ts e2e/editor-doc-registry.spec.ts e2e/editor-encoding.spec.ts e2e/editor-external-change.spec.ts e2e/editor-find-panel.spec.ts e2e/editor-git-ux.spec.ts e2e/editor-live-reload.spec.ts e2e/editor-lsp-nav.spec.ts e2e/editor-minimap.spec.ts e2e/editor-multi-slot.spec.ts e2e/editor-ops.spec.ts e2e/editor-replace-seed.spec.ts e2e/editor-save.spec.ts e2e/editor-scrollbar.spec.ts e2e/editor-traffic.spec.ts e2e/explorer-root-keys.spec.ts e2e/file-size-gate.spec.ts e2e/font-size.spec.ts e2e/git-diff-doc.spec.ts e2e/git-diff.spec.ts e2e/git-dir-entry.spec.ts e2e/git-history.spec.ts e2e/git-hunk.spec.ts e2e/git-stash.spec.ts e2e/git-subroot.spec.ts e2e/git-view-refresh.spec.ts e2e/git-write-order.spec.ts e2e/kit-button.spec.ts e2e/kit-components.spec.ts e2e/kit-scroll.spec.ts e2e/monaco-offline.spec.ts e2e/notes-live-explorer.spec.ts e2e/repo-diff-edit.spec.ts e2e/repo-tab.spec.ts e2e/slot-view-state.spec.ts e2e/tooltips.spec.ts e2e/touch-targets.spec.ts e2e/ux-batch10.spec.ts e2e/view-scroll-restore.spec.ts e2e/editor-sticky.spec.ts e2e/editor-lsp.spec.ts
 ```
 
-M8 에서 `editor-lsp.spec.ts` 를 목록에 더하는 것을 검토한다 (상태·경로 패널, FR-CMR-95).
+`editor-lsp.spec.ts` 는 M8 T 에서 더했다 (상태·경로 패널, FR-CMR-95).
 
 ## 변하지 않는 규약
 
