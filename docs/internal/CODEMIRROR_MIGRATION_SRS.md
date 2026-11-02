@@ -623,6 +623,7 @@ M6 측정: 44개 파일(`codemirror-load` 포함) — 539건 중 통과 517 · �
 그 뒤 `git-diff-doc` S8(Diff 수정본 쪽 실제 키 입력)·`ux-batch10` "원본 쪽에 포커스가 있으면 찾기가 원본을 찾는다"(FR-UXB-49)를 더했다 — 모두 통과(반복 3회).
 M7 측정: 45개 파일(`editor-sticky` 포함) — 544건 중 통과 522 · 실패 22, 모두 아래 표의 M8·M9 몫이다 (2026-11-02). `editor-sticky` 3건은 따로 통과(반복 3회).
 M8 T 측정: 46개 파일(`editor-lsp` 포함, `editor-lsp-nav` 는 실제 gopls 로 다시 씀) — 543건 중 통과 541 · 실패 2 (2026-11-03). 하나는 아래 표의 M9 몫이다. 다른 하나(`editor-scrollbar` thumb 끌기)는 L3 로 되살아난 설치 제안 띠(그 기계에 markdown 서버가 없다)가 thumb 를 덮은 것이다 — 띠는 처음부터 편집기 위쪽을 덮는 겹이므로 그 스펙이 상태를 세워 띠를 빼고 잰다. 고친 뒤 반복 3회 통과. M8 줄(`editor-lsp-nav` · `slot-view-state` E-9.1 · `repo-tab` M4 · `ux-batch10` 호버)은 모두 통과해 지웠다.
+M8 W 측정: 46개 파일(`editor-lsp-nav` 에 열리지 않은 파일의 변경 2건 추가) — 545건 중 통과 544 · 실패 1, 아래 표의 M9 몫이다 (2026-11-03). 추가한 2건은 Go 쪽 W 를 빼면 실패하고(RED 확인), 넣으면 반복 2회 통과.
 
 | 스펙 · 테스트 | 실패 이유 | 닫는 마일스톤 |
 |---|---|---|
@@ -829,6 +830,25 @@ T 설계 (e2e 이관·걷기):
 | CI | `e2e.yml` 이 `go install golang.org/x/tools/gopls@v0.20.0` 로 판을 고정해 설치한다(`setup-go` 가 GOPATH/bin 을 PATH 에 둔다) |
 | 단위 | `app-state-owners.test.mjs` 의 이름 표 · `edLspCloseNote` |
 
+W 설계 (FR-CMR-110~114 열리지 않은 파일의 변경 알림):
+
+| 자리 | 내용 |
+|---|---|
+| `domain/lsp` `FileEvent{Path, Type}` · `WatchCreated`·`WatchChanged`·`WatchDeleted`(1·2·3, LSP `FileChangeType`) · `DefaultWatchMax`(2000 = `LSP_WATCH_MAX`) · `Service.WatchMax`(0 이면 기본) | 변경 하나와 그 종류 |
+| `Service.NotifyFiles(events)` | 열린 통로마다 경로가 그 통로의 루트 아래(`underRoot`)인 것만 골라 `workspace/didChangeWatchedFiles`(`changes: [{uri, type}]`, URI 는 `platform` 의 `FileURI`)를 **하나** 끼워 넣는다. 고른 것이 없으면 보내지 않는다. `WatchMax` 를 넘으면 앞에서부터 그 수만 싣는다 (FR-CMR-113) |
+| `tunnel` | `root` 를 기억한다. 끼워 넣기는 통로마다 순서 있는 줄(`tunnelInjectQueue` = 16)에 넣고, 통로의 작업 goroutine 이 `Send` 와 같은 `wmu` 로 stdin 에 쓴다 — 프레임이 섞이지 않고, 한 서버가 stdin 을 읽지 않아도 다른 통로와 호출자가 막히지 않는다. 줄이 차면 버리고 경고를 남긴다. 통로를 닫으면 작업 goroutine 도 끝난다. 끼워 넣기는 `LastUse` 를 갱신하지 않는다(사용자의 쓰임이 아니다 — 유휴 정리를 막지 않는다). 브라우저 쪽으로는 아무것도 쓰지 않는다 (FR-CMR-114) |
+| 초기화 전 | 브라우저가 `initialized` 알림을 보내기 전의 통로에는 끼워 넣지 않는다(줄에 넣을 때 본다) — LSP 는 그 전의 알림을 금한다. `Send` 는 `initialized` 를 지나보낼 때까지만 본문의 `method` 를 읽는다 (FR-CMR-101 의 "끼워 넣기 제외") |
+| 저장 (`handlers_files.go`) | 쓰기 전에 파일이 있었는지 보고, 쓴 뒤 `go s.LSP.NotifyFiles([{target, Created 또는 Changed}])` (FR-CMR-110). 응답을 기다리게 하지 않는다. `ResyncPath` 는 R 까지 둔다 |
+| `lsp.RepoWatch` (`View`, `Out`) · `Seen(repo)` · `Changed(repo)` | 저장소마다 직전 관측(`HEAD`, 작업 트리 변경 집합)을 기억한다. `Seen` 은 기준선만 적는다(알리지 않는다). `Changed` 는 지금 관측을 받아 `repoEvents` 로 목록을 만들고 `NotifyFiles` 한다. 직전이 없으면 지금 작업 트리 집합만 보낸다. `HEAD` 가 바뀌었을 때만 `View.NameStatus(직전, 지금)` 을 묻는다 |
+| 기준선 (`hub.GitWatcher.SetOnBaseline`) | gitwatch 는 저장소의 첫 표명(`NoteScoped` 가 항목을 새로 만들 때)의 관측을 기준선으로 삼고, 그 관측에는 `git_changed` 를 내지 않는다. 그때 기준선 훅을 부른다(잠금 밖에서). 합성 루트가 `RepoWatch.Seen` 에 잇는다 — 없으면 저장소를 연 뒤 첫 브랜치 전환의 name-status 를 잃는다(`ResyncRepo` 에게서 넘겨받는 몫) |
+| `RepoView` (인터페이스) | `Snapshot(repo) (RepoSnap, bool)` — `HEAD` 와 작업 트리 변경(저장소 상대 경로 → 새 파일인가) · `NameStatus(ctx, repo, from, to) ([]NameStatus, error)`. lsp 는 git 을 모른다 — 합성 루트가 git `Store.Observed`(gitwatch 가 방금 관측한 값)와 `diff-tree --name-status -r -z -M from to` + `query.ParseNameStatusZ` 로 채운다 |
+| `repoEvents(repo, prev, cur, ns, exists)` (순수) | 목록 = name-status ∪ 직전 집합 ∪ 지금 집합 (FR-CMR-111). 종류: 지금 디스크에 없으면 `Deleted`, name-status 의 `A`·rename 의 새 경로·지금 집합의 미추적/추가(`?`·`A`)면 `Created`, 그 밖은 `Changed` (FR-CMR-112). rename 의 옛 경로는 목록에 든다. 경로는 저장소 아래 절대경로이고 정렬한다(결정적) |
+| 합성 루트 (`main.go`) | `OnGitChanged` = `ResyncRepo`(R 까지) + `go repoWatch.Changed(repo)` · `OnGitBaseline` = `repoWatch.Seen` |
+| 브라우저 (`EdLspConn`) | `clientCapabilities.workspace.didChangeWatchedFiles = {dynamicRegistration: false}` — 서버가 감시를 등록하지 않아도 알림을 받는다 |
+
+- 작업 트리 집합은 git status 관측의 그룹 상한(`StatusGroupCap`)에서 잘릴 수 있다. 잘린 나머지는 알리지 않는다 — 한 번에 보내는 수도 어차피 `LSP_WATCH_MAX` 에서 잘린다.
+- 끼워 넣기의 쓰기가 막히면(서버가 stdin 을 읽지 않는다) 그 통로의 작업 goroutine 만 기다린다. 저장 응답·gitwatch·다른 통로는 기다리지 않는다.
+
 ## 10. 변경 기록
 
 | 날짜 | 내용 |
@@ -845,3 +865,4 @@ T 설계 (e2e 이관·걷기):
 | 2026-11-02 | FR-CMR-90·92·93·100·102 개정, §3.16·§4.2·§4.3·§9 갱신, §11.6 추가 — M8 착수 중 사용자 결정 8건 |
 | 2026-11-02 | §11.6 L2 설계 — 진단은 그룹의 버퍼에 보관하고 모든 칸에 그린다. 켜기/끄기는 처리기와 토글이 본다 |
 | 2026-11-03 | FR-CMR-93 개정·§3.16 한 줄 — 정의·참조가 비면 표시하지 않는다 (M8 T 착수 중 사용자 결정). §11.6 T 설계 |
+| 2026-11-03 | §11.6 W 설계 — 끼워 넣기·`RepoWatch`·저장 시 알림 |

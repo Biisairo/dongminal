@@ -398,6 +398,8 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 	// 요청 경로에서 커널을 호출하지 않는다 (SYSTEM_STATS_SRS FR-STAT-8/9/11).
 	sampler := sysstat.NewSampler(sysstat.NewReader(), sysstat.DefaultInterval, "/")
 	lspSvc := newLSPService(cfg, cmdHub)
+	// CODEMIRROR_MIGRATION_SRS FR-CMR-111: 저장소가 바뀌면 바뀐 파일을 통로에 알린다.
+	repoWatch := &lsp.RepoWatch{View: lspRepoView{st: git.store}, Out: lspSvc}
 
 	return builtDeps{
 		deps: httpapi.Deps{
@@ -415,8 +417,13 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 			Git:           git.store,
 			GitExclusion:  jobs.NewExclusion(),
 			// REPO_FIX 02 §3A-6: 저장소 변화(브랜치 전환 포함) 뒤 열린 문서만 디스크 판으로.
-			OnGitChanged: lspSvc.ResyncRepo,
-			LSP:          lspSvc,
+			// FR-CMR-111: 그리고 바뀐 파일을 통로에 알린다 — gitwatch 를 기다리게 하지 않는다.
+			OnGitChanged: func(repo string) {
+				lspSvc.ResyncRepo(repo)
+				go repoWatch.Changed(repo)
+			},
+			OnGitBaseline: repoWatch.Seen,
+			LSP:           lspSvc,
 		},
 		pm:          nil, // set by caller in direct mode
 		attnTracker: attnTracker,

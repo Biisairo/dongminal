@@ -7,7 +7,7 @@
 1. 이 문서를 끝까지 읽는다. 그다음 SRS 의 §3.10~§3.12 · §3.16 · §4 · §7.2 · **§11.6(M8 결정·S·L1 설계)** 을 읽는다.
 2. `git status` 와 `git log --oneline -5` 로 출발점을 확인한다. 맨 위 커밋은 L1 WIP 커밋이다(`wip(lsp): 브라우저 LSP 클라이언트 …`).
 3. M8 결정 8건은 **끝났다** (SRS §11.6). 다시 묻지 않는다.
-4. 남은 단위를 순서대로: **W → R** (L2·T 끝). 단위마다 SRS §11.6 에 설계를 먼저 적고 Spec → Test(RED 확인) → Code.
+4. 남은 단위: **R** (L2·T·W 끝). 단위마다 SRS §11.6 에 설계를 먼저 적고 Spec → Test(RED 확인) → Code.
 5. M8 끝에 편집기·Diff e2e 45개 파일(+ `editor-lsp.spec.ts` 검토)을 돌려 §7.2 를 갱신하고, **사용자 확인 후** 커밋한다(AI 서명 금지). 단위 끝마다 WIP 커밋할지 사용자에게 묻는다. 그다음 M9.
 
 ## 어디까지 왔나
@@ -17,7 +17,7 @@
 | M1~M5 | 완료 | `6633910c` · `a81a3920` · `e5d03f72` · `ef0d5953` · `6971b5ee` |
 | M6 Git Diff 뷰 | 완료 | `b1418594`(WIP) + `b195ab47` |
 | M7 sticky scroll | 완료 | `eb16d707` |
-| **M8 LSP (S·W·L + FR-CMR-23)** | **진행 중 — 결정·L3·S·L1·L2·T 끝, W·R 남음** | `8213444d`(L3·S) + L1 WIP 커밋 · SRS §11.6 |
+| **M8 LSP (S·W·L + FR-CMR-23)** | **진행 중 — 결정·L3·S·L1·L2·T·W 끝, R 남음** | `8213444d`(L3·S) + L1 WIP 커밋 · SRS §11.6 |
 | M9 Monaco 제거 | 대기 | 아래 "M9" |
 
 마지막 e2e 측정(M7, 45개 파일): 544건 중 통과 522 · 실패 22. 실패는 모두 §7.2 표의 M8(21건) · M9(1건) 몫이다.
@@ -30,6 +30,8 @@
 - L1: `web/js/ui/cm-lsp.js` (`edLspUri`·`edLspPath`·`edLspLangId`·`edLspServerReply`·`edLspWorkspaceClass`·`EdLspSocket`·`EdLspConn`), `lsp-client.js` 의 정의·참조 구간 교체(`lspExtFor`·`_lspConn`·`_lspRun`·`_lspDisplay`·`_lspClickExt`), `cm-setup.js` `cmp.lsp` + `edCmLspAttach`, `FileEditor.whenView()`·`_lspAttach()`, Diff 는 `_bindEdit` 에서 붙인다. URI 벡터 `internal/shared/platform/testdata/file_uri_vectors.json`(Go `TestFileURIVectorsShared` 와 JS 가 함께 읽는다). 단위 `cm-lsp.test.mjs` 22건. 상수 `LSP_WS_*`·`ED_LSP_TIMEOUT_MS`·`ED_LSP_RETRY_MS` 는 `constants-editor.js`
 - L2: `EdBuffer.diagnostics`·`setDiagnostics`·`sinks`(편집을 따라 위치를 옮기고, 디스크 재읽기면 비운다), `cm-lsp.js` 의 `edLspDiagItems`·`edLspDiagShow`·`edLspDiagnostics`(라이브러리 `serverDiagnostics` 의 능력·autoSync 를 쓰고 처리기만 바꾼다), Workspace `hooks.joined`, `_lspSetDiag` 는 레지스트리의 모든 버퍼를 다시 그린다. 어댑터 `edT.diagnostics`·`docDiagnostics`·`docSetDiagnostic` CodeMirror 갈래. 단위 13건 추가. `slot-view-state` E-9.1 이 풀렸다. 실제 gopls 스모크(진단 표시·끄기/켜기·고친 뒤 걷힘) 통과. `editor-lsp-nav` 남은 14건 실패는 모두 T 몫(REST stub · hub seam `lspOnDiagnostics` 진단 3건)
 - T: `editor-lsp-nav` 를 실제 gopls 픽스처(go.mod)로 다시 썼다 — `lspTap`(`routeWebSocket` 이 실제 서버에 잇고 프레임 method 를 기록)·`ready`(첫 진단 알림) · 실패 주입 2건(4001 상한 → 알림 줄·상태 패널, 4003 끊김 → 다시 연결). `ux-batch10` 호버도 실제 gopls. `edLspCloseNote`·`_lspConnNote`(상태 패널 `.lsp-msg`)·`LSP_WS_LIMIT_NOTE`. 어댑터 `showHover` CodeMirror 갈래·`ED_SEL.refPanel`·`refItem`·`lintError`. 걷기: `edNavBack` 전부, `_lspPush`·`_lspNavBack`·`_lspCanBack`, hub seam(`_lspOnDiagnostics`·구독·`LSP_DIAG_ACTION`·`LSP_DIAG_SEVERITY`), 쓰이지 않는 LSP 상수·i18n, 문서 `shortcuts.md`·`features.md`. CI `e2e.yml` gopls v0.20.0 설치. **사용자 결정: 정의·참조 결과가 비면 아무것도 표시하지 않는다** (FR-CMR-93·§3.16)
+- W: `domain/lsp/watch.go` — `NotifyFiles`(루트 아래만, `WatchMax`=2000, 통로마다 순서 있는 줄 16 + 작업 goroutine, `initialized` 전에는 넣지 않음, `LastUse` 를 옮기지 않음), `RepoWatch`(`Seen` 기준선·`Changed`, HEAD 가 바뀔 때만 name-status), 순수 `repoEvents`. gitwatch 는 첫 표명에 `git_changed` 를 내지 않으므로 기준선 훅 `SetOnBaseline`(→ `Deps.OnGitBaseline` → `RepoWatch.Seen`)을 더했다. 합성 루트 `cmd/dongminal/lsp_watch.go` 의 `lspRepoView`(`Store.Observed` + `diff-tree --name-status -r -z -M`). 저장 처리기가 쓰기 전 존재 여부로 Created/Changed. 브라우저 `clientCapabilities.workspace.didChangeWatchedFiles`. e2e 2건(열지 않은 파일 저장 · 브랜치 전환 — 실제 gopls 진단이 따라 바뀐다)
+- e2e(W 끝): 46개 파일 545건 중 544 통과, 실패는 `editor-find-panel` 1건(M9)
 - e2e(T 끝): 46개 파일 543건 중 541 통과. `editor-find-panel` 1건(M9)·`editor-scrollbar` 1건(띠가 thumb 를 덮음 — 스펙이 상태를 세워 고침, 반복 3회 통과)
 - 실제 gopls 스모크(임시 스펙, 지움): 호버 `func helper() int` · Shift+F12 참조 2건 · F12 로 다른 파일 4줄 — 모두 동작
 - e2e 지금: `editor-lsp-nav` 24건 중 15건 실패 — REST stub 검사(T 에서 실제 gopls 로 다시 쓴다)와 진단(L2). LSP 와 무관한 편집기·Diff 6개 파일 68건은 통과

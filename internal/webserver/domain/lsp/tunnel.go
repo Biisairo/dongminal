@@ -3,12 +3,15 @@ package lsp
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/webserver/domain/ext"
 )
 
@@ -31,6 +34,7 @@ type Tunnel interface {
 
 type tunnel struct {
 	svc  *Service
+	root string
 	rwc  io.ReadWriteCloser
 	br   *bufio.Reader
 	stop func()
@@ -39,7 +43,15 @@ type tunnel struct {
 
 	mu      sync.Mutex
 	lastUse time.Time
+	// ready 는 브라우저의 initialized 가 지나갔는가다 — 그 전에는 끼워 넣지 않는다 (§11.6 W).
+	ready atomic.Bool
+	// injq 는 끼워 넣을 알림의 줄이다. injectLoop 하나가 차례로 쓴다. done 이 닫히면 끝난다.
+	injq chan []byte
+	done chan struct{}
 }
+
+// tunnelInjectQueue 는 통로마다 끼워 넣기를 기다릴 수 있는 알림 수다. 넘치면 버린다.
+const tunnelInjectQueue = 16
 
 // OpenTunnel 은 (루트, 서술자)의 언어 서버를 새로 띄워 통로로 낸다.
 //
@@ -79,7 +91,9 @@ func (s *Service) OpenTunnel(root, descID string) (Tunnel, error) {
 		s.mu.Unlock()
 		return nil, fmt.Errorf("lsp: %s 를 띄우지 못했습니다: %w", descID, err)
 	}
-	t := &tunnel{svc: s, rwc: rwc, br: bufio.NewReader(rwc), stop: stop, lastUse: s.now()}
+	t := &tunnel{svc: s, root: root, rwc: rwc, br: bufio.NewReader(rwc), stop: stop, lastUse: s.now(),
+		injq: make(chan []byte, tunnelInjectQueue), done: make(chan struct{})}
+	go t.injectLoop()
 	if s.tunnels == nil {
 		s.tunnels = map[*tunnel]struct{}{}
 	}
@@ -117,11 +131,54 @@ func (t *tunnel) LastUse() time.Time {
 func (t *tunnel) Send(body []byte) error {
 	t.wmu.Lock()
 	err := writeFrame(t.rwc, body)
+	if err == nil && !t.ready.Load() && isInitialized(body) {
+		t.ready.Store(true)
+	}
 	t.wmu.Unlock()
 	if err == nil {
 		t.touch()
 	}
 	return err
+}
+
+// enqueue 는 서버가 만든 알림을 그 통로의 줄에 넣는다 (FR-CMR-110·114). initialized 전이거나
+// 줄이 차 있으면 버리고 false 다. 기다리지 않는다.
+func (t *tunnel) enqueue(body []byte) bool {
+	if !t.ready.Load() {
+		return false
+	}
+	select {
+	case t.injq <- body:
+		return true
+	default:
+		return false
+	}
+}
+
+// injectLoop 는 줄의 알림을 차례로 stdin 에 쓴다. 사용자의 쓰임이 아니므로 LastUse 를 옮기지 않는다.
+func (t *tunnel) injectLoop() {
+	for {
+		select {
+		case b := <-t.injq:
+			t.wmu.Lock()
+			err := writeFrame(t.rwc, b)
+			t.wmu.Unlock()
+			if err != nil {
+				dmlog.Warnf(nil, "lsp: 끼워 넣기 실패 (%s): %v", t.root, err)
+			}
+		case <-t.done:
+			return
+		}
+	}
+}
+
+// isInitialized 는 그 본문이 initialized 알림인가다. initialized 가 지날 때까지만 부른다.
+func isInitialized(body []byte) bool {
+	var m struct {
+		Method string           `json:"method"`
+		ID     *json.RawMessage `json:"id"`
+	}
+	return json.Unmarshal(body, &m) == nil && m.ID == nil && m.Method == "initialized"
 }
 
 func (t *tunnel) Recv() ([]byte, error) {
@@ -134,6 +191,7 @@ func (t *tunnel) Recv() ([]byte, error) {
 
 func (t *tunnel) Close() {
 	t.once.Do(func() {
+		close(t.done)
 		_ = t.rwc.Close()
 		if t.stop != nil {
 			t.stop()

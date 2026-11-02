@@ -28,6 +28,7 @@ type fakeLSP struct {
 
 	closed   chan [2]string
 	resynced chan string
+	notified chan []lsp.FileEvent
 
 	locs    []lsp.Location
 	hover   string
@@ -62,6 +63,12 @@ func (f *fakeLSP) CloseDoc(root, path string) {
 func (f *fakeLSP) ResyncPath(path string) {
 	if f.resynced != nil {
 		f.resynced <- path
+	}
+}
+
+func (f *fakeLSP) NotifyFiles(e []lsp.FileEvent) {
+	if f.notified != nil {
+		f.notified <- e
 	}
 }
 
@@ -497,4 +504,42 @@ func (f *fakeLSP) OpenTunnel(root, descID string) (lsp.Tunnel, error) {
 		return nil, f.tunnelErr
 	}
 	return f.tunnel, nil
+}
+
+// CODEMIRROR_MIGRATION_SRS FR-CMR-110: 파일을 쓰면 통로에 알린다 — 없던 파일은 Created, 있던 파일은 Changed.
+func TestFileWrite_NotifiesWatchedFiles(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := &fakeLSP{notified: make(chan []lsp.FileEvent, 2)}
+	ws := newFakeWorkspaceStore()
+	seedRoot(t, ws, root)
+	srv, _ := New(Config{DataDir: t.TempDir()}, Deps{LSP: f, Work: ws})
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+	p := filepath.Join(root, "a.go")
+	write := func() {
+		t.Helper()
+		body, _ := json.Marshal(map[string]string{"path": p, "content": "package a\n"})
+		resp, err := http.Post(ts.URL+"/api/file/write", "application/json", strings.NewReader(string(body)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != 200 {
+			t.Fatalf("write = %d", resp.StatusCode)
+		}
+	}
+	for i, want := range []int{lsp.WatchCreated, lsp.WatchChanged} {
+		write()
+		select {
+		case got := <-f.notified:
+			if len(got) != 1 || got[0].Path != p || got[0].Type != want {
+				t.Fatalf("%d번째 쓰기의 알림 = %+v (want %s %d)", i+1, got, p, want)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("%d번째 쓰기 뒤 알림이 없다", i+1)
+		}
+	}
 }

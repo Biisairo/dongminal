@@ -8,12 +8,13 @@
  * gopls 는 패키지를 다 읽기 전의 요청에 빈 답을 줄 수 있다 — 검사는 그 파일의 첫
  * `textDocument/publishDiagnostics` 를 기다린 뒤 시작한다 (`ready`).
  */
+import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
 import { APIRequestContext, Page, WebSocketRoute } from '@playwright/test';
 
-import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
+import { test, expect, rmTree, switchToEditorRoot, openExplorerSide, openGit } from './fixtures';
 import { ED_SEL } from './editor';
 import { TMP, realPath, cssPath } from './osenv';
 
@@ -95,8 +96,8 @@ async function ready(tap: Tap, rel: string, from = 0) {
 
 const sent = (tap: Tap, method: string) => tap.frames.filter((f) => f.dir === 'up' && f.method === method).length;
 
-async function enter(page: Page, request: APIRequestContext) {
-  const r = await request.post('/api/editors/add', { data: { path: ROOT } });
+async function enter(page: Page, request: APIRequestContext, root = ROOT) {
+  const r = await request.post('/api/editors/add', { data: { path: root } });
   expect(r.ok(), `editors/add 실패: ${await r.text()}`).toBeTruthy();
   await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
   await page.goto('/');
@@ -104,7 +105,7 @@ async function enter(page: Page, request: APIRequestContext) {
   await page.waitForFunction(
     () => !!(window as any).app?.testing.editors && (window as any).app.testing.edWindows().length > 0,
     undefined, { timeout: 15000 });
-  await switchToEditorRoot(page, ROOT);
+  await switchToEditorRoot(page, root);
   await openExplorerSide(page);
   await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
 }
@@ -160,6 +161,12 @@ const docOf = (page: Page, abs: string) => page.evaluate((p) => {
   const key = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
   for (const [k, d] of (window as any).app.testing.edDocs) if (key(k) === key(p)) return true;
   return false;
+}, abs);
+// 그 파일을 보는 칸의 진단 — 활성 칸이 아니어도 읽는다.
+const docDiags = (page: Page, abs: string) => page.evaluate((p) => {
+  const key = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
+  for (const [k, d] of (window as any).app.testing.edDocs) if (key(k) === key(p)) return edT.docDiagnostics(d);
+  return null;
 }, abs);
 // 그 파일 문서 전체를 되돌릴 수 있는 편집으로 바꾼다 — 칸을 거치므로 `didChange` 가 나간다.
 const editDoc = (page: Page, abs: string, text: string) => page.evaluate(([p, s]) => {
@@ -352,6 +359,61 @@ test.describe('코드 탐색 — 진단 (FR-CMR-92)', () => {
     await expect.poll(() => diags(page), { timeout: 10000 }).toHaveLength(0);
     await toggle(true);
     await expect.poll(() => diags(page), { timeout: 10000 }).toHaveLength(1);
+  });
+});
+
+test.describe('코드 탐색 — 열리지 않은 파일의 변경 (FR-CMR-110~112)', () => {
+  // 열지 않은 파일을 저장 API 로 만든다 → 통로가 Created 를 끼워 넣고, gopls 가 다시 검사한다.
+  // 끼워 넣지 않으면 gopls 는 디스크의 새 파일을 모른 채 낡은 진단을 둔다 (§3.16).
+  test('열지 않은 파일을 저장하면 열린 파일의 진단이 그것을 반영한다', async ({ page, request }) => {
+    const tap = await lspTap(page);
+    await enter(page, request);
+    await openFile(page, 'bad/bad.go');
+    await ready(tap, 'bad/bad.go');
+    // 오류만 센다 — 고친 뒤 gopls 는 `f` 가 쓰이지 않는다는 정보 진단을 낼 수 있다.
+    const errors = async () => (await diags(page)).filter((d: any) => d.sev === 'error').length;
+    await expect.poll(errors, { timeout: 30000 }).toBe(1);
+    const late = P('bad/nope.go');
+    try {
+      const r = await request.post('/api/file/write', { data: { path: late, content: 'package bad\n\nfunc nope() {}\n' } });
+      expect(r.ok(), await r.text()).toBeTruthy();
+      await expect.poll(errors, { timeout: 30000 }).toBe(0);
+    } finally {
+      fs.rmSync(late, { force: true });
+    }
+  });
+
+  // 브랜치를 바꾸면(터미널의 git) 그 사이에 생기고 사라진 파일이 알려진다 — 열린 파일의 진단이 따라 바뀐다.
+  test('브랜치를 바꾸면 열린 파일의 진단이 그 브랜치를 따른다', async ({ page, request }) => {
+    const repo = j(BASE, 'gitrepo');
+    const git = (...a: string[]) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', ...a], { cwd: repo });
+    fs.mkdirSync(j(repo, 'other'), { recursive: true });
+    fs.writeFileSync(j(repo, 'go.mod'), 'module example.com/gitrepo\n\ngo 1.21\n');
+    fs.writeFileSync(j(repo, 'main.go'), 'package main\n\nfunc main() {\n\tfeat()\n}\n');
+    git('init', '-q', '-b', 'main');
+    git('add', '.');
+    git('commit', '-qm', 'main');
+    git('checkout', '-qb', 'feat');
+    fs.writeFileSync(j(repo, 'feat.go'), 'package main\n\nfunc feat() {}\n');
+    git('add', '.');
+    git('commit', '-qm', 'feat');
+    git('checkout', '-q', 'main');
+    const root = realPath(repo);
+    const main = j(root, 'main.go');
+
+    const tap = await lspTap(page);
+    await enter(page, request, root);
+    await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), main);
+    await waitEditorAt(page, main);
+    await ready(tap, 'main.go');
+    await expect.poll(async () => (await docDiags(page, main))?.length, { timeout: 30000 }).toBe(1);
+    // git 감시는 git 상태를 본 저장소만 돈다 — Git 창을 연다.
+    await openGit(page, root);
+
+    git('checkout', '-q', 'feat');
+    await expect.poll(async () => (await docDiags(page, main))?.length, { timeout: 60000 }).toBe(0);
+    git('checkout', '-q', 'main');
+    await expect.poll(async () => (await docDiags(page, main))?.length, { timeout: 60000 }).toBe(1);
   });
 });
 

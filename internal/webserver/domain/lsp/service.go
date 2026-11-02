@@ -38,6 +38,8 @@ type Service struct {
 	// IdleAfter·MaxSessions 가 0 이면 이 패키지의 기본값을 쓴다.
 	IdleAfter   time.Duration
 	MaxSessions int
+	// WatchMax 는 끼워 넣기 한 번에 싣는 변경 수의 상한이다 (FR-CMR-113). 0 이면 DefaultWatchMax.
+	WatchMax int
 
 	mu sync.Mutex
 	// sessions 는 (루트, 팩/서버) → 세션이다 (FR-LSP-13 / FR-EXT-4).

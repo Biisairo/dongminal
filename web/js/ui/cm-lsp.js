@@ -370,7 +370,8 @@ class EdLspConn {
       timeout: o.timeout || ED_LSP_TIMEOUT_MS,
       workspace: (c) => new W(c, { display: o.display, joined: o.joined }),
       sanitizeHTML: o.sanitizeHTML,
-      extensions: o.extensions || [],
+      // FR-CMR-110·111: 열리지 않은 파일의 변경은 통로가 끼워 넣는다. 서버가 감시를 등록하지 않아도 받는다.
+      extensions: [...(o.extensions || []), { clientCapabilities: { workspace: { didChangeWatchedFiles: { dynamicRegistration: false } } } }],
     });
   }
 

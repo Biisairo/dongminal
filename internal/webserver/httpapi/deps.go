@@ -165,6 +165,9 @@ type Deps struct {
 	// (REPO_FIX 02 §3A-6). 합성 루트가 LSP 의 재동기화를 잇는다 — 두 도메인은 서로를
 	// 모른다.
 	OnGitChanged func(repo string)
+	// OnGitBaseline 은 git 감시자가 저장소의 첫 표명을 기준선으로 삼을 때 불린다
+	// (CODEMIRROR_MIGRATION_SRS §11.6 W) — LSP 가 그 관측을 직전 관측으로 기억한다.
+	OnGitBaseline func(repo string)
 	// LSP 는 편집기의 코드 탐색이 딛는 표면이다 (EDITOR_LSP_SRS 묶음 A).
 	// nil 이면 /api/lsp/* 이 503 이며 그 밖의 동작에는 영향이 없다 — 코드 탐색이
 	// 없는 편집기는 종전의 편집기다.
@@ -208,6 +211,9 @@ type LSPService interface {
 	// 뷰가 떠날 때 닫고, 파일을 쓴 뒤 열린 문서를 디스크 판으로 맞춘다.
 	CloseDoc(root, path string)
 	ResyncPath(path string)
+	// NotifyFiles 는 열린 통로에 열리지 않은 파일의 변경을 끼워 넣는다
+	// (CODEMIRROR_MIGRATION_SRS FR-CMR-110).
+	NotifyFiles(events []lsp.FileEvent)
 	// Install 은 **팩** 하나를 조달한다 (FR-EXT-31). 단위가 팩인 것은 조달물이
 	// 하나이기 때문이다 — 서버 다섯을 내는 패키지를 서버마다 받으면 같은 것을
 	// 다섯 번 받는다. 같은 것의 두 번째 요청은 거절된다 (FR-EXT-32).

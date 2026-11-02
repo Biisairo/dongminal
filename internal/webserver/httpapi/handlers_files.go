@@ -17,6 +17,7 @@ import (
 
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/textenc"
+	"dongminal/internal/webserver/domain/lsp"
 	"dongminal/internal/webserver/httpresp"
 )
 
@@ -567,6 +568,9 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 			http.StatusRequestEntityTooLarge)
 		return
 	}
+	// CODEMIRROR_MIGRATION_SRS FR-CMR-110: 열리지 않은 파일의 변경 알림은 새 파일과 있던 파일을 가른다.
+	_, statErr := os.Stat(target)
+	existed := statErr == nil
 	// 원자적으로 쓴다 (FR-CAF-11). 여기서 잘리는 것은 우리 상태 파일이 아니라
 	// **사용자가 쓰던 원본**이다 — 편집기의 저장이 이 종단이다.
 	if err := platform.WriteFileAtomic(target, data, perm); err != nil {
@@ -578,6 +582,12 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	// 응답을 기다리게 하지 않는다(서버가 stdin 을 읽지 않으면 쓰기가 막힌다).
 	if s.LSP != nil {
 		go s.LSP.ResyncPath(target)
+		typ := lsp.WatchCreated
+		if existed {
+			typ = lsp.WatchChanged
+		}
+		// FR-CMR-110: 그 경로가 루트 아래인 통로에 알린다. 통로의 줄에 넣을 뿐 기다리지 않는다.
+		s.LSP.NotifyFiles([]lsp.FileEvent{{Path: target, Type: typ}})
 	}
 	// FR-EXC-11: **새 표식을 함께 준다.** 없으면 클라이언트가 든 표식이 방금 쓴
 	// 내용보다 낡아서, 다음 저장이 제 손으로 만든 변경에 걸려 409 가 된다 —

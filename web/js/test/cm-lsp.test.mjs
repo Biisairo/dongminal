@@ -462,6 +462,17 @@ test('연결: 주소는 루트와 서술자를 싣고, initialize 의 rootUri �
   assert.ok(ws.methods().includes('initialized'));
 });
 
+test('연결: initialize 는 didChangeWatchedFiles 능력을 싣는다 (FR-CMR-110 · §11.6 W)', async () => {
+  FakeWS.all.length = 0;
+  const { c } = conn();
+  const p = c.ensure();
+  const ws = FakeWS.all[0];
+  serve(ws);
+  await p;
+  const init = ws.msgs().find((m) => m.method === 'initialize');
+  assert.deepEqual(init.params.capabilities.workspace.didChangeWatchedFiles, { dynamicRegistration: false });
+});
+
 test('연결: 같은 연결의 ensure 는 소켓을 하나만 연다', async () => {
   FakeWS.all.length = 0;
   const { c } = conn();
