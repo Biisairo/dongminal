@@ -39,7 +39,7 @@
 | 자산 | 라이선스 | 판 | 집계 SHA-256 | 파일 수 |
 |---|---|---|---|---|
 | `monaco/` | MIT | monaco-editor 0.56.0 — `min/vs` (③) | `ab1af81a9d9b16a9…` | 139 |
-| `codemirror/` | MIT (패키지별, ④) | CodeMirror 6 — `scripts/codemirror/package.json` 의 판 (④) | `3ae35e03e75392d9…` | 126 |
+| `codemirror/` | MIT (패키지별, ④) | CodeMirror 6 — `scripts/codemirror/package.json` 의 판 (④) | `c94d3e217400c19f…` | 126 |
 
 ④ `scripts/build-codemirror.mjs` 가 `scripts/codemirror/` 의 입력으로 만든 **출력**이다
    (CODEMIRROR_MIGRATION_SRS 묶음 V). 패키지별 판은 `scripts/codemirror/package.json` 과

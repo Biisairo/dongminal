@@ -66,6 +66,8 @@ export const ED_SEL = {
   scroller: ':is(.cm-scroller, .monaco-scrollable-element)',
   /** 편집기 안의 overview ruler. */
   overviewRuler: ':is(.cm-vscroll-ruler, .decorationsOverviewRuler)',
+  /** sticky scroll 의 고정된 줄 하나 (FR-CMR-80). */
+  stickyLine: ':is(.cm-sticky-line, .sticky-line-content)',
 } as const;
 
 /** 엔진 자산의 요청 경로 (로드 실패를 흉내 낼 때 막는다). */
@@ -221,6 +223,10 @@ export function installEdAdapter(sel: typeof ED_SEL) {
     revealLine: (h: any, n: number) => (cm(h)
       ? V(h).dispatch({ effects: CMg().EditorView.scrollIntoView(pos(h, n, 1), { y: 'nearest' }) })
       : h.revealLine(n)),
+    /** sticky scroll 에 고정된 줄 번호들 — 위에서 아래로 (FR-CMR-80). */
+    stickyLines: (h: any) => (cm(h)
+      ? [...V(h).dom.querySelectorAll('.cm-sticky-line')].map((e: any) => Number(e.dataset.line))
+      : []),
     revealLineNearTop: (h: any, n: number) => (cm(h)
       ? V(h).dispatch({ effects: CMg().EditorView.scrollIntoView(pos(h, n, 1), { y: 'start' }) })
       : h.revealLineNearTop(n)),

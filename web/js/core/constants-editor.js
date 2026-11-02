@@ -125,6 +125,8 @@ const ED_SCROLL_MIN_THUMB=20;
 const ED_RULER_MIN_H=2;
 // 편집기 줄 높이의 배율. 줄 높이는 `round(글자 크기 × 이 값)` 의 정수 px 다 (Monaco 와 같다).
 const ED_LINE_HEIGHT_RATIO=1.5;
+// FR-CMR-80: sticky scroll 에 고정하는 최대 줄 수 (Monaco `stickyScroll.maxLineCount` 기본값).
+const ED_STICKY_MAX=5;
 // FR-CMR-72: 찾기 일치의 ruler·미니맵 색. Monaco 테마의 매핑(`editorOverviewRuler.findMatchForeground` 등)을 옮겼다.
 const ED_FIND_MARK_COLOR='--accent';
 const ED_FIND_MARK_COLOR_CUR='--text-bright';

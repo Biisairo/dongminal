@@ -120,6 +120,7 @@ function edCmExtensions(o) {
     edFindMarks().field,
     edFindSources(),
     o.diff ? [] : edCmScrollbar(),
+    o.diff ? [] : edCmSticky(),
     edCmBracketColors(),
     CM.keymap.of([
       ...CM.closeBracketsKeymap, ...CM.defaultKeymap, ...CM.historyKeymap,
