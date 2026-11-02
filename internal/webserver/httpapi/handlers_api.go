@@ -198,6 +198,8 @@ var apiRoutes = []apiRoute{
 	httproute.Put("/api/lsp/paths", (*Server).apiLSPPathsPut),
 	httproute.Post("/api/lsp/close", (*Server).apiLSPClose),
 	httproute.Post("/api/lsp/install", (*Server).apiLSPInstall),
+	// CODEMIRROR_MIGRATION_SRS 묶음 S — 브라우저 LSP 클라이언트와 언어 서버의 통로.
+	httproute.Get("/api/lsp/ws", (*Server).apiLSPWS),
 	// 정의·참조는 `fsRoot` 가드를 딛는다 (FR-LSP-24·49) — /api/fs/* 와 같은 가드다.
 	httproute.Post("/api/lsp/definition", (*Server).apiLSPDefinition),
 	httproute.Post("/api/lsp/references", (*Server).apiLSPReferences),

@@ -48,6 +48,10 @@ type Service struct {
 	// starting 은 지금 기동 중인 세션 키들이다 (FR-OPT-6-3) — 같은 키의 다른 요청은
 	// 이것이 닫히기를 기다린다.
 	starting map[string]chan struct{}
+	// tunnels 는 열린 통로들이고, tunnelPending 은 띄우는 중인 통로 수다
+	// (CODEMIRROR_MIGRATION_SRS FR-CMR-102 — 상한은 둘을 합쳐 센다).
+	tunnels       map[*tunnel]struct{}
+	tunnelPending int
 
 	// paths 는 서버가 보관하는 실행 파일 경로 표다 (팩/서버 → 절대경로, §3A-3).
 	// pathsFile 은 그 영속 자리(`<dataDir>/lsp-paths.json`)다.

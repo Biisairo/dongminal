@@ -39,6 +39,12 @@ type fakeLSP struct {
 	askCol  int
 	askIncl bool
 	askDoc  lsp.Doc
+
+	tunnel       lsp.Tunnel
+	tunnelErr    error
+	tunnelRoot   string
+	tunnelDesc   string
+	tunnelOpened int
 }
 
 func (f *fakeLSP) Status() ([]ext.Status, []string) {
@@ -482,4 +488,13 @@ func TestFileWrite_ResyncsLSP(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("쓰기 뒤 재동기화가 없다")
 	}
+}
+
+func (f *fakeLSP) OpenTunnel(root, descID string) (lsp.Tunnel, error) {
+	f.tunnelRoot, f.tunnelDesc = root, descID
+	f.tunnelOpened++
+	if f.tunnelErr != nil {
+		return nil, f.tunnelErr
+	}
+	return f.tunnel, nil
 }

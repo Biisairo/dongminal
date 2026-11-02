@@ -543,7 +543,7 @@ Object.assign(LspClient.prototype, {
    * 버린다. 파일을 여는 것은 흔한 일이고, 그때마다 종단을 치면 그 자체가 지연이 된다.
    */
   async lspOfferFor(view){
-    if(!view||!view.filePath||!view._editor) return;
+    if(!view||!view.filePath||!view._view) return;
     const ext=this._lspExtOf(view.filePath);
     if(!ext) return;
     const list=await this._lspStatusCached();

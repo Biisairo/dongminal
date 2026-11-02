@@ -198,6 +198,9 @@ type LSPService interface {
 	// 둘째 반환은 **읽지 못한 선언의 사유들**이다 (FR-EXT-8). 조용히 빠지면
 	// 사용자는 자기가 고친 파일이 무시된 이유를 알 수 없다.
 	Status() ([]ext.Status, []string)
+	// OpenTunnel 은 (루트, 서술자)의 언어 서버를 새로 띄워 통로로 낸다
+	// (CODEMIRROR_MIGRATION_SRS FR-CMR-101). 상한이면 lsp.ErrLimit 다 (FR-CMR-102).
+	OpenTunnel(root, descID string) (lsp.Tunnel, error)
 	// Paths·SetPaths 는 실행 파일 경로 표(팩/서버 → 절대경로)의 조회·전체 교체다.
 	Paths() map[string]string
 	SetPaths(map[string]string) (map[string]string, error)

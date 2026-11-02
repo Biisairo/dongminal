@@ -246,6 +246,11 @@ func (s *Service) session(root, path string) (*Session, error) {
 		s.remember(root, descID, "", err)
 		return nil, err
 	}
+	// CODEMIRROR_MIGRATION_SRS FR-CMR-102: REST 세션은 통로를 빼앗지 못한다.
+	if s.tunnelSlotsLocked() >= s.limit() {
+		s.mu.Unlock()
+		return nil, ErrLimit
+	}
 	if s.starting == nil {
 		s.starting = map[string]chan struct{}{}
 	}
@@ -352,15 +357,23 @@ func (s *Service) remember(root, descID, exe string, err error) {
 	s.failed[k] = &failure{desc: descID, exe: exe, err: err, at: s.now(), n: n}
 }
 
-// evictOverLimit 은 상한을 넘긴 만큼 가장 오래 쓰이지 않은 세션을 정지시킨다.
-func (s *Service) evictOverLimit() {
-	limit := s.MaxSessions
-	if limit <= 0 {
-		limit = MaxSessions
+// limit 은 동시 실행 상한이다.
+func (s *Service) limit() int {
+	if s.MaxSessions <= 0 {
+		return MaxSessions
 	}
+	return s.MaxSessions
+}
+
+// evictOverLimit 은 상한을 넘긴 만큼 가장 오래 쓰이지 않은 세션을 정지시킨다.
+//
+// 상한은 REST 세션과 통로를 합쳐 세지만 정지 대상은 REST 세션뿐이다
+// (CODEMIRROR_MIGRATION_SRS FR-CMR-102) — 보고 있는 탭의 LSP 가 끊기지 않는다.
+func (s *Service) evictOverLimit() {
+	limit := s.limit()
 	for {
 		s.mu.Lock()
-		if len(s.sessions) <= limit {
+		if len(s.sessions) == 0 || len(s.sessions)+s.tunnelSlotsLocked() <= limit {
 			s.mu.Unlock()
 			return
 		}
@@ -440,9 +453,15 @@ func (s *Service) Sweep() {
 			delete(s.sessions, k)
 		}
 	}
+	idle := s.tunnelsLocked()
 	s.mu.Unlock()
 	for _, sess := range stop {
 		sess.Close()
+	}
+	for _, t := range idle {
+		if t.LastUse().Before(cut) {
+			t.Close()
+		}
 	}
 }
 
@@ -470,9 +489,13 @@ func (s *Service) Shutdown() {
 	s.extDesc = nil
 	// §3A-4: 정지는 실패 기억도 버린다.
 	s.failed = nil
+	tunnels := s.tunnelsLocked()
 	s.mu.Unlock()
 	for _, sess := range all {
 		sess.Close()
+	}
+	for _, t := range tunnels {
+		t.Close()
 	}
 }
 

@@ -180,3 +180,23 @@ func MissingText(st Status) string {
 	}
 	return "아직 받지 않았습니다"
 }
+
+// ResolveID 는 서술자 id(팩/서버)를 (서버, 관측) 으로 푼다 (CODEMIRROR_MIGRATION_SRS FR-CMR-91).
+func (s *Service) ResolveID(descID string, overrides map[string]string) (Server, Status, bool) {
+	ms, _ := s.Manifests()
+	for _, m := range Packs(ms) {
+		for _, srv := range m.Servers {
+			if m.ID+"/"+srv.ID != descID {
+				continue
+			}
+			loc := s.locator(ms, overrides)
+			st := loc.find(m, srv)
+			if !st.Found {
+				canInstall, missing := loc.readiness(m)
+				withReadiness(&st, canInstall, missing)
+			}
+			return srv, st, true
+		}
+	}
+	return Server{}, Status{}, false
+}

@@ -350,17 +350,22 @@ Monaco 도 스크롤바를 직접 그렸다)
 
 ### 3.10 묶음 L — 브라우저 LSP
 
-**FR-CMR-90** `@codemirror/lsp-client` 를 쓴다. 연결 단위는 (저장소 루트, 언어 서버)이며, 연결마다
-`LSPClient` 하나다.
+**FR-CMR-90** `@codemirror/lsp-client` 를 쓴다. 연결 단위는 **페이지 안의** (저장소 루트, 언어 서버)이며,
+연결마다 `LSPClient` 하나다. 한 페이지의 편집기 칸·Diff 칸은 그 연결 하나를 같이 쓴다. 다른 페이지(브라우저
+탭·창)는 자기 연결을 따로 연다. (M8 착수 중 결정 2)
 
-**FR-CMR-91** `Transport` 는 `/api/lsp/ws?root=<루트>&server=<서버 id>` WebSocket 이다. 연결이 끊기면
+**FR-CMR-91** `Transport` 는 `/api/lsp/ws?root=<루트>&server=<서술자 id(팩/서버)>` WebSocket 이다. 연결이 끊기면
 `LSPClient.disconnect()` 하고, 그 연결을 다시 쓸 때 다시 연다.
 
 **FR-CMR-92** A 단계에서 켜는 기능은 지금과 같다: hover, 정의로 이동(F12), 참조 찾기(Shift+F12),
-진단 표시. 진단 켜기/끄기(`lspDiagOn`)는 `serverDiagnostics()` 확장을 Compartment 로 넣고 뺀다.
+진단 표시. 문서 동기화(`didChange`)는 진단 켜기/끄기와 관계없이 늘 동작한다. 진단 켜기/끄기(`lspDiagOn`)는
+`textDocument/publishDiagnostics` 처리기가 본다 — 꺼져 있으면 그리지 않고 이미 그린 진단을 지운다. 받은 진단은
+그룹의 문서(버퍼)에 보관하고, 다시 켜면 보관한 진단을 그 그룹의 모든 칸에 그린다. (M8 착수 중 결정 5)
 
-**FR-CMR-93** 정의·참조가 다른 파일을 가리키면 앱이 그 파일을 연다. 참조 결과는 기존 결과 목록
-패널(`_lspList`)에 보인다. 뒤로 가기(`_lspNavBack`)는 유지한다.
+**FR-CMR-93** 정의로 이동은 라이브러리의 `jumpToDefinition`, 참조 찾기는 라이브러리의 `findReferences`
+(그 패널)다. 앱 단축키 `edGotoDef`·`edFindRefs` 가 이 명령을 부른다. 정의가 다른 파일을 가리키면
+`Workspace.displayFile` 이 앱으로 그 파일을 열고, 편집기가 준비된 뒤 그 뷰를 돌려준다. 기존 결과 목록
+(`_lspList`)과 뒤로 가기(`_lspNavBack`·`edNavBack`)는 걷는다. (M8 착수 중 결정 6, 동작 변경 §3.16)
 
 **FR-CMR-94** hover Markdown 의 `sanitizeHTML` 은 `purify.js`(DOMPurify)다.
 
@@ -368,15 +373,22 @@ Monaco 도 스크롤바를 직접 그렸다)
 
 ### 3.11 묶음 S — 서버 LSP 통로
 
-**FR-CMR-100** `GET /api/lsp/ws` 를 더한다. 기존 WebSocket 종단과 같은 요청 게이트(same-origin·인증)를
-지난다.
+**FR-CMR-100** `GET /api/lsp/ws` 를 더한다. 다른 경로와 같이 `accessGate`(출발지 기기)와 `requestGate`(출처)를
+지난다. 제품에 인증은 없다. (M8 착수 중 결정 1 — 종전 문구 "인증" 은 사실과 달랐다)
 
 **FR-CMR-101** 연결 하나에 언어 서버 프로세스 하나를 띄운다. 브라우저 → 서버 메시지는
 `Content-Length` 머리를 붙여 stdin 에, stdout 의 메시지는 머리를 떼어 WebSocket 으로 보낸다.
 메시지 내용은 해석하지 않는다(끼워 넣기 제외).
 
-**FR-CMR-102** 기존의 동시 실행 상한(`MaxSessions`=6)과 유휴 정리(`IdleAfter`=20분, `Sweep`)를 통로 프로세스에도 적용한다. 상한에
-걸리면 연결을 거절하고 WebSocket close reason 에 코드를 싣는다. 브라우저는 그것을 상태 패널에 보인다.
+**FR-CMR-102** 기존의 동시 실행 상한(`MaxSessions`=6)과 유휴 정리(`IdleAfter`=20분, `Sweep`)를 통로 프로세스에도 적용한다.
+(M8 착수 중 결정 3·4)
+
+- 상한은 REST 세션과 통로 프로세스를 합쳐 센다. 상한에 걸리면 새 통로를 **거절**한다 — WebSocket 을 close code
+  `LSP_WS_CLOSE_LIMIT`(4001), reason `limit` 으로 닫는다. 브라우저는 그것을 상태 패널에 보인다.
+- 기존 LRU 정지(`evictOverLimit`)는 통로 프로세스를 정지 대상으로 고르지 않는다. 정지할 REST 세션이 없으면
+  새 REST 세션은 상한 오류로 실패한다 (REST 가 사라지는 R 단위까지의 과도기).
+- 유휴 판단의 기준(`LastUse`)은 통로를 지나는 프레임(양방향)마다 갱신한다. `IdleAfter` 동안 프레임이 없으면
+  `Sweep` 이 프로세스를 끝내고 WebSocket 을 닫는다(FR-CMR-103). 브라우저는 다음에 그 연결을 쓸 때 다시 연다(FR-CMR-91).
 
 **FR-CMR-103** WebSocket 이 닫히면 프로세스를 끝낸다. 프로세스가 끝나면 WebSocket 을 닫는다.
 
@@ -456,7 +468,13 @@ B 착수 전에 §8 의 미해결 질문을 해소한다.
 | `.bat`·`.cmd` 강조 | Monaco `bat` | 일반 텍스트 | 사용자 결정 — legacy-modes 에 없다 |
 | 열리지 않은 파일의 변경 | 언어 서버에 알리지 않는다 (낡은 결과) | 저장·git 변화를 `didChangeWatchedFiles` 로 알린다 | 사용자 결정 — PoC 대조 실험에서 낡은 결과 확인 |
 | LSP 구조 | 서버가 중개(REST), 진단은 hub 로 | 브라우저 `lsp-client` ↔ WebSocket 통로 | Monaco 잔재 제거 |
-| LSP 세션 단위 | (루트, 서버)당 프로세스 하나를 모든 탭이 공유 | 연결마다 하나 | `lsp-client` 는 클라이언트 하나가 서버 하나를 독점한다고 가정한다 |
+| LSP 세션 단위 | (루트, 서버)당 프로세스 하나를 모든 탭이 공유 | 페이지마다 (루트, 서버)당 하나. 같은 페이지의 칸들은 공유한다 | `lsp-client` 는 클라이언트(브라우저)가 `initialize` 와 문서 상태를 맡는다. 페이지 사이에 공유하려면 서버가 내용을 해석해야 한다(FR-CMR-101 위배) (M8 결정 2) |
+| LSP 동시 상한에 걸릴 때 | 가장 오래 안 쓴 세션을 정지(LRU) | 새 통로를 거절하고 상태 패널에 보인다. 열려 있는 통로는 빼앗기지 않는다 | 사용자가 보는 탭의 LSP 가 갑자기 끊기지 않게 한다 (M8 결정 3) |
+| 정의가 여러 곳일 때 | 결과 목록(`_lspList`)에서 고른다 | 첫 항목으로 간다 | 사용자 결정 — 라이브러리 명령을 쓴다 (M8 결정 6) |
+| 참조 찾기 | 앱의 결과 목록(`_lspList`). 열리지 않은 파일의 참조도 보인다 | `lsp-client` 의 참조 패널. 열리지 않은 파일의 참조는 빠진다 | 위와 같다. 라이브러리의 `requestFile` 은 열린 파일만 돌려준다 |
+| 정의로 이동 뒤 돌아가기 | `edNavBack`(`Mod+Alt+Minus`)으로 직전 위치로 | 없음 — 단축키·설정 항목도 걷는다 | 사용자 결정 — 라이브러리에 대응 기능이 없다 (M8 결정 6) |
+| e2e: 호버 provider 1회 · 요청 텍스트 생략(needText) | `editor-lsp-nav` 가 잰다 | 검사를 지운다 | Monaco provider 등록과 REST 텍스트 동기화의 개념이다 — CodeMirror·WS 통로에는 대응물이 없다 (M8 결정 8) |
+| e2e: 참조 결과 목록 · 뒤로 가기 | `editor-lsp-nav` 가 잰다 | 목록 검사는 라이브러리 참조 패널 검사로 바꾸고, 뒤로 가기 검사는 지운다 | 위 두 줄의 동작 변경을 따른다 (M8 결정 6·8) |
 | Diff 공백 무시 | Monaco `ignoreTrimWhitespace` | 줄 단위 정규화 비교 | 같은 결과를 목표로 한다. 줄 안의 강조 범위는 다를 수 있다 |
 | `.tsx`·`.jsx` 강조 | Monaco `typescript`·`javascript` | TSX·JSX | language-data 에 전용 문법이 있다 — 태그가 강조된다 (M3) |
 | 파일 이동·이름 변경 뒤 실행 취소 | 새 경로의 새 모델이라 사라졌다 | 남는다 | 경로로 찾는 모델 등록소가 없다 — 버퍼는 그대로이고 레지스트리 키만 옮긴다 (M3) |
@@ -503,7 +521,8 @@ B 착수 전에 §8 의 미해결 질문을 해소한다.
 |---|---|
 | 프레이밍 (FR-CMR-101) | 여러 메시지가 한 번에 오거나 쪼개져 와도 경계가 맞다 · 멀티바이트 본문 길이 |
 | 수명 (FR-CMR-103) | WS 닫힘 → 프로세스 종료 · 프로세스 종료 → WS 닫힘 |
-| 상한 (FR-CMR-102·104) | 동시 상한 초과 거절 · 본문 상한 초과 시 닫힘 |
+| 상한 (FR-CMR-102·104) | 동시 상한 초과 → close 4001 `limit` · REST 와 합쳐 센다 · LRU 가 통로를 고르지 않는다 · 본문 상한 초과 시 닫힘 |
+| 유휴 (FR-CMR-102) | 양방향 프레임이 `LastUse` 를 갱신한다 · 프레임 없이 `IdleAfter` 가 지나면 `Sweep` 이 프로세스를 끝내고 WS 를 닫는다 |
 | 게이트 (FR-CMR-100) | 다른 origin 거절 |
 | 끼워 넣기 (FR-CMR-110~114) | 저장 → 루트 아래 통로에만 · git 변화 → 목록 계산(HEAD 이동·작업 트리·삭제·새 파일) · 상한 2000 · 브라우저 쪽으로는 아무것도 가지 않음 |
 | 제거 (FR-CMR-105) | 제거된 경로가 404 |
@@ -512,8 +531,12 @@ B 착수 전에 §8 의 미해결 질문을 해소한다.
 
 - 기존 e2e 37개 파일이 FR-CMR-120 계층으로 옮겨진 뒤 통과한다 (§3.16 에 걸린 단언만 바뀐다).
 - 새 시나리오: 여러 칸 동시 편집 · 칸별 실행 취소 · Diff 폭 전환 · 공백 무시 토글 · 미니맵과 스크롤바
-  thumb 위치 일치(짧은 문서·긴 문서) · sticky scroll 표시와 클릭 · LSP hover/정의/참조/진단(gopls 가
-  있는 환경) · 브랜치 전환 뒤 진단 갱신.
+  thumb 위치 일치(짧은 문서·긴 문서) · sticky scroll 표시와 클릭 · LSP hover/정의/참조/진단 · 브랜치 전환 뒤 진단 갱신.
+- **LSP 기능 검사는 실제 gopls 로 한다** (M8 착수 중 결정 7). 작은 Go 픽스처 모듈을 열고 실제 통로(`/api/lsp/ws`)를
+  지난다. CI(`e2e.yml`, ubuntu·windows)는 판을 고정한 gopls 를 설치한다. gopls 가 없으면 건너뛰지 않고 실패한다.
+  가짜 언어 서버는 기능 검사에 쓰지 않는다 — 짜 둔 응답에 맞춘 검사는 실제 서버와 어긋나도 통과한다.
+- 가짜는 **실패 주입에만** 쓴다: 상한 거절의 상태 패널 표시, 끊김 뒤 다시 연결, 요청 timeout, 프로세스 비정상 종료.
+  Go 테스트(`fakeStarter`)로 충분한 것은 그쪽에서 재고, 브라우저 쪽 반응을 재야 하는 것만 e2e(`page.routeWebSocket`)에 둔다.
 - NFR-CMR-1·3·4 측정.
 
 ### 4.4 게이트
@@ -623,7 +646,9 @@ M7 측정: 45개 파일(`editor-sticky` 포함) — 544건 중 통과 522 · 실
 | 여러 칸 편집에서 상태가 갈라짐 | HIGH | 단위 테스트(전달 불변식) + e2e 동시 입력. 갈라지면 그룹 전체를 첫 칸의 상태로 맞춘다 |
 | Diff 뷰 hunk 좌표가 기존 git 조작(`panel-hunks.js`·`hunk-coords.js`)과 어긋남 | HIGH | M6 전에 hunk 좌표 변환 단위 테스트를 먼저 쓴다 |
 | 미니맵 포크의 유지 부담 | MEDIUM | 고친 자리를 포크 README 에 목록으로 남긴다 |
-| 연결마다 프로세스 → 탭이 많으면 메모리 증가 | MEDIUM | 기존 동시 상한·유휴 정리 (FR-CMR-102) |
+| 페이지마다 프로세스 → 탭이 많으면 메모리 증가 | MEDIUM | 같은 페이지의 칸은 공유(FR-CMR-90) · 동시 상한 거절·유휴 정리 (FR-CMR-102) |
+| 유휴 정리·끊김 뒤 다시 연결할 때 열린 문서를 다시 알려야 함 | MEDIUM | L1 단위 테스트로 재연결 뒤 `didOpen` 재전송을 먼저 잰다 |
+| 실제 gopls e2e 의 시간 변동(콜드 기동·색인) | MEDIUM | 요청 timeout 을 기본 3000ms 보다 늘린다 · 픽스처를 작게 둔다 · CI 판 고정 |
 | e2e 37개 이전 규모 | MEDIUM | M2 를 따로 둔다 |
 | `lsp-client` 판 갱신으로 API 변경 | LOW | 판 고정 (FR-CMR-4) |
 
@@ -703,6 +728,48 @@ ruler·미니맵 표식이 "있는가" 를 e2e 가 재는 길: ruler 는 그린 
 맨 위 줄은 `lineBlockAtHeight(scrollTop − documentPadding.top)` 의 줄이다. 고정된 줄이 덮는 아래 줄들은 다시 계산하지 않는다
 (FR-CMR-83 — Monaco 와 달리 범위가 끝날 때 밀어 올리는 효과도 없다).
 
+### 11.6 M8 — LSP (S · W · L + FR-CMR-23)
+
+착수 중 결정 (2026-11-02, 사용자):
+
+| # | 결정 | 반영 |
+|---|---|---|
+| 1 | 통로는 `accessGate`·`requestGate` 를 지난다. 인증은 없다 | FR-CMR-100 |
+| 2 | 프로세스는 페이지마다 (루트, 서버)당 하나. 같은 페이지의 칸은 공유한다 | FR-CMR-90 · §3.16 |
+| 3 | 상한에 걸리면 새 통로를 거절한다. LRU 는 통로를 정지하지 않는다 | FR-CMR-102 · §3.16 |
+| 4 | 양방향 프레임마다 `LastUse` 갱신. 유휴 정리 뒤에는 다음에 쓸 때 다시 연결한다 | FR-CMR-102 |
+| 5 | 문서 동기화는 늘 켠다. 진단 켜기/끄기는 알림 처리기가 본다 | FR-CMR-92 |
+| 6 | 정의·참조는 라이브러리 명령·패널. `_lspList`·뒤로 가기는 걷는다 | FR-CMR-93 · §3.16 |
+| 7 | LSP 기능 e2e 는 실제 gopls. 가짜는 실패 주입에만 | §4.3 |
+| 8 | 호버 provider 1회·needText 생략·결과 목록·뒤로 가기 e2e 는 지우거나 바꾼다 | §3.16 |
+
+단위와 순서 (L3 → S → L1 → L2 → T → W → R):
+
+| 단위 | 내용 |
+|---|---|
+| L3 | `lspOfferFor` 가드를 CodeMirror 뷰 기준으로 — 설치 띠 복구 |
+| S | `/api/lsp/ws`: 게이트, Starter 로 기동, `Content-Length` 프레이밍, 별도 읽기 한도(FR-CMR-104), close code · 상한 공유와 거절 · 프레임 touch · `Sweep` |
+| L1 | 페이지 단위 연결 등록소 · WS `Transport` · `EdBuffer` 기반 사용자 정의 `Workspace`(그룹당 문서 하나, FR-CMR-23) · `displayFile` 준비 대기 · URI ↔ 경로(Go `platform.Paths` 와 같은 테스트 벡터) · timeout · hover(`sanitizeHTML` = DOMPurify) · 정의·참조 단축키 → 라이브러리 명령 |
+| L2 | 진단: 버퍼에 보관, 그룹의 모든 칸에 그림, `lspDiagOn` 은 처리기에서 |
+| T | e2e: 실제 gopls 픽스처 · CI gopls 설치 · 실패 주입 · 어댑터 CodeMirror 갈래(`e2e/editor.ts`) · `app.testing` 이름과 단위 테스트 정리 · `editor-lsp.spec.ts` 를 e2e 목록에 더한다 |
+| W | 저장 시 끼워 넣기 · `git_changed` 에서 name-status 계산 · `LSP_WATCH_MAX` (FR-CMR-110~114) |
+| R | REST 4종·서버 문서 동기화·hub `lsp_diagnostics` 제거 (FR-CMR-105). **W 뒤에 한다** — 브랜치 전환 뒤 열린 문서를 맞추던 `ResyncRepo` 의 몫을 W 가 넘겨받는다 |
+
+S 설계:
+
+| 자리 | 내용 |
+|---|---|
+| `domain/lsp` `Service.OpenTunnel(root, descID) (Tunnel, error)` | 서술자를 `ext.Service.ResolveID` 로 풀어 실행 파일을 찾고 `Starter` 로 띄운다. 통로 수가 이미 상한이면 프로세스를 띄우지 않고 `ErrLimit`. 띄운 뒤 REST 세션 + 통로가 상한을 넘으면 REST 세션만 LRU 로 정지한다 |
+| `Tunnel` (인터페이스) | `Send(body)` — `Content-Length` 머리를 붙여 stdin 에 쓴다 · `Recv()` — stdout 의 프레임 하나에서 머리를 뗀 본문 · `Close()` — 프로세스를 끝내고 등록에서 뺀다(여러 번 불러도 한 번) · `LastUse()`. `Send`·`Recv` 가 `LastUse` 를 갱신한다 |
+| `Service.session` (REST) | 통로 수가 상한이면 새 REST 세션을 `ErrLimit` 로 거절한다 |
+| `Service.Sweep`·`Shutdown` | 통로도 정리한다 |
+| `httpapi` `GET /api/lsp/ws` | `root` 는 `fsRoot` 가드, `server` 가 비면 400 — 둘 다 업그레이드 전에 HTTP 로 답한다. 업그레이드 뒤 읽기 한도는 `editorlimit.BodyMaxBytes(MaxTextBytes)` 다(넘으면 gorilla 가 1009 로 닫는다) |
+| close code | `LSP_WS_CLOSE_LIMIT` 4001 `limit` (상한) · 4002 (기동 실패 — reason 은 사유, UTF-8 로 123바이트까지) · 4003 `ended` (프로세스 종료·유휴 정리) |
+
+- `lsp-client` 는 `initialize` 를 브라우저가 보낸다. Go 핸드셰이크는 통로에서 쓰지 않고, `didChangeWatchedFiles`
+  능력은 브라우저의 `clientCapabilities` 에 넣는다.
+- 기본 `Workspace` 는 같은 파일을 두 번 열면 throw 한다. 사용자 정의 `Workspace` 가 그룹의 칸 수를 센다.
+
 ## 10. 변경 기록
 
 | 날짜 | 내용 |
@@ -716,3 +783,4 @@ ruler·미니맵 표식이 "있는가" 를 e2e 가 재는 길: ruler 는 그린 
 | 2026-11-02 | M6 완료 — §7.2 에서 Diff 문서 공유 줄과 TC-MVN-16 을 지웠다. e2e 2건 추가 (§11.4) |
 | 2026-11-02 | FR-CMR-80·81·82·83 구체화, FR-CMR-84 추가 — sticky 는 편집기 칸만, Diff 에는 없다 (M7 착수 중 사용자 결정). FR-CMR-82 는 누른 줄이 고정된 줄에 덮이지 않도록 고쳤다. §11.5 |
 | 2026-11-02 | M7 완료 — §7.2 에 측정을 적었다 |
+| 2026-11-02 | FR-CMR-90·92·93·100·102 개정, §3.16·§4.2·§4.3·§9 갱신, §11.6 추가 — M8 착수 중 사용자 결정 8건 |

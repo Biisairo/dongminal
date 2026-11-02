@@ -206,6 +206,7 @@
 | POST | `/api/lsp/definition` | 정의로 이동 |
 | POST | `/api/lsp/references` | 참조 찾기 (`includeDeclaration`) |
 | POST | `/api/lsp/hover` | 호버 정보. 정의·참조·호버가 싣는 텍스트는 32 MiB 까지다(넘으면 사유로 답한다) |
+| GET | `/api/lsp/ws` | 언어 서버 통로(WebSocket) `?root=<루트>&server=<팩/서버>`. 메시지는 LSP JSON-RPC 본문(머리 없음)이다. 루트가 Editor 목록에 없거나 `server` 가 없으면 업그레이드 전에 4xx. 닫힘 code: 4001 `limit`(동시 실행 상한) · 4002(기동 실패, reason 은 사유) · 4003 `ended`(프로세스 종료·유휴 정리) · 1009(메시지 상한 초과) |
 
 정의·참조·호버의 본문은 `{root, path, text?, version?, line, col}` 이다 (줄·열은 1 부터).
 `version`(선택)은 브라우저가 붙인 문서 판이다. 판을 실으면 응답에 판 협상 필드가 붙는다:
