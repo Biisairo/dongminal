@@ -52,13 +52,17 @@ export const ED_SEL = {
   /** 줄 번호 옆 장식 칸 (dirty diff 막대가 서는 곳). */
   gutter: ':is(.cm-gutters, .margin-view-overlays)',
   /** 미니맵. */
-  minimap: '.minimap',
+  minimap: ':is(.cm-minimap-gutter, .minimap)',
   /** 미니맵 안의 뷰포트 표시. */
-  minimapSlider: '.minimap-slider',
-  /** 세로 스크롤바의 thumb. */
-  scrollThumb: '.scrollbar.vertical > .slider',
+  minimapSlider: ':is(.cm-minimap-overlay, .minimap-slider)',
+  /** 세로 스크롤바의 thumb. 편집기 칸은 직접 그린다 (FR-CMR-74). */
+  scrollThumb: ':is(.cm-vscroll-thumb, .scrollbar.vertical > .slider)',
+  /** 세로 스크롤바의 track. */
+  scrollTrack: ':is(.cm-vscroll, .scrollbar.vertical)',
+  /** 스크롤되는 영역. */
+  scroller: ':is(.cm-scroller, .monaco-scrollable-element)',
   /** 편집기 안의 overview ruler. */
-  overviewRuler: '.decorationsOverviewRuler',
+  overviewRuler: ':is(.cm-vscroll-ruler, .decorationsOverviewRuler)',
 } as const;
 
 /** 엔진 자산의 요청 경로 (로드 실패를 흉내 낼 때 막는다). */
@@ -89,7 +93,17 @@ export function installEdAdapter(sel: typeof ED_SEL) {
         minimap: d.options.minimap ? JSON.stringify(d.options.minimap.color) : null,
       }))
       .sort((a: any, b: any) => a.line - b.line);
-  // CodeMirror 의 찾기 표시 (`cm-find.js` 의 `edFindMarks`). 눈금·미니맵은 M5 에서 선다.
+  // ruler 가 그린 항목·미니맵이 받은 표식에서 같은 표식을 찾는다. 색은 CSS 변수 이름이다 — 값은 묻지 않는다.
+  const rulerOf = (h: any, cls: string, from: number) => {
+    const it = w.edCmRulerItems(V(h)).find((x: any) => x.cls === cls && x.from === from);
+    return it ? JSON.stringify(it.color) : null;
+  };
+  const minimapOf = (h: any, kind: 'marks' | 'gutter', cls: string, line: number) => {
+    const d = CMg().minimapDrawn(V(h));
+    const it = d && d[kind].find((x: any) => x.cls === cls && x.line === line);
+    return it ? JSON.stringify(it.color) : null;
+  };
+  // CodeMirror 의 찾기 표시 (`cm-find.js` 의 `edFindMarks`).
   const cmMarks = (h: any, re: RegExp) => {
     const out: any[] = [];
     const st = V(h).state;
@@ -97,7 +111,21 @@ export function installEdAdapter(sel: typeof ED_SEL) {
     if (!set) return out;
     set.between(0, st.doc.length, (from: number, to: number, d: any) => {
       const cls = d.spec.class || '';
-      if (re.test(cls)) out.push({ cls, line: st.doc.lineAt(from).number, end: st.doc.lineAt(to).number, ruler: null, minimap: null });
+      const line = st.doc.lineAt(from).number;
+      if (re.test(cls)) out.push({ cls, line, end: st.doc.lineAt(to).number, ruler: rulerOf(h, cls, from), minimap: minimapOf(h, 'marks', cls, line) });
+    });
+    return out;
+  };
+  // CodeMirror 의 dirty diff 표식 (`file-editor-diff.js` 의 `edDdField`). 줄마다 하나다.
+  const cmLineMarks = (h: any, re: RegExp) => {
+    const out: any[] = [];
+    const st = V(h).state;
+    const set = st.field(w.edDdField().field, false);
+    if (!set) return out;
+    set.between(0, st.doc.length, (from: number, _to: number, m: any) => {
+      const cls = 'fe-dd-' + m.type;
+      const line = st.doc.lineAt(from).number;
+      if (re.test(cls)) out.push({ cls, line, end: line, ruler: rulerOf(h, cls, from), minimap: minimapOf(h, 'gutter', cls, line) });
     });
     return out;
   };
@@ -213,9 +241,9 @@ export function installEdAdapter(sel: typeof ED_SEL) {
       if (cm(h)) {
         const v = V(h);
         switch (name) {
-          // M5 에서 미니맵이 선다.
-          case 'minimapEnabled': return false;
-          case 'minimapSize': return null;
+          // 미니맵은 늘 `fill` 좌표계다 — 뷰포트 표시가 스크롤바 thumb 와 같은 함수를 쓴다 (FR-CMR-61).
+          case 'minimapEnabled': return !!v.dom.querySelector('.cm-minimap-gutter');
+          case 'minimapSize': return v.dom.querySelector('.cm-minimap-gutter') ? 'fill' : null;
           case 'readOnly': return v.state.readOnly;
           case 'wordWrap': return v.contentDOM.classList.contains('cm-lineWrapping') ? 'on' : 'off';
           case 'fontSize': return parseFloat(getComputedStyle(v.dom).fontSize);
@@ -236,14 +264,21 @@ export function installEdAdapter(sel: typeof ED_SEL) {
         default: throw new Error('edT.option: 모르는 이름 ' + name);
       }
     },
-    // M5 에서 미니맵이 선다 — 그 전의 편집기 칸에는 없다.
-    minimapLeft: (h: any) => (cm(h) ? 0 : h.getLayoutInfo().minimap.minimapLeft),
-    minimapWidth: (h: any) => (cm(h) ? 0 : h.getLayoutInfo().minimap.minimapWidth),
+    // 편집기 칸 안의 미니맵 자리 (칸의 왼쪽 변 기준). 미니맵이 없으면 0 이다.
+    minimapLeft: (h: any) => {
+      if (!cm(h)) return h.getLayoutInfo().minimap.minimapLeft;
+      const m = V(h).dom.querySelector('.cm-minimap-gutter');
+      return m ? Math.round(m.getBoundingClientRect().left - V(h).dom.getBoundingClientRect().left) : 0;
+    },
+    minimapWidth: (h: any) => {
+      if (!cm(h)) return h.getLayoutInfo().minimap.minimapWidth;
+      const m = V(h).dom.querySelector('.cm-minimap-gutter');
+      return m ? Math.round(m.getBoundingClientRect().width) : 0;
+    },
 
     // 장식 — 인라인(글자 위)·줄 장식(gutter)
     marks: (h: any, re: string) => (cm(h) ? cmMarks(h, new RegExp(re)) : deco(h, 'className', new RegExp(re))),
-    // M5 에서 dirty diff 가 선다.
-    lineMarks: (h: any, re: string) => (cm(h) ? [] : deco(h, 'linesDecorationsClassName', new RegExp(re))),
+    lineMarks: (h: any, re: string) => (cm(h) ? cmLineMarks(h, new RegExp(re)) : deco(h, 'linesDecorationsClassName', new RegExp(re))),
 
     // 진단 — 심각도는 엔진 중립 이름이다 ('error' | 'warning' | 'info' | 'hint'). 편집기 칸은 M8 에서 선다.
     diagnostics: (h: any) => (cm(h) ? [] : markersOf(h.getModel())),

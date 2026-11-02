@@ -1,7 +1,7 @@
 # SRS: 편집기 엔진 교체 — Monaco 에서 CodeMirror 6 으로 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: M5~M9 (단계 A) · M10~ (단계 B). M1~M4 완료.
+> **남은 것**: M6~M9 (단계 A) · M10~ (단계 B). M1~M5 완료.
 
 - 근거: 사용자 인터뷰(2026-11-02) · PoC(`/tmp/cm-poc`, §2.6).
 - 대체 문서: `MONACO_VENDORING_SRS.md` 의 묶음 V 는 이 문서의 묶음 V 가 대체한다.
@@ -324,6 +324,12 @@ MIT 라이선스 파일과 원본 판·커밋을 함께 둔다.
 
 **FR-CMR-73** 문서가 바뀌거나 높이가 바뀌면 다음 프레임에 한 번만 다시 그린다.
 
+**FR-CMR-74** 편집기 칸의 세로 스크롤바는 직접 그린다. 브라우저 스크롤바는 숨긴다. track 과 thumb 는 DOM
+요소이고, overview ruler 는 그 track 위에 겹친다. thumb 의 높이는 `clientHeight / scrollHeight` 비율(최소
+높이 있음)이고, 세로 위치는 `scrollTop / (scrollHeight - clientHeight)` 비율이다. thumb 를 끌면 스크롤하고,
+track 을 누르면 thumb 의 가운데가 그 자리로 온다(Monaco 기본값 `scrollByPage:false`). 휠 스크롤은 브라우저 동작 그대로다. (2026-11-02 사용자 결정 —
+Monaco 도 스크롤바를 직접 그렸다)
+
 ### 3.9 묶음 K — Sticky scroll
 
 **FR-CMR-80** 화면 맨 위 줄을 감싸는 범위(함수·클래스·블록 등)의 첫 줄을 편집기 위에 고정해
@@ -577,11 +583,10 @@ M2 를 엔진 교체보다 먼저 두는 이유: 테스트를 옮기는 일과 �
 
 측정: M3 마무리 작업 트리, 편집기 관련 e2e 42개 파일 — 534건 중 통과 485 · 실패 49 (2026-11-02). 표에 없는 실패는 없다.
 M4 에서 `editor-multi-slot` 3건을 더했다 — 모두 통과(반복 3회). M4 는 앱 코드를 바꾸지 않았으므로 표는 그대로다.
+M5 측정: 43개 파일(`editor-multi-slot` 포함) — 537건 중 통과 502 · 실패 35, 모두 아래 표의 M6·M8·M9 몫이다 (2026-11-02). `editor-scrollbar` 2건은 따로 통과(반복 3회).
 
 | 스펙 · 테스트 | 실패 이유 | 닫는 마일스톤 |
 |---|---|---|
-| `editor-dirty-diff` V-EDD 9건 · `editor-doc-registry` "CRLF 파일은 편집하지 않으면 변경 표시가 없다" | 변경 줄 표시가 아직 Monaco 에 서 있다 — CodeMirror 칸에는 붙지 않아 `dd.settled` 가 서지 않는다 | M5 |
-| `editor-minimap` V-MMP-1·2 · `editor-find-panel` FR-M9-9 · `doc-render` V-DRB-1 | 미니맵·overview ruler 가 아직 없다 | M5 |
 | `git-diff-doc` S1~S7 · `repo-diff-edit` D1·D3·E1·E2 · `git-subroot` F-3.1 | Diff 뷰의 문서 공유를 껐다 (`GIT_DIFF_SHARES_DOC=false`) | M6 |
 | `editor-lsp-nav` 18건 · `slot-view-state` E-9.1 · `repo-tab` M4 · `ux-batch10` 호버 | LSP 연결이 아직 Monaco 편집기에 서 있다 (제안 띠 포함) | M8 |
 | `editor-find-panel` "다른 Monaco 는 자기 위젯을 갖는다" · `monaco-offline` TC-MVN-16 | Monaco 고유 동작을 재는 검사다 — 편집기 칸에 Monaco 가 없다 | M6/M9 에서 폐기 또는 대체 |
@@ -646,6 +651,23 @@ M3 에서 **아직 옮기지 않는 것** — dirty diff(M5)·미니맵(M5)·rul
 e2e 의 브라우저는 Windows 로 보인다(`navigator.platform` = `Win32`). CodeMirror 의 `Mod` 가 `Ctrl` 이므로
 스펙의 실행 취소 키는 `Control+z` 다.
 
+### 11.3 M5 — 스크롤바 · overview ruler · dirty diff · 미니맵
+
+| 모듈 | 책임 | 비고 |
+|---|---|---|
+| `web/js/ui/cm-scrollbar.js` | `edScrollThumb(geo)` (순수: thumb 의 top·height) · `edRulerY(top, contentH, trackH)` (순수) · `edCmScrollbar()` 확장 — track·thumb·ruler 를 `view.dom` 오른쪽에 겹쳐 그린다 (FR-CMR-70·71·73·74) | ruler 의 출처는 Facet `edRulerSource` 다. 출처 하나는 `(state) => [{from, to, lane:'left'\|'right', color}]` 이다. 그린 항목은 `edCmRulerItems(view)` 로 읽는다 (e2e 어댑터) |
+| `web/js/ui/cm-find.js` | 찾기 일치를 ruler(오른쪽)·미니맵에 싣는 출처 | 색: 일치 `--accent`, 현재 일치 `--text-bright` (Monaco 테마의 매핑을 옮겼다) |
+| `web/js/ui/file-editor-diff.js` | `EdDirtyDiff` 가 모델 대신 버퍼(`EdBuffer`)에 붙는다. 표시는 칸마다 StateField(`edDdField`)에 둔 `RangeSet<GutterMarker>` 이고 편집에 맞춰 `map` 된다 (FR-CMR-40). gutter 를 누르면 그 칸에만 block widget 팝업이 선다 (FR-CMR-41). 되돌리기는 그 칸의 트랜잭션이라 실행 취소가 듣는다. ruler(왼쪽)·미니맵 gutter 의 출처다 (FR-CMR-42) | 계산(`edDiffLines`)·스테이지·좌표 사상은 그대로다 |
+| `scripts/codemirror/minimap/` | `@replit/codemirror-minimap` 0.5.2 의 `dist/index.js` 포크 (FR-CMR-60). 고친 자리: ① 뷰포트 표시(overlay)의 top·height 는 설정의 `thumb(view)` 가 준다 — 스크롤바와 같은 함수다 (FR-CMR-61) ② 설정 `marks(state)` 로 줄 위에 색을 찍는 층 (FR-CMR-62) ③ 그린 줄 표식을 읽는 `minimapDrawn(view)` | 포크의 README 에 고친 자리를 목록으로 적는다 (§9 리스크) |
+| `web/js/ui/cm-setup.js` | 미니맵 Compartment. `editorMinimap` 설정이 켜고 끈다. 생성과 갱신은 한 함수(`edCmMinimap(enabled)`)가 만든다 (FR-CMR-63) | Diff 뷰에는 미니맵이 없다 (D-M9-5) |
+| `e2e/editor.ts` | `scrollThumb`·`minimap`·`minimapSlider`·`overviewRuler` 선택자, `option('minimap…')`·`minimapLeft/Width`·`marks().ruler/minimap`·`lineMarks` 의 CodeMirror 갈래 | |
+
+줄 높이는 정수 px 다 — `round(글자 크기 × 1.5)` (`ED_LINE_HEIGHT_RATIO`, Monaco 와 같다). M3 의 `line-height:1.5` 는
+글자 크기 13px 에서 19.5px 가 되어 문서 높이가 소수였고, 문서 끝에서 미니맵(sticky)이 thumb 보다 반 픽셀 위에 섰다.
+
+ruler·미니맵 표식이 "있는가" 를 e2e 가 재는 길: ruler 는 그린 항목 목록, 미니맵은 포크가 마지막으로 그린 표식 목록이다.
+표식의 색 값은 묻지 않는다 (FR-EDD-23 이 값을 박지 않는다).
+
 ## 10. 변경 기록
 
 | 날짜 | 내용 |
@@ -653,4 +675,5 @@ e2e 의 브라우저는 Windows 로 보인다(`navigator.platform` = `Win32`). C
 | 2026-11-02 | 초안 — 인터뷰 결정·PoC 결과 반영 |
 | 2026-11-02 | FR-CMR-1·4·60 개정, FR-CMR-1a·5a 추가 — 묶음 입력이 `web/vendor` 에 있으면 바이너리와 정적 서빙에 실린다 (M1 착수 중 발견) |
 | 2026-11-02 | FR-CMR-121 개정 — 앱에 훅을 새로 두지 않고 어댑터가 엔진 핸들을 읽는다. 엔진을 바꿀 때 고칠 자리를 어댑터 하나로 둔다 (M2 착수 중 결정) |
+| 2026-11-02 | FR-CMR-74 추가 — 세로 스크롤바를 직접 그린다 (M5 착수 중 사용자 결정) |
 | 2026-11-02 | FR-CMR-23 을 M8 로 옮겼다 — 사용자 정의 `Workspace` 는 `lsp-client` 에 붙는다. M4 완료: §11.2 (M4 착수 중 결정) |

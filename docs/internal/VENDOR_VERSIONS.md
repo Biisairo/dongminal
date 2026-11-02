@@ -39,7 +39,7 @@
 | 자산 | 라이선스 | 판 | 집계 SHA-256 | 파일 수 |
 |---|---|---|---|---|
 | `monaco/` | MIT | monaco-editor 0.56.0 — `min/vs` (③) | `ab1af81a9d9b16a9…` | 139 |
-| `codemirror/` | MIT (패키지별, ④) | CodeMirror 6 — `scripts/codemirror/package.json` 의 판 (④) | `671d77f768e49ab2…` | 126 |
+| `codemirror/` | MIT (패키지별, ④) | CodeMirror 6 — `scripts/codemirror/package.json` 의 판 (④) | `3ae35e03e75392d9…` | 126 |
 
 ④ `scripts/build-codemirror.mjs` 가 `scripts/codemirror/` 의 입력으로 만든 **출력**이다
    (CODEMIRROR_MIGRATION_SRS 묶음 V). 패키지별 판은 `scripts/codemirror/package.json` 과
@@ -47,6 +47,8 @@
    `THIRD_PARTY_LICENSES.txt.gz` 에 있다. 손으로 고치지 않는다 — 판을 올리면
    `cd scripts/codemirror && npm ci` 뒤 스크립트를 다시 돌리고 이 줄을 고친다.
    출력은 재현된다: 같은 입력이면 같은 바이트다 (FR-CMR-4).
+   미니맵은 `@replit/codemirror-minimap` 0.5.2 의 포크이며 `scripts/codemirror/minimap/` 에 있다
+   (FR-CMR-60, 원본 판·커밋·고친 자리는 그 디렉터리의 README.md).
 
 ③ 담긴 파일은 전부 **사전압축**(`<이름>.gz`)이며 서버가 `Content-Encoding: gzip`
    으로 그대로 흘린다 (`MONACO_VENDORING_SRS` 묶음 Z). raw 23.3MB 가 5.4MB 로

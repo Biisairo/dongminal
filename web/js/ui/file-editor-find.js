@@ -471,11 +471,10 @@ Object.assign(FileEditor.prototype, ED_FIND_MIXIN);
 // 테마 전환 훅 (theme-vars.js applyThemeObj). 이름이 같은 테마를 다시 정의하고
 // setTheme 을 부르면 살아 있는 에디터와 diff 뷰가 함께 따라온다 (FR-GIT-49).
 FileEditor.applyTheme = function() {
-  if (typeof monaco === 'undefined') return;
   // EDITOR_DIRTY_DIFF_SRS FR-EDD-23b: 변경 표시의 색도 CSS 변수에서 왔으므로
-  // 여기서 함께 다시 세운다. 두 번째 테마 훅을 만들지 않는다.
-  if (typeof edDdReset === 'function') edDdReset();
+  // 여기서 함께 다시 칠한다. 두 번째 테마 훅을 만들지 않는다. CodeMirror 칸은 Monaco 가 없어도 칠한다.
   if (window.app && window.app.edDirtyDiffRepaint) window.app.edDirtyDiffRepaint();
+  if (typeof monaco === 'undefined') return;
   const name = monacoTheme();
   if (name !== MONACO_THEME) return;
   monaco.editor.setTheme(name);

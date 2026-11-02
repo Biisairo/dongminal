@@ -127,6 +127,18 @@ const ED_FIND_MINIMAP_COLOR_CUR='minimap.selectionHighlight';
 // 동안 화면이 멎는 것보다 낫다.
 const ED_FIND_MAX_HITS=20000;
 
+// CODEMIRROR_MIGRATION_SRS FR-CMR-74: 직접 그리는 세로 스크롤바. 폭·thumb 최소 높이는 Monaco 의 기본값이다
+// (`verticalScrollbarSize` 14 · 슬라이더 최소 20).
+const ED_SCROLL_W=14;
+const ED_SCROLL_MIN_THUMB=20;
+// FR-CMR-70·72: overview ruler 표식의 최소 높이(px). 한 줄짜리 일치도 눈에 띄어야 한다.
+const ED_RULER_MIN_H=2;
+// 편집기 줄 높이의 배율. 줄 높이는 `round(글자 크기 × 이 값)` 의 정수 px 다 (Monaco 와 같다).
+const ED_LINE_HEIGHT_RATIO=1.5;
+// FR-CMR-72: 찾기 일치의 ruler·미니맵 색. Monaco 테마의 매핑(`editorOverviewRuler.findMatchForeground` 등)을 옮겼다.
+const ED_FIND_MARK_COLOR='--accent';
+const ED_FIND_MARK_COLOR_CUR='--text-bright';
+
 /**
  * EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-5: **미니맵 옵션은 한 자리에서 만든다.**
  *

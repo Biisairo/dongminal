@@ -85,13 +85,15 @@ function edCmLineCol(doc, pos) {
 /**
  * 편집기 하나의 확장과 그 Compartment 들.
  *
- * @param {{readOnly?: boolean, wordWrap?: boolean, fontSize?: number}} o
- * @returns {{extensions: any[], cmp: {wrap: any, font: any, ro: any, lang: any}}}
+ * @param {{readOnly?: boolean, wordWrap?: boolean, fontSize?: number, minimap?: boolean}} o
+ * @returns {{extensions: any[], cmp: {wrap: any, font: any, ro: any, lang: any, minimap: any}}}
  */
 function edCmExtensions(o) {
-  const cmp = { wrap: new CM.Compartment(), font: new CM.Compartment(), ro: new CM.Compartment(), lang: new CM.Compartment() };
+  const cmp = { wrap: new CM.Compartment(), font: new CM.Compartment(), ro: new CM.Compartment(), lang: new CM.Compartment(), minimap: new CM.Compartment() };
   const extensions = [
     CM.lineNumbers(),
+    // EDITOR_DIRTY_DIFF_SRS: 변경 막대는 줄 번호 바로 뒤다 (Monaco 의 linesDecorations 자리).
+    typeof edDdExtensions === 'function' ? edDdExtensions() : [],
     CM.highlightActiveLineGutter(),
     CM.foldGutter(),
     CM.drawSelection(),
@@ -114,6 +116,8 @@ function edCmExtensions(o) {
     }),
     edCmSelectionWhitespace(),
     edFindMarks().field,
+    edFindSources(),
+    edCmScrollbar(),
     edCmBracketColors(),
     CM.keymap.of([
       ...CM.closeBracketsKeymap, ...CM.defaultKeymap, ...CM.historyKeymap,
@@ -124,19 +128,51 @@ function edCmExtensions(o) {
     cmp.font.of(edCmFontTheme(o.fontSize)),
     cmp.ro.of(CM.EditorState.readOnly.of(!!o.readOnly)),
     cmp.lang.of([]),
+    cmp.minimap.of(edCmMinimap(!!o.minimap)),
   ];
   return { extensions, cmp };
 }
 
+// 미니맵 표식의 출처 — `(state) => [{line, kind:'mark'|'gutter', color}]`. `color` 는 CSS 변수 이름이다.
+// 처음 쓸 때 만든다 (`CM` 이 페이지 로드 때 없다).
+function edMinimapSource() {
+  if (!edMinimapSource.facet) edMinimapSource.facet = CM.Facet.define();
+  return edMinimapSource.facet;
+}
+
+/**
+ * FR-CMR-60~63 · EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-5: 미니맵은 이 함수 하나가 만든다 — 생성과 설정 토글이
+ * 같은 덩이를 딛는다. 뷰포트 표시는 스크롤바 thumb 와 같은 함수(`edScrollThumb`)를 쓰고(FR-MMP-2 의 `fill`),
+ * 마우스를 올렸을 때만 보인다.
+ */
+function edCmMinimap(enabled) {
+  if (!enabled) return [];
+  const collect = (st, kind) => {
+    const out = [];
+    for (const src of st.facet(edMinimapSource())) for (const it of src(st)) if (it.kind === kind) out.push(it);
+    return out;
+  };
+  return CM.showMinimap.of({
+    create: () => ({ dom: document.createElement('div') }),
+    showOverlay: 'mouse-over',
+    thumb: (v) => edScrollThumb(edScrollGeo(v)),
+    fromThumb: (v, top) => edScrollFromThumb(top, edScrollGeo(v)),
+    marks: (st) => collect(st, 'mark'),
+    gutter: (st) => collect(st, 'gutter'),
+  });
+}
+
+// 줄 높이는 정수 px 다 — Monaco 와 같이 `round(글자 크기 × 1.5)`. 소수면 문서 높이가 소수가 되어 문서 끝에서
+// 미니맵(sticky)이 스크롤바 thumb 보다 반 픽셀 위에 선다 (FR-CMR-61).
 function edCmFontTheme(px) {
-  return CM.EditorView.theme({ '&': { fontSize: px + 'px' } });
+  return CM.EditorView.theme({ '&': { fontSize: px + 'px' }, '.cm-scroller': { lineHeight: Math.round(px * ED_LINE_HEIGHT_RATIO) + 'px' } });
 }
 
 // FR-CMR-12: 색은 전부 CSS 변수다. 섞는 비율은 종전 Monaco 테마의 것을 옮겼다.
 function edCmTheme() {
   return CM.EditorView.theme({
     '&': { color: 'var(--text)', backgroundColor: 'var(--bg)', height: '100%' },
-    '.cm-scroller': { fontFamily: ED_FONT_FAMILY, lineHeight: '1.5' },
+    '.cm-scroller': { fontFamily: ED_FONT_FAMILY },
     '.cm-content': { caretColor: 'var(--accent)' },
     '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--accent)' },
     '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection':

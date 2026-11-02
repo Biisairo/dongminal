@@ -443,6 +443,7 @@ class FileEditor {
       readOnly: !!(this._doc && this._doc.decodable === false),
       wordWrap: editorWordWrap,
       fontSize: edFontSize(),
+      minimap: editorMinimap,
     });
     this._cmp = cmp;
     this._buf = buf;
@@ -552,7 +553,7 @@ class FileEditor {
     // 판정하되 수행은 인스턴스가 한다 — 포커스가 있는 편집기가 곧 이 요소의
     // 임자이므로, "어느 편집기를 저장할 것인가" 를 따로 고르지 않는다.
     if (this._edViewKey(e)) return;
-    if (e.key !== 'Escape' || !this._ddZone) return;
+    if (e.key !== 'Escape' || !this._ddNode) return;
     if (this._find && this._find.contains(/** @type {Node} */ (e.target))) return;
     e.preventDefault(); this._ddClose();
   }
@@ -599,8 +600,10 @@ class FileEditor {
    * EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-4: 미니맵도 **이미 열려 있는** 편집기가
    * 곧바로 따라간다 — `applyWordWrap` 과 같은 규약이다 (FR-WBR-11).
    */
-  // CODEMIRROR_MIGRATION_SRS M5: 미니맵은 포크한 확장으로 다시 선다. 그 전까지 할 일이 없다.
-  applyMinimap() {}
+  applyMinimap() {
+    if (!this._view) return;
+    this._view.dispatch({ effects: this._cmp.minimap.reconfigure(edCmMinimap(editorMinimap)) });
+  }
 
   /**
    * FR-FSS-9: 배율을 바꾸면 **이미 열려 있는** 편집기도 따라온다.

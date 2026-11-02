@@ -56,6 +56,29 @@ function edFindMarks() {
 }
 
 /**
+ * FR-CMR-72 · FR-M9-9: 일치는 ruler(오른쪽)와 미니맵에도 찍힌다. 현재 일치는 다른 색이다 (FR-EFP-14).
+ */
+function edFindSources() {
+  const hits = (st) => {
+    const out = [];
+    const set = st.field(edFindMarks().field, false);
+    if (!set) return out;
+    set.between(0, st.doc.length, (from, to, d) => {
+      const cls = d.spec.class || '';
+      const cur = cls.includes(ED_FIND_HIT_CUR_CLASS);
+      out.push({ from, to, cls, color: cur ? ED_FIND_MARK_COLOR_CUR : ED_FIND_MARK_COLOR, cur });
+    });
+    return out;
+  };
+  return [
+    edRulerSource().of((st) => hits(st).map((h) => ({ from: h.from, to: h.to, lane: 'right', color: h.color, cls: h.cls }))),
+    // 같은 줄에 일치가 여럿이면 현재 일치의 색이 이긴다 — 미니맵은 줄마다 한 색이다.
+    edMinimapSource().of((st) => hits(st).sort((a, b) => a.cur - b.cur)
+      .map((h) => ({ line: st.doc.lineAt(h.from).number, kind: 'mark', color: h.color, cls: h.cls }))),
+  ];
+}
+
+/**
  * 찾기 패널이 CodeMirror 편집기에 닿는 자리 (`ED_FIND_MIXIN` 의 엔진).
  * 일치는 `{from, to, caps}` 다 (`edFindHits`).
  */

@@ -75,6 +75,17 @@ function collectLicenses(metafile) {
     if (!text) missing.push(name);
     parts.push(`## ${name}@${meta.version} (${meta.license || 'UNKNOWN'})\n\n${text || '(LICENSE 파일 없음)'}\n`);
   }
+  // 포크한 패키지는 node_modules 밖(`scripts/codemirror/<이름>/`)에 있다. 그 디렉터리의 LICENSE 를 함께 싣는다.
+  const forks = new Set();
+  for (const input of Object.keys(metafile.inputs)) {
+    const m = /^([^/.][^/]*)\/[^/]+$/.exec(input);
+    if (m && !input.startsWith('node_modules/')) forks.add(m[1]);
+  }
+  for (const name of [...forks].sort()) {
+    const text = licenseText(path.join(INPUT, name));
+    if (!text) missing.push(name);
+    parts.push(`## ${name} (포크 — scripts/codemirror/${name}/README.md)\n\n${text || '(LICENSE 파일 없음)'}\n`);
+  }
   if (missing.length) {
     console.error(`LICENSE 파일이 없는 패키지: ${missing.join(', ')}`);
     process.exit(1);
