@@ -26,6 +26,7 @@ Object.assign(App.prototype, {
   lspDocClosed(path) { return this._lspClient().lspDocClosed(path) },
   lspClearDiagnostics(model) { return this._lspClient().lspClearDiagnostics(model) },
   lspHoverRegister() { return this._lspClient().lspHoverRegister() },
+  lspExtFor(path) { return this._lspClient().lspExtFor(path) },
   lspOfferFor(view) { return this._lspClient().lspOfferFor(view) },
   lspOfferInstall(id, view) { return this._lspClient().lspOfferInstall(id, view) },
   lspDismiss(id) { return this._lspClient().lspDismiss(id) },

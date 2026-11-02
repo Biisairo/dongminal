@@ -354,8 +354,9 @@ Monaco 도 스크롤바를 직접 그렸다)
 연결마다 `LSPClient` 하나다. 한 페이지의 편집기 칸·Diff 칸은 그 연결 하나를 같이 쓴다. 다른 페이지(브라우저
 탭·창)는 자기 연결을 따로 연다. (M8 착수 중 결정 2)
 
-**FR-CMR-91** `Transport` 는 `/api/lsp/ws?root=<루트>&server=<서술자 id(팩/서버)>` WebSocket 이다. 연결이 끊기면
-`LSPClient.disconnect()` 하고, 그 연결을 다시 쓸 때 다시 연다.
+**FR-CMR-91** `Transport` 는 `/api/lsp/ws?root=<루트>&server=<서술자 id(팩/서버)>` WebSocket 이다. 연결이 끊긴 뒤
+그 연결을 다시 쓸 때 새 WebSocket 을 열고, `LSPClient.disconnect()` 뒤 `connect()` 한다. (끊기는 순간에 `disconnect()` 하면
+그 뒤의 요청·알림이 새 초기화를 기다리느라 소켓에 닿지 않아, 다시 쓸 계기가 사라진다 — §11.6 L1)
 
 **FR-CMR-92** A 단계에서 켜는 기능은 지금과 같다: hover, 정의로 이동(F12), 참조 찾기(Shift+F12),
 진단 표시. 문서 동기화(`didChange`)는 진단 켜기/끄기와 관계없이 늘 동작한다. 진단 켜기/끄기(`lspDiagOn`)는
@@ -765,6 +766,23 @@ S 설계:
 | `Service.Sweep`·`Shutdown` | 통로도 정리한다 |
 | `httpapi` `GET /api/lsp/ws` | `root` 는 `fsRoot` 가드, `server` 가 비면 400 — 둘 다 업그레이드 전에 HTTP 로 답한다. 업그레이드 뒤 읽기 한도는 `editorlimit.BodyMaxBytes(MaxTextBytes)` 다(넘으면 gorilla 가 1009 로 닫는다) |
 | close code | `LSP_WS_CLOSE_LIMIT` 4001 `limit` (상한) · 4002 (기동 실패 — reason 은 사유, UTF-8 로 123바이트까지) · 4003 `ended` (프로세스 종료·유휴 정리) |
+
+L1 설계:
+
+| 자리 | 내용 |
+|---|---|
+| `web/js/ui/cm-lsp.js` — `edLspUri(path)`·`edLspPath(uri)` | Go `platform.Paths` 와 같은 규칙. 드라이브 문자(`C:\`)로 시작하면 Windows 갈래(`/` 하나를 앞에 붙이고 `\` → `/`). 경로 성분은 Go `url.URL` 의 이스케이프 집합을 따른다(영숫자·`-._~`·`$&+,/:;=@` 외 UTF-8 바이트를 `%XX`). `file:` 이 아니면 빈 값. 두 언어가 같은 벡터 파일(`internal/shared/platform/testdata/file_uri_vectors.json`)로 검사한다 |
+| `edLspLangId(path, langs)` | Go `languageFor` 와 같은 표 (`.ts`·`.mts`·`.cts` → typescript, `.tsx` → typescriptreact, `.js`·`.mjs`·`.cjs` → javascript, `.jsx` → javascriptreact, 그 밖은 `langs[0]`) |
+| `edLspServerReply(method, params, root)` | 서버가 보내는 요청의 답. Go `serverRequestResult` 를 옮긴다: `workspace/configuration` → 항목 수만큼 `null`, `client/registerCapability`·`client/unregisterCapability`·`window/workDoneProgress/create` → `null`, `workspace/workspaceFolders` → 루트 하나, 그 밖은 −32601. 라이브러리는 서버 요청을 모두 −32601 로 답하므로 Transport 가 가로챈다 |
+| `EdLspWorkspace` (`CM.Workspace` 상속) | 파일(URI)마다 뷰 집합을 센다 — 첫 뷰가 열 때 `didOpen`, 마지막 뷰가 닫을 때 `didClose` (FR-CMR-23). `syncFiles` 는 `syncedDoc` 이 파일의 `doc` 과 같은 뷰의 `unsyncedChanges` 를 쓰고, 그룹의 모든 뷰의 플러그인을 `clear` 한다(그런 뷰가 없으면 전체 교체). `getFile` 은 문자열이 다르면 `edLspPath` 로 다시 견준다(서버가 URI 를 다르게 적을 수 있다). `displayFile` 은 앱이 그 파일을 열고 편집기가 준비된 뒤 그 뷰를 낸다 |
+| `EdLspSocket` (Transport) | `WebSocket` 한 개. 열리는 중이면 보낼 메시지를 줄에 세운다. 닫힌 뒤에는 요청(`id` 있음)이면 던지고 알림이면 버린다 — 어느 쪽이든 다시 연결을 청한다 |
+| `EdLspConn` — 연결 하나 (페이지의 (루트, 서술자)) | `LSPClient` 하나(`rootUri`, `workspace`, `timeout` = `ED_LSP_TIMEOUT_MS`(15000), `sanitizeHTML` = DOMPurify, `extensions` = hover). `ensure()` 가 닫혀 있으면 새 소켓으로 `connect` 한다. 소켓이 닫히면 close code·reason 을 남긴다(상태 패널이 읽는다). `disconnect()` 는 다시 열 때 `connect()` 직전에 부른다. 4001·4002 로 닫힌 뒤 `ED_LSP_RETRY_MS`(5000) 안에는 다시 열지 않는다 |
+| `LspClient` (`lsp-client.js`) | 연결 등록소 `_lspConns`. `lspAttach(fe)` 가 상태 표(`_lspStatusCached`)로 서술자를 찾고 루트(`_lspRootOfPath`)와 함께 연결을 고른 뒤, 편집기의 `cmp.lsp` Compartment 에 `client.plugin(uri, languageId)` 를 넣는다. 서버가 없거나 루트가 없으면 넣지 않는다. 정의·참조 단축키는 `ensure()` 를 기다린 뒤 `CM.jumpToDefinition`·`CM.findReferences` 를 부른다 |
+| `cm-setup.js` | `cmp.lsp` Compartment (편집기 칸과 Diff 의 수정본 쪽). Diff 는 `lspPathOf` 가 경로를 낼 때(편집 가능한 축)만 붙인다 |
+| `FileEditor` | `whenView()` — 편집기 뷰가 서면 그 뷰, 서지 못하면 `null` 로 풀리는 약속. `displayFile` 이 기다린다 |
+
+- 연결이 끊긴 뒤 처음 쓰는 요청(호버 등)은 실패하고 다시 연결을 청한다 — 정의·참조는 `ensure()` 를 먼저 기다리므로 실패하지 않는다.
+- `initialize` 전에 소켓이 닫히면(4001·4002) 클라이언트의 초기화 약속을 푼다 — 기다리던 알림이 닫힌 소켓에서 버려진다. 풀지 않으면 대기 중인 알림들이 처리되지 않은 rejection 으로 남는다 (`lsp-client` 6.3.0 의 내부 `init` — FR-CMR-4 의 판 고정이 그 근거다).
 
 - `lsp-client` 는 `initialize` 를 브라우저가 보낸다. Go 핸드셰이크는 통로에서 쓰지 않고, `didChangeWatchedFiles`
   능력은 브라우저의 `clientCapabilities` 에 넣는다.

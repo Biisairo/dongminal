@@ -53,6 +53,8 @@ class FileEditor {
     // EDITOR_GIT_UX_SRS FR-EGS-10: 검색 결과로 열린 경우 갈 자리. 편집기가
     // 뜨기 전에 요청이 올 수 있으므로 여기 담아 두었다 생성 직후에 쓴다.
     this._pendingReveal = null;
+    // CODEMIRROR_MIGRATION_SRS §11.6 L1: 편집기가 서면(또는 서지 못하면) 풀린다 — `whenView`.
+    this._viewReady = new Promise((r) => { this._viewReadyResolve = r });
 
     // Show loading indicator
     this.el.innerHTML = '<div class="fe-loading">Loading editor…</div>';
@@ -104,7 +106,21 @@ class FileEditor {
         '<div class="fe-error">Failed to load editor' +
         '<div class="fe-error-path">' + escHtml(this.filePath) + '</div></div>';
       this._loading = false;
+    } finally {
+      // 이진·대용량·이미지·파괴로 일찍 끝나도 기다리는 쪽이 풀린다.
+      this._viewReadyResolve(this._view);
     }
+  }
+
+  /** 편집기 뷰가 서면 그 뷰, 서지 못하면 null (LSP `Workspace.displayFile` 이 기다린다). */
+  whenView() {
+    return this._view ? Promise.resolve(this._view) : this._viewReady;
+  }
+
+  // CODEMIRROR_MIGRATION_SRS §11.6 L1: 이 파일의 LSP 확장을 넣는다 (경로가 바뀌면 다시).
+  _lspAttach() {
+    const view = this._view, path = this.filePath;
+    edCmLspAttach(view, this._cmp, path, () => this._view === view && this.filePath === path);
   }
 
   /**
@@ -208,6 +224,7 @@ class FileEditor {
   _createEditor(buf) {
     this.el.innerHTML = '';
     this._mountView(buf);
+    this._lspAttach();
     this._notifyIntegrations();
     this._wireKeys();
     this._wireFocus();
@@ -422,7 +439,7 @@ class FileEditor {
   }
 
   // REPO_FIX 03 §3A-5: 문서가 새 경로로 옮겨졌다 — 버퍼는 그대로이고 언어만 다시 정한다.
-  onDocMoved() { this._langLoad() }
+  onDocMoved() { this._langLoad(); this._lspAttach() }
 
   /**
    * VIEW_SCROLL_RESTORE_SRS FR-VSR-1·2·5: 지금 보고 있던 자리를 적어 둔다.
@@ -750,6 +767,7 @@ class FileEditor {
       this._view.destroy();
       this._view = null;
     }
+    this._viewReadyResolve(null);
     this._buf = null;
     // FR-EDD-16: 팝업과 등록을 먼저 걷는다 — 문서를 놓기 전이어야 관리자가
     // 살아 있는 동안 정리된다.

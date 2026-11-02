@@ -150,123 +150,105 @@ Object.assign(LspClient.prototype, {
     await this._lspRefresh();
   },
 
-  // ── 정의·참조 이동 (묶음 C·F · M2) ──
+  // ── 정의·참조 이동 (CODEMIRROR_MIGRATION_SRS FR-CMR-92·93 · §11.6 L1) ──
   //
-  // **`F12` 경로는 우리가 그린다** (D-8b·D-8c). 알림 줄의 사유와 목록 껍데기가
-  // 여기 있고, 그것이 Monaco 의 peek 이 주지 않는 것이다.
-  //
-  // 커맨드클릭은 다르다 — 링크 밑줄을 Monaco 만 그릴 수 있으므로 그쪽은 provider
-  // 로 간다 (`_lspProvideDef`, FR-LSP-60~65). 두 벌 구현이 아니라 **같은 종단의
-  // 두 계기**이며, 다른 파일로 가는 일은 `registerEditorOpener` 가 이 파일의
-  // `edOpenFile` 로 되돌린다 (§2.11c 가 그 기각을 되짚었다).
+  // `@codemirror/lsp-client` 의 명령을 부른다 — 정의는 첫 항목으로 가고, 참조는 그
+  // 라이브러리의 패널에 보인다 (M8 결정 6, §3.16). 연결이 닫혀 있으면 먼저 다시 연다.
+
+  async _lspGotoDef(){ await this._lspRun(()=>CM.jumpToDefinition) },
+  async _lspFindRefs(){ await this._lspRun(()=>CM.findReferences) },
 
   /**
-   * 지금 물을 자리. 활성 편집기의 **커서 위치와 모델**이다 (D-3).
-   *
-   * 서버가 현재 텍스트를 아는 것이 이 기능의 핵심이다 — 저장 전 편집은 브라우저에만
-   * 있으므로 디스크만 보는 서버는 방금 쓴 함수를 모른다. 텍스트를 실을지는
-   * `_lspAsk` 가 판으로 정한다 (FR-OPT-6-2).
+   * FR-LSP-60·67: 커맨드클릭이 닿는 자리. **`F12` 와 같은 경로다** — 커서를 그 자리에
+   * 놓고 정의로 이동을 부른다.
    */
-  _lspWhere(){
+  async lspClickDef(view,pos){
+    if(!view||pos==null) return;
+    view.dispatch({selection:{anchor:pos}});
+    await this._lspRunOn(view,CM.jumpToDefinition);
+  },
+
+  async _lspRun(cmdOf){
+    if(typeof CM==='undefined') return;
     const v=this.app._edActiveEditor();
-    const ed=v&&v._editor;
-    if(!ed) return null;
-    const root=this.app._edSearchRoot();
-    if(!root) return null;
-    const pos=ed.getPosition();
-    const model=ed.getModel();
-    if(!pos||!model) return null;
-    return {
-      view:v, root,
-      path:v.filePath,
-      model,
-      // 편집기와 우리 종단은 둘 다 1 부터 센다 — 여기서 셈법을 바꾸지 않는다.
-      line:pos.lineNumber, col:pos.column,
-    };
+    if(!v||!v._view) return;
+    await this._lspRunOn(v._view,cmdOf(),v);
   },
 
-  async _lspGotoDef(){ await this._lspJump('def') },
-
-  /**
-   * FR-LSP-60·67 (U-1): 커맨드클릭이 닿는 자리. **`F12` 와 같은 경로다.**
-   *
-   * 클릭이 커서를 이미 그 자리에 놓지만 명시로 한 번 더 맞춘다 — `_lspJump` 는
-   * 커서를 읽으므로(`_lspWhere`), 그 사이에 다른 것이 커서를 옮기면 엉뚱한
-   * 심볼을 묻게 된다.
-   */
-  async lspClickDef(view,position){
-    const ed=view&&view._editor;
-    if(!ed||!position) return;
-    ed.setPosition(position);
-    await this._lspJump('def');
-  },
-  async _lspFindRefs(){ await this._lspJump('refs') },
-
-  /**
-   * FR-LSP-21·22·25·28: 물어서 옮긴다.
-   *
-   * 하나면 그 자리로, 여럿이면 목록으로 고르게 한다. **답하지 못한 이유는 알림
-   * 줄에 남는다** (D-9) — 침묵은 고장과 구별되지 않는다.
-   */
-  async _lspJump(kind){
-    const at=this._lspWhere();
-    if(!at) return;
-    at.view.note(LSP_ASKING, 1500);
-    const extra={line:at.line,col:at.col};
-    if(kind==='refs') extra.includeDeclaration=false;
-    const r=await this._lspAsk(kind==='refs'?LSP_REFS_API:LSP_DEF_API,at,extra);
-    const d=r.ok?r.data:null;
-    if(!d){at.view.note(LSP_ASK_FAIL);return}
-    // 서버가 사유를 적어 보냈으면 그것을 그대로 보인다 — 화면이 다시 쓰지 않는다.
-    if(d.reason){at.view.note(d.reason);return}
-    const locs=d.locations||[];
-    if(!locs.length){at.view.note(kind==='refs'?LSP_NO_REFS:LSP_NO_DEF);return}
-    if(locs.length===1&&kind!=='refs'){
-      this._lspGo(at,locs[0]);
+  async _lspRunOn(view,cmd,fe){
+    const plugin=CM.LSPPlugin.get(view);
+    const conn=plugin&&this._lspConnOf(plugin.client);
+    if(!conn){ if(fe&&fe.note) fe.note(LSP_ASK_FAIL); return }
+    const ok=await conn.ensure().then(()=>true,()=>false);
+    if(!ok){
+      const lc=conn.lastClose;
+      if(fe&&fe.note) fe.note((lc&&lc.reason)||LSP_ASK_FAIL);
       return;
     }
-    this._lspList(at,locs,kind==='refs'?'refs':'defs');
+    cmd(view);
   },
 
   /**
-   * FR-LSP-26·27: 한 자리로 옮긴다.
-   *
-   * 지금 자리를 **먼저 스택에 넣는다** — 넣지 않으면 뛴 뒤에 돌아올 수 없고, 그러면
-   * 그 이동은 길을 잃는 일이 된다.
-   *
-   * 다른 파일이면 탭으로 열린다. 그 경로는 `edOpenFile` 이 이미 알고 있으며 조상
-   * 폴더를 탐색기에서 펼치는 일까지 한다 (FR-EKB-6).
+   * 이 파일의 편집기에 넣을 LSP 확장. 서버가 없거나 루트가 없으면 null 이다 —
+   * 그때 편집기는 LSP 없이 선다.
    */
-  _lspGo(at,loc){
-    this._lspPush(at);
-    this.app.edOpenFile(loc.path,{line:loc.line,col:loc.col});
+  async lspExtFor(path){
+    if(!path||typeof CM==='undefined') return null;
+    const root=this._lspRootOfPath(path);
+    const ext=this._lspExtOf(path);
+    if(!root||!ext) return null;
+    const list=await this._lspStatusCached();
+    const s=list&&list.find(x=>(x.exts||[]).some(e=>e===ext));
+    if(!s||!s.found) return null;
+    const conn=this._lspConn(root,(s.pack?s.pack+'/':'')+s.id);
+    conn.ensure();
+    return conn.plugin(path,edLspLangId(path,s.langs));
   },
 
-  // FR-LSP-25: 여럿이면 고르게 한다. 껍데기는 전체 검색과 같은 것이다 — 사용자가
-  // 이미 아는 조작(↑↓·Enter)이 그대로다.
-  _lspList(at,locs,mode){
-    const p=this.app._edPanel(mode,at.root);
-    // 패널의 pick 은 `root + '/' + item.path` 로 절대경로를 만든다. 그 규약에
-    // 맞추려면 우리가 상대경로를 넣어야 한다 — 규약을 바꾸면 grep 이 깨진다.
-    p._items=locs.map(l=>({
-      path:this._lspRel(at.root,l.path),
-      line:l.line, col:l.col,
-      text:'',
-    }));
-    p._sel=0;
-    // 여기서 자리를 담는다 — 목록에서 무엇을 고르든 돌아올 곳은 지금 이 자리다.
-    this._lspPush(at);
-    this.app._edPanelPaint(p,{});
-    const note=p.querySelector('.ed-find-note');
-    if(note) note.textContent=(mode==='refs'?LSP_REFS_HINT:LSP_DEFS_HINT)
-      .replace('%s',String(locs.length));
+  // 페이지의 (루트, 서술자)마다 연결 하나 (FR-CMR-90).
+  _lspConn(root,desc){
+    this._lspConns=this._lspConns||new Map();
+    const key=root+'\0'+desc;
+    let c=this._lspConns.get(key);
+    if(!c){
+      c=new EdLspConn({
+        root, desc,
+        display:(path)=>this._lspDisplay(path),
+        // FR-CMR-94: hover Markdown 은 DOMPurify 를 지난다.
+        sanitizeHTML:(html)=>DOMPurify.sanitize(html),
+        extensions:[CM.hoverTooltips(),this._lspClickExt()],
+      });
+      this._lspConns.set(key,c);
+    }
+    return c;
   },
 
-  // 구분자를 `/` 로 굳히지 않는다 — Windows 에서는 어떤 절대경로도 그 접두로
-  // 시작하지 않아 **상대화가 통째로 실패한다**(그러면 패널이 절대경로를 상대인
-  // 척 들고 있다가 `pathJoin` 에서 루트를 두 번 이은 경로를 만든다).
-  _lspRel(root,abs){
-    return pathUnder(root,abs)?pathRel(root,abs):String(abs);
+  _lspConnOf(client){
+    if(!this._lspConns) return null;
+    for(const c of this._lspConns.values()) if(c.client===client) return c;
+    return null;
+  },
+
+  // `Workspace.displayFile` — 앱이 그 파일을 열고 편집기가 선 뒤 그 뷰를 낸다.
+  async _lspDisplay(path){
+    await this.app.edOpenFile(path,{});
+    const tab=this.app._findEditorTab(path);
+    const fe=tab&&this.app.editorAny(tab.tab.id);
+    return fe&&fe.whenView?await fe.whenView():null;
+  },
+
+  // FR-LSP-60: Mod+클릭이 정의로 옮긴다. 다른 클릭은 그대로 둔다.
+  _lspClickExt(){
+    return CM.EditorView.domEventHandlers({
+      mousedown:(e,view)=>{
+        if(e.button!==0||!(IS_MAC?e.metaKey:e.ctrlKey)) return false;
+        const pos=view.posAtCoords({x:e.clientX,y:e.clientY});
+        if(pos==null) return false;
+        e.preventDefault();
+        this.lspClickDef(view,pos);
+        return true;
+      },
+    });
   },
 
   // ── 호버 (묶음 D · M3) ──

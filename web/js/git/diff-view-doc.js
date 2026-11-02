@@ -111,6 +111,11 @@ Object.assign(GitDiffView.prototype, {
     const c=this._cm;
     if(c) c.b.dispatch({effects:c.cmpB.ro.reconfigure(CM.EditorState.readOnly.of(!d||undecodable))});
     if(undecodable) this._setNote(FILE_UNDECODABLE_NOTE);
+    // CODEMIRROR_MIGRATION_SRS §11.6 L1: 수정본이 디스크의 파일인 축에서만 LSP 를 붙인다 (`lspPathOf`).
+    if(c){
+      const path=this.lspPathOf(c.b);
+      edCmLspAttach(c.b,c.cmpB,path,()=>this._cm===c&&this.lspPathOf(c.b)===path);
+    }
   },
 
   // FR-EKB-5 / FR-ESV-1·2: 판정은 app 이 한 벌로 갖는 단축키 표이고, 수행은 이 뷰다.

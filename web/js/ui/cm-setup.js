@@ -88,10 +88,10 @@ function edCmLineCol(doc, pos) {
  * `diff` 이면 Git Diff 뷰의 한쪽이다 — 변경 막대·직접 그린 스크롤바·미니맵이 없다 (FR-CMR-56, Diff 에는 자기 ruler 가 있다).
  *
  * @param {{readOnly?: boolean, wordWrap?: boolean, fontSize?: number, minimap?: boolean, diff?: boolean}} o
- * @returns {{extensions: any[], cmp: {wrap: any, font: any, ro: any, lang: any, minimap: any}}}
+ * @returns {{extensions: any[], cmp: {wrap: any, font: any, ro: any, lang: any, minimap: any, lsp: any}}}
  */
 function edCmExtensions(o) {
-  const cmp = { wrap: new CM.Compartment(), font: new CM.Compartment(), ro: new CM.Compartment(), lang: new CM.Compartment(), minimap: new CM.Compartment() };
+  const cmp = { wrap: new CM.Compartment(), font: new CM.Compartment(), ro: new CM.Compartment(), lang: new CM.Compartment(), minimap: new CM.Compartment(), lsp: new CM.Compartment() };
   const extensions = [
     CM.lineNumbers(),
     // EDITOR_DIRTY_DIFF_SRS: 변경 막대는 줄 번호 바로 뒤다 (Monaco 의 linesDecorations 자리).
@@ -132,6 +132,8 @@ function edCmExtensions(o) {
     cmp.ro.of(CM.EditorState.readOnly.of(!!o.readOnly)),
     cmp.lang.of([]),
     cmp.minimap.of(edCmMinimap(!o.diff && !!o.minimap)),
+    // CODEMIRROR_MIGRATION_SRS §11.6 L1: LSP 확장은 서버를 찾은 뒤에 들어온다 (`edCmLspAttach`).
+    cmp.lsp.of([]),
   ];
   return { extensions, cmp };
 }
@@ -279,4 +281,15 @@ function edCmBracketColors() {
       if (u.docChanged || u.viewportChanged || CM.syntaxTree(u.startState) !== CM.syntaxTree(u.state)) this.decorations = build(u.view);
     }
   }, { decorations: (v) => v.decorations });
+}
+
+/**
+ * CODEMIRROR_MIGRATION_SRS §11.6 L1: 편집기에 그 파일의 LSP 확장을 넣는다. 서버가 없으면 뺀다.
+ * 기다리는 사이 편집기가 바뀌었거나(`current()` 가 거짓) 경로가 바뀌었으면 버린다.
+ */
+async function edCmLspAttach(view, cmp, path, current) {
+  if (!view || !cmp || !cmp.lsp || typeof app === 'undefined' || !app || !app.lspExtFor) return;
+  const ext = path ? await app.lspExtFor(path) : null;
+  if (!current()) return;
+  view.dispatch({ effects: cmp.lsp.reconfigure(ext || []) });
 }

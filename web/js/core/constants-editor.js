@@ -210,6 +210,15 @@ const LSP_INSTALL_API='/api/lsp/install';
 const LSP_PATHS_API='/api/lsp/paths';
 // REPO_FIX 02 §3A-6: 문서의 마지막 뷰가 떠날 때 언어 서버에서 닫는다.
 const LSP_CLOSE_API='/api/lsp/close';
+// CODEMIRROR_MIGRATION_SRS FR-CMR-91·102: 언어 서버 통로와 그 close code (Go `handlers_lsp_ws.go` 와 같은 값).
+const LSP_WS_API='/api/lsp/ws';
+const LSP_WS_CLOSE_LIMIT=4001;
+const LSP_WS_CLOSE_START=4002;
+const LSP_WS_CLOSE_ENDED=4003;
+// 요청 timeout — 콜드 gopls 의 첫 요청은 라이브러리 기본값(3000ms)을 넘는다 (§11.6 L1).
+const ED_LSP_TIMEOUT_MS=15000;
+// 상한·기동 실패로 닫힌 뒤 다시 열지 않는 시간. 입력마다 오는 동기화가 연결을 거듭 열지 않게 한다.
+const ED_LSP_RETRY_MS=5000;
 
 // ── 인코딩 (REPO_FIX 03 §3A-2) ──
 // 라벨은 서버의 인코딩 id 를 사람의 표기로 옮긴다. 다시 열기는 넷이다(사용자 결정).

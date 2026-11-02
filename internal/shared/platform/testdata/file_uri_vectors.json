@@ -1,0 +1,57 @@
+[
+  {
+    "os": "posix",
+    "path": "/a/b.go",
+    "uri": "file:///a/b.go"
+  },
+  {
+    "os": "posix",
+    "path": "/a/b c/d.go",
+    "uri": "file:///a/b%20c/d.go"
+  },
+  {
+    "os": "posix",
+    "path": "/a/한글/e.go",
+    "uri": "file:///a/%ED%95%9C%EA%B8%80/e.go"
+  },
+  {
+    "os": "posix",
+    "path": "/a/#x/%y/+z@w$\u0026,;=:/q?.go",
+    "uri": "file:///a/%23x/%25y/+z@w$\u0026,;=:/q%3F.go"
+  },
+  {
+    "os": "posix",
+    "path": "/a/[b]/{c}/~d_e-f.go",
+    "uri": "file:///a/%5Bb%5D/%7Bc%7D/~d_e-f.go"
+  },
+  {
+    "os": "posix",
+    "path": "/a/'q'/\"r\"/`s`.go",
+    "uri": "file:///a/%27q%27/%22r%22/%60s%60.go"
+  },
+  {
+    "os": "windows",
+    "path": "C:\\a\\b.go",
+    "uri": "file:///C:/a/b.go"
+  },
+  {
+    "os": "windows",
+    "path": "C:\\a b\\c.go",
+    "uri": "file:///C:/a%20b/c.go"
+  },
+  {
+    "os": "windows",
+    "path": "C:\\한글\\e.go",
+    "uri": "file:///C:/%ED%95%9C%EA%B8%80/e.go"
+  },
+  {
+    "os": "windows",
+    "path": "D:\\x#y\\z%w.go",
+    "uri": "file:///D:/x%23y/z%25w.go"
+  },
+  {
+    "os": "windows",
+    "path": "c:\\lower\\case.go",
+    "uri": "file:///c:/lower/case.go"
+  }
+]

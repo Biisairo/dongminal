@@ -1,16 +1,14 @@
-# 인계: 편집기 엔진 교체 (Monaco → CodeMirror 6) — M8 착수부터
+# 인계: 편집기 엔진 교체 (Monaco → CodeMirror 6) — M8 L2 부터
 
 > 작성: 2026-11-02 · 브랜치 `codemirror-migration` · 근거 SRS `docs/internal/CODEMIRROR_MIGRATION_SRS.md`
 
 ## 착수 블록 (이번 세션의 지시 전부)
 
-1. 이 문서를 끝까지 읽는다. 그다음 SRS 의 §2.3 · §3.3(FR-CMR-23) · §3.10~§3.12 · §3.16 · §7.2 · §11 을 읽는다.
-2. `git status` 와 `git log --oneline -5` 로 출발점을 확인한다. 맨 위 커밋은 `eb16d707`(M7)이다.
-   작업 트리에는 이 문서의 수정만 있다 — 다음 커밋에 함께 싣는다.
-3. **M8 의 미해결 결정(아래 "M8 착수 전 결정")을 사용자에게 하나씩 묻는다.** 질문마다 권장 답을 붙인다.
-   결정이 끝나기 전에는 구현하지 않는다 (CLAUDE.md 의사결정 해소 모드).
-4. 결정을 SRS 에 반영한다(FR 개정 · §3.16 · §11.6 설계 메모 · 변경 기록). 그다음 단위별로 Spec → Test(RED 확인) → Code.
-5. M8 끝에 편집기·Diff e2e 45개 파일을 돌려 §7.2 를 갱신하고, **사용자 확인 후** 커밋한다(AI 서명 금지). 그다음 M9.
+1. 이 문서를 끝까지 읽는다. 그다음 SRS 의 §3.10~§3.12 · §3.16 · §4 · §7.2 · **§11.6(M8 결정·S·L1 설계)** 을 읽는다.
+2. `git status` 와 `git log --oneline -5` 로 출발점을 확인한다. 맨 위 커밋은 L1 WIP 커밋이다(`wip(lsp): 브라우저 LSP 클라이언트 …`).
+3. M8 결정 8건은 **끝났다** (SRS §11.6). 다시 묻지 않는다.
+4. 남은 단위를 순서대로: **L2 → T → W → R**. 단위마다 SRS §11.6 에 설계를 먼저 적고 Spec → Test(RED 확인) → Code.
+5. M8 끝에 편집기·Diff e2e 45개 파일(+ `editor-lsp.spec.ts` 검토)을 돌려 §7.2 를 갱신하고, **사용자 확인 후** 커밋한다(AI 서명 금지). 단위 끝마다 WIP 커밋할지 사용자에게 묻는다. 그다음 M9.
 
 ## 어디까지 왔나
 
@@ -19,10 +17,28 @@
 | M1~M5 | 완료 | `6633910c` · `a81a3920` · `e5d03f72` · `ef0d5953` · `6971b5ee` |
 | M6 Git Diff 뷰 | 완료 | `b1418594`(WIP) + `b195ab47` |
 | M7 sticky scroll | 완료 | `eb16d707` |
-| **M8 LSP (S·W·L + FR-CMR-23)** | **결정 끝, SRS 반영 — L3 착수 전** | SRS §11.6 |
+| **M8 LSP (S·W·L + FR-CMR-23)** | **진행 중 — 결정·L3·S·L1 끝, L2·T·W·R 남음** | `8213444d`(L3·S) + L1 WIP 커밋 · SRS §11.6 |
 | M9 Monaco 제거 | 대기 | 아래 "M9" |
 
 마지막 e2e 측정(M7, 45개 파일): 544건 중 통과 522 · 실패 22. 실패는 모두 §7.2 표의 M8(21건) · M9(1건) 몫이다.
+
+### M8 에서 한 일 (커밋됨, 이 세션)
+
+- 결정 8건 → SRS 반영 (FR-CMR-90·91·92·93·100·102 개정, §3.16 7줄, §4.2·§4.3·§9, §11.6). 요지: 페이지마다 (루트, 서술자)당 WS 하나 · 상한이면 거절(4001), LRU 는 통로를 못 빼앗음 · 프레임마다 touch · 진단 토글은 처리기에서 · **정의·참조는 라이브러리 명령·패널, `_lspList`·뒤로 가기(`edNavBack`) 제거** · **LSP 기능 e2e 는 실제 gopls, 가짜는 실패 주입만** · Monaco 전용 e2e 개념은 지운다
+- L3: `lspOfferFor` 가드 `_editor` → `_view`. 단위 `lsp-offer.test.mjs` 6건. 설치 띠 e2e 4건이 풀렸다
+- S: `domain/lsp/tunnel.go` (`OpenTunnel`·`Tunnel`·`ErrLimit`, 상한 합산·REST 만 LRU·Sweep·Shutdown), `ext.Service.ResolveID`, `httpapi/handlers_lsp_ws.go` (`GET /api/lsp/ws`, close 4001 `limit`·4002 사유·4003 `ended`, 읽기 한도 1009). Go 테스트 `tunnel_test.go` 10건 · `handlers_lsp_ws_test.go` 8건. `docs/external/api.md` 에 종단
+- L1: `web/js/ui/cm-lsp.js` (`edLspUri`·`edLspPath`·`edLspLangId`·`edLspServerReply`·`edLspWorkspaceClass`·`EdLspSocket`·`EdLspConn`), `lsp-client.js` 의 정의·참조 구간 교체(`lspExtFor`·`_lspConn`·`_lspRun`·`_lspDisplay`·`_lspClickExt`), `cm-setup.js` `cmp.lsp` + `edCmLspAttach`, `FileEditor.whenView()`·`_lspAttach()`, Diff 는 `_bindEdit` 에서 붙인다. URI 벡터 `internal/shared/platform/testdata/file_uri_vectors.json`(Go `TestFileURIVectorsShared` 와 JS 가 함께 읽는다). 단위 `cm-lsp.test.mjs` 22건. 상수 `LSP_WS_*`·`ED_LSP_TIMEOUT_MS`·`ED_LSP_RETRY_MS` 는 `constants-editor.js`
+- 실제 gopls 스모크(임시 스펙, 지움): 호버 `func helper() int` · Shift+F12 참조 2건 · F12 로 다른 파일 4줄 — 모두 동작
+- e2e 지금: `editor-lsp-nav` 24건 중 15건 실패 — REST stub 검사(T 에서 실제 gopls 로 다시 쓴다)와 진단(L2). LSP 와 무관한 편집기·Diff 6개 파일 68건은 통과
+
+### M8 남은 단위
+
+| 단위 | 내용 |
+|---|---|
+| L2 | 진단: `textDocument/publishDiagnostics` 처리기(`EdLspConn` 의 `notificationHandlers` 또는 `extensions` 의 처리기)가 진단을 **문서(버퍼)에 보관**하고 그룹의 **모든 칸**에 `setDiagnostics`. `lspDiagOn` 은 처리기가 본다(꺼지면 그리지 않고 지움, 다시 켜면 보관분을 그림). autoSync(`serverDiagnostics().editorExtension`)는 늘 둔다. `slot-view-state` E-9.1 · `editor.ts` 의 `markersOf` CodeMirror 갈래(`:141`, `:295-308`)가 걸린다. 기존 `_lspOnDiagnostics`·`app.testing.lspOnDiagnostics` seam 을 어떻게 둘지 정한다 |
+| T | e2e: `editor-lsp-nav` 를 실제 gopls 픽스처로 다시 쓴다(go.mod 필요, **gopls 가 패키지를 다 읽은 뒤** 검사 — 첫 진단 알림을 기다린다) · 실패 주입(상한 4001 상태 패널 표시, 끊김 뒤 재연결)은 `page.routeWebSocket` · CI `e2e.yml` 에 판 고정 gopls 설치(로컬 v0.20.0), 없으면 실패 · `edNavBack` 단축키·설정 항목·i18n·`_lspPush`/`_lspNavBack`/`_lspCanBack`·`app-edsearch.js:142` 제거 · 쓰이지 않게 된 상수(`LSP_REFS_HINT` 등) 정리 · `editor-lsp.spec.ts` 를 e2e 목록에 · `app-state-owners.test.mjs` 이름 표 갱신 |
+| W | 저장 시 끼워 넣기 · `git_changed` 에서 name-status 계산 · `LSP_WATCH_MAX` (FR-CMR-110~114). `Tunnel` 에 끼워 넣기 메서드를 더한다(`Send` 와 같은 `wmu`). 브라우저 `clientCapabilities` 에 `workspace.didChangeWatchedFiles` 를 넣는다 |
+| R | REST 4종·서버 문서 동기화(doclife·needText·Resync*·CloseDoc)·hub `lsp_diagnostics` 제거, `lsp-client.js` 의 Monaco 갈래(`lspHoverRegister`·`_lspOpenerRegister`·`_lspProvideDef`·`_lspHover*`·`_lspAsk`·`_lspPathOfModel`·`_lspUriPathOf`·`_lspVersionOf`·`lspDocClosed`·`lspClearDiagnostics`) 제거, `lsp-text-sync.test.mjs` 폐기. **W 뒤에 한다** |
 
 ### M6·M7 에서 한 일 (커밋됨)
 
@@ -87,7 +103,7 @@
 
 권장 순서 L3 → S1(+S2) → L1 → L2 → T → W → R.
 
-## M8 착수 전 결정 (사용자에게 묻는다 — 권장 답은 조사자 안)
+## M8 착수 전 결정 (끝남 — 기록용)
 
 > **2026-11-02 결정 끝** — 결과는 SRS §11.6. 6 은 라이브러리 명령·패널, 뒤로 가기 제거. 7 은 실제 gopls(가짜는 실패 주입만). 나머지는 권장 답.
 
@@ -114,6 +130,12 @@ URI ↔ 경로 변환은 브라우저가 맡는다(FR-CMR-101 은 서버가 내�
 - `e2e/editor-lsp-nav.spec.ts` · `e2e/editor.ts`
 
 ## 이 작업에서 값을 치르고 배운 것
+
+- **`lsp-client` 6.3.0 의 `disconnect()` 는 `transport` 를 비우지 않고 `initializing` 을 새 대기 약속으로 바꾼다.** 끊기는 순간에 부르면 그 뒤 요청·알림이 영원히 기다려 다시 연결할 계기가 사라진다 → 다시 열 때 `connect()` 직전에 부른다. initialize 전에 닫히면 내부 `client.init.resolve(null)` 로 풀어야 처리되지 않은 rejection 이 남지 않는다
+- **라이브러리는 서버 요청(`workspace/configuration` 등)을 모두 −32601 로 답한다** — 소켓이 가로채 Go 세션의 표대로 답한다(`edLspServerReply`)
+- **gopls 는 패키지를 다 읽기 전의 호버에 빈 답을 줄 수 있다.** 실제 gopls e2e 는 준비 신호(첫 `publishDiagnostics`)를 기다린다
+- **Go 핸들러 테스트에서 WS 101 은 핸들러가 다음 일을 하기 전에 온다** — 가짜에 기록된 값은 메시지가 통로에 닿은 뒤에 읽는다(데이터 경합)
+- **vm 하네스의 배열·객체는 다른 realm 이다.** `assert.deepEqual` 이 프로토타입에서 걸린다 — JSON 으로 옮겨 견준다. vm 컨텍스트에는 `TextEncoder`·`URLSearchParams`·`queueMicrotask` 가 없다 — globals 로 넘긴다
 
 - **e2e 브라우저는 Windows 로 보인다** (`navigator.platform` = `Win32`). CodeMirror 의 `Mod` 는 `Ctrl` 이다. `ControlOrMeta` 는 mac 에서 Meta 가 되어 듣지 않는다
 - **contenteditable 안의 키는 전역 배선이 앱 단축키를 돌리지 않는다** (`inText`). 편집기 표면마다 capture 리스너에서 `app.edTrySearchKey(e)` 를 부른다 (`FileEditor._onKeyCapture` · `GitDiffView` 생성자). LSP 단축키(F12 등)도 같은 문제를 겪을 수 있다

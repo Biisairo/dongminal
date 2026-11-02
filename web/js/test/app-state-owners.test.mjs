@@ -16,16 +16,16 @@ const ownNames = (proto) => Object.getOwnPropertyNames(proto).filter((n) => n !=
 
 // ── FR-ASE-7 · LSP ──
 
-const LSP_METHODS = ['_initLSP', '_lspAsk', '_lspCanBack', '_lspDismissed', '_lspExtOf', '_lspFindRefs',
-  '_lspGo', '_lspGotoDef', '_lspHover', '_lspHoverWhere', '_lspInstall', '_lspInstallOnce', '_lspJump',
-  '_lspList', '_lspNavBack', '_lspOnDiagnostics', '_lspOpenerRegister', '_lspPaint', '_lspPathOfModel',
+const LSP_METHODS = ['_initLSP', '_lspAsk', '_lspCanBack', '_lspClickExt', '_lspConn', '_lspConnOf', '_lspDismissed',
+  '_lspDisplay', '_lspExtOf', '_lspFindRefs', '_lspGotoDef', '_lspHover', '_lspHoverWhere', '_lspInstall', '_lspInstallOnce',
+  '_lspNavBack', '_lspOnDiagnostics', '_lspOpenerRegister', '_lspPaint', '_lspPathOfModel',
   '_lspPathPut', '_lspPathRows', '_lspPathsBind', '_lspPathsLoad', '_lspProvideDef', '_lspPush',
-  '_lspRefresh', '_lspRel', '_lspRootOfPath', '_lspSetDiag', '_lspStatusCached', '_lspStatusInvalidate',
-  '_lspUriPathOf', '_lspVersionOf', '_lspWhere', 'lspClearDiagnostics', 'lspClickDef', 'lspDismiss',
-  'lspDocClosed', 'lspHoverRegister', 'lspOfferFor', 'lspOfferInstall'];
+  '_lspRefresh', '_lspRootOfPath', '_lspRun', '_lspRunOn', '_lspSetDiag', '_lspStatusCached', '_lspStatusInvalidate',
+  '_lspUriPathOf', '_lspVersionOf', 'lspClearDiagnostics', 'lspClickDef', 'lspDismiss',
+  'lspDocClosed', 'lspExtFor', 'lspHoverRegister', 'lspOfferFor', 'lspOfferInstall'];
 const LSP_SHELLS = ['_initLSP', '_lspRefresh', '_lspGotoDef', '_lspFindRefs', '_lspNavBack', '_lspCanBack',
   '_lspOnDiagnostics', '_lspRootOfPath', 'lspClickDef', 'lspDocClosed', 'lspClearDiagnostics',
-  'lspHoverRegister', 'lspOfferFor', 'lspOfferInstall', 'lspDismiss'];
+  'lspHoverRegister', 'lspExtFor', 'lspOfferFor', 'lspOfferInstall', 'lspDismiss'];
 const LSP_ACCESSORS = ['_lspHoverLangs', '_lspDefLangs'];
 
 function loadLsp() {
@@ -36,7 +36,7 @@ function loadLsp() {
   });
 }
 
-test('FR-ASE-7: LspClient 가 LSP 메서드 41개를 갖고 App 에는 껍데기·접근자만 남는다', () => {
+test('FR-ASE-7: LspClient 가 LSP 메서드 43개를 갖고 App 에는 껍데기·접근자만 남는다', () => {
   const ctx = loadLsp();
   assert.deepEqual(ownNames(ctx.LspClient.prototype), [...LSP_METHODS].sort());
   assert.deepEqual(ownNames(ctx.App.prototype), [...LSP_SHELLS, ...LSP_ACCESSORS, '_lspClient'].sort());
