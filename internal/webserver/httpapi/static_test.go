@@ -108,9 +108,9 @@ func TestStatic_SecurityHeaders(t *testing.T) {
 	}
 }
 
-// CSP 에 외부 호스트가 **하나도 없다** (MONACO_VENDORING_SRS FR-MVN-13).
+// CSP 에 외부 호스트가 **하나도 없다** (FR-MVN-13).
 //
-// 종전에는 이 검사가 "하나이고 그것이 무엇인지 안다" 를 쟀다 — Monaco 를 CDN 에서
+// 종전에는 이 검사가 "하나이고 그것이 무엇인지 안다" 를 쟀다 — 옛 편집기 엔진을 CDN 에서
 // 받았기 때문이다. 벤더링이 끝났으므로 아는 목록이 비었다. 새 외부 호스트가
 // 들어오면 여기서 먼저 걸린다.
 func TestStatic_CSPExternalHostsAreKnown(t *testing.T) {
@@ -171,10 +171,10 @@ func TestStatic_CSPCoversRealIndex(t *testing.T) {
 	}
 }
 
-// ── 사전압축 자산 (MONACO_VENDORING_SRS 묶음 Z) ─────────────────────────────
+// ── 사전압축 자산 (FR-MVN-6~11 · FR-CMR-131) ────────────────────────────────
 //
-// `go:embed` 는 압축하지 않고 릴리스는 raw 바이너리를 그대로 올린다. Monaco 의
-// `min/vs` 는 raw 23.3MB·gzip 5.4MB 이며, 그 차이가 사용자가 받는 파일에 실린다.
+// `go:embed` 는 압축하지 않고 릴리스는 raw 바이너리를 그대로 올린다. 편집기 묶음
+// `web/vendor/codemirror` 는 raw 1.9MB·gzip 0.7MB 이며, 그 차이가 사용자가 받는 파일에 실린다.
 // 그래서 담긴 채로 내보낸다 — 아래가 그 규약이다.
 
 // gzBytes 는 검사용 사전압축 본문을 만든다.
@@ -196,8 +196,8 @@ func precompressedFS(t *testing.T, plain string) fstest.MapFS {
 	t.Helper()
 	return fstest.MapFS{
 		"index.html":                                 &fstest.MapFile{Data: []byte("<html></html>")},
-		"vendor/monaco/vs/loader.js.gz":              &fstest.MapFile{Data: gzBytes(t, plain)},
-		"vendor/monaco/vs/editor/editor.main.css.gz": &fstest.MapFile{Data: gzBytes(t, "body{}")},
+		"vendor/codemirror/cm.js.gz":              &fstest.MapFile{Data: gzBytes(t, plain)},
+		"vendor/codemirror/theme.css.gz": &fstest.MapFile{Data: gzBytes(t, "body{}")},
 		"vendor/xterm.js":                            &fstest.MapFile{Data: []byte("xterm\n")},
 	}
 }
@@ -207,7 +207,7 @@ func TestStatic_PrecompressedServedAsGzip(t *testing.T) {
 	const plain = "define('loader',[],function(){})\n"
 	h := staticTestServer(t, precompressedFS(t, plain))
 
-	req := apiTestRequest(http.MethodGet, "/vendor/monaco/vs/loader.js", nil)
+	req := apiTestRequest(http.MethodGet, "/vendor/codemirror/cm.js", nil)
 	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -243,7 +243,7 @@ func TestStatic_PrecompressedFallsBackToPlain(t *testing.T) {
 	h := staticTestServer(t, precompressedFS(t, plain))
 
 	for _, ae := range []string{"", "identity", "gzip;q=0", "br"} {
-		req := apiTestRequest(http.MethodGet, "/vendor/monaco/vs/loader.js", nil)
+		req := apiTestRequest(http.MethodGet, "/vendor/codemirror/cm.js", nil)
 		if ae != "" {
 			req.Header.Set("Accept-Encoding", ae)
 		}
@@ -267,7 +267,7 @@ func TestStatic_PrecompressedVaryAndETag(t *testing.T) {
 	h := staticTestServer(t, precompressedFS(t, "x\n"))
 
 	get := func(ae string) *httptest.ResponseRecorder {
-		req := apiTestRequest(http.MethodGet, "/vendor/monaco/vs/loader.js", nil)
+		req := apiTestRequest(http.MethodGet, "/vendor/codemirror/cm.js", nil)
 		if ae != "" {
 			req.Header.Set("Accept-Encoding", ae)
 		}
@@ -293,7 +293,7 @@ func TestStatic_PrecompressedVaryAndETag(t *testing.T) {
 func TestStatic_PrecompressedRawPathStillServed(t *testing.T) {
 	h := staticTestServer(t, precompressedFS(t, "x\n"))
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, apiTestRequest(http.MethodGet, "/vendor/monaco/vs/loader.js.gz", nil))
+	h.ServeHTTP(rec, apiTestRequest(http.MethodGet, "/vendor/codemirror/cm.js.gz", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("code = %d", rec.Code)
 	}
@@ -324,7 +324,7 @@ func TestStatic_PlainAssetsUnchanged(t *testing.T) {
 // TC-MVN-8: 형식은 확장자마다 제대로 갈린다.
 func TestStatic_PrecompressedContentTypeByExt(t *testing.T) {
 	h := staticTestServer(t, precompressedFS(t, "x\n"))
-	req := apiTestRequest(http.MethodGet, "/vendor/monaco/vs/editor/editor.main.css", nil)
+	req := apiTestRequest(http.MethodGet, "/vendor/codemirror/theme.css", nil)
 	req.Header.Set("Accept-Encoding", "gzip")
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
@@ -393,17 +393,17 @@ func (c *countingFS) count(name string) int {
 
 // TC-PRF-14: 같은 `.gz` 자산을 N번 요청해도 **파일은 한 번만 읽는다** (FR-PRF-50~52).
 //
-// 종전에는 요청마다 `fs.ReadFile` 로 전체를 힙에 복사했다. Monaco 의 `min/vs` 는
-// raw 23.3MB·gzip 5.4MB 이고 콜드 페이지 로드는 수십 개의 청크를 받는다 — 매 요청이
+// 종전에는 요청마다 `fs.ReadFile` 로 전체를 힙에 복사했다. 당시 편집기 자산은
+// raw 23.3MB·gzip 5.4MB 였고 콜드 페이지 로드는 수십 개의 청크를 받았다 — 매 요청이
 // 자기 크기만큼 힙을 잡았다 버렸다 (`AUDIT-go-http.md` P-1).
 func TestStatic_PrecompressedReadsFileOnce(t *testing.T) {
 	const plain = "define('loader',[],function(){})\n"
 	cfs := newCountingFS(precompressedFS(t, plain))
 	h := staticTestServer(t, cfs)
 
-	const name = "vendor/monaco/vs/loader.js.gz"
+	const name = "vendor/codemirror/cm.js.gz"
 	for i := 0; i < 5; i++ {
-		req := apiTestRequest(http.MethodGet, "/vendor/monaco/vs/loader.js", nil)
+		req := apiTestRequest(http.MethodGet, "/vendor/codemirror/cm.js", nil)
 		req.Header.Set("Accept-Encoding", "gzip")
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
@@ -423,7 +423,7 @@ func TestStatic_PrecompressedCacheKeepsPlainFallback(t *testing.T) {
 	h := staticTestServer(t, newCountingFS(precompressedFS(t, plain)))
 
 	for i := 0; i < 3; i++ {
-		req := apiTestRequest(http.MethodGet, "/vendor/monaco/vs/loader.js", nil)
+		req := apiTestRequest(http.MethodGet, "/vendor/codemirror/cm.js", nil)
 		req.Header.Set("Accept-Encoding", "identity")
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, req)
@@ -480,7 +480,7 @@ func BenchmarkStaticPrecompressed(b *testing.B) {
 	// **잘 안 눌리는 바이트여야 한다.** 같은 줄을 8,000번 되풀이하면 gzip 이
 	// 수백 바이트로 줄어들어, 캐시가 없애는 읽기가 측정에 보이지 않는다
 	// (첫 판이 4,584 → 3,880 B/op 을 봤고 그것은 담긴 바이트가 작았기 때문이다).
-	// Monaco 청크는 40KB 안팎이므로 그 자릿수를 맞춘다.
+	// 편집기 청크는 수십 KB 이므로 그 자릿수를 맞춘다.
 	var sb strings.Builder
 	for i := 0; i < 20000; i++ {
 		sb.WriteString("var v" + strconv.Itoa(i*7919%1000003) + "=" + strconv.Itoa(i*104729%999983) + ";\n")
@@ -488,10 +488,10 @@ func BenchmarkStaticPrecompressed(b *testing.B) {
 	plain := sb.String()
 	fsys := fstest.MapFS{
 		"index.html":                    &fstest.MapFile{Data: []byte("<html></html>")},
-		"vendor/monaco/vs/loader.js.gz": &fstest.MapFile{Data: gzBytesB(b, plain)},
+		"vendor/codemirror/cm.js.gz": &fstest.MapFile{Data: gzBytesB(b, plain)},
 	}
 	h := newStaticHandler(fsys, "v1")
-	req := httptest.NewRequest(http.MethodGet, "/vendor/monaco/vs/loader.js", nil)
+	req := httptest.NewRequest(http.MethodGet, "/vendor/codemirror/cm.js", nil)
 	req.Header.Set("Accept-Encoding", "gzip")
 	// **본문을 버린다.** `httptest.NewRecorder()` 는 본문을 버퍼에 쌓으므로 그
 	// 할당이 재려는 것을 덮는다 (첫 판이 674KB → 527KB 를 봤고 그 527KB 의 대부분이

@@ -155,7 +155,7 @@ export default defineConfig({
    * CI_E2E_MATRIX_SRS FR-CEM-6: 테스트 하나의 상한.
    *
    * Windows 만 두 배인 것은 실측이다 — 그 OS 는 셸(pwsh·PSReadLine) 기동과 파일
-   * 접근이 느려 항목당 시간이 다른 둘의 몇 배다. 60초는 monaco 가 처음 서는
+   * 접근이 느려 항목당 시간이 다른 둘의 몇 배다. 60초는 편집기가 처음 서는
    * 항목에서 **검사가 아니라 기다림**에 걸렸다 (러너 실측: `doc-render` 가 파일
    * 하나를 연 뒤 다음 하나를 열 시간이 남지 않았다).
    *

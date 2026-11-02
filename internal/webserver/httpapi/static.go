@@ -57,16 +57,16 @@ type staticHandler struct {
 	//
 	// `go:embed` 자산은 프로세스가 사는 동안 바뀌지 않는다 — 바로 위 `etags` 가
 	// 이미 그 근거로 캐시를 두고 있는데 **바이트는 캐시하지 않았다.** 그래서
-	// Monaco 청크 하나를 열 때마다 자기 크기만큼 힙을 잡았다 버렸다.
+	// 편집기 청크 하나를 열 때마다 자기 크기만큼 힙을 잡았다 버렸다.
 	//
-	// 상한은 **담긴 `.gz` 의 총량**이다 (지금 138개 5.7MB) — 키 집합이 우리가
+	// 상한은 **담긴 `.gz` 의 총량**이다 (지금 126개 0.7MB) — 키 집합이 우리가
 	// 정하는 유한 목록이라는 점이 `etags` 의 결함(요청자가 키를 정한다, FR-PRF-53)과
 	// 다른 자리다.
 	//
 	// **해제본은 담지 않는다** (D-PRF-7). 해제가 도는 것은 gzip 을 밝히지 않는
 	// 클라이언트뿐이고(`dmctl`·curl·일부 프록시) 브라우저는 전부 gzip 을 밝힌다.
-	// Monaco raw 는 23.3MB 라, 거의 쓰이지 않는 경로를 위해 상주 메모리를 네 배로
-	// 무는 셈이 된다. 읽기가 사라지는 것만으로 그 경로도 함께 싸진다.
+	// 편집기 자산의 raw 는 gzip 의 세 배 가까이라, 거의 쓰이지 않는 경로를 위해 상주
+	// 메모리를 몇 배로 무는 셈이 된다. 읽기가 사라지는 것만으로 그 경로도 함께 싸진다.
 	blobMu sync.RWMutex
 	blobs  map[string][]byte
 }
@@ -116,9 +116,9 @@ func cspFor(index []byte) string {
 // `scripts/check-html.sh` 가 지키고, 여기는 그것이 언젠가 새는 날을 위한 것이다.
 //
 // **외부 출처가 하나도 없다.** 종전에는 `script-src` 를 비롯한 넷에
-// `https://cdn.jsdelivr.net` 이 열려 있었다 — Monaco 편집기만 런타임에 CDN 에서
-// 받았기 때문이다. 이제 그것도 `web/vendor/monaco` 에 있다
-// (MONACO_VENDORING_SRS FR-MVN-12). 새 외부 호스트가 들어오면
+// `https://cdn.jsdelivr.net` 이 열려 있었다 — 옛 편집기 엔진만 런타임에 CDN 에서
+// 받았기 때문이다. 그 뒤 벤더링했고(FR-MVN-12), 지금 편집기(CodeMirror)도
+// `web/vendor/codemirror` 에 있다. 새 외부 호스트가 들어오면
 // `TestStatic_CSPExternalHostsAreKnown` 이 먼저 실패한다.
 //
 // `'unsafe-inline'` 이 style 에 남는 것은 앱이 스타일을 계산해 넣기 때문이다
@@ -221,14 +221,15 @@ func (h *staticHandler) gzBlob(gz string) ([]byte, error) {
 	return b, nil
 }
 
-// servePrecompressed 는 `.gz` 로 담긴 자산을 낸다 (MONACO_VENDORING_SRS 묶음 Z).
+// servePrecompressed 는 `.gz` 로 담긴 자산을 낸다 (사전압축 서빙 FR-MVN-6~11 ·
+// CODEMIRROR_MIGRATION_SRS FR-CMR-131).
 //
-// `go:embed` 는 압축하지 않고 릴리스는 raw 바이너리를 그대로 올린다. Monaco 의
-// `min/vs` 는 raw 23.3MB·gzip 5.4MB 이고, 그 차이가 배포본에 그대로 실린다 —
-// 그래서 **담긴 채로 내보낸다.**
+// `go:embed` 는 압축하지 않고 릴리스는 raw 바이너리를 그대로 올린다. 편집기 묶음
+// `web/vendor/codemirror` 는 raw 1.9MB·gzip 0.7MB 이고, 그 차이가 배포본에 그대로
+// 실린다 — 그래서 **담긴 채로 내보낸다.**
 //
-// 규칙은 monaco 전용이 아니다. `.gz` 를 갖는 자산이 지금 그것뿐인 것과, 규칙이
-// 그것만 아는 것은 다르다 (FR-MVN-6).
+// 규칙은 특정 자산 전용이 아니다. `.gz` 를 갖는 자산이 지금 편집기 묶음뿐인 것과,
+// 규칙이 그것만 아는 것은 다르다 (FR-MVN-6).
 func (h *staticHandler) servePrecompressed(w http.ResponseWriter, r *http.Request) bool {
 	gz := h.gzName(r.URL.Path)
 	if gz == "" {

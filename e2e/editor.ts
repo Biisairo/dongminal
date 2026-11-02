@@ -76,7 +76,7 @@ export const ED_SEL = {
 } as const;
 
 /** 엔진 자산의 요청 경로 (로드 실패를 흉내 낼 때 막는다). */
-export const ED_VENDOR_ROUTE = '**/vendor/{monaco,codemirror}/**';
+export const ED_VENDOR_ROUTE = '**/vendor/codemirror/**';
 
 // ── 페이지 안 어댑터 ───────────────────────────────────────────────────────
 
