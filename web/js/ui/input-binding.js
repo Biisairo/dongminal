@@ -192,12 +192,12 @@ class InputBinding {
        *             `KEY_BLOCK_EXEMPT_MOD` 가 지킨다 — 면제가 근거보다 넓었다
        */
       const ae=document.activeElement;
-      const inText=!!ae&&(ae.tagName==='INPUT'||(ae.tagName==='TEXTAREA'&&!ae.classList.contains('xterm-helper-textarea')));
+      const inText=!!ae&&(ae.tagName==='INPUT'||ae.isContentEditable||(ae.tagName==='TEXTAREA'&&!ae.classList.contains('xterm-helper-textarea')));
       /**
        * 글자를 받는 표면에서는 브라우저 기본만 막고 물러난다 — xterm 의 도우미
        * textarea 는 위 조건에서 이미 빠진다.
        *
-       * **Monaco 의 입력 영역도 여기 걸린다.** 그 안쪽은 `file-editor.js` 가 따로
+       * **편집기의 입력 영역(CodeMirror 의 contenteditable)도 여기 걸린다.** 그 안쪽은 `file-editor.js` 가 따로
        * 배선하며(FR-EKB-1), 여기서 함께 열면 편집기 키가 두 곳에서 판정된다.
        */
       if(inText){ this._blockBrowserDefault(e,true); return }

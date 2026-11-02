@@ -199,7 +199,7 @@ Object.assign(App.prototype, {
     // FR-EXC-14 / 03 §3A-7: 담아 간 내용을 기준으로 삼는다 — 왕복 중 편집이 있으면
     // dirty 가 남는다.
     const sentDoc=d.buf.doc;
-    const content=sentDoc.toString();
+    const content=d.buf.text(sentDoc);
     try{
       let r=await this.edDocWrite(filePath,content,d.stamp,d);
       // FR-EXC-5·7·9: 409 는 우리가 읽은 뒤 디스크가 바뀌었다는 뜻이다.

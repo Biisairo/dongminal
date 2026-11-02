@@ -1,7 +1,7 @@
 # SRS: 편집기 엔진 교체 — Monaco 에서 CodeMirror 6 으로 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: M3 마무리(§7.2 의 M3 미해결 2건) · M4~M9 (단계 A) · M10~ (단계 B). M1·M2 완료, M3 진행 중.
+> **남은 것**: M4~M9 (단계 A) · M10~ (단계 B). M1~M3 완료.
 
 - 근거: 사용자 인터뷰(2026-11-02) · PoC(`/tmp/cm-poc`, §2.6).
 - 대체 문서: `MONACO_VENDORING_SRS.md` 의 묶음 V 는 이 문서의 묶음 V 가 대체한다.
@@ -575,17 +575,15 @@ M2 를 엔진 교체보다 먼저 두는 이유: 테스트를 옮기는 일과 �
 
 ### 7.2 아직 옮기지 않은 기능 때문에 실패하는 e2e
 
-측정: M3 작업 트리, 편집기 관련 e2e 43개 파일 — 534건 중 통과 484 · 실패 50 (2026-11-02).
+측정: M3 마무리 작업 트리, 편집기 관련 e2e 42개 파일 — 534건 중 통과 485 · 실패 49 (2026-11-02). 표에 없는 실패는 없다.
 
 | 스펙 · 테스트 | 실패 이유 | 닫는 마일스톤 |
 |---|---|---|
-| `editor-dirty-diff` V-EDD 9건 | 변경 줄 표시가 아직 Monaco 에 서 있다 | M5 |
+| `editor-dirty-diff` V-EDD 9건 · `editor-doc-registry` "CRLF 파일은 편집하지 않으면 변경 표시가 없다" | 변경 줄 표시가 아직 Monaco 에 서 있다 — CodeMirror 칸에는 붙지 않아 `dd.settled` 가 서지 않는다 | M5 |
 | `editor-minimap` V-MMP-1·2 · `editor-find-panel` FR-M9-9 · `doc-render` V-DRB-1 | 미니맵·overview ruler 가 아직 없다 | M5 |
 | `git-diff-doc` S1~S7 · `repo-diff-edit` D1·D3·E1·E2 · `git-subroot` F-3.1 | Diff 뷰의 문서 공유를 껐다 (`GIT_DIFF_SHARES_DOC=false`) | M6 |
 | `editor-lsp-nav` 18건 · `slot-view-state` E-9.1 · `repo-tab` M4 · `ux-batch10` 호버 | LSP 연결이 아직 Monaco 편집기에 서 있다 (제안 띠 포함) | M8 |
 | `editor-find-panel` "다른 Monaco 는 자기 위젯을 갖는다" · `monaco-offline` TC-MVN-16 | Monaco 고유 동작을 재는 검사다 — 편집기 칸에 Monaco 가 없다 | M6/M9 에서 폐기 또는 대체 |
-| **`editor-replace-seed` "모두 바꾸기 뒤 undo 한 번에 전부 돌아온다"** | **M3 회귀 — FR-CMR-33** | **M3 (미해결)** |
-| **`editor-doc-registry` "CRLF 파일은 편집하지 않으면 변경 표시가 없다"** | **M3 회귀 의심 — CRLF 처리 확인 필요** | **M3 (미해결)** |
 
 ---
 
@@ -625,6 +623,8 @@ M2 를 엔진 교체보다 먼저 두는 이유: 테스트를 옮기는 일과 �
 | `web/js/ui/cm-find.js` | 찾기 일치 계산 `edFindHits(doc, query, opts, max)` — 대소문자·정규식·단어 단위(`ED_FIND_WORD_SEPARATORS`)·캡처 | 순수 함수 |
 | 문서 레지스트리 (`app-editor-doc.js`) | `d.model` → `d.buf`. dirty 는 `!d.buf.doc.eq(d.savedDoc)` (FR-CMR-16). 문서 토큰(`doc-token.js`)은 `version` 을 본다 | |
 | `FileEditor` | `_editor` 필드에 `EditorView` 를 둔다(이름 유지) | |
+| 줄 끝 (`EdBuffer.eol`·`text(doc)`) | CRLF·CR·LF 를 모두 줄 구분으로 나눈다 — 문서 줄에 `\r` 이 없다. 섞여 있으면 CRLF 가 절반을 넘을 때 CRLF 다(Monaco 규칙). 저장은 `buf.text(sentDoc)` 로 그 줄 끝을 되살린다 | 이전(M3 WIP): 줄에 `\r` 이 남아 줄 끝에 친 글자가 `\r` 뒤에 붙었고, 새 줄은 LF 로 섞였다 |
+| 전역 키 게이트 (`input-binding.js` 의 `inText`) | contenteditable 도 글자를 치는 자리다 | Monaco 입력 영역은 textarea 였다. CodeMirror 의 `.cm-content` 가 빠지면 `Mod+Z` 등이 전역 단축키·브라우저 차단 경로로 가 `preventDefault` 되고, CodeMirror 는 막힌 키를 무시한다 |
 
 M3 에서 **아직 옮기지 않는 것** — dirty diff(M5)·미니맵(M5)·ruler(M5)·Diff 뷰의 문서 공유(M6)·sticky(M7)·LSP(M8).
 그 자리는 엔진이 없을 때처럼 조용히 건너뛴다(`if (this._dd)` 같은 기존 가드). 실패하는 e2e 는 §7.2 에 적는다.

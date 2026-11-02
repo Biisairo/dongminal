@@ -15,7 +15,8 @@
  */
 class EdBuffer {
   constructor(text) {
-    this._doc = CM.Text.of(String(text).split('\n'));
+    this.eol = EdBuffer._eol(text);
+    this._doc = EdBuffer._text(text);
     this._sinks = new Set();
     this._subs = new Set();
     this.version = 0;
@@ -25,6 +26,8 @@ class EdBuffer {
   get doc() { return this._doc }
   get sinkCount() { return this._sinks.size }
   value() { return this._doc.toString() }
+  /** 디스크에 쓸 내용. 줄 끝은 문서의 것(`eol`)이다 — 문서 줄에는 `\r` 이 없다. */
+  text(doc = this._doc) { return doc.sliceString(0, doc.length, this.eol) }
 
   /** 칸을 붙인다. 칸의 내용이 버퍼와 다르면 버퍼의 것으로 맞춘다. */
   attach(sink) {
@@ -64,7 +67,8 @@ class EdBuffer {
    */
   replace(text) {
     if (this.disposed) return false;
-    const next = CM.Text.of(String(text).split('\n'));
+    this.eol = EdBuffer._eol(text);
+    const next = EdBuffer._text(text);
     if (next.eq(this._doc)) return true;
     const prev = this._doc;
     this._doc = next;
@@ -100,6 +104,17 @@ class EdBuffer {
   _bump(flush) {
     this.version++;
     for (const fn of this._subs) fn({ flush });
+  }
+
+  // 줄 끝(CRLF·CR·LF)은 모두 줄 구분이다. 줄에 `\r` 이 남으면 줄 끝에 친 글자가 그 뒤에 붙는다.
+  static _text(text) { return CM.Text.of(String(text).split(/\r\n?|\n/)) }
+
+  // 섞여 있으면 CRLF 가 절반을 넘을 때 CRLF 다 — Monaco 가 모델을 세울 때의 규칙이다.
+  static _eol(text) {
+    const s = String(text);
+    const all = (s.match(/\r\n?|\n/g) || []).length;
+    const crlf = (s.match(/\r\n/g) || []).length;
+    return all && crlf > all / 2 ? '\r\n' : '\n';
   }
 
   // 옛 문서의 offset 을 (줄, 열) 로 읽어 새 문서에 놓는다.

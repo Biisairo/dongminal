@@ -197,3 +197,53 @@ test('FR-RTU-42: 디스크 판으로 갈아 끼운 변경과 붙일 때 맞춘 �
   buf.attach(late);         // 붙일 때 맞춤 → 표식
   assert.deepEqual(seen, [false, true, true]);
 });
+
+test('CRLF: 줄 끝은 줄 구분이다 — 문서 줄에 `\\r` 이 남지 않고, 내보낼 때 CRLF 로 되살린다', () => {
+  const buf = new EdBuffer('a\r\nb\r\nc\r\n');
+  assert.deepEqual(buf.doc.toJSON(), ['a', 'b', 'c', '']);
+  assert.equal(buf.eol, '\r\n');
+  assert.equal(buf.text(), 'a\r\nb\r\nc\r\n');
+  const a = sink(buf);
+  type(a, 1, 'X');
+  assert.equal(buf.text(), 'aX\r\nb\r\nc\r\n', '줄 끝에 친 글자가 `\\r` 뒤에 붙었다');
+  type(a, 2, '\n');
+  assert.equal(buf.text(), 'aX\r\n\r\nb\r\nc\r\n', '새 줄이 문서의 줄 끝을 따르지 않는다');
+});
+
+test('CRLF: LF 파일·줄바꿈 없는 파일은 LF 다', () => {
+  assert.equal(new EdBuffer('a\nb\n').eol, '\n');
+  assert.equal(new EdBuffer('one line').eol, '\n');
+  assert.equal(new EdBuffer('').text(), '');
+});
+
+test('CRLF: 섞인 줄 끝은 많은 쪽으로 맞춘다 (Monaco 와 같다)', () => {
+  const crlf = new EdBuffer('a\r\nb\r\nc\n');
+  assert.equal(crlf.eol, '\r\n');
+  assert.equal(crlf.text(), 'a\r\nb\r\nc\r\n');
+  const lf = new EdBuffer('a\nb\nc\r\n');
+  assert.equal(lf.eol, '\n');
+  assert.equal(lf.text(), 'a\nb\nc\n');
+  assert.deepEqual(new EdBuffer('a\rb').doc.toJSON(), ['a', 'b'], '외톨이 CR 도 줄 구분이다');
+});
+
+test('CRLF: 디스크 판으로 갈아 끼우면 줄 끝도 새로 정한다 — 내용이 같아도', () => {
+  const buf = new EdBuffer('a\nb\n');
+  const a = sink(buf);
+  type(a, 0, 'X');
+  buf.replace('Xa\r\nb\r\n');
+  assert.equal(buf.eol, '\r\n');
+  assert.equal(a.state.doc.toString(), 'Xa\nb\n');
+  const v = buf.version;
+  buf.replace('Xa\nb\n');
+  assert.equal(buf.eol, '\n');
+  assert.equal(buf.version, v, '내용이 같으면 칸을 건드리지 않는다');
+  assert.equal(CM.undoDepth(a.state), 1, '줄 끝만 다른 디스크 판이 실행 취소를 끊었다');
+});
+
+test('CRLF: text(doc) 는 넘겨받은 판을 문서의 줄 끝으로 내보낸다', () => {
+  const buf = new EdBuffer('a\r\nb');
+  const sent = buf.doc;
+  const a = sink(buf);
+  type(a, 0, 'Z');
+  assert.equal(buf.text(sent), 'a\r\nb');
+});

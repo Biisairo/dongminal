@@ -710,7 +710,7 @@ class FileEditor {
   async _saveOnce() {
     if (!this._view || !this._dirty) return false;
     const sentDoc = this._view.state.doc;
-    const content = sentDoc.toString();
+    const content = this._buf ? this._buf.text(sentDoc) : sentDoc.toString();
     try {
       let r = await this._write(content, this._stamp, null);
       if (r.status === 409) {
