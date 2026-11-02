@@ -24,8 +24,6 @@ declare const currentThemeName: string;
 declare const UFE_ALPHA_PER_LEVEL: number;
 declare const UFE_LEVEL_DEFAULT: number;
 declare const GIT_REPOS_POLL_MS: number;
-/** `constants-editor.js` — 앱이 LSP 진단을 얹는 owner 이름. */
-declare const LSP_DIAG_OWNER: string;
 
 /** `e2e/editor.ts` 의 `installEdAdapter` 가 세운다 — 편집기 접근 어댑터 (FR-CMR-120). */
 declare const edT: any;

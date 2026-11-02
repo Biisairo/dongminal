@@ -376,7 +376,7 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
   });
 
   // V-UXB-13 · FR-UXB-44·45·46
-  test('Mod+F 가 Monaco 위젯이 아니라 편집기와 같은 패널을 연다', async ({ page }) => {
+  test('Mod+F 가 엔진 기본 패널이 아니라 편집기와 같은 패널을 연다', async ({ page }) => {
     const repo = copyFx('basic', 'find');
     writeFileSync(join(repo, 'f.txt'), 'alpha needle one\nbeta two\n');
     git(repo, 'add', 'f.txt'); git(repo, 'commit', '-m', 'f');
@@ -392,13 +392,36 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
     const panel = diffView(page).locator('.fe-find.vis');
     await expect(panel).toBeVisible({ timeout: 5000 });
     await expect(page.locator(`${ED_SEL.surface} ${ED_SEL.builtinFind}`),
-      'Monaco 의 위젯이 떴다 — 편집기 탭에서 이미 닫은 길이다').toHaveCount(0);
+      '엔진 기본 패널이 떴다 — 편집기 탭에서 이미 닫은 길이다').toHaveCount(0);
 
     await panel.locator('.fe-find-q').fill('needle');
     await expect(panel.locator('.fe-find-count')).toContainText('2', { timeout: 5000 });
 
     await page.keyboard.press('Escape');
     await expect(panel).toBeHidden({ timeout: 5000 });
+  });
+
+  // CODEMIRROR_MIGRATION_SRS §3.16 (M9) — 엔진 기본 찾기 패널은 Diff 뷰에도 없다.
+  // 편집기 칸의 같은 검사는 `editor-find-panel` V-EFP-4 다. 모든 편집 표면이 앱 패널 하나를 쓴다.
+  test('Diff 뷰에서 F3 · Mod+G · Mod+H 로도 엔진 기본 찾기 패널이 뜨지 않는다', async ({ page }) => {
+    const repo = copyFx('basic', 'find-keys');
+    writeFileSync(join(repo, 'f.txt'), 'alpha needle one\nbeta two\n');
+    git(repo, 'add', 'f.txt'); git(repo, 'commit', '-m', 'f');
+    writeFileSync(join(repo, 'f.txt'), 'alpha needle one\nbeta needle two\n');
+
+    await waitForInit(page);
+    await openGit(page, repo);
+    await openDiff(page, 'f.txt');
+
+    const body = diffView(page).locator(`${ED_SEL.surface} ${ED_SEL.text}`).last();
+    for (const key of ['F3', 'Control+g', 'Control+h']) {
+      await body.click();
+      await page.keyboard.press(key);
+      // **예외 (`TEST-16`)**: 패널이 **뜨지 않음**을 잰다.
+      await page.waitForTimeout(300);
+      await expect(diffView(page).locator(ED_SEL.builtinFind), `${key} 로 엔진 패널이 떴다`).toHaveCount(0);
+      await page.keyboard.press('Escape');
+    }
   });
 
   // FR-UXB-49 — 원본 쪽은 읽기 전용이지만 찾기는 된다. 포커스가 원본에 있으면 원본을 찾는다.

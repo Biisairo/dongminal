@@ -10,7 +10,7 @@ import { tmpPath, realPath } from './osenv';
 
 // constants-editor.js 의 전역 상수 — `const` 는 전역 렉시컬 환경에 들어가므로
 // `window.X` 로는 잡히지 않는다. 맨 이름으로 읽는다 (editor-git-ux.spec.ts 의
-// GIT_DIFF_OPTIONS 와 같은 규약).
+// GIT_DIFF_FOLD_KEY 와 같은 규약).
 declare const ED_DD_MAX_LINES: number;
 declare function edDiffLines(a: string[], b: string[]): any;
 

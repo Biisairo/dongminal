@@ -400,39 +400,8 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     await expect(q(page)).toHaveValue('needle');
   });
 
-  // V-EFP-21 · FR-EFP-4b / D-5b — 무효화가 **이 편집기에만** 걸린다.
-  //
-  // Git 의 diff 뷰도 Monaco 이고 그 뷰에는 우리 패널이 없다 (SRS §2.11). 전역
-  // 규칙으로 막으면 거기서 되던 것을 아무것도 되지 않게 만든다 — 되던 것을
-  // 조용히 없애지 않는다.
-  test('무효화는 이 편집기에만 걸린다 — 다른 Monaco 는 자기 위젯을 갖는다', async ({ page, request }) => {
-    await enter(page, request);
-    await openFile(page, 'find.txt');
-    await focusBody(page);
-    // 우리 편집기에서는 닫혀 있다.
-    await page.keyboard.press('Control+h');
-    // **예외 (`TEST-16`)**: 위젯이 **뜨지 않음**을 잰다.
-    await page.waitForTimeout(300);
-    await expect(builtinWidget(page)).toHaveCount(0);
-
-    // 같은 페이지에 새로 세운 Monaco 는 그 규칙에 걸리지 않는다 — 전역으로
-    // 걸었다면 이 에디터의 위젯도 함께 죽는다.
-    const opened = await page.evaluate(async () => {
-      const host = document.createElement('div');
-      host.style.cssText = 'position:fixed;left:0;bottom:0;width:300px;height:120px;z-index:5';
-      host.id = 'probe-editor';
-      document.body.appendChild(host);
-      const ed = edT.probe(host, 'needle probe\n');
-      ed.focus();
-      ed.openBuiltinFind();
-      await new Promise((r) => setTimeout(r, 300));
-      const on = !!host.querySelector(edT.sel.builtinFind);
-      ed.dispose();
-      host.remove();
-      return on;
-    });
-    expect(opened, '다른 Monaco 의 find 위젯까지 죽었다 (전역 규칙을 걸었다)').toBe(true);
-  });
+  // V-EFP-21 · FR-EFP-4b 는 걷었다 — 따로 세운 옛 엔진 편집기의 위젯을 쟀다. CodeMirror 설정에는
+  // 막을 기본 위젯이 없다. Diff 뷰 쪽은 `ux-batch10` 이 잰다 (CODEMIRROR_MIGRATION_SRS §3.16, M9).
 
   // V-EFP-17 · FR-EFP-13 — 편집기가 없으면 열지도, 삼키지도 않는다.
   test('편집기가 없는 탭에서는 키를 삼키지 않는다', async ({ page, request }) => {

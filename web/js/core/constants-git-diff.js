@@ -7,63 +7,14 @@
  * 절과 그 앵커: Diff(GIT_SRS §3.6 / FR-GIT-43~56) · Console(GIT_UI_REVISION_SRS
  * FR-GIT-218).
  */
-// DiffEditor 옵션. ignoreTrimWhitespace 는 Monaco 기본값(true)을 뒤집는다 —
-// git 은 공백 변경을 변경으로 취급하기 때문이다 (FR-GIT-50).
 // CODEMIRROR_MIGRATION_SRS FR-CMR-57: Diff ruler 의 두 칸 색 — 지운 것(왼쪽)·더한 것(오른쪽).
 const GIT_DIFF_RULER_DEL='--diff-del';
 const GIT_DIFF_RULER_ADD='--diff-add';
 // FR-CMR-52: 변경 없는 구간을 접을 때 남기는 줄 수와 접는 최소 줄 수 (Monaco hideUnchangedRegions 의 기본과 같다).
 const GIT_DIFF_COLLAPSE={margin:3,minSize:4};
 
-const GIT_DIFF_OPTIONS={
-  renderSideBySide:true,
-  useInlineViewWhenSpaceIsLimited:true,
-  renderSideBySideInlineBreakpoint:900,
-  // FR-DOR-2: 기본은 접지 않는다. 접힌 문서의 눈금은 접힌 좌표계 위에 서므로
-  // 실제 파일의 줄 위치와 어긋난다 — 사용자가 요구한 "실제 파일에 동기화"가
-  // 그것이다. 필요하면 머리의 토글로 켠다 (FR-DOR-3).
-  hideUnchangedRegions:{enabled:false},
-  ignoreTrimWhitespace:false,
-  readOnly:true,
-  originalEditable:false,
-  automaticLayout:true,
-  scrollBeyondLastLine:false,
-  // FR-DOR-1: 문서 전체를 스크롤바 높이에 사상해 변경 위치를 색으로 찍는다.
-  // 직접 그리지 않는 이유는 D-1 이다 — 접기·줄바꿈·side-by-side 의 좌표계를
-  // 다시 계산하는 일을 Monaco 가 이미 한다.
-  renderOverviewRuler:true,
-  /**
-   * M9_SRS FR-M9-5 / D-M9-5: **diff 에 미니맵은 없다 — 명시한다.**
-   *
-   * 여기 `minimap:{size:'fill'}` 이 있었다 (UX_BATCH8_SRS FR-MMP-2 의 의도를
-   * 편집기와 함께 맞추려던 것). **그 옵션은 한 번도 효력이 없었다** —
-   * `createDiffEditor` 의 미니맵 기본값이 `enabled:false` 이고 `size` 는 켜진
-   * 미니맵의 좌표계를 정하는 값이기 때문이다. 실측으로 diff 의
-   * `minimap.enabled === false` · `minimapWidth === 0` 이었다 (M9_SRS §2.3 B5).
-   *
-   * 켜지 않는 이유는 자리다 — diff 는 좁은 칸에서 두 쪽을 나란히 두므로 미니맵에
-   * 60~80px 을 내주면 본문이 읽히지 않는다 (사용자 결정 2026-09-14). `enabled:false`
-   * 를 **적어 두는** 것이 이 변경의 절반이다. 다음 사람이 같은 착각을 하지 않는다.
-   */
-  minimap:{enabled:false},
-  /**
-   * FR-M9-5: **편집기 안의 개요 눈금을 끈다.** 변경 위치는 diff 자신의 눈금이 이미
-   * 그린다 (`renderOverviewRuler:true` 의 `diffOverviewRuler`, FR-DOR-1) — 그것은
-   * 본문 **밖**에 서고, 편집기 안의 `decorationsOverviewRuler` 는 본문 **위**에 선다.
-   *
-   *   이전 동작: 수정 쪽 본문이 x 939~1408 인데 눈금이 x 1394~1408 을 덮었다 —
-   *             긴 줄의 글자가 색 띠 아래로 들어갔고, 미니맵은 (꺼져 있어) 보이지
-   *             않으니 "미니맵 영역에 텍스트가 겹친다" 로 읽혔다
-   *   새  동작: 편집기 안 눈금의 폭이 0. 변경 표식은 x 1408~1423 의 diff 눈금에만
-   *             남고 본문과 겹치지 않는다 (실측)
-   *   이유:     접수 — "스크롤 미니맵 영역에 텍스트가 겹치는데 미니맵은 보이지 않는다"
-   *
-   * 남는 겹침은 세로 스크롤바 14px 하나다 — Monaco 가 본문 위에 띄우는 오버레이이며
-   * 편집기 탭과 VS Code 도 같다. 그것까지 비우려면 스크롤바를 없애야 하고, 그것은
-   * 끄는 것이 아니라 잃는 것이다.
-   */
-  overviewRulerLanes:0,
-};
+// FR-CMR-50·51: Diff 칸의 폭이 이 값 이상이면 나란히 보기, 미만이면 인라인 보기다.
+const GIT_DIFF_INLINE_BREAKPOINT=900;
 // FR-DOR-6: 눈금의 색은 `GIT_DIFF_RULER_ADD`·`_DEL` 이 가리키는 테마 변수다 (`--diff-add`·`--diff-del`).
 // Changes 탭의 미리보기는 좁다. 접기와 inline 전환을 더 이르게 건다.
 const GIT_PREVIEW_INLINE_BREAKPOINT=560;

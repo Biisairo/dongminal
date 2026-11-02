@@ -161,7 +161,7 @@ test.describe('묶음 F — Diff 뷰', () => {
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
     await expect(diffEditor(page)).toHaveClass(/side-by-side/);
 
-    // GIT_DIFF_OPTIONS.renderSideBySideInlineBreakpoint = 900. 사이드바를 뺀
+    // GIT_DIFF_INLINE_BREAKPOINT = 900. 사이드바를 뺀
     // diff 폭이 그 아래로 떨어지면 useInlineViewWhenSpaceIsLimited 가 걸린다.
     await page.setViewportSize({ width: 820, height: 800 });
     await expect(diffEditor(page)).not.toHaveClass(/side-by-side/);

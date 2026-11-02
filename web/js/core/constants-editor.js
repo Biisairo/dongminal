@@ -285,9 +285,6 @@ const FE_NOTE_MS=4000;
 const FE_NOTE_ACTION_MS=15000;
 
 // ── 코드 탐색: 진단 (묶음 E · M4) ──
-// FR-LSP-34: owner 는 우리 것 **하나**다. 그래야 갱신이 앞선 것을 덮고 밑줄이
-// 겹쳐 남지 않는다.
-const LSP_DIAG_OWNER='dongminal-lsp';
 // FR-LSP-36: 진단을 켜고 끈다. 큰 저장소에서 저장하지 않은 파일마다 경고가 서는
 // 것을 원하지 않는 사용자가 있다. **기기별**이다 — 화면의 시끄러움에 대한 취향이다.
 const LSP_DIAG_KEY='lspDiagnostics';

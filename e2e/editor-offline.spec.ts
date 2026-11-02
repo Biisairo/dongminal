@@ -9,16 +9,16 @@ import {
 import { ED_SEL } from './editor';
 import { tmpPath, realPath } from './osenv';
 
-// MONACO_VENDORING_SRS §4.4 — TC-MVN-15·16·17.
+// 벤더링 SRS(보관) §4.4 — TC-MVN-15·16·17. 엔진 교체 뒤에도 같은 약속을 잰다 (CODEMIRROR_MIGRATION_SRS).
 //
-// **편집기가 인터넷 없이 선다.** 종전에는 `cdn.jsdelivr.net` 에서 Monaco 를 받았고,
+// **편집기가 인터넷 없이 선다.** 종전에는 `cdn.jsdelivr.net` 에서 편집기 엔진을 받았고,
 // 그래서 폐쇄망·Tailscale 전용 배치에서 편집기·Diff 뷰가 통째로 서지 않았다.
 //
 // 재는 방법은 "외부로 나가는 요청을 전부 끊는 것" 이다. `page.route` 로 자기
 // 서버 밖의 모든 요청을 **거절**하고, 그 상태에서 편집기가 뜨는지 본다.
 // 벤더링이 되돌려지면(상수가 다시 CDN 을 가리키면) 이 스펙이 먼저 실패한다.
 
-const ROOT = tmpPath('dm-monaco-offline-' + process.pid);
+const ROOT = tmpPath('dm-editor-offline-' + process.pid);
 
 test.beforeAll(() => { mkdirSync(ROOT, { recursive: true }) });
 test.afterAll(() => { rmTree(ROOT) });
@@ -75,8 +75,8 @@ test('TC-MVN-15: 인터넷 없이 편집기가 선다', async ({ page, request, 
   expect(blocked, `외부로 나간 요청: ${blocked.join(' · ')}`).toEqual([]);
 });
 
-// TC-MVN-16: 같은 조건에서 Diff 뷰가 선다. Diff 는 Monaco 의 **다른 진입점**
-// (`createDiffEditor`)이라 편집기가 뜬 것만으로는 이것이 뜬다고 말할 수 없다.
+// TC-MVN-16: 같은 조건에서 Diff 뷰가 선다. Diff 는 엔진의 **다른 진입점**
+// (`MergeView`)이라 편집기가 뜬 것만으로는 이것이 뜬다고 말할 수 없다.
 test('TC-MVN-16: 인터넷 없이 Diff 뷰가 선다', async ({ page, request, baseURL }) => {
   const root = mkfile('diff', 'one\ntwo\nthree\n');
   const key = await addEditorRoot(request, root);
@@ -90,7 +90,7 @@ test('TC-MVN-16: 인터넷 없이 Diff 뷰가 선다', async ({ page, request, b
   await expect(page.locator(`.file-editor ${ED_SEL.surface}`)).toHaveCount(1, { timeout: 30000 });
 
   // Diff 편집기를 직접 세운다. 화면 경로(git 창)를 지나면 저장소 픽스처가 필요하고,
-  // 여기서 재려는 것은 **Monaco 의 diff 진입점이 벤더본으로 서는가** 하나다.
+  // 여기서 재려는 것은 **엔진의 diff 진입점이 벤더본으로 서는가** 하나다.
   const ok = await page.evaluate(async () => {
     const host = document.createElement('div');
     host.style.cssText = 'position:absolute;left:-9999px;width:400px;height:200px';

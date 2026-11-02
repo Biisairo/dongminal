@@ -387,7 +387,7 @@ Object.assign(GitPanel.prototype, {
 
   _diff(){
     if(!this._diffView) this._diffView=new GitDiffView({
-      inlineBreakpoint:GIT_DIFF_OPTIONS.renderSideBySideInlineBreakpoint,
+      inlineBreakpoint:GIT_DIFF_INLINE_BREAKPOINT,
       sideBySide:this._sideBySidePref(),
       ignoreWhitespace:this._ignoreWsPref(),
       hideUnchanged:this._foldPref(),

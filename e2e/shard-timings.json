@@ -103,7 +103,7 @@
   "mobile-tui-input-touch.spec.ts": 11.6,
   "mobile-tui-input.spec.ts": 2.6,
   "mobile-wheel-touch.spec.ts": 4,
-  "monaco-offline.spec.ts": 4.8,
+  "editor-offline.spec.ts": 4.8,
   "notes-live-explorer.spec.ts": 54,
   "optimistic-layout.spec.ts": 4.4,
   "pane-dom-reconcile.spec.ts": 9.3,

@@ -39,18 +39,19 @@ const changes = (page: Page) => page.locator('#area .ed-side .git-view.git-chang
 // constants.js 의 전역 상수 — <script> 로 로드되고 `const` 는 전역 렉시컬
 // 환경에 들어가므로 `window.X` 로는 잡히지 않는다. 맨 이름으로 읽는다
 // (git-changes.spec.ts 의 GIT_FILE_ROW_CHUNK 와 같은 규약).
-declare const GIT_DIFF_OPTIONS: any;
 declare const GIT_DIFF_FOLD_KEY: string;
 
 
 test.describe('묶음 O — Diff 개요 눈금', () => {
   // V-DOR-1·2: 눈금은 켜져 있고 접기는 꺼져 있다 (FR-DOR-1·2). 접기가 켜지면
   // 눈금이 접힌 좌표계 위에 서서 실제 파일의 줄 위치와 어긋난다.
-  test('V-DOR-1/2: 눈금은 켜짐, 접기는 꺼짐이 기본이다', async ({ page }) => {
+  // 눈금이 Diff 에 서는 것은 `editor-minimap` V-MMP-2b 가 실제 Diff 로 잰다 — 여기는 접기의 기본값이다.
+  test('V-DOR-1/2: 접기는 꺼짐이 기본이다', async ({ page }) => {
     await waitForInit(page);
-    const opts = await page.evaluate(() => GIT_DIFF_OPTIONS);
-    expect(opts.renderOverviewRuler).toBe(true);
-    expect(opts.hideUnchangedRegions.enabled).toBe(false);
+    await openGit(page, fx('basic'));
+    await page.evaluate(() => (window as any).app.gitPanel.openView('diff'));
+    await expect(page.locator('#area .pn-body .git-diff-fold input')).not.toBeChecked();
+    expect(await page.evaluate(() => (window as any).app.gitPanel._foldPref())).toBe(false);
   });
 
   // V-DOR-3: 토글이 상태를 바꾸고 남는다 (FR-DOR-3·4).

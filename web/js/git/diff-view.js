@@ -75,7 +75,7 @@ function gitBlobMetaLines(orig,mod){
 class GitDiffView {
   constructor(opts){
     const o=opts||{};
-    this._breakpoint=o.inlineBreakpoint||GIT_DIFF_OPTIONS.renderSideBySideInlineBreakpoint;
+    this._breakpoint=o.inlineBreakpoint||GIT_DIFF_INLINE_BREAKPOINT;
     this._sideBySide=o.sideBySide!==false;
     this._ignoreWs=!!o.ignoreWhitespace;
     // FR-DOR-2: 기본은 접지 않는다. 접힌 문서의 개요 눈금은 실제 파일의 줄
