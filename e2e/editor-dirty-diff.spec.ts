@@ -5,6 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, openGit, freshDir, rmTree } from './fixtures';
+import { ED_SEL } from './editor';
 import { tmpPath, realPath } from './osenv';
 
 // constants-editor.js 의 전역 상수 — `const` 는 전역 렉시컬 환경에 들어가므로
@@ -44,12 +45,12 @@ const git = (repo: string, ...args: string[]) =>
 test.beforeAll(() => { mkdirSync(ROOT, { recursive: true }) });
 test.afterAll(() => { rmTree(ROOT) });
 
-// 편집기를 세우고 Monaco 가 뜰 때까지 기다린다. `openGit` 이 Repo 창을 세우므로
+// 편집기를 세우고 그것이 뜰 때까지 기다린다. `openGit` 이 Repo 창을 세우므로
 // 그 안의 편집기 탭이 이 파일을 연다 (FR-EDD-3 의 창 루트가 그 창의 것이다).
 async function openFile(page: Page, repo: string, rel: string) {
   await openGit(page, repo);
   await page.evaluate((f) => (window as any).app.testing.edOpenFile(f), join(repo, rel));
-  await expect(page.locator('.file-editor .monaco-editor')).toHaveCount(1, { timeout: 30000 });
+  await expect(page.locator(`.file-editor ${ED_SEL.surface}`)).toHaveCount(1, { timeout: 30000 });
   // 기준을 받아 첫 계산이 끝날 때까지 — 그 전의 단언은 "아직 오지 않았다" 를
   // "변경이 없다" 로 읽는다.
   await page.waitForFunction((f) => {
@@ -62,31 +63,16 @@ async function openFile(page: Page, repo: string, rel: string) {
 // `setValue` 가 아니다 — `setValue` 는 isFlush 라 dirty 규약이 다르다.
 async function setLines(page: Page, lines: string[]) {
   await page.evaluate((text) => {
-    const ed = (window as any).monaco.editor.getEditors()
-      .find((e: any) => e.getDomNode()?.closest('.file-editor'));
-    const m = ed.getModel();
-    ed.executeEdits('test', [{ range: m.getFullModelRange(), text }]);
+    edT.replaceAll(edT.firstInFileEditor(), text);
   }, lines.join('\n') + '\n');
 }
 
 const decos = (page: Page) => page.evaluate(() => {
-  const ed = (window as any).monaco.editor.getEditors()
-    .find((e: any) => e.getDomNode()?.closest('.file-editor'));
-  const m = ed.getModel();
-  return m.getAllDecorations()
-    .filter((d: any) => (d.options.linesDecorationsClassName || '').startsWith('fe-dd-'))
-    .map((d: any) => ({
-      cls: d.options.linesDecorationsClassName,
-      line: d.range.startLineNumber,
-      end: d.range.endLineNumber,
-      ruler: d.options.overviewRuler ? d.options.overviewRuler.color : null,
-      minimap: d.options.minimap ? d.options.minimap.color : null,
-    }))
-    .sort((a: any, b: any) => a.line - b.line);
+  return edT.lineMarks(edT.firstInFileEditor(), '^fe-dd-');
 });
 
 const bars = (page: Page, kind: string) =>
-  page.locator(`.file-editor .margin-view-overlays .fe-dd-${kind}`);
+  page.locator(`.file-editor ${ED_SEL.gutter} .fe-dd-${kind}`);
 const peek = (page: Page) => page.locator('.file-editor .fe-dd-peek');
 
 test.describe('묶음 C — diff 계산 (FR-EDD-10~13)', () => {
@@ -223,15 +209,13 @@ test.describe('묶음 M — 표시 (FR-EDD-20~28)', () => {
     await waitForInit(page);
     await page.evaluate((p) => (window as any).app.testing.edMutate('/add', { path: p }), plain);
     await page.evaluate((f) => (window as any).app.testing.edOpenFile(f), join(plain, 'a.txt'));
-    await expect(page.locator('.file-editor .monaco-editor')).toHaveCount(1, { timeout: 30000 });
+    await expect(page.locator(`.file-editor ${ED_SEL.surface}`)).toHaveCount(1, { timeout: 30000 });
     const cur = BASE.slice(); cur[0] = 'ONE';
     await setLines(page, cur);
     // 편집은 그대로 된다 — 표시만 없다.
     await expect(bars(page, 'mod')).toHaveCount(0);
     expect(await page.evaluate(() => {
-      const ed = (window as any).monaco.editor.getEditors()
-        .find((e: any) => e.getDomNode()?.closest('.file-editor'));
-      return ed.getModel().getLineContent(1);
+      return edT.line(edT.firstInFileEditor(), 1);
     })).toBe('ONE');
   });
 
@@ -264,9 +248,7 @@ test.describe('묶음 P·A — 팝업과 동작 (FR-EDD-30~49)', () => {
     await peek(page).locator('.fe-dd-peek-act[data-act="revert"]').click();
     await expect(bars(page, 'mod')).toHaveCount(0);
     expect(await page.evaluate(() => {
-      const ed = (window as any).monaco.editor.getEditors()
-        .find((e: any) => e.getDomNode()?.closest('.file-editor'));
-      return ed.getModel().getLineContent(3);
+      return edT.line(edT.firstInFileEditor(), 3);
     })).toBe('three');
     // FR-EDD-41: 디스크는 그대로다 — 되돌리기가 저장하지 않는다.
     expect(readFileSync(join(repo, 'a.txt'), 'utf8')).toBe(BASE.join('\n') + '\n');

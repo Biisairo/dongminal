@@ -5,12 +5,13 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture, clickGitView } from './fixtures';
+import { ED_SEL, ED_VENDOR_ROUTE } from './editor';
 import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_M1_STEP7_CONTRACT §4 — Diff 뷰 (D1~D10). 검증 V10·V11·V12·V26.
 //
-// diff 렌더링은 monaco.editor.createDiffEditor 다 (FR-GIT-43) — 자체 하이라이트
-// 엔진이 없으므로 단정도 Monaco 의 DOM·API 에 걸린다.
+// diff 렌더링은 편집 엔진의 Diff 편집기다 (FR-GIT-43) — 자체 하이라이트 엔진이
+// 없으므로 단정은 `editor.ts` 의 어댑터를 거친다.
 
 const FIXTURES = tmpPath('dm-git-fx-diff-' + process.pid);
 
@@ -30,24 +31,16 @@ const row = (page: Page, group: string, path: string) =>
   changes(page).locator(`.git-group[data-group="${group}"] .git-file[data-path="${cssPath(path)}"]`);
 const tab = (page: Page, view: string) => page.locator(`#area .pn-tab[data-git-view="${view}"]`);
 
-const diffEditor = (page: Page) => diff(page).locator('.git-diff-body .monaco-diff-editor');
+const diffEditor = (page: Page) => diff(page).locator(`.git-diff-body ${ED_SEL.diffSurface}`);
 
-// Monaco 모델 수 — FR-GIT-56 의 누수 판정 지표다 (§3.5).
-const models = (page: Page) =>
-  page.evaluate(() => {
-    const m = (window as any).monaco;
-    return m ? m.editor.getModels().length : -1;
-  });
+// 엔진 안 문서 수 — FR-GIT-56 의 누수 판정 지표다 (§3.5).
+const models = (page: Page) => page.evaluate(() => edT.counts().docs);
 
 // Diff 탭 에디터가 계산한 변경 줄 수. 공백무시 토글의 효과는 DOM 이 아니라
 // diff 계산 결과에서 본다 (FR-GIT-50).
 const lineChanges = (page: Page) =>
   page.evaluate(() => {
-    const v = (window as any).app.gitPanel._diffView;
-    const ed = v && v._editor;
-    if (!ed) return -1;
-    const ch = ed.getLineChanges();
-    return ch ? ch.length : -1;
+    return edT.diffChangeCount((window as any).app.gitPanel._diffView);
   });
 
 const selectFile = (page: Page, group: string, path: string) =>
@@ -216,7 +209,7 @@ test.describe('묶음 F — Diff 뷰', () => {
     // 아예 없다 — 끊어도 아무것도 실패하지 않으므로 이 검사가 재던 것이 사라진다.
     // 이제 **자기 자산 경로**를 끊는다. 요구(FR-GIT-55)는 그대로이고 실패를
     // 만드는 방법만 현실에 맞췄다.
-    await page.route('**/vendor/monaco/**', (r) => r.abort());
+    await page.route(ED_VENDOR_ROUTE, (r) => r.abort());
 
     await waitForInit(page);
     await openGit(page, repo);
@@ -275,7 +268,7 @@ test.describe('묶음 F — Diff 뷰', () => {
     }
 
     await expect.poll(() => models(page), { timeout: 20000 }).toBeLessThanOrEqual(baseline);
-    const diffs = await page.evaluate(() => (window as any).monaco.editor.getDiffEditors().length);
+    const diffs = await page.evaluate(() => edT.counts().diffs);
     expect(diffs, 'DiffEditor 인스턴스가 누적됐다').toBeLessThanOrEqual(2);
   });
 
@@ -478,17 +471,15 @@ test.describe('묶음 F — Diff 뷰', () => {
 
     const got = await page.evaluate(() => {
       const v = (window as any).app.gitPanel._diffView;
-      const ed = v && v._editor;
-      if (!ed) return null;
-      const m = ed.getModifiedEditor();
-      const li = m.getLayoutInfo();
-      const host = m.getDomNode() as HTMLElement;
+      if (!edT.diffReady(v)) return null;
+      const m = edT.diffSide(v, 'mod');
+      const host = edT.dom(m) as HTMLElement;
       const box = (el: Element | null) => (el ? el.getBoundingClientRect().width : -1);
-      const dr = document.querySelector('.diffOverviewRuler');
+      const dr = document.querySelector(edT.sel.diffRuler);
       return {
-        minimapEnabled: m.getOption((window as any).monaco.editor.EditorOption.minimap).enabled,
-        minimapWidth: li.minimap.minimapWidth,
-        innerRulerW: box(host.querySelector('.decorationsOverviewRuler')),
+        minimapEnabled: edT.option(m, 'minimapEnabled'),
+        minimapWidth: edT.minimapWidth(m),
+        innerRulerW: box(host.querySelector(edT.sel.overviewRuler)),
         editorRight: host.getBoundingClientRect().right,
         diffRulerLeft: dr ? dr.getBoundingClientRect().left : -1,
         diffRulerW: box(dr),

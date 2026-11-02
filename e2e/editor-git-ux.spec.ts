@@ -4,6 +4,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, openGit, gitFixture, cleanGitFixture } from './fixtures';
+import { ED_SEL } from './editor';
 import { tmpPath, realPath } from './osenv';
 
 // EDITOR_GIT_UX_SRS — Diff 개요 눈금(묶음 O) · Editor 검색(묶음 F·G·K).
@@ -265,7 +266,7 @@ test.describe('묶음 V — 열 수 있는 것과 없는 것', () => {
 
     const img = page.locator('.fe-image .fe-img');
     await expect(img).toHaveCount(1);
-    await expect(page.locator('.fe-image .monaco-editor')).toHaveCount(0);
+    await expect(page.locator(`.fe-image ${ED_SEL.surface}`)).toHaveCount(0);
   });
 
   // V-EVW-2: 이진 파일은 사유를 보이고 Monaco 가 서지 않는다 (FR-EVW-3·7).
@@ -415,7 +416,7 @@ test.describe('묶음 F·G — 고른 결과가 실제로 열린다', () => {
         if (!v) return null;
         // Monaco 가 아직 안 떴으면 예약된 자리를, 떴으면 커서 위치를 본다.
         if (v._pendingReveal) return v._pendingReveal.line;
-        return v._editor ? v._editor.getPosition().lineNumber : null;
+        return edT.has(v) ? edT.cursor(edT.of(v)).line : null;
       }), { timeout: 20000 })
       .toBe(5);
   });
@@ -450,9 +451,9 @@ test.describe('묶음 K — Monaco 안에서의 키', () => {
       join(fx('basic'), 'inmonaco.txt'));
 
     // Monaco 가 실제로 설 때까지 기다린다 — addCommand 는 그 뒤에 걸린다.
-    await expect(page.locator('.file-editor .monaco-editor')).toHaveCount(1, { timeout: 30000 });
+    await expect(page.locator(`.file-editor ${ED_SEL.surface}`)).toHaveCount(1, { timeout: 30000 });
 
-    // 포커스는 Monaco 의 API 로 준다. 어느 요소가 입력을 받는지는 판마다 다르다 —
+    // 포커스는 엔진의 API 로 준다. 어느 요소가 입력을 받는지는 판마다 다르다 —
     // 0.56 은 textarea 가 아니라 EditContext(`div.native-edit-context`)를 쓴다.
     // 선택자를 박아 두면 판이 오를 때 조용히 깨진다.
     const focused = await page.evaluate((f) => {
@@ -460,8 +461,8 @@ test.describe('묶음 K — Monaco 안에서의 키', () => {
       const v = [...app.fileEditors.values()]
         // 꼬리를 그대로 견주지 않는다 — 구분자를 맞춘 뒤에 본다 (FR-CEM-11).
         .find((x: any) => String(x.filePath).replace(/\\/g, '/').endsWith(String(f).replace(/\\/g, '/'))) as any;
-      if (!v || !v._editor) return '';
-      v._editor.focus();
+      if (!v || !edT.has(v)) return '';
+      edT.focus(edT.of(v));
       const ae = document.activeElement as HTMLElement | null;
       return ae ? ae.tagName + '.' + (ae.className || '') : '';
     }, 'inmonaco.txt');

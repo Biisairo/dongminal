@@ -6,6 +6,7 @@ import { APIRequestContext, Page } from '@playwright/test';
 import {
   test, expect, rmTree, switchToEditorRoot, openExplorerSide, gotoWithEditors, openExplorerAt, enterExplorer,
 } from './fixtures';
+import { ED_SEL } from './editor';
 import { TMP, realPath, cssPath } from './osenv';
 
 // EXPLORER_ROOT_KEYS_SRS §5 — 검증 V-EXR-1~58.
@@ -470,9 +471,9 @@ test.describe('묶음 F — 탐색기의 키보드 길 (FR-EXR-50~57)', () => {
       await enterExplorer(page, request, root);
       // 편집기를 열어 Monaco 에 포커스를 준다.
       await row(page, j(root, 'a.txt')).dblclick();
-      await expect(page.locator('.monaco-editor').first()).toBeVisible({ timeout: 15000 });
-      await page.locator('.monaco-editor textarea').first().focus();
-      expect(await page.evaluate(() => !!document.activeElement?.closest('.monaco-editor'))).toBe(true);
+      await expect(page.locator(ED_SEL.surface).first()).toBeVisible({ timeout: 15000 });
+      await page.locator(`${ED_SEL.surface} ${ED_SEL.input}`).first().focus();
+      expect(await page.evaluate((s) => !!document.activeElement?.closest(s), ED_SEL.surface)).toBe(true);
 
       await row(page, j(root, 'b.txt')).click();
       // 포커스 복원은 다음 프레임이다 (FR-EXR-58 / `_restoreOwnFocus`) — 클릭이

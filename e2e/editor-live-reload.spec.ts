@@ -45,13 +45,13 @@ async function openFile(page: Page, saved: string, rel: string) {
     saved + '/' + rel);
   await page.waitForFunction((n: string) => {
     const eds = [...(window as any).app.fileEditors.values()];
-    return eds.some((e: any) => e._editor && e.name === n);
+    return eds.some((e: any) => edT.has(e) && e.name === n);
   }, rel, { timeout: 30000 });
 }
 
 const valueOf = (page: Page, name: string) => page.evaluate((n: string) => {
   const v: any = [...(window as any).app.fileEditors.values()].find((e: any) => e.name === n);
-  return v && v._editor ? v._editor.getValue() : '';
+  return v && edT.has(v) ? edT.text(edT.of(v)) : '';
 }, name);
 
 const dirtyOf = (page: Page, name: string) => page.evaluate((n: string) => {
@@ -61,14 +61,13 @@ const dirtyOf = (page: Page, name: string) => page.evaluate((n: string) => {
 
 const cursorOf = (page: Page, name: string) => page.evaluate((n: string) => {
   const v: any = [...(window as any).app.fileEditors.values()].find((e: any) => e.name === n);
-  const p = v && v._editor && v._editor.getPosition();
-  return p ? { line: p.lineNumber, col: p.column } : null;
+  return v && edT.has(v) ? edT.cursor(edT.of(v)) : null;
 }, name);
 
 async function putCursor(page: Page, name: string, line: number, col: number) {
   await page.evaluate(([n, l, c]: [string, number, number]) => {
     const v: any = [...(window as any).app.fileEditors.values()].find((e: any) => e.name === n);
-    v._editor.setPosition({ lineNumber: l, column: c });
+    edT.setCursor(edT.of(v), l, c);
   }, [name, line, col] as [string, number, number]);
 }
 
@@ -76,8 +75,7 @@ async function putCursor(page: Page, name: string, line: number, col: number) {
 async function typeInto(page: Page, name: string, text: string) {
   await page.evaluate(([n, t]: string[]) => {
     const v: any = [...(window as any).app.fileEditors.values()].find((e: any) => e.name === n);
-    const m = v._editor.getModel();
-    v._editor.executeEdits('test', [{ range: m.getFullModelRange(), text: t }]);
+    edT.replaceAll(edT.of(v), t);
   }, [name, text]);
   await expect.poll(() => dirtyOf(page, name)).toBe(true);
 }
@@ -216,7 +214,7 @@ test('V-ELR-8: 두 칸이 같은 파일을 볼 때 내용은 함께, 시선은 �
   }, edWin);
   await page.waitForFunction(() => {
     const es = [...(window as any).app.fileEditors.values()];
-    return es.length === 2 && es.every((e: any) => !!e._editor);
+    return es.length === 2 && es.every((e: any) => edT.has(e));
   }, undefined, { timeout: 20000 });
 
   const keys: string[] = await page.evaluate(
@@ -224,17 +222,16 @@ test('V-ELR-8: 두 칸이 같은 파일을 볼 때 내용은 함께, 시선은 �
   // 칸마다 다른 자리를 본다 — 하나가 다른 하나로 덮이면 검사가 그것을 본다.
   await page.evaluate(([ks, a, b]: [string[], number, number]) => {
     const app: any = (window as any).app;
-    app.fileEditors.get(ks[0])._editor.setPosition({ lineNumber: a, column: 2 });
-    app.fileEditors.get(ks[1])._editor.setPosition({ lineNumber: b, column: 5 });
+    edT.setCursor(edT.of(app.fileEditors.get(ks[0])), a, 2);
+    edT.setCursor(edT.of(app.fileEditors.get(ks[1])), b, 5);
   }, [keys, 12, 45] as [string[], number, number]);
 
   writeFileSync(join(root, 'h.txt'), LONG.replace('line 2\n', 'LINE TWO\n'));
 
   const valueIn = (k: string) => page.evaluate(
-    (key: string) => (window as any).app.fileEditors.get(key)._editor.getValue(), k);
+    (key: string) => edT.text(edT.of((window as any).app.fileEditors.get(key))), k);
   const posIn = (k: string) => page.evaluate((key: string) => {
-    const p = (window as any).app.fileEditors.get(key)._editor.getPosition();
-    return { line: p.lineNumber, col: p.column };
+    return edT.cursor(edT.of((window as any).app.fileEditors.get(key)));
   }, k);
 
   await expect.poll(() => valueIn(keys[0]), { timeout: POLL_WAIT }).toContain('LINE TWO');

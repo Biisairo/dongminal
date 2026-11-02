@@ -17,7 +17,7 @@ const buttons = (page: Page) => page.evaluate(() => {
   const out: { sel: string; kit: boolean; h: number; ring: string }[] = [];
   for (const el of Array.from(document.querySelectorAll<HTMLElement>('button'))) {
     // 벤더 표면은 우리 것이 아니다.
-    if (el.closest('.xterm') || el.closest('.monaco-editor')) continue;
+    if (el.closest('.xterm') || el.closest(edT.sel.surface)) continue;
     const r = el.getBoundingClientRect();
     if (!r.width || !r.height) continue;   // 안 보이는 것은 재지 않는다
     const cls = Array.from(el.classList);

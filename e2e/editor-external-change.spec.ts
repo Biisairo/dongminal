@@ -45,7 +45,7 @@ async function openFile(page: Page, saved: string, rel: string) {
     saved + '/' + rel);
   await page.waitForFunction((n: string) => {
     const eds = [...(window as any).app.fileEditors.values()];
-    return eds.some((e: any) => e._editor && e.name === n);
+    return eds.some((e: any) => edT.has(e) && e.name === n);
   }, rel, { timeout: 30000 });
 }
 
@@ -59,7 +59,7 @@ async function reopen(page: Page, saved: string, rel: string) {
 async function valueOf(page: Page, name: string): Promise<string> {
   return page.evaluate((n: string) => {
     const v: any = [...(window as any).app.fileEditors.values()].find((e: any) => e.name === n);
-    return v && v._editor ? v._editor.getValue() : '';
+    return v && edT.has(v) ? edT.text(edT.of(v)) : '';
   }, name);
 }
 
@@ -75,8 +75,7 @@ async function dirtyOf(page: Page, name: string): Promise<boolean> {
 async function typeInto(page: Page, name: string, text: string) {
   await page.evaluate(([n, t]: string[]) => {
     const v: any = [...(window as any).app.fileEditors.values()].find((e: any) => e.name === n);
-    const m = v._editor.getModel();
-    v._editor.executeEdits('test', [{ range: m.getFullModelRange(), text: t }]);
+    edT.replaceAll(edT.of(v), t);
   }, [name, text]);
   await expect.poll(() => dirtyOf(page, name)).toBe(true);
 }
@@ -101,7 +100,7 @@ test('V-EXC-2: 내용이 같으면 setValue 하지 않는다 — 커서가 그 �
 
     await page.evaluate(() => {
       const v: any = [...(window as any).app.fileEditors.values()].find((e: any) => e.name === 'b.txt');
-      v._editor.setPosition({ lineNumber: 3, column: 2 });
+      edT.setCursor(edT.of(v), 3, 2);
     });
     await reopen(page, saved, 'b.txt');
     // **예외 (`TEST-16`): 커서가 되돌아가지 **않음**을 잰다.** 다시 읽어 같은
@@ -109,8 +108,7 @@ test('V-EXC-2: 내용이 같으면 setValue 하지 않는다 — 커서가 그 �
     await page.waitForTimeout(1000);
     const pos = await page.evaluate(() => {
       const v: any = [...(window as any).app.fileEditors.values()].find((e: any) => e.name === 'b.txt');
-      const p = v._editor.getPosition();
-      return { line: p.lineNumber, col: p.column };
+      return edT.cursor(edT.of(v));
     });
     expect(pos).toEqual({ line: 3, col: 2 });
   });
@@ -265,8 +263,7 @@ test('V-EXC-13 (FR-EXC-14): 저장 왕복 중에 친 내용은 dirty 로 남는�
     await page.waitForTimeout(150);
     await page.evaluate(() => {
       const v: any = [...(window as any).app.fileEditors.values()].find((e: any) => e.name === 'a.txt');
-      const m = v._editor.getModel();
-      v._editor.executeEdits('test', [{ range: m.getFullModelRange(), text: 'LATER\n' }]);
+      edT.replaceAll(edT.of(v), 'LATER\n');
     });
 
     release!();

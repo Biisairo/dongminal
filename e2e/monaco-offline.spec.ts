@@ -6,6 +6,7 @@ import { Page } from '@playwright/test';
 import {
   test, expect, waitForInit, addEditorRoot, switchToEditorRoot, freshDir, rmTree,
 } from './fixtures';
+import { ED_SEL } from './editor';
 import { tmpPath, realPath } from './osenv';
 
 // MONACO_VENDORING_SRS §4.4 — TC-MVN-15·16·17.
@@ -60,14 +61,13 @@ test('TC-MVN-15: 인터넷 없이 편집기가 선다', async ({ page, request, 
   await switchToEditorRoot(page, key);
 
   await page.evaluate((f) => (window as any).app.testing.edOpenFile(f), join(root, 'sample.ts'));
-  await expect(page.locator('.file-editor .monaco-editor')).toHaveCount(1, { timeout: 30000 });
+  await expect(page.locator(`.file-editor ${ED_SEL.surface}`)).toHaveCount(1, { timeout: 30000 });
 
   // 떴다는 것과 **내용을 들고 있다**는 것은 다르다. 로더만 서고 모델이 비면
   // 사용자에게는 빈 편집기다.
   const text = await page.evaluate(() => {
-    const ed = (window as any).monaco.editor.getEditors()
-      .find((e: any) => e.getDomNode()?.closest('.file-editor'));
-    return ed?.getModel()?.getValue() ?? '';
+    const ed = edT.firstInFileEditor();
+    return ed ? edT.text(ed) : '';
   });
   expect(text).toContain('const a: number = 1;');
 
@@ -87,22 +87,15 @@ test('TC-MVN-16: 인터넷 없이 Diff 뷰가 선다', async ({ page, request, b
   await switchToEditorRoot(page, key);
 
   await page.evaluate((f) => (window as any).app.testing.edOpenFile(f), join(root, 'sample.ts'));
-  await expect(page.locator('.file-editor .monaco-editor')).toHaveCount(1, { timeout: 30000 });
+  await expect(page.locator(`.file-editor ${ED_SEL.surface}`)).toHaveCount(1, { timeout: 30000 });
 
   // Diff 편집기를 직접 세운다. 화면 경로(git 창)를 지나면 저장소 픽스처가 필요하고,
   // 여기서 재려는 것은 **Monaco 의 diff 진입점이 벤더본으로 서는가** 하나다.
   const ok = await page.evaluate(async () => {
-    const m = (window as any).monaco;
     const host = document.createElement('div');
     host.style.cssText = 'position:absolute;left:-9999px;width:400px;height:200px';
     document.body.appendChild(host);
-    const de = m.editor.createDiffEditor(host, { automaticLayout: false });
-    de.setModel({
-      original: m.editor.createModel('one\ntwo\n', 'plaintext'),
-      modified: m.editor.createModel('one\ntwo\nthree\n', 'plaintext'),
-    });
-    const mounted = !!host.querySelector('.monaco-diff-editor');
-    de.dispose();
+    const mounted = edT.probeDiff(host, 'one\ntwo\n', 'one\ntwo\nthree\n');
     host.remove();
     return mounted;
   });

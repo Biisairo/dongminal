@@ -5,6 +5,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, rmTree, switchToEditorRoot } from './fixtures';
+import { ED_SEL } from './editor';
 import { TMP, realPath, cssPath } from './osenv';
 
 // REPO_TAB_UNIFY_SRS §4 — diff 편집의 검증 V-RTU-50~56.
@@ -74,7 +75,7 @@ const row = (page: Page, group: string, p: string) =>
   page.locator(`#area .ed-side .git-group[data-group="${group}"] .git-file[data-path="${cssPath(p)}"]`);
 const diffTab = (page: Page) => page.locator('#area .ed-area .pn-tab[data-git-view="diff"]');
 const modified = (page: Page) =>
-  page.locator('#area .ed-area .git-diff .monaco-diff-editor .editor.modified');
+  page.locator(`#area .ed-area .git-diff ${ED_SEL.diffModified}`);
 
 test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
   test('D1 (V-RTU-50·54): unstaged 는 오른쪽이 편집 가능하다', async ({ page, request }) => {
@@ -119,7 +120,7 @@ test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
       // 오른쪽 모델을 고친다 — 타이핑과 같은 경로(onDidChangeContent)를 지난다.
       await page.evaluate(() => {
         const v = (window as any).app.gitPanel._diffView;
-        v._mod.setValue('one\ntwo\nedited-in-diff\n');
+        edT.diffSetText(v, 'one\ntwo\nedited-in-diff\n');
       });
       // FR-RTU-53: 저장되지 않은 변경이 탭 이름에 선다.
       await expect(diffTab(page)).toContainText('●', { timeout: 10000 });
@@ -139,13 +140,13 @@ test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
 
     await page.evaluate(() => {
       const v = (window as any).app.gitPanel._diffView;
-      v._mod.setValue('편집 중인 내용\n');
+      edT.diffSetText(v, '편집 중인 내용\n');
     });
     // **예외 (`TEST-16`)**: 관측 주기(1초)를 여러 번 넘긴다 — 덮였다면 이 사이에
     // 사라지므로, 그 창이 곧 검사다.
     await page.waitForTimeout(3000);
     const kept = await page.evaluate(() =>
-      (window as any).app.gitPanel._diffView._mod.getValue());
+      edT.diffText((window as any).app.gitPanel._diffView, 'mod'));
     expect(kept).toBe('편집 중인 내용\n');
   });
 
@@ -183,7 +184,7 @@ test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
         .toHaveText('M', { timeout: 20000 });
       await row(page, 'working', name).click();
       await expect(diffTab(page)).toHaveCount(1, { timeout: 15000 });
-      await expect(page.locator('#area .monaco-diff-editor'))
+      await expect(page.locator(`#area ${ED_SEL.diffSurface}`))
         .toContainText('second line', { timeout: 20000 });
 
       // ③ 같은 파일의 staged 행은 HEAD 에 왼쪽이 없다 (`A`) — 편집기다.
@@ -213,7 +214,7 @@ test.describe('묶음 E — 닫을 때의 확인 (FR-RTU-103)', () => {
 
       await page.evaluate(() => {
         const v = (window as any).app.gitPanel._diffView;
-        v._mod.setValue('one\ntwo\nabout-to-be-lost\n');
+        edT.diffSetText(v, 'one\ntwo\nabout-to-be-lost\n');
       });
       await expect(diffTab(page)).toContainText('●', { timeout: 10000 });
 
@@ -235,8 +236,10 @@ test.describe('묶음 E — 닫을 때의 확인 (FR-RTU-103)', () => {
 
       // **뷰가 살아 있다.** 확인이 `dropView` 뒤에 서면 이 값이 사라진다 —
       // 취소를 눌러도 편집이 돌아오지 않는 것이 그 결함이었다.
-      const kept = await page.evaluate(() =>
-        (window as any).app.gitPanel._diffView?._mod?.getValue() || '');
+      const kept = await page.evaluate(() => {
+        const v = (window as any).app.gitPanel._diffView;
+        return edT.diffHasMod(v) ? edT.diffText(v, 'mod') : '';
+      });
       expect(kept).toContain('about-to-be-lost');
 
       // 디스크는 아직 그대로다 — 취소는 저장이 아니다.
@@ -251,7 +254,7 @@ test.describe('묶음 E — 닫을 때의 확인 (FR-RTU-103)', () => {
     const mark = 'saved-on-close-' + Date.now();
     await page.evaluate((m) => {
       const v = (window as any).app.gitPanel._diffView;
-      v._mod.setValue('one\ntwo\n' + m + '\n');
+      edT.diffSetText(v, 'one\ntwo\n' + m + '\n');
     }, mark);
     await expect(diffTab(page)).toContainText('●', { timeout: 10000 });
 

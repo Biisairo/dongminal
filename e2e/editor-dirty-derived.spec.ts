@@ -30,7 +30,7 @@ async function openA(page: any) {
   }, fx()), { timeout: 15000 }).not.toBe('');
   await page.evaluate((f: string) => (window as any).app.testing.edOpenFile(f), join(fx(), 'a.txt'));
   await expect.poll(() => page.evaluate(() => [...(window as any).app.fileEditors.values()]
-    .some((v: any) => String(v.filePath).endsWith('a.txt') && !!v._editor)), { timeout: 30000 }).toBe(true);
+    .some((v: any) => String(v.filePath).endsWith('a.txt') && edT.has(v))), { timeout: 30000 }).toBe(true);
 }
 
 const label = (page: any) => page.locator('.pn-tab-label', { hasText: 'a.txt' }).first();
@@ -40,7 +40,7 @@ test('dirty ● 는 라벨에만 있고 워크스페이스 저장본에 없다',
   await openA(page);
   await page.evaluate(() => {
     const v = [...(window as any).app.fileEditors.values()].find((x: any) => String(x.filePath).endsWith('a.txt')) as any;
-    v._editor.setValue('B\n');
+    edT.setText(edT.of(v), 'B\n');
   });
   await expect(label(page)).toHaveText(/^● /);
   // 저장을 부른 뒤 서버 저장본을 본다.

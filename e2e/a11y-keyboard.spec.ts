@@ -4,6 +4,7 @@ import * as path from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, waitSettled, addEditor, rmTree, enterExplorer } from './fixtures';
+import { ED_SEL } from './editor';
 import { TMP, realPath } from './osenv';
 
 // ACCESSIBILITY_BASELINE_SRS §5.1 — TC-A11Y-6·7 (FR-A11Y-16·17 / M7 `UX-4`).
@@ -342,6 +343,6 @@ test.describe('접근성 — 탐색기의 키보드 (FR-A11Y-16·17 / UX-4)', ()
     await page.keyboard.press('Enter');
     const name = path.basename(opened.path!);
     await expect(page.locator('#area .pn-tab.active .pn-tab-label')).toHaveText(name, { timeout: 15000 });
-    await expect(page.locator('#area .monaco-editor').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator(`#area ${ED_SEL.surface}`).first()).toBeVisible({ timeout: 15000 });
   });
 });

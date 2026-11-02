@@ -11,6 +11,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
+import { ED_SEL } from './editor';
 import { TMP, realPath, cssPath } from './osenv';
 
 /**
@@ -68,7 +69,7 @@ async function openFile(page: Page, rel: string) {
   // (러너 실측). 절대경로를 통째로 견주되 구분자만 맞춘다 (FR-CEM-11).
   await page.waitForFunction((p) => {
     const v = (window as any).app.testing.edActiveEditor();
-    if (!v || !v._editor || v.el.offsetParent === null) return false;
+    if (!v || !edT.has(v) || v.el.offsetParent === null) return false;
     const key = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
     return key(v.filePath) === key(p);
   }, abs, { timeout: 20000 });
@@ -107,8 +108,8 @@ async function expectHoverGround(page: Page) {
     const path = v && v.filePath;
     return {
       path: path || null,
-      hasModel: !!(v && v._editor && v._editor.getModel()),
-      lang: (v && v._editor && v._editor.getModel() && v._editor.getModel().getLanguageId()) || null,
+      hasModel: !!(v && edT.has(v)),
+      lang: (v && edT.has(v) && edT.language(edT.of(v))) || null,
       root: path ? (a.testing.lspRootOfPath(path) || null) : null,
       roots: a.testing.edWindows().map((w: any) => (w.editor && w.editor.root) || null),
       // provider 가 실제로 걸렸는가. 이것이 비면 Monaco 는 아무에게도 묻지 않는다.
@@ -144,9 +145,9 @@ async function expectDefGround(page: Page) {
 // 커서를 그 자리에 둔다 — 요청이 싣는 좌표가 이것이다.
 async function putCursor(page: Page, line: number, col: number) {
   await page.evaluate(([l, c]) => {
-    const ed = (window as any).app.testing.edActiveEditor()._editor;
-    ed.setPosition({ lineNumber: l, column: c });
-    ed.focus();
+    const ed = edT.of((window as any).app.testing.edActiveEditor());
+    edT.setCursor(ed, l, c);
+    edT.focus(ed);
   }, [line, col] as const);
 }
 
@@ -175,14 +176,13 @@ const activePath = (page: Page) => page.evaluate(
 async function waitEditorAt(page: Page, abs: string) {
   await page.waitForFunction((p) => {
     const v = (window as any).app.testing.edActiveEditor();
-    if (!v || !v._editor) return false;
+    if (!v || !edT.has(v)) return false;
     const key = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
     return key(v.filePath) === key(p);
   }, abs, { timeout: 20000 });
 }
 const cursor = (page: Page) => page.evaluate(() => {
-  const p = (window as any).app.testing.edActiveEditor()._editor.getPosition();
-  return { line: p.lineNumber, col: p.column };
+  return edT.cursor(edT.of((window as any).app.testing.edActiveEditor()));
 });
 const note = (page: Page) => page.locator('.file-editor:visible .fe-note.vis');
 
@@ -246,8 +246,7 @@ test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
     // 없다 — `getAction` 은 `null` 을 준다(실측). 커맨드클릭도 같은 명령 서비스를
     // 지나므로 판정은 같다.
     await page.evaluate(() => {
-      const ed = (window as any).app.testing.edActiveEditor()._editor;
-      ed.trigger('e2e', 'editor.action.revealDefinition', {});
+      edT.goToDefinition(edT.of((window as any).app.testing.edActiveEditor()));
     });
 
     // FR-LSP-63: 다른 파일은 **우리 탭 시스템**으로 열린다.
@@ -281,10 +280,8 @@ test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
 
     // `helper()` 의 한가운데 (4행 5열) 화면 좌표.
     const at = await page.evaluate(() => {
-      const ed = (window as any).app.testing.edActiveEditor()._editor;
-      const p = ed.getScrolledVisiblePosition({ lineNumber: 4, column: 5 });
-      const r = ed.getDomNode().getBoundingClientRect();
-      return { x: r.left + p.left + 2, y: r.top + p.top + p.height / 2 };
+      const p = edT.coords(edT.of((window as any).app.testing.edActiveEditor()), 4, 5);
+      return { x: p.left + 2, y: p.top + p.height / 2 };
     });
 
     const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
@@ -443,11 +440,10 @@ test.describe('코드 탐색 — 호버 (M3)', () => {
     // 포커스를 쥐어야** 그 명령이 선다: `focus()` 만으로는 부족한 처지가 있어
     // 화면을 한 번 누른다.
     await expectHoverGround(page);
-    await page.locator('.file-editor.vis .monaco-editor').first().click();
+    await page.locator(`.file-editor.vis ${ED_SEL.surface}`).first().click();
     await putCursor(page, 4, 3);
     await page.evaluate(() => {
-      const ed = (window as any).app.testing.edActiveEditor()._editor;
-      ed.trigger('test', 'editor.action.showHover', null);
+      edT.showHover(edT.of((window as any).app.testing.edActiveEditor()));
     });
 
     // **물었는가를 먼저 본다.** 말풍선의 글자를 먼저 재면, 요청이 아예 가지 않은
@@ -455,7 +451,7 @@ test.describe('코드 탐색 — 호버 (M3)', () => {
     // 자리가 다르다 (FR-LSP-23 / D-3: 호버도 현재 텍스트를 싣는다).
     await expect.poll(() => seen.length, { timeout: 10000 }).toBeGreaterThan(0);
 
-    await expect(page.locator('.monaco-editor .monaco-hover').first())
+    await expect(page.locator(`${ED_SEL.surface} ${ED_SEL.hover}`).first())
       .toContainText('func helper()', { timeout: 10000 });
     expect(seen[0].text).toContain('func main()');
     expect(seen[0].root).toBe(ROOT);
@@ -476,8 +472,7 @@ test.describe('코드 탐색 — 호버 (M3)', () => {
     await expectHoverGround(page);
     await putCursor(page, 2, 1);
     await page.evaluate(() => {
-      const ed = (window as any).app.testing.edActiveEditor()._editor;
-      ed.trigger('test', 'editor.action.showHover', null);
+      edT.showHover(edT.of((window as any).app.testing.edActiveEditor()));
     });
     await page.waitForTimeout(800);
     // 알림 줄도 뜨지 않는다 — 마우스를 움직일 때마다 사유가 뜨면 고장이다.
@@ -503,15 +498,14 @@ test.describe('코드 탐색 — 호버 (M3)', () => {
     });
 
     await expectHoverGround(page);
-    await page.locator('.file-editor.vis .monaco-editor').first().click();
+    await page.locator(`.file-editor.vis ${ED_SEL.surface}`).first().click();
     await putCursor(page, 4, 3);
     await page.evaluate(() => {
-      const ed = (window as any).app.testing.edActiveEditor()._editor;
-      ed.trigger('test', 'editor.action.showHover', null);
+      edT.showHover(edT.of((window as any).app.testing.edActiveEditor()));
     });
     // 물었는가를 먼저 본다 (위 검사와 같은 근거).
     await expect.poll(() => calls, { timeout: 10000 }).toBeGreaterThan(0);
-    await expect(page.locator('.monaco-editor .monaco-hover').first())
+    await expect(page.locator(`${ED_SEL.surface} ${ED_SEL.hover}`).first())
       .toContainText('func helper()', { timeout: 10000 });
     await page.waitForTimeout(500);
     expect(calls, `호버 요청이 ${calls} 번 나갔다 — provider 가 여러 번 등록됐다`).toBe(1);
@@ -541,12 +535,11 @@ test.describe('코드 탐색 — 텍스트 생략 (OPTIMIZE_REFACTOR_SRS FR-OPT-
     });
 
     await expectHoverGround(page);
-    await page.locator('.file-editor.vis .monaco-editor').first().click();
+    await page.locator(`.file-editor.vis ${ED_SEL.surface}`).first().click();
     const show = async (n: number) => {
       await putCursor(page, 4, 3 + (n % 2));
       await page.evaluate(() => {
-        const ed = (window as any).app.testing.edActiveEditor()._editor;
-        ed.trigger('test', 'editor.action.showHover', null);
+        edT.showHover(edT.of((window as any).app.testing.edActiveEditor()));
       });
     };
     await show(0);
@@ -566,7 +559,7 @@ test.describe('코드 탐색 — 텍스트 생략 (OPTIMIZE_REFACTOR_SRS FR-OPT-
     await expect.poll(() => seen.length, { timeout: 10000 }).toBe(4);
     expect('text' in seen[2]).toBe(false);
     expect(seen[3].text, 'needText 뒤에 전문을 싣지 않았다').toContain('func main()');
-    await expect(page.locator('.monaco-editor .monaco-hover').first())
+    await expect(page.locator(`${ED_SEL.surface} ${ED_SEL.hover}`).first())
       .toContainText('func helper()', { timeout: 10000 });
   });
 });
@@ -580,10 +573,8 @@ test.describe('코드 탐색 — 진단 (M4)', () => {
 
   const markers = (page: Page) => page.evaluate(() => {
     const v = (window as any).app.testing.edActiveEditor();
-    const model = v?._editor?.getModel();
-    if (!model) return [];
-    return (window as any).monaco.editor.getModelMarkers({ resource: model.uri })
-      .map((m: any) => ({ line: m.startLineNumber, sev: m.severity, msg: m.message }));
+    const h = edT.of(v);
+    return h ? edT.diagnostics(h) : [];
   });
 
   // V-LSP-17 · FR-LSP-32·33·34
@@ -599,8 +590,8 @@ test.describe('코드 탐색 — 진단 (M4)', () => {
     const got = await markers(page);
     // LSP 의 1=에러는 Monaco 의 8 이고, 2=경고는 4 다 — 숫자가 겹치므로 표 없이
     // 넘기면 조용히 뒤바뀐다.
-    expect(got.find((m: any) => m.line === 4)?.sev).toBe(8);
-    expect(got.find((m: any) => m.line === 3)?.sev).toBe(4);
+    expect(got.find((m: any) => m.line === 4)?.sev).toBe('error');
+    expect(got.find((m: any) => m.line === 3)?.sev).toBe('warning');
 
     // 갱신이 앞선 것을 **덮는다** — owner 가 하나이므로 겹쳐 남지 않는다.
     await push(page, P('main.go'), [

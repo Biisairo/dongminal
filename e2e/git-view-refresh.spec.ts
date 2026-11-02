@@ -7,6 +7,7 @@ import { Page } from '@playwright/test';
 import {
   test, expect, waitForInit, GIT_VIEW_TABS, openGit, clickGitView, gitFixture, cleanGitFixture, copyDir, rmTree, freshDir, makeCopyFx, nextFrames,
 } from './fixtures';
+import { ED_SEL } from './editor';
 import { TMP, tmpPath, realPath } from './osenv';
 
 // GIT_VIEW_REFRESH_SRS §4 — 쓰기 뒤 뷰 갱신. 검증 V-GVR-1~8.
@@ -608,13 +609,13 @@ test('V-GLV-1 (FR-GLV-1·2): 열어 둔 diff 가 파일 수정을 따라온다',
     const row = document.querySelector('#area .ed-side .git-file[data-path="tracked.txt"]') as HTMLElement;
     if (row) row.click();
   });
-  await expect(page.locator('#area .pn-body .git-view.git-diff .monaco-diff-editor'))
+  await expect(page.locator(`#area .pn-body .git-view.git-diff ${ED_SEL.diffSurface}`))
     .toBeVisible({ timeout: 30000 });
 
   const seen = async () => page.evaluate(() => {
     const p = (window as any).app.gitPanel;
     const v = p && p._diffView;
-    return v && v._mod ? v._mod.getValue() : '';
+    return edT.diffHasMod(v) ? edT.diffText(v, 'mod') : '';
   });
   await expect.poll(seen, { timeout: 20000 }).toContain('two');
 

@@ -14,6 +14,7 @@ import {
   test, expect, rmTree, switchToEditorRoot, openExplorerSide, waitSettled,
   enterDocRoot, openDocFile,
 } from './fixtures';
+import { ED_SEL } from './editor';
 import { TMP, realPath } from './osenv';
 
 const j = (...p: string[]) => path.join(...p);
@@ -106,7 +107,7 @@ async function enter(page: Page, request: APIRequestContext) {
 // DOM 에 남으므로 **보이는 것**을 센다.
 async function openFile(page: Page, name: string) {
   await page.locator('.ed-tree .ed-row', { hasText: name }).first().click();
-  await expect(page.locator('.pn-body .file-editor.vis .monaco-editor').first())
+  await expect(page.locator(`.pn-body .file-editor.vis ${ED_SEL.surface}`).first())
     .toBeVisible({ timeout: 20000 });
 }
 
@@ -133,7 +134,7 @@ test.describe('문서 렌더 뷰', () => {
     await expect(page.locator('#area .pn')).toHaveCount(2);
     await expect(page.locator(RENDER_BODY)).toBeVisible({ timeout: 15000 });
     // 소스도 여전히 보인다 — 대체가 아니라 나란히다.
-    await expect(page.locator('.file-editor.vis .monaco-editor').first()).toBeVisible();
+    await expect(page.locator(`.file-editor.vis ${ED_SEL.surface}`).first()).toBeVisible();
     const kinds = await page.evaluate(() => {
       const a = (window as any).app;
       const out: any[] = [];
@@ -170,8 +171,8 @@ test.describe('문서 렌더 뷰', () => {
     await expect(page.locator(RENDER_BODY)).toBeVisible({ timeout: 15000 });
     await page.evaluate(() => {
       const a = (window as any).app;
-      const v = [...a.fileEditors.values()].find((x: any) => x._editor);
-      v._editor.setValue('# 방금 쓴 제목\n');
+      const v = [...a.fileEditors.values()].find((x: any) => edT.has(x));
+      edT.setText(edT.of(v), '# 방금 쓴 제목\n');
     });
     await expect(page.locator(RENDER_BODY + ' h1')).toHaveText('방금 쓴 제목', { timeout: 15000 });
   });
@@ -272,8 +273,8 @@ test.describe('문서 렌더 뷰', () => {
       .toContainText('20×10', { timeout: 15000 });
     await page.evaluate(() => {
       const a = (window as any).app;
-      const v = [...a.fileEditors.values()].find((x: any) => x._editor);
-      v._editor.setValue('<svg xmlns="http://www.w3.org/2000/svg" width="7" height="3"></svg>');
+      const v = [...a.fileEditors.values()].find((x: any) => edT.has(x));
+      edT.setText(edT.of(v), '<svg xmlns="http://www.w3.org/2000/svg" width="7" height="3"></svg>');
     });
     await expect(page.locator('.doc-render.vis .dr-svg-meta'))
       .toContainText('7×3', { timeout: 15000 });
@@ -385,8 +386,8 @@ test.describe('문서 렌더 뷰', () => {
     // 소스를 아래로 옮긴다 — 렌더가 그 줄의 블록으로 따라와야 한다.
     await page.evaluate(() => {
       const a = (window as any).app;
-      const v = [...a.fileEditors.values()].find((x: any) => x._editor);
-      v._editor.revealLineNearTop(70);
+      const v = [...a.fileEditors.values()].find((x: any) => edT.has(x));
+      edT.revealLineNearTop(edT.of(v), 70);
     });
     await expect.poll(async () =>
       page.locator(RENDER_BODY).evaluate((el) => el.scrollTop),
@@ -484,7 +485,7 @@ test.describe('문서 렌더 뷰', () => {
     await expect(page.locator(RENDER_BODY)).toBeVisible({ timeout: 15000 });
     const dirty = await page.evaluate(() => {
       const a = (window as any).app;
-      return [...a.fileEditors.values()].some((v: any) => v._dirty && !v._editor);
+      return [...a.fileEditors.values()].some((v: any) => v._dirty && !edT.has(v));
     });
     expect(dirty).toBeFalsy();
   });
@@ -512,7 +513,7 @@ test.describe('묶음 DRB — 미리보기 버튼 (FR-DRB-1~3a)', () => {
     await expect(btn).toHaveText('미리보기');
     const look = await page.evaluate(() => {
       const v = [...(window as any).app.fileEditors.values()]
-        .find((e: any) => e._editor && e.name === 'doc.md') as any;
+        .find((e: any) => edT.has(e) && e.name === 'doc.md') as any;
       const b = v.el.querySelector('.fe-render') as HTMLElement;
       const cs = getComputedStyle(b);
       const r = b.getBoundingClientRect();
@@ -521,7 +522,7 @@ test.describe('묶음 DRB — 미리보기 버튼 (FR-DRB-1~3a)', () => {
         w: r.width, opacity: parseFloat(cs.opacity), scroll: b.scrollWidth,
         // FR-DRB-3: 미니맵의 왼쪽 변보다 앞에 선다 — 그것이 "가리지 않는다" 의 뜻이다.
         right: Math.round(r.right - box.left),
-        minimapLeft: v._editor.getLayoutInfo().minimap.minimapLeft,
+        minimapLeft: edT.minimapLeft(edT.of(v)),
         // FR-DRB-3 (U-2): 자리는 **아래쪽**이다. 위쪽 띠는 찾기·알림·제안이 나눠 쓴다.
         top: Math.round(r.top - box.top),
         boxH: Math.round(box.height),

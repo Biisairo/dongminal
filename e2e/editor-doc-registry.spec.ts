@@ -39,7 +39,7 @@ async function enter(page: any) {
 async function open(page: any, name: string) {
   await page.evaluate((f: string) => (window as any).app.testing.edOpenFile(f), P(name));
   await expect.poll(() => page.evaluate((n: string) => [...(window as any).app.fileEditors.values()]
-    .some((v: any) => String(v.filePath).endsWith(n) && !!v._editor), name), { timeout: 30000 }).toBe(true);
+    .some((v: any) => String(v.filePath).endsWith(n) && edT.has(v)), name), { timeout: 30000 }).toBe(true);
 }
 
 const doc = (name: string) => `window.app.testing.edDocs.get(${JSON.stringify(P(name))})`;
@@ -53,43 +53,42 @@ test('refresh 응답 도착 전의 편집은 덮이지 않는다', async ({ page
   await page.route('**/api/file/read*', async (route: any) => { await held; await route.continue() });
   writeFileSync(join(ROOT, 'r.txt'), 'DISK\n');
   await page.evaluate((p: string) => { (window as any).__r = (window as any).app.edDocRefresh(p) }, P('r.txt'));
-  await page.evaluate((s: string) => { eval(s).model.setValue('MINE\n') }, doc('r.txt'));
+  await page.evaluate((s: string) => { edT.docSetText(eval(s), 'MINE\n') }, doc('r.txt'));
   release();
   expect(await page.evaluate(() => (window as any).__r)).toBe(false);
-  expect(await page.evaluate((s: string) => eval(s).model.getValue(), doc('r.txt'))).toBe('MINE\n');
+  expect(await page.evaluate((s: string) => edT.docText(eval(s)), doc('r.txt'))).toBe('MINE\n');
   await page.unroute('**/api/file/read*');
 });
 
 // #9: 어느 문서에도 속하지 않는 같은 URI 모델(고아)은 다시 열 때 쓰이지 않는다.
 test('고아 모델을 재사용하지 않는다', async ({ page }) => {
   await enter(page);
-  await open(page, 'm.txt'); // Monaco 를 싣는다
+  await open(page, 'm.txt'); // 편집 엔진을 싣는다
   await page.evaluate((p: string) => {
-    const m = (window as any).monaco;
-    m.editor.createModel('STALE\n', 'plaintext', m.Uri.file(p));
+    edT.plantOrphanDoc(p, 'STALE\n');
   }, P('o.txt'));
   await open(page, 'o.txt');
-  expect(await page.evaluate((s: string) => eval(s).model.getValue(), doc('o.txt'))).toBe('o.txt-0\n');
+  expect(await page.evaluate((s: string) => edT.docText(eval(s)), doc('o.txt'))).toBe('o.txt-0\n');
 });
 
 // E-5: 이동은 새 URI 모델로 — 내용·dirty 보존, undo 소실, 옛 모델 해제.
 test('edDocMove: 새 URI 모델, 내용·dirty 보존, undo 소실', async ({ page }) => {
   await enter(page);
   await open(page, 'm.txt');
-  await page.evaluate((s: string) => { eval(s).model.setValue('EDITED\n') }, doc('m.txt'));
+  await page.evaluate((s: string) => { edT.docSetText(eval(s), 'EDITED\n') }, doc('m.txt'));
   renameSync(join(ROOT, 'm.txt'), join(ROOT, 'm2.txt'));
   await page.evaluate(({ a, b }: any) => (window as any).app.edRetargetTabs(a, b), { a: P('m.txt'), b: P('m2.txt') });
   const got = await page.evaluate(({ a, b }: any) => {
-    const app = (window as any).app, m = (window as any).monaco;
+    const app = (window as any).app;
     const d = app.testing.edDocs.get(b);
     return {
       moved: !!d && !app.testing.edDocs.get(a),
-      uri: d && d.model.uri.fsPath,
-      text: d && d.model.getValue(),
+      uri: d && edT.docPath(d),
+      text: d && edT.docText(d),
       dirty: d && d.dirty,
-      canUndo: d && d.model.canUndo ? d.model.canUndo() : null,
-      old: !!m.editor.getModel(m.Uri.file(a)),
-      view: [...app.fileEditors.values()].some((v: any) => v.filePath === b && v._editor.getModel() === d.model),
+      canUndo: d ? edT.docCanUndo(d) : null,
+      old: edT.docAlive(a),
+      view: [...app.fileEditors.values()].some((v: any) => v.filePath === b && edT.docBoundTo(d, edT.of(v))),
     };
   }, { a: P('m.txt'), b: P('m2.txt') });
   expect(got).toMatchObject({ moved: true, text: 'EDITED\n', dirty: true, old: false, view: true });
@@ -104,11 +103,10 @@ test('undo 로 되돌리면 dirty 가 풀린다', async ({ page }) => {
   await enter(page);
   await open(page, 'u.txt');
   await page.evaluate((s: string) => {
-    const m = eval(s).model;
-    m.pushEditOperations([], [{ range: m.getFullModelRange(), text: 'X\n' }], () => null);
+    edT.docEdit(eval(s), 'X\n');
   }, doc('u.txt'));
   expect(await page.evaluate((s: string) => eval(s).dirty, doc('u.txt'))).toBe(true);
-  await page.evaluate((s: string) => { eval(s).model.undo() }, doc('u.txt'));
+  await page.evaluate((s: string) => { edT.docUndo(eval(s)) }, doc('u.txt'));
   expect(await page.evaluate((s: string) => eval(s).dirty, doc('u.txt'))).toBe(false);
 });
 
@@ -120,11 +118,11 @@ test('저장 진행 중 재저장은 대기 후 한 번 더 저장한다', async
   const held = new Promise<void>((r) => { release = r });
   let writes = 0;
   await page.route('**/api/file/write', async (route: any) => { writes++; if (writes === 1) await held; await route.continue() });
-  await page.evaluate((s: string) => { eval(s).model.setValue('ONE\n') }, doc('q.txt'));
+  await page.evaluate((s: string) => { edT.docSetText(eval(s), 'ONE\n') }, doc('q.txt'));
   await page.evaluate((p: string) => {
     const v = [...(window as any).app.fileEditors.values()].find((x: any) => x.filePath === p) as any;
     (window as any).__s1 = v.save();
-    v._editor.getModel().setValue('TWO\n');
+    edT.setText(edT.of(v), 'TWO\n');
     (window as any).__s2 = v.save();
     (window as any).__s3 = v.save();
   }, P('q.txt'));
@@ -164,6 +162,6 @@ test('렌더 탭만 남은 문서도 외부 변경을 문서 단위로 반영한
   writeFileSync(join(ROOT, 'd.md'), '# new\n');
   await expect.poll(async () => {
     await page.evaluate(() => (window as any).app.edPollDocStamps());
-    return page.evaluate((s: string) => eval(s).model.getValue(), doc('d.md'));
+    return page.evaluate((s: string) => edT.docText(eval(s)), doc('d.md'));
   }, { timeout: 15000 }).toBe('# new\n');
 });

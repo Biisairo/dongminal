@@ -37,14 +37,14 @@ async function open(page: any, name: string) {
   await page.evaluate((f: string) => (window as any).app.testing.edOpenFile(f), P(name));
   await expect.poll(() => page.evaluate((f: string) => {
     const v = (window as any).app.testing.edActiveEditor();
-    return !!(v && v.filePath === f && v._editor);
+    return !!(v && v.filePath === f && edT.has(v));
   }, P(name)), { timeout: 30000 }).toBe(true);
   await page.evaluate(() => (window as any).app.updateStatusBar());
 }
 
 const encItem = (page: any) => page.locator('#sb-items .sb-enc');
-const model = (page: any, f: string) => page.evaluate((p: string) => (window as any).app.testing.edDocs.get(p).model.getValue(), f);
-const setText = (page: any, f: string, s: string) => page.evaluate(({ p, s }: any) => (window as any).app.testing.edDocs.get(p).model.setValue(s), { p: f, s });
+const model = (page: any, f: string) => page.evaluate((p: string) => edT.docText((window as any).app.testing.edDocs.get(p)), f);
+const setText = (page: any, f: string, s: string) => page.evaluate(({ p, s }: any) => edT.docSetText((window as any).app.testing.edDocs.get(p), s), { p: f, s });
 const save = (page: any) => page.evaluate(() => (window as any).app.testing.edActiveEditor().save());
 
 test('CP949 파일: 상태바 표시, 편집·저장 뒤 CP949 바이트 보존', async ({ page }) => {
@@ -114,5 +114,5 @@ test('어느 인코딩으로도 풀리지 않으면 읽기 전용', async ({ pag
   await enter(page);
   await open(page, 'bad.txt');
   await expect(encItem(page)).toContainText('읽기 전용');
-  expect(await page.evaluate(() => (window as any).app.testing.edActiveEditor()._editor.getOption((window as any).monaco.editor.EditorOption.readOnly))).toBe(true);
+  expect(await page.evaluate(() => edT.option(edT.of((window as any).app.testing.edActiveEditor()), 'readOnly'))).toBe(true);
 });

@@ -6,6 +6,7 @@ import { test as base, expect } from '@playwright/test';
 
 import { E2E_BIN, E2E_HOME, E2E_PORT0 } from '../playwright.config';
 import { stopDaemon } from './daemon-cleanup';
+import { ED_SEL, installEdAdapter } from './editor';
 import { realPath } from './osenv';
 
 
@@ -211,6 +212,14 @@ function hermeticEnv(): NodeJS.ProcessEnv {
 const pageEnvAtOpen = new WeakMap<any, any>();
 
 export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
+  /**
+   * 편집기 접근 어댑터 `edT` 를 모든 페이지에 심는다 (CODEMIRROR_MIGRATION_SRS FR-CMR-120).
+   * 엔진을 아는 e2e 코드는 `editor.ts` 하나이고, 스펙은 `edT` 만 부른다.
+   */
+  context: async ({ context }, use) => {
+    await context.addInitScript(installEdAdapter, ED_SEL);
+    await use(context);
+  },
   /**
    * 이 워커의 서버를 띄우고, 워커가 끝날 때 서버와 **데몬**을 함께 세운다
    * (FR-EPL-1·4·5).
@@ -1134,13 +1143,13 @@ export async function enterDocRoot(page: any, request: any, base: string, name: 
   return saved;
 }
 
-/** `doc.md` 를 열고 **Monaco 가 실제로 설 때까지** 기다린다 (`TEST-7`). */
+/** `doc.md` 를 열고 **편집기가 실제로 설 때까지** 기다린다 (`TEST-7`). */
 export async function openDocFile(page: any, root: string) {
   await page.evaluate((p: string) => (window as any).app.testing.edOpenFile(p, { pin: true }),
     root + '/doc.md');
   await page.waitForFunction(() => {
     const eds = [...(window as any).app.fileEditors.values()];
-    return eds.some((e: any) => e._editor && e.name === 'doc.md');
+    return eds.some((e: any) => edT.has(e) && e.name === 'doc.md');
   }, undefined, { timeout: 30000 });
 }
 
@@ -1148,8 +1157,8 @@ export async function openDocFile(page: any, root: string) {
 export async function makeDocDirty(page: any, text = 'ZZ') {
   await page.evaluate((t: string) => {
     const v = [...(window as any).app.fileEditors.values()]
-      .find((e: any) => e._editor && e.name === 'doc.md') as any;
-    v._editor.executeEdits('spec', [{ range: new (window as any).monaco.Range(1, 1, 1, 1), text: t }]);
+      .find((e: any) => edT.has(e) && e.name === 'doc.md') as any;
+    edT.insert(edT.of(v), 1, 1, t);
   }, text);
   await page.waitForFunction(
     () => [...(window as any).app.fileEditors.values()].some((e: any) => e._dirty),

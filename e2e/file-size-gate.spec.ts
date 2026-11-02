@@ -48,7 +48,7 @@ test('TC-FAB-17: 상한을 넘는 텍스트 파일은 Monaco 를 세우지 않�
   const built = await page.evaluate(() => {
     const v = [...(window as any).app.fileEditors.values()]
       .find((e: any) => e.name === 'big.txt') as any;
-    return { hasEditor: !!(v && v._editor), dl: !!(v && v.el.querySelector('.fe-unsup-dl')) };
+    return { hasEditor: !!(v && edT.has(v)), dl: !!(v && v.el.querySelector('.fe-unsup-dl')) };
   });
   expect(built.hasEditor, 'Monaco 가 섰다 — 게이트를 지나쳤다').toBe(false);
   // 막기만 하면 사용자는 그 파일을 어떻게 보는지 모른 채 남는다 (FR-FAB-9).
@@ -59,6 +59,6 @@ test('TC-FAB-17: 상한을 넘는 텍스트 파일은 Monaco 를 세우지 않�
     saved + '/small.txt');
   await page.waitForFunction(() => {
     const eds = [...(window as any).app.fileEditors.values()];
-    return eds.some((e: any) => e._editor && e.name === 'small.txt');
+    return eds.some((e: any) => edT.has(e) && e.name === 'small.txt');
   }, undefined, { timeout: 30000 });
 });

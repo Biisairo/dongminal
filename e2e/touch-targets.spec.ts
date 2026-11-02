@@ -18,6 +18,7 @@
 import { Page } from '@playwright/test';
 
 import { test, expect, waitSettled } from './fixtures';
+import { ED_SEL } from './editor';
 
 /** iPhone 14 급. 폭이 좁을수록 하한이 아프다. */
 const MOBILE = { width: 390, height: 844 };
@@ -36,7 +37,7 @@ const POINTER_ONLY = ['.sbl-x', '.pn-tab-x'];
 const WIDTH_EXEMPT = ['.mkb-btn', '.pn-tab-x'];
 
 /** §6 E-1·E-2 — 벤더 표면. 그 안의 DOM 은 벤더가 소유한다. */
-const VENDOR = ['.xterm', '.monaco-editor'];
+const VENDOR = ['.xterm', ED_SEL.surface];
 
 type Small = { at: string; w: number; h: number };
 

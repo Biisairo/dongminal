@@ -15,6 +15,7 @@ import { APIRequestContext, Page } from '@playwright/test';
 import {
   test, expect, rmTree, switchToEditorRoot, openExplorerSide, waitSettled, waitForInit, openGit, gitFixture, cleanGitFixture, makeCopyFx, nextFrames,
 } from './fixtures';
+import { ED_SEL } from './editor';
 import { TMP, realPath, tmpPath } from './osenv';
 
 const j = (...p: string[]) => path.join(...p);
@@ -56,7 +57,7 @@ async function enter(page: Page, request: APIRequestContext) {
 /** 파일을 **고정 탭**으로 연다 — 한 번 클릭은 미리보기 탭이라 다음 파일이 그 자리를 뺏는다. */
 async function openPinned(page: Page, name: string) {
   await page.locator('.ed-tree .ed-row', { hasText: name }).first().dblclick();
-  await expect(page.locator('.pn-body .file-editor.vis .monaco-editor').first())
+  await expect(page.locator(`.pn-body .file-editor.vis ${ED_SEL.surface}`).first())
     .toBeVisible({ timeout: 20000 });
   await expect.poll(async () => await edScroll(page, name), { timeout: 20000 })
     .toBeGreaterThanOrEqual(0);
@@ -70,7 +71,7 @@ function edScroll(page: Page, name: string): Promise<number> {
   return page.evaluate((n) => {
     const a = (window as any).app;
     for (const v of a.fileEditors.values()) {
-      if (v && v._editor && String(v.filePath || '').endsWith(n)) return v._editor.getScrollTop();
+      if (v && edT.has(v) && String(v.filePath || '').endsWith(n)) return edT.scrollTop(edT.of(v));
     }
     return -1;
   }, name);
@@ -80,7 +81,7 @@ async function edScrollTo(page: Page, name: string, top: number) {
   await page.evaluate(({ n, t }) => {
     const a = (window as any).app;
     for (const v of a.fileEditors.values()) {
-      if (v && v._editor && String(v.filePath || '').endsWith(n)) v._editor.setScrollTop(t);
+      if (v && edT.has(v) && String(v.filePath || '').endsWith(n)) edT.setScrollTop(edT.of(v), t);
     }
   }, { n: name, t: top });
   await expect.poll(async () => await edScroll(page, name), { timeout: 10000 }).toBe(top);
@@ -91,7 +92,7 @@ async function roundTrip(page: Page, away: string, back: string) {
   await tab(page, away).click();
   await expect(page.locator(`.pn-body .file-editor.vis`).first()).toBeVisible({ timeout: 10000 });
   await tab(page, back).click();
-  await expect(page.locator('.pn-body .file-editor.vis .monaco-editor').first())
+  await expect(page.locator(`.pn-body .file-editor.vis ${ED_SEL.surface}`).first())
     .toBeVisible({ timeout: 10000 });
 }
 
@@ -122,8 +123,8 @@ test.describe('시선 보존', () => {
     await page.evaluate(() => {
       const a = (window as any).app;
       for (const v of a.fileEditors.values()) {
-        if (v && v._editor && String(v.filePath || '').endsWith('long.txt')) {
-          v._editor.setPosition({ lineNumber: 90, column: 2 });
+        if (v && edT.has(v) && String(v.filePath || '').endsWith('long.txt')) {
+          edT.setCursor(edT.of(v), 90, 2);
         }
       }
     });
@@ -134,8 +135,8 @@ test.describe('시선 보존', () => {
     const ln = await page.evaluate(() => {
       const a = (window as any).app;
       for (const v of a.fileEditors.values()) {
-        if (v && v._editor && String(v.filePath || '').endsWith('long.txt')) {
-          return v._editor.getPosition().lineNumber;
+        if (v && edT.has(v) && String(v.filePath || '').endsWith('long.txt')) {
+          return edT.cursor(edT.of(v)).line;
         }
       }
       return -1;
@@ -170,7 +171,7 @@ test.describe('시선 보존', () => {
     // 창을 주고 돌아온다 — 기다릴 신호가 없다.
     await page.waitForTimeout(1800);
     await tab(page, 'long.txt').click();
-    await expect(page.locator('.pn-body .file-editor.vis .monaco-editor').first())
+    await expect(page.locator(`.pn-body .file-editor.vis ${ED_SEL.surface}`).first())
       .toBeVisible({ timeout: 10000 });
     expect(await edScroll(page, 'long.txt')).toBe(1300);
   });

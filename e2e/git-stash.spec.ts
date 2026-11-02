@@ -5,6 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, GIT_VIEW_TABS, clickGitView, openRowMenu, gitFixture, cleanGitFixture } from './fixtures';
+import { ED_SEL } from './editor';
 import { tmpPath } from './osenv';
 
 // GIT_M5_STEP1821_CONTRACT §2 — Stash 탭. 검증 V56~V58 · V69.
@@ -272,7 +273,7 @@ test.describe('19단계 — Stash 탭', () => {
     await expect(diff(page).locator('.git-diff-rev')).toContainText('commit ↔ parent');
     await expect(diff(page).locator('.git-diff-rev')).toContainText('stash@{1}');
     await expect(diff(page).locator('.git-diff-path')).toContainText('f.txt');
-    await expect(diff(page).locator('.git-diff-body .monaco-diff-editor'))
+    await expect(diff(page).locator(`.git-diff-body ${ED_SEL.diffSurface}`))
       .toHaveCount(1, { timeout: 30000 });
   });
 

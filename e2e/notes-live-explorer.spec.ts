@@ -4,6 +4,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
+import { ED_SEL } from './editor';
 import { TMP, realPath, cssPath } from './osenv';
 
 /**
@@ -221,11 +222,11 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
         await (window as any).app.testing.edOpenFile(f);
       }, file);
       await page.waitForFunction(() =>
-        [...(window as any).app.fileEditors.values()].some((e: any) => e._editor),
+        [...(window as any).app.fileEditors.values()].some((e: any) => edT.has(e)),
         undefined, { timeout: 15000 });
       await page.evaluate(() => {
-        const ed = [...(window as any).app.fileEditors.values()].find((e: any) => e._editor);
-        ed._editor.setValue('저장하지 않은 편집\n');
+        const ed = [...(window as any).app.fileEditors.values()].find((e: any) => edT.has(e));
+        edT.setText(edT.of(ed), '저장하지 않은 편집\n');
       });
       expect(await page.evaluate(() =>
         [...(window as any).app.fileEditors.values()].some((e: any) => e._dirty))).toBe(true);
@@ -241,8 +242,8 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
 
       // 내용도 그대로다 — 모델이 dispose 되지 않았다.
       expect(await page.evaluate(() => {
-        const ed = [...(window as any).app.fileEditors.values()].find((e: any) => e._editor);
-        return ed ? ed._editor.getValue() : '';
+        const ed = [...(window as any).app.fileEditors.values()].find((e: any) => edT.has(e));
+        return ed ? edT.text(edT.of(ed)) : '';
       })).toBe('저장하지 않은 편집\n');
     });
 
@@ -260,11 +261,11 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
       await (window as any).app.testing.edOpenFile(f);
     }, file);
     await page.waitForFunction(() =>
-      [...(window as any).app.fileEditors.values()].some((e: any) => e._editor),
+      [...(window as any).app.fileEditors.values()].some((e: any) => edT.has(e)),
       undefined, { timeout: 15000 });
     await page.evaluate(() => {
-      const ed = [...(window as any).app.fileEditors.values()].find((e: any) => e._editor);
-      ed._editor.setValue('고친다\n');
+      const ed = [...(window as any).app.fileEditors.values()].find((e: any) => edT.has(e));
+      edT.setText(edT.of(ed), '고친다\n');
     });
 
     // 미룬다.
@@ -280,7 +281,7 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
 
     // 저장하면 미룰 이유가 사라진다 — 다음 재조정이 거둔다 (면제가 아니다).
     await page.evaluate(async () => {
-      const ed = [...(window as any).app.fileEditors.values()].find((e: any) => e._editor);
+      const ed = [...(window as any).app.fileEditors.values()].find((e: any) => edT.has(e));
       await ed.save();
     });
     await page.evaluate(() => (window as any).app.testing.edReconcile());
@@ -455,20 +456,18 @@ test.describe('묶음 K — 캐럿 (FR-CUR-1·2)', () => {
     fs.writeFileSync(memo, 'hello\n');
     try {
       await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), memo);
-      await page.waitForSelector('.file-editor .monaco-editor', { timeout: 20000 });
+      await page.waitForSelector(`.file-editor ${ED_SEL.surface}`, { timeout: 20000 });
       const opts = await page.evaluate(() => {
         const a = (window as any).app;
-        const view = [...a.fileEditors.values()].find((v: any) => v._editor);
-        const ed = (view as any)._editor;
-        const m = (window as any).monaco.editor.EditorOption;
+        const view = [...a.fileEditors.values()].find((v: any) => edT.has(v));
+        const ed = edT.of(view);
         return {
-          smoothCaret: ed.getOption(m.cursorSmoothCaretAnimation),
-          blinking: ed.getOption(m.cursorBlinking),
+          smoothCaret: edT.option(ed, 'smoothCaret'),
+          blinking: edT.option(ed, 'cursorBlinking'),
         };
       });
       expect(opts.smoothCaret).toBe('off');
-      // cursorBlinking 은 열거값으로 읽힌다 — 'blink' 는 1 이다.
-      expect(opts.blinking).toBe(1);
+      expect(opts.blinking).toBe('blink');
     } finally {
       fs.rmSync(memo, { force: true });
     }

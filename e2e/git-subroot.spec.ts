@@ -63,9 +63,7 @@ test('F-3.1: 하위 폴더 루트에서 Diff 의 저장 대상은 저장소 최�
   await page.waitForFunction((abs: string) => (window as any).app.gitPanel._diffView?._editTarget === abs,
     j(SUB, 'a.txt'), { timeout: 20000 });
   await page.evaluate(() => {
-    const m = (window as any).app.gitPanel._diffView._mod;
-    const end = m.getFullModelRange().getEndPosition();
-    m.applyEdits([{ range: { startLineNumber: end.lineNumber, startColumn: end.column, endLineNumber: end.lineNumber, endColumn: end.column }, text: 'three\n' }]);
+    edT.diffAppend((window as any).app.gitPanel._diffView, 'three\n');
   });
   expect(await page.evaluate(() => (window as any).app.gitPanel._diffView.save())).toBe(true);
   expect(fs.readFileSync(j(SUB, 'a.txt'), 'utf8')).toBe('one\ntwo\nthree\n');
@@ -75,7 +73,7 @@ test('F-3.1: 하위 폴더 루트에서 Diff 의 저장 대상은 저장소 최�
 test('F-3.1: 새 파일 행은 저장소 최상위 기준 경로로 편집기에 열린다', async ({ page, request }) => {
   await enter(page, request);
   await row(page, 'src/new.txt').click();
-  await page.waitForFunction((abs: string) => !!(window as any).app.testing.edDocs?.get(abs)?.model,
+  await page.waitForFunction((abs: string) => edT.docHasModel((window as any).app.testing.edDocs?.get(abs)),
     j(SUB, 'new.txt'), { timeout: 20000 });
   expect(await page.evaluate(() => (window as any).app.gitPanel.absPath({ path: 'src/b.txt' }))).toBe(j(SUB, 'b.txt'));
 });

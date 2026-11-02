@@ -11,6 +11,7 @@ import * as path from 'path';
 import { APIRequestContext, Page } from '@playwright/test';
 
 import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
+import { ED_SEL } from './editor';
 import { TMP, realPath } from './osenv';
 
 const j = (...p: string[]) => path.join(...p);
@@ -60,14 +61,14 @@ async function openFile(page: Page, name: string) {
   await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), P(name));
   await page.waitForFunction((n) => {
     const v = (window as any).app.testing.edActiveEditor();
-    return !!(v && v._editor && new RegExp('[\\\\/]' + n + '$').test(String(v.filePath)) && v.el.offsetParent !== null);
+    return !!(v && edT.has(v) && new RegExp('[\\\\/]' + n + '$').test(String(v.filePath)) && v.el.offsetParent !== null);
   }, name, { timeout: 20000 });
 }
 
 async function focusBody(page: Page) {
-  await page.locator('.file-editor:visible .monaco-editor .view-lines').first().click();
+  await page.locator(`.file-editor:visible ${ED_SEL.surface} ${ED_SEL.text}`).first().click();
   await page.waitForFunction(
-    () => !!document.activeElement?.closest('.monaco-editor'), undefined, { timeout: 5000 });
+    (s) => !!document.activeElement?.closest(s), ED_SEL.surface, { timeout: 5000 });
 }
 
 const panel = (page: Page) => page.locator('.fe-find.vis:visible');
@@ -81,7 +82,7 @@ const opt = (page: Page, k: string) =>
   page.locator(`.fe-find.vis:visible .fe-find-opt[data-opt="${k}"]`);
 
 const docText = (page: Page) => page.evaluate(
-  () => (window as any).app.testing.edActiveEditor()?._editor?.getModel()?.getValue() ?? '');
+  () => { const h = edT.of((window as any).app.testing.edActiveEditor()); return h ? edT.text(h) : ''; });
 
 async function openFind(page: Page) {
   await page.keyboard.press('Control+f');
@@ -223,8 +224,7 @@ test.describe('고른 것을 들고 들어간다 (묶음 S)', () => {
   /** 편집기에서 한 줄 안의 글자를 고른다. */
   async function select(page: Page, line: number, from: number, to: number) {
     await page.evaluate(({ line, from, to }) => {
-      const ed = (window as any).app.testing.edActiveEditor()._editor;
-      ed.setSelection({ startLineNumber: line, startColumn: from, endLineNumber: line, endColumn: to });
+      edT.setSelection(edT.of((window as any).app.testing.edActiveEditor()), line, from, line, to);
     }, { line, from, to });
   }
 
@@ -262,8 +262,7 @@ test.describe('고른 것을 들고 들어간다 (묶음 S)', () => {
     await openFile(page, 'rep.txt');
     await focusBody(page);
     await page.evaluate(() => {
-      const ed = (window as any).app.testing.edActiveEditor()._editor;
-      ed.setSelection({ startLineNumber: 1, startColumn: 1, endLineNumber: 2, endColumn: 5 });
+      edT.setSelection(edT.of((window as any).app.testing.edActiveEditor()), 1, 1, 2, 5);
     });
 
     await page.keyboard.press('Control+Shift+f');

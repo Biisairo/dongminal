@@ -47,13 +47,13 @@ test('V-MMP-1 (FR-MMP-1): 편집기의 미리보기가 스크롤바와 맞는다
   await page.evaluate((p: string) => (window as any).app.testing.edOpenFile(p, { pin: true }), long);
   await page.waitForFunction(() => {
     const eds = [...(window as any).app.fileEditors.values()];
-    return eds.some((e: any) => e._editor);
+    return eds.some((e: any) => edT.has(e));
   }, undefined, { timeout: 30000 });
 
   const got = await page.evaluate(async () => {
-    const ed = [...(window as any).app.fileEditors.values()].find((e: any) => e._editor) as any;
-    const e = ed._editor;
-    e.setScrollTop(e.getScrollHeight() * 0.45);
+    const ed = [...(window as any).app.fileEditors.values()].find((e: any) => edT.has(e)) as any;
+    const e = edT.of(ed);
+    edT.setScrollTop(e, edT.scrollHeight(e) * 0.45);
     await new Promise((r) => setTimeout(r, 400));
     const box = ed.el.getBoundingClientRect();
     const rect = (sel: string) => {
@@ -62,7 +62,7 @@ test('V-MMP-1 (FR-MMP-1): 편집기의 미리보기가 스크롤바와 맞는다
       const r = x.getBoundingClientRect();
       return { top: Math.round(r.top - box.top), h: Math.round(r.height) };
     };
-    return { mini: rect('.minimap-slider'), bar: rect('.scrollbar.vertical > .slider') };
+    return { mini: rect(edT.sel.minimapSlider), bar: rect(edT.sel.scrollThumb) };
   });
   expect(got.mini, '미니맵 슬라이더가 없다').not.toBeNull();
   expect(got.bar, '스크롤바 슬라이더가 없다').not.toBeNull();
@@ -76,8 +76,8 @@ test('V-MMP-2: 짧은 문서에서도 미니맵이 스크롤바와 같은 자리
 
   const got = await page.evaluate(async () => {
     const v = [...(window as any).app.fileEditors.values()]
-      .find((e: any) => e._editor && e.name === 'doc.md') as any;
-    const ed = v._editor;
+      .find((e: any) => edT.has(e) && e.name === 'doc.md') as any;
+    const ed = edT.of(v);
     const box = v.el.getBoundingClientRect();
     const rect = (sel: string) => {
       const x = v.el.querySelector(sel);
@@ -85,14 +85,14 @@ test('V-MMP-2: 짧은 문서에서도 미니맵이 스크롤바와 같은 자리
       const r = x.getBoundingClientRect();
       return { top: Math.round(r.top - box.top), h: Math.round(r.height) };
     };
-    const H = ed.getScrollHeight(), L = ed.getLayoutInfo().height;
+    const H = edT.scrollHeight(ed), L = edT.viewHeight(ed);
     const out: any[] = [];
     for (const ratio of [0, 0.45, 1]) {
-      ed.setScrollTop(Math.round((H - L) * ratio));
+      edT.setScrollTop(ed, Math.round((H - L) * ratio));
       await new Promise((r) => setTimeout(r, 400));
-      out.push({ ratio, mini: rect('.minimap-slider'), bar: rect('.scrollbar.vertical > .slider') });
+      out.push({ ratio, mini: rect(edT.sel.minimapSlider), bar: rect(edT.sel.scrollThumb) });
     }
-    return { out, size: ed.getOption((window as any).monaco.editor.EditorOption.minimap).size,
+    return { out, size: edT.option(ed, 'minimapSize'),
       shorter: H < L * 2 };
   });
 

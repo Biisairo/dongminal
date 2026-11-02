@@ -342,7 +342,7 @@ test.describe('묶음 C — 띄워야 보이는 표면', () => {
     await page.waitForFunction(() => {
       const p = (window as any).app?.gitPanel;
       return !!(p && p._hunks && p._hunks.list && p._hunks.list.length
-        && p._diffView && p._diffView._editor);
+        && edT.diffReady(p._diffView));
     }, undefined, { timeout: 20000 });
 
     // 첫 조각의 줄에 **커서를 놓는다.** 좌표를 지나지 않는다 — 재는 것은 툴팁이고,
@@ -351,10 +351,10 @@ test.describe('묶음 C — 띄워야 보이는 표면', () => {
     await page.evaluate(() => {
       const p = (window as any).app.gitPanel;
       const ln = Math.max(1, p._hunks.list[0].newStart);
-      const ed = p._diffView._editor.getModifiedEditor();
-      ed.revealLine(ln);
-      ed.focus();
-      ed.setPosition({ lineNumber: ln, column: 1 });
+      const ed = edT.diffSide(p._diffView, 'mod');
+      edT.revealLine(ed, ln);
+      edT.focus(ed);
+      edT.setCursor(ed, ln, 1);
     });
     await expect(page.locator('.git-hunk-bar .git-hunk-act').first())
       .toBeVisible({ timeout: 10000 });

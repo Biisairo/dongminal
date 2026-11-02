@@ -8,6 +8,7 @@ import {
   test, expect, waitForInit, enterExplorer, rmTree, clickRow,
   makeCopyFx, openGit, gitFixture, cleanGitFixture,
 } from './fixtures';
+import { ED_SEL } from './editor';
 import { TMP, realPath, tmpPath, cssPath } from './osenv';
 
 /**
@@ -258,7 +259,7 @@ async function openDiff(page: Page, path: string) {
   await expect(row).toBeVisible({ timeout: 15000 });
   await clickRow(page, row, async () => {
     await page.waitForFunction(
-      () => !!(window as any).app?.gitPanel?._diffView?._editor, undefined, { timeout: 8000 });
+      () => edT.diffReady((window as any).app?.gitPanel?._diffView), undefined, { timeout: 8000 });
   });
 }
 
@@ -283,8 +284,7 @@ async function setSwitch(page: Page, id: string, on: boolean) {
 }
 
 const modOpt = (page: Page, key: string) => page.evaluate((k) => {
-  const ed = (window as any).app.gitPanel._diffView._editor.getModifiedEditor();
-  return ed.getOption((window as any).monaco.editor.EditorOption[k]);
+  return edT.option(edT.diffSide((window as any).app.gitPanel._diffView, 'mod'), k);
 }, key);
 
 test.describe('diff 는 편집기와 같은 것을 한다', () => {
@@ -318,9 +318,8 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
     await openDiff(page, 'm.txt');
 
     const widths = () => page.evaluate(() => {
-      const d = (window as any).app.gitPanel._diffView._editor;
-      const w = (ed: any) => ed.getLayoutInfo().minimap.minimapWidth;
-      return { orig: w(d.getOriginalEditor()), mod: w(d.getModifiedEditor()) };
+      const d = (window as any).app.gitPanel._diffView;
+      return { orig: edT.minimapWidth(edT.diffSide(d, 'orig')), mod: edT.minimapWidth(edT.diffSide(d, 'mod')) };
     });
     expect(await widths()).toEqual({ orig: 0, mod: 0 });
 
@@ -369,10 +368,10 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
 
     await page.evaluate(() => {
       const d = (window as any).app.gitPanel._diffView;
-      const ed = d._editor.getModifiedEditor();
-      ed.focus();
-      ed.setPosition({ lineNumber: 4, column: 3 });
-      ed.trigger('test', 'editor.action.showHover', null);
+      const ed = edT.diffSide(d, 'mod');
+      edT.focus(ed);
+      edT.setCursor(ed, 4, 3);
+      edT.showHover(ed);
     });
 
     await expect.poll(() => seen.length, { timeout: 10000 }).toBeGreaterThan(0);
@@ -384,7 +383,7 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
     // 받은 답은 없는 답보다 나쁘다. 그래서 경로를 답하지 않는다.
     const sides = await page.evaluate(() => {
       const d = (window as any).app.gitPanel._diffView;
-      return { mod: d.lspPathOf(d._mod), orig: d.lspPathOf(d._orig) };
+      return edT.diffLspPaths(d);
     });
     expect(sides.mod).toBeTruthy();
     expect(sides.orig, '원본 쪽이 디스크의 경로를 답했다').toBe('');
@@ -401,12 +400,12 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
     await openGit(page, repo);
     await openDiff(page, 'f.txt');
 
-    await diffView(page).locator('.monaco-editor .view-lines').last().click();
+    await diffView(page).locator(`${ED_SEL.surface} ${ED_SEL.text}`).last().click();
     await page.keyboard.press('Control+f');
 
     const panel = diffView(page).locator('.fe-find.vis');
     await expect(panel).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.monaco-editor .find-widget.visible'),
+    await expect(page.locator(`${ED_SEL.surface} ${ED_SEL.builtinFind}`),
       'Monaco 의 위젯이 떴다 — 편집기 탭에서 이미 닫은 길이다').toHaveCount(0);
 
     await panel.locator('.fe-find-q').fill('needle');

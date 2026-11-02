@@ -57,7 +57,7 @@ async function openFile(page: Page, name: string) {
     .poll(() => page.evaluate((n) => {
       const app = (window as any).app;
       return [...app.fileEditors.values()].some((v: any) =>
-        String(v.filePath).replace(/\\/g, '/').endsWith(n) && !!v._editor);
+        String(v.filePath).replace(/\\/g, '/').endsWith(n) && edT.has(v));
     }, name), { timeout: 30000 })
     .toBe(true);
 }
@@ -95,8 +95,8 @@ async function focusOnly(page: Page, name: string) {
     const app = (window as any).app;
     const v = [...app.fileEditors.values()]
       .find((x: any) => String(x.filePath).replace(/\\/g, '/').endsWith(n)) as any;
-    if (!v || !v._editor) return false;
-    v._editor.focus();
+    if (!v || !edT.has(v)) return false;
+    edT.focus(edT.of(v));
     return document.activeElement?.closest('.file-editor') === v.el;
   }, name);
   expect(ok, '그 파일의 편집기 안에 포커스가 있어야 이 검사가 뜻을 갖는다').toBe(true);
@@ -109,7 +109,7 @@ async function typeInto(page: Page, name: string, text: string) {
     const app = (window as any).app;
     const v = [...app.fileEditors.values()]
       .find((x: any) => String(x.filePath).replace(/\\/g, '/').endsWith(n)) as any;
-    v._editor.setValue(t);
+    edT.setText(edT.of(v), t);
   }, { n: name, t: text });
 }
 
@@ -184,7 +184,7 @@ test.describe('OPTIMIZE_REFACTOR_SRS FR-OPT-15-2 — 연 파일은 저장된다'
       const app = (window as any).app;
       const v = [...app.fileEditors.values()]
         .find((x: any) => String(x.filePath).replace(/\\/g, '/').endsWith('big5.txt')) as any;
-      v._editor.setValue(v._editor.getValue() + 'EDITED\n');
+      edT.setText(edT.of(v), edT.text(edT.of(v)) + 'EDITED\n');
     });
     await focusOnly(page, 'big5.txt');
     const res = page.waitForResponse((r) => r.url().includes('/api/file/write'));

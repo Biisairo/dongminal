@@ -219,7 +219,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     // REPO_FIX 03 §3A-5: 문서 로드가 끝나야 dirty 를 세울 수 있다 — 로드 완료는
     // 새 문서를 깨끗한 상태로 둔다.
     await expect.poll(() => page.evaluate(() =>
-      [...(window as any).app.fileEditors.values()].every((e: any) => !!e._editor)), { timeout: 30000 }).toBe(true);
+      [...(window as any).app.fileEditors.values()].every((e: any) => edT.has(e))), { timeout: 30000 }).toBe(true);
     await page.evaluate(() => {
       for (const e of (window as any).app.fileEditors.values()) e._dirty = true;
     });
@@ -413,7 +413,7 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
     // REPO_FIX 03 §3A-5: 문서 로드가 끝나야 dirty 를 세울 수 있다 — 로드 완료는
     // 새 문서를 깨끗한 상태로 둔다.
     await expect.poll(() => page.evaluate(() =>
-      [...(window as any).app.fileEditors.values()].every((e: any) => !!e._editor)), { timeout: 30000 }).toBe(true);
+      [...(window as any).app.fileEditors.values()].every((e: any) => edT.has(e))), { timeout: 30000 }).toBe(true);
     await page.evaluate(() => {
       for (const e of (window as any).app.fileEditors.values()) e._dirty = true;
     });
@@ -610,7 +610,7 @@ test.describe('묶음 W — 편집기 줄바꿈', () => {
   const wrapOf = (page: Page) => page.evaluate(() => {
     const a = (window as any).app;
     const ed = [...a.fileEditors.values()][0];
-    return ed && ed._editor ? String(ed._editor.getRawOptions().wordWrap) : '';
+    return ed && edT.has(ed) ? edT.option(edT.of(ed), 'wordWrap') : '';
   });
 
   async function openCodePanel(page: Page) {
@@ -631,8 +631,8 @@ test.describe('묶음 W — 편집기 줄바꿈', () => {
       // 옵션 갱신이다. 값을 심어 두고 전환 뒤에 되본다.
       await page.evaluate(() => {
         const ed = [...(window as any).app.fileEditors.values()][0];
-        ed._editor.setValue('AAA\nBBB\nCCC\n');
-        ed._editor.setPosition({ lineNumber: 2, column: 3 });
+        edT.setText(edT.of(ed), 'AAA\nBBB\nCCC\n');
+        edT.setCursor(edT.of(ed), 2, 3);
       });
 
       await openCodePanel(page);
@@ -643,8 +643,8 @@ test.describe('묶음 W — 편집기 줄바꿈', () => {
 
       const after = await page.evaluate(() => {
         const ed = [...(window as any).app.fileEditors.values()][0];
-        const p = ed._editor.getPosition();
-        return { v: ed._editor.getValue(), ln: p.lineNumber, col: p.column };
+        const p = edT.cursor(edT.of(ed));
+        return { v: edT.text(edT.of(ed)), ln: p.line, col: p.col };
       });
       expect(after.v).toBe('AAA\nBBB\nCCC\n');
       expect(after.ln).toBe(2);
@@ -950,7 +950,7 @@ test.describe('REPO_FIX 04 — 탐색기', () => {
       await page.evaluate((p: string) => (window as any).app.testing.edOpenFile(p, { preview: false }), f);
     }
     await expect.poll(async () => (await tabs(page)).length).toBe(2);
-    await expect.poll(() => page.evaluate(() => [...(window as any).app.fileEditors.values()].every((v: any) => !!v._editor)), { timeout: 30000 }).toBe(true);
+    await expect.poll(() => page.evaluate(() => [...(window as any).app.fileEditors.values()].every((v: any) => edT.has(v))), { timeout: 30000 }).toBe(true);
     const r = await page.evaluate(({ a, b }: any) => (window as any).app.edRetargetTabs(a, b), { a: j(R, 'src', 'a.txt'), b: j(R, 'src', 'b.txt') });
     expect(r.conflicts).toEqual([j(R, 'src', 'b.txt')]);
     const files = (await tabs(page)).map((t) => t.file).sort();

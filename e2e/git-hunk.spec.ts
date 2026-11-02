@@ -90,7 +90,7 @@ async function openDiff(page: Page, group: string, path: string) {
   // 않은 순간에 클릭이 떠나, 좌표를 물을 대상이 `null` 이다. 툴바는 에디터의
   // content widget 이므로(FR-DHB-21) 그것이 서기 전에는 잴 것이 없다.
   await page.waitForFunction(
-    () => !!(window as any).app?.gitPanel?._diffView?._editor,
+    () => edT.diffReady((window as any).app?.gitPanel?._diffView),
     undefined, { timeout: 20000 });
 }
 
@@ -108,17 +108,16 @@ const hunkCount = (page: Page) =>
 // 않는다) 좌표를 에디터에게 묻는다.
 async function lineXY(page: Page, line: number) {
   return page.evaluate((ln) => {
-    const ed = (window as any).app.gitPanel._diffView._editor.getModifiedEditor();
-    ed.revealLine(ln);
-    const p = ed.getScrolledVisiblePosition({ lineNumber: ln, column: 1 });
-    const r = ed.getDomNode().getBoundingClientRect();
-    return { x: r.left + p.left + 30, y: r.top + p.top + p.height / 2 };
+    const ed = edT.diffSide((window as any).app.gitPanel._diffView, 'mod');
+    edT.revealLine(ed, ln);
+    const p = edT.coords(ed, ln, 1);
+    return { x: p.left + 30, y: p.top + p.height / 2 };
   }, line);
 }
 
 // 툴바가 지금 가리키는 줄 (FR-DHB-12). 화면 좌표가 아니라 위젯의 자리를 읽는다.
 const barLine = (page: Page) => page.evaluate(
-  () => (window as any).app.gitPanel._hunkBarPos?.position?.lineNumber ?? -1);
+  () => edT.hunkBarLine((window as any).app.gitPanel));
 
 /**
  * 스크롤이 멎은 뒤의 좌표.
@@ -165,10 +164,10 @@ async function clickLine(page: Page, line: number) {
 // API 로 놓은 커서와 클릭으로 놓은 커서는 에디터 안에서 같은 값이다.
 async function cursorLine(page: Page, line: number) {
   await page.evaluate((ln) => {
-    const ed = (window as any).app.gitPanel._diffView._editor.getModifiedEditor();
-    ed.revealLine(ln);
-    ed.focus();
-    ed.setPosition({ lineNumber: ln, column: 1 });
+    const ed = edT.diffSide((window as any).app.gitPanel._diffView, 'mod');
+    edT.revealLine(ed, ln);
+    edT.focus(ed);
+    edT.setCursor(ed, ln, 1);
   }, line);
   await expect(bar(page)).toBeVisible({ timeout: 10000 });
 }
@@ -180,8 +179,7 @@ async function cursorLine(page: Page, line: number) {
 // 흔들리지 않는 쪽이 이 검증을 더 정확하게 만든다.
 async function selectLines(page: Page, from: number, to: number) {
   await page.evaluate(([a, b]) => {
-    const ed = (window as any).app.gitPanel._diffView._editor.getModifiedEditor();
-    ed.setSelection({ startLineNumber: a, startColumn: 1, endLineNumber: b, endColumn: 1 });
+    edT.setSelection(edT.diffSide((window as any).app.gitPanel._diffView, 'mod'), a, 1, b, 1);
   }, [from, to + 1]);
 }
 
@@ -325,7 +323,7 @@ test.describe('묶음 B·W — 커서 툴바와 조각 단위 쓰기', () => {
     await page.mouse.down();
     await expect(bar(page)).toBeVisible();
     expect(await page.evaluate(
-      () => (window as any).app.gitPanel._diffView._editor.getModifiedEditor().hasTextFocus(),
+      () => edT.hasFocus(edT.diffSide((window as any).app.gitPanel._diffView, 'mod')),
     )).toBe(true);
     await page.mouse.up();
   });
@@ -341,7 +339,7 @@ test.describe('묶음 B·W — 커서 툴바와 조각 단위 쓰기', () => {
     await openDiff(page, 'working', 'f.txt');
 
     const barLine = () => page.evaluate(
-      () => (window as any).app.gitPanel._hunkBarPos?.position?.lineNumber ?? -1);
+      () => edT.hunkBarLine((window as any).app.gitPanel));
 
     await cursorLine(page, 20);
     expect(await barLine()).toBe(20);
