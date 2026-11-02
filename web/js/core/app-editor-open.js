@@ -82,16 +82,16 @@ Object.assign(App.prototype, {
       // `model` 은 첫 뷰가 내용을 받아 온 뒤에 채운다 — 문서의 자리를 먼저 잡아야
       // 두 번째 뷰가 "이미 누가 열어 두었다" 를 알 수 있다.
       // `dd` 는 변경 표시(EDITOR_DIRTY_DIFF_SRS)다. 문서의 것인 이유는 기준과
-      // 계산이 모델 하나에 대한 것이기 때문이다 (FR-EDD-5·15 / D-4).
+      // 계산이 문서 하나에 대한 것이기 때문이다 (FR-EDD-5·15 / D-4).
       // `stamp` 는 경합의 재료다 (EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-11). 문서의
       // 것인 이유는 dirty·내용과 같다 — 두 칸이 같은 파일을 볼 때 한쪽이 저장하면
       // **양쪽의** 표식이 함께 새것이 되어야 다음 저장이 제 발에 걸리지 않는다.
-      // REPO_FIX 03 §3A-5·3A-7: `gen` 은 디스크 내용을 모델에 넣을 때마다 +1,
-      // `savedAltVer` 는 저장 시점 모델 판(dirty 판정의 기준), `encoding`·`bom`·
+      // REPO_FIX 03 §3A-5·3A-7: `gen` 은 디스크 내용을 문서에 넣을 때마다 +1,
+      // `savedDoc` 은 저장 시점 내용(dirty 판정의 기준, FR-CMR-16), `encoding`·`bom`·
       // `decodable` 은 읽기가 준 판별이다. `loading`·`savePromise`·`saveQueued` 는
       // 겹친 로드·저장을 한 번으로 모은다.
-      d={model:null,dirty:false,stamp:'',dd:null,views:new Set(),
-        gen:0,savedAltVer:0,encoding:'',bom:false,decodable:true,
+      d={buf:null,bufSub:null,dirty:false,stamp:'',dd:null,views:new Set(),
+        gen:0,savedDoc:null,encoding:'',bom:false,decodable:true,
         loading:null,savePromise:null,saveQueued:null};
       this._edDocs.set(filePath,d);
     }
@@ -132,15 +132,10 @@ Object.assign(App.prototype, {
     // REPO_FIX 02 §3A-0 X4: 문서의 마지막 뷰가 떠났다 — 언어 서버에서도 닫는다.
     // 뷰 하나의 destroy 가 아니라 이 자리다(다른 칸이 보고 있으면 닫지 않는다).
     this.lspDocClosed(filePath);
-    // REPO_FIX 03 §3A-0 X4 (E-9.1): LSP 진단 표시도 이 순간에만 지운다 — 같은 파일을
-    // 보는 칸 하나를 닫아도 다른 칸의 밑줄은 남는다. 이전: 뷰의 destroy 에서 지워
-    // 남은 칸의 진단까지 사라졌다.
-    if(d.model&&this.lspClearDiagnostics) this.lspClearDiagnostics(d.model);
-    // FR-EDD-16·55: 표시의 수명은 문서의 수명이다. 모델보다 **먼저** 걷는다 —
-    // 데코레이션을 버려진 모델에서 지우려 하면 그 자리가 예외다.
+    // FR-EDD-16·55: 표시의 수명은 문서의 수명이다. 버퍼보다 **먼저** 걷는다.
     if(d.dd){d.dd.dispose();d.dd=null}
-    if(d.modelSub){ErrorLog.quiet('dispose',()=>d.modelSub.dispose());d.modelSub=null}
-    if(d.model) ErrorLog.quiet('dispose',()=>d.model.dispose());
+    if(d.bufSub){d.bufSub();d.bufSub=null}
+    if(d.buf) d.buf.dispose();
     this._edDocs.delete(filePath);
   },
 
@@ -201,7 +196,7 @@ Object.assign(App.prototype, {
    * 거르는 셋에는 각각 이유가 있다.
    *
    *   `dirty`   물어도 할 일이 없다 (FR-EXC-3 — 편집본은 놔둔다)
-   *   `!model`  넣을 자리가 없다 (로딩 중·이진·이미지·상한 초과)
+   *   `!buf`    넣을 자리가 없다 (로딩 중·이진·이미지·상한 초과)
    *   `!stamp`  견줄 기준이 없다. 표식을 주지 않는 옛 서버에서 열린 문서다
    */
   _edLiveDocs(){
@@ -209,7 +204,7 @@ Object.assign(App.prototype, {
     const seen=this._edVisibleDocPaths();
     const out=[];
     for(const [path,d] of this._edDocs){
-      if(!d||d.dirty||!d.model||!d.stamp) continue;
+      if(!d||d.dirty||!d.buf||!d.stamp) continue;
       if(!seen.has(path)) continue;
       out.push(path);
     }

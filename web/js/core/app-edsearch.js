@@ -32,7 +32,7 @@ Object.assign(App.prototype, {
   // 떴다 (실측). 접수 5번의 절반이 이 한 줄이다.
   _edFindReady(){
     const v=this._edActiveEditor();
-    if(v&&v._editor) return true;
+    if(v&&v._view) return true;
     return !!this._edActiveDiff();
   },
 
@@ -56,7 +56,7 @@ Object.assign(App.prototype, {
 
   /**
    * EDITOR_FIND_PANEL_SRS FR-EFP-25 가 FR-EKB-3 을 개정했다 — 파일 내 검색은
-   * **우리 패널**이며 Monaco 의 find 위젯이 아니다.
+   * **우리 패널**이며 편집 엔진의 기본 찾기 위젯이 아니다.
    *
    * 종전 본문은 `ed.focus()` 뒤에 `actions.find` 를 트리거했다. 그 두 줄이 결함의
    * 절반이었다: Monaco 가 이미 위젯을 열어 find 입력칸에 포커스를 준 뒤였으므로,
@@ -83,12 +83,8 @@ Object.assign(App.prototype, {
    */
   _edSelectionSeed(){
     const v=this._edActiveEditor();
-    const ed=v&&v._editor;
-    if(!ed) return '';
-    const sel=ed.getSelection();
-    if(!sel||sel.isEmpty()||sel.startLineNumber!==sel.endLineNumber) return '';
-    const m=ed.getModel();
-    return m?m.getValueInRange(sel):'';
+    const eng=v&&v._findEngine?v._findEngine():null;
+    return (eng&&eng.selText())||'';
   },
 
   // 활성 Editor 창에서 지금 보이는 편집기. `fileEditors` 는 탭 id 로 열려 있고

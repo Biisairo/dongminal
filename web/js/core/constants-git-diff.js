@@ -9,6 +9,10 @@
  */
 // DiffEditor 옵션. ignoreTrimWhitespace 는 Monaco 기본값(true)을 뒤집는다 —
 // git 은 공백 변경을 변경으로 취급하기 때문이다 (FR-GIT-50).
+// CODEMIRROR_MIGRATION_SRS §7.1: Diff 뷰가 편집기 문서를 나눠 쓰는가. 문서는 CodeMirror 버퍼이고
+// Diff 뷰는 아직 Monaco 라 M6 까지 거짓이다 — M6 에서 이 상수와 그 분기를 함께 걷는다.
+const GIT_DIFF_SHARES_DOC=false;
+
 const GIT_DIFF_OPTIONS={
   renderSideBySide:true,
   useInlineViewWhenSpaceIsLimited:true,

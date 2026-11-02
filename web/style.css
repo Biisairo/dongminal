@@ -225,6 +225,7 @@ body{user-select:none;-webkit-user-select:none}
 /* 예외 — **복사가 목적인 자리**. 새 표면이 복사를 필요로 하면 여기 한 줄을
    더하는 일이고, 그 한 줄이 곧 "이 자리는 가져가는 글이다" 라는 선언이다. */
 .xterm,
+.cm-editor,
 .monaco-editor,
 .git-diff-host,
 .git-job-log,

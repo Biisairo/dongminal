@@ -1,5 +1,8 @@
 /**
- * Remote Terminal — file editor tab (Monaco Editor)
+ * Remote Terminal — file editor tab (CodeMirror 6)
+ *
+ * CODEMIRROR_MIGRATION_SRS 단계 A: 편집기 칸은 CodeMirror 다(M3). 아래의 `MONACO_*`·`monaco*`
+ * 도우미는 아직 Monaco 로 서 있는 Git Diff 뷰가 쓴다 — M6 에서 함께 걷는다.
  */
 
 // 편집기는 **바이너리 안에서** 온다 (MONACO_VENDORING_SRS FR-MVN-3).
@@ -233,7 +236,11 @@ class FileEditor {
     this.el = document.createElement('div');
     this.el.className = 'file-editor';
     this.el.tabIndex = 0;
-    this._editor = null;
+    // CodeMirror 의 `EditorView` 와 그것이 붙은 문서 버퍼(`EdBuffer`). `_cmp` 는 설정으로
+    // 갈아 끼우는 Compartment 들이다 (`cm-setup.js`).
+    this._view = null;
+    this._buf = null;
+    this._cmp = null;
     this._loading = true;
     // FR-SVS-50: 내용과 dirty 는 **문서**의 것이다. 아래 접근자가 `this._dirty` 를
     // 그대로 문서로 잇는다 — 이 뷰의 본문은 그 자리가 어디인지 알 필요가 없다.
@@ -244,7 +251,7 @@ class FileEditor {
     this.__stamp = '';
     this._doc = (typeof app !== 'undefined' && app && app.edDoc) ? app.edDoc(filePath) : null;
     if (this._doc) this._doc.views.add(this);
-    // EDITOR_GIT_UX_SRS FR-EGS-10: 검색 결과로 열린 경우 갈 자리. Monaco 가
+    // EDITOR_GIT_UX_SRS FR-EGS-10: 검색 결과로 열린 경우 갈 자리. 편집기가
     // 뜨기 전에 요청이 올 수 있으므로 여기 담아 두었다 생성 직후에 쓴다.
     this._pendingReveal = null;
 
@@ -273,24 +280,24 @@ class FileEditor {
   async _init() {
     try {
       // EDITOR_GIT_UX_SRS FR-EVW-3: **열기 전에 종류를 묻는다.** 이 물음이
-      // 없던 동안 이진 파일은 대체 문자로 뒤덮인 채 Monaco 에 올라갔고, 그것을
+      // 없던 동안 이진 파일은 대체 문자로 뒤덮인 채 편집기에 올라갔고, 그것을
       // 저장하면 원본이 파괴됐다 — 알림이 없는 것보다 나쁘다.
       const probe = await this._probeFile();
       this.kind = probe.kind;
       if (probe.kind === FILE_KIND_BINARY) { this._showUnsupported(probe); this._loading = false; return }
-      // FR-FAB-9: 상한을 넘으면 Monaco 를 세우지 않는다. 세우지 않으므로 저장
+      // FR-FAB-9: 상한을 넘으면 편집기를 세우지 않는다. 세우지 않으므로 저장
       // 경로 자체가 생기지 않는다 — 잘린 내용을 되쓸 길이 없다.
       if (this._overSizeLimit(probe)) { this._showTooLarge(probe); this._loading = false; return }
       if (probe.kind === FILE_KIND_IMAGE) { this._showImage(probe); this._loading = false; return }
-      await this._loadMonaco();
+      await loadCodeMirror();
       // FR-SVS-50: 다른 칸이 이미 이 파일을 열어 두었으면 그 문서를 그대로 쓴다.
-      // REPO_FIX 03 §3A-5: 모델은 **문서가** 만든다(`edDocLoad` — 판별·변환 읽기,
-      // 고아 모델 정리). 기다리는 사이 이 뷰가 파괴됐으면 편집기를 세우지 않는다 —
-      // 문서 뷰가 0 이면 `edDocDrop` 이 이미 해제했다 (#9).
-      const model = await app.edDocLoad(this.filePath);
+      // REPO_FIX 03 §3A-5: 버퍼는 **문서가** 만든다(`edDocLoad` — 판별·변환 읽기).
+      // 기다리는 사이 이 뷰가 파괴됐으면 편집기를 세우지 않는다 — 문서 뷰가 0 이면
+      // `edDocDrop` 이 이미 해제했다 (#9).
+      const buf = await app.edDocLoad(this.filePath);
       if (this._destroyed) return;
-      if (!model) throw new Error('document not loaded');
-      this._createEditor(model);
+      if (!buf) throw new Error('document not loaded');
+      this._createEditor(buf);
       this._loading = false;
     } catch (e) {
       console.error('[FileEditor] init error:', e);
@@ -342,7 +349,7 @@ class FileEditor {
       '</div>';
   }
 
-  // FR-EVW-3: 열지 않고 사유를 보인다. Monaco 를 세우지 않으므로 저장 경로
+  // FR-EVW-3: 열지 않고 사유를 보인다. 편집기를 세우지 않으므로 저장 경로
   // 자체가 생기지 않는다 (FR-EVW-7).
   _showUnsupported(probe) {
     this.el.innerHTML =
@@ -399,27 +406,18 @@ class FileEditor {
     return (b / 1048576).toFixed(1) + ' MB';
   }
 
-  _loadMonaco() {
-    return loadMonaco();
-  }
-
-  _createEditor(model) {
+  _createEditor(buf) {
     this.el.innerHTML = '';
-    this._mountMonaco(model);
+    this._mountView(buf);
     this._notifyIntegrations();
-    this._wireModelEvents();
     this._wireKeys();
     this._wireFocus();
-    // FR-EKB-5: `addCommand` 로 굳히지 않는다. 그것은 조합을 코드에 박는 일이고,
-    // 박으면 설정에서 바꾼 키가 Monaco 안에서만 듣지 않는다 — 위의 keydown 이
-    // 그 자리를 대신한다. 전역 keydown 은 편집기에 포커스가 있는 동안 한 줄도
-    // 돌지 않으므로(input-binding.js 의 activeElement 게이트) 이 배선이 필요하다.
-    //
-    // UX_BATCH9_SRS FR-ESV-2: **저장도 여기 합류했다.** 그것만 `addCommand` 로
-    // 남아 있었고, 그 등록이 인스턴스가 아니라 전역이라 편집기를 둘 열면 `Cmd+S`
-    // 가 마지막에 만든 편집기로 갔다 (SRS §2.1).
+    // FR-EKB-5: 단축키는 편집기 `keymap` 에 굳히지 않는다. 굳히면 설정에서 바꾼 키가
+    // 편집기 안에서만 듣지 않는다 — `_wireKeys` 의 keydown 이 그 자리를 맡는다. 전역
+    // keydown 은 편집기에 포커스가 있는 동안 한 줄도 돌지 않으므로(input-binding.js 의
+    // activeElement 게이트) 이 배선이 필요하다. 저장도 여기 합류했다 (UX_BATCH9_SRS FR-ESV-2).
 
-    // EDITOR_DIRTY_DIFF_SRS FR-EDD-15: 변경 표시는 **모델**의 것이다 — 이 칸은
+    // EDITOR_DIRTY_DIFF_SRS FR-EDD-15: 변경 표시는 **문서**의 것이다 — 이 칸은
     // 클릭과 팝업만 갖는다. `file-editor-diff.js` 가 없으면 편집기는 지금까지와
     // 똑같이 동작한다 (NFR-EDD-3).
     if (this._ddInit) this._ddInit();
@@ -430,95 +428,84 @@ class FileEditor {
     }
   }
 
-  // OPTIMIZE_REFACTOR_SRS FR-OPT-12-4 (FEU-27): `_createEditor` 의 다섯 조각.
-  _mountMonaco(model) {
-    // FR-SVS-51·52: 모델 하나를 여러 에디터에 붙인다 (D-6). Monaco 가 공식으로
-    // 지원하는 형태이며, 그때 **커서·선택·스크롤·접힘은 에디터별로 남는다** —
-    // 그것이 시선이고 칸마다 달라야 하는 것이다. 내용만 공유된다.
-    /**
-     * UX_BATCH10_SRS FR-UXB-41: 본문을 그리는 규약은 **`edTextOptions()` 한
-     * 덩이**다 (줄바꿈·글자 크기·글꼴·탭·공백·괄호·가이드·커서). Diff 탭이 같은
-     * 덩이를 받으므로 설정이 늘 때 한쪽만 고쳐질 수 없다 (D-UXB-9).
-     *
-     * 여기 남는 것은 **이 편집기만의 것**이다 — 모델·테마·레이아웃·미니맵.
-     */
-    this._editor = monaco.editor.create(this.el, Object.assign({}, edTextOptions(), {
-      model,
+  /**
+   * FR-SVS-51·52 · CODEMIRROR_MIGRATION_SRS FR-CMR-20·21: 칸마다 `EditorView` 하나가 문서
+   * 버퍼에 붙는다. 내용은 버퍼가 칸 사이에 전달하고, 커서·선택·스크롤·접힘·실행 취소는
+   * 칸마다 남는다.
+   *
+   * 본문을 그리는 규약(줄바꿈·글자 크기·글꼴·탭·괄호·가이드·커서)은 `edCmExtensions` 한
+   * 덩이다 (UX_BATCH10_SRS FR-UXB-41 의 한 덩이 규약을 잇는다).
+   */
+  _mountView(buf) {
+    const { extensions, cmp } = edCmExtensions({
       // REPO_FIX 03 §3A-1: 어느 인코딩으로도 풀리지 않은 문서는 읽기 전용이다 —
       // 치환 문자로 된 내용을 되쓰면 원본이 파괴된다.
       readOnly: !!(this._doc && this._doc.decodable === false),
-      theme: monacoTheme(),
-      automaticLayout: true,
-      /**
-       * UX_BATCH8_SRS FR-MMP-2: `size:'fill'` — **미리보기가 스크롤바와 같은
-       * 좌표계에 선다. 늘려서라도.**
-       *
-       *   이전 동작: `'fit'` (FR-MMP-1). 줄이기만 하므로 **문서가 편집기보다
-       *             짧으면 아무것도 하지 않는다** — 그때 미니맵은 자기 콘텐츠
-       *             높이(줄수×2px)를 좌표계로 삼아 스크롤바와 갈라선다
-       *   새  동작: 문서 길이와 무관하게 미니맵 높이가 편집기 높이다
-       *   이유:     접수 — "minimap 과 스크롤이 동기화 되지 않음", "vsc 에서는
-       *             미니맵을 늘려서라도 적용되게 하던데". 실측(400줄·높이 1180)
-       *             45% 지점에서 `fit` 은 미니맵 `{top:311}` · 스크롤바
-       *             `{top:454}`, `fill` 은 둘 다 `{top:454,h:171}`. 3000줄에서는
-       *             둘 다 일치하므로 긴 문서의 결과는 바뀌지 않는다
-       */
-      // EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-3: 켜고 끄는 것은 설정이고, 모양은
-      // 덩이가 든다 (FR-MMT-5 · UX_BATCH8_SRS FR-MMP-2).
-      minimap: edMinimapOpts(editorMinimap),
-    }));
+      wordWrap: editorWordWrap,
+      fontSize: edFontSize(),
+    });
+    this._cmp = cmp;
+    this._buf = buf;
+    const view = new CM.EditorView({
+      state: CM.EditorState.create({
+        doc: buf.doc,
+        extensions: [...extensions, CM.EditorView.updateListener.of((u) => this._onUpdate(u))],
+      }),
+      parent: this.el,
+      dispatchTransactions: (trs, v) => { v.update(trs); buf.fromSink(v, trs) },
+    });
+    this._view = view;
+    buf.attach(view);
+    this._langLoad();
+  }
+
+  // FR-CMR-13: 언어는 쓸 때 받는다. 받는 동안은 일반 텍스트로 보이고, 받으면 강조가 붙는다.
+  _langLoad() {
+    const view = this._view, cmp = this._cmp;
+    if (!view) return;
+    edCmLangLoad(this.filePath).then((lang) => {
+      if (this._view !== view) return;
+      view.dispatch({ effects: cmp.lang.reconfigure(lang || []) });
+    }, (e) => console.error('[FileEditor] language load failed:', e));
   }
 
   _notifyIntegrations() {
-    // Ensure Monaco fills the container after DOM insertion
-    TIMERS.frame(() => {
-      if (this._editor) this._editor.layout();
-    },{owner:this,label:'editor-frame'});
     if (this._doc && this._doc.decodable === false) this.note(FILE_UNDECODABLE_NOTE);
-    this._findKillMonacoKeys();
-    this._lspKillMonacoKeys();
-    this._lspBindClick();
-    // FR-LSP-39: 호버 provider 는 **언어마다 한 번**이다. 편집기를 여럿 세워도
-    // 등록이 늘지 않아야 한다 — 늘면 같은 호버가 여러 번 뜬다. 그 판정은 app 이
-    // 갖고 있으므로 여기서는 부르기만 한다.
-    if (window.app && window.app.lspHoverRegister) window.app.lspHoverRegister();
     // FR-LSP-44: 이 파일의 언어 서버가 없으면 제안한다. 판정은 app 이 하며
     // 상태를 파일마다 다시 묻지 않는다.
     if (window.app && window.app.lspOfferFor) window.app.lspOfferFor(this);
     // DOC_RENDER_VIEW_SRS FR-DRV-2·3: 렌더할 수 있는 문서면 버튼을 세우고, 이
-    // 파일의 렌더 뷰에 모델이 생겼음을 알린다. 판정과 버튼은 app 이 갖는다 —
+    // 파일의 렌더 뷰에 버퍼가 생겼음을 알린다. 판정과 버튼은 app 이 갖는다 —
     // 편집기는 자기가 무슨 문서인지 알 필요가 없다.
     if (window.app && window.app.docRenderMount) window.app.docRenderMount(this);
   }
 
-  _wireModelEvents() {
-    // Track dirty state
-    // 모델이 공유되므로 이 이벤트는 같은 파일을 보는 에디터 **모두**에 온다.
-    // dirty 설정은 멱등이고, 라벨은 칸마다 있으므로 전부 갱신한다 (FR-SVS-54).
-    this._editor.onDidChangeModelContent((e) => {
-      // REPO_FIX 03 §3A-7: dirty 는 판 비교다 — undo 로 되돌리면 풀린다.
-      const was = this._dirty;
-      // 문서는 모델을 스스로 구독한다(`_edDocWatch`) — 여기서도 부르는 것은 이 뷰가
-      // 아래 판정(was→now)을 같은 틱에 보기 위해서다. 멱등이다.
-      if (this._doc) app.edDocDirtySync(this._doc);
-      else this.__dirty = true;
-      if (!was && this._dirty) {
-        this._tabLabelAll();
-        // REPO_TAB_UNIFY_SRS FR-RTU-42: **편집을 시작하면 고정된다.** 고치던
-        // 파일이 다음 클릭에 사라지면 그것은 미리보기가 아니라 사고다.
-        //
-        // **`setValue` 는 편집이 아니다.** `refresh()` 가 디스크의 내용을 다시
-        // 넣을 때도 이 이벤트가 오는데(그 직후 dirty 를 되돌린다), 그것까지
-        // 편집으로 세면 파일을 열자마자 미리보기가 고정된다(실측). Monaco 가
-        // 그 구분을 `isFlush` 로 준다.
-        if (!(e && e.isFlush)) this._pinIfPreview();
-      }
-      // FR-EFP-17: 편집하는 동안 낡은 하이라이트가 남으면 그것이 거짓말이 된다.
-      if (this._findVis()) this._findRun(true);
-      // FR-EDD-53: 변경 표시도 같은 계기다. 디바운스는 관리자가 갖는다 —
-      // 모델이 공유되므로 이 이벤트는 칸마다 오고, 계산은 한 번이어야 한다.
-      if (this._dd) this._dd.schedule();
-    });
+  /**
+   * 내용이 바뀌었다 — 이 칸의 편집이든 다른 칸에서 전달된 것이든 디스크 판이든.
+   * 버퍼가 칸마다 전달하므로 이 갱신은 같은 파일을 보는 칸 **모두**에서 돈다. dirty 설정은
+   * 멱등이고 라벨은 칸마다 있으므로 전부 갱신한다 (FR-SVS-54).
+   */
+  _onUpdate(u) {
+    if (!u.docChanged) return;
+    const flush = u.transactions.some((tr) => tr.annotation(EdBuffer.FLUSH));
+    // REPO_FIX 03 §3A-7: dirty 는 내용 비교다 — undo 로 되돌리면 풀린다.
+    const was = this._dirty;
+    // 문서는 버퍼를 스스로 구독한다(`_edDocWatch`) — 여기서도 부르는 것은 이 뷰가
+    // 아래 판정(was→now)을 같은 틱에 보기 위해서다. 멱등이다.
+    if (this._doc) app.edDocDirtySync(this._doc);
+    else this.__dirty = true;
+    if (!was && this._dirty) {
+      this._tabLabelAll();
+      // REPO_TAB_UNIFY_SRS FR-RTU-42: **편집을 시작하면 고정된다.** 고치던 파일이
+      // 다음 클릭에 사라지면 그것은 미리보기가 아니라 사고다. 디스크 판으로 갈아
+      // 끼운 것(FLUSH)은 편집이 아니다 — 그것까지 세면 파일을 열자마자 고정된다.
+      if (!flush) this._pinIfPreview();
+    }
+    // FR-EFP-17: 편집하는 동안 낡은 하이라이트가 남으면 그것이 거짓말이 된다.
+    if (this._findVis()) this._findRun(true);
+    // FR-EDD-53: 변경 표시도 같은 계기다. 디바운스는 관리자가 갖는다 — 계산은 한
+    // 번이어야 한다.
+    if (this._dd) this._dd.schedule();
   }
 
   _wireKeys() {
@@ -531,7 +518,7 @@ class FileEditor {
      * 포커스를 본문으로 되돌렸고, 그래서 위젯은 떠 있는데 글자를 못 받았다.
      * **타이핑한 글자가 전부 문서에 삽입됐다** (그 SRS §2.2~2.4).
      *
-     * capture 로 먼저 보면 매칭된 키는 Monaco 에 닿지 않는다. 매칭되지 않으면
+     * capture 로 먼저 보면 매칭된 키는 편집기에 닿지 않는다. 매칭되지 않으면
      * `edTrySearchKey` 는 아무것도 하지 않으므로(FR-EFP-3) 편집기가 그대로 받는다 —
      * 여기서 전파를 멈추면 편집기가 글자를 하나도 받지 못한다.
      *
@@ -549,7 +536,7 @@ class FileEditor {
     // Keyboard interop: prevent terminal shortcuts from firing in editor
     this.el.addEventListener('keydown', (e) => {
       // 검색 키는 위의 capture 리스너가 이미 판정했다 — 여기서 다시 묻지 않는다.
-      // Let Monaco handle everything inside the editor
+      // 편집기 안의 키는 편집기가 다 받는다.
       e.stopPropagation();
     });
   }
@@ -577,124 +564,77 @@ class FileEditor {
       // 글자를 하나도 받지 못한다 — `ed.focus()` 가 위젯의 포커스를 훔쳤던 것과
       // 같은 종류의 결함이며(그 SRS §2.3), 자리만 다르다.
       if (e.target && e.target.closest && e.target.closest('.fe-find')) return;
-      if (this._editor) this._editor.focus();
+      if (this._view) this._view.focus();
     });
   }
 
   /**
-   * FR-EGS-10: 검색 결과가 가리키는 줄로 옮긴다. Monaco 가 아직 뜨지 않았으면
-   * 담아 두었다 생성 직후에 쓴다 — 탭 생성과 Monaco 로드는 비동기이고, 부르는
+   * FR-EGS-10: 검색 결과가 가리키는 줄로 옮긴다. 편집기가 아직 뜨지 않았으면
+   * 담아 두었다 생성 직후에 쓴다 — 탭 생성과 편집기 로드는 비동기이고, 부르는
    * 쪽이 그 순서를 알 이유가 없다.
    */
   revealLine(line, col) {
     const ln = Math.max(1, parseInt(line, 10) || 1);
     const cl = Math.max(1, parseInt(col, 10) || 1);
-    if (!this._editor) { this._pendingReveal = { line: ln, col: cl }; return }
-    this._editor.revealLineInCenter(ln);
-    this._editor.setPosition({ lineNumber: ln, column: cl });
-    this._editor.focus();
+    if (!this._view) { this._pendingReveal = { line: ln, col: cl }; return }
+    const pos = edCmPos(this._view.state.doc, ln, cl);
+    this._view.dispatch({ selection: { anchor: pos }, effects: CM.EditorView.scrollIntoView(pos, { y: 'center' }) });
+    this._view.focus();
   }
 
   /**
    * WORKBENCH_REVIEW_SRS FR-WBR-11: 설정이 바뀌면 **이미 열려 있는** 편집기도
    * 곧바로 따라간다.
    *
-   * `updateOptions` 는 옵션만 갈아끼운다 — 모델도 뷰 상태도 그대로이므로 편집
-   * 중인 내용과 커서를 잃지 않는다 (NFR-WBR-1). 아직 Monaco 가 뜨지 않았으면
-   * 할 일이 없다: 생성 인자가 같은 값을 읽는다.
+   * Compartment 만 갈아끼운다 — 문서도 뷰 상태도 그대로이므로 편집 중인 내용과
+   * 커서를 잃지 않는다 (NFR-WBR-1). 아직 편집기가 뜨지 않았으면 할 일이 없다:
+   * 생성 인자가 같은 값을 읽는다.
    */
   applyWordWrap() {
-    if (!this._editor) return;
-    this._editor.updateOptions({ wordWrap: editorWordWrap ? 'on' : 'off' });
+    if (!this._view) return;
+    this._view.dispatch({ effects: this._cmp.wrap.reconfigure(editorWordWrap ? CM.EditorView.lineWrapping : []) });
   }
 
   /**
    * EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-4: 미니맵도 **이미 열려 있는** 편집기가
    * 곧바로 따라간다 — `applyWordWrap` 과 같은 규약이다 (FR-WBR-11).
    */
-  applyMinimap() {
-    if (!this._editor) return;
-    this._editor.updateOptions({ minimap: edMinimapOpts(editorMinimap) });
-  }
+  // CODEMIRROR_MIGRATION_SRS M5: 미니맵은 포크한 확장으로 다시 선다. 그 전까지 할 일이 없다.
+  applyMinimap() {}
 
   /**
    * FR-FSS-9: 배율을 바꾸면 **이미 열려 있는** 편집기도 따라온다.
    *
-   * `updateOptions` 이므로 모델·커서·편집 중인 내용을 잃지 않는다 — 재생성이면
+   * Compartment 이므로 문서·커서·편집 중인 내용을 잃지 않는다 — 재생성이면
    * 저장하지 않은 편집이 사라진다 (FR-MMT-4·FR-WBR-11 과 같은 근거).
    */
   applyFontSize() {
-    if (!this._editor) return;
-    this._editor.updateOptions({ fontSize: edFontSize() });
+    if (!this._view) return;
+    this._view.dispatch({ effects: this._cmp.font.reconfigure(edCmFontTheme(edFontSize())) });
   }
 
-  /**
-   * FR-LSP-60·67 (U-1): **Cmd/Ctrl+클릭으로 정의로 간다.**
-   *
-   * 계기를 우리가 잡는 이유는 실측이다 — 이 판의 Monaco 는 링크 제스처 기여가
-   * 서 있는데도(`getContribution('editor.contrib.gotodefinitionatposition')` 이
-   * 참이다) 제스처에 **provider 를 묻지 않는다.** 수정 키가 DOM 이벤트에 실려
-   * 오는 것까지 확인했고(`metaKey:true`), 그런데도 요청이 0건이었다.
-   *
-   * 그래서 클릭은 `F12` 와 **같은 경로**를 탄다 — 알림 줄의 사유, 여럿일 때의
-   * 목록, 뒤로 가기 스택이 전부 그쪽에 있다. 계기가 둘이어도 동작이 하나여야
-   * 사용자가 두 가지를 배우지 않는다.
-   *
-   * `Mod` 는 Ctrl 과 Meta 중 **정확히 하나**다 (`shortcuts.js` 의 규약) — 그래야
-   * `Ctrl+Cmd+클릭` 을 따로 쓰는 사람의 조합을 가로채지 않는다.
-   */
-  _lspBindClick() {
-    if (!this._editor) return;
-    this._editor.onMouseUp((e) => {
-      const ev = e && e.event;
-      if (!ev || ev.altKey || ev.shiftKey) return;
-      if (ev.ctrlKey === ev.metaKey) return;
-      const pos = e.target && e.target.position;
-      if (!pos) return;
-      // 드래그로 끝난 클릭은 선택이다 — 그 자리를 고른 것이 아니다.
-      const sel = this._editor.getSelection();
-      if (sel && !sel.isEmpty()) return;
-      if (window.app && window.app.lspClickDef) window.app.lspClickDef(this, pos);
-    });
+  // REPO_FIX 03 §3A-2: 다시 연 인코딩으로 풀리지 않으면 읽기 전용이다 (`edDocReopen`).
+  onDocReadOnly(ro) {
+    if (!this._view) return;
+    this._view.dispatch({ effects: this._cmp.ro.reconfigure(CM.EditorState.readOnly.of(!!ro)) });
   }
 
-  /**
-   * FR-LSP-66 (U-1): Monaco 의 **정의 계열 키바인딩을 죽인다.**
-   *
-   * `registerDefinitionProvider` 를 걸면 Monaco 의 기본 키(`F12`·`Alt+F12`)도 함께
-   * 살아난다. 그러면 **설정에서 키를 바꿔도 옛 키가 계속 듣는다** — `FR-LSP-40`
-   * (키는 설정의 것)이 깨지는 자리이며, 기존 검사가 그것을 잡았다(실측).
-   *
-   * 계기를 가른다: **키는 우리 것**(`_edKeyGate` → `_lspJump`, 알림 줄·목록·뒤로
-   * 가기가 거기 있다), **마우스 제스처는 Monaco 것**(Cmd/Ctrl+클릭의 링크 밑줄은
-   * Monaco 만 그릴 수 있다 — D-8c). 제스처는 키바인딩이 아니므로 이 조치에 걸리지
-   * 않는다.
-   */
-  _lspKillMonacoKeys() {
-    if (!this._editor || typeof monaco === 'undefined') return;
-    const M = monaco.KeyMod, K = monaco.KeyCode;
-    const noop = () => {};
-    for (const kb of [
-      K.F12,                  // 정의로 이동
-      M.Alt | K.F12,          // 정의 peek — 다른 파일에는 모델이 없어 빈 창이 된다
-      M.Shift | K.F12,        // 참조 peek (우리 Shift+F12 가 그 자리다)
-    ]) this._editor.addCommand(kb, noop);
-  }
+  // REPO_FIX 03 §3A-5: 문서가 새 경로로 옮겨졌다 — 버퍼는 그대로이고 언어만 다시 정한다.
+  onDocMoved() { this._langLoad() }
 
   /**
    * VIEW_SCROLL_RESTORE_SRS FR-VSR-1·2·5: 지금 보고 있던 자리를 적어 둔다.
    *
    * **떼기 전에** 불려야 한다. 계기는 `_keepScrollAll`(render 의 머리) 하나이며,
    * 그 뒤에 오는 `_hideOthers`·`_domGC`·`_place` 가 요소를 문서에서 떼어 간다
-   * (D-2). Monaco 의 스크롤은 DOM `scrollTop` 이 아니라 인스턴스가 든 값이므로
-   * `_keepScrollAll` 의 훑기로는 잡히지 않는다.
+   * (D-2). 편집기의 스크롤은 편집기가 든 높이 계산 위에 서므로 `_keepScrollAll` 의
+   * 훑기로는 되돌릴 수 없다 — 편집기에게 스냅숏을 받는다.
    *
-   * 스크롤만 뽑지 않는다 — 커서·선택·접힘이 같은 이동으로 함께 사라진다.
+   * 커서·선택·접힘은 `EditorState` 에 남아 떼였다 붙어도 잃지 않는다. 잃는 것은 스크롤이다.
    */
   keepView() {
-    if (!this._editor || !this.el.isConnected || !this.el.classList.contains('vis')) return;
-    const st = this._editor.saveViewState();
-    if (st) this._viewState = st;
+    if (!this._view || !this.el.isConnected || !this.el.classList.contains('vis')) return;
+    this._viewState = this._view.scrollSnapshot();
   }
 
   /**
@@ -704,8 +644,8 @@ class FileEditor {
    * 자리(`revealLine` 의 결과를 포함)를 덮지 않는다.
    */
   restoreView() {
-    if (!this._editor || !this._viewState) return;
-    this._editor.restoreViewState(this._viewState);
+    if (!this._view || !this._viewState) return;
+    this._view.dispatch({ effects: this._viewState });
   }
 
   // FR-RTU-42: 이 편집기가 붙은 탭이 미리보기면 고정한다. 탭을 찾는 일은 App 이
@@ -768,10 +708,9 @@ class FileEditor {
 
   // 문서를 못 얻은 뷰(이진·이미지·로딩 실패)의 저장이다. 문서가 있으면 `edDocSave`.
   async _saveOnce() {
-    if (!this._editor || !this._dirty) return false;
-    const content = this._editor.getValue();
-    const model = this._editor.getModel();
-    const sentVer = model ? model.getAlternativeVersionId() : 0;
+    if (!this._view || !this._dirty) return false;
+    const sentDoc = this._view.state.doc;
+    const content = sentDoc.toString();
     try {
       let r = await this._write(content, this._stamp, null);
       if (r.status === 409) {
@@ -783,7 +722,7 @@ class FileEditor {
         return false;
       }
       this._stamp = (r.data && r.data.stamp) || '';
-      if (!(model && model.getAlternativeVersionId() !== sentVer)) this.__dirty = false;
+      if (this._view && this._view.state.doc.eq(sentDoc)) this.__dirty = false;
       this._tabLabelAll();
       if (typeof app !== 'undefined' && app) app.gitSignal('write');
       return true;
@@ -818,9 +757,9 @@ class FileEditor {
    */
   _noteUnmappable(u, doc) {
     const line = Number(u.line) || 1, col = Number(u.col) || 1;
-    if (this._editor) {
-      this._editor.setPosition({ lineNumber: line, column: col });
-      this._editor.revealPositionInCenter({ lineNumber: line, column: col });
+    if (this._view) {
+      const pos = edCmPos(this._view.state.doc, line, col);
+      this._view.dispatch({ selection: { anchor: pos }, effects: CM.EditorView.scrollIntoView(pos, { y: 'center' }) });
     }
     const enc = doc && doc.encoding ? (ENC_LABEL[doc.encoding] || doc.encoding) : '';
     this.note(t('editor.enc_unmappable', { line, col, char: u.char || '', enc }), FE_NOTE_ACTION_MS,
@@ -852,8 +791,8 @@ class FileEditor {
     }
   }
   focus() {
-    if (this._editor) {
-      this._editor.focus();
+    if (this._view) {
+      this._view.focus();
     } else {
       this.el.focus();
     }
@@ -1001,18 +940,15 @@ class FileEditor {
     // FR-LSP-44a: 띠의 관측은 띠와 같은 수명이다. 닫히지 않은 채 뷰가 파괴되면
     // `offerClose` 를 지나지 않으므로 여기서도 놓는다.
     if (this._offerRo) { this._offerRo.disconnect(); this._offerRo = null }
-    // 하이라이트는 에디터와 함께 사라지지만, 컬렉션을 명시적으로 걷는다 —
-    // dispose 순서에 기대지 않는다.
-    if (this._findDecos) { this._findDecos.clear(); this._findDecos = null }
-    // REPO_FIX 03 E-9.1: LSP 진단은 여기서 지우지 않는다 — 문서의 마지막 뷰가 떠날
-    // 때(`edDocDrop`) 지운다. 같은 파일을 보는 다른 칸의 밑줄이 남아야 한다.
     this._destroyed = true;
-    if (this._editor) {
-      // 모델은 **에디터의 것이 아니다** — `{model}` 로 준 것은 dispose 되지 않는다.
-      // 문서의 수명은 `edDocDrop` 이 정한다 (FR-SVS-55).
-      this._editor.dispose();
-      this._editor = null;
+    if (this._view) {
+      // 버퍼는 **편집기의 것이 아니다** — 떼기만 한다. 문서의 수명은 `edDocDrop` 이
+      // 정한다 (FR-SVS-55).
+      if (this._buf) this._buf.detach(this._view);
+      this._view.destroy();
+      this._view = null;
     }
+    this._buf = null;
     // FR-EDD-16: 팝업과 등록을 먼저 걷는다 — 문서를 놓기 전이어야 관리자가
     // 살아 있는 동안 정리된다.
     if (this._ddDrop) this._ddDrop();

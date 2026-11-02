@@ -1,7 +1,7 @@
 # SRS: 편집기 엔진 교체 — Monaco 에서 CodeMirror 6 으로 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: M3~M9 (단계 A) · M10~ (단계 B). M1(묶음 V)·M2(묶음 T)는 완료.
+> **남은 것**: M3 마무리(§7.2 의 M3 미해결 2건) · M4~M9 (단계 A) · M10~ (단계 B). M1·M2 완료, M3 진행 중.
 
 - 근거: 사용자 인터뷰(2026-11-02) · PoC(`/tmp/cm-poc`, §2.6).
 - 대체 문서: `MONACO_VENDORING_SRS.md` 의 묶음 V 는 이 문서의 묶음 V 가 대체한다.
@@ -446,6 +446,9 @@ B 착수 전에 §8 의 미해결 질문을 해소한다.
 | LSP 구조 | 서버가 중개(REST), 진단은 hub 로 | 브라우저 `lsp-client` ↔ WebSocket 통로 | Monaco 잔재 제거 |
 | LSP 세션 단위 | (루트, 서버)당 프로세스 하나를 모든 탭이 공유 | 연결마다 하나 | `lsp-client` 는 클라이언트 하나가 서버 하나를 독점한다고 가정한다 |
 | Diff 공백 무시 | Monaco `ignoreTrimWhitespace` | 줄 단위 정규화 비교 | 같은 결과를 목표로 한다. 줄 안의 강조 범위는 다를 수 있다 |
+| `.tsx`·`.jsx` 강조 | Monaco `typescript`·`javascript` | TSX·JSX | language-data 에 전용 문법이 있다 — 태그가 강조된다 (M3) |
+| 파일 이동·이름 변경 뒤 실행 취소 | 새 경로의 새 모델이라 사라졌다 | 남는다 | 경로로 찾는 모델 등록소가 없다 — 버퍼는 그대로이고 레지스트리 키만 옮긴다 (M3) |
+| 비동기 적용 토큰 | 모델 판(alternativeVersionId)이 같으면 유효 — 고쳤다 되돌리면 유효 | 버퍼 판 번호가 같아야 유효 — 고쳤다 되돌려도 무효 | 판 번호는 실행 취소에도 오른다. 덮어쓸 위험 쪽으로 기울지 않는다 (M3) |
 
 ### 3.17 비기능 요구 (NFR)
 
@@ -559,6 +562,31 @@ B 착수 전에 §8 의 미해결 질문을 해소한다.
 M2 를 엔진 교체보다 먼저 두는 이유: 테스트를 옮기는 일과 엔진을 바꾸는 일을 한 마일스톤에 섞으면
 실패의 원인을 가를 수 없다.
 
+### 7.1 브랜치와 중간 상태
+
+편집기에 붙은 기능(D·M·R·K·L·문서 공유)은 편집기 엔진(M3)보다 뒤의 마일스톤에서 옮긴다. 그래서 M3~M8
+사이에는 일부 기능과 그 e2e 가 동작하지 않는다.
+
+- 단계 A 는 `codemirror-migration` 브랜치에서 진행한다. 마일스톤마다 그 브랜치에 커밋한다.
+- `main` 은 단계 A 가 끝날 때까지 Monaco 상태로 동작한다. 단계 A 완료 조건(e2e 전체 통과·NFR 측정 통과)을
+  채운 뒤 `main` 에 합친다.
+- 마일스톤 사이에 실패하는 e2e 는 §7.2 표에 **실패 이유와 그것을 닫는 마일스톤**을 함께 적는다. 표에 없는
+  실패는 회귀로 본다. 마일스톤을 커밋할 때 표를 갱신한다.
+
+### 7.2 아직 옮기지 않은 기능 때문에 실패하는 e2e
+
+측정: M3 작업 트리, 편집기 관련 e2e 43개 파일 — 534건 중 통과 484 · 실패 50 (2026-11-02).
+
+| 스펙 · 테스트 | 실패 이유 | 닫는 마일스톤 |
+|---|---|---|
+| `editor-dirty-diff` V-EDD 9건 | 변경 줄 표시가 아직 Monaco 에 서 있다 | M5 |
+| `editor-minimap` V-MMP-1·2 · `editor-find-panel` FR-M9-9 · `doc-render` V-DRB-1 | 미니맵·overview ruler 가 아직 없다 | M5 |
+| `git-diff-doc` S1~S7 · `repo-diff-edit` D1·D3·E1·E2 · `git-subroot` F-3.1 | Diff 뷰의 문서 공유를 껐다 (`GIT_DIFF_SHARES_DOC=false`) | M6 |
+| `editor-lsp-nav` 18건 · `slot-view-state` E-9.1 · `repo-tab` M4 · `ux-batch10` 호버 | LSP 연결이 아직 Monaco 편집기에 서 있다 (제안 띠 포함) | M8 |
+| `editor-find-panel` "다른 Monaco 는 자기 위젯을 갖는다" · `monaco-offline` TC-MVN-16 | Monaco 고유 동작을 재는 검사다 — 편집기 칸에 Monaco 가 없다 | M6/M9 에서 폐기 또는 대체 |
+| **`editor-replace-seed` "모두 바꾸기 뒤 undo 한 번에 전부 돌아온다"** | **M3 회귀 — FR-CMR-33** | **M3 (미해결)** |
+| **`editor-doc-registry` "CRLF 파일은 편집하지 않으면 변경 표시가 없다"** | **M3 회귀 의심 — CRLF 처리 확인 필요** | **M3 (미해결)** |
+
 ---
 
 ## 8. 미해결 질문 (B 착수 전 해소)
@@ -585,6 +613,24 @@ M2 를 엔진 교체보다 먼저 두는 이유: 테스트를 옮기는 일과 �
 | `lsp-client` 판 갱신으로 API 변경 | LOW | 판 고정 (FR-CMR-4) |
 
 ---
+
+## 11. 설계 메모 (마일스톤별)
+
+### 11.1 M3 — 편집기 코어·찾기
+
+| 모듈 | 책임 | 비고 |
+|---|---|---|
+| `web/js/ui/cm-buffer.js` — `EdBuffer` | 문서 하나의 내용. 붙은 칸(sink)들 사이에 변경을 전달한다(FR-CMR-21). 디스크 재읽기(`replace`)는 칸마다 상태를 새로 세우되 선택을 문서 범위로 접어 남긴다(FR-ELR-31). 판 번호 `version` 은 변경마다 오른다. `onChange(fn)` 구독 | DOM 에 기대지 않는다 — sink 는 `{state, dispatch}` 다. Node 단위 테스트가 `EditorState` 로 잰다 |
+| `web/js/ui/cm-setup.js` | 확장 구성(FR-CMR-10·11), Compartment(줄바꿈·글자 크기·읽기 전용·언어), CSS 변수 테마(FR-CMR-12), 언어 찾기·로드(FR-CMR-13), (줄, 열) ↔ offset 변환 | |
+| `web/js/ui/cm-find.js` | 찾기 일치 계산 `edFindHits(doc, query, opts, max)` — 대소문자·정규식·단어 단위(`ED_FIND_WORD_SEPARATORS`)·캡처 | 순수 함수 |
+| 문서 레지스트리 (`app-editor-doc.js`) | `d.model` → `d.buf`. dirty 는 `!d.buf.doc.eq(d.savedDoc)` (FR-CMR-16). 문서 토큰(`doc-token.js`)은 `version` 을 본다 | |
+| `FileEditor` | `_editor` 필드에 `EditorView` 를 둔다(이름 유지) | |
+
+M3 에서 **아직 옮기지 않는 것** — dirty diff(M5)·미니맵(M5)·ruler(M5)·Diff 뷰의 문서 공유(M6)·sticky(M7)·LSP(M8).
+그 자리는 엔진이 없을 때처럼 조용히 건너뛴다(`if (this._dd)` 같은 기존 가드). 실패하는 e2e 는 §7.2 에 적는다.
+
+단위 테스트는 커밋된 벤더 묶음(`web/vendor/codemirror/cm.js.gz`)을 풀어 Node 에서 `import` 한다 — CI 에서 따로
+설치하지 않고, 배포되는 바이트를 그대로 잰다.
 
 ## 10. 변경 기록
 

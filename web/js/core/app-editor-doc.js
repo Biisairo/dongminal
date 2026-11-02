@@ -2,10 +2,10 @@
  * 편집기 문서 — 로드·refresh·경로 이동·dirty (REPO_FIX 03 §3A-5·3A-7)
  *
  * 레지스트리(`_edDocs`)와 문서의 자리는 `app-editor-open.js` 의 `edDoc`·`edDocDrop`
- * 이다. 여기 있는 것은 **디스크 내용을 모델에 넣는 일** 전부다 — 첫 뷰가 무엇이든
- * (FileEditor·DocRender·git Diff 뷰) 문서가 모델을 만들고, 외부 변경은 문서 단위로
- * 한 번 읽어 모든 뷰에 알린다. 비동기 응답은 적용 직전 토큰으로 재확인한다
- * (`doc-token.js`).
+ * 이다. 여기 있는 것은 **디스크 내용을 문서에 넣는 일** 전부다 — 첫 뷰가 무엇이든
+ * (FileEditor·DocRender) 문서가 버퍼(`EdBuffer`, `d.buf`)를 만들고, 외부 변경은 문서
+ * 단위로 한 번 읽어 모든 뷰에 알린다. 비동기 응답은 적용 직전 토큰으로 재확인한다
+ * (`doc-token.js`). CODEMIRROR_MIGRATION_SRS §11.1.
  */
 Object.assign(App.prototype, {
 
@@ -13,23 +13,23 @@ Object.assign(App.prototype, {
   edDocAt(filePath){ return (this._edDocs&&this._edDocs.get(filePath))||null },
 
   /**
-   * 문서의 모델. 없으면 디스크에서 `decode=1` 로 읽어 만든다(한 문서에 한 번 —
+   * 문서의 버퍼. 없으면 디스크에서 `decode=1` 로 읽어 만든다(한 문서에 한 번 —
    * 겹친 요청은 같은 약속을 받는다). 응답이 왔을 때 문서가 해제·이동됐거나 그 사이
-   * 누가 모델을 만들었으면 만들지 않는다 — 고아 모델이 남지 않는다 (#9).
+   * 누가 버퍼를 만들었으면 만들지 않는다 (#9).
    */
   edDocLoad(filePath){
     const d=this.edDoc(filePath);
-    if(d.model) return Promise.resolve(d.model);
+    if(d.buf) return Promise.resolve(d.buf);
     if(d.loading) return d.loading;
     const tok=docTokenOf(d,filePath);
     d.loading=(async()=>{
       try{
-        await loadMonaco();
+        await loadCodeMirror();
         const r=await this._edDocRead(filePath,d.encoding);
         if(!r.ok) throw new Error('HTTP '+r.status);
-        if(!docTokenValid(tok,this._edDocs)) return d.model||null;
-        this._edDocCreate(d,filePath,r);
-        return d.model;
+        if(!docTokenValid(tok,this._edDocs)) return d.buf||null;
+        this._edDocCreate(d,r);
+        return d.buf;
       }finally{ d.loading=null }
     })();
     return d.loading;
@@ -56,20 +56,16 @@ Object.assign(App.prototype, {
     }
   },
 
-  _edDocCreate(d,filePath,r){
-    const uri=monaco.Uri.file(filePath);
-    const prev=monaco.editor.getModel(uri);
-    // 어느 문서에도 속하지 않는 같은 URI 모델은 고아다 — 다음 열기가 그것을 집으면
-    // 낡은 내용·표식 없는 모델을 쓴다 (#9). 버리고 방금 읽은 내용으로 새로 만든다.
-    if(prev&&![...this._edDocs.values()].some(x=>x.model===prev)) ErrorLog.quiet('dispose',()=>prev.dispose());
-    d.model=monaco.editor.createModel(r.text,monacoLang(filePath),uri);
+  // 버퍼는 문서마다 하나이고 경로로 찾는 전역 등록소가 없다 — 고아가 생길 자리가 없다.
+  _edDocCreate(d,r){
+    d.buf=new EdBuffer(r.text);
     this._edDocWatch(d);
     this._edDocMeta(d,r);
     d.gen++;
-    d.savedAltVer=d.model.getAlternativeVersionId();
+    d.savedDoc=d.buf.doc;
     d.dirty=false;
-    // 모델을 직접 그리지 않는 뷰(DocRender)에 알린다.
-    for(const v of d.views) if(v&&v.onDocModel) v.onDocModel(d.model);
+    // 버퍼를 직접 그리지 않는 뷰(DocRender)에 알린다.
+    for(const v of d.views) if(v&&v.onDocBuf) v.onDocBuf(d.buf);
   },
 
   /**
@@ -85,7 +81,7 @@ Object.assign(App.prototype, {
    */
   edDocRefresh(filePath){
     const d=this._edDocs&&this._edDocs.get(filePath);
-    if(!d||!d.model||d.dirty||d.loading) return Promise.resolve(false);
+    if(!d||!d.buf||d.dirty||d.loading) return Promise.resolve(false);
     const tok=docTokenOf(d,filePath);
     return this._edDocRead(filePath,d.encoding).then(r=>{
       if(!r.ok||!docTokenValid(tok,this._edDocs)) return false;
@@ -94,56 +90,29 @@ Object.assign(App.prototype, {
     }).catch(e=>{console.error('[edDoc] refresh error:',e);return false});
   },
 
-  // 디스크 내용을 모델에 넣는다. 내용이 같으면 넣지 않는다 — `setValue` 는 커서와
-  // undo 를 버린다(FR-LSP-26b). 칸마다의 시선은 담았다가 되돌린다(FR-ELR-30).
+  // 디스크 내용을 문서에 넣는다. 내용이 같으면 버퍼가 넣지 않는다 — 넣으면 커서와
+  // undo 를 버린다(FR-LSP-26b). 칸마다의 시선(커서·스크롤)은 버퍼가 남긴다(FR-ELR-30·31).
   _edDocReplace(d,r){
     this._edDocMeta(d,r);
-    if(d.model.getValue()!==r.text){
-      const gazes=this._edDocGazes(d);
-      d.model.setValue(r.text);
-      for(const g of gazes) this._edDocRestoreGaze(g);
-    }
+    d.buf.replace(r.text);
     d.gen++;
-    d.savedAltVer=d.model.getAlternativeVersionId();
+    d.savedDoc=d.buf.doc;
     this.edDocDirtySync(d);
   },
 
-  // dirty 는 **모델**의 변화에서 잰다 — 편집기 뷰가 없는(DocRender 만 연) 문서도,
+  // dirty 는 **버퍼**의 변화에서 잰다 — 편집기 뷰가 없는(DocRender 만 연) 문서도,
   // undo 도 같은 길이다.
   _edDocWatch(d){
-    if(d.modelSub) ErrorLog.quiet('dispose',()=>d.modelSub.dispose());
-    d.modelSub=d.model?d.model.onDidChangeContent(()=>this.edDocDirtySync(d)):null;
-  },
-
-  // git Diff 뷰는 편집기 대신 `gazeEditor`(작업 트리 쪽 에디터)를 든다 (REPO_FIX 05 §3A-3).
-  _edDocGazes(d){
-    const out=[];
-    for(const v of d.views){
-      const ed=v&&(v._editor||v.gazeEditor);
-      if(ed) out.push({ed,sel:ed.getSelection(),top:ed.getScrollTop(),left:ed.getScrollLeft()});
-    }
-    return out;
-  },
-
-  // FR-ELR-31: 짧아져 그 줄이 사라졌으면 가장 가까운 자리로 — 자르는 일은 모델이 한다.
-  _edDocRestoreGaze(g){
-    const model=g.ed.getModel();
-    if(model&&g.sel){
-      const a=model.validatePosition({lineNumber:g.sel.selectionStartLineNumber,column:g.sel.selectionStartColumn});
-      const b=model.validatePosition({lineNumber:g.sel.positionLineNumber,column:g.sel.positionColumn});
-      g.ed.setSelection({selectionStartLineNumber:a.lineNumber,selectionStartColumn:a.column,
-        positionLineNumber:b.lineNumber,positionColumn:b.column});
-    }
-    g.ed.setScrollTop(g.top);
-    g.ed.setScrollLeft(g.left);
+    if(d.bufSub) d.bufSub();
+    d.bufSub=d.buf?d.buf.onChange(()=>this.edDocDirtySync(d)):null;
   },
 
   /**
-   * §3A-7 (E-6.3): dirty = 모델 판(alternativeVersionId) ≠ 저장 시점 판. undo 로
-   * 되돌리면 dirty 가 풀린다. 바뀌었으면 그 문서의 모든 뷰 라벨을 고친다.
+   * §3A-7 (E-6.3) · CODEMIRROR_MIGRATION_SRS FR-CMR-16: dirty = 지금 내용 ≠ 저장 시점 내용.
+   * undo 로 되돌리면 dirty 가 풀린다. 바뀌었으면 그 문서의 모든 뷰 라벨을 고친다.
    */
   edDocDirtySync(d){
-    const now=!!(d.model&&d.model.getAlternativeVersionId()!==d.savedAltVer);
+    const now=!!(d.buf&&!d.buf.doc.eq(d.savedDoc));
     if(now===d.dirty) return;
     d.dirty=now;
     for(const v of d.views) if(v&&v._updateTabLabel) v._updateTabLabel();
@@ -156,25 +125,18 @@ Object.assign(App.prototype, {
    */
   async edDocReopen(filePath,enc){
     const d=this.edDocAt(filePath);
-    if(!d||!d.model) return false;
+    if(!d||!d.buf) return false;
     if(d.dirty&&!await this._edEncConfirm(ENC_REOPEN_DIRTY)) return false;
     const tok=docTokenOf(d,filePath);
     const r=await this._edDocRead(filePath,enc);
     if(r.status===422){this._edDocNote(d,t('editor.enc_undecodable',{enc:ENC_LABEL[enc]||enc}));return false}
     if(!r.ok||!docTokenValid(tok,this._edDocs)) return false;
     this._edDocMeta(d,r);
-    if(d.model.getValue()!==r.text){
-      const gazes=this._edDocGazes(d);
-      d.model.setValue(r.text);
-      for(const g of gazes) this._edDocRestoreGaze(g);
-    }
+    d.buf.replace(r.text);
     d.gen++;
-    d.savedAltVer=d.model.getAlternativeVersionId();
+    d.savedDoc=d.buf.doc;
     this.edDocDirtySync(d);
-    for(const v of d.views){
-      if(v&&v._editor) v._editor.updateOptions({readOnly:d.decodable===false});
-      else if(v&&v.onDocReadOnly) v.onDocReadOnly(d.decodable===false);
-    }
+    for(const v of d.views) if(v&&v.onDocReadOnly) v.onDocReadOnly(d.decodable===false);
     this.updateStatusBar();
     return true;
   },
@@ -185,7 +147,7 @@ Object.assign(App.prototype, {
    */
   async edDocConvertUtf8(filePath){
     const d=this.edDocAt(filePath);
-    if(!d||!d.model||d.decodable===false||(d.encoding==='utf-8'&&!d.bom)) return false;
+    if(!d||!d.buf||d.decodable===false||(d.encoding==='utf-8'&&!d.bom)) return false;
     if(!await this._edEncConfirm(ENC_CONVERT_CONFIRM)) return false;
     const ui=[...d.views].find(x=>x&&x._noteSaveFailed)||null;
     if(d.savePromise) await d.savePromise;
@@ -231,13 +193,13 @@ Object.assign(App.prototype, {
   // 저장 하나. **성공 여부를 돌려준다** (FR-EXC-12). `force` 는 dirty 가 아니어도
   // 쓴다 — UTF-8 로 변환해 저장이 그 길이다(03 §3A-2).
   async _edDocSaveOnce(filePath,d,ui,o){
-    if(!d.model||(!d.dirty&&!(o&&o.force))) return false;
+    if(!d.buf||(!d.dirty&&!(o&&o.force))) return false;
     // 어느 인코딩으로도 풀리지 않은 문서는 저장하지 않는다(읽기 전용, 03 §3A-1).
     if(d.decodable===false) return false;
-    const content=d.model.getValue();
-    // FR-EXC-14 / 03 §3A-7: 담아 간 판을 기준으로 삼는다 — 왕복 중 편집이 있으면
+    // FR-EXC-14 / 03 §3A-7: 담아 간 내용을 기준으로 삼는다 — 왕복 중 편집이 있으면
     // dirty 가 남는다.
-    const sentVer=d.model.getAlternativeVersionId();
+    const sentDoc=d.buf.doc;
+    const content=sentDoc.toString();
     try{
       let r=await this.edDocWrite(filePath,content,d.stamp,d);
       // FR-EXC-5·7·9: 409 는 우리가 읽은 뒤 디스크가 바뀌었다는 뜻이다.
@@ -256,7 +218,7 @@ Object.assign(App.prototype, {
       // 저장 중 문서가 옮겨지거나 해제됐으면 그 문서에 적용하지 않는다(03 §3A-5).
       if(this.edDocAt(filePath)===d){
         d.stamp=(r.data&&r.data.stamp)||'';
-        d.savedAltVer=sentVer;
+        d.savedDoc=sentDoc;
         this.edDocDirtySync(d);
       }
       // 파일 저장은 즉시 신호다 (FR-GIT-18) — 작업 트리가 방금 바뀌었다.
@@ -326,7 +288,7 @@ Object.assign(App.prototype, {
 
   // 문서를 보는 편집기 하나에 알림을 띄운다.
   _edDocNote(d,text,action){
-    for(const v of d.views) if(v&&v._editor&&v.note){v.note(text,action?FE_NOTE_ACTION_MS:0,action);return}
+    for(const v of d.views) if(v&&v._view&&v.note){v.note(text,action?FE_NOTE_ACTION_MS:0,action);return}
   },
 
   _edEncConfirm(msg){
@@ -350,14 +312,15 @@ Object.assign(App.prototype, {
 
   /**
    * §3A-5 (E-5): 이름변경·이동의 **유일한** 문서 API — 04 탐색기와 탭 재지정이
-   * 부른다. `from` 이 폴더면 그 아래 문서 전부. 새 경로 URI 의 새 모델로 옮기고
-   * undo 이력은 버린다. 내용·dirty·인코딩·표식은 보존한다. 대응 경로에 이미 문서가
-   * 있으면 그 항목은 옮기지 않고 충돌로 돌려준다.
+   * 부른다. `from` 이 폴더면 그 아래 문서 전부. 문서의 키와 뷰의 경로를 옮긴다.
+   * 내용·dirty·인코딩·표식은 보존한다. 대응 경로에 이미 문서가 있으면 그 항목은
+   * 옮기지 않고 충돌로 돌려준다.
    *
    *   이전 동작: 탭·뷰 경로만 바뀌고 레지스트리 키·모델 URI·변경 표시는 옛 경로에
    *             남아 LSP·DocRender·재열기가 옛 경로를 가리켰다(undo 는 남았다)
-   *   새  동작: 새 URI 모델, undo 소실, 내용·dirty 보존
-   *   이유:     모델 URI 가 경로의 유일한 진실 공급원이다(사용자 결정 E-5.1 ①, #10)
+   *   새  동작: 레지스트리 키와 뷰 경로를 옮긴다. 버퍼는 그대로라 undo 도 남는다
+   *   이유:     #10. CodeMirror 에는 경로로 찾는 모델 등록소가 없다 — 경로의 진실 공급원은
+   *             레지스트리 키 하나다 (CODEMIRROR_MIGRATION_SRS §3.16)
    */
   edDocMove(from,to){
     const out={moved:[],conflicts:[]};
@@ -368,35 +331,14 @@ Object.assign(App.prototype, {
     }
     for(const [p,np,d] of moves){
       if(this._edDocs.has(np)){out.conflicts.push(np);continue}
-      const old=d.model;
-      if(old&&typeof monaco!=='undefined'){
-        const uri=monaco.Uri.file(np);
-        const stray=monaco.editor.getModel(uri);
-        if(stray) ErrorLog.quiet('dispose',()=>stray.dispose());
-        const wasDirty=d.dirty;
-        d.model=monaco.editor.createModel(old.getValue(),monacoLang(np),uri);
-        this._edDocWatch(d);
-        // 옮기기 전 dirty 였으면 저장 전까지 dirty 다 — 판 기준이 새 모델에 없다.
-        d.savedAltVer=wasDirty?-1:d.model.getAlternativeVersionId();
-        d.dirty=wasDirty;
-        d.gen++;
-      }
+      if(d.buf) d.gen++;
       if(d.dd){d.dd.dispose();d.dd=null}
       this._edDocs.delete(p);
       this._edDocs.set(np,d);
       for(const v of d.views){
         if(!v) continue;
         v.filePath=np;
-        if(v._editor&&d.model){
-          if(v._ddDrop) v._ddDrop();
-          v._editor.setModel(d.model);
-          if(v._ddInit) v._ddInit();
-        }
-        if(v.onDocMoved) v.onDocMoved(np,d.model);
-      }
-      if(old){
-        if(this.lspClearDiagnostics) this.lspClearDiagnostics(old);
-        ErrorLog.quiet('dispose',()=>old.dispose());
+        if(v.onDocMoved) v.onDocMoved(np,d.buf);
       }
       this.lspDocClosed(p);
       out.moved.push([p,np]);

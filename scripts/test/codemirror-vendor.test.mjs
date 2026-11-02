@@ -108,6 +108,16 @@ test('FR-CMR-1·6: 진입 파일 cm.js 가 단계 A 의 이름을 모두 내보�
   assert.deepEqual(missing, [], `빠진 이름: ${missing.join(', ')}`);
 });
 
+test('FR-CMR-6: 앱이 쓰는 CM.* 이름이 전부 진입 파일에서 나온다', () => {
+  const names = exportedNames(gunzip(path.join(OUT, 'cm.js.gz')));
+  const used = new Set();
+  for (const f of walk(path.join(root, 'web/js')).filter((p) => p.endsWith('.js'))) {
+    for (const m of fs.readFileSync(f, 'utf8').matchAll(/\bCM\.([A-Za-z_$][\w$]*)/g)) used.add(m[1]);
+  }
+  const missing = [...used].filter((n) => !names.has(n));
+  assert.deepEqual(missing, [], `묶음에 없는 이름: ${missing.join(', ')}`);
+});
+
 test('FR-CMR-3: 언어는 동적 import 로 나뉜다', () => {
   const all = walk(OUT).map((f) => gunzip(f)).join('\n');
   const lazy = new Set([...all.matchAll(/import\("\.\/([^"]+)"\)/g)].map((m) => m[1]));

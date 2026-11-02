@@ -7,10 +7,10 @@
  */
 Object.assign(App.prototype, {
 
-  // 포커스 칸의 텍스트 문서 편집기와 그 문서. 모델이 없으면(로딩·이진) 없다.
+  // 포커스 칸의 텍스트 문서 편집기와 그 문서. 버퍼가 없으면(로딩·이진) 없다.
   _sbEncDoc(){
     const v=this._edActiveEditor();
-    if(!v||v.render||!v._doc||!v._doc.model) return null;
+    if(!v||v.render||!v._doc||!v._doc.buf) return null;
     return {v,d:v._doc};
   },
 

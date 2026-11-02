@@ -281,11 +281,11 @@ class DocRender {
     // 같은 규약이며, 그래야 `edDocDrop` 이 수명을 셀 수 있다 (FR-SVS-55).
     this._doc = (typeof app !== 'undefined' && app && app.edDoc) ? app.edDoc(filePath) : null;
     if (this._doc) this._doc.views.add(this);
-    this._model = null;
+    this._buf = null;
     this._sub = null;
     this._timer = null;
     this._gen = 0;
-    this._bindModel(this._findModel());
+    this._bindBuf(this._findBuf());
     this._paint();
   }
 
@@ -295,28 +295,27 @@ class DocRender {
   set _dirty(_v) { /* 렌더 뷰는 편집하지 않는다 (FR-DRV-19) */ }
 
   /**
-   * 이 파일의 Monaco 모델. 모델의 URI 는 경로에서 나오므로(FR-SVS-50 의 규약)
-   * 편집기를 거치지 않고 여기서 직접 찾을 수 있다 — 그래서 이 뷰는 편집기가
-   * 있는지 없는지 몰라도 된다.
+   * 이 파일의 문서 버퍼(`EdBuffer`). 문서는 경로로 찾으므로(FR-SVS-50 의 규약) 편집기를
+   * 거치지 않고 여기서 직접 찾을 수 있다 — 그래서 이 뷰는 편집기가 있는지 없는지 몰라도 된다.
    */
-  _findModel() {
-    if (typeof monaco === 'undefined' || !monaco.editor) return null;
-    try { return monaco.editor.getModel(monaco.Uri.file(this.filePath)) } catch { return null }
+  _findBuf() {
+    const d = (typeof app !== 'undefined' && app && app.edDocAt) ? app.edDocAt(this.filePath) : null;
+    return (d && d.buf) || null;
   }
 
-  // 소스 탭이 **나중에** 열려 모델이 생겼을 때 app 이 알려준다. 그 통지가 없으면
+  // 소스 탭이 **나중에** 열려 버퍼가 생겼을 때 app 이 알려준다. 그 통지가 없으면
   // 이 뷰는 디스크의 내용에 머문다.
-  onDocModel(model) {
-    if (!model || model === this._model) return;
-    this._bindModel(model);
+  onDocBuf(buf) {
+    if (!buf || buf === this._buf) return;
+    this._bindBuf(buf);
     this._schedule(0);
   }
 
-  _bindModel(m) {
-    if (this._sub) { this._sub.dispose(); this._sub = null }
-    this._model = m || null;
+  _bindBuf(b) {
+    if (this._sub) { this._sub(); this._sub = null }
+    this._buf = b || null;
     // FR-DRV-42: 편집을 구독한다. 지연은 `_schedule` 이 준다.
-    if (m) this._sub = m.onDidChangeContent(() => this._schedule());
+    if (b) this._sub = b.onChange(() => this._schedule());
   }
 
   _schedule(ms) {
@@ -335,18 +334,18 @@ class DocRender {
   }
 
   /**
-   * FR-DRV-40·41: **문서가 진실이고 디스크는 낡았다.** 모델이 있으면 그것을 읽고,
+   * FR-DRV-40·41: **문서가 진실이고 디스크는 낡았다.** 버퍼가 있으면 그것을 읽고,
    * 없으면(소스 탭이 닫힌 렌더 탭) 파일을 읽는다.
    */
   async _text() {
-    if (this._model) return this._model.getValue();
-    // REPO_FIX 03 §3A-3·3A-5: 파일을 직접 읽지 않는다 — 문서가 판별·변환해 모델을
-    // 만든다(첫 뷰가 렌더 탭이어도 모델이 생긴다). 인코딩 계약이 소스와 같아진다.
+    if (this._buf) return this._buf.value();
+    // REPO_FIX 03 §3A-3·3A-5: 파일을 직접 읽지 않는다 — 문서가 판별·변환해 버퍼를
+    // 만든다(첫 뷰가 렌더 탭이어도 버퍼가 생긴다). 인코딩 계약이 소스와 같아진다.
     //   이전 동작: `/api/file/read` 원문을 UTF-8 로 풀었다 — CP949 문서가 깨졌다
-    const model = (typeof app !== 'undefined' && app && app.edDocLoad) ? await app.edDocLoad(this.filePath) : null;
-    if (!model) throw new Error('document not loaded');
-    if (model !== this._model) this._bindModel(model);
-    return model.getValue();
+    const buf = (typeof app !== 'undefined' && app && app.edDocLoad) ? await app.edDocLoad(this.filePath) : null;
+    if (!buf) throw new Error('document not loaded');
+    if (buf !== this._buf) this._bindBuf(buf);
+    return buf.value();
   }
 
   _note(text) {
@@ -614,20 +613,20 @@ class DocRender {
 
   focus() { this.el.focus() }
 
-  // 탭이 다시 활성화되거나 파일이 바뀌었을 때. 모델이 그 사이 생겼을 수 있으므로
+  // 탭이 다시 활성화되거나 파일이 바뀌었을 때. 버퍼가 그 사이 생겼을 수 있으므로
   // 다시 찾는다.
   refresh() {
-    this._bindModel(this._findModel());
+    this._bindBuf(this._findBuf());
     // REPO_FIX 03 E-7.1: 외부 변경은 문서가 한 번 읽는다 — 첫 뷰가 이 렌더 탭이어도
-    // 소스 모델이 갱신된다. 모델 갱신은 구독(`onDidChangeContent`)이 다시 그린다.
+    // 소스 버퍼가 갱신된다. 버퍼 갱신은 구독(`onChange`)이 다시 그린다.
     if (typeof app !== 'undefined' && app && app.edDocRefresh) app.edDocRefresh(this.filePath);
     this._schedule(0);
   }
 
-  // REPO_FIX 03 §3A-5: 문서가 새 경로로 옮겨졌다 — 새 URI 모델에 붙는다.
-  onDocMoved(path, model) {
+  // REPO_FIX 03 §3A-5: 문서가 새 경로로 옮겨졌다 — 같은 버퍼에 그대로 붙어 있다.
+  onDocMoved(path, buf) {
     this.filePath = path;
-    this._bindModel(model || this._findModel());
+    this._bindBuf(buf || this._findBuf());
     this._schedule(0);
   }
 
@@ -683,8 +682,8 @@ class DocRender {
   destroy() {
     TIMERS.cancel(this._timer);
     this._revokeBlob();
-    if (this._sub) { this._sub.dispose(); this._sub = null }
-    this._model = null;
+    if (this._sub) { this._sub(); this._sub = null }
+    this._buf = null;
     if (typeof app !== 'undefined' && app && app.edDocDrop) {
       app.edDocDrop(this.filePath, this);
     }

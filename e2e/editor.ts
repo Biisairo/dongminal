@@ -16,6 +16,12 @@
  *
  * 핸들은 불투명하다 — 스펙은 핸들의 필드를 읽지 않는다.
  *
+ * ## 전환 기간 (CODEMIRROR_MIGRATION_SRS §7.1)
+ *
+ * 편집기 칸은 CodeMirror(M3), Git Diff 뷰는 M6 까지 Monaco 다. 편집기 칸의 핸들은 칸 자체
+ * (`FileEditor` — 뷰 `_view` 와 버퍼 `_buf` 를 함께 든다), Diff 쪽의 핸들은 Monaco 편집기다.
+ * 함수마다 `cm(h)` 로 갈라 둘 다 받는다. M6 에서 Monaco 갈래를 걷는다.
+ *
  * ## 좌표
  *
  * 줄·열은 **1 부터** 센다 (지금 스펙들이 쓰는 값 그대로).
@@ -27,8 +33,8 @@
  * 엔진의 DOM 이름. Node 쪽(locator)과 페이지 쪽(`edT.sel`)이 **이 한 벌**을 쓴다.
  */
 export const ED_SEL = {
-  /** 편집기 하나의 바깥 요소. */
-  surface: '.monaco-editor',
+  /** 편집기 하나의 바깥 요소. 편집기 칸은 CodeMirror, Git Diff 뷰는 M6 까지 Monaco 다. */
+  surface: ':is(.cm-editor, .monaco-editor)',
   /** Diff 편집기 하나의 바깥 요소. */
   diffSurface: '.monaco-diff-editor',
   /** Diff 의 수정본 쪽 편집기. */
@@ -36,15 +42,15 @@ export const ED_SEL = {
   /** Diff 전체의 overview ruler. */
   diffRuler: '.diffOverviewRuler',
   /** 글자가 그려지는 영역 — 눌러서 포커스를 주는 자리. */
-  text: '.view-lines',
+  text: ':is(.cm-content, .view-lines)',
   /** 키 입력을 받는 요소. */
-  input: 'textarea',
+  input: ':is(.cm-content, textarea)',
   /** 호버 툴팁. */
-  hover: '.monaco-hover',
+  hover: ':is(.cm-tooltip-hover, .monaco-hover)',
   /** 엔진 기본 찾기 위젯이 떠 있는 상태. 우리 패널이 대신하므로 떠서는 안 된다. */
-  builtinFind: '.find-widget.visible',
+  builtinFind: ':is(.cm-search, .find-widget.visible)',
   /** 줄 번호 옆 장식 칸 (dirty diff 막대가 서는 곳). */
-  gutter: '.margin-view-overlays',
+  gutter: ':is(.cm-gutters, .margin-view-overlays)',
   /** 미니맵. */
   minimap: '.minimap',
   /** 미니맵 안의 뷰포트 표시. */
@@ -66,6 +72,11 @@ export const ED_VENDOR_ROUTE = '**/vendor/monaco/**';
 export function installEdAdapter(sel: typeof ED_SEL) {
   const w = window as any;
   const M = () => w.monaco;
+  const CMg = () => w.CM;
+  // CodeMirror 핸들(= FileEditor)인가.
+  const cm = (h: any) => !!(h && h._view);
+  const V = (h: any) => h._view;
+  const pos = (h: any, line: number, col: number) => w.edCmPos(V(h).state.doc, line, col);
   const opt = (h: any, k: string) => h.getOption(M().editor.EditorOption[k]);
   const deco = (h: any, field: string, re: RegExp) =>
     h.getModel().getAllDecorations()
@@ -78,19 +89,37 @@ export function installEdAdapter(sel: typeof ED_SEL) {
         minimap: d.options.minimap ? JSON.stringify(d.options.minimap.color) : null,
       }))
       .sort((a: any, b: any) => a.line - b.line);
+  // CodeMirror 의 찾기 표시 (`cm-find.js` 의 `edFindMarks`). 눈금·미니맵은 M5 에서 선다.
+  const cmMarks = (h: any, re: RegExp) => {
+    const out: any[] = [];
+    const st = V(h).state;
+    const set = st.field(w.edFindMarks().field, false);
+    if (!set) return out;
+    set.between(0, st.doc.length, (from: number, to: number, d: any) => {
+      const cls = d.spec.class || '';
+      if (re.test(cls)) out.push({ cls, line: st.doc.lineAt(from).number, end: st.doc.lineAt(to).number, ruler: null, minimap: null });
+    });
+    return out;
+  };
 
   // Monaco 의 TextEditorCursorBlinkingStyle 열거값 → 이름.
   const BLINK: Record<number, string> = { 0: 'hidden', 1: 'blink', 2: 'smooth', 3: 'phase', 4: 'expand', 5: 'solid' };
   const SEV: Record<number, string> = { 8: 'error', 4: 'warning', 2: 'info', 1: 'hint' };
   const markersOf = (model: any) => M().editor.getModelMarkers({ resource: model.uri, owner: LSP_DIAG_OWNER })
     .map((m: any) => ({ line: m.startLineNumber, sev: SEV[m.severity] || String(m.severity), msg: m.message }));
+  // 문서 레지스트리 항목 → 그 문서를 보는 CodeMirror 칸 하나.
+  const viewOfDoc = (d: any) => [...d.views].find((v: any) => v && v._view) || null;
+  const docKey = (d: any) => {
+    for (const [k, x] of w.app.testing.edDocs) if (x === d) return k;
+    return null;
+  };
 
   w.edT = {
     sel,
 
     // 핸들
-    of: (v: any) => (v && v._editor) || null,
-    has: (v: any) => !!(v && v._editor),
+    of: (v: any) => (v && v._view ? v : null),
+    has: (v: any) => !!(v && v._view),
     diffSide: (dv: any, side: 'orig' | 'mod') => {
       const d = dv && dv._editor;
       if (!d) return null;
@@ -99,57 +128,80 @@ export function installEdAdapter(sel: typeof ED_SEL) {
     /** Diff 뷰에 편집기가 섰는가. */
     diffReady: (dv: any) => !!(dv && dv._editor),
     /** 핸들의 바깥 DOM 요소. */
-    dom: (h: any) => h.getDomNode(),
-    /** 이 페이지에서 `.file-editor` 안에 선 첫 편집기. */
-    firstInFileEditor: () => {
-      const m = M();
-      return m ? m.editor.getEditors().find((e: any) => e.getDomNode()?.closest('.file-editor')) || null : null;
-    },
+    dom: (h: any) => (cm(h) ? V(h).dom : h.getDomNode()),
+    /** 이 페이지의 첫 편집기 칸. */
+    firstInFileEditor: () => [...w.app.fileEditors.values()].find((v: any) => v && v._view) || null,
 
     // 내용
-    text: (h: any) => h.getValue(),
+    text: (h: any) => (cm(h) ? V(h).state.doc.toString() : h.getValue()),
     /** 내용을 통째로 갈아 끼운다 — 편집이 아니라 초기화다 (실행 취소 기록이 끊긴다). */
-    setText: (h: any, s: string) => h.setValue(s),
+    setText: (h: any, s: string) => (cm(h) ? h._buf.replace(s) : h.setValue(s)),
     /** 내용을 통째로 바꾸는 **편집** — 사용자의 타이핑과 같은 경로다. */
     replaceAll: (h: any, s: string, source = 'test') => {
+      if (cm(h)) { V(h).dispatch({ changes: { from: 0, to: V(h).state.doc.length, insert: s }, userEvent: 'input.' + source }); return }
       const m = h.getModel();
       h.executeEdits(source, [{ range: m.getFullModelRange(), text: s }]);
     },
     /** (줄, 열) 자리에 끼워 넣는 편집. */
-    insert: (h: any, line: number, col: number, s: string, source = 'spec') =>
-      h.executeEdits(source, [{ range: new (M().Range)(line, col, line, col), text: s }]),
+    insert: (h: any, line: number, col: number, s: string, source = 'spec') => {
+      if (cm(h)) { V(h).dispatch({ changes: { from: pos(h, line, col), insert: s }, userEvent: 'input.' + source }); return }
+      h.executeEdits(source, [{ range: new (M().Range)(line, col, line, col), text: s }]);
+    },
     /** 커서 자리에 키 입력처럼 넣는다. */
-    type: (h: any, s: string) => h.trigger('e2e', 'type', { text: s }),
-    /** 편집기를 거치지 않고 문서를 직접 고친다 (바깥에서 바뀐 것처럼). */
-    docInsert: (h: any, line: number, col: number, s: string) =>
-      h.getModel().applyEdits([{ range: { startLineNumber: line, startColumn: col, endLineNumber: line, endColumn: col }, text: s }]),
-    line: (h: any, n: number) => h.getModel().getLineContent(n),
-    language: (h: any) => h.getModel()?.getLanguageId() ?? null,
+    type: (h: any, s: string) => (cm(h)
+      ? V(h).dispatch(V(h).state.replaceSelection(s), { userEvent: 'input.type' })
+      : h.trigger('e2e', 'type', { text: s })),
+    /** 편집기를 거치지 않은 것처럼 문서를 고친다. */
+    docInsert: (h: any, line: number, col: number, s: string) => {
+      if (cm(h)) { V(h).dispatch({ changes: { from: pos(h, line, col), insert: s } }); return }
+      h.getModel().applyEdits([{ range: { startLineNumber: line, startColumn: col, endLineNumber: line, endColumn: col }, text: s }]);
+    },
+    line: (h: any, n: number) => (cm(h) ? V(h).state.doc.line(n).text : h.getModel().getLineContent(n)),
+    language: (h: any) => {
+      if (!cm(h)) return h.getModel()?.getLanguageId() ?? null;
+      const l = V(h).state.facet(CMg().language);
+      return l ? l.name : null;
+    },
     /** 두 핸들이 같은 문서를 편집하는가. */
-    sameDoc: (a: any, b: any) => a.getModel() === b.getModel(),
+    sameDoc: (a: any, b: any) => (cm(a) ? a._buf === b._buf : a.getModel() === b.getModel()),
 
     // 커서·포커스
     cursor: (h: any) => {
+      if (cm(h)) return w.edCmLineCol(V(h).state.doc, V(h).state.selection.main.head);
       const p = h.getPosition();
       return p ? { line: p.lineNumber, col: p.column } : null;
     },
-    setCursor: (h: any, line: number, col: number) => h.setPosition({ lineNumber: line, column: col }),
-    setSelection: (h: any, l1: number, c1: number, l2: number, c2: number) =>
-      h.setSelection({ startLineNumber: l1, startColumn: c1, endLineNumber: l2, endColumn: c2 }),
-    focus: (h: any) => h.focus(),
-    hasFocus: (h: any) => h.hasTextFocus(),
+    setCursor: (h: any, line: number, col: number) => (cm(h)
+      ? V(h).dispatch({ selection: { anchor: pos(h, line, col) } })
+      : h.setPosition({ lineNumber: line, column: col })),
+    setSelection: (h: any, l1: number, c1: number, l2: number, c2: number) => (cm(h)
+      ? V(h).dispatch({ selection: { anchor: pos(h, l1, c1), head: pos(h, l2, c2) } })
+      : h.setSelection({ startLineNumber: l1, startColumn: c1, endLineNumber: l2, endColumn: c2 })),
+    focus: (h: any) => (cm(h) ? V(h).focus() : h.focus()),
+    hasFocus: (h: any) => (cm(h) ? V(h).hasFocus : h.hasTextFocus()),
 
     // 스크롤·화면
-    scrollTop: (h: any) => h.getScrollTop(),
-    setScrollTop: (h: any, t: number) => h.setScrollTop(t),
-    scrollHeight: (h: any) => h.getScrollHeight(),
-    viewHeight: (h: any) => h.getLayoutInfo().height,
-    revealLine: (h: any, n: number) => h.revealLine(n),
-    revealLineNearTop: (h: any, n: number) => h.revealLineNearTop(n),
-    lineVisible: (h: any, n: number) =>
-      h.getVisibleRanges().some((r: any) => r.startLineNumber <= n && n <= r.endLineNumber),
+    scrollTop: (h: any) => (cm(h) ? V(h).scrollDOM.scrollTop : h.getScrollTop()),
+    setScrollTop: (h: any, t: number) => { if (cm(h)) V(h).scrollDOM.scrollTop = t; else h.setScrollTop(t) },
+    scrollHeight: (h: any) => (cm(h) ? V(h).scrollDOM.scrollHeight : h.getScrollHeight()),
+    viewHeight: (h: any) => (cm(h) ? V(h).scrollDOM.clientHeight : h.getLayoutInfo().height),
+    revealLine: (h: any, n: number) => (cm(h)
+      ? V(h).dispatch({ effects: CMg().EditorView.scrollIntoView(pos(h, n, 1), { y: 'nearest' }) })
+      : h.revealLine(n)),
+    revealLineNearTop: (h: any, n: number) => (cm(h)
+      ? V(h).dispatch({ effects: CMg().EditorView.scrollIntoView(pos(h, n, 1), { y: 'start' }) })
+      : h.revealLineNearTop(n)),
+    lineVisible: (h: any, n: number) => {
+      if (!cm(h)) return h.getVisibleRanges().some((r: any) => r.startLineNumber <= n && n <= r.endLineNumber);
+      const l = V(h).state.doc.line(n);
+      return V(h).visibleRanges.some((r: any) => r.from <= l.to && l.from <= r.to);
+    },
     /** (줄, 열) 의 화면 좌표. 화면에 없으면 null. */
     coords: (h: any, line: number, col: number) => {
+      if (cm(h)) {
+        const c = V(h).coordsAtPos(pos(h, line, col));
+        return c ? { left: c.left, top: c.top, height: c.bottom - c.top } : null;
+      }
       const p = h.getScrolledVisiblePosition({ lineNumber: line, column: col });
       if (!p) return null;
       const r = h.getDomNode().getBoundingClientRect();
@@ -158,6 +210,21 @@ export function installEdAdapter(sel: typeof ED_SEL) {
 
     // 옵션 — 이름은 엔진 중립이다
     option: (h: any, name: string) => {
+      if (cm(h)) {
+        const v = V(h);
+        switch (name) {
+          // M5 에서 미니맵이 선다.
+          case 'minimapEnabled': return false;
+          case 'minimapSize': return null;
+          case 'readOnly': return v.state.readOnly;
+          case 'wordWrap': return v.contentDOM.classList.contains('cm-lineWrapping') ? 'on' : 'off';
+          case 'fontSize': return parseFloat(getComputedStyle(v.dom).fontSize);
+          // drawSelection 의 커서는 깜박이고 옮겨갈 때 애니메이션이 없다.
+          case 'cursorBlinking': return 'blink';
+          case 'smoothCaret': return 'off';
+          default: throw new Error('edT.option: 모르는 이름 ' + name);
+        }
+      }
       switch (name) {
         case 'minimapEnabled': return !!opt(h, 'minimap').enabled;
         case 'minimapSize': return opt(h, 'minimap').size;
@@ -169,47 +236,54 @@ export function installEdAdapter(sel: typeof ED_SEL) {
         default: throw new Error('edT.option: 모르는 이름 ' + name);
       }
     },
-    minimapLeft: (h: any) => h.getLayoutInfo().minimap.minimapLeft,
-    minimapWidth: (h: any) => h.getLayoutInfo().minimap.minimapWidth,
+    // M5 에서 미니맵이 선다 — 그 전의 편집기 칸에는 없다.
+    minimapLeft: (h: any) => (cm(h) ? 0 : h.getLayoutInfo().minimap.minimapLeft),
+    minimapWidth: (h: any) => (cm(h) ? 0 : h.getLayoutInfo().minimap.minimapWidth),
 
     // 장식 — 인라인(글자 위)·줄 장식(gutter)
-    marks: (h: any, re: string) => deco(h, 'className', new RegExp(re)),
-    lineMarks: (h: any, re: string) => deco(h, 'linesDecorationsClassName', new RegExp(re)),
+    marks: (h: any, re: string) => (cm(h) ? cmMarks(h, new RegExp(re)) : deco(h, 'className', new RegExp(re))),
+    // M5 에서 dirty diff 가 선다.
+    lineMarks: (h: any, re: string) => (cm(h) ? [] : deco(h, 'linesDecorationsClassName', new RegExp(re))),
 
-    // 진단 — 심각도는 엔진 중립 이름이다 ('error' | 'warning' | 'info' | 'hint')
-    diagnostics: (h: any) => markersOf(h.getModel()),
-    docDiagnostics: (d: any) => markersOf(d.model),
+    // 진단 — 심각도는 엔진 중립 이름이다 ('error' | 'warning' | 'info' | 'hint'). 편집기 칸은 M8 에서 선다.
+    diagnostics: (h: any) => (cm(h) ? [] : markersOf(h.getModel())),
+    docDiagnostics: (d: any) => (d.buf ? [] : markersOf(d.model)),
     /** 문서에 진단 하나를 직접 얹는다 (서버를 거치지 않고). */
-    docSetDiagnostic: (d: any, line: number, msg: string) =>
+    docSetDiagnostic: (d: any, line: number, msg: string) => {
+      if (d.buf) return;
       M().editor.setModelMarkers(d.model, LSP_DIAG_OWNER, [{
         startLineNumber: line, startColumn: 1, endLineNumber: line, endColumn: 2,
         message: msg, severity: M().MarkerSeverity.Error,
-      }]),
+      }]);
+    },
 
-    // 명령
-    showHover: (h: any) => h.trigger('e2e', 'editor.action.showHover', null),
-    goToDefinition: (h: any) => h.trigger('e2e', 'editor.action.revealDefinition', {}),
+    // 명령 — 편집기 칸은 M8 에서 선다.
+    showHover: (h: any) => { if (!cm(h)) h.trigger('e2e', 'editor.action.showHover', null) },
+    goToDefinition: (h: any) => { if (!cm(h)) h.trigger('e2e', 'editor.action.revealDefinition', {}) },
 
     // 문서 레지스트리 (`app.testing.edDocs` 의 값)
-    docText: (d: any) => d.model.getValue(),
-    docSetText: (d: any, s: string) => d.model.setValue(s),
-    docHasModel: (d: any) => !!(d && d.model),
-    /** 문서가 엔진 안에서 아직 버려지지 않았는가. */
-    docLive: (d: any) => !!(d && d.model) && !d.model.isDisposed(),
-    docBoundTo: (d: any, h: any) => h.getModel() === d.model,
-    /** 문서 전체를 바꾸는 **되돌릴 수 있는** 편집. */
-    docEdit: (d: any, s: string) => d.model.pushEditOperations([], [{ range: d.model.getFullModelRange(), text: s }], () => null),
-    docUndo: (d: any) => d.model.undo(),
+    docText: (d: any) => d.buf.value(),
+    docSetText: (d: any, s: string) => d.buf.replace(s),
+    docHasModel: (d: any) => !!(d && d.buf),
+    /** 문서가 아직 버려지지 않았는가. */
+    docLive: (d: any) => !!(d && d.buf) && !d.buf.disposed,
+    docBoundTo: (d: any, h: any) => cm(h) && h._buf === d.buf,
+    /** 문서 전체를 바꾸는 **되돌릴 수 있는** 편집 — 그 문서를 보는 칸 하나를 거친다. */
+    docEdit: (d: any, s: string) => {
+      const v = viewOfDoc(d);
+      V(v).dispatch({ changes: { from: 0, to: V(v).state.doc.length, insert: s }, userEvent: 'input' });
+    },
+    docUndo: (d: any) => CMg().undo(V(viewOfDoc(d))),
     /** 문서가 가리키는 파일 경로. */
-    docPath: (d: any) => d.model.uri.fsPath,
-    /** 문서의 실행 취소 기록이 남아 있는가. 모르면 null. */
-    docCanUndo: (d: any) => (d.model.canUndo ? d.model.canUndo() : null),
-    /** 어느 문서에도 속하지 않는 같은 경로의 문서(고아)를 엔진 안에 만든다. */
-    plantOrphanDoc: (path: string, text: string) => M().editor.createModel(text, 'plaintext', M().Uri.file(path)),
-    /** 경로의 문서가 엔진 안에 아직 살아 있는가. */
-    docAlive: (path: string) => !!M().editor.getModel(M().Uri.file(path)),
+    docPath: (d: any) => docKey(d),
+    /** 문서의 실행 취소 기록 — 칸마다 따로라(§3.16) 문서 단위로는 답하지 않는다. */
+    docCanUndo: () => null,
+    /** 고아 문서 — 경로로 찾는 엔진 등록소가 없어(§3.16) 만들 자리가 없다. */
+    plantOrphanDoc: () => {},
+    /** 경로의 문서가 아직 살아 있는가. */
+    docAlive: (path: string) => { const d = w.app.testing.edDocs.get(path); return !!(d && d.buf) },
 
-    // Diff 뷰 (`gitPanel._diffView` 등)
+    // Diff 뷰 (`gitPanel._diffView` 등) — M6 까지 Monaco
     diffText: (dv: any, side: 'orig' | 'mod') => (side === 'orig' ? dv._orig : dv._mod).getValue(),
     diffSetText: (dv: any, s: string) => dv._mod.setValue(s),
     /** Diff 의 수정본 끝에 덧붙이는 편집 (편집기를 거치지 않는다). */
@@ -219,7 +293,7 @@ export function installEdAdapter(sel: typeof ED_SEL) {
       m.applyEdits([{ range: { startLineNumber: end.lineNumber, startColumn: end.column, endLineNumber: end.lineNumber, endColumn: end.column }, text: s }]);
     },
     /** Diff 의 수정본이 그 문서 레지스트리 항목과 같은 문서인가. */
-    diffSharesDoc: (dv: any, d: any) => dv._mod === d.model,
+    diffSharesDoc: (dv: any, d: any) => !!d.buf && dv._mod === d.buf,
     diffHasMod: (dv: any) => !!(dv && dv._mod),
     diffHasOrig: (dv: any) => !!(dv && dv._orig),
     /** Diff 의 두 쪽이 LSP 에 어느 파일로 보이는가 (`lspPathOf`). */
@@ -231,10 +305,10 @@ export function installEdAdapter(sel: typeof ED_SEL) {
       return ch ? ch.length : -1;
     },
 
-    // 집계 — 누수 판정
+    // 집계 — 누수 판정 (Diff 뷰의 Monaco 인스턴스·모델)
     counts: () => {
       const m = M();
-      if (!m) return { editors: -1, diffs: -1, docs: -1 };
+      if (!m) return { editors: 0, diffs: 0, docs: 0 };
       return { editors: m.editor.getEditors().length, diffs: m.editor.getDiffEditors().length, docs: m.editor.getModels().length };
     },
 

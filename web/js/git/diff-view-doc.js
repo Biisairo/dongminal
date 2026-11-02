@@ -18,7 +18,13 @@
  */
 Object.assign(GitDiffView.prototype, {
   // 편집 가능한 축의 절대경로. 그 밖 축은 '' — 양쪽 모두 자체 모델(읽기 전용)이다.
+  //
+  // CODEMIRROR_MIGRATION_SRS §7.1: 문서는 이제 CodeMirror 버퍼(`EdBuffer`)이고 이 뷰는 아직
+  // Monaco 다. 둘이 한 문서를 나눌 수 없으므로 M6(Diff 뷰 이전)까지 공유하지 않는다 —
+  // 모든 축이 읽기 전용 비교다. 공유한 채로 두면 이 뷰의 편집이 버퍼에 닿지 않아 저장에서
+  // 사라진다.
   _shareAbs(target){
+    if(!GIT_DIFF_SHARES_DOC) return '';
     const axis=(target&&target.axis)||'';
     if(!GIT_AXIS_EDITABLE.has(axis)||!window.app||!window.app.edDoc) return '';
     return this._absPath(target);
