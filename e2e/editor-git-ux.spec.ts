@@ -497,11 +497,11 @@ test.describe('묶음 K — 편집기 안에서의 키', () => {
     await page.evaluate(() => {
       const app = (window as any).app;
       const run = app.executeAction.bind(app);
-      app.__actions = [];
-      app.executeAction = (a: string) => { app.__actions.push(a); return a === 'closeWindow' ? undefined : run(a); };
+      const got: string[] = (window as any).__ekbActions = [];
+      app.executeAction = (a: string) => { got.push(a); return a === 'closeWindow' ? undefined : run(a); };
     });
 
     await page.keyboard.press('Control+Shift+W');
-    expect(await page.evaluate(() => (window as any).app.__actions)).toContain('closeWindow');
+    expect(await page.evaluate(() => (window as any).__ekbActions)).toContain('closeWindow');
   });
 });
