@@ -234,7 +234,7 @@ function edDdOwner(view){
 }
 
 /**
- * 편집기 칸의 dirty diff 확장 — `edCmExtensions` 가 줄 번호 바로 뒤에 넣는다(Monaco 의 linesDecorations
+ * 편집기 칸의 dirty diff 확장 — `edCmExtensions` 가 줄 번호 바로 뒤에 넣는다(옛 엔진의 linesDecorations
  * 자리). 이 파일이 없으면 편집기는 표시 없이 그대로 동작한다 (NFR-EDD-3).
  */
 function edDdExtensions(){

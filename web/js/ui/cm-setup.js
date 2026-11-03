@@ -94,7 +94,7 @@ function edCmExtensions(o) {
   const cmp = { wrap: new CM.Compartment(), font: new CM.Compartment(), ro: new CM.Compartment(), lang: new CM.Compartment(), minimap: new CM.Compartment(), lsp: new CM.Compartment() };
   const extensions = [
     CM.lineNumbers(),
-    // EDITOR_DIRTY_DIFF_SRS: 변경 막대는 줄 번호 바로 뒤다 (Monaco 의 linesDecorations 자리).
+    // EDITOR_DIRTY_DIFF_SRS: 변경 막대는 줄 번호 바로 뒤다 (옛 엔진의 linesDecorations 자리).
     !o.diff && typeof edDdExtensions === 'function' ? edDdExtensions() : [],
     CM.highlightActiveLineGutter(),
     CM.foldGutter(),
@@ -167,13 +167,13 @@ function edCmMinimap(enabled) {
   });
 }
 
-// 줄 높이는 정수 px 다 — Monaco 와 같이 `round(글자 크기 × 1.5)`. 소수면 문서 높이가 소수가 되어 문서 끝에서
+// 줄 높이는 정수 px 다 — 옛 엔진과 같이 `round(글자 크기 × 1.5)`. 소수면 문서 높이가 소수가 되어 문서 끝에서
 // 미니맵(sticky)이 스크롤바 thumb 보다 반 픽셀 위에 선다 (FR-CMR-61).
 function edCmFontTheme(px) {
   return CM.EditorView.theme({ '&': { fontSize: px + 'px' }, '.cm-scroller': { lineHeight: Math.round(px * ED_LINE_HEIGHT_RATIO) + 'px' } });
 }
 
-// FR-CMR-12: 색은 전부 CSS 변수다. 섞는 비율은 종전 Monaco 테마의 것을 옮겼다.
+// FR-CMR-12: 색은 전부 CSS 변수다. 섞는 비율은 옛 엔진 테마의 것을 옮겼다.
 function edCmTheme() {
   return CM.EditorView.theme({
     '&': { color: 'var(--text)', backgroundColor: 'var(--bg)', height: '100%' },

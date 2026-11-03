@@ -92,7 +92,7 @@ test('edDocMove: 새 URI 모델, 내용·dirty 보존, undo 소실', async ({ pa
     };
   }, { a: P('m.txt'), b: P('m2.txt') });
   expect(got).toMatchObject({ moved: true, text: 'EDITED\n', dirty: true, old: false, view: true });
-  // Monaco 의 `fsPath` 는 드라이브 문자를 소문자로 준다(`d:/…`) — 표기이지 다른 경로가 아니다(CI 실측).
+  // 경로의 드라이브 문자는 소문자로 올 수 있다(`d:/…`, 옛 엔진의 `fsPath` 에서 CI 실측) — 표기이지 다른 경로가 아니다.
   const norm = (p: string) => p.replace(/\\/g, '/').replace(/^([a-z]):/i, (_, c: string) => c.toUpperCase() + ':');
   expect(norm(String(got.uri))).toBe(norm(P('m2.txt')));
   if (got.canUndo !== null) expect(got.canUndo).toBe(false);

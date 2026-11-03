@@ -103,7 +103,7 @@ async function enter(page: Page, request: APIRequestContext) {
   await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
 }
 
-// 파일을 열고 그 탭의 Monaco 가 실제로 설 때까지 기다린다. 편집기는 탭마다 하나가
+// 파일을 열고 그 탭의 편집기가 실제로 설 때까지 기다린다. 편집기는 탭마다 하나가
 // DOM 에 남으므로 **보이는 것**을 센다.
 async function openFile(page: Page, name: string) {
   await page.locator('.ed-tree .ed-row', { hasText: name }).first().click();

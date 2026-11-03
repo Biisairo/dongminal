@@ -24,7 +24,7 @@ test.beforeAll(() => {
 });
 test.afterAll(() => { rmTree(BASE) });
 
-test('TC-FAB-17: 상한을 넘는 텍스트 파일은 Monaco 를 세우지 않고 사유를 보인다', async ({ page, request }) => {
+test('TC-FAB-17: 상한을 넘는 텍스트 파일은 편집기를 세우지 않고 사유를 보인다', async ({ page, request }) => {
   const root = join(BASE, 'sizegate');
   mkdirSync(root, { recursive: true });
   // 32 MiB + 1 바이트. 상한과 **같은 크기**는 통과해야 하므로 경계 바로 위다.
@@ -43,14 +43,14 @@ test('TC-FAB-17: 상한을 넘는 텍스트 파일은 Monaco 를 세우지 않�
   await expect(gate).toBeVisible({ timeout: 30000 });
   await expect(gate).toContainText('너무 커서');
 
-  // **Monaco 가 서지 않았다.** 세우지 않으므로 저장 경로 자체가 생기지 않는다 —
+  // **편집기가 서지 않았다.** 세우지 않으므로 저장 경로 자체가 생기지 않는다 —
   // 그것이 이 게이트의 목적이다.
   const built = await page.evaluate(() => {
     const v = [...(window as any).app.fileEditors.values()]
       .find((e: any) => e.name === 'big.txt') as any;
     return { hasEditor: !!(v && edT.has(v)), dl: !!(v && v.el.querySelector('.fe-unsup-dl')) };
   });
-  expect(built.hasEditor, 'Monaco 가 섰다 — 게이트를 지나쳤다').toBe(false);
+  expect(built.hasEditor, '편집기가 섰다 — 게이트를 지나쳤다').toBe(false);
   // 막기만 하면 사용자는 그 파일을 어떻게 보는지 모른 채 남는다 (FR-FAB-9).
   expect(built.dl, '나가는 길(내려받기)이 없다').toBe(true);
 

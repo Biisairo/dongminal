@@ -15,7 +15,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const E2E = path.join(root, 'e2e');
 const ADAPTER = 'editor.ts';
 
-// 옛 엔진의 이름은 저장소 전체에서 `scripts/check-no-monaco.sh` 가 막는다 (FR-CMR-132).
+// 옛 엔진의 이름은 저장소 전체에서 `scripts/check-old-editor-name.sh` 가 막는다 (FR-CMR-132).
 const FORBIDDEN = [
   { re: /\._editor\b/, why: '칸의 엔진 핸들 필드' },
   { re: /\._(?:mod|orig)\b/, why: 'Diff 의 엔진 문서 필드' },

@@ -172,7 +172,7 @@ async function pingUntilUp(url: string, limitMs: number) {
 /**
  * 페이지를 열던 순간의 가시성. 실패한 테스트에서만 읽는다 (아래 afterEach).
  *
- * 러너에서 페이지가 뒤에 있으면 폴링과 Monaco 명령이 함께 멎는데, 그 상태는
+ * 러너에서 페이지가 뒤에 있으면 폴링과 편집기 명령이 함께 멎는데, 그 상태는
  * 실패 뒤에 물어보면 이미 사라져 있다 — 그래서 그때 찍어 둔다.
  */
 /**
@@ -314,7 +314,7 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
 /**
  * 실패한 테스트의 **가시성·포커스**를 남긴다.
  *
- * 이 두 값이 폴링(`document.hidden`)과 Monaco 명령(포커스)의 전제이므로, 요청이
+ * 이 두 값이 폴링(`document.hidden`)과 편집기 명령(포커스)의 전제이므로, 요청이
  * 0건인 실패는 거의 언제나 여기서 갈린다. 통과한 테스트에는 아무 것도 찍지 않는다.
  */
 test.afterEach(async ({ page }, testInfo) => {
@@ -590,7 +590,7 @@ export async function waitForInit(page: any, opts: InitOpts = {}) {
    * **페이지를 앞으로 가져온 뒤에 연다** (E2E_HIDDEN_PAGE 조사).
    *
    * `timer-hub` 는 `document.hidden` 이면 폴링 job 을 재우고(`timer-hub.js:117·319`),
-   * Monaco 의 명령은 편집기가 포커스를 쥐어야 선다. 러너에서 페이지가 뒤에 있으면
+   * 편집기의 명령은 편집기가 포커스를 쥐어야 선다. 러너에서 페이지가 뒤에 있으면
    * 그 둘이 함께 멎어, "바깥의 변화가 화면에 따라오는가" 를 재는 스펙과 호버·정의
    * 이동이 **요청 0건**으로 실패한다 — 느린 것이 아니라 오지 않는 것이므로 상한을
    * 늘려도 낫지 않는다.

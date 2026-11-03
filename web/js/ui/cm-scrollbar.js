@@ -128,7 +128,7 @@ function edCmScrollbarPlugin() {
       }
     }
 
-    // FR-CMR-74: thumb 를 끌면 스크롤하고, track 을 누르면 thumb 가운데가 그 자리로 온다 (Monaco `scrollByPage:false`).
+    // FR-CMR-74: thumb 를 끌면 스크롤하고, track 을 누르면 thumb 가운데가 그 자리로 온다 (옛 엔진의 `scrollByPage:false`).
     onDown(e) {
       if (e.button !== 0 || !this.geo) return;
       e.preventDefault();

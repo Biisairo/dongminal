@@ -141,7 +141,7 @@ class GitDiffView {
       console.error('[GitDiffView] editor load failed:',e); return false;
     });
     if(this._stale(seq,token)) return;
-    if(!loaded){this.clear(GIT_DIFF_MONACO_FAIL);return}
+    if(!loaded){this.clear(GIT_DIFF_EDITOR_FAIL);return}
     // REPO_FIX 05 §3A-3: 편집 가능한 축은 편집기 문서를 먼저 얻고(03 의 문서 로드),
     // 그 인코딩으로 원본 쪽을 받는다. 두 단계 모두 뒤에서 다시 재확인한다.
     const dv=await this._docJoin(target,seq,token);
@@ -435,7 +435,7 @@ class GitDiffView {
     const aExt=[...ea.extensions,CM.EditorView.editorAttributes.of({class:'git-diff-side-orig'})];
     const bDoc=buf?buf.doc:this._modText;
     const wrap=document.createElement('div');
-    // FR-GIT-51: 나란히 보기의 표식 (Monaco 때 바깥 요소의 `side-by-side` 와 같다).
+    // FR-GIT-51: 나란히 보기의 표식 (옛 엔진 때 바깥 요소의 `side-by-side` 와 같다).
     wrap.className='git-diff-cm'+(kind==='split'?' side-by-side':'');
     const pane=document.createElement('div');
     pane.className='git-diff-pane';

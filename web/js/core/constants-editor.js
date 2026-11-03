@@ -74,11 +74,12 @@ const ED_PANEL_HINT={
 
 // ── 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS 묶음 B·C·D) ──
 //
-// Monaco 의 find 위젯을 **쓰지 않는다** (FR-EFP-25 가 FR-EKB-3 을 개정했다). 위젯은
-// 우리보다 먼저 열리고서 포커스를 우리에게 빼앗겨, 뜬 채로 글자를 못 받고 그 글자가
-// 문서에 삽입됐다 — 검색하려고 누른 키가 파일을 편집했다 (그 SRS §2.4).
+// 엔진의 기본 찾기 위젯을 **쓰지 않는다** (FR-EFP-25 가 FR-EKB-3 을 개정했다). 옛 엔진의
+// 위젯은 우리보다 먼저 열리고서 포커스를 우리에게 빼앗겨, 뜬 채로 글자를 못 받고 그 글자가
+// 문서에 삽입됐다 — 검색하려고 누른 키가 파일을 편집했다 (그 SRS §2.4). CodeMirror 에는
+// `@codemirror/search` 의 패널·keymap 을 넣지 않는다 (CODEMIRROR_MIGRATION_SRS §11.7).
 //
-// **검색기는 여전히 Monaco 모델의 것이다** (D-2). 만드는 것은 껍데기뿐이다.
+// 일치 계산은 `cm-find.js` 의 `edFindHits` 다.
 
 // 토글 셋의 라벨. 글자로 두는 이유는 셋이 나란히 서기 때문이다 — 하나만 그림이면
 // 선 굵기가 달라 그 하나가 도리어 눈에 띈다 (EDITOR_TREE_REFRESH 의 근거와 같다).
@@ -97,7 +98,7 @@ const ED_FIND_REPLACE_PLACEHOLDER=t('editor.find_replace_placeholder');
 const ED_FIND_REPLACE_ONE=t('editor.find_replace_one');
 const ED_FIND_REPLACE_ALL=t('editor.find_replace_all');
 const ED_FIND_REPLACE_TOGGLE_TITLE=t('editor.find_replace_toggle_title');
-// `executeEdits` 의 출처 이름. Monaco 가 undo 묶음과 이벤트에 그대로 싣는다.
+// 바꾸기 편집의 출처 이름. 트랜잭션의 `userEvent` 로 싣는다 (`cm-find.js`).
 const ED_FIND_EDIT_SOURCE='fe-find-replace';
 // FR-EFP-16: 질의가 비면 수를 말하지 않는다 — 아직 묻지 않은 것이다. 0건과
 // 빈 질의를 같은 화면으로 두면 사용자가 "없다" 로 읽는다.
@@ -107,98 +108,48 @@ const ED_FIND_BAD_RE=t('editor.find_bad_re');
 // FR-EFP-23 / D-4: 옵션은 기기별이다. 설정 블롭의 값들은 "이 서버가 무엇인가" 를
 // 말하는데, 검색 옵션은 그런 값이 아니라 지금 이 손의 버릇이다.
 const ED_FIND_OPTS_KEY='edFindOpts';
-// 하이라이트의 CSS 이름. Monaco decoration 의 className 으로 그대로 간다.
+// 하이라이트의 CSS 이름. CodeMirror 장식(`Decoration.mark`)의 class 로 그대로 간다.
 const ED_FIND_HIT_CLASS='fe-find-hit';
 const ED_FIND_HIT_CUR_CLASS='fe-find-hit-cur';
-// FR-EFP-20: 단어 단위의 경계. Monaco 의 기본 구분자와 같은 값이며, 켜지 않았을
+// FR-EFP-20: 단어 단위의 경계. 옛 엔진의 기본 구분자와 같은 값이며, 켜지 않았을
 // 때는 `null` 을 넘겨 경계를 보지 않게 한다.
 const ED_FIND_WORD_SEPARATORS='`~!@#$%^&*()-=+[{]}\\|;:\'",.<>/?';
-// 한 문서에서 셀 일치의 상한. 넘으면 Monaco 가 거기서 끊는다 — 수십만 건을 세는
+// 한 문서에서 셀 일치의 상한. 넘으면 거기서 끊는다 — 수십만 건을 세는
 // 동안 화면이 멎는 것보다 낫다.
 const ED_FIND_MAX_HITS=20000;
 
-// CODEMIRROR_MIGRATION_SRS FR-CMR-74: 직접 그리는 세로 스크롤바. 폭·thumb 최소 높이는 Monaco 의 기본값이다
+// CODEMIRROR_MIGRATION_SRS FR-CMR-74: 직접 그리는 세로 스크롤바. 폭·thumb 최소 높이는 옛 엔진의 기본값이다
 // (`verticalScrollbarSize` 14 · 슬라이더 최소 20).
 const ED_SCROLL_W=14;
 const ED_SCROLL_MIN_THUMB=20;
 // FR-CMR-70·72: overview ruler 표식의 최소 높이(px). 한 줄짜리 일치도 눈에 띄어야 한다.
 const ED_RULER_MIN_H=2;
-// 편집기 줄 높이의 배율. 줄 높이는 `round(글자 크기 × 이 값)` 의 정수 px 다 (Monaco 와 같다).
+// 편집기 줄 높이의 배율. 줄 높이는 `round(글자 크기 × 이 값)` 의 정수 px 다 (옛 엔진과 같다).
 const ED_LINE_HEIGHT_RATIO=1.5;
-// FR-CMR-80: sticky scroll 에 고정하는 최대 줄 수 (Monaco `stickyScroll.maxLineCount` 기본값).
+// FR-CMR-80: sticky scroll 에 고정하는 최대 줄 수 (옛 엔진의 `stickyScroll.maxLineCount` 기본값).
 const ED_STICKY_MAX=5;
-// FR-CMR-72: 찾기 일치의 ruler·미니맵 색. Monaco 테마의 매핑(`editorOverviewRuler.findMatchForeground` 등)을 옮겼다.
+// FR-CMR-72: 찾기 일치의 ruler·미니맵 색. 옛 엔진 테마의 매핑(`editorOverviewRuler.findMatchForeground` 등)을 옮겼다.
 const ED_FIND_MARK_COLOR='--accent';
 const ED_FIND_MARK_COLOR_CUR='--text-bright';
 
 /**
- * EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-5: **미니맵 옵션은 한 자리에서 만든다.**
- *
- * 생성(`monaco.editor.create`)과 갱신(`updateOptions`)이 같은 덩이를 딛는다.
- * 두 자리에 적으면 한쪽만 고쳐지는 날이 오고, 특히 `updateOptions` 에 `enabled`
- * 하나만 넘기면 `size`·`scale`·`showSlider` 가 함께 흔들릴 수 있다.
- *
- * `size:'fill'` 의 근거는 UX_BATCH8_SRS FR-MMP-2 다 — 미리보기가 스크롤바와 같은
- * 좌표계에 서야 한다. 이 함수는 그 값을 **옮겨 적을 뿐** 다시 정하지 않는다.
- */
-function edMinimapOpts(enabled){
-  return {enabled:!!enabled,size:'fill',scale:1,showSlider:'mouseover'};
-}
-
-/**
  * FONT_SIZE_SETTING_SRS FR-FSS-9·10 — 편집기의 글자 크기.
  *
- * **기준 13 은 여기 한 자리에 있다.** 생성과 갱신이 같은 함수를 딛는 근거는
- * `edMinimapOpts` 와 같다 — 두 자리에 적으면 한쪽만 고쳐진다.
+ * **기준 13 은 여기 한 자리에 있다.** 생성과 갱신이 같은 함수를 딛는다 — 두 자리에
+ * 적으면 한쪽만 고쳐진다.
  *
  * 13 이 `--fs-*` 다섯에 없는 여섯 번째 크기인 것은 `FR-TOK-18` 의 수렴 대상이
- * 아니다: 이것은 CSS 가 아니라 Monaco 옵션이고, 게이트(`check-font-size`)가
- * 재는 자리 밖이다. 반올림하는 것은 Monaco 가 소수 크기에서 줄 높이를 튀게
- * 잡기 때문이다.
+ * 아니다: 이것은 CSS 토큰이 아니라 편집기 테마의 값이고(`cm-setup.js`), 게이트
+ * (`check-font-size`)가 재는 자리 밖이다. 반올림하는 것은 줄 높이를 정수 px 로
+ * 두기 위해서다 (`ED_LINE_HEIGHT_RATIO`).
  */
 const EDITOR_FONT_SIZE_BASE=13;
 function edFontSize(){
   return Math.round(EDITOR_FONT_SIZE_BASE*uiFontSizeNow()/UI_FONT_BASE_PX);
 }
 
-// 글꼴 차례. Monaco 옵션이므로 CSS 토큰이 아니다 — `edFontSize` 와 같은 범주다.
-const ED_FONT_FAMILY="'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace";
-
-/**
- * UX_BATCH10_SRS FR-UXB-41 / D-UXB-9: **본문을 그리는 규약은 한 덩이다.**
- *
- * 편집기 탭과 Git 의 Diff 탭이 같은 함수를 딛는다. 종전에는 두 표였고
- * (`monaco.editor.create` 의 인자 · `GIT_DIFF_OPTIONS`), 그래서 설정이 늘 때마다
- * 한쪽만 고쳐졌다 — `editorWordWrap` 은 **한 번도** diff 에 닿은 적이 없다
- * (접수 4번). 이 저장소가 `saveSettings`·`_settingsApply`·이식 표에서 이미 겪은
- * 형태이며, 그 답이 `settings-schema.js` 였듯 여기서는 이 함수다.
- *
- * 값이 아니라 **함수**인 것은 설정을 읽기 때문이다. 생성과 갱신
- * (`updateOptions`)이 같은 덩이를 받는 근거는 `edMinimapOpts` 와 같다.
- *
- * 미니맵은 여기 없다 — 편집기와 diff 의 답이 다르다 (FR-UXB-42, D-UXB-8).
- */
-function edTextOptions(){
-  return {
-    // WORKBENCH_REVIEW_SRS FR-WBR-10: 설정이 정한다. 기본은 끔이다.
-    wordWrap: editorWordWrap ? 'on' : 'off',
-    // FR-FSS-9: 기준 13 에 UI 배율이 걸린다.
-    fontSize: edFontSize(),
-    fontFamily: ED_FONT_FAMILY,
-    lineHeight: 1.5,
-    tabSize: 4,
-    insertSpaces: true,
-    lineNumbers: 'on',
-    scrollBeyondLastLine: false,
-    renderWhitespace: 'selection',
-    bracketPairColorization: {enabled: true},
-    guides: {bracketPairs: true, indentation: true},
-    smoothScrolling: true,
-    cursorBlinking: 'blink',
-    // NOTES_LIVE_EXPLORER_SRS FR-CUR-1: 캐럿은 **애니메이션 없이** 옮겨간다.
-    cursorSmoothCaretAnimation: 'off',
-  };
-}
+// 글꼴 차례. 편집기 테마의 값이므로 CSS 토큰이 아니다 — `edFontSize` 와 같은 범주다.
+const ED_FONT_FAMILY="'Menlo','Consolas','Liberation Mono','Courier New',monospace";
 
 // ── 코드 탐색: 언어 서버의 관측 (EDITOR_LSP_SRS 묶음 A · M1) ──
 //

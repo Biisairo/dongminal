@@ -129,7 +129,7 @@
   --bg-alt:#232431;
   /* 고정폭 글꼴은 한 벌이다. `style-docrender.css` 가 같은 스택을 따로 적고
      있었고 `style-git.css` 는 없는 `--mono` 를 읽어 `monospace` 로 떨어졌다. */
-  --mono:'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace;
+  --mono:'Menlo','Consolas','Liberation Mono','Courier New',monospace;
   /* UIUX_OVERHAUL_SRS FR-TYP-5: 스택은 **둘이고 토큰이 정본이다**. `--sans` 는
      한 자리(`html,body`)만 쓰지만 토큰으로 선다 — 고정폭만 토큰이면 규칙이
      "고정폭만" 이 되고, 다음 사람이 sans 리터럴을 적을 때 막을 근거가 없다.
@@ -228,7 +228,6 @@ body{user-select:none;-webkit-user-select:none}
    더하는 일이고, 그 한 줄이 곧 "이 자리는 가져가는 글이다" 라는 선언이다. */
 .xterm,
 .cm-editor,
-.monaco-editor,
 .git-diff-host,
 .git-job-log,
 .git-job-tail,
@@ -1606,7 +1605,7 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
 .pn-drop-indicator[data-zone="bottom"]{bottom:0;left:0;width:100%;height:33%;top:auto}
 .pn-drop-indicator[data-zone="center"]{top:5%;left:5%;width:90%;height:90%;opacity:.1;border-style:dashed}
 
-/* ── File Editor (Monaco) ── */
+/* ── File Editor (CodeMirror) ── */
 .file-editor{
   position:absolute;inset:0;display:none;
   background:var(--bg);

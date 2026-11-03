@@ -187,7 +187,7 @@ test.describe('묶음 F — Diff 뷰', () => {
     await r.click();
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
 
-    // FR-GIT-50: ignoreTrimWhitespace 는 기본이 false 다 — Monaco 기본값을
+    // FR-GIT-50: 공백 무시는 기본이 꺼짐이다 — 옛 엔진의 기본값을
     // 뒤집는다. 공백만 다른 줄도 변경으로 보인다.
     const ws = diff(page).locator('.git-diff-ws input');
     await expect(ws).not.toBeChecked();
@@ -202,9 +202,9 @@ test.describe('묶음 F — Diff 뷰', () => {
 
   test('D7 (V12): 편집기를 못 받아도 파일 목록·헤더가 동작하고 diff 가 사유를 보인다', async ({ page }) => {
     const repo = copyFx('basic', 'd7');
-    // FR-GIT-55: Monaco 로드 실패가 Git 창을 멈춰서는 안 된다.
+    // FR-GIT-55: 편집기 로드 실패가 Git 창을 멈춰서는 안 된다.
     //
-    // **막는 자리가 바뀌었다** (MONACO_VENDORING_SRS FR-MVN-3). 종전에는
+    // **막는 자리가 바뀌었다** (FR-MVN-3). 종전에는
     // `cdn.jsdelivr.net` 을 끊었는데 편집기가 이제 바이너리 안에 있어 그 요청이
     // 아예 없다 — 끊어도 아무것도 실패하지 않으므로 이 검사가 재던 것이 사라진다.
     // 이제 **자기 자산 경로**를 끊는다. 요구(FR-GIT-55)는 그대로이고 실패를
@@ -239,7 +239,7 @@ test.describe('묶음 F — Diff 뷰', () => {
    * 아무 일도 하지 않는 왕복을 20번 도는 시험이 된다. 그리고 패널이 창마다
    * 유지되므로(FR-RTU-61) 기준선은 **두 창이 다 선 뒤에** 재야 한다.
    */
-  test('D8 (V12): 탭·창을 20회 왕복해도 Monaco 모델이 늘지 않는다', async ({ page }) => {
+  test('D8 (V12): 탭·창을 20회 왕복해도 Diff 편집기가 늘지 않는다', async ({ page }) => {
     test.setTimeout(180_000);
     const a = fx('basic');
     const b = fx('detached');
@@ -306,7 +306,7 @@ test.describe('묶음 F — Diff 뷰', () => {
       await r.click();
 
       await expect(imgDiff(page)).toBeVisible({ timeout: 20000 });
-      // 종전에는 "바이너리 파일입니다" 로 끝났다 — Monaco 도 서지 않는다.
+      // 종전에는 "바이너리 파일입니다" 로 끝났다 — 편집기도 서지 않는다.
       await expect(diffEditor(page)).toHaveCount(0);
 
       // 두 판 모두 **디코드**된다. 1x1 → 2x2 이므로 값이 서로 다르다.

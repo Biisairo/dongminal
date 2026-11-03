@@ -1145,7 +1145,7 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
     await openInSlot(page, 1, edWin);
     await renderNow(page);
 
-    // 두 칸의 Monaco 가 모두 설 때까지 기다린다.
+    // 두 칸의 편집기가 모두 설 때까지 기다린다.
     await page.waitForFunction(() => {
       const es = [...(window as any).app.fileEditors.values()];
       return es.length === 2 && es.every((e: any) => edT.has(e));

@@ -255,8 +255,8 @@ test.describe('묶음 V — 열 수 있는 것과 없는 것', () => {
     expect(r.status()).toBe(415);
   });
 
-  // V-EVW-3: 이미지 탭은 <img> 로 그려지고 Monaco 가 서지 않는다 (FR-EVW-4·7).
-  test('V-EVW-3: 이미지는 뷰어로 열리고 Monaco 가 서지 않는다', async ({ page }) => {
+  // V-EVW-3: 이미지 탭은 <img> 로 그려지고 편집기가 서지 않는다 (FR-EVW-4·7).
+  test('V-EVW-3: 이미지는 뷰어로 열리고 편집기가 서지 않는다', async ({ page }) => {
     await waitForInit(page);
     const root = await editorRoot(page);
     test.skip(!root, 'Editor 루트가 없다');
@@ -270,7 +270,7 @@ test.describe('묶음 V — 열 수 있는 것과 없는 것', () => {
     await expect(page.locator(`.fe-image ${ED_SEL.surface}`)).toHaveCount(0);
   });
 
-  // V-EVW-2: 이진 파일은 사유를 보이고 Monaco 가 서지 않는다 (FR-EVW-3·7).
+  // V-EVW-2: 이진 파일은 사유를 보이고 편집기가 서지 않는다 (FR-EVW-3·7).
   test('V-EVW-2b: 이진 파일은 사유만 보인다', async ({ page }) => {
     await waitForInit(page);
     const root = await editorRoot(page);
@@ -415,7 +415,7 @@ test.describe('묶음 F·G — 고른 결과가 실제로 열린다', () => {
         const v = [...(window as any).app.fileEditors.values()]
           .find((x: any) => String(x.filePath).endsWith('grephit.txt')) as any;
         if (!v) return null;
-        // Monaco 가 아직 안 떴으면 예약된 자리를, 떴으면 커서 위치를 본다.
+        // 편집기가 아직 안 떴으면 예약된 자리를, 떴으면 커서 위치를 본다.
         if (v._pendingReveal) return v._pendingReveal.line;
         return edT.has(v) ? edT.cursor(edT.of(v)).line : null;
       }), { timeout: 20000 })
@@ -423,13 +423,13 @@ test.describe('묶음 F·G — 고른 결과가 실제로 열린다', () => {
   });
 });
 
-// FR-EKB-1 — 두 조합은 **Monaco 안에서도** 떠야 한다.
+// FR-EKB-1 — 두 조합은 **편집기 안에서도** 떠야 한다.
 //
 // 전역 keydown 은 편집기에 포커스가 있는 동안 한 줄도 돌지 않는다
 // (input-binding.js 의 activeElement 게이트). 그래서 file-editor.js 가
 // `editor.addCommand` 로 따로 건다. 그 배선이 실제로 도는지는 **편집기에
 // 포커스를 준 채 눌러 봐야** 알 수 있다.
-test.describe('묶음 K — Monaco 안에서의 키', () => {
+test.describe('묶음 K — 편집기 안에서의 키', () => {
   async function openTextFileInEditor(page: Page) {
     await page.evaluate(async (p) => {
       await fetch('/api/editors/add', {
@@ -447,11 +447,11 @@ test.describe('묶음 K — Monaco 안에서의 키', () => {
       }, fx('basic')), { timeout: 15000 })
       .not.toBe('');
 
-    writeFileSync(join(fx('basic'), 'inmonaco.txt'), 'line one\nline two\n');
+    writeFileSync(join(fx('basic'), 'ineditor.txt'), 'line one\nline two\n');
     await page.evaluate((f) => (window as any).app.testing.edOpenFile(f),
-      join(fx('basic'), 'inmonaco.txt'));
+      join(fx('basic'), 'ineditor.txt'));
 
-    // Monaco 가 실제로 설 때까지 기다린다 — addCommand 는 그 뒤에 걸린다.
+    // 편집기가 실제로 설 때까지 기다린다 — 키 처리는 그 뒤에 걸린다.
     await expect(page.locator(`.file-editor ${ED_SEL.surface}`)).toHaveCount(1, { timeout: 30000 });
 
     // 포커스는 엔진의 API 로 준다. 어느 요소가 입력을 받는지는 판마다 다르다 —
@@ -466,7 +466,7 @@ test.describe('묶음 K — Monaco 안에서의 키', () => {
       edT.focus(edT.of(v));
       const ae = document.activeElement as HTMLElement | null;
       return ae ? ae.tagName + '.' + (ae.className || '') : '';
-    }, 'inmonaco.txt');
+    }, 'ineditor.txt');
     // 편집기 안에 포커스가 들어간 것을 확인하고 나서 키를 누른다 — 밖에서
     // 누르면 이 검사는 전역 경로만 시험하게 되어 뜻을 잃는다.
     expect(focused).not.toBe('');
@@ -474,7 +474,7 @@ test.describe('묶음 K — Monaco 안에서의 키', () => {
       !!document.activeElement?.closest('.file-editor'))).toBe(true);
   }
 
-  test('V-EKB-1: Monaco 에 포커스가 있어도 cmd+p 가 뜬다', async ({ page }) => {
+  test('V-EKB-1: 편집기에 포커스가 있어도 cmd+p 가 뜬다', async ({ page }) => {
     await waitForInit(page);
     await openTextFileInEditor(page);
 
@@ -482,7 +482,7 @@ test.describe('묶음 K — Monaco 안에서의 키', () => {
     await expect(page.locator('.ed-find.vis')).toHaveCount(1);
   });
 
-  test('V-EKB-1b: Monaco 에 포커스가 있어도 cmd+shift+f 가 뜬다', async ({ page }) => {
+  test('V-EKB-1b: 편집기에 포커스가 있어도 cmd+shift+f 가 뜬다', async ({ page }) => {
     await waitForInit(page);
     await openTextFileInEditor(page);
 

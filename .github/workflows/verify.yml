@@ -145,7 +145,7 @@ jobs:
 
       # 옛 편집기 엔진의 이름은 허용한 자리에만 남는다 (CODEMIRROR_MIGRATION_SRS FR-CMR-132).
       - name: 옛 편집기 엔진 이름
-        run: scripts/check-no-monaco.sh
+        run: scripts/check-old-editor-name.sh
 
       # 에이전트 이름의 소유권 (AGENT_ADAPTER_COMPLETION_SRS FR-AAC-31·32).
       #

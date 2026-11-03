@@ -1,7 +1,7 @@
 /**
  * **저장은 내가 보고 있는 편집기가 한다** — FR-ESV-1~5.
  *
- * 종전에는 Monaco 의 `addCommand` 가 **전역**이라, 편집기를 둘 세우면 마지막에
+ * 종전에는 옛 엔진의 `addCommand` 가 **전역**이라, 편집기를 둘 세우면 마지막에
  * 만든 쪽이 `Cmd+S` 를 가져갔다 — 보고 있는 편집기가 아니라. 그래서 이 파일이
  * 재는 것은 "저장되는가" 가 아니라 **누가 저장하는가** 다.
  *
@@ -31,8 +31,8 @@ test.beforeAll(() => {
 
 /**
  * 편집기 창을 세우고 파일 하나를 연다. 패턴은 editor-git-ux.spec.ts 의
- * `openTextFileInEditor` 와 같다 — 포커스를 **Monaco 의 API 로** 준다.
- * 어느 요소가 입력을 받는지는 판마다 다르다 (0.56 은 EditContext 다).
+ * `openTextFileInEditor` 와 같다 — 포커스를 **편집기 API 로**(`edT.focus`) 준다.
+ * 어느 요소가 입력을 받는지는 엔진에 달렸다.
  */
 async function openEditorWindow(page: Page) {
   await page.evaluate(async (p) => {
@@ -154,7 +154,7 @@ test.describe('묶음 A — 저장은 내가 보고 있는 편집기가 한다',
     expect(writes).toBe(0);
   });
 
-  // TC-ESV-3: 조합은 설정의 것이다 — 바꾼 값이 Monaco 안에서도 듣는다.
+  // TC-ESV-3: 조합은 설정의 것이다 — 바꾼 값이 편집기 안에서도 듣는다.
   test('TC-ESV-3: 저장 조합을 바꾸면 그 조합이 저장한다', async ({ page }) => {
     await waitForInit(page, { clearLocalStorage: true });
     await openEditorWindow(page);

@@ -70,7 +70,7 @@ function edCmStickyPlugin() {
       const num = v.dom.querySelector('.cm-lineNumbers');
       const line = v.contentDOM.querySelector('.cm-line');
       const pad = line ? parseFloat(getComputedStyle(line).paddingLeft) || 0 : 0;
-      // 오른쪽 끝은 미니맵 앞이다 (Monaco 와 같다). 미니맵이 없으면 스크롤 영역 끝(스크롤바 앞)이다.
+      // 오른쪽 끝은 미니맵 앞이다 (옛 엔진과 같다). 미니맵이 없으면 스크롤 영역 끝(스크롤바 앞)이다.
       const map = v.dom.querySelector('.cm-minimap-gutter');
       const end = map ? map.getBoundingClientRect().left : v.scrollDOM.getBoundingClientRect().right;
       return {

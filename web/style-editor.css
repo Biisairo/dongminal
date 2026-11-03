@@ -3,7 +3,7 @@
  * 여기 사는 것: Editor 탭·Editor 창(EDITOR_TAB_SRS 묶음 T·W) · 탐색기 트리(묶음 X) ·
  * 파일 조작(FR-EDT-79~92) · 찾기 패널 · 이미지 보기 · 터미널의 복사창(FR-ETR-40·41).
  *
- * Monaco 자체의 규칙(원본 787~799)은 style.css 에 남았다 — 구간을 옮기면 캐스케이드
+ * 편집기 엔진 자체의 규칙은 style.css 에 남았다 — 구간을 옮기면 캐스케이드
  * 순서가 바뀌고, 그것은 구간 이동이 아니다.
  *
  * 네 파일 중 마지막에 실려야 한다.
@@ -476,7 +476,7 @@ body.mobile .ed-row{height:var(--touch-min)}
    색은 탐색기 트리의 규약 그대로다 (위 `.ed-row.st-*`) — 같은 창의 두 표면이
    같은 사실에 다른 색을 쓰면 그중 하나는 거짓말이 된다 (FR-EDD-23).
 
-   FR-EDD-24: 막대는 좁다. `lineDecorationsWidth` 를 늘리지 않으므로 Monaco 가
+   FR-EDD-24: 막대는 좁다. gutter 의 폭을 늘리지 않으므로 편집기가
    이미 잡아 둔 여백 안에 선다. */
 .fe-dd-add,.fe-dd-mod,.fe-dd-del{
   width:3px!important;margin-left:3px;
@@ -493,7 +493,7 @@ body.mobile .ed-row{height:var(--touch-min)}
   height:0;
 }
 
-/* 인라인 팝업 (FR-EDD-30~37). Monaco 의 view zone 안에 놓이므로 자리는 편집기가
+/* 인라인 팝업 (FR-EDD-30~37). 편집기의 block widget 안에 놓이므로 자리는 편집기가
    잡는다 — 여기서 정하는 것은 생김새뿐이다. */
 .fe-dd-peek{
   display:flex;flex-direction:column;min-height:0;

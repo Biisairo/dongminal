@@ -195,10 +195,10 @@ func gzBytes(t *testing.T, plain string) []byte {
 func precompressedFS(t *testing.T, plain string) fstest.MapFS {
 	t.Helper()
 	return fstest.MapFS{
-		"index.html":                                 &fstest.MapFile{Data: []byte("<html></html>")},
-		"vendor/codemirror/cm.js.gz":              &fstest.MapFile{Data: gzBytes(t, plain)},
+		"index.html":                     &fstest.MapFile{Data: []byte("<html></html>")},
+		"vendor/codemirror/cm.js.gz":     &fstest.MapFile{Data: gzBytes(t, plain)},
 		"vendor/codemirror/theme.css.gz": &fstest.MapFile{Data: gzBytes(t, "body{}")},
-		"vendor/xterm.js":                            &fstest.MapFile{Data: []byte("xterm\n")},
+		"vendor/xterm.js":                &fstest.MapFile{Data: []byte("xterm\n")},
 	}
 }
 
@@ -487,7 +487,7 @@ func BenchmarkStaticPrecompressed(b *testing.B) {
 	}
 	plain := sb.String()
 	fsys := fstest.MapFS{
-		"index.html":                    &fstest.MapFile{Data: []byte("<html></html>")},
+		"index.html":                 &fstest.MapFile{Data: []byte("<html></html>")},
 		"vendor/codemirror/cm.js.gz": &fstest.MapFile{Data: gzBytesB(b, plain)},
 	}
 	h := newStaticHandler(fsys, "v1")

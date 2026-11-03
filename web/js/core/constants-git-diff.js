@@ -1,7 +1,7 @@
 /**
  * Dongminal — **Diff 탭과 Console 탭**의 상수 (FE_MODULE_BOUNDARY_SRS FR-FMB-1).
  *
- * 축·Monaco 옵션·hunk 표면, 그리고 명령 기록. 둘이 한 파일인 이유는 Console 이
+ * 축·편집기 설정·hunk 표면, 그리고 명령 기록. 둘이 한 파일인 이유는 Console 이
  * 열 줄 남짓이고 **둘 다 "방금 무슨 일이 있었나" 를 보여주는 표면**이기 때문이다.
  *
  * 절과 그 앵커: Diff(GIT_SRS §3.6 / FR-GIT-43~56) · Console(GIT_UI_REVISION_SRS
@@ -10,7 +10,7 @@
 // CODEMIRROR_MIGRATION_SRS FR-CMR-57: Diff ruler 의 두 칸 색 — 지운 것(왼쪽)·더한 것(오른쪽).
 const GIT_DIFF_RULER_DEL='--diff-del';
 const GIT_DIFF_RULER_ADD='--diff-add';
-// FR-CMR-52: 변경 없는 구간을 접을 때 남기는 줄 수와 접는 최소 줄 수 (Monaco hideUnchangedRegions 의 기본과 같다).
+// FR-CMR-52: 변경 없는 구간을 접을 때 남기는 줄 수와 접는 최소 줄 수 (옛 엔진 hideUnchangedRegions 의 기본과 같다).
 const GIT_DIFF_COLLAPSE={margin:3,minSize:4};
 
 // FR-CMR-50·51: Diff 칸의 폭이 이 값 이상이면 나란히 보기, 미만이면 인라인 보기다.
@@ -68,13 +68,13 @@ const GIT_DIFF_MODE_TITLE='Switch between side-by-side and unified diff';
 // 보이지 않는다.
 const GIT_DIFF_NAV_TITLE={prev:'Previous changed file',next:'Next changed file'};
 const GIT_DIFF_WS_LABEL=t('git.act.diff_ws_label');
-// FR-GIT-55: Monaco 로드 실패는 Git 창의 나머지를 멈추지 않는다 — diff 자리에만
+// FR-GIT-55: 편집기 로드 실패는 Git 창의 나머지를 멈추지 않는다 — diff 자리에만
 // 사유를 보인다.
 //
-// **네트워크를 말하지 않는다** (MONACO_VENDORING_SRS FR-MVN-3). 편집기는 이제
+// **네트워크를 말하지 않는다** (FR-MVN-3). 편집기는 이제
 // 바이너리 안에서 오므로 이 실패에 네트워크가 끼어들 자리가 없다 — 종전 문구는
 // 사용자를 없는 원인으로 보냈다. 새로고침이 실제로 듣는 유일한 조치다.
-const GIT_DIFF_MONACO_FAIL=t('git.diff_monaco_fail');
+const GIT_DIFF_EDITOR_FAIL=t('git.diff_editor_fail');
 const GIT_DIFF_LOAD_FAIL=t('git.diff_load_fail');
 // 커밋·discard 로 대상이 목록에서 사라진 경우 (§3.3). 아무 파일이나 임의로
 // 보이지 않고 사실만 알린다.

@@ -216,7 +216,7 @@ test('CRLF: LF 파일·줄바꿈 없는 파일은 LF 다', () => {
   assert.equal(new EdBuffer('').text(), '');
 });
 
-test('CRLF: 섞인 줄 끝은 많은 쪽으로 맞춘다 (Monaco 와 같다)', () => {
+test('CRLF: 섞인 줄 끝은 많은 쪽으로 맞춘다 (옛 엔진과 같다)', () => {
   const crlf = new EdBuffer('a\r\nb\r\nc\n');
   assert.equal(crlf.eol, '\r\n');
   assert.equal(crlf.text(), 'a\r\nb\r\nc\r\n');

@@ -533,7 +533,7 @@ I18N.register('en', {
   'git.diff_err.not_found': 'File not found',
   'git.diff_gone_note': 'The selected file disappeared from the list',
   'git.diff_load_fail': 'Could not load the diff',
-  'git.diff_monaco_fail': 'Could not load the editor — try refreshing',
+  'git.diff_editor_fail': 'Could not load the editor — try refreshing',
   'git.diff_save_fail': 'Could not save',
   'git.dir_entry_add': 'Add as repository',
   'git.dir_entry_add_title': 'Adds this folder to the Repo list and goes to that window',

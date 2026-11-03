@@ -273,7 +273,7 @@ test.describe('묶음 G — Git 패널의 디렉터리 행', () => {
       const note = diffView(page).locator('.git-diff-note');
       await expect(note).toBeVisible({ timeout: 10000 });
       await expect(note).toContainText('서브모듈');
-      // 사유 자리에 Monaco 를 세우지 않는다 — 그릴 것이 없기 때문이다.
+      // 사유 자리에 편집기를 세우지 않는다 — 그릴 것이 없기 때문이다.
       await expect(diffView(page).locator(ED_SEL.surface)).toHaveCount(0);
     });
 

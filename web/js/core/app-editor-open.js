@@ -65,7 +65,7 @@ Object.assign(App.prototype, {
   // ── 문서 (SLOT_VIEW_STATE_SRS 묶음 E / FR-SVS-50~55) ──
 
   /**
-   * FR-SVS-50: 편집 중인 파일의 **문서는 하나**다. 내용(Monaco 모델)과 dirty 는
+   * FR-SVS-50: 편집 중인 파일의 **문서는 하나**다. 내용(`EdBuffer`)과 dirty 는
    * 문서의 것이며 칸의 것이 아니다.
    *
    * 단위는 **파일 경로**다 (D-7) — 탭이 아니다. 같은 파일이 두 탭에 열릴 수 있는

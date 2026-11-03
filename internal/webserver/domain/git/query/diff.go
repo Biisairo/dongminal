@@ -138,7 +138,7 @@ type DiffContent struct {
 
 // DiffContentOf 는 축과 경로를 받아 양쪽 전체 내용을 준다 (FR-GIT-44).
 //
-// **unified diff 텍스트를 만들지 않는다** — Monaco DiffEditor 가 두 모델을
+// **unified diff 텍스트를 만들지 않는다** — Diff 편집기가 두 문서를
 // 요구하며, diff 계산은 그쪽의 일이다 (FR-GIT-43).
 //
 // origPath 가 비면 path 와 같다. rename 된 파일은 original 쪽 경로가 다르고,
@@ -431,7 +431,7 @@ func diffNote(orig, mod DiffSide) string {
 // 받아 `git apply` 에 넘기면 그것이 임의 쓰기 표면이다. 그러려면 서버가 자기가
 // 방금 만든 diff 의 경계를 정확히 알아야 하고, 그 자리가 여기다.
 //
-// **DiffContentOf 와 목적이 다르다.** 그쪽은 Monaco 에 줄 두 벌을 주는 것이고
+// **DiffContentOf 와 목적이 다르다.** 그쪽은 Diff 편집기에 줄 두 벌을 주는 것이고
 // (FR-GIT-43), 이쪽은 git 에 넘길 조각을 잘라내는 것이다 — unified diff 가 없으면
 // 조각의 경계가 없다.
 

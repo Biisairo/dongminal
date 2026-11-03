@@ -74,7 +74,7 @@ const SHORTCUT_DEFAULTS={
   // 잡는다). 관용을 버리면 사용자가 그 기능이 있는지 알 방법이 없다.
   edGotoDef:'F12',
   edFindRefs:'Shift+F12',
-  // UX_BATCH9_SRS FR-ESV-3: 편집기 저장. 종전에는 Monaco 의 `addCommand` 로 코드에
+  // UX_BATCH9_SRS FR-ESV-3: 편집기 저장. 종전에는 옛 엔진의 `addCommand` 로 코드에
   // 박혀 있었고(FR-EKB-5 가 금한 그 방식), 그 등록이 **인스턴스가 아니라 전역**이라
   // 편집기를 둘 열면 `Cmd+S` 가 마지막에 만든 편집기로 갔다 — 그쪽이 dirty 가
   // 아니면 아무 일도 일어나지 않는다 (SRS §2.1).

@@ -8,7 +8,7 @@
  * style-git.css 바로 뒤에 실려야 한다.
  */
 /* ── Git diff (FR-GIT-49~56) ── */
-/* Monaco 는 컨테이너 크기를 읽어 배치한다 — 호스트가 높이를 잃으면 diff 가
+/* 편집기는 컨테이너 크기 안에 선다 — 호스트가 높이를 잃으면 diff 가
    0px 로 접힌다. 바는 고정이고 본문만 늘어난다. */
 /* FR-LAY-21: 재정의가 기본이 됐다 — 지웠다. */
 /* FEU-29: git 뷰 툴바 여섯의 골격은 한 벌이다 — 뷰별 규칙에는 다른 값만 남는다.
@@ -37,10 +37,10 @@
  *   이전 동작: 바깥(`.git-blame`)이 `overflow:auto` — **브라우저 네이티브**
  *             스크롤이라 안내줄(`.git-blame-note`)이 행과 함께 밀려 올라갔다
  *   새  동작: 바깥은 `hidden`, **행 목록만** 구른다
- *   이유:     같은 자리의 diff 는 `.git-diff-host` 안의 Monaco 내부 스크롤이고,
+ *   이유:     같은 자리의 diff 는 `.git-diff-host` 안의 편집기 내부 스크롤이고,
  *             나머지 뷰는 전부 "안쪽 목록만 구른다" 다. 소유자·축이 셋 다 달랐다
  *
- * blame 은 Monaco 를 쓰지 않으므로 **그것과 같아질 수는 없다** — 맞출 수 있는
+ * blame 은 편집기를 쓰지 않으므로 **그것과 같아질 수는 없다** — 맞출 수 있는
  * 것은 소유권과 축이고, 그것으로 요구는 만족된다 (D-6).
  */
 .git-blame{display:none;flex:1 1 auto;min-height:0;flex-direction:column;overflow:hidden}
@@ -69,7 +69,7 @@
 
 /* GitDiffView — 미리보기와 Diff 탭이 같은 골격을 쓴다 (§3.2) */
 .git-diff-view{position:absolute;inset:0;display:flex;flex-direction:column}
-/* 안내는 diff 자리에만 남는다 — Monaco 로드 실패도 여기까지다 (FR-GIT-55) */
+/* 안내는 diff 자리에만 남는다 — 편집기 로드 실패도 여기까지다 (FR-GIT-55) */
 .git-diff-note{display:none;flex:0 0 auto}
 .git-diff-note.vis{display:block}
 /* 본문을 못 주는 쪽의 메타(oid·크기) — 사유 아래 줄이다 (FR-GIT-46·47·48). */
@@ -92,7 +92,7 @@
 .git-diff-pane>.cm-mergeView{overflow:auto}
 .git-diff-ruler{flex:0 0 auto;width:14px;border-left:1px solid var(--border)}
 /* FR-GIT-119: 추가·삭제 색은 테마 팔레트의 초록·빨강(`--diff-add`·`--diff-del`, theme-vars.js)에서 온다 — 테마를 바꾸면 따라온다. 섞는 비율은 줄 20% ·
-   글자 36% (Monaco 시절의 MONACO_DIFF_LINE_MIX·TEXT_MIX). 엔진의 기본 색을 이기도록 그릇부터 적는다. */
+   글자 36% (옛 엔진 시절의 Diff 줄·글자 섞음 비율). 엔진의 기본 색을 이기도록 그릇부터 적는다. */
 .git-diff-cm .git-diff-pane .git-diff-side-mod .cm-changedLine{background:color-mix(in srgb,var(--diff-add) 20%,var(--bg))}
 .git-diff-cm .git-diff-pane .git-diff-side-orig .cm-changedLine,
 .git-diff-cm .git-diff-pane .cm-deletedChunk{background:color-mix(in srgb,var(--diff-del) 20%,var(--bg))}
@@ -321,7 +321,6 @@ body.mobile .git-refs{width:110px}
    **본문은 예외다**: 선택해서 복사하는 것이 목적인 자리는 그대로 둔다. 목록의
    해시·제목·경로·브랜치 이름은 우클릭 메뉴에 복사 항목이 있어 막히지 않는다. */
 .git-view{user-select:none;-webkit-user-select:none}
-.git-view .monaco-editor,
 .git-view .git-diff-host,
 .git-view .git-job-log,
 .git-view .git-job-tail,

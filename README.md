@@ -147,7 +147,7 @@ curl.exe -fL -o dongminal.exe https://github.com/Biisairo/dongminal/releases/lat
 
 ### 편집기
 
-`Editor` 탭에 경로를 추가하면 왼쪽 탐색기 · 오른쪽 편집기(Monaco)로 열립니다.
+`Editor` 탭에 경로를 추가하면 왼쪽 탐색기 · 오른쪽 편집기(CodeMirror 6)로 열립니다.
 터미널에서 `edit <파일>` 을 쳐도 그리로 갑니다. 파일 찾기(`Cmd+P`)와 전체
 검색(`Cmd+Shift+F`)이 있고, 탐색기는 git 상태를 색으로, `.gitignore` 대상을
 흐리게 보여 줍니다.
@@ -228,7 +228,7 @@ UI 는 **한국어(`ko`)와 영어(`en`)** 로 나오고 기본은 한국어입�
 기준을 넘도록 색을 **파생**하고(팔레트 원본은 그대로 둡니다), 포커스 표시·움직임
 줄이기(`prefers-reduced-motion`)·모바일 터치 타겟을 검사로 지킵니다.
 
-범위 밖은 둘입니다 — **터미널 화면(xterm)의 안쪽**과 **편집기 위젯(Monaco)의
+범위 밖은 둘입니다 — **터미널 화면(xterm)의 안쪽**과 **편집기 위젯(CodeMirror)의
 안쪽**. 그 둘은 각자의 접근성 모드를 갖고 있고 그쪽이 소유합니다. 무시하는 것이
 아니라 **어디까지가 우리 몫인지**를 적어 둔 것이고, 근거와 재검토 조건은
 [접근성 기준 문서](docs/internal/ACCESSIBILITY_BASELINE_SRS.md) §6 에 있습니다.

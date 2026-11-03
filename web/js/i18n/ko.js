@@ -557,7 +557,7 @@ I18N.register('ko', {
   'git.diff_err.not_found': '파일을 찾을 수 없습니다',
   'git.diff_gone_note': '선택한 파일이 목록에서 사라졌습니다',
   'git.diff_load_fail': 'diff 를 불러오지 못했습니다',
-  'git.diff_monaco_fail': '에디터를 불러오지 못했습니다 — 새로고침해 보세요',
+  'git.diff_editor_fail': '에디터를 불러오지 못했습니다 — 새로고침해 보세요',
   'git.diff_save_fail': '저장하지 못했습니다',
   'git.dir_entry_add': '저장소로 추가',
   'git.dir_entry_add_title': '이 폴더를 저장소 목록에 더하고 그 창으로 갑니다',

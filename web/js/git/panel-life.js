@@ -92,7 +92,7 @@ Object.assign(GitPanel.prototype, {
       this._els.set(view,el);
       this._render(view);
     }
-    // 탭 전환마다 루트가 DOM 에서 떼였다 붙는다 — Monaco 는 그 사이 크기를 0 으로
+    // 탭 전환마다 루트가 DOM 에서 떼였다 붙는다 — 편집기는 그 사이 크기를 0 으로
     // 보므로 다시 붙은 뒤 한 번 재배치한다.
     if(view==='diff'&&this._diffView) TIMERS.frame(()=>this._diffView.layout(),{owner:this,label:'diff-layout'});
     // History 는 탭이 활성일 때만 목록을 받는다 — 열지 않은 탭이 10,000 커밋을
@@ -148,7 +148,7 @@ Object.assign(GitPanel.prototype, {
    * 스크롤·선택·diff 대상 같은 **상태는 필드에 남는다.** 다시 열면 `elFor` 가
    * 골격을 새로 세우고 그 상태로 칠한다.
    *
-   * Monaco 는 DOM 을 떼는 것으로 풀리지 않으므로 diff 뷰는 명시적으로 버린다
+   * 편집기는 DOM 을 떼는 것으로 풀리지 않으므로 diff 뷰는 명시적으로 버린다
    * (FR-GIT-56) — 그러지 않으면 탭을 닫아도 인스턴스가 남아 NFR-RTU-3 이 깨진다.
    *
    * **저장하지 않은 편집의 확인은 이 함수 앞에서 끝나 있어야 한다** (FR-RTU-103).
@@ -176,7 +176,7 @@ Object.assign(GitPanel.prototype, {
   /**
    * FR-SVS-46: 이 칸이 사라진다. `detach` 는 루트를 `#area` 로 되돌려 **다시
    * 열릴 수 있게** 두지만, 이쪽은 되돌아올 자리가 없으므로 DOM 까지 버린다.
-   * Monaco 는 DOM 을 떼는 것으로 풀리지 않으므로 `_destroyViews` 를 지나야 한다
+   * 편집기는 DOM 을 떼는 것으로 풀리지 않으므로 `_destroyViews` 를 지나야 한다
    * (FR-GIT-56).
    */
   destroy(){
@@ -304,7 +304,7 @@ Object.assign(GitPanel.prototype, {
    * 소실 상태로 들어간다. **한 번만 한다** — 30초마다 오는 같은 사유에 매번
    * 골격을 부수면 사용자가 누르려던 버튼이 손 밑에서 교체된다 (FR-GIT-227 의 정신).
    *
-   * 뷰의 해제는 `detach()` 와 같은 모양이다. Monaco 는 DOM 을 떼는 것으로 풀리지
+   * 뷰의 해제는 `detach()` 와 같은 모양이다. 편집기는 DOM 을 떼는 것으로 풀리지
    * 않으므로 `_destroyViews()` 를 지나야 하고(FR-GIT-56), 나머지 뷰도 자기 DOM 을
    * 놓아야 다시 붙일 때 두 벌이 되지 않는다.
    */

@@ -126,7 +126,7 @@ class EdBuffer {
   // 줄 끝(CRLF·CR·LF)은 모두 줄 구분이다. 줄에 `\r` 이 남으면 줄 끝에 친 글자가 그 뒤에 붙는다.
   static _text(text) { return CM.Text.of(String(text).split(/\r\n?|\n/)) }
 
-  // 섞여 있으면 CRLF 가 절반을 넘을 때 CRLF 다 — Monaco 가 모델을 세울 때의 규칙이다.
+  // 섞여 있으면 CRLF 가 절반을 넘을 때 CRLF 다 — 옛 엔진이 모델을 세울 때의 규칙이다.
   static _eol(text) {
     const s = String(text);
     const all = (s.match(/\r\n?|\n/g) || []).length;

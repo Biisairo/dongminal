@@ -8,7 +8,7 @@
 #
 # 패턴은 글자 하나를 괄호로 감싸 적는다 — 이 파일이 자기 자신에 걸리지 않는다.
 #
-# 사용: scripts/check-no-monaco.sh
+# 사용: scripts/check-old-editor-name.sh
 set -uo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."

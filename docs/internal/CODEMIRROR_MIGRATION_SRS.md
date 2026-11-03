@@ -438,7 +438,7 @@ monaco 전용이 아니므로 유지한다.
 **FR-CMR-132** 완료 시점에 `git grep -i monaco` 결과는 다음 자리에만 남는다: `CHANGELOG.md`,
 `docs/internal/archive/`, 이 문서, 이 작업의 인계 문서(`CODEMIRROR_MIGRATION_HANDOFF.md`).
 글꼴 차례의 `'Monaco'`(macOS 글꼴)도 예외가 아니다 — 뺀다. 끝난 문서는 `archive/` 로 옮기고,
-아직 유효한 문서만 본문을 고친다(§11.7). `scripts/check-no-monaco.sh` 가 검사한다 (M9 착수 중 사용자 결정).
+아직 유효한 문서만 본문을 고친다(§11.7). `scripts/check-old-editor-name.sh` 가 검사한다 (M9 착수 중 사용자 결정).
 
 **FR-CMR-133** `check-font-family.mjs` · `check-vendor.sh` · `eslint.config.mjs` · `playwright.config.ts` 의
 Monaco 언급을 CodeMirror 에 맞춘다.
@@ -906,10 +906,10 @@ REST 처리기가 사라지면 REST 세션을 만드는 자리가 없어진다. 
 
 | 단위 | 내용 | 검증 |
 |---|---|---|
-| G | `scripts/check-no-monaco.sh` (FR-CMR-132 의 허용 자리 밖 `git grep -il monaco` 가 0) · `verify.yml` | 세운 직후 실패(RED), V 끝에 통과 |
+| G | `scripts/check-old-editor-name.sh` (FR-CMR-132 의 허용 자리 밖 `git grep -il monaco` 가 0) · `verify.yml` | 세운 직후 실패(RED), V 끝에 통과 |
 | X1 | `web/vendor/monaco/` 삭제 · `VENDOR_VERSIONS.md` 의 줄·각주 ③ · `check-vendor.sh` 도움말 · `static.go` 주석(사전압축 규칙은 남긴다, FR-CMR-131) · `static_test.go` 의 픽스처 경로를 중립 이름으로 · `eslint.config.mjs` 전역 `monaco`·`require` · `playwright.config.ts` 주석 · `ED_VENDOR_ROUTE` | Go `web` 패키지 검사: 묶인 자산에 `vendor/monaco/` 가 없다(RED 먼저) · `check-vendor.sh` · `go test ./...` |
 | X2 | `e2e/editor.ts` 의 Monaco 갈래(`M()`·`opt`·`markersOf`·`probe`·`probeDiff`·`.monaco-*` 선택자 대안) · `LSP_DIAG_OWNER`(상수·`globals.d.ts`) · `editor-find-panel` 대체 검사 · `GIT_DIFF_OPTIONS` → `GIT_DIFF_INLINE_BREAKPOINT` 와 V-DOR-1/2·V-MMP-2b 의 화면 검사 · `monaco-offline.spec.ts` → `editor-offline.spec.ts` · `e2e-editor-boundary.test.mjs` 의 옛 엔진 패턴은 G 가 맡는다 | 단위: 어댑터 선택자는 `cm-`·`git-diff-` 이름만 쓴다(RED 먼저) · 대체 검사는 `searchKeymap` 을 넣으면 실패하는지 본다 · 해당 e2e |
-| X3 | `GIT_DIFF_MONACO_FAIL`·`git.diff_monaco_fail` → `GIT_DIFF_EDITOR_FAIL`·`git.diff_editor_fail` · 글꼴 차례 다섯 자리 · 코드 주석(`web/`·`internal/`·`scripts/`·`e2e/`) · `README.md` · `docs/external` | `check-i18n` · `check-font-family` · 단위 · Go |
+| X3 | `GIT_DIFF_MONACO_FAIL`·`git.diff_monaco_fail` → `GIT_DIFF_EDITOR_FAIL`·`git.diff_editor_fail` · 글꼴 차례 다섯 자리 · 코드 주석(`web/`·`internal/`·`scripts/`·`e2e/`) · `README.md` · `docs/external` · 호출처 없는 옛 엔진 옵션 덩이 `edMinimapOpts`·`edTextOptions` · 죽은 CSS 선택자(옛 엔진 DOM 클래스) | `check-i18n` · `check-font-family` · 단위 · Go |
 | V | 문서 분류 표대로 옮기고 고친다 · `MONACO_VENDORING_SRS` 는 상태 `대체` 로 `archive/` · §6 의 개정 표시는 남긴 SRS 에만 | G 통과 · `check-srs-status` · `check-decisions` |
 | N | NFR-CMR-3·5 측정 · e2e 46개 파일(`monaco-offline` 은 `editor-offline` 으로) · §7.2 · 단계 A 완료 점검 | §7 |
 

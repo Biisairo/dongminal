@@ -1,7 +1,7 @@
 /**
  * EDITOR_FIND_PANEL_SRS §4 — V-EFP-1~19.
  *
- * 재려는 결함은 이것이다 (그 SRS §2.4): `Mod+F` 를 누르면 Monaco 의 find 위젯이
+ * 재려는 결함은 이것이다 (그 SRS §2.4): `Mod+F` 를 누르면 옛 엔진의 find 위젯이
  * 뜨는데 포커스는 편집기 본문에 남아, **타이핑한 글자가 파일에 삽입됐다.**
  * 검색하려고 누른 키가 문서를 편집한 것이다.
  *
@@ -78,7 +78,7 @@ async function enter(page: Page, request: APIRequestContext) {
   await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
 }
 
-// 파일을 열고 그 탭의 Monaco 가 실제로 설 때까지 기다린다.
+// 파일을 열고 그 탭의 편집기가 실제로 설 때까지 기다린다.
 //
 // 편집기 바깥 요소(`ED_SEL.surface`)를 세지 않는 이유는 **탭마다 하나가 남기 때문이다** — 두 번째
 // 탭을 열면 첫 편집기는 숨겨진 채 DOM 에 남고, `.first()` 는 그 숨은 것을 잡는다.
@@ -110,7 +110,7 @@ const count = (page: Page) => page.locator('.fe-find.vis:visible .fe-find-count'
 const opt = (page: Page, k: string) =>
   page.locator(`.fe-find.vis:visible .fe-find-opt[data-opt="${k}"]`);
 
-// Monaco 자신의 위젯. 이것이 뜨면 이번 작업이 실패한 것이다 (FR-EFP-4).
+// 엔진 자신의 찾기 패널. 이것이 뜨면 이번 작업이 실패한 것이다 (FR-EFP-4).
 const builtinWidget = (page: Page) => page.locator(`${ED_SEL.surface} ${ED_SEL.builtinFind}`);
 
 const docText = (page: Page) => page.evaluate(
@@ -123,7 +123,7 @@ async function openFind(page: Page) {
 
 test.describe('편집기 파일 내 찾기 패널', () => {
   // V-EFP-1 · FR-EFP-1·2·4
-  test('Mod+F 에 Monaco 위젯이 아니라 우리 패널이 뜬다', async ({ page, request }) => {
+  test('Mod+F 에 엔진 기본 패널이 아니라 우리 패널이 뜬다', async ({ page, request }) => {
     await enter(page, request);
     await openFile(page, 'find.txt');
     await focusBody(page);
@@ -166,7 +166,7 @@ test.describe('편집기 파일 내 찾기 패널', () => {
   });
 
   // V-EFP-4 · FR-EFP-4 — 길을 하나만 닫으면 나머지로 들어온다 (§2.6).
-  test('Mod+H · Mod+E · F3 로도 Monaco 위젯이 뜨지 않는다', async ({ page, request }) => {
+  test('Mod+H · Mod+E · F3 로도 엔진 기본 패널이 뜨지 않는다', async ({ page, request }) => {
     await enter(page, request);
     await openFile(page, 'find.txt');
 
@@ -407,7 +407,7 @@ test.describe('편집기 파일 내 찾기 패널', () => {
   test('편집기가 없는 탭에서는 키를 삼키지 않는다', async ({ page, request }) => {
     await enter(page, request);
     await openFile(page, 'find.txt');
-    // 이미지 탭으로 옮긴다 — Monaco 가 서지 않는다 (FR-EVW-4).
+    // 이미지 탭으로 옮긴다 — 편집기가 서지 않는다 (FR-EVW-4).
     await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), P('pic.png'));
     await expect(page.locator('.fe-image .fe-img')).toBeVisible({ timeout: 20000 });
 

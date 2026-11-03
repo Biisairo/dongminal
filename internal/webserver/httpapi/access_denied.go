@@ -110,7 +110,7 @@ func deniedPageHTML(ip string) string {
     background:#1a1b26;border:1px solid #232637;
     color:#c0caf5;font-size:15px;letter-spacing:.01em;
     user-select:all;word-break:break-all;
-    font-family:'Menlo','Monaco','Consolas','Liberation Mono',monospace;
+    font-family:'Menlo','Consolas','Liberation Mono',monospace;
   }
   .hint{margin-top:7px;font-size:10.5px;color:#414868;letter-spacing:.01em}
   .how{margin-top:22px;font-size:12.5px;line-height:1.7;color:#8b93b8}

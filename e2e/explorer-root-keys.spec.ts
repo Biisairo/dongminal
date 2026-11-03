@@ -469,7 +469,7 @@ test.describe('묶음 F — 탐색기의 키보드 길 (FR-EXR-50~57)', () => {
     async ({ page, request }) => {
       const root = mkRoot('f1');
       await enterExplorer(page, request, root);
-      // 편집기를 열어 Monaco 에 포커스를 준다.
+      // 편집기를 열어 그 본문에 포커스를 준다.
       await row(page, j(root, 'a.txt')).dblclick();
       await expect(page.locator(ED_SEL.surface).first()).toBeVisible({ timeout: 15000 });
       await page.locator(`${ED_SEL.surface} ${ED_SEL.input}`).first().focus();

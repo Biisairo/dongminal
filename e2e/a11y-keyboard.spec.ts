@@ -27,7 +27,7 @@ const blurAll = (page: Page) =>
 
 /**
  * `Tab` 을 눌러 `sel` 에 닿을 때까지 간다. `cap` 안에 닿지 않으면 그것이 결함이다
- * — xterm·Monaco 는 `Tab` 을 먹으므로 거기 들어가면 더 가지 못한다(E-1·E-2).
+ * — xterm·편집기는 `Tab` 을 먹으므로 거기 들어가면 더 가지 못한다(E-1·E-2).
  */
 async function tabTo(page: Page, sel: string, cap = 60) {
   for (let i = 0; i < cap; i++) {
