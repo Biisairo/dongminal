@@ -422,7 +422,8 @@ class GitDiffView {
     const opts={diff:true,readOnly:true,wordWrap:editorWordWrap,fontSize:edFontSize()};
     const ea=edCmExtensions(opts),eb=edCmExtensions(opts);
     const buf=this._buf;
-    const c={kind,cmpA:ea.cmp,cmpB:eb.cmp,ruler:null};
+    // FR-ELR-38: 칸이 붙은 버퍼를 기억한다 — 버릴 때 `_buf` 는 이미 다음 문서의 것일 수 있다.
+    const c={kind,cmpA:ea.cmp,cmpB:eb.cmp,ruler:null,buf};
     const diffConfig=this._ignoreWs?{override:gitDiffIgnoreWs}:{};
     const collapse=this._fold?GIT_DIFF_COLLAPSE:undefined;
     const listen=CM.EditorView.updateListener.of((u)=>{
@@ -485,7 +486,7 @@ class GitDiffView {
     if(!c) return;
     this._cm=null;
     GitDiffView.live.delete(this);
-    if(this._buf) this._buf.detach(c.b);
+    if(c.buf) c.buf.detach(c.b);
     c.host._dispose();
     c.resize.disconnect();
     if(c.mv) c.mv.destroy(); else c.b.destroy();

@@ -297,3 +297,23 @@ test('L2: sinks 는 붙은 칸들이고 떼면 빠진다', () => {
   assert.equal(buf.sinks.length, 1);
   assert.equal(buf.sinks[0], b);
 });
+
+test('V-ELR-13 (FR-ELR-35): 칸 하나가 예외를 내도 다른 칸은 새 내용이고 알림은 한 번 오며 실패는 남는다', () => {
+  const buf = new EdBuffer('old\n');
+  const bad = sink(buf, { dispatch() { throw new Error('boom') } });
+  const good = sink(buf);
+  let notes = 0;
+  buf.onChange(() => { notes++ });
+  const errors = [];
+  const orig = console.error;
+  console.error = (...a) => { errors.push(a) };
+  let ok;
+  try { ok = buf.replace('new\n') } finally { console.error = orig }
+  assert.equal(ok, true);
+  assert.equal(good.state.doc.toString(), 'new\n');
+  assert.equal(buf.value(), 'new\n');
+  assert.equal(notes, 1);
+  assert.equal(errors.length, 1);
+  assert.ok(errors[0].some((x) => x instanceof Error && x.message === 'boom'), '오류가 기록에 실린다');
+  assert.ok(buf.sinks.includes(bad), '실패한 칸을 떼지 않는다 — 수명은 칸의 주인이 정한다');
+});

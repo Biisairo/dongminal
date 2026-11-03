@@ -16,7 +16,7 @@
 class EdBuffer {
   constructor(text) {
     this.eol = EdBuffer._eol(text);
-    this._doc = EdBuffer._text(text);
+    this._doc = EdBuffer.textOf(text);
     this._sinks = new Set();
     this._subs = new Set();
     this.version = 0;
@@ -74,25 +74,30 @@ class EdBuffer {
   replace(text) {
     if (this.disposed) return false;
     this.eol = EdBuffer._eol(text);
-    const next = EdBuffer._text(text);
+    const next = EdBuffer.textOf(text);
     if (next.eq(this._doc)) return true;
     // 위치의 근거가 사라졌다 — 언어 서버가 didChange 뒤 다시 보낸다.
     this.diagnostics = [];
     const prev = this._doc;
     this._doc = next;
+    // FR-ELR-35: 한 칸의 실패가 나머지 칸과 알림을 막지 않는다.
     for (const sink of this._sinks) {
-      const snap = sink.scrollSnapshot ? sink.scrollSnapshot() : null;
-      const sel = sink.state.selection.main;
-      sink.dispatch({
-        changes: { from: 0, to: sink.state.doc.length, insert: next },
-        selection: { anchor: EdBuffer._carry(prev, next, sel.anchor), head: EdBuffer._carry(prev, next, sel.head) },
-        annotations: [EdBuffer.REMOTE.of(true), EdBuffer.FLUSH.of(true), CM.Transaction.addToHistory.of(false)],
-        effects: EdBuffer.HISTORY.reconfigure([]),
-      });
-      sink.dispatch({
-        effects: snap ? [EdBuffer.HISTORY.reconfigure(CM.history()), snap] : EdBuffer.HISTORY.reconfigure(CM.history()),
-        annotations: EdBuffer.REMOTE.of(true),
-      });
+      try {
+        const snap = sink.scrollSnapshot ? sink.scrollSnapshot() : null;
+        const sel = sink.state.selection.main;
+        sink.dispatch({
+          changes: { from: 0, to: sink.state.doc.length, insert: next },
+          selection: { anchor: EdBuffer._carry(prev, next, sel.anchor), head: EdBuffer._carry(prev, next, sel.head) },
+          annotations: [EdBuffer.REMOTE.of(true), EdBuffer.FLUSH.of(true), CM.Transaction.addToHistory.of(false)],
+          effects: EdBuffer.HISTORY.reconfigure([]),
+        });
+        sink.dispatch({
+          effects: snap ? [EdBuffer.HISTORY.reconfigure(CM.history()), snap] : EdBuffer.HISTORY.reconfigure(CM.history()),
+          annotations: EdBuffer.REMOTE.of(true),
+        });
+      } catch (e) {
+        console.error('[EdBuffer] replace: sink failed', e);
+      }
     }
     this._bump(true);
     return true;
@@ -124,7 +129,7 @@ class EdBuffer {
   }
 
   // 줄 끝(CRLF·CR·LF)은 모두 줄 구분이다. 줄에 `\r` 이 남으면 줄 끝에 친 글자가 그 뒤에 붙는다.
-  static _text(text) { return CM.Text.of(String(text).split(/\r\n?|\n/)) }
+  static textOf(text) { return CM.Text.of(String(text).split(/\r\n?|\n/)) }
 
   // 섞여 있으면 CRLF 가 절반을 넘을 때 CRLF 다 — 옛 엔진이 모델을 세울 때의 규칙이다.
   static _eol(text) {

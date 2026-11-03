@@ -92,9 +92,12 @@ Object.assign(App.prototype, {
 
   // 디스크 내용을 문서에 넣는다. 내용이 같으면 버퍼가 넣지 않는다 — 넣으면 커서와
   // undo 를 버린다(FR-LSP-26b). 칸마다의 시선(커서·스크롤)은 버퍼가 남긴다(FR-ELR-30·31).
+  // FR-ELR-36: 저장 기준을 먼저 맞춘다 — 버퍼의 알림이 dirty 를 잴 때 옛 기준이면 잠깐 dirty 가 된다.
+  // FR-ELR-37: 표식은 넣은 뒤에 옮긴다 — 넣다가 실패하면 다음 회차가 다시 읽는다.
   _edDocReplace(d,r){
-    this._edDocMeta(d,r);
+    d.savedDoc=EdBuffer.textOf(r.text);
     d.buf.replace(r.text);
+    this._edDocMeta(d,r);
     d.gen++;
     d.savedDoc=d.buf.doc;
     this.edDocDirtySync(d);

@@ -318,6 +318,8 @@ export function installEdAdapter(sel: typeof ED_SEL) {
     /** 문서가 아직 버려지지 않았는가. */
     docLive: (d: any) => !!(d && d.buf) && !d.buf.disposed,
     docBoundTo: (d: any, h: any) => !!(h && h._view) && h._buf === d.buf,
+    /** 문서 버퍼에 붙은 채 파괴된 칸의 수 (`FR-ELR-38`). */
+    docDeadSinks: (d: any) => (d && d.buf ? d.buf.sinks.filter((s: any) => s.destroyed).length : 0),
     /** 문서 전체를 바꾸는 **되돌릴 수 있는** 편집 — 그 문서를 보는 칸 하나를 거친다. */
     docEdit: (d: any, s: string) => {
       const v = viewOfDoc(d);

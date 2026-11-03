@@ -28,11 +28,11 @@ function makeRepo(base: string) {
   git(d, 'config', 'user.name', 'Fixture');
   git(d, 'config', 'user.email', 'fixture@example.invalid');
   git(d, 'config', 'commit.gpgsign', 'false');
-  for (const n of ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt', 'f.txt', 'g.txt', 'h.txt']) fs.writeFileSync(j(d, n), 'one\n');
+  for (const n of ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt', 'f.txt', 'g.txt', 'h.txt', 'm.txt', 'n.txt']) fs.writeFileSync(j(d, n), 'one\n');
   fs.writeFileSync(j(d, 'k.txt'), Buffer.concat([HANGUL_CP949, NL]));
   git(d, 'add', '-A');
   git(d, 'commit', '-qm', 'init');
-  for (const n of ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt', 'f.txt', 'g.txt', 'h.txt']) fs.appendFileSync(j(d, n), 'two\n');
+  for (const n of ['a.txt', 'b.txt', 'c.txt', 'd.txt', 'e.txt', 'f.txt', 'g.txt', 'h.txt', 'm.txt', 'n.txt']) fs.appendFileSync(j(d, n), 'two\n');
   fs.appendFileSync(j(d, 'k.txt'), Buffer.concat([HANGUL_CP949, NL]));
   return realPath(d);
 }
@@ -238,5 +238,19 @@ test.describe('F-2 — Diff 뷰는 편집기 문서를 공유한다', () => {
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+s' : 'Control+s');
     await expect.poll(() => fs.readFileSync(abs, 'utf8'), { timeout: 10000 }).toBe('one\ntwo\ntyped');
     await expect(edTab.first()).not.toContainText('●', { timeout: 10000 });
+  });
+
+  test('V-ELR-16 (FR-ELR-38): Diff 가 다른 파일로 옮겨 가도 앞 문서의 버퍼에 파괴된 칸이 남지 않는다', async ({ page, request }) => {
+    await enter(page, request);
+    const abs = j(REPO, 'm.txt');
+    await openDiff(page, 'm.txt');
+    await page.evaluate((f: string) => (window as any).app.testing.edOpenFile(f), abs);
+    await page.waitForFunction((p: string) => {
+      const d = (window as any).app.testing.edDocs?.get(p);
+      return !!d && d.views.size >= 2 && edT.docHasModel(d);
+    }, abs, { timeout: 20000 });
+    await openDiff(page, 'n.txt');
+    const dead = await page.evaluate((p: string) => edT.docDeadSinks((window as any).app.testing.edDocs.get(p)), abs);
+    expect(dead).toBe(0);
   });
 });
