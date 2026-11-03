@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -240,5 +241,45 @@ func TestLSPWS_BadRequest(t *testing.T) {
 	}
 	if f.tunnelOpened != 0 {
 		t.Fatal("거절된 요청이 통로를 열었다")
+	}
+}
+
+// NFR-CMR-5: 통로 연결부터 `initialize` 응답까지의 서버 몫은 50ms 이하다. 이 검사는 WS 처리기의 몫이고
+// (가짜 통로가 바로 답한다), 통로·프레이밍의 몫은 `domain/lsp` 의 TestTunnel_NFR5 가 잰다 — 둘에 절반씩 둔다.
+func TestLSPWS_NFR5_HandlerShare(t *testing.T) {
+	const runs = 20
+	const budget = 25 * time.Millisecond
+	initMsg := []byte(`{"jsonrpc":"2.0","id":0,"method":"initialize","params":{}}`)
+	reply := []byte(`{"jsonrpc":"2.0","id":0,"result":{"capabilities":{}}}`)
+	var took []time.Duration
+	for i := 0; i < runs; i++ {
+		ft := newFakeTunnel()
+		_, ts := lspServerWithRoot(t, &fakeLSP{tunnel: ft})
+		go func() {
+			if b := <-ft.sent; string(b) == string(initMsg) {
+				ft.out <- reply
+			}
+		}()
+		t0 := time.Now()
+		c, code := dialLSPWS(t, ts, lspTestRoot, "gopls/gopls", nil)
+		if code != http.StatusSwitchingProtocols {
+			t.Fatalf("status=%d", code)
+		}
+		if err := c.WriteMessage(websocket.TextMessage, initMsg); err != nil {
+			t.Fatal(err)
+		}
+		_ = c.SetReadDeadline(time.Now().Add(3 * time.Second))
+		if _, b, err := c.ReadMessage(); err != nil || string(b) != string(reply) {
+			t.Fatalf("응답 %q err=%v", b, err)
+		}
+		took = append(took, time.Since(t0))
+		_ = c.Close()
+		ts.Close()
+	}
+	sort.Slice(took, func(a, b int) bool { return took[a] < took[b] })
+	med := took[runs/2]
+	t.Logf("NFR-CMR-5 처리기 몫 중앙값 %v (최소 %v · 최대 %v, %d회)", med, took[0], took[runs-1], runs)
+	if med > budget {
+		t.Fatalf("처리기 몫 중앙값 %v > %v", med, budget)
 	}
 }

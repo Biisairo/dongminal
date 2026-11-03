@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"path/filepath"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -282,5 +283,45 @@ func TestSetPaths_ClosesTunnelsOfChangedDesc(t *testing.T) {
 	waitStopped(t, ge, "경로가 바뀐 서술자의 통로가 닫히지 않았다")
 	if _, err := gotn.Recv(); err == nil {
 		t.Fatal("닫힌 통로가 읽힌다")
+	}
+}
+
+// NFR-CMR-5: 통로를 열고 `initialize` 를 보내 응답을 받기까지의 서버 몫 (가짜 프로세스가 바로 답한다).
+// WS 처리기의 몫은 httpapi 의 TestLSPWS_NFR5_HandlerShare 가 잰다 — 둘에 절반씩 둔다.
+func TestTunnel_NFR5(t *testing.T) {
+	const runs = 20
+	const budget = 25 * time.Millisecond
+	initMsg := []byte(`{"jsonrpc":"2.0","id":0,"method":"initialize","params":{}}`)
+	reply := []byte(`{"jsonrpc":"2.0","id":0,"result":{"capabilities":{}}}`)
+	start, ends, _ := pipeStarter(t)
+	svc := goTunnelSvc(t, start)
+	var took []time.Duration
+	for i := 0; i < runs; i++ {
+		go func() {
+			e := <-ends
+			if b, err := readFrame(e.in); err == nil && string(b) == string(initMsg) {
+				_ = writeFrame(e.out, reply)
+			}
+		}()
+		t0 := time.Now()
+		tn, err := svc.OpenTunnel("/root", "gopls/gopls")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := tn.Send(initMsg); err != nil {
+			t.Fatal(err)
+		}
+		got, err := tn.Recv()
+		if err != nil || string(got) != string(reply) {
+			t.Fatalf("Recv=%q err=%v", got, err)
+		}
+		took = append(took, time.Since(t0))
+		tn.Close()
+	}
+	sort.Slice(took, func(a, b int) bool { return took[a] < took[b] })
+	med := took[runs/2]
+	t.Logf("NFR-CMR-5 통로 몫 중앙값 %v (최소 %v · 최대 %v, %d회)", med, took[0], took[runs-1], runs)
+	if med > budget {
+		t.Fatalf("통로 몫 중앙값 %v > %v", med, budget)
 	}
 }

@@ -1,14 +1,13 @@
-# 인계: 편집기 엔진 교체 (Monaco → CodeMirror 6) — M9 부터
+# 인계: 편집기 엔진 교체 (Monaco → CodeMirror 6) — 단계 A 완료, `main` 합치기·단계 B 부터
 
 > 작성: 2026-11-03 · 브랜치 `codemirror-migration` · 근거 SRS `docs/internal/CODEMIRROR_MIGRATION_SRS.md`
 
 ## 착수 블록 (이번 세션의 지시 전부)
 
-1. 이 문서를 끝까지 읽는다. 그다음 SRS 의 §3.14(묶음 X) · §3.16 · §4 · §6 · §7 · §7.2 · §11 을 읽는다.
-2. `git status` 와 `git log --oneline -5` 로 출발점을 확인한다. 맨 위 커밋은 M8 완료 커밋이다(`feat(lsp): REST·서버 문서 동기화·hub 진단 제거 — M8 완료 …`).
-3. M8 은 끝났다(L3·S·L1·L2·T·W·R). 이번 일은 **M9** (아래 "M9") 다. M9 착수 전 결정이 필요하면 사용자에게 하나씩 묻는다(권장 답과 함께).
-4. M9 를 단위로 나누고, 단위마다 SRS §11 에 설계를 먼저 적고 Spec → Test(RED 확인) → Code. 단위 끝마다 WIP 커밋할지 사용자에게 묻는다(AI 서명 금지).
-5. M9 끝에 아래 46개 파일 e2e 를 돌려 §7.2 를 갱신하고(실패 0 이 목표 — `editor-find-panel` 1건은 폐기·대체), 단계 A 완료 조건(§7 — e2e 전체 통과·NFR 측정)을 점검한 뒤 **사용자 확인 후** 커밋한다.
+1. 이 문서를 끝까지 읽는다. 그다음 SRS 의 §7 · §7.1 · §7.3 · §8 · §3.15 · §11.7 을 읽는다.
+2. `git status` 와 `git log --oneline -8` 로 출발점을 확인한다. 맨 위 커밋은 M9 완료 커밋이다.
+3. **단계 A 는 끝났다**(M1~M9, SRS §7.3). 다음 일은 둘이다 — ① `codemirror-migration` 을 `main` 에 합치기(사용자 확인 뒤에만, §7.1) ② 단계 B(M10~). 단계 B 착수 전에 §8 의 질문 5건을 하나씩 묻는다(권장 답과 함께).
+4. 커밋은 사용자 확인 후에만, AI 서명 금지.
 
 ## 어디까지 왔나
 
@@ -18,7 +17,7 @@
 | M6 Git Diff 뷰 | 완료 | `b1418594`(WIP) + `b195ab47` |
 | M7 sticky scroll | 완료 | `eb16d707` |
 | **M8 LSP (S·W·L + FR-CMR-23)** | **완료** — L3·S·L1·L2·T·W·R | `8213444d`(L3·S) + L1 WIP 커밋 · SRS §11.6 |
-| M9 Monaco 제거 | 대기 | 아래 "M9" |
+| M9 Monaco 제거 | **완료** — G·X1·X2·X3·V·N | SRS §11.7 · §7.3 |
 
 마지막 e2e 측정(M7, 45개 파일): 544건 중 통과 522 · 실패 22. 실패는 모두 §7.2 표의 M8(21건) · M9(1건) 몫이다.
 
@@ -126,7 +125,15 @@
 
 URI ↔ 경로 변환은 브라우저가 맡는다(FR-CMR-101 은 서버가 내용을 해석하지 않는다). Windows 규칙이 Go `platform.Paths`(`session.go:769-776`)와 같아야 한다 — 같은 테스트 벡터로 묶는다.
 
-## M9 (M8 뒤)
+## M9 에서 한 일 (커밋됨)
+
+- 결정: FR-CMR-132 에 글꼴 예외 없음(글꼴 차례에서도 뺐다) · 끝난 문서 57개는 `archive/`, 남긴 문서는 본문 수정 · `editor-find-panel` V-EFP-21 은 `ux-batch10` 의 Diff 찾기 키 검사로 대체 · 찾기는 앱 패널 유지(`@codemirror/search` 패널·keymap 을 넣지 않는다) · `GIT_DIFF_OPTIONS` → `GIT_DIFF_INLINE_BREAKPOINT` · NFR-3 은 e2e, NFR-5 는 Go
+- 게이트 `scripts/check-old-editor-name.sh`(`verify.yml`). 패턴은 `m[o]naco` — 스스로 걸리지 않는다. **보관 문서의 파일 이름에 엔진 이름이 있으면 어디서 가리켜도 걸린다** — 그래서 벤더링 SRS 는 `archive/EDITOR_VENDORING_SRS.md` 로 이름을 바꿨다
+- 결정 색인은 `docs/internal/*_SRS.md` 만 모은다 — 보관한 SRS 의 결정이 빠져 1,059 → 777건
+- `e2e/a11y-axe.spec.ts` 는 `ACCESSIBILITY_BASELINE_SRS.md` §6 예외 표를 **경로로 읽는다** — 문서를 옮길 때 e2e 도 본다
+- 측정·결과는 SRS §7.2·§7.3
+
+## M9 (기록용 — 착수 전 메모)
 
 `LSP_DIAG_OWNER`(`constants-editor.js`)는 e2e 어댑터의 Monaco 갈래(`markersOf`·`docSetDiagnostic`)와 `e2e/globals.d.ts` 만 읽는다 — 그 갈래와 함께 걷는다. `web/vendor/monaco/` 삭제, `static.go` 정리, `e2e/editor.ts` 의 Monaco 갈래·`probe` 제거(`editor-find-panel` "다른 Monaco 는 자기 위젯을 갖는다" 폐기·대체 — §7.2), `GIT_DIFF_OPTIONS`(e2e V-MMP-2b·editor-git-ux 가 읽는다)와 그 검사 정리, i18n `git.diff_monaco_fail` 이름 정리, 문서 개정.
 
@@ -165,7 +172,7 @@ URI ↔ 경로 변환은 브라우저가 맡는다(FR-CMR-101 은 서버가 내�
 ## e2e 파일 목록 (46개)
 
 ```
-e2e/a11y-axe.spec.ts e2e/a11y-keyboard.spec.ts e2e/codemirror-load.spec.ts e2e/doc-render.spec.ts e2e/editor-dirty-derived.spec.ts e2e/editor-dirty-diff.spec.ts e2e/editor-doc-registry.spec.ts e2e/editor-encoding.spec.ts e2e/editor-external-change.spec.ts e2e/editor-find-panel.spec.ts e2e/editor-git-ux.spec.ts e2e/editor-live-reload.spec.ts e2e/editor-lsp-nav.spec.ts e2e/editor-minimap.spec.ts e2e/editor-multi-slot.spec.ts e2e/editor-ops.spec.ts e2e/editor-replace-seed.spec.ts e2e/editor-save.spec.ts e2e/editor-scrollbar.spec.ts e2e/editor-traffic.spec.ts e2e/explorer-root-keys.spec.ts e2e/file-size-gate.spec.ts e2e/font-size.spec.ts e2e/git-diff-doc.spec.ts e2e/git-diff.spec.ts e2e/git-dir-entry.spec.ts e2e/git-history.spec.ts e2e/git-hunk.spec.ts e2e/git-stash.spec.ts e2e/git-subroot.spec.ts e2e/git-view-refresh.spec.ts e2e/git-write-order.spec.ts e2e/kit-button.spec.ts e2e/kit-components.spec.ts e2e/kit-scroll.spec.ts e2e/monaco-offline.spec.ts e2e/notes-live-explorer.spec.ts e2e/repo-diff-edit.spec.ts e2e/repo-tab.spec.ts e2e/slot-view-state.spec.ts e2e/tooltips.spec.ts e2e/touch-targets.spec.ts e2e/ux-batch10.spec.ts e2e/view-scroll-restore.spec.ts e2e/editor-sticky.spec.ts e2e/editor-lsp.spec.ts
+e2e/a11y-axe.spec.ts e2e/a11y-keyboard.spec.ts e2e/codemirror-load.spec.ts e2e/doc-render.spec.ts e2e/editor-dirty-derived.spec.ts e2e/editor-dirty-diff.spec.ts e2e/editor-doc-registry.spec.ts e2e/editor-encoding.spec.ts e2e/editor-external-change.spec.ts e2e/editor-find-panel.spec.ts e2e/editor-git-ux.spec.ts e2e/editor-live-reload.spec.ts e2e/editor-lsp-nav.spec.ts e2e/editor-minimap.spec.ts e2e/editor-multi-slot.spec.ts e2e/editor-ops.spec.ts e2e/editor-replace-seed.spec.ts e2e/editor-save.spec.ts e2e/editor-scrollbar.spec.ts e2e/editor-traffic.spec.ts e2e/explorer-root-keys.spec.ts e2e/file-size-gate.spec.ts e2e/font-size.spec.ts e2e/git-diff-doc.spec.ts e2e/git-diff.spec.ts e2e/git-dir-entry.spec.ts e2e/git-history.spec.ts e2e/git-hunk.spec.ts e2e/git-stash.spec.ts e2e/git-subroot.spec.ts e2e/git-view-refresh.spec.ts e2e/git-write-order.spec.ts e2e/kit-button.spec.ts e2e/kit-components.spec.ts e2e/kit-scroll.spec.ts e2e/editor-offline.spec.ts e2e/notes-live-explorer.spec.ts e2e/repo-diff-edit.spec.ts e2e/repo-tab.spec.ts e2e/slot-view-state.spec.ts e2e/tooltips.spec.ts e2e/touch-targets.spec.ts e2e/ux-batch10.spec.ts e2e/view-scroll-restore.spec.ts e2e/editor-sticky.spec.ts e2e/editor-lsp.spec.ts
 ```
 
 `editor-lsp.spec.ts` 는 M8 T 에서 더했다 (상태·경로 패널, FR-CMR-95).

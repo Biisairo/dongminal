@@ -1,4 +1,8 @@
-import { test, expect, waitForInit } from './fixtures';
+import { mkdirSync, writeFileSync } from 'fs';
+import { join } from 'path';
+
+import { test, expect, waitForInit, addEditorRoot, switchToEditorRoot, rmTree } from './fixtures';
+import { tmpPath, realPath } from './osenv';
 
 // CODEMIRROR_MIGRATION_SRS 묶음 V (M1) — 벤더 묶음을 앱 안에서 읽을 수 있는가.
 
@@ -54,5 +58,53 @@ test.describe('CodeMirror 벤더 묶음 (M1)', () => {
     // 같은 URL 의 실패한 모듈은 브라우저가 기억하므로 로더는 다시 받을 길을 가져야 한다.
     const second = await page.evaluate(() => (window as any).loadCodeMirror().then(() => 'ok', (e: Error) => 'fail:' + e.message));
     expect(second).toBe('ok');
+  });
+});
+
+// NFR-CMR-3 — 10,000줄 TypeScript 를 열어 첫 화면이 그려지기까지 300ms 이하 (언어 청크가 캐시된 상태, 로컬 Chromium).
+// 재는 구간: `edOpenFile` 부터 그 칸이 첫 줄을 그리고 언어가 붙은 뒤의 다음 프레임까지. 파일 읽기 요청도 든다.
+const NFR3_ROOT = tmpPath('dm-cm-nfr3-' + process.pid);
+const NFR3_LINES = 10_000;
+const NFR3_MAX_MS = 300;
+
+test.describe('NFR-CMR-3 열기', () => {
+  test.beforeAll(() => {
+    mkdirSync(NFR3_ROOT, { recursive: true });
+    const body = (tag: string) => Array.from({ length: NFR3_LINES },
+      (_, i) => `export function ${tag}${i}(x: number): number { return x * ${i} + ${i % 7}; }`).join('\n') + '\n';
+    writeFileSync(join(NFR3_ROOT, 'warm.ts'), body('w'));
+    writeFileSync(join(NFR3_ROOT, 'big.ts'), body('f'));
+  });
+  test.afterAll(() => { rmTree(NFR3_ROOT) });
+
+  test('NFR-CMR-3: 10,000줄 TypeScript 가 300ms 안에 첫 화면을 그린다', async ({ page, request }) => {
+    const root = realPath(NFR3_ROOT);
+    const key = await addEditorRoot(request, root);
+    await page.goto('/');
+    await waitForInit(page);
+    await switchToEditorRoot(page, key);
+
+    // 같은 언어의 다른 파일을 먼저 열어 언어 청크를 캐시한다.
+    const open = (f: string) => page.evaluate(async (path) => {
+      const app = (window as any).app;
+      const t0 = performance.now();
+      app.testing.edOpenFile(path);
+      const name = path.split(/[\\/]/).pop();
+      for (;;) {
+        await new Promise((r) => requestAnimationFrame(r));
+        const v = app.testing.edActiveEditor();
+        const h = v && edT.of(v);
+        if (!h || !String(v.filePath).endsWith(name)) continue;
+        if (!edT.language(h)) continue;
+        const first = edT.dom(h).querySelector(edT.sel.text + ' .cm-line');
+        if (first && first.textContent && first.textContent.includes('(x: number)')) break;
+      }
+      await new Promise((r) => requestAnimationFrame(r));
+      return performance.now() - t0;
+    }, f);
+    await open(join(root, 'warm.ts'));
+    const ms = await open(join(root, 'big.ts'));
+    test.info().annotations.push({ type: 'NFR-CMR-3 ms', description: ms.toFixed(1) });
+    expect(ms, `첫 화면까지 ${ms.toFixed(1)}ms`).toBeLessThanOrEqual(NFR3_MAX_MS);
   });
 });

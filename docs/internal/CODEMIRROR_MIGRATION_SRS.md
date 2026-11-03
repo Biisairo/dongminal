@@ -1,7 +1,7 @@
 # SRS: 편집기 엔진 교체 — Monaco 에서 CodeMirror 6 으로 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: M9 (단계 A) · M10~ (단계 B). M1~M8 완료.
+> **남은 것**: `main` 합치기(단계 A 완료 뒤, §7.1) · M10~ (단계 B, §8 해소 후). M1~M9 완료.
 
 - 근거: 사용자 인터뷰(2026-11-02) · PoC(`/tmp/cm-poc`, §2.6).
 - 대체 문서: `MONACO_VENDORING_SRS.md` 의 묶음 V 는 이 문서의 묶음 V 가 대체한다.
@@ -603,7 +603,7 @@ B 착수 전에 §8 의 미해결 질문을 해소한다.
 | **M7** | K | sticky scroll |
 | **M8** | S · W · L (+ P 의 FR-CMR-23) | 통로 · 끼워 넣기 · 브라우저 LSP · 서버 문서 동기화 제거 · 그룹당 LSP 문서 하나 |
 | **M9** | X | Monaco 제거 · 문서 개정 · 게이트 |
-| — | **A 완료** | e2e 전체 통과, NFR 측정 통과 |
+| — | **A 완료** (2026-11-03) | e2e 전체 통과, NFR 측정 통과 — §7.3 |
 | **M10~** | B | §8 해소 후 기능별로 |
 
 M2 를 엔진 교체보다 먼저 두는 이유: 테스트를 옮기는 일과 엔진을 바꾸는 일을 한 마일스톤에 섞으면
@@ -631,12 +631,27 @@ M7 측정: 45개 파일(`editor-sticky` 포함) — 544건 중 통과 522 · 실
 M8 T 측정: 46개 파일(`editor-lsp` 포함, `editor-lsp-nav` 는 실제 gopls 로 다시 씀) — 543건 중 통과 541 · 실패 2 (2026-11-03). 하나는 아래 표의 M9 몫이다. 다른 하나(`editor-scrollbar` thumb 끌기)는 L3 로 되살아난 설치 제안 띠(그 기계에 markdown 서버가 없다)가 thumb 를 덮은 것이다 — 띠는 처음부터 편집기 위쪽을 덮는 겹이므로 그 스펙이 상태를 세워 띠를 빼고 잰다. 고친 뒤 반복 3회 통과. M8 줄(`editor-lsp-nav` · `slot-view-state` E-9.1 · `repo-tab` M4 · `ux-batch10` 호버)은 모두 통과해 지웠다.
 M8 W 측정: 46개 파일(`editor-lsp-nav` 에 열리지 않은 파일의 변경 2건 추가) — 545건 중 통과 544 · 실패 1, 아래 표의 M9 몫이다 (2026-11-03). 추가한 2건은 Go 쪽 W 를 빼면 실패하고(RED 확인), 넣으면 반복 2회 통과.
 M8 R 측정(M8 완료): 46개 파일(`/api/lsp/close` 검사를 지웠다) — 544건 중 통과 543 · 실패 1, 아래 표의 M9 몫이다 (2026-11-03).
+M9 측정(단계 A 완료): 46개 파일(`monaco-offline` → `editor-offline`, `codemirror-load` 에 NFR-CMR-3, `ux-batch10` 에 Diff 찾기 키 1건, `editor-find-panel` V-EFP-21 제거) — 545건 중 첫 시도 통과 544 · 재시도 통과(flaky) 1 · 실패 0 (2026-11-03). flaky 는 `editor-replace-seed` "실린 글자로 열자마자 검색한다" 의 본문 클릭이 스크롤 중 시간을 넘긴 것이다 — M9 는 그 경로의 주석만 바꿨고, 따로 반복 5회 통과. 표에 남은 줄은 없다.
 
 | 스펙 · 테스트 | 실패 이유 | 닫는 마일스톤 |
 |---|---|---|
-| `editor-find-panel` "다른 Monaco 는 자기 위젯을 갖는다" | Monaco 고유 동작을 재는 검사다 — 편집기 칸에 Monaco 가 없다 (`edT.probe`) | M9 에서 폐기 또는 대체 |
+| (없음) | M9 에서 마지막 줄(`editor-find-panel` V-EFP-21)을 걷고 `ux-batch10` 의 Diff 검사로 대체했다 (§3.16) | — |
 
 ---
+
+### 7.3 단계 A 완료 점검 (M9 끝, 2026-11-03, 로컬 macOS · Chromium)
+
+| NFR | 기준 | 측정 | 재는 곳 |
+|---|---|---|---|
+| NFR-CMR-1 첫 로드 | gzip 250KB 이하 | 통과 | `scripts/test/codemirror-vendor.test.mjs` |
+| NFR-CMR-2 벤더 총량 | gzip 1.5MB 이하 | 통과 (126개 0.67MB) | 같은 곳 |
+| NFR-CMR-3 열기 | 300ms 이하 | 222~248ms (4회) | `codemirror-load` "NFR-CMR-3" — `edOpenFile` 부터 첫 줄·언어가 선 다음 프레임까지, 파일 읽기 포함 |
+| NFR-CMR-4 입력 | 1프레임(16ms) 안 | 최대 3.3ms | `editor-multi-slot` |
+| NFR-CMR-5 LSP 연결 | 서버 몫 50ms 이하 | 처리기 중앙값 0.6~2.1ms · 통로 중앙값 0.17ms | Go `TestLSPWS_NFR5_HandlerShare`(httpapi) · `TestTunnel_NFR5`(domain/lsp) — 가짜 프로세스가 바로 답한다, 각 25ms 상한 |
+| NFR-CMR-6 접근성 | axe 통과 | 통과 | `a11y-axe` (예외 E-2 = 편집기 위젯) |
+
+e2e 46개 파일 545건 실패 0 (§7.2). 게이트: `npm run unit` 672 · typecheck · eslint · `verify.yml` 의 `check-*` 전부(FR-CMR-132 의
+`check-old-editor-name.sh` 포함) · `go vet ./...` · `go test ./...`. `main` 합치기는 사용자 확인 뒤에 한다 (§7.1).
 
 ## 8. 미해결 질문 (B 착수 전 해소)
 
@@ -934,3 +949,4 @@ REST 처리기가 사라지면 REST 세션을 만드는 자리가 없어진다. 
 | 2026-11-03 | FR-CMR-102 개정(상한은 통로만 센다) · §11.6 R 설계 — REST 세션과 딸린 것을 함께 걷는다 |
 | 2026-11-03 | M8 완료 — §7.2 에 측정을 적었다. `SetPaths` 는 값이 바뀐 서술자의 통로를 닫는다(§11.6 R) |
 | 2026-11-03 | FR-CMR-132 개정(글꼴 예외 없음·문서는 보관 또는 수정·인계 문서 허용·검사 스크립트) · §3.16 세 줄 · §11.7 M9 설계 (M9 착수 중 결정) |
+| 2026-11-03 | M9 완료 · 단계 A 완료 — §7.2 측정, §7.3 NFR 점검 |
