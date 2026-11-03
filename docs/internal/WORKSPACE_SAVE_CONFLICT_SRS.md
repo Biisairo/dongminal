@@ -45,7 +45,7 @@ B 가 저장:     서버 1  | PUT 응답 [409, 200]
 
 ### 1.4 참조 (References)
 
-- [`./UX_REVISION_SRS.md`](./UX_REVISION_SRS.md) — FR-GRR-4. 낡은 스냅샷을 적용하지
+- [`./UX_REVISION_SRS.md`](./archive/UX_REVISION_SRS.md) — FR-GRR-4. 낡은 스냅샷을 적용하지
   않는다는 규약과 그 가드
 - [`./RELOAD_CONTINUITY_SRS.md`](./RELOAD_CONTINUITY_SRS.md) — FR-RLC-25·28. SSE 가
   살아 있는지 재는 방법

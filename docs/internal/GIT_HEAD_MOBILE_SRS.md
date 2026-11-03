@@ -35,8 +35,8 @@
 
 ### 1.4 참조 (References)
 
-- [`./GIT_SRS.md`](./GIT_SRS.md) — FR-GIT-32·33·40 (머리), FR-GIT-98~112 (원격), FR-GIT-113~139 (History)
-- [`./GIT_UI_REVISION_SRS.md`](./GIT_UI_REVISION_SRS.md) — FR-GIT-238 (새로고침 버튼의 자리), FR-GIT-282 (리포명이 전환 자리)
+- [`./GIT_SRS.md`](./archive/GIT_SRS.md) — FR-GIT-32·33·40 (머리), FR-GIT-98~112 (원격), FR-GIT-113~139 (History)
+- [`./GIT_UI_REVISION_SRS.md`](./archive/GIT_UI_REVISION_SRS.md) — FR-GIT-238 (새로고침 버튼의 자리), FR-GIT-282 (리포명이 전환 자리)
 - [`./GIT_REVIEW4_SRS.md`](./GIT_REVIEW4_SRS.md) — FR-RPT-1 (관측이 같으면 그리지 않는다)
 - [`./GIT_REPO_MISSING_SRS.md`](./GIT_REPO_MISSING_SRS.md) — FR-RMS-19 (소실 상태의 머리)
 - [`./GIT_VIEW_REFRESH_SRS.md`](./GIT_VIEW_REFRESH_SRS.md) — FR-GVR-8 (Changes 밖의 뷰도 폴링을 딛는다)

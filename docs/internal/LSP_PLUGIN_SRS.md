@@ -42,7 +42,7 @@
 | **R** 런타임 | node 는 특례가 아니라 `kind: "runtime"` 인 플러그인 하나다 |
 | **B** 동봉 | 기본 매니페스트 9종을 저장소에 두고 첫 기동에 전개한다 |
 
-**미포함:** §6 비목표. 특히 **세션·프로토콜·Monaco 연동(EDITOR_LSP_SRS 묶음 B~H)은
+**미포함:** §6 비목표. 특히 **세션·프로토콜·편집기 연동(EDITOR_LSP_SRS 묶음 B~H, 지금은 CODEMIRROR_MIGRATION_SRS §3.10·§3.11)은
 이 변경의 대상이 아니다.** 그쪽은 "실행 파일 경로 하나"만 받으며, 그 경로가 어디서
 왔는지 묻지 않는다.
 
@@ -65,7 +65,7 @@
 
 ### 1.4 참조 (References)
 
-- [`./EDITOR_LSP_SRS.md`](./EDITOR_LSP_SRS.md) — 묶음 A(개정 대상) · 묶음 B~H(유지)
+- [`./EDITOR_LSP_SRS.md`](./archive/EDITOR_LSP_SRS.md) — 묶음 A(개정 대상) · 묶음 B~H(유지)
 - [`./LSP_WINDOWS_PORTABILITY_SRS.md`](./LSP_WINDOWS_PORTABILITY_SRS.md) — FR-LWP-1(실행 가능 판정은 `platform.Paths` 가 갖는다) · FR-LWP-5~7(이름은 OS 마다 다르다)
 - [`./CROSS_PLATFORM_SRS.md`](./CROSS_PLATFORM_SRS.md) — FR-XPL-5(`runtime.GOOS` 는 `platform` 안에서만)
 - `internal/shared/sandbox/helper.go` — 조달 패턴의 선례 (§2.5)
@@ -234,7 +234,7 @@ Windows 는 `node_modules/npm/bin/npm-cli.js` 를 node 로 부른다. 이 차이
 - **FR-EXT-3** 매니페스트는 **팩**을 선언한다: `id` · `kind`(`server`|`runtime`) ·
   `needs`(선행 런타임 id 들) · `source`(조달 방법) · `servers`(이 팩이 내는 서버들).
 - **FR-EXT-4** `servers` 의 각 원소가 **세션의 단위**다 (FR-LSP-13 유지):
-  `id` · `langs`(Monaco language id) · `exts`(소문자, 점 포함) · `exe` · `args`.
+  `id` · `langs`(편집기 언어 id — 옛 엔진의 language id 체계) · `exts`(소문자, 점 포함) · `exe` · `args`.
 - **FR-EXT-5** 한 팩이 서버를 여럿 낼 수 있다 (§2.7). **조달은 한 번**이고 서버는
   그 산출물을 나눠 쓴다 — 팩마다 따로 받으면 같은 패키지를 다섯 번 받는다.
   그러므로 **팩을 조달하면 그것이 내는 서버 전부가 함께 선다.** 다섯 중 하나만

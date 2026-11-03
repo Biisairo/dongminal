@@ -57,7 +57,7 @@ e2e 에서 쓸 때는 `test.beforeAll` 에서 한 번 만들고 `test.afterAll` 
 닫히면 그때 옮긴다.
 
 > ⚠️ **개정 주의.** MVP 이후 사용자 검토로
-> [`../GIT_UI_REVISION_SRS.md`](../GIT_UI_REVISION_SRS.md) (FR-GIT-179~213)가
+> [`../GIT_UI_REVISION_SRS.md`](../archive/GIT_UI_REVISION_SRS.md) (FR-GIT-179~213)가
 > 섰다. **`GIT_M1_STEP3_CONTRACT.md`(묶음 D, Git 창 골격)의 분할·창 목록 관련
 > 서술은 낡았다** — FR-GIT-27·30 이 폐기됐다. 계약 문서보다 개정 SRS 가 앞선다.
 

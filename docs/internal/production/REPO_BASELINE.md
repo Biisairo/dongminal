@@ -1,7 +1,7 @@
 # 저장소 관찰 기준선 — git 크기
 
 - 문서 상태: **기록용 기준선** · 최초 기록 2026-09-10 (M0)
-- 상위 문서: [`MILESTONE_KICKOFF.md`](./MILESTONE_KICKOFF.md) M0 · [`06-docs-hygiene.md`](./06-docs-hygiene.md) §4
+- 상위 문서: [`MILESTONE_KICKOFF.md`](../archive/production/MILESTONE_KICKOFF.md) M0 · [`06-docs-hygiene.md`](./06-docs-hygiene.md) §4
 - 용도: **확정 결정 1(git 히스토리 재작성 안 함)** 을 대체하는 관찰 장치. 재작성으로 팩을
   줄이는 대신, 수치가 계속 늘어나는지를 주기적으로 본다.
 

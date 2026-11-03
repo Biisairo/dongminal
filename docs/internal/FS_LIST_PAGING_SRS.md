@@ -49,7 +49,7 @@
 
 - `FR-EDT-59`·`61`·`65` (`EDITOR_TAB_SRS`) — 한 겹 조회 · **서버가 정하는 순서** · 잘림 표기
 - `NOTES_LIVE_EXPLORER_SRS` `FR-FSL-10` — 목록과 같은 관측의 `stamp`
-- `docs/internal/production/12-func-ui.md` FUI-10 — 원본 감사
+- `docs/internal/archive/production/12-func-ui.md` FUI-10 — 원본 감사
 
 ---
 

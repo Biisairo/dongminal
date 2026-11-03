@@ -63,8 +63,8 @@
 
 ### 1.4 참조 (References)
 
-- [`./GIT_SRS.md`](./GIT_SRS.md) — FR-GIT-13 (좌측 GIT 섹션), FR-GIT-181/182 (Git 창)
-- [`./GIT_UI_REVISION_SRS.md`](./GIT_UI_REVISION_SRS.md) — FR-GIT-226 (사이드바 행 높이)
+- [`./GIT_SRS.md`](./archive/GIT_SRS.md) — FR-GIT-13 (좌측 GIT 섹션), FR-GIT-181/182 (Git 창)
+- [`./GIT_UI_REVISION_SRS.md`](./archive/GIT_UI_REVISION_SRS.md) — FR-GIT-226 (사이드바 행 높이)
 - [`./GIT_REVIEW4_SRS.md`](./GIT_REVIEW4_SRS.md) — FR-RPT-* (다시 그리기 보존 규약)
 - [`./GIT_FOLLOW_REMOVAL_SRS.md`](./GIT_FOLLOW_REMOVAL_SRS.md) — FR-FLW-* (핀만 그린다)
 - [`./archive/MOBILE_MODE_RFC.md`](./archive/MOBILE_MODE_RFC.md) — 모바일 드로어

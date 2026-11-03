@@ -45,7 +45,7 @@
   해석되지 않는다는 사실과, PUT 이 블롭 전체를 갈아치운다는 제약
 - [`./CONVENIENCE_SRS.md`](./CONVENIENCE_SRS.md) — FR-TAN-19. 어떤 값이 **서버**에
   살아야 하는지의 판단 선례
-- [`./SOFT_RELOAD_SRS.md`](./SOFT_RELOAD_SRS.md) — 내부 새로고침이 설정 전역을
+- [`./SOFT_RELOAD_SRS.md`](./archive/SOFT_RELOAD_SRS.md) — 내부 새로고침이 설정 전역을
   다시 읽지 않는다는 사실 (§2.4)
 - [`./RELOAD_CONTINUITY_SRS.md`](./RELOAD_CONTINUITY_SRS.md) — FR-RLC-5a. 앱이
   스스로 여는 새로고침이 이탈 가드를 지나는 방법

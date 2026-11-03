@@ -40,7 +40,7 @@
 
 - [`./CONVENIENCE_SRS.md`](./CONVENIENCE_SRS.md) — FR-TAN-19. 브라우저별이 아니라
   **서버**에 사는 표시 설정의 선례
-- [`./UX_REVISION_SRS.md`](./UX_REVISION_SRS.md) — FR-KEY-6. 같은 선례
+- [`./UX_REVISION_SRS.md`](./archive/UX_REVISION_SRS.md) — FR-KEY-6. 같은 선례
 - [`./ATTENTION_LIFECYCLE_GIT_OBSERVE_SRS.md`](./ATTENTION_LIFECYCLE_GIT_OBSERVE_SRS.md)
   — FR-PAN-13b (제목 배지). 이번 작업이 그 합성 지점을 건드린다
 

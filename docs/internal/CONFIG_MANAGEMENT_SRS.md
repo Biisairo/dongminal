@@ -47,7 +47,7 @@
 
 - [`./SETTINGS_PORTABILITY_SRS.md`](./SETTINGS_PORTABILITY_SRS.md) — §3.1 이식 표, D-1
   (서버는 블롭을 해석하지 않으므로 종단을 새로 파지 않는다)
-- [`./POLL_INTERVAL_SETTINGS_SRS.md`](./POLL_INTERVAL_SETTINGS_SRS.md) — `POLL_SETTINGS`.
+- [`./POLL_INTERVAL_SETTINGS_SRS.md`](./archive/POLL_INTERVAL_SETTINGS_SRS.md) — `POLL_SETTINGS`.
   **이 저장소에 이미 있는 서술자 표의 선례**이고 이 문서는 그것을 넓힌다
 - [`./REQUEST_GATE_SRS.md`](./REQUEST_GATE_SRS.md) — `FR-RQG-24`. 호스트 판정의 단일 원천
 - [`./CLI_CONSOLIDATION_SRS.md`](./CLI_CONSOLIDATION_SRS.md) — 액션 디스패치와 옵션 해석

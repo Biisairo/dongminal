@@ -62,7 +62,7 @@ fsnotify 를 기각하며 *"`ReadSignature` = read 1회 + stat 2회 = 0.02ms"* �
 
 - [`./GIT_PUSH_OBSERVE_SRS.md`](./GIT_PUSH_OBSERVE_SRS.md) §1.2 — **본 SRS 가
   개정하는 대상.** 그 절의 비용 논거가 현재 구현에 대해 무효다
-- [`./production/11-git-polling.md`](./production/11-git-polling.md) §4·§7 —
+- [`./production/11-git-polling.md`](./archive/production/11-git-polling.md) §4·§7 —
   감지되는 것과 되지 않는 것의 확정 목록, 그리고 fsnotify 기각의 근거 넷
 - [`./CI_E2E_MATRIX_SRS.md`](./CI_E2E_MATRIX_SRS.md) FR-CEM-32 — *"Windows
   러너에서 `git branch` 뒤 `refs/heads` mtime 이 45초 동안 그대로였다."*

@@ -65,8 +65,8 @@ gitCommitOpError            → 400 "bad_request"     // handlers_git_commit_ops
 
 - `docs/internal/architecture.md` — 프로세스 축 레이아웃, `domain/git` 초크포인트
 - `docs/internal/PACKAGE_RESTRUCTURE_SRS.md` — 현재 패키지 경계의 근거
-- `docs/internal/GIT_SRS.md`, `GIT_ACTIONS_SRS.md` — git 표면의 FR 번호 원본
-- `docs/internal/EDITOR_TAB_SRS.md` — `/api/fs/*` · `/api/editors/*` 계약
+- `docs/internal/archive/GIT_SRS.md`, `GIT_ACTIONS_SRS.md` — git 표면의 FR 번호 원본
+- `docs/internal/archive/EDITOR_TAB_SRS.md` — `/api/fs/*` · `/api/editors/*` 계약
 
 ---
 

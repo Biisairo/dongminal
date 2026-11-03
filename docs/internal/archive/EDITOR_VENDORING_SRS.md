@@ -1,6 +1,9 @@
 # SRS: Monaco 벤더링과 사전압축 정적 서빙 — IEEE 29148
 
-> **문서 상태**: 승인·구현완료
+> **문서 상태**: 대체
+>
+> 2026-11 CODEMIRROR_MIGRATION_SRS 가 묶음 V(편집기 벤더링)를 대체했다. 묶음 Z(사전압축 서빙)·C(CSP)는 유효하다.
+> 보관하며 파일 이름을 바꿨다 (옛 이름 `MONACO_VENDORING_SRS.md`, FR-CMR-132).
 
 - 근거 감사: `02-fe-arch.md` P1 "Monaco CDN"(`FE-6`) · `04-secops.md` §4.3(`B7`, CSP) ·
   `00-INDEX.md` §3 묶음 `B7`.

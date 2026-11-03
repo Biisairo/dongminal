@@ -57,10 +57,10 @@
 ### 1.4 참조
 
 - [`./UI_KIT_SRS.md`](./UI_KIT_SRS.md) — 이 문서가 쓰는 부품
-- [`./UX_REVISION_SRS.md`](./UX_REVISION_SRS.md) 묶음 B — `SidebarList` 블루프린트
+- [`./UX_REVISION_SRS.md`](./archive/UX_REVISION_SRS.md) 묶음 B — `SidebarList` 블루프린트
 - [`./SIDEBAR_COLLAPSE_SRS.md`](./SIDEBAR_COLLAPSE_SRS.md) — 레일의 현재 규약
-- [`./GIT_SRS.md`](./GIT_SRS.md) FR-GIT-32~42·66~72·128~131 — Changes·History
-- [`./WORKBENCH_REVIEW_SRS.md`](./WORKBENCH_REVIEW_SRS.md) FR-WBR-50~52 — 그룹 일괄
+- [`./GIT_SRS.md`](./archive/GIT_SRS.md) FR-GIT-32~42·66~72·128~131 — Changes·History
+- [`./WORKBENCH_REVIEW_SRS.md`](./archive/WORKBENCH_REVIEW_SRS.md) FR-WBR-50~52 — 그룹 일괄
 - [`./UX_BATCH5_SRS.md`](./UX_BATCH5_SRS.md) FR-DBA-4 — 두 그룹의 폐기는 다른 명령
 
 ---

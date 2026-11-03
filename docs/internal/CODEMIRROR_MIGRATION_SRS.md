@@ -569,9 +569,10 @@ B 착수 전에 §8 의 미해결 질문을 해소한다.
 ## 6. 기존 문서 개정
 
 - `MONACO_VENDORING_SRS.md` — 머리에 "묶음 V 는 CODEMIRROR_MIGRATION_SRS 가 대체" 를 적는다.
-  묶음 Z·C 는 유효하다.
-- Monaco 를 언급하는 SRS 40개 — 조항을 다음 규칙으로 읽는다. 마일스톤 X 에서 각 문서 머리에
-  개정 표시를 한 줄씩 단다.
+  묶음 Z·C 는 유효하다. M9 에서 상태 `대체` 로 `archive/EDITOR_VENDORING_SRS.md` 로 옮겼다 (이름은 FR-CMR-132).
+- Monaco 를 언급하는 SRS 40개 — 조항을 다음 규칙으로 읽는다. 마일스톤 X(M9)에서 끝난 문서는 `archive/` 로
+  옮기고, 남긴 문서는 본문을 지금 엔진 기준으로 고쳤다(§11.7 · FR-CMR-132). 그래서 머리의 개정 표시 대신
+  아래 표가 보관 문서를 읽는 규칙이다.
 
 | 옛 조항이 말하는 것 | 새 근거 |
 |---|---|
@@ -910,7 +911,7 @@ REST 처리기가 사라지면 REST 세션을 만드는 자리가 없어진다. 
 | X1 | `web/vendor/monaco/` 삭제 · `VENDOR_VERSIONS.md` 의 줄·각주 ③ · `check-vendor.sh` 도움말 · `static.go` 주석(사전압축 규칙은 남긴다, FR-CMR-131) · `static_test.go` 의 픽스처 경로를 중립 이름으로 · `eslint.config.mjs` 전역 `monaco`·`require` · `playwright.config.ts` 주석 · `ED_VENDOR_ROUTE` | Go `web` 패키지 검사: 묶인 자산에 `vendor/monaco/` 가 없다(RED 먼저) · `check-vendor.sh` · `go test ./...` |
 | X2 | `e2e/editor.ts` 의 Monaco 갈래(`M()`·`opt`·`markersOf`·`probe`·`probeDiff`·`.monaco-*` 선택자 대안) · `LSP_DIAG_OWNER`(상수·`globals.d.ts`) · `editor-find-panel` 대체 검사 · `GIT_DIFF_OPTIONS` → `GIT_DIFF_INLINE_BREAKPOINT` 와 V-DOR-1/2·V-MMP-2b 의 화면 검사 · `monaco-offline.spec.ts` → `editor-offline.spec.ts` · `e2e-editor-boundary.test.mjs` 의 옛 엔진 패턴은 G 가 맡는다 | 단위: 어댑터 선택자는 `cm-`·`git-diff-` 이름만 쓴다(RED 먼저) · 대체 검사는 `searchKeymap` 을 넣으면 실패하는지 본다 · 해당 e2e |
 | X3 | `GIT_DIFF_MONACO_FAIL`·`git.diff_monaco_fail` → `GIT_DIFF_EDITOR_FAIL`·`git.diff_editor_fail` · 글꼴 차례 다섯 자리 · 코드 주석(`web/`·`internal/`·`scripts/`·`e2e/`) · `README.md` · `docs/external` · 호출처 없는 옛 엔진 옵션 덩이 `edMinimapOpts`·`edTextOptions` · 죽은 CSS 선택자(옛 엔진 DOM 클래스) | `check-i18n` · `check-font-family` · 단위 · Go |
-| V | 문서 분류 표대로 옮기고 고친다 · `MONACO_VENDORING_SRS` 는 상태 `대체` 로 `archive/` · §6 의 개정 표시는 남긴 SRS 에만 | G 통과 · `check-srs-status` · `check-decisions` |
+| V | 문서 분류 표대로 옮기고 고친다(57개 이동 — `GIT_REMAINING.md` 는 남은 작업 목록이라 남긴다) · `MONACO_VENDORING_SRS` 는 상태 `대체` 로 `archive/EDITOR_VENDORING_SRS.md` (파일 이름이 엔진 이름이라 어디서 가리켜도 G 에 걸린다) · `REPO_FIX 02` 머리에 §3A-6 대체 표시 · 결정 색인은 `docs/internal/*_SRS.md` 만 모으므로 보관한 SRS 의 결정이 빠진다(1,059 → 777건, 보관 문서와 같은 규칙) | G 통과 · `check-srs-status` · `check-decisions` · `a11y-axe`(예외 표 E-2 를 읽는다) |
 | N | NFR-CMR-3·5 측정 · e2e 46개 파일(`monaco-offline` 은 `editor-offline` 으로) · §7.2 · 단계 A 완료 점검 | §7 |
 
 ## 10. 변경 기록

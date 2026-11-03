@@ -49,8 +49,8 @@ CSS 여섯 파일 4,194줄 전체를 대상으로 세 형태를 다룬다.
 
 ### 1.4 참조 (References)
 
-- `docs/internal/production/M2_PROGRESS.md` §3.4 `U-7`·`U-8` — 접수와 1차 실측
-- [`./EXPLORER_ROOT_KEYS_SRS.md`](./EXPLORER_ROOT_KEYS_SRS.md) §7.1 — 같은 부류의
+- `docs/internal/archive/production/M2_PROGRESS.md` §3.4 `U-7`·`U-8` — 접수와 1차 실측
+- [`./EXPLORER_ROOT_KEYS_SRS.md`](./archive/EXPLORER_ROOT_KEYS_SRS.md) §7.1 — 같은 부류의
   교훈("렌더가 요소를 떼는 앱에서 `tabindex` 는 절반이다"). 여기서는 **기본값이
   절반**이고 나머지 절반이 게이트다
 - `scripts/check-seams.sh` 주석 — *"D1 이 이 검사를 그냥 통과해 들어온 뒤에
@@ -350,10 +350,10 @@ style-editor.css:103  `.pn`·`.sp` 가 `position:absolute;inset:0` 이므로 담
 
 **FR-LAY-24 (`U-7`)** `blame` 의 스크롤 소유권을 같은 규약으로 맞춘다.
 `.git-blame{overflow:auto}`(`style-git-views.css:42`)는 **브라우저 네이티브**
-스크롤이고, 같은 자리의 diff 는 `.git-diff-host` 안의 **Monaco 내부** 스크롤이다.
+스크롤이고, 같은 자리의 diff 는 `.git-diff-host` 안의 **편집기 내부** 스크롤이다.
 소유자·축·감각이 셋 다 다르다.
 
-blame 은 Monaco 를 쓰지 않으므로 **Monaco 와 같아질 수는 없다.** 맞출 수 있는 것은
+blame 은 편집기를 쓰지 않으므로 **편집기와 같아질 수는 없다.** 맞출 수 있는 것은
 **소유권과 축**이다 — 바깥(`.git-blame`)이 `overflow:hidden` 이고 안쪽
 (`.git-blame-rows`)이 `overflow-y:auto` 인 형태로 다른 일곱 뷰와 같게 한다.
 
@@ -475,8 +475,8 @@ C3 의 근거는 없다. 22곳을 근거 없이 흔들면 회귀 면만 커진�
 "형태 하나에 검사 하나" 다(`check-seams`·`check-timers`·`check-gitwrite`·
 `check-html`·`check-fetch`). 실패 문구가 무엇을 어겼는지 바로 말해야 한다.
 
-**D-6 blame 을 Monaco 로 옮기지 않는다** (`FR-LAY-24`). `U-7` 은 "다른 뷰와
-다르다" 이고 diff 는 Monaco 내부 스크롤이다. blame 을 Monaco 로 옮기는 것은
+**D-6 blame 을 편집기로 옮기지 않는다** (`FR-LAY-24`). `U-7` 은 "다른 뷰와
+다르다" 이고 diff 는 편집기 내부 스크롤이다. blame 을 편집기로 옮기는 것은
 기능 변경이며 이 스펙의 범위가 아니다 — 맞출 수 있는 것은 **소유권과 축**이고
 그것으로 요구는 만족된다.
 
@@ -559,7 +559,7 @@ editor 계열  editor-explorer · editor-ops · editor-tab · editor-find-panel 
 1. **색·간격·타이포그래피의 기본값.** 이 스펙은 **레이아웃 세 형태**만 다룬다.
 2. **유틸리티 클래스 체계의 도입** (D-3).
 3. **C3 의 선언 변경** (D-4) — 게이트만 세운다.
-4. **blame 을 Monaco 로 옮기는 것** (D-6).
+4. **blame 을 편집기로 옮기는 것** (D-6).
 5. **시각 회귀(스크린샷) 기준선의 도입.** 이 변경의 판정에는 계산값 스냅샷이
    더 정확하다(`FR-LAY-50`). 스크린샷 기준선은 그 자체로 별도 작업이다.
 6. **`GIT_VIEWS` 목록·뷰의 기능 변경.**

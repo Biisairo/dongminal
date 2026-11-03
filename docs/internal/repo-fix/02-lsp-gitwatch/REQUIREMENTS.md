@@ -1,6 +1,7 @@
 # 요구조건: gitwatch·LSP 근본 수정 — IEEE 29148 (StRS)
 
 > 문서 상태: 승인(사용자 인터뷰 2026-09-24) · 사전 공격 검증(`tmp/preattack-02-05.md`) 반영 — §3A · 입력 → sdd-tdd 워크플로우
+> 개정(2026-11): L-5 · §3A-6(서버 문서 동기화·`ResyncPath`/`ResyncRepo`)은 CODEMIRROR_MIGRATION_SRS FR-CMR-105·110·111 이 대체한다 — 문서 상태는 브라우저 `lsp-client` 가 맡고, 열리지 않은 파일의 변경도 `didChangeWatchedFiles` 로 알린다.
 > 우선순위: **§3A > §3 본문**. 본문 중 §3A 와 모순되던 문장(G-1.1·G-1.2·G-2.1·G-2.2·L-1·L-3.2·L-5)은 직접 정정했다.
 > 근거: `tmp/REPO_AUDIT_2026-09-24.md`, `tmp/verify-backend.md`(판정·실측·N3/N5/N7/N9), `tmp/preattack-02-05.md` §0·§1.
 > 선행: `docs/internal/repo-fix/01-git-backend` 완료. 이 문서가 쓰는 01 의 계약은 01 `REQUIREMENTS.md` 의 이름을 그대로 인용한다 — 오류 분류 `core.IsTerminal(err)`(01 §3A R-3.4), 세대 `Invalidate`(01 R-3.2·§3B-11), flight 자체 시한 30s·호출자 이탈 시 flight 유지(01 §3A R-3). 01 스펙(01-SPEC.md)의 이름이 이와 다르면 스펙 작성자는 플래그를 올리고 멈춘다.
@@ -162,7 +163,7 @@
 
 ### §3A-7 추적·인수 보강
 - 스펙 산출물로 "감사 # ↔ 요구 ID ↔ 테스트 ID" 표를 싣는다(X8).
-- §5 의 "크래시 복구" 테스트는 V-LSP-10(`docs/internal/EDITOR_LSP_SRS.md:501`)을 확장한다: 가짜 LSP 서버를 죽인 뒤 ① 세션이 맵에서 빠지고 프로세스가 `Wait` 로 회수됨 ② 다음 요청이 새 세션을 세움 ③ 기동 후 60s 안 연속 크래시에서 재시도 간격이 1s·2s·4s 로 늘어남(시계 주입).
+- §5 의 "크래시 복구" 테스트는 V-LSP-10(`docs/internal/archive/EDITOR_LSP_SRS.md:501`)을 확장한다: 가짜 LSP 서버를 죽인 뒤 ① 세션이 맵에서 빠지고 프로세스가 `Wait` 로 회수됨 ② 다음 요청이 새 세션을 세움 ③ 기동 후 60s 안 연속 크래시에서 재시도 간격이 1s·2s·4s 로 늘어남(시계 주입).
 
 ### §3A-8 추적표 (구현 완료 2026-09-24)
 | 감사 # | 요구 | 테스트 | 커밋 |

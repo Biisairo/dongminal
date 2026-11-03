@@ -46,7 +46,7 @@
 - 테마 팔레트의 **미적 선택** (어떤 색이 예쁜가). 이 문서는 **계산 가능한 제약**만
 - 터미널(xterm) ANSI 팔레트 — `t.terminal` 은 터미널 텍스트의 몫이고 UI 토큰이
   아니다 (`helpers.js` 의 SLOT_EDGE_MIX 주석이 같은 이유를 적었다)
-- Monaco 편집기 테마 — `FileEditor.applyTheme()` 가 별도로 파생한다
+- 편집기(CodeMirror) 테마 — `cm-setup.js` 의 `edCmTheme()` 가 CSS 변수에서 별도로 파생한다
 - 레이아웃 규약(사이드바 폭·분할 비율) — `UI_KIT_SRS` 비포함과 같다
 
 ### 1.3 정의
@@ -68,7 +68,7 @@
   — 바닥의 **근거**. 이 문서는 그 바닥을 **달성하는 방법**이다
 - [`BOOT_SCREEN_SRS.md`](./BOOT_SCREEN_SRS.md) FR-BTS-1·2 / D-4 — 첫 페인트 선주입이
   **최종 변수 맵을 캐시한다**. 파생 비용이 부팅에 실리지 않는 이유
-- [`production/03-uiux.md`](./production/03-uiux.md) §2.2 — 결함 6건의 실측
+- [`production/03-uiux.md`](./archive/production/03-uiux.md) §2.2 — 결함 6건의 실측
 - [`SLOT_TITLE_BOUNDARY_SRS.md`](./SLOT_TITLE_BOUNDARY_SRS.md) FR-STB-21~23 —
   **이미 있는 파생의 선례**(`--slot-edge` = border×accent). 이 문서는 그 방법을
   대비 보장으로 확장한다
@@ -451,12 +451,12 @@ FR-TOK-22 가 지목한 바로 그 ±1 이 사라진다.
 언젠가 `position` 이 붙는 날 뜻이 이미 적혀 있다.
 
 **`--z-raised` 는 1 이 될 수 없다.** `.fe-dd-peek` 의 `6` 은 임의값이 아니다 —
-그 규칙의 주석이 근거를 적고 있다: Monaco 의 `.view-lines` 가 **클릭을
+그 규칙의 주석이 근거를 적고 있다: 옛 엔진의 `.view-lines` 가 **클릭을
 가로챘고**(playwright 가 `intercepts pointer events` 로 거부했다) 그래서 올린
-값이다. `.git-hunk-bar`(12)도 같은 부류다 — Monaco 의 **content widget**
-(`panel-diff.js:447` 이 `addContentWidget` 으로 붙인다)이라 Monaco 가 인라인으로
+값이다. `.git-hunk-bar`(12)도 같은 부류다 — 편집기의 **위젯**(지금은 CodeMirror tooltip,
+당시에는 옛 엔진의 content widget)이라 엔진이 인라인으로
 `position:absolute` 를 주고, 그 위젯 무리 안에서 순서를 다툰다. 이 층은
-**벤더(Monaco, 예외 E-2)의 내부 스택 위**여야 하므로 값은 그 위에서 고른다.
+**벤더(편집기, 예외 E-2)의 내부 스택 위**여야 하므로 값은 그 위에서 고른다.
 
 **`.file-editor` 의 세 겹은 DOM 순서가 답하지 못했다** (사용자 결정 2026-09-13).
 `.fe-offer`(11) · `.fe-find`(12) · `.fe-note`(13) 은 셋 다 **첫 사용 시점에**
@@ -981,7 +981,7 @@ node scripts/check-button-kit.mjs --list
 2. **팔레트 값 변경.** FR-TOK-16 이 금지한다.
 3. **테마 추가·삭제.** 54종은 그대로다.
 4. **다크/라이트 시스템 추종**(`UX-19`) — 토큰 위에 서지만 별개 항목이다.
-5. **터미널 ANSI 팔레트·Monaco 테마.** 각자 파생을 갖는다.
+5. **터미널 ANSI 팔레트·편집기 테마.** 각자 파생을 갖는다.
 6. **CSS 파일 분할·재배치.** 선언을 옮기지 않고 **값만** 토큰으로 바꾼다.
 7. **`!important` 도입.** `UI_KIT_SRS` FR-UIK-11 이 키트에 금지했고 그대로다.
 8. ~~**옛 모달 다섯에 접근성 계약(`UIKit.dialogOpen`)을 주는 것.**~~ **해소** (2026-09-20). 이 비목표의 근거(*"섞으면 전량이 빨개졌을 때 어느 쪽의 회귀인지 말할 수 없다"*)는 **골격 수렴과 계약을 같은 커밋에 넣을 때**의 것이었다. 골격 수렴이 끝난 뒤이므로 섞이지 않는다 — `KIT_APPLICATION_SRS` 묶음 F 가 다섯에 계약을 주었다 (FR-KIT-24~28 · D-KIT-5). 골격 수렴은 여전히 CSS·DOM 의 일이고 계약은 접근성의 일이라는 **구분 자체는 그대로다**.

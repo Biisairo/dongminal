@@ -56,12 +56,12 @@ e2e 전량에서 되풀이 관측된 흔들림 아홉 건 중 **다섯**이 같�
   FR-WSC-12·13·14 — **창 보호의 원본**이다. 본 SRS 는 그 판정을 넓히지 않고
   **자리를 옮긴다**: 409 재시도 경로에만 있던 것이 채택기 안으로 들어가
   SSE 경로에도 선다
-- [`./UX_REVISION_SRS.md`](./UX_REVISION_SRS.md) FR-GRR-2·4 — 채택기가 이미
+- [`./UX_REVISION_SRS.md`](./archive/UX_REVISION_SRS.md) FR-GRR-2·4 — 채택기가 이미
   "로컬이 이기는 것" 을 갖고 있다(활성 창·포커스 칸·활성 리포). 본 SRS 는
   **레이아웃 자체**를 그 목록에 더한다
-- [`./REPO_TAB_UNIFY_SRS.md`](./REPO_TAB_UNIFY_SRS.md) FR-RTU-30·D-RTU-18 —
+- [`./REPO_TAB_UNIFY_SRS.md`](./archive/REPO_TAB_UNIFY_SRS.md) FR-RTU-30·D-RTU-18 —
   git 뷰 탭이 Repo 창의 탭이라는 사실, 그리고 Repo 창의 신원이 루트라는 사실
-- [`../internal/production/11-git-polling.md`](./production/11-git-polling.md) §5 —
+- [`../internal/production/11-git-polling.md`](./archive/production/11-git-polling.md) §5 —
   flaky 9건의 코드 매핑. 본 SRS 가 닫는 것은 그 표의 3·4·5·6·7 이다
 
 ---

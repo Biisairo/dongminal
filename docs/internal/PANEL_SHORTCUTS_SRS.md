@@ -21,7 +21,7 @@
 
 ### 1.3 참조 (References)
 
-- [`./SOFT_RELOAD_SRS.md`](./SOFT_RELOAD_SRS.md) — FR-SRL-9·D-6. 앱 단축키 체계에
+- [`./SOFT_RELOAD_SRS.md`](./archive/SOFT_RELOAD_SRS.md) — FR-SRL-9·D-6. 앱 단축키 체계에
   편입하는 방식과 **`R` 계열을 쓸 수 없는 이유**
 - [`./STATUS_BAR_REFLOW_SRS.md`](./STATUS_BAR_REFLOW_SRS.md) — FR-SBR-8. `Background` 가
   상단 툴바에 선 근거

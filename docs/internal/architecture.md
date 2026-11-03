@@ -133,7 +133,7 @@ web/                     # 프론트엔드 자산 + embed.FS()
   js/ui/                 #   themes·renderer·term-pane·clipboard·file-editor 등
                          #     file-tree{,-store,-paint,-edit,-xfer}.js — 탐색기 5파일
   js/git/                #   git 패널. api.js — gitFetch/gitPost (stale·echo 가드 소유)
-                         #     observer(관측 하나) · panel(칸마다 하나) · diff-view(Monaco)
+                         #     observer(관측 하나) · panel(칸마다 하나) · diff-view(CodeMirror merge)
                          #     panel-{life,changes,views,write,files,diff,poll}.js — 주제별 증강
                          #     status-hub.js — GitStatusHub: root 별 status 한 벌 (탐색기·dirty-diff 공유, FR-OPT-4-1)
 e2e/                     # Playwright 스펙 + git 픽스처(git_fixture.sh)
@@ -185,7 +185,7 @@ GET/PUT·ping·stats·sandbox 다섯 — 과 `reapSandboxes` 가 있다. SSE 열
 
 **CSS 도 같은 문제를 다르게 푼다.** `style.css` 는 여럿으로 갈렸고 `<link>` 순서가
 원본의 선언 순서다 — 캐스케이드는 순서가 곧 의미라서, 파일을 옮기는 것과 순서를
-바꾸는 것을 구별해야 한다. 그래서 Monaco 규칙은 `style-editor.css` 가 아니라
+바꾸는 것을 구별해야 한다. 그래서 편집기 엔진 규칙은 `style-editor.css` 가 아니라
 `style.css` 에 남아 있다.
 
 ## 오류 응답 — 판정은 한 곳, 렌더링은 표면마다
@@ -350,7 +350,7 @@ Editor 탭:    [일반 행들 …] ── 구분선 ── [root 행 `~`]   ← 
 
 | 종단 | 쓰임 |
 |---|---|
-| `GET /api/file/read?path=<abs>` · `POST /api/file/write` | Monaco 의 파일 I/O (기존) |
+| `GET /api/file/read?path=<abs>` · `POST /api/file/write` | 편집기의 파일 I/O (기존) |
 | `GET /api/fs/list?root=&path=` | 탐색기 한 겹 조회. dot 항목 포함 전량, 정렬은 서버가 한다 |
 | `POST /api/fs/{create,rename,delete}` | 파일 조작. **`root` 를 함께 받아 그 아래로 제한한다** |
 | `GET /api/editors` · `POST /api/editors/{add,remove,reorder}` | Editor 목록. 응답에 `pinned` 를 함께 싣는다 |
@@ -400,9 +400,9 @@ Git 도 같다. `GitObserver`(`git/panel.js`) 가 **앱에 하나**로 폴링·`
 메뉴·확인창·다이얼로그가 그것을 딛는다.
 
 편집기는 한 겹 더 있다. **문서**(내용과 dirty)는 파일 경로마다 하나이고
-(`app.edDoc`), `FileEditor` 는 칸마다 하나다. 두 에디터가 같은 Monaco
-`ITextModel` 을 들므로 한 칸의 타이핑이 다른 칸에 즉시 보이고, 커서·스크롤·접힘은
-에디터별로 남는다. 이 층이 없던 동안 같은 파일을 두 칸에 열면 독립 편집기 둘이 각자
+(`app.edDoc`), `FileEditor` 는 칸마다 하나다. 두 에디터가 같은 버퍼
+(`EdBuffer`)에 붙으므로 한 칸의 타이핑이 다른 칸에 즉시 보이고, 커서·스크롤·접힘·실행 취소는
+에디터별로 남는다 (CODEMIRROR_MIGRATION_SRS §3.3). 이 층이 없던 동안 같은 파일을 두 칸에 열면 독립 편집기 둘이 각자
 편집하고 한쪽 저장이 다른 쪽 저장을 덮었다.
 
 활성 탭을 읽는 자리는 `paneTab(pn,slot)` 하나, 쓰는 자리는 `paneTabSet(pn,tid,slot)`

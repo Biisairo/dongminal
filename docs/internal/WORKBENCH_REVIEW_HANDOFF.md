@@ -1,6 +1,6 @@
 # 인계: 작업대 사용자 검토 (WORKBENCH_REVIEW) — 2026-09-05 (2차 세션)
 
-스펙은 [`./WORKBENCH_REVIEW_SRS.md`](./WORKBENCH_REVIEW_SRS.md) 이고, 여기에는 그
+스펙은 [`./WORKBENCH_REVIEW_SRS.md`](./archive/WORKBENCH_REVIEW_SRS.md) 이고, 여기에는 그
 스펙이 말하지 않는 것 — **어디까지 섰고, 무엇이 왜 그렇게 됐는지** — 만 적는다.
 
 ## 1. 지금 상태

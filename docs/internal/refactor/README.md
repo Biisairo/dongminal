@@ -8,10 +8,10 @@
 | 문서 | 범위 | 규모 | HIGH/MED/LOW |
 |---|---|---:|---|
 | [`AUDIT-uiux.md`](AUDIT-uiux.md) | **화면을 눌러 본 기록** — UI/UX·일관성·접근성·스크롤 | 실사용 | 15 / 15 / 5 |
-| [`AUDIT-fe-ui.md`](AUDIT-fe-ui.md) | `web/js/ui/` · `web/js/git/` | 23,734줄 · 57파일 | 7 / 11 / 5 |
+| [`AUDIT-fe-ui.md`](../archive/refactor/AUDIT-fe-ui.md) | `web/js/ui/` · `web/js/git/` | 23,734줄 · 57파일 | 7 / 11 / 5 |
 | [`AUDIT-fe-core.md`](AUDIT-fe-core.md) | `web/js/core/` · `i18n/` · `index.html` | 21,484줄 · 63파일 | 7 / 14 / 7 |
-| [`AUDIT-design.md`](AUDIT-design.md) | CSS 6벌 · 토큰 · 54종 테마 | 4,518줄 | 3 / 6 / 8 |
-| [`AUDIT-go-http.md`](AUDIT-go-http.md) | `httpapi`·`gitapi`·`httproute`·`httpreq`·`apierr`·`seam`·`toolclient` | — | 9 / 14 / 11 |
+| [`AUDIT-design.md`](../archive/refactor/AUDIT-design.md) | CSS 6벌 · 토큰 · 54종 테마 | 4,518줄 | 3 / 6 / 8 |
+| [`AUDIT-go-http.md`](../archive/refactor/AUDIT-go-http.md) | `httpapi`·`gitapi`·`httproute`·`httpreq`·`apierr`·`seam`·`toolclient` | — | 9 / 14 / 11 |
 | [`AUDIT-go-domain.md`](AUDIT-go-domain.md) | `domain/**` · `hub/**` | — | 12 / 16 / 6 |
 | [`AUDIT-go-infra.md`](AUDIT-go-infra.md) | `shared/` · `daemon/` · `ctl/` · `helper/` · `cmd/` | 29,500줄 | 8 / 11 / 8 |
 | [`AUDIT-docs-gap.md`](AUDIT-docs-gap.md) | SRS 167건 ↔ 코드 | — | 5 / 7 / 4 |

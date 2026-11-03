@@ -3,7 +3,7 @@
 > **문서 상태**: 승인·구현완료
 
 - 접수: 사용자 (2026-09-19) — 렌더 잔재(`M11-B1`) 추적의 결론
-- 관련: [`M11_SRS`](./M11_SRS.md) §2.4e·2.4f (재현과 원인) ·
+- 관련: [`M11_SRS`](./archive/M11_SRS.md) §2.4e·2.4f (재현과 원인) ·
   [`TERMINAL_RESUME_SRS`](./TERMINAL_RESUME_SRS.md) `FR-TRS-18a` (넛지를 alt screen 에만)
 
 ---

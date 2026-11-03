@@ -58,7 +58,7 @@
 
 - `FILE_TRANSFER_SRS` `FR-FTR-10`·`11` — 끝나도 엔터를 보내지 않는다 · 서버 cwd 는 이 도구의 폴더가 아니다
 - `EXPLORER_TRANSFER_IGNORE_SRS` `FR-ETR-21`·`22` — 드롭을 `{file, relPath}` 로 편다
-- `docs/internal/production/12-func-ui.md` FUI-16 — 원본 감사 (§7 에 미확인 항목)
+- `docs/internal/archive/production/12-func-ui.md` FUI-16 — 원본 감사 (§7 에 미확인 항목)
 
 ---
 

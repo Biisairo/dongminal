@@ -145,7 +145,7 @@ e2e/git_fixture.sh /tmp/dm-git-fixtures   # 저장소 10종
 | G5.2 | 더블클릭이 Diff 탭으로 가고 그 파일을 보인다 | `basic` | ☑ |
 | G5.3 | `‹ ›` 로 이전/다음 파일로 가고 `n/m` 이 맞다 | `basic` | ☑ 2/5 → 5/5 → 4/5 |
 | G5.4 | side-by-side ↔ unified 전환이 되고 선택이 유지된다 | — | ☑ `localStorage.gitDiffSideBySide` 로 리포 전환 후에도 유지 |
-| G5.5 | 창 폭을 900px 아래로 줄이면 자동으로 inline 이 된다 | — | ☑ 폭 723px 에서 Monaco 가 inline 으로 전환 (FR-GIT-49 의 `renderSideBySideInlineBreakpoint:900`) |
+| G5.5 | 창 폭을 900px 아래로 줄이면 자동으로 inline 이 된다 | — | ☑ 폭 723px 에서 inline 으로 전환 (FR-GIT-49 · 문턱 `GIT_DIFF_INLINE_BREAKPOINT` 900) |
 | G5.6 | 공백만 다른 변경이 **기본에서 변경으로 보이고**, "공백 무시" 를 켜면 사라진다 | 직접 만든다 | ☑ 변경 줄 3 → 0 → 3 |
 | G5.7 | 새로 만든 파일과 지운 파일이 각각 그려진다 | `basic`/`blobs` | ☑ "새로 추가된 파일입니다" · "삭제된 파일입니다" |
 | G5.8 | 바이너리 파일은 본문 대신 안내를 보인다 | `blobs/bin.dat` | ☑ 2회차에 **크기를 함께** 보이도록 넓혔다 (해석 I9, e2e D13) |

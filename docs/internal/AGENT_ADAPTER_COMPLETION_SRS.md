@@ -49,7 +49,7 @@
 
 - `docs/internal/AGENT_EVENT_ABSTRACTION_SRS.md` — `FR-AEV-1~3`(이벤트 선언) ·
   `FR-AEV-10·12`(보고자를 밝히면 판정이 옳아진다) · `§2.5` 능력 실측표.
-- `docs/internal/UX_BATCH6_SRS.md` — `FR-CTX-1·4·5·6·7`(실측 토큰, 창, 넓히기).
+- `docs/internal/archive/UX_BATCH6_SRS.md` — `FR-CTX-1·4·5·6·7`(실측 토큰, 창, 넓히기).
 - `docs/internal/OMP_AGENT_SUPPORT_SRS.md` — `FR-OMP-7·12`(shim 형식의 임자는 우리다).
 - `docs/internal/HOST_PARITY_SRS.md` — `FR-HPR-4·5`(훅 명령 한 줄의 인용 규약).
 

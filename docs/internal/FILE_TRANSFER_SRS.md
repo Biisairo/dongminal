@@ -61,7 +61,7 @@
 
 ### 1.4 참조 (References)
 
-- [`./EDITOR_TAB_SRS.md`](./EDITOR_TAB_SRS.md) — FR-EDT-85~93 (파일 조작), FR-EDT-108~119 (서버 표면과 루트 가드), FR-EDT-92 (실패는 그 자리에 붙는다)
+- [`./EDITOR_TAB_SRS.md`](./archive/EDITOR_TAB_SRS.md) — FR-EDT-85~93 (파일 조작), FR-EDT-108~119 (서버 표면과 루트 가드), FR-EDT-92 (실패는 그 자리에 붙는다)
 - [`../external/api.md`](../external/api.md) — `/api/upload`·`/api/download` 의 현행 계약
 - [`../external/commands.md`](../external/commands.md) — `download` 헬퍼
 - RFC 6266 §4.1, RFC 5987 §3.2 — `Content-Disposition` 의 `filename` 과 `filename*`

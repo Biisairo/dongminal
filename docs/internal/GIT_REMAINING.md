@@ -16,15 +16,15 @@
 > 지시로 범위에 들어왔다. 예외는 §4.1 의 둘(자격증명·한글 안내문)뿐이고, 그건 확인을
 > 받아야 한다.
 >
-> - 요구사항: [`./GIT_SRS.md`](./GIT_SRS.md) (FR-GIT-1~178)
-> - **개정**: [`./GIT_UI_REVISION_SRS.md`](./GIT_UI_REVISION_SRS.md) (FR-GIT-179~226).
+> - 요구사항: [`./GIT_SRS.md`](./archive/GIT_SRS.md) (FR-GIT-1~178)
+> - **개정**: [`./GIT_UI_REVISION_SRS.md`](./archive/GIT_UI_REVISION_SRS.md) (FR-GIT-179~226).
 >   FR-GIT-27·30 을 폐기하고 13·28·35·41·69·195~197 을 개정했다 — **그쪽이 본 문서보다 앞선다**
 > - 설계 근거: [`./design/`](./design/)
 > - 수동 검증: [`./GIT_MANUAL_CHECKLIST.md`](./GIT_MANUAL_CHECKLIST.md) (1·2회차 실사 기록 포함)
 >
 > 갱신: 2026-08-27 (사용자 검토 10건 **전부 완료** · 5차 검토 2건 완료 ·
 > **동작 표면 완성판 착수, 묶음 A~G + Console 완료** — 남은 6건은
-> [`./GIT_ACTIONS_SRS.md`](./GIT_ACTIONS_SRS.md) §6.1)
+> [`./GIT_ACTIONS_SRS.md`](./archive/GIT_ACTIONS_SRS.md) §6.1)
 
 ---
 
@@ -247,7 +247,7 @@ e2e/git_fixture.sh /tmp/dm-git-fixtures
 | 브랜치 삭제 · 태그 생성/삭제 · cherry-pick/revert/reset · merge/rebase 실행 | 비목표 P1 | **가장 작다.** 메뉴 프레임워크(FR-GIT-146)가 자리를 열어 두었으므로 **항목 선언만 더하면 된다.** 실행 경로는 `domain/git/write` 의 `ExecWrite` 초크포인트를 지나야 하고, 파괴적 명령은 `Destructive` 선언이 기록에 남는다 (FR-GIT-95, I5) |
 | hunk/line 단위 스테이징 | 비목표 P1/P2 | 중간. `git apply --cached` 로 부분 패치를 만들어야 하고, diff 뷰가 hunk 경계를 알아야 한다 |
 | clone / init | 비목표 P2 — 터미널로 충분 | 작다. 다만 clone 은 원격 인증에 걸린다 — 아래 §4.1 을 먼저 읽어라 |
-| 3-way merge editor · 인터랙티브 rebase | 비목표 P2 | **가장 크다.** merge editor 는 Monaco 위에 별도 모드가 필요하고, 인터랙티브 rebase 는 `GIT_SEQUENCE_EDITOR` 를 통한 대화형 편집이라 지금의 단발 실행 모델과 맞지 않는다 |
+| 3-way merge editor · 인터랙티브 rebase | 비목표 P2 | **가장 크다.** merge editor 는 편집기(CodeMirror merge) 위에 별도 모드가 필요하고, 인터랙티브 rebase 는 `GIT_SEQUENCE_EDITOR` 를 통한 대화형 편집이라 지금의 단발 실행 모델과 맞지 않는다 |
 
 ### 4.1 성격이 다른 둘 — 착수 전에 나에게 확인하라
 

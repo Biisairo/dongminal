@@ -50,8 +50,8 @@
 ### 1.4 참고 (References)
 
 - `web/js/git/observer.js`·`web/js/ui/file-tree-store.js` — 같은 패턴의 선례
-- `docs/internal/SLOT_VIEW_STATE_SRS.md` — 관측 하나 / 뷰 여럿의 원본
-- `docs/internal/SPLIT_REFACTOR_SRS.md` — 파일을 가른 앞 단계
+- `docs/internal/archive/SLOT_VIEW_STATE_SRS.md` — 관측 하나 / 뷰 여럿의 원본
+- `docs/internal/archive/SPLIT_REFACTOR_SRS.md` — 파일을 가른 앞 단계
 
 ---
 

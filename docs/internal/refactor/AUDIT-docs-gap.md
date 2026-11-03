@@ -94,7 +94,7 @@
 
 ### [HIGH] H1 — M11_SRS · M12_SRS: 대상이 제거된 문서가 `승인·구현중` 으로 살아 있다
 
-- **문서**: `docs/internal/M11_SRS.md` (상태: 승인·구현중) · `docs/internal/M12_SRS.md` (상태: 승인·구현중)
+- **문서**: `docs/internal/archive/M11_SRS.md` (상태: 승인·구현중) · `docs/internal/M12_SRS.md` (상태: 승인·구현중)
 - **요구**: 두 문서의 본체는 **에이전트 GUI** 다. `M11_SRS` 는 머리글에서 "B10·B11·B15·B22·B23·
   B26·B27·B28·B29·B35·B36 — 명세는 이미 있다, 남은 것은 옮기는 일" 이라며 **미완 11건을 명시**하고,
   `M12_SRS` 의 `FR-M12-1~8`·`13~23` 은 전부 GUI 대화 뷰의 동작이다.
@@ -144,7 +144,7 @@
 
 ### [HIGH] H3 — EDITOR_MINIMAP_TOGGLE_SRS: 구현이 끝났는데 `승인·구현중`
 
-- **문서**: `docs/internal/EDITOR_MINIMAP_TOGGLE_SRS.md` (상태: **승인·구현중**)
+- **문서**: `docs/internal/archive/EDITOR_MINIMAP_TOGGLE_SRS.md` (상태: **승인·구현중**)
 - **요구 / 실제** (FR 8개 전건 확인):
 
 | FR | 요구 | 실제 |
@@ -385,7 +385,7 @@
 
 ### [LOW] L1 — EDITOR_MINIMAP_TOGGLE V-MMT-1 의 절대 수치가 낡았다
 
-- **문서**: `docs/internal/EDITOR_MINIMAP_TOGGLE_SRS.md` §4 검증 —
+- **문서**: `docs/internal/archive/EDITOR_MINIMAP_TOGGLE_SRS.md` §4 검증 —
   *"V-MMT-1 | Go 단위 | 서술자 표가 `editorMinimap` 을 포함해 **25개**다"*
 - **실제**: `internal/shared/settingsschema/schema_test.go:23` — `if len(specs) != 29`.
   `web/js/core/settings-schema.js` 의 `"key"` 도 29개. 그 사이에 `claudeFullscreen` ·
@@ -437,7 +437,7 @@
 
 ### [LOW] L4 — 상태 enum 이 "일부 폐기" 를 표현하지 못한다
 
-- **문서**: `docs/internal/FILE_API_BOUNDARY_SRS.md` (상태: `승인·구현완료`)
+- **문서**: `docs/internal/archive/FILE_API_BOUNDARY_SRS.md` (상태: `승인·구현완료`)
 - **실제**: 같은 문서 머리에 *"⚠ 경계 조항은 **폐기됐다**(2026-09-20, 사용자 결정) —
   묶음 B·W·G·O 는 더 이상 효력이 없다. 살아 있는 조항은 §3.3 묶음 S(크기 상한)뿐"* 이 있다.
   즉 요구 17개 중 넷 묶음이 죽고 하나가 산다. 상태는 `승인·구현완료` 다.

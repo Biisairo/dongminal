@@ -50,7 +50,7 @@
 
 ### 1.4 참고 (References)
 
-- `docs/internal/SPLIT_REFACTOR_SRS.md` — **방법의 원본.** 구간 이동·증강 분할의 규약과 그 검증
+- `docs/internal/archive/SPLIT_REFACTOR_SRS.md` — **방법의 원본.** 구간 이동·증강 분할의 규약과 그 검증
 - `docs/internal/APP_TESTING_CONTRACT_SRS.md` — 묶음 E 가 딛는 지도. `D-ATC-1` 이 *"한 절이 유난히 길면 그 축이 과하게 열려 있다"* 로 이 문서를 예고했다
 - `docs/internal/CONFIG_MANAGEMENT_SRS.md` — `FE-23` 을 **이미 닫은** 문서 (§4.4)
 - `docs/internal/architecture.md` — 프론트엔드 로드 순서 규약
@@ -436,7 +436,7 @@ E 를 마지막에 두는 이유는 리스크가 가장 크고, 앞의 넷이 �
 > 내보내면서 500 아래로 내려갔다. **가르려고 가른 것이 아니라 표면이 줄어서
 > 줄었다** — 그래서 이 수는 되돌아가지 않는다.
 >
-> 1,178 → 1,174 (2026-09-21, UX_BATCH10_SRS FR-UXB-41). `file-editor.js` 의 Monaco
+> 1,178 → 1,174 (2026-09-21, UX_BATCH10_SRS FR-UXB-41). `file-editor.js` 의 편집기
 > 옵션 덩이가 `edTextOptions()` 로 나가면서 네 줄이 줄었고, 최대 파일의 이름도
 > `ui/file-editor.js` 에서 `ui/term-pane.js` 로 옮겼다. 같은 변경이 더한
 > `git/diff-view.js` 는 500 아래로 가른 뒤에야 들어왔다 (`diff-view-parity.js`).
