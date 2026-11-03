@@ -59,6 +59,8 @@ const EXEMPT = [
   { sel: '.dr-body table', why: '마크다운 렌더 산출물이라 클래스를 붙일 자리가 없다 — 부모 .dr-body 가 킷을 받는다',
     until: 'doc-render 가 표를 감싸는 래퍼를 만들면' },
   { sel: '.dr-body pre', why: '같음 — 코드 블록도 렌더 산출물이다', until: '같음' },
+  { sel: '.git-diff-pane>.cm-mergeView', why: '벤더 @codemirror/merge 가 만드는 요소라 이 검사가 읽지 않는 vendor/ 에 만드는 자리가 있다',
+    until: 'Diff 뷰가 MergeView 를 우리 래퍼로 감싸면' },
 ];
 
 if (process.argv.includes('-h') || process.argv.includes('--help')) {
