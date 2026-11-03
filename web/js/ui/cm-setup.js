@@ -198,7 +198,7 @@ function edCmHighlight() {
     { tag: [tg.keyword, tg.modifier, tg.controlKeyword, tg.operatorKeyword], color: 'var(--term-magenta)' },
     { tag: [tg.string, tg.special(tg.string), tg.regexp], color: 'var(--term-green)' },
     { tag: [tg.number, tg.bool, tg.null, tg.atom], color: 'var(--term-yellow)' },
-    { tag: [tg.comment, tg.lineComment, tg.blockComment, tg.docComment], color: 'var(--text-dim)', fontStyle: 'italic' },
+    { tag: [tg.comment, tg.lineComment, tg.blockComment, tg.docComment], color: 'var(--text-hint)', fontStyle: 'italic' },
     { tag: [tg.function(tg.variableName), tg.function(tg.propertyName), tg.definition(tg.function(tg.variableName))], color: 'var(--term-blue)' },
     { tag: [tg.typeName, tg.className, tg.namespace], color: 'var(--term-cyan)' },
     { tag: [tg.propertyName, tg.attributeName], color: 'var(--term-cyan)' },
