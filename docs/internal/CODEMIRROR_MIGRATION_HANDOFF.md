@@ -1,12 +1,12 @@
-# 인계: 편집기 엔진 교체 (Monaco → CodeMirror 6) — 단계 A 완료, `main` 합치기·단계 B 부터
+# 인계: 편집기 엔진 교체 (Monaco → CodeMirror 6) — 단계 A 완료·`main` 합침, 단계 B 부터
 
-> 작성: 2026-11-03 · 브랜치 `codemirror-migration` · 근거 SRS `docs/internal/CODEMIRROR_MIGRATION_SRS.md`
+> 작성: 2026-11-03 · 단계 A 는 `main` 에 합쳤다(`af77ddd1`) · 근거 SRS `docs/internal/CODEMIRROR_MIGRATION_SRS.md`
 
 ## 착수 블록 (이번 세션의 지시 전부)
 
 1. 이 문서를 끝까지 읽는다. 그다음 SRS 의 §7 · §7.1 · §7.3 · §8 · §3.15 · §11.7 을 읽는다.
-2. `git status` 와 `git log --oneline -8` 로 출발점을 확인한다. 맨 위 커밋은 M9 완료 커밋이다.
-3. **단계 A 는 끝났다**(M1~M9, SRS §7.3). 다음 일은 둘이다 — ① `codemirror-migration` 을 `main` 에 합치기(사용자 확인 뒤에만, §7.1) ② 단계 B(M10~). 단계 B 착수 전에 §8 의 질문 5건을 하나씩 묻는다(권장 답과 함께).
+2. `git status` 와 `git log --oneline -8` 로 출발점을 확인한다.
+3. **단계 A 는 끝났고 `main` 에 합쳤다**(M1~M9, SRS §7.3). 다음 일은 단계 B(M10~)다. 착수 전에 §8 의 질문 5건을 하나씩 묻는다(권장 답과 함께). 따로 남은 것: windows CI 의 `file-path-link` TC-FPL-5(터미널, M9 와 무관).
 4. 커밋은 사용자 확인 후에만, AI 서명 금지.
 
 ## 어디까지 왔나

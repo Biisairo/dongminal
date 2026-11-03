@@ -1,7 +1,7 @@
 # SRS: 편집기 엔진 교체 — Monaco 에서 CodeMirror 6 으로 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: `main` 합치기(단계 A 완료 뒤, §7.1) · M10~ (단계 B, §8 해소 후). M1~M9 완료.
+> **남은 것**: M10~ (단계 B, §8 해소 후). M1~M9 완료 · 단계 A 는 `main` 에 합쳤다(`af77ddd1`, 2026-11-03).
 
 - 근거: 사용자 인터뷰(2026-11-02) · PoC(`/tmp/cm-poc`, §2.6).
 - 대체 문서: `MONACO_VENDORING_SRS.md` 의 묶음 V 는 이 문서의 묶음 V 가 대체한다.
@@ -685,7 +685,7 @@ CI (2026-11-03, 브랜치 수동 실행): verify 는 `govulncheck` 만 실패 �
 고침)이고 `main` 도 같다 — `go.mod` 를 `go 1.26.10` 으로 올려 닫았다(사용자 지시, 로컬 govulncheck v1.1.4 0건 · `go vet`·`go test ./...` 통과). e2e ubuntu 는 `ubuntu-latest`(26.04)에 Playwright 가 없어
 브라우저 설치에서 멈췄다 — `ubuntu-24.04` 로 고정했다. e2e windows 의 `file-path-link` TC-FPL-5 는 10-28 에 들어와
 `main` 의 마지막 CI(10-23) 뒤라 windows 에서 처음 돈 터미널(ConPTY) 검사다 — M9 변경과 무관하며 따로 다룬다. 게이트: `npm run unit` 672 · typecheck · eslint · `verify.yml` 의 `check-*` 전부(FR-CMR-132 의
-`check-old-editor-name.sh` 포함) · `go vet ./...` · `go test ./...`. `main` 합치기는 사용자 확인 뒤에 한다 (§7.1).
+`check-old-editor-name.sh` 포함) · `go vet ./...` · `go test ./...`. `main` 합치기는 사용자 확인 뒤 했다 — `af77ddd1` (2026-11-03). 그 시점 CI: verify 전체 통과 · e2e ubuntu 8샤드 통과 · windows 는 `file-path-link` TC-FPL-5 1건(M9 와 무관, 따로 다룬다).
 
 ## 8. 미해결 질문 (B 착수 전 해소)
 
@@ -997,3 +997,4 @@ GREEN 뒤 e2e 46개 파일 552건 중 실패 0 · flaky 1(`doc-render` "렌더 �
 | 2026-11-03 | FR-CMR-132 개정(글꼴 예외 없음·문서는 보관 또는 수정·인계 문서 허용·검사 스크립트) · §3.16 세 줄 · §11.7 M9 설계 (M9 착수 중 결정) |
 | 2026-11-03 | M9 완료 · 단계 A 완료 — §7.2 측정, §7.3 NFR 점검 |
 | 2026-11-03 | FR-CMR-12a·12b·19·58·160 추가, §3.16 다섯 줄, §11.8 — M9 뒤 사용자 확인 |
+| 2026-11-03 | 단계 A 를 `main` 에 합쳤다 (`af77ddd1`) · Go 1.26.10 · CI ubuntu 24.04 고정 |
