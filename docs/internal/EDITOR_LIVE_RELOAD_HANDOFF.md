@@ -1,21 +1,22 @@
-# 인계: 밖에서 바뀐 파일이 열린 편집기·Diff 탭에 반영되지 않는다
+# 인계: 밖에서 바뀐 파일이 열린 편집기·Diff 탭에 반영되지 않는다 (2차)
 
-- 작성: 2026-11-04. 넘기는 세션은 `EDITOR_LINK_LSP_SRS` 작업(링크·표식·미니맵·marksman)을 끝냈다.
-- 직전 커밋: `b01cfaca` (편집기) · `de17c6e5` (marksman). 이 문서를 더한 커밋이 그 뒤에 하나 있다.
+- 작성: 2026-11-04. 1차 조사 세션이 이 문서를 다시 썼다.
+- 직전 커밋: `e26139ef` (1차 세션의 결함 수정). 이 문서를 고친 커밋이 그 뒤에 하나 있다.
+- 1차 문서는 `git show 4aefca8d:docs/internal/EDITOR_LIVE_RELOAD_HANDOFF.md` 로 볼 수 있다.
 
 ---
 
 ## 1. 착수 블록 — 이번 세션의 지시 전부
 
 1. **사용자 보고(2026-11-03)**: 파일 탭이나 Diff 탭이 열린 상태에서 그 파일이 밖에서 바뀌면 화면이 갱신되지 않는다.
-   편집하지 않은 깨끗한 상태다. 탭을 닫고 다시 열어야 바뀐다. 사용자는 "Editor 창의 파일 탭, Repo 창의 Diff 탭 둘 중 하나거나
-   둘 다"라고 답했다.
-2. **사용자는 측정할 시간이 없다.** 콘솔 확인을 부탁하지 말고, 직접 재현하거나 코드 분석으로 원인을 찾는다 (사용자 지시).
-3. 원인을 근거로 확정한 뒤에 고친다. 근거 없이 방어 코드만 더하지 않는다. 다만 §4 의 결함 후보 A 는 코드만으로도 결함이다 —
-   증상과 같은지 확인한 뒤 고친다.
-4. 중규모 이상이면 스펙(IEEE 29148) → 테스트(RED) → 구현 순서다. 기존 스펙은 `docs/internal/archive/EDITOR_LIVE_RELOAD_SRS.md`
-   와 `docs/internal/EDITOR_EXTERNAL_CHANGE_SRS.md` 다. 새 조항은 그 둘을 개정하는 형태로 쓴다.
-5. 커밋은 사용자 확인 뒤에만 한다. 커밋 메시지에 AI 서명(`Co-Authored-By` 등)을 넣지 않는다.
+   편집하지 않은 깨끗한 상태다. 탭을 닫고 다시 열어야 바뀐다. "Editor 창의 파일 탭, Repo 창의 Diff 탭 둘 중 하나거나 둘 다".
+2. **이 문제를 새롭게 시작한다** (사용자 지시, 2026-11-04). 1차 세션은 증상을 재현하지 못했다. §3 의 "확인한 것"을 다시 하지
+   말고, §5 의 새 방향에서 시작한다. §5 를 따를 의무는 없다 — 더 나은 방향이 보이면 근거와 함께 사용자에게 제안한다.
+3. **사용자는 측정할 시간이 없다.** 콘솔 확인·재현 절차를 부탁하지 않는다. 직접 재현하거나 코드·기록으로 찾는다.
+4. 원인을 근거로 확정한 뒤에 고친다. 근거 없는 방어 코드를 더하지 않는다.
+5. 중규모 이상이면 스펙(IEEE 29148) → 테스트(RED) → 구현 순서다. 스펙은 `docs/internal/archive/EDITOR_LIVE_RELOAD_SRS.md`
+   (묶음 F 까지 있다)를 개정하는 형태로 쓴다.
+6. 커밋은 사용자 확인 뒤에만 한다. 커밋 메시지에 AI 서명(`Co-Authored-By` 등)을 넣지 않는다.
 
 ---
 
@@ -23,123 +24,117 @@
 
 | 경로 | 무엇 |
 |---|---|
-| `web/js/core/app-editor-open.js:160~290` | 실시간 반영 폴링 — `_edVisibleDocPaths` · `_edLiveDocs` · `_edDocStampsBegin/End` · `edStampTick` |
-| `web/js/core/app-editor-pane.js:25~50` | 폴링 틱 `_edTick` (`visiblePoll(gitReposInterval)`, 기본 3초) |
-| `web/js/core/app-editor-doc.js:80~120` | `edDocRefresh` · `_edDocReplace` · `edDocDirtySync` |
-| `web/js/ui/cm-buffer.js:74~99` | `EdBuffer.replace` — 모든 칸(sink)에 트랜잭션을 보낸다 |
-| `web/js/git/diff-view-doc.js` | Diff 탭의 작업 트리 쪽이 문서 버퍼의 칸으로 붙는 자리 (`docPath`) |
-| `web/js/core/app-git.js:166` | `_gitDiffDocPaths` — Diff 탭의 문서 경로를 폴링 목록에 넣는다 |
-| `e2e/editor-live-reload.spec.ts` | 기존 회귀 (V-ELR-5~12) |
-| `e2e/git-diff-doc.spec.ts` | Diff 탭이 편집기 문서를 공유하는 회귀. 아래 재현 탐침의 바탕 |
+| `docs/internal/archive/EDITOR_LIVE_RELOAD_SRS.md` §3·§3.6 | 실시간 반영 요구사항. §3.6(묶음 F)이 1차 세션의 수정이다 |
+| `web/js/core/app-editor-open.js` `_edVisibleDocPaths` · `_edLiveDocs` · `_edDocStampsBegin/End` · `edStampTick` | 무엇을 묻는가 (질의 목록) |
+| `web/js/core/app-editor-pane.js` `_edTick` | 틱 (`visiblePoll(gitReposInterval)`, 3초) |
+| `web/js/core/app-editor-doc.js` `edDocRefresh` · `_edDocReplace` · `edDocDirtySync` | 읽고 넣기 |
+| `web/js/ui/cm-buffer.js` `EdBuffer.replace` | 모든 칸에 넣기 |
+| `web/js/core/app-slots.js` `windowVisible` | 창이 보이는가의 판정 |
+| `web/js/core/app-git.js` `_gitDiffDocPaths` · `web/js/git/diff-view-doc.js` `docPath` | Diff 탭 문서가 질의 목록에 드는 길 |
 
 ---
 
 ## 3. 이미 확인한 것 (다시 하지 않는다)
 
-### 3.1 서버 쪽은 정상이다
+### 3.1 재현되지 않은 조건 (격리 e2e 서버, 모두 2~3초 안에 갱신)
 
-- 실행 중인 서버 기록 `~/.dongminal/server.log`(+`.1`)의 `POST /api/fs/stamps` 63,227건이 **모두 200** 이다. 4xx 로
-  `_edStampsOff` 가 굳는 길은 아니다.
-- `curl -X POST http://127.0.0.1:58146/api/fs/stamps -d '{"trees":[],"paths":["<abs>"]}'` 는 바뀐 파일의 표식을 낸다. 없는 파일은 응답에서 빠진다.
-- 브라우저는 3초마다 이 요청을 보내고 있다(기록의 간격). 단, 같은 요청에 탐색기 트리 관측이 함께 실리므로, 이 기록만으로는
-  **파일 경로가 요청에 들어 있었는지** 알 수 없다.
-- `apiPost`(`web/js/core/api.js:105`)는 예외를 던지지 않는다 → `_edStampsBusy` 가 예외로 굳는 길도 아니다
-  (fetch 가 영원히 끝나지 않는 경우는 남는다. 다만 그러면 트리 관측도 함께 멎어 3초 간격 기록이 끊겨야 한다).
+사용자 설정(`editorWordWrap: true`, `editorMinimap: true`)과 marksman LSP(`PATH=/tmp/marksman-dl:$PATH`)를 맞춘 상태다.
+CodeMirror 상태와 실제 DOM(`contentDOM.textContent`)을 모두 쟀다.
 
-### 3.2 격리 e2e 서버에서는 재현되지 않는다 (모두 2초 안에 갱신)
+- Editor 창 + `.md` 단독, git 저장소 Changes 사이드에서 Diff 탭 + Editor 탭 함께
+- Diff 를 A→B→A 로 옮김, 나란히↔인라인, 변경 없는 줄 접기 켬/끔, 사이드 Explorer↔Changes
+- 200줄 문서: 줄 수 같음·감소·증가·빈 문서, Diff 커서를 문서 끝에 둠
+- 비활성 탭에서 바뀐 뒤 활성화, Diff 를 보는 동안 숨은 편집기 탭
+- 바깥 작업 공간 변경(`/api/editors/add` → `workspace_changed`), SSE 재연결(`app.bus.reconnect()`)
+- 쓰기 방식: 일반 쓰기, 원자적 쓰기(임시 파일 → rename) — 1차 이전 세션이 잼
 
-임시 탐침(`e2e/zz-*.spec.ts`, 지웠다)으로 잰 조건:
+### 3.2 코드로 배제한 것
 
-| 조건 | 결과 |
-|---|---|
-| Editor 창 + `doc.md` (enterDocRoot) | 갱신 |
-| git 저장소, Changes 사이드, Diff 탭과 Editor 탭을 함께 연 상태 (`git-diff-doc.spec.ts` 의 `enter`·`openDiff` 를 그대로 씀) | 둘 다 갱신 |
-| 쓰기 방식: 일반 쓰기 · 원자적 쓰기(임시 파일 → rename) | 둘 다 갱신 |
-| `.md` + marksman LSP 연결 (`PATH=/tmp/marksman-dl:$PATH npx playwright test …`) | 갱신, 콘솔 오류 없음 |
-| 슬롯 관련 기존 스펙 45건 (`slot-live-refresh` · `slot-view-state` · `editor-multi-slot`) | 통과 |
+- 파괴된 칸에 보낸 `dispatch` 는 예외가 없다 (`@codemirror/view` 6.43.15 `index.js:8026`, `update` 가 `destroyed` 면 바로 돌아간다).
+  리스너·플러그인 예외는 `logException` 이 삼킨다.
+- 서버 읽기(`apiFileRead` → `fileReadDecoded`)는 `Stat` 을 내용 읽기 **전에** 한다. 경합이 나도 "새 내용 + 옛 표식"이 되어
+  다음 회차가 다시 읽는다. 표식 함수는 읽기와 `fileStampsIn` 이 같다. 응답 열쇠는 요청 경로 그대로다.
+- `_edStampsOff` 로 굳는 길: `server.log` 의 `fs/stamps` 64,042건이 모두 200, `request denied`(gateDeny 기록) 0건.
+- `d.loading` 은 버퍼가 생기기 전 첫 적재에만 쓴다. `docTokenValid` 도 굳는 길이 아니다.
+- 프로그램이 문서를 바꾸는 곳(`changes:`)은 사용자 동작(dirty-diff 되돌리기, 찾아 바꾸기)뿐이다. LSP 는 편집을 적용하지 않는다.
+- 렌더 탭(DocRender)은 버튼으로만 연다. 사용자 작업 공간에 렌더 탭은 없다.
 
-탐침이 찍은 상태(`_edLiveDocs`·`_edVisibleDocPaths`·문서의 `dirty/stamp/buf/loading/views`)는 모두 정상이었다.
+### 3.3 1차 세션이 고친 것 (`e26139ef`, 증상의 원인으로 확정한 것은 아니다)
 
-### 3.3 사용자 환경 (실측)
+- FR-ELR-35 칸별 격리 · FR-ELR-36 반영 중 일시적 dirty 제거 · FR-ELR-37 표식은 반영 뒤 · FR-ELR-38 Diff 칸 누수.
+- 사용자가 이 수정 뒤에도 증상을 보면, 원인은 반영 단계가 아니라 **질의 목록 쪽**일 가능성이 더 크다.
 
-- `~/.dongminal/workspace.json`: 창 15개, Editor 창 10개. Editor 창 대부분의 사이드가 `changes` 다.
-  열린 탭 예: `/Users/dykim/personal/dongminal` 창에 `git history` · `git diff` · md 3개, `/Users/dykim/.session-ledger` 창에
-  `2026-11-03.md` + `git diff`, `/Users/dykim/TIL` 창에 `03 업무일지.md`(한글 파일 이름), `/Users/dykim` 루트 창(explorer)에 `import.log`.
-- 갱신이 안 된다는 파일은 대부분 `.md` 다. 밖에서 바꾸는 주체는 같은 작업 공간의 에이전트(Claude Code)나 훅(session-ledger)일 가능성이 크다.
-- `~/.dongminal/settings.json`: `gitReposInterval: 3000`, `editorWordWrap: true`, `editorMinimap: true`, 테마 `Cobalt²`, 슬롯 단축키 설정 있음.
-- marksman 이 설치돼 있다 (`~/.dongminal/ext/plugins/marksman/`). `.md` 탭에는 LSP 가 붙는다.
-- 서버 기록에 `GET /api/git/diff-content 404` 가 473건 있다(시간대가 흩어져 있다). 새 파일(HEAD 에 없음)의 Diff 에서 나는 정상 응답일
-  가능성이 크지만 확인하지 않았다.
-- 페이지는 오래 열려 있다(몇 시간·서버 재시작 여러 번). e2e 는 매번 새 페이지다 — **오래 산 페이지의 상태**가 차이일 수 있다.
+### 3.4 서버 기록에서 나온 단서 (가장 중요)
 
----
+`~/.dongminal/server.log` 는 요청의 쿼리를 남기지 않는다. 그래서 어느 파일인지는 모른다. 시각만 대조했다.
 
-## 4. 원인 후보 (코드 분석)
+- 사용자 작업 공간(`~/.dongminal/workspace.json`)의 dongminal 창(사이드 `changes`)에 Diff 탭과 `.md` 탭 셋이 있다.
+  `CODEMIRROR_MIGRATION_SRS.md` 가 2026-11-04 07:52:36, `EDITOR_LINK_LSP_SRS.md` 가 08:00:09 에 바뀌었다.
+- `GET /api/file/read` 는 07:46:04 다음이 08:04:57 이다. 그 사이 읽기가 없다.
+- 07:50~08:01 에는 `fs/stamps` 가 없다 — 편집기 창이 화면에 없었던 것으로 본다(설계대로).
+- 08:01:31 에 git status·diff-content 묶음이 나간 뒤, 08:02:43 까지 3초마다 `fs/stamps` 가 나갔다. 그래도 읽기가 따라오지 않았다.
+- **해석**: 후보 A(반영 실패)라면 읽기 요청이 먼저 나가야 한다. 그 시간에 dongminal 창이 보였다면, 그 문서가 질의 목록에 없었거나
+  표식이 같다고 판정됐다. 다만 그때 보인 창이 dongminal 창인지는 기록으로 확정할 수 없다.
+- 그 밖: 접속 기기가 둘이다(로컬 `[::1]`, 원격 `100.117.248.111`). 서버는 07:34:56 에 재시작했고 페이지는 07:34:57 에 다시 실렸다.
+  `/api/file/stamps` 는 터미널 링크 검사(`bare-link.js`)의 것이라 편집기와 무관하다.
 
-### A. 버퍼 교체가 칸 하나에서 실패하면 다시 시도하지 않는다 — 가장 유력
+### 3.5 사용자 환경 (실측)
 
-`edDocRefresh` → `_edDocRead` → `_edDocReplace(d, r)` 의 순서:
-
-1. `_edDocMeta(d, r)` 가 **먼저** `d.stamp` 를 새 표식으로 바꾼다.
-2. `d.buf.replace(r.text)` 가 버퍼의 `_doc` 를 바꾼 뒤 칸마다 `sink.dispatch(...)` 를 두 번 부른다 (`cm-buffer.js:83~96`).
-3. 칸 하나의 `dispatch` 가 예외를 내면 나머지 칸은 갱신되지 않고, `_bump` · `d.savedDoc` · `edDocDirtySync` 도 실행되지 않는다.
-4. 예외는 `edDocRefresh` 의 `.catch` 가 `console.error('[edDoc] refresh error:', e)` 로만 남긴다.
-5. 다음 폴링에서는 `d.stamp === now` 라 **다시 읽지 않는다.** 그래서 탭을 다시 열어야만 바뀐다 — 사용자 증상과 같다.
-
-어느 칸이 왜 예외를 내는지는 확정하지 못했다. 의심 자리:
-
-- 갱신 도중의 `dispatch` — "Calls to EditorView.update are not allowed while an update is in progress".
-  폴링 콜백이 다른 칸의 갱신 안에서 불리는 경로가 있는가.
-- 이미 파괴된(`destroy`) 뷰가 sink 집합에 남아 있는 경우 — 닫힌 Diff·창 전환·슬롯 변경 뒤. sink 해제(`detach`) 경로를 본다.
-- LSP 플러그인(`cm-lsp.js` 의 `EdLspWorkspace.syncFiles`)이 같은 파일을 연 여러 칸에서 문서 판을 맞출 때.
-- 측정 중 레이아웃 읽기 금지 위반("Reading the editor layout isn't allowed during an update") — 이번 작업에서 미니맵이 실제로 이 예외로
-  플러그인을 죽인 적이 있다(고쳤다). 다른 플러그인에도 같은 꼴이 있을 수 있다.
-
-### B. 질문 목록에서 빠진다
-
-`_edLiveDocs` 는 `d.dirty` · `!d.buf` · `!d.stamp` · `!seen.has(path)` 를 거른다.
-
-- `seen` 은 `tab.filePath` 로 만들고 `_edDocs` 의 열쇠는 문서 경로다. 둘의 표기가 다르면(심볼릭 링크, `/tmp`↔`/private/tmp`,
-  **한글 파일 이름의 NFC/NFD**) 빠진다. `03 업무일지.md` 가 의심된다. 다만 사용자는 ASCII 이름 파일도 그렇다고 했다.
-- 보이지 않는 dirty — 문서를 연 뒤 무언가가 버퍼를 바꿨다면 dirty 가 되어 빠진다. 탭 라벨에 표시가 있었는지는 모른다.
-
-### C. 폴링이 멎는다
-
-- `_edStampsBusy` 가 true 로 굳는다 — fetch 가 끝나지 않는 경우뿐이다(§3.1).
-- `_edStampsOff` — 4xx 기록이 없다(§3.1).
+- `workspace.json`: 창 15개, Editor 창 10개, 대부분 사이드 `changes`. 문제의 탭 다수가 `preview: true` 다.
+- `settings.json`: `gitReposInterval: 3000`, `editorWordWrap: true`, `editorMinimap: true`, `diffMinimap: false`.
+  Diff 접기(`hideUnchanged`)는 브라우저 localStorage 값이라 모른다.
+- 밖에서 파일을 바꾸는 주체는 같은 작업 공간의 에이전트(Claude Code)와 훅(session-ledger)이다.
 
 ---
 
-## 5. 권장 순서
+## 4. 원인 후보 (남은 것)
 
-1. **후보 A 를 코드로 확정한다.** `EdBuffer.replace` 의 sink 순회에서 예외가 날 수 있는 경로를 실제로 만들어 본다.
-   예: 파일을 연 뒤 Diff 를 닫거나 창·슬롯을 바꿔 sink 가 남게 한 다음 밖에서 파일을 바꾼다. 같은 파일을 편집기 탭과 Diff 탭에서
-   함께 연 상태, marksman 이 붙은 상태에서도 잰다.
-2. 재현되면 스펙(기존 `EDITOR_LIVE_RELOAD` 계열 SRS 개정 또는 새 조항) → RED → 수정. 수정의 방향 후보:
-   칸 하나가 실패해도 나머지 칸을 갱신한다 · 교체가 끝나기 전에는 `d.stamp` 를 바꾸지 않는다(실패하면 다음 폴링이 다시 시도한다) ·
-   예외를 조용히 삼키지 않고 원인 칸을 기록한다.
-3. 재현되지 않으면 후보 B(경로 표기 · 보이지 않는 dirty)를 같은 방식으로 잰다.
-4. 오래 산 페이지를 흉내 낸다 — 같은 페이지에서 서버를 재시작(e2e 서버를 내렸다 올림)한 뒤 갱신이 되는지.
+### B. 질문 목록에서 빠진다 — 기록이 가리키는 쪽
+
+`_edLiveDocs` 는 `d.dirty` · `!d.buf` · `!d.stamp` · `!seen.has(path)` 를 거른다. `seen` 은 `_edVisibleDocPaths` 가
+**보이는 Editor 창**(`windowVisible`)의 탭에서 만든다. 1차 세션은 코드 읽기로 빠지는 길을 찾지 못했다. 격리 e2e 는 창 하나·탭 몇 개라서,
+**창이 많고 슬롯을 쓰는 사용자 구성**에서만 서는 길이 남아 있을 수 있다.
+
+- 슬롯 모드에서 `_slots.windows` 와 실제 화면의 어긋남, 다른 기기(원격 접속)의 조작으로 `activeWindow` 가 바뀌는 경우
+- `tab.filePath` 와 `_edDocs` 열쇠의 표기 차이 (심볼릭 링크, NFC/NFD 한글 파일 이름)
+- `!d.stamp`: 표식이 빈 문서가 생기는 길(저장·이동·다시 열기 경로)
+
+### D. 문서는 갱신됐는데 화면이 낡은 채다
+
+1차 세션의 DOM 측정은 단순한 구성에서만 했다. 미니맵·줄 바꿈·여러 칸 분할·슬롯 전환 뒤 다시 붙은 편집기에서 DOM 이 다시 그려지지 않는
+경우는 재지 않았다.
+
+---
+
+## 5. 새 방향 (권장 순서)
+
+1. **사용자 구성을 그대로 세운다.** 격리 e2e 서버에 사용자 `workspace.json` 의 구조(창 15개, Editor 창 10개, 사이드 `changes`,
+   Diff 탭, `preview` 탭, 슬롯)를 세우고, 밖에서 파일을 바꾼 뒤 `_edLiveDocs()` 의 결과와 실제 요청 본문(`page.on('request')`)을 잰다.
+   개인 경로는 임시 디렉터리의 같은 모양 경로로 바꾼다.
+2. **요청 본문을 재는 것이 핵심이다.** "그 파일이 `paths` 에 들어 있었는가"가 B 와 D 를 가른다.
+3. 재현이 안 되면, 진단을 남기는 길을 사용자에게 **제안한다** (새 기능이므로 결정이 필요하다). 예: 실시간 반영이 건너뛴 문서와 그 사유를
+   서버 기록에 남기는 가벼운 통로. 지금은 클라이언트 → 서버 기록 통로가 없다.
 
 ---
 
 ## 6. 값을 치르고 배운 것
 
-- **e2e 기본값과 사용자 설정이 다르면 재현되지 않는다.** 미니맵 지연은 사용자 설정 `editorWordWrap: true` 에서만 났다.
-  재현이 안 되면 `~/.dongminal/settings.json` 과 `workspace.json` 의 실제 값으로 조건을 맞춘다.
-- 실행 중인 사용자 서버(포트 58146)에 브라우저를 붙이지 않는다 — 작업 공간 상태(활성 창 등)를 바꾼다. 격리 e2e 서버(58147~)로 잰다.
-- 탐침은 `e2e/zz-*.spec.ts` 로 만들고 바로 지운다. `e2e/editor-link-marks.spec.ts` 의 앞부분(`start`·`inDoc`)을 머리로 잘라 붙이면 빠르다.
+- **e2e 기본값과 사용자 설정이 다르면 재현되지 않는다.** `settings.json` 과 `workspace.json` 의 실제 값으로 조건을 맞춘다.
+- 실행 중인 사용자 서버(포트 58146)에 브라우저를 붙이지 않는다 — 작업 공간 상태를 바꾼다. 격리 e2e 서버(58147~)로 잰다.
+  사용자 서버의 **기록(`server.log`)과 설정 파일은 읽어도 된다** — 1차 세션의 가장 쓸모 있는 단서가 거기서 나왔다.
+- 탐침은 `e2e/zz-*.spec.ts` 로 만들고 바로 지운다. `e2e/git-diff-doc.spec.ts` 의 `enter`·`openDiff` 를 머리로 잘라 붙이면 빠르다.
   고정 대기(`waitForTimeout`)가 남은 스펙은 `scripts/check-e2e-waits.mjs` 게이트에 걸린다.
-- `pgrep -fl` 은 macOS 에서 프로세스 환경 변수까지 찍는다 — 비밀값이 대화에 남았다. 프로세스는 `ps -Ao pid,etime,comm` 으로 본다.
-- 벤더(`scripts/codemirror/`)를 고치면 `node scripts/build-codemirror.mjs` 뒤 `docs/internal/VENDOR_VERSIONS.md` 의 해시를
-  `scripts/check-vendor.sh` 가 낸 값으로 고친다.
-- e2e 전체 묶음은 메모리를 많이 쓴다. 사용자가 램 부족을 말한 적이 있다 — 관련 스펙만 골라 돌린다.
+- 탐침에서 클래스 전역은 `window` 에 없다 — `(0, eval)('EdBuffer')` 로 꺼낸다. 이벤트 버스는 `app.bus` 다.
+- macOS 에는 `timeout` 명령이 없다.
+- `pgrep -fl` 은 프로세스 환경 변수까지 찍는다 — 비밀값이 대화에 남는다. 프로세스는 `ps -Ao pid,etime,comm` 으로 본다.
+- e2e 전체 묶음은 메모리를 많이 쓴다. 관련 스펙만 골라 돌린다.
+- Serena 는 `activate_project` 에 세션 id 가 필요하다 — `initial_instructions` 를 먼저 부른다.
 
 ---
 
 ## 7. 변하지 않는 규약
 
-- 검사: `npm run -s lint` · `npx tsc --noEmit -p e2e` · `npm run -s unit` · `make gates` · `go vet` · 관련 e2e.
+- 검사: `npm run -s lint` · `npx tsc --noEmit -p e2e` · `npm run -s unit` · `make gates` · `go vet`(Go 를 고쳤을 때) · 관련 e2e.
 - 사용자 전역 지침(`~/.claude/CLAUDE.md`): 심볼 탐색은 LSP → Serena → grep 순, 중·대 규모는 스펙 → 테스트 → 구현, 추측 금지·가정 명시,
   최소·국소 변경, 커밋은 사용자 확인 뒤, AI 서명 금지.
 - 문서 산출물은 ASD-STE100 을 80% 정도로 완화하고, 한국어 문장이 자연스럽게 읽히도록 쓴다. SRS 는 IEEE 29148 이 우선이다.
@@ -149,5 +144,5 @@
 ## 8. 아직 유효한 사용자 결정
 
 - 미니맵은 완벽하다 (2026-11-04). 손대지 않는다.
-- 측정을 사용자에게 부탁하지 않는다. 직접 재현하거나 코드로 찾는다.
-- 정의·참조가 없을 때 아무것도 표시하지 않는다, 오류는 테마만 입힌 라이브러리 대화상자로 보인다 (`EDITOR_LINK_LSP_SRS`).
+- 측정을 사용자에게 부탁하지 않는다. 직접 재현하거나 코드·기록으로 찾는다.
+- 이 문제를 새 세션에서 새롭게 시작한다 (2026-11-04).
