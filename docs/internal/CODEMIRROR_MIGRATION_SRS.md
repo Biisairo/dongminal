@@ -217,6 +217,19 @@ import 하지 않는다.
 다시 정의하지 않고 변수만 바뀐다. `monacoTheme()`·`defineTheme` 파생 코드는 없앤다.
 Diff 의 추가·삭제 색은 지금처럼 터미널 팔레트에서 파생한다 (FR-GIT-119).
 
+**FR-CMR-12a** 편집기·Diff 에 그려지는 **모든 색은 테마 토큰에서 파생한다.** CodeMirror 기본 테마가 고정색으로
+그리는 것(공백 점 `#aaa` · 탭 화살표 `#888` · merge 의 접힌 구간 `#f3f3f3`/`#222` · 변경 글자 밑줄 · 변경 줄 gutter)은
+앱이 덮는다. 테마를 바꾸면 그 테마의 토큰으로 다시 그려진다. 모드(밝음·어둠)에 따라 달라야 하는 그늘은
+`deriveShade` 가 만드는 `--shade-edge` 를 쓴다 (사용자 결정, M9 뒤 확인).
+
+**FR-CMR-12b** 선택 안 공백 표시(FR-CMR-10 `renderWhitespace:'selection'`)는 흐리게 그린다 — 색은
+`color-mix(in srgb, var(--text) 25%, transparent)` (옛 엔진의 `editorWhitespace.foreground` 기본 알파와 같은 자릿수).
+탭 문자는 화살표, 공백은 점이다. `Tab` 키는 지금처럼 공백 4칸을 넣는다(`insertSpaces:true`, FR-CMR-10).
+
+**FR-CMR-19** 편집기 위에 겹쳐 서는 띠(언어 서버 설치 제안 `.fe-offer`)는 본문을 가리지 않는다. 띠가 서 있는
+동안 편집기(`.cm-editor`)는 띠가 실제로 먹은 높이(`--fe-offer-h`)만큼 아래에서 시작한다 (M9 뒤 확인 — 한 줄짜리
+파일은 내용 전체가 가려졌다).
+
 **FR-CMR-13** 언어 매핑은 `LANG_MAP` 을 유지하되 값은 `language-data` 의 언어 이름이다. 첫 열기에서
 그 언어 청크를 받는다. 받는 동안에는 일반 텍스트로 보이고, 받은 뒤 강조가 붙는다.
 
@@ -298,6 +311,10 @@ hunk 좌표는 `getChunks()` 에서 얻는다.
 Diff 에는 미니맵이 없다 (D-M9-5). `diffMinimap` 설정(UX_BATCH10_SRS FR-UXB-42)은 걷는다 (동작 변경 §3.16, 2026-11-02 사용자 결정).
 
 **FR-CMR-57** Diff 전체의 변경 위치를 overview ruler 에 찍는다 (FR-DOR-1).
+
+**FR-CMR-58** 변경 없는 구간을 접은 자리(`.cm-collapsedLines`)는 옛 엔진의 모양을 따른다 — 사이드바 배경
+(`--sidebar-bg`)의 띠, 글자 `--text-muted`, 위·아래 가장자리에 안쪽 그늘(`inset 0 ±5px 5px -7px var(--shade-edge)`).
+CodeMirror 기본의 밝은 그라데이션은 쓰지 않는다 (FR-CMR-12a).
 
 ### 3.7 묶음 M — 미니맵
 
@@ -443,6 +460,12 @@ monaco 전용이 아니므로 유지한다.
 **FR-CMR-133** `check-font-family.mjs` · `check-vendor.sh` · `eslint.config.mjs` · `playwright.config.ts` 의
 Monaco 언급을 CodeMirror 에 맞춘다.
 
+### 3.14a 미리보기 폭 (M9 뒤 확인)
+
+**FR-CMR-160** 문서 렌더 뷰(`doc-render.js` — markdown · html · svg · csv/tsv)는 **탭 폭을 따라간다.** 넓어지면
+넓어지고 좁아지면 좁아진다. markdown 의 읽기 폭 제한(`max-width:52em`)은 걷는다. svg 는 원본 비율을 지킨 채
+탭에 맞춰 늘거나 준다 (사용자 결정: "모든 미리보기가 탭 폭을 따라가야 한다").
+
 ### 3.15 묶음 B — 기능 추가 (단계 B)
 
 | ID | 기능 | 출처 |
@@ -489,6 +512,11 @@ B 착수 전에 §8 의 미해결 질문을 해소한다.
 | 고정폭 글꼴 차례 | `'Menlo','Monaco','Consolas',…` | `'Menlo','Consolas',…` | 사용자 결정 (M9) — FR-CMR-132 에 예외를 두지 않는다. macOS 는 10.6 부터 Menlo 를 싣는다. Menlo 가 없는 macOS 에서만 다음 글꼴로 넘어간다 |
 | e2e: 찾기 위젯 무력화의 범위 | `editor-find-panel` 이 따로 세운 Monaco 의 기본 find 위젯이 살아 있는지 잰다 | Git Diff 뷰에서 `Ctrl+F` 를 누르면 앱 찾기 패널이 그 Diff 의 편집기를 찾고, 엔진 기본 찾기 패널(`.cm-search`)은 어느 편집기에도 뜨지 않는다 | 사용자 결정 (M9) — CodeMirror 설정에는 막을 기본 위젯이 없다(`searchKeymap` 을 넣지 않는다). 지켜야 할 것은 "모든 편집 표면이 앱 패널 하나를 쓴다" 이다 |
 | e2e: Diff 옵션 상수 검사 (V-DOR-1/2 · V-MMP-2b) | Monaco 옵션 덩이 `GIT_DIFF_OPTIONS` 의 값을 읽는다 | 화면을 잰다 — Diff 의 ruler 가 서 있고, 접기 토글은 꺼져 있고, Diff 에 미니맵이 없다 | M9 — 옵션 덩이는 Monaco 의 것이다. 앱이 읽는 값은 폭 문턱 하나뿐이라 그것만 `GIT_DIFF_INLINE_BREAKPOINT` 로 남긴다 |
+| Diff 접힌 구간·변경 글자·gutter 색 | CodeMirror 기본 고정색(밝은 `#f3f3f3` 그라데이션 등) — 테마와 무관 | 테마 토큰 파생, 접힌 구간은 옛 엔진 모양 | 사용자 결정 (M9 뒤 확인, FR-CMR-12a·58) |
+| 선택 안 공백 표시 색 | 기본 고정색 `#aaa`·`#888` (진하다) | `--text` 25% — 흐리고 테마를 탄다 | 사용자 결정 (FR-CMR-12b) |
+| 설치 제안 띠 | 편집기 위쪽을 덮었다 — 첫 줄들이 가려졌다 | 편집기가 띠 아래에서 시작한다 | 회귀 수정 (FR-CMR-19) |
+| markdown 미리보기 폭 | 52em 에서 멈추고 왼쪽에 붙었다 | 탭 폭을 따른다 | 사용자 결정 (FR-CMR-160) |
+| svg 미리보기 | 원본 크기에 머물고 왼쪽에 붙었다 | 비율을 지킨 채 탭에 맞춘다 | 사용자 결정 (FR-CMR-160) |
 | 비동기 적용 토큰 | 모델 판(alternativeVersionId)이 같으면 유효 — 고쳤다 되돌리면 유효 | 버퍼 판 번호가 같아야 유효 — 고쳤다 되돌려도 무효 | 판 번호는 실행 취소에도 오른다. 덮어쓸 위험 쪽으로 기울지 않는다 (M3) |
 
 ### 3.17 비기능 요구 (NFR)
@@ -929,6 +957,18 @@ REST 처리기가 사라지면 REST 세션을 만드는 자리가 없어진다. 
 | V | 문서 분류 표대로 옮기고 고친다(57개 이동 — `GIT_REMAINING.md` 는 남은 작업 목록이라 남긴다) · `MONACO_VENDORING_SRS` 는 상태 `대체` 로 `archive/EDITOR_VENDORING_SRS.md` (파일 이름이 엔진 이름이라 어디서 가리켜도 G 에 걸린다) · `REPO_FIX 02` 머리에 §3A-6 대체 표시 · 결정 색인은 `docs/internal/*_SRS.md` 만 모으므로 보관한 SRS 의 결정이 빠진다(1,059 → 777건, 보관 문서와 같은 규칙) | G 통과 · `check-srs-status` · `check-decisions` · `a11y-axe`(예외 표 E-2 를 읽는다) |
 | N | NFR-CMR-3·5 측정 · e2e 46개 파일(`monaco-offline` 은 `editor-offline` 으로) · §7.2 · 단계 A 완료 점검 | §7 |
 
+### 11.8 M9 뒤 사용자 확인 수정
+
+| 요구 | 자리 | 검증 (RED 먼저) |
+|---|---|---|
+| FR-CMR-12a·58 | `contrast.js` `deriveShade` 에 `--shade-edge`(어둠: 그늘색 불투명 · 밝음: 글자색 .75) · `style.css :root` 폴백 · `style-git-views.css` 의 `.git-diff-cm` 아래 merge 고정색 덮기 | 단위 `deriveShade` 가 두 모드의 `--shade-edge` 를 낸다 · e2e `git-diff` — 접힌 구간 배경이 `--sidebar-bg`, 그늘이 `--shade-edge`, 변경 gutter·밑줄이 `--diff-add`/`--diff-del` |
+| FR-CMR-12b | `style-editor.css` — `.cm-sel-ws` 의 점은 `radial-gradient(var(--ed-ws))`, 탭 화살표는 같은 SVG 를 `mask-image` 로 두고 `background-color:var(--ed-ws)` | e2e — 점·화살표의 색이 `--ed-ws` 를 푼 값이다 |
+| FR-CMR-19 | `style.css` — `.file-editor:has(> .fe-offer) > .cm-editor` 가 `--fe-offer-h` 만큼 내려가고 그만큼 짧아진다 | e2e `doc-render` — 띠가 선 채로 첫 줄의 위가 띠의 아래보다 아래다 |
+| FR-CMR-160 | `style-docrender.css` — `.dr-body` 의 `max-width` 제거 · `.dr-svg-wrap{flex:1 1 auto;min-width:0}` · `.dr-svg{width:100%}` | e2e `doc-render` — 네 종류 모두 탭 폭을 바꾸면 본문 폭이 따라간다 |
+
+RED: 단위 2건(`deriveShade` 의 새 이름) · e2e 6건(md·svg 폭, 띠, 공백 색, 접힌 구간 — html·csv 폭은 이미 맞아 회귀 방지로 남는다).
+GREEN 뒤 e2e 46개 파일 552건 중 실패 0 · flaky 1(`doc-render` "렌더 탭은 저장할 것이 없다" — 탐색기 행 클릭 시간 초과, 따로 반복 8회 통과) (2026-11-03).
+
 ## 10. 변경 기록
 
 | 날짜 | 내용 |
@@ -950,3 +990,4 @@ REST 처리기가 사라지면 REST 세션을 만드는 자리가 없어진다. 
 | 2026-11-03 | M8 완료 — §7.2 에 측정을 적었다. `SetPaths` 는 값이 바뀐 서술자의 통로를 닫는다(§11.6 R) |
 | 2026-11-03 | FR-CMR-132 개정(글꼴 예외 없음·문서는 보관 또는 수정·인계 문서 허용·검사 스크립트) · §3.16 세 줄 · §11.7 M9 설계 (M9 착수 중 결정) |
 | 2026-11-03 | M9 완료 · 단계 A 완료 — §7.2 측정, §7.3 NFR 점검 |
+| 2026-11-03 | FR-CMR-12a·12b·19·58·160 추가, §3.16 다섯 줄, §11.8 — M9 뒤 사용자 확인 |

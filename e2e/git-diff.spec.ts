@@ -553,6 +553,41 @@ test.describe('묶음 F — Diff 뷰', () => {
   });
 });
 
+// CODEMIRROR_MIGRATION_SRS FR-CMR-12a·58 — 접힌 구간은 옛 엔진의 모양이고 색은 테마 토큰이다.
+// 기대값을 적지 않는다 — 토큰을 같은 페이지에서 풀어 견준다 (FR-GIT-119 와 같은 규약).
+test('FR-CMR-58: 접힌 구간은 사이드바 배경의 띠이고 가장자리 그늘은 --shade-edge 다', async ({ page }) => {
+  const repo = copyFx('basic', 'fold-color');
+  const lines = Array.from({ length: 60 }, (_, i) => 'line ' + i);
+  writeFileSync(join(repo, 'long.txt'), lines.join('\n') + '\n');
+  const g = (...a: string[]) => execFileSync('git', ['-C', repo, '-c', 'user.email=e2e@x', '-c', 'user.name=e2e', ...a]);
+  g('add', 'long.txt'); g('commit', '-qm', 'long');
+  lines[30] = 'changed 30';
+  writeFileSync(join(repo, 'long.txt'), lines.join('\n') + '\n');
+
+  await waitForInit(page);
+  await openGit(page, repo);
+  await row(page, 'working', 'long.txt').click();
+  await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
+  await diff(page).locator('.git-diff-fold input').check();
+  const band = diff(page).locator('.cm-collapsedLines').first();
+  await expect(band).toBeVisible({ timeout: 10000 });
+
+  const got = await band.evaluate((el) => {
+    const probe = document.createElement('div');
+    el.parentElement!.appendChild(probe);
+    const resolve = (v: string) => { probe.style.color = v; return getComputedStyle(probe).color };
+    const want = { bg: resolve('var(--sidebar-bg)'), fg: resolve('var(--text-muted)'), shade: resolve('var(--shade-edge)') };
+    probe.remove();
+    const cs = getComputedStyle(el);
+    return { want, bg: cs.backgroundColor, img: cs.backgroundImage, fg: cs.color, shadow: cs.boxShadow };
+  });
+  expect(got.img, '기본 그라데이션이 남았다').toBe('none');
+  expect(got.bg).toBe(got.want.bg);
+  expect(got.fg).toBe(got.want.fg);
+  expect(got.shadow, '가장자리 그늘이 --shade-edge 가 아니다').toContain(got.want.shade);
+  expect(got.shadow).toContain('inset');
+});
+
 test.describe('FR-GIT-276 — Blame (Diff 탭의 모드)', () => {
   const menu = (page: Page) => page.locator('.git-menu');
   const item = (page: Page, id: string) => menu(page).locator(`.git-menu-item[data-id="${id}"]`);

@@ -192,8 +192,8 @@ function pickContrastAnchor(ui,mode){
  */
 const SHADE_DARK='#000000';
 const SHADE_ALPHA={
-  dark:{backdrop:.6,soft:.4,s1:.4,s2:.5},
-  light:{backdrop:.35,soft:.22,s1:.18,s2:.22},
+  dark:{backdrop:.6,soft:.4,s1:.4,s2:.5,edge:1},
+  light:{backdrop:.35,soft:.22,s1:.18,s2:.22,edge:.75},
 };
 function deriveShade(ui,mode){
   const light=mode==='light';
@@ -205,6 +205,8 @@ function deriveShade(ui,mode){
     '--backdrop-soft':rgba(shade,a.soft),
     '--shadow-1':`0 2px 10px ${rgba(shade,a.s1)}`,
     '--shadow-2':`0 8px 32px ${rgba(shade,a.s2)}`,
+    // CODEMIRROR_MIGRATION_SRS FR-CMR-58: Diff 접힌 구간 가장자리의 그늘색 (옛 엔진 `unchangedRegionShadow` 의 자릿수).
+    '--shade-edge':rgba(shade,a.edge),
   };
 }
 

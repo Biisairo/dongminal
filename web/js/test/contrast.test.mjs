@@ -349,6 +349,8 @@ test('TC-WRD-6 다크 43종의 그늘은 이주 전 값 그대로다', () => {
     '--backdrop-soft': 'rgba(0,0,0,0.4)',
     '--shadow-1': '0 2px 10px rgba(0,0,0,0.4)',
     '--shadow-2': '0 8px 32px rgba(0,0,0,0.5)',
+    // CODEMIRROR_MIGRATION_SRS FR-CMR-58 — 새로 더한 이름. 위 넷은 그대로다.
+    '--shade-edge': 'rgba(0,0,0,1)',
   };
   const dark = themeNames.filter((n) => THEMES[n].mode !== 'light');
   assert.ok(dark.length >= 40, `다크 ${dark.length}종 — 너무 적다 (빈 루프로 초록이 되지 않는다)`);
@@ -371,6 +373,22 @@ test('TC-WRD-6a 라이트 11종의 그늘은 팔레트의 잉크이고 종이보
     // 잉크는 종이보다 어둡다 — 그렇지 않으면 그늘이 빛이 된다.
     assert.ok(relLuminance(t.ui.text) < relLuminance(t.ui.bg), `${name} 의 잉크가 종이보다 밝다`);
     assert.match(v['--shadow-2'], /^0 8px 32px /, `${name} 의 그림자가 기하를 잃었다`);
+  }
+});
+
+// CODEMIRROR_MIGRATION_SRS FR-CMR-12a·58: Diff 접힌 구간 가장자리의 그늘색. 옛 엔진의
+// `diffEditor.unchangedRegionShadow` 기본(어둠 `#000000` · 밝음 회색 75%)을 모드가 가른다.
+test('FR-CMR-58 접힌 구간 그늘은 모드가 가른다 — 어둠은 그늘색, 밝음은 잉크 75%', () => {
+  for (const name of themeNames) {
+    const t = THEMES[name];
+    const v = deriveShade(t.ui, t.mode);
+    if (t.mode === 'light') {
+      const p = t.ui.text.replace('#', '');
+      const rgb = [0, 2, 4].map((i) => parseInt(p.slice(i, i + 2), 16)).join(',');
+      assert.equal(v['--shade-edge'], `rgba(${rgb},0.75)`, `${name}`);
+    } else {
+      assert.equal(v['--shade-edge'], 'rgba(0,0,0,1)', `${name}`);
+    }
   }
 });
 

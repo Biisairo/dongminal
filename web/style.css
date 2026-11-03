@@ -112,6 +112,7 @@
   --backdrop-soft:rgba(0,0,0,.4);
   --shadow-1:0 2px 10px rgba(0,0,0,.4);
   --shadow-2:0 8px 32px rgba(0,0,0,.5);
+  --shade-edge:rgba(0,0,0,1);
   --bg:#1a1b26;--sidebar-bg:#16161e;--border:#292e42;
   --accent:#7aa2f7;--text:#a9b1d6;--text-muted:#8b95bf;
   --text-bright:#c0caf5;--text-dim:#414868;--danger:#f7768e;
@@ -1611,6 +1612,9 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
   background:var(--bg);
 }
 .file-editor.vis{display:block}
+/* CODEMIRROR_MIGRATION_SRS FR-CMR-19: 설치 제안 띠(`.fe-offer`)가 서 있는 동안 편집기는 띠 아래에서 시작한다 —
+   띠는 겹쳐 서므로 그대로 두면 첫 줄들을 가린다. 높이는 띠가 실제로 먹은 값이다 (`--fe-offer-h`, FR-LSP-44a). */
+.file-editor:has(> .fe-offer) > .cm-editor{margin-top:var(--fe-offer-h,32px);height:calc(100% - var(--fe-offer-h,32px))}
 /* WORDING_COLOR_SRS FR-WRD-14·15: 저장 실패 플래시.
      이전 동작: `file-editor.js` 가 인라인으로 `inset 0 0 0 2px #f44` 를 썼다 —
                테마의 `danger` 는 `#8c4351`(Tokyo Night Light)~`#ff2c6d`(Panda)

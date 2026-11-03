@@ -31,14 +31,10 @@
 .dr-body{
   flex:1 1 auto;min-height:0;overflow:auto;
   padding:16px 20px 40px;line-height:1.7;font-size:var(--fs-lg);
-  /* 읽는 화면이므로 본문 폭을 제한한다 — 넓은 칸에서 한 줄이 화면을 가로지르면
-     눈이 다음 줄의 첫머리를 잃는다. */
-  max-width:52em;
+  /* CODEMIRROR_MIGRATION_SRS FR-CMR-160: 모든 미리보기는 탭 폭을 따라간다 (사용자 결정). 종전의 읽기 폭
+     제한(`max-width:52em`)은 넓은 탭에서 본문을 왼쪽에 멈춰 세웠다. */
 }
-/* 그림에는 그 제한이 걸리지 않는다 — 읽는 것이 아니라 보는 것이다. */
-.dr-body:has(.dr-svg-wrap),.dr-body:has(.dr-html-wrap){max-width:none;display:flex;padding:12px}
-/* 표는 폭을 제한하지 않되 흐르게 둔다 — 넓은 표는 자기 상자 안에서 가로로 구른다. */
-.dr-body:has(.dr-table){max-width:none}
+.dr-body:has(.dr-svg-wrap),.dr-body:has(.dr-html-wrap){display:flex;padding:12px}
 .dr-note{color:var(--text-hint);font-size:var(--fs-md);font-style:italic}
 
 /* ── 본문 요소 ── */
@@ -110,13 +106,14 @@
 
 /* ── SVG (FR-DRV-14) ──
  *
- * 원본 비율을 지키고 칸보다 크면 줄여 맞춘다 — 이미지 뷰(FR-EVW-4)와 같은 규약이다. */
+ * 원본 비율을 지킨 채 탭에 맞춰 늘거나 준다 (FR-CMR-160). `.dr-body` 가 가로 flex 라 폭을 주지 않으면
+ * 원본 폭에 머물고 왼쪽에 붙는다 — `.dr-html-wrap` 과 같은 자리다. */
 .dr-svg-wrap{
   display:flex;flex-direction:column;align-items:center;gap:8px;
-  height:100%;min-height:0;
+  flex:1 1 auto;min-width:0;height:100%;min-height:0;
 }
 .dr-svg{
-  flex:1 1 auto;min-height:0;max-width:100%;object-fit:contain;
+  flex:1 1 auto;min-height:0;width:100%;object-fit:contain;
 }
 .dr-svg-meta{flex:0 0 auto;color:var(--text-hint);font-size:var(--fs-sm)}
 

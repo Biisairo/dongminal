@@ -451,6 +451,20 @@ body.mobile .ed-row{height:var(--touch-min)}
 /* 찾기 패널이 열려 있으면 그 아래로 내려 앉는다 — 같은 자리를 다투지 않는다. */
 .fe-find.vis ~ .fe-note{top:38px}
 
+/* CODEMIRROR_MIGRATION_SRS FR-CMR-12b: 선택 안 공백 표시는 흐리고 테마를 탄다. CodeMirror 기본은 고정색
+   (`#aaa` 점 · `#888` 화살표)이다. 화살표는 같은 모양을 마스크로 두고 색은 배경이 준다 — 그림 안에 색을 적지 않는다. */
+.cm-editor{--ed-ws:color-mix(in srgb,var(--text) 25%,transparent)}
+.cm-editor .cm-sel-ws.cm-highlightSpace{
+  background:radial-gradient(circle at 50% 55%,var(--ed-ws) 20%,transparent 0) no-repeat;
+  background-size:.4em;background-position:calc(min(50%, 0px)) center}
+.cm-editor .cm-sel-ws.cm-highlightTab{
+  background-image:none;background-color:var(--ed-ws);
+  -webkit-mask-image:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="20"><path stroke="%23000" stroke-width="1" fill="none" d="M1 10H196L190 5M190 15L196 10M197 4L197 16"/></svg>');
+  mask-image:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="20"><path stroke="%23000" stroke-width="1" fill="none" d="M1 10H196L190 5M190 15L196 10M197 4L197 16"/></svg>');
+  -webkit-mask-size:auto 100%;mask-size:auto 100%;
+  -webkit-mask-position:right 90%;mask-position:right 90%;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
+
 /* FR-LSP-44·45: 언어 서버 설치 제안. 알림 줄과 **다른 것이다** — 스스로 사라지지
    않고 버튼을 갖는다. 사용자가 무언가를 해야 하는 알림과 그냥 알리는 알림은 같은
    모양일 수 없다. 그래서 자리도 위쪽 가로 띠다. */
