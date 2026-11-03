@@ -131,6 +131,20 @@ const ED_STICKY_MAX=5;
 // FR-CMR-72: 찾기 일치의 ruler·미니맵 색. 옛 엔진 테마의 매핑(`editorOverviewRuler.findMatchForeground` 등)을 옮겼다.
 const ED_FIND_MARK_COLOR='--accent';
 const ED_FIND_MARK_COLOR_CUR='--text-bright';
+// EDITOR_LINK_LSP_SRS FR-ELS-30~33: 선택·같은 낱말·진단·커서의 ruler·미니맵 색과 한도.
+// `--text-dim` 은 경계용이라 많은 테마에서 `--border` 와 같다 — 표식에는 쓰지 않는다.
+const ED_MARK_COLOR={sel:'--text',match:'--text-hint',error:'--danger',warning:'--term-yellow',cursor:'--text-bright'};
+// 편집기 칸의 스크롤바 thumb · 미니맵 슬라이더 색 (FR-ELS-55) — Monaco 와 같은 중립 회색 반투명이다(`deriveScrollSlider`).
+const ED_SCROLL_THUMB_BG='var(--ed-thumb)';
+const ED_SCROLL_THUMB_BG_HOVER='var(--ed-thumb-hover)';
+const ED_SCROLL_THUMB_BG_ACTIVE='var(--ed-thumb-active)';
+const ED_RULER_MATCH_MAX=1000;
+// FR-ELS-45: hover 미리보기의 최대 크기. 넘치면 안에서 스크롤한다.
+const ED_HOVER_MAX_W='min(600px, 70vw)';
+const ED_HOVER_MAX_H='min(320px, 45vh)';
+const ED_RULER_CURSOR_H=2;
+// FR-ELS-31: 같은 낱말을 세는 선택의 최대 길이 — 편집기 강조(`highlightSelectionMatches`)와 같다.
+const ED_MATCH_SEL_MAX=200;
 
 /**
  * FONT_SIZE_SETTING_SRS FR-FSS-9·10 — 편집기의 글자 크기.

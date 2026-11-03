@@ -324,10 +324,12 @@ MIT 라이선스 파일과 원본 판·커밋을 함께 둔다.
 
 **FR-CMR-61** 미니맵 높이는 문서 길이와 상관없이 편집기 높이와 같다 — `fill` 좌표계 (FR-MMP-2).
 미니맵 안의 뷰포트 표시는 스크롤바 thumb 와 같은 세로 위치·높이에 선다 (허용 오차 ±2px).
+미니맵 **내용**의 좌표도 thumb 와 같은 비율이다 — `EDITOR_LINK_LSP_SRS` FR-ELS-50~55 가 더했다.
+(**개정** 2026-11-04 — `EDITOR_LINK_LSP_SRS` FR-ELS-60~64: 줄바꿈이 켜져 있으면 미니맵은 자체 배치를 쓰고, 슬라이더는 보이는 줄에 맞춘다. 그때 thumb 와 몇 px 다를 수 있다.)
 
 **FR-CMR-62** 찾기 일치(FR-CMR-34)와 현재 일치를 미니맵 줄 위에 색으로 찍는 층을 더한다.
 
-**FR-CMR-63** 슬라이더는 마우스를 올렸을 때만 보인다. 켜고 끄기는 `editorMinimap` 설정이다
+**FR-CMR-63** ~~슬라이더는 마우스를 올렸을 때만 보인다.~~ (**개정** 2026-11-03 — `EDITOR_LINK_LSP_SRS` FR-ELS-55a: 늘 보인다) 켜고 끄기는 `editorMinimap` 설정이다
 (EDITOR_MINIMAP_TOGGLE_SRS). 생성과 갱신은 한 함수(`edMinimapOpts` 후속)에서 만든다 (FR-MMT-5).
 
 ### 3.8 묶음 R — Overview ruler
@@ -482,7 +484,7 @@ Monaco 언급을 CodeMirror 에 맞춘다.
 | **FR-CMR-146** | 줄 끝 공백 강조 | `highlightTrailingWhitespace` |
 | **FR-CMR-147** | 빈 문서 안내 문구 (메모장 등) | `placeholder` |
 | **FR-CMR-148** | CSS 색 미리보기·색상 선택기 | `@replit/codemirror-css-color-picker` |
-| **FR-CMR-149** | 수정키+클릭으로 정의 이동 · 링크 열기 | `@replit/codemirror-interact` |
+| **FR-CMR-149** | 수정키+클릭으로 정의 이동 · 링크 열기 — **`EDITOR_LINK_LSP_SRS` 가 열었다** (FR-ELS-10~24, 패키지 없이 직접) | `@replit/codemirror-interact` |
 | **FR-CMR-150** | 인라인 git blame | 위젯 데코레이션 + `/api/git/blame` |
 
 B 묶음은 별도 패키지 청크(`extras`)로 묶는다. 켜지 않은 기능의 청크는 받지 않는다.

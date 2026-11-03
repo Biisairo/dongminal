@@ -210,6 +210,25 @@ function deriveShade(ui,mode){
   };
 }
 
+/**
+ * EDITOR_LINK_LSP_SRS FR-ELS-55: 편집기 스크롤바 thumb 와 미니맵 슬라이더의 색 — Monaco 기본값(`scrollbarSlider.*`,
+ * `minimapSlider.*` = 그 절반 투명도)을 옮겼다. **테마 색을 섞지 않는 중립 회색**이고 진하기는 투명도로 가른다.
+ * 테마 색(`--text-muted`)을 섞으면 푸른 테마에서 미니맵이 파랗게 물든다 (2026-11-04 사용자 보고).
+ */
+const ED_SCROLL_SLIDER={
+  // 슬라이더는 Monaco 기본값(thumb 의 절반)보다 한 단 진하다 — 늘 보이게 했으므로 (2026-11-04 사용자 결정 "조금 더 잘 보이게").
+  dark:{thumb:[121,.4],hover:[100,.7],active:[191,.4],slider:[121,.3],sliderHover:[100,.45],sliderActive:[191,.3]},
+  light:{thumb:[100,.4],hover:[100,.7],active:[0,.6],slider:[100,.3],sliderHover:[100,.45],sliderActive:[0,.4]},
+};
+function deriveScrollSlider(mode){
+  const s=ED_SCROLL_SLIDER[mode==='light'?'light':'dark'];
+  const g=([v,a])=>`rgba(${v},${v},${v},${a})`;
+  return{
+    '--ed-thumb':g(s.thumb),'--ed-thumb-hover':g(s.hover),'--ed-thumb-active':g(s.active),
+    '--ed-slider':g(s.slider),'--ed-slider-hover':g(s.sliderHover),'--ed-slider-active':g(s.sliderActive),
+  };
+}
+
 const SYNTAX_KEYS=['red','green','yellow','blue','magenta','cyan'];
 
 function deriveContrastTokens(ui,mode,attn,term){

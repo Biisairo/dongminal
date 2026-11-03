@@ -117,8 +117,40 @@ const OverlayView = /*@__PURE__*/ViewPlugin.fromClass(class {
         }
         // Initially set overlay configuration styles, height, top
         this.computeShowOverlay();
-        this.computeHeight();
-        this.computeTop();
+        this.schedulePlace();
+    }
+    // [dongminal] FR-ELS-62: 슬라이더 자리는 레이아웃을 읽으므로 측정 단계에서 정한다. 미니맵의 자체 배치가 있으면 그것을,
+    // 없으면(첫 그리기 전) thumb 좌표를 쓴다.
+    schedulePlace() {
+        if (!this._placeMeasure) {
+            this._placeMeasure = {
+                key: this,
+                read: () => this.placement(),
+                write: (r) => {
+                    if (!r || !this.dom) return;
+                    this.dom.style.top = r.top + "px";
+                    this.dom.style.height = r.height + "px";
+                },
+            };
+        }
+        this.view.requestMeasure(this._placeMeasure);
+    }
+    placement() {
+        const mm = this.view.plugin(minimapClass);
+        const { thumb, minSlider } = this.view.state.facet(Config);
+        const own = mm && mm.ownSlider(minSlider || 0);
+        if (own) return own;
+        if (!thumb) return null;
+        const t = thumb(this.view);
+        return { top: t.top, height: t.height, fromThumb: true };
+    }
+    // [dongminal] FR-ELS-63: 슬라이더 top(CSS px) → scrollTop. 자체 배치가 없으면 thumb 의 역이다.
+    scrollFor(top) {
+        const mm = this.view.plugin(minimapClass);
+        const v = mm && mm.ownFromSlider(top);
+        if (v != null) return v;
+        const { fromThumb } = this.view.state.facet(Config);
+        return fromThumb ? fromThumb(this.view, top) : null;
     }
     remove() {
         if (this.container) {
@@ -140,43 +172,9 @@ const OverlayView = /*@__PURE__*/ViewPlugin.fromClass(class {
         }
         if (now) {
             this.computeShowOverlay();
-            if (update.geometryChanged || update.docChanged) {
-                this.computeHeight();
-                this.computeTop();
+            if (update.geometryChanged || update.docChanged || update.heightChanged) {
+                this.schedulePlace();
             }
-        }
-    }
-    computeHeight() {
-        if (!this.dom) {
-            return;
-        }
-        // [dongminal] 높이와 자리는 스크롤바 thumb 와 같은 함수가 준다 (FR-CMR-61).
-        const { thumb } = this.view.state.facet(Config);
-        if (thumb) {
-            this.dom.style.height = thumb(this.view).height + "px";
-            return;
-        }
-        const height = this.view.dom.clientHeight / SCALE;
-        this.dom.style.height = height + "px";
-    }
-    computeTop() {
-        const { thumb } = this.view.state.facet(Config);
-        if (thumb && this.dom) {
-            this.dom.style.top = thumb(this.view).top + "px";
-            return;
-        }
-        if (!this._isDragging && this.dom) {
-            const { clientHeight, scrollHeight, scrollTop } = this.view.scrollDOM;
-            const maxScrollTop = scrollHeight - clientHeight;
-            const topForNonOverflowing = scrollTop / SCALE;
-            const height = clientHeight / SCALE;
-            const maxTop = clientHeight - height;
-            let scrollRatio = scrollTop / maxScrollTop;
-            if (isNaN(scrollRatio))
-                scrollRatio = 0;
-            const topForOverflowing = maxTop * scrollRatio;
-            const top = Math.min(topForOverflowing, topForNonOverflowing);
-            this.dom.style.top = top + "px";
         }
     }
     computeShowOverlay() {
@@ -214,6 +212,16 @@ const OverlayView = /*@__PURE__*/ViewPlugin.fromClass(class {
             this.container.classList.add("cm-minimap-overlay-active");
             return;
         }
+        // [dongminal] FR-ELS-63: 누른 자리가 슬라이더 가운데가 되게 스크롤한다.
+        const slider = this.placement();
+        if (slider) {
+            const y = clientY - target.getBoundingClientRect().top;
+            const st = this.scrollFor(y - slider.height / 2);
+            if (st != null) {
+                this.view.scrollDOM.scrollTop = st;
+                return;
+            }
+        }
         // Updates the scroll position of the EditorView based on the
         // position of the MouseEvent on the minimap canvas
         const { clientHeight, scrollHeight, scrollTop } = this.view.scrollDOM;
@@ -245,13 +253,16 @@ const OverlayView = /*@__PURE__*/ViewPlugin.fromClass(class {
             return;
         }
         const deltaY = event.clientY - this._dragStartY;
-        // [dongminal] thumb 좌표계면 끈 만큼 thumb 를 옮긴 자리로 스크롤한다.
-        const { thumb, fromThumb } = this.view.state.facet(Config);
-        if (thumb && fromThumb) {
-            this._dragStartY = event.clientY;
-            this.view.scrollDOM.scrollTop = fromThumb(this.view, thumb(this.view).top + deltaY);
-            this.computeTop();
-            return;
+        // [dongminal] FR-ELS-63: 끈 만큼 슬라이더를 옮긴 자리로 스크롤한다.
+        const slider = this.placement();
+        if (slider) {
+            const st = this.scrollFor(slider.top + deltaY);
+            if (st != null) {
+                this._dragStartY = event.clientY;
+                this.view.scrollDOM.scrollTop = st;
+                this.schedulePlace();
+                return;
+            }
         }
         const movingUp = deltaY < 0;
         const movingDown = deltaY > 0;
@@ -303,7 +314,7 @@ const OverlayView = /*@__PURE__*/ViewPlugin.fromClass(class {
 }, {
     eventHandlers: {
         scroll() {
-            requestAnimationFrame(() => this.computeTop());
+            this.schedulePlace();
         },
     },
 });
@@ -794,6 +805,8 @@ class TextState extends LineBasedState {
                 });
                 this.updateMapImpl(state, highlights);
                 this._highlightingCallbackId = undefined;
+                // [dongminal] 스크롤로 다시 그리지 않으므로 강조가 끝나면 그린다 (FR-ELS-54).
+                if (this.onHighlighted) this.onHighlighted();
             }
         };
         this._highlightingCallbackId =
@@ -974,6 +987,58 @@ function text(view) {
 }
 
 const GUTTER_WIDTH = 4;
+// [dongminal] EDITOR_LINK_LSP_SRS FR-ELS-60: 동아시아 넓은 글자 — 2칸으로 센다.
+const WIDE_CHAR = /[\u1100-\u115F\u2E80-\u303E\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uA000-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6\u{1F300}-\u{1FAFF}\u{20000}-\u{3FFFD}]/u;
+/** [dongminal] FR-ELS-60: 줄마다의 칸 수 — 넓은 글자 2칸, 탭은 다음 멈춤까지, 접힌 구간 1칸. */
+function lineColumns(state, lines) {
+    const tab = state.tabSize;
+    const out = new Int32Array(lines.length);
+    for (let i = 0; i < lines.length; i++) {
+        let col = 0;
+        for (const span of lines[i]) {
+            if (span.folded) {
+                col += 1;
+                continue;
+            }
+            for (const ch of state.doc.sliceString(span.from, span.to)) {
+                if (ch === "\t") col += tab - (col % tab);
+                else col += WIDE_CHAR.test(ch) ? 2 : 1;
+            }
+        }
+        out[i] = col;
+    }
+    return out;
+}
+/** [dongminal] FR-ELS-60: 화면 줄 수의 누적 — `acc[i]` 는 줄 i 앞까지의 화면 줄 수다. */
+function visualAccum(cols, wrapCols) {
+    const acc = new Float64Array(cols.length + 1);
+    for (let i = 0; i < cols.length; i++) {
+        acc[i + 1] = acc[i] + (wrapCols ? Math.max(1, Math.ceil(cols[i] / wrapCols)) : 1);
+    }
+    return acc;
+}
+/** [dongminal] 누적에서 화면 줄 `v` 를 품은 줄 번호 (0 부터). */
+function accLineAt(acc, v) {
+    let lo = 0, hi = acc.length - 2;
+    if (hi < 0) return 0;
+    while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (acc[mid] <= v) lo = mid;
+        else hi = mid - 1;
+    }
+    return lo;
+}
+
+/** [dongminal] `pos` 를 품은 줄(LinesState)의 번호 — 첫 span 의 from 이 `pos` 이하인 마지막 줄. */
+function lineIndexAt(lines, pos) {
+    let lo = 0, hi = lines.length - 1;
+    while (lo < hi) {
+        const mid = (lo + hi + 1) >> 1;
+        if (lines[mid][0].from <= pos) lo = mid;
+        else hi = mid - 1;
+    }
+    return lo;
+}
 /**
  * Draws a gutter to the canvas context for the given line number
  */
@@ -1021,6 +1086,9 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
     constructor(view) {
         this.view = view;
         this.text = text(view);
+        // 강조가 끝나면 줄 위치가 같아도 색이 바뀌었다 — 지문을 건너뛰고 그린다.
+        this.text.onHighlighted = () => { this._forceRender = true; this.scheduleRender(); };
+        this.renderMeasure = { key: this, read: () => this.layout(), write: (m) => this.render(m) };
         this.selection = selections(view);
         this.diagnostic = diagnostics(view);
         if (view.state.facet(showMinimap)) {
@@ -1049,6 +1117,8 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
                 this.dom.addEventListener(key, (e) => handler(e, this.view));
             }
         }
+        // [dongminal] FR-ELS-58: 처음 설 때 곧바로 그린다 — 스크롤 같은 다음 갱신을 기다리지 않는다.
+        this.scheduleRender();
     }
     remove() {
         if (this.dom) {
@@ -1069,8 +1139,16 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
             this.text.update(update);
             this.selection.update(update);
             this.diagnostic.update(update);
-            this.render();
+            // [dongminal] FR-ELS-54: 스크롤만 한 갱신은 내용을 다시 그리지 않는다. 그리기는 줄 블록의 자리를
+            // 읽으므로 갱신 안이 아니라 측정 단계에서 한다.
+            if (!prev || update.docChanged || update.selectionSet || update.geometryChanged || update.heightChanged
+                || update.transactions.length) {
+                this.scheduleRender();
+            }
         }
+    }
+    scheduleRender() {
+        this.view.requestMeasure(this.renderMeasure);
     }
     getWidth() {
         const editorWidth = this.view.dom.clientWidth;
@@ -1080,11 +1158,135 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
         }
         return Scale.MaxWidth;
     }
-    render() {
+    /**
+     * [dongminal] EDITOR_LINK_LSP_SRS FR-ELS-60·65: 미니맵 자체 배치 — 문서 내용과 편집기 폭으로만 정한다. 칸 수는 문서(LinesState)가
+     * 바뀔 때만, 누적은 칸 수 · 한 줄 칸 수가 바뀔 때만 다시 센다. 레이아웃을 읽으므로 측정의 read 단계에서 부른다.
+     */
+    ownLayout() {
+        const view = this.view;
+        const lines = view.state.field(LinesState);
+        const c = this._ownCache || (this._ownCache = {});
+        if (c.lines !== lines || c.tab !== view.state.tabSize) {
+            c.lines = lines;
+            c.tab = view.state.tabSize;
+            c.cols = lineColumns(view.state, lines);
+            c.acc = null;
+        }
+        let wrapCols = 0;
+        if (view.lineWrapping) {
+            const line = view.contentDOM.querySelector(".cm-line");
+            const st = line ? getComputedStyle(line) : null;
+            const pad = st ? (parseFloat(st.paddingLeft) || 0) + (parseFloat(st.paddingRight) || 0) : 0;
+            wrapCols = Math.max(1, Math.floor((view.contentDOM.clientWidth - pad) / Math.max(1, view.defaultCharacterWidth)));
+        }
+        if (!c.acc || c.wrapCols !== wrapCols) {
+            c.wrapCols = wrapCols;
+            c.acc = visualAccum(c.cols, wrapCols);
+        }
+        const acc = c.acc;
+        const lh = view.defaultLineHeight;
+        const { top: pTop, bottom: pBottom } = view.documentPadding;
+        const total = pTop + acc[acc.length - 1] * lh + pBottom;
+        return {
+            lines, acc, lh, pTop, total,
+            denom: Math.max(total, view.scrollDOM.clientHeight),
+            top: (i) => pTop + acc[i] * lh,
+            height: (i) => (acc[i + 1] - acc[i]) * lh,
+        };
+    }
+    /**
+     * [dongminal] FR-ELS-62: 슬라이더 — 보이는 첫 줄 · 끝 줄(CM 이 실측했다)을 자체 배치의 같은 줄 · 같은 비율 자리에 놓는다.
+     * CSS px `{top, height}`. 자체 배치가 아직 없으면 null 이다. 업데이트 안에서 부르지 않는다.
+     */
+    ownSlider(min) {
+        const own = this._own;
+        const view = this.view;
+        if (!own || !own.lines.length) return null;
+        const { scrollTop, clientHeight } = view.scrollDOM;
+        const kcss = clientHeight / Math.max(1, own.denom);
+        const at = (y) => {
+            const d = y - own.pTop;
+            if (d <= 0) return Math.max(0, y);
+            const b = view.lineBlockAtHeight(d);
+            const i = lineIndexAt(own.lines, b.from);
+            if (d >= b.bottom && b.to >= view.state.doc.length) return own.top(i) + own.height(i) + Math.min(view.documentPadding.bottom, d - b.bottom);
+            const f = b.height > 0 ? Math.min(1, Math.max(0, (d - b.top) / b.height)) : 0;
+            return own.top(i) + f * own.height(i);
+        };
+        let top = at(scrollTop) * kcss;
+        let height = Math.max(0, at(scrollTop + clientHeight) * kcss - top);
+        if (height < min) {
+            top = Math.max(0, Math.min(clientHeight - min, top - (min - height) / 2));
+            height = min;
+        }
+        return { top, height };
+    }
+    /** [dongminal] FR-ELS-63: 슬라이더 top(CSS px) → scrollTop. FR-ELS-62 의 역이다. */
+    ownFromSlider(topCss) {
+        const own = this._own;
+        const view = this.view;
+        if (!own || !own.lines.length) return null;
+        const y = topCss / (view.scrollDOM.clientHeight / Math.max(1, own.denom));
+        if (y <= own.pTop) return Math.max(0, y);
+        const i = accLineAt(own.acc, (y - own.pTop) / own.lh);
+        const f = own.height(i) > 0 ? Math.min(1, Math.max(0, (y - own.top(i)) / own.height(i))) : 0;
+        const b = view.lineBlockAt(own.lines[i][0].from);
+        return own.pTop + b.top + f * b.height;
+    }
+    /**
+     * [dongminal] EDITOR_LINK_LSP_SRS FR-ELS-50~53: 그릴 줄의 자리(장치 px). 문서 전체를 스크롤 높이 비율로 놓는다 —
+     * 스크롤바 thumb 와 같은 비율이므로 슬라이더의 양 끝이 곧 보이는 영역이다. 한 픽셀 행에는 그 행의 첫 줄만 둔다.
+     * 줄 블록을 읽으므로 측정의 read 단계에서 부른다.
+     */
+    layout() {
+        const view = this.view;
+        const lines = view.state.field(LinesState);
+        const own = this.ownLayout();
+        const height = view.scrollDOM.clientHeight * Scale.PixelMultiplier;
+        const k = height / Math.max(1, own.denom);
+        const boxOf = (i) => ({ y: own.top(i) * k, h: own.height(i) * k });
+        // FR-ELS-60·53: 줄 위치는 자체 배치에서 얻는다 — CM 의 높이표(줄바꿈이 켜지면 추정이 섞인다)를 쓰지 않으므로 스크롤로
+        // 바뀌지 않는다. 다음 줄은 이 줄과 다른 픽셀 행에서 시작하는 첫 줄이다 — 그리는 줄 수는 캔버스 행 수를 넘지 않는다.
+        const rows = [];
+        let i = 0;
+        while (i < lines.length) {
+            const box = boxOf(i);
+            if (box.y >= height) {
+                break;
+            }
+            rows.push({ i, y: box.y, h: box.h });
+            const next = Math.floor(box.y) + 1;
+            const j = accLineAt(own.acc, (next / k - own.pTop) / own.lh);
+            i = Math.max(i + 1, own.top(j) * k >= next ? j : j + 1);
+        }
+        const cfg = view.state.facet(Config);
+        const marks = cfg.marks ? cfg.marks(view.state) : [];
+        const gutter = cfg.gutter ? cfg.gutter(view.state) : [];
+        const boxes = new Map();
+        for (const m of [...marks, ...gutter]) {
+            if (m.line >= 1 && m.line <= lines.length && !boxes.has(m.line)) boxes.set(m.line, boxOf(m.line - 1));
+        }
+        this._own = own;
+        // [dongminal] FR-ELS-54: 그릴 결과의 지문. 지난번과 같으면 그리지 않는다 — 스크롤로 새 줄이 들어오면 CM 이
+        // 높이가 그대로여도 geometry·height 신호를 내므로, 신호가 아니라 결과로 판정한다.
+        const sig = JSON.stringify([
+            rows.map((r) => [r.i, Math.round(r.y * 8), Math.round(r.h * 8)]),
+            marks, gutter, view.state.selection.toJSON(), view.dom.className, view.dom.clientWidth,
+            [...this.diagnostic.map],
+        ]);
+        const skip = !this._forceRender && view.state.doc === this._drawnDoc && sig === this._drawnSig;
+        return { rows, marks, gutter, boxes, sig, skip };
+    }
+    render(m) {
         // If we don't have elements to draw to exit early
-        if (!this.dom || !this.canvas || !this.inner) {
+        if (!this.dom || !this.canvas || !this.inner || m.skip) {
             return;
         }
+        this._forceRender = false;
+        this._drawnSig = m.sig;
+        const ov = this.view.plugin(OverlayView);
+        if (ov) ov.schedulePlace();
+        this._drawnDoc = this.view.state.doc;
         this.text.beforeDraw();
         this.updateBoxShadow();
         this.dom.style.width = this.getWidth() + "px";
@@ -1103,74 +1305,55 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
         context.clearRect(0, 0, this.canvas.width, this.canvas.height);
         /* We need to get the correct font dimensions before this to measure characters */
         const { charWidth, lineHeight } = this.text.measure(context);
-        let { startIndex, endIndex, offsetY } = this.canvasStartAndEndIndex(context, lineHeight);
         // [dongminal] 줄 표식 층. 받은 것 전부를 남긴다 — 화면 밖 줄도 스크롤하면 그려진다.
         const cfg = this.view.state.facet(Config);
         const css = getComputedStyle(this.view.dom);
         const color = (c) => (c && c.startsWith("--") ? css.getPropertyValue(c).trim() : c);
-        this.drawnMarks = cfg.marks ? cfg.marks(this.view.state) : [];
-        this.drawnGutter = cfg.gutter ? cfg.gutter(this.view.state) : [];
-        const markAt = new Map();
-        for (const m of this.drawnMarks) markAt.set(m.line, color(m.color));
+        this.drawnMarks = m.marks;
+        this.drawnGutter = m.gutter;
         const dynGutter = {};
         for (const g of this.drawnGutter) dynGutter[g.line] = color(g.color);
-        const gutters = this.drawnGutter.length ? [...cfg.gutters, dynGutter] : cfg.gutters;
-        for (let i = startIndex; i < endIndex; i++) {
-            const lines = this.view.state.field(LinesState);
-            if (i >= lines.length)
-                break;
-            const drawContext = {
-                offsetX: 0,
-                offsetY,
-                context,
-                lineHeight,
-                charWidth,
-            };
-            if (gutters.length) {
-                /* Small leading buffer */
-                drawContext.offsetX += 2;
-                for (let gutter of gutters) {
-                    drawLineGutter(gutter, drawContext, i + 1);
-                    drawContext.offsetX += GUTTER_WIDTH;
+        const gutterX = cfg.gutters.length || this.drawnGutter.length ? 2 + (cfg.gutters.length + (this.drawnGutter.length ? 1 : 0)) * GUTTER_WIDTH + 2 : 0;
+        this.drawnRows = [];
+        for (const { i, y, h } of m.rows) {
+            const dc = { offsetX: 0, offsetY: y, context, lineHeight: h, charWidth };
+            if (cfg.gutters.length) {
+                dc.offsetX += 2;
+                for (const gutter of cfg.gutters) {
+                    drawLineGutter(gutter, dc, i + 1);
+                    dc.offsetX += GUTTER_WIDTH;
                 }
-                /* Small trailing buffer */
-                drawContext.offsetX += 2;
             }
-            this.text.drawLine(drawContext, i + 1);
-            const mark = markAt.get(i + 1);
-            if (mark) {
-                context.save();
-                context.globalAlpha = 0.6;
-                context.fillStyle = mark;
-                context.fillRect(drawContext.offsetX, offsetY, this.canvas.width - drawContext.offsetX, lineHeight);
-                context.restore();
-            }
-            this.selection.drawLine(drawContext, i + 1);
-            this.diagnostic.drawLine(drawContext, i + 1);
-            offsetY += lineHeight;
+            dc.offsetX = gutterX;
+            // FR-ELS-52: 글자는 늘이지 않는다. 줄이 기본보다 낮으면 그 높이로 줄인다.
+            context.save();
+            context.translate(0, y);
+            context.scale(1, Math.min(1, h / lineHeight));
+            this.text.drawLine(Object.assign(Object.assign({}, dc), { offsetY: 0, lineHeight }), i + 1);
+            context.restore();
+            this.selection.drawLine(dc, i + 1);
+            this.diagnostic.drawLine(dc, i + 1);
+            this.drawnRows.push({ line: i + 1, y: y / Scale.PixelMultiplier, h: h / Scale.PixelMultiplier });
+        }
+        // 표식은 행에 겹쳐 빠진 줄도 그 줄의 자리에 그린다.
+        const markAt = new Map();
+        for (const mk of this.drawnMarks) markAt.set(mk.line, color(mk.color));
+        for (const [line, c] of markAt) {
+            const box = m.boxes.get(line);
+            if (!box) continue;
+            context.save();
+            context.globalAlpha = 0.6;
+            context.fillStyle = c;
+            context.fillRect(gutterX, box.y, this.canvas.width - gutterX, Math.max(1, box.h));
+            context.restore();
+        }
+        const gx = 2 + cfg.gutters.length * GUTTER_WIDTH;
+        for (const g of this.drawnGutter) {
+            const box = m.boxes.get(g.line);
+            if (!box) continue;
+            drawLineGutter(dynGutter, { offsetX: gx, offsetY: box.y, context, lineHeight: Math.max(1, box.h), charWidth }, g.line);
         }
         context.restore();
-    }
-    canvasStartAndEndIndex(context, lineHeight) {
-        let { top: pTop, bottom: pBottom } = this.view.documentPadding;
-        (pTop /= Scale.SizeRatio), (pBottom /= Scale.SizeRatio);
-        const canvasHeight = context.canvas.height;
-        const { clientHeight, scrollHeight, scrollTop } = this.view.scrollDOM;
-        let scrollPercent = scrollTop / (scrollHeight - clientHeight);
-        if (isNaN(scrollPercent)) {
-            scrollPercent = 0;
-        }
-        const lineCount = this.view.state.field(LinesState).length;
-        const totalHeight = pTop + pBottom + lineCount * lineHeight;
-        const canvasTop = Math.max(0, scrollPercent * (totalHeight - canvasHeight));
-        const offsetY = Math.max(0, pTop - canvasTop);
-        const startIndex = Math.round(Math.max(0, canvasTop - pTop) / lineHeight);
-        const spaceForLines = Math.round((canvasHeight - offsetY) / lineHeight);
-        return {
-            startIndex,
-            endIndex: startIndex + spaceForLines,
-            offsetY,
-        };
     }
     updateBoxShadow() {
         if (!this.canvas) {
@@ -1189,8 +1372,9 @@ const minimapClass = /*@__PURE__*/ViewPlugin.fromClass(class {
     }
 }, {
     eventHandlers: {
+        // [dongminal] FR-ELS-54: 미니맵 내용은 스크롤되지 않는다 — 가로 그림자만 고친다.
         scroll() {
-            requestAnimationFrame(() => this.render());
+            requestAnimationFrame(() => this.updateBoxShadow());
         },
     },
     provide: (plugin) => {
@@ -1226,14 +1410,15 @@ const showMinimap = /*@__PURE__*/Facet.define({
 });
 
 /**
- * [dongminal] 미니맵이 받은 줄 표식 — `{marks, gutter}`. 미니맵이 없으면 `null` 이다.
+ * [dongminal] 미니맵이 받은 줄 표식과 그린 줄의 자리 — `{marks, gutter, rows}` (rows 는 CSS px, FR-ELS-56).
+ * 미니맵이 없으면 `null` 이다.
  */
 function minimapDrawn(view) {
     const p = view.plugin(minimapClass);
     if (!p || !p.dom) {
         return null;
     }
-    return { marks: p.drawnMarks || [], gutter: p.drawnGutter || [] };
+    return { marks: p.drawnMarks || [], gutter: p.drawnGutter || [], rows: p.drawnRows || [] };
 }
 
 export { showMinimap, minimapDrawn };

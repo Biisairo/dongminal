@@ -38,7 +38,7 @@
 
 | 자산 | 라이선스 | 판 | 집계 SHA-256 | 파일 수 |
 |---|---|---|---|---|
-| `codemirror/` (③) | MIT (패키지별, ④) | CodeMirror 6 — `scripts/codemirror/package.json` 의 판 (④) | `c94d3e217400c19f…` | 126 |
+| `codemirror/` (③) | MIT (패키지별, ④) | CodeMirror 6 — `scripts/codemirror/package.json` 의 판 (④) | `76a5bce645912c39…` | 126 |
 
 ④ `scripts/build-codemirror.mjs` 가 `scripts/codemirror/` 의 입력으로 만든 **출력**이다
    (CODEMIRROR_MIGRATION_SRS 묶음 V). 패키지별 판은 `scripts/codemirror/package.json` 과

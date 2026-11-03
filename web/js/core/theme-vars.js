@@ -35,6 +35,9 @@ function pickAttnColor(theme){
 // 인 파일에 있어야 하고, 고전 스크립트는 전역을 공유하므로 여기 사본을 남기면
 // 뒤가 앞을 덮는다 (M6 §4-A-2). `contrast.js` 가 이 파일 앞에 실린다.
 const BORDER_STRONG_MIX=.35;
+// EDITOR_LINK_LSP_SRS FR-ELS-57: `--text-dim` 은 팔레트 dim 을 text 쪽으로 이만큼 옮긴다. 팔레트 dim 은 많은
+// 테마에서 `--border` 와 같아 스크롤바 손잡이·스위치 손잡이가 보이지 않았다 (2026-11-03 사용자 보고).
+const TEXT_DIM_LIFT=.3;
 // UIUX_OVERHAUL_SRS FR-HIE-1: 경계의 아래 단. `--border-strong` 이 text 쪽으로
 // 가듯 이쪽은 bg 쪽으로 간다 — 사다리의 방향이 하나여야 "선 하나가 위계 하나"
 // (§3.3 원칙 2)가 선다. 값이 `.35` 보다 큰 것은 거리가 달라서다: border→text 는
@@ -81,13 +84,13 @@ function themeVarsOf(theme){
     '--bg-alt':aa.bgAlt,
     '--border':ui.border,
     '--accent':ui.accent,
-    // 글자 넷은 파생이다 (FR-TOK-2·2a). `--text-dim` 만 원시값으로 남는다 —
-    // 그것은 글자 토큰이 아니라 **경계·채움**용이다 (FR-TOK-3 / D-TOK-2).
+    // 글자 넷은 파생이다 (FR-TOK-2·2a). `--text-dim` 은 글자 토큰이 아니라 **경계·채움**용이고
+    // (FR-TOK-3 / D-TOK-2), 팔레트 dim 을 text 쪽으로 끌어올린 값이다 (FR-ELS-57).
     '--text':aa.text,
     '--text-muted':aa.textMuted,
     '--text-bright':aa.textBright,
     '--text-hint':aa.textHint,
-    '--text-dim':ui.textDim,
+    '--text-dim':mixHex(ui.textDim,ui.text,TEXT_DIM_LIFT),
     '--danger':ui.danger,
     // 강조색을 **글자로** 쓰는 자리 (FR-TOK-4). 경계·배경으로 쓰는 `--accent`·
     // `--danger`·`--attn` 은 바닥이 다르므로(3:1) 원본 그대로 둔다.
@@ -126,6 +129,7 @@ function themeVarsOf(theme){
      * 그래서 여기서도 색이 아니라 전체 값을 만든다 (FR-WRD-31).
      */
     ...deriveShade(ui,theme.mode),
+    ...deriveScrollSlider(theme.mode),
     // GIT_SRS FR-GIT-119 · CODEMIRROR_MIGRATION_SRS §11.4: Diff 의 추가·삭제 색은 팔레트의 초록·빨강 **그대로**다 —
     // 글자가 아니라 배경에 섞이므로 대비 보정을 받지 않는다(옛 엔진 테마의 diffEditor.* 매핑과 같다). 팔레트가 없으면
     // 전경색이다 — 없는 색을 발명하지 않는다.

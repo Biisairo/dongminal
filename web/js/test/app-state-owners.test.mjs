@@ -16,8 +16,8 @@ const ownNames = (proto) => Object.getOwnPropertyNames(proto).filter((n) => n !=
 
 // ── FR-ASE-7 · LSP ──
 
-const LSP_METHODS = ['_initLSP', '_lspClickExt', '_lspConn', '_lspConnNote', '_lspConnOf', '_lspDismissed',
-  '_lspDisplay', '_lspExtOf', '_lspFindRefs', '_lspGotoDef', '_lspInstall', '_lspInstallOnce', '_lspPaint',
+const LSP_METHODS = ['_initLSP', '_lspConn', '_lspConnNote', '_lspConnOf', '_lspDismissed',
+  '_lspDisplay', '_lspExtOf', '_lspFindRefs', '_lspGotoDef', '_lspInstall', '_lspInstallOnce', '_lspLinkAt', '_lspPaint',
   '_lspPathPut', '_lspPathRows', '_lspPathsBind', '_lspPathsLoad',
   '_lspRefresh', '_lspRootOfPath', '_lspRun', '_lspRunOn', '_lspSetDiag', '_lspStatusCached', '_lspStatusInvalidate',
   'lspClickDef', 'lspDismiss', 'lspExtFor', 'lspOfferFor', 'lspOfferInstall'];

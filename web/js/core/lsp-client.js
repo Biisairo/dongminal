@@ -159,13 +159,26 @@ Object.assign(LspClient.prototype, {
   async _lspFindRefs(){ await this._lspRun(()=>CM.findReferences) },
 
   /**
-   * FR-LSP-60·67: 커맨드클릭이 닿는 자리. **`F12` 와 같은 경로다** — 커서를 그 자리에
-   * 놓고 정의로 이동을 부른다.
+   * FR-LSP-60·67 · EDITOR_LINK_LSP_SRS FR-ELS-10 순서 2·3: 수정키+클릭이 닿는 자리 (`cm-link.js`).
+   * 그 자리를 품은 `file:` 문서 링크가 있으면 그 파일을 연다. 없으면 **`F12` 와 같은 경로다** —
+   * 커서를 그 자리에 놓고 정의로 이동을 부른다.
    */
   async lspClickDef(view,pos){
     if(!view||pos==null) return;
+    const link=await this._lspLinkAt(view,pos);
+    if(link){ await this.app.edOpenFile(link.path,link.line?{line:link.line}:{}); return }
     view.dispatch({selection:{anchor:pos}});
     await this._lspRunOn(view,CM.jumpToDefinition);
+  },
+
+  // FR-ELS-13: 클릭할 때 한 번 묻는다. 능력이 없거나 실패하면 null — 정의 이동으로 넘어간다.
+  async _lspLinkAt(view,pos){
+    const plugin=CM.LSPPlugin.get(view);
+    const client=plugin&&this._lspConnOf(plugin.client)&&plugin.client;
+    if(!client||!client.hasCapability('documentLinkProvider')) return null;
+    client.sync();
+    const links=await client.request('textDocument/documentLink',{textDocument:{uri:plugin.uri}}).then((r)=>r,()=>null);
+    return edLspLinkTarget(view.state.doc,links,pos);
   },
 
   async _lspRun(cmdOf){
@@ -219,7 +232,7 @@ Object.assign(LspClient.prototype, {
         joined:(path)=>queueMicrotask(()=>edLspDiagShow(bufOf(path),lspDiagOn)),
         // FR-CMR-94: hover Markdown 은 DOMPurify 를 지난다.
         sanitizeHTML:(html)=>DOMPurify.sanitize(html),
-        extensions:[CM.hoverTooltips(),this._lspClickExt(),edLspDiagnostics({bufOf,on:()=>lspDiagOn})],
+        extensions:[CM.hoverTooltips(),edLspDiagnostics({bufOf,on:()=>lspDiagOn})],
       });
       this._lspConns.set(key,c);
     }
@@ -249,20 +262,6 @@ Object.assign(LspClient.prototype, {
     const tab=this.app._findEditorTab(path);
     const fe=tab&&this.app.editorAny(tab.tab.id);
     return fe&&fe.whenView?await fe.whenView():null;
-  },
-
-  // FR-LSP-60: Mod+클릭이 정의로 옮긴다. 다른 클릭은 그대로 둔다.
-  _lspClickExt(){
-    return CM.EditorView.domEventHandlers({
-      mousedown:(e,view)=>{
-        if(e.button!==0||!(IS_MAC?e.metaKey:e.ctrlKey)) return false;
-        const pos=view.posAtCoords({x:e.clientX,y:e.clientY});
-        if(pos==null) return false;
-        e.preventDefault();
-        this.lspClickDef(view,pos);
-        return true;
-      },
-    });
   },
 
   // 그 파일을 품은 Editor 루트. 등록된 루트 중 가장 긴 것이 답이다 — 루트가

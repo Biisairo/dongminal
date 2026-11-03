@@ -62,6 +62,11 @@ export const ED_SEL = {
   minimap: '.cm-minimap-gutter',
   /** 미니맵 안의 뷰포트 표시. */
   minimapSlider: '.cm-minimap-overlay',
+  /** 편집기 위·아래의 패널 칸과 대화상자의 버튼 (FR-ELS-40). */
+  panels: '.cm-panels',
+  dialogButton: '.cm-panels .cm-button',
+  /** 수정키 hover 의 링크 밑줄 (FR-ELS-20). */
+  linkHover: '.cm-link-hover',
   /** 세로 스크롤바의 thumb. 편집기 칸은 직접 그린다 (FR-CMR-74). */
   scrollThumb: '.cm-vscroll-thumb',
   /** 세로 스크롤바의 track. */
@@ -177,6 +182,7 @@ export function installEdAdapter(sel: typeof ED_SEL) {
       V(h).dispatch({ changes: { from: pos(h, line, col), insert: s } });
     },
     line: (h: any, n: number) => V(h).state.doc.line(n).text,
+    lineCount: (h: any) => V(h).state.doc.lines,
     language: (h: any) => {
       const l = V(h).state.facet(CMg().language);
       return l ? l.name : null;
@@ -186,6 +192,7 @@ export function installEdAdapter(sel: typeof ED_SEL) {
 
     // 커서·포커스
     cursor: (h: any) => w.edCmLineCol(V(h).state.doc, V(h).state.selection.main.head),
+    selectionCount: (h: any) => V(h).state.selection.ranges.length,
     setCursor: (h: any, line: number, col: number) => V(h).dispatch({ selection: { anchor: pos(h, line, col) } }),
     setSelection: (h: any, l1: number, c1: number, l2: number, c2: number) =>
       V(h).dispatch({ selection: { anchor: pos(h, l1, c1), head: pos(h, l2, c2) } }),
@@ -242,6 +249,43 @@ export function installEdAdapter(sel: typeof ED_SEL) {
     // 장식 — 인라인(글자 위)·줄 장식(gutter)
     marks: (h: any, re: string) => cmMarks(h, new RegExp(re)),
     lineMarks: (h: any, re: string) => cmLineMarks(h, new RegExp(re)),
+
+    /** ruler 가 그린 항목 `[{cls, from, to, lane, color}]` — 색은 CSS 변수 이름이다 (EDITOR_LINK_LSP_SRS FR-ELS-30). */
+    rulerItems: (h: any) => w.edCmRulerItems(V(h)).map((x: any) => ({ cls: x.cls, from: x.from, to: x.to, lane: x.lane, color: x.color })),
+    /** 미니맵이 받은 줄 표식 `[{cls, line, color}]`. 미니맵이 없으면 빈 배열이다. */
+    minimapMarks: (h: any) => {
+      const d = CMg().minimapDrawn(V(h));
+      return d ? d.marks.map((x: any) => ({ cls: x.cls, line: x.line, color: x.color })) : [];
+    },
+    /** 미니맵이 그린 줄의 자리 `[{line, y, h}]` — 미니맵 상자 기준 CSS px (EDITOR_LINK_LSP_SRS FR-ELS-56). */
+    minimapRows: (h: any) => {
+      const d = CMg().minimapDrawn(V(h));
+      return d ? d.rows : [];
+    },
+    /** 그 줄의 스크롤 영역 안 세로 자리와 높이 (px) — 위 여백을 더한다. */
+    lineBox: (h: any, n: number) => {
+      const v = V(h);
+      const b = v.lineBlockAt(v.state.doc.line(n).from);
+      return { top: v.documentPadding.top + b.top, h: b.height };
+    },
+    /** 문서 offset — (줄, 열) 1 부터. */
+    offset: (h: any, line: number, col: number) => pos(h, line, col),
+    /** 편집기 안에 hover 미리보기 상자 하나를 놓는다 — 내용은 `lines` 줄 (FR-ELS-45). 그 상자의 크기를 낸다. */
+    hoverBox: (h: any, lines: number) => {
+      const el = document.createElement('div');
+      el.className = 'cm-tooltip cm-tooltip-hover';
+      el.textContent = Array.from({ length: lines }, (_, i) => 'doc line ' + i + ' ' + 'x'.repeat(200)).join('\n');
+      el.style.whiteSpace = 'pre';
+      V(h).dom.appendChild(el);
+      const r = el.getBoundingClientRect();
+      const out = { w: r.width, h: r.height, scrolls: el.scrollHeight > el.clientHeight, vw: innerWidth, vh: innerHeight };
+      el.remove();
+      return out;
+    },
+    /** LSP 가 오류를 보일 때와 같은 대화상자를 띄운다 (`lsp-client` 의 `reportError`, FR-ELS-40). */
+    showLspError: (h: any, msg: string) => {
+      CMg().showDialog(V(h), { label: msg, class: 'cm-lsp-message cm-lsp-message-error', top: true });
+    },
 
     // 진단 — 심각도는 엔진 중립 이름이다 ('error' | 'warning' | 'info' | 'hint').
     diagnostics: (h: any) => cmDiags(V(h)),

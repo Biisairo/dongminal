@@ -113,16 +113,19 @@
   --shadow-1:0 2px 10px rgba(0,0,0,.4);
   --shadow-2:0 8px 32px rgba(0,0,0,.5);
   --shade-edge:rgba(0,0,0,1);
+  /* EDITOR_LINK_LSP_SRS FR-ELS-55: 편집기 스크롤바 · 미니맵 슬라이더 (어두운 테마의 파생값, `deriveScrollSlider`). */
+  --ed-thumb:rgba(121,121,121,0.4);--ed-thumb-hover:rgba(100,100,100,0.7);--ed-thumb-active:rgba(191,191,191,0.4);
+  --ed-slider:rgba(121,121,121,0.3);--ed-slider-hover:rgba(100,100,100,0.45);--ed-slider-active:rgba(191,191,191,0.3);
   --bg:#1a1b26;--sidebar-bg:#16161e;--border:#292e42;
   --accent:#7aa2f7;--text:#a9b1d6;--text-muted:#8b95bf;
-  --text-bright:#c0caf5;--text-dim:#414868;--danger:#f7768e;
+  --text-bright:#c0caf5;--text-dim:#606889;--danger:#f7768e;
   --accent-border:#3d59a1;
   /* DESIGN_TOKENS_SRS FR-TOK-2·2a·4: 글자 토큰은 파생이다 — `applyThemeObj` 가
      테마마다 다시 세운다. 여기 값은 **기본 테마(Tokyo Night)의 파생 결과**이고
      첫 페인트용이다. `--text-muted` 가 팔레트의 `#565f89`(2.76:1) 가 아닌 것이
      그래서다.
 
-     `--text-dim` 은 파생이 아니다 — 글자가 아니라 **경계·채움**용이다
+     `--text-dim` 은 글자가 아니라 **경계·채움**용이다 — 팔레트 dim 을 text 쪽으로 30% 옮긴 파생값이다(FR-ELS-57)
      (FR-TOK-3 / D-TOK-2). 글자로 쓰려면 `--text-hint` 를 쓴다. */
   --text-hint:#7a83a7;
   /* FR-TOK-5: 표 머리·그룹 머리의 표면. `mixHex(bg,text,.06)` 의 기본 테마 값이다.

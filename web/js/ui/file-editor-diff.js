@@ -264,6 +264,9 @@ function edDdExtensions(){
     edRulerSource().of((st)=>marks(st).map(m=>({from:m.from,to:m.from,lane:'left',color:ED_DD_COLOR_VAR[m.type],cls:'fe-dd-'+m.type}))),
     edMinimapSource().of((st)=>marks(st).map(m=>({line:st.doc.lineAt(m.from).number,kind:'gutter',color:ED_DD_COLOR_VAR[m.type],cls:'fe-dd-'+m.type}))),
     CM.EditorView.theme({
+      // 칸 자체의 폭도 고정한다 — 화면에 표식이 없으면 CM 이 칸을 0 으로 접어 스크롤 중에 본문이 9px 씩 좌우로
+      // 흔들리고 줄바꿈 자리도 바뀌었다 (EDITOR_LINK_LSP_SRS FR-ELS-66).
+      '.cm-dd-gutter':{width:'9px'},
       '.cm-dd-gutter .cm-gutterElement':{width:'9px'},
       '.cm-dd-gutter .fe-dd-add, .cm-dd-gutter .fe-dd-mod':{height:'100%'},
     }),

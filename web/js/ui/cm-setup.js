@@ -92,6 +92,7 @@ function edCmLineCol(doc, pos) {
  */
 function edCmExtensions(o) {
   const cmp = { wrap: new CM.Compartment(), font: new CM.Compartment(), ro: new CM.Compartment(), lang: new CM.Compartment(), minimap: new CM.Compartment(), lsp: new CM.Compartment() };
+  const marks = edCmMarks();
   const extensions = [
     CM.lineNumbers(),
     // EDITOR_DIRTY_DIFF_SRS: 변경 막대는 줄 번호 바로 뒤다 (옛 엔진의 linesDecorations 자리).
@@ -106,8 +107,10 @@ function edCmExtensions(o) {
     CM.bracketMatching(),
     CM.closeBrackets(),
     CM.autocompletion({ override: [CM.completeAnyWord] }),
-    CM.rectangularSelection(),
-    CM.crosshairCursor(),
+    // EDITOR_LINK_LSP_SRS FR-ELS-15·16: 수정키+클릭은 링크·정의의 몫이다 — 커서 추가는 Alt+클릭,
+    // 사각 선택은 Shift+Alt+드래그다 (Monaco 의 `multiCursorModifier:'alt'` 와 같다).
+    CM.EditorView.clickAddsSelectionRange.of((e) => e.altKey && !e.shiftKey),
+    CM.rectangularSelection({ eventFilter: (e) => e.altKey && e.shiftKey }),
     CM.highlightActiveLine(),
     CM.highlightSelectionMatches(),
     EdBuffer.HISTORY.of(CM.history()),
@@ -118,7 +121,11 @@ function edCmExtensions(o) {
     }),
     edCmSelectionWhitespace(),
     edFindMarks().field,
+    // EDITOR_LINK_LSP_SRS FR-ELS-32: 같은 낱말·선택은 찾기 일치 아래에, 진단·커서는 그 위에 그린다.
+    o.diff ? [] : marks.low,
     edFindSources(),
+    o.diff ? [] : marks.high,
+    o.diff ? [] : edCmLinks({ lsp: (v, pos) => window.app.lspClickDef(v, pos) }),
     o.diff ? [] : edCmScrollbar(),
     o.diff ? [] : edCmSticky(),
     edCmBracketColors(),
@@ -157,14 +164,26 @@ function edCmMinimap(enabled) {
     for (const src of st.facet(edMinimapSource())) for (const it of src(st)) if (it.kind === kind) out.push(it);
     return out;
   };
-  return CM.showMinimap.of({
-    create: () => ({ dom: document.createElement('div') }),
-    showOverlay: 'mouse-over',
-    thumb: (v) => edScrollThumb(edScrollGeo(v)),
-    fromThumb: (v, top) => edScrollFromThumb(top, edScrollGeo(v)),
-    marks: (st) => collect(st, 'mark'),
-    gutter: (st) => collect(st, 'gutter'),
-  });
+  return [
+    CM.showMinimap.of({
+      create: () => ({ dom: document.createElement('div') }),
+      // FR-ELS-55a: 슬라이더는 늘 보인다 (2026-11-03 사용자 보고 — Monaco 에서는 보였다).
+      showOverlay: 'always',
+      thumb: (v) => edScrollThumb(edScrollGeo(v)),
+      // FR-ELS-62: 자체 배치의 슬라이더도 thumb 와 같은 최소 높이를 지킨다.
+      minSlider: ED_SCROLL_MIN_THUMB,
+      fromThumb: (v, top) => edScrollFromThumb(top, edScrollGeo(v)),
+      marks: (st) => collect(st, 'mark'),
+      gutter: (st) => collect(st, 'gutter'),
+    }),
+    // EDITOR_LINK_LSP_SRS FR-ELS-55: 슬라이더는 Monaco 처럼 thumb 의 절반 투명도인 중립 회색이다 (`deriveScrollSlider`).
+    CM.EditorView.theme({
+      '&.cm-editor .cm-minimap-overlay-container .cm-minimap-overlay': { background: 'var(--ed-slider)', opacity: '1' },
+      '&.cm-editor .cm-minimap-overlay-container .cm-minimap-overlay:hover': { background: 'var(--ed-slider-hover)', opacity: '1' },
+      '&.cm-editor .cm-minimap-overlay-container.cm-minimap-overlay-active .cm-minimap-overlay':
+        { background: 'var(--ed-slider-active)', opacity: '1' },
+    }),
+  ];
 }
 
 // 줄 높이는 정수 px 다 — 옛 엔진과 같이 `round(글자 크기 × 1.5)`. 소수면 문서 높이가 소수가 되어 문서 끝에서
@@ -188,7 +207,35 @@ function edCmTheme() {
     '.cm-selectionMatch': { backgroundColor: 'color-mix(in srgb, var(--accent) 20%, transparent)' },
     '&.cm-focused .cm-matchingBracket': { backgroundColor: 'color-mix(in srgb, var(--accent) 25%, transparent)' },
     '.cm-tooltip': { backgroundColor: 'var(--bg-alt)', color: 'var(--text)', border: '1px solid var(--border)' },
+    // EDITOR_LINK_LSP_SRS FR-ELS-45: 긴 설명이 편집기를 덮지 않는다.
+    '.cm-tooltip.cm-tooltip-hover': { maxWidth: ED_HOVER_MAX_W, maxHeight: ED_HOVER_MAX_H, overflow: 'auto' },
+    // FR-ELS-46: 미리보기 안의 스크롤바는 앱 킷 스크롤바와 같다 (style-kit.css `.ui-scroll`).
+    '.cm-tooltip.cm-tooltip-hover::-webkit-scrollbar': { width: 'var(--ui-scroll-w)', height: 'var(--ui-scroll-w)' },
+    '.cm-tooltip.cm-tooltip-hover::-webkit-scrollbar-track': { background: 'transparent' },
+    '.cm-tooltip.cm-tooltip-hover::-webkit-scrollbar-thumb': { background: 'var(--text-dim)', borderRadius: '4px' },
+    '.cm-tooltip.cm-tooltip-hover::-webkit-scrollbar-thumb:hover': { background: 'var(--text-muted)' },
     '.cm-sel-ws': { color: 'var(--text-hint)' },
+    // EDITOR_LINK_LSP_SRS FR-ELS-40: 대화상자·패널은 앱 버튼·입력 칸과 같은 토큰이다. 기본 테마의
+    // `&light .cm-button` 그라데이션을 이기려고 `&.cm-editor` 로 한 단계 높인다.
+    '&.cm-editor .cm-panels': { backgroundColor: 'var(--bg-alt)', color: 'var(--text)' },
+    '&.cm-editor .cm-panels-top': { borderBottom: '1px solid var(--border)' },
+    '&.cm-editor .cm-panels-bottom': { borderTop: '1px solid var(--border)' },
+    '&.cm-editor .cm-lsp-message-error': { color: 'var(--danger-text)' },
+    '&.cm-editor .cm-panels .cm-button': {
+      backgroundColor: 'transparent', backgroundImage: 'none', color: 'var(--text-muted)',
+      border: '1px solid var(--border)', borderRadius: 'var(--ui-radius)', fontFamily: 'inherit', cursor: 'pointer',
+    },
+    '&.cm-editor .cm-panels .cm-button:hover': { backgroundColor: 'var(--accent-active)', color: 'var(--accent-text)', borderColor: 'var(--accent-border)' },
+    '&.cm-editor .cm-panels .cm-textfield': {
+      backgroundColor: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 'var(--ui-radius)',
+    },
+    '&.cm-editor .cm-panels .cm-textfield:focus': { outline: '1px solid var(--focus-ring)' },
+    '&.cm-editor .cm-dialog-close': { color: 'var(--text-muted)', cursor: 'pointer' },
+    '&.cm-editor .cm-lsp-reference-panel': { fontFamily: ED_FONT_FAMILY },
+    '&.cm-editor .cm-lsp-reference-panel .cm-lsp-reference[aria-selected]': { backgroundColor: 'var(--accent-subtle)' },
+    // FR-ELS-20: 수정키 hover 의 밑줄과 손 모양.
+    '.cm-link-hover': { textDecoration: 'underline', cursor: 'pointer' },
+    '&.cm-link-armed .cm-content': { cursor: 'pointer' },
   });
 }
 

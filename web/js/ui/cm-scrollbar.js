@@ -5,7 +5,8 @@
  * 미니맵의 뷰포트 표시도 `edScrollThumb` 를 쓴다(FR-CMR-61) — 두 표시가 같은 자리에 서는 근거가 이 함수다.
  *
  * ruler 의 출처는 Facet `edRulerSource()` 다. 출처 하나는 `(state) => [{from, to, lane, color}]` 이고,
- * `lane` 은 `'left'`·`'right'`, `color` 는 CSS 변수 이름이다.
+ * `lane` 은 `'left'`·`'right'`·`'full'`(전체 폭, 높이 `ED_RULER_CURSOR_H` — EDITOR_LINK_LSP_SRS FR-ELS-33),
+ * `color` 는 CSS 변수 이름이다.
  */
 
 /**
@@ -78,7 +79,7 @@ function edCmScrollbarPlugin() {
 
     update(u) {
       const src = u.state.facet(edRulerSource()) !== u.startState.facet(edRulerSource());
-      if (u.docChanged || u.geometryChanged || u.heightChanged || u.viewportChanged || src
+      if (u.docChanged || u.selectionSet || u.geometryChanged || u.heightChanged || u.viewportChanged || src
         || u.transactions.some((tr) => tr.effects.length)) {
         this.view.requestMeasure(this.measure);
       }
@@ -95,7 +96,7 @@ function edCmScrollbarPlugin() {
         for (const it of src(v.state)) {
           const y = edRulerY(v.lineBlockAt(it.from).top, contentH, geo.trackHeight);
           const y2 = edRulerY(v.lineBlockAt(it.to).bottom, contentH, geo.trackHeight);
-          items.push({ ...it, y, h: Math.max(ED_RULER_MIN_H, y2 - y) });
+          items.push({ ...it, y, h: it.lane === 'full' ? ED_RULER_CURSOR_H : Math.max(ED_RULER_MIN_H, y2 - y) });
         }
       }
       return { geo, top, items };
@@ -124,7 +125,8 @@ function edCmScrollbarPlugin() {
       const half = ED_SCROLL_W / 2;
       for (const it of items) {
         ctx.fillStyle = css.getPropertyValue(it.color).trim();
-        ctx.fillRect(it.lane === 'left' ? 0 : half, it.y, half, it.h);
+        if (it.lane === 'full') ctx.fillRect(0, it.y, ED_SCROLL_W, it.h);
+        else ctx.fillRect(it.lane === 'left' ? 0 : half, it.y, half, it.h);
       }
     }
 
@@ -183,9 +185,10 @@ function edCmScrollbar() {
       '.cm-vscroll-ruler': { position: 'absolute', left: '0', top: '0', width: '100%', pointerEvents: 'none' },
       '.cm-vscroll-thumb': {
         position: 'absolute', left: '0', width: '100%',
-        background: 'color-mix(in srgb, var(--text-dim) 50%, transparent)',
+        background: ED_SCROLL_THUMB_BG,
       },
-      '.cm-vscroll-thumb:hover, .cm-vscroll-thumb.active': { background: 'color-mix(in srgb, var(--text-muted) 60%, transparent)' },
+      '.cm-vscroll-thumb:hover': { background: ED_SCROLL_THUMB_BG_HOVER },
+      '.cm-vscroll-thumb.active': { background: ED_SCROLL_THUMB_BG_ACTIVE },
     }),
   ];
 }
