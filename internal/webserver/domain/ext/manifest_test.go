@@ -150,3 +150,25 @@ func TestParseManifest_RejectsUnknownSourceKind(t *testing.T) {
 }
 
 const hex64 = "0000000000000000000000000000000000000000000000000000000000000000"
+
+// V-ELS-3 (EDITOR_LINK_LSP_SRS FR-ELS-3): raw 타깃은 bin 이 있어야 하고 격리 칸 안이며 strip 이 없다.
+func TestParseManifest_RawTarget(t *testing.T) {
+	js := func(target string) string {
+		return `{"id":"x","kind":"server","version":"v1","source":{"kind":"archive","targets":{"darwin-arm64":` + target +
+			`}},"servers":[{"id":"a","exe":"a","exts":[".x"],"langs":["x"]}]}`
+	}
+	ok := `{"url":"https://e.x/a","sha256":"` + hex64 + `","raw":true,"bin":"a"}`
+	if _, err := ParseManifest([]byte(js(ok))); err != nil {
+		t.Fatalf("온전한 raw 타깃이 거절됐다: %v", err)
+	}
+	bad := []string{
+		`{"url":"https://e.x/a","sha256":"` + hex64 + `","raw":true}`,
+		`{"url":"https://e.x/a","sha256":"` + hex64 + `","raw":true,"bin":"../a"}`,
+		`{"url":"https://e.x/a","sha256":"` + hex64 + `","raw":true,"bin":"a","strip":1}`,
+	}
+	for i, b := range bad {
+		if _, err := ParseManifest([]byte(js(b))); err == nil {
+			t.Fatalf("[%d] 잘못된 raw 타깃이 통과했다: %s", i, b)
+		}
+	}
+}

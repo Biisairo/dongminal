@@ -3,6 +3,8 @@ package ext
 import (
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -191,5 +193,35 @@ func TestDeploy_DoesNotResurrectDeleted(t *testing.T) {
 	}
 	if _, err := os.Stat(PluginDir(root, gone)); err == nil {
 		t.Fatalf("%s 가 되살아났다 — 재기동마다 지운 것이 돌아온다 (FR-EXT-36)", gone)
+	}
+}
+
+// V-ELS-1 (EDITOR_LINK_LSP_SRS FR-ELS-1·2): markdown 은 marksman 이 맡는다.
+//
+// 이미 전개한 옛 `vscode-langservers` 선언에는 markdown 이 남는다(전개는 한 번뿐). 그래도
+// 팩 id 순서로 marksman 이 먼저 풀린다 — 그 순서를 함께 잰다.
+func TestBuiltins_MarkdownIsMarksman(t *testing.T) {
+	ms, err := Builtins()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range []string{".md", ".markdown"} {
+		m, s, ok := ServerForExt(ms, e)
+		if !ok || m.ID != "marksman" || s.Exe != "marksman" || !slices.Equal(s.Args, []string{"server"}) {
+			t.Fatalf("%s 가 marksman 으로 풀리지 않았다: %s/%s %v", e, m.ID, s.ID, s.Args)
+		}
+	}
+	old := Manifest{ID: "vscode-langservers", Kind: KindServer, Servers: []Server{{ID: "markdown", Exts: []string{".md"}}}}
+	withOld := append(append([]Manifest{}, ms...), old)
+	sort.Slice(withOld, func(i, j int) bool { return withOld[i].ID < withOld[j].ID })
+	if m, _, _ := ServerForExt(withOld, ".md"); m.ID != "marksman" {
+		t.Fatalf("옛 선언이 남은 기계에서 .md 가 %s 로 풀린다", m.ID)
+	}
+	for _, m := range ms {
+		for _, tg := range m.Source.Targets {
+			if m.ID == "marksman" && (!tg.Raw || tg.Bin == "") {
+				t.Fatalf("marksman 타깃이 raw 가 아니다: %+v", tg)
+			}
+		}
 	}
 }

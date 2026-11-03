@@ -74,6 +74,9 @@ type Target struct {
 	Strip int `json:"strip,omitempty"`
 	// Bin 은 푼 자리 기준의 실행 파일 상대경로다 (server 팩).
 	Bin string `json:"bin,omitempty"`
+	// Raw 이면 받은 것이 아카이브가 아니라 실행 파일 하나다 — 풀지 않고 `bin` 자리에
+	// 그대로 놓는다 (EDITOR_LINK_LSP_SRS FR-ELS-3, marksman 배포본).
+	Raw bool `json:"raw,omitempty"`
 	// Provides 는 이름 → 상대경로다 (runtime 팩). **타깃마다 다르다** — npm 은
 	// POSIX 에서 `bin/npm` 이고 Windows 에서 `node_modules/npm/bin/npm-cli.js`
 	// 다 (§2.8). 그 차이가 코드가 아니라 여기 있어야 한다 (FR-EXT-13).
@@ -216,6 +219,9 @@ func (t Target) validate() error {
 	}
 	if t.Strip < 0 {
 		return fmt.Errorf("strip 이 음수입니다: %d", t.Strip)
+	}
+	if t.Raw && (t.Bin == "" || t.Strip != 0) {
+		return fmt.Errorf("raw 타깃에는 bin 이 있어야 하고 strip 이 없어야 합니다")
 	}
 	if t.Bin != "" {
 		if err := safeRel(t.Bin); err != nil {

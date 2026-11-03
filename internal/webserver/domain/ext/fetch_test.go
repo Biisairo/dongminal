@@ -243,3 +243,69 @@ func TestFetchArchive_ReplacesPrevious(t *testing.T) {
 		t.Fatal("옛 판의 파일이 남았다 — 두 판이 섞인다")
 	}
 }
+
+// V-ELS-2 (EDITOR_LINK_LSP_SRS FR-ELS-3): raw 타깃은 풀지 않고 `bin` 자리에 그대로 놓는다.
+func TestFetchArchive_Raw(t *testing.T) {
+	root := t.TempDir()
+	blob := []byte("\x7fELF raw binary")
+	dest := filepath.Join(root, "out")
+	tg := Target{URL: "https://example.test/marksman-macos", SHA256: sum(blob), Bin: "marksman", Raw: true}
+
+	if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest); err != nil {
+		t.Fatalf("조달이 실패했다: %v", err)
+	}
+	exe := filepath.Join(dest, "marksman")
+	if b, err := os.ReadFile(exe); err != nil || !bytes.Equal(b, blob) {
+		t.Fatalf("받은 바이트가 bin 자리에 그대로 놓이지 않았다: %v %q", err, b)
+	}
+	if !isExecutable(exe) {
+		t.Fatalf("놓인 것이 실행 파일이 아니다: %s", exe)
+	}
+	if _, err := os.Stat(dest + ".new"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("옆 자리가 남았다: %v", err)
+	}
+}
+
+// V-ELS-3 (FR-ELS-3): raw 도 해시가 어긋나면 아무것도 놓지 않는다.
+func TestFetchArchive_RawRejectsChecksumMismatch(t *testing.T) {
+	root := t.TempDir()
+	dest := filepath.Join(root, "out")
+	tg := Target{URL: "https://example.test/marksman-macos", SHA256: hex64, Bin: "marksman", Raw: true}
+
+	if err := FetchArchive(context.Background(), blobFetch([]byte("x"), nil), tg, dest); err == nil {
+		t.Fatal("해시가 어긋났는데 통과했다")
+	}
+	for _, p := range []string{dest, dest + ".new"} {
+		if _, err := os.Stat(p); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("%s 가 남았다: %v", p, err)
+		}
+	}
+}
+
+// FR-ELS-3: server 팩은 선언(plugin.json)과 같은 자리에 받는다. 갈아 끼워도 선언은 남는다 —
+// 지워지면 그 팩이 목록에서 빠지고 같은 확장자의 다른 팩이 대신 풀린다.
+func TestFetchArchive_KeepsManifest(t *testing.T) {
+	for _, raw := range []bool{true, false} {
+		root := t.TempDir()
+		dest := filepath.Join(root, "pack")
+		if err := os.MkdirAll(dest, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		manifest := []byte(`{"id":"pack"}`)
+		if err := os.WriteFile(filepath.Join(dest, ManifestName), manifest, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		blob := []byte("bin")
+		tg := Target{URL: "https://example.test/a", SHA256: sum(blob), Bin: "a", Raw: true}
+		if !raw {
+			blob = makeTarGz(t, []tarEntry{{name: "a", body: "bin", mode: 0o755}})
+			tg = Target{URL: "https://example.test/a.tar.gz", SHA256: sum(blob), Bin: "a"}
+		}
+		if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest); err != nil {
+			t.Fatalf("raw=%v: 조달이 실패했다: %v", raw, err)
+		}
+		if b, err := os.ReadFile(filepath.Join(dest, ManifestName)); err != nil || !bytes.Equal(b, manifest) {
+			t.Fatalf("raw=%v: 선언이 남지 않았다: %v %q", raw, err, b)
+		}
+	}
+}

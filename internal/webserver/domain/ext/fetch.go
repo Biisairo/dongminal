@@ -115,7 +115,13 @@ func FetchArchive(ctx context.Context, fetch Fetch, t Target, dest string) error
 	if err := os.MkdirAll(staging, 0o755); err != nil {
 		return fmt.Errorf("풀 자리를 만들지 못했습니다: %w", err)
 	}
-	if err := extract(tmpName, staging, t.Strip); err != nil {
+	if err := place(tmpName, staging, t); err != nil {
+		_ = os.RemoveAll(staging)
+		return err
+	}
+	// server 팩은 선언과 같은 자리에 받는다 — 갈아 끼울 때 선언을 옮겨 담는다. 지우면 그 팩이
+	// 목록에서 빠지고 같은 확장자의 다른 팩이 대신 풀린다 (EDITOR_LINK_LSP_SRS FR-ELS-3).
+	if err := keepManifest(dest, staging); err != nil {
 		_ = os.RemoveAll(staging)
 		return err
 	}
@@ -129,6 +135,35 @@ func FetchArchive(ctx context.Context, fetch Fetch, t Target, dest string) error
 		return fmt.Errorf("풀어 둔 것을 옮기지 못했습니다: %w", err)
 	}
 	return nil
+}
+
+// keepManifest 는 `dest` 의 선언을 `staging` 으로 옮겨 담는다. 선언이 없으면 아무것도 하지 않는다.
+func keepManifest(dest, staging string) error {
+	f, err := os.Open(filepath.Join(dest, ManifestName))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("선언을 읽지 못했습니다: %w", err)
+	}
+	defer f.Close()
+	if err := writeFile(filepath.Join(staging, ManifestName), f, 0o644); err != nil {
+		return fmt.Errorf("선언을 옮기지 못했습니다: %w", err)
+	}
+	return nil
+}
+
+// place 는 받은 것을 `dir` 에 놓는다. raw 이면 `bin` 자리에 그대로, 아니면 푼다.
+func place(blob, dir string, t Target) error {
+	if !t.Raw {
+		return extract(blob, dir, t.Strip)
+	}
+	f, err := os.Open(blob)
+	if err != nil {
+		return fmt.Errorf("받은 것을 열지 못했습니다: %w", err)
+	}
+	defer f.Close()
+	return writeFile(filepath.Join(dir, filepath.FromSlash(t.Bin)), f, 0o755)
 }
 
 // extract 는 확장자로 갈라 푼다.

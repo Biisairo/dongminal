@@ -185,14 +185,15 @@ need to provide your own."* Electron 에 node 가 있으므로 JS 로 짠 서버
 
 | 팩 | 판 | 서버 (`exe`) | 런타임 |
 |---|---|---|---|
-| `vscode-langservers-extracted` | 4.10.0 | `vscode-html-language-server` · `vscode-css-language-server` · `vscode-json-language-server` · `vscode-markdown-language-server` · `vscode-eslint-language-server` | node |
+| `vscode-langservers-extracted` | 4.10.0 | `vscode-html-language-server` · `vscode-css-language-server` · `vscode-json-language-server` · `vscode-eslint-language-server` | node |
+| `marksman` | 2026-02-08 | `marksman` (`server`) — markdown. 압축하지 않은 실행 파일(`raw` 타깃). `EDITOR_LINK_LSP_SRS` 가 `vscode-markdown-language-server` 를 바꿨다 | **없음** |
 | `typescript-language-server` | — | `typescript-language-server` (+`typescript`) | node |
 | `pyright` | — | `pyright-langserver` | node |
 | `yaml-language-server` | 1.24.0 | `yaml-language-server` | node |
 | `svg-language-server` | 0.2.0 | `svg-ls` · `svg-language-server` (별칭) | node |
 | `gopls` | — | `gopls` | **없음** (Go 바이너리) |
 
-전부 `--stdio` 로 띄운다.
+`marksman` 을 뺀 나머지는 `--stdio` 로 띄운다.
 
 **둘이 여기서 따라 나온다.**
 
