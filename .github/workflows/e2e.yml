@@ -54,7 +54,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # ubuntu 는 판을 고정한다 — `ubuntu-latest` 가 26.04 로 옮겨 가자 Playwright 가 그 판의 chromium 을
+        # 내지 않아 브라우저 설치에서 8샤드가 모두 멈췄다 (2026-11-03, CODEMIRROR_MIGRATION_SRS §7.3).
+        os: [ubuntu-24.04, windows-latest]
         shard: [1, 2, 3, 4, 5, 6, 7, 8]
     runs-on: ${{ matrix.os }}
     # 로컬(macOS) 실측이 전체 25분이므로 샤드 하나는 그 1/8 이지만, 러너는 그보다

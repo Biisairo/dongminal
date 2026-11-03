@@ -678,7 +678,13 @@ M9 측정(단계 A 완료): 46개 파일(`monaco-offline` → `editor-offline`, 
 | NFR-CMR-5 LSP 연결 | 서버 몫 50ms 이하 | 처리기 중앙값 0.6~2.1ms · 통로 중앙값 0.17ms | Go `TestLSPWS_NFR5_HandlerShare`(httpapi) · `TestTunnel_NFR5`(domain/lsp) — 가짜 프로세스가 바로 답한다, 각 25ms 상한 |
 | NFR-CMR-6 접근성 | axe 통과 | 통과 | `a11y-axe` (예외 E-2 = 편집기 위젯) |
 
-e2e 46개 파일 545건 실패 0 (§7.2). 게이트: `npm run unit` 672 · typecheck · eslint · `verify.yml` 의 `check-*` 전부(FR-CMR-132 의
+e2e 46개 파일 545건 실패 0 (§7.2). NFR-CMR-3 은 로컬에서만 상한을 판정하고 CI 에서는 값만 남긴다 — CI windows 러너에서
+같은 구간이 696~851ms 였다 (2026-11-03).
+
+CI (2026-11-03, 브랜치 수동 실행): verify 는 `govulncheck` 만 실패 — Go 1.25.13 표준 라이브러리의 새 취약점(1.26.9 에서
+고침)이고 `main` 도 같다. 단계 A 와 무관하므로 따로 다룬다. e2e ubuntu 는 `ubuntu-latest`(26.04)에 Playwright 가 없어
+브라우저 설치에서 멈췄다 — `ubuntu-24.04` 로 고정했다. e2e windows 의 `file-path-link` TC-FPL-5 는 10-28 에 들어와
+`main` 의 마지막 CI(10-23) 뒤라 windows 에서 처음 돈 터미널(ConPTY) 검사다 — M9 변경과 무관하며 따로 다룬다. 게이트: `npm run unit` 672 · typecheck · eslint · `verify.yml` 의 `check-*` 전부(FR-CMR-132 의
 `check-old-editor-name.sh` 포함) · `go vet ./...` · `go test ./...`. `main` 합치기는 사용자 확인 뒤에 한다 (§7.1).
 
 ## 8. 미해결 질문 (B 착수 전 해소)
