@@ -74,11 +74,12 @@ const ED_PANEL_HINT={
 
 // ── 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS 묶음 B·C·D) ──
 //
-// Monaco 의 find 위젯을 **쓰지 않는다** (FR-EFP-25 가 FR-EKB-3 을 개정했다). 위젯은
-// 우리보다 먼저 열리고서 포커스를 우리에게 빼앗겨, 뜬 채로 글자를 못 받고 그 글자가
-// 문서에 삽입됐다 — 검색하려고 누른 키가 파일을 편집했다 (그 SRS §2.4).
+// 엔진의 기본 찾기 위젯을 **쓰지 않는다** (FR-EFP-25 가 FR-EKB-3 을 개정했다). 옛 엔진의
+// 위젯은 우리보다 먼저 열리고서 포커스를 우리에게 빼앗겨, 뜬 채로 글자를 못 받고 그 글자가
+// 문서에 삽입됐다 — 검색하려고 누른 키가 파일을 편집했다 (그 SRS §2.4). CodeMirror 에는
+// `@codemirror/search` 의 패널·keymap 을 넣지 않는다 (CODEMIRROR_MIGRATION_SRS §11.7).
 //
-// **검색기는 여전히 Monaco 모델의 것이다** (D-2). 만드는 것은 껍데기뿐이다.
+// 일치 계산은 `cm-find.js` 의 `edFindHits` 다.
 
 // 토글 셋의 라벨. 글자로 두는 이유는 셋이 나란히 서기 때문이다 — 하나만 그림이면
 // 선 굵기가 달라 그 하나가 도리어 눈에 띈다 (EDITOR_TREE_REFRESH 의 근거와 같다).
@@ -97,7 +98,7 @@ const ED_FIND_REPLACE_PLACEHOLDER=t('editor.find_replace_placeholder');
 const ED_FIND_REPLACE_ONE=t('editor.find_replace_one');
 const ED_FIND_REPLACE_ALL=t('editor.find_replace_all');
 const ED_FIND_REPLACE_TOGGLE_TITLE=t('editor.find_replace_toggle_title');
-// `executeEdits` 의 출처 이름. Monaco 가 undo 묶음과 이벤트에 그대로 싣는다.
+// 바꾸기 편집의 출처 이름. 트랜잭션의 `userEvent` 로 싣는다 (`cm-find.js`).
 const ED_FIND_EDIT_SOURCE='fe-find-replace';
 // FR-EFP-16: 질의가 비면 수를 말하지 않는다 — 아직 묻지 않은 것이다. 0건과
 // 빈 질의를 같은 화면으로 두면 사용자가 "없다" 로 읽는다.
@@ -107,94 +108,48 @@ const ED_FIND_BAD_RE=t('editor.find_bad_re');
 // FR-EFP-23 / D-4: 옵션은 기기별이다. 설정 블롭의 값들은 "이 서버가 무엇인가" 를
 // 말하는데, 검색 옵션은 그런 값이 아니라 지금 이 손의 버릇이다.
 const ED_FIND_OPTS_KEY='edFindOpts';
-// 하이라이트의 CSS 이름. Monaco decoration 의 className 으로 그대로 간다.
+// 하이라이트의 CSS 이름. CodeMirror 장식(`Decoration.mark`)의 class 로 그대로 간다.
 const ED_FIND_HIT_CLASS='fe-find-hit';
 const ED_FIND_HIT_CUR_CLASS='fe-find-hit-cur';
-// FR-EFP-20: 단어 단위의 경계. Monaco 의 기본 구분자와 같은 값이며, 켜지 않았을
+// FR-EFP-20: 단어 단위의 경계. 옛 엔진의 기본 구분자와 같은 값이며, 켜지 않았을
 // 때는 `null` 을 넘겨 경계를 보지 않게 한다.
 const ED_FIND_WORD_SEPARATORS='`~!@#$%^&*()-=+[{]}\\|;:\'",.<>/?';
-/**
- * M9_SRS FR-M9-9: 찾기 일치가 **개요 눈금과 미니맵**에 찍힐 때 쓰는 테마 색 키.
- *
- * 값이 색이 아니라 **키**인 이유는 `monacoTheme()` 이 색의 주인이기 때문이다 —
- * 테마를 바꾸면 이 표식도 함께 바뀐다.
- */
-const ED_FIND_RULER_COLOR='editorOverviewRuler.findMatchForeground';
-const ED_FIND_RULER_COLOR_CUR='editorOverviewRuler.rangeHighlightForeground';
-const ED_FIND_MINIMAP_COLOR='minimap.findMatchHighlight';
-const ED_FIND_MINIMAP_COLOR_CUR='minimap.selectionHighlight';
-// 한 문서에서 셀 일치의 상한. 넘으면 Monaco 가 거기서 끊는다 — 수십만 건을 세는
+// 한 문서에서 셀 일치의 상한. 넘으면 거기서 끊는다 — 수십만 건을 세는
 // 동안 화면이 멎는 것보다 낫다.
 const ED_FIND_MAX_HITS=20000;
 
-/**
- * EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-5: **미니맵 옵션은 한 자리에서 만든다.**
- *
- * 생성(`monaco.editor.create`)과 갱신(`updateOptions`)이 같은 덩이를 딛는다.
- * 두 자리에 적으면 한쪽만 고쳐지는 날이 오고, 특히 `updateOptions` 에 `enabled`
- * 하나만 넘기면 `size`·`scale`·`showSlider` 가 함께 흔들릴 수 있다.
- *
- * `size:'fill'` 의 근거는 UX_BATCH8_SRS FR-MMP-2 다 — 미리보기가 스크롤바와 같은
- * 좌표계에 서야 한다. 이 함수는 그 값을 **옮겨 적을 뿐** 다시 정하지 않는다.
- */
-function edMinimapOpts(enabled){
-  return {enabled:!!enabled,size:'fill',scale:1,showSlider:'mouseover'};
-}
+// CODEMIRROR_MIGRATION_SRS FR-CMR-74: 직접 그리는 세로 스크롤바. 폭·thumb 최소 높이는 옛 엔진의 기본값이다
+// (`verticalScrollbarSize` 14 · 슬라이더 최소 20).
+const ED_SCROLL_W=14;
+const ED_SCROLL_MIN_THUMB=20;
+// FR-CMR-70·72: overview ruler 표식의 최소 높이(px). 한 줄짜리 일치도 눈에 띄어야 한다.
+const ED_RULER_MIN_H=2;
+// 편집기 줄 높이의 배율. 줄 높이는 `round(글자 크기 × 이 값)` 의 정수 px 다 (옛 엔진과 같다).
+const ED_LINE_HEIGHT_RATIO=1.5;
+// FR-CMR-80: sticky scroll 에 고정하는 최대 줄 수 (옛 엔진의 `stickyScroll.maxLineCount` 기본값).
+const ED_STICKY_MAX=5;
+// FR-CMR-72: 찾기 일치의 ruler·미니맵 색. 옛 엔진 테마의 매핑(`editorOverviewRuler.findMatchForeground` 등)을 옮겼다.
+const ED_FIND_MARK_COLOR='--accent';
+const ED_FIND_MARK_COLOR_CUR='--text-bright';
 
 /**
  * FONT_SIZE_SETTING_SRS FR-FSS-9·10 — 편집기의 글자 크기.
  *
- * **기준 13 은 여기 한 자리에 있다.** 생성과 갱신이 같은 함수를 딛는 근거는
- * `edMinimapOpts` 와 같다 — 두 자리에 적으면 한쪽만 고쳐진다.
+ * **기준 13 은 여기 한 자리에 있다.** 생성과 갱신이 같은 함수를 딛는다 — 두 자리에
+ * 적으면 한쪽만 고쳐진다.
  *
  * 13 이 `--fs-*` 다섯에 없는 여섯 번째 크기인 것은 `FR-TOK-18` 의 수렴 대상이
- * 아니다: 이것은 CSS 가 아니라 Monaco 옵션이고, 게이트(`check-font-size`)가
- * 재는 자리 밖이다. 반올림하는 것은 Monaco 가 소수 크기에서 줄 높이를 튀게
- * 잡기 때문이다.
+ * 아니다: 이것은 CSS 토큰이 아니라 편집기 테마의 값이고(`cm-setup.js`), 게이트
+ * (`check-font-size`)가 재는 자리 밖이다. 반올림하는 것은 줄 높이를 정수 px 로
+ * 두기 위해서다 (`ED_LINE_HEIGHT_RATIO`).
  */
 const EDITOR_FONT_SIZE_BASE=13;
 function edFontSize(){
   return Math.round(EDITOR_FONT_SIZE_BASE*uiFontSizeNow()/UI_FONT_BASE_PX);
 }
 
-// 글꼴 차례. Monaco 옵션이므로 CSS 토큰이 아니다 — `edFontSize` 와 같은 범주다.
-const ED_FONT_FAMILY="'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace";
-
-/**
- * UX_BATCH10_SRS FR-UXB-41 / D-UXB-9: **본문을 그리는 규약은 한 덩이다.**
- *
- * 편집기 탭과 Git 의 Diff 탭이 같은 함수를 딛는다. 종전에는 두 표였고
- * (`monaco.editor.create` 의 인자 · `GIT_DIFF_OPTIONS`), 그래서 설정이 늘 때마다
- * 한쪽만 고쳐졌다 — `editorWordWrap` 은 **한 번도** diff 에 닿은 적이 없다
- * (접수 4번). 이 저장소가 `saveSettings`·`_settingsApply`·이식 표에서 이미 겪은
- * 형태이며, 그 답이 `settings-schema.js` 였듯 여기서는 이 함수다.
- *
- * 값이 아니라 **함수**인 것은 설정을 읽기 때문이다. 생성과 갱신
- * (`updateOptions`)이 같은 덩이를 받는 근거는 `edMinimapOpts` 와 같다.
- *
- * 미니맵은 여기 없다 — 편집기와 diff 의 답이 다르다 (FR-UXB-42, D-UXB-8).
- */
-function edTextOptions(){
-  return {
-    // WORKBENCH_REVIEW_SRS FR-WBR-10: 설정이 정한다. 기본은 끔이다.
-    wordWrap: editorWordWrap ? 'on' : 'off',
-    // FR-FSS-9: 기준 13 에 UI 배율이 걸린다.
-    fontSize: edFontSize(),
-    fontFamily: ED_FONT_FAMILY,
-    lineHeight: 1.5,
-    tabSize: 4,
-    insertSpaces: true,
-    lineNumbers: 'on',
-    scrollBeyondLastLine: false,
-    renderWhitespace: 'selection',
-    bracketPairColorization: {enabled: true},
-    guides: {bracketPairs: true, indentation: true},
-    smoothScrolling: true,
-    cursorBlinking: 'blink',
-    // NOTES_LIVE_EXPLORER_SRS FR-CUR-1: 캐럿은 **애니메이션 없이** 옮겨간다.
-    cursorSmoothCaretAnimation: 'off',
-  };
-}
+// 글꼴 차례. 편집기 테마의 값이므로 CSS 토큰이 아니다 — `edFontSize` 와 같은 범주다.
+const ED_FONT_FAMILY="'Menlo','Consolas','Liberation Mono','Courier New',monospace";
 
 // ── 코드 탐색: 언어 서버의 관측 (EDITOR_LSP_SRS 묶음 A · M1) ──
 //
@@ -204,8 +159,17 @@ const LSP_STATUS_API='/api/lsp/status';
 const LSP_INSTALL_API='/api/lsp/install';
 // REPO_FIX 02 §3A-3: 서버가 보관하는 실행 파일 경로 표 (GET 조회 · PUT 전체 교체).
 const LSP_PATHS_API='/api/lsp/paths';
-// REPO_FIX 02 §3A-6: 문서의 마지막 뷰가 떠날 때 언어 서버에서 닫는다.
-const LSP_CLOSE_API='/api/lsp/close';
+// CODEMIRROR_MIGRATION_SRS FR-CMR-91·102: 언어 서버 통로와 그 close code (Go `handlers_lsp_ws.go` 와 같은 값).
+const LSP_WS_API='/api/lsp/ws';
+const LSP_WS_CLOSE_LIMIT=4001;
+const LSP_WS_CLOSE_START=4002;
+const LSP_WS_CLOSE_ENDED=4003;
+// FR-CMR-102: 상한에 걸려 거절된 통로의 사람 말 (알림 줄·상태 패널).
+const LSP_WS_LIMIT_NOTE=t('editor.lsp_ws_limit');
+// 요청 timeout — 콜드 gopls 의 첫 요청은 라이브러리 기본값(3000ms)을 넘는다 (§11.6 L1).
+const ED_LSP_TIMEOUT_MS=15000;
+// 상한·기동 실패로 닫힌 뒤 다시 열지 않는 시간. 입력마다 오는 동기화가 연결을 거듭 열지 않게 한다.
+const ED_LSP_RETRY_MS=5000;
 
 // ── 인코딩 (REPO_FIX 03 §3A-2) ──
 // 라벨은 서버의 인코딩 id 를 사람의 표기로 옮긴다. 다시 열기는 넷이다(사용자 결정).
@@ -264,50 +228,14 @@ const LSP_INSTALL_OK=t('editor.lsp_install_ok');
 const LSP_PANEL_HINT=t('editor.lsp_panel_hint');
 
 // ── 코드 탐색: 정의·참조 이동 (EDITOR_LSP_SRS 묶음 C·F · M2) ──
-const LSP_DEF_API='/api/lsp/definition';
-const LSP_REFS_API='/api/lsp/references';
-// FR-LSP-27: 뒤로 갈 자리를 담는 깊이. 무한히 쌓으면 그 자체가 새는 자리가 된다.
-const LSP_BACK_MAX=64;
-// FR-LSP-28 / D-9: **침묵은 고장과 구별되지 않는다.** 아래 넷이 "아무 일도
-// 일어나지 않음" 을 서로 다른 문장으로 갈라 놓는 자리다.
-const LSP_NO_DEF=t('editor.lsp_no_def');
-const LSP_NO_REFS=t('editor.lsp_no_refs');
+// FR-LSP-28: 언어 서버에 닿지 못했다. 결과가 빈 것은 알리지 않는다 (CODEMIRROR_MIGRATION_SRS §3.16).
 const LSP_ASK_FAIL=t('editor.lsp_ask_fail');
-const LSP_NO_BACK=t('editor.lsp_no_back');
-// 참조 목록은 전체 검색과 **같은 껍데기**를 쓴다 (§2.11) — 사용자가 이미 아는
-// 조작(↑↓·Enter)이 그대로다.
-const LSP_REFS_PLACEHOLDER=t('editor.lsp_refs_placeholder');
-const LSP_REFS_HINT=t('editor.lsp_refs_hint');
-const LSP_DEFS_PLACEHOLDER=t('editor.lsp_defs_placeholder');
-const LSP_DEFS_HINT=t('editor.lsp_defs_hint');
-// 요청이 오래 걸리면 진행 중임이 보인다 (FR-LSP-43).
-const LSP_ASKING=t('editor.lsp_asking');
 // 알림 줄이 스스로 사라지기까지. 닫는 조작을 배워야 하는 알림은 알림이 아니라 창이다.
 const FE_NOTE_MS=4000;
 // REPO_FIX 03 §3A-2: 버튼이 있는 알림(UTF-8 로 변환해 저장)은 눌러야 하므로 더 오래 남는다.
 const FE_NOTE_ACTION_MS=15000;
 
-// ── 코드 탐색: 호버 (묶음 D · M3) ──
-const LSP_HOVER_API='/api/lsp/hover';
-// FR-LSP-39: provider 는 **언어마다 한 번** 등록된다. 편집기를 여럿 세워도
-// 등록이 늘지 않아야 한다 — 늘면 같은 호버가 여러 번 뜬다.
-//
-// **언어 목록이 여기 없다** (FR-EXT-1). 종전에는 이 표와 서술자 표가 두 자리에
-// 적혀 있어, 언어를 더할 때 한쪽만 고치면 그 언어에서 호버가 붙지 않았다. 이제
-// 상태 응답의 `langs` 가 그 목록이며 등록은 그것을 따라간다.
-
 // ── 코드 탐색: 진단 (묶음 E · M4) ──
-//
-// 진단은 **요청 없이** 온다 (FR-LSP-32) — 이미 있는 SSE 길로 밀려 오며 그 action
-// 이름이 이것이다.
-const LSP_DIAG_ACTION='lsp_diagnostics';
-// FR-LSP-34: owner 는 우리 것 **하나**다. 그래야 갱신이 앞선 것을 덮고 밑줄이
-// 겹쳐 남지 않는다.
-const LSP_DIAG_OWNER='dongminal-lsp';
-// LSP 의 severity(1=에러 2=경고 3=정보 4=힌트)를 Monaco 의 MarkerSeverity 로
-// 옮기는 자리는 여기 하나다. Monaco 는 8=Error 4=Warning 2=Info 1=Hint 다 —
-// 숫자가 겹치므로(둘 다 1·4를 쓴다) 표 없이 넘기면 조용히 뒤바뀐다.
-const LSP_DIAG_SEVERITY={1:8,2:4,3:2,4:1};
 // FR-LSP-36: 진단을 켜고 끈다. 큰 저장소에서 저장하지 않은 파일마다 경고가 서는
 // 것을 원하지 않는 사용자가 있다. **기기별**이다 — 화면의 시끄러움에 대한 취향이다.
 const LSP_DIAG_KEY='lspDiagnostics';

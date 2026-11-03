@@ -15,7 +15,7 @@ import (
 // M9_SRS FR-M9-20·21 — **그림으로 볼 수 있는 diff 는 그림으로 보인다.**
 //
 // 여기 있는 것은 둘이다: 그 판정(`ImageMimeOf`)과 한쪽의 원본 바이트
-// (`SideBytes`). `DiffContentOf` 는 그대로 둔다 — 그쪽은 Monaco 에 줄 **줄 두
+// (`SideBytes`). `DiffContentOf` 는 그대로 둔다 — 그쪽은 Diff 편집기에 줄 **줄 두
 // 벌**을 만드는 자리이고 이쪽은 `<img src>` 가 걸 바이트를 내는 자리다.
 //
 // **넘겨받는 `*core.Service` 는 그림 전용이다** (D-M9-16). 공용 서비스의 출력

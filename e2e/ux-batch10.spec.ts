@@ -8,6 +8,7 @@ import {
   test, expect, waitForInit, enterExplorer, rmTree, clickRow,
   makeCopyFx, openGit, gitFixture, cleanGitFixture,
 } from './fixtures';
+import { ED_SEL } from './editor';
 import { TMP, realPath, tmpPath, cssPath } from './osenv';
 
 /**
@@ -258,7 +259,7 @@ async function openDiff(page: Page, path: string) {
   await expect(row).toBeVisible({ timeout: 15000 });
   await clickRow(page, row, async () => {
     await page.waitForFunction(
-      () => !!(window as any).app?.gitPanel?._diffView?._editor, undefined, { timeout: 8000 });
+      () => edT.diffReady((window as any).app?.gitPanel?._diffView), undefined, { timeout: 8000 });
   });
 }
 
@@ -283,8 +284,7 @@ async function setSwitch(page: Page, id: string, on: boolean) {
 }
 
 const modOpt = (page: Page, key: string) => page.evaluate((k) => {
-  const ed = (window as any).app.gitPanel._diffView._editor.getModifiedEditor();
-  return ed.getOption((window as any).monaco.editor.EditorOption[k]);
+  return edT.option(edT.diffSide((window as any).app.gitPanel._diffView, 'mod'), k);
 }, key);
 
 test.describe('diff 는 편집기와 같은 것을 한다', () => {
@@ -307,8 +307,8 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
     await expect.poll(() => modOpt(page, 'wordWrap')).toBe('off');
   });
 
-  // V-UXB-12 · FR-UXB-42
-  test('미니맵은 기본이 끔이고, 켜면 수정 쪽 하나만 뜬다', async ({ page }) => {
+  // V-UXB-12 · FR-UXB-42 — CODEMIRROR_MIGRATION_SRS FR-CMR-56 개정 (§3.16): Diff 에는 미니맵이 없고, 켜는 설정도 없다.
+  test('diff 에는 미니맵이 없고 켜는 스위치도 없다', async ({ page }) => {
     const repo = copyFx('basic', 'mini');
     writeFileSync(join(repo, 'm.txt'), 'a\n'); git(repo, 'add', 'm.txt'); git(repo, 'commit', '-m', 'm');
     writeFileSync(join(repo, 'm.txt'), 'b\n');
@@ -317,81 +317,66 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
     await openGit(page, repo);
     await openDiff(page, 'm.txt');
 
-    const widths = () => page.evaluate(() => {
-      const d = (window as any).app.gitPanel._diffView._editor;
-      const w = (ed: any) => ed.getLayoutInfo().minimap.minimapWidth;
-      return { orig: w(d.getOriginalEditor()), mod: w(d.getModifiedEditor()) };
-    });
-    expect(await widths()).toEqual({ orig: 0, mod: 0 });
-
-    await setSwitch(page, 'ds-diffminimap', true);
-    await expect.poll(async () => (await widths()).mod).toBeGreaterThan(0);
-    expect((await widths()).orig, '원본 쪽에도 미니맵이 떴다').toBe(0);
-
-    await setSwitch(page, 'ds-diffminimap', false);
-    await expect.poll(async () => (await widths()).mod).toBe(0);
+    const width = await page.evaluate(() => edT.minimapWidth(edT.diffSide((window as any).app.gitPanel._diffView, 'mod')));
+    expect(width).toBe(0);
+    await openPanel(page, 'code');
+    await expect(page.locator('#ds-diffminimap')).toHaveCount(0);
+    await closePanel(page);
   });
 
   /**
    * V-UXB-14 · FR-UXB-47·48 — **언어 기능도 같은 곳을 딛는다.**
    *
-   * 서버의 있고 없음에 기대지 않는다 (`editor-lsp-nav.spec.ts` 가 세운 규약) —
-   * 재려는 것은 우리 경로이지 이 기계에 gopls 가 깔렸는가가 아니다.
+   * 실제 gopls 로 잰다 (CODEMIRROR_MIGRATION_SRS §4.3). 작업 트리에만 있는 심볼(`helper2`)의 타입이
+   * 보이면, 수정본 쪽이 디스크의 그 파일로 언어 서버에 열렸다는 뜻이다.
    */
-  test('편집 가능 축의 diff 에서 호버가 그 파일의 좌표로 나간다', async ({ page }) => {
+  test('편집 가능 축의 diff 에서 호버가 그 파일의 내용으로 답한다', async ({ page }) => {
     const repo = copyFx('basic', 'lsp');
-    writeFileSync(join(repo, 'main.go'), 'package main\n\nfunc main() {\n\thelper()\n}\n');
-    git(repo, 'add', 'main.go'); git(repo, 'commit', '-m', 'go');
-    writeFileSync(join(repo, 'main.go'), 'package main\n\nfunc main() {\n\thelper2()\n}\n');
+    writeFileSync(join(repo, 'go.mod'), 'module example.com/uxb\n\ngo 1.21\n');
+    writeFileSync(join(repo, 'main.go'), 'package main\n\nfunc main() {\n}\n');
+    git(repo, 'add', 'go.mod', 'main.go'); git(repo, 'commit', '-m', 'go');
+    writeFileSync(join(repo, 'main.go'),
+      'package main\n\nfunc helper2() int { return 2 }\n\nfunc main() {\n\thelper2()\n}\n');
 
-    await waitForInit(page);
-    await page.route('**/api/lsp/status', (r: any) => r.fulfill({
-      status: 200, contentType: 'application/json',
-      body: JSON.stringify({ servers: [{ id: 'gopls', langs: ['go'], exts: ['.go'], found: false }] }),
-    }));
-    const seen: any[] = [];
-    await page.route('**/api/lsp/hover', async (route: any) => {
-      seen.push(JSON.parse(route.request().postData() || '{}'));
-      await route.fulfill({
-        status: 200, contentType: 'application/json',
-        body: JSON.stringify({ markdown: 'func helper2()' }),
+    // 통로를 실제 서버에 잇고, gopls 가 그 파일을 다 읽은 신호(첫 진단 알림)를 본다.
+    let ready = false;
+    await page.routeWebSocket(/\/api\/lsp\/ws/, (ws) => {
+      const server = ws.connectToServer();
+      ws.onMessage((m) => server.send(m));
+      server.onMessage((m) => {
+        const o = JSON.parse(String(m));
+        if (o.method === 'textDocument/publishDiagnostics' && decodeURIComponent(String(o.params.uri)).endsWith('main.go')) ready = true;
+        ws.send(m);
       });
     });
 
+    await waitForInit(page);
     await openGit(page, repo);
     await openDiff(page, 'main.go');
-
-    // provider 등록은 `/api/lsp/status` 의 답 뒤다 — 걸리기 전에 물으면 Monaco 는
-    // 아무에게도 묻지 않는다 (LSP 스펙이 같은 함정을 적어 두었다).
-    await expect.poll(
-      () => page.evaluate(() => [...((window as any).app.testing.lspHoverLangs || [])]),
-      { timeout: 15000 }).toContain('go');
+    await expect.poll(() => ready, { timeout: 60000, message: '수정본 쪽이 언어 서버에 열리지 않았다' }).toBe(true);
 
     await page.evaluate(() => {
       const d = (window as any).app.gitPanel._diffView;
-      const ed = d._editor.getModifiedEditor();
-      ed.focus();
-      ed.setPosition({ lineNumber: 4, column: 3 });
-      ed.trigger('test', 'editor.action.showHover', null);
+      const ed = edT.diffSide(d, 'mod');
+      edT.focus(ed);
+      edT.setCursor(ed, 6, 3);
+      edT.showHover(ed);
     });
-
-    await expect.poll(() => seen.length, { timeout: 10000 }).toBeGreaterThan(0);
-    // FR-UXB-47: **그 파일의 좌표**로 물었다 — 모델이 어느 파일인지 답했다는 뜻이다.
-    expect(String(seen[0].path).endsWith('main.go'), JSON.stringify(seen[0])).toBe(true);
-    expect(seen[0].text).toContain('helper2()');
+    await expect(diffView(page).locator(`${ED_SEL.surface} ${ED_SEL.hover}`).first())
+      .toContainText('func helper2() int', { timeout: 15000 });
 
     // FR-UXB-48: 왼쪽은 **디스크의 파일이 아니다** — 과거의 내용이고, 그 좌표로
     // 받은 답은 없는 답보다 나쁘다. 그래서 경로를 답하지 않는다.
     const sides = await page.evaluate(() => {
       const d = (window as any).app.gitPanel._diffView;
-      return { mod: d.lspPathOf(d._mod), orig: d.lspPathOf(d._orig) };
+      return edT.diffLspPaths(d);
     });
     expect(sides.mod).toBeTruthy();
     expect(sides.orig, '원본 쪽이 디스크의 경로를 답했다').toBe('');
   });
 
   // V-UXB-13 · FR-UXB-44·45·46
-  test('Mod+F 가 Monaco 위젯이 아니라 편집기와 같은 패널을 연다', async ({ page }) => {
+  test('Mod+F 가 엔진 기본 패널이 아니라 편집기와 같은 패널을 연다', async ({ page }) => {
     const repo = copyFx('basic', 'find');
     writeFileSync(join(repo, 'f.txt'), 'alpha needle one\nbeta two\n');
     git(repo, 'add', 'f.txt'); git(repo, 'commit', '-m', 'f');
@@ -401,16 +386,67 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
     await openGit(page, repo);
     await openDiff(page, 'f.txt');
 
-    await diffView(page).locator('.monaco-editor .view-lines').last().click();
+    await diffView(page).locator(`${ED_SEL.surface} ${ED_SEL.text}`).last().click();
     await page.keyboard.press('Control+f');
 
     const panel = diffView(page).locator('.fe-find.vis');
     await expect(panel).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.monaco-editor .find-widget.visible'),
-      'Monaco 의 위젯이 떴다 — 편집기 탭에서 이미 닫은 길이다').toHaveCount(0);
+    await expect(page.locator(`${ED_SEL.surface} ${ED_SEL.builtinFind}`),
+      '엔진 기본 패널이 떴다 — 편집기 탭에서 이미 닫은 길이다').toHaveCount(0);
 
     await panel.locator('.fe-find-q').fill('needle');
     await expect(panel.locator('.fe-find-count')).toContainText('2', { timeout: 5000 });
+
+    await page.keyboard.press('Escape');
+    await expect(panel).toBeHidden({ timeout: 5000 });
+  });
+
+  // CODEMIRROR_MIGRATION_SRS §3.16 (M9) — 엔진 기본 찾기 패널은 Diff 뷰에도 없다.
+  // 편집기 칸의 같은 검사는 `editor-find-panel` V-EFP-4 다. 모든 편집 표면이 앱 패널 하나를 쓴다.
+  test('Diff 뷰에서 F3 · Mod+G · Mod+H 로도 엔진 기본 찾기 패널이 뜨지 않는다', async ({ page }) => {
+    const repo = copyFx('basic', 'find-keys');
+    writeFileSync(join(repo, 'f.txt'), 'alpha needle one\nbeta two\n');
+    git(repo, 'add', 'f.txt'); git(repo, 'commit', '-m', 'f');
+    writeFileSync(join(repo, 'f.txt'), 'alpha needle one\nbeta needle two\n');
+
+    await waitForInit(page);
+    await openGit(page, repo);
+    await openDiff(page, 'f.txt');
+
+    const body = diffView(page).locator(`${ED_SEL.surface} ${ED_SEL.text}`).last();
+    for (const key of ['F3', 'Control+g', 'Control+h']) {
+      await body.click();
+      await page.keyboard.press(key);
+      // **예외 (`TEST-16`)**: 패널이 **뜨지 않음**을 잰다.
+      await page.waitForTimeout(300);
+      await expect(diffView(page).locator(ED_SEL.builtinFind), `${key} 로 엔진 패널이 떴다`).toHaveCount(0);
+      await page.keyboard.press('Escape');
+    }
+  });
+
+  // FR-UXB-49 — 원본 쪽은 읽기 전용이지만 찾기는 된다. 포커스가 원본에 있으면 원본을 찾는다.
+  test('나란히 보기에서 원본 쪽에 포커스가 있으면 찾기가 원본을 찾고, 원본은 고쳐지지 않는다', async ({ page }) => {
+    const repo = copyFx('basic', 'find-orig');
+    writeFileSync(join(repo, 'f.txt'), 'alpha one\noldword two\n');
+    git(repo, 'add', 'f.txt'); git(repo, 'commit', '-m', 'f');
+    writeFileSync(join(repo, 'f.txt'), 'alpha one\nnew two\n');
+
+    await waitForInit(page);
+    await openGit(page, repo);
+    await openDiff(page, 'f.txt');
+    await expect(diffView(page).locator(ED_SEL.diffSurface)).toHaveClass(/side-by-side/);
+
+    const orig = diffView(page).locator(`.git-diff-side-orig ${ED_SEL.text}`);
+    await orig.click();
+    await page.keyboard.type('x');
+    await page.keyboard.press('Control+f');
+
+    const panel = diffView(page).locator('.fe-find.vis');
+    await expect(panel).toBeVisible({ timeout: 5000 });
+    await panel.locator('.fe-find-q').fill('oldword');
+    await expect(panel.locator('.fe-find-count')).toContainText('1', { timeout: 5000 });
+    expect(await page.evaluate(() =>
+      edT.text(edT.diffSide((window as any).app.gitPanel._diffView, 'orig'))), '원본이 고쳐졌다').toBe('alpha one\noldword two\n');
 
     await page.keyboard.press('Escape');
     await expect(panel).toBeHidden({ timeout: 5000 });

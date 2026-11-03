@@ -70,8 +70,8 @@
 
 ### 1.4 참조 (References)
 
-- `docs/internal/GIT_SRS.md` — FR-GIT-8(조용한 빈 결과 금지) · 11·12(핀) · 16(세대 가드) · 19·24(감지) · 227(다시 그리기 가드)
-- `docs/internal/GIT_UI_REVISION_SRS.md` — FR-GIT-193·194 (핀 행 표시)
+- `docs/internal/archive/GIT_SRS.md` — FR-GIT-8(조용한 빈 결과 금지) · 11·12(핀) · 16(세대 가드) · 19·24(감지) · 227(다시 그리기 가드)
+- `docs/internal/archive/GIT_UI_REVISION_SRS.md` — FR-GIT-193·194 (핀 행 표시)
 - `docs/internal/GIT_REVIEW4_SRS.md` — FR-RPT-2 (값이 바뀌면 화면이 따라온다)
 - `internal/webserver/domain/git/core/errors.go` · `exec.go` · `repo.go`
 - `internal/webserver/gitapi/handlers_git.go` — `gitErrorCode`

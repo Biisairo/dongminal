@@ -60,9 +60,9 @@
 
 - [`./FILE_TRANSFER_SRS.md`](./FILE_TRANSFER_SRS.md) — FR-FTR-1~24. 본 SRS 는 그
   §6 비목표 중 "폴더 다운로드(zip)" 를 열고, FR-FTR-6·7·16·19 를 확장한다
-- [`./EDITOR_TAB_SRS.md`](./EDITOR_TAB_SRS.md) — FR-EDT-57~78 (탐색기),
+- [`./EDITOR_TAB_SRS.md`](./archive/EDITOR_TAB_SRS.md) — FR-EDT-57~78 (탐색기),
   FR-EDT-108~119 (서버 표면과 루트 가드), FR-EDT-92 (실패는 그 자리에 붙는다)
-- [`./GIT_SRS.md`](./GIT_SRS.md) — FR-GIT-32~37 (porcelain v2), FR-GIT-94·172·177
+- [`./GIT_SRS.md`](./archive/GIT_SRS.md) — FR-GIT-32~37 (porcelain v2), FR-GIT-94·172·177
   (다이얼로그)
 - [`./CONNECTIVITY_INVESTIGATION.md`](./CONNECTIVITY_INVESTIGATION.md) — 요구 ③
 - `git-check-ignore(1)`, `gitignore(5)` — 판정 규칙과 종료 코드

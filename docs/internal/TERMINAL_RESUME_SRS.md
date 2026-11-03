@@ -48,7 +48,7 @@
   거기 산다. 그 절의 종전 제목은 §터미널 스냅샷 재생이었고, 되뿌리기의 전제를
   "브라우저가 붙거나 **새로고침**하면" 으로 적고 있었다 — 본 SRS 는 그 전제가
   드롭-재접속에 성립하지 않음을 보인다
-- [`./SOFT_RELOAD_SRS.md`](./SOFT_RELOAD_SRS.md) — D-3(`pane 을 다시 만들지
+- [`./SOFT_RELOAD_SRS.md`](./archive/SOFT_RELOAD_SRS.md) — D-3(`pane 을 다시 만들지
   않는다`)·묶음 B. 본 SRS 는 D-3 을 **지킨다**. xterm 인스턴스를 살려 둔 채로
   화면을 맞추는 것이 요점이다
 - [`./CONNECTIVITY_RESILIENCE_SRS.md`](./CONNECTIVITY_RESILIENCE_SRS.md) — 끊김이

@@ -1102,6 +1102,19 @@ func TestGitWatch_OnChangedHook(t *testing.T) {
 	}
 }
 
+// CODEMIRROR_MIGRATION_SRS §11.6 W: 첫 표명이 기준선이다 — 그때 기준선 훅이 그 저장소로 한 번 불린다.
+func TestGitWatch_OnBaselineHook(t *testing.T) {
+	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
+	w := newWatcher(sig, &fakeBroker{})
+	var got []string
+	w.SetOnBaseline(func(repo string) { got = append(got, repo) })
+	note(t, w, sig, "/r")
+	note(t, w, sig, "/r")
+	if len(got) != 1 || got[0] != "/r" {
+		t.Fatalf("기준선 훅 = %v, want [/r] 한 번", got)
+	}
+}
+
 // OPTIMIZE_REFACTOR_SRS FR-OPT-4-3 (IPC-7): Repo 탭의 핀 임대는 **갈래(scope)** 를 가진다.
 // 탭을 떠나면 그 갈래만 놓는다 — 같은 신원이 Git 패널로 쥔 임대는 남는다.
 func TestGitWatch_ScopedLeaseReleaseKeepsOtherLease(t *testing.T) {

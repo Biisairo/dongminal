@@ -27,7 +27,7 @@ const GIT_WINDOW_NAME='Git';
 // pending 인 탭은 M1 에서 자리만 있고 "준비 중" 을 표시한다.
 const GIT_VIEWS=[
   {key:'changes',  name:'Changes'},
-  // `diff` 의 뷰 객체는 `_diffView` 이지만 `field` 를 두지 않는다 — Monaco 를 들고
+  // `diff` 의 뷰 객체는 `_diffView` 이지만 `field` 를 두지 않는다 — 편집기를 들고
   // 있어 언마운트가 아니라 `destroy()` 를 지나야 풀린다 (FR-GIT-56). 같은 목록에
   // 넣으면 그 차이가 지워진다.
   {key:'diff',     name:'Diff'},

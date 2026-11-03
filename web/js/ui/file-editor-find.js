@@ -5,9 +5,10 @@
  * 코드베이스가 `FileTree`·`App` 에 이미 쓰는 방식과 같다: 뼈대 클래스는 자기
  * 파일에 남고, 주제는 `Object.assign(X.prototype, …)` 로 얹는다.
  *
- * Monaco 의 find 위젯을 쓰지 않는다 (FR-EFP-25 가 FR-EKB-3 을 개정했다).
- * **검색기는 여전히 Monaco 모델의 것이다** (D-2) — `findMatches` 가 정규식·
- * 대소문자·단어 단위를 이미 전부 받으므로 우리가 만드는 것은 껍데기뿐이다.
+ * 편집 엔진의 기본 찾기 위젯을 쓰지 않는다 (FR-EFP-25 가 FR-EKB-3 을 개정했다).
+ * 패널이 편집기에 닿는 자리(선택 글자·일치 계산·칠하기·바꾸기·이동·포커스)는 **엔진**
+ * 하나로 모았다 (`_findEngine` → `edFindEngineCm`, cm-find.js). 기본 찾기 키는 편집기에 처음부터
+ * 넣지 않는다 (CODEMIRROR_MIGRATION_SRS FR-CMR-17·30).
  *
  * `file-editor.js` 뒤에 실려야 한다 — 얹을 prototype 이 그때 있다.
  *
@@ -17,42 +18,14 @@
  * 동일하게 기능해야 한다"). 그래서 본문을 `FileEditor.prototype` 에 **직접**
  * 얹지 않고 이름 있는 덩이로 두고, 그 덩이를 얹는다.
  *
- * 이 덩이가 기대하는 것은 둘뿐이다 — `el`(패널이 살 자리)과 `_editor`(찾을
- * 모델을 든 편집기). 나머지 `_find*` 는 자기 상태다. 그래서 그 둘을 든 그릇이면
- * 무엇이든 이 패널을 세울 수 있다 (`git/diff-view.js` 의 `_findHostFor`).
+ * 이 덩이가 기대하는 것은 둘뿐이다 — `el`(패널이 살 자리)과 편집기(`_view`). 나머지 `_find*` 는
+ * 자기 상태다. 그래서 그 둘을 든
+ * 그릇이면 무엇이든 이 패널을 세울 수 있다 (`git/diff-view.js` 의 `_findHostFor`).
  */
 const ED_FIND_MIXIN = {
-  /**
-   * FR-EFP-4: Monaco 의 find 위젯을 **여는 모든 키를 닫는다.**
-   *
-   * `Mod+F` 만 막아도 위젯은 여전히 열린다 (SRS §2.6) — `Mod+H`(바꾸기)·
-   * `Mod+E`(선택으로 찾기)·`F3`·`Mod+G`(다음 일치)가 각자 그것을 세운다. 길을
-   * 하나만 닫으면 나머지로 들어오고, 그러면 §2.4 의 결함이 그 키들에 남는다.
-   *
-   * **인스턴스별로 건다** (`monaco.editor.addKeybindingRules` 가 아니다). 그 전역
-   * 규칙은 Git 의 diff 뷰에도 걸리는데, 그 뷰에는 우리 패널이 없다 — 거기서
-   * 되던 것을 아무것도 되지 않게 만든다 (SRS §2.12 / D-5b). 우리가 닫으려는
-   * 것은 **이 편집기의** 위젯이다.
-   *
-   * 이것은 D-5 의 이중 안전장치다. 첫 겹은 `el` 의 capture 리스너이며 사용자가
-   * 배정한 조합을 잡는다. 이 겹이 맡는 것은 **아무 동작에도 배정되지 않은** 조합이다.
-   */
-  _findKillMonacoKeys() {
-    if (!this._editor || typeof monaco === 'undefined') return;
-    const M = monaco.KeyMod, K = monaco.KeyCode;
-    const noop = () => {};
-    const kill = [
-      M.CtrlCmd | K.KeyF,               // 찾기
-      M.CtrlCmd | K.KeyH,               // 바꾸기 (Windows·Linux)
-      M.CtrlCmd | M.Alt | K.KeyF,       // 바꾸기 (macOS)
-      M.CtrlCmd | K.KeyE,               // 선택으로 찾기 (macOS)
-      M.CtrlCmd | K.F3,                 // 선택으로 찾기 (Windows·Linux)
-      K.F3,                             // 다음 일치
-      M.Shift | K.F3,                   // 이전 일치
-      M.CtrlCmd | K.KeyG,               // 다음 일치 (macOS)
-      M.CtrlCmd | M.Shift | K.KeyG,     // 이전 일치 (macOS)
-    ];
-    for (const kb of kill) this._editor.addCommand(kb, noop);
+  // 이 그릇의 편집기에 닿는 엔진. 편집기가 아직 없으면 null.
+  _findEngine() {
+    return this._view ? edFindEngineCm(this._view) : null;
   },
 
   _findVis() { return !!(this._find && this._find.classList.contains('vis')) },
@@ -201,14 +174,15 @@ const ED_FIND_MIXIN = {
    * FR-EFP-12: 이미 열려 있을 때 다시 불러도 닫지 않는다 — 질의 칸을 다시 고른다.
    */
   findOpen() {
-    if (!this._editor) return false;
+    const eng = this._findEngine();
+    if (!eng) return false;
     const p = this._findEnsure();
     const q = p.querySelector('.fe-find-q');
     // FR-EFP-9: 한 줄 안의 선택 영역은 질의로 싣는다. 여러 줄은 싣지 않는다 —
     // 줄바꿈이 든 질의는 이 패널이 찾을 수 있는 것이 아니다.
-    const sel = this._editor.getSelection();
-    if (sel && !sel.isEmpty() && sel.startLineNumber === sel.endLineNumber) {
-      q.value = this._editor.getModel().getValueInRange(sel);
+    const sel = eng.selText();
+    if (sel != null) {
+      q.value = sel;
       this._findCur = 0;
     }
     /**
@@ -241,7 +215,8 @@ const ED_FIND_MIXIN = {
     this._findCur = 0;
     this._findPaint();  // FR-EFP-18: 하이라이트를 걷는다
     // FR-EFP-10: 사용자가 방금까지 보고 있던 자리로 포커스를 돌린다.
-    if (this._editor) this._editor.focus();
+    const eng = this._findEngine();
+    if (eng) eng.focus();
   },
 
   /**
@@ -253,13 +228,13 @@ const ED_FIND_MIXIN = {
    */
   _findRun(keep) {
     const p = this._find;
-    if (!p || !this._editor) return;
-    const model = this._editor.getModel();
+    const eng = this._findEngine();
+    if (!p || !eng) return;
     const query = p.querySelector('.fe-find-q').value;
     const o = this._findOpts;
     p.classList.remove('bad-re');
 
-    if (!query || !model) {
+    if (!query) {
       this._findHits = [];
       this._findCur = 0;
       this._findPaint();
@@ -277,16 +252,9 @@ const ED_FIND_MIXIN = {
       this._findPaintReplaceEnabled();
       return;
     }
-    // FR-EFP-21 / D-2: 세 옵션이 이 호출의 인자로 그대로 간다. 단어 단위를 끈
-    // 상태는 구분자를 **보지 않는 것**이므로 `null` 이다.
-    // FR-ERS-6: 캡처는 **정규식일 때만** 모은다. 리터럴 찾기에서는 쓸 곳이
-    // 없고(치환이 글자 그대로다), 캡처를 켜면 일치마다 배열이 하나씩 더 선다.
-    const found = model.findMatches(
-      query, false, !!o.regex, !!o.case,
-      o.word ? ED_FIND_WORD_SEPARATORS : null,
-      !!o.regex, ED_FIND_MAX_HITS);
-    this._findFound = found;
-    this._findHits = found.map(m => m.range);
+    // FR-EFP-21 / D-2: 세 옵션이 엔진의 인자로 그대로 간다. FR-ERS-6: 캡처는
+    // **정규식일 때만** 모은다 — 일치마다 `caps` 로 실린다.
+    this._findHits = eng.hits(query, o);
     const n = this._findHits.length;
     this._findCur = n ? (keep ? Math.min(this._findCur, n - 1) : this._findCur) : 0;
     this._findPaint();
@@ -312,30 +280,11 @@ const ED_FIND_MIXIN = {
    *   이유:     접수 — "파일에서 글자 검색 시 결과 위치가 미니맵과 스크롤에 보이면
    *             좋겠다". 스크롤 없이 분포를 보는 것이 찾기의 절반이다
    *
-   * 눈금의 레인은 `Right` 다 — 왼쪽·가운데는 Monaco 가 오류·선택 표시에 쓰므로
-   * 그 위에 겹치면 어느 쪽 표식인지 알 수 없다. 색은 `monacoTheme()` 의 매핑에서
-   * 온다 (여기서 정하지 않는다).
+   * CodeMirror 편집기의 눈금·미니맵 표시는 M5(묶음 R·M)에서 선다 (FR-CMR-34).
    */
   _findPaint() {
-    if (!this._editor) return;
-    if (!this._findDecos) this._findDecos = this._editor.createDecorationsCollection([]);
-    this._findDecos.set((this._findHits || []).map((range, i) => {
-      const cur = i === this._findCur;
-      return {
-        range,
-        options: {
-          className: cur ? ED_FIND_HIT_CLASS + ' ' + ED_FIND_HIT_CUR_CLASS : ED_FIND_HIT_CLASS,
-          overviewRuler: {
-            color: { id: cur ? ED_FIND_RULER_COLOR_CUR : ED_FIND_RULER_COLOR },
-            position: monaco.editor.OverviewRulerLane.Right,
-          },
-          minimap: {
-            color: { id: cur ? ED_FIND_MINIMAP_COLOR_CUR : ED_FIND_MINIMAP_COLOR },
-            position: monaco.editor.MinimapPosition.Inline,
-          },
-        },
-      };
-    }));
+    const eng = this._findEngine();
+    if (eng) eng.paint(this._findHits || [], this._findCur);
   },
 
   /**
@@ -344,12 +293,12 @@ const ED_FIND_MIXIN = {
    * 정규식이 꺼져 있으면 손대지 않는다 — 그때 `$` 는 글자다. 켜져 있을 때만
    * `$1`~`$9` 와 `$&` 를 캡처로 갈고, `$$` 는 리터럴 `$` 다(관례).
    *
-   * `m.matches` 는 `findMatches` 가 `captureMatches` 로 실어 준 것이고 `[0]` 이
-   * 전체 일치다 — 우리가 다시 정규식을 돌리지 않는다.
+   * `h.caps` 는 엔진이 일치를 셀 때 실어 준 것이고 `[0]` 이 전체 일치다 — 우리가 다시
+   * 정규식을 돌리지 않는다.
    */
-  _findReplacement(raw, m) {
+  _findReplacement(raw, h) {
     if (!this._findOpts || !this._findOpts.regex) return raw;
-    const caps = (m && m.matches) || [];
+    const caps = (h && h.caps) || [];
     return String(raw).replace(/\$(\$|&|[1-9])/g, (_all, k) => {
       if (k === '$') return '$';
       if (k === '&') return caps[0] != null ? caps[0] : '';
@@ -365,13 +314,12 @@ const ED_FIND_MIXIN = {
    * 요점이다 — 치환으로 일치가 하나 줄어도 사용자가 보던 자리 근처에 남는다.
    */
   _findReplaceOne() {
-    if (!this._editor || !this._find) return;
+    const eng = this._findEngine();
+    if (!eng || !this._find) return;
     const hits = this._findHits || [];
     if (!hits.length) return;
-    const i = Math.min(this._findCur, hits.length - 1);
-    const range = hits[i];
-    const text = this._findReplacement(this._find.querySelector('.fe-find-r').value, (this._findFound || [])[i]);
-    this._editor.executeEdits(ED_FIND_EDIT_SOURCE, [{ range, text, forceMoveMarkers: true }]);
+    const hit = hits[Math.min(this._findCur, hits.length - 1)];
+    eng.replace([{ hit, text: this._findReplacement(this._find.querySelector('.fe-find-r').value, hit) }]);
     this._findRun(true);
   },
 
@@ -385,13 +333,12 @@ const ED_FIND_MIXIN = {
    * 같다** — 수 표시도 같은 목록에서 나온다 (§7).
    */
   _findReplaceAll() {
-    if (!this._editor || !this._find) return;
+    const eng = this._findEngine();
+    if (!eng || !this._find) return;
     const hits = this._findHits || [];
     if (!hits.length) return;
     const raw = this._find.querySelector('.fe-find-r').value;
-    const found = this._findFound || [];
-    this._editor.executeEdits(ED_FIND_EDIT_SOURCE,
-      hits.map((range, i) => ({ range, text: this._findReplacement(raw, found[i]), forceMoveMarkers: true })));
+    eng.replace(hits.map((hit) => ({ hit, text: this._findReplacement(raw, hit) })));
     this._findCur = 0;
     this._findRun();
   },
@@ -403,7 +350,8 @@ const ED_FIND_MIXIN = {
     this._findCur = (this._findCur + d + n) % n;
     // FR-EFP-15: 화면 밖이면 그 자리로 스크롤한다. 포커스는 옮기지 않는다 —
     // 사용자는 여전히 질의 칸에서 타이핑하고 있다 (FR-EFP-5).
-    this._editor.revealRangeInCenterIfOutsideViewport(this._findHits[this._findCur]);
+    const eng = this._findEngine();
+    if (eng) eng.reveal(this._findHits[this._findCur]);
     this._findPaint();
     this._findCount((this._findCur + 1) + '/' + n);
   },
@@ -446,15 +394,8 @@ function edFindReOk(src) {
 
 Object.assign(FileEditor.prototype, ED_FIND_MIXIN);
 
-// 테마 전환 훅 (theme-vars.js applyThemeObj). 이름이 같은 테마를 다시 정의하고
-// setTheme 을 부르면 살아 있는 에디터와 diff 뷰가 함께 따라온다 (FR-GIT-49).
+// 테마 전환 훅 (theme-vars.js applyThemeObj). 편집기와 diff 의 색은 CSS 변수라 스스로 따라온다 (FR-GIT-49) —
+// canvas 에 그리는 것(변경 표시의 ruler·미니맵)만 다시 칠한다 (EDITOR_DIRTY_DIFF_SRS FR-EDD-23b).
 FileEditor.applyTheme = function() {
-  if (typeof monaco === 'undefined') return;
-  // EDITOR_DIRTY_DIFF_SRS FR-EDD-23b: 변경 표시의 색도 CSS 변수에서 왔으므로
-  // 여기서 함께 다시 세운다. 두 번째 테마 훅을 만들지 않는다.
-  if (typeof edDdReset === 'function') edDdReset();
   if (window.app && window.app.edDirtyDiffRepaint) window.app.edDirtyDiffRepaint();
-  const name = monacoTheme();
-  if (name !== MONACO_THEME) return;
-  monaco.editor.setTheme(name);
 };

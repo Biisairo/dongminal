@@ -14,6 +14,7 @@ import {
   test, expect, rmTree, switchToEditorRoot, openExplorerSide, waitSettled,
   enterDocRoot, openDocFile,
 } from './fixtures';
+import { ED_SEL } from './editor';
 import { TMP, realPath } from './osenv';
 
 const j = (...p: string[]) => path.join(...p);
@@ -50,6 +51,14 @@ test.beforeAll(() => {
   fs.writeFileSync(j(ROOT, 'doc.md'), DOC);
   // FR-DRV-2: 렌더 대상이 아닌 파일 — 버튼이 서면 안 된다.
   fs.writeFileSync(j(ROOT, 'plain.txt'), 'just text\n');
+  // CODEMIRROR_MIGRATION_SRS FR-CMR-160 — 폭을 재는 미리보기 넷. 본문이 칸보다 넓어야 폭 제한이 드러난다.
+  const para = Array.from({ length: 60 }, (_, i) => '긴 문장 ' + i).join(' ');
+  fs.writeFileSync(j(ROOT, 'wide.md'), '# 넓이\n\n' + para + '\n');
+  fs.writeFileSync(j(ROOT, 'wide.html'), '<html><body><p>' + para + '</p></body></html>\n');
+  fs.writeFileSync(j(ROOT, 'wide.svg'), '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100" viewBox="0 0 200 100"><rect width="200" height="100" fill="currentColor"/></svg>\n');
+  fs.writeFileSync(j(ROOT, 'wide.csv'), 'a,b\n' + para.replace(/ /g, '_') + ',2\n');
+  // FR-CMR-12b — 탭과 공백이 섞인 파일.
+  fs.writeFileSync(j(ROOT, 'ws.txt'), '\tone\n    two\n');
   // M3 — SVG. 스크립트를 심어 둔다: `<img>` 로 그리므로 돌지 않아야 한다 (FR-DRV-23).
   fs.writeFileSync(j(ROOT, 'icon.svg'),
     '<?xml version="1.0"?>\n' +
@@ -102,11 +111,11 @@ async function enter(page: Page, request: APIRequestContext) {
   await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
 }
 
-// 파일을 열고 그 탭의 Monaco 가 실제로 설 때까지 기다린다. 편집기는 탭마다 하나가
+// 파일을 열고 그 탭의 편집기가 실제로 설 때까지 기다린다. 편집기는 탭마다 하나가
 // DOM 에 남으므로 **보이는 것**을 센다.
 async function openFile(page: Page, name: string) {
   await page.locator('.ed-tree .ed-row', { hasText: name }).first().click();
-  await expect(page.locator('.pn-body .file-editor.vis .monaco-editor').first())
+  await expect(page.locator(`.pn-body .file-editor.vis ${ED_SEL.surface}`).first())
     .toBeVisible({ timeout: 20000 });
 }
 
@@ -133,7 +142,7 @@ test.describe('문서 렌더 뷰', () => {
     await expect(page.locator('#area .pn')).toHaveCount(2);
     await expect(page.locator(RENDER_BODY)).toBeVisible({ timeout: 15000 });
     // 소스도 여전히 보인다 — 대체가 아니라 나란히다.
-    await expect(page.locator('.file-editor.vis .monaco-editor').first()).toBeVisible();
+    await expect(page.locator(`.file-editor.vis ${ED_SEL.surface}`).first()).toBeVisible();
     const kinds = await page.evaluate(() => {
       const a = (window as any).app;
       const out: any[] = [];
@@ -170,8 +179,8 @@ test.describe('문서 렌더 뷰', () => {
     await expect(page.locator(RENDER_BODY)).toBeVisible({ timeout: 15000 });
     await page.evaluate(() => {
       const a = (window as any).app;
-      const v = [...a.fileEditors.values()].find((x: any) => x._editor);
-      v._editor.setValue('# 방금 쓴 제목\n');
+      const v = [...a.fileEditors.values()].find((x: any) => edT.has(x));
+      edT.setText(edT.of(v), '# 방금 쓴 제목\n');
     });
     await expect(page.locator(RENDER_BODY + ' h1')).toHaveText('방금 쓴 제목', { timeout: 15000 });
   });
@@ -272,8 +281,8 @@ test.describe('문서 렌더 뷰', () => {
       .toContainText('20×10', { timeout: 15000 });
     await page.evaluate(() => {
       const a = (window as any).app;
-      const v = [...a.fileEditors.values()].find((x: any) => x._editor);
-      v._editor.setValue('<svg xmlns="http://www.w3.org/2000/svg" width="7" height="3"></svg>');
+      const v = [...a.fileEditors.values()].find((x: any) => edT.has(x));
+      edT.setText(edT.of(v), '<svg xmlns="http://www.w3.org/2000/svg" width="7" height="3"></svg>');
     });
     await expect(page.locator('.doc-render.vis .dr-svg-meta'))
       .toContainText('7×3', { timeout: 15000 });
@@ -385,8 +394,8 @@ test.describe('문서 렌더 뷰', () => {
     // 소스를 아래로 옮긴다 — 렌더가 그 줄의 블록으로 따라와야 한다.
     await page.evaluate(() => {
       const a = (window as any).app;
-      const v = [...a.fileEditors.values()].find((x: any) => x._editor);
-      v._editor.revealLineNearTop(70);
+      const v = [...a.fileEditors.values()].find((x: any) => edT.has(x));
+      edT.revealLineNearTop(edT.of(v), 70);
     });
     await expect.poll(async () =>
       page.locator(RENDER_BODY).evaluate((el) => el.scrollTop),
@@ -484,7 +493,7 @@ test.describe('문서 렌더 뷰', () => {
     await expect(page.locator(RENDER_BODY)).toBeVisible({ timeout: 15000 });
     const dirty = await page.evaluate(() => {
       const a = (window as any).app;
-      return [...a.fileEditors.values()].some((v: any) => v._dirty && !v._editor);
+      return [...a.fileEditors.values()].some((v: any) => v._dirty && !edT.has(v));
     });
     expect(dirty).toBeFalsy();
   });
@@ -512,7 +521,7 @@ test.describe('묶음 DRB — 미리보기 버튼 (FR-DRB-1~3a)', () => {
     await expect(btn).toHaveText('미리보기');
     const look = await page.evaluate(() => {
       const v = [...(window as any).app.fileEditors.values()]
-        .find((e: any) => e._editor && e.name === 'doc.md') as any;
+        .find((e: any) => edT.has(e) && e.name === 'doc.md') as any;
       const b = v.el.querySelector('.fe-render') as HTMLElement;
       const cs = getComputedStyle(b);
       const r = b.getBoundingClientRect();
@@ -521,7 +530,7 @@ test.describe('묶음 DRB — 미리보기 버튼 (FR-DRB-1~3a)', () => {
         w: r.width, opacity: parseFloat(cs.opacity), scroll: b.scrollWidth,
         // FR-DRB-3: 미니맵의 왼쪽 변보다 앞에 선다 — 그것이 "가리지 않는다" 의 뜻이다.
         right: Math.round(r.right - box.left),
-        minimapLeft: v._editor.getLayoutInfo().minimap.minimapLeft,
+        minimapLeft: edT.minimapLeft(edT.of(v)),
         // FR-DRB-3 (U-2): 자리는 **아래쪽**이다. 위쪽 띠는 찾기·알림·제안이 나눠 쓴다.
         top: Math.round(r.top - box.top),
         boxH: Math.round(box.height),
@@ -547,5 +556,81 @@ test.describe('묶음 DRB — 미리보기 버튼 (FR-DRB-1~3a)', () => {
     await expect(body).toBeVisible({ timeout: 20000 });
     // FR-SCR-2: 스크롤 표면은 키트의 것이다.
     await expect(body).toHaveClass(/ui-scroll/);
+  });
+});
+
+// CODEMIRROR_MIGRATION_SRS FR-CMR-160 — 미리보기는 탭 폭을 따라간다. 칸을 넓혀도 본문이 멈추지 않는다.
+test.describe('미리보기 폭 (FR-CMR-160)', () => {
+  test.beforeEach(async ({ page, request }) => {
+    await page.setViewportSize({ width: 1400, height: 800 });
+    await enter(page, request);
+  });
+
+  for (const name of ['wide.md', 'wide.html', 'wide.svg', 'wide.csv']) {
+    test(`${name} 의 본문이 칸 폭을 따라간다`, async ({ page }) => {
+      await openFile(page, name);
+      await page.locator(RENDER_BTN).click();
+      await expect(page.locator(RENDER_BODY)).toBeVisible({ timeout: 15000 });
+      // 칸 폭에서 본문이 비운 폭 — 안쪽 여백(좌우 합 40px 이하)과 스크롤바만 빠져야 한다.
+      const gap = () => page.evaluate(() => {
+        const dr = document.querySelector('.doc-render.vis') as HTMLElement;
+        const c = (dr.querySelector('.dr-body') as HTMLElement).firstElementChild as HTMLElement;
+        return dr.getBoundingClientRect().width - c.getBoundingClientRect().width;
+      });
+      for (const w of [1000, 2400]) {
+        await page.setViewportSize({ width: w, height: 800 });
+        await expect.poll(gap, { message: `폭 ${w} 에서 본문이 칸을 따라가지 않는다` }).toBeLessThanOrEqual(64);
+      }
+    });
+  }
+});
+
+// CODEMIRROR_MIGRATION_SRS FR-CMR-19 — 설치 제안 띠는 본문을 가리지 않는다.
+test.describe('편집기 위의 띠 (FR-CMR-19)', () => {
+  test.beforeEach(async ({ page, request }) => { await enter(page, request) });
+
+  test('설치 제안 띠가 서 있어도 첫 줄은 띠 아래에 보인다', async ({ page }) => {
+    await openFile(page, 'plain.txt');
+    const got = await page.evaluate(async () => {
+      const v = (window as any).app.testing.edActiveEditor();
+      // 이 기계의 언어 서버 유무와 무관하게 띠를 세운다 — 띠의 자리만 잰다.
+      if (!v.el.querySelector('.fe-offer')) v.offer({ id: 'e2e-ls', canInstall: true });
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const bar = v.el.querySelector('.fe-offer') as HTMLElement;
+      const line = edT.dom(edT.of(v)).querySelector(edT.sel.text + ' .cm-line') as HTMLElement;
+      return { barBottom: bar.getBoundingClientRect().bottom, lineTop: line.getBoundingClientRect().top };
+    });
+    expect(got.lineTop, '첫 줄이 띠 밑에 깔렸다').toBeGreaterThanOrEqual(got.barBottom);
+  });
+});
+
+// CODEMIRROR_MIGRATION_SRS FR-CMR-12b — 선택 안 공백 표시는 흐리고 테마를 탄다.
+test.describe('공백 표시 (FR-CMR-12b)', () => {
+  test.beforeEach(async ({ page, request }) => { await enter(page, request) });
+
+  test('공백 점과 탭 화살표의 색은 --ed-ws 다', async ({ page }) => {
+    await openFile(page, 'ws.txt');
+    const got = await page.evaluate(() => {
+      const v = (window as any).app.testing.edActiveEditor();
+      const h = edT.of(v);
+      edT.setSelection(h, 1, 1, 2, 9);
+      const root = edT.dom(h) as HTMLElement;
+      const probe = document.createElement('div');
+      root.appendChild(probe);
+      probe.style.color = 'var(--ed-ws)';
+      const want = getComputedStyle(probe).color;
+      probe.remove();
+      const sp = root.querySelector('.cm-highlightSpace') as HTMLElement;
+      const tb = root.querySelector('.cm-highlightTab') as HTMLElement;
+      return {
+        want, defined: getComputedStyle(root).getPropertyValue('--ed-ws').trim() !== '',
+        space: sp ? getComputedStyle(sp).backgroundImage : '', tab: tb ? getComputedStyle(tb).backgroundColor : '',
+        tabImg: tb ? getComputedStyle(tb).backgroundImage : '',
+      };
+    });
+    expect(got.defined, '--ed-ws 가 정의되지 않았다').toBe(true);
+    expect(got.space, '공백 점이 --ed-ws 가 아니다').toContain(got.want);
+    expect(got.tab, '탭 화살표가 --ed-ws 가 아니다').toBe(got.want);
+    expect(got.tabImg, '고정색 화살표 그림이 남았다').toBe('none');
   });
 });

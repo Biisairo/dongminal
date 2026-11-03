@@ -4,7 +4,7 @@
 
 > 상태: **초안**. `GIT_PUSH_OBSERVE_SRS` FR-GPO-10·11 의 개정이며
 > `POLL_INTERVAL_SETTINGS_SRS` FR-PIS-9 의 전제를 고친다.
-> 근거 감사: `docs/internal/production/11-git-polling.md` §1 (`GP-1`, **P0**).
+> 근거 감사: `docs/internal/archive/production/11-git-polling.md` §1 (`GP-1`, **P0**).
 
 ---
 
@@ -121,7 +121,7 @@ Repo 창이 열린 저장소를 보장하지 못한다.
 - `POLL_INTERVAL_SETTINGS_SRS` FR-PIS-9 — `0` 을 허용한 근거가 틀렸다 (§2.3).
 - `GIT_LIVE_TRIGGERS_SRS` FR-GLW-1~8 — 복귀 계기와 만료·탈락 로그 분리.
 - `USER_CHECKLIST_FIXES_SRS` FR-XDF-8~10 — 이 SRS 가 따르는 Attach/Detach/epoch 규약.
-- `docs/internal/production/11-git-polling.md` §0·§1·§4 — 관측 구조 지도와 `GP-1` 실측.
+- `docs/internal/archive/production/11-git-polling.md` §0·§1·§4 — 관측 구조 지도와 `GP-1` 실측.
 
 ---
 

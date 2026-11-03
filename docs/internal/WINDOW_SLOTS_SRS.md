@@ -55,8 +55,8 @@
 
 - [`./archive/USER_CHECKLIST_FIXES_SRS.md`](./archive/USER_CHECKLIST_FIXES_SRS.md) — §3.5 FR-XDF-1~14. 특히 FR-XDF-3 (한 Client 는 한 Window 만 소유, `:446`), FR-XDF-5~13 (소유권 전송·해제·재획득)
 - [`./ENTITY_MODEL_RESTRUCTURE_SRS.md`](./ENTITY_MODEL_RESTRUCTURE_SRS.md) — Window ─ Pane ─ Tab ─ Tool 계층
-- [`./EDITOR_TAB_SRS.md`](./EDITOR_TAB_SRS.md) — FR-EDT-46 (Editor 창의 탐색기는 분할 트리 밖), FR-EDT-50·54 (창 타입이 탭 타입을 고정)
-- [`./GIT_SRS.md`](./GIT_SRS.md) — FR-GIT-179·180 (Git 창은 닫힌 창)
+- [`./EDITOR_TAB_SRS.md`](./archive/EDITOR_TAB_SRS.md) — FR-EDT-46 (Editor 창의 탐색기는 분할 트리 밖), FR-EDT-50·54 (창 타입이 탭 타입을 고정)
+- [`./GIT_SRS.md`](./archive/GIT_SRS.md) — FR-GIT-179·180 (Git 창은 닫힌 창)
 - [`./GIT_SIDEBAR_TABS_SRS.md`](./GIT_SIDEBAR_TABS_SRS.md) — FR-SBT-6 (보는 방식은 클라이언트의 것)
 - [`./MOBILE_TUI_INPUT_SCROLL_SRS.md`](./MOBILE_TUI_INPUT_SCROLL_SRS.md) — FR-MTI-25 (모바일에서 render 는 터미널에 focus 하지 않는다)
 - [`./architecture.md`](./architecture.md) — 창·분할 칸 절, 창 포커스 소유권 절

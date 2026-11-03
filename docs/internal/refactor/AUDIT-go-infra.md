@@ -890,7 +890,7 @@
   **한 문서 안에서 두 문장이 서로를 반박한다.**
 - **관련 FR**: M9_SRS FR-M9-1 / D-M9-1 · REQUEST_GATE_SRS FR-RQG-20 (철회됨)
 - **고칠 곳**: `getting-started.md:309` 의 해당 절을 지우고
-  `:228` 의 경고로 연결한다. `docs/internal/M9_SRS.md` 가 "이전 동작/새 동작/이유"
+  `:228` 의 경고로 연결한다. `docs/internal/archive/M9_SRS.md` 가 "이전 동작/새 동작/이유"
   형식을 이미 갖고 있으므로 그 문구를 옮기면 된다.
 
 ### D4. [MED] `DONGMINAL_SHELL` 이 Windows 전용이라는 사실이 없다 — 항목 13

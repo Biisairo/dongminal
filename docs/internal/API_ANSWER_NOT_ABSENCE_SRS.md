@@ -57,7 +57,7 @@
 
 - `docs/internal/EXPLORER_TRANSFER_IGNORE_SRS.md` `FR-ETR-3·4` — `check-ignore` 의
   exit 1 을 **답**으로 받는 조항과, 4xx 를 판정으로 굳히는 규약.
-- `docs/internal/UX_BATCH6_SRS.md` `FR-DSP-1a` — 확정된 "저장소가 아니다" 가 폴링을
+- `docs/internal/archive/UX_BATCH6_SRS.md` `FR-DSP-1a` — 확정된 "저장소가 아니다" 가 폴링을
   멈춘다. 되살아나는 길 셋.
 - `docs/internal/GIT_REPO_MISSING_SRS.md` `FR-RMS-4` — 소실과 "저장소 아님" 이
   **사유로 갈린다**는 것. 이 문서는 그 위에 **상태 코드로도** 갈린다를 얹는다.

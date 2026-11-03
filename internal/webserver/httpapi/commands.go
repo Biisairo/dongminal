@@ -75,7 +75,7 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 		st.Flush()
 	}
 	var msgs <-chan []byte
-	var closed, dready <-chan struct{}
+	var closed <-chan struct{}
 	var sub *hub.CmdSub
 	if presence {
 		// presence 구독도 goroutine 하나다 — 방송 구독과 같은 상한을 따로 센다.
@@ -92,7 +92,7 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer s.Commands.Remove(sub)
-		msgs, closed, dready = sub.Messages(), sub.Closed(), sub.DiagnosticsReady()
+		msgs, closed = sub.Messages(), sub.Closed()
 	}
 
 	// FR-XDF-8: 구독에 clientId 를 결선한다. hub.cmdSub 자체에는 신원이 없으므로
@@ -169,12 +169,6 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 			// (syscall) N번이 되지 않는다.
 			st.Data(msg)
 			st.DrainData(msgs)
-		case <-dready:
-			// §3A-2: 진단 슬롯(uri → 최신)을 비운다 — 새 구독은 여기로 스냅샷을 받는다.
-			// HTTP-M2: N건을 한 번에 쓴다.
-			for _, msg := range sub.TakeDiagnostics() {
-				st.Data(msg)
-			}
 		case <-keep.C:
 			st.Data(hello)
 		}

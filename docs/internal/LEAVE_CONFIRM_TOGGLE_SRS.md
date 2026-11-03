@@ -42,7 +42,7 @@
 
 - [`./RELOAD_CONTINUITY_SRS.md`](./RELOAD_CONTINUITY_SRS.md) — FR-RLC-5a. 자기
   새로고침이 이미 이 가드의 예외라는 사실
-- [`./UX_REVISION_SRS.md`](./UX_REVISION_SRS.md) — FR-KEY-6 (`blockBrowserKeys`).
+- [`./UX_REVISION_SRS.md`](./archive/UX_REVISION_SRS.md) — FR-KEY-6 (`blockBrowserKeys`).
   **서버**에 사는 동작 스위치의 선례이며 배선이 그대로 본이 된다
 - [`./CONVENIENCE_SRS.md`](./CONVENIENCE_SRS.md) — FR-TAN-19 (`fgTabNames`). 같은 선례
 - [`./PAGE_TITLE_SRS.md`](./PAGE_TITLE_SRS.md) — §2.2·2.3. 블롭이 불투명하다는 사실과

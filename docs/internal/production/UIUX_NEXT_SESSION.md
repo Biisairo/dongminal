@@ -132,7 +132,7 @@ resize 를 보내고 있었다. 되돌렸다. 이번 세션에서 **두 번** �
 
 | 무엇 | 어디 |
 |---|---|
-| 이번 수정의 근거 전부 | `docs/internal/UX_BATCH10_SRS.md` — FR-UXB-25~27b 와 그 아래 **두 인용 블록**(D-UXB-9·10) |
+| 이번 수정의 근거 전부 | `docs/internal/archive/UX_BATCH10_SRS.md` — FR-UXB-25~27b 와 그 아래 **두 인용 블록**(D-UXB-9·10) |
 | 소유권의 구조 | `web/js/core/app-focus-owner.js` 머리 주석 — 나가는 길/들어오는 길 |
 | TUI 재그리기의 함정 | `web/js/ui/term-pane.js` `_onSeq`·`_redrawNudge` 주석 · `M11_SRS` §2.4f |
 | 되찾기와 전량 재생 | `M10_SRS` FR-M10-1·2 · `web/js/test/term-reclaim.test.mjs` |

@@ -108,7 +108,7 @@ Object.assign(Renderer.prototype, {
      *
      *   이전 동작: 편집기 옆에서 곧바로 `restoreView()` 를 불렀다 — **이 시점의
      *              pane 은 아직 문서에 없다** (`_buildPane` 은 만들어 돌려줄 뿐이다).
-     *              편집기는 Monaco 인스턴스가 값을 들고 있어 붙기 전에도 서지만,
+     *              편집기는 엔진 인스턴스가 값을 들고 있어 붙기 전에도 서지만,
      *              에이전트의 자리는 DOM `scrollTop` 이라 **조용히 무시된다**
      *              (실측 2026-09-15: 창을 오갈 때 `scrollHeight:0`·`clientHeight:0`
      *              에서 복원이 돌았고 결과가 0 이었다)

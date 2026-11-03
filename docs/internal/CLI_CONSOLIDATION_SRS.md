@@ -328,7 +328,7 @@ macOS 는 `open -na "Google Chrome" --args --app=<url>`, Linux 는
 `docs/external/getting-started.md`, `docs/internal/architecture.md`,
 `docs/internal/README.md`, `docs/internal/GIT_MANUAL_CHECKLIST.md`,
 `docs/internal/GIT_REMAINING.md`, `docs/internal/NEXT_SESSION_PROMPT.md`,
-`docs/internal/ENTITY_MODEL_HANDOFF.md`, `docs/internal/design/README.md`.
+`docs/internal/archive/ENTITY_MODEL_HANDOFF.md`, `docs/internal/design/README.md`.
 
 **FR-REF-5** `docs/external/getting-started.md` 의 표류(§2.5 — 존재하지 않는
 `internal.sh`/`external.sh`/`--local`)를 함께 정정한다.

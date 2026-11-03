@@ -165,6 +165,9 @@ type Deps struct {
 	// (REPO_FIX 02 §3A-6). 합성 루트가 LSP 의 재동기화를 잇는다 — 두 도메인은 서로를
 	// 모른다.
 	OnGitChanged func(repo string)
+	// OnGitBaseline 은 git 감시자가 저장소의 첫 표명을 기준선으로 삼을 때 불린다
+	// (CODEMIRROR_MIGRATION_SRS §11.6 W) — LSP 가 그 관측을 직전 관측으로 기억한다.
+	OnGitBaseline func(repo string)
 	// LSP 는 편집기의 코드 탐색이 딛는 표면이다 (EDITOR_LSP_SRS 묶음 A).
 	// nil 이면 /api/lsp/* 이 503 이며 그 밖의 동작에는 영향이 없다 — 코드 탐색이
 	// 없는 편집기는 종전의 편집기다.
@@ -198,27 +201,19 @@ type LSPService interface {
 	// 둘째 반환은 **읽지 못한 선언의 사유들**이다 (FR-EXT-8). 조용히 빠지면
 	// 사용자는 자기가 고친 파일이 무시된 이유를 알 수 없다.
 	Status() ([]ext.Status, []string)
+	// OpenTunnel 은 (루트, 서술자)의 언어 서버를 새로 띄워 통로로 낸다
+	// (CODEMIRROR_MIGRATION_SRS FR-CMR-101). 상한이면 lsp.ErrLimit 다 (FR-CMR-102).
+	OpenTunnel(root, descID string) (lsp.Tunnel, error)
 	// Paths·SetPaths 는 실행 파일 경로 표(팩/서버 → 절대경로)의 조회·전체 교체다.
 	Paths() map[string]string
 	SetPaths(map[string]string) (map[string]string, error)
-	// CloseDoc·ResyncPath 는 문서 수명이다 (REPO_FIX 02 §3A-6) — 브라우저의 마지막
-	// 뷰가 떠날 때 닫고, 파일을 쓴 뒤 열린 문서를 디스크 판으로 맞춘다.
-	CloseDoc(root, path string)
-	ResyncPath(path string)
+	// NotifyFiles 는 열린 통로에 열리지 않은 파일의 변경을 끼워 넣는다
+	// (CODEMIRROR_MIGRATION_SRS FR-CMR-110).
+	NotifyFiles(events []lsp.FileEvent)
 	// Install 은 **팩** 하나를 조달한다 (FR-EXT-31). 단위가 팩인 것은 조달물이
 	// 하나이기 때문이다 — 서버 다섯을 내는 패키지를 서버마다 받으면 같은 것을
 	// 다섯 번 받는다. 같은 것의 두 번째 요청은 거절된다 (FR-EXT-32).
 	Install(ctx context.Context, packID string) ext.Outcome
-	// Definition·References 는 그 자리의 정의·참조다 (FR-LSP-21·22).
-	//
-	// 서버가 현재 텍스트를 아는 것이 이 계약의 핵심이다 (D-3) — 저장 전 편집이
-	// 브라우저에만 있으므로 디스크만 보는 서버는 방금 쓴 함수를 모른다. 텍스트를
-	// 뺀 문서의 판을 세션이 모르면 lsp.ErrNeedText 다 (FR-OPT-6-2). 줄·열은 1 부터다.
-	Definition(ctx context.Context, root string, doc lsp.Doc, line, col int) ([]lsp.Location, error)
-	References(ctx context.Context, root string, doc lsp.Doc, line, col int, includeDecl bool) ([]lsp.Location, error)
-	// Hover 는 그 자리 심볼의 타입·문서다 (FR-LSP-29). 정의 이동과 같은 세션·같은
-	// 동기화를 쓴다 (FR-LSP-30).
-	Hover(ctx context.Context, root string, doc lsp.Doc, line, col int) (string, error)
 }
 
 // StatsSnapshotter is satisfied by *sysstat.Sampler. Kept as an interface so the

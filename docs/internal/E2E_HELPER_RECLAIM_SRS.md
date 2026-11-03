@@ -48,7 +48,7 @@ toHaveCount(7)  28개 파일에 하드코딩 — GIT_VIEWS 의 길이
 ### 1.4 참고 (References)
 
 - `e2e/fixtures.ts` — 회수의 목적지. `plainWindows` 주석이 검증 독립성의 원본
-- `docs/internal/SPLIT_REFACTOR_SRS.md` — 앞선 축(파일 크기)을 고친 SRS
+- `docs/internal/archive/SPLIT_REFACTOR_SRS.md` — 앞선 축(파일 크기)을 고친 SRS
 - `web/js/core/constants-git.js` — `GIT_VIEWS` (묶음 D 가 **읽지 않는** 것)
 
 ---

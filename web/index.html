@@ -465,12 +465,6 @@
             <input type="checkbox" class="ui-switch" id="ds-minimap">
           </div>
           <div class="ds-hint" data-i18n="html.minimap_hint"></div>
-          <!-- UX_BATCH10_SRS FR-UXB-42·43 -->
-          <div class="ds-row">
-            <span data-i18n="html.diff_minimap"></span>
-            <input type="checkbox" class="ui-switch" id="ds-diffminimap">
-          </div>
-          <div class="ds-hint" data-i18n="html.diff_minimap_hint"></div>
         </div>
       </div>
       <div class="mpanel" id="panel-notify" hidden>
@@ -757,6 +751,15 @@
 <script src="js/ui/term-clip.js?v=__ASSETV__"></script>
 <!-- 터치 스크롤·길게 누르기 (UX_BATCH11_SRS FR-MTS). term-input.js 의 증강 분할이다. -->
 <script src="js/ui/term-touch.js?v=__ASSETV__"></script>
+<!-- CodeMirror 편집기의 문서 버퍼·찾기 계산·구성 (CODEMIRROR_MIGRATION_SRS §11.1). file-editor.js
+     앞이다 — FileEditor 가 이것들을 부른다. `CM` 은 편집기를 처음 열 때 온다(loadCodeMirror). -->
+<script src="js/ui/cm-buffer.js?v=__ASSETV__"></script>
+<script src="js/ui/cm-find.js?v=__ASSETV__"></script>
+<script src="js/ui/cm-scrollbar.js?v=__ASSETV__"></script>
+<script src="js/ui/cm-sticky.js?v=__ASSETV__"></script>
+<script src="js/ui/cm-setup.js?v=__ASSETV__"></script>
+<!-- 브라우저 LSP — 연결·소켓·문서 그룹 (CODEMIRROR_MIGRATION_SRS §11.6 L1). -->
+<script src="js/ui/cm-lsp.js?v=__ASSETV__"></script>
 <script src="js/ui/file-editor.js?v=__ASSETV__"></script>
 <!-- 편집기의 파일 내 찾기 패널 (EDITOR_FIND_PANEL_SRS). file-editor.js 뒤여야
      한다 — FileEditor.prototype 에 얹는다 (DRIFT_RECLAIM_SRS FR-DRC-13). -->
@@ -784,6 +787,7 @@
 <script src="js/git/panel-hunks.js?v=__ASSETV__"></script>
 <script src="js/git/panel-dir-entry.js?v=__ASSETV__"></script>
 <script src="js/git/panel-poll.js?v=__ASSETV__"></script>
+<script src="js/git/diff-cm.js?v=__ASSETV__"></script>
 <script src="js/git/diff-view.js?v=__ASSETV__"></script>
 <script src="js/git/diff-view-parity.js?v=__ASSETV__"></script>
 <script src="js/git/diff-view-doc.js?v=__ASSETV__"></script>

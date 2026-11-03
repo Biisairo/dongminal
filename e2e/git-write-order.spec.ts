@@ -149,8 +149,8 @@ test('D1 (F-4.3): 파일 단위 쓰기 뒤 열린 Diff 는 다음 관측을 기�
   fs.appendFileSync(j(repo, 'a.txt'), 'three\n');
   await enter(page, request, repo);
   await row(page, 'working', 'a.txt').click();
-  await page.waitForFunction(() => !!(window as any).app.gitPanel._diffView?._orig, undefined, { timeout: 20000 });
-  expect(await page.evaluate(() => (window as any).app.gitPanel._diffView._orig.getValue())).toBe('one\ntwo\n');
+  await page.waitForFunction(() => edT.diffHasOrig((window as any).app.gitPanel._diffView), undefined, { timeout: 20000 });
+  expect(await page.evaluate(() => edT.diffText((window as any).app.gitPanel._diffView, 'orig'))).toBe('one\ntwo\n');
   const order: string[] = [];
   page.on('request', (r) => {
     const u = r.url();
@@ -160,7 +160,7 @@ test('D1 (F-4.3): 파일 단위 쓰기 뒤 열린 Diff 는 다음 관측을 기�
   });
   await page.evaluate(() => (window as any).app.gitPanel._run('unstage',
     [{ group: 'staged', path: 'a.txt', origPath: '', untracked: false }]));
-  await expect.poll(() => page.evaluate(() => (window as any).app.gitPanel._diffView._orig?.getValue()),
+  await expect.poll(() => page.evaluate(() => { const v = (window as any).app.gitPanel._diffView; return edT.diffHasOrig(v) ? edT.diffText(v, 'orig') : undefined; }),
     { timeout: 10000 }).toBe('one\n');
   const after = order.slice(order.indexOf('unstage') + 1);
   expect(after[0]).toBe('diff');

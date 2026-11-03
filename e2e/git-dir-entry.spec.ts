@@ -7,6 +7,7 @@ import { APIRequestContext, Page } from '@playwright/test';
 import {
   test, expect, openGit as fxOpenGit, rmTree, switchToEditorRoot, openExplorerSide, addEditor, gotoWithEditors, openExplorerAt, enterExplorer,
 } from './fixtures';
+import { ED_SEL } from './editor';
 import { TMP, realPath, cssPath } from './osenv';
 
 // GIT_DIR_ENTRY_SRS §4 — 디렉터리 상태 항목의 검증 V-DIR-10~42.
@@ -272,8 +273,8 @@ test.describe('묶음 G — Git 패널의 디렉터리 행', () => {
       const note = diffView(page).locator('.git-diff-note');
       await expect(note).toBeVisible({ timeout: 10000 });
       await expect(note).toContainText('서브모듈');
-      // 사유 자리에 Monaco 를 세우지 않는다 — 그릴 것이 없기 때문이다.
-      await expect(diffView(page).locator('.monaco-editor')).toHaveCount(0);
+      // 사유 자리에 편집기를 세우지 않는다 — 그릴 것이 없기 때문이다.
+      await expect(diffView(page).locator(ED_SEL.surface)).toHaveCount(0);
     });
 
   test('G3 (V-DIR-22): 중첩 저장소 행의 사유와 진입점', async ({ page }) => {

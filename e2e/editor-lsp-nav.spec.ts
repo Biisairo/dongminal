@@ -1,23 +1,27 @@
 /**
- * EDITOR_LSP_SRS M2 (묶음 C·F) — V-LSP-13·14·15·19·21.
+ * 코드 탐색 — CODEMIRROR_MIGRATION_SRS FR-CMR-90~95 · §4.3 · §11.6 T (EDITOR_LSP_SRS V-LSP-13~21·60).
  *
- * **서버 응답을 stub 한다.** 세션·프로토콜은 Go 검사가 이미 재고(TC-LSP-50~80),
- * 여기서 재려는 것은 그 답을 받아 **우리 탭 시스템으로 옮기는 경로**다 — Monaco 의
- * peek 이 그 일을 못 하기 때문에 우리가 맡은 바로 그 부분이다 (그 SRS §2.11 / D-8b).
+ * **기능 검사는 실제 gopls 로 한다** (M8 결정 7). 짜 둔 응답에 맞춘 검사는 실제 서버와 어긋나도
+ * 통과한다. 통로(`/api/lsp/ws`)는 `routeWebSocket` 으로 실제 서버에 잇고 프레임만 기록한다
+ * (`lspTap`). 가짜 소켓은 실패 주입(상한 거절·끊김)에만 쓴다.
+ *
+ * gopls 는 패키지를 다 읽기 전의 요청에 빈 답을 줄 수 있다 — 검사는 그 파일의 첫
+ * `textDocument/publishDiagnostics` 를 기다린 뒤 시작한다 (`ready`).
  */
+import { execFileSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { APIRequestContext, Page } from '@playwright/test';
+import { APIRequestContext, Page, WebSocketRoute } from '@playwright/test';
 
-import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
+import { test, expect, rmTree, switchToEditorRoot, openExplorerSide, openGit } from './fixtures';
+import { ED_SEL } from './editor';
 import { TMP, realPath, cssPath } from './osenv';
 
 /**
  * **고정 대기의 예외 (`TEST-16`).** 이 파일의 `waitForTimeout` 은 전부 **일어나지
- * 않는 것**을 잰다 — provider 가 서지 않는다 · 언어 서버에 묻지 않는다 · 옛 키가
- * 듣지 않는다 · 밑줄이 얹히지 않는다 · 제안이 뜨지 않는다. 기다릴 신호가 없으므로
- * 시간을 주고 그래도 그대로인지 보는 것이 검사 자체다.
+ * 않는 것**을 잰다 — 요청이 나가지 않는다 · 옛 키가 듣지 않는다 · 말풍선이 뜨지 않는다 ·
+ * 제안이 뜨지 않는다. 기다릴 신호가 없으므로 시간을 주고 그래도 그대로인지 보는 것이 검사 자체다.
  */
 
 const j = (...p: string[]) => path.join(...p);
@@ -31,23 +35,69 @@ const P = (rel: string) => j(ROOT, ...rel.split('/'));
 let BASE = '';
 let ROOT = '';
 
-test.beforeAll(() => {
+const MAIN_GO = 'package main\n\nimport "example.com/lspnav/pkg/deep"\n\nfunc main() {\n\tdeep.Helper()\n}\n';
+const BAD_GO = 'package bad\n\nfunc f() {\n\tnope()\n}\n';
+
+test.beforeAll(async ({ request }) => {
   BASE = realPath(fs.mkdtempSync(j(TMP, 'dm-lspnav-')));
   ROOT = j(BASE, 'root');
   // 정의가 **다른 파일, 그리고 깊은 겹**에 있다 — 조상 펼치기까지 걸린다.
   fs.mkdirSync(j(ROOT, 'pkg', 'deep'), { recursive: true });
-  fs.writeFileSync(j(ROOT, 'main.go'), 'package main\n\nfunc main() {\n\thelper()\n}\n');
+  fs.mkdirSync(j(ROOT, 'bad'), { recursive: true });
+  fs.writeFileSync(j(ROOT, 'go.mod'), 'module example.com/lspnav\n\ngo 1.21\n');
+  fs.writeFileSync(j(ROOT, 'main.go'), MAIN_GO);
   fs.writeFileSync(j(ROOT, 'pkg', 'deep', 'helper.go'),
-    'package deep\n\n// helper 는 여기 있다.\nfunc helper() {\n}\n');
+    'package deep\n\n// Helper 는 여기 있다.\nfunc Helper() int {\n\treturn 1\n}\n');
+  fs.writeFileSync(j(ROOT, 'bad', 'bad.go'), BAD_GO);
   fs.writeFileSync(j(ROOT, 'notes.txt'), 'plain text\n');
   ROOT = realPath(ROOT);
+
+  // §4.3: gopls 가 없으면 건너뛰지 않고 실패한다. CI 는 e2e.yml 이 판을 고정해 설치한다.
+  const r = await request.post('/api/lsp/status', { data: {} });
+  expect(r.ok(), `상태 조회 실패: ${r.status()}`).toBeTruthy();
+  const gopls = ((await r.json()).servers || []).find((s: any) => s.id === 'gopls');
+  expect(gopls && gopls.found, `gopls 가 없다 — go install golang.org/x/tools/gopls@v0.20.0: ${JSON.stringify(gopls)}`).toBe(true);
 });
 test.afterAll(() => {
   rmTree(BASE);
 });
 
-async function enter(page: Page, request: APIRequestContext) {
-  const r = await request.post('/api/editors/add', { data: { path: ROOT } });
+type Frame = { dir: 'up' | 'down'; method?: string; uri?: string };
+type Tap = { frames: Frame[]; sockets: { page: WebSocketRoute; server: WebSocketRoute }[] };
+
+const LSP_WS = /\/api\/lsp\/ws/;
+
+/** 통로를 실제 서버에 잇고 두 방향 프레임의 method 를 남긴다. */
+async function lspTap(page: Page): Promise<Tap> {
+  const tap: Tap = { frames: [], sockets: [] };
+  const rec = (dir: Frame['dir'], m: string | Buffer) => {
+    const o = JSON.parse(String(m));
+    const p = o.params || {};
+    tap.frames.push({ dir, method: o.method, uri: p.uri || (p.textDocument && p.textDocument.uri) });
+  };
+  await page.routeWebSocket(LSP_WS, (ws) => {
+    const server = ws.connectToServer();
+    tap.sockets.push({ page: ws, server });
+    ws.onMessage((m) => { rec('up', m); server.send(m) });
+    server.onMessage((m) => { rec('down', m); ws.send(m) });
+  });
+  return tap;
+}
+
+const uriIs = (uri: string | undefined, rel: string) =>
+  !!uri && decodeURIComponent(uri).replace(/\\/g, '/').endsWith('/' + rel);
+
+/** gopls 가 그 파일을 다 읽었다 — 첫 진단 알림이 왔다. `from` 뒤의 프레임만 본다. */
+async function ready(tap: Tap, rel: string, from = 0) {
+  await expect.poll(() => tap.frames.slice(from).some((f) =>
+    f.dir === 'down' && f.method === 'textDocument/publishDiagnostics' && uriIs(f.uri, rel)),
+  { timeout: 60000, message: `${rel} 의 진단 알림이 오지 않았다` }).toBe(true);
+}
+
+const sent = (tap: Tap, method: string) => tap.frames.filter((f) => f.dir === 'up' && f.method === method).length;
+
+async function enter(page: Page, request: APIRequestContext, root = ROOT) {
+  const r = await request.post('/api/editors/add', { data: { path: root } });
   expect(r.ok(), `editors/add 실패: ${await r.text()}`).toBeTruthy();
   await page.context().addInitScript(() => { sessionStorage.setItem('displayMode', 'desktop') });
   await page.goto('/');
@@ -55,31 +105,29 @@ async function enter(page: Page, request: APIRequestContext) {
   await page.waitForFunction(
     () => !!(window as any).app?.testing.editors && (window as any).app.testing.edWindows().length > 0,
     undefined, { timeout: 15000 });
-  await switchToEditorRoot(page, ROOT);
+  await switchToEditorRoot(page, root);
   await openExplorerSide(page);
   await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
 }
 
 async function openFile(page: Page, rel: string) {
-  const abs = P(rel);
-  await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), abs);
-  // **꼬리로 견주지 않는다.** `endsWith('pkg/deep/helper.go')` 는 Windows 의
-  // 경로(`…\pkg\deep\helper.go`)에 결코 맞지 않아 이 대기가 20초를 다 쓴다
-  // (러너 실측). 절대경로를 통째로 견주되 구분자만 맞춘다 (FR-CEM-11).
+  await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), P(rel));
+  await waitEditorAt(page, P(rel));
+}
+
+/** 경로만 보지 않고 그 파일의 편집기가 **실제로 설** 때까지 기다린다. 절대경로를 구분자만 맞춰 견준다. */
+async function waitEditorAt(page: Page, abs: string) {
   await page.waitForFunction((p) => {
     const v = (window as any).app.testing.edActiveEditor();
-    if (!v || !v._editor || v.el.offsetParent === null) return false;
+    if (!v || !edT.has(v) || v.el.offsetParent === null) return false;
     const key = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
     return key(v.filePath) === key(p);
   }, abs, { timeout: 20000 });
 }
 
 /**
- * 상태를 stub 한다 (FR-LSP-44 의 표는 **서버가 준다**).
- *
- * 이 기계에 gopls 가 있는지는 환경마다 다르고, 선언이 격리 칸에 펴졌는지도
- * 러너마다 다르다 — 그것에 기대는 검사는 자기가 재려는 것(우리 경로) 대신
- * 러너의 형편을 잰다.
+ * 상태를 stub 한다 (FR-LSP-44 의 표는 **서버가 준다**). 설치 제안 검사만 쓴다 — 제안은
+ * 서버가 **없는** 상태를 재야 하고, 그 상태를 러너마다 세울 수는 없다.
  */
 const stubStatus = (page: Page, servers: any[]) => page.route('**/api/lsp/status',
   (r: any) => r.fulfill({
@@ -92,296 +140,113 @@ const GOPLS_MISSING = {
   found: false, installer: 'go', canInstall: true,
 };
 
-/**
- * 호버가 딛는 **전제**를 먼저 확인한다.
- *
- * `provideHover` 는 그 모델의 파일이 어느 Editor 루트 아래인지 알아야 요청을
- * 만든다 (`_lspHoverWhere` → `_lspRootOfPath`). 그 앞단이 비면 요청이 **아예
- * 가지 않고**, 말풍선만 재는 검사는 "안 떴다" 라고만 말한다 — 무엇을 고쳐야
- * 하는지 알 수 없다. 그래서 그 자리를 이름 붙여 확인한다.
- */
-async function expectHoverGround(page: Page) {
-  const ground = () => page.evaluate(() => {
-    const a = (window as any).app;
-    const v = a.testing.edActiveEditor();
-    const path = v && v.filePath;
-    return {
-      path: path || null,
-      hasModel: !!(v && v._editor && v._editor.getModel()),
-      lang: (v && v._editor && v._editor.getModel() && v._editor.getModel().getLanguageId()) || null,
-      root: path ? (a.testing.lspRootOfPath(path) || null) : null,
-      roots: a.testing.edWindows().map((w: any) => (w.editor && w.editor.root) || null),
-      // provider 가 실제로 걸렸는가. 이것이 비면 Monaco 는 아무에게도 묻지 않는다.
-      hoverLangs: [...(a.testing.lspHoverLangs || [])],
-    };
-  });
-  const g = await ground();
-  expect(g.hasModel, `활성 편집기에 모델이 없다: ${JSON.stringify(g)}`).toBe(true);
-  expect(g.lang, `모델의 언어가 go 가 아니다 — provider 가 걸리지 않는다: ${JSON.stringify(g)}`).toBe('go');
-  expect(g.root, `이 파일을 품는 Editor 루트를 못 찾았다 — 호버 요청이 만들어지지 않는다: ${JSON.stringify(g)}`).toBeTruthy();
-  // **등록은 비동기다.** provider 는 `/api/lsp/status` 의 답을 받은 뒤에 걸리므로
-  // (`lspHoverRegister` → `_lspStatusCached`), 편집기가 선 그 순간에는 아직
-  // 걸리지 않았을 수 있다 — 러너가 느릴수록 그 틈이 벌어진다 (Windows 실측).
-  // 걸리기 전에 호버를 트리거하면 Monaco 는 **아무에게도 묻지 않고**, 증상은
-  // "말풍선이 안 뜬다" 로만 보인다.
-  await expect.poll(async () => (await ground()).hoverLangs, { timeout: 15000 })
-    .toContain('go');
-}
-
-/**
- * 정의 provider 가 **실제로 걸렸는가.** 호버의 `expectHoverGround` 와 같은 자리다
- * (FR-LSP-62) — 등록은 `/api/lsp/status` 의 답을 받은 뒤이므로 편집기가 선 그
- * 순간에는 아직 걸리지 않았을 수 있다. 걸리기 전에 명령을 부르면 Monaco 는
- * 아무에게도 묻지 않고, 증상은 "이동하지 않는다" 로만 보인다.
- */
-async function expectDefGround(page: Page) {
-  await expect
-    .poll(async () => page.evaluate(() => [...((window as any).app.testing.lspDefLangs || [])]),
-      { timeout: 15000 })
-    .toContain('go');
-}
-
 // 커서를 그 자리에 둔다 — 요청이 싣는 좌표가 이것이다.
 async function putCursor(page: Page, line: number, col: number) {
   await page.evaluate(([l, c]) => {
-    const ed = (window as any).app.testing.edActiveEditor()._editor;
-    ed.setPosition({ lineNumber: l, column: c });
-    ed.focus();
+    const ed = edT.of((window as any).app.testing.edActiveEditor());
+    edT.setCursor(ed, l, c);
+    edT.focus(ed);
   }, [line, col] as const);
-}
-
-type Loc = { path: string; line: number; col: number };
-
-// 정의·참조 응답을 대신한다. `seen` 에 요청 본문이 쌓인다.
-async function stubLSP(page: Page, kind: 'definition' | 'references',
-  body: { locations?: Loc[]; reason?: string }, seen?: any[]) {
-  await page.route(`**/api/lsp/${kind}`, async (route: any) => {
-    if (seen) seen.push(JSON.parse(route.request().postData() || '{}'));
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ locations: body.locations || [], ...(body.reason ? { reason: body.reason } : {}) }),
-    });
-  });
 }
 
 const activePath = (page: Page) => page.evaluate(
   () => String((window as any).app.testing.edActiveEditor()?.filePath || ''));
-
-// 그 파일의 편집기가 **실제로 설** 때까지 기다린다.
-//
-// 활성 탭이 바뀌는 것과 Monaco 가 서는 것은 다른 시점이다 — 새로 여는 파일은
-// Monaco 생성이 비동기이므로, 경로만 보고 커서를 읽으면 `_editor` 가 아직 null 이다.
-async function waitEditorAt(page: Page, abs: string) {
-  await page.waitForFunction((p) => {
-    const v = (window as any).app.testing.edActiveEditor();
-    if (!v || !v._editor) return false;
-    const key = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
-    return key(v.filePath) === key(p);
-  }, abs, { timeout: 20000 });
-}
-const cursor = (page: Page) => page.evaluate(() => {
-  const p = (window as any).app.testing.edActiveEditor()._editor.getPosition();
-  return { line: p.lineNumber, col: p.column };
-});
+const cursor = (page: Page) => page.evaluate(() => edT.cursor(edT.of((window as any).app.testing.edActiveEditor())));
 const note = (page: Page) => page.locator('.file-editor:visible .fe-note.vis');
+const diags = (page: Page) => page.evaluate(() => {
+  const h = edT.of((window as any).app.testing.edActiveEditor());
+  return h ? edT.diagnostics(h) : [];
+});
+const docOf = (page: Page, abs: string) => page.evaluate((p) => {
+  const key = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
+  for (const [k, d] of (window as any).app.testing.edDocs) if (key(k) === key(p)) return true;
+  return false;
+}, abs);
+// 그 파일을 보는 칸의 진단 — 활성 칸이 아니어도 읽는다.
+const docDiags = (page: Page, abs: string) => page.evaluate((p) => {
+  const key = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
+  for (const [k, d] of (window as any).app.testing.edDocs) if (key(k) === key(p)) return edT.docDiagnostics(d);
+  return null;
+}, abs);
+// 그 파일 문서 전체를 되돌릴 수 있는 편집으로 바꾼다 — 칸을 거치므로 `didChange` 가 나간다.
+const editDoc = (page: Page, abs: string, text: string) => page.evaluate(([p, s]) => {
+  const key = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
+  for (const [k, d] of (window as any).app.testing.edDocs) if (key(k) === key(p)) edT.docEdit(d, s);
+}, [abs, text] as const);
 
-test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
-  // V-LSP-13 · FR-LSP-23·26 / D-3
+/** 메인 → 정의(helper.go 4행 6열). `deep.Helper` 의 `H` 는 6행 7열이다. */
+async function atHelperCall(page: Page, request: APIRequestContext) {
+  const tap = await lspTap(page);
+  await enter(page, request);
+  await openFile(page, 'main.go');
+  await ready(tap, 'main.go');
+  await putCursor(page, 6, 8);
+  return tap;
+}
+
+test.describe('코드 탐색 — 정의 (FR-CMR-93)', () => {
+  // V-LSP-13 · FR-LSP-26 / FR-EKB-6
   test('정의가 다른 파일이면 탭으로 열리고 그 줄로 가며 탐색기에서 보인다', async ({ page, request }) => {
-    await enter(page, request);
-    await openFile(page, 'main.go');
-    await putCursor(page, 4, 3);
-
-    const seen: any[] = [];
-    await stubLSP(page, 'definition',
-      { locations: [{ path: P('pkg/deep/helper.go'), line: 4, col: 6 }] }, seen);
-
+    const tap = await atHelperCall(page, request);
     // 깊은 겹은 아직 접혀 있다 — 이것이 출발점이다.
-    await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(j(ROOT, 'pkg', 'deep', 'helper.go'))}"]`)).toHaveCount(0);
+    await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(P('pkg/deep/helper.go'))}"]`)).toHaveCount(0);
 
     await page.keyboard.press('F12');
     await waitEditorAt(page, P('pkg/deep/helper.go'));
-    expect(await cursor(page)).toEqual({ line: 4, col: 6 });
-
-    // FR-LSP-23 / D-3: **현재 텍스트와 좌표가 실려 갔다.** 텍스트가 없으면 디스크만
-    // 보는 서버가 방금 쓴 함수를 모른다.
-    expect(seen.length, '정의 요청이 가지 않았다').toBeGreaterThan(0);
-    expect(seen[0].root).toBe(ROOT);
-    expect(seen[0].path).toBe(P('main.go'));
-    expect(seen[0].text).toContain('func main()');
-    expect(seen[0].line).toBe(4);
-    expect(seen[0].col).toBe(3);
-
-    // FR-EKB-6 을 딛는다 — 조상이 모두 펼쳐지고 그 행이 선택으로 표시된다.
+    await expect.poll(() => cursor(page), { timeout: 10000 }).toEqual({ line: 4, col: 6 });
+    expect(sent(tap, 'textDocument/definition'), '정의 요청이 통로로 가지 않았다').toBeGreaterThan(0);
     for (const p of [P('pkg'), P('pkg/deep'), P('pkg/deep/helper.go')]) {
       await expect(page.locator(`.ed-tree .ed-row[data-path="${cssPath(p)}"]`)).toBeVisible({ timeout: 10000 });
     }
   });
 
-  /**
-   * V-LSP-60·61·62 (FR-LSP-60~64, U-1) — **커맨드클릭으로 정의로.**
-   *
-   * 사용자 증언이 이것이었다: *"import 한 객체를 커맨드클릭 해도 이동하지
-   * 않는다."* 그 제스처가 Monaco 에서 부르는 명령이 `revealDefinition` 이고, 그
-   * 명령은 **DefinitionProvider 가 없으면 아무 일도 하지 않는다.**
-   *
-   * 좌표를 지나는 실제 Meta+클릭 대신 그 명령으로 재는 이유는 이 저장소가 이미
-   * 배운 것이다 — *"좌표를 지나는 클릭은 한 번에 맞지 않는다"*(`revealLine` 직후의
-   * 좌표는 렌더 전 값이다). 링크 제스처가 부르는 자리가 같으므로 판정은 같다.
-   */
-  test('커맨드클릭(revealDefinition)이 다른 파일의 정의로 옮긴다', async ({ page, request }) => {
-    await enter(page, request);
-    await stubStatus(page, [{ id: 'gopls', langs: ['go'], exts: ['.go'], found: true }]);
-    await openFile(page, 'main.go');
-    await expectDefGround(page);
-    await putCursor(page, 4, 3);
-
-    const seen: any[] = [];
-    await stubLSP(page, 'definition',
-      { locations: [{ path: P('pkg/deep/helper.go'), line: 4, col: 6 }] }, seen);
-
-    // **`getAction` 이 아니라 `trigger` 다.** 이 판의 Monaco 는 이 명령을
-    // `registerAction2`(전역 액션 레지스트리)로 등록하므로 편집기의 액션 목록에는
-    // 없다 — `getAction` 은 `null` 을 준다(실측). 커맨드클릭도 같은 명령 서비스를
-    // 지나므로 판정은 같다.
-    await page.evaluate(() => {
-      const ed = (window as any).app.testing.edActiveEditor()._editor;
-      ed.trigger('e2e', 'editor.action.revealDefinition', {});
-    });
-
-    // FR-LSP-63: 다른 파일은 **우리 탭 시스템**으로 열린다.
-    await waitEditorAt(page, P('pkg/deep/helper.go'));
-    expect(await cursor(page)).toEqual({ line: 4, col: 6 });
-    // FR-LSP-61: 새 종단을 만들지 않았다 — 같은 종단이 답했다.
-    expect(seen.length, '정의 요청이 가지 않았다').toBeGreaterThan(0);
-    expect(seen[0].text).toContain('func main()');
-
-    // FR-LSP-64: 그 이동도 뒤로 가기 스택에 쌓인다.
-    await page.keyboard.press('Control+Alt+Minus');
-    await waitEditorAt(page, P('main.go'));
-  });
-
-  /**
-   * V-LSP-60b (FR-LSP-60) — **제스처 그대로.** 사용자가 한 그 동작이다.
-   *
-   * 링크 감지의 수정 키는 플랫폼이 정한다(macOS 는 Cmd, 그 밖은 Ctrl) — Monaco 의
-   * 판정을 그대로 따라간다. 좌표는 Monaco 에게 묻는다(`getScrolledVisiblePosition`)
-   * — 우리가 글자 폭을 계산하면 폰트가 바뀔 때마다 틀린다.
-   */
-  test('그 자리를 커맨드클릭하면 정의로 옮긴다', async ({ page, request }) => {
-    await enter(page, request);
-    await stubStatus(page, [{ id: 'gopls', langs: ['go'], exts: ['.go'], found: true }]);
-    await openFile(page, 'main.go');
-    await expectDefGround(page);
-    await stubLSP(page, 'definition',
-      { locations: [{ path: P('pkg/deep/helper.go'), line: 4, col: 6 }] });
-    // 편집기에 포커스를 준다 — Monaco 의 링크 감지는 그 편집기의 keydown 도 본다.
-    await putCursor(page, 4, 3);
-
-    // `helper()` 의 한가운데 (4행 5열) 화면 좌표.
+  // V-LSP-60b (FR-LSP-60) — **제스처 그대로.** 수정 키는 앱이 읽는 플랫폼을 따른다.
+  test('그 자리를 Mod+클릭하면 정의로 옮긴다', async ({ page, request }) => {
+    await atHelperCall(page, request);
     const at = await page.evaluate(() => {
-      const ed = (window as any).app.testing.edActiveEditor()._editor;
-      const p = ed.getScrolledVisiblePosition({ lineNumber: 4, column: 5 });
-      const r = ed.getDomNode().getBoundingClientRect();
-      return { x: r.left + p.left + 2, y: r.top + p.top + p.height / 2 };
+      const p = edT.coords(edT.of((window as any).app.testing.edActiveEditor()), 6, 9);
+      return { x: p.left + 2, y: p.top + p.height / 2 };
     });
-
-    const mod = process.platform === 'darwin' ? 'Meta' : 'Control';
+    const mac = await page.evaluate(() => (0, eval)('IS_MAC'));
+    const mod = mac ? 'Meta' : 'Control';
     await page.keyboard.down(mod);
-    // 링크는 **움직임**으로 감지된다 — 누르기만 하면 감지 전이다.
-    await page.mouse.move(at.x, at.y);
-    await page.mouse.move(at.x + 1, at.y);
     await page.mouse.click(at.x, at.y);
     await page.keyboard.up(mod);
 
     await waitEditorAt(page, P('pkg/deep/helper.go'));
-    expect(await cursor(page)).toEqual({ line: 4, col: 6 });
+    await expect.poll(() => cursor(page), { timeout: 10000 }).toEqual({ line: 4, col: 6 });
   });
 
-  // V-LSP-63 (FR-LSP-65): LSP 가 없는 언어에는 provider 가 서지 않는다.
-  test('LSP 가 없는 언어에는 정의 provider 가 서지 않는다', async ({ page, request }) => {
-    await enter(page, request);
-    await stubStatus(page, [{ id: 'gopls', langs: ['go'], exts: ['.go'], found: true }]);
-    await openFile(page, 'notes.txt');
+  // V-LSP-21 · FR-LSP-40: 설정에서 바꾼 키로 동작한다 — 조합이 코드에 박혀 있지 않다.
+  test('설정에서 바꾼 키로 정의 이동이 된다', async ({ page, request }) => {
+    const tap = await atHelperCall(page, request);
+    await page.evaluate(() => { (window as any).shortcuts.edGotoDef = 'Ctrl+Shift+KeyY' });
+
+    // 옛 기본값은 더 이상 듣지 않는다.
+    await page.keyboard.press('F12');
     await page.waitForTimeout(500);
-    const langs = await page.evaluate(() => [...((window as any).app.testing.lspDefLangs || [])]);
-    expect(langs).not.toContain('plaintext');
-  });
-
-  // V-LSP-14 · FR-LSP-27 — 돌아올 수 없으면 그 이동은 길을 잃는 일이 된다.
-  test('뒤로 가기가 뛴 자리로 돌아온다', async ({ page, request }) => {
-    await enter(page, request);
-    await openFile(page, 'main.go');
-    await putCursor(page, 4, 3);
-    await stubLSP(page, 'definition',
-      { locations: [{ path: P('pkg/deep/helper.go'), line: 4, col: 6 }] });
-
-    await page.keyboard.press('F12');
-    await expect.poll(() => activePath(page), { timeout: 15000 })
-      .toBe(P('pkg/deep/helper.go'));
-
-    await page.keyboard.press('Control+Alt+Minus');
-    await waitEditorAt(page, P('main.go'));
-    expect(await cursor(page)).toEqual({ line: 4, col: 3 });
-  });
-
-  // V-LSP-15 · FR-LSP-28 / D-9 — 침묵은 고장과 구별되지 않는다.
-  test('서버가 사유를 주면 그 사유가 보인다', async ({ page, request }) => {
-    await enter(page, request);
-    await openFile(page, 'main.go');
-    await putCursor(page, 4, 3);
-    await stubLSP(page, 'definition',
-      { reason: 'gopls 가 없어 코드 탐색을 할 수 없습니다 — 설정 ▸ Code 에서 받으세요' });
-
-    await page.keyboard.press('F12');
-    await expect(note(page)).toBeVisible({ timeout: 10000 });
-    await expect(note(page)).toContainText('gopls');
-    // 옮기지 않았다 — 사유가 왔으면 그 자리에 머문다.
     expect(await activePath(page)).toBe(P('main.go'));
-  });
+    expect(sent(tap, 'textDocument/definition')).toBe(0);
 
-  // V-LSP-15 · FR-LSP-28: 결과가 비어도 그 사실이 보인다.
-  test('정의가 없으면 그 사실이 보인다', async ({ page, request }) => {
-    await enter(page, request);
-    await openFile(page, 'main.go');
-    await putCursor(page, 1, 1);
-    await stubLSP(page, 'definition', { locations: [] });
-
-    await page.keyboard.press('F12');
-    await expect(note(page)).toBeVisible({ timeout: 10000 });
-    await expect(note(page)).toContainText('정의');
-  });
-
-  // FR-LSP-22·25: 참조는 **하나여도 목록**이다 — 몇 개인지가 그 기능의 답이다.
-  test('참조는 목록으로 뜨고 고르면 그 줄로 열린다', async ({ page, request }) => {
-    await enter(page, request);
-    await openFile(page, 'main.go');
-    await putCursor(page, 4, 3);
-    const seen: any[] = [];
-    await stubLSP(page, 'references', {
-      locations: [
-        { path: P('main.go'), line: 4, col: 2 },
-        { path: P('pkg/deep/helper.go'), line: 4, col: 6 },
-      ],
-    }, seen);
-
-    await page.keyboard.press('Shift+F12');
-    const panel = page.locator('.ed-find.vis');
-    await expect(panel).toBeVisible({ timeout: 10000 });
-    await expect(panel.locator('.ed-find-row')).toHaveCount(2);
-    await expect(panel.locator('.ed-find-note')).toContainText('2');
-
-    // 둘째를 고른다 — 그 줄로 열린다.
-    await panel.locator('.ed-find-row').nth(1).click();
+    await page.keyboard.press('Control+Shift+KeyY');
     await waitEditorAt(page, P('pkg/deep/helper.go'));
-    expect(await cursor(page)).toEqual({ line: 4, col: 6 });
   });
 
-  // V-LSP-19 · FR-LSP-40b — 편집기가 없거나 지원 언어가 아니면 삼키지 않는다.
-  test('편집기가 없는 탭에서는 F12 를 삼키지 않는다', async ({ page, request }) => {
+  // V-LSP-63 (FR-LSP-65): LSP 가 없는 파일에서는 언어 서버에 묻지 않는다.
+  test('LSP 가 없는 파일에서는 정의 요청이 나가지 않는다', async ({ page, request }) => {
+    const tap = await lspTap(page);
     await enter(page, request);
-    // 터미널 창으로 옮긴다 — Editor 창이 아니면 이 키는 우리 것이 아니다.
+    await openFile(page, 'notes.txt');
+    await putCursor(page, 1, 2);
+    await page.keyboard.press('F12');
+    await page.waitForTimeout(500);
+    expect(sent(tap, 'textDocument/definition')).toBe(0);
+    expect(await activePath(page)).toBe(P('notes.txt'));
+  });
+
+  // V-LSP-19 · FR-LSP-40b — 편집기가 없는 탭이면 이 키는 우리 것이 아니다.
+  test('편집기가 없는 탭에서는 F12 를 삼키지 않는다', async ({ page, request }) => {
+    const tap = await atHelperCall(page, request);
     await page.evaluate(() => {
       const a = (window as any).app;
       const term = a.ws.windows.find((w: any) => !a.testing.isEditorWin(w));
@@ -389,275 +254,204 @@ test.describe('코드 탐색 — 정의·참조 이동 (M2)', () => {
       a.switchWindow(term.id);
     });
     await page.waitForSelector('#area .pn.focused .xterm-helper-textarea', { timeout: 10000 });
-
-    let asked = false;
-    await page.route('**/api/lsp/definition', async (route: any) => {
-      asked = true;
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"locations":[]}' });
-    });
     await page.keyboard.press('F12');
     await page.waitForTimeout(500);
-    expect(asked, 'Editor 창이 아닌데 언어 서버에 물었다').toBe(false);
-  });
-
-  // V-LSP-21 · FR-LSP-40: 설정에서 바꾼 키로 동작한다 — 조합이 코드에 박혀 있지 않다.
-  test('설정에서 바꾼 키로 정의 이동이 된다', async ({ page, request }) => {
-    await enter(page, request);
-    await openFile(page, 'main.go');
-    await putCursor(page, 4, 3);
-    await stubLSP(page, 'definition',
-      { locations: [{ path: P('pkg/deep/helper.go'), line: 4, col: 6 }] });
-
-    await page.evaluate(() => { (window as any).shortcuts.edGotoDef = 'Ctrl+Shift+KeyY' });
-
-    // 옛 기본값은 더 이상 듣지 않는다.
-    await page.keyboard.press('F12');
-    await page.waitForTimeout(400);
-    expect(await activePath(page)).toBe(P('main.go'));
-
-    await page.keyboard.press('Control+Shift+KeyY');
-    await expect.poll(() => activePath(page), { timeout: 15000 })
-      .toBe(P('pkg/deep/helper.go'));
+    expect(sent(tap, 'textDocument/definition'), 'Editor 창이 아닌데 언어 서버에 물었다').toBe(0);
   });
 });
 
-test.describe('코드 탐색 — 호버 (M3)', () => {
-  // V-LSP-16 · FR-LSP-29·38: 호버는 **Monaco 의 provider** 로 뜬다 — 말풍선은
-  // 같은 파일 안의 일이므로 탭 시스템을 알 필요가 없다 (D-8).
-  test('심볼에 호버하면 타입이 보인다', async ({ page, request }) => {
+test.describe('코드 탐색 — 참조 (FR-CMR-93)', () => {
+  // FR-CMR-93 · §3.16: 라이브러리 참조 패널. 열린 파일의 참조가 보인다.
+  test('참조는 패널에 뜨고 다른 파일의 항목을 고르면 그 줄로 열린다', async ({ page, request }) => {
+    const tap = await lspTap(page);
     await enter(page, request);
-    await stubStatus(page, [GOPLS_MISSING]);
     await openFile(page, 'main.go');
+    await ready(tap, 'main.go');
+    await openFile(page, 'pkg/deep/helper.go');
+    await ready(tap, 'pkg/deep/helper.go');
+    await putCursor(page, 4, 7);
 
-    const seen: any[] = [];
-    await page.route('**/api/lsp/hover', async (route: any) => {
-      seen.push(JSON.parse(route.request().postData() || '{}'));
-      await route.fulfill({
-        status: 200, contentType: 'application/json',
-        body: JSON.stringify({ markdown: 'func helper()' }),
-      });
-    });
+    await page.keyboard.press('Shift+F12');
+    const panel = page.locator(`.file-editor:visible ${ED_SEL.refPanel}`);
+    await expect(panel).toBeVisible({ timeout: 15000 });
+    const items = panel.locator(ED_SEL.refItem);
+    await expect(items).toHaveCount(2);
+    expect(sent(tap, 'textDocument/references')).toBeGreaterThan(0);
 
-    // 마우스를 흉내내지 않고 Monaco 에게 그 자리의 호버를 띄우라고 시킨다 —
-    // 재려는 것은 provider 의 속이지 마우스 이동이 아니다. 다만 **편집기가 실제로
-    // 포커스를 쥐어야** 그 명령이 선다: `focus()` 만으로는 부족한 처지가 있어
-    // 화면을 한 번 누른다.
-    await expectHoverGround(page);
-    await page.locator('.file-editor.vis .monaco-editor').first().click();
-    await putCursor(page, 4, 3);
-    await page.evaluate(() => {
-      const ed = (window as any).app.testing.edActiveEditor()._editor;
-      ed.trigger('test', 'editor.action.showHover', null);
-    });
+    await items.filter({ hasText: 'deep.Helper()' }).click();
+    await waitEditorAt(page, P('main.go'));
+    await expect.poll(() => cursor(page), { timeout: 10000 }).toEqual({ line: 6, col: 7 });
+  });
+});
 
-    // **물었는가를 먼저 본다.** 말풍선의 글자를 먼저 재면, 요청이 아예 가지 않은
-    // 경우와 갔는데 그려지지 않은 경우가 같은 실패로 보인다 — 그 둘은 고치는
-    // 자리가 다르다 (FR-LSP-23 / D-3: 호버도 현재 텍스트를 싣는다).
-    await expect.poll(() => seen.length, { timeout: 10000 }).toBeGreaterThan(0);
-
-    await expect(page.locator('.monaco-editor .monaco-hover').first())
-      .toContainText('func helper()', { timeout: 10000 });
-    expect(seen[0].text).toContain('func main()');
-    expect(seen[0].root).toBe(ROOT);
+test.describe('코드 탐색 — 호버 (FR-CMR-92·94)', () => {
+  // V-LSP-16 · FR-LSP-29
+  test('심볼에 호버하면 타입이 보인다', async ({ page, request }) => {
+    await atHelperCall(page, request);
+    await page.evaluate(() => edT.showHover(edT.of((window as any).app.testing.edActiveEditor())));
+    await expect(page.locator(`${ED_SEL.surface} ${ED_SEL.hover}`).first())
+      .toContainText(/func (deep\.)?Helper\(\) int/, { timeout: 15000 });
   });
 
-  // FR-LSP-31: 호버가 비면 **말풍선이 뜨지 않는다.** 빈 자리에 마우스를 얹을 때마다
-  // 무언가 뜨면 그것이 곧 방해다.
-  test('호버가 비면 아무것도 뜨지 않는다', async ({ page, request }) => {
-    await enter(page, request);
-    await stubStatus(page, [GOPLS_MISSING]);
-    await openFile(page, 'main.go');
-    await page.route('**/api/lsp/hover', (r: any) => r.fulfill({
-      status: 200, contentType: 'application/json', body: '{"markdown":""}',
-    }));
-
-    // provider 가 걸리지 않았으면 아무것도 뜨지 않는 것이 **당연**해진다 — 그때
-    // 이 검사는 재는 것 없이 초록이다.
-    await expectHoverGround(page);
+  // FR-LSP-31: 호버가 비면 말풍선이 뜨지 않고 알림도 없다.
+  test('빈 자리에 호버하면 아무것도 뜨지 않는다', async ({ page, request }) => {
+    const tap = await atHelperCall(page, request);
     await putCursor(page, 2, 1);
-    await page.evaluate(() => {
-      const ed = (window as any).app.testing.edActiveEditor()._editor;
-      ed.trigger('test', 'editor.action.showHover', null);
-    });
+    const before = sent(tap, 'textDocument/hover');
+    await page.evaluate(() => edT.showHover(edT.of((window as any).app.testing.edActiveEditor())));
+    await expect.poll(() => sent(tap, 'textDocument/hover'), { timeout: 10000 }).toBeGreaterThan(before);
     await page.waitForTimeout(800);
-    // 알림 줄도 뜨지 않는다 — 마우스를 움직일 때마다 사유가 뜨면 고장이다.
+    await expect(page.locator(`${ED_SEL.surface} ${ED_SEL.hover}`)).toHaveCount(0);
     await expect(note(page)).toHaveCount(0);
   });
-
-  // FR-LSP-39: provider 는 언어마다 한 번이다. 편집기를 둘 세워도 호버 요청이
-  // 두 번 나가지 않는다 — 나가면 같은 말풍선이 여러 번 뜬다.
-  test('편집기를 여럿 세워도 호버가 한 번만 묻는다', async ({ page, request }) => {
-    await enter(page, request);
-    await stubStatus(page, [GOPLS_MISSING]);
-    await openFile(page, 'main.go');
-    await openFile(page, 'pkg/deep/helper.go');
-    await openFile(page, 'main.go');
-
-    let calls = 0;
-    await page.route('**/api/lsp/hover', async (route: any) => {
-      calls++;
-      await route.fulfill({
-        status: 200, contentType: 'application/json',
-        body: JSON.stringify({ markdown: 'func helper()' }),
-      });
-    });
-
-    await expectHoverGround(page);
-    await page.locator('.file-editor.vis .monaco-editor').first().click();
-    await putCursor(page, 4, 3);
-    await page.evaluate(() => {
-      const ed = (window as any).app.testing.edActiveEditor()._editor;
-      ed.trigger('test', 'editor.action.showHover', null);
-    });
-    // 물었는가를 먼저 본다 (위 검사와 같은 근거).
-    await expect.poll(() => calls, { timeout: 10000 }).toBeGreaterThan(0);
-    await expect(page.locator('.monaco-editor .monaco-hover').first())
-      .toContainText('func helper()', { timeout: 10000 });
-    await page.waitForTimeout(500);
-    expect(calls, `호버 요청이 ${calls} 번 나갔다 — provider 가 여러 번 등록됐다`).toBe(1);
-  });
 });
 
-test.describe('코드 탐색 — 텍스트 생략 (OPTIMIZE_REFACTOR_SRS FR-OPT-6-2)', () => {
-  // 서버가 판을 되돌리면 같은 판의 다음 호버는 텍스트를 싣지 않는다. 서버가 판을
-  // 모른다고 답하면(needText) 전문으로 한 번 더 묻고, 그 답이 말풍선이 된다.
-  test('같은 판의 두 번째 호버는 텍스트를 싣지 않고, needText 면 전문을 다시 싣는다', async ({ page, request }) => {
+test.describe('코드 탐색 — 진단 (FR-CMR-92)', () => {
+  async function atBad(page: Page, request: APIRequestContext) {
+    const tap = await lspTap(page);
     await enter(page, request);
-    await stubStatus(page, [GOPLS_MISSING]);
-    await openFile(page, 'main.go');
-
-    const seen: any[] = [];
-    let forget = false;
-    await page.route('**/api/lsp/hover', async (route: any) => {
-      const b = JSON.parse(route.request().postData() || '{}');
-      seen.push(b);
-      const need = forget && !('text' in b);
-      if (need) forget = false;
-      await route.fulfill({
-        status: 200, contentType: 'application/json',
-        body: JSON.stringify(need ? { markdown: '', needText: true }
-          : { markdown: 'func helper()', version: b.version }),
-      });
-    });
-
-    await expectHoverGround(page);
-    await page.locator('.file-editor.vis .monaco-editor').first().click();
-    const show = async (n: number) => {
-      await putCursor(page, 4, 3 + (n % 2));
-      await page.evaluate(() => {
-        const ed = (window as any).app.testing.edActiveEditor()._editor;
-        ed.trigger('test', 'editor.action.showHover', null);
-      });
-    };
-    await show(0);
-    await expect.poll(() => seen.length, { timeout: 10000 }).toBe(1);
-    expect(seen[0].text).toContain('func main()');
-    expect(typeof seen[0].version).toBe('string');
-
-    await page.keyboard.press('Escape');
-    await show(1);
-    await expect.poll(() => seen.length, { timeout: 10000 }).toBe(2);
-    expect('text' in seen[1], '같은 판인데 텍스트를 실었다').toBe(false);
-    expect(seen[1].version).toBe(seen[0].version);
-
-    forget = true;
-    await page.keyboard.press('Escape');
-    await show(0);
-    await expect.poll(() => seen.length, { timeout: 10000 }).toBe(4);
-    expect('text' in seen[2]).toBe(false);
-    expect(seen[3].text, 'needText 뒤에 전문을 싣지 않았다').toContain('func main()');
-    await expect(page.locator('.monaco-editor .monaco-hover').first())
-      .toContainText('func helper()', { timeout: 10000 });
-  });
-});
-
-test.describe('코드 탐색 — 진단 (M4)', () => {
-  // 서버가 밀어 준 진단을 흉내낸다. 실제 SSE 를 타지 않는 이유는 이 검사가 재려는
-  // 것이 **밑줄을 얹는 경로**이고, SSE 배선은 Go 쪽이 잰다는 것이다.
-  const push = (page: Page, path: string, items: any[]) => page.evaluate(
-    ([p, its]) => (window as any).app.testing.lspOnDiagnostics({ path: p, items: its }),
-    [path, items] as const);
-
-  const markers = (page: Page) => page.evaluate(() => {
-    const v = (window as any).app.testing.edActiveEditor();
-    const model = v?._editor?.getModel();
-    if (!model) return [];
-    return (window as any).monaco.editor.getModelMarkers({ resource: model.uri })
-      .map((m: any) => ({ line: m.startLineNumber, sev: m.severity, msg: m.message }));
-  });
+    await openFile(page, 'bad/bad.go');
+    await ready(tap, 'bad/bad.go');
+    return tap;
+  }
 
   // V-LSP-17 · FR-LSP-32·33·34
-  test('진단이 밑줄로 서고 갱신이 앞 밑줄을 덮는다', async ({ page, request }) => {
-    await enter(page, request);
-    await openFile(page, 'main.go');
+  test('진단이 밑줄로 서고, 갱신이 앞 진단을 덮고, 고치면 걷힌다', async ({ page, request }) => {
+    await atBad(page, request);
+    await expect.poll(() => diags(page), { timeout: 30000 }).toHaveLength(1);
+    const [d] = await diags(page);
+    expect(d.line).toBe(4);
+    expect(d.sev).toBe('error');
+    expect(d.msg).toContain('nope');
+    await expect(page.locator(`.file-editor:visible ${ED_SEL.lintError}`).first()).toBeVisible();
 
-    await push(page, P('main.go'), [
-      { line: 4, col: 2, endLine: 4, endCol: 8, severity: 1, message: 'undefined: helper' },
-      { line: 3, col: 1, endLine: 3, endCol: 5, severity: 2, message: 'unused' },
-    ]);
-    await expect.poll(() => markers(page), { timeout: 10000 }).toHaveLength(2);
-    const got = await markers(page);
-    // LSP 의 1=에러는 Monaco 의 8 이고, 2=경고는 4 다 — 숫자가 겹치므로 표 없이
-    // 넘기면 조용히 뒤바뀐다.
-    expect(got.find((m: any) => m.line === 4)?.sev).toBe(8);
-    expect(got.find((m: any) => m.line === 3)?.sev).toBe(4);
+    await editDoc(page, P('bad/bad.go'), BAD_GO.replace('nope()', 'other()'));
+    await expect.poll(async () => (await diags(page)).map((x: any) => x.msg).join('|'), { timeout: 30000 })
+      .toMatch(/^[^|]*other[^|]*$/);
 
-    // 갱신이 앞선 것을 **덮는다** — owner 가 하나이므로 겹쳐 남지 않는다.
-    await push(page, P('main.go'), [
-      { line: 5, col: 1, endLine: 5, endCol: 2, severity: 1, message: 'only one now' },
-    ]);
-    await expect.poll(() => markers(page), { timeout: 10000 }).toHaveLength(1);
-    expect((await markers(page))[0].msg).toBe('only one now');
+    await editDoc(page, P('bad/bad.go'), 'package bad\n\nfunc other() {}\n\nfunc f() {\n\tother()\n}\n');
+    await expect.poll(() => diags(page), { timeout: 30000 }).toHaveLength(0);
   });
 
-  // FR-LSP-33: **빈 진단도 알림이다** — 고친 줄에 밑줄이 남으면 그것이 거짓말이 된다.
-  test('빈 진단이 오면 밑줄이 걷힌다', async ({ page, request }) => {
-    await enter(page, request);
-    await openFile(page, 'main.go');
-    await push(page, P('main.go'), [
-      { line: 4, col: 2, endLine: 4, endCol: 8, severity: 1, message: 'boom' },
-    ]);
-    await expect.poll(() => markers(page), { timeout: 10000 }).toHaveLength(1);
-
-    await push(page, P('main.go'), []);
-    await expect.poll(() => markers(page), { timeout: 10000 }).toHaveLength(0);
-  });
-
-  // FR-LSP-33: 다른 파일의 진단은 이 파일에 얹히지 않는다.
   test('다른 파일의 진단은 이 파일에 얹히지 않는다', async ({ page, request }) => {
-    await enter(page, request);
+    const tap = await atBad(page, request);
     await openFile(page, 'main.go');
-    await push(page, P('pkg/deep/helper.go'), [
-      { line: 1, col: 1, endLine: 1, endCol: 2, severity: 1, message: '남의 것' },
-    ]);
+    await ready(tap, 'main.go');
+    expect(await docOf(page, P('bad/bad.go'))).toBe(true);
     await page.waitForTimeout(400);
-    expect(await markers(page)).toHaveLength(0);
+    expect(await diags(page)).toHaveLength(0);
   });
 
-  // FR-LSP-36: 끄면 **지금 서 있는 밑줄까지** 걷힌다. 껐는데 남아 있으면 설정이
-  // 듣지 않는 것으로 보인다.
-  test('설정에서 끄면 밑줄이 걷히고 새 진단도 얹히지 않는다', async ({ page, request }) => {
+  // FR-LSP-36 · FR-CMR-92: 끄면 걷히고, 켜면 보관한 진단이 다시 선다.
+  test('설정에서 끄면 밑줄이 걷히고 다시 켜면 다시 선다', async ({ page, request }) => {
+    await atBad(page, request);
+    await expect.poll(() => diags(page), { timeout: 30000 }).toHaveLength(1);
+
+    const toggle = async (on: boolean) => {
+      await page.click('#settings-btn');
+      await page.click('button.mtab[data-tab="code"]');
+      await expect(page.locator('#panel-code')).toBeVisible();
+      if (on) await page.check('#lsp-diag');
+      else await page.uncheck('#lsp-diag');
+      await page.click('#modal-close');
+    };
+    await toggle(false);
+    await expect.poll(() => diags(page), { timeout: 10000 }).toHaveLength(0);
+    await toggle(true);
+    await expect.poll(() => diags(page), { timeout: 10000 }).toHaveLength(1);
+  });
+});
+
+test.describe('코드 탐색 — 열리지 않은 파일의 변경 (FR-CMR-110~112)', () => {
+  // 열지 않은 파일을 저장 API 로 만든다 → 통로가 Created 를 끼워 넣고, gopls 가 다시 검사한다.
+  // 끼워 넣지 않으면 gopls 는 디스크의 새 파일을 모른 채 낡은 진단을 둔다 (§3.16).
+  test('열지 않은 파일을 저장하면 열린 파일의 진단이 그것을 반영한다', async ({ page, request }) => {
+    const tap = await lspTap(page);
+    await enter(page, request);
+    await openFile(page, 'bad/bad.go');
+    await ready(tap, 'bad/bad.go');
+    // 오류만 센다 — 고친 뒤 gopls 는 `f` 가 쓰이지 않는다는 정보 진단을 낼 수 있다.
+    const errors = async () => (await diags(page)).filter((d: any) => d.sev === 'error').length;
+    await expect.poll(errors, { timeout: 30000 }).toBe(1);
+    const late = P('bad/nope.go');
+    try {
+      const r = await request.post('/api/file/write', { data: { path: late, content: 'package bad\n\nfunc nope() {}\n' } });
+      expect(r.ok(), await r.text()).toBeTruthy();
+      await expect.poll(errors, { timeout: 30000 }).toBe(0);
+    } finally {
+      fs.rmSync(late, { force: true });
+    }
+  });
+
+  // 브랜치를 바꾸면(터미널의 git) 그 사이에 생기고 사라진 파일이 알려진다 — 열린 파일의 진단이 따라 바뀐다.
+  test('브랜치를 바꾸면 열린 파일의 진단이 그 브랜치를 따른다', async ({ page, request }) => {
+    const repo = j(BASE, 'gitrepo');
+    const git = (...a: string[]) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', ...a], { cwd: repo });
+    fs.mkdirSync(j(repo, 'other'), { recursive: true });
+    fs.writeFileSync(j(repo, 'go.mod'), 'module example.com/gitrepo\n\ngo 1.21\n');
+    fs.writeFileSync(j(repo, 'main.go'), 'package main\n\nfunc main() {\n\tfeat()\n}\n');
+    git('init', '-q', '-b', 'main');
+    git('add', '.');
+    git('commit', '-qm', 'main');
+    git('checkout', '-qb', 'feat');
+    fs.writeFileSync(j(repo, 'feat.go'), 'package main\n\nfunc feat() {}\n');
+    git('add', '.');
+    git('commit', '-qm', 'feat');
+    git('checkout', '-q', 'main');
+    const root = realPath(repo);
+    const main = j(root, 'main.go');
+
+    const tap = await lspTap(page);
+    await enter(page, request, root);
+    await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), main);
+    await waitEditorAt(page, main);
+    await ready(tap, 'main.go');
+    await expect.poll(async () => (await docDiags(page, main))?.length, { timeout: 30000 }).toBe(1);
+    // git 감시는 git 상태를 본 저장소만 돈다 — Git 창을 연다.
+    await openGit(page, root);
+
+    git('checkout', '-q', 'feat');
+    await expect.poll(async () => (await docDiags(page, main))?.length, { timeout: 60000 }).toBe(0);
+    git('checkout', '-q', 'main');
+    await expect.poll(async () => (await docDiags(page, main))?.length, { timeout: 60000 }).toBe(1);
+  });
+});
+
+test.describe('코드 탐색 — 통로 실패 (FR-CMR-91·102)', () => {
+  // 가짜 소켓 — 서버에 잇지 않고 상한 거절로 닫는다.
+  test('상한에 걸리면 알림 줄과 상태 패널에 그 사실이 보인다', async ({ page, request }) => {
+    let opened = 0;
+    await page.routeWebSocket(LSP_WS, (ws) => {
+      opened++;
+      ws.close({ code: 4001, reason: 'limit' });
+    });
     await enter(page, request);
     await openFile(page, 'main.go');
-    await push(page, P('main.go'), [
-      { line: 4, col: 2, endLine: 4, endCol: 8, severity: 1, message: 'boom' },
-    ]);
-    await expect.poll(() => markers(page), { timeout: 10000 }).toHaveLength(1);
+    await expect.poll(() => opened, { timeout: 15000 }).toBeGreaterThan(0);
+    await putCursor(page, 6, 8);
+    await page.keyboard.press('F12');
+    await expect(note(page)).toBeVisible({ timeout: 10000 });
+    await expect(note(page)).toContainText('상한');
+    expect(await activePath(page)).toBe(P('main.go'));
 
     await page.click('#settings-btn');
     await page.click('button.mtab[data-tab="code"]');
-    await expect(page.locator('#panel-code')).toBeVisible();
-    await expect(page.locator('#lsp-diag')).toBeChecked();
-    await page.uncheck('#lsp-diag');
-    await page.click('#modal-close');
+    await expect(page.locator('#lsp-list .lsp-msg', { hasText: '상한' })).toBeVisible({ timeout: 10000 });
+  });
 
-    await expect.poll(() => markers(page), { timeout: 10000 }).toHaveLength(0);
-    // 꺼진 뒤에 온 진단도 얹히지 않는다.
-    await push(page, P('main.go'), [
-      { line: 4, col: 2, endLine: 4, endCol: 8, severity: 1, message: 'again' },
-    ]);
-    await page.waitForTimeout(400);
-    expect(await markers(page)).toHaveLength(0);
+  // 실제 서버에 이은 첫 소켓을 서버가 끝낸 것처럼 닫는다 → 다음 F12 가 새 소켓으로 다시 연다.
+  test('끊긴 뒤 다음 정의 요청이 다시 연결하고 정의로 간다', async ({ page, request }) => {
+    const tap = await atHelperCall(page, request);
+    expect(tap.sockets).toHaveLength(1);
+    const first = tap.sockets[0];
+    first.server.close();
+    first.page.close({ code: 4003, reason: 'ended' });
+    await page.waitForTimeout(300);
+
+    await page.keyboard.press('F12');
+    await expect.poll(() => tap.sockets.length, { timeout: 15000 }).toBe(2);
+    await waitEditorAt(page, P('pkg/deep/helper.go'));
+    await expect.poll(() => cursor(page), { timeout: 10000 }).toEqual({ line: 4, col: 6 });
   });
 });
 
@@ -722,23 +516,4 @@ test.describe('코드 탐색 — 설치 제안 (M5)', () => {
     await expect(offer(page).locator('.fe-offer-go')).toHaveCount(0);
     await expect(offer(page).locator('.fe-offer-set')).toBeVisible();
   });
-});
-
-// REPO_FIX 02 §3A-6: 문서의 마지막 뷰가 떠나면 언어 서버에서도 닫는다.
-test('마지막 뷰가 떠나면 /api/lsp/close 를 보낸다', async ({ page, request }) => {
-  const closes: any[] = [];
-  page.on('request', (r: any) => {
-    if (r.url().includes('/api/lsp/close') && r.method() === 'POST') closes.push(r.postDataJSON());
-  });
-  await enter(page, request);
-  await openFile(page, 'main.go');
-  const key = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
-  // 그 파일을 보는 유일한 뷰를 거둔다 — 탭을 닫을 때 부르는 자리다.
-  await page.evaluate((p) => {
-    const k = (x: any) => String(x == null ? '' : x).replace(/\\/g, '/');
-    const v = [...(window as any).app.fileEditors.values()].find((x: any) => k(x.filePath) === k(p));
-    v.destroy();
-  }, P('main.go'));
-  await expect.poll(() => closes.some((b) => key(b.path) === key(P('main.go')) && key(b.root) === key(ROOT)),
-    { timeout: 10000 }).toBe(true);
 });

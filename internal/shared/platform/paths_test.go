@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -243,6 +244,36 @@ func TestPathFromFileURIRejectsNonFile(t *testing.T) {
 			if _, err := p.PathFromFileURI(uri); err == nil {
 				t.Fatalf("%T 가 %q 를 받아들였다", p, uri)
 			}
+		}
+	}
+}
+
+// CODEMIRROR_MIGRATION_SRS §11.6 L1: 브라우저(`web/js/ui/cm-lsp.js`)가 같은 벡터로
+// URI 를 만든다. 둘이 어긋나면 서버에 끼워 넣은 변경(W)이 브라우저가 연 문서를 가리키지 못한다.
+func TestFileURIVectorsShared(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("testdata", "file_uri_vectors.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vs []struct {
+		OS, Path, URI string
+	}
+	if err := json.Unmarshal(raw, &vs); err != nil {
+		t.Fatal(err)
+	}
+	if len(vs) == 0 {
+		t.Fatal("벡터가 비었다")
+	}
+	for _, v := range vs {
+		var p Paths = posixPaths{}
+		if v.OS == "windows" {
+			p = windowsPaths{}
+		}
+		if got := p.FileURI(v.Path); got != v.URI {
+			t.Fatalf("%s FileURI(%q)=%q want %q", v.OS, v.Path, got, v.URI)
+		}
+		if got, err := p.PathFromFileURI(v.URI); err != nil || got != v.Path {
+			t.Fatalf("%s PathFromFileURI(%q)=%q,%v want %q", v.OS, v.URI, got, err, v.Path)
 		}
 	}
 }

@@ -44,10 +44,6 @@ async function loadAppCmd(page: Page) {
     // 여기서 끊어 주면 "몇 번째 구독인가" 를 세는 단정이 흔들린다.
     (window as any).SSE_SILENCE_MS = 3600000;
     (window as any).SSE_SILENCE_CHECK_MS = 3600000;
-    // 라우팅 표가 **구독 시점에** 상수를 읽는다 — 종전 if-체인은 메시지가 올
-    // 때만 읽었으므로 없어도 조용히 지나갔다. 상수 누락이 로드에서 드러나는 것이
-    // 옳다 (constants-editor.js 를 통째로 얹으면 그 의존 체인까지 따라온다).
-    (window as any).LSP_DIAG_ACTION = 'lsp_diagnostics';
 
     const made: any[] = [];
     (window as any).__made = made;

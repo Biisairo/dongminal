@@ -100,7 +100,7 @@ INV-3 이 중요하다. 예외를 0 으로 만드는 것이 목적이 아니라 
 - `scripts/check-seams.sh` — 구조 규약을 CI grep 으로 집행하는 선례
 - `docs/internal/E2E_QUIESCENCE_SRS.md` — "언제 조용해졌나" 를 재는 앞 문제
 - `docs/internal/RELOAD_CONTINUITY_SRS.md` — SSE 생존 판정 (FR-RLC-20·25·28)
-- `docs/internal/SLOT_VIEW_STATE_SRS.md` — 관측 하나 / 뷰 여럿의 원본
+- `docs/internal/archive/SLOT_VIEW_STATE_SRS.md` — 관측 하나 / 뷰 여럿의 원본
 - `docs/internal/GIT_REPO_MISSING_SRS.md` — FR-RMS-22·28·29 (백오프·재계산·시한)
 - `e2e/sse-resilience.spec.ts` — 격리 계약 테스트의 관용구
 

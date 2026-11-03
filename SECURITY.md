@@ -169,7 +169,7 @@ TLS 를 넣지 않습니다. `crypto/tls` 를 부르는 코드를 저장소에 �
 됐습니다.
 
 폐기 경위와 무엇이 열렸는지는
-[`FILE_API_BOUNDARY_SRS`](./docs/internal/FILE_API_BOUNDARY_SRS.md) 머리에 적어
+[`FILE_API_BOUNDARY_SRS`](./docs/internal/archive/FILE_API_BOUNDARY_SRS.md) 머리에 적어
 두었습니다.
 
 ### 4-6. 포트 없는 이름에서는 같은 이름의 다른 스킴을 가르지 못합니다

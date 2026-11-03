@@ -103,7 +103,7 @@
 안 읽으면 끝난 것을 다시 하거나, 그 스펙이 **일부러 남긴 것**을 되돌린다.
 
   docs/internal/REFACTOR_HANDOFF.md        무엇이 끝났나 (아홉 단계)
-  docs/internal/SPLIT_REFACTOR_SRS.md      통짜 파일 넷의 분할 — 완료
+  docs/internal/archive/SPLIT_REFACTOR_SRS.md      통짜 파일 넷의 분할 — 완료
   docs/internal/DEEPENING_REFACTOR_SRS.md  얕은 모듈 깊이화 — 완료
   docs/internal/REFACTOR_STABILIZATION_SRS.md  중복 접기 — 완료
   docs/internal/APP_STATE_EXTRACT_SRS.md   §8 — 추출 후보 넷 **전부 부적합** 판정

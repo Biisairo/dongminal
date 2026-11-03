@@ -5,6 +5,7 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, waitForInit, clickGitView, openGit, openRowMenu, gitFixture, cleanGitFixture } from './fixtures';
+import { ED_SEL } from './editor';
 import { tmpPath, realPath } from './osenv';
 
 /**
@@ -84,7 +85,7 @@ const commits = (page: Page) => hist(page).locator('.git-hist-row[data-oid]');
 const loaded = (page: Page) => hist(page).locator('.git-hist-loaded');
 const diff = (page: Page) => page.locator('#area .pn-body .git-view.git-diff');
 const diffBar = (page: Page, sel: string) => diff(page).locator('.git-diff-bar ' + sel);
-const diffEditor = (page: Page) => diff(page).locator('.git-diff-body .monaco-diff-editor');
+const diffEditor = (page: Page) => diff(page).locator(`.git-diff-body ${ED_SEL.diffSurface}`);
 
 // 로드된 커밋 수. 화면 행 수와 구분해 읽어야 가상 스크롤을 판정할 수 있다.
 async function loadedCount(page: Page): Promise<number> {

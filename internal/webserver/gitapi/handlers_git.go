@@ -613,8 +613,8 @@ type gitDiffResponse struct {
 }
 
 // GET /api/git/diff-content?repo=&axis=&path=&origPath= — 한 축의 양쪽 전체 내용
-// (FR-GIT-44~48). **unified diff 텍스트를 주지 않는다** — Monaco DiffEditor 가 두
-// 모델을 요구하고, diff 계산은 그쪽의 일이다 (FR-GIT-43).
+// (FR-GIT-44~48). **unified diff 텍스트를 주지 않는다** — Diff 편집기가 두
+// 문서를 요구하고, diff 계산은 그쪽의 일이다 (FR-GIT-43).
 func (s *GitServer) apiGitDiffContent(w http.ResponseWriter, r *http.Request) {
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {

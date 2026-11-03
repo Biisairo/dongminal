@@ -58,7 +58,7 @@
 | `REQUEST_GATE_SRS` FR-RQG-14 | 묶음 C 가 못 지킨 요구 |
 | `GIT_DOMAIN_TRUNCATION_SRS` FR-GDT-22·23 | 묶음 G 의 규약 |
 | `WINDOW_SLOTS_SRS` FR-WSL-22 | 묶음 F 가 못 지킨 요구 |
-| `docs/internal/refactor/AUDIT-go-http.md` H-1~H-4 | 묶음 A·C·D 의 근거 |
+| `docs/internal/archive/refactor/AUDIT-go-http.md` H-1~H-4 | 묶음 A·C·D 의 근거 |
 | `docs/internal/refactor/AUDIT-go-domain.md` | 묶음 B·G 의 근거 |
 | `docs/internal/refactor/AUDIT-fe-core.md` H1·H5 | 묶음 E·F 의 근거 |
 

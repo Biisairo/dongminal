@@ -7,7 +7,7 @@
  *
  *     monospace                                27곳
  *     ui-monospace,monospace                    5곳
- *     'Menlo','Monaco','Consolas',monospace     1곳
+ *     'Menlo',…,monospace              1곳
  *     var(--mono)                               3곳
  *
  * `--mono` 토큰이 이미 있는데 **38곳이 그것을 지나쳐 갔다.** 같은 뜻의 글꼴이

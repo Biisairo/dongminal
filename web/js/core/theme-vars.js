@@ -126,6 +126,11 @@ function themeVarsOf(theme){
      * 그래서 여기서도 색이 아니라 전체 값을 만든다 (FR-WRD-31).
      */
     ...deriveShade(ui,theme.mode),
+    // GIT_SRS FR-GIT-119 · CODEMIRROR_MIGRATION_SRS §11.4: Diff 의 추가·삭제 색은 팔레트의 초록·빨강 **그대로**다 —
+    // 글자가 아니라 배경에 섞이므로 대비 보정을 받지 않는다(옛 엔진 테마의 diffEditor.* 매핑과 같다). 팔레트가 없으면
+    // 전경색이다 — 없는 색을 발명하지 않는다.
+    '--diff-add':(theme.terminal||{}).green||ui.text,
+    '--diff-del':(theme.terminal||{}).red||ui.text,
   };
   // FR-DRV-13d: 구문 강조색을 **실제로** 터미널 팔레트에서 세운다. 그 주석이
   // 약속한 지 오래인데 파생이 없어 여섯 다 폴백으로 떨어지고 있었다.

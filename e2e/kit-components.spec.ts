@@ -84,7 +84,7 @@ test.describe('킷 컴포넌트 (KIT_COMPONENTS_SRS)', () => {
     const bad = await page.evaluate(() => {
       const out: string[] = [];
       for (const el of Array.from(document.querySelectorAll<HTMLElement>('*'))) {
-        if (el.closest('.xterm') || el.closest('.monaco-editor')) continue;
+        if (el.closest('.xterm') || el.closest(edT.sel.surface)) continue;
         const tt = getComputedStyle(el).textTransform;
         if (tt === 'uppercase') {
           const cls = Array.from(el.classList).join('.');

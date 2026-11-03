@@ -53,7 +53,7 @@
 
 ### 1.4 참조 (References)
 
-- [`./EDITOR_LSP_SRS.md`](./EDITOR_LSP_SRS.md) — FR-LSP-4(탐색 순서)·7b(도구마다 다른
+- [`./EDITOR_LSP_SRS.md`](./archive/EDITOR_LSP_SRS.md) — FR-LSP-4(탐색 순서)·7b(도구마다 다른
   자리)·10(성공의 판정은 종료 코드가 아니라 실행 파일의 존재)
 - [`./CROSS_PLATFORM_SRS.md`](./CROSS_PLATFORM_SRS.md) — R-1(개발 호스트에서 볼 수
   없는 것은 CI 가 본다) · FR-XPL-5(`runtime.GOOS` 는 `platform` 안에서만) ·

@@ -51,7 +51,7 @@
 - [`./archive/PANE_ATTENTION_NOTIFY_SRS.md`](./archive/PANE_ATTENTION_NOTIFY_SRS.md) — FR-PAN-*, NFR-PAN-8/10
 - [`./archive/AGENT_ACTIVITY_PANEL_SRS.md`](./archive/AGENT_ACTIVITY_PANEL_SRS.md) — FR-AAP-20 (활동 카드의 정리 규약)
 - [`./archive/DAEMON_SPLIT_SRS.md`](./archive/DAEMON_SPLIT_SRS.md) — FR-15 (데몬 모드 주의 동등성)
-- [`./GIT_SRS.md`](./GIT_SRS.md) — FR-GIT-14/21/22/24/63 (배지·폴링 게이팅·Store)
+- [`./GIT_SRS.md`](./archive/GIT_SRS.md) — FR-GIT-14/21/22/24/63 (배지·폴링 게이팅·Store)
 - [`./GIT_SIDEBAR_TABS_SRS.md`](./GIT_SIDEBAR_TABS_SRS.md) — FR-SBT-12/13/19 (탭 서술자·배지)
 - [`./CONVENIENCE_SRS.md`](./CONVENIENCE_SRS.md) — FR-BG-2/3 (백그라운드 도구), FR-BGR-5 (복귀)
 

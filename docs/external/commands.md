@@ -149,7 +149,7 @@ edit <path>          # 그 경로에 연결된 Editor 창에서 열기
 edit -h, --help      # 도움말
 ```
 
-동작: `POST /api/commands` 로 `openEditorTab` 을 브로드캐스트하고, 브라우저가 그 탭에 Monaco Editor 를 띄운 뒤 `GET /api/file/read` 로 내용을 읽습니다. 저장은 `POST /api/file/write`.
+동작: `POST /api/commands` 로 `openEditorTab` 을 브로드캐스트하고, 브라우저가 그 탭에 편집기(CodeMirror 6)를 띄운 뒤 `GET /api/file/read` 로 내용을 읽습니다. 저장은 `POST /api/file/write`.
 
 **어느 창에서 열리는가.** 편집기는 일반 창에 열리지 않습니다. 파일 경로를 자기 루트 아래에 포함하는 **Editor 창**(좌측 패널 `Editor` 탭의 행)에서 열리며, 그런 창이 둘 이상이면 루트가 가장 깊은 것이 이깁니다. 하나도 없으면 `~` 의 root 에디터에서 열립니다.
 

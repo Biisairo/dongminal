@@ -54,7 +54,7 @@
 - **탭 이름·라벨의 구분** — 중복 라벨(`Shell` 7개 등)의 해소는 **별도로
   진행한다** (사용자 지시 2026-09-21). §10 ③ 에 조사 결과만 남긴다
 - 테마 팔레트 **값** 변경. 54종은 정본이고 이 문서는 고치지 않는다
-- 터미널(xterm) 내부 렌더링 · Monaco 편집기 내부 테마
+- 터미널(xterm) 내부 렌더링 · 편집기(CodeMirror) 내부 테마
 - 서버·프로토콜·상태 저장 스키마
 - 사이드바 폭·분할 비율 등 **레이아웃 규약** (`UI_KIT_SRS` 비포함과 같다)
 
@@ -77,7 +77,7 @@
   키트를 바꾸지 않는다
 - [`ACCESSIBILITY_BASELINE_SRS`](./ACCESSIBILITY_BASELINE_SRS.md) FR-A11Y-6~10·27
   — 대비 바닥과 `--touch-min`. §4.6 의 6색은 그 바닥을 그대로 받는다
-- [`REPO_TAB_UNIFY_SRS`](./REPO_TAB_UNIFY_SRS.md) — "저장소 하나에 창 하나".
+- [`REPO_TAB_UNIFY_SRS`](./archive/REPO_TAB_UNIFY_SRS.md) — "저장소 하나에 창 하나".
   Windows·Repo 두 목록의 분리는 **의도된 설계**이고 이 문서는 그것을 건드리지 않는다
 - [`PANEL_SURFACE_SRS`](./PANEL_SURFACE_SRS.md) — 패널의 기존 규약. §4.3 이 그 위에 선다
 - [`WORDING_COLOR_SRS`](./WORDING_COLOR_SRS.md) FR-WRD-70~74 — 인터페이스의 목소리를
@@ -90,11 +90,11 @@
   계층의 경계색(`--slot-edge`)과 **분할 손잡이는 바뀌지 않는다**(FR-STB-28). **같은
   누락이 두 번째였다** — 초판이 이 문서를 참조하지 않아 FR-HIE-1 이 `.sh` 를 올렸다
   (2026-09-21 개정으로 해소)
-- [`GIT_UI_REVISION_SRS`](./GIT_UI_REVISION_SRS.md) FR-GIT-179·180 · V70 ·
-  [`EDITOR_TAB_SRS`](./EDITOR_TAB_SRS.md) FR-EDT-50·51·54 — **Git·Editor 창은
+- [`GIT_UI_REVISION_SRS`](./archive/GIT_UI_REVISION_SRS.md) FR-GIT-179·180 · V70 ·
+  [`EDITOR_TAB_SRS`](./archive/EDITOR_TAB_SRS.md) FR-EDT-50·51·54 — **Git·Editor 창은
   분할·새 탭 진입점을 두지 않는다.** M6 의 R-1 조사가 찾았고 FR-CHR-3 의 정밀화가
   갈랐다 (2026-09-21). 두 문서에 개정을 적었다
-- [`production/03-uiux.md`](./production/03-uiux.md) — 2026-09 감사. **그 문서는
+- [`production/03-uiux.md`](./archive/production/03-uiux.md) — 2026-09 감사. **그 문서는
   결함을 고치는 일이었고 이 문서는 자리와 말투를 정하는 일이다**
 
 ---
@@ -146,7 +146,7 @@
 |---|---|---|
 | `monospace` | 27 | git·editor 뷰, `.pv-term`, `.fe-error-path` |
 | `ui-monospace,monospace` | 5 | `.ag-detail` 등 |
-| `'Menlo','Monaco','Consolas',monospace` | 1 | `style-editor.css:497` |
+| `'Menlo',…,monospace` (옛 엔진 글꼴을 낀 스택) | 1 | `style-editor.css:497` |
 | `var(--mono)` | **3** | 문서 뷰 2 · git 1 |
 | `inherit` | 12 | 키트·입력 |
 | `-apple-system,sans-serif` | 1 | `html,body` |
@@ -953,7 +953,7 @@ M6 은 마지막이다 — R-1 의 조사가 선행한다.
 - 테마 팔레트 **값** 변경 — 54종은 정본이다
 - Windows·Repo **두 목록의 통합** — `REPO_TAB_UNIFY_SRS` 의 의도된 설계다
 - 탭 이름의 **출처** 변경 — `CONVENIENCE_SRS` FR-TAN-5 는 그대로다
-- 터미널(xterm) 내부 · Monaco 내부 테마
+- 터미널(xterm) 내부 · 편집기(CodeMirror) 내부 테마
 - 아이콘 세트 교체
 
 ---

@@ -120,11 +120,6 @@ Object.assign(App.prototype, {
       if(v&&window.__dmAssetVersion) window.__dmAssetVersion(String(v),()=>bus.alive()&&bus.gen()===gen);
     },{owner:'app'});
 
-    // EDITOR_LSP_SRS FR-LSP-32: 언어 서버가 밀어 준 진단. 요청 없이 오므로 이
-    // 길이 필요하다 — 폴링으로 바꾸면 타이핑을 멈춘 뒤 밑줄이 늦게 서거나,
-    // 멈추지 않았는데도 계속 묻게 된다.
-    bus.subscribe(LSP_DIAG_ACTION,a=>this._lspOnDiagnostics(a),{owner:'app'});
-
     bus.subscribe('workspace_changed',a=>this._onWorkspaceChanged(a&&a.rev),{owner:'app'});
 
     /**

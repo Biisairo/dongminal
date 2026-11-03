@@ -5,12 +5,13 @@ import { join } from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, makeCopyFx, openGit, waitForInit, gitFixture, cleanGitFixture, clickGitView } from './fixtures';
+import { ED_SEL, ED_VENDOR_ROUTE } from './editor';
 import { tmpPath, realPath, cssPath } from './osenv';
 
 // GIT_M1_STEP7_CONTRACT §4 — Diff 뷰 (D1~D10). 검증 V10·V11·V12·V26.
 //
-// diff 렌더링은 monaco.editor.createDiffEditor 다 (FR-GIT-43) — 자체 하이라이트
-// 엔진이 없으므로 단정도 Monaco 의 DOM·API 에 걸린다.
+// diff 렌더링은 편집 엔진의 Diff 편집기다 (FR-GIT-43) — 자체 하이라이트 엔진이
+// 없으므로 단정은 `editor.ts` 의 어댑터를 거친다.
 
 const FIXTURES = tmpPath('dm-git-fx-diff-' + process.pid);
 
@@ -30,24 +31,16 @@ const row = (page: Page, group: string, path: string) =>
   changes(page).locator(`.git-group[data-group="${group}"] .git-file[data-path="${cssPath(path)}"]`);
 const tab = (page: Page, view: string) => page.locator(`#area .pn-tab[data-git-view="${view}"]`);
 
-const diffEditor = (page: Page) => diff(page).locator('.git-diff-body .monaco-diff-editor');
+const diffEditor = (page: Page) => diff(page).locator(`.git-diff-body ${ED_SEL.diffSurface}`);
 
-// Monaco 모델 수 — FR-GIT-56 의 누수 판정 지표다 (§3.5).
-const models = (page: Page) =>
-  page.evaluate(() => {
-    const m = (window as any).monaco;
-    return m ? m.editor.getModels().length : -1;
-  });
+// 엔진 안 문서 수 — FR-GIT-56 의 누수 판정 지표다 (§3.5).
+const models = (page: Page) => page.evaluate(() => edT.counts().docs);
 
 // Diff 탭 에디터가 계산한 변경 줄 수. 공백무시 토글의 효과는 DOM 이 아니라
 // diff 계산 결과에서 본다 (FR-GIT-50).
 const lineChanges = (page: Page) =>
   page.evaluate(() => {
-    const v = (window as any).app.gitPanel._diffView;
-    const ed = v && v._editor;
-    if (!ed) return -1;
-    const ch = ed.getLineChanges();
-    return ch ? ch.length : -1;
+    return edT.diffChangeCount((window as any).app.gitPanel._diffView);
   });
 
 const selectFile = (page: Page, group: string, path: string) =>
@@ -62,8 +55,8 @@ const noteLines = (page: Page) =>
 
 // diff 의 추가·삭제 줄 배경. 색을 테스트가 발명하지 않으려면 **읽어서 비교**해야
 // 한다 — 기대값을 적으면 하드코딩 금지(FR-GIT-119)를 테스트가 어긴다.
-const bgOf = (page: Page, cls: string) =>
-  diffEditor(page).locator('.' + cls).first()
+const bgOf = (page: Page, sel: string) =>
+  diffEditor(page).locator(sel).first()
     .evaluate((el) => getComputedStyle(el).backgroundColor);
 
 test.describe('묶음 F — Diff 뷰', () => {
@@ -168,7 +161,7 @@ test.describe('묶음 F — Diff 뷰', () => {
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
     await expect(diffEditor(page)).toHaveClass(/side-by-side/);
 
-    // GIT_DIFF_OPTIONS.renderSideBySideInlineBreakpoint = 900. 사이드바를 뺀
+    // GIT_DIFF_INLINE_BREAKPOINT = 900. 사이드바를 뺀
     // diff 폭이 그 아래로 떨어지면 useInlineViewWhenSpaceIsLimited 가 걸린다.
     await page.setViewportSize({ width: 820, height: 800 });
     await expect(diffEditor(page)).not.toHaveClass(/side-by-side/);
@@ -194,7 +187,7 @@ test.describe('묶음 F — Diff 뷰', () => {
     await r.click();
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
 
-    // FR-GIT-50: ignoreTrimWhitespace 는 기본이 false 다 — Monaco 기본값을
+    // FR-GIT-50: 공백 무시는 기본이 꺼짐이다 — 옛 엔진의 기본값을
     // 뒤집는다. 공백만 다른 줄도 변경으로 보인다.
     const ws = diff(page).locator('.git-diff-ws input');
     await expect(ws).not.toBeChecked();
@@ -209,14 +202,14 @@ test.describe('묶음 F — Diff 뷰', () => {
 
   test('D7 (V12): 편집기를 못 받아도 파일 목록·헤더가 동작하고 diff 가 사유를 보인다', async ({ page }) => {
     const repo = copyFx('basic', 'd7');
-    // FR-GIT-55: Monaco 로드 실패가 Git 창을 멈춰서는 안 된다.
+    // FR-GIT-55: 편집기 로드 실패가 Git 창을 멈춰서는 안 된다.
     //
-    // **막는 자리가 바뀌었다** (MONACO_VENDORING_SRS FR-MVN-3). 종전에는
+    // **막는 자리가 바뀌었다** (FR-MVN-3). 종전에는
     // `cdn.jsdelivr.net` 을 끊었는데 편집기가 이제 바이너리 안에 있어 그 요청이
     // 아예 없다 — 끊어도 아무것도 실패하지 않으므로 이 검사가 재던 것이 사라진다.
     // 이제 **자기 자산 경로**를 끊는다. 요구(FR-GIT-55)는 그대로이고 실패를
     // 만드는 방법만 현실에 맞췄다.
-    await page.route('**/vendor/monaco/**', (r) => r.abort());
+    await page.route(ED_VENDOR_ROUTE, (r) => r.abort());
 
     await waitForInit(page);
     await openGit(page, repo);
@@ -246,7 +239,7 @@ test.describe('묶음 F — Diff 뷰', () => {
    * 아무 일도 하지 않는 왕복을 20번 도는 시험이 된다. 그리고 패널이 창마다
    * 유지되므로(FR-RTU-61) 기준선은 **두 창이 다 선 뒤에** 재야 한다.
    */
-  test('D8 (V12): 탭·창을 20회 왕복해도 Monaco 모델이 늘지 않는다', async ({ page }) => {
+  test('D8 (V12): 탭·창을 20회 왕복해도 Diff 편집기가 늘지 않는다', async ({ page }) => {
     test.setTimeout(180_000);
     const a = fx('basic');
     const b = fx('detached');
@@ -275,7 +268,7 @@ test.describe('묶음 F — Diff 뷰', () => {
     }
 
     await expect.poll(() => models(page), { timeout: 20000 }).toBeLessThanOrEqual(baseline);
-    const diffs = await page.evaluate(() => (window as any).monaco.editor.getDiffEditors().length);
+    const diffs = await page.evaluate(() => edT.counts().diffs);
     expect(diffs, 'DiffEditor 인스턴스가 누적됐다').toBeLessThanOrEqual(2);
   });
 
@@ -313,7 +306,7 @@ test.describe('묶음 F — Diff 뷰', () => {
       await r.click();
 
       await expect(imgDiff(page)).toBeVisible({ timeout: 20000 });
-      // 종전에는 "바이너리 파일입니다" 로 끝났다 — Monaco 도 서지 않는다.
+      // 종전에는 "바이너리 파일입니다" 로 끝났다 — 편집기도 서지 않는다.
       await expect(diffEditor(page)).toHaveCount(0);
 
       // 두 판 모두 **디코드**된다. 1x1 → 2x2 이므로 값이 서로 다르다.
@@ -422,10 +415,11 @@ test.describe('묶음 F — Diff 뷰', () => {
     await row(page, 'working', 'tracked.txt').click();
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
 
-    const ins = () => bgOf(page, 'line-insert');
-    const del = () => bgOf(page, 'line-delete');
-    await expect.poll(ins, { timeout: 20000 }).toMatch(/^rgb/);
-    await expect.poll(del, { timeout: 20000 }).toMatch(/^rgb/);
+    const ins = () => bgOf(page, ED_SEL.diffInsLine);
+    const del = () => bgOf(page, ED_SEL.diffDelLine);
+    // 색은 테마 변수를 섞어 만든다 — 계산값은 `rgb(…)` 또는 `color(srgb …)` 다.
+    await expect.poll(ins, { timeout: 20000 }).toMatch(/^(rgb|color\()/);
+    await expect.poll(del, { timeout: 20000 }).toMatch(/^(rgb|color\()/);
     const ins0 = await ins();
     const del0 = await del();
     expect(ins0, '추가와 삭제가 같은 색이다').not.toBe(del0);
@@ -478,17 +472,15 @@ test.describe('묶음 F — Diff 뷰', () => {
 
     const got = await page.evaluate(() => {
       const v = (window as any).app.gitPanel._diffView;
-      const ed = v && v._editor;
-      if (!ed) return null;
-      const m = ed.getModifiedEditor();
-      const li = m.getLayoutInfo();
-      const host = m.getDomNode() as HTMLElement;
+      if (!edT.diffReady(v)) return null;
+      const m = edT.diffSide(v, 'mod');
+      const host = edT.dom(m) as HTMLElement;
       const box = (el: Element | null) => (el ? el.getBoundingClientRect().width : -1);
-      const dr = document.querySelector('.diffOverviewRuler');
+      const dr = document.querySelector(edT.sel.diffRuler);
       return {
-        minimapEnabled: m.getOption((window as any).monaco.editor.EditorOption.minimap).enabled,
-        minimapWidth: li.minimap.minimapWidth,
-        innerRulerW: box(host.querySelector('.decorationsOverviewRuler')),
+        minimapEnabled: edT.option(m, 'minimapEnabled'),
+        minimapWidth: edT.minimapWidth(m),
+        innerRulerW: box(host.querySelector(edT.sel.overviewRuler)),
         editorRight: host.getBoundingClientRect().right,
         diffRulerLeft: dr ? dr.getBoundingClientRect().left : -1,
         diffRulerW: box(dr),
@@ -559,6 +551,41 @@ test.describe('묶음 F — Diff 뷰', () => {
     // 상한을 얼마나 넘었는지는 안내가 아니라 크기가 답한다 (32 MiB 초과).
     expect(await noteLines(page)).toMatch(/\d+\.\d MB/);
   });
+});
+
+// CODEMIRROR_MIGRATION_SRS FR-CMR-12a·58 — 접힌 구간은 옛 엔진의 모양이고 색은 테마 토큰이다.
+// 기대값을 적지 않는다 — 토큰을 같은 페이지에서 풀어 견준다 (FR-GIT-119 와 같은 규약).
+test('FR-CMR-58: 접힌 구간은 사이드바 배경의 띠이고 가장자리 그늘은 --shade-edge 다', async ({ page }) => {
+  const repo = copyFx('basic', 'fold-color');
+  const lines = Array.from({ length: 60 }, (_, i) => 'line ' + i);
+  writeFileSync(join(repo, 'long.txt'), lines.join('\n') + '\n');
+  const g = (...a: string[]) => execFileSync('git', ['-C', repo, '-c', 'user.email=e2e@x', '-c', 'user.name=e2e', ...a]);
+  g('add', 'long.txt'); g('commit', '-qm', 'long');
+  lines[30] = 'changed 30';
+  writeFileSync(join(repo, 'long.txt'), lines.join('\n') + '\n');
+
+  await waitForInit(page);
+  await openGit(page, repo);
+  await row(page, 'working', 'long.txt').click();
+  await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
+  await diff(page).locator('.git-diff-fold input').check();
+  const band = diff(page).locator('.cm-collapsedLines').first();
+  await expect(band).toBeVisible({ timeout: 10000 });
+
+  const got = await band.evaluate((el) => {
+    const probe = document.createElement('div');
+    el.parentElement!.appendChild(probe);
+    const resolve = (v: string) => { probe.style.color = v; return getComputedStyle(probe).color };
+    const want = { bg: resolve('var(--sidebar-bg)'), fg: resolve('var(--text-muted)'), shade: resolve('var(--shade-edge)') };
+    probe.remove();
+    const cs = getComputedStyle(el);
+    return { want, bg: cs.backgroundColor, img: cs.backgroundImage, fg: cs.color, shadow: cs.boxShadow };
+  });
+  expect(got.img, '기본 그라데이션이 남았다').toBe('none');
+  expect(got.bg).toBe(got.want.bg);
+  expect(got.fg).toBe(got.want.fg);
+  expect(got.shadow, '가장자리 그늘이 --shade-edge 가 아니다').toContain(got.want.shade);
+  expect(got.shadow).toContain('inset');
 });
 
 test.describe('FR-GIT-276 — Blame (Diff 탭의 모드)', () => {

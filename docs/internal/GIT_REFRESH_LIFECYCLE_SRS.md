@@ -61,11 +61,11 @@
   시한을 status 경로에만 넣었다. 묶음 C 가 나머지에 넣는다
 - [`./GIT_REVIEW4_SRS.md`](./GIT_REVIEW4_SRS.md) FR-RPT-1~7 — `reconcileList`
   규약. 묶음 F 는 그것을 **적용하지 않은 두 자리**에 적용한다
-- [`./PANE_DOM_RECONCILE_SRS.md`](./PANE_DOM_RECONCILE_SRS.md) — `_keep` 규약.
+- [`./PANE_DOM_RECONCILE_SRS.md`](./archive/PANE_DOM_RECONCILE_SRS.md) — `_keep` 규약.
   묶음 E 는 그 SRS 가 "범위 밖" 으로 남긴 사이드를 거둔다
 - [`./GIT_PUSH_OBSERVE_SRS.md`](./GIT_PUSH_OBSERVE_SRS.md) FR-GPO-24 — 백오프가
   "그대로 산다" 고 적었으나 살아 있지 않다 (묶음 I)
-- [`./production/11-git-polling.md`](./production/11-git-polling.md) §2·§3·§5 —
+- [`./production/11-git-polling.md`](./archive/production/11-git-polling.md) §2·§3·§5 —
   전량의 근거
 
 ---

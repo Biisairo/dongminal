@@ -18,7 +18,7 @@ Object.assign(App.prototype, {
   /**
    * `FileEditor` 가 편집기를 세운 직후에 불린다. 하는 일은 둘이다.
    *
-   * ① 이 파일의 렌더 뷰들에게 **모델이 생겼음을 알린다.** 렌더 탭을 먼저 열고 소스
+   * ① 이 파일의 렌더 뷰들에게 **버퍼가 생겼음을 알린다.** 렌더 탭을 먼저 열고 소스
    *    탭을 나중에 열 수 있으므로, 이 통지가 없으면 그 렌더 뷰는 디스크의 내용에
    *    머문다.
    * ② 렌더할 수 있는 문서면 **버튼을 세운다** (FR-DRV-2·3). 그렇지 않으면 자리를
@@ -26,8 +26,8 @@ Object.assign(App.prototype, {
    */
   docRenderMount(view) {
     if (!view || !view.el || !view.filePath) return;
-    const model = view._editor && view._editor.getModel();
-    if (model) this._docRenderNotifyModel(view.filePath, model);
+    const d = this.edDocAt(view.filePath);
+    if (d && d.buf) this._docRenderNotifyBuf(view.filePath, d.buf);
     this._docRenderBindScroll(view);
     if (!this._docRenderKind(view.filePath)) return;
     if (view.el.querySelector('.fe-render')) return;
@@ -46,30 +46,32 @@ Object.assign(App.prototype, {
   /**
    * FR-DRV-44: 소스를 스크롤하면 렌더가 따라간다.
    *
-   * 구독을 **편집기마다 한 번만** 건다. Monaco 의 스크롤 이벤트는 자주 오므로
-   * 프레임마다 한 번으로 묶는다 — 묶지 않으면 스크롤 한 번에 DOM 질의가 수십 번
-   * 돌고, 그 비용이 스크롤의 지연으로 느껴진다.
+   * 구독을 **편집기마다 한 번만** 건다. 스크롤 이벤트는 자주 오므로 프레임마다 한
+   * 번으로 묶는다 — 묶지 않으면 스크롤 한 번에 DOM 질의가 수십 번 돌고, 그 비용이
+   * 스크롤의 지연으로 느껴진다.
    *
    * **소스 → 렌더 한 방향뿐이다.** 양쪽이 서로를 밀면 두 뷰가 마주 보고 튄다.
    */
   _docRenderBindScroll(view) {
-    if (!view._editor || view._docRenderScroll) return;
+    if (!view._view || view._docRenderScroll) return;
     if (!this._docRenderKind(view.filePath)) return;
-    // 구독을 따로 걷지 않는 것은 편집기가 `dispose()` 될 때 그 emitter 가 함께
-    // 끊기기 때문이다. 프레임 예약이 남아 뒤늦게 돌 수는 있는데, 그때는
-    // `_docRenderSync` 의 첫 줄이 편집기가 없음을 보고 물러선다.
-    view._docRenderScroll = view._editor.onDidScrollChange(() => {
+    // 구독을 따로 걷지 않는 것은 스크롤 요소가 편집기와 함께 사라지기 때문이다.
+    // 프레임 예약이 남아 뒤늦게 돌 수는 있는데, 그때는 `_docRenderSync` 의 첫 줄이
+    // 편집기가 없음을 보고 물러선다.
+    view._docRenderScroll = true;
+    view._view.scrollDOM.addEventListener('scroll', () => {
       // 프레임당 한 번으로 접는다. 종전에는 `_docRenderRaf` 를 손으로 붙들고
       // `if(...) return` 으로 걸렀다 — 그 관용구가 `coalesce` 다 (FR-SCH-15).
       TIMERS.frame(() => this._docRenderSync(view), {owner:view, coalesce:'doc-scroll'});
-    });
+    }, { passive: true });
   },
 
   _docRenderSync(view) {
-    const ed = view._editor;
-    if (!ed || !ed.getVisibleRanges) return;
-    const vis = ed.getVisibleRanges()[0];
-    const line = vis ? vis.startLineNumber : 1;
+    const cm = view._view;
+    if (!cm) return;
+    // 화면 맨 위에 걸친 줄. 높이는 문서 머리(패딩 아래)에서 잰다.
+    const blk = cm.lineBlockAtHeight(Math.max(0, cm.scrollDOM.scrollTop - cm.documentPadding.top));
+    const line = cm.state.doc.lineAt(blk.from).number;
     /**
      * VIEW_SCROLL_RESTORE_SRS R-VSR-6: 추종은 **소스가 움직였을 때만** 돈다.
      *
@@ -108,10 +110,10 @@ Object.assign(App.prototype, {
     return best;
   },
 
-  _docRenderNotifyModel(path, model) {
+  _docRenderNotifyBuf(path, buf) {
     if (!this.fileEditors) return;
     for (const v of this.fileEditors.values()) {
-      if (v && v.render && v.filePath === path && v.onDocModel) v.onDocModel(model);
+      if (v && v.render && v.filePath === path && v.onDocBuf) v.onDocBuf(buf);
     }
   },
 

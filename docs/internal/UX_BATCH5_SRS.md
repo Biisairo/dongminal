@@ -60,8 +60,8 @@
 
 ### 1.4 참조 (References)
 
-- [`./GIT_SRS.md`](./GIT_SRS.md) — FR-GIT-64~73 (스테이징), FR-GIT-240~244 (Worktrees)
-- [`./WORKBENCH_REVIEW_SRS.md`](./WORKBENCH_REVIEW_SRS.md) — FR-WBR-50~53 (그룹 일괄), FR-WBR-80~84 (폴더 행 동작)
+- [`./GIT_SRS.md`](./archive/GIT_SRS.md) — FR-GIT-64~73 (스테이징), FR-GIT-240~244 (Worktrees)
+- [`./WORKBENCH_REVIEW_SRS.md`](./archive/WORKBENCH_REVIEW_SRS.md) — FR-WBR-50~53 (그룹 일괄), FR-WBR-80~84 (폴더 행 동작)
 - [`./GIT_DIR_ENTRY_SRS.md`](./GIT_DIR_ENTRY_SRS.md) — FR-DIR-20~22, **§7 비목표 2** ("서브모듈 조작 명령을 붙이지 않는다") — 본 문서 묶음 D 가 그 비목표를 **해제**한다
 - [`./SANDBOX_WINDOW_SRS.md`](./SANDBOX_WINDOW_SRS.md) — FR-SBX-20 (기동 실패 사유), FR-SBX-25 (프로파일 선택), NFR-SBX-3
 - [`./SANDBOX_PICK_COPY_SRS.md`](./SANDBOX_PICK_COPY_SRS.md) — FR-SPK-1~14

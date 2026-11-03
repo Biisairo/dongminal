@@ -81,8 +81,7 @@ const VENDOR_GLOBALS = {
   hljs: 'readonly',              // web/vendor/highlight.js
   markdownit: 'readonly',        // web/vendor/markdown-it.js
   DOMPurify: 'readonly',         // web/vendor/purify.js
-  monaco: 'readonly',            // CDN (02-fe-arch 의 P1 — 벤더링 대상)
-  require: 'readonly',           // monaco 의 AMD 로더 (`file-editor.js:64-81`)
+  CM: 'readonly',                // web/vendor/codemirror/cm.js — `loadCodeMirror` 가 세운다
 };
 
 /**

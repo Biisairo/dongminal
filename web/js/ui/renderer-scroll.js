@@ -254,7 +254,7 @@ Object.assign(Renderer.prototype, {
     this._keepTermScroll();
     if(app.gitPanels) for(const p of app.gitPanels.values()) for(const el of p._els.values()) take(el);
     // VIEW_SCROLL_RESTORE_SRS FR-VSR-2 / D-2: **편집기 탭은 훑기로 잡히지 않는다** —
-    // Monaco 의 스크롤은 DOM `scrollTop` 이 아니라 인스턴스가 든 값이다. 그래서
+    // 편집기의 스크롤은 칸 DOM 의 `scrollTop` 이 아니라 엔진이 든 값이다. 그래서
     // 자리를 묻지 않고 위젯에게 갈무리를 맡긴다.
     //
     // 여기여야 하는 이유는 **떼는 자리가 셋**이라는 것이다 — 탭 전환은

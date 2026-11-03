@@ -51,12 +51,12 @@
 
 ### 1.5 참조 (References)
 
-- [`./GIT_SRS.md`](./GIT_SRS.md) — `FR-GIT-94`·`97`·`176`, 검증 `V38`. **개정 대상**
+- [`./GIT_SRS.md`](./archive/GIT_SRS.md) — `FR-GIT-94`·`97`·`176`, 검증 `V38`. **개정 대상**
 - [`./CONFIRM_ONE_STAGE_SRS.md`](./CONFIRM_ONE_STAGE_SRS.md) — `FR-COS-6`·`7`,
   `D-4`, `TC-COS-7`·`8`. **개정 대상**
-- `docs/internal/production/M2_PROGRESS.md` §2.2 `UX-1` · §3.4 `U-15` — 접수와
+- `docs/internal/archive/production/M2_PROGRESS.md` §2.2 `UX-1` · §3.4 `U-15` — 접수와
   충돌의 실측
-- [`./EXPLORER_ROOT_KEYS_SRS.md`](./EXPLORER_ROOT_KEYS_SRS.md) — `FR-EXR-53`.
+- [`./EXPLORER_ROOT_KEYS_SRS.md`](./archive/EXPLORER_ROOT_KEYS_SRS.md) — `FR-EXR-53`.
   탐색기의 `Delete` 가 확인창을 **건너뛰지 않는** 근거. 이 스펙은 그 확인창의
   **기본값**만 바꾸며 확인창 자체는 그대로 둔다
 

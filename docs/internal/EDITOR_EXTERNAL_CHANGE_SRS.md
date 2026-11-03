@@ -3,11 +3,11 @@
 > **문서 상태**: 승인·구현완료
 
 - 접수: 사용자 보고 `U-22`
-- 관련: [`EDITOR_TAB_SRS`](./EDITOR_TAB_SRS.md) · [`SLOT_VIEW_STATE_SRS`](./SLOT_VIEW_STATE_SRS.md)
+- 관련: [`EDITOR_TAB_SRS`](./archive/EDITOR_TAB_SRS.md) · [`SLOT_VIEW_STATE_SRS`](./archive/SLOT_VIEW_STATE_SRS.md)
   (`FR-SVS-50`~`54` — 내용·dirty 는 **문서**의 것이다) ·
-  [`REPO_TAB_UNIFY_SRS`](./REPO_TAB_UNIFY_SRS.md) `FR-RTU-103` (U-10 — 편집을 확인 없이 잃지 않는다) ·
+  [`REPO_TAB_UNIFY_SRS`](./archive/REPO_TAB_UNIFY_SRS.md) `FR-RTU-103` (U-10 — 편집을 확인 없이 잃지 않는다) ·
   [`POPUP_DEFAULT_ACTION_SRS`](./POPUP_DEFAULT_ACTION_SRS.md) (`FR-PDA-1`·`2`·`11` — 확인창의 포커스) ·
-  [`FILE_API_BOUNDARY_SRS`](./FILE_API_BOUNDARY_SRS.md) (`FR-FAB-8` 읽기 상한)
+  [`FILE_API_BOUNDARY_SRS`](./archive/FILE_API_BOUNDARY_SRS.md) (`FR-FAB-8` 읽기 상한)
 
 ---
 
@@ -137,7 +137,7 @@ git diff 뷰(`file-editor-diff.js`)는 자기 갱신 규약이 따로 있으며 
 ### 3.4 묶음 P — 감지 (사용자 판정)
 
 **FR-EXC-8** ~~**폴링하지 않는다.**~~ **대체됨 (2026-09-18,
-[`EDITOR_LIVE_RELOAD_SRS`](./EDITOR_LIVE_RELOAD_SRS.md) `FR-ELR-42`).**
+[`EDITOR_LIVE_RELOAD_SRS`](./archive/EDITOR_LIVE_RELOAD_SRS.md) `FR-ELR-42`).**
 
 이 조항은 *"파일 저장 시도할 때"* 라는 판정 위에 서 있었고, 기각의 근거는 두
 가지였다 — 열린 편집기 수만큼 종단이 늘고, 주기가 또 하나의 설정이 된다.

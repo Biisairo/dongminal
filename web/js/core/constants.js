@@ -520,7 +520,7 @@ var TOPTS={
   lineHeight:1.2,allowProposedApi:true,logLevel:'off',
   // UX_BATCH11_SRS FR-TCP-5: mac 에서 마우스를 쓰는 TUI 위에서도 Option+드래그로 선택한다.
   macOptionClickForcesSelection:true,
-  fontFamily:"'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace",
+  fontFamily:"'Menlo','Consolas','Liberation Mono','Courier New',monospace",
   theme:null,
 };
 

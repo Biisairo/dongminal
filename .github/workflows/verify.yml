@@ -143,6 +143,10 @@ jobs:
       - name: 제3자 자산 판 기록
         run: scripts/check-vendor.sh
 
+      # 옛 편집기 엔진의 이름은 허용한 자리에만 남는다 (CODEMIRROR_MIGRATION_SRS FR-CMR-132).
+      - name: 옛 편집기 엔진 이름
+        run: scripts/check-old-editor-name.sh
+
       # 에이전트 이름의 소유권 (AGENT_ADAPTER_COMPLETION_SRS FR-AAC-31·32).
       #
       # **이 게이트는 CI 에 없었다** (M7 셋째 세션 실측). Makefile 에만 있었고,

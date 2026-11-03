@@ -174,7 +174,7 @@ Object.assign(App.prototype, {
     this._edReapTrees(ws);
     // REPO_TAB_UNIFY_SRS FR-RTU-63: Git 패널도 창의 것이다 — 탐색기와 같은
     // 자리에서 거둔다. 재조정은 창이 사라지는 것을 아는 유일한 자리이므로,
-    // 여기서 빠지면 볼 사람이 없는 패널이 Monaco 를 든 채 남는다.
+    // 여기서 빠지면 볼 사람이 없는 패널이 편집기를 든 채 남는다.
     this._gitPanelReap();
     return n;
   },

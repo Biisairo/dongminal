@@ -7,6 +7,7 @@ import { APIRequestContext, Page } from '@playwright/test';
 import {
   test, expect, rmTree, switchToEditorRoot, openExplorerSide, nextFrames, gotoWithEditors, waitForInit, openGit, gitFixture, cleanGitFixture, makeCopyFx,
 } from './fixtures';
+import { ED_SEL } from './editor';
 import { TMP, realPath, cssPath, tmpPath } from './osenv';
 
 // REPO_TAB_UNIFY_SRS §4 — 통합 창의 검증 V-RTU-10~35.
@@ -397,21 +398,18 @@ test.describe('묶음 V — git 뷰 탭의 자격 (FR-RTU-33·34)', () => {
     });
 
   /**
-   * NFR-RTU-3: Monaco 인스턴스는 **열린 diff/편집기 탭 수 + 창당 미리보기 1** 을
+   * NFR-RTU-3: 편집기 인스턴스는 **열린 diff/편집기 탭 수 + 창당 미리보기 1** 을
    * 넘지 않는다. 뷰 DOM 을 탭이 있을 때만 만드는 것이 그 근거이므로, 닫으면
    * 인스턴스도 함께 놓아야 한다.
    */
-  test('X4 (V-RTU-91 / NFR-RTU-3): Diff 탭을 닫으면 Monaco 인스턴스도 놓는다',
+  test('X4 (V-RTU-91 / NFR-RTU-3): Diff 탭을 닫으면 Diff 편집기 인스턴스도 놓는다',
     async ({ page, request }) => {
       await enter(page, request, REPO);
-      const count = () => page.evaluate(() => {
-        const m = (window as any).monaco;
-        return m ? m.editor.getDiffEditors().length : -1;
-      });
+      const count = () => page.evaluate(() => edT.counts().diffs);
       await sideTab(page, 'changes').click();
       await side(page).locator(`.git-file[data-path="src/a.ts"]`).click();
       await expect(viewTab(page, 'diff')).toHaveCount(1, { timeout: 10000 });
-      await expect(page.locator('#area .ed-area .monaco-diff-editor'))
+      await expect(page.locator(`#area .ed-area ${ED_SEL.diffSurface}`))
         .toBeVisible({ timeout: 30000 });
       expect(await count(), 'diff 인스턴스가 만들어지지 않았다').toBeGreaterThan(0);
 

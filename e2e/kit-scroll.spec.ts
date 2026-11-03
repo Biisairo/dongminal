@@ -121,7 +121,7 @@ test.describe('킷의 스크롤바 (KIT_APPLICATION_SRS)', () => {
         const rollsX = /^(auto|scroll)$/.test(cs.overflowX) && el.scrollWidth > el.clientWidth;
         if (!rollsY && !rollsX) continue;
         // 벤더 표면은 우리 것이 아니다 (SRS §6-예외표 E-2 가 킷 선택자로 덮는다).
-        if (el.closest('.xterm') || el.closest('.monaco-editor')) continue;
+        if (el.closest('.xterm') || el.closest(edT.sel.surface)) continue;
         // **축을 가른다.** 세로로 구르는 표면의 스크롤바는 `width`, 가로로 구르는
         // 것은 `height` 다. 둘을 섞으면 가로 스크롤바를 `height:0` 으로 숨긴 자리
         // (`.pn-tabs`·`#mobile-keybar`, E-1)가 "스크롤바 없음" 으로 잡힌다.

@@ -302,7 +302,7 @@ D-POLL-2 의 `finally` 가 지킨 것은 **잠금**(`_refreshing`)이었고, 관
 > 남겨 두었다 — "설정으로 되살릴 수 있다, 푸시를 믿지 못하는 환경의 손잡이로
 > 남긴다" 였다. 그 손잡이는 **한 번도 켜지지 않았고**, 켜질 수 있다는 것 자체가
 > 위험이었다(여기서 없앤 60초당 120회 요청이 되살아난다). 계층은
-> [POLL_INTERVAL_SETTINGS_SRS](./POLL_INTERVAL_SETTINGS_SRS.md) FR-PIS-1 에서
+> [POLL_INTERVAL_SETTINGS_SRS](./archive/POLL_INTERVAL_SETTINGS_SRS.md) FR-PIS-1 에서
 > 실제로 걷어냈다. 서버의 `StartGitWatch` 와 `/api/git/signature` 종단은 남는다.
 
 - 푸시가 끊겼을 때의 안전망 (C-5)

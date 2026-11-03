@@ -1145,35 +1145,34 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
     await openInSlot(page, 1, edWin);
     await renderNow(page);
 
-    // 두 칸의 Monaco 가 모두 설 때까지 기다린다.
+    // 두 칸의 편집기가 모두 설 때까지 기다린다.
     await page.waitForFunction(() => {
       const es = [...(window as any).app.fileEditors.values()];
-      return es.length === 2 && es.every((e: any) => !!e._editor);
+      return es.length === 2 && es.every((e: any) => edT.has(e));
     }, undefined, { timeout: 20000 });
 
     return page.evaluate(() => [...(window as any).app.fileEditors.keys()].sort());
   }
 
   const valueIn = (page: Page, key: string) =>
-    page.evaluate((k) => (window as any).app.fileEditors.get(k)._editor.getValue(), key);
+    page.evaluate((k) => edT.text(edT.of((window as any).app.fileEditors.get(k))), key);
 
   test('TC-SVS-30: 한 칸의 타이핑이 다른 칸에 즉시 보인다 (FR-SVS-50·51)', async ({ page, request }) => {
     const keys = await sameFileInTwoSlots(page, request);
     expect(keys.length).toBe(2);
 
-    // 문서는 하나다 — 두 에디터가 같은 모델을 든다.
+    // 문서는 하나다 — 두 에디터가 같은 문서를 편집한다.
     expect(await page.evaluate((ks) => {
       const a = (window as any).app;
-      return a.fileEditors.get(ks[0])._editor.getModel()
-        === a.fileEditors.get(ks[1])._editor.getModel();
+      return edT.sameDoc(edT.of(a.fileEditors.get(ks[0])), edT.of(a.fileEditors.get(ks[1])));
     }, keys)).toBe(true);
 
     // 칸 0 의 에디터에 입력한다.
     await page.evaluate((k) => {
-      const e = (window as any).app.fileEditors.get(k)._editor;
-      e.focus();
-      e.setPosition({ lineNumber: 1, column: 1 });
-      e.trigger('test', 'type', { text: 'XY' });
+      const e = edT.of((window as any).app.fileEditors.get(k));
+      edT.focus(e);
+      edT.setCursor(e, 1, 1);
+      edT.type(e, 'XY');
     }, keys[0]);
 
     // 다른 칸이 그것을 그대로 본다.
@@ -1185,19 +1184,19 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
     const keys = await sameFileInTwoSlots(page, request);
     // 내용을 두 줄로 만든 뒤 각 칸의 커서를 다른 줄에 둔다.
     await page.evaluate((k) => {
-      (window as any).app.fileEditors.get(k)._editor.getModel().setValue('one\ntwo\n');
+      edT.setText(edT.of((window as any).app.fileEditors.get(k)), 'one\ntwo\n');
     }, keys[0]);
     await page.evaluate((ks) => {
       const a = (window as any).app;
-      a.fileEditors.get(ks[0])._editor.setPosition({ lineNumber: 1, column: 1 });
-      a.fileEditors.get(ks[1])._editor.setPosition({ lineNumber: 2, column: 2 });
+      edT.setCursor(edT.of(a.fileEditors.get(ks[0])), 1, 1);
+      edT.setCursor(edT.of(a.fileEditors.get(ks[1])), 2, 2);
     }, keys);
 
     const pos = await page.evaluate((ks) => {
       const a = (window as any).app;
       return ks.map((k: string) => {
-        const p = a.fileEditors.get(k)._editor.getPosition();
-        return p.lineNumber + ':' + p.column;
+        const p = edT.cursor(edT.of(a.fileEditors.get(k)));
+        return p.line + ':' + p.col;
       });
     }, keys);
     // 내용은 하나여도 보는 자리는 각자다.
@@ -1210,8 +1209,7 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
 
     // 칸 0 에서 편집한다 → dirty 는 문서의 것이므로 양쪽이 함께 참이다.
     await page.evaluate((k) => {
-      const e = (window as any).app.fileEditors.get(k)._editor;
-      e.getModel().setValue('saved by slot 0\n');
+      edT.setText(edT.of((window as any).app.fileEditors.get(k)), 'saved by slot 0\n');
     }, keys[0]);
     await expect.poll(() => page.evaluate((ks) => {
       const a = (window as any).app;
@@ -1257,8 +1255,7 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
       });
 
       await page.evaluate((k) => {
-        const e = (window as any).app.fileEditors.get(k)._editor;
-        e.getModel().setValue('written while dying\n');
+        edT.setText(edT.of((window as any).app.fileEditors.get(k)), 'written while dying\n');
       }, keys[1]);
       // 저장을 **기다리지 않는다** — 날아가 있는 상태를 만들어야 한다.
       await page.evaluate((k) => { (window as any).app.fileEditors.get(k).save() }, keys[1]);
@@ -1288,8 +1285,7 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
 
       // 그리고 남은 칸의 저장이 **실제로 듣는다** — 이것이 사용자가 겪던 증상이다.
       await page.evaluate((k) => {
-        const e = (window as any).app.fileEditors.get(k)._editor;
-        e.getModel().setValue('after the fix\n');
+        edT.setText(edT.of((window as any).app.fileEditors.get(k)), 'after the fix\n');
       }, keys[0]);
       await page.evaluate((k) => (window as any).app.fileEditors.get(k).save(), keys[0]);
       await expect.poll(() => fs.readFileSync(FILE, 'utf8'), { timeout: 10000 })
@@ -1301,14 +1297,12 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
   test('REPO_FIX 03 E-9.1: 칸 하나를 닫아도 다른 칸의 진단이 남는다', async ({ page, request }) => {
     await sameFileInTwoSlots(page, request);
     const markers = () => page.evaluate(() => {
-      const m = (window as any).monaco;
       const d = [...(window as any).app.testing.edDocs.values()][0];
-      return m.editor.getModelMarkers({ resource: d.model.uri, owner: 'dongminal-lsp' }).length;
+      return edT.docDiagnostics(d).length;
     });
     await page.evaluate(() => {
-      const m = (window as any).monaco;
       const d = [...(window as any).app.testing.edDocs.values()][0];
-      m.editor.setModelMarkers(d.model, 'dongminal-lsp', [{ startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 2, message: 'x', severity: 8 }]);
+      edT.docSetDiagnostic(d, 1, 'x');
     });
     expect(await markers()).toBe(1);
     await page.evaluate(() => { (window as any).app.slotFocusTo(1); (window as any).app.slotRemove() });
@@ -1340,7 +1334,7 @@ test.describe('묶음 E — 편집기 문서 (FR-SVS-50~55)', () => {
     expect(await page.evaluate(() => (window as any).app.testing.edDocs.size)).toBe(1);
     expect(await page.evaluate(() => {
       const d = [...(window as any).app.testing.edDocs.values()][0];
-      return !!d.model && !d.model.isDisposed();
+      return edT.docLive(d);
     })).toBe(true);
 
     // 탭까지 닫으면 보는 칸이 하나도 없다 → 문서와 모델이 거둬진다.

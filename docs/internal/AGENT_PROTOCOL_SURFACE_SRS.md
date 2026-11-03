@@ -70,7 +70,7 @@
   `FR-RUN-11a`(정중한 종료)
 - `docs/internal/ORCHESTRATION_V2_SRS.md` — `FR-CBG-1`·`FR-CBG-5`
   **"모른다 ≠ 괜찮다"**
-- `docs/internal/UX_BATCH6_SRS.md` — `FR-BGP-2`(백그라운드 SSE) ·
+- `docs/internal/archive/UX_BATCH6_SRS.md` — `FR-BGP-2`(백그라운드 SSE) ·
   `FR-CTX-1·4~7`(컨텍스트 창)
 - 외부: [Codex App Server](https://learn.chatgpt.com/docs/app-server) ·
   [Agent Client Protocol](https://agentclientprotocol.com) ·

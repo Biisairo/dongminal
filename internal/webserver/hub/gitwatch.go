@@ -144,6 +144,19 @@ type GitWatcher struct {
 	// onChanged 는 git_changed 를 방송할 때 그 저장소로 불린다 (REPO_FIX 02 §3A-6) —
 	// LSP 가 열린 문서를 디스크 판으로 맞춘다. 감시자는 그것이 무엇인지 모른다.
 	onChanged func(repo string)
+	// onBaseline 은 저장소의 첫 표명(기준선)에 그 저장소로 불린다 (CODEMIRROR_MIGRATION_SRS §11.6 W) —
+	// LSP 가 그 관측을 직전 관측으로 기억한다.
+	onBaseline func(repo string)
+}
+
+// SetOnBaseline 은 기준선 훅을 건다 (CODEMIRROR_MIGRATION_SRS §11.6 W). 합성 루트가 한 번 부른다.
+func (w *GitWatcher) SetOnBaseline(f func(repo string)) {
+	if w == nil {
+		return
+	}
+	w.mu.Lock()
+	w.onBaseline = f
+	w.mu.Unlock()
 }
 
 // SetOnChanged 는 방송 훅을 건다. 합성 루트가 한 번 부른다.
@@ -266,7 +279,6 @@ func (w *GitWatcher) NoteScoped(repo string, obs store.Observation, clientID, sc
 		return
 	}
 	w.mu.Lock()
-	defer w.mu.Unlock()
 	now := w.now()
 	mark := obsMark(obs)
 	// 구독이 살아 있는 신원만 임차인이 된다.
@@ -283,6 +295,7 @@ func (w *GitWatcher) NoteScoped(repo string, obs store.Observation, clientID, sc
 		// **기준선을 여기서 갱신하지 않는다.** 브라우저가 받은 관측과 감시자가
 		// 마지막으로 알린 관측은 같은 것이고, 다르다면 그 차이는 이미 방송으로
 		// 나갔다. 여기서 덮으면 그 방송과 이 응답 사이에 생긴 변화를 잃는다.
+		w.mu.Unlock()
 		return
 	}
 	// **첫 표명은 기준선을 함께 받는다.**
@@ -306,6 +319,11 @@ func (w *GitWatcher) NoteScoped(repo string, obs store.Observation, clientID, sc
 	}
 	w.watch[repo] = e
 	w.evictLocked(now)
+	f := w.onBaseline
+	w.mu.Unlock()
+	if f != nil {
+		f(repo)
+	}
 }
 
 // ReleaseScope 는 그 신원의 그 갈래 임대를 모든 저장소에서 놓는다 (FR-OPT-4-3). 감시는

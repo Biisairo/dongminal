@@ -85,7 +85,7 @@ const termGrid = (page: Page) => page.evaluate(() => {
 
 const edFont = (page: Page) => page.evaluate(() => {
   const ed = [...(window as any).app.fileEditors.values()][0];
-  return ed && ed._editor ? ed._editor.getRawOptions().fontSize : null;
+  return ed && edT.has(ed) ? edT.option(edT.of(ed), 'fontSize') : null;
 });
 
 async function openPanel(page: Page, tab: string) {
@@ -209,8 +209,8 @@ test.describe('글자 크기 설정 (FR-FSS-1~23)', () => {
       // (FR-FSS-9, FR-MMT-4 와 같은 근거).
       await page.evaluate(() => {
         const ed = [...(window as any).app.fileEditors.values()][0];
-        ed._editor.setValue('AAA\nBBB\nCCC\n');
-        ed._editor.setPosition({ lineNumber: 2, column: 3 });
+        edT.setText(edT.of(ed), 'AAA\nBBB\nCCC\n');
+        edT.setCursor(edT.of(ed), 2, 3);
       });
 
       await setUiFontPx(page, 28);
@@ -218,8 +218,8 @@ test.describe('글자 크기 설정 (FR-FSS-1~23)', () => {
 
       const after = await page.evaluate(() => {
         const ed = [...(window as any).app.fileEditors.values()][0];
-        const p = ed._editor.getPosition();
-        return { v: ed._editor.getValue(), ln: p.lineNumber, col: p.column };
+        const p = edT.cursor(edT.of(ed));
+        return { v: edT.text(edT.of(ed)), ln: p.line, col: p.col };
       });
       expect(after.v).toBe('AAA\nBBB\nCCC\n');
       expect(after.ln).toBe(2);

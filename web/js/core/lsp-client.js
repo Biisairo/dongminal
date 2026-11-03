@@ -114,7 +114,7 @@ Object.assign(LspClient.prototype, {
         '<div class="lsp-path">'+escHtml((srvs.find(x=>x.found)||{}).exe||'')+'</div>'+
         '<div class="lsp-act">'+btn+'</div>'+
         this._lspPathRows(pack,srvs)+
-        '<div class="lsp-msg"></div>'+
+        '<div class="lsp-msg">'+escHtml(this._lspConnNote(srvs))+'</div>'+
       '</div>');
     }
     list.innerHTML=rows.join('');
@@ -150,374 +150,119 @@ Object.assign(LspClient.prototype, {
     await this._lspRefresh();
   },
 
-  // ── 정의·참조 이동 (묶음 C·F · M2) ──
+  // ── 정의·참조 이동 (CODEMIRROR_MIGRATION_SRS FR-CMR-92·93 · §11.6 L1) ──
   //
-  // **`F12` 경로는 우리가 그린다** (D-8b·D-8c). 알림 줄의 사유와 목록 껍데기가
-  // 여기 있고, 그것이 Monaco 의 peek 이 주지 않는 것이다.
-  //
-  // 커맨드클릭은 다르다 — 링크 밑줄을 Monaco 만 그릴 수 있으므로 그쪽은 provider
-  // 로 간다 (`_lspProvideDef`, FR-LSP-60~65). 두 벌 구현이 아니라 **같은 종단의
-  // 두 계기**이며, 다른 파일로 가는 일은 `registerEditorOpener` 가 이 파일의
-  // `edOpenFile` 로 되돌린다 (§2.11c 가 그 기각을 되짚었다).
+  // `@codemirror/lsp-client` 의 명령을 부른다 — 정의는 첫 항목으로 가고, 참조는 그
+  // 라이브러리의 패널에 보인다 (M8 결정 6, §3.16). 연결이 닫혀 있으면 먼저 다시 연다.
+
+  async _lspGotoDef(){ await this._lspRun(()=>CM.jumpToDefinition) },
+  async _lspFindRefs(){ await this._lspRun(()=>CM.findReferences) },
 
   /**
-   * 지금 물을 자리. 활성 편집기의 **커서 위치와 모델**이다 (D-3).
-   *
-   * 서버가 현재 텍스트를 아는 것이 이 기능의 핵심이다 — 저장 전 편집은 브라우저에만
-   * 있으므로 디스크만 보는 서버는 방금 쓴 함수를 모른다. 텍스트를 실을지는
-   * `_lspAsk` 가 판으로 정한다 (FR-OPT-6-2).
+   * FR-LSP-60·67: 커맨드클릭이 닿는 자리. **`F12` 와 같은 경로다** — 커서를 그 자리에
+   * 놓고 정의로 이동을 부른다.
    */
-  _lspWhere(){
+  async lspClickDef(view,pos){
+    if(!view||pos==null) return;
+    view.dispatch({selection:{anchor:pos}});
+    await this._lspRunOn(view,CM.jumpToDefinition);
+  },
+
+  async _lspRun(cmdOf){
+    if(typeof CM==='undefined') return;
     const v=this.app._edActiveEditor();
-    const ed=v&&v._editor;
-    if(!ed) return null;
-    const root=this.app._edSearchRoot();
-    if(!root) return null;
-    const pos=ed.getPosition();
-    const model=ed.getModel();
-    if(!pos||!model) return null;
-    return {
-      view:v, root,
-      path:v.filePath,
-      model,
-      // 편집기와 우리 종단은 둘 다 1 부터 센다 — 여기서 셈법을 바꾸지 않는다.
-      line:pos.lineNumber, col:pos.column,
-    };
+    if(!v||!v._view) return;
+    await this._lspRunOn(v._view,cmdOf(),v);
   },
 
-  async _lspGotoDef(){ await this._lspJump('def') },
-
-  /**
-   * FR-LSP-60·67 (U-1): 커맨드클릭이 닿는 자리. **`F12` 와 같은 경로다.**
-   *
-   * 클릭이 커서를 이미 그 자리에 놓지만 명시로 한 번 더 맞춘다 — `_lspJump` 는
-   * 커서를 읽으므로(`_lspWhere`), 그 사이에 다른 것이 커서를 옮기면 엉뚱한
-   * 심볼을 묻게 된다.
-   */
-  async lspClickDef(view,position){
-    const ed=view&&view._editor;
-    if(!ed||!position) return;
-    ed.setPosition(position);
-    await this._lspJump('def');
-  },
-  async _lspFindRefs(){ await this._lspJump('refs') },
-
-  /**
-   * FR-LSP-21·22·25·28: 물어서 옮긴다.
-   *
-   * 하나면 그 자리로, 여럿이면 목록으로 고르게 한다. **답하지 못한 이유는 알림
-   * 줄에 남는다** (D-9) — 침묵은 고장과 구별되지 않는다.
-   */
-  async _lspJump(kind){
-    const at=this._lspWhere();
-    if(!at) return;
-    at.view.note(LSP_ASKING, 1500);
-    const extra={line:at.line,col:at.col};
-    if(kind==='refs') extra.includeDeclaration=false;
-    const r=await this._lspAsk(kind==='refs'?LSP_REFS_API:LSP_DEF_API,at,extra);
-    const d=r.ok?r.data:null;
-    if(!d){at.view.note(LSP_ASK_FAIL);return}
-    // 서버가 사유를 적어 보냈으면 그것을 그대로 보인다 — 화면이 다시 쓰지 않는다.
-    if(d.reason){at.view.note(d.reason);return}
-    const locs=d.locations||[];
-    if(!locs.length){at.view.note(kind==='refs'?LSP_NO_REFS:LSP_NO_DEF);return}
-    if(locs.length===1&&kind!=='refs'){
-      this._lspGo(at,locs[0]);
+  async _lspRunOn(view,cmd,fe){
+    const plugin=CM.LSPPlugin.get(view);
+    const conn=plugin&&this._lspConnOf(plugin.client);
+    if(!conn){ if(fe&&fe.note) fe.note(LSP_ASK_FAIL); return }
+    const ok=await conn.ensure().then(()=>true,()=>false);
+    if(!ok){
+      if(fe&&fe.note) fe.note(edLspCloseNote(conn.lastClose)||LSP_ASK_FAIL);
       return;
     }
-    this._lspList(at,locs,kind==='refs'?'refs':'defs');
+    cmd(view);
   },
 
   /**
-   * FR-LSP-26·27: 한 자리로 옮긴다.
-   *
-   * 지금 자리를 **먼저 스택에 넣는다** — 넣지 않으면 뛴 뒤에 돌아올 수 없고, 그러면
-   * 그 이동은 길을 잃는 일이 된다.
-   *
-   * 다른 파일이면 탭으로 열린다. 그 경로는 `edOpenFile` 이 이미 알고 있으며 조상
-   * 폴더를 탐색기에서 펼치는 일까지 한다 (FR-EKB-6).
+   * 이 파일의 편집기에 넣을 LSP 확장. 서버가 없거나 루트가 없으면 null 이다 —
+   * 그때 편집기는 LSP 없이 선다.
    */
-  _lspGo(at,loc){
-    this._lspPush(at);
-    this.app.edOpenFile(loc.path,{line:loc.line,col:loc.col});
-  },
-
-  // FR-LSP-25: 여럿이면 고르게 한다. 껍데기는 전체 검색과 같은 것이다 — 사용자가
-  // 이미 아는 조작(↑↓·Enter)이 그대로다.
-  _lspList(at,locs,mode){
-    const p=this.app._edPanel(mode,at.root);
-    // 패널의 pick 은 `root + '/' + item.path` 로 절대경로를 만든다. 그 규약에
-    // 맞추려면 우리가 상대경로를 넣어야 한다 — 규약을 바꾸면 grep 이 깨진다.
-    p._items=locs.map(l=>({
-      path:this._lspRel(at.root,l.path),
-      line:l.line, col:l.col,
-      text:'',
-    }));
-    p._sel=0;
-    // 여기서 자리를 담는다 — 목록에서 무엇을 고르든 돌아올 곳은 지금 이 자리다.
-    this._lspPush(at);
-    this.app._edPanelPaint(p,{});
-    const note=p.querySelector('.ed-find-note');
-    if(note) note.textContent=(mode==='refs'?LSP_REFS_HINT:LSP_DEFS_HINT)
-      .replace('%s',String(locs.length));
-  },
-
-  // 구분자를 `/` 로 굳히지 않는다 — Windows 에서는 어떤 절대경로도 그 접두로
-  // 시작하지 않아 **상대화가 통째로 실패한다**(그러면 패널이 절대경로를 상대인
-  // 척 들고 있다가 `pathJoin` 에서 루트를 두 번 이은 경로를 만든다).
-  _lspRel(root,abs){
-    return pathUnder(root,abs)?pathRel(root,abs):String(abs);
-  },
-
-  // ── 호버 (묶음 D · M3) ──
-  //
-  // **여기서는 Monaco 의 provider 를 쓴다** (D-8). 말풍선은 같은 파일 안의 일이므로
-  // 탭 시스템을 알 필요가 없다 — 정의 이동과 갈리는 자리가 그것이다 (§2.11).
-
-  /**
-   * FR-LSP-39: provider 는 **언어마다 한 번** 등록된다. 편집기를 여럿 세워도 등록이
-   * 늘지 않아야 한다 — 늘면 같은 호버가 여러 번 뜬다.
-   *
-   * Monaco 가 뜬 뒤에 불려야 하므로 `FileEditor` 가 편집기를 세운 직후에 부른다.
-   * 두 번째부터는 아무 일도 하지 않는다.
-   */
-  async lspHoverRegister(){
-    if(typeof monaco==='undefined'||!monaco.languages) return;
-    // 언어 목록은 **선언에서 온다** (FR-EXT-1). 화면이 표를 따로 갖고 있으면
-    // 언어를 더할 때 한쪽만 고쳐져 그 언어에서 호버가 붙지 않는다.
+  async lspExtFor(path){
+    if(!path||typeof CM==='undefined') return null;
+    const root=this._lspRootOfPath(path);
+    const ext=this._lspExtOf(path);
+    if(!root||!ext) return null;
     const list=await this._lspStatusCached();
-    if(!list) return;
-    if(!this._lspHoverLangs) this._lspHoverLangs=new Set();
-    if(!this._lspDefLangs) this._lspDefLangs=new Set();
-    // FR-LSP-63: 다른 파일로 가는 일은 **우리 탭 시스템**의 것이다. 등록은 앱에
-    // 한 번이며 언어와 무관하다.
-    this._lspOpenerRegister();
-    for(const s of list){
-      for(const lang of (s.langs||[])){
-        // FR-LSP-39: 언어마다 한 번이다 — 늘면 같은 호버가 여러 번 뜬다.
-        if(!this._lspHoverLangs.has(lang)){
-          this._lspHoverLangs.add(lang);
-          monaco.languages.registerHoverProvider(lang,{
-            provideHover:(model,position,token)=>this._lspHover(model,position,token),
-          });
-        }
-        // FR-LSP-60·62 (U-1): 커맨드클릭으로 정의로 간다. **같은 규약·같은 자리**다
-        // — 표를 두 벌로 두면 언어를 더할 때 한쪽만 고쳐진다.
-        if(!this._lspDefLangs.has(lang)){
-          this._lspDefLangs.add(lang);
-          monaco.languages.registerDefinitionProvider(lang,{
-            provideDefinition:(model,position,token)=>this._lspProvideDef(model,position,token),
-          });
-        }
-      }
+    const s=list&&list.find(x=>(x.exts||[]).some(e=>e===ext));
+    if(!s||!s.found) return null;
+    const conn=this._lspConn(root,(s.pack?s.pack+'/':'')+s.id);
+    conn.ensure();
+    return conn.plugin(path,edLspLangId(path,s.langs));
+  },
+
+  // 페이지의 (루트, 서술자)마다 연결 하나 (FR-CMR-90).
+  _lspConn(root,desc){
+    this._lspConns=this._lspConns||new Map();
+    const key=root+'\0'+desc;
+    let c=this._lspConns.get(key);
+    if(!c){
+      // FR-CMR-92: 진단은 그룹의 버퍼에 보관하고 모든 칸에 그린다 (§11.6 L2).
+      const bufOf=(path)=>{ const d=this.app.edDocAt(path); return (d&&d.buf)||null };
+      c=new EdLspConn({
+        root, desc,
+        display:(path)=>this._lspDisplay(path),
+        // 갱신 도중에 불린다 — 그리기는 그 뒤로 미룬다.
+        joined:(path)=>queueMicrotask(()=>edLspDiagShow(bufOf(path),lspDiagOn)),
+        // FR-CMR-94: hover Markdown 은 DOMPurify 를 지난다.
+        sanitizeHTML:(html)=>DOMPurify.sanitize(html),
+        extensions:[CM.hoverTooltips(),this._lspClickExt(),edLspDiagnostics({bufOf,on:()=>lspDiagOn})],
+      });
+      this._lspConns.set(key,c);
     }
+    return c;
   },
 
-  /**
-   * FR-LSP-60·61·65 (U-1): 커맨드클릭이 딛는 속.
-   *
-   * **새 종단도 새 상태도 만들지 않는다** — `F12` 가 쓰는 그 종단이다. 다른 것은
-   * 계기와 그림뿐이다: 링크 밑줄·peek 은 Monaco 만 그릴 수 있고, 알림 줄과 목록
-   * 껍데기는 `F12` 경로의 것이다 (D-8c).
-   *
-   * 답하지 못하면 **조용하다.** 마우스가 지나갈 때마다 "서버가 없습니다" 가 뜨면
-   * 그것이 곧 고장이며, 호버가 같은 이유로 이미 그렇게 정했다 (FR-LSP-65).
-   */
-  async _lspProvideDef(model,position,token){
-    const at=this._lspHoverWhere(model,position);
-    if(!at) return null;
-    const ctl=new AbortController();
-    if(token&&token.onCancellationRequested) token.onCancellationRequested(()=>ctl.abort());
-    const r=await this._lspAsk(LSP_DEF_API,at,
-      {line:position.lineNumber,col:position.column},
-      {signal:ctl.signal});
-    const d=r.ok?r.data:null;
-    const locs=(d&&d.locations)||[];
-    if(!locs.length) return null;
-    // 좌표는 양쪽이 1 부터다 — 여기서 셈법을 바꾸지 않는다 (Location 의 주석).
-    if(!this._lspUriPath) this._lspUriPath=new Map();
-    return locs.map(l=>{
-      const uri=monaco.Uri.file(l.path);
-      // **되돌릴 짝을 기억한다.** uri 에서 경로를 다시 만들지 않는 이유는 실측이다 —
-      // 이 판의 `uri.fsPath` 는 POSIX 기계에서도 역슬래시 경로를 냈고(`\private\tmp\…`),
-      // 그 경로는 어느 탭과도 견줄 수 없다. 우리가 만든 uri 이므로 그 짝을 아는
-      // 쪽이 우리다.
-      this._lspUriPath.set(String(uri),l.path);
-      return {
-        uri,
-        range:{startLineNumber:l.line,startColumn:l.col,
-          endLineNumber:l.line,endColumn:l.col},
-      };
-    });
+  // FR-CMR-102: 그 팩의 서버 연결 중 상한·기동 실패로 닫힌 것의 사유. 없으면 빈 값이다.
+  _lspConnNote(srvs){
+    if(!this._lspConns) return '';
+    const descs=new Set(srvs.map(s=>(s.pack?s.pack+'/':'')+s.id));
+    for(const c of this._lspConns.values()){
+      const n=descs.has(c.desc)&&c.state==='closed'?edLspCloseNote(c.lastClose):null;
+      if(n) return n;
+    }
+    return '';
   },
 
-  /**
-   * FR-LSP-63·64 (U-1): Monaco 가 "다른 파일을 열어라" 고 할 때 우리 탭으로 연다.
-   *
-   * §2.11 은 이 자리를 "문서화되지 않은 내부 서비스" 라고 적고 provider 경로를
-   * 기각했다. **그 문장은 낡았다** — `monaco.editor.registerEditorOpener` 는
-   * `monaco.editor` 표면의 공개 함수다 (§2.11c). 없는 판에서는 등록만 건너뛰고
-   * 같은 파일 안의 이동은 그대로 된다.
-   *
-   *   같은 파일이면 `false` — Monaco 가 스스로 한다(그쪽이 선택·접힘을 안다).
-   *   다른 파일이면 우리가 열고 `true` — 그 길이 조상 펼치기까지 한다 (FR-EKB-6).
-   */
-  _lspOpenerRegister(){
-    if(this._lspOpener) return;
-    if(typeof monaco==='undefined'||!monaco.editor||!monaco.editor.registerEditorOpener) return;
-    this._lspOpener=true;
-    monaco.editor.registerEditorOpener({
-      openCodeEditor:(source,resource,selectionOrPosition)=>{
-        const path=this._lspUriPathOf(resource);
-        if(!path) return false;
-        const v=this.app._edActiveEditor();
-        // 같은 파일 안의 이동은 Monaco 의 것이다.
-        if(v&&v.filePath===path) return false;
-        const sel=selectionOrPosition||{};
-        const line=sel.startLineNumber||sel.lineNumber||1;
-        const col=sel.startColumn||sel.column||1;
-        // FR-LSP-64: 계기가 둘이어도 돌아오는 길은 하나다 — 여기서도 쌓는다.
-        const at=this._lspWhere();
-        if(at) this._lspPush(at);
-        this.app.edOpenFile(path,{line,col});
+  _lspConnOf(client){
+    if(!this._lspConns) return null;
+    for(const c of this._lspConns.values()) if(c.client===client) return c;
+    return null;
+  },
+
+  // `Workspace.displayFile` — 앱이 그 파일을 열고 편집기가 선 뒤 그 뷰를 낸다.
+  async _lspDisplay(path){
+    await this.app.edOpenFile(path,{});
+    const tab=this.app._findEditorTab(path);
+    const fe=tab&&this.app.editorAny(tab.tab.id);
+    return fe&&fe.whenView?await fe.whenView():null;
+  },
+
+  // FR-LSP-60: Mod+클릭이 정의로 옮긴다. 다른 클릭은 그대로 둔다.
+  _lspClickExt(){
+    return CM.EditorView.domEventHandlers({
+      mousedown:(e,view)=>{
+        if(e.button!==0||!(IS_MAC?e.metaKey:e.ctrlKey)) return false;
+        const pos=view.posAtCoords({x:e.clientX,y:e.clientY});
+        if(pos==null) return false;
+        e.preventDefault();
+        this.lspClickDef(view,pos);
         return true;
       },
     });
-  },
-
-  /**
-   * uri 에서 파일 경로를 되돌린다.
-   *
-   * **기억한 짝을 먼저 본다** (`_lspProvideDef` 가 넣는다). `uri.fsPath` 로 되돌리는
-   * 길은 실측에서 틀렸다 — 이 판은 POSIX 기계에서도 `\private\tmp\…` 를 냈고 그
-   * 경로는 어느 탭과도 견줄 수 없다.
-   *
-   * 짝이 없으면(우리가 만들지 않은 uri) 열려 있는 편집기에서 찾고, 그것도 없으면
-   * `path` 를 쓴다 — Windows 의 `/C:/…` 는 앞의 `/` 를 뗀다.
-   */
-  _lspUriPathOf(uri){
-    if(!uri) return '';
-    const key=String(uri);
-    const known=this._lspUriPath&&this._lspUriPath.get(key);
-    if(known) return known;
-    for(const ed of this.app.fileEditors.values()){
-      if(!ed||!ed.filePath) continue;
-      if(String(monaco.Uri.file(ed.filePath))===key) return ed.filePath;
-    }
-    const p=String(uri.path||'');
-    return /^\/[A-Za-z]:/.test(p)?p.slice(1):p;
-  },
-
-  /**
-   * FR-LSP-29·31: 그 자리 심볼의 타입·문서.
-   *
-   * Monaco 가 **언제 물을지를 정한다** — 마우스가 멈춘 뒤에 부르고, 그 사이 다른
-   * 자리로 옮기면 앞선 요청의 토큰을 취소한다. 우리는 그 취소를 `fetch` 에 이어
-   * 붙이기만 한다: 잇지 않으면 취소된 요청이 서버에서 계속 돌아 언어 서버를
-   * 헛되게 바쁘게 한다.
-   */
-  async _lspHover(model,position,token){
-    const at=this._lspHoverWhere(model,position);
-    if(!at) return null;
-    const ctl=new AbortController();
-    if(token&&token.onCancellationRequested) token.onCancellationRequested(()=>ctl.abort());
-    const r=await this._lspAsk(LSP_HOVER_API,at,
-      {line:position.lineNumber,col:position.column},
-      {signal:ctl.signal});
-    const d=r.ok?r.data:null;
-    // 호버가 비는 것은 **흔한 일이다** — 빈 자리에 마우스를 얹으면 그렇다. 그래서
-    // 여기서는 사유를 알림 줄로 띄우지 않는다: 마우스를 움직일 때마다 "서버가
-    // 없습니다" 가 뜨면 그것이 곧 고장이다. 그 사실은 F12 를 눌렀을 때 말한다.
-    if(!d||!d.markdown) return null;
-    return {contents:[{value:d.markdown}]};
-  },
-
-  /**
-   * 이 모델이 어느 Editor 창의 어느 파일인가.
-   *
-   * `_lspWhere` 를 쓸 수 없는 이유는 호버가 **활성 편집기가 아닐 수도 있는** 모델에
-   * 대해 불리기 때문이다 (분할 칸 둘 중 마우스가 놓인 쪽). 모델의 uri 로 그 파일을
-   * 찾아 그 파일이 속한 루트를 정한다.
-   */
-  _lspHoverWhere(model,position){
-    if(!model||!position) return null;
-    const path=this._lspPathOfModel(model);
-    if(!path) return null;
-    const root=this._lspRootOfPath(path);
-    if(!root) return null;
-    return {root,path,model};
-  },
-
-  /**
-   * FR-OPT-6-2: 자리 요청 셋(정의·참조·호버)이 지나는 한 길.
-   *
-   * **서버가 받았다고 답한 판이면 텍스트를 싣지 않는다.** 호버는 마우스가 멈출 때마다
-   * 오고, 편집이 없는 동안 그 전문은 서버가 이미 가진 것이다. 서버가 그 판을 모른다고
-   * 답하면(`needText` — 재기동·다른 탭·디스크 재동기화) 전문을 실어 한 번 더 묻는다.
-   * 판을 되돌리지 않는 서버(옛 서버)에는 늘 전문이 간다.
-   */
-  async _lspAsk(api,at,extra,opts){
-    if(!this._lspAcked) this._lspAcked=new Map();
-    const version=this._lspVersionOf(at.model);
-    const body=Object.assign({root:at.root,path:at.path,version},extra);
-    const omit=this._lspAcked.get(at.path)===version;
-    if(!omit) body.text=at.model.getValue();
-    let r=await apiPost(api,body,opts);
-    if(omit&&r.ok&&r.data&&r.data.needText){
-      body.text=at.model.getValue();
-      r=await apiPost(api,body,opts);
-    }
-    const d=r.ok?r.data:null;
-    if(d&&d.version===version) this._lspAcked.set(at.path,version);
-    else if(d) this._lspAcked.delete(at.path);
-    return r;
-  },
-
-  /**
-   * 모델의 판. 페이지마다 다른 접두를 붙인다 — 다른 탭·다시 연 모델의 같은 번호가
-   * 서버에서 같은 판으로 읽히면 안 된다. 되돌리기로 같은 내용에 돌아오면 같은 판이다.
-   */
-  _lspVersionOf(model){
-    if(!this._lspNonce) this._lspNonce=Date.now().toString(36)+Math.random().toString(36).slice(2);
-    return this._lspNonce+':'+model.id+':'+model.getAlternativeVersionId();
-  },
-
-  // 모델의 uri 에서 파일 경로를 되돌린다. 모델은 `edDoc` 이 파일마다 하나로
-  // 만들므로 그 규약을 그대로 딛는다.
-  /**
-   * REPO_FIX 02 §3A-6: 이 브라우저에서 문서의 마지막 뷰가 떠났다. 서버에 열려 있으면
-   * 닫는다 — 다음 호버·정의가 didOpen 으로 다시 연다. 기다리지 않는다.
-   */
-  lspDocClosed(path){
-    const root=this._lspRootOfPath(path);
-    // 서버가 그 문서를 잊으므로 받은 판도 잊는다 (FR-OPT-6-2).
-    if(this._lspAcked) this._lspAcked.delete(path);
-    if(root) apiPost(LSP_CLOSE_API,{root,path});
-  },
-
-  _lspPathOfModel(model){
-    const v=this.app._edActiveEditor();
-    if(v&&v._editor&&v._editor.getModel()===model) return v.filePath;
-    // 활성 편집기의 것이 아니면 열려 있는 편집기들에서 찾는다.
-    for(const ed of this.app.fileEditors.values()){
-      if(ed&&ed._editor&&ed._editor.getModel()===model) return ed.filePath;
-    }
-    /**
-     * UX_BATCH10_SRS FR-UXB-47 / D-UXB-10: **Diff 탭의 모델도 답한다.**
-     *
-     * provider 는 언어마다 한 벌이고 diff 의 모델에도 그대로 붙는다 (FR-LSP-39)
-     * — 모자랐던 것은 **그 모델이 어느 파일인가** 하나였다. 여기 자리를 늘리는
-     * 것이 규약을 바꾸지 않는 길이다: 이 함수는 이미 "열려 있는 것들을 훑어"
-     * 답하고 있었고, 훑을 목록이 하나 는 것뿐이다.
-     */
-    if(this.app.gitPanels){
-      for(const p of this.app.gitPanels.values()){
-        const d=p&&p._diffView;
-        const path=d&&d.lspPathOf?d.lspPathOf(model):'';
-        if(path) return path;
-      }
-    }
-    return '';
   },
 
   // 그 파일을 품은 Editor 루트. 등록된 루트 중 가장 긴 것이 답이다 — 루트가
@@ -543,7 +288,7 @@ Object.assign(LspClient.prototype, {
    * 버린다. 파일을 여는 것은 흔한 일이고, 그때마다 종단을 치면 그 자체가 지연이 된다.
    */
   async lspOfferFor(view){
-    if(!view||!view.filePath||!view._editor) return;
+    if(!view||!view.filePath||!view._view) return;
     const ext=this._lspExtOf(view.filePath);
     if(!ext) return;
     const list=await this._lspStatusCached();
@@ -612,91 +357,16 @@ Object.assign(LspClient.prototype, {
     return r.ok?r.data:null;
   },
 
-  // ── 진단 (묶음 E · M4) ──
-  //
-  // 밑줄은 Monaco 가 그린다 (D-8) — 같은 파일 안의 일이므로 탭 시스템을 알 필요가
-  // 없다. 우리가 하는 일은 그 파일의 모델을 찾아 marker 를 얹는 것뿐이다.
+  // ── 진단 (CODEMIRROR_MIGRATION_SRS FR-CMR-92 · §11.6 L2) ──
 
   /**
-   * FR-LSP-32·33·34: 서버가 밀어 준 진단을 그 파일에 얹는다.
-   *
-   * owner 가 우리 것 **하나**인 것이 규칙이다 (FR-LSP-34) — 그래야 갱신이 앞선
-   * 것을 덮고 밑줄이 겹쳐 남지 않는다. 그리고 **빈 진단도 얹는다**: 그것이 "이
-   * 파일은 이제 깨끗하다" 는 뜻이며, 걷지 않으면 고친 줄에 밑줄이 남는다.
-   */
-  _lspOnDiagnostics(d){
-    if(!d||!d.path) return;
-    // FR-LSP-36: 꺼져 있으면 얹지 않는다. 서버는 계속 밀어 주지만 그것을 막을
-    // 이유는 없다 — 세션은 어차피 정의 이동을 위해 서 있고, 진단 계산은 언어
-    // 서버가 자기 판단으로 한다.
-    if(!lspDiagOn) return;
-    if(typeof monaco==='undefined'||!monaco.editor) return;
-    const items=Array.isArray(d.items)?d.items:[];
-    for(const v of this.app.fileEditors.values()){
-      if(!v||v.filePath!==d.path||!v._editor) continue;
-      const model=v._editor.getModel();
-      if(!model) continue;
-      monaco.editor.setModelMarkers(model,LSP_DIAG_OWNER,items.map(it=>({
-        // Monaco 도 1 부터 센다 — 서버가 이미 우리 셈법으로 보냈으므로 여기서
-        // 셈법을 바꾸지 않는다.
-        startLineNumber:it.line, startColumn:it.col,
-        endLineNumber:it.endLine||it.line, endColumn:it.endCol||it.col,
-        message:it.message||'',
-        source:it.source||'',
-        severity:LSP_DIAG_SEVERITY[it.severity]||2,
-      })));
-    }
-  },
-
-  /**
-   * FR-LSP-35: 탭을 닫으면 그 파일의 진단을 걷는다.
-   *
-   * 모델이 파일마다 하나이고 탭을 닫아도 남을 수 있으므로(`edDocDrop` 이 수명을
-   * 정한다), 걷지 않으면 다시 열었을 때 낡은 밑줄이 먼저 보인다.
-   */
-  lspClearDiagnostics(model){
-    if(!model||typeof monaco==='undefined'||!monaco.editor) return;
-    monaco.editor.setModelMarkers(model,LSP_DIAG_OWNER,[]);
-  },
-
-  /**
-   * FR-LSP-36: 진단 토글. 끄면 지금 서 있는 밑줄을 **즉시 걷는다** — 껐는데 남아
-   * 있으면 설정이 듣지 않는 것으로 보인다.
+   * FR-LSP-36 · FR-CMR-92: 진단 토글. 끄면 지금 서 있는 밑줄을 **즉시 걷는다** — 껐는데
+   * 남아 있으면 설정이 듣지 않는 것으로 보인다. 켜면 그룹마다 보관한 진단을 다시 그린다.
    */
   _lspSetDiag(on){
     lspDiagOn=!!on;
     PrefStore.local.setBool(LSP_DIAG_KEY,lspDiagOn);
-    if(lspDiagOn) return;
-    for(const v of this.app.fileEditors.values()){
-      if(v&&v._editor) this.lspClearDiagnostics(v._editor.getModel());
-    }
-  },
-
-  // ── 뒤로 가기 (FR-LSP-27) ──
-
-  _lspPush(at){
-    this._lspBack=this._lspBack||[];
-    this._lspBack.push({path:at.path,line:at.line,col:at.col});
-    // 무한히 쌓으면 그 자체가 새는 자리가 된다.
-    if(this._lspBack.length>LSP_BACK_MAX) this._lspBack.shift();
-  },
-
-  _lspCanBack(){ return !!(this._lspBack&&this._lspBack.length) },
-
-  /**
-   * FR-LSP-27: 뛴 자리에서 돌아온다.
-   *
-   * 갈 자리가 없으면 **키를 삼키지 않는다** — 그 판정은 `_edKeyGate` 가 이미 했다.
-   * 여기 오는 것은 갈 자리가 있는 경우뿐이지만, 다른 진입점(설정의 액션 실행)도
-   * 이것을 부르므로 한 번 더 본다.
-   */
-  _lspNavBack(){
-    const v=this.app._edActiveEditor();
-    if(!this._lspCanBack()){
-      if(v) v.note(LSP_NO_BACK);
-      return;
-    }
-    const to=this._lspBack.pop();
-    this.app.edOpenFile(to.path,{line:to.line,col:to.col});
+    if(!this.app._edDocs) return;
+    for(const d of this.app._edDocs.values()) if(d&&d.buf) edLspDiagShow(d.buf,lspDiagOn);
   },
 });

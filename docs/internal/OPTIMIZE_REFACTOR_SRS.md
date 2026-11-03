@@ -5,7 +5,7 @@
 - 접수: 2026-09-25 · 기준 커밋 `67261463` (v1.1.7)
 - 요청: 데몬-서버-클라이언트 통신 요소 최소화, 그 밖의 성능 개선, 하드코딩·중복·상수·복잡도·크기·추상화·가독성
   리팩토링, 문서와 구현의 괴리 정리. 목표는 프로덕션 수준.
-- 근거: `docs/internal/optimize/FINDINGS.md` — 채택 **210건**. 모든 FR 이 이 등록부의 ID 를 가리킨다.
+- 근거: `docs/internal/archive/optimize/FINDINGS.md` — 채택 **210건**. 모든 FR 이 이 등록부의 ID 를 가리킨다.
 - 선행 감사: `production/00-INDEX.md`(173건) · `refactor/AUDIT-*.md`(214건, 묶음 B1~B6). 이 감사는 두 감사의
   **잔여 항목을 다시 확인해 포함**했고, 해결된 항목은 넣지 않았다. 이전 감사 ID 는 등록부의 "이전 감사" 줄에 있다.
 
@@ -385,7 +385,7 @@ e2e 요청 타임라인으로 잰다.
 >   panel-diff → `panel-blame.js`·`panel-hunks.js`·`panel-dir-entry.js`(508 → 450줄, 디렉터리 항목은 후속), runs-panel → `run-dashboard.js`(배치
 >   여백은 `RUN_NODE_GAP_X` 등 넷), renderer-pane → `renderer-pane-wire.js`(`_wireTabScroll`·`_wireTabsDrop`·
 >   `_wireBodyDrop`·`_wirePaneFocus`; 본문 dragover 는 표식이 선 탭만 찾는다), `FileEditor._createEditor` →
->   `_mountMonaco`·`_notifyIntegrations`·`_wireModelEvents`·`_wireKeys`·`_wireFocus`. 같은 요소의 capture keydown
+>   `_mount`(당시 옛 엔진을 세우던 함수)·`_notifyIntegrations`·`_wireModelEvents`·`_wireKeys`·`_wireFocus`. 같은 요소의 capture keydown
 >   둘은 `_onKeyCapture` 하나이며 순서(검색·뷰 키 → dirty-diff Esc)와 "잡힌 키는 뒤로 가지 않는다" 를 지킨다.
 >   FE_MODULE_BOUNDARY_SRS §7.1 기준선 21/1174 → 19/1020 → 18/1020.
 > - **FR-OPT-12-5.** `/api/git/…` 경로는 `core/constants-api.js` 의 `GIT_API` 표 하나다(의존 없음 — 단위 검사가

@@ -177,7 +177,7 @@ const GIT_FILE_OPEN_HEAD=t('git.act.file_open_head');
 const GIT_FILE_HISTORY=t('git.act.file_history');
 
 // Blame (FR-GIT-276). 고정 탭을 늘리지 않고 Diff 탭의 **모드**로 둔다 (D8) —
-// Diff 탭이 Monaco·파일 선택·큰 파일 잘림 규약을 이미 들고 있다.
+// Diff 탭이 편집기·파일 선택·큰 파일 잘림 규약을 이미 들고 있다.
 const GIT_FILE_BLAME=t('git.act.file_blame');
 const GIT_BLAME_TOGGLE='Blame';
 const GIT_BLAME_TOGGLE_TITLE='Show which commit each line came from';
@@ -196,7 +196,7 @@ const GIT_BLAME_EMPTY=t('git.blame_empty');
  * `DOC_RENDER_TABLE_MAX_ROWS`(2,000). **그 값을 따른다**: 둘이 다르면 "왜 여기만
  * 다른가" 를 설명해야 하고, 설명할 근거가 없다.
  *
- * 가상 스크롤이 더 나은 답이지만 blame 의 스크롤은 Monaco 와 맞물려 있다 (D-PRF-4).
+ * 가상 스크롤이 더 나은 답이지만 blame 의 스크롤은 Diff 편집기와 맞물려 있다 (D-PRF-4).
  * 상한이 자주 걸리면 그것이 가상 스크롤을 여는 근거다.
  */
 const GIT_BLAME_MAX_ROWS=2000;
@@ -242,7 +242,7 @@ const GIT_HUNK_ACTS={
 // 동작인지 누르기 전에 보여야 한다.
 const GIT_HUNK_LABEL={stage:'Stage hunk',unstage:'Unstage hunk',revert:'Revert hunk'};
 const GIT_HUNK_LINE_LABEL={stage:'Stage lines',unstage:'Unstage lines',revert:'Revert lines'};
-// DIFF_HUNK_BAR_SRS FR-DHB-10·21: 커서 툴바는 Monaco content widget 하나다.
+// DIFF_HUNK_BAR_SRS FR-DHB-10·21: 커서 툴바는 편집기 tooltip 하나다.
 // id 는 그 위젯을 다시 찾는 열쇠이므로 문자열을 한 자리에만 둔다.
 const GIT_HUNK_BAR_ID='git.hunk.bar';
 const GIT_HUNK_TITLE={
@@ -251,7 +251,7 @@ const GIT_HUNK_TITLE={
   revert:'Discard this hunk from the working tree — this cannot be undone',
 };
 // DIFF_HUNK_BAR_SRS FR-DHB-2: `GIT_HUNK_LINE_CLASS` 는 폐기됐다 — 하단 목록이
-// unified diff 를 한 줄씩 다시 그리던 시절의 색표다. 그 diff 는 이제 Monaco 가
+// unified diff 를 한 줄씩 다시 그리던 시절의 색표다. 그 diff 는 이제 편집기가
 // 그리고 색도 그쪽 테마에서 온다.
 const GIT_HUNK_LOADING=t('git.hunk_loading');
 const GIT_HUNK_LOAD_FAIL=t('git.hunk_load_fail');
@@ -266,7 +266,7 @@ const GIT_WQ_STOP=new Set(['job_busy','repo_busy','index_locked']);
 const GIT_WQ_FULL=t('git.wq_full');
 const GIT_WQ_DROPPED=t('git.wq_dropped');
 // FR-DHB-2: `GIT_HUNK_HINT`·`GIT_HUNK_CLEAR`·`GIT_HUNK_CLEAR_TITLE` 는 폐기됐다 —
-// 커스텀 줄 선택의 조작법을 설명하던 말들이고, 그 조작이 Monaco 의 텍스트 선택으로
+// 커스텀 줄 선택의 조작법을 설명하던 말들이고, 그 조작이 편집기의 텍스트 선택으로
 // 바뀌면서 설명할 것이 없어졌다 (I-2).
 //
 // 아래 둘은 **남는다** (FR-DHB-3): 고른 범위를 화면이 말해야 하는 자리가 하나 남아

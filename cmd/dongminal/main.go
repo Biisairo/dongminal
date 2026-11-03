@@ -8,7 +8,6 @@ import (
 	"dongminal/internal/shared/toolhub"
 
 	"context"
-	"dongminal/internal/webserver/sse"
 	"fmt"
 	"os"
 	"os/exec"
@@ -354,7 +353,7 @@ func newRunStore(cfg httpapi.Config, toolHub toolhub.ToolHub) *run.Store {
 // 무엇이 있는지는 **플러그인 선언**이 정한다 (FR-EXT-1). 여기서 하는 일은
 // 동봉 선언을 한 번 펴 두는 것뿐이며(FR-EXT-34), 서버도 런타임도 받지 않는다 —
 // 그것은 사용자가 눌러야 일어난다 (FR-EXT-16).
-func newLSPService(cfg httpapi.Config, cmdHub *hub.CommandHub) *lsp.Service {
+func newLSPService(cfg httpapi.Config) *lsp.Service {
 	extSvc := ext.NewService(filepath.Join(cfg.DataDir, ext.DirName))
 	for _, err := range extSvc.Deploy() {
 		dmlog.Warnf(nil, "플러그인 선언을 펴지 못했습니다: %v", err)
@@ -363,20 +362,6 @@ func newLSPService(cfg httpapi.Config, cmdHub *hub.CommandHub) *lsp.Service {
 	// REPO_FIX 02 §3A-3: 실행 파일 경로 표는 서버가 보관한다 — 설정 ▸ Code 가 편집한다.
 	if err := lspSvc.LoadPaths(filepath.Join(cfg.DataDir, dmenv.LSPPathsFile)); err != nil {
 		dmlog.Warnf(nil, "LSP 경로 표를 읽지 못했습니다: %v", err)
-	}
-	// FR-LSP-32: 진단은 **요청 없이** 오므로 이미 있는 push 길로 밀어낸다 (D-2).
-	// 도메인 계층은 이것이 SSE 인지 모른다 (D-4) — 그 결정이 여기 있다.
-	//
-	// 새 WebSocket 을 열지 않는 이유는 그 길이 이미 덮고 있기 때문이다: 화면은
-	// 이 구독을 늘 열어 두고, 끊기면 스스로 되살린다 (FR-RLC-25).
-	lspSvc.OnDiagnostics = func(d lsp.Diagnostics) {
-		if cmdHub == nil {
-			return
-		}
-		payload := sse.Payload("lsp_diagnostics", d)
-		// REPO_FIX 02 §3A-2: 큐가 아니라 구독별 슬롯(파일 → 최신)에 덮어쓴다 — 진단
-		// 폭주가 git 이벤트를 밀어내지 않고, 재연결 구독이 스냅샷을 받는다.
-		cmdHub.BroadcastDiagnostics(d.Path, payload, len(d.Items) == 0)
 	}
 	return lspSvc
 }
@@ -397,7 +382,9 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 	// 상태바 지표 샘플러. 커널을 주기적으로 읽어 스냅샷을 유지하므로 /api/stats 가
 	// 요청 경로에서 커널을 호출하지 않는다 (SYSTEM_STATS_SRS FR-STAT-8/9/11).
 	sampler := sysstat.NewSampler(sysstat.NewReader(), sysstat.DefaultInterval, "/")
-	lspSvc := newLSPService(cfg, cmdHub)
+	lspSvc := newLSPService(cfg)
+	// CODEMIRROR_MIGRATION_SRS FR-CMR-111: 저장소가 바뀌면 바뀐 파일을 통로에 알린다.
+	repoWatch := &lsp.RepoWatch{View: lspRepoView{st: git.store}, Out: lspSvc}
 
 	return builtDeps{
 		deps: httpapi.Deps{
@@ -414,9 +401,11 @@ func buildCommonDeps(cfg httpapi.Config, toolHub toolhub.ToolHub, cmdHub *hub.Co
 			UserWorktrees: git.userWorktrees,
 			Git:           git.store,
 			GitExclusion:  jobs.NewExclusion(),
-			// REPO_FIX 02 §3A-6: 저장소 변화(브랜치 전환 포함) 뒤 열린 문서만 디스크 판으로.
-			OnGitChanged: lspSvc.ResyncRepo,
-			LSP:          lspSvc,
+			// CODEMIRROR_MIGRATION_SRS FR-CMR-111: 저장소가 바뀌면 바뀐 파일을 통로에 알린다 —
+			// gitwatch 를 기다리게 하지 않는다.
+			OnGitChanged:  func(repo string) { go repoWatch.Changed(repo) },
+			OnGitBaseline: repoWatch.Seen,
+			LSP:           lspSvc,
 		},
 		pm:          nil, // set by caller in direct mode
 		attnTracker: attnTracker,

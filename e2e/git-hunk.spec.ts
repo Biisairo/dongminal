@@ -15,7 +15,7 @@ import { tmpPath, cssPath } from './osenv';
 // 보면 서버가 무엇을 했는지 알 수 없다. 이 규약은 옛 판에서 그대로 물려받았다.
 //
 // **조작이 바뀌었다** (DIFF_HUNK_BAR_SRS I-1·I-2): 하단 조각 목록(`.git-hunks`)과
-// 그 안의 줄 클릭이 사라지고, diff 위 커서 툴바와 **Monaco 텍스트 선택**이 그
+// 그 안의 줄 클릭이 사라지고, diff 위 커서 툴바와 **편집기 텍스트 선택**이 그
 // 자리를 대신한다. 그래서 이 파일의 조작 헬퍼는 DOM 이 아니라 에디터를 딛는다.
 //
 // 상태를 **바꾸는** 테스트이므로 픽스처를 복사해 쓴다 (git-staging.spec.ts 의 선례).
@@ -63,7 +63,7 @@ const row = (page: Page, group: string, path: string) =>
   changes(page).locator(`.git-group[data-group="${group}"] .git-file[data-path="${cssPath(path)}"]`);
 const tab = (page: Page, view: string) => page.locator(`#area .pn-tab[data-git-view="${view}"]`);
 
-// 새 표면 셋. 툴바는 Monaco 의 content widget 이므로 에디터 안(또는 오버플로
+// 새 표면 셋. 툴바는 편집기의 tooltip 이므로 에디터 안(또는 오버플로
 // 컨테이너)에 렌더된다 — 문서 전체에서 찾는다.
 const bar = (page: Page) => page.locator('.git-hunk-bar');
 const act = (page: Page, a: string) => bar(page).locator(`.git-hunk-act[data-act="${a}"]`);
@@ -90,7 +90,7 @@ async function openDiff(page: Page, group: string, path: string) {
   // 않은 순간에 클릭이 떠나, 좌표를 물을 대상이 `null` 이다. 툴바는 에디터의
   // content widget 이므로(FR-DHB-21) 그것이 서기 전에는 잴 것이 없다.
   await page.waitForFunction(
-    () => !!(window as any).app?.gitPanel?._diffView?._editor,
+    () => edT.diffReady((window as any).app?.gitPanel?._diffView),
     undefined, { timeout: 20000 });
 }
 
@@ -104,21 +104,20 @@ const hunkCount = (page: Page) =>
 // 클릭이지 hover 가 아니다 — 접수한 말이 "해당 줄을 클릭해 커서가 있을 때" 이고,
 // 클릭 하나가 계기 둘(커서 이동·포커스)을 모두 만든다.
 //
-// `.view-line` 의 DOM 순서는 줄 번호와 다를 수 있으므로(Monaco 는 그것을 보장하지
+// `.view-line` 의 DOM 순서는 줄 번호와 다를 수 있으므로(편집기는 그것을 보장하지
 // 않는다) 좌표를 에디터에게 묻는다.
 async function lineXY(page: Page, line: number) {
   return page.evaluate((ln) => {
-    const ed = (window as any).app.gitPanel._diffView._editor.getModifiedEditor();
-    ed.revealLine(ln);
-    const p = ed.getScrolledVisiblePosition({ lineNumber: ln, column: 1 });
-    const r = ed.getDomNode().getBoundingClientRect();
-    return { x: r.left + p.left + 30, y: r.top + p.top + p.height / 2 };
+    const ed = edT.diffSide((window as any).app.gitPanel._diffView, 'mod');
+    edT.revealLine(ed, ln);
+    const p = edT.coords(ed, ln, 1);
+    return { x: p.left + 30, y: p.top + p.height / 2 };
   }, line);
 }
 
 // 툴바가 지금 가리키는 줄 (FR-DHB-12). 화면 좌표가 아니라 위젯의 자리를 읽는다.
 const barLine = (page: Page) => page.evaluate(
-  () => (window as any).app.gitPanel._hunkBarPos?.position?.lineNumber ?? -1);
+  () => edT.hunkBarLine((window as any).app.gitPanel));
 
 /**
  * 스크롤이 멎은 뒤의 좌표.
@@ -165,10 +164,10 @@ async function clickLine(page: Page, line: number) {
 // API 로 놓은 커서와 클릭으로 놓은 커서는 에디터 안에서 같은 값이다.
 async function cursorLine(page: Page, line: number) {
   await page.evaluate((ln) => {
-    const ed = (window as any).app.gitPanel._diffView._editor.getModifiedEditor();
-    ed.revealLine(ln);
-    ed.focus();
-    ed.setPosition({ lineNumber: ln, column: 1 });
+    const ed = edT.diffSide((window as any).app.gitPanel._diffView, 'mod');
+    edT.revealLine(ed, ln);
+    edT.focus(ed);
+    edT.setCursor(ed, ln, 1);
   }, line);
   await expect(bar(page)).toBeVisible({ timeout: 10000 });
 }
@@ -180,8 +179,7 @@ async function cursorLine(page: Page, line: number) {
 // 흔들리지 않는 쪽이 이 검증을 더 정확하게 만든다.
 async function selectLines(page: Page, from: number, to: number) {
   await page.evaluate(([a, b]) => {
-    const ed = (window as any).app.gitPanel._diffView._editor.getModifiedEditor();
-    ed.setSelection({ startLineNumber: a, startColumn: 1, endLineNumber: b, endColumn: 1 });
+    edT.setSelection(edT.diffSide((window as any).app.gitPanel._diffView, 'mod'), a, 1, b, 1);
   }, [from, to + 1]);
 }
 
@@ -325,7 +323,7 @@ test.describe('묶음 B·W — 커서 툴바와 조각 단위 쓰기', () => {
     await page.mouse.down();
     await expect(bar(page)).toBeVisible();
     expect(await page.evaluate(
-      () => (window as any).app.gitPanel._diffView._editor.getModifiedEditor().hasTextFocus(),
+      () => edT.hasFocus(edT.diffSide((window as any).app.gitPanel._diffView, 'mod')),
     )).toBe(true);
     await page.mouse.up();
   });
@@ -341,7 +339,7 @@ test.describe('묶음 B·W — 커서 툴바와 조각 단위 쓰기', () => {
     await openDiff(page, 'working', 'f.txt');
 
     const barLine = () => page.evaluate(
-      () => (window as any).app.gitPanel._hunkBarPos?.position?.lineNumber ?? -1);
+      () => edT.hunkBarLine((window as any).app.gitPanel));
 
     await cursorLine(page, 20);
     expect(await barLine()).toBe(20);
@@ -369,7 +367,7 @@ test.describe('묶음 B·W — 커서 툴바와 조각 단위 쓰기', () => {
   });
 });
 
-test.describe('묶음 S — Monaco 선택으로 고르는 줄 범위', () => {
+test.describe('묶음 S — 편집기 선택으로 고르는 줄 범위', () => {
   // V-DHB-5 (옛 G4): 선택한 범위에만 적용된다. 고르지 않은 변경은 index 에
   // 들어가지 않고 원래 내용 그대로 남는다.
   test('V-DHB-5: 줄 범위 stage 가 그 범위에만 적용된다', async ({ page }) => {

@@ -15,7 +15,7 @@
 # 무시하는 법부터 배우고, 그러면 검사기가 있어도 없는 것과 같다.
 #
 # **끈 것을 잊지 않기 위해 여기 적는다.** 이 목록을 지우는 것이 M8 의 일이다
-# (`docs/internal/production/MILESTONE_KICKOFF.md` M8 — Go 아키텍처 부채).
+# (`docs/internal/archive/production/MILESTONE_KICKOFF.md` M8 — Go 아키텍처 부채).
 #
 #   errcheck   50건 — 반환된 오류를 보지 않는 자리. 대부분 `Write`·`Close` 지만
 #                     실제 결함이 섞여 있을 수 있어 한 건씩 봐야 한다

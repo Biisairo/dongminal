@@ -7,7 +7,7 @@
  * (`_dirEntryNote`·`_dirEntryActs`)은 `panel-dir-entry.js` 다 (FR-OPT-12-4).
  *
  * 조각은 서버가 만든 diff 에서 온다 — 이 파일이 만들지 않는다. **화면에 그리지도
- * 않는다** (DIFF_HUNK_BAR_SRS): diff 를 그리는 것은 Monaco 하나이고, 여기가 얹는
+ * 않는다** (DIFF_HUNK_BAR_SRS): diff 를 그리는 것은 편집기(CodeMirror merge) 하나이고, 여기가 얹는
  * 것은 그 위에 hover 로 뜨는 동작 툴바뿐이다.
  */
 Object.assign(GitPanel.prototype, {
@@ -241,7 +241,7 @@ Object.assign(GitPanel.prototype, {
     this._hunkKey=null; this._hunks=null;
     // FR-DHB-44: 사라진 조각 위에 툴바가 남지 않는다 — 다시 hover 로만 뜬다.
     this._hunkBarHide();
-    // Monaco 의 두 모델도 낡았다 — 같은 대상이라도 내용이 바뀌었다 (FR-GIT-71).
+    // Diff 편집기의 두 문서도 낡았다 — 같은 대상이라도 내용이 바뀌었다 (FR-GIT-71).
     this._diffKey=null;
   },
 
@@ -387,7 +387,7 @@ Object.assign(GitPanel.prototype, {
 
   _diff(){
     if(!this._diffView) this._diffView=new GitDiffView({
-      inlineBreakpoint:GIT_DIFF_OPTIONS.renderSideBySideInlineBreakpoint,
+      inlineBreakpoint:GIT_DIFF_INLINE_BREAKPOINT,
       sideBySide:this._sideBySidePref(),
       ignoreWhitespace:this._ignoreWsPref(),
       hideUnchanged:this._foldPref(),

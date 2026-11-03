@@ -7,7 +7,7 @@
 - 관련: [`BRACKETED_PASTE_SRS`](./BRACKETED_PASTE_SRS.md) (`FR-BPT-1`~`5` — 모드
   추적의 선례이자 이 문서가 넓히는 자리) ·
   [`TERMINAL_RESUME_SRS`](./TERMINAL_RESUME_SRS.md) (`FR-TRS-4`·`8`·`10` — 재생의
-  순서) · [`M9_SRS`](./M9_SRS.md) `FR-M9-3` ① (크기를 재생보다 앞에 보내는 선례)
+  순서) · [`M9_SRS`](./archive/M9_SRS.md) `FR-M9-3` ① (크기를 재생보다 앞에 보내는 선례)
 
 ---
 

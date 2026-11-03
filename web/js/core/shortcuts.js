@@ -74,8 +74,7 @@ const SHORTCUT_DEFAULTS={
   // 잡는다). 관용을 버리면 사용자가 그 기능이 있는지 알 방법이 없다.
   edGotoDef:'F12',
   edFindRefs:'Shift+F12',
-  edNavBack:'Mod+Alt+Minus',
-  // UX_BATCH9_SRS FR-ESV-3: 편집기 저장. 종전에는 Monaco 의 `addCommand` 로 코드에
+  // UX_BATCH9_SRS FR-ESV-3: 편집기 저장. 종전에는 옛 엔진의 `addCommand` 로 코드에
   // 박혀 있었고(FR-EKB-5 가 금한 그 방식), 그 등록이 **인스턴스가 아니라 전역**이라
   // 편집기를 둘 열면 `Cmd+S` 가 마지막에 만든 편집기로 갔다 — 그쪽이 dirty 가
   // 아니면 아무 일도 일어나지 않는다 (SRS §2.1).
@@ -90,7 +89,7 @@ const SHORTCUT_DEFAULTS={
    *   이유:     있던 동작에 진입점이 없던 것이다 — 없던 기능이 아니다
    *
    * `Mod+Alt+KeyS` 인 것은 `Mod+Shift+KeyS` 가 브라우저·OS 에서 자주 잡혀 있기
-   * 때문이다 (`edNavBack` 이 같은 이유로 `Mod+Alt` 를 쓴다).
+   * 때문이다.
    */
   edSaveAll:'Mod+Alt+KeyS',
   // 로드맵 M7 `UX-22`: 단축키 **목록으로 가는 키.** 목록은 설정 안에 있었지만
@@ -130,7 +129,6 @@ const SHORTCUT_LABELS={
   softReload:t('shortcut.soft_reload'),
   edGotoDef:t('shortcut.ed_goto_def'),
   edFindRefs:t('shortcut.ed_find_refs'),
-  edNavBack:t('shortcut.ed_nav_back'),
   edFindInFile:t('shortcut.ed_find_in_file'),
   edQuickOpen:t('shortcut.ed_quick_open'),
   edGrep:t('shortcut.ed_grep'),
@@ -160,7 +158,6 @@ const ED_SEARCH_ACTIONS={
 const ED_LSP_ACTIONS={
   edGotoDef:'_lspGotoDef',
   edFindRefs:'_lspFindRefs',
-  edNavBack:'_lspNavBack',
 };
 
 // UX_BATCH9_SRS FR-ESV-2: 편집기 **인스턴스**가 수행하는 액션.

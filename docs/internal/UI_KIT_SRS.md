@@ -59,7 +59,7 @@
 
 - [`./SETTINGS_CONTROLS_SRS.md`](./SETTINGS_CONTROLS_SRS.md) — `.ds-*` 컨트롤의
   현재 규약. 키트는 이것을 **밖으로 꺼낸다**
-- [`./UX_REVISION_SRS.md`](./UX_REVISION_SRS.md) 묶음 B — `SidebarList` 가 세운
+- [`./UX_REVISION_SRS.md`](./archive/UX_REVISION_SRS.md) 묶음 B — `SidebarList` 가 세운
   블루프린트 방식. 이 문서의 팩토리는 **같은 방법**을 UI 원자에 적용한다
 - [`./ICON_ASSETS_SRS.md`](./ICON_ASSETS_SRS.md) — 파비콘·브랜드 마크. 이 문서와
   대상이 다르다(브랜드 vs UI 아이콘)

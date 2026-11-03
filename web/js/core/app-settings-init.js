@@ -290,8 +290,8 @@ Object.assign(App.prototype, {
    * 열려 있는 편집기 전부에 지금 값을 얹는다.
    *
    * 살아 있는 인스턴스의 목록은 `app.fileEditors` 다 (`renderer.js:533` 이 만들고
-   * `app-layout.js:428` 이 거둔다). `monaco.editor.getEditors()` 를 쓰지 않는
-   * 이유는 그것이 **diff 뷰 안의 편집기까지** 주기 때문이다 — 그쪽은 비목표다.
+   * `app-layout.js:428` 이 거둔다). diff 뷰 안의 편집기는
+   * 여기 없다 — 그쪽은 `_diffApplyOptions` 가 맡는다.
    */
   _edApplyWordWrap(){
     if(!this.fileEditors) return;
@@ -322,25 +322,11 @@ Object.assign(App.prototype, {
   },
 
   /**
-   * UX_BATCH10_SRS FR-UXB-42·43: diff 미니맵 스위치. 편집기 미니맵과 **같은
-   * 모양**이다 (FR-MMT-1·4).
-   */
-  _initDiffMinimap(){
-    const cb=document.getElementById('ds-diffminimap');
-    if(!cb) return;
-    cb.addEventListener('change',()=>{
-      diffMinimap=cb.checked;
-      this._diffApplyOptions();
-      this.saveSettings();
-    });
-  },
-
-  /**
    * FR-UXB-40·41·42: **열려 있는 diff 전부**에 지금 값을 얹는다.
    *
    * 편집기 쪽이 셋(`_edApplyWordWrap`·`_edApplyMinimap`·`_edApplyFontSize`)인
-   * 자리가 여기서 하나인 것은, diff 가 딛는 것이 덩이 하나이기 때문이다
-   * (`edTextOptions`, D-UXB-9).
+   * 자리가 여기서 하나인 것은, diff 가 딛는 것이 `applyTextOptions` 하나이기 때문이다
+   * (D-UXB-9).
    *
    * 살아 있는 diff 는 git 패널이 든다 — 패널마다 `_diffView` 가 하나다.
    */

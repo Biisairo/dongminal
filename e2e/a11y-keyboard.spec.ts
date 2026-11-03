@@ -4,6 +4,7 @@ import * as path from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, waitSettled, addEditor, rmTree, enterExplorer } from './fixtures';
+import { ED_SEL } from './editor';
 import { TMP, realPath } from './osenv';
 
 // ACCESSIBILITY_BASELINE_SRS §5.1 — TC-A11Y-6·7 (FR-A11Y-16·17 / M7 `UX-4`).
@@ -26,7 +27,7 @@ const blurAll = (page: Page) =>
 
 /**
  * `Tab` 을 눌러 `sel` 에 닿을 때까지 간다. `cap` 안에 닿지 않으면 그것이 결함이다
- * — xterm·Monaco 는 `Tab` 을 먹으므로 거기 들어가면 더 가지 못한다(E-1·E-2).
+ * — xterm·편집기는 `Tab` 을 먹으므로 거기 들어가면 더 가지 못한다(E-1·E-2).
  */
 async function tabTo(page: Page, sel: string, cap = 60) {
   for (let i = 0; i < cap; i++) {
@@ -342,6 +343,6 @@ test.describe('접근성 — 탐색기의 키보드 (FR-A11Y-16·17 / UX-4)', ()
     await page.keyboard.press('Enter');
     const name = path.basename(opened.path!);
     await expect(page.locator('#area .pn-tab.active .pn-tab-label')).toHaveText(name, { timeout: 15000 });
-    await expect(page.locator('#area .monaco-editor').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator(`#area ${ED_SEL.surface}`).first()).toBeVisible({ timeout: 15000 });
   });
 });

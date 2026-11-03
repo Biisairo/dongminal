@@ -38,15 +38,21 @@
 
 | 자산 | 라이선스 | 판 | 집계 SHA-256 | 파일 수 |
 |---|---|---|---|---|
-| `monaco/` | MIT | monaco-editor 0.56.0 — `min/vs` (③) | `ab1af81a9d9b16a9…` | 139 |
+| `codemirror/` (③) | MIT (패키지별, ④) | CodeMirror 6 — `scripts/codemirror/package.json` 의 판 (④) | `c94d3e217400c19f…` | 126 |
 
-③ 담긴 파일은 전부 **사전압축**(`<이름>.gz`)이며 서버가 `Content-Encoding: gzip`
-   으로 그대로 흘린다 (`MONACO_VENDORING_SRS` 묶음 Z). raw 23.3MB 가 5.4MB 로
-   들어간다 — `go:embed` 는 압축하지 않고 릴리스는 raw 바이너리를 그대로 올리므로,
-   그 차이가 사용자가 받는 파일에 그대로 실린다.
+④ `scripts/build-codemirror.mjs` 가 `scripts/codemirror/` 의 입력으로 만든 **출력**이다
+   (CODEMIRROR_MIGRATION_SRS 묶음 V). 패키지별 판은 `scripts/codemirror/package.json` 과
+   `package-lock.json` 이 정하고, 묶인 패키지마다의 판·라이선스 본문은 출력 안의
+   `THIRD_PARTY_LICENSES.txt.gz` 에 있다. 손으로 고치지 않는다 — 판을 올리면
+   `cd scripts/codemirror && npm ci` 뒤 스크립트를 다시 돌리고 이 줄을 고친다.
+   출력은 재현된다: 같은 입력이면 같은 바이트다 (FR-CMR-4).
+   미니맵은 `@replit/codemirror-minimap` 0.5.2 의 포크이며 `scripts/codemirror/minimap/` 에 있다
+   (FR-CMR-60, 원본 판·커밋·고친 자리는 그 디렉터리의 README.md).
 
-   `min/vs` 의 `.d.ts` 13개는 담지 않는다. TypeScript 선언 파일이며 런타임에
-   요청되지 않는다 — **실행되는 코드는 하나도 빠지지 않았다** (FR-MVN-2).
+③ `codemirror/` 의 파일은 전부 **사전압축**(`<이름>.gz`)이며 서버가 `Content-Encoding: gzip`
+   으로 그대로 흘린다 (사전압축 서빙 규칙 FR-MVN-6~11, CODEMIRROR_MIGRATION_SRS FR-CMR-131).
+   `go:embed` 는 압축하지 않고 릴리스는 raw 바이너리를 그대로 올리므로, 압축한 만큼
+   사용자가 받는 파일이 작아진다.
 
 ① `xterm.js` 는 판 문자열을 번들에 남기지 않는다. `rescaleOverlappingGlyphs`
    옵션이 들어 있는데 그것이 5.5.0 에서 도입됐고, `documentOverride`(5.4.0)도
@@ -81,6 +87,6 @@ done
 
 ## 벤더링되지 **않은** 것
 
-**없다.** 종전에는 `monaco-editor` 하나가 런타임에 `cdn.jsdelivr.net` 에서 SRI 없이
-왔다. M2 에서 벤더링했고(`MONACO_VENDORING_SRS`), 그것으로 CSP 의 외부 호스트가 0 이
-됐다. 새 제3자 자산은 이 표에 줄이 서야 `scripts/check-vendor.sh` 를 지난다.
+**없다.** 종전에는 옛 편집기 엔진 하나가 런타임에 `cdn.jsdelivr.net` 에서 SRI 없이
+왔다. M2 에서 벤더링했고(FR-MVN-12·13, 보관된 벤더링 SRS), 그것으로 CSP 의 외부 호스트가 0 이
+됐다. 그 엔진은 CodeMirror 6 으로 바뀌었다(CODEMIRROR_MIGRATION_SRS). 새 제3자 자산은 이 표에 줄이 서야 `scripts/check-vendor.sh` 를 지난다.

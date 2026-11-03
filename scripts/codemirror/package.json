@@ -1,0 +1,22 @@
+{
+  "name": "dongminal-codemirror-bundle",
+  "private": true,
+  "description": "CODEMIRROR_MIGRATION_SRS 묶음 V — web/vendor/codemirror 를 만드는 입력. scripts/build-codemirror.mjs 가 쓴다.",
+  "dependencies": {
+    "@codemirror/autocomplete": "6.20.4",
+    "@codemirror/commands": "6.11.1",
+    "@codemirror/language": "6.13.1",
+    "@codemirror/language-data": "6.5.2",
+    "@codemirror/lint": "6.9.7",
+    "@codemirror/lsp-client": "6.3.0",
+    "@codemirror/merge": "6.12.3",
+    "@codemirror/search": "6.7.2",
+    "@codemirror/state": "6.7.6",
+    "@codemirror/view": "6.43.15",
+    "@lezer/highlight": "1.2.5",
+    "@replit/codemirror-indentation-markers": "6.5.3"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

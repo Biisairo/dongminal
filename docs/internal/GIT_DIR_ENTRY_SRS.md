@@ -59,10 +59,10 @@
 
 ### 1.4 참조 (References)
 
-- [`./EDITOR_TAB_SRS.md`](./EDITOR_TAB_SRS.md) — FR-EDT-69~78 (탐색기 git 색), FR-EDT-73~75 (접어 올림), D-4~D-6
-- [`./GIT_SRS.md`](./GIT_SRS.md) — FR-GIT-32~42 (Changes), FR-GIT-215 (`--untracked-files=all`), FR-GIT-190 (부분 스테이지)
+- [`./EDITOR_TAB_SRS.md`](./archive/EDITOR_TAB_SRS.md) — FR-EDT-69~78 (탐색기 git 색), FR-EDT-73~75 (접어 올림), D-4~D-6
+- [`./GIT_SRS.md`](./archive/GIT_SRS.md) — FR-GIT-32~42 (Changes), FR-GIT-215 (`--untracked-files=all`), FR-GIT-190 (부분 스테이지)
 - [`./GIT_REPO_MISSING_SRS.md`](./GIT_REPO_MISSING_SRS.md) — 실패 사유의 분류. 판정과 비판정을 가르는 관례
-- [`./UX_REVISION_SRS.md`](./UX_REVISION_SRS.md) — FR-STC-2/3 (상태문자 → CSS 클래스)
+- [`./UX_REVISION_SRS.md`](./archive/UX_REVISION_SRS.md) — FR-STC-2/3 (상태문자 → CSS 클래스)
 - `internal/webserver/domain/git/query/status.go` · `web/js/ui/file-tree-paint.js` · `web/js/git/panel-changes.js`
 
 ---

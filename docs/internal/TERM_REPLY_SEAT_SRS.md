@@ -44,7 +44,7 @@ FR-TRS-5a 가 막았다. 본 SRS 는 **남은 하나**를 닫는다: 같은 도�
   줄인다. 질의·답장의 목록은 두 문서가 **공유한다**
 - [`./MOBILE_TUI_INPUT_SCROLL_SRS.md`](./MOBILE_TUI_INPUT_SCROLL_SRS.md)
   FR-MTI-15a — `TERM_REPORT_RE` 가 선 자리. 본 SRS 는 그 판정을 **재료로 쓴다**
-- [`./M9_SRS.md`](./M9_SRS.md) FR-M9-3 — `OpSize` 의 선례. 서버가 알고 브라우저는
+- [`./M9_SRS.md`](./archive/M9_SRS.md) FR-M9-3 — `OpSize` 의 선례. 서버가 알고 브라우저는
   알 길이 없는 사실을 새 op 로 통보하는 형태가 같다
 
 ---

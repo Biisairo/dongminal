@@ -54,8 +54,8 @@
 
 ### 1.4 참조 (References)
 
-- `docs/internal/GIT_SRS.md` — FR-GIT-9·10·13·15·57~59, 용어표 §1.3
-- `docs/internal/GIT_UI_REVISION_SRS.md` — FR-GIT-193·194·210, O18
+- `docs/internal/archive/GIT_SRS.md` — FR-GIT-9·10·13·15·57~59, 용어표 §1.3
+- `docs/internal/archive/GIT_UI_REVISION_SRS.md` — FR-GIT-193·194·210, O18
 - `docs/internal/GIT_REVIEW4_SRS.md` — FR-GIT-239, V140~V142
 
 ## 2. 전반 기술 (Overall Description)

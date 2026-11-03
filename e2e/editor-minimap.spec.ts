@@ -16,9 +16,10 @@ import { Page } from '@playwright/test';
 
 import {
   test, expect, waitForInit, openGit, makeCopyFx, gitFixture, cleanGitFixture,
-  rmTree, enterDocRoot, openDocFile,
+  rmTree, enterDocRoot, openDocFile, clickRow,
 } from './fixtures';
-import { TMP, tmpPath, realPath } from './osenv';
+import { ED_SEL } from './editor';
+import { TMP, tmpPath, realPath, cssPath } from './osenv';
 
 let BASE = '';
 const FIXTURES = tmpPath('dm-mmp-fx-' + process.pid);
@@ -34,8 +35,6 @@ test.afterAll(() => {
 
 const copyFx = makeCopyFx(FIXTURES);
 
-// 페이지의 전역 상수 — `<script>` 로 로드되므로 import 대상이 아니다.
-declare const GIT_DIFF_OPTIONS: any;
 
 // V-MMP-1 (FR-MMP-1): 긴 문서 — 미니맵이 늘어날 일이 없는 쪽이다.
 test('V-MMP-1 (FR-MMP-1): 편집기의 미리보기가 스크롤바와 맞는다', async ({ page }) => {
@@ -47,13 +46,13 @@ test('V-MMP-1 (FR-MMP-1): 편집기의 미리보기가 스크롤바와 맞는다
   await page.evaluate((p: string) => (window as any).app.testing.edOpenFile(p, { pin: true }), long);
   await page.waitForFunction(() => {
     const eds = [...(window as any).app.fileEditors.values()];
-    return eds.some((e: any) => e._editor);
+    return eds.some((e: any) => edT.has(e));
   }, undefined, { timeout: 30000 });
 
   const got = await page.evaluate(async () => {
-    const ed = [...(window as any).app.fileEditors.values()].find((e: any) => e._editor) as any;
-    const e = ed._editor;
-    e.setScrollTop(e.getScrollHeight() * 0.45);
+    const ed = [...(window as any).app.fileEditors.values()].find((e: any) => edT.has(e)) as any;
+    const e = edT.of(ed);
+    edT.setScrollTop(e, edT.scrollHeight(e) * 0.45);
     await new Promise((r) => setTimeout(r, 400));
     const box = ed.el.getBoundingClientRect();
     const rect = (sel: string) => {
@@ -62,7 +61,7 @@ test('V-MMP-1 (FR-MMP-1): 편집기의 미리보기가 스크롤바와 맞는다
       const r = x.getBoundingClientRect();
       return { top: Math.round(r.top - box.top), h: Math.round(r.height) };
     };
-    return { mini: rect('.minimap-slider'), bar: rect('.scrollbar.vertical > .slider') };
+    return { mini: rect(edT.sel.minimapSlider), bar: rect(edT.sel.scrollThumb) };
   });
   expect(got.mini, '미니맵 슬라이더가 없다').not.toBeNull();
   expect(got.bar, '스크롤바 슬라이더가 없다').not.toBeNull();
@@ -76,8 +75,8 @@ test('V-MMP-2: 짧은 문서에서도 미니맵이 스크롤바와 같은 자리
 
   const got = await page.evaluate(async () => {
     const v = [...(window as any).app.fileEditors.values()]
-      .find((e: any) => e._editor && e.name === 'doc.md') as any;
-    const ed = v._editor;
+      .find((e: any) => edT.has(e) && e.name === 'doc.md') as any;
+    const ed = edT.of(v);
     const box = v.el.getBoundingClientRect();
     const rect = (sel: string) => {
       const x = v.el.querySelector(sel);
@@ -85,14 +84,14 @@ test('V-MMP-2: 짧은 문서에서도 미니맵이 스크롤바와 같은 자리
       const r = x.getBoundingClientRect();
       return { top: Math.round(r.top - box.top), h: Math.round(r.height) };
     };
-    const H = ed.getScrollHeight(), L = ed.getLayoutInfo().height;
+    const H = edT.scrollHeight(ed), L = edT.viewHeight(ed);
     const out: any[] = [];
     for (const ratio of [0, 0.45, 1]) {
-      ed.setScrollTop(Math.round((H - L) * ratio));
+      edT.setScrollTop(ed, Math.round((H - L) * ratio));
       await new Promise((r) => setTimeout(r, 400));
-      out.push({ ratio, mini: rect('.minimap-slider'), bar: rect('.scrollbar.vertical > .slider') });
+      out.push({ ratio, mini: rect(edT.sel.minimapSlider), bar: rect(edT.sel.scrollThumb) });
     }
-    return { out, size: ed.getOption((window as any).monaco.editor.EditorOption.minimap).size,
+    return { out, size: edT.option(ed, 'minimapSize'),
       shorter: H < L * 2 };
   });
 
@@ -105,31 +104,25 @@ test('V-MMP-2: 짧은 문서에서도 미니맵이 스크롤바와 같은 자리
 });
 
 /**
- * V-MMP-2b — **diff 의 미니맵은 꺼져 있고, 그것이 명시돼 있다.**
+ * V-MMP-2b — **Diff 에는 미니맵이 없고, Diff 자신의 눈금은 있다** (FR-M9-5 / D-M9-5 · CODEMIRROR_MIGRATION_SRS FR-CMR-56·57).
  *
- * 종전에는 "diff 도 `size:'fill'` 을 딛는다" 를 쟀다 (FR-MMP-2 의 원문: "편집기와
- * diff 둘 다"). **그 값은 diff 에서 한 번도 효력이 없었다** — `createDiffEditor` 의
- * 미니맵 기본값이 `enabled:false` 이고 `size` 는 켜진 미니맵의 값이다. 실측으로
- * diff 의 `minimap.enabled === false`·`minimapWidth 0` 이었다.
- *
- * 개정: M9_SRS FR-M9-5 / D-M9-5 (사용자 결정 2026-09-14) — diff 는 미니맵을 끈 채로
- * 두고 그것을 **명시**한다. 이 검사가 재는 것도 그 명시다. 꺼져 있다는 사실이
- * 우연이 아니라 적힌 것이어야, 다음 사람이 `size` 를 다시 얹지 않는다.
- *
- * 본문이 눈금과 겹치지 않는다는 쪽은 `git-diff.spec.ts` D14 가 잰다 — 거기에는
- * 실제 저장소와 diff 가 있다.
+ * 종전에는 옛 엔진의 옵션 덩이(`GIT_DIFF_OPTIONS`)의 값을 읽었다. 그 덩이는 엔진과 함께 사라졌으므로
+ * 화면을 잰다 — 편집기의 미니맵 설정이 켜져 있어도 Diff 칸에는 미니맵이 서지 않는다 (§3.16, M9).
  */
-test('V-MMP-2b: diff 편집기의 미니맵은 명시적으로 꺼져 있다', async ({ page }) => {
+test('V-MMP-2b: Diff 에는 미니맵이 없고 Diff 의 눈금은 있다', async ({ page }) => {
+  const repo = copyFx('basic', 'mmp-diff');
   await waitForInit(page);
-  const got = await page.evaluate(() => ({
-    enabled: GIT_DIFF_OPTIONS.minimap.enabled,
-    size: GIT_DIFF_OPTIONS.minimap.size,
-    lanes: GIT_DIFF_OPTIONS.overviewRulerLanes,
-    diffRuler: GIT_DIFF_OPTIONS.renderOverviewRuler,
-  }));
-  expect(got.enabled, 'diff 의 미니맵이 명시적으로 꺼져 있지 않다').toBe(false);
-  expect(got.size, '꺼진 미니맵에 죽은 `size` 가 남아 있다').toBeUndefined();
-  // FR-M9-5: 겹치던 것은 편집기 **안**의 눈금이다. diff 자신의 눈금은 남는다.
-  expect(got.lanes, '편집기 안 개요 눈금이 아직 켜져 있다').toBe(0);
-  expect(got.diffRuler, 'diff 의 개요 눈금까지 껐다 (FR-DOR-1 을 잃는다)').toBe(true);
+  await openGit(page, repo);
+  await page.locator('#area .pn-tab[data-git-view="diff"]').click();
+  const view = page.locator('#area .pn-body .git-view.git-diff');
+  await expect(view).toHaveClass(/vis/);
+  const row = page.locator(`#area .ed-side .git-view.git-changes .git-file[data-path="${cssPath('tracked.txt')}"]`).first();
+  await expect(row).toBeVisible({ timeout: 15000 });
+  await clickRow(page, row, async () => {
+    await page.waitForFunction(
+      () => edT.diffReady((window as any).app?.gitPanel?._diffView), undefined, { timeout: 8000 });
+  });
+
+  await expect(view.locator(ED_SEL.diffRuler), 'Diff 의 눈금이 없다 (FR-DOR-1 을 잃는다)').toBeVisible();
+  await expect(view.locator(ED_SEL.minimap), 'Diff 칸에 미니맵이 섰다').toHaveCount(0);
 });

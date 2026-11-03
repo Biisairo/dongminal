@@ -5,7 +5,7 @@
 > 형식: 각 동작은 하나 이상의 단위/통합 테스트로 커버되어야 함
 >
 > **제거된 표면**: code-server 통합과 markdown 뷰어는 `8dc0a3f` 에서 내장
-> 편집기(Monaco)로 대체되며 사라졌다. 관련 항목(A6·C3·E5 섹션, `/api/code-server*`,
+> 편집기(당시 옛 엔진, 지금은 CodeMirror 6)로 대체되며 사라졌다. 관련 항목(A6·C3·E5 섹션, `/api/code-server*`,
 > `/api/md-file`, `MdViewer`)은 이 갱신에서 삭제했다.
 
 ---

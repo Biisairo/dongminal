@@ -67,12 +67,6 @@ const SETTINGS_ACCESS={
     editorMinimap=v;
     if(this._edApplyMinimap) this._edApplyMinimap();
   }},
-  // UX_BATCH10_SRS FR-UXB-42·43: diff 의 미니맵. 위 둘과 **같은 모양**이며,
-  // 그 사실이 이 항목이 짧은 이유다 — 새 규약을 만들지 않는다.
-  diffMinimap:{get:()=>diffMinimap,ctl:{id:'ds-diffminimap',kind:'check'},set(v){
-    diffMinimap=v;
-    if(this._diffApplyOptions) this._diffApplyOptions();
-  }},
   // FR-TBW-8: 같은 근거로 곧바로 얹는다. 클래스와 변수 하나뿐이라 다시 그리지 않는다.
   tabFixedWidth:{get:()=>tabFixedWidth,ctl:{id:'ds-tabfix',kind:'check'},set(v){
     tabFixedWidth=v;
@@ -435,7 +429,6 @@ Object.assign(App.prototype, {
     this._initAttnEdge();
     this._initWordWrap();
     this._initMinimap();
-    this._initDiffMinimap();
     // `_init*` 는 리스너만 건다. 첫 칠하기는 `ctl` 을 선언한 표가 한다 (FR-OPT-1-12).
     this._paintSettingControls();
     this._initLocale();

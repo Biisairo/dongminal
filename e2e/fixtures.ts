@@ -6,6 +6,7 @@ import { test as base, expect } from '@playwright/test';
 
 import { E2E_BIN, E2E_HOME, E2E_PORT0 } from '../playwright.config';
 import { stopDaemon } from './daemon-cleanup';
+import { ED_SEL, installEdAdapter } from './editor';
 import { realPath } from './osenv';
 
 
@@ -171,7 +172,7 @@ async function pingUntilUp(url: string, limitMs: number) {
 /**
  * 페이지를 열던 순간의 가시성. 실패한 테스트에서만 읽는다 (아래 afterEach).
  *
- * 러너에서 페이지가 뒤에 있으면 폴링과 Monaco 명령이 함께 멎는데, 그 상태는
+ * 러너에서 페이지가 뒤에 있으면 폴링과 편집기 명령이 함께 멎는데, 그 상태는
  * 실패 뒤에 물어보면 이미 사라져 있다 — 그래서 그때 찍어 둔다.
  */
 /**
@@ -211,6 +212,14 @@ function hermeticEnv(): NodeJS.ProcessEnv {
 const pageEnvAtOpen = new WeakMap<any, any>();
 
 export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
+  /**
+   * 편집기 접근 어댑터 `edT` 를 모든 페이지에 심는다 (CODEMIRROR_MIGRATION_SRS FR-CMR-120).
+   * 엔진을 아는 e2e 코드는 `editor.ts` 하나이고, 스펙은 `edT` 만 부른다.
+   */
+  context: async ({ context }, use) => {
+    await context.addInitScript(installEdAdapter, ED_SEL);
+    await use(context);
+  },
   /**
    * 이 워커의 서버를 띄우고, 워커가 끝날 때 서버와 **데몬**을 함께 세운다
    * (FR-EPL-1·4·5).
@@ -305,7 +314,7 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
 /**
  * 실패한 테스트의 **가시성·포커스**를 남긴다.
  *
- * 이 두 값이 폴링(`document.hidden`)과 Monaco 명령(포커스)의 전제이므로, 요청이
+ * 이 두 값이 폴링(`document.hidden`)과 편집기 명령(포커스)의 전제이므로, 요청이
  * 0건인 실패는 거의 언제나 여기서 갈린다. 통과한 테스트에는 아무 것도 찍지 않는다.
  */
 test.afterEach(async ({ page }, testInfo) => {
@@ -581,7 +590,7 @@ export async function waitForInit(page: any, opts: InitOpts = {}) {
    * **페이지를 앞으로 가져온 뒤에 연다** (E2E_HIDDEN_PAGE 조사).
    *
    * `timer-hub` 는 `document.hidden` 이면 폴링 job 을 재우고(`timer-hub.js:117·319`),
-   * Monaco 의 명령은 편집기가 포커스를 쥐어야 선다. 러너에서 페이지가 뒤에 있으면
+   * 편집기의 명령은 편집기가 포커스를 쥐어야 선다. 러너에서 페이지가 뒤에 있으면
    * 그 둘이 함께 멎어, "바깥의 변화가 화면에 따라오는가" 를 재는 스펙과 호버·정의
    * 이동이 **요청 0건**으로 실패한다 — 느린 것이 아니라 오지 않는 것이므로 상한을
    * 늘려도 낫지 않는다.
@@ -1134,13 +1143,13 @@ export async function enterDocRoot(page: any, request: any, base: string, name: 
   return saved;
 }
 
-/** `doc.md` 를 열고 **Monaco 가 실제로 설 때까지** 기다린다 (`TEST-7`). */
+/** `doc.md` 를 열고 **편집기가 실제로 설 때까지** 기다린다 (`TEST-7`). */
 export async function openDocFile(page: any, root: string) {
   await page.evaluate((p: string) => (window as any).app.testing.edOpenFile(p, { pin: true }),
     root + '/doc.md');
   await page.waitForFunction(() => {
     const eds = [...(window as any).app.fileEditors.values()];
-    return eds.some((e: any) => e._editor && e.name === 'doc.md');
+    return eds.some((e: any) => edT.has(e) && e.name === 'doc.md');
   }, undefined, { timeout: 30000 });
 }
 
@@ -1148,8 +1157,8 @@ export async function openDocFile(page: any, root: string) {
 export async function makeDocDirty(page: any, text = 'ZZ') {
   await page.evaluate((t: string) => {
     const v = [...(window as any).app.fileEditors.values()]
-      .find((e: any) => e._editor && e.name === 'doc.md') as any;
-    v._editor.executeEdits('spec', [{ range: new (window as any).monaco.Range(1, 1, 1, 1), text: t }]);
+      .find((e: any) => edT.has(e) && e.name === 'doc.md') as any;
+    edT.insert(edT.of(v), 1, 1, t);
   }, text);
   await page.waitForFunction(
     () => [...(window as any).app.fileEditors.values()].some((e: any) => e._dirty),

@@ -59,10 +59,10 @@
 - 조치: (1) `jsconfig.json` + `checkJs` 와 `// @ts-check` 를 파일 단위로 점진 도입 — 전역 스크립트 구조에서도 `no-undef` 급 오류를 잡는다. (2) eslint 최소 규칙(`no-undef`, `no-unused-vars`, `no-empty`). (3) `node --test` 로 순수 모듈 단위 테스트(의존성 0). (4) verify.yml 에 최소 smoke e2e 1개.
 - 규모: M.
 
-### [P1] Monaco 를 런타임에 외부 CDN 에서 받는다
-- 위치: `web/js/ui/file-editor.js:5` `MONACO_CDN='https://cdn.jsdelivr.net/npm/monaco-editor@0.56.0/min/vs'`, `:64-81` 로더 (SRI 없음).
+### [P1] 옛 편집기 엔진을 런타임에 외부 CDN 에서 받는다
+- 위치: `web/js/ui/file-editor.js:5` CDN 주소 상수(`cdn.jsdelivr.net` 의 옛 편집기 엔진 0.56.0), `:64-81` 로더 (SRI 없음).
 - 현상: 나머지 자산은 전부 `go:embed` + `web/vendor/`(xterm, markdown-it, purify, highlight) 로 오프라인인데 편집기만 인터넷이 필요하다. Tailscale 전용·폐쇄망에서 편집기·LSP 뷰가 통째로 서지 않는다. 서드파티 CDN 이 곧 스크립트 공급망이다.
-- 조치: `web/vendor/monaco/` 로 벤더링(라이선스 MIT). 크기가 부담이면 최소 언어 세트만. 그 전까지라도 SRI 는 AMD 로더 구조상 어려우므로 벤더링이 답이다.
+- 조치: `web/vendor/` 아래로 벤더링(라이선스 MIT). 크기가 부담이면 최소 언어 세트만. 그 전까지라도 SRI 는 AMD 로더 구조상 어려우므로 벤더링이 답이다.
 - 규모: M.
 
 ### [P1] 조용히 삼켜지는 실패 — 설정 저장·부팅 설정·초기화
@@ -129,5 +129,5 @@
 3. P1 `saveSettings` 실패 피드백 (S)
 4. `check-html.sh`(innerHTML 보간 검사) + eslint `no-undef` (M) — 이후 모든 리팩터의 안전망
 5. `core/api.js` 로 fetch 관용구 통합 (M)
-6. Monaco 벤더링 (M)
+6. 옛 편집기 엔진 벤더링 (M)
 7. 거대 모듈 분리는 4 이후에 (A-1, A-4 먼저 — 기계적)

@@ -112,6 +112,7 @@
   --backdrop-soft:rgba(0,0,0,.4);
   --shadow-1:0 2px 10px rgba(0,0,0,.4);
   --shadow-2:0 8px 32px rgba(0,0,0,.5);
+  --shade-edge:rgba(0,0,0,1);
   --bg:#1a1b26;--sidebar-bg:#16161e;--border:#292e42;
   --accent:#7aa2f7;--text:#a9b1d6;--text-muted:#8b95bf;
   --text-bright:#c0caf5;--text-dim:#414868;--danger:#f7768e;
@@ -129,7 +130,7 @@
   --bg-alt:#232431;
   /* 고정폭 글꼴은 한 벌이다. `style-docrender.css` 가 같은 스택을 따로 적고
      있었고 `style-git.css` 는 없는 `--mono` 를 읽어 `monospace` 로 떨어졌다. */
-  --mono:'Menlo','Monaco','Consolas','Liberation Mono','Courier New',monospace;
+  --mono:'Menlo','Consolas','Liberation Mono','Courier New',monospace;
   /* UIUX_OVERHAUL_SRS FR-TYP-5: 스택은 **둘이고 토큰이 정본이다**. `--sans` 는
      한 자리(`html,body`)만 쓰지만 토큰으로 선다 — 고정폭만 토큰이면 규칙이
      "고정폭만" 이 되고, 다음 사람이 sans 리터럴을 적을 때 막을 근거가 없다.
@@ -145,6 +146,8 @@
      덮어쓴다 — 여기 값은 기본 테마의 파생 결과이고 첫 페인트용이다. */
   --term-red:#f7768e;--term-green:#9ece6a;--term-yellow:#e0af68;
   --term-blue:#7aa2f7;--term-magenta:#bb9af7;--term-cyan:#7dcfff;
+  /* Diff 의 추가·삭제 — 팔레트의 초록·빨강 그대로 (theme-vars.js). */
+  --diff-add:#9ece6a;--diff-del:#f7768e;
   --accent-text:#7aa2f7;--danger-text:#f7768e;--attn-text:#e0af68;
   /* FR-TOK-25: 포커스 링. `applyThemeObj` 가 테마마다 3:1 을 보장해 덮어쓴다 —
      여기 값은 기본 테마의 파생 결과이고 첫 페인트용이다. */
@@ -225,7 +228,7 @@ body{user-select:none;-webkit-user-select:none}
 /* 예외 — **복사가 목적인 자리**. 새 표면이 복사를 필요로 하면 여기 한 줄을
    더하는 일이고, 그 한 줄이 곧 "이 자리는 가져가는 글이다" 라는 선언이다. */
 .xterm,
-.monaco-editor,
+.cm-editor,
 .git-diff-host,
 .git-job-log,
 .git-job-tail,
@@ -1603,12 +1606,15 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
 .pn-drop-indicator[data-zone="bottom"]{bottom:0;left:0;width:100%;height:33%;top:auto}
 .pn-drop-indicator[data-zone="center"]{top:5%;left:5%;width:90%;height:90%;opacity:.1;border-style:dashed}
 
-/* ── File Editor (Monaco) ── */
+/* ── File Editor (CodeMirror) ── */
 .file-editor{
   position:absolute;inset:0;display:none;
   background:var(--bg);
 }
 .file-editor.vis{display:block}
+/* CODEMIRROR_MIGRATION_SRS FR-CMR-19: 설치 제안 띠(`.fe-offer`)가 서 있는 동안 편집기는 띠 아래에서 시작한다 —
+   띠는 겹쳐 서므로 그대로 두면 첫 줄들을 가린다. 높이는 띠가 실제로 먹은 값이다 (`--fe-offer-h`, FR-LSP-44a). */
+.file-editor:has(> .fe-offer) > .cm-editor{margin-top:var(--fe-offer-h,32px);height:calc(100% - var(--fe-offer-h,32px))}
 /* WORDING_COLOR_SRS FR-WRD-14·15: 저장 실패 플래시.
      이전 동작: `file-editor.js` 가 인라인으로 `inset 0 0 0 2px #f44` 를 썼다 —
                테마의 `danger` 는 `#8c4351`(Tokyo Night Light)~`#ff2c6d`(Panda)

@@ -15,7 +15,7 @@ import { test, expect, waitForInit, waitShellReady } from './fixtures';
  * **화면에 서 있는** 터미널 pane (`term-resume.spec.ts` 와 같은 손).
  *
  * `[0]` 으로 집으면 안 된다 — 복원된 세션에 도구가 여럿이면 순서가 우리 것을
- * 가리키지 않고, 아직 Monaco 가 서지 않은 pane 을 집으면 `p.term` 이 null 이다
+ * 가리키지 않고, 아직 터미널이 서지 않은 pane 을 집으면 `p.term` 이 null 이다
  * (Windows 러너 실측: `Cannot read properties of null`).
  */
 const paneEval = (page: any, fn: string) => page.evaluate(`(() => {

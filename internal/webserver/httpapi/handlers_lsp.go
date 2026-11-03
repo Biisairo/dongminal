@@ -10,10 +10,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"path/filepath"
 
 	"dongminal/internal/shared/dmlog"
-	"dongminal/internal/shared/editorlimit"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/lsp"
 )
@@ -21,12 +19,6 @@ import (
 // lspMaxBody 는 상태·설치 요청 본문의 상한이다. 절대경로 표 몇 줄이 들어올 자리이며,
 // 상한이 없으면 아무 크기나 읽는 종단이 된다.
 const lspMaxBody = 64 << 10
-
-// lspAskMaxBody 는 정의·참조 요청의 상한이다. 파일 텍스트가 실리므로(D-3) 훨씬
-// 크다 — 도메인 계층의 `MaxTextBytes` 를 JSON 문자열로 실은 최악의 크기이며, 텍스트
-// 판정은 그쪽이 한다. 종전의 `MaxTextBytes + 64 KiB` 는 개행이 많은 상한 안의
-// 텍스트를 413 으로 거절했다 (OPTIMIZE_REFACTOR_SRS FR-OPT-15-1).
-var lspAskMaxBody = editorlimit.BodyMaxBytes(int64(lsp.MaxTextBytes))
 
 // lspReadBody 는 본문을 상한까지 읽는다. 실패하면 답하고 false 다.
 //
@@ -103,148 +95,6 @@ func (s *Server) apiLSPInstall(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, s.LSP.Install(r.Context(), req.ID))
 }
 
-// lspAskReq 는 정의·참조가 공유하는 입력이다 (FR-LSP-21~23).
-//
-// `Text` 가 있는 것이 이 설계의 핵심이다 (D-3) — 저장 전 편집은 브라우저에만
-// 있으므로(§2.8) 디스크만 보는 서버는 방금 쓴 함수를 모른다. 저장을 강제하면
-// "정의를 보려면 저장하라" 가 되어 요구를 이루지 못한다.
-//
-// `Text` 가 빠지는 것은 `Version` 이 있고 브라우저가 서버에게서 그 판을 받았다는
-// 답(`version`)을 들은 뒤뿐이다 (FR-OPT-6-2 / D-3 개정). 판도 텍스트도 없으면 종전처럼
-// 빈 텍스트다.
-type lspAskReq struct {
-	Root    string  `json:"root"`
-	Path    string  `json:"path"`
-	Text    *string `json:"text"`
-	Version string  `json:"version"`
-	// 줄·열은 **1 부터**다. 편집기가 그렇게 세고, 도메인 계층이 LSP 의 0-기준으로
-	// 옮긴다 — 경계가 한 곳이어야 한 줄 위로 뛰는 어긋남이 생기지 않는다.
-	Line int `json:"line"`
-	Col  int `json:"col"`
-	// IncludeDeclaration 은 참조에서만 쓴다 (FR-LSP-22).
-	IncludeDeclaration bool `json:"includeDeclaration"`
-}
-
-// lspAsk 는 두 종단의 공통 앞부분이다 — 본문을 읽고 루트 가드를 지난다.
-//
-// 가드가 `fsRoot` 인 것이 규칙이다 (FR-LSP-24·49 / §2.7). 새로 쓰면 두 벌이 되고
-// 한쪽만 고쳐진다.
-func (s *Server) lspAsk(w http.ResponseWriter, r *http.Request) (lspAskReq, string, bool) {
-	var req lspAskReq
-	if !s.lspReady(w) {
-		return req, "", false
-	}
-	body, ok := lspReadBody(w, r, lspAskMaxBody)
-	if !ok {
-		return req, "", false
-	}
-	if err := json.Unmarshal(body, &req); err != nil {
-		writeToolIOError(w, http.StatusBadRequest, "bad request")
-		return req, "", false
-	}
-	if req.Path == "" {
-		writeToolIOError(w, http.StatusBadRequest, "path required")
-		return req, "", false
-	}
-	root, ok := s.fsRoot(w, req.Root)
-	if !ok {
-		return req, "", false
-	}
-	return req, root, true
-}
-
-// doc 은 요청의 문서다. 텍스트가 빠졌으면 판이 있을 때만 "생략" 이다.
-func (req lspAskReq) doc() lsp.Doc {
-	d := lsp.Doc{Path: req.Path, Version: req.Version}
-	switch {
-	case req.Text != nil:
-		d.Text = *req.Text
-	case req.Version != "":
-		d.NoText = true
-	}
-	return d
-}
-
-// lspSyncResult 는 판 협상의 응답 조각을 얹는다 (FR-OPT-6-2). 판을 싣지 않은 요청
-// (옛 화면)에는 아무것도 더하지 않는다 — 응답이 종전과 바이트로 같다.
-//
-//	needText  세션이 그 판을 모른다 — 전문을 실어 다시 물어라
-//	version   서버가 그 판의 텍스트를 가졌다 — 다음에는 빼도 된다
-func lspSyncResult(out map[string]any, req lspAskReq, err error) {
-	if req.Version == "" {
-		return
-	}
-	switch {
-	case errors.Is(err, lsp.ErrNeedText):
-		out["needText"] = true
-		delete(out, "reason")
-	case err == nil:
-		out["version"] = req.Version
-	}
-}
-
-// apiLSPDefinition 은 그 자리의 정의들이다 (FR-LSP-21).
-//
-// **답하지 못한 이유가 실린다** (FR-LSP-28 / D-9). 침묵은 고장과 구별되지 않으므로,
-// 세션이 없거나 서버가 답하지 않은 경우도 200 에 사유를 담아 보낸다 — 화면이
-// "왜 아무 일도 안 일어났는가" 를 말할 수 있어야 한다.
-func (s *Server) apiLSPDefinition(w http.ResponseWriter, r *http.Request) {
-	req, root, ok := s.lspAsk(w, r)
-	if !ok {
-		return
-	}
-	locs, err := s.LSP.Definition(r.Context(), root, req.doc(), req.Line, req.Col)
-	out := lspLocsResult(locs, err)
-	lspSyncResult(out, req, err)
-	writeJSON(w, out)
-}
-
-// apiLSPReferences 는 그 자리의 참조들이다 (FR-LSP-22).
-func (s *Server) apiLSPReferences(w http.ResponseWriter, r *http.Request) {
-	req, root, ok := s.lspAsk(w, r)
-	if !ok {
-		return
-	}
-	locs, err := s.LSP.References(r.Context(), root, req.doc(), req.Line, req.Col,
-		req.IncludeDeclaration)
-	out := lspLocsResult(locs, err)
-	lspSyncResult(out, req, err)
-	writeJSON(w, out)
-}
-
-// apiLSPHover 는 그 자리 심볼의 타입·문서다 (FR-LSP-29).
-//
-// 빈 결과와 실패를 가른다 (D-9) — 호버가 비는 것은 흔한 일이므로 그 자체가 사유는
-// 아니지만, 서버가 없어서 빈 것은 다르다.
-func (s *Server) apiLSPHover(w http.ResponseWriter, r *http.Request) {
-	req, root, ok := s.lspAsk(w, r)
-	if !ok {
-		return
-	}
-	text, err := s.LSP.Hover(r.Context(), root, req.doc(), req.Line, req.Col)
-	out := map[string]any{"markdown": text}
-	if err != nil {
-		out["reason"] = err.Error()
-	}
-	lspSyncResult(out, req, err)
-	writeJSON(w, out)
-}
-
-// lspLocsResult 는 두 종단의 응답 모양이다.
-//
-// 오류를 상태 코드로 알리지 않는 이유는 설치 종단과 같다 — 화면이 사유를 읽어
-// 보여야 하고, 그 사유가 곧 이 기능의 절반이다 (D-9).
-func lspLocsResult(locs []lsp.Location, err error) map[string]any {
-	out := map[string]any{"locations": locs}
-	if locs == nil {
-		out["locations"] = []lsp.Location{}
-	}
-	if err != nil {
-		out["reason"] = err.Error()
-	}
-	return out
-}
-
 // lspPathsBody 는 경로 표의 조회·저장 본문이다 (REPO_FIX 02 §3A-3).
 type lspPathsBody struct {
 	Paths map[string]string `json:"paths"`
@@ -298,34 +148,4 @@ func lspFail(w http.ResponseWriter, status int, code, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
-}
-
-// apiLSPClose 는 브라우저에서 그 문서의 마지막 뷰가 떠났다는 알림이다 (REPO_FIX 02
-// §3A-6). 열려 있으면 didClose, 세션이나 문서가 없으면 200 no-op 이다.
-func (s *Server) apiLSPClose(w http.ResponseWriter, r *http.Request) {
-	if !s.lspReady(w) {
-		return
-	}
-	body, ok := lspReadBody(w, r, lspMaxBody)
-	if !ok {
-		return
-	}
-	var req struct {
-		Root string `json:"root"`
-		Path string `json:"path"`
-	}
-	if json.Unmarshal(body, &req) != nil {
-		writeToolIOError(w, http.StatusBadRequest, "bad request")
-		return
-	}
-	if !filepath.IsAbs(req.Path) {
-		lspFail(w, http.StatusBadRequest, apierr.CodeAbsPathNeeded, "path must be absolute")
-		return
-	}
-	root, ok := s.fsRoot(w, req.Root)
-	if !ok {
-		return
-	}
-	s.LSP.CloseDoc(root, req.Path)
-	writeJSON(w, map[string]any{"ok": true})
 }

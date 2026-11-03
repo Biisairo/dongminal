@@ -55,7 +55,7 @@ ID 규칙: `축약어-번호`. 원본에 명시된 순번이 아니라 이 문�
 | GO-12 | P1 | 요청 고루틴 안의 `time.Sleep` 폴링 — 컨텍스트 취소 미전파 | `handlers_runs.go:364-379`; `handlers_runs_headless.go:232-244` | 01-Go | M |
 | GO-13 | P1 | 핵심 인터페이스 `ToolHub.List()`가 `[]map[string]interface{}` | `shared/toolhub/hub.go:6` | 01-Go | M |
 | FE-5 | P1 | 린트·타입 안전망 전무(35k LOC) | 루트에 eslint/tsconfig 없음; `verify.yml` | 02-FE | M |
-| FE-6 | P1 | Monaco를 런타임에 외부 CDN에서 받음(오프라인 불가) | `web/js/ui/file-editor.js:5,64-81` | 02-FE | M |
+| FE-6 | P1 | 옛 편집기 엔진을 런타임에 외부 CDN에서 받음(오프라인 불가) | `web/js/ui/file-editor.js:5,64-81` | 02-FE | M |
 | FE-8 | P1 | fetch 관용구 중복 — `gitFetch`가 있는데 core는 손으로 23벌 | core/ui `await fetch(` 51곳 | 02-FE | M |
 | UX-2 | P1 | 창 `×`는 확인 없이 세션을 kill하고 되돌릴 길이 없음 | `app-layout.js:167-215`; `sidebar-list.js:130-139` | 03-UX | M |
 | UX-3 | P1 | 설정 모달에 다이얼로그 시맨틱·포커스 관리가 없음 | `index.html:212-235`; `app-settings.js:445-484` | 03-UX | M |
@@ -295,7 +295,7 @@ ID 규칙: `축약어-번호`. 원본에 명시된 순번이 아니라 이 문�
 - **이벤트 리스너 누수 없음** — `addEventListener` 375 vs `removeEventListener` 19이지만 검사 결과 앱수명/`{once:true}`/짝맞음 확인, 요소수준은 DOM과 GC — 02 "F. 이벤트 리스너" 확인결과 양호
 - **폴링 구조(TimerHub) 양호** — 숨김 시 정지·복귀 시 1회 보상, 항목단위 reconcile로 리페인트 억제 — 02 "E. 성능·폴링" 1번
 - **파괴적 git 동작 확인창 설계 — 모범사례** — 정책서버 소유, 취소기본, Enter≠실행, 영향목록+복구힌트+stderr 복사, `UIKit.button`이 이름없는 아이콘버튼 생성을 막음, 아이콘 스프라이트 `currentColor`로 44개 테마 자동대응, 부팅화면 FOUC 제거, 닫기 전 dirty·busy 이중가드, 모바일 소프트키보드 보정 — 03 §4 "잘 되어 있는 것" 7건
-- **성능 체감 — P1/P2 발견 없음**(History 윈도잉, Diff Monaco, Console 500줄 제한, 탐색기 폴더단위 로드) — 03 §3.7 결론
+- **성능 체감 — P1/P2 발견 없음**(History 윈도잉, Diff 옛 편집기 엔진, Console 500줄 제한, 탐색기 폴더단위 로드) — 03 §3.7 결론
 - **Go 커버리지 다수 패키지 고득점**(`toolline`·`outbuf`·`apierr`·`web` 100%, `workspace` 89.9%, `git/write` 89.7% 등) — 05 §0.1
 - **e2e 결과 unexpected 0**(expected 1,418 / flaky 4 / skipped 3, 135스펙·1,425테스트) — 05 §0.2
 - **git 파괴적 쓰기 테스트 양호**(`TestBranchDelete_DestructiveInRecord` 등, `check-gitwrite.sh` 게이트) — 05 §5, 단 `Merge`·`Replay` 0%는 별도 결함(TEST-24)
@@ -331,4 +331,4 @@ ID 규칙: `축약어-번호`. 원본에 명시된 순번이 아니라 이 문�
 - **03(uiux)**: 설정모달 `Escape` 리스너가 전역(`document`)이라 `GitDialog`/`UIKit.modal`과 중첩 시 닫힘 순서가 각자의 `capture:true`에 의존적 — 미확인 (`index.html:212-235` 관련)
 - **06(docs-hygiene)**: `.github/workflows/verify.yml`이 린트/포맷을 실제로 강제하는지는 06의 범위 밖이라 미확인(단 05가 TEST-9·TEST-10으로 이 공백을 실측 확인함 — 06의 "미확인"과 05의 "확인된 부재"가 사실상 같은 결론으로 수렴)
 - **06(docs-hygiene)**: archive 이동 판단 기준(리뷰 프로세스 존재 여부)은 git log/PR 이력을 보지 않아 미확인
-- **06(docs-hygiene)**: `web/vendor` vendoring 방식과 `package.json`에 빌드 도구가 없는 이유는 02(fe-arch) 소관으로 보고 깊이 파지 않음 — 02는 이를 실제로 다뤘음(FE-6 Monaco CDN, 정적자산은 `go:embed`+vendor로 확인) 다만 vendor 파일의 정확한 버전 표기 부재는 SEC-32로 남아 있어 완전히 해소되지는 않음
+- **06(docs-hygiene)**: `web/vendor` vendoring 방식과 `package.json`에 빌드 도구가 없는 이유는 02(fe-arch) 소관으로 보고 깊이 파지 않음 — 02는 이를 실제로 다뤘음(FE-6 옛 편집기 엔진 CDN, 정적자산은 `go:embed`+vendor로 확인) 다만 vendor 파일의 정확한 버전 표기 부재는 SEC-32로 남아 있어 완전히 해소되지는 않음

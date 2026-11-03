@@ -127,34 +127,152 @@ function edDdBacktrack(trace,d,n,m){
  * 조각의 새 줄 범위 **와** 옛 줄 범위를 함께 아는 이 경로가 그 함수의 첫 호출자다.
  */
 
-// ── 데코레이션의 색 (FR-EDD-23·23b) ──
+// ── CodeMirror 표식 (CODEMIRROR_MIGRATION_SRS FR-CMR-40~42) ──
 //
-// 값을 박지 않고 CSS 변수에서 읽는다. 테마가 바뀌면 이 캐시를 놓는 것이 곧
-// 재칠이며, 그 계기는 `FileEditor.applyTheme` 하나다.
-let edDdOpts=null;
-function edDdReset(){ edDdOpts=null }
-function edDdDecoOptions(type){
-  if(!edDdOpts){
-    edDdOpts={};
-    const st=getComputedStyle(document.documentElement);
-    for(const kind of [ED_DD_ADD,ED_DD_MOD,ED_DD_DEL]){
-      const color=st.getPropertyValue(ED_DD_COLOR_VAR[kind]).trim();
-      edDdOpts[kind]={
-        linesDecorationsClassName:'fe-dd-'+kind,
-        // 조각의 자리는 **계산이 정한다.** 편집 중에 데코레이션이 스스로 자라면
-        // 다음 계산이 오기 전까지 화면이 실제와 어긋난다.
-        stickiness:monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-        overviewRuler:color?{color,position:monaco.editor.OverviewRulerLane.Left}:null,
-        minimap:color?{color,position:monaco.editor.MinimapPosition.Gutter}:null,
-      };
-    }
+// 표식은 칸마다의 StateField 다 — 문서는 하나여도 `EditorState` 는 칸마다 있다(FR-CMR-20). 계산은 문서가
+// 한 번 하고(`EdDirtyDiff`), 결과를 붙은 칸마다 이 필드에 싣는다. 색은 값을 박지 않고 CSS 변수 이름으로
+// 넘긴다 — ruler·미니맵이 그릴 때 읽으므로 테마가 바뀌면 다시 칠하는 것으로 따라온다 (FR-EDD-23·23b).
+
+/**
+ * 조각 → 줄 표식 `[{line, type}]`. 수정·추가는 줄마다 하나, 삭제는 그 자리에 **오게 된** 줄 하나다.
+ * 줄은 문서 끝을 넘지 않는다 — 지워진 줄이 마지막이었다면 마지막 줄에 붙는다.
+ */
+function edDdLineMarks(doc,changes){
+  const total=doc.lines,out=[];
+  for(const c of changes||[]){
+    const s=Math.min(Math.max(1,c.line),total);
+    if(!c.count){out.push({line:s,type:c.type});continue}
+    const e=Math.min(c.line+c.count-1,total);
+    for(let l=s;l<=e;l++) out.push({line:l,type:c.type});
   }
-  return edDdOpts[type];
+  return out;
 }
 
 /**
- * 문서 하나의 변경 표시. **모델에 걸린다** (D-4) — 같은 파일을 두 칸에서 열어도
- * 기준 취득과 계산은 한 번이고, 결과는 그 모델을 붙인 모든 편집기에 함께 뜬다.
+ * FR-EDD-40: 조각 하나를 기준으로 되돌리는 변경 `{from, to, insert}`. 칸의 트랜잭션으로 넣으므로
+ * 실행 취소가 듣고, 저장 전까지 디스크는 그대로다 (FR-EDD-41).
+ */
+function edDdRevertChange(doc,base,ch){
+  const total=doc.lines;
+  const text=(base||[]).slice(ch.baseStart-1,ch.baseStart-1+ch.baseCount);
+  if(!ch.count){
+    // 지워졌던 줄을 되돌려 넣는다.
+    const at=Math.min(Math.max(1,ch.line),total+1);
+    if(at>total) return {from:doc.length,to:doc.length,insert:'\n'+text.join('\n')};
+    const pos=doc.line(at).from;
+    return {from:pos,to:pos,insert:text.join('\n')+'\n'};
+  }
+  const s=Math.min(ch.line,total),e=Math.min(ch.line+ch.count-1,total);
+  if(!ch.baseCount){
+    // 더해진 줄을 걷는다. 줄 자체를 없애야 하므로 범위가 **줄 경계**를 넘는다.
+    if(e<total) return {from:doc.line(s).from,to:doc.line(e+1).from,insert:''};
+    if(s>1) return {from:doc.line(s-1).to,to:doc.line(e).to,insert:''};
+    return {from:doc.line(s).from,to:doc.line(e).to,insert:''};
+  }
+  return {from:doc.line(s).from,to:doc.line(e).to,insert:text.join('\n')};
+}
+
+// 처음 쓸 때 만든다 — 이 파일은 `CM` 이 실리기 전에 읽힌다 (`cm-buffer.js` 와 같은 이유).
+function edDdField(){
+  if(edDdField.parts) return edDdField.parts;
+  class Marker extends CM.GutterMarker{
+    constructor(type){super();this.type=type}
+    eq(o){return o.type===this.type}
+    toDOM(){const el=document.createElement('div');el.className='fe-dd-'+this.type;return el}
+  }
+  const marker={};
+  for(const k of [ED_DD_ADD,ED_DD_MOD,ED_DD_DEL]) marker[k]=new Marker(k);
+  const set=CM.StateEffect.define();
+  const build=(doc,marks)=>CM.RangeSet.of(marks.map(m=>
+    marker[m.type].range(doc.line(Math.min(Math.max(1,m.line),doc.lines)).from)),true);
+  // FR-CMR-40: 표식은 줄 머리의 점이다 — 편집에 맞춰 옮겨지고, 경계에서 쳐도 늘어나지 않는다.
+  const field=CM.StateField.define({
+    create:()=>CM.RangeSet.empty,
+    update(v,tr){
+      let m=v.map(tr.changes);
+      for(const e of tr.effects) if(e.is(set)) m=build(tr.state.doc,e.value);
+      return m;
+    },
+  });
+  edDdField.parts={set,field};
+  return edDdField.parts;
+}
+
+// FR-CMR-41: 칸 하나의 팝업. 줄 사이에 끼우는 block widget 이며 칸마다 따로다.
+function edDdPeek(){
+  if(edDdPeek.parts) return edDdPeek.parts;
+  class Peek extends CM.WidgetType{
+    constructor(node){super();this.node=node}
+    eq(o){return o.node===this.node}
+    toDOM(){return this.node}
+    // 팝업 안의 클릭·키는 팝업의 것이다 — 편집기가 커서를 옮기지 않는다.
+    ignoreEvent(){return true}
+  }
+  const set=CM.StateEffect.define();
+  const field=CM.StateField.define({
+    create:()=>CM.Decoration.none,
+    update(v,tr){
+      let d=v.map(tr.changes);
+      for(const e of tr.effects) if(e.is(set)){
+        const p=e.value;
+        d=p?CM.Decoration.set([CM.Decoration.widget({widget:new Peek(p.node),block:true,side:p.side}).range(p.pos)]):CM.Decoration.none;
+      }
+      return d;
+    },
+    provide:(f)=>CM.EditorView.decorations.from(f),
+  });
+  edDdPeek.parts={set,field};
+  return edDdPeek.parts;
+}
+
+// 이 칸을 그린 FileEditor. gutter 의 클릭은 `EditorView` 만 받는다.
+function edDdOwner(view){
+  const app=window.app;
+  if(!app||!app.fileEditors) return null;
+  for(const v of app.fileEditors.values()) if(v&&v._view===view) return v;
+  return null;
+}
+
+/**
+ * 편집기 칸의 dirty diff 확장 — `edCmExtensions` 가 줄 번호 바로 뒤에 넣는다(옛 엔진의 linesDecorations
+ * 자리). 이 파일이 없으면 편집기는 표시 없이 그대로 동작한다 (NFR-EDD-3).
+ */
+function edDdExtensions(){
+  const {field}=edDdField();
+  const marks=(st)=>{
+    const out=[],set=st.field(field,false);
+    if(!set) return out;
+    set.between(0,st.doc.length,(from,_to,m)=>{out.push({from,type:m.type})});
+    return out;
+  };
+  return [
+    field,
+    CM.gutter({
+      class:'cm-dd-gutter',
+      markers:(v)=>v.state.field(field),
+      domEventHandlers:{
+        mousedown(view,line){
+          const fe=edDdOwner(view);
+          if(!fe||!fe._dd) return false;
+          fe._ddClick(view.state.doc.lineAt(line.from).number);
+          return true;
+        },
+      },
+    }),
+    edDdPeek().field,
+    // FR-CMR-42: 왼쪽 ruler 칸과 미니맵 gutter 에도 찍는다.
+    edRulerSource().of((st)=>marks(st).map(m=>({from:m.from,to:m.from,lane:'left',color:ED_DD_COLOR_VAR[m.type],cls:'fe-dd-'+m.type}))),
+    edMinimapSource().of((st)=>marks(st).map(m=>({line:st.doc.lineAt(m.from).number,kind:'gutter',color:ED_DD_COLOR_VAR[m.type],cls:'fe-dd-'+m.type}))),
+    CM.EditorView.theme({
+      '.cm-dd-gutter .cm-gutterElement':{width:'9px'},
+      '.cm-dd-gutter .fe-dd-add, .cm-dd-gutter .fe-dd-mod':{height:'100%'},
+    }),
+  ];
+}
+
+/**
+ * 문서 하나의 변경 표시. **버퍼에 걸린다** (D-4) — 같은 파일을 두 칸에서 열어도
+ * 기준 취득과 계산은 한 번이고, 결과는 그 버퍼를 붙인 모든 칸에 함께 뜬다.
  */
 class EdDirtyDiff{
   constructor(app,filePath){
@@ -167,8 +285,7 @@ class EdDirtyDiff{
     // 첫 취득이 끝났는가. "아직 오지 않았다" 와 "변경이 없다" 는 다른 사실이다.
     this.settled=false;
     this.views=new Set();
-    this._model=null;
-    this._ids=[];
+    this._buf=null;
     this._timer=null;
     this._seq=0;
     // FR-EDD-8: 503 은 굳히고 4xx 는 늦춘다 — 탐색기와 같은 관례다.
@@ -176,9 +293,9 @@ class EdDirtyDiff{
     this._retryAt=0;
   }
 
-  attach(model){
-    if(!model||this._model===model) return;
-    this._model=model;
+  attach(buf){
+    if(!buf||this._buf===buf) return;
+    this._buf=buf;
     this.refresh();
   }
 
@@ -266,28 +383,22 @@ class EdDirtyDiff{
 
   recompute(){
     TIMERS.cancel(this._timer);
-    const m=this._model;
-    if(!m||(m.isDisposed&&m.isDisposed())) return;
+    const b=this._buf;
+    if(!b||b.disposed) return;
     if(!this.base){this.changes=[];this._paint([]);this._sync();return}
-    const r=edDiffLines(this.base,m.getLinesContent());
+    const r=edDiffLines(this.base,b.doc.toJSON());
     this.changes=r.changes;
     this._paint(r.changes);
     this._sync();
   }
 
+  // 붙은 칸마다 표식을 싣는다. 칸들의 내용은 버퍼가 맞춰 두므로 줄 좌표가 같다.
   _paint(changes){
-    const m=this._model;
-    if(!m) return;
-    const total=m.getLineCount();
-    const out=[];
-    for(const c of changes){
-      // 삭제 조각의 자리는 문서의 끝을 넘을 수 있다 — 지워진 줄이 마지막이었다면
-      // 그 자리에 오는 줄이 없다. 마지막 줄에 붙인다.
-      const s=Math.min(Math.max(1,c.line),total);
-      const e=c.count?Math.min(s+c.count-1,total):s;
-      out.push({range:new monaco.Range(s,1,e,1),options:edDdDecoOptions(c.type)});
+    for(const v of this.views){
+      const view=v&&v._view;
+      if(!view) continue;
+      view.dispatch({effects:edDdField().set.of(edDdLineMarks(view.state.doc,changes))});
     }
-    this._ids=m.deltaDecorations(this._ids,out);
   }
 
   _sync(){ for(const v of this.views) if(v._ddSync) v._ddSync() }
@@ -309,42 +420,16 @@ class EdDirtyDiff{
   }
 
   /**
-   * FR-EDD-40: 되돌리기는 **모델 편집**이다. `executeEdits` 로 넣으므로 undo 가
-   * 듣고, 저장 전까지 디스크는 그대로다 (FR-EDD-41).
+   * FR-EDD-40: 되돌리기는 **그 칸의 편집**이다 (`edDdRevertChange`). 실행 취소가 듣고, 저장 전까지
+   * 디스크는 그대로다 (FR-EDD-41).
    *
    * 서버의 `patch{op:'revert'}` 를 쓰지 않는다 — 그것은 파괴적이고 되돌릴 길이
    * 없다 (D-3).
    */
-  revert(ch,editor){
-    const m=this._model;
-    if(!m||!this.base||!ch||!editor) return false;
-    const total=m.getLineCount();
-    const text=this.baseLines(ch);
-    let range,str;
-    if(!ch.count){
-      // 지워졌던 줄을 되돌려 넣는다.
-      const at=Math.min(Math.max(1,ch.line),total+1);
-      if(at>total){
-        const col=m.getLineMaxColumn(total);
-        range=new monaco.Range(total,col,total,col);
-        str='\n'+text.join('\n');
-      }else{
-        range=new monaco.Range(at,1,at,1);
-        str=text.join('\n')+'\n';
-      }
-    }else if(!ch.baseCount){
-      // 더해진 줄을 걷는다. 줄 자체를 없애야 하므로 범위가 **줄 경계**를 넘는다.
-      const s=Math.min(ch.line,total),e=Math.min(ch.line+ch.count-1,total);
-      if(e<total){range=new monaco.Range(s,1,e+1,1)}
-      else if(s>1){range=new monaco.Range(s-1,m.getLineMaxColumn(s-1),e,m.getLineMaxColumn(e))}
-      else{range=new monaco.Range(s,1,e,m.getLineMaxColumn(e))}
-      str='';
-    }else{
-      const s=Math.min(ch.line,total),e=Math.min(ch.line+ch.count-1,total);
-      range=new monaco.Range(s,1,e,m.getLineMaxColumn(e));
-      str=text.join('\n');
-    }
-    editor.executeEdits('dirty-diff',[{range,text:str,forceMoveMarkers:true}]);
+  revert(ch,fe){
+    const view=fe&&fe._view;
+    if(!view||!this.base||!ch) return false;
+    view.dispatch({changes:edDdRevertChange(view.state.doc,this.base,ch),userEvent:'input.dirty-diff'});
     this.schedule(0);
     return true;
   }
@@ -393,14 +478,10 @@ class EdDirtyDiff{
   dispose(){
     TIMERS.cancel(this._timer);
     this._seq++;
-    // FR-EDD-16: 모델이 살아 있으면 데코레이션을 걷는다. 남기면 다시 열었을 때
+    // FR-EDD-16: 칸이 살아 있으면 표식을 걷는다. 남기면 다시 열었을 때
     // 낡은 막대가 먼저 보인다.
-    const m=this._model;
-    if(m&&!(m.isDisposed&&m.isDisposed())&&this._ids.length){
-      try{m.deltaDecorations(this._ids,[])}catch{ /* 이미 버려진 모델 */ }
-    }
-    this._ids=[];
-    this._model=null;
+    this._paint([]);
+    this._buf=null;
     this.base=null;
     this.changes=[];
     this.views.clear();
@@ -409,33 +490,32 @@ class EdDirtyDiff{
 
 // ── 칸 하나의 클릭과 팝업 (FR-EDD-30~37) ──
 //
-// 팝업은 **편집기의 것**이다 — view zone 이 에디터마다 있고, 두 칸이 같은 파일을
+// 팝업은 **칸의 것**이다 — block widget 이 칸의 상태에 있고, 두 칸이 같은 파일을
 // 볼 때 한쪽에서 연 팝업이 다른 칸의 화면을 밀어야 할 이유가 없다. 조각과 기준은
 // 문서의 것이므로(`EdDirtyDiff`) 여기서 다시 계산하지 않는다.
 Object.assign(FileEditor.prototype,{
   _ddInit(){
     const app=window.app;
-    if(!app||!app.edDirtyDiff||!this._editor) return;
+    if(!app||!app.edDirtyDiff||!this._view||!this._buf) return;
     this._dd=app.edDirtyDiff(this.filePath);
     this._dd.views.add(this);
-    this._dd.attach(this._editor.getModel());
-    this._editor.onMouseDown((e)=>{
-      const target=e&&e.target;
-      if(!target||target.type!==monaco.editor.MouseTargetType.GUTTER_LINE_DECORATIONS) return;
-      const ln=target.position&&target.position.lineNumber;
-      const ch=ln&&this._dd?this._dd.changeAt(ln):null;
-      if(!ch){this._ddClose();return}
-      this._ddOpen(ch);
-    });
+    this._dd.attach(this._buf);
     // 이미 계산이 끝난 문서를 두 번째 칸이 붙였을 수 있다 — 그때는 attach 가
     // 아무것도 하지 않으므로 여기서 한 번 칠한다.
     if(this._dd.settled) this._dd.recompute();
   },
 
+  // FR-CMR-41: 표식을 누르면 그 조각의 팝업, 표식이 없는 줄이면 닫는다.
+  _ddClick(line){
+    const ch=this._dd?this._dd.changeAt(line):null;
+    if(!ch){this._ddClose();return}
+    this._ddOpen(ch);
+  },
+
   _ddOpen(ch){
     this._ddClose();
-    const dd=this._dd;
-    if(!dd||!this._editor) return;
+    const dd=this._dd,view=this._view;
+    if(!dd||!view) return;
     const old=dd.baseLines(ch);
     const node=document.createElement('div');
     node.className='fe-dd-peek';
@@ -456,17 +536,16 @@ Object.assign(FileEditor.prototype,{
     const pre=node.querySelector('.fe-dd-peek-old');
     if(old.length) pre.textContent=old.join('\n');
     else{ pre.textContent=ED_DD_PEEK_ADDED; pre.classList.add('none') }
+    pre.style.maxHeight=(ED_DD_PEEK_MAX_LINES*view.defaultLineHeight)+'px';
 
     node.querySelector('.fe-dd-peek-close').addEventListener('click',()=>this._ddClose());
     for(const b of node.querySelectorAll('.fe-dd-peek-act')){
       b.addEventListener('click',()=>this._ddAct(b.dataset.act,b));
     }
     // 조각 위에 뜬다. 삭제 조각의 자리도 같다 — 지워진 줄이 있던 자리가 그 위다.
-    const after=Math.max(0,ch.line-1);
-    const rows=Math.min(Math.max(old.length,1),ED_DD_PEEK_MAX_LINES);
-    this._editor.changeViewZones((acc)=>{
-      this._ddZone=acc.addZone({afterLineNumber:after,heightInLines:rows+1,domNode:node});
-    });
+    const doc=view.state.doc;
+    const at=ch.line>doc.lines?{pos:doc.length,side:1}:{pos:doc.line(Math.max(1,ch.line)).from,side:-1};
+    view.dispatch({effects:edDdPeek().set.of({node,pos:at.pos,side:at.side})});
     this._ddNode=node;
     this._ddChange=ch;
   },
@@ -475,7 +554,7 @@ Object.assign(FileEditor.prototype,{
     const dd=this._dd,ch=this._ddChange;
     if(!dd||!ch) return;
     if(act==='revert'){
-      dd.revert(ch,this._editor);
+      dd.revert(ch,this);
       this._ddClose();
       return;
     }
@@ -511,11 +590,7 @@ Object.assign(FileEditor.prototype,{
   },
 
   _ddClose(){
-    if(this._ddZone&&this._editor){
-      const id=this._ddZone;
-      this._editor.changeViewZones((acc)=>acc.removeZone(id));
-    }
-    this._ddZone=null;
+    if(this._ddNode&&this._view) this._view.dispatch({effects:edDdPeek().set.of(null)});
     this._ddNode=null;
     this._ddChange=null;
   },

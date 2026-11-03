@@ -5,6 +5,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit, waitSettled } from './fixtures';
+import { ED_SEL } from './editor';
 
 // ACCESSIBILITY_BASELINE_SRS §3.3 — TC-A11Y-1·2·3 (FR-A11Y-11~14 / M7 `G7-1`).
 //
@@ -27,7 +28,7 @@ const SRS = path.join(__dirname, '..', 'docs', 'internal', 'ACCESSIBILITY_BASELI
 /** 예외 번호 → axe 가 뺄 선택자. 벤더 표면(§6 의 "전부")만 여기 온다. */
 const EXEMPT_SELECTOR: Record<string, string> = {
   'E-1': '.xterm',
-  'E-2': '.monaco-editor',
+  'E-2': ED_SEL.surface,
 };
 
 /** §6 예외 등록부의 행들 — `| E-n | 자리 | 무엇을 적용하지 않나 | …`. */

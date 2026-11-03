@@ -5,6 +5,7 @@ import * as path from 'path';
 import { Page } from '@playwright/test';
 
 import { test, expect, rmTree, enterExplorer } from './fixtures';
+import { ED_SEL } from './editor';
 import { TMP, realPath, cssPath } from './osenv';
 
 /**
@@ -62,7 +63,7 @@ test.describe('편집기 창의 정상 상태 트래픽 (FR-OPT-4-1 · 4-2)', ()
     await enterExplorer(page, request, REPO);
     await expect(row(page, path.join(REPO, 'a.txt'))).toHaveAttribute('data-st', 'M', { timeout: 15000 });
     await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), path.join(REPO, 'a.txt'));
-    await page.waitForSelector('.file-editor .monaco-editor', { timeout: 20000 });
+    await page.waitForSelector(`.file-editor ${ED_SEL.surface}`, { timeout: 20000 });
     // 열 때의 요청(read·diff-content·첫 status)이 가라앉은 뒤부터 센다.
     await expect.poll(() => page.evaluate(() => {
       const a = (window as any).app;

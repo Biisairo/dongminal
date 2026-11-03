@@ -62,19 +62,20 @@ function gitBlobMetaLines(orig,mod){
 }
 
 /**
- * Monaco DiffEditor 한 개를 감싼다 (FR-GIT-43) — diff 하이라이트를 자체
- * 구현하지 않는다.
+ * CodeMirror 의 merge 뷰 한 개를 감싼다 (FR-GIT-43 · CODEMIRROR_MIGRATION_SRS 묶음 G) — diff
+ * 하이라이트를 자체 구현하지 않는다. 넓으면 `MergeView`(나란히), 좁으면 `unifiedMergeView` 편집기
+ * 하나(인라인)다 (FR-CMR-50·51).
  *
  * Changes 탭의 미리보기와 Diff 탭은 같은 것을 다른 크기로 보이는 것이므로 이
  * 클래스를 두 번 인스턴스화한다 (§3.2).
  *
- * 인스턴스는 탭·리포 전환에서 반드시 정리된다 (FR-GIT-56) — Monaco 에디터는
- * DOM 을 떼는 것으로 해제되지 않고, 남으면 모델과 리스너가 누적된다.
+ * 인스턴스는 탭·리포 전환에서 반드시 정리된다 (FR-GIT-56) — 편집기는 DOM 을 떼는 것으로
+ * 해제되지 않고, 남으면 문서 버퍼의 칸과 리스너가 누적된다.
  */
 class GitDiffView {
   constructor(opts){
     const o=opts||{};
-    this._breakpoint=o.inlineBreakpoint||GIT_DIFF_OPTIONS.renderSideBySideInlineBreakpoint;
+    this._breakpoint=o.inlineBreakpoint||GIT_DIFF_INLINE_BREAKPOINT;
     this._sideBySide=o.sideBySide!==false;
     this._ignoreWs=!!o.ignoreWhitespace;
     // FR-DOR-2: 기본은 접지 않는다. 접힌 문서의 개요 눈금은 실제 파일의 줄
@@ -93,7 +94,9 @@ class GitDiffView {
     this.onEditor=o.onEditor||null;
     this._absOf=o.absPath||null;
     this._seq=0; this._dead=false;
-    this._editor=null; this._orig=null; this._mod=null;
+    // `_cm`: 선 편집기 — `{kind:'split'|'unified', mv?, a?, b, scroller, cmpA?, cmpB, host, wrap}`.
+    // `_orig`·`_mod` 는 쪽의 표지다 (`lspPathOf`·e2e 어댑터).
+    this._cm=null; this._orig=null; this._mod=null;
     this._el=document.createElement('div');
     this._el.className='git-diff-view';
     this._el.innerHTML='<div class="ui-notice git-diff-note"></div><div class="git-diff-host"></div>';
@@ -101,9 +104,14 @@ class GitDiffView {
     this._host=this._el.querySelector('.git-diff-host');
     // REPO_FIX 05 §3A-3 (F-2.6): 저장 키는 FileEditor 와 같은 계층(FR-EKB-5)에서
     // 인스턴스당 한 번 건다 — 포커스가 이 뷰 안에 있을 때만 이 뷰의 문서를 저장한다.
-    this._el.addEventListener('keydown',e=>this._viewKey(e),true);
+    // 검색·코드 탐색 키도 여기서 판정한다 — 편집기 칸의 `_onKeyCapture` 와 같다. 글자를 치는 자리 안의 키는
+    // 전역 배선이 앱 단축키를 돌리지 않는다 (input-binding.js 의 `inText`).
+    this._el.addEventListener('keydown',e=>{
+      if(window.app&&window.app.edTrySearchKey(e)) return;
+      this._viewKey(e);
+    },true);
     // 작업 트리 쪽이 편집기 문서면 그 문서의 뷰(`diff-view-doc.js`), 아니면 null.
-    this._dv=null; this._modOwn=false;
+    this._dv=null; this._buf=null;
   }
 
   get el(){return this._el}
@@ -126,14 +134,14 @@ class GitDiffView {
      * 그릴 것이 이미 서 있으면 조용히 받는다. 결과는 `_draw` 가 얹고, 실패하면
      * `clear` 가 사유를 그 자리에 남긴다 — 알릴 것이 있을 때만 글자가 바뀐다.
      */
-    if(!this._editor) this._setNote(GIT_LOADING_HINT);
-    // Monaco 로드 실패는 밖으로 던지지 않는다 — Git 창의 나머지가 계속 동작해야
+    if(!this._cm) this._setNote(GIT_LOADING_HINT);
+    // 편집기 묶음의 로드 실패는 밖으로 던지지 않는다 — Git 창의 나머지가 계속 동작해야
     // 한다 (FR-GIT-55).
-    const loaded=await loadMonaco().then(()=>true,e=>{
-      console.error('[GitDiffView] monaco load failed:',e); return false;
+    const loaded=await loadCodeMirror().then(()=>true,e=>{
+      console.error('[GitDiffView] editor load failed:',e); return false;
     });
     if(this._stale(seq,token)) return;
-    if(!loaded){this.clear(GIT_DIFF_MONACO_FAIL);return}
+    if(!loaded){this.clear(GIT_DIFF_EDITOR_FAIL);return}
     // REPO_FIX 05 §3A-3: 편집 가능한 축은 편집기 문서를 먼저 얻고(03 의 문서 로드),
     // 그 인코딩으로 원본 쪽을 받는다. 두 단계 모두 뒤에서 다시 재확인한다.
     const dv=await this._docJoin(target,seq,token);
@@ -280,7 +288,7 @@ class GitDiffView {
       run:()=>{ this._imgMode=GIT_IMG_MODE_SIDE; this._drawImage(target,mime,a,b) }}]);
   }
 
-  // 본문 대신 안내를 보인다. 에디터와 모델은 함께 버린다 (FR-GIT-56).
+  // 본문 대신 안내를 보인다. 편집기는 함께 버린다 (FR-GIT-56).
   //
   // GIT_DIR_ENTRY_SRS FR-DIR-22: `acts` 는 그 안내에 딸린 진입점이다
   // (`[{label,title,run}]`). **무엇을 띄울지는 이 클래스가 정하지 않는다** —
@@ -293,42 +301,35 @@ class GitDiffView {
   }
 
   /**
-   * 에디터와 모델을 버린다. `clear` 와 그림 보기(FR-M9-20)가 함께 쓴다 — 그림을
-   * 그리는 자리도 Monaco 를 먼저 내려야 하고, 두 벌로 적으면 한쪽만 고쳐진다.
+   * 편집기를 버린다. `clear` 와 그림 보기(FR-M9-20)가 함께 쓴다 — 그림을
+   * 그리는 자리도 편집기를 먼저 내려야 하고, 두 벌로 적으면 한쪽만 고쳐진다.
    *
-   * 에디터를 버리기 **전에** 알린다 — 받은 쪽이 위젯을 떼야 하고, dispose 된
-   * 에디터에는 뗄 수도 없다 (FR-GIT-56).
+   * 편집기를 버리기 **전에** 알린다 — 받은 쪽이 툴바를 떼야 한다 (FR-GIT-56).
    */
   _dropEditor(){
     // FR-UXB-45: 패널은 `_host` 안에 산다 — 그릇이 비워지면 캐시한 요소는 문서
     // 밖의 것이 된다. 함께 버리지 않으면 다음 찾기가 보이지 않는 패널을 연다.
     this._findPanel=null;
-    this._findKeysOn=false;
-    if(this._editor&&this.onEditor) this.onEditor(null);
-    if(this._editor){this._editor.dispose();this._editor=null}
-    // 문서 모델은 이 뷰의 것이 아니다 — 버리지 않고 문서 뷰에서 빠진다 (§3A-3 해제).
-    this._dropModels(this._orig,this._modOwn?this._mod:null);
-    this._orig=null; this._mod=null; this._modOwn=false;
+    if(this._cm&&this.onEditor) this.onEditor(null);
+    this._cmDestroy();
+    this._orig=null; this._mod=null; this._buf=null;
+    // 문서 버퍼는 이 뷰의 것이 아니다 — 버리지 않고 문서 뷰에서 빠진다 (§3A-3 해제).
     this._docLeave();
     this._drawnKey=null;
   }
 
-  setSideBySide(on){ // FR-GIT-51
-    this._sideBySide=!!on;
-    if(this._editor) this._editor.updateOptions({renderSideBySide:this._sideBySide});
-  }
+  // FR-GIT-51 · FR-GIT-50 · FR-DOR-3: 보기 옵션이 바뀌면 같은 내용으로 다시 세운다. 내용·dirty 는 문서에 있다.
+  setSideBySide(on){ this._sideBySide=!!on; if(this._cm) this._cmBuild() }
+  setIgnoreWhitespace(on){ this._ignoreWs=!!on; if(this._cm) this._cmBuild() }
+  setHideUnchanged(on){ this._fold=!!on; if(this._cm) this._cmBuild() }
 
-  setIgnoreWhitespace(on){ // FR-GIT-50 의 사용자 토글
-    this._ignoreWs=!!on;
-    if(this._editor) this._editor.updateOptions({ignoreTrimWhitespace:this._ignoreWs});
+  // FR-CMR-51: 폭이 문턱을 넘었으면 보기를 바꾸고, 아니면 ruler 만 다시 그린다.
+  layout(){
+    const c=this._cm;
+    if(!c) return;
+    if(c.kind!==this._cmKind()){this._cmBuild();return}
+    c.b.requestMeasure(c.ruler);
   }
-
-  setHideUnchanged(on){ // FR-DOR-3
-    this._fold=!!on;
-    if(this._editor) this._editor.updateOptions({hideUnchangedRegions:{enabled:this._fold}});
-  }
-
-  layout(){ if(this._editor) this._editor.layout() }
 
   destroy(){ this._dead=true; this.clear('') }
 
@@ -355,75 +356,185 @@ class GitDiffView {
 
   _draw(path,orig,mod,note,target,dv){
     /**
-     * UX_BATCH6_SRS FR-GLV-3: **내용이 그대로면 모델을 갈지 않는다.**
+     * UX_BATCH6_SRS FR-GLV-3: **내용이 그대로면 편집기를 다시 세우지 않는다.**
      *
-     * 폴링이 나른 재적재(FR-GLV-1)는 대부분 같은 값을 가져온다. 그때마다
-     * `createModel` → `setModel` 을 지나면 커서·스크롤·접힘이 매 회차 원점으로
-     * 돌아가 화면을 읽을 수 없다 — 실시간 갱신을 얻으려다 읽기를 잃는 거래다.
+     * 폴링이 나른 재적재(FR-GLV-1)는 대부분 같은 값을 가져온다. 그때마다 다시 세우면
+     * 커서·스크롤·접힘이 매 회차 원점으로 돌아가 화면을 읽을 수 없다.
      *
      * 근거에 **대상**을 함께 넣는다. 내용만 보면 내용이 같은 다른 파일로 옮겼을 때
      * 건너뛰어, `_bindEdit` 이 앞 파일의 절대경로를 든 채로 남는다.
      *
      * REPO_FIX 05 §3A-3: 작업 트리 쪽이 문서면 그 쪽은 문서 refresh 가 갱신한다 —
-     * 여기서는 원본 쪽만 바꾼다(dirty 여도 된다: 문서 모델을 건드리지 않는다).
+     * 여기서는 원본 쪽만 바꾼다(dirty 여도 된다: 문서 버퍼를 건드리지 않는다).
      */
     const key=this._drawKey(target,path);
-    const model=this._docModelOf(dv);
-    if(this._editor&&this._orig&&this._mod&&this._drawnKey===key){
-      if(model&&this._dv===dv&&this._mod===model){
+    const buf=this._docBufOf(dv);
+    const c=this._cm;
+    if(c&&this._drawnKey===key){
+      if(buf&&this._dv===dv&&this._buf===buf){
         this._setNote(note);
-        if(this._orig.getValue()===orig) return;
-        this._orig.setValue(orig);
+        if(this._origText===orig) return;
+        this._cmSetOrig(orig);
         if(this.onChanged) this.onChanged();
         return;
       }
-      if(!model&&!this._dv&&this._orig.getValue()===orig&&this._mod.getValue()===mod){
+      if(!buf&&!this._dv&&this._origText===orig&&c.b.state.doc.toString()===mod){
         this._setNote(note);
         return;
       }
     }
     this._drawnKey=key;
     this._setNote(note);
-    const lang=monacoLang(path);
-    if(!this._editor){
-      // UX_BATCH10_SRS FR-UXB-40·41: 본문을 그리는 규약은 편집기 탭과 **같은
-      // 덩이**에서 온다 (`edTextOptions`). 그 앞에 `GIT_DIFF_OPTIONS` 가 오는
-      // 것은 diff 만의 것(읽기 전용·좌우 배치·개요 눈금)이 거기 살기 때문이고,
-      // 뒤에 오는 셋은 이 인스턴스의 토글이다.
-      this._editor=monaco.editor.createDiffEditor(this._host,Object.assign({},GIT_DIFF_OPTIONS,edTextOptions(),{
-        renderSideBySide:this._sideBySide,
-        renderSideBySideInlineBreakpoint:this._breakpoint,
-        ignoreTrimWhitespace:this._ignoreWs,
-        hideUnchangedRegions:{enabled:this._fold},
-        theme:monacoTheme(),
-      }));
-      // UX_BATCH10_SRS 묶음 D: 편집기와 같아지는 셋을 여기서 건다 — 미니맵의
-      // 한쪽(FR-UXB-42) · Monaco find 위젯 닫기(FR-UXB-44) · 언어 provider
-      // 등록(FR-UXB-47). 본문은 `diff-view-parity.js` 에 있다.
-      this._applyMinimapSides();
-      this._findKillWidgetKeys();
-      if(window.app&&window.app.lspHoverRegister) window.app.lspHoverRegister();
-      // 생성은 한 번뿐이다 — 아래 setModel 이 대상마다 모델만 갈아끼운다. 그래서
-      // 이 훅도 에디터의 수명에 한 번 돈다 (FR-DHB-21·22).
-      if(this.onEditor) this.onEditor(this._editor.getModifiedEditor());
-    }
-    const prevO=this._orig,prevM=this._modOwn?this._mod:null;
-    this._orig=monaco.editor.createModel(orig,lang);
-    this._mod=model||monaco.editor.createModel(mod,lang);
-    this._modOwn=!model;
-    this._editor.setModel({original:this._orig,modified:this._mod});
-    // 이전 모델은 새 모델을 붙인 뒤에 버린다 — 먼저 버리면 에디터가 사라진 모델을
-    // 읽는다 (FR-GIT-56). 앞 문서에서 빠지는 것도 그 뒤다(마지막 뷰면 모델이 버려진다).
-    this._dropModels(prevO,prevM);
-    this._docSwitch(model?dv:null);
+    this._path=path;
+    this._origText=orig;
+    this._modText=mod;
+    this._buf=buf||null;
+    // 새 칸을 버퍼에 붙인 뒤에 앞 문서에서 빠진다 — 앞 문서의 마지막 뷰였으면 그 버퍼가 여기서 버려진다.
+    this._cmBuild();
+    this._docSwitch(buf?dv:null);
     // REPO_TAB_UNIFY_SRS FR-RTU-50: 오른쪽이 **디스크의 파일**인 축에서만 편집을
     // 연다. 판정은 `GIT_AXIS_EDITABLE` 한 자리(`_shareAbs`)이며 여기서 다시 세지 않는다.
     this._bindEdit();
-    TIMERS.frame(()=>this.layout(),{owner:this,label:'diff-layout'});
     // FR-GLV-1: **내용이 실제로 바뀐 회차에만** 알린다. 조각(hunk) 관측처럼 이
     // 본문에서 파생되는 것들이 그때만 다시 받으면 되고, 그러지 않으면 폴링마다
     // 두 번째 요청이 따라붙는다.
     if(this.onChanged) this.onChanged();
+  }
+
+  // FR-CMR-51: 지금 폭에서 설 보기.
+  _cmKind(){
+    return this._sideBySide&&this._host.clientWidth>=this._breakpoint?'split':'unified';
+  }
+
+  /**
+   * 편집기를 (다시) 세운다. 원본은 `_origText`, 수정본은 문서 버퍼(`_buf`)가 있으면 그것, 없으면 `_modText` 다.
+   * 다시 세우면 스크롤 비율을 지킨다 (FR-CMR-51). 수정본 쪽 실행 취소 기록은 끊긴다 (§3.16).
+   */
+  _cmBuild(){
+    const prev=this._cm;
+    const ratio=prev?this._cmScrollRatio(prev):0;
+    if(prev){
+      if(this.onEditor) this.onEditor(null);
+      this._findPanel=null;
+      this._cmDestroy();
+    }
+    const kind=this._cmKind();
+    const opts={diff:true,readOnly:true,wordWrap:editorWordWrap,fontSize:edFontSize()};
+    const ea=edCmExtensions(opts),eb=edCmExtensions(opts);
+    const buf=this._buf;
+    const c={kind,cmpA:ea.cmp,cmpB:eb.cmp,ruler:null};
+    const diffConfig=this._ignoreWs?{override:gitDiffIgnoreWs}:{};
+    const collapse=this._fold?GIT_DIFF_COLLAPSE:undefined;
+    const listen=CM.EditorView.updateListener.of((u)=>{
+      if(buf&&c.b===u.view) buf.fromSink(u.view,u.transactions);
+      if(c.host) c.host._update(u);
+      if(u.docChanged||u.geometryChanged||u.heightChanged) u.view.requestMeasure(c.ruler);
+    });
+    const bExt=[...eb.extensions,listen,gitDiffHunkBar().field,
+      CM.EditorView.editorAttributes.of({class:'git-diff-side-mod'})];
+    const aExt=[...ea.extensions,CM.EditorView.editorAttributes.of({class:'git-diff-side-orig'})];
+    const bDoc=buf?buf.doc:this._modText;
+    const wrap=document.createElement('div');
+    // FR-GIT-51: 나란히 보기의 표식 (옛 엔진 때 바깥 요소의 `side-by-side` 와 같다).
+    wrap.className='git-diff-cm'+(kind==='split'?' side-by-side':'');
+    const pane=document.createElement('div');
+    pane.className='git-diff-pane';
+    const rul=document.createElement('canvas');
+    rul.className='git-diff-ruler';
+    wrap.append(pane,rul);
+    this._host.textContent='';
+    this._host.appendChild(wrap);
+    if(kind==='split'){
+      c.mv=new CM.MergeView({a:{doc:this._origText,extensions:aExt},b:{doc:bDoc,extensions:bExt},
+        parent:pane,diffConfig,collapseUnchanged:collapse});
+      c.a=c.mv.a; c.b=c.mv.b; c.scroller=c.mv.dom;
+    }else{
+      c.b=new CM.EditorView({parent:pane,state:CM.EditorState.create({doc:bDoc,extensions:[...bExt,
+        CM.unifiedMergeView({original:this._origText,diffConfig,collapseUnchanged:collapse,mergeControls:false})]})});
+      c.scroller=c.b.scrollDOM;
+    }
+    c.scroller.classList.add('ui-scroll');
+    c.wrap=wrap; c.rul=rul;
+    c.ruler={key:c,read:()=>this._cmRulerRead(c),write:(m)=>this._cmRulerWrite(c,m)};
+    c.resize=new ResizeObserver(()=>this.layout());
+    c.resize.observe(this._host);
+    c.host=gitDiffCursorHost(c.b);
+    this._cm=c;
+    this._orig=c.a||{side:'orig'};
+    this._mod=c.b;
+    GitDiffView.live.add(this);
+    if(buf) buf.attach(c.b);
+    edCmLangLoad(this._path).then((lang)=>{
+      if(this._cm!==c||!lang) return;
+      if(c.a) c.a.dispatch({effects:c.cmpA.lang.reconfigure(lang)});
+      c.b.dispatch({effects:c.cmpB.lang.reconfigure(lang)});
+    });
+    c.b.requestMeasure(c.ruler);
+    if(ratio) TIMERS.frame(()=>{ if(this._cm===c) c.scroller.scrollTop=ratio*(c.scroller.scrollHeight-c.scroller.clientHeight) },{owner:this,label:'diff-scroll'});
+    if(this._editable!==undefined) this._bindEdit();
+    if(this.onEditor) this.onEditor(c.host);
+  }
+
+  _cmScrollRatio(c){
+    const s=c.scroller,range=s.scrollHeight-s.clientHeight;
+    return range>0?s.scrollTop/range:0;
+  }
+
+  _cmDestroy(){
+    const c=this._cm;
+    if(!c) return;
+    this._cm=null;
+    GitDiffView.live.delete(this);
+    if(this._buf) this._buf.detach(c.b);
+    c.host._dispose();
+    c.resize.disconnect();
+    if(c.mv) c.mv.destroy(); else c.b.destroy();
+    c.wrap.remove();
+  }
+
+  // 원본 쪽만 바꾼다 — 수정본(문서)은 건드리지 않는다.
+  _cmSetOrig(orig){
+    const c=this._cm;
+    this._origText=orig;
+    if(c.a){c.a.dispatch({changes:{from:0,to:c.a.state.doc.length,insert:orig}});return}
+    const old=CM.getOriginalDoc(c.b.state);
+    c.b.dispatch({effects:CM.originalDocChangeEffect(c.b.state,CM.ChangeSet.of({from:0,to:old.length,insert:orig},old.length))});
+  }
+
+  /** 지금 조각들 — 나란히면 merge 뷰의 것, 인라인이면 편집기 상태의 것. */
+  chunks(){
+    const c=this._cm;
+    if(!c) return null;
+    if(c.mv) return c.mv.chunks;
+    const r=CM.getChunks(c.b.state);
+    return r?r.chunks:null;
+  }
+
+  // FR-CMR-57 · FR-DOR-1: Diff 전체의 변경 위치를 본문 **밖** ruler 에 찍는다. 세로 자리는 스크롤 그릇의 내용
+  // 높이에 대한 비율이다 (FR-CMR-71 과 같은 식).
+  _cmRulerRead(c){
+    const s=c.scroller;
+    const top=c.b.documentTop-s.getBoundingClientRect().top+s.scrollTop;
+    const items=gitDiffRulerItems(this.chunks()).map((it)=>{
+      const y=edRulerY(top+c.b.lineBlockAt(it.from).top,s.scrollHeight,s.clientHeight);
+      const y2=edRulerY(top+c.b.lineBlockAt(Math.min(it.to,c.b.state.doc.length)).bottom,s.scrollHeight,s.clientHeight);
+      return {...it,y,h:Math.max(ED_RULER_MIN_H,y2-y)};
+    });
+    return {h:s.clientHeight,items};
+  }
+
+  _cmRulerWrite(c,m){
+    const cv=c.rul,dpr=window.devicePixelRatio||1;
+    cv.width=ED_SCROLL_W*dpr; cv.height=m.h*dpr; cv.style.height=m.h+'px';
+    this._rulerItems=m.items;
+    const ctx=cv.getContext('2d');
+    if(!ctx) return;
+    ctx.scale(dpr,dpr);
+    const css=getComputedStyle(c.wrap),half=ED_SCROLL_W/2;
+    for(const it of m.items){
+      ctx.fillStyle=css.getPropertyValue(it.color).trim();
+      ctx.fillRect(it.lane==='left'?0:half,it.y,half,it.h);
+    }
   }
 
   // 그린 대상의 식별자. `_showTarget` 의 키와 같은 축이되 `origPath` 는 빼지
@@ -452,10 +563,6 @@ class GitDiffView {
   // 여기 포함되지 않는다: 그쪽은 일시적일 수 있다.
   get refused(){ return !!this._refused }
 
-  _dropModels(){
-    for(const m of arguments) if(m) m.dispose();
-  }
-
   // 안내 한 줄과 그 아래 메타 줄들 (FR-GIT-46·47·48). 메타는 별도 요소여야
   // 사유와 값이 한 줄로 뭉치지 않는다.
   _setNote(text,meta,acts){
@@ -476,3 +583,5 @@ class GitDiffView {
     this._note.classList.toggle('vis',!!(text||lines.length||list.length));
   }
 }
+// 살아 있는 편집기를 든 Diff 뷰 — 누수 판정(e2e `counts`)이 센다.
+GitDiffView.live=new Set();

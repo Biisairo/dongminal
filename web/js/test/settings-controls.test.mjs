@@ -17,7 +17,7 @@ const ctx = load(['core/app-settings.js'], {
 
 const CTLS = {
   'ds-fgnames': 'check', 'ds-claudefs': 'check', 'ds-confirmleave': 'check',
-  'ds-wordwrap': 'check', 'ds-minimap': 'check', 'ds-diffminimap': 'check',
+  'ds-wordwrap': 'check', 'ds-minimap': 'check',
   'ds-tabfix': 'check', 'ds-tabw': 'value', 'ds-title': 'value',
 };
 
@@ -37,7 +37,7 @@ test('FEC-26: _paintSettingControls 가 전역 값으로 칠하고, 치는 중�
   ctx.document.getElementById = (id) => els[id] || null;
   Object.assign(ctx, {
     fgTabNames: true, claudeFullscreen: true, confirmLeave: false, editorWordWrap: true,
-    editorMinimap: false, diffMinimap: true, tabFixedWidth: true, tabWidthPx: 180, pageTitle: 'T',
+    editorMinimap: false, tabFixedWidth: true, tabWidthPx: 180, pageTitle: 'T',
   });
   ctx.document.activeElement = els['ds-title'];
   els['ds-title'].value = 'typing';
@@ -48,7 +48,6 @@ test('FEC-26: _paintSettingControls 가 전역 값으로 칠하고, 치는 중�
   assert.equal(els['ds-confirmleave'].checked, false);
   assert.equal(els['ds-wordwrap'].checked, true);
   assert.equal(els['ds-minimap'].checked, false);
-  assert.equal(els['ds-diffminimap'].checked, true);
   assert.equal(els['ds-tabfix'].checked, true);
   assert.equal(els['ds-tabw'].value, '180');
   assert.equal(els['ds-title'].value, 'typing', '치는 중인 글자를 덮었다');

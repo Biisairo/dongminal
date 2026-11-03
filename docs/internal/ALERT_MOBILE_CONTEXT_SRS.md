@@ -59,7 +59,7 @@
 - [`./MOBILE_TUI_INPUT_SCROLL_SRS.md`](./MOBILE_TUI_INPUT_SCROLL_SRS.md) FR-MTI-14·22·26 —
   키보드가 올라가고 내려가는 현재의 경로
 - [`./ORCHESTRATION_V2_SRS.md`](./ORCHESTRATION_V2_SRS.md) 묶음 C·V — 컨텍스트 관측
-- [`./UX_BATCH6_SRS.md`](./UX_BATCH6_SRS.md) FR-CTX-1~9 — 실측 토큰·창 크기
+- [`./UX_BATCH6_SRS.md`](./archive/UX_BATCH6_SRS.md) FR-CTX-1~9 — 실측 토큰·창 크기
 
 ---
 

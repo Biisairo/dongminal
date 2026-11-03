@@ -677,7 +677,7 @@ Object.assign(App.prototype, {
    *             정하는 것은 사용자다 (FR-RTU-30·33)
    *
    * 뷰의 상태(스크롤·선택·diff 대상)는 **패널**이 들고 있으므로 다시 열면
-   * 그대로다 (FR-RTU-34). 놓는 것은 그 뷰의 DOM 과 Monaco 뿐이며, 그것이
+   * 그대로다 (FR-RTU-34). 놓는 것은 그 뷰의 DOM 과 편집기뿐이며, 그것이
    * NFR-RTU-3 이 요구하는 것이다 — 탭이 없는 뷰는 인스턴스도 없다.
    */
   _closeTabAsk(s,tab,opts){

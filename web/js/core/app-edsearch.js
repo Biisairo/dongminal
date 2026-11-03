@@ -6,8 +6,8 @@
  * 무엇을 그리는지만 다르다. 한 벌로 두는 이유는 키 조작(↑↓·Enter·Escape)이
  * 완전히 같기 때문이다 — 두 벌로 두면 한쪽만 고쳐진다.
  *
- * 파일 내 검색은 여기서 패널을 만들지 않는다 (FR-EKB-3) — Monaco 의 find 위젯이
- * 이미 그 자리이고 우리가 만들 어떤 것도 그보다 낫지 않다. 다만 **여는 키는**
+ * 파일 내 검색은 여기서 패널을 만들지 않는다 (FR-EKB-3) — 파일 패널(`file-editor-find.js`)이
+ * 그 자리다. 다만 **여는 키는**
  * 다른 둘과 같은 체계로 온다 (FR-EKB-5): 셋이 나란히 설정에 보여야 한다.
  */
 Object.assign(App.prototype, {
@@ -32,7 +32,7 @@ Object.assign(App.prototype, {
   // 떴다 (실측). 접수 5번의 절반이 이 한 줄이다.
   _edFindReady(){
     const v=this._edActiveEditor();
-    if(v&&v._editor) return true;
+    if(v&&v._view) return true;
     return !!this._edActiveDiff();
   },
 
@@ -47,7 +47,7 @@ Object.assign(App.prototype, {
   _edActiveDiff(){
     const p=this.gitPanel;
     const d=p&&p._diffView;
-    if(!d||!d._editor||!d.el) return null;
+    if(!d||!d._cm||!d.el) return null;
     return d.el.offsetParent!==null?d:null;
   },
 
@@ -56,10 +56,10 @@ Object.assign(App.prototype, {
 
   /**
    * EDITOR_FIND_PANEL_SRS FR-EFP-25 가 FR-EKB-3 을 개정했다 — 파일 내 검색은
-   * **우리 패널**이며 Monaco 의 find 위젯이 아니다.
+   * **우리 패널**이며 편집 엔진의 기본 찾기 위젯이 아니다.
    *
    * 종전 본문은 `ed.focus()` 뒤에 `actions.find` 를 트리거했다. 그 두 줄이 결함의
-   * 절반이었다: Monaco 가 이미 위젯을 열어 find 입력칸에 포커스를 준 뒤였으므로,
+   * 절반이었다: 옛 엔진이 이미 위젯을 열어 find 입력칸에 포커스를 준 뒤였으므로,
    * `ed.focus()` 가 그 포커스를 **본문으로 되돌려** 위젯이 글자를 못 받았고
    * 타이핑이 문서에 삽입됐다 (그 SRS §2.3·2.4).
    *
@@ -83,12 +83,8 @@ Object.assign(App.prototype, {
    */
   _edSelectionSeed(){
     const v=this._edActiveEditor();
-    const ed=v&&v._editor;
-    if(!ed) return '';
-    const sel=ed.getSelection();
-    if(!sel||sel.isEmpty()||sel.startLineNumber!==sel.endLineNumber) return '';
-    const m=ed.getModel();
-    return m?m.getValueInRange(sel):'';
+    const eng=v&&v._findEngine?v._findEngine():null;
+    return (eng&&eng.selText())||'';
   },
 
   // 활성 Editor 창에서 지금 보이는 편집기. `fileEditors` 는 탭 id 로 열려 있고
@@ -105,7 +101,7 @@ Object.assign(App.prototype, {
   },
 
   /**
-   * FR-EKB-1·5: 편집기 검색 세 키의 **단일 판정 자리**. Monaco 안(file-editor.js)
+   * FR-EKB-1·5: 편집기 검색 세 키의 **단일 판정 자리**. 편집기 안(file-editor.js)
    * 과 밖(input-binding.js) 두 곳에서 부른다 — 두 벌로 두면 한쪽만 고쳐진다.
    *
    * Editor 창이 아니면 **삼키지 않고 false 를 돌려준다** (FR-EKB-4). 터미널
@@ -135,17 +131,14 @@ Object.assign(App.prototype, {
    *  - 코드 탐색 — 편집기가 **서 있어야** 하고 루트가 있어야 한다 (서버에 root 를
    *    함께 보내므로). 뒤로 가기는 갈 자리가 있어야 한다 (FR-LSP-40b).
    *  - 파일 내 검색 — 편집기가 서 있어야 한다. 인스턴스가 있는 것만으로는 부족하다
-   *    — 이미지·이진 파일 탭은 인스턴스는 있고 Monaco 는 없다 (FR-EFP-13).
+   *    — 이미지·이진 파일 탭은 인스턴스는 있고 편집기는 없다 (FR-EFP-13).
    *  - 나머지 검색 둘 — 루트만 있으면 된다.
    *  - 모두 저장 (FUI-07) — **활성 창이 Editor 창이어야 한다.** 루트가 있는
    *    것만으로는 부족하다: 저장 대상이 "이 창의 탭들" 이므로 창이 답의
    *    일부다. 아니면 false 를 돌려 그 키가 터미널로 내려간다 (FR-EKB-4).
    */
   _edKeyGate(action){
-    if(ED_LSP_ACTIONS[action]){
-      if(action==='edNavBack') return this._lspCanBack();
-      return this._edFindReady()&&!!this._edSearchRoot();
-    }
+    if(ED_LSP_ACTIONS[action]) return this._edFindReady()&&!!this._edSearchRoot();
     if(action==='edFindInFile') return this._edFindReady();
     if(action==='edSaveAll') return this.isEditorWin(this.aw());
     return !!this._edSearchRoot();

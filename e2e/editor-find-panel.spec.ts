@@ -1,7 +1,7 @@
 /**
  * EDITOR_FIND_PANEL_SRS §4 — V-EFP-1~19.
  *
- * 재려는 결함은 이것이다 (그 SRS §2.4): `Mod+F` 를 누르면 Monaco 의 find 위젯이
+ * 재려는 결함은 이것이다 (그 SRS §2.4): `Mod+F` 를 누르면 옛 엔진의 find 위젯이
  * 뜨는데 포커스는 편집기 본문에 남아, **타이핑한 글자가 파일에 삽입됐다.**
  * 검색하려고 누른 키가 문서를 편집한 것이다.
  *
@@ -13,6 +13,7 @@ import * as path from 'path';
 
 import { APIRequestContext, Page } from '@playwright/test';
 
+import { ED_SEL } from './editor';
 import { test, expect, rmTree, switchToEditorRoot, openExplorerSide } from './fixtures';
 import { TMP, realPath } from './osenv';
 
@@ -77,16 +78,16 @@ async function enter(page: Page, request: APIRequestContext) {
   await expect(page.locator('.ed-tree .ed-row').first()).toBeVisible({ timeout: 10000 });
 }
 
-// 파일을 열고 그 탭의 Monaco 가 실제로 설 때까지 기다린다.
+// 파일을 열고 그 탭의 편집기가 실제로 설 때까지 기다린다.
 //
-// `.monaco-editor` 를 세지 않는 이유는 **탭마다 하나가 남기 때문이다** — 두 번째
+// 편집기 바깥 요소(`ED_SEL.surface`)를 세지 않는 이유는 **탭마다 하나가 남기 때문이다** — 두 번째
 // 탭을 열면 첫 편집기는 숨겨진 채 DOM 에 남고, `.first()` 는 그 숨은 것을 잡는다.
 // 기다릴 대상은 "지금 활성인 편집기가 이 파일이고 화면에 있다" 는 사실이다.
 async function openFile(page: Page, name: string) {
   await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), P(name));
   await page.waitForFunction((n) => {
     const v = (window as any).app.testing.edActiveEditor();
-    return !!(v && v._editor && new RegExp('[\\\\/]' + n + '$').test(String(v.filePath)) && v.el.offsetParent !== null);
+    return !!(v && edT.has(v) && new RegExp('[\\\\/]' + n + '$').test(String(v.filePath)) && v.el.offsetParent !== null);
   }, name, { timeout: 20000 });
 }
 
@@ -95,9 +96,9 @@ async function openFile(page: Page, name: string) {
 // **보이는** 편집기로 스코프한다. 탭을 둘 열면 숨은 편집기가 DOM 에 남고,
 // 스코프 없는 `.first()` 는 그것을 클릭하려다 멎는다 (`openFile` 과 같은 함정).
 async function focusBody(page: Page) {
-  await page.locator('.file-editor:visible .monaco-editor .view-lines').first().click();
+  await page.locator(`.file-editor:visible ${ED_SEL.surface} ${ED_SEL.text}`).first().click();
   await page.waitForFunction(
-    () => !!document.activeElement?.closest('.monaco-editor'), undefined, { timeout: 5000 });
+    (s) => !!document.activeElement?.closest(s), ED_SEL.surface, { timeout: 5000 });
 }
 
 // **보이는** 패널을 가리킨다. 탭을 떠난 패널은 `vis` 를 유지한 채 숨은 편집기
@@ -109,11 +110,11 @@ const count = (page: Page) => page.locator('.fe-find.vis:visible .fe-find-count'
 const opt = (page: Page, k: string) =>
   page.locator(`.fe-find.vis:visible .fe-find-opt[data-opt="${k}"]`);
 
-// Monaco 자신의 위젯. 이것이 뜨면 이번 작업이 실패한 것이다 (FR-EFP-4).
-const monacoWidget = (page: Page) => page.locator('.monaco-editor .find-widget.visible');
+// 엔진 자신의 찾기 패널. 이것이 뜨면 이번 작업이 실패한 것이다 (FR-EFP-4).
+const builtinWidget = (page: Page) => page.locator(`${ED_SEL.surface} ${ED_SEL.builtinFind}`);
 
 const docText = (page: Page) => page.evaluate(
-  () => (window as any).app.testing.edActiveEditor()?._editor?.getModel()?.getValue() ?? '');
+  () => { const h = edT.of((window as any).app.testing.edActiveEditor()); return h ? edT.text(h) : ''; });
 
 async function openFind(page: Page) {
   await page.keyboard.press('Control+f');
@@ -122,13 +123,13 @@ async function openFind(page: Page) {
 
 test.describe('편집기 파일 내 찾기 패널', () => {
   // V-EFP-1 · FR-EFP-1·2·4
-  test('Mod+F 에 Monaco 위젯이 아니라 우리 패널이 뜬다', async ({ page, request }) => {
+  test('Mod+F 에 엔진 기본 패널이 아니라 우리 패널이 뜬다', async ({ page, request }) => {
     await enter(page, request);
     await openFile(page, 'find.txt');
     await focusBody(page);
 
     await openFind(page);
-    await expect(monacoWidget(page), 'Monaco find 위젯이 떴다').toHaveCount(0);
+    await expect(builtinWidget(page), '엔진 기본 찾기 위젯이 떴다').toHaveCount(0);
     await expect(q(page)).toBeFocused();
   });
 
@@ -165,7 +166,7 @@ test.describe('편집기 파일 내 찾기 패널', () => {
   });
 
   // V-EFP-4 · FR-EFP-4 — 길을 하나만 닫으면 나머지로 들어온다 (§2.6).
-  test('Mod+H · Mod+E · F3 로도 Monaco 위젯이 뜨지 않는다', async ({ page, request }) => {
+  test('Mod+H · Mod+E · F3 로도 엔진 기본 패널이 뜨지 않는다', async ({ page, request }) => {
     await enter(page, request);
     await openFile(page, 'find.txt');
 
@@ -174,7 +175,7 @@ test.describe('편집기 파일 내 찾기 패널', () => {
       await page.keyboard.press(key);
       // **예외 (`TEST-16`)**: 위젯이 **뜨지 않음**을 잰다.
       await page.waitForTimeout(300);
-      await expect(monacoWidget(page), `${key} 로 위젯이 떴다`).toHaveCount(0);
+      await expect(builtinWidget(page), `${key} 로 위젯이 떴다`).toHaveCount(0);
       await page.keyboard.press('Escape');
     }
   });
@@ -222,8 +223,8 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     await page.keyboard.type('needle');
     await expect(count(page)).toHaveText('1/4', { timeout: 5000 });
 
-    await expect(page.locator('.monaco-editor .fe-find-hit').first()).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('.monaco-editor .fe-find-hit-cur')).toHaveCount(1);
+    await expect(page.locator(`${ED_SEL.surface} .fe-find-hit`).first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(`${ED_SEL.surface} .fe-find-hit-cur`)).toHaveCount(1);
   });
 
   // V-EFP-8 · FR-EFP-15
@@ -240,9 +241,7 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     await expect(count(page)).toHaveText('4/4');
     // `smoothScrolling` 이 켜져 있어 스크롤은 애니메이션이다 — 도착을 기다린다.
     await page.waitForFunction((ln) => {
-      const ed = (window as any).app.testing.edActiveEditor()._editor;
-      return ed.getVisibleRanges().some(
-        (x: any) => x.startLineNumber <= ln && ln <= x.endLineNumber);
+      return edT.lineVisible(edT.of((window as any).app.testing.edActiveEditor()), ln);
     }, NEEDLE_LINE_LAST, { timeout: 5000 });
   });
 
@@ -253,12 +252,12 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     await focusBody(page);
     await openFind(page);
     await page.keyboard.type('needle');
-    await expect(page.locator('.monaco-editor .fe-find-hit').first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator(`${ED_SEL.surface} .fe-find-hit`).first()).toBeVisible({ timeout: 5000 });
 
     await page.keyboard.press('Escape');
     await expect(findPanel(page)).toBeHidden();
-    await expect(page.locator('.monaco-editor .fe-find-hit')).toHaveCount(0);
-    expect(await page.evaluate(() => !!document.activeElement?.closest('.monaco-editor')),
+    await expect(page.locator(`${ED_SEL.surface} .fe-find-hit`)).toHaveCount(0);
+    expect(await page.evaluate((s) => !!document.activeElement?.closest(s), ED_SEL.surface),
       '포커스가 편집기로 돌아오지 않았다').toBe(true);
   });
 
@@ -269,9 +268,9 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     await focusBody(page);
     // 1행의 `needle` 을 고른다 (7~13열).
     await page.evaluate(() => {
-      const ed = (window as any).app.testing.edActiveEditor()._editor;
-      ed.setSelection({ startLineNumber: 1, startColumn: 7, endLineNumber: 1, endColumn: 13 });
-      ed.focus();
+      const ed = edT.of((window as any).app.testing.edActiveEditor());
+      edT.setSelection(ed, 1, 7, 1, 13);
+      edT.focus(ed);
     });
 
     await openFind(page);
@@ -353,7 +352,7 @@ test.describe('편집기 파일 내 찾기 패널', () => {
 
     await expect(findPanel(page)).toHaveClass(/\bbad-re\b/, { timeout: 5000 });
     await expect(count(page)).not.toHaveText('1/0');
-    await expect(page.locator('.monaco-editor .fe-find-hit')).toHaveCount(0);
+    await expect(page.locator(`${ED_SEL.surface} .fe-find-hit`)).toHaveCount(0);
   });
 
   // V-EFP-15 · FR-EFP-17 — 낡은 하이라이트가 남으면 그것이 거짓말이 된다.
@@ -367,12 +366,7 @@ test.describe('편집기 파일 내 찾기 패널', () => {
 
     // 편집기에 한 건을 더 넣는다 — 패널을 거치지 않고 모델을 직접 고친다.
     await page.evaluate(() => {
-      const ed = (window as any).app.testing.edActiveEditor()._editor;
-      const m = ed.getModel();
-      m.applyEdits([{
-        range: { startLineNumber: 4, startColumn: 1, endLineNumber: 4, endColumn: 1 },
-        text: 'needle added\n',
-      }]);
+      edT.docInsert(edT.of((window as any).app.testing.edActiveEditor()), 4, 1, 'needle added\n');
     });
     await expect(count(page)).toHaveText(/\/5$/, { timeout: 5000 });
   });
@@ -406,45 +400,14 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     await expect(q(page)).toHaveValue('needle');
   });
 
-  // V-EFP-21 · FR-EFP-4b / D-5b — 무효화가 **이 편집기에만** 걸린다.
-  //
-  // Git 의 diff 뷰도 Monaco 이고 그 뷰에는 우리 패널이 없다 (SRS §2.11). 전역
-  // 규칙으로 막으면 거기서 되던 것을 아무것도 되지 않게 만든다 — 되던 것을
-  // 조용히 없애지 않는다.
-  test('무효화는 이 편집기에만 걸린다 — 다른 Monaco 는 자기 위젯을 갖는다', async ({ page, request }) => {
-    await enter(page, request);
-    await openFile(page, 'find.txt');
-    await focusBody(page);
-    // 우리 편집기에서는 닫혀 있다.
-    await page.keyboard.press('Control+h');
-    // **예외 (`TEST-16`)**: 위젯이 **뜨지 않음**을 잰다.
-    await page.waitForTimeout(300);
-    await expect(monacoWidget(page)).toHaveCount(0);
-
-    // 같은 페이지에 새로 세운 Monaco 는 그 규칙에 걸리지 않는다 — 전역으로
-    // 걸었다면 이 에디터의 위젯도 함께 죽는다.
-    const opened = await page.evaluate(async () => {
-      const host = document.createElement('div');
-      host.style.cssText = 'position:fixed;left:0;bottom:0;width:300px;height:120px;z-index:5';
-      host.id = 'probe-monaco';
-      document.body.appendChild(host);
-      const ed = (window as any).monaco.editor.create(host, { value: 'needle probe\n' });
-      ed.focus();
-      ed.trigger('probe', 'actions.find', null);
-      await new Promise((r) => setTimeout(r, 300));
-      const on = !!host.querySelector('.find-widget.visible');
-      ed.dispose();
-      host.remove();
-      return on;
-    });
-    expect(opened, '다른 Monaco 의 find 위젯까지 죽었다 (전역 규칙을 걸었다)').toBe(true);
-  });
+  // V-EFP-21 · FR-EFP-4b 는 걷었다 — 따로 세운 옛 엔진 편집기의 위젯을 쟀다. CodeMirror 설정에는
+  // 막을 기본 위젯이 없다. Diff 뷰 쪽은 `ux-batch10` 이 잰다 (CODEMIRROR_MIGRATION_SRS §3.16, M9).
 
   // V-EFP-17 · FR-EFP-13 — 편집기가 없으면 열지도, 삼키지도 않는다.
   test('편집기가 없는 탭에서는 키를 삼키지 않는다', async ({ page, request }) => {
     await enter(page, request);
     await openFile(page, 'find.txt');
-    // 이미지 탭으로 옮긴다 — Monaco 가 서지 않는다 (FR-EVW-4).
+    // 이미지 탭으로 옮긴다 — 편집기가 서지 않는다 (FR-EVW-4).
     await page.evaluate((p) => (window as any).app.testing.edOpenFile(p), P('pic.png'));
     await expect(page.locator('.fe-image .fe-img')).toBeVisible({ timeout: 20000 });
 
@@ -452,7 +415,7 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     // **예외 (`TEST-16`)**: 찾기 패널도 위젯도 **뜨지 않음**을 잰다.
     await page.waitForTimeout(400);
     await expect(page.locator('.fe-find.vis:visible')).toHaveCount(0);
-    await expect(monacoWidget(page)).toHaveCount(0);
+    await expect(builtinWidget(page)).toHaveCount(0);
   });
 
   /**
@@ -474,17 +437,15 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     await expect(count(page)).toHaveText(/\/\s*4$/, { timeout: 5000 });
 
     const decos = () => page.evaluate(() => {
-      const ed = (window as any).app.testing.edActiveEditor()?._editor;
-      const all = ed?.getModel()?.getAllDecorations() ?? [];
-      const hits = all.filter((d: any) => /fe-find-hit/.test(d.options?.className ?? ''));
+      const ed = edT.of((window as any).app.testing.edActiveEditor());
+      const hits: any[] = ed ? edT.marks(ed, 'fe-find-hit') : [];
       return {
         n: hits.length,
-        ruler: hits.filter((d: any) => !!d.options?.overviewRuler?.color).length,
-        minimap: hits.filter((d: any) => !!d.options?.minimap?.color).length,
+        ruler: hits.filter((d) => !!d.ruler).length,
+        minimap: hits.filter((d) => !!d.minimap).length,
         // 현재 일치는 다른 색을 받는다 (FR-EFP-14 의 두 겹과 같은 구분).
-        rulerColors: [...new Set(hits.map((d: any) => JSON.stringify(d.options?.overviewRuler?.color)))].length,
-        curLine: hits.filter((d: any) => /fe-find-hit-cur/.test(d.options.className))
-          .map((d: any) => d.range.startLineNumber)[0] ?? -1,
+        rulerColors: new Set(hits.map((d) => d.ruler)).size,
+        curLine: hits.filter((d) => /fe-find-hit-cur/.test(d.cls)).map((d) => d.line)[0] ?? -1,
       };
     });
 
