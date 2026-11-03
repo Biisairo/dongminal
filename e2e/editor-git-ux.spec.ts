@@ -489,4 +489,19 @@ test.describe('묶음 K — 편집기 안에서의 키', () => {
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+F' : 'Control+Shift+F');
     await expect(page.locator('.ed-find.vis')).toHaveCount(1);
   });
+
+  // 입력 영역이 contenteditable 이어도 앱 단축키는 전역 경로를 탄다.
+  test('V-EKB-1c: 편집기에 포커스가 있어도 앱 단축키(창 닫기)가 돈다', async ({ page }) => {
+    await waitForInit(page);
+    await openTextFileInEditor(page);
+    await page.evaluate(() => {
+      const app = (window as any).app;
+      const run = app.executeAction.bind(app);
+      app.__actions = [];
+      app.executeAction = (a: string) => { app.__actions.push(a); return a === 'closeWindow' ? undefined : run(a); };
+    });
+
+    await page.keyboard.press('Control+Shift+W');
+    expect(await page.evaluate(() => (window as any).app.__actions)).toContain('closeWindow');
+  });
 });

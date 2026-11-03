@@ -197,10 +197,14 @@ class InputBinding {
        * 글자를 받는 표면에서는 브라우저 기본만 막고 물러난다 — xterm 의 도우미
        * textarea 는 위 조건에서 이미 빠진다.
        *
-       * **편집기의 입력 영역(CodeMirror 의 contenteditable)도 여기 걸린다.** 그 안쪽은 `file-editor.js` 가 따로
-       * 배선하며(FR-EKB-1), 여기서 함께 열면 편집기 키가 두 곳에서 판정된다.
+       * **편집기(CodeMirror 의 contenteditable)는 예외다** — 자기 편집을 스스로 하는
+       * 표면이므로 앱 단축키를 받는다. 옛 엔진은 입력을 `div`(EditContext)로 받아 이
+       * 게이트를 지나갔고, contenteditable 로 바뀌면서 앱 단축키가 전부 끊겼었다.
+       * 편집기 키(검색·코드 탐색·저장, `ED_CAPTURE_ACTIONS`)와 `Mod+F` 는 안쪽의
+       * `file-editor.js` 가 판정하므로(FR-EKB-1) 여기서는 묻지 않는다.
        */
-      if(inText){ this._blockBrowserDefault(e,true); return }
+      const inCm=inText&&!!ae.closest('.cm-editor');
+      if(inText&&!inCm){ this._blockBrowserDefault(e,true); return }
       // EDITOR_GIT_UX_SRS FR-EKB-1: 편집기 **밖**(탐색기·탭바)에서 누른 경우다.
       // 안쪽은 위의 activeElement 게이트에 걸려 여기 오지 않으므로 file-editor.js
       // 가 같은 함수를 따로 건다. FR-EKB-2: cmd+p 는 브라우저의 인쇄라 반드시 막는다.
@@ -209,9 +213,11 @@ class InputBinding {
       // 터미널 검색의 관용 배선과 같은 조합이기 때문이다 — Editor 창이면 편집기
       // 검색이, 아니면 터미널 검색이 뜬다. Editor 창이 아닐 때 이 함수는 키를
       // 삼키지 않고 false 를 돌려준다 (FR-EKB-4).
-      if(this.app.edTrySearchKey(e)) return;
-      for(const h of BUILTIN_HOTKEYS){
-        if(h.match(e)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(h.action);return}
+      if(!inCm){
+        if(this.app.edTrySearchKey(e)) return;
+        for(const h of BUILTIN_HOTKEYS){
+          if(h.match(e)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(h.action);return}
+        }
       }
       for(const[action,key]of Object.entries(shortcuts)){
         // 편집기 검색·코드 탐색 셋은 위에서 이미 판정했다. 여기서 다시 잡으면

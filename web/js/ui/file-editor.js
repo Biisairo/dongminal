@@ -230,8 +230,8 @@ class FileEditor {
     this._wireFocus();
     // FR-EKB-5: 단축키는 편집기 `keymap` 에 굳히지 않는다. 굳히면 설정에서 바꾼 키가
     // 편집기 안에서만 듣지 않는다 — `_wireKeys` 의 keydown 이 그 자리를 맡는다. 전역
-    // keydown 은 편집기에 포커스가 있는 동안 한 줄도 돌지 않으므로(input-binding.js 의
-    // activeElement 게이트) 이 배선이 필요하다. 저장도 여기 합류했다 (UX_BATCH9_SRS FR-ESV-2).
+    // keydown 은 편집기에 포커스가 있으면 앱 단축키만 판정하고 편집기 키는 건너뛰므로
+    // (input-binding.js 의 `inCm`) 이 배선이 필요하다. 저장도 여기 합류했다 (UX_BATCH9_SRS FR-ESV-2).
 
     // EDITOR_DIRTY_DIFF_SRS FR-EDD-15: 변경 표시는 **문서**의 것이다 — 이 칸은
     // 클릭과 팝업만 갖는다. `file-editor-diff.js` 가 없으면 편집기는 지금까지와
