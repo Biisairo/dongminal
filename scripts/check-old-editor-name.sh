@@ -21,7 +21,6 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
     CHANGELOG.md
     docs/internal/archive/
     docs/internal/CODEMIRROR_MIGRATION_SRS.md
-    docs/internal/CODEMIRROR_MIGRATION_HANDOFF.md
 
   걸리면: 코드·유효한 문서는 지금 엔진의 말로 고치고, 끝난 문서는
   docs/internal/archive/ 로 옮긴다 (FR-CMR-132).
@@ -32,8 +31,7 @@ fi
 hits="$(git grep -il 'm[o]naco' -- . \
   ':!CHANGELOG.md' \
   ':!docs/internal/archive/' \
-  ':!docs/internal/CODEMIRROR_MIGRATION_SRS.md' \
-  ':!docs/internal/CODEMIRROR_MIGRATION_HANDOFF.md' || true)"
+  ':!docs/internal/CODEMIRROR_MIGRATION_SRS.md' || true)"
 
 if [[ -n "$hits" ]]; then
   n="$(printf '%s\n' "$hits" | wc -l | tr -d ' ')"

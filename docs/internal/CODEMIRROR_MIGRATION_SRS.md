@@ -1,7 +1,8 @@
 # SRS: 편집기 엔진 교체 — Monaco 에서 CodeMirror 6 으로 — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: M10~ (단계 B, §8 해소 후). M1~M9 완료 · 단계 A 는 `main` 에 합쳤다(`af77ddd1`, 2026-11-03).
+> **문서 상태**: 승인·구현완료
+>
+> 단계 A(M1~M9)로 완료했다 — `main` 에 합침(`af77ddd1`, 2026-11-03). 단계 B(§3.15·§8)는 보류다: 필요해지면 별도 SRS 로 연다 (사용자 결정).
 
 - 근거: 사용자 인터뷰(2026-11-02) · PoC(`/tmp/cm-poc`, §2.6).
 - 대체 문서: `MONACO_VENDORING_SRS.md` 의 묶음 V 는 이 문서의 묶음 V 가 대체한다.
@@ -453,7 +454,7 @@ Monaco 도 스크롤바를 직접 그렸다)
 monaco 전용이 아니므로 유지한다.
 
 **FR-CMR-132** 완료 시점에 `git grep -i monaco` 결과는 다음 자리에만 남는다: `CHANGELOG.md`,
-`docs/internal/archive/`, 이 문서, 이 작업의 인계 문서(`CODEMIRROR_MIGRATION_HANDOFF.md`).
+`docs/internal/archive/`, 이 문서. (이 작업의 인계 문서는 완료 뒤 `archive/` 로 옮겼다.)
 글꼴 차례의 `'Monaco'`(macOS 글꼴)도 예외가 아니다 — 뺀다. 끝난 문서는 `archive/` 로 옮기고,
 아직 유효한 문서만 본문을 고친다(§11.7). `scripts/check-old-editor-name.sh` 가 검사한다 (M9 착수 중 사용자 결정).
 
@@ -467,6 +468,8 @@ Monaco 언급을 CodeMirror 에 맞춘다.
 탭에 맞춰 늘거나 준다 (사용자 결정: "모든 미리보기가 탭 폭을 따라가야 한다").
 
 ### 3.15 묶음 B — 기능 추가 (단계 B)
+
+> **보류** (2026-11-03, 사용자 결정) — 단계 A 로 이 문서를 완료했다. 아래 기능이 필요해지면 별도 SRS 로 연다. 표는 기록으로 남긴다.
 
 | ID | 기능 | 출처 |
 |---|---|---|
@@ -688,6 +691,8 @@ CI (2026-11-03, 브랜치 수동 실행): verify 는 `govulncheck` 만 실패 �
 `check-old-editor-name.sh` 포함) · `go vet ./...` · `go test ./...`. `main` 합치기는 사용자 확인 뒤 했다 — `af77ddd1` (2026-11-03). 그 시점 CI: verify 전체 통과 · e2e ubuntu 8샤드 통과 · windows 는 `file-path-link` TC-FPL-5 1건(M9 와 무관, 따로 다룬다).
 
 ## 8. 미해결 질문 (B 착수 전 해소)
+
+> 단계 B 가 보류되어 묻지 않았다 (§3.15). 단계 B 를 열 때 이 표에서 시작한다.
 
 | # | 질문 | 권장 |
 |---|---|---|
@@ -946,7 +951,7 @@ REST 처리기가 사라지면 REST 세션을 만드는 자리가 없어진다. 
 | 분류 | 규칙 | 문서 |
 |---|---|---|
 | 남긴다 — 본문을 고친다 | 검사 스크립트·CI 가 근거로 읽는 문서 · 색인·구조·결정 기록 · 아직 진행 중인 문서 · 지금의 LSP·접근성 근거 | `README.md` · `architecture.md` · `decisions.md` · `VENDOR_VERSIONS.md` · `test-checklist.md` · `GIT_MANUAL_CHECKLIST.md` · `ACCESSIBILITY_BASELINE_SRS` · `DESIGN_TOKENS_SRS` · `FE_MODULE_BOUNDARY_SRS` · `UIUX_OVERHAUL_SRS` · `UI_LAYOUT_DEFAULTS_SRS` · `OPTIMIZE_REFACTOR_SRS` · `PERFORMANCE_HARDENING_SRS` · `REQUEST_GATE_SRS` · `CI_E2E_MATRIX_SRS` · `LSP_PLUGIN_SRS` · `production/PRODUCTION_ROADMAP.md` · `production/00-INDEX.md` · `production/02-fe-arch.md` |
-| 남긴다 — 예외 | FR-CMR-132 | 이 문서 · `CODEMIRROR_MIGRATION_HANDOFF.md` |
+| 남긴다 — 예외 | FR-CMR-132 | 이 문서 · `CODEMIRROR_MIGRATION_HANDOFF.md`(완료 뒤 `archive/` 로 옮겼다) |
 | `archive/` 로 옮긴다 | 그 밖의 것 — 구현이 끝났거나 폐기·대체된 SRS, 진행 기록·인계·계약·감사·분석 | 나머지 전부 (하위 폴더는 `archive/<폴더>/` 로) |
 
 옮긴 문서를 가리키는 경로(`docs/internal/X.md`·`./X.md`·`(X.md)`)는 함께 고친다. `README.md` 의 현행 표에서 그 줄을
@@ -998,3 +1003,4 @@ GREEN 뒤 e2e 46개 파일 552건 중 실패 0 · flaky 1(`doc-render` "렌더 �
 | 2026-11-03 | M9 완료 · 단계 A 완료 — §7.2 측정, §7.3 NFR 점검 |
 | 2026-11-03 | FR-CMR-12a·12b·19·58·160 추가, §3.16 다섯 줄, §11.8 — M9 뒤 사용자 확인 |
 | 2026-11-03 | 단계 A 를 `main` 에 합쳤다 (`af77ddd1`) · Go 1.26.10 · CI ubuntu 24.04 고정 |
+| 2026-11-03 | 완료 처리 — 상태 `승인·구현완료`, 단계 B 보류(§3.15·§8), 인계 문서를 `archive/` 로 (사용자 결정) |
