@@ -682,7 +682,7 @@ e2e 46개 파일 545건 실패 0 (§7.2). NFR-CMR-3 은 로컬에서만 상한�
 같은 구간이 696~851ms 였다 (2026-11-03).
 
 CI (2026-11-03, 브랜치 수동 실행): verify 는 `govulncheck` 만 실패 — Go 1.25.13 표준 라이브러리의 새 취약점(1.26.9 에서
-고침)이고 `main` 도 같다. 단계 A 와 무관하므로 따로 다룬다. e2e ubuntu 는 `ubuntu-latest`(26.04)에 Playwright 가 없어
+고침)이고 `main` 도 같다 — `go.mod` 를 `go 1.26.10` 으로 올려 닫았다(사용자 지시, 로컬 govulncheck v1.1.4 0건 · `go vet`·`go test ./...` 통과). e2e ubuntu 는 `ubuntu-latest`(26.04)에 Playwright 가 없어
 브라우저 설치에서 멈췄다 — `ubuntu-24.04` 로 고정했다. e2e windows 의 `file-path-link` TC-FPL-5 는 10-28 에 들어와
 `main` 의 마지막 CI(10-23) 뒤라 windows 에서 처음 돈 터미널(ConPTY) 검사다 — M9 변경과 무관하며 따로 다룬다. 게이트: `npm run unit` 672 · typecheck · eslint · `verify.yml` 의 `check-*` 전부(FR-CMR-132 의
 `check-old-editor-name.sh` 포함) · `go vet ./...` · `go test ./...`. `main` 합치기는 사용자 확인 뒤에 한다 (§7.1).
