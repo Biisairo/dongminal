@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"testing"
 )
@@ -36,6 +37,9 @@ func watchingOf(t *testing.T, out map[string]any) []string {
 }
 
 func TestFSWatch_RegistersValidDirsAndDropsOthers(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows 는 파일 감시를 하지 않는다 (EDITOR_LIVE_RELOAD_SRS FR-ELR-55, D-8)")
+	}
 	srv, _, _ := fsTestServer(t)
 	defer srv.fsWatch.Close()
 	root, err := filepath.EvalSymlinks(t.TempDir())
@@ -67,6 +71,9 @@ func TestFSWatch_RegistersValidDirsAndDropsOthers(t *testing.T) {
 }
 
 func TestFSWatch_SymlinkKeepsClientSpelling(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows 는 파일 감시를 하지 않는다 (EDITOR_LIVE_RELOAD_SRS FR-ELR-55, D-8)")
+	}
 	srv, _, _ := fsTestServer(t)
 	defer srv.fsWatch.Close()
 	base, err := filepath.EvalSymlinks(t.TempDir())

@@ -3,6 +3,7 @@ package fswatch
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -10,6 +11,9 @@ import (
 
 // 실제 백엔드(fsnotify)로 일반 쓰기·원자적 쓰기·추가·삭제가 이벤트로 나오는지 잰다.
 func TestManager_RealBackendReportsChanges(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows 는 파일 감시를 하지 않는다 (EDITOR_LIVE_RELOAD_SRS FR-ELR-55, D-8)")
+	}
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
