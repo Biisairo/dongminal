@@ -297,6 +297,57 @@ test('V-ELS-27: 줄바꿈이 켜져 있어도 슬라이더 양 끝이 보이는 
   }
 });
 
+/**
+ * V-ELS-30 (EDITOR_LINK_LSP_SRS FR-ELS-64 개정) — 미니맵이 켜져 있으면 스크롤바도 미니맵 배치를 쓴다.
+ *
+ * 줄바꿈 문서에서 미니맵 배치(글자 수로 센 화면 줄)와 CM 의 높이는 다르다 — 한글이 섞인 긴 줄에서 그 차이가 크다
+ * (사용자 문서 968줄에서 최대 15px). thumb 가 CM 의 높이를 따르면 슬라이더와 어긋난다.
+ */
+test('V-ELS-30: 줄바꿈이 켜져 있어도 스크롤바 thumb · ruler 가 미니맵 슬라이더 · 줄 자리와 같다', async ({ page, request }) => {
+  await openWrapped(page, request, 'els-wrap-thumb');
+  const got = await page.evaluate(async () => {
+    const v = [...(window as any).app.fileEditors.values()].find((e: any) => edT.has(e) && e.name === 'doc.md') as any;
+    const ed = edT.of(v);
+    const rect = (sel: string) => v.el.querySelector(sel).getBoundingClientRect();
+    const out: any[] = [];
+    for (const ratio of [0, 0.3, 0.5, 0.8, 1]) {
+      const H = edT.scrollHeight(ed), L = edT.viewHeight(ed);
+      edT.setScrollTop(ed, Math.round((H - L) * ratio));
+      await new Promise((r) => setTimeout(r, 300));
+      const mm = rect(edT.sel.minimap), sl = rect(edT.sel.minimapSlider), th = rect(edT.sel.scrollThumb);
+      out.push({ ratio, sl: [sl.top - mm.top, sl.bottom - mm.top], th: [th.top - mm.top, th.bottom - mm.top] });
+    }
+    // 그린 줄 하나에 커서를 둔다 — 그 줄의 미니맵 자리와 커서 ruler 표식의 자리를 견준다.
+    const rows = edT.minimapRows(ed);
+    const row = rows[Math.floor(rows.length * 0.6)];
+    edT.setCursor(ed, row.line, 1);
+    await new Promise((r) => setTimeout(r, 300));
+    const mm = rect(edT.sel.minimap), track = rect('.cm-vscroll');
+    const cur = edT.rulerItems(ed).find((x: any) => x.lane === 'full');
+    const cursor = { line: row.line, mini: edT.minimapRows(ed).find((r: any) => r.line === row.line).y, ruler: cur ? cur.y + track.top - mm.top : null };
+    // thumb 를 끝까지 끈다.
+    const t = rect(edT.sel.scrollThumb);
+    return { out, cursor, drag: { x: t.left + t.width / 2, y: t.top + t.height / 2, bottom: track.bottom } };
+  });
+  for (const o of got.out) {
+    expect(Math.abs(o.th[0] - o.sl[0]), `${o.ratio}: thumb top ${o.th[0]} ≠ 슬라이더 top ${o.sl[0]}`).toBeLessThanOrEqual(1);
+    expect(Math.abs(o.th[1] - o.sl[1]), `${o.ratio}: thumb bottom ${o.th[1]} ≠ 슬라이더 bottom ${o.sl[1]}`).toBeLessThanOrEqual(1);
+  }
+  expect(got.cursor.ruler, '커서 ruler 표식이 없다').not.toBeNull();
+  expect(Math.abs(got.cursor.ruler! - got.cursor.mini), `줄 ${got.cursor.line}: ruler ${got.cursor.ruler} ≠ 미니맵 ${got.cursor.mini}`).toBeLessThanOrEqual(1);
+
+  await page.mouse.move(got.drag.x, got.drag.y);
+  await page.mouse.down();
+  await page.mouse.move(got.drag.x, got.drag.bottom + 50, { steps: 8 });
+  await page.mouse.up();
+  await expect.poll(() => page.evaluate(() => {
+    const v = [...(window as any).app.fileEditors.values()].find((e: any) => edT.has(e) && e.name === 'doc.md') as any;
+    const ed = edT.of(v);
+    const n = edT.lineCount(ed), b = edT.lineBox(ed, n);
+    return b.top + b.h <= edT.scrollTop(ed) + edT.viewHeight(ed) + 1;
+  }), { timeout: 5000, message: 'thumb 를 끝까지 끌어도 마지막 줄이 보이지 않는다' }).toBe(true);
+});
+
 test('V-ELS-28: 줄바꿈이 켜진 미니맵을 누르면 그 자리의 줄이 보인다', async ({ page, request }) => {
   await openWrapped(page, request, 'els-wrap-click');
   const target = await page.evaluate(() => {

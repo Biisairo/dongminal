@@ -251,7 +251,7 @@ export function installEdAdapter(sel: typeof ED_SEL) {
     lineMarks: (h: any, re: string) => cmLineMarks(h, new RegExp(re)),
 
     /** ruler 가 그린 항목 `[{cls, from, to, lane, color}]` — 색은 CSS 변수 이름이다 (EDITOR_LINK_LSP_SRS FR-ELS-30). */
-    rulerItems: (h: any) => w.edCmRulerItems(V(h)).map((x: any) => ({ cls: x.cls, from: x.from, to: x.to, lane: x.lane, color: x.color })),
+    rulerItems: (h: any) => w.edCmRulerItems(V(h)).map((x: any) => ({ cls: x.cls, from: x.from, to: x.to, lane: x.lane, color: x.color, y: x.y })),
     /** 미니맵이 받은 줄 표식 `[{cls, line, color}]`. 미니맵이 없으면 빈 배열이다. */
     minimapMarks: (h: any) => {
       const d = CMg().minimapDrawn(V(h));

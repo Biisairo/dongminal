@@ -28,3 +28,6 @@ CODEMIRROR_MIGRATION_SRS FR-CMR-60~63 · §11.3. `scripts/build-codemirror.mjs` 
 4. `minimapDrawn(view)` 를 내보낸다 — 미니맵이 받은 표식 `{marks, gutter}` (e2e 어댑터가 읽는다).
 5. 미니맵의 높이를 편집기 상자(`view.dom`) 대신 스크롤 영역(`scrollDOM.clientHeight`)에서 잰다. 상자의 소수 높이가
    스크롤 영역보다 크면 문서 끝에서 sticky 가 덜 붙어 뷰포트 표시가 thumb 보다 반 픽셀 위에 섰다.
+6. `minimapScale(view)` 를 내보낸다 — 미니맵 자체 배치의 좌표 `{slider, fromSlider, posTop, posBottom}`. 앱의 스크롤바가
+   미니맵이 켜져 있을 때 thumb · ruler · 끌기에 이것을 쓴다. 줄바꿈 문서에서도 슬라이더와 thumb 가 같은 자리에 선다
+   (EDITOR_LINK_LSP_SRS FR-ELS-64).

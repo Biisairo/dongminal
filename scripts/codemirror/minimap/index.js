@@ -1421,4 +1421,37 @@ function minimapDrawn(view) {
     return { marks: p.drawnMarks || [], gutter: p.drawnGutter || [], rows: p.drawnRows || [] };
 }
 
-export { showMinimap, minimapDrawn };
+/**
+ * [dongminal] EDITOR_LINK_LSP_SRS FR-ELS-64: 미니맵 배치(FR-ELS-60)의 좌표 — 편집기 스크롤바가 같은 좌표를 쓴다.
+ * 미니맵이 없거나 꺼져 있거나 줄이 없으면 `null` 이다. 레이아웃을 읽으므로 측정의 read 단계나 이벤트 처리에서 부른다.
+ *
+ *   slider()        FR-ELS-62 의 슬라이더 `{top, height}` (CSS px, 스크롤 영역 기준)
+ *   fromSlider(top) FR-ELS-63 — 슬라이더 top → scrollTop
+ *   posTop(pos)     문서 위치가 든 줄의 top (CSS px)
+ *   posBottom(pos)  그 줄의 bottom
+ */
+function minimapScale(view) {
+    const p = view.plugin(minimapClass);
+    const cfg = view.state.facet(Config);
+    if (!p || !p.dom || !cfg.enabled) {
+        return null;
+    }
+    const own = p.ownLayout();
+    if (!own || !own.lines.length) {
+        return null;
+    }
+    p._own = own;
+    const k = view.scrollDOM.clientHeight / Math.max(1, own.denom);
+    const at = (pos) => lineIndexAt(own.lines, pos);
+    return {
+        slider: () => p.ownSlider(cfg.minSlider || 0),
+        fromSlider: (top) => p.ownFromSlider(top),
+        posTop: (pos) => own.top(at(pos)) * k,
+        posBottom: (pos) => {
+            const i = at(pos);
+            return (own.top(i) + own.height(i)) * k;
+        },
+    };
+}
+
+export { showMinimap, minimapDrawn, minimapScale };

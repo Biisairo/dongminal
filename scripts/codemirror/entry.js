@@ -12,4 +12,4 @@ export * from '@codemirror/lsp-client';
 export { tags, highlightTree } from '@lezer/highlight';
 export { languages } from '@codemirror/language-data';
 export { indentationMarkers } from '@replit/codemirror-indentation-markers';
-export { showMinimap, minimapDrawn } from './minimap/index.js';
+export { showMinimap, minimapDrawn, minimapScale } from './minimap/index.js';
