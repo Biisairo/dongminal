@@ -200,6 +200,9 @@ test.describe('내부 새로고침 (SOFT_RELOAD_SRS)', () => {
       fs.writeFileSync(path.join(base, 'sub', 'a.txt'), 'A\n');
       // 서버가 저장한 철자를 그대로 받는다 — 창을 찾는 쪽은 문자열 완전 일치다.
       const stored = await addEditorRoot(request, base);
+      // 파일 감시(EDITOR_LIVE_RELOAD_SRS)가 새 파일을 곧바로 밀어 주면 이 시험이 새로고침 버튼을
+      // 재지 못한다 — 등록을 빈 것으로 돌려 감시가 서지 않게 한다.
+      await page.route('**/api/fs/watch', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"watching":[]}' }));
 
       await enter(page);
       await page.waitForFunction(

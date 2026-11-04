@@ -16,6 +16,9 @@ import {
 import { ED_SEL } from './editor';
 import { TMP, realPath, cssPath } from './osenv';
 
+// EDITOR_LIVE_RELOAD_SRS FR-ELR-55 (D-8): Windows 는 감시하지 않는다 — 감시 핸들이 디렉터리 이름 변경을 막는다.
+test.skip(process.platform === 'win32', 'Windows 는 파일 감시를 하지 않는다 (FR-ELR-55, D-8)');
+
 let BASE = '';
 /** 앱의 `pathJoin` 과 같은 규칙 — 서버가 준 경로의 구분자를 따른다. `/` 로 이으면 Windows 에서 섞인 경로가 된다. */
 const pj = (d: string, r: string) => d + (d.includes('\\') && !d.includes('/') ? '\\' : '/') + r;

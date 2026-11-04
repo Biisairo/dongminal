@@ -310,6 +310,10 @@ Linux 는 inotify, Windows 는 ReadDirectoryChangesW 다. 감시 단위는 **디
 - macOS 의 `/Volumes/` 아래 (VSC: `nodejsWatcherLib.ts` — 네트워크 공유는 감시가 불안정하다)
 - kqueue 백엔드에서 항목이 4096 개를 넘는 디렉터리. kqueue 는 디렉터리 안의 파일마다 fd 를
   하나씩 연다(fsnotify README)
+- **Windows 전부** (2026-11-04 개정, D-8). ReadDirectoryChangesW 가 디렉터리마다 핸들을 열고, 그
+  핸들이 열린 동안에는 그 디렉터리와 조상 디렉터리의 이름 변경·이동이 `ERROR_ACCESS_DENIED` 로
+  막힌다. 우리 앱의 이름 변경뿐 아니라 git·다른 편집기의 조작도 막힌다 (CI 실측: 펼친 폴더의
+  이름 변경이 `403 permission_denied`). Windows 는 종전대로 폴링이 맡는다
 
 **FR-ELR-56** 원시 이벤트는 다음처럼 바꾼다.
 
@@ -541,6 +545,7 @@ eventuallyUpdateWhenIdleAndWait` → `@throttle updateWhenIdleAndWait` → `stat
 | D-5 | 감시 범위 | **비재귀.** 보이는 창의 열린 파일 부모 디렉터리 + 탐색기 루트 + 펼친 디렉터리. 루트 아래 전체(재귀)는 기각했다 — macOS kqueue 는 파일마다 fd 를 쓴다(사용자 저장소 하나가 파일 216만 개) | `FR-ELR-50`·`65` |
 | D-6 | 규칙의 근거 | **검증된 오픈 소스를 따른다.** VS Code 비재귀 감시자의 상수와 병합 규칙을 옮긴다. 라이브러리는 fsnotify(★10.8k, v1.10.1 2026-05). `rjeczalik/notify`(마지막 릴리스 2023-01)와 `fsnotify/fsevents`(macOS 전용, cgo)는 기각했다 | 묶음 W |
 | D-7 | git 색 | 감시 이벤트로 저장소 관측을 당긴다. 워크트리 회차 간격을 **설정으로 바꿀 수 있게** 한다 | 묶음 G |
+| D-8 | Windows 의 감시 | **이번 판에서는 감시하지 않는다** — 폴링이 맡는다. 비재귀 감시가 디렉터리 조작을 막기 때문이다. 루트 하나를 재귀로 감시하는 방식(VS Code)으로 바꾸는 일은 후속으로 둔다 | `FR-ELR-55` |
 
 ---
 
@@ -553,3 +558,4 @@ eventuallyUpdateWhenIdleAndWait` → `@throttle updateWhenIdleAndWait` → `stat
 | 2026-11-04 | 개정. 묶음 F(`FR-ELR-35`~`38`)와 검증 넷(`V-ELR-13`~`16`)을 더했다. 사용자 보고(2026-11-03, 반영되지 않음)의 조사에서 코드로 확정한 결함 셋이다. 증상은 재현하지 못했다. |
 | 2026-11-04 | 개정 초안. 사용자 추가 보고("갱신은 되지만 늦다")의 원인을 폴링 주기로 확정했다(§2.7). 묶음 W(서버 감시, `FR-ELR-50`~`61`)·C(클라이언트, `FR-ELR-65`~`70`)·G(git, `FR-ELR-75`·`76`)와 검증 열일곱(`V-ELR-20`~`36`)을 더했다. 비목표 1·2·5 를 개정하고 6~10 을 더했다. 결정 D-4~D-7. |
 | 2026-11-04 | 승인·구현완료. Go: `internal/webserver/fswatch`(병합·파이프라인·관리자·fsnotify 백엔드)와 테스트, `GitWatcher.Kick`·`SetWorktreeEvery`, `PUT /api/fs/watch`. 웹: `app-editor-watch.js`, 등록부 `fs.watch`, 설정 `gitWorktreeInterval`. e2e 일곱(`editor-fs-watch.spec.ts`)이 선다. e2e 가 결함 하나를 잡았다 — Diff 문서 교체가 감시 집합을 다시 계산하지 않았다(`FR-ELR-66` 에 계기를 적었다). |
+| 2026-11-04 | 개정. Windows 를 감시하지 않는 자리에 더했다(`FR-ELR-55`, D-8). Windows CI 의 `editor-ops` O8 이 펼친 폴더의 이름 변경 실패(403)를 잡았다. `editor-fs-watch.spec.ts` 는 Windows 에서 건너뛴다. |
