@@ -134,7 +134,7 @@ const ED_FIND_MARK_COLOR_CUR='--text-bright';
 // EDITOR_LINK_LSP_SRS FR-ELS-30~33: 선택·같은 낱말·진단·커서의 ruler·미니맵 색과 한도.
 // `--text-dim` 은 경계용이라 많은 테마에서 `--border` 와 같다 — 표식에는 쓰지 않는다.
 const ED_MARK_COLOR={sel:'--text',match:'--text-hint',error:'--danger',warning:'--term-yellow',cursor:'--text-bright'};
-// 편집기 칸의 스크롤바 thumb · 미니맵 슬라이더 색 (FR-ELS-55) — Monaco 와 같은 중립 회색 반투명이다(`deriveScrollSlider`).
+// 편집기 칸의 스크롤바 thumb · 미니맵 슬라이더 색 (FR-ELS-55) — 옛 엔진과 같은 중립 회색 반투명이다(`deriveScrollSlider`).
 const ED_SCROLL_THUMB_BG='var(--ed-thumb)';
 const ED_SCROLL_THUMB_BG_HOVER='var(--ed-thumb-hover)';
 const ED_SCROLL_THUMB_BG_ACTIVE='var(--ed-thumb-active)';

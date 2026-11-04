@@ -37,7 +37,7 @@ test('FR-ELS-57: style.css 의 첫 페인트 값은 기본 테마의 파생값�
   assert.equal(m[1].toLowerCase(), ctx.themeVarsOf(tokyo)['--text-dim']);
 });
 
-test('FR-ELS-55: 스크롤바 thumb · 미니맵 슬라이더는 Monaco 와 같은 중립 회색 + 투명도다 (테마 색을 섞지 않는다)', () => {
+test('FR-ELS-55: 스크롤바 thumb · 미니맵 슬라이더는 옛 엔진과 같은 중립 회색 + 투명도다 (테마 색을 섞지 않는다)', () => {
   const dark = Object.values(ctx.THEMES).find((t) => t.mode !== 'light');
   const light = Object.values(ctx.THEMES).find((t) => t.mode === 'light');
   const d = ctx.themeVarsOf(dark);

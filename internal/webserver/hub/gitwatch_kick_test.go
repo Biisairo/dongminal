@@ -2,6 +2,7 @@ package hub
 
 import (
 	"context"
+	"path/filepath"
 	"sort"
 	"sync"
 	"testing"
@@ -9,6 +10,10 @@ import (
 )
 
 // EDITOR_LIVE_RELOAD_SRS FR-ELR-75·76 (V-ELR-35·36) — 감시 이벤트가 저장소 관측을 당긴다.
+
+// kp 는 테스트의 POSIX 경로를 OS 형태로 옮긴다. 운영의 저장소 키(`RepoRoot`)와 감시 이벤트
+// 경로는 둘 다 OS 형태다 — Windows 에서 `/r/a` 는 `/r` 의 자식으로 보이지 않는다.
+func kp(p string) string { return filepath.FromSlash(p) }
 
 type kickTimer struct {
 	at      time.Duration
@@ -64,12 +69,12 @@ func (c *kickClock) advance(d time.Duration) {
 
 func kickFx(t *testing.T) (*GitWatcher, *fakeSigner, *fakeBroker, *kickClock) {
 	t.Helper()
-	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
+	sig := &fakeSigner{sigs: map[string]string{kp("/r"): "a"}}
 	br := &fakeBroker{}
 	w := newWatcher(sig, br)
 	clk := &kickClock{}
 	w.after = clk.after
-	note(t, w, sig, "/r")
+	note(t, w, sig, kp("/r"))
 	return w, sig, br, clk
 }
 
@@ -81,8 +86,8 @@ func statusCalls(sig *fakeSigner) int {
 
 func TestGitWatchKick_ObservesAfterDebounce(t *testing.T) {
 	w, sig, br, clk := kickFx(t)
-	sig.files = map[string][]string{"/r": {"new.txt"}}
-	w.Kick([]string{"/r/new.txt"})
+	sig.files = map[string][]string{kp("/r"): {"new.txt"}}
+	w.Kick([]string{kp("/r/new.txt")})
 	clk.advance(GitKickDebounce - time.Millisecond)
 	if n := statusCalls(sig); n != 0 {
 		t.Fatalf("debounce 전에 관측했다: %d", n)
@@ -94,16 +99,16 @@ func TestGitWatchKick_ObservesAfterDebounce(t *testing.T) {
 	if sig.invalidated == 0 {
 		t.Fatal("관측 전에 Invalidate 하지 않았다")
 	}
-	if got := gitChangedRepos(br); len(got) != 1 || got[0] != "/r" {
+	if got := gitChangedRepos(br); len(got) != 1 || got[0] != kp("/r") {
 		t.Fatalf("방송=%v, want [/r]", got)
 	}
 }
 
 func TestGitWatchKick_DebounceRestartsOnNewEvent(t *testing.T) {
 	w, sig, _, clk := kickFx(t)
-	w.Kick([]string{"/r/a"})
+	w.Kick([]string{kp("/r/a")})
 	clk.advance(600 * time.Millisecond)
-	w.Kick([]string{"/r/b"})
+	w.Kick([]string{kp("/r/b")})
 	clk.advance(600 * time.Millisecond)
 	if n := statusCalls(sig); n != 0 {
 		t.Fatalf("마지막 이벤트 뒤 1초 전에 관측했다: %d", n)
@@ -116,14 +121,14 @@ func TestGitWatchKick_DebounceRestartsOnNewEvent(t *testing.T) {
 
 func TestGitWatchKick_CooldownCoalesces(t *testing.T) {
 	w, sig, _, clk := kickFx(t)
-	w.Kick([]string{"/r/a"})
+	w.Kick([]string{kp("/r/a")})
 	clk.advance(GitKickDebounce)
 	if n := statusCalls(sig); n != 1 {
 		t.Fatalf("첫 관측 %d", n)
 	}
 	for i := 0; i < 3; i++ {
 		clk.advance(300 * time.Millisecond)
-		w.Kick([]string{"/r/a"})
+		w.Kick([]string{kp("/r/a")})
 	}
 	clk.advance(GitKickCooldown - 2*time.Second)
 	if n := statusCalls(sig); n != 1 {
@@ -137,7 +142,7 @@ func TestGitWatchKick_CooldownCoalesces(t *testing.T) {
 
 func TestGitWatchKick_IgnoresDotGitAndOutside(t *testing.T) {
 	w, sig, _, clk := kickFx(t)
-	w.Kick([]string{"/r/.git/index", "/r/.git", "/rr/x", "/other/y"})
+	w.Kick([]string{kp("/r/.git/index"), kp("/r/.git"), kp("/rr/x"), kp("/other/y")})
 	clk.advance(time.Minute)
 	if n := statusCalls(sig); n != 0 {
 		t.Fatalf("계기가 아닌 경로가 관측을 불렀다: %d", n)
@@ -149,7 +154,7 @@ func TestGitWatchKick_UnwatchedRepoIgnored(t *testing.T) {
 	w := newWatcher(sig, &fakeBroker{})
 	clk := &kickClock{}
 	w.after = clk.after
-	w.Kick([]string{"/r/a"})
+	w.Kick([]string{kp("/r/a")})
 	clk.advance(time.Minute)
 	if n := statusCalls(sig); n != 0 {
 		t.Fatalf("감시하지 않는 저장소를 관측했다: %d", n)
@@ -158,9 +163,9 @@ func TestGitWatchKick_UnwatchedRepoIgnored(t *testing.T) {
 
 // V-ELR-35 (FR-ELR-76): 워크트리 회차 간격을 바꾸면 다음 회차부터 적용된다.
 func TestGitWatch_WorktreeEverySettable(t *testing.T) {
-	sig := &fakeSigner{sigs: map[string]string{"/r": "a"}}
+	sig := &fakeSigner{sigs: map[string]string{kp("/r"): "a"}}
 	w := newWatcher(sig, &fakeBroker{})
-	note(t, w, sig, "/r")
+	note(t, w, sig, kp("/r"))
 	w.SetWorktreeEvery(2)
 	base := statusCalls(sig)
 	for i := 0; i < 8; i++ {

@@ -2,6 +2,7 @@ package fswatch
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"sync"
 	"testing"
@@ -179,11 +180,11 @@ func TestPipeline_AtomicSaveIsOneUpdate(t *testing.T) {
 
 func TestPipeline_NFCNormalizesBaseName(t *testing.T) {
 	fx := newPipeFx(true)
-	nfd := "/r/한.md" // "한" NFD
+	nfd := filepath.FromSlash("/r/한.md") // "한" NFD
 	fx.p.Push(RawEvent{nfd, OpWrite})
 	fx.clk.Advance(time.Second)
 	outs := fx.got()
-	if len(outs) != 1 || outs[0].changes[0].Path != "/r/한.md" {
+	if len(outs) != 1 || outs[0].changes[0].Path != filepath.FromSlash("/r/한.md") {
 		t.Fatalf("outs=%+v, want NFC", outs)
 	}
 }

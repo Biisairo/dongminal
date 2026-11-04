@@ -108,7 +108,7 @@ function edCmExtensions(o) {
     CM.closeBrackets(),
     CM.autocompletion({ override: [CM.completeAnyWord] }),
     // EDITOR_LINK_LSP_SRS FR-ELS-15·16: 수정키+클릭은 링크·정의의 몫이다 — 커서 추가는 Alt+클릭,
-    // 사각 선택은 Shift+Alt+드래그다 (Monaco 의 `multiCursorModifier:'alt'` 와 같다).
+    // 사각 선택은 Shift+Alt+드래그다 (옛 엔진의 `multiCursorModifier:'alt'` 와 같다).
     CM.EditorView.clickAddsSelectionRange.of((e) => e.altKey && !e.shiftKey),
     CM.rectangularSelection({ eventFilter: (e) => e.altKey && e.shiftKey }),
     CM.highlightActiveLine(),
@@ -167,7 +167,7 @@ function edCmMinimap(enabled) {
   return [
     CM.showMinimap.of({
       create: () => ({ dom: document.createElement('div') }),
-      // FR-ELS-55a: 슬라이더는 늘 보인다 (2026-11-03 사용자 보고 — Monaco 에서는 보였다).
+      // FR-ELS-55a: 슬라이더는 늘 보인다 (2026-11-03 사용자 보고 — 옛 엔진에서는 보였다).
       showOverlay: 'always',
       thumb: (v) => edScrollThumb(edScrollGeo(v)),
       // FR-ELS-62: 자체 배치의 슬라이더도 thumb 와 같은 최소 높이를 지킨다.
@@ -176,7 +176,7 @@ function edCmMinimap(enabled) {
       marks: (st) => collect(st, 'mark'),
       gutter: (st) => collect(st, 'gutter'),
     }),
-    // EDITOR_LINK_LSP_SRS FR-ELS-55: 슬라이더는 Monaco 처럼 thumb 의 절반 투명도인 중립 회색이다 (`deriveScrollSlider`).
+    // EDITOR_LINK_LSP_SRS FR-ELS-55: 슬라이더는 옛 엔진처럼 thumb 의 절반 투명도인 중립 회색이다 (`deriveScrollSlider`).
     CM.EditorView.theme({
       '&.cm-editor .cm-minimap-overlay-container .cm-minimap-overlay': { background: 'var(--ed-slider)', opacity: '1' },
       '&.cm-editor .cm-minimap-overlay-container .cm-minimap-overlay:hover': { background: 'var(--ed-slider-hover)', opacity: '1' },

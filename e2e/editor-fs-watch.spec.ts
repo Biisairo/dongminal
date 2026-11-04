@@ -17,6 +17,8 @@ import { ED_SEL } from './editor';
 import { TMP, realPath, cssPath } from './osenv';
 
 let BASE = '';
+/** 앱의 `pathJoin` 과 같은 규칙 — 서버가 준 경로의 구분자를 따른다. `/` 로 이으면 Windows 에서 섞인 경로가 된다. */
+const pj = (d: string, r: string) => d + (d.includes('\\') && !d.includes('/') ? '\\' : '/') + r;
 test.beforeAll(() => { BASE = realPath(mkdtempSync(join(TMP, 'dm-fsw-'))) });
 test.afterAll(() => { rmTree(BASE) });
 
@@ -81,7 +83,7 @@ async function enter(page: Page, savedRoot: string) {
 }
 
 async function openFile(page: Page, savedRoot: string, rel: string) {
-  await page.evaluate((p: string) => (window as any).app.testing.edOpenFile(p, { pin: true }), savedRoot + '/' + rel);
+  await page.evaluate((p: string) => (window as any).app.testing.edOpenFile(p, { pin: true }), pj(savedRoot, rel));
   await page.waitForFunction((n: string) => {
     const eds = [...(window as any).app.fileEditors.values()];
     return eds.some((e: any) => edT.has(e) && e.name === n);
@@ -148,12 +150,12 @@ test('V-ELR-30: 폴링이 30초여도 탐색기의 추가·삭제가 2초 안에
   await openExplorerSide(page);
   await watching(log, savedRoot);
   const row = (p: string) => page.locator(`.ed-tree .ed-row[data-path="${cssPath(p)}"]`);
-  await expect(row(savedRoot + '/keep.txt')).toBeVisible();
+  await expect(row(pj(savedRoot, 'keep.txt'))).toBeVisible();
 
   writeFileSync(join(root, 'new.txt'), 'n');
-  await expect(row(savedRoot + '/new.txt')).toBeVisible({ timeout: 2000 });
+  await expect(row(pj(savedRoot, 'new.txt'))).toBeVisible({ timeout: 2000 });
   unlinkSync(join(root, 'new.txt'));
-  await expect(row(savedRoot + '/new.txt')).toHaveCount(0, { timeout: 2000 });
+  await expect(row(pj(savedRoot, 'new.txt'))).toHaveCount(0, { timeout: 2000 });
 });
 
 test('V-ELR-31: 폴링·워크트리 회차를 늦춰도 추적 파일을 고치면 git 색이 3초 안에 바뀐다', async ({ page, request }) => {
@@ -163,7 +165,7 @@ test('V-ELR-31: 폴링·워크트리 회차를 늦춰도 추적 파일을 고치
   await enter(page, savedRoot);
   await openExplorerSide(page);
   await watching(log, savedRoot);
-  const row = page.locator(`.ed-tree .ed-row[data-path="${cssPath(savedRoot + '/tracked.txt')}"]`);
+  const row = page.locator(`.ed-tree .ed-row[data-path="${cssPath(pj(savedRoot, 'tracked.txt'))}"]`);
   await expect(row).toBeVisible();
   await expect(row).not.toHaveAttribute('data-st', /./);
 
@@ -201,10 +203,10 @@ test('V-ELR-32: 등록 본문이 탭과 펼침을 따라간다', async ({ page, 
   await watching(log, savedRoot);
   const last = () => log.bodies[log.bodies.length - 1] || [];
 
-  await page.locator(`.ed-tree .ed-row[data-path="${cssPath(savedRoot + '/sub')}"]`).click();
-  await expect.poll(() => last().includes(savedRoot + '/sub'), { timeout: 5000 }).toBe(true);
-  await page.locator(`.ed-tree .ed-row[data-path="${cssPath(savedRoot + '/sub')}"]`).click();
-  await expect.poll(() => last().includes(savedRoot + '/sub'), { timeout: 5000 }).toBe(false);
+  await page.locator(`.ed-tree .ed-row[data-path="${cssPath(pj(savedRoot, 'sub'))}"]`).click();
+  await expect.poll(() => last().includes(pj(savedRoot, 'sub')), { timeout: 5000 }).toBe(true);
+  await page.locator(`.ed-tree .ed-row[data-path="${cssPath(pj(savedRoot, 'sub'))}"]`).click();
+  await expect.poll(() => last().includes(pj(savedRoot, 'sub')), { timeout: 5000 }).toBe(false);
 });
 
 test('V-ELR-34: /api/fs/watch 가 404 면 등록을 멈추고 폴링 반영은 그대로 된다', async ({ page, request }) => {

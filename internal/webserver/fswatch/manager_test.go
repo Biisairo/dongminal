@@ -2,6 +2,7 @@ package fswatch
 
 import (
 	"errors"
+	"path/filepath"
 	"sort"
 	"sync"
 	"syscall"
@@ -235,9 +236,10 @@ func TestManager_EventsUseRegisteredSpellings(t *testing.T) {
 	fx := newMgrFx(t)
 	fx.m.Attach("c1")
 	fx.m.Attach("c2")
-	_, _ = fx.m.Set("c1", dirs("/link/d", "/real/d"))
-	_, _ = fx.m.Set("c2", dirs("/real/d", "/real/d"))
-	fx.m.handleRaw(RawEvent{"/real/d/x.txt", OpWrite})
+	p := filepath.FromSlash // 철자는 OS 구분자로 나누고 붙인다
+	_, _ = fx.m.Set("c1", dirs(p("/link/d"), p("/real/d")))
+	_, _ = fx.m.Set("c2", dirs(p("/real/d"), p("/real/d")))
+	fx.m.handleRaw(RawEvent{p("/real/d/x.txt"), OpWrite})
 	fx.clk.Advance(time.Second)
 	fx.mu.Lock()
 	defer fx.mu.Unlock()
@@ -245,7 +247,7 @@ func TestManager_EventsUseRegisteredSpellings(t *testing.T) {
 	for _, c := range fx.emitted {
 		got[c.Path] = c.Kind
 	}
-	if got["/link/d/x.txt"] != Updated || got["/real/d/x.txt"] != Updated || len(got) != 2 {
+	if got[p("/link/d/x.txt")] != Updated || got[p("/real/d/x.txt")] != Updated || len(got) != 2 {
 		t.Fatalf("emitted=%v", fx.emitted)
 	}
 }

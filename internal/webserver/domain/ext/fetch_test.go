@@ -249,12 +249,13 @@ func TestFetchArchive_Raw(t *testing.T) {
 	root := t.TempDir()
 	blob := []byte("\x7fELF raw binary")
 	dest := filepath.Join(root, "out")
-	tg := Target{URL: "https://example.test/marksman-macos", SHA256: sum(blob), Bin: "marksman", Raw: true}
+	// Windows 의 실행 판정은 확장자를 본다 — 실제 매니페스트의 win32 bin 도 `.exe` 다.
+	tg := Target{URL: "https://example.test/marksman-macos", SHA256: sum(blob), Bin: "marksman" + exeSuffix(), Raw: true}
 
 	if err := FetchArchive(context.Background(), blobFetch(blob, nil), tg, dest); err != nil {
 		t.Fatalf("조달이 실패했다: %v", err)
 	}
-	exe := filepath.Join(dest, "marksman")
+	exe := filepath.Join(dest, "marksman"+exeSuffix())
 	if b, err := os.ReadFile(exe); err != nil || !bytes.Equal(b, blob) {
 		t.Fatalf("받은 바이트가 bin 자리에 그대로 놓이지 않았다: %v %q", err, b)
 	}

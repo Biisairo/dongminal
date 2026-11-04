@@ -1,6 +1,7 @@
 package fswatch
 
 import (
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -44,8 +45,9 @@ func TestCoalesce_OtherwiseLastWins(t *testing.T) {
 }
 
 func TestCoalesce_ChildDeleteDroppedWhenParentDeleted(t *testing.T) {
-	got := Coalesce([]Change{{"/r/d/x", Deleted}, {"/r/d", Deleted}, {"/r/d/y/z", Deleted}, {"/r/e", Deleted}}, true)
-	want := []Change{{"/r/d", Deleted}, {"/r/e", Deleted}}
+	p := filepath.FromSlash // 부모 판정은 OS 구분자로 한다
+	got := Coalesce([]Change{{p("/r/d/x"), Deleted}, {p("/r/d"), Deleted}, {p("/r/d/y/z"), Deleted}, {p("/r/e"), Deleted}}, true)
+	want := []Change{{p("/r/d"), Deleted}, {p("/r/e"), Deleted}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
