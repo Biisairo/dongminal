@@ -64,6 +64,7 @@ internal/
     gitapi/              #   /api/git/* 핸들러 (GitServer). 라우트 테이블(routes.go)을 스스로 소유 — 수는 그 표가 답한다
                          #     gitwrite.go — 쓰기 한 번의 순서를 타입이 강제한다
     apierr/              #   sentinel → (status, code) 등록부 + 와이어 코드 단일 소유
+    fswatch/             #   보이는 디렉터리의 비재귀 감시(fsnotify) · 이벤트 병합 · `fs_changed`
     hub/                 #   CommandHub·SSE 브로커 · FocusRegistry · AttnTracker
     sse/                 #   SSE 작성기(쓰기 시한·쌓인 이벤트 한 번에 flush) · 방송 본문 봉투
     toolclient/          #   ToolClient — 데몬에 붙는 IPC 클라 (재접속 supervisor 포함)

@@ -120,6 +120,12 @@ func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 		ep := s.gitWatch.Attach(cid)
 		defer s.gitWatch.Detach(cid, ep)
 	}
+	// EDITOR_LIVE_RELOAD_SRS FR-ELR-52: 파일 감시 등록도 같은 구독이 쥔다. 칸 구독(presence)은
+	// 방송을 받지 않으므로 `fs_changed` 에 반응할 수 없다 — 임대를 쥐지 않는다.
+	if cid != "" && s.fsWatch != nil && !presence {
+		ep := s.fsWatch.Attach(cid)
+		defer s.fsWatch.Detach(cid, ep)
+	}
 
 	// UPDATE_NOTICE_SRS FR-UPD-2 ② — **새로고침과 재연결이 여기 하나로 온다.**
 	//

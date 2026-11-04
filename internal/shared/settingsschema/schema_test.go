@@ -13,7 +13,7 @@ func TestLoadReadsEmbeddedTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	// 28 = 착수 시 20 + SYSTEM_THEME_FOLLOW_SRS FR-STF-1 의 셋 (M7 `UX-19`)
+	// 29 = 착수 시 20 + SYSTEM_THEME_FOLLOW_SRS FR-STF-1 의 셋 (M7 `UX-19`)
 	//    + M8_UNIFIED_SRS FR-B-4 의 `locale` (M8 P2)
 	//    + EDITOR_MINIMAP_TOGGLE_SRS FR-MMT-2 의 `editorMinimap`
 	//    + AGENT_RENDER_ENV_SRS FR-ARE-3 의 `claudeFullscreen`
@@ -25,8 +25,9 @@ func TestLoadReadsEmbeddedTable(t *testing.T) {
 	//    `blockBrowserKeys` 는 스위치와 함께 빠졌다 — 차단은 끌 수 없고 늘 돈다
 	//    (UX_REVISION_SRS FR-KEY-6 철회 / D-K2). 이미 쓰인 값은 Validate 가
 	//    unknown 으로 흘리므로 마이그레이션이 없다.
-	if len(specs) != 28 {
-		t.Fatalf("서술자 %d개, 기대 28개", len(specs))
+	//    + EDITOR_LIVE_RELOAD_SRS FR-ELR-76 의 `gitWorktreeInterval`
+	if len(specs) != 29 {
+		t.Fatalf("서술자 %d개, 기대 29개", len(specs))
 	}
 	by := settingsschema.ByKey(specs)
 	for _, k := range []string{"themeName", "tabWidthPx", "attnEdgeLevel", "gitStatusInterval", "uiFontSize", "termFontSize"} {

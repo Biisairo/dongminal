@@ -43,6 +43,8 @@ Object.assign(App.prototype, {
     // 창 단위가 아니라 앱 단위로 한 번인 이유는 문서가 **파일마다 하나**이기
     // 때문이다 (FR-SVS-50) — 창마다 부르면 같은 파일을 두 번 묻는다.
     this.edStampTick([...stores.keys()]);
+    // EDITOR_LIVE_RELOAD_SRS FR-ELR-66: 감시 집합의 안전망 — 다른 계기가 놓친 변화를 맞춘다.
+    this.edWatchSync();
   },
 
   /**

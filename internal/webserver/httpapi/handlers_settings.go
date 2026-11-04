@@ -168,6 +168,8 @@ func (s *Server) apiSettingsPut(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// EDITOR_LIVE_RELOAD_SRS FR-ELR-76: 워크트리 회차 간격은 재시작 없이 다음 회차부터다.
+	s.applyGitWorktree()
 	// 저장이 끝난 **뒤에** 알린다 — 받은 창이 곧바로 GET 하므로, 먼저 알리면
 	// 그 GET 이 옛 값을 읽을 수 있다.
 	if s.Commands != nil {

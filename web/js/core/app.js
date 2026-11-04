@@ -702,7 +702,8 @@ class App {
 
   // FR-SVS-61: 미뤄 둔 그리기가 있으면 이 그리기가 그것을 대신한다 — 지연은
   // "클릭을 삼키지 않기" 위한 것이지 그리기를 빼먹기 위한 것이 아니다.
-  render(){ this._slotRenderPending=false; this.renderer.render(); this.agentsRender() }
+  // EDITOR_LIVE_RELOAD_SRS FR-ELR-66: 창·탭·사이드가 바뀌면 감시 집합도 바뀐다.
+  render(){ this._slotRenderPending=false; this.renderer.render(); this.agentsRender(); this.edWatchSync() }
 
 
   _bind(){ this.inputBinding.bind() }

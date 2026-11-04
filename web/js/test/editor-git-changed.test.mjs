@@ -24,6 +24,7 @@ function app() {
   };
   a._edVisibleTrees = () => [tree];
   a.edStampTick = async () => {};
+  a.edWatchSync = () => {};
   return { ctx, a, polls };
 }
 

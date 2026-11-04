@@ -161,6 +161,18 @@ const STATE_REGISTRY=[
   },
   {
     /**
+     * EDITOR_LIVE_RELOAD_SRS 묶음 W·C — **서버가 밀어 준다.** 보이는 디렉터리의 변화가
+     * `fs_changed` 로 온다. 등록의 수명은 SSE 구독이므로(FR-ELR-52) 구독이 열리면
+     * 지금의 집합을 다시 등록한다. 안전망은 편집기 틱(`_edTick`)이다 (FR-ELR-61).
+     */
+    id:'fs.watch',
+    restore:'_edWatchRestore',
+    merge:'latest',
+    events:{fs_changed:'_onFsChanged'},
+    revalidateOn:['sse:open'],
+  },
+  {
+    /**
      * OPTIMIZE_REFACTOR_SRS FR-OPT-4-4 (FR-GIT-101a 개정) — **서버가 밀어 준다.**
      *
      * 작업의 시작·끝을 서버가 `git_jobs_changed` 로 알린다. `every` 는 없다 — 상태바

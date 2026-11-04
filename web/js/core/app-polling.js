@@ -61,6 +61,13 @@ const POLL_SETTINGS=[
     opts:[[1000,tn('core.dur_sec',1)],[2000,tn('core.dur_sec',2)],[3000,tn('core.dur_sec',3)],[5000,tn('core.dur_sec',5)],[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)]],
   },
   {
+    // EDITOR_LIVE_RELOAD_SRS FR-ELR-76: 서버의 워크트리 회차 간격. 저장하면 서버가 다음 회차부터 쓴다.
+    key:'gitWorktreeInterval', id:'pi-gitworktree', label:t('poll.git_worktree.label'),
+    hint:t('poll.git_worktree.hint'),
+    get:()=>gitWorktreeInterval, set:v=>{gitWorktreeInterval=v},
+    opts:[[1000,tn('core.dur_sec',1)],[2000,tn('core.dur_sec',2)],[4000,tn('core.dur_sec',4)],[10000,tn('core.dur_sec',10)],[30000,tn('core.dur_sec',30)]],
+  },
+  {
     key:'gitConsoleInterval', id:'pi-gitconsole', label:t('poll.git_console.label'),
     hint:t('poll.git_console.hint'),
     get:()=>gitConsoleInterval, set:v=>{gitConsoleInterval=v},

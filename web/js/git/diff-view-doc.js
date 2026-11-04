@@ -52,6 +52,8 @@ Object.assign(GitDiffView.prototype, {
   _docLeave(){
     const dv=this._dv; this._dv=null;
     if(dv) window.app.edDocDrop(dv.filePath,dv);
+    // EDITOR_LIVE_RELOAD_SRS FR-ELR-65·66: Diff 문서의 부모 디렉터리도 감시 집합에 든다.
+    if(dv) window.app.edWatchSync();
   },
 
   // 새 칸을 붙인 뒤에 부른다 — 앞 문서의 마지막 뷰였으면 그 버퍼가 여기서 버려진다.
@@ -59,6 +61,7 @@ Object.assign(GitDiffView.prototype, {
     if(this._dv===dv) return;
     this._docLeave();
     this._dv=dv;
+    window.app.edWatchSync();
   },
 
   _docRec(){

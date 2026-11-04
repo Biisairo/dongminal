@@ -7,6 +7,7 @@ package httpapi
 import (
 	"dongminal/internal/webserver/gitapi"
 
+	"dongminal/internal/webserver/fswatch"
 	"dongminal/internal/webserver/hub"
 
 	"context"
@@ -87,6 +88,10 @@ type Server struct {
 	// (GIT_PUSH_OBSERVE_SRS). `Git` 이 nil 이면 이 자리도 nil 이고, 그때
 	// `GitServer.Watch` 가 nil 이라 표명이 무해하게 지나간다.
 	gitWatch *hub.GitWatcher
+
+	// fsWatch 는 화면에 보이는 디렉터리를 감시해 `fs_changed` 를 방송한다
+	// (EDITOR_LIVE_RELOAD_SRS 묶음 W). 임대는 SSE 구독이 쥔다 (FR-ELR-52).
+	fsWatch *fswatch.Manager
 
 	// Access 는 접속 허용 목록이다 (ACCESS_ALLOWLIST_SRS). nil 이 아니면 게이트가
 	// 모든 표면 앞에 선다. `--expose` 뒤에 아무 제어가 없던 자리를 여기가 메운다.
@@ -266,7 +271,9 @@ func New(cfg Config, deps Deps) (*Server, error) {
 		srv.gitWatch = hub.NewGitWatcher(deps.Git, cmds)
 		srv.gitWatch.SetOnChanged(deps.OnGitChanged)
 		srv.gitWatch.SetOnBaseline(deps.OnGitBaseline)
+		srv.applyGitWorktree()
 	}
+	srv.fsWatch = newFSWatch(cmds, srv.gitWatch)
 	srv.git = &gitapi.GitServer{
 		Git:       deps.Git,
 		Exclusion: deps.GitExclusion,

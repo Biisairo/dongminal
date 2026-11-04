@@ -26,7 +26,7 @@ function setup(answers, raw) {
       },
     },
   });
-  const store = new ctx.FileTreeStore({ edStores: new Map() }, '/r');
+  const store = new ctx.FileTreeStore({ edStores: new Map(), edWatchSync() {} }, '/r');
   const reloads = [];
   const view = (open) => ({ _open: new Set(open), paint() {}, reload: async (d) => { reloads.push(d) } });
   return { store, sent, urls, reloads, view };

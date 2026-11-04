@@ -172,6 +172,8 @@ var apiRoutes = []apiRoute{
 	// OPTIMIZE_REFACTOR_SRS FR-OPT-4-2: 위 둘(겹·파일)을 한 요청으로 묻는다. 편집기
 	// 틱은 이것 하나를 부른다 — 옛 둘은 옛 화면을 위해 남는다.
 	httproute.Post("/api/fs/stamps", (*Server).apiFSStamps),
+	// EDITOR_LIVE_RELOAD_SRS FR-ELR-51: 보이는 디렉터리의 감시 등록. 변화는 `fs_changed` 로 온다.
+	httproute.Put("/api/fs/watch", (*Server).apiFSWatch),
 	// EDITOR_GIT_UX_SRS 묶음 F·G — Editor 창의 파일 이름 찾기·전체 내용 찾기.
 	httproute.Get("/api/fs/find", (*Server).apiFSFind),
 	httproute.Get("/api/fs/grep", (*Server).apiFSGrep),

@@ -41,6 +41,7 @@ const SETTINGS_ACCESS={
   statsInterval:{get:()=>statsInterval,set:v=>POLL_BY_KEY.statsInterval.set(v)},
   gitStatusInterval:{get:()=>gitStatusInterval,set:v=>POLL_BY_KEY.gitStatusInterval.set(v)},
   gitReposInterval:{get:()=>gitReposInterval,set:v=>POLL_BY_KEY.gitReposInterval.set(v)},
+  gitWorktreeInterval:{get:()=>gitWorktreeInterval,set:v=>POLL_BY_KEY.gitWorktreeInterval.set(v)},
   gitConsoleInterval:{get:()=>gitConsoleInterval,set:v=>POLL_BY_KEY.gitConsoleInterval.set(v)},
   layoutPresets:{get:()=>layoutPresets,set(v){layoutPresets=v;this._presetButtonPaint()}},
   defaultPreset:{get:()=>defaultPreset,set(v){defaultPreset=v;this._presetButtonPaint()}},

@@ -95,6 +95,7 @@
 | GET | `/api/fs/list?root=<abs>&path=<abs>&offset=<n>` | 탐색기 한 겹 조회. dot 항목 포함, 정렬은 서버가 한다. 응답 `{path, entries:[{name,dir,link,linkDir}], offset, total, truncated, stamp}`. 한 번에 최대 10,000개이며 `truncated` 는 "이 응답 뒤에 더 있다" 는 뜻이다. `offset`(기본 0, 음수·정수 아님은 0)으로 그 다음 쪽을 받아 **이어 붙인다** — 같은 `offset` 이 같은 자리를 가리키는 것은 순서가 서버의 것이기 때문이다. `offset >= total` 은 오류가 아니라 빈 배열이다. `stamp` 는 **이 응답과 같은 관측**의 변경 표식이다 (아래 `/api/fs/stamp` 와 같은 값) |
 | POST | `/api/fs/stamp` | 겹이 바뀌었는지만 값싸게 묻는다. 본문 `{root, dirs:[<abs>…]}` → `{stamps:{<abs>: "<문자열>"}}`. 값은 그 디렉터리의 mtime 이며 **해석하지 않고 같은지만 본다.** 읽을 수 없거나 루트 밖이거나 디렉터리가 아닌 겹은 오류가 아니라 응답에서 **빠진다.** `dirs` 는 512개까지 |
 | POST | `/api/fs/stamps` | 위 `/api/fs/stamp` 와 `/api/file/stamps` 를 **한 요청**으로 묻는다. 본문 `{trees:[{root, dirs:[<abs>…]}…], paths:[<abs>…]}` → `{trees:{<root>: {stamps:{…}} 또는 {code, status}}, paths:{<abs>: "<문자열>"}}`. 값은 두 종단과 같다. 루트마다 판정이 따로다 — 거부된 루트는 그 자리에 옛 종단이 답했을 `code`·`status` 를 싣고, 다른 루트와 파일의 답은 그대로 나간다. `trees` 는 16개, 루트당 `dirs` 는 512개, `paths` 는 512개까지 |
+| PUT | `/api/fs/watch` | 이 클라이언트가 감시할 디렉터리를 **통째로** 바꾼다. 본문 `{clientId, dirs:[<abs>…]}` → `{watching:[<abs>…]}`. **`root` 를 받지 않는다** — 판정은 파일 읽기(`/api/file/read`)와 같다(절대경로). 없는 경로·디렉터리가 아닌 것·감시를 걸 수 없는 것은 오류가 아니라 `watching` 에서 **빠진다.** `clientId` 는 열려 있는 `/api/commands/sse?clientId=` 구독의 것이어야 하고(아니면 400), 그 구독이 끊기면 등록이 지워진다. 비재귀다 — 디렉터리의 직속 항목만 본다. 변화는 SSE `fs_changed` 로 온다. `dirs` 는 1024개까지 |
 | POST | `/api/fs/create` | 바디 `{root, path, dir}` |
 | POST | `/api/fs/rename` | 바디 `{root, from, to}`. 이동도 이 종단 |
 | POST | `/api/fs/delete` | 바디 `{root, path}`. **영구 삭제** |
@@ -397,6 +398,7 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 | `tool_activity` | 도구의 활동 상태 갱신 |
 | `window_focus` | 창 포커스 소유권이 바뀌었다. `args.owners` 는 **전체 맵**이다 (증분이 아니다) |
 | `settings_changed` | 설정이 저장됐다 — 본문은 없고 `GET /api/settings` 로 다시 받으라는 신호. `args.origin`(선택)은 저장한 `PUT` 의 `clientId` 다 |
+| `fs_changed` | `PUT /api/fs/watch` 로 등록한 디렉터리의 직속 항목이 바뀌었다. `args.changes` 는 `[{path, type}]` 이고 `type` 은 `added`·`updated`·`deleted` 다. `path` 는 등록한 철자 그대로다. 75ms 동안 모아 같은 경로끼리 합친 값이다. 서버가 이벤트를 놓쳤으면 `args.overflow: true` 가 한 번 온다 — 그때는 폴링으로 다시 맞춘다 |
 
 ## OSC 777 커스텀 이스케이프
 

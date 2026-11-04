@@ -290,6 +290,17 @@ const FS_STAMP_MAX=512;
 // (`FS_STAMP_MAX` 와 같은 근거).
 const FILE_STAMPS_MAX=512;
 
+// EDITOR_LIVE_RELOAD_SRS FR-ELR-51·65: 보이는 디렉터리의 감시 등록. 변화는 SSE `fs_changed` 로 온다.
+// 상한은 서버(`fsWatchDirsMax`)와 같다 — 겹(`FS_STAMP_MAX`)과 열린 파일(`FILE_STAMPS_MAX`)의 합.
+const FS_WATCH_API='/api/fs/watch';
+const FS_WATCH_DIRS_MAX=FS_STAMP_MAX+FILE_STAMPS_MAX;
+// FR-ELR-68: 탐색기는 첫 이벤트부터 이만큼 모아 한 번에 처리한다 (VS Code
+// `explorerService.ts` `EXPLORER_FILE_CHANGES_REACT_DELAY`).
+const EXPLORER_FS_CHANGES_DELAY_MS=500;
+// FR-ELR-67: 문서 하나에 다시 읽기는 실행 중 하나 + 대기 하나까지다 (VS Code
+// `textFileEditorModelManager.ts` `queueModelReload`).
+const EDITOR_DOC_RELOAD_QUEUE=2;
+
 // FR-EDT-77: 활성 Editor 창의 색 갱신 주기. `GIT_REPOS_POLL_MS` 를 **값으로 딛는다**
 // — 같은 사실을 보는 두 화면이 다른 속도로 갱신될 이유가 없고, 두 벌로 적으면
 // 한쪽만 고쳐진다.
