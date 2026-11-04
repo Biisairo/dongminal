@@ -1062,7 +1062,7 @@ I18N.register('ko', {
   'poll.git_console.label': 'git 콘솔',
   'poll.git_repos.hint': '탐색기의 파일 목록과 열어 둔 파일의 바깥 변경. 평소에는 서버의 파일 감시가 곧바로 알리고, 이 주기는 그 알림이 놓친 것을 맞춥니다.',
   'poll.git_repos.label': '탐색기',
-  'poll.git_worktree.hint': '서버가 작업 트리의 git 변화를 확인하는 주기. 화면에 펼친 폴더의 변화는 파일 감시가 곧바로 알리고, 이 주기는 접힌 폴더 안의 변화를 맡습니다.',
+  'poll.git_worktree.hint': '서버가 작업 트리의 git 변화를 확인하는 주기. 화면에 펼친 폴더의 변화는 파일 감시가 곧바로 알리고, 이 주기는 접힌 폴더 안의 변화를 맡습니다. Windows 는 파일 감시를 하지 않으므로 모든 변화를 이 주기로 확인합니다.',
   'poll.git_worktree.label': 'git 작업 트리',
   'poll.git_status.hint': '평소 git 변화는 서버가 곧바로 알립니다. 이것은 그 알림이 놓친 것을 줍는 그물이라 드물어도 됩니다.',
   'poll.git_status.label': 'git 상태 안전망',
