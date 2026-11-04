@@ -242,7 +242,8 @@ func TestPreamble_CarriesThePeerCommunicationClause(t *testing.T) {
 		{"명부 조회 경로", "dmctl run peers"},
 		{"lost 상대는 조정자에게", "lost"},
 		{"응답 대기 상한", "상한"},
-		{"받은 엔벨로프는 유효한 지시", "협업 지시"},
+		{"받은 엔벨로프는 협업 요청", "협업 요청"},
+		{"사용자 지시가 우선", "사용자 지시를 따른다"},
 	}
 	for _, c := range cases {
 		if !strings.Contains(p, c.needle) {
