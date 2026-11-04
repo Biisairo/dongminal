@@ -154,6 +154,9 @@ jobs:
                 echo "  아직 실행이 없다 ($i)";;
               completed\ success*)
                 echo "e2e 성공 — ${json#* * }"; exit 0;;
+              completed\ skipped*)
+                # e2e.yml 의 잡을 건너뛰게 해 두었다 (2026-11-04 사용자 결정).
+                echo "e2e 건너뜀 — ${json#* * }"; exit 0;;
               completed*)
                 echo "::error::e2e 가 성공하지 않았습니다 — $json"; exit 1;;
               *)
