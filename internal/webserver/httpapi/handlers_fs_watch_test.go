@@ -6,9 +6,10 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"testing"
+
+	"dongminal/internal/shared/platform"
 )
 
 // EDITOR_LIVE_RELOAD_SRS FR-ELR-51 (V-ELR-24) — 감시 등록 종단.
@@ -37,7 +38,7 @@ func watchingOf(t *testing.T, out map[string]any) []string {
 }
 
 func TestFSWatch_RegistersValidDirsAndDropsOthers(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if platform.Current().OS == platform.Windows {
 		t.Skip("Windows 는 파일 감시를 하지 않는다 (EDITOR_LIVE_RELOAD_SRS FR-ELR-55, D-8)")
 	}
 	srv, _, _ := fsTestServer(t)
@@ -71,7 +72,7 @@ func TestFSWatch_RegistersValidDirsAndDropsOthers(t *testing.T) {
 }
 
 func TestFSWatch_SymlinkKeepsClientSpelling(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if platform.Current().OS == platform.Windows {
 		t.Skip("Windows 는 파일 감시를 하지 않는다 (EDITOR_LIVE_RELOAD_SRS FR-ELR-55, D-8)")
 	}
 	srv, _, _ := fsTestServer(t)
