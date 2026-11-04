@@ -122,6 +122,7 @@
     put('vp.overflowY='+(p?getComputedStyle(p.el.querySelector('.xterm-viewport')||document.body).overflowY:'?'));
     put('hasTouchScrollHook='+!!(p&&p._tsStart)+' hasBeforeInput='+!!(p&&p._onBeforeInput));
     put('mouseEventsActive='+(p&&p.term&&p.term._core&&p.term._core.coreMouseService?p.term._core.coreMouseService.areMouseEventsActive:'?'));
+    put('renderer='+(p&&p.gpuRenderer?p.gpuRenderer():'?')+' gpuUnavailable='+(typeof TermGpu!=='undefined'?TermGpu.unavailable:'?')+' gpuLosses='+(typeof TermGpu!=='undefined'?TermGpu.losses:'?'));
     put('active='+cn(document.activeElement));
     put(scrollState());
     put(gitObsState());

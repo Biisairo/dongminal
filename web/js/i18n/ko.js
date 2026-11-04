@@ -983,6 +983,8 @@ I18N.register('ko', {
   'html.ui_font_scale': 'UI 글자 크기 (px)',
   'html.ui_font_scale_hint': '사이드바·탭·설정·편집기 등 앱 화면의 본문 글자 크기를 8~32px 로 정합니다. 버튼·탭·아이콘도 같은 비율로 커집니다. 터미널 글자 크기는 따로이며, Terminal 탭에서 정합니다.',
   'html.term_font_size': '터미널 글자 크기 (px)',
+  'html.term_gpu': '터미널 GPU 렌더링',
+  'html.term_gpu_hint': '화면에 보이는 터미널을 GPU(WebGL)로 그려 많은 출력과 빠른 스크롤이 부드러워집니다. 글자가 흐리거나 깨져 보이면 끄세요. 이 기기에만 적용됩니다.',
   'html.term_font_size_hint': '터미널에 그려지는 글자의 크기입니다. 8~32px. 바꾸면 열려 있는 터미널에 곧바로 적용되고 화면의 칸 수가 다시 계산됩니다. UI 글자 크기와는 서로 영향을 주지 않습니다.',
   'html.claude_scroll_speed': 'Claude Code 스크롤 속도 (줄)',
   'html.claude_scroll_speed_hint': 'Claude Code 안에서 마우스휠을 한 번 굴릴 때 넘어가는 줄 수입니다. 1~20, 기본 3. **새로 여는 터미널부터 적용됩니다** — 환경은 프로그램이 시작할 때 정해집니다.',

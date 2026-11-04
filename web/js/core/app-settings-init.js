@@ -104,6 +104,14 @@ Object.assign(App.prototype, {
    * 값이 서버에 사는 이유는 `fgTabNames` 와 같다 — **쓰는 주체가 서버**이고
    * (도구를 띄울 때 환경에 넣는다) 정하는 자리만 화면이다.
    */
+  /** TERMINAL_GPU_RENDER_SRS FR-TGR-14·15: 기기별 값이다 — 서버 설정 블롭에 싣지 않는다. */
+  _initTermGpu(){
+    const cb=document.getElementById('ds-termgpu');
+    if(!cb) return;
+    cb.checked=TermGpu.enabled();
+    cb.addEventListener('change',()=>TermGpu.setEnabled(cb.checked,this));
+  },
+
   _initClaudeFullscreen(){
     const cb=document.getElementById('ds-claudefs');
     if(!cb) return;

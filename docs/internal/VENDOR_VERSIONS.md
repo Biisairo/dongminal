@@ -23,6 +23,7 @@
 | `addon-search.js` | MIT | xterm.js 와 같은 판 (②) | `3cf52d71d9deb4ba…` | 12067 |
 | `addon-unicode11.js` | MIT | xterm.js 와 같은 판 (②) | `b0c3be540a998471…` | 12253 |
 | `addon-web-links.js` | MIT | xterm.js 와 같은 판 (②) | `f230a6c8211ce461…` | 3090 |
+| `addon-webgl.js` | MIT | 0.18.0 (`@xterm/addon-webgl`, TERMINAL_GPU_RENDER_SRS FR-TGR-1) | `9ffa9ac3ff6d47d4…` | 100856 |
 | `highlight.js` | BSD-3-Clause | 11.12.0 | `8ab71eb09c51f501…` | 129254 |
 | `markdown-it.js` | MIT | 15.0.1 | `7a01babb52fc4d7f…` | 114905 |
 | `purify.js` | Apache-2.0 / MPL-2.0 | 3.4.15 (DOMPurify) | `f263b05369e050fa…` | 29369 |

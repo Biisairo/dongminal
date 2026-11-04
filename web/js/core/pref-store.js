@@ -35,6 +35,7 @@ const STORE_KEYS=Object.freeze({
   // local — 기기의 취향
   attnSound:'attnSound',
   attnDesktop:'attnDesktop',
+  termGpu:'termGpu',
   agentsPanelOpen:'agentsPanelOpen',
   agentsWidth:'agentsWidth',
   agentsGroupFold:'agentsGroupFold',

@@ -960,6 +960,8 @@ I18N.register('en', {
   'html.ui_font_scale': 'UI font size (px)',
   'html.ui_font_scale_hint': 'Sets the app body text — sidebar, tabs, settings, editor — between 8 and 32 px. Buttons, tabs and icons grow by the same ratio. The terminal font size is separate and lives in the Terminal tab.',
   'html.term_font_size': 'Terminal font size (px)',
+  'html.term_gpu': 'Terminal GPU rendering',
+  'html.term_gpu_hint': 'Draws visible terminals with the GPU (WebGL), so heavy output and fast scrolling stay smooth. Turn it off if text looks blurry or broken. Applies to this device only.',
   'html.term_font_size_hint': 'Size of the text drawn in the terminal, 8–32px. Changing it applies to open terminals right away and the grid is re-measured. It is independent of the UI font size.',
   'html.claude_scroll_speed': 'Claude Code scroll speed (lines)',
   'html.claude_scroll_speed_hint': 'How many lines one mouse-wheel notch scrolls inside Claude Code. 1–20, default 3. **Applies to terminals you open from now on** — the environment is fixed when the program starts.',

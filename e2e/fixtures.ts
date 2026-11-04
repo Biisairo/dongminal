@@ -211,6 +211,9 @@ function hermeticEnv(): NodeJS.ProcessEnv {
 
 const pageEnvAtOpen = new WeakMap<any, any>();
 
+/** TERMINAL_GPU_RENDER_SRS FR-TGR-17: 터미널을 DOM 렌더러로 고정한다. */
+const gpuOff = () => { localStorage.setItem('termGpu', '0') };
+
 export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
   /**
    * 편집기 접근 어댑터 `edT` 를 모든 페이지에 심는다 (CODEMIRROR_MIGRATION_SRS FR-CMR-120).
@@ -218,8 +221,27 @@ export const test = base.extend<{ cleanTools: void }, { dmServer: DmServer }>({
    */
   context: async ({ context }, use) => {
     await context.addInitScript(installEdAdapter, ED_SEL);
+    // TERMINAL_GPU_RENDER_SRS FR-TGR-17: 스펙들은 `.xterm-rows` 의 글자를 읽는다 — DOM 렌더러로 고정한다.
+    // WebGL 경로는 `term-gpu.spec.ts` 가 이 값을 다시 덮어 잰다 (init 스크립트는 건 순서대로 돈다).
+    await context.addInitScript(gpuOff);
     await use(context);
   },
+  /**
+   * FR-TGR-17: 스펙이 `browser.newContext()` 로 직접 연 컨텍스트에도 같은 고정을 건다 —
+   * 위 `context` 픽스처를 지나지 않으므로 그 자리만으로는 빠진다 (ET17 실측).
+   */
+  browser: [
+    async ({ browser }, use) => {
+      const open = browser.newContext.bind(browser);
+      browser.newContext = async (...args: Parameters<typeof open>) => {
+        const ctx = await open(...args);
+        await ctx.addInitScript(gpuOff);
+        return ctx;
+      };
+      await use(browser);
+    },
+    { scope: 'worker' },
+  ],
   /**
    * 이 워커의 서버를 띄우고, 워커가 끝날 때 서버와 **데몬**을 함께 세운다
    * (FR-EPL-1·4·5).
@@ -578,8 +600,11 @@ export async function waitForInit(page: any, opts: InitOpts = {}) {
     if (!sessionStorage.getItem('__dmCleared')) {
       sessionStorage.setItem('__dmCleared', '1');
       try {
+        // FR-TGR-17: 렌더러 고정은 비우는 대상이 아니다 — 앞선 init 스크립트가 둔 값을 되돌려 놓는다.
+        const gpu = localStorage.getItem('termGpu');
         if (cfg.clearAll) localStorage.clear();
         for (const k of cfg.keys) localStorage.removeItem(k);
+        if (gpu !== null) localStorage.setItem('termGpu', gpu);
       } catch { /* 사생활 모드: 지울 것이 없다 */ }
     }
   }, first);

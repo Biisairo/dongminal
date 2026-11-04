@@ -754,7 +754,8 @@ class TerminalTool {
     this._flingStop();
     if(this._carryTimer){TIMERS.cancel(this._carryTimer);this._carryTimer=null}
     this._sock.close();
-    if(this.term){this.term.dispose();this.term=null}
+    // FR-TGR-8: `term.dispose()` 가 실린 addon 을 함께 정리한다 — 참조만 버린다.
+    if(this.term){this.term.dispose();this.term=null;this._gpu=null}
     this.el.remove(); this._opened=false;
   }
   _send(m){ this._sock.send(m) }

@@ -423,6 +423,7 @@ Object.assign(App.prototype, {
     this._initUiFontScale();
     this._initFgNames();
     this._initClaudeFullscreen();
+    this._initTermGpu();
     this._initTermFontSize();
     this._initClaudeScrollSpeed();
     this._initConfirmLeave();

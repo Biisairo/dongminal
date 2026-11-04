@@ -78,6 +78,7 @@ const VENDOR_GLOBALS = {
   SearchAddon: 'readonly',       // web/vendor/addon-search.js
   WebLinksAddon: 'readonly',     // web/vendor/addon-web-links.js
   Unicode11Addon: 'readonly',    // web/vendor/addon-unicode11.js
+  WebglAddon: 'readonly',        // web/vendor/addon-webgl.js
   hljs: 'readonly',              // web/vendor/highlight.js
   markdownit: 'readonly',        // web/vendor/markdown-it.js
   DOMPurify: 'readonly',         // web/vendor/purify.js

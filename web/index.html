@@ -441,6 +441,12 @@
             <input type="number" class="ds-num" id="ds-scrollspeed" min="1" max="20" step="1">
           </div>
           <div class="ds-hint" data-i18n="html.claude_scroll_speed_hint"></div>
+          <!-- TERMINAL_GPU_RENDER_SRS FR-TGR-14 -->
+          <div class="ds-row">
+            <span data-i18n="html.term_gpu"></span>
+            <input type="checkbox" class="ui-switch" id="ds-termgpu">
+          </div>
+          <div class="ds-hint" data-i18n="html.term_gpu_hint"></div>
         </div>
       </div>
       <div class="mpanel" id="panel-code" hidden>
@@ -651,6 +657,7 @@
 <script src="vendor/addon-web-links.js"></script>
 <script src="vendor/addon-unicode11.js"></script>
 <script src="vendor/addon-search.js"></script>
+<script src="vendor/addon-webgl.js"></script>
 <script src="vendor/markdown-it.js"></script>
 <script src="vendor/purify.js"></script>
 <script src="vendor/highlight.js"></script>
@@ -751,6 +758,8 @@
 <script src="js/ui/term-clip.js?v=__ASSETV__"></script>
 <!-- 터치 스크롤·길게 누르기 (UX_BATCH11_SRS FR-MTS). term-input.js 의 증강 분할이다. -->
 <script src="js/ui/term-touch.js?v=__ASSETV__"></script>
+<!-- 보이는 칸의 GPU 렌더링 (TERMINAL_GPU_RENDER_SRS). term-pane.js 의 증강 분할이다. -->
+<script src="js/ui/term-gpu.js?v=__ASSETV__"></script>
 <!-- CodeMirror 편집기의 문서 버퍼·찾기 계산·구성 (CODEMIRROR_MIGRATION_SRS §11.1). file-editor.js
      앞이다 — FileEditor 가 이것들을 부른다. `CM` 은 편집기를 처음 열 때 온다(loadCodeMirror). -->
 <script src="js/ui/cm-buffer.js?v=__ASSETV__"></script>

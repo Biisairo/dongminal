@@ -141,10 +141,12 @@ Object.assign(Renderer.prototype, {
     const app=this.app;
     TIMERS.frame(()=>{
       for(const p of app.tools.values()){
+        // TERMINAL_GPU_RENDER_SRS FR-TGR-7: 렌더러를 정한 **뒤에** 잰다.
         if(p.el.classList.contains('vis')){
           if(!p._opened)p.open();
+          p.syncGpu(true);
           p.doFit();
-        }
+        }else p.syncGpu(false);
       }
       // FR-PDR-10: **옮겨진 것만** 되돌린다. 재사용된 pane 은 이 목록에 없고,
       // 그래서 어떤 스크롤 API 도 닿지 않는다 — 그것이 이 작업의 요점이다.

@@ -467,6 +467,11 @@ const BUILTIN_HOTKEYS = [
  */
 const TERM_SCROLLBACK_LINES=50000;
 /**
+ * 페이지 수명 동안 받아들이는 WebGL 컨텍스트 손실 횟수 (TERMINAL_GPU_RENDER_SRS FR-TGR-11).
+ * 여기에 이르면 그 페이지는 GPU 렌더링을 다시 시도하지 않는다.
+ */
+const TERM_GPU_LOSS_LIMIT=3;
+/**
  * 창·탭 이름의 길이 상한 (`12-func-ui.md FUI-18`).
  *
  *   이전 동작: **만들 때만** 잘랐다 — `app-layout.js` 네 자리의 `.slice(0,64)`.
