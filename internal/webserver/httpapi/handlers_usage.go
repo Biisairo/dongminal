@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"dongminal/internal/shared/statusline"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/run"
 )
@@ -12,58 +13,15 @@ import (
 // ISSUE_AGENT_TREE_SRS 묶음 S — 도구별 사용량 (FR-SLP-10·11·20).
 //
 // `dmctl statusline`(프록시)이 Claude Code 의 statusLine 입력에서 꺼낸 값을 보낸다.
-// 받는 꼴은 **타입으로 고정한 허용 목록**이다 — 모르는 필드는 디코딩에서 떨어지므로
+// 받는 꼴은 **타입으로 고정한 허용 목록**(statusline.Usage)이다 — 모르는 필드는 디코딩에서 떨어지므로
 // 경로나 본문이 섞여 와도 저장되지 않는다 (FR-SLP-2a). 메모리에만 둔다: 사용량은
 // 지금의 사실이고, 서버를 다시 띄우면 다음 statusLine 갱신이 다시 채운다.
 
-type usageModel struct {
-	ID          *string `json:"id,omitempty"`
-	DisplayName *string `json:"displayName,omitempty"`
-}
-
-type usageCost struct {
-	TotalCostUsd       *float64 `json:"totalCostUsd,omitempty"`
-	TotalDurationMs    *float64 `json:"totalDurationMs,omitempty"`
-	TotalApiDurationMs *float64 `json:"totalApiDurationMs,omitempty"`
-	TotalLinesAdded    *float64 `json:"totalLinesAdded,omitempty"`
-	TotalLinesRemoved  *float64 `json:"totalLinesRemoved,omitempty"`
-}
-
-type usageCurrent struct {
-	InputTokens              *float64 `json:"inputTokens,omitempty"`
-	OutputTokens             *float64 `json:"outputTokens,omitempty"`
-	CacheCreationInputTokens *float64 `json:"cacheCreationInputTokens,omitempty"`
-	CacheReadInputTokens     *float64 `json:"cacheReadInputTokens,omitempty"`
-}
-
-type usageContextWindow struct {
-	TotalInputTokens  *float64      `json:"totalInputTokens,omitempty"`
-	TotalOutputTokens *float64      `json:"totalOutputTokens,omitempty"`
-	WindowTokens      *float64      `json:"windowTokens,omitempty"`
-	UsedPct           *float64      `json:"usedPct,omitempty"`
-	RemainingPct      *float64      `json:"remainingPct,omitempty"`
-	CurrentUsage      *usageCurrent `json:"currentUsage,omitempty"`
-}
-
-type usageRateWindow struct {
-	UsedPct  *float64 `json:"usedPct,omitempty"`
-	ResetsAt *float64 `json:"resetsAt,omitempty"`
-}
-
-// toolUsage 는 statusLine 입력의 허용 목록이다 (runtimebin.slFields 와 같은 집합).
+// toolUsage 는 저장하는 관측 하나다. 허용 목록은 statusline.Usage 한 벌이고(`dmctl
+// statusline` 이 같은 타입을 채워 보낸다), 여기서는 받은 시각만 더한다.
 type toolUsage struct {
-	SessionID     *string                    `json:"sessionId,omitempty"`
-	Version       *string                    `json:"version,omitempty"`
-	Model         *usageModel                `json:"model,omitempty"`
-	Effort        *string                    `json:"effort,omitempty"`
-	Thinking      *bool                      `json:"thinking,omitempty"`
-	FastMode      *bool                      `json:"fastMode,omitempty"`
-	OutputStyle   *string                    `json:"outputStyle,omitempty"`
-	Exceeds200k   *bool                      `json:"exceeds200k,omitempty"`
-	Cost          *usageCost                 `json:"cost,omitempty"`
-	ContextWindow *usageContextWindow        `json:"contextWindow,omitempty"`
-	RateLimits    map[string]usageRateWindow `json:"rateLimits,omitempty"`
-	ObservedAt    int64                      `json:"observedAt"`
+	statusline.Usage
+	ObservedAt int64 `json:"observedAt"`
 }
 
 // contextTokens 는 지금 맥락에 든 토큰이다 — 입력·캐시 생성·캐시 읽기의 합

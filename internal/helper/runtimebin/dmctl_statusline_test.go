@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/statusline"
 )
 
 // ISSUE_AGENT_TREE_SRS 묶음 S — statusLine 프록시 (TC-SLP-1 · 2 · 3 · 7).
@@ -25,7 +27,7 @@ const slSample = `{"session_id":"c009","transcript_path":"/Users/x/.claude/proje
 "exceeds_200k_tokens":false,"fast_mode":false,"thinking":{"enabled":true},"secret_new_field":"leak?"}`
 
 func TestStatuslineUsage_Allowlist(t *testing.T) {
-	u := statuslineUsage([]byte(slSample))
+	u := slUsageMap(t, slSample)
 	blob, _ := json.Marshal(u)
 	s := string(blob)
 	for _, banned := range []string{"transcript", "/Users/x", "PROJ", "workspace", "secret_new_field", "leak?"} {
@@ -62,7 +64,7 @@ func TestStatuslineUsage_Allowlist(t *testing.T) {
 
 func TestStatuslineUsage_NullPercentNotReported(t *testing.T) {
 	raw := `{"session_id":"s","context_window":{"context_window_size":1000000,"current_usage":null,"used_percentage":null}}`
-	u := statuslineUsage([]byte(raw))
+	u := slUsageMap(t, raw)
 	cw, _ := u["contextWindow"].(map[string]any)
 	if _, ok := cw["usedPct"]; ok {
 		t.Errorf("null 사용률이 실렸다: %v", cw)
@@ -105,6 +107,20 @@ func TestStatuslineDownstream_Precedence(t *testing.T) {
 	if got := statuslineDownstream(proj, env); got != "proj-cmd" {
 		t.Fatalf("self skip: %q", got)
 	}
+}
+
+// slUsageMap 은 `dmctl statusline` 이 보내는 usage 를 JSON 그대로의 모양으로 본다 (R-SLU-5).
+func slUsageMap(t *testing.T, raw string) map[string]any {
+	t.Helper()
+	blob, err := json.Marshal(statusline.FromInput([]byte(raw)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(blob, &m); err != nil {
+		t.Fatal(err)
+	}
+	return m
 }
 
 func strconvQuote(s string) string { b, _ := json.Marshal(s); return string(b) }
