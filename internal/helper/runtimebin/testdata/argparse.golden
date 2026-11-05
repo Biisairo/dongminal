@@ -343,87 +343,87 @@ wait ["--timeout-ms" "100" "--for" "done" "--at" "t" "--json"]
   stdout=""
   stderr=""
 run []
-  code=0 proceed=true f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  code=0 proceed=true f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs: tree: branch:false ref:}
   stdout=""
   stderr=""
 run ["-h"]
-  code=0 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
-  stdout="<6437 bytes, sum ecf70a3d>"
+  code=0 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs: tree: branch:false ref:}
+  stdout="<6987 bytes, sum 19ba8546>"
   stderr=""
 run ["--help"]
-  code=0 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
-  stdout="<6437 bytes, sum ecf70a3d>"
+  code=0 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs: tree: branch:false ref:}
+  stdout="<6987 bytes, sum 19ba8546>"
   stderr=""
 run ["--json"]
-  code=0 proceed=true f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:true headless:false timeoutMs:}
+  code=0 proceed=true f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:true headless:false timeoutMs: tree: branch:false ref:}
   stdout=""
   stderr=""
 run ["--json" "-h" "--bogus"]
-  code=0 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:true headless:false timeoutMs:}
-  stdout="<6437 bytes, sum ecf70a3d>"
+  code=0 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:true headless:false timeoutMs: tree: branch:false ref:}
+  stdout="<6987 bytes, sum 19ba8546>"
   stderr=""
 run ["--bogus" "-h"]
-  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs: tree: branch:false ref:}
   stdout=""
   stderr="run sub: unknown argument: --bogus\n"
 run ["--json=1"]
-  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs: tree: branch:false ref:}
   stdout=""
   stderr="run sub: unknown argument: --json=1\n"
 run ["="]
-  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs: tree: branch:false ref:}
   stdout=""
   stderr="run sub: unknown argument: =\n"
 run ["-"]
-  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs: tree: branch:false ref:}
   stdout=""
   stderr="run sub: unknown argument: -\n"
 run ["x"]
-  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs: tree: branch:false ref:}
   stdout=""
   stderr="run sub: unknown argument: x\n"
 run ["--"]
-  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs: tree: branch:false ref:}
   stdout=""
   stderr="run sub: unknown argument: --\n"
 run ["--run"]
-  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs: tree: branch:false ref:}
   stdout=""
   stderr="run sub: flag --run requires value\n"
 run ["--run" "r1" "--member" "m" "--force" "--headless" "--keep-worktrees" "--keep-tools" "--json" "--text"]
-  code=0 proceed=true f={run:r1 member:m role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:true keepTrees:true keepTools:true textOut:true jsonOut:true headless:true timeoutMs:}
+  code=0 proceed=true f={run:r1 member:m role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:true keepTrees:true keepTools:true textOut:true jsonOut:true headless:true timeoutMs: tree: branch:false ref:}
   stdout=""
   stderr=""
 run ["--run=r1" "--role=x" "-l=t" "--timeout-ms=5"]
-  code=0 proceed=true f={run:r1 member: role:x agent: brief: model: at:t objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:5}
+  code=0 proceed=true f={run:r1 member: role:x agent: brief: model: at:t objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:5 tree: branch:false ref:}
   stdout=""
   stderr=""
 run ["--run="]
-  code=0 proceed=true f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  code=0 proceed=true f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs: tree: branch:false ref:}
   stdout=""
   stderr=""
 run ["-l"]
-  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs: tree: branch:false ref:}
   stdout=""
   stderr="run sub: flag -l requires value\n"
 run ["--force=1"]
-  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs: tree: branch:false ref:}
   stdout=""
   stderr="run sub: unknown argument: --force=1\n"
 run ["--at" "--brief"]
-  code=0 proceed=true f={run: member: role: agent: brief: model: at:--brief objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  code=0 proceed=true f={run: member: role: agent: brief: model: at:--brief objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs: tree: branch:false ref:}
   stdout=""
   stderr=""
 run ["--brief" "-"]
-  code=0 proceed=true f={run: member: role: agent: brief:- model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  code=0 proceed=true f={run: member: role: agent: brief:- model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs: tree: branch:false ref:}
   stdout=""
   stderr=""
 run ["--bogus=1"]
-  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  code=2 proceed=false f={run: member: role: agent: brief: model: at: objective: projection: isolation: window: outcome: summary: files: base: force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs: tree: branch:false ref:}
   stdout=""
   stderr="run sub: unknown argument: --bogus=1\n"
 run ["--objective" "o" "--projection" "p" "--isolation" "i" "--window" "w" "--outcome" "o" "--summary" "s" "--files" "f" "--base" "b" "--agent" "a" "--model" "m"]
-  code=0 proceed=true f={run: member: role: agent:a brief: model:m at: objective:o projection:p isolation:i window:w outcome:o summary:s files:f base:b force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs:}
+  code=0 proceed=true f={run: member: role: agent:a brief: model:m at: objective:o projection:p isolation:i window:w outcome:o summary:s files:f base:b force:false keepTrees:false keepTools:false textOut:false jsonOut:false headless:false timeoutMs: tree: branch:false ref:}
   stdout=""
   stderr=""
 dmctl []

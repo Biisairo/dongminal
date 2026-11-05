@@ -18,26 +18,19 @@ Dongminal 은 도구(터미널 탭) 안에서 도는 에이전트가 워크스�
 > 오케스트레이션한다"는 목표와 어긋났습니다. 등록해 두셨다면
 > `claude mcp remove -s user dongminal` 로 정리하세요.
 
-## 스킬
+## 명령
 
-dongminal 이 띄운 터미널의 Claude Code 세션에서 슬래시 명령으로 쓸 수 있습니다.
-
-| 스킬 | 역할 |
-|------|------|
-| `/dongminal:team` | 여러 Claude Code 인스턴스를 팀으로 묶어 협업시킨다 (1회성) |
-| `/dongminal:workflow` | 팀 구성을 정의서로 저장해두고 이름만으로 반복 실행한다 |
-
-의도가 명확하면 슬래시 없이 "팀 만들어서 …", "저장된 워크플로우 돌려줘" 같은 말로도
-자동 트리거됩니다.
-
-**명령은 스킬과 다른 자리입니다.**
+dongminal 이 띄운 터미널의 Claude Code 세션에서 슬래시 명령으로 씁니다. 명령은 *"사람이
+부를 때만"* 돕니다 — 둘 다 자동으로 트리거되면 안 되는 일입니다(`M10_SRS` FR-M10-6 ·
+`ISSUE_AGENT_TREE_SRS` D-IAT-1).
 
 | 명령 | 역할 |
 |------|------|
 | `/dongminal:migration` | 지금 세션의 일을 다음 세션으로 넘긴다 |
+| `/dongminal:issue-tree <이슈>` | 이슈 트리를 따라 에이전트를 세운다 — 진행 중인 경로에만, 사슬은 탭·병렬은 새 window, 트리 하나는 window 그룹 하나 |
 
-스킬은 *"의도가 보이면 자동으로"* 이고 명령은 *"사람이 부를 때만"* 입니다 — 인계는
-자동으로 트리거되면 안 되는 일이라 그 자리를 갈랐습니다 (`M10_SRS` FR-M10-6).
+> 이전 버전의 `/dongminal:team` · `/dongminal:workflow` 스킬은 지워졌습니다(쓰이지 않았다).
+> 그 스킬이 쓰던 `dmctl run`(Run 기록 · worktree · 대시보드)은 남아 있고 `issue-tree` 가 씁니다.
 
 ## 에이전트가 쓰는 `dmctl` 명령
 
@@ -99,10 +92,10 @@ bin/
 ├── dmctl, edit, download, detach       # multi-call 헬퍼 (바이너리 symlink)
 ├── bash-hook.sh, zdotdir/.zshrc        # cwd 훅 + claude/codex 래퍼
 ├── agent-hooks/claude.json             # 알림·활동 훅 (--settings 로 주입)
-└── agent-plugin/                       # 오케스트레이션 스킬 (--plugin-dir 로 주입)
+└── agent-plugin/                       # 에이전트 명령 (--plugin-dir 로 주입)
     ├── .claude-plugin/plugin.json
-    ├── skills/team, skills/workflow
     ├── commands/migration.md           # 슬래시 명령 (자동 트리거되지 않는다)
+    ├── commands/issue-tree.md
     └── hooks/hooks.json                # SessionStart → dmctl agent-context
 ```
 

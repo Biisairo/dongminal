@@ -28,6 +28,10 @@ func TestRunsTableMatchesPreRefactorBehavior(t *testing.T) {
 		{run.ErrRunOpen, http.StatusConflict},
 		{run.ErrAlreadyReported, http.StatusConflict},
 		{run.ErrToolAlreadyMember, http.StatusConflict},
+		// ISSUE_AGENT_TREE_SRS 묶음 U (FR-ITU-2~4).
+		{run.ErrTreeOpen, http.StatusConflict},
+		{run.ErrTreeNotOpen, http.StatusConflict},
+		{run.ErrNodeTaken, http.StatusConflict},
 		{run.ErrMemberAttached, http.StatusConflict},
 		{run.ErrMemberNotAttached, http.StatusConflict},
 		{run.ErrUnreportedMembers, http.StatusConflict},

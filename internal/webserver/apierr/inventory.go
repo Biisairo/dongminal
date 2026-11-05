@@ -58,6 +58,7 @@ var Inventory = []error{
 	run.ErrUnknownRun, run.ErrRunClosed, run.ErrRunOpen, run.ErrSenderNotMember,
 	run.ErrUnknownMember, run.ErrRunMemberMismatch, run.ErrAlreadyReported,
 	run.ErrToolAlreadyMember, run.ErrUnreportedMembers, run.ErrInvalidArgument,
+	run.ErrTreeOpen, run.ErrTreeNotOpen, run.ErrNodeTaken,
 
 	// domain/wsentry
 	wsentry.ErrNotAbsolute, wsentry.ErrNotFound, wsentry.ErrNotDir, wsentry.ErrUnavailable,

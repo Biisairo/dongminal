@@ -174,6 +174,9 @@ func (s *Server) apiRunStart(w http.ResponseWriter, r *http.Request) {
 		// dmctl 이 실어 보낸다.
 		Cwd  string `json:"cwd"`
 		Base string `json:"base"`
+		// ISSUE_AGENT_TREE_SRS FR-ITU-1: 이슈 트리 표지와 가지 여부.
+		Tree       string `json:"tree"`
+		TreeBranch bool   `json:"treeBranch"`
 	}
 	if !decodeJSONBody(w, r, &body) {
 		return
@@ -199,6 +202,8 @@ func (s *Server) apiRunStart(w http.ResponseWriter, r *http.Request) {
 		Isolation:         iso,
 		CoordinatorToolID: s.callerToolID(r, body.ToolID),
 		WindowID:          body.WindowID,
+		Tree:              body.Tree,
+		TreeBranch:        body.TreeBranch,
 	}
 	if prov != nil {
 		opts.ID, opts.Repo, opts.Base, opts.Worktree = prov.ID, prov.Repo, prov.Base, prov.Worktree
@@ -206,7 +211,7 @@ func (s *Server) apiRunStart(w http.ResponseWriter, r *http.Request) {
 	rec, err := s.Runs.Start(opts)
 	if err != nil {
 		s.rollbackRun(r.Context(), prov)
-		writeRunError(w, err, nil)
+		writeRunError(w, err, s.treeOpenExtra(err))
 		return
 	}
 	dmlog.Infof(nil, "[run] start id=%s short=%s projection=%s isolation=%s coordinator=%s",

@@ -24,10 +24,9 @@ func TestInstallAgentPlugin_Layout(t *testing.T) {
 	plugin := AgentPluginDir(dir)
 
 	want := map[string]os.FileMode{
-		".claude-plugin/plugin.json":         0o644,
-		"skills/team/SKILL.md":               0o644,
-		"skills/workflow/SKILL.md":           0o644,
-		"skills/team/scripts/plan_layout.py": 0o755,
+		".claude-plugin/plugin.json": 0o644,
+		// ISSUE_AGENT_TREE_SRS FR-SKX-1: 스킬은 모두 지워졌다. 남은 것은 명령이다.
+		"commands/issue-tree.md": 0o644,
 		// M10_SRS FR-M10-6: `migration` 은 **명령**이다. 트리가 갈렸으므로 전개도
 		// 따로 확인한다 — `//go:embed all:agentplugin` 이 디렉터리 전체를 담지만,
 		// 담기는 것과 **설치 트리에 서는 것**은 다른 일이다.
@@ -52,7 +51,7 @@ func TestInstallAgentPlugin_Layout(t *testing.T) {
 }
 
 // FR-INJ-1: 매니페스트의 name 이 스킬 호출명의 네임스페이스가 된다
-// (/dongminal:team). 이 값이 바뀌면 스킬 본문의 상호 참조가 전부 깨진다.
+// (/dongminal:migration · /dongminal:issue-tree). 이 값이 바뀌면 명령 본문의 상호 참조가 전부 깨진다.
 func TestInstallAgentPlugin_ManifestName(t *testing.T) {
 	dir := t.TempDir()
 	if err := Install(dir); err != nil {
@@ -69,7 +68,7 @@ func TestInstallAgentPlugin_ManifestName(t *testing.T) {
 		t.Fatalf("plugin.json is not valid JSON: %v", err)
 	}
 	if manifest.Name != "dongminal" {
-		t.Fatalf("plugin name=%q want dongminal (스킬 호출명 /dongminal:team 의 근거)", manifest.Name)
+		t.Fatalf("plugin name=%q want dongminal (호출명 /dongminal:issue-tree 의 근거)", manifest.Name)
 	}
 }
 
@@ -80,9 +79,8 @@ func TestInstallAgentPlugin_SkillNames(t *testing.T) {
 		t.Fatalf("Install: %v", err)
 	}
 	for rel, wantName := range map[string]string{
-		"skills/team/SKILL.md":     "name: team",
-		"skills/workflow/SKILL.md": "name: workflow",
-		"commands/migration.md":    "argument-hint:",
+		"commands/migration.md":  "argument-hint:",
+		"commands/issue-tree.md": "argument-hint:",
 	} {
 		blob, err := os.ReadFile(filepath.Join(AgentPluginDir(dir), rel))
 		if err != nil {
@@ -151,7 +149,7 @@ func TestInstallAgentPlugin_Overwrites(t *testing.T) {
 	if err := Install(dir); err != nil {
 		t.Fatalf("Install #1: %v", err)
 	}
-	skill := filepath.Join(AgentPluginDir(dir), "skills/team/SKILL.md")
+	skill := filepath.Join(AgentPluginDir(dir), "commands/issue-tree.md")
 	if err := os.WriteFile(skill, []byte("stale"), 0o644); err != nil {
 		t.Fatalf("write stale: %v", err)
 	}
@@ -207,8 +205,7 @@ func TestInstallAgentPlugin_PrunesStaleAssets(t *testing.T) {
 	}
 	// 반증: 임베드된 자산과 설치 시 **생성**되는 훅 설정은 살아 있어야 한다.
 	for _, rel := range []string{
-		"skills/team/SKILL.md",
-		"skills/team/scripts/plan_layout.py",
+		"commands/issue-tree.md",
 		".claude-plugin/plugin.json",
 		"hooks/hooks.json",
 	} {

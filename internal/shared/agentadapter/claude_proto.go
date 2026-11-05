@@ -96,7 +96,7 @@ func claudeProtoLaunch(o LaunchOpts) []string {
 	 * M12_SRS FR-M12-21 (V-M12-34): **세션 스코프 정책은 표면과 무관하다.**
 	 *
 	 * 종전에는 셸 래퍼(`claude()`)만 이 둘을 붙였고, 그래서 GUI 로 뜬 같은 에이전트는
-	 * `/dongminal:migration`·`/dongminal:team`·`/dongminal:workflow` 를 갖지 못했다.
+	 * 플러그인 명령(`/dongminal:migration` 등)을 갖지 못했다.
 	 * 선언은 `claudeAdapter.PolicyInjection.Flags` 에 이미 있었다 — 읽는 쪽이 하나뿐이었다.
 	 *
 	 * **있을 때만 붙인다** — 래퍼의 `[[ -f ]]`·`[[ -d ]]` 와 같은 규약이다. 없는 경로를

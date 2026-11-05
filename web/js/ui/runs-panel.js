@@ -349,6 +349,8 @@ Object.assign(RunsPanel.prototype, {
     root.appendChild(runDiv('run-miss'));
     const body = runDiv('run-body');
     body.appendChild(runDiv('run-summary'));
+    // ISSUE_AGENT_TREE_SRS FR-ITD-1: 트리 표지가 있는 Run 이면 「이슈 트리」 가 여기 선다.
+    body.appendChild(runDiv('run-tree'));
     const wrap = runDiv('run-graph-wrap ui-scroll');
     const svg = runSvg('svg', { class: 'run-graph' });
     svg.appendChild(runSvg('defs'));
@@ -372,8 +374,14 @@ Object.assign(RunsPanel.prototype, {
     if (r.status === 404) err = 'gone';
     else if (!r.ok) err = apiErrText(r, t('runs.graph_fail'));
     else data = r.data;
+    // FR-ITD-5: 트리 Run 이면 같은 트리의 열린 노드를 함께 받는다. 실패해도 대시보드는 그린다.
+    let tree = null;
+    if (data && data.tree) {
+      const tr = await apiGet(RUNS_TREE_API + '?ref=' + encodeURIComponent(data.tree));
+      if (tr.ok) tree = tr.data;
+    }
     v.busy = false;
-    if (err) v.err = err; else { v.data = data; v.err = null }
+    if (err) v.err = err; else { v.data = data; v.tree = tree; v.err = null }
     this._runPaint(v);
     // 응답을 기다리는 사이에 도착한 SSE 는 버리지 않는다 — 버리면 화면이
     // 한 세대 뒤에서 멈추고, 폴링이 없으므로 아무도 고치지 않는다.
@@ -397,7 +405,8 @@ Object.assign(RunsPanel.prototype, {
     // FR-SRV-5: 같은 runId 를 보는 **모든 칸**의 뷰를 갱신한다.
     for (const [key, v] of Array.from(m)) {
       if (!live.has(this.app.slotBase(key))) { this._runDisposeView(v); m.delete(key); continue }
-      if (v.runId !== runId) continue;
+      // FR-ITD-1: 트리 뷰는 같은 트리의 **다른** Run 이 바뀌어도 다시 받는다 — 가지 Run 이 따로다.
+      if (v.runId !== runId && !(v.data && v.data.tree)) continue;
       v.err = null;
       this._runFetch(v);
     }

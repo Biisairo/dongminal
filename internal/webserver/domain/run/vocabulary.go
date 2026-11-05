@@ -198,7 +198,10 @@ type Record struct {
 	 */
 	Coordinator *ContextState `json:"coordinator,omitempty"`
 	WindowID    string        `json:"windowId,omitempty"`
-	Members     []Member      `json:"members,omitempty"`
+	// ISSUE_AGENT_TREE_SRS FR-ITU-1: 이슈 트리 표지(`owner/repo#N`)와 가지 여부. 비면 트리가 아니다.
+	Tree       string   `json:"tree,omitempty"`
+	TreeBranch bool     `json:"treeBranch,omitempty"`
+	Members    []Member `json:"members,omitempty"`
 	// Repo·Base·Worktree 는 격리 Run 에서만 채워진다 (FR-WKT-5). Repo 는 Run 을
 	// 연 시점 조정자 cwd 의 저장소 루트이고, Base 는 그때의 HEAD 다 — 나중에
 	// "이 브랜치가 무엇에서 갈라졌나"를 물을 근거이며 정리의 대상 저장소다.

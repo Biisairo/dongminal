@@ -143,6 +143,10 @@ var Runs = Table{
 	{run.ErrRunOpen, http.StatusConflict, run.ErrRunOpen.Error()},
 	{run.ErrAlreadyReported, http.StatusConflict, run.ErrAlreadyReported.Error()},
 	{run.ErrToolAlreadyMember, http.StatusConflict, run.ErrToolAlreadyMember.Error()},
+	// ISSUE_AGENT_TREE_SRS 묶음 U: 같은 트리·같은 이슈를 두 번 열지 않는다.
+	{run.ErrTreeOpen, http.StatusConflict, run.ErrTreeOpen.Error()},
+	{run.ErrTreeNotOpen, http.StatusConflict, run.ErrTreeNotOpen.Error()},
+	{run.ErrNodeTaken, http.StatusConflict, run.ErrNodeTaken.Error()},
 	// 묶음 H — 부착·분리의 거부 (FR-HLM-6/7). 409 인 이유는 요청이 잘못된 것이
 	// 아니라 멤버가 이미 그 상태이기 때문이다.
 	{run.ErrMemberAttached, http.StatusConflict, run.ErrMemberAttached.Error()},

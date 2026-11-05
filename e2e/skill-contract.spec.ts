@@ -5,7 +5,7 @@ import { join } from 'path';
 import { test, expect, plainWindows, waitForInit, waitSettled, rmTree } from './fixtures';
 import { TMP, realPath, slash } from './osenv';
 
-// /dongminal:team 과 /dongminal:workflow 스킬이 실제로 밟는 접합면을 라이브 서버에서
+// 에이전트 명령(/dongminal:migration · /dongminal:issue-tree)이 실제로 밟는 접합면을 라이브 서버에서
 // 검증한다. 스킬 문서는 명령·인자만 적혀 있어 정적 대조로는 "그 이름이 존재한다"
 // 까지만 알 수 있다 — 여기서 실제 왕복이 통하는지, 응답에서 스킬이 기대하는 필드가
 // 나오는지를 확인한다.
@@ -83,7 +83,7 @@ test.describe('스킬이 부르는 접합면 (라이브)', () => {
     expect(body.label).toMatch(/^W\d+\.P\d+\.T\d+$/);
   });
 
-  // /dongminal:team §2 의 호출 형태 그대로. 스킬은 응답의 newTabs[0].uuid 를
+  // 명령 문서의 호출 형태 그대로. 명령은 응답의 newTabs[0].uuid 를
   // SEED 로 캡처하므로 그 필드가 실제로 오는지가 계약이다.
   test('split-h --at <uuid> -n 이 분할 칸을 늘리고 newTabs 를 돌려준다', async ({ page, request }) => {
     const before = await page.locator('#area .pn').count();
@@ -436,7 +436,7 @@ test.describe('에이전트 접합면의 PTY 왕복 (라이브)', () => {
     await request.post('/api/runs/close', { data: { runId: run.id } });
   });
 
-  // TC-SKL-1/3 — team 스킬이 의존하는 전용 창 절차의 기본 동작.
+  // TC-SKL-1/3 — Run 의 전용 창 절차의 기본 동작 (issue-tree 가 쓴다).
   //
   // 스킬 본문은 산문이라 테스트되지 않는다. 대신 그 절차가 **딛고 서는 것**을
   // 여기서 못박는다 — 전용 창 생성이 사용자 공간을 건드리지 않는다는 것, 그리고

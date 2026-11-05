@@ -33,6 +33,8 @@ type runGraphView struct {
 	CreatedAt         int64         `json:"createdAt"`
 	ClosedAt          int64         `json:"closedAt,omitempty"`
 	CoordinatorToolID string        `json:"coordinatorToolId,omitempty"`
+	// Tree 는 이슈 트리 표지다 (ISSUE_AGENT_TREE_SRS FR-ITD-1). 있으면 대시보드가 「이슈 트리」 를 그린다.
+	Tree string `json:"tree,omitempty"`
 
 	Members  []graphMember  `json:"members"`
 	Edges    []graphEdge    `json:"edges"`
@@ -136,6 +138,7 @@ func (s *Server) graphOf(rec run.Record) runGraphView {
 		CreatedAt:         rec.CreatedAt,
 		ClosedAt:          rec.ClosedAt,
 		CoordinatorToolID: rec.CoordinatorToolID,
+		Tree:              rec.Tree,
 		Members:           s.graphMembers(rec),
 		Edges:             graphEdges(rec.Messages),
 		Messages:          graphMessages(rec.Messages),

@@ -10,8 +10,8 @@ allowed-tools: Bash
 
 **인자**: `$ARGUMENTS` — 비어 있으면 기본값이다. 되묻지 마라.
 
-여러 에이전트를 동시에 돌리는 일은 `/dongminal:team`, 저장된 팀 구성의 반복 실행은
-`/dongminal:workflow` 다. 이 명령은 **한 세션을 다음 한 세션으로** 넘기는 일만 한다.
+이슈 트리를 따라 여러 에이전트를 세우는 일은 `/dongminal:issue-tree` 다. 이 명령은
+**한 세션을 다음 한 세션으로** 넘기는 일만 한다.
 
 ---
 

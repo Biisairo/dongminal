@@ -28,6 +28,43 @@ type StartOptions struct {
 	Repo              string
 	Base              string
 	Worktree          *Worktree
+	// Tree·TreeBranch 는 이슈 트리 표지다 (ISSUE_AGENT_TREE_SRS FR-ITU-1).
+	Tree       string
+	TreeBranch bool
+}
+
+// TreeOpenError 는 같은 트리의 열린 Run 이 이미 있다는 거절이다 (FR-ITU-2).
+type TreeOpenError struct{ RunID string }
+
+func (e *TreeOpenError) Error() string { return ErrTreeOpen.Error() }
+func (e *TreeOpenError) Unwrap() error { return ErrTreeOpen }
+
+// openTreeRuns 는 그 트리의 열린 Run 이다. 호출자가 락을 쥔다.
+func (s *Store) openTreeRuns(tree string) []*Record {
+	var out []*Record
+	for i := range s.runs {
+		if s.runs[i].State == Open && s.runs[i].Tree == tree {
+			out = append(out, &s.runs[i])
+		}
+	}
+	return out
+}
+
+// checkTree 는 FR-ITU-2·3 이다. 호출자가 락을 쥔다.
+func (s *Store) checkTree(tree string, branch bool) error {
+	open := s.openTreeRuns(tree)
+	if !branch {
+		if len(open) > 0 {
+			return &TreeOpenError{RunID: open[0].ID}
+		}
+		return nil
+	}
+	for _, r := range open {
+		if !r.TreeBranch {
+			return nil
+		}
+	}
+	return ErrTreeNotOpen
 }
 
 // Start opens a Run.
@@ -44,6 +81,12 @@ func (s *Store) Start(opt StartOptions) (Record, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	tree := strings.TrimSpace(opt.Tree)
+	if tree != "" {
+		if err := s.checkTree(tree, opt.TreeBranch); err != nil {
+			return Record{}, err
+		}
+	}
 	id := strings.TrimSpace(opt.ID)
 	if id == "" {
 		id = s.newID()
@@ -61,6 +104,8 @@ func (s *Store) Start(opt StartOptions) (Record, error) {
 		Repo:              opt.Repo,
 		Base:              opt.Base,
 		Worktree:          opt.Worktree,
+		Tree:              tree,
+		TreeBranch:        tree != "" && opt.TreeBranch,
 		CreatedAt:         s.now(),
 	}
 	s.runs = append([]Record{rec}, s.runs...)
@@ -116,6 +161,18 @@ func (s *Store) AddMember(runID string, spec MemberSpec) (Member, error) {
 	}
 	if _, _, ok := s.findByTool(spec.ToolID); ok {
 		return Member{}, ErrToolAlreadyMember
+	}
+	// FR-ITU-4: 같은 트리의 열린 Run 들 안에서 같은 이슈(역할 이름)는 하나다. 보고를 마친
+	// 노드는 막지 않는다 — 그 이슈의 일은 끝났다.
+	if tree := s.runs[idx].Tree; tree != "" {
+		role := strings.TrimSpace(spec.Role)
+		for _, r := range s.openTreeRuns(tree) {
+			for _, m := range r.Members {
+				if m.Role == role && !m.settled() {
+					return Member{}, ErrNodeTaken
+				}
+			}
+		}
 	}
 	memberID := strings.TrimSpace(spec.ID)
 	if memberID == "" {

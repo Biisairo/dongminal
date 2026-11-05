@@ -85,5 +85,7 @@ const RUNS_API='/api/runs';
 const RUNS_CLOSE_API='/api/runs/close';
 const RUNS_ATTACH_API='/api/runs/attach';
 const RUNS_DETACH_API='/api/runs/detach';
+// ISSUE_AGENT_TREE_SRS FR-ITD-5: 이슈 트리의 열린 노드.
+const RUNS_TREE_API='/api/runs/tree';
 const CWD_API='/api/cwd';
 const UPLOAD_API='/api/upload';

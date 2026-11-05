@@ -423,7 +423,7 @@ func TestDmctlAgentContext_EmitsSessionStartJSON(t *testing.T) {
 		"DONGMINAL-AGENT-MSG",
 		"dmctl who-am-i",
 		"dmctl msg --to",
-		"/dongminal:team",
+		"/dongminal:issue-tree",
 	} {
 		if !strings.Contains(payload.Hook.Context, want) {
 			t.Errorf("컨텍스트에 %q 없음", want)

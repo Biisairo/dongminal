@@ -94,7 +94,7 @@ dmctl who-am-i
 dmctl list-groups --json
 ```
 
-`tree` 가 `owner/repo#<루트>` 인 그룹이 있으면 그것을 쓴다. 그 그룹에 window 가 있으면 트리가 이미 돌고 있다 — 사용자에게 말하고 멈춘다. 없으면 만든다.
+`tree` 가 `owner/repo#<루트>` 인 그룹이 있으면 그것을 쓴다. 없으면 만든다. 트리가 이미 도는지는 4의 `run start --tree` 가 서버에서 판정한다.
 
 ```
 dmctl new-group --name "<별칭>#<루트> <루트 제목>" --tree <owner/repo>#<루트>
@@ -107,10 +107,16 @@ dmctl new-group --name "<별칭>#<루트> <루트 제목>" --tree <owner/repo>#<
 ```
 dmctl new-window -n --group <그룹> --name "<별칭>#<루트>" --cwd "<저장소 루트>"
 cd "<저장소 루트>"
-dmctl run start --objective "<별칭>#<루트> 이슈 트리" --window <newWindows[0]> --isolation per-run
+dmctl run start --objective "<별칭>#<루트> 이슈 트리" --window <newWindows[0]> --isolation per-run --tree <owner/repo>#<루트>
 ```
 
+**같은 트리는 두 번 열리지 않는다.** 같은 트리의 열린 Run 이 있으면 `run start` 가 `tree_open` 으로 거절한다.
+
+- 안내에 「이미 돌고 있다」가 나오면 멈추고 사용자에게 말한다. 4에서 만든 window 는 닫는다(`dmctl close-window --at <그 window 의 탭 uuid> --force`).
+- 「멈췄다(살아 있는 멤버 없음)」가 나오면 사용자에게 정리할지 묻는다. 정리하라고 하면 안내의 `dmctl run close --run <id> --force` 를 실행하고 4를 다시 한다.
+
 - 새 window 의 `newTabs[0].uuid`·`toolId` 를 적는다. 이 탭이 루트 노드의 자리다.
+- 트리의 진행은 Runs 대시보드의 「이슈 트리」 에 보인다(노드를 누르면 그 탭으로 간다). 같은 내용을 `dmctl run tree --ref <owner/repo>#<루트>` 로 읽는다.
 - `run start` 의 `run=` 을 적는다. `--isolation per-run` 이 사용자 작업 트리와 분리된 worktree 를 만든다. 사용자 작업 트리는 트리가 도는 동안 고치지 않는다.
 
 ### 5. 루트 노드를 띄운다
@@ -137,7 +143,7 @@ dmctl run start --objective "<별칭>#<루트> 이슈 트리" --window <newWindo
 새 Run 은 자식 window 를 갖고, 부모 브랜치의 지금 HEAD 에서 갈라진다. 부모의 worktree 에서 실행한다.
 
 ```
-dmctl run start --objective "<자식 사슬 이름>" --window <newWindows[0]> --isolation per-run --base "$(git rev-parse HEAD)"
+dmctl run start --objective "<자식 사슬 이름>" --window <newWindows[0]> --isolation per-run --base "$(git rev-parse HEAD)" --tree <owner/repo>#<루트> --branch
 ```
 
 기대 출력을 확인한다: `newTabs` 하나, `timedOut:false`. `delivered:0` 이면 브라우저가 없다 — 사용자에게 말하고 멈춘다.
@@ -153,6 +159,8 @@ dmctl run launch --member <member uuid> | dmctl send-input --at <새 탭 uuid> -
 dmctl wait --at <새 탭 uuid> --for ready --timeout-ms 180000
 dmctl read-screen --at <새 탭 uuid>
 ```
+
+`run member` 가 `node_taken` 으로 거절하면 그 이슈는 다른 노드가 이미 맡고 있다. 그 하위를 띄우지 않는다. 만든 탭·window 를 닫고 부모에게 `보고` 로 알린다.
 
 `wait` 가 `ready` 를 내도 입력을 받을 준비가 아닐 수 있다. `read-screen` 에 에이전트의 입력 프롬프트가 보여야 한다. 신뢰·권한 확인을 묻고 있으면 답한 뒤 다시 확인한다. 준비되지 않은 탭에 엔벨로프를 보내지 않는다.
 

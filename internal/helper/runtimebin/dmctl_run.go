@@ -22,6 +22,7 @@ const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
   dmctl run close  --run <uuid> [--force] [--keep-worktrees] [--keep-tools]
   dmctl run delete --run <uuid>
   dmctl run graph  --run <uuid> [--json]
+  dmctl run tree   --ref <owner/repo#N> [--json]   # 이슈 트리의 열린 노드 (ISSUE_AGENT_TREE_SRS)
   dmctl run list
   dmctl run attach --member <uuid> [--at <탭 uuid>]
   dmctl run detach --member <uuid>
@@ -36,6 +37,10 @@ const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
                  per-run 은 Run 전체가 트리 하나를 공유하고, per-member 는
                  멤버마다 하나다. 격리 Run 은 **이 셸의 cwd 가 git 저장소일 때만**
                  시작된다 — 아니면 none 으로 낮추지 않고 그 자리에서 실패한다.
+  --tree         이슈 트리 표지(owner/repo#N). 같은 트리의 열린 루트 Run 이 있으면 거절된다
+                 (tree_open — 멈춘 트리면 정리 방법을 알린다).
+  --branch       --tree 와 함께. 그 트리의 병렬 가지 Run 이다. 열린 루트 Run 이 있어야 한다.
+                 트리 Run 의 멤버는 같은 트리 안에서 역할 이름(사슬 이름)이 겹치면 거절된다(node_taken).
   --base         worktree 가 갈라져 나올 ref. 기본은 이 셸 cwd 의 HEAD 다.
   --headless     탭을 점유하지 않는 멤버. --at 과 배타이며 **정확히 하나**여야 한다.
                  서버가 도구를 만들어 백그라운드(⏻)에 올린다. cwd 는 서버가
@@ -126,6 +131,11 @@ type runFlags struct {
 	// 한 번에 열어 두면 이후 아무도 이 파일을 만지지 않는다.
 	headless  bool   // --headless  묶음 H (FR-HLM-1)
 	timeoutMs string // --timeout-ms 묶음 C (FR-CBG-9 의 인수인계 대기 상한)
+
+	// ISSUE_AGENT_TREE_SRS 묶음 U·D: 이슈 트리 표지 · 가지 여부 · 트리 조회의 대상.
+	tree   string // --tree
+	branch bool   // --branch
+	ref    string // --ref (run tree)
 }
 
 // runDmctlRun implements FR-RUN-8. stdin 은 --brief - 만 소비한다.
@@ -177,6 +187,8 @@ func runDmctlRunStdin(stdin io.Reader, args []string, stdout, stderr io.Writer) 
 		return runSubHandoff(f, stdin, stdout, stderr)
 	case "peers":
 		return runSubPeers(f, stdout, stderr)
+	case "tree":
+		return runSubTree(f, stdout, stderr)
 	}
 	fmt.Fprintf(stderr, "run: 알 수 없는 서브커맨드: %s\n", sub)
 	fmt.Fprint(stderr, dmctlRunHelp)
@@ -191,7 +203,7 @@ func parseRunFlags(sub string, args []string, stdout, stderr io.Writer) (f runFl
 		"--at": &f.at, "-l": &f.at, "--objective": &f.objective, "--projection": &f.projection,
 		"--isolation": &f.isolation, "--window": &f.window, "--outcome": &f.outcome,
 		"--summary": &f.summary, "--files": &f.files, "--base": &f.base,
-		"--timeout-ms": &f.timeoutMs,
+		"--timeout-ms": &f.timeoutMs, "--tree": &f.tree, "--ref": &f.ref,
 	} {
 		vals[name] = setStr(p)
 	}
@@ -201,6 +213,7 @@ func parseRunFlags(sub string, args []string, stdout, stderr io.Writer) (f runFl
 		bools: map[string]*bool{
 			"--force": &f.force, "--headless": &f.headless, "--keep-worktrees": &f.keepTrees,
 			"--keep-tools": &f.keepTools, "--json": &f.jsonOut, "--text": &f.textOut,
+			"--branch": &f.branch,
 		},
 	}
 	code, proceed = spec.run("run "+sub, args, stdout, stderr)

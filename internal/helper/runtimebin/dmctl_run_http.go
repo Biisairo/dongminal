@@ -70,6 +70,9 @@ func printRunRefusal(stderr io.Writer, status int, path string, raw []byte) {
 		Error      string      `json:"error"`
 		Detail     string      `json:"detail"`
 		Unreported []runMember `json:"unreported"`
+		// ISSUE_AGENT_TREE_SRS FR-ITU-5: tree_open 의 그 Run 과 멈춤 여부.
+		RunID string `json:"runId"`
+		Stale *bool  `json:"stale"`
 	}
 	if err := json.Unmarshal(raw, &body); err != nil || body.Error == "" {
 		printAPIError(stderr, status, path, raw)
@@ -81,5 +84,12 @@ func printRunRefusal(stderr io.Writer, status int, path string, raw []byte) {
 	}
 	for _, m := range body.Unreported {
 		fmt.Fprintf(stderr, "  미보고: role=%s  state=%s  memberId=%s\n", m.Role, m.State, m.ID)
+	}
+	if body.Stale != nil && body.RunID != "" {
+		if *body.Stale {
+			fmt.Fprintf(stderr, "  이 트리의 Run %s 은 멈췄다(살아 있는 멤버 없음). 정리한 뒤 다시 연다: dmctl run close --run %s --force\n", body.RunID, body.RunID)
+		} else {
+			fmt.Fprintf(stderr, "  이 트리는 이미 돌고 있다: Run %s (dmctl run tree 로 본다)\n", body.RunID)
+		}
 	}
 }

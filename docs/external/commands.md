@@ -81,9 +81,10 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | `dmctl run status [--run <uuid>]` · `dmctl run list` · `dmctl run close --run <uuid>` | 조회와 종료 |
 | `dmctl run delete --run <uuid>` | 레코드를 지운다 — close 와 달리 미보고 검사 없이 (웹 UI 의 삭제와 같다). 잔여물은 보고한다 |
 | `dmctl run graph --run <uuid> [--json]` | 멤버·메시지 간선·타임라인 — 대시보드가 그리는 그것 |
+| `dmctl run tree --ref <owner/repo#N> [--json]` | 이슈 트리의 열린 노드를 사슬 순서로 — 대시보드의 「이슈 트리」 가 그리는 그것. `run start --tree <ref> [--branch]` 로 연 Run 이 대상이다 |
 
 각 서브커맨드의 상세는 `dmctl run <서브커맨드> --help` 로 봅니다.
-여러 에이전트를 팀으로 묶는 절차는 `/dongminal:team` 스킬에 있습니다.
+이슈 트리를 따라 여러 에이전트를 세우는 절차는 `/dongminal:issue-tree` 명령에 있습니다.
 
 #### 표준 라인 포맷 (list-workspace / who-am-i 공통)
 

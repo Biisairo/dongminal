@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -134,4 +135,57 @@ func graphTime(ms int64) string {
 		return "-"
 	}
 	return time.UnixMilli(ms).Format("15:04:05")
+}
+
+// runSubTree 는 `dmctl run tree --ref <owner/repo#N>` 이다 (ISSUE_AGENT_TREE_SRS FR-ITD-5).
+// 대시보드의 「이슈 트리」 와 같은 값을 낸다 — 화면에만 있는 정보는 없다 (NFR-RVZ-4).
+func runSubTree(f runFlags, stdout, stderr io.Writer) int {
+	if f.ref == "" {
+		fmt.Fprintln(stderr, "run tree: --ref <owner/repo#N> 은 필수다")
+		return 2
+	}
+	raw, code := runGet("/api/runs/tree?ref="+url.QueryEscape(f.ref), stderr)
+	if code != 0 {
+		return code
+	}
+	if f.jsonOut {
+		writeRawJSON(stdout, raw)
+		return 0
+	}
+	var got struct {
+		Tree  string `json:"tree"`
+		Nodes []struct {
+			Role         string  `json:"role"`
+			State        string  `json:"state"`
+			Parent       string  `json:"parent"`
+			Leaf         bool    `json:"leaf"`
+			ToolID       string  `json:"toolId"`
+			ContextRatio float64 `json:"contextRatio"`
+		} `json:"nodes"`
+	}
+	if err := json.Unmarshal(raw, &got); err != nil {
+		fmt.Fprintf(stderr, "dmctl: invalid tree response: %v\n", err)
+		return 1
+	}
+	if len(got.Nodes) == 0 {
+		fmt.Fprintf(stdout, "(%s: 열린 노드 없음)\n", f.ref)
+		return 0
+	}
+	depth := map[string]int{}
+	for _, n := range got.Nodes {
+		d := 0
+		if n.Parent != "" {
+			d = depth[n.Parent] + 1
+		}
+		depth[n.Role] = d
+		line := strings.Repeat("  ", d) + n.Role + "  state=" + n.State
+		if n.Leaf {
+			line += "  leaf"
+		}
+		if n.ContextRatio > 0 {
+			line += fmt.Sprintf("  ctx=%.0f%%", n.ContextRatio*100)
+		}
+		fmt.Fprintf(stdout, "%s  toolId=%s\n", line, n.ToolID)
+	}
+	return 0
 }

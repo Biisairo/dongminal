@@ -36,6 +36,21 @@ func runSubStart(f runFlags, stdout, stderr io.Writer) int {
 	if f.window != "" {
 		body["windowId"] = f.window
 	}
+	// ISSUE_AGENT_TREE_SRS FR-ITU-1: 이슈 트리 표지. --branch 는 그 트리의 가지 Run 이다.
+	if f.branch && f.tree == "" {
+		fmt.Fprintln(stderr, "run start: --branch 는 --tree 와 함께 쓴다")
+		return 2
+	}
+	if f.tree != "" {
+		if !repoIssueRef.MatchString(f.tree) {
+			fmt.Fprintf(stderr, "run start: --tree 는 owner/repo#N 꼴이다: %s\n", f.tree)
+			return 2
+		}
+		body["tree"] = f.tree
+		if f.branch {
+			body["treeBranch"] = true
+		}
+	}
 	if f.isolation != "none" {
 		// 격리의 저장소·base 는 **조정자의 cwd** 에서 나온다 (FR-WKT-5). 서버는
 		// 조정자가 어디서 일하는지 알 방법이 없으므로 여기서 실어 보낸다.

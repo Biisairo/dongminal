@@ -84,6 +84,27 @@ body.mobile .runs-del,body.mobile .runs-close{min-height:var(--touch-min);paddin
 .run-view .run-sum-state,.run-view .run-sum-iso,
 .run-view .run-sum-ago,.run-view .run-sum-members{color:var(--text-muted);font-size:var(--fs-sm);white-space:nowrap}
 
+/* ISSUE_AGENT_TREE_SRS FR-ITD-1~4: 이슈 트리. 트리 Run 에서만 선다. 들여쓰기는 깊이
+   (`--depth`)에서 파생하고, 상태 색은 멤버 카드와 같은 규칙이다. 잎(지금 일하는 노드)은
+   글자를 밝힌다. */
+.run-view .run-tree{display:none;flex-direction:column;gap:2px;padding:8px 14px;border-bottom:1px solid var(--border)}
+.run-view .run-tree.vis{display:flex}
+.run-view .run-tree-h{color:var(--text-muted);font-size:var(--fs-sm);margin-bottom:2px}
+.run-view .run-tree-empty{color:var(--text-hint);font-size:var(--fs-sm)}
+.run-view .run-tree-node{
+  display:flex;gap:8px;align-items:baseline;padding:3px 8px;padding-left:calc(8px + var(--depth,0) * 1.4em);
+  font-size:var(--fs-sm);cursor:pointer;border-left:3px solid var(--border);border-radius:3px;
+}
+.run-view .run-tree-node:hover{background:var(--accent-subtle)}
+.run-view .run-tree-node:focus-visible{outline:1px solid var(--focus-ring);outline-offset:-1px}
+.run-view .run-tree-node.state-working{border-left-color:var(--accent)}
+.run-view .run-tree-node.state-waiting{border-left-color:var(--attn)}
+.run-view .run-tree-node.state-lost{border-left-color:var(--text-dim)}
+.run-view .run-tree-role{font-family:var(--mono);color:var(--text)}
+.run-view .run-tree-node.leaf .run-tree-role{color:var(--text-bright);font-weight:600}
+.run-view .run-tree-state,.run-view .run-tree-ctx{color:var(--text-muted)}
+.run-view .run-tree-leaf{color:var(--accent-text)}
+
 /* FR-RVZ-11 · UX_REVISION_SRS FR-FIT-1~4: SVG 를 직접 그린다. 표시 크기는 칸의
    폭에 맞춰 축소되고(확대는 하지 않는다), 축소 하한 아래에서만 가로로 스크롤한다.
    `overflow-x:auto` 를 남겨 두는 이유가 그 하한이다 — 20명짜리 Run 을 읽을 수

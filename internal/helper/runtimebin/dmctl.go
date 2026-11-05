@@ -65,7 +65,7 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   레이아웃 명령은 구독 중인 브라우저가 없으면(delivered=0) exit 1 이다 — 아무것도
   만들어지지 않았다. 생성 명령이 결과를 받지 못해도(timedOut) exit 1 이다.
 
-  여러 에이전트를 팀으로 묶는 절차는 /dongminal:team 스킬에 있다.
+  이슈 트리를 따라 여러 에이전트를 세우는 절차는 /dongminal:issue-tree 명령에 있다.
   각 서브커맨드의 상세는 dmctl <서브커맨드> --help 로 본다.
 
 위치 식별자 — uuid 만 허용:

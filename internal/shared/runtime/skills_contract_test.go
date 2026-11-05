@@ -13,10 +13,12 @@ import (
 // 걸리는 것**만이라도 검출기로 세운다. 실제로 이 계열의 결함은 사람이 팀을
 // 띄워보기 전까지 드러나지 않았다.
 
-// skillDocs reads every markdown/script under the embedded skills tree.
+// skillDocs 는 금지 검사가 도는 플러그인 문서다. ISSUE_AGENT_TREE_SRS FR-SKX-1 로 스킬이
+// 모두 지워졌으므로 **명령** 트리가 그 대상이다 — 금지(fingerprint · sleep 폴링 · 손으로
+// 조립한 기동줄)는 문서의 종류와 무관하다.
 func skillDocs(t *testing.T) map[string]string {
 	t.Helper()
-	return pluginDocs(t, "skills")
+	return pluginDocs(t, "commands")
 }
 
 // commandDocs 는 임베드된 **명령** 트리다 (M10_SRS FR-M10-6).
@@ -103,34 +105,6 @@ func TestSkills_NoReferencesToRemovedAssets(t *testing.T) {
 	}
 }
 
-// FR-SKL-1/2/3: team 스킬이 Run 기반 절차를 실제로 담고 있는지. 재작성이
-// 되돌아가면 여기서 걸린다.
-func TestTeamSkill_CarriesTheRunProcedure(t *testing.T) {
-	body := skillDocs(t)[path.Join("agentplugin", "skills", "team", "SKILL.md")]
-	if body == "" {
-		t.Fatal("team/SKILL.md 를 찾지 못했다")
-	}
-	required := []struct{ name, needle string }{
-		{"전용 창 (FR-SKL-1)", "dmctl new-window"},
-		{"Run 개설", "dmctl run start"},
-		{"멤버 등록", "dmctl run member"},
-		{"기동줄 생성", "dmctl run launch"},
-		{"Barrier (FR-SKL-2)", "dmctl wait"},
-		{"준비완료 조건", "--for ready"},
-		{"매핑표 대체 (FR-SKL-3)", "dmctl run status"},
-		{"해체 (FR-SKL-3)", "dmctl run close"},
-	}
-	for _, r := range required {
-		if !strings.Contains(body, r.needle) {
-			t.Errorf("team/SKILL.md 에 %s 가 없다 (%q)", r.name, r.needle)
-		}
-	}
-	// FR-SKL-1 이 없애려던 방어 규칙 — 전용 창이 기본이면 focus 를 되돌릴 일이 없다.
-	if strings.Contains(body, "dmctl focus <") {
-		t.Error("team/SKILL.md 가 dmctl focus 사용법을 다시 안내한다")
-	}
-}
-
 // 액션은 전부 dmctl 이다 (FR-SKL-5). 스킬이 에이전트를 직접 조립하기 시작하면
 // 어댑터 선언(권한 사전 허용·인자 구분자)이 우회돼 조용히 깨진다 — 실측으로
 // 밟은 결함이다.
@@ -144,38 +118,6 @@ func TestSkills_DoNotHandAssembleAgentLaunchLines(t *testing.T) {
 			if strings.HasPrefix(trimmed, "claude ") || strings.Contains(ln, "`claude --model") {
 				t.Errorf("%s: 기동줄을 손으로 조립한다 — dmctl run launch 를 써야 한다: %q", path, strings.TrimSpace(ln))
 			}
-		}
-	}
-}
-
-// FR-WKT-1/8: 격리 절이 스킬에 실재하고, **기본이 아니라는 사실**을 담고 있는지.
-//
-// 이 검출기의 요점은 "격리를 설명한다"가 아니라 **격리를 남용하지 않게 하는
-// 문장이 남아 있는가**다. 참조 구현 둘 다 격리를 명시적 선택으로 두었고, 신뢰
-// 채널 협업 토폴로지 일부는 파일 공유를 전제한다 (D-A).
-func TestTeamSkill_CarriesIsolationRules(t *testing.T) {
-	body := skillDocs(t)[path.Join("agentplugin", "skills", "team", "SKILL.md")]
-	if body == "" {
-		t.Fatal("team/SKILL.md 를 찾지 못했다")
-	}
-	required := []struct{ name, needle string }{
-		{"격리 선택지 (FR-WKT-1)", "--isolation"},
-		{"기본은 격리 없음", "기본은 격리 없음"},
-		{"격리 사유의 한계 (D-A)", "격리 사유가 아니다"},
-		{"작업 트리로 보내기 (셸은 ~ 에서 시작한다)", "cd '$WT'"},
-		{"정리 규칙 (FR-WKT-8)", "clean 한 트리만 지운다"},
-		{"잔여물 보고 (FR-WKT-12)", "잔여물로 보고"},
-		{"전량 보존", "--keep-worktrees"},
-	}
-	for _, r := range required {
-		if !strings.Contains(body, r.needle) {
-			t.Errorf("team/SKILL.md 에 %s 가 없다 (%q)", r.name, r.needle)
-		}
-	}
-	// 격리가 기본인 것처럼 읽히면 팀 대부분이 파일을 나눠 가져 협업이 깨진다.
-	for _, banned := range []string{"항상 격리", "격리를 기본으로"} {
-		if strings.Contains(body, banned) {
-			t.Errorf("team/SKILL.md 가 격리를 기본으로 안내한다: %q", banned)
 		}
 	}
 }
@@ -314,22 +256,6 @@ func TestMigrationCommand_CarriesAgentOption(t *testing.T) {
 	}
 }
 
-// M9-B6 / FR-M9-6: `team` 은 오케스트레이션 전용이다 — 인수인계를 자기 일로
-// 말하지 않는다. 두 스킬의 모양이 닮아 경계가 흐려지면 인계가 팀으로 흘러가고,
-// 그러면 넘기는 쪽이 조정자로 살아 있어야 해서 정작 닫지 못한다.
-func TestTeamSkill_DefersHandoffToMigration(t *testing.T) {
-	body := skillDocs(t)[path.Join("agentplugin", "skills", "team", "SKILL.md")]
-	if body == "" {
-		t.Fatal("team/SKILL.md 를 찾지 못했다")
-	}
-	if !strings.Contains(body, "오케스트레이션 전용") {
-		t.Error("team/SKILL.md 가 자기를 오케스트레이션 전용으로 못박지 않는다 (M9-B6)")
-	}
-	if !strings.Contains(body, "migration") {
-		t.Error("team/SKILL.md 가 인수인계를 migration 에 넘기지 않는다 (M9-B6)")
-	}
-}
-
 // ISSUE_AGENT_TREE_SRS NFR-IAT-1 / TC-IAT-1: issue-tree 명령이 트리 절차를 담고,
 // 스킬과 같은 금지(화면 fingerprint · sleep 폴링 · 손으로 조립한 기동줄)를 지킨다.
 func TestIssueTreeCommand_CarriesTheTreeProcedure(t *testing.T) {
@@ -358,6 +284,10 @@ func TestIssueTreeCommand_CarriesTheTreeProcedure(t *testing.T) {
 		{"정리 (FR-IAT-73)", "--force"},
 		{"Run 닫기 (FR-IAT-74)", "dmctl run close"},
 		{"그룹 지우기 (FR-IAT-74)", "dmctl delete-group"},
+		{"트리 중복 방지 (FR-ITU-1·6)", "tree_open"},
+		{"가지 Run (FR-ITU-3)", "--branch"},
+		{"같은 이슈 (FR-ITU-4·6)", "node_taken"},
+		{"트리 조회 (FR-ITD-5)", "dmctl run tree"},
 	}
 	for _, r := range required {
 		if !strings.Contains(body, r.needle) {
@@ -376,6 +306,23 @@ func TestIssueTreeCommand_CarriesTheTreeProcedure(t *testing.T) {
 	for _, b := range []string{"Thinking...", "╭─", "[대기]"} {
 		if strings.Contains(body, b) {
 			t.Errorf("issue-tree.md: 화면 fingerprint %q", b)
+		}
+	}
+}
+
+// ISSUE_AGENT_TREE_SRS TC-SKX-1 / FR-SKX-1·3: team · workflow 스킬은 지워졌다. 임베드 트리에
+// 남지 않고, 플러그인 문서가 그 호출명을 안내하지 않는다.
+func TestPlugin_TeamAndWorkflowRemoved(t *testing.T) {
+	for _, dir := range []string{"agentplugin/skills/team", "agentplugin/skills/workflow"} {
+		if _, err := fs.Stat(agentPluginFS, dir); err == nil {
+			t.Errorf("%s 가 임베드 트리에 남아 있다", dir)
+		}
+	}
+	for p, body := range commandDocs(t) {
+		for _, name := range []string{"/dongminal:team", "/dongminal:workflow"} {
+			if strings.Contains(body, name) {
+				t.Errorf("%s 가 지워진 스킬 %s 를 안내한다", p, name)
+			}
 		}
 	}
 }

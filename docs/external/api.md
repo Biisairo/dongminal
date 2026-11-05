@@ -223,6 +223,7 @@
 |---|---|---|
 | GET | `/api/runs` | Run 목록·상세 (`?id=`) |
 | GET | `/api/runs/graph` | Run 하나의 팀 구조 — 누가 누구를 조정하는가 |
+| GET | `/api/runs/tree` | `?ref=<owner/repo#N>` 이슈 트리의 열린 Run 과 노드(역할 · 상태 · 부모 · 잎) |
 | POST | `/api/runs/members` | Run 에 팀원을 등록한다 |
 | GET | `/api/runs/preamble` | 그 팀원의 기동 프리앰블 |
 | GET | `/api/runs/peers` | 같은 Run 의 다른 팀원들 |

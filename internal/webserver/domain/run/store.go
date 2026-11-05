@@ -47,6 +47,10 @@ var (
 	ErrRunMemberMismatch = errors.New("run_member_mismatch")
 	ErrAlreadyReported   = errors.New("member_already_reported")
 	ErrToolAlreadyMember = errors.New("tool_already_member")
+	// ISSUE_AGENT_TREE_SRS 묶음 U (FR-ITU-2~4).
+	ErrTreeOpen          = errors.New("tree_open")
+	ErrTreeNotOpen       = errors.New("tree_not_open")
+	ErrNodeTaken         = errors.New("node_taken")
 	ErrUnreportedMembers = errors.New("unreported_members")
 	ErrInvalidArgument   = errors.New("invalid_argument")
 )

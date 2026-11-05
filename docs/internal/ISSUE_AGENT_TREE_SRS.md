@@ -1,7 +1,7 @@
 # SRS: 이슈 에이전트 트리 — 명령 · statusLine 프록시 · window 그룹 · 순서 명령 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: TC-SLP-6(Windows 셸 실측) · FR-WGR-25 키보드 조작의 e2e · TC-IAT-3 시범(rust-wasm 세션이 #62 를 커밋한 뒤). 묶음 O·G·S·T 는 구현·시험 완료
+> **남은 것**: TC-SLP-6(Windows 셸 실측) · FR-WGR-25 키보드 조작의 e2e · TC-IAT-3 시범(rust-wasm 세션이 #62 를 커밋한 뒤). 묶음 O·G·S·T·X·D·U 는 구현·시험 완료
 
 ## 1. 개요 (Introduction)
 
@@ -27,6 +27,9 @@
 | **S** | statusLine 프록시 | `FR-SLP-` | `dmctl statusline` · 서버 관측 저장 · `dmctl status` 노출 |
 | **G** | window 그룹 | `FR-WGR-` | 워크스페이스 모델 · 사이드바 UI · dmctl 그룹 명령 |
 | **O** | 순서 명령 | `FR-ORD-` | `dmctl move-tab` · `move-window` · `move-group` · 생성 시 위치 지정 |
+| **X** | 쓰지 않는 스킬 정리 | `FR-SKX-` | `team` · `workflow` 스킬 삭제와 그 안내 |
+| **D** | 트리 대시보드 | `FR-ITD-` | Run 대시보드의 「이슈 트리」 영역 · `GET /api/runs/tree` · `dmctl run tree` |
+| **U** | 트리 중복 방지 | `FR-ITU-` | `run start --tree` · 같은 트리·같은 이슈의 거절 · 멈춘 트리 |
 
 **미포함:** §6 비목표.
 
@@ -300,7 +303,38 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 | FR-ORD-30 | `dmctl list-workspace --json` 은 지금의 **행 배열** 꼴을 유지하고, 행마다 순서 필드를 더한다: `windowContainer`(그룹 uuid 또는 `top`) · `windowIndex` · `windowCount` · `tabIndex` · `tabCount`(그 칸 안). 기존 필드는 바꾸지 않는다 — 소비자(스킬·스크립트)가 배열을 읽는다 | 필수 |
 | FR-ORD-31 | 글자 출력에는 각 행에 `win_pos=<자리>/<개수>` · `tab_pos=<자리>/<개수>` 를 적는다(기존 `tab="이름"` 열과 겹치지 않게) | 필수 |
 
-### 3.5 비기능 요구사항 (Non-functional)
+### 3.5 묶음 X — 쓰지 않는 스킬 정리 (FR-SKX-\*)
+
+| ID | 요구 | 우선 |
+|---|---|---|
+| FR-SKX-1 | 플러그인의 `skills/team` 과 `skills/workflow` 를 지운다. 사용자가 한 번도 쓰지 않았다(사용자, 2026-11-05) | 필수 |
+| FR-SKX-2 | `dmctl run` 계열(Run 기록 · worktree · 멤버 · 대시보드)은 지우지 않는다. 이슈 트리가 쓴다 | 필수 |
+| FR-SKX-3 | 두 스킬을 가리키는 안내를 고친다: 세션 주입 문구(`dmctl agent-context`) · dmctl 도움말 · `migration.md` · Runs 빈 화면 안내 · 플러그인 설명. 빈 화면 안내와 세션 주입 문구는 `/dongminal:issue-tree` 를 가리킨다 | 필수 |
+| FR-SKX-4 | 두 스킬에만 걸리던 계약 시험과 e2e 단정은 지우거나 `issue-tree` 로 옮긴다. 옛 SRS(`RUN_ORCHESTRATION_SRS` FR-SKL-* 등)의 본문은 기록으로 남기고 고치지 않는다 | 필수 |
+
+### 3.6 묶음 D — 트리 대시보드 (FR-ITD-\*)
+
+| ID | 요구 | 우선 |
+|---|---|---|
+| FR-ITD-1 | 트리 표지가 있는 Run(FR-ITU-1)의 대시보드에 「이슈 트리」 영역을 둔다. 그 트리의 **열린 Run 전부**의 멤버를 노드로 그린다 | 필수 |
+| FR-ITD-2 | 노드의 부모·자식은 멤버 역할 이름(사슬 이름, FR-IAT-40)에서 얻는다. 부모는 그 사슬의 가장 긴 앞부분을 가진 노드다. 부모 노드가 없으면(이미 끝났거나 migration 중) 그 위의 가장 가까운 노드에 붙인다 | 필수 |
+| FR-ITD-3 | 노드마다 이슈(사슬 끝 번호 · 제목) · 에이전트 상태 · 맥락 사용률을 보인다. 자식 노드가 없는 노드(지금 일하는 잎)를 구분해 표시한다 | 필수 |
+| FR-ITD-4 | 노드를 누르면 그 에이전트의 탭으로 간다. 기존 멤버 카드의 이동(`_runJumpToMember`)과 같은 경로다 | 필수 |
+| FR-ITD-5 | 서버는 `GET /api/runs/tree?ref=<owner/repo#N>` 로 그 트리의 열린 Run 과 노드를 낸다. `dmctl run tree --ref <owner/repo#N> [--json]` 이 같은 값을 낸다(NFR-RVZ-4: 화면에만 있는 정보는 없다) | 필수 |
+| FR-ITD-6 | 이슈 트리는 Run 기록만으로 그린다. 서버는 GitHub 에 접근하지 않는다. 끝난 이슈와 아직 열지 않은 이슈는 그리지 않는다 (D-IAT-18) | 필수 |
+
+### 3.7 묶음 U — 트리 중복 방지 (FR-ITU-\*)
+
+| ID | 요구 | 우선 |
+|---|---|---|
+| FR-ITU-1 | `dmctl run start --tree <owner/repo#N> [--branch]` 는 Run 에 트리 표지를 기록한다. `--branch` 가 없으면 루트 Run, 있으면 병렬 가지의 Run 이다 | 필수 |
+| FR-ITU-2 | 같은 트리 표지의 **열린** Run 이 있으면 루트 Run 을 새로 열지 않는다. 오류 코드 `tree_open` 과 그 Run 의 id 를 낸다 | 필수 |
+| FR-ITU-3 | 가지 Run(`--branch`)은 같은 트리의 열린 루트 Run 이 있을 때만 연다. 없으면 `tree_not_open` 이다 | 필수 |
+| FR-ITU-4 | 트리 표지가 있는 Run 에 멤버를 등록할 때, 같은 트리의 열린 Run 들 안에 **같은 역할 이름**(사슬 이름 = 같은 이슈)의 멤버가 있으면 거절한다. 오류 코드 `node_taken` | 필수 |
+| FR-ITU-5 | `tree_open` 응답에는 그 트리가 **멈췄는지**(`stale`)를 싣는다. 열린 Run 의 멤버 도구가 하나도 살아 있지 않으면 멈춘 트리다. 멈춘 트리는 `dmctl run close --run <id> --force` 로 정리한 뒤 다시 열 수 있다 | 필수 |
+| FR-ITU-6 | 발사대는 `tree_open` 을 받으면 멈춘다. `stale` 이면 사용자에게 정리할지 묻는다. 노드는 `node_taken` 을 받으면 그 하위를 띄우지 않고 부모에게 보고한다 | 필수 |
+
+### 3.8 비기능 요구사항 (Non-functional)
 
 | ID | 요구 |
 |---|---|
@@ -330,6 +364,10 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 | D-IAT-13 | 순서 지정은 번호 · 한 칸 · 기준 uuid 셋 다 | 번호는 개수를 아는 에이전트에게, 한 칸은 사람에게, 기준 uuid 는 "이 탭 바로 뒤" 같은 트리 배치에 맞다. 사용자 결정 |
 | D-IAT-14 | 묶음 넷을 SRS 하나에 둔다 | 사용자 결정. S·G·O 는 T 를 위해 생겼다 |
 | D-IAT-16 | statusLine 입력에서 가져올 수 있는 값은 허용 목록으로 넓게 저장한다. 경로·본문은 뺀다 | 사용자 결정("어떤 것이 더 필요할지 모르니 가져올 수 있는 데이터는 많이"). 허용 목록으로 두는 이유: FR-CTX-3(숫자만, 경로 없음)을 지키고, Claude Code 가 새 필드를 더해도 모르는 값이 조용히 새지 않게 한다 |
+| D-IAT-17 | team · workflow 스킬을 지운다. `dmctl run` 은 남긴다 | 사용자 결정. 이슈 트리가 Run 기록·worktree·대시보드를 쓴다 |
+| D-IAT-18 | 트리 대시보드는 Run 기록만으로 진행 중인 경로를 그린다. 이슈 데이터 경로(`dmctl issue` 등)는 만들지 않는다 | 사용자 결정. dongminal 이 GitHub 이슈 모델을 알게 되면 범위가 넓어지고(이슈 규약은 프로젝트의 것, D-IAT-7), 에이전트는 이미 gh 로 정확히 읽는다. 끝난·안 연 이슈는 GitHub 화면이 더 잘 보인다. 시범 뒤 필요하면 다시 정한다 |
+| D-IAT-19 | 부모 Run 필드를 두지 않는다 — 노드 관계는 사슬 이름에서 얻는다 | 역할 이름이 이미 트리 경로다. 같은 사실을 두 필드에 두면 어긋날 수 있다 |
+| D-IAT-20 | 중복은 서버가 막는다 | 사용자 결정. 에이전트가 절차를 건너뛰어도 막혀야 한다 |
 | D-IAT-15 | Run 의 격리 단위는 window, 이슈 트리의 격리 단위는 window 그룹이다 | 사용자 결정. 트리는 이름이 아니라 그룹의 트리 표지로 알아본다 — 이름은 사용자가 고칠 수 있으므로 식별자가 될 수 없다 |
 
 ## 5. 검증 (Verification)
@@ -355,6 +393,11 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 | TC-ORD-5 | NFR-ORD-1 | 단위: 모든 dmctl 레이아웃 명령에 `--help` 를 주면 서버에 아무것도 보내지 않는다 |
 | TC-IAT-1 | NFR-IAT-1 | Go: `skills_contract_test.go` 에 `issue-tree.md` 가 들어간다 |
 | TC-IAT-2 | FR-IAT-40·41 | 단위(문서 예시 대조): 별칭 규칙과 사슬 이름 예시가 규칙과 맞다 |
+| TC-SKX-1 | FR-SKX-1~4 | Go: 임베드 트리에 `skills/team`·`skills/workflow` 가 없다. 플러그인 문서·주입 문구에 `/dongminal:team`·`/dongminal:workflow` 가 없다 |
+| TC-ITD-1 | FR-ITD-2 | 단위: 사슬 이름에서 부모를 찾는 규칙(빠진 중간 노드 포함) |
+| TC-ITD-2 | FR-ITD-5 | Go: `GET /api/runs/tree` 가 같은 트리의 열린 Run 만 모으고 노드에 상태를 싣는다 |
+| TC-ITD-3 | FR-ITD-1·3·4 | e2e: 트리 Run 의 대시보드에 이슈 트리가 서고, 잎이 구분되며, 노드를 누르면 그 탭으로 간다 |
+| TC-ITU-1 | FR-ITU-1~5 | Go: `tree_open`(stale 포함) · `tree_not_open` · `node_taken` · 정리 뒤 다시 열기 |
 | TC-IAT-3 | 묶음 T 전체 | 시범: rust-wasm 저장소의 #35 트리. 그 저장소 세션이 #62 를 커밋한 **뒤에** 한다. 확인 항목: 위쪽·아래쪽 펼치기, 이름, 그룹, 질문 경로, 커밋·닫기, push 확인, 정리 |
 
 ## 6. 비목표 (Non-goals)
@@ -383,6 +426,8 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-05 | 묶음 X·D·U 구현. 트리 노드는 graph 와 같은 명시 선택(brief 없음). `run-dashboard.js` 가 500줄을 넘지 않게 `run-tree.js` 로 갈랐다 |
+| 2026-11-05 | 묶음 X(team·workflow 정리) · D(트리 대시보드) · U(트리 중복 방지) 추가 (D-IAT-17~20) |
 | 2026-11-05 | 묶음 T: `commands/issue-tree.md` 와 계약 시험(TC-IAT-1). FR-SLP-4 에 `disableAllHooks`·`project_dir` 기준을 더했다(보안 검토 반영) |
 | 2026-11-05 | 묶음 O·G·S 구현. R-5(`--help` 가 레이아웃 명령을 실행하던 결함) 수정 |
 | 2026-11-05 | FR-WGR-34·FR-ORD-30·31: `list-workspace --json` 은 행 배열을 유지하고 순서 필드를 더한다. 빈 그룹은 `list-groups` 가 낸다 |
