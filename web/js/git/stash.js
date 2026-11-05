@@ -126,25 +126,18 @@ class GitStash {
   }
 
   /**
-   * 생성 가능 여부와 사유 (FR-GIT-167).
-   *
-   * untracked 뿐이면 "담을 것이 없다" 가 **아니다** — `--include-untracked` 를 켜면
-   * 담긴다. 그러므로 버튼은 열어 두고 그 사실을 다이얼로그가 판정한다. 진짜로
-   * 아무 변경도 없을 때만 막는다.
+   * 생성 가능 여부와 사유 (FR-GIT-167) — 서버의 1층 답 `git.stash.new` 다
+   * (SERVER_DRIVEN_ACTIONS_SRS GR-2b). untracked 뿐이어도 열리고, 옵션별 판정은
+   * 다이얼로그가 서버에 묻는다.
    */
-  _why(){
-    const s=this.panel.statusOf();
-    if(!s) return GIT_LOADING_HINT;
-    const n=(s.staged||[]).length+(s.changes||[]).length+(s.conflicts||[]).length+
-      (s.untracked||[]).length;
-    return n?'':GIT_STASH_NOTHING;
-  }
+  _state(){return actionState(this.panel.actionOf(GIT_ACTION.stashNew),false)}
 
   _paintBar(){
     const el=this._el;
-    const why=this._why();
+    const st=this._state();
+    const why=st.why;
     const btn=el.querySelector('.git-stash-new');
-    btn.disabled=!!why;
+    btn.disabled=!st.enabled;
     /**
      * FR-TIP-1·2: 툴팁은 **언제나** 있고 영어다.
      *
@@ -382,7 +375,7 @@ class GitStash {
 
   // stash 생성 다이얼로그 (FR-GIT-166).
   _create(){
-    if(this._why()) return;
+    if(!this._state().enabled) return;
     new GitStashCreate(this.panel)._show();
   }
 }

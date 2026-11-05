@@ -49,7 +49,7 @@ func TestCatalogMayGive(t *testing.T) {
 	if !Catalog.MayGive(GitStashCreate, apierr.CodeUntrackedOnly) {
 		t.Fatal("git.stash.create 는 untracked_only 를 낼 수 있어야 한다")
 	}
-	if Catalog.MayGive(GitStashCreate, apierr.CodeJobBusy) {
+	if Catalog.MayGive(GitStashCreate, apierr.CodeNoHead) {
 		t.Fatal("목록에 없는 사유를 허용했다")
 	}
 	if Catalog.MayGive("no.such.action", apierr.CodeNothingToStash) {

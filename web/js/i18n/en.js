@@ -733,7 +733,6 @@ I18N.register('en', {
   'git.stash_load_fail': 'Could not load the stash list',
   'git.stash_msg_placeholder': 'Message (optional)',
   'git.stash_no_files': 'No changed files',
-  'git.stash_nothing': 'No changes to stash',
   'git.stash_opt_keepindex': 'Keep the index as is (--keep-index)',
   'git.stash_opt_untracked': 'Include untracked files (--include-untracked)',
   'git.stash_pick': 'Select a stash',
@@ -782,7 +781,6 @@ I18N.register('en', {
   'git.unc_clean_note': 'Untracked files were never stored in git, so they cannot be restored after deletion. You can save them with the command below before deleting.',
   'git.unc_clean_title': 'Deletes untracked files',
   'git.unc_clean_changed': 'The list of untracked files changed after you confirmed — please confirm again',
-  'git.unc_nothing': 'Nothing to act on',
   'git.undo_fail': 'Cannot undo — the undo window has passed',
   'git.undo_text': 'Committed',
   'git.write_err.bad_request': 'Invalid request',
@@ -1188,6 +1186,8 @@ I18N.register('en', {
   // SERVER_DRIVEN_ACTIONS_SRS M-6: phrases picked by the server's answer (`why` code). Keys are built as `'why.' + code`.
   'why.job_busy': 'A job is running in this repository — try again when it finishes',
   'why.loading': 'Checking…',
+  'why.no_head': 'There is no commit to reset to',
+  'why.nothing_to_clean': 'No untracked files to clean',
   'why.nothing_to_stash': 'No changes to stash',
   'why.untracked_only': 'Only untracked files ({count}) — turn on include untracked',
 });

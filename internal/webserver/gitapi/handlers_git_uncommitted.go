@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 
+	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/write"
@@ -17,12 +18,6 @@ import (
 //
 // **서버가 마지막 방어선이다.** Clean 의 2단계 확인을 클라이언트만 막으면 API
 // 직접 호출이 그대로 우회한다.
-
-// 이 표면 고유의 거부 코드. 상태 코드만으로는 무엇이 왜 막혔는지 구분할 수 없다.
-const (
-	gitErrNoHead         = apierr.CodeNoHead
-	gitErrNothingToClean = apierr.CodeNothingToClean
-)
 
 // gitUncommittedReq 는 두 동작의 공통 본문이다. Confirm 은 clean 의 2단계 확인이다
 // (FR-GIT-89·277).
@@ -39,7 +34,7 @@ type gitUncommittedReq struct {
 // **파괴적이 아니다** — 워킹 트리의 내용은 그대로 남는다. 그래서 확인을 요구하지
 // 않는다: 안전한 것에 확인을 붙이면 확인이 뜻을 잃는다 (FR-GIT-97).
 func (s *GitServer) apiGitUncommittedReset(w http.ResponseWriter, r *http.Request) {
-	s.gitUncommittedRoute(w, r, false, gitResetBlocked, func(ctx context.Context, root string, _ gitUncommittedReq) error {
+	s.gitUncommittedRoute(w, r, false, resetAnswer, func(ctx context.Context, root string, _ gitUncommittedReq) error {
 		_, err := write.UncommittedReset(s.Git.Service(), ctx, root)
 		return err
 	})
@@ -54,35 +49,36 @@ func (s *GitServer) apiGitUncommittedReset(w http.ResponseWriter, r *http.Reques
 // **전에** 남긴다 (FR-GIT-92) — 되살릴 수 없으므로 hint 는 되돌리는 명령이 아니라
 // 먼저 담아 두는 명령(`git stash push -u`)이다.
 func (s *GitServer) apiGitUncommittedClean(w http.ResponseWriter, r *http.Request) {
-	s.gitUncommittedRoute(w, r, true, gitCleanBlocked, func(ctx context.Context, root string, req gitUncommittedReq) error {
+	s.gitUncommittedRoute(w, r, true, cleanAnswer, func(ctx context.Context, root string, req gitUncommittedReq) error {
 		_, err := write.CleanUntracked(s.Git.Service(), ctx, root, req.Paths)
 		return err
 	})
 }
 
-// gitResetBlocked 는 커밋이 없어 HEAD 로 되돌릴 수 없다는 것이다. `Initial` 은
-// status 가 이미 아는 사실이므로 따로 묻지 않는다.
-func gitResetBlocked(st query.Status) (string, string) {
+// resetAnswer 는 Reset 의 판정이다 (FR-SDA-25). 커밋이 없으면 HEAD 로 되돌릴 수 없다.
+// `Initial` 은 status 가 이미 아는 사실이므로 따로 묻지 않는다. 1층 답과 실행 거절이
+// 이 함수를 부른다 (D-SDA-6).
+func resetAnswer(st query.Status) action.Answer {
 	if st.Initial {
-		return gitErrNoHead, "커밋이 없어 HEAD 로 되돌릴 수 없다"
+		return action.Deny(http.StatusConflict, apierr.CodeNoHead, nil)
 	}
-	return "", ""
+	return action.Allow()
 }
 
-// gitCleanBlocked 는 지울 것이 없다는 것이다 (StashPush 의 `nothing_to_stash` 와
-// 같은 규약) — git 은 그 실행을 exit 0 으로 끝내므로 성공으로 답하면 사용자는
-// 지워진 것이 있다고 읽는다.
-func gitCleanBlocked(st query.Status) (string, string) {
+// cleanAnswer 는 Clean 의 판정이다 — 지울 것이 없으면 실행하지 않는다 (StashPush 의
+// `nothing_to_stash` 와 같은 규약). git 은 그 실행을 exit 0 으로 끝내므로 성공으로
+// 답하면 사용자는 지워진 것이 있다고 읽는다.
+func cleanAnswer(st query.Status) action.Answer {
 	if len(st.Untracked) == 0 {
-		return gitErrNothingToClean, "추적되지 않는 파일이 없다"
+		return action.Deny(http.StatusConflict, apierr.CodeNothingToClean, nil)
 	}
-	return "", ""
+	return action.Allow()
 }
 
 // gitUncommittedRoute 는 두 동작의 공통 절차다. 둘은 본문과 응답이 같고 실행하는
 // 것·확인을 요구하는지·실행 전 거부 사유만 다르다 — 나머지는 기존 쓰기 규약
 // 그대로다 (FR-GIT-250 ③).
-func (s *GitServer) gitUncommittedRoute(w http.ResponseWriter, r *http.Request, confirm bool, blocked func(query.Status) (string, string), run func(context.Context, string, gitUncommittedReq) error) {
+func (s *GitServer) gitUncommittedRoute(w http.ResponseWriter, r *http.Request, confirm bool, judge func(query.Status) action.Answer, run func(context.Context, string, gitUncommittedReq) error) {
 	var req gitUncommittedReq
 	t := s.beginWrite(w, r, &req)
 	if t.stop() {
@@ -101,8 +97,8 @@ func (s *GitServer) gitUncommittedRoute(w http.ResponseWriter, r *http.Request, 
 	}
 	// 실행 전 거부는 **실행 전 상태로** 판정한다 (StashPush 의 선례). write 패키지도
 	// 같은 것을 다시 막지만, 여기서 걸러야 사유가 코드로 온다.
-	if name, msg := blocked(before); name != "" {
-		t.rejectBody(http.StatusConflict, name, msg, map[string]any{"status": before})
+	if a := judge(before); !a.OK {
+		t.rejectAnswer(a, map[string]any{"status": before})
 		return
 	}
 	t.apply(func(ctx context.Context) error { return run(ctx, t.root, req) })

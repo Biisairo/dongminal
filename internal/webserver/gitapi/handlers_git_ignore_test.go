@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"dongminal/internal/shared/testpath"
+	"dongminal/internal/webserver/apierr"
 )
 
 // 묶음 F 서버측 — /api/git/{ignore,file-head,uncommitted/*}, /api/git/stash/branch
@@ -179,7 +180,7 @@ func TestAPIGitUncommittedClean_NothingToClean(t *testing.T) {
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/uncommitted/clean",
 		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`,"confirm":true,"paths":["u.txt"]}`)
-	if code != http.StatusConflict || out["error"] != gitErrNothingToClean {
+	if code != http.StatusConflict || out["error"] != apierr.CodeNothingToClean {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}
 	if len(f.wrote()) != 0 {
@@ -214,7 +215,7 @@ func TestAPIGitUncommittedReset_NoHead(t *testing.T) {
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/uncommitted/reset",
 		`{"repo":`+testpath.JSONQuote(gitM5Repo)+`}`)
-	if code != http.StatusConflict || out["error"] != gitErrNoHead {
+	if code != http.StatusConflict || out["error"] != apierr.CodeNoHead {
 		t.Fatalf("code = %d, out = %v", code, out)
 	}
 	if len(f.wrote()) != 0 {

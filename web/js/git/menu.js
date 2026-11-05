@@ -322,17 +322,17 @@ const GIT_MENUS={
     {id:'open-changes',label:t('git.menu.open_changes'),run:()=>gitMenuPanel().openView('changes')},
     {sep:true},
     // FR-GIT-277: 생성 다이얼로그를 그대로 다시 쓴다 — 두 벌로 두면 한쪽만 고쳐진다.
-    {id:'stash',busy:GIT_ACTION.write,label:GIT_UNC_STASH,
-     disabled:()=>gitMenuPanel().dirtyCount()?'':GIT_UNC_NOTHING,
+    // 열 수 있는가는 서버의 1층 답이다 (SERVER_DRIVEN_ACTIONS_SRS GR-2b·e).
+    {id:'stash',busy:GIT_ACTION.stashNew,label:GIT_UNC_STASH,
      run:()=>gitMenuPanel().stashCreate()},
     // mixed 다 — index 만 HEAD 로 되돌리고 워킹 트리는 그대로 둔다. 파괴적이
     // 아니므로 확인을 붙이지 않는다 (FR-GIT-97).
-    {id:'reset',busy:GIT_ACTION.write,label:GIT_UNC_RESET,run:()=>gitMenuPanel().uncommittedReset()},
+    {id:'reset',busy:GIT_ACTION.uncommittedReset,label:GIT_UNC_RESET,run:()=>gitMenuPanel().uncommittedReset()},
     // **파괴적이다** (FR-GIT-277). 되살릴 수 없으므로 hint 는 되돌리는 명령이
     // 아니라 먼저 담아 두는 명령이다.
-    {id:'clean',busy:GIT_ACTION.write,label:GIT_UNC_CLEAN,destructive:true,
+    // 지울 것이 있는가는 서버의 답이다. 확인 목록(targets)은 보여 줄 목록일 뿐이다.
+    {id:'clean',busy:GIT_ACTION.uncommittedClean,label:GIT_UNC_CLEAN,destructive:true,
      action:GIT_ACT_CLEAN_UNTRACKED,title:GIT_UNC_CLEAN_TITLE,
-     disabled:()=>gitMenuPanel().untrackedPaths().length?'':GIT_UNC_NOTHING,
      targets:()=>gitMenuPanel().untrackedPaths(),
      hint:()=>({note:GIT_UNC_CLEAN_NOTE,command:GIT_UNC_CLEAN_CMD}),
      run:(_,paths)=>gitMenuPanel().uncommittedClean(paths)},

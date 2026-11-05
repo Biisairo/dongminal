@@ -528,7 +528,7 @@ func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 	resolved := wsentry.NormalizePath(requested)
 	mark := store.Mark(obs)
 	// SERVER_DRIVEN_ACTIONS_SRS GR-1c: 잡 상태는 mark 밖이므로 두 갈래 모두 싣는다.
-	actions, err := s.repoActions(r.Context(), root)
+	actions, err := s.repoActions(r.Context(), root, obs.Status)
 	if err != nil {
 		gitError(w, err)
 		return

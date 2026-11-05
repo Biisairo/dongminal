@@ -34,7 +34,14 @@ func (s *GitServer) apiGitActions(w http.ResponseWriter, r *http.Request) {
 			gitError(w, err)
 			return
 		}
-		a = stashCreateAnswer(obs.Status, q.Get("includeUntracked") == "1")
+		keys, err := s.gitKeys(r.Context(), root)
+		if err != nil {
+			gitError(w, err)
+			return
+		}
+		// 칸이 먼저다 — 실행 종단도 잠금을 쥔 뒤에 상태를 판정한다 (GR-2a).
+		a = action.First(slotsAnswer(s.exclusion(), keys, jobs.SlotIndex),
+			stashCreateAnswer(obs.Status, q.Get("includeUntracked") == "1"))
 	default:
 		gitFail(w, http.StatusBadRequest, apierr.CodeBadRequest, "unknown action: "+id)
 		return
@@ -108,17 +115,36 @@ var repoSlotActions = []struct {
 	{action.GitSubmoduleUpdate, jobs.SlotsOf("submodule")},
 }
 
+// repoFactActions 는 1층에 싣는 상태 사실 동작이다 (GR-2). 셋 다 index 칸을 쓰는
+// 쓰기이므로 칸을 먼저 본다.
+var repoFactActions = []struct {
+	id    string
+	judge func(query.Status) action.Answer
+}{
+	{action.GitStashNew, stashNewAnswer},
+	{action.GitUncommittedReset, resetAnswer},
+	{action.GitUncommittedClean, cleanAnswer},
+}
+
+// stashNewAnswer 는 생성 대화상자를 열 수 있는가다 (GR-2b) — untracked 를 담는 옵션을
+// 켜면 담길 것이 있는가. 옵션별 판정은 대화상자가 git.stash.create 로 묻는다.
+func stashNewAnswer(st query.Status) action.Answer { return stashCreateAnswer(st, true) }
+
 // repoActions 는 저장소 하나의 1층 답이다 (FR-SDA-4·20). 칸 상태는 요청마다 읽는다 —
-// 관측 캐시(mark) 밖의 사실이다.
-func (s *GitServer) repoActions(ctx context.Context, root string) (map[string]action.Answer, error) {
+// 관측 캐시(mark) 밖의 사실이다. 상태 사실은 같은 응답의 status 로 판정한다.
+func (s *GitServer) repoActions(ctx context.Context, root string, st query.Status) (map[string]action.Answer, error) {
 	keys, err := s.gitKeys(ctx, root)
 	if err != nil {
 		return nil, err
 	}
 	x := s.exclusion()
-	out := make(map[string]action.Answer, len(repoSlotActions))
+	out := make(map[string]action.Answer, len(repoSlotActions)+len(repoFactActions))
 	for _, a := range repoSlotActions {
 		out[a.id] = slotsAnswer(x, keys, a.slots...)
+	}
+	index := slotsAnswer(x, keys, jobs.SlotIndex)
+	for _, a := range repoFactActions {
+		out[a.id] = action.First(index, a.judge(st))
 	}
 	return out, nil
 }

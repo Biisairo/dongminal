@@ -30,6 +30,7 @@ const GIT_ACTION=Object.freeze({
   write:'git.write',commit:'git.commit',lockRemove:'git.lock.remove',
   worktreeCreate:'git.worktree.create',worktreeRemove:'git.worktree.remove',
   submoduleUpdate:'git.submodule.update',stashCreate:'git.stash.create',
+  stashNew:'git.stash.new',uncommittedReset:'git.uncommitted.reset',uncommittedClean:'git.uncommitted.clean',
 });
 // 잡 시작 키(GitJobs.run 의 key) → 그 동작 ID. 이름의 대응일 뿐 칸 규칙이 아니다.
 const GIT_JOB_ACTION={fetch:GIT_ACTION.fetch,pull:GIT_ACTION.pull,push:GIT_ACTION.push,

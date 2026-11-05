@@ -756,7 +756,6 @@ I18N.register('ko', {
   'git.stash_load_fail': 'stash 목록을 불러오지 못했습니다',
   'git.stash_msg_placeholder': '메시지 (선택)',
   'git.stash_no_files': '변경 파일이 없습니다',
-  'git.stash_nothing': '저장할 변경이 없습니다',
   'git.stash_opt_keepindex': 'index 는 그대로 남김 (--keep-index)',
   'git.stash_opt_untracked': '추적되지 않는 파일 포함 (--include-untracked)',
   'git.stash_pick': 'stash 를 선택하세요',
@@ -805,7 +804,6 @@ I18N.register('ko', {
   'git.unc_clean_note': '추적되지 않는 파일은 git 에 저장된 적이 없어 지운 뒤에는 되살릴 수 없습니다. 지우기 전에 아래 명령으로 담아 둘 수 있습니다.',
   'git.unc_clean_title': '추적되지 않는 파일을 지웁니다',
   'git.unc_clean_changed': '확인한 뒤 추적되지 않는 파일 목록이 바뀌었습니다 — 다시 확인해 주세요',
-  'git.unc_nothing': '대상이 없습니다',
   'git.undo_fail': '되돌릴 수 없습니다 — undo 창이 지났습니다',
   'git.undo_text': '커밋했습니다',
   'git.write_err.bad_request': '잘못된 요청입니다',
@@ -1206,6 +1204,8 @@ I18N.register('ko', {
   // SERVER_DRIVEN_ACTIONS_SRS M-6: 서버의 답(`why` 코드)이 고르는 문구. 키는 `'why.' + code` 로 조립된다.
   'why.job_busy': '이 저장소에서 작업이 진행 중입니다 — 끝난 뒤 다시 시도하세요',
   'why.loading': '확인하는 중…',
+  'why.no_head': '커밋이 없어 HEAD 로 되돌릴 수 없습니다',
+  'why.nothing_to_clean': '지울 추적되지 않는 파일이 없습니다',
   'why.nothing_to_stash': '저장할 변경이 없습니다',
   'why.untracked_only': '추적되지 않는 파일 {count}개뿐입니다 — untracked 포함을 켜세요',
 });

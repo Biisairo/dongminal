@@ -27,6 +27,7 @@ const GIT_ACTION_IDS = {
   write: 'git.write', commit: 'git.commit', lockRemove: 'git.lock.remove',
   worktreeCreate: 'git.worktree.create', worktreeRemove: 'git.worktree.remove',
   submoduleUpdate: 'git.submodule.update', stashCreate: 'git.stash.create',
+  stashNew: 'git.stash.new', uncommittedReset: 'git.uncommitted.reset', uncommittedClean: 'git.uncommitted.clean',
 };
 
 /** answers: 동작 ID → 답. 없는 ID 는 답이 아직 없는 것이다. */
@@ -67,7 +68,7 @@ function allOk() {
 }
 
 test('GR-1e: 항목이 기대는 동작의 답이 거짓이면 그 항목만 서버의 사유로 비활성이다', () => {
-  for (const denied of ['git.write', 'git.branch.push', 'git.branch.fetch', 'git.branch.delete_remote', 'git.tag.push', 'git.tag.delete_remote']) {
+  for (const denied of ['git.write', 'git.stash.new', 'git.uncommitted.reset', 'git.uncommitted.clean', 'git.branch.push', 'git.branch.fetch', 'git.branch.delete_remote', 'git.tag.push', 'git.tag.delete_remote']) {
     const answers = allOk();
     answers[denied] = { ok: false, why: 'job_busy' };
     const ctx = menuWorld(answers);

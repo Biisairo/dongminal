@@ -30,6 +30,17 @@ func Deny(status int, why string, args map[string]any) Answer {
 	return Answer{Why: why, Args: args, Status: status}
 }
 
+// First 는 거짓인 첫 답이고, 모두 참이면 허용이다. 판정이 여럿 겹친 동작(칸 → 상태
+// 사실)이 실행 종단과 같은 순서로 묻는다 (GR-2a).
+func First(as ...Answer) Answer {
+	for _, a := range as {
+		if !a.OK {
+			return a
+		}
+	}
+	return Allow()
+}
+
 // WhyLoading 은 첫 답이 오기 전의 사유다 (FR-SDA-6). 서버가 내지 않고 화면이 쓰지만,
 // 문구가 있어야 하는 것은 같으므로 게이트가 함께 본다.
 const WhyLoading = "loading"
@@ -57,6 +68,12 @@ const (
 
 	// GitWorktreeRemove 는 worktree 목록의 행마다 싣는다 (GR-1h).
 	GitWorktreeRemove = "git.worktree.remove"
+
+	// 1층 — 상태 사실 (GR-2). GitStashNew 는 stash 탭의 "새로" 와 커밋 안 된 행의
+	// Stash 가 함께 쓴다 — 둘 다 같은 생성 대화상자를 연다.
+	GitStashNew         = "git.stash.new"
+	GitUncommittedReset = "git.uncommitted.reset"
+	GitUncommittedClean = "git.uncommitted.clean"
 )
 
 // Table 은 동작 ID → 그 판정이 낼 수 있는 사유 코드다 (M-3).

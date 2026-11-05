@@ -220,7 +220,6 @@ const GIT_UNC_CLEAN_CHANGED=t('git.unc_clean_changed');
 // (discard 의 선례, FR-GIT-92).
 const GIT_UNC_CLEAN_NOTE=t('git.unc_clean_note');
 const GIT_UNC_CLEAN_CMD='git stash push -u';
-const GIT_UNC_NOTHING=t('git.unc_nothing');
 // ── 부분 스테이징 (FR-GIT-278·279) ──
 //
 // 패치는 **서버가 만든다** (GIT_ACTIONS_SRS D6). 클라이언트는 좌표만 보낸다 —
