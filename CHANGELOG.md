@@ -29,6 +29,12 @@
   `operation_in_progress`(`args.kind`), HEAD 를 대상으로 한 cherry-pick·reset 은 409 `target_is_head` 로
   거절합니다. 루트·머지 커밋의 drop 은 400 `bad_request` 대신 `root_commit`·`merge_commit` 입니다. 메뉴의 답은
   `GET /api/git/actions?kind=commit&oid=…` 로 미리 물을 수 있습니다.
+- **브랜치 동작의 새 거절과 양쪽 삭제 종단.** 원격 ref 의 rename·upstream·push 는 400 `not_local_branch`,
+  로컬 ref 의 fetch 는 400 `not_remote_branch`, 현재 브랜치 checkout(force 제외)은 409 `branch_is_current`,
+  현재 브랜치로의 merge·rebase(onto 없음)는 409 `target_is_head`, upstream 이 없는 해제는 409 `no_upstream`,
+  merge·rebase 가 진행 중일 때의 merge·rebase 는 409 `operation_in_progress` 로 거절합니다. 현재 브랜치 삭제
+  거절에서 `message` 가 빠집니다. 새 `POST /api/git/branch/delete-both` 는 짝지어진 로컬과 원격을 함께 지웁니다.
+  메뉴의 답은 `GET /api/git/actions?kind=branch&ref=…` 로 미리 물을 수 있습니다.
 
 ## [1.2.3] — 2026-11-05
 

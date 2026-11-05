@@ -33,6 +33,10 @@ const GIT_ACTION=Object.freeze({
   stashNew:'git.stash.new',uncommittedReset:'git.uncommitted.reset',uncommittedClean:'git.uncommitted.clean',
   commitCherryPick:'git.commit.cherry_pick',commitRevert:'git.commit.revert',
   commitReset:'git.commit.reset',commitDrop:'git.commit.drop',
+  branchCheckout:'git.branch.checkout',branchCheckoutLocal:'git.branch.checkout_local',
+  branchRename:'git.branch.rename',branchMerge:'git.branch.merge',branchRebase:'git.branch.rebase',
+  branchUpstreamSet:'git.branch.upstream_set',branchUpstreamUnset:'git.branch.upstream_unset',
+  branchDelete:'git.branch.delete',branchDeleteBoth:'git.branch.delete_both',
 });
 // NFR-SDA-1: 메뉴의 답이 이보다 늦으면 항목을 loading 으로 먼저 그린다.
 const GIT_MENU_ASK_LOADING_MS=50;

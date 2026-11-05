@@ -77,6 +77,11 @@ const (
 	CodeTargetIsHead        = "target_is_head"
 	CodeRootCommit          = "root_commit"
 	CodeMergeCommit         = "merge_commit"
+	CodeNotLocalBranch      = "not_local_branch"
+	CodeNotRemoteBranch     = "not_remote_branch"
+	CodeNoUpstream          = "no_upstream"
+	CodeNoTrackingBranch    = "no_tracking_branch"
+	CodeManyTrackingBranch  = "many_tracking_branches"
 	CodeResolvePartial      = "resolve_partial"
 
 	// ── 미커밋 행 ──

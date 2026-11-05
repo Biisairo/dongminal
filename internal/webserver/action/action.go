@@ -50,14 +50,11 @@ const (
 	GitStashCreate = "git.stash.create"
 
 	// 1층 — 작업 칸 (SERVER_DRIVEN_ACTIONS_SRS GR-1b)
-	GitFetch              = "git.fetch"
-	GitPull               = "git.pull"
-	GitPush               = "git.push"
-	GitBranchPush         = "git.branch.push"
-	GitBranchFetch        = "git.branch.fetch"
-	GitBranchDeleteRemote = "git.branch.delete_remote"
-	GitTagPush            = "git.tag.push"
-	GitTagDeleteRemote    = "git.tag.delete_remote"
+	GitFetch           = "git.fetch"
+	GitPull            = "git.pull"
+	GitPush            = "git.push"
+	GitTagPush         = "git.tag.push"
+	GitTagDeleteRemote = "git.tag.delete_remote"
 	// GitWrite 는 index 칸을 쓰는 동기 쓰기·index 잡 시작 전반이다 — 메뉴의
 	// checkout·merge·stash apply 같은 항목이 이것을 본다.
 	GitWrite = "git.write"
@@ -81,6 +78,20 @@ const (
 	GitCommitRevert     = "git.commit.revert"
 	GitCommitReset      = "git.commit.reset"
 	GitCommitDrop       = "git.commit.drop"
+
+	// 2층 — 브랜치 행 메뉴 (GT-d·e). `kind=branch&ref=` 로 묻는다.
+	GitBranchCheckout      = "git.branch.checkout"
+	GitBranchCheckoutLocal = "git.branch.checkout_local"
+	GitBranchRename        = "git.branch.rename"
+	GitBranchMerge         = "git.branch.merge"
+	GitBranchRebase        = "git.branch.rebase"
+	GitBranchUpstreamSet   = "git.branch.upstream_set"
+	GitBranchUpstreamUnset = "git.branch.upstream_unset"
+	GitBranchPush          = "git.branch.push"
+	GitBranchFetch         = "git.branch.fetch"
+	GitBranchDelete        = "git.branch.delete"
+	GitBranchDeleteRemote  = "git.branch.delete_remote"
+	GitBranchDeleteBoth    = "git.branch.delete_both"
 )
 
 // Table 은 동작 ID → 그 판정이 낼 수 있는 사유 코드다 (M-3).

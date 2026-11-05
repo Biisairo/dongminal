@@ -91,8 +91,7 @@ func TestStatusActions_FollowSlots(t *testing.T) {
 	wantAnswers(t, idle, map[string]bool{
 		action.GitFetch: true, action.GitPull: true, action.GitPush: true, action.GitWrite: true,
 		action.GitLockRemove: true, action.GitWorktreeCreate: true,
-		action.GitSubmoduleUpdate: true, action.GitBranchPush: true, action.GitBranchFetch: true,
-		action.GitBranchDeleteRemote: true, action.GitTagPush: true, action.GitTagDeleteRemote: true,
+		action.GitSubmoduleUpdate: true, action.GitTagPush: true, action.GitTagDeleteRemote: true,
 	})
 
 	if code, out := gitReq(t, s, http.MethodPost, "/api/git/fetch", `{"repo":`+qWorkRepo+`}`); code != http.StatusOK {
@@ -102,8 +101,7 @@ func TestStatusActions_FollowSlots(t *testing.T) {
 	wantAnswers(t, busy, map[string]bool{
 		action.GitFetch: false, action.GitPull: false, action.GitPush: false, action.GitWrite: true,
 		action.GitLockRemove: false, action.GitWorktreeCreate: false,
-		action.GitSubmoduleUpdate: false, action.GitBranchPush: false, action.GitBranchFetch: false,
-		action.GitBranchDeleteRemote: false, action.GitTagPush: false, action.GitTagDeleteRemote: false,
+		action.GitSubmoduleUpdate: false, action.GitTagPush: false, action.GitTagDeleteRemote: false,
 	})
 }
 

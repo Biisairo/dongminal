@@ -51,11 +51,20 @@ class GitMenu {
     return null;
   }
 
-  // 확인 게이트(_pick)를 그대로 지난다 — 더블클릭이 확인을 건너뛰지 않는다.
-  static runPrimary(kind,target){
-    const it=GitMenu.primary(kind,target);
+  // 확인 게이트(_pick)를 그대로 지난다 — 더블클릭이 확인을 건너뛰지 않는다. 열 때 묻는
+  // 메뉴면 더블클릭도 먼저 서버에 묻는다 (SERVER_DRIVEN_ACTIONS_SRS GT-f) — 메뉴보다
+  // 관대해지면 메뉴에서 막힌 것을 제스처로 통과시킨다.
+  static async runPrimary(kind,target){
+    const ask=GIT_MENU_ASK[kind];
+    let tg=target;
+    if(ask){
+      const p=gitMenuPanel(); if(!p||!p.repo) return false;
+      const res=await gitFetch(GIT_API.actions,Object.assign({repo:p.repo},ask(target)));
+      tg=Object.assign({},target,{answers:(res.ok&&res.data&&res.data.actions)||{}});
+    }
+    const it=GitMenu.primary(kind,tg);
     if(!it) return false;
-    GitMenu._pick(it,target);
+    GitMenu._pick(it,tg);
     return true;
   }
 
@@ -138,7 +147,7 @@ class GitMenu {
     // 2층: 대상의 답. `answers` 가 null 이면 아직 묻는 중이다 (FR-SDA-6).
     if(it.act){
       const a=target&&target.answers;
-      return actionState(a?(a[it.act]||null):null,false).why;
+      return actionState(a?(a[GitMenu._val(it.act,target)]||null):null,false).why;
     }
     if(!it.busy) return own;
     const p=gitMenuPanel();
@@ -191,4 +200,3 @@ class GitMenu {
 window.GitMenu=GitMenu;
 window.GIT_MENUS=GIT_MENUS;
 window.GIT_MENU_PRIMARY=GIT_MENU_PRIMARY;
-window.gitOpBusy=gitOpBusy;

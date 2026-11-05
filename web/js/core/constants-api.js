@@ -12,6 +12,7 @@ const GIT_API=Object.freeze({
   blame:'/api/git/blame',
   branch:'/api/git/branch',
   branchDelete:'/api/git/branch/delete',
+  branchDeleteBoth:'/api/git/branch/delete-both',
   branchMerge:'/api/git/branch/merge',
   branchMergePreview:'/api/git/branch/merge-preview',
   branchRebase:'/api/git/branch/rebase',

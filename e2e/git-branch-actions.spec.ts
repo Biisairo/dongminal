@@ -424,7 +424,8 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     // BRANCH_MENU_UNIFY_SRS FR-BMU-1: 옛 `remote-pull` 은 `merge` 에 합쳐졌다.
     for (const id of ['merge', 'rebase']) {
       await expect(item(page, id), id + ' 가 진행 중인데도 열려 있다').toHaveClass(/disabled/);
-      await expect(item(page, id)).toHaveAttribute('title', /머지가 진행 중/);
+      // 사유는 서버의 답(operation_in_progress)이고 진행 중인 작업 이름(merge)을 싣는다.
+      await expect(item(page, id)).toHaveAttribute('title', /진행 중인 merge/);
     }
     // 진행 중과 무관한 항목은 그대로 열려 있다 — 전부 막으면 갈 곳이 없다.
     await expect(item(page, 'copy-name')).not.toHaveClass(/disabled/);

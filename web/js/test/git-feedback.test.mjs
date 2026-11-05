@@ -28,6 +28,9 @@ const GIT_ACTION_IDS = {
   worktreeCreate: 'git.worktree.create', worktreeRemove: 'git.worktree.remove',
   submoduleUpdate: 'git.submodule.update', stashCreate: 'git.stash.create',
   commitCherryPick: 'git.commit.cherry_pick', commitRevert: 'git.commit.revert', commitReset: 'git.commit.reset', commitDrop: 'git.commit.drop',
+  branchCheckout: 'git.branch.checkout', branchCheckoutLocal: 'git.branch.checkout_local', branchRename: 'git.branch.rename',
+  branchMerge: 'git.branch.merge', branchRebase: 'git.branch.rebase', branchUpstreamSet: 'git.branch.upstream_set',
+  branchUpstreamUnset: 'git.branch.upstream_unset', branchDelete: 'git.branch.delete', branchDeleteBoth: 'git.branch.delete_both',
   stashNew: 'git.stash.new', uncommittedReset: 'git.uncommitted.reset', uncommittedClean: 'git.uncommitted.clean',
 };
 
@@ -69,7 +72,7 @@ function allOk() {
 }
 
 test('GR-1e: 항목이 기대는 동작의 답이 거짓이면 그 항목만 서버의 사유로 비활성이다', () => {
-  for (const denied of ['git.write', 'git.stash.new', 'git.uncommitted.reset', 'git.uncommitted.clean', 'git.branch.push', 'git.branch.fetch', 'git.branch.delete_remote', 'git.tag.push', 'git.tag.delete_remote']) {
+  for (const denied of ['git.write', 'git.stash.new', 'git.uncommitted.reset', 'git.uncommitted.clean', 'git.tag.push', 'git.tag.delete_remote']) {
     const answers = allOk();
     answers[denied] = { ok: false, why: 'job_busy' };
     const ctx = menuWorld(answers);

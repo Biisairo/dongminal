@@ -123,9 +123,6 @@ var repoSlotActions = []struct {
 	{action.GitFetch, jobs.SlotsOf("fetch")},
 	{action.GitPull, jobs.SlotsOf("pull")},
 	{action.GitPush, jobs.SlotsOf("push")},
-	{action.GitBranchPush, jobs.SlotsOf("push")},
-	{action.GitBranchFetch, jobs.SlotsOf("fetch")},
-	{action.GitBranchDeleteRemote, jobs.SlotsOf("push")},
 	{action.GitTagPush, jobs.SlotsOf("push")},
 	{action.GitTagDeleteRemote, jobs.SlotsOf("push")},
 	{action.GitWrite, []string{jobs.SlotIndex}},
@@ -206,6 +203,10 @@ func commitStateAnswer(st query.Status, pf query.Preflight, req gitCommitReq, am
 // 메뉴가 보일 수 있는 동작 전부의 답이다.
 func (s *GitServer) gitTargetActions(w http.ResponseWriter, r *http.Request, root, requested, kind string) {
 	q := r.URL.Query()
+	if kind == "branch" {
+		s.gitBranchMenu(w, r, root, requested)
+		return
+	}
 	if kind != "commit" {
 		gitFail(w, http.StatusBadRequest, apierr.CodeBadRequest, "unknown kind: "+kind)
 		return

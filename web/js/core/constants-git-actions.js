@@ -79,7 +79,6 @@ const GIT_ACT_OP_ABORT='operation_abort';
 const GIT_OP_ABORT_TITLE=t('git.op_abort_title');
 const GIT_OP_ABORT_NOTE=t('git.op_abort_note');
 // 진행 중 작업 때문에 막힌 메뉴 항목의 사유 (FR-GIT-252).
-const GIT_MENU_OP_BUSY=t('git.menu_op_busy');
 
 // ── Console 의 검색·replay (GIT_ACTIONS_SRS §3.8 / FR-GIT-281) ──
 const GIT_CON_SEARCH_PH=t('git.con_search_ph');
@@ -328,8 +327,6 @@ const GIT_CO_DROP_LABEL=t('git.act.co_drop_label');
 const GIT_CO_MARK_LABEL=t('git.co_mark_label');
 const GIT_CO_COMPARE_LABEL=t('git.act.co_compare_label');
 
-// 항목이 막히는 사유. `gitOpBusy()` 다음에 오는 그 항목만의 사유다 (FR-GIT-252).
-
 // 머지 커밋의 기준 부모 (FR-GIT-263·264). **묻지 않고 고르면 틀린 부모를 집는다.**
 const GIT_CO_MAINLINE_LABEL=t('git.co_mainline_label');
 const GIT_CO_MAINLINE_OPT=t('git.co_mainline_opt');
@@ -404,13 +401,8 @@ const GIT_BR_REMOTE_FETCH=t('git.act.br_remote_fetch');
 const GIT_BR_REMOTE_DELETE=t('git.act.br_remote_delete');
 
 // 비활성 사유. 왜 못 누르는지 보이지 않으면 사용자는 고장으로 읽는다 (FR-GIT-180).
-const GIT_BR_LOCAL_ONLY=t('git.br_local_only');
-const GIT_BR_WHY_SELF=t('git.br_why_self');
-const GIT_BR_WHY_NO_UPSTREAM=t('git.br_why_no_upstream');
 // FR-BMU-16f: 원격 행에서 짝을 찾지 못한 두 갈래. 없는 것과 여럿인 것은 다른
 // 사실이므로 다르게 말한다 — 여럿이면 사용자가 고르지 않은 채 지울 수 없다.
-const GIT_BR_WHY_NO_LOCAL=t('git.br_why_no_local');
-const GIT_BR_WHY_MANY_LOCAL=t('git.br_why_many_local');
 
 // Rename (FR-GIT-253). 이름 검사는 생성 다이얼로그와 **같은 자리**를 쓴다.
 const GIT_BR_RENAME_TITLE=t('git.br_rename_title');

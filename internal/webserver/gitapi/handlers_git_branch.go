@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/query"
@@ -61,6 +62,22 @@ func (s *GitServer) apiGitCheckout(w http.ResponseWriter, r *http.Request) {
 	spec, err := write.CheckoutSpec(opts)
 	if err != nil {
 		t.reject(err)
+	}
+	// 메뉴의 답과 같은 판정이다 (SERVER_DRIVEN_ACTIONS_SRS GT-d). 새 로컬을 만들며 추적하면
+	// 추적 대상이 원격이어야 하고, 브랜치로 옮기면 그것이 로컬이며 현재가 아니어야 한다.
+	// detach·새 브랜치는 ref 가 oid·태그일 수 있으므로 판정하지 않는다.
+	switch {
+	case req.Create != "" && req.Track != "":
+		if !t.judgeBranch(action.GitBranchCheckoutLocal, func(f branchFacts) (query.Ref, bool) {
+			return f.refOr(query.RefKindRemote, req.Track), true
+		}) {
+			return
+		}
+	case !req.Detach && req.Create == "" && !req.Force:
+		// force 는 현재 브랜치에서도 뜻이 있다 — 워킹 트리의 변경을 버린다 (FR-GIT-157).
+		if !t.judgeBranch(action.GitBranchCheckout, func(f branchFacts) (query.Ref, bool) { return f.anyRef(req.Ref) }) {
+			return
+		}
 	}
 	// 이름 충돌은 저장소를 조회해야 안다 — 사전 단계의 검사다 (§6.2).
 	if t.stop() || s.gitBranchNameTaken(w, t.ctx(), req.Repo, t.root, req.Create, req.Track) {
@@ -264,6 +281,11 @@ func (s *GitServer) apiGitBranchRename(w http.ResponseWriter, r *http.Request) {
 	if _, err := write.BranchRenameArgs(opts); err != nil {
 		t.reject(err)
 	}
+	if !t.judgeBranch(action.GitBranchRename, func(f branchFacts) (query.Ref, bool) {
+		return f.refOr(query.RefKindLocal, req.From), true
+	}) {
+		return
+	}
 	if t.stop() || s.gitBranchNameTaken(w, t.ctx(), req.Repo, t.root, req.To, "") {
 		return
 	}
@@ -315,10 +337,11 @@ func (s *GitServer) apiGitBranchDelete(w http.ResponseWriter, r *http.Request) {
 func (s *GitServer) gitBranchDeleteBlocked(w http.ResponseWriter, ctx context.Context,
 	requested, root string, before query.Status, opts write.BranchDeleteOpts) bool {
 	for _, n := range opts.Names {
-		if !before.Detached && n == before.Branch {
-			gitErrJSON(w, http.StatusConflict, gitErrBranchCurrent, map[string]any{
-				"error": gitErrBranchCurrent, "requested": requested, "repo": root,
-				"branch": n, "message": "현재 브랜치 " + n + " 는 지울 수 없다",
+		// 메뉴의 답과 같은 판정이다 (GT-d).
+		r := query.Ref{Kind: query.RefKindLocal, Short: n, IsHead: !before.Detached && n == before.Branch}
+		if a := branchAnswer(action.GitBranchDelete, r, branchFacts{st: before}); !a.OK {
+			gitErrJSON(w, a.Status, a.Why, map[string]any{
+				"error": a.Why, "requested": requested, "repo": root, "branch": n,
 			})
 			return true
 		}
@@ -375,6 +398,12 @@ func (s *GitServer) apiGitBranchMerge(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		t.reject(err)
 	}
+	if !t.judgeBranch(action.GitBranchMerge, func(f branchFacts) (query.Ref, bool) {
+		r, _ := f.anyRef(req.Ref)
+		return r, true
+	}) {
+		return
+	}
 	// §5.2: merge 는 잡이다. 충돌로 멈추면 잡은 실패로 끝나고 result.status 의
 	// operation 이 진행 중 상태를 말한다 (§6.3).
 	t.startWriteJob(core.WriteSpec{Argv: argv}, t.snapshot(), nil, nil)
@@ -389,6 +418,17 @@ func (s *GitServer) apiGitBranchRebase(w http.ResponseWriter, r *http.Request) {
 		"rebase 는 커밋 해시를 바꾼다: confirm:true 를 요구한다 (FR-GIT-89·256)")
 	t.resolve(req.Repo)
 	opts := write.RebaseOpts{Ref: req.Ref, Onto: req.Onto}
+	// onto 가 있으면 ref 는 "어디부터" 이므로 현재 브랜치여도 뜻이 있다 — 그때는 진행 중
+	// 작업만 본다 (빈 ref 로 판정한다).
+	if !t.judgeBranch(action.GitBranchRebase, func(f branchFacts) (query.Ref, bool) {
+		if req.Onto != "" {
+			return query.Ref{}, true
+		}
+		r, _ := f.anyRef(req.Ref)
+		return r, true
+	}) {
+		return
+	}
 	// hint 는 **옮기기 전** HEAD 를 싣는다 (FR-GIT-250.2) — 사전 단계의 스냅샷이다.
 	before := t.snapshot()
 	spec, hint, err := write.RebaseSpec(t.root, opts, before.Oid)
@@ -407,6 +447,15 @@ func (s *GitServer) apiGitBranchUpstream(w http.ResponseWriter, r *http.Request)
 	opts := write.UpstreamOpts{Branch: req.Branch, Upstream: req.Upstream, Unset: req.Unset}
 	if _, err := write.UpstreamArgs(opts); err != nil {
 		t.reject(err)
+	}
+	id := action.GitBranchUpstreamSet
+	if req.Unset {
+		id = action.GitBranchUpstreamUnset
+	}
+	if !t.judgeBranch(id, func(f branchFacts) (query.Ref, bool) {
+		return f.refOr(query.RefKindLocal, req.Branch), true
+	}) {
+		return
 	}
 	t.apply(func(ctx context.Context) error {
 		_, err := write.SetUpstream(s.Git.Service(), ctx, t.root, opts)
@@ -451,7 +500,9 @@ func (s *GitServer) apiGitBranchPush(w http.ResponseWriter, r *http.Request) {
 	var req gitBranchPushReq
 	t := s.beginWrite(w, r, &req)
 	t.resolve(req.Repo)
-	if t.stop() {
+	if !t.judgeBranch(action.GitBranchPush, func(f branchFacts) (query.Ref, bool) {
+		return f.refOr(query.RefKindLocal, req.Branch), true
+	}) {
 		return
 	}
 	root := t.root
@@ -471,7 +522,9 @@ func (s *GitServer) apiGitBranchFetchInto(w http.ResponseWriter, r *http.Request
 	var req gitRemoteBranchReq
 	t := s.beginWrite(w, r, &req)
 	t.resolve(req.Repo)
-	if t.stop() {
+	if !t.judgeBranch(action.GitBranchFetch, func(f branchFacts) (query.Ref, bool) {
+		return f.refOr(query.RefKindRemote, req.Remote+"/"+req.Branch), true
+	}) {
 		return
 	}
 	spec, err := write.RemoteFetchSpec(write.RemoteBranchOpts{Remote: req.Remote, Branch: req.Branch})
@@ -492,7 +545,9 @@ func (s *GitServer) apiGitBranchDeleteRemote(w http.ResponseWriter, r *http.Requ
 	t.requireConfirm(true, req.Confirm,
 		"원격 ref 삭제는 파괴적이다: confirm:true 를 요구한다 (FR-GIT-89·268)")
 	t.resolve(req.Repo)
-	if t.stop() {
+	if !t.judgeBranch(action.GitBranchDeleteRemote, func(f branchFacts) (query.Ref, bool) {
+		return f.refOr(query.RefKindRemote, req.Remote+"/"+req.Branch), true
+	}) {
 		return
 	}
 	root := t.root

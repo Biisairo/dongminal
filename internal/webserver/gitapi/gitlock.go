@@ -64,6 +64,7 @@ var writeLocks = map[string]lockMode{
 	"/api/git/branch/push":          lockNone,
 	"/api/git/branch/fetch":         lockNone,
 	"/api/git/branch/delete-remote": lockNone,
+	"/api/git/branch/delete-both":   lockTop,
 	"/api/git/stash/push":           lockStash,
 	"/api/git/stash/apply":          lockStash,
 	"/api/git/stash/pop":            lockStash,

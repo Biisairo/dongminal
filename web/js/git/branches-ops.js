@@ -249,7 +249,7 @@ Object.assign(GitBranches, {
    * 복제하면 서버가 선택지를 줄여도(다중 삭제에는 `-D` 가 없다) 그것을 따르지
    * 못한다. 기본은 취소다 (O14).
    */
-  async _unmerged(panel,d){
+  async _unmerged(panel,d,retry){
     const ids=Array.isArray(d.options)?d.options:[];
     const options=ids.map(id=>({id,label:GIT_BR_UNMERGED_LABEL[id]||id,
       danger:id==='force_delete'}));
@@ -259,7 +259,7 @@ Object.assign(GitBranches, {
       choices:options,def:'cancel',
     });
     if(pick!=='force_delete') return;
-    return GitBranches._delete(panel,[d.branch||''],true);
+    return retry?retry():GitBranches._delete(panel,[d.branch||''],true);
   },
 
   /**
@@ -390,56 +390,65 @@ Object.assign(GitBranches, {
    * 추적하는 로컬이 **여럿이면 짝을 정하지 않는다** (FR-BMU-16f) — 사용자가
    * 고르지 않은 채 파괴적 동작이 대상을 정하면 안 된다.
    *
-   * `why` 는 비활성 사유이고 비어 있으면 짝이 섰다는 뜻이다.
+   * 이것은 확인창에 **보여 줄** 짝이다. 항목을 켜고 끄는 짝 판정은 서버의 답이다
+   * (SERVER_DRIVEN_ACTIONS_SRS GT-e) — 같은 규칙이 서버에 있고, 실행도 서버가 다시 센다.
    */
   pairOf(panel,target){
-    if(!target) return {local:null,remote:'',why:GIT_BR_WHY_NO_UPSTREAM};
-    if(target.kind!==GIT_REF_KIND_REMOTE){
-      const up=((target.upstream||'')+'').trim();
-      return {local:target,remote:up,why:up?'':GIT_BR_WHY_NO_UPSTREAM};
-    }
+    if(!target) return {local:null,remote:''};
+    if(target.kind!==GIT_REF_KIND_REMOTE)
+      return {local:target,remote:((target.upstream||'')+'').trim()};
     // FR-BMU-16h: **뷰가 아니라 패널에게 묻는다.** 종전에는 Branches 뷰의 사본을
     // 읽어서, 그 탭을 한 번도 열지 않으면 추적하는 로컬이 있어도 "없다" 가 됐다.
     const refs=Array.isArray(panel&&panel._knownRefs)?panel._knownRefs:[];
     const hits=refs.filter(r=>r&&r.kind===GIT_REF_KIND_LOCAL
       &&((r.upstream||'')+'').trim()===target.short);
-    if(!hits.length) return {local:null,remote:target.short,why:GIT_BR_WHY_NO_LOCAL};
-    if(hits.length>1) return {local:null,remote:target.short,why:GIT_BR_WHY_MANY_LOCAL};
-    return {local:hits[0],remote:target.short,why:''};
+    return {local:hits.length===1?hits[0]:null,remote:target.short};
+  },
+
+
+  // 서버에 보낼 전체 ref 이름 (SERVER_DRIVEN_ACTIONS_SRS GT-a). 목록의 ref 는 `name` 에
+  // 전체 이름을 싣고 오지만, History 커밋 행의 배지는 `name` 이 짧은 이름이다 — 그래서
+  // `refs/` 로 시작할 때만 그대로 쓰고, 그 밖에는 종류로 조립한다.
+  refName(target){
+    if(!target) return '';
+    if(typeof target.name==='string'&&target.name.startsWith('refs/')) return target.name;
+    return (target.kind===GIT_REF_KIND_REMOTE?'refs/remotes/':'refs/heads/')+(target.short||'');
   },
 
   /**
-   * `names` 는 확인창에 보인 한 쌍 `[로컬, 원격]` 이다 (REPO_FIX 05 F-1).
-   *	이전 동작: 짝을 다시 세고 로컬을 `targetsOf` 로 넓혀 다중 선택 전체를 지웠다
-   *	새 동작: 확인창의 한 쌍만 지운다
-   *	이유: Delete both 는 짝지어진 둘을 지우는 항목이다(#1)
+   * 양쪽 삭제는 **서버 종단 하나**다 (SERVER_DRIVEN_ACTIONS_SRS GT-e · 사용자 결정 2026-11-06).
+   * 짝 판정·로컬 먼저·로컬이 실패하면 원격을 건드리지 않는 순서(FR-BMU-14)를 서버가 진다.
+   *
+   *   이전 동작: 화면이 로컬 삭제와 원격 삭제를 차례로 보냈고 짝 판정도 화면에만 있었다
+   *   새  동작: `POST /api/git/branch/delete-both` 하나. 응답은 원격 삭제 잡이고
+   *            `panel.post` 가 그 끝을 기다려 판정한다
+   *   이유:     D-SDA-3 — 화면을 거치지 않은 요청도 같은 판정을 받는다
+   *
+   * 미머지는 `branch/delete` 와 같은 선택지다 — `-D` 를 고르면 `force` 로 다시 보낸다.
+   * `names` 는 확인창이 보인 쌍이며 서버에 보내지 않는다(서버가 짝을 다시 센다).
    */
-  async delBoth(panel,target,names){
-    if(!panel||!panel.repo||!target||!Array.isArray(names)) return;
-    // FR-BMU-16d·16g: 어느 행에서 눌렀든 같은 쌍을 같은 순서로 지운다.
-    const [local,up]=names;
-    if(names.length!==2||!local||!up) return;
-    const res=await GitBranches._delete(panel,[local],false);
-    // FR-BMU-14: 로컬이 실패하면 원격은 건드리지 않는다.
-    if(!res||!res.ok) return res;
-    const rr=await GitBranches.deleteRemote(panel,up);
-    /**
-     * FR-BMU-15·15a: 반쪽만 지워진 것을 조용히 성공으로 보이지 않는다.
-     *
-     *   이전 동작: `rr.ok===false` 만 보았다 — 그 조건은 **작업을 띄우지도 못한**
-     *             경우(busy · repo 없음)만 잡는다. 진짜 실패는 나중에 job 의
-     *             `done` 으로 오고 아무도 보지 않았다 (실측: exitCode 1 인데
-     *             화면의 note·err 가 둘 다 비어 있었다)
-     *   새  동작: 띄웠으면 **그 job 의 끝을 기다려** 판정한다
-     *   이유:     `run()` 의 `ok:true` 는 "띄웠다" 이지 "지워졌다" 가 아니다
-     */
-    if(!rr||rr.ok===false){GitBranches._delBothFail(rr&&rr.data);return rr}
-    const job=rr.data&&rr.data.job;
-    const done=job&&job.id?await panel._remote().awaitJob(job.id):null;
-    // 답을 못 받은 것(`null`)은 성공이 아니다 — 모르는 것을 성공으로 읽으면 이
-    // 조항이 다시 새어 나간다.
-    if(!done||done.err||done.exitCode!==0) GitBranches._delBothFail(done);
-    return rr;
+  async delBoth(panel,target,names,force){
+    if(!panel||!panel.repo||!target) return;
+    const res=await panel.post(GIT_API.branchDeleteBoth,
+      {repo:panel.repo,ref:GitBranches.refName(target),force:!!force,confirm:true});
+    const d=res.data||{};
+    if(res.ok){
+      if(panel._branchesView) panel._branchesView.clearSelection();
+      panel.afterRefWrite(d);
+      return res;
+    }
+    if(res.code===409&&d.error==='branch_not_merged'){
+      const forced=await GitBranches._unmerged(panel,d,()=>GitBranches.delBoth(panel,target,names,true));
+      return forced||res;
+    }
+    // FR-BMU-15: 잡이 있으면 로컬은 지워졌고 원격이 실패했다 — 반쪽 삭제를 사유와 함께 말한다.
+    if(d.job){
+      panel.afterRefWrite(d);
+      GitBranches._delBothFail(d.job);
+      return res;
+    }
+    panel.applyWriteFail(res);
+    return res;
   },
 
   /**

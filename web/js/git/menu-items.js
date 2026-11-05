@@ -16,24 +16,6 @@ function gitTagOid(target){
 }
 
 /**
- * FR-GIT-252: 진행 중 작업이 있으면 **새 작업을 시작할 수 없다.**
- *
- * merge·rebase·cherry-pick·revert 가 멈춘 상태에서 또 하나를 시작하면 git 이
- * 거부하고, 그 거부는 exit 128 의 문구로만 온다. 항목을 막되 **사유를 보인다** —
- * 왜 못 누르는지 보이지 않으면 사용자는 고장으로 읽는다 (FR-GIT-180).
- *
- * 판정 근거는 관측 하나다 (`status.operation`, FR-GIT-251) — 항목마다 다시 세면
- * 한 곳이 빠져도 조용히 지나간다.
- */
-function gitOpBusy(){
-  const p=gitMenuPanel(); if(!p||typeof p.statusOf!=='function') return '';
-  const op=(p.statusOf()||{}).operation;
-  const kind=(op&&op.kind)||'';
-  if(!kind) return '';
-  return GIT_MENU_OP_BUSY.replace('%s',GIT_OP_LABEL[kind]||kind);
-}
-
-/**
  * FR-GIT-222: 행 더블클릭이 고르는 후보다. 순서가 우선순위이고, 비활성이 아닌
  * 첫 항목이 그 행의 기본 동작이 된다.
  *
@@ -47,6 +29,7 @@ const GIT_MENU_PRIMARY={
 // 열 때 서버에 묻는 메뉴 — 대상 → 질의 (SERVER_DRIVEN_ACTIONS_SRS GT-a).
 const GIT_MENU_ASK={
   commit:target=>({kind:'commit',oid:target.oid}),
+  branch:target=>({kind:'branch',ref:GitBranches.refName(target)}),
 };
 
 const GIT_MENUS={
@@ -124,48 +107,39 @@ const GIT_MENUS={
   // 설정한다 (FR-GIT-156). 어느 쪽이 왜 막혔는지는 사유로 알린다.
   branch:[
     {id:'copy-name',label:t('git.menu.copy_branch_name'),run:target=>gitMenuPanel().copyText(target.short)},
-    {id:'checkout',busy:GIT_ACTION.write, label:'Checkout',
-     disabled:target=>target.kind===GIT_REF_KIND_REMOTE?GIT_MENU_REMOTE_REF:(target.isHead?GIT_MENU_CURRENT:''),
+    {id:'checkout',act:GIT_ACTION.branchCheckout, label:'Checkout',
      run:target=>gitMenuPanel().checkoutRef(target.short,{})},
-    {id:'checkout-local',busy:GIT_ACTION.write,label:GIT_BR_CHECKOUT_LOCAL,
-     disabled:target=>target.kind===GIT_REF_KIND_REMOTE?'':GIT_MENU_LOCAL_ONLY,
+    {id:'checkout-local',act:GIT_ACTION.branchCheckoutLocal,label:GIT_BR_CHECKOUT_LOCAL,
      run:target=>gitMenuPanel().checkoutRemote(target.short)},
     {sep:true},
     // 묶음 B — 접수한 말의 본체 (GIT_ACTIONS_SRS §3.2 FR-GIT-253~259).
     //
-    // merge·rebase 는 **진행 중 작업을 먼저 본다** (FR-GIT-252) — 판정은 gitOpBusy()
-    // 한 자리이고, 항목마다 다시 세면 한 곳이 빠져도 조용히 지나간다.
+    // 판정(진행 중 작업·ref 종류·현재 브랜치)은 메뉴를 열 때 서버가 답한다 (GT-d·f).
     // FR-GIT-259: 커밋 메뉴의 `branch-from` 과 **같은 함수**를 시작점만 바꿔 부른다.
     {id:'branch-from',busy:GIT_ACTION.write,label:GIT_BR_CREATE_FROM,
      run:target=>gitMenuPanel().createBranchFrom(target.short)},
-    {id:'rename',busy:GIT_ACTION.write,label:GIT_BR_RENAME,
-     disabled:target=>target.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY:'',
+    {id:'rename',act:GIT_ACTION.branchRename,label:GIT_BR_RENAME,
      run:target=>gitMenuPanel().branchRename(target)},
     // BRANCH_MENU_UNIFY_SRS FR-BMU-1~3: **로컬·원격 모두 여기다.**
     // 옛 `remote-pull`(Pull/Merge)은 이것과 **같은 함수**를 부르면서 활성 조건만
     // 반대였다 — 항목이 둘이라 로컬 브랜치에서 Pull 을 누르려던 사용자가 "원격
     // 브랜치에서만" 으로 막혔다. 동작이 하나였으므로 항목도 하나다.
     // ref 종류는 더 이상 비활성 사유가 아니다 (FR-BMU-2).
-    {id:'merge',busy:GIT_ACTION.write,label:GIT_BR_MERGE,
-     disabled:target=>gitOpBusy()||(target.isHead?GIT_BR_WHY_SELF:''),
+    {id:'merge',act:GIT_ACTION.branchMerge,label:GIT_BR_MERGE,
      run:target=>gitMenuPanel().branchMerge(target.short)},
     // rebase 는 파괴적이다 (`rebase`) — 커밋 해시가 바뀐다. hint 는 rebase 전 HEAD 다.
-    {id:'rebase',busy:GIT_ACTION.write,label:GIT_BR_REBASE,destructive:true,
+    {id:'rebase',act:GIT_ACTION.branchRebase,label:GIT_BR_REBASE,destructive:true,
      action:GIT_ACT_REBASE,title:GIT_BR_REBASE_TITLE,
-     disabled:target=>gitOpBusy()||(target.isHead?GIT_BR_WHY_SELF:''),
      targets:target=>[target.short],
      hint:()=>({note:GIT_BR_REBASE_NOTE,
        command:'git reset --hard '+(((gitMenuPanel().statusOf()||{}).oid)||'')}),
      run:target=>gitMenuPanel().branchRebase(target.short)},
     {sep:true},
-    {id:'upstream-set',busy:GIT_ACTION.write,label:GIT_BR_SET_UPSTREAM,
-     disabled:target=>target.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY:'',
+    {id:'upstream-set',act:GIT_ACTION.branchUpstreamSet,label:GIT_BR_SET_UPSTREAM,
      run:target=>gitMenuPanel().branchSetUpstream(target)},
-    {id:'upstream-unset',busy:GIT_ACTION.write,label:GIT_BR_UNSET_UPSTREAM,
-     disabled:target=>target.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY:(target.upstream?'':GIT_BR_WHY_NO_UPSTREAM),
+    {id:'upstream-unset',act:GIT_ACTION.branchUpstreamUnset,label:GIT_BR_UNSET_UPSTREAM,
      run:target=>gitMenuPanel().branchUnsetUpstream(target)},
-    {id:'push',busy:GIT_ACTION.branchPush,label:GIT_BR_PUSH,
-     disabled:target=>target.kind===GIT_REF_KIND_REMOTE?GIT_BR_LOCAL_ONLY:'',
+    {id:'push',act:GIT_ACTION.branchPush,label:GIT_BR_PUSH,
      run:target=>gitMenuPanel().branchPush(target)},
     {sep:true},
     // 삭제는 파괴적이다 (`branch_delete`). hint 는 **지우기 전 oid** 로 만든다
@@ -186,12 +160,10 @@ const GIT_MENUS={
      * 서버의 파괴적 목록이 `action` 으로 정하므로, 뭉뚱그리면 원격 삭제가 로컬
      * 삭제의 확인을 입는다.
      */
-    {id:'delete',busy:target=>target.kind===GIT_REF_KIND_REMOTE?GIT_ACTION.branchDeleteRemote:GIT_ACTION.write,destructive:true,
+    {id:'delete',act:target=>target.kind===GIT_REF_KIND_REMOTE?GIT_ACTION.branchDeleteRemote:GIT_ACTION.branchDelete,destructive:true,
      label:target=>target.kind===GIT_REF_KIND_REMOTE?GIT_BR_REMOTE_DELETE:GIT_BR_DELETE,
      action:target=>target.kind===GIT_REF_KIND_REMOTE?GIT_ACT_REMOTE_REF_DELETE:GIT_ACT_BRANCH_DELETE,
      title:target=>target.kind===GIT_REF_KIND_REMOTE?GIT_BR_REMOTE_DELETE_TITLE:GIT_BR_DELETE_TITLE,
-     // FR-BMU-16c: 원격 ref 에는 막을 사유가 없다. 로컬은 종전대로 현재 브랜치가 죽는다.
-     disabled:target=>target.kind===GIT_REF_KIND_REMOTE?'':(target.isHead?GIT_MENU_CURRENT:''),
      targets:target=>target.kind===GIT_REF_KIND_REMOTE?[target.short]:gitMenuPanel().branchDeleteTargets(target),
      hint:target=>target.kind===GIT_REF_KIND_REMOTE
        ?({note:GIT_BR_REMOTE_DELETE_NOTE,command:GitBranches.restoreRemoteCmd(target)})
@@ -208,18 +180,13 @@ const GIT_MENUS={
      * 두 삭제의 뜻을 가르는 축은 *대상*이 아니라 **범위**다 — 위의 `delete` 는
      * 고른 그것만, 이것은 짝지어진 둘이다. 어느 행에서 눌러도 같은 쌍을 지운다.
      *
-     * 짝을 세는 것과 그 사유는 `pairOf` 한 자리가 안다 (FR-BMU-16e) — 비활성
-     * 판정과 실행이 같은 답을 봐야 눌러 놓고 아무 일도 안 일어나지 않는다.
+     * 짝을 켜고 끄는 판정과 실행은 서버가 같은 함수로 한다 (GT-e). 확인창에 보일 짝은
+     * `pairOf` 가 센다.
      */
-    {id:'delete-both',busy:[GIT_ACTION.write,GIT_ACTION.branchDeleteRemote],label:GIT_BR_DELETE_BOTH,destructive:true,
+    // 짝 판정(추적 로컬이 정확히 하나·현재 브랜치 아님)은 서버의 답이다 (GT-e). 확인창의
+    // 대상·hint 는 보여 줄 목록이라 화면이 짝을 그대로 센다.
+    {id:'delete-both',act:GIT_ACTION.branchDeleteBoth,label:GIT_BR_DELETE_BOTH,destructive:true,
      action:GIT_ACT_BRANCH_DELETE,title:GIT_BR_DELETE_BOTH_TITLE,
-     disabled:target=>{
-       const p=gitMenuPanel().branchDeletePair(target);
-       if(p.why) return p.why;
-       // FR-BMU-16g: 로컬 먼저라는 순서는 어느 행에서 눌렀는가와 무관하다.
-       // 지울 수 없는 로컬이면 원격만 지우고 끝나는 경로를 만들지 않는다.
-       return p.local&&p.local.isHead?GIT_MENU_CURRENT:'';
-     },
      targets:target=>{
        const p=gitMenuPanel().branchDeletePair(target);
        return [p.local&&p.local.short,p.remote].filter(Boolean);
@@ -239,8 +206,7 @@ const GIT_MENUS={
     // 그 일을 한다), FR-BMU-16(D-BMU-6)이 `remote-delete` 를 걷었다(위의 `delete`
     // 가 원격 행에서 그 일을 한다). 남은 것은 fetch 뿐이다 — 그것만이 원격 ref
     // 에서만 뜻을 갖고 다른 항목이 대신할 수 없다.
-    {id:'remote-fetch',busy:GIT_ACTION.branchFetch,label:GIT_BR_REMOTE_FETCH,
-     disabled:target=>target.kind===GIT_REF_KIND_REMOTE?'':GIT_MENU_LOCAL_ONLY,
+    {id:'remote-fetch',act:GIT_ACTION.branchFetch,label:GIT_BR_REMOTE_FETCH,
      run:target=>gitMenuPanel().branchFetchInto(target.short)},
   ],
   // 태그 (FR-GIT-260~262). 생성은 대상을 묻지 않고 열린다 — 비우면 HEAD 다.

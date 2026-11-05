@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -93,6 +94,8 @@ func (f *gitM5Fake) read(_ context.Context, dir string, args []string) (core.Out
 	case args[0] == "check-ref-format":
 		return fakeCheckRefFormat(args[2]), nil
 	// 묶음 B: upstream 표시 · 미머지 판정 · 영향 범위 · 원격 목록 (FR-GIT-254·255·258).
+	case args[0] == "for-each-ref" && strings.HasPrefix(args[1], "--format=%(refname)"):
+		return core.Output{Stdout: f.refList()}, nil
 	case args[0] == "for-each-ref":
 		return core.Output{Stdout: f.upstreams[strings.TrimPrefix(args[len(args)-1], "refs/heads/")] + "\n"}, nil
 	case args[0] == "merge-base":
@@ -107,6 +110,39 @@ func (f *gitM5Fake) read(_ context.Context, dir string, args []string) (core.Out
 		return core.Output{Stdout: f.config}, nil
 	}
 	return core.Output{}, nil
+}
+
+// refList 는 query.Refs 의 for-each-ref 출력이다 — 판정(SERVER_DRIVEN_ACTIONS_SRS GT-d)이
+// 이름을 실제 ref 에 대 보므로, fake 의 브랜치·원격 ref·upstream 을 같은 형식으로 낸다.
+// 현재 브랜치는 status 의 `main` 이다.
+func (f *gitM5Fake) refList() string {
+	var b strings.Builder
+	line := func(name, up, head string) {
+		b.WriteString(name + "\x00" + strings.Repeat("a", 40) + "\x00" + up + "\x00\x00" + head + "\x00s\x000\n")
+	}
+	names := make([]string, 0, len(f.branches))
+	for n := range f.branches {
+		if n != "HEAD" {
+			names = append(names, n)
+		}
+	}
+	sort.Strings(names)
+	for _, n := range names {
+		head := " "
+		if n == "main" {
+			head = "*"
+		}
+		line("refs/heads/"+n, f.upstreams[n], head)
+	}
+	rs := make([]string, 0, len(f.remoteRefs))
+	for n := range f.remoteRefs {
+		rs = append(rs, n)
+	}
+	sort.Strings(rs)
+	for _, n := range rs {
+		line("refs/remotes/"+n, "", " ")
+	}
+	return b.String()
 }
 
 // fakeCheckRefFormat 은 git 의 판정을 흉내 낸다. 규칙 전체가 아니라 **응답의 형태**가
@@ -241,6 +277,7 @@ func TestAPIGitCheckout_ForceWithConfirm(t *testing.T) {
 func TestAPIGitCheckout_RemoteBranchNameConflict(t *testing.T) {
 	f := newGitM5Fake(t)
 	f.branches["feat"] = true
+	f.remoteRefs["origin/feat"] = true
 	s := gitM5Server(t, f)
 
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/checkout",
@@ -263,6 +300,7 @@ func TestAPIGitCheckout_RemoteBranchNameConflict(t *testing.T) {
 // M5 (V54, FR-GIT-156): 부딪히지 않으면 로컬을 만들며 추적을 설정한다.
 func TestAPIGitCheckout_RemoteBranchTracks(t *testing.T) {
 	f := newGitM5Fake(t)
+	f.remoteRefs["origin/feat"] = true
 	s := gitM5Server(t, f)
 
 	code, out := gitReqAwait(t, s, http.MethodPost, "/api/git/checkout",
@@ -690,6 +728,8 @@ func TestAPIGitBranchUpstream(t *testing.T) {
 			[]string{"branch", "--unset-upstream", "feat"}},
 	} {
 		f := newGitM5Fake(t)
+		f.branches["feat"] = true
+		f.upstreams["feat"] = "origin/feat" // 해제는 upstream 이 있어야 뜻이 있다 (GT-d)
 		s := gitM5Server(t, f)
 		code, out := gitReq(t, s, http.MethodPost, "/api/git/branch/upstream", tc.body)
 		if code != http.StatusOK || out["ok"] != true {

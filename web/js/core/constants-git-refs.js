@@ -45,9 +45,6 @@ const GIT_BR_PREFIX_SEP='/';
 // FR-GIT-155·156: checkout. 원격 ref 는 같은 이름의 로컬을 만들며 추적을 설정한다 —
 // 그러므로 두 항목은 뜻이 다르고, 어느 쪽이 왜 막혔는지 사유로 알린다.
 const GIT_BR_CHECKOUT_LOCAL=t('git.act.br_checkout_local');
-const GIT_MENU_CURRENT=t('git.menu_current');
-const GIT_MENU_REMOTE_REF=t('git.menu_remote_ref');
-const GIT_MENU_LOCAL_ONLY=t('git.menu_local_only');
 
 // FR-GIT-157 · O14: dirty checkout 의 선택지. **순서가 제시 순서이고 첫 항목이
 // 기본**이다 — 기본은 항상 안전한 쪽이다 (FR-GIT-97). 강제는 파괴적이므로

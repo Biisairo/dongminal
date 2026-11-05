@@ -15,10 +15,11 @@ import (
 // 실행 표면이고, 두 진입점(FR-GIT-95)을 우회하는 세 번째 길이 된다.
 func TestGitReplayReq_HasNoCommandField(t *testing.T) {
 	f := newGitM5Fake(t)
+	f.branches["dev"] = true // 현재 브랜치(main)가 아닌 checkout — 현재 것은 거절된다 (GT-d)
 	s := gitM5Server(t, f)
 	// 기록을 하나 남긴다 — 준비 과정의 읽기가 그대로 기록이 된다 (FR-GIT-5).
 	if code, _ := gitReq(t, s, http.MethodPost, "/api/git/checkout",
-		`{"repo":`+qWorkRepo+`,"ref":"main"}`); code != http.StatusOK {
+		`{"repo":`+qWorkRepo+`,"ref":"dev"}`); code != http.StatusOK {
 		t.Fatalf("준비 실패")
 	}
 	seq := lastReadSeq(t, s)
@@ -43,6 +44,7 @@ func TestGitReplayReq_HasNoCommandField(t *testing.T) {
 // 실패가 아니라 사실이며, 사용자는 왜 안 되는지 알아야 한다.
 func TestAPIGitReplay_MissingRecord(t *testing.T) {
 	f := newGitM5Fake(t)
+	f.branches["dev"] = true // 현재 브랜치(main)가 아닌 checkout — 현재 것은 거절된다 (GT-d)
 	s := gitM5Server(t, f)
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/records/replay",
 		`{"repo":`+qWorkRepo+`,"seq":9999,"confirm":true}`)
@@ -54,10 +56,11 @@ func TestAPIGitReplay_MissingRecord(t *testing.T) {
 // RP3 (FR-GIT-89): 쓰기 기록은 `confirm:true` 없이 다시 돌지 않는다.
 func TestAPIGitReplay_WriteRequiresConfirm(t *testing.T) {
 	f := newGitM5Fake(t)
+	f.branches["dev"] = true // 현재 브랜치(main)가 아닌 checkout — 현재 것은 거절된다 (GT-d)
 	s := gitM5Server(t, f)
 	// 먼저 쓰기를 하나 만들어 기록을 남긴다 — 기록의 출처는 실행 경로다.
 	if code, _ := gitReqAwait(t, s, http.MethodPost, "/api/git/checkout",
-		`{"repo":`+qWorkRepo+`,"ref":"main"}`); code != http.StatusOK {
+		`{"repo":`+qWorkRepo+`,"ref":"dev"}`); code != http.StatusOK {
 		t.Fatalf("준비 실패: checkout → %d", code)
 	}
 	seq := lastWriteSeq(t, s)
@@ -76,9 +79,10 @@ func TestAPIGitReplay_WriteRequiresConfirm(t *testing.T) {
 // RP4: 확인이 있으면 **기록의 argv 그대로** 다시 돈다.
 func TestAPIGitReplay_RunsRecordedArgv(t *testing.T) {
 	f := newGitM5Fake(t)
+	f.branches["dev"] = true // 현재 브랜치(main)가 아닌 checkout — 현재 것은 거절된다 (GT-d)
 	s := gitM5Server(t, f)
 	if code, _ := gitReqAwait(t, s, http.MethodPost, "/api/git/checkout",
-		`{"repo":`+qWorkRepo+`,"ref":"main"}`); code != http.StatusOK {
+		`{"repo":`+qWorkRepo+`,"ref":"dev"}`); code != http.StatusOK {
 		t.Fatalf("준비 실패")
 	}
 	seq := lastWriteSeq(t, s)

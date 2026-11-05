@@ -71,6 +71,7 @@ var routes = []route{
 	httproute.Get("/api/git/branch/merge-preview", (*GitServer).apiGitBranchMergePreview),
 	httproute.Post("/api/git/branch/push", (*GitServer).apiGitBranchPush),
 	httproute.Post("/api/git/branch/fetch", (*GitServer).apiGitBranchFetchInto),
+	httproute.Post("/api/git/branch/delete-both", (*GitServer).apiGitBranchDeleteBoth),
 	httproute.Post("/api/git/branch/delete-remote", (*GitServer).apiGitBranchDeleteRemote),
 	httproute.Get("/api/git/stash", (*GitServer).apiGitStashList),
 	httproute.Get("/api/git/stash/show", (*GitServer).apiGitStashShow),

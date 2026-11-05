@@ -159,16 +159,18 @@ test('F-1: 확인창이 떠 있는 동안 상태가 바뀌어도 확인한 것�
   }
 });
 
-test('F-1: Delete both 는 확인창의 한 쌍만 지운다 (다중 선택으로 넓어지지 않는다)', async () => {
+test('F-1 · GT-e: Delete both 는 확인창의 한 쌍을 보이고, 서버 종단 하나에 그 ref 만 보낸다 (다중 선택으로 넓어지지 않는다)', async () => {
   const w = world();
   const it = w.ctx.GIT_MENUS.branch.find((x) => x.id === 'delete-both');
   w.state.sel = ['feat', 'other'];
   await w.ctx.GitMenu._pick(it, FIXTURES.branch[0]);
   assert.deepEqual(plain(w.dialog.shown[0]), ['feat', 'origin/feat']);
-  const del = w.log.find((e) => e[0] === 'post' && e[1] === '/api/git/branch/delete');
-  assert.deepEqual(plain(del[2].names), ['feat']);
-  const rm = w.log.find((e) => e[0] === 'remote');
-  assert.deepEqual([rm[1], rm[2].remote, rm[2].branch], ['branch/delete-remote', 'origin', 'feat']);
+  const both = w.log.filter((e) => e[0] === 'post' && e[1] === '/api/git/branch/delete-both');
+  assert.equal(both.length, 1);
+  assert.deepEqual(plain(both[0][2]), { repo: '/r', ref: 'refs/heads/feat', force: false, confirm: true });
+  // 짝 판정·로컬 먼저·원격 삭제는 서버가 한다 — 화면이 두 요청으로 나눠 보내지 않는다.
+  assert.equal(w.log.some((e) => e[0] === 'post' && e[1] === '/api/git/branch/delete'), false);
+  assert.equal(w.log.some((e) => e[0] === 'remote'), false);
 });
 
 test('F-1: 로컬 Delete 는 확인창에 보인 다중 선택 그대로를 지운다', async () => {
