@@ -1,6 +1,7 @@
 # SRS: 이슈 에이전트 트리 — 명령 · statusLine 프록시 · window 그룹 · 순서 명령 — IEEE 29148
 
-> **문서 상태**: 초안
+> **문서 상태**: 승인·구현중
+> **남은 것**: 묶음 O·G·S·T 전부 구현 전. 순서는 O·G → S → T, T 의 시범(TC-IAT-3)은 rust-wasm 세션이 #62 를 커밋한 뒤
 
 ## 1. 개요 (Introduction)
 
@@ -198,7 +199,7 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 | ID | 요구 | 우선 |
 |---|---|---|
 | FR-SLP-1 | dongminal 이 `claude()` 래퍼로 넘기는 설정 파일(`$DONGMINAL_HOME/bin/agent-hooks/claude.json`)에 `statusLine` 을 넣는다. 명령은 `dmctl statusline` 이다 | 필수 |
-| FR-SLP-2 | `dmctl statusline` 은 stdin JSON 을 끝까지 읽는다. `context_window.used_percentage` · `context_window_size` · `current_usage` · `session_id` · `model` 을 꺼내 서버에 보고한다. 보고 대상 도구는 실행 환경의 dongminal 도구 식별자다 | 필수 |
+| FR-SLP-2 | `dmctl statusline` 은 stdin JSON 을 끝까지 읽는다. `context_window.used_percentage` · `context_window_size` · `current_usage` · `session_id` · `model` 을 꺼내 서버에 보고한다. 보고 대상 도구는 실행 환경의 `DONGMINAL_TOOL_ID` 다. `used_percentage` 가 `null` 이면(첫 응답 전) 보고하지 않는다 | 필수 |
 | FR-SLP-3 | 보고는 표시를 막지 않는다. 보고에 실패하거나 제한 시간(NFR-SLP-1)을 넘기면 버리고 다음 단계로 간다 | 필수 |
 | FR-SLP-4 | `dmctl statusline` 은 **하위 statusLine 명령**을 찾는다. dongminal 의 설정을 뺀 나머지 Claude Code 설정을 우선순위대로 읽는다: 프로젝트 `.claude/settings.local.json` → 프로젝트 `.claude/settings.json` → 사용자 설정(`$CLAUDE_CONFIG_DIR/settings.json`, 없으면 `~/.claude/settings.json`). 프로젝트 폴더는 stdin JSON 의 작업 폴더 값에서 얻는다 | 필수 |
 | FR-SLP-5 | 하위 명령이 있으면 **받은 stdin 바이트를 그대로** 넘겨 실행한다. 그 stdout 을 그대로 내보내고 종료 코드를 그대로 돌려준다 | 필수 |
@@ -367,7 +368,7 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 
 | ID | 위험 | 등급 | 대응 |
 |---|---|---|---|
-| R-1 | `--settings` 의 `statusLine` 이 사용자 설정보다 우선하지 않으면 프록시가 서지 않는다 | HIGH | TC-SLP-5 를 묶음 S 착수 전에 실측한다. 우선하지 않으면 묶음 S 를 멈추고 사용자에게 알린다 |
+| R-1 | `--settings` 의 `statusLine` 이 사용자 설정보다 우선하지 않으면 프록시가 서지 않는다 | **해소** | TC-SLP-5 실측(2026-11-05, Claude Code 2.1.318, macOS): `--settings` 의 statusLine 이 사용자 설정의 statusLine 대신 실행됐다. 작업 폴더는 프로젝트 폴더, 환경에 `DONGMINAL_TOOL_ID` 가 있다. stdin 에 `workspace.project_dir` 가 있다. 첫 응답 전에는 `used_percentage`·`current_usage` 가 `null` 이다. Windows 는 TC-SLP-6 에서 확인한다 |
 | R-2 | 하위 statusLine 명령이 `padding` 같은 설정을 쓰면, dongminal 의 `statusLine` 객체가 그 값을 덮는다 | LOW | 프록시가 하위 설정의 `padding` 을 읽어 쓸 수 없으면 그 차이를 문서에 적는다 |
 | R-3 | 번호 지정은 다른 에이전트의 동시 조작과 경합한다 | MEDIUM | FR-ORD-6: 적용 순간에 해석하고 최종 위치를 돌려준다. 트리 명령은 기준 uuid(`--after`)를 쓴다 |
 | R-4 | 빈 그룹이 늘 맨 끝에 있어 사용자가 기대한 자리와 다를 수 있다 | LOW | D-IAT-11 의 대가로 받아들인다. window 를 넣으면 자리를 얻는다 |
@@ -379,4 +380,5 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-05 | 승인(사용자). TC-SLP-5 실측으로 R-1 해소, FR-SLP-2 에 `null` 처리 추가 |
 | 2026-11-05 | 초안. 결정 경위는 `/Users/dykim/p6w-backup/issue-agent-skill-handoff.md` 「정한 것」 |
