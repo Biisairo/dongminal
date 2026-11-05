@@ -7,8 +7,10 @@ import (
 	"strconv"
 	"strings"
 
+	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/write"
 )
 
@@ -74,10 +76,19 @@ func (s *GitServer) gitPick(w http.ResponseWriter, r *http.Request, verb string)
 	if t.stop() {
 		return
 	}
-	// 머지 여부는 **저장소에** 묻는다 (FR-GIT-263). 요청이 정하게 두면 화면이 낡은
-	// 순간에 부모 없는 머지가 그대로 지나간다.
-	parents, ok := s.gitCommitParents(w, t.ctx(), t.root, req.Oid)
+	// 머지 여부는 **저장소에** 묻는다 (FR-GIT-263).
+	c, ok := s.gitCommitFacts(w, t.ctx(), t.root, req.Oid)
 	if !ok {
+		return
+	}
+	parents := c.Parents
+	before := t.snapshot()
+	if t.stop() {
+		return
+	}
+	// 메뉴의 답과 같은 판정이다 (SERVER_DRIVEN_ACTIONS_SRS GT-c · D-SDA-6).
+	if a := commitOpAnswer(pickAction[verb], before, c); !a.OK {
+		t.rejectAnswer(a, nil)
 		return
 	}
 	opts := write.PickOpts{
@@ -92,7 +103,7 @@ func (s *GitServer) gitPick(w http.ResponseWriter, r *http.Request, verb string)
 		return
 	}
 	// §5.2: cherry-pick·revert 는 새 커밋을 만드는 잡이다.
-	t.startWriteJob(core.WriteSpec{Argv: argv}, t.snapshot(), nil, nil)
+	t.startWriteJob(core.WriteSpec{Argv: argv}, before, nil, nil)
 }
 
 // POST /api/git/reset — 현재 브랜치를 그 커밋으로 옮긴다 (FR-GIT-265).
@@ -111,9 +122,20 @@ func (s *GitServer) apiGitReset(w http.ResponseWriter, r *http.Request) {
 		t.reject(err)
 	}
 	t.resolve(req.Repo)
+	if t.stop() {
+		return
+	}
+	c, ok := s.gitCommitFacts(w, t.ctx(), t.root, req.Oid)
+	if !ok {
+		return
+	}
 	// hint 는 **옮기기 전** HEAD 를 실어야 되살릴 수 있다 (FR-GIT-250.2). 실행 후에
 	// 읽으면 이미 옮겨간 자리를 가리킨다.
-	headOid := t.snapshot().Oid
+	before := t.snapshot()
+	if a := commitOpAnswer(action.GitCommitReset, before, c); !t.stop() && !a.OK {
+		t.rejectAnswer(a, nil)
+	}
+	headOid := before.Oid
 	t.apply(func(ctx context.Context) error {
 		_, err := write.Reset(s.Git.Service(), ctx, t.root, opts, headOid)
 		return err
@@ -138,16 +160,19 @@ func (s *GitServer) apiGitDrop(w http.ResponseWriter, r *http.Request) {
 	}
 	// 머지 커밋은 `<oid>^` 로 뺄 수 없다 — 첫 부모만 남고 나머지 갈래가 조용히
 	// 사라진다. 루트 커밋은 `^` 가 가리킬 것이 없다.
-	parents, ok := s.gitCommitParents(w, t.ctx(), t.root, req.Oid)
+	c, ok := s.gitCommitFacts(w, t.ctx(), t.root, req.Oid)
 	if !ok {
 		return
 	}
-	if len(parents) != 1 {
-		t.rejectWith(http.StatusBadRequest, gitErrBadRequest,
-			"부모가 하나인 커밋만 뺄 수 있다 (부모 "+strconv.Itoa(len(parents))+"개)")
+	before := t.snapshot()
+	if t.stop() {
 		return
 	}
-	before := t.snapshot()
+	// 메뉴의 답과 같은 판정이다 (GT-c) — 루트·머지 커밋은 뺄 수 없다.
+	if a := commitOpAnswer(action.GitCommitDrop, before, c); !a.OK {
+		t.rejectAnswer(a, nil)
+		return
+	}
 	spec, hint, err := write.DropSpec(t.root, req.Oid, before.Oid)
 	if err != nil {
 		t.reject(err)
@@ -199,21 +224,31 @@ func (s *GitServer) apiGitCommitRange(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// gitCommitParents 는 그 커밋의 부모 oid 들이다. 실패하면 응답이 이미 쓰였다.
-//
-// **머지 판정이 여기 한 자리다** — cherry-pick·revert 의 부모 선택과 drop 의 거부가
-// 같은 값을 딛는다. 두 벌이면 한쪽만 고쳐진다.
-func (s *GitServer) gitCommitParents(w http.ResponseWriter, ctx context.Context, root, oid string) ([]string, bool) {
+// commitFacts 는 대상 커밋의 사실이다 — 전체 oid 와 부모. 요청의 oid 는 줄임일 수
+// 있으므로 HEAD 와 견줄 때는 이 전체 oid 를 쓴다.
+type commitFacts struct {
+	Oid     string
+	Parents []string
+}
+
+// gitCommitFacts 는 대상 커밋의 oid·부모를 **저장소에** 묻는다 (FR-GIT-263). 요청이
+// 정하게 두면 화면이 낡은 순간에 부모 없는 머지가 그대로 지나간다.
+func (s *GitServer) gitCommitFacts(w http.ResponseWriter, ctx context.Context, root, oid string) (commitFacts, bool) {
 	if err := core.CheckRefArg("oid", oid); err != nil {
 		gitFail(w, http.StatusBadRequest, gitErrRefName, gitTail(err.Error()))
-		return nil, false
+		return commitFacts{}, false
 	}
-	out, err := s.Git.Service().Exec(ctx, root, "log", "-n", "1", "--format=%P", oid)
+	out, err := s.Git.Service().Exec(ctx, root, "log", "-n", "1", "--format=%H %P", oid)
 	if err != nil {
 		gitError(w, err)
-		return nil, false
+		return commitFacts{}, false
 	}
-	return strings.Fields(out.Stdout), true
+	f := strings.Fields(out.Stdout)
+	if len(f) == 0 {
+		gitFail(w, http.StatusNotFound, apierr.CodeNotFound, "commit not found: "+oid)
+		return commitFacts{}, false
+	}
+	return commitFacts{Oid: f[0], Parents: f[1:]}, true
 }
 
 // gitMergeBase 는 `A...B` 의 왼쪽이다. `git rev-parse A...B` 가 A·B 와 `^merge-base`
@@ -274,4 +309,38 @@ func gitParentList(parents []string) []string {
 		return []string{}
 	}
 	return parents
+}
+
+// pickAction 은 cherry-pick·revert 의 동사 → 동작 ID 다.
+var pickAction = map[string]string{write.PickCherry: action.GitCommitCherryPick, write.PickRevert: action.GitCommitRevert}
+
+// opAnswer 는 진행 중인 작업(merge·rebase 등)이 새 작업을 막는가다 (FR-SDA-32). git 은
+// 그 경우 exit 128 의 문구로만 거부한다 — 실행 전에 코드로 답한다.
+func opAnswer(st query.Status) action.Answer {
+	if k := st.Operation.Kind; k != "" {
+		return action.Deny(http.StatusConflict, apierr.CodeOperationInProgress, map[string]any{"kind": k})
+	}
+	return action.Allow()
+}
+
+// commitOpAnswer 는 커밋 행 메뉴 동작 하나의 판정이다 (GT-c · FR-SDA-30·33·34). 진행
+// 중 작업이 먼저이고, 그다음 그 동작만의 사유다. 칸은 파이프라인(잠금)이 먼저 본다.
+func commitOpAnswer(id string, st query.Status, c commitFacts) action.Answer {
+	if a := opAnswer(st); !a.OK {
+		return a
+	}
+	switch id {
+	case action.GitCommitCherryPick, action.GitCommitReset:
+		if st.Oid != "" && c.Oid == st.Oid {
+			return action.Deny(http.StatusConflict, apierr.CodeTargetIsHead, nil)
+		}
+	case action.GitCommitDrop:
+		switch {
+		case len(c.Parents) == 0:
+			return action.Deny(http.StatusBadRequest, apierr.CodeRootCommit, nil)
+		case len(c.Parents) > 1:
+			return action.Deny(http.StatusBadRequest, apierr.CodeMergeCommit, nil)
+		}
+	}
+	return action.Allow()
 }

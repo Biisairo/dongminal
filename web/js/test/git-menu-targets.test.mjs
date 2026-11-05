@@ -13,7 +13,7 @@ import { load, plain } from './harness.mjs';
  * 계산을 따른다. 항목은 메뉴 정의에서 열거한다 — 새 파괴적 항목이 표에 없으면
  * 이 검사가 실패한다.
  */
-const FILES = ['core/constants-api.js', 'git/menu.js', 'git/branches-ops.js', 'git/panel-views.js'];
+const FILES = ['core/constants-api.js', 'git/menu-items.js', 'git/menu.js', 'git/branches-ops.js', 'git/panel-views.js'];
 const SRC = FILES.map((f) =>
   readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', f), 'utf8')).join('\n');
 

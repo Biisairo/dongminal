@@ -25,6 +25,10 @@ func (s *GitServer) apiGitActions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
+	if kind := q.Get("kind"); kind != "" {
+		s.gitTargetActions(w, r, root, requested, kind)
+		return
+	}
 	id := q.Get("action")
 	if id != action.GitStashCreate && id != action.GitCommit {
 		gitFail(w, http.StatusBadRequest, apierr.CodeBadRequest, "unknown action: "+id)
@@ -196,4 +200,39 @@ func commitStateAnswer(st query.Status, pf query.Preflight, req gitCommitReq, am
 		return action.Deny(http.StatusBadRequest, apierr.CodeNothingStaged, nil)
 	}
 	return action.Allow()
+}
+
+// gitTargetActions 는 대상 하나의 메뉴 답이다 (FR-SDA-5 · GT-a). 응답은 그 대상에서
+// 메뉴가 보일 수 있는 동작 전부의 답이다.
+func (s *GitServer) gitTargetActions(w http.ResponseWriter, r *http.Request, root, requested, kind string) {
+	q := r.URL.Query()
+	if kind != "commit" {
+		gitFail(w, http.StatusBadRequest, apierr.CodeBadRequest, "unknown kind: "+kind)
+		return
+	}
+	oid := q.Get("oid")
+	c, ok := s.gitCommitFacts(w, r.Context(), root, oid)
+	if !ok {
+		return
+	}
+	obs, _, err := s.Git.Status(r.Context(), root)
+	if err != nil {
+		gitError(w, err)
+		return
+	}
+	keys, err := s.gitKeys(r.Context(), root)
+	if err != nil {
+		gitError(w, err)
+		return
+	}
+	slot := slotsAnswer(s.exclusion(), keys, jobs.SlotIndex)
+	out := map[string]action.Answer{}
+	for _, id := range []string{action.GitCommitCherryPick, action.GitCommitRevert, action.GitCommitReset, action.GitCommitDrop} {
+		out[id] = action.First(slot, commitOpAnswer(id, obs.Status, c))
+	}
+	gitJSON(w, http.StatusOK, map[string]any{
+		"requested": map[string]any{"repo": requested, "kind": kind, "oid": oid},
+		"repo":      root,
+		"actions":   out,
+	})
 }

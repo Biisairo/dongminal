@@ -10,7 +10,7 @@ import { load } from './harness.mjs';
  * REPO_FIX 05 §3A-7 (F-9.2·9.3·9.5) — 브랜치·원격 피드백.
  */
 const HERE = dirname(fileURLToPath(import.meta.url));
-const MENU = readFileSync(join(HERE, '..', 'git/menu.js'), 'utf8');
+const MENU = ['git/menu-items.js', 'git/menu.js'].map((f) => readFileSync(join(HERE, '..', f), 'utf8')).join('\n');
 
 function consts(src) {
   const out = {};
@@ -27,6 +27,7 @@ const GIT_ACTION_IDS = {
   write: 'git.write', commit: 'git.commit', lockRemove: 'git.lock.remove',
   worktreeCreate: 'git.worktree.create', worktreeRemove: 'git.worktree.remove',
   submoduleUpdate: 'git.submodule.update', stashCreate: 'git.stash.create',
+  commitCherryPick: 'git.commit.cherry_pick', commitRevert: 'git.commit.revert', commitReset: 'git.commit.reset', commitDrop: 'git.commit.drop',
   stashNew: 'git.stash.new', uncommittedReset: 'git.uncommitted.reset', uncommittedClean: 'git.uncommitted.clean',
 };
 
@@ -35,7 +36,7 @@ function menuWorld(answers) {
   const c = consts(MENU);
   delete c.GIT_MENUS; delete c.GIT_MENU_PRIMARY;
   Object.assign(c, { GIT_REF_KIND_LOCAL: 'local', GIT_REF_KIND_REMOTE: 'remote', GIT_ACTION: GIT_ACTION_IDS });
-  const ctx = load(['git/menu.js'], {
+  const ctx = load(['git/menu-items.js', 'git/menu.js'], {
     globals: {
       ...c, t: (k) => k,
       actionState: (a, pending) => (pending ? { enabled: false, why: '' } : !a ? { enabled: false, why: 'LOADING' }
@@ -95,6 +96,16 @@ test('GR-1e: 답이 아직 없으면 항목은 loading 으로 비활성이다 (F
   assert.equal(ctx.GitMenu._why(it, TARGETS.stash), 'LOADING');
 });
 
+test('GT-f: act 항목은 대상의 2층 답을 그린다 — 묻는 중(null)이면 loading 이다', () => {
+  const ctx = menuWorld(allOk());
+  const it = ctx.GIT_MENUS.commit.find((x) => x.id === 'cherry-pick');
+  assert.equal(it.act, 'git.commit.cherry_pick');
+  assert.equal(ctx.GitMenu._why(it, { ...TARGETS.commit, answers: null }), 'LOADING');
+  assert.equal(ctx.GitMenu._why(it, { ...TARGETS.commit, answers: { 'git.commit.cherry_pick': { ok: true } } }), '');
+  assert.equal(ctx.GitMenu._why(it, { ...TARGETS.commit,
+    answers: { 'git.commit.cherry_pick': { ok: false, why: 'target_is_head' } } }), 'WHY:target_is_head');
+});
+
 test('F-9.2: 저장소를 바꾸는 메뉴 항목은 모두 서버 동작의 답을 본다', () => {
   const ctx = menuWorld(allOk());
   const pure = new Set(['copy-hash', 'copy-subject', 'copy-name', 'copy-branch-name', 'compare-mark', 'compare-with',
@@ -102,7 +113,7 @@ test('F-9.2: 저장소를 바꾸는 메뉴 항목은 모두 서버 동작의 답
   for (const [kind, items] of Object.entries(ctx.GIT_MENUS)) {
     for (const it of items) {
       if (it.sep || pure.has(it.id)) continue;
-      assert.ok(it.busy, kind + '/' + it.id + ' 에 busy 가 없다');
+      assert.ok(it.busy || it.act, kind + '/' + it.id + ' 에 busy·act 가 없다');
     }
   }
 });

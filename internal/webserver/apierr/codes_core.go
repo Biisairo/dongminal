@@ -93,6 +93,7 @@ var gitCodes = []string{
 	CodeNothingToStash, CodeUntrackedOnly, CodeStashKept,
 	CodeStaleObservation, CodePatchEmpty,
 	CodeOperationMismatch, CodeNoOperation,
+	CodeOperationInProgress, CodeTargetIsHead, CodeRootCommit, CodeMergeCommit,
 	CodeNoHead, CodeNothingToClean,
 	CodeConfirmRequired, CodePreflightBlocked, CodeUndoExpired, CodeEmptyMessage,
 	CodeNothingStaged, CodeRecordMissing, CodeNotText, CodeIgnorePath, CodeWorktreeExists,

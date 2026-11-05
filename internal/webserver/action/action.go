@@ -75,6 +75,12 @@ const (
 	GitStashNew         = "git.stash.new"
 	GitUncommittedReset = "git.uncommitted.reset"
 	GitUncommittedClean = "git.uncommitted.clean"
+
+	// 2층 — 커밋 행 메뉴 (GT-a). `kind=commit&oid=` 로 묻는다.
+	GitCommitCherryPick = "git.commit.cherry_pick"
+	GitCommitRevert     = "git.commit.revert"
+	GitCommitReset      = "git.commit.reset"
+	GitCommitDrop       = "git.commit.drop"
 )
 
 // Table 은 동작 ID → 그 판정이 낼 수 있는 사유 코드다 (M-3).

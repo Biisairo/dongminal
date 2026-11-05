@@ -71,7 +71,13 @@ const (
 	// ── 진행 중 작업 ──
 	CodeOperationMismatch = "operation_mismatch"
 	CodeNoOperation       = "no_operation"
-	CodeResolvePartial    = "resolve_partial"
+
+	// ── 대상 동작의 판정 (SERVER_DRIVEN_ACTIONS_SRS GT-b) ──
+	CodeOperationInProgress = "operation_in_progress"
+	CodeTargetIsHead        = "target_is_head"
+	CodeRootCommit          = "root_commit"
+	CodeMergeCommit         = "merge_commit"
+	CodeResolvePartial      = "resolve_partial"
 
 	// ── 미커밋 행 ──
 	CodeNoHead         = "no_head"

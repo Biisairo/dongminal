@@ -1,7 +1,7 @@
 # SRS: 서버가 답하는 동작 가능 여부 — server-driven actions — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 묶음 GT·GV·F·R·X·K·N(구현 전). 묶음 M(§3.1a)과 GR(§3.2a)은 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
+> **남은 것**: 묶음 GT-2·GV·F·R·X·K·N(구현 전). 묶음 M(§3.1a)·GR(§3.2a)·GT-1(§3.3a)은 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
 
 ## 1. 개요 (Introduction)
 
@@ -146,6 +146,20 @@ GR 은 판정의 재료가 셋으로 갈린다. 단계마다 커밋한다: **GR-
 | FR-SDA-35 | 양쪽 삭제는 추적 로컬 브랜치가 정확히 하나일 때만 되고, 서버가 그 판정으로 거절한다 | G-A13 | 필수 |
 | FR-SDA-36 | 로컬 전용 동작(rename·upstream·push)을 원격 ref 에 보내면 `not_local_branch` 로 거절된다. 현재 브랜치 checkout·삭제도 서버가 거절한다 | G-A12 | 필수 |
 
+#### 3.3a 묶음 GT 설계 세부
+
+두 단계로 커밋한다: **GT-1** 커밋 행 메뉴 · **GT-2** 브랜치 행 메뉴와 양쪽 삭제.
+
+| ID | 설계 |
+|---|---|
+| GT-a 종단 | 같은 `GET /api/git/actions` 에 `kind=` 형태를 더한다(M-5). `kind=commit&oid=<oid>` 는 `git.commit.cherry_pick`·`git.commit.revert`·`git.commit.reset`·`git.commit.drop` 의 답을, `kind=branch&ref=<refs/heads/…\|refs/remotes/…>` 는 브랜치 메뉴 동작 전부의 답을 낸다. 모르는 `kind` 는 400 `bad_request`, 없는 ref 는 404 `not_found` |
+| GT-b 새 사유 코드 | `operation_in_progress`(409, `args.kind`) · `target_is_head`(409) · `root_commit`(400) · `merge_commit`(400) · `not_local_branch`(400) · `not_remote_branch`(400) · `no_upstream`(409) · `no_tracking_branch`(409) · `many_tracking_branches`(409). 이미 있는 `branch_is_current`·`job_busy` 는 그대로 쓴다 |
+| GT-c 커밋 판정(GT-1) | 넷 다 진행 중 작업 → index 칸 순으로 먼저 본다(`opAnswer`·`slotsAnswer`). cherry-pick·reset 은 대상이 HEAD 면 `target_is_head`. drop 은 부모가 0개면 `root_commit`, 2개 이상이면 `merge_commit`(지금의 `bad_request` 를 바꾼다). 실행 종단 넷이 같은 함수로 거절한다 |
+| GT-d 브랜치 판정(GT-2) | 서버는 요청의 이름을 `query.Refs` 로 실제 ref 에 대 본다. checkout: 원격 ref 를 `detach` 없이 보내면 `not_local_branch`, 현재 브랜치면 `branch_is_current`. checkout-local(`track`): 원격 ref 가 아니면 `not_remote_branch`. rename·upstream·push: 로컬이 아니면 `not_local_branch`, upstream 해제는 upstream 이 없으면 `no_upstream`. merge·rebase: 진행 중 작업, 대상이 현재 브랜치면 `target_is_head`. delete(로컬): 현재 브랜치면 `branch_is_current`. fetch-into: 원격이 아니면 `not_remote_branch`. 칸: push·fetch-into·원격 삭제는 common, 나머지는 index |
+| GT-e 양쪽 삭제(GT-2) | 사용자 결정(2026-11-06): 새 종단 `POST /api/git/branch/delete-both {repo, ref, confirm}`. 서버가 짝을 판정한다 — 로컬 ref 면 그 upstream(없으면 `no_upstream`), 원격 ref 면 그것을 추적하는 로컬(없으면 `no_tracking_branch`, 둘 이상이면 `many_tracking_branches`). 로컬이 현재 브랜치면 `branch_is_current`. 칸은 index+common. 로컬을 지운 뒤 원격 삭제 잡을 시작한다 — 로컬이 실패하면 원격을 건드리지 않는다(FR-BMU-14). 응답은 원격 삭제 잡이다. 파괴적 확인(`confirm:true`)을 요구한다 |
+| GT-f 화면 | 커밋·브랜치 메뉴는 열 때 2층 답을 받은 **뒤에** 그린다(FR-SDA-5). 항목은 `act:` 에 동작 ID 를 두고 `GitMenu._why` 가 그 답을 읽는다. 항목의 `disabled` 판정(`gitOpBusy`·`whyHead`·`whyDrop`·ref 종류·`pairOf` 의 사유)은 없앤다. 답이 50ms 안에 오지 않으면 항목을 `loading` 으로 먼저 그리고 답이 오면 고친다(NFR-SDA-1) |
+| GT-g 문구 | 새 사유 코드마다 `why.<code>` 를 더한다. `operation_in_progress` 는 `{kind}`(git 의 작업 이름: merge·rebase·cherry-pick·revert 등)를 그대로 보간한다 |
+
 ### 3.4 묶음 GV — git 입력 검증
 
 | ID | 요구 | 출처 | 우선 |
@@ -255,6 +269,7 @@ GR 은 판정의 재료가 셋으로 갈린다. 단계마다 커밋한다: **GR-
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-06 | GT-1 구현. 사용자 결정: 양쪽 삭제는 새 종단 `POST /api/git/branch/delete-both`(GT-e). 동작 변경 셋. ① **이전**: merge 등이 진행 중일 때 cherry-pick·revert·reset·drop 을 서버가 막지 않았다(git 이 exit 128 로 실패) / **새**: 409 `operation_in_progress`(`args.kind`) / **이유**: D-SDA-3. ② **이전**: HEAD 를 대상으로 한 cherry-pick·reset 을 화면만 막았다 / **새**: 서버도 409 `target_is_head` 로 거절한다 / **이유**: D-SDA-3. ③ **이전**: 루트·머지 커밋 drop 은 400 `bad_request`(한국어 `message`) / **새**: 400 `root_commit`·`merge_commit` / **이유**: 사유를 코드로 가른다(FR-SDA-34). 화면: `menu.js` 의 항목 표를 `menu-items.js` 로 옮겼다(모듈 크기 기준선, 내용 같음) |
 | 2026-11-05 | GR-3 구현. 동작 변경 셋. ① **이전**: 커밋 버튼은 화면이 메시지·staged 로 판정했고, preflight 막힘·amend 메시지 불변은 누른 뒤에야 알았다 / **새**: 서버의 답(`git.commit`)이 버튼을 켜고 끄며, preflight 가 막으면 누르기 전에 해소법이 보인다 / **이유**: FR-SDA-23·G-A3. ② **이전**: 커밋 거절(`empty_message`·`nothing_staged`·`preflight_blocked`)에 한국어 `message` 를 실었다 / **새**: 코드와 `args` 만 싣는다(preflight 거절은 `preflight` 도) / **이유**: D-SDA-5. ③ **이전**: preflight 막힘을 staged 판정보다 먼저, 실행 전 상태를 찍기 전에 봤다 / **새**: 상태를 찍은 뒤 preflight → staged 순으로 본다 — 결과 코드의 우선순위는 같다 / **이유**: 답과 거절이 한 함수(`commitStateAnswer`)를 부르게 하려고. 1층의 `git.commit` 은 뺐다(GR-3a). e2e `git-branch-actions` 의 git 헬퍼는 `GIT_OPTIONAL_LOCKS=0` 으로 돈다 — 시험의 `git status` 폴링이 index.lock 을 잡아 서버의 merge 와 다퉜다(BR8, 변경 전 0/9 · 변경 후 2/6 · 고친 뒤 0/8) |
 | 2026-11-05 | GR-2 구현. 동작 변경 둘. ① **이전**: 커밋 안 된 행의 Reset·Clean 을 실행 전에 거절하면(`no_head`·`nothing_to_clean`) 한국어 `message` 를 실었다 / **새**: 코드만 싣는다 / **이유**: D-SDA-5. ② **이전**: stash 만들기 대화상자의 답(`git.stash.create`)이 작업 칸을 보지 않았다 / **새**: index 칸이 차 있으면 `job_busy` 로 꺼진다 / **이유**: 실행 종단은 잠금을 먼저 쥔다 — 답이 같은 순서로 판정해야 한다(GR-2a) |
 | 2026-11-05 | GR-1 구현. 동작 변경 셋. ① **이전**: 화면이 index 칸이 돌면 동기 쓰기를 보내지 않고 스스로 `job_busy` 를 만들었다 / **새**: 요청을 보내고 서버의 409 `job_busy` 를 보인다 / **이유**: 판정의 주인은 서버다(D-SDA-1). ② **이전**: 칸 때문에 거절할 때 한국어 `message` 를 실었다 / **새**: `error: job_busy` 와 `args.job`(칸을 쥔 잡 id)만 싣는다 / **이유**: D-SDA-5. ③ **이전**: 원격 작업의 시작 요청이 오가는 동안 같은 칸을 쓰는 버튼이 모두 꺼졌다 / **새**: 누른 버튼만 꺼지고 나머지는 서버의 다음 답을 따른다 / **이유**: FR-SDA-7 |

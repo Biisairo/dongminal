@@ -25,4 +25,9 @@ var Catalog = Table{
 	GitStashNew:         {apierr.CodeJobBusy, apierr.CodeNothingToStash},
 	GitUncommittedReset: {apierr.CodeJobBusy, apierr.CodeNoHead},
 	GitUncommittedClean: {apierr.CodeJobBusy, apierr.CodeNothingToClean},
+
+	GitCommitCherryPick: {apierr.CodeJobBusy, apierr.CodeOperationInProgress, apierr.CodeTargetIsHead},
+	GitCommitRevert:     {apierr.CodeJobBusy, apierr.CodeOperationInProgress},
+	GitCommitReset:      {apierr.CodeJobBusy, apierr.CodeOperationInProgress, apierr.CodeTargetIsHead},
+	GitCommitDrop:       {apierr.CodeJobBusy, apierr.CodeOperationInProgress, apierr.CodeRootCommit, apierr.CodeMergeCommit},
 }

@@ -31,7 +31,11 @@ const GIT_ACTION=Object.freeze({
   worktreeCreate:'git.worktree.create',worktreeRemove:'git.worktree.remove',
   submoduleUpdate:'git.submodule.update',stashCreate:'git.stash.create',
   stashNew:'git.stash.new',uncommittedReset:'git.uncommitted.reset',uncommittedClean:'git.uncommitted.clean',
+  commitCherryPick:'git.commit.cherry_pick',commitRevert:'git.commit.revert',
+  commitReset:'git.commit.reset',commitDrop:'git.commit.drop',
 });
+// NFR-SDA-1: 메뉴의 답이 이보다 늦으면 항목을 loading 으로 먼저 그린다.
+const GIT_MENU_ASK_LOADING_MS=50;
 // 잡 시작 키(GitJobs.run 의 key) → 그 동작 ID. 이름의 대응일 뿐 칸 규칙이 아니다.
 const GIT_JOB_ACTION={fetch:GIT_ACTION.fetch,pull:GIT_ACTION.pull,push:GIT_ACTION.push,
   'branch/push':GIT_ACTION.branchPush,'branch/fetch':GIT_ACTION.branchFetch,

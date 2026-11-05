@@ -329,9 +329,6 @@ const GIT_CO_MARK_LABEL=t('git.co_mark_label');
 const GIT_CO_COMPARE_LABEL=t('git.act.co_compare_label');
 
 // 항목이 막히는 사유. `gitOpBusy()` 다음에 오는 그 항목만의 사유다 (FR-GIT-252).
-const GIT_CO_WHY_IS_HEAD=t('git.co_why_is_head');
-const GIT_CO_WHY_ROOT=t('git.co_why_root');
-const GIT_CO_WHY_MERGE_DROP=t('git.co_why_merge_drop');
 
 // 머지 커밋의 기준 부모 (FR-GIT-263·264). **묻지 않고 고르면 틀린 부모를 집는다.**
 const GIT_CO_MAINLINE_LABEL=t('git.co_mainline_label');

@@ -286,6 +286,31 @@ test.describe('묶음 D — 커밋 동작 (V191~V194)', () => {
     expect(subjects(repo).join(',')).toBe('c3,c2,c1');
   });
 
+  test('D6b (SERVER_DRIVEN_ACTIONS_SRS TC-SDA-6 · FR-SDA-33): HEAD 커밋의 cherry-pick·reset 은 서버의 사유로 꺼지고, 직접 보낸 요청도 거절된다', async ({ page }) => {
+    const repo = keep(mergeRepo('d6b'));
+    const head = git(repo, 'log', '-1', '--format=%s').trim();
+    const oid = git(repo, 'rev-parse', 'HEAD').trim();
+    await waitForInit(page);
+    await openHistory(page, repo);
+
+    await openMenuOn(page, head);
+    for (const id of ['cherry-pick', 'reset']) {
+      await expect(item(page, id), id + ' 가 HEAD 에서 열려 있다').toHaveClass(/disabled/);
+      // 묻는 중(loading)이 아니라 서버의 사유(target_is_head)로 꺼졌다.
+      await expect(item(page, id)).toHaveAttribute('title', /HEAD/);
+    }
+    await expect(item(page, 'revert')).not.toHaveClass(/disabled/);
+    await page.keyboard.press('Escape');
+
+    const res = await page.evaluate(async ({ r, o }) => {
+      const x = await fetch('/api/git/cherry-pick', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repo: r, oid: o }),
+      });
+      return { status: x.status, code: x.headers.get('X-Error-Code') };
+    }, { r: repo, o: oid });
+    expect(res).toEqual({ status: 409, code: 'target_is_head' });
+  });
+
   test('D6 (FR-GIT-266): 첫 커밋과 머지 커밋의 drop 은 비활성이고 사유가 보인다', async ({ page }) => {
     const repo = keep(mergeRepo('d6'));
     await waitForInit(page);

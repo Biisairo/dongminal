@@ -28,7 +28,8 @@ import (
 type gitCoFake struct {
 	mu      sync.Mutex
 	gitDir  string
-	parents string // log --format=%P 의 stdout (공백으로 나뉜 부모 oid)
+	oid     string // log --format=%H %P 의 첫 칸 — 대상의 전체 oid
+	parents string // 그 뒤 칸들 (공백으로 나뉜 부모 oid)
 	count   string // rev-list --count 의 stdout
 	writes  [][]string
 }
@@ -40,7 +41,7 @@ func newGitCoFake(t *testing.T) *gitCoFake {
 		t.Fatal(err)
 	}
 	// 기본은 부모 하나인 보통 커밋이다 — 머지 여부를 보는 테스트가 그것을 덮는다.
-	return &gitCoFake{gitDir: dir, parents: "p1", count: "3\n"}
+	return &gitCoFake{gitDir: dir, oid: strings.Repeat("b", 40), parents: "p1", count: "3\n"}
 }
 
 func (f *gitCoFake) read(_ context.Context, dir string, args []string) (core.Output, error) {
@@ -59,7 +60,7 @@ func (f *gitCoFake) read(_ context.Context, dir string, args []string) (core.Out
 	case args[0] == "status":
 		return core.Output{Stdout: gitWriteStatus("a.txt", "M.")}, nil
 	case args[0] == "log":
-		return core.Output{Stdout: f.parents + "\n"}, nil
+		return core.Output{Stdout: strings.TrimSpace(f.oid+" "+f.parents) + "\n"}, nil
 	case args[0] == "rev-list":
 		return core.Output{Stdout: f.count}, nil
 	}

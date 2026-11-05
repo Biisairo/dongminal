@@ -25,6 +25,10 @@
   싣습니다(`preflight_blocked` 는 검사 결과 `preflight` 도 함께). 커밋할 수 있는지는
   `GET /api/git/actions?action=git.commit&message=…&amend=0|1&all=0|1&signoff=0|1` 로 미리 물을 수 있습니다.
   화면의 커밋 버튼은 이 답을 그리고, preflight 가 막으면 누르기 전에 해소법을 보입니다.
+- **커밋 동작(cherry-pick·revert·reset·drop)의 새 거절.** merge·rebase 등이 진행 중이면 409
+  `operation_in_progress`(`args.kind`), HEAD 를 대상으로 한 cherry-pick·reset 은 409 `target_is_head` 로
+  거절합니다. 루트·머지 커밋의 drop 은 400 `bad_request` 대신 `root_commit`·`merge_commit` 입니다. 메뉴의 답은
+  `GET /api/git/actions?kind=commit&oid=…` 로 미리 물을 수 있습니다.
 
 ## [1.2.3] — 2026-11-05
 

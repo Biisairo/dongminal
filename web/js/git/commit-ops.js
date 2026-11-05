@@ -204,29 +204,6 @@ class GitCommitOps {
   // 다시 묻지 않는다 — 서버도 실행 전에 같은 것을 확인한다 (FR-GIT-250.3).
   static _merge(c){return ((c&&c.parents)||[]).length>1}
 
-  /**
-   * HEAD 커밋 자신을 대상으로 하면 뜻이 없다 — cherry-pick 은 빈 커밋이 되고
-   * reset 은 제자리다. **막되 사유를 보인다** (FR-GIT-180): 왜 못 누르는지
-   * 보이지 않으면 사용자는 고장으로 읽는다.
-   */
-  static whyHead(c){
-    const p=gitMenuPanel();
-    const oid=((p&&p.statusOf&&p.statusOf())||{}).oid||'';
-    return oid&&c&&c.oid===oid?GIT_CO_WHY_IS_HEAD:'';
-  }
-
-  /**
-   * `git rebase --onto <oid>^ <oid>` 가 성립하지 않는 두 경우다 (FR-GIT-266):
-   * 첫 커밋은 `^` 가 가리킬 것이 없고, 머지 커밋은 첫 부모만 남아 나머지 갈래가
-   * 조용히 사라진다. 서버도 실행 전에 같은 것을 거부한다.
-   */
-  static whyDrop(c){
-    const n=((c&&c.parents)||[]).length;
-    if(n===0) return GIT_CO_WHY_ROOT;
-    if(n>1) return GIT_CO_WHY_MERGE_DROP;
-    return '';
-  }
-
   static _mainlineField(c){
     const ps=(c&&c.parents)||[];
     return {key:'mainline',type:GIT_DIALOG_RADIO,cls:'gco-mainline',
