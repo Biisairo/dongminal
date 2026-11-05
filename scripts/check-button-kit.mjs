@@ -47,17 +47,13 @@ const WINDOW = 3;
 const EXEMPT = [
   { at: 'web/js/ui/ui-kit.js', why: '킷 자신이 버튼을 만드는 자리 — 등급을 붙이는 쪽이다',
     until: '없어지지 않는다 (킷의 정의)' },
-  // 줄 번호는 `index.html` 이 자라면 함께 움직인다 — FR-WRD-35 의 주석 두 줄이
-  // 336 → 338 로 밀었고, FR-ACT-1 이 `#attn-center` 를 걷으면서 338 → 337 로
-  // 되밀었다. UIUX_OVERHAUL_SRS FR-CHR-8 (D-6) 이 상단바를 되살리며 338 → 340,
-  // SLOT_MARKER_SRS FR-SMK-1 의 마커 그릇과 그 주석이 340 → 346. D-7 이 상단바의
-  // 버튼 둘을 걷고 `#attn-center` 를 되살려 346 → 351.
-  { at: 'web/index.html', line: 354,
+  // 자리는 줄 번호가 아니라 그 줄의 표지(`mark`)로 찾는다 — 줄 번호는 위쪽에 한 줄만
+  // 더해도 밀려 게이트를 깨뜨렸다(354 까지 다섯 번 손으로 옮겼다). 표지가 아무 자리에도
+  // 닿지 않으면 낡은 예외이므로 실패한다.
+  { at: 'web/index.html', mark: /role="switch"/,
     why: '`role="switch"` — 토글 스위치이지 버튼이 아니다',
     until: '묶음 B3 이 킷에 `.ui-switch` 를 세우면' },
-  // 줄 번호는 파일이 자라면 함께 움직인다 — UX_BATCH10_SRS FR-UXB-44 가 덩이를
-  // 이름 있게 꺼내면서(`ED_FIND_MIXIN`) 머리 주석 열 줄이 61 → 71 로 밀었다. CodeMirror 이전(M3)에서 44 로 옮겼다.
-  { at: 'web/js/ui/file-editor-find.js', line: 44,
+  { at: 'web/js/ui/file-editor-find.js', mark: /class="fe-find-opt"/,
     why: '`.fe-find-opt` 는 `.on` 상태를 가진 글자 토글 — DESIGN_TOKENS_SRS §7.4 가 "이 표의 행이 아니다" 로 판정했다',
     until: '그 판정이 뒤집히면' },
 ];
@@ -82,21 +78,21 @@ function walk(dir, exts, out = []) {
 }
 
 const files = walk(ROOT, ['.html', '.js', '.mjs']).filter((f) => !f.includes('/test/'));
-/** 파일 전체이거나(줄 없음) 그 한 줄이다 — 예외는 **좁을수록 좋다**. */
-const exemptOf = (f, line) => EXEMPT.find((e) => e.at === f && (e.line === undefined || e.line === line));
+/** 파일 전체이거나(표지 없음) 표지가 닿는 줄이다 — 예외는 **좁을수록 좋다**. */
+const exemptOf = (s) => EXEMPT.find((e) => e.at === s.file && (e.mark === undefined || e.mark.test(s.src)));
 
-const sites = [];   // {file, line, kind, text, ok}
+const sites = [];   // {file, line, src, kind, text, ok}
 for (const f of files) {
   const lines = readFileSync(f, 'utf8').split('\n');
   lines.forEach((l, i) => {
     // ①② `<button …>` — HTML 과 템플릿 리터럴이 같은 모양이다.
     for (const m of l.matchAll(/<button\b[^>]*>/g)) {
-      sites.push({ file: f, line: i + 1, kind: '태그', text: m[0].slice(0, 90), ok: KIT.test(m[0]) });
+      sites.push({ file: f, line: i + 1, src: l, kind: '태그', text: m[0].slice(0, 90), ok: KIT.test(m[0]) });
     }
     // ③ `createElement('button')` — 창 안에서 등급이 서는가.
     if (!/createElement\(\s*['"]button['"]\s*\)/.test(l)) return;
     const win = lines.slice(i, i + 1 + WINDOW).join('\n');
-    sites.push({ file: f, line: i + 1, kind: '생성', text: l.trim().slice(0, 90), ok: KIT.test(win) });
+    sites.push({ file: f, line: i + 1, src: l, kind: '생성', text: l.trim().slice(0, 90), ok: KIT.test(win) });
   });
 }
 
@@ -106,18 +102,24 @@ if (sites.length < 50) {
   process.exit(1);
 }
 
-const skipped = sites.filter((s) => !s.ok && exemptOf(s.file, s.line));
-const bad = sites.filter((s) => !s.ok && !exemptOf(s.file, s.line));
+const skipped = sites.filter((s) => !s.ok && exemptOf(s));
+const bad = sites.filter((s) => !s.ok && !exemptOf(s));
+const stale = EXEMPT.filter((e) => e.mark && !skipped.some((s) => exemptOf(s) === e));
+if (stale.length) {
+  console.error(`✗ 아무 자리에도 닿지 않는 예외 ${stale.length}개 — 그 자리가 사라졌거나 바뀌었다. 예외표에서 걷으세요:`);
+  for (const e of stale) console.error(`    ${e.at} ${e.mark}`);
+  process.exit(1);
+}
 
 if (process.argv.includes('--list')) {
-  for (const s of sites) console.log(`${s.ok ? '킷  ' : exemptOf(s.file, s.line) ? '예외' : '✗   '} ${s.file}:${s.line} [${s.kind}] ${s.text}`);
+  for (const s of sites) console.log(`${s.ok ? '킷  ' : exemptOf(s) ? '예외' : '✗   '} ${s.file}:${s.line} [${s.kind}] ${s.text}`);
   console.log();
 }
 
 // FR-KIT-20c 와 같은 규약: **건너뛴 수를 찍는다.**
 if (skipped.length) {
   console.log(`  예외 ${skipped.length}자리 (SRS §6-예외표):`);
-  for (const e of EXEMPT) console.log(`    ${e.at}${e.line ? ':' + e.line : ''} — ${e.why} · 언제까지: ${e.until}`);
+  for (const e of EXEMPT) console.log(`    ${e.at}${e.mark ? ' ' + e.mark : ''} — ${e.why} · 언제까지: ${e.until}`);
 }
 
 if (bad.length) {
