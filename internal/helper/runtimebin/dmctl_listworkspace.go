@@ -360,7 +360,8 @@ type winPos struct {
 	index, count int
 }
 
-// windowPositions 는 web/js/core/window-order.js 의 winOrderItems 와 **같은 규칙**이다:
+// windowPositions 는 web/js/core/window-order.js 의 winOrderItems 와 **같은 규칙**이다
+// (두 쪽이 testdata/window_order_vectors.json 을 함께 시험한다):
 // 일반 창(type 없음)만 세고, 같은 그룹의 연속한 창은 최상위에서 한 칸이다.
 func windowPositions(ws *wsTree) map[string]winPos {
 	type item struct {

@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { load, plain } from './harness.mjs';
 
 /**
@@ -181,4 +184,24 @@ test('TC-ORD-1 move-in-list: 탭 같은 평면 목록의 위치 해석', () => {
   assert.equal(r.error, 'at_edge');
   r = ctx.winOrderMoveInList(tabs, 't2', { index: 9 });
   assert.equal(r.error, 'out_of_range');
+});
+
+/**
+ * REFACTOR PROD2 §7: window 순서 규칙의 골든. Go `windowPositions`(dmctl_listworkspace.go)가
+ * 같은 표본을 읽는다. 위치는 Go 와 같은 방식으로 센다 — 빈 그룹은 칸이 아니다.
+ */
+const VECTORS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)),
+  '../../../internal/helper/runtimebin/testdata/window_order_vectors.json'), 'utf8'));
+
+test('골든: window 위치가 Go windowPositions 와 같다', () => {
+  assert.ok(VECTORS.cases.length > 0);
+  for (const c of VECTORS.cases) {
+    const its = ctx.winOrderItems(c.windows, c.groups).filter((it) => it.kind === 'window' || it.windows.length);
+    const got = {};
+    its.forEach((it, i) => {
+      if (it.kind === 'window') got[it.id] = ['top', i + 1, its.length];
+      else it.windows.forEach((id, j) => { got[id] = [it.id, j + 1, it.windows.length] });
+    });
+    assert.deepEqual(plain(got), c.want, c.name);
+  }
 });
