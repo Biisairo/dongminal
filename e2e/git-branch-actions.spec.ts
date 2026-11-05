@@ -27,8 +27,11 @@ test.afterAll(() => {
 });
 
 const copyFx = makeCopyFx(FIXTURES);
+// 시험의 관찰(`git status` 폴링)이 index.lock 을 잡아 서버의 쓰기와 다투지 않게 한다 —
+// 서버의 읽기와 같은 규약이다(`core.Env` 의 GIT_OPTIONAL_LOCKS=0). 잡지 않으면 서버의
+// merge 가 그 순간 `index.lock: File exists` 로 실패한다(BR8 에서 실측).
 const git = (repo: string, ...args: string[]) =>
-  execFileSync('git', ['-C', repo, ...args]).toString().trim();
+  execFileSync('git', ['-C', repo, ...args], { env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' } }).toString().trim();
 
 // 셸에서 그대로 실행할 수 있는 recovery hint 를 되돌림에 쓴다 — hint 가 **실제로
 // 되살리는지**는 그것을 돌려 봐야만 알 수 있다 (FR-GIT-92, V179·V184).

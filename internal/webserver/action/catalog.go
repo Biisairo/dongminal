@@ -16,7 +16,7 @@ var Catalog = Table{
 	GitTagPush:            {apierr.CodeJobBusy},
 	GitTagDeleteRemote:    {apierr.CodeJobBusy},
 	GitWrite:              {apierr.CodeJobBusy},
-	GitCommit:             {apierr.CodeJobBusy},
+	GitCommit:             {apierr.CodeEmptyMessage, apierr.CodeJobBusy, apierr.CodePreflightBlocked, apierr.CodeNothingStaged},
 	GitLockRemove:         {apierr.CodeJobBusy},
 	GitWorktreeCreate:     {apierr.CodeJobBusy},
 	GitSubmoduleUpdate:    {apierr.CodeJobBusy},

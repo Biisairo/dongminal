@@ -1,7 +1,7 @@
 # SRS: 서버가 답하는 동작 가능 여부 — server-driven actions — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 묶음 GR-3·GT·GV·F·R·X·K·N(구현 전). 묶음 M(§3.1a)과 GR-1·GR-2(§3.2a)는 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
+> **남은 것**: 묶음 GT·GV·F·R·X·K·N(구현 전). 묶음 M(§3.1a)과 GR(§3.2a)은 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
 
 ## 1. 개요 (Introduction)
 
@@ -126,6 +126,13 @@ GR 은 판정의 재료가 셋으로 갈린다. 단계마다 커밋한다: **GR-
 | GR-2d 싣는 자리 | 셋 다 1층(status 응답의 `actions`)이다. 같은 응답의 `status` 에서 판정하므로 따로 묻지 않는다 |
 | GR-2e 화면에서 없애는 것 | `stash.js` 의 `_why` 계산, 메뉴 항목의 `dirtyCount()`·`untrackedPaths().length` 판정. 메뉴 항목은 `busy:` 에 이 동작 ID 를 둔다. Clean 의 확인 목록(`targets`)은 화면이 그대로 만든다 — 판정이 아니라 보여 줄 목록이다 |
 | GR-2f 문구 | `why.no_head`·`why.nothing_to_clean` 을 더한다 |
+| GR-3a 종단 | 커밋 답은 1층에서 빼고 `GET /api/git/actions?repo=&action=git.commit&message=&amend=0\|1&all=0\|1&signoff=0\|1` 로만 묻는다(FR-SDA-23). 입력이 답을 바꾸기 때문이다 |
+| GR-3b 판정 순서 | 실행 종단과 같다: ① 메시지가 비면 400 `empty_message` ② index 칸(GR-1a) ③ preflight 가 막으면 409 `preflight_blocked`(`args.blocks` 에 막은 항목) ④ staged 가 없고 `all` 도 아니며, amend 가 아니거나 amend 인데 메시지가 직전과 같으면 400 `nothing_staged`. ①·③·④ 는 `commitMessageAnswer`·`commitStateAnswer` 두 함수이고, 실행 종단도 이 둘로 거절한다(`message` 없음). preflight 거절은 지금처럼 본문에 `preflight` 를 함께 싣는다 |
+| GR-3c 묻는 때 | 커밋 칸은 입력이 멈춘 뒤(디바운스), 옵션·amend 를 바꿀 때, status 가 새로 그려질 때 묻는다. 늦게 온 앞선 답은 세대로 버린다 |
+| GR-3d 다시 묻는 동안 | 첫 답 전에는 FR-SDA-6 대로 `loading` 이다. 그 뒤 다시 묻는 동안에는 버튼만 끄고, 사유 줄은 앞선 답의 것을 그대로 둔다 — 글자를 칠 때마다 사유 줄이 "확인하는 중" 으로 깜박이지 않게 한다 |
+| GR-3e preflight 표시 | 답이 `preflight_blocked` 면 `args.blocks` 로 막은 항목을 누르기 **전에** 보인다(G-A3 의 "서버만 아는 것" 해소). 템플릿·서명·detached 경고를 얻는 기존 `/api/git/preflight` 조회는 그대로다 |
+| GR-3f 화면에서 없애는 것 | `GitCommit._why` 의 메시지·staged 판정, `GIT_COMMIT_WHY_TEXT`. 툴팁(영어, FR-TIP-2)은 서버 사유 코드를 키로 하는 표로 고른다. 저장소가 없을 때(`no-repo`)는 물을 대상이 없으므로 화면이 그대로 둔다 |
+| GR-3g 문구 | `why.empty_message`·`why.nothing_staged`·`why.preflight_blocked` 를 더한다 |
 
 ### 3.3 묶음 GT — git 대상 메뉴 (2층)
 
@@ -248,6 +255,7 @@ GR 은 판정의 재료가 셋으로 갈린다. 단계마다 커밋한다: **GR-
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-05 | GR-3 구현. 동작 변경 셋. ① **이전**: 커밋 버튼은 화면이 메시지·staged 로 판정했고, preflight 막힘·amend 메시지 불변은 누른 뒤에야 알았다 / **새**: 서버의 답(`git.commit`)이 버튼을 켜고 끄며, preflight 가 막으면 누르기 전에 해소법이 보인다 / **이유**: FR-SDA-23·G-A3. ② **이전**: 커밋 거절(`empty_message`·`nothing_staged`·`preflight_blocked`)에 한국어 `message` 를 실었다 / **새**: 코드와 `args` 만 싣는다(preflight 거절은 `preflight` 도) / **이유**: D-SDA-5. ③ **이전**: preflight 막힘을 staged 판정보다 먼저, 실행 전 상태를 찍기 전에 봤다 / **새**: 상태를 찍은 뒤 preflight → staged 순으로 본다 — 결과 코드의 우선순위는 같다 / **이유**: 답과 거절이 한 함수(`commitStateAnswer`)를 부르게 하려고. 1층의 `git.commit` 은 뺐다(GR-3a). e2e `git-branch-actions` 의 git 헬퍼는 `GIT_OPTIONAL_LOCKS=0` 으로 돈다 — 시험의 `git status` 폴링이 index.lock 을 잡아 서버의 merge 와 다퉜다(BR8, 변경 전 0/9 · 변경 후 2/6 · 고친 뒤 0/8) |
 | 2026-11-05 | GR-2 구현. 동작 변경 둘. ① **이전**: 커밋 안 된 행의 Reset·Clean 을 실행 전에 거절하면(`no_head`·`nothing_to_clean`) 한국어 `message` 를 실었다 / **새**: 코드만 싣는다 / **이유**: D-SDA-5. ② **이전**: stash 만들기 대화상자의 답(`git.stash.create`)이 작업 칸을 보지 않았다 / **새**: index 칸이 차 있으면 `job_busy` 로 꺼진다 / **이유**: 실행 종단은 잠금을 먼저 쥔다 — 답이 같은 순서로 판정해야 한다(GR-2a) |
 | 2026-11-05 | GR-1 구현. 동작 변경 셋. ① **이전**: 화면이 index 칸이 돌면 동기 쓰기를 보내지 않고 스스로 `job_busy` 를 만들었다 / **새**: 요청을 보내고 서버의 409 `job_busy` 를 보인다 / **이유**: 판정의 주인은 서버다(D-SDA-1). ② **이전**: 칸 때문에 거절할 때 한국어 `message` 를 실었다 / **새**: `error: job_busy` 와 `args.job`(칸을 쥔 잡 id)만 싣는다 / **이유**: D-SDA-5. ③ **이전**: 원격 작업의 시작 요청이 오가는 동안 같은 칸을 쓰는 버튼이 모두 꺼졌다 / **새**: 누른 버튼만 꺼지고 나머지는 서버의 다음 답을 따른다 / **이유**: FR-SDA-7 |
 | 2026-11-05 | 묶음 GR 설계 세부(§3.2a). 사용자 결정: `git.worktree.remove` 의 답은 1층이 아니라 worktree 목록의 행마다 싣는다(D-SDA-2 와 FR-SDA-20 의 어긋남 해소). FR-SDA-20 에서 `git.worktree.remove`·`git.init` 을 뺐다 |

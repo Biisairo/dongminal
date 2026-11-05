@@ -28,6 +28,8 @@ class GitCommit {
     this._opts={signoff:false,noVerify:false,all:false};
     this._menuOpen=false;
     this._blocks=null;    // 409 preflight_blocked 의 blocks (FR-GIT-88)
+    this._answer=null;    // 서버의 커밋 답 (SERVER_DRIVEN_ACTIONS_SRS GR-3)
+    this._askedKey=null; this._askT=null; this._askSeq=0; this._asking=false;
     this._err=null;
     this._busy=false;
     this._saveT=null;     // draft 디바운스
@@ -233,13 +235,15 @@ class GitCommit {
     el.querySelector('.git-commit-more').classList.toggle('active',this._menuOpen);
     // 왜 못 누르는지 보인다 (FR-GIT-84). 버튼 옆 한 줄과 title 둘로 알린다.
     //
-    // FR-TIP-2·3: 두 자리가 **다른 말**을 쓴다 — 보이는 줄은 한국어 그대로이고
-    // 툴팁만 영어다. 그래서 `_why()` 는 코드를 답하고 표가 그것을 옮긴다.
-    const why=this._why();
+    // FR-TIP-2·3: 두 자리가 **다른 말**을 쓴다 — 보이는 줄은 서버 사유의 카탈로그
+    // 문구이고 툴팁만 영어다. 판정은 서버의 답이다 (GR-3).
+    if(this._repo) this._maybeAsk();
+    const st=this._repo?this._state():{enabled:false,why:GIT_NO_REPO_HINT};
+    const code=!this._repo?GIT_COMMIT_WHY_NO_REPO:(this._answer?this._answer.why:'loading');
     const btn=el.querySelector('.git-commit-btn');
-    btn.disabled=!!why||this._busy;
-    btn.title=why?(GIT_COMMIT_WHY_TITLE[why]||''):'';
-    const whyText=why?(GIT_COMMIT_WHY_TEXT[why]||''):'';
+    btn.disabled=!st.enabled||this._busy;
+    btn.title=st.enabled?'':(GIT_COMMIT_WHY_TITLE[code]||'');
+    const whyText=st.why;
     const w=el.querySelector('.git-commit-why');
     w.textContent=this._busy?GIT_COMMIT_RUNNING:(this._err||whyText||'');
     w.classList.toggle('vis',!!w.textContent);
@@ -247,19 +251,50 @@ class GitCommit {
     this._paintBlocks();
   }
 
-  // 사유 **코드**를 답한다 (FR-TIP-2·3) — 문구는 부르는 쪽이 표에서 고른다.
-  _why(){
-    if(!this._repo) return GIT_COMMIT_WHY_NO_REPO;
-    // 칸은 서버의 1층 답이다 (GR-1e). 메시지·amend 판정은 GR-3 에서 서버로 옮긴다.
-    const a=this.panel.actionOf(GIT_ACTION.commit);
-    if(a&&!a.ok) return GIT_COMMIT_WHY_JOB_CODE;
-    if(!this._msg.value.trim()) return GIT_COMMIT_WHY_EMPTY_CODE;
-    // 서버와 같은 판정이다 — `-a` 는 tracked 변경을 스스로 담으므로 staged 가
-    // 없어도 커밋할 것이 있다 (FR-GIT-84). REPO_FIX 01 §7.7: amend 면 메시지를
-    // 고치는 것이 커밋할 것이다 — 메시지가 직전과 같은지는 서버가 판정한다.
-    const staged=(this._st&&this._st.staged&&this._st.staged.length)||0;
-    if(!staged&&!this._opts.all&&!this._amend) return GIT_COMMIT_WHY_NOTHING_CODE;
-    return '';
+  // ── 서버의 답 (SERVER_DRIVEN_ACTIONS_SRS GR-3) ──
+
+  /**
+   * 버튼의 상태 (FR-SDA-6·7). 다시 묻는 동안에는 버튼만 끄고 사유 줄은 앞선 답의 것을
+   * 그대로 둔다 — 글자를 칠 때마다 사유 줄이 깜박이지 않게 한다 (GR-3d).
+   */
+  _state(){
+    const s=actionState(this._answer,this._busy);
+    return this._asking&&s.enabled?{enabled:false,why:''}:s;
+  }
+
+  // 답을 바꾸는 입력 전부 — 메시지·amend·옵션과, status 의 관측·1층 답(작업 칸).
+  _askKey(){
+    const s=this.panel._status||{};
+    return JSON.stringify([this._repo,this._msg.value,this._amend,this._opts.all,this._opts.signoff,
+      s.mark||'',s.actions||null]);
+  }
+
+  // 입력이 바뀌었으면 멈춘 뒤에 묻는다 (GR-3c).
+  _maybeAsk(){
+    const key=this._askKey();
+    if(key===this._askedKey) return;
+    this._askedKey=key;
+    this._asking=true;
+    TIMERS.cancel(this._askT);
+    this._askT=TIMERS.after(GIT_COMMIT_ASK_DEBOUNCE_MS,()=>{this._askT=null;this._ask()},
+      {owner:this,label:'commit-ask'});
+  }
+
+  async _ask(){
+    const repo=this._repo, id=GIT_ACTION.commit, seq=++this._askSeq;
+    const res=await gitFetch(GIT_API.actions,{repo,action:id,message:this._msg.value,
+      amend:this._amend?'1':'0',all:this._opts.all?'1':'0',signoff:this._opts.signoff?'1':'0'},
+      {stale:()=>seq!==this._askSeq||this._repo!==repo,echo:{repo,action:id}});
+    if(res.stale) return;
+    // 뒤에 물을 것이 걸려 있으면 그 답이 올 때까지 다시 묻는 중이다.
+    this._asking=!!this._askT;
+    const a=res.ok?res.data.actions[id]:null;
+    // 묻지 못했으면 다음 칠하기가 다시 묻는다.
+    if(!a) this._askedKey=null;
+    this._answer=a;
+    // GR-3e: preflight 가 막았으면 누르기 전에 해소법을 보인다.
+    this._blocks=(a&&a.why==='preflight_blocked'&&a.args&&a.args.blocks)||null;
+    this._paint();
   }
 
   // 차단 사유는 **무엇이 왜 막혔고 어떻게 푸는지**를 함께 보인다 (FR-GIT-88).
@@ -300,7 +335,7 @@ class GitCommit {
     if(this._busy) return;
     const repo=this._repo; if(!repo) return;
     const msg=this._msg.value;
-    if(this._why()) return;
+    if(!this._state().enabled) return;
     // 경고 판정은 preflight 에 의존한다. 서버는 detached 를 막지 않으므로(그것이 옳다) 이
     // 경고를 보장하는 것은 여기뿐이다 (FR-GIT-87).
     // REPO_FIX 05 F-7.1: **커밋 직전에 늘 다시 받는다.** 이전: 한 번 받은 것을 계속 써서

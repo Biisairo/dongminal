@@ -225,7 +225,16 @@ test.describe('묶음 I — 커밋 (클라이언트)', () => {
     await openGit(page, repo);
 
     await msg(page).fill('e9 막혀야 하는 커밋');
-    const res = await clickCommit(page);
+    // SERVER_DRIVEN_ACTIONS_SRS GR-3e: 서버의 답이 누르기 **전에** 버튼을 끄고 해소법을 보인다.
+    await expect(commit(page).locator('.git-commit-btn')).toBeDisabled({ timeout: 20000 });
+    // 화면을 거치지 않은 요청도 같은 판정으로 거절된다 (FR-SDA-3).
+    const res = await page.evaluate(async (r: string) => {
+      const x = await fetch('/api/git/commit', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo: r, message: 'e9 직접' }),
+      });
+      return { status: x.status, body: await x.json() };
+    }, repo);
     expect(res.status).toBe(409);
     expect(res.body.error).toBe('preflight_blocked');
 

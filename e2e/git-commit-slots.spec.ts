@@ -160,6 +160,9 @@ test('C6 (F-7.1): preflight 는 커밋 직전에 다시 받는다', async ({ pag
   const repo = makeRepo('c6');
   await enter(page, request, repo);
   await msg(page).fill('c6 commit');
+  // 커밋할 수 있는가는 서버의 답이다 (SERVER_DRIVEN_ACTIONS_SRS GR-3) — 답이 온 뒤에 누른다.
+  await expect.poll(() => page.evaluate(() => (window as any).app.gitPanel._commit()._state().enabled),
+    { timeout: 10000 }).toBe(true);
   const order: string[] = [];
   page.on('request', (r) => {
     if (r.url().includes('/api/git/preflight')) order.push('preflight');

@@ -10,7 +10,6 @@ import (
 	"dongminal/internal/webserver/httpreq"
 	"path/filepath"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -30,11 +29,8 @@ import (
 
 // 쓰기 고유의 거부 코드. 상태 코드만으로는 무엇이 왜 막혔는지 구분할 수 없다.
 const (
-	gitErrConfirmRequired  = apierr.CodeConfirmRequired
-	gitErrPreflightBlocked = apierr.CodePreflightBlocked
-	gitErrUndoExpired      = apierr.CodeUndoExpired
-	gitErrEmptyMessage     = apierr.CodeEmptyMessage
-	gitErrNothingStaged    = apierr.CodeNothingStaged
+	gitErrConfirmRequired = apierr.CodeConfirmRequired
+	gitErrUndoExpired     = apierr.CodeUndoExpired
 )
 
 // gitPathsReq 는 stage/unstage 의 본문이다.
@@ -195,9 +191,9 @@ func (s *GitServer) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
 	var req gitCommitReq
 	t := s.beginWrite(w, r, &req)
 	// 메시지 검사가 가장 앞이다 — 비어 있으면 git 은 커밋을 만들지 않고, 사용자는
-	// 왜 안 됐는지를 코드로 알아야 한다 (FR-GIT-84).
-	if !t.stop() && strings.TrimSpace(req.Message) == "" {
-		t.rejectWith(http.StatusBadRequest, gitErrEmptyMessage, "커밋 메시지가 비었다")
+	// 왜 안 됐는지를 코드로 알아야 한다 (FR-GIT-84). 답 종단과 같은 함수다 (GR-3b).
+	if a := commitMessageAnswer(req.Message); !t.stop() && !a.OK {
+		t.rejectAnswer(a, nil)
 	}
 	t.resolve(req.Repo)
 	if t.stop() {
@@ -210,35 +206,25 @@ func (s *GitServer) apiGitCommitCreate(w http.ResponseWriter, r *http.Request) {
 		gitError(w, err)
 		return
 	}
-	if len(pf.Blocks) > 0 {
-		gitErrJSON(w, http.StatusConflict, gitErrPreflightBlocked, map[string]any{
-			"error":     gitErrPreflightBlocked,
-			"message":   "커밋 전 검사가 막았다",
-			"requested": req.Repo,
-			"repo":      t.root,
-			"preflight": pf,
-		})
-		return
-	}
 	before := t.snapshot()
 	if t.stop() {
 		return
 	}
-	// `-a` 는 tracked 변경을 스스로 담으므로 staged 가 없어도 커밋할 것이 있다.
-	// `--allow-empty` 는 M2 범위 밖이다 (FR-GIT-84).
+	// `--allow-empty` 는 M2 범위 밖이다 (FR-GIT-84). preflight 가 막았거나 커밋할 것이
+	// 없으면 답 종단과 같은 함수로 거절한다 (GR-3b). preflight 거절은 검사 결과를 함께
+	// 싣는다 — 화면이 해소법을 보인다.
 	//
 	// REPO_FIX 01 §7.7 (FR-GIT-84 개정): amend 면 staged 가 없어도 **메시지를 고치는
-	// 것**이 커밋할 것이다. 메시지가 직전과 같고(cleanup=strip 정규화) signoff 가
-	// 새로 붙지도 않으면 바뀔 것이 없다.
+	// 것**이 커밋할 것이다.
 	//
 	//	이전 동작: amend 여도 staged 가 없으면 nothing_staged
 	//	새  동작: amend 면 메시지가 바뀌었을 때 실행한다
 	//	이유:     직전 커밋의 오타만 고치는 일을 할 수 없었다
-	if len(before.Staged) == 0 && !req.All {
-		if !req.Amend || s.gitAmendUnchanged(t.ctx(), t.root, req.Message, req.SignOff) {
-			t.rejectWith(http.StatusBadRequest, gitErrNothingStaged, "staged 변경이 없다")
-			return
-		}
+	if a := commitStateAnswer(before, pf, req, func() bool {
+		return s.gitAmendUnchanged(t.ctx(), t.root, req.Message, req.SignOff)
+	}); !a.OK {
+		t.rejectAnswer(a, map[string]any{"preflight": pf})
+		return
 	}
 	// REPO_FIX 01 §5.2: 커밋은 잡이다 — 훅(pre-commit·commit-msg)이 분 단위일 수 있다.
 	//

@@ -21,6 +21,10 @@
 - **커밋 안 된 행의 Reset·Clean 거절 응답에서 `message` 가 빠집니다.** 커밋이 없을 때의 409 `no_head` 와
   지울 파일이 없을 때의 409 `nothing_to_clean` 은 이제 코드만 싣습니다. 할 수 있는지는 status 응답의
   `actions["git.uncommitted.reset"]`·`actions["git.uncommitted.clean"]` 으로 미리 알 수 있습니다.
+- **커밋 거절 응답에서 `message` 가 빠집니다.** `empty_message`·`nothing_staged`·`preflight_blocked` 는 코드만
+  싣습니다(`preflight_blocked` 는 검사 결과 `preflight` 도 함께). 커밋할 수 있는지는
+  `GET /api/git/actions?action=git.commit&message=…&amend=0|1&all=0|1&signoff=0|1` 로 미리 물을 수 있습니다.
+  화면의 커밋 버튼은 이 답을 그리고, preflight 가 막으면 누르기 전에 해소법을 보입니다.
 
 ## [1.2.3] — 2026-11-05
 

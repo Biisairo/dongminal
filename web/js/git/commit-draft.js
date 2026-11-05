@@ -40,8 +40,6 @@ Object.assign(GitCommit.prototype, {
   _input(){
     this._grow();
     this._err=null;
-    // 입력이 있으면 앞선 차단 표시는 낡은 것이다 — 다음 시도가 다시 채운다.
-    this._blocks=null;
     const v=this._msg.value;
     // F-7.2: amend 중의 입력은 amend 슬롯이다 — draft 를 덮지 않고 저장하지 않는다.
     if(this._amend){this._amendText=v; this._paint(); return}
@@ -66,6 +64,7 @@ Object.assign(GitCommit.prototype, {
     this._amend=false; this._amendText='';
     this._opts={signoff:false,noVerify:false,all:false};
     this._menuOpen=false; this._blocks=null; this._err=null; this._busy=false;
+    this._answer=null; this._askedKey=null; this._asking=false;
     this._headKey=null;
     // 앞선 리포의 undo 진입점을 새 리포의 화면에 남기지 않는다.
     this._undoHide();

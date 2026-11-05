@@ -31,36 +31,24 @@ const GIT_COMMIT_OPTS=[
   {key:'all',     label:'commit all (-a)'},
 ];
 const GIT_COMMIT_GPG=t('git.commit_gpg'); // FR-GIT-85
-// FR-GIT-84: 왜 못 누르는지 보이지 않으면 요구사항 실패다.
-const GIT_COMMIT_WHY_EMPTY=t('git.commit_why_empty');
-const GIT_COMMIT_WHY_NOTHING=t('git.commit_why_nothing');
 /**
  * UX_BATCH5_SRS FR-TIP-2·3: **같은 사유가 두 자리에 다른 말로 산다.**
  *
- * 버튼 옆 한 줄은 화면에 보이는 글자이므로 그대로 두고(FR-TIP-3), 툴팁만 영어다
- * (FR-TIP-2). 그래서 `_why()` 는 문자열이 아니라 **사유 코드**를 답하고, 두 표가
- * 각자 그것을 옮긴다 — 문자열을 키로 쓰면 한쪽 문구를 고치는 순간 짝이 끊긴다.
+ * 버튼 옆 한 줄은 서버 사유 코드의 카탈로그 문구(`why.<code>`)이고, 툴팁만 영어다
+ * (FR-TIP-2). 그래서 툴팁 표는 **서버의 사유 코드**를 키로 한다 (SERVER_DRIVEN_ACTIONS_SRS
+ * GR-3f). `no-repo` 만 화면의 것이다 — 저장소가 없으면 물을 대상이 없다.
  */
 const GIT_COMMIT_WHY_NO_REPO='no-repo';
-const GIT_COMMIT_WHY_EMPTY_CODE='empty-message';
-const GIT_COMMIT_WHY_NOTHING_CODE='nothing-staged';
-// REPO_FIX 01 §6.4: 이 저장소의 index 칸에 잡이 돈다 — 끝날 때까지 커밋할 수 없다.
-// 동기 쓰기도 보내지 않는다(서버도 409 job_busy) — 그 문구가 이것이다. 잡 표시기
-// (remote·jobs)도 쓰므로 먼저 로드되는 이 파일에 둔다.
-const GIT_JOB_BUSY_NOTE=t('git.job_busy_note');
-const GIT_COMMIT_WHY_JOB_CODE='job-busy';
-const GIT_COMMIT_WHY_TEXT={
-  [GIT_COMMIT_WHY_NO_REPO]:GIT_NO_REPO_HINT,
-  [GIT_COMMIT_WHY_EMPTY_CODE]:GIT_COMMIT_WHY_EMPTY,
-  [GIT_COMMIT_WHY_NOTHING_CODE]:GIT_COMMIT_WHY_NOTHING,
-  [GIT_COMMIT_WHY_JOB_CODE]:GIT_JOB_BUSY_NOTE,
-};
 const GIT_COMMIT_WHY_TITLE={
   [GIT_COMMIT_WHY_NO_REPO]:'Select a repository first',
-  [GIT_COMMIT_WHY_EMPTY_CODE]:'Enter a commit message',
-  [GIT_COMMIT_WHY_NOTHING_CODE]:'Nothing is staged — stage a file or turn on commit all',
-  [GIT_COMMIT_WHY_JOB_CODE]:'A job is running in this repository',
+  loading:'Checking whether this can be committed',
+  empty_message:'Enter a commit message',
+  nothing_staged:'Nothing is staged — stage a file or turn on commit all',
+  job_busy:'A job is running in this repository',
+  preflight_blocked:'Pre-commit checks block this commit',
 };
+// GR-3c: 입력이 멈춘 뒤 서버에 커밋 가능 여부를 묻는다.
+const GIT_COMMIT_ASK_DEBOUNCE_MS=250;
 const GIT_COMMIT_RUNNING=t('git.commit_running');
 // FR-GIT-81·83 · O7: 5초 고정. 만료는 서버 토큰이 함께 강제한다.
 const GIT_UNDO_MS=5000;

@@ -15,6 +15,8 @@ REMOVED=(
   GIT_JOB_COMMON_KEYS    # GR-1e
   GIT_JOB_INDEX_EXEMPT   # GR-1e: 미리 막지 않는 쓰기 목록
   GIT_STASH_UNTRACKED_ONLY  # M-9: stash 만들기의 화면 판정 문구
+  GIT_COMMIT_WHY_TEXT       # GR-3f: 커밋 버튼의 화면 판정 표
+  GIT_COMMIT_WHY_NOTHING_CODE  # GR-3f
 )
 
 pat=$(IFS='|'; echo "${REMOVED[*]}")

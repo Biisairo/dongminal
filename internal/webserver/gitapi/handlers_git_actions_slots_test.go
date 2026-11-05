@@ -90,7 +90,7 @@ func TestStatusActions_FollowSlots(t *testing.T) {
 	_, idle := statusActions(t, s, "")
 	wantAnswers(t, idle, map[string]bool{
 		action.GitFetch: true, action.GitPull: true, action.GitPush: true, action.GitWrite: true,
-		action.GitCommit: true, action.GitLockRemove: true, action.GitWorktreeCreate: true,
+		action.GitLockRemove: true, action.GitWorktreeCreate: true,
 		action.GitSubmoduleUpdate: true, action.GitBranchPush: true, action.GitBranchFetch: true,
 		action.GitBranchDeleteRemote: true, action.GitTagPush: true, action.GitTagDeleteRemote: true,
 	})
@@ -101,7 +101,7 @@ func TestStatusActions_FollowSlots(t *testing.T) {
 	_, busy := statusActions(t, s, "")
 	wantAnswers(t, busy, map[string]bool{
 		action.GitFetch: false, action.GitPull: false, action.GitPush: false, action.GitWrite: true,
-		action.GitCommit: true, action.GitLockRemove: false, action.GitWorktreeCreate: false,
+		action.GitLockRemove: false, action.GitWorktreeCreate: false,
 		action.GitSubmoduleUpdate: false, action.GitBranchPush: false, action.GitBranchFetch: false,
 		action.GitBranchDeleteRemote: false, action.GitTagPush: false, action.GitTagDeleteRemote: false,
 	})
@@ -116,7 +116,7 @@ func TestStatusActions_PullHoldsBoth(t *testing.T) {
 	}
 	_, acts := statusActions(t, s, "")
 	wantAnswers(t, acts, map[string]bool{
-		action.GitWrite: false, action.GitCommit: false, action.GitFetch: false, action.GitPush: false,
+		action.GitWrite: false, action.GitFetch: false, action.GitPush: false,
 	})
 }
 

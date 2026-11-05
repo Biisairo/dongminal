@@ -60,7 +60,8 @@ const (
 	GitTagDeleteRemote    = "git.tag.delete_remote"
 	// GitWrite 는 index 칸을 쓰는 동기 쓰기·index 잡 시작 전반이다 — 메뉴의
 	// checkout·merge·stash apply 같은 항목이 이것을 본다.
-	GitWrite           = "git.write"
+	GitWrite = "git.write"
+	// GitCommit 은 1층이 아니라 묻는 동작이다 — 메시지·옵션이 답을 바꾼다 (GR-3a).
 	GitCommit          = "git.commit"
 	GitLockRemove      = "git.lock.remove"
 	GitWorktreeCreate  = "git.worktree.create"

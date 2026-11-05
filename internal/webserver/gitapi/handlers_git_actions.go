@@ -3,6 +3,7 @@ package gitapi
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/apierr"
@@ -25,26 +26,41 @@ func (s *GitServer) apiGitActions(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	id := q.Get("action")
+	if id != action.GitStashCreate && id != action.GitCommit {
+		gitFail(w, http.StatusBadRequest, apierr.CodeBadRequest, "unknown action: "+id)
+		return
+	}
+	// 실행 종단이 판정에 쓰는 것과 같은 관측이다.
+	obs, _, err := s.Git.Status(r.Context(), root)
+	if err != nil {
+		gitError(w, err)
+		return
+	}
+	keys, err := s.gitKeys(r.Context(), root)
+	if err != nil {
+		gitError(w, err)
+		return
+	}
+	// 칸이 먼저다 — 실행 종단도 잠금을 쥔 뒤에 상태를 판정한다 (GR-2a).
+	slot := slotsAnswer(s.exclusion(), keys, jobs.SlotIndex)
 	var a action.Answer
 	switch id {
 	case action.GitStashCreate:
-		// 실행 종단(stash/push)이 판정에 쓰는 것과 같은 관측이다.
-		obs, _, err := s.Git.Status(r.Context(), root)
-		if err != nil {
-			gitError(w, err)
-			return
+		a = action.First(slot, stashCreateAnswer(obs.Status, q.Get("includeUntracked") == "1"))
+	case action.GitCommit:
+		req := gitCommitReq{Message: q.Get("message"), Amend: q.Get("amend") == "1",
+			All: q.Get("all") == "1", SignOff: q.Get("signoff") == "1"}
+		a = action.First(commitMessageAnswer(req.Message), slot)
+		if a.OK {
+			pf, err := query.PreflightOf(s.Git.Service(), r.Context(), root)
+			if err != nil {
+				gitError(w, err)
+				return
+			}
+			a = commitStateAnswer(obs.Status, pf, req, func() bool {
+				return s.gitAmendUnchanged(r.Context(), root, req.Message, req.SignOff)
+			})
 		}
-		keys, err := s.gitKeys(r.Context(), root)
-		if err != nil {
-			gitError(w, err)
-			return
-		}
-		// 칸이 먼저다 — 실행 종단도 잠금을 쥔 뒤에 상태를 판정한다 (GR-2a).
-		a = action.First(slotsAnswer(s.exclusion(), keys, jobs.SlotIndex),
-			stashCreateAnswer(obs.Status, q.Get("includeUntracked") == "1"))
-	default:
-		gitFail(w, http.StatusBadRequest, apierr.CodeBadRequest, "unknown action: "+id)
-		return
 	}
 	gitJSON(w, http.StatusOK, map[string]any{
 		"requested": map[string]any{"repo": requested, "action": id},
@@ -109,7 +125,6 @@ var repoSlotActions = []struct {
 	{action.GitTagPush, jobs.SlotsOf("push")},
 	{action.GitTagDeleteRemote, jobs.SlotsOf("push")},
 	{action.GitWrite, []string{jobs.SlotIndex}},
-	{action.GitCommit, jobs.SlotsOf("commit")},
 	{action.GitLockRemove, []string{jobs.SlotIndex, jobs.SlotCommon}},
 	{action.GitWorktreeCreate, []string{jobs.SlotCommon}},
 	{action.GitSubmoduleUpdate, jobs.SlotsOf("submodule")},
@@ -157,4 +172,28 @@ func worktreeRemoveAnswer(x slotReader, common string, jobKind func(id string) s
 		return action.Deny(http.StatusConflict, apierr.CodeJobBusy, map[string]any{"job": id})
 	}
 	return slotsAnswer(x, jobs.Keys{Top: core.ExclusionKey(target)}, jobs.SlotIndex)
+}
+
+// commitMessageAnswer 는 커밋 메시지의 판정이다 (GR-3b ①). 비어 있으면 git 은 커밋을
+// 만들지 않는다 — 실행 종단은 이것을 잠금보다 먼저 본다.
+func commitMessageAnswer(msg string) action.Answer {
+	if strings.TrimSpace(msg) == "" {
+		return action.Deny(http.StatusBadRequest, apierr.CodeEmptyMessage, nil)
+	}
+	return action.Allow()
+}
+
+// commitStateAnswer 는 저장소 상태로 본 커밋의 판정이다 (GR-3b ③④ · FR-GIT-84·86).
+//
+// `-a` 는 tracked 변경을 스스로 담으므로 staged 가 없어도 커밋할 것이 있다. amend 면
+// 메시지를 고치는 것이 커밋할 것이다 — 메시지가 직전과 같은지는 amendUnchanged 가
+// 판정하고, 그것은 git 을 부르므로 필요할 때만 부른다.
+func commitStateAnswer(st query.Status, pf query.Preflight, req gitCommitReq, amendUnchanged func() bool) action.Answer {
+	if len(pf.Blocks) > 0 {
+		return action.Deny(http.StatusConflict, apierr.CodePreflightBlocked, map[string]any{"blocks": pf.Blocks})
+	}
+	if len(st.Staged) == 0 && !req.All && (!req.Amend || amendUnchanged()) {
+		return action.Deny(http.StatusBadRequest, apierr.CodeNothingStaged, nil)
+	}
+	return action.Allow()
 }
