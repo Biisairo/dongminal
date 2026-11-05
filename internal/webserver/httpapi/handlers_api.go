@@ -94,6 +94,7 @@ var apiRoutes = []apiRoute{
 	// dmctl status / dmctl wait 가 호출한다.
 	httproute.Get("/api/tools/activity/get", (*Server).apiToolStatus),
 	httproute.Get("/api/tools/activity/wait", (*Server).apiToolStatusWait),
+	httproute.Post("/api/tools/usage", (*Server).apiToolUsage), // ISSUE_AGENT_TREE_SRS 묶음 S
 	// 묶음 R — Run 레코드 (RUN_ORCHESTRATION_SRS FR-RUN-1/2/8/11).
 	httproute.Get("/api/runs", (*Server).apiRunsGet),
 	httproute.Post("/api/runs", (*Server).apiRunStart),

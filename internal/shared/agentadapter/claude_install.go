@@ -58,7 +58,13 @@ func writeClaudeActivityHooks(s InstallSpec) error {
 	for _, ev := range claudeHookEvents {
 		hooks[ev] = event
 	}
-	blob, err := json.MarshalIndent(map[string]any{"hooks": hooks}, "", "  ")
+	settings := map[string]any{
+		"hooks": hooks,
+		// ISSUE_AGENT_TREE_SRS FR-SLP-1: statusLine 프록시. flag 설정이 사용자 설정의
+		// statusLine 보다 우선한다(TC-SLP-5 실측) — 프록시가 원래 명령을 찾아 그대로 부른다.
+		"statusLine": map[string]any{"type": "command", "command": s.HookCommand("statusline")},
+	}
+	blob, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {
 		return err
 	}

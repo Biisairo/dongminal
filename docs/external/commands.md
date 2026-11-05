@@ -30,6 +30,14 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | `dmctl tool-up` / `tool-down` / `tool-left` / `tool-right` | 방향키식 분할 칸 포커스 이동 (action 은 `paneUp`/`paneDown`/`paneLeft`/`paneRight`) |
 | `dmctl rename-tab --at <uuid> <이름>` | 탭 표시 이름 변경 (예: 팀 도구에 역할명). 포커스 무영향. `--name <이름>` 플래그도 동등 |
 | `dmctl rename-window --at <uuid> <이름>` | 그 탭이 **속한 창**의 이름 변경. 포커스 무영향 |
+| `dmctl new-group --name <이름> [--tree <owner/repo#N>]` | 빈 window 그룹을 만들고 그룹 uuid 를 낸다(`newGroups`). `--tree` 는 이슈 트리 표지 — 같은 표지의 그룹은 하나뿐이다 |
+| `dmctl rename-group --at <그룹> <이름>` | 그룹 이름 바꾸기 |
+| `dmctl delete-group --at <그룹>` | 그룹 지우기. window 는 닫지 않고 그룹 밖으로 풀어 둔다 |
+| `dmctl list-groups [--json]` | 빈 그룹까지 포함한 그룹 목록. `index` 는 최상위 목록 안 자리(빈 그룹은 0), `windows` 는 window 수 |
+| `dmctl move-tab --at <탭> <위치> [--to <칸\|window>]` | 탭 순서 바꾸기. `--to` 나 다른 칸의 기준 탭으로 칸·window 를 넘는다(UI 끌어 놓기와 같다) |
+| `dmctl move-window --at <window> <위치> [--to <그룹> \| --ungroup]` | window 순서 바꾸기. 기준이 그룹 안 window 면 그 그룹에 들어간다. `--ungroup` 은 그룹에서 뺀다 |
+| `dmctl move-group --at <그룹> <위치>` | 그룹을 통째로 옮긴다. 빈 그룹은 옮길 수 없다 |
+| `dmctl statusline` | Claude Code 의 statusLine 프록시. dongminal 이 띄운 claude 세션에서 Claude Code 가 부른다 — 사용량을 서버에 남기고, 원래 등록된 statusLine 명령에 같은 입력을 그대로 넘긴다(그 명령은 고치지 않는다). 직접 부를 일은 없다 |
 | `dmctl list-workspace [--json] [--window <substr>] [--tab <substr>]` | 열린 도구 목록 조회. 표준 KEY=VALUE 라인 (아래 박스). ▶ 표시는 현재 포커스. `--window`/`--tab` 으로 이름 필터 (부분 일치·대소문자 무시, AND, 0건이면 rc=1). `--json` 시 JSON 배열 |
 | `dmctl who-am-i [--json]` | 현재 쉘이 속한 탭의 식별 정보. 같은 표준 라인 한 줄. 스크립트에서 `UUID=$(dmctl who-am-i --json \| jq -r .uuid)` 패턴으로 자기 식별 |
 | `dmctl send <action> [json]` | 원시 action 전송 (확장용) |
@@ -99,6 +107,10 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | `--no-focus` / `-n` | 실행 전후로 사용자 포커스를 옮기지 않음. `split-h/v` 후 새 분할 칸으로 포커스가 튀지 않음. `close-tab` 등에도 동일 적용 |
 | `-h` / `--help` | 도움말 |
 
+### 순서의 위치 지정
+
+`move-*` 는 위치 지정을 **정확히 하나** 받는다: `--index N`(담는 곳 안의 자리, 1부터, 범위 밖은 오류) · `--prev`/`--next`(한 칸, 끝에서는 오류) · `--before <uuid>`/`--after <uuid>`(기준의 바로 앞·뒤). `--to` 는 담는 곳을 바꾸고 위치 없이 쓰면 그 끝, `--index` 와 함께 쓰면 그 안의 자리다. 결과에는 `position: {container, index, count}` 가 실리고, 실패하면 `error`(`out_of_range` · `at_edge` · `not_found` · `bad_spec` · `empty_group`)와 함께 exit 1 이다. 만들 때 자리를 정하려면 `new-window --group <그룹>`, `new-tab --after <탭>` · `--index N` 을 쓴다. `list-workspace` 의 행에는 `group` · `win_pos` · `tab_pos`(JSON 은 `groupUuid` · `windowContainer` · `windowIndex` · `windowCount` · `tabIndex` · `tabCount`)가 실린다.
+
 ### 위치 식별자 — uuid 만 허용
 
 `/api/commands` 의 `args.location` 인자는 **`list-workspace` 가 노출하는 `uuid=` 컬럼 값만** 받는다. 좌표(`4.1.1`/`W4.P1.T1`), 라벨, toolId 는 400 거부 — 다른 창 닫힘 시 reflow 되어 다른 탭을 가리키는 사고를 차단하기 위함.
@@ -138,7 +150,7 @@ NEW=$(dmctl split-v --at "$UUID" -n | jq -r '.newTabs[0].uuid')  # 새로 생긴
 
 ### 허용된 action (서버 화이트리스트)
 
-`newWindow`, `newTab`, `splitH`, `splitV`, `openEditorTab`, `focus`, `closeTab`, `closeWindow`, `windowNext`, `windowPrev`, `tabNext`, `tabPrev`, `paneUp`, `paneDown`, `paneLeft`, `paneRight`, `renameTab`, `renameWindow`, `detachTab`, `restoreTool`.
+`newWindow`, `newTab`, `splitH`, `splitV`, `openEditorTab`, `focus`, `closeTab`, `closeWindow`, `windowNext`, `windowPrev`, `tabNext`, `tabPrev`, `paneUp`, `paneDown`, `paneLeft`, `paneRight`, `renameTab`, `renameWindow`, `detachTab`, `restoreTool`, `newGroup`, `renameGroup`, `deleteGroup`, `moveTab`, `moveWindow`, `moveGroup`.
 
 그 외 action 은 서버가 400 으로 거절. `openEditorTab` 은 `edit`, `detachTab`/`restoreTool` 은 `detach` 가 사용합니다.
 

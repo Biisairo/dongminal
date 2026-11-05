@@ -68,11 +68,11 @@ status []
   stderr=""
 status ["-h"]
   code=0 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
-  stdout="<892 bytes, sum 9b46d9d0>"
+  stdout="<1213 bytes, sum 3e58eae6>"
   stderr=""
 status ["--help"]
   code=0 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
-  stdout="<892 bytes, sum 9b46d9d0>"
+  stdout="<1213 bytes, sum 3e58eae6>"
   stderr=""
 status ["--json"]
   code=0 proceed=true f={target:self-tool cond: timeoutMS:0 jsonOut:true member:}
@@ -80,7 +80,7 @@ status ["--json"]
   stderr=""
 status ["--json" "-h" "--bogus"]
   code=0 proceed=false f={target: cond: timeoutMS:0 jsonOut:true member:}
-  stdout="<892 bytes, sum 9b46d9d0>"
+  stdout="<1213 bytes, sum 3e58eae6>"
   stderr=""
 status ["--bogus" "-h"]
   code=2 proceed=false f={target: cond: timeoutMS:0 jsonOut:false member:}
@@ -427,130 +427,130 @@ run ["--objective" "o" "--projection" "p" "--isolation" "i" "--window" "w" "--ou
   stdout=""
   stderr=""
 dmctl []
-  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["-h"]
-  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--help"]
-  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--json"]
-  err=unknown flag: --json p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=unknown flag: --json p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--json" "-h" "--bogus"]
-  err=unknown flag: --json p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=unknown flag: --json p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--bogus" "-h"]
-  err=unknown flag: --bogus p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=unknown flag: --bogus p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--json=1"]
-  err=unknown flag: --json=1 p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=unknown flag: --json=1 p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["="]
-  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional:= force:false background:false}
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional:= force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["-"]
-  err=unknown flag: - p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=unknown flag: - p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["x"]
-  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional:x force:false background:false}
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional:x force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--"]
-  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--at"]
-  err=flag --at requires value p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=flag --at requires value p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--at" "1.2"]
-  err=<nil> p={location:1.2 count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=<nil> p={location:1.2 count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--at="]
-  err=unknown flag: --at= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=unknown flag: --at= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--at=1"]
-  err=<nil> p={location:1 count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=<nil> p={location:1 count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["-l="]
-  err=unknown flag: -l= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=unknown flag: -l= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["-l=2"]
-  err=<nil> p={location:2 count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=<nil> p={location:2 count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--name"]
-  err=flag --name requires value p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=flag --name requires value p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--name="]
-  err=unknown flag: --name= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=unknown flag: --name= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--name=n"]
-  err=<nil> p={location: count:<nil> keepFocus:false name:n auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=<nil> p={location: count:<nil> keepFocus:false name:n auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--name" "n" "a" "b"]
-  err=<nil> p={location: count:<nil> keepFocus:false name:n auto:false sandbox: workdir: cwd: positional:a b force:false background:false}
+  err=<nil> p={location: count:<nil> keepFocus:false name:n auto:false sandbox: workdir: cwd: positional:a b force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--sandbox" "p" "--workdir" "w" "--cwd" "c"]
-  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox:p workdir:w cwd:c positional: force:false background:false}
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox:p workdir:w cwd:c positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--sandbox=" "x"]
-  err=unknown flag: --sandbox= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=unknown flag: --sandbox= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--sandbox=p" "--workdir=w" "--cwd=c"]
-  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox:p workdir:w cwd:c positional: force:false background:false}
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox:p workdir:w cwd:c positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--workdir="]
-  err=unknown flag: --workdir= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=unknown flag: --workdir= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--cwd="]
-  err=unknown flag: --cwd= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=unknown flag: --cwd= p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--no-focus" "-n" "--auto" "--force" "--background"]
-  err=<nil> p={location: count:<nil> keepFocus:true name: auto:true sandbox: workdir: cwd: positional: force:true background:true}
+  err=<nil> p={location: count:<nil> keepFocus:true name: auto:true sandbox: workdir: cwd: positional: force:true background:true group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["--no-focus=1"]
-  err=unknown flag: --no-focus=1 p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=unknown flag: --no-focus=1 p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["a" "--" "--at" "b"]
-  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional:a --at b force:false background:false}
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional:a --at b force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["-h" "a"]
-  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional:a force:false background:false}
+  err=<nil> p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional:a force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["a" "--bogus"]
-  err=unknown flag: --bogus p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=unknown flag: --bogus p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""
 dmctl ["-5"]
-  err=unknown flag: -5 p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false}
+  err=unknown flag: -5 p={location: count:<nil> keepFocus:false name: auto:false sandbox: workdir: cwd: positional: force:false background:false group: after: index:<nil>}
   stdout=""
   stderr=""

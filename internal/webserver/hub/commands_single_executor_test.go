@@ -21,6 +21,8 @@ var viewMoving = []string{
 // entityCreating 은 종전부터 지명되던 것들이다 — 이 조항이 되돌리지 않는다.
 var entityCreating = []string{
 	"newWindow", "newTab", "splitH", "splitV", "openEditorTab", "restoreTool", "openUrl",
+	// ISSUE_AGENT_TREE_SRS: 새 그룹을 만들고, 이동은 결과를 한 곳에서 받는다 (FR-ORD-6).
+	"newGroup", "moveTab", "moveWindow", "moveGroup",
 }
 
 func TestSingleExecutor_CoversViewMovingActions(t *testing.T) {
@@ -45,7 +47,7 @@ func TestSingleExecutor_KeepsEntityCreatingActions(t *testing.T) {
 // 순수 데이터 변경은 **지명하지 않는다.** 시선을 건드리지 않고 클라이언트마다 같은
 // 결과로 수렴하므로, 한 곳으로 좁히면 그 클라이언트가 없을 때 이름이 영영 안 바뀐다.
 func TestSingleExecutor_LeavesPureDataUngated(t *testing.T) {
-	for _, a := range []string{"renameTab", "renameWindow"} {
+	for _, a := range []string{"renameTab", "renameWindow", "renameGroup", "deleteGroup"} {
 		if IsSingleExecutorAction(a) {
 			t.Errorf("%q 는 시선을 옮기지 않는다 — 좁힐 이유가 없다", a)
 		}
@@ -63,6 +65,7 @@ func TestSingleExecutor_EveryAllowedActionIsClassified(t *testing.T) {
 		known[a] = true
 	}
 	known["renameTab"], known["renameWindow"] = true, true
+	known["renameGroup"], known["deleteGroup"] = true, true
 
 	for _, a := range AllowedCmdActionNames() {
 		if !known[a] {

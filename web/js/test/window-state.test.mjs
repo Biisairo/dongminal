@@ -27,7 +27,7 @@ function memStore() {
 function world() {
   const sessionStorage = memStore();
   const ctx = load(['core/pref-store.js', 'core/i18n.js', 'i18n/ko.js', 'core/constants.js',
-    ...HELPERS, 'core/app-window-state.js'], {
+    ...HELPERS, 'core/app-window-state.js', 'core/window-order.js', 'core/app-groups.js'], {
     globals: {
       App: function App() {}, sessionStorage, ACTIVE_EDITOR_ROOT_KEY: 'activeEditorRoot',
       ErrorLog: { push() {} },

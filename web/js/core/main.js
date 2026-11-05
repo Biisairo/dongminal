@@ -94,6 +94,8 @@ document.getElementById('add-window').addEventListener('click',async(e)=>{
     .catch(err=>app._notify(errText(t('core.open_window_fail'),err)))
     .finally(()=>{if(done)done()});
 });
+// ISSUE_AGENT_TREE_SRS FR-WGR-23: 빈 그룹을 만들고 이름을 고친다.
+document.getElementById('add-group').addEventListener('click',()=>app.addGroupInteractive());
 document.getElementById('add-preset').addEventListener('click',()=>{
   if(defaultPreset>=0&&layoutPresets[defaultPreset]) app._loadPreset(defaultPreset);
   else app.addWindow();

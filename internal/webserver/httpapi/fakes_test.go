@@ -278,6 +278,7 @@ type fakeCommandBroker struct {
 	awaitDelivered int
 	awaitTimedOut  bool
 	deliverCalls   []string // reqIds passed to DeliverResult
+	delivered      hub.CmdResult
 }
 
 func (f *fakeCommandBroker) Add() *hub.CmdSub {
@@ -308,6 +309,7 @@ func (f *fakeCommandBroker) DeliverResult(reqId string, res hub.CmdResult) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.deliverCalls = append(f.deliverCalls, reqId)
+	f.delivered = res
 }
 
 // ── fakeSettingsStore ───────────────────────────────

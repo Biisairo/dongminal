@@ -300,6 +300,15 @@ textarea,
 /* 샌드박스 창 표식. accent 는 알람·활성이 쓰는 색이므로 섞지 않는다 — 격리
    여부는 지나가는 상태가 아니라 그 창의 성질이다. */
 .sbl-badge.si-sbx{background:transparent;border:1px solid var(--border);color:var(--text-hint);border-radius:3px}
+/* ISSUE_AGENT_TREE_SRS FR-WGR-20: window 그룹 머리와 그 안의 창. 머리는 점 대신
+   접기 표시를 그린다 — 펼침은 아래, 접힘은 오른쪽. 그룹 안 창은 들여 쓴다. */
+.sbl-item.si-group{font-size:var(--fs-sm);color:var(--text-muted);font-weight:600}
+.sbl-item.si-group .sbl-dot{width:0;height:0;border-radius:0;background:transparent;
+  border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid var(--text-muted)}
+.sbl-item.si-group.folded .sbl-dot{border-top:4px solid transparent;border-bottom:4px solid transparent;
+  border-left:5px solid var(--text-muted);border-right:0}
+.sbl-badge.si-group-count{background:transparent;color:var(--text-hint)}
+.sbl-item.si-in-group{padding-left:22px}
 /* 샌드박스 프로파일 선택. 등급이 이름 옆에 붙어, 무엇을 고르는지가 고르는
    자리에서 보인다 (FR-SBX-25). */
 .confirm-btns.sbx-pick{flex-wrap:wrap}

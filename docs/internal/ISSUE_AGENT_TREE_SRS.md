@@ -1,7 +1,7 @@
 # SRS: 이슈 에이전트 트리 — 명령 · statusLine 프록시 · window 그룹 · 순서 명령 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 묶음 O·G·S·T 전부 구현 전. 순서는 O·G → S → T, T 의 시범(TC-IAT-3)은 rust-wasm 세션이 #62 를 커밋한 뒤
+> **남은 것**: 묶음 T(명령 문서 `commands/issue-tree.md`) · TC-SLP-6(Windows 셸 실측) · FR-WGR-25 키보드 조작의 e2e · TC-IAT-3 시범(rust-wasm 세션이 #62 를 커밋한 뒤). 묶음 O·G·S 는 구현·시험 완료
 
 ## 1. 개요 (Introduction)
 
@@ -199,7 +199,8 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 | ID | 요구 | 우선 |
 |---|---|---|
 | FR-SLP-1 | dongminal 이 `claude()` 래퍼로 넘기는 설정 파일(`$DONGMINAL_HOME/bin/agent-hooks/claude.json`)에 `statusLine` 을 넣는다. 명령은 `dmctl statusline` 이다 | 필수 |
-| FR-SLP-2 | `dmctl statusline` 은 stdin JSON 을 끝까지 읽는다. `context_window.used_percentage` · `context_window_size` · `current_usage` · `session_id` · `model` 을 꺼내 서버에 보고한다. 보고 대상 도구는 실행 환경의 `DONGMINAL_TOOL_ID` 다. `used_percentage` 가 `null` 이면(첫 응답 전) 보고하지 않는다 | 필수 |
+| FR-SLP-2 | `dmctl statusline` 은 stdin JSON 을 끝까지 읽고, **허용 목록**의 값을 꺼내 서버에 보고한다(D-IAT-16). 보고 대상 도구는 실행 환경의 `DONGMINAL_TOOL_ID` 다. 허용 목록: `session_id` · `version` · `model.id`·`model.display_name` · `effort.level` · `thinking.enabled` · `fast_mode` · `output_style.name` · `exceeds_200k_tokens` · `cost.*`(총 비용·총 시간·API 시간·추가/삭제 줄 수) · `context_window.*`(입출력 누적 토큰·창 크기·`current_usage` 넷·사용률·남은 비율) · `rate_limits.*`(창마다 사용률·재설정 시각). 값이 `null` 이거나 없는 필드는 싣지 않는다(첫 응답 전에는 사용률이 `null` 이다) | 필수 |
+| FR-SLP-2a | 경로와 본문은 보내지 않는다: `transcript_path` · `cwd` · `workspace.*` 는 허용 목록 밖이다(FR-CTX-3 과 같은 규칙). 허용 목록에 없는 새 필드는 Claude Code 판이 바뀌어 생겨도 보내지 않는다 | 필수 |
 | FR-SLP-3 | 보고는 표시를 막지 않는다. 보고에 실패하거나 제한 시간(NFR-SLP-1)을 넘기면 버리고 다음 단계로 간다 | 필수 |
 | FR-SLP-4 | `dmctl statusline` 은 **하위 statusLine 명령**을 찾는다. dongminal 의 설정을 뺀 나머지 Claude Code 설정을 우선순위대로 읽는다: 프로젝트 `.claude/settings.local.json` → 프로젝트 `.claude/settings.json` → 사용자 설정(`$CLAUDE_CONFIG_DIR/settings.json`, 없으면 `~/.claude/settings.json`). 프로젝트 폴더는 stdin JSON 의 작업 폴더 값에서 얻는다 | 필수 |
 | FR-SLP-5 | 하위 명령이 있으면 **받은 stdin 바이트를 그대로** 넘겨 실행한다. 그 stdout 을 그대로 내보내고 종료 코드를 그대로 돌려준다 | 필수 |
@@ -208,7 +209,7 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 | FR-SLP-8 | 하위 명령을 실행하는 셸은 Claude Code 가 그 플랫폼에서 statusLine 을 실행하는 방식과 같다. Windows 에서도 동작한다(PowerShell 래퍼도 같은 설정 파일을 쓴다) | 필수 |
 | FR-SLP-10 | 서버는 도구마다 statusLine 관측값(사용률·창 크기·토큰·시각)을 저장한다. Run 멤버인지와 상관없이 저장한다 | 필수 |
 | FR-SLP-11 | 같은 도구에 statusLine 관측값과 transcript 관측값이 함께 있으면 **statusLine 값이 이긴다.** statusLine 값이 없을 때만 기존 계산(FR-CTX-1~6)을 쓴다 | 필수 |
-| FR-SLP-20 | `dmctl status --json` 은 `context` 객체를 싣는다: `usedPct` · `windowTokens` · `tokens` · `source`(`statusline` \| `transcript`) · `observedAt`. 값이 없으면 `context` 를 싣지 않는다 | 필수 |
+| FR-SLP-20 | `dmctl status --json` 은 `context` 객체를 싣는다: `usedPct` · `windowTokens` · `tokens` · `source`(`statusline` \| `transcript`) · `observedAt`. 그리고 statusLine 관측이 있으면 `usage` 객체에 FR-SLP-2 의 값 전부를 싣는다(`model` · `version` · `sessionId` · `effort` · `thinking` · `fastMode` · `outputStyle` · `cost` · `contextWindow` · `rateLimits` · `exceeds200k` · `observedAt`). 값이 없으면 그 객체를 싣지 않는다. 대상은 `--at <탭 uuid\|toolId>`·`--member <uuid>` 로 지목하며, 생략하면 자기 세션이다 | 필수 |
 | FR-SLP-21 | `dmctl status` 의 글자 출력에도 사용률과 출처를 한 줄로 적는다 | 필수 |
 | FR-SLP-22 | 기존 맥락 표시(멤버 카드·그래프 노드, FR-RCX-*)도 FR-SLP-11 의 우선순위를 따른다 | 필수 |
 
@@ -256,7 +257,7 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 | FR-WGR-31 | `dmctl rename-group --at <그룹> <이름>` | 필수 |
 | FR-WGR-32 | `dmctl delete-group --at <그룹>` — FR-WGR-12 를 따른다 | 필수 |
 | FR-WGR-33 | `dmctl new-window --group <그룹>` — 새 window 를 그 그룹의 끝에 만든다 | 필수 |
-| FR-WGR-34 | `dmctl list-workspace` 는 각 window 의 그룹 uuid·그룹 이름을 싣고, `--json` 은 `windowGroups` 와 담는 곳마다의 순서·개수를 싣는다(FR-ORD-30) | 필수 |
+| FR-WGR-34 | `dmctl list-workspace` 의 행마다 그룹 uuid·그룹 이름을 싣는다(글자 출력은 `group="…"`). 빈 그룹까지 포함한 그룹 목록은 `dmctl list-groups [--json]` 이 낸다: 그룹 uuid · 이름 · 트리 표지 · 최상위 목록 안 자리 · window 수 | 필수 |
 | FR-WGR-35 | 그룹 uuid 는 uuid 만 받는다. 좌표 라벨이나 이름으로 지목하지 않는다(FR-IDU-*) | 필수 |
 | FR-WGR-36 | 새 명령은 모두 `cmdActions` 허용 목록에 등록하고, 구독 중인 브라우저가 없으면 지금의 레이아웃 명령처럼 실패한다(exit 1) | 필수 |
 
@@ -296,8 +297,8 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 
 | ID | 요구 | 우선 |
 |---|---|---|
-| FR-ORD-30 | `dmctl list-workspace --json` 은 담는 곳마다 원소의 순서와 개수를 싣는다: 최상위 목록, 그룹마다의 window, 칸마다의 탭 | 필수 |
-| FR-ORD-31 | 글자 출력에는 각 탭·window 의 담는 곳 안 자리(`3/5`)를 적는다 | 필수 |
+| FR-ORD-30 | `dmctl list-workspace --json` 은 지금의 **행 배열** 꼴을 유지하고, 행마다 순서 필드를 더한다: `windowContainer`(그룹 uuid 또는 `top`) · `windowIndex` · `windowCount` · `tabIndex` · `tabCount`(그 칸 안). 기존 필드는 바꾸지 않는다 — 소비자(스킬·스크립트)가 배열을 읽는다 | 필수 |
+| FR-ORD-31 | 글자 출력에는 각 행에 `win_pos=<자리>/<개수>` · `tab_pos=<자리>/<개수>` 를 적는다(기존 `tab="이름"` 열과 겹치지 않게) | 필수 |
 
 ### 3.5 비기능 요구사항 (Non-functional)
 
@@ -328,6 +329,7 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 | D-IAT-12 | 맥락 사용률은 statusLine 입력에서 가져온다 | Claude Code 가 statusLine 에 주는 `used_percentage` 가 공식 값이다. transcript 계산은 창 크기를 추측한다. statusLine 명령은 하나만 등록되므로 dongminal 이 앞에 서서 하위 명령에 그대로 넘긴다 |
 | D-IAT-13 | 순서 지정은 번호 · 한 칸 · 기준 uuid 셋 다 | 번호는 개수를 아는 에이전트에게, 한 칸은 사람에게, 기준 uuid 는 "이 탭 바로 뒤" 같은 트리 배치에 맞다. 사용자 결정 |
 | D-IAT-14 | 묶음 넷을 SRS 하나에 둔다 | 사용자 결정. S·G·O 는 T 를 위해 생겼다 |
+| D-IAT-16 | statusLine 입력에서 가져올 수 있는 값은 허용 목록으로 넓게 저장한다. 경로·본문은 뺀다 | 사용자 결정("어떤 것이 더 필요할지 모르니 가져올 수 있는 데이터는 많이"). 허용 목록으로 두는 이유: FR-CTX-3(숫자만, 경로 없음)을 지키고, Claude Code 가 새 필드를 더해도 모르는 값이 조용히 새지 않게 한다 |
 | D-IAT-15 | Run 의 격리 단위는 window, 이슈 트리의 격리 단위는 window 그룹이다 | 사용자 결정. 트리는 이름이 아니라 그룹의 트리 표지로 알아본다 — 이름은 사용자가 고칠 수 있으므로 식별자가 될 수 없다 |
 
 ## 5. 검증 (Verification)
@@ -337,7 +339,8 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 | TC-SLP-1 | FR-SLP-4·5·7 | 단위: 임시 설정 트리(프로젝트 local·프로젝트·사용자)에서 하위 명령 선택 순서. 하위 명령이 받은 stdin 이 원본과 바이트로 같다. 설정 파일이 바뀌지 않았다 |
 | TC-SLP-2 | FR-SLP-3·NFR-SLP-1 | 단위: 서버가 응답하지 않아도 하위 명령 출력이 나온다. 보고 단계가 100ms 를 넘지 않는다 |
 | TC-SLP-3 | FR-SLP-6 | 단위: 하위 명령이 없으면 출력이 비어 있고 종료 코드는 0 |
-| TC-SLP-4 | FR-SLP-10·11·20 | Go: statusLine 관측이 transcript 관측을 이긴다. `dmctl status --json` 의 `context.source` |
+| TC-SLP-4 | FR-SLP-10·11·20 | Go: statusLine 관측이 transcript 관측을 이긴다. `dmctl status --json` 의 `context.source`·`usage` |
+| TC-SLP-7 | FR-SLP-2·2a | 단위: 실측 입력 표본에서 허용 목록 값만 나간다. `transcript_path`·`cwd`·`workspace`·모르는 새 필드는 나가지 않는다. `null` 은 싣지 않는다 |
 | TC-SLP-5 | FR-SLP-1 전제 | 실측: `--settings` 로 넘긴 `statusLine` 이 사용자 설정의 `statusLine` 보다 우선한다. Claude Code 가 statusLine 을 실행하는 셸·작업 폴더(macOS·Windows) |
 | TC-SLP-6 | FR-SLP-8 | Windows e2e 또는 수동: PowerShell 래퍼에서 하위 명령이 그려진다 |
 | TC-WGR-1 | FR-WGR-2·4·5·6 | 단위: 불변식 복구, 빈 그룹의 자리, 없는 그룹 정리 |
@@ -380,5 +383,8 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-05 | 묶음 O·G·S 구현. R-5(`--help` 가 레이아웃 명령을 실행하던 결함) 수정 |
+| 2026-11-05 | FR-WGR-34·FR-ORD-30·31: `list-workspace --json` 은 행 배열을 유지하고 순서 필드를 더한다. 빈 그룹은 `list-groups` 가 낸다 |
+| 2026-11-05 | FR-SLP-2·2a·20 확장: 사용률뿐 아니라 statusLine 입력의 비용·한도·모델 등을 허용 목록으로 저장하고 `dmctl status` 의 `usage` 로 낸다(D-IAT-16) |
 | 2026-11-05 | 승인(사용자). TC-SLP-5 실측으로 R-1 해소, FR-SLP-2 에 `null` 처리 추가 |
 | 2026-11-05 | 초안. 결정 경위는 `/Users/dykim/p6w-backup/issue-agent-skill-handoff.md` 「정한 것」 |

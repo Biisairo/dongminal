@@ -344,6 +344,8 @@ Object.assign(App.prototype, {
     u.close();
     const at=Math.min(u.index,this.ws.windows.length);
     this.ws.windows.splice(at,0,u.win);
+    // FR-WGR-13: 되돌린 창은 원래 그룹으로 간다 — 그 사이 그룹이 지워졌으면 풀린다.
+    this._groupsNormalizeWs(this.ws);
     for(const pid of u.pids) this._setToolBackground(pid,false);
     this._bgRefresh();
     this._activateWindow(u.win.id);

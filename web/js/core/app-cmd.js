@@ -53,6 +53,13 @@ const REMOTE_ACTIONS=Object.freeze({
   paneDown:(app,a)=>app._remoteViaAction('paneDown',a),
   paneLeft:(app,a)=>app._remoteViaAction('paneLeft',a),
   paneRight:(app,a)=>app._remoteViaAction('paneRight',a),
+  // ISSUE_AGENT_TREE_SRS 묶음 G·O (`app-groups.js`).
+  newGroup:(app,a)=>app._remoteNewGroup(a),
+  renameGroup:(app,a)=>app._remoteRenameGroup(a),
+  deleteGroup:(app,a)=>app._remoteDeleteGroup(a),
+  moveTab:(app,a)=>app._remoteMoveTab(a),
+  moveWindow:(app,a)=>app._remoteMoveWindow(a),
+  moveGroup:(app,a)=>app._remoteMoveGroup(a),
 });
 
 Object.assign(App.prototype, {
@@ -470,12 +477,17 @@ Object.assign(App.prototype, {
   // REMOTE_COMMAND_RESULT_SRS FR-RCR-6: 생성 명령의 새 엔터티 id 를 reqId 와 묶어
   // 서버에 echo. best-effort — 실패해도 서버 timeout 이 백스톱 (DC-RCR-3).
   _echoResult(reqId, result){
-    apiPost('/api/command-result',{
+    const body={
       reqId,
       newWindows:result.newWindows||[],
       newPanes:result.newPanes||[],
       newTabs:result.newTabs||[],
-    });
+    };
+    // ISSUE_AGENT_TREE_SRS FR-WGR-30 · FR-ORD-6: 새 그룹 id, 이동의 최종 위치, 실패 사유.
+    if(result.newGroups) body.newGroups=result.newGroups;
+    if(result.position) body.position=result.position;
+    if(result.error) body.error=result.error;
+    apiPost('/api/command-result',body);
   },
 
   /**
@@ -547,6 +559,8 @@ Object.assign(App.prototype, {
   // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-5: newWindow/newTab 은 name/keepFocus
   // 를 전달하기 위해 명시 분기. 의미는 _mkWindow/addTab 내부에서 보장.
   _remoteNewWindow(args){
+    // ISSUE_AGENT_TREE_SRS FR-WGR-33: 그 그룹의 끝에 만든다. 없는 그룹이면 만들지 않는다.
+    if(args.group&&!this.windowGroups().some(g=>g.id===args.group)) return Promise.resolve({error:'not_found'});
     // FR-WBR-22: `dmctl` 은 더 이상 호출자 도구를 자동으로 싣지 않는다 —
     // 새 창은 홈에서 뜬다. `cwdTool` 은 다른 호출자가 명시로 줄 때만 온다
     // (FR-CWD-3 은 남는다).
@@ -556,6 +570,7 @@ Object.assign(App.prototype, {
     // 말한다. echo 는 내지 않는다 — dmctl 은 `timedOut` 으로 exit 1 을 받는다(D-A-2).
     return this._mkWindow({name:args.name,keepFocus:!!args.keepFocus,cwdTool:args.cwdTool,
       sandbox:args.sandbox,cwd:args.cwd||args.workdir}).then((c)=>{
+      if(c&&args.group) this.moveWindowTo(c.win,{to:args.group});
       this.render();
       return c&&{newWindows:[c.win],newPanes:[c.pane],newTabs:[c.tab]};
     }).catch(err=>{ this._notify(errText(t('core.open_window_fail'),err)) });
@@ -578,7 +593,11 @@ Object.assign(App.prototype, {
       rid=this.focused;
     }
     if(!rid) return;
-    return this.addTab(rid,TAB_TYPE_TERMINAL,opts).then((tab)=>tab&&{newTabs:[tab]})
+    // ISSUE_AGENT_TREE_SRS FR-ORD-11: 만든 뒤 그 칸 안에서 자리를 잡는다.
+    return this.addTab(rid,TAB_TYPE_TERMINAL,opts).then((tab)=>{
+      if(tab&&(args.after||args.index!==undefined)) this.moveTabTo(tab.uuid,args.after?{after:args.after}:{index:args.index});
+      return tab&&{newTabs:[tab]};
+    })
       .catch(err=>{ this._notify(errText(t('core.open_tab_fail'),err)) });
   },
 

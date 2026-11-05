@@ -139,6 +139,9 @@ type ContextObservation struct {
 	// 자리가 없기 때문이다 (observeCoordinator). 비어 있으면 창을 모르는 것으로
 	// 두며, 그때는 정책 기본값과 넓히기가 받는다 (FR-CTX-6·7).
 	Agent string
+	// Window 는 에이전트가 직접 말한 창 크기다 (ISSUE_AGENT_TREE_SRS FR-SLP-11).
+	// 0 이면 말하지 않았다.
+	Window float64
 }
 
 // ObserveContext 는 관측 하나를 멤버에 반영한다 (FR-CBG-3).
@@ -230,7 +233,12 @@ func applyContextObservation(cs *ContextState, obs ContextObservation, policy Co
 	 *
 	 * 넓힌 값은 남는다 (FR-CTX-7). 압축으로 사용량이 내려가도 창은 그대로다.
 	 */
-	if w, ok := WindowForModel(obs.Agent, obs.Model); ok {
+	// ISSUE_AGENT_TREE_SRS FR-SLP-11: 에이전트가 직접 말한 창이 ① 보다 앞선다. 받은
+	// 뒤에는 모델 이름의 추측이 덮지 않는다 — 추측은 말하지 않을 때의 대안이다.
+	if obs.Window > 0 {
+		cs.ContextLimit = obs.Window
+		cs.WindowOfficial = true
+	} else if w, ok := WindowForModel(obs.Agent, obs.Model); ok && !cs.WindowOfficial {
 		cs.ContextLimit = w
 	}
 	if cs.ContextLimit <= 0 {

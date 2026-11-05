@@ -33,6 +33,28 @@ const SB_TAB_KEY='sidebarTab'; // FR-SBT-6: 보는 방식은 클라이언트의 
  *
  * 필드는 **창 목록이 실제로 하는 일**에서 뽑았다 — 쓰이지 않는 훅은 만들지 않는다.
  */
+/**
+ * ISSUE_AGENT_TREE_SRS FR-WGR-20: 그룹 머리 행. 접기 표시는 CSS(`.si-group.folded`)가 그린다.
+ * 열기 = 접고 펴기, 이름 고치기 = 그룹 이름, 지우기 = 그룹만 지우고 창은 남긴다.
+ */
+function groupRow(app,e){
+  const g=e.group,n=e.windows.length;
+  const tree=g.tree?t('sidebar.group_tree',{ref:g.tree.repo+'#'+g.tree.root}):'';
+  return {
+    name:g.name,
+    title:tn('sidebar.group_title',n,{name:g.name})+(tree?' · '+tree:''),
+    cls:['si-group',e.folded?'folded':'',g.tree?'si-group-tree':''].filter(Boolean).join(' '),
+    attn:app.groupHasAttn(e),
+    badge:{text:String(n),cls:'si-group-count'},
+    removable:true,
+    removeTitle:t('sidebar.group_remove'),
+    dataset:{groupId:g.id},
+    onOpen:a=>a.wgFoldToggle(g.id),
+    onRemove:a=>a.deleteGroup(g.id),
+    onRename:(a,el)=>a.rename(g,el),
+  };
+}
+
 const SB_TAB_DEFS=[
   {
     id:'windows',label:t('sidebar.tab_windows'),icon:'terminal',panelId:'sb-panel-windows',
@@ -50,23 +72,27 @@ const SB_TAB_DEFS=[
       containerId:'windows',
       // FR-BLP-6: 기존 클래스는 보존한다 — e2e 와 CSS 가 그 위에 서 있다.
       itemClass:'si',dotClass:'si-dot',nameClass:'si-name',xClass:'si-x',
-      actions:['add-window','add-preset'],
+      actions:['add-window','add-preset','add-group'],
       // FR-GIT-182: Git 창은 이 목록에 없다 — 진입점은 GIT 탭의 리포 항목뿐이다.
-      items:app=>app.plainWindows(),
-      key:s=>s.id,
+      // ISSUE_AGENT_TREE_SRS FR-WGR-20: 그룹 머리가 같은 목록의 행으로 섞인다.
+      items:app=>app.sidebarWindowEntries(),
+      key:s=>s.kind==='group'?WG_KEY+s.group.id:s.id,
       // FR-BLP-15~18: 순회. 규약은 블루프린트가 갖고, 여기는 타깃만 준다.
       cycle:{
+        // 그룹 머리는 순회 대상이 아니다 — 창만 돈다.
+        filter:s=>s.kind!=='group',
         currentKey:app=>app.ws.activeWindow,
         open:(app,s)=>app.switchWindow(s.id),
       },
       // FR-MOV-1: 창 항목은 탭을 받는다. 지금 보고 있는 창은 받을 이유가 없다 —
       // 같은 창 안의 이동은 분할 칸의 탭 바가 이미 한다.
       tabDrop:{
-        accepts:(app,r)=>r.key!==app.ws.activeWindow,
+        accepts:(app,r)=>r.key!==app.ws.activeWindow&&!String(r.key).startsWith(WG_KEY),
         drop:(app,r,dr)=>app.moveTabToWindow(dr.srcPaneId,dr.tabId,r.key),
       },
-      row:(app,s)=>({
+      row:(app,s)=>s.kind==='group'?groupRow(app,s):({
         name:s.name,
+        cls:s.groupId?'si-in-group':'',
         active:s.id===app.ws.activeWindow,
         // FR-PAN-16: 알람이 있는 창을 사이드바에서 구분 표시.
         attn:app.windowHasAttn(s),
@@ -88,14 +114,9 @@ const SB_TAB_DEFS=[
       }),
       reorder:{
         type:'window',
-        apply:(app,dr)=>{
-          const arr=app.ws.windows;
-          const si=arr.findIndex(x=>x.id===dr.src); if(si<0) return false;
-          const[moved]=arr.splice(si,1);
-          let ti=arr.findIndex(x=>x.id===dr.target);
-          if(ti<0) arr.push(moved); else { if(!dr.before) ti++; arr.splice(ti,0,moved) }
-          return true;
-        },
+        // ISSUE_AGENT_TREE_SRS FR-WGR-24: 그룹 안팎·그룹 통째 이동은 순서 함수가 정한다
+        // (FR-WGR-4 의 불변식을 끌어 놓기도 지킨다).
+        apply:(app,dr)=>app.sidebarReorder(dr),
         // 창 순서는 클라이언트가 workspace.json 에 쓴다 — 서버 확정이 없다.
         // FR-AGG-3: agents 패널의 그룹 순서는 이 배열에서 파생하므로(D-9) 같은
         // 자리에서 다시 그린다 — 폴링을 기다리면 방금 만든 순서를 한 박자 늦게 본다.

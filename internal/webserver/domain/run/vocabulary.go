@@ -115,6 +115,9 @@ type ContextState struct {
 	ContextAt    int64   `json:"contextAt,omitempty"`    // 마지막 관측 시각
 	CompactCount int     `json:"compactCount,omitempty"` // PreCompact 도달 횟수
 	SessionID    string  `json:"sessionId,omitempty"`    // 에이전트 세션 결속
+	// ISSUE_AGENT_TREE_SRS FR-SLP-11: ContextLimit 이 에이전트가 직접 말한 공식 값이다
+	// (statusLine 입력). 참이면 모델 이름의 추측이 그 값을 덮지 않는다.
+	WindowOfficial bool `json:"windowOfficial,omitempty"`
 }
 
 // Member 는 Run 에 속한 참여자 하나이며 Tool 과 1:1 이다 (FR-RUN-2).

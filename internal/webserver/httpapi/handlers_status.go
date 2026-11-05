@@ -55,6 +55,9 @@ type toolStatus struct {
 	UpdatedAt    int64  `json:"updatedAt"`
 	LastOutputAt int64  `json:"lastOutputAt"`
 	QuietMs      int64  `json:"quietMs"`
+	// ISSUE_AGENT_TREE_SRS FR-SLP-20: 맥락 사용률과 statusLine 사용량. 관측이 없으면 없다.
+	Context *toolContext `json:"context,omitempty"`
+	Usage   *toolUsage   `json:"usage,omitempty"`
 }
 
 // waitResult 는 대기의 결말이다. status 는 ready|done|blocked|timeout|gone 이고,
@@ -100,6 +103,7 @@ func (s *Server) toolStatusOf(toolID string, live bool) toolStatus {
 		st.LastOutputAt = last
 		st.QuietMs = (time.Now().UnixNano() - last) / int64(time.Millisecond)
 	}
+	st.Context, st.Usage = s.toolUsageView(toolID)
 	return st
 }
 

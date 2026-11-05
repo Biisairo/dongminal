@@ -21,6 +21,10 @@ type Line struct {
 	Tab         string
 	WindowUUID  string
 	PaneUUID    string
+	// ISSUE_AGENT_TREE_SRS FR-WGR-34 · FR-ORD-31. 0·빈 값이면 열을 생략한다 (FR-PL-2).
+	Group              string
+	WinIndex, WinCount int
+	TabIndex, TabCount int
 }
 
 // Render는 FR-PL-1 의 표준 라인을 반환한다. 개행 미포함.
@@ -49,6 +53,15 @@ func (l Line) Render() string {
 	}
 	if l.PaneUUID != "" {
 		fmt.Fprintf(&b, "  pane_uuid=%s", l.PaneUUID)
+	}
+	if l.Group != "" {
+		fmt.Fprintf(&b, "  group=%q", l.Group)
+	}
+	if l.WinCount != 0 {
+		fmt.Fprintf(&b, "  win_pos=%d/%d", l.WinIndex, l.WinCount)
+	}
+	if l.TabCount != 0 {
+		fmt.Fprintf(&b, "  tab_pos=%d/%d", l.TabIndex, l.TabCount)
 	}
 	return b.String()
 }

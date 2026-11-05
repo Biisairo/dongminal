@@ -78,6 +78,9 @@ type Server struct {
 	// 루트 가드가 이것을 읽는다 (FR-EDT-113). Work 가 nil 이면 그 종단만 실패한다.
 	Entries *wsentry.Store
 
+	// usage 는 도구별 statusLine 사용량이다 (ISSUE_AGENT_TREE_SRS FR-SLP-10). 메모리에만 둔다.
+	usage usageStore
+
 	// git 은 /api/git/* 을 소유한다. **Git 이 nil 이어도 이 자리는 만들어진다** —
 	// `UserWorktrees` 만 있는 배선에서도 Worktrees 탭이 답해야 하기 때문이다.
 	// 그래서 `Git == nil` 은 라우팅 miss 가 아니라 핸들러 안의 503 으로 걸린다

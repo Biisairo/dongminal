@@ -264,7 +264,7 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if hub.IsCreatingAction(req.Action) {
+	if hub.AwaitsResult(req.Action) {
 		// FR-RCR-4: reqId 발급 → broadcast → 브라우저 echo 대기 → 새 id 포함 반환.
 		req.ReqId = hub.NewReqId()
 		payload, _ := json.Marshal(req)
@@ -274,6 +274,15 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		resp["newPanes"] = res.NewPanes
 		resp["newTabs"] = res.NewTabs
 		resp["timedOut"] = timedOut
+		if len(res.NewGroups) > 0 {
+			resp["newGroups"] = res.NewGroups
+		}
+		if res.Position != nil {
+			resp["position"] = res.Position
+		}
+		if res.Error != "" {
+			resp["error"] = res.Error
+		}
 		dmlog.Infof(nil, "[cmd] action=%s%s delivered=%d newTabs=%d timedOut=%t",
 			req.Action, locField, n, len(res.NewTabs), timedOut)
 	} else {
@@ -299,10 +308,13 @@ func (s *Server) handleCommandResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		ReqId      string       `json:"reqId"`
-		NewWindows []string     `json:"newWindows"`
-		NewPanes   []string     `json:"newPanes"`
-		NewTabs    []hub.TabRef `json:"newTabs"`
+		ReqId      string           `json:"reqId"`
+		NewWindows []string         `json:"newWindows"`
+		NewPanes   []string         `json:"newPanes"`
+		NewTabs    []hub.TabRef     `json:"newTabs"`
+		NewGroups  []string         `json:"newGroups"`
+		Position   *hub.CmdPosition `json:"position"`
+		Error      string           `json:"error"`
 	}
 	ok, answered := readBodyHTTP(w, r, &body)
 	if answered {
@@ -317,6 +329,9 @@ func (s *Server) handleCommandResult(w http.ResponseWriter, r *http.Request) {
 			NewWindows: body.NewWindows,
 			NewPanes:   body.NewPanes,
 			NewTabs:    body.NewTabs,
+			NewGroups:  body.NewGroups,
+			Position:   body.Position,
+			Error:      body.Error,
 		})
 	}
 	w.WriteHeader(http.StatusOK)

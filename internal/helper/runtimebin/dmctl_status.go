@@ -34,6 +34,10 @@ state 는 에이전트 훅이 보고한 값이다:
   unknown   훅 보고가 없다 (오류가 아니다)
 
 quietMs 는 마지막 출력 이후 경과(ms)이며 -1 은 출력을 관측한 적이 없다는 뜻이다.
+
+맥락 사용률이 관측됐으면 둘째 줄에 context=<%>  tokens=<지금>/<창>  source=<출처> 가
+나온다. source 는 statusline(Claude Code 공식 값) 또는 transcript(추정)다. --json 은
+context 와 usage(모델·판·비용·맥락 상세·한도·effort 등)를 싣는다. 경로는 싣지 않는다.
 `
 
 const dmctlWaitHelp = `dmctl wait — 도구가 조건을 만족할 때까지 기다린다
@@ -159,6 +163,13 @@ func runDmctlStatus(args []string, stdout, stderr io.Writer) int {
 		Tool    string `json:"tool"`
 		Detail  string `json:"detail"`
 		QuietMs int64  `json:"quietMs"`
+		// ISSUE_AGENT_TREE_SRS FR-SLP-21: 맥락 사용률과 그 출처.
+		Context *struct {
+			UsedPct      *float64 `json:"usedPct"`
+			WindowTokens float64  `json:"windowTokens"`
+			Tokens       float64  `json:"tokens"`
+			Source       string   `json:"source"`
+		} `json:"context"`
 	}
 	if err := json.Unmarshal(body, &st); err != nil {
 		fmt.Fprintf(stderr, "dmctl: invalid status response: %v\n", err)
@@ -166,6 +177,9 @@ func runDmctlStatus(args []string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "toolId=%s  live=%v  state=%s%s  quietMs=%d\n",
 		st.ToolID, st.Live, st.State, optionalFields(st.Tool, st.Detail), st.QuietMs)
+	if c := st.Context; c != nil && c.UsedPct != nil {
+		fmt.Fprintf(stdout, "context=%.1f%%  tokens=%.0f/%.0f  source=%s\n", *c.UsedPct, c.Tokens, c.WindowTokens, c.Source)
+	}
 	return 0
 }
 

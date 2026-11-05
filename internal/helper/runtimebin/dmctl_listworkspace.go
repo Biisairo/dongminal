@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"sync"
 
@@ -33,6 +34,25 @@ func parseListWorkspaceFlags(args []string, stdout, stderr io.Writer) (f listWor
 }
 
 // fetchListWorkspaceRows 는 `/api/state` 를 읽어 행으로 만든다.
+// fetchWorkspaceTree 는 /api/state 의 워크스페이스 트리만 읽는다 (list-groups).
+func fetchWorkspaceTree(stderr io.Writer) (*wsTree, int) {
+	status, body, err := httpGet(baseURL() + "/api/state")
+	body, code := apiResultWith(status, body, err, stderr, func(w io.Writer, st int, b []byte) {
+		fmt.Fprintf(w, "dmctl: /api/state returned status %d: %s\n", st, b)
+	})
+	if code != 0 {
+		return nil, code
+	}
+	var state struct {
+		Workspace *wsTree `json:"workspace"`
+	}
+	if err := json.Unmarshal(body, &state); err != nil {
+		fmt.Fprintf(stderr, "dmctl: invalid /api/state response: %v\n", err)
+		return nil, 1
+	}
+	return state.Workspace, 0
+}
+
 func fetchListWorkspaceRows(stderr io.Writer) ([]listWorkspaceRow, int) {
 	status, body, err := httpGet(baseURL() + "/api/state")
 	body, code := apiResultWith(status, body, err, stderr, func(w io.Writer, st int, b []byte) {
@@ -140,6 +160,11 @@ func listWorkspaceLine(r listWorkspaceRow) toolline.Line {
 		Tab:         r.Tab,
 		WindowUUID:  r.WindowUUID,
 		PaneUUID:    r.PaneUUID,
+		Group:       r.Group,
+		WinIndex:    r.WindowIndex,
+		WinCount:    r.WindowCount,
+		TabIndex:    r.TabIndex,
+		TabCount:    r.TabCount,
 	}
 }
 
@@ -169,6 +194,8 @@ type toolEntry struct {
 type wsTree struct {
 	ActiveWindow string     `json:"activeWindow"`
 	Windows      []wsWindow `json:"windows"`
+	// ISSUE_AGENT_TREE_SRS FR-WGR-2: 그룹 목록. 그룹을 안 쓰면 없다.
+	WindowGroups []wsGroup `json:"windowGroups"`
 }
 
 type wsWindow struct {
@@ -176,6 +203,21 @@ type wsWindow struct {
 	Name        string    `json:"name"`
 	FocusedPane string    `json:"focusedPane"`
 	Layout      *wsLayout `json:"layout"`
+	// Type 이 있으면(git·editor) 그룹·순서 목록 밖이다 (FR-WGR-7).
+	Type    string `json:"type"`
+	GroupID string `json:"groupId"`
+}
+
+type wsGroup struct {
+	ID   string       `json:"id"`
+	Name string       `json:"name"`
+	Tree *wsGroupTree `json:"tree,omitempty"`
+}
+
+// wsGroupTree 는 이슈 트리의 격리 단위 표지다 (FR-WGR-8).
+type wsGroupTree struct {
+	Repo string `json:"repo"`
+	Root int    `json:"root"`
 }
 
 // wsLayout·wsTab 은 workspace.WsLayout 의 dmctl 판이다. 갈라 둔 이유는
@@ -301,6 +343,100 @@ type listWorkspaceRow struct {
 	WindowUUID string `json:"windowUuid"`
 	PaneUUID   string `json:"paneUuid"`
 	Focused    bool   `json:"focused"`
+	// ISSUE_AGENT_TREE_SRS FR-WGR-34 · FR-ORD-30: 그룹과 담는 곳 안의 자리(1부터).
+	// git·editor 창의 행은 window 순서 필드가 비어 있다 (FR-WGR-7).
+	GroupUUID       string `json:"groupUuid,omitempty"`
+	Group           string `json:"group,omitempty"`
+	WindowContainer string `json:"windowContainer,omitempty"`
+	WindowIndex     int    `json:"windowIndex,omitempty"`
+	WindowCount     int    `json:"windowCount,omitempty"`
+	TabIndex        int    `json:"tabIndex"`
+	TabCount        int    `json:"tabCount"`
+}
+
+// winPos 는 window 하나가 담는 곳 안에서 선 자리다.
+type winPos struct {
+	container    string
+	index, count int
+}
+
+// windowPositions 는 web/js/core/window-order.js 의 winOrderItems 와 **같은 규칙**이다:
+// 일반 창(type 없음)만 세고, 같은 그룹의 연속한 창은 최상위에서 한 칸이다.
+func windowPositions(ws *wsTree) map[string]winPos {
+	type item struct {
+		group string
+		wins  []string
+	}
+	var items []*item
+	for _, w := range ws.Windows {
+		if w.Type != "" {
+			continue
+		}
+		if w.GroupID != "" && len(items) > 0 && items[len(items)-1].group == w.GroupID {
+			last := items[len(items)-1]
+			last.wins = append(last.wins, w.ID)
+			continue
+		}
+		items = append(items, &item{group: w.GroupID, wins: []string{w.ID}})
+	}
+	out := map[string]winPos{}
+	for i, it := range items {
+		if it.group == "" {
+			out[it.wins[0]] = winPos{container: windowContainerTop, index: i + 1, count: len(items)}
+			continue
+		}
+		for j, id := range it.wins {
+			out[id] = winPos{container: it.group, index: j + 1, count: len(it.wins)}
+		}
+	}
+	return out
+}
+
+const windowContainerTop = "top"
+
+// groupRow 는 `dmctl list-groups` 의 한 줄이다. Index 0 은 빈 그룹(최상위 목록 끝)이다.
+type groupRow struct {
+	UUID    string       `json:"uuid"`
+	Name    string       `json:"name"`
+	Tree    *wsGroupTree `json:"tree,omitempty"`
+	Index   int          `json:"index"`
+	Windows int          `json:"windows"`
+}
+
+func buildGroupRows(ws *wsTree) []groupRow {
+	if ws == nil {
+		return nil
+	}
+	top := map[string]int{}
+	count := map[string]int{}
+	itemIdx := 0
+	prev := ""
+	for _, w := range ws.Windows {
+		if w.Type != "" {
+			continue
+		}
+		if w.GroupID == "" || w.GroupID != prev {
+			itemIdx++
+		}
+		prev = w.GroupID
+		if w.GroupID != "" {
+			count[w.GroupID]++
+			if _, ok := top[w.GroupID]; !ok {
+				top[w.GroupID] = itemIdx
+			}
+		}
+	}
+	var live, empty []groupRow
+	for _, g := range ws.WindowGroups {
+		r := groupRow{UUID: g.ID, Name: g.Name, Tree: g.Tree, Index: top[g.ID], Windows: count[g.ID]}
+		if r.Windows == 0 {
+			empty = append(empty, r)
+			continue
+		}
+		live = append(live, r)
+	}
+	sort.SliceStable(live, func(i, j int) bool { return live[i].Index < live[j].Index })
+	return append(live, empty...)
 }
 
 func buildListWorkspaceRows(ws *wsTree, shellPids map[string]int, sizes map[string][2]int, fg map[string]string, fgEnabled func() bool) []listWorkspaceRow {
@@ -308,7 +444,13 @@ func buildListWorkspaceRows(ws *wsTree, shellPids map[string]int, sizes map[stri
 		return nil
 	}
 	var out []listWorkspaceRow
+	pos := windowPositions(ws)
+	groupName := map[string]string{}
+	for _, g := range ws.WindowGroups {
+		groupName[g.ID] = g.Name
+	}
 	for si, sess := range ws.Windows {
+		wp := pos[sess.ID]
 		var regions []*wsLayout
 		collectPanes(sess.Layout, &regions)
 		for pi, rg := range regions {
@@ -330,6 +472,14 @@ func buildListWorkspaceRows(ws *wsTree, shellPids map[string]int, sizes map[stri
 					WindowUUID: sess.ID,
 					PaneUUID:   rg.ID,
 					Focused:    focused,
+
+					GroupUUID:       sess.GroupID,
+					Group:           groupName[sess.GroupID],
+					WindowContainer: wp.container,
+					WindowIndex:     wp.index,
+					WindowCount:     wp.count,
+					TabIndex:        ti + 1,
+					TabCount:        len(rg.Tabs),
 				})
 			}
 		}

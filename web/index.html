@@ -146,6 +146,7 @@
              넣을 수 없기 때문이며, 분기는 클릭 대상으로 한다. -->
         <button id="add-window" class="ui-btn" title="New window"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg><span class="ui-btn-label" data-i18n="html.btn_new">New</span><span id="add-sandbox-window" data-i18n-title="html.sandbox_window_title"><svg class="ui-icon ui-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-box"/></svg><span class="ui-btn-label" data-i18n="html.btn_new_box">Box</span></span></button>
         <button id="add-preset" class="ui-btn" title="New window from default preset"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-star"/></svg><span class="ui-btn-label" data-i18n="html.btn_preset">Preset</span></button>
+        <button id="add-group" class="ui-btn" title="New window group"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-folder"/></svg><span class="ui-btn-label" data-i18n="html.btn_group">Group</span></button>
       </div>
       <div id="windows"></div>
     </div>
@@ -923,6 +924,8 @@
 <script src="js/core/app-update.js?v=__ASSETV__"></script>
 <script src="js/core/app-presets.js?v=__ASSETV__"></script>
 <script src="js/core/app-dnd.js?v=__ASSETV__"></script>
+<script src="js/core/window-order.js?v=__ASSETV__"></script>
+<script src="js/core/app-groups.js?v=__ASSETV__"></script>
 <!-- APP_TESTING_CONTRACT_SRS FR-ATC-1·7: e2e 가 보는 공개 계약.
      **App 의 모든 조각이 실린 뒤**에 온다 — 계약은 게터로 감싸므로 로드
      시점에 대상이 있을 필요는 없지만, 이 자리가 "그 위의 전부를 덮는다" 는

@@ -35,10 +35,12 @@ Object.assign(App.prototype, {
     // FR-EDT-103·104·106 / D-19: 일반 창에 남은 편집기 탭을 걷어낸다 — 다른 브라우저가
     // 만든 것도. `clean()` 이 아니라 여기다: `clean` 은 편집기 탭을 보존하도록
     // 만들어져 있고 창 타입을 알지 못한다 (§2.9).
-    if(!this._migrateEditorTabs(sv.windows)) return false;
+    const migrated=!!this._migrateEditorTabs(sv.windows);
     // FR-EDT-105: 탭이 0이 된 pane 은 붕괴하고, layout 이 빈 **일반** 창은 사라진다.
-    keep();
-    return true;
+    if(migrated) keep();
+    // ISSUE_AGENT_TREE_SRS FR-WGR-6: 그룹 불변식은 창 목록이 정해진 뒤에 세운다.
+    this._groupsNormalizeWs(sv);
+    return migrated;
   },
 
   /**

@@ -33,6 +33,10 @@ const dmctlHelp = `dmctl — dongminal 워크스페이스 원격 제어 CLI
   dmctl rename-tab --at <uuid> <이름>      # 탭 표시 이름 변경 (역할명 부여 등)
   dmctl rename-tab --at <uuid> --auto      # 탭 이름을 자동(전경 프로세스)으로 되돌린다
   dmctl rename-window --at <uuid> <이름>  # 그 도구가 속한 창 이름 변경
+  dmctl new-group --name <이름> [--tree <owner/repo#N>]   # window 그룹 (rename-group · delete-group · list-groups)
+  dmctl move-tab|move-window|move-group --at <uuid> (--index N | --prev | --next | --before <uuid> | --after <uuid>) [--to <uuid>]
+                                         # 순서 바꾸기. move-window 는 --ungroup 도 받는다
+                                         # new-window --group <그룹> · new-tab --after <탭> | --index N
   dmctl open-editor --at <uuid> [--name <이름>] <파일 절대경로>
   dmctl open-url <url>   # 보고 있는 기기의 브라우저로 연다
   dmctl list-workspace [--json]         # 열린 도구 목록 (uuid 포함, ▶=현재 포커스)
@@ -112,6 +116,14 @@ func runDmctl(args []string, stdout, stderr io.Writer) int {
 		return code
 	}
 
+	// ISSUE_AGENT_TREE_SRS NFR-ORD-1: 도움말을 청한 레이아웃 명령은 서버에 아무것도
+	// 보내지 않는다. 파서가 `-h`·`--help` 를 건너뛰기만 해서 `close-tab --help` 가
+	// 포커스 탭을 닫았다.
+	if hasHelpFlag(rest) {
+		fmt.Fprint(stdout, dmctlHelp)
+		return 0
+	}
+
 	parsed, err := parseDmctlFlags(rest)
 	if err != nil {
 		fmt.Fprintln(stderr, err.Error())
@@ -119,6 +131,15 @@ func runDmctl(args []string, stdout, stderr io.Writer) int {
 	}
 
 	return runDmctlWithFlags(cmd, parsed, stdout, stderr)
+}
+
+func hasHelpFlag(args []string) bool {
+	for _, a := range args {
+		if a == "-h" || a == "--help" {
+			return true
+		}
+	}
+	return false
 }
 
 // runDmctlSpecial handles commands that don't need flag parsing
@@ -157,6 +178,16 @@ func runDmctlSpecial(cmd string, rest []string, stdout, stderr io.Writer) (int, 
 		return runDmctlWait(rest, stdout, stderr), true
 	case "run":
 		return runDmctlRun(rest, stdout, stderr), true
+	// ISSUE_AGENT_TREE_SRS 묶음 G·O (dmctl_order.go).
+	case "move-tab", "move-window", "move-group":
+		return runDmctlMove(cmd, rest, stdout, stderr), true
+	case "new-group", "rename-group", "delete-group":
+		return runDmctlGroup(cmd, rest, stdout, stderr), true
+	case "list-groups":
+		return runDmctlListGroups(rest, stdout, stderr), true
+	// ISSUE_AGENT_TREE_SRS 묶음 S: Claude Code 가 부르는 statusLine 프록시.
+	case "statusline":
+		return runDmctlStatusline(os.Stdin, stdout, stderr), true
 	}
 	return 0, false
 }
@@ -324,6 +355,10 @@ type dmctlParsed struct {
 	// M9_SRS FR-M9-4: 닫기의 답을 미리 준다. 둘은 배타다 (D-M9-4).
 	force      bool
 	background bool
+	// ISSUE_AGENT_TREE_SRS FR-WGR-33 · FR-ORD-11: 만들 때의 자리.
+	group string
+	after string
+	index *int
 }
 
 func (p dmctlParsed) buildArgs() map[string]any {
@@ -357,6 +392,15 @@ func (p dmctlParsed) buildArgs() map[string]any {
 	if p.cwd != "" {
 		out["cwd"] = p.cwd
 	}
+	if p.group != "" {
+		out["group"] = p.group
+	}
+	if p.after != "" {
+		out["after"] = p.after
+	}
+	if p.index != nil {
+		out["index"] = *p.index
+	}
 	return out
 }
 
@@ -374,6 +418,9 @@ func parseDmctlFlags(args []string) (dmctlParsed, error) {
 			// WORKBENCH_REVIEW_SRS FR-WBR-23: 새 창의 첫 도구가 뜰 자리. 생략하면
 			// 홈이다 (FR-WBR-20·22) — 승계는 더 이상 없다.
 			"--cwd": setStr(&p.cwd),
+			// ISSUE_AGENT_TREE_SRS: new-window --group · new-tab --after/--index.
+			"--group": setUUID(&p.group), "--after": setUUID(&p.after),
+			"--index": setPositiveInt(&p.index),
 		},
 		bools: map[string]*bool{
 			"--no-focus": &p.keepFocus, "-n": &p.keepFocus,
@@ -439,8 +486,16 @@ func dmctlPost(action string, args map[string]any, stdout, stderr io.Writer) int
 // dmctlPostRaw 는 `/api/commands` 에 action 하나를 보낸다. args 는 JSON 으로 옮길 수
 // 있는 무엇이든 된다 — `send` 는 사용자가 준 JSON 을 해석 없이 싣는다.
 func dmctlPostRaw(action string, args any, stdout, stderr io.Writer) int {
+	return dmctlPostRawCapture(action, args, stdout, stderr, nil)
+}
+
+// dmctlPostRawCapture 는 dmctlPostRaw 와 같고, 응답 본문을 out 에 남긴다(nil 이면 버린다).
+func dmctlPostRawCapture(action string, args any, stdout, stderr io.Writer, out *[]byte) int {
 	body := map[string]any{"action": action, "args": args}
 	status, resp, err := httpPostJSON(baseURL()+"/api/commands", body)
+	if out != nil {
+		*out = resp
+	}
 	if code := dmctlHTTPResult("dmctl", status, resp, err, true, stdout, stderr); code != 0 {
 		return code
 	}

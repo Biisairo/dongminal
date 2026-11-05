@@ -36,6 +36,17 @@ type CmdResult struct {
 	NewWindows []string `json:"newWindows"`
 	NewPanes   []string `json:"newPanes"`
 	NewTabs    []TabRef `json:"newTabs"`
+	// ISSUE_AGENT_TREE_SRS FR-WGR-30 · FR-ORD-6: 새 그룹 id, 이동의 최종 위치, 실패 사유.
+	NewGroups []string     `json:"newGroups,omitempty"`
+	Position  *CmdPosition `json:"position,omitempty"`
+	Error     string       `json:"error,omitempty"`
+}
+
+// CmdPosition 은 이동한 원소가 담는 곳 안에서 선 자리다 (1부터 센다).
+type CmdPosition struct {
+	Container string `json:"container"`
+	Index     int    `json:"index"`
+	Count     int    `json:"count"`
 }
 
 // CommandHub broadcasts workspace UI commands to SSE subscribers.
@@ -66,7 +77,9 @@ func NewCommandHub() *CommandHub {
 //
 // 세 판정을 한 표에서 파생하는 이유 (FR-OPT-9-5): 표가 셋이던 때는 새 action 을
 // 허용 표에만 넣으면 게이팅 없이 모든 브라우저에서 돌았다 (FR-SXE 결함 부류).
-type cmdSpec struct{ creating, single bool }
+//   - awaits: 엔티티를 만들지 않지만 결과(최종 위치·오류)를 돌려받는다
+//     (ISSUE_AGENT_TREE_SRS FR-ORD-6). creating 과 같은 reqId 경로를 쓴다. awaits ⇒ single.
+type cmdSpec struct{ creating, single, awaits bool }
 
 // cmdActions 는 POST /api/commands 가 받는 action 전부다.
 //
@@ -112,6 +125,16 @@ var cmdActions = map[string]cmdSpec{
 	// 건드리지 않는다. 좁히면 지명된 클라이언트가 없을 때 이름이 영영 안 바뀐다.
 	"renameTab":    {},
 	"renameWindow": {},
+
+	// ISSUE_AGENT_TREE_SRS 묶음 G·O. 이동은 결과를 기다리고 한 곳에서만 돈다 — 여러
+	// 브라우저가 `--next` 를 각자 적용하면 두 칸 움직인다. 이름 바꾸기·지우기는
+	// renameWindow 와 같은 순수 데이터다.
+	"newGroup":    {creating: true, single: true},
+	"renameGroup": {},
+	"deleteGroup": {},
+	"moveTab":     {single: true, awaits: true},
+	"moveWindow":  {single: true, awaits: true},
+	"moveGroup":   {single: true, awaits: true},
 }
 
 // IsAllowedCmdAction reports whether action is accepted by POST /api/commands.
@@ -132,6 +155,13 @@ func AllowedCmdActionNames() []string {
 
 // IsCreatingAction reports whether action creates new entities (FR-RCR-1).
 func IsCreatingAction(action string) bool { return cmdActions[action].creating }
+
+// AwaitsResult reports whether the caller waits for the browser's echo:
+// creating commands and result-returning commands (FR-ORD-6).
+func AwaitsResult(action string) bool {
+	spec := cmdActions[action]
+	return spec.creating || spec.awaits
+}
 
 // IsSingleExecutorAction reports whether action must run on one client only.
 func IsSingleExecutorAction(action string) bool { return cmdActions[action].single }
