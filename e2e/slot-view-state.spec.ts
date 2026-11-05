@@ -291,7 +291,7 @@ test.describe('묶음 T — 칸별 활성 탭 (FR-SVS-1~14)', () => {
 
   test('TC-SVS-50: 원격 워크스페이스 변경이 와도 칸별 탭이 살아남는다 (FR-SVS-7)', async ({ browser }) => {
     // 구조 변경은 받아들이면서 **보는 자리는 로컬이 이긴다** — `activeWindow`·
-    // `focusedPane` 과 같은 범주다 (app-cmd.js 의 보존 블록). SSE 는 실제로 다른
+    // `focusedPane` 과 같은 범주다 (app-ws-sync.js 의 보존 블록). SSE 는 실제로 다른
     // 클라이언트에서 와야 하므로 컨텍스트를 둘 띄운다 (sync.spec.ts 의 선례).
     const ctxA = await browser.newContext();
     const ctxB = await browser.newContext();

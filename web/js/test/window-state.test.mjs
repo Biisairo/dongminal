@@ -103,8 +103,8 @@ test('FEC-17: 기기 키를 걷어내고 폭을 옮겼는지 알린다', () => {
 
 test('FEC-17: 두 로드 경로가 같은 정규화·폴백을 지난다 (두 벌 금지)', () => {
   const init = code(read('core/app.js'));
-  const remote = code(read('core/app-cmd.js'));
-  for (const [name, src] of [['app.js', init], ['app-cmd.js', remote]]) {
+  const remote = code(read('core/app-ws-sync.js'));
+  for (const [name, src] of [['app.js', init], ['app-ws-sync.js', remote]]) {
     assert.match(src, /_normalizeIncomingWorkspace\(/, name + ' 가 정규화를 부르지 않는다');
     assert.match(src, /_fallbackActiveWindow\(/, name + ' 가 폴백을 부르지 않는다');
     assert.match(src, /_stripDeviceKeys\(/, name + ' 가 기기 키 정리를 부르지 않는다');
@@ -170,7 +170,7 @@ test('FEC-21: 트리 순회는 panesOf 한 벌이다 — 손으로 쓴 walk 가 
   const app = code(read('core/app.js'));
   assert.match(app, /flattenPanes\([^)]*\)\{\s*return panesOf\(/, 'flattenPanes 가 panesOf 에 위임하지 않는다');
   assert.match(app, /_collectPanes\([^)]*\)\{\s*out\.push\(\.\.\.panesOf\(/, '_collectPanes 가 panesOf 에 위임하지 않는다');
-  for (const rel of ['core/app.js', 'core/app-layout.js', 'core/app-cmd.js', 'core/app-docrender.js',
+  for (const rel of ['core/app.js', 'core/app-layout.js', 'core/app-cmd.js', 'core/app-ws-sync.js', 'core/app-docrender.js',
     'core/app-statusbar.js', 'core/app-tool.js', 'core/app-editor-open.js', 'ui/runs-panel.js', 'ui/renderer-layout.js']) {
     const src = code(read(rel));
     assert.doesNotMatch(src, /const walk\s*=/, rel + ' 에 손으로 쓴 트리 순회가 남아 있다');

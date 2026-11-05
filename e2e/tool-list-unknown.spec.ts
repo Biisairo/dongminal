@@ -79,7 +79,7 @@ async function stubState(page: Page, opts: { known: boolean; tools?: unknown[] }
 }
 
 // 인자 없는 `_onWorkspaceChanged` 는 rev 비교를 건너뛰고 무조건 받아 적용한다
-// (`app-cmd.js` 의 `typeof rev==='number'`). SSE 가 나르는 것과 같은 경로다.
+// (`app-ws-sync.js` 의 `typeof rev==='number'`). SSE 가 나르는 것과 같은 경로다.
 const applyState = (page: Page) =>
   page.evaluate(() => (window as any).app.testing.onWorkspaceChanged());
 

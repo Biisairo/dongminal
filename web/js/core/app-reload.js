@@ -35,7 +35,7 @@ Object.assign(App.prototype, {
         if(!es||es.readyState===2){ if(this._sseKick) this._sseKick() }
       });
       // ② 워크스페이스. 인자 없이 부르면 rev 비교를 건너뛰고 무조건 받아 온다
-      //    (`app-cmd.js` 의 `typeof rev==='number'`).
+      //    (`app-ws-sync.js` 의 `typeof rev==='number'`).
       await this._softStepAsync('workspace',()=>this._onWorkspaceChanged());
       // ③ 워크스페이스에 없는 것들. SSE 는 **변화**만 나르므로 합류 시점의
       //    사실은 이 복원으로만 온다.

@@ -1,0 +1,444 @@
+/**
+ * Remote Terminal — App 워크스페이스 동기화 · SSE 배선 (REFACTOR PROD2 §8)
+ *
+ * `app-cmd.js` 에서 옮겨 왔다. 본문은 수정하지 않았다 (R-ACS-3). 여기 있는 것은
+ * 서버 워크스페이스와 맞추는 일이다 — SSE 구독 배선, `workspace_changed` 적용,
+ * 전경 이름, 복원 비행 껍데기. `dmctl` 원격 명령의 실행은 `app-cmd.js` 에 있다.
+ * `app-cmd.js` 다음, main.js 이전에 로드된다.
+ */
+Object.assign(App.prototype, {
+  /**
+   * FR-RSF-1: 복원 비행(飛行) 규약 — 요청이 떠난 시점부터 응답을 적용할 때까지.
+   *
+   * 복원은 서버 스냅숏을 받아 로컬 상태와 정합한다. 그런데 그 상태는 SSE 와
+   * 사용자 조작이 **증분으로** 갱신한다. 요청과 응답 사이에 도착한 갱신은
+   * 스냅숏에 없으므로, 응답을 그대로 적용하면 두 방향으로 잃는다 — 새 항목은
+   * 지워지고(A) 없앤 항목은 되살아난다(B).
+   *
+   * 규칙은 하나다. **비행 중에 만진 id 는 스냅숏보다 새로우므로 추가도 삭제도
+   * 하지 않는다.** 이 한 규칙이 두 방향을 다 막는다.
+   *
+   * 비행을 집합의 **동일성**으로 식별하는 이유는 추월 때문이다. `_activityRestore`
+   * 는 `agentsPollMs`(기본 5초)마다 불리므로 앞 응답이 늦으면 새 비행이 시작되는데,
+   * 그때 앞 응답이 새 비행의 빈 집합을 보고 전부 적용하면 결함이 그대로 돌아온다.
+   *
+   * FG_RESTORE_RACE_SRS 는 이 규약을 주석으로 선언만 하고 손으로 옮겨 적다
+   * 한 방향을 놓쳤다. 그래서 함수로 둔다 — 옮겨 적을 자리가 없다.
+   */
+  // **경쟁 해소는 `EventBus` 가 갖는다** (FR-BUS-6). 아래 다섯은 위임 껍데기다
+  // (FR-HUB-7) — 부르는 이름이 셋(`fg`·`attn`·`activity`)에 이미 박혀 있고
+  // e2e 도 그것을 본다.
+  //
+  // 버스로 옮긴 값어치는 **적용 범위**다. 종전에는 이 방어가 셋에만 있었고
+  // `background` 와 `focus` 는 같은 경쟁에 열려 있었다 (SRS §2.5). 소유자가
+  // 하나가 되면 다섯 전부가 같은 규약을 받는다.
+  _restoreBegin(key){ return this.bus.beginSnapshot(key) },
+  _restoreLive(key,flight){ return this.bus.isLive(key,flight) },
+  _restoreNote(key,id){ this.bus.noteTouched(key,id) },
+  // FR-RSF-5: 전체 초기화는 만진 id 로 표현되지 않는다. 그 비행은 통째로 버린다.
+  _restoreVoid(key){ this.bus.voidSnapshot(key) },
+  _restoreEnd(key,flight){ this.bus.endSnapshot(key,flight) },
+
+  /**
+   * 외부 CLI(dmctl) → 서버 → SSE 브로드캐스트 수신 → `_execRemote` 재사용.
+   *
+   * **채널과 라우팅은 `EventBus` 가 갖는다** (EVENT_TIMER_HUB_SRS 묶음 B).
+   * 여기 남는 것은 **배선**뿐이다 — 어떤 action 이 무엇을 부르는가.
+   *
+   * 종전에는 이 자리에 149줄이 있었다: EventSource 생성, 백오프 재시도, 강제
+   * 재연결, 침묵 감시, 깨어남 리스너 셋, 그리고 `m.action` 을 13번 비교하는
+   * if-체인. 그 구조에서는 한 action 에 구독자가 둘일 수 없었고(두 곳이 알아야
+   * 하면 한쪽이 다른 쪽을 직접 부르는 배선이 생겼다), 어떤 이벤트가 몇 번 왔는지
+   * 볼 자리가 없었으며, 구독을 뗄 방법이 없었다 (SRS §2.6).
+   *
+   * **게이팅 순서를 보존한다** (FR-BUS-5). 아래 구독된 action 들은 종전 코드에서
+   * `execClientId` 검사 **앞**에 있었으므로, 지명받지 못한 클라이언트에도 도달해야
+   * 한다. 버스는 "구독자가 있으면 지명을 보지 않는다" 로 그것을 지킨다.
+   */
+  _subscribeCommands(){
+    const bus=this.bus;
+
+    // ── 라우팅 (FR-BUS-4) — 종전 13분기 if-체인 ──
+    //
+    // RELOAD_CONTINUITY_SRS FR-RLC-20·24: 구독이 열릴 때 서버가 건네는 자기 판.
+    // 자산이 바뀌는 길은 프로세스 교체뿐이고 그때 이 구독이 끊기므로, **이 인사가
+    // 곧 "자산이 바뀌었을 수 있다" 의 신호**다. 판정은 version-watch 의 것이다.
+    // FR-OPT-4-10: 그 인사를 실어 온 구독이 살아 있는지도 함께 건넨다 — 살아 있는 동안
+    // 탭 복귀의 보조 확인은 같은 답을 다시 묻지 않는다.
+    bus.subscribe('server_hello',a=>{
+      const v=a&&a.assetVersion;
+      const gen=bus.gen();
+      if(v&&window.__dmAssetVersion) window.__dmAssetVersion(String(v),()=>bus.alive()&&bus.gen()===gen);
+    },{owner:'app'});
+
+    bus.subscribe('workspace_changed',a=>this._onWorkspaceChanged(a&&a.rev),{owner:'app'});
+
+    /**
+     * FR-M9-10 (D-M9-8): **끊겼던 동안의 삭제는 다시 붙어도 오지 않는다.**
+     *
+     * `workspace_changed` 는 사건이고 SSE 는 변화만 나른다 — 구독이 끊겨 있던
+     * 구간의 사건은 재생되지 않으므로, 다시 붙어(`readyState===1`) 정상으로
+     * 보이는 클라이언트가 **지워진 탭을 영영 들고 있다.** 실측이 그것이다:
+     * 클라 3탭 / 서버 1탭, `visibilitychange`·`focus`·`online`·SSE 재연결
+     * 뒤로 14초까지 수렴하지 않았다 (M9_SRS §2.3 M9-B9).
+     *
+     * 그 구간을 메우는 길은 상태를 **통째로 다시 받는 것** 하나다. 터미널은
+     * `OpSeq` 로 좌표를 들고 이어 붙일 수 있지만 워크스페이스에는 그런 좌표가
+     * 없다. 사건 재생을 넣지 않는 이유가 그것이다.
+     *
+     * **rev 를 주지 않는다.** 무엇을 놓쳤는지 모르므로 "낡았다" 로 걸러지면 안
+     * 되고, `_onWorkspaceChanged` 는 rev 없는 호출을 이미 그렇게 규정한다
+     * (FR-WSC-17). 비행 중 유예·ETag 추월 방어도 그 함수가 이미 든다 — 여기서
+     * 다시 세우면 판정이 두 벌이 된다.
+     *
+     * **주기 폴링을 더하지 않는다** (D-M9-8). 메울 구간이 있는 순간은 재연결
+     * 하나이며, 그 밖의 시각에 묻는 것은 답을 이미 아는 물음이다.
+     *
+     * **`gen>1` — 최초 연결은 아니다.** 요구는 "끊겼다 **다시** 붙으면" 이고
+     * (FR-M9-10), 첫 연결에는 메울 구간이 없다: 부팅이 방금 `/api/state` 로
+     * 받았다. 거기서 한 번 더 받으면 **그 사이의 로컬 변경을 덮는다** — 전량
+     * e2e 가 그것을 잡았다(`session.spec.ts` "rename via double-click" 6/6 실패).
+     * 이름을 고치는 중에 워크스페이스가 다시 그려져 편집하던 행이 사라졌다.
+     * `_gen` 은 `connect()` 마다 오르므로 첫 연결이 1 이다 (`event-bus.js`).
+     */
+    bus.subscribe('sse:open',(a)=>{ if(a&&a.gen>1) this._onWorkspaceChanged() },{owner:'app'});
+
+    // FR-RVZ-16: Run 이 바뀌었다. 열려 있는 그 Run 의 탭만 /graph 를 다시 부른다 —
+    // 폴링하지 않으며, 열린 Run 탭이 없으면 아무 요청도 나가지 않는다.
+    bus.subscribe('run_changed',a=>this._onRunChanged(a),{owner:'app'});
+
+    /**
+     * ── 다섯 상태는 **등록부에서 파생된다** (FR-HUB-3) ──
+     *
+     * 여기 있던 것: `tool_attention`·`tool_attention_clear`·`tool_activity`·
+     * `tool_foreground`·`tools_background_changed`·`window_focus` 구독 여섯과,
+     * `sse:open` 에 이어 붙은 복원 다섯.
+     *
+     * 같은 목록이 `app-reload.js` 에 또 있었고 그 둘이 어긋날 수 있었다. 이제
+     * 한 곳(`state-registry.js`)이 정하고 여기는 그것을 부르기만 한다 — 새 상태를
+     * 더할 때 이 파일은 바뀌지 않는다.
+     */
+    wireStateRegistry(this);
+
+    // 구독자가 없는 action 은 여기로 온다. 서버가 지명한 실행자만 수행하며
+    // (FR-SXE-3), 지명이 없으면 게이팅하지 않는다 (FR-SXE-5 의 열화 경로).
+    bus.setFallback((action,args)=>this._execRemote(action,args));
+
+    // FR-RCS-6 · FR-RLC-26: 잠에서 깬 기기와 되돌아온 네트워크는 백오프를 기다릴
+    // 이유가 없다. 원격(Tailscale) 사용에서 끊김의 대부분이 이 둘이므로, 즉시
+    // 되붙는 것이 체감 복구 시간을 30초에서 0으로 줄인다. 리스너는 버스에 하나다
+    // (FR-BUS-8) — 종전에는 같은 신호를 네 곳이 각자 듣고 각자 해석했다.
+    bus.startLifecycle();
+
+    // FR-XDF-8: clientId 를 실어 서버가 구독↔Client 를 결선한다. 이 결선이 구독
+    // 해제 시 소유권 해제(FR-XDF-9)의 선행 조건이다.
+    bus.connect('/api/commands/sse?clientId='+encodeURIComponent(this.clientId));
+
+    // FR-SRL-3: 강제 재연결의 손잡이. 백오프 대기 중이면 그것을 취소하고 지금
+    // 붙는다 — 사용자가 부른 것이므로 기다릴 이유가 없다.
+    this._sseKick=()=>bus.reconnect();
+  },
+
+  /**
+   * FR-WSC-15: 유예한 알림의 **rev 를 기억한다.** 무엇을 미뤘는지 모르면 비행이
+   * 끝날 때 그것을 버릴지 말지 판단할 수 없고, 판단하지 못한 채 버린 것이
+   * §2.10 의 영구 발산이었다. 여러 번 유예되면 가장 새로운 것을 남긴다.
+   *
+   * FR-WSC-17: rev 를 모르는 호출(`_onWorkspaceChanged()`)은 **버리지 않는다** —
+   * 모르는 것을 낡았다고 단정하면 그 손실이 그대로 돌아온다.
+   */
+  _wsDefer(rev){
+    this._wsApplyPending=true;
+    const r=(typeof rev==='number')?rev:Infinity;
+    if(this._wsDeferRev===undefined||r>this._wsDeferRev) this._wsDeferRev=r;
+  },
+
+  async _onWorkspaceChanged(rev){
+    // While a local save is in flight, the SSE we just received is almost
+    // certainly an echo of our own PUT (the PUT response with the new ETag
+    // hasn't returned yet, so wsETag is still stale and would erroneously
+    // pass the rev check). Defer until save settles.
+    //
+    // **"거의 확실히" 는 언제나가 아니다** (WORKSPACE_SAVE_CONFLICT_SRS §2.10).
+    // 그래서 유예는 rev 를 남기고, 비행의 끝이 그 rev 로 판정한다 (FR-WSC-15·16).
+    if(this._saveInflight){ this._wsDefer(rev); return }
+    if(this._wsApplyInflight){ this._wsDefer(rev); return }
+    const cur=this.wsETag?parseInt(this.wsETag,10):-1;
+    if(typeof rev==='number' && rev<=cur) return;
+    this._wsApplyInflight=true;
+    try{
+      do{
+        this._wsApplyPending=false;
+        // OPTIMIZE_REFACTOR_SRS FR-OPT-4-5: 전경 이름의 복원이 이 요청에 있다 (FR-RSF-3 의
+        // 경로 개정). 그래서 여기서 `fg` 비행을 연다 — 응답을 기다리는 사이 SSE 가 만진
+        // id 는 이 스냅샷이 덮지 않는다.
+        const fgT=this._restoreBegin('fg');
+        const r=await apiGet('/api/state');
+        if(!r.ok){ this._restoreEnd('fg',fgT); break }
+        const et=this._etagOf(r);
+        const st=r.data;
+        const sv=st&&st.workspace;
+        const sp=(st&&st.tools)||[];
+        // FR-TLU-1: 서버가 목록을 **모른다**고 말했는가. 옛 서버는 이 필드를
+        // 보내지 않으므로, 없으면 아는 것으로 본다 (열화 경로).
+        const known=!(st&&st.toolsKnown===false);
+        // 창이 없거나 워크스페이스가 낡은 스냅샷이어도 도구 목록은 응답 시점의 것이다 —
+        // 이름은 아래 두 갈래보다 먼저 얹는다.
+        if(known&&this._restoreLive('fg',fgT)) this._fgApply(sp,fgT);
+        this._restoreEnd('fg',fgT);
+        if(!sv||!sv.windows) break;
+        // UX_REVISION_SRS FR-GRR-4: **낡은 스냅샷을 적용하지 않는다.**
+        //
+        // 진입 시점의 가드(`_saveInflight`·rev 비교)는 요청을 **보내기 전**의
+        // 판단이다. 응답을 기다리는 사이에 우리 PUT 이 끝나면 이 스냅샷은 과거가
+        // 되고, 그것을 적용하면 방금 만든 것이 사라진다 — Git 창을 연 직후가 그
+        // 창구다 (`openGitWindow` 는 로컬 배열에만 넣고 저장은 뒤따른다).
+        // 적용 **직전에** 다시 본다. `gitReposRefresh` 의 세대 검사와 같은 정신이다.
+        const now=this.wsETag?parseInt(this.wsETag,10):-1;
+        const got=et?parseInt(et,10):-1;
+        if(got>=0&&now>=0&&got<now) continue;
+        this._applyRemoteWorkspace(sv, sp, known);
+        if(et) this.wsETag=et;
+      }while(this._wsApplyPending);
+    }catch(err){console.error('[ws] sync',err)}
+    finally{this._wsApplyInflight=false}
+  },
+
+  // ── 전경 프로세스 이름 (CONVENIENCE_SRS 묶음 N) ──
+
+  // FR-TAN-8: 값이 바뀐 도구 하나가 SSE 로 왔다. name 이 빈 문자열이면 전경
+  // 프로그램이 끝난 것이며 탭 이름은 기본값으로 돌아간다 (FR-TAN-12).
+  _onToolForeground({toolId,name}={}){
+    if(!toolId) return;
+    this._restoreNote('fg',toolId);
+    const m=this._fgMap();
+    if(name) m.set(toolId,name); else m.delete(toolId);
+    this._fgRepaint(toolId);
+  },
+
+  _fgMap(){ return this.fgNames||(this.fgNames=new Map()) },
+
+  // `/api/state` 의 도구 목록(`fgName` 포함)을 런타임 Map 에 반영한다. 목록에
+  // 없는 도구의 이름은 지운다 — 죽은 도구의 이름이 남으면 안 된다.
+  //
+  // `touched` 는 비행 중에 갱신된 id 의 집합이다 (FR-RSF-3). 그 id 는 스냅숏보다
+  // 새로우므로 **추가도 삭제도 하지 않는다.** 주지 않으면 스냅숏이 전부를 정한다 —
+  // 부팅(`init`)처럼 비행이 아닌 동기 경로가 그렇게 부른다 (FR-RSF-7).
+  //
+  // 합류·재연결의 복원은 `_onWorkspaceChanged` 가 받은 도구 목록으로 한다 — 그 요청이
+  // `fg` 비행을 연다 (OPTIMIZE_REFACTOR_SRS FR-OPT-4-5, 종전 `_fgRestore`). SSE 는
+  // **변화**만 나르므로 합류 시점에 이미 떠 있던 전경 프로그램은 이것으로만 보인다.
+  _fgApply(tools,touched){
+    const m=this._fgMap();
+    const seen=new Set();
+    let changed=false;
+    for(const p of tools||[]){
+      if(!p||!p.id) continue;
+      seen.add(p.id);
+      if(touched&&touched.has(p.id)) continue;
+      const n=p.fgName||'';
+      if((m.get(p.id)||'')===n) continue;
+      if(n) m.set(p.id,n); else m.delete(p.id);
+      changed=true;
+    }
+    for(const id of Array.from(m.keys())){
+      if(touched&&touched.has(id)) continue;
+      if(!seen.has(id)){m.delete(id);changed=true}
+    }
+    if(changed) this._fgRepaint();
+  },
+
+  /**
+   * 탭 라벨만 제자리에서 고쳐 쓴다. `render()` 를 부르지 않는 이유는 FR-RPT-3
+   * 과 같다 — 파생 이름은 프로그램이 뜨고 질 때마다 바뀌므로, 그때마다 레이아웃
+   * 을 다시 만들면 터미널이 재부착·재fit 되고 스크롤백 복원이 매번 돈다.
+   *
+   * toolId 를 주면 그 도구의 탭만, 안 주면 전부 (설정 토글 — FR-TAN-20).
+   */
+  _fgRepaint(toolId){
+    for(const s of this.ws.windows){
+      if(!s||!s.layout) continue;
+      for(const pn of this.flattenPanes(s.layout)){
+        for(const tab of (pn.tabs||[])){
+          if(toolId&&tab.toolId!==toolId) continue;
+          if(!toolId&&!tab.toolId) continue;
+          const el=document.querySelector('.pn-tab[data-tab-id="'+CSS.escape(tab.id)+'"] .pn-tab-label');
+          if(el) el.textContent=this.renderer._tabDisplayName(tab);
+        }
+      }
+    }
+    // FR-NAM-5·6: 도구 이름을 부르는 다른 표면도 따라간다. 열려 있을 때만 그린다 —
+    // 닫힌 것을 그리면 되살아난다. 둘 다 reconcile 이라 값이 그대로면 DOM 은
+    // 손대지 않는다 (FR-RPT-3).
+    if(this.agentsRender) this.agentsRender();
+  },
+
+  /**
+   * TOOL_LIST_UNKNOWN_SRS FR-TLU-5~8: `toolsKnown` 이 거짓이면 **도구 목록을
+   * 모르는 것**이지 도구가 없는 것이 아니다 (SRS §2.2).
+   *
+   * 데몬에 다시 붙는 짧은 창에 `/api/state` 는 빈 목록을 준다. 그것을 사실로
+   * 받으면 아래 세 줄이 차례로 살아 있는 도구 전부, 그것을 담은 pane, pane 이
+   * 없어진 창을 지운다 — 다음 스냅숏이 전부 되살리고, 되살아난 도구가 새 소켓을
+   * 연다. 실측된 "10개 동시 종료 → 10개 순차 재연결"이 그 사이클이다.
+   *
+   * 분기를 조건문으로 흩뿌리는 대신 **살아 있음의 판정 하나**(`live`)로 모은다
+   * (D-4). 모를 때 그 판정은 "어떤 도구도 죽었다고 말할 수 없다"이며, 그것을
+   * 딛는 두 곳 — 죽은 도구 청소와 `clean` — 이 함께 아무 일도 하지 않는다.
+   */
+  /**
+   * 전경 이름은 여기서 얹지 않는다 — `_onWorkspaceChanged` 가 연 `fg` 비행 안에서 얹는다
+   * (FR-OPT-4-5).
+   */
+  _applyRemoteWorkspace(sv, serverPanes, toolsKnown){
+    const known=toolsKnown!==false;
+    /**
+     * FR-OPL-10: 병합의 근거는 **이 채택 이전의** 기억이다. 아래 `_wsMarkSaved`
+     * 가 그것을 갈아끼우므로 여기서 집어 둔다.
+     *
+     * 순서를 뒤집으면 `git 뷰 탭을 닫았다`가 `git 뷰 탭이 아직 안 나갔다`와
+     * 같은 모양이 된다 — 다른 화면이 닫은 탭을 이 화면이 되살려 영영 닫히지
+     * 않는다 (V-OPL-3e 가 그것을 잡았다).
+     */
+    const seenBefore=this._wsSeen();
+    // FR-OPT-4-3: 핀 목록이 바뀌었으면 배지 목록을 받는다 — 목록의 주기는 안전망뿐이다.
+    const pinsBefore=JSON.stringify((this.ws.git&&this.ws.git.pinned)||[]);
+    // FR-WSC-12: 이 스냅샷에 실린 창이 곧 **원격이 아는 창**이다. 아래에서
+    // 마이그레이션·재조정이 `sv.windows` 를 고치므로 그 전에 적어 둔다.
+    this._wsMarkSaved(sv.windows);
+    // FR-EDT-42·103: 마이그레이션과 재조정이 창을 고쳤으면 그 결과를 서버에
+    // 되쓴다 — 되쓰지 않으면 다음 동기화가 같은 일을 되풀이한다.
+    let edChanged=false;
+    // 서버가 **알려 준** 도구들. 모르면 알려 준 것이 없는 것이며, 만들 것도 없다.
+    const serverIds=known?(serverPanes||[]).map(p=>p.id):[];
+    // FR-TLU-5·6: 살아 있음의 판정. 모를 때 전부 참인 이유는 §2.2 다 — 빈 목록을
+    // 사실로 받으면 도구·pane·창이 차례로 지워진다.
+    const live=known?new Set(serverIds):TOOLS_ALL_LIVE;
+    // FR-OPT-4-11 (D-OPT-2): 인스턴스는 그려질 때 선다 — 여기서는 id 만 적는다.
+    for(const id of serverIds) this.toolIds.add(id);
+    // FR-ATL-7: 서버가 모르는 도구는 죽은 도구다. 이름을 지우는 `_fgApply` 와
+    // 같은 규약으로 알람도 함께 거둔다.
+    //
+    // FR-TLU-10: 비교는 **`slotBase(key)`** 로 한다. 칸 1 이상의 인스턴스는
+    // 키가 `id@1` 이므로 순수 toolId 집합과 직접 대면 언제나 "없는 도구"가 되고,
+    // 살아 있는 칸 도구가 `workspace_changed` 마다 파괴된다. `_slotReap` 이 같은
+    // 판정을 이미 이렇게 한다 (app-slots.js, FR-SVS-60 과 같은 자리).
+    let attnDropped=false;
+    for(const [key,p] of Array.from(this.tools.entries())){
+      const id=this.slotBase(key);
+      if(!live.has(id)){ ErrorLog.quiet('destroy',()=>p.destroy()); this.tools.delete(key); if(this._attnDrop(id)) attnDropped=true }
+    }
+    for(const id of Array.from(this.toolIds)){
+      if(live.has(id)) continue;
+      this.toolIds.delete(id); this._toolsBoot.delete(id);
+      if(this._attnDrop(id)) attnDropped=true;
+    }
+    if(attnDropped) this._attnRefresh();
+    // FR-OPT-11-1 (FEC-17): 첫 로드와 같은 한 벌이다.
+    if(this._normalizeIncomingWorkspace(sv,live)) edChanged=true;
+    // FR-EDT-20·43: **재조정보다 목록이 먼저다.** 목록은 서버 권위이고
+    // `editors.list` 는 워크스페이스에 살므로 이 스냅샷이 최신값을 싣고 있다.
+    // 갱신하지 않으면 재조정이 낡은 `editors` 를 딛어, 다른 브라우저가(또는
+    // git 핀 연동이) 만든 행의 창이 생기지 않고 지워진 행의 창이 남는다.
+    if(this.editors&&sv.editors) this._edPatchList(sv.editors.list);
+    if(this._edReconcile(sv.windows)) edChanged=true;
+    // 재조정이 같은 루트의 창을 새 id 로 만들었을 수 있다 — 그때 활성 창을
+    // **루트로** 다시 찾는다. 아래 폴백보다 먼저여야 한다: 폴백은 id 가 없으면
+    // 일반 창을 고르므로, 여기서 잇지 않으면 방금 연 Repo 창을 잃는다.
+    this._edKeepActive(sv);
+    // FR-EDT-45: 활성 창의 폴백은 Editor 창이 아니다 (첫 로드와 같은 한 자리).
+    this._fallbackActiveWindow(sv);
+    // Preserve per-window viewport state: activeWindow and each window's
+    // focusedPane. Remote structural changes (splits/tabs) are applied
+    // but this window stays on its own window/pane.
+    const localActive=this.ws.activeWindow;
+    const localFocus=new Map();
+    for(const s of this.ws.windows){
+      if(s.focusedPane) localFocus.set(s.id, s.focusedPane);
+    }
+    // UX_REVISION_SRS FR-GRR-2: 활성 리포도 **이 브라우저가 보고 있는 것**이다
+    // (FR-GIT-29 로 Git 창에 붙어 있다). activeWindow·focusedPane 과 같은 범주인데
+    // 보존 목록에서 빠져 있어, 리포를 전환한 직후 워크스페이스 동기화가 오면
+    // 이전 리포로 되돌아갔다 — 그 화면이 무엇을 가리키는지가 조용히 바뀐다.
+    const localGit=this.gitWindow();
+    const localRepo=(localGit&&localGit.git&&localGit.git.repo)||null;
+    /**
+     * OPTIMISTIC_LAYOUT_SRS FR-OPL-1·13: **아직 나가지 못한 로컬 레이아웃을
+     * 되얹는다.**
+     *
+     * 아래 `this.ws=sv` 한 줄이 레이아웃을 통째로 갈아끼운다. 방금 연 git 뷰
+     * 탭은 `save()` 가 디바운스로 뒤따르는 동안 로컬 배열에만 있으므로 그
+     * 한 줄에 지워졌다 — `11 §5` 가 flaky 아홉 중 다섯을 이 자리로 매핑했다.
+     *
+     * 자리가 여기인 이유 (FR-OPL-13): `clean`·마이그레이션·재조정보다 **뒤**여야
+     * 되얹은 탭이 도구 판정에 걸리지 않고, `this.ws=sv` 보다 **앞**이어야
+     * 뒤따르는 `render()` 가 탭이 없는 화면을 한 번 지나지 않는다.
+     *
+     * 판정의 근거는 **이 채택 이전의** 기억이다 (`seenBefore`, FR-OPL-10).
+     */
+    // FR-OPL-14: 판정의 목록은 위에서 스냅샷으로 갈아 끼운 것이다(FR-EDT-20·43).
+    const edWant=new Set(this.edOn()?this.edRoots():[]);
+    if(mergeUnseenLayout(this.ws.windows,sv.windows,seenBefore,this.edOn()?(r=>edWant.has(r)):null)){
+      // FR-OPL-9 (= FR-WSC-13): 화면에만 남기면 다음 새로고침에서 사라진다.
+      edChanged=true;
+      // 되얹은 창이 활성 창 폴백보다 뒤에 왔다 — 폴백이 고른 창이 그 창이어야
+      // 했을 수 있으므로 다시 본다. 아래 `localActive` 복원이 있으나 그것은
+      // 로컬 활성 창이 살아 있을 때만 돈다.
+      this._fallbackActiveWindow(sv);
+    }
+    this.ws=sv;
+    if(localActive && this.ws.windows.some(s=>s.id===localActive)){
+      this._activateWindow(localActive);
+    }
+    // Restore each window's focusedPane if the pane still exists.
+    for(const s of this.ws.windows){
+      const rid=localFocus.get(s.id);
+      if(rid && s.layout && findPane(s.layout, rid)) s.focusedPane=rid;
+    }
+    // FR-GRR-2: 로컬이 보던 리포가 이긴다. 로컬에 값이 없으면(첫 로드) 서버 것을
+    // 그대로 쓴다 — 복원은 그 경로다.
+    if(localRepo){
+      const gw=this.gitWindow();
+      if(gw){ if(!gw.git) gw.git={}; gw.git.repo=localRepo }
+    }
+    // FR-RSW-5 · FR-UXB-8: 옛 판의 브라우저가 옮긴 키를 계속 실어 보낼 수 있다.
+    if(this._stripDeviceKeys()) edChanged=true;
+    const a=this.aw();
+    if(a&&a.layout){
+      const saved=a.focusedPane;
+      const f=(saved&&findPane(a.layout,saved))?{id:saved}:firstPane(a.layout);
+      if(f) this.setFocusState(f.id, a);
+    }
+    // FR-SVS-7·14: 칸별 시선은 `activeWindow`·`focusedPane` 과 같은 범주다 —
+    // 구조 변경은 받아들이면서 보는 자리는 로컬이 이긴다. 맵은 `_slots` 에
+    // 있으므로 살아남고, 포커스 칸의 시선을 새 워크스페이스에 다시 얹는다.
+    this._slotTabsToWs();
+    if(edChanged) this.save();
+    this.render();
+    if(JSON.stringify((this.ws.git&&this.ws.git.pinned)||[])!==pinsBefore) this.gitReposKick();
+  },
+});
+
+/**
+ * SSE 의 내부 상태를 붙잡던 이름들 (FR-HUB-7).
+ *
+ * 채널은 `EventBus` 로 갔지만 이 이름들은 남는다 — `app-reload.js` 의 소프트리로드
+ * 1단계가 `_sse.readyState` 로 생존을 보고, e2e 여섯이 `_sse`·`_cmdES`·`_sseGen`·
+ * `_sseSeen` 을 직접 만진다 (`version-autoreload` 는 `_sseSeen` 에 **쓴다** —
+ * 침묵을 흉내내는 유일한 방법이다).
+ *
+ * 위임 껍데기가 메서드에만 적용된다고 보면 이 자리를 놓친다. **바깥은 상태
+ * 필드에도 손을 뻗는다** — `APP_STATE_EXTRACT_SRS` §2.3 이 같은 함정을 실측으로
+ * 기록했다.
+ */
+Object.defineProperties(App.prototype,{
+  // 종전 코드에서 `_sse` 와 `_cmdES` 는 같은 EventSource 를 가리켰다.
+  _sse:   {get(){ return this.bus?this.bus._es:null }, configurable:true},
+  _cmdES: {get(){ return this.bus?this.bus._es:null }, configurable:true},
+  _sseGen:{get(){ return this.bus?this.bus.gen():0 }, configurable:true},
+  _sseSeen:{
+    get(){ return this.bus?this.bus.lastSeen():0 },
+    set(v){ if(this.bus) this.bus._seen=v },
+    configurable:true,
+  },
+});

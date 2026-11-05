@@ -32,6 +32,8 @@ const WEB = join(process.cwd(), 'web', 'js');
 // 않으므로, 빠뜨리면 `apiGet is not defined` 로 그 자리에서 터진다.
 const API_JS = join(WEB, 'core', 'api.js');
 const APP_CMD_JS = join(WEB, 'core', 'app-cmd.js');
+// SSE 배선(`_subscribeCommands`)과 `_sse` 껍데기는 `app-ws-sync.js` 에 있다 (REFACTOR PROD2 §8).
+const APP_WS_SYNC_JS = join(WEB, 'core', 'app-ws-sync.js');
 const HELPERS_JS = join(WEB, 'core', 'helpers.js');
 const TIMER_HUB_JS = join(WEB, 'core', 'timer-hub.js');
 /**
@@ -69,7 +71,7 @@ async function loadRestoreProtocol(page: Page) {
   await page.setContent('<!doctype html><title>restore-protocol</title>');
   await page.addScriptTag({ path: EVENT_BUS_JS });
   await page.evaluate(() => {
-    // app-cmd.js 는 App.prototype 에 메서드를 얹는다. 껍데기만 세운다 —
+    // app-cmd.js · app-ws-sync.js 는 App.prototype 에 메서드를 얹는다. 껍데기만 세운다 —
     // `_fgApply` 가 만지는 것은 `_fgMap()` 이 돌려주는 Map 하나뿐이다.
     (window as any).App = class {
       clientId = 'test-client';
@@ -95,6 +97,7 @@ async function loadRestoreProtocol(page: Page) {
   });
   await page.addScriptTag({ path: API_JS });
   await page.addScriptTag({ path: APP_CMD_JS });
+  await page.addScriptTag({ path: APP_WS_SYNC_JS });
   await page.evaluate(() => {
     (window as any).__app = new (window as any).App();
   });

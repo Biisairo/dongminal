@@ -13,7 +13,7 @@ function setup() {
   const waits = [];
   const hold = (path, r) => new Promise((resolve) => waits.push({ path, go: () => resolve(r) }));
   const answers = {};
-  const ctx = load(['core/constants-api.js', 'core/event-bus.js', 'core/app-cmd.js', 'core/app-statusbar.js', 'core/app-git.js'], {
+  const ctx = load(['core/constants-api.js', 'core/event-bus.js', 'core/app-cmd.js', 'core/app-ws-sync.js', 'core/app-statusbar.js', 'core/app-git.js'], {
     expose: ['EventBus'],
     globals: {
       App: class {},

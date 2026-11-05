@@ -2,7 +2,7 @@
 // (APP_STATE_EXTRACT_SRS 묶음 A).
 //
 // 여기 남은 것은 **바깥이 부르는 이름 여섯**뿐이다. 이름을 지키는 이유는 호출부를
-// 바꾸지 않기 위해서다 — `app.js`·`app-layout.js`·`renderer.js`·`app-cmd.js`·
+// 바꾸지 않기 위해서다 — `app.js`·`app-layout.js`·`renderer.js`·`app-ws-sync.js`·
 // `app-slots.js` 와 e2e 셋이 이 이름들을 쓴다.
 //
 // 로드 순서 계약: app.js **뒤**, `runs-panel.js` 뒤.
