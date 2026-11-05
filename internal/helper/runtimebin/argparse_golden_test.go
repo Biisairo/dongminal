@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -15,6 +16,10 @@ import (
 // FR-OPT-9-2 (SHR-15): dmctl 인자 파서 넷을 한 벌로 모은 뒤에도 **출력 바이트와 종료
 // 코드가 그대로**인지를 골든으로 고정한다. 골든은 통일 전 파서가 만든 것이다.
 // 의도한 변경(list-workspace 의 `--k=v`)은 골든이 아니라 따로 검사한다.
+//
+// 파서 결과는 **기본값이 아닌 필드만** 찍는다(setFields). 구조체 전체를 찍던 동안에는
+// 플래그 하나를 더할 때마다 그 파서의 모든 줄에 빈 필드가 끼어 골든이 수십 줄씩
+// 바뀌었다(REFACTOR PROD2 #4). 이제는 그 플래그를 실제로 쓰는 줄만 바뀐다.
 
 var updateArgGolden = flag.Bool("update-arg-golden", false, "rewrite testdata/argparse.golden")
 
@@ -79,22 +84,40 @@ func renderParse(c goldenParseCase) string {
 	switch c.parser {
 	case "list-workspace":
 		f, code, proceed := parseListWorkspaceFlags(c.args, &out, &errw)
-		res = fmt.Sprintf("code=%d proceed=%v f=%+v", code, proceed, f)
+		res = fmt.Sprintf("code=%d proceed=%v f=%s", code, proceed, setFields(f))
 	case "status", "wait":
 		f, code, proceed := parseStatusFlags(c.parser, c.args, c.parser == "wait", &out, &errw)
-		res = fmt.Sprintf("code=%d proceed=%v f=%+v", code, proceed, f)
+		res = fmt.Sprintf("code=%d proceed=%v f=%s", code, proceed, setFields(f))
 	case "run":
 		f, code, proceed := parseRunFlags("sub", c.args, &out, &errw)
-		res = fmt.Sprintf("code=%d proceed=%v f=%+v", code, proceed, f)
+		res = fmt.Sprintf("code=%d proceed=%v f=%s", code, proceed, setFields(f))
 	case "dmctl":
 		p, err := parseDmctlFlags(c.args)
-		res = fmt.Sprintf("err=%v p=%+v", err, p)
+		res = fmt.Sprintf("err=%v p=%s", err, setFields(p))
 	}
 	stdout := out.String()
 	if len(stdout) > 40 {
 		stdout = fmt.Sprintf("<%d bytes, sum %x>", len(stdout), fnv32(stdout))
 	}
 	return fmt.Sprintf("%s %q\n  %s\n  stdout=%q\n  stderr=%q\n", c.parser, c.args, res, stdout, errw.String())
+}
+
+// setFields 는 구조체에서 기본값이 아닌 필드만 `{이름:값 …}` 으로 찍는다. 포인터는 가리키는
+// 값을 찍는다 — 주소는 실행마다 달라 골든에 남길 수 없다.
+func setFields(v any) string {
+	rv := reflect.ValueOf(v)
+	var parts []string
+	for i := 0; i < rv.NumField(); i++ {
+		fv := rv.Field(i)
+		if fv.IsZero() {
+			continue
+		}
+		if fv.Kind() == reflect.Pointer {
+			fv = fv.Elem()
+		}
+		parts = append(parts, fmt.Sprintf("%s:%v", rv.Type().Field(i).Name, fv))
+	}
+	return "{" + strings.Join(parts, " ") + "}"
 }
 
 func fnv32(s string) uint32 {
