@@ -279,7 +279,17 @@ func (s *Server) recordRunMessage(fromToolID, toToolID string, size int) {
 		dmlog.Infof(nil, "[run] 메시지 기록 생략 run=%s from=%s to=%s: %v", rec.Short, from, to, err)
 		return
 	}
-	s.broadcastLayout("run_changed", map[string]any{"runId": rec.ID})
+	s.broadcastRunChanged(rec)
+}
+
+// broadcastRunChanged 는 SSE `run_changed` 를 쏜다 (FR-RVZ-16). 트리 Run 이면 표지를
+// 함께 실어, 트리 뷰가 같은 트리의 변경만 골라 다시 받게 한다 (FR-ITD-7).
+func (s *Server) broadcastRunChanged(rec run.Record) {
+	args := map[string]any{"runId": rec.ID}
+	if rec.Tree != "" {
+		args["tree"] = rec.Tree
+	}
+	s.broadcastLayout("run_changed", args)
 }
 
 // messageRun 은 이 메시지를 **어느 Run 의 사실로 적을지** 고른다.

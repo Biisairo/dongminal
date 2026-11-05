@@ -91,7 +91,7 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 	} else if _, err := s.Runs.Delete(rec.ID); err != nil {
 		dmlog.Errorf(nil, "[run] close 뒤 레코드 삭제 실패 id=%s: %v", rec.ID, err)
 	} else {
-		s.broadcastLayout("run_changed", map[string]any{"runId": rec.ID})
+		s.broadcastRunChanged(rec)
 	}
 	writeJSON(w, map[string]any{
 		"id": rec.ID, "short": rec.Short, "state": rec.State,

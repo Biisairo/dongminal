@@ -322,6 +322,7 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 | FR-ITD-4 | 노드를 누르면 그 에이전트의 탭으로 간다. 기존 멤버 카드의 이동(`_runJumpToMember`)과 같은 경로다 | 필수 |
 | FR-ITD-5 | 서버는 `GET /api/runs/tree?ref=<owner/repo#N>` 로 그 트리의 열린 Run 과 노드를 낸다. `dmctl run tree --ref <owner/repo#N> [--json]` 이 같은 값을 낸다(NFR-RVZ-4: 화면에만 있는 정보는 없다) | 필수 |
 | FR-ITD-6 | 이슈 트리는 Run 기록만으로 그린다. 서버는 GitHub 에 접근하지 않는다. 끝난 이슈와 아직 열지 않은 이슈는 그리지 않는다 (D-IAT-18) | 필수 |
+| FR-ITD-7 | 트리 표지가 있는 Run 의 `run_changed` 는 payload 에 `tree`(그 표지)를 싣는다. 트리 영역이 있는 대시보드는 바뀐 Run 이 **자기 Run 이거나 `tree` 가 자기 트리와 같을 때만** 다시 받는다. 다른 트리·트리 아닌 Run 의 변경으로는 요청하지 않는다 | 필수 |
 
 ### 3.7 묶음 U — 트리 중복 방지 (FR-ITU-\*)
 
@@ -397,6 +398,7 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 | TC-ITD-1 | FR-ITD-2 | 단위: 사슬 이름에서 부모를 찾는 규칙(빠진 중간 노드 포함) |
 | TC-ITD-2 | FR-ITD-5 | Go: `GET /api/runs/tree` 가 같은 트리의 열린 Run 만 모으고 노드에 상태를 싣는다 |
 | TC-ITD-3 | FR-ITD-1·3·4 | e2e: 트리 Run 의 대시보드에 이슈 트리가 서고, 잎이 구분되며, 노드를 누르면 그 탭으로 간다 |
+| TC-ITD-4 | FR-ITD-7 | Go: 트리 Run 의 `run_changed` 가 `tree` 를 싣고, 트리 아닌 Run 은 싣지 않는다. 단위(JS): 트리 뷰가 같은 트리의 다른 Run 변경에는 다시 받고, 다른 트리·트리 아닌 Run 의 변경에는 받지 않는다 |
 | TC-ITU-1 | FR-ITU-1~5 | Go: `tree_open`(stale 포함) · `tree_not_open` · `node_taken` · 정리 뒤 다시 열기 |
 | TC-IAT-3 | 묶음 T 전체 | 시범: rust-wasm 저장소의 #35 트리. 그 저장소 세션이 #62 를 커밋한 **뒤에** 한다. 확인 항목: 위쪽·아래쪽 펼치기, 이름, 그룹, 질문 경로, 커밋·닫기, push 확인, 정리 |
 
@@ -426,6 +428,7 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-05 | FR-ITD-7 추가: 트리 뷰가 모든 `run_changed` 에 트리를 다시 받던 것을 같은 트리의 변경으로 좁혔다. 이전 동작: 트리 영역이 있는 뷰는 어느 Run 이 바뀌어도 `/graph`·`/tree` 를 다시 받았다. 새 동작: 자기 Run 이거나 같은 트리일 때만. 이유: 무관한 Run 의 변경마다 요청 두 개가 나갔다 (REFACTOR_PROD2 후보 7) |
 | 2026-11-05 | 묶음 X·D·U 구현. 트리 노드는 graph 와 같은 명시 선택(brief 없음). `run-dashboard.js` 가 500줄을 넘지 않게 `run-tree.js` 로 갈랐다 |
 | 2026-11-05 | 묶음 X(team·workflow 정리) · D(트리 대시보드) · U(트리 중복 방지) 추가 (D-IAT-17~20) |
 | 2026-11-05 | 묶음 T: `commands/issue-tree.md` 와 계약 시험(TC-IAT-1). FR-SLP-4 에 `disableAllHooks`·`project_dir` 기준을 더했다(보안 검토 반영) |

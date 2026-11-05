@@ -405,8 +405,10 @@ Object.assign(RunsPanel.prototype, {
     // FR-SRV-5: 같은 runId 를 보는 **모든 칸**의 뷰를 갱신한다.
     for (const [key, v] of Array.from(m)) {
       if (!live.has(this.app.slotBase(key))) { this._runDisposeView(v); m.delete(key); continue }
-      // FR-ITD-1: 트리 뷰는 같은 트리의 **다른** Run 이 바뀌어도 다시 받는다 — 가지 Run 이 따로다.
-      if (v.runId !== runId && !(v.data && v.data.tree)) continue;
+      // FR-ITD-1·7: 트리 뷰는 같은 트리의 **다른** Run 이 바뀌어도 다시 받는다 — 가지 Run 이
+      // 따로다. 다른 트리·트리 아닌 Run 의 변경은 payload 의 `tree` 로 가려 건너뛴다.
+      const sameTree = !!(v.data && v.data.tree) && args.tree === v.data.tree;
+      if (v.runId !== runId && !sameTree) continue;
       v.err = null;
       this._runFetch(v);
     }

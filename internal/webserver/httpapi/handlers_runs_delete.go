@@ -89,7 +89,7 @@ func (s *Server) purgeRun(ctx context.Context, rec run.Record, why string, force
 	dmlog.Infof(nil, "[run] delete id=%s short=%s state=%s why=%s members=%d worktrees=%d residue=%d",
 		rec.ID, rec.Short, rec.State, why, len(rec.Members), len(trees), residue)
 	// FR-DEL-11: 열려 있는 Run 탭은 이것으로 "사라진 Run" 이 된다. 탭은 닫지 않는다.
-	s.broadcastLayout("run_changed", map[string]any{"runId": rec.ID})
+	s.broadcastRunChanged(rec)
 	return trees, nil
 }
 

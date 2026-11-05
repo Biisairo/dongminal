@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // ISSUE_AGENT_TREE_SRS 묶음 U·D — 트리 중복 방지(TC-ITU-1 HTTP 쪽)와 트리 조회(TC-ITD-1·2).
@@ -95,5 +97,43 @@ func TestRunsTree_NoBrief(t *testing.T) {
 	_, g := getRun(t, s, "/api/runs/"+root["id"].(string)+"/graph")
 	if g["tree"] != "o/r#5" {
 		t.Fatalf("graph 에 tree 가 없다: %v", g["tree"])
+	}
+}
+
+// TC-ITD-4 (FR-ITD-7): 트리 Run 의 run_changed 는 tree 를 싣고, 트리 아닌 Run 은 싣지 않는다.
+func TestRunChanged_CarriesTree(t *testing.T) {
+	for _, tc := range []struct {
+		name, body string
+		want       any
+	}{
+		{"tree", `{"objective":"t","projection":"dedicated-window","tree":"o/r#32"}`, "o/r#32"},
+		{"plain", `{"objective":"t","projection":"dedicated-window"}`, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, _, _, _ := runsServer(t, "tool-a")
+			fb := &fakeCommandBroker{}
+			s.Commands = fb
+			code, out := postRun(t, s, "/api/runs", tc.body)
+			if code != http.StatusOK {
+				t.Fatalf("run start %d (%+v)", code, out)
+			}
+			runID, _ := out["id"].(string)
+			if code, out := postRun(t, s, "/api/runs/members",
+				`{"runId":`+testpath.JSONQuote(runID)+`,"role":"작가","agent":"claude","id":"tool-b"}`); code != http.StatusOK {
+				t.Fatalf("멤버 등록 실패 %d (%+v)", code, out)
+			}
+			if code, out := postRun(t, s, "/api/tools/message",
+				`{"to":"tool-b","from":"tool-a","message":"x"}`); code != http.StatusOK {
+				t.Fatalf("msg 실패 %d (%+v)", code, out)
+			}
+			sent := publishedActions(fb, "run_changed")
+			if len(sent) == 0 {
+				t.Fatal("run_changed 가 나가지 않았다")
+			}
+			args, _ := sent[len(sent)-1]["args"].(map[string]any)
+			if args["runId"] != runID || args["tree"] != tc.want {
+				t.Fatalf("payload=%+v, tree 는 %v 여야 한다", args, tc.want)
+			}
+		})
 	}
 }

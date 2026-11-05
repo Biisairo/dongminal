@@ -957,7 +957,7 @@ dmctl wait (--at <uuid> | --member <uuid>) --for ready|done  # --member 신설
 
 | 이벤트 | payload | 계기 |
 |---|---|---|
-| `run_changed` | `{runId}` | Run·멤버 상태 전이, 메시지 기록, 컨텍스트 level 전이 |
+| `run_changed` | `{runId, tree?}` | Run·멤버 상태 전이, 메시지 기록, 컨텍스트 level 전이. `tree` 는 트리 Run 에만 실린다 (ISSUE_AGENT_TREE_SRS FR-ITD-7) |
 
 ---
 
