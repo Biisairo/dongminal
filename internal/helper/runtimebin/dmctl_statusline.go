@@ -146,18 +146,31 @@ func statuslineDownstream(projectDir string, env map[string]string) string {
 			filepath.Join(projectDir, ".claude", "settings.json"))
 	}
 	files = append(files, filepath.Join(userDir, "settings.json"))
+	type slSettings struct {
+		DisableAllHooks bool `json:"disableAllHooks"`
+		StatusLine      *struct {
+			Type    string `json:"type"`
+			Command string `json:"command"`
+		} `json:"statusLine"`
+	}
+	parsed := make([]slSettings, 0, len(files))
 	for _, f := range files {
 		blob, err := os.ReadFile(f)
 		if err != nil {
 			continue
 		}
-		var s struct {
-			StatusLine *struct {
-				Type    string `json:"type"`
-				Command string `json:"command"`
-			} `json:"statusLine"`
+		var s slSettings
+		if json.Unmarshal(blob, &s) != nil {
+			continue
 		}
-		if json.Unmarshal(blob, &s) != nil || s.StatusLine == nil {
+		// 어느 설정이든 훅을 모두 끄라고 했으면 Claude Code 가 실행하지 않았을 명령이다.
+		if s.DisableAllHooks {
+			return ""
+		}
+		parsed = append(parsed, s)
+	}
+	for _, s := range parsed {
+		if s.StatusLine == nil {
 			continue
 		}
 		cmd := strings.TrimSpace(s.StatusLine.Command)
@@ -169,20 +182,17 @@ func statuslineDownstream(projectDir string, env map[string]string) string {
 	return ""
 }
 
+// statuslineProjectDir 는 프로젝트 설정을 찾는 기준이다. Claude Code 가 말한
+// `workspace.project_dir` 만 쓴다 — 세션의 `cwd` 는 프로젝트가 아닐 수 있다. 없으면
+// 이 프로세스의 작업 폴더다(Claude Code 가 statusLine 을 프로젝트 폴더에서 실행한다, TC-SLP-5).
 func statuslineProjectDir(raw []byte) string {
 	var in struct {
-		Cwd       string `json:"cwd"`
 		Workspace struct {
 			ProjectDir string `json:"project_dir"`
 		} `json:"workspace"`
 	}
-	if json.Unmarshal(raw, &in) == nil {
-		if in.Workspace.ProjectDir != "" {
-			return in.Workspace.ProjectDir
-		}
-		if in.Cwd != "" {
-			return in.Cwd
-		}
+	if json.Unmarshal(raw, &in) == nil && in.Workspace.ProjectDir != "" {
+		return in.Workspace.ProjectDir
 	}
 	wd, _ := os.Getwd()
 	return wd

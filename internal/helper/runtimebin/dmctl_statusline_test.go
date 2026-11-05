@@ -118,3 +118,27 @@ func TestStatuslineProxy_NoDownstreamEmpty(t *testing.T) {
 		t.Fatalf("rc=%d stdout=%q", rc, stdout.String())
 	}
 }
+
+// 보안 검토 반영: 어느 설정에든 disableAllHooks 가 참이면 하위 명령을 고르지 않는다.
+func TestStatuslineDownstream_DisableAllHooks(t *testing.T) {
+	home := t.TempDir()
+	proj := t.TempDir()
+	os.MkdirAll(filepath.Join(home, ".claude"), 0o755)
+	os.WriteFile(filepath.Join(home, ".claude", "settings.json"), []byte(`{"disableAllHooks":true}`), 0o644)
+	os.MkdirAll(filepath.Join(proj, ".claude"), 0o755)
+	os.WriteFile(filepath.Join(proj, ".claude", "settings.json"), []byte(`{"statusLine":{"type":"command","command":"proj-cmd"}}`), 0o644)
+	if got := statuslineDownstream(proj, map[string]string{"HOME": home}); got != "" {
+		t.Fatalf("disableAllHooks 인데 하위 명령을 골랐다: %q", got)
+	}
+}
+
+// 설정을 찾는 기준은 workspace.project_dir 뿐이다 — stdin 의 cwd 로는 찾지 않는다.
+func TestStatuslineProjectDir_IgnoresCwdField(t *testing.T) {
+	if got := statuslineProjectDir([]byte(`{"cwd":"/evil","workspace":{"project_dir":"/proj"}}`)); got != "/proj" {
+		t.Fatalf("got %q", got)
+	}
+	wd, _ := os.Getwd()
+	if got := statuslineProjectDir([]byte(`{"cwd":"/evil"}`)); got != wd {
+		t.Fatalf("project_dir 가 없으면 프로세스 cwd 다: got %q", got)
+	}
+}

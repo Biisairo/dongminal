@@ -329,3 +329,53 @@ func TestTeamSkill_DefersHandoffToMigration(t *testing.T) {
 		t.Error("team/SKILL.md 가 인수인계를 migration 에 넘기지 않는다 (M9-B6)")
 	}
 }
+
+// ISSUE_AGENT_TREE_SRS NFR-IAT-1 / TC-IAT-1: issue-tree 명령이 트리 절차를 담고,
+// 스킬과 같은 금지(화면 fingerprint · sleep 폴링 · 손으로 조립한 기동줄)를 지킨다.
+func TestIssueTreeCommand_CarriesTheTreeProcedure(t *testing.T) {
+	body := commandDocs(t)[path.Join("agentplugin", "commands", "issue-tree.md")]
+	if body == "" {
+		t.Fatal("commands/issue-tree.md 를 찾지 못했다")
+	}
+	required := []struct{ name, needle string }{
+		{"부모 거슬러 오르기 (FR-IAT-10·16)", "parent"},
+		{"하위 이슈 순서 (FR-IAT-20)", "subIssues"},
+		{"의존 표기 (FR-IAT-21)", "의존: 없음"},
+		{"트리 그룹 (FR-IAT-47)", "dmctl new-group"},
+		{"트리 표지 (FR-WGR-8)", "--tree"},
+		{"병렬 window (FR-IAT-45·48)", "dmctl new-window -n --group"},
+		{"사슬 탭 (FR-IAT-44·46)", "dmctl new-tab -n --at"},
+		{"부모 바로 뒤 (FR-IAT-46)", "--after"},
+		{"Run 격리 (FR-IAT-30·32)", "--isolation per-run"},
+		{"병렬 base (FR-IAT-32)", "--base"},
+		{"멤버 등록", "dmctl run member"},
+		{"기동줄", "dmctl run launch"},
+		{"준비 확인", "--for ready"},
+		{"신뢰 채널 (FR-IAT-50)", "dmctl msg --to"},
+		{"맥락 사용률 (FR-IAT-62)", "dmctl status --json"},
+		{"migration (FR-IAT-62)", "/dongminal:migration"},
+		{"탭 이름 (FR-IAT-42)", "dmctl rename-tab"},
+		{"정리 (FR-IAT-73)", "--force"},
+		{"Run 닫기 (FR-IAT-74)", "dmctl run close"},
+		{"그룹 지우기 (FR-IAT-74)", "dmctl delete-group"},
+	}
+	for _, r := range required {
+		if !strings.Contains(body, r.needle) {
+			t.Errorf("issue-tree.md 에 %s 가 없다 (%q)", r.name, r.needle)
+		}
+	}
+	for _, ln := range strings.Split(body, "\n") {
+		if strings.Contains(ln, "sleep ") && !strings.Contains(ln, "sleep 루프") {
+			t.Errorf("issue-tree.md: 수동 대기가 남아 있다: %q", strings.TrimSpace(ln))
+		}
+		trimmed := strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(ln), "$ "))
+		if strings.HasPrefix(trimmed, "claude ") || strings.Contains(ln, "`claude --model") {
+			t.Errorf("issue-tree.md: 기동줄을 손으로 조립한다: %q", strings.TrimSpace(ln))
+		}
+	}
+	for _, b := range []string{"Thinking...", "╭─", "[대기]"} {
+		if strings.Contains(body, b) {
+			t.Errorf("issue-tree.md: 화면 fingerprint %q", b)
+		}
+	}
+}

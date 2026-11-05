@@ -1,7 +1,7 @@
 # SRS: 이슈 에이전트 트리 — 명령 · statusLine 프록시 · window 그룹 · 순서 명령 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 묶음 T(명령 문서 `commands/issue-tree.md`) · TC-SLP-6(Windows 셸 실측) · FR-WGR-25 키보드 조작의 e2e · TC-IAT-3 시범(rust-wasm 세션이 #62 를 커밋한 뒤). 묶음 O·G·S 는 구현·시험 완료
+> **남은 것**: TC-SLP-6(Windows 셸 실측) · FR-WGR-25 키보드 조작의 e2e · TC-IAT-3 시범(rust-wasm 세션이 #62 를 커밋한 뒤). 묶음 O·G·S·T 는 구현·시험 완료
 
 ## 1. 개요 (Introduction)
 
@@ -202,7 +202,7 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 | FR-SLP-2 | `dmctl statusline` 은 stdin JSON 을 끝까지 읽고, **허용 목록**의 값을 꺼내 서버에 보고한다(D-IAT-16). 보고 대상 도구는 실행 환경의 `DONGMINAL_TOOL_ID` 다. 허용 목록: `session_id` · `version` · `model.id`·`model.display_name` · `effort.level` · `thinking.enabled` · `fast_mode` · `output_style.name` · `exceeds_200k_tokens` · `cost.*`(총 비용·총 시간·API 시간·추가/삭제 줄 수) · `context_window.*`(입출력 누적 토큰·창 크기·`current_usage` 넷·사용률·남은 비율) · `rate_limits.*`(창마다 사용률·재설정 시각). 값이 `null` 이거나 없는 필드는 싣지 않는다(첫 응답 전에는 사용률이 `null` 이다) | 필수 |
 | FR-SLP-2a | 경로와 본문은 보내지 않는다: `transcript_path` · `cwd` · `workspace.*` 는 허용 목록 밖이다(FR-CTX-3 과 같은 규칙). 허용 목록에 없는 새 필드는 Claude Code 판이 바뀌어 생겨도 보내지 않는다 | 필수 |
 | FR-SLP-3 | 보고는 표시를 막지 않는다. 보고에 실패하거나 제한 시간(NFR-SLP-1)을 넘기면 버리고 다음 단계로 간다 | 필수 |
-| FR-SLP-4 | `dmctl statusline` 은 **하위 statusLine 명령**을 찾는다. dongminal 의 설정을 뺀 나머지 Claude Code 설정을 우선순위대로 읽는다: 프로젝트 `.claude/settings.local.json` → 프로젝트 `.claude/settings.json` → 사용자 설정(`$CLAUDE_CONFIG_DIR/settings.json`, 없으면 `~/.claude/settings.json`). 프로젝트 폴더는 stdin JSON 의 작업 폴더 값에서 얻는다 | 필수 |
+| FR-SLP-4 | `dmctl statusline` 은 **하위 statusLine 명령**을 찾는다. dongminal 의 설정을 뺀 나머지 Claude Code 설정을 우선순위대로 읽는다: 프로젝트 `.claude/settings.local.json` → 프로젝트 `.claude/settings.json` → 사용자 설정(`$CLAUDE_CONFIG_DIR/settings.json`, 없으면 `~/.claude/settings.json`). 프로젝트 폴더는 stdin JSON 의 `workspace.project_dir` 이고, 없으면 이 프로세스의 작업 폴더다(세션의 `cwd` 필드로는 찾지 않는다). 어느 설정이든 `disableAllHooks` 가 참이면 하위 명령을 실행하지 않는다 — Claude Code 가 실행하지 않았을 명령이다 | 필수 |
 | FR-SLP-5 | 하위 명령이 있으면 **받은 stdin 바이트를 그대로** 넘겨 실행한다. 그 stdout 을 그대로 내보내고 종료 코드를 그대로 돌려준다 | 필수 |
 | FR-SLP-6 | 하위 명령이 없으면 아무것도 출력하지 않는다 | 필수 |
 | FR-SLP-7 | 하위 명령과 그 설정 파일을 **고치지 않는다.** 하위 명령이 무엇이든(claude-dashboard·claude-hud·사용자 스크립트) 같은 방식으로 동작한다 | 필수 |
@@ -383,6 +383,7 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-05 | 묶음 T: `commands/issue-tree.md` 와 계약 시험(TC-IAT-1). FR-SLP-4 에 `disableAllHooks`·`project_dir` 기준을 더했다(보안 검토 반영) |
 | 2026-11-05 | 묶음 O·G·S 구현. R-5(`--help` 가 레이아웃 명령을 실행하던 결함) 수정 |
 | 2026-11-05 | FR-WGR-34·FR-ORD-30·31: `list-workspace --json` 은 행 배열을 유지하고 순서 필드를 더한다. 빈 그룹은 `list-groups` 가 낸다 |
 | 2026-11-05 | FR-SLP-2·2a·20 확장: 사용률뿐 아니라 statusLine 입력의 비용·한도·모델 등을 허용 목록으로 저장하고 `dmctl status` 의 `usage` 로 낸다(D-IAT-16) |
