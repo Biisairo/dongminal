@@ -99,6 +99,7 @@
 
 ## 9. 남은 것
 
-- §2 의 #8 · #9 · #10
+- §2 의 #8
+- #9 · #10 → 전수조사로 넓혀 `SERVER_DRIVEN_ACTIONS_SRS`(승인)로 넘겼다. 목록은 [`SERVER_DRIVEN_INVENTORY.md`](SERVER_DRIVEN_INVENTORY.md)
 - `web/js/core/app-statusbar.js` 의 `_bgModalToggle` 주석이 부르는 자리로 `app-cmd.js` 를 적고 있으나, 지금은 그 파일에 호출이 없다(§8 분할 전부터). 주석만 낡았다
 - 1차 감사 종결 뒤 변화분 전체의 분석
