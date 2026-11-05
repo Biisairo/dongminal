@@ -31,9 +31,13 @@ function _woKeys(spec){
 
 function winOrderNormalize(windows, groups){
   const known=new Set((groups||[]).map(g=>g.id));
+  // 고칠 것이 없는 window 는 **같은 객체**로 둔다. 화면(사이드바 행·이름 편집)이 쥔
+  // 참조가 정규화 뒤에도 워크스페이스의 것이어야 그 고침이 저장된다.
+  //   이전: 언제나 복사했다 — 그룹이 있으면 창 이름 편집이 확정되지 않았다
   const wins=(windows||[]).map(w=>{
+    if(w.groupId===undefined||(_woPlain(w)&&known.has(w.groupId))) return w;
     const c=Object.assign({},w);
-    if(c.groupId!==undefined&&(!_woPlain(c)||!known.has(c.groupId))) delete c.groupId;
+    delete c.groupId;
     return c;
   });
   const plainWins=wins.filter(_woPlain);

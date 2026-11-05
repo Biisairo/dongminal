@@ -31,6 +31,14 @@ test('TC-WGR-1 normalize: 없는 그룹을 가리키는 groupId 는 지운다', 
   assert.equal(out[0].groupId, undefined);
 });
 
+test('normalize: 고칠 것이 없는 window 는 같은 객체다 — 화면이 쥔 참조가 낡지 않는다', () => {
+  // 사이드바 행은 window 객체를 쥐고 이름을 고친다. 정규화가 객체를 새로 만들면 그
+  // 고침이 워크스페이스에 닿지 않는다 (그룹이 있을 때 창 이름이 확정되지 않던 결함).
+  const wins = [W('a', 'g'), W('b'), W('c', 'g')];
+  const out = ctx.winOrderNormalize(wins, [{ id: 'g', name: 'G' }]);
+  for (const w of wins) assert.ok(out.includes(w), w.id + ' 가 새 객체로 바뀌었다');
+});
+
 test('TC-WGR-1 normalize: git·editor window 는 그룹에 들지 않고 자리를 지킨다', () => {
   const wins = [W('a', 'g'), W('git', 'g', 'git'), W('b'), W('c', 'g')];
   const out = ctx.winOrderNormalize(wins, [{ id: 'g', name: 'G' }]);

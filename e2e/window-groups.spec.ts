@@ -149,6 +149,37 @@ test.describe('window 그룹 · 순서 명령 (ISSUE_AGENT_TREE_SRS)', () => {
     await expect(page.locator(`#windows .si[data-sid="${a.win}"]`)).toBeVisible();
   });
 
+  test('그룹 이름은 더블클릭으로 고친다 — 첫 클릭의 접기가 행을 다시 그려도 편집칸이 선다', async ({ page, request }) => {
+    const g = await newGroup(request, 'G1');
+    const head = page.locator(`#windows .si-group[data-group-id="${g}"]`);
+    await expect(head).toBeVisible();
+    await head.locator('.sbl-name').dblclick();
+    const input = page.locator('#windows .si-group .rename-input');
+    await expect(input).toBeVisible();
+    await input.fill('Renamed');
+    await input.press('Enter');
+    await expect.poll(async () => (await ws(page)).groups.find((x) => x.id === g)?.name).toBe('Renamed');
+  });
+
+  test('그룹이 있어도 window 이름은 Enter 로 확정된다', async ({ page, request }) => {
+    // 그룹에 window 가 들면 워크스페이스를 받을 때마다 정규화가 돈다 — 그 뒤에도 행이 쥔
+    // window 가 워크스페이스의 것이어야 한다.
+    const g = await newGroup(request, 'G1');
+    await newWindow(request, { group: g });
+    await newWindow(request, { group: g });
+    await expect.poll(async () => (await ws(page)).windows.filter((w) => w.groupId === g).length).toBe(2);
+    const row = page.locator('#windows .si.active');
+    await expect(row).toHaveCount(1);
+    const id = await row.getAttribute('data-sid');
+    await row.locator('.si-name').dblclick();
+    const input = page.locator('#windows .rename-input');
+    await expect(input).toBeVisible();
+    await input.fill('Named');
+    await input.press('Enter');
+    await expect(input).toHaveCount(0);
+    await expect.poll(() => page.evaluate((i) => (window as any).app.ws.windows.find((w) => w.id === i)?.name, id)).toBe('Named');
+  });
+
   test('TC-WGR-3: 그룹 버튼은 빈 그룹을 만들고 이름을 고치게 한다', async ({ page }) => {
     const before = (await ws(page)).groups.length;
     await page.locator('#add-group').click();

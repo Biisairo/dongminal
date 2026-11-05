@@ -131,6 +131,12 @@ const SidebarList = {
    * 같은 키의 새 행으로 되돌린다 — 되돌리지 않으면 Enter 한 번에 목록 밖으로
    * 떨어지고, 넘긴 포커스(`focusHandoff`)는 그 뒤 렌더가 가져간다.
    */
+  // 키가 같은 지금 행의 이름 요소. 행이 다시 만들어졌으면 이것이 살아 있는 쪽이다.
+  _liveName(list, key) {
+    const row = this._rows(list).find(r => r.dataset[RPT_KEY] === key);
+    return row ? row.querySelector('.sbl-name') : null;
+  },
+
   _rove(def, held) {
     const rows = this._rows(def.list);
     if (!rows.length) return;
@@ -212,11 +218,21 @@ const SidebarList = {
     if (r.onOpen) {
       el.addEventListener('click', e => {
         if (e.target.classList.contains('sbl-x')) return;
+        // 이름을 고치는 더블클릭의 두 번째 클릭은 다시 열지 않는다 — 그룹은 접기가 두 번
+        // 토글되어 제자리로 돌아온다 (MouseEvent.detail 이 클릭 횟수다).
+        if (r.onRename && e.detail > 1) return;
         r.onOpen(app);
       });
     }
     if (r.onRename) {
-      name.addEventListener('dblclick', e => { e.stopPropagation(); r.onRename(app, e.target) });
+      // 첫 클릭의 열기(그룹은 접기)가 행을 다시 그렸으면 더블클릭의 대상은 이미 떨어진
+      // 요소다 — 같은 키의 지금 행에서 이름을 다시 찾는다.
+      //   이전: 떨어진 요소에 편집칸을 붙여 그룹 이름을 고칠 수 없었다
+      name.addEventListener('dblclick', e => {
+        e.stopPropagation();
+        const live = name.isConnected ? name : this._liveName(d, el.dataset[RPT_KEY]);
+        if (live) r.onRename(app, live);
+      });
     }
     // FR-EDT-15: 고정 항목은 재배치의 출발점도 **대상**도 아니다. 리스너를 아예
     // 달지 않으면 둘 다 성립한다 — 대상은 dragover 가 정하기 때문이다.
