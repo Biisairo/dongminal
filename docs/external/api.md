@@ -243,7 +243,7 @@
 | POST | `/api/git/init` | 그 자리를 저장소로 만든다 |
 | POST | `/api/git/repos/pin` · `/api/git/repos/unpin` | 핀을 더하고 뺀다 |
 | POST | `/api/git/repos/reorder` | 핀 순서. **서버가 권위**다 |
-| GET | `/api/git/status` | 변경 목록. 응답의 `mark` 는 관측 식별자다. `?ifMark=<mark>` 를 주면 그 값이 지금 관측과 같을 때 목록 없이 `{repo, requested, isRepo, rootMatch, requestedResolved, mark, unchanged:true}` 만 답한다 |
+| GET | `/api/git/status` | 변경 목록. 응답의 `mark` 는 관측 식별자다. `?ifMark=<mark>` 를 주면 그 값이 지금 관측과 같을 때 목록 없이 `{repo, requested, isRepo, rootMatch, requestedResolved, mark, unchanged:true, actions}` 만 답한다. `actions` 는 저장소 단위 동작(`git.fetch`·`git.pull`·`git.push`·`git.write`·`git.commit` 등)마다 지금 할 수 있는지(`{ok, why, args}`)이며, 진행 중인 작업에 따라 바뀌므로 `unchanged` 에도 실린다 |
 | GET | `/api/git/signature` | 저장소의 변화 서명 — 바뀌었을 때만 알리기 위한 값 |
 | GET | `/api/git/policy` | 이 저장소에서 허용되는 동작 |
 | GET | `/api/git/preflight` | 그 동작이 지금 가능한가 (사전 점검) |
@@ -312,7 +312,7 @@
 | POST | `/api/git/stash/apply` · `/api/git/stash/pop` | 되돌린다. `pop` 은 성공하면 목록에서 뺀다 |
 | POST | `/api/git/stash/branch` | 그 stash 로 브랜치를 만든다 |
 | POST | `/api/git/stash/drop` | 버린다 |
-| GET | `/api/git/worktrees` | worktree 목록 |
+| GET | `/api/git/worktrees` | worktree 목록. 행마다 `actions["git.worktree.remove"]` 에 지금 지울 수 있는지(`{ok, why}`)가 실린다 |
 | POST | `/api/git/worktrees/create` · `/api/git/worktrees/remove` | 만들고 지운다 |
 | GET | `/api/git/submodules` | 서브모듈 목록 |
 | POST | `/api/git/submodules/sync` | `.gitmodules` 의 URL 을 설정으로 옮긴다 (동기, `{ok}`) |

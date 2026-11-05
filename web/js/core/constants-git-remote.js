@@ -17,22 +17,25 @@ const GIT_REMOTE_KINDS=['fetch','pull','push'];
 const GIT_REMOTE_LABEL={fetch:'Fetch',pull:'Pull',push:'Push',
   commit:'Commit',checkout:'Checkout',merge:'Merge',rebase:'Rebase',
   'cherry-pick':'Cherry-pick',revert:'Revert',am:'am',bisect:'Bisect'};
-// §5.4·6.4 잡의 두 칸. 시작 요청의 키(kind 또는 GIT_REMOTE_URL 의 키)가 차지할 칸이며
-// 서버의 jobs.SlotsOf 와 같은 규칙이다 — 응답이 오기 전에 버튼을 막는 데 쓰고, 도는
-// 잡은 서버가 준 `slots` 가 유일한 출처다.
+// §5.4·6.4 잡의 두 칸 이름. 도는 잡이 어느 칸을 쥐는지는 서버가 준 `slots` 가 유일한
+// 출처다 — 화면은 칸 규칙을 갖지 않는다 (SERVER_DRIVEN_ACTIONS_SRS GR-1e).
 const GIT_JOB_SLOT_INDEX='index';
 const GIT_JOB_SLOT_COMMON='common';
-const GIT_JOB_COMMON_KEYS=new Set(['fetch','push','branch/push','branch/fetch',
-  'branch/delete-remote','tag-push','tag-delete-remote']);
-function gitJobSlotsOf(key){
-  if(key==='pull') return [GIT_JOB_SLOT_INDEX,GIT_JOB_SLOT_COMMON];
-  return GIT_JOB_COMMON_KEYS.has(key)?[GIT_JOB_SLOT_COMMON]:[GIT_JOB_SLOT_INDEX];
-}
-// §6.4: index 칸이 도는 동안에도 막지 않는 쓰기 — worktree 제거는 요청 worktree 의
-// index 를 건드리지 않고(§5.6), worktree 생성·서브모듈 update 는 common 칸 잡이다
-// (§5.4 — index 잡과 함께 돈다. common 칸이 차 있으면 서버가 job_busy 로 답한다).
-const GIT_JOB_INDEX_EXEMPT=new Set([GIT_API.worktreesRemove,GIT_API.jobCancel,
-  GIT_API.worktreesCreate,GIT_API.submodulesUpdate]);
+// 서버 판정의 동작 ID (SERVER_DRIVEN_ACTIONS_SRS §3.1a·3.2a · `internal/webserver/action`).
+// 켜고 끄는 것은 이 ID 의 답이다 — `git.write` 는 index 칸을 쓰는 동기 쓰기·잡 전반이다.
+const GIT_ACTION=Object.freeze({
+  fetch:'git.fetch',pull:'git.pull',push:'git.push',
+  branchPush:'git.branch.push',branchFetch:'git.branch.fetch',branchDeleteRemote:'git.branch.delete_remote',
+  tagPush:'git.tag.push',tagDeleteRemote:'git.tag.delete_remote',
+  write:'git.write',commit:'git.commit',lockRemove:'git.lock.remove',
+  worktreeCreate:'git.worktree.create',worktreeRemove:'git.worktree.remove',
+  submoduleUpdate:'git.submodule.update',stashCreate:'git.stash.create',
+});
+// 잡 시작 키(GitJobs.run 의 key) → 그 동작 ID. 이름의 대응일 뿐 칸 규칙이 아니다.
+const GIT_JOB_ACTION={fetch:GIT_ACTION.fetch,pull:GIT_ACTION.pull,push:GIT_ACTION.push,
+  'branch/push':GIT_ACTION.branchPush,'branch/fetch':GIT_ACTION.branchFetch,
+  'branch/delete-remote':GIT_ACTION.branchDeleteRemote,
+  'tag-push':GIT_ACTION.tagPush,'tag-delete-remote':GIT_ACTION.tagDeleteRemote};
 // §5.5: Manager 경유 동기 쓰기 — 서버의 쓰기 단계 마감이 180s(최악 207s)라 응답까지
 // 기다린다. 이전: 35s 에 끊겨 서버는 계속 도는데 화면은 실패 / 새: timeout 없음.
 const GIT_WRITE_UNBOUNDED=new Set([GIT_API.worktreesRemove,GIT_API.submodulesSync]);

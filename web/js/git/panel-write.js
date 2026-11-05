@@ -82,6 +82,11 @@ Object.assign(GitPanel.prototype, {
     if(this._consoleView) this._consoleView.reload();
   },
 
+  // 잡이 칸을 쥐거나 놓았다 — 행마다 답을 싣는 목록은 다시 받는다 (GR-1h · FR-SDA-22).
+  afterJobSlots(){
+    if(this._worktreesView) this._worktreesView._load();
+  },
+
   // ── stash 쓰기 (GIT_MENUS stash 가 부른다) ──
   //
   // REPO_FIX 01 §5.3: stash 는 **oid** 로 지목한다 — 위치(index)는 목록이 바뀌면
@@ -195,10 +200,10 @@ Object.assign(GitPanel.prototype, {
   // 응답 모양으로 펴 준다 — 호출자의 뒷정리(adopt·실패 안내)가 그대로 결과에 선다.
   // `opts.detach` 면 시작 즉시 `{started:true, done}` 을 준다 — 다이얼로그는 닫고
   // 뒷정리는 `done` 에서 한다 (§6.4 "다이얼로그는 닫는다").
+  //
+  // 칸이 찼는지는 미리 보지 않는다 — 서버가 판정하고 409 job_busy 로 거절한다
+  // (SERVER_DRIVEN_ACTIONS_SRS GR-1e). 이전: 화면의 예외 목록으로 보내기 전에 막았다.
   async post(url,body,opts){
-    // §6.4: index 칸이 도는 동안 동기 쓰기·index 잡 시작을 보내지 않는다.
-    const block=this._remote().blocks(url);
-    if(block) return {ok:false,code:409,data:{error:'job_busy',message:block}};
     this.bumpWrite();
     this._writing=true;
     // 망 실패·파싱 실패를 접는 일은 `gitPost` 가 한다 (api.js) — 두 벌로 두면
@@ -383,7 +388,11 @@ Object.assign(GitPanel.prototype, {
     box.querySelector('.git-partial-msg').textContent=
       n?(n.partial?n.msg+' — '+GIT_PARTIAL_NOTE:n.msg):'';
     const lockBtn=box.querySelector('.git-lock-remove');
-    if(lockBtn) lockBtn.classList.toggle('vis',!!(n&&n.lock));
+    if(lockBtn){
+      lockBtn.classList.toggle('vis',!!(n&&n.lock));
+      // 잡이 돌면 그 잡이 lock 의 주인일 수 있다 — 서버의 1층 답 (GR-1b).
+      lockBtn.disabled=!actionState(this.actionOf(GIT_ACTION.lockRemove),false).enabled;
+    }
     const ul=box.querySelector('.git-partial-list'); ul.innerHTML='';
     for(const p of (n&&n.changed)||[]){
       const li=document.createElement('li'); li.className='git-partial-path';

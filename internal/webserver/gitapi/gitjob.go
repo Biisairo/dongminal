@@ -33,7 +33,7 @@ func (t *gitWrite) startWriteJob(spec core.WriteSpec, before query.Status, extra
 		return
 	}
 	finish := jobs.OnFinish(t.s.indexFinisher(t.root, before, extra))
-	t.launchJob(func(h *jobs.Jobs, k jobs.Keys) (*jobs.Job, error) {
+	t.launchJob(spec.Argv[0], func(h *jobs.Jobs, k jobs.Keys) (*jobs.Job, error) {
 		jb, err := h.Start(t.root, k, spec.Argv[0], spec, finish)
 		if err == nil && hint != nil {
 			t.s.Git.Service().AddHint(*hint)

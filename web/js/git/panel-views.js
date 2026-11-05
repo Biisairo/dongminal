@@ -101,6 +101,12 @@ Object.assign(GitPanel.prototype, {
   // 같은 값을 딛는다 (FR-GIT-152·167).
   statusOf(){return (this._status&&this._status.status)||null},
 
+  // 서버의 1층 답 하나 (SERVER_DRIVEN_ACTIONS_SRS FR-SDA-4). status 응답에 실려 온다.
+  actionOf(id){
+    const a=this._status&&this._status.actions;
+    return (a&&a[id])||null;
+  },
+
   /**
    * FR-GVR-8: "Changes 밖의 뷰가 낡았는가" 의 근거.
    *

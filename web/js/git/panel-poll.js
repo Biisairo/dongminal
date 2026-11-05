@@ -649,7 +649,9 @@ Object.assign(GitPanel.prototype, {
     // REPO_FIX 05 §3A-6 (F-6.1 / §3A-0 X5): 관측 동일성은 서버의 `mark` 하나로 판정한다 —
     // (저장소, mark) 가 직전 적용분과 같으면 재조정을 건너뛴다. `mark:""` 는 비교하지 않는다.
     // 이전: 매 회차 status 전체를 JSON 으로 만들어 견줬다.
-    const obs=d.mark?rptKey(d.repo||'',d.mark):'';
+    // SERVER_DRIVEN_ACTIONS_SRS GR-1d: 1층 답(`actions`)은 mark 밖이다 — 잡이 시작·끝나면
+    // 관측은 같아도 버튼은 바뀐다. 그래서 답도 근거에 넣는다.
+    const obs=d.mark?rptKey(d.repo||'',d.mark+'|'+JSON.stringify(d.actions||null)):'';
     if(!obs||obs!==this._obsSig){this.obs.paintAll(); this._obsSig=obs||null}
     // 활성 리포의 배지가 따라 갱신된다. 다른 리포는 서버의 마지막 관측값이다.
     this.app.gitReposKick();

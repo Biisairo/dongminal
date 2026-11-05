@@ -115,10 +115,9 @@ class GitRemote {
   }
 
   // 이 칸의 표시기가 쥔 잡이 slot 칸을 차지하는가 — pull 은 index 표시기에 붙지만
-  // common 칸도 쥔다. 시작 요청이 오가는 동안은 요청 키로 판정한다.
+  // common 칸도 쥔다. 칸은 서버가 준 `slots` 로만 안다 (GR-1e).
   holds(slot){
     if(this._job) return (this._job.slots||[this.slot]).includes(slot);
-    if(this._busy) return gitJobSlotsOf(this._busyKey).includes(slot);
     return false;
   }
 
@@ -170,14 +169,12 @@ class GitRemote {
   paintHead(head){
     if(!head) return;
     for(const b of head.querySelectorAll('.git-remote-btn')){
-      const why=this.router.why(b.dataset.remote);
-      b.disabled=!!why;
-      b.title=why||(GIT_REMOTE_TITLE[b.dataset.remote]||'');
+      b.disabled=!this.router.state(b.dataset.remote).enabled;
+      b.title=this.router.why(b.dataset.remote)||(GIT_REMOTE_TITLE[b.dataset.remote]||'');
     }
     for(const b of head.querySelectorAll('.git-remote-more')){
-      const why=this.router.why(b.dataset.remote);
-      b.disabled=!!why;
-      b.title=why||GIT_REMOTE_MORE_TITLE;
+      b.disabled=!this.router.state(b.dataset.remote).enabled;
+      b.title=this.router.why(b.dataset.remote)||GIT_REMOTE_MORE_TITLE;
     }
   }
 
@@ -259,6 +256,7 @@ class GitRemote {
     const lockBtn=fail.querySelector('.git-job-lock');
     lockBtn.textContent=GIT_LOCK_REMOVE;
     lockBtn.classList.toggle('vis',!!lock);
+    lockBtn.disabled=!actionState(this.panel.actionOf(GIT_ACTION.lockRemove),false).enabled;
     // FR-GIT-104: 안내만 한다. 받는 자리를 만들지 않는다.
     const auth=fail.querySelector('.git-job-auth');
     auth.classList.toggle('vis',!!d.authRequired);
@@ -343,7 +341,7 @@ class GitRemote {
    */
   run(kind,body,opts){return this.router.run(kind,body,opts)}
 
-  // 칸이 비었는지는 묶음(GitJobs.run)이 이미 봤다. `opts.silent` 면 실행 전 거부를
+  // 칸이 찼는지는 서버가 판정한다 (GR-1e). `opts.silent` 면 실행 전 거부를
   // 이 박스에 적지 않는다 — 시작 자리(다이얼로그 등)가 적는다 (§6.4).
   async _launch(kind,body,opts){
     const repo=this.panel.repo;
@@ -440,7 +438,7 @@ class GitRemote {
       action:GIT_ACT_JOB_CANCEL,title:GIT_JOB_CANCEL_TITLE,stages:1,
       targets:[(GIT_REMOTE_LABEL[job.kind]||job.kind||'')],
       // §6.3: 원격이 아닌 잡은 "원격에" 가 아니라 이 저장소에 일부가 남는다.
-      hint:{note:GIT_JOB_COMMON_KEYS.has(job.kind)||job.kind==='pull'
+      hint:{note:(job.slots||[]).includes(GIT_JOB_SLOT_COMMON)
         ?GIT_JOB_CANCEL_NOTE:GIT_JOB_CANCEL_NOTE_LOCAL,command:''},
     });
     if(!ok||!this._job||this._job.id!==job.id) return;
@@ -471,6 +469,9 @@ class GitRemote {
     this._canceling=!!job.canceled; this._streamErr=false; this._retries=0;
     this._openStream();
     this._paint();
+    // FR-SDA-22: 잡이 칸을 쥐었다 — 1층 답과 행 답이 바뀌었으므로 다시 받는다.
+    this.panel.collect();
+    this.panel.afterJobSlots();
   }
 
   /**
@@ -567,6 +568,7 @@ class GitRemote {
     // 걸리는지는 패널이 안다** (D-1). collect 를 기다리지 않는다 (FR-GVR-5) —
     // 서로 독립이며 기다리면 화면이 그만큼 늦는다.
     this.panel.afterRemoteJob(jb.kind);
+    this.panel.afterJobSlots();
     // F-9.4: 결과를 모르면 status 뿐 아니라 목록들(stash·refs)도 다시 받는다 — 무엇이
     // 일어났는지는 관측이 말한다. 성공 후처리(undo·draft 비우기)는 하지 않는다.
     if(gitJobOutcome(jb)==='unknown') this.panel._reloadViews();

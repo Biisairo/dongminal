@@ -258,12 +258,14 @@ func (t *gitWrite) acquire(l *writeLease) {
 
 // indexBusy 는 index 칸을 쥔 잡이 있으면 409 job_busy 로 답한다. 기다리지 않는다 —
 // 잡은 분 단위일 수 있다.
+//
+// 판정은 1층 `git.write` 의 답과 같은 함수다 (SERVER_DRIVEN_ACTIONS_SRS D-SDA-6).
 func (t *gitWrite) indexBusy(x *jobs.Exclusion) bool {
-	id, busy := x.IndexBusy(t.keys.Top)
-	if busy {
-		t.rejectWith(http.StatusConflict, gitErrJobBusy, "이 저장소에서 작업("+id+")이 진행 중이다 — 끝난 뒤 다시 시도하라")
+	a := slotsAnswer(x, t.keys, jobs.SlotIndex)
+	if !a.OK {
+		t.rejectAnswer(a, nil)
 	}
-	return busy
+	return !a.OK
 }
 
 // ctx 는 사전 단계 ctx 다. 쓰기 전 검사·조회는 전부 이것을 쓴다.

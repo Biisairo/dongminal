@@ -53,7 +53,7 @@ class GitStashCreate {
   }
 
   async _ask(includeUntracked,d,seq){
-    const id=GIT_ACTION_STASH_CREATE;
+    const id=GIT_ACTION.stashCreate;
     // 늦게 온 앞선 답은 버린다 — 옵션을 바꾼 뒤의 답만 지금 입력의 것이다.
     const res=await gitFetch(GIT_API.actions,{repo:this.repo,action:id,includeUntracked:includeUntracked?'1':'0'},
       {stale:()=>seq!==this._seq||!d.alive(),echo:{repo:this.repo,action:id}});

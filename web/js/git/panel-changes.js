@@ -109,6 +109,9 @@ Object.assign(GitPanel.prototype, {
     // (FR-GIT-152·167).
     if(this._branchesView) this._branchesView.paintStatus();
     if(this._stashView) this._stashView.paintStatus();
+    // 1층 답을 그리는 머리 (SERVER_DRIVEN_ACTIONS_SRS GR-1d).
+    if(this._worktreesView) this._worktreesView._paintHead();
+    if(this._submodulesView) this._submodulesView._paintHead();
     // FR-GRF-9: 낡음은 **모든 뷰**의 사실이다 — 위의 뷰별 칠하기와 달리
     // 무엇을 보고 있든 같은 것을 말한다.
     this.paintStale();

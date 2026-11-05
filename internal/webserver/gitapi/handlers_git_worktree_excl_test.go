@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/jobs"
@@ -361,5 +363,39 @@ func TestJobKeys_WithoutGitUsesCommonDir(t *testing.T) {
 	}
 	if k.Common != core.ExclusionKey(filepath.Join(repo, ".git")) {
 		t.Fatalf("common = %q", k.Common)
+	}
+}
+
+// GR-1h (TC-SDA-1): 목록의 행 답은 지우기의 거절과 같은 판정이다 — 대상 index 칸이 찬
+// 행만 꺼지고, 그 행의 실행은 같은 코드로 거절된다.
+func TestWorktreeRows_RemoveAnswerMatchesRejection(t *testing.T) {
+	s, repo, _ := wtExclServer(t)
+	a := wtCreate(t, s, repo, "a", true).Result.Path
+	b := wtCreate(t, s, repo, "b", true).Result.Path
+	common := wtCommonKey(t, repo)
+	commit := write.CommitSpec(write.CommitOpts{Message: "x"})
+	if _, err := s.jobsHub().Start(a, jobs.Keys{Top: core.ExclusionKey(a), Common: common}, "commit", commit); err != nil {
+		t.Fatal(err)
+	}
+	code, out := wtReq(t, s, http.MethodGet, "/api/git/worktrees?repo="+url.QueryEscape(repo), "")
+	if code != http.StatusOK {
+		t.Fatalf("목록 = %d %v", code, out)
+	}
+	rows, _ := out["worktrees"].([]any)
+	got := map[string]map[string]any{}
+	for _, r := range rows {
+		m, _ := r.(map[string]any)
+		acts, _ := m["actions"].(map[string]any)
+		ans, _ := acts[action.GitWorktreeRemove].(map[string]any)
+		got[m["path"].(string)] = ans
+	}
+	if got[a] == nil || got[a]["ok"] != false || got[a]["why"] != apierr.CodeJobBusy {
+		t.Fatalf("잡이 도는 행 = %v, want job_busy", got[a])
+	}
+	if got[b] == nil || got[b]["ok"] != true {
+		t.Fatalf("한가한 행 = %v, want ok", got[b])
+	}
+	if code, out := wtRemove(t, s, repo, a); code != http.StatusConflict || out["error"] != got[a]["why"] {
+		t.Fatalf("실행 = %d %v, 답과 같은 코드로 거절돼야 한다", code, out["error"])
 	}
 }

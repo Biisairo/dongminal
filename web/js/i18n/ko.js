@@ -1204,6 +1204,7 @@ I18N.register('ko', {
   'term.held_discard': '버리기',
   'term.soft_reload': '내부 새로고침...',
   // SERVER_DRIVEN_ACTIONS_SRS M-6: 서버의 답(`why` 코드)이 고르는 문구. 키는 `'why.' + code` 로 조립된다.
+  'why.job_busy': '이 저장소에서 작업이 진행 중입니다 — 끝난 뒤 다시 시도하세요',
   'why.loading': '확인하는 중…',
   'why.nothing_to_stash': '저장할 변경이 없습니다',
   'why.untracked_only': '추적되지 않는 파일 {count}개뿐입니다 — untracked 포함을 켜세요',

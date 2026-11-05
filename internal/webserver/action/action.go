@@ -37,6 +37,26 @@ const WhyLoading = "loading"
 // 동작 ID (§1.3).
 const (
 	GitStashCreate = "git.stash.create"
+
+	// 1층 — 작업 칸 (SERVER_DRIVEN_ACTIONS_SRS GR-1b)
+	GitFetch              = "git.fetch"
+	GitPull               = "git.pull"
+	GitPush               = "git.push"
+	GitBranchPush         = "git.branch.push"
+	GitBranchFetch        = "git.branch.fetch"
+	GitBranchDeleteRemote = "git.branch.delete_remote"
+	GitTagPush            = "git.tag.push"
+	GitTagDeleteRemote    = "git.tag.delete_remote"
+	// GitWrite 는 index 칸을 쓰는 동기 쓰기·index 잡 시작 전반이다 — 메뉴의
+	// checkout·merge·stash apply 같은 항목이 이것을 본다.
+	GitWrite           = "git.write"
+	GitCommit          = "git.commit"
+	GitLockRemove      = "git.lock.remove"
+	GitWorktreeCreate  = "git.worktree.create"
+	GitSubmoduleUpdate = "git.submodule.update"
+
+	// GitWorktreeRemove 는 worktree 목록의 행마다 싣는다 (GR-1h).
+	GitWorktreeRemove = "git.worktree.remove"
 )
 
 // Table 은 동작 ID → 그 판정이 낼 수 있는 사유 코드다 (M-3).

@@ -1,7 +1,7 @@
 # SRS: 서버가 답하는 동작 가능 여부 — server-driven actions — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 묶음 GR·GT·GV·F·R·X·K·N(구현 전). 묶음 M 은 구현했다(§3.1a, `git.stash.create` 로 검증). 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
+> **남은 것**: 묶음 GR-2·GR-3·GT·GV·F·R·X·K·N(구현 전). 묶음 M(§3.1a)과 GR-1(§3.2a, 작업 칸)은 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
 
 ## 1. 개요 (Introduction)
 
@@ -97,12 +97,29 @@ K1~K20 은 주석으로만 묶여 있다. 맞추는 장치가 있는 것은 파�
 
 | ID | 요구 | 출처 | 우선 |
 |---|---|---|---|
-| FR-SDA-20 | `GET /api/git/status` 응답에 `actions` 를 싣는다. 대상 동작: `git.fetch`·`git.pull`·`git.push`(▾ 변형 포함)·`git.commit`·`git.stash.create`·`git.stash.new`·`git.uncommitted.stash`·`git.uncommitted.clean`·`git.uncommitted.reset`·`git.lock.remove`·`git.worktree.create`·`git.worktree.remove`·`git.submodule.update`·`git.init` 와, 칸을 쓰는 브랜치·태그 원격 동작 | G-A1~A8 | 필수 |
+| FR-SDA-20 | `GET /api/git/status` 응답에 `actions` 를 싣는다. 대상 동작: `git.fetch`·`git.pull`·`git.push`(▾ 변형 포함)·`git.commit`·`git.stash.create`·`git.stash.new`·`git.uncommitted.stash`·`git.uncommitted.clean`·`git.uncommitted.reset`·`git.lock.remove`·`git.worktree.create`·`git.submodule.update` 와, 칸을 쓰는 브랜치·태그 원격 동작. `git.worktree.remove` 는 worktree 목록의 행마다 싣는다(GR-1h). `git.init` 은 서버 판정이 없어 싣지 않는다(GR-1i) | G-A1~A8 | 필수 |
 | FR-SDA-21 | 칸 판정은 `jobs.SlotsOf` 와 실제 칸 상태 하나에서 나온다. 화면의 `gitJobSlotsOf`·`GIT_JOB_COMMON_KEYS`·`GIT_JOB_INDEX_EXEMPT`·`blocks` 는 없앤다 | G-A1·A2 | 필수 |
 | FR-SDA-22 | 작업이 시작·끝나면(`git_jobs_changed`) 화면은 그 저장소의 `actions` 를 다시 받는다 | G-A1 | 필수 |
 | FR-SDA-23 | 커밋 동작의 답은 빈 메시지·스테이지 없음·amend 메시지 불변·preflight 막힘을 모두 포함한다. 메시지는 입력 중에 바뀌므로 커밋 답은 `GET /api/git/actions?repo=&action=git.commit&message=&amend=&all=` 로 묻는다(입력 멈춤 뒤, 2층과 같은 종단) | G-A3 | 필수 |
 | FR-SDA-24 | stash 만들기 답은 `includeUntracked` 를 받아 판정한다. 사유는 `nothing_to_stash`·`untracked_only` 코드다 | G-A4~A6 | 필수 |
 | FR-SDA-25 | Reset 은 커밋이 없는 저장소에서 `no_head` 로 꺼진다 | G-A8 | 필수 |
+
+#### 3.2a 묶음 GR 설계 세부
+
+GR 은 판정의 재료가 셋으로 갈린다. 단계마다 커밋한다: **GR-1** 작업 칸 · **GR-2** 상태 사실(FR-SDA-24·25, G-A5~A8) · **GR-3** 커밋(FR-SDA-23).
+
+| ID | 설계 |
+|---|---|
+| GR-1a 칸 판정 | `gitapi` 의 `slotsAnswer(x, keys, slots…)` 하나가 판정한다. 칸 중 하나라도 잡이 쥐면 409 `job_busy`. 거절도 이 함수를 부른다: 동기 쓰기의 `indexBusy`, 잡 시작(`launchJob`, 등록 직전 — 원자적 차지는 `Exclusion.claim` 이 그대로 진다), lock 지우기, worktree 만들기 |
+| GR-1b 1층 동작 | `git.fetch`·`git.pull`·`git.push`·`git.branch.push`·`git.branch.fetch`·`git.branch.delete_remote`·`git.tag.push`·`git.tag.delete_remote` 는 `jobs.SlotsOf(<kind>)` 의 칸. `git.write`(index 칸을 쓰는 동기 쓰기·index 잡 시작 전반 — checkout·merge·stage·stash apply 등 메뉴 항목이 이것을 본다)·`git.commit` 은 index. `git.lock.remove` 는 index+common. `git.worktree.create`·`git.submodule.update` 는 common |
+| GR-1c 싣는 자리 | `GET /api/git/status` 의 정상·`unchanged` 응답 둘 다 `actions` 를 싣는다. 잡 상태는 관측 식별자(`mark`) 밖이므로 `unchanged` 에서도 빠지면 안 된다. 칸 상태는 요청마다 읽는다(관측 캐시와 무관) |
+| GR-1d 다시 받기(FR-SDA-22) | 화면은 잡을 붙이거나(`_attach`) 끝내거나(`_finish`) 잡 목록을 받을 때(`adoptJobs`) 그 저장소의 status 를 다시 받는다. `actions` 가 바뀌면 `mark` 가 같아도 머리 버튼·커밋 버튼·열린 탭을 다시 그린다 |
+| GR-1e 화면에서 없애는 것 | `gitJobSlotsOf`·`GIT_JOB_COMMON_KEYS`·`GIT_JOB_INDEX_EXEMPT`·`GitJobs.blocks`(→ `panel.post` 는 미리 막지 않고 서버의 409 를 보인다)·`GitRemote.holds` 의 `_busyKey` 경로·`GitJobs.run` 의 사전 거절. 메뉴 항목의 `busy:` 는 동작 ID 를 받고 `GitMenu._why` 는 그 답을 읽는다. NFR-SDA-3 게이트가 없앤 이름을 지킨다 |
+| GR-1f 진행 중(FR-SDA-7) | 시작 요청이 오가는 동안 꺼지는 것은 누른 그 버튼뿐이다. 다른 버튼은 서버의 다음 답을 따른다 |
+| GR-1g 툴팁 | 원격 버튼의 툴팁은 영어다(FR-TIP-2). 1층 답이 낼 수 있는 사유는 `loading`·`job_busy` 둘이므로 각각 기존 영어 문구(`GIT_REMOTE_WHY_NO_STATUS`·`GIT_REMOTE_WHY_BUSY`)로 보인다 |
+| GR-1h worktree 지우기 | 사용자 결정(2026-11-05): 대상마다 답이 다르므로 1층에 싣지 않고 `GET /api/git/worktrees` 의 **행마다** `actions.remove` 로 싣는다(FR-SDA-60 의 Run 과 같은 모양). 판정은 "worktree 잡이 common 칸을 쥠" 과 "대상 worktree 의 index 칸" 이고, 실행 거절도 같은 함수다. Worktrees 탭은 `git_jobs_changed` 에 목록을 다시 받는다 |
+| GR-1i init | 서버에 판정이 없다(잠금 없음 · 저장소가 아닌 자리에서만 보인다). 그래서 답을 싣지 않고, 화면의 미리 막기(`blocks`)를 없애는 것으로 끝난다 |
+| GR-1j 문구 | `why.job_busy` 를 더한다 |
 
 ### 3.3 묶음 GT — git 대상 메뉴 (2층)
 
@@ -225,6 +242,8 @@ K1~K20 은 주석으로만 묶여 있다. 맞추는 장치가 있는 것은 파�
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-05 | GR-1 구현. 동작 변경 셋. ① **이전**: 화면이 index 칸이 돌면 동기 쓰기를 보내지 않고 스스로 `job_busy` 를 만들었다 / **새**: 요청을 보내고 서버의 409 `job_busy` 를 보인다 / **이유**: 판정의 주인은 서버다(D-SDA-1). ② **이전**: 칸 때문에 거절할 때 한국어 `message` 를 실었다 / **새**: `error: job_busy` 와 `args.job`(칸을 쥔 잡 id)만 싣는다 / **이유**: D-SDA-5. ③ **이전**: 원격 작업의 시작 요청이 오가는 동안 같은 칸을 쓰는 버튼이 모두 꺼졌다 / **새**: 누른 버튼만 꺼지고 나머지는 서버의 다음 답을 따른다 / **이유**: FR-SDA-7 |
+| 2026-11-05 | 묶음 GR 설계 세부(§3.2a). 사용자 결정: `git.worktree.remove` 의 답은 1층이 아니라 worktree 목록의 행마다 싣는다(D-SDA-2 와 FR-SDA-20 의 어긋남 해소). FR-SDA-20 에서 `git.worktree.remove`·`git.init` 을 뺐다 |
 | 2026-11-05 | 묶음 M 설계 세부(§3.1a)를 적었다. 동작 변경 — **이전**: untracked 파일만 있는 저장소에서 `--include-untracked` 없이 stash 를 만들면 409 `nothing_to_stash` 에 한국어 `message` 가 실렸다. **새**: 409 `untracked_only`, `args.count` 는 untracked 파일 수이고 `message` 는 없다. **이유**: 사유가 다르면 사용자가 할 일(옵션 켜기)이 다르다. 그리고 문구는 화면이 고른다(D-SDA-5) |
 | 2026-11-05 | 승인(사용자). 설계로 정한 D-SDA-5~7 · FR-SDA-23 · FR-SDA-61 · R-3 도 함께 승인됐다 |
 | 2026-11-05 | 초안. 전수 목록과 사용자 결정 4건(D-SDA-1~4)에서 썼다 |

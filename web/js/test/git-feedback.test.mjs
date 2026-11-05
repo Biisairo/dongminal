@@ -18,18 +18,27 @@ function consts(src) {
   return out;
 }
 
-// ── F-9.2: 잡 진행 중 메뉴 항목 비활성 (01 §6.4 표 "진행 중 잠금") ──
+// ── F-9.2 → SERVER_DRIVEN_ACTIONS_SRS GR-1e: 메뉴 항목은 서버 동작의 답을 그린다 ──
 
-function menuWorld(busySlot) {
+const GIT_ACTION_IDS = {
+  fetch: 'git.fetch', pull: 'git.pull', push: 'git.push',
+  branchPush: 'git.branch.push', branchFetch: 'git.branch.fetch', branchDeleteRemote: 'git.branch.delete_remote',
+  tagPush: 'git.tag.push', tagDeleteRemote: 'git.tag.delete_remote',
+  write: 'git.write', commit: 'git.commit', lockRemove: 'git.lock.remove',
+  worktreeCreate: 'git.worktree.create', worktreeRemove: 'git.worktree.remove',
+  submoduleUpdate: 'git.submodule.update', stashCreate: 'git.stash.create',
+};
+
+/** answers: 동작 ID → 답. 없는 ID 는 답이 아직 없는 것이다. */
+function menuWorld(answers) {
   const c = consts(MENU);
   delete c.GIT_MENUS; delete c.GIT_MENU_PRIMARY;
-  Object.assign(c, { GIT_REF_KIND_LOCAL: 'local', GIT_REF_KIND_REMOTE: 'remote',
-    GIT_JOB_SLOT_INDEX: 'index', GIT_JOB_SLOT_COMMON: 'common' });
-  const common = new Set(['fetch', 'push', 'branch/push', 'branch/fetch', 'branch/delete-remote', 'tag-push', 'tag-delete-remote']);
+  Object.assign(c, { GIT_REF_KIND_LOCAL: 'local', GIT_REF_KIND_REMOTE: 'remote', GIT_ACTION: GIT_ACTION_IDS });
   const ctx = load(['git/menu.js'], {
     globals: {
-      ...c, t: (k) => k, GIT_WRITE_ERR: { job_busy: 'JOB_BUSY' },
-      gitJobSlotsOf: (k) => (k === 'pull' ? ['index', 'common'] : common.has(k) ? ['common'] : ['index']),
+      ...c, t: (k) => k,
+      actionState: (a, pending) => (pending ? { enabled: false, why: '' } : !a ? { enabled: false, why: 'LOADING' }
+        : a.ok ? { enabled: true, why: '' } : { enabled: false, why: 'WHY:' + a.why }),
       GitTag: { oidOf: () => '' }, GitCommitOps: { whyHead: () => '', whyDrop: () => '', label: () => '', _restoreCmd: () => '' },
       GitStash: { label: () => '', ref: () => '' }, GitBranches: { restoreRemoteCmd: () => '' },
       gitShQuote: (s) => s, UIKit: { closeMenu() {}, menu: () => ({ dataset: {} }) },
@@ -38,7 +47,7 @@ function menuWorld(busySlot) {
   ctx.app = { gitPanel: {
     statusOf: () => ({}), branchDeletePair: () => ({ local: { short: 'f', isHead: false }, remote: 'o/f', why: '' }),
     branchDeleteTargets: (t) => [t.short], untrackedPaths: () => ['u'], dirtyCount: () => 1,
-    _remote: () => ({ busy: (s) => s === busySlot }),
+    actionOf: (id) => answers[id] || null,
   } };
   return ctx;
 }
@@ -49,28 +58,44 @@ const TARGETS = {
   tag: { short: 'v' }, stash: { oid: 's', index: 0 }, uncommitted: {}, file: { path: 'a' },
 };
 
-test('F-9.2: index 칸이 돌면 동기 쓰기·index 잡 시작 항목이, common 칸이 돌면 비-index 잡 시작 항목만 비활성이다', () => {
-  for (const slot of ['index', 'common']) {
-    const ctx = menuWorld(slot);
+const REMOTE_BRANCH = { kind: 'remote', short: 'o/f', isHead: false, oid: 'o' };
+
+function allOk() {
+  const a = {};
+  for (const id of Object.values(GIT_ACTION_IDS)) a[id] = { ok: true };
+  return a;
+}
+
+test('GR-1e: 항목이 기대는 동작의 답이 거짓이면 그 항목만 서버의 사유로 비활성이다', () => {
+  for (const denied of ['git.write', 'git.branch.push', 'git.branch.fetch', 'git.branch.delete_remote', 'git.tag.push', 'git.tag.delete_remote']) {
+    const answers = allOk();
+    answers[denied] = { ok: false, why: 'job_busy' };
+    const ctx = menuWorld(answers);
+    let hits = 0;
     for (const [kind, items] of Object.entries(ctx.GIT_MENUS)) {
       for (const it of items) {
         if (it.sep || !it.busy) continue;
-        const t = TARGETS[kind];
-        if (it.disabled && it.disabled(t)) continue;
-        const keys = [].concat(typeof it.busy === 'function' ? it.busy(t) : it.busy);
-        const slots = new Set(keys.map((k) => (k === 'write' ? 'index' : (k === 'pull' ? 'both'
-          : ['fetch', 'push', 'branch/push', 'branch/fetch', 'branch/delete-remote', 'tag-push', 'tag-delete-remote'].includes(k) ? 'common' : 'index'))));
-        const hit = [...slots].some((s) => s === 'both' || s === slot);
-        const why = ctx.GitMenu._why(it, t);
-        if (hit) assert.equal(why, 'JOB_BUSY', kind + '/' + it.id + ' @' + slot);
-        else assert.notEqual(why, 'JOB_BUSY', kind + '/' + it.id + ' @' + slot);
+        for (const t of kind === 'branch' ? [TARGETS.branch, REMOTE_BRANCH] : [TARGETS[kind]]) {
+          if (it.disabled && it.disabled(t)) continue;
+          const ids = [].concat(typeof it.busy === 'function' ? it.busy(t) : it.busy);
+          const why = ctx.GitMenu._why(it, t);
+          if (ids.includes(denied)) { hits++; assert.equal(why, 'WHY:job_busy', kind + '/' + it.id + ' @' + denied) }
+          else assert.equal(why, '', kind + '/' + it.id + ' @' + denied);
+        }
       }
     }
+    assert.ok(hits > 0, denied + ' 에 기대는 항목이 하나도 없다 — 검사가 공회전한다');
   }
 });
 
-test('F-9.2: 저장소를 바꾸는 메뉴 항목은 모두 잡 칸 판정을 갖는다', () => {
-  const ctx = menuWorld('');
+test('GR-1e: 답이 아직 없으면 항목은 loading 으로 비활성이다 (FR-SDA-6)', () => {
+  const ctx = menuWorld({});
+  const it = ctx.GIT_MENUS.stash.find((x) => x.id === 'apply');
+  assert.equal(ctx.GitMenu._why(it, TARGETS.stash), 'LOADING');
+});
+
+test('F-9.2: 저장소를 바꾸는 메뉴 항목은 모두 서버 동작의 답을 본다', () => {
+  const ctx = menuWorld(allOk());
   const pure = new Set(['copy-hash', 'copy-subject', 'copy-name', 'copy-branch-name', 'compare-mark', 'compare-with',
     'openChanges', 'openFile', 'openFileHead', 'copyPath', 'fileHistory', 'blame', 'open-changes']);
   for (const [kind, items] of Object.entries(ctx.GIT_MENUS)) {

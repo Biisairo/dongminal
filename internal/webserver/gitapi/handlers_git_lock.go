@@ -10,6 +10,7 @@ import (
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/jobs"
 )
 
 // gitLockRemoveReq 는 남은 index.lock 삭제의 본문이다 (REPO_FIX 01 §7.2).
@@ -46,12 +47,9 @@ func (s *GitServer) apiGitLockRemove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	x := s.exclusion()
-	if id, busy := x.IndexBusy(keys.Top); busy {
-		t.rejectWith(http.StatusConflict, gitErrJobBusy, "이 저장소에서 작업("+id+")이 진행 중이다 — 그 작업이 lock 의 주인일 수 있다")
-		return
-	}
-	if id, busy := x.CommonBusy(keys.Common); busy {
-		t.rejectWith(http.StatusConflict, gitErrJobBusy, "이 저장소에서 작업("+id+")이 진행 중이다 — 그 작업이 lock 의 주인일 수 있다")
+	// 잡이 돌면 그 잡이 lock 의 주인일 수 있다. 1층 `git.lock.remove` 와 같은 판정이다.
+	if a := slotsAnswer(x, keys, jobs.SlotIndex, jobs.SlotCommon); !a.OK {
+		t.rejectAnswer(a, nil)
 		return
 	}
 	release, ok := x.TryLockTop(keys.Top)

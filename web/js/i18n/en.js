@@ -1186,6 +1186,7 @@ I18N.register('en', {
   'term.held_discard': 'Discard',
   'term.soft_reload': 'Soft reload...',
   // SERVER_DRIVEN_ACTIONS_SRS M-6: phrases picked by the server's answer (`why` code). Keys are built as `'why.' + code`.
+  'why.job_busy': 'A job is running in this repository — try again when it finishes',
   'why.loading': 'Checking…',
   'why.nothing_to_stash': 'No changes to stash',
   'why.untracked_only': 'Only untracked files ({count}) — turn on include untracked',

@@ -13,6 +13,11 @@
   `args.count` 에 untracked 파일 수가 실립니다. `message` 는 더 이상 싣지 않습니다. 할 수 있는지는 새
   `GET /api/git/actions?action=git.stash.create` 로 미리 물을 수 있습니다. 화면의 stash 만들기 대화상자도
   이 답을 그대로 보입니다.
+- **작업 칸 때문에 거절하는 응답에서 `message` 가 빠집니다.** 다른 git 작업이 칸을 쥐고 있어 동기 쓰기나
+  작업 시작을 거절하면 409 `job_busy` 가 옵니다. 이전에는 본문에 한국어 `message` 가 실렸습니다. 이제는
+  `args.job` 에 칸을 쥔 작업의 id 가 실립니다. `GET /api/git/status` 응답에는 `actions` 가 새로 실립니다.
+  동작마다 지금 할 수 있는지(`{ok, why}`)가 들어 있습니다. `GET /api/git/worktrees` 의 행마다
+  `actions["git.worktree.remove"]` 도 실립니다.
 
 ## [1.2.3] — 2026-11-05
 

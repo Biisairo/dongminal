@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/jobs"
@@ -74,6 +75,8 @@ type gitWorktreeEntry struct {
 	Detached bool   `json:"detached"`
 	Owner    string `json:"owner"`
 	Main     bool   `json:"main"`
+	// Actions 는 이 행의 답이다 — 지금은 `git.worktree.remove` 하나 (GR-1h).
+	Actions map[string]action.Answer `json:"actions"`
 }
 
 // GET /api/git/worktrees?repo=<abs> — 활성 리포의 worktree 전부다 (FR-GIT-240).
@@ -94,6 +97,12 @@ func (s *GitServer) apiGitWorktrees(w http.ResponseWriter, r *http.Request) {
 		gitError(w, err)
 		return
 	}
+	keys, err := s.jobKeys(ctx, root)
+	if err != nil {
+		gitError(w, err)
+		return
+	}
+	x := s.exclusion()
 	userRoot := s.UserWorktrees.Root()
 	out := make([]gitWorktreeEntry, 0, len(entries))
 	for _, e := range entries {
@@ -107,6 +116,9 @@ func (s *GitServer) apiGitWorktrees(w http.ResponseWriter, r *http.Request) {
 			// 정해지고, 그 순서를 아는 것은 파싱하는 domain/worktree 뿐이다 — 여기서
 			// 다시 판정을 세우면 그 사실을 두 곳에서 따로 알게 된다.
 			Main: e.Main,
+			Actions: map[string]action.Answer{
+				action.GitWorktreeRemove: worktreeRemoveAnswer(x, keys.Common, s.gitJobKind, e.Path),
+			},
 		})
 	}
 	gitJSON(w, http.StatusOK, map[string]any{
@@ -160,9 +172,9 @@ func (s *GitServer) apiGitWorktreeCreate(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	t.keys = keys
-	if id, busy := s.exclusion().CommonBusy(keys.Common); busy {
-		t.rejectWith(http.StatusConflict, gitErrJobBusy,
-			"이 저장소에서 원격 작업("+id+")이 진행 중이다 — 끝난 뒤 다시 시도하라")
+	// 1층 `git.worktree.create` 와 같은 판정이다 (D-SDA-6).
+	if a := slotsAnswer(s.exclusion(), keys, jobs.SlotCommon); !a.OK {
+		t.rejectAnswer(a, nil)
 		return
 	}
 	release, err := worktree.LockRepo(t.ctx(), keys.Common, s.gitLockWait())
@@ -216,7 +228,7 @@ func (s *GitServer) apiGitWorktreeCreate(w http.ResponseWriter, r *http.Request)
 		}
 		release()
 	})
-	t.launchJob(func(h *jobs.Jobs, k jobs.Keys) (*jobs.Job, error) {
+	t.launchJob("worktree", func(h *jobs.Jobs, k jobs.Keys) (*jobs.Job, error) {
 		jb, err := h.StartUnguarded(t.root, k, "worktree", add.Argv, add.Reason, finish)
 		registered = err == nil
 		return jb, err
@@ -296,11 +308,6 @@ func (s *GitServer) apiGitWorktreeRemove(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	x := s.exclusion()
-	if id, busy := x.CommonBusy(keys.Common); busy && s.gitJobKind(id) == "worktree" {
-		t.rejectWith(http.StatusConflict, gitErrJobBusy,
-			"이 저장소에서 worktree 작업("+id+")이 진행 중이다 — 끝난 뒤 다시 시도하라")
-		return
-	}
 
 	// 지울 브랜치 이름은 클라이언트를 믿지 않는다 — 실제 목록에서 다시 찾는다.
 	entries, err := s.UserWorktrees.List(t.ctx(), t.root)
@@ -329,7 +336,16 @@ func (s *GitServer) apiGitWorktreeRemove(w http.ResponseWriter, r *http.Request)
 
 	// 밖에서 지운 worktree 도 키가 나온다 (§5.1 — 존재하는 조상까지 푼다).
 	top := core.ExclusionKey(target)
-	if t.targetIndexBusy(x, top) {
+	// 목록의 행 답과 같은 판정이다. 뮤텍스를 쥔 뒤 한 번 더 본다 — 기다리는 사이에
+	// 잡이 시작될 수 있다.
+	busy := func() bool {
+		a := worktreeRemoveAnswer(x, keys.Common, s.gitJobKind, target)
+		if !a.OK {
+			t.rejectAnswer(a, nil)
+		}
+		return !a.OK
+	}
+	if busy() {
 		return
 	}
 	unlock, err := x.LockTop(t.r.Context(), top, s.gitLockWait())
@@ -338,7 +354,7 @@ func (s *GitServer) apiGitWorktreeRemove(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	defer unlock()
-	if t.targetIndexBusy(x, top) {
+	if busy() {
 		return
 	}
 
@@ -364,16 +380,6 @@ func (s *GitServer) apiGitWorktreeRemove(w http.ResponseWriter, r *http.Request)
 		"path": res.Path, "branch": res.Branch,
 		"removed": res.Removed, "residue": res.Residue, "detail": res.Detail,
 	})
-}
-
-// targetIndexBusy 는 **대상** worktree 의 index 칸을 쥔 잡이 있으면 409 job_busy 다.
-func (t *gitWrite) targetIndexBusy(x *jobs.Exclusion, top string) bool {
-	id, busy := x.IndexBusy(top)
-	if busy {
-		t.rejectWith(http.StatusConflict, gitErrJobBusy,
-			"지우려는 worktree 에서 작업("+id+")이 진행 중이다 — 끝난 뒤 다시 시도하라")
-	}
-	return busy
 }
 
 // gitJobKind 는 진행 중인 잡의 kind 다. 허브가 없거나 이미 치워졌으면 빈 문자열이다.

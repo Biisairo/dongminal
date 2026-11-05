@@ -199,7 +199,7 @@ func (t *gitWrite) startHintedJob(kind string, spec core.WriteSpec, extra map[st
 	if usesIndex(kind) {
 		opts = append(opts, jobs.OnFinish(t.s.indexFinisher(t.root, t.snapshot(), nil)))
 	}
-	t.launchJob(func(h *jobs.Jobs, k jobs.Keys) (*jobs.Job, error) {
+	t.launchJob(kind, func(h *jobs.Jobs, k jobs.Keys) (*jobs.Job, error) {
 		jb, err := h.Start(t.root, k, kind, spec, opts...)
 		if err == nil && hint != nil {
 			t.s.Git.Service().AddHint(*hint)
@@ -211,14 +211,17 @@ func (t *gitWrite) startHintedJob(kind string, spec core.WriteSpec, extra map[st
 // startUnguardedJob 은 인가를 도메인이 진 작업을 띄운다 (M8 D-A-27) — 응답의
 // 모양과 busy 판정은 startJob 과 같다.
 func (t *gitWrite) startUnguardedJob(kind string, argv []string, reason string) {
-	t.launchJob(func(h *jobs.Jobs, k jobs.Keys) (*jobs.Job, error) {
+	t.launchJob(kind, func(h *jobs.Jobs, k jobs.Keys) (*jobs.Job, error) {
 		return h.StartUnguarded(t.root, k, kind, argv, reason)
 	}, nil)
 }
 
 // launchJob 은 잡 등록의 공통 몸통이다. 배타 키는 잠금을 쥐며 구한 것을 그대로 쓰고
 // (lockNone 종단은 여기서 구한다), 요청이 이미 떠났으면 등록하지 않는다 (§5.4 ④).
-func (t *gitWrite) launchJob(start func(*jobs.Jobs, jobs.Keys) (*jobs.Job, error), extra map[string]any) {
+//
+// 칸은 등록 전에 1층 답과 같은 판정(slotsAnswer)으로 본다 (D-SDA-6). 판정과 등록
+// 사이에 다른 잡이 끼면 등록(Exclusion.claim)이 같은 job_busy 로 거절한다.
+func (t *gitWrite) launchJob(kind string, start func(*jobs.Jobs, jobs.Keys) (*jobs.Job, error), extra map[string]any) {
 	if t.done {
 		return
 	}
@@ -233,6 +236,10 @@ func (t *gitWrite) launchJob(start func(*jobs.Jobs, jobs.Keys) (*jobs.Job, error
 	}
 	if t.r.Context().Err() != nil {
 		t.reject(core.ErrCanceled)
+		return
+	}
+	if a := slotsAnswer(t.s.exclusion(), keys, jobs.SlotsOf(kind)...); !a.OK {
+		t.rejectAnswer(a, nil)
 		return
 	}
 	jb, err := start(t.s.jobsHub(), keys)

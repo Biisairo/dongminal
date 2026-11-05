@@ -6,8 +6,8 @@
  * 칸마다 표시기(`GitRemote`) 하나를 두고, 이 클래스가 둘을 **하나의 표면**으로 묶는다:
  * 패널과 메뉴는 `panel._remote()` 하나만 안다.
  *
- * 칸 판정의 출처는 둘이다 — 도는 잡은 서버가 준 `slots`, 아직 응답이 오지 않은 시작은
- * `gitJobSlotsOf(key)`(서버 jobs.SlotsOf 와 같은 규칙).
+ * 버튼을 켜고 끄는 것은 서버의 1층 답이다 (SERVER_DRIVEN_ACTIONS_SRS GR-1e). 도는 잡이
+ * 어느 칸에 붙는지는 서버가 준 `slots` 가 정한다.
  */
 /**
  * REPO_FIX 05 §3A-7 (F-9.4): 끝난 잡 하나의 판정 — `canceled`·`ok`·`fail`·`unknown`.
@@ -72,27 +72,30 @@ class GitJobs {
 
   busy(slot){return Object.values(this.views).some(v=>v.holds(slot))}
 
-  // 그 키의 시작을 막는 사유. 버튼의 title 이 이것을 보인다 (FR-GIT-101).
-  why(key){
-    if(!this.panel.repo||!this.panel.statusOf()) return GIT_REMOTE_WHY_NO_STATUS;
-    return gitJobSlotsOf(key).some(s=>this.busy(s))?GIT_REMOTE_WHY_BUSY:'';
+  /**
+   * 그 키로 시작하는 동작의 상태 (FR-SDA-6·7). 서버의 답과, 그 키의 시작 요청이 오가는
+   * 중인지만 본다 — 진행 중으로 꺼지는 것은 누른 그 버튼뿐이다 (GR-1f).
+   */
+  state(key){
+    const pending=Object.values(this.views).some(v=>v._busy&&v._busyKey===key);
+    return actionState(this.panel.actionOf(GIT_JOB_ACTION[key]),pending);
   }
 
-  // §6.4: index 칸이 돌면 그 저장소의 동기 쓰기를 보내지 않는다. 서버도 409 다 —
-  // 보내지 않는 쪽이 사유를 먼저, 같은 문구로 보인다.
-  blocks(url){
-    if(GIT_JOB_INDEX_EXEMPT.has(url)) return '';
-    return this.busy(GIT_JOB_SLOT_INDEX)?GIT_JOB_BUSY_NOTE:'';
+  // 버튼의 영어 툴팁 (FR-TIP-2 · GR-1g). 1층 답의 사유는 loading·job_busy 둘뿐이다.
+  why(key){
+    const s=this.state(key);
+    if(s.enabled) return '';
+    const a=this.panel.actionOf(GIT_JOB_ACTION[key]);
+    return a?GIT_REMOTE_WHY_BUSY:GIT_REMOTE_WHY_NO_STATUS;
   }
 
   // ── 시작·추적 ──
 
+  // 칸이 찼는지는 서버가 판정하고 거절한다 — 시작 표시기는 기본 칸(index)에 서고,
+  // 응답의 잡이 붙을 칸은 `track` 이 서버의 `slots` 로 고른다.
   run(key,body,opts){
-    if(this.why(key))
-      return Promise.resolve({ok:false,code:409,data:{error:'job_busy',message:GIT_JOB_BUSY_NOTE}});
-    const slot=gitJobSlotsOf(key)[0];
-    this._dismissOthers(slot);
-    return this.views[slot]._launch(key,body,opts);
+    this._dismissOthers(GIT_JOB_SLOT_INDEX);
+    return this.views[GIT_JOB_SLOT_INDEX]._launch(key,body,opts);
   }
 
   // 시작 응답의 잡을 그 첫 칸의 표시기에 붙인다.

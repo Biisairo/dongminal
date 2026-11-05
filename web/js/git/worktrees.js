@@ -28,6 +28,15 @@ class GitWorktrees extends GitListTab {
     add.addEventListener('click',()=>this._create());
   }
 
+  // 만들기는 1층 답이다 (GR-1b) — status 가 바뀔 때마다 패널이 부른다.
+  _paintHead(){
+    const add=this._el&&this._el.querySelector('.git-wt-add');
+    if(!add) return;
+    const s=actionState(this.panel.actionOf(GIT_ACTION.worktreeCreate),false);
+    add.disabled=!s.enabled;
+    add.title=s.enabled?GIT_WT_ADD_TITLE:GIT_REMOTE_WHY_BUSY;
+  }
+
   _emptyText(){return GIT_WT_EMPTY}
 
   _sigParts(e){
@@ -86,8 +95,11 @@ class GitWorktrees extends GitListTab {
 
     const acts=document.createElement('span'); acts.className='git-wt-acts';
     for(const a of this._actsOf(e)){
-      acts.appendChild(UIKit.button({label:GIT_WT_ACT_LABEL[a],title:GIT_WT_ACT_TITLE[a],size:'sm',
-        cls:'git-wt-act',dataset:{act:a},onClick:ev=>{ev.stopPropagation();this._act(a,e)}}));
+      // 지우기는 행마다 서버의 답이다 (SERVER_DRIVEN_ACTIONS_SRS GR-1h). 툴팁은 영어다(FR-TIP-2).
+      const off=a==='remove'&&!actionState((e.actions||{})[GIT_ACTION.worktreeRemove],false).enabled;
+      acts.appendChild(UIKit.button({label:GIT_WT_ACT_LABEL[a],title:off?GIT_REMOTE_WHY_BUSY:GIT_WT_ACT_TITLE[a],
+        size:'sm',cls:'git-wt-act',dataset:{act:a},disabled:off,
+        onClick:ev=>{ev.stopPropagation();this._act(a,e)}}));
     }
     d.appendChild(acts);
     return d;

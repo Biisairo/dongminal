@@ -101,6 +101,20 @@ async function stubJobs(page: Page, jobs: any[]) {
   });
 }
 
+/**
+ * 서버의 1층 답을 흉내 낸다 (SERVER_DRIVEN_ACTIONS_SRS GR-1e). 가짜 잡은 서버의 칸을
+ * 쥐지 않으므로, 버튼을 끄는 것은 이 답이다. `on()` 이 참인 동안만 deny 의 동작을
+ * job_busy 로 답한다.
+ */
+async function stubBusyActions(page: Page, deny: string[], on: () => boolean = () => true) {
+  await page.route('**/api/git/status?*', async (route) => {
+    const res = await route.fetch();
+    const body = await res.json();
+    if (on() && body.actions) for (const id of deny) body.actions[id] = { ok: false, why: 'job_busy' };
+    route.fulfill({ response: res, body: JSON.stringify(body) });
+  });
+}
+
 async function ready(page: Page) {
   // 관측을 기다리는 동안 사이드가 다시 그려지면 버튼 자체가 잠시 사라진다
   // (실측: `element(s) not found` 로 끝났다). 재시도로 감싸 그때 다시 잡는다.
@@ -158,8 +172,11 @@ test.describe('13단계 — 원격 작업', () => {
     await ready(page);
 
     // 로컬 bare 로의 push 는 즉시 끝난다 — 진행 중 상태를 정직하게 보려면 작업이
-    // 끝나지 않아야 하므로 응답만 흉내 내고 출력 스트림을 매달아 둔다.
-    await page.route('**/api/git/push', (route) =>
+    // 끝나지 않아야 하므로 응답만 흉내 내고 출력 스트림을 매달아 둔다. 흉내 낸 잡은
+    // 서버의 칸을 쥐지 않으므로, 잡이 붙은 뒤의 1층 답도 함께 흉내 낸다.
+    let pushed = false;
+    await stubBusyActions(page, ['git.fetch', 'git.pull', 'git.push'], () => pushed);
+    await page.route('**/api/git/push', (route) => (pushed = true) &&
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -397,7 +414,9 @@ test.describe('13단계 — 원격 작업', () => {
     await openGit(page, repo);
     await ready(page);
 
-    // **이 창이 띄우지 않은** 작업이다 — 서버 목록에만 있다.
+    // **이 창이 띄우지 않은** 작업이다 — 서버 목록에만 있다. 버튼을 끄는 것은 서버의
+    // 1층 답이다 (GR-1e) — 잡 목록이 오면 화면이 status 를 다시 받고 그 답을 그린다.
+    await stubBusyActions(page, ['git.fetch', 'git.pull', 'git.push']);
     await stubJobs(page, [{ id: 'sb-job', repo, kind: 'fetch', argv: ['fetch', '--progress'], done: false }]);
     await page.route('**/api/git/job/events*', () => {});
 

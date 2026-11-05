@@ -250,7 +250,9 @@ class GitCommit {
   // 사유 **코드**를 답한다 (FR-TIP-2·3) — 문구는 부르는 쪽이 표에서 고른다.
   _why(){
     if(!this._repo) return GIT_COMMIT_WHY_NO_REPO;
-    if(this.panel._remote().busy(GIT_JOB_SLOT_INDEX)) return GIT_COMMIT_WHY_JOB_CODE;
+    // 칸은 서버의 1층 답이다 (GR-1e). 메시지·amend 판정은 GR-3 에서 서버로 옮긴다.
+    const a=this.panel.actionOf(GIT_ACTION.commit);
+    if(a&&!a.ok) return GIT_COMMIT_WHY_JOB_CODE;
     if(!this._msg.value.trim()) return GIT_COMMIT_WHY_EMPTY_CODE;
     // 서버와 같은 판정이다 — `-a` 는 tracked 변경을 스스로 담으므로 staged 가
     // 없어도 커밋할 것이 있다 (FR-GIT-84). REPO_FIX 01 §7.7: amend 면 메시지를

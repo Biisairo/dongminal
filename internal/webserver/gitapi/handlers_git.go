@@ -527,6 +527,12 @@ func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 	// 색이 영구히 꺼졌다 (§2.5).
 	resolved := wsentry.NormalizePath(requested)
 	mark := store.Mark(obs)
+	// SERVER_DRIVEN_ACTIONS_SRS GR-1c: 잡 상태는 mark 밖이므로 두 갈래 모두 싣는다.
+	actions, err := s.repoActions(r.Context(), root)
+	if err != nil {
+		gitError(w, err)
+		return
+	}
 	/*
 		OPTIMIZE_REFACTOR_SRS FR-OPT-4-7 (HTTP-7 · IPC-30): **가진 관측이면 목록을 싣지 않는다.**
 
@@ -547,6 +553,7 @@ func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 			"requestedResolved": resolved,
 			"mark":              mark,
 			"unchanged":         true,
+			"actions":           actions,
 		})
 		return
 	}
@@ -567,7 +574,8 @@ func (s *GitServer) apiGitStatus(w http.ResponseWriter, r *http.Request) {
 		"status":            obs.Status,
 		// REPO_FIX 04 §3A-0 X5: 관측 식별자 — git_changed 의 mark 와 같은 함수다. 화면은
 		// "관측이 같은가" 를 이것으로만 판정한다(탐색기 폴링 재칠 생략, 05 F-6.1).
-		"mark": mark,
+		"mark":    mark,
+		"actions": actions,
 	})
 }
 
