@@ -69,3 +69,25 @@ func TestApiToolUsage_RejectsMissingTool(t *testing.T) {
 		t.Fatalf("toolId 없는 보고 code=%d", code)
 	}
 }
+
+func TestUsageStore_PruneDropsDeadTools(t *testing.T) {
+	var u usageStore
+	u.put("live", toolUsage{})
+	u.put("dead", toolUsage{})
+	if n := u.prune(func(id string) bool { return id == "live" }); n != 1 {
+		t.Fatalf("지운 수=%d, 1 이어야 한다", n)
+	}
+	if _, ok := u.get("live"); !ok {
+		t.Errorf("살아 있는 도구의 사용량이 지워졌다")
+	}
+	if _, ok := u.get("dead"); ok {
+		t.Errorf("죽은 도구의 사용량이 남았다")
+	}
+}
+
+func TestUsageStore_PruneEmpty(t *testing.T) {
+	var u usageStore
+	if n := u.prune(func(string) bool { return false }); n != 0 {
+		t.Fatalf("빈 저장소에서 지운 수=%d", n)
+	}
+}

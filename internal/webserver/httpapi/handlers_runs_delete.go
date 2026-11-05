@@ -133,6 +133,7 @@ func (s *Server) StartRunReaper(stop <-chan struct{}) {
 				return
 			case <-t.C:
 				s.reapRuns()
+				s.usage.prune(s.toolLive)
 			}
 		}
 	}()

@@ -118,6 +118,21 @@ func (u *usageStore) get(toolID string) (toolUsage, bool) {
 	return v, ok
 }
 
+// prune 은 live 가 거짓인 도구의 사용량을 지우고 지운 수를 돌려준다. 도구가 죽어도
+// 이 저장소에 알리는 자리가 없으므로 수거 루프(StartRunReaper)가 주기적으로 부른다.
+func (u *usageStore) prune(live func(toolID string) bool) int {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	n := 0
+	for id := range u.m {
+		if !live(id) {
+			delete(u.m, id)
+			n++
+		}
+	}
+	return n
+}
+
 // apiToolUsage implements POST /api/tools/usage (FR-SLP-10).
 func (s *Server) apiToolUsage(w http.ResponseWriter, r *http.Request) {
 	var body struct {
