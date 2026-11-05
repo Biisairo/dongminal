@@ -64,6 +64,7 @@ internal/
     gitapi/              #   /api/git/* 핸들러 (GitServer). 라우트 테이블(routes.go)을 스스로 소유 — 수는 그 표가 답한다
                          #     gitwrite.go — 쓰기 한 번의 순서를 타입이 강제한다
     apierr/              #   sentinel → (status, code) 등록부 + 와이어 코드 단일 소유
+    action/              #   동작의 답 {ok, why, args} + 동작 ID → 사유 코드 목록 (SERVER_DRIVEN_ACTIONS_SRS)
     fswatch/             #   보이는 디렉터리의 비재귀 감시(fsnotify) · 이벤트 병합 · `fs_changed`
     hub/                 #   CommandHub·SSE 브로커 · FocusRegistry · AttnTracker
     sse/                 #   SSE 작성기(쓰기 시한·쌓인 이벤트 한 번에 flush) · 방송 본문 봉투
@@ -142,6 +143,7 @@ e2e/                     # Playwright 스펙 + git 픽스처(git_fixture.sh)
 scripts/                 # build.sh — 빌드 · verify-isolated.sh — `dongminal verify` 껍데기 · check-*.sh — 게이트
   gen-decisions/         #   `docs/internal/decisions.md` 생성기 (ctl/decidx)
   gen-errors/            #   `docs/external/errors.md` 생성기 (ctl/errdoc)
+  check-action-reasons/  #   사유 코드마다 ko·en 문구(`why.<code>`)가 있는가 (webserver/action)
 .github/workflows/       # verify.yml — 매 푸시 검사 (Linux·Windows)
                          # release.yml — 태그 v* → 5개 대상 빌드 → GitHub Releases
                          #   운영 동작은 바이너리의 액션 (internal/ctl/cli)

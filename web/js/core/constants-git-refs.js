@@ -109,7 +109,8 @@ const GIT_STASH_KEPT=t('git.stash_kept');
 // FR-GIT-167: 변경이 없으면 생성을 비활성화하고 사유를 보인다. 사유 없이 꺼진
 // 버튼은 사용자가 해소할 수 없다.
 const GIT_STASH_NOTHING=t('git.stash_nothing');
-const GIT_STASH_UNTRACKED_ONLY=t('git.stash_untracked_only');
+// 서버 판정의 동작 ID (SERVER_DRIVEN_ACTIONS_SRS M-3 · `action.GitStashCreate`)
+const GIT_ACTION_STASH_CREATE='git.stash.create';
 // 생성 다이얼로그 (FR-GIT-166, 검증 V58)
 const GIT_STASH_CREATE_TITLE=t('git.stash_create_title');
 const GIT_STASH_MSG_PLACEHOLDER=t('git.stash_msg_placeholder');

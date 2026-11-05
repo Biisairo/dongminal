@@ -5,6 +5,15 @@
 
 ## [Unreleased]
 
+### 바뀜
+
+- **untracked 파일만 있을 때 stash 만들기의 거절 코드가 `untracked_only` 로 바뀝니다.** 이전에는
+  `--include-untracked` 없이 `POST /api/git/stash/push` 를 보내면 변경이 아예 없을 때와 같은 409
+  `nothing_to_stash` 가 오고, 본문에 한국어 `message` 가 실렸습니다. 이제 409 `untracked_only` 가 오고,
+  `args.count` 에 untracked 파일 수가 실립니다. `message` 는 더 이상 싣지 않습니다. 할 수 있는지는 새
+  `GET /api/git/actions?action=git.stash.create` 로 미리 물을 수 있습니다. 화면의 stash 만들기 대화상자도
+  이 답을 그대로 보입니다.
+
 ## [1.2.3] — 2026-11-05
 
 ### 고침

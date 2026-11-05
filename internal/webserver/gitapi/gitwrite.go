@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/query"
@@ -156,6 +157,27 @@ func (t *gitWrite) rejectBody(status int, code, msg string, extra map[string]any
 	}
 	// FR-SAF-10: 본문은 여기서 만들고 헤더는 gitErrJSON 이 세운다.
 	gitErrJSON(t.w, status, code, body)
+	t.done = true
+}
+
+// rejectAnswer 는 거짓인 답으로 실행을 거절한다 (SERVER_DRIVEN_ACTIONS_SRS FR-SDA-3 ·
+// M-4). 코드·값은 답 종단이 낸 것과 같고, 서버 문구는 싣지 않는다 (D-SDA-5).
+func (t *gitWrite) rejectAnswer(a action.Answer, extra map[string]any) {
+	if t.done {
+		return
+	}
+	body := map[string]any{
+		"error":     a.Why,
+		"requested": t.requested,
+		"repo":      t.root,
+	}
+	if a.Args != nil {
+		body["args"] = a.Args
+	}
+	for k, v := range extra {
+		body[k] = v
+	}
+	gitErrJSON(t.w, a.Status, a.Why, body)
 	t.done = true
 }
 

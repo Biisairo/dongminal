@@ -1,7 +1,7 @@
 # SRS: 서버가 답하는 동작 가능 여부 — server-driven actions — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 묶음 M·GR·GT·GV·F·R·X·K·N 전부(구현 전). 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
+> **남은 것**: 묶음 GR·GT·GV·F·R·X·K·N(구현 전). 묶음 M 은 구현했다(§3.1a, `git.stash.create` 로 검증). 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
 
 ## 1. 개요 (Introduction)
 
@@ -74,6 +74,24 @@ K1~K20 은 주석으로만 묶여 있다. 맞추는 장치가 있는 것은 파�
 | FR-SDA-7 | 진행 중: 사용자가 누른 컨트롤은 그 요청의 응답이 올 때까지 꺼지고, 응답이 오면 서버의 다음 답을 따른다 | 필수 |
 | FR-SDA-8 | 사유 코드마다 ko·en 문구가 있다. 코드에 문구가 없으면 게이트가 실패한다 | 필수 |
 | FR-SDA-9 | 화면을 거치지 않은 요청(`dmctl`·스크립트)도 FR-SDA-3 의 거절을 받는다. `dmctl` 은 그 `why` 코드를 오류로 보인다 | 필수 |
+
+#### 3.1a 묶음 M 설계 세부
+
+장치를 검증하려고 동작 `git.stash.create` 하나를 화면부터 서버까지 끝까지 꿴다. stash 의 나머지 동작(탭의 "새로" 버튼(G-A5), 커밋 안 된 행의 Stash(G-A6))은 묶음 GR 에서 한다.
+
+| ID | 설계 |
+|---|---|
+| M-1 사유 코드 | `why` 는 `apierr` 의 와이어 코드다. 실행 거절의 `error` 와 같은 값이어야 하므로 와이어 코드의 단일 소유자(`apierr/codes.go`)에 둔다. 새 코드도 그곳에 더하고, 오류 카탈로그 안내(`CodeDoc`)를 함께 적는다. 묶음 M 의 새 코드는 `untracked_only`(409) 하나다 |
+| M-2 답 타입 | 새 패키지 `internal/webserver/action`. `Answer{OK, Why, Args}` 를 JSON `{"ok","why","args"}` 로 낸다. `ok` 가 참이면 `why`·`args` 를 싣지 않는다. 거절 상태(409·400)는 `Answer` 안에 두되 직렬화하지 않는다. 생성자는 `Allow()`·`Deny(status, why, args)` 둘이다 |
+| M-3 동작 목록 | `action.Catalog`: 동작 ID → 그 판정이 낼 수 있는 사유 코드 목록. 판정 함수의 표 시험이 "낸 사유가 목록 안에 있다" 를 확인한다. 묶음 M 의 줄은 `git.stash.create → nothing_to_stash, untracked_only` 하나다 |
+| M-4 판정과 거절 | 판정 함수는 HTTP 계층(`gitapi`)에 두고 도메인의 사실(`write.StashableCount`)만 읽는다. 답 종단과 실행 종단이 같은 함수를 부른다. 실행 종단은 답이 거짓이면 `X-Error-Code: <why>` 와 본문 `{"error": why, "args": …}`(+ 종단이 원래 싣던 맥락, stash 는 `status`)로 거절한다. 서버 문구(`message`)는 싣지 않는다(D-SDA-5) |
+| M-5 2층 종단(git) | `GET /api/git/actions?repo=&action=<id>[&<입력>]` → `{"requested":{…}, "repo": <root>, "actions": {"<id>": 답}}`. 모르는 `action` 은 400 `bad_request`. 묶음 M 에서 받는 것은 `action=git.stash.create&includeUntracked=0\|1` 이다. 묶음 GT 는 같은 종단에 `kind=` 형태를 더한다 |
+| M-6 문구 | 화면 카탈로그 키는 `why.<코드>` 다. `args` 는 `t()` 의 보간 값으로 그대로 넘긴다(`untracked_only` 는 `{count}`). 첫 응답 전의 사유 `why.loading` 도 같은 묶음이다. 키를 조립하므로 `check-i18n` 의 동적 접두 등록부에 `why.` 를 더한다 |
+| M-7 게이트(FR-SDA-8) | `scripts/check-action-reasons.sh` → `go run ./scripts/check-action-reasons`. `action.Catalog` 의 모든 코드와 `loading` 에 대해 `web/js/i18n/ko.js`·`en.js` 에 `why.<코드>` 키가 있는지 본다. 판정 논리(`action.MissingPhrases`)는 Go 단위 시험으로 탐침한다. `make gates` 에 건다 |
+| M-8 화면 장치 | `web/js/core/action-answer.js` 의 `actionState(answer, pending)` → `{enabled, why}`. 진행 중이면 `{false, ''}`, 답이 없으면 `{false, t('why.loading')}`, 거짓이면 `{false, t('why.'+why, args)}`, 참이면 `{true, ''}`. 컨트롤을 켜고 끄는 규칙은 이 함수 밖에 두지 않는다 |
+| M-9 stash 만들기 대화상자 | 열 때와 `includeUntracked` 를 바꿀 때 M-5 로 묻는다. 묻는 동안의 사유는 `loading` 이다. 늦게 온 앞선 답은 세대로 버린다(브랜치 이름 검증과 같은 방식). 화면의 `_why` 계산과 `GIT_STASH_UNTRACKED_ONLY` 를 없앤다 |
+| M-10 실행 거절 문구 | git 패널의 `writeReason` 은 `GIT_WRITE_ERR` 에 없는 코드를 `why.<코드>` 문구(있으면)로 보인다. 그래서 답을 거치지 않은 거절도 같은 문구로 읽힌다 |
+| M-11 `dmctl`(FR-SDA-9) | 거절 본문의 `error` 가 사유 코드이므로 `dmctl run` 의 기존 오류 출력(`dmctl_run_http.go`)이 그대로 보인다. git 에는 `dmctl` 명령이 없다. TC-SDA-4 는 판정이 생기는 묶음 R 에서 잰다 |
 
 ### 3.2 묶음 GR — git 저장소 단위 동작 (1층)
 
@@ -207,5 +225,6 @@ K1~K20 은 주석으로만 묶여 있다. 맞추는 장치가 있는 것은 파�
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-05 | 묶음 M 설계 세부(§3.1a)를 적었다. 동작 변경 — **이전**: untracked 파일만 있는 저장소에서 `--include-untracked` 없이 stash 를 만들면 409 `nothing_to_stash` 에 한국어 `message` 가 실렸다. **새**: 409 `untracked_only`, `args.count` 는 untracked 파일 수이고 `message` 는 없다. **이유**: 사유가 다르면 사용자가 할 일(옵션 켜기)이 다르다. 그리고 문구는 화면이 고른다(D-SDA-5) |
 | 2026-11-05 | 승인(사용자). 설계로 정한 D-SDA-5~7 · FR-SDA-23 · FR-SDA-61 · R-3 도 함께 승인됐다 |
 | 2026-11-05 | 초안. 전수 목록과 사용자 결정 4건(D-SDA-1~4)에서 썼다 |

@@ -195,8 +195,9 @@ func StashableCount(st query.Status, includeUntracked bool) int {
 	return n
 }
 
-// StashEmptyReason 은 담을 것이 없는 이유다. 클라이언트가 생성 버튼을 끄면서 그대로
-// 보인다 (FR-GIT-167) — 이유 없이 꺼진 버튼은 사용자가 해소할 수 없다.
+// StashEmptyReason 은 담을 것이 없는 이유를 StashPush 의 오류에 적는다 (FR-GIT-167).
+// 화면에 보이는 사유는 이것이 아니다 — 화면은 HTTP 계층의 판정이 낸 사유 코드를
+// 자기 문구로 보인다 (SERVER_DRIVEN_ACTIONS_SRS FR-SDA-24 · D-SDA-5).
 func StashEmptyReason(st query.Status, includeUntracked bool) string {
 	if !includeUntracked && len(st.Untracked) > 0 {
 		return fmt.Sprintf("추적되지 않는 파일 %d개뿐이다: --include-untracked 를 켜야 담긴다", len(st.Untracked))

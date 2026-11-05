@@ -265,9 +265,13 @@ Object.assign(GitPanel.prototype, {
     return {ok,code:ok?200:409,data};
   },
 
+  // 표에 없는 코드가 서버 판정의 사유면 그 문구를 쓴다 — 답을 거치지 않은 거절도
+  // 같은 문장으로 읽힌다 (SERVER_DRIVEN_ACTIONS_SRS M-10).
   writeReason(res){
     const d=res.data||{};
-    return GIT_WRITE_ERR[d.error]||GIT_WRITE_FAIL;
+    if(GIT_WRITE_ERR[d.error]) return GIT_WRITE_ERR[d.error];
+    if(d.error&&I18N.has('why.'+d.error)) return t('why.'+d.error,d.args);
+    return GIT_WRITE_FAIL;
   },
 
   writeError(res){

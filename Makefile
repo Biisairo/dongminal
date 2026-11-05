@@ -75,6 +75,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-body-limit.sh
 	@echo "── 오류 카탈로그 (생성물이 코드와 맞는가)"
 	@scripts/check-error-docs.sh
+	@echo "── 동작 사유 문구 (서버가 낼 수 있는 사유마다 ko·en 문구가 있는가)"
+	@scripts/check-action-reasons.sh
 	@echo "── SRS 상태 필드 (enum 안에 있는가)"
 	@scripts/check-srs-status.sh
 	@echo "── SRS 진행 근거 (\"구현중\" 이라는 주장에 근거가 있는가)"

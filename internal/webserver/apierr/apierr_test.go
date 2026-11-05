@@ -112,6 +112,7 @@ func TestNoDuplicateCodeValue(t *testing.T) {
 	add("CodeResolvePartial", CodeResolvePartial)
 	add("CodeJobNotFound", CodeJobNotFound)
 	add("CodeNothingToStash", CodeNothingToStash)
+	add("CodeUntrackedOnly", CodeUntrackedOnly)
 	add("CodeStashKept", CodeStashKept)
 	add("CodeStaleObservation", CodeStaleObservation)
 	add("CodePatchEmpty", CodePatchEmpty)

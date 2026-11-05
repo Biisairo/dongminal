@@ -57,8 +57,12 @@ const (
 
 	// ── stash ──
 	CodeNothingToStash = "nothing_to_stash"
-	CodeStashKept      = "stash_kept"
-	CodeStashMoved     = "stash_moved"
+	// CodeUntrackedOnly 는 untracked 파일만 있어 `--include-untracked` 없이는 담을 것이
+	// 없다는 것이다 (SERVER_DRIVEN_ACTIONS_SRS FR-SDA-24). 할 일이 nothing_to_stash 와
+	// 다르다 — 옵션을 켜면 담긴다.
+	CodeUntrackedOnly = "untracked_only"
+	CodeStashKept     = "stash_kept"
+	CodeStashMoved    = "stash_moved"
 
 	// ── 부분 스테이징 ──
 	CodeStaleObservation = "stale_observation"

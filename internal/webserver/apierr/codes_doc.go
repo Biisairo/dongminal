@@ -104,6 +104,7 @@ var CodeDoc = map[string]Doc{
 
 	// ── stash ──
 	CodeNothingToStash: {"치워 둘 변경이 없습니다.", "변경이 있는지 먼저 확인하세요."},
+	CodeUntrackedOnly:  {"추적되지 않는 파일만 있어 그대로는 치워 둘 것이 없습니다.", "`includeUntracked` 를 켜고 다시 보내세요. 본문의 args.count 가 그 파일 수입니다."},
 	CodeStashKept:      {"적용은 됐지만 stash 를 지우지 못했습니다 — 충돌이 남았습니다.", "충돌을 해결한 뒤 stash 를 직접 지우세요. 그때까지 내용은 보존됩니다."},
 
 	// ── 부분 스테이징 ──

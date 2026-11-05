@@ -209,6 +209,39 @@ test.describe('19단계 — Stash 탭', () => {
     expect(git(repo, 'status', '--porcelain')).toBe('');
   });
 
+  test('S6b (SERVER_DRIVEN_ACTIONS_SRS M-9 · FR-SDA-24): 담길 것은 서버가 답하고, 직접 보낸 요청도 같은 사유로 거절된다', async ({ page }) => {
+    const repo = copyFx('with-remote', 's6b'); // 깨끗한 워킹 트리
+    writeFileSync(join(repo, 'only-untracked.txt'), 'untracked\n');
+    await waitForInit(page);
+    await openStash(page, repo);
+
+    await st(page).locator('.git-stash-new').click();
+    await expect(create(page)).toBeVisible();
+    const why = create(page).locator('.git-dialog-why');
+    const go = create(page).locator('.gsc-go');
+    // untracked 뿐이고 옵션이 꺼져 있다 — 서버의 사유(untracked_only)가 보이고 실행은 막힌다.
+    await expect(why).toHaveAttribute('data-why', 'why', { timeout: 20000 });
+    await expect(why).toContainText('1');
+    await expect(go).toBeDisabled();
+
+    // 옵션을 켜면 서버가 다시 답하고 실행이 열린다.
+    await create(page).locator('.gsc-untracked').check();
+    await expect(go).toBeEnabled({ timeout: 20000 });
+    await expect(why).not.toHaveClass(/vis/);
+
+    // 화면을 거치지 않은 요청도 같은 판정으로 거절된다 (FR-SDA-3·9).
+    const res = await page.evaluate(async (r: string) => {
+      const x = await fetch('/api/git/stash/push', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repo: r }),
+      });
+      return { status: x.status, code: x.headers.get('X-Error-Code'), body: await x.json() };
+    }, repo);
+    expect(res.status).toBe(409);
+    expect(res.code).toBe('untracked_only');
+    expect(res.body.args).toEqual({ count: 1 });
+    expect(stashCount(repo)).toBe(0);
+  });
+
   test('S7 (V58 / FR-GIT-167): 변경이 없으면 생성이 비활성이고 사유를 보인다', async ({ page }) => {
     const repo = copyFx('with-remote', 's7'); // 깨끗한 워킹 트리
     await waitForInit(page);

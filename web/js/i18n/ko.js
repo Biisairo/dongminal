@@ -762,7 +762,6 @@ I18N.register('ko', {
   'git.stash_pick': 'stash 를 선택하세요',
   'git.stash_preview_fail': 'stash 미리보기를 불러오지 못했습니다',
   'git.stash_gone': '선택한 stash 가 사라졌습니다',
-  'git.stash_untracked_only': '추적되지 않는 파일뿐입니다 — untracked 포함을 켜세요',
   'git.sub_all': '전부',
   'git.sub_updating': '서브모듈을 갱신하는 중',
   'git.sub_update_canceled': '서브모듈 갱신을 취소했습니다',
@@ -1204,4 +1203,8 @@ I18N.register('ko', {
   'term.held_send': '보내기',
   'term.held_discard': '버리기',
   'term.soft_reload': '내부 새로고침...',
+  // SERVER_DRIVEN_ACTIONS_SRS M-6: 서버의 답(`why` 코드)이 고르는 문구. 키는 `'why.' + code` 로 조립된다.
+  'why.loading': '확인하는 중…',
+  'why.nothing_to_stash': '저장할 변경이 없습니다',
+  'why.untracked_only': '추적되지 않는 파일 {count}개뿐입니다 — untracked 포함을 켜세요',
 });

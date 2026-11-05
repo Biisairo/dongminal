@@ -247,6 +247,7 @@
 | GET | `/api/git/signature` | 저장소의 변화 서명 — 바뀌었을 때만 알리기 위한 값 |
 | GET | `/api/git/policy` | 이 저장소에서 허용되는 동작 |
 | GET | `/api/git/preflight` | 그 동작이 지금 가능한가 (사전 점검) |
+| GET | `/api/git/actions` | 동작 하나를 지금 할 수 있는가. `?action=<id>` 와 그 동작의 입력을 받아 `{actions:{<id>:{ok, why, args}}}` 로 답한다. 할 수 없어도 200 이고, `why` 는 실행을 거절할 때의 오류 코드와 같다. 지금 받는 동작은 `git.stash.create`(`includeUntracked=0\|1`)다 |
 | GET | `/api/git/recovery` | 중단된 작업에서 돌아오는 길 |
 
 ### Git — 변경·커밋

@@ -12,13 +12,16 @@
  * 실행만 안다. 옵션의 기본값은 안전한 쪽이므로 둘 다 꺼져 있다 (FR-GIT-173).
  *
  * untracked 뿐인 저장소에서는 `--include-untracked` 없이 담길 것이 없다 — 그것을
- * 실행 전에 보인다 (FR-GIT-167). 서버도 `nothing_to_stash` 로 막지만, 실행해 보고
- * 알려 주면 사용자는 왜 아무 일도 없었는지 모른다.
+ * 실행 전에 보인다 (FR-GIT-167). 담길 것이 있는지는 **서버가 답한다**
+ * (SERVER_DRIVEN_ACTIONS_SRS M-9) — 이 클래스는 묻고 그 답을 그린다. 실행 요청도
+ * 서버가 같은 판정으로 거절한다.
  */
 class GitStashCreate {
   constructor(panel){
     this.panel=panel;
     this.repo=panel.repo;
+    this._seq=0;
+    this._state=null;
   }
 
   _show(){
@@ -33,20 +36,34 @@ class GitStashCreate {
         {key:'keepIndex',type:GIT_DIALOG_CHECK,cls:'gsc-keepindex',
          fieldCls:'gsc-optrow',label:GIT_STASH_OPT_KEEPINDEX},
       ],
-      validate:v=>this._why(v),
+      validate:(v,d,key)=>this._why(v,d,key),
       run:v=>this._run(v),
     });
   }
 
-  // 이 옵션으로 담길 것이 있는지 (FR-GIT-167). 서버의 StashableCount 와 같은 규칙이다.
-  _why(v){
-    const s=this.panel.statusOf();
-    if(!s) return GIT_LOADING_HINT;
-    const n=(s.staged||[]).length+(s.changes||[]).length+(s.conflicts||[]).length+
-      (v.includeUntracked?(s.untracked||[]).length:0);
-    if(n) return '';
-    return (s.untracked||[]).length?GIT_STASH_UNTRACKED_ONLY:GIT_STASH_NOTHING;
+  // 판정을 바꾸는 입력은 untracked 포함 하나다 — 열 때와 그것을 바꿀 때만 묻는다.
+  // 메시지를 치는 동안에는 마지막 답을 그대로 둔다.
+  _why(v,d,key){
+    if(key===''||key==='includeUntracked'){
+      const seq=++this._seq;
+      this._state=this._whyOf(actionState(null,false));
+      this._ask(!!v.includeUntracked,d,seq);
+    }
+    return this._state;
   }
+
+  async _ask(includeUntracked,d,seq){
+    const id=GIT_ACTION_STASH_CREATE;
+    // 늦게 온 앞선 답은 버린다 — 옵션을 바꾼 뒤의 답만 지금 입력의 것이다.
+    const res=await gitFetch(GIT_API.actions,{repo:this.repo,action:id,includeUntracked:includeUntracked?'1':'0'},
+      {stale:()=>seq!==this._seq||!d.alive(),echo:{repo:this.repo,action:id}});
+    if(res.stale) return;
+    const s=res.ok?actionState(res.data.actions[id],false):{enabled:false,why:this.panel.writeReason(res)};
+    this._state=this._whyOf(s);
+    d.setWhy(this._state.kind,this._state.why);
+  }
+
+  _whyOf(s){return s.enabled?{kind:'',why:''}:{kind:GIT_DIALOG_WHY,why:s.why}}
 
   async _run(v){
     const res=await this.panel.post(GIT_API.stashPush,{

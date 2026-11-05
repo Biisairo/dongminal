@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/core"
 	"net/url"
 )
@@ -92,16 +93,18 @@ func TestAPIGitStashPush(t *testing.T) {
 
 // N3 (V58, FR-GIT-167): 담을 것이 없으면 **실행하지 않고** 사유를 준다.
 //
-// untracked 만 있고 `--include-untracked` 가 없는 경우도 같다 — git 은 그 실행을
-// exit 0 으로 끝내므로 성공으로 답하면 사용자는 만들어지지 않은 stash 를 찾는다.
+// untracked 만 있고 `--include-untracked` 가 없는 경우도 실행하지 않는다 — git 은 그
+// 실행을 exit 0 으로 끝내므로 성공으로 답하면 사용자는 만들어지지 않은 stash 를 찾는다.
+// 그 사유는 `untracked_only` 로 가른다 (SERVER_DRIVEN_ACTIONS_SRS FR-SDA-24).
 func TestAPIGitStashPush_NothingToStash(t *testing.T) {
 	cases := []struct {
 		name   string
 		status string
 		body   string
+		why    string
 	}{
-		{"변경 없음", gitCleanStatus(), `{"repo":` + qWorkRepo + `}`},
-		{"untracked 만 + -u 없음", gitUntrackedStatus(), `{"repo":` + qWorkRepo + `}`},
+		{"변경 없음", gitCleanStatus(), `{"repo":` + qWorkRepo + `}`, apierr.CodeNothingToStash},
+		{"untracked 만 + -u 없음", gitUntrackedStatus(), `{"repo":` + qWorkRepo + `}`, apierr.CodeUntrackedOnly},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -110,11 +113,8 @@ func TestAPIGitStashPush_NothingToStash(t *testing.T) {
 			s := gitM5Server(t, f)
 
 			code, out := gitReq(t, s, http.MethodPost, "/api/git/stash/push", c.body)
-			if code != http.StatusConflict || out["error"] != gitErrNothingToStash {
-				t.Fatalf("code = %d, error = %v, want 409 nothing_to_stash", code, out["error"])
-			}
-			if out["message"] == "" {
-				t.Fatal("사유가 비었다 — 사용자가 무엇을 해소해야 하는지 알 수 없다")
+			if code != http.StatusConflict || out["error"] != c.why {
+				t.Fatalf("code = %d, error = %v, want 409 %s", code, out["error"], c.why)
 			}
 			if got := f.wrote(); len(got) != 0 {
 				t.Fatalf("거부됐는데 실행됐다: %v", got)

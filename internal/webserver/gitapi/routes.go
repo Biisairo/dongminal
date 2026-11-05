@@ -59,6 +59,7 @@ var routes = []route{
 	// 경로를 종류마다 두면 새 작업이 늘 때 라우트가 함께 늘어난다.
 	httproute.Post("/api/git/operation", (*GitServer).apiGitOperation),
 	httproute.Post("/api/git/branch", (*GitServer).apiGitBranchCreate),
+	httproute.Get("/api/git/actions", (*GitServer).apiGitActions),
 	httproute.Get("/api/git/branch/validate", (*GitServer).apiGitBranchValidate),
 	// 묶음 B — 브랜치 동작 (GIT_ACTIONS_SRS §3.2 FR-GIT-253~259 · §3.5 FR-GIT-268).
 	// 원격으로 나가는 셋(push · fetch into local · 원격 ref 삭제)만 job 경로다.

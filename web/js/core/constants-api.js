@@ -17,6 +17,7 @@ const GIT_API=Object.freeze({
   branchRebase:'/api/git/branch/rebase',
   branchRename:'/api/git/branch/rename',
   branchUpstream:'/api/git/branch/upstream',
+  actions:'/api/git/actions',
   branchValidate:'/api/git/branch/validate',
   checkout:'/api/git/checkout',
   cherryPick:'/api/git/cherry-pick',

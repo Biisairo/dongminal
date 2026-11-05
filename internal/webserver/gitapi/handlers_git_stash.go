@@ -19,7 +19,6 @@ import (
 
 // stash 고유의 거부 코드. 상태 코드만으로는 무엇이 왜 막혔는지 구분할 수 없다.
 const (
-	gitErrNothingToStash = apierr.CodeNothingToStash
 	// gitErrStashKept 는 **pop 이 끝나지 않아 stash 가 남았다**는 것이다
 	// (FR-GIT-165). 500 으로 뭉개면 클라이언트가 "작업은 남아 있다"를 말할 근거를
 	// 잃고, 사용자는 작업을 잃었다고 오해한다.
@@ -145,11 +144,10 @@ func (s *GitServer) apiGitStashPush(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 담을 것이 없으면 **실행하지 않는다** (FR-GIT-167). git 은 그 실행을 exit 0 으로
-	// 끝내므로 성공으로 답하면 사용자는 만들어지지 않은 stash 를 찾는다.
-	if write.StashableCount(before, req.IncludeUntracked) == 0 {
-		t.rejectBody(http.StatusConflict, gitErrNothingToStash,
-			write.StashEmptyReason(before, req.IncludeUntracked),
-			map[string]any{"status": before})
+	// 끝내므로 성공으로 답하면 사용자는 만들어지지 않은 stash 를 찾는다. 판정은 답
+	// 종단과 같은 함수다 (SERVER_DRIVEN_ACTIONS_SRS D-SDA-6).
+	if a := stashCreateAnswer(before, req.IncludeUntracked); !a.OK {
+		t.rejectAnswer(a, map[string]any{"status": before})
 		return
 	}
 	opts := write.StashPushOpts{

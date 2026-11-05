@@ -90,6 +90,7 @@ const SKIP_PROPS = [
  */
 const DYNAMIC_PREFIXES = [
   { prefix: 'err.', why: "api.js 가 서버의 오류 코드로 `t('err.' + code)` 를 조립한다 (ERROR_CONTRACT)" },
+  { prefix: 'why.', why: "action-answer.js 가 서버 답의 사유 코드로 `t('why.' + code)` 를 조립한다 (SERVER_DRIVEN_ACTIONS_SRS M-6)" },
 ];
 
 const problems = [];

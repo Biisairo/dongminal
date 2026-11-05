@@ -739,7 +739,6 @@ I18N.register('en', {
   'git.stash_pick': 'Select a stash',
   'git.stash_preview_fail': 'Could not load the stash preview',
   'git.stash_gone': 'The selected stash is gone',
-  'git.stash_untracked_only': 'Only untracked files — turn on include untracked',
   'git.sub_all': 'All',
   'git.sub_updating': 'Updating submodules',
   'git.sub_update_canceled': 'Submodule update canceled',
@@ -1186,4 +1185,8 @@ I18N.register('en', {
   'term.held_send': 'Send',
   'term.held_discard': 'Discard',
   'term.soft_reload': 'Soft reload...',
+  // SERVER_DRIVEN_ACTIONS_SRS M-6: phrases picked by the server's answer (`why` code). Keys are built as `'why.' + code`.
+  'why.loading': 'Checking…',
+  'why.nothing_to_stash': 'No changes to stash',
+  'why.untracked_only': 'Only untracked files ({count}) — turn on include untracked',
 });
