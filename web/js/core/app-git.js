@@ -696,6 +696,9 @@ Object.assign(App.prototype, {
     const why=here?''
       :(mine?GIT_ADD_REPO_NO_TERM.replace('%s',(at&&(at.reason||at.cwd))||'')
             :GIT_ADD_REPO_NO_TOOL);
+    // 경로는 서버가 판정한다 (SERVER_DRIVEN_ACTIONS_SRS GV-c) — 저장소가 아닌 자리에서 묻는다.
+    const answer=new GitInputAnswer({repo:'',id:GIT_ACTION.repoAdd,
+      params:v=>({path:(v.path||'').trim()}),fail:()=>GIT_ADD_REPO_FAIL});
     return GitDialog.open({
       id:'git-add-repo-dlg',ns:'gar',action:'repo_pin',
       title:GIT_ADD_REPO_TITLE,runLabel:GIT_ADD_REPO_RUN,focus:'path',
@@ -704,7 +707,7 @@ Object.assign(App.prototype, {
         {key:'path',type:GIT_DIALOG_TEXT,cls:'gar-path',value:here,
          placeholder:GIT_ADD_REPO_PROMPT},
       ],
-      validate:v=>(v.path||'').trim()?'':GIT_ADD_REPO_NEED_PATH,
+      validate:(v,d)=>answer.why(v,d),
       run:v=>this._gitAddRepoRun((v.path||'').trim()),
     });
   },

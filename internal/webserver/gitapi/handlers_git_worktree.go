@@ -156,11 +156,9 @@ type gitWorktreeCreateReq struct {
 func (s *GitServer) apiGitWorktreeCreate(w http.ResponseWriter, r *http.Request) {
 	var req gitWorktreeCreateReq
 	t := s.beginServiceWrite(w, r, &req, s.UserWorktrees != nil, gitWorktreesUnavailable)
-	if err := worktree.CheckName(req.Name); err != nil {
-		t.rejectWith(http.StatusBadRequest, gitErrRefName, gitTail(err.Error()))
-	}
-	if strings.TrimSpace(req.Ref) == "" {
-		t.rejectWith(http.StatusBadRequest, gitErrBadRequest, "ref 가 없다")
+	// 대화상자의 답(`git.worktree.create`)과 같은 판정이다 (GV-c · D-SDA-6).
+	if a := worktreeInputAnswer(req.Name, req.Ref); !a.OK && !t.stop() {
+		t.rejectAnswer(a, nil)
 	}
 	t.resolve(req.Repo)
 	if t.stop() {
@@ -194,18 +192,11 @@ func (s *GitServer) apiGitWorktreeCreate(w http.ResponseWriter, r *http.Request)
 
 	// 여기부터는 이 표면 고유의 충돌 판정이다 — 파이프라인이 대신할 수 없다.
 	path := s.UserWorktrees.Path(worktree.RepoBucket(t.root), req.Name)
-	if _, err := os.Stat(path); err == nil {
-		t.rejectBody(http.StatusConflict, gitErrWorktreeExists,
-			"이미 있는 이름이다: "+req.Name, map[string]any{"path": path})
+	if !t.judge(s.worktreePlaceAnswer(t.ctx(), t.root, path, req.Name, req.NewBranch), nil) {
 		return
 	}
 	spec := worktree.Spec{Repo: t.root, Path: path, Base: req.Ref, LockKey: keys.Common}
 	if req.NewBranch {
-		if s.UserWorktrees.BranchExists(t.ctx(), t.root, req.Name) {
-			t.rejectBody(http.StatusConflict, gitErrBranchExists,
-				"로컬 브랜치 "+req.Name+" 가 이미 있다", map[string]any{"branch": req.Name})
-			return
-		}
 		spec.Branch = req.Name
 	}
 	add, err := s.UserWorktrees.AddSpec(spec)

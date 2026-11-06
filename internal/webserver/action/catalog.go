@@ -15,7 +15,8 @@ var Catalog = Table{
 	GitWrite:           {apierr.CodeJobBusy},
 	GitCommit:          {apierr.CodeEmptyMessage, apierr.CodeJobBusy, apierr.CodePreflightBlocked, apierr.CodeNothingStaged},
 	GitLockRemove:      {apierr.CodeJobBusy},
-	GitWorktreeCreate:  {apierr.CodeJobBusy},
+	GitWorktreeCreate: {apierr.CodeJobBusy, apierr.CodeEmptyName, apierr.CodeRefName, apierr.CodeEmptyRef,
+		apierr.CodeWorktreeExists, apierr.CodeBranchExists},
 	GitSubmoduleUpdate: {apierr.CodeJobBusy},
 	GitWorktreeRemove:  {apierr.CodeJobBusy},
 
@@ -45,4 +46,8 @@ var Catalog = Table{
 	// 대화상자 입력 (GV-c)
 	GitTagCreate:   {apierr.CodeTagKindInvalid, apierr.CodeTagMessageRequired},
 	GitStashBranch: {apierr.CodeEmptyName, apierr.CodeRefName, apierr.CodeBranchExists},
+	GitRemoteAdd: {apierr.CodeEmptyName, apierr.CodeRemoteNameInvalid, apierr.CodeEmptyURL,
+		apierr.CodeRemoteURLInvalid, apierr.CodeRemoteExists},
+	GitCompare: {apierr.CodeEmptyRev, apierr.CodeEmptyPath},
+	GitRepoAdd: {apierr.CodeEmptyPath, apierr.CodeAbsPathNeeded, apierr.CodeNotRepo, apierr.CodeRepoMissing},
 }

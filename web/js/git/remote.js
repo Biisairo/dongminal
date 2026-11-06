@@ -897,6 +897,10 @@ class GitRemoteAdd {
     this.list=list;
     this.panel=list.panel;
     this.repo=list.panel.repo;
+    // 이름·URL·이미 있는 이름은 서버가 판정한다 (SERVER_DRIVEN_ACTIONS_SRS GV-c).
+    this._answer=new GitInputAnswer({repo:this.repo,id:GIT_ACTION.remoteAdd,
+      params:v=>({name:(v.name||'').trim(),url:(v.url||'').trim()}),
+      fail:res=>this.panel.writeReason(res)||GIT_RM_ADD_FAIL});
   }
 
   _show(){
@@ -907,17 +911,9 @@ class GitRemoteAdd {
         {key:'name',type:GIT_DIALOG_TEXT,cls:'gra-name',placeholder:GIT_RM_NAME_PH},
         {key:'url',type:GIT_DIALOG_TEXT,cls:'gra-url',placeholder:GIT_RM_URL_PH},
       ],
-      validate:v=>this._why(v),
+      validate:(v,d)=>this._answer.why(v,d),
       run:v=>this._run(v),
     });
-  }
-
-  // 규칙 전체를 여기서 판정하지 않는다 — 그것은 서버의 일이다 (FR-GIT-250.3).
-  // 여기서 막는 것은 "아직 채우지 않았다" 뿐이다.
-  _why(v){
-    if(!(v.name||'').trim()) return GIT_RM_WHY_NAME;
-    if(!(v.url||'').trim()) return GIT_RM_WHY_URL;
-    return '';
   }
 
   async _run(v){

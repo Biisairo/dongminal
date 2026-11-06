@@ -162,3 +162,22 @@ test('onChange 를 주면 setWhy 대신 그것을 부른다 — 다른 사유와
   assert.deepEqual({ ...seen[0] }, { kind: '', why: '' });
   assert.equal(dialog.painted.length, 0);
 });
+
+test('repo 가 없는 동작은 repo 를 싣지도 대조하지도 않는다 (git.repo.add)', () => {
+  const calls = [];
+  const ctx = load(['core/i18n.js', 'core/action-answer.js', 'git/input-answer.js'], {
+    expose: ['GitInputAnswer'],
+    globals: {
+      localStorage: { getItem: () => 'ko', setItem() {} },
+      document: { documentElement: { setAttribute() {} }, querySelectorAll: () => [] },
+      GIT_API: { actions: '/api/git/actions' }, GIT_BR_VALIDATE_DEBOUNCE_MS: 0,
+      GIT_DIALOG_WHY: 'why', GIT_DIALOG_WHY_PENDING: 'pending',
+      TIMERS: { after(_ms, fn) { fn(); return 1 }, cancel() {} },
+      gitFetch: (url, q, o) => { calls.push({ q, o }); return new Promise(() => {}) },
+    },
+  });
+  const ans = new ctx.GitInputAnswer({ repo: '', id: 'git.repo.add', params: v => ({ path: v.path }), fail: () => '' });
+  ans.why({ path: '/x' }, { alive: () => true });
+  assert.equal('repo' in calls[0].q, false);
+  assert.deepEqual({ ...calls[0].o.echo }, { action: 'git.repo.add' });
+});

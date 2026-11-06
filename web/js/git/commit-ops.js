@@ -142,6 +142,10 @@ class GitCommitOps {
     const cur=panel._diffTarget&&panel._diffTarget();
     const lines=[GIT_CO_COMPARE_THIS.replace('%s',GitCommitOps.label(c))];
     if(mark) lines.push(GIT_CO_COMPARE_MARKED.replace('%s',mark.label));
+    // 빈 입력은 서버가 판정한다 (SERVER_DRIVEN_ACTIONS_SRS GV-c).
+    const answer=new GitInputAnswer({repo:panel.repo,id:GIT_ACTION.compare,
+      params:v=>({rev:(v.rev||'').trim(),path:(v.path||'').trim()}),
+      fail:res=>panel.writeReason(res)});
     return GitDialog.open({
       id:'git-compare',ns:'gco',action:'compare',
       title:GIT_CO_COMPARE_TITLE,runLabel:GIT_CO_COMPARE_RUN,focus:'rev',
@@ -152,11 +156,7 @@ class GitCommitOps {
         {key:'path',type:GIT_DIALOG_TEXT,cls:'gco-path',
          placeholder:GIT_CO_COMPARE_PATH_PH,value:(cur&&cur.path)||''},
       ],
-      validate:v=>{
-        if(!(v.rev||'').trim()) return GIT_CO_WHY_NO_REV;
-        if(!(v.path||'').trim()) return GIT_CO_WHY_NO_PATH;
-        return '';
-      },
+      validate:(v,d)=>answer.why(v,d),
       run:v=>GitCommitOps._compare(panel,c,(v.rev||'').trim(),(v.path||'').trim()),
     });
   }

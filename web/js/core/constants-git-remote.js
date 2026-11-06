@@ -39,6 +39,7 @@ const GIT_ACTION=Object.freeze({
   branchDelete:'git.branch.delete',branchDeleteBoth:'git.branch.delete_both',
   // 대화상자 입력 (GV-c)
   tagCreate:'git.tag.create',stashBranch:'git.stash.branch',
+  remoteAdd:'git.remote.add',compare:'git.compare',repoAdd:'git.repo.add',
 });
 // NFR-SDA-1: 메뉴의 답이 이보다 늦으면 항목을 loading 으로 먼저 그린다.
 const GIT_MENU_ASK_LOADING_MS=50;
@@ -256,8 +257,6 @@ const GIT_WT_CREATE_RUN=t('git.act.wt_create_run');
 const GIT_WT_NAME_PH=t('git.wt_name_ph');
 const GIT_WT_REF_PH=t('git.wt_ref_ph');
 const GIT_WT_OPT_NEWBRANCH=t('git.wt_opt_newbranch');
-const GIT_WT_NEED_NAME=t('git.wt_need_name');
-const GIT_WT_NEED_REF=t('git.wt_need_ref');
 const GIT_WT_CREATED=t('git.wt_created');
 const GIT_WT_PINNED=t('git.wt_pinned');
 const GIT_WT_PIN_FAIL=t('git.wt_pin_fail');

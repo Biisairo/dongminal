@@ -42,6 +42,13 @@
   (`POST /api/git/stash/branch`)의 이름 거절은 400 `bad_request` 대신 `empty_name`·`ref_name_invalid` 이고, 이미
   있는 이름은 409 `branch_exists`(`args.branch`)입니다. 세 거절 모두 `message` 를 싣지 않습니다. 입력이 맞는지는
   `GET /api/git/actions?action=git.branch.upstream_set|git.tag.create|git.stash.branch&…` 로 미리 물을 수 있습니다.
+- **worktree·원격·저장소 추가의 거절 코드가 사유마다 갈립니다.** worktree 만들기(`POST /api/git/worktrees/create`)는
+  빈 이름 400 `empty_name`, 빈 대상 400 `empty_ref` 로 거절합니다(이전 `ref_name_invalid`·`bad_request`). 원격 이름·URL
+  의 거절은 400 `bad_request` 대신 `empty_name`·`remote_name_invalid`·`empty_url`·`remote_url_invalid` 입니다. 이
+  두 코드는 원격 이름을 받는 다른 종단(push·fetch·태그 원격 동작)에서도 같습니다. 저장소 추가(`POST /api/git/repos/pin`)
+  는 빈 경로 400 `empty_path`, 상대 경로 400 `path_must_be_absolute` 로 거절합니다(이전 `bad_request`). 이 거절들은
+  `message` 를 싣지 않습니다. 미리 묻는 자리는 `GET /api/git/actions?action=git.worktree.create|git.remote.add|git.compare&…`
+  와, repo 없이 묻는 `GET /api/git/actions?action=git.repo.add&path=…` 입니다.
 
 ## [1.2.3] — 2026-11-05
 

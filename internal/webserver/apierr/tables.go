@@ -41,8 +41,8 @@ var Git = Table{
 	// ── 원격 목록. 원본에서 두 번째였다 ──
 	{write.ErrRemoteExists, http.StatusConflict, CodeRemoteExists},
 	{write.ErrRemoteMissing, http.StatusNotFound, CodeRemoteMissing},
-	{write.ErrRemoteName, http.StatusBadRequest, CodeBadRequest},
-	{write.ErrRemoteURL, http.StatusBadRequest, CodeBadRequest},
+	{write.ErrRemoteName, http.StatusBadRequest, CodeRemoteNameInvalid},
+	{write.ErrRemoteURL, http.StatusBadRequest, CodeRemoteURLInvalid},
 	{write.ErrPushTarget, http.StatusBadRequest, CodeBadRequest},
 
 	// ── stash. errors.Join 으로 두 sentinel 이 함께 올 수 있어 상대 순서를

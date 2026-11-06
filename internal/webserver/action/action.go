@@ -98,6 +98,10 @@ const (
 const (
 	GitTagCreate   = "git.tag.create"
 	GitStashBranch = "git.stash.branch"
+	GitRemoteAdd   = "git.remote.add"
+	GitCompare     = "git.compare"
+	// GitRepoAdd 는 저장소가 아닌 자리에서 묻는다 — repo 를 받지 않는다.
+	GitRepoAdd = "git.repo.add"
 )
 
 // Table 은 동작 ID → 그 판정이 낼 수 있는 사유 코드다 (M-3).

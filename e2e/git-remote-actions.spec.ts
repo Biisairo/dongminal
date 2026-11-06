@@ -172,23 +172,36 @@ test.describe('묶음 E — 원격 동작 (FR-GIT-269~271)', () => {
 
     await remotes(page).locator('.git-rm-add').click();
     await expect(addDlg(page)).toBeVisible();
-    // 슬래시가 든 이름은 원격 이름이 아니다 — 서버가 거부하고 다이얼로그는 닫히지
-    // 않는다 (FR-GIT-175).
+    // 슬래시가 든 이름은 원격 이름이 아니다. 판정은 서버의 답이고(SERVER_DRIVEN_ACTIONS_SRS
+    // GV-c), 실행 **전에** 사유와 함께 막힌다.
+    //   이전 동작: 실행을 누른 뒤 서버의 400 을 다이얼로그 오류로 보였다
+    //   새  동작: 입력 중에 서버에 묻고 실행 버튼을 끈다 — 실행 요청도 같은 코드로 거절된다
+    const why = addDlg(page).locator('.git-dialog-why');
     await addDlg(page).locator('.gra-name').fill('bad/name');
     await addDlg(page).locator('.gra-url').fill('/tmp/dm-bad.git');
-    await addDlg(page).locator('.gra-go').click();
-    await expect(addDlg(page).locator('.git-dialog-err')).toBeVisible({ timeout: 10000 });
-    await expect(addDlg(page)).toBeVisible();
+    await expect(why).toHaveAttribute('data-why', 'why', { timeout: 10000 });
+    await expect(addDlg(page).locator('.gra-go')).toBeDisabled();
+    const bad = await page.request.post('/api/git/remote/add',
+      { data: { repo, name: 'bad/name', url: '/tmp/dm-bad.git' } });
+    expect(bad.status()).toBe(400);
+    expect((await bad.json()).error).toBe('remote_name_invalid');
     expect(git(repo, 'config', '--list')).not.toContain('bad/name');
-    await addDlg(page).locator('.gra-cancel').click();
 
     // 같은 이름을 두 번 더하지 않는다.
-    await remotes(page).locator('.git-rm-add').click();
     await addDlg(page).locator('.gra-name').fill('origin');
     await addDlg(page).locator('.gra-url').fill('/tmp/dm-other.git');
-    await addDlg(page).locator('.gra-go').click();
-    await expect(addDlg(page).locator('.git-dialog-err')).toBeVisible({ timeout: 10000 });
+    await expect(addDlg(page).locator('.gra-go')).toBeDisabled();
+    await expect(why).toHaveAttribute('data-why', 'why', { timeout: 10000 });
+    const dup = await page.request.post('/api/git/remote/add',
+      { data: { repo, name: 'origin', url: '/tmp/dm-other.git' } });
+    expect(dup.status()).toBe(409);
+    expect((await dup.json()).error).toBe('remote_exists');
     expect(git(repo, 'config', '--get', 'remote.origin.url')).not.toBe('/tmp/dm-other.git');
+
+    // 쓸 수 있는 이름이면 열린다.
+    await addDlg(page).locator('.gra-name').fill('up');
+    await expect(addDlg(page).locator('.gra-go')).toBeEnabled({ timeout: 10000 });
+    await addDlg(page).locator('.gra-cancel').click();
   });
 
   // ── V197: Sync ──

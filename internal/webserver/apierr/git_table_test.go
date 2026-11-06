@@ -46,8 +46,8 @@ var gitTableCases = []struct {
 	// gitRemoteListError
 	{write.ErrRemoteExists, http.StatusConflict, CodeRemoteExists},
 	{write.ErrRemoteMissing, http.StatusNotFound, CodeRemoteMissing},
-	{write.ErrRemoteName, http.StatusBadRequest, CodeBadRequest},
-	{write.ErrRemoteURL, http.StatusBadRequest, CodeBadRequest},
+	{write.ErrRemoteName, http.StatusBadRequest, CodeRemoteNameInvalid}, // GV-c: 이전 "bad_request"
+	{write.ErrRemoteURL, http.StatusBadRequest, CodeRemoteURLInvalid},   // GV-c: 이전 "bad_request"
 	{write.ErrPushTarget, http.StatusBadRequest, CodeBadRequest},
 
 	// gitStashErrorCode

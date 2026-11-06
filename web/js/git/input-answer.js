@@ -52,8 +52,10 @@ class GitInputAnswer {
 
   async _ask(p,d,seq){
     const id=this.id;
-    const res=await gitFetch(GIT_API.actions,Object.assign({repo:this.repo,action:id},p),
-      {stale:()=>seq!==this._seq||!d.alive(),echo:{repo:this.repo,action:id}});
+    // repo 가 없는 동작(저장소 추가)은 repo 를 싣지 않는다 — 서버도 그것을 받지 않는다.
+    const who=this.repo?{repo:this.repo,action:id}:{action:id};
+    const res=await gitFetch(GIT_API.actions,Object.assign({},who,p),
+      {stale:()=>seq!==this._seq||!d.alive(),echo:who});
     if(res.stale) return;
     this._asking=false;
     this._state=res.ok?this._of(actionState(res.data.actions[id],false))

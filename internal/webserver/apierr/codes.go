@@ -90,6 +90,11 @@ const (
 	CodeUpstreamUnknown    = "upstream_unknown"
 	CodeEmptyName          = "empty_name"
 	CodeEmptyRef           = "empty_ref"
+	CodeEmptyURL           = "empty_url"
+	CodeEmptyPath          = "empty_path"
+	CodeEmptyRev           = "empty_rev"
+	CodeRemoteNameInvalid  = "remote_name_invalid"
+	CodeRemoteURLInvalid   = "remote_url_invalid"
 
 	// ── 미커밋 행 ──
 	CodeNoHead         = "no_head"

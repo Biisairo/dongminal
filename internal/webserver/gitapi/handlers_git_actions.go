@@ -20,11 +20,20 @@ import (
 // 요청 실패로 답하면 화면은 "못 한다" 와 "묻지 못했다" 를 가르지 못한다. 거절은
 // 실행 종단의 몫이고, 그것은 같은 판정 함수를 부른다 (D-SDA-6).
 func (s *GitServer) apiGitActions(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	// 저장소 추가는 저장소가 아닌 자리에서 묻는다 — repo 를 받지 않는다 (GV-c).
+	if q.Get("action") == action.GitRepoAdd {
+		s.gitRepoAddAnswer(w, r, q.Get("path"))
+		return
+	}
+	if q.Get("action") == action.GitWorktreeCreate && s.UserWorktrees == nil {
+		gitWorktreesUnavailable(w)
+		return
+	}
 	root, requested, ok := s.gitRepoParam(w, r)
 	if !ok {
 		return
 	}
-	q := r.URL.Query()
 	if kind := q.Get("kind"); kind != "" {
 		s.gitTargetActions(w, r, root, requested, kind)
 		return
@@ -247,5 +256,21 @@ func (s *GitServer) gitTargetActions(w http.ResponseWriter, r *http.Request, roo
 		"requested": map[string]any{"repo": requested, "kind": kind, "oid": oid},
 		"repo":      root,
 		"actions":   out,
+	})
+}
+
+func (s *GitServer) gitRepoAddAnswer(w http.ResponseWriter, r *http.Request, path string) {
+	if s.Git == nil {
+		gitUnavailable(w)
+		return
+	}
+	a, _, err := s.repoAddAnswer(r.Context(), path)
+	if err != nil {
+		gitError(w, err)
+		return
+	}
+	gitJSON(w, http.StatusOK, map[string]any{
+		"requested": map[string]any{"action": action.GitRepoAdd, "path": path},
+		"actions":   map[string]action.Answer{action.GitRepoAdd: a},
 	})
 }

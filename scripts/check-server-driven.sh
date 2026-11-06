@@ -20,6 +20,10 @@ REMOVED=(
   GIT_TAG_WHY_NEED_MSG         # GV-e: 태그 메시지의 화면 판정 문구
   GIT_BR_UPSTREAM_WHY_UNKNOWN  # GV-f: upstream 목록 대조
   GIT_STASH_BRANCH_NEED_NAME   # GV-c: stash 브랜치 빈 이름
+  GIT_WT_NEED_NAME GIT_WT_NEED_REF   # GV-c: worktree 빈 입력
+  GIT_RM_WHY_NAME GIT_RM_WHY_URL     # GV-c: 원격 추가 빈 입력
+  GIT_CO_WHY_NO_REV GIT_CO_WHY_NO_PATH  # GV-c: 비교 빈 입력
+  GIT_ADD_REPO_NEED_PATH       # GV-c: 저장소 추가 빈 경로
 )
 
 pat=$(IFS='|'; echo "${REMOVED[*]}")

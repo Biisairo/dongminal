@@ -14,6 +14,7 @@ import (
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/write"
 	"dongminal/internal/webserver/domain/submodule"
+	"dongminal/internal/webserver/domain/worktree"
 )
 
 // 입력 답의 한 줄 (SERVER_DRIVEN_ACTIONS_SRS GV-c). 답 종단과 실행 종단에 같은 입력을
@@ -152,5 +153,107 @@ func TestErrAnswer(t *testing.T) {
 	a := errAnswer(write.CheckTagMessage(write.TagAnnotated, ""))
 	if a.OK || a.Why != apierr.CodeTagMessageRequired || a.Status != http.StatusBadRequest {
 		t.Fatalf("= %+v, want 400 tag_message_required", a)
+	}
+}
+
+// GV-c (G-B3): worktree 의 이름·대상 ref·새 브랜치·이미 있는 자리.
+func TestWorktreeCreateInputAnswer(t *testing.T) {
+	s, repo, mgr := worktreeTestServer(t)
+	wtGitRun(t, repo, "branch", "other")
+	wtGitRun(t, repo, "branch", "taken")
+	root, err := filepath.EvalSymlinks(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(mgr.Path(worktree.RepoBucket(root), "dup"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	q := func(name, ref, nb string) url.Values {
+		return url.Values{"name": {name}, "ref": {ref}, "newBranch": {nb}}
+	}
+	b := func(name, ref string, nb bool) map[string]any {
+		return map[string]any{"name": name, "ref": ref, "newBranch": nb}
+	}
+	const id, path = action.GitWorktreeCreate, "/api/git/worktrees/create"
+	runInputCases(t, s, repo, []inputCase{
+		{"빈 이름", id, q(" ", "other", "0"), path, b(" ", "other", false), apierr.CodeEmptyName},
+		{"- 로 시작하는 이름", id, q("-x", "other", "0"), path, b("-x", "other", false), apierr.CodeRefName},
+		{"빈 ref", id, q("wt", "", "0"), path, b("wt", "", false), apierr.CodeEmptyRef},
+		{"이미 있는 자리", id, q("dup", "other", "0"), path, b("dup", "other", false), apierr.CodeWorktreeExists},
+		{"새 브랜치가 이미 있음", id, q("taken", "main", "1"), path, b("taken", "main", true), apierr.CodeBranchExists},
+		{"만들 수 있음", id, q("wt", "other", "0"), path, b("wt", "other", false), ""},
+	})
+}
+
+// GV-c (G-B4): 원격 추가의 이름·URL·이미 있는 이름.
+func TestRemoteAddInputAnswer(t *testing.T) {
+	s, repo, _ := gtBranchRepo(t)
+	q := func(name, u string) url.Values { return url.Values{"name": {name}, "url": {u}} }
+	b := func(name, u string) map[string]any { return map[string]any{"name": name, "url": u} }
+	const id, path = action.GitRemoteAdd, "/api/git/remote/add"
+	runInputCases(t, s, repo, []inputCase{
+		{"빈 이름", id, q("", "/tmp/x.git"), path, b("", "/tmp/x.git"), apierr.CodeEmptyName},
+		{"쓸 수 없는 글자", id, q("a/b", "/tmp/x.git"), path, b("a/b", "/tmp/x.git"), apierr.CodeRemoteNameInvalid},
+		{"빈 URL", id, q("up", " "), path, b("up", " "), apierr.CodeEmptyURL},
+		{"옵션 같은 URL", id, q("up", "--upload-pack=x"), path, b("up", "--upload-pack=x"), apierr.CodeRemoteURLInvalid},
+		{"이미 있는 이름", id, q("origin", "/tmp/x.git"), path, b("origin", "/tmp/x.git"), apierr.CodeRemoteExists},
+		{"더할 수 있음", id, q("up", "/tmp/x.git"), path, b("up", "/tmp/x.git"), ""},
+	})
+}
+
+// GV-c (G-B6): 비교는 서버 실행 종단이 없다 — 답만 잰다.
+func TestCompareInputAnswer(t *testing.T) {
+	s, repo, _ := gtBranchRepo(t)
+	for _, c := range []struct{ rev, path, why string }{
+		{" ", "a.txt", apierr.CodeEmptyRev},
+		{"main", "", apierr.CodeEmptyPath},
+		{"main..feat", "a.txt", ""},
+	} {
+		code, ans := inputAnswer(t, s, repo, action.GitCompare, url.Values{"rev": {c.rev}, "path": {c.path}})
+		if code != http.StatusOK || ans == nil {
+			t.Fatalf("%q %q: 답 종단 = %d %v", c.rev, c.path, code, ans)
+		}
+		if ans["ok"] != (c.why == "") || (c.why != "" && ans["why"] != c.why) {
+			t.Fatalf("%q %q: 답 = %v, want %q", c.rev, c.path, ans, c.why)
+		}
+		if c.why != "" && !action.Catalog.MayGive(action.GitCompare, c.why) {
+			t.Fatalf("목록에 %s 가 없다", c.why)
+		}
+	}
+}
+
+// GV-c (G-B7): 저장소 추가는 repo 없이 묻는다. 실행(pin)도 같은 판정으로 거절된다.
+func TestRepoAddInputAnswer(t *testing.T) {
+	s, repo, _ := gtBranchRepo(t)
+	plain := t.TempDir()
+	for _, c := range []struct{ name, path, why string }{
+		{"빈 경로", " ", apierr.CodeEmptyPath},
+		{"상대 경로", "repo", apierr.CodeAbsPathNeeded},
+		{"저장소가 아님", plain, apierr.CodeNotRepo},
+		{"저장소", repo, ""},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			code, ans := inputAnswer(t, s, "", action.GitRepoAdd, url.Values{"path": {c.path}})
+			if code != http.StatusOK || ans == nil {
+				t.Fatalf("답 종단 = %d %v", code, ans)
+			}
+			if ans["ok"] != (c.why == "") || (c.why != "" && ans["why"] != c.why) {
+				t.Fatalf("답 = %v, want %q", ans, c.why)
+			}
+			if c.why == "" {
+				return
+			}
+			if !action.Catalog.MayGive(action.GitRepoAdd, c.why) {
+				t.Fatalf("목록에 %s 가 없다", c.why)
+			}
+			raw, _ := json.Marshal(map[string]string{"path": c.path})
+			code, out := wtReq(t, s, http.MethodPost, "/api/git/repos/pin", string(raw))
+			if code < 400 || out["error"] != c.why {
+				t.Fatalf("실행 = %d %v, want %s", code, out["error"], c.why)
+			}
+			if _, has := out["message"]; has {
+				t.Fatalf("서버가 문구를 실었다 (D-SDA-5): %v", out["message"])
+			}
+		})
 	}
 }

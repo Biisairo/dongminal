@@ -450,7 +450,11 @@ func (s *GitServer) apiGitRemotes(w http.ResponseWriter, r *http.Request) {
 
 // POST /api/git/remote/add — 원격을 더한다 (FR-GIT-269). 파괴적이 아니다.
 func (s *GitServer) apiGitRemoteAdd(w http.ResponseWriter, r *http.Request) {
-	s.gitRemoteWrite(w, r, func(ctx context.Context, root string, req gitRemoteNameReq) error {
+	// 대화상자의 답(`git.remote.add`)과 같은 판정이다 (GV-c · D-SDA-6).
+	judge := func(t *gitWrite, req gitRemoteNameReq) bool {
+		return t.judge(s.remoteAddAnswer(t.ctx(), t.root, req.Name, req.URL))
+	}
+	s.gitRemoteWrite(w, r, judge, func(ctx context.Context, root string, req gitRemoteNameReq) error {
 		_, err := write.RemoteAdd(s.Git.Service(), ctx, root, req.Name, req.URL)
 		return err
 	})
@@ -462,7 +466,7 @@ func (s *GitServer) apiGitRemoteAdd(w http.ResponseWriter, r *http.Request) {
 // 요구하지 않는다. 되살릴 `git remote add <name> <url>` 은 write 가 실행 전에
 // hint 로 남긴다 (FR-GIT-92) — `/api/git/recovery` 가 그것을 준다.
 func (s *GitServer) apiGitRemoteRemove(w http.ResponseWriter, r *http.Request) {
-	s.gitRemoteWrite(w, r, func(ctx context.Context, root string, req gitRemoteNameReq) error {
+	s.gitRemoteWrite(w, r, nil, func(ctx context.Context, root string, req gitRemoteNameReq) error {
 		_, err := write.RemoteRemove(s.Git.Service(), ctx, root, req.Name)
 		return err
 	})
@@ -471,12 +475,14 @@ func (s *GitServer) apiGitRemoteRemove(w http.ResponseWriter, r *http.Request) {
 // gitRemoteWrite 는 add/remove 가 공유하는 쓰기 규약이다 (FR-GIT-250 ③):
 // 루트 재확인 → 실행 전 status → 실행 → 실행 후 status. **바뀐 목록을 함께
 // 돌려준다** — 폴링 주기를 기다리면 화면이 그만큼 거짓말을 한다 (FR-GIT-71).
+// judge 가 있으면 실행 전에 부른다 — 거짓이면 응답을 쓰고 멈춘다.
 func (s *GitServer) gitRemoteWrite(w http.ResponseWriter, r *http.Request,
+	judge func(*gitWrite, gitRemoteNameReq) bool,
 	run func(context.Context, string, gitRemoteNameReq) error) {
 	var req gitRemoteNameReq
 	t := s.beginWrite(w, r, &req)
 	t.resolve(req.Repo)
-	if t.stop() {
+	if t.stop() || (judge != nil && !judge(t, req)) {
 		return
 	}
 	root := t.root

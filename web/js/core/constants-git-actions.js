@@ -302,8 +302,6 @@ const GIT_RM_CREATE_TITLE=t('git.rm_create_title');
 const GIT_RM_CREATE_RUN=t('git.act.rm_create_run');
 const GIT_RM_NAME_PH=t('git.rm_name_ph');
 const GIT_RM_URL_PH=t('git.rm_url_ph');
-const GIT_RM_WHY_NAME=t('git.rm_why_name');
-const GIT_RM_WHY_URL=t('git.rm_why_url');
 const GIT_RM_ADD_FAIL=t('git.rm_add_fail');
 // remove 는 **파괴적이 아니다** — 저장소의 객체는 그대로이고 설정만 사라진다.
 // 그래서 1단계이며, 그럼에도 되살릴 명령을 보인다 (FR-GIT-92·269).
@@ -369,8 +367,6 @@ const GIT_CO_COMPARE_THIS=t('git.co_compare_this');
 const GIT_CO_COMPARE_MARKED=t('git.co_compare_marked');
 const GIT_CO_COMPARE_REV_PH=t('git.co_compare_rev_ph');
 const GIT_CO_COMPARE_PATH_PH=t('git.co_compare_path_ph');
-const GIT_CO_WHY_NO_REV=t('git.co_why_no_rev');
-const GIT_CO_WHY_NO_PATH=t('git.co_why_no_path');
 const GIT_CO_COMPARE_FAIL=t('git.co_compare_fail');
 // 범위 표현. `...` 는 merge-base 를 왼쪽으로 잡으므로 `..` 와 뜻이 다르다.
 const GIT_CO_RANGE_SYM='...';

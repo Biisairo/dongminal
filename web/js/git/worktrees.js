@@ -243,6 +243,10 @@ class GitWorktreeCreate {
     this.view=view;
     this.panel=view.panel;
     this.repo=view.panel.repo;
+    // 이름·대상·새 브랜치·이미 있는 자리는 서버가 판정한다 (SERVER_DRIVEN_ACTIONS_SRS GV-c).
+    this._answer=new GitInputAnswer({repo:this.repo,id:GIT_ACTION.worktreeCreate,
+      params:v=>({name:(v.name||'').trim(),ref:(v.ref||'').trim(),newBranch:v.newBranch?'1':'0'}),
+      fail:res=>this.panel.writeReason(res)});
   }
 
   _show(){
@@ -255,15 +259,9 @@ class GitWorktreeCreate {
         {key:'newBranch',type:GIT_DIALOG_CHECK,cls:'gwc-newbranch',
          fieldCls:'gwc-optrow',label:GIT_WT_OPT_NEWBRANCH},
       ],
-      validate:v=>this._why(v),
+      validate:(v,d)=>this._answer.why(v,d),
       run:v=>this._run(v),
     });
-  }
-
-  _why(v){
-    if(!(v.name||'').trim()) return GIT_WT_NEED_NAME;
-    if(!(v.ref||'').trim()) return GIT_WT_NEED_REF;
-    return '';
   }
 
   async _run(v){

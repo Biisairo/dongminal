@@ -128,6 +128,11 @@ var CodeDoc = map[string]Doc{
 	CodeUpstreamUnknown:     {"upstream 이 이 저장소가 아는 원격 브랜치가 아닙니다.", "원격 브랜치 이름(예: origin/main)을 적으세요. 원격의 새 브랜치라면 먼저 fetch 하세요."},
 	CodeEmptyName:           {"이름이 비었습니다.", "이름을 적어 다시 보내세요."},
 	CodeEmptyRef:            {"대상 ref 가 비었습니다.", "브랜치·태그·커밋 가운데 하나를 적어 다시 보내세요."},
+	CodeEmptyURL:            {"URL 이 비었습니다.", "원격 저장소의 URL 을 적어 다시 보내세요."},
+	CodeEmptyPath:           {"경로가 비었습니다.", "경로를 적어 다시 보내세요."},
+	CodeEmptyRev:            {"비교할 리비전이 비었습니다.", "커밋·브랜치·태그나 `A..B` 범위를 적으세요."},
+	CodeRemoteNameInvalid:   {"원격 이름으로 쓸 수 없습니다.", "`/`·공백·`~^:?*[\\` 없이, `-` 로 시작하지 않는 이름을 적으세요."},
+	CodeRemoteURLInvalid:    {"git 에 넘길 수 없는 URL 입니다.", "`-` 로 시작하거나 공백·NUL 이 든 값은 받지 않습니다."},
 
 	// ── 미커밋 행 ──
 	CodeNoHead:         {"아직 커밋이 하나도 없습니다.", "첫 커밋을 만든 뒤 다시 시도하세요."},

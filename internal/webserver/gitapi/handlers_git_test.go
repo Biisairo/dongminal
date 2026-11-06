@@ -412,7 +412,8 @@ func TestGitPin_RejectsRelativePath(t *testing.T) {
 	g := newGitFake(t)
 	s, _, ws, _ := gitTestServer(t, g)
 	code, out := gitReq(t, s, http.MethodPost, "/api/git/repos/pin", `{"path":"rel/path"}`)
-	if code != http.StatusBadRequest || out["error"] != gitErrBadRequest {
+	// GV-c: 이전 "bad_request" — 저장소 추가 대화상자의 답과 같은 코드다.
+	if code != http.StatusBadRequest || out["error"] != apierr.CodeAbsPathNeeded {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
 	if ws.saves != 0 {

@@ -127,7 +127,6 @@ const GIT_ADD_REPO_NO_TOOL=t('git.add_repo_no_tool');
 // FR-ETR-31~33: `/api/cwd` 와 `/api/git/repo-at` 이 함께 쓰는 어휘. 서버의 상수와
 // 짝이며(gitCwdSourceTool), 문자열을 여러 곳에 흩뿌리면 한쪽만 바뀐다.
 const GIT_CWD_SOURCE_TOOL='tool';
-const GIT_ADD_REPO_NEED_PATH=t('git.add_repo_need_path');
 const GIT_ADD_REPO_DUP=t('git.add_repo_dup');
 const GIT_ADD_REPO_FAIL=t('git.add_repo_fail');
 const GIT_PIN_FAIL_LABEL=t('git.pin_fail_label');

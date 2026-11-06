@@ -310,6 +310,17 @@ type gitPathReq struct {
 }
 
 func gitDecodePath(w http.ResponseWriter, r *http.Request) (string, bool) {
+	path, ok := gitDecodeRawPath(w, r)
+	if ok && path == "" {
+		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "path 가 없다")
+		return "", false
+	}
+	return path, ok
+}
+
+// gitDecodeRawPath 는 본문의 path 를 판정 없이 읽는다 — 값의 판정을 답 함수가 지는
+// 종단(저장소 추가, GV-c)이 쓴다.
+func gitDecodeRawPath(w http.ResponseWriter, r *http.Request) (string, bool) {
 	body, err := httpreq.Read(w, r, 0)
 	if err != nil {
 		gitFail(w, httpreq.Status(err), gitErrBadRequest, "본문을 읽지 못했다: "+err.Error())
@@ -318,10 +329,6 @@ func gitDecodePath(w http.ResponseWriter, r *http.Request) (string, bool) {
 	var req gitPathReq
 	if err := json.Unmarshal(body, &req); err != nil {
 		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "본문이 JSON 이 아니다: "+err.Error())
-		return "", false
-	}
-	if req.Path == "" {
-		gitFail(w, http.StatusBadRequest, gitErrBadRequest, "path 가 없다")
 		return "", false
 	}
 	return req.Path, true
@@ -354,15 +361,24 @@ func (s *GitServer) apiGitPin(w http.ResponseWriter, r *http.Request) {
 		gitUnavailable(w)
 		return
 	}
-	path, ok := gitDecodeAbsPath(w, r)
+	path, ok := gitDecodeRawPath(w, r)
 	if !ok {
 		return
 	}
-	// 클라이언트가 보낸 경로를 그대로 저장하지 않는다. 하위 디렉터리를 핀하면
-	// 같은 리포가 여러 항목으로 갈라진다.
-	root, err := s.Git.RepoRoot(r.Context(), path)
+	// 대화상자의 답(`git.repo.add`)과 같은 판정이다 (GV-c · D-SDA-6). 클라이언트가 보낸
+	// 경로를 그대로 저장하지 않는다 — 하위 디렉터리를 핀하면 같은 리포가 여러 항목으로
+	// 갈라지므로 답이 준 루트를 쓴다.
+	a, root, err := s.repoAddAnswer(r.Context(), path)
 	if err != nil {
 		gitError(w, err)
+		return
+	}
+	if !a.OK {
+		body := map[string]any{"error": a.Why}
+		if a.Args != nil {
+			body["args"] = a.Args
+		}
+		gitErrJSON(w, a.Status, a.Why, body)
 		return
 	}
 	// PinAdd 가 멱등이며(정렬하지 않는다 — 사용자가 추가한 순서가 목록 순서다)

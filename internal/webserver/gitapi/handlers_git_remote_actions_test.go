@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/store"
@@ -218,14 +219,14 @@ func TestGitRemoteRemove_LeavesRecoveryHint(t *testing.T) {
 	}
 }
 
-// FR-GIT-250.3: 잘못된 이름·URL 은 **실행 전에** 400 이다.
+// FR-GIT-250.3: 잘못된 이름·URL 은 **실행 전에** 400 이다. 코드는 사유마다 다르다 (GV-c).
 func TestGitRemoteAdd_Rejects(t *testing.T) {
 	cases := []struct {
 		name, body, want string
 	}{
-		{"빈 이름", `{"repo":` + qWorkRepo + `,"name":"","url":"/tmp/a.git"}`, gitErrBadRequest},
-		{"슬래시 이름", `{"repo":` + qWorkRepo + `,"name":"a/b","url":"/tmp/a.git"}`, gitErrBadRequest},
-		{"옵션 URL", `{"repo":` + qWorkRepo + `,"name":"up","url":"--upload-pack=x"}`, gitErrBadRequest},
+		{"빈 이름", `{"repo":` + qWorkRepo + `,"name":"","url":"/tmp/a.git"}`, apierr.CodeEmptyName},
+		{"슬래시 이름", `{"repo":` + qWorkRepo + `,"name":"a/b","url":"/tmp/a.git"}`, apierr.CodeRemoteNameInvalid},
+		{"옵션 URL", `{"repo":` + qWorkRepo + `,"name":"up","url":"--upload-pack=x"}`, apierr.CodeRemoteURLInvalid},
 		{"이미 있음", `{"repo":` + qWorkRepo + `,"name":"origin","url":"/tmp/a.git"}`, gitErrRemoteExists},
 	}
 	for _, c := range cases {
