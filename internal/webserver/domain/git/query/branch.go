@@ -79,7 +79,8 @@ func refNameError(name string, err error) error {
 // 뿐이다 — 지우기 전의 oid(hint 가 실을 값)와 머지 한 번의 영향 범위.
 
 const (
-	remoteRefPrefix = "refs/remotes/"
+	// RemoteRefPrefix 는 원격 추적 ref 의 접두다.
+	RemoteRefPrefix = "refs/remotes/"
 	// mergeBaseAncestor 는 "왼쪽이 오른쪽의 조상인가" 다. 답이 아니오면 exit 1 이며
 	// 그것은 실패가 아니라 **답**이다 — 오류로 올리면 ff 판정 자체가 막힌다.
 	mergeBaseAncestor = "--is-ancestor"
@@ -98,7 +99,7 @@ func BranchOid(s *core.Service, ctx context.Context, repo, name string) (string,
 // RemoteBranchOid 는 원격 추적 ref 가 가리키는 커밋이다 (FR-GIT-268). short 는
 // `origin/feat` 처럼 원격 이름을 포함한다.
 func RemoteBranchOid(s *core.Service, ctx context.Context, repo, short string) (string, error) {
-	return refOid(s, ctx, repo, remoteRefPrefix, short)
+	return refOid(s, ctx, repo, RemoteRefPrefix, short)
 }
 
 func refOid(s *core.Service, ctx context.Context, repo, prefix, name string) (string, error) {

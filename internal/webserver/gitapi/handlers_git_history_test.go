@@ -62,6 +62,9 @@ func (f *gitHistFake) runner(_ context.Context, _ string, args []string) (core.O
 		return core.Output{Stdout: f.treeOut}, nil
 	case "for-each-ref":
 		return core.Output{Stdout: f.refsOut}, nil
+	case "config":
+		// /refs 가 원격 ref 를 가르려고 원격 목록을 읽는다 (SERVER_DRIVEN GV-g).
+		return core.Output{Stdout: "remote.origin.url=/tmp/remote.git\n"}, nil
 	}
 	return core.Output{ExitCode: 128, Stderr: "fatal: 예상하지 못한 호출\n"}, nil
 }

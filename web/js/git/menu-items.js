@@ -166,10 +166,10 @@ const GIT_MENUS={
      title:target=>target.kind===GIT_REF_KIND_REMOTE?GIT_BR_REMOTE_DELETE_TITLE:GIT_BR_DELETE_TITLE,
      targets:target=>target.kind===GIT_REF_KIND_REMOTE?[target.short]:gitMenuPanel().branchDeleteTargets(target),
      hint:target=>target.kind===GIT_REF_KIND_REMOTE
-       ?({note:GIT_BR_REMOTE_DELETE_NOTE,command:GitBranches.restoreRemoteCmd(target)})
+       ?({note:GIT_BR_REMOTE_DELETE_NOTE,command:GitBranches.restoreRemoteCmd(gitMenuPanel(),target)})
        :({note:GIT_BR_DELETE_NOTE,command:'git branch '+target.short+' '+(target.oid||'')}),
      run:(target,names)=>target.kind===GIT_REF_KIND_REMOTE
-       ?gitMenuPanel().branchDeleteRemote(names[0])
+       ?gitMenuPanel().branchDeleteRemote(target)
        :gitMenuPanel().branchDelete(target,names)},
     // FR-BMU-10·11: 셋째 길 — 로컬과 원격을 한 번에. upstream 이 있는 로컬
     // 브랜치에서만 열린다. 영향 범위에 **둘 다** 실어 무엇이 사라지는지 보인다
@@ -196,7 +196,7 @@ const GIT_MENUS={
        const loc=p.local||{};
        return {note:GIT_BR_DELETE_BOTH_NOTE,
          command:'git branch '+(loc.short||'')+' '+(loc.oid||'')
-           +'\n'+GitBranches.restoreRemoteCmd({short:p.remote||'',oid:loc.oid})};
+           +'\n'+GitBranches.restoreRemoteCmd(gitMenuPanel(),{short:p.remote||'',oid:loc.oid})};
      },
      run:(target,names)=>gitMenuPanel().branchDeleteBoth(target,names)},
     {sep:true},
@@ -207,7 +207,7 @@ const GIT_MENUS={
     // 가 원격 행에서 그 일을 한다). 남은 것은 fetch 뿐이다 — 그것만이 원격 ref
     // 에서만 뜻을 갖고 다른 항목이 대신할 수 없다.
     {id:'remote-fetch',act:GIT_ACTION.branchFetch,label:GIT_BR_REMOTE_FETCH,
-     run:target=>gitMenuPanel().branchFetchInto(target.short)},
+     run:target=>gitMenuPanel().branchFetchInto(target)},
   ],
   // 태그 (FR-GIT-260~262). 생성은 대상을 묻지 않고 열린다 — 비우면 HEAD 다.
   //

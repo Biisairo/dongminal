@@ -147,8 +147,8 @@ Object.assign(GitPanel.prototype, {
   branchSetUpstream(target){return GitBranches.setUpstream(this,target)},
   branchUnsetUpstream(target){return GitBranches.unsetUpstream(this,target)},
   branchPush(target){return GitBranches.push(this,target)},
-  branchFetchInto(short){return GitBranches.fetchInto(this,short)},
-  branchDeleteRemote(short){return GitBranches.deleteRemote(this,short)},
+  branchFetchInto(target){return GitBranches.fetchInto(this,target)},
+  branchDeleteRemote(target){return GitBranches.deleteRemote(this,target)},
   // BRANCH_MENU_UNIFY_SRS FR-BMU-10: 로컬과 원격을 한 번에.
   branchDeleteBoth(target,names){return GitBranches.delBoth(this,target,names)},
   // FR-BMU-16e: 메뉴가 짝과 그 사유를 묻는다 — 판정은 한 자리에 있다.

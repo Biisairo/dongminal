@@ -24,6 +24,7 @@ REMOVED=(
   GIT_RM_WHY_NAME GIT_RM_WHY_URL     # GV-c: 원격 추가 빈 입력
   GIT_CO_WHY_NO_REV GIT_CO_WHY_NO_PATH  # GV-c: 비교 빈 입력
   GIT_ADD_REPO_NEED_PATH       # GV-c: 저장소 추가 빈 경로
+  _split                       # GV-g: 원격 ref 를 원격·브랜치로 가르는 화면 규칙
 )
 
 pat=$(IFS='|'; echo "${REMOVED[*]}")

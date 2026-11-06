@@ -49,9 +49,12 @@ const refTrackGone = "[gone]"
 
 // Ref 는 사이드바 한 줄이다 (FR-GIT-122).
 type Ref struct {
-	Name     string `json:"name"`  // refs/heads/main
-	Short    string `json:"short"` // main
-	Kind     string `json:"kind"`  // local | remote | tag
+	Name  string `json:"name"`  // refs/heads/main
+	Short string `json:"short"` // main
+	Kind  string `json:"kind"`  // local | remote | tag
+	// Remote 는 원격 ref 의 원격 이름이다. 목록 종단(`/api/git/refs`)이 원격 목록에 맞춰
+	// 채운다 — 원격 이름에 `/` 가 있을 수 있어 화면이 가르면 틀린다 (SERVER_DRIVEN GV-g).
+	Remote   string `json:"remote,omitempty"`
 	Oid      string `json:"oid"`
 	Upstream string `json:"upstream,omitempty"`
 	Ahead    int    `json:"ahead"`

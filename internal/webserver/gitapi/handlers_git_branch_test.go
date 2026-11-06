@@ -327,7 +327,8 @@ func TestAPIGitBranchRoutes_RejectBadRequests(t *testing.T) {
 		{"이름 규칙 위반 (checkout)", "/api/git/checkout", `{"repo":` + qWorkRepo + `,"create":"a..b"}`, gitErrRefName},
 		{"- 로 시작하는 ref", "/api/git/checkout", `{"repo":` + qWorkRepo + `,"ref":"-x"}`, gitErrRefName},
 		{"대상 없음", "/api/git/checkout", `{"repo":` + qWorkRepo + `}`, gitErrBadRequest},
-		{"track 만", "/api/git/checkout", `{"repo":` + qWorkRepo + `,"track":"origin/feat"}`, gitErrBadRequest},
+		// track 만 보내는 것은 이제 잘못된 조합이 아니다 — 서버가 로컬 이름을 가른다 (GV-g).
+		// 그 판정은 TestCheckoutTrackDerivesName 이 실제 저장소로 잰다.
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

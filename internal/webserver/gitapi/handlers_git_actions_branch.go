@@ -244,6 +244,47 @@ func splitRemoteRef(remotes []string, short string) (string, string, bool) {
 	return "", "", false
 }
 
+// remoteNames 는 저장소의 원격 이름들이다 — 원격 ref 를 가르는 기준이다.
+func (s *GitServer) remoteNames(ctx context.Context, root string) ([]string, error) {
+	remotes, err := query.Remotes(s.Git.Service(), ctx, root)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(remotes))
+	for _, rm := range remotes {
+		names = append(names, rm.Name)
+	}
+	return names, nil
+}
+
+var notRemote = action.Deny(http.StatusBadRequest, apierr.CodeNotRemoteBranch, nil)
+
+// remoteBranchOf 는 요청의 원격 ref 를 원격과 브랜치로 가른다 (GV-g · FR-SDA-42). ref 는
+// 전체 이름(`refs/remotes/<원격>/<브랜치>`)이고, 비었으면 요청의 remote·branch 를 그대로
+// 쓴다(R-3 — 스크립트 호환). 가를 수 없으면 400 not_remote_branch 로 거절하고 거짓이다.
+func (t *gitWrite) remoteBranchOf(ref string, remote, branch *string) bool {
+	if t.stop() || ref == "" {
+		return !t.stop()
+	}
+	short, ok := strings.CutPrefix(ref, query.RemoteRefPrefix)
+	if !ok {
+		t.rejectAnswer(notRemote, nil)
+		return false
+	}
+	names, err := t.s.remoteNames(t.ctx(), t.root)
+	if err != nil {
+		t.reject(err)
+		return false
+	}
+	rm, br, ok := splitRemoteRef(names, short)
+	if !ok {
+		t.rejectAnswer(notRemote, nil)
+		return false
+	}
+	*remote, *branch = rm, br
+	return true
+}
+
 type gitBranchDeleteBothReq struct {
 	Repo    string `json:"repo"`
 	Ref     string `json:"ref"`
@@ -288,14 +329,10 @@ func (s *GitServer) apiGitBranchDeleteBoth(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	local, upstream, _ := branchPair(target, f)
-	remotes, err := query.Remotes(s.Git.Service(), t.ctx(), t.root)
+	names, err := s.remoteNames(t.ctx(), t.root)
 	if err != nil {
 		t.reject(err)
 		return
-	}
-	names := make([]string, 0, len(remotes))
-	for _, rm := range remotes {
-		names = append(names, rm.Name)
 	}
 	remote, branch, ok := splitRemoteRef(names, upstream)
 	if !ok {

@@ -58,12 +58,10 @@ Object.assign(GitBranches, {
   },
 
   // 원격 ref 는 같은 이름의 로컬을 만들며 추적을 설정한다 (FR-GIT-156) —
-  // `origin/feat` 로 그냥 옮겨 가면 detached 가 된다.
+  // `origin/feat` 로 그냥 옮겨 가면 detached 가 된다. 로컬 이름은 **서버가 가른다**
+  // (SERVER_DRIVEN_ACTIONS_SRS GV-g) — 원격 이름에 `/` 가 있을 수 있다.
   checkoutRemote(panel,short){
-    const s=short||'';
-    const i=s.indexOf(GIT_BR_PREFIX_SEP);
-    const name=i<0?s:s.slice(i+1);
-    return GitBranches.checkout(panel,'',{create:name,track:s});
+    return GitBranches.checkout(panel,'',{track:short||''});
   },
 
   // 강제는 워킹 트리의 변경을 버린다. 서버의 파괴적 목록에 없는 이름이므로 확인
@@ -71,7 +69,7 @@ Object.assign(GitBranches, {
   _force(panel,opts){
     return GitDialog.confirm({
       action:GIT_ACT_CHECKOUT_FORCE,title:GIT_FORCE_TITLE,
-      targets:[opts.create||opts.ref||''],
+      targets:[opts.create||opts.ref||opts.track||''],
       hint:{note:GIT_FORCE_NOTE,command:'git stash push -u'},
       stages:2,
       run:async()=>{
@@ -145,14 +143,6 @@ Object.assign(GitBranches, {
   // 확인은 여기서 쓰지 않는다 — `GIT_MENUS.branch` 의 `destructive` 선언을
   // 프레임워크가 이미 거쳤다 (FR-GIT-146·172). 여기서는 그것을 거쳤음을 `confirm`
   // 으로 실어 보낸다. 서버도 같은 것을 요구한다.
-
-  // 원격 ref 의 `origin/feat` 를 원격과 브랜치로 나눈다. 첫 `/` 만 보는 것은 브랜치
-  // 이름에 `/` 가 흔하기 때문이다 (`origin/feature/a`) — checkoutRemote 와 같은 규칙이다.
-  _split(short){
-    const s=short||'';
-    const i=s.indexOf(GIT_BR_PREFIX_SEP);
-    return i<0?{remote:s,branch:''}:{remote:s.slice(0,i),branch:s.slice(i+1)};
-  },
 
   /**
    * 쓰기 하나의 공통 뒷정리. 성공이면 목록·상태를 갱신하고 (FR-GIT-160), 충돌이면
@@ -358,11 +348,10 @@ Object.assign(GitBranches, {
 
   // FR-GIT-268: 원격 ref 를 같은 이름의 로컬 ref 로 갱신한다. 원격 작업이므로 기존
   // job 경로를 탄다 — 진행·취소·실패 사유가 그 자리에 있다.
-  fetchInto(panel,short){
-    if(!panel||!panel.repo) return;
-    const p=GitBranches._split(short);
-    if(!p.branch) return;
-    return panel._remote().run('branch/fetch',{remote:p.remote,branch:p.branch});
+  // 원격 ref 를 그대로 보낸다 — 원격과 브랜치는 서버가 가른다 (GV-g · FR-SDA-42).
+  fetchInto(panel,target){
+    if(!panel||!panel.repo||!target) return;
+    return panel._remote().run('branch/fetch',{ref:GitBranches.refName(target)});
   },
 
   // FR-GIT-268: 원격 ref 삭제. 파괴적 확인은 메뉴 프레임워크가 거쳤다 (파괴적 목록에
@@ -473,22 +462,26 @@ Object.assign(GitBranches, {
       'err',TOAST_ERR_MS);
   },
 
-  deleteRemote(panel,short){
-    if(!panel||!panel.repo) return;
-    const p=GitBranches._split(short);
-    if(!p.branch) return;
+  deleteRemote(panel,target){
+    if(!panel||!panel.repo||!target) return;
     return panel._remote().run('branch/delete-remote',
-      {remote:p.remote,branch:p.branch,confirm:true});
+      {ref:GitBranches.refName(target),confirm:true});
   },
 
   /**
    * 원격 ref 를 되살리는 push (FR-GIT-250.2). **지우기 전 oid** 를 싣는다 — 목록이
    * 그 값을 이미 준다 (/api/git/refs). 값이 없으면 명령을 만들지 않는다: 되살리지
    * 못하는 명령을 보이는 것이 빈 안내문보다 나쁘다.
+   *
+   * 원격 이름은 목록의 `remote` 다 — 서버가 원격 목록에 맞춰 가른 값이다 (GV-g). 대상이
+   * 그것을 싣지 않았으면(History 배지·짝의 이름) 패널이 아는 목록에서 찾는다.
    */
-  restoreRemoteCmd(target){
-    const p=GitBranches._split((target&&target.short)||'');
-    if(!p.branch||!target.oid) return '';
-    return 'git push '+p.remote+' '+target.oid+':refs/heads/'+p.branch;
+  restoreRemoteCmd(panel,target){
+    const short=(target&&target.short)||'';
+    const known=Array.isArray(panel&&panel._knownRefs)?panel._knownRefs:[];
+    const remote=(target&&target.remote)
+      ||((known.find(r=>r&&r.kind===GIT_REF_KIND_REMOTE&&r.short===short)||{}).remote)||'';
+    if(!remote||!short.startsWith(remote+GIT_BR_PREFIX_SEP)||!target.oid) return '';
+    return 'git push '+remote+' '+target.oid+':refs/heads/'+short.slice(remote.length+1);
   },
 });

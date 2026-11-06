@@ -57,6 +57,13 @@ func (s *GitServer) apiGitCheckout(w http.ResponseWriter, r *http.Request) {
 	t.requireConfirm(req.Force, req.Confirm,
 		"force checkout 은 워킹 트리의 변경을 버린다: confirm:true 를 요구한다 (FR-GIT-89·157)")
 	t.resolve(req.Repo)
+	// track 만 오면 로컬 이름은 서버가 가른 브랜치 이름이다 (GV-g · FR-GIT-156).
+	if req.Track != "" && req.Create == "" {
+		var remote string
+		if !t.remoteBranchOf(query.RemoteRefPrefix+req.Track, &remote, &req.Create) {
+			return
+		}
+	}
 	opts := write.CheckoutOpts{Ref: req.Ref, Create: req.Create, Track: req.Track, Detach: req.Detach, Force: req.Force}
 	// 잘못된 요청은 실행 **전에** 답한다 — 잡으로 넘기면 사유가 스트림 끝에서야 온다.
 	spec, err := write.CheckoutSpec(opts)
@@ -263,7 +270,10 @@ type gitBranchPushReq struct {
 }
 
 type gitRemoteBranchReq struct {
-	Repo    string `json:"repo"`
+	Repo string `json:"repo"`
+	// Ref 는 원격 ref 의 전체 이름이다. 서버가 원격과 브랜치로 가른다 (GV-g). 비었으면
+	// Remote·Branch 를 그대로 쓴다.
+	Ref     string `json:"ref"`
 	Remote  string `json:"remote"`
 	Branch  string `json:"branch"`
 	Confirm bool   `json:"confirm"`
@@ -524,6 +534,9 @@ func (s *GitServer) apiGitBranchFetchInto(w http.ResponseWriter, r *http.Request
 	var req gitRemoteBranchReq
 	t := s.beginWrite(w, r, &req)
 	t.resolve(req.Repo)
+	if !t.remoteBranchOf(req.Ref, &req.Remote, &req.Branch) {
+		return
+	}
 	if !t.judgeBranch(action.GitBranchFetch, func(f branchFacts) (query.Ref, bool) {
 		return f.refOr(query.RefKindRemote, req.Remote+"/"+req.Branch), true
 	}) {
@@ -547,6 +560,9 @@ func (s *GitServer) apiGitBranchDeleteRemote(w http.ResponseWriter, r *http.Requ
 	t.requireConfirm(true, req.Confirm,
 		"원격 ref 삭제는 파괴적이다: confirm:true 를 요구한다 (FR-GIT-89·268)")
 	t.resolve(req.Repo)
+	if !t.remoteBranchOf(req.Ref, &req.Remote, &req.Branch) {
+		return
+	}
 	if !t.judgeBranch(action.GitBranchDeleteRemote, func(f branchFacts) (query.Ref, bool) {
 		return f.refOr(query.RefKindRemote, req.Remote+"/"+req.Branch), true
 	}) {

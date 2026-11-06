@@ -265,6 +265,17 @@ func (s *GitServer) apiGitRefs(w http.ResponseWriter, r *http.Request) {
 		gitError(w, err)
 		return
 	}
+	// 원격 ref 의 원격 이름은 서버가 원격 목록에 맞춰 가른다 (GV-g).
+	names, err := s.remoteNames(r.Context(), root)
+	if err != nil {
+		gitError(w, err)
+		return
+	}
+	for i := range refs {
+		if refs[i].Kind == query.RefKindRemote {
+			refs[i].Remote, _, _ = splitRemoteRef(names, refs[i].Short)
+		}
+	}
 	gitJSON(w, http.StatusOK, gitRefsResponse{Requested: gitRefsRequested{Repo: requested}, Repo: root, Refs: refs})
 }
 

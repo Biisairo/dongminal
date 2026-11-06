@@ -49,6 +49,11 @@
   는 빈 경로 400 `empty_path`, 상대 경로 400 `path_must_be_absolute` 로 거절합니다(이전 `bad_request`). 이 거절들은
   `message` 를 싣지 않습니다. 미리 묻는 자리는 `GET /api/git/actions?action=git.worktree.create|git.remote.add|git.compare&…`
   와, repo 없이 묻는 `GET /api/git/actions?action=git.repo.add&path=…` 입니다.
+- **원격 브랜치를 원격과 브랜치로 가르는 일을 서버가 합니다.** `POST /api/git/branch/fetch`·`branch/delete-remote` 는
+  `ref`(원격 ref 의 전체 이름, 예: `refs/remotes/origin/feat`)를 받습니다. 원격 이름에 `/` 가 있어도 서버가 원격 목록에
+  맞춰 가릅니다. 가를 수 없으면 400 `not_remote_branch` 입니다. 기존의 `remote`+`branch` 도 그대로 받습니다.
+  `POST /api/git/checkout` 에 `track` 만 보내면(`create` 없음) 서버가 가른 브랜치 이름으로 로컬을 만들어 추적합니다.
+  이전에는 400 `bad_request` 였습니다. `GET /api/git/refs` 의 원격 ref 에는 `remote`(원격 이름)가 새로 실립니다.
 
 ## [1.2.3] — 2026-11-05
 
