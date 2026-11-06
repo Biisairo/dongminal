@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/write"
 	"net/url"
 )
 
@@ -79,6 +80,28 @@ func TestAPIGitPolicy(t *testing.T) {
 	for i, want := range core.DestructiveActions {
 		if got[i] != want {
 			t.Fatalf("destructive[%d] = %v, want %q", i, got[i], want)
+		}
+	}
+}
+
+// SERVER_DRIVEN_ACTIONS_SRS GV-h (K7·K8 · FR-SDA-43): 대화상자가 제시하는 목록은 서버가
+// 보낸다 — 화면이 목록을 복제하면 서버가 종류를 늘려도 보이지 못한다.
+func TestAPIGitPolicyLists(t *testing.T) {
+	g := newGitFake(t)
+	s, _, _, _ := gitTestServer(t, g)
+	code, out := gitReq(t, s, http.MethodGet, "/api/git/policy", "")
+	if code != http.StatusOK {
+		t.Fatalf("code = %d, body = %v", code, out)
+	}
+	for key, want := range map[string][]string{"tagKinds": write.TagKinds, "resetModes": write.ResetModes} {
+		got, ok := out[key].([]any)
+		if !ok || len(got) != len(want) {
+			t.Fatalf("%s = %v, want %v", key, out[key], want)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("%s[%d] = %v, want %q — 순서가 제시 순서다", key, i, got[i], want[i])
+			}
 		}
 	}
 }

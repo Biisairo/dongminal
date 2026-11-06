@@ -54,6 +54,8 @@
   맞춰 가릅니다. 가를 수 없으면 400 `not_remote_branch` 입니다. 기존의 `remote`+`branch` 도 그대로 받습니다.
   `POST /api/git/checkout` 에 `track` 만 보내면(`create` 없음) 서버가 가른 브랜치 이름으로 로컬을 만들어 추적합니다.
   이전에는 400 `bad_request` 였습니다. `GET /api/git/refs` 의 원격 ref 에는 `remote`(원격 이름)가 새로 실립니다.
+- **`GET /api/git/policy` 에 `tagKinds`·`resetModes` 가 실립니다.** 태그 종류와 reset 모드의 목록입니다. 순서가 제시
+  순서이고 첫 값이 기본입니다. 화면의 태그 만들기·reset 대화상자는 이 목록으로 선택지를 만듭니다.
 
 ## [1.2.3] — 2026-11-05
 

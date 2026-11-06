@@ -77,12 +77,15 @@ class GitCommitOps {
   static async reset(panel,c){
     const n=await GitCommitOps._count(panel,c.oid);
     const body=n===null?GIT_CO_RESET_COUNT_FAIL:GIT_CO_RESET_COUNT.replace('%n',String(n));
+    // 모드의 목록은 서버가 보낸다 (SERVER_DRIVEN_ACTIONS_SRS GV-h).
+    const p=await GitConfirm.policy();
+    const modes=((p&&p.resetModes)||[]).map(m=>({v:m,label:GIT_CO_RESET_MODE_LABELS[m]||m}));
     await GitDialog.open({
       id:'git-reset',ns:'gco',action:'reset',
       title:GIT_CO_RESET_TITLE,runLabel:GIT_CO_RESET_RUN,body,
       fields:[{key:'mode',type:GIT_DIALOG_RADIO,cls:'gco-mode',
         label:GIT_CO_RESET_MODE_LABEL,
-        opts:GIT_CO_RESET_MODES.map(m=>({v:m,label:GIT_CO_RESET_MODE_LABELS[m]||m}))}],
+        opts:modes}],
       // 다이얼로그는 값만 받는다. `--hard` 의 파괴적 확인은 그것의 전문가에게
       // 넘긴다 (FR-GIT-172) — 확인 로직이 두 벌이면 한쪽이 조용히 뒤처진다.
       // REPO_FIX 05 F-7.6 (FR-GIT-175): soft·mixed 는 **결과를 기다린다** — 실패하면 닫지

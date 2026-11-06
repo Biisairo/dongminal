@@ -140,7 +140,11 @@ class GitTagCreate {
       onChange:(_s,d)=>{const r=this._merge();d.setWhy(r.kind,r.why)}});
   }
 
-  _show(){
+  async _show(){
+    // 종류의 목록은 서버가 보낸다 (GV-h). 받지 못하면 선택지 없이 연다 — 서버의 기본
+    // (lightweight)이 쓰인다.
+    const p=await GitConfirm.policy();
+    const kinds=((p&&p.tagKinds)||[]).map(k=>({v:k,label:GIT_TAG_KIND_LABELS[k]||k}));
     return GitDialog.open({
       id:'git-tag-create',ns:'gtc',action:'tag_create',
       title:GIT_TAG_CREATE_TITLE,runLabel:GIT_TAG_CREATE_RUN,focus:'name',
@@ -151,7 +155,7 @@ class GitTagCreate {
         {key:'ref',type:GIT_DIALOG_TEXT,cls:'gtc-ref',fieldCls:'gtc-refrow',
          placeholder:GIT_TAG_REF_PH,value:this.ref0},
         {key:'kind',type:GIT_DIALOG_RADIO,cls:'gtc-kind',fieldCls:'gtc-kindrow',
-         label:GIT_TAG_KIND_LABEL,opts:GIT_TAG_KIND_OPTS},
+         label:GIT_TAG_KIND_LABEL,opts:kinds},
         {key:'message',type:GIT_DIALOG_TEXT,cls:'gtc-msg',fieldCls:'gtc-msgrow',
          placeholder:GIT_TAG_MSG_PH},
       ],

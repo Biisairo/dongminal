@@ -101,18 +101,16 @@ const GIT_TAG_CREATE_RUN=t('git.act.tag_create_run');
 const GIT_TAG_NAME_PH=t('git.tag_name_ph');
 const GIT_TAG_REF_PH=t('git.tag_ref_ph');
 const GIT_TAG_MSG_PH=t('git.tag_msg_ph');
-// 종류 (FR-GIT-260). **첫 선택지가 기본이고 그것이 안전한 쪽이다** (FR-GIT-173) —
-// lightweight 는 객체를 만들지 않으므로 메시지도 서명 키도 필요 없다. 값은 서버의
-// `write.TagKinds` 와 같은 문자열이다.
+// 종류 (FR-GIT-260). **목록은 서버가 보낸다** (`/api/git/policy` 의 tagKinds — SERVER_DRIVEN
+// GV-h). 순서가 제시 순서이고 첫 값이 기본이며 그것이 안전한 쪽이다 (FR-GIT-173). 여기
+// 있는 것은 값마다의 라벨과, 메시지를 싣지 않는 lightweight 의 값(서버의 `TagLightweight`)뿐이다.
 const GIT_TAG_KIND_LIGHT='';
-const GIT_TAG_KIND_ANNOTATED='annotated';
-const GIT_TAG_KIND_SIGNED='signed';
 const GIT_TAG_KIND_LABEL=t('git.tag_kind_label');
-const GIT_TAG_KIND_OPTS=[
-  {v:GIT_TAG_KIND_LIGHT,    label:t('git.tag_kind_opts.light')},
-  {v:GIT_TAG_KIND_ANNOTATED,label:t('git.tag_kind_opts.annotated')},
-  {v:GIT_TAG_KIND_SIGNED,   label:t('git.tag_kind_opts.signed')},
-];
+const GIT_TAG_KIND_LABELS={
+  [GIT_TAG_KIND_LIGHT]:t('git.tag_kind_opts.light'),
+  annotated:t('git.tag_kind_opts.annotated'),
+  signed:t('git.tag_kind_opts.signed'),
+};
 // 입력 중 판정 (FR-GIT-260). 브랜치 생성과 같은 어휘를 쓴다 — 사유가 달라야
 // 사용자가 무엇을 할지 안다.
 const GIT_TAG_WHY_EMPTY=t('git.tag_why_empty');
@@ -339,10 +337,9 @@ const GIT_CO_REVERT_NOCOMMIT=t('git.co_revert_nocommit');
 const GIT_CO_RESET_TITLE=t('git.co_reset_title');
 const GIT_CO_RESET_RUN=t('git.act.co_reset_run');
 const GIT_CO_RESET_MODE_LABEL=t('git.co_reset_mode_label');
-// 값은 서버의 `write.ResetModes` 와 같은 문자열이어야 한다. 순서가 제시 순서이고
-// **첫 값이 기본**이다 (FR-GIT-173) — 파괴적인 것이 마지막이다.
+// **목록은 서버가 보낸다** (`/api/git/policy` 의 resetModes — SERVER_DRIVEN GV-h). 순서가 제시
+// 순서이고 첫 값이 기본이다 (FR-GIT-173). 여기 있는 것은 라벨과, 파괴적 확인을 거치는 값뿐이다.
 const GIT_CO_RESET_MODE_HARD='hard';
-const GIT_CO_RESET_MODES=['mixed','soft',GIT_CO_RESET_MODE_HARD];
 const GIT_CO_RESET_MODE_LABELS={
   mixed:t('git.co_reset_mode_labels.mixed'),
   soft:t('git.co_reset_mode_labels.soft'),

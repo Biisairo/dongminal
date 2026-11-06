@@ -51,9 +51,13 @@ func (s *GitServer) apiGitPolicy(w http.ResponseWriter, r *http.Request) {
 	for _, k := range write.OperationKinds() {
 		ops[k] = write.OperationActions(k)
 	}
+	// GV-h (K7·K8): 대화상자가 제시하는 목록도 서버가 보낸다. 순서가 제시 순서이고 첫 값이
+	// 기본이다 (FR-GIT-173).
 	gitJSON(w, http.StatusOK, map[string]any{
 		"destructive": core.DestructiveActions,
 		"operations":  ops,
+		"tagKinds":    write.TagKinds,
+		"resetModes":  write.ResetModes,
 	})
 }
 

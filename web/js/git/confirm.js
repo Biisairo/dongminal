@@ -125,6 +125,9 @@ class GitConfirm extends GitModalBase {
     return {
       destructive:new Set(d.destructive),
       operations:(d.operations&&typeof d.operations==='object')?d.operations:{},
+      // GV-h: 대화상자가 제시하는 목록 — 화면이 복제하지 않는다.
+      tagKinds:Array.isArray(d.tagKinds)?d.tagKinds:[],
+      resetModes:Array.isArray(d.resetModes)?d.resetModes:[],
     };
   }
 
