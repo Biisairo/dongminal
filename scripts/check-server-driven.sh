@@ -17,6 +17,9 @@ REMOVED=(
   GIT_STASH_UNTRACKED_ONLY  # M-9: stash 만들기의 화면 판정 문구
   GIT_COMMIT_WHY_TEXT       # GR-3f: 커밋 버튼의 화면 판정 표
   GIT_COMMIT_WHY_NOTHING_CODE  # GR-3f
+  GIT_TAG_WHY_NEED_MSG         # GV-e: 태그 메시지의 화면 판정 문구
+  GIT_BR_UPSTREAM_WHY_UNKNOWN  # GV-f: upstream 목록 대조
+  GIT_STASH_BRANCH_NEED_NAME   # GV-c: stash 브랜치 빈 이름
 )
 
 pat=$(IFS='|'; echo "${REMOVED[*]}")

@@ -77,8 +77,10 @@ var gitTableCases = []struct {
 	// gitTagError
 	{write.ErrTagExists, http.StatusConflict, CodeTagExists},
 	{write.ErrTagNotFound, http.StatusNotFound, CodeNotFound},
-	{write.ErrTagKind, http.StatusBadRequest, CodeBadRequest},
-	{write.ErrTagMessage, http.StatusBadRequest, CodeBadRequest},
+	// SERVER_DRIVEN_ACTIONS_SRS GV-c: 대화상자의 답이 사유를 코드로 가른다.
+	//   이전 동작: 둘 다 "bad_request" / 새 동작: 각자의 코드 / 이유: 사유마다 문구가 다르다
+	{write.ErrTagKind, http.StatusBadRequest, CodeTagKindInvalid},
+	{write.ErrTagMessage, http.StatusBadRequest, CodeTagMessageRequired},
 	{write.ErrTagPushTarget, http.StatusBadRequest, CodeBadRequest},
 
 	// gitCommitOpError

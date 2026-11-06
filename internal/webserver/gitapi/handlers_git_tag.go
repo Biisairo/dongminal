@@ -66,6 +66,10 @@ func (s *GitServer) apiGitTagCreate(w http.ResponseWriter, r *http.Request) {
 	t := s.beginWrite(w, r, &req)
 	t.resolve(req.Repo)
 	opts := write.TagCreateOpts{Name: req.Name, Ref: req.Ref, Kind: req.Kind, Message: req.Message}
+	// 대화상자의 답(`git.tag.create`)과 같은 판정이다 (GV-e · D-SDA-6).
+	if !t.judge(errAnswer(write.CheckTagMessage(req.Kind, req.Message)), nil) {
+		return
+	}
 	// 잘못된 요청은 실행 **전에** 답한다. apply 를 지나면 코드가 500 이 되고,
 	// 클라이언트는 자기 요청이 틀렸다는 것을 알 수 없다.
 	if _, err := write.TagCreateArgs(opts); err != nil {

@@ -30,6 +30,18 @@ func (s *GitServer) apiGitActions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := q.Get("action")
+	if a, ok, err := s.gitInputAnswer(r.Context(), root, id, q); ok {
+		if err != nil {
+			gitError(w, err)
+			return
+		}
+		gitJSON(w, http.StatusOK, map[string]any{
+			"requested": map[string]any{"repo": requested, "action": id},
+			"repo":      root,
+			"actions":   map[string]action.Answer{id: a},
+		})
+		return
+	}
 	if id != action.GitStashCreate && id != action.GitCommit {
 		gitFail(w, http.StatusBadRequest, apierr.CodeBadRequest, "unknown action: "+id)
 		return

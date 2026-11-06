@@ -94,6 +94,12 @@ const (
 	GitBranchDeleteBoth    = "git.branch.delete_both"
 )
 
+// 대화상자 입력의 답 (SERVER_DRIVEN_ACTIONS_SRS GV-c). 입력을 받아 묻는다(M-5).
+const (
+	GitTagCreate   = "git.tag.create"
+	GitStashBranch = "git.stash.branch"
+)
+
 // Table 은 동작 ID → 그 판정이 낼 수 있는 사유 코드다 (M-3).
 type Table map[string][]string
 

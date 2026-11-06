@@ -177,15 +177,26 @@ test.describe('묶음 C — 태그 생성 (FR-GIT-260)', () => {
     await expect(why).toHaveAttribute('data-why', 'exists', { timeout: 10000 });
     await expect(go, '중복인데 실행이 열려 있다').toBeDisabled();
 
-    // ③ annotated 인데 메시지가 없으면 그것도 막힌다 (FR-GIT-260).
+    // ③ annotated 인데 메시지가 없으면 그것도 막힌다 (FR-GIT-260). 판정은 서버의 답이다
+    //    (SERVER_DRIVEN_ACTIONS_SRS GV-e) — 사유는 `why.tag_message_required` 의 문구다.
     await dlg(page).locator('.gtc-name').fill('v2.0');
     await expect(go, '쓸 수 있는 이름인데 실행이 안 열린다').toBeEnabled({ timeout: 10000 });
     await dlg(page).locator('.gtc-kind[value="annotated"]').check();
-    await expect(why).toHaveAttribute('data-why', 'message');
+    await expect(why).toHaveAttribute('data-why', 'why', { timeout: 10000 });
+    await expect(why).toContainText('annotated');
     await expect(go, '메시지 없는 annotated 인데 실행이 열려 있다').toBeDisabled();
+    await dlg(page).locator('.gtc-msg').fill('릴리스');
+    await expect(go, '메시지를 적었는데 실행이 안 열린다').toBeEnabled({ timeout: 10000 });
 
     expect(posted, '막혔는데 서버로 요청이 나갔다').toBe(0);
     expect(tagList(repo), '막혔는데 태그가 생겼다').toEqual(['v1.0']);
+
+    // 화면을 거치지 않은 요청도 같은 코드로 거절된다 (D-SDA-6 · TC-SDA-7).
+    const res = await page.request.post('/api/git/tag',
+      { data: { repo, name: 'v3.0', kind: 'annotated', message: ' ' } });
+    expect(res.status()).toBe(400);
+    expect((await res.json()).error).toBe('tag_message_required');
+    expect(tagList(repo), '거절됐는데 태그가 생겼다').toEqual(['v1.0']);
   });
 
   // 커밋 메뉴의 진입점 — **같은 다이얼로그**를 대상만 고정해 연다.

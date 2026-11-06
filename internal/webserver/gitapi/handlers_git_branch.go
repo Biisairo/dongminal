@@ -445,16 +445,18 @@ func (s *GitServer) apiGitBranchUpstream(w http.ResponseWriter, r *http.Request)
 	t := s.beginWrite(w, r, &req)
 	t.resolve(req.Repo)
 	opts := write.UpstreamOpts{Branch: req.Branch, Upstream: req.Upstream, Unset: req.Unset}
-	if _, err := write.UpstreamArgs(opts); err != nil {
-		t.reject(err)
-	}
-	id := action.GitBranchUpstreamSet
-	if req.Unset {
-		id = action.GitBranchUpstreamUnset
-	}
-	if !t.judgeBranch(id, func(f branchFacts) (query.Ref, bool) {
+	// 설정은 대화상자의 답(GV-f)과, 해제는 메뉴의 답(GT-d)과 같은 판정이다.
+	if !req.Unset {
+		if !t.judgeFacts(func(f branchFacts) action.Answer { return upstreamAnswer(f, req.Branch, req.Upstream) }) {
+			return
+		}
+	} else if !t.judgeBranch(action.GitBranchUpstreamUnset, func(f branchFacts) (query.Ref, bool) {
 		return f.refOr(query.RefKindLocal, req.Branch), true
 	}) {
+		return
+	}
+	if _, err := write.UpstreamArgs(opts); err != nil {
+		t.reject(err)
 		return
 	}
 	t.apply(func(ctx context.Context) error {

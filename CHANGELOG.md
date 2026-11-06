@@ -35,6 +35,13 @@
   merge·rebase 가 진행 중일 때의 merge·rebase 는 409 `operation_in_progress` 로 거절합니다. 현재 브랜치 삭제
   거절에서 `message` 가 빠집니다. 새 `POST /api/git/branch/delete-both` 는 짝지어진 로컬과 원격을 함께 지웁니다.
   메뉴의 답은 `GET /api/git/actions?kind=branch&ref=…` 로 미리 물을 수 있습니다.
+- **대화상자 입력의 새 거절과 코드.** upstream 설정(`POST /api/git/branch/upstream`)은 upstream 이 이 저장소가
+  아는 원격 브랜치가 아니면 400 `upstream_unknown`, 비었으면 400 `empty_ref` 로 거절합니다. 이전에는 서버가 막지
+  않았습니다. 태그 만들기(`POST /api/git/tag`)의 종류·메시지 거절은 400 `bad_request` 대신
+  `tag_kind_invalid`·`tag_message_required` 이고, 공백뿐인 메시지도 없는 것으로 봅니다. stash 에서 브랜치 만들기
+  (`POST /api/git/stash/branch`)의 이름 거절은 400 `bad_request` 대신 `empty_name`·`ref_name_invalid` 이고, 이미
+  있는 이름은 409 `branch_exists`(`args.branch`)입니다. 세 거절 모두 `message` 를 싣지 않습니다. 입력이 맞는지는
+  `GET /api/git/actions?action=git.branch.upstream_set|git.tag.create|git.stash.branch&…` 로 미리 물을 수 있습니다.
 
 ## [1.2.3] — 2026-11-05
 

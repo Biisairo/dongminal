@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/query"
@@ -310,9 +311,9 @@ func TestAPIGitTagCreate_RejectsBeforeExecuting(t *testing.T) {
 		{"이미 있는 이름", `{"repo":` + qWorkRepo + `,"name":"v1.0"}`,
 			http.StatusConflict, gitErrTagExists},
 		{"모르는 종류", `{"repo":` + qWorkRepo + `,"name":"v9.0","kind":"gpg"}`,
-			http.StatusBadRequest, gitErrBadRequest},
+			http.StatusBadRequest, apierr.CodeTagKindInvalid},
 		{"annotated 인데 메시지 없음", `{"repo":` + qWorkRepo + `,"name":"v9.0","kind":"annotated"}`,
-			http.StatusBadRequest, gitErrBadRequest},
+			http.StatusBadRequest, apierr.CodeTagMessageRequired},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

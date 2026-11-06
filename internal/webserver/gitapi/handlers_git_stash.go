@@ -225,32 +225,21 @@ func (s *GitServer) apiGitStashBranch(w http.ResponseWriter, r *http.Request) {
 		t.rejectWith(http.StatusBadRequest, gitErrBadRequest, msg)
 		return
 	}
-	// 순수 함수가 argv 를 만들 수 있는지로 판정한다 — 판정이 두 벌이면 한쪽만
-	// 고쳐진다 (FR-GIT-250 ①). 위치는 실행 직전에 oid 로 찾으므로 여기서는 이름만 본다.
-	if _, err := write.StashBranchArgs(req.Name, 0); err != nil {
-		t.rejectWith(http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-		return
-	}
 	t.resolve(req.Repo)
 	if t.stop() {
 		return
 	}
-	// 이름 규칙 전체는 git 에 묻는다 — 우리가 다시 구현하지 않는다 (FR-GIT-159).
-	if err := query.ValidBranchName(s.Git.Service(), t.ctx(), t.root, req.Name); err != nil {
+	// 대화상자의 답(`git.stash.branch`)과 같은 판정이다 (GV-c · D-SDA-6). 이름 규칙 전체는
+	// git 에 묻는다 (FR-GIT-159). REPO_FIX 01 §5.3: 이미 있는 이름이면 실행 전에 거절한다
+	// — 그대로 실행하면 git 이 브랜치를 만들기 전에 실패하는데 HEAD 가 그 이름이면
+	// "만들어졌다" 로 읽힌다.
+	if !t.judge(s.stashBranchAnswer(t.ctx(), t.root, req.Name)) {
+		return
+	}
+	// 순수 함수가 argv 를 만들 수 있는지로 판정한다 — 판정이 두 벌이면 한쪽만
+	// 고쳐진다 (FR-GIT-250 ①). 위치는 실행 직전에 oid 로 찾으므로 여기서는 이름만 본다.
+	if _, err := write.StashBranchArgs(req.Name, 0); err != nil {
 		t.rejectWith(http.StatusBadRequest, gitErrBadRequest, gitTail(err.Error()))
-		return
-	}
-	// REPO_FIX 01 §5.3: 이미 있는 이름이면 실행 전에 거절한다. 선택지(checkout·
-	// rename)는 브랜치 생성의 것이라 싣지 않는다 — 그대로 실행하면 git 이 브랜치를
-	// 만들기 전에 실패하는데 HEAD 가 그 이름이면 "만들어졌다" 로 읽힌다.
-	exists, err := query.LocalBranchExists(s.Git.Service(), t.ctx(), t.root, req.Name)
-	if err != nil {
-		t.reject(err)
-		return
-	}
-	if exists {
-		t.rejectBody(http.StatusConflict, gitErrBranchExists, "로컬 브랜치 "+req.Name+" 가 이미 있다",
-			map[string]any{"branch": req.Name})
 		return
 	}
 	before := t.snapshot()

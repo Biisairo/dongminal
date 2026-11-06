@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/domain/git/query"
@@ -101,22 +102,19 @@ func TagCreateArgs(o TagCreateOpts) ([]string, error) {
 			return nil, err
 		}
 	}
+	if err := CheckTagMessage(o.Kind, o.Message); err != nil {
+		return nil, err
+	}
 	argv := []string{"tag"}
 	switch o.Kind {
-	case TagLightweight:
-		// 메시지는 여기서 **뜻이 없다.** 붙여 주면 사용자가 적은 것이 사라진 것도,
-		// 다른 종류로 만들어진 것도 아니게 되므로 조용히 버린다 (FR-GIT-260).
 	case TagAnnotated:
 		argv = append(argv, tagAnnotateFlag)
 	case TagSigned:
 		argv = append(argv, tagSignFlag)
-	default:
-		return nil, fmt.Errorf("%w: %q", ErrTagKind, o.Kind)
 	}
+	// lightweight 의 메시지는 **뜻이 없다.** 붙여 주면 사용자가 적은 것이 사라진 것도,
+	// 다른 종류로 만들어진 것도 아니게 되므로 조용히 버린다 (FR-GIT-260).
 	if o.Kind != TagLightweight {
-		if o.Message == "" {
-			return nil, fmt.Errorf("%w: %s 태그에는 메시지가 필요하다", ErrTagMessage, o.Kind)
-		}
 		argv = append(argv, tagMessageFlag, o.Message)
 	}
 	argv = append(argv, o.Name)
@@ -124,6 +122,22 @@ func TagCreateArgs(o TagCreateOpts) ([]string, error) {
 		argv = append(argv, o.Ref)
 	}
 	return argv, nil
+}
+
+// CheckTagMessage 는 종류와 메시지의 판정이다 (SERVER_DRIVEN_ACTIONS_SRS GV-e). 대화상자의
+// 답과 TagCreateArgs 가 이 함수 하나를 부른다. annotated·signed 는 태그 객체를 만들고,
+// 객체에는 메시지가 있어야 한다 — 공백뿐인 메시지는 없는 것이다.
+func CheckTagMessage(kind, message string) error {
+	switch kind {
+	case TagLightweight:
+		return nil
+	case TagAnnotated, TagSigned:
+		if strings.TrimSpace(message) == "" {
+			return fmt.Errorf("%w: %s 태그에는 메시지가 필요하다", ErrTagMessage, kind)
+		}
+		return nil
+	}
+	return fmt.Errorf("%w: %q", ErrTagKind, kind)
 }
 
 // TagDeleteArgs 는 로컬 삭제의 argv 다 (FR-GIT-261).

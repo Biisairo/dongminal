@@ -207,6 +207,17 @@ func (s *GitServer) gitBranchMenu(w http.ResponseWriter, r *http.Request, root, 
 // judgeBranch 는 실행 종단의 판정이다. 사실을 읽지 못했거나 답이 거짓이면 응답을 쓰고
 // 거짓을 준다.
 func (t *gitWrite) judgeBranch(id string, pick func(branchFacts) (query.Ref, bool)) bool {
+	return t.judgeFacts(func(f branchFacts) action.Answer {
+		r, ok := pick(f)
+		if !ok {
+			return action.Allow()
+		}
+		return branchAnswer(id, r, f)
+	})
+}
+
+// judgeFacts 는 저장소의 사실로 판정하는 실행 종단의 거절이다.
+func (t *gitWrite) judgeFacts(judge func(branchFacts) action.Answer) bool {
 	if t.stop() {
 		return false
 	}
@@ -218,15 +229,7 @@ func (t *gitWrite) judgeBranch(id string, pick func(branchFacts) (query.Ref, boo
 		t.reject(err)
 		return false
 	}
-	r, ok := pick(f)
-	if !ok {
-		return true
-	}
-	if a := branchAnswer(id, r, f); !a.OK {
-		t.rejectAnswer(a, nil)
-		return false
-	}
-	return true
+	return t.judge(judge(f), nil)
 }
 
 // splitRemoteRef 는 `origin/x` 를 원격과 브랜치로 가른다. 원격 이름에 `/` 가 있을 수

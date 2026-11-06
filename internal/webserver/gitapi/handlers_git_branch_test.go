@@ -730,6 +730,7 @@ func TestAPIGitBranchUpstream(t *testing.T) {
 		f := newGitM5Fake(t)
 		f.branches["feat"] = true
 		f.upstreams["feat"] = "origin/feat" // 해제는 upstream 이 있어야 뜻이 있다 (GT-d)
+		f.remoteRefs["origin/feat"] = true  // 설정은 알려진 원격 ref 여야 한다 (GV-f)
 		s := gitM5Server(t, f)
 		code, out := gitReq(t, s, http.MethodPost, "/api/git/branch/upstream", tc.body)
 		if code != http.StatusOK || out["ok"] != true {

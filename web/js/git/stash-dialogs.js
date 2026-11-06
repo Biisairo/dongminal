@@ -90,14 +90,16 @@ class GitStashCreate {
  * 실행만 안다. **파괴적이 아니다**: git 은 적용이 끝난 뒤에만 그 stash 를 지우므로
  * 실패하면 stash 가 그대로 남는다.
  *
- * 이름 규칙 전체를 여기서 판정하지 않는다 — 그것은 서버가 git 에 묻는다
- * (FR-GIT-159). 여기서 막는 것은 비어 있는 이름뿐이다.
+ * 이름은 **서버가 판정한다** (SERVER_DRIVEN_ACTIONS_SRS GV-c) — 빈 이름·규칙 위반·이미
+ * 있는 이름을 입력 중에 묻고(`git.stash.branch`), 실행도 같은 판정으로 거절된다.
  */
 class GitStashBranch {
   constructor(panel,stash){
     this.panel=panel;
     this.repo=panel.repo;
     this.stash=stash;
+    this._answer=new GitInputAnswer({repo:this.repo,id:GIT_ACTION.stashBranch,
+      params:v=>({name:(v.name||'').trim()}),fail:res=>panel.writeReason(res)});
   }
 
   _show(){
@@ -111,7 +113,7 @@ class GitStashBranch {
         {key:'name',type:GIT_DIALOG_TEXT,cls:'gsb-name',
          placeholder:GIT_STASH_BRANCH_NAME_PH},
       ],
-      validate:v=>(v.name||'').trim()?'':GIT_STASH_BRANCH_NEED_NAME,
+      validate:(v,d)=>this._answer.why(v,d),
       run:v=>this._run(v),
     });
   }

@@ -123,6 +123,11 @@ var CodeDoc = map[string]Doc{
 	CodeNoUpstream:          {"이 로컬 브랜치에는 추적하는 원격 브랜치(upstream)가 없습니다.", "upstream 을 먼저 설정하거나 다른 브랜치를 고르세요."},
 	CodeNoTrackingBranch:    {"이 원격 브랜치를 추적하는 로컬 브랜치가 없습니다.", "원격만 지우려면 원격 삭제를 쓰세요."},
 	CodeManyTrackingBranch:  {"이 원격 브랜치를 추적하는 로컬 브랜치가 여럿이라 짝을 정할 수 없습니다.", "지울 로컬 브랜치를 직접 고르세요 — 서버는 대상을 대신 정하지 않습니다."},
+	CodeTagKindInvalid:      {"제공하지 않는 태그 종류입니다.", "`GET /api/git/policy` 의 tagKinds 가운데 하나를 보내세요."},
+	CodeTagMessageRequired:  {"annotated·signed 태그에는 메시지가 있어야 합니다.", "메시지를 적거나 lightweight 태그를 고르세요."},
+	CodeUpstreamUnknown:     {"upstream 이 이 저장소가 아는 원격 브랜치가 아닙니다.", "원격 브랜치 이름(예: origin/main)을 적으세요. 원격의 새 브랜치라면 먼저 fetch 하세요."},
+	CodeEmptyName:           {"이름이 비었습니다.", "이름을 적어 다시 보내세요."},
+	CodeEmptyRef:            {"대상 ref 가 비었습니다.", "브랜치·태그·커밋 가운데 하나를 적어 다시 보내세요."},
 
 	// ── 미커밋 행 ──
 	CodeNoHead:         {"아직 커밋이 하나도 없습니다.", "첫 커밋을 만든 뒤 다시 시도하세요."},

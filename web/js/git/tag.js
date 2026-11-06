@@ -121,7 +121,8 @@ class GitTag {
  * 이름은 입력 중 `/api/git/tag/validate` 로 검사하고 **위반이면 실행을 막는다**
  * (FR-GIT-250.3) — 서버도 같은 것을 막지만, 실행해 보고 알려 주면 사용자는 왜
  * 막혔는지 모른다. `exists:true` 는 규칙 위반이 아니다: 사유가 달라야 사용자가
- * 무엇을 할지 안다.
+ * 무엇을 할지 안다. 종류와 메시지는 서버의 답(`git.tag.create`)이 판정한다
+ * (SERVER_DRIVEN_ACTIONS_SRS GV-e).
  */
 class GitTagCreate {
   constructor(panel,o){
@@ -130,9 +131,13 @@ class GitTagCreate {
     this.ref0=o.ref||'';
     this.name0=o.name||'';
     this.why='';      // 사람이 읽는 사유
-    this.whyKind='';  // '' | empty | pending | invalid | exists | message | fail
+    this.whyKind='';  // '' | empty | pending | invalid | exists | fail | why
     this._seq=0;
     this._nameWhy=''; this._nameWhyKind='';
+    this._answer=new GitInputAnswer({repo:this.repo,id:GIT_ACTION.tagCreate,
+      params:v=>({tagKind:v.kind===undefined?GIT_TAG_KIND_LIGHT:v.kind,message:(v.message||'').trim()}),
+      fail:res=>panel.writeReason(res),
+      onChange:(_s,d)=>{const r=this._merge();d.setWhy(r.kind,r.why)}});
   }
 
   _show(){
@@ -163,7 +168,8 @@ class GitTagCreate {
    */
   _check(v,d,key){
     if(!key||key==='name') this._onName(v,d);
-    return this._merge(v);
+    this._answer.why(v,d);
+    return this._merge();
   }
 
   _onName(v,d){
@@ -178,14 +184,11 @@ class GitTagCreate {
     this._setName(GIT_DIALOG_WHY_PENDING,'');
   }
 
-  // 이름 사유가 있으면 그것이 이긴다. 없으면 메시지를 본다 — annotated·signed 는
-  // 태그 객체를 만들고 객체에는 메시지가 있어야 한다 (FR-GIT-260).
-  _merge(v){
+  // 이름 사유가 있으면 그것이 이긴다. 없으면 종류·메시지에 대한 서버의 답이다.
+  _merge(){
     if(this._nameWhyKind) return this._set(this._nameWhyKind,this._nameWhy);
-    const kind=v.kind===undefined?GIT_TAG_KIND_LIGHT:v.kind;
-    if(kind!==GIT_TAG_KIND_LIGHT&&!(v.message||'').trim())
-      return this._set('message',GIT_TAG_WHY_NEED_MSG);
-    return this._set('','');
+    const a=this._answer.state();
+    return this._set(a.kind,a.why);
   }
 
   async _validate(name,d){
@@ -210,7 +213,7 @@ class GitTagCreate {
 
   _tell(d,kind,why){
     this._setName(kind,why);
-    const r=this._merge(d.values());
+    const r=this._merge();
     d.setWhy(r.kind,r.why);
   }
 

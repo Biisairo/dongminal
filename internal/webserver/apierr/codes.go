@@ -84,6 +84,13 @@ const (
 	CodeManyTrackingBranch  = "many_tracking_branches"
 	CodeResolvePartial      = "resolve_partial"
 
+	// ── 대화상자 입력의 판정 (SERVER_DRIVEN_ACTIONS_SRS GV-c) ──
+	CodeTagKindInvalid     = "tag_kind_invalid"
+	CodeTagMessageRequired = "tag_message_required"
+	CodeUpstreamUnknown    = "upstream_unknown"
+	CodeEmptyName          = "empty_name"
+	CodeEmptyRef           = "empty_ref"
+
 	// ── 미커밋 행 ──
 	CodeNoHead         = "no_head"
 	CodeNothingToClean = "nothing_to_clean"

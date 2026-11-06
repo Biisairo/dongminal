@@ -1,7 +1,7 @@
 # SRS: 서버가 답하는 동작 가능 여부 — server-driven actions — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 묶음 GV·F·R·X·K·N(구현 전). 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)는 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
+> **남은 것**: 묶음 GV(설계 §3.4a — GV-1 구현, GV-2~4 남음)·F·R·X·K·N(구현 전). 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)는 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
 
 ## 1. 개요 (Introduction)
 
@@ -169,6 +169,37 @@ GR 은 판정의 재료가 셋으로 갈린다. 단계마다 커밋한다: **GR-
 | FR-SDA-42 | `origin/x` 를 로컬 이름·원격+브랜치로 가르는 일은 서버가 한다. 화면은 원격 ref 를 그대로 보낸다 | G-B8 | 필수 |
 | FR-SDA-43 | 태그 종류·reset 모드처럼 이미 서버 응답에 있는 목록은 응답의 것을 쓴다(K7·K8) | K7·K8 | 필수 |
 
+#### 3.4a 묶음 GV 설계 세부
+
+네 단계로 커밋한다: **GV-1** 장치와 브랜치·태그 입력(G-B1·B2·B5) · **GV-2** worktree·원격 추가·비교·저장소 추가(G-B3·B4·B6·B7) · **GV-3** 원격 ref 가르기(G-B8) · **GV-4** 목록 상수(K7·K8). G-B9(같은 이름으로 rename)는 이미 서버가 판정한다 — 대화상자가 `branch/validate` 의 `exists` 로 막고, 실행은 `write/branch.go` 의 `checkNewBranchName` 이 거절한다. 바꾸지 않는다.
+
+| ID | 설계 |
+|---|---|
+| GV-a 모양 | 입력 답은 M-5 의 `GET /api/git/actions?repo=&action=<id>&<입력>` 로 묻는다. FR-SDA-40 의 "validate 와 같은 모양" 은 **판정을 200 본문에 담아 요청 실패와 가른다** 로 읽는다. 답 종단은 그것을 지키면서 사유를 코드로 주고(D-SDA-5), 실행 거절과 같은 함수를 부르며(D-SDA-6), 화면은 `actionState` 하나로 그린다(M-8). `branch/validate`·`tag/validate` 는 이름 규칙과 `exists` 의 자리로 그대로 둔다 — 이름 규칙의 사유는 git 의 문장이다 |
+| GV-b 판정 | 입력 판정은 도메인의 검사 함수 하나다. 답은 그 오류를 `apierr.Git` 표로 코드로 바꾼 것(`errAnswer`)이다. 실행 종단은 같은 함수의 답으로 거절한다(`rejectAnswer`, `message` 없음). 빈 값은 앞뒤 공백을 지운 뒤 판정한다 |
+| GV-c 동작 표 | 아래 표. 사유는 적은 순서로 본다. 400 은 입력, 409 는 상태 때문이다 |
+| GV-d 화면 장치 | `web/js/git/input-answer.js` 의 `GitInputAnswer`. 대화상자의 `validate` 가 부른다. 입력이 바뀌면 멈춘 뒤(`GIT_BR_VALIDATE_DEBOUNCE_MS`) 묻고, 늦게 온 앞선 답은 세대로 버린다. 첫 답 전에는 `loading`, 다시 묻는 동안에는 실행만 막고 앞선 사유를 그대로 둔다(GR-3d). 대화상자의 빈 값 판정·`GitBranchUpstream._check`·`_remotes` 는 없앤다 |
+| GV-e 태그 대화상자 | 이름 사유(`tag/validate`)가 먼저이고, 없으면 `git.tag.create` 의 답이다. 메시지 판정(종류·메시지)은 `write.CheckTagMessage` 하나이며 `TagCreateArgs` 도 그것을 부른다 |
+| GV-f upstream | `git.branch.upstream.set` 의 입력 답은 브랜치 판정(GT-d, `branchAnswer`) 뒤에 upstream 을 본다: 비면 `empty_ref`, 원격 ref 목록(`branchFacts` 의 `query.Refs`)에 없으면 `upstream_unknown`. 화면이 목록을 몰라 검사를 건너뛰던 자리(History 의 refs 사이드바)도 이제 판정된다 |
+| GV-g 원격 ref 가르기(GV-3) | `branch/fetch`·`branch/delete-remote` 는 `ref`(원격 ref 의 전체 이름 `refs/remotes/<원격>/<브랜치>`)를 받고, 서버가 `query.Remotes` 에 맞춰 가른다(`splitRemoteRef`, 가장 긴 원격 이름이 이긴다). 가를 수 없으면 400 `not_remote_branch`. `remote`+`branch` 도 계속 받는다 — `ref` 가 있으면 `ref` 가 이긴다(R-3). checkout 에 `track` 만 있고 `create` 가 비면 서버가 가른 브랜치 이름으로 만든다. `GET /api/git/refs` 의 원격 ref 는 `remote`(원격 이름)를 싣는다 — 복구 명령은 그것으로 만든다. 화면의 `GitBranches._split` 과 `checkoutRemote` 의 가르기는 없앤다. 브랜치 트리의 접두 묶음(`branches-tree.js`)·태그 확인 문구의 원격 이름(`GitTag.remoteOf`)은 보여 주기이며 요청에 싣지 않으므로 그대로 둔다 |
+| GV-h 목록 상수(GV-4) | `GET /api/git/policy` 에 `tagKinds`(`write.TagKinds`)·`resetModes`(`write.ResetModes`)를 싣는다. 태그·reset 대화상자는 그 목록으로 선택지를 만든다(라벨은 값으로 i18n 에서 고르고, 모르는 값은 값 그대로 보인다). `GIT_TAG_KIND_OPTS`·`GIT_CO_RESET_MODES` 를 없앤다. policy 는 이미 한 번 받아 둔다(`GitConfirm.policy`) |
+| GV-i 문구 | 새 사유 코드마다 `why.<code>` 를 ko·en 에 더한다(게이트 M-7) |
+| GV-j 게이트 | 없앤 화면 이름을 단계마다 `check-server-driven.sh` 목록에 더한다: GV-1 `GIT_TAG_WHY_NEED_MSG`·`GIT_BR_UPSTREAM_WHY_UNKNOWN`·`GIT_STASH_BRANCH_NEED_NAME`, GV-3 `_split`, GV-4 `GIT_TAG_KIND_OPTS`·`GIT_CO_RESET_MODES` |
+
+GV-c 동작 표:
+
+| 동작 ID | 입력 | 사유(순서) | 실행 종단 |
+|---|---|---|---|
+| `git.tag.create` | `tagKind`·`message` (`kind` 는 GT-a 의 대상 종류라 피한다) | `tag_kind_invalid`(400) → `tag_message_required`(400) | `POST /api/git/tag` |
+| `git.branch.upstream.set` | `branch`·`upstream` | GT-d 의 브랜치 판정 → `empty_ref`(400) → `upstream_unknown`(400) | `POST /api/git/branch/upstream` |
+| `git.stash.branch` | `name` | `empty_name`(400) → `ref_name_invalid`(400) → `branch_exists`(409, `args.branch`) | `POST /api/git/stash/branch` |
+| `git.worktree.create` | `name`·`ref` | `empty_name` → `ref_name_invalid` → `empty_ref`(400) → `job_busy`(409, common 칸) → `worktree_exists`(409) | `POST /api/git/worktrees/create` |
+| `git.remote.add` | `name`·`url` | `empty_name` → `remote_name_invalid`(400) → `empty_url`(400) → `remote_url_invalid`(400) → `remote_exists`(409) | `POST /api/git/remote/add` |
+| `git.compare` | `rev`·`path` | `empty_rev`(400) → `empty_path`(400) | 없음 — 실행은 화면이 diff 를 여는 것이다. `commit-range` 의 `from`·`to` 검사는 그대로 |
+| `git.repo.add` | `path` (`repo` 를 받지 않는다) | `empty_path` → `path_not_absolute`(400) → `not_a_git_repo`·`repo_missing` | `POST /api/git/repos/pin` |
+
+새 사유 코드: `tag_kind_invalid`·`tag_message_required`·`upstream_unknown`·`empty_name`·`empty_ref`·`empty_url`·`empty_path`·`empty_rev`·`remote_name_invalid`·`remote_url_invalid`·`path_not_absolute`. 이 가운데 넷(`tag_kind_invalid`·`tag_message_required`·`remote_name_invalid`·`remote_url_invalid`)은 지금 `bad_request` 로 나가는 sentinel(`write.ErrTagKind`·`ErrTagMessage`·`ErrRemoteName`·`ErrRemoteURL`)의 코드를 가르는 것이다 — 동작 변경으로 적는다.
+
 ### 3.5 묶음 F — 파일 트리
 
 | ID | 요구 | 출처 | 우선 |
@@ -269,6 +300,7 @@ GR 은 판정의 재료가 셋으로 갈린다. 단계마다 커밋한다: **GR-
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-06 | GV-1 구현(설계 §3.4a). 동작 변경 넷. ① **이전**: upstream 이 알려진 원격 ref 인지는 화면만 봤고, 목록이 없는 자리(History 의 refs 사이드바)에서는 보지 않았다. 서버는 막지 않았다 / **새**: 서버가 400 `upstream_unknown`·`empty_ref` 로 답하고 거절한다 / **이유**: FR-SDA-41·D-SDA-3. ② **이전**: 태그의 모르는 종류·빈 메시지는 400 `bad_request`(한국어 `message`)였고, 공백뿐인 메시지는 git 에 넘겼다 / **새**: `tag_kind_invalid`·`tag_message_required`, 공백뿐인 메시지도 빈 것으로 본다. `message` 없음 / **이유**: 사유를 코드로 가른다(FR-SDA-2·D-SDA-5). ③ **이전**: stash 브랜치의 이름 거절은 400 `bad_request`, 이미 있는 이름은 409 `branch_exists` 에 한국어 `message` 를 실었다 / **새**: `empty_name`·`ref_name_invalid`·`branch_exists`(`args.branch`), `message` 없음 / **이유**: 같다. ④ **이전**: 대화상자 셋이 빈 값·메시지 필요·원격 목록 대조를 스스로 판정했다 / **새**: `GitInputAnswer`(GV-d)로 서버에 묻는다 / **이유**: D-SDA-1. 설계 중 정한 것: 태그 종류의 입력 이름은 `tagKind` 다 — `kind` 는 GT-a 의 대상 종류 자리다 |
 | 2026-11-06 | GT-2 구현. 동작 변경 넷. ① **이전**: 양쪽 삭제는 화면이 로컬 삭제·원격 삭제를 차례로 보냈다 / **새**: `POST /api/git/branch/delete-both` 하나가 짝을 판정하고 로컬을 지운 뒤 원격 삭제 잡을 띄운다 / **이유**: FR-SDA-35·사용자 결정. ② **이전**: 원격 ref 의 rename·upstream·push, 로컬 ref 의 fetch-into, 현재 브랜치 checkout, 자기 자신 merge·rebase, upstream 없는 해제, 진행 중 merge·rebase 를 화면만 막았다 / **새**: 서버가 `not_local_branch`·`not_remote_branch`·`branch_is_current`·`target_is_head`·`no_upstream`·`operation_in_progress` 로 거절한다 / **이유**: D-SDA-3. ③ **이전**: 현재 브랜치 삭제 거절에 한국어 `message` 를 실었다 / **새**: 코드와 `branch` 만 / **이유**: D-SDA-5. ④ 1층의 `git.branch.push`·`git.branch.fetch`·`git.branch.delete_remote` 는 2층(브랜치 메뉴 답)으로 옮겼다. 화면: 브랜치 메뉴와 그 더블클릭은 열 때 서버에 묻는다. `gitOpBusy`·`pairOf` 의 사유와 판정 문구 아홉을 없앴다 |
 | 2026-11-06 | GT-1 구현. 사용자 결정: 양쪽 삭제는 새 종단 `POST /api/git/branch/delete-both`(GT-e). 동작 변경 셋. ① **이전**: merge 등이 진행 중일 때 cherry-pick·revert·reset·drop 을 서버가 막지 않았다(git 이 exit 128 로 실패) / **새**: 409 `operation_in_progress`(`args.kind`) / **이유**: D-SDA-3. ② **이전**: HEAD 를 대상으로 한 cherry-pick·reset 을 화면만 막았다 / **새**: 서버도 409 `target_is_head` 로 거절한다 / **이유**: D-SDA-3. ③ **이전**: 루트·머지 커밋 drop 은 400 `bad_request`(한국어 `message`) / **새**: 400 `root_commit`·`merge_commit` / **이유**: 사유를 코드로 가른다(FR-SDA-34). 화면: `menu.js` 의 항목 표를 `menu-items.js` 로 옮겼다(모듈 크기 기준선, 내용 같음) |
 | 2026-11-05 | GR-3 구현. 동작 변경 셋. ① **이전**: 커밋 버튼은 화면이 메시지·staged 로 판정했고, preflight 막힘·amend 메시지 불변은 누른 뒤에야 알았다 / **새**: 서버의 답(`git.commit`)이 버튼을 켜고 끄며, preflight 가 막으면 누르기 전에 해소법이 보인다 / **이유**: FR-SDA-23·G-A3. ② **이전**: 커밋 거절(`empty_message`·`nothing_staged`·`preflight_blocked`)에 한국어 `message` 를 실었다 / **새**: 코드와 `args` 만 싣는다(preflight 거절은 `preflight` 도) / **이유**: D-SDA-5. ③ **이전**: preflight 막힘을 staged 판정보다 먼저, 실행 전 상태를 찍기 전에 봤다 / **새**: 상태를 찍은 뒤 preflight → staged 순으로 본다 — 결과 코드의 우선순위는 같다 / **이유**: 답과 거절이 한 함수(`commitStateAnswer`)를 부르게 하려고. 1층의 `git.commit` 은 뺐다(GR-3a). e2e `git-branch-actions` 의 git 헬퍼는 `GIT_OPTIONAL_LOCKS=0` 으로 돈다 — 시험의 `git status` 폴링이 index.lock 을 잡아 서버의 merge 와 다퉜다(BR8, 변경 전 0/9 · 변경 후 2/6 · 고친 뒤 0/8) |

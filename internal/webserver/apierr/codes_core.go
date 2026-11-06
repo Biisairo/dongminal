@@ -95,6 +95,7 @@ var gitCodes = []string{
 	CodeOperationMismatch, CodeNoOperation,
 	CodeOperationInProgress, CodeTargetIsHead, CodeRootCommit, CodeMergeCommit,
 	CodeNotLocalBranch, CodeNotRemoteBranch, CodeNoUpstream, CodeNoTrackingBranch, CodeManyTrackingBranch,
+	CodeTagKindInvalid, CodeTagMessageRequired, CodeUpstreamUnknown, CodeEmptyName, CodeEmptyRef,
 	CodeNoHead, CodeNothingToClean,
 	CodeConfirmRequired, CodePreflightBlocked, CodeUndoExpired, CodeEmptyMessage,
 	CodeNothingStaged, CodeRecordMissing, CodeNotText, CodeIgnorePath, CodeWorktreeExists,

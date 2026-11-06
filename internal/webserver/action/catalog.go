@@ -33,7 +33,7 @@ var Catalog = Table{
 	GitBranchRename:        {apierr.CodeJobBusy, apierr.CodeNotLocalBranch},
 	GitBranchMerge:         {apierr.CodeJobBusy, apierr.CodeOperationInProgress, apierr.CodeTargetIsHead},
 	GitBranchRebase:        {apierr.CodeJobBusy, apierr.CodeOperationInProgress, apierr.CodeTargetIsHead},
-	GitBranchUpstreamSet:   {apierr.CodeJobBusy, apierr.CodeNotLocalBranch},
+	GitBranchUpstreamSet:   {apierr.CodeJobBusy, apierr.CodeNotLocalBranch, apierr.CodeEmptyRef, apierr.CodeUpstreamUnknown},
 	GitBranchUpstreamUnset: {apierr.CodeJobBusy, apierr.CodeNotLocalBranch, apierr.CodeNoUpstream},
 	GitBranchPush:          {apierr.CodeJobBusy, apierr.CodeNotLocalBranch},
 	GitBranchFetch:         {apierr.CodeJobBusy, apierr.CodeNotRemoteBranch},
@@ -41,4 +41,8 @@ var Catalog = Table{
 	GitBranchDeleteRemote:  {apierr.CodeJobBusy, apierr.CodeNotRemoteBranch},
 	GitBranchDeleteBoth: {apierr.CodeJobBusy, apierr.CodeNoUpstream, apierr.CodeNoTrackingBranch,
 		apierr.CodeManyTrackingBranch, apierr.CodeBranchCurrent},
+
+	// 대화상자 입력 (GV-c)
+	GitTagCreate:   {apierr.CodeTagKindInvalid, apierr.CodeTagMessageRequired},
+	GitStashBranch: {apierr.CodeEmptyName, apierr.CodeRefName, apierr.CodeBranchExists},
 }

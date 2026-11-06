@@ -163,9 +163,13 @@ class GitBranchRename extends GitBranchCreate {
 /**
  * upstream 설정 다이얼로그 (FR-GIT-257).
  *
- * **후보 목록을 새로 받지 않는다** — Branches 탭이 이미 들고 있는 원격 ref 로
- * 검사한다 (FR-GIT-147). 목록을 얻을 수 없는 자리(History 의 refs 사이드바)에서는
- * 검사를 건너뛴다: 모르는 것을 틀렸다고 말하지 않는다.
+ * upstream 이 알려진 원격 ref 인지는 **서버가 판정한다** (SERVER_DRIVEN_ACTIONS_SRS GV-f ·
+ * FR-SDA-41). 입력 중에 묻고(`git.branch.upstream_set`), 실행도 같은 판정으로 거절된다.
+ *
+ *   이전 동작: Branches 탭이 들고 있는 원격 ref 로 화면이 검사했고, 목록이 없는 자리
+ *             (History 의 refs 사이드바)에서는 검사를 건너뛰었다. 서버는 막지 않았다
+ *   새  동작: 어느 자리에서 열어도 서버가 판정하고 거절한다
+ *   이유:     D-SDA-3 — 화면을 거치지 않은 요청도 같은 판정을 받는다
  */
 class GitBranchUpstream {
   constructor(panel,target){
@@ -173,6 +177,9 @@ class GitBranchUpstream {
     this.repo=panel.repo;
     this.branch=target.short||'';
     this.value=target.upstream||'';
+    this._answer=new GitInputAnswer({repo:this.repo,id:GIT_ACTION.branchUpstreamSet,
+      params:v=>({branch:this.branch,upstream:(v.upstream||'').trim()}),
+      fail:res=>panel.writeReason(res)});
   }
 
   _show(){
@@ -183,24 +190,9 @@ class GitBranchUpstream {
         {key:'upstream',type:GIT_DIALOG_TEXT,cls:'gbu-up',
          placeholder:GIT_BR_UPSTREAM_PLACEHOLDER,value:this.value},
       ],
-      validate:v=>this._check(v),
+      validate:(v,d)=>this._answer.why(v,d),
       run:v=>this._run(v),
     });
-  }
-
-  _check(v){
-    const up=(v.upstream||'').trim();
-    if(!up) return {kind:'empty',why:GIT_BR_UPSTREAM_WHY_EMPTY};
-    const known=this._remotes();
-    if(known&&known.indexOf(up)<0) return {kind:'unknown',why:GIT_BR_UPSTREAM_WHY_UNKNOWN};
-    return {kind:'',why:''};
-  }
-
-  // 알 수 없으면 null 이다 — 빈 배열로 답하면 모든 이름이 틀린 것이 된다.
-  _remotes(){
-    const v=this.panel._branchesView;
-    if(!v||!Array.isArray(v._refs)||!v._refs.length) return null;
-    return v._refs.filter(r=>r.kind===GIT_REF_KIND_REMOTE).map(r=>r.short);
   }
 
   async _run(v){

@@ -74,8 +74,8 @@ var Git = Table{
 	// ── 태그 ──
 	{write.ErrTagExists, http.StatusConflict, CodeTagExists},
 	{write.ErrTagNotFound, http.StatusNotFound, CodeNotFound},
-	{write.ErrTagKind, http.StatusBadRequest, CodeBadRequest},
-	{write.ErrTagMessage, http.StatusBadRequest, CodeBadRequest},
+	{write.ErrTagKind, http.StatusBadRequest, CodeTagKindInvalid},
+	{write.ErrTagMessage, http.StatusBadRequest, CodeTagMessageRequired},
 	{write.ErrTagPushTarget, http.StatusBadRequest, CodeBadRequest},
 
 	// ── 커밋 동작 ──

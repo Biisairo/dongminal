@@ -488,6 +488,13 @@ test.describe('묶음 B — 브랜치 동작 (V177~V186 · V195)', () => {
     // 목록에 없는 이름은 실행 전에 막힌다 — 후보는 이미 받아 둔 원격 ref 다.
     await upstreamBox(page).locator('.gbu-up').fill('origin/nope');
     await expect(upstreamBox(page).locator('.gbu-go')).toBeDisabled();
+    // 판정은 서버의 답이다 (SERVER_DRIVEN_ACTIONS_SRS GV-f) — 화면을 거치지 않은 요청도
+    // 같은 코드로 거절된다 (FR-SDA-41).
+    await expect(upstreamBox(page).locator('.gbu-why')).toHaveAttribute('data-why', 'why', { timeout: 10000 });
+    const rej = await page.request.post('/api/git/branch/upstream',
+      { data: { repo, branch: 'no-upstream', upstream: 'origin/nope' } });
+    expect(rej.status()).toBe(400);
+    expect((await rej.json()).error).toBe('upstream_unknown');
     await upstreamBox(page).locator('.gbu-up').fill('origin/main');
     await expect(upstreamBox(page).locator('.gbu-go')).toBeEnabled();
     await upstreamBox(page).locator('.gbu-go').click();

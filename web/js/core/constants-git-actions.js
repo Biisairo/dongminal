@@ -117,7 +117,6 @@ const GIT_TAG_KIND_OPTS=[
 // 사용자가 무엇을 할지 안다.
 const GIT_TAG_WHY_EMPTY=t('git.tag_why_empty');
 const GIT_TAG_WHY_EXISTS=t('git.tag_why_exists');
-const GIT_TAG_WHY_NEED_MSG=t('git.tag_why_need_msg');
 const GIT_TAG_VALIDATE_FAIL=t('git.tag_validate_fail');
 // 메뉴 항목 (FR-GIT-261·262). 로컬과 원격은 **다른 항목**이다 — 하나가 다른 하나를
 // 자동으로 하지 않는다.
@@ -165,7 +164,6 @@ const GIT_STASH_COPY_HASH=t('git.stash_copy_hash');
 const GIT_STASH_BRANCH_TITLE=t('git.stash_branch_title');
 const GIT_STASH_BRANCH_RUN=t('git.act.stash_branch_run');
 const GIT_STASH_BRANCH_NAME_PH=t('git.stash_branch_name_ph');
-const GIT_STASH_BRANCH_NEED_NAME=t('git.stash_branch_need_name');
 // stash 목록 필터 (FR-GIT-272). 메시지와 기준 브랜치를 함께 본다.
 const GIT_STASH_FILTER_PH=t('git.stash_filter_ph');
 const GIT_STASH_FILTER_NONE=t('git.stash_filter_none');
@@ -462,8 +460,6 @@ const GIT_BR_REBASE_NOTE=t('git.br_rebase_note');
 const GIT_BR_UPSTREAM_TITLE=t('git.br_upstream_title');
 const GIT_BR_UPSTREAM_RUN=t('git.act.br_upstream_run');
 const GIT_BR_UPSTREAM_PLACEHOLDER=t('git.br_upstream_placeholder');
-const GIT_BR_UPSTREAM_WHY_EMPTY=t('git.br_upstream_why_empty');
-const GIT_BR_UPSTREAM_WHY_UNKNOWN=t('git.br_upstream_why_unknown');
 
 // 원격 브랜치 (FR-GIT-268). 삭제는 파괴적이며 hint 는 **되살리는 push** 다.
 // GIT_ACT_REMOTE_REF_DELETE 는 태그 원격 삭제(FR-GIT-261)가 이미 선언했다 —

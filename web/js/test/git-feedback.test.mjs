@@ -135,7 +135,9 @@ function nameWorld(file, cls) {
     },
   });
   const v = Object.create(ctx[cls].prototype);
-  Object.assign(v, { repo: '/r', _seq: 0, whyKind: '', why: '' });
+  // 태그의 종류·메시지 판정은 서버의 답이다 (GV-e) — 이 검사는 이름의 세대만 재므로 답은 늘 열려 있다.
+  const answer = { why: () => ({ kind: '', why: '' }), state: () => ({ kind: '', why: '' }) };
+  Object.assign(v, { repo: '/r', _seq: 0, whyKind: '', why: '', _answer: answer });
   const told = [];
   const d = { alive: () => true, setWhy: (k, w) => told.push([k, w]), values: () => ({}) };
   return { v, d, pending, told };
