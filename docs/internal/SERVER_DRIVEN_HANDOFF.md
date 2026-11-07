@@ -1,13 +1,13 @@
-# server-driven actions — 착수 문서 (2026-11-07 개정 · X 완료)
+# server-driven actions — 착수 문서 (2026-11-07 개정 · K-1·K-2 잡 완료)
 
-앞 세션(`server-driven-X`)에서 넘어온 일이다. 이 문서의 「착수 블록」 이 이번 세션의 지시 전부다.
+앞 세션(`server-driven-K`)에서 넘어온 일이다. 이 문서의 「착수 블록」 이 이번 세션의 지시 전부다.
 
 ## 착수 블록
 
 1. `git status` 가 깨끗한지, 브랜치가 `main` 인지 본다. 직전 커밋은 이 문서를 담은 커밋이다.
-2. `docs/internal/SERVER_DRIVEN_ACTIONS_SRS.md`(**승인·구현중**)를 전부 읽는다. 이것이 단일 진실 공급원이다. 결정 D-SDA-1~10 은 사용자가 정했거나 승인했다 — **다시 묻지 않는다.**
+2. `docs/internal/SERVER_DRIVEN_ACTIONS_SRS.md`(**승인·구현중**)를 전부 읽는다. 이것이 단일 진실 공급원이다. 결정 D-SDA-1~11 은 사용자가 정했거나 승인했다 — **다시 묻지 않는다.**
 3. 항목 ID(G-·F-·K-)의 근거(file:line)는 `docs/internal/refactor/SERVER_DRIVEN_INVENTORY.md` 에 있다. ✔ 가 없는 줄은 조사 결과 그대로이므로 **쓰기 전에 코드로 다시 확인한다.** 조사가 틀린 적이 있다(§0 의 정정).
-4. 묶음 M·GR·GT·GV·F·R·X 는 끝났다(아래 「앞 세션에서 끝난 것」). **묶음 K(공유 상수)부터** 시작한다. 그다음 N. N 까지 끝나면 아래 「server-driven 다음 단계」로 넘어간다. 묶음이 크면 단계로 나눠 단계마다 커밋한다(GR-1~3·GT-1~2 처럼). 묶음마다:
+4. 묶음 M·GR·GT·GV·F·R·X 와 K 의 K-1·K-2(잡 쪽)는 끝났다(아래 「앞 세션에서 끝난 것」). **묶음 K 의 K-i(샌드박스, §3.8a)부터** 시작한다 — 그다음 K-3(대조 게이트)·K-4(K19·K14), 그다음 N. N 까지 끝나면 아래 「server-driven 다음 단계」로 넘어간다. 묶음이 크면 단계로 나눠 단계마다 커밋한다(GR-1~3·GT-1~2 처럼). 묶음마다:
    - SRS 의 해당 FR 을 코드에 대 보고, 설계 세부(동작 ID 목록, 사유 코드, 종단 경로)를 SRS 에 먼저 적는다
    - 시험을 먼저 쓰고 **실패(RED)를 확인**한다
    - 구현(GREEN) → 커밋 전 검증 → 사용자 확인 뒤 커밋
@@ -44,6 +44,9 @@
   - F-4: 사용자 결정 D-SDA-8 — 이름 상한(64, UTF-16 단위)은 `/api/commands` 에서만 거절(`name_too_long`, 평문 방언), workspace 저장은 막지 않는다. **새 `GET /api/meta`**(`entityNameMax`) — 묶음 K 가 여기에 상수를 더한다. 화면은 `applyServerMeta`(constants.js)로 받고 받기 전엔 자르지 않는다.
 - **R(2026-11-07, `1991b623`):** 설계 §3.6a. 사용자 결정 D-SDA-9 — 종료 버튼은 `force` 뜻을 유지하고 서버가 그 뜻으로 판정(FR-SDA-61 문구 개정). 도메인 `run.CheckClose(rec, force)`. 목록·그래프의 Run·멤버에 `actions`(`run.close`·`run.delete`·`run.member.detach`), 목록 Run 에 `unreported`. Run 코드는 sentinel 참조 `apierr.CodeRunClosed`·`CodeMemberNotAttached`(var), 카탈로그 시험은 `apierr.Runs.Codes()` 도 와이어 코드로 본다. 화면 공용 `actionOk(o,id)`(action-answer.js).
 
+- **K(진행 중, 2026-11-07):** 설계 §3.8a · 사용자 결정 D-SDA-11.
+  - K-1(`6758492e`): `/api/git/policy` 에 `jobLineCap`·`logLimits`, `/api/meta` 에 `fsStampMax`·`fileStampsMax`·`fsWatchDirsMax`·`encodings`(`textenc.ReopenChoices`), `/api/editors` 에 `fixed`(`wsentry.FixedRoots`). 화면 `serverMeta`·`capToServer`(constants.js)·`gitLogLimit`·`GitConfirm.cached()`. 받기 전에는 자르지 않는다.
+  - K-2 잡(`f20a89e3`): 잡 JSON 의 `fixes`(`jobs.RemoteRejectFixes`)·`indicator`(`indicatorKind`), 정책의 `jobSlots`(`jobs.SlotOrder`). 화면 `GitJobs._ensure/_build`·`touchesRemote`·`gitJobKindLabel`·`gitJobFixLabel`.
 - **X(2026-11-07, `28082a63`·`1b8ff89e`·`c5912720`·`699bfa65`):** 설계 §3.7a. 사용자 결정 D-SDA-10(UTF-8 변환은 `convertFrom` 으로 일반 저장과 가른다).
   - X-1: `GET /api/sandbox/runtime` 에 `actions["sandbox.runtime.start"]`, 시작 요청은 `Probe` 뒤 `sandboxStartAnswer` 로 거절(`runtime_missing`·`runtime_start_manual`). 시험 이음매는 `writeSandboxRuntime`·`writeSandboxStart`(상태·실행자를 받는다).
   - X-2: `GET /api/cwd` 에 `actions["term.upload"]`, 새 모양 `POST /api/upload?tool=<id>`(그 순간의 도구 cwd, `dir` 무시, `upload_no_tool_cwd`). `dir` 모양은 그대로(진단 오버레이). e2e 는 셸 cwd 를 못 정하므로 `toolCwdAt` 이 `tool` 모양을 확인한 뒤 `dir` 로 바꿔 보낸다.
@@ -56,16 +59,23 @@
 
 **그 이전(리팩토링-2차)** — `docs/internal/refactor/PROD2.md`, 커밋 `129e2a6e`~`7c252679`.
 
-## 묶음 K 를 시작할 때 알아 둘 것
+## 묶음 K 를 이어갈 때 알아 둘 것
 
-- FR-SDA-80~83 · 전수 목록 §4 의 K1~K20. ✔ 없는 줄은 코드로 다시 확인한다. **K7·K8 은 GV-4 에서 끝났다.**
-- 보낼 수 있는 것(FR-SDA-80: K1~K5·K11·K14·K15·K18·K20)은 git 쪽은 `/api/git/policy`, 그 밖은 `GET /api/meta`(F-4 가 만든 `entity_name.go` 의 `apiMeta`, 화면은 `applyServerMeta`·constants.js)에 싣는다. 받기 전 동작(기본값으로 둘지·자르지 않을지)을 상수마다 정해 SRS 에 적는다.
-- 보낼 수 없는 것(FR-SDA-81: K6·K9·K10·K12·K13·K16·K17)은 두 벌을 두고 **게이트가 대조**한다 — 새 게이트(Go 프로그램 권장, `check-action-reasons` 처럼 `make gates` 에 건다)와 탐침(한쪽을 바꾸면 실패).
-- K19(FR-SDA-82)는 `agent_render_env.go` 가 박아 둔 `true` 를 설정 스키마에서 읽게 한다. 같은 파일에 `scrollSpeedSpec`(`sync.OnceValue` 로 스키마를 읽는 선례)이 있다.
-- K14(FR-SDA-83)는 서버가 이미 보내는 `short` 를 화면이 쓰고 `runShortId` 계산을 없앤다.
-- 크면 K-1(보내는 상수)·K-2(대조 게이트)·K-3(K19·K14)로 나눠 커밋한다. 그 뒤 묶음 N(§5 낡은 주석 다섯)은 작다.
+- **설계는 SRS §3.8a(K-a~K-m) 가 전부다.** 사용자 결정 D-SDA-11: 화면이 값마다 갈라지는 식별자(K1·K2·K4·K15)는 서버가 **그 값의 뜻**(할 일·사실)을 보낸다(FR-SDA-84). 게이트로 두 벌을 묶지 않는다.
+- **K-i(K15 샌드박스, 다음 할 일):** `GET /api/sandbox/runtime` 에 `ready`(bool), 문구·제목은 `state` 를 키로 i18n(`core.sbx_rt_msg.<state>`·`core.sbx_rt_title.<state>`) — 지금의 `SBX_RT_MSG_MISSING` 등 문구 상수를 그 키로 옮긴다(키 규약은 `-` 를 받지 않는다). `/api/sandbox/profiles` 의 프로파일마다 `workPicks`, 목록에 `onlyDefault`. 화면 사용처: `main.js:54`(`!==SBX_RT_OK`), `app-tool.js:82·186·308-319·326`, `app-layout.js:137`(`SANDBOX_WORK_KINDS` 로 모르는 값 거르기 — 이것의 대체를 코드에 대 보고 §3.8a K-i 줄에 덧붙인다). 없앨 이름: `SBX_RT_OK`·`SBX_RT_STOPPED`·`SBX_RT_MISSING`·`SANDBOX_WORK_*`(라벨 표 포함 검토)·`SANDBOX_PROFILE_SCRATCH` → `check-server-driven.sh` 목록.
+- **K-3(K-j 대조 게이트):** 새 Go 프로그램 `scripts/check-shared-constants` 를 `make gates` 에 건다(`check-action-reasons` 가 선례). 대조: K9 `GIT_OP_BY_BLOCK` 키(`constants-git-changes.js:313`) = `query.Block*InProgress`(`query/preflight.go`) · K10 `GIT_OP_*`(`constants-git-actions.js:43-49`) = `query.Op*`(`query/operation.go`) · K12 `LSP_WS_CLOSE_*`(`constants-editor.js:179-181`) = `lspWSClose*`(`handlers_lsp_ws.go`) · K13 `WS_SCHEMA_VERSION`(`constants.js:380`) = `workspace.SchemaVersion`(`internal/shared/workspace/manager.go:44`) · K17 `SSE_SILENCE_MS`(`constants.js:272`) = 3×`sseHelloEvery`(`commands.go:349`). K6(`history-load.js` `_digest` ↔ `gitOidDigest`)·K16(`TERM_REPORT_RE` ↔ `snapshotQueryPattern`, 둘은 같은 식이 아니라 "짝"이다 — 무엇을 대조할지 먼저 정한다)는 공유 표본(testdata JSON)을 Go 시험과 JS 단위 시험이 함께 읽는다. 판정 논리는 Go 단위 시험으로 탐침한다. **덧붙임:** K-h 의 라벨(`git.job_kind.<kind>`, `-`→`_`)이 `jobs` 의 표시기 종류(`indicatorKind` 의 `jobKinds`) 전부에 있는지도 이 게이트가 본다 — `jobs` 에 공개 목록 함수를 더해야 한다.
+- **K-4:** K19 — `agent_render_env.go` 의 `agentRenderEnv` 기본 `true` 를 `scrollSpeedSpec` 처럼 `settingsschema` 의 `def` 에서 읽는다(키 `claudeFullscreen`, 스키마 `web/js/core/settings-schema.js:43`). K14 — `runShortId`·`RUN_SHORT_ID_LEN`(`helpers.js:51`·`constants.js:382`)을 없앤다. 사용처: `run-dashboard.js:61`·`runs-panel.js:142`(이미 `short` 가 온다), `app-statusbar.js:365`(`/api/tools/background` 에 `runShort` 를 더한다), `app-layout.js:499`(`opts.short` 의 출처를 코드에 대 본다).
+- 그 뒤 묶음 N(전수 목록 §5 낡은 주석 다섯)은 작다.
 
 ## 앞 세션이 값을 치르고 배운 것
+
+- **K(2026-11-07) 에서 배운 것:**
+  - 정책·meta 를 기다리는 화면은 "받기 전" 을 상수마다 정했다(SRS §3.8a). 잡 칸은 정책을 받은 뒤 `GitJobs._build` 가 상자·머리·잡 목록을 다시 건다 — 같은 꼴이 K-i 에서도 필요할 수 있다.
+  - **e2e 의 가짜 서버 응답은 새 필드도 실어야 한다.** `git-remote` R16 이 가짜 잡에 `indicator`·`slots` 가 없어 실패했다(HEAD 6/6 통과로 회귀를 가렸다). 회귀인지는 `git stash` 로 HEAD 와 `--retries=0 --repeat-each` 를 견줘 가린다.
+  - i18n 키 규약은 `-` 를 받지 않는다(`git.job_kind.cherry_pick`). 조립하는 키의 접두는 `scripts/check-i18n.mjs` 의 `DYNAMIC_PREFIXES` 에 등록한다.
+  - 게이트 탐침은 **코드 줄**로 넣는다 — `check-server-driven.sh` 는 주석을 보지 않는다.
+  - 플러그인 행(FR-EXT-9b)이 이제 선다(K-e 에서 찾은 결함, 사용자 결정). 창이 하나 늘었다.
+  - **알려진 흔들림(변경 전부터):** `editor-find-panel.spec.ts:431`(개요 눈금)·`view-scroll-restore.spec.ts:117` — HEAD 에서도 재시도 없이 12회 중 7회 실패한다.
 
 - **SRS 문구와 기존 설계 근거가 부딪치면 묻는다.** R 의 FR-SDA-61("force 를 멈춘다")은 FUI-04 의 근거(일하는 Run 을 기록을 남기고 멈출 길)와 부딪쳤고, 사용자는 기존 뜻을 유지했다. F-4 도 "서버가 거절" 의 자리(workspace 저장 전체 vs dmctl)를 물었다 — 저장 전체를 거절하면 긴 이름 하나로 그 뒤 변경이 모두 저장되지 않는다.
 - **오류 방언이 표면마다 다르다.** git `{error,args}`(`gitErrJSON`) · fs `{code,args}`(`fsFailBody`) · 평문(`httpErr`, `/api/commands`) · runs `{error,detail}`(`writeRunError`). 게이트 `check-http-error.sh` 가 렌더러 우회를 잡는다 — `fsJSON` 에 오류 상태를 직접 쓰면 실패한다.
@@ -79,8 +89,8 @@
 
 ## server-driven 다음 단계
 
-- 묶음 N 까지 끝나면 `docs/internal/ISSUE_TREE_OPS_FINDINGS.md` 로 넘어간다(사용자 결정 2026-11-06: server-driven 이 끝난 뒤). issue-tree 운영 문제 8건 · 맥락 기준 migration 의 설정과 훅 · 표시줄에 포커스된 탭 이름이다.
-- 그 문서는 **요구 입력**이다. 먼저 IEEE 29148 SRS 로 옮기고, 「dongminal 이 정한다」 로 남은 자리는 SRS 에서 결정한다. 사용자가 이미 정한 것(문서의 「사용자 결정」 넷)은 다시 묻지 않는다.
+- 묶음 N 까지 끝나면 `docs/internal/ISSUE_TREE_OPS_FINDINGS.md` 로 넘어간다(사용자 결정 2026-11-06: server-driven 이 끝난 뒤). issue-tree 운영 문제 8건 · 맥락 기준 migration 의 설정과 훅 · 표시줄에 포커스된 탭 이름 · 사용자가 2026-11-07 에 더한 9~14번(GitHub 트리 그래프 조사·편집기 단축키·에이전트 정보 dmctl·동시 진행의 질문/결정 주인·형제 이동은 부모가·세션 지시가 이슈 운영 전부를 담음)이다.
+- 그 문서는 **요구 입력**이다. 먼저 IEEE 29148 SRS 로 옮기고, 「dongminal 이 정한다」 로 남은 자리는 SRS 에서 결정한다. 사용자가 이미 정한 것(문서의 「사용자 결정」 넷과 13·14번의 원문)은 다시 묻지 않는다. **server-driven 이 끝나면 사용자 지시대로 그 문서에 server-driven 의 구현 내용을 덧붙인다**(2026-11-07, 「완료되면 issue tree 관련 문서에 구현 내용 추가」).
 
 ## 이 문서가 하지 않는 것
 
