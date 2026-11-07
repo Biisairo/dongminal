@@ -1,6 +1,7 @@
 # SRS: 이슈 에이전트 트리 — 명령 · statusLine 프록시 · window 그룹 · 순서 명령 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
+> **개정**: FR-IAT-51~54·60·63·73, FR-ITD-2·6, D-IAT-19 는 `ISSUE_TREE_OPS_SRS.md` 가 대신한다(2026-11-07)
 > **남은 것**: TC-SLP-6(Windows 셸 실측) · FR-WGR-25 키보드 조작의 e2e · TC-IAT-3 시범(rust-wasm 세션이 #62 를 커밋한 뒤). 묶음 O·G·S·T·X·D·U 는 구현·시험 완료
 
 ## 1. 개요 (Introduction)
@@ -428,6 +429,7 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-07 | `ISSUE_TREE_OPS_SRS` 가 개정한다: 질문 경로(FR-IAT-51~54 → FR-ITA-30~34), `--ctx` 기본(FR-IAT-60 → FR-ITM-3·5), migration(FR-IAT-63 → FR-ITB-5), 탭 닫기(FR-IAT-73 → FR-ITA-41), 트리 부모(FR-ITD-2 → FR-ITC-1), 끝난 노드(FR-ITD-6 → FR-ITC-3), D-IAT-19 → D-ITO-10. 이 문서의 본문은 기록으로 남긴다 |
 | 2026-11-05 | FR-ITD-7 추가: 트리 뷰가 모든 `run_changed` 에 트리를 다시 받던 것을 같은 트리의 변경으로 좁혔다. 이전 동작: 트리 영역이 있는 뷰는 어느 Run 이 바뀌어도 `/graph`·`/tree` 를 다시 받았다. 새 동작: 자기 Run 이거나 같은 트리일 때만. 이유: 무관한 Run 의 변경마다 요청 두 개가 나갔다 (REFACTOR_PROD2 후보 7) |
 | 2026-11-05 | 묶음 X·D·U 구현. 트리 노드는 graph 와 같은 명시 선택(brief 없음). `run-dashboard.js` 가 500줄을 넘지 않게 `run-tree.js` 로 갈랐다 |
 | 2026-11-05 | 묶음 X(team·workflow 정리) · D(트리 대시보드) · U(트리 중복 방지) 추가 (D-IAT-17~20) |
