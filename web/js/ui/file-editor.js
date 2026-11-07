@@ -354,6 +354,8 @@ class FileEditor {
     this.el.addEventListener('keydown', (e) => {
       // 검색 키는 위의 capture 리스너가 이미 판정했다 — 여기서 다시 묻지 않는다.
       // 편집기 안의 키는 편집기가 다 받는다.
+      // ISSUE_TREE_OPS_SRS FR-ITE-1: CodeMirror 가 쓰지 않은 수식키 조합만 브라우저 기본을 막는다.
+      if (window.app) window.app.inputBinding.blockBrowserDefault(e);
       e.stopPropagation();
     });
   }

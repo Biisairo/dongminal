@@ -504,4 +504,51 @@ test.describe('묶음 K — 편집기 안에서의 키', () => {
     await page.keyboard.press('Control+Shift+W');
     expect(await page.evaluate(() => (window as any).__ekbActions)).toContain('closeWindow');
   });
+
+  // ISSUE_TREE_OPS_SRS TC-ITE-1: Monaco 기본 편집 키가 편집기 안에서 돈다. 플랫폼은 브라우저가 말하는
+  // 것을 따른다 — e2e 브라우저는 Win32 를 흉내 낼 수 있고, 그때 CodeMirror 의 Mod 는 Ctrl 이다.
+  test('TC-ITE-1: Monaco 편집 키 — 다음 같은 단어 · 줄 선택 · 줄 옮기기 · 겹치는 키 · 줄 이동 대화상자', async ({ page }) => {
+    await waitForInit(page);
+    await openTextFileInEditor(page);
+    const mac = await page.evaluate(() => /Mac/.test(navigator.platform));
+    const mod = mac ? 'Meta' : 'Control';
+    const docStart = mac ? 'Meta+ArrowUp' : 'Control+Home';
+    const view = () => page.evaluate(() => {
+      const app = (window as any).app;
+      const v = [...app.fileEditors.values()].find((x: any) => String(x.filePath).replace(/\\/g, '/').endsWith('ineditor.txt')) as any;
+      const st = v._view.state;
+      return { ranges: st.selection.ranges.map((r: any) => st.sliceDoc(r.from, r.to)), text: st.doc.toString() };
+    });
+    // Mod+D 두 번 — 커서의 낱말, 그다음 같은 낱말이 하나 더 (selectNextOccurrence).
+    await page.keyboard.press(docStart);
+    await page.keyboard.press(mod + '+d');
+    await page.keyboard.press(mod + '+d');
+    await expect.poll(async () => (await view()).ranges).toEqual(['line', 'line']);
+    // Escape 로 하나로 줄이고 Mod+L 은 줄 하나를 고른다 (selectLine).
+    await page.keyboard.press('Escape');
+    await page.keyboard.press(docStart);
+    await page.keyboard.press(mod + '+l');
+    await expect.poll(async () => (await view()).ranges[0]).toBe('line one\n');
+    // Alt+↓ 는 줄을 옮긴다 (CodeMirror 기본).
+    await page.keyboard.press('Escape');
+    await page.keyboard.press(docStart);
+    await page.keyboard.press('Alt+ArrowDown');
+    await expect.poll(async () => (await view()).text).toBe('line two\nline one\n');
+    if (!mac) {
+      // FR-ITE-3: Win/Linux 에서 Ctrl+Shift+K 는 앱의 softReload 가 아니라 줄 지우기다.
+      await page.evaluate(() => {
+        const app = (window as any).app;
+        const run = app.executeAction.bind(app);
+        const got: string[] = (window as any).__iteActions = [];
+        app.executeAction = (a: string) => { got.push(a); return a === 'softReload' ? undefined : run(a); };
+      });
+      await page.keyboard.press(docStart);
+      await page.keyboard.press('Control+Shift+K');
+      await expect.poll(async () => (await view()).text).toBe('line one\n');
+      expect(await page.evaluate(() => (window as any).__iteActions)).not.toContain('softReload');
+    }
+    // Ctrl+G 는 줄 이동 대화상자를 연다 (gotoLine — Monaco 는 두 플랫폼 모두 Ctrl+G).
+    await page.keyboard.press('Control+g');
+    await expect(page.locator('.file-editor .cm-panel.cm-gotoLine, .file-editor .cm-dialog')).toHaveCount(1);
+  });
 });

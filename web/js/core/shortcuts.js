@@ -28,6 +28,15 @@ function matchShortcut(e,s){
   if(p.mod)return e.ctrlKey!==e.metaKey;
   return e.ctrlKey===p.ctrl&&e.metaKey===p.meta;
 }
+// ISSUE_TREE_OPS_SRS FR-ITE-3: Win/Linux 에서 Monaco 편집 키와 겹치는 기본 앱 키. 편집기 본문에
+// 포커스가 있으면 편집 키가 이긴다 — 줄 지우기 · 접기/펴기 · 단어 단위 선택이다. mac 의 Monaco
+// 키는 Cmd 라 앱 키(Ctrl)와 겹치지 않는다.
+const ED_EDIT_KEYS_NONMAC=['Ctrl+Shift+KeyK','Ctrl+Shift+BracketLeft','Ctrl+Shift+BracketRight','Ctrl+Shift+ArrowLeft','Ctrl+Shift+ArrowRight'];
+// 편집 키가 이기는가. 사용자가 녹음한 키(기본값이 아닌 키)는 앱 키다 (FR-ITE-4).
+function edEditKeyWins(e,action,key,mac){
+  if(mac||key!==SHORTCUT_DEFAULTS[action]) return false;
+  return ED_EDIT_KEYS_NONMAC.some(k=>matchShortcut(e,k));
+}
 function fmtShortcut(e){const p=[];if(e.ctrlKey)p.push('Ctrl');if(e.altKey)p.push('Alt');if(e.metaKey)p.push('Meta');if(e.shiftKey)p.push('Shift');p.push(e.code);return p.join('+')}
 function displayKey(s){return s.replace(/Key/g,'').replace(/BracketLeft/g,'[').replace(/BracketRight/g,']').replace(/Slash/g,'/').replace(/Mod/g,'⌘/⌃').replace(/Meta/g,'⌘').replace(/Ctrl/g,'⌃').replace(/Alt/g,'⌥').replace(/Shift/g,'⇧').replace(/Arrow/g,'')}
 

@@ -223,8 +223,21 @@ class InputBinding {
         // 편집기 검색·코드 탐색 셋은 위에서 이미 판정했다. 여기서 다시 잡으면
         // Editor 창이 아닐 때 그 키를 삼켜 터미널 검색이 죽는다 (FR-EKB-4).
         if(ED_CAPTURE_ACTIONS[action]) continue;
+        // ISSUE_TREE_OPS_SRS FR-ITE-3: 편집기 본문에서는 겹치는 Monaco 편집 키가 이긴다 —
+        // 막지 않고 물러나 CodeMirror 가 받게 한다.
+        if(inCm&&matchShortcut(e,key)&&edEditKeyWins(e,action,key,IS_MAC)) return;
         if(matchShortcut(e,key)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(action);return}
       }
+      /**
+       * ISSUE_TREE_OPS_SRS FR-ITE-1: 파일 편집기 본문에서는 여기서 막지 않는다. 막힌 이벤트는
+       * CodeMirror 키맵이 받지 않아 `Cmd+/`·`Cmd+]`·`Cmd+D` 같은 편집 키가 죽었다. 막기는
+       * CodeMirror 가 판정한 **뒤** 편집기의 bubble 처리기가 한다(`blockBrowserDefault`).
+       *
+       *   이전 동작: 편집기 본문의 수식키 조합은 capture 에서 브라우저 기본이 막혀 CodeMirror 에 닿지 않았다
+       *   새  동작: CodeMirror 가 먼저 판정하고, 쓰지 않은 키만 막는다
+       *   이유:     사용자 보고 — "기존 모나코 단축키들중 안먹히는게 많아"
+       */
+      if(inCm&&ae.closest('.file-editor')) return;
       this._blockBrowserDefault(e,inText);
     },true);
     /**
@@ -294,6 +307,11 @@ class InputBinding {
    * 그때는 네이티브 편집이 잃으면 안 되는 조합을 더 봐준다 — 종전에는 그 자리를
    * 통째로 면제해서 이 구분이 필요 없었고, 그 면제가 곧 결함이었다.
    */
+  /** FR-ITE-1: 편집기가 키를 판정한 뒤 쓰지 않은 키의 브라우저 기본을 막는다. */
+  blockBrowserDefault(e){
+    if(!e.defaultPrevented) this._blockBrowserDefault(e,true);
+  }
+
   _blockBrowserDefault(e,inText){
     if(KEY_BLOCK_EXEMPT_BARE.has(e.code)) return;
     // FR-KEY-2: 수식키 없는 키는 대상이 아니다. 터미널에 그냥 글자를 치는 것을

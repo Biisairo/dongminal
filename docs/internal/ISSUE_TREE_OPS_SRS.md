@@ -2,7 +2,7 @@
 
 > **문서 상태**: 승인·구현중
 > **승인 근거**: 사용자 결정 넷(§4 D-ITO-3·4·9·12)을 반영했다. 사용자 지시(2026-11-07) — 단계마다 검증을 통과하면 묻지 않고 진행한다
-> **남은 것**: 묶음 E. 묶음 A·B·C·S·M·W 는 구현·시험 완료
+> **남은 것**: 없음 — 묶음 A·B·C·S·M·W·E 구현·시험 완료. 실제 트리 시범은 설치 갱신 뒤(사용자)
 > **입력**: `docs/internal/ISSUE_TREE_OPS_FINDINGS.md`(요구 입력 1~14번, 사용자 결정 넷). 이 SRS 가 그 문서를 대신한다.
 > **개정 대상**: `ISSUE_AGENT_TREE_SRS.md` 의 FR-IAT-50~54·60~64·73, FR-ITD-2·6, D-IAT-19 (§8 변경 기록)
 
@@ -255,6 +255,35 @@
 | FR-ITE-4 | 사용자가 Settings ▸ Shortcuts 에서 바꾼 앱 단축키는 그 키가 편집 키와 겹쳐도 앱 단축키로 동작한다(사용자가 고른 키다) | 필수 |
 | FR-ITE-5 | 편집기 고유 키(검색·코드 탐색·저장, FR-EKB-*)는 바꾸지 않는다 | 필수 |
 
+#### 3.6a 대조표 (묶음 E 착수 때 조사, 2026-11-07)
+
+**근본 원인.** 편집기 본문에 포커스가 있어도 앱의 capture 단계 keydown 처리기(`input-binding.js`)가 끝에서 `Cmd`/`Ctrl` 조합의 브라우저 기본 동작을 막았다(`_blockBrowserDefault`). 막힌 이벤트는 CodeMirror 키맵이 처리하지 않는다. 그래서 키맵에 있는 `Mod-/`(주석) · `Mod-]`·`Mod-[`(들여쓰기) · `Shift-Mod-k`(줄 지우기) · `Mod-Enter` · `Mod-Alt-↑/↓`(커서 더하기) · `Mod-u` 등이 모두 동작하지 않았다. 수식키 없는 `Alt-↑/↓`(줄 옮기기)만 살아 있었다.
+
+**고침.** 파일 편집기 본문에서는 capture 단계에서 막지 않는다. CodeMirror 가 판정한 뒤 편집기의 bubble 처리기가, CodeMirror 가 쓰지 않은 조합만 막는다(`InputBinding.blockBrowserDefault`). git diff 보기의 동작은 바꾸지 않는다.
+
+| Monaco 키 (mac / Win·Linux) | 동작 | 지금 | 조치 |
+|---|---|---|---|
+| ⌘/ · Ctrl+/ | 줄 주석 | 키맵에 있음 · 막혀 있었다 | 막기 시점 이동 |
+| ⇧⌥A · Shift+Alt+A | 블록 주석 | 키맵에 있음 · 막혀 있었다(Win) | 막기 시점 이동 |
+| ⌘] ⌘[ · Ctrl+] Ctrl+[ | 들여쓰기 · 내어쓰기 | 키맵에 있음 · 막혀 있었다 | 막기 시점 이동 |
+| ⇧⌘K · Ctrl+Shift+K | 줄 지우기 | 키맵에 있음 · 막혀 있었다. Win 은 앱 `softReload` 와 겹친다 | 막기 시점 이동 · 겹침은 편집 키가 이긴다(FR-ITE-3) |
+| ⌥↑↓ · Alt+↑↓ | 줄 옮기기 | 동작 | — |
+| ⇧⌥↑↓ · Shift+Alt+↑↓ | 줄 복사 | 동작 | — |
+| ⌘⌥↑↓ · Ctrl+Alt+↑↓ | 커서 더하기 | 키맵에 있음 · 막혀 있었다 | 막기 시점 이동 |
+| ⌘↩ · Ctrl+Enter | 아래에 줄 넣기 | 키맵에 있음 · 막혀 있었다 | 막기 시점 이동 |
+| ⇧⌘\\ · Ctrl+Shift+\\ | 짝 괄호로 | 키맵에 있음 · 막혀 있었다 | 막기 시점 이동 |
+| ⌘U · Ctrl+U | 커서 되돌리기 | 키맵에 있음 · 막혀 있었다 | 막기 시점 이동 |
+| ⌥⌘[ ⌥⌘] · Ctrl+Shift+[ ] | 접기 · 펴기 | 키맵에 있음 · 막혀 있었다. Win 은 앱 window 이동과 겹친다 | 막기 시점 이동 · 겹침은 편집 키가 이긴다 |
+| ⌥←→ · Ctrl+←→ (+Shift) | 낱말 단위 이동·선택 | 키맵에 있음. Win 의 Ctrl+Shift+←→ 는 앱 칸 이동과 겹친다 | 겹침은 편집 키가 이긴다 |
+| ⌘D · Ctrl+D | 다음 같은 낱말 선택 | 없음(`@codemirror/search` 키맵을 넣지 않았다) | `Mod-d` → `selectNextOccurrence` |
+| ⇧⌘L · Ctrl+Shift+L | 같은 낱말 모두 선택 | 없음 | `Mod-Shift-l` → `selectSelectionMatches` |
+| ⌃G · Ctrl+G | 줄로 이동 | 없음 | `Ctrl-g` → `gotoLine` |
+| ⌘L · Ctrl+L | 줄 선택 | CodeMirror 는 `Alt-l`(mac `Ctrl-l`) | `Mod-l` → `selectLine` |
+| ⌃⇧⌘→ · Shift+Alt+→ | 선택 넓히기 | CodeMirror 는 `Mod-i` | `Shift-Alt-ArrowRight`(mac `Ctrl-Shift-Cmd-ArrowRight`) → `selectParentSyntax` |
+| ⌥클릭 · Alt+클릭 | 커서 더하기 | CodeMirror 는 Mod+클릭 | `clickAddsSelectionRange` 를 Alt 로. Mod+클릭은 정의로 가기(FR-ELS-*)가 쓴다 |
+| ⌘F · ⌘P · ⇧⌘F · F12 · ⌘S | 찾기 · 빠른 열기 · 전체 찾기 · 정의 · 저장 | 앱의 편집기 키(FR-EKB-*) | 바꾸지 않는다(FR-ITE-5) |
+| ⇧⌘↩ · 축소 선택 · ⇧⌥F(서식) · F2(이름 바꾸기) | — | CodeMirror 에 명령이 없거나 LSP 기능이다 | 비목표(§6) |
+
 ### 3.7 묶음 S — 에이전트 정보 조회 (FR-ITS-\*)
 
 | ID | 요구 | 우선 |
@@ -317,7 +346,7 @@
 - 노드가 맡은 이슈를 바꾸는 명령(FR-ITA-44)
 - 맥락 훅이 migration 을 강제하는 것(`Stop` 막기)
 - 저장소별 맥락 설정 덮어쓰기
-- 편집기 단축키 중 Monaco 기본 키맵에 없는 키
+- 편집기 단축키 중 Monaco 기본 키맵에 없는 키, CodeMirror 에 명령이 없는 Monaco 키(⇧⌘↩ 위에 줄 넣기 · 선택 줄이기), 서식·이름 바꾸기처럼 LSP 기능에 기대는 키
 
 ## 7. 위험 (Risks)
 
@@ -334,6 +363,7 @@
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-07 | 묶음 E 구현(§3.6a). 이전 동작: 편집기 본문의 수식키 조합은 capture 단계에서 브라우저 기본이 막혀 CodeMirror 키맵에 닿지 않았다. `Mod-d`·`Mod-Shift-l`·`Ctrl-g`·`Mod-l` 등 Monaco 키가 없었다. 새 동작: CodeMirror 가 먼저 판정하고 쓰지 않은 조합만 막는다. Monaco 키 다섯과 Alt+클릭 커서를 더했다. Win/Linux 에서 겹치는 기본 앱 키 다섯은 편집기 본문에서 편집 키가 이긴다(사용자가 녹음한 키는 앱 키). 이유: 입력 10 의 사용자 보고 |
 | 2026-11-07 | 묶음 W 구현. 이전 동작: 표시줄과 칸 머리글은 `<창 종류> · <창 이름>` 이었고, pane 포커스 이동과 전경 이름 갱신에는 다시 칠하지 않았다. 새 동작: 끝에 그 창의 포커스 탭 이름이 붙고(겹치면 생략), 포커스 이동·전경 이름 갱신에도 제목만 다시 칠하며(`_rPaintTitles`), 전체 문자열을 `title` 에 싣는다. 기존 e2e(`slot-title-boundary`·`git-window-name`)의 기댓값을 새 형식으로 고쳤다. 이유: 별건 요구(표시줄 탭 이름)와 사용자 결정(모든 자리에 붙인다) |
 | 2026-11-07 | 묶음 M 구현. 이전 동작: 맥락 기준은 `issue-tree.md` 의 `--ctx`(기본 60)뿐이었고 중간 노드만 봤다. 일반 세션에는 migration 제안이 없었다. 새 동작: 설정 넷(`migrationHook`·`migrationHookCtxPct`·`issueTreeMigration`·`issueTreeCtxPct`, 기본 켬·50). claude 의 PostToolUse·UserPromptSubmit 에 `dmctl ctx-hook` 이 서서 서버 판정(`GET /api/tools/migration-advice`)을 additionalContext 로 옮긴다. 트리 프리앰블의 맥락 기준은 `--ctx` > 설정 > 50, 설정이 끔이면 「끔」. 잎 노드도 단계를 커밋한 뒤 맥락을 본다. 이유: 별건 요구 1~5 와 사용자 결정 넷 |
 | 2026-11-07 | 묶음 C·S 구현. 이전 동작: 트리 응답은 열린 노드만, 부모는 사슬 이름에서 냈다. 하위를 기다리는 노드는 `ready`(Run)·`done`(훅)으로 갈렸다. 트리 Run 대시보드의 중심은 평평한 그래프였다. `dmctl status` 글자 출력에 모델·비용·한도가 없었다. 새 동작: 부모는 배정에서 얻고 승계 사슬은 마지막 멤버 하나다. 끝난 노드도 흔적으로 내고 깊이 우선으로 늘어놓는다. 열린 자식이 있는 쉬는 트리 노드는 `waiting-children` 이다. `GET /api/tools/activity/get` 은 Run 멤버이면 `member{id,state}` 를 싣는다. 트리 Run 대시보드는 그래프를 감추고 트리를 중심에 둔다(이슈 번호·제목, 끝난 노드는 흐림). 카드는 트리 순서다. `dmctl status` 는 `run_state=` 와 사용량 줄을 낸다. 이유: 입력 5·8·11 |

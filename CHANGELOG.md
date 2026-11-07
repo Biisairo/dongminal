@@ -7,6 +7,11 @@
 
 ### 추가
 
+- **편집기에서 Monaco(VS Code) 기본 편집 키가 동작합니다.** 주석(`⌘/`), 들여쓰기(`⌘]`), 줄 지우기(`⇧⌘K`),
+  커서 더하기(`⌘⌥↑↓`, `⌥클릭`), 다음 같은 낱말(`⌘D`), 같은 낱말 모두(`⇧⌘L`), 줄로 이동(`⌃G`), 줄 선택(`⌘L`) 등입니다.
+  이전에는 앱이 편집기 안의 수식키 조합을 먼저 막아 대부분이 동작하지 않았습니다. Windows·Linux 에서
+  편집기 본문에 포커스가 있으면 `Ctrl+Shift+K`·`Ctrl+Shift+[ ]`·`Ctrl+Shift+←→` 는 앱 단축키 대신 편집 키로
+  동작합니다(직접 녹음한 앱 단축키는 그대로 앱 단축키입니다).
 - **맥락 기준 migration 제안.** claude 세션의 맥락 사용률이 설정 `migrationHookCtxPct`(기본 50) 이상이면,
   도구를 쓸 때마다와 프롬프트마다 `/dongminal:migration` 으로 넘기라는 알림이 에이전트에게 갑니다
   (`dmctl ctx-hook`, 새 `GET /api/tools/migration-advice`). 강제하지 않습니다. Settings ▸ Terminal 에서
