@@ -15,3 +15,14 @@ function actionState(answer,pending){
   if(answer.ok) return {enabled:true,why:''};
   return {enabled:false,why:t('why.'+answer.why,answer.args)};
 }
+
+/**
+ * 답을 싣는 객체(`{actions:{id:답}}`)에서 동작 하나가 지금 되는가. 버튼을 세울지만 고르는
+ * 자리(SERVER_DRIVEN_ACTIONS_SRS R-g)가 쓴다 — 답이 없으면 되지 않는다(FR-SDA-6).
+ * @param {{actions?:Object}|null|undefined} o
+ * @param {string} id
+ * @returns {boolean}
+ */
+function actionOk(o,id){
+  return actionState(o&&o.actions?(o.actions[id]||null):null,false).enabled;
+}

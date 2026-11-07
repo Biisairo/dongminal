@@ -52,6 +52,15 @@ func (t Table) Lookup(err error) (status int, code string, ok bool) {
 }
 
 // Sentinels는 이 테이블이 다루는 sentinel 전부다. 전수성 테스트가 쓴다.
+// Codes 는 표의 코드다 — 표에만 있는 코드(Run 표면)를 동작 카탈로그가 대조할 때 쓴다.
+func (t Table) Codes() []string {
+	out := make([]string, 0, len(t))
+	for _, r := range t {
+		out = append(out, r.Code)
+	}
+	return out
+}
+
 func (t Table) Sentinels() []error {
 	out := make([]error, 0, len(t))
 	for _, r := range t {

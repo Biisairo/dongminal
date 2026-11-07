@@ -310,13 +310,13 @@ Object.assign(RunsPanel.prototype, {
     const el = root.querySelector('.run-cards');
     reconcileList(el, members, {
       key: m => m.id,
-      // FUI-04: `분리` 버튼의 유무가 `tabId` 로 갈린다 — 근거에 넣지 않으면
+      // FUI-04: `분리` 버튼의 유무가 서버의 답으로 갈린다 — 근거에 넣지 않으면
       // 부착·분리 뒤 버튼이 따라오지 않는다 (FR-RPT-2).
       sig: m => [m.role, m.agent, m.state, m.headless ? 1 : 0, m.contextLevel || '',
         Math.round((m.contextRatio || 0) * 100), m.compactCount || 0,
         m.contextTokens || 0, m.contextLimit || 0,
         (m.worktree && m.worktree.branch) || '', m.succeededBy || '',
-        m.tabId ? 1 : 0, this._runDetachErr === m.id ? 1 : 0].join(':'),
+        actionOk(m, RUN_ACTION_DETACH) ? 1 : 0, this._runDetachErr === m.id ? 1 : 0].join(':'),
       build: m => this._runCardEl(m),
     });
   },
@@ -374,7 +374,8 @@ Object.assign(RunsPanel.prototype, {
     if (this._runDetachErr === m.id && this._runDetachMsg) {
       card.appendChild(runDiv('run-card-err', this._runDetachMsg));
     }
-    if (m.tabId) card.appendChild(this._runDetachBtn(m));
+    // R-g: 뗄 수 있는지는 서버의 답이다. 이전에는 화면이 `m.tabId` 로 골랐다.
+    if (actionOk(m, RUN_ACTION_DETACH)) card.appendChild(this._runDetachBtn(m));
     return card;
   },
 

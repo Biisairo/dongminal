@@ -3,6 +3,7 @@ package runtimebin
 import (
 	"bytes"
 	"io"
+	"net/http"
 	"strings"
 	"testing"
 )
@@ -451,5 +452,21 @@ func TestDmctlStatus_MemberAndAtAreExclusive(t *testing.T) {
 func TestDmctlStatus_HelpMentionsMember(t *testing.T) {
 	if !strings.Contains(dmctlStatusHelp, "--member") {
 		t.Fatal("status 헬프가 --member 를 안내하지 않는다")
+	}
+}
+
+// SERVER_DRIVEN_ACTIONS_SRS TC-SDA-4 (R-h): 떼기 거절의 사유 코드가 dmctl 의 오류로 보인다.
+func TestDmctlRun_DetachRefusalShowsCode(t *testing.T) {
+	ts, _ := runStub(t, map[string]string{
+		"/api/runs/detach": `{"error":"member_not_attached","detail":"member_not_attached","memberId":"m-1"}`,
+	}, http.StatusConflict)
+	pointDmctlAtServer(t, ts, "tool-a")
+
+	var out, errBuf bytes.Buffer
+	if code := runDmctlRun([]string{"detach", "--member", "m-1"}, &out, &errBuf); code == 0 {
+		t.Fatal("거부인데 성공으로 끝났다")
+	}
+	if !strings.Contains(out.String()+errBuf.String(), "member_not_attached") {
+		t.Fatalf("출력에 사유 코드가 없다: %q", out.String()+errBuf.String())
 	}
 }

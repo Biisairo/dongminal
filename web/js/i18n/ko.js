@@ -1090,6 +1090,7 @@ I18N.register('ko', {
   'runs.objective': '목적: {v}',
   'runs.q_close': '종료? 에이전트를 끝내고 탭을 닫습니다. 기록은 남습니다.',
   'runs.q_delete': '삭제? 기록이 사라집니다.',
+  'runs.q_close_unreported': '종료? 아직 보고하지 않은 멤버 {n}명이 있습니다. 에이전트를 끝내고 탭을 닫습니다. 기록은 남습니다.',
   'runs.q_delete_open': '삭제? 진행 중인 Run 이며 기록도 함께 사라집니다.',
   'runs.row_title': '클릭하면 현재 분할 칸의 새 탭에 대시보드가 열립니다',
 
@@ -1215,6 +1216,8 @@ I18N.register('ko', {
   'why.name_reserved': '. 이나 .. 은 이름으로 쓸 수 없습니다',
   'why.not_a_directory': '폴더가 아닙니다',
   'why.name_too_long': '이름은 {max}자까지입니다',
+  'why.run_closed': '이미 끝난 Run 입니다',
+  'why.member_not_attached': '탭에 붙어 있지 않은 멤버입니다',
   'why.loading': '확인하는 중…',
   'why.no_head': '커밋이 없어 HEAD 로 되돌릴 수 없습니다',
   'why.nothing_to_clean': '지울 추적되지 않는 파일이 없습니다',

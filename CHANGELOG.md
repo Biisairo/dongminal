@@ -80,6 +80,10 @@
   이제 `POST /api/commands` 가 400 `name_too_long` 으로 거절하고 아무것도 만들거나 바꾸지 않습니다. 길이는 UTF-16
   단위로 셉니다(이모지 하나는 2). 상한은 새 `GET /api/meta` 의 `entityNameMax` 로 알 수 있습니다. workspace 저장은
   이 상한으로 거절하지 않습니다.
+- **Run 목록·그래프에 동작의 답이 실립니다.** `GET /api/runs`(목록·`?id=`)와 `GET /api/runs/{id}/graph` 의 Run 마다
+  `actions["run.close"]`·`actions["run.delete"]`, 멤버마다 `actions["run.member.detach"]` 가 실립니다. 목록의 Run 에는
+  보고하지 않은 멤버 수 `unreported` 도 실립니다. Run 패널의 종료·삭제 버튼과 대시보드의 분리 버튼은 이 답이 참일 때만
+  섭니다. 종료 확인 문구는 보고하지 않은 멤버가 있으면 그 수를 밝힙니다. 종료 버튼은 이전처럼 `force` 로 보냅니다.
 
 ## [1.2.3] — 2026-11-05
 

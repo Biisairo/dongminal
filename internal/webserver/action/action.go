@@ -119,6 +119,13 @@ const (
 	EntityName = "entity.name"
 )
 
+// Run 의 동작 (SERVER_DRIVEN_ACTIONS_SRS R-a).
+const (
+	RunClose        = "run.close"
+	RunDelete       = "run.delete"
+	RunMemberDetach = "run.member.detach"
+)
+
 // Table 은 동작 ID → 그 판정이 낼 수 있는 사유 코드다 (M-3).
 type Table map[string][]string
 

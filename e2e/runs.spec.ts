@@ -36,6 +36,22 @@ function member(id: string, role: string, over: Json = {}): Json {
   return { id, role, agent: 'claude', toolId: 'tool-' + id, state: 'working', createdAt: NOW() - 300, ...over };
 }
 
+/**
+ * SERVER_DRIVEN_ACTIONS_SRS 묶음 R: 서버는 Run 과 멤버마다 동작의 답(`actions`)을 싣고, 화면은
+ * 그 답으로 종료·삭제·분리 버튼을 세운다. 흉내 낸 응답도 서버와 같은 규칙으로 답을 싣는다 —
+ * 종료는 열린 Run 에서만, 분리는 탭에 붙은 멤버에서만 참이다.
+ */
+function withActions(g: Json): Json {
+  const deny = (why: string) => ({ ok: false, why });
+  return {
+    ...g,
+    actions: { 'run.close': g.state === 'open' ? { ok: true } : deny('run_closed'), 'run.delete': { ok: true } },
+    members: g.members.map((m: Json) => ({
+      ...m, actions: { 'run.member.detach': m.tabId ? { ok: true } : deny('member_not_attached') },
+    })),
+  };
+}
+
 // 멤버 5명(헤드리스 2) · 승계 1쌍 · critical 1명 · 실측 토큰 1명 —
 // V-RVZ-5·6·7 과 V-12 가 한 Run 에서 읽힌다.
 function graphA(): Json {
@@ -54,7 +70,7 @@ function graphA(): Json {
       contextTokens: 128000, contextLimit: 1000000,
     }),
   ];
-  return {
+  return withActions({
     runId: RUN_A, short: 'a1b2', objective: '토론으로 초안을 다듬는다',
     state: 'open', isolation: 'per-member',
     createdAt: t - 720, coordinatorToolId: 'tool-coord',
@@ -77,12 +93,12 @@ function graphA(): Json {
       { at: t - 720, kind: 'run_start', text: '토론으로 초안을 다듬는다' },
       { at: t - 700, kind: 'member_add', memberId: 'm1', text: '작가' },
     ],
-  };
+  });
 }
 
 function graphB(): Json {
   const t = NOW();
-  return {
+  return withActions({
     runId: RUN_B, short: 'c3d4', objective: '리팩터 검토',
     state: 'closed', isolation: 'none',
     createdAt: t - 60, closedAt: t - 10, coordinatorToolId: 'tool-coord-b',
@@ -92,7 +108,7 @@ function graphB(): Json {
       { at: t - 60, kind: 'run_start', text: '리팩터 검토' },
       { at: t - 20, kind: 'report', memberId: 'n1', text: 'succeeded' },
     ],
-  };
+  });
 }
 
 // 모달의 목록은 /api/runs 이며 레코드 요약이다 (graph 와 다른 종단이다).
@@ -100,7 +116,7 @@ function listOf(...graphs: Json[]) {
   return graphs.map((g) => ({
     id: g.runId, short: g.short, objective: g.objective,
     state: g.state, isolation: g.isolation, createdAt: g.createdAt,
-    members: g.members,
+    members: g.members, actions: g.actions,
   }));
 }
 
@@ -491,6 +507,17 @@ test.describe('FUI-04 — Run 의 출구', () => {
     // `force` 가 없으면 미보고 멤버에서 서버가 거부하고, 사용자는 그 목록을
     // 화면에서 해소할 길이 없다.
     expect(posts[0].force).toBe(true);
+  });
+
+  // SERVER_DRIVEN_ACTIONS_SRS R-d·D-SDA-9: 종료는 "지금 멈춘다" 이므로 보고하지 않은 멤버를
+  // 기다리지 않는다 — 그 수를 확인 문구가 밝힌다. 수는 서버가 목록에 싣는다.
+  test('V-SDR-1 (R-d): 보고하지 않은 멤버가 있으면 종료 확인이 그 수를 밝힌다', async ({ page }) => {
+    const a = graphA();
+    await mockRuns(page, listOf(a).map((r) => ({ ...r, unreported: 3 })), { [RUN_A]: a });
+    await waitForInit(page);
+    await openList(page);
+    await runRow(page, RUN_A).locator('.runs-close').click();
+    await expect(runRow(page, RUN_A).locator('.runs-confirm .runs-q')).toContainText('3명');
   });
 
   test('V-FUI-4c: 삭제의 확인은 그대로 남는다 — 두 출구가 섞이지 않는다', async ({ page }) => {

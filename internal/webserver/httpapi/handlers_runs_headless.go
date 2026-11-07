@@ -203,7 +203,8 @@ func (s *Server) apiRunDetach(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if m.TabID == "" {
+	// 답과 같은 판정이다 (SERVER_DRIVEN_ACTIONS_SRS R-f).
+	if a := memberDetachAnswer(m); !a.OK {
 		writeRunError(w, run.ErrMemberNotAttached, map[string]any{"memberId": m.ID})
 		return
 	}

@@ -183,10 +183,12 @@ Object.assign(RunsPanel.prototype, {
        *             종료는 정리까지 한다 (FR-RUN-6~9): 에이전트를 끝내고 탭을
        *             닫고 worktree 를 거둔다
        *
-       * 닫힌 Run 에는 두지 않는다 — 끝난 것을 또 끝내는 버튼은 뜻이 없다.
+       * 닫힌 Run 에는 두지 않는다 — 끝난 것을 또 끝내는 버튼은 뜻이 없다. 그 판정은
+       * 서버의 답이다 (SERVER_DRIVEN_ACTIONS_SRS R-g · FR-SDA-61).
+       *	이전 동작: 화면이 `rv.state==='open'` 으로 스스로 골랐다
        */
-      if (rv.state === 'open') row.appendChild(this._runsCloseBtn(rv));
-      row.appendChild(this._runsDelBtn(rv));
+      if (actionOk(rv, RUN_ACTION_CLOSE)) row.appendChild(this._runsCloseBtn(rv));
+      if (actionOk(rv, RUN_ACTION_DELETE)) row.appendChild(this._runsDelBtn(rv));
     }
 
     // FR-RVZ-5: 모달이 닫히고, 현재 포커스 분할 칸에 새 탭이 생긴다.
@@ -224,8 +226,9 @@ Object.assign(RunsPanel.prototype, {
     // FUI-04: 종료는 **기록을 남긴다** — 그 차이가 두 출구의 전부이므로 확인
     // 문구가 그것을 말한다. 말하지 않으면 사용자는 안전한 쪽을 고를 수 없다.
     const open = rv.state === 'open';
+    // R-d: 아직 보고하지 않은 멤버가 있으면 그 수를 밝힌다 — 종료는 그들을 기다리지 않는다.
     wrap.appendChild(runDiv('runs-q', closing
-      ? t('runs.q_close')
+      ? (rv.unreported ? t('runs.q_close_unreported', { n: rv.unreported }) : t('runs.q_close'))
       : (open ? t('runs.q_delete_open') : t('runs.q_delete'))));
     const yes = UIKit.button({ label: t('core.yes'), title: closing ? TIP_RUNS_CLOSE_YES : TIP_RUNS_YES,
       kind: 'danger', size: 'sm', cls: 'runs-yes', onClick: e => {

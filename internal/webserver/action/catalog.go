@@ -57,6 +57,10 @@ var Catalog = Table{
 	FSDelete:   fsProtected(append(fsMissing, apierr.CodeTooManyEntries)...),
 	FSName:     {apierr.CodeEmptyName, apierr.CodeNameHasSeparator, apierr.CodeNameReserved},
 	EntityName: {apierr.CodeNameTooLong},
+
+	RunClose:        {apierr.CodeRunClosed},
+	RunDelete:       {},
+	RunMemberDetach: {apierr.CodeMemberNotAttached},
 	EditorAdd: {apierr.CodeEmptyPath, apierr.CodeAbsPathNeeded, apierr.CodeNotFound, apierr.CodeNotADirectory,
 		apierr.CodeFilesystemRootProtected},
 }

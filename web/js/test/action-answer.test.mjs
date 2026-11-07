@@ -11,7 +11,7 @@ import { load } from './harness.mjs';
  */
 function mod() {
   const ctx = load(['core/i18n.js', 'core/action-answer.js'], {
-    expose: ['I18N', 'actionState'],
+    expose: ['I18N', 'actionState', 'actionOk'],
     globals: {
       localStorage: { getItem: () => 'ko', setItem() {} },
       document: { documentElement: { setAttribute() {} }, querySelectorAll: () => [] },
@@ -62,4 +62,13 @@ test('진행 중이 답 없음보다 앞선다 — 누른 뒤에는 loading 을 
   const s = mod().actionState(null, true);
   assert.equal(s.enabled, false);
   assert.equal(s.why, '');
+});
+
+test('actionOk: 실린 답이 참일 때만 참이다 — 답이 없으면 거짓 (SERVER_DRIVEN_ACTIONS_SRS R-g)', () => {
+  const { actionOk } = mod();
+  assert.equal(actionOk({ actions: { 'run.close': { ok: true } } }, 'run.close'), true);
+  assert.equal(actionOk({ actions: { 'run.close': { ok: false, why: 'run_closed' } } }, 'run.close'), false);
+  assert.equal(actionOk({ actions: {} }, 'run.close'), false);
+  assert.equal(actionOk({}, 'run.close'), false);
+  assert.equal(actionOk(null, 'run.close'), false);
 });

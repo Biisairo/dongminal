@@ -14,6 +14,7 @@ import (
 	"net/http"
 
 	"dongminal/internal/shared/activity"
+	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/run"
 	"dongminal/internal/webserver/httpresp"
@@ -37,6 +38,8 @@ type memberView struct {
 	// Preamble 은 멤버 생성 응답에서만 채워진다 (FR-PRE-1). 목록·상태 조회에
 	// 매번 실으면 응답이 멤버 수만큼 부풀고, 조회의 쓰임과도 무관하다.
 	Preamble string `json:"preamble,omitempty"`
+	// Actions 는 목록·조회에서만 싣는다 (SERVER_DRIVEN_ACTIONS_SRS R-b).
+	Actions map[string]action.Answer `json:"actions,omitempty"`
 }
 
 // runView is a Record whose members carry derived state.
@@ -47,6 +50,9 @@ type runView struct {
 	// Run 에서는 비며, 그때는 아무것도 실리지 않는다 — 남은 것이 없을 때 조용한
 	// 것이 목록을 목록답게 만든다.
 	Orphans []map[string]any `json:"orphans,omitempty"`
+	// Actions·Unreported 는 Run 패널의 종료·삭제 버튼과 확인 문구가 읽는다 (R-b·R-d).
+	Actions    map[string]action.Answer `json:"actions"`
+	Unreported int                      `json:"unreported,omitempty"`
 }
 
 // deriveMemberState resolves what a member is doing right now. A member that
@@ -74,9 +80,10 @@ func (s *Server) deriveMemberState(m run.Member) run.MemberState {
 func (s *Server) viewOf(rec run.Record) runView {
 	members := make([]memberView, 0, len(rec.Members))
 	for _, m := range rec.Members {
-		members = append(members, memberView{Member: m, State: s.deriveMemberState(m)})
+		members = append(members, memberView{Member: m, State: s.deriveMemberState(m), Actions: memberActions(m)})
 	}
-	return runView{Record: rec, Members: members, Orphans: s.orphanHeadless(rec)}
+	return runView{Record: rec, Members: members, Orphans: s.orphanHeadless(rec),
+		Actions: runActions(rec), Unreported: runUnreported(rec)}
 }
 
 // callerToolID decides who is speaking. The PID parent-chain resolution wins

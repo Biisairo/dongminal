@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strings"
 
+	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/domain/run"
 )
 
@@ -36,6 +37,9 @@ type runGraphView struct {
 	// Tree 는 이슈 트리 표지다 (ISSUE_AGENT_TREE_SRS FR-ITD-1). 있으면 대시보드가 「이슈 트리」 를 그린다.
 	Tree string `json:"tree,omitempty"`
 
+	// Actions 는 대시보드의 버튼이 읽는 답이다 (SERVER_DRIVEN_ACTIONS_SRS R-b).
+	Actions map[string]action.Answer `json:"actions"`
+
 	Members  []graphMember  `json:"members"`
 	Edges    []graphEdge    `json:"edges"`
 	Messages []run.MsgEvent `json:"messages"`
@@ -55,8 +59,10 @@ type graphMember struct {
 	TabID    string `json:"tabId,omitempty"`
 	Headless bool   `json:"headless,omitempty"`
 
-	State   run.MemberState `json:"state"`
-	Outcome run.Outcome     `json:"outcome,omitempty"`
+	State run.MemberState `json:"state"`
+	// Actions 는 카드의 떼기 버튼이 읽는다 (R-b).
+	Actions map[string]action.Answer `json:"actions"`
+	Outcome run.Outcome              `json:"outcome,omitempty"`
 
 	ContextRatio float64 `json:"contextRatio,omitempty"`
 	ContextLevel string  `json:"contextLevel,omitempty"`
@@ -139,6 +145,7 @@ func (s *Server) graphOf(rec run.Record) runGraphView {
 		ClosedAt:          rec.ClosedAt,
 		CoordinatorToolID: rec.CoordinatorToolID,
 		Tree:              rec.Tree,
+		Actions:           runActions(rec),
 		Members:           s.graphMembers(rec),
 		Edges:             graphEdges(rec.Messages),
 		Messages:          graphMessages(rec.Messages),
@@ -167,6 +174,7 @@ func (s *Server) graphMembers(rec run.Record) []graphMember {
 			SucceededFrom: m.SucceededFrom,
 			CreatedAt:     m.CreatedAt,
 			ReportedAt:    m.ReportedAt,
+			Actions:       memberActions(m),
 		}
 		if m.Worktree != nil {
 			g.Worktree = &graphWorktree{Branch: m.Worktree.Branch, Path: m.Worktree.Path}

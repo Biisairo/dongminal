@@ -1,7 +1,7 @@
 # SRS: 서버가 답하는 동작 가능 여부 — server-driven actions — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 묶음 R·X·K·N. 묶음 F(§3.5a)는 구현했다. 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)·GV(§3.4a)는 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
+> **남은 것**: 묶음 X·K·N. 묶음 F(§3.5a)·R(§3.6a)는 구현했다. 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)·GV(§3.4a)는 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
 
 ## 1. 개요 (Introduction)
 
@@ -239,7 +239,22 @@ GV-c 동작 표:
 | ID | 요구 | 출처 | 우선 |
 |---|---|---|---|
 | FR-SDA-60 | Run 목록·그래프 응답의 Run 마다 `actions`(닫기·지우기)를, 멤버마다 `actions`(떼기)를 싣는다 | F-A4·A5 | 필수 |
-| FR-SDA-61 | 닫기 버튼은 답이 참일 때만 선다. 화면이 늘 `force:true` 를 보내던 것을 멈추고, 서버의 판정을 따른다 | F-A4 | 필수 |
+| FR-SDA-61 | 닫기(종료) 버튼은 답이 참일 때만 선다. 종료 버튼의 뜻은 "지금 멈춘다"(`force`)이고, 서버의 답이 그 뜻으로 판정한다 — 화면은 Run 의 상태로 스스로 판정하지 않는다(D-SDA-9) | F-A4 | 필수 |
+
+#### 3.6a 묶음 R 설계 세부
+
+한 단계로 커밋한다.
+
+| ID | 설계 |
+|---|---|
+| R-a 동작 | Run 마다 `run.close`(종료)·`run.delete`(지우기), 멤버마다 `run.member.detach`(떼기) |
+| R-b 싣는 자리 | `GET /api/runs`(목록·`?id=`)의 Run 과 멤버, `GET /api/runs/{id}/graph` 의 Run 과 멤버에 `actions` 를 싣는다(1층과 같은 모양). 멤버 생성 응답 등 다른 자리에는 싣지 않는다 |
+| R-c 종료 판정 | 사용자 결정 D-SDA-9: 종료 버튼은 `force` 를 보낸다. 그래서 `run.close` 는 force 의 판정이다 — 열린 Run 이면 참, 아니면 `run_closed`. 판정은 도메인 `run.CheckClose(rec, force)` 하나이고 `Store.Close` 도 그것을 부른다. 이미 끝난 Run 에 force 를 보내는 정리 재진입(FR-WKT-8a, dmctl 의 `run close --force`)은 종료가 아니라 따로 받는다 — 답의 대상이 아니다 |
+| R-d 미보고 수 | 확인 문구가 "보고하지 않은 멤버 N명" 을 말하도록 목록의 Run 에 `unreported`(수)를 싣는다. 참인 답은 `args` 를 싣지 않으므로(FR-SDA-1) 답 밖에 둔다(F-b 와 같다) |
+| R-e 지우기 | 서버는 있는 Run 을 언제나 지운다. 그래서 `run.delete` 는 늘 참이고, 사유 목록은 비어 있다 |
+| R-f 떼기 | `run.member.detach` 는 탭에 붙어 있지 않으면 `member_not_attached`. 실행 종단(`POST /api/runs/detach`)이 같은 함수로 거절한다 |
+| R-g 화면 | Run 목록의 종료·삭제 버튼과 대시보드의 떼기 버튼은 답이 참일 때만 선다. `rv.state==='open'`·`m.tabId` 로 고르던 조건을 없앤다 |
+| R-h dmctl(TC-SDA-4) | 거절 본문의 `error` 가 사유 코드이므로 `dmctl run` 의 기존 오류 출력이 그대로 보인다. 대표 둘: 종료 거절(`unreported_members`)·떼기 거절(`member_not_attached`) |
 
 ### 3.7 묶음 X — 그 밖
 
@@ -284,6 +299,7 @@ GV-c 동작 표:
 | D-SDA-5 | 서버는 사유 코드만 보내고 문구는 화면 i18n 이 고른다 | 제품이 ko·en 을 화면에서 고른다. 서버 문구는 한국어 하나다 |
 | D-SDA-6 | 답과 거절은 같은 판정 함수를 부른다 | 둘을 따로 쓰면 이 SRS 가 없애려는 두 벌이 서버 안에 다시 생긴다 |
 | D-SDA-7 | 끌어 놓기 중에는 화면이 판정하지 않는다. 놓은 뒤 서버 답을 보인다 | D-SDA-1 을 따른 결과다. 끄는 동안 금지 커서가 사라지는 변화는 §7 R-2 |
+| D-SDA-9 | Run 패널의 종료 버튼은 "지금 멈춘다"(`force`) 뜻을 유지하고, 서버가 그 뜻으로 판정한 답을 따른다(R-c) | 사용자 결정 2026-11-07. force 를 빼면 일하는 중인 Run 을 기록을 남기고 멈출 길이 화면에서 사라진다(FUI-04) |
 | D-SDA-8 | 창·탭·그룹 이름의 길이 상한은 dmctl 길(`/api/commands`)에서만 거절하고, workspace 저장은 막지 않는다(F-p) | 사용자 결정 2026-11-07. 저장 전체를 거절하면 긴 이름 하나로 그 뒤의 모든 변경이 저장되지 않는다 |
 
 ## 5. 검증 (Verification)
@@ -324,6 +340,7 @@ GV-c 동작 표:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-07 | 묶음 R 구현(설계 §3.6a). 사용자 결정 D-SDA-9 — FR-SDA-61 의 문구를 "종료 버튼은 force 뜻을 유지하고 서버가 그 뜻으로 판정한 답을 따른다" 로 고쳤다(이전 문구: "화면이 늘 force:true 를 보내던 것을 멈춘다"). 동작 변경 둘. ① **이전**: Run 패널은 `state==='open'` 으로 종료 버튼을, 대시보드는 `tabId` 로 분리 버튼을 스스로 골랐다 / **새**: 목록·그래프의 `actions` 답이 참일 때만 버튼이 선다. 종료 판정은 도메인 `run.CheckClose` 하나이고 `Store.Close` 도 부른다. 분리 거절도 같은 함수(`memberDetachAnswer`)다 / **이유**: FR-SDA-60·D-SDA-6. ② **이전**: 종료 확인 문구는 미보고 멤버를 말하지 않았다 / **새**: 목록의 `unreported` 로 그 수를 밝힌다 / **이유**: 종료가 그들을 기다리지 않는다는 사실을 누르기 전에 알린다(R-d). 설계 중 정한 것: Run 표면의 사유 코드는 sentinel 문자열의 참조(`apierr.CodeRunClosed` 등)로 두고, 카탈로그 시험은 `apierr.Runs` 표의 코드도 와이어 코드로 본다. TC-SDA-4 의 대표 둘(종료 거절·분리 거절)은 기존 출력 경로를 고정하는 시험이라 RED 가 없다 |
 | 2026-11-07 | F-4 구현 — 묶음 F 끝. 사용자 결정 D-SDA-8. 동작 변경 둘. ① **이전**: dmctl 명령의 이름은 서버가 보지 않았고, 받은 브라우저가 64자로 잘랐다 / **새**: `/api/commands` 의 이름을 싣는 명령은 상한을 넘으면 400 `name_too_long`(헤더 코드, 본문 `name_too_long: max 64`) / **이유**: FR-SDA-54·D-SDA-3. ② **이전**: 화면이 상한 64 를 상수로 들고 있었다 / **새**: `GET /api/meta` 의 `entityNameMax` 로 자르고, 받기 전에는 자르지 않는다 / **이유**: FR-SDA-54·D-SDA-4 |
 | 2026-11-07 | F-3 구현. 동작 변경 둘. ① **이전**: 편집기 루트 추가(`/api/editors/add`)의 상대 경로·파일·파일시스템 루트는 모두 400 `bad_request`(한국어 `message`) / **새**: `empty_path`·`path_must_be_absolute`·`not_a_directory`·`filesystem_root_protected`, `message` 없음. 없는 경로는 404 `not_found` 그대로. 판정은 `wsentry.CheckEditorPath` 하나이고 앞뒤 공백을 지운 뒤 본다 / **이유**: FR-SDA-55·FR-SDA-2·D-SDA-5. ② **이전**: `+ Add` 대화상자는 빈 경로만 스스로 막았다 / **새**: `POST /api/editors/validate` 로 입력 중에 묻고 실행 전에 막는다. `GitInputAnswer` 는 묻는 함수 `ask` 를 주입받는다 / **이유**: D-SDA-1. 설계 중 정한 것: `why.not_found` 문구를 탐색기 전용("이미 옮겨졌거나 지워졌습니다")에서 일반 문구("찾을 수 없습니다")로 바꿨다 — 입력한 경로에도 쓰이기 때문이다 |
 | 2026-11-07 | F-2 구현. 동작 변경 셋. ① **이전**: 만들기·이름 바꾸기는 경로만 받아, 화면을 거치지 않은 `a/b` 를 폴더 `a` 안의 파일로 만들었다. 화면은 `/` 만 막았다 / **새**: `parent`+`name`(만들기)·`from`+`name`(이름 바꾸기)을 받고 `fsNameAnswer` 로 거절한다(`empty_name`·`name_has_separator`·`name_reserved`). 경로 모양(`path`·`to`)도 받는다 / **이유**: FR-SDA-53·D-SDA-3. ② **이전**: 자기 하위로 옮기기·복사의 거절은 400 `bad_request`(한국어 `message`) / **새**: 400 `into_self`, `message` 없음. 판정 함수는 `fsIntoSelfAnswer` 하나다 / **이유**: FR-SDA-2·D-SDA-5. ③ **이전**: 화면이 끌어 놓기·일괄 이동의 자기 하위를 `pathUnder` 로 먼저 막았다 / **새**: 요청을 보내고 서버의 사유를 오류 줄에 보인다. 대상이 출발지 아래면 낙관 반영만 하지 않는다 / **이유**: FR-SDA-52·D-SDA-7. 설계 중 정한 것: `empty_name` 의 fs 표면 상태는 400 이다(`apierr.FSStatus`) |

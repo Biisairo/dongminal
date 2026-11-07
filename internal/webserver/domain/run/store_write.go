@@ -268,17 +268,9 @@ func (s *Store) Close(runID string, force bool) (Record, []Member, error) {
 		return Record{}, nil, ErrUnknownRun
 	}
 	rec := &s.runs[idx]
-	if rec.State != Open {
-		return Record{}, nil, ErrRunClosed
-	}
-	var pending []Member
-	for _, m := range rec.Members {
-		if !m.settled() {
-			pending = append(pending, cloneMember(m))
-		}
-	}
-	if len(pending) > 0 && !force {
-		return Record{}, pending, ErrUnreportedMembers
+	pending, err := CheckClose(*rec, force)
+	if err != nil {
+		return Record{}, pending, err
 	}
 	rec.State = Closed
 	rec.ClosedAt = s.now()
@@ -287,6 +279,25 @@ func (s *Store) Close(runID string, force bool) (Record, []Member, error) {
 		return Record{}, nil, err
 	}
 	return out, pending, nil
+}
+
+// CheckClose 는 종료의 판정이다 (SERVER_DRIVEN_ACTIONS_SRS R-c). 끝난 Run 은 ErrRunClosed,
+// force 가 없고 보고하지 않은 멤버가 있으면 ErrUnreportedMembers 와 그 멤버들이다.
+// `Store.Close` 와 화면에 싣는 답(`run.close`)이 이 함수 하나를 부른다.
+func CheckClose(rec Record, force bool) ([]Member, error) {
+	if rec.State != Open {
+		return nil, ErrRunClosed
+	}
+	var pending []Member
+	for _, m := range rec.Members {
+		if !m.settled() {
+			pending = append(pending, cloneMember(m))
+		}
+	}
+	if len(pending) > 0 && !force {
+		return pending, ErrUnreportedMembers
+	}
+	return pending, nil
 }
 
 // Sweep 는 이미 끝난 Run(closed·aborted)의 **정리 재진입**이다 (FR-WKT-8a).

@@ -1072,6 +1072,7 @@ I18N.register('en', {
   'runs.objective': 'Objective: {v}',
   'runs.q_close': 'Close? Ends the agents and closes the tabs. The record stays.',
   'runs.q_delete': 'Delete? The record disappears.',
+  'runs.q_close_unreported': 'Close? {n} members have not reported yet. Ends the agents and closes the tabs. The record stays.',
   'runs.q_delete_open': 'Delete? This Run is in progress and its record disappears with it.',
   'runs.row_title': 'Click to open the dashboard in a new tab in the current slot',
 
@@ -1197,6 +1198,8 @@ I18N.register('en', {
   'why.name_reserved': '"." and ".." cannot be names',
   'why.not_a_directory': 'Not a folder',
   'why.name_too_long': 'Names can be up to {max} characters',
+  'why.run_closed': 'This Run has already ended',
+  'why.member_not_attached': 'This member is not attached to a tab',
   'why.loading': 'Checking…',
   'why.no_head': 'There is no commit to reset to',
   'why.nothing_to_clean': 'No untracked files to clean',

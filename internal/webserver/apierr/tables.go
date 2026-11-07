@@ -125,6 +125,13 @@ var Git = Table{
 	{core.ErrCanceled, StatusClientClosed, CodeCanceled},
 }
 
+// Run 표면의 동작 답(SERVER_DRIVEN_ACTIONS_SRS R-c·R-f)이 쓰는 사유다. 아래 표와 같이
+// sentinel 의 메시지를 **참조한다** — 문자열을 다시 선언하지 않는다.
+var (
+	CodeRunClosed         = run.ErrRunClosed.Error()
+	CodeMemberNotAttached = run.ErrMemberNotAttached.Error()
+)
+
 // Runs는 /api/runs/* 의 매핑 정책이다.
 //
 // **코드가 sentinel 의 메시지 그 자체다.** 이 표면의 계약이 원래 그렇다

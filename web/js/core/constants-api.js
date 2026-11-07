@@ -85,6 +85,10 @@ const GIT_API_PREFIX='/api/git/';
 // Run·터미널이 쓰는 종단 (ui/). 도구 생성·파일·편집기·LSP 의 것은 제 상수 파일에 있다.
 const RUNS_API='/api/runs';
 const RUNS_CLOSE_API='/api/runs/close';
+// SERVER_DRIVEN_ACTIONS_SRS R-a: Run·멤버에 실리는 답의 동작 ID (서버 `action.Run*`).
+const RUN_ACTION_CLOSE='run.close';
+const RUN_ACTION_DELETE='run.delete';
+const RUN_ACTION_DETACH='run.member.detach';
 const RUNS_ATTACH_API='/api/runs/attach';
 const RUNS_DETACH_API='/api/runs/detach';
 // ISSUE_AGENT_TREE_SRS FR-ITD-5: 이슈 트리의 열린 노드.

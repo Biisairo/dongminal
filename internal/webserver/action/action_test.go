@@ -60,7 +60,7 @@ func TestCatalogMayGive(t *testing.T) {
 // M-3: 목록의 사유는 apierr 의 와이어 코드다 — 실행 거절의 error 와 같은 값이어야 한다.
 func TestCatalogReasonsAreWireCodes(t *testing.T) {
 	known := map[string]bool{}
-	for _, c := range apierr.AllCodes() {
+	for _, c := range append(apierr.AllCodes(), apierr.Runs.Codes()...) {
 		known[c] = true
 	}
 	for id, whys := range Catalog {
