@@ -36,11 +36,13 @@ var CodeDoc = map[string]Doc{
 	CodeBodyTooBig:  {"본문이 상한을 넘었습니다.", "나눠 보내거나 파일 업로드 표면을 쓰세요. 상한은 features.md 의 용량 표에 있습니다."},
 
 	// ── 도구 ──
-	CodeToolNotFound:    {"그 도구가 없습니다 — 이미 닫혔거나 다른 인스턴스의 것입니다.", "목록을 다시 받아 확인하세요. 화면에 남은 탭이 실체와 어긋난 것일 수 있습니다."},
-	CodeToolsUnready:    {"도구 계층이 아직 서지 않았습니다.", "잠시 뒤 다시 시도하세요. 계속되면 dongminal health 로 데몬 연결을 보세요."},
-	CodeSandboxUnready:  {"샌드박스 런타임을 쓸 수 없습니다.", "컨테이너 런타임(docker)이 설치되어 실행 중인지 확인하세요."},
-	CodeToolCwdMissing:  {"지목한 작업 디렉터리가 없거나 디렉터리가 아닙니다.", "존재하는 디렉터리의 절대경로를 주세요 — 홈으로 조용히 떨어지지 않습니다."},
-	CodeStreamUnsupport: {"이 연결에서 스트리밍을 쓸 수 없습니다.", "중간의 프록시가 버퍼링하고 있지 않은지 보세요. 이 제품은 리버스 프록시를 지원하지 않습니다."},
+	CodeToolNotFound:       {"그 도구가 없습니다 — 이미 닫혔거나 다른 인스턴스의 것입니다.", "목록을 다시 받아 확인하세요. 화면에 남은 탭이 실체와 어긋난 것일 수 있습니다."},
+	CodeToolsUnready:       {"도구 계층이 아직 서지 않았습니다.", "잠시 뒤 다시 시도하세요. 계속되면 dongminal health 로 데몬 연결을 보세요."},
+	CodeSandboxUnready:     {"샌드박스 런타임을 쓸 수 없습니다.", "컨테이너 런타임(docker)이 설치되어 실행 중인지 확인하세요."},
+	CodeToolCwdMissing:     {"지목한 작업 디렉터리가 없거나 디렉터리가 아닙니다.", "존재하는 디렉터리의 절대경로를 주세요 — 홈으로 조용히 떨어지지 않습니다."},
+	CodeRuntimeMissing:     {"컨테이너 런타임(docker)이 설치되어 있지 않습니다.", "GET /api/sandbox/runtime 의 installCommand 로 설치한 뒤 dongminal 을 다시 시작하세요."},
+	CodeRuntimeStartManual: {"이 OS 에서는 서버가 런타임을 시작하지 않습니다.", "GET /api/sandbox/runtime 의 startCommand 를 자기 셸에서 실행하세요."},
+	CodeStreamUnsupport:    {"이 연결에서 스트리밍을 쓸 수 없습니다.", "중간의 프록시가 버퍼링하고 있지 않은지 보세요. 이 제품은 리버스 프록시를 지원하지 않습니다."},
 
 	// ── 워크스페이스·설정 ──
 	CodeWorkUnready:     {"워크스페이스 계층이 아직 서지 않았습니다.", "잠시 뒤 다시 시도하세요."},

@@ -80,6 +80,8 @@ Object.assign(App.prototype, {
    */
   _sbxRuntimeModal(st){
     const missing=st.state===SBX_RT_MISSING;
+    // 시작할 수 있는지는 서버의 답이다 (SERVER_DRIVEN_ACTIONS_SRS X-b).
+    const canStart=actionOk(st,'sandbox.runtime.start');
     // FR-OPT-11-5 (FEC-27): 본문만 여기서 세우고 골격은 `UIKit.ask` 가 갖는다.
     const body=document.createDocumentFragment();
     const title=document.createElement('div'); title.className='confirm-msg';
@@ -89,14 +91,14 @@ Object.assign(App.prototype, {
     const msg=document.createElement('div'); msg.className='sbx-rt-msg';
     // 실행할 수 없는 OS 에서는 "실행할까요" 가 아니라 "직접 실행하세요" 다 (D-5).
     msg.textContent=missing?SBX_RT_MSG_MISSING
-      :(st.startTryable?SBX_RT_MSG_STOPPED:SBX_RT_MSG_MANUAL);
+      :(canStart?SBX_RT_MSG_STOPPED:SBX_RT_MSG_MANUAL);
     body.appendChild(msg);
 
     // 보일 명령은 상태가 정한다 — 설치인지 기동인지.
     const cmd=missing?(st.installCommand||''):(st.startCommand||'');
     // 실행 버튼이 있으면 명령을 함께 보이지 않는다: 누를 것이 둘이면 어느 쪽이
     // 진짜인지 말할 수 없다. 실행할 수 없을 때에만 칠 것을 준다.
-    const showCmd=!!cmd&&(missing||!st.startTryable);
+    const showCmd=!!cmd&&!canStart;
     if(showCmd){
       const row=document.createElement('div'); row.className='sbx-rt-cmdrow';
       const code=document.createElement('code'); code.className='sbx-rt-cmd ui-scroll';
@@ -139,7 +141,6 @@ Object.assign(App.prototype, {
     note.hidden=true;
     body.appendChild(note);
 
-    const canStart=!missing&&st.startTryable;
     let start=null, done=null;
     const actions=[];
     if(canStart){
@@ -171,7 +172,10 @@ Object.assign(App.prototype, {
     if(rt.ok) res=rt.data;
     if(!res||!res.started){
       btn.disabled=false;
-      note.textContent=SBX_RT_START_FAIL+((res&&res.detail)?' — '+res.detail:'');
+      // 거절(X-b)이면 사유 코드의 문구, 실행 실패면 런타임의 진단이다.
+      const code=!rt.ok&&rt.headers?rt.headers.get('X-Error-Code'):null;
+      const why=code&&I18N.has('why.'+code)?t('why.'+code):((res&&res.detail)||'');
+      note.textContent=SBX_RT_START_FAIL+(why?' — '+why:'');
       return;
     }
     // NFR-SRT-2: 2초 주기, 60초 상한. 데몬이 뜨면 그 자리에서 이어진다.

@@ -1200,6 +1200,8 @@ I18N.register('en', {
   'why.name_too_long': 'Names can be up to {max} characters',
   'why.run_closed': 'This Run has already ended',
   'why.member_not_attached': 'This member is not attached to a tab',
+  'why.runtime_missing': 'The container runtime (docker) is not installed',
+  'why.runtime_start_manual': 'On this OS, start the runtime yourself',
   'why.loading': 'Checking…',
   'why.no_head': 'There is no commit to reset to',
   'why.nothing_to_clean': 'No untracked files to clean',

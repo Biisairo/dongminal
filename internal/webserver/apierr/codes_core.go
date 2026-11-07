@@ -35,6 +35,9 @@ const (
 	CodeToolCwdMissing  = "tool_cwd_missing" // M8 D-A-7 — 없는 cwd 는 홈으로 폴백하지 않는다
 	CodeSandboxUnready  = "sandbox_unavailable"
 	CodeStreamUnsupport = "streaming_unsupported"
+	// SERVER_DRIVEN_ACTIONS_SRS X-b: 런타임 시작의 두 거절.
+	CodeRuntimeMissing     = "runtime_missing"
+	CodeRuntimeStartManual = "runtime_start_manual"
 
 	// ── 워크스페이스·설정 ──
 	CodeWorkUnready     = "workspace_unavailable"
@@ -72,6 +75,7 @@ var coreCodes = []string{
 	CodeBadRequest, CodeNotFound, CodeForbidden, CodeInternal, CodeConflict, CodeNotAllowed,
 	CodeInvalidJSON, CodeMissingArg, CodeBodyTooBig,
 	CodeToolNotFound, CodeToolsUnready, CodeToolCwdMissing, CodeSandboxUnready, CodeStreamUnsupport,
+	CodeRuntimeMissing, CodeRuntimeStartManual,
 	CodeWorkUnready, CodeStaleRev, CodeIfMatchRequired, CodeSaveFailed,
 	CodeNotAFile, CodeNotAnImage, CodeAbsPathNeeded, CodeFileChanged,
 	CodeEncodingUnmappable, CodeEncodingUndecodable,

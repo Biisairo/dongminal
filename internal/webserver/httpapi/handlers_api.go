@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/apierr"
 	"encoding/json"
 	"errors"
@@ -529,20 +530,48 @@ func (s *Server) apiSandboxRuntime(w http.ResponseWriter, r *http.Request) {
 	// OS 는 `platform` 이 아는 값이다 — `runtime.GOOS` 를 여기서 읽으면 이음매
 	// 규칙을 깬다 (FR-XPL-5). 표시·기록용 값이라는 `OSKind` 의 성질과도 맞는다:
 	// 명령을 **고르는** 일은 sandbox 안에서 하고 여기서는 값만 넘긴다.
-	st := sandbox.Probe(string(platform.Current().OS), sandbox.LookPath, sandbox.CLIExec)
-	httpresp.JSON(w, http.StatusOK, st)
+	writeSandboxRuntime(w, sandbox.Probe(string(platform.Current().OS), sandbox.LookPath, sandbox.CLIExec))
+}
+
+// sandboxStartAnswer 는 런타임 시작의 판정이다 (SERVER_DRIVEN_ACTIONS_SRS X-b). 상태 응답의
+// 답과 시작 요청의 거절이 이 함수 하나를 부른다.
+func sandboxStartAnswer(st sandbox.RuntimeStatus) action.Answer {
+	if st.State == sandbox.RuntimeMissing {
+		return action.Deny(http.StatusConflict, apierr.CodeRuntimeMissing, nil)
+	}
+	if !st.StartTryable {
+		return action.Deny(http.StatusConflict, apierr.CodeRuntimeStartManual, nil)
+	}
+	return action.Allow()
+}
+
+// writeSandboxRuntime 은 상태에 시작의 답을 얹어 낸다. 기존 필드는 그대로다.
+func writeSandboxRuntime(w http.ResponseWriter, st sandbox.RuntimeStatus) {
+	httpresp.JSON(w, http.StatusOK, struct {
+		sandbox.RuntimeStatus
+		Actions map[string]action.Answer `json:"actions"`
+	}{st, map[string]action.Answer{action.SandboxRuntimeStart: sandboxStartAnswer(st)}})
+}
+
+// writeSandboxStart 는 답이 참일 때만 기동한다. 거절은 평문 방언이다 — 코드는 헤더에 있다.
+func writeSandboxStart(w http.ResponseWriter, st sandbox.RuntimeStatus, run func(string, []string) (string, error)) {
+	if a := sandboxStartAnswer(st); !a.OK {
+		httpErr(w, a.Why, a.Status, a.Why)
+		return
+	}
+	httpresp.JSON(w, http.StatusOK, sandbox.StartRuntime(st.OS, run))
 }
 
 /**
  * apiSandboxRuntimeStart 는 데몬 기동을 시도한다 (FR-SRT-3).
  *
- * linux 에서는 **아무것도 실행하지 않고** 사용자가 칠 명령을 답한다 (D-5).
- * 성공 응답의 `started` 는 명령이 오류 없이 반환됐다는 뜻일 뿐이며, 데몬이 떴는지는
- * 화면이 FR-SRT-1 을 다시 물어 확정한다 (FR-SRT-4).
+ * 상태를 먼저 조회해 `sandboxStartAnswer` 로 거절한다 — 미설치·linux(D-5)는 아무것도
+ * 실행하지 않고 409 다 (X-b). 성공 응답의 `started` 는 명령이 오류 없이 반환됐다는 뜻일
+ * 뿐이며, 데몬이 떴는지는 화면이 FR-SRT-1 을 다시 물어 확정한다 (FR-SRT-4).
  */
 func (s *Server) apiSandboxRuntimeStart(w http.ResponseWriter, r *http.Request) {
-	res := sandbox.StartRuntime(string(platform.Current().OS), sandbox.StartExec)
-	httpresp.JSON(w, http.StatusOK, res)
+	st := sandbox.Probe(string(platform.Current().OS), sandbox.LookPath, sandbox.CLIExec)
+	writeSandboxStart(w, st, sandbox.StartExec)
 }
 
 // apiSandboxConfigGet 은 지금 저장된 샌드박스 정의를 낸다 (FR-SBX-43).

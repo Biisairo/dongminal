@@ -218,8 +218,8 @@
 |---|---|---|
 | GET | `/api/sandbox/profiles` | 정의된 프로파일 목록 |
 | GET | `/api/sandbox/config` | 샌드박스 설정 |
-| GET | `/api/sandbox/runtime` | 컨테이너 런타임의 상태 — `ok`·`missing`·`stopped`. 셋은 사용자가 할 일이 다르다 |
-| POST | `/api/sandbox/runtime/start` | 멎어 있는 런타임을 띄운다 |
+| GET | `/api/sandbox/runtime` | 컨테이너 런타임의 상태 — `ok`·`missing`·`stopped`. 셋은 사용자가 할 일이 다르다. `actions["sandbox.runtime.start"]` 는 시작할 수 있는지의 답(`{ok, why}`)이다 |
+| POST | `/api/sandbox/runtime/start` | 멎어 있는 런타임을 띄운다. 상태를 다시 조회해 답이 거짓이면 아무것도 실행하지 않고 409 `runtime_missing`·`runtime_start_manual` 로 거절한다 |
 
 ### Run (오케스트레이션)
 

@@ -84,6 +84,11 @@
   `actions["run.close"]`·`actions["run.delete"]`, 멤버마다 `actions["run.member.detach"]` 가 실립니다. 목록의 Run 에는
   보고하지 않은 멤버 수 `unreported` 도 실립니다. Run 패널의 종료·삭제 버튼과 대시보드의 분리 버튼은 이 답이 참일 때만
   섭니다. 종료 확인 문구는 보고하지 않은 멤버가 있으면 그 수를 밝힙니다. 종료 버튼은 이전처럼 `force` 로 보냅니다.
+- **샌드박스 런타임 시작의 새 거절.** `POST /api/sandbox/runtime/start` 는 이제 상태를 먼저 조회합니다.
+  런타임이 설치되어 있지 않으면 409 `runtime_missing`, 서버가 시작을 시도하지 않는 OS(linux 등)면 409
+  `runtime_start_manual` 로 거절하고 아무것도 실행하지 않습니다. 이전에는 linux 에서 200
+  `{started:false, command}` 가 왔습니다. 시작할 수 있는지는 `GET /api/sandbox/runtime` 의
+  `actions["sandbox.runtime.start"]` 로 미리 알 수 있습니다.
 
 ## [1.2.3] — 2026-11-05
 

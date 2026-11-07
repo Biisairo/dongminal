@@ -32,6 +32,7 @@ async function withRuntimeOK(page: Page) {
       body: JSON.stringify({
         state: 'ok', os: 'darwin', runtime: 'docker', path: '/usr/local/bin/docker',
         detail: '', installCommand: '', startCommand: 'open -a Docker', startTryable: true,
+        actions: { 'sandbox.runtime.start': { ok: true } },
       }),
     }));
 }

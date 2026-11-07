@@ -265,6 +265,20 @@ GV-c 동작 표:
 | FR-SDA-72 | 접근 제어 저장 전 잠김 경고는 `POST /api/access/check {value}` 의 답으로 한다. 판정은 서버의 `allowed`·`isSelf` 와 같은 함수다. 화면의 `_aclV4`·`_aclCidrHas`·`_aclCoversYou` 는 없앤다 | F-A9 | 필수 |
 | FR-SDA-73 | "UTF-8 로 변환" 은 문서 응답의 `actions.convertUtf8` 로 판정한다. 저장 요청도 같은 판정으로 거절한다 | F-A10 | 필수 |
 
+#### 3.7a 묶음 X 설계 세부
+
+넷은 서로 독립이다. 단계마다 커밋한다: **X-1** 샌드박스 시작(F-A6) · **X-2** 터미널 드롭 업로드(F-A8) · **X-3** 접근 제어 잠김 경고(F-A9) · **X-4** UTF-8 변환(F-A10).
+
+| ID | 설계 |
+|---|---|
+| X-a 새 사유 코드 | `runtime_missing`(409) · `runtime_start_manual`(409) · `upload_no_tool_cwd`(409) · `locks_you_out`(409, `args.you`) · `already_utf8`(409). 기존 `encoding_undecodable`(422)은 그대로 쓴다. 네 표면 모두 평문 방언이다 — 코드는 `X-Error-Code` 헤더에, 본문은 코드 그대로다(F-p 와 같다) |
+| X-b 샌드박스 시작(X-1) | 동작 `sandbox.runtime.start`. `GET /api/sandbox/runtime` 응답에 `actions` 를 싣는다(1층). 판정 `sandboxStartAnswer(st)`: 바이너리가 없으면 `runtime_missing`, 서버가 시도할 수 없는 OS(linux·모르는 OS)면 `runtime_start_manual`, 그 밖은 참(지금 화면의 `!missing && startTryable` 과 같다). `POST /api/sandbox/runtime/start` 는 상태를 조회(`Probe`, 상한 3초)한 뒤 같은 함수로 거절한다. 응답의 `startTryable` 은 공개 계약이라 남기고, 화면은 읽지 않는다 — 시작 버튼·안내 문장·명령 보이기는 답이 정한다 |
+| X-c 드롭 업로드(X-2) | 동작 `term.upload`. `GET /api/cwd?tool=` 응답에 `actions` 를 싣는다. 판정 `termUploadAnswer(cwd, source)`: cwd 가 도구의 것이 아니거나(`source≠tool`) 비면 `upload_no_tool_cwd`. 실행은 새 모양 `POST /api/upload?tool=<id>` — 서버가 그 순간의 도구 cwd 로 받고, 답이 거짓이면 거절한다. `tool` 이 있으면 `dir` 은 보지 않는다(R-3 의 "새 모양이 이긴다"). `dir` 모양은 그대로다 — 도구가 없는 호출(진단 오버레이의 `/tmp`·스크립트)이 쓰며, 판정할 도구가 없으므로 답의 대상이 아니다. 화면은 드롭 때 묻고, 거짓이면 사유를 토스트로 보이고, 참이면 `tool` 로 보낸다. 화면은 cwd 를 들지 않는다 |
+| X-d 잠김 경고(X-3) | 동작 `access.save`. 종단 `POST /api/access/check` 의 본문은 `PUT /api/access` 와 같다 — FR-SDA-72 의 `{value}` 는 "저장하려는 값" 으로 읽는다. 경고는 목록 전체의 결과이기 때문이다. 응답 `{"actions":{"access.save": 답}, "you": <출발지>}`. 판정: `setConfig` 와 같은 정규화·검증(실패면 PUT 과 같은 400) → 같은 함수(`buildMatcher`)로 후보 판정기를 만든다 → `allowed(you)`(자기 주소·토글 꺼짐 포함). 거짓이면, 켜진 호스트명 중 해석 기록이 없는 것이 있을 때 참이다 — "모르면 경고하지 않는다" 는 지금 화면의 규칙을 지킨다. 그 밖은 `locks_you_out`(`args.you`). **이 답은 거절이 아니라 확인을 부르는 경고다**(FR-ACL-24) — 사용자는 "그래도 저장" 할 수 있어야 하므로 PUT 은 이 답으로 막지 않는다. 화면은 저장 전에 묻고, 거짓이면 확인창(`you` 는 응답의 것)을 연다. 묻기가 실패하면 저장으로 간다 — PUT 이 같은 400 을 보인다. `_aclV4`·`_aclCidrHas`·`_aclCoversYou` 를 없앤다 |
+| X-e UTF-8 변환(X-4) | 사용자 결정 D-SDA-10. 동작 `file.convert_utf8`. 판정 `convertUTF8Answer(raw, from)`: 디스크 바이트를 `from` 으로 엄격 디코드(`textenc.DecodeAs`)하지 못하면 422 `encoding_undecodable`, 결과가 BOM 없는 UTF-8 이면 409 `already_utf8`. 답을 싣는 자리: 읽기(`GET /api/file?decode=1`) 응답 헤더 `X-File-Actions`(JSON `{"file.convert_utf8": 답}`, `from` 은 읽기가 고른 인코딩)와 저장(`POST /api/file/write`) 200 응답의 `actions`(방금 쓴 바이트와 요청의 인코딩) — 변환 뒤 메뉴가 낡지 않게 한다. 실행: 저장 요청의 새 필드 `convertFrom`(문서를 연 인코딩)이 있으면 표식 검사 뒤 디스크 바이트로 같은 함수를 불러 거절한다. 파일이 없거나 읽지 못하면 판정하지 않는다(일반 저장과 같다). `convertFrom` 이 없으면 일반 저장이며 바뀌지 않는다. 화면의 인코딩 메뉴와 `edDocConvertUtf8` 은 답을 읽고 `convertFrom` 을 싣는다. `ENC_CONVERT_NO_DECODE`·`ENC_CONVERT_ALREADY` 를 없앤다 |
+| X-f 게이트 | 없앤 화면 이름을 단계마다 `check-server-driven.sh` 목록에 더한다: X-1 `startTryable` · X-3 `_aclV4`·`_aclCidrHas`·`_aclCoversYou` · X-4 `ENC_CONVERT_NO_DECODE`·`ENC_CONVERT_ALREADY` |
+| X-g 문구 | 새 사유 코드마다 `why.<code>` 를 ko·en 에 더한다(게이트 M-7) |
+
 ### 3.8 묶음 K — 공유 상수
 
 | ID | 요구 | 출처 | 우선 |
@@ -301,6 +315,7 @@ GV-c 동작 표:
 | D-SDA-7 | 끌어 놓기 중에는 화면이 판정하지 않는다. 놓은 뒤 서버 답을 보인다 | D-SDA-1 을 따른 결과다. 끄는 동안 금지 커서가 사라지는 변화는 §7 R-2 |
 | D-SDA-9 | Run 패널의 종료 버튼은 "지금 멈춘다"(`force`) 뜻을 유지하고, 서버가 그 뜻으로 판정한 답을 따른다(R-c) | 사용자 결정 2026-11-07. force 를 빼면 일하는 중인 Run 을 기록을 남기고 멈출 길이 화면에서 사라진다(FUI-04) |
 | D-SDA-8 | 창·탭·그룹 이름의 길이 상한은 dmctl 길(`/api/commands`)에서만 거절하고, workspace 저장은 막지 않는다(F-p) | 사용자 결정 2026-11-07. 저장 전체를 거절하면 긴 이름 하나로 그 뒤의 모든 변경이 저장되지 않는다 |
+| D-SDA-10 | UTF-8 변환은 저장 요청의 `convertFrom`(문서를 연 인코딩)으로 일반 저장과 가르고, 서버가 디스크 바이트를 그 인코딩으로 판정해 거절한다(X-e) | 사용자 결정 2026-11-07. 변환과 일반 저장의 요청이 같으면 서버는 그것이 변환인지도, 문서가 어느 인코딩으로 열렸는지도 모른다 — FR-SDA-73 의 "같은 판정으로 거절" 을 지킬 재료가 없다 |
 
 ## 5. 검증 (Verification)
 
@@ -340,6 +355,7 @@ GV-c 동작 표:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-07 | X-1 구현(설계 §3.7a). 사용자 결정 D-SDA-10(X-4 의 모양)을 함께 적었다. 동작 변경 둘. ① **이전**: `POST /api/sandbox/runtime/start` 는 상태를 보지 않았다 — linux 에서는 200 `{started:false, command}`, 미설치에서는 명령을 실행해 보고 실패를 200 으로 답했다 / **새**: 상태를 조회한 뒤 `sandboxStartAnswer` 로 판정해 409 `runtime_missing`·`runtime_start_manual` 로 거절하고, 아무것도 실행하지 않는다 / **이유**: FR-SDA-70·D-SDA-6. ② **이전**: 화면이 `!missing && startTryable` 로 시작 버튼을 골랐다 / **새**: `GET /api/sandbox/runtime` 의 `actions["sandbox.runtime.start"]` 가 버튼·안내 문장·명령 보이기를 정한다. 응답의 `startTryable` 은 공개 계약이라 남긴다 / **이유**: D-SDA-1 |
 | 2026-11-07 | 묶음 R 구현(설계 §3.6a). 사용자 결정 D-SDA-9 — FR-SDA-61 의 문구를 "종료 버튼은 force 뜻을 유지하고 서버가 그 뜻으로 판정한 답을 따른다" 로 고쳤다(이전 문구: "화면이 늘 force:true 를 보내던 것을 멈춘다"). 동작 변경 둘. ① **이전**: Run 패널은 `state==='open'` 으로 종료 버튼을, 대시보드는 `tabId` 로 분리 버튼을 스스로 골랐다 / **새**: 목록·그래프의 `actions` 답이 참일 때만 버튼이 선다. 종료 판정은 도메인 `run.CheckClose` 하나이고 `Store.Close` 도 부른다. 분리 거절도 같은 함수(`memberDetachAnswer`)다 / **이유**: FR-SDA-60·D-SDA-6. ② **이전**: 종료 확인 문구는 미보고 멤버를 말하지 않았다 / **새**: 목록의 `unreported` 로 그 수를 밝힌다 / **이유**: 종료가 그들을 기다리지 않는다는 사실을 누르기 전에 알린다(R-d). 설계 중 정한 것: Run 표면의 사유 코드는 sentinel 문자열의 참조(`apierr.CodeRunClosed` 등)로 두고, 카탈로그 시험은 `apierr.Runs` 표의 코드도 와이어 코드로 본다. TC-SDA-4 의 대표 둘(종료 거절·분리 거절)은 기존 출력 경로를 고정하는 시험이라 RED 가 없다 |
 | 2026-11-07 | F-4 구현 — 묶음 F 끝. 사용자 결정 D-SDA-8. 동작 변경 둘. ① **이전**: dmctl 명령의 이름은 서버가 보지 않았고, 받은 브라우저가 64자로 잘랐다 / **새**: `/api/commands` 의 이름을 싣는 명령은 상한을 넘으면 400 `name_too_long`(헤더 코드, 본문 `name_too_long: max 64`) / **이유**: FR-SDA-54·D-SDA-3. ② **이전**: 화면이 상한 64 를 상수로 들고 있었다 / **새**: `GET /api/meta` 의 `entityNameMax` 로 자르고, 받기 전에는 자르지 않는다 / **이유**: FR-SDA-54·D-SDA-4 |
 | 2026-11-07 | F-3 구현. 동작 변경 둘. ① **이전**: 편집기 루트 추가(`/api/editors/add`)의 상대 경로·파일·파일시스템 루트는 모두 400 `bad_request`(한국어 `message`) / **새**: `empty_path`·`path_must_be_absolute`·`not_a_directory`·`filesystem_root_protected`, `message` 없음. 없는 경로는 404 `not_found` 그대로. 판정은 `wsentry.CheckEditorPath` 하나이고 앞뒤 공백을 지운 뒤 본다 / **이유**: FR-SDA-55·FR-SDA-2·D-SDA-5. ② **이전**: `+ Add` 대화상자는 빈 경로만 스스로 막았다 / **새**: `POST /api/editors/validate` 로 입력 중에 묻고 실행 전에 막는다. `GitInputAnswer` 는 묻는 함수 `ask` 를 주입받는다 / **이유**: D-SDA-1. 설계 중 정한 것: `why.not_found` 문구를 탐색기 전용("이미 옮겨졌거나 지워졌습니다")에서 일반 문구("찾을 수 없습니다")로 바꿨다 — 입력한 경로에도 쓰이기 때문이다 |

@@ -115,6 +115,8 @@
 | `reset_mode_invalid` | reset 모드가 셋(soft·mixed·hard) 중 하나가 아닙니다. | 모드를 확인하세요. |
 | `resolve_partial` | 일부 경로의 충돌 해결이 실패했습니다. | 실패한 경로와 사유를 확인한 뒤 다시 시도하세요. |
 | `root_commit` | 첫 커밋이라 뺄 수 없습니다 — 부모가 없습니다. | 다른 커밋을 고르세요. |
+| `runtime_missing` | 컨테이너 런타임(docker)이 설치되어 있지 않습니다. | GET /api/sandbox/runtime 의 installCommand 로 설치한 뒤 dongminal 을 다시 시작하세요. |
+| `runtime_start_manual` | 이 OS 에서는 서버가 런타임을 시작하지 않습니다. | GET /api/sandbox/runtime 의 startCommand 를 자기 셸에서 실행하세요. |
 | `sandbox_unavailable` | 샌드박스 런타임을 쓸 수 없습니다. | 컨테이너 런타임(docker)이 설치되어 실행 중인지 확인하세요. |
 | `save_failed` | 저장하지 못했습니다. | 디스크 여유와 홈의 쓰기 권한을 보세요. 사유는 서버 로그에 있습니다. |
 | `server_shutdown` | 서버가 종료되며 작업을 중단했습니다. | 일부가 적용됐을 수 있습니다. 서버를 다시 띄운 뒤 상태를 확인하세요. |
@@ -142,4 +144,4 @@
 | `workspace_unavailable` | 워크스페이스 계층이 아직 서지 않았습니다. | 잠시 뒤 다시 시도하세요. |
 | `worktree_exists` | 그 자리에 이미 worktree 가 있습니다. | 다른 경로를 고르거나 기존 것을 여세요. |
 
-총 **108개**.
+총 **110개**.

@@ -126,6 +126,12 @@ const (
 	RunMemberDetach = "run.member.detach"
 )
 
+// 그 밖의 동작 (SERVER_DRIVEN_ACTIONS_SRS §3.7a).
+const (
+	// SandboxRuntimeStart 는 컨테이너 런타임 시작이다 (X-b).
+	SandboxRuntimeStart = "sandbox.runtime.start"
+)
+
 // Table 은 동작 ID → 그 판정이 낼 수 있는 사유 코드다 (M-3).
 type Table map[string][]string
 

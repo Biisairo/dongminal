@@ -18,10 +18,20 @@ const SCRATCH = {
   name: 'scratch', image: 'debian:stable-slim', isolated: true, helper: false, work: 'copy',
 };
 
+type Answer = { ok: boolean; why?: string };
 type RT = {
   state: string; os?: string; path?: string; detail?: string;
   installCommand?: string; startCommand?: string; startTryable?: boolean;
+  actions?: Record<string, Answer>;
 };
+
+// SERVER_DRIVEN_ACTIONS_SRS X-b: 시작할 수 있는지는 응답의 `actions` 가 말한다. 위조 응답도
+// 서버의 판정(`sandboxStartAnswer`)과 같은 답을 싣는다 — 빼면 실제 계약과 다른 것을 잰다.
+function startAnswer(s: RT): Answer {
+  if (s.state === 'missing') return { ok: false, why: 'runtime_missing' };
+  if (!s.startTryable) return { ok: false, why: 'runtime_start_manual' };
+  return { ok: true };
+}
 
 // FR-SRT-1: **명령은 응답이 싣는다** — 화면이 `os` 로 다시 고르지 않는다 (D-3).
 // 그래서 위조 응답도 그 필드를 갖는다: 여기서 생략하면 실제 계약과 다른 것을 잰다.
@@ -44,12 +54,10 @@ async function withRuntime(page: Page, ...states: RT[]) {
     const s = states[Math.min(i, states.length - 1)];
     i++;
     const os = s.os || 'darwin';
+    const full: RT = { os, runtime: 'docker', path: '', detail: '', ...(OS_DEFAULTS[os] || {}), ...s } as RT;
     route.fulfill({
       status: 200, contentType: 'application/json',
-      body: JSON.stringify({
-        os, runtime: 'docker', path: '', detail: '',
-        ...(OS_DEFAULTS[os] || {}), ...s,
-      }),
+      body: JSON.stringify({ actions: { 'sandbox.runtime.start': startAnswer(full) }, ...full }),
     });
   });
 }
@@ -184,6 +192,25 @@ test.describe('묶음 B — 런타임 상태별 갈래', () => {
       await expect(rt(page).locator('.sbx-rt-start')).toHaveCount(0);
       await expect(rt(page).locator('.sbx-rt-cmd')).toHaveText('sudo systemctl start docker');
       await expect(rt(page).locator('.sbx-rt-copy')).toBeVisible();
+    });
+
+  /**
+   * X-b · TC-SDA-10: 시작 버튼은 서버의 답이 정한다. `startTryable` 이 참이어도 답이
+   * 거짓이면 버튼 대신 칠 명령을 준다 — 화면은 응답의 사실로 다시 판정하지 않는다.
+   */
+  test('S6b (X-b): 답이 거짓이면 startTryable 과 무관하게 실행 버튼이 없다',
+    async ({ page }) => {
+      await withRuntime(page, {
+        state: 'stopped', os: 'darwin',
+        actions: { 'sandbox.runtime.start': { ok: false, why: 'runtime_start_manual' } },
+      });
+      await withProfiles(page, [SCRATCH]);
+      await goto(page);
+      await page.locator('#add-sandbox-window').click();
+      await expect(rt(page)).toBeVisible({ timeout: 10000 });
+
+      await expect(rt(page).locator('.sbx-rt-start')).toHaveCount(0);
+      await expect(rt(page).locator('.sbx-rt-cmd')).toHaveText('open -a Docker');
     });
 
   /**

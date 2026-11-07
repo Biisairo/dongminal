@@ -1218,6 +1218,8 @@ I18N.register('ko', {
   'why.name_too_long': '이름은 {max}자까지입니다',
   'why.run_closed': '이미 끝난 Run 입니다',
   'why.member_not_attached': '탭에 붙어 있지 않은 멤버입니다',
+  'why.runtime_missing': '컨테이너 런타임(docker)이 설치되어 있지 않습니다',
+  'why.runtime_start_manual': '이 운영체제에서는 런타임을 직접 시작해야 합니다',
   'why.loading': '확인하는 중…',
   'why.no_head': '커밋이 없어 HEAD 로 되돌릴 수 없습니다',
   'why.nothing_to_clean': '지울 추적되지 않는 파일이 없습니다',
