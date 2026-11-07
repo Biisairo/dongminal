@@ -52,8 +52,8 @@ Object.assign(App.prototype, {
   _sbEncMenu({v,d},at){
     const path=v.filePath;
     const items=[{label:ENC_REOPEN,static:true}];
-    for(const id of ENC_REOPEN_CHOICES){
-      items.push({id:'reopen-'+id,label:ENC_LABEL[id],cur:d.encoding===id,
+    for(const id of serverMeta.encodings){
+      items.push({id:'reopen-'+id,label:ENC_LABEL[id]||id,cur:d.encoding===id,
         onClick:()=>this.edDocReopen(path,id)});
     }
     items.push({sep:true});

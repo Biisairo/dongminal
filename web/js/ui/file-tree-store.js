@@ -105,7 +105,7 @@ class FileTreeStore {
       if(seen.has(p)||!(this.kids.has(p)||this.obs.has(p))) continue;
       seen.add(p); out.push(p);
     }
-    return out.length>FS_STAMP_MAX?out.slice(0,FS_STAMP_MAX):out;
+    return capToServer(out,serverMeta.fsStampMax);
   }
 
   /**

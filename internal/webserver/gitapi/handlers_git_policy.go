@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/query"
 	"dongminal/internal/webserver/domain/git/write"
 )
@@ -58,6 +59,11 @@ func (s *GitServer) apiGitPolicy(w http.ResponseWriter, r *http.Request) {
 		"operations":  ops,
 		"tagKinds":    write.TagKinds,
 		"resetModes":  write.ResetModes,
+		// K-a·K-b (K3·K5): 화면이 그대로 쓰는 상한도 서버가 보낸다.
+		"jobLineCap": jobs.JobLineCap,
+		"logLimits": map[string]int{
+			"initial": query.LogInitialLimit, "page": query.LogPageLimit, "max": query.LogMaxLimit,
+		},
 	})
 }
 

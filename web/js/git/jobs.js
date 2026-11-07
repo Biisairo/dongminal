@@ -33,6 +33,8 @@ class GitJobs {
     this.views[GIT_JOB_SLOT_COMMON]=new GitRemote(panel,GIT_JOB_SLOT_COMMON,this);
     // 이 탭의 `panel.post` 가 띄워 결과를 기다리는 잡 — 뒷정리는 기다리는 쪽이 한다.
     this._owned=new Set();
+    // K-a: 줄 상한은 정책에 실려 온다 — 잡이 붙기 전에 받아 둔다.
+    GitConfirm.policy();
   }
 
   // 칸 하나의 박스. 두 칸이 같은 골격이다 — 한 벌을 두 번 찍는다.

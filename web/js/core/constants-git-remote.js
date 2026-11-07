@@ -70,9 +70,9 @@ const GIT_REMOTE_WHY_BUSY='A job is already running for this repository';
 // argv 는 그대로 보인다 — 무엇이 실행됐는지 모르면 다이얼로그의 선택이 반영됐는지
 // 사용자가 확인할 수 없다 (FR-GIT-109·110).
 const GIT_PROGRESS_FLAG='--progress';
-// 보존 줄 수 상한. 서버의 JobLineCap 과 같은 값이다 — 더 들고 있어도 서버가 주지
-// 않는다.
-const GIT_JOB_LINE_CAP=2000;
+// 보존 줄 수 상한은 서버가 보낸다(`/api/git/policy` 의 `jobLineCap`, K-a). 받기 전에는
+// 자르지 않는다 — 서버가 보존한 것보다 많이 주지 않는다.
+function gitJobLineCap(){const p=GitConfirm.cached();return p?p.jobLineCap:0}
 // SSE 가 끊기면 마지막 seq 부터 다시 잇는다 (계약 §2.3.1).
 const GIT_JOB_RETRY_MS=1000;
 const GIT_JOB_RETRY_MAX=5;

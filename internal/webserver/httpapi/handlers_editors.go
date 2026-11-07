@@ -37,14 +37,18 @@ func (s *Server) apiEditorsGet(w http.ResponseWriter, r *http.Request) {
 	out := map[string]any{"home": home, "list": list}
 	// FR-NOT-11: 메모 루트를 얻지 못하는 것은 이 응답의 실패가 아니다 — 키가
 	// 빠지고 클라이언트에는 메모장 행 하나가 없을 뿐이다.
-	if notes, err := s.Entries.Notes(); err == nil {
+	notes, err := s.Entries.Notes()
+	if err == nil {
 		out["notes"] = notes
 	}
 	// FR-EXT-9b: 플러그인 선언의 자리도 같은 규약이다 — 얻지 못하면 키가 빠지고
 	// 화면에는 그 행 하나가 없을 뿐이다.
-	if plugins, err := s.Entries.Plugins(); err == nil {
+	plugins, err := s.Entries.Plugins()
+	if err == nil {
 		out["plugins"] = plugins
 	}
+	// K-e (K20): 고정 루트의 순서는 서버가 정한다. 화면은 이 뒤에 list 를 잇는다.
+	out["fixed"] = wsentry.FixedRoots(home, notes, plugins)
 	fsJSON(w, http.StatusOK, out)
 }
 

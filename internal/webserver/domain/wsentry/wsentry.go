@@ -183,19 +183,32 @@ func (s *Store) Roots() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := make([]string, 0, len(editors)+3)
-	out = append(out, NormalizePath(home))
+	var notes, plugins string
 	if ensureDir(s.NotesDir) {
-		out = append(out, NormalizePath(s.NotesDir))
+		notes = NormalizePath(s.NotesDir)
 	}
 	// FR-EXT-9b: 선언을 편집기로 열려면 루트 가드를 지나야 한다.
 	if ensureDir(s.PluginsDir) {
-		out = append(out, NormalizePath(s.PluginsDir))
+		plugins = NormalizePath(s.PluginsDir)
 	}
+	out := append(make([]string, 0, len(editors)+3), FixedRoots(NormalizePath(home), notes, plugins)...)
 	for _, e := range editors {
 		out = append(out, NormalizePath(e))
 	}
 	return out, nil
+}
+
+// FixedRoots 는 list 앞에 서는 고정 루트다 — home → notes → plugins, 빈 자리는 빠진다.
+// 순서의 주인은 이 함수 하나다: `Roots()` 와 `GET /api/editors` 의 `fixed` 가 함께 쓰고, 화면은
+// `fixed` 뒤에 list 를 잇는다 (SERVER_DRIVEN_ACTIONS_SRS K-e).
+func FixedRoots(home, notes, plugins string) []string {
+	out := make([]string, 0, 3)
+	for _, p := range []string{home, notes, plugins} {
+		if p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // editorsAt 은 지금 rev 의 editors.list 다. rev 가 그대로면 다시 파싱하지 않는다.

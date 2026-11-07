@@ -98,7 +98,7 @@ Object.assign(App.prototype, {
    * FR-EDT-42(1) / FR-NOT-6: 있어야 할 루트 집합. 메모 루트가 여기 드는 것이
    * 곧 메모장 창이 서는 근거다 — 재조정이 이 집합만 보고 창을 세운다.
    *
-   * 순서는 서버의 `Roots()` 와 같은 `[home, notes, ...list]` 다. 고정 행의
+   * 순서는 서버의 `Roots()` 와 같은 `[...fixed, ...list]` 다. 고정 행의
    * 표시 순서(`edFixed`)와 **일부러 다르다**: 저쪽은 화면에서 무엇이 위에
    * 오는가이고, 이쪽은 창이 만들어지는 차례다. root 창이 먼저 서야 새
    * 워크스페이스의 첫 창이 지금까지와 같다.
@@ -106,10 +106,10 @@ Object.assign(App.prototype, {
   edRoots(){
     const home=this._edHome();
     if(!home) return [];
-    const notes=this.edNotes();
-    const plugins=this._edPlugins();
-    // 순서는 서버의 `Roots()` 와 같다 — [home, notes, plugins, ...list].
-    return [home,...(notes?[notes]:[]),...(plugins?[plugins]:[]),
-      ...this.edEntries().map(e=>e.path)];
+    // K-e (K20): 고정 루트의 순서는 서버가 정한다(`fixed`). 드는지는 지금 아는 값이 정한다 —
+    // 메모·플러그인 루트를 잃으면(FR-NOT-11) 그 자리만 빠진다. `fixed` 가 없으면(옛 서버) home 하나다.
+    const known=new Set([home,this.edNotes(),this._edPlugins()].filter(Boolean));
+    const fixed=((this.editors||{}).fixed||[]).filter(p=>known.has(p));
+    return [...(fixed.length?fixed:[home]),...this.edEntries().map(e=>e.path)];
   },
 });

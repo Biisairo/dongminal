@@ -32,6 +32,10 @@ const (
 	Win1252  = "windows-1252"
 )
 
+// ReopenChoices 는 "다른 인코딩으로 다시 열기" 가 제시하는 인코딩이다. 순서가 메뉴 순서다.
+// 화면은 `GET /api/meta` 의 `encodings` 로 받는다 (SERVER_DRIVEN_ACTIONS_SRS K-d).
+var ReopenChoices = []string{UTF8, CP949, ShiftJIS, Win1252}
+
 var (
 	bomUTF8    = []byte{0xEF, 0xBB, 0xBF}
 	bomUTF16LE = []byte{0xFF, 0xFE}

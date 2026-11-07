@@ -128,8 +128,14 @@ class GitConfirm extends GitModalBase {
       // GV-h: 대화상자가 제시하는 목록 — 화면이 복제하지 않는다.
       tagKinds:Array.isArray(d.tagKinds)?d.tagKinds:[],
       resetModes:Array.isArray(d.resetModes)?d.resetModes:[],
+      // K-a·K-b: 화면이 그대로 쓰는 상한. 모르면 0·null — 줄을 자르지 않고 limit 을 싣지 않는다.
+      jobLineCap:Number.isInteger(d.jobLineCap)&&d.jobLineCap>0?d.jobLineCap:0,
+      logLimits:gitLogLimitsOf(d.logLimits),
     };
   }
+
+  /** 받아 둔 정책. 아직 받지 못했으면 null 이다 — 기다리지 않는 자리(줄 상한)가 쓴다. */
+  static cached(){return GitConfirm._policy||null}
 
   /**
    * FR-GIT-178: 폴링이 새 관측을 얻을 때마다 불린다. 저장소 signature 가

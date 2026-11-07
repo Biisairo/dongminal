@@ -32,7 +32,7 @@ function app(opts = {}) {
       App: class {},
       TIMERS: timers,
       FS_WATCH_API: '/api/fs/watch',
-      FS_WATCH_DIRS_MAX: 1024,
+      serverMeta: { fsWatchDirsMax: 1024 }, capToServer: (l, m) => (m > 0 && l.length > m ? l.slice(0, m) : l),
       EXPLORER_FS_CHANGES_DELAY_MS: 500,
       EDITOR_DOC_RELOAD_QUEUE: 2,
       apiPut: async (path, body) => { puts.push({ path, body }); return opts.putReply || { ok: true, status: 200 } },

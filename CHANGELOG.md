@@ -101,6 +101,14 @@
   변환으로 보고, 디스크의 바이트를 그 인코딩으로 해독하지 못하면 422 `encoding_undecodable`, 이미 BOM 없는 UTF-8 이면
   409 `already_utf8` 로 거절합니다. `convertFrom` 이 없는 저장은 그대로입니다. 변환할 수 있는지는 `GET /api/file/read?decode=1`
   의 헤더 `X-File-Actions` 와 저장 응답의 `actions` 로 알 수 있습니다.
+- **화면이 쓰는 상한과 목록을 서버가 보냅니다.** `GET /api/git/policy` 에 `jobLineCap`·`logLimits` 를,
+  `GET /api/meta` 에 `fsStampMax`·`fileStampsMax`·`fsWatchDirsMax`·`encodings` 를, `GET /api/editors` 에 고정 루트의
+  순서 `fixed` 를 더했습니다. 기존 필드는 그대로입니다.
+
+### 고침
+
+- **탐색기에 `플러그인` 행이 섭니다.** 서버는 플러그인 선언 폴더를 보냈지만 화면이 그 값을 버려, 행도 창도 서지
+  않았습니다. 이제 `~` 아래에 서고 `plugin.json` 을 편집기로 열 수 있습니다.
 
 ## [1.2.3] — 2026-11-05
 

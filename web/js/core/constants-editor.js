@@ -187,10 +187,10 @@ const ED_LSP_TIMEOUT_MS=15000;
 const ED_LSP_RETRY_MS=5000;
 
 // ── 인코딩 (REPO_FIX 03 §3A-2) ──
-// 라벨은 서버의 인코딩 id 를 사람의 표기로 옮긴다. 다시 열기는 넷이다(사용자 결정).
+// 라벨은 서버의 인코딩 id 를 사람의 표기로 옮긴다. 다시 열기 목록은 서버가 보낸다
+// (`serverMeta.encodings`, K-d).
 const ENC_LABEL={'utf-8':'UTF-8','utf-16le':'UTF-16 LE','utf-16be':'UTF-16 BE',
   'cp949':'CP949','shift_jis':'Shift_JIS','windows-1252':'Windows-1252'};
-const ENC_REOPEN_CHOICES=['utf-8','cp949','shift_jis','windows-1252'];
 const ENC_TITLE=t('editor.enc_title');
 // REPO_FIX 05 §3A-3 (F-2.4): dirty 문서의 마지막 뷰가 다른 대상으로 옮겨 갈 때의 확인.
 const DOC_LEAVE_MSG=t('editor.doc_leave_msg');
@@ -277,22 +277,11 @@ const FS_LIST_API='/api/fs/list';
 // FR-OPT-4-2). 겹은 조회와 같은 루트 가드를 받는다. 옛 종단 둘(`/api/fs/stamp`·
 // `/api/file/stamps`)은 서버에 남아 있다 — 옛 화면이 부른다.
 const FS_STAMPS_API='/api/fs/stamps';
-// FR-FSL-5 와 같은 값이어야 한다 — 서버가 상한을 넘긴 요청을 거절하므로,
-// 클라이언트가 먼저 잘라 보내지 않으면 겹을 아주 많이 펼친 사용자에게서 관측이
-// 통째로 멎는다.
-const FS_STAMP_MAX=512;
-
-// 파일 표식이 겹 스탬프와 **다른 값**인 이유는 겹의 mtime 이 파일 내용을 보지 않기
-// 때문이다 — 편집기가 보는 것이 바로 그 내용이다 (FR-ELR-1).
-// FR-ELR-6 의 상한과 같은 값이어야 한다. 서버가 넘긴 요청을 통째로 거절하므로,
-// 먼저 자르지 않으면 탭을 아주 많이 연 사용자에게서 관측이 멎는다
-// (`FS_STAMP_MAX` 와 같은 근거).
-const FILE_STAMPS_MAX=512;
+// 겹 스탬프(FR-FSL-5)·파일 표식(FR-ELR-6)·감시 등록(FR-ELR-51)의 상한은 서버가 보낸다
+// (`serverMeta`, K-c). 서버가 넘긴 요청을 통째로 거절하므로 화면이 먼저 자른다.
 
 // EDITOR_LIVE_RELOAD_SRS FR-ELR-51·65: 보이는 디렉터리의 감시 등록. 변화는 SSE `fs_changed` 로 온다.
-// 상한은 서버(`fsWatchDirsMax`)와 같다 — 겹(`FS_STAMP_MAX`)과 열린 파일(`FILE_STAMPS_MAX`)의 합.
 const FS_WATCH_API='/api/fs/watch';
-const FS_WATCH_DIRS_MAX=FS_STAMP_MAX+FILE_STAMPS_MAX;
 // FR-ELR-68: 탐색기는 첫 이벤트부터 이만큼 모아 한 번에 처리한다 (VS Code
 // `explorerService.ts` `EXPLORER_FILE_CHANGES_REACT_DELAY`).
 const EXPLORER_FS_CHANGES_DELAY_MS=500;

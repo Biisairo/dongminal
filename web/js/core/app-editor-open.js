@@ -205,9 +205,9 @@ Object.assign(App.prototype, {
       if(!seen.has(path)) continue;
       out.push(path);
     }
-    // FR-ELR-6: 서버의 상한과 같은 값으로 먼저 자른다. 넘겨 보내면 요청 전체가
+    // FR-ELR-6: 서버의 상한으로 먼저 자른다. 넘겨 보내면 요청 전체가
     // 거절되므로 관측이 통째로 멎는다 — 일부만 보는 편이 낫다 (FR-FSL-5 와 같다).
-    return out.length>FILE_STAMPS_MAX?out.slice(0,FILE_STAMPS_MAX):out;
+    return capToServer(out,serverMeta.fileStampsMax);
   },
 
   /**

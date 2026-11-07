@@ -80,14 +80,12 @@ Object.assign(GitHistory.prototype, {
   async _doLoad(more,keep,full){
     const repo=this._repo; if(!repo) return;
     const tok=this.panel.token();
+    const pol=await GitConfirm.policy();
     const sent={
       repo,ref:this._ref||'',
       // 추가 로드의 skip 은 실제로 받은 개수다 — 요청한 limit 으로 세면 상한
       // 클램프가 걸린 페이지에서 목록이 어긋난다 (계약 §2.5).
       skip:more?this._commits.length:0,
-      // FR-GVR-12: 자리 유지 재적재는 이미 불러온 만큼 받는다 — 첫 장만 받으면 뒷장의
-      // 스크롤 자리가 사라진다.
-      limit:more?GIT_LOG_PAGE:keep?Math.min(GIT_LOG_MAX,Math.max(GIT_LOG_INITIAL,this._commits.length)):GIT_LOG_INITIAL,
       order:this._order,
       author:this._filters.author||'',since:this._filters.since||'',
       until:this._filters.until||'',path:this._filters.path||'',
@@ -98,6 +96,10 @@ Object.assign(GitHistory.prototype, {
       // 것인지 _sameReq 가 가른다.
       reflog:this._reflog,
     };
+    // FR-GVR-12: 자리 유지 재적재는 이미 불러온 만큼 받는다 — 첫 장만 받으면 뒷장의 스크롤
+    // 자리가 사라진다. K-b: 정책을 받지 못했으면 limit 을 싣지 않는다(`_sameReq` 대조에도 없다).
+    const limit=gitLogLimit(pol&&pol.logLimits,more,keep,this._commits.length);
+    if(limit!==undefined) sent.limit=limit;
     /**
      * OPTIMIZE_REFACTOR_SRS FR-OPT-4-8 (FEU-10): 자리 유지 재적재는 **새 머리만** 받는다.
      *

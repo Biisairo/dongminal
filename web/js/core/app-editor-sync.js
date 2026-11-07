@@ -46,6 +46,10 @@ Object.assign(App.prototype, {
       // FR-NOT-11: 없으면 빈 문자열이다 — 그때 사라지는 것은 메모장 행 하나이고
       // 나머지 표면은 그대로 선다.
       notes:(typeof d.notes==='string'&&d.notes)?d.notes:'',
+      // FR-EXT-9b: 플러그인 선언의 루트. 종전에는 여기서 빠져 탐색기의 그 행이 서지 않았다.
+      plugins:(typeof d.plugins==='string'&&d.plugins)?d.plugins:'',
+      // K-e: 고정 루트의 순서(서버 `wsentry.FixedRoots`).
+      fixed:(Array.isArray(d.fixed)?d.fixed:[]).filter(p=>typeof p==='string'&&p),
       list:(Array.isArray(d.list)?d.list:[]).filter(p=>typeof p==='string'&&p),
     };
     this.edMirror();
@@ -71,7 +75,7 @@ Object.assign(App.prototype, {
    */
   _edPatchList(list){
     if(!this.editors) return;
-    this._edApplyServer({home:this.editors.home,notes:this.editors.notes,list});
+    this._edApplyServer(Object.assign({},this.editors,{list}));
   },
 
   // 목록은 workspace.json 최상위 `editors.list` 에 산다 (FR-EDT-19). 서버가

@@ -503,3 +503,22 @@ func TestMutate_SeedsSchemaVersionOnEmptyBlob(t *testing.T) {
 		t.Fatalf("workspace=%s", w.raw)
 	}
 }
+
+// SERVER_DRIVEN_ACTIONS_SRS K-e (K20): 고정 루트는 home → notes → plugins 순이고, 빈 자리는 빠진다.
+func TestFixedRoots(t *testing.T) {
+	cases := []struct {
+		home, notes, plugins string
+		want                 []string
+	}{
+		{"/h", "/n", "/p", []string{"/h", "/n", "/p"}},
+		{"/h", "", "/p", []string{"/h", "/p"}},
+		{"/h", "/n", "", []string{"/h", "/n"}},
+		{"/h", "", "", []string{"/h"}},
+	}
+	for _, c := range cases {
+		got := FixedRoots(c.home, c.notes, c.plugins)
+		if strings.Join(got, ",") != strings.Join(c.want, ",") {
+			t.Fatalf("FixedRoots(%q,%q,%q) = %v, want %v", c.home, c.notes, c.plugins, got, c.want)
+		}
+	}
+}

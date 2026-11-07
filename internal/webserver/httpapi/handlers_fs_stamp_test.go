@@ -302,3 +302,23 @@ func TestFSStamp_WorksOnNotesRoot(t *testing.T) {
 
 // tempdir 경로에 공백·비ASCII 가 섞여도 질의가 깨지지 않게 한다.
 func pathQ(p string) string { return url.QueryEscape(p) }
+
+// SERVER_DRIVEN_ACTIONS_SRS K-e (K20): 고정 루트의 순서는 서버가 정한다 — 화면은 `fixed` 뒤에
+// `list` 를 잇는다.
+func TestEditorsGet_FixedOrder(t *testing.T) {
+	srv, _, _ := fsTestServer(t)
+	code, out := fsReq(t, srv, "GET", "/api/editors", "")
+	if code != 200 {
+		t.Fatalf("code=%d out=%v", code, out)
+	}
+	var want []any
+	for _, k := range []string{"home", "notes", "plugins"} {
+		if v, ok := out[k].(string); ok && v != "" {
+			want = append(want, v)
+		}
+	}
+	got, ok := out["fixed"].([]any)
+	if !ok || fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("fixed = %v, want %v", out["fixed"], want)
+	}
+}

@@ -88,12 +88,14 @@ function counter(page: Page, pred: (url: string) => boolean) {
 // ── 묶음 N — 메모장 ─────────────────────────────────
 
 test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
-  test('V-13: 고정 행이 둘이고 메모장이 ~ 위에 있다', async ({ page }) => {
+  // FR-EXT-9b: 플러그인 행이 `~` 아래에 선다. 종전에는 화면이 서버의 `plugins` 를 버려
+  // 행이 둘이었다 (SERVER_DRIVEN_ACTIONS_SRS K-e 에서 고쳤다).
+  test('V-13: 고정 행이 셋이고 메모장이 ~ 위, 플러그인이 ~ 아래에 있다', async ({ page }) => {
     await goto(page);
     await openEditorTab(page);
-    await expect(fixedRows(page)).toHaveCount(2);
+    await expect(fixedRows(page)).toHaveCount(3);
     const labels = await fixedRows(page).locator('.sbl-name').allTextContents();
-    expect(labels).toEqual(['메모장', '~']);
+    expect(labels).toEqual(['메모장', '~', '플러그인']);
   });
 
   test('V-14: 메모장 행에 × 가 없고 드래그의 출발점이 아니다', async ({ page }) => {
@@ -177,21 +179,23 @@ test.describe('묶음 N — 메모장 (FR-NOT-1~12)', () => {
     expect(await page.evaluate((r) =>
       (window as any).app.testing.edWindows().some((w: any) => w.editor && w.editor.root === r), notes),
       '메모장 창이 사라졌다').toBe(true);
-    await expect(fixedRows(page)).toHaveCount(2);
+    await expect(fixedRows(page)).toHaveCount(3);
   });
 
-  test('V-18: notes 가 없으면 ~ 만 남고 Editor 탭은 그대로다', async ({ page }) => {
+  test('V-18: notes 가 없으면 메모장 행만 빠지고 Editor 탭은 그대로다', async ({ page }) => {
     // FR-NOT-11 은 서버가 답하지 **못하는** 경우이므로 디스크로 만들 수 없다.
     await page.route('**/api/editors', async (route) => {
       const r = await route.fetch();
       const j = await r.json();
+      // 서버는 메모 루트를 얻지 못하면 `fixed` 에서도 뺀다 (`wsentry.FixedRoots`).
+      if (Array.isArray(j.fixed)) j.fixed = j.fixed.filter((p: string) => p !== j.notes);
       delete j.notes;
       await route.fulfill({ json: j });
     });
     await goto(page);
     await openEditorTab(page);
-    await expect(fixedRows(page)).toHaveCount(1);
-    await expect(fixedRows(page).locator('.sbl-name')).toHaveText('~');
+    await expect(fixedRows(page)).toHaveCount(2);
+    expect(await fixedRows(page).locator('.sbl-name').allTextContents()).toEqual(['~', '플러그인']);
     await expect(page.locator('.sb-tab[data-panel="repo"]')).toBeVisible();
   });
 

@@ -313,7 +313,8 @@ class GitRemote {
     }
     log.appendChild(frag);
     log.dataset.total=String(this._total);
-    while(log.childElementCount>GIT_JOB_LINE_CAP) log.removeChild(log.firstElementChild);
+    const cap=gitJobLineCap();
+    while(cap>0&&log.childElementCount>cap) log.removeChild(log.firstElementChild);
     log.scrollTop=log.scrollHeight;
   }
 
@@ -531,8 +532,8 @@ class GitRemote {
     if(ln.seq!=null) this._seq=ln.seq;
     this._lines.push(ln);
     this._total++;
-    if(this._lines.length>GIT_JOB_LINE_CAP)
-      this._lines.splice(0,this._lines.length-GIT_JOB_LINE_CAP);
+    const cap=gitJobLineCap();
+    if(cap>0&&this._lines.length>cap) this._lines.splice(0,this._lines.length-cap);
     this._paint();
   }
 

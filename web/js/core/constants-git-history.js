@@ -19,11 +19,22 @@ const GIT_HIST_OVERSCAN=6;      // 화면 위·아래로 더 그리는 여유 �
 // 되돌아온다. 내용이 넘치면 상세 안에서 스크롤한다.
 const GIT_HIST_DETAIL_H=240;
 
-// 페이징 (FR-GIT-114·115). 서버의 LogInitialLimit·LogPageLimit 과 같은 값이다.
-const GIT_LOG_INITIAL=300;
-const GIT_LOG_PAGE=100;
-// 한 번에 받을 수 있는 최대 — 서버 LogMaxLimit 과 같은 값이다 (FR-GVR-12 의 자리 유지 재적재).
-const GIT_LOG_MAX=2000;
+// 페이징 (FR-GIT-114·115). 크기는 서버가 보낸다(`/api/git/policy` 의 `logLimits`, K-b).
+/** 정책의 `logLimits` 를 받는다. 셋이 다 양의 정수가 아니면 null 이다. */
+function gitLogLimitsOf(v){
+  if(!v||typeof v!=='object') return null;
+  const ok=k=>Number.isInteger(v[k])&&v[k]>0;
+  return ok('initial')&&ok('page')&&ok('max')?{initial:v.initial,page:v.page,max:v.max}:null;
+}
+/**
+ * 요청 한 번의 limit. 추가 로드는 한 페이지, 자리 유지 재적재(FR-GVR-12)는 이미 받은 만큼(최대까지),
+ * 그 밖은 첫 장이다. 정책이 없으면 싣지 않는다(undefined) — 서버가 첫 장 크기로 접는다.
+ */
+function gitLogLimit(lim,more,keep,have){
+  if(!lim) return undefined;
+  if(more) return lim.page;
+  return keep?Math.min(lim.max,Math.max(lim.initial,have)):lim.initial;
+}
 // 스크롤 끝에서 이만큼 남았을 때 다음 페이지를 부른다.
 const GIT_LOG_NEAR_END_PX=200;
 

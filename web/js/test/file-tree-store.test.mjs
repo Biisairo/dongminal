@@ -17,7 +17,7 @@ function setup(answers, raw) {
   const ctx = load(['ui/file-tree-obs.js', 'ui/file-tree-store.js'], {
     expose: ['FileTreeStore'],
     globals: {
-      FS_STAMP_MAX: 256, FS_STAMPS_API: '/api/fs/stamps',
+      serverMeta: { fsStampMax: 256 }, capToServer: (l, m) => (m > 0 && l.length > m ? l.slice(0, m) : l), FS_STAMPS_API: '/api/fs/stamps',
       apiPost: async (u, body) => {
         urls.push(u);
         sent.push(body.trees[0].dirs.slice());

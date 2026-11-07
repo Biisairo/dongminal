@@ -32,6 +32,8 @@ REMOVED=(
   startTryable  # X-b: 샌드박스 시작을 화면이 고르던 사실
   _aclV4 _aclCidrHas _aclCoversYou  # X-d: 잠김 경고의 IPv4 판정
   ENC_CONVERT_NO_DECODE ENC_CONVERT_ALREADY  # X-e: UTF-8 변환의 화면 판정 문구
+  GIT_JOB_LINE_CAP GIT_LOG_INITIAL GIT_LOG_PAGE GIT_LOG_MAX  # K-a·K-b: 서버가 보내는 git 상한
+  FS_STAMP_MAX FILE_STAMPS_MAX FS_WATCH_DIRS_MAX ENC_REOPEN_CHOICES  # K-c·K-d: 서버가 보내는 상한·목록
 )
 
 pat=$(IFS='|'; echo "${REMOVED[*]}")

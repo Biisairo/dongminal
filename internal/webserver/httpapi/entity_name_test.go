@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"dongminal/internal/shared/textenc"
 	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/hub"
@@ -77,5 +78,29 @@ func TestMetaEndpoint(t *testing.T) {
 	code, out := fsReq(t, s, http.MethodGet, "/api/meta", "")
 	if code != http.StatusOK || out["entityNameMax"] != float64(entityNameMax) {
 		t.Fatalf("code=%d body=%v", code, out)
+	}
+}
+
+// SERVER_DRIVEN_ACTIONS_SRS K-c·K-d (K11·K18 · FR-SDA-80): 화면이 그대로 쓰는 상한·목록은
+// `/api/meta` 로 보낸다.
+func TestMetaEndpoint_SharedLimits(t *testing.T) {
+	s, _, _ := fsTestServer(t)
+	code, out := fsReq(t, s, http.MethodGet, "/api/meta", "")
+	if code != http.StatusOK {
+		t.Fatalf("code=%d body=%v", code, out)
+	}
+	for key, want := range map[string]int{"fsStampMax": fsStampMax, "fileStampsMax": fileStampsMax, "fsWatchDirsMax": fsWatchDirsMax} {
+		if out[key] != float64(want) {
+			t.Fatalf("%s = %v, want %d", key, out[key], want)
+		}
+	}
+	got, ok := out["encodings"].([]any)
+	if !ok || len(got) != len(textenc.ReopenChoices) {
+		t.Fatalf("encodings = %v, want %v", out["encodings"], textenc.ReopenChoices)
+	}
+	for i, want := range textenc.ReopenChoices {
+		if got[i] != want {
+			t.Fatalf("encodings[%d] = %v, want %q — 순서가 메뉴 순서다", i, got[i], want)
+		}
 	}
 }

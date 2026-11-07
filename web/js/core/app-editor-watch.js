@@ -23,7 +23,7 @@ Object.assign(App.prototype, {
       for(const d of st.stampDirs()) set.add(d);
     }
     const out=[...set].sort();
-    return out.length>FS_WATCH_DIRS_MAX?out.slice(0,FS_WATCH_DIRS_MAX):out;
+    return capToServer(out,serverMeta.fsWatchDirsMax);
   },
 
   /** FR-ELR-66: 집합이 바뀌었으면 다시 등록한다. 같은 프레임의 부름은 한 번으로 모은다. */

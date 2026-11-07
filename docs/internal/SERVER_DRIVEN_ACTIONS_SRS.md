@@ -1,7 +1,7 @@
 # SRS: 서버가 답하는 동작 가능 여부 — server-driven actions — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 묶음 K·N. 묶음 X(§3.7a)·F(§3.5a)·R(§3.6a)는 구현했다. 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)·GV(§3.4a)는 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
+> **남은 것**: 묶음 K(§3.8a)·N. 묶음 X(§3.7a)·F(§3.5a)·R(§3.6a)는 구현했다. 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)·GV(§3.4a)는 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
 
 ## 1. 개요 (Introduction)
 
@@ -283,10 +283,31 @@ GV-c 동작 표:
 
 | ID | 요구 | 출처 | 우선 |
 |---|---|---|---|
-| FR-SDA-80 | 보낼 수 있는 상수(상한·이름·목록)는 서버가 보낸다. git 쪽은 `/api/git/policy` 에, 그 밖은 새 `GET /api/meta` 에 싣는다. 화면은 부팅 때 한 번 받아 쓴다 | K1~K5·K7·K8·K11·K14·K15·K18·K20 | 필수 |
+| FR-SDA-80 | 보낼 수 있는 상수(상한·이름·목록)는 서버가 보낸다. git 쪽은 `/api/git/policy` 에, 그 밖은 새 `GET /api/meta` 에 싣는다. 화면은 부팅 때 한 번 받아 쓴다 | K3·K5·K7·K8·K11·K18·K20 | 필수 |
 | FR-SDA-81 | 보낼 수 없는 상수(정규식·해시 알고리즘·연결이 끊긴 순간에 쓰는 코드·부팅 전에 필요한 값)는 두 벌로 두고 **게이트가 대조한다**: K6·K9·K10·K12·K13·K16·K17 | 같은 줄 | 필수 |
 | FR-SDA-82 | `claudeFullscreen` 의 기본값은 서버도 설정 스키마에서 읽는다(박아 둔 `true` 를 없앤다) | K19 | 필수 |
 | FR-SDA-83 | 서버가 이미 보내는 값(`short` 등)이 있으면 화면은 그것을 쓰고, 자기 계산을 없앤다 | K14 | 필수 |
+| FR-SDA-84 | 화면이 값마다 다른 코드로 갈라지는 식별자(K1·K2·K4·K15)는 서버가 **그 값의 뜻**(할 일·사실)을 함께 보낸다. 화면은 식별자 글자와 견주지 않고 받은 뜻대로 그린다. 문구는 식별자를 i18n 키로 골라 쓰고, 문구가 없으면 식별자를 그대로 보인다 | K1·K2·K4·K15 | 필수 |
+
+#### 3.8a 묶음 K 설계 세부
+
+네 단계로 커밋한다: **K-1** 숫자·목록 보내기(K3·K5·K11·K18·K20) · **K-2** 식별자의 뜻 보내기(K1·K2·K4·K15, FR-SDA-84) · **K-3** 보낼 수 없는 것의 대조 게이트(K6·K9·K10·K12·K13·K16·K17) · **K-4** K19·K14. K7·K8 은 GV-4 에서 끝났다.
+
+| ID | 설계 |
+|---|---|
+| K-a 잡 줄 상한(K3) | `/api/git/policy` 에 `jobLineCap`(`jobs.JobLineCap`). 화면의 `GIT_JOB_LINE_CAP` 을 없앤다. 받기 전에는 줄을 자르지 않는다 — 서버가 상한 넘게 보내지 않는다 |
+| K-b History 페이지(K5) | `/api/git/policy` 에 `logLimits:{initial,page,max}`(`query.Log*Limit`). 목록을 받기 전에 정책을 기다린다(`GitConfirm.policy()` 는 한 번만 받는다). 정책을 받지 못하면 `limit` 을 싣지 않는다 — 서버가 `initial` 로 접는다. `GIT_LOG_INITIAL`·`GIT_LOG_PAGE`·`GIT_LOG_MAX` 를 없앤다 |
+| K-c 파일 상한(K11) | `GET /api/meta` 에 `fsStampMax`·`fileStampsMax`·`fsWatchDirsMax`. 화면은 `applyServerMeta` 로 받는다. 받기 전에는 자르지 않는다(F-p 와 같다) — 넘으면 서버의 400 이 보인다. `FS_STAMP_MAX`·`FILE_STAMPS_MAX`·`FS_WATCH_DIRS_MAX` 를 없앤다 |
+| K-d 다시 열기 인코딩(K18) | 서버 `textenc.ReopenChoices`(지금 화면과 같은 넷)를 `GET /api/meta` 의 `encodings` 로 싣는다. 받기 전에는 메뉴에 다시 열기 항목이 없다. `ENC_REOPEN_CHOICES` 를 없앤다. `ENC_LABEL` 은 표기이므로 남기고, 모르는 id 는 id 그대로 보인다 |
+| K-e 편집기 루트 순서(K20) | 고정 루트의 순서를 서버 함수 하나(`wsentry` 의 고정 루트 목록)가 정하고 `Roots()` 와 `GET /api/editors` 의 새 `fixed`(순서 있는 배열)가 그것을 쓴다. 화면의 `edRoots` 는 `[...fixed, ...list]` 다. `fixed` 가 없으면(옛 서버) 지금의 계산이 아니라 `[home]` 만 쓴다 |
+| K-f 후속 선택지(K4) | 잡 JSON 에 `fixes:[{id, kind, body, confirm}]` 를 더한다 — `kind`·`body` 는 시작할 잡, `confirm` 은 거쳐야 할 파괴적 확인(`/api/git/policy` 의 키, 강제 push 만 `force_push`). `options` 는 공개 계약이라 남긴다. 화면은 `confirm` 이 있으면 그 확인 흐름으로, 없으면 `kind`·`body` 로 잡을 시작한다. 라벨은 `git.job_fix_label.<id>`. `GIT_JOB_FIX_REBASE`·`_MERGE`·`_LEASE` 를 없앤다 |
+| K-g 잡 칸(K1) | `/api/git/policy` 에 `jobSlots:[{slot, remote}]`(칸의 순서와, 원격 동작을 쥐는 칸인가). 화면은 정책을 받은 뒤 그 순서로 표시 상자를 만들고, `remote` 칸에 머리 버튼을 붙이며, 취소 문구는 잡의 칸 중 `remote` 칸이 있는가로 고른다. 잡의 칸이 없으면 첫 칸이다. `GIT_JOB_SLOT_INDEX`·`GIT_JOB_SLOT_COMMON` 을 없앤다 |
+| K-h 잡 종류(K2) | 잡 JSON 에 `indicator`(bool, 잡 표시기에 서는 잡인가 — `jobKinds` 의 종류면 참, submodule·worktree 는 그쪽 탭이 맡으므로 거짓, D-A-27). 화면의 `_isMine` 은 이것을 본다. 라벨은 `git.job_kind.<kind>`, 없으면 kind 그대로다. `GIT_REMOTE_LABEL` 을 없앤다. 버튼의 종류 확인은 화면의 버튼 목록(`GIT_REMOTE_KINDS`)으로 한다 |
+| K-i 샌드박스(K15) | `GET /api/sandbox/runtime` 에 `ready`(bool, 데몬에 닿았다). 안내 문구·제목은 `state` 를 키로 고른다(`core.sbx_rt_msg.<state>`·`core.sbx_rt_title.<state>`). `/api/sandbox/profiles` 의 프로파일마다 `workPicks`(고를 수 있는 작업 방식, 없으면 빈 배열 — 폴더 입력을 받지 않는다)를, 목록에 `onlyDefault`(기본 프로파일 하나뿐인가)를 싣는다. 작업 방식의 라벨은 이미 `core.sandbox_work_label.<kind>` 다. `SBX_RT_OK`·`SBX_RT_STOPPED`·`SBX_RT_MISSING`·`SANDBOX_WORK_*`·`SANDBOX_PROFILE_SCRATCH` 를 없앤다. 모양의 세부(`app-layout` 의 작업 방식 거르기 등)는 K-2 에서 코드에 대 보고 이 표에 덧붙인다 |
+| K-j 대조 게이트(K-3) | `scripts/check-shared-constants` (Go 프로그램, `make gates`). 대조 쌍: K9 `GIT_OP_BY_BLOCK` 의 키 = `query.Block*InProgress` · K10 `GIT_OP_*` = `query.Op*` · K12 `LSP_WS_CLOSE_*` = `lspWSClose*` · K13 `WS_SCHEMA_VERSION` = `workspace.SchemaVersion` · K17 `SSE_SILENCE_MS` = 3 × `sseHelloEvery`. 화면 값은 JS 소스의 상수 줄에서 읽는다. 판정 논리는 Go 단위 시험으로 탐침한다(한쪽을 바꾸면 실패). K6(해시)·K16(정규식)은 값이 아니라 계산이므로 **공유 표본**(`testdata` 의 입력·기대값 JSON)을 Go 시험과 JS 단위 시험이 함께 읽는다 |
+| K-k `claudeFullscreen`(K19) | `agentRenderEnv` 의 기본 `true` 를 `scrollSpeedSpec` 처럼 `settingsschema` 의 `def` 에서 읽는다. 표를 읽지 못하면 켬(FR-ARE-3) |
+| K-l Run 짧은 id(K14) | `/api/tools/background` 의 멤버에 `runShort` 를 더한다(`run.Short`). 화면의 `runShortId`·`RUN_SHORT_ID_LEN` 을 없애고 서버의 `short`·`runShort` 를 쓴다. 이름 짓기(`Run <short>`)에 short 가 없으면 `Run` 만 쓴다 — 확인할 자리는 K-4 에서 코드에 대 본다 |
+| K-m 게이트(NFR-SDA-3) | 없앤 화면 이름을 단계마다 `check-server-driven.sh` 목록에 더한다 |
 
 ### 3.9 묶음 N — 낡은 주석
 
@@ -315,6 +336,7 @@ GV-c 동작 표:
 | D-SDA-7 | 끌어 놓기 중에는 화면이 판정하지 않는다. 놓은 뒤 서버 답을 보인다 | D-SDA-1 을 따른 결과다. 끄는 동안 금지 커서가 사라지는 변화는 §7 R-2 |
 | D-SDA-9 | Run 패널의 종료 버튼은 "지금 멈춘다"(`force`) 뜻을 유지하고, 서버가 그 뜻으로 판정한 답을 따른다(R-c) | 사용자 결정 2026-11-07. force 를 빼면 일하는 중인 Run 을 기록을 남기고 멈출 길이 화면에서 사라진다(FUI-04) |
 | D-SDA-8 | 창·탭·그룹 이름의 길이 상한은 dmctl 길(`/api/commands`)에서만 거절하고, workspace 저장은 막지 않는다(F-p) | 사용자 결정 2026-11-07. 저장 전체를 거절하면 긴 이름 하나로 그 뒤의 모든 변경이 저장되지 않는다 |
+| D-SDA-11 | 화면이 값마다 갈라지는 식별자(K1·K2·K4·K15)는 두 벌을 게이트로 묶지 않고, 서버가 그 값의 뜻을 함께 보낸다(FR-SDA-84) | 사용자 결정 2026-11-07. 이름만 보내면 화면에 "이 이름이면 이것을 한다" 는 두 벌이 남는다. 뜻을 보내면 화면은 글자를 견주지 않는다 |
 | D-SDA-10 | UTF-8 변환은 저장 요청의 `convertFrom`(문서를 연 인코딩)으로 일반 저장과 가르고, 서버가 디스크 바이트를 그 인코딩으로 판정해 거절한다(X-e) | 사용자 결정 2026-11-07. 변환과 일반 저장의 요청이 같으면 서버는 그것이 변환인지도, 문서가 어느 인코딩으로 열렸는지도 모른다 — FR-SDA-73 의 "같은 판정으로 거절" 을 지킬 재료가 없다 |
 
 ## 5. 검증 (Verification)
@@ -355,6 +377,8 @@ GV-c 동작 표:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-07 | K-1 구현. 동작 변경 넷. ① **이전**: 화면이 잡 줄 상한(2000)·History 페이지(300/100/2000)·파일 요청 상한(512/512/1024)·다시 열기 인코딩 넷을 따로 들고 있었다 / **새**: `/api/git/policy` 의 `jobLineCap`·`logLimits`, `/api/meta` 의 `fsStampMax`·`fileStampsMax`·`fsWatchDirsMax`·`encodings` 를 쓴다. 받기 전에는 자르지 않고, History 는 `limit` 을 싣지 않으며(서버가 첫 장으로 접는다), 다시 열기 항목이 없다 / **이유**: FR-SDA-80. ② **이전**: History 의 첫 요청은 정책을 기다리지 않았다 / **새**: 정책(세션에 한 번)을 받은 뒤 보낸다 / **이유**: 페이지 크기가 정책에 있다. ③ **이전**: 편집기 루트 순서 `[home, notes, plugins, ...list]` 를 화면이 따로 지었다 / **새**: `GET /api/editors` 의 `fixed`(서버 `wsentry.FixedRoots`, `Roots()` 와 같은 함수) 뒤에 list 를 잇는다. 드는지는 화면이 지금 아는 home·notes·plugins 가 정한다(메모 루트를 잃으면 그 자리만 빠진다, FR-NOT-11) / **이유**: K-e. ④ **이전**: `_edApplyServer` 가 서버의 `plugins` 를 버려 탐색기의 플러그인 행(FR-EXT-9b)이 한 번도 서지 않았다 / **새**: 저장하고, 행과 창이 선다 / **이유**: K-e 를 하다 찾은 결함(사용자 결정 2026-11-07: 함께 고친다). e2e `notes-live-explorer` 의 고정 행 수를 셋으로 고쳤다 |
+| 2026-11-07 | 묶음 K 설계 세부(§3.8a). 사용자 결정 D-SDA-11 — FR-SDA-84 를 더하고 FR-SDA-80 에서 K1·K2·K4·K15 를 뺐다(이전: 서버가 값을 보낸다). 조사 정정: K2 의 "submodule·worktree 라벨 없음" 은 어긋남이 아니라 일부러 뺀 것이다(D-A-27, 그 잡은 그쪽 탭이 맡는다) |
 | 2026-11-07 | X-4 구현 — 묶음 X 끝. 사용자 결정 D-SDA-10. 동작 변경 셋. ① **이전**: "UTF-8 로 변환" 은 화면이 `decodable`·`encoding`·`bom` 으로 판정했고, 저장 요청은 일반 저장과 같아 서버가 판정할 수 없었다 / **새**: 읽기 헤더 `X-File-Actions`·저장 응답 `actions` 의 `file.convert_utf8` 답이 메뉴를 정하고, 저장의 `convertFrom` 이 있으면 서버가 디스크 바이트로 같은 함수(`convertUTF8Answer`)를 불러 422 `encoding_undecodable`·409 `already_utf8` 로 거절한다 / **이유**: FR-SDA-73·D-SDA-10. ② **이전**: 화면의 저장은 모든 409 를 디스크 경합으로 읽어 덮어쓰기 확인창을 열었다 / **새**: `X-Error-Code: file_changed_on_disk` 일 때만 경합이다 / **이유**: 새 409 `already_utf8` 은 경합이 아니다. ③ 문구 `editor.enc_convert_already`·`editor.enc_convert_no_decode` 를 `why.already_utf8`·`why.encoding_undecodable` 로 옮겼다(뒤의 것은 코드 단위 문구라 일반 문장으로 바꿨다) |
 | 2026-11-07 | X-3 구현. 동작 변경 둘. ① **이전**: 저장 전 잠김 경고를 화면이 IPv4 만으로 판정했다(`_aclCoversYou`). IPv6 대역은 "모른다" 로 통과시켰고, 자기 주소(loopback·이 기계의 인터페이스)를 몰라 이 기계에서 접속해도 경고했다 / **새**: `POST /api/access/check` 의 답(`access.save`)으로 경고한다. 판정은 게이트와 같은 판정기(`buildMatcher`·`allowed`)이고, 검증은 저장과 같은 함수(`normalizeAccessConfig`)다 / **이유**: §2.1·FR-SDA-72·TC-SDA-9. ② **이전**: 확인창의 주소는 패널을 열 때 받은 값이었다 / **새**: 묻기 응답의 `you` / **이유**: 판정과 같은 요청의 출발지다. 설계 중 정한 것: 해석 기록이 없는 새 호스트명은 경고하지 않는다(종전 규칙 유지). 해석에 실패한 이름은 품지 않는다. e2e 는 loopback 으로 붙으므로 확인창 시험은 답을 위조하고, 실제 서버로는 "loopback 은 확인 없이 저장된다" 를 잰다 |
 | 2026-11-07 | X-2 구현. 동작 변경 둘. ① **이전**: 터미널 드롭은 화면이 `/api/cwd` 의 `source==='tool'` 로 판정하고 받은 cwd 를 `dir` 로 보냈다. `/api/upload` 는 아무 `dir` 이나 받았다 / **새**: `/api/cwd` 가 `actions["term.upload"]` 를 싣고, 화면은 그 답이 참이면 `/api/upload?tool=<id>` 로 보낸다. 서버는 그 순간의 도구 cwd 로 받고, 모르면 409 `upload_no_tool_cwd` 로 거절한다(`termUploadAnswer` 하나). `dir` 모양은 그대로다 / **이유**: FR-SDA-71·D-SDA-6. ② **이전**: cwd 조회와 업로드 사이에 셸이 폴더를 옮기면 옛 폴더에 놓였다 / **새**: 서버가 업로드하는 순간의 cwd 를 쓴다 / **이유**: 화면이 cwd 를 들지 않는다(X-c). 설계 중 정한 것: 거절 토스트는 기존 문구(`core.term_upload_no_cwd`)를 쓴다 — 사유가 하나이고 뜻이 같다. e2e 는 셸의 cwd 를 정할 수 없어, 업로드가 `tool` 모양인지 확인한 뒤 `dir` 로 바꿔 보낸다 |

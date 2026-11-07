@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"unicode/utf16"
 
+	"dongminal/internal/shared/textenc"
 	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/apierr"
 )
@@ -54,7 +55,13 @@ func rejectCommandAnswer(w http.ResponseWriter, a action.Answer) {
 	httpErr(w, fmt.Sprintf("%s: max %v", a.Why, a.Args["max"]), a.Status, a.Why)
 }
 
-// GET /api/meta — 화면이 부팅 때 한 번 받는 서버 상수 (FR-SDA-80). 묶음 K 가 넓힌다.
+// GET /api/meta — 화면이 부팅 때 한 번 받는 서버 상수 (FR-SDA-80 · K-c·K-d).
 func (s *Server) apiMeta(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, map[string]any{"entityNameMax": entityNameMax})
+	writeJSON(w, map[string]any{
+		"entityNameMax":  entityNameMax,
+		"fsStampMax":     fsStampMax,
+		"fileStampsMax":  fileStampsMax,
+		"fsWatchDirsMax": fsWatchDirsMax,
+		"encodings":      textenc.ReopenChoices,
+	})
 }
