@@ -1,7 +1,7 @@
 # SRS: 서버가 답하는 동작 가능 여부 — server-driven actions — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: 묶음 N. 묶음 K(§3.8a)·X(§3.7a)·F(§3.5a)·R(§3.6a)는 구현했다. 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)·GV(§3.4a)는 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
+> **문서 상태**: 승인·구현완료
+> **끝난 것**: 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)·GV(§3.4a)·F(§3.5a)·R(§3.6a)·X(§3.7a)·K(§3.8a)·N(§3.9). 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
 
 ## 1. 개요 (Introduction)
 
@@ -378,6 +378,7 @@ GV-c 동작 표:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-07 | 묶음 N 구현 — 이 SRS 끝. 동작 변경 없음(주석만). 전수 목록 §5 의 다섯 가운데 둘(`file-tree-edit.js` 의 자기 하위 이동, `constants-editor.js` 의 "세는 종단이 없다")은 F 에서 대상 코드와 함께 없어졌고, `stash.go` 의 `StashEmptyReason` 주석은 M 에서 고쳤다. 남은 둘을 고쳤다: `cm-lsp.js` 의 `languageFor`·`serverRequestResult` 는 M8(`5dc4ffc5`)에서 Go 쪽이 없어져 JS 가 유일한 자리라고 적었고, `app-statusbar.js` 의 `_bgModalToggle` 부르는 자리는 지금 `app.js` 의 `bgToggle` 하나다 |
 | 2026-11-07 | K-4 구현(K-k·K-l) — 묶음 K 끝. 동작 변경 둘. ① **이전**: 서버의 `claudeFullscreen` 기본값은 코드에 박은 `true` 였다 / **새**: 설정 스키마의 `def` 를 읽는다(`fullscreenDefault`). 표를 읽지 못하거나 불리언이 아니면 켬이다. 지금 표의 값도 `true` 라 결과는 같다 / **이유**: FR-SDA-82. ② **이전**: 화면이 Run 의 짧은 id 를 `runId` 앞 8자로 잘랐다(`runShortId`) / **새**: 서버의 `short`, `/api/tools/background` 의 새 `runShort`(`run.Short`)를 쓴다. 없으면 `Run` 만 쓴다(Run 탭 이름·대시보드 요약). 지금 Run 탭은 Runs 패널에서만 열리고 거기엔 언제나 `short` 가 있다 / **이유**: FR-SDA-83 |
 | 2026-11-07 | K-3 구현(K-j). 동작 변경 없음 — 게이트와 시험만 더했다. **이전**: K9·K10·K12·K13·K17 의 두 벌과 K6(해시)·K16(질의·응답)의 짝은 주석으로만 묶였고, 잡 표시기 종류의 라벨이 빠져도 아무것도 실패하지 않았다 / **새**: `scripts/check-shared-constants`(`make gates`)가 두 벌을 집합·값으로 대조하고, `jobs.IndicatorKinds()` 의 종류마다 ko·en 라벨을 본다. K6·K16 은 공유 표본(`gitapi/testdata/oid_digest_vectors.json`·`httpapi/testdata/term_query_report_vectors.json`)을 Go 시험과 `web/js/test/shared-vectors.test.mjs` 가 함께 읽는다 / **이유**: FR-SDA-81·TC-SDA-11 |
 | 2026-11-07 | K-2 의 샌드박스(K-i) 구현. 사용자 결정 D-SDA-12(`onlyDefault` 는 헤더). 동작 변경 셋. ① **이전**: 화면이 런타임 `state` 를 `ok`·`missing` 과 견줘 모달·명령·재시작 안내·기다림의 끝을 골랐다 / **새**: 응답의 `ready`·`installed` 로 고르고, 제목·문장은 `core.sbx_rt_title.<state>`·`core.sbx_rt_msg.<state>` 로 고른다(없으면 `state` 그대로) / **이유**: FR-SDA-84. ② **이전**: 고르는 줄(마운트·복사)·기본 선택·마운트 경고·복사 진행 표시·창의 복사 배지를 화면이 방식 이름으로 정했다 / **새**: 프로파일의 `workPicks`(`[{work, copies}]`, `sandbox.WorkPicksOf`)로 정한다. 줄은 프로파일들의 선택을 합친 것이고, 고를 방식이 없으면 줄을 세우지 않는다. `none` 프로파일은 그 프로파일의 `work` 를 싣는다(값은 전과 같은 `none`) / **이유**: FR-SDA-84. ③ **이전**: "dev 프로파일을 정의하라" 안내를 화면이 `list.length===1 && name==='scratch'` 로 판정했다 / **새**: 헤더 `X-Sandbox-Only-Default`(`sandbox.OnlyDefault`)를 따른다 / **이유**: FR-SDA-84·D-SDA-12 |

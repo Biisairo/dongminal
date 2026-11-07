@@ -67,7 +67,7 @@ function edLspPathKey(uri) {
   return ED_LSP_WIN_ABS.test(p) ? p[0].toLowerCase() + p.slice(1) : p;
 }
 
-/** 이 파일의 LSP language id. Go `languageFor` 와 같은 표다. */
+/** 이 파일의 LSP language id. 옛 Go `languageFor`(M8 에서 없앴다)를 옮긴 표이고, 지금은 이 자리 하나다. */
 function edLspLangId(path, langs) {
   const m = String(path || '').match(/(\.[^./\\]+)$/);
   const ext = m ? m[1].toLowerCase() : '';
@@ -79,7 +79,7 @@ function edLspLangId(path, langs) {
 }
 
 /**
- * 서버가 보내는 요청의 답 — Go `serverRequestResult` 를 옮겼다. 라이브러리는 서버 요청을
+ * 서버가 보내는 요청의 답 — 옛 Go `serverRequestResult`(M8 에서 없앴다)를 옮겼다. 라이브러리는 서버 요청을
  * 모두 −32601 로 답하므로 소켓이 가로챈다.
  */
 function edLspServerReply(method, params, root) {
