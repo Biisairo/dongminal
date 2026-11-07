@@ -27,6 +27,7 @@ REMOVED=(
   _split                       # GV-g: 원격 ref 를 원격·브랜치로 가르는 화면 규칙
   GIT_TAG_KIND_OPTS GIT_CO_RESET_MODES  # GV-h: 서버가 보내는 목록의 사본
   edCountTree EDITOR_DEL_COUNT_MAX  # F-g: 화면이 세던 삭제 항목 수와 그 상한
+  EDITOR_NAME_INVALID EDITOR_MOVE_INTO_SELF  # F-k·F-l: 이름의 / · 자기 하위 이동
 )
 
 pat=$(IFS='|'; echo "${REMOVED[*]}")

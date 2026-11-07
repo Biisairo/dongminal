@@ -55,6 +55,7 @@ var Catalog = Table{
 	FSMove:   fsProtected(fsMissing...),
 	FSCopy:   fsMissing,
 	FSDelete: fsProtected(append(fsMissing, apierr.CodeTooManyEntries)...),
+	FSName:   {apierr.CodeEmptyName, apierr.CodeNameHasSeparator, apierr.CodeNameReserved},
 }
 
 // fsMissing 은 대상을 읽지 못한 사유다 — 파일 표면의 os 오류 표(`apierr.FS`)가 낸다.

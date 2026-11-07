@@ -77,8 +77,8 @@ func (s *Server) apiFSCopy(w http.ResponseWriter, r *http.Request) {
 		fsFail(w, fsErrBadRequest, "대상이 디렉터리가 아니다")
 		return
 	}
-	if err := fsCopyGuardSelf(src, dstDir, st); err != nil {
-		fsFailErr(w, err)
+	if a := fsIntoSelfAnswer(src, dstDir, st); !a.OK {
+		fsRejectAnswer(w, a)
 		return
 	}
 	// **먼저 세고** 나서 복사한다 (FR-WBR-66) — 세다 멈추면 절반만 복사된 트리가
@@ -111,33 +111,6 @@ func (s *Server) apiFSCopy(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	fsJSON(w, http.StatusOK, map[string]any{"ok": true, "path": target})
-}
-
-// fsCopyGuardSelf 는 디렉터리를 자기 자신이나 자기 하위로 복사하는 것을 막는다
-// (FR-WBR-64).
-//
-// **서버가 막아야 하는 자리다.** 이동(FR-EDT-85)은 클라이언트만 막고 있어도
-// 최악이 트리를 잃는 것이지만, 복사는 막지 않으면 자기가 만든 것을 다시 복사하며
-// **무한 재귀**로 디스크를 채운다.
-//
-// 링크는 대상이 아니다 — 링크 자체를 복사하므로 재귀가 없다.
-func fsCopyGuardSelf(src, dstDir string, st os.FileInfo) error {
-	if !st.IsDir() {
-		return nil
-	}
-	real, err := filepath.EvalSymlinks(src)
-	if err != nil {
-		return fsResolveErr(err)
-	}
-	rel, err := filepath.Rel(real, dstDir)
-	if err != nil {
-		// 볼륨이 다르면 하위일 수 없다.
-		return nil
-	}
-	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return nil
-	}
-	return fsError{fsErrBadRequest, "자기 자신이나 자기 하위로는 복사할 수 없다"}
 }
 
 // fsCopyCreate 는 빈 이름을 찾아 **그 자리에서 만든다** (FR-WBR-63).

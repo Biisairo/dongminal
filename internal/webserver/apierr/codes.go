@@ -133,4 +133,7 @@ const (
 	CodeHomeProtected           = "home_protected"
 	CodeFilesystemRootProtected = "filesystem_root_protected"
 	CodeTooManyEntries          = "too_many_entries"
+	CodeIntoSelf                = "into_self"
+	CodeNameHasSeparator        = "name_has_separator"
+	CodeNameReserved            = "name_reserved"
 )

@@ -535,6 +535,41 @@ test.describe('server-driven F-1 — 탐색기 메뉴의 답', () => {
     await expect(confirmMsg(page)).toContainText('1개');
     await page.locator('.ed-confirm .confirm-cancel').click();
   });
+
+  test('SDF3 (TC-SDA-7 / FR-SDA-53): 새 파일 이름 a/b 는 입력 중에 거절되고, HTTP 로 보내도 400 이다', async ({ page, request }) => {
+    const R = mkRoot('sdf3');
+    await enterExplorer(page, request, R);
+
+    await page.locator('.ed-head-new-file').click();
+    await input(page).fill('src/x.txt');
+    // 입력이 멈추면 서버의 답이 입력 아래에 선다. 그 답이 거짓이면 Enter 는 보내지 않는다.
+    await expect(opErr(page)).toContainText('/');
+    await input(page).press('Enter');
+    await expect(input(page)).toBeVisible();
+    await onDisk(() => fs.existsSync(j(R, 'src', 'x.txt'))).toBe(false);
+
+    // 고치면 사유가 거둬지고 만들어진다.
+    await input(page).fill('ok.txt');
+    await expect(opErr(page)).toHaveCount(0);
+    await input(page).press('Enter');
+    await onDisk(() => fs.existsSync(j(R, 'ok.txt'))).toBe(true);
+
+    // 화면을 거치지 않은 요청도 같은 코드로 거절된다 (TC-SDA-1).
+    const r = await request.post('/api/fs/create', { data: { root: R, parent: R, name: 'src/x.txt', dir: false } });
+    expect(r.status()).toBe(400);
+    expect((await r.json()).code).toBe('name_has_separator');
+    await onDisk(() => fs.existsSync(j(R, 'src', 'x.txt'))).toBe(false);
+  });
+
+  test('SDF4 (FR-SDA-53): 이름 바꾸기도 .. 를 서버가 거절한다', async ({ page, request }) => {
+    const R = mkRoot('sdf4');
+    await enterExplorer(page, request, R);
+    await ctx(page, j(R, 'top.txt'), 'rename');
+    await input(page).fill('..');
+    await expect(opErr(page)).toContainText('..');
+    await input(page).press('Escape');
+    await onDisk(() => fs.existsSync(j(R, 'top.txt'))).toBe(true);
+  });
 });
 
 test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {

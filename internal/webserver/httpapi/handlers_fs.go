@@ -352,6 +352,10 @@ type fsCreateReq struct {
 	Root string `json:"root"`
 	Path string `json:"path"`
 	Dir  bool   `json:"dir"`
+	// Parent·Name 이 있으면 `path` 대신 쓴다. 경로만 받으면 서버는 `a/b` 가 이름인지
+	// 경로인지 가를 수 없다 — 이름은 `fsNameAnswer` 로 판정한다 (SERVER_DRIVEN_ACTIONS_SRS F-j).
+	Parent string `json:"parent"`
+	Name   string `json:"name"`
 }
 
 // fsRootTarget 은 요청의 root 와 경로를 실제 자리 하나로 옮긴다
@@ -392,7 +396,15 @@ func (s *Server) apiFSCreate(w http.ResponseWriter, r *http.Request) {
 	if !fsDecode(w, r, &req) {
 		return
 	}
-	_, target, ok := s.fsRootTarget(w, req.Root, req.Path)
+	path := req.Path
+	if req.Name != "" || req.Parent != "" {
+		if a := fsNameAnswer(req.Name); !a.OK {
+			fsRejectAnswer(w, a)
+			return
+		}
+		path = filepath.Join(req.Parent, strings.TrimSpace(req.Name))
+	}
+	_, target, ok := s.fsRootTarget(w, req.Root, path)
 	if !ok {
 		return
 	}

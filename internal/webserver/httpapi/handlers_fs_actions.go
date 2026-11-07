@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/apierr"
@@ -145,4 +146,61 @@ func fsRejectAnswer(w http.ResponseWriter, a action.Answer) {
 		body["args"] = a.Args
 	}
 	fsFailBody(w, a.Why, body)
+}
+
+type fsNameReq struct {
+	Name string `json:"name"`
+}
+
+// POST /api/fs/validate-name — 만들기·이름 바꾸기의 이름 하나를 판정한다 (F-i · FR-SDA-53).
+func (s *Server) apiFSValidateName(w http.ResponseWriter, r *http.Request) {
+	var req fsNameReq
+	if !fsDecode(w, r, &req) {
+		return
+	}
+	fsJSON(w, http.StatusOK, map[string]any{
+		"actions": map[string]action.Answer{action.FSName: fsNameAnswer(req.Name)},
+	})
+}
+
+// fsNameAnswer 는 이름 하나의 판정이다. 앞뒤 공백을 지운 뒤 본다. 경로 구분자는 `/` 와
+// 이 OS 의 구분자다 — 다른 OS 에서 `\` 는 이름에 쓸 수 있는 글자다.
+//
+//	이전 동작: 서버는 경로만 받아 `a/b` 를 다른 폴더의 파일로 만들었다 (F-B1)
+func fsNameAnswer(name string) action.Answer {
+	n := strings.TrimSpace(name)
+	switch {
+	case n == "":
+		return fsDeny(apierr.CodeEmptyName, nil)
+	case strings.ContainsRune(n, '/') || strings.ContainsRune(n, filepath.Separator):
+		return fsDeny(apierr.CodeNameHasSeparator, nil)
+	case n == "." || n == "..":
+		return fsDeny(apierr.CodeNameReserved, nil)
+	}
+	return action.Allow()
+}
+
+// fsIntoSelfAnswer 는 디렉터리를 자기 자신이나 자기 하위로 옮기거나 복사하는 것을 막는다
+// (FR-EDT-85 · FR-SDA-52). 심볼릭 링크를 푼 실제 경로로 비교한다. 링크는 대상이 아니다 —
+// 링크 자체를 다루므로 재귀가 없다.
+//
+// **서버가 막아야 하는 자리다.** 복사는 막지 않으면 자기가 만든 것을 다시 복사하며
+// **무한 재귀**로 디스크를 채운다. 끌어 놓는 동안 화면은 판정하지 않는다 (D-SDA-7).
+func fsIntoSelfAnswer(src, dstDir string, st os.FileInfo) action.Answer {
+	if !st.IsDir() {
+		return action.Allow()
+	}
+	real, err := filepath.EvalSymlinks(src)
+	if err != nil {
+		return fsErrAnswer(fsResolveErr(err))
+	}
+	rel, err := filepath.Rel(real, dstDir)
+	if err != nil {
+		// 볼륨이 다르면 하위일 수 없다.
+		return action.Allow()
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return action.Allow()
+	}
+	return fsDeny(apierr.CodeIntoSelf, nil)
 }

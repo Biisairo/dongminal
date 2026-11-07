@@ -950,7 +950,7 @@ Object.assign(FileTree.prototype, {
     this._pad(d,it.depth);
     d.appendChild(this._span('ed-tw',it.isDir?EDITOR_TREE_TW_CLOSED:''));
     const i=document.createElement('input');
-    i.className='ed-input'; i.type='text'; i.value=it.init; i.spellcheck=false;
+    i.className='ed-input'; i.type='text'; i.value=it.init; i.spellcheck=false; i.oninput=()=>this._askName(i.value); // F-k
     i.addEventListener('keydown',e=>{
       e.stopPropagation();
       // §3A-5 (T-7.3): 끝내면 키보드 포커스가 트리 목록으로 돌아온다.

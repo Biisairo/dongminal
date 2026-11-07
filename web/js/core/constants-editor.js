@@ -425,6 +425,10 @@ const FS_ACTION_RENAME='fs.rename';
 const FS_ACTION_MOVE='fs.move';
 const FS_ACTION_COPY='fs.copy';
 const FS_ACTION_DELETE='fs.delete';
+// F-i·F-k: 만들기·이름 바꾸기의 이름 판정. 인라인 입력은 입력이 멈춘 뒤 묻는다.
+const FS_VALIDATE_NAME_API='/api/fs/validate-name';
+const FS_ACTION_NAME='fs.name';
+const FS_NAME_ASK_DEBOUNCE_MS=200;
 // FR-WBR-60: 복사·복제가 함께 쓰는 하나의 종단. 복제는 "원본의 형제 자리에
 // 붙여넣기" 이므로 종단을 나눌 이유가 없다.
 const FS_COPY_API='/api/fs/copy';
@@ -571,9 +575,6 @@ function edFsReason(d){
   if(code&&I18N.has('why.'+code)) return t('why.'+code,d.args);
   return (d&&d.message)||EDITOR_FS_ERR_UNKNOWN;
 }
-// FR-EDT-85: 서버에 묻기 전에 클라이언트가 막는 유일한 경우다 — os.Rename 은 이
-// 이동을 성공시키고 트리를 잃어버린다.
-const EDITOR_MOVE_INTO_SELF=t('editor.move_into_self');
 // REPO_FIX 04 §3A-2·3A-3·3A-5: 갱신 실패 표식 · 여러 건 실패 · 닫기 · 탭 충돌.
 const EDITOR_TREE_STALE=t('editor.tree_stale');
 const EDITOR_TREE_ERR_CLOSE=t('editor.tree_err_close');
@@ -583,7 +584,6 @@ const FILE_TREE_DRAG_TYPE='application/x-dongminal-tree';
 // WORKBENCH_REVIEW_SRS FR-WBR-41: 재조정이 지우려던 창을 미뤘다는 사실. 창 이름을
 // 밝히는 이유는 FR-EDT-84 와 같다 — 개수만으로는 무엇을 정리해야 할지 모른다.
 const EDITOR_HELD_DIRTY=t('editor.held_dirty');
-const EDITOR_NAME_INVALID=t('editor.name_invalid');
 
 // ── 편집기의 변경 표시 (EDITOR_DIRTY_DIFF_SRS) ──
 //

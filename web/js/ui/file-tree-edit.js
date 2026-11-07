@@ -21,6 +21,7 @@ Object.assign(FileTree.prototype, {
       if(!this._kids.has(d)) this.load(d);
     }
     this._edit={mode:'create',dir:d,path:'',isDir:!!isDir,init:''};
+    this._nameReset();
     this._focusEdit=true;
     this._paintAll();
   },
@@ -30,30 +31,65 @@ Object.assign(FileTree.prototype, {
     this._clearErr();
     this._edit={mode:'rename',dir:this._parent(p),path:p,
       isDir:this._kindOf(p)==='dir',init:this._base(p)};
+    this._nameReset();
     this._focusEdit=true;
     this._paintAll();
   },
 
   cancelEdit(){
     if(!this._edit) return;
-    this._edit=null; this._clearErr(); this._paintAll();
+    this._edit=null; this._nameReset(); this._clearErr(); this._paintAll();
   },
 
-  // 이름을 받아 조작으로 넘긴다. 빈 이름은 취소이고, `/` 는 서버에 묻지 않고
-  // 그 자리에서 막는다 — 이름 하나를 받는 자리에 경로가 들어오면 그것은 오타다.
+  /**
+   * 이름을 받아 조작으로 넘긴다. 빈 이름은 취소다. 이름이 옳은지는 **서버가 판정한다**
+   * (SERVER_DRIVEN_ACTIONS_SRS F-k) — 마지막 답이 거짓이면 보내지 않고 입력을 둔다.
+   * 답을 기다리는 중이면 보내고, 서버의 실행 종단이 같은 판정으로 거절한다.
+   *	이전 동작: 화면이 `/` 만 스스로 막았다(`\`·`..` 는 몰랐다)
+   */
   _commitEdit(raw){
     const e=this._edit; if(!e) return;
     const name=String(raw||'').trim();
     if(!name){this.cancelEdit();return}
-    if(name.includes('/')){this._fail('input',EDITOR_NAME_INVALID);return}
+    if(this._nameWhy){this._showNameWhy();return}
+    this._nameReset();
     if(e.mode==='rename'){
       if(name===e.init){this.cancelEdit();return}
       this._edit=null; this._clearErr();
-      this.doRename(e.path,this._join(e.dir,name));
+      this.doRename(e.path,this._join(e.dir,name),name);
       return;
     }
     this._edit=null; this._clearErr();
     this.doCreate(e.dir,name,e.isDir);
+  },
+
+  // F-k: 인라인 입력이 멈추면 서버에 이름을 묻는다. 늦게 온 앞선 답은 세대로 버린다.
+  // `_nameWhy` 는 지금 입력에 대한 거절 사유이고, 모르면 null 이다.
+  _askName(raw){
+    const seq=this._nameReset();
+    this._nameT=TIMERS.after(FS_NAME_ASK_DEBOUNCE_MS,async()=>{
+      this._nameT=null;
+      const r=await apiPost(FS_VALIDATE_NAME_API,{name:raw});
+      if(seq!==this._nameSeq||!this._edit) return;
+      const a=r.ok&&r.data&&r.data.actions?r.data.actions[FS_ACTION_NAME]:null;
+      if(!a) return;
+      const st=actionState(a,false);
+      this._nameWhy=st.enabled?'':st.why;
+      this._showNameWhy();
+    },{owner:this,label:'fs-name-ask'});
+  },
+
+  _nameReset(){
+    TIMERS.cancel(this._nameT); this._nameT=null;
+    this._nameWhy=null;
+    this._nameSeq=(this._nameSeq||0)+1;
+    return this._nameSeq;
+  },
+
+  // 사유는 입력 아래의 오류 줄이다 (FR-EDT-92 의 자리). 답이 참이면 그 줄을 거둔다.
+  _showNameWhy(){
+    if(this._nameWhy){this._err={anchor:'input',msg:this._nameWhy,more:0};this._paintAll();return}
+    if(this._err&&this._err.anchor==='input') this._clearErr();
   },
 
   // ── 낙관적 반영과 되돌리기 (FR-EDT-92) ──
@@ -166,7 +202,8 @@ Object.assign(FileTree.prototype, {
     this._optimAdd(dir,name,isDir);
     this._selOnly(path);
     this._paintAll();
-    const r=await this.app.edFs(FS_CREATE_API,{root:this.root,path,dir:!!isDir});
+    // F-j: 이름을 따로 보낸다 — 경로만 보내면 서버는 `a/b` 가 이름인지 가를 수 없다.
+    const r=await this.app.edFs(FS_CREATE_API,{root:this.root,parent:dir,name,dir:!!isDir});
     if(!r.ok){
       // §3A-5 (T-6.2): 선택을 생성 전으로 되돌리고(다음 "새 파일" 이 원래 폴더에 뜬다),
       // 입력하던 이름 그대로 인라인 입력을 다시 연다(사유와 함께).
@@ -198,14 +235,15 @@ Object.assign(FileTree.prototype, {
    * 같은 이름이 있으면 **서버가 거부한다** (FR-EDT-86·115). 덮어쓰기도 자동 개명도
    * 여기에 없다.
    */
-  async doRename(from,to){
+  /**
+   * `name` 이 있으면 인라인 입력의 제자리 이름 바꾸기다 — 서버가 그 이름을 판정한다
+   * (SERVER_DRIVEN_ACTIONS_SRS F-j). 끌어 옮기기는 `to` 만 보낸다.
+   */
+  async doRename(from,to,name){
     if(!from||!to||from===to) return;
     // FR-WBR-1·4: 끌어 옮기는 길(`file-tree-xfer`)은 `_commitEdit` 를 지나지
     // 않으므로 여기가 그 조작의 시작이다.
     this._clearErr();
-    // FR-EDT-85: 자기 자신·자기 하위로는 옮길 수 없다. 서버의 rename 은 이것을
-    // 성공시키고 트리를 통째로 잃어버리므로 클라이언트가 막는 유일한 자리다.
-    if(pathUnder(from,to)){this._fail(from,EDITOR_MOVE_INTO_SELF);return}
     const sd=this._parent(from),dd=this._parent(to);
     // FR-FTR-20b: 도착 폴더를 펼친다. 접힌 폴더로 옮기면 옮긴 것이 화면에서
     // 사라지고, 사용자는 잃은 것으로 읽는다 (업로드가 같은 이유로 펼친다).
@@ -214,14 +252,16 @@ Object.assign(FileTree.prototype, {
     // 않는다 — 키 충돌에서 덮어쓰면 거부됐을 때 두 폴더의 펼침·캐시를 되돌릴 수 없다.
     //   이전 동작: 덮어써서 거부 뒤 한쪽 폴더의 펼침·목록이 사라졌다
     // 대상 폴더를 읽는 중이어도 같다 — 도착할 목록과 옮긴 키가 섞인다.
-    const optim=!this._kids.has(to)&&!this.store.loadQ.has(to);
+    // F-l: 자기 하위로의 이동은 서버가 거절한다(`into_self`). 그 그림은 되돌리기 어려우므로
+    // 미리 그리지 않는다 — 허용 판정이 아니다.
+    const optim=!this._kids.has(to)&&!this.store.loadQ.has(to)&&!pathUnder(from,to);
     const snap=this._snap(sd===dd?[sd]:[sd,dd]);
     if(optim){
       this._optimMove(from,to);
       this._selOnly(to);
       this._paintAll();
     }
-    const r=await this.app.edFs(FS_RENAME_API,{root:this.root,from,to});
+    const r=await this.app.edFs(FS_RENAME_API,name?{root:this.root,from,name}:{root:this.root,from,to});
     if(!r.ok){
       if(optim){this._rekey(to,from);this._restore(snap)}
       this._fail(from,r.msg);
@@ -402,9 +442,9 @@ Object.assign(FileTree.prototype, {
       const dd=this._parent(to);
       if(dd!==this.root&&!this._open.has(dd)) this._open.add(dd);
     }
+    // F-l: 자기 하위로의 이동도 보낸다 — 서버가 `into_self` 로 거절한다 (D-SDA-7).
     const res=await Promise.all(pairs.map(([from,to])=>
-      pathUnder(from,to)?Promise.resolve({ok:false,msg:EDITOR_MOVE_INTO_SELF})
-        :this.app.edFs(FS_RENAME_API,{root:this.root,from,to})));
+      this.app.edFs(FS_RENAME_API,{root:this.root,from,to})));
     pairs.forEach(([from,to],i)=>{
       if(res[i].ok) this._retargetOrFail(from,to);
       else this._fail(from,res[i].msg);

@@ -28,6 +28,9 @@ type fsRenameReq struct {
 	//	          제약뿐이다
 	SrcRoot string `json:"srcRoot"`
 	DstRoot string `json:"dstRoot"`
+	// Name 이 있으면 **제자리 이름 바꾸기**다 — 대상은 `from` 의 형제 `name` 이고 `to` 는
+	// 보지 않는다. 이름은 `fsNameAnswer` 로 판정한다 (SERVER_DRIVEN_ACTIONS_SRS F-j).
+	Name string `json:"name"`
 }
 
 // POST /api/fs/rename (FR-EDT-109·115 · `FUI-11`).
@@ -58,7 +61,7 @@ func (s *Server) apiFSRename(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	_, to, ok := s.fsRootTarget(w, dstRoot, req.To)
+	to, ok := s.fsRenameTo(w, req, fromRoot, from, dstRoot)
 	if !ok {
 		return
 	}
@@ -74,10 +77,9 @@ func (s *Server) apiFSRename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 자기 하위로 옮기지 않는다 — 복사와 같은 판정이고 같은 이유다 (FR-EDT-85).
-	// 루트를 건너게 되면서 이 검사가 **필요해졌다**: 한 루트 안에서는 클라이언트의
-	// 드래그 규칙이 그것을 막고 있었다.
-	if err := fsCopyGuardSelf(from, filepath.Dir(to), st); err != nil {
-		fsFailErr(w, err)
+	// 화면은 이것을 판정하지 않는다 (FR-SDA-52).
+	if a := fsIntoSelfAnswer(from, filepath.Dir(to), st); !a.OK {
+		fsRejectAnswer(w, a)
 		return
 	}
 	if err := s.fsRenameNoReplace(from, to); err != nil {
@@ -85,6 +87,20 @@ func (s *Server) apiFSRename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fsOK(w)
+}
+
+// fsRenameTo 는 이름 바꾸기의 대상이다. `name` 이 있으면 출발지의 형제이고, 없으면 `to`
+// 를 그 루트 아래로 푼다(경로를 뜻하는 호출, R-3).
+func (s *Server) fsRenameTo(w http.ResponseWriter, req fsRenameReq, fromRoot, from, dstRoot string) (string, bool) {
+	if req.Name == "" {
+		_, to, ok := s.fsRootTarget(w, dstRoot, req.To)
+		return to, ok
+	}
+	if a := fsNameAnswer(req.Name); !a.OK {
+		fsRejectAnswer(w, a)
+		return "", false
+	}
+	return fsTargetIn(w, fromRoot, filepath.Join(filepath.Dir(from), strings.TrimSpace(req.Name)))
 }
 
 // fsRenameNoReplace 는 대상이 이미 있으면 덮어쓰지 않고 거절한다.

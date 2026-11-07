@@ -180,7 +180,7 @@ var FS = Table{
 func FSStatus(code string) int {
 	switch code {
 	case CodeBadRequest, CodeEditorRootProtected, CodeHomeProtected, CodeFilesystemRootProtected,
-		CodeTooManyEntries:
+		CodeTooManyEntries, CodeIntoSelf, CodeNameHasSeparator, CodeNameReserved, CodeEmptyName:
 		return http.StatusBadRequest
 	case CodeNotFound:
 		return http.StatusNotFound
