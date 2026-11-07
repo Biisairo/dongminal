@@ -86,10 +86,16 @@
 - 메뉴 항목의 꺼진 사유는 글자가 아니라 `title` 에 있다(`UIKit.menu`) — e2e 는 `toHaveAttribute('title', …)` 로 잰다.
 - 화면 변경의 RED 는 화면 파일만 `git show HEAD:<파일>` 로 잠시 되돌려 새 e2e 가 실패하는지로 확인했다(탐침 뒤 복원).
 
-## server-driven 다음 단계
+## server-driven 다음 단계 — issue-tree 운영 (2026-11-07 완료)
 
-- server-driven 이 끝났으므로 `docs/internal/ISSUE_TREE_OPS_FINDINGS.md` 로 넘어간다(사용자 결정 2026-11-06: server-driven 이 끝난 뒤). issue-tree 운영 문제 8건 · 맥락 기준 migration 의 설정과 훅 · 표시줄에 포커스된 탭 이름 · 사용자가 2026-11-07 에 더한 9~14번(GitHub 트리 그래프 조사·편집기 단축키·에이전트 정보 dmctl·동시 진행의 질문/결정 주인·형제 이동은 부모가·세션 지시가 이슈 운영 전부를 담음)이다.
-- 그 문서는 **요구 입력**이다. 먼저 IEEE 29148 SRS 로 옮기고, 「dongminal 이 정한다」 로 남은 자리는 SRS 에서 결정한다. 사용자가 이미 정한 것(문서의 「사용자 결정」 넷과 13·14번의 원문)은 다시 묻지 않는다. server-driven 의 구현 내용은 사용자 지시(2026-11-07)대로 그 문서 끝 「참고: server-driven 구현 내용」 에 덧붙였다.
+- `docs/internal/ISSUE_TREE_OPS_FINDINGS.md` 는 `docs/internal/ISSUE_TREE_OPS_SRS.md`(승인·구현중, 남은 것 없음)로 옮겨 구현했다. 커밋 `09a5fcff`(SRS)·`9cb52995`(A)·`27ea2536`(B)·`04df2cb8`(C·S)·`fc217bcf`(M)·`6a3eb577`(W)·`b87d3efb`(E).
+  - A: 트리 멤버의 배정(`run member --issue …`, `run assign`)과 트리 프리앰블. 질문은 노드가 직접 묻고 결정은 이슈 코멘트(D-ITO-3). 형제 이동·탭 닫기는 부모가 한다. 끼어든 이슈는 WIP 커밋 + 이슈 메모(D-ITO-4).
+  - B: `run succeed --self`(자기 승계) · 트리 승계 알림 · `node_taken` 안내 · `who-am-i` 의 `member` · `migration.md` 의 멤버 갈래.
+  - C·S: 배정 부모로 세운 트리 · 끝난 노드 흔적 · `waiting-children` · 트리 Run 대시보드의 중심이 트리 · `dmctl status` 의 `run_state=`·사용량 줄.
+  - M: 설정 넷(`migrationHook`·`migrationHookCtxPct`·`issueTreeMigration`·`issueTreeCtxPct`) · `dmctl ctx-hook`(PostToolUse·UserPromptSubmit) · `GET /api/tools/migration-advice`.
+  - W: 표시줄·칸 머리글에 포커스 탭 이름. E: 편집기 키가 CodeMirror 에 먼저 닿게 하고 Monaco 키를 더했다(§3.6a).
+  - 9번(GitHub 이슈 트리 그래프)은 조사로 끝냈다(D-ITO-9, SRS §2.9).
+- **남은 것은 사용자의 일이다:** 설치 트리를 다시 설치해야 훅(`claude.json`)·플러그인 문서·서버가 새것이 된다. 그 뒤 실제 트리로 시범한다(`ISSUE_AGENT_TREE_SRS` TC-IAT-3 과 함께).
 
 ## 이 문서가 하지 않는 것
 
