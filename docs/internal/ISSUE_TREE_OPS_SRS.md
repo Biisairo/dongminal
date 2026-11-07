@@ -1,8 +1,8 @@
 # SRS: issue-tree 운영 — 배정·승계·트리 구조·맥락 migration·표시줄 탭 이름·편집기 단축키 — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-> **승인 근거**: 사용자 결정 넷(§4 D-ITO-3·4·9·12)을 반영했다. 사용자 지시(2026-11-07) — 단계마다 검증을 통과하면 묻지 않고 진행한다
-> **남은 것**: 없음 — 묶음 A·B·C·S·M·W·E 구현·시험 완료. 실제 트리 시범은 설치 갱신 뒤(사용자)
+> **문서 상태**: 승인·구현완료
+> **확인**: 사용자가 설치를 갱신하고 진행 중이던 트리를 재가동해 확인했다(2026-11-07). 맥락 훅의 additionalContext 전달과 `dmctl status` 의 사용량 줄은 실측했다.
+> **남은 것(막지 않음)**: 맥락 훅의 지연 측정(NFR-ITO-1) · mac 의 편집기 키 실측(e2e 브라우저는 Win32 였다) · git diff 보기의 키 차단(§3.6a 범위 밖) · 긴 brief 에서 트리 프리앰블 길이(R-1)
 > **입력**: `docs/internal/ISSUE_TREE_OPS_FINDINGS.md`(요구 입력 1~14번, 사용자 결정 넷). 이 SRS 가 그 문서를 대신한다.
 > **개정 대상**: `ISSUE_AGENT_TREE_SRS.md` 의 FR-IAT-50~54·60~64·73, FR-ITD-2·6, D-IAT-19 (§8 변경 기록)
 
@@ -363,6 +363,7 @@
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-07 | 구현완료. 사용자 시범으로 확인 |
 | 2026-11-07 | 묶음 E 구현(§3.6a). 이전 동작: 편집기 본문의 수식키 조합은 capture 단계에서 브라우저 기본이 막혀 CodeMirror 키맵에 닿지 않았다. `Mod-d`·`Mod-Shift-l`·`Ctrl-g`·`Mod-l` 등 Monaco 키가 없었다. 새 동작: CodeMirror 가 먼저 판정하고 쓰지 않은 조합만 막는다. Monaco 키 다섯과 Alt+클릭 커서를 더했다. Win/Linux 에서 겹치는 기본 앱 키 다섯은 편집기 본문에서 편집 키가 이긴다(사용자가 녹음한 키는 앱 키). 이유: 입력 10 의 사용자 보고 |
 | 2026-11-07 | 묶음 W 구현. 이전 동작: 표시줄과 칸 머리글은 `<창 종류> · <창 이름>` 이었고, pane 포커스 이동과 전경 이름 갱신에는 다시 칠하지 않았다. 새 동작: 끝에 그 창의 포커스 탭 이름이 붙고(겹치면 생략), 포커스 이동·전경 이름 갱신에도 제목만 다시 칠하며(`_rPaintTitles`), 전체 문자열을 `title` 에 싣는다. 기존 e2e(`slot-title-boundary`·`git-window-name`)의 기댓값을 새 형식으로 고쳤다. 이유: 별건 요구(표시줄 탭 이름)와 사용자 결정(모든 자리에 붙인다) |
 | 2026-11-07 | 묶음 M 구현. 이전 동작: 맥락 기준은 `issue-tree.md` 의 `--ctx`(기본 60)뿐이었고 중간 노드만 봤다. 일반 세션에는 migration 제안이 없었다. 새 동작: 설정 넷(`migrationHook`·`migrationHookCtxPct`·`issueTreeMigration`·`issueTreeCtxPct`, 기본 켬·50). claude 의 PostToolUse·UserPromptSubmit 에 `dmctl ctx-hook` 이 서서 서버 판정(`GET /api/tools/migration-advice`)을 additionalContext 로 옮긴다. 트리 프리앰블의 맥락 기준은 `--ctx` > 설정 > 50, 설정이 끔이면 「끔」. 잎 노드도 단계를 커밋한 뒤 맥락을 본다. 이유: 별건 요구 1~5 와 사용자 결정 넷 |
