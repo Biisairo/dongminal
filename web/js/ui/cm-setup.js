@@ -129,11 +129,11 @@ function edCmExtensions(o) {
     o.diff ? [] : edCmScrollbar(),
     o.diff ? [] : edCmSticky(),
     edCmBracketColors(),
-    // ISSUE_TREE_OPS_SRS FR-ITE-1: Monaco 키가 CodeMirror 기본보다 앞선다. Alt+클릭은 커서 더하기다
-    // (Monaco 와 같다 — Cmd/Ctrl+클릭은 정의로 가기가 쓴다).
+    // ISSUE_TREE_OPS_SRS FR-ITE-1: VS Code 키가 CodeMirror 기본보다 앞선다. Alt+클릭은 커서 더하기다
+    // (VS Code 와 같다 — Cmd/Ctrl+클릭은 정의로 가기가 쓴다).
     CM.EditorView.clickAddsSelectionRange.of(e => e.altKey),
     CM.keymap.of([
-      ...edMonacoKeymap(),
+      ...edVscodeKeymap(),
       ...CM.closeBracketsKeymap, ...CM.defaultKeymap, ...CM.historyKeymap,
       ...CM.foldKeymap, ...CM.completionKeymap, CM.indentWithTab,
     ]),
@@ -346,10 +346,10 @@ async function edCmLspAttach(view, cmp, path, current) {
 }
 
 /**
- * ISSUE_TREE_OPS_SRS FR-ITE-1·2: CodeMirror 기본 키맵에 없는 Monaco(VS Code) 기본 편집 키.
+ * ISSUE_TREE_OPS_SRS FR-ITE-1·2: CodeMirror 기본 키맵에 없는 VS Code 기본 편집 키.
  * 명령은 CodeMirror 의 것을 그대로 쓴다. 대조표는 SRS §3.6a 다.
  */
-function edMonacoKeymap() {
+function edVscodeKeymap() {
   return [
     { key: 'Mod-d', run: CM.selectNextOccurrence, preventDefault: true },
     { key: 'Mod-Shift-l', run: CM.selectSelectionMatches, preventDefault: true },

@@ -223,7 +223,7 @@ class InputBinding {
         // 편집기 검색·코드 탐색 셋은 위에서 이미 판정했다. 여기서 다시 잡으면
         // Editor 창이 아닐 때 그 키를 삼켜 터미널 검색이 죽는다 (FR-EKB-4).
         if(ED_CAPTURE_ACTIONS[action]) continue;
-        // ISSUE_TREE_OPS_SRS FR-ITE-3: 편집기 본문에서는 겹치는 Monaco 편집 키가 이긴다 —
+        // ISSUE_TREE_OPS_SRS FR-ITE-3: 편집기 본문에서는 겹치는 VS Code 편집 키가 이긴다 —
         // 막지 않고 물러나 CodeMirror 가 받게 한다.
         if(inCm&&matchShortcut(e,key)&&edEditKeyWins(e,action,key,IS_MAC)) return;
         if(matchShortcut(e,key)){e.preventDefault();e.stopImmediatePropagation();this.app.executeAction(action);return}

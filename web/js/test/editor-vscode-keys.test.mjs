@@ -5,16 +5,16 @@ import { loadCM } from './cm-harness.mjs';
 import { load } from './harness.mjs';
 
 /**
- * ISSUE_TREE_OPS_SRS 묶음 E — Monaco 기본 편집 키 (TC-ITE-1).
+ * ISSUE_TREE_OPS_SRS 묶음 E — VS Code 기본 편집 키 (TC-ITE-1).
  * 키 묶음은 CodeMirror 의 기존 명령을 그대로 가리키는가(FR-ITE-2), 겹치는 키는 누가 이기는가(FR-ITE-3·4).
  */
 
 const CM = await loadCM();
-const cm = load(['core/path.js', 'ui/cm-setup.js'], { globals: { CM }, expose: ['edMonacoKeymap'] });
+const cm = load(['core/path.js', 'ui/cm-setup.js'], { globals: { CM }, expose: ['edVscodeKeymap'] });
 const sc = load(['core/i18n.js', 'i18n/ko.js', 'core/shortcuts.js'], { expose: ['edEditKeyWins', 'SHORTCUT_DEFAULTS'] });
 
-test('FR-ITE-1·2: Monaco 키가 CodeMirror 명령에 묶인다', () => {
-  const km = cm.edMonacoKeymap();
+test('FR-ITE-1·2: VS Code 키가 CodeMirror 명령에 묶인다', () => {
+  const km = cm.edVscodeKeymap();
   const by = (key) => km.find((b) => b.key === key);
   const want = {
     'Mod-d': CM.selectNextOccurrence,

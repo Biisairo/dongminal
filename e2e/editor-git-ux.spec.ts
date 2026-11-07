@@ -505,9 +505,9 @@ test.describe('묶음 K — 편집기 안에서의 키', () => {
     expect(await page.evaluate(() => (window as any).__ekbActions)).toContain('closeWindow');
   });
 
-  // ISSUE_TREE_OPS_SRS TC-ITE-1: Monaco 기본 편집 키가 편집기 안에서 돈다. 플랫폼은 브라우저가 말하는
+  // ISSUE_TREE_OPS_SRS TC-ITE-1: VS Code 기본 편집 키가 편집기 안에서 돈다. 플랫폼은 브라우저가 말하는
   // 것을 따른다 — e2e 브라우저는 Win32 를 흉내 낼 수 있고, 그때 CodeMirror 의 Mod 는 Ctrl 이다.
-  test('TC-ITE-1: Monaco 편집 키 — 다음 같은 단어 · 줄 선택 · 줄 옮기기 · 겹치는 키 · 줄 이동 대화상자', async ({ page }) => {
+  test('TC-ITE-1: VS Code 편집 키 — 다음 같은 단어 · 줄 선택 · 줄 옮기기 · 겹치는 키 · 줄 이동 대화상자', async ({ page }) => {
     await waitForInit(page);
     await openTextFileInEditor(page);
     const mac = await page.evaluate(() => /Mac/.test(navigator.platform));
@@ -547,7 +547,7 @@ test.describe('묶음 K — 편집기 안에서의 키', () => {
       await expect.poll(async () => (await view()).text).toBe('line one\n');
       expect(await page.evaluate(() => (window as any).__iteActions)).not.toContain('softReload');
     }
-    // Ctrl+G 는 줄 이동 대화상자를 연다 (gotoLine — Monaco 는 두 플랫폼 모두 Ctrl+G).
+    // Ctrl+G 는 줄 이동 대화상자를 연다 (gotoLine — VS Code 는 두 플랫폼 모두 Ctrl+G).
     await page.keyboard.press('Control+g');
     await expect(page.locator('.file-editor .cm-panel.cm-gotoLine, .file-editor .cm-dialog')).toHaveCount(1);
   });

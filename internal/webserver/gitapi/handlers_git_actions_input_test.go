@@ -89,6 +89,13 @@ func runInputCases(t *testing.T, s *GitServer, repo string, cases []inputCase) {
 // GV-e (G-B1): annotated·signed 는 메시지가 있어야 한다.
 func TestTagCreateInputAnswer(t *testing.T) {
 	s, repo, _ := gtBranchRepo(t)
+	// annotated 태그는 서버가 직접 만든다 — 저장소에 신원이 없으면 CI 러너처럼 호스트 이름으로
+	// 신원을 추정하지 못하는 곳에서 `Committer identity unknown` 으로 실패한다.
+	for _, kv := range [][2]string{{"user.name", "t"}, {"user.email", "t@t"}} {
+		if out, err := submodule.ExecGit(context.Background(), repo, "config", kv[0], kv[1]); err != nil {
+			t.Fatalf("git config %s: %v\n%s", kv[0], err, out)
+		}
+	}
 	q := func(kind, msg string) url.Values { return url.Values{"tagKind": {kind}, "message": {msg}} }
 	b := func(name, kind, msg string) map[string]any {
 		return map[string]any{"name": name, "kind": kind, "message": msg}

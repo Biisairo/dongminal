@@ -626,7 +626,7 @@
 | `D-ITO-9` | GitHub 이슈 트리 그래프는 만들지 않는다(D-IAT-18 유지) | 사용자 결정(2026-11-07). 자격 증명 없이 읽을 수 있는 것은 공개 저장소뿐이다(§2.9). 진행한 경로와 끝난 노드는 묶음 C 의 대시보드에 보인다 | 채택 |
 | `D-ITO-10` | D-IAT-19(부모 필드를 두지 않는다)를 뒤집는다 | 입력 8 의 사용자 지시("부모·자식 관계를 Run 이 데이터로 가진다"). 사슬 이름은 끼어든 이슈·승계를 표현하지 못한다 | 채택 |
 | `D-ITO-11` | 맥락 설정은 평평한 키 넷이다(`migrationHook`·`migrationHookCtxPct`·`issueTreeMigration`·`issueTreeCtxPct`) | 사용자 결정은 「설정창이 저장하는 같은 파일, 이름은 기존 규약」 이다. 스키마의 규약은 평평한 camelCase 다. 중첩 `orchestration.*` 은 스키마 밖이라 브라우저 저장에서 사라진다(§2.6) | 채택 |
-| `D-ITO-12` | 편집기 단축키의 기준은 Monaco 기본 키맵이다 | 사용자 보고("기존 모나코 단축키들중 안먹히는게 많아"). 편집기 엔진을 Monaco 에서 CodeMirror 로 바꾸면서 사라진 키를 되돌리는 일이다 | 채택 |
+| `D-ITO-12` | 편집기 단축키의 기준은 VS Code 기본 키맵이다 | 사용자 보고("기존 모나코 단축키들중 안먹히는게 많아"). 편집기 엔진을 CodeMirror 로 바꾸면서 사라진 키(이전 엔진은 VS Code 와 같은 키를 썼다)를 되돌리는 일이다 | 채택 |
 | `D-ITO-13` | 에이전트 정보 조회는 새 명령을 만들지 않고 `dmctl status` 를 쓴다 | `status --at <toolId> --json` 이 이미 statusLine 값 전부를 낸다(FR-SLP-20). 빠진 것은 글자 출력의 한 줄과 안내뿐이다 | 채택 |
 
 ## [`KIT_APPLICATION_SRS`](./KIT_APPLICATION_SRS.md)

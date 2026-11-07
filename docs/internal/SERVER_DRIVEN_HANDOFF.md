@@ -93,7 +93,7 @@
   - B: `run succeed --self`(자기 승계) · 트리 승계 알림 · `node_taken` 안내 · `who-am-i` 의 `member` · `migration.md` 의 멤버 갈래.
   - C·S: 배정 부모로 세운 트리 · 끝난 노드 흔적 · `waiting-children` · 트리 Run 대시보드의 중심이 트리 · `dmctl status` 의 `run_state=`·사용량 줄.
   - M: 설정 넷(`migrationHook`·`migrationHookCtxPct`·`issueTreeMigration`·`issueTreeCtxPct`) · `dmctl ctx-hook`(PostToolUse·UserPromptSubmit) · `GET /api/tools/migration-advice`.
-  - W: 표시줄·칸 머리글에 포커스 탭 이름. E: 편집기 키가 CodeMirror 에 먼저 닿게 하고 Monaco 키를 더했다(§3.6a).
+  - W: 표시줄·칸 머리글에 포커스 탭 이름. E: 편집기 키가 CodeMirror 에 먼저 닿게 하고 VS Code 키를 더했다(§3.6a).
   - 9번(GitHub 이슈 트리 그래프)은 조사로 끝냈다(D-ITO-9, SRS §2.9).
 - 사용자가 설치를 갱신하고 트리를 재가동해 확인했다(2026-11-07). 막지 않는 남은 것은 SRS 머리에 적었다.
 
