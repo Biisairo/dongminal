@@ -39,6 +39,13 @@ type TreeOpenError struct{ RunID string }
 func (e *TreeOpenError) Error() string { return ErrTreeOpen.Error() }
 func (e *TreeOpenError) Unwrap() error { return ErrTreeOpen }
 
+// NodeTakenError 는 `node_taken` 에 그 이슈를 쥔 멤버를 싣는다 (ISSUE_TREE_OPS_SRS
+// FR-ITB-4). 거절받은 쪽이 그 멤버를 이어받을지(`run succeed`) 판단할 근거다.
+type NodeTakenError struct{ MemberID string }
+
+func (e *NodeTakenError) Error() string { return ErrNodeTaken.Error() }
+func (e *NodeTakenError) Unwrap() error { return ErrNodeTaken }
+
 // openTreeRuns 는 그 트리의 열린 Run 이다. 호출자가 락을 쥔다.
 func (s *Store) openTreeRuns(tree string) []*Record {
 	var out []*Record
@@ -174,7 +181,7 @@ func (s *Store) AddMember(runID string, spec MemberSpec) (Member, error) {
 		for _, r := range s.openTreeRuns(tree) {
 			for _, m := range r.Members {
 				if m.Role == role && !m.settled() {
-					return Member{}, ErrNodeTaken
+					return Member{}, &NodeTakenError{MemberID: m.ID}
 				}
 			}
 		}

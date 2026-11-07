@@ -61,10 +61,11 @@ func dmctlWhoAmI(args []string, stdout, stderr io.Writer) int {
 		WindowUUID:  rec.WindowUUID,
 		PaneUUID:    rec.PaneUUID,
 	}
-	out := line.Render()
-	if !strings.HasSuffix(out, "\n") {
-		out += "\n"
+	out := strings.TrimRight(line.Render(), "\n")
+	if rec.Member != nil && rec.Member.ID != "" {
+		out += "  member=" + rec.Member.ID
 	}
+	out += "\n"
 	stdout.Write([]byte(out))
 	return 0
 }
@@ -74,6 +75,9 @@ const dmctlWhoAmIHelp = `dmctl who-am-i — 현재 쉘이 속한 tool 의 식별
 사용법:
   dmctl who-am-i          # 표준 KEY=VALUE 한 줄 (label/uuid/short/...)
   dmctl who-am-i --json   # /api/whoami 의 JSON 그대로 (compact 한 줄)
+
+열린 Run 의 멤버이면 글자 출력 끝에 member=<uuid> 가, --json 에 member{id,runId,role,tree?} 가
+붙는다. /dongminal:migration 은 이 값으로 승계 갈래(run succeed --self)를 고른다.
 
 같은 워크스페이스 내 다른 Claude/dmctl 호출에 자신을 식별할 때 uuid 컬럼을 사용한다.
 `
@@ -91,4 +95,7 @@ type whoAmIResp struct {
 	WindowUUID string `json:"windowUuid"`
 	PaneUUID   string `json:"paneUuid"`
 	Focused    bool   `json:"focused"`
+	Member     *struct {
+		ID string `json:"id"`
+	} `json:"member"`
 }

@@ -305,7 +305,7 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		s.rollbackMemberAdd(r.Context(), mi, body.Headless, toolID)
-		writeRunError(w, err, nil)
+		writeRunError(w, err, s.nodeTakenExtra(err))
 		return
 	}
 	dmlog.Infof(nil, "[run] member run=%s member=%s role=%s agent=%s tool=%s tab=%s",

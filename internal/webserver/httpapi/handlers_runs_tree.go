@@ -2,8 +2,11 @@ package httpapi
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
+
+	"dongminal/internal/shared/dmlog"
 
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/run"
@@ -32,6 +35,53 @@ func (s *Server) treeOpenExtra(err error) map[string]any {
 		}
 	}
 	return map[string]any{"runId": te.RunID, "stale": stale}
+}
+
+// nodeTakenExtra 는 `node_taken` 거절에 그 이슈를 쥔 멤버와 상태를 싣는다
+// (ISSUE_TREE_OPS_SRS FR-ITB-4). 그 멤버가 lost 면 이어받는 명령을 알린다 —
+// migration 으로 옛 탭이 닫힌 노드는 승계로만 다시 맡을 수 있다.
+func (s *Server) nodeTakenExtra(err error) map[string]any {
+	var ne *run.NodeTakenError
+	if !errors.As(err, &ne) {
+		return nil
+	}
+	out := map[string]any{"memberId": ne.MemberID}
+	if _, m, ok := s.Runs.FindMember(ne.MemberID); ok {
+		st := s.deriveMemberState(m)
+		out["state"] = st
+		if st == run.Lost {
+			out["hint"] = "dmctl run succeed --member " + ne.MemberID + " --at <새 탭 uuid> 로 이어받는다"
+		}
+	}
+	return out
+}
+
+// notifyTreeSuccession 은 트리 멤버의 승계를 부모와 자식에게 알린다 (FR-ITB-3). 그들의
+// 대화 맥락에는 옛 toolId 가 있다 — 서버가 알리지 않으면 완료·질문이 닫힌 탭으로 간다.
+func (s *Server) notifyTreeSuccession(rec run.Record, next run.Member) {
+	if next.Assign == nil || rec.Tree == "" {
+		return
+	}
+	text := fmt.Sprintf("[ISSUE-TREE 승계] %s 새 toolId=%s member=%s", next.Role, next.ToolID, next.ID)
+	targets := []string{s.currentToolOf(next.Assign.Parent)}
+	for _, r := range s.Runs.List() {
+		if r.State != run.Open || r.Tree != rec.Tree {
+			continue
+		}
+		for _, m := range r.Members {
+			if m.Assign != nil && m.Assign.Parent == next.ID && m.SucceededBy == "" && !m.Reported() {
+				targets = append(targets, m.ToolID)
+			}
+		}
+	}
+	for _, to := range targets {
+		if to == "" {
+			continue
+		}
+		if err := s.deliverToTool(to, agentEnvelope(envelopeServerSender, to, text), true); err != nil {
+			dmlog.Errorf(nil, "[run] 트리 승계 알림 실패 to=%s: %v", to, err)
+		}
+	}
 }
 
 // treeNode 는 트리 대시보드의 노드 하나다 (FR-ITD-1~3).

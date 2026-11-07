@@ -2,7 +2,7 @@
 
 > **문서 상태**: 승인·구현중
 > **승인 근거**: 사용자 결정 넷(§4 D-ITO-3·4·9·12)을 반영했다. 사용자 지시(2026-11-07) — 단계마다 검증을 통과하면 묻지 않고 진행한다
-> **남은 것**: 묶음 B·C·M·W·E·S. 묶음 A 는 구현·시험 완료
+> **남은 것**: 묶음 C·M·W·E·S. 묶음 A·B 는 구현·시험 완료
 > **입력**: `docs/internal/ISSUE_TREE_OPS_FINDINGS.md`(요구 입력 1~14번, 사용자 결정 넷). 이 SRS 가 그 문서를 대신한다.
 > **개정 대상**: `ISSUE_AGENT_TREE_SRS.md` 의 FR-IAT-50~54·60~64·73, FR-ITD-2·6, D-IAT-19 (§8 변경 기록)
 
@@ -186,7 +186,7 @@
 | FR-ITB-2 | 자기 승계도 기존 승계와 같은 결과를 낸다: 새 멤버가 역할·brief·worktree·배정을 물려받고, 옛 멤버는 `succeeded` 가 된다. 새 멤버의 프리앰블에 인수인계 절이 붙는다(FR-CBG-9) | 필수 |
 | FR-ITB-3 | 트리 멤버가 승계되면(자기 승계든 아니든) 서버가 부모 멤버의 도구와 **자식 멤버들**(배정의 부모가 옛 멤버인 열린 멤버)의 도구에 알린다. 알림은 서버 발신 엔벨로프이고 본문은 `[ISSUE-TREE 승계] <사슬 이름> 새 toolId=<…> member=<…>` 다. 자식의 배정 부모는 새 멤버로 바꾼다 | 필수 |
 | FR-ITB-4 | `node_taken` 은 지금처럼 `lost` 멤버도 맡은 것으로 본다. 거절 응답에 그 멤버의 id 와 상태를 싣고, 상태가 `lost` 면 `dmctl run succeed --member <id> --at <탭>` 으로 이어받으라는 안내를 싣는다 | 필수 |
-| FR-ITB-5 | `migration.md` 는 넘기는 세션이 Run 멤버인지 먼저 본다(`dmctl who-am-i --json` 의 `member`). 멤버이면 일반 절차 대신 **멤버 갈래**를 따른다: 새 탭 → `run succeed --self` → `run launch --member <새 member>` 로 기동 → 준비 확인 → (인계 문서가 있으면) 그 경로를 엔벨로프로 → `working` 확인 → 자기 탭 닫기. 새 탭의 이름은 넘기는 탭과 같다 | 필수 |
+| FR-ITB-5 | `migration.md` 는 넘기는 세션이 Run 멤버인지 먼저 본다(`dmctl who-am-i --json` 의 `member`). 멤버이면 일반 절차 대신 **멤버 갈래**를 따른다: 새 탭 → `run succeed --self`(요약에 인계 문서 경로를 적는다 — 프리앰블의 인수인계 절로 간다) → `run launch --member <새 member>` 로 기동 → 준비 확인 → `working` 확인 → 자기 탭 닫기. 「문서를 읽어라」 엔벨로프는 보내지 않는다. 새 탭의 이름은 넘기는 탭과 같다 | 필수 |
 | FR-ITB-6 | `dmctl who-am-i --json` 은 그 도구가 열린 Run 의 멤버이면 `member: {id, runId, role, tree?}` 를 싣는다. 글자 출력에는 `member=<id>` 를 더한다 | 필수 |
 | FR-ITB-7 | migration 은 **같은 이슈**를 이어 갈 때만 쓴다. `migration.md` 와 `issue-tree.md` 에 「다른 이슈로 넘어가는 수단이 아니다」 를 적는다(입력 13) | 필수 |
 
@@ -334,5 +334,6 @@
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-07 | 묶음 B 구현. 이전 동작: `run succeed` 는 언제나 옛 멤버에게 인수인계를 청하고 기다렸다. `node_taken` 은 코드만 냈다. migration 은 Run 멤버도 일반 절차로 넘겨 옛 멤버가 `lost` 로 남았다. 새 동작: `run succeed --self` 는 청하지 않고 요약을 싣는다. 트리 멤버의 승계는 부모·자식에게 알리고 자식의 배정 부모를 옮긴다. `node_taken` 은 쥔 멤버·상태와 lost 일 때 이어받기 안내를 싣는다. `who-am-i` 는 `member` 를 싣고, migration 은 멤버이면 자기 승계로 넘긴다. 이유: 입력 1·7 |
 | 2026-11-07 | 묶음 A 구현. 이전 동작: 트리 Run 의 멤버는 역할 이름만으로 등록됐고, 배정은 기동 뒤 엔벨로프로 따로 왔다. 새 동작: 트리 멤버는 `--issue` 배정이 있어야 등록되고(없으면 `invalid_argument`), 배정은 기록에 남아 트리 프리앰블에 실린다. 이유: 배정 전에 일을 시작하고 migration 이 배정을 빠뜨렸다(입력 3·7). 권한 거절은 새 코드를 만들지 않고 `sender_not_member` 를 쓴다 |
 | 2026-11-07 | 초안. 요구 입력 `ISSUE_TREE_OPS_FINDINGS.md` 1~14번과 별건 요구(맥락 migration·표시줄)를 묶음 A·B·C·M·W·E·S 로 옮겼다. 사용자 결정: 질문·결정 경로(D-ITO-3), 끼어든 이슈의 하던 일(D-ITO-4), 이슈 트리 그래프는 조사로 끝냄(D-ITO-9), 편집기 키의 기준(D-ITO-12). `ISSUE_AGENT_TREE_SRS` 개정: FR-IAT-51~54(질문 경로) → FR-ITA-30~34, FR-IAT-60(`--ctx` 기본 60) → FR-ITM-3·5(설정 기본 50), FR-IAT-63(migration) → FR-ITB-5, FR-IAT-73(잎이 자기 탭을 닫는다) → FR-ITA-41(부모가 닫는다), FR-ITD-2(사슬 이름) → FR-ITC-1, FR-ITD-6(열린 노드만) → FR-ITC-3, D-IAT-19 → D-ITO-10 |

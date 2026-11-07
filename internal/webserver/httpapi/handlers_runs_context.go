@@ -278,9 +278,22 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 		Headless  bool   `json:"headless"`
 		TimeoutMs int    `json:"timeoutMs"`
 		ToolID    string `json:"toolId"`
+		// ISSUE_TREE_OPS_SRS FR-ITB-1: 자기 승계. 발신 도구가 그 멤버여야 하고, 요약을
+		// 직접 싣는다 — 청하지도 기다리지도 않는다(청하면 Bash 를 도는 자기에게 간다).
+		Self    bool   `json:"self"`
+		Summary string `json:"summary"`
 	}
 	if !decodeJSONBody(w, r, &body) {
 		return
+	}
+	if body.Self {
+		caller := s.callerToolID(r, body.ToolID)
+		own, isMember := s.Runs.MemberByTool(caller)
+		if !isMember || (body.MemberID != "" && body.MemberID != own.ID) {
+			writeRunError(w, run.ErrSenderNotMember, nil)
+			return
+		}
+		body.MemberID = own.ID
 	}
 	if strings.TrimSpace(body.MemberID) == "" {
 		writeRunError(w, fmt.Errorf("%w: --member 는 필수다", run.ErrInvalidArgument), nil)
@@ -329,7 +342,10 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 
 	// 1) 인수인계를 청한다. 이전 멤버가 이미 죽었으면 청할 곳이 없으므로
 	//    곧바로 요약 없는 승계로 간다 (V-CBG-7).
-	summary, asked := s.requestHandoff(r.Context(), rec, prev, body.TimeoutMs)
+	summary, asked := strings.TrimSpace(body.Summary), false
+	if !body.Self {
+		summary, asked = s.requestHandoff(r.Context(), rec, prev, body.TimeoutMs)
+	}
 	if r.Context().Err() != nil {
 		// 묻는 쪽이 사라졌다 (FBE-01). 여기서 잇지 않는다 — 이었는데 실패로
 		// 보고되면 재시도가 멤버를 이중으로 만든다. 우리가 만든 도구만 거둔다.
@@ -370,6 +386,7 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 		s.markWorkspaceRun(cur, next.TabID, cur.ID)
 		view.Preamble = s.memberPreamble(cur, next)
 	}
+	s.notifyTreeSuccession(rec, next)
 	dmlog.Infof(nil, "[run] succeed run=%s prev=%s next=%s role=%s tool=%s tab=%s summary=%v worktree=%v",
 		rec.Short, prevAfter.ID, next.ID, next.Role, next.ToolID, next.TabID,
 		prevAfter.HandoffSummary != "", next.Worktree != nil)

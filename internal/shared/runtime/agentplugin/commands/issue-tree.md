@@ -175,7 +175,9 @@ dmctl status --at <새 탭 uuid>
 
 배정이 바뀌면(맥락 기준 정정 등) `dmctl run assign --member <자식 member uuid> --ctx <퍼센트>` 로 고친다. 자식의 다음 프리앰블(승계)부터 반영된다. 이미 일하는 자식에게는 `dmctl msg` 로도 알린다.
 
-`run member` 가 `node_taken` 으로 거절하면 그 이슈는 다른 노드가 이미 맡고 있다. 그 하위를 띄우지 않는다. 만든 탭·window 를 닫고 부모에게 `보고` 로 알린다.
+`run member` 가 `node_taken` 으로 거절하면 그 이슈는 다른 노드가 이미 맡고 있다. 거절에 그 멤버와 상태가 실린다.
+- 상태가 `lost` 면(옛 탭이 닫혔다) 새 노드로 맡지 말고 **이어받는다**: `dmctl run succeed --member <그 member> --at <새 탭 uuid>` 뒤 `run launch --member <새 member>`.
+- 그 밖이면 그 하위를 띄우지 않는다. 만든 탭·window 를 닫고 부모에게 `보고` 로 알린다.
 
 `wait` 가 `ready` 를 내도 입력을 받을 준비가 아닐 수 있다. `read-screen` 을 본다. 신뢰·권한 확인을 묻고 있으면 답한 뒤 다시 확인한다.
 
@@ -245,7 +247,8 @@ dmctl who-am-i
    ```
    dmctl status --json
    ```
-   `context.usedPct` 가 배정의 맥락 기준 이상이면 `/dongminal:migration` 으로 새 세션에 넘긴다. 새 세션의 탭 이름은 지금과 같게 한다. 넘긴 뒤 하위 노드들에게 새 `toolId` 를 알린다. 값이 없으면 넘기지 않고 계속하며, 그 사실을 보고에 적는다.
+   `context.usedPct` 가 배정의 맥락 기준 이상이면 `/dongminal:migration` 으로 새 세션에 넘긴다. 이 노드는 Run 멤버이므로 migration 의 **멤버 갈래**(자기 승계 `run succeed --self`)를 탄다 — 배정 · 탭 이름 · worktree 가 그대로 가고, 서버가 부모와 하위에게 새 `toolId` 를 알린다. 값이 없으면 넘기지 않고 계속하며, 그 사실을 보고에 적는다.
+   migration 은 **같은 이슈**를 이어 갈 때만 쓴다. 다른 이슈로 넘어가는 수단이 아니다.
 7. 다음에 열 하위 이슈가 있으면 3으로 간다. 모두 닫혔으면 내 이슈를 끝낸다(「잎 노드의 일」 의 끝내기).
 
 ### 선행 이슈 (`보고: 선행` 을 받았을 때)

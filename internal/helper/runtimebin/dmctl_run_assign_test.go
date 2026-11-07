@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -78,5 +79,43 @@ func TestRunAssign_SendsPatch(t *testing.T) {
 	}
 	if rc := runDmctl([]string{"run", "assign", "--ctx", "45"}, &out, &errs); rc != 2 {
 		t.Errorf("--member 없음 rc=%d", rc)
+	}
+}
+
+// ISSUE_TREE_OPS_SRS FR-ITB-1: 자기 승계는 --member 없이 요약을 싣는다.
+func TestRunSucceed_SelfSendsSummary(t *testing.T) {
+	var got map[string]any
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		json.Unmarshal(b, &got)
+		w.Write([]byte(`{"member":{"id":"m2","role":"r","toolId":"t2","state":"starting","createdAt":1},"prevMemberId":"m1","prevState":"succeeded","hasSummary":true}`))
+	})
+	defer cleanup()
+	var out, errs bytes.Buffer
+	if rc := runDmctl([]string{"run", "succeed", "--self", "--at", "tab-2", "--summary", "여기까지"}, &out, &errs); rc != 0 {
+		t.Fatalf("rc=%d %s", rc, errs.String())
+	}
+	if got["self"] != true || got["summary"] != "여기까지" || got["at"] != "tab-2" {
+		t.Fatalf("body=%v", got)
+	}
+	if rc := runDmctl([]string{"run", "succeed", "--self", "--at", "tab-2"}, &out, &errs); rc != 2 {
+		t.Errorf("요약 없는 자기 승계 rc=%d", rc)
+	}
+	if rc := runDmctl([]string{"run", "succeed", "--self", "--member", "m1", "--at", "tab-2", "--summary", "s"}, &out, &errs); rc != 2 {
+		t.Errorf("--self 와 --member 함께 rc=%d", rc)
+	}
+}
+
+// ISSUE_TREE_OPS_SRS FR-ITB-4: node_taken 거절이 쥔 멤버와 이어받기 안내를 보인다.
+func TestRunMember_NodeTakenPrintsHolder(t *testing.T) {
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusConflict)
+		w.Write([]byte(`{"error":"node_taken","detail":"node_taken","memberId":"m9","state":"lost","hint":"dmctl run succeed --member m9 --at <새 탭 uuid> 로 이어받는다"}`))
+	})
+	defer cleanup()
+	var out, errs bytes.Buffer
+	rc := runDmctl([]string{"run", "member", "--run", "r1", "--role", "x", "--agent", "claude", "--at", "t", "--issue", "o/r#1"}, &out, &errs)
+	if rc == 0 || !strings.Contains(errs.String(), "memberId=m9  state=lost") || !strings.Contains(errs.String(), "dmctl run succeed --member m9") {
+		t.Fatalf("rc=%d stderr=%s", rc, errs.String())
 	}
 }

@@ -28,6 +28,7 @@ const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
   dmctl run detach --member <uuid>
   dmctl run peers
   dmctl run succeed --member <uuid> (--at <탭 uuid> | --headless) [--model <m>] [--timeout-ms N]
+  dmctl run succeed --self --at <탭 uuid> --summary <본문>|-     # 자기 승계 (migration)
   dmctl run handoff [--member <uuid>] --summary <본문>|-
   dmctl run assign --member <uuid> [--title <제목>] [--goal <번호들>] [--parallel] [--ctx N] [--no-commit]
 
@@ -95,6 +96,10 @@ worktree 만 거두고 state·중단 사유는 그대로 둔다. 서버 재기�
 이전 멤버는 succeeded 가 되고 close 의 미보고 검사에서 면제되지만, 그 **도구는 살아
 있다** — 인수인계를 다 읽었으면 /exit → close-tab 으로 조정자가 정리한다.
 
+succeed --self 는 **자기 승계**다 — 넘기는 세션이 스스로 부른다(/dongminal:migration 의 멤버 갈래).
+인수인계를 청하지도 기다리지도 않고 --summary 를 그대로 싣는다. 이슈 트리 멤버이면 서버가
+부모와 자식에게 새 toolId 를 알린다. 옛 멤버는 succeeded 가 되고, 옛 세션은 자기 탭을 닫는다.
+
 handoff 는 승계당하는 멤버가 자기 요약을 남기는 명령이다. 권한은 발신 도구의
 정체이며 --member 는 대조용이라 생략이 정상이다 — 남의 몫을 대신 남길 수 없다.
 
@@ -151,6 +156,7 @@ type runFlags struct {
 	ctx      string // --ctx
 	parallel bool   // --parallel
 	noCommit bool   // --no-commit
+	self     bool   // --self  run succeed 의 자기 승계 (FR-ITB-1)
 	// given 은 실제로 받은 값 플래그다 — run assign 은 받은 것만 고친다.
 	given map[string]bool
 }
@@ -199,7 +205,7 @@ func runDmctlRunStdin(stdin io.Reader, args []string, stdout, stderr io.Writer) 
 	case "detach":
 		return runSubDetach(f, stdout, stderr)
 	case "succeed":
-		return runSubSucceed(f, stdout, stderr)
+		return runSubSucceed(f, stdin, stdout, stderr)
 	case "handoff":
 		return runSubHandoff(f, stdin, stdout, stderr)
 	case "peers":
@@ -235,7 +241,7 @@ func parseRunFlags(sub string, args []string, stdout, stderr io.Writer) (f runFl
 		bools: map[string]*bool{
 			"--force": &f.force, "--headless": &f.headless, "--keep-worktrees": &f.keepTrees,
 			"--keep-tools": &f.keepTools, "--json": &f.jsonOut, "--text": &f.textOut,
-			"--branch": &f.branch, "--parallel": &f.parallel, "--no-commit": &f.noCommit,
+			"--branch": &f.branch, "--parallel": &f.parallel, "--no-commit": &f.noCommit, "--self": &f.self,
 		},
 	}
 	code, proceed = spec.run("run "+sub, args, stdout, stderr)

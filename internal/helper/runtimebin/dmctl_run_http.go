@@ -73,6 +73,10 @@ func printRunRefusal(stderr io.Writer, status int, path string, raw []byte) {
 		// ISSUE_AGENT_TREE_SRS FR-ITU-5: tree_open 의 그 Run 과 멈춤 여부.
 		RunID string `json:"runId"`
 		Stale *bool  `json:"stale"`
+		// ISSUE_TREE_OPS_SRS FR-ITB-4: node_taken 의 그 이슈를 쥔 멤버.
+		MemberID string `json:"memberId"`
+		State    string `json:"state"`
+		Hint     string `json:"hint"`
 	}
 	if err := json.Unmarshal(raw, &body); err != nil || body.Error == "" {
 		printAPIError(stderr, status, path, raw)
@@ -84,6 +88,12 @@ func printRunRefusal(stderr io.Writer, status int, path string, raw []byte) {
 	}
 	for _, m := range body.Unreported {
 		fmt.Fprintf(stderr, "  미보고: role=%s  state=%s  memberId=%s\n", m.Role, m.State, m.ID)
+	}
+	if body.MemberID != "" {
+		fmt.Fprintf(stderr, "  이 이슈를 쥔 멤버: memberId=%s  state=%s\n", body.MemberID, body.State)
+	}
+	if body.Hint != "" {
+		fmt.Fprintf(stderr, "  %s\n", body.Hint)
 	}
 	if body.Stale != nil && body.RunID != "" {
 		if *body.Stale {

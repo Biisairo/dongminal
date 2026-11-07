@@ -342,6 +342,24 @@ func TestIssueTreeCommand_CarriesOpsProcedure(t *testing.T) {
 	}
 }
 
+// ISSUE_TREE_OPS_SRS TC-ITA-3 (FR-ITB-5·7): migration 은 Run 멤버이면 자기 승계로 넘기고,
+// 같은 일을 이을 때만 쓴다.
+func TestMigrationCommand_MemberBranch(t *testing.T) {
+	docs := commandDocs(t)
+	mig := docs[path.Join("agentplugin", "commands", "migration.md")]
+	for _, needle := range []string{"## 멤버 갈래", "member=", "dmctl run succeed --self --at", "dmctl run launch --member <새 member>", "다른 이슈로 넘어가는 수단이 아니다", "--after <자기 탭 uuid>"} {
+		if !strings.Contains(mig, needle) {
+			t.Errorf("migration.md 에 %q 가 없다", needle)
+		}
+	}
+	tree := docs[path.Join("agentplugin", "commands", "issue-tree.md")]
+	for _, needle := range []string{"멤버 갈래", "dmctl run succeed --member <그 member>", "다른 이슈로 넘어가는 수단이 아니다"} {
+		if !strings.Contains(tree, needle) {
+			t.Errorf("issue-tree.md 에 %q 가 없다", needle)
+		}
+	}
+}
+
 // ISSUE_AGENT_TREE_SRS TC-SKX-1 / FR-SKX-1·3: team · workflow 스킬은 지워졌다. 임베드 트리에
 // 남지 않고, 플러그인 문서가 그 호출명을 안내하지 않는다.
 func TestPlugin_TeamAndWorkflowRemoved(t *testing.T) {

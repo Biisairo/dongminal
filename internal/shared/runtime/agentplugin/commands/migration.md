@@ -11,7 +11,11 @@ allowed-tools: Bash
 **인자**: `$ARGUMENTS` — 비어 있으면 기본값이다. 되묻지 마라.
 
 이슈 트리를 따라 여러 에이전트를 세우는 일은 `/dongminal:issue-tree` 다. 이 명령은
-**한 세션을 다음 한 세션으로** 넘기는 일만 한다.
+**한 세션을 다음 한 세션으로** 넘기는 일만 한다. 넘기는 것은 **같은 일**이다 — 맥락이
+모자라 같은 일을 새 세션이 이어 갈 때 쓴다. **다른 이슈로 넘어가는 수단이 아니다.**
+
+**이 세션이 Run 멤버이면 아래 「멤버 갈래」 를 따른다.** 1에서 확인한다. 일반 절차로
+넘기면 옛 멤버가 `lost` 로 남고, 새 세션은 그 이슈를 다시 맡지 못한다(`node_taken`).
 
 ---
 
@@ -70,7 +74,8 @@ allowed-tools: Bash
 dmctl who-am-i
 ```
 
-기대 출력 — `uuid=` 와 `toolId=` 가 있다.
+기대 출력 — `uuid=` 와 `toolId=` 가 있다. 끝에 **`member=`** 가 있으면 이 세션은 Run
+멤버다 — 여기서 멈추고 「멤버 갈래」 로 간다.
 
 ```
   label=W1.P1.T1  uuid=d34957de-…  short=d34957de  toolId=01a09fcc-…  …
@@ -223,6 +228,62 @@ dmctl close-tab --at <자기 탭 uuid> --force
 기대 출력은 `ok:true` 이고 `location` 이 **자기 탭**을 가리킨다.
 
 **이것이 이 세션의 마지막 명령이다.** 닫기 전에 사용자에게 보고할 것이 있으면 먼저 보고한다.
+
+---
+
+## 멤버 갈래 — Run 멤버(이슈 트리 노드 포함)일 때
+
+일반 절차의 0~2(넘길 것 · 자기 좌표 · 문서 한 장)는 같다. 1에서 `uuid=` · `toolId=` · `member=` 를
+적고, `dmctl who-am-i --json` 의 `tab`(지금 탭 이름)도 적는다. 그 뒤가 다르다.
+**새 세션은 승계로 같은 member 자리를 이어받는다** — 역할 · 배정 · worktree 가 그대로 가고,
+이슈 트리 노드이면 서버가 부모와 하위에게 새 toolId 를 알린다.
+
+### M3. 새 탭 — 자기 바로 뒤에
+
+```
+dmctl new-tab -n --at <자기 탭 uuid> --after <자기 탭 uuid>
+dmctl rename-tab --at <새 탭 uuid> "<지금 탭 이름>"
+```
+
+탭 이름은 지금과 **같게** 한다(이슈 트리의 사슬 이름이 이어진다).
+
+### M4. 자기 승계
+
+```
+dmctl run succeed --self --at <새 탭 uuid> --summary - <<'SUM'
+<무엇을 했는가 / 지금 어디까지 왔는가 / 다음에 무엇을 / 함정>
+인계 문서: <2의 문서 경로>
+SUM
+```
+
+기대 출력 — `succeeded  prev=<내 member> (succeeded)  →  member=<새 member> …`. **새 member 를 적는다.**
+요약은 새 세션의 프리앰블에 인수인계 절로 실린다. 그래서 「문서를 읽어라」 엔벨로프를 따로 보내지 않는다.
+
+### M5. 새 세션을 띄운다
+
+```
+dmctl send-input --at <새 탭 uuid> --execute "cd '<작업 디렉터리>'"
+dmctl run launch --member <새 member> | dmctl send-input --at <새 탭 uuid> --execute -
+```
+
+기동줄은 손으로 짜지 않는다 — `run launch` 가 프리앰블(배정 · 인수인계 포함)을 싣는다.
+
+### M6. 준비와 일함을 확인한다
+
+```
+dmctl wait --at <새 탭 uuid> --for ready --timeout-ms 180000
+dmctl read-screen --at <새 탭 uuid>
+dmctl status --at <새 탭 uuid>
+```
+
+`state=working` 이어야 한다. 신뢰 · 권한 확인을 묻고 있으면 답한다. 세 번 확인해도 아니면
+**멈추고 사용자에게 말한다** — 자기 탭을 닫지 않는다.
+
+### M7. 자기 탭을 닫는다
+
+M6 이 `working` 을 준 뒤에만 한다. 일반 절차의 9와 같다(`who-am-i` 로 `uuid` 를 다시 확인하고
+`close-tab --at <자기 탭 uuid> --force`). 옛 member 는 이미 `succeeded` 라 `run report` 를 하지 않는다 —
+보고는 새 member 가 한다.
 
 ---
 

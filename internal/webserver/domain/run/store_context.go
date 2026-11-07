@@ -430,6 +430,20 @@ func (s *Store) Succeed(spec SucceedSpec) (prev Member, next Member, err error) 
 	}
 	// Outcome 은 건드리지 않는다 (FR-CBG-9). 승계는 결말이 아니다.
 
+	// ISSUE_TREE_OPS_SRS FR-ITB-3: 트리 자식의 배정 부모를 승계자로 옮긴다. 승계 사슬은
+	// 한 노드이므로 자식은 지금 일하는 쪽 아래에 선다.
+	if old.Assign != nil && s.runs[ri].Tree != "" {
+		for _, r := range s.openTreeRuns(s.runs[ri].Tree) {
+			for i := range r.Members {
+				if a := r.Members[i].Assign; a != nil && a.Parent == old.ID {
+					c := *a
+					c.Parent = id
+					r.Members[i].Assign = &c
+				}
+			}
+		}
+	}
+
 	prev = cloneMember(*old)
 	s.runs[ri].Members = append(s.runs[ri].Members, next)
 	out := cloneMember(next)

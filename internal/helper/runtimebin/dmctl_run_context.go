@@ -33,7 +33,10 @@ type succeedResponse struct {
 // 이 명령은 **오래 걸릴 수 있다.** 이전 멤버에게 요약을 청하고 기다리기 때문이며,
 // 기다리는 상한이 --timeout-ms 다. 무응답 멤버를 교체하는 것이 승계의 본래
 // 쓰임이므로, 시한을 넘겨도 실패가 아니라 요약 없는 승계로 성공한다.
-func runSubSucceed(f runFlags, stdout, stderr io.Writer) int {
+func runSubSucceed(f runFlags, stdin io.Reader, stdout, stderr io.Writer) int {
+	if f.self {
+		return runSubSucceedSelf(f, stdin, stdout, stderr)
+	}
 	if f.member == "" {
 		fmt.Fprintln(stderr, "run succeed: --member 는 필수다 (승계당할 멤버의 uuid)")
 		return 2
@@ -138,5 +141,49 @@ func runSubHandoff(f runFlags, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	_ = json.Unmarshal(raw, &resp)
 	fmt.Fprintf(stdout, "handoff  member=%s  %d바이트를 남겼다 — 후임의 프리앰블에 실린다\n", resp.MemberID, resp.Len)
+	return 0
+}
+
+// runSubSucceedSelf 는 자기 승계다 (ISSUE_TREE_OPS_SRS FR-ITB-1). 넘기는 세션이 스스로
+// 부르므로 서버는 인수인계를 청하지 않는다 — 청하면 Bash 를 도는 자기에게 간다.
+func runSubSucceedSelf(f runFlags, stdin io.Reader, stdout, stderr io.Writer) int {
+	if f.member != "" || f.headless {
+		fmt.Fprintln(stderr, "run succeed: --self 는 --member·--headless 와 함께 쓰지 않는다 — 승계할 멤버는 발신 도구 자신이다")
+		return 2
+	}
+	if f.at == "" {
+		fmt.Fprintln(stderr, "run succeed: --self 는 --at <새 탭 uuid> 가 필요하다")
+		return 2
+	}
+	if f.summary == "-" {
+		data, err := io.ReadAll(stdin)
+		if err != nil {
+			fmt.Fprintf(stderr, "run succeed: stdin 읽기 실패: %v\n", err)
+			return 2
+		}
+		f.summary = strings.TrimRight(string(data), "\n")
+	}
+	if strings.TrimSpace(f.summary) == "" {
+		fmt.Fprintln(stderr, "run succeed: --self 는 --summary 가 필요하다 (무엇을 했는가 / 어디까지 왔는가 / 다음에 무엇을 / 함정)")
+		return 2
+	}
+	body := map[string]any{"self": true, "at": f.at, "summary": f.summary, "toolId": selfToolID()}
+	raw, code := runPost("/api/runs/succeed", body, stderr)
+	if code != 0 {
+		return code
+	}
+	if f.jsonOut {
+		writeRawJSON(stdout, raw)
+		return 0
+	}
+	var resp succeedResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		fmt.Fprintf(stderr, "dmctl: invalid succeed response: %v\n", err)
+		return 1
+	}
+	m := resp.Member
+	fmt.Fprintf(stdout, "succeeded  prev=%s (%s)  →  member=%s  role=%s  toolId=%s  tabId=%s\n",
+		resp.PrevMemberID, resp.PrevState, m.ID, m.Role, m.ToolID, m.TabID)
+	fmt.Fprintf(stdout, "  다음: dmctl run launch --member %s | dmctl send-input --at %s --execute -\n", m.ID, f.at)
 	return 0
 }

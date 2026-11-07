@@ -77,6 +77,18 @@ func (s *Server) apiWhoAmI(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// ISSUE_TREE_OPS_SRS FR-ITB-6: 열린 Run 의 멤버이면 그 정체를 싣는다. migration 이
+	// 이 값을 보고 승계 갈래로 간다 — 멤버가 일반 절차로 넘기면 옛 멤버가 lost 로 남는다.
+	if s.Runs != nil {
+		if m, ok := s.Runs.MemberByTool(toolID); ok {
+			mem := map[string]any{"id": m.ID, "runId": m.RunID, "role": m.Role}
+			if rec, found := s.Runs.Get(m.RunID); found && rec.Tree != "" {
+				mem["tree"] = rec.Tree
+			}
+			resp["member"] = mem
+		}
+	}
+
 	httpresp.JSON(w, http.StatusOK, resp)
 }
 
