@@ -359,10 +359,10 @@ Object.assign(App.prototype, {
   //
   // runId·role 은 /api/tools/background 가 **열린 Run 의 멤버에만** 싣는다
   // (omitempty — 모르면 키가 없다). 그러니 없는 것이 정상이고, 그때는 "떼어 둔
-  // 내 도구" 다. short 는 uuid 앞 8자 (run/store.go 의 shortID 와 같은 규약).
+  // 내 도구" 다. short 는 서버가 싣는 `runShort` 다 (SERVER_DRIVEN_ACTIONS_SRS K-l).
   _bgRun(b){
     if(!b.runId) return null;
-    return {short:runShortId(b.runId),role:b.role||''};
+    return {short:b.runShort||'',role:b.role||''};
   },
 
   _bgKillQuestion(b){

@@ -41,6 +41,7 @@ REMOVED=(
   SANDBOX_WORK_MOUNT SANDBOX_WORK_COPY SANDBOX_WORK_NONE SANDBOX_WORK_KINDS  # K-i: 작업 방식 이름 (→ workPicks)
   SANDBOX_WORK_LABEL SANDBOX_WORK_PICKS SANDBOX_WORK_TITLE  # K-i
   SANDBOX_PROFILE_SCRATCH  # K-i: 기본 프로파일 이름 (→ X-Sandbox-Only-Default)
+  runShortId RUN_SHORT_ID_LEN  # K-l: Run 짧은 id 를 화면이 자르던 규칙 (→ short·runShort)
 )
 
 pat=$(IFS='|'; echo "${REMOVED[*]}")

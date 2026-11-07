@@ -496,9 +496,10 @@ Object.assign(App.prototype, {
     }
     // FR-RVZ-8: 이름은 `Run <short>` 다. 여기서 한 번만 정한다 — 사용자가
     // rename 하면 그것이 이기려면 이 값을 나중에 덮어쓰지 않아야 한다.
-    const short = opts.short || runShortId(opts.runId);
+    // 짧은 id 는 서버가 보낸 `short` 다 — 없으면 `Run` 만 쓴다 (SERVER_DRIVEN_ACTIONS_SRS K-l).
     const id = newEntityId();
-    this._pushTab(s, pn, { id, name: clampEntityName(opts.name || 'Run ' + short), type: TAB_TYPE_RUN, runId: opts.runId }, false);
+    const label = opts.short ? 'Run ' + opts.short : 'Run';
+    this._pushTab(s, pn, { id, name: clampEntityName(opts.name || label), type: TAB_TYPE_RUN, runId: opts.runId }, false);
     this.render();
     this.save();
     return { uuid: id };

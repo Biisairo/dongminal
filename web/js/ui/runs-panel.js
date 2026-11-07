@@ -139,7 +139,7 @@ Object.assign(RunsPanel.prototype, {
     row.dataset.runid = rv.id;
     row.title = t('runs.row_title');
 
-    row.appendChild(runDiv('runs-short', rv.short || runShortId(rv.id || '')));
+    row.appendChild(runDiv('runs-short', rv.short || ''));
     row.appendChild(runDiv('runs-obj', rv.objective || ''));
 
     const st = runDiv('runs-state st-' + (rv.state || ''), rv.state || '');

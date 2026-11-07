@@ -378,8 +378,6 @@ const WS_SAVE_BACKOFF_MS=200;
 const WS_SAVE_BACKOFF_MAX_MS=2000;
 // 워크스페이스 스키마 판. 서버는 이보다 낮은 판의 저장을 거부한다 (FR-EM-2a).
 const WS_SCHEMA_VERSION=2;
-// Run 짧은 id 의 길이 — 탭 이름·상태바 배지가 같은 길이를 쓴다 (FR-RVZ-8).
-const RUN_SHORT_ID_LEN=8;
 // 사이드바 탭 직행 단축키의 수 — 숫자 키 1..9 (FR-SBT-21).
 const SB_JUMP_MAX=9;
 // 입력 중인 설정의 저장을 미루는 시간 (OPTIMIZE_REFACTOR_SRS FR-OPT-5-2).

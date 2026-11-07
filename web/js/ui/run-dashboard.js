@@ -58,7 +58,8 @@ Object.assign(RunsPanel.prototype, {
     const el = root.querySelector('.run-summary');
     const headless = members.filter(m => m.headless).length;
     const parts = [
-      ['short', 'Run ' + (d.short || runShortId(d.runId || ''))],
+      // 짧은 id 는 서버가 싣는다 — 없으면 `Run` 만 쓴다 (SERVER_DRIVEN_ACTIONS_SRS K-l).
+      ['short', d.short ? 'Run ' + d.short : 'Run'],
       ['obj', d.objective ? t('runs.objective', { v: d.objective }) : ''],
       ['state', 'state=' + (d.state || '')],
       ['iso', 'isolation=' + (d.isolation || 'none')],

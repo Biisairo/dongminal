@@ -880,11 +880,18 @@ func TestApiToolsBackground_AnnotatesRunMembers(t *testing.T) {
 	if member["runId"] != runID || member["memberId"] != memberID || member["role"] != "writer" {
 		t.Fatalf("Run 멤버 표시가 어긋난다: %+v", member)
 	}
+	// SERVER_DRIVEN_ACTIONS_SRS K-l (FR-SDA-83): 짧은 id 는 서버가 싣는다 — 화면이 자르지 않는다.
+	if member["runShort"] != run.Short(runID) {
+		t.Fatalf("runShort = %v, want %s", member["runShort"], run.Short(runID))
+	}
 	plain := seen["tool-a"]
 	if plain == nil {
 		t.Fatalf("일반 백그라운드 도구가 목록에 없다: %+v", seen)
 	}
 	// 남의 것을 Run 의 것으로 물들이지 않는다.
+	if _, present := plain["runShort"]; present {
+		t.Fatalf("Run 과 무관한 도구에 runShort 가 붙었다: %+v", plain)
+	}
 	if _, present := plain["runId"]; present {
 		t.Fatalf("Run 과 무관한 도구에 runId 가 붙었다: %+v", plain)
 	}

@@ -89,6 +89,26 @@ func scrollSpeed(m map[string]any) (int, bool) {
 	return n, true
 }
 
+// fullscreenDefault 는 `claudeFullscreen` 의 기본값이다 — 서술자 표의 `def` 를 읽는다
+// (SERVER_DRIVEN_ACTIONS_SRS K-k, FR-SDA-82). `scrollSpeedSpec` 과 같은 까닭이다: 여기에
+// `true` 를 적으면 값이 두 벌이 된다.
+var fullscreenDefault = sync.OnceValue(func() bool {
+	specs, err := settingsschema.Load()
+	return fullscreenDefaultFrom(specs, err)
+})
+
+// fullscreenDefaultFrom 은 표에서 기본값을 고른다. 표를 읽지 못하거나 값이 불리언이
+// 아니면 켬이다 (FR-ARE-3) — 도구를 못 띄우게 만드는 것보다 켜 두는 편이 낫다.
+func fullscreenDefaultFrom(specs []settingsschema.Spec, err error) bool {
+	if err != nil {
+		return true
+	}
+	if def, ok := settingsschema.ByKey(specs)[agentRenderEnvKey].Def.(bool); ok {
+		return def
+	}
+	return true
+}
+
 // agentRenderEnv 는 설정 blob 을 보고 **새 도구에 얹을 환경**을 낸다 (FR-ARE-7).
 //
 // 서버가 설정 blob 을 해석하는 자리는 여기 하나뿐이다. `handlers_settings.go` 가
@@ -96,10 +116,11 @@ func scrollSpeed(m map[string]any) (int, bool) {
 // 값을 **쓰는 주체가 서버**(도구를 띄우는 쪽)인데 값을 **정하는 자리가 브라우저**
 // (설정 화면)이기 때문이다. 해석은 불리언 하나에서 멎는다.
 //
-// 읽을 것이 없거나 값이 이상하면 **켬**이다 (FR-ARE-3). 설정을 한 번도 저장하지
-// 않은 사용자가 가장 많고, 손으로 고친 설정이 도구를 못 띄우게 만들어서도 안 된다.
+// 읽을 것이 없거나 값이 이상하면 표의 기본값(지금은 켬)이다 (FR-ARE-3·FR-SDA-82).
+// 설정을 한 번도 저장하지 않은 사용자가 가장 많고, 손으로 고친 설정이 도구를 못
+// 띄우게 만들어서도 안 된다.
 func agentRenderEnv(blob []byte) []string {
-	on := true
+	on := fullscreenDefault()
 	var m map[string]any
 	if len(blob) > 0 {
 		if json.Unmarshal(blob, &m) != nil {

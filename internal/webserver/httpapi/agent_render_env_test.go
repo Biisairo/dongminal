@@ -1,9 +1,12 @@
 package httpapi
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/settingsschema"
 )
 
 // AGENT_RENDER_ENV_SRS — 에이전트가 화면을 망가뜨리지 않게 띄운다 (V-ARE-1~3).
@@ -123,4 +126,44 @@ func TestAgentRenderEnvScrollSpeed(t *testing.T) {
 			t.Errorf("%s%s, 기대 9: %v", key, speed, got)
 		}
 	})
+}
+
+// SERVER_DRIVEN_ACTIONS_SRS K-k (FR-SDA-82): 기본값은 설정 스키마의 `def` 다. 표를 읽지
+// 못하거나 값이 불리언이 아니면 켬이다 (FR-ARE-3).
+func TestFullscreenDefaultFrom(t *testing.T) {
+	spec := func(def any) []settingsschema.Spec {
+		return []settingsschema.Spec{{Key: agentRenderEnvKey, Def: def}}
+	}
+	cases := []struct {
+		name  string
+		specs []settingsschema.Spec
+		err   error
+		want  bool
+	}{
+		{"표가 끔", spec(false), nil, false},
+		{"표가 켬", spec(true), nil, true},
+		{"키가 없다", nil, nil, true},
+		{"불리언이 아니다", spec("yes"), nil, true},
+		{"표를 읽지 못했다", spec(false), errors.New("x"), true},
+	}
+	for _, c := range cases {
+		if got := fullscreenDefaultFrom(c.specs, c.err); got != c.want {
+			t.Errorf("%s: got %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+// 실제 표의 값과 서버의 기본값이 같다 — 두 벌이 아니다.
+func TestFullscreenDefault_FollowsSchema(t *testing.T) {
+	specs, err := settingsschema.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	def, ok := settingsschema.ByKey(specs)[agentRenderEnvKey].Def.(bool)
+	if !ok {
+		t.Fatalf("표에 %s 의 불리언 def 가 없다", agentRenderEnvKey)
+	}
+	if got := slices.Contains(agentRenderEnv(nil), flickerEnv); got != def {
+		t.Fatalf("blob 없이 %v, 표의 def 는 %v", got, def)
+	}
 }

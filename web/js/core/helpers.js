@@ -47,8 +47,6 @@ async function statusRun(el,msgs,fn){
   return true;
 }
 
-// FR-OPT-11-7 (FEC-31): Run 의 짧은 id (FR-RVZ-8).
-function runShortId(id){ return String(id).slice(0,RUN_SHORT_ID_LEN) }
 
 /**
  * 화면이 보일 때만 도는 주기 실행 (REFACTOR_STABILIZATION_SRS FR-RST-23).

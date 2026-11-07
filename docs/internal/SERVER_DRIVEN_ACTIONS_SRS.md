@@ -1,7 +1,7 @@
 # SRS: 서버가 답하는 동작 가능 여부 — server-driven actions — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 묶음 K(§3.8a)·N. 묶음 X(§3.7a)·F(§3.5a)·R(§3.6a)는 구현했다. 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)·GV(§3.4a)는 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
+> **남은 것**: 묶음 N. 묶음 K(§3.8a)·X(§3.7a)·F(§3.5a)·R(§3.6a)는 구현했다. 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)·GV(§3.4a)는 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
 
 ## 1. 개요 (Introduction)
 
@@ -378,6 +378,7 @@ GV-c 동작 표:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-07 | K-4 구현(K-k·K-l) — 묶음 K 끝. 동작 변경 둘. ① **이전**: 서버의 `claudeFullscreen` 기본값은 코드에 박은 `true` 였다 / **새**: 설정 스키마의 `def` 를 읽는다(`fullscreenDefault`). 표를 읽지 못하거나 불리언이 아니면 켬이다. 지금 표의 값도 `true` 라 결과는 같다 / **이유**: FR-SDA-82. ② **이전**: 화면이 Run 의 짧은 id 를 `runId` 앞 8자로 잘랐다(`runShortId`) / **새**: 서버의 `short`, `/api/tools/background` 의 새 `runShort`(`run.Short`)를 쓴다. 없으면 `Run` 만 쓴다(Run 탭 이름·대시보드 요약). 지금 Run 탭은 Runs 패널에서만 열리고 거기엔 언제나 `short` 가 있다 / **이유**: FR-SDA-83 |
 | 2026-11-07 | K-3 구현(K-j). 동작 변경 없음 — 게이트와 시험만 더했다. **이전**: K9·K10·K12·K13·K17 의 두 벌과 K6(해시)·K16(질의·응답)의 짝은 주석으로만 묶였고, 잡 표시기 종류의 라벨이 빠져도 아무것도 실패하지 않았다 / **새**: `scripts/check-shared-constants`(`make gates`)가 두 벌을 집합·값으로 대조하고, `jobs.IndicatorKinds()` 의 종류마다 ko·en 라벨을 본다. K6·K16 은 공유 표본(`gitapi/testdata/oid_digest_vectors.json`·`httpapi/testdata/term_query_report_vectors.json`)을 Go 시험과 `web/js/test/shared-vectors.test.mjs` 가 함께 읽는다 / **이유**: FR-SDA-81·TC-SDA-11 |
 | 2026-11-07 | K-2 의 샌드박스(K-i) 구현. 사용자 결정 D-SDA-12(`onlyDefault` 는 헤더). 동작 변경 셋. ① **이전**: 화면이 런타임 `state` 를 `ok`·`missing` 과 견줘 모달·명령·재시작 안내·기다림의 끝을 골랐다 / **새**: 응답의 `ready`·`installed` 로 고르고, 제목·문장은 `core.sbx_rt_title.<state>`·`core.sbx_rt_msg.<state>` 로 고른다(없으면 `state` 그대로) / **이유**: FR-SDA-84. ② **이전**: 고르는 줄(마운트·복사)·기본 선택·마운트 경고·복사 진행 표시·창의 복사 배지를 화면이 방식 이름으로 정했다 / **새**: 프로파일의 `workPicks`(`[{work, copies}]`, `sandbox.WorkPicksOf`)로 정한다. 줄은 프로파일들의 선택을 합친 것이고, 고를 방식이 없으면 줄을 세우지 않는다. `none` 프로파일은 그 프로파일의 `work` 를 싣는다(값은 전과 같은 `none`) / **이유**: FR-SDA-84. ③ **이전**: "dev 프로파일을 정의하라" 안내를 화면이 `list.length===1 && name==='scratch'` 로 판정했다 / **새**: 헤더 `X-Sandbox-Only-Default`(`sandbox.OnlyDefault`)를 따른다 / **이유**: FR-SDA-84·D-SDA-12 |
 | 2026-11-07 | K-2 의 잡 쪽(K-f·K-g·K-h) 구현. 동작 변경 셋. ① **이전**: push 거절 뒤 선택지를 화면이 이름(`fetch_rebase` 등)으로 갈라 할 일을 정했다 / **새**: 잡의 `fixes`(`jobs.RemoteRejectFixes`)가 시작할 잡·본문·파괴적 확인을 싣고, 화면은 그대로 한다. 모르는 확인은 실행하지 않는다 / **이유**: FR-SDA-84. ② **이전**: 잡 칸 상자 둘(`index`·`common`)과 머리 버튼의 칸, 취소 문구의 판정을 화면이 이름으로 들었다 / **새**: `/api/git/policy` 의 `jobSlots`(`jobs.SlotOrder`)로 상자를 만들고, `remote` 칸이 머리 버튼과 "원격에 남는다" 문구를 정한다. 정책을 받기 전에는 표시기가 없고, 받은 뒤 골격·머리·잡 목록을 다시 건다 / **이유**: 같다. ③ **이전**: 라벨 표(`GIT_REMOTE_LABEL`)에 없는 잡을 표시기가 걸렀다 / **새**: 잡의 `indicator` 가 거른다(`jobs.indicatorKind`, 잡 경로의 종류만 참). 라벨은 `git.job_kind.<kind>`(`-` 는 `_`), 없으면 kind 그대로 / **이유**: 같다. e2e `git-remote` 의 가짜 잡을 서버 모양(`slots`·`indicator`)으로 고쳤다 |

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"dongminal/internal/webserver/apierr"
+	"dongminal/internal/webserver/domain/run"
 	"net/http"
 
 	"dongminal/internal/shared/agentadapter"
@@ -180,7 +181,10 @@ func (s *Server) reportActivity(toolID, state, tool, detail string, userPrompt, 
 // 주지 않으면 구분할 수 없다 — 그것이 이 세 필드다.
 type backgroundRow struct {
 	toolhub.BackgroundEntry
-	RunID    string `json:"runId,omitempty"`
+	RunID string `json:"runId,omitempty"`
+	// RunShort 는 Run 의 짧은 id 다 — 화면이 runId 를 자르지 않게 서버가 싣는다
+	// (SERVER_DRIVEN_ACTIONS_SRS K-l).
+	RunShort string `json:"runShort,omitempty"`
 	MemberID string `json:"memberId,omitempty"`
 	Role     string `json:"role,omitempty"`
 }
@@ -203,6 +207,7 @@ func (s *Server) apiToolsBackground(w http.ResponseWriter, r *http.Request) {
 		if s.Runs != nil {
 			if m, ok := s.Runs.MemberByTool(e.ToolID); ok {
 				row.RunID, row.MemberID, row.Role = m.RunID, m.ID, m.Role
+				row.RunShort = run.Short(m.RunID)
 			}
 		}
 		rows = append(rows, row)
