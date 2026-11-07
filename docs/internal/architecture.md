@@ -144,6 +144,7 @@ scripts/                 # build.sh — 빌드 · verify-isolated.sh — `dongmi
   gen-decisions/         #   `docs/internal/decisions.md` 생성기 (ctl/decidx)
   gen-errors/            #   `docs/external/errors.md` 생성기 (ctl/errdoc)
   check-action-reasons/  #   사유 코드마다 ko·en 문구(`why.<code>`)가 있는가 (webserver/action)
+  check-shared-constants/ #  서버가 보낼 수 없는 공유 상수의 두 벌이 같은가 (SERVER_DRIVEN K-j)
 .github/workflows/       # verify.yml — 매 푸시 검사 (Linux·Windows)
                          # release.yml — 태그 v* → 5개 대상 빌드 → GitHub Releases
                          #   운영 동작은 바이너리의 액션 (internal/ctl/cli)

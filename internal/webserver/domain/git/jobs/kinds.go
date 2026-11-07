@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -36,6 +37,17 @@ var jobKinds = map[string]shapeRule{
 func indicatorKind(kind string) bool {
 	_, ok := jobKinds[kind]
 	return ok
+}
+
+// IndicatorKinds 는 잡 표시기에 서는 종류 전부다(정렬). 화면 라벨(`git.job_kind.<kind>`)이
+// 빠짐없는지 게이트가 이것으로 본다 (SERVER_DRIVEN_ACTIONS_SRS K-j ③).
+func IndicatorKinds() []string {
+	out := make([]string, 0, len(jobKinds))
+	for k := range jobKinds {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // unguardedKinds 는 StartUnguarded 가 받는 kind 다 — 인가를 도메인이 진다.

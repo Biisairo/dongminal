@@ -1,0 +1,11 @@
+[
+  { "name": "DA1", "query": "\u001b[c", "report": "\u001b[?1;2c" },
+  { "name": "DA2", "query": "\u001b[>c", "report": "\u001b[>0;276;0c" },
+  { "name": "DSR", "query": "\u001b[5n", "report": "\u001b[0n" },
+  { "name": "CPR", "query": "\u001b[6n", "report": "\u001b[24;80R" },
+  { "name": "DECXCPR", "query": "\u001b[?6n", "report": "\u001b[?56;9R" },
+  { "name": "DECRQM", "query": "\u001b[?2026$p", "report": "\u001b[?2026;0$y" },
+  { "name": "OSC color (BEL)", "query": "\u001b]11;?\u0007", "report": "\u001b]11;rgb:3f3f/3f3f/3f3f\u0007" },
+  { "name": "OSC color (ST)", "query": "\u001b]10;?\u001b\\", "report": "\u001b]10;rgb:ffff/ffff/ffff\u001b\\" },
+  { "name": "DECRQSS", "query": "\u001bP$q\"q\u001b\\", "report": "\u001bP1$r0\"q\u001b\\" }
+]

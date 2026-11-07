@@ -6,6 +6,7 @@ import (
 	"errors"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -337,6 +338,28 @@ func TestSlotOrder(t *testing.T) {
 	for _, k := range []string{"fetch", "push"} {
 		if SlotsOf(k)[0] != SlotCommon {
 			t.Fatalf("%s 는 원격 칸을 쓴다", k)
+		}
+	}
+}
+
+// SERVER_DRIVEN_ACTIONS_SRS K-j ③: 표시기에 서는 종류의 공개 목록. 정렬돼 있고,
+// 그쪽 탭이 드는 종류(D-A-27)는 없다.
+func TestIndicatorKinds(t *testing.T) {
+	got := IndicatorKinds()
+	if !sort.StringsAreSorted(got) {
+		t.Fatalf("정렬돼 있지 않다: %v", got)
+	}
+	if len(got) != len(jobKinds) {
+		t.Fatalf("len = %d, want %d", len(got), len(jobKinds))
+	}
+	for _, k := range got {
+		if !indicatorKind(k) {
+			t.Fatalf("%q 는 표시기 종류가 아니다", k)
+		}
+	}
+	for _, k := range []string{"submodule", "worktree"} {
+		if indicatorKind(k) {
+			t.Fatalf("%q 가 표시기 종류다", k)
 		}
 	}
 }

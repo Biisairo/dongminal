@@ -79,6 +79,8 @@ gates:  ## 커밋 전에 도는 것 — 포맷·정적분석·이음매 4종
 	@scripts/check-action-reasons.sh
 	@echo "── 화면의 판정 (서버로 옮긴 판정이 web/js 에 다시 생기지 않는가)"
 	@scripts/check-server-driven.sh
+	@echo "── 공유 상수 (서버가 보낼 수 없는 두 벌이 같은가)"
+	@scripts/check-shared-constants.sh
 	@echo "── SRS 상태 필드 (enum 안에 있는가)"
 	@scripts/check-srs-status.sh
 	@echo "── SRS 진행 근거 (\"구현중\" 이라는 주장에 근거가 있는가)"
