@@ -31,6 +31,13 @@ var jobKinds = map[string]shapeRule{
 	"bisect":      exactly("bisect", "reset"),
 }
 
+// indicatorKind 는 그 종류의 잡이 잡 표시기에 서는가다 (SERVER_DRIVEN_ACTIONS_SRS K-h).
+// jobKinds 의 종류만이다 — unguardedKinds(submodule·worktree)는 그쪽 탭이 든다 (D-A-27).
+func indicatorKind(kind string) bool {
+	_, ok := jobKinds[kind]
+	return ok
+}
+
 // unguardedKinds 는 StartUnguarded 가 받는 kind 다 — 인가를 도메인이 진다.
 var unguardedKinds = map[string]shapeRule{
 	"submodule": nil,

@@ -24,6 +24,16 @@ const (
 	SlotCommon = "common"
 )
 
+// SlotInfo 는 칸 하나와, 원격 동작(fetch·push)을 쥐는 칸인가다. 화면은 이것으로 표시 상자를
+// 만들고 머리의 원격 버튼과 취소 문구를 고른다 (SERVER_DRIVEN_ACTIONS_SRS K-g).
+type SlotInfo struct {
+	Slot   string `json:"slot"`
+	Remote bool   `json:"remote"`
+}
+
+// SlotOrder 는 칸의 표시 순서다. `/api/git/policy` 의 `jobSlots` 로 나간다.
+var SlotOrder = []SlotInfo{{Slot: SlotIndex}, {Slot: SlotCommon, Remote: true}}
+
 // commonKinds 는 index 를 건드리지 않는 잡이다. pull 은 index 를 바꾸고 원격 ref
 // 도 받으므로 두 칸 모두다.
 var commonKinds = map[string]bool{"fetch": true, "push": true, "submodule": true, "worktree": true}

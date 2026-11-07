@@ -31,7 +31,7 @@ class GitRemote {
   constructor(panel,slot,router){
     this.panel=panel;
     this.app=panel.app;
-    this.slot=slot||GIT_JOB_SLOT_COMMON;
+    this.slot=slot;
     this.router=router||null;
     this._busyKey='';     // 시작 요청이 오가는 동안 그 키 — 칸 판정에 쓴다
     this._job=null;       // 진행 중 작업. 내가 띄운 것이거나 /api/git/jobs 로 주워 온 것
@@ -187,7 +187,7 @@ class GitRemote {
     const j=cur||{};
     box.dataset.kind=j.kind||'';
     box.dataset.job=j.id||'';
-    box.querySelector('.git-job-kind').textContent=GIT_REMOTE_LABEL[j.kind]||'';
+    box.querySelector('.git-job-kind').textContent=j.kind?gitJobKindLabel(j.kind):'';
     // argv 를 그대로 보인다 — 다이얼로그의 선택이 반영됐는지 여기서 확인된다.
     const argv=(j.argv||[]).join(' ');
     const cmd=box.querySelector('.git-job-argv');
@@ -264,8 +264,9 @@ class GitRemote {
     auth.querySelector('.git-job-auth-cmd').textContent=this._termCmd(d);
     // FR-GIT-105: 서버가 준 순서 그대로다. 다시 그리는 것은 목록이 바뀔 때뿐이다.
     const opts=fail.querySelector('.git-job-opts');
-    const list=(d.rejected&&Array.isArray(d.options))?d.options:[];
-    const key=list.join(' ');
+    // K-f: 선택지마다 할 일(`fixes`)이 함께 온다 — 화면은 이름과 견주지 않는다.
+    const list=(d.rejected&&Array.isArray(d.fixes))?d.fixes.filter(f=>f&&f.id&&f.kind):[];
+    const key=list.map(f=>f.id).join(' ');
     if(opts.dataset.opts===key) return;
     opts.dataset.opts=key;
     opts.innerHTML='';
@@ -276,8 +277,8 @@ class GitRemote {
     opts.appendChild(n);
     for(const fix of list){
       // 클래스가 하나뿐인 것이 요구사항이다 — force 를 눈에 띄게 만들지 않는다.
-      opts.appendChild(UIKit.button({label:GIT_JOB_FIX_LABEL[fix]||fix,title:GIT_TIP_JOB_FIX,size:'sm',
-        cls:'git-job-opt',dataset:{fix},onClick:()=>this._fix(fix)}));
+      opts.appendChild(UIKit.button({label:gitJobFixLabel(fix.id),title:GIT_TIP_JOB_FIX,size:'sm',
+        cls:'git-job-opt',dataset:{fix:fix.id},onClick:()=>this._fix(fix)}));
     }
   }
 
@@ -322,7 +323,7 @@ class GitRemote {
 
   // 버튼은 기본 동작만 한다. 변형은 `▾` 에서만 온다.
   _click(kind){
-    if(!GIT_REMOTE_LABEL[kind]) return;
+    if(!GIT_REMOTE_KINDS.includes(kind)) return;
     if(kind==='push'){this._push('');return}
     this.run(kind,{});
   }
@@ -424,11 +425,16 @@ class GitRemote {
   }
 
   // FR-GIT-105: 거부 뒤의 후속 동작. force 는 확인 절차를 그대로 탄다.
+  // K-f: 할 일은 서버가 준다 — 파괴적 확인(`confirm`)이 있으면 그 흐름을 거치고, 없으면
+  // 그 잡을 시작한다. 모르는 확인은 실행하지 않는다 — 확인 없이 지나보내지 않는다.
   _fix(fix){
-    if(this.router.why('pull')) return;
-    if(fix===GIT_JOB_FIX_REBASE){this.run('pull',{mode:'rebase'});return}
-    if(fix===GIT_JOB_FIX_MERGE){this.run('pull',{mode:''});return}
-    if(fix===GIT_JOB_FIX_LEASE){this._forcePush('lease');return}
+    if(this.router.why(fix.kind)) return;
+    const body=Object.assign({},fix.body||{});
+    if(fix.confirm){
+      if(fix.confirm===GIT_ACT_FORCE_PUSH) this._forcePush(body.force);
+      return;
+    }
+    this.run(fix.kind,body);
   }
 
   // FR-GIT-102: 취소는 부분 적용 가능성을 확인 문구에 명시한다.
@@ -437,9 +443,9 @@ class GitRemote {
     if(!job||this._canceling) return;
     const ok=await GitDialog.confirm({
       action:GIT_ACT_JOB_CANCEL,title:GIT_JOB_CANCEL_TITLE,stages:1,
-      targets:[(GIT_REMOTE_LABEL[job.kind]||job.kind||'')],
+      targets:[job.kind?gitJobKindLabel(job.kind):''],
       // §6.3: 원격이 아닌 잡은 "원격에" 가 아니라 이 저장소에 일부가 남는다.
-      hint:{note:(job.slots||[]).includes(GIT_JOB_SLOT_COMMON)
+      hint:{note:(this.router&&this.router.touchesRemote(job))
         ?GIT_JOB_CANCEL_NOTE:GIT_JOB_CANCEL_NOTE_LOCAL,command:''},
     });
     if(!ok||!this._job||this._job.id!==job.id) return;
@@ -648,9 +654,10 @@ class GitRemote {
   _isMine(j){
     if(!j||!j.repo) return false;
     // M8 D-A-27: 서브모듈 갱신도 작업이지만 이 표면의 것이 아니다 — 그쪽 탭이 든다.
-    if(!GIT_REMOTE_LABEL[j.kind]) return false;
+    // 어느 잡이 표시기의 것인지는 서버가 정한다(`indicator`, K-h).
+    if(!j.indicator) return false;
     // §6.4: 잡은 첫 칸의 표시기에 붙는다 — pull(index·common)은 index 에.
-    if(((j.slots&&j.slots[0])||GIT_JOB_SLOT_COMMON)!==this.slot) return false;
+    if(!j.slots||j.slots[0]!==this.slot) return false;
     if(j.repo===this.panel.repo) return true;
     const st=this.panel._status;
     return !!(st&&j.repo===st.repo);

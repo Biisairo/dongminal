@@ -29,3 +29,20 @@ func TestAPIGitPolicyLimits(t *testing.T) {
 		}
 	}
 }
+
+// SERVER_DRIVEN_ACTIONS_SRS K-g (K1): 잡 칸의 이름·순서·원격 칸은 서버가 보낸다.
+func TestAPIGitPolicyJobSlots(t *testing.T) {
+	g := newGitFake(t)
+	s, _, _, _ := gitTestServer(t, g)
+	_, out := gitReq(t, s, http.MethodGet, "/api/git/policy", "")
+	got, ok := out["jobSlots"].([]any)
+	if !ok || len(got) != len(jobs.SlotOrder) {
+		t.Fatalf("jobSlots = %v, want %v", out["jobSlots"], jobs.SlotOrder)
+	}
+	for i, want := range jobs.SlotOrder {
+		m, _ := got[i].(map[string]any)
+		if m["slot"] != want.Slot || m["remote"] != want.Remote {
+			t.Fatalf("jobSlots[%d] = %v, want %+v", i, got[i], want)
+		}
+	}
+}

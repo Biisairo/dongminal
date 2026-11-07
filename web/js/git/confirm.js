@@ -131,6 +131,8 @@ class GitConfirm extends GitModalBase {
       // K-a·K-b: 화면이 그대로 쓰는 상한. 모르면 0·null — 줄을 자르지 않고 limit 을 싣지 않는다.
       jobLineCap:Number.isInteger(d.jobLineCap)&&d.jobLineCap>0?d.jobLineCap:0,
       logLimits:gitLogLimitsOf(d.logLimits),
+      // K-g: 잡 칸의 이름·순서·원격 칸.
+      jobSlots:Array.isArray(d.jobSlots)?d.jobSlots.filter(x=>x&&typeof x.slot==='string'&&x.slot):[],
     };
   }
 

@@ -61,6 +61,7 @@ func (s *GitServer) apiGitPolicy(w http.ResponseWriter, r *http.Request) {
 		"resetModes":  write.ResetModes,
 		// K-a·K-b (K3·K5): 화면이 그대로 쓰는 상한도 서버가 보낸다.
 		"jobLineCap": jobs.JobLineCap,
+		"jobSlots":   jobs.SlotOrder,
 		"logLimits": map[string]int{
 			"initial": query.LogInitialLimit, "page": query.LogPageLimit, "max": query.LogMaxLimit,
 		},

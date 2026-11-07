@@ -29,13 +29,42 @@ class GitJobs {
   constructor(panel){
     this.panel=panel;
     this.views={};
-    this.views[GIT_JOB_SLOT_INDEX]=new GitRemote(panel,GIT_JOB_SLOT_INDEX,this);
-    this.views[GIT_JOB_SLOT_COMMON]=new GitRemote(panel,GIT_JOB_SLOT_COMMON,this);
+    // SERVER_DRIVEN_ACTIONS_SRS K-g (K1): 칸의 이름·순서·원격 칸은 정책(`jobSlots`)이 정한다.
+    // 받기 전에는 표시기가 없다 — 그 사이에 온 것(골격·머리·잡 목록)은 받은 뒤 다시 건다.
+    this.slots=[];
+    this._el=null; this._head=null; this._jobs=null;
     // 이 탭의 `panel.post` 가 띄워 결과를 기다리는 잡 — 뒷정리는 기다리는 쪽이 한다.
     this._owned=new Set();
-    // K-a: 줄 상한은 정책에 실려 온다 — 잡이 붙기 전에 받아 둔다.
-    GitConfirm.policy();
+    this._ensure();
   }
+
+  // 정책을 받아 칸마다 표시기를 세운다. 받지 못했으면 다음 부름에서 다시 받는다.
+  _ensure(){
+    if(this.slots.length) return Promise.resolve(true);
+    if(!this._ready) this._ready=GitConfirm.policy().then(p=>{this._ready=null;return this._build(p&&p.jobSlots)});
+    return this._ready;
+  }
+
+  _build(list){
+    if(this.slots.length) return true;
+    if(!Array.isArray(list)||!list.length) return false;
+    this.slots=list.map(s=>({slot:String(s.slot),remote:!!s.remote}));
+    for(const s of this.slots) this.views[s.slot]=new GitRemote(this.panel,s.slot,this);
+    const box=this._el&&this._el.querySelector('.git-jobs');
+    if(box){box.innerHTML=this.boxesHTML();this.bind(this._el);this.paint(this._el)}
+    if(this._head){this.bindHead(this._head);this.paintHead(this._head)}
+    if(this._jobs) this.adoptJobs(this._jobs);
+    return true;
+  }
+
+  // 칸마다 박스 하나 — 정책의 순서다.
+  boxesHTML(){return this.slots.map(s=>GitJobs.boxHTML(s.slot)).join('')}
+
+  // 시작 표시기가 서는 칸(원격이 아닌 첫 칸)과 머리의 원격 버튼을 받는 칸.
+  _localView(){const s=this.slots.find(x=>!x.remote)||this.slots[0];return s?this.views[s.slot]:null}
+  _headView(){const s=this.slots.find(x=>x.remote);return s?this.views[s.slot]:null}
+  /** 이 잡이 원격 칸을 쥐는가 — 취소 문구가 "원격에 남는다" 를 고른다. */
+  touchesRemote(job){return ((job&&job.slots)||[]).some(sl=>this.slots.some(x=>x.slot===sl&&x.remote))}
 
   // 칸 하나의 박스. 두 칸이 같은 골격이다 — 한 벌을 두 번 찍는다.
   static boxHTML(slot){
@@ -95,9 +124,12 @@ class GitJobs {
 
   // 칸이 찼는지는 서버가 판정하고 거절한다 — 시작 표시기는 기본 칸(index)에 서고,
   // 응답의 잡이 붙을 칸은 `track` 이 서버의 `slots` 로 고른다.
-  run(key,body,opts){
-    this._dismissOthers(GIT_JOB_SLOT_INDEX);
-    return this.views[GIT_JOB_SLOT_INDEX]._launch(key,body,opts);
+  async run(key,body,opts){
+    await this._ensure();
+    const v=this._localView();
+    if(!v) return {ok:false,code:0,data:{}};
+    this._dismissOthers(v.slot);
+    return v._launch(key,body,opts);
   }
 
   // 시작 응답의 잡을 그 첫 칸의 표시기에 붙인다.
@@ -105,9 +137,12 @@ class GitJobs {
   // 다른 칸의 **끝난** 결과는 걷는다 — 종전의 박스 하나처럼 새 잡이 앞의 결과를
   // 대신한다. 다른 칸에서 도는 잡은 그대로 두 줄로 선다.
   track(job,view){
-    const slot=(job.slots&&job.slots[0])||(view&&view.slot)||GIT_JOB_SLOT_INDEX;
+    const lv=this._localView();
+    const slot=(job.slots&&job.slots[0])||(view&&view.slot)||(lv&&lv.slot);
+    const v=this.views[slot];
+    if(!v) return;
     this._dismissOthers(slot);
-    this.views[slot]._attach(job);
+    v._attach(job);
   }
 
   _dismissOthers(slot){
@@ -141,15 +176,15 @@ class GitJobs {
     if(jb.kind==='commit'&&gitJobOutcome(jb)==='ok') this.panel._commit().adoptJobDone(jb);
   }
 
-  adoptJobs(jobs){this._each(v=>v.adoptJobs(jobs))}
+  adoptJobs(jobs){this._jobs=jobs;this._each(v=>v.adoptJobs(jobs))}
 
   // ── 패널이 부르는 나머지 — 두 칸에 그대로 넘긴다 ──
 
   // 머리의 원격 버튼은 common 칸 표시기가 받는다 — pull 은 run 이 index 로 보낸다.
-  bindHead(head){this.views[GIT_JOB_SLOT_COMMON].bindHead(head)}
-  paintHead(head){this.views[GIT_JOB_SLOT_COMMON].paintHead(head)}
-  bind(el){this._each(v=>v.bind(el))}
-  paint(el){this._each(v=>v.paint(el))}
+  bindHead(head){this._head=head;const v=this._headView();if(v) v.bindHead(head)}
+  paintHead(head){this._head=head;const v=this._headView();if(v) v.paintHead(head)}
+  bind(el){this._el=el;this._each(v=>v.bind(el))}
+  paint(el){this._el=el;this._each(v=>v.paint(el))}
   detachRepo(){this._owned.clear(); this._each(v=>v.detachRepo())}
   notifyStatus(){this._each(v=>v.notifyStatus())}
 }

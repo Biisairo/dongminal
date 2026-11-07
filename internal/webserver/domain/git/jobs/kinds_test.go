@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/write"
 )
 
 // REPO_FIX 01 §6.1~6.3 — 잡으로 옮긴 쓰기. kind 표·모양 제약·stdin·완료 처리.
@@ -282,5 +284,59 @@ func TestJob_IndexLockedErrorCode(t *testing.T) {
 	}
 	if final.Lock.MtimeUnixMs != nil {
 		t.Fatal("없는 파일의 mtime 을 실었다")
+	}
+}
+
+// SERVER_DRIVEN_ACTIONS_SRS K-h (K2): 잡 표시기에 서는가는 서버가 정한다 — 잡 경로의 종류는
+// 참, 그쪽 탭이 맡는 submodule·worktree 는 거짓이다 (D-A-27).
+func TestJob_IndicatorInJSON(t *testing.T) {
+	j := NewJobs(jobSvc(), WithJobRunner(jobDoneRunner(0, "")))
+	jb, _ := j.Start(jobRepo, keysOf(jobRepo), "pull", core.WriteSpec{Argv: []string{"pull", "--progress"}})
+	if !jb.Indicator {
+		t.Fatal("pull 은 표시기의 잡이다")
+	}
+	jobWait(t, j, jb.ID, 2*time.Second)
+	sub, err := j.StartUnguarded(jobRepo, keysOf(jobRepo), "submodule", []string{"submodule", "update"}, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sub.Indicator {
+		t.Fatal("submodule 은 Submodules 탭이 맡는다 — 표시기의 잡이 아니다")
+	}
+	jobWait(t, j, sub.ID, 2*time.Second)
+}
+
+// SERVER_DRIVEN_ACTIONS_SRS K-f (K4): 후속 선택지는 할 일을 함께 싣는다. 순서는 Options 와 같다.
+func TestRemoteRejectFixes(t *testing.T) {
+	if len(RemoteRejectFixes) != len(RemoteRejectOptions) {
+		t.Fatalf("fixes = %v, options = %v", RemoteRejectFixes, RemoteRejectOptions)
+	}
+	for i, f := range RemoteRejectFixes {
+		if f.ID != RemoteRejectOptions[i] {
+			t.Fatalf("fixes[%d].id = %q, want %q", i, f.ID, RemoteRejectOptions[i])
+		}
+	}
+	want := map[string]Fix{
+		FixFetchRebase:    {ID: FixFetchRebase, Kind: "pull", Body: map[string]any{"mode": write.PullRebase}},
+		FixFetchMerge:     {ID: FixFetchMerge, Kind: "pull", Body: map[string]any{"mode": write.PullDefault}},
+		FixForceWithLease: {ID: FixForceWithLease, Kind: "push", Body: map[string]any{"force": write.PushLease}, Confirm: core.ActionForcePush},
+	}
+	for _, f := range RemoteRejectFixes {
+		if !reflect.DeepEqual(f, want[f.ID]) {
+			t.Fatalf("fix %q = %+v, want %+v", f.ID, f, want[f.ID])
+		}
+	}
+}
+
+// K-g: 칸 순서는 index → common 이고, 원격 동작을 쥐는 칸은 common 하나다 — 원격 잡(fetch·push)이
+// 그 칸을 쓴다.
+func TestSlotOrder(t *testing.T) {
+	if len(SlotOrder) != 2 || SlotOrder[0] != (SlotInfo{Slot: SlotIndex}) || SlotOrder[1] != (SlotInfo{Slot: SlotCommon, Remote: true}) {
+		t.Fatalf("SlotOrder = %+v", SlotOrder)
+	}
+	for _, k := range []string{"fetch", "push"} {
+		if SlotsOf(k)[0] != SlotCommon {
+			t.Fatalf("%s 는 원격 칸을 쓴다", k)
+		}
 	}
 }

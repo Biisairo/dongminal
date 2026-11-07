@@ -154,6 +154,7 @@ func classifyOutcome(final Job, canceled, shutdown bool, runErr error, exit int,
 		final.Rejected = matchesAny(tail, rejectPatterns)
 		if final.Rejected {
 			final.Options = append([]string(nil), RemoteRejectOptions...)
+			final.Fixes = append([]Fix(nil), RemoteRejectFixes...)
 		}
 	}
 

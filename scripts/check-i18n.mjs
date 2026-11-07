@@ -90,6 +90,8 @@ const SKIP_PROPS = [
  */
 const DYNAMIC_PREFIXES = [
   { prefix: 'err.', why: "api.js 가 서버의 오류 코드로 `t('err.' + code)` 를 조립한다 (ERROR_CONTRACT)" },
+  { prefix: 'git.job_kind.', why: "constants-git-remote.js 가 서버 잡의 kind 로 `'git.job_kind.' + kind` 를 조립한다 (SERVER_DRIVEN_ACTIONS_SRS K-h)" },
+  { prefix: 'git.job_fix_label.', why: "constants-git-remote.js 가 서버 선택지의 id 로 `'git.job_fix_label.' + id` 를 조립한다 (SERVER_DRIVEN_ACTIONS_SRS K-f)" },
   { prefix: 'why.', why: "action-answer.js 가 서버 답의 사유 코드로 `t('why.' + code)` 를 조립한다 (SERVER_DRIVEN_ACTIONS_SRS M-6)" },
 ];
 

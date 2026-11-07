@@ -12,6 +12,7 @@ import (
 
 	"dongminal/internal/shared/uuid"
 	"dongminal/internal/webserver/domain/git/core"
+	"dongminal/internal/webserver/domain/git/write"
 )
 
 // 원격 작업은 다른 git 실행과 성질이 다르다: 초 단위가 아니라 분 단위이고, 출력이
@@ -49,6 +50,23 @@ const (
 // RemoteRejectOptions 는 push 거부 뒤의 후속 선택지다. **순서가 곧 우선순위다** —
 // force 는 마지막이고 기본 제안이 아니다 (FR-GIT-105·97).
 var RemoteRejectOptions = []string{FixFetchRebase, FixFetchMerge, FixForceWithLease}
+
+// Fix 는 후속 선택지 하나와 그 **할 일**이다 (SERVER_DRIVEN_ACTIONS_SRS K-f · FR-SDA-84).
+// 화면은 이름과 견주지 않고 이것대로 한다 — Confirm 이 있으면 그 파괴적 확인을 거쳐,
+// Kind·Body 의 잡을 시작한다.
+type Fix struct {
+	ID      string         `json:"id"`
+	Kind    string         `json:"kind"`
+	Body    map[string]any `json:"body"`
+	Confirm string         `json:"confirm,omitempty"`
+}
+
+// RemoteRejectFixes 는 RemoteRejectOptions 의 할 일이다. 순서가 같다.
+var RemoteRejectFixes = []Fix{
+	{ID: FixFetchRebase, Kind: "pull", Body: map[string]any{"mode": write.PullRebase}},
+	{ID: FixFetchMerge, Kind: "pull", Body: map[string]any{"mode": write.PullDefault}},
+	{ID: FixForceWithLease, Kind: "push", Body: map[string]any{"force": write.PushLease}, Confirm: core.ActionForcePush},
+}
 
 var (
 	// ErrJobBusy 는 같은 리포에 진행 중인 작업이 있다는 것이다 (FR-GIT-101).
@@ -95,10 +113,13 @@ type Job struct {
 	AuthRequired bool     `json:"authRequired"`         // FR-GIT-104. 안내만 한다 — 자격증명을 받지 않는다
 	Rejected     bool     `json:"rejected"`             // FR-GIT-105. non-fast-forward 거부
 	Options      []string `json:"options,omitempty"`    // FR-GIT-105. 순서가 곧 우선순위다
+	Fixes        []Fix    `json:"fixes,omitempty"`      // K-f. Options 의 할 일 — 화면은 이것을 쓴다
 	StderrTail   string   `json:"stderrTail,omitempty"` // FR-GIT-108·96
 
 	// REPO_FIX 01 §6.3. Slots 는 시작부터 있다 — 프런트 잠금의 유일한 출처다.
-	Slots     []string       `json:"slots,omitempty"`
+	Slots []string `json:"slots,omitempty"`
+	// Indicator 는 잡 표시기에 서는 잡인가다 (K-h). submodule·worktree 는 그쪽 탭이 맡는다.
+	Indicator bool           `json:"indicator"`
 	ErrorCode string         `json:"errorCode,omitempty"` // server_shutdown | index_locked | git_timeout
 	Lock      *core.LockInfo `json:"lock,omitempty"`      // errorCode=index_locked
 	Result    *Result        `json:"result,omitempty"`    // 완료 처리가 채운다
@@ -335,13 +356,14 @@ func (j *Jobs) launch(repo string, keys Keys, kind string, spec core.WriteSpec, 
 	st := &jobState{
 		keys: keys,
 		job: Job{
-			ID:       id,
-			Repo:     repo,
-			Kind:     kind,
-			Argv:     core.SanitizeArgv(spec.Argv),
-			Started:  j.now().UnixMilli(),
-			ExitCode: -1,
-			Slots:    SlotsOf(kind),
+			ID:        id,
+			Repo:      repo,
+			Kind:      kind,
+			Argv:      core.SanitizeArgv(spec.Argv),
+			Started:   j.now().UnixMilli(),
+			ExitCode:  -1,
+			Slots:     SlotsOf(kind),
+			Indicator: indicatorKind(kind),
 		},
 		raw:       append([]string(nil), spec.Argv...),
 		spec:      spec,

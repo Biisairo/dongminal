@@ -37,7 +37,7 @@ func TestClassifyOutcome(t *testing.T) {
 			want: Job{Kind: "commit", Done: true, Err: "boom"}},
 		{name: "원격 거부는 선택지를 싣는다", kind: "push", exit: 1, tail: "! [rejected] main -> main (non-fast-forward)",
 			want: Job{Kind: "push", Done: true, ExitCode: 1, StderrTail: "! [rejected] main -> main (non-fast-forward)",
-				Err: "git push 가 exit 1 로 끝났다", Rejected: true, Options: RemoteRejectOptions}},
+				Err: "git push 가 exit 1 로 끝났다", Rejected: true, Options: RemoteRejectOptions, Fixes: RemoteRejectFixes}},
 	}
 	for _, c := range cases {
 		got := classifyOutcome(Job{Kind: c.kind}, c.canceled, c.shutdown, c.runErr, c.exit, c.tail)

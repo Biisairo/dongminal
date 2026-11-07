@@ -104,6 +104,9 @@
 - **화면이 쓰는 상한과 목록을 서버가 보냅니다.** `GET /api/git/policy` 에 `jobLineCap`·`logLimits` 를,
   `GET /api/meta` 에 `fsStampMax`·`fileStampsMax`·`fsWatchDirsMax`·`encodings` 를, `GET /api/editors` 에 고정 루트의
   순서 `fixed` 를 더했습니다. 기존 필드는 그대로입니다.
+- **git 잡 응답이 뜻을 함께 싣습니다.** 잡 JSON 에 `indicator`(잡 표시기에 서는 잡인가)와, push 거절 뒤
+  `fixes`(선택지마다 시작할 잡과 거쳐야 할 확인)를 더했습니다. `GET /api/git/policy` 는 `jobSlots`(칸의 순서와
+  원격 칸)를 싣습니다. `options` 는 그대로입니다.
 
 ### 고침
 

@@ -12,15 +12,15 @@
 const GIT_REMOTE_KINDS=['fetch','pull','push'];
 // **글자다.** 작업 진행 표시(상태바·작업 로그의 이름)가 이것을 쓴다 — 버튼을
 // 아이콘으로 바꾸면서 이 값을 함께 바꾸면 "⤓ 중" 이 된다 (GIT_CHANGES_CONTROLS_SRS D-6).
-// REPO_FIX 01 §6.4: 잡은 이제 원격만이 아니다 — 잡 표시기가 kind 무관하게 이 이름을
-// 붙인다. 서버의 kind(jobs.jobKinds)와 같은 키다.
-const GIT_REMOTE_LABEL={fetch:'Fetch',pull:'Pull',push:'Push',
-  commit:'Commit',checkout:'Checkout',merge:'Merge',rebase:'Rebase',
-  'cherry-pick':'Cherry-pick',revert:'Revert',am:'am',bisect:'Bisect'};
-// §5.4·6.4 잡의 두 칸 이름. 도는 잡이 어느 칸을 쥐는지는 서버가 준 `slots` 가 유일한
-// 출처다 — 화면은 칸 규칙을 갖지 않는다 (SERVER_DRIVEN_ACTIONS_SRS GR-1e).
-const GIT_JOB_SLOT_INDEX='index';
-const GIT_JOB_SLOT_COMMON='common';
+// SERVER_DRIVEN_ACTIONS_SRS K-h: 잡 종류는 서버의 kind 를 i18n 키(`git.job_kind.<kind>`)로
+// 고르고, 문구가 없으면 kind 그대로 보인다. 어느 잡이 표시기의 것인지는 잡의 `indicator` 다.
+function gitJobKindLabel(kind){
+  // 키 규약은 `-` 를 받지 않는다 — `cherry-pick` 은 `cherry_pick` 키다.
+  const k='git.job_kind.'+String(kind).replace(/-/g,'_');
+  return I18N.has(k)?t(k):String(kind);
+}
+// §5.4·6.4 잡의 칸 이름·순서·원격 칸은 정책의 `jobSlots` 가, 도는 잡이 어느 칸을 쥐는지는
+// 잡의 `slots` 가 유일한 출처다 — 화면은 칸 규칙도 이름도 갖지 않는다 (GR-1e · K-g).
 // 서버 판정의 동작 ID (SERVER_DRIVEN_ACTIONS_SRS §3.1a·3.2a · `internal/webserver/action`).
 // 켜고 끄는 것은 이 ID 의 답이다 — `git.write` 는 index 칸을 쓰는 동기 쓰기·잡 전반이다.
 const GIT_ACTION=Object.freeze({
@@ -107,15 +107,12 @@ const GIT_JOB_AUTH_COPY=t('git.act.job_auth_copy');
 // FR-GIT-105: 선택지는 **서버가 준 순서 그대로** 그린다. 순서가 곧 우선순위이고
 // force 는 마지막이며 강조하지 않는다.
 const GIT_JOB_REJECT_NOTE=t('git.job_reject_note');
-// 이름은 서버(internal/git/job.go)와 같은 문자열이다. 목록과 순서는 서버가 준다.
-const GIT_JOB_FIX_REBASE='fetch_rebase';
-const GIT_JOB_FIX_MERGE='fetch_merge';
-const GIT_JOB_FIX_LEASE='force_with_lease';
-const GIT_JOB_FIX_LABEL={
-  fetch_rebase:t('git.job_fix_label.fetch_rebase'),
-  fetch_merge:t('git.job_fix_label.fetch_merge'),
-  force_with_lease:t('git.job_fix_label.force_with_lease'),
-};
+// K-f: 선택지의 목록·순서·할 일은 서버가 준다(잡의 `fixes`). 라벨은 id 로 고르고, 문구가
+// 없으면 id 그대로 보인다.
+function gitJobFixLabel(id){
+  const k='git.job_fix_label.'+id;
+  return I18N.has(k)?t(k):String(id);
+}
 // FR-GIT-111: pull 이 충돌을 남기면 Changes 탭으로 보낸다. 해결 UI 는 M3 범위 밖이다.
 const GIT_JOB_CONFLICT_NOTE=t('git.job_conflict_note');
 // FR-GIT-100: upstream 이 없으면 Push 는 Publish 다. 서버가 실행 전에 되묻는다

@@ -183,13 +183,13 @@ test.describe('13단계 — 원격 작업', () => {
         body: JSON.stringify({
           requested: repo,
           repo,
-          job: { id: 'stub-job', repo, kind: 'push', argv: ['push', '--progress'], done: false },
+          job: { id: 'stub-job', repo, kind: 'push', argv: ['push', '--progress'], done: false, slots: ['common'], indicator: true },
         }),
       }));
     // 스트림을 열어 두면 작업이 끝나지 않는다.
     await page.route('**/api/git/job/events*', () => {});
     // 상태바 폴링이 "진행 중 없음" 을 주면 화면이 작업을 놓는다 — 진행 중으로 답한다.
-    await stubJobs(page, [{ id: 'stub-job', repo, kind: 'push', argv: ['push', '--progress'], done: false }]);
+    await stubJobs(page, [{ id: 'stub-job', repo, kind: 'push', argv: ['push', '--progress'], done: false, slots: ['common'], indicator: true }]);
 
     await btn(page, 'push').click();
 
@@ -417,7 +417,7 @@ test.describe('13단계 — 원격 작업', () => {
     // **이 창이 띄우지 않은** 작업이다 — 서버 목록에만 있다. 버튼을 끄는 것은 서버의
     // 1층 답이다 (GR-1e) — 잡 목록이 오면 화면이 status 를 다시 받고 그 답을 그린다.
     await stubBusyActions(page, ['git.fetch', 'git.pull', 'git.push']);
-    await stubJobs(page, [{ id: 'sb-job', repo, kind: 'fetch', argv: ['fetch', '--progress'], done: false }]);
+    await stubJobs(page, [{ id: 'sb-job', repo, kind: 'fetch', argv: ['fetch', '--progress'], done: false, slots: ['common'], indicator: true }]);
     await page.route('**/api/git/job/events*', () => {});
 
     // FR-GIT-101: 목록이 도착하면 같은 리포의 원격 버튼이 막힌다.

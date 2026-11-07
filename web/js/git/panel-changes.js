@@ -162,7 +162,7 @@ Object.assign(GitPanel.prototype, {
       GitPanel.headHTML()+
       // 잡 칸 둘의 화면 (FR-GIT-102·103·105·108, REPO_FIX 01 §6.4). 진행 중이
       // 아니면 접힌다. 골격은 GitJobs 가 한 벌을 칸마다 찍는다.
-      '<div class="git-jobs">'+GitJobs.boxHTML(GIT_JOB_SLOT_INDEX)+GitJobs.boxHTML(GIT_JOB_SLOT_COMMON)+'</div>'+
+      '<div class="git-jobs">'+this._remote().boxesHTML()+'</div>'+
       // FR-GIT-252: 진행 중 작업과 **나갈 길**. 상태만 보이고 출구가 없으면
       // 사용자는 GUI 안에 갇힌다.
       '<div class="git-op-bar">'+
