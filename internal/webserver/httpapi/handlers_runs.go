@@ -249,6 +249,8 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 		// 확정한다** (FR-HLM-2) — 격리 Run 이면 멤버의 worktree, 아니면 이 값이다.
 		// 헤드리스 멤버에게는 cd 를 대신 쳐 줄 사람이 없다.
 		Cwd string `json:"cwd"`
+		// Assign 은 트리 Run 멤버의 배정이다 (ISSUE_TREE_OPS_SRS FR-ITA-1).
+		Assign *run.Assignment `json:"assign"`
 	}
 	if !decodeJSONBody(w, r, &body) {
 		return
@@ -299,6 +301,7 @@ func (s *Server) apiRunMemberAdd(w http.ResponseWriter, r *http.Request) {
 		TabID:    s.tabIDOfTool(toolID),
 		Worktree: mi.Worktree,
 		Headless: body.Headless,
+		Assign:   body.Assign,
 	})
 	if err != nil {
 		s.rollbackMemberAdd(r.Context(), mi, body.Headless, toolID)
@@ -331,7 +334,7 @@ func (s *Server) memberAddedView(runID string, m run.Member) memberView {
 	view := memberView{Member: m, State: s.deriveMemberState(m)}
 	if rec, ok := s.Runs.Get(runID); ok {
 		s.markWorkspaceRun(rec, m.TabID, rec.ID)
-		view.Preamble = run.Preamble(rec, m)
+		view.Preamble = s.memberPreamble(rec, m)
 	}
 	return view
 }
@@ -390,7 +393,7 @@ func (s *Server) apiRunPreamble(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"runId": rec.ID, "memberId": m.ID, "role": m.Role, "agent": m.Agent,
 		"tabId": m.TabID, "toolId": m.ToolID, "runState": rec.State,
-		"preamble": run.Preamble(rec, m),
+		"preamble": s.memberPreamble(rec, m),
 	})
 }
 

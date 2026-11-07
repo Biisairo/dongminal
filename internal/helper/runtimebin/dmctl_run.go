@@ -29,6 +29,7 @@ const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
   dmctl run peers
   dmctl run succeed --member <uuid> (--at <탭 uuid> | --headless) [--model <m>] [--timeout-ms N]
   dmctl run handoff [--member <uuid>] --summary <본문>|-
+  dmctl run assign --member <uuid> [--title <제목>] [--goal <번호들>] [--parallel] [--ctx N] [--no-commit]
 
   --projection   dedicated-window(기본) | background | inline
                  전용 창이 기본이다 — 사용자 작업 공간을 침범하지 않는다.
@@ -41,6 +42,11 @@ const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
                  (tree_open — 멈춘 트리면 정리 방법을 알린다).
   --branch       --tree 와 함께. 그 트리의 병렬 가지 Run 이다. 열린 루트 Run 이 있어야 한다.
                  트리 Run 의 멤버는 같은 트리 안에서 역할 이름(사슬 이름)이 겹치면 거절된다(node_taken).
+  --issue        트리 Run 멤버의 배정(ISSUE_TREE_OPS_SRS). 트리 Run 의 멤버는 필수다.
+                 함께 받는 것: --title · --parent <부모 member uuid> · --goal <남은 번호들> ·
+                 --parallel(병렬 가지) · --ctx <퍼센트>(맥락 기준) · --no-commit.
+                 배정은 프리앰블의 [ISSUE-TREE 배정] 블록에 실리고 승계로 물려받는다.
+                 run assign 이 고친다 — 그 멤버 자신이나 부모 멤버만 고칠 수 있다.
   --base         worktree 가 갈라져 나올 ref. 기본은 이 셸 cwd 의 HEAD 다.
   --headless     탭을 점유하지 않는 멤버. --at 과 배타이며 **정확히 하나**여야 한다.
                  서버가 도구를 만들어 백그라운드(⏻)에 올린다. cwd 는 서버가
@@ -136,6 +142,17 @@ type runFlags struct {
 	tree   string // --tree
 	branch bool   // --branch
 	ref    string // --ref (run tree)
+
+	// ISSUE_TREE_OPS_SRS 묶음 A: 트리 노드의 배정 (FR-ITA-1·4).
+	issue    string // --issue
+	title    string // --title
+	parent   string // --parent
+	goal     string // --goal
+	ctx      string // --ctx
+	parallel bool   // --parallel
+	noCommit bool   // --no-commit
+	// given 은 실제로 받은 값 플래그다 — run assign 은 받은 것만 고친다.
+	given map[string]bool
 }
 
 // runDmctlRun implements FR-RUN-8. stdin 은 --brief - 만 소비한다.
@@ -189,6 +206,8 @@ func runDmctlRunStdin(stdin io.Reader, args []string, stdout, stderr io.Writer) 
 		return runSubPeers(f, stdout, stderr)
 	case "tree":
 		return runSubTree(f, stdout, stderr)
+	case "assign":
+		return runSubAssign(f, stdout, stderr)
 	}
 	fmt.Fprintf(stderr, "run: 알 수 없는 서브커맨드: %s\n", sub)
 	fmt.Fprint(stderr, dmctlRunHelp)
@@ -204,16 +223,19 @@ func parseRunFlags(sub string, args []string, stdout, stderr io.Writer) (f runFl
 		"--isolation": &f.isolation, "--window": &f.window, "--outcome": &f.outcome,
 		"--summary": &f.summary, "--files": &f.files, "--base": &f.base,
 		"--timeout-ms": &f.timeoutMs, "--tree": &f.tree, "--ref": &f.ref,
+		"--issue": &f.issue, "--title": &f.title, "--parent": &f.parent, "--goal": &f.goal, "--ctx": &f.ctx,
 	} {
-		vals[name] = setStr(p)
+		set, flag := setStr(p), name
+		vals[name] = func(v string) error { f.given[flag] = true; return set(v) }
 	}
+	f.given = map[string]bool{}
 	spec := argSpec{
 		help: dmctlRunHelp,
 		vals: vals,
 		bools: map[string]*bool{
 			"--force": &f.force, "--headless": &f.headless, "--keep-worktrees": &f.keepTrees,
 			"--keep-tools": &f.keepTools, "--json": &f.jsonOut, "--text": &f.textOut,
-			"--branch": &f.branch,
+			"--branch": &f.branch, "--parallel": &f.parallel, "--no-commit": &f.noCommit,
 		},
 	}
 	code, proceed = spec.run("run "+sub, args, stdout, stderr)

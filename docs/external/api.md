@@ -235,6 +235,7 @@
 | POST | `/api/runs/context` | 세션에 상시 주입할 컨텍스트 |
 | POST | `/api/runs/attach` · `/api/runs/detach` | 도구를 Run 에 붙이고 뗀다 |
 | POST | `/api/runs/handoff` | 팀원 자리를 넘긴다 |
+| POST | `/api/runs/assign` | 이슈 트리 노드의 배정을 고친다 |
 | POST | `/api/runs/report` | 팀원이 자기 몫의 결과를 보고한다 |
 | POST | `/api/runs/succeed` | Run 을 성공으로 닫는다 |
 | POST | `/api/runs/close` | Run 을 닫는다. 응답의 `closedTabs[].closed` 는 **방송 결과**다 — 구독 중인 브라우저가 없으면 `false`(`delivered:0`)이고 그 탭의 Run 표식은 지워진다 |

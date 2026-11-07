@@ -23,7 +23,7 @@ func TestRunStart_TreeOpenCarriesStale(t *testing.T) {
 		t.Fatalf("code=%d out=%v", code, out)
 	}
 	// 살아 있는 멤버가 있으면 멈추지 않았다.
-	if code, out := postRun(t, s, "/api/runs/members", `{"runId":"`+root["id"].(string)+`","role":"ccr#32","agent":"claude","id":"tab-a"}`); code != http.StatusOK {
+	if code, out := postRun(t, s, "/api/runs/members", `{"runId":"`+root["id"].(string)+`","role":"ccr#32","agent":"claude","assign":{"issue":"o/r#32"},"id":"tab-a"}`); code != http.StatusOK {
 		t.Fatalf("member code=%d %v", code, out)
 	}
 	_, out = postRun(t, s, "/api/runs", `{"objective":"t","projection":"dedicated-window","tree":"o/r#32"}`)
@@ -39,8 +39,8 @@ func TestRunStart_BranchAndNodeTaken(t *testing.T) {
 	}
 	_, root := postRun(t, s, "/api/runs", `{"objective":"t","projection":"dedicated-window","tree":"o/r#32"}`)
 	_, br := postRun(t, s, "/api/runs", `{"objective":"b","projection":"dedicated-window","tree":"o/r#32","treeBranch":true}`)
-	postRun(t, s, "/api/runs/members", `{"runId":"`+root["id"].(string)+`","role":"ccr#32›33","agent":"claude","id":"tab-a"}`)
-	code, out := postRun(t, s, "/api/runs/members", `{"runId":"`+br["id"].(string)+`","role":"ccr#32›33","agent":"claude","id":"tab-b"}`)
+	postRun(t, s, "/api/runs/members", `{"runId":"`+root["id"].(string)+`","role":"ccr#32›33","agent":"claude","assign":{"issue":"o/r#33"},"id":"tab-a"}`)
+	code, out := postRun(t, s, "/api/runs/members", `{"runId":"`+br["id"].(string)+`","role":"ccr#32›33","agent":"claude","assign":{"issue":"o/r#33"},"id":"tab-b"}`)
 	if code != http.StatusConflict || out["error"] != "node_taken" {
 		t.Fatalf("code=%d out=%v", code, out)
 	}
@@ -50,9 +50,9 @@ func TestRunsTree_NodesAndParents(t *testing.T) {
 	s, _, _, _ := runsServer(t, "tool-a")
 	_, root := postRun(t, s, "/api/runs", `{"objective":"t","projection":"dedicated-window","tree":"o/r#32"}`)
 	_, br := postRun(t, s, "/api/runs", `{"objective":"b","projection":"dedicated-window","tree":"o/r#32","treeBranch":true}`)
-	postRun(t, s, "/api/runs/members", `{"runId":"`+root["id"].(string)+`","role":"ccr#32","agent":"claude","id":"tab-a"}`)
+	postRun(t, s, "/api/runs/members", `{"runId":"`+root["id"].(string)+`","role":"ccr#32","agent":"claude","assign":{"issue":"o/r#32"},"id":"tab-a"}`)
 	// 중간 노드(ccr#32›33)는 없다 — 끝났거나 migration 중. 가장 가까운 조상에 붙는다.
-	postRun(t, s, "/api/runs/members", `{"runId":"`+br["id"].(string)+`","role":"ccr#32›33›35","agent":"claude","id":"tab-b"}`)
+	postRun(t, s, "/api/runs/members", `{"runId":"`+br["id"].(string)+`","role":"ccr#32›33›35","agent":"claude","assign":{"issue":"o/r#35"},"id":"tab-b"}`)
 	postRun(t, s, "/api/runs", `{"objective":"other","projection":"dedicated-window","tree":"o/r#99"}`)
 
 	code, out := getRun(t, s, "/api/runs/tree?ref=o/r%2332")
@@ -118,8 +118,12 @@ func TestRunChanged_CarriesTree(t *testing.T) {
 				t.Fatalf("run start %d (%+v)", code, out)
 			}
 			runID, _ := out["id"].(string)
+			assign := ""
+			if strings.Contains(tc.body, `"tree"`) {
+				assign = `,"assign":{"issue":"o/r#32"}`
+			}
 			if code, out := postRun(t, s, "/api/runs/members",
-				`{"runId":`+testpath.JSONQuote(runID)+`,"role":"작가","agent":"claude","id":"tool-b"}`); code != http.StatusOK {
+				`{"runId":`+testpath.JSONQuote(runID)+`,"role":"작가","agent":"claude","id":"tool-b"`+assign+`}`); code != http.StatusOK {
 				t.Fatalf("멤버 등록 실패 %d (%+v)", code, out)
 			}
 			if code, out := postRun(t, s, "/api/tools/message",

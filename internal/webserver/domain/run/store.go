@@ -125,6 +125,7 @@ func cloneMember(in Member) Member {
 		copy(fs, in.FilesModified)
 		out.FilesModified = fs
 	}
+	out.Assign = cloneAssign(in.Assign)
 	return out
 }
 

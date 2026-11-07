@@ -125,6 +125,13 @@ func runSubMember(f runFlags, stdin io.Reader, stdout, stderr io.Writer) int {
 	body := map[string]any{
 		"runId": f.run, "role": f.role, "agent": f.agent, "id": f.at, "brief": f.brief,
 	}
+	assign, ok := assignOf(f, stderr)
+	if !ok {
+		return 2
+	}
+	if assign != nil {
+		body["assign"] = assign
+	}
 	if f.headless {
 		body["headless"] = true
 		// 헤드리스 멤버의 cwd 는 서버가 확정하지만(FR-HLM-2), 격리가 아닌 Run 에서

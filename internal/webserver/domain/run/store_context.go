@@ -414,6 +414,7 @@ func (s *Store) Succeed(spec SucceedSpec) (prev Member, next Member, err error) 
 		Worktree:      tree,
 		State:         Starting,
 		SucceededFrom: old.ID,
+		Assign:        cloneAssign(old.Assign),
 		CreatedAt:     s.now(),
 	}
 

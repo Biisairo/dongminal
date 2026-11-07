@@ -107,6 +107,7 @@ type RunStore interface {
 	Report(senderToolID string, spec run.ReportSpec) (run.Member, error)
 	Succeed(spec run.SucceedSpec) (prev run.Member, next run.Member, err error)
 	Handoff(senderToolID, claimedMemberID, summary string) (run.Member, error)
+	UpdateAssign(callerToolID, memberID string, p run.AssignPatch) (run.Member, error)
 	HandoffWaiting(memberID string) bool
 	Changes() <-chan struct{}
 	GiveUpHandoff(memberID string)

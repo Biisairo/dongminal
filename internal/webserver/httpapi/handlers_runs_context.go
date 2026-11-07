@@ -368,7 +368,7 @@ func (s *Server) apiRunSucceed(w http.ResponseWriter, r *http.Request) {
 	view := memberView{Member: next, State: s.deriveMemberState(next)}
 	if cur, ok := s.Runs.Get(rec.ID); ok {
 		s.markWorkspaceRun(cur, next.TabID, cur.ID)
-		view.Preamble = run.Preamble(cur, next)
+		view.Preamble = s.memberPreamble(cur, next)
 	}
 	dmlog.Infof(nil, "[run] succeed run=%s prev=%s next=%s role=%s tool=%s tab=%s summary=%v worktree=%v",
 		rec.Short, prevAfter.ID, next.ID, next.Role, next.ToolID, next.TabID,

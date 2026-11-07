@@ -40,7 +40,7 @@ test('TC-ITD-3: 트리 Run 대시보드가 가지 Run 의 노드까지 트리로
     data: { objective: 'branch', projection: 'dedicated-window', tree: ref, treeBranch: true } })).json();
   expect(root.id && branch.id, JSON.stringify([root, branch])).toBeTruthy();
   const add = (runId: string, role: string, id: string) =>
-    request.post('/api/runs/members', { headers: JSON_HDR, data: { runId, role, agent: 'claude', id } });
+    request.post('/api/runs/members', { headers: JSON_HDR, data: { runId, role, agent: 'claude', id, assign: { issue: 'o/r#' + role.split('›').pop()!.replace(/^.*#/, '') } } });
   expect((await add(root.id, 'tt#1', a.uuid)).ok()).toBeTruthy();
   expect((await add(branch.id, 'tt#1›2›3', b.uuid)).ok()).toBeTruthy();
 

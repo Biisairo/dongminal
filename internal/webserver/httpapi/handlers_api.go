@@ -113,6 +113,7 @@ var apiRoutes = []apiRoute{
 	httproute.Post("/api/runs/detach", (*Server).apiRunDetach),   // 묶음 H (WS-2)
 	httproute.Post("/api/runs/succeed", (*Server).apiRunSucceed), // 묶음 C (WS-3)
 	httproute.Post("/api/runs/handoff", (*Server).apiRunHandoff), // 묶음 C (WS-3)
+	httproute.Post("/api/runs/assign", (*Server).apiRunAssign),   // ISSUE_TREE_OPS_SRS FR-ITA-4
 	// 관측 수신 종단. activity/set(= WS-2 파일)에 필드를 붙이는 대신 전용 경로를
 	// 둔다 — 라우트 1줄이 남의 핸들러 본문 수정보다 싸고, 컨텍스트 관측은
 	// activity(무엇을 하는가)와 직교하는 별개 레이어다.

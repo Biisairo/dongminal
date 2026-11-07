@@ -28,6 +28,12 @@ import (
 // 시점에 불리므로 그때 아직 등록되지 않은 동료를 담을 수 없고 — 첫 멤버에게는
 // 동료가 0명이다 — 담을 수 있었더라도 승계·이탈로 낡는다. 대신 `run peers` 를
 // 부르라고 적는다. 이 한 줄이 8패턴 중 5개가 쓰는 P2P 의 입구다 (§3.4.1).
+// userFirstRule 은 두 프리앰블이 같이 쓰는 계약 문장이다 (ISSUE_TREE_OPS_SRS NFR-ITO-3).
+const (
+	userFirstRule = "# 사용자가 이 도구에 직접 지시하면 언제나 그쪽이 우선한다. 그 작업은 사용자\n" +
+		"# 작업으로 처리하고, 위 run·member id 로 다시 보고하지 않는다."
+)
+
 func Preamble(rec Record, m Member) string {
 	var b strings.Builder
 	w := func(format string, args ...any) { fmt.Fprintf(&b, format+"\n", args...) }
@@ -85,8 +91,7 @@ func Preamble(rec Record, m Member) string {
 	w("# 보고 뒤에는 유휴 프롬프트로 돌아가 대기한다. 폴링 루프를 돌리지 말고,")
 	w("# 탭이나 셸을 스스로 닫지 마라 — 정리는 조정자가 한다.")
 	w("")
-	w("# 사용자가 이 도구에 직접 지시하면 언제나 그쪽이 우선한다. 그 작업은 사용자")
-	w("# 작업으로 처리하고, 위 run·member id 로 다시 보고하지 않는다.")
+	w("%s", userFirstRule)
 
 	return b.String()
 }

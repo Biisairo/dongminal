@@ -310,6 +310,38 @@ func TestIssueTreeCommand_CarriesTheTreeProcedure(t *testing.T) {
 	}
 }
 
+// ISSUE_TREE_OPS_SRS TC-ITA-3: 배정은 등록 플래그이고, 질문은 노드가 직접 묻고 결정은
+// 이슈 코멘트로 남기며, 형제 이동과 탭 닫기는 부모가 한다.
+func TestIssueTreeCommand_CarriesOpsProcedure(t *testing.T) {
+	body := commandDocs(t)[path.Join("agentplugin", "commands", "issue-tree.md")]
+	required := []struct{ name, needle string }{
+		{"배정 플래그 (FR-ITA-1)", "--issue <owner/repo#번호>"},
+		{"부모 member (FR-ITA-1)", "--parent <내 member uuid>"},
+		{"배정 고치기 (FR-ITA-4)", "dmctl run assign"},
+		{"프리앰블의 배정 (FR-ITA-11)", "[ISSUE-TREE 배정]"},
+		{"기존 결정 찾기 (FR-ITA-30)", "기존 결정을 찾는다"},
+		{"결정 코멘트 (FR-ITA-31)", "첫 줄은 `결정:`"},
+		{"부모가 결정 코멘트를 본다 (FR-ITA-33)", "결정 코멘트"},
+		{"부모가 탭을 닫는다 (FR-ITA-41)", "닫는 것은 나다"},
+		{"선행 이슈 (FR-ITA-42)", "보고: 선행"},
+		{"WIP 커밋 (FR-ITA-42)", "wip(#"},
+		{"순서 다시 놓기 (FR-ITA-45)", "reprioritizeSubIssue"},
+		{"보드 진행 중 (FR-ITA-18)", "진행 중으로 옮긴다"},
+		{"보드 완료 (FR-ITA-18)", "완료로 옮긴다"},
+		{"스스로 넘어가지 않음 (FR-ITA-40)", "스스로 넘어가지 않는다"},
+	}
+	for _, r := range required {
+		if !strings.Contains(body, r.needle) {
+			t.Errorf("issue-tree.md 에 %s 가 없다 (%q)", r.name, r.needle)
+		}
+	}
+	for _, banned := range []string{"### 배정 (Kickoff)", "사용자에게 물어라", "ISSUE_AGENT_TREE_SRS.md"} {
+		if strings.Contains(body, banned) {
+			t.Errorf("issue-tree.md 에 지운 절차 %q 가 남아 있다", banned)
+		}
+	}
+}
+
 // ISSUE_AGENT_TREE_SRS TC-SKX-1 / FR-SKX-1·3: team · workflow 스킬은 지워졌다. 임베드 트리에
 // 남지 않고, 플러그인 문서가 그 호출명을 안내하지 않는다.
 func TestPlugin_TeamAndWorkflowRemoved(t *testing.T) {

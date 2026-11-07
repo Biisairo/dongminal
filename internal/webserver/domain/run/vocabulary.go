@@ -167,6 +167,9 @@ type Member struct {
 	// 않는다** — 종전에는 시한을 넘긴 요약이 전임자 레코드에만 남고 후임에게는
 	// 닿지 않았다 (SRS §2.11).
 	HandoffPending bool `json:"handoffPending,omitempty"`
+
+	// ISSUE_TREE_OPS_SRS FR-ITA-2: 이슈 트리 노드의 배정. 트리 Run 의 멤버만 갖는다.
+	Assign *Assignment `json:"assign,omitempty"`
 }
 
 // Reported reports whether the member has sent its one terminal report.

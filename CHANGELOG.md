@@ -7,6 +7,11 @@
 
 ### 바뀜
 
+- **이슈 트리 Run 의 멤버는 배정(`--issue`)이 있어야 등록됩니다.** 트리 표지가 있는 Run 에
+  `POST /api/runs/members` 를 `assign.issue` 없이 보내면 400 `invalid_argument` 가 옵니다. 트리가 아닌
+  Run 에 `assign` 을 보내도 같은 거절입니다. 배정은 `dmctl run member --issue … [--title] [--parent]
+  [--goal] [--parallel] [--ctx] [--no-commit]` 로 주고, 새 `POST /api/runs/assign`(`dmctl run assign`)으로
+  고칩니다. 배정이 있는 멤버는 일반 프리앰블 대신 트리 프리앰블(`[ISSUE-TREE 배정]` 블록)을 받습니다.
 - **untracked 파일만 있을 때 stash 만들기의 거절 코드가 `untracked_only` 로 바뀝니다.** 이전에는
   `--include-untracked` 없이 `POST /api/git/stash/push` 를 보내면 변경이 아예 없을 때와 같은 409
   `nothing_to_stash` 가 오고, 본문에 한국어 `message` 가 실렸습니다. 이제 409 `untracked_only` 가 오고,

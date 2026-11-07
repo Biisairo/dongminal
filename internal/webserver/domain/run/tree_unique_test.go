@@ -46,13 +46,13 @@ func TestTree_NodeTakenAcrossRuns(t *testing.T) {
 	s := NewStore(t.TempDir(), "e")
 	root, _ := startTree(t, s, "o/r#32", false)
 	br, _ := startTree(t, s, "o/r#32", true)
-	if _, err := s.AddMember(root.ID, MemberSpec{Role: "ccr#32›33", Agent: "claude", ToolID: "t1"}); err != nil {
+	if _, err := s.AddMember(root.ID, MemberSpec{Role: "ccr#32›33", Agent: "claude", ToolID: "t1", Assign: &Assignment{Issue: "o/r#33"}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AddMember(br.ID, MemberSpec{Role: "ccr#32›33", Agent: "claude", ToolID: "t2"}); !errors.Is(err, ErrNodeTaken) {
+	if _, err := s.AddMember(br.ID, MemberSpec{Role: "ccr#32›33", Agent: "claude", ToolID: "t2", Assign: &Assignment{Issue: "o/r#33"}}); !errors.Is(err, ErrNodeTaken) {
 		t.Fatalf("같은 이슈 err=%v", err)
 	}
-	if _, err := s.AddMember(br.ID, MemberSpec{Role: "ccr#32›34", Agent: "claude", ToolID: "t3"}); err != nil {
+	if _, err := s.AddMember(br.ID, MemberSpec{Role: "ccr#32›34", Agent: "claude", ToolID: "t3", Assign: &Assignment{Issue: "o/r#34"}}); err != nil {
 		t.Fatalf("다른 이슈: %v", err)
 	}
 	// 트리 표지 없는 Run 은 이름 중복을 막지 않는다 (종전 동작).
@@ -66,11 +66,11 @@ func TestTree_NodeTakenAcrossRuns(t *testing.T) {
 func TestTree_ReportedNodeDoesNotBlock(t *testing.T) {
 	s := NewStore(t.TempDir(), "e")
 	root, _ := startTree(t, s, "o/r#32", false)
-	m, _ := s.AddMember(root.ID, MemberSpec{Role: "ccr#32›33", Agent: "claude", ToolID: "t1"})
+	m, _ := s.AddMember(root.ID, MemberSpec{Role: "ccr#32›33", Agent: "claude", ToolID: "t1", Assign: &Assignment{Issue: "o/r#33"}})
 	if _, err := s.Report("t1", ReportSpec{RunID: root.ID, MemberID: m.ID, Outcome: OutcomeSucceeded, Summary: "a. b. c."}); err != nil {
 		t.Fatalf("report: %v", err)
 	}
-	if _, err := s.AddMember(root.ID, MemberSpec{Role: "ccr#32›33", Agent: "claude", ToolID: "t2"}); err != nil {
+	if _, err := s.AddMember(root.ID, MemberSpec{Role: "ccr#32›33", Agent: "claude", ToolID: "t2", Assign: &Assignment{Issue: "o/r#33"}}); err != nil {
 		t.Fatalf("보고를 마친 노드가 막았다: %v", err)
 	}
 }

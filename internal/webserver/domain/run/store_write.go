@@ -136,6 +136,8 @@ type MemberSpec struct {
 	// 비는 것과 짝이며, 부착(FR-HLM-6)되면 TabID 가 채워지고 이 값은 false 가
 	// 된다 — 둘을 함께 보아야 "지금 화면에 있나" 를 알 수 있다.
 	Headless bool
+	// Assign 은 트리 Run 의 멤버가 받는 배정이다 (ISSUE_TREE_OPS_SRS FR-ITA-1).
+	Assign *Assignment
 }
 
 // AddMember binds a tool to a Run. The binding is 1:1 — a tool that already
@@ -161,6 +163,9 @@ func (s *Store) AddMember(runID string, spec MemberSpec) (Member, error) {
 	}
 	if _, _, ok := s.findByTool(spec.ToolID); ok {
 		return Member{}, ErrToolAlreadyMember
+	}
+	if err := s.checkAssign(&s.runs[idx], spec.Assign); err != nil {
+		return Member{}, err
 	}
 	// FR-ITU-4: 같은 트리의 열린 Run 들 안에서 같은 이슈(역할 이름)는 하나다. 보고를 마친
 	// 노드는 막지 않는다 — 그 이슈의 일은 끝났다.
@@ -188,6 +193,7 @@ func (s *Store) AddMember(runID string, spec MemberSpec) (Member, error) {
 		TabID:     spec.TabID,
 		Worktree:  spec.Worktree,
 		Headless:  spec.Headless,
+		Assign:    cloneAssign(spec.Assign),
 		State:     Starting,
 		CreatedAt: s.now(),
 	}
