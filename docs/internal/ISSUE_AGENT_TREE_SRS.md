@@ -429,6 +429,7 @@ T 는 S·G·O 가 모두 선 뒤에 시범 적용한다. S·G·O 는 T 없이도
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-08 | `ISSUE_TREE_CLOSE_SRS` 가 개정한다: 병합 확인(FR-IAT-71 → FR-ITX-31, 조율이 묻는다), 트리 정리(FR-IAT-74 → FR-ITX-32·33, 조율이 Run · window · 그룹을 닫는다). 이 문서의 본문은 기록으로 남긴다 |
 | 2026-11-07 | `ISSUE_TREE_OPS_SRS` 가 개정한다: 질문 경로(FR-IAT-51~54 → FR-ITA-30~34), `--ctx` 기본(FR-IAT-60 → FR-ITM-3·5), migration(FR-IAT-63 → FR-ITB-5), 탭 닫기(FR-IAT-73 → FR-ITA-41), 트리 부모(FR-ITD-2 → FR-ITC-1), 끝난 노드(FR-ITD-6 → FR-ITC-3), D-IAT-19 → D-ITO-10. 이 문서의 본문은 기록으로 남긴다 |
 | 2026-11-05 | FR-ITD-7 추가: 트리 뷰가 모든 `run_changed` 에 트리를 다시 받던 것을 같은 트리의 변경으로 좁혔다. 이전 동작: 트리 영역이 있는 뷰는 어느 Run 이 바뀌어도 `/graph`·`/tree` 를 다시 받았다. 새 동작: 자기 Run 이거나 같은 트리일 때만. 이유: 무관한 Run 의 변경마다 요청 두 개가 나갔다 (REFACTOR_PROD2 후보 7) |
 | 2026-11-05 | 묶음 X·D·U 구현. 트리 노드는 graph 와 같은 명시 선택(brief 없음). `run-dashboard.js` 가 500줄을 넘지 않게 `run-tree.js` 로 갈랐다 |
