@@ -21,6 +21,10 @@ type RemoveSpec struct {
 	Force bool
 	// LockKey 는 repoLock 의 키 — common-dir 키다 (Spec.LockKey 와 같다).
 	LockKey string
+	// RequireMerged 면 Branch 가 MergeInto 의 조상일 때만 지운다 (ISSUE_TREE_CLOSE_SRS
+	// FR-ITX-41). MergeInto 가 비었거나 판정이 실패하면 지우지 않는다.
+	RequireMerged bool
+	MergeInto     string
 }
 
 // Result 는 정리 한 건의 결말이다. Removed 가 false 면 Residue 가 반드시 있다.
@@ -118,6 +122,12 @@ func (m *Manager) RemoveListed(ctx context.Context, s RemoveSpec) Result {
 // removeLocked 는 인가가 끝나고 repoLock 을 쥔 뒤의 정리 흐름이다 (FR-WKT-8).
 // force 면 dirty 판정을 건너뛰고 `--force` 로 지운다.
 func (m *Manager) removeLocked(ctx context.Context, s RemoveSpec, force bool, res Result) Result {
+	if s.RequireMerged {
+		if detail := m.unmergedDetail(ctx, s); detail != "" {
+			res.Residue, res.Detail = ResidueUnmerged, detail
+			return res
+		}
+	}
 	if _, err := os.Stat(s.Path); errors.Is(err, os.ErrNotExist) {
 		// 경로가 이미 없다 — 등록만 남았을 수 있으므로 정리하고 성공으로 본다.
 		_, _ = m.git(ctx, s.Repo, "worktree", "prune")
@@ -201,7 +211,13 @@ func (m *Manager) deleteBranch(ctx context.Context, s RemoveSpec, res *Result) {
 	if s.Repo == "" || validRef(s.Branch) != nil {
 		return
 	}
-	if _, err := m.git(ctx, s.Repo, "branch", "-d", s.Branch); err != nil {
+	// FR-ITX-42: 병합 대상의 조상임을 이미 확인했다 — 커밋은 모두 MergeInto 에서
+	// 닿으므로 -D 로 잃는 것이 없다. -d 는 메인 HEAD 로 판정해 가지 브랜치를 남긴다.
+	flag := "-d"
+	if s.RequireMerged {
+		flag = "-D"
+	}
+	if _, err := m.git(ctx, s.Repo, "branch", flag, s.Branch); err != nil {
 		if _, verr := m.git(ctx, s.Repo, "rev-parse", "--verify", "--quiet", "refs/heads/"+s.Branch); verr == nil {
 			res.Residue, res.Detail = ResidueBranchRetained, err.Error()
 		}
@@ -239,4 +255,45 @@ func (m *Manager) gone(ctx context.Context, repo, path string) bool {
 		}
 	}
 	return true
+}
+
+// unmergedDetail 은 Branch 가 MergeInto 의 조상이 아닌 사유다. 조상이면 빈 값이다
+// (ISSUE_TREE_CLOSE_SRS FR-ITX-41·44). 읽기 전용 판정이고, 호출자는 repoLock 을
+// 쥐고 있다 (FR-ITX-43).
+func (m *Manager) unmergedDetail(ctx context.Context, s RemoveSpec) string {
+	if s.MergeInto == "" {
+		return "병합 대상을 모른다"
+	}
+	if validRef(s.Branch) != nil || validRef(s.MergeInto) != nil {
+		return fmt.Sprintf("병합을 판정할 수 없는 이름: %q → %q", s.Branch, s.MergeInto)
+	}
+	if _, err := m.git(ctx, s.Repo, "merge-base", "--is-ancestor", s.Branch, s.MergeInto); err != nil {
+		return fmt.Sprintf("%s 가 %s 에 병합되지 않았다", s.Branch, s.MergeInto)
+	}
+	return ""
+}
+
+// MainRoot 는 dir 이 속한 저장소의 메인 worktree 경로다 (ISSUE_TREE_CLOSE_SRS FR-ITX-47).
+// dir 이 연결된 worktree 여도 메인을 준다. List 를 그대로 쓴다 (FR-GIT-246).
+func (m *Manager) MainRoot(ctx context.Context, dir string) (string, error) {
+	entries, err := m.List(ctx, dir)
+	if err != nil {
+		return "", err
+	}
+	for _, e := range entries {
+		if e.Main {
+			return e.Path, nil
+		}
+	}
+	return "", fmt.Errorf("%w: %s 의 메인 worktree 가 없다", ErrNotRepo, dir)
+}
+
+// CurrentBranch 는 dir 의 현재 브랜치 이름이다. 분리된 HEAD 이거나 저장소가
+// 아니면 빈 값이다 (ISSUE_TREE_CLOSE_SRS FR-ITX-40).
+func (m *Manager) CurrentBranch(ctx context.Context, dir string) string {
+	out, err := m.git(ctx, dir, "symbolic-ref", "--quiet", "--short", "HEAD")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(out)
 }

@@ -105,3 +105,37 @@ func runSubAssign(f runFlags, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "assign  member=%s  %s\n", resp.Member.ID, resp.Member.Assign)
 	return 0
 }
+
+// runSubCoordinate 는 이 세션이 조율하는 열린 Run 을 다른 도구로 넘긴다
+// (ISSUE_TREE_CLOSE_SRS FR-ITX-7·9). 넘길 Run 이 없어도 실패가 아니다.
+func runSubCoordinate(f runFlags, stdout, stderr io.Writer) int {
+	if f.to == "" {
+		fmt.Fprintln(stderr, "run coordinate: --to <toolId> 는 필수다")
+		return 2
+	}
+	raw, code := runPost("/api/runs/coordinate", map[string]any{"to": f.to, "toolId": selfToolID()}, stderr)
+	if code != 0 {
+		return code
+	}
+	if f.jsonOut {
+		writeRawJSON(stdout, raw)
+		return 0
+	}
+	var resp struct {
+		To    string   `json:"to"`
+		Moved []string `json:"moved"`
+	}
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		fmt.Fprintf(stderr, "dmctl: invalid coordinate response: %v\n", err)
+		return 1
+	}
+	if len(resp.Moved) == 0 {
+		fmt.Fprintln(stdout, "(조율하는 열린 Run 없음)")
+		return 0
+	}
+	fmt.Fprintf(stdout, "조율 승계: %d 개 Run → %s\n", len(resp.Moved), resp.To)
+	for _, id := range resp.Moved {
+		fmt.Fprintf(stdout, "  run=%s\n", id)
+	}
+	return 0
+}

@@ -116,6 +116,7 @@ type RunStore interface {
 	GiveUpHandoff(memberID string)
 	ObserveContext(toolID string, obs run.ContextObservation, policy run.ContextPolicy) (m run.Member, entered string, found bool)
 	MarkWorktrees(runID string, marks []run.WorktreeMark) error
+	MoveCoordinator(from, to string) ([]run.Record, error)
 	AppendMessage(runID string, ev run.MsgEvent) error
 }
 

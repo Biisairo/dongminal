@@ -8,7 +8,7 @@ import (
 // TreeContext 는 트리 프리앰블이 기록 밖에서 받는 값이다 (ISSUE_TREE_OPS_SRS FR-ITA-11~13).
 // 서버가 프리앰블을 만드는 순간에 정한다 — 부모가 승계됐으면 승계자의 도구다.
 type TreeContext struct {
-	ParentToolID string // 부모 멤버의 지금 도구. 루트면 비어 있다
+	ParentToolID string // 부모 멤버의 지금 도구. 루트면 살아 있는 조율의 도구이고, 없으면 비어 있다
 	GroupID      string // 트리 그룹 uuid. 모르면 비어 있다
 	DocPath      string // 설치된 commands/issue-tree.md 의 절대 경로
 	CtxPct       int    // 맥락 기준 실효값(FR-ITM-3). 0 이면 끔
@@ -34,9 +34,12 @@ func TreePreamble(rec Record, m Member, tc TreeContext) string {
 	w("노드: %s — %s", a.Issue, a.Title)
 	w("사슬 이름: %s", m.Role)
 	w("목표 경로: %s", orNone(a.Goal))
-	if tc.ParentToolID == "" {
-		w("부모: 없음 — 루트 노드다. 보고·질문은 자기 탭의 사용자에게 한다")
-	} else {
+	switch {
+	case tc.ParentToolID == "":
+		w("부모: 없음 — 루트 노드다. 보고·질문은 자기 탭의 사용자에게 한다. 트리 종료는 문서의 「대신 조율」 을 따른다")
+	case a.Parent == "":
+		w("부모: %s — 조율 에이전트다. 완료·실패·종료 요청을 여기로 보낸다. 판단 질문은 자기 탭의 사용자에게 한다", tc.ParentToolID)
+	default:
 		w("부모: %s", tc.ParentToolID)
 	}
 	w("그룹: %s", orNone(tc.GroupID))
@@ -103,6 +106,7 @@ func TreePreamble(rec Record, m Member, tc TreeContext) string {
 	w("# 다른 이슈로 스스로 옮겨 가지 않는다. 자기 이슈를 끝내면 완료를 알리고 멈춘다.")
 	w("# 자기 탭을 닫지 마라 — 탭은 부모가 닫는다. 예외는 자기 승계(migration)를 마친 옛 세션이다.")
 	w("# migration 은 같은 이슈를 이어 가다 맥락이 모자랄 때만 쓴다.")
+	w("# 사용자가 트리를 닫자고 하면 스스로 정리하지 않는다. 하던 일을 멈추고 부모에게 `종료 요청` 을 보낸다(문서의 「트리 종료」).")
 	w("")
 	w("%s", userFirstRule)
 	return b.String()

@@ -32,7 +32,7 @@ func (s *Server) treeContext(rec run.Record, m run.Member) run.TreeContext {
 	// FR-ITM-3: 실효값은 배정의 --ctx > 설정 > 기본값이다. 설정이 끔이면 0(끔)이다.
 	conf := s.migrationConf()
 	tc := run.TreeContext{
-		ParentToolID: s.currentToolOf(m.Assign.Parent),
+		ParentToolID: s.treeParentTool(rec, m),
 		GroupID:      s.treeGroupID(rec.Tree),
 		DocPath:      issueTreeDocPath(),
 		CtxPct:       conf.TreePct,
@@ -44,6 +44,19 @@ func (s *Server) treeContext(rec run.Record, m run.Member) run.TreeContext {
 		tc.CtxPct = 0
 	}
 	return tc
+}
+
+// treeParentTool 은 트리 멤버가 말을 보낼 도구다. 루트의 부모는 Run 의 조율 에이전트다 —
+// 살아 있고 루트 자신이 아닐 때만이다 (ISSUE_TREE_CLOSE_SRS FR-ITX-2).
+func (s *Server) treeParentTool(rec run.Record, m run.Member) string {
+	if m.Assign.Parent != "" {
+		return s.currentToolOf(m.Assign.Parent)
+	}
+	coord := rec.CoordinatorToolID
+	if coord == "" || coord == m.ToolID || !s.toolLive(coord) {
+		return ""
+	}
+	return coord
 }
 
 // currentToolOf 는 멤버의 승계 사슬 끝의 도구다. 멤버가 없으면 빈 값이다.

@@ -76,3 +76,23 @@ func TestRunAssign_Update(t *testing.T) {
 		t.Fatalf("남이 고쳤다 %v", out)
 	}
 }
+
+// ISSUE_TREE_CLOSE_SRS TC-ITX-1 (FR-ITX-2): 루트의 부모는 살아 있는 조율이다. 조율이
+// 죽으면 「부모: 없음」 으로 돌아간다.
+func TestRunMember_RootParentIsLiveCoordinator(t *testing.T) {
+	t.Setenv(dmenv.EnvHome, t.TempDir())
+	s, _, _, _ := runsServer(t, "tool-a")
+	_, root := postRun(t, s, "/api/runs", `{"objective":"t","projection":"dedicated-window","tree":"o/r#32"}`)
+	code, p := postRun(t, s, "/api/runs/members", `{"runId":"`+root["id"].(string)+`","role":"ccr#32","agent":"claude","id":"tab-b","assign":{"issue":"o/r#32","title":"루트"}}`)
+	if code != http.StatusOK {
+		t.Fatalf("root member %d %v", code, p)
+	}
+	if pre, _ := p["preamble"].(string); !strings.Contains(pre, "부모: tool-a — 조율 에이전트") {
+		t.Errorf("루트의 부모가 조율이 아니다:\n%s", pre)
+	}
+	s.ToolIO.(*fakeToolIO).setHas("tool-a", false)
+	_, again := getRun(t, s, "/api/runs/preamble?member="+p["id"].(string))
+	if pre, _ := again["preamble"].(string); !strings.Contains(pre, "부모: 없음") {
+		t.Errorf("죽은 조율을 부모로 준다:\n%s", pre)
+	}
+}

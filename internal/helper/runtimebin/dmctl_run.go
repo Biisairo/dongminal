@@ -31,6 +31,7 @@ const dmctlRunHelp = `dmctl run — 오케스트레이션 실행(Run) 기록
   dmctl run succeed --self --at <탭 uuid> --summary <본문>|-     # 자기 승계 (migration)
   dmctl run handoff [--member <uuid>] --summary <본문>|-
   dmctl run assign --member <uuid> [--title <제목>] [--goal <번호들>] [--parallel] [--ctx N] [--no-commit]
+  dmctl run coordinate --to <toolId>   # 이 세션이 조율하는 열린 Run 을 넘긴다 (조율 migration)
 
   --projection   dedicated-window(기본) | background | inline
                  전용 창이 기본이다 — 사용자 작업 공간을 침범하지 않는다.
@@ -157,6 +158,7 @@ type runFlags struct {
 	parallel bool   // --parallel
 	noCommit bool   // --no-commit
 	self     bool   // --self  run succeed 의 자기 승계 (FR-ITB-1)
+	to       string // --to    run coordinate 의 새 조율 (ISSUE_TREE_CLOSE_SRS FR-ITX-7)
 	// given 은 실제로 받은 값 플래그다 — run assign 은 받은 것만 고친다.
 	given map[string]bool
 }
@@ -214,6 +216,8 @@ func runDmctlRunStdin(stdin io.Reader, args []string, stdout, stderr io.Writer) 
 		return runSubTree(f, stdout, stderr)
 	case "assign":
 		return runSubAssign(f, stdout, stderr)
+	case "coordinate":
+		return runSubCoordinate(f, stdout, stderr)
 	}
 	fmt.Fprintf(stderr, "run: 알 수 없는 서브커맨드: %s\n", sub)
 	fmt.Fprint(stderr, dmctlRunHelp)
@@ -230,6 +234,7 @@ func parseRunFlags(sub string, args []string, stdout, stderr io.Writer) (f runFl
 		"--summary": &f.summary, "--files": &f.files, "--base": &f.base,
 		"--timeout-ms": &f.timeoutMs, "--tree": &f.tree, "--ref": &f.ref,
 		"--issue": &f.issue, "--title": &f.title, "--parent": &f.parent, "--goal": &f.goal, "--ctx": &f.ctx,
+		"--to": &f.to,
 	} {
 		set, flag := setStr(p), name
 		vals[name] = func(v string) error { f.given[flag] = true; return set(v) }

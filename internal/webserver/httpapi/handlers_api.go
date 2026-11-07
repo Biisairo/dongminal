@@ -109,12 +109,13 @@ var apiRoutes = []apiRoute{
 	//
 	// 순서 주의: 매칭은 **첫 성공이 이긴다**(§dispatch). 아래 정확 매칭 종단들이
 	// /api/runs/{id}/graph 의 prefix 매칭보다 먼저 와야 한다.
-	httproute.Get("/api/runs/peers", (*Server).apiRunPeers),      // 묶음 P (WS-4)
-	httproute.Post("/api/runs/attach", (*Server).apiRunAttach),   // 묶음 H (WS-2)
-	httproute.Post("/api/runs/detach", (*Server).apiRunDetach),   // 묶음 H (WS-2)
-	httproute.Post("/api/runs/succeed", (*Server).apiRunSucceed), // 묶음 C (WS-3)
-	httproute.Post("/api/runs/handoff", (*Server).apiRunHandoff), // 묶음 C (WS-3)
-	httproute.Post("/api/runs/assign", (*Server).apiRunAssign),   // ISSUE_TREE_OPS_SRS FR-ITA-4
+	httproute.Get("/api/runs/peers", (*Server).apiRunPeers),            // 묶음 P (WS-4)
+	httproute.Post("/api/runs/attach", (*Server).apiRunAttach),         // 묶음 H (WS-2)
+	httproute.Post("/api/runs/detach", (*Server).apiRunDetach),         // 묶음 H (WS-2)
+	httproute.Post("/api/runs/succeed", (*Server).apiRunSucceed),       // 묶음 C (WS-3)
+	httproute.Post("/api/runs/handoff", (*Server).apiRunHandoff),       // 묶음 C (WS-3)
+	httproute.Post("/api/runs/assign", (*Server).apiRunAssign),         // ISSUE_TREE_OPS_SRS FR-ITA-4
+	httproute.Post("/api/runs/coordinate", (*Server).apiRunCoordinate), // ISSUE_TREE_CLOSE_SRS FR-ITX-7
 	// 관측 수신 종단. activity/set(= WS-2 파일)에 필드를 붙이는 대신 전용 경로를
 	// 둔다 — 라우트 1줄이 남의 핸들러 본문 수정보다 싸고, 컨텍스트 관측은
 	// activity(무엇을 하는가)와 직교하는 별개 레이어다.

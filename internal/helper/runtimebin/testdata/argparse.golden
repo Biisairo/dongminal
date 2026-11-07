@@ -348,11 +348,11 @@ run []
   stderr=""
 run ["-h"]
   code=0 proceed=false f={given:map[]}
-  stdout="<8091 bytes, sum f9a6c842>"
+  stdout="<8203 bytes, sum af0b0936>"
   stderr=""
 run ["--help"]
   code=0 proceed=false f={given:map[]}
-  stdout="<8091 bytes, sum f9a6c842>"
+  stdout="<8203 bytes, sum af0b0936>"
   stderr=""
 run ["--json"]
   code=0 proceed=true f={jsonOut:true given:map[]}
@@ -360,7 +360,7 @@ run ["--json"]
   stderr=""
 run ["--json" "-h" "--bogus"]
   code=0 proceed=false f={jsonOut:true given:map[]}
-  stdout="<8091 bytes, sum f9a6c842>"
+  stdout="<8203 bytes, sum af0b0936>"
   stderr=""
 run ["--bogus" "-h"]
   code=2 proceed=false f={given:map[]}

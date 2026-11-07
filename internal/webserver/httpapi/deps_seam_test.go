@@ -25,6 +25,8 @@ func (f *fakeWorktrees) Resolve(context.Context, string, string) (worktree.Repo,
 func (f *fakeWorktrees) Create(context.Context, worktree.Spec) error            { return nil }
 func (f *fakeWorktrees) Rollback(context.Context, worktree.Spec)                {}
 func (f *fakeWorktrees) BranchExists(context.Context, string, string) bool      { return false }
+func (f *fakeWorktrees) CurrentBranch(context.Context, string) string           { return "" }
+func (f *fakeWorktrees) MainRoot(context.Context, string) (string, error)       { return "", nil }
 func (f *fakeWorktrees) List(context.Context, string) ([]worktree.Entry, error) { return nil, nil }
 func (f *fakeWorktrees) AddSpec(worktree.Spec) (worktree.ExecSpec, error) {
 	return worktree.ExecSpec{}, nil

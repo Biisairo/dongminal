@@ -41,6 +41,7 @@ const (
 	ResidueUnsafePath     = "unsafe-path"     // 안전 가드가 거부했다
 	ResidueRemoveFailed   = "remove-failed"   // git 이 제거하지 못했다
 	ResidueBranchRetained = "branch-retained" // 트리는 지웠으나 브랜치가 남았다
+	ResidueUnmerged       = "unmerged"        // 병합 대상에 병합되지 않았다 — 지우지 않는다 (ISSUE_TREE_CLOSE_SRS FR-ITX-41)
 )
 
 // opTimeout 은 git 한 번의 상한이다. 큰 저장소의 체크아웃이 분 단위라는 것이
@@ -70,6 +71,8 @@ type Service interface {
 	Remove(ctx context.Context, s RemoveSpec) Result
 	RemoveListed(ctx context.Context, s RemoveSpec) Result
 	BranchExists(ctx context.Context, repo, branch string) bool
+	CurrentBranch(ctx context.Context, dir string) string
+	MainRoot(ctx context.Context, dir string) (string, error)
 	List(ctx context.Context, repo string) ([]Entry, error)
 	// AddSpec·Configure 는 worktree add 를 잡으로 돌리는 호출자의 두 절반이다
 	// (REPO_FIX 01 §5.6) — 검증·argv 와 완료 뒤 설정. 잠금(LockRepo)은 호출자가 쥔다.

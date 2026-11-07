@@ -380,3 +380,46 @@ func TestPlugin_TeamAndWorkflowRemoved(t *testing.T) {
 		}
 	}
 }
+
+// ISSUE_TREE_CLOSE_SRS TC-ITX-3: 트리 종료는 조율 에이전트가 하고, 종료 의사는 한
+// 단계씩 올라가며, 각 노드가 자기 범위를 정리한 뒤에만 닫는다.
+func TestIssueTreeCommand_CarriesCloseProcedure(t *testing.T) {
+	body := commandDocs(t)[path.Join("agentplugin", "commands", "issue-tree.md")]
+	required := []struct{ name, needle string }{
+		{"조율로 남는다 (FR-ITX-1)", "조율 에이전트로 남는다"},
+		{"종료 요청 (FR-ITX-10·11)", "종료 요청"},
+		{"종료 취소 (FR-ITX-13)", "종료 취소"},
+		{"종료 준비 (FR-ITX-14)", "종료 준비"},
+		{"준비됨 (FR-ITX-17)", "준비됨"},
+		{"막힘 (FR-ITX-18)", "막힘"},
+		{"미완료 노드 선택 (FR-ITX-12)", "보존"},
+		{"중단 보고 (FR-ITX-15)", "트리 종료로 중단"},
+		{"worktree 가 깨끗할 때만 (FR-ITX-17)", "git status --porcelain"},
+		{"가지 Run 부터 (FR-ITX-32)", "가지 Run 부터"},
+		{"window 닫기 (FR-ITX-33)", "dmctl close-window"},
+		{"잔여물 보고 (FR-ITX-34)", "unmerged"},
+		{"대신 조율 (FR-ITX-36)", "대신 조율"},
+		{"대신 조율의 루트 Run (FR-ITX-37)", "--keep-tools"},
+	}
+	for _, r := range required {
+		if !strings.Contains(body, r.needle) {
+			t.Errorf("issue-tree.md 에 %s 가 없다 (%q)", r.name, r.needle)
+		}
+	}
+	for _, banned := range []string{"### 6. 보고하고 빠진다", "## 루트 노드의 끝"} {
+		if strings.Contains(body, banned) {
+			t.Errorf("issue-tree.md 에 지운 절차 %q 가 남아 있다", banned)
+		}
+	}
+}
+
+// ISSUE_TREE_CLOSE_SRS TC-ITX-8 (FR-ITX-9): 조율 세션의 migration 은 닫기 전에 조율 자리를 넘긴다.
+func TestMigrationCommand_HandsOverCoordination(t *testing.T) {
+	body := commandDocs(t)[path.Join("agentplugin", "commands", "migration.md")]
+	if !strings.Contains(body, "dmctl run coordinate --to <새 탭 toolId>") {
+		t.Error("migration.md 에 조율 승계(dmctl run coordinate --to) 가 없다")
+	}
+	if strings.Index(body, "dmctl run coordinate --to") > strings.Index(body, "### 9. 자기 탭을 닫는다") {
+		t.Error("조율 승계가 자기 탭 닫기 뒤에 있다")
+	}
+}

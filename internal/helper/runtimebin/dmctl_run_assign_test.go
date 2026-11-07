@@ -119,3 +119,29 @@ func TestRunMember_NodeTakenPrintsHolder(t *testing.T) {
 		t.Fatalf("rc=%d stderr=%s", rc, errs.String())
 	}
 }
+
+// ISSUE_TREE_CLOSE_SRS FR-ITX-7: run coordinate 는 --to 를 보내고 옮긴 Run 을 적는다.
+func TestRunCoordinate_SendsTarget(t *testing.T) {
+	var path string
+	var got map[string]any
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
+		path = r.URL.Path
+		b, _ := io.ReadAll(r.Body)
+		json.Unmarshal(b, &got)
+		w.Write([]byte(`{"to":"tool-c","moved":["run-1"]}`))
+	})
+	defer cleanup()
+	var out, errs bytes.Buffer
+	if rc := runDmctl([]string{"run", "coordinate", "--to", "tool-c"}, &out, &errs); rc != 0 {
+		t.Fatalf("rc=%d %s", rc, errs.String())
+	}
+	if path != "/api/runs/coordinate" || got["to"] != "tool-c" {
+		t.Fatalf("path=%s body=%v", path, got)
+	}
+	if !strings.Contains(out.String(), "run=run-1") {
+		t.Errorf("옮긴 Run 을 적지 않았다: %s", out.String())
+	}
+	if rc := runDmctl([]string{"run", "coordinate"}, &out, &errs); rc != 2 {
+		t.Errorf("--to 없음 rc=%d", rc)
+	}
+}

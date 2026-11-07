@@ -254,3 +254,62 @@ func treeDepthFirst(nodes []treeNode) []treeNode {
 	}
 	return out
 }
+
+// apiRunCoordinate implements POST /api/runs/coordinate (ISSUE_TREE_CLOSE_SRS FR-ITX-7·8).
+// 부르는 도구가 조율하는 열린 Run 전부를 대상 도구로 넘긴다. 조율이 migration 할 때
+// 옛 세션이 닫기 전에 부른다 — 트리의 루트는 조율의 toolId 로 완료·종료 요청을 보낸다.
+func (s *Server) apiRunCoordinate(w http.ResponseWriter, r *http.Request) {
+	if !s.runsReady(w) {
+		return
+	}
+	var body struct {
+		To     string `json:"to"`
+		ToolID string `json:"toolId"`
+	}
+	if !decodeJSONBody(w, r, &body) {
+		return
+	}
+	caller := s.callerToolID(r, body.ToolID)
+	to := strings.TrimSpace(body.To)
+	switch {
+	case to == "" || caller == "":
+		writeRunError(w, fmt.Errorf("%w: --to 와 부르는 도구가 필요하다", run.ErrInvalidArgument), nil)
+		return
+	case to == caller:
+		writeRunError(w, fmt.Errorf("%w: 자기 자신에게 넘길 수 없다", run.ErrInvalidArgument), nil)
+		return
+	case !s.toolLive(to):
+		writeRunError(w, fmt.Errorf("%w: 살아 있는 도구가 아니다: %s", run.ErrInvalidArgument, to), nil)
+		return
+	}
+	moved, err := s.Runs.MoveCoordinator(caller, to)
+	if err != nil {
+		writeRunError(w, err, nil)
+		return
+	}
+	ids := make([]string, 0, len(moved))
+	for _, rec := range moved {
+		ids = append(ids, rec.ID)
+		s.notifyTreeCoordinator(rec, to)
+		s.broadcastRunChanged(rec)
+	}
+	dmlog.Infof(nil, "[run] coordinate from=%s to=%s runs=%d", caller, to, len(ids))
+	writeJSON(w, map[string]any{"to": to, "moved": ids})
+}
+
+// notifyTreeCoordinator 는 트리 Run 의 루트 노드에 새 조율을 알린다 (FR-ITX-8). 루트의
+// 대화 맥락에는 옛 toolId 가 있다 — 알리지 않으면 완료·종료 요청이 닫힌 탭으로 간다.
+func (s *Server) notifyTreeCoordinator(rec run.Record, to string) {
+	if rec.Tree == "" {
+		return
+	}
+	text := fmt.Sprintf("[ISSUE-TREE 승계] 조율 새 toolId=%s run=%s", to, rec.ID)
+	for _, m := range rec.Members {
+		if m.Assign == nil || m.Assign.Parent != "" || m.SucceededBy != "" || m.Reported() {
+			continue
+		}
+		if err := s.deliverToTool(m.ToolID, agentEnvelope(envelopeServerSender, m.ToolID, text), true); err != nil {
+			dmlog.Errorf(nil, "[run] 조율 승계 알림 실패 to=%s: %v", m.ToolID, err)
+		}
+	}
+}

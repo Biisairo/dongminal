@@ -234,6 +234,7 @@ func (s *Server) apiRunStart(w http.ResponseWriter, r *http.Request) {
 	}
 	if prov != nil {
 		opts.ID, opts.Repo, opts.Base, opts.Worktree = prov.ID, prov.Repo, prov.Base, prov.Worktree
+		opts.MergeInto = prov.MergeInto
 	}
 	rec, err := s.Runs.Start(opts)
 	if err != nil {

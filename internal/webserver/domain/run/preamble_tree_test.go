@@ -93,3 +93,29 @@ func TestTreePreamble_HandoffClauseKept(t *testing.T) {
 		t.Errorf("승계 인수인계 절이 없다:\n%s", p)
 	}
 }
+
+// ISSUE_TREE_CLOSE_SRS TC-ITX-1·2: 루트의 부모는 조율 에이전트이고, 모든 트리
+// 프리앰블은 종료를 스스로 하지 않고 부모에게 요청하라고 말한다.
+func TestTreePreamble_RootReportsToCoordinator(t *testing.T) {
+	rec, m, tc := treeFixture()
+	m.Assign.Parent = ""
+	tc.ParentToolID = "tool-coord"
+	p := TreePreamble(rec, m, tc)
+	for _, want := range []string{"부모: tool-coord — 조율 에이전트", "dmctl msg --to tool-coord"} {
+		if !strings.Contains(p, want) {
+			t.Errorf("%q 가 없다:\n%s", want, p)
+		}
+	}
+}
+
+func TestTreePreamble_CloseGoesThroughParent(t *testing.T) {
+	rec, m, tc := treeFixture()
+	if p := TreePreamble(rec, m, tc); !strings.Contains(p, "종료 요청") {
+		t.Errorf("비루트 프리앰블에 종료 요청 규칙이 없다:\n%s", p)
+	}
+	m.Assign.Parent = ""
+	tc.ParentToolID = ""
+	if p := TreePreamble(rec, m, tc); !strings.Contains(p, "종료 요청") {
+		t.Errorf("루트 프리앰블에 종료 요청 규칙이 없다:\n%s", p)
+	}
+}

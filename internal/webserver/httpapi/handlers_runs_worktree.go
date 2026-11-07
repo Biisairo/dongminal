@@ -14,6 +14,7 @@ import (
 	"dongminal/internal/shared/dmlog"
 	"errors"
 	"fmt"
+	"os"
 
 	"dongminal/internal/shared/uuid"
 	"dongminal/internal/webserver/domain/git/core"
@@ -31,11 +32,14 @@ var errIsolationUnavailable = errors.New("isolation_unavailable")
 // 결정된다 — 경로가 run.short 에서 파생되므로 id 를 먼저 정해야 하고(FR-WKT-3),
 // 생성이 실패하면 레코드가 아예 없어야 고아 Run 이 남지 않는다.
 type runIsolation struct {
-	ID       string
-	Repo     string
-	Base     string
-	Worktree *run.Worktree
-	spec     worktree.Spec // 롤백 대상 (per-run 일 때만)
+	ID   string
+	Repo string
+	Base string
+	// MergeInto 는 cwd 의 현재 브랜치다 (ISSUE_TREE_CLOSE_SRS FR-ITX-40). --base 를
+	// 줘도 cwd 에서 읽는다 — 가지 Run 은 부모 worktree 에서 열리므로 부모 브랜치다.
+	MergeInto string
+	Worktree  *run.Worktree
+	spec      worktree.Spec // 롤백 대상 (per-run 일 때만)
 }
 
 // runTreeBusyDetail 은 사용 중이라 정리하지 않은 worktree 의 잔여물 사유다
@@ -76,7 +80,14 @@ func (s *Server) provisionRun(ctx context.Context, iso run.Isolation, cwd, base 
 	if err != nil {
 		return nil, err
 	}
-	out := &runIsolation{ID: uuid.NewString(), Repo: repo.Root, Base: repo.Base}
+	// ISSUE_TREE_CLOSE_SRS FR-ITX-47: 저장소는 메인 worktree 경로로 기록한다. 가지 Run 은
+	// 부모 worktree 에서 열리는데, 그 경로는 부모가 정리되면 사라진다.
+	root := repo.Root
+	if main, err := s.Worktrees.MainRoot(ctx, repo.Root); err == nil && main != "" {
+		root = main
+	}
+	out := &runIsolation{ID: uuid.NewString(), Repo: root, Base: repo.Base,
+		MergeInto: s.Worktrees.CurrentBranch(ctx, cwd)}
 	if iso != run.IsolationPerRun {
 		return out, nil
 	}
@@ -84,14 +95,14 @@ func (s *Server) provisionRun(ctx context.Context, iso run.Isolation, cwd, base 
 	// 실패를 **여기서** 드러내기 위해서다 — 첫 멤버를 띄우고 나서 알게 되면
 	// 이미 도구가 생성돼 있다.
 	slug := run.PathSlug(out.ID)
-	key, err := s.commonKey(ctx, repo.Root)
+	key, err := s.commonKey(ctx, out.Repo)
 	if err != nil {
 		return nil, err
 	}
 	spec := worktree.Spec{
-		Repo:    repo.Root,
+		Repo:    out.Repo,
 		Path:    s.Worktrees.Path(slug, "run"),
-		Branch:  s.freeBranch(ctx, repo.Root, slug, "run", "run"),
+		Branch:  s.freeBranch(ctx, out.Repo, slug, "run", "run"),
 		Base:    repo.Base,
 		LockKey: key,
 	}
@@ -233,11 +244,14 @@ func (s *Server) cleanupWorktrees(ctx context.Context, rec run.Record, keep bool
 		}
 		return out
 	}
+	repo := s.cleanupRepo(ctx, rec.Repo, targets)
 	// 키를 구하지 못하면(저장소가 사라졌다) 빈 키 — Manager 가 저장소 경로로 잠근다.
 	// 그 저장소에서는 다른 조작도 common-dir 을 구하지 못하므로 경합할 상대가 없다.
-	key, _ := s.commonKey(ctx, rec.Repo)
+	key, _ := s.commonKey(ctx, repo)
 	for _, t := range targets {
-		spec := worktree.RemoveSpec{Repo: rec.Repo, Path: t.Path, Branch: t.Branch, Keep: keep, LockKey: key}
+		spec := worktree.RemoveSpec{Repo: repo, Path: t.Path, Branch: t.Branch, Keep: keep, LockKey: key,
+			// ISSUE_TREE_CLOSE_SRS FR-ITX-41·45: 트리 Run 만 병합을 확인한 뒤 지운다.
+			RequireMerged: rec.Tree != "", MergeInto: rec.MergeInto}
 		remove := s.removeRunTree
 		if keep {
 			remove = s.Worktrees.Remove // 보존은 지우지 않으므로 사용 중인지 볼 것이 없다
@@ -259,4 +273,19 @@ func (s *Server) cleanupWorktrees(ctx context.Context, rec run.Record, keep bool
 		dmlog.Errorf(nil, "[run] 정리 결과 기록 실패 run=%s: %v", rec.Short, err)
 	}
 	return out
+}
+
+// cleanupRepo 는 정리에서 git 을 돌릴 저장소다 (ISSUE_TREE_CLOSE_SRS FR-ITX-48). 옛 가지
+// Run 의 기록은 부모 worktree 를 저장소로 가리킨다 — 그 경로가 사라졌으면 대상 worktree
+// 에서 메인 worktree 경로를 구한다. 구하지 못하면 기록 그대로다(잔여물로 보고된다).
+func (s *Server) cleanupRepo(ctx context.Context, repo string, targets []run.Worktree) string {
+	if _, err := os.Stat(repo); err == nil {
+		return repo
+	}
+	for _, t := range targets {
+		if main, err := s.Worktrees.MainRoot(ctx, t.Path); err == nil && main != "" {
+			return main
+		}
+	}
+	return repo
 }

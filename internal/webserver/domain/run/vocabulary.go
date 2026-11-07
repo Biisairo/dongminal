@@ -211,8 +211,11 @@ type Record struct {
 	// Repo·Base·Worktree 는 격리 Run 에서만 채워진다 (FR-WKT-5). Repo 는 Run 을
 	// 연 시점 조정자 cwd 의 저장소 루트이고, Base 는 그때의 HEAD 다 — 나중에
 	// "이 브랜치가 무엇에서 갈라졌나"를 물을 근거이며 정리의 대상 저장소다.
-	Repo        string    `json:"repo,omitempty"`
-	Base        string    `json:"base,omitempty"`
+	Repo string `json:"repo,omitempty"`
+	Base string `json:"base,omitempty"`
+	// MergeInto 는 이 Run 의 브랜치가 병합돼야 할 브랜치다 — 시작 시점 조정자 cwd 의
+	// 현재 브랜치 (ISSUE_TREE_CLOSE_SRS FR-ITX-40). 분리된 HEAD 면 비어 있다.
+	MergeInto   string    `json:"mergeInto,omitempty"`
 	Worktree    *Worktree `json:"worktree,omitempty"` // per-run 의 공유 트리
 	CreatedAt   int64     `json:"createdAt"`
 	ClosedAt    int64     `json:"closedAt,omitempty"`

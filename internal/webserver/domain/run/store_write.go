@@ -27,6 +27,7 @@ type StartOptions struct {
 	WindowID          string
 	Repo              string
 	Base              string
+	MergeInto         string
 	Worktree          *Worktree
 	// Tree·TreeBranch 는 이슈 트리 표지다 (ISSUE_AGENT_TREE_SRS FR-ITU-1).
 	Tree       string
@@ -110,6 +111,7 @@ func (s *Store) Start(opt StartOptions) (Record, error) {
 		WindowID:          opt.WindowID,
 		Repo:              opt.Repo,
 		Base:              opt.Base,
+		MergeInto:         opt.MergeInto,
 		Worktree:          opt.Worktree,
 		Tree:              tree,
 		TreeBranch:        tree != "" && opt.TreeBranch,
@@ -442,4 +444,28 @@ func (r Record) WorktreeTargets() []Worktree {
 		add(m.Worktree)
 	}
 	return out
+}
+
+// MoveCoordinator 는 from 이 조율하는 열린 Run 전부의 조율을 to 로 옮긴다
+// (ISSUE_TREE_CLOSE_SRS FR-ITX-7). 옮긴 Run 을 돌려준다. 없으면 빈 목록이다.
+func (s *Store) MoveCoordinator(from, to string) ([]Record, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	moved := []Record{}
+	for i := range s.runs {
+		rec := &s.runs[i]
+		if rec.State != Open || rec.CoordinatorToolID != from {
+			continue
+		}
+		rec.CoordinatorToolID = to
+		moved = append(moved, cloneRun(*rec))
+	}
+	if len(moved) == 0 {
+		return moved, nil
+	}
+	if err := s.save(); err != nil {
+		return nil, err
+	}
+	return moved, nil
 }
