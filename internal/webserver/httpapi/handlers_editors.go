@@ -1,8 +1,13 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"path/filepath"
+
+	"dongminal/internal/webserver/action"
+	"dongminal/internal/webserver/apierr"
+	"dongminal/internal/webserver/domain/wsentry"
 )
 
 // /api/editors/* — Editor 목록 (EDITOR_TAB_SRS §3.11). 탐색기(/api/fs/*)와 같은
@@ -55,6 +60,11 @@ func (s *Server) apiEditorsAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.fsEntries(w) {
+		return
+	}
+	// 판정은 답과 같은 함수다 (SERVER_DRIVEN_ACTIONS_SRS F-m · D-SDA-6).
+	if a := editorAddAnswer(req.Path); !a.OK {
+		fsRejectAnswer(w, a)
 		return
 	}
 	l, err := s.Entries.EditorAdd(r.Context(), req.Path)
@@ -118,4 +128,33 @@ func (s *Server) apiEditorsReorder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fsJSON(w, http.StatusOK, map[string]any{"list": list})
+}
+
+// POST /api/editors/validate — 편집기 루트 추가 경로의 답 (F-m · FR-SDA-55).
+func (s *Server) apiEditorsValidate(w http.ResponseWriter, r *http.Request) {
+	var req fsPathReq
+	if !fsDecode(w, r, &req) {
+		return
+	}
+	fsJSON(w, http.StatusOK, map[string]any{
+		"actions": map[string]action.Answer{action.EditorAdd: editorAddAnswer(req.Path)},
+	})
+}
+
+// editorAddAnswer 는 `wsentry.CheckEditorPath` 의 오류를 사유 코드로 옮긴다.
+func editorAddAnswer(path string) action.Answer {
+	_, err := wsentry.CheckEditorPath(path)
+	switch {
+	case err == nil:
+		return action.Allow()
+	case errors.Is(err, wsentry.ErrEmptyPath):
+		return fsDeny(apierr.CodeEmptyPath, nil)
+	case errors.Is(err, wsentry.ErrNotAbsolute):
+		return fsDeny(apierr.CodeAbsPathNeeded, nil)
+	case errors.Is(err, wsentry.ErrNotFound):
+		return fsDeny(apierr.CodeNotFound, nil)
+	case errors.Is(err, wsentry.ErrFilesystemRoot):
+		return fsDeny(apierr.CodeFilesystemRootProtected, nil)
+	}
+	return fsDeny(apierr.CodeNotADirectory, nil)
 }

@@ -32,6 +32,14 @@ Object.assign(App.prototype, {
 
   async _edAdd(){
     const here=await this._edTermCwd();
+    // 경로는 서버가 판정한다 (SERVER_DRIVEN_ACTIONS_SRS F-m) — 추가 요청도 같은 판정으로 거절된다.
+    //	이전 동작: 화면이 빈 경로만 막았고, 상대 경로·파일·없는 경로는 누른 뒤에야 알았다
+    const answer=new GitInputAnswer({id:EDITOR_ACTION_ADD,
+      params:v=>({path:(v.path||'').trim()}),fail:()=>EDITOR_ADD_FAIL,
+      ask:async(p,stale)=>{
+        const r=await apiPost(EDITORS_API+'/validate',p);
+        return stale()?{stale:true}:{ok:!!(r.ok&&r.data&&r.data.actions),data:r.data};
+      }});
     return GitDialog.open({
       id:'editor-add-dlg',ns:'eda',action:'editor_add',
       title:EDITOR_ADD_TITLE,runLabel:EDITOR_ADD_RUN,focus:'path',
@@ -40,7 +48,7 @@ Object.assign(App.prototype, {
         {key:'path',type:GIT_DIALOG_TEXT,cls:'eda-path',value:here,
          placeholder:EDITOR_ADD_PROMPT},
       ],
-      validate:v=>(v.path||'').trim()?'':EDITOR_ADD_NEED_PATH,
+      validate:(v,d)=>answer.why(v,d),
       run:async v=>{
         const ok=await this.edMutate('/add',{path:(v.path||'').trim()});
         return ok?{ok:true}:{ok:false,reason:EDITOR_ADD_FAIL};

@@ -37,7 +37,8 @@ const EDITOR_ADD_RUN=t('editor.add_run');
 const EDITOR_ADD_PROMPT=t('editor.add_prompt');
 const EDITOR_ADD_HERE=t('editor.add_here');
 const EDITOR_ADD_NO_TERM=t('editor.add_no_term');
-const EDITOR_ADD_NEED_PATH=t('editor.add_need_path');
+// SERVER_DRIVEN_ACTIONS_SRS F-m: 편집기 루트 추가 경로의 답 (서버 `action.EditorAdd`).
+const EDITOR_ACTION_ADD='editor.add';
 const EDITOR_ADD_FAIL=t('editor.add_fail');
 
 // FR-EDT-55: pane 이 하나도 없는 창의 우측. 빈 pane 이 아니라 pane 이 **없는** 것이다.

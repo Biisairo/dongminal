@@ -378,7 +378,6 @@ func TestFS_RejectsRelativePaths(t *testing.T) {
 		{http.MethodPost, "/api/fs/rename", `{"root":` + testpath.JSONQuote(root) + `,"from":"rel","to":` + testpath.JSONQuote(root+"/x") + `}`},
 		{http.MethodPost, "/api/fs/rename", `{"root":` + testpath.JSONQuote(root) + `,"from":` + testpath.JSONQuote(root+"/x") + `,"to":"rel"}`},
 		{http.MethodPost, "/api/fs/delete", `{"root":` + testpath.JSONQuote(root) + `,"path":"rel"}`},
-		{http.MethodPost, "/api/editors/add", `{"path":"rel"}`},
 		{http.MethodPost, "/api/editors/remove", `{"path":"rel"}`},
 		{http.MethodPost, "/api/editors/reorder", `{"src":"rel","target":` + testpath.JSONQuote(root) + `}`},
 	}
@@ -387,6 +386,10 @@ func TestFS_RejectsRelativePaths(t *testing.T) {
 		if code != http.StatusBadRequest || out["code"] != fsErrBadRequest {
 			t.Errorf("%s %s %s → code=%d body=%v", c.method, c.path, c.body, code, out)
 		}
+	}
+	// 편집기 루트 추가는 사유를 가른다 (SERVER_DRIVEN_ACTIONS_SRS F-m).
+	if code, out := fsReq(t, s, http.MethodPost, "/api/editors/add", `{"path":"rel"}`); code != http.StatusBadRequest || out["code"] != apierr.CodeAbsPathNeeded {
+		t.Errorf("editors/add rel → code=%d body=%v", code, out)
 	}
 }
 
@@ -662,7 +665,7 @@ func TestEditors_Endpoints(t *testing.T) {
 	if err := os.WriteFile(f, nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if code, out := fsReq(t, s, http.MethodPost, "/api/editors/add", `{"path":`+testpath.JSONQuote(f)+`}`); code != http.StatusBadRequest || out["code"] != fsErrBadRequest {
+	if code, out := fsReq(t, s, http.MethodPost, "/api/editors/add", `{"path":`+testpath.JSONQuote(f)+`}`); code != http.StatusBadRequest || out["code"] != apierr.CodeNotADirectory {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
 }

@@ -15,6 +15,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -49,6 +50,10 @@ var (
 	ErrNotFound    = errors.New("경로가 없다")
 	ErrNotDir      = errors.New("디렉터리가 아니다")
 	ErrUnavailable = errors.New("workspace 를 쓸 수 없다")
+	ErrEmptyPath   = errors.New("경로가 비었다")
+	// ErrFilesystemRoot 는 파일시스템 루트다. 행이 되면 그 루트를 기준으로 삼는 파일
+	// 조작이 **파일시스템 전체**를 대상으로 삼아 D-16 의 상한이 통째로 무력해진다.
+	ErrFilesystemRoot = errors.New("파일시스템 루트는 행이 될 수 없다")
 )
 
 // Store 는 두 목록의 소유자다. 제로값은 쓸 수 없다 — Work 가 없으면 모든 변경이
@@ -221,22 +226,9 @@ func ensureDir(dir string) bool {
 // 경로는 EvalSymlinks + Clean 하나로 정규화한다 (FR-EDT-24) — Git 핀 추가와 같은
 // 함수를 지나야 연동의 "같은 경로" 짝짓기가 성립한다.
 func (s *Store) EditorAdd(ctx context.Context, path string) (Lists, error) {
-	if !filepath.IsAbs(path) {
-		return Lists{}, ErrNotAbsolute
-	}
-	norm := NormalizePath(path)
-	st, err := os.Stat(norm)
+	norm, err := CheckEditorPath(path)
 	if err != nil {
-		return Lists{}, ErrNotFound
-	}
-	if !st.IsDir() {
-		return Lists{}, ErrNotDir
-	}
-	// 파일시스템 루트는 행이 될 수 없다. 행이 되면 그 루트를 기준으로 삼는
-	// 파일 조작이 **파일시스템 전체**를 대상으로 삼아 D-16 의 상한이 통째로
-	// 무력해진다.
-	if filepath.Dir(norm) == norm {
-		return Lists{}, ErrNotDir
+		return Lists{}, err
 	}
 	home, err := s.Home()
 	if err != nil {
@@ -256,6 +248,32 @@ func (s *Store) EditorAdd(ctx context.Context, path string) (Lists, error) {
 	return s.Mutate(func(cur Lists) Lists {
 		return LinkEditorAdd(cur, norm, home, s.isRepoRoot(ctx, norm))
 	})
+}
+
+// CheckEditorPath 는 Editor 행이 될 경로의 판정이다 (SERVER_DRIVEN_ACTIONS_SRS F-m). 앞뒤
+// 공백을 지운 뒤 보고, 정규화한 경로를 돌려준다. 추가의 답과 거절이 이 함수 하나를 부른다.
+//
+//	이전 동작: 파일시스템 루트를 ErrNotDir 로 함께 냈다 — 사유를 가르려고 나눴다
+func CheckEditorPath(path string) (string, error) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "", ErrEmptyPath
+	}
+	if !filepath.IsAbs(path) {
+		return "", ErrNotAbsolute
+	}
+	norm := NormalizePath(path)
+	st, err := os.Stat(norm)
+	if err != nil {
+		return "", ErrNotFound
+	}
+	if filepath.Dir(norm) == norm {
+		return "", ErrFilesystemRoot
+	}
+	if !st.IsDir() {
+		return "", ErrNotDir
+	}
+	return norm, nil
 }
 
 // isRepoRoot 는 그 경로가 **저장소의 루트인지**를 본다. 저장소 안이지만 루트가

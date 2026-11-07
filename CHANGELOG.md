@@ -70,6 +70,11 @@
   `POST /api/fs/validate-name` 으로 미리 물을 수 있고, 탐색기의 인라인 입력은 입력이 멈추면 이 답을 보입니다.
 - **자기 하위로 옮기기·복사의 거절 코드가 `into_self` 입니다.** 이전에는 400 `bad_request` 에 한국어 `message` 였습니다.
   탐색기는 이제 이 판정을 스스로 하지 않고 서버의 사유를 보입니다.
+- **편집기 루트 추가의 거절 코드가 사유마다 갈립니다.** `POST /api/editors/add` 는 빈 경로 400 `empty_path`, 상대 경로
+  400 `path_must_be_absolute`, 폴더가 아니면 400 `not_a_directory`, 파일시스템 루트는 400 `filesystem_root_protected`
+  로 거절합니다(이전에는 모두 400 `bad_request`). 없는 경로는 그대로 404 `not_found` 입니다. 이 거절들은 `message`
+  없이 `{code}` 를 싣고, 경로의 앞뒤 공백은 지운 뒤 봅니다. 새 `POST /api/editors/validate` 로 미리 물을 수 있고,
+  `+ Add` 대화상자는 입력 중에 이 답을 보입니다.
 
 ## [1.2.3] — 2026-11-05
 

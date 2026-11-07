@@ -414,6 +414,36 @@ test.describe('UI 개정 — 터미널의 리포를 딛는 근거 (D-FLW-6, 옛 
     await expect(dlg).toBeVisible({ timeout: 10000 });
     await expect(dlg.locator('.eda-path')).toHaveValue(repoB, { timeout: 15000 });
   });
+
+  // SERVER_DRIVEN_ACTIONS_SRS F-m (FR-SDA-55): 편집기 루트 추가 경로는 서버가 판정한다.
+  //   이전 동작: 화면이 빈 경로만 막았고, 상대 경로·파일은 실행을 누른 뒤에야 실패했다
+  test('SDF5 (FR-SDA-55): + Add 의 상대 경로·파일은 실행 전에 사유와 함께 막힌다', async ({ page }) => {
+    const repo = gurFx('with-remote');
+    const file = join(repo, 'sdf5.txt');
+    writeFileSync(file, 'x');
+    await waitForInit(page);
+    await openGit(page, repo);
+    await page.click('#repo-add');
+    const dlg = page.locator('#editor-add-dlg');
+    await expect(dlg).toBeVisible({ timeout: 10000 });
+    const why = dlg.locator('.git-dialog-why');
+
+    await dlg.locator('.eda-path').fill('rel/dir');
+    await expect(why).toContainText('절대 경로', { timeout: 10000 });
+    await expect(dlg.locator('.eda-go')).toBeDisabled();
+
+    await dlg.locator('.eda-path').fill(file);
+    await expect(why).toContainText('폴더가 아닙니다', { timeout: 10000 });
+    await expect(dlg.locator('.eda-go')).toBeDisabled();
+
+    await dlg.locator('.eda-path').fill(repo);
+    await expect(dlg.locator('.eda-go')).toBeEnabled({ timeout: 10000 });
+
+    // 화면을 거치지 않은 요청도 같은 코드로 거절된다 (TC-SDA-1).
+    const r = await page.request.post('/api/editors/add', { data: { path: file } });
+    expect(r.status()).toBe(400);
+    expect((await r.json()).code).toBe('not_a_directory');
+  });
 });
 
 

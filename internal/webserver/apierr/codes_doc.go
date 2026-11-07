@@ -165,5 +165,6 @@ var CodeDoc = map[string]Doc{
 	CodeTooManyEntries:          {"항목 수가 서버 상한을 넘었습니다.", "args.max 가 상한입니다. 더 작은 폴더로 나눠 다루거나 터미널을 쓰세요."},
 	CodeIntoSelf:                {"폴더를 자기 자신이나 자기 하위로 옮기거나 복사할 수 없습니다.", "심볼릭 링크를 푼 실제 경로로 판정합니다. 다른 대상 폴더를 고르세요."},
 	CodeNameHasSeparator:        {"이름에 경로 구분자(`/`, Windows 의 `\\`)가 있습니다.", "이름 하나만 보내세요. 다른 폴더에 만들려면 parent 를 바꾸세요."},
+	CodeNotADirectory:           {"디렉터리가 아닙니다.", "Editor 루트로는 폴더를 고르세요."},
 	CodeNameReserved:            {"`.`·`..` 는 이름으로 쓸 수 없습니다.", "다른 이름을 쓰세요."},
 }

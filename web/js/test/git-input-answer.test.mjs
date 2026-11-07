@@ -181,3 +181,29 @@ test('repo 가 없는 동작은 repo 를 싣지도 대조하지도 않는다 (gi
   assert.equal('repo' in calls[0].q, false);
   assert.deepEqual({ ...calls[0].o.echo }, { action: 'git.repo.add' });
 });
+
+test('ask 를 주면 git 종단 대신 그것으로 묻는다 (SERVER_DRIVEN_ACTIONS_SRS F-m)', async () => {
+  const { dialog, flush, calls } = setup();
+  const { GitInputAnswer } = load(['core/i18n.js', 'core/action-answer.js', 'git/input-answer.js'], {
+    expose: ['GitInputAnswer'],
+    globals: {
+      localStorage: { getItem: () => 'ko', setItem() {} },
+      document: { documentElement: { setAttribute() {} }, querySelectorAll: () => [] },
+      GIT_API: { actions: '/api/git/actions' }, GIT_BR_VALIDATE_DEBOUNCE_MS: 200,
+      GIT_DIALOG_WHY: 'why', GIT_DIALOG_WHY_PENDING: 'pending',
+      TIMERS: { after(_ms, fn) { fn(); return 1 }, cancel() {} },
+      gitFetch() { throw new Error('git 종단으로 물었다') },
+    },
+  });
+  const asked = [];
+  const ans = new GitInputAnswer({
+    id: 'editor.add', params: v => ({ path: v.path }), fail: () => '실패',
+    ask: async (p, stale) => { asked.push({ p, stale: stale() }); return { ok: true, data: { actions: { 'editor.add': { ok: true } } } } },
+  });
+  ans.why({ path: '/x' }, dialog);
+  await tick();
+  assert.deepEqual(asked, [{ p: { path: '/x' }, stale: false }]);
+  assert.deepEqual(dialog.painted.at(-1), { kind: '', why: '' });
+  flush();
+  assert.equal(calls.length, 0);
+});

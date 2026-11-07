@@ -113,6 +113,8 @@ const (
 	FSDelete = "fs.delete"
 	// FSName 은 만들기·이름 바꾸기의 이름 하나다 (F-i).
 	FSName = "fs.name"
+	// EditorAdd 는 편집기 루트 추가의 경로다 (F-m).
+	EditorAdd = "editor.add"
 )
 
 // Table 은 동작 ID → 그 판정이 낼 수 있는 사유 코드다 (M-3).

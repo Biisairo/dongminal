@@ -209,6 +209,8 @@ var apiRoutes = []apiRoute{
 	httproute.Get("/api/lsp/ws", (*Server).apiLSPWS),
 	httproute.Get("/api/editors", (*Server).apiEditorsGet),
 	httproute.Post("/api/editors/add", (*Server).apiEditorsAdd),
+	// F-m: 편집기 루트 추가 경로의 답.
+	httproute.Post("/api/editors/validate", (*Server).apiEditorsValidate),
 	httproute.Post("/api/editors/remove", (*Server).apiEditorsRemove),
 	httproute.Post("/api/editors/reorder", (*Server).apiEditorsReorder),
 	httproute.Any("/api/ping", (*Server).apiPing),

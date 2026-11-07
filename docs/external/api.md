@@ -106,7 +106,8 @@
 | POST | `/api/fs/upload?root=<abs>&dir=<abs>` | 탐색기 업로드 (`file` 필드, 선택 `relPath`). `relPath` 가 있으면 `dir` **아래로** 구조를 세운다(중간 디렉터리는 만들되 `dir` 자신은 만들지 않는다). **같은 이름이 있으면 409** — 덮어쓰지도 개명하지도 않는다 |
 | POST | `/api/fs/ignored` | 한 겹에서 무시된 이름. 본문 `{root, dir, names:[…]}` → `{ignored:[…]}`. 저장소가 아니면 404 `not_repo`. 추적 중인 파일은 패턴에 맞아도 무시로 보고하지 않는다 |
 | GET | `/api/editors` | `{home, notes, list}` — root 행의 경로, 메모 루트, 일반 행 목록. `home`·`notes` 는 `list` 에 들어 있지 않다. 메모 루트를 쓸 수 없으면 `notes` 키가 **빠진다** (그때는 메모장 행만 없고 나머지는 그대로 선다) |
-| POST | `/api/editors/add` | 바디 `{path}`. 응답 `{list, pinned}` — git 핀이 함께 바뀔 수 있다 |
+| POST | `/api/editors/add` | 바디 `{path}`. 응답 `{list, pinned}` — git 핀이 함께 바뀔 수 있다. 경로 거절: 400 `empty_path`·`path_must_be_absolute`·`not_a_directory`·`filesystem_root_protected`, 404 `not_found`(`message` 없이 `{code}`) |
+| POST | `/api/editors/validate` | 편집기 루트 추가 경로의 답. 바디 `{path}` → `{actions:{"editor.add": {ok, why?}}}`. 사유는 위 add 의 거절과 같은 판정이다 |
 | POST | `/api/editors/remove` | 바디 `{path}`. 응답 `{list, pinned}` |
 | POST | `/api/editors/reorder` | 바디 `{src, target, before}` |
 

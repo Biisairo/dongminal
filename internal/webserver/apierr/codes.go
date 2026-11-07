@@ -136,4 +136,5 @@ const (
 	CodeIntoSelf                = "into_self"
 	CodeNameHasSeparator        = "name_has_separator"
 	CodeNameReserved            = "name_reserved"
+	CodeNotADirectory           = "not_a_directory"
 )

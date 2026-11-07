@@ -13,8 +13,11 @@
 class GitInputAnswer {
   /**
    * @param {{repo:string, id:string, params:(v:Object)=>Object, fail:(res:Object)=>string,
-   *   onChange?:(s:{kind:string,why:string}, d:Object)=>void}} o
+   *   onChange?:(s:{kind:string,why:string}, d:Object)=>void,
+   *   ask?:(p:Object, stale:()=>boolean)=>Promise<Object>}} o
    *   params 는 판정에 쓰이는 입력만 고른다. onChange 가 없으면 답을 대화상자의 setWhy 로 그린다.
+   *   ask 는 git 이 아닌 표면의 묻는 함수다(SERVER_DRIVEN_ACTIONS_SRS F-m) — gitFetch 와 같은
+   *   모양(`{ok, stale?, data:{actions}}`)으로 풀린다. 없으면 `GET /api/git/actions` 로 묻는다.
    */
   constructor(o){
     this.repo=o.repo;
@@ -22,6 +25,7 @@ class GitInputAnswer {
     this.params=o.params;
     this.fail=o.fail;
     this.onChange=o.onChange||null;
+    this.ask=o.ask||null;
     this._key=null;
     this._seq=0;
     this._t=null;
@@ -52,10 +56,11 @@ class GitInputAnswer {
 
   async _ask(p,d,seq){
     const id=this.id;
+    const stale=()=>seq!==this._seq||!d.alive();
     // repo 가 없는 동작(저장소 추가)은 repo 를 싣지 않는다 — 서버도 그것을 받지 않는다.
     const who=this.repo?{repo:this.repo,action:id}:{action:id};
-    const res=await gitFetch(GIT_API.actions,Object.assign({},who,p),
-      {stale:()=>seq!==this._seq||!d.alive(),echo:who});
+    const res=this.ask?await this.ask(p,stale)
+      :await gitFetch(GIT_API.actions,Object.assign({},who,p),{stale,echo:who});
     if(res.stale) return;
     this._asking=false;
     this._state=res.ok?this._of(actionState(res.data.actions[id],false))

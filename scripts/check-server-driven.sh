@@ -28,6 +28,7 @@ REMOVED=(
   GIT_TAG_KIND_OPTS GIT_CO_RESET_MODES  # GV-h: 서버가 보내는 목록의 사본
   edCountTree EDITOR_DEL_COUNT_MAX  # F-g: 화면이 세던 삭제 항목 수와 그 상한
   EDITOR_NAME_INVALID EDITOR_MOVE_INTO_SELF  # F-k·F-l: 이름의 / · 자기 하위 이동
+  EDITOR_ADD_NEED_PATH  # F-m: 편집기 루트 추가의 빈 경로
 )
 
 pat=$(IFS='|'; echo "${REMOVED[*]}")
