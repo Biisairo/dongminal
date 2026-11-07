@@ -26,8 +26,10 @@ func TestLoadReadsEmbeddedTable(t *testing.T) {
 	//    (UX_REVISION_SRS FR-KEY-6 철회 / D-K2). 이미 쓰인 값은 Validate 가
 	//    unknown 으로 흘리므로 마이그레이션이 없다.
 	//    + EDITOR_LIVE_RELOAD_SRS FR-ELR-76 의 `gitWorktreeInterval`
-	if len(specs) != 29 {
-		t.Fatalf("서술자 %d개, 기대 29개", len(specs))
+	//    + ISSUE_TREE_OPS_SRS FR-ITM-1 의 넷(`migrationHook`·`migrationHookCtxPct`·
+	//      `issueTreeMigration`·`issueTreeCtxPct`) = 33
+	if len(specs) != 33 {
+		t.Fatalf("서술자 %d개, 기대 33개", len(specs))
 	}
 	by := settingsschema.ByKey(specs)
 	for _, k := range []string{"themeName", "tabWidthPx", "attnEdgeLevel", "gitStatusInterval", "uiFontSize", "termFontSize"} {

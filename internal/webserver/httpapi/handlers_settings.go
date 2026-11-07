@@ -34,6 +34,7 @@ type settingsView struct {
 	renderEnv  []string
 	policy     run.ContextPolicy
 	fgTabNames bool
+	migration  migrationConf
 }
 
 func (s *settingsStore) view() *settingsView {
@@ -41,7 +42,7 @@ func (s *settingsStore) view() *settingsView {
 	defer s.mu.Unlock()
 	if s.parsed == nil {
 		s.parsed = &settingsView{renderEnv: agentRenderEnv(s.raw), policy: parseContextPolicy(s.raw),
-			fgTabNames: parseFgTabNames(s.raw)}
+			fgTabNames: parseFgTabNames(s.raw), migration: parseMigrationConf(s.raw)}
 	}
 	return s.parsed
 }
@@ -56,6 +57,9 @@ func (s *settingsStore) ContextPolicy() run.ContextPolicy { return s.view().poli
 
 // FgTabNames 는 탭 이름을 전경 프로그램에서 파생하는가다 (CONVENIENCE_SRS FR-TAN-19).
 func (s *settingsStore) FgTabNames() bool { return s.view().fgTabNames }
+
+// Migration 은 맥락 기준 migration 설정이다 (ISSUE_TREE_OPS_SRS FR-ITM-1).
+func (s *settingsStore) Migration() migrationConf { return s.view().migration }
 
 // parseFgTabNames 는 blob 의 `fgTabNames` 다. 없거나 읽히지 않으면 켬이다 — dmctl
 // list-workspace 의 종전 기본과 같다.

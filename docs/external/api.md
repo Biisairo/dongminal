@@ -197,6 +197,7 @@
 | 메서드 | 경로 | 설명 |
 |---|---|---|
 | GET | `/api/tools/activity/get` | 도구 하나의 현재 활동 상태. statusLine 관측이 있으면 `context`(사용률·창·토큰·출처)와 `usage`(모델·판·비용·맥락 상세·한도 등)를 싣는다 |
+| GET | `/api/tools/migration-advice` | 맥락 훅이 묻는 migration 제안 판정 |
 | POST | `/api/tools/usage` | `dmctl statusline` 이 보내는 도구별 사용량 `{toolId, usage}`. 허용 목록 밖의 필드는 저장하지 않는다(경로·본문 없음) |
 | GET | `/api/tools/activity/wait` | 그 상태가 바뀔 때까지 **기다린다** (long-poll). 폴링 루프를 짜지 마세요 |
 | POST | `/api/tools/kill` | 도구의 전경 프로세스를 정지시킨다 |

@@ -2,7 +2,7 @@
 
 > **문서 상태**: 승인·구현중
 > **승인 근거**: 사용자 결정 넷(§4 D-ITO-3·4·9·12)을 반영했다. 사용자 지시(2026-11-07) — 단계마다 검증을 통과하면 묻지 않고 진행한다
-> **남은 것**: 묶음 M·W·E. 묶음 A·B·C·S 는 구현·시험 완료
+> **남은 것**: 묶음 W·E. 묶음 A·B·C·S·M 은 구현·시험 완료
 > **입력**: `docs/internal/ISSUE_TREE_OPS_FINDINGS.md`(요구 입력 1~14번, 사용자 결정 넷). 이 SRS 가 그 문서를 대신한다.
 > **개정 대상**: `ISSUE_AGENT_TREE_SRS.md` 의 FR-IAT-50~54·60~64·73, FR-ITD-2·6, D-IAT-19 (§8 변경 기록)
 
@@ -334,6 +334,7 @@
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-07 | 묶음 M 구현. 이전 동작: 맥락 기준은 `issue-tree.md` 의 `--ctx`(기본 60)뿐이었고 중간 노드만 봤다. 일반 세션에는 migration 제안이 없었다. 새 동작: 설정 넷(`migrationHook`·`migrationHookCtxPct`·`issueTreeMigration`·`issueTreeCtxPct`, 기본 켬·50). claude 의 PostToolUse·UserPromptSubmit 에 `dmctl ctx-hook` 이 서서 서버 판정(`GET /api/tools/migration-advice`)을 additionalContext 로 옮긴다. 트리 프리앰블의 맥락 기준은 `--ctx` > 설정 > 50, 설정이 끔이면 「끔」. 잎 노드도 단계를 커밋한 뒤 맥락을 본다. 이유: 별건 요구 1~5 와 사용자 결정 넷 |
 | 2026-11-07 | 묶음 C·S 구현. 이전 동작: 트리 응답은 열린 노드만, 부모는 사슬 이름에서 냈다. 하위를 기다리는 노드는 `ready`(Run)·`done`(훅)으로 갈렸다. 트리 Run 대시보드의 중심은 평평한 그래프였다. `dmctl status` 글자 출력에 모델·비용·한도가 없었다. 새 동작: 부모는 배정에서 얻고 승계 사슬은 마지막 멤버 하나다. 끝난 노드도 흔적으로 내고 깊이 우선으로 늘어놓는다. 열린 자식이 있는 쉬는 트리 노드는 `waiting-children` 이다. `GET /api/tools/activity/get` 은 Run 멤버이면 `member{id,state}` 를 싣는다. 트리 Run 대시보드는 그래프를 감추고 트리를 중심에 둔다(이슈 번호·제목, 끝난 노드는 흐림). 카드는 트리 순서다. `dmctl status` 는 `run_state=` 와 사용량 줄을 낸다. 이유: 입력 5·8·11 |
 | 2026-11-07 | 묶음 B 구현. 이전 동작: `run succeed` 는 언제나 옛 멤버에게 인수인계를 청하고 기다렸다. `node_taken` 은 코드만 냈다. migration 은 Run 멤버도 일반 절차로 넘겨 옛 멤버가 `lost` 로 남았다. 새 동작: `run succeed --self` 는 청하지 않고 요약을 싣는다. 트리 멤버의 승계는 부모·자식에게 알리고 자식의 배정 부모를 옮긴다. `node_taken` 은 쥔 멤버·상태와 lost 일 때 이어받기 안내를 싣는다. `who-am-i` 는 `member` 를 싣고, migration 은 멤버이면 자기 승계로 넘긴다. 이유: 입력 1·7 |
 | 2026-11-07 | 묶음 A 구현. 이전 동작: 트리 Run 의 멤버는 역할 이름만으로 등록됐고, 배정은 기동 뒤 엔벨로프로 따로 왔다. 새 동작: 트리 멤버는 `--issue` 배정이 있어야 등록되고(없으면 `invalid_argument`), 배정은 기록에 남아 트리 프리앰블에 실린다. 이유: 배정 전에 일을 시작하고 migration 이 배정을 빠뜨렸다(입력 3·7). 권한 거절은 새 코드를 만들지 않고 `sender_not_member` 를 쓴다 |

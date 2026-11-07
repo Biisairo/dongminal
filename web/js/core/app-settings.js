@@ -94,6 +94,19 @@ const SETTINGS_ACCESS={
     if(this._termApplyFontSize) this._termApplyFontSize();
   }},
   // AGENT_RENDER_ENV_SRS FR-ARE-8: 얹을 화면이 없다 — 값은 서버가 쓴다.
+  // ISSUE_TREE_OPS_SRS FR-ITM-1·2: 두 쌍은 서로 영향을 주지 않는다. 얹을 화면이 없다.
+  migrationHook:{get:()=>migrationHook??SETTINGS_BY_KEY.migrationHook.def,ctl:{id:'ds-mighook',kind:'check'},set(v){migrationHook=v}},
+  migrationHookCtxPct:{get:()=>migrationHookCtxPct,set(v){
+    migrationHookCtxPct=clampSetting('migrationHookCtxPct',v);
+    const el=document.getElementById('ds-mighookpct');
+    if(el) el.value=String(migrationHookCtxPct);
+  }},
+  issueTreeMigration:{get:()=>issueTreeMigration??SETTINGS_BY_KEY.issueTreeMigration.def,ctl:{id:'ds-treemig',kind:'check'},set(v){issueTreeMigration=v}},
+  issueTreeCtxPct:{get:()=>issueTreeCtxPct,set(v){
+    issueTreeCtxPct=clampSetting('issueTreeCtxPct',v);
+    const el=document.getElementById('ds-treemigpct');
+    if(el) el.value=String(issueTreeCtxPct);
+  }},
   claudeScrollSpeed:{get:()=>claudeScrollSpeed,set(v){
     claudeScrollSpeed=clampSetting('claudeScrollSpeed',v);
     const el=document.getElementById('ds-scrollspeed');
@@ -426,6 +439,7 @@ Object.assign(App.prototype, {
     this._initTermGpu();
     this._initTermFontSize();
     this._initClaudeScrollSpeed();
+    this._initMigrationSettings();
     this._initConfirmLeave();
     this._initFocusEdge();
     this._initAttnEdge();

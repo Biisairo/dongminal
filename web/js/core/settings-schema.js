@@ -55,7 +55,11 @@ const SETTINGS_SCHEMA = [
   {"key":"themeFollowSystem","type":"bool","def":false,"where":"Theme ▸ 시스템 추종"},
   {"key":"themeNameDark","type":"string","def":"Tokyo Night","where":"Theme ▸ 다크 슬롯"},
   {"key":"themeNameLight","type":"string","def":"GitHub Light","where":"Theme ▸ 라이트 슬롯"},
-  {"key":"locale","type":"string","def":"ko","where":"Display ▸ 언어"}
+  {"key":"locale","type":"string","def":"ko","where":"Display ▸ 언어"},
+  {"key":"migrationHook","type":"bool","def":true,"where":"Terminal ▸ 맥락 기준 migration 제안"},
+  {"key":"migrationHookCtxPct","type":"int","def":50,"min":1,"max":100,"where":"Terminal ▸ migration 제안 기준(%)"},
+  {"key":"issueTreeMigration","type":"bool","def":true,"where":"Terminal ▸ issue-tree 맥락 migration"},
+  {"key":"issueTreeCtxPct","type":"int","def":50,"min":1,"max":100,"where":"Terminal ▸ issue-tree migration 기준(%)"}
 ];
 
 const SETTINGS_BY_KEY=Object.fromEntries(SETTINGS_SCHEMA.map(s=>[s.key,s]));

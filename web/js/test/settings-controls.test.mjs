@@ -19,6 +19,8 @@ const CTLS = {
   'ds-fgnames': 'check', 'ds-claudefs': 'check', 'ds-confirmleave': 'check',
   'ds-wordwrap': 'check', 'ds-minimap': 'check',
   'ds-tabfix': 'check', 'ds-tabw': 'value', 'ds-title': 'value',
+  // ISSUE_TREE_OPS_SRS FR-ITM-1
+  'ds-mighook': 'check', 'ds-treemig': 'check',
 };
 
 test('FEC-26: 컨트롤이 서술자 표에 한 번씩 선언된다', () => {
@@ -38,6 +40,7 @@ test('FEC-26: _paintSettingControls 가 전역 값으로 칠하고, 치는 중�
   Object.assign(ctx, {
     fgTabNames: true, claudeFullscreen: true, confirmLeave: false, editorWordWrap: true,
     editorMinimap: false, tabFixedWidth: true, tabWidthPx: 180, pageTitle: 'T',
+    migrationHook: false, issueTreeMigration: true,
   });
   ctx.document.activeElement = els['ds-title'];
   els['ds-title'].value = 'typing';

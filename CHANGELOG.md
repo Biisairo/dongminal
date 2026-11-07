@@ -5,6 +5,14 @@
 
 ## [Unreleased]
 
+### 추가
+
+- **맥락 기준 migration 제안.** claude 세션의 맥락 사용률이 설정 `migrationHookCtxPct`(기본 50) 이상이면,
+  도구를 쓸 때마다와 프롬프트마다 `/dongminal:migration` 으로 넘기라는 알림이 에이전트에게 갑니다
+  (`dmctl ctx-hook`, 새 `GET /api/tools/migration-advice`). 강제하지 않습니다. Settings ▸ Terminal 에서
+  끌 수 있습니다. issue-tree 노드는 따로 `issueTreeMigration`·`issueTreeCtxPct`(기본 50)를 따릅니다.
+  `/dongminal:issue-tree` 의 `--ctx` 기본값은 60 에서 이 설정(50)으로 바뀌었습니다.
+
 ### 바뀜
 
 - **이슈 트리 Run 의 멤버는 배정(`--issue`)이 있어야 등록됩니다.** 트리 표지가 있는 Run 에

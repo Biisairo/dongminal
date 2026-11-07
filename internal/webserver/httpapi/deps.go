@@ -85,6 +85,8 @@ type SettingsStore interface {
 	RenderEnv() []string
 	ContextPolicy() run.ContextPolicy
 	FgTabNames() bool
+	// Migration 은 맥락 기준 migration 설정 넷이다 (ISSUE_TREE_OPS_SRS FR-ITM-1).
+	Migration() migrationConf
 }
 
 // RunStore 는 /api/runs* 가 Run 레코드 저장소에 요구하는 표면이다 (M8 `GO-44`).

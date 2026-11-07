@@ -417,6 +417,20 @@ Object.assign(App.prototype, {
    * (FR-ARE-8), 브라우저가 할 일은 값을 들고 저장하는 것뿐이다 — 이미 떠 있는
    * 터미널은 바뀌지 않는다 (FR-ARE-11, 환경은 프로세스 시작 시점의 것이다).
    */
+  /**
+   * ISSUE_TREE_OPS_SRS FR-ITM-1: Settings ▸ Terminal 의 맥락 기준 migration 넷. 일반 훅과
+   * issue-tree 는 따로다(FR-ITM-2). 값은 서버가 훅 판정과 트리 프리앰블에 쓴다.
+   */
+  _initMigrationSettings(){
+    for(const [id,set] of [['ds-mighook',v=>{migrationHook=v}],['ds-treemig',v=>{issueTreeMigration=v}]]){
+      const cb=document.getElementById(id);
+      if(!cb) continue;
+      cb.addEventListener('change',()=>{ set(cb.checked); this.saveSettings() });
+    }
+    this._initNumSetting('ds-mighookpct','migrationHookCtxPct',function(v){ migrationHookCtxPct=v });
+    this._initNumSetting('ds-treemigpct','issueTreeCtxPct',function(v){ issueTreeCtxPct=v });
+  },
+
   _initClaudeScrollSpeed(){
     this._initNumSetting('ds-scrollspeed','claudeScrollSpeed',function(v){
       claudeScrollSpeed=v;

@@ -321,6 +321,8 @@ type fakeSettingsStore struct {
 	saveErr error
 }
 
+func (f *fakeSettingsStore) Migration() migrationConf { return parseMigrationConf(f.Get()) }
+
 func (f *fakeSettingsStore) Get() []byte {
 	f.mu.Lock()
 	defer f.mu.Unlock()

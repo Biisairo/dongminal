@@ -329,13 +329,15 @@ func TestIssueTreeCommand_CarriesOpsProcedure(t *testing.T) {
 		{"보드 진행 중 (FR-ITA-18)", "진행 중으로 옮긴다"},
 		{"보드 완료 (FR-ITA-18)", "완료로 옮긴다"},
 		{"스스로 넘어가지 않음 (FR-ITA-40)", "스스로 넘어가지 않는다"},
+		{"설정 기준 (FR-ITM-5)", "issueTreeCtxPct"},
+		{"잎의 안전 지점 (FR-ITM-21)", "잎의 안전 지점"},
 	}
 	for _, r := range required {
 		if !strings.Contains(body, r.needle) {
 			t.Errorf("issue-tree.md 에 %s 가 없다 (%q)", r.name, r.needle)
 		}
 	}
-	for _, banned := range []string{"### 배정 (Kickoff)", "사용자에게 물어라", "ISSUE_AGENT_TREE_SRS.md"} {
+	for _, banned := range []string{"### 배정 (Kickoff)", "사용자에게 물어라", "ISSUE_AGENT_TREE_SRS.md", "[--ctx 60]"} {
 		if strings.Contains(body, banned) {
 			t.Errorf("issue-tree.md 에 지운 절차 %q 가 남아 있다", banned)
 		}

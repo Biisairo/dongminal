@@ -80,6 +80,9 @@ type Server struct {
 
 	// usage 는 도구별 statusLine 사용량이다 (ISSUE_AGENT_TREE_SRS FR-SLP-10). 메모리에만 둔다.
 	usage usageStore
+	// migrationUnknownTold 는 「맥락 사용률을 모른다」 를 이미 알린 도구다 (ISSUE_TREE_OPS_SRS
+	// FR-ITM-13). 도구마다 한 번만 알린다.
+	migrationUnknownTold sync.Map
 
 	// git 은 /api/git/* 을 소유한다. **Git 이 nil 이어도 이 자리는 만들어진다** —
 	// `UserWorktrees` 만 있는 배선에서도 Worktrees 탭이 답해야 하기 때문이다.

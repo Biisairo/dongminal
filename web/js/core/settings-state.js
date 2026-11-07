@@ -105,6 +105,12 @@ var termFontSize;
 // AGENT_RENDER_ENV_SRS FR-ARE-8: 값을 들고 저장할 뿐, 얹을 화면이 없다 —
 // 서버가 도구를 띄울 때 환경변수로 넣는다.
 var claudeScrollSpeed;
+// ISSUE_TREE_OPS_SRS FR-ITM-1: 맥락 기준 migration. 값을 쓰는 것은 서버다(훅 판정·트리
+// 프리앰블) — 화면은 들고 저장한다. 기본값은 읽는 순간 표에서 온다(SETTINGS_ACCESS).
+var migrationHook;
+var migrationHookCtxPct;
+var issueTreeMigration;
+var issueTreeCtxPct;
 
 /** 지금 쓸 값. 설정이 아직 오지 않았으면 표의 기본값이다. */
 function uiFontSizeNow(){ return uiFontSize??SETTINGS_BY_KEY.uiFontSize.def }

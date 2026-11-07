@@ -29,14 +29,19 @@ func (s *Server) memberPreamble(rec run.Record, m run.Member) string {
 // treeContext 는 프리앰블을 만드는 **순간**의 값을 모은다 (FR-ITA-12). 부모가
 // 승계됐으면 승계 사슬의 끝을 따라가 지금 일하는 도구를 준다.
 func (s *Server) treeContext(rec run.Record, m run.Member) run.TreeContext {
+	// FR-ITM-3: 실효값은 배정의 --ctx > 설정 > 기본값이다. 설정이 끔이면 0(끔)이다.
+	conf := s.migrationConf()
 	tc := run.TreeContext{
 		ParentToolID: s.currentToolOf(m.Assign.Parent),
 		GroupID:      s.treeGroupID(rec.Tree),
 		DocPath:      issueTreeDocPath(),
-		CtxPct:       issueTreeCtxDefault,
+		CtxPct:       conf.TreePct,
 	}
 	if m.Assign.CtxPct > 0 {
 		tc.CtxPct = m.Assign.CtxPct
+	}
+	if !conf.TreeOn {
+		tc.CtxPct = 0
 	}
 	return tc
 }

@@ -36,6 +36,9 @@ var claudeHookEvents = []string{
 	"Notification",
 }
 
+// claudeCtxHookEvents 는 맥락 훅(`dmctl ctx-hook`)을 함께 거는 이벤트다 (FR-ITM-10).
+var claudeCtxHookEvents = map[string]bool{"PostToolUse": true, "UserPromptSubmit": true}
+
 // claudeHooksFile 은 활동 훅 설정의 파일명이다. 셸 래퍼가 이 이름으로 찾는다.
 const claudeHooksFile = "claude.json"
 
@@ -54,9 +57,16 @@ func installClaudeAssets(s InstallSpec) error {
 func writeClaudeActivityHooks(s InstallSpec) error {
 	hook := map[string]any{"type": "command", "command": s.HookCommand("activity", claudeID)}
 	event := []any{map[string]any{"matcher": "", "hooks": []any{hook}}}
+	// ISSUE_TREE_OPS_SRS FR-ITM-10: 맥락 훅은 도구 호출마다(PostToolUse)와 프롬프트마다
+	// (UserPromptSubmit) 활동 훅 뒤에 선다. 기준을 넘긴 바로 그 훅부터 매번 알린다(D-ITO-6).
+	ctx := map[string]any{"type": "command", "command": s.HookCommand("ctx-hook", claudeID)}
+	withCtx := []any{map[string]any{"matcher": "", "hooks": []any{hook, ctx}}}
 	hooks := map[string]any{}
 	for _, ev := range claudeHookEvents {
 		hooks[ev] = event
+		if claudeCtxHookEvents[ev] {
+			hooks[ev] = withCtx
+		}
 	}
 	settings := map[string]any{
 		"hooks": hooks,
