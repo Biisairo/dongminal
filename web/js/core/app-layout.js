@@ -132,9 +132,9 @@ Object.assign(App.prototype, {
     // FR-CWD-3: `cwdTool` 은 그 도구의 cwd 를 서버가 풀어 준다
     // (`/api/tools?cwdTool=`) — 브라우저는 경로를 모른 채 넘긴다.
     const refTool=sandbox?null:(opts.cwdTool||null);
-    // UX_BATCH6_SRS FR-SBM-3: 선택창에서 고른 작업 방식. 모르는 값은 싣지 않는다 —
-    // 서버가 무시하지만, 워크스페이스에 뜻 없는 값이 굳는 것도 막는다.
-    const work=SANDBOX_WORK_KINDS.includes(opts.sandboxWork)?opts.sandboxWork:'';
+    // UX_BATCH6_SRS FR-SBM-3: 선택창에서 고른 작업 방식. 값의 출처는 서버가 보낸
+    // 프로파일 목록 하나뿐이므로 화면은 이름을 거르지 않는다 (SERVER_DRIVEN_ACTIONS_SRS K-i).
+    const work=typeof opts.sandboxWork==='string'?opts.sandboxWork:'';
     // FR-SBX-10: 창 id 를 도구보다 **먼저** 만든다. 순서가 반대면 첫 도구가
     // 자기 창을 모른 채 떠서, 샌드박스 창인데 첫 탭만 호스트에서 돈다.
     const wid=newEntityId();
@@ -155,7 +155,7 @@ Object.assign(App.prototype, {
     // 사실. 컨테이너 안의 변경이 호스트로 돌아오지 않는다는 것은 창을 여는
     // 순간에만 말하고 끝낼 성질이 아니다 — 사용자는 며칠 뒤에도 그 창에서
     // 일한다. 폴더를 실제로 받은 창에만 적는다 (복사한 것이 없으면 뜻이 없다).
-    if(sandbox&&work===SANDBOX_WORK_COPY&&cwd) s.sandboxCopy=true;
+    if(sandbox&&opts.sandboxCopy===true&&cwd) s.sandboxCopy=true;
     this.ws.windows.push(s);
     // REMOTE_SESSION_TAB_CREATE_SRS FR-RST-2: keepFocus 면 창은 사이드바에만
     // 추가 — activeWindow/focused 무변화 (백그라운드 잡 컨테이너 패턴).

@@ -100,3 +100,55 @@ func TestProfileInfo_IsolationGradeFollowsPolicy(t *testing.T) {
 		t.Error("네트워크가 열렸는데 경계로 보고됐다")
 	}
 }
+
+// SERVER_DRIVEN_ACTIONS_SRS K-i ②: 고를 수 있는 작업 방식과 그 사실(`copies`)은 서버가 낸다.
+// 화면은 방식 이름과 견주지 않는다 (FR-SDA-84).
+func TestWorkPicksOf(t *testing.T) {
+	want := []WorkPick{{Work: WorkMount, Copies: false}, {Work: WorkCopy, Copies: true}}
+	for _, w := range []WorkKind{WorkMount, WorkCopy} {
+		got := WorkPicksOf(w)
+		if len(got) != len(want) {
+			t.Fatalf("%s: picks = %+v, want %+v", w, got, want)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("%s: picks = %+v, want %+v", w, got, want)
+			}
+		}
+	}
+	for _, w := range []WorkKind{WorkNone, "", "teleport"} {
+		got := WorkPicksOf(w)
+		if got == nil || len(got) != 0 {
+			t.Fatalf("%q: picks = %#v, want 빈 배열(nil 아님 — JSON 이 null 이 된다)", w, got)
+		}
+	}
+}
+
+func TestProfileInfo_CarriesWorkPicks(t *testing.T) {
+	if got := Scratch().Info().WorkPicks; len(got) != 2 || !got[1].Copies {
+		t.Fatalf("scratch workPicks = %+v", got)
+	}
+	none := Profile{Name: "x", Image: "alpine", Work: WorkNone}
+	if got := none.Info().WorkPicks; got == nil || len(got) != 0 {
+		t.Fatalf("none workPicks = %#v, want []", got)
+	}
+}
+
+// K-i ③: 기본 프로파일 하나뿐인가 (FR-SPK-7 의 안내 조건).
+func TestOnlyDefault(t *testing.T) {
+	cases := []struct {
+		name string
+		list []ProfileInfo
+		want bool
+	}{
+		{"scratch 하나", []ProfileInfo{{Name: ProfileScratch}}, true},
+		{"scratch 와 dev", []ProfileInfo{{Name: ProfileScratch}, {Name: ProfileDev}}, false},
+		{"빈 목록", nil, false},
+		{"dev 하나", []ProfileInfo{{Name: ProfileDev}}, false},
+	}
+	for _, c := range cases {
+		if got := OnlyDefault(c.list); got != c.want {
+			t.Errorf("%s: OnlyDefault = %v, want %v", c.name, got, c.want)
+		}
+	}
+}

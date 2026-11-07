@@ -16,6 +16,7 @@ import { test, expect, waitSettled } from './fixtures';
 
 const SCRATCH = {
   name: 'scratch', image: 'debian:stable-slim', isolated: true, helper: false, work: 'copy',
+  workPicks: [{ work: 'mount', copies: false }, { work: 'copy', copies: true }],
 };
 
 type Answer = { ok: boolean; why?: string };
@@ -57,7 +58,11 @@ async function withRuntime(page: Page, ...states: RT[]) {
     const full: RT = { os, runtime: 'docker', path: '', detail: '', ...(OS_DEFAULTS[os] || {}), ...s } as RT;
     route.fulfill({
       status: 200, contentType: 'application/json',
-      body: JSON.stringify({ actions: { 'sandbox.runtime.start': startAnswer(full) }, ...full }),
+      // K-i ①: 상태 이름의 뜻도 서버 판정과 같은 값으로 싣는다.
+      body: JSON.stringify({
+        actions: { 'sandbox.runtime.start': startAnswer(full) },
+        ready: full.state === 'ok', installed: full.state !== 'missing', ...full,
+      }),
     });
   });
 }
@@ -70,9 +75,13 @@ async function withStart(page: Page, res: { started: boolean; command: string; d
     }));
 }
 
-async function withProfiles(page: Page, list: unknown[]) {
+async function withProfiles(page: Page, list: Array<{ name: string } & Record<string, unknown>>) {
+  const only = list.length === 1 && list[0].name === 'scratch';
   await page.route('**/api/sandbox/profiles', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(list) }));
+    route.fulfill({
+      status: 200, contentType: 'application/json',
+      headers: { 'X-Sandbox-Only-Default': only ? '1' : '0' }, body: JSON.stringify(list),
+    }));
 }
 
 async function goto(page: Page) {

@@ -217,9 +217,9 @@
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/sandbox/profiles` | 정의된 프로파일 목록 |
+| GET | `/api/sandbox/profiles` | 정의된 프로파일 목록. 프로파일마다 `workPicks`(`[{work, copies}]`, 창을 열 때 고를 수 있는 작업 방식 — `copies` 면 안의 변경이 호스트로 돌아오지 않는다. 폴더를 쓰지 않는 프로파일은 빈 배열). 헤더 `X-Sandbox-Only-Default: 1\|0` 은 목록이 기본 프로파일(`scratch`) 하나뿐인가다 |
 | GET | `/api/sandbox/config` | 샌드박스 설정 |
-| GET | `/api/sandbox/runtime` | 컨테이너 런타임의 상태 — `ok`·`missing`·`stopped`. 셋은 사용자가 할 일이 다르다. `actions["sandbox.runtime.start"]` 는 시작할 수 있는지의 답(`{ok, why}`)이다 |
+| GET | `/api/sandbox/runtime` | 컨테이너 런타임의 상태 — `ok`·`missing`·`stopped`. 셋은 사용자가 할 일이 다르다. `ready`(데몬에 닿았다)·`installed`(바이너리가 있다)는 그 뜻이다. `actions["sandbox.runtime.start"]` 는 시작할 수 있는지의 답(`{ok, why}`)이다 |
 | POST | `/api/sandbox/runtime/start` | 멎어 있는 런타임을 띄운다. 상태를 다시 조회해 답이 거짓이면 아무것도 실행하지 않고 409 `runtime_missing`·`runtime_start_manual` 로 거절한다 |
 
 ### Run (오케스트레이션)

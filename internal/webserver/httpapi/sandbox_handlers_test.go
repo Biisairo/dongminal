@@ -171,6 +171,38 @@ func TestSandboxProfiles_EmptyWithoutRuntime(t *testing.T) {
 	}
 }
 
+// SERVER_DRIVEN_ACTIONS_SRS K-i ③ · D-SDA-12: 기본 프로파일 하나뿐인가는 헤더로 싣고
+// 배열 모양은 그대로다.
+func TestSandboxProfiles_OnlyDefaultHeader(t *testing.T) {
+	cases := []struct {
+		name string
+		list []sandbox.ProfileInfo
+		want string
+	}{
+		{"scratch 하나", []sandbox.ProfileInfo{sandbox.Scratch().Info()}, "1"},
+		{"dev 도 있다", []sandbox.ProfileInfo{sandbox.Scratch().Info(), {Name: sandbox.ProfileDev}}, "0"},
+	}
+	for _, c := range cases {
+		srv, _ := New(Config{DataDir: t.TempDir()}, Deps{Sandbox: &fakeReaper{profiles: c.list}})
+		ts := httptest.NewServer(srv.Handler())
+		resp, err := http.Get(ts.URL + "/api/sandbox/profiles")
+		if err != nil {
+			ts.Close()
+			t.Fatalf("get: %v", err)
+		}
+		var got []sandbox.ProfileInfo
+		derr := json.NewDecoder(resp.Body).Decode(&got)
+		resp.Body.Close()
+		ts.Close()
+		if derr != nil {
+			t.Fatalf("%s: 배열로 읽히지 않는다: %v", c.name, derr)
+		}
+		if h := resp.Header.Get(sandboxOnlyDefaultHeader); h != c.want {
+			t.Fatalf("%s: %s = %q, want %q", c.name, sandboxOnlyDefaultHeader, h, c.want)
+		}
+	}
+}
+
 // FR-SBX-43: 설정창이 정의를 읽고 쓴다.
 func TestSandboxConfig_ReadAndWrite(t *testing.T) {
 	reaper := &fakeReaper{}

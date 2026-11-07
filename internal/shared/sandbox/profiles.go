@@ -87,8 +87,41 @@ type ProfileInfo struct {
 	// "none" (SANDBOX_PICK_COPY_SRS FR-SPK-23). 옛 `workspace` 불리언을
 	// 대체한다: 화면은 폴더를 물어야 할지뿐 아니라 **그 폴더가 어떻게 되는지**를
 	// 말해야 하고(FR-SPK-21), 불리언은 그것을 담지 못한다.
-	Work  WorkKind `json:"work"`
-	Ports []string `json:"ports,omitempty"`
+	Work WorkKind `json:"work"`
+	// WorkPicks 는 창을 열 때 고를 수 있는 방식과 그 사실이다 (SERVER_DRIVEN_ACTIONS_SRS
+	// K-i). 화면은 방식 이름과 견주지 않고 이것을 그린다 (FR-SDA-84).
+	WorkPicks []WorkPick `json:"workPicks"`
+	Ports     []string   `json:"ports,omitempty"`
+}
+
+// WorkPick 은 고를 수 있는 작업 방식 하나다. Copies 는 "폴더를 복사해 넣고 안의 변경이
+// 호스트로 돌아오지 않는다" 는 사실이다 — 거짓이면 그 선택은 호스트 폴더를 고칠 수 있다.
+type WorkPick struct {
+	Work   WorkKind `json:"work"`
+	Copies bool     `json:"copies"`
+}
+
+// PickableWorks 는 창을 열 때 고르는 방식과 그 순서다 (UX_BATCH6_SRS FR-SBM-1). `none` 은
+// 고를 것이 아니라 프로파일이 폴더를 쓰지 않는다는 사실이라 없다.
+var PickableWorks = []WorkKind{WorkMount, WorkCopy}
+
+// WorkPicksOf 는 프로파일의 방식 w 에서 고를 수 있는 것을 낸다. 폴더를 쓰지 않는
+// 프로파일(`none`·모르는 값)은 빈 배열이다 — 고른 폴더는 버려진다 (FR-SPK-6).
+func WorkPicksOf(w WorkKind) []WorkPick {
+	out := []WorkPick{}
+	if w != WorkMount && w != WorkCopy {
+		return out
+	}
+	for _, k := range PickableWorks {
+		out = append(out, WorkPick{Work: k, Copies: k == WorkCopy})
+	}
+	return out
+}
+
+// OnlyDefault 는 목록이 기본 프로파일(scratch) 하나뿐인가다 — 화면은 그때 프로파일을
+// 늘리는 길을 안내한다 (SANDBOX_PICK_COPY_SRS FR-SPK-7, SERVER_DRIVEN_ACTIONS_SRS K-i).
+func OnlyDefault(list []ProfileInfo) bool {
+	return len(list) == 1 && list[0].Name == ProfileScratch
 }
 
 // Info 는 표시용 요약을 낸다.
@@ -118,9 +151,10 @@ func (p Profile) Info() ProfileInfo {
 		//
 		// 지금 있는 두 프로파일의 값은 이 변경으로 바뀌지 않는다 — scratch 는
 		// 여전히 true, dev 는 헬퍼와 bridge 때문에 여전히 false 다.
-		Isolated: !p.Helper && p.Network == "none" && len(p.BaseMounts) == 0,
-		Helper:   p.Helper,
-		Work:     p.Work,
-		Ports:    p.Ports,
+		Isolated:  !p.Helper && p.Network == "none" && len(p.BaseMounts) == 0,
+		Helper:    p.Helper,
+		Work:      p.Work,
+		WorkPicks: WorkPicksOf(p.Work),
+		Ports:     p.Ports,
 	}
 }

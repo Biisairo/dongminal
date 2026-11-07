@@ -9,12 +9,21 @@ import { test, expect, waitSettled } from './fixtures';
 // 않으므로(전부 취소로 끝난다) docker 가 없는 호스트에서도 돈다. 컨테이너가
 // 실제로 도는지는 sandbox-window.spec.ts 의 몫이다.
 
-const SCRATCH = { name: 'scratch', image: 'debian:stable-slim', isolated: true, helper: false, work: 'copy' };
-const DEV = { name: 'dev', image: 'node:22', isolated: false, helper: true, work: 'mount' };
+// SERVER_DRIVEN_ACTIONS_SRS K-i ②: 고를 수 있는 방식과 그 사실(`copies`)은 서버가 싣는다.
+const PICKS = [{ work: 'mount', copies: false }, { work: 'copy', copies: true }];
+const SCRATCH = { name: 'scratch', image: 'debian:stable-slim', isolated: true, helper: false, work: 'copy', workPicks: PICKS };
+const DEV = { name: 'dev', image: 'node:22', isolated: false, helper: true, work: 'mount', workPicks: PICKS };
 
-async function withProfiles(page: Page, list: unknown[]) {
+// K-i ③ · D-SDA-12: "기본 프로파일 하나뿐인가" 는 헤더가 말한다. 위조도 서버 판정
+// (`sandbox.OnlyDefault`)과 같은 값을 기본으로 싣는다 — 빼면 실제 계약과 다른 것을 잰다.
+async function withProfiles(page: Page, list: Array<{ name: string } & Record<string, unknown>>, onlyDefault?: boolean) {
+  const only = onlyDefault ?? (list.length === 1 && list[0].name === 'scratch');
   await page.route('**/api/sandbox/profiles', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(list) }));
+    route.fulfill({
+      status: 200, contentType: 'application/json',
+      headers: { 'X-Sandbox-Only-Default': only ? '1' : '0' },
+      body: JSON.stringify(list),
+    }));
 }
 
 /**
@@ -32,6 +41,7 @@ async function withRuntimeOK(page: Page) {
       body: JSON.stringify({
         state: 'ok', os: 'darwin', runtime: 'docker', path: '/usr/local/bin/docker',
         detail: '', installCommand: '', startCommand: 'open -a Docker', startTryable: true,
+        ready: true, installed: true,
         actions: { 'sandbox.runtime.start': { ok: true } },
       }),
     }));
@@ -155,6 +165,52 @@ test.describe('묶음 P — 선택창은 언제나 뜬다', () => {
       await expect(page.locator('#panel-sandbox')).toBeVisible();
     });
 
+  // K-i ③: 안내 여부는 화면이 프로파일 이름과 견주지 않고 서버의 헤더를 따른다.
+  test('P3b (K-i): 안내는 헤더가 정한다 — 이름과 견주지 않는다', async ({ page }) => {
+    await withProfiles(page, [{ ...SCRATCH, name: 'base' }], true);
+    await goto(page);
+    await page.locator('#add-sandbox-window').click();
+    await expect(dialog(page).locator('.sbx-hint')).toContainText('dev 프로파일', { timeout: 10000 });
+  });
+
+  test('P3c (K-i): 헤더가 아니라고 하면 scratch 하나여도 안내를 내지 않는다', async ({ page }) => {
+    await withProfiles(page, [SCRATCH], false);
+    await goto(page);
+    await page.locator('#add-sandbox-window').click();
+    await expect(dialog(page)).toBeVisible({ timeout: 10000 });
+    await expect(dialog(page).locator('.sbx-hint')).toHaveCount(0);
+  });
+
+  /**
+   * K-i ②: 고르는 줄은 서버의 `workPicks` 로 선다. 마운트 경고는 `copies` 가 거짓인
+   * 선택의 사실이다 — 화면이 방식 이름(`mount`)과 견주지 않는다.
+   */
+  test('P8 (K-i): 고르는 줄과 경고는 workPicks 를 따른다', async ({ page }) => {
+    const picks = [{ work: 'bind', copies: false }, { work: 'copy', copies: true }];
+    await withProfiles(page, [{ ...SCRATCH, work: 'copy', workPicks: picks }]);
+    await goto(page);
+    await page.locator('#add-sandbox-window').click();
+    await expect(dialog(page)).toBeVisible({ timeout: 10000 });
+    const opts = dialog(page).locator('.sbx-work-opt');
+    await expect(opts).toHaveCount(2);
+    // 라벨이 없는 방식은 이름 그대로 보인다 (FR-SDA-84).
+    await expect(opts.nth(0)).toHaveText('bind');
+    await expect(dialog(page).locator('.sbx-work-opt.on')).toHaveText('복사');
+    const warn = dialog(page).locator('.sbx-work-warn');
+    await dialog(page).locator('.sbx-work-opt[data-work="bind"]').click();
+    await dialog(page).locator('.sbx-workdir input').fill('/tmp/some-dir');
+    await expect(warn).toHaveClass(/\bvis\b/);
+  });
+
+  test('P8b (K-i): 기본 선택이 고를 수 없으면 copies 인 선택으로 떨어진다', async ({ page }) => {
+    await withProfiles(page, [{ ...SCRATCH, work: 'none', workPicks: [] }, DEV]);
+    await goto(page);
+    await page.locator('#add-sandbox-window').click();
+    await expect(dialog(page)).toBeVisible({ timeout: 10000 });
+    await expect(dialog(page).locator('.sbx-work-opt')).toHaveCount(2);
+    await expect(dialog(page).locator('.sbx-work-opt.on')).toHaveText('복사');
+  });
+
   test('P4: 프로파일이 둘이면 안내를 내지 않는다', async ({ page }) => {
     await withProfiles(page, [SCRATCH, DEV]);
     await goto(page);
@@ -198,6 +254,13 @@ test.describe('묶음 P — 선택창은 언제나 뜬다', () => {
         // 자리가 생긴다.
         expect(p).not.toHaveProperty('workspace');
       }
+      // K-i ②·③: 서버가 방식의 사실과 안내 여부를 싣는다.
+      for (const p of list) {
+        expect(Array.isArray(p.workPicks)).toBe(true);
+        if (p.work === 'none') expect(p.workPicks).toEqual([]);
+        else expect(p.workPicks).toEqual([{ work: 'mount', copies: false }, { work: 'copy', copies: true }]);
+      }
+      expect(r.headers()['x-sandbox-only-default']).toBe(list.length === 1 && list[0].name === 'scratch' ? '1' : '0');
       const scratch = list.find((p: { name: string }) => p.name === 'scratch');
       if (scratch) {
         expect(scratch.work).toBe('copy');

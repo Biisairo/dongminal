@@ -514,8 +514,17 @@ func (s *Server) apiSandboxProfiles(w http.ResponseWriter, r *http.Request) {
 	if s.Sandbox != nil {
 		list = s.Sandbox.Profiles()
 	}
+	// D-SDA-12: 목록의 사실은 헤더에 싣는다 — 응답은 맨 배열이라 붙일 자리가 없다.
+	only := "0"
+	if sandbox.OnlyDefault(list) {
+		only = "1"
+	}
+	w.Header().Set(sandboxOnlyDefaultHeader, only)
 	httpresp.JSON(w, http.StatusOK, list)
 }
+
+// sandboxOnlyDefaultHeader 는 프로파일 목록이 기본 프로파일 하나뿐인가다 (`1`·`0`).
+const sandboxOnlyDefaultHeader = "X-Sandbox-Only-Default"
 
 /**
  * apiSandboxRuntime 은 컨테이너 런타임의 상태를 낸다 (UX_BATCH5_SRS FR-SRT-1).
@@ -546,12 +555,17 @@ func sandboxStartAnswer(st sandbox.RuntimeStatus) action.Answer {
 	return action.Allow()
 }
 
-// writeSandboxRuntime 은 상태에 시작의 답을 얹어 낸다. 기존 필드는 그대로다.
+// writeSandboxRuntime 은 상태에 시작의 답과 상태 이름의 뜻을 얹어 낸다. 기존 필드는
+// 그대로다. `ready` 는 데몬에 닿았다, `installed` 는 바이너리가 있다 — 화면은 `state`
+// 와 견주지 않고 이 둘로 갈래를 고른다 (SERVER_DRIVEN_ACTIONS_SRS K-i).
 func writeSandboxRuntime(w http.ResponseWriter, st sandbox.RuntimeStatus) {
 	httpresp.JSON(w, http.StatusOK, struct {
 		sandbox.RuntimeStatus
-		Actions map[string]action.Answer `json:"actions"`
-	}{st, map[string]action.Answer{action.SandboxRuntimeStart: sandboxStartAnswer(st)}})
+		Ready     bool                     `json:"ready"`
+		Installed bool                     `json:"installed"`
+		Actions   map[string]action.Answer `json:"actions"`
+	}{st, st.State == sandbox.RuntimeOK, st.State != sandbox.RuntimeMissing,
+		map[string]action.Answer{action.SandboxRuntimeStart: sandboxStartAnswer(st)}})
 }
 
 // writeSandboxStart 는 답이 참일 때만 기동한다. 거절은 평문 방언이다 — 코드는 헤더에 있다.

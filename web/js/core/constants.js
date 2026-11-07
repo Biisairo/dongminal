@@ -601,31 +601,24 @@ const TAB_TYPE_RUN='run';
 
 // ── 샌드박스 창의 작업 방식 (SANDBOX_PICK_COPY_SRS FR-SPK-10·23) ──
 //
-// 서버의 `WorkKind` 를 그대로 받는다 (`/api/sandbox/profiles` 의 `work`).
+// 고를 수 있는 방식과 그 사실(`copies`)은 서버가 프로파일마다 싣는다
+// (`/api/sandbox/profiles` 의 `workPicks`, SERVER_DRIVEN_ACTIONS_SRS K-i).
 // **뜻이 다른 것은 표기가 아니라 결과다** — 마운트는 컨테이너 안 변경이 호스트에
 // 남고, 복사는 남지 않는다. 그 차이를 화면 세 자리에서 같은 말로 알린다
 // (FR-SPK-21): 선택창의 버튼, 입력란 도움말, 사이드바 창 배지.
-// 프로파일 이름. 서버의 `ProfileScratch`·`ProfileDev` 와 같은 값이다.
-const SANDBOX_PROFILE_SCRATCH='scratch';
-const SANDBOX_WORK_MOUNT='mount';
-const SANDBOX_WORK_COPY='copy';
-const SANDBOX_WORK_NONE='none';
-// UX_BATCH6_SRS FR-SBM-1: 아는 작업 방식 전부. 판정을 표 하나에서 파생시킨다 —
-// 손으로 적으면 넷째가 생길 때 한쪽만 고쳐진다.
-const SANDBOX_WORK_KINDS=[SANDBOX_WORK_MOUNT,SANDBOX_WORK_COPY,SANDBOX_WORK_NONE];
-const SANDBOX_WORK_LABEL={[SANDBOX_WORK_MOUNT]:t('core.sandbox_work_label.mount'),[SANDBOX_WORK_COPY]:t('core.sandbox_work_label.copy')};
-// FR-SBM-1: 선택창의 두 갈래. `none` 은 고를 것이 아니라 **그 프로파일이 폴더를
-// 쓰지 않는다**는 사실이므로 고르는 목록에 없다.
-const SANDBOX_WORK_PICKS=[SANDBOX_WORK_MOUNT,SANDBOX_WORK_COPY];
+// 라벨·도움말은 방식 이름을 키로 고르고, 없으면 이름(도움말은 빈 글자) 그대로다 (FR-SDA-84).
+function sandboxWorkLabel(work){
+  const k='core.sandbox_work_label.'+work;
+  return I18N.has(k)?t(k):String(work);
+}
+function sandboxWorkTitle(work){
+  const k='core.sandbox_work_title.'+work;
+  return I18N.has(k)?t(k):'';
+}
 // FR-SBM-5: 마운트에 폴더를 함께 고르면 그 창은 격리 경계가 아니다. 등급 배지는
 // 프로파일의 것이므로(FR-SBM-4) 그 사실은 이 줄이 따로 말한다.
 const SANDBOX_MOUNT_WARN=t('core.sandbox_mount_warn');
 const SANDBOX_WORK_PICK_LABEL=t('core.sandbox_work_pick_label');
-const SANDBOX_WORK_TITLE={
-  [SANDBOX_WORK_MOUNT]:t('core.sandbox_work_title.mount'),
-  [SANDBOX_WORK_COPY]:t('core.sandbox_work_title.copy'),
-  [SANDBOX_WORK_NONE]:t('core.sandbox_work_title.none'),
-};
 // FR-SPK-3·4: 입력란은 언제나 보이고 비어 있다. 지금 있는 자리는 버튼으로만 넣는다.
 const SANDBOX_WORKDIR_LABEL=t('core.sandbox_workdir_label');
 const SANDBOX_WORKDIR_PLACEHOLDER=t('core.sandbox_workdir_placeholder');
@@ -723,21 +716,19 @@ const TIP_MOBILE_ACTIVITY='Show everything that is running';
 // 그리고 데몬이 죽어도 프로파일 목록은 정상으로 오므로(§2.3 실측), 그 안내는
 // 실제로 닿지도 않았다.
 //
-// 값은 서버의 상수와 짝이다 (`internal/shared/sandbox/runtime.go`).
-const SBX_RT_OK='ok';
-const SBX_RT_STOPPED='stopped';
-const SBX_RT_MISSING='missing';
+// 갈래는 서버가 싣는 뜻(`ready`·`installed`)으로 고르고, 제목·문장은 `state` 를 키로
+// 고른다 (SERVER_DRIVEN_ACTIONS_SRS K-i). 키가 없으면 `state` 그대로다.
+function sbxRuntimeText(prefix,state){
+  const k=prefix+state;
+  return I18N.has(k)?t(k):String(state);
+}
 // FR-SRT-7: 기동 뒤 데몬이 뜨기를 기다리는 주기와 상한 (NFR-SRT-2). Docker Desktop
 // 의 기동은 수십 초가 걸리므로 상한을 넉넉히 둔다.
 const SBX_RT_POLL_MS=2000;
 const SBX_RT_POLL_MAX_MS=60000;
-const SBX_RT_TITLE_MISSING=t('core.sbx_rt_title_missing');
-const SBX_RT_TITLE_STOPPED=t('core.sbx_rt_title_stopped');
-const SBX_RT_MSG_MISSING=t('core.sbx_rt_msg_missing');
 // FR-SRT-6: 이 문장이 없으면 사용자는 설치하고도 같은 모달을 다시 본다 — 런타임을
 // 찾는 일은 서버가 뜰 때 한 번뿐이다 (`sandboxplace.Wire`).
 const SBX_RT_MSG_RESTART=t('core.sbx_rt_msg_restart');
-const SBX_RT_MSG_STOPPED=t('core.sbx_rt_msg_stopped');
 // D-5: linux 의 기동은 권한을 요구한다. 서버가 sudo 를 부르면 비밀번호를 받을 길이
 // 없어 무응답으로 멈추므로, 사용자가 자기 셸에서 치는 것이 유일하게 끝나는 길이다.
 const SBX_RT_MSG_MANUAL=t('core.sbx_rt_msg_manual');

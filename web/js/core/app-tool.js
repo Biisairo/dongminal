@@ -79,23 +79,23 @@ Object.assign(App.prototype, {
    * 오는 문자열은 런타임이 만든 진단이라 마크업으로 해석되면 안 된다.
    */
   _sbxRuntimeModal(st){
-    const missing=st.state===SBX_RT_MISSING;
+    // 설치됐는가는 서버가 싣는 뜻이다 — 상태 이름과 견주지 않는다 (SERVER_DRIVEN_ACTIONS_SRS K-i).
+    const installed=!!st.installed;
     // 시작할 수 있는지는 서버의 답이다 (SERVER_DRIVEN_ACTIONS_SRS X-b).
     const canStart=actionOk(st,'sandbox.runtime.start');
     // FR-OPT-11-5 (FEC-27): 본문만 여기서 세우고 골격은 `UIKit.ask` 가 갖는다.
     const body=document.createDocumentFragment();
     const title=document.createElement('div'); title.className='confirm-msg';
-    title.textContent=missing?SBX_RT_TITLE_MISSING:SBX_RT_TITLE_STOPPED;
+    title.textContent=sbxRuntimeText('core.sbx_rt_title.',st.state);
     body.appendChild(title);
 
     const msg=document.createElement('div'); msg.className='sbx-rt-msg';
     // 실행할 수 없는 OS 에서는 "실행할까요" 가 아니라 "직접 실행하세요" 다 (D-5).
-    msg.textContent=missing?SBX_RT_MSG_MISSING
-      :(canStart?SBX_RT_MSG_STOPPED:SBX_RT_MSG_MANUAL);
+    msg.textContent=(!installed||canStart)?sbxRuntimeText('core.sbx_rt_msg.',st.state):SBX_RT_MSG_MANUAL;
     body.appendChild(msg);
 
     // 보일 명령은 상태가 정한다 — 설치인지 기동인지.
-    const cmd=missing?(st.installCommand||''):(st.startCommand||'');
+    const cmd=installed?(st.startCommand||''):(st.installCommand||'');
     // 실행 버튼이 있으면 명령을 함께 보이지 않는다: 누를 것이 둘이면 어느 쪽이
     // 진짜인지 말할 수 없다. 실행할 수 없을 때에만 칠 것을 준다.
     const showCmd=!!cmd&&!canStart;
@@ -121,12 +121,12 @@ Object.assign(App.prototype, {
       });
       row.appendChild(code); row.appendChild(copy);
       body.appendChild(row);
-    }else if(missing){
+    }else if(!installed){
       // 명령을 모르는 OS 다. 안내만 남기고 지어내지 않는다.
       const n=document.createElement('div'); n.className='sbx-rt-msg';
       n.textContent=SBX_RT_NO_CMD; body.appendChild(n);
     }
-    if(missing){
+    if(!installed){
       const rs=document.createElement('div'); rs.className='sbx-rt-restart';
       rs.textContent=SBX_RT_MSG_RESTART;
       body.appendChild(rs);
@@ -183,7 +183,7 @@ Object.assign(App.prototype, {
     for(;;){
       await this.timers.sleep(SBX_RT_POLL_MS,{owner:'app',label:'sbx-wait'});
       const st=await this._sbxRuntime();
-      if(st&&st.state===SBX_RT_OK){cleanup(true);return}
+      if(st&&st.ready){cleanup(true);return}
       if(Date.now()>=until) break;
     }
     btn.disabled=false;
@@ -208,7 +208,7 @@ Object.assign(App.prototype, {
     PrefStore.local.setJson(STORE_KEYS.sandboxRecent,cur.slice(0,5));
   },
 
-  _pickSandbox(list,here){
+  _pickSandbox(list,here,onlyDefault){
     // FR-OPT-11-5 (FEC-27): 본문만 여기서 세우고 골격은 `UIKit.ask` 가 갖는다.
     const body=document.createDocumentFragment();
     const msg=document.createElement('div');msg.className='confirm-msg';
@@ -269,18 +269,23 @@ Object.assign(App.prototype, {
      * 프로파일을 고르는 것보다 앞이고, 앞선 선택을 뒤의 선택이 되돌아가 잠그면
      * 창이 손 밑에서 움직인다.
      */
+    // SERVER_DRIVEN_ACTIONS_SRS K-i: 고르는 줄은 프로파일들의 `workPicks` 를 방식으로
+    // 합친 것이다(서버 순서). 선택(`work`)은 `{work, copies}` 그대로 든다.
+    const picksOf=p=>(p&&Array.isArray(p.workPicks))?p.workPicks:[];
+    const picks=[];
+    for(const p of list) for(const k of picksOf(p)) if(k&&!picks.some(x=>x.work===k.work)) picks.push(k);
     let work=null;
     const workBtns=new Map();
-    {
+    if(picks.length){
       const wrap=document.createElement('div');wrap.className='sbx-work-pick';
       const label=document.createElement('label');label.textContent=SANDBOX_WORK_PICK_LABEL;
       wrap.appendChild(label);
-      for(const k of SANDBOX_WORK_PICKS){
+      for(const k of picks){
         const b=document.createElement('button');
-        b.type='button';b.className='ui-btn ui-btn-sm sbx-work-opt sbx-work-'+k;b.dataset.work=k;
-        b.textContent=SANDBOX_WORK_LABEL[k];b.title=SANDBOX_WORK_TITLE[k]||'';
+        b.type='button';b.className='ui-btn ui-btn-sm sbx-work-opt sbx-work-'+k.work;b.dataset.work=k.work;
+        b.textContent=sandboxWorkLabel(k.work);b.title=sandboxWorkTitle(k.work);
         b.addEventListener('click',()=>setWork(k));
-        workBtns.set(k,b);wrap.appendChild(b);
+        workBtns.set(k.work,b);wrap.appendChild(b);
       }
       body.appendChild(wrap);
     }
@@ -289,13 +294,14 @@ Object.assign(App.prototype, {
     const warn=document.createElement('div');warn.className='sbx-work-warn';
     body.appendChild(warn);
     const syncWarn=()=>{
-      const on=work===SANDBOX_WORK_MOUNT&&!!(input&&input.value.trim());
+      // 돌아오는 통로가 있는 선택(`copies` 거짓)에 폴더가 있을 때다.
+      const on=!!work&&!work.copies&&!!(input&&input.value.trim());
       warn.textContent=on?SANDBOX_MOUNT_WARN:'';
       warn.classList.toggle('vis',on);
     };
     const setWork=k=>{
       work=k;
-      for(const [key,b] of workBtns) b.classList.toggle('on',key===k);
+      for(const [key,b] of workBtns) b.classList.toggle('on',!!k&&key===k.work);
       syncWarn();
     };
     if(input) input.addEventListener('input',syncWarn);
@@ -305,25 +311,29 @@ Object.assign(App.prototype, {
       // FR-SPK-5 (FR-SBM-1 로 개정): 방식은 이제 **위에서 고른다.** 프로파일이
       // 정하는 것은 기본 선택뿐이므로 버튼에 표기를 겹치지 않는다 — 두 자리가
       // 같은 것을 말하면 어느 쪽이 지금 값인지 알 수 없다.
-      const def=p.work||SANDBOX_WORK_NONE;
+      const own=picksOf(p);
       const tip=(p.image?p.image+String.fromCharCode(10):'')+
         (p.isolated
           ? t('sbx.isolated_note')
           : t('sbx.not_isolated_note'))+
-        String.fromCharCode(10)+(SANDBOX_WORK_TITLE[def]||'');
-      // FR-SPK-6 / FR-SBM-2: `none` 인 프로파일에서는 입력한 폴더가 버려진다.
+        String.fromCharCode(10)+sandboxWorkTitle(p.work);
+      // FR-SPK-6 / FR-SBM-2: 고를 방식이 없는(`workPicks` 가 빈) 프로파일에서는 입력한
+      // 폴더가 버려지고 프로파일의 방식이 그대로 실린다. 고른 방식을 이 프로파일이
+      // 받지 않으면 프로파일의 방식으로 간다.
       // 값은 누르는 순간의 입력이라 `value` 가 아니라 `done` 으로 닫는다.
       return {label:p.name,kind:'primary',cls:'confirm-ok sbx-opt',tip,keepOpen:true,
-        onClick:()=>done({profile:p.name,
-          work:def===SANDBOX_WORK_NONE?SANDBOX_WORK_NONE:work,
-          workdir:(input&&def!==SANDBOX_WORK_NONE)?input.value.trim():''})};
+        onClick:()=>{
+          const k=own.find(x=>!!work&&x.work===work.work)||own.find(x=>x.work===p.work)||own[0]||null;
+          done(k?{profile:p.name,work:k.work,copies:!!k.copies,workdir:input?input.value.trim():''}
+            :{profile:p.name,work:p.work||'',copies:false,workdir:''});
+        }};
     });
     actions.push({label:t('core.cancel'),cls:'confirm-cancel',tip:TIP_SBX_CANCEL,value:null});
     // FR-SPK-7: 고를 것이 scratch 하나뿐이면 늘리는 길을 안내한다. 이것이
     // 없으면 사용자는 `sandbox.json` 이라는 자리가 있다는 것 자체를 모른다 —
     // 접수한 말("프로파일 설정창이 안 뜬다")의 나머지 절반이 이쪽이다.
     let hint=null;
-    if(list.length===1&&list[0]&&list[0].name===SANDBOX_PROFILE_SCRATCH){
+    if(onlyDefault){
       hint=document.createElement('div');hint.className='sbx-hint';
       hint.textContent=SANDBOX_DEV_HINT;
       const open=document.createElement('button');
@@ -334,10 +344,10 @@ Object.assign(App.prototype, {
       open.addEventListener('click',()=>{done(null);this._openSettings('sandbox')});
       hint.appendChild(open);
     }
-    // FR-SBM-2: 기본 선택은 **첫 프로파일의 방식**이다. 그것이 `none` 이거나
-    // 없으면 복사로 떨어진다 — 되돌아오는 통로가 없는 쪽이 안전한 기본이다.
+    // FR-SBM-2: 기본 선택은 **첫 프로파일의 방식**이다. 그것을 고를 수 없으면
+    // `copies` 인 선택으로 떨어진다 — 되돌아오는 통로가 없는 쪽이 안전한 기본이다.
     const first=(list[0]&&list[0].work)||'';
-    setWork(SANDBOX_WORK_PICKS.includes(first)?first:SANDBOX_WORK_COPY);
+    setWork(picks.find(x=>x.work===first)||picks.find(x=>x.copies)||picks[0]||null);
     // FR-KIT-24·25: 이름은 머리(`.confirm-msg`)가 준다.
     return UIKit.ask({body,labelledBy:msg,label:t('sbx.profile_title'),footCls:'sbx-pick',
       actions,escValue:null,focus:input,onOpen:(m,fin)=>{

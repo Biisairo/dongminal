@@ -35,7 +35,7 @@ Promise.allSettled([themeReady,app.init()]).then(()=>BootScreen.done());
 app._presetButtonPaint();
 document.getElementById('add-window').addEventListener('click',async(e)=>{
   // 안쪽 박스를 눌렀으면 샌드박스 창이다. 바깥은 종전대로 일반 창.
-  let sandbox='',workdir='',work='';
+  let sandbox='',workdir='',work='',copies=false;
   if(e.target.closest('#add-sandbox-window')){
     /**
      * UX_BATCH5_SRS FR-SRT-5: **런타임 상태를 먼저 묻는다.**
@@ -51,7 +51,7 @@ document.getElementById('add-window').addEventListener('click',async(e)=>{
      * 것은 런타임의 문제가 아니다.
      */
     const rt=await app._sbxRuntime();
-    if(rt&&rt.state!==SBX_RT_OK){
+    if(rt&&!rt.ready){
       // 기동이 끝나 ok 가 됐을 때만 참이다 — 그때는 하려던 일을 그대로 잇는다
       // (FR-SRT-7). 사용자가 버튼을 다시 누르게 하지 않는다.
       const go=await app._sbxRuntimeModal(rt);
@@ -60,6 +60,8 @@ document.getElementById('add-window').addEventListener('click',async(e)=>{
     let list=[];
     const pr=await apiGet('/api/sandbox/profiles');
     if(pr.ok&&Array.isArray(pr.data)) list=pr.data;
+    // K-i · D-SDA-12: 프로파일을 늘리는 길을 안내할지는 서버가 헤더로 말한다.
+    const onlyDefault=!!(pr.headers&&pr.headers.get('X-Sandbox-Only-Default')==='1');
     if(!list.length){
       // 런타임은 살아 있는데 고를 것이 없는 경우다 — 상태 갈래가 위에서 끝났으므로
       // 여기 남는 것은 정의가 비었거나 조회가 실패한 때다 (FR-SBX-20).
@@ -75,22 +77,23 @@ document.getElementById('add-window').addEventListener('click',async(e)=>{
     // 지금은 scratch 도 폴더를 받는다 — 복사로 (FR-SPK-10).
     // 지금 있는 자리는 **버튼으로만** 낸다 — 자동으로 채우지 않는다 (FR-SPK-4).
     const here=await app._focusedCwd().catch(()=>null);
-    const picked=await app._pickSandbox(list,here);
+    const picked=await app._pickSandbox(list,here,onlyDefault);
     if(!picked||!picked.profile) return;
     sandbox=picked.profile;
     workdir=picked.workdir||'';
     work=picked.work||'';
+    copies=!!picked.copies;
     // FR-SPK-9: 비어 있는 값은 기억하지 않는다 — 최근 목록에 빈 줄이 쌓인다.
     if(workdir) app._sbxRemember(workdir);
   }
   // NFR-SPK-2: 복사는 상한 안에서도 수십 초가 걸릴 수 있다. 그동안 화면이
   // 아무 말도 하지 않으면 사용자는 고장으로 읽는다.
-  const done=(sandbox&&work===SANDBOX_WORK_COPY&&workdir)
+  const done=(sandbox&&copies&&workdir)
     ? app._sbxProgress(SANDBOX_COPY_PROGRESS) : null;
   // 샌드박스 창은 실패가 흔하다(런타임 미실행·이미지 없음). 사유를 보이지 않으면
   // "눌러도 아무 일이 없다" 로만 남는다 (FR-SBX-20). 복사 상한을 넘긴 거부도
   // 이 길로 온다 (FR-SPK-14).
-  app.addWindow(sandbox?{sandbox,cwd:workdir||undefined,sandboxWork:work}:undefined)
+  app.addWindow(sandbox?{sandbox,cwd:workdir||undefined,sandboxWork:work,sandboxCopy:copies}:undefined)
     .catch(err=>app._notify(errText(t('core.open_window_fail'),err)))
     .finally(()=>{if(done)done()});
 });

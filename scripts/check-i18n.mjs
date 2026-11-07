@@ -92,6 +92,10 @@ const DYNAMIC_PREFIXES = [
   { prefix: 'err.', why: "api.js 가 서버의 오류 코드로 `t('err.' + code)` 를 조립한다 (ERROR_CONTRACT)" },
   { prefix: 'git.job_kind.', why: "constants-git-remote.js 가 서버 잡의 kind 로 `'git.job_kind.' + kind` 를 조립한다 (SERVER_DRIVEN_ACTIONS_SRS K-h)" },
   { prefix: 'git.job_fix_label.', why: "constants-git-remote.js 가 서버 선택지의 id 로 `'git.job_fix_label.' + id` 를 조립한다 (SERVER_DRIVEN_ACTIONS_SRS K-f)" },
+  { prefix: 'core.sandbox_work_label.', why: "constants.js 가 서버 프로파일의 작업 방식으로 `'core.sandbox_work_label.' + work` 를 조립한다 (SERVER_DRIVEN_ACTIONS_SRS K-i)" },
+  { prefix: 'core.sandbox_work_title.', why: "constants.js 가 서버 프로파일의 작업 방식으로 `'core.sandbox_work_title.' + work` 를 조립한다 (SERVER_DRIVEN_ACTIONS_SRS K-i)" },
+  { prefix: 'core.sbx_rt_title.', why: "app-tool.js 가 런타임 응답의 state 로 제목 키를 조립한다 (SERVER_DRIVEN_ACTIONS_SRS K-i)" },
+  { prefix: 'core.sbx_rt_msg.', why: "app-tool.js 가 런타임 응답의 state 로 문장 키를 조립한다 (SERVER_DRIVEN_ACTIONS_SRS K-i)" },
   { prefix: 'why.', why: "action-answer.js 가 서버 답의 사유 코드로 `t('why.' + code)` 를 조립한다 (SERVER_DRIVEN_ACTIONS_SRS M-6)" },
 ];
 

@@ -72,6 +72,32 @@ func TestSandboxRuntimeViewCarriesAnswer(t *testing.T) {
 	}
 }
 
+// SERVER_DRIVEN_ACTIONS_SRS K-i ①: 상태 이름의 뜻(`ready`·`installed`)을 함께 싣는다.
+func TestSandboxRuntimeViewCarriesFacts(t *testing.T) {
+	cases := []struct {
+		state            string
+		ready, installed bool
+	}{
+		{sandbox.RuntimeOK, true, true},
+		{sandbox.RuntimeStopped, false, true},
+		{sandbox.RuntimeMissing, false, false},
+	}
+	for _, c := range cases {
+		rec := httptest.NewRecorder()
+		writeSandboxRuntime(rec, sbxStatus(c.state, "darwin"))
+		var got struct {
+			Ready     *bool `json:"ready"`
+			Installed *bool `json:"installed"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatal(err)
+		}
+		if got.Ready == nil || got.Installed == nil || *got.Ready != c.ready || *got.Installed != c.installed {
+			t.Fatalf("%s: body = %s, want ready=%v installed=%v", c.state, rec.Body.String(), c.ready, c.installed)
+		}
+	}
+}
+
 // 답이 거짓이면 실행도 같은 코드로 거절되고, 아무것도 실행하지 않는다 (TC-SDA-1).
 func TestSandboxStartRejectsWithAnswer(t *testing.T) {
 	for _, st := range []sandbox.RuntimeStatus{
