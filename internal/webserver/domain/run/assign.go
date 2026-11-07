@@ -133,3 +133,22 @@ func (s *Store) mayAssign(callerToolID string, m *Member) bool {
 	pri, pmi := s.indexOfMember(m.Assign.Parent)
 	return pri >= 0 && s.runs[pri].Members[pmi].ToolID == callerToolID
 }
+
+// HasOpenChild 는 이 멤버를 배정 부모로 둔 열린 자식이 있는가다 (FR-ITC-4). 끝난(보고·
+// 놓임) 자식과 승계된 자식은 세지 않는다 — 승계자가 그 자리를 이어 센다.
+func (s *Store) HasOpenChild(memberID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ri, _ := s.indexOfMember(memberID)
+	if ri < 0 || s.runs[ri].Tree == "" {
+		return false
+	}
+	for _, r := range s.openTreeRuns(s.runs[ri].Tree) {
+		for _, m := range r.Members {
+			if m.Assign != nil && m.Assign.Parent == memberID && !m.settled() {
+				return true
+			}
+		}
+	}
+	return false
+}

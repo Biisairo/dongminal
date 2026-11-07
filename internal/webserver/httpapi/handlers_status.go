@@ -15,6 +15,7 @@ import (
 	"dongminal/internal/shared/pollwait"
 	"dongminal/internal/shared/runwait"
 	"dongminal/internal/shared/toolhub"
+	"dongminal/internal/webserver/domain/run"
 
 	"errors"
 	"net/http"
@@ -58,6 +59,14 @@ type toolStatus struct {
 	// ISSUE_AGENT_TREE_SRS FR-SLP-20: 맥락 사용률과 statusLine 사용량. 관측이 없으면 없다.
 	Context *toolContext `json:"context,omitempty"`
 	Usage   *toolUsage   `json:"usage,omitempty"`
+	// ISSUE_TREE_OPS_SRS FR-ITC-5: Run 멤버이면 Run 쪽 상태(waiting-children 포함). State 는
+	// 훅 상태 그대로다 — 둘은 뜻이 다르므로 하나로 합치지 않는다.
+	Member *toolMember `json:"member,omitempty"`
+}
+
+type toolMember struct {
+	ID    string          `json:"id"`
+	State run.MemberState `json:"state"`
 }
 
 // waitResult 는 대기의 결말이다. status 는 ready|done|blocked|timeout|gone 이고,
@@ -178,7 +187,13 @@ func (s *Server) apiToolStatus(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	writeJSON(w, s.toolStatusOf(toolID, s.toolLive(toolID)))
+	st := s.toolStatusOf(toolID, s.toolLive(toolID))
+	if s.Runs != nil {
+		if m, ok := s.Runs.MemberByTool(toolID); ok {
+			st.Member = &toolMember{ID: m.ID, State: s.deriveMemberState(m)}
+		}
+	}
+	writeJSON(w, st)
 }
 
 // apiToolStatusWait implements GET /api/tools/activity/wait?id=&for=&timeoutMs=

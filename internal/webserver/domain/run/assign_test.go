@@ -102,3 +102,27 @@ func TestAssign_Update(t *testing.T) {
 		t.Fatalf("범위 밖 err=%v", err)
 	}
 }
+
+// ISSUE_TREE_OPS_SRS FR-ITC-4: 열린 배정 자식이 있는가. 끝난 자식·승계된 자식은 세지 않는다.
+func TestHasOpenChild(t *testing.T) {
+	s := NewStore(t.TempDir(), "e")
+	root, _ := startTree(t, s, "o/r#32", false)
+	p := treeMember(t, s, root.ID, "ccr#32", "tp", &Assignment{Issue: "o/r#32"})
+	if s.HasOpenChild(p.ID) {
+		t.Fatal("자식이 없는데 참")
+	}
+	c := treeMember(t, s, root.ID, "ccr#32›33", "tc", &Assignment{Issue: "o/r#33", Parent: p.ID})
+	if !s.HasOpenChild(p.ID) {
+		t.Fatal("열린 자식이 있는데 거짓")
+	}
+	_, next, _ := s.Succeed(SucceedSpec{PrevMemberID: c.ID, ToolID: "tc2"})
+	if !s.HasOpenChild(p.ID) {
+		t.Fatal("승계자는 여전히 열린 자식이다")
+	}
+	if _, err := s.Report("tc2", ReportSpec{RunID: root.ID, MemberID: next.ID, Outcome: OutcomeSucceeded, Summary: "a. b. c."}); err != nil {
+		t.Fatal(err)
+	}
+	if s.HasOpenChild(p.ID) {
+		t.Fatal("보고를 마친 자식을 열린 자식으로 셌다")
+	}
+}

@@ -70,3 +70,50 @@ test('TC-ITD-3: 트리 Run 대시보드가 가지 Run 의 노드까지 트리로
   await request.post('/api/runs/close', { headers: JSON_HDR, data: { runId: branch.id, force: true } });
   await request.post('/api/runs/close', { headers: JSON_HDR, data: { runId: root.id, force: true } });
 });
+
+/**
+ * ISSUE_TREE_OPS_SRS 묶음 C — 트리 Run 은 대시보드의 중심이 이슈 트리다 (TC-ITC-3).
+ * 부모는 배정에서 오고, 끝난 노드는 흐린 흔적으로 남고, 카드는 트리 순서다.
+ */
+test('TC-ITC-3: 트리 Run 대시보드의 중심에 배정 트리를 그리고 끝난 노드를 남긴다', async ({ page, request }) => {
+  await waitForInit(page);
+  const ref = `e2e/ops#${Date.now() % 100000}`;
+  const a = await newTab(request);
+  const b = await newTab(request);
+  const c = await newTab(request);
+  for (const t of [a, b, c]) await serverKnowsTab(request, t.uuid);
+  const run = await (await request.post('/api/runs', { headers: JSON_HDR,
+    data: { objective: 'ops', projection: 'dedicated-window', tree: ref } })).json();
+  const add = async (role: string, id: string, assign: Record<string, unknown>) => {
+    const r = await request.post('/api/runs/members', { headers: JSON_HDR, data: { runId: run.id, role, agent: 'claude', id, assign } });
+    expect(r.ok(), await r.text()).toBeTruthy();
+    return r.json();
+  };
+  const root = await add('op#1', a.uuid, { issue: 'o/r#1', title: '루트 이슈' });
+  const ended = await add('op#1›2', b.uuid, { issue: 'o/r#2', title: '끝난 하위', parent: root.id });
+  await add('op#1›3', c.uuid, { issue: 'o/r#3', title: '지금 하위', parent: root.id });
+  const rep = await request.post('/api/runs/report', { headers: JSON_HDR,
+    data: { runId: run.id, memberId: ended.id, toolId: b.toolId, outcome: 'succeeded', summary: 'a. b. c.' } });
+  expect(rep.ok(), await rep.text()).toBeTruthy();
+
+  if (!(await page.locator('#agents-panel.open').count())) await page.keyboard.press('Control+Shift+KeyO');
+  const row = page.locator(`#agents-panel .runs-row[data-runid="${run.id}"]`);
+  await expect(row).toBeVisible({ timeout: 10000 });
+  await row.click();
+  const view = page.locator('#area .run-view.vis');
+  await expect(view).toHaveClass(/tree-run/);
+  await expect(view.locator('.run-graph-wrap')).toBeHidden();
+  const nodes = view.locator('.run-tree.vis .run-tree-node');
+  await expect(nodes).toHaveCount(3);
+  await expect(nodes.nth(0).locator('.run-tree-issue')).toHaveText('#1');
+  await expect(nodes.nth(0).locator('.run-tree-title')).toHaveText('루트 이슈');
+  const done = nodes.nth(1);
+  await expect(done).toHaveClass(/ended/);
+  await expect(done.locator('.run-tree-title')).toHaveText('끝난 하위');
+  await expect(nodes.nth(2)).toHaveClass(/leaf/);
+  await expect(nodes.nth(2)).toHaveCSS('--depth', '1');
+  // 카드도 트리 순서다 (FR-ITC-8).
+  await expect(view.locator('.run-card').first()).toContainText('op#1');
+
+  await request.post('/api/runs/close', { headers: JSON_HDR, data: { runId: run.id, force: true } });
+});

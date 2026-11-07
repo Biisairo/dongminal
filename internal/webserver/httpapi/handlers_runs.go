@@ -63,15 +63,35 @@ func (s *Server) deriveMemberState(m run.Member) run.MemberState {
 	case run.Done, run.Failed, run.Released:
 		return m.State
 	}
-	if !s.toolLive(m.ToolID) {
+	live := s.toolLive(m.ToolID)
+	hook := ""
+	if live {
+		hook = s.toolStatusOf(m.ToolID, true).State
+	}
+	// ISSUE_TREE_OPS_SRS FR-ITC-4: 쉬는 트리 노드에 열린 자식이 있으면 하위를 기다린다.
+	children := m.Assign != nil && s.Runs.HasOpenChild(m.ID)
+	return memberStateFrom(m.State, live, hook, children)
+}
+
+// memberStateFrom 은 멤버 상태 판정의 순수한 몸이다. 기록이 이긴다(보고를 마친 멤버는
+// 프롬프트에서 쉬어도 done 이다). 일하거나 묻는 중이면 그것이 기다림보다 먼저다.
+func memberStateFrom(recorded run.MemberState, live bool, hook string, openChild bool) run.MemberState {
+	switch recorded {
+	case run.Done, run.Failed, run.Released:
+		return recorded
+	}
+	if !live {
 		return run.Lost
 	}
-	switch s.toolStatusOf(m.ToolID, true).State {
+	switch hook {
 	case activity.Working:
 		return run.Working
 	case activity.Waiting:
 		return run.Waiting
 	case activity.Idle, activity.Done:
+		if openChild {
+			return run.WaitingChildren
+		}
 		return run.Ready
 	}
 	return run.Starting

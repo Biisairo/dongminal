@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	"dongminal/internal/shared/dmlog"
@@ -84,7 +85,7 @@ func (s *Server) notifyTreeSuccession(rec run.Record, next run.Member) {
 	}
 }
 
-// treeNode 는 트리 대시보드의 노드 하나다 (FR-ITD-1~3).
+// treeNode 는 트리 대시보드의 노드 하나다 (FR-ITD-1~3, ISSUE_TREE_OPS_SRS FR-ITC-1~3).
 type treeNode struct {
 	// graphMember 다 — 대시보드 그래프와 같은 명시 선택이라 brief 같은 본문이 새지 않는다
 	// (NFR-RVZ-3).
@@ -92,12 +93,20 @@ type treeNode struct {
 	RunID string `json:"runId"`
 	// Parent 는 부모 노드의 역할 이름이다. 루트면 비어 있다 (FR-ITD-2).
 	Parent string `json:"parent"`
-	// Leaf 는 자식 노드가 없다는 뜻이다 — 지금 일하는 잎 (FR-ITD-3).
+	// Leaf 는 열린 자식 노드가 없는 열린 노드다 — 지금 일하는 잎 (FR-ITD-3).
 	Leaf bool `json:"leaf"`
+	// FR-ITC-3: 배정의 이슈·제목과 끝난 시각(보고). 끝난 노드도 흔적으로 남는다.
+	Issue   string `json:"issue,omitempty"`
+	Title   string `json:"title,omitempty"`
+	EndedAt int64  `json:"endedAt,omitempty"`
+
+	parentID  string // 배정 부모(승계 사슬 끝으로 옮긴 뒤)
+	createdAt int64
+	seq       int // 기록 안에서 사슬 첫 멤버의 자리 — 같은 초에 선 형제의 순서
 }
 
-// treeParent 는 사슬 이름의 부모를 고른다 (FR-ITD-2). 사슬의 가장 긴 앞부분을 가진
-// 노드이고, 없으면 그 위로 오른다. 하나도 없으면 빈 문자열이다.
+// treeParent 는 사슬 이름의 부모를 고른다 (FR-ITD-2). 배정 부모가 없는 노드에만 쓴다
+// (FR-ITC-1). 사슬의 가장 긴 앞부분을 가진 노드이고, 없으면 그 위로 오른다.
 func treeParent(role string, exists map[string]bool) string {
 	parts := strings.Split(role, treeChainSep)
 	for k := len(parts) - 1; k >= 1; k-- {
@@ -110,6 +119,11 @@ func treeParent(role string, exists map[string]bool) string {
 
 // treeChainSep 은 사슬 이름의 구분자다 (FR-IAT-40).
 const treeChainSep = "›"
+
+// treeEnded 는 흔적으로만 남는 노드의 상태다.
+func treeEnded(st run.MemberState) bool {
+	return st == run.Done || st == run.Failed || st == run.Released
+}
 
 // apiRunsTree implements GET /api/runs/tree?ref=<owner/repo#N> (FR-ITD-5).
 func (s *Server) apiRunsTree(w http.ResponseWriter, r *http.Request) {
@@ -129,36 +143,114 @@ func (s *Server) apiRunsTree(w http.ResponseWriter, r *http.Request) {
 	}
 	var runs []treeRun
 	var nodes []treeNode
+	// successor 는 승계 사슬을 끝으로 잇는다 — 사슬은 한 노드다 (FR-ITC-2).
+	successor := map[string]string{}
 	for _, rec := range s.Runs.List() {
 		if rec.State != run.Open || rec.Tree != ref {
 			continue
 		}
 		runs = append(runs, treeRun{ID: rec.ID, Short: rec.Short, WindowID: rec.WindowID, TreeBranch: rec.TreeBranch})
-		for _, m := range s.graphMembers(rec) {
-			switch m.State {
-			case run.Done, run.Failed, run.Released, run.Succeeded:
+		raw := map[string]run.Member{}
+		// started 는 노드가 선 시각이다 — 승계자는 사슬 첫 멤버의 시각을 잇는다(전임자가
+		// 기록에서 앞에 있다). 그래야 승계가 형제 순서를 바꾸지 않는다.
+		started := map[string]int64{}
+		seq := map[string]int{}
+		for i, m := range rec.Members {
+			raw[m.ID] = m
+			started[m.ID], seq[m.ID] = m.CreatedAt, i
+			if at, ok := started[m.SucceededFrom]; ok {
+				started[m.ID], seq[m.ID] = at, seq[m.SucceededFrom]
+			}
+			if m.SucceededBy != "" {
+				successor[m.ID] = m.SucceededBy
+			}
+		}
+		for _, gm := range s.graphMembers(rec) {
+			m := raw[gm.ID]
+			if m.SucceededBy != "" {
 				continue
 			}
-			nodes = append(nodes, treeNode{graphMember: m, RunID: rec.ID})
+			n := treeNode{graphMember: gm, RunID: rec.ID, EndedAt: m.ReportedAt, createdAt: started[m.ID], seq: seq[m.ID]}
+			if a := m.Assign; a != nil {
+				n.Issue, n.Title, n.parentID = a.Issue, a.Title, a.Parent
+			}
+			nodes = append(nodes, n)
 		}
 	}
-	exists := map[string]bool{}
+	end := func(id string) string {
+		for seen := map[string]bool{}; successor[id] != "" && !seen[id]; id = successor[id] {
+			seen[id] = true
+		}
+		return id
+	}
+	roleOf := map[string]string{}
+	active := map[string]bool{}
 	for _, n := range nodes {
-		exists[n.Role] = true
-	}
-	hasChild := map[string]bool{}
-	for i := range nodes {
-		nodes[i].Parent = treeParent(nodes[i].Role, exists)
-		hasChild[nodes[i].Parent] = true
+		roleOf[n.ID] = n.Role
+		if !treeEnded(n.State) {
+			active[n.Role] = true
+		}
 	}
 	for i := range nodes {
-		nodes[i].Leaf = !hasChild[nodes[i].Role]
+		if nodes[i].parentID != "" {
+			nodes[i].Parent = roleOf[end(nodes[i].parentID)]
+		} else {
+			nodes[i].Parent = treeParent(nodes[i].Role, active)
+		}
 	}
+	hasOpenChild := map[string]bool{}
+	for _, n := range nodes {
+		if !treeEnded(n.State) {
+			hasOpenChild[n.Parent] = true
+		}
+	}
+	for i := range nodes {
+		nodes[i].Leaf = !treeEnded(nodes[i].State) && !hasOpenChild[nodes[i].Role]
+	}
+	nodes = treeDepthFirst(nodes)
 	if runs == nil {
 		runs = []treeRun{}
 	}
-	if nodes == nil {
-		nodes = []treeNode{}
-	}
 	writeJSON(w, map[string]any{"tree": ref, "runs": runs, "nodes": nodes})
+}
+
+// treeDepthFirst 는 노드를 깊이 우선으로 늘어놓는다. 같은 부모의 자식은 등록 순서다
+// (FR-ITC-3·8). 부모가 목록에 없는 노드는 뿌리로 선다.
+func treeDepthFirst(nodes []treeNode) []treeNode {
+	sort.SliceStable(nodes, func(i, j int) bool {
+		if nodes[i].createdAt != nodes[j].createdAt {
+			return nodes[i].createdAt < nodes[j].createdAt
+		}
+		return nodes[i].seq < nodes[j].seq
+	})
+	present := map[string]bool{}
+	for _, n := range nodes {
+		present[n.Role] = true
+	}
+	kids := map[string][]int{}
+	var roots []int
+	for i, n := range nodes {
+		if n.Parent == "" || !present[n.Parent] {
+			roots = append(roots, i)
+			continue
+		}
+		kids[n.Parent] = append(kids[n.Parent], i)
+	}
+	out := make([]treeNode, 0, len(nodes))
+	seen := map[int]bool{}
+	var walk func(i int)
+	walk = func(i int) {
+		if seen[i] {
+			return
+		}
+		seen[i] = true
+		out = append(out, nodes[i])
+		for _, k := range kids[nodes[i].Role] {
+			walk(k)
+		}
+	}
+	for _, i := range roots {
+		walk(i)
+	}
+	return out
 }

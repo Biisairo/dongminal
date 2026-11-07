@@ -7,10 +7,12 @@ package runtimebin
 
 import (
 	"dongminal/internal/shared/runwait"
+	"dongminal/internal/shared/statusline"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -38,6 +40,11 @@ quietMs 는 마지막 출력 이후 경과(ms)이며 -1 은 출력을 관측한 
 맥락 사용률이 관측됐으면 둘째 줄에 context=<%>  tokens=<지금>/<창>  source=<출처> 가
 나온다. source 는 statusline(Claude Code 공식 값) 또는 transcript(추정)다. --json 은
 context 와 usage(모델·판·비용·맥락 상세·한도·effort 등)를 싣는다. 경로는 싣지 않는다.
+usage 가 있으면 셋째 줄에 model=  effort=  cost=$  rate=<창>:<%> 가 나온다.
+
+다른 에이전트는 --at <toolId|탭 uuid> 나 --member <member uuid> 로 지목한다.
+그 도구가 Run 멤버이면 첫 줄에 run_state=<Run 쪽 상태> 가 붙고(--json 은 member{id,state}),
+하위 노드를 띄우고 쉬는 이슈 트리 노드는 waiting-children 이다. state 는 훅 상태 그대로다.
 `
 
 const dmctlWaitHelp = `dmctl wait — 도구가 조건을 만족할 때까지 기다린다
@@ -170,17 +177,63 @@ func runDmctlStatus(args []string, stdout, stderr io.Writer) int {
 			Tokens       float64  `json:"tokens"`
 			Source       string   `json:"source"`
 		} `json:"context"`
+		// ISSUE_TREE_OPS_SRS FR-ITS-1·FR-ITC-5: statusLine 사용량과 Run 쪽 상태.
+		Usage  *statusline.Usage `json:"usage"`
+		Member *struct {
+			State string `json:"state"`
+		} `json:"member"`
 	}
 	if err := json.Unmarshal(body, &st); err != nil {
 		fmt.Fprintf(stderr, "dmctl: invalid status response: %v\n", err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "toolId=%s  live=%v  state=%s%s  quietMs=%d\n",
-		st.ToolID, st.Live, st.State, optionalFields(st.Tool, st.Detail), st.QuietMs)
+	runState := ""
+	if st.Member != nil && st.Member.State != "" {
+		runState = "  run_state=" + st.Member.State
+	}
+	fmt.Fprintf(stdout, "toolId=%s  live=%v  state=%s%s%s  quietMs=%d\n",
+		st.ToolID, st.Live, st.State, runState, optionalFields(st.Tool, st.Detail), st.QuietMs)
 	if c := st.Context; c != nil && c.UsedPct != nil {
 		fmt.Fprintf(stdout, "context=%.1f%%  tokens=%.0f/%.0f  source=%s\n", *c.UsedPct, c.Tokens, c.WindowTokens, c.Source)
 	}
+	if line := usageLine(st.Usage); line != "" {
+		fmt.Fprintln(stdout, line)
+	}
 	return 0
+}
+
+// usageLine 은 statusLine 사용량의 한 줄이다 (FR-ITS-1). 값이 없는 항목은 적지 않는다.
+func usageLine(u *statusline.Usage) string {
+	if u == nil {
+		return ""
+	}
+	var parts []string
+	if u.Model != nil && u.Model.DisplayName != nil {
+		parts = append(parts, "model="+*u.Model.DisplayName)
+	}
+	if u.Effort != nil {
+		parts = append(parts, "effort="+*u.Effort)
+	}
+	if u.Cost != nil && u.Cost.TotalCostUsd != nil {
+		parts = append(parts, fmt.Sprintf("cost=$%.2f", *u.Cost.TotalCostUsd))
+	}
+	if len(u.RateLimits) > 0 {
+		names := make([]string, 0, len(u.RateLimits))
+		for n := range u.RateLimits {
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		var rs []string
+		for _, n := range names {
+			if p := u.RateLimits[n].UsedPct; p != nil {
+				rs = append(rs, fmt.Sprintf("%s:%.0f%%", n, *p))
+			}
+		}
+		if len(rs) > 0 {
+			parts = append(parts, "rate="+strings.Join(rs, ","))
+		}
+	}
+	return strings.Join(parts, "  ")
 }
 
 // runDmctlWait implements FR-STA-2/6/7.

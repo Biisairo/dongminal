@@ -11,7 +11,9 @@ Object.assign(RunsPanel.prototype, {
     const el = root.querySelector('.run-tree');
     const nodes = (tree && tree.nodes) || [];
     el.classList.toggle('vis', !!tree);
-    const sig = tree ? JSON.stringify(nodes.map(n => [n.role, n.state, n.leaf, n.contextRatio || 0])) : '';
+    // ISSUE_TREE_OPS_SRS FR-ITC-6: 트리 Run 은 평평한 그래프 대신 트리가 중심이다.
+    root.classList.toggle('tree-run', !!tree);
+    const sig = tree ? JSON.stringify(nodes.map(n => [n.id, n.role, n.parent, n.state, n.leaf, n.contextRatio || 0, n.issue || '', n.title || ''])) : '';
     paintIfChanged(el, sig, () => {
       el.textContent = '';
       if (!tree) return;
@@ -21,11 +23,16 @@ Object.assign(RunsPanel.prototype, {
       for (const n of nodes) {
         const d = n.parent ? (depth[n.parent] || 0) + 1 : 0;
         depth[n.role] = d;
-        const row = runDiv('run-tree-node state-' + (n.state || 'starting') + (n.leaf ? ' leaf' : ''));
+        const ended = RUN_TREE_ENDED.has(n.state);
+        const row = runDiv('run-tree-node state-' + (n.state || 'starting') + (n.leaf ? ' leaf' : '') + (ended ? ' ended' : ''));
         row.style.setProperty('--depth', String(d));
         row.setAttribute('role', 'button');
         row.tabIndex = 0;
         row.dataset.member = n.id;
+        // FR-ITC-7: 이슈 번호 · 제목 · 상태 · 맥락. 사슬 이름은 번호 옆에 흐리게 남긴다.
+        const num = runTreeIssueNumber(n.issue);
+        if (num) row.appendChild(runDiv('run-tree-issue', num));
+        if (n.title) row.appendChild(runDiv('run-tree-title', n.title));
         row.appendChild(runDiv('run-tree-role', n.role));
         row.appendChild(runDiv('run-tree-state', n.state || ''));
         if (n.contextRatio) row.appendChild(runDiv('run-tree-ctx', Math.round(n.contextRatio * 100) + '%'));
@@ -38,4 +45,21 @@ Object.assign(RunsPanel.prototype, {
       }
     });
   },
+
+  /** FR-ITC-8: 트리 Run 의 카드는 트리 순서(깊이 우선)다. 트리에 없는 멤버는 뒤에 그대로 둔다. */
+  _runTreeOrder(members, tree) {
+    if (!tree || !tree.nodes || !tree.nodes.length) return members;
+    const rank = new Map(tree.nodes.map((n, i) => [n.id, i]));
+    const at = m => (rank.has(m.id) ? rank.get(m.id) : rank.size);
+    return members.slice().sort((a, b) => at(a) - at(b));
+  },
 });
+
+/** 흔적으로만 남는 노드의 상태 (FR-ITC-3·7). */
+const RUN_TREE_ENDED = new Set(['done', 'failed', 'released']);
+
+/** `owner/repo#33` → `#33`. 배정이 없는 옛 노드는 빈 값이다. */
+function runTreeIssueNumber(issue) {
+  const i = (issue || '').lastIndexOf('#');
+  return i < 0 ? '' : issue.slice(i);
+}

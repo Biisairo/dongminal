@@ -58,6 +58,9 @@ const (
 	// done 도 failed 도 아니며, 그 일은 승계자가 마친다. 따라서 Close 의 미보고
 	// 검사에서 보고한 것으로 친다 — 아래 settled 를 보라.
 	Succeeded MemberState = "succeeded"
+	// WaitingChildren 은 하위 노드를 띄우고 쉬는 트리 노드다 (ISSUE_TREE_OPS_SRS FR-ITC-4).
+	// 영속하지 않는다 — 훅 상태와 열린 자식에서 파생한다.
+	WaitingChildren MemberState = "waiting-children"
 )
 
 // settled 는 Close 의 미보고 검사에서 "더 기다릴 것이 없다" 로 치는 상태다.

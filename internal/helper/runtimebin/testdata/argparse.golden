@@ -68,11 +68,11 @@ status []
   stderr=""
 status ["-h"]
   code=0 proceed=false f={}
-  stdout="<1213 bytes, sum 3e58eae6>"
+  stdout="<1622 bytes, sum 6c5ad04f>"
   stderr=""
 status ["--help"]
   code=0 proceed=false f={}
-  stdout="<1213 bytes, sum 3e58eae6>"
+  stdout="<1622 bytes, sum 6c5ad04f>"
   stderr=""
 status ["--json"]
   code=0 proceed=true f={target:self-tool jsonOut:true}
@@ -80,7 +80,7 @@ status ["--json"]
   stderr=""
 status ["--json" "-h" "--bogus"]
   code=0 proceed=false f={jsonOut:true}
-  stdout="<1213 bytes, sum 3e58eae6>"
+  stdout="<1622 bytes, sum 6c5ad04f>"
   stderr=""
 status ["--bogus" "-h"]
   code=2 proceed=false f={}

@@ -22,7 +22,7 @@ Object.assign(RunsPanel.prototype, {
     if (note || !v.data) return;
 
     const d = v.data;
-    const members = d.members || [];
+    const members = this._runTreeOrder(d.members || [], v.tree);
     const pos = this._runLayout(members.length);
     this._runPaintSummary(v.root, d, members);
     this._runPaintTree(v.root, v.tree);

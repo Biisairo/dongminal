@@ -108,6 +108,7 @@ type RunStore interface {
 	Succeed(spec run.SucceedSpec) (prev run.Member, next run.Member, err error)
 	Handoff(senderToolID, claimedMemberID, summary string) (run.Member, error)
 	UpdateAssign(callerToolID, memberID string, p run.AssignPatch) (run.Member, error)
+	HasOpenChild(memberID string) bool
 	HandoffWaiting(memberID string) bool
 	Changes() <-chan struct{}
 	GiveUpHandoff(memberID string)

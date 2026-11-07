@@ -104,6 +104,14 @@ body.mobile .runs-del,body.mobile .runs-close{min-height:var(--touch-min);paddin
 .run-view .run-tree-node.leaf .run-tree-role{color:var(--text-bright);font-weight:600}
 .run-view .run-tree-state,.run-view .run-tree-ctx{color:var(--text-muted)}
 .run-view .run-tree-leaf{color:var(--accent-text)}
+/* ISSUE_TREE_OPS_SRS FR-ITC-6·7: 트리 Run 은 트리가 중심이다 — 평평한 그래프를 감추고 트리를 넓힌다. */
+.run-view.tree-run .run-graph-wrap{display:none}
+.run-view.tree-run .run-tree{padding:12px 14px;gap:3px}
+.run-view .run-tree-issue{font-family:var(--mono);color:var(--text-bright);font-weight:600}
+.run-view .run-tree-title{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.run-view .run-tree-node .run-tree-issue~.run-tree-role{color:var(--text-hint);font-size:var(--fs-sm)}
+.run-view .run-tree-node.state-waiting-children{border-left-color:var(--text-muted)}
+.run-view .run-tree-node.ended{opacity:.55}
 
 /* FR-RVZ-11 · UX_REVISION_SRS FR-FIT-1~4: SVG 를 직접 그린다. 표시 크기는 칸의
    폭에 맞춰 축소되고(확대는 하지 않는다), 축소 하한 아래에서만 가로로 스크롤한다.
