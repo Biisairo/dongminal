@@ -274,6 +274,27 @@ test.describe('묶음 D·E — 탐색기의 전송 (FR-FTR-13~19)', () => {
   });
 });
 
+/**
+ * 도구의 cwd 를 `root` 로 둔 것처럼 한다 (SERVER_DRIVEN_ACTIONS_SRS X-c).
+ *
+ * 화면은 `/api/cwd` 의 답(`term.upload`)을 보고 `/api/upload?tool=<id>` 로 보낸다. 서버는 그
+ * 순간의 **실제** 도구 cwd 에 쓰는데, e2e 는 셸의 cwd 를 정할 수 없다. 그래서 답을 위조하고,
+ * 업로드 요청이 `tool` 모양인지 확인한 뒤 `dir=<root>` 로 바꿔 실제 서버에 보낸다. `tool`
+ * 모양의 서버 판정은 Go 시험(`handlers_upload_actions_test.go`)이 잰다.
+ */
+async function toolCwdAt(page: Page, root: string) {
+  await page.route('**/api/cwd*', (route) =>
+    route.fulfill({ json: { cwd: root, source: 'tool', actions: { 'term.upload': { ok: true } } } }));
+  await page.route('**/api/upload*', (route) => {
+    const u = new URL(route.request().url());
+    expect(u.searchParams.get('tool'), '드롭 업로드가 tool 모양이 아니다').toBeTruthy();
+    expect(u.searchParams.get('dir'), '화면이 cwd 를 dir 로 보냈다').toBeNull();
+    u.searchParams.delete('tool');
+    u.searchParams.set('dir', root);
+    return route.continue({ url: u.toString() });
+  });
+}
+
 test.describe('묶음 C — 터미널 (FR-FTR-8·10·11)', () => {
   test('FT11 (V-FTR-9): 업로드가 끝나도 셸에 엔터를 보내지 않는다', async ({ page, request }) => {
     const R = mkRoot('ft11');
@@ -304,7 +325,8 @@ test.describe('묶음 C — 터미널 (FR-FTR-8·10·11)', () => {
     await enter(page, request, R);
     // 서버의 cwd 로 폴백한 응답 — 사용자가 보고 있는 폴더가 아니다 (D-4).
     await page.route('**/api/cwd*', (route) =>
-      route.fulfill({ json: { cwd: '/tmp', source: 'server' } }));
+      route.fulfill({ json: { cwd: '/tmp', source: 'server',
+        actions: { 'term.upload': { ok: false, why: 'upload_no_tool_cwd' } } } }));
 
     let uploads = 0;
     page.on('request', (r) => { if (r.url().includes('/api/upload')) uploads++ });
@@ -338,8 +360,7 @@ test.describe('묶음 C — 터미널 (FR-FTR-8·10·11)', () => {
     const R = mkRoot('ft13');
     await enter(page, request, R);
     // 도구의 cwd 를 확정해 업로드가 실제로 일어나게 한다 (FR-FTR-11 의 `tool`).
-    await page.route('**/api/cwd*', (route) =>
-      route.fulfill({ json: { cwd: R, source: 'tool' } }));
+    await toolCwdAt(page, R);
 
     // FR-TXN-1: 터미널 화면에 쓰는 경로 자체가 없다.
     expect(await page.evaluate(() =>
@@ -363,8 +384,7 @@ test.describe('묶음 C — 터미널 (FR-FTR-8·10·11)', () => {
   test('FT14 (V-TFD-1): 터미널에 놓은 폴더가 cwd 아래에 구조로 선다 (FR-TFD-12·30)', async ({ page, request }) => {
     const R = mkRoot('ft14');
     await enter(page, request, R);
-    await page.route('**/api/cwd*', (route) =>
-      route.fulfill({ json: { cwd: R, source: 'tool' } }));
+    await toolCwdAt(page, R);
 
     // 실제 드롭의 `webkitGetAsEntry` 는 합성 `DataTransfer` 에서 null 이라
     // e2e 로 폴더 entry 를 세울 수 없다 — 폄(walk)은 단위가 잰다
@@ -388,8 +408,7 @@ test.describe('묶음 C — 터미널 (FR-FTR-8·10·11)', () => {
   test('FT15 (V-TFD-2): 팝업의 이름이 relPath 다 (FR-TFD-13)', async ({ page, request }) => {
     const R = mkRoot('ft15');
     await enter(page, request, R);
-    await page.route('**/api/cwd*', (route) =>
-      route.fulfill({ json: { cwd: R, source: 'tool' } }));
+    await toolCwdAt(page, R);
 
     await page.evaluate(async () => {
       const app = (window as any).app;

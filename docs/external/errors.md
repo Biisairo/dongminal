@@ -140,8 +140,9 @@
 | `unsafe_ignore_path` | 그 경로는 .gitignore 에 넣을 수 없습니다. | 저장소 안의 상대 경로를 쓰세요. |
 | `untracked_only` | 추적되지 않는 파일만 있어 그대로는 치워 둘 것이 없습니다. | `includeUntracked` 를 켜고 다시 보내세요. 본문의 args.count 가 그 파일 수입니다. |
 | `update_unavailable` | 판 확인 계층을 쓸 수 없는 서버입니다. | 이 서버는 자동 판 확인 없이 돕니다. 직접 확인하려면 dongminal update --check 를 쓰세요. |
+| `upload_no_tool_cwd` | 그 도구의 작업 디렉터리를 모릅니다 — 서버의 cwd 로 대신하지 않습니다. | GET /api/cwd?tool= 의 actions["term.upload"] 로 미리 확인하거나, dir 로 폴더를 직접 주세요. |
 | `upstream_unknown` | upstream 이 이 저장소가 아는 원격 브랜치가 아닙니다. | 원격 브랜치 이름(예: origin/main)을 적으세요. 원격의 새 브랜치라면 먼저 fetch 하세요. |
 | `workspace_unavailable` | 워크스페이스 계층이 아직 서지 않았습니다. | 잠시 뒤 다시 시도하세요. |
 | `worktree_exists` | 그 자리에 이미 worktree 가 있습니다. | 다른 경로를 고르거나 기존 것을 여세요. |
 
-총 **110개**.
+총 **111개**.

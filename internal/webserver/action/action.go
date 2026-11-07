@@ -130,6 +130,8 @@ const (
 const (
 	// SandboxRuntimeStart 는 컨테이너 런타임 시작이다 (X-b).
 	SandboxRuntimeStart = "sandbox.runtime.start"
+	// TermUpload 는 터미널에 끌어 놓은 파일을 그 도구의 cwd 로 올리는 것이다 (X-c).
+	TermUpload = "term.upload"
 )
 
 // Table 은 동작 ID → 그 판정이 낼 수 있는 사유 코드다 (M-3).

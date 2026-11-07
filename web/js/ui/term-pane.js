@@ -701,12 +701,11 @@ class TerminalTool {
   }
   _uploadFiles(files){
     if(!files||!files.length)return;
-    // Get cwd from server for this pane
+    // FR-FTR-11: 이 도구의 폴더가 아닌 곳에 떨어뜨리지 않는다. 그 판정은 서버의 답이다
+    // (SERVER_DRIVEN_ACTIONS_SRS X-c) — 화면은 cwd 를 들지 않고 `tool` 로 보낸다.
     apiGet(CWD_API,{query:{tool:this.id}}).then(res=>{
-      const {cwd,source}=res.data||{};
-      // FR-FTR-11: 서버의 cwd 는 이 도구의 폴더가 아니다 — 보고 있지 않은 곳에
-      // 파일을 떨어뜨리지 않는다. `source` 는 그 구분을 위해 있다 (D-4).
-      if(source!=='tool'||!cwd){this._toast(TERM_UPLOAD_NO_CWD,'err',TOAST_ERR_MS);return}
+      const a=res.ok&&res.data&&res.data.actions?res.data.actions['term.upload']:null;
+      if(!a||!a.ok){this._toast(TERM_UPLOAD_NO_CWD,'err',TOAST_ERR_MS);return}
       let i=0;
       const uploadNext=()=>{
         // FR-FTR-10: 끝나도 셸에 엔터를 보내지 않는다 — 그 순간 돌고 있는 것이
@@ -727,7 +726,7 @@ class TerminalTool {
         // 보이면 어느 것이 끝났는지 알 수 없다.
         const label=rel||f.name;
         const toast=this._toast(TERM_UPLOAD_BUSY.replace('%s',label),'',0);
-        apiPost(UPLOAD_API,fd,{query:{dir:cwd}})
+        apiPost(UPLOAD_API,fd,{query:{tool:this.id}})
           .then(r=>(r.ok&&r.data)?r.data:Promise.reject(r))
           .then(d=>{
             // FR-TFD-13: 폴더 맥락과 **실제 저장된 이름**을 함께 보인다. 서버는

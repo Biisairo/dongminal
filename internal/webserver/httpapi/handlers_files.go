@@ -3,6 +3,7 @@ package httpapi
 import (
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/editorlimit"
+	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/apierr"
 	"encoding/json"
 	"errors"
@@ -182,6 +183,16 @@ func (s *Server) uploadInto(w http.ResponseWriter, r *http.Request, dir string,
 
 func (s *Server) apiUpload(w http.ResponseWriter, r *http.Request) {
 	dir := r.URL.Query().Get("dir")
+	// X-c: `tool` 이 있으면 그 순간의 도구 cwd 로 받는다 — `dir` 은 보지 않는다. 없으면 종전의
+	// `dir` 모양이다(진단 오버레이·스크립트).
+	if toolID := r.URL.Query().Get("tool"); toolID != "" {
+		cwd, source := s.toolCwd(toolID)
+		if a := termUploadAnswer(cwd, source); !a.OK {
+			httpErr(w, a.Why, a.Status, a.Why)
+			return
+		}
+		dir = cwd
+	}
 	if dir == "" {
 		dir = "."
 	}
@@ -333,18 +344,39 @@ func (s *Server) apiDownload(w http.ResponseWriter, r *http.Request) {
 // apiCwd 는 근거를 함께 싣는다 (FR-FTR-7). 폴백 자체는 없애지 않는다 —
 // 상태바·도구·git 이 그것을 딛고 있다 (D-4). 서버의 cwd 를 도구의 것으로 착각해
 // 엉뚱한 폴더에 파일을 떨어뜨리는 것은 `source` 를 보는 호출자가 막는다.
+//
+// 드롭 업로드의 답(`term.upload`)을 함께 싣는다 (SERVER_DRIVEN_ACTIONS_SRS X-c).
 func (s *Server) apiCwd(w http.ResponseWriter, r *http.Request) {
-	toolID := r.URL.Query().Get("tool")
-	var cwd string
+	cwd, source := s.toolCwd(r.URL.Query().Get("tool"))
+	httpresp.JSON(w, http.StatusOK, map[string]any{"cwd": cwd, "source": source,
+		"actions": map[string]action.Answer{action.TermUpload: termUploadAnswer(cwd, source)}})
+}
+
+// `/api/cwd` 의 `source` 두 값.
+const (
+	cwdSourceTool   = "tool"
+	cwdSourceServer = "server"
+)
+
+// toolCwd 는 그 도구의 cwd 와 근거다. 모르면 서버 프로세스의 cwd 로 폴백한다 (D-4).
+func (s *Server) toolCwd(toolID string) (cwd, source string) {
 	if toolID != "" && s.Tools != nil {
 		cwd = s.Tools.Cwd(toolID)
 	}
-	source := "tool"
 	if cwd == "" {
 		cwd, _ = os.Getwd()
-		source = "server"
+		return cwd, cwdSourceServer
 	}
-	httpresp.JSON(w, http.StatusOK, map[string]string{"cwd": cwd, "source": source})
+	return cwd, cwdSourceTool
+}
+
+// termUploadAnswer 는 드롭 업로드의 판정이다 (X-c). 도구의 것이 아닌 cwd 에는 놓지 않는다
+// (FR-FTR-11) — `/api/cwd` 의 답과 `/api/upload?tool=` 의 거절이 이 함수 하나를 부른다.
+func termUploadAnswer(cwd, source string) action.Answer {
+	if source != cwdSourceTool || cwd == "" {
+		return action.Deny(http.StatusConflict, apierr.CodeUploadNoToolCwd, nil)
+	}
+	return action.Allow()
 }
 
 // EDITOR_EXTERNAL_CHANGE_SRS FR-EXC-11 — 저장의 경합을 가릴 **표식**.

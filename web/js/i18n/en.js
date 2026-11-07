@@ -1202,6 +1202,7 @@ I18N.register('en', {
   'why.member_not_attached': 'This member is not attached to a tab',
   'why.runtime_missing': 'The container runtime (docker) is not installed',
   'why.runtime_start_manual': 'On this OS, start the runtime yourself',
+  'why.upload_no_tool_cwd': 'Not uploaded: this terminal\'s working folder is unknown',
   'why.loading': 'Checking…',
   'why.no_head': 'There is no commit to reset to',
   'why.nothing_to_clean': 'No untracked files to clean',

@@ -38,6 +38,8 @@ const (
 	// SERVER_DRIVEN_ACTIONS_SRS X-b: 런타임 시작의 두 거절.
 	CodeRuntimeMissing     = "runtime_missing"
 	CodeRuntimeStartManual = "runtime_start_manual"
+	// X-c: 드롭 업로드의 대상인 도구 cwd 를 모른다.
+	CodeUploadNoToolCwd = "upload_no_tool_cwd"
 
 	// ── 워크스페이스·설정 ──
 	CodeWorkUnready     = "workspace_unavailable"
@@ -75,7 +77,7 @@ var coreCodes = []string{
 	CodeBadRequest, CodeNotFound, CodeForbidden, CodeInternal, CodeConflict, CodeNotAllowed,
 	CodeInvalidJSON, CodeMissingArg, CodeBodyTooBig,
 	CodeToolNotFound, CodeToolsUnready, CodeToolCwdMissing, CodeSandboxUnready, CodeStreamUnsupport,
-	CodeRuntimeMissing, CodeRuntimeStartManual,
+	CodeRuntimeMissing, CodeRuntimeStartManual, CodeUploadNoToolCwd,
 	CodeWorkUnready, CodeStaleRev, CodeIfMatchRequired, CodeSaveFailed,
 	CodeNotAFile, CodeNotAnImage, CodeAbsPathNeeded, CodeFileChanged,
 	CodeEncodingUnmappable, CodeEncodingUndecodable,

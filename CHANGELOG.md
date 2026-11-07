@@ -89,6 +89,10 @@
   `runtime_start_manual` 로 거절하고 아무것도 실행하지 않습니다. 이전에는 linux 에서 200
   `{started:false, command}` 가 왔습니다. 시작할 수 있는지는 `GET /api/sandbox/runtime` 의
   `actions["sandbox.runtime.start"]` 로 미리 알 수 있습니다.
+- **터미널 드롭 업로드를 서버가 판정합니다.** `POST /api/upload` 가 `?tool=<id>` 를 받습니다. 그러면 `dir` 대신
+  그 순간의 도구 cwd 로 받고, 도구의 cwd 를 모르면(서버 cwd 로 폴백한 경우) 409 `upload_no_tool_cwd` 로
+  거절합니다. 받을 수 있는지는 `GET /api/cwd?tool=` 의 `actions["term.upload"]` 로 미리 알 수 있습니다.
+  `dir` 만 주는 기존 호출은 그대로입니다.
 
 ## [1.2.3] — 2026-11-05
 

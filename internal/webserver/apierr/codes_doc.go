@@ -42,6 +42,7 @@ var CodeDoc = map[string]Doc{
 	CodeToolCwdMissing:     {"지목한 작업 디렉터리가 없거나 디렉터리가 아닙니다.", "존재하는 디렉터리의 절대경로를 주세요 — 홈으로 조용히 떨어지지 않습니다."},
 	CodeRuntimeMissing:     {"컨테이너 런타임(docker)이 설치되어 있지 않습니다.", "GET /api/sandbox/runtime 의 installCommand 로 설치한 뒤 dongminal 을 다시 시작하세요."},
 	CodeRuntimeStartManual: {"이 OS 에서는 서버가 런타임을 시작하지 않습니다.", "GET /api/sandbox/runtime 의 startCommand 를 자기 셸에서 실행하세요."},
+	CodeUploadNoToolCwd:    {"그 도구의 작업 디렉터리를 모릅니다 — 서버의 cwd 로 대신하지 않습니다.", "GET /api/cwd?tool= 의 actions[\"term.upload\"] 로 미리 확인하거나, dir 로 폴더를 직접 주세요."},
 	CodeStreamUnsupport:    {"이 연결에서 스트리밍을 쓸 수 없습니다.", "중간의 프록시가 버퍼링하고 있지 않은지 보세요. 이 제품은 리버스 프록시를 지원하지 않습니다."},
 
 	// ── 워크스페이스·설정 ──

@@ -31,7 +31,7 @@
 | DELETE | `/api/tools/<id>` | PTY 종료 |
 | GET | `/api/tools/<id>/busy` | `{ busy: bool }` — foreground process 여부. 없는 도구·데몬 오류는 `false` |
 | GET | `/api/tools/busy?ids=a,b,c` | 여러 도구를 한 번에 — `{ busy: { <id>: bool } }`. 없는 도구는 `false`, `ids` 가 없거나 비면 `{ busy: {} }`. 256개를 넘으면 **400**, 데몬이 답하지 못하면 **503** (모르는 것을 `false` 로 내지 않는다) |
-| GET | `/api/cwd?tool=<id>` | 해당 도구의 현재 작업 디렉터리. 응답 `{cwd, source}` — `source` 는 `tool`(도구의 것) 또는 `server`(폴백한 서버 프로세스 cwd). `tool` 생략·미상이면 폴백한다 |
+| GET | `/api/cwd?tool=<id>` | 해당 도구의 현재 작업 디렉터리. 응답 `{cwd, source}` — `source` 는 `tool`(도구의 것) 또는 `server`(폴백한 서버 프로세스 cwd). `tool` 생략·미상이면 폴백한다. `actions["term.upload"]` 는 그 도구의 cwd 로 드롭 업로드를 받을 수 있는지의 답이다 |
 
 ### 에이전트 접합면
 
@@ -88,7 +88,7 @@
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| POST | `/api/upload?dir=<path>` | multipart 업로드 (`file` 필드, 선택 `relPath`). 중복 파일은 `(1)`, `(2)` suffix. `relPath` 가 있으면 `dir` **아래로** 구조를 세운다(중간 디렉터리는 만들되 `dir` 자신은 만들지 않는다) — 터미널에 폴더를 끌어다 놓는 길이다. 개명은 **마지막 조각에만** 걸린다. `{ name, size, path }` 반환. 본문 상한 512MiB(초과 413), `dir` 은 실재하는 디렉터리여야 한다(아니면 400) |
+| POST | `/api/upload?dir=<path>` | multipart 업로드 (`file` 필드, 선택 `relPath`). 중복 파일은 `(1)`, `(2)` suffix. `relPath` 가 있으면 `dir` **아래로** 구조를 세운다(중간 디렉터리는 만들되 `dir` 자신은 만들지 않는다) — 터미널에 폴더를 끌어다 놓는 길이다. 개명은 **마지막 조각에만** 걸린다. `{ name, size, path }` 반환. 본문 상한 512MiB(초과 413), `dir` 은 실재하는 디렉터리여야 한다(아니면 400). `?tool=<id>` 를 주면 `dir` 대신 그 순간의 도구 cwd 로 받고, 도구의 cwd 를 모르면 409 `upload_no_tool_cwd` 로 거절한다 |
 | GET | `/api/download?path=<path>` | 파일 다운로드. 이름은 `filename` + `filename*`(RFC 5987) 두 벌로 나간다. 디렉터리는 400 |
 | GET | `/api/file/read?path=<abs>` | 편집기 탭이 파일을 읽는 경로. 절대경로만 허용 — **경로 경계는 없다**(아래). 32 MiB 를 넘으면 413 `too_large` |
 | POST | `/api/file/write` | 바디 `{path, content}`. 편집기 탭의 저장. 저장할 파일이 32 MiB 를 넘으면 413 `too_large`(쓰지 않는다), 본문이 192 MiB + 64 KiB 를 넘으면 413 `body_too_large` |
