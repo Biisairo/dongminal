@@ -56,6 +56,13 @@
   이전에는 400 `bad_request` 였습니다. `GET /api/git/refs` 의 원격 ref 에는 `remote`(원격 이름)가 새로 실립니다.
 - **`GET /api/git/policy` 에 `tagKinds`·`resetModes` 가 실립니다.** 태그 종류와 reset 모드의 목록입니다. 순서가 제시
   순서이고 첫 값이 기본입니다. 화면의 태그 만들기·reset 대화상자는 이 목록으로 선택지를 만듭니다.
+- **탐색기 이름 바꾸기·이동이 Editor 루트·홈을 옮기지 않습니다.** `POST /api/fs/rename` 은 출발지가 Editor 루트
+  (이 루트 자신이나 다른 행)·홈·파일시스템 루트면 400 `editor_root_protected`·`home_protected`·`filesystem_root_protected`
+  로 거절합니다. 이전에는 삭제만 막았습니다. 삭제(`POST /api/fs/delete`)의 같은 거절은 400 `bad_request` 대신 이 코드를
+  쓰고, 항목 수가 상한을 넘으면 400 `bad_request` 대신 `too_many_entries`(`args.max`)입니다. 복사(`POST /api/fs/copy`)
+  의 항목 수 초과도 `too_many_entries` 입니다. 이 거절들은 `message` 없이 `{code, args}` 를 싣습니다. 메뉴의 답과
+  삭제할 항목 수는 새 `POST /api/fs/actions` 로 미리 물을 수 있습니다. 탐색기의 삭제 확인창은 이제 서버가 센 수를
+  보이고, 상한을 넘으면 사유와 함께 삭제 버튼을 끕니다. 이전에는 화면이 2000 까지만 세어 "2000개 이상" 으로 보였습니다.
 
 ## [1.2.3] — 2026-11-05
 

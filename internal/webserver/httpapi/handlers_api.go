@@ -185,6 +185,8 @@ var apiRoutes = []apiRoute{
 	httproute.Post("/api/fs/create", (*Server).apiFSCreate),
 	httproute.Post("/api/fs/rename", (*Server).apiFSRename),
 	httproute.Post("/api/fs/delete", (*Server).apiFSDelete),
+	// SERVER_DRIVEN_ACTIONS_SRS F-a: 메뉴의 답과 삭제할 항목 수.
+	httproute.Post("/api/fs/actions", (*Server).apiFSActions),
 	// FR-WBR-60: 탐색기의 복사·복제. 루트를 **둘** 받는 유일한 fs 종단이다.
 	httproute.Post("/api/fs/copy", (*Server).apiFSCopy),
 	// 묶음 D·E — 탐색기의 전송 (FILE_TRANSFER_SRS FR-FTR-12·15). 터미널의

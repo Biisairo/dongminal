@@ -2,7 +2,7 @@
  * Dongminal — Editor 의 **파일 조작** (FE_MODULE_BOUNDARY_SRS FR-FMB-20).
  *
  * 파일을 열고 · 오리고 · 옮기고 · 지운다. 삭제 확인이 여기 함께 있는 이유는
- * **되돌릴 수 없는 것을 세는 자리**(`edCountTree`)와 그 수를 보여 주는 자리가
+ * **되돌릴 수 없는 것을 묻는 자리**(`edFsActions`)와 그 수를 보여 주는 자리가
  * 같은 한 가지 일이기 때문이다.
  */
 Object.assign(App.prototype, {
@@ -115,32 +115,20 @@ Object.assign(App.prototype, {
     // 알 수 있다 (FR-WBR-62). 다른 호출자는 `data` 를 보지 않는다.
     if(r.ok&&d&&d.ok) return {ok:true,code:'',msg:'',data:d};
     const code=(d&&d.code)||'';
-    return {ok:false,code,msg:EDITOR_FS_ERR_MSG[code]||(d&&d.message)||EDITOR_FS_ERR_UNKNOWN};
+    return {ok:false,code,msg:edFsReason(d)};
   },
 
   /**
-   * FR-EDT-83 의 "그 안의 항목 수". 근거는 `list` 뿐이다 — 서버에 세는 종단이
-   * 없다 (FR-EDT-108 은 크기도 수도 주지 않는다).
-   *
-   * 링크는 따라가지 않는다 (`dir` 은 Lstat 기준이라 링크는 언제나 false 다) —
-   * 따라가면 링크 밖의 항목을 지운다고 말하는 것이 된다. 세지 못한 가지나 상한
-   * 초과는 `more` 로 알린다: 정확한 수보다 **모른다는 사실**이 중요하다.
+   * 파일 트리 메뉴의 답 (SERVER_DRIVEN_ACTIONS_SRS F-a). `paths[0]` 은 메뉴를 연 행이다.
+   * 삭제의 항목 수(`count`)도 서버가 센다 — 상한까지 정확히 세므로 "N개 이상" 이 없다.
+   * 묻지 못하면 null 이다.
+   *	이전 동작: 화면이 `list` 를 걸어 2000 까지 셌고, 서버의 상한(10000)과 어긋났다
    */
-  async edCountTree(root,dir){
-    const q=[dir]; let n=0,more=false;
-    while(q.length){
-      const d=q.shift();
-      const res=await apiGet(FS_LIST_API,{query:{root,path:d}});
-      const j=res.ok?res.data:null;
-      if(!j||!Array.isArray(j.entries)){more=true;continue}
-      n+=j.entries.length;
-      if(j.truncated) more=true;
-      for(const e of j.entries){
-        if(e&&e.dir&&!e.link) q.push(pathJoin(d,e.name));
-      }
-      if(n>=EDITOR_DEL_COUNT_MAX){more=true;break}
-    }
-    return {n,more};
+  async edFsActions(root,paths){
+    const r=await apiPost(FS_ACTIONS_API,{root,paths});
+    const d=r.ok?r.data:null;
+    if(!d||!d.actions) return null;
+    return {actions:d.actions,count:d.count||0};
   },
 
   /**
@@ -150,18 +138,23 @@ Object.assign(App.prototype, {
    *
    * 초기 포커스는 목적 버튼이고(FR-PDA-1) `Esc`·바깥 클릭이 취소다.
    */
-  _edConfirm(lines,okLabel){
+  _edConfirm(lines,okLabel,why){
     const msg=document.createElement('div'); msg.className='confirm-msg';
     for(const line of lines){
       const l=document.createElement('div'); l.className='ed-confirm-line';
       l.textContent=line; msg.appendChild(l);
+    }
+    // F-g: 서버의 답이 거짓이면 사유를 보이고 삭제 버튼을 끈다 (TC-SDA-8).
+    if(why){
+      const l=document.createElement('div'); l.className='ed-confirm-line ed-confirm-why';
+      l.textContent=why; msg.appendChild(l);
     }
     // FR-KIT-24·25: 이름은 줄 묶음(`.confirm-msg`)이 준다 — 머리가 없는 상자다.
     // FR-PDA-1: 기본 포커스는 목적 버튼 — 이 창은 삭제하려고 열렸다.
     // `Enter` 는 그 포커스를 브라우저가 누르는 것이며 (FR-PDA-2) 가로채지 않는다.
     // 탈출구는 `Esc`·바깥 클릭이다 (FR-OPT-11-5: 골격은 `UIKit.ask` 가 갖는다).
     return UIKit.ask({body:msg,labelledBy:msg,label:lines.join(' '),cls:'ed-confirm',escValue:false,actions:[
-      {label:okLabel,kind:'danger',cls:'confirm-ok',tip:TIP_DEL_OK,value:true,default:true},
+      {label:okLabel,kind:'danger',cls:'confirm-ok',tip:why||TIP_DEL_OK,value:true,default:!why,disabled:!!why},
       {label:EDITOR_DEL_CANCEL,cls:'confirm-cancel',tip:TIP_DEL_CANCEL,value:false},
     ]});
   },
@@ -172,34 +165,33 @@ Object.assign(App.prototype, {
    * FR-EMS-21 (U-5): `path` 는 **하나이거나 여럿**이다. 여럿이면 수를 먼저 밝힌다 —
    * 무엇을 잃는지 세어 주지 않는 확인창은 확인이 아니다 (FR-EDT-83 의 근거).
    */
-  edConfirmDelete(path,isDir,count,dirty){
+  /**
+   * `count` 는 서버가 센 폴더 안의 항목 수다. `why` 가 있으면 서버가 삭제를 막은 사유다 (F-g).
+   */
+  edConfirmDelete(path,isDir,count,dirty,why){
     const many=Array.isArray(path)?path:[path];
-    if(many.length>1) return this._edConfirmDeleteMany(many,isDir,count,dirty);
-    return this._edConfirmDeleteOne(many[0],isDir,count,dirty);
+    if(many.length>1) return this._edConfirmDeleteMany(many,isDir,count,dirty,why);
+    return this._edConfirmDeleteOne(many[0],isDir,count,dirty,why);
   },
 
-  _edConfirmDeleteMany(paths,isDir,count,dirty){
+  _edConfirmDeleteMany(paths,isDir,count,dirty,why){
     const lines=[EDITOR_DEL_MANY.replace('%n',paths.length)
       .replace('%s',paths.map(p=>pathBase(p)||p).join(', '))];
-    if(isDir&&count){
-      const n=count.more?EDITOR_DEL_COUNT_MORE.replace('%n',count.n||0):String(count.n||0);
-      lines.push(EDITOR_DEL_MANY_TREE.replace('%n',n));
-    }
+    if(isDir&&!why) lines.push(EDITOR_DEL_MANY_TREE.replace('%n',String(count||0)));
     lines.push(EDITOR_DEL_PERMANENT);
     if(dirty&&dirty.length){
       lines.push(EDITOR_DEL_DIRTY.replace('%n',dirty.length).replace('%s',dirty.join(', ')));
     }
-    return this._edConfirm(lines,EDITOR_DEL_OK);
+    return this._edConfirm(lines,EDITOR_DEL_OK,why);
   },
 
-  _edConfirmDeleteOne(path,isDir,count,dirty){
+  _edConfirmDeleteOne(path,isDir,count,dirty,why){
     const name=pathBase(path)||path;
     const lines=[];
-    if(isDir){
-      const n=count&&count.more
-        ?EDITOR_DEL_COUNT_MORE.replace('%n',(count&&count.n)||0)
-        :String((count&&count.n)||0);
-      lines.push(EDITOR_DEL_DIR.replace('%s',name).replace('%n',n));
+    if(isDir&&!why){
+      lines.push(EDITOR_DEL_DIR.replace('%s',name).replace('%n',String(count||0)));
+    }else if(isDir){
+      lines.push(josa(EDITOR_DEL_FILE.replace('%s',name)));
     }else{
       lines.push(josa(EDITOR_DEL_FILE.replace('%s',name)));
     }
@@ -207,7 +199,7 @@ Object.assign(App.prototype, {
     if(dirty&&dirty.length){
       lines.push(EDITOR_DEL_DIRTY.replace('%n',dirty.length).replace('%s',dirty.join(', ')));
     }
-    return this._edConfirm(lines,EDITOR_DEL_OK);
+    return this._edConfirm(lines,EDITOR_DEL_OK,why);
   },
 
   // ── 목록 조작 (FR-EDT-12·25·26·27·28) ──

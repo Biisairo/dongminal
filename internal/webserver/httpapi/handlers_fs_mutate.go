@@ -54,12 +54,18 @@ func (s *Server) apiFSRename(w http.ResponseWriter, r *http.Request) {
 	if dstRoot == "" {
 		dstRoot = req.Root
 	}
-	_, from, ok := s.fsRootTarget(w, srcRoot, req.From)
+	fromRoot, from, ok := s.fsRootTarget(w, srcRoot, req.From)
 	if !ok {
 		return
 	}
 	_, to, ok := s.fsRootTarget(w, dstRoot, req.To)
 	if !ok {
+		return
+	}
+	// 루트·홈은 옮길 수 없다 — 지우기와 같은 보호다 (FR-SDA-51). 메뉴의 답과 같은 함수다.
+	//	이전 동작: 이름 바꾸기·이동은 보호를 보지 않았다(다른 Editor 루트를 옮길 수 있었다)
+	if a := s.fsMoveAnswer(fromRoot, from); !a.OK {
+		fsRejectAnswer(w, a)
 		return
 	}
 	st, err := os.Lstat(from)
@@ -170,21 +176,13 @@ func (s *Server) apiFSDelete(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if err := s.fsDeletable(root, target); err != nil {
-		fsFailErr(w, err)
-		return
-	}
 	// 먼저 세고 나서 지운다. 세다가 중간에 멈추면 절반만 지워진 트리가 남는다
 	// (FR-EDT-118). 세는 것부터 지우는 것까지가 한 조작이다 — 그 구간만 잠근다.
+	// 판정은 메뉴의 답과 같은 함수다 (D-SDA-6).
 	s.fsOps.Lock()
 	defer s.fsOps.Unlock()
-	n, err := fsCountEntries(target, s.limits.fsDelete)
-	if err != nil {
-		fsFailErr(w, err)
-		return
-	}
-	if n > s.limits.fsDelete {
-		fsFail(w, fsErrBadRequest, "삭제 항목 수가 상한을 넘었다")
+	if a, _ := s.fsDeleteAnswer(root, []string{target}, s.limits.fsDelete); !a.OK {
+		fsRejectAnswer(w, a)
 		return
 	}
 	if err := os.RemoveAll(target); err != nil {
@@ -192,33 +190,6 @@ func (s *Server) apiFSDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	fsOK(w)
-}
-
-// fsDeletable 은 루트 자신·홈·파일시스템 루트를 거부한다 (FR-EDT-114). 셋 다
-// 지워지면 되돌릴 수 없는 자리다.
-func (s *Server) fsDeletable(root, target string) error {
-	if target == root {
-		return fsError{fsErrBadRequest, "Editor 루트 자신은 지울 수 없다"}
-	}
-	if filepath.Dir(target) == target {
-		return fsError{fsErrBadRequest, "파일시스템 루트는 지울 수 없다"}
-	}
-	if s.Entries != nil {
-		if home, err := s.Entries.Home(); err == nil && target == home {
-			return fsError{fsErrBadRequest, "홈은 지울 수 없다"}
-		}
-		// **다른** Editor 루트도 지울 수 없다. 중첩된 행(`/a` 와 `/a/b`)이 있을
-		// 때 `root=/a` 로 `/a/b` 를 지우면, 사용자가 지운 적 없는 행의 창과
-		// 그 아래 전부가 사라진다 (FR-EDT-114).
-		if roots, err := s.Entries.Roots(); err == nil {
-			for _, r := range roots {
-				if r == target {
-					return fsError{fsErrBadRequest, "다른 Editor 루트는 지울 수 없다"}
-				}
-			}
-		}
-	}
-	return nil
 }
 
 // fsCountEntries 는 target 자신을 포함해 재귀로 센다. 상한을 넘으면 max+1 에서

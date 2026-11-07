@@ -481,6 +481,62 @@ test.describe('묶음 F — 파일 조작 (FR-EDT-79~93)', () => {
   });
 });
 
+/**
+ * SERVER_DRIVEN_ACTIONS_SRS 묶음 F-1 — 메뉴의 답과 삭제 상한은 **서버가** 판정한다
+ * (FR-SDA-50·51 · TC-SDA-8). 화면은 그 답을 그린다.
+ */
+test.describe('server-driven F-1 — 탐색기 메뉴의 답', () => {
+  const menuItem = (page: Page, id: string) => page.locator(`.git-menu .git-menu-item[data-id="${id}"]`);
+
+  test('SDF1 (TC-SDA-8): 서버 상한을 넘는 폴더는 확인창이 사유와 함께 삭제를 끈다', async ({ page, request }) => {
+    const R = mkRoot('sdf1');
+    const big = j(R, 'big');
+    fs.mkdirSync(big);
+    // 서버 상한 10000 — 폴더 자신을 포함해 10001 을 넘으면 거절이다.
+    for (let i = 0; i < 10001; i++) w(j(big, `f${i}`), '');
+    await enterExplorer(page, request, R);
+
+    await row(page, big).click({ button: 'right' });
+    await expect(menuItem(page, 'delete')).toHaveClass(/disabled/);
+    await page.keyboard.press('Escape');
+
+    // 키보드 Delete 는 메뉴를 거치지 않는다 — 확인창이 서버의 사유를 보이고 버튼을 끈다.
+    await row(page, big).click();
+    await page.keyboard.press('Delete');
+    await expect(confirmMsg(page)).toContainText('10000');
+    await expect(page.locator('.ed-confirm .confirm-ok')).toBeDisabled();
+    await page.locator('.ed-confirm .confirm-cancel').click();
+    await onDisk(() => fs.existsSync(j(big, 'f0'))).toBe(true);
+
+    // 화면을 거치지 않은 요청도 같은 코드로 거절된다 (TC-SDA-1).
+    const r = await request.post('/api/fs/delete', { data: { root: R, path: big } });
+    expect(r.status()).toBe(400);
+    const body = await r.json();
+    expect(body.code).toBe('too_many_entries');
+    expect(body.args).toEqual({ max: 10000 });
+    expect(body.message).toBeUndefined();
+  });
+
+  test('SDF2 (FR-SDA-51): 안쪽 Editor 루트는 이름 바꾸기·잘라내기·삭제가 사유와 함께 꺼진다', async ({ page, request }) => {
+    const R = mkRoot('sdf2');
+    await addEditor(request, j(R, 'src'));
+    await enterExplorer(page, request, R);
+
+    await row(page, j(R, 'src')).click({ button: 'right' });
+    for (const id of ['rename', 'cut', 'delete']) {
+      await expect(menuItem(page, id)).toHaveClass(/disabled/);
+    }
+    await expect(menuItem(page, 'delete')).toHaveAttribute('title', /Editor 루트/);
+    await expect(menuItem(page, 'copy')).not.toHaveClass(/disabled/);
+    await page.keyboard.press('Escape');
+
+    // 보통 폴더는 그대로 열린다 — 확인창의 수는 서버가 센 것이다.
+    await ctx(page, j(R, 'docs'), 'delete');
+    await expect(confirmMsg(page)).toContainText('1개');
+    await page.locator('.ed-confirm .confirm-cancel').click();
+  });
+});
+
 test.describe('묶음 R — 파일 열기 라우팅 (FR-EDT-95~101)', () => {
   test('R1 (V-EDT-73 / FR-EDT-95): 중첩된 Editor 둘이면 깊은 쪽이 이긴다', async ({ page, request }) => {
     const OUT = mkRoot('r1');

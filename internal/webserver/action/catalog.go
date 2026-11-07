@@ -50,4 +50,18 @@ var Catalog = Table{
 		apierr.CodeRemoteURLInvalid, apierr.CodeRemoteExists},
 	GitCompare: {apierr.CodeEmptyRev, apierr.CodeEmptyPath},
 	GitRepoAdd: {apierr.CodeEmptyPath, apierr.CodeAbsPathNeeded, apierr.CodeNotRepo, apierr.CodeRepoMissing},
+
+	FSRename: fsProtected(fsMissing...),
+	FSMove:   fsProtected(fsMissing...),
+	FSCopy:   fsMissing,
+	FSDelete: fsProtected(append(fsMissing, apierr.CodeTooManyEntries)...),
+}
+
+// fsMissing 은 대상을 읽지 못한 사유다 — 파일 표면의 os 오류 표(`apierr.FS`)가 낸다.
+var fsMissing = []string{apierr.CodeNotFound, apierr.CodePermission, apierr.CodeIO}
+
+// fsProtected 는 보호 판정(루트·홈·파일시스템 루트)의 사유에 그 동작의 사유를 잇는다.
+func fsProtected(more ...string) []string {
+	return append([]string{apierr.CodeEditorRootProtected, apierr.CodeHomeProtected,
+		apierr.CodeFilesystemRootProtected}, more...)
 }

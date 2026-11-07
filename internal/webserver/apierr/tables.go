@@ -179,7 +179,8 @@ var FS = Table{
 // FSStatus는 fs 표면의 코드를 상태 코드로 옮긴다. 표에 없는 코드는 500 이다.
 func FSStatus(code string) int {
 	switch code {
-	case CodeBadRequest:
+	case CodeBadRequest, CodeEditorRootProtected, CodeHomeProtected, CodeFilesystemRootProtected,
+		CodeTooManyEntries:
 		return http.StatusBadRequest
 	case CodeNotFound:
 		return http.StatusNotFound

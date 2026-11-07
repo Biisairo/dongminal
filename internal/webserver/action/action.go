@@ -104,6 +104,15 @@ const (
 	GitRepoAdd = "git.repo.add"
 )
 
+// 파일 트리 메뉴의 동작 (SERVER_DRIVEN_ACTIONS_SRS F-a). 이름 바꾸기·옮기기·복사는 메뉴를
+// 연 행 하나를, 삭제는 고른 것 전부를 판정한다.
+const (
+	FSRename = "fs.rename"
+	FSMove   = "fs.move"
+	FSCopy   = "fs.copy"
+	FSDelete = "fs.delete"
+)
+
 // Table 은 동작 ID → 그 판정이 낼 수 있는 사유 코드다 (M-3).
 type Table map[string][]string
 

@@ -92,7 +92,7 @@ func (s *Server) apiFSCopy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if n > s.limits.fsCopy {
-		fsFail(w, fsErrBadRequest, "복사 항목 수가 상한을 넘었다")
+		fsRejectAnswer(w, fsTooMany(s.limits.fsCopy))
 		return
 	}
 

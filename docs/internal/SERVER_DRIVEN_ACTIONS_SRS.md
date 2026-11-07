@@ -1,7 +1,7 @@
 # SRS: 서버가 답하는 동작 가능 여부 — server-driven actions — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 묶음 F·R·X·K·N(구현 전). 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)·GV(§3.4a)는 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
+> **남은 것**: 묶음 F(설계 §3.5a, 구현 중)·R·X·K·N. 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)·GV(§3.4a)는 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
 
 ## 1. 개요 (Introduction)
 
@@ -211,6 +211,28 @@ GV-c 동작 표:
 | FR-SDA-54 | 창·탭·그룹 이름의 길이 상한(64)은 서버가 정하고 거절한다. 화면의 `clampEntityName` 은 서버 상한을 받아 쓴다 | F-B2 | 필수 |
 | FR-SDA-55 | 편집기 루트 추가 경로는 서버가 판정한다(`wsentry` 의 오류 코드) | F-B3 | 필수 |
 
+#### 3.5a 묶음 F 설계 세부
+
+네 단계로 커밋한다: **F-1** 메뉴 답과 삭제 상한(F-A2·A3) · **F-2** 이름 검증과 자기 하위 이동(F-B1·F-A1) · **F-3** 편집기 루트 추가(F-B3) · **F-4** 창·탭·그룹 이름 길이(F-B2, 착수 때 설계를 더 적는다).
+
+| ID | 설계 |
+|---|---|
+| F-a 종단(F-1) | `POST /api/fs/actions {root, paths:[…]}` → `{"actions": {"fs.rename","fs.move","fs.copy","fs.delete": 답}, "count": n}`. `paths[0]` 은 메뉴를 연 행이다. 이름 바꾸기·옮기기(잘라내기)·복사(복제 포함)는 그 행 하나를, 삭제는 `paths` 전부를 판정한다 — 지금 메뉴가 그렇게 동작한다. `paths` 가 비면 400 `bad_request`. 경로마다 루트 가드(`fsRootTarget`)를 지나며, 가드 실패는 답이 아니라 요청 실패다 |
+| F-b 항목 수(FR-SDA-50) | FR-SDA-1 은 참인 답에 `args` 를 싣지 않는다. 그래서 수는 답 밖의 `count` 로 싣는다. `count` 는 대상 폴더들 **안의** 항목 수의 합이다(대상 자신은 세지 않는다 — 확인창의 "그 안의 N개 항목" 과 같은 뜻). 대상마다 서버 상한(`limits.fsDelete`)+1 에서 세기를 멈춘다. 그래서 큰 폴더에서도 비용에 끝이 있다 |
+| F-c 판정 함수(F-1) | `httpapi` 에 둔다. `fsProtectAnswer(root, target)`(지금의 `fsDeletable` 을 답으로 바꾼 것) · `fsMoveAnswer` = 보호 → 있는지(`not_found`) · `fsCopyAnswer` = 있는지 · `fsDeleteAnswer(root, targets, max)` = 대상마다 보호 → 수(넘으면 `too_many_entries`). 실행 종단이 같은 함수로 거절한다: 삭제는 잠근 뒤 `fsDeleteAnswer`, 이름 바꾸기·이동은 `fsMoveAnswer`(출발지) |
+| F-d 사유 코드 | 새 코드: `editor_root_protected`(400, 이 루트 자신이나 다른 Editor 루트) · `home_protected`(400) · `filesystem_root_protected`(400) · `too_many_entries`(400, `args.max`) · `into_self`(400, F-2) · `name_has_separator`(400, F-2) · `name_reserved`(400, F-2). 기존 `not_found`·`empty_name` 은 그대로 쓴다. 지금은 넷 다 `bad_request` 에 한국어 `message` 로 나간다 — 동작 변경으로 적는다 |
+| F-e 거절의 모양 | 파일 표면의 오류 방언(`{code, message}`)을 지킨다. 답으로 거절할 때는 `{code: why, args}` 이고 `message` 는 싣지 않는다(D-SDA-5). 헤더 `X-Error-Code` 도 같다. 복사의 항목 수 초과도 같은 코드(`too_many_entries`)로 바꾼다 — 같은 사유다 |
+| F-f 화면 메뉴(F-1) | 행 메뉴는 열 때 F-a 로 묻고 답을 받은 **뒤에** 그린다(FR-SDA-5). 대상은 `[메뉴를 연 행, …선택의 나머지]` 다. 항목은 `act:` 에 동작 ID 를 둔다: 이름 바꾸기 `fs.rename` · 잘라내기 `fs.move` · 복사·복제 `fs.copy` · 삭제 `fs.delete`. 늦으면 `loading` 으로 먼저 그리는 장치는 `GitMenu._openAsked` 에서 묻는 함수를 받는 `GitMenu.openAsked(items, kind, target, ev, ask)` 로 꺼내 git·파일 메뉴가 함께 쓴다. 붙여넣기의 "클립보드가 비었다" 는 화면의 상태라 그대로 둔다. 키보드(F2·Delete·복사)는 메뉴를 거치지 않으며, 막히면 서버의 거절이 오류 줄로 보인다 |
+| F-g 삭제 확인창(F-1) | `doDelete` 는 확인창을 열기 전에 F-a 로 묻는다. 수는 `count` 를 쓴다. 답이 거짓이면 확인창은 사유 줄을 보이고 삭제 버튼을 끈다(TC-SDA-8). 묻기가 실패하면 확인창을 열지 않고 오류 줄을 보인다. 화면의 `edCountTree`·`EDITOR_DEL_COUNT_MAX`·"N개 이상"(`editor.del_count_more`)을 없앤다 — 서버는 상한까지 정확히 센다 |
+| F-h 실행 거절 문구 | `edFs` 는 `EDITOR_FS_ERR_MSG` 에 없는 코드를 `why.<코드>` 문구(있으면)로 보인다(M-10 과 같다) |
+| F-i 이름 판정(F-2) | `fsNameAnswer(name)`: 앞뒤 공백을 지운 뒤 비면 `empty_name`, `/` 나 이 OS 의 경로 구분자(Windows 의 `\`)가 있으면 `name_has_separator`, `.`·`..` 이면 `name_reserved`. 종단 `POST /api/fs/validate-name {name}` → `{"actions": {"fs.name": 답}}` |
+| F-j 이름을 받는 실행(F-2) | 경로만 받으면 서버는 `a/b` 가 이름인지 경로인지 가를 수 없다. 그래서 만들기는 `{root, parent, name, dir}` 를, 이름 바꾸기는 `{root, from, name}` 을 받고 `fsNameAnswer` 로 거절한다. 기존 `path`·`to` 도 계속 받는다(경로를 뜻하는 호출, R-3). 화면의 인라인 입력은 새 모양으로 보낸다 |
+| F-k 인라인 입력(F-2) | 입력이 멈추면(디바운스) F-i 로 묻고, 거짓이면 입력 아래 오류 줄에 사유를 보인다. Enter 는 마지막 답이 거짓이면 보내지 않는다. 답을 기다리는 중이면 보내고 서버가 판정한다. 인라인 입력은 `GitDialog` 가 아니어서 `GitInputAnswer` 를 쓰지 않는다 — 세대로 늦은 답을 버리는 작은 장치를 트리에 둔다. 화면의 `/` 판정과 `EDITOR_NAME_INVALID` 를 없앤다 |
+| F-l 자기 하위 이동(F-2) | 화면의 `pathUnder` 거절과 `EDITOR_MOVE_INTO_SELF` 를 없앤다. 서버의 `fsCopyGuardSelf` 가 `into_self` 로 거절하고, 놓은 뒤 그 사유가 오류 줄에 보인다(D-SDA-7). 끄는 동안 화면은 판정하지 않는다. 대상이 출발지 아래면 낙관 반영만 하지 않는다 — 허용 판정이 아니라 되돌리기 어려운 그림을 미리 그리지 않는 것이다 |
+| F-m 편집기 루트 추가(F-3) | 판정은 `wsentry` 의 검사 함수 하나(`EditorAdd` 의 앞부분을 꺼낸 것)이고, 답과 `POST /api/editors/add` 의 거절이 그것을 부른다. 사유: `empty_path` → `path_must_be_absolute` → `not_found` → `not_a_directory`(새, 400) → `filesystem_root_protected`. 대화상자는 `GitInputAnswer` 로 묻는다 — 묻는 함수를 주입받도록 넓힌다(기본은 지금의 git 종단). 세부 종단은 F-3 착수 때 적는다 |
+| F-n 게이트 | 없앤 화면 이름을 단계마다 `check-server-driven.sh` 목록에 더한다: F-1 `edCountTree`·`EDITOR_DEL_COUNT_MAX` · F-2 `EDITOR_NAME_INVALID`·`EDITOR_MOVE_INTO_SELF` |
+| F-o 문구 | 새 사유 코드마다 `why.<code>` 를 ko·en 에 더한다(게이트 M-7) |
+
 ### 3.6 묶음 R — Run
 
 | ID | 요구 | 출처 | 우선 |
@@ -300,6 +322,7 @@ GV-c 동작 표:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-07 | F-1 구현(설계 §3.5a). 동작 변경 넷. ① **이전**: 이름 바꾸기·이동(`/api/fs/rename`)은 루트 보호를 보지 않았다 — 다른 Editor 루트나 홈을 옮길 수 있었다 / **새**: 삭제와 같은 보호로 거절한다(`fsMoveAnswer`) / **이유**: FR-SDA-51. ② **이전**: 루트·홈·파일시스템 루트 삭제 거절과 항목 수 초과는 400 `bad_request` 에 한국어 `message` / **새**: `editor_root_protected`·`home_protected`·`filesystem_root_protected`·`too_many_entries`(`args.max`), `message` 없음. 복사의 항목 수 초과도 같다 / **이유**: FR-SDA-2·D-SDA-5. ③ **이전**: 삭제 확인창의 수는 화면이 `list` 를 걸어 2000 까지 셌고("N개 이상"), 서버의 상한(10000)과 어긋났다 / **새**: `POST /api/fs/actions` 의 `count`(서버가 상한까지 정확히 센다). 답이 거짓이면 확인창이 사유를 보이고 삭제 버튼을 끈다 / **이유**: §2.1·FR-SDA-50. ④ **이전**: 탐색기 행 메뉴는 묻지 않고 그렸다 / **새**: 열 때 서버에 묻고, 이름 바꾸기·잘라내기·복사·복제·삭제가 답을 따른다. 묻는 장치는 `GitMenu.openAsked` 로 꺼내 git 메뉴와 함께 쓴다 / **이유**: FR-SDA-5. 설계 중 정한 것: 참인 답은 `args` 를 싣지 않으므로(FR-SDA-1) 항목 수는 답 밖의 `count` 에 싣는다. 새 코드의 상태는 `apierr.FSStatus` 표가 정한다(답과 거절이 한 표). 읽기 실패(`not_found`·`permission_denied`·`io_failed`)도 답의 사유다 |
 | 2026-11-06 | GV-4 구현 — 묶음 GV 끝. **이전**: 태그 종류·reset 모드의 목록을 화면이 상수(`GIT_TAG_KIND_OPTS`·`GIT_CO_RESET_MODES`)로 들고 있었다. 서버의 `write.TagKinds`·`ResetModes` 는 "API 로 노출한다" 고 적혀 있었으나 `TagKinds` 는 `tag/validate` 응답에만, `ResetModes` 는 어디에도 실리지 않았다 / **새**: `/api/git/policy` 가 `tagKinds`·`resetModes` 를 싣고, 두 대화상자는 열 때 그 목록으로 선택지를 만든다(라벨은 값으로 고른다). 정책을 받지 못하면 선택지 없이 열린다 — 서버의 기본값이 쓰인다 / **이유**: FR-SDA-43. 남긴 화면 상수: `GIT_TAG_KIND_LIGHT`(메시지를 싣지 않는 값)·`GIT_CO_RESET_MODE_HARD`(파괴적 확인을 거치는 값) — 목록이 아니라 화면 흐름의 분기다 |
 | 2026-11-06 | GV-3 구현. 동작 변경 셋. ① **이전**: 화면이 `origin/x` 를 첫 `/` 에서 갈라 `branch/fetch`·`branch/delete-remote` 에 `remote`·`branch` 로 보냈다 — 원격 이름에 `/` 가 있으면 틀린 원격으로 갔다 / **새**: 화면은 `ref`(전체 이름)를 보내고 서버가 원격 목록에 맞춰 가른다(`remoteBranchOf` → `splitRemoteRef`). 가를 수 없으면 400 `not_remote_branch`. `remote`+`branch` 도 받는다 / **이유**: FR-SDA-42. ② **이전**: checkout 에 `track` 만 보내면 400 `bad_request` / **새**: 서버가 가른 브랜치 이름으로 로컬을 만든다. 화면의 "로컬로 checkout" 은 `track` 만 보낸다 / **이유**: 같다. ③ **이전**: 원격 ref 를 되살리는 안내 명령의 원격 이름을 화면이 갈랐다 / **새**: `/api/git/refs` 의 원격 ref 가 `remote` 를 싣고, 화면은 그것을 쓴다(대상에 없으면 패널이 아는 목록에서 찾는다) / **이유**: 같다. `query.RemoteRefPrefix` 를 공개했다. 게이트 목록에 `_split` 을 더했다(탐침: 넣으면 실패, 빼면 통과) |
 | 2026-11-06 | GV-2 구현. 동작 변경 넷. ① **이전**: worktree 만들기의 빈 이름은 400 `ref_name_invalid`(문구), 빈 대상은 400 `bad_request`, 자리·새 브랜치 충돌은 409 에 한국어 `message` 를 실었다 / **새**: `empty_name`·`ref_name_invalid`·`empty_ref`·`worktree_exists`(`args.path`)·`branch_exists`(`args.branch`), `message` 없음 / **이유**: FR-SDA-2·D-SDA-5. ② **이전**: `write.ErrRemoteName`·`ErrRemoteURL` 은 400 `bad_request` / **새**: `remote_name_invalid`·`remote_url_invalid` — 원격 이름을 받는 모든 종단에서 같다. 원격 추가는 빈 값을 `empty_name`·`empty_url` 로 가르고 `message` 를 싣지 않는다 / **이유**: 같다. ③ **이전**: 핀(`repos/pin`)의 빈·상대 경로는 400 `bad_request` / **새**: `empty_path`·`path_must_be_absolute`(기존 코드). 저장소 판정은 답 함수(`repoAddAnswer`) 하나다 / **이유**: D-SDA-6. ④ **이전**: 대화상자 넷(worktree·원격 추가·비교·저장소 추가)이 빈 값을 스스로 판정했고, 원격 이름 위반은 실행을 누른 뒤에야 보였다 / **새**: 입력 중에 서버에 묻고 실행 전에 막는다 / **이유**: D-SDA-1. 설계 중 정한 것: 저장소 추가의 상대 경로는 새 코드 대신 기존 `path_must_be_absolute` 를 쓴다. worktree 답은 `newBranch` 도 받아 `branch_exists` 를 낸다 — 실행 종단이 이미 그것으로 거절했다 |

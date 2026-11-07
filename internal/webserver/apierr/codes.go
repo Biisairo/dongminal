@@ -127,4 +127,10 @@ const (
 	// 문자열이다 ("not_repo"). 두 표면이 이미 다른 값을 내보내고 있으므로
 	// 합치면 파괴적 변경이다.
 	CodeFSNotRepo = "not_repo"
+
+	// ── 파일 조작의 판정 (SERVER_DRIVEN_ACTIONS_SRS F-d) ──
+	CodeEditorRootProtected     = "editor_root_protected"
+	CodeHomeProtected           = "home_protected"
+	CodeFilesystemRootProtected = "filesystem_root_protected"
+	CodeTooManyEntries          = "too_many_entries"
 )

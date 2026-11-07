@@ -26,6 +26,7 @@ REMOVED=(
   GIT_ADD_REPO_NEED_PATH       # GV-c: 저장소 추가 빈 경로
   _split                       # GV-g: 원격 ref 를 원격·브랜치로 가르는 화면 규칙
   GIT_TAG_KIND_OPTS GIT_CO_RESET_MODES  # GV-h: 서버가 보내는 목록의 사본
+  edCountTree EDITOR_DEL_COUNT_MAX  # F-g: 화면이 세던 삭제 항목 수와 그 상한
 )
 
 pat=$(IFS='|'; echo "${REMOVED[*]}")

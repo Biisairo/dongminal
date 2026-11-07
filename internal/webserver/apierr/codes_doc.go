@@ -157,4 +157,10 @@ var CodeDoc = map[string]Doc{
 	CodeTooLarge:    {"상한을 넘었습니다.", "같은 요청을 다시 보내도 같은 답이 옵니다. 나누거나 다른 표면을 쓰세요. 상한은 features.md 의 용량 표에 있습니다."},
 	CodeBusy:        {"지금은 자리가 없습니다.", "**재시도가 유효한 유일한 4xx 입니다.** 잠시 뒤 다시 보내세요."},
 	CodeFSNotRepo:   {"그 자리가 git 저장소가 아닙니다 (파일 표면의 판정).", "저장소 안의 경로를 지목하세요."},
+
+	// ── 파일 조작의 판정 ──
+	CodeEditorRootProtected:     {"Editor 루트는 지우거나 옮길 수 없습니다.", "목록에서 빼려면 Editor 목록의 제거를 쓰세요."},
+	CodeHomeProtected:           {"홈 폴더는 지우거나 옮길 수 없습니다.", "그 안의 항목을 대상으로 고르세요."},
+	CodeFilesystemRootProtected: {"파일시스템 루트는 대상이 될 수 없습니다.", "그 아래의 폴더를 고르세요."},
+	CodeTooManyEntries:          {"항목 수가 서버 상한을 넘었습니다.", "args.max 가 상한입니다. 더 작은 폴더로 나눠 다루거나 터미널을 쓰세요."},
 }

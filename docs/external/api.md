@@ -97,8 +97,9 @@
 | POST | `/api/fs/stamps` | 위 `/api/fs/stamp` 와 `/api/file/stamps` 를 **한 요청**으로 묻는다. 본문 `{trees:[{root, dirs:[<abs>…]}…], paths:[<abs>…]}` → `{trees:{<root>: {stamps:{…}} 또는 {code, status}}, paths:{<abs>: "<문자열>"}}`. 값은 두 종단과 같다. 루트마다 판정이 따로다 — 거부된 루트는 그 자리에 옛 종단이 답했을 `code`·`status` 를 싣고, 다른 루트와 파일의 답은 그대로 나간다. `trees` 는 16개, 루트당 `dirs` 는 512개, `paths` 는 512개까지 |
 | PUT | `/api/fs/watch` | 이 클라이언트가 감시할 디렉터리를 **통째로** 바꾼다. 본문 `{clientId, dirs:[<abs>…]}` → `{watching:[<abs>…]}`. **`root` 를 받지 않는다** — 판정은 파일 읽기(`/api/file/read`)와 같다(절대경로). 없는 경로·디렉터리가 아닌 것·감시를 걸 수 없는 것은 오류가 아니라 `watching` 에서 **빠진다.** `clientId` 는 열려 있는 `/api/commands/sse?clientId=` 구독의 것이어야 하고(아니면 400), 그 구독이 끊기면 등록이 지워진다. 비재귀다 — 디렉터리의 직속 항목만 본다. 변화는 SSE `fs_changed` 로 온다. `dirs` 는 1024개까지 |
 | POST | `/api/fs/create` | 바디 `{root, path, dir}` |
-| POST | `/api/fs/rename` | 바디 `{root, from, to}`. 이동도 이 종단 |
-| POST | `/api/fs/delete` | 바디 `{root, path}`. **영구 삭제** |
+| POST | `/api/fs/rename` | 바디 `{root, from, to}`. 이동도 이 종단. Editor 루트·홈·파일시스템 루트는 옮길 수 없다(400 `editor_root_protected`·`home_protected`·`filesystem_root_protected`) |
+| POST | `/api/fs/delete` | 바디 `{root, path}`. **영구 삭제**. 루트 보호는 rename 과 같고, 항목이 상한(10000)을 넘으면 400 `too_many_entries`(`args.max`). 이 거절들은 `message` 없이 `{code, args}` 다 |
+| POST | `/api/fs/actions` | 탐색기 메뉴의 답. 바디 `{root, paths:[<abs>…]}` → `{actions:{"fs.rename"·"fs.move"·"fs.copy"·"fs.delete": {ok, why?, args?}}, count}`. `paths[0]` 은 메뉴를 연 행이며 rename·move·copy 는 그 하나를, delete 는 전부를 판정한다. `count` 는 대상 폴더들 **안의** 항목 수 합이다. 답이 거짓이면 같은 요청을 실행 종단에 보내도 같은 코드로 거절된다 |
 | GET | `/api/fs/download?root=<abs>&path=<abs>` | 탐색기 다운로드. `/api/download` 와 같은 헤더를 쓰되 루트 아래로 제한. **파일만** — 디렉터리는 400 |
 | GET | `/api/fs/download-dir?root=<abs>&path=<abs>` | 폴더를 zip 으로 스트리밍. 이름은 `<폴더>.zip`. 항목 5만·2GiB 를 넘으면 **본문을 하나도 쓰기 전에** 400. 심볼릭 링크는 담기지 않는다 |
 | POST | `/api/fs/upload?root=<abs>&dir=<abs>` | 탐색기 업로드 (`file` 필드, 선택 `relPath`). `relPath` 가 있으면 `dir` **아래로** 구조를 세운다(중간 디렉터리는 만들되 `dir` 자신은 만들지 않는다). **같은 이름이 있으면 409** — 덮어쓰지도 개명하지도 않는다 |

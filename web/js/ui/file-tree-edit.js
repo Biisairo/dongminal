@@ -255,18 +255,15 @@ Object.assign(FileTree.prototype, {
     const targets=this._selTargets(p).filter(x=>x&&x!==this.root);
     if(!targets.length) return;
     this._clearErr();
-    // 세는 것이 확인창보다 먼저다. 합산이므로 폴더가 여럿이면 그 합이다.
-    let count=null,isDir=false;
-    for(const target of targets){
-      if(this._kindOf(target)!=='dir') continue;
-      isDir=true;
-      const c=await this.app.edCountTree(this.root,target);
-      if(!c) continue;
-      count={n:((count&&count.n)||0)+(c.n||0),more:!!((count&&count.more)||c.more)};
-    }
+    // 묻는 것이 확인창보다 먼저다 — 지울 수 있는지와 항목 수는 서버가 답한다
+    // (SERVER_DRIVEN_ACTIONS_SRS F-g). 수는 폴더들 안의 합이다.
+    const ans=await this.app.edFsActions(this.root,targets);
+    if(!ans){this._fail(targets[0],EDITOR_FS_ERR_UNKNOWN);return}
+    const st=actionState(ans.actions[FS_ACTION_DELETE]||null,false);
+    const isDir=targets.some(target=>this._kindOf(target)==='dir');
     const dirty=[];
     for(const target of targets) for(const n of this.app.edDirtyUnder(target)) if(!dirty.includes(n)) dirty.push(n);
-    if(!await this.app.edConfirmDelete(targets,isDir,count,dirty)) return;
+    if(!await this.app.edConfirmDelete(targets,isDir,ans.count,dirty,st.enabled?'':st.why)) return;
 
     const dirs=[];
     for(const target of targets){const d=this._parent(target);if(!dirs.includes(d))dirs.push(d)}

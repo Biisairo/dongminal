@@ -94,7 +94,7 @@ Object.assign(FileTree.prototype, {
     const r=await apiPost(u,fd);
     const d=r.data;
     if(r.ok&&d&&d.ok) return '';
-    const why=EDITOR_FS_ERR_MSG[(d&&d.code)||'']||(d&&d.message)||'';
+    const why=d&&(d.code||d.message)?edFsReason(d):'';
     return why||josa(EDITOR_UPLOAD_FAIL.replace('%s',it.relPath||it.file.name));
   },
 
@@ -206,7 +206,10 @@ Object.assign(FileTree.prototype, {
     // 만드는 자리는 우클릭한 행이 정한다 — 폴더면 그 안, 아니면 그 형제다
     // (FR-EDT-81 과 같은 규칙).
     const dir=kind==='dir'?p:this._parent(p);
-    GitMenu.openList([
+    // SERVER_DRIVEN_ACTIONS_SRS F-f: 이름 바꾸기·옮기기·복사·삭제를 할 수 있는지는 서버가
+    // 답한다. 메뉴를 연 행이 먼저이고, 삭제는 선택 전부를 본다.
+    const paths=[p,...this._selTargets(p).filter(x=>x&&x!==p)];
+    GitMenu.openAsked([
       {id:'newFile',label:EDITOR_MENU_NEW_FILE,run:()=>this.startCreate(false,dir)},
       // FR-M9-23: 메모장에서도 보인다 — FR-EXR-32 의 가림은 폐기됐다.
       {id:'newDir',label:EDITOR_MENU_NEW_DIR,run:()=>this.startCreate(true,dir)},
@@ -235,20 +238,23 @@ Object.assign(FileTree.prototype, {
       {sep:true},
       // FR-WBR-70: 복사·붙여넣기·복제. 붙여넣는 자리는 만들기와 같은 규칙이
       // 정한다 — 폴더면 그 안, 아니면 그 형제 (`dir` 이 그것이다).
-      {id:'copy',label:EDITOR_MENU_COPY,run:()=>this.app.edClipSet(this.root,p)},
+      {id:'copy',label:EDITOR_MENU_COPY,act:FS_ACTION_COPY,run:()=>this.app.edClipSet(this.root,p)},
       // FUI-11: 같은 클립보드에 **동사만** 다르게 놓는다. 붙여넣는 쪽이
       // `c.move` 로 갈린다 — 자리와 대상은 복사와 한 글자도 다르지 않다.
-      {id:'cut',label:EDITOR_MENU_CUT,run:()=>this.app.edClipSet(this.root,p,true)},
+      {id:'cut',label:EDITOR_MENU_CUT,act:FS_ACTION_MOVE,run:()=>this.app.edClipSet(this.root,p,true)},
       {id:'paste',label:EDITOR_MENU_PASTE,
         disabled:()=>this.app.edClipGet()?'':EDITOR_PASTE_NONE,
         run:()=>this.doPasteInto(dir)},
-      {id:'duplicate',label:EDITOR_MENU_DUPLICATE,run:()=>this.doDuplicate(p)},
+      {id:'duplicate',label:EDITOR_MENU_DUPLICATE,act:FS_ACTION_COPY,run:()=>this.doDuplicate(p)},
       {sep:true},
-      {id:'rename',label:EDITOR_MENU_RENAME,run:()=>this.startRename(p)},
+      {id:'rename',label:EDITOR_MENU_RENAME,act:FS_ACTION_RENAME,run:()=>this.startRename(p)},
       // 확인은 `doDelete` 가 한다 — 재귀 여부·항목 수·dirty 탭을 밝혀야 하므로
       // 메뉴의 일반 확인(GitDialog)으로는 FR-EDT-83·84 를 만족하지 못한다.
-      {id:'delete',label:EDITOR_MENU_DELETE,run:()=>this.doDelete(p)},
-    ],'edfs',p,e);
+      {id:'delete',label:EDITOR_MENU_DELETE,act:FS_ACTION_DELETE,run:()=>this.doDelete(p)},
+    ],'edfs',{path:p},e,async stale=>{
+      const ans=await this.app.edFsActions(this.root,paths);
+      return stale()?null:((ans&&ans.actions)||{});
+    });
   },
 
   /**

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/wsentry"
 
 	"dongminal/internal/shared/testpath"
@@ -537,8 +538,8 @@ func TestFSDelete_RejectsRootHomeAndFsRoot(t *testing.T) {
 	ws.raw = []byte(fmt.Sprintf(`{"schemaVersion":2,"editors":{"list":[%q]}}`, root))
 
 	for _, c := range []struct{ root, path, want string }{
-		{root, root, fsErrBadRequest},
-		{home, home, fsErrBadRequest},
+		{root, root, apierr.CodeEditorRootProtected},
+		{home, home, apierr.CodeEditorRootProtected},
 		// `/` 는 어느 Editor 루트보다도 위이므로 루트 가드가 먼저 잡는다 — 거부의
 		// 사유가 더 강할 뿐 결과는 같다.
 		{home, testpath.Root(), fsErrOutsideRoot},
@@ -553,7 +554,7 @@ func TestFSDelete_RejectsRootHomeAndFsRoot(t *testing.T) {
 	}
 	// 루트가 `/` 인 극단(사용자가 `/` 를 Editor 행으로 넣은 경우)에서도 파일시스템
 	// 루트는 지워지지 않는다.
-	if err := s.fsDeletable(testpath.Root(), testpath.Root()); err == nil {
+	if a := s.fsProtectAnswer(testpath.Root(), testpath.Root()); a.OK {
 		t.Fatal("파일시스템 루트의 삭제가 통과했다")
 	}
 }
@@ -576,7 +577,7 @@ func TestFSDelete_OverMaxDeletesNothing(t *testing.T) {
 	s.limits.fsDelete = 3
 
 	code, out := fsReq(t, s, http.MethodPost, "/api/fs/delete", `{"root":`+testpath.JSONQuote(root)+`,"path":`+testpath.JSONQuote(target)+`}`)
-	if code != http.StatusBadRequest || out["code"] != fsErrBadRequest {
+	if code != http.StatusBadRequest || out["code"] != apierr.CodeTooManyEntries {
 		t.Fatalf("code=%d body=%v", code, out)
 	}
 	des, err := os.ReadDir(filepath.Join(target, "sub"))

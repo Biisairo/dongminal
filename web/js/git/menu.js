@@ -79,18 +79,31 @@ class GitMenu {
     GitMenu._openAsked(kind,target,ev,ask(target));
   }
 
-  static async _openAsked(kind,target,ev,q){
+  static _openAsked(kind,target,ev,q){
     const p=gitMenuPanel(); if(!p||!p.repo) return;
+    GitMenu.openAsked(GIT_MENUS[kind],kind,target,ev,async stale=>{
+      const res=await gitFetch(GIT_API.actions,Object.assign({repo:p.repo},q),{stale});
+      if(res.stale) return null;
+      return (res.ok&&res.data&&res.data.actions)||{};
+    });
+  }
+
+  /**
+   * 열 때 묻는 메뉴의 공통 장치 — git 메뉴와 파일 트리 메뉴가 함께 쓴다
+   * (SERVER_DRIVEN_ACTIONS_SRS F-f). `ask(stale)` 은 답 묶음(`actionId → 답`)으로 풀리고,
+   * 늦어서 버릴 답이면 null 로 풀린다. 답이 늦으면 항목을 `loading` 으로 먼저 그린다.
+   */
+  static async openAsked(items,kind,target,ev,ask){
     const seq=++GitMenu._askSeq;
+    const stale=()=>seq!==GitMenu._askSeq;
     const at={clientX:(ev&&ev.clientX)||0,clientY:(ev&&ev.clientY)||0};
     const early=TIMERS.after(GIT_MENU_ASK_LOADING_MS,()=>{
-      if(seq===GitMenu._askSeq) GitMenu.openList(GIT_MENUS[kind],kind,Object.assign({},target,{answers:null}),at);
+      if(!stale()) GitMenu.openList(items,kind,Object.assign({},target,{answers:null}),at);
     },{owner:GitMenu,label:'menu-ask'});
-    const res=await gitFetch(GIT_API.actions,Object.assign({repo:p.repo},q),{stale:()=>seq!==GitMenu._askSeq});
+    const answers=await ask(stale);
     TIMERS.cancel(early);
-    if(res.stale) return;
-    const answers=(res.ok&&res.data&&res.data.actions)||{};
-    GitMenu.openList(GIT_MENUS[kind],kind,Object.assign({},target,{answers}),at);
+    if(answers===null||stale()) return;
+    GitMenu.openList(items,kind,Object.assign({},target,{answers}),at);
   }
 
   /**

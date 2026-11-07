@@ -418,6 +418,13 @@ const EDITOR_TREE_ST_RANK={U:4,A:3,'?':3,M:2,R:1,C:1};
 const FS_CREATE_API='/api/fs/create';
 const FS_RENAME_API='/api/fs/rename';
 const FS_DELETE_API='/api/fs/delete';
+// SERVER_DRIVEN_ACTIONS_SRS F-a: 메뉴의 답과 삭제할 항목 수를 서버가 낸다.
+const FS_ACTIONS_API='/api/fs/actions';
+// 그 답의 동작 ID (서버 `action.FS*` 와 같은 값).
+const FS_ACTION_RENAME='fs.rename';
+const FS_ACTION_MOVE='fs.move';
+const FS_ACTION_COPY='fs.copy';
+const FS_ACTION_DELETE='fs.delete';
 // FR-WBR-60: 복사·복제가 함께 쓰는 하나의 종단. 복제는 "원본의 형제 자리에
 // 붙여넣기" 이므로 종단을 나눌 이유가 없다.
 const FS_COPY_API='/api/fs/copy';
@@ -540,13 +547,8 @@ const EDITOR_DEL_PERMANENT=t('editor.del_permanent');
 // `%s` 는 저장소 기준 경로. 추적되지 않은 파일에는 이 길이 없으므로 띄우지 않는다.
 const EDITOR_DEL_RECOVER_HINT=t('editor.del_recover_hint');
 const EDITOR_DEL_DIRTY=t('editor.del_dirty');
-const EDITOR_DEL_COUNT_MORE=t('editor.del_count_more');
 const EDITOR_DEL_OK=t('editor.del_ok');
 const EDITOR_DEL_CANCEL=t('editor.del_cancel');
-// 확인창의 항목 수는 클라이언트가 `list` 로 센다 — 서버에 세는 종단이 없다.
-// 상한을 두는 이유는 큰 트리에서 확인창이 열리기까지 조회가 무한정 붙기 때문이다.
-// 넘으면 "N개 이상" 으로 알린다 — 확인창이 늦게 뜨는 것보다 낫다.
-const EDITOR_DEL_COUNT_MAX=2000;
 
 // FR-EDT-92: 실패는 그 자리에 사유를 표시한다. 서버의 코드(FR-EDT-117)를 사람의
 // 말로 옮기는 자리는 여기 하나다.
@@ -560,6 +562,15 @@ const EDITOR_FS_ERR_MSG={
   too_large:t('editor.fs_err_msg.too_large'),
 };
 const EDITOR_FS_ERR_UNKNOWN=t('editor.fs_err_unknown');
+// SERVER_DRIVEN_ACTIONS_SRS F-h: 표에 없는 코드는 서버 답의 사유 문구(`why.<코드>`)로
+// 읽는다 — 답을 거치지 않은 거절도 메뉴와 같은 말로 보인다. 그 거절은 `message` 를
+// 싣지 않는다 (D-SDA-5).
+function edFsReason(d){
+  const code=(d&&d.code)||'';
+  if(EDITOR_FS_ERR_MSG[code]) return EDITOR_FS_ERR_MSG[code];
+  if(code&&I18N.has('why.'+code)) return t('why.'+code,d.args);
+  return (d&&d.message)||EDITOR_FS_ERR_UNKNOWN;
+}
 // FR-EDT-85: 서버에 묻기 전에 클라이언트가 막는 유일한 경우다 — os.Rename 은 이
 // 이동을 성공시키고 트리를 잃어버린다.
 const EDITOR_MOVE_INTO_SELF=t('editor.move_into_self');

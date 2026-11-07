@@ -78,8 +78,14 @@ func fsJSON(w http.ResponseWriter, status int, body any) {
 //	          아니라 '옮기다 잊었다' 로 읽힌다"* — 정확히 그 상태였다
 //	새  동작: 여기 한 줄이 그 표면 전체를 세운다
 func fsFail(w http.ResponseWriter, code, msg string) {
+	fsFailBody(w, code, map[string]any{"code": code, "message": msg})
+}
+
+// fsFailBody 는 본문을 호출자가 만드는 실패다 — 답으로 거절할 때 `message` 없이
+// `args` 를 싣는다 (SERVER_DRIVEN_ACTIONS_SRS F-e). 헤더와 상태는 여기가 세운다.
+func fsFailBody(w http.ResponseWriter, code string, body map[string]any) {
 	w.Header().Set(apierr.CodeHeader, code)
-	fsJSON(w, fsStatus(code), map[string]any{"code": code, "message": msg})
+	fsJSON(w, fsStatus(code), body)
 }
 
 func fsFailErr(w http.ResponseWriter, err error) {
