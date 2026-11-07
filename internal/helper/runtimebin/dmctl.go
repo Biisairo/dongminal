@@ -321,13 +321,15 @@ func runDmctlRename(cmd string, parsed *dmctlParsed, stdout, stderr io.Writer) i
 			fmt.Fprintln(stderr, "usage: dmctl rename-tab --at <uuid> --auto")
 			return 2
 		}
-		return dmctlPost(action, parsed.buildArgs(), stdout, stderr)
+		return dmctlRenameConfirmed(action, parsed.buildArgs(),
+			renameWant{tabID: parsed.location, auto: true}, stdout, stderr)
 	}
 	if parsed.location == "" || parsed.name == "" {
 		fmt.Fprintf(stderr, "usage: dmctl %s --at <uuid> <name>  (또는 --name <name>)\n", cmd)
 		return 2
 	}
-	return dmctlPost(action, parsed.buildArgs(), stdout, stderr)
+	return dmctlRenameConfirmed(action, parsed.buildArgs(),
+		renameWant{tabID: parsed.location, name: parsed.name, window: cmd == "rename-window"}, stdout, stderr)
 }
 
 var dmctlSimpleActions = map[string]string{

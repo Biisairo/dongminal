@@ -21,7 +21,11 @@ import (
 // missing location field pass through with no rewrite, preserving every
 // existing dmctl and MCP call (NFR-UID-0). Returns (origLoc, finalLoc) so the
 // caller can log both forms when the input was a UUID.
-func translateLocationUUID(rawArgs *json.RawMessage, ws WorkspaceStore) (orig, final string, err error) {
+//
+// keepUUID 이면 검사와 좌표 계산만 하고 args 는 그대로 둔다 (TAB_NAME_DELIVERY_SRS
+// FR-TND-1). 모든 브라우저에 방송하는 명령은 낡은 브라우저가 좌표를 다른 탭으로
+// 읽을 수 있다 — uuid 는 모르는 브라우저에서 무동작이다.
+func translateLocationUUID(rawArgs *json.RawMessage, ws WorkspaceStore, keepUUID bool) (orig, final string, err error) {
 	if rawArgs == nil || len(*rawArgs) == 0 || ws == nil {
 		return "", "", nil
 	}
@@ -42,6 +46,9 @@ func translateLocationUUID(rawArgs *json.RawMessage, ws WorkspaceStore) (orig, f
 	if cerr != nil {
 		return loc, "", cerr
 	}
+	if keepUUID {
+		return loc, coord, nil
+	}
 	args["location"] = coord
 	patched, merr := json.Marshal(args)
 	if merr != nil {
@@ -50,6 +57,10 @@ func translateLocationUUID(rawArgs *json.RawMessage, ws WorkspaceStore) (orig, f
 	*rawArgs = patched
 	return loc, coord, nil
 }
+
+// uuidLocationActions 는 location 을 좌표로 바꾸지 않고 방송하는 액션이다
+// (TAB_NAME_DELIVERY_SRS FR-TND-1).
+var uuidLocationActions = map[string]bool{"renameTab": true, "renameWindow": true}
 
 func (s *Server) handleCommandSSE(w http.ResponseWriter, r *http.Request) {
 	if !sse.Supported(w) {
@@ -231,7 +242,7 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		openURLWhere, _ = s.openURLWhere()
 	}
 
-	origLoc, finalLoc, err := translateLocationUUID(&req.Args, s.Work)
+	origLoc, finalLoc, err := translateLocationUUID(&req.Args, s.Work, uuidLocationActions[req.Action])
 	if err != nil {
 		// 사용자가 보낸 `location` 값에 대한 말이다 (commands.go:36).
 		fail(w, http.StatusBadRequest, err.Error(), nil)

@@ -137,7 +137,7 @@ dmctl run start --objective "<별칭>#<루트> 이슈 트리" --window <newWindo
 
 | 경우 | 자리 | Run |
 |---|---|---|
-| 사슬의 자식 · 병렬 자식 중 첫째 | `dmctl new-tab -n --at <자기 탭 uuid> --after <자기 탭 uuid>` | 부모와 같은 Run |
+| 사슬의 자식 · 병렬 자식 중 첫째 | `dmctl new-tab -n --at <자기 탭 uuid> --after <자기 탭 uuid> --name "<자식 탭 이름>"` | 부모와 같은 Run |
 | 병렬 자식 중 둘째부터 | `dmctl new-window -n --group <그룹> --name "<자식 사슬 이름>" --cwd "<자기 worktree>"` | 새 Run (아래) |
 
 새 Run 은 자식 window 를 갖고, 부모 브랜치의 지금 HEAD 에서 갈라진다. 부모의 worktree 에서 실행한다.
@@ -150,8 +150,12 @@ dmctl run start --objective "<자식 사슬 이름>" --window <newWindows[0]> --
 
 ### 이름 · 등록 · 기동
 
+탭 이름은 사슬 이름이고, 사용자가 트리를 찾는 길이다. `new-tab` 으로 만든 자식은 `--name` 으로 이미 이름이 붙었다 — 따로 `rename-tab` 을 부르지 않는다. 만든 뒤 붙이면 다른 화면의 저장과 겹쳐 이름이 사라질 수 있다. `new-window` 로 만든 탭(병렬 자식 중 둘째부터 · 발사대의 루트)은 이름을 줄 길이 없으므로 `rename-tab` 을 부른다(아래 첫 줄).
+
+`rename-tab` 은 이름이 남았는지 확인한다. exit 1 이면 이름이 붙지 않은 것이다. 한 번 더 부르고, 그래도 exit 1 이면 사용자에게 보고하고 계속한다.
+
 ```
-dmctl rename-tab --at <새 탭 uuid> "<자식 탭 이름>"
+dmctl rename-tab --at <새 탭 uuid> "<자식 탭 이름>"      # new-window 로 만든 탭만
 dmctl run member --run <Run> --role "<자식 사슬 이름>" --agent claude --at <새 탭 uuid> \
   --issue <owner/repo#번호> --title "<제목>" --parent <내 member uuid> \
   [--goal "<남은 번호 목록>"] [--parallel] [--ctx <퍼센트>] [--no-commit] --brief - <<'B'

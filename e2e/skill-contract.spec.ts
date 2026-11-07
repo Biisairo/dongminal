@@ -128,6 +128,13 @@ test.describe('스킬이 부르는 접합면 (라이브)', () => {
       const state = await (await request.get('/api/state')).json();
       return (state.workspace?.windows || []).map((w: any) => w.name);
     }, { timeout: 10000 }).toContain('sk-window');
+    // TAB_NAME_DELIVERY_SRS FR-TND-1: 브라우저는 좌표가 아니라 uuid 를 받는다.
+    const tabsOf = (n: any): any[] => (n ? [...(n.tabs || []), ...(n.children || []).flatMap(tabsOf)] : []);
+    await expect.poll(async () => {
+      const state = await (await request.get('/api/state')).json();
+      const tab = (state.workspace?.windows || []).flatMap((w: any) => tabsOf(w.layout)).find((t: any) => t.id === uuid);
+      return tab?.name;
+    }, { timeout: 10000 }).toBe('sk-tab');
   });
 });
 

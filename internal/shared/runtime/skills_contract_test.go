@@ -135,7 +135,8 @@ func TestMigrationCommand_CarriesTheHandoffProcedure(t *testing.T) {
 	}
 	required := []struct{ name, needle string }{
 		{"지금 pane 에 새 탭 (D-M9-6)", "dmctl new-tab -n"},
-		{"탭 이름", "dmctl rename-tab"},
+		// TAB_NAME_DELIVERY_SRS FR-TND-20·21: 이름은 생성과 함께 준다.
+		{"탭 이름", "--name"},
 		{"에이전트 기동", "dmctl send-input"},
 		{"Barrier (FR-SKL-2)", "dmctl wait"},
 		{"준비완료 조건", "--for ready"},
@@ -281,6 +282,7 @@ func TestIssueTreeCommand_CarriesTheTreeProcedure(t *testing.T) {
 		{"맥락 사용률 (FR-IAT-62)", "dmctl status --json"},
 		{"migration (FR-IAT-62)", "/dongminal:migration"},
 		{"탭 이름 (FR-IAT-42)", "dmctl rename-tab"},
+		{"사슬 탭은 이름과 함께 (FR-TND-22)", "--after <자기 탭 uuid> --name"},
 		{"정리 (FR-IAT-73)", "--force"},
 		{"Run 닫기 (FR-IAT-74)", "dmctl run close"},
 		{"그룹 지우기 (FR-IAT-74)", "dmctl delete-group"},
