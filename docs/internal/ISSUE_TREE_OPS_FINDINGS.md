@@ -341,3 +341,28 @@ issue tree run 관련 분석 및 수정 필요 내용
   - 하위 이슈가 필요하면 만든다.
   - 끝나면 이슈를 닫고 "완료" 로 옮긴다.
 - **착수 때 할 일:** 지금 노드에 주는 지시(`commands/issue-tree.md` 의 노드 절차, Run 프리앰블 `run/preamble.go`)와 migration 인계가 이 동작을 얼마나 담는지 표로 대 본다. 규약의 주인은 그 프로젝트의 지시 문서다(FR-IAT-55·D-IAT-7). 그래서 지시는 "그 규약을 읽고 이 동작들을 하라" 를 빠뜨리지 않는 쪽으로 쓴다. 4번(프리앰블과 절차의 충돌)과 함께 다룬다.
+
+# 참고: server-driven 구현 내용 (2026-11-07, 사용자 지시)
+
+이 문서에 착수하기 전에 끝낸 `SERVER_DRIVEN_ACTIONS_SRS`(승인·구현완료)의 내용이다. issue-tree 노드와 migration 세션은 dmctl·HTTP 로 서버를 직접 부르므로, 서버가 무엇을 거절하고 어떻게 알리는지 알아야 한다. 커밋은 `7ba5f781`~`4979072c` 다.
+
+## 바뀐 원칙
+
+- **판단의 주인은 서버다**(D-SDA-1). 버튼을 켤지, 메뉴 항목을 막을지, 입력이 맞는지를 서버가 답한다. 화면은 그 답을 그린다.
+- **화면을 거치지 않은 요청도 같은 규칙으로 거절된다**(D-SDA-3·FR-SDA-9). 에이전트가 dmctl·curl 로 보내도 화면과 같은 판정을 받는다. 예전에는 화면만 막던 12건(자기 하위로 옮기기, 이름의 `/`, 현재 브랜치 checkout 등)이 이제 서버에서도 거절된다.
+- **거절은 사유 코드로 온다**(D-SDA-5). 본문에 한국어 문장(`message`)을 싣지 않는다. 코드의 뜻은 `docs/external/errors.md` 에 있다.
+
+## 장치
+
+- **답의 모양:** `{"ok": bool, "why": "<코드>", "args": {…}}`. `ok` 가 참이면 `why`·`args` 가 없다. 답과 실행 거절은 같은 판정 함수를 부른다(D-SDA-6) — 답이 거짓이면 실행도 같은 코드로 거절된다.
+- **1층(상태에 싣는 답):** `GET /api/git/status` 의 `actions` 처럼 상태 응답에 함께 온다.
+- **2층(열 때 묻는 답):** `GET /api/git/actions?…`(git 메뉴·대화상자 입력), `POST /api/fs/actions`(파일 메뉴), `POST /api/fs/validate-name`, `POST /api/editors/validate`, `POST /api/access/check`.
+- **오류 방언은 표면마다 다르다:** git `{error,args}` · fs `{code,args}` · 평문(`X-Error-Code` 헤더) · runs `{error,detail}`. 코드를 읽으려면 헤더 `X-Error-Code` 를 먼저 본다.
+- **상수:** 상한·목록은 `GET /api/meta`·`GET /api/git/policy` 가 보낸다. 서버가 보낼 수 없는 두 벌은 게이트 `scripts/check-shared-constants` 가 대조한다.
+
+## issue-tree 운영에 닿는 것
+
+- **Run 의 종료·삭제·멤버 분리**(묶음 R): 목록·그래프의 Run·멤버에 `actions`(`run.close`·`run.delete`·`run.member.detach`)가 실린다. 종료는 `force` 뜻을 유지한다(D-SDA-9). 닫힌 Run 에 대한 요청은 `run_closed`, 붙지 않은 멤버는 `member_not_attached` 로 거절된다. 조정자 절차가 Run 을 닫을 때 이 코드를 읽는다.
+- **dmctl 의 이름 상한**(D-SDA-8): 창·탭·그룹 이름이 64자(UTF-16)를 넘으면 `/api/commands` 가 400 `name_too_long` 로 거절한다. 노드 이름을 긴 이슈 제목으로 지으면 걸린다 — 잘라서 보낸다.
+- **Run 의 짧은 id**(K-l): `/api/tools/background` 의 Run 멤버에 `runShort` 가 있다. 화면이 runId 를 자르지 않는다.
+- **샌드박스**(K-i): `/api/sandbox/runtime` 의 `ready`·`installed`, `/api/sandbox/profiles` 의 `workPicks`·헤더 `X-Sandbox-Only-Default`.
