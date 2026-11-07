@@ -6,6 +6,19 @@ import { test, expect, waitForInit } from './fixtures';
 // 아니라, **위험이 사용자에게 보이는지**다: 지금 내 주소가 보이는가(FR-ACL-23),
 // 자기를 자르는 저장에 확인이 붙는가(FR-ACL-24).
 
+/**
+ * 잠김 답을 위조한다 (SERVER_DRIVEN_ACTIONS_SRS X-d).
+ *
+ * e2e 브라우저는 loopback 으로 붙고, 게이트는 loopback 을 언제나 들인다 (FR-ACL-5). 그래서
+ * 실제 서버는 "잠기지 않는다" 고 답한다 — 확인창을 재려면 원격에서 붙은 것처럼 답을 바꾼다.
+ * 판정 자체는 Go 표 시험(`access_check_test.go`, TC-SDA-9)이 잰다.
+ */
+async function lockedOut(page, you: string) {
+  await page.route('**/api/access/check', (route) => route.fulfill({
+    json: { you, actions: { 'access.save': { ok: false, why: 'locks_you_out', args: { you } } } },
+  }));
+}
+
 async function openAccessTab(page) {
   await page.click('#settings-btn');
   await expect(page.locator('#modal-overlay')).toBeVisible();
@@ -70,6 +83,7 @@ test.describe('접속 허용 목록', () => {
   // FR-ACL-24: 자기를 자르는 저장에는 한 걸음 확인이 붙는다. 확인 없이 저장되면
   // 원격 사용자가 스스로를 끊는다.
   test('자기 주소를 허용하지 않는 목록은 확인을 받는다', async ({ page }) => {
+    await lockedOut(page, '198.51.100.7');
     await openAccessTab(page);
     // 목록에는 자기와 무관한 대역 하나만 두고 적용을 켠다.
     await page.click('#acl-add');
@@ -83,10 +97,30 @@ test.describe('접속 허용 목록', () => {
     const dialog = page.locator('.ui-modal.acl-confirm');
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText('차단');
+    // 확인창의 주소는 서버 답의 `you` 다.
+    await expect(dialog.locator('code')).toHaveText('198.51.100.7');
     // 취소하면 저장되지 않는다 — 상태 문구가 저장을 말하지 않아야 한다.
     await dialog.getByRole('button', { name: '취소' }).click();
     await expect(dialog).toHaveCount(0);
     await expect(page.locator('#acl-status')).not.toHaveText('저장했습니다');
+  });
+
+  // X-d: loopback 은 이 기계 자신이다 — 게이트가 언제나 들이므로 잠기지 않고, 확인 없이 저장된다.
+  // 화면이 IPv4 로 따로 판정하던 때에는 여기서도 확인창을 띄웠다.
+  test('loopback 접속은 목록과 무관하게 잠기지 않아 확인 없이 저장된다', async ({ page }) => {
+    await openAccessTab(page);
+    await page.click('#acl-add');
+    await page.locator('#acl-list .acl-row').last().locator('.acl-value').fill('203.0.113.0/24');
+    await page.locator('#acl-enabled').check();
+    await page.click('#acl-save');
+    await expect(page.locator('#acl-status')).toHaveText('저장했습니다');
+    await expect(page.locator('.ui-modal.acl-confirm')).toHaveCount(0);
+    // 저장 뒤에도 이 브라우저는 여전히 들어온다.
+    expect((await page.request.get('/api/access')).status()).toBe(200);
+    await page.evaluate(() => fetch('/api/access', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: false, entries: [], hosts: [] }),
+    }));
   });
 
   // FR-ACL-37: 축② — "이 컴퓨터의 별명". 자리가 "지금 내 주소" 와 "허용 목록"

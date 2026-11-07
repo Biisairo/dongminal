@@ -66,6 +66,7 @@ var Catalog = Table{
 
 	SandboxRuntimeStart: {apierr.CodeRuntimeMissing, apierr.CodeRuntimeStartManual},
 	TermUpload:          {apierr.CodeUploadNoToolCwd},
+	AccessSave:          {apierr.CodeLocksYouOut},
 }
 
 // fsMissing 은 대상을 읽지 못한 사유다 — 파일 표면의 os 오류 표(`apierr.FS`)가 낸다.

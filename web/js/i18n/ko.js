@@ -1220,6 +1220,7 @@ I18N.register('ko', {
   'why.member_not_attached': '탭에 붙어 있지 않은 멤버입니다',
   'why.runtime_missing': '컨테이너 런타임(docker)이 설치되어 있지 않습니다',
   'why.runtime_start_manual': '이 운영체제에서는 런타임을 직접 시작해야 합니다',
+  'why.locks_you_out': '저장하면 지금 접속한 주소({you})가 막힙니다',
   'why.upload_no_tool_cwd': '이 터미널의 작업 폴더를 알 수 없어 올리지 않았습니다',
   'why.loading': '확인하는 중…',
   'why.no_head': '커밋이 없어 HEAD 로 되돌릴 수 없습니다',

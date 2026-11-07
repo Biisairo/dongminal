@@ -72,55 +72,6 @@ Object.assign(App.prototype, {
     };
   },
 
-  _aclV4(s){
-    const p=String(s).split('.');
-    if(p.length!==4) return null;
-    let n=0;
-    for(const x of p){
-      const v=Number(x);
-      if(!Number.isInteger(v)||v<0||v>255||x==='') return null;
-      n=n*256+v;
-    }
-    return n>>>0;
-  },
-
-  _aclCidrHas(cidr,ip){
-    const i=cidr.indexOf('/');
-    if(i<0) return false;
-    const bits=Number(cidr.slice(i+1));
-    const a=this._aclV4(cidr.slice(0,i)),b=this._aclV4(ip);
-    if(a===null||b===null||!Number.isInteger(bits)||bits<0||bits>32) return false;
-    if(bits===0) return true;
-    const mask=(-1<<(32-bits))>>>0;
-    return ((a&mask)>>>0)===((b&mask)>>>0);
-  },
-
-  /**
-   * 저장하려는 목록이 지금 이 브라우저를 통과시키는가.
-   *
-   * **모르면 통과로 친다.** 이 판정은 경고를 낼지 말지를 정할 뿐이고, 확신 없이
-   * 경고를 띄우면 사용자가 경고를 읽지 않게 된다. 아직 해석되지 않은 새 호스트명·
-   * IPv6 대역이 그 "모르는" 경우다.
-   */
-  _aclCoversYou(cfg,you,known){
-    if(!you) return true;
-    for(const e of cfg.entries){
-      if(!e.enabled) continue;
-      if(e.value===you) return true;
-      if(e.value.indexOf('/')>=0){
-        if(this._aclCidrHas(e.value,you)) return true;
-        // 판정할 수 없는 것은 **IPv6 대역**뿐이다. IPv4 대역이라면 상대가
-        // IPv6 주소여도 결론은 확실하다 — 포함하지 않는다.
-        if(this._aclV4(e.value.slice(0,e.value.indexOf('/')))===null) return true;
-        continue;
-      }
-      const v=(known||[]).find(x=>x.value===e.value);
-      if(v&&v.resolved&&v.resolved.indexOf(you)>=0) return true;
-      if(!v&&!/^[0-9.]+$/.test(e.value)&&e.value.indexOf(':')<0) return true; // 해석 전인 새 이름
-    }
-    return false;
-  },
-
   _aclHostRow(e){
     return this._aclRow(e,{placeholder:'macmini-office',plain:true});
   },
@@ -136,13 +87,11 @@ Object.assign(App.prototype, {
       const r=await apiGet('/api/access');
       if(!r.ok) return r;
       const v=r.data||{};
-      this._aclKnown=v.entries||[];
-      this._aclYou=v.you||'';
       document.getElementById('acl-enabled').checked=!!v.enabled;
       const you=document.getElementById('acl-you');
       you.textContent=v.you||t('core.unknown_paren');
       you.title=(v.self&&v.self.length)?t('acl.self_addrs',{addrs:v.self.join(', ')}):'';
-      for(const e of this._aclKnown) box.appendChild(this._aclRow(e));
+      for(const e of (v.entries||[])) box.appendChild(this._aclRow(e));
       // FR-ACL-35: 서버가 자기를 무엇으로 아는지, 지금 어떤 이름으로 불렸는지.
       // 이 둘을 볼 수 없어서 U-18 의 원인을 아무도 짚지 못했다.
       const hn=document.getElementById('acl-hostname');
@@ -175,15 +124,20 @@ Object.assign(App.prototype, {
     const hostAdd=document.getElementById('acl-host-add');
     if(hostAdd) hostAdd.addEventListener('click',()=>
       document.getElementById('acl-host-list').appendChild(this._aclHostRow()));
-    save.addEventListener('click',()=>{
+    save.addEventListener('click',async()=>{
       const cfg=this._aclCollect();
-      if(!cfg.enabled||this._aclCoversYou(cfg,this._aclYou,this._aclKnown)){
+      // 잠기는지는 서버가 게이트와 같은 판정기로 답한다 (SERVER_DRIVEN_ACTIONS_SRS X-d). 묻기가
+      // 실패하면 저장으로 간다 — 잘못된 값이면 PUT 이 같은 사유를 보인다.
+      const r=await apiPost('/api/access/check',cfg);
+      const a=r.ok&&r.data&&r.data.actions?r.data.actions['access.save']:null;
+      if(!a||a.ok){
         this._aclSave(cfg);
         return;
       }
+      const you=(r.data&&r.data.you)||'';
       // FR-ACL-24: 확인은 한 걸음이다 (CONFIRM_ONE_STAGE_SRS).
       /**
-       * FE-17: **마크업을 문자열로 잇지 않는다.** `_aclYou` 는 서버가 준 값이지만
+       * FE-17: **마크업을 문자열로 잇지 않는다.** `you` 는 서버가 준 값이지만
        * 그 값의 재료는 **이 요청의 출발지·Host** 다 — 즉 바깥이 정한다. 서버가
        * 주었다는 사실은 안전의 근거가 되지 않는다.
        *
@@ -195,7 +149,7 @@ Object.assign(App.prototype, {
       const p1=document.createElement('p');
       p1.appendChild(document.createTextNode(t('acl.lockout_p1a')));
       const code=document.createElement('code');
-      code.textContent=this._aclYou||'';
+      code.textContent=you;
       p1.appendChild(code);
       p1.appendChild(document.createTextNode(t('acl.lockout_p1b')));
       const p2=document.createElement('p');

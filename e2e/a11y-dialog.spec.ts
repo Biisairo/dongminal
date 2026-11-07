@@ -145,6 +145,11 @@ test.describe('접근성 — 모달의 시맨틱과 포커스 (FR-A11Y-18 / UX-3
   });
 
   test('TC-A11Y-9: 중첩 모달의 Escape 는 안쪽부터 닫는다', async ({ page }) => {
+    // loopback 접속은 잠기지 않는다는 서버의 답을, 원격에서 붙은 것처럼 바꾼다 (X-d) —
+    // 재는 것은 확인창의 포커스다.
+    await page.route('**/api/access/check', (route) => route.fulfill({
+      json: { you: '198.51.100.7', actions: { 'access.save': { ok: false, why: 'locks_you_out', args: { you: '198.51.100.7' } } } },
+    }));
     await waitForInit(page);
     await openSettings(page);
     await page.click('button.mtab[data-tab="access"]');

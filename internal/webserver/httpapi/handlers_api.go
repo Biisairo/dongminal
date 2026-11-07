@@ -153,6 +153,7 @@ var apiRoutes = []apiRoute{
 	// 방어가 아니면서 원격 관리만 불가능하게 만든다 (FR-ACL-21).
 	httproute.Get("/api/access", (*Server).apiAccessGet),
 	httproute.Put("/api/access", (*Server).apiAccessPut),
+	httproute.Post("/api/access/check", (*Server).apiAccessCheck),
 	httproute.Post("/api/upload", (*Server).apiUpload),
 	httproute.Get("/api/download", (*Server).apiDownload),
 	httproute.Get("/api/cwd", (*Server).apiCwd),

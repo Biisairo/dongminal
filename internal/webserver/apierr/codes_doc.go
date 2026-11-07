@@ -62,6 +62,7 @@ var CodeDoc = map[string]Doc{
 	// ── 접근 ──
 	CodeAccessUnready: {"허용 목록 계층이 아직 서지 않았습니다.", "잠시 뒤 다시 시도하세요."},
 	CodeHostRejected:  {"이 서버가 그 이름으로 불릴 수 없습니다.", "접속에 쓴 호스트 이름을 Settings ▸ Access 의 hosts 에 더하세요."},
+	CodeLocksYouOut:   {"저장하려는 허용 목록이 지금 접속한 주소(args.you)를 들이지 않습니다. 거절이 아니라 경고입니다.", "그 주소를 목록에 더하거나, 다른 길로 접속할 수 있을 때만 저장하세요."},
 
 	// ── 명령 ──
 	CodeUnknownAction: {"모르는 명령입니다.", "commands.md 의 목록을 확인하세요. 판이 뒤진 서버일 수도 있습니다."},

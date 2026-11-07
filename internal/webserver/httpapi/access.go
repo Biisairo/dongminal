@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"dongminal/internal/shared/dmlog"
+	"dongminal/internal/webserver/action"
 	"dongminal/internal/webserver/apierr"
 	"encoding/json"
 	"errors"
@@ -148,27 +149,9 @@ var errAccessSaveFailed = errors.New("허용 목록을 저장하지 못했습니
 // 저장하지 않는다** (FR-ACL-18) — 부분 저장은 사용자가 건 규칙과 실제 규칙을
 // 어긋나게 만든다.
 func (s *accessStore) setConfig(cfg accessConfig) error {
-	entries := make([]accessEntry, 0, len(cfg.Entries))
-	for i, e := range cfg.Entries {
-		v := strings.TrimSpace(e.Value)
-		if err := validateAccessValue(v); err != nil {
-			return fmt.Errorf("entries[%d]: %w", i, err)
-		}
-		e.Value = v
-		e.Label = strings.TrimSpace(e.Label)
-		entries = append(entries, e)
-	}
-	// FR-ACL-30: 축②도 같은 규약이다 — 하나라도 유효하지 않으면 아무것도 저장하지
-	// 않는다. 축①보다 좁게 받으므로(FR-ACL-29) 검증 함수를 따로 쓴다.
-	hosts := make([]accessEntry, 0, len(cfg.Hosts))
-	for i, e := range cfg.Hosts {
-		v, err := normalizeHostAlias(e.Value)
-		if err != nil {
-			return fmt.Errorf("hosts[%d]: %w", i, err)
-		}
-		e.Value = v
-		e.Label = strings.TrimSpace(e.Label)
-		hosts = append(hosts, e)
+	norm, err := normalizeAccessConfig(cfg)
+	if err != nil {
+		return err
 	}
 	// SAFETY_CORRECTNESS_SRS FR-SAF-1·2 / D-SAF-1: **저장에 실패하면 메모리도
 	// 되돌린다.**
@@ -184,7 +167,7 @@ func (s *accessStore) setConfig(cfg accessConfig) error {
 	//             `errAccessSaveFailed` 를 돌려주면서 메모리는 바꾼 채 두었다
 	s.mu.Lock()
 	prev := s.cfg
-	s.cfg = accessConfig{Enabled: cfg.Enabled, Entries: entries, Hosts: hosts}
+	s.cfg = norm
 	s.rebuildLocked()
 	data, err := json.MarshalIndent(s.cfg, "", "  ")
 	s.mu.Unlock()
@@ -206,6 +189,34 @@ func (s *accessStore) setConfig(cfg accessConfig) error {
 	// 화면이 "해석 안 됨" 으로 보인다.
 	s.refresh()
 	return nil
+}
+
+// normalizeAccessConfig 는 저장 전의 검증·정규화다. 저장(`setConfig`)과 잠김 묻기
+// (`checkSave`)가 같이 부른다 — 묻기가 통과한 값이 저장에서 거절되면 안 된다.
+func normalizeAccessConfig(cfg accessConfig) (accessConfig, error) {
+	entries := make([]accessEntry, 0, len(cfg.Entries))
+	for i, e := range cfg.Entries {
+		v := strings.TrimSpace(e.Value)
+		if err := validateAccessValue(v); err != nil {
+			return accessConfig{}, fmt.Errorf("entries[%d]: %w", i, err)
+		}
+		e.Value = v
+		e.Label = strings.TrimSpace(e.Label)
+		entries = append(entries, e)
+	}
+	// FR-ACL-30: 축②도 같은 규약이다 — 하나라도 유효하지 않으면 아무것도 저장하지
+	// 않는다. 축①보다 좁게 받으므로(FR-ACL-29) 검증 함수를 따로 쓴다.
+	hosts := make([]accessEntry, 0, len(cfg.Hosts))
+	for i, e := range cfg.Hosts {
+		v, err := normalizeHostAlias(e.Value)
+		if err != nil {
+			return accessConfig{}, fmt.Errorf("hosts[%d]: %w", i, err)
+		}
+		e.Value = v
+		e.Label = strings.TrimSpace(e.Label)
+		hosts = append(hosts, e)
+	}
+	return accessConfig{Enabled: cfg.Enabled, Entries: entries, Hosts: hosts}, nil
 }
 
 // restore 는 저장에 실패한 변경을 되돌린다 (FR-SAF-2).
@@ -398,7 +409,11 @@ func (s *accessStore) hasHostAlias(name string) bool {
 
 // allowed 는 이 출발지를 들여보낼지의 판정 전부다.
 func (s *accessStore) allowed(addr netip.Addr) bool {
-	m := s.match.Load()
+	return s.match.Load().allowed(addr)
+}
+
+// allowed 는 판정기 하나의 판정이다. 게이트와 잠김 묻기(`checkSave`)가 같이 부른다.
+func (m *accessMatcher) allowed(addr netip.Addr) bool {
 	addr = addr.Unmap()
 	// FR-ACL-5: 자기 주소는 목록·토글과 무관하다. loopback 은 인터페이스 수집이
 	// 실패해도 남아야 하므로 목록 대조가 아니라 성질로 판정한다.
@@ -441,16 +456,21 @@ func (m *accessMatcher) isSelf(addr netip.Addr) bool {
 
 // rebuildLocked 는 cfg·self·resolved 로 스냅샷을 새로 만든다. s.mu 를 쥔 채 부른다.
 func (s *accessStore) rebuildLocked() {
+	s.match.Store(buildMatcher(s.cfg, s.self, s.resolved))
+}
+
+// buildMatcher 는 설정 하나와 이 기계의 사실(자기 주소·해석 결과)로 판정기를 만든다.
+func buildMatcher(cfg accessConfig, self []netip.Addr, resolved map[string][]netip.Addr) *accessMatcher {
 	m := &accessMatcher{
-		enabled: s.cfg.Enabled,
-		self:    make(map[netip.Addr]struct{}, len(s.self)),
+		enabled: cfg.Enabled,
+		self:    make(map[netip.Addr]struct{}, len(self)),
 		addrs:   map[netip.Addr]struct{}{},
 		aliases: map[string]struct{}{},
 	}
-	for _, a := range s.self {
+	for _, a := range self {
 		m.self[a] = struct{}{}
 	}
-	for _, e := range s.cfg.Entries {
+	for _, e := range cfg.Entries {
 		if !e.Enabled {
 			continue // FR-ACL-17
 		}
@@ -463,18 +483,50 @@ func (s *accessStore) rebuildLocked() {
 			continue
 		}
 		// FR-ACL-16: 해석되지 않은 호스트명은 아무도 통과시키지 않는다.
-		for _, a := range s.resolved[e.Value] {
+		for _, a := range resolved[e.Value] {
 			m.addrs[a] = struct{}{}
 		}
 	}
 	// FR-ACL-31: 축②의 켜진 항목만. 손으로 고친 `access.json` 은 정규화를 지나지
 	// 않았을 수 있다 — 대소문자와 끝 점을 여기서 맞춘다.
-	for _, e := range s.cfg.Hosts {
+	for _, e := range cfg.Hosts {
 		if e.Enabled {
 			m.aliases[strings.ToLower(strings.TrimSuffix(e.Value, "."))] = struct{}{}
 		}
 	}
-	s.match.Store(m)
+	return m
+}
+
+// checkSave 는 저장하려는 목록이 출발지 `you` 를 잠그는지의 답이다 (SERVER_DRIVEN_ACTIONS_SRS
+// X-d). 게이트와 같은 판정기(`buildMatcher`·`allowed`)로 본다 — 자기 주소·IPv6·별칭이 같다.
+//
+// **모르면 경고하지 않는다.** 해석 기록이 없는 새 호스트명은 저장 뒤에야 해석되므로, 그
+// 이름이 출발지를 품을지 지금은 모른다. 확신 없이 경고하면 사용자가 경고를 읽지 않게 된다.
+//
+// 이 답은 거절이 아니라 확인을 부르는 경고다 (FR-ACL-24) — `setConfig` 는 이것으로 막지 않는다.
+func (s *accessStore) checkSave(cfg accessConfig, you netip.Addr) (action.Answer, error) {
+	norm, err := normalizeAccessConfig(cfg)
+	if err != nil {
+		return action.Answer{}, err
+	}
+	s.mu.Lock()
+	m := buildMatcher(norm, s.self, s.resolved)
+	unknown := false
+	for _, e := range norm.Entries {
+		if !e.Enabled || !isPlainHostname(e.Value) {
+			continue
+		}
+		_, ok := s.resolved[e.Value]
+		_, failed := s.resErr[e.Value]
+		if !ok && !failed {
+			unknown = true
+		}
+	}
+	s.mu.Unlock()
+	if m.allowed(you) || unknown {
+		return action.Allow(), nil
+	}
+	return action.Deny(http.StatusConflict, apierr.CodeLocksYouOut, map[string]any{"you": you.Unmap().String()}), nil
 }
 
 func (s *accessStore) view() accessView {
@@ -638,6 +690,37 @@ func (s *Server) apiAccessPut(w http.ResponseWriter, r *http.Request) {
 		s.Commands.Broadcast(accessChangedPayload())
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+// apiAccessCheck 는 저장 전 잠김 경고의 답이다 (X-d). 본문은 PUT 과 같고, 검증 실패도 같은 400 이다.
+func (s *Server) apiAccessCheck(w http.ResponseWriter, r *http.Request) {
+	if s.Access == nil {
+		httpErr(w, "access store unavailable", http.StatusServiceUnavailable, apierr.CodeAccessUnready)
+		return
+	}
+	body, err := httpreq.Read(w, r, 0)
+	if err != nil {
+		httpErr(w, "read body", httpreq.Status(err), bodyReadCode(err))
+		return
+	}
+	var cfg accessConfig
+	if err := json.Unmarshal(body, &cfg); err != nil {
+		httpErr(w, "invalid json", http.StatusBadRequest, apierr.CodeInvalidJSON)
+		return
+	}
+	you, ok := remoteIP(r.RemoteAddr)
+	if !ok {
+		// 출발지를 모르면 잠길지도 모른다 — 경고하지 않는다(화면의 종전 규칙과 같다).
+		httpresp.JSON(w, http.StatusOK, map[string]any{"actions": map[string]action.Answer{action.AccessSave: action.Allow()}})
+		return
+	}
+	a, err := s.Access.checkSave(cfg, you)
+	if err != nil {
+		fail(w, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+	httpresp.JSON(w, http.StatusOK, map[string]any{"actions": map[string]action.Answer{action.AccessSave: a},
+		"you": you.Unmap().String()})
 }
 
 func accessChangedPayload() []byte {

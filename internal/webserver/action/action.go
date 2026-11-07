@@ -132,6 +132,8 @@ const (
 	SandboxRuntimeStart = "sandbox.runtime.start"
 	// TermUpload 는 터미널에 끌어 놓은 파일을 그 도구의 cwd 로 올리는 것이다 (X-c).
 	TermUpload = "term.upload"
+	// AccessSave 는 접근 허용 목록 저장의 잠김 경고다 (X-d). 거절하지 않는다.
+	AccessSave = "access.save"
 )
 
 // Table 은 동작 ID → 그 판정이 낼 수 있는 사유 코드다 (M-3).

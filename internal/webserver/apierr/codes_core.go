@@ -59,6 +59,8 @@ const (
 	// ── 접근 ──
 	CodeAccessUnready = "access_store_unavailable"
 	CodeHostRejected  = "host_rejected"
+	// X-d: 저장하려는 목록이 지금 출발지를 잠근다 — 거절이 아니라 경고의 사유다.
+	CodeLocksYouOut = "locks_you_out"
 
 	// ── 명령 ──
 	CodeUnknownAction = "unknown_action"
@@ -81,7 +83,7 @@ var coreCodes = []string{
 	CodeWorkUnready, CodeStaleRev, CodeIfMatchRequired, CodeSaveFailed,
 	CodeNotAFile, CodeNotAnImage, CodeAbsPathNeeded, CodeFileChanged,
 	CodeEncodingUnmappable, CodeEncodingUndecodable,
-	CodeAccessUnready, CodeHostRejected,
+	CodeAccessUnready, CodeHostRejected, CodeLocksYouOut,
 	CodeUnknownAction, CodeCorruptAsset,
 	CodeUpdateUnready,
 }

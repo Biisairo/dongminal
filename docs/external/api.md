@@ -172,6 +172,7 @@
 | GET | `/api/health` | 사람이 읽는 상태. 판·가동 시간·도구 수·데몬 연결과 **판 불일치**·워크스페이스 rev·마지막 적재/영속 실패. 어긋난 것이 있어도 200 이며 사실은 본문에 있다 |
 | GET | `/api/diag` | 기계가 읽는 집계. `tools`·`ws`·`goroutines`·`allocMB`·`persistErr`·`gate.{access,request}`(게이트별 거절 수)·`reconnects`·`uptime`·`version`·`logLevel`. **개별 식별 정보를 싣지 않는다** — 주소·경로·도구 이름이 없다 |
 | GET | `/api/access` | 접속 허용 목록(ACL)의 현재 설정 |
+| POST | `/api/access/check` | 본문은 `PUT /api/access` 와 같다. 그 목록을 저장하면 지금 출발지가 잠기는지의 답 `{actions:{"access.save":{ok,why,args}}, you}` — 잠기면 `locks_you_out`(`args.you`). 저장하지 않으며, 거절이 아니라 경고다. 검증 실패는 PUT 과 같은 400 |
 | ANY | `/api/open-url/where` | URL 을 **어디서** 열지의 판정만 낸다 (부작용 없음) |
 
 ### 워크스페이스 되돌리기
