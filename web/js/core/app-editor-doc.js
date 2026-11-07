@@ -54,6 +54,10 @@ Object.assign(App.prototype, {
       d.bom=h.get('X-File-BOM')==='1';
       d.decodable=h.get('X-File-Decodable')!=='0';
     }
+    // 문서의 동작 답 (SERVER_DRIVEN_ACTIONS_SRS X-e). 본문이 문서라 헤더로 온다.
+    d.actions=null;
+    const acts=h.get('X-File-Actions');
+    if(acts){try{d.actions=JSON.parse(acts)}catch{d.actions=null}}
   },
 
   // 버퍼는 문서마다 하나이고 경로로 찾는 전역 등록소가 없다 — 고아가 생길 자리가 없다.
@@ -150,13 +154,14 @@ Object.assign(App.prototype, {
    */
   async edDocConvertUtf8(filePath){
     const d=this.edDocAt(filePath);
-    if(!d||!d.buf||d.decodable===false||(d.encoding==='utf-8'&&!d.bom)) return false;
+    // 변환할 수 있는지는 서버의 답이다 (X-e). 저장도 `convertFrom` 으로 같은 판정을 받는다.
+    if(!d||!d.buf||!actionOk(d,'file.convert_utf8')) return false;
     if(!await this._edEncConfirm(ENC_CONVERT_CONFIRM)) return false;
     const ui=[...d.views].find(x=>x&&x._noteSaveFailed)||null;
     if(d.savePromise) await d.savePromise;
     const prev={encoding:d.encoding,bom:d.bom};
     d.encoding='utf-8'; d.bom=false;
-    const ok=await this._edDocSaveOnce(filePath,d,ui,{force:true});
+    const ok=await this._edDocSaveOnce(filePath,d,ui,{force:true,convertFrom:prev.encoding});
     if(!ok){d.encoding=prev.encoding;d.bom=prev.bom}
     this.updateStatusBar();
     return ok;
@@ -204,11 +209,13 @@ Object.assign(App.prototype, {
     const sentDoc=d.buf.doc;
     const content=d.buf.text(sentDoc);
     try{
-      let r=await this.edDocWrite(filePath,content,d.stamp,d);
-      // FR-EXC-5·7·9: 409 는 우리가 읽은 뒤 디스크가 바뀌었다는 뜻이다.
-      if(r.status===409){
+      const from=o&&o.convertFrom;
+      let r=await this.edDocWrite(filePath,content,d.stamp,d,from);
+      // FR-EXC-5·7·9: `file_changed_on_disk` 는 우리가 읽은 뒤 디스크가 바뀌었다는 뜻이다.
+      // 다른 409(변환의 `already_utf8`)는 경합이 아니다 — 코드로 가른다.
+      if(r.status===409&&r.headers&&r.headers.get('X-Error-Code')==='file_changed_on_disk'){
         if(!ui||!await ui._confirmConflict()) return false;
-        r=await this.edDocWrite(filePath,content,'',d);
+        r=await this.edDocWrite(filePath,content,'',d,from);
       }
       if(r.status===422&&r.data&&r.data.error==='encoding_unmappable'){
         if(ui) ui._noteUnmappable(r.data,d);
@@ -221,6 +228,8 @@ Object.assign(App.prototype, {
       // 저장 중 문서가 옮겨지거나 해제됐으면 그 문서에 적용하지 않는다(03 §3A-5).
       if(this.edDocAt(filePath)===d){
         d.stamp=(r.data&&r.data.stamp)||'';
+        // X-e: 방금 쓴 바이트의 답이다 — 변환 뒤 메뉴가 낡지 않는다.
+        if(r.data&&r.data.actions) d.actions=r.data.actions;
         d.savedDoc=sentDoc;
         this.edDocDirtySync(d);
       }
@@ -238,10 +247,12 @@ Object.assign(App.prototype, {
   // 부르는 것이 곧 "검사하지 말라" 이므로, 그 뜻을 한 자리에 모아 둔다.
   // REPO_FIX 03 §3A-2: 문서의 인코딩·BOM 으로 되돌려 쓴다. 판별을 모르면(옛 서버)
   // 싣지 않는다 — 서버가 UTF-8 원문 그대로 쓴다.
-  edDocWrite(filePath,content,stamp,d){
+  // `convertFrom` 은 UTF-8 변환일 때 문서를 연 인코딩이다(X-e) — 서버가 그것으로 변환을 판정한다.
+  edDocWrite(filePath,content,stamp,d,convertFrom){
     const body={path:filePath,content};
     if(stamp) body.stamp=stamp;
     if(d&&d.encoding){body.encoding=d.encoding;body.bom=!!d.bom}
+    if(convertFrom) body.convertFrom=convertFrom;
     return apiPost('/api/file/write',body);
   },
 

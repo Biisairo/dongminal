@@ -57,10 +57,9 @@ Object.assign(App.prototype, {
         onClick:()=>this.edDocReopen(path,id)});
     }
     items.push({sep:true});
-    let why='';
-    if(d.decodable===false) why=ENC_CONVERT_NO_DECODE;
-    else if(d.encoding==='utf-8'&&!d.bom) why=ENC_CONVERT_ALREADY;
-    items.push({id:'to-utf8',label:ENC_CONVERT,disabled:why||false,onClick:()=>this.edDocConvertUtf8(path)});
+    // 변환할 수 있는지는 서버의 답이다 (SERVER_DRIVEN_ACTIONS_SRS X-e).
+    const st=actionState(d.actions?d.actions['file.convert_utf8']:null,false);
+    items.push({id:'to-utf8',label:ENC_CONVERT,disabled:st.enabled?false:st.why,onClick:()=>this.edDocConvertUtf8(path)});
     UIKit.menu(items,{at,cls:'sb-enc-menu',flipGap:4});
   },
 });

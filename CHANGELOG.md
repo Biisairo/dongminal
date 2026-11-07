@@ -97,6 +97,10 @@
   접속한 주소를 막는지 답합니다. 게이트와 같은 판정이라 IPv6 대역·별칭·이 기계 자신의 주소가 정확히 반영됩니다.
   이전에는 화면이 IPv4 만 따로 판정해서, 이 기계에서(loopback) 접속해도 경고했습니다. 이제 loopback 과 이 기계의
   주소는 언제나 들어오므로 경고하지 않습니다.
+- **UTF-8 변환 저장을 서버가 판정합니다.** `POST /api/file/write` 가 `convertFrom`(문서를 연 인코딩)을 받습니다. 실으면
+  변환으로 보고, 디스크의 바이트를 그 인코딩으로 해독하지 못하면 422 `encoding_undecodable`, 이미 BOM 없는 UTF-8 이면
+  409 `already_utf8` 로 거절합니다. `convertFrom` 이 없는 저장은 그대로입니다. 변환할 수 있는지는 `GET /api/file/read?decode=1`
+  의 헤더 `X-File-Actions` 와 저장 응답의 `actions` 로 알 수 있습니다.
 
 ## [1.2.3] — 2026-11-05
 

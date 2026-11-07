@@ -57,6 +57,7 @@ var CodeDoc = map[string]Doc{
 	CodeAbsPathNeeded:       {"경로가 절대 경로여야 합니다.", "`/` 로 시작하는 경로를 보내세요."},
 	CodeEncodingUnmappable:  {"파일의 인코딩으로 표현할 수 없는 글자가 있어 저장하지 않았습니다.", "응답의 줄·열에 있는 글자를 고치거나 \"UTF-8 로 변환해 저장\" 을 쓰세요. 파일은 그대로입니다."},
 	CodeEncodingUndecodable: {"그 인코딩으로 읽을 수 없는 파일입니다.", "다른 인코딩으로 다시 열어 보세요. 문서는 그대로입니다."},
+	CodeAlreadyUTF8:         {"이미 BOM 없는 UTF-8 입니다 — 변환할 것이 없습니다.", "읽기 응답의 X-File-Actions 로 미리 확인하세요. convertFrom 없이 보내면 일반 저장입니다."},
 	CodeFileChanged:         {"저장하려는 파일이 그사이 디스크에서 바뀌었습니다.", "바뀐 내용을 확인한 뒤 다시 저장하세요. 이 거절이 남의 변경을 덮는 것을 막았습니다."},
 
 	// ── 접근 ──

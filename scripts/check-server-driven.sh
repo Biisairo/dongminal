@@ -31,6 +31,7 @@ REMOVED=(
   EDITOR_ADD_NEED_PATH  # F-m: 편집기 루트 추가의 빈 경로
   startTryable  # X-b: 샌드박스 시작을 화면이 고르던 사실
   _aclV4 _aclCidrHas _aclCoversYou  # X-d: 잠김 경고의 IPv4 판정
+  ENC_CONVERT_NO_DECODE ENC_CONVERT_ALREADY  # X-e: UTF-8 변환의 화면 판정 문구
 )
 
 pat=$(IFS='|'; echo "${REMOVED[*]}")

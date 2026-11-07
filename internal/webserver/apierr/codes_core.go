@@ -55,6 +55,8 @@ const (
 	// REPO_FIX 03 §3A-1·3A-2: 인코딩 왕복의 두 거절.
 	CodeEncodingUnmappable  = "encoding_unmappable"
 	CodeEncodingUndecodable = "encoding_undecodable"
+	// SERVER_DRIVEN_ACTIONS_SRS X-e: UTF-8 로 변환할 것이 없다.
+	CodeAlreadyUTF8 = "already_utf8"
 
 	// ── 접근 ──
 	CodeAccessUnready = "access_store_unavailable"
@@ -82,7 +84,7 @@ var coreCodes = []string{
 	CodeRuntimeMissing, CodeRuntimeStartManual, CodeUploadNoToolCwd,
 	CodeWorkUnready, CodeStaleRev, CodeIfMatchRequired, CodeSaveFailed,
 	CodeNotAFile, CodeNotAnImage, CodeAbsPathNeeded, CodeFileChanged,
-	CodeEncodingUnmappable, CodeEncodingUndecodable,
+	CodeEncodingUnmappable, CodeEncodingUndecodable, CodeAlreadyUTF8,
 	CodeAccessUnready, CodeHostRejected, CodeLocksYouOut,
 	CodeUnknownAction, CodeCorruptAsset,
 	CodeUpdateUnready,

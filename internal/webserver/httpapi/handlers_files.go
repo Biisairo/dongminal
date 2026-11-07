@@ -537,6 +537,9 @@ type fileWriteReq struct {
 	// FR-EXC-11: 읽을 때 받은 표식. **비어 있으면 검사하지 않는다** (FR-EXC-6a) —
 	// 옛 클라이언트와, 확인창에서 사용자가 승인한 덮어쓰기가 그 길로 온다.
 	Stamp string `json:"stamp"`
+	// X-e · D-SDA-10: UTF-8 변환이면 문서를 연 인코딩이다. 서버가 디스크 바이트로 변환을
+	// 판정한다(`convertUTF8Answer`). 비면 일반 저장이다.
+	ConvertFrom string `json:"convertFrom"`
 }
 
 func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
@@ -577,6 +580,16 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 		if cur := stampOfPath(target); cur != "" && cur != req.Stamp {
 			httpErr(w, "file changed on disk", http.StatusConflict, apierr.CodeFileChanged)
 			return
+		}
+	}
+	// X-e: 변환은 디스크의 바이트로 판정한다. 파일이 없거나 읽지 못하면 판정하지 않는다 —
+	// 일반 저장과 같은 길이다.
+	if req.ConvertFrom != "" {
+		if raw, err := os.ReadFile(target); err == nil {
+			if a := convertUTF8Answer(raw, req.ConvertFrom); !a.OK {
+				httpErr(w, a.Why, a.Status, a.Why)
+				return
+			}
 		}
 	}
 	data, perm, un, err := fileWriteBytes(target, req)
@@ -621,7 +634,9 @@ func (s *Server) apiFileWrite(w http.ResponseWriter, r *http.Request) {
 	// FR-EXC-11: **새 표식을 함께 준다.** 없으면 클라이언트가 든 표식이 방금 쓴
 	// 내용보다 낡아서, 다음 저장이 제 손으로 만든 변경에 걸려 409 가 된다 —
 	// 한 번 저장하면 그 뒤로 아무것도 저장되지 않는다는 뜻이다.
-	httpresp.JSON(w, http.StatusOK, map[string]any{"ok": true, "stamp": stampOfPath(target)})
+	// X-e: 방금 쓴 바이트의 답을 함께 준다 — 변환 뒤 메뉴가 낡지 않는다.
+	httpresp.JSON(w, http.StatusOK, map[string]any{"ok": true, "stamp": stampOfPath(target),
+		"actions": fileActions(data, req.Encoding)})
 }
 
 // fileReadDecoded 는 §3A-1 의 판별·변환 읽기다. `encoding=` 이 있으면 그것으로 엄격
@@ -650,7 +665,39 @@ func (s *Server) fileReadDecoded(w http.ResponseWriter, r *http.Request, f *os.F
 	h.Set("X-File-Encoding", d.Enc)
 	h.Set("X-File-BOM", boolFlag(d.BOM))
 	h.Set("X-File-Decodable", boolFlag(d.Decodable))
+	h.Set(fileActionsHeader, fileActionsJSON(raw, d.Enc))
 	_, _ = io.WriteString(w, d.Text)
+}
+
+// fileActionsHeader 는 읽기 응답이 문서의 동작 답을 싣는 헤더다 (SERVER_DRIVEN_ACTIONS_SRS X-e).
+// 본문은 문서 내용이므로 실을 자리가 헤더뿐이다.
+const fileActionsHeader = "X-File-Actions"
+
+// convertUTF8Answer 는 UTF-8 변환의 판정이다 (X-e · D-SDA-10). 디스크 바이트를 문서를 연
+// 인코딩(`from`)으로 엄격 디코드한다 — 해독하지 못한 문서를 저장하면 치환 문자가 그대로 쓰인다.
+// 읽기·저장 응답의 답과 `convertFrom` 저장의 거절이 이 함수 하나를 부른다.
+func convertUTF8Answer(raw []byte, from string) action.Answer {
+	d, ok := textenc.DecodeAs(raw, from)
+	if !ok {
+		return action.Deny(http.StatusUnprocessableEntity, apierr.CodeEncodingUndecodable, nil)
+	}
+	if d.Enc == textenc.UTF8 && !d.BOM {
+		return action.Deny(http.StatusConflict, apierr.CodeAlreadyUTF8, nil)
+	}
+	return action.Allow()
+}
+
+// fileActions 는 문서 하나의 동작 답이다.
+func fileActions(raw []byte, enc string) map[string]action.Answer {
+	if enc == "" {
+		enc = textenc.UTF8
+	}
+	return map[string]action.Answer{action.FileConvertUTF8: convertUTF8Answer(raw, enc)}
+}
+
+func fileActionsJSON(raw []byte, enc string) string {
+	b, _ := json.Marshal(fileActions(raw, enc))
+	return string(b)
 }
 
 func boolFlag(b bool) string {

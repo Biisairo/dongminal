@@ -1,7 +1,7 @@
 # SRS: 서버가 답하는 동작 가능 여부 — server-driven actions — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 묶음 X·K·N. 묶음 F(§3.5a)·R(§3.6a)는 구현했다. 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)·GV(§3.4a)는 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
+> **남은 것**: 묶음 K·N. 묶음 X(§3.7a)·F(§3.5a)·R(§3.6a)는 구현했다. 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)·GV(§3.4a)는 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
 
 ## 1. 개요 (Introduction)
 
@@ -355,6 +355,7 @@ GV-c 동작 표:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-07 | X-4 구현 — 묶음 X 끝. 사용자 결정 D-SDA-10. 동작 변경 셋. ① **이전**: "UTF-8 로 변환" 은 화면이 `decodable`·`encoding`·`bom` 으로 판정했고, 저장 요청은 일반 저장과 같아 서버가 판정할 수 없었다 / **새**: 읽기 헤더 `X-File-Actions`·저장 응답 `actions` 의 `file.convert_utf8` 답이 메뉴를 정하고, 저장의 `convertFrom` 이 있으면 서버가 디스크 바이트로 같은 함수(`convertUTF8Answer`)를 불러 422 `encoding_undecodable`·409 `already_utf8` 로 거절한다 / **이유**: FR-SDA-73·D-SDA-10. ② **이전**: 화면의 저장은 모든 409 를 디스크 경합으로 읽어 덮어쓰기 확인창을 열었다 / **새**: `X-Error-Code: file_changed_on_disk` 일 때만 경합이다 / **이유**: 새 409 `already_utf8` 은 경합이 아니다. ③ 문구 `editor.enc_convert_already`·`editor.enc_convert_no_decode` 를 `why.already_utf8`·`why.encoding_undecodable` 로 옮겼다(뒤의 것은 코드 단위 문구라 일반 문장으로 바꿨다) |
 | 2026-11-07 | X-3 구현. 동작 변경 둘. ① **이전**: 저장 전 잠김 경고를 화면이 IPv4 만으로 판정했다(`_aclCoversYou`). IPv6 대역은 "모른다" 로 통과시켰고, 자기 주소(loopback·이 기계의 인터페이스)를 몰라 이 기계에서 접속해도 경고했다 / **새**: `POST /api/access/check` 의 답(`access.save`)으로 경고한다. 판정은 게이트와 같은 판정기(`buildMatcher`·`allowed`)이고, 검증은 저장과 같은 함수(`normalizeAccessConfig`)다 / **이유**: §2.1·FR-SDA-72·TC-SDA-9. ② **이전**: 확인창의 주소는 패널을 열 때 받은 값이었다 / **새**: 묻기 응답의 `you` / **이유**: 판정과 같은 요청의 출발지다. 설계 중 정한 것: 해석 기록이 없는 새 호스트명은 경고하지 않는다(종전 규칙 유지). 해석에 실패한 이름은 품지 않는다. e2e 는 loopback 으로 붙으므로 확인창 시험은 답을 위조하고, 실제 서버로는 "loopback 은 확인 없이 저장된다" 를 잰다 |
 | 2026-11-07 | X-2 구현. 동작 변경 둘. ① **이전**: 터미널 드롭은 화면이 `/api/cwd` 의 `source==='tool'` 로 판정하고 받은 cwd 를 `dir` 로 보냈다. `/api/upload` 는 아무 `dir` 이나 받았다 / **새**: `/api/cwd` 가 `actions["term.upload"]` 를 싣고, 화면은 그 답이 참이면 `/api/upload?tool=<id>` 로 보낸다. 서버는 그 순간의 도구 cwd 로 받고, 모르면 409 `upload_no_tool_cwd` 로 거절한다(`termUploadAnswer` 하나). `dir` 모양은 그대로다 / **이유**: FR-SDA-71·D-SDA-6. ② **이전**: cwd 조회와 업로드 사이에 셸이 폴더를 옮기면 옛 폴더에 놓였다 / **새**: 서버가 업로드하는 순간의 cwd 를 쓴다 / **이유**: 화면이 cwd 를 들지 않는다(X-c). 설계 중 정한 것: 거절 토스트는 기존 문구(`core.term_upload_no_cwd`)를 쓴다 — 사유가 하나이고 뜻이 같다. e2e 는 셸의 cwd 를 정할 수 없어, 업로드가 `tool` 모양인지 확인한 뒤 `dir` 로 바꿔 보낸다 |
 | 2026-11-07 | X-1 구현(설계 §3.7a). 사용자 결정 D-SDA-10(X-4 의 모양)을 함께 적었다. 동작 변경 둘. ① **이전**: `POST /api/sandbox/runtime/start` 는 상태를 보지 않았다 — linux 에서는 200 `{started:false, command}`, 미설치에서는 명령을 실행해 보고 실패를 200 으로 답했다 / **새**: 상태를 조회한 뒤 `sandboxStartAnswer` 로 판정해 409 `runtime_missing`·`runtime_start_manual` 로 거절하고, 아무것도 실행하지 않는다 / **이유**: FR-SDA-70·D-SDA-6. ② **이전**: 화면이 `!missing && startTryable` 로 시작 버튼을 골랐다 / **새**: `GET /api/sandbox/runtime` 의 `actions["sandbox.runtime.start"]` 가 버튼·안내 문장·명령 보이기를 정한다. 응답의 `startTryable` 은 공개 계약이라 남긴다 / **이유**: D-SDA-1 |

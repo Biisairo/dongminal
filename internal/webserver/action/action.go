@@ -134,6 +134,8 @@ const (
 	TermUpload = "term.upload"
 	// AccessSave 는 접근 허용 목록 저장의 잠김 경고다 (X-d). 거절하지 않는다.
 	AccessSave = "access.save"
+	// FileConvertUTF8 은 편집기 문서를 UTF-8(BOM 없음)로 변환해 저장하는 것이다 (X-e).
+	FileConvertUTF8 = "file.convert_utf8"
 )
 
 // Table 은 동작 ID → 그 판정이 낼 수 있는 사유 코드다 (M-3).

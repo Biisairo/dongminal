@@ -99,6 +99,33 @@ test('변환 저장: 메뉴에서 CP949 → UTF-8', async ({ page }) => {
   await page.locator('.sb-enc-menu [data-id="to-utf8"]').click();
   await page.locator('.fe-enc-confirm .fe-enc-go').click();
   await expect.poll(() => readFileSync(join(ROOT, 'k3.txt'), 'utf8'), { timeout: 10000 }).toBe('한글\n');
+  // X-e: 저장 응답의 답을 따른다 — 변환한 뒤에는 변환할 것이 없다.
+  await page.evaluate(() => (window as any).app.updateStatusBar());
+  await encItem(page).click();
+  const item = page.locator('.sb-enc-menu [data-id="to-utf8"]');
+  await expect(item).toHaveAttribute('aria-disabled', 'true');
+  await expect(item).toHaveAttribute('title', /이미 BOM 없는 UTF-8/);
+});
+
+/**
+ * SERVER_DRIVEN_ACTIONS_SRS X-e · TC-SDA-10: 변환할 수 있는지는 서버의 답이다. 메뉴는 그 사유를
+ * 보이고, 화면을 거치지 않은 변환 저장(`convertFrom`)도 같은 코드로 거절된다.
+ */
+test('변환 답: 이미 UTF-8 이면 메뉴가 꺼지고, 직접 보낸 변환도 409 already_utf8', async ({ page }) => {
+  writeFileSync(join(ROOT, 'u.txt'), Buffer.from('plain\n', 'utf8'));
+  await enter(page);
+  await open(page, 'u.txt');
+  await encItem(page).click();
+  const item = page.locator('.sb-enc-menu [data-id="to-utf8"]');
+  await expect(item).toHaveAttribute('aria-disabled', 'true');
+  await expect(item).toHaveAttribute('title', /이미 BOM 없는 UTF-8/);
+  const res = await page.evaluate(async (p: string) => {
+    const r = await fetch('/api/file/write', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: p, content: 'x\n', encoding: 'utf-8', convertFrom: 'utf-8' }) });
+    return { status: r.status, code: r.headers.get('X-Error-Code') };
+  }, P('u.txt'));
+  expect(res).toEqual({ status: 409, code: 'already_utf8' });
+  expect(readFileSync(join(ROOT, 'u.txt'), 'utf8')).toBe('plain\n');
 });
 
 test('UTF-16LE 파일이 열리고 저장 뒤 BOM·순서가 보존된다', async ({ page }) => {
@@ -115,4 +142,9 @@ test('어느 인코딩으로도 풀리지 않으면 읽기 전용', async ({ pag
   await open(page, 'bad.txt');
   await expect(encItem(page)).toContainText('읽기 전용');
   expect(await page.evaluate(() => edT.option(edT.of((window as any).app.testing.edActiveEditor()), 'readOnly'))).toBe(true);
+  // X-e: 해독하지 못한 문서는 변환할 수 없다 — 서버의 사유로 꺼진다.
+  await encItem(page).click();
+  const item = page.locator('.sb-enc-menu [data-id="to-utf8"]');
+  await expect(item).toHaveAttribute('aria-disabled', 'true');
+  await expect(item).toHaveAttribute('title', /읽을 수 없는/);
 });
