@@ -48,6 +48,12 @@ const addWindow = (page: Page) =>
     (window as any).app.render();
     return r.win as string;
   });
+// ISSUE_TREE_OPS_SRS FR-ITW-1: 제목 끝에 그 창의 포커스 탭 이름이 붙는다 — 화면의 같은 함수로 읽는다.
+const tabOf = (page: Page, id: string, slot?: number) =>
+  page.evaluate(([w, s]) => {
+    const app = (window as any).app;
+    return app.renderer._rWinTab(app.ws.windows.find((x: any) => x.id === w), s ?? undefined);
+  }, [id, slot ?? null] as const);
 const plainName = (page: Page, id: string) =>
   page.evaluate((w) => (window as any).app.ws.windows.find((x: any) => x.id === w).name, id);
 
@@ -57,7 +63,7 @@ test.describe('제목 — <타입 라벨> · <창 이름>', () => {
     await waitForInit(page);
     const id = await activeWindowOf(page);
     const name = await plainName(page, id);
-    await expect(topName(page)).toHaveText(`창 · ${name}`, { timeout: 10000 });
+    await expect(topName(page)).toHaveText(`창 · ${name} · ${await tabOf(page, id)}`, { timeout: 10000 });
   });
 
   // TC-STB-2
@@ -119,8 +125,8 @@ test.describe('자리 분담 — 칸이 하나일 때와 여럿일 때', () => {
     await focusSlot(page, 0);
 
     await expect(topName(page)).toHaveText('', { timeout: 10000 });
-    await expect(head(page, 0)).toHaveText(`창 · ${n0}`);
-    await expect(head(page, 1)).toHaveText(`창 · ${n1}`);
+    await expect(head(page, 0)).toHaveText(`창 · ${n0} · ${await tabOf(page, w0, 0)}`);
+    await expect(head(page, 1)).toHaveText(`창 · ${n1} · ${await tabOf(page, w1, 1)}`);
   });
 
   // TC-STB-7
@@ -134,7 +140,7 @@ test.describe('자리 분담 — 칸이 하나일 때와 여럿일 때', () => {
     await expect(topName(page)).toHaveText('', { timeout: 10000 });
 
     await slotRemove(page);
-    await expect(topName(page)).toHaveText(`창 · ${n0}`, { timeout: 10000 });
+    await expect(topName(page)).toHaveText(`창 · ${n0} · ${await tabOf(page, w0)}`, { timeout: 10000 });
     await expect(page.locator('#area .slot-head')).toHaveCount(0);
   });
 

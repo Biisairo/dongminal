@@ -67,7 +67,8 @@ test.describe('Git 창의 상단 이름', () => {
       const app = (window as any).app;
       const w = app.ws.windows.find((x: any) => !app.testing.isGitWin(x) && !app.testing.isEditorWin(x));
       app.switchWindow(w.id);
-      return w.name;
+      // ISSUE_TREE_OPS_SRS FR-ITW-1: 끝에 포커스 탭 이름이 붙는다.
+      return w.name + ' · ' + app.renderer._rWinTab(w);
     });
     await expect(topName(page)).toHaveText(`창 · ${name}`, { timeout: 10000 });
   });

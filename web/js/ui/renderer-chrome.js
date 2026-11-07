@@ -85,13 +85,48 @@ Object.assign(Renderer.prototype, {
    *
    * 이름이 라벨과 같으면 겹쳐 적지 않는다 (`Git · Git` 이 되지 않도록).
    */
-  _rWinTitle(w){
+  _rWinTitle(w,slot){
     if(!w) return '';
     const label=SidebarTabs.labelForWindow(this.app,w);
     const name=this._rWinName(w);
-    if(!label) return name;                 // FR-STB-6: 모르는 타입이면 이름만
-    if(!name||name===label) return label;
-    return label+' · '+name;
+    let base;
+    if(!label) base=name;                   // FR-STB-6: 모르는 타입이면 이름만
+    else if(!name||name===label) base=label;
+    else base=label+' · '+name;
+    // ISSUE_TREE_OPS_SRS FR-ITW-1: 그 창의 포커스 탭 이름까지. 같은 말이면 겹쳐 적지 않는다.
+    const tab=this._rWinTab(w,slot);
+    return (!tab||tab===name||tab===label)?base:(base?base+' · '+tab:tab);
+  },
+
+  /**
+   * FR-ITW-1·2: 창의 포커스 칸의 활성 탭 이름 — 탭 바와 같은 `tabName`(전경 프로세스 규칙
+   * 포함)이다. `slot` 은 그 창을 보는 칸이다(칸마다 활성 탭이 다르다, `paneTab`).
+   */
+  _rWinTab(w,slot){
+    const app=this.app;
+    if(!w||!w.layout) return '';
+    const pn=findPane(w.layout,w.focusedPane)||app.flattenPanes(w.layout)[0];
+    const tid=pn&&app.paneTab(pn,slot);
+    const tab=tid&&(pn.tabs||[]).find(x=>x.id===tid);
+    return tab?tabName(tab,app.fgNames):'';
+  },
+
+  /**
+   * FR-ITW-3·4·5: 표시줄과 칸 머리글의 제목만 다시 칠한다. 포커스 이동과 전경 이름 갱신은
+   * `render()` 를 부르지 않으므로 그 자리가 이것을 부른다. 전체 문자열은 `title` 에 싣는다.
+   */
+  _rPaintTitles(){
+    const app=this.app;
+    const multi=!app.isMobile&&app.slotCount()>1;
+    const top=document.getElementById('window-name');
+    if(top){ const s=multi?'':this._rWinTitle(app.aw()); top.textContent=s; top.title=s }
+    if(!multi) return;
+    document.querySelectorAll('#area .slot[data-slot] .slot-head').forEach(h=>{
+      const i=Number(h.closest('.slot').dataset.slot);
+      const win=app.slotWindow(i);
+      const s=win?this._rWinTitle(win,i):t('core.no_window');
+      h.textContent=s; h.title=s;
+    });
   },
 
   /**
@@ -114,8 +149,7 @@ Object.assign(Renderer.prototype, {
     // FR-STB-11·12: 칸이 하나면 토프바가 제목을 낸다. 칸이 여럿이면 머리글이 그
     // 자리를 이어받으므로 토프바는 **비운다** — 되풀이하면 그 값이 어느 칸의
     // 것인지 사용자가 매번 판정해야 한다 (D-1). 모바일에는 칸이 없다 (FR-STB-14).
-    const multi=!this.app.isMobile&&this.app.slotCount()>1;
-    document.getElementById('window-name').textContent=multi?'':this._rWinTitle(a);
+    this._rPaintTitles();
     // FR-GIT-180 · FR-EDT-50 (**UIUX_OVERHAUL_SRS FR-CHR-3 으로 개정**): Git·
     // Editor 창에서는 분할 진입점을 **비활성으로 둔다.** 종전에는 감췄다 —
     // 그러면 이웃이 왼쪽으로 밀려 같은 픽셀에 다른 동작이 온다 (§2.4).

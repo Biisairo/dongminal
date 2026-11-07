@@ -267,6 +267,8 @@ Object.assign(App.prototype, {
         }
       }
     }
+    // ISSUE_TREE_OPS_SRS FR-ITW-4: 제목의 탭 이름도 전경 이름을 따른다.
+    this.renderer._rPaintTitles();
     // FR-NAM-5·6: 도구 이름을 부르는 다른 표면도 따라간다. 열려 있을 때만 그린다 —
     // 닫힌 것을 그리면 되살아난다. 둘 다 reconcile 이라 값이 그대로면 DOM 은
     // 손대지 않는다 (FR-RPT-3).

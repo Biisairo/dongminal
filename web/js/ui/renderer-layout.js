@@ -70,7 +70,8 @@ Object.assign(Renderer.prototype, {
         const head=this._keep('slot:'+i+'/head',()=>{
           const h=document.createElement('div'); h.className='slot-head'; return h;
         });
-        head.textContent=win?this._rWinTitle(win):t('core.no_window');
+        head.textContent=win?this._rWinTitle(win,i):t('core.no_window');
+        head.title=head.textContent;
         // 분할 트리는 `inset:0` 으로 조상을 채우므로 머리글과 겹치지 않게 자기
         // 몫의 상자를 준다.
         const body=this._keep('slot:'+i+'/body',()=>{

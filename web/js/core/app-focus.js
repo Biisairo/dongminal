@@ -168,6 +168,8 @@ Object.assign(App.prototype, {
     // 않는다. `+ Add` 가 딛는 마지막 터미널만 갱신한다 (D-FLW-6).
     this._gitTermToolId();
     this.updateStatusBar();
+    // ISSUE_TREE_OPS_SRS FR-ITW-4: 제목에 포커스 탭 이름이 있으므로 포커스를 따라간다.
+    this.renderer._rPaintTitles();
     this.save();
   },
 
