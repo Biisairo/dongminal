@@ -51,11 +51,12 @@ var Catalog = Table{
 	GitCompare: {apierr.CodeEmptyRev, apierr.CodeEmptyPath},
 	GitRepoAdd: {apierr.CodeEmptyPath, apierr.CodeAbsPathNeeded, apierr.CodeNotRepo, apierr.CodeRepoMissing},
 
-	FSRename: fsProtected(fsMissing...),
-	FSMove:   fsProtected(fsMissing...),
-	FSCopy:   fsMissing,
-	FSDelete: fsProtected(append(fsMissing, apierr.CodeTooManyEntries)...),
-	FSName:   {apierr.CodeEmptyName, apierr.CodeNameHasSeparator, apierr.CodeNameReserved},
+	FSRename:   fsProtected(fsMissing...),
+	FSMove:     fsProtected(fsMissing...),
+	FSCopy:     fsMissing,
+	FSDelete:   fsProtected(append(fsMissing, apierr.CodeTooManyEntries)...),
+	FSName:     {apierr.CodeEmptyName, apierr.CodeNameHasSeparator, apierr.CodeNameReserved},
+	EntityName: {apierr.CodeNameTooLong},
 	EditorAdd: {apierr.CodeEmptyPath, apierr.CodeAbsPathNeeded, apierr.CodeNotFound, apierr.CodeNotADirectory,
 		apierr.CodeFilesystemRootProtected},
 }

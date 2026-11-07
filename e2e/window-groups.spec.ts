@@ -47,6 +47,24 @@ test.describe('window 그룹 · 순서 명령 (ISSUE_AGENT_TREE_SRS)', () => {
       .toEqual([a.win, b.win]);
   });
 
+  // SERVER_DRIVEN_ACTIONS_SRS F-4 (FR-SDA-54): 이름의 길이 상한은 서버가 정하고 dmctl 길에서 거절한다.
+  //   이전 동작: 서버는 받고, 받은 브라우저가 64자로 잘랐다
+  test('SDF6 (FR-SDA-54): 상한을 넘는 이름의 명령은 400 name_too_long 이고 아무것도 만들지 않는다', async ({ page, request }) => {
+    const meta = await (await request.get('/api/meta')).json();
+    const max = meta.entityNameMax as number;
+    expect(max).toBeGreaterThan(0);
+    const before = (await ws(page)).groups.length;
+    const r = await cmd(request, 'newGroup', { name: 'g'.repeat(max + 1) });
+    expect(r.status()).toBe(400);
+    expect(r.headers()['x-error-code']).toBe('name_too_long');
+    expect(await r.text()).toContain('name_too_long');
+    expect((await ws(page)).groups.length).toBe(before);
+
+    // 상한 길이는 그대로 받는다.
+    const g = await newGroup(request, 'g'.repeat(max));
+    await expect.poll(async () => (await ws(page)).groups.find((x) => x.id === g)?.name.length).toBe(max);
+  });
+
   test('TC-WGR-4: 같은 트리 표지의 그룹은 둘이 될 수 없다', async ({ request }) => {
     const tree = { repo: 'o/r', root: 7 };
     await newGroup(request, 'T', tree);

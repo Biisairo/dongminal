@@ -481,10 +481,22 @@ const TERM_GPU_LOSS_LIMIT=3;
  *   이유:     상한이 한쪽에만 있으면 그것은 상한이 아니다 — 우회로가 화면에
  *             버젓이 있다
  */
-const ENTITY_NAME_MAX=64;
+/*
+ * SERVER_DRIVEN_ACTIONS_SRS F-4 (FR-SDA-54): 상한의 주인은 **서버**다. 부팅 때
+ * `GET /api/meta` 의 `entityNameMax` 를 받아 여기 둔다(`applyServerMeta`). 받기 전(0)에는
+ * 자르지 않는다 — 화면이 상한을 지어내지 않는다. dmctl 은 서버가 같은 상한으로 거절한다.
+ *	이전 동작: 화면이 64 를 따로 들고 있었고 서버는 길이를 보지 않았다
+ */
+let ENTITY_NAME_MAX=0;
 /** 이름 하나를 그 상한으로 접는다. 만들기·바꾸기가 같은 자리를 지난다. */
 function clampEntityName(s){
-  return String(s==null?'':s).slice(0,ENTITY_NAME_MAX);
+  const v=String(s==null?'':s);
+  return ENTITY_NAME_MAX>0?v.slice(0,ENTITY_NAME_MAX):v;
+}
+const META_API='/api/meta';
+/** `GET /api/meta` 의 답을 받는다. 모르는 값은 무시한다. */
+function applyServerMeta(m){
+  if(m&&Number.isInteger(m.entityNameMax)&&m.entityNameMax>0) ENTITY_NAME_MAX=m.entityNameMax;
 }
 /**
  * 백그라운드 복귀가 실패했을 때의 안내 (`12-func-ui.md FUI-21`).

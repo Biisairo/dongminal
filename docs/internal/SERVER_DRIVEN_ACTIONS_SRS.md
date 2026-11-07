@@ -1,7 +1,7 @@
 # SRS: 서버가 답하는 동작 가능 여부 — server-driven actions — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 묶음 F(설계 §3.5a, 구현 중)·R·X·K·N. 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)·GV(§3.4a)는 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
+> **남은 것**: 묶음 R·X·K·N. 묶음 F(§3.5a)는 구현했다. 묶음 M(§3.1a)·GR(§3.2a)·GT(§3.3a)·GV(§3.4a)는 구현했다. 인계 문서 `docs/internal/SERVER_DRIVEN_HANDOFF.md`
 
 ## 1. 개요 (Introduction)
 
@@ -213,7 +213,7 @@ GV-c 동작 표:
 
 #### 3.5a 묶음 F 설계 세부
 
-네 단계로 커밋한다: **F-1** 메뉴 답과 삭제 상한(F-A2·A3) · **F-2** 이름 검증과 자기 하위 이동(F-B1·F-A1) · **F-3** 편집기 루트 추가(F-B3) · **F-4** 창·탭·그룹 이름 길이(F-B2, 착수 때 설계를 더 적는다).
+네 단계로 커밋한다: **F-1** 메뉴 답과 삭제 상한(F-A2·A3) · **F-2** 이름 검증과 자기 하위 이동(F-B1·F-A1) · **F-3** 편집기 루트 추가(F-B3) · **F-4** 창·탭·그룹 이름 길이(F-B2).
 
 | ID | 설계 |
 |---|---|
@@ -230,6 +230,7 @@ GV-c 동작 표:
 | F-k 인라인 입력(F-2) | 입력이 멈추면(디바운스) F-i 로 묻고, 거짓이면 입력 아래 오류 줄에 사유를 보인다. Enter 는 마지막 답이 거짓이면 보내지 않는다. 답을 기다리는 중이면 보내고 서버가 판정한다. 인라인 입력은 `GitDialog` 가 아니어서 `GitInputAnswer` 를 쓰지 않는다 — 세대로 늦은 답을 버리는 작은 장치를 트리에 둔다. 화면의 `/` 판정과 `EDITOR_NAME_INVALID` 를 없앤다 |
 | F-l 자기 하위 이동(F-2) | 화면의 `pathUnder` 거절과 `EDITOR_MOVE_INTO_SELF` 를 없앤다. 서버의 `fsCopyGuardSelf` 가 `into_self` 로 거절하고, 놓은 뒤 그 사유가 오류 줄에 보인다(D-SDA-7). 끄는 동안 화면은 판정하지 않는다. 대상이 출발지 아래면 낙관 반영만 하지 않는다 — 허용 판정이 아니라 되돌리기 어려운 그림을 미리 그리지 않는 것이다 |
 | F-m 편집기 루트 추가(F-3) | 판정은 `wsentry.CheckEditorPath` 하나(`EditorAdd` 의 앞부분을 꺼낸 것)이고, 답과 `POST /api/editors/add` 의 거절이 그것을 부른다. 사유(순서): `empty_path` → `path_must_be_absolute` → `not_found` → `not_a_directory`(새, 400) → `filesystem_root_protected`. 앞뒤 공백을 지운 뒤 본다. 파일시스템 루트는 지금 `ErrNotDir` 로 함께 나가므로 `ErrFilesystemRoot` 로 가른다. 종단 `POST /api/editors/validate {path}` → `{"actions": {"editor.add": 답}}`. 대화상자는 `GitInputAnswer` 로 묻는다 — 묻는 함수 `ask(params, stale)` 를 주입받도록 넓힌다(없으면 지금의 git 종단). 화면의 빈 경로 판정(`EDITOR_ADD_NEED_PATH`)을 없앤다 |
+| F-p 이름 길이(F-4) | 사용자 결정(2026-11-07): 서버는 **dmctl 길(`POST /api/commands`)에서만** 거절한다. 이름을 싣는 명령(`newWindow`·`newTab`·`openEditorTab`·`renameTab`·`renameWindow`·`newGroup`·`renameGroup`)의 `args.name` 이 상한을 넘으면 400 `name_too_long`(`args.max`) — 평문 방언이므로 코드는 헤더에, 본문은 영어 코드 서술이다. workspace 저장(`PUT /api/workspace`)은 막지 않는다 — 옛 데이터나 화면 결함의 긴 이름 하나가 저장 전체를 막으면 변경이 조용히 사라진다. 상한(64)은 서버 상수이고 단위는 UTF-16 코드 단위다(화면의 `slice` 와 같다). 화면은 새 `GET /api/meta` 의 `entityNameMax` 를 부팅 때 받아 `clampEntityName` 으로 자르고, 받기 전에는 자르지 않는다. `/api/meta` 는 묶음 K(FR-SDA-80)가 넓힌다 |
 | F-n 게이트 | 없앤 화면 이름을 단계마다 `check-server-driven.sh` 목록에 더한다: F-1 `edCountTree`·`EDITOR_DEL_COUNT_MAX` · F-2 `EDITOR_NAME_INVALID`·`EDITOR_MOVE_INTO_SELF` · F-3 `EDITOR_ADD_NEED_PATH` |
 | F-o 문구 | 새 사유 코드마다 `why.<code>` 를 ko·en 에 더한다(게이트 M-7) |
 
@@ -283,6 +284,7 @@ GV-c 동작 표:
 | D-SDA-5 | 서버는 사유 코드만 보내고 문구는 화면 i18n 이 고른다 | 제품이 ko·en 을 화면에서 고른다. 서버 문구는 한국어 하나다 |
 | D-SDA-6 | 답과 거절은 같은 판정 함수를 부른다 | 둘을 따로 쓰면 이 SRS 가 없애려는 두 벌이 서버 안에 다시 생긴다 |
 | D-SDA-7 | 끌어 놓기 중에는 화면이 판정하지 않는다. 놓은 뒤 서버 답을 보인다 | D-SDA-1 을 따른 결과다. 끄는 동안 금지 커서가 사라지는 변화는 §7 R-2 |
+| D-SDA-8 | 창·탭·그룹 이름의 길이 상한은 dmctl 길(`/api/commands`)에서만 거절하고, workspace 저장은 막지 않는다(F-p) | 사용자 결정 2026-11-07. 저장 전체를 거절하면 긴 이름 하나로 그 뒤의 모든 변경이 저장되지 않는다 |
 
 ## 5. 검증 (Verification)
 
@@ -322,6 +324,7 @@ GV-c 동작 표:
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-07 | F-4 구현 — 묶음 F 끝. 사용자 결정 D-SDA-8. 동작 변경 둘. ① **이전**: dmctl 명령의 이름은 서버가 보지 않았고, 받은 브라우저가 64자로 잘랐다 / **새**: `/api/commands` 의 이름을 싣는 명령은 상한을 넘으면 400 `name_too_long`(헤더 코드, 본문 `name_too_long: max 64`) / **이유**: FR-SDA-54·D-SDA-3. ② **이전**: 화면이 상한 64 를 상수로 들고 있었다 / **새**: `GET /api/meta` 의 `entityNameMax` 로 자르고, 받기 전에는 자르지 않는다 / **이유**: FR-SDA-54·D-SDA-4 |
 | 2026-11-07 | F-3 구현. 동작 변경 둘. ① **이전**: 편집기 루트 추가(`/api/editors/add`)의 상대 경로·파일·파일시스템 루트는 모두 400 `bad_request`(한국어 `message`) / **새**: `empty_path`·`path_must_be_absolute`·`not_a_directory`·`filesystem_root_protected`, `message` 없음. 없는 경로는 404 `not_found` 그대로. 판정은 `wsentry.CheckEditorPath` 하나이고 앞뒤 공백을 지운 뒤 본다 / **이유**: FR-SDA-55·FR-SDA-2·D-SDA-5. ② **이전**: `+ Add` 대화상자는 빈 경로만 스스로 막았다 / **새**: `POST /api/editors/validate` 로 입력 중에 묻고 실행 전에 막는다. `GitInputAnswer` 는 묻는 함수 `ask` 를 주입받는다 / **이유**: D-SDA-1. 설계 중 정한 것: `why.not_found` 문구를 탐색기 전용("이미 옮겨졌거나 지워졌습니다")에서 일반 문구("찾을 수 없습니다")로 바꿨다 — 입력한 경로에도 쓰이기 때문이다 |
 | 2026-11-07 | F-2 구현. 동작 변경 셋. ① **이전**: 만들기·이름 바꾸기는 경로만 받아, 화면을 거치지 않은 `a/b` 를 폴더 `a` 안의 파일로 만들었다. 화면은 `/` 만 막았다 / **새**: `parent`+`name`(만들기)·`from`+`name`(이름 바꾸기)을 받고 `fsNameAnswer` 로 거절한다(`empty_name`·`name_has_separator`·`name_reserved`). 경로 모양(`path`·`to`)도 받는다 / **이유**: FR-SDA-53·D-SDA-3. ② **이전**: 자기 하위로 옮기기·복사의 거절은 400 `bad_request`(한국어 `message`) / **새**: 400 `into_self`, `message` 없음. 판정 함수는 `fsIntoSelfAnswer` 하나다 / **이유**: FR-SDA-2·D-SDA-5. ③ **이전**: 화면이 끌어 놓기·일괄 이동의 자기 하위를 `pathUnder` 로 먼저 막았다 / **새**: 요청을 보내고 서버의 사유를 오류 줄에 보인다. 대상이 출발지 아래면 낙관 반영만 하지 않는다 / **이유**: FR-SDA-52·D-SDA-7. 설계 중 정한 것: `empty_name` 의 fs 표면 상태는 400 이다(`apierr.FSStatus`) |
 | 2026-11-07 | F-1 구현(설계 §3.5a). 동작 변경 넷. ① **이전**: 이름 바꾸기·이동(`/api/fs/rename`)은 루트 보호를 보지 않았다 — 다른 Editor 루트나 홈을 옮길 수 있었다 / **새**: 삭제와 같은 보호로 거절한다(`fsMoveAnswer`) / **이유**: FR-SDA-51. ② **이전**: 루트·홈·파일시스템 루트 삭제 거절과 항목 수 초과는 400 `bad_request` 에 한국어 `message` / **새**: `editor_root_protected`·`home_protected`·`filesystem_root_protected`·`too_many_entries`(`args.max`), `message` 없음. 복사의 항목 수 초과도 같다 / **이유**: FR-SDA-2·D-SDA-5. ③ **이전**: 삭제 확인창의 수는 화면이 `list` 를 걸어 2000 까지 셌고("N개 이상"), 서버의 상한(10000)과 어긋났다 / **새**: `POST /api/fs/actions` 의 `count`(서버가 상한까지 정확히 센다). 답이 거짓이면 확인창이 사유를 보이고 삭제 버튼을 끈다 / **이유**: §2.1·FR-SDA-50. ④ **이전**: 탐색기 행 메뉴는 묻지 않고 그렸다 / **새**: 열 때 서버에 묻고, 이름 바꾸기·잘라내기·복사·복제·삭제가 답을 따른다. 묻는 장치는 `GitMenu.openAsked` 로 꺼내 git 메뉴와 함께 쓴다 / **이유**: FR-SDA-5. 설계 중 정한 것: 참인 답은 `args` 를 싣지 않으므로(FR-SDA-1) 항목 수는 답 밖의 `count` 에 싣는다. 새 코드의 상태는 `apierr.FSStatus` 표가 정한다(답과 거절이 한 표). 읽기 실패(`not_found`·`permission_denied`·`io_failed`)도 답의 사유다 |

@@ -137,6 +137,8 @@ var apiRoutes = []apiRoute{
 	httproute.Get("/api/sandbox/config", (*Server).apiSandboxConfigGet),
 	httproute.Put("/api/sandbox/config", (*Server).apiSandboxConfigPut),
 	httproute.Get("/api/workspace", (*Server).apiWorkspaceGet),
+	// SERVER_DRIVEN_ACTIONS_SRS F-4 · FR-SDA-80: 화면이 부팅 때 받는 서버 상수.
+	httproute.Get("/api/meta", (*Server).apiMeta),
 	httproute.Put("/api/workspace", (*Server).apiWorkspacePut),
 	httproute.Get("/api/settings", (*Server).apiSettingsGet),
 	httproute.Put("/api/settings", (*Server).apiSettingsPut),

@@ -115,6 +115,8 @@ const (
 	FSName = "fs.name"
 	// EditorAdd 는 편집기 루트 추가의 경로다 (F-m).
 	EditorAdd = "editor.add"
+	// EntityName 은 창·탭·그룹 이름의 길이다 (F-4).
+	EntityName = "entity.name"
 )
 
 // Table 은 동작 ID → 그 판정이 낼 수 있는 사유 코드다 (M-3).

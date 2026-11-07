@@ -137,4 +137,6 @@ const (
 	CodeNameHasSeparator        = "name_has_separator"
 	CodeNameReserved            = "name_reserved"
 	CodeNotADirectory           = "not_a_directory"
+	// CodeNameTooLong 은 창·탭·그룹 이름의 길이 상한(F-4)이다.
+	CodeNameTooLong = "name_too_long"
 )

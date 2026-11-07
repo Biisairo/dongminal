@@ -103,6 +103,7 @@ var gitCodes = []string{
 	CodeExists, CodeOutsideRoot, CodePermission, CodeIO, CodeTooLarge, CodeBusy, CodeFSNotRepo,
 	CodeEditorRootProtected, CodeHomeProtected, CodeFilesystemRootProtected, CodeTooManyEntries,
 	CodeIntoSelf, CodeNameHasSeparator, CodeNameReserved, CodeNotADirectory,
+	CodeNameTooLong,
 }
 
 // AllCodes 는 이 서버가 낼 수 있는 코드 전부다. 카탈로그 생성과 전수성 검사가

@@ -211,6 +211,13 @@ func (s *Server) handleCommandPost(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "unknown action: "+req.Action, http.StatusBadRequest, apierr.CodeUnknownAction)
 		return
 	}
+	// SERVER_DRIVEN_ACTIONS_SRS F-4: 이름의 길이 상한은 서버가 정한다 — 화면을 거치지 않는
+	// dmctl 도 같은 상한을 지난다.
+	//	이전 동작: 서버는 길이를 보지 않았고, 받은 브라우저가 64자로 잘랐다
+	if a := commandNameAnswer(req.Action, req.Args); !a.OK {
+		rejectCommandAnswer(w, a)
+		return
+	}
 	// VIEWER_URL_OPEN_SRS: 열 URL 을 먼저 거르고(FR-VUO-18) 어디서 열지 정한다.
 	// 로컬이면 브로드캐스트하지 않는다 — 부른 쉘이 직접 연다 (FR-VUO-2).
 	openURLWhere := ""

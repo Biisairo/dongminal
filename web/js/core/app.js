@@ -136,6 +136,9 @@ class App {
     // OS focus listeners go up before any async work — a `focus` event during
     // init must still claim the active window.
     this._initFocusSync();
+    // F-4: 서버 상수(이름 상한 등)를 받는다. 부팅을 기다리게 하지 않는다 — 받기 전에는
+    // 자르지 않을 뿐이다.
+    apiGet(META_API).then(r=>{if(r.ok) applyServerMeta(r.data)});
     // FR-EDT-120·43: Editor 표면을 **워크스페이스 처리보다 먼저** 확정한다.
     // 재조정과 편집기 탭 마이그레이션이 둘 다 `home` 을 알아야 돌 수 있고,
     // 모르면 둘 다 돌지 않는 것이 옳다 — 추측한 홈으로 만든 창은 나중에 서버가

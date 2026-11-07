@@ -1214,6 +1214,7 @@ I18N.register('ko', {
   'why.name_has_separator': '이름에 / 를 쓸 수 없습니다',
   'why.name_reserved': '. 이나 .. 은 이름으로 쓸 수 없습니다',
   'why.not_a_directory': '폴더가 아닙니다',
+  'why.name_too_long': '이름은 {max}자까지입니다',
   'why.loading': '확인하는 중…',
   'why.no_head': '커밋이 없어 HEAD 로 되돌릴 수 없습니다',
   'why.nothing_to_clean': '지울 추적되지 않는 파일이 없습니다',

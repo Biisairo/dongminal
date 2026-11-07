@@ -1196,6 +1196,7 @@ I18N.register('en', {
   'why.name_has_separator': 'Names cannot contain /',
   'why.name_reserved': '"." and ".." cannot be names',
   'why.not_a_directory': 'Not a folder',
+  'why.name_too_long': 'Names can be up to {max} characters',
   'why.loading': 'Checking…',
   'why.no_head': 'There is no commit to reset to',
   'why.nothing_to_clean': 'No untracked files to clean',

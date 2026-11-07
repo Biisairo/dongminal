@@ -75,6 +75,11 @@
   로 거절합니다(이전에는 모두 400 `bad_request`). 없는 경로는 그대로 404 `not_found` 입니다. 이 거절들은 `message`
   없이 `{code}` 를 싣고, 경로의 앞뒤 공백은 지운 뒤 봅니다. 새 `POST /api/editors/validate` 로 미리 물을 수 있고,
   `+ Add` 대화상자는 입력 중에 이 답을 보입니다.
+- **dmctl 의 창·탭·그룹 이름이 64자를 넘으면 거절됩니다.** `new-window --name`·`new-tab --name`·`open-editor --name`·
+  `rename-tab`·`rename-window`·`new-group`·`rename-group` 이 해당합니다. 이전에는 서버가 받고 화면이 64자로 잘랐습니다.
+  이제 `POST /api/commands` 가 400 `name_too_long` 으로 거절하고 아무것도 만들거나 바꾸지 않습니다. 길이는 UTF-16
+  단위로 셉니다(이모지 하나는 2). 상한은 새 `GET /api/meta` 의 `entityNameMax` 로 알 수 있습니다. workspace 저장은
+  이 상한으로 거절하지 않습니다.
 
 ## [1.2.3] — 2026-11-05
 
