@@ -55,7 +55,10 @@ test('TC-ITD-3: 트리 Run 대시보드가 가지 Run 의 노드까지 트리로
   await row.click();
   const tree = page.locator('#area .run-view.vis .run-tree.vis');
   await expect(tree).toBeVisible();
+  await expect(tree.locator('.run-tree-svg')).toBeVisible();
   await expect(tree.locator('.run-tree-node')).toHaveCount(2);
+  // 가지 Run 의 노드도 루트 아래에 선으로 이어진다 (FR-ITC-10).
+  await expect(tree.locator('.run-tree-edge')).toHaveCount(1);
   const leaf = tree.locator('.run-tree-node.leaf');
   await expect(leaf).toHaveCount(1);
   await expect(leaf.locator('.run-tree-role')).toHaveText('tt#1›2›3');
@@ -111,7 +114,10 @@ test('TC-ITC-3: 트리 Run 대시보드의 중심에 배정 트리를 그리고 
   await expect(done).toHaveClass(/ended/);
   await expect(done.locator('.run-tree-title')).toHaveText('끝난 하위');
   await expect(nodes.nth(2)).toHaveClass(/leaf/);
-  await expect(nodes.nth(2)).toHaveCSS('--depth', '1');
+  await expect(nodes.nth(0)).toHaveAttribute('data-depth', '0');
+  await expect(nodes.nth(2)).toHaveAttribute('data-depth', '1');
+  // 루트에서 자식 둘로 선이 내려간다 (FR-ITC-10).
+  await expect(view.locator('.run-tree-edge')).toHaveCount(2);
   // 카드도 트리 순서다 (FR-ITC-8).
   await expect(view.locator('.run-card').first()).toContainText('op#1');
 

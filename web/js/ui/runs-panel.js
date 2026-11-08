@@ -62,6 +62,29 @@ function runSvg(tag, attrs) {
   return el;
 }
 
+/**
+ * FR-FIT-1~4: svg 를 감싼 칸의 폭에 맞춘다.
+ *
+ * 배율은 [RUN_FIT_MIN, RUN_FIT_MAX] 로 잘린다 — 좁으면 줄이되 읽을 수 있는
+ * 데까지만(그 아래는 가로 스크롤), 넓으면 키우되 표지가 되지 않을 만큼만.
+ *
+ * 폭을 재는 대상은 wrap 이며, 그 값이 0 이면(아직 붙지 않은 DOM) 아무것도
+ * 하지 않는다 — 0 으로 나눈 배율은 그래프를 사라지게 한다.
+ */
+function runFitSvg(wrap, svg) {
+  if (!wrap || !svg) return;
+  const w = Number(svg.dataset.w || 0), h = Number(svg.dataset.h || 0);
+  if (!w || !h) return;
+  // 좌우 여백은 wrap 의 padding 이다. clientWidth 는 그것을 포함하므로 뺀다.
+  const cs = getComputedStyle(wrap);
+  const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+  const avail = wrap.clientWidth - pad;
+  if (avail <= 0) return;
+  const scale = Math.min(RUN_FIT_MAX, Math.max(RUN_FIT_MIN, avail / w));
+  svg.setAttribute('width', Math.round(w * scale));
+  svg.setAttribute('height', Math.round(h * scale));
+}
+
 function runDiv(cls, text) {
   const el = document.createElement('div');
   el.className = cls;
