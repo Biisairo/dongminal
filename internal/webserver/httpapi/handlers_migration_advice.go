@@ -38,7 +38,7 @@ var migrationSpecs = sync.OnceValue(func() map[string]settingsschema.Spec {
 })
 
 // parseMigrationConf 는 blob 에서 넷을 읽는다. 비었거나 타입·범위 밖이면 표의 기본값이다
-// (FR-ITM-4). 표를 읽지 못하면 켬·50 이다 — 기준이 사라지는 것보다 낫다.
+// (FR-ITM-4). 표를 읽지 못하면 일반 훅은 끔, issue-tree 는 켬, 기준은 50 이다.
 func parseMigrationConf(blob []byte) migrationConf {
 	var m map[string]any
 	if json.Unmarshal(blob, &m) != nil {
@@ -46,22 +46,23 @@ func parseMigrationConf(blob []byte) migrationConf {
 	}
 	specs := migrationSpecs()
 	return migrationConf{
-		HookOn:  settingBool(m, specs[migrationHookKey]),
+		HookOn:  settingBool(m, specs[migrationHookKey], migrationHookFallback),
 		HookPct: settingInt(m, specs[migrationHookPctKey]),
-		TreeOn:  settingBool(m, specs[issueTreeOnKey]),
+		TreeOn:  settingBool(m, specs[issueTreeOnKey], issueTreeOnFallback),
 		TreePct: settingInt(m, specs[issueTreePctKey]),
 	}
 }
 
 const (
-	migrationOnFallback  = true
-	migrationPctFallback = issueTreeCtxDefault
+	migrationHookFallback = false
+	issueTreeOnFallback   = true
+	migrationPctFallback  = issueTreeCtxDefault
 )
 
-func settingBool(m map[string]any, spec settingsschema.Spec) bool {
+func settingBool(m map[string]any, spec settingsschema.Spec, fallback bool) bool {
 	def, ok := spec.Def.(bool)
 	if !ok {
-		def = migrationOnFallback
+		def = fallback
 	}
 	if v, ok := m[spec.Key].(bool); ok && spec.Key != "" {
 		return v

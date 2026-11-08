@@ -963,7 +963,7 @@ I18N.register('ko', {
   'html.term_gpu': '터미널 GPU 렌더링',
   'html.migration_hook': '맥락 기준 migration 제안',
   'html.migration_hook_pct': 'migration 제안 기준 (%)',
-  'html.migration_hook_hint': '에이전트의 맥락 사용률이 기준 이상이면, 도구를 쓸 때마다 /dongminal:migration 으로 넘기라고 알립니다. 강제하지는 않습니다. 1~100, 기본 50. issue-tree 노드에는 적용되지 않습니다.',
+  'html.migration_hook_hint': '에이전트의 맥락 사용률이 기준 이상이면, 도구를 쓸 때마다 /dongminal:migration 으로 넘기라고 알립니다. 강제하지는 않습니다. 기본 꺼짐. 기준은 1~100, 기본 50. issue-tree 노드에는 적용되지 않습니다.',
   'html.issue_tree_migration': 'issue-tree 맥락 migration',
   'html.issue_tree_migration_pct': 'issue-tree migration 기준 (%)',
   'html.issue_tree_migration_hint': 'issue-tree 노드가 안전 지점에서 맥락 사용률을 이 기준과 견주어 새 세션으로 넘깁니다. /dongminal:issue-tree 의 --ctx 가 있으면 그것이 우선합니다. 1~100, 기본 50. 위의 migration 제안과 따로 동작합니다.',

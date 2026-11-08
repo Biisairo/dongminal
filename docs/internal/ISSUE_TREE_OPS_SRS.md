@@ -210,7 +210,7 @@
 
 | ID | 요구 | 우선 |
 |---|---|---|
-| FR-ITM-1 | `SETTINGS_SCHEMA` 에 넷을 더한다. 일반 훅: `migrationHook`(bool, 기본 참) · `migrationHookCtxPct`(int, 기본 50, 1~100). issue-tree: `issueTreeMigration`(bool, 기본 참) · `issueTreeCtxPct`(int, 기본 50, 1~100). 설정창에 보인다 | 필수 |
+| FR-ITM-1 | `SETTINGS_SCHEMA` 에 넷을 더한다. 일반 훅: `migrationHook`(bool, 기본 거짓) · `migrationHookCtxPct`(int, 기본 50, 1~100). issue-tree: `issueTreeMigration`(bool, 기본 참) · `issueTreeCtxPct`(int, 기본 50, 1~100). 설정창에 보인다 | 필수 |
 | FR-ITM-2 | 두 쌍은 서로 영향을 주지 않는다. 한쪽 값을 바꿔도 다른 쪽은 그대로다 | 필수 |
 | FR-ITM-3 | issue-tree 노드의 맥락 기준 **실효값**은 배정의 `--ctx` > `issueTreeCtxPct` > 50 이다. `issueTreeMigration` 이 거짓이면 실효값은 「끔」 이다. 서버가 프리앰블을 만들 때 이 값을 정해 싣는다 | 필수 |
 | FR-ITM-4 | 값이 비었거나 범위 밖이면 기본값으로 돌아간다(`ContextPolicy.withDefaults` 와 같은 규칙) | 필수 |
@@ -363,6 +363,7 @@
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-09 | FR-ITM-1 의 `migrationHook` 기본값을 참에서 거짓으로 바꿨다. 이전 동작: 일반 세션은 맥락 사용률이 50% 이상이면 기본으로 migration 제안을 받았다. 새 동작: 기본은 끔이다. 맥락 사용률은 그대로 모으고, 설정에서 켜야 제안한다. 표를 읽지 못할 때의 폴백도 일반 훅은 끔이다. `issueTreeMigration` 은 기본 켬 그대로다. 이유: 자동 제안이 사용자의 하네스나 설정을 깰 수 있다(사용자 결정) |
 | 2026-11-07 | 구현완료. 사용자 시범으로 확인 |
 | 2026-11-07 | 묶음 E 구현(§3.6a). 이전 동작: 편집기 본문의 수식키 조합은 capture 단계에서 브라우저 기본이 막혀 CodeMirror 키맵에 닿지 않았다. `Mod-d`·`Mod-Shift-l`·`Ctrl-g`·`Mod-l` 등 VS Code 키가 없었다. 새 동작: CodeMirror 가 먼저 판정하고 쓰지 않은 조합만 막는다. VS Code 키 다섯과 Alt+클릭 커서를 더했다. Win/Linux 에서 겹치는 기본 앱 키 다섯은 편집기 본문에서 편집 키가 이긴다(사용자가 녹음한 키는 앱 키). 이유: 입력 10 의 사용자 보고 |
 | 2026-11-07 | 묶음 W 구현. 이전 동작: 표시줄과 칸 머리글은 `<창 종류> · <창 이름>` 이었고, pane 포커스 이동과 전경 이름 갱신에는 다시 칠하지 않았다. 새 동작: 끝에 그 창의 포커스 탭 이름이 붙고(겹치면 생략), 포커스 이동·전경 이름 갱신에도 제목만 다시 칠하며(`_rPaintTitles`), 전체 문자열을 `title` 에 싣는다. 기존 e2e(`slot-title-boundary`·`git-window-name`)의 기댓값을 새 형식으로 고쳤다. 이유: 별건 요구(표시줄 탭 이름)와 사용자 결정(모든 자리에 붙인다) |

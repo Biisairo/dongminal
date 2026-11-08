@@ -23,7 +23,7 @@ test('TC-ITM-1: 맥락 migration 설정 넷이 따로 저장되고 서버 판정
   const hookPct = page.locator('#ds-mighookpct');
   const tree = page.locator('#ds-treemig');
   const treePct = page.locator('#ds-treemigpct');
-  await expect(hook).toBeChecked();
+  await expect(hook).not.toBeChecked();
   await expect(tree).toBeChecked();
   await expect(hookPct).toHaveValue('50');
   await expect(treePct).toHaveValue('50');
@@ -38,6 +38,6 @@ test('TC-ITM-1: 맥락 migration 설정 넷이 따로 저장되고 서버 판정
 
   await tree.uncheck();
   await expect.poll(() => settings(request).then((s: any) => s.issueTreeMigration), { timeout: 10000 }).toBe(false);
-  await expect(hook).toBeChecked();
+  await expect(hook).not.toBeChecked();
   await page.click('#modal-close');
 });

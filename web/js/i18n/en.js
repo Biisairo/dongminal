@@ -940,7 +940,7 @@ I18N.register('en', {
   'html.term_gpu': 'Terminal GPU rendering',
   'html.migration_hook': 'Suggest migration by context',
   'html.migration_hook_pct': 'Migration suggestion threshold (%)',
-  'html.migration_hook_hint': 'When an agent\'s context usage reaches the threshold, it is reminded on every tool use to hand off with /dongminal:migration. It is not forced. 1–100, default 50. Does not apply to issue-tree nodes.',
+  'html.migration_hook_hint': 'When an agent\'s context usage reaches the threshold, it is reminded on every tool use to hand off with /dongminal:migration. It is not forced. Off by default. Threshold 1–100, default 50. Does not apply to issue-tree nodes.',
   'html.issue_tree_migration': 'issue-tree context migration',
   'html.issue_tree_migration_pct': 'issue-tree migration threshold (%)',
   'html.issue_tree_migration_hint': 'issue-tree nodes compare their context usage with this threshold at safe points and hand off to a new session. A --ctx given to /dongminal:issue-tree takes priority. 1–100, default 50. Works independently of the migration suggestion above.',

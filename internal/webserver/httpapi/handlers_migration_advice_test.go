@@ -15,12 +15,12 @@ func TestMigrationSettings_DefaultsAndClamp(t *testing.T) {
 		blob string
 		want migrationConf
 	}{
-		{``, migrationConf{HookOn: true, HookPct: 50, TreeOn: true, TreePct: 50}},
-		{`{"migrationHook":false,"migrationHookCtxPct":70}`, migrationConf{HookOn: false, HookPct: 70, TreeOn: true, TreePct: 50}},
-		{`{"issueTreeMigration":false,"issueTreeCtxPct":30}`, migrationConf{HookOn: true, HookPct: 50, TreeOn: false, TreePct: 30}},
-		{`{"migrationHookCtxPct":0,"issueTreeCtxPct":101}`, migrationConf{HookOn: true, HookPct: 50, TreeOn: true, TreePct: 50}},
-		{`{"migrationHookCtxPct":"x","migrationHook":"y"}`, migrationConf{HookOn: true, HookPct: 50, TreeOn: true, TreePct: 50}},
-		{`not json`, migrationConf{HookOn: true, HookPct: 50, TreeOn: true, TreePct: 50}},
+		{``, migrationConf{HookOn: false, HookPct: 50, TreeOn: true, TreePct: 50}},
+		{`{"migrationHook":true,"migrationHookCtxPct":70}`, migrationConf{HookOn: true, HookPct: 70, TreeOn: true, TreePct: 50}},
+		{`{"issueTreeMigration":false,"issueTreeCtxPct":30}`, migrationConf{HookOn: false, HookPct: 50, TreeOn: false, TreePct: 30}},
+		{`{"migrationHookCtxPct":0,"issueTreeCtxPct":101}`, migrationConf{HookOn: false, HookPct: 50, TreeOn: true, TreePct: 50}},
+		{`{"migrationHookCtxPct":"x","migrationHook":"y"}`, migrationConf{HookOn: false, HookPct: 50, TreeOn: true, TreePct: 50}},
+		{`not json`, migrationConf{HookOn: false, HookPct: 50, TreeOn: true, TreePct: 50}},
 	}
 	for _, c := range cases {
 		if got := parseMigrationConf([]byte(c.blob)); got != c.want {
@@ -50,11 +50,16 @@ func TestMigrationAdvice_Verdicts(t *testing.T) {
 		}
 		return out
 	}
+	// 기본은 끔이다 — 맥락은 모으지만 알리지 않는다.
+	if out := ask("tool-b"); out["verdict"] != "skip" {
+		t.Fatalf("기본 끔=%v", out)
+	}
+	settings.blob = []byte(`{"migrationHook":true}`)
 	// 일반 세션(tool-b 는 트리 아닌 Run 의 멤버다) — 57% ≥ 50% 이면 advise.
 	if out := ask("tool-b"); out["verdict"] != "advise" || out["usedPct"] != 57.0 || out["ctxPct"] != float64(50) {
 		t.Fatalf("advise=%v", out)
 	}
-	settings.blob = []byte(`{"migrationHookCtxPct":60}`)
+	settings.blob = []byte(`{"migrationHook":true,"migrationHookCtxPct":60}`)
 	if out := ask("tool-b"); out["verdict"] != "ok" {
 		t.Fatalf("기준 아래=%v", out)
 	}
@@ -62,7 +67,7 @@ func TestMigrationAdvice_Verdicts(t *testing.T) {
 	if out := ask("tool-b"); out["verdict"] != "skip" {
 		t.Fatalf("끔=%v", out)
 	}
-	settings.blob = nil
+	settings.blob = []byte(`{"migrationHook":true}`)
 	// 트리 멤버는 issue-tree 설정과 절차를 따른다 — 일반 훅은 건너뛴다 (FR-ITM-11①·15).
 	report("tool-n", 90)
 	if out := ask("tool-n"); out["verdict"] != "skip" {

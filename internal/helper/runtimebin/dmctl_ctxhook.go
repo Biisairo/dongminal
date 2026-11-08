@@ -17,8 +17,8 @@ import (
 const dmctlCtxHookHelp = `dmctl ctx-hook <agent> — 맥락 기준 migration 제안 (에이전트 훅에서 호출)
 
 stdin 의 훅 JSON 에서 이벤트 이름을 읽고, 서버에 이 도구의 판정을 묻는다
-(GET /api/tools/migration-advice). 맥락 사용률이 설정 migrationHookCtxPct(기본 50)
-이상이면 additionalContext 로 /dongminal:migration 을 강하게 제안한다. 강제하지 않는다.
+(GET /api/tools/migration-advice). 설정 migrationHook(기본 끔)이 켜져 있고 맥락 사용률이
+설정 migrationHookCtxPct(기본 50) 이상이면 additionalContext 로 /dongminal:migration 을 강하게 제안한다. 강제하지 않는다.
 issue-tree 노드는 건너뛴다 — 그 노드는 issue-tree 설정과 절차를 따른다.
 `
 
