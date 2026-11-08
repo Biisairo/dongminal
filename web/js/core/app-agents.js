@@ -4,6 +4,28 @@
  * class App 본문에서 옮겨온 메서드 9개. 본문은 수정하지 않았다 (FR-APP-3).
  * app.js 이후 main.js 이전에 로드된다 (FR-APP-5).
  */
+
+/**
+ * ACTIVITY_CARD_USAGE_SRS FR-ACU-10~14: 카드의 사용량 줄이 그릴 값. 그릴 것이 없으면
+ * null 이다. 등급은 서버가 정해 보낸다 — 여기에는 경계값이 없다 (D-ACU-2).
+ */
+function agentUsageView(u){
+  if(!u) return null;
+  const hasPct=typeof u.ctxPct==='number';
+  const label=[u.model,u.effort].filter(Boolean).join('·');
+  if(!hasPct&&!label) return null;
+  const pct=hasPct?Math.round(u.ctxPct):null;
+  const title=[hasPct?'Context '+pct+'%':'',u.model||'',u.effort?'effort '+u.effort:'']
+    .filter(Boolean).join(' · ');
+  return {pct,fill:hasPct?Math.min(100,Math.max(0,u.ctxPct)):null,level:u.ctxLevel||'',label,title};
+}
+
+/** FR-ACU-15: 사용량 줄의 재조정 근거. 그려지는 값만 담는다. */
+function agentUsageSig(u){
+  const v=agentUsageView(u);
+  return v?[v.pct,v.level,v.label].join('\u0002'):'';
+}
+
 Object.assign(App.prototype, {
   // FR-AAP-15: SSE tool_activity 수신 → 최신 상태로 덮어쓰고 카드 타깃 갱신
   _onToolActivity({toolId,state,tool,detail}={}){
@@ -14,7 +36,9 @@ Object.assign(App.prototype, {
       return;
     }
     // FR-AAP-13/21: 기존 항목은 제자리 갱신(순서 불변), 신규는 Map 끝(=최하단)에 추가
-    this._activity.set(toolId,{state,tool:tool||'',detail:detail||''});
+    // FR-ACU-16: SSE 는 사용량을 싣지 않는다 — 있던 것을 지우면 막대가 깜빡인다.
+    const prev=this._activity.get(toolId);
+    this._activity.set(toolId,{state,tool:tool||'',detail:detail||'',usage:prev&&prev.usage});
     this.agentsRender();
   },
 
@@ -35,7 +59,7 @@ Object.assign(App.prototype, {
         if(!a||!a.toolId) continue;
         seen.add(a.toolId);
         if(flight.has(a.toolId)) continue;
-        this._activity.set(a.toolId,{state:a.state,tool:a.tool||'',detail:a.detail||''});
+        this._activity.set(a.toolId,{state:a.state,tool:a.tool||'',detail:a.detail||'',usage:a.usage}); // FR-ACU-17
       }
       for(const id of Array.from(this._activity.keys())){
         if(!seen.has(id)&&!flight.has(id)) this._activity.delete(id);
@@ -164,7 +188,8 @@ Object.assign(App.prototype, {
         // FR-AGG-13: 창 이름은 더 이상 카드가 읽지 않으므로 근거에서도 빠진다 —
         // 창을 옮긴 카드는 **자리**가 바뀌고, 그것은 items 순서가 말한다.
         return [this._toolName(it.toolId,it.loc.tab.name),i.state||'',i.tool||'',i.detail||'',
-                this.attnHas(it.toolId)?1:0,this._isToolFocusedActive(it.toolId)?1:0]
+                this.attnHas(it.toolId)?1:0,this._isToolFocusedActive(it.toolId)?1:0,
+                agentUsageSig(i.usage)] // FR-ACU-15
           .join('\u0001');
       },
       build:it=>it.t==='head'?this._agHeadEl()
@@ -293,6 +318,28 @@ Object.assign(App.prototype, {
     return head;
   },
 
+  /** FR-ACU-10~14: 막대 → 백분율 → 모델·effort. 값이 없는 부분은 원소도 없다. */
+  _agUsageEl(v){
+    const row=document.createElement('div');
+    row.className='ag-usage'+(v.level==='warn'||v.level==='critical'?' lv-'+v.level:'');
+    row.title=v.title;
+    if(v.pct!==null){
+      const bar=document.createElement('div');bar.className='ag-usage-bar';
+      const fill=document.createElement('div');fill.className='ag-usage-fill';
+      fill.style.width=v.fill+'%';
+      bar.appendChild(fill);
+      const pct=document.createElement('span');pct.className='ag-usage-pct';
+      pct.textContent=v.pct+'%';
+      row.appendChild(bar);row.appendChild(pct);
+    }
+    if(v.label){
+      const m=document.createElement('span');m.className='ag-usage-model';
+      m.textContent=v.label;
+      row.appendChild(m);
+    }
+    return row;
+  },
+
   _agCardEl(panel,toolId,info,loc){
     info=info||{};
     const card=document.createElement('div');
@@ -310,6 +357,8 @@ Object.assign(App.prototype, {
     if(info.detail){dt.textContent=info.detail;card.appendChild(dt);}
     card.appendChild(locDiv);
     card.appendChild(st);
+    const uv=agentUsageView(info.usage); // FR-ACU-10·11
+    if(uv) card.appendChild(this._agUsageEl(uv));
     card.addEventListener('click',()=>this.jumpToTool(toolId)); // FR-ATA-6: 해제는 jumpToTool 이 한다
     // FR-AAP-21: 창 사이드바와 동일한 native DnD. drop(즉시) 1순위, dragend 폴백.
     card.draggable=true;

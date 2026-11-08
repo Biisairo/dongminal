@@ -852,6 +852,17 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .ag-state.waiting{color:var(--attn-text)}
 .ag-state.idle{color:var(--text)}
 .ag-detail{font-size:var(--fs-sm);color:var(--text);margin-top:2px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* ACTIVITY_CARD_USAGE_SRS FR-ACU-10·13 · NFR-ACU-2: 막대·백분율은 줄지 않고,
+   좁아지면 모델·effort 만 말줄임으로 준다. 등급 색은 Run 화면의 `lv-*` 와 같다. */
+.ag-usage{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:var(--fs-sm);color:var(--text-muted);min-width:0}
+.ag-usage-bar{flex:0 0 56px;height:4px;border-radius:2px;background:var(--border-weak);overflow:hidden}
+.ag-usage-fill{height:100%;background:var(--text-muted)}
+.ag-usage-pct{flex-shrink:0;font-variant-numeric:tabular-nums}
+.ag-usage-model{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ag-usage.lv-warn .ag-usage-fill{background:var(--attn)}
+.ag-usage.lv-warn .ag-usage-pct{color:var(--attn-text)}
+.ag-usage.lv-critical .ag-usage-fill{background:var(--danger)}
+.ag-usage.lv-critical .ag-usage-pct{color:var(--danger-text)}
 
 .pn-body{flex:1;position:relative;overflow:hidden}
 

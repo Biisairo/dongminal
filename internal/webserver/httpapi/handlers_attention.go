@@ -87,9 +87,9 @@ func (s *Server) apiToolAttentionClearAll(w http.ResponseWriter, r *http.Request
 
 // apiToolsActivity returns the current activity snapshot of every tool that has
 // reported one, so a late-joining / reconnecting client can restore cards
-// (FR-AAP-4).
+// (FR-AAP-4). Each entry carries the card usage summary when one is observed (FR-ACU-1).
 func (s *Server) apiToolsActivity(w http.ResponseWriter, r *http.Request) {
-	httpresp.JSON(w, http.StatusOK, map[string]any{"activities": s.attention().ActivitySnapshot()})
+	httpresp.JSON(w, http.StatusOK, map[string]any{"activities": s.activityEntries()})
 }
 
 // agentReportsUserTurn 은 그 에이전트가 **턴의 출처를 말할 수 있는지**다

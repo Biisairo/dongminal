@@ -444,3 +444,53 @@ test.describe('FR-ACT-7·10 (D-7): 구역 셋과 몸통 접기', () => {
     expect(await panelOrder(page)).toEqual(['G:' + win1, 'G:' + win2, 'C:' + pidC]);
   });
 });
+
+// ACTIVITY_CARD_USAGE_SRS TC-ACU-10: 사용량 줄이 보이고, 최소 폭에서 카드를 넘지 않는다
+// (FR-ACU-10 · NFR-ACU-2).
+test.describe('Agent card usage row', () => {
+  test('TC-ACU-10: 막대 → 백분율 → 모델, 최소 폭에서 넘치지 않는다', async ({ page }) => {
+    await waitForInit(page);
+    const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
+    await page.locator('#agents-toggle').click();
+    await expect(page.locator('#agents-panel.open')).toBeVisible();
+
+    // 활동 목록은 에이전트가 없는 working 을 거른다 — 이 터미널에는 에이전트가 없다.
+    expect(await setActivity(page, pid, 'done', '', 'app.js')).toBe(200);
+    const status = await page.evaluate(async (toolId) => {
+      const r = await fetch('/api/tools/usage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toolId,
+          usage: {
+            model: { displayName: 'A Very Long Model Display Name For Overflow' },
+            effort: 'high',
+            contextWindow: { usedPct: 72.4 },
+          },
+        }),
+      });
+      return r.status;
+    }, pid);
+    expect(status).toBe(200);
+
+    const row = page.locator(`#agents-panel .ag-card[data-toolid="${pid}"] .ag-usage`);
+    // 사용량은 다음 활동 목록 응답에 실린다 (NFR-ACU-1).
+    await page.evaluate(() => (window as any).app.testing.activityRestore());
+    await expect(row).toHaveCount(1, { timeout: 10000 });
+    await expect(row).toHaveClass(/lv-warn/);
+    await expect(row.locator('.ag-usage-pct')).toHaveText('72%');
+    await expect(row.locator('.ag-usage-model')).toHaveText('A Very Long Model Display Name For Overflow·high');
+    const order = await row.evaluate((el) => [...el.children].map((c) => c.className));
+    expect(order).toEqual(['ag-usage-bar', 'ag-usage-pct', 'ag-usage-model']);
+
+    await page.evaluate(() => document.documentElement.style.setProperty('--ag-w', '160px'));
+    const m = await row.evaluate((el) => {
+      const card = el.closest('.ag-card') as HTMLElement;
+      const pct = el.querySelector('.ag-usage-pct') as HTMLElement;
+      return { cardScroll: card.scrollWidth, cardClient: card.clientWidth,
+        pctRight: pct.getBoundingClientRect().right, cardRight: card.getBoundingClientRect().right };
+    });
+    expect(m.cardScroll, '사용량 줄이 카드를 가로로 밀었다').toBeLessThanOrEqual(m.cardClient);
+    expect(m.pctRight, '백분율이 카드 밖으로 밀렸다').toBeLessThanOrEqual(m.cardRight);
+  });
+});

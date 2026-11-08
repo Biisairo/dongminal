@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/statusline"
+	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/run"
 )
@@ -160,4 +161,58 @@ func (s *Server) toolUsageView(toolID string) (*toolContext, *toolUsage) {
 	pct := m.ContextRatio * 100
 	return &toolContext{UsedPct: &pct, WindowTokens: m.ContextLimit, Tokens: float64(m.ContextTokens),
 		Source: contextSourceTranscript, ObservedAt: m.ContextAt}, nil
+}
+
+// cardUsage 는 활동 목록 항목의 사용량 요약이다 (ACTIVITY_CARD_USAGE_SRS FR-ACU-2).
+// 카드가 그리는 값만 싣는다 — 경로·세션 id·비용은 여기 없다 (FR-ACU-5).
+type cardUsage struct {
+	CtxPct   *float64 `json:"ctxPct,omitempty"`
+	CtxLevel string   `json:"ctxLevel,omitempty"`
+	Model    string   `json:"model,omitempty"`
+	Effort   string   `json:"effort,omitempty"`
+}
+
+// cardUsageOf 는 toolUsageView 의 두 값에서 요약을 만든다. 실을 값이 없으면 nil 이다
+// (FR-ACU-4). 등급 경계는 맥락 정책의 것이다 (FR-ACU-3, D-ACU-2).
+func cardUsageOf(c *toolContext, u *toolUsage, p run.ContextPolicy) *cardUsage {
+	var out cardUsage
+	if c != nil && c.UsedPct != nil {
+		pct := *c.UsedPct
+		out.CtxPct = &pct
+		out.CtxLevel = p.Grade(pct/100, 0)
+	}
+	if u != nil {
+		if m := u.Model; m != nil {
+			switch {
+			case m.DisplayName != nil && *m.DisplayName != "":
+				out.Model = *m.DisplayName
+			case m.ID != nil:
+				out.Model = *m.ID
+			}
+		}
+		if u.Effort != nil {
+			out.Effort = *u.Effort
+		}
+	}
+	if out == (cardUsage{}) {
+		return nil
+	}
+	return &out
+}
+
+// activityEntry 는 `GET /api/tools/activity` 의 항목이다. 기존 필드는 ActivitySnap 그대로다 (FR-ACU-1).
+type activityEntry struct {
+	toolhub.ActivitySnap
+	Usage *cardUsage `json:"usage,omitempty"`
+}
+
+func (s *Server) activityEntries() []activityEntry {
+	snap := s.attention().ActivitySnapshot()
+	out := make([]activityEntry, 0, len(snap))
+	p := s.contextPolicy()
+	for _, a := range snap {
+		c, u := s.toolUsageView(a.ToolID)
+		out = append(out, activityEntry{ActivitySnap: a, Usage: cardUsageOf(c, u, p)})
+	}
+	return out
 }
