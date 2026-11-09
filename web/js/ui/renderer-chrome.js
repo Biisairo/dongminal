@@ -276,6 +276,7 @@ Object.assign(Renderer.prototype, {
     const active=app.edSideOf(s);
     const bar=this._keep(key+'/tabs',()=>{
       const b=document.createElement('div'); b.className='ed-side-tabs';
+      b.draggable=true;                                   // PANEL_DOCK_SRS FR-PDK-30
       // FR-PDR-7: 배선은 한 번. 탭 목록은 고정이므로 버튼도 한 번 만든다.
       for(const d of REPO_SIDE_TABS){
         const btn=document.createElement('button');
@@ -385,23 +386,24 @@ Object.assign(Renderer.prototype, {
     const ex=()=>h.previousElementSibling;
     // FR-HSZ-5: 양쪽 다 터미널이 아니다 — 사이드(탐색기·Changes)와 편집기이므로
     // `C×R` 줄이 붙지 않는다.
+    // PANEL_DOCK_SRS FR-PDK-20·22: 사이드가 오른쪽이면 왼쪽으로 끌어 넓히고 HUD 도 뒤집힌다.
+    const width=(ctx,ev)=>clamp(ctx.start+(ctx.right?-1:1)*(ev.clientX-ctx.sx0));
     UIKit.drag(h,{
       axis:'x',
-      start:()=>({start:ex().offsetWidth,win:h.closest('.ed-win')}),
+      start:()=>({start:ex().offsetWidth,win:h.closest('.ed-win'),right:this.app.repoSideDock()==='right'}),
       move:(ctx,ev)=>{
-        const w=clamp(ctx.start+(ev.clientX-ctx.sx0))+'px';
+        const w=width(ctx,ev)+'px';
         for(const el of document.querySelectorAll('.ed-win>.ed-side')) el.style.width=w;
       },
       sides:(ctx)=>{
         const sw=ex().offsetWidth;
         const tot=ctx.win?ctx.win.offsetWidth:sw;
-        return [
-          {px:sw,pct:tot?sw/tot*100:null},
-          {px:Math.max(0,tot-sw),pct:tot?(tot-sw)/tot*100:null},
-        ];
+        const side={px:sw,pct:tot?sw/tot*100:null};
+        const main={px:Math.max(0,tot-sw),pct:tot?(tot-sw)/tot*100:null};
+        return ctx.right?[main,side]:[side,main];
       },
       end:(ctx,ev)=>{
-        this.app.edSetSideWidth(clamp(ctx.start+(ev.clientX-ctx.sx0)));
+        this.app.edSetSideWidth(width(ctx,ev));
         for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();
       },
     });

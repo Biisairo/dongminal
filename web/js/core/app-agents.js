@@ -318,6 +318,7 @@ Object.assign(App.prototype, {
   _agHeadEl(){
     const head=document.createElement('div');
     head.className='ag-head';
+    head.draggable=true;                                   // PANEL_DOCK_SRS FR-PDK-30
     // UI_KIT_SRS FR-GLY-4·6 / FR-TIP-2: 문자에서 스프라이트로. 문구도 영어가
     // 된다 — 아이콘만 있는 버튼은 툴팁이 이름의 유일한 자리다.
     // 골격은 마크업으로, **값이 들어가는 자리는 DOM 으로** 세운다.

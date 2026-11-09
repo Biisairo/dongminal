@@ -687,6 +687,8 @@
 <!-- 브라우저 저장소의 단일 경로 (OPTIMIZE_REFACTOR_SRS FR-OPT-11-3). 실패를 ErrorLog 에
      남기므로 그 뒤이고, 로드 시점에 저장소를 읽는 파일보다 앞이다. -->
 <script src="js/core/pref-store.js?v=__ASSETV__"></script>
+<!-- PANEL_DOCK_SRS: 패널 좌우 도킹의 순수 계산. -->
+<script src="js/core/panel-dock.js?v=__ASSETV__"></script>
 <!-- M8_UNIFIED_SRS FR-B-2: 카탈로그는 **모든 상수보다 먼저** 선다 — `constants*.js` 가
      `const X=t('…')` 로 로드 시점에 읽는다. 로케일은 여기서 한 번 정해진다 (D-B-1). -->
 <script src="js/core/i18n.js?v=__ASSETV__"></script>
@@ -887,6 +889,8 @@
 <script src="js/core/app-reload.js?v=__ASSETV__"></script>
 <script src="js/core/app-tool.js?v=__ASSETV__"></script>
 <script src="js/core/app-layout.js?v=__ASSETV__"></script>
+<!-- 패널 좌우 도킹 (PANEL_DOCK_SRS). `app-layout.js` 뒤 — prototype 확장이다. -->
+<script src="js/core/app-dock.js?v=__ASSETV__"></script>
 <script src="js/core/app-slots.js?v=__ASSETV__"></script>
 <script src="js/core/app-focus.js?v=__ASSETV__"></script>
 <!-- 창 소유권 (UX_BATCH10_SRS 묶음 F). `app-focus.js` 뒤 — prototype 확장이다. -->

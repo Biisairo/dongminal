@@ -89,6 +89,8 @@ const APP_TESTING_NAMES = [
   //
   // 탭과 레일, 그리고 하단 상태바.
   'sbBusy', '_sbJumpTo', 'sbRail', '_sbSetTab', 'sbTab', 'setSidebarCollapsed',
+  // PANEL_DOCK_SRS: 패널의 좌우 자리.
+  'panelDock', 'setPanelDock', 'repoSideDock', 'setRepoSideDock',
   'updateStatusBar', '_stats',
 
   // ── 주의·활동·알림 (attention) ──

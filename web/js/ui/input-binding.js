@@ -11,8 +11,10 @@ class InputBinding {
     const sbEl=document.getElementById('sidebar');
     // FR-HSZ-3: 두 핸들의 반대쪽이 같은 요소다 — 콘텐츠 영역.
     const contentEl=document.getElementById('content');
+    this.app.applyPanelDock();
     this._bindAgentsPanel(contentEl);
     this._bindDocDnd(sbEl);
+    this._bindDock(sbEl);
     this._bindSidebarHandle(sbEl,contentEl);
     this._bindKeys();
     this._bindSearch();
@@ -47,10 +49,10 @@ class InputBinding {
      * UI_KIT_SRS FR-HSZ-1·10: 여섯 핸들이 `UIKit.drag` 한 골격을 쓴다. 폭 손잡이 둘은
      * 그 위에서 다시 한 구현이다 (`_bindWidthHandle`, FR-OPT-16-2 · FEU-17).
      *
-     * 이 패널은 콘텐츠의 **오른쪽**에 있다 — 왼쪽으로 끌면 넓어진다.
+     * 끄는 방향은 패널의 자리(PANEL_DOCK_SRS)를 따른다.
      */
     this._bindWidthHandle(aph,{
-      el:ap, contentEl, side:'right', min:AGENTS_W_MIN_PX, max:AGENTS_W_MAX_PX,
+      el:ap, contentEl, side:()=>dockSideOf(this.app.panelDock(),'activity'), min:AGENTS_W_MIN_PX, max:AGENTS_W_MAX_PX,
       apply:w=>document.documentElement.style.setProperty('--ag-w',w+'px'),
       save:w=>PrefStore.local.set(STORE_KEYS.agentsWidth,w),
     });
@@ -66,7 +68,7 @@ class InputBinding {
     // UX_REVISION_SRS FR-BLP-13: 사이드바 리스트는 **타입으로 서술자를 찾아** 한
     // 경로로 커밋한다 — 목록이 늘어도 이 배선은 늘지 않는다. 에이전트 패널은
     // 사이드바 리스트가 아니므로 자기 경로를 유지한다.
-    document.addEventListener('dragover',e=>{const dr=this.app.drag;if(dr&&(dr.type==='agent'||SidebarList.defByDragType(dr.type)))e.preventDefault()});
+    document.addEventListener('dragover',e=>{const dr=this.app.drag;if(dr&&(dr.type==='agent'||dr.type==='dock'||SidebarList.defByDragType(dr.type)))e.preventDefault()});
     // FR-MOV-1: 탭 드래그가 사이드바 위에서 죽지 않게 한다. 창 항목이 자기
     // dragover 에서 preventDefault 하지만, 항목 사이 여백에 걸치면 그 이벤트가
     // 오지 않아 native 가 드롭을 거절한다 — 여기서 사이드바 전체를 수락한다.
@@ -77,6 +79,68 @@ class InputBinding {
       if(dr.type==='agent'){e.preventDefault();this.app.reorderAgents(dr);return}
       const def=SidebarList.defByDragType(dr.type);
       if(def){e.preventDefault();SidebarList.commit(this.app,def,dr)}
+    });
+  }
+
+  /**
+   * PANEL_DOCK_SRS FR-PDK-30~38: 패널을 끌어 좌우에 놓는다.
+   *
+   * 손잡이 셋(`#sb-tabs`·`.ag-head`·`.ed-side-tabs`)은 다시 그려지므로 리스너는
+   * 문서에 한 번 붙이고 대상으로 가른다. `dragover`·`drop` 은 **캡처**로 받는다 —
+   * `.pn-body` 의 drop 이 종류를 가리지 않고 전파를 끊기 때문이다 (renderer-pane-wire.js).
+   */
+  _bindDock(sbEl){
+    const app=this.app;
+    const tabs=sbEl.querySelector('#sb-tabs');
+    if(tabs) tabs.draggable=true;
+    const bar=document.createElement('div');
+    bar.id='dock-indicator';
+    document.body.appendChild(bar);
+    const rectOf=id=>{const el=document.getElementById(id);return el?el.getBoundingClientRect():{left:0,width:0}};
+    const clear=()=>{
+      bar.classList.remove('on');
+      for(const w of document.querySelectorAll('.ed-win.dock-drop-left,.ed-win.dock-drop-right'))
+        w.classList.remove('dock-drop-left','dock-drop-right');
+    };
+    document.addEventListener('dragstart',e=>{
+      const el=e.target&&e.target.closest&&e.target.closest('#sb-tabs,.ag-head,.ed-side-tabs');
+      if(!el||el!==e.target) return;
+      if(app.isMobile){e.preventDefault();return}                // FR-PDK-37
+      const panel=el.id==='sb-tabs'?'sidebar':el.classList.contains('ag-head')?'activity':'repoSide';
+      app.drag={type:'dock',panel,target:null};
+      e.dataTransfer.effectAllowed='move';
+      e.dataTransfer.setData('text/plain',panel);
+    });
+    document.addEventListener('dragover',e=>{
+      const dr=app.drag; if(!dr||dr.type!=='dock') return;
+      e.preventDefault(); clear(); dr.target=null;
+      if(dr.panel==='repoSide'){
+        const win=e.target.closest&&e.target.closest('.ed-win');
+        if(!win) return;                                          // FR-PDK-38
+        dr.target=repoSideDropTarget(e.clientX,win.getBoundingClientRect());
+        win.classList.add('dock-drop-'+dr.target);
+        return;
+      }
+      const appEl=document.getElementById('app');
+      if(!appEl||!appEl.contains(e.target)) return;
+      const r=appEl.getBoundingClientRect(), box={left:r.left,width:r.width};
+      const rects={sidebar:rectOf('sidebar'),activity:rectOf('agents-panel')};
+      const s=app.panelDock();
+      dr.target=dockDropTarget(s,dr.panel,e.clientX,box,rects);
+      const x=dockIndicatorX(s,dr.panel,dr.target,box,rects);
+      bar.classList.add('on');
+      bar.style.left=Math.max(0,Math.min(x,window.innerWidth-bar.offsetWidth))+'px';
+    },true);
+    document.addEventListener('drop',e=>{
+      const dr=app.drag; if(!dr||dr.type!=='dock') return;
+      e.preventDefault(); e.stopPropagation(); clear(); app.drag=null;
+      if(!dr.target) return;                                       // FR-PDK-35
+      if(dr.panel==='repoSide') app.setRepoSideDock(dr.target);
+      else app.setPanelDock(dockMove(app.panelDock(),dr.panel,dr.target.side,dr.target.index));
+    },true);
+    document.addEventListener('dragend',()=>{
+      const dr=app.drag; if(!dr||dr.type!=='dock') return;
+      clear(); app.drag=null;
     });
   }
 
@@ -98,7 +162,7 @@ class InputBinding {
      * 유일한 길이면 키보드만 쓰는 사람에게는 길이 없다.
      */
     this._bindWidthHandle(sbh,{
-      el:sb, contentEl, side:'left', min:SIDEBAR_W_MIN_PX, max:SIDEBAR_W_MAX_PX,
+      el:sb, contentEl, side:()=>dockSideOf(this.app.panelDock(),'sidebar'), min:SIDEBAR_W_MIN_PX, max:SIDEBAR_W_MAX_PX,
       apply:w=>document.documentElement.style.setProperty('--sb-w',w+'px'),
       // 접힘에서 시작하면 기준은 레일의 폭이다 — 그 자리에서 오른쪽으로 끌면
       // 임계를 넘어 펼쳐진다.
@@ -121,7 +185,8 @@ class InputBinding {
    *
    *   el·contentEl  폭을 가진 쪽과 그 반대쪽(콘텐츠 영역)
    *   side          el 이 콘텐츠의 어느 쪽에 있는가 — 'left' 는 오른쪽으로, 'right' 는
-   *                 왼쪽으로 끌면 넓어진다. HUD 의 양쪽 값 순서도 이것이 정한다
+   *                 왼쪽으로 끌면 넓어진다. HUD 의 양쪽 값 순서도 이것이 정한다.
+   *                 함수면 드래그를 시작할 때 묻는다 (PANEL_DOCK_SRS FR-PDK-20)
    *   min·max       구간. FE-18: 구간은 상수 둘이 정한다 — 드래그로 갈 수 없는 폭이
    *                 저장에서 살아남는(또는 그 반대의) 어긋남을 막는다
    *   apply(w)      폭을 CSS 변수에 싣는다. 변수 이름을 문자열 인자로 넘기지 않는 것은
@@ -134,10 +199,12 @@ class InputBinding {
     const contentEl=o.contentEl;
     UIKit.drag(handle,{
       axis:'x',
-      start:()=>({w0:o.el.offsetWidth,c0:contentEl?contentEl.offsetWidth:0}),
+      // PANEL_DOCK_SRS FR-PDK-20: 방향은 드래그를 **시작할 때의** 자리를 따른다.
+      start:()=>({w0:o.el.offsetWidth,c0:contentEl?contentEl.offsetWidth:0,
+        side:typeof o.side==='function'?o.side():o.side}),
       move:(ctx,ev)=>{
         const dx=ev.clientX-ctx.sx0;
-        const raw=o.side==='left'?ctx.w0+dx:ctx.w0-dx;
+        const raw=ctx.side==='left'?ctx.w0+dx:ctx.w0-dx;
         if(o.collapse&&o.collapse(raw)) return;
         if(raw<o.min||raw>o.max) return;
         o.apply(raw);
@@ -150,7 +217,7 @@ class InputBinding {
         const mine={px:w,pct:tot?w/tot*100:null};
         const content={px:cw,cell:UIKit.grid(this.app.focusedTerminal&&this.app.focusedTerminal(),'x',cw-ctx.c0,0),
           pct:tot?cw/tot*100:null};
-        return o.side==='left'?[mine,content]:[content,mine];
+        return ctx.side==='left'?[mine,content]:[content,mine];
       },
       end:(ctx)=>{
         for(const p of this.app.tools.values())if(p.el.classList.contains('vis'))p.doFit();

@@ -41,6 +41,8 @@ const STORE_KEYS=Object.freeze({
   agentsGroupFold:'agentsGroupFold',
   windowGroupFold:'windowGroupFold',
   sandboxRecent:'dm.sbx.recent',
+  panelDock:'panelDock',
+  repoSideDock:'repoSideDock',
   // local — 이사가 끝나면 지우기만 하는 옛 키
   legacyAgentsPollMs:'agentsPollMs',
   legacyLspServerPaths:'lspServerPaths',

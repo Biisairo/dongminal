@@ -14,7 +14,7 @@ function memStore(seed = {}) {
   return { getItem: (k) => (d.has(k) ? d.get(k) : null), setItem: (k, v) => d.set(k, String(v)), removeItem: (k) => d.delete(k) };
 }
 
-function world({ local = {}, session = {}, collapsed = false } = {}) {
+function world({ local = {}, session = {}, collapsed = false, dock = { left: ['sidebar'], right: ['activity'] } } = {}) {
   const vars = {};
   const drags = {};
   const node = (id, w) => ({
@@ -26,7 +26,7 @@ function world({ local = {}, session = {}, collapsed = false } = {}) {
     'agents-handle': node('agents-handle', 4), 'sb-handle': node('sb-handle', 4),
   };
   const ls = memStore(local), ss = memStore(session);
-  const ctx = load(['core/error-log.js', 'core/pref-store.js', 'core/constants.js', 'ui/input-binding.js'], {
+  const ctx = load(['core/error-log.js', 'core/pref-store.js', 'core/panel-dock.js', 'core/constants.js', 'ui/input-binding.js'], {
     globals: {
       t: (k) => k, tn: (k) => k, localStorage: ls, sessionStorage: ss, addEventListener() {},
       document: {
@@ -43,6 +43,7 @@ function world({ local = {}, session = {}, collapsed = false } = {}) {
     focusedTerminal: () => null,
     sidebarCollapsed: () => state.collapsed,
     setSidebarCollapsed: (v) => { state.collapsed = v },
+    panelDock: () => dock,
   };
   const ib = new ctx.InputBinding(app);
   const calls = [];
@@ -116,7 +117,45 @@ test('사이드바: 접힌 채로 오른쪽으로 끌면 펼쳐진다', () => {
 
 test('양쪽 값: Agents 는 [콘텐츠, 패널], 사이드바는 [사이드바, 콘텐츠] 순이다', () => {
   const { drags } = world();
-  const c = { w0: 260, c0: 900 };
-  assert.deepEqual([...drags['agents-handle'].sides(c).map((s) => s.px)], [900, 260]);
-  assert.deepEqual([...drags['sb-handle'].sides(c).map((s) => s.px)], [200, 900]);
+  const ag = drags['agents-handle'], sb = drags['sb-handle'];
+  assert.deepEqual([...ag.sides(ag.start()).map((s) => s.px)], [900, 260]);
+  assert.deepEqual([...sb.sides(sb.start()).map((s) => s.px)], [200, 900]);
+});
+
+// PANEL_DOCK_SRS FR-PDK-20~22: 방향은 드래그를 시작할 때의 자리를 따른다.
+const SWAPPED = { left: ['activity'], right: ['sidebar'] };
+
+test('FR-PDK-20: 오른쪽 사이드바는 왼쪽으로 끌면 넓어진다', () => {
+  const { vars, run } = world({ dock: SWAPPED });
+  run('sb-handle', -50);
+  assert.equal(vars['--sb-w'], '250px');
+});
+
+test('FR-PDK-20: 왼쪽 Agents 는 오른쪽으로 끌면 넓어진다', () => {
+  const { vars, run } = world({ dock: SWAPPED });
+  run('agents-handle', 40);
+  assert.equal(vars['--ag-w'], '300px');
+});
+
+test('FR-PDK-21: 오른쪽 사이드바는 오른쪽 끝까지 끌면 접힌다', () => {
+  const { run, state, ctx } = world({ dock: SWAPPED });
+  run('sb-handle', 200 - ctx.SIDEBAR_COLLAPSE_AT_PX + 1);
+  assert.equal(state.collapsed, true);
+});
+
+test('FR-PDK-22: 자리가 바뀌면 양쪽 값의 순서도 바뀐다', () => {
+  const { drags } = world({ dock: SWAPPED });
+  const ag = drags['agents-handle'], sb = drags['sb-handle'];
+  assert.deepEqual([...ag.sides(ag.start()).map((s) => s.px)], [260, 900]);
+  assert.deepEqual([...sb.sides(sb.start()).map((s) => s.px)], [900, 200]);
+});
+
+test('FR-PDK-20: 방향은 시작할 때 한 번 정한다', () => {
+  const dock = { left: ['sidebar'], right: ['activity'] };
+  const { drags, vars } = world({ dock });
+  const o = drags['sb-handle'];
+  const c = { ...o.start(), sx0: 100 };
+  dock.left = []; dock.right = ['sidebar', 'activity'];
+  o.move(c, { clientX: 130 });
+  assert.equal(vars['--sb-w'], '230px');
 });
