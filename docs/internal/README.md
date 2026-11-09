@@ -160,6 +160,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [SETTINGS_CONTROLS_SRS.md](./SETTINGS_CONTROLS_SRS.md) | **설정 컨트롤의 공통 언어** (IEEE 29148, `FR-SCT-*`). 설정 패널의 입력 수단을 **한 벌의 시각 언어**(`.ds-switch`·`.ds-range`)로 모은다 — 새로 들어오는 값이 기존 항목과 따로 놀지 않게 하고, 이미 어긋나 있던 항목(슬롯 방향)을 그 언어로 되돌린다. **구현 완료** |
 | [SIDEBAR_COLLAPSE_SRS.md](./SIDEBAR_COLLAPSE_SRS.md) | **좌측 사이드바 접기** (IEEE 29148, `FR-SBC-*`). 사이드바를 좁히는 유일한 손잡이가 `#sb-handle` 드래그뿐이었고 **100px 아래로 내려가지 않았다.** **구현 완료** |
 | [PANEL_DOCK_SRS.md](./PANEL_DOCK_SRS.md) | **패널 좌우 도킹** (IEEE 29148, `FR-PDK-*`). 사이드바·Activity·Repo 사이드가 한쪽에 고정돼 있었다. 끌어서 좌우·순서를 바꾼다. **구현 완료** |
+| [PEER_NETWORK_SRS.md](./PEER_NETWORK_SRS.md) | **노드 간 통신** (IEEE 29148, `FR-PNW-*`). 다른 PC의 dongminal과 짝맞춰 에이전트 목록·메시지·원격 기동을 프로토콜 명령으로 주고받는다. **승인·구현 전** |
 | [STATE_FILE_DURABILITY_SRS.md](./STATE_FILE_DURABILITY_SRS.md) | **상태 파일의 내구성 — 세대·격리·빈 판 방지** (IEEE 29148). **사용자의 워크스페이스가 조용히 사라지지 않게 한다.** 세 구멍이 한 뿌리다 — 깨졌을 때 **돌아갈 곳이 없고**, 깨진 것을 **알아채는 자리가 없고**, 그 상태에서 브라우저가 **빈 판을 저장한다.** **구현 완료** |
 | [SUBMODULE_DIRTY_NOTICE_SRS.md](./SUBMODULE_DIRTY_NOTICE_SRS.md) | **서브모듈 행이 왜 사라지지 않는지 말한다** (IEEE 29148). 확인 결과 **버그가 아니었다** — 재현으로 그 사실을 확정하고, 대신 **왜 남는지를 말하지 않던 것**을 고친다. **구현 완료** |
 | [TERMINAL_FOLDER_DROP_SRS.md](./TERMINAL_FOLDER_DROP_SRS.md) | **터미널에 폴더를 놓는다** (IEEE 29148, `FR-FTR-*`). **문서가 거짓을 말하고 있었다** — `README.md` 와 `features.md`·`commands.md` 가 폴더 드롭을 적는데, `term-pane.js` 는 `dataTransfer.files` 만 보아 터미널 쪽은 사실이 아니었다. **구현 완료** |
