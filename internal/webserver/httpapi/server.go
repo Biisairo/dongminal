@@ -80,6 +80,8 @@ type Server struct {
 
 	// usage 는 도구별 statusLine 사용량이다 (ISSUE_AGENT_TREE_SRS FR-SLP-10). 메모리에만 둔다.
 	usage usageStore
+	// subagents 는 도구별 서브에이전트 목록이다 (SUBAGENT_USAGE_SRS FR-SAU-10). 메모리에만 둔다.
+	subagents subagentStore
 	// migrationUnknownTold 는 「맥락 사용률을 모른다」 를 이미 알린 도구다 (ISSUE_TREE_OPS_SRS
 	// FR-ITM-13). 도구마다 한 번만 알린다.
 	migrationUnknownTold sync.Map

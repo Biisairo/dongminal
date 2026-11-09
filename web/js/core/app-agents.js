@@ -26,6 +26,28 @@ function agentUsageSig(u){
   return v?[v.pct,v.level,v.label].join('\u0002'):'';
 }
 
+/** SUBAGENT_USAGE_SRS FR-SAU-20~23: 서브에이전트 줄이 그리는 값. */
+function agentSubagentView(s){
+  const hasPct=typeof s.ctxPct==='number';
+  const type=s.agentType||'agent';
+  const model=(s.model||'').replace(/^claude-/,'');
+  const label=[model,s.effort].filter(Boolean).join('·');
+  const num=n=>n.toLocaleString('en-US');
+  const tokens=typeof s.tokens!=='number'?''
+    :typeof s.windowTokens==='number'?num(s.tokens)+' / '+num(s.windowTokens)+' tokens'
+    :num(s.tokens)+' tokens';
+  const title=[type,s.model||'',s.effort?'effort '+s.effort:'',tokens,s.status||''].filter(Boolean).join(' · ');
+  return {type,label,pct:hasPct?Math.round(s.ctxPct):null,fill:hasPct?Math.min(100,Math.max(0,s.ctxPct)):null,
+    level:s.ctxLevel||'',done:s.status!=='running',title};
+}
+
+/** FR-SAU-24: 서브에이전트 줄들의 재조정 근거. 그려지는 값만 담는다. */
+function agentSubagentsSig(list){
+  if(!Array.isArray(list)) return '';
+  return list.map(s=>{const v=agentSubagentView(s);return [s.id,v.type,v.label,v.pct,v.level,v.done?1:0].join('\u0003')})
+    .join('\u0002');
+}
+
 Object.assign(App.prototype, {
   // FR-AAP-15: SSE tool_activity 수신 → 최신 상태로 덮어쓰고 카드 타깃 갱신
   _onToolActivity({toolId,state,tool,detail}={}){
@@ -37,8 +59,9 @@ Object.assign(App.prototype, {
     }
     // FR-AAP-13/21: 기존 항목은 제자리 갱신(순서 불변), 신규는 Map 끝(=최하단)에 추가
     // FR-ACU-16: SSE 는 사용량을 싣지 않는다 — 있던 것을 지우면 막대가 깜빡인다.
+    // SUBAGENT_USAGE_SRS FR-SAU-25: 서브에이전트 목록도 같다.
     const prev=this._activity.get(toolId);
-    this._activity.set(toolId,{state,tool:tool||'',detail:detail||'',usage:prev&&prev.usage});
+    this._activity.set(toolId,{state,tool:tool||'',detail:detail||'',usage:prev&&prev.usage,subagents:prev&&prev.subagents});
     this.agentsRender();
   },
 
@@ -59,7 +82,7 @@ Object.assign(App.prototype, {
         if(!a||!a.toolId) continue;
         seen.add(a.toolId);
         if(flight.has(a.toolId)) continue;
-        this._activity.set(a.toolId,{state:a.state,tool:a.tool||'',detail:a.detail||'',usage:a.usage}); // FR-ACU-17
+        this._activity.set(a.toolId,{state:a.state,tool:a.tool||'',detail:a.detail||'',usage:a.usage,subagents:a.subagents}); // FR-ACU-17 · FR-SAU-25
       }
       for(const id of Array.from(this._activity.keys())){
         if(!seen.has(id)&&!flight.has(id)) this._activity.delete(id);
@@ -189,7 +212,7 @@ Object.assign(App.prototype, {
         // 창을 옮긴 카드는 **자리**가 바뀌고, 그것은 items 순서가 말한다.
         return [this._toolName(it.toolId,it.loc.tab.name),i.state||'',i.tool||'',i.detail||'',
                 this.attnHas(it.toolId)?1:0,this._isToolFocusedActive(it.toolId)?1:0,
-                agentUsageSig(i.usage)] // FR-ACU-15
+                agentUsageSig(i.usage),agentSubagentsSig(i.subagents)] // FR-ACU-15 · FR-SAU-24
           .join('\u0001');
       },
       build:it=>it.t==='head'?this._agHeadEl()
@@ -340,6 +363,26 @@ Object.assign(App.prototype, {
     return row;
   },
 
+  /** SUBAGENT_USAGE_SRS FR-SAU-20~23: ↳ → 종류 → 모델·effort → 막대 → 백분율. 값이 없는 부분은 원소도 없다. */
+  _agSubagentEl(v){
+    const row=document.createElement('div');
+    row.className='ag-sub'+(v.done?' done':'')+(v.level==='warn'||v.level==='critical'?' lv-'+v.level:'');
+    row.title=v.title;
+    const span=(cls,text)=>{const e=document.createElement('span');e.className=cls;e.textContent=text;row.appendChild(e)};
+    span('ag-sub-arrow','↳');
+    span('ag-sub-type',v.type);
+    if(v.label) span('ag-sub-model',v.label);
+    if(v.pct!==null){
+      const bar=document.createElement('div');bar.className='ag-usage-bar';
+      const fill=document.createElement('div');fill.className='ag-usage-fill';
+      fill.style.width=v.fill+'%';
+      bar.appendChild(fill);
+      row.appendChild(bar);
+      span('ag-usage-pct',v.pct+'%');
+    }
+    return row;
+  },
+
   _agCardEl(panel,toolId,info,loc){
     info=info||{};
     const card=document.createElement('div');
@@ -359,6 +402,7 @@ Object.assign(App.prototype, {
     card.appendChild(st);
     const uv=agentUsageView(info.usage); // FR-ACU-10·11
     if(uv) card.appendChild(this._agUsageEl(uv));
+    if(Array.isArray(info.subagents)) for(const s of info.subagents) card.appendChild(this._agSubagentEl(agentSubagentView(s))); // FR-SAU-20
     card.addEventListener('click',()=>this.jumpToTool(toolId)); // FR-ATA-6: 해제는 jumpToTool 이 한다
     // FR-AAP-21: 창 사이드바와 동일한 native DnD. drop(즉시) 1순위, dragend 폴백.
     card.draggable=true;

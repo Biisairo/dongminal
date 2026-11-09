@@ -73,6 +73,8 @@ func writeClaudeActivityHooks(s InstallSpec) error {
 		// ISSUE_AGENT_TREE_SRS FR-SLP-1: statusLine 프록시. flag 설정이 사용자 설정의
 		// statusLine 보다 우선한다(TC-SLP-5 실측) — 프록시가 원래 명령을 찾아 그대로 부른다.
 		"statusLine": map[string]any{"type": "command", "command": s.HookCommand("statusline")},
+		// SUBAGENT_USAGE_SRS FR-SAU-5: 서브에이전트 값의 프록시. 원래 명령은 같은 방식으로 찾는다.
+		"subagentStatusLine": map[string]any{"type": "command", "command": s.HookCommand("subagent-statusline")},
 	}
 	blob, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {

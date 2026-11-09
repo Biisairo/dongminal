@@ -191,6 +191,9 @@ func runDmctlSpecial(cmd string, rest []string, stdout, stderr io.Writer) (int, 
 	// ISSUE_AGENT_TREE_SRS 묶음 S: Claude Code 가 부르는 statusLine 프록시.
 	case "statusline":
 		return runDmctlStatusline(os.Stdin, stdout, stderr), true
+	// SUBAGENT_USAGE_SRS: Claude Code 가 부르는 subagentStatusLine 프록시.
+	case "subagent-statusline":
+		return runDmctlSubagentStatusline(os.Stdin, stdout, stderr), true
 	}
 	return 0, false
 }

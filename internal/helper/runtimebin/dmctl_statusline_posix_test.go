@@ -73,3 +73,24 @@ func TestStatuslineProxy_ServerHangDoesNotBlock(t *testing.T) {
 		t.Errorf("서버 지연이 표시를 막았다: %v", el)
 	}
 }
+
+// SUBAGENT_USAGE_SRS TC-SAU-4: 하위 subagentStatusLine 명령은 같은 입력을 받고, 그 출력과
+// 종료 코드가 그대로 나간다 (FR-SAU-8).
+func TestSubagentStatuslineProxy_PassThrough(t *testing.T) {
+	home := t.TempDir()
+	got := filepath.Join(t.TempDir(), "got.txt")
+	cmd := "cat > " + got + `; printf '{"id":"a3b7","content":"X"}'; exit 3`
+	settings := filepath.Join(home, ".claude", "settings.json")
+	os.MkdirAll(filepath.Dir(settings), 0o755)
+	os.WriteFile(settings, []byte(`{"subagentStatusLine":{"type":"command","command":`+strconvQuote(cmd)+`}}`), 0o644)
+	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(`{"ok":true}`)) })
+	defer cleanup()
+	var stdout, stderr bytes.Buffer
+	rc := runSubagentStatusline(strings.NewReader(sslSample), &stdout, &stderr, map[string]string{"HOME": home, "DONGMINAL_TOOL_ID": "p1"})
+	if rc != 3 || stdout.String() != `{"id":"a3b7","content":"X"}` {
+		t.Fatalf("rc=%d stdout=%q stderr=%s", rc, stdout.String(), stderr.String())
+	}
+	if b, _ := os.ReadFile(got); string(b) != sslSample {
+		t.Errorf("하위 명령이 받은 stdin 이 원본과 다르다")
+	}
+}

@@ -85,26 +85,26 @@ func TestStatuslineDownstream_Precedence(t *testing.T) {
 	user := filepath.Join(home, ".claude", "settings.json")
 	write(user, "user-cmd")
 	env := map[string]string{"HOME": home}
-	if got := statuslineDownstream(proj, env); got != "user-cmd" {
+	if got := statuslineDownstream(proj, env, statusLineKey); got != "user-cmd" {
 		t.Fatalf("user: %q", got)
 	}
 	write(filepath.Join(proj, ".claude", "settings.json"), "proj-cmd")
-	if got := statuslineDownstream(proj, env); got != "proj-cmd" {
+	if got := statuslineDownstream(proj, env, statusLineKey); got != "proj-cmd" {
 		t.Fatalf("proj: %q", got)
 	}
 	write(filepath.Join(proj, ".claude", "settings.local.json"), "local-cmd")
-	if got := statuslineDownstream(proj, env); got != "local-cmd" {
+	if got := statuslineDownstream(proj, env, statusLineKey); got != "local-cmd" {
 		t.Fatalf("local: %q", got)
 	}
 	// CLAUDE_CONFIG_DIR 가 있으면 사용자 설정은 그 아래다.
 	cfg := t.TempDir()
 	write(filepath.Join(cfg, "settings.json"), "cfg-cmd")
-	if got := statuslineDownstream(t.TempDir(), map[string]string{"HOME": home, "CLAUDE_CONFIG_DIR": cfg}); got != "cfg-cmd" {
+	if got := statuslineDownstream(t.TempDir(), map[string]string{"HOME": home, "CLAUDE_CONFIG_DIR": cfg}, statusLineKey); got != "cfg-cmd" {
 		t.Fatalf("config dir: %q", got)
 	}
 	// 자기 자신을 가리키면 재귀다 — 건너뛰고 다음으로 간다.
 	write(filepath.Join(proj, ".claude", "settings.local.json"), "dmctl statusline")
-	if got := statuslineDownstream(proj, env); got != "proj-cmd" {
+	if got := statuslineDownstream(proj, env, statusLineKey); got != "proj-cmd" {
 		t.Fatalf("self skip: %q", got)
 	}
 }
@@ -143,7 +143,7 @@ func TestStatuslineDownstream_DisableAllHooks(t *testing.T) {
 	os.WriteFile(filepath.Join(home, ".claude", "settings.json"), []byte(`{"disableAllHooks":true}`), 0o644)
 	os.MkdirAll(filepath.Join(proj, ".claude"), 0o755)
 	os.WriteFile(filepath.Join(proj, ".claude", "settings.json"), []byte(`{"statusLine":{"type":"command","command":"proj-cmd"}}`), 0o644)
-	if got := statuslineDownstream(proj, map[string]string{"HOME": home}); got != "" {
+	if got := statuslineDownstream(proj, map[string]string{"HOME": home}, statusLineKey); got != "" {
 		t.Fatalf("disableAllHooks 인데 하위 명령을 골랐다: %q", got)
 	}
 }

@@ -134,6 +134,7 @@ func (s *Server) StartRunReaper(stop <-chan struct{}) {
 			case <-t.C:
 				s.reapRuns()
 				s.usage.prune(s.toolLive)
+				s.subagents.prune(s.toolLive)
 			}
 		}
 	}()

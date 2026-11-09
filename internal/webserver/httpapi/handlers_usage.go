@@ -204,15 +204,19 @@ func cardUsageOf(c *toolContext, u *toolUsage, p run.ContextPolicy) *cardUsage {
 type activityEntry struct {
 	toolhub.ActivitySnap
 	Usage *cardUsage `json:"usage,omitempty"`
+	// SUBAGENT_USAGE_SRS FR-SAU-13: 신선한 서브에이전트 목록이 비어 있지 않을 때만 선다.
+	Subagents []cardSubagent `json:"subagents,omitempty"`
 }
 
 func (s *Server) activityEntries() []activityEntry {
 	snap := s.attention().ActivitySnapshot()
 	out := make([]activityEntry, 0, len(snap))
 	p := s.contextPolicy()
+	now := time.Now()
 	for _, a := range snap {
 		c, u := s.toolUsageView(a.ToolID)
-		out = append(out, activityEntry{ActivitySnap: a, Usage: cardUsageOf(c, u, p)})
+		subs, _ := s.subagents.get(a.ToolID, now)
+		out = append(out, activityEntry{ActivitySnap: a, Usage: cardUsageOf(c, u, p), Subagents: cardSubagentsOf(subs, p)})
 	}
 	return out
 }

@@ -56,7 +56,7 @@
 | POST | `/api/tools/attention/clear` | 도구 하나의 주의 상태 해제 |
 | POST | `/api/tools/attention/clear-all` | 전체 해제 |
 | POST | `/api/tools/attention/claim` | `{seq, kinds:["banner"\|"sound"]}` → `{granted:[…]}` — 알람 하나의 배너·소리를 이 창이 맡는다. 같은 컴퓨터(출발지 주소)에서는 처음 온 청구만 승낙된다 |
-| GET | `/api/tools/activity` | 도구별 현재 활동 상태 (도구당 최신 1건) |
+| GET | `/api/tools/activity` | 도구별 현재 활동 상태 (도구당 최신 1건). 사용량 요약(`usage`)과 15초 안에 받은 서브에이전트 목록(`subagents`)이 있으면 함께 싣는다 |
 | POST | `/api/tools/activity/set` | 활동 상태 보고 (`dmctl activity` 가 사용) |
 
 ### 백그라운드 도구
@@ -196,9 +196,10 @@
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/tools/activity/get` | 도구 하나의 현재 활동 상태. statusLine 관측이 있으면 `context`(사용률·창·토큰·출처)와 `usage`(모델·판·비용·맥락 상세·한도 등)를 싣는다 |
+| GET | `/api/tools/activity/get` | 도구 하나의 현재 활동 상태. statusLine 관측이 있으면 `context`(사용률·창·토큰·출처)와 `usage`(모델·판·비용·맥락 상세·한도 등)를 싣는다. 15초 안에 받은 서브에이전트 목록이 있으면 `subagents`(종류·상태·모델·effort·토큰·창 크기·시작 시각)를 싣는다 |
 | GET | `/api/tools/migration-advice` | 맥락 훅이 묻는 migration 제안 판정 |
 | POST | `/api/tools/usage` | `dmctl statusline` 이 보내는 도구별 사용량 `{toolId, usage}`. 허용 목록 밖의 필드는 저장하지 않는다(경로·본문 없음) |
+| POST | `/api/tools/subagents` | `dmctl subagent-statusline` 이 보내는 도구별 서브에이전트 목록 `{toolId, tasks}`. 보고마다 목록을 통째로 바꾼다. 허용 목록 밖의 필드(설명 글·경로)는 저장하지 않는다. 15초 동안 보고가 없으면 목록이 없는 것으로 본다 |
 | GET | `/api/tools/activity/wait` | 그 상태가 바뀔 때까지 **기다린다** (long-poll). 폴링 루프를 짜지 마세요 |
 | POST | `/api/tools/kill` | 도구의 전경 프로세스를 정지시킨다 |
 

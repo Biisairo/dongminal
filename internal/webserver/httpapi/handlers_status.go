@@ -14,6 +14,7 @@ package httpapi
 import (
 	"dongminal/internal/shared/pollwait"
 	"dongminal/internal/shared/runwait"
+	"dongminal/internal/shared/statusline"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/domain/run"
 
@@ -59,6 +60,8 @@ type toolStatus struct {
 	// ISSUE_AGENT_TREE_SRS FR-SLP-20: 맥락 사용률과 statusLine 사용량. 관측이 없으면 없다.
 	Context *toolContext `json:"context,omitempty"`
 	Usage   *toolUsage   `json:"usage,omitempty"`
+	// SUBAGENT_USAGE_SRS FR-SAU-15: 신선한 서브에이전트 목록. 없으면 없다.
+	Subagents []statusline.Subagent `json:"subagents,omitempty"`
 	// ISSUE_TREE_OPS_SRS FR-ITC-5: Run 멤버이면 Run 쪽 상태(waiting-children 포함). State 는
 	// 훅 상태 그대로다 — 둘은 뜻이 다르므로 하나로 합치지 않는다.
 	Member *toolMember `json:"member,omitempty"`
@@ -113,6 +116,7 @@ func (s *Server) toolStatusOf(toolID string, live bool) toolStatus {
 		st.QuietMs = (time.Now().UnixNano() - last) / int64(time.Millisecond)
 	}
 	st.Context, st.Usage = s.toolUsageView(toolID)
+	st.Subagents = s.freshSubagents(toolID)
 	return st
 }
 

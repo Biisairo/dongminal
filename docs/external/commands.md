@@ -38,6 +38,7 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | `dmctl move-window --at <window> <위치> [--to <그룹> \| --ungroup]` | window 순서 바꾸기. 기준이 그룹 안 window 면 그 그룹에 들어간다. `--ungroup` 은 그룹에서 뺀다 |
 | `dmctl move-group --at <그룹> <위치>` | 그룹을 통째로 옮긴다. 빈 그룹은 옮길 수 없다 |
 | `dmctl statusline` | Claude Code 의 statusLine 프록시. dongminal 이 띄운 claude 세션에서 Claude Code 가 부른다 — 사용량을 서버에 남기고, 원래 등록된 statusLine 명령에 같은 입력을 그대로 넘긴다(그 명령은 고치지 않는다). 직접 부를 일은 없다 |
+| `dmctl subagent-statusline` | Claude Code 의 subagentStatusLine 프록시. dongminal 이 띄운 claude 세션에서 Claude Code 가 부른다 — 서브에이전트의 종류·모델·effort·맥락 토큰을 서버에 남기고, 원래 등록된 subagentStatusLine 명령에 같은 입력을 그대로 넘긴다. 원래 명령이 없으면 아무것도 출력하지 않아 Claude Code 의 기본 행이 그대로 보인다. 직접 부를 일은 없다 |
 | `dmctl list-workspace [--json] [--window <substr>] [--tab <substr>]` | 열린 도구 목록 조회. 표준 KEY=VALUE 라인 (아래 박스). ▶ 표시는 현재 포커스. `--window`/`--tab` 으로 이름 필터 (부분 일치·대소문자 무시, AND, 0건이면 rc=1). `--json` 시 JSON 배열 |
 | `dmctl who-am-i [--json]` | 현재 쉘이 속한 탭의 식별 정보. 같은 표준 라인 한 줄. 스크립트에서 `UUID=$(dmctl who-am-i --json \| jq -r .uuid)` 패턴으로 자기 식별 |
 | `dmctl send <action> [json]` | 원시 action 전송 (확장용) |

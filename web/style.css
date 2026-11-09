@@ -863,6 +863,19 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 .ag-usage.lv-warn .ag-usage-pct{color:var(--attn-text)}
 .ag-usage.lv-critical .ag-usage-fill{background:var(--danger)}
 .ag-usage.lv-critical .ag-usage-pct{color:var(--danger-text)}
+/* SUBAGENT_USAGE_SRS FR-SAU-20~22: 서브에이전트 줄. 막대·백분율은 줄지 않고 글자가 말줄임으로 준다 (NFR-SAU-2). */
+.ag-sub{display:flex;align-items:center;gap:6px;margin-top:2px;font-size:var(--fs-sm);color:var(--text-muted);min-width:0}
+.ag-sub.done{color:var(--text-dim)}
+.ag-sub-arrow{flex-shrink:0}
+.ag-sub-type,.ag-sub-model{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ag-sub-type{flex:0 1 auto}
+.ag-sub-model{flex:1 1 auto}
+.ag-sub .ag-usage-bar{flex:0 0 40px;margin-left:auto}
+.ag-sub.done .ag-usage-fill{background:var(--text-dim)}
+.ag-sub.lv-warn .ag-usage-fill{background:var(--attn)}
+.ag-sub.lv-warn .ag-usage-pct{color:var(--attn-text)}
+.ag-sub.lv-critical .ag-usage-fill{background:var(--danger)}
+.ag-sub.lv-critical .ag-usage-pct{color:var(--danger-text)}
 
 .pn-body{flex:1;position:relative;overflow:hidden}
 

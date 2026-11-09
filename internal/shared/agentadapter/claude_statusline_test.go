@@ -34,3 +34,25 @@ func TestClaudeSettings_StatusLineProxy(t *testing.T) {
 		t.Errorf("훅이 바뀌었다: %d", len(got.Hooks))
 	}
 }
+
+// SUBAGENT_USAGE_SRS FR-SAU-5 (TC-SAU-2): 같은 설정에 subagentStatusLine 프록시가 선다.
+func TestClaudeSettings_SubagentStatusLineProxy(t *testing.T) {
+	dir := t.TempDir()
+	s := InstallSpec{Dir: dir, Dmctl: "/opt/dm/bin/dmctl"}
+	if err := writeClaudeActivityHooks(s); err != nil {
+		t.Fatal(err)
+	}
+	blob, _ := os.ReadFile(filepath.Join(dir, claudeHooksFile))
+	var got struct {
+		SubagentStatusLine struct {
+			Type    string `json:"type"`
+			Command string `json:"command"`
+		} `json:"subagentStatusLine"`
+	}
+	if err := json.Unmarshal(blob, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.SubagentStatusLine.Type != "command" || got.SubagentStatusLine.Command != `"/opt/dm/bin/dmctl" subagent-statusline` {
+		t.Fatalf("subagentStatusLine=%+v", got.SubagentStatusLine)
+	}
+}

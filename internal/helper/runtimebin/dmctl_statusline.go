@@ -26,12 +26,18 @@ import (
 // slReportBudget 은 서버 보고의 시한이다 (NFR-SLP-1). 넘기면 버리고 표시로 간다.
 const slReportBudget = 100 * time.Millisecond
 
-// slSelf 는 dongminal 자신의 statusLine 명령이다 — 하위 명령으로 고르면 재귀다.
-var slSelf = regexp.MustCompile(`dmctl["']?\s+statusline\b`)
+// slSelf 는 dongminal 자신의 statusLine·subagentStatusLine 명령이다 — 하위 명령으로 고르면 재귀다.
+var slSelf = regexp.MustCompile(`dmctl["']?\s+(subagent-)?statusline\b`)
 
-// statuslineDownstream 은 dongminal 이 없을 때 Claude Code 가 실행했을 statusLine 명령이다
-// (FR-SLP-4). 우선순위: 프로젝트 local → 프로젝트 → 사용자.
-func statuslineDownstream(projectDir string, env map[string]string) string {
+// 하위 명령을 찾는 설정 키다 (SUBAGENT_USAGE_SRS D-SAU-5).
+const (
+	statusLineKey         = "statusLine"
+	subagentStatusLineKey = "subagentStatusLine"
+)
+
+// statuslineDownstream 은 dongminal 이 없을 때 Claude Code 가 실행했을 key 의 명령이다
+// (FR-SLP-4 · FR-SAU-7). 우선순위: 프로젝트 local → 프로젝트 → 사용자.
+func statuslineDownstream(projectDir string, env map[string]string, key string) string {
 	userDir := env["CLAUDE_CONFIG_DIR"]
 	if userDir == "" {
 		userDir = filepath.Join(env["HOME"], ".claude")
@@ -43,35 +49,33 @@ func statuslineDownstream(projectDir string, env map[string]string) string {
 			filepath.Join(projectDir, ".claude", "settings.json"))
 	}
 	files = append(files, filepath.Join(userDir, "settings.json"))
-	type slSettings struct {
-		DisableAllHooks bool `json:"disableAllHooks"`
-		StatusLine      *struct {
-			Type    string `json:"type"`
-			Command string `json:"command"`
-		} `json:"statusLine"`
+	type slCommand struct {
+		Type    string `json:"type"`
+		Command string `json:"command"`
 	}
-	parsed := make([]slSettings, 0, len(files))
+	cmds := make([]slCommand, 0, len(files))
 	for _, f := range files {
 		blob, err := os.ReadFile(f)
 		if err != nil {
 			continue
 		}
-		var s slSettings
+		var s map[string]json.RawMessage
 		if json.Unmarshal(blob, &s) != nil {
 			continue
 		}
 		// 어느 설정이든 훅을 모두 끄라고 했으면 Claude Code 가 실행하지 않았을 명령이다.
-		if s.DisableAllHooks {
+		var off bool
+		if json.Unmarshal(s["disableAllHooks"], &off) == nil && off {
 			return ""
 		}
-		parsed = append(parsed, s)
-	}
-	for _, s := range parsed {
-		if s.StatusLine == nil {
-			continue
+		var c slCommand
+		if raw, ok := s[key]; ok && json.Unmarshal(raw, &c) == nil {
+			cmds = append(cmds, c)
 		}
-		cmd := strings.TrimSpace(s.StatusLine.Command)
-		if s.StatusLine.Type != "command" || cmd == "" || slSelf.MatchString(cmd) {
+	}
+	for _, c := range cmds {
+		cmd := strings.TrimSpace(c.Command)
+		if c.Type != "command" || cmd == "" || slSelf.MatchString(cmd) {
 			continue
 		}
 		return cmd
@@ -104,7 +108,23 @@ func runStatusline(stdin io.Reader, stdout, stderr io.Writer, env map[string]str
 			_, _, _ = httpPostJSONWithin(baseURL()+"/api/tools/usage", map[string]any{"toolId": tool, "usage": u}, slReportBudget)
 		}
 	}
-	cmd := statuslineDownstream(statuslineProjectDir(raw), env)
+	return slPassThrough(raw, statuslineDownstream(statuslineProjectDir(raw), env, statusLineKey), stdout, stderr)
+}
+
+// runSubagentStatusline 은 `dmctl subagent-statusline` 이다 (SUBAGENT_USAGE_SRS FR-SAU-6~8).
+// 하위 명령이 없으면 아무것도 출력하지 않는다 — Claude Code 는 줄이 없는 행을 기본 모양으로 그린다.
+func runSubagentStatusline(stdin io.Reader, stdout, stderr io.Writer, env map[string]string) int {
+	raw, _ := io.ReadAll(stdin)
+	if tool := env["DONGMINAL_TOOL_ID"]; tool != "" {
+		if tasks, ok := statusline.SubagentsFromInput(raw); ok {
+			_, _, _ = httpPostJSONWithin(baseURL()+"/api/tools/subagents", map[string]any{"toolId": tool, "tasks": tasks}, slReportBudget)
+		}
+	}
+	return slPassThrough(raw, statuslineDownstream(statuslineProjectDir(raw), env, subagentStatusLineKey), stdout, stderr)
+}
+
+// slPassThrough 는 하위 명령에 받은 입력을 그대로 넘기고 그 종료 코드를 돌려준다. 명령이 없으면 0 이다.
+func slPassThrough(raw []byte, cmd string, stdout, stderr io.Writer) int {
 	if cmd == "" {
 		return 0
 	}
@@ -131,6 +151,15 @@ func slShell(cmd string) *exec.Cmd {
 }
 
 func runDmctlStatusline(stdin io.Reader, stdout, stderr io.Writer) int {
+	return runStatusline(stdin, stdout, stderr, statuslineEnv())
+}
+
+func runDmctlSubagentStatusline(stdin io.Reader, stdout, stderr io.Writer) int {
+	return runSubagentStatusline(stdin, stdout, stderr, statuslineEnv())
+}
+
+// statuslineEnv 는 두 프록시가 설정을 찾고 보고 대상을 정하는 데 쓰는 환경 값이다.
+func statuslineEnv() map[string]string {
 	env := map[string]string{}
 	for _, k := range []string{"HOME", "USERPROFILE", "CLAUDE_CONFIG_DIR", "DONGMINAL_TOOL_ID"} {
 		env[k] = os.Getenv(k)
@@ -138,5 +167,5 @@ func runDmctlStatusline(stdin io.Reader, stdout, stderr io.Writer) int {
 	if env["HOME"] == "" {
 		env["HOME"] = env["USERPROFILE"]
 	}
-	return runStatusline(stdin, stdout, stderr, env)
+	return env
 }

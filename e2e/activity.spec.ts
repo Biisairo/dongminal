@@ -494,3 +494,52 @@ test.describe('Agent card usage row', () => {
     expect(m.pctRight, '백분율이 카드 밖으로 밀렸다').toBeLessThanOrEqual(m.cardRight);
   });
 });
+
+// SUBAGENT_USAGE_SRS TC-SAU-9: 서브에이전트 줄이 보이고, 최소 폭에서 카드를 넘지 않는다
+// (FR-SAU-20 · NFR-SAU-2).
+test.describe('Agent card subagent rows', () => {
+  test('TC-SAU-9: 서브에이전트마다 한 줄, 끝난 줄은 흐림, 최소 폭에서 넘치지 않는다', async ({ page }) => {
+    await waitForInit(page);
+    const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
+    await page.locator('#agents-toggle').click();
+    await expect(page.locator('#agents-panel.open')).toBeVisible();
+
+    expect(await setActivity(page, pid, 'done', '', 'app.js')).toBe(200);
+    const status = await page.evaluate(async (toolId) => {
+      const r = await fetch('/api/tools/subagents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toolId,
+          tasks: [
+            { id: 'a1', agentType: 'A-Very-Long-Agent-Type-Name-For-Overflow', status: 'running',
+              model: 'claude-a-very-long-model-id-for-overflow', effort: 'high',
+              windowTokens: 200000, tokens: 150000, startTime: 1000 },
+            { id: 'a2', agentType: 'Plan', status: 'completed', tokens: 5, windowTokens: 1000, startTime: 2000 },
+          ],
+        }),
+      });
+      return r.status;
+    }, pid);
+    expect(status).toBe(200);
+
+    const rows = page.locator(`#agents-panel .ag-card[data-toolid="${pid}"] .ag-sub`);
+    await page.evaluate(() => (window as any).app.testing.activityRestore());
+    await expect(rows).toHaveCount(2, { timeout: 10000 });
+    await expect(rows.nth(0)).toHaveClass(/lv-warn/);
+    await expect(rows.nth(0).locator('.ag-usage-pct')).toHaveText('75%');
+    await expect(rows.nth(0).locator('.ag-sub-model')).toHaveText('a-very-long-model-id-for-overflow·high');
+    await expect(rows.nth(1)).toHaveClass(/done/);
+    await expect(rows.nth(1).locator('.ag-sub-type')).toHaveText('Plan');
+
+    await page.evaluate(() => document.documentElement.style.setProperty('--ag-w', '160px'));
+    const m = await rows.nth(0).evaluate((el) => {
+      const card = el.closest('.ag-card') as HTMLElement;
+      const pct = el.querySelector('.ag-usage-pct') as HTMLElement;
+      return { cardScroll: card.scrollWidth, cardClient: card.clientWidth,
+        pctRight: pct.getBoundingClientRect().right, cardRight: card.getBoundingClientRect().right };
+    });
+    expect(m.cardScroll, '서브에이전트 줄이 카드를 가로로 밀었다').toBeLessThanOrEqual(m.cardClient);
+    expect(m.pctRight, '백분율이 카드 밖으로 밀렸다').toBeLessThanOrEqual(m.cardRight);
+  });
+});
