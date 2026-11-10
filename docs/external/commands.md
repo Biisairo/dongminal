@@ -70,7 +70,7 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | `dmctl notify [label]` | 현재 도구에 **주의 알림**을 세웁니다. 탭·분할 칸에 표시가 뜨고, 설정에 따라 데스크톱 알림·소리가 납니다 |
 | `dmctl activity <agent>` | 현재 도구의 **작업 상태**를 보고합니다. 훅 JSON 을 stdin 으로 읽습니다 |
 | `dmctl agent-context` | 세션에 상시 주입할 **컨텍스트**를 냅니다 (이 도구가 어느 워크스페이스의 무엇인지) |
-| `dmctl ctx-hook <agent>` | 설정 `migrationHook`(기본 끔)이 켜져 있고 맥락 사용률이 기준(`migrationHookCtxPct`, 기본 50) 이상이면 `/dongminal:migration` 을 제안합니다. 에이전트 훅(PostToolUse·UserPromptSubmit)이 부릅니다 |
+| `dmctl ctx-hook <agent>` | 설정 `migrationHook`(기본 끔)이 켜져 있고 맥락 사용률이 기준(`migrationHookCtxPct`, 기본 50)의 80% 이상이면 다음 일의 크기를 보고 `/dongminal:migration` 시점을 정하라고 알리고, 85% 이상이면 지금 넘기라고 알립니다. 에이전트 훅(PostToolUse·UserPromptSubmit)이 부릅니다 |
 
 #### 파일·URL 열기
 

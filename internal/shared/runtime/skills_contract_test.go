@@ -334,13 +334,16 @@ func TestIssueTreeCommand_CarriesOpsProcedure(t *testing.T) {
 		{"스스로 넘어가지 않음 (FR-ITA-40)", "스스로 넘어가지 않는다"},
 		{"설정 기준 (FR-ITM-5)", "issueTreeCtxPct"},
 		{"잎의 안전 지점 (FR-ITM-21)", "잎의 안전 지점"},
+		{"맥락 판단 (FR-ITM-23)", "### 맥락 판단"},
+		{"판단 시작점 (FR-ITM-23)", "기준 × 0.8"},
+		{"상한 (FR-ITM-16)", "85% 이상이면 판단하지 않고"},
 	}
 	for _, r := range required {
 		if !strings.Contains(body, r.needle) {
 			t.Errorf("issue-tree.md 에 %s 가 없다 (%q)", r.name, r.needle)
 		}
 	}
-	for _, banned := range []string{"### 배정 (Kickoff)", "사용자에게 물어라", "ISSUE_AGENT_TREE_SRS.md", "[--ctx 60]"} {
+	for _, banned := range []string{"### 배정 (Kickoff)", "사용자에게 물어라", "ISSUE_AGENT_TREE_SRS.md", "[--ctx 60]", "맥락 기준과 견준다. 기준 이상이면"} {
 		if strings.Contains(body, banned) {
 			t.Errorf("issue-tree.md 에 지운 절차 %q 가 남아 있다", banned)
 		}

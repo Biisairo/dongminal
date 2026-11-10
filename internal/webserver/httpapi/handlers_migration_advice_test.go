@@ -59,10 +59,37 @@ func TestMigrationAdvice_Verdicts(t *testing.T) {
 	if out := ask("tool-b"); out["verdict"] != "advise" || out["usedPct"] != 57.0 || out["ctxPct"] != float64(50) {
 		t.Fatalf("advise=%v", out)
 	}
-	settings.blob = []byte(`{"migrationHook":true,"migrationHookCtxPct":60}`)
-	if out := ask("tool-b"); out["verdict"] != "ok" {
-		t.Fatalf("기준 아래=%v", out)
+	if out := ask("tool-b"); out["judgePct"] != float64(40) || out["capPct"] != float64(85) {
+		t.Fatalf("판단 시작점·상한=%v", out)
 	}
+	// FR-ITM-23: 기준 아래라도 판단 시작점(기준 × 0.8) 이상이면 advise 다.
+	settings.blob = []byte(`{"migrationHook":true,"migrationHookCtxPct":60}`)
+	if out := ask("tool-b"); out["verdict"] != "advise" || out["judgePct"] != float64(48) {
+		t.Fatalf("시작점 이상·기준 아래=%v", out)
+	}
+	settings.blob = []byte(`{"migrationHook":true,"migrationHookCtxPct":75}`)
+	if out := ask("tool-b"); out["verdict"] != "ok" {
+		t.Fatalf("시작점 아래=%v", out)
+	}
+	settings.blob = []byte(`{"migrationHook":true}`)
+	report("tool-b", 40)
+	if out := ask("tool-b"); out["verdict"] != "advise" {
+		t.Fatalf("시작점 그 자리=%v", out)
+	}
+	report("tool-b", 39)
+	if out := ask("tool-b"); out["verdict"] != "ok" {
+		t.Fatalf("시작점 바로 아래=%v", out)
+	}
+	// FR-ITM-16: 상한 85% 는 기준과 무관하다 — 기준이 상한보다 높아도 must 다.
+	report("tool-b", 85)
+	if out := ask("tool-b"); out["verdict"] != "must" {
+		t.Fatalf("상한=%v", out)
+	}
+	settings.blob = []byte(`{"migrationHook":true,"migrationHookCtxPct":95}`)
+	if out := ask("tool-b"); out["verdict"] != "must" {
+		t.Fatalf("기준이 상한보다 높을 때=%v", out)
+	}
+	report("tool-b", 57)
 	settings.blob = []byte(`{"migrationHook":false}`)
 	if out := ask("tool-b"); out["verdict"] != "skip" {
 		t.Fatalf("끔=%v", out)

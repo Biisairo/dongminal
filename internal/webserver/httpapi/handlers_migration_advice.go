@@ -97,14 +97,24 @@ const (
 	adviceSkip    = "skip"
 	adviceUnknown = "unknown"
 	adviceAdvise  = "advise"
+	adviceMust    = "must"
 	adviceOK      = "ok"
+)
+
+// 맥락 판단의 두 값 (FR-ITM-16·23, D-ITO-15). 판단은 기준의 4/5(80%) 에서 시작하고,
+// 상한은 기준과 무관하게 판단 없이 넘기는 자리다. 비율을 정수 둘로 두는 것은
+// `70*0.8` 같은 부동소수 오차가 시작점 비교를 흔들지 않게 하려는 것이다.
+const (
+	migrationJudgeNum = 4
+	migrationJudgeDen = 5
+	migrationCapPct   = 85
 )
 
 // apiMigrationAdvice implements GET /api/tools/migration-advice?id=<toolId> (FR-ITM-10·11).
 func (s *Server) apiMigrationAdvice(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.URL.Query().Get("id"))
 	conf := s.migrationConf()
-	out := map[string]any{"ctxPct": conf.HookPct}
+	out := map[string]any{"ctxPct": conf.HookPct, "judgePct": judgePct(conf.HookPct), "capPct": migrationCapPct}
 	out["verdict"] = s.migrationVerdict(id, conf, out)
 	writeJSON(w, out)
 }
@@ -128,8 +138,16 @@ func (s *Server) migrationVerdict(id string, conf migrationConf, out map[string]
 		return adviceUnknown
 	}
 	out["usedPct"] = *ctx.UsedPct
-	if *ctx.UsedPct >= float64(conf.HookPct) {
+	switch {
+	case *ctx.UsedPct >= migrationCapPct:
+		return adviceMust
+	case *ctx.UsedPct >= judgePct(conf.HookPct):
 		return adviceAdvise
 	}
 	return adviceOK
+}
+
+// judgePct 는 기준 pct 의 판단 시작점이다 (FR-ITM-23).
+func judgePct(pct int) float64 {
+	return float64(pct*migrationJudgeNum) / migrationJudgeDen
 }

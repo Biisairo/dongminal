@@ -28,7 +28,7 @@ func ctxHookRun(t *testing.T, verdict, stdin string) (string, int) {
 }
 
 func TestCtxHook_AdviseCarriesPctAndEvent(t *testing.T) {
-	out, rc := ctxHookRun(t, `{"verdict":"advise","usedPct":57,"ctxPct":50}`, `{"hook_event_name":"PostToolUse"}`)
+	out, rc := ctxHookRun(t, `{"verdict":"advise","usedPct":57,"ctxPct":50,"judgePct":40,"capPct":85}`, `{"hook_event_name":"PostToolUse"}`)
 	if rc != 0 {
 		t.Fatalf("rc=%d", rc)
 	}
@@ -44,9 +44,22 @@ func TestCtxHook_AdviseCarriesPctAndEvent(t *testing.T) {
 	if got.H.Event != "PostToolUse" {
 		t.Errorf("event=%q", got.H.Event)
 	}
-	for _, want := range []string{"지금 맥락 57% · 기준 50%", "/dongminal:migration", "넘기지 않아도 된다"} {
+	for _, want := range []string{"지금 맥락 57% · 기준 50%", "/dongminal:migration", "시작하지 말고 지금 넘겨라", "끝내고 넘겨라", "85%"} {
 		if !strings.Contains(got.H.Ctx, want) {
 			t.Errorf("%q 가 없다: %s", want, got.H.Ctx)
+		}
+	}
+}
+
+// FR-ITM-16: 상한이면 판단 없이 지금 넘긴다.
+func TestCtxHook_MustSaysNowWithoutJudgement(t *testing.T) {
+	out, rc := ctxHookRun(t, `{"verdict":"must","usedPct":86,"ctxPct":50,"judgePct":40,"capPct":85}`, `{"hook_event_name":"UserPromptSubmit"}`)
+	if rc != 0 {
+		t.Fatalf("rc=%d", rc)
+	}
+	for _, want := range []string{"지금 맥락 86%", "상한 85%", "판단하지 말고", "/dongminal:migration", "UserPromptSubmit"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("%q 가 없다: %s", want, out)
 		}
 	}
 }
