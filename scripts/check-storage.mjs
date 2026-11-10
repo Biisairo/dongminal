@@ -26,6 +26,7 @@ const ROOT = 'web/js';
 /** 예외표. 이유가 없는 예외는 없다. */
 const ALLOW = {
   'web/js/core/pref-store.js': '저장소를 **정의하는 쪽**이다',
+  'web/js/core/panel-layout.js': '첫 페인트 전에 돌아 PrefStore 가 아직 없다 — 저장 레이아웃의 씨앗을 탭에 넣는다 (PANEL_LAYOUT_SRS FR-PLY-22)',
   'web/js/core/i18n.js': '카탈로그는 PrefStore 없이 단독으로 실리는 모듈이다 — i18n.test 가 localStorage 대역을 넣어 로케일 판정을 잰다 (FR-B-4·5)',
 };
 

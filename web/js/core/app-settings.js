@@ -450,6 +450,7 @@ Object.assign(App.prototype, {
     // `_init*` 는 리스너만 건다. 첫 칠하기는 `ctl` 을 선언한 표가 한다 (FR-OPT-1-12).
     this._paintSettingControls();
     this._initLocale();
+    this._initPanelLayout();
     this._initLSP();
     this._initBackup();
     this._initSandboxPanel();

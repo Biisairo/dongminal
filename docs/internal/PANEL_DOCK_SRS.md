@@ -70,11 +70,11 @@
 
 - **FR-PDK-1** 도크 상태는 `{left:string[], right:string[]}` 이다. 두 배열을 합치면 `sidebar` 와 `activity` 가 정확히 한 번씩 들어 있어야 한다. 각 배열은 바깥 → 안쪽 순서다.
 - **FR-PDK-2** 기본 도크 상태는 `{left:['sidebar'], right:['activity']}` 이다. 이것은 지금 화면과 같다.
-- **FR-PDK-3** 도크 상태는 `localStorage` 키 `panelDock` 에 JSON으로 저장한다.
+- **FR-PDK-3** 도크 상태는 `localStorage` 키 `panelDock` 에 JSON으로 저장한다. → **PANEL_LAYOUT_SRS FR-PLY-1 이 대체**: `sessionStorage`(탭별)
 - **FR-PDK-4** 저장된 값을 읽을 수 없거나 FR-PDK-1을 어기면(모르는 이름, 중복, 누락, 형식 오류) 기본값(FR-PDK-2)을 쓴다. 오류를 사용자에게 알리지 않는다.
-- **FR-PDK-5** Repo 사이드 위치는 `'left'` 또는 `'right'` 다. 기본값은 `'left'` 다. `localStorage` 키 `repoSideDock` 에 저장한다. 다른 값이면 기본값을 쓴다.
+- **FR-PDK-5** Repo 사이드 위치는 `'left'` 또는 `'right'` 다. 기본값은 `'left'` 다. `localStorage` 키 `repoSideDock` 에 저장한다. 다른 값이면 기본값을 쓴다. → **FR-PLY-1 이 대체**: `sessionStorage`(탭별)
 - **FR-PDK-6** Repo 사이드 위치는 모든 Repo 창에 함께 적용된다.
-- **FR-PDK-7** 같은 브라우저의 다른 탭이 도크 상태나 Repo 사이드 위치를 바꾸면, 이 탭도 그 값을 화면에 싣는다(`storage` 이벤트). 두 값은 `localStorage` 에 있어 탭끼리 함께 쓰기 때문이다.
+- **FR-PDK-7** (FR-PLY-2 로 철회) 같은 브라우저의 다른 탭이 도크 상태나 Repo 사이드 위치를 바꾸면, 이 탭도 그 값을 화면에 싣는다(`storage` 이벤트). 두 값은 `localStorage` 에 있어 탭끼리 함께 쓰기 때문이다.
 
 ### 3.2 화면 배치
 

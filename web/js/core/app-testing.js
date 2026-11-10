@@ -91,6 +91,8 @@ const APP_TESTING_NAMES = [
   'sbBusy', '_sbJumpTo', 'sbRail', '_sbSetTab', 'sbTab', 'setSidebarCollapsed',
   // PANEL_DOCK_SRS: 패널의 좌우 자리.
   'panelDock', 'setPanelDock', 'repoSideDock', 'setRepoSideDock',
+  // PANEL_LAYOUT_SRS: 새 탭의 시작값으로 쓰는 저장 레이아웃.
+  'saveLayout', 'resetLayout',
   'updateStatusBar', '_stats',
 
   // ── 주의·활동·알림 (attention) ──

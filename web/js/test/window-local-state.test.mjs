@@ -84,6 +84,7 @@ test('첫 페인트의 폭 복원이 sessionStorage 를 읽는다 (FR-UXB-6)', (
   assert.ok(line, '첫 페인트 스크립트에 폭 복원이 있어야 한다');
   assert.ok(line.includes("sessionStorage.getItem('sidebarWidth')"),
     '첫 페인트도 창의 값을 읽는다 — 여기만 localStorage 면 창끼리 다시 섞인다');
-  assert.ok(line.includes("localStorage.getItem('sidebarCollapsed')"),
-    '접힘은 기기의 취향이다 (FR-UXB-12) — 함께 옮기지 않는다');
+  // PANEL_LAYOUT_SRS FR-PLY-1: 접힘도 이 탭의 것이다 (이전: localStorage, FR-UXB-12).
+  assert.ok(line.includes("sessionStorage.getItem('sidebarCollapsed')"),
+    '접힘도 이 탭의 값을 읽는다');
 });

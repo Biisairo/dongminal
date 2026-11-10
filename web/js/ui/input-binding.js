@@ -12,7 +12,6 @@ class InputBinding {
     // FR-HSZ-3: 두 핸들의 반대쪽이 같은 요소다 — 콘텐츠 영역.
     const contentEl=document.getElementById('content');
     this.app.applyPanelDock();
-    this.app.watchPanelDock();
     this._bindAgentsPanel(contentEl);
     this._bindDocDnd(sbEl);
     this._bindDock(sbEl);
@@ -45,7 +44,7 @@ class InputBinding {
     // 하나만 `agentsToggle()` 을 불러 같은 줄에서 처신이 갈려 있었다.
     document.getElementById('agents-toggle').addEventListener('click',()=>this.app.actPanelOpen());
     const ap=document.getElementById('agents-panel'),aph=document.getElementById('agents-handle');
-    if(PrefStore.local.bool(STORE_KEYS.agentsPanelOpen,false)){ap.classList.add('open');aph.classList.add('open');document.getElementById('agents-toggle').classList.add('open')}
+    if(PrefStore.session.bool(STORE_KEYS.agentsPanelOpen,false)){ap.classList.add('open');aph.classList.add('open');document.getElementById('agents-toggle').classList.add('open')}
     /**
      * UI_KIT_SRS FR-HSZ-1·10: 여섯 핸들이 `UIKit.drag` 한 골격을 쓴다. 폭 손잡이 둘은
      * 그 위에서 다시 한 구현이다 (`_bindWidthHandle`, FR-OPT-16-2 · FEU-17).
@@ -55,9 +54,10 @@ class InputBinding {
     this._bindWidthHandle(aph,{
       el:ap, contentEl, side:()=>dockSideOf(this.app.panelDock(),'activity'), min:AGENTS_W_MIN_PX, max:AGENTS_W_MAX_PX,
       apply:w=>document.documentElement.style.setProperty('--ag-w',w+'px'),
-      save:w=>PrefStore.local.set(STORE_KEYS.agentsWidth,w),
+      save:w=>PrefStore.session.set(STORE_KEYS.agentsWidth,w),
     });
-    {const aw=parseInt(PrefStore.local.get(STORE_KEYS.agentsWidth));if(agentsWidthOk(aw))document.documentElement.style.setProperty('--ag-w',aw+'px')}
+    // PANEL_LAYOUT_SRS FR-PLY-23: 다른 화면에서 온 비율은 범위를 벗어날 수 있다 — 버리지 않고 접는다.
+    {const aw=parseInt(PrefStore.session.get(STORE_KEYS.agentsWidth));if(Number.isFinite(aw))document.documentElement.style.setProperty('--ag-w',Math.max(AGENTS_W_MIN_PX,Math.min(AGENTS_W_MAX_PX,aw))+'px')}
   }
 
   // 문서 전역 DnD 수락 (FR-AAP-21 · FR-BLP-13 · FR-MOV-1).

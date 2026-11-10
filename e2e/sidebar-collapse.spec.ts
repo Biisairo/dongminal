@@ -40,7 +40,7 @@ const sidebarWidth = (page: Page) =>
 async function waitForInit(page: Page, opts?: { mobile?: boolean }) {
   await fxWaitForInit(page, {
     mode: opts && opts.mobile ? 'mobile' : 'desktop',
-    // 접힘은 localStorage 에 산다 (FR-SBC-4). **첫 로드에서만** 지운다 — 그냥
+    // 접힘은 이 탭의 것이다 (PANEL_LAYOUT_SRS FR-PLY-1). **첫 로드에서만** 지운다 — 그냥
     // 지우면 영속(SBC3)을 재는 순간 테스트가 자기 검증 대상을 지운다.
     clearOnFirstLoad: 'sidebarCollapsed',
   });
@@ -81,7 +81,7 @@ test.describe('묶음 SBC — 접힘 상태와 토글 (FR-SBC-1~10)', () => {
   test('SBC3 (V-SBC-3): 접은 채 새로고침해도 접힌 채로 뜬다', async ({ page }) => {
     await waitForInit(page);
     await toggleKey(page);
-    expect(await page.evaluate(() => localStorage.getItem('sidebarCollapsed'))).toBe('1');
+    expect(await page.evaluate(() => sessionStorage.getItem('sidebarCollapsed'))).toBe('1');
 
     await page.reload();
     await page.waitForSelector('#sidebar', { timeout: 15000 });

@@ -101,7 +101,7 @@ for(const p of this.app.tools.values()) if(p.el.classList.contains('vis')) p.doF
 
 ### 3.2 저장과 복원
 
-**FR-SBC-4** 접힘 상태는 `localStorage.sidebarCollapsed` 에 산다 — `'1'` 이면
+**FR-SBC-4** (PANEL_LAYOUT_SRS FR-PLY-1 이 대체: `sessionStorage`, 탭별) 접힘 상태는 `localStorage.sidebarCollapsed` 에 산다 — `'1'` 이면
 접힘, 그 밖(없음 포함)이면 펼침. **워크스페이스에 넣지 않는다**: 이것은
 `sidebarTab`(FR-SBT-6)과 같은 범주의 "이 기기가 보는 방식"이고, 서버에 두면
 다른 기기의 화면 폭에 맞춘 선택이 이 기기로 넘어온다.

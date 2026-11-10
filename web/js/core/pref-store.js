@@ -32,18 +32,20 @@ const STORE_KEYS=Object.freeze({
   focusedPanes:'focusedPanes',
   displayMode:'displayMode',
   mobileBreakpoint:'mobileBreakpoint',
+  // PANEL_LAYOUT_SRS FR-PLY-1: 패널 배치는 이 탭의 것이다. 새 탭은 저장 레이아웃
+  // (`panel-layout.js`)으로 시작한다.
+  agentsPanelOpen:'agentsPanelOpen',
+  agentsWidth:'agentsWidth',
+  panelDock:'panelDock',
+  repoSideDock:'repoSideDock',
   // local — 기기의 취향
   attnSound:'attnSound',
   attnDesktop:'attnDesktop',
   termGpu:'termGpu',
-  agentsPanelOpen:'agentsPanelOpen',
-  agentsWidth:'agentsWidth',
   agentsGroupFold:'agentsGroupFold',
   agentsSubView:'agentsSubView',
   windowGroupFold:'windowGroupFold',
   sandboxRecent:'dm.sbx.recent',
-  panelDock:'panelDock',
-  repoSideDock:'repoSideDock',
   // local — 이사가 끝나면 지우기만 하는 옛 키
   legacyAgentsPollMs:'agentsPollMs',
   legacyLspServerPaths:'lspServerPaths',

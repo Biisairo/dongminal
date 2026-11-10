@@ -962,8 +962,8 @@ Object.assign(App.prototype, {
   },
 
   /**
-   * FR-SBC-4·6: 상태는 `localStorage` 에만 산다 — `sidebarTab` 과 같은 범주의
-   * "이 기기가 보는 방식" 이다 (D-4). 저장이 막힌 환경에서도 화면은 바뀐다.
+   * FR-SBC-6: 저장이 막힌 환경에서도 화면은 바뀐다. 상태는 이 탭의 것이다
+   * (PANEL_LAYOUT_SRS FR-PLY-1 — 이전에는 `localStorage`, FR-SBC-4).
    *
    * FR-SBC-19: 폭이 바뀌면 터미널의 열 수가 바뀐다. 재적합은 드래그 리사이즈가
    * 끝날 때와 **같은 코드**다 (input-binding.js) — 두 벌로 두면 한쪽만 고쳐진다.
@@ -974,8 +974,8 @@ Object.assign(App.prototype, {
     on=!!on;
     if(this.sidebarCollapsed()===on) return;
     document.documentElement.classList.toggle(SIDEBAR_COLLAPSED_CLASS,on);
-    if(on) PrefStore.local.set(SIDEBAR_COLLAPSED_KEY,'1');
-    else PrefStore.local.remove(SIDEBAR_COLLAPSED_KEY);
+    if(on) PrefStore.session.set(SIDEBAR_COLLAPSED_KEY,'1');
+    else PrefStore.session.remove(SIDEBAR_COLLAPSED_KEY);
     for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
   },
 

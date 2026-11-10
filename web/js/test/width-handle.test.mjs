@@ -72,11 +72,13 @@ test('두 손잡이가 한 구현을 지나고 구간은 상수다', () => {
   assert.deepEqual([sb.min, sb.max], [ctx.SIDEBAR_W_MIN_PX, ctx.SIDEBAR_W_MAX_PX]);
 });
 
-test('Agents: 왼쪽으로 끌면 넓어지고, 놓을 때 든 폭을 기기에 담는다', () => {
-  const { vars, run, ls, state } = world();
+// PANEL_LAYOUT_SRS FR-PLY-1: Activity 폭도 이 탭의 것이다.
+test('Agents: 왼쪽으로 끌면 넓어지고, 놓을 때 든 폭을 이 탭에 담는다', () => {
+  const { vars, run, ls, ss, state } = world();
   run('agents-handle', -60);
   assert.equal(vars['--ag-w'], '320px');
-  assert.equal(ls.getItem('agentsWidth'), '320');
+  assert.equal(ss.getItem('agentsWidth'), '320');
+  assert.equal(ls.getItem('agentsWidth'), null);
   assert.equal(state.fits, 1);
 });
 
@@ -87,9 +89,11 @@ test('Agents: 구간 밖은 따라가지 않고 담지도 않는다', () => {
   assert.equal(ls.getItem('agentsWidth'), null);
 });
 
-test('Agents: 담긴 폭은 구간 안일 때만 되살린다', () => {
-  assert.equal(world({ local: { agentsWidth: '300' } }).vars['--ag-w'], '300px');
-  assert.equal(world({ local: { agentsWidth: '999' } }).vars['--ag-w'], undefined);
+// FR-PLY-23: 다른 화면에서 온 비율은 범위를 벗어날 수 있다 — 버리지 않고 접는다.
+test('Agents: 담긴 폭을 되살리고, 구간 밖이면 끝으로 접는다', () => {
+  assert.equal(world({ session: { agentsWidth: '300' } }).vars['--ag-w'], '300px');
+  assert.equal(world({ session: { agentsWidth: '999' } }).vars['--ag-w'], '480px');
+  assert.equal(world({ session: { agentsWidth: 'x' } }).vars['--ag-w'], undefined);
 });
 
 test('사이드바: 오른쪽으로 끌면 넓어지고, 놓을 때 이 창에 담는다', () => {

@@ -79,7 +79,7 @@ Object.assign(App.prototype, {
     panel.classList.toggle('open',open);
     handle.classList.toggle('open',open);
     const btn=document.getElementById('agents-toggle');if(btn)btn.classList.toggle('open',open);
-    PrefStore.local.setBool(STORE_KEYS.agentsPanelOpen,open);
+    PrefStore.session.setBool(STORE_KEYS.agentsPanelOpen,open);
     for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
     if(open) this.agentsRender();
   },

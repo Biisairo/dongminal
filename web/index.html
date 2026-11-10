@@ -37,7 +37,10 @@
        **100·400 은 여기서만 숫자로 남는다** (M6 `FE-18`). 이 줄은 어떤 스크립트
        보다 먼저 돌아야 하므로 `SIDEBAR_W_MIN_PX`·`SIDEBAR_W_MAX_PX` 를 볼 수
        없다 — 고칠 때 `web/js/core/constants.js` 의 그 둘을 함께 고친다. -->
-  <script>try{var w=parseInt(sessionStorage.getItem('sidebarWidth'));if(w>=100&&w<=400)document.documentElement.style.setProperty('--sb-w',w+'px');if(localStorage.getItem('sidebarCollapsed')==='1')document.documentElement.classList.add('sb-collapsed')}catch(e){}</script>
+  <!-- PANEL_LAYOUT_SRS FR-PLY-22: 저장 레이아웃의 씨앗을 이 탭에 넣는다. 아래 줄보다 먼저
+       돌아야 한다 — 아래 줄이 그 값(폭·접힘)을 읽는다. 접힘도 이 탭의 것이다 (FR-PLY-1). -->
+  <script src="js/core/panel-layout.js?v=__ASSETV__"></script>
+  <script>try{var w=parseInt(sessionStorage.getItem('sidebarWidth'));if(w>=100&&w<=400)document.documentElement.style.setProperty('--sb-w',w+'px');if(sessionStorage.getItem('sidebarCollapsed')==='1')document.documentElement.classList.add('sb-collapsed')}catch(e){}</script>
   <!-- BOOT_SCREEN_SRS FR-BTS-3~5 / D-4·D-6: 마지막에 쓴 테마를 **첫 페인트 전에**
        세운다. 담긴 것은 팔레트가 아니라 `applyThemeObj` 가 만든 최종 CSS 변수
        맵이므로 파생값을 여기서 다시 계산하지 않는다. 키 문자열은 constants.js 의
@@ -339,6 +342,14 @@
             </select>
           </div>
           <div class="ds-hint" data-i18n="html.locale_hint"></div>
+          <!-- PANEL_LAYOUT_SRS FR-PLY-12·13: 지금 탭의 패널 배치를 새 탭의 시작값으로 저장한다. -->
+          <div class="ds-row">
+            <span data-i18n="html.panel_layout"></span>
+            <span id="ds-layout-status" class="sbx-status"></span>
+            <button type="button" class="ds-toggle ui-btn" id="ds-layout-save" title="Save the panel layout" data-i18n="html.save"></button>
+            <button type="button" class="ds-toggle ui-btn" id="ds-layout-reset" title="Reset the panel layout" data-i18n="html.panel_layout_reset"></button>
+          </div>
+          <div class="ds-hint" data-i18n="html.panel_layout_hint"></div>
           <div class="ds-row">
             <span data-i18n="html.page_title"></span>
             <input type="text" class="ds-text" id="ds-title" maxlength="60" placeholder="Dongminal">
