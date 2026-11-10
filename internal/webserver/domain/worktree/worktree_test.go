@@ -725,4 +725,12 @@ func git(t *testing.T, dir string, args ...string) string { return gittest.Run(t
 func gitPath(t *testing.T) string { return gittest.Path(t) }
 
 // tempRepo 는 커밋 하나를 가진 임시 저장소다 (`gittest.Repo`, M8 D-A-20).
-func tempRepo(t *testing.T) string { return gittest.Repo(t) }
+//
+// `core.autocrlf` 를 저장소 설정으로 끈다. 관리자의 git 은 Windows 시스템 설정
+// (autocrlf=true)을 읽어 worktree 를 CRLF 로 꺼내고, 시험의 git(`gittest.Run`)은 시스템
+// 설정을 끄고 돈다. 그대로 두면 꺼낸 파일이 바뀐 것으로 보여 병합이 거절된다.
+func tempRepo(t *testing.T) string {
+	repo := gittest.Repo(t)
+	git(t, repo, "config", "core.autocrlf", "false")
+	return repo
+}

@@ -56,8 +56,11 @@ type Listener struct {
 	applied bool
 	key     listenKey
 	srv     *http.Server
-	status  Status
-	gen     uint64
+	// raw 는 srv 가 듣는 TCP 리스너다. Serve 는 고루틴에서 시작하므로, 그 전에 닫으면
+	// srv.Close 가 이 리스너를 모른다 — 그래서 직접 닫는다.
+	raw    net.Listener
+	status Status
+	gen    uint64
 	// closed 는 Close 뒤다. 그 뒤의 Apply 는 아무것도 열지 않는다 (서버 종료 중).
 	closed bool
 	// errLog 는 노드 포트 서버의 오류 기록이다. 핸드셰이크 실패는 모아 남긴다 (I-71).
@@ -164,7 +167,7 @@ func (l *Listener) Apply(c Config) {
 		MaxHeaderBytes:    maxHeaderBytes,
 		ErrorLog:          l.errLog,
 	}
-	l.srv = srv
+	l.srv, l.raw = srv, raw
 	l.status = Status{Listening: true, Addr: raw.Addr().String(), Generation: l.gen}
 	go func() {
 		if err := srv.Serve(tls.NewListener(raw, l.tlsCfg)); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -194,6 +197,10 @@ func (l *Listener) closeLocked() {
 	if l.srv != nil {
 		_ = l.srv.Close()
 		l.srv = nil
+	}
+	if l.raw != nil {
+		_ = l.raw.Close()
+		l.raw = nil
 	}
 	l.status = Status{}
 }

@@ -211,8 +211,11 @@ func TestReportSocket_ServesConcurrently(t *testing.T) {
 		ps.Close()
 		<-served
 	})
-	if fi, err := os.Stat(path); err != nil || fi.Mode().Perm() != 0o600 {
-		t.Fatalf("소켓 모드: %v %v", fi, err)
+	// Windows 의 AF_UNIX 소켓 파일에는 POSIX 권한 비트가 없다 — 접근은 폴더(0700)의 ACL 이 막는다.
+	if platform.Current().OS != platform.Windows {
+		if fi, err := os.Stat(path); err != nil || fi.Mode().Perm() != 0o600 {
+			t.Fatalf("소켓 모드: %v %v", fi, err)
+		}
 	}
 
 	// 한 연결이 아무것도 보내지 않고 붙들고 있어도 다른 연결은 답을 받는다.
