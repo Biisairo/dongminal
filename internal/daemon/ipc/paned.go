@@ -63,6 +63,10 @@ type panedConn struct {
 	// records 는 데몬의 전역 에이전트 기록이다 (AGENT_RECORD_DAEMON_SRS FR-ARD-10).
 	// PanedServer 가 연결마다 같은 것을 싣는다.
 	records *globalRecords
+
+	// reports 는 이 연결의 서버가 hello 에서 reports 기능을 말했는가다 (§3.2a). 보고
+	// 소켓의 고루틴이 읽으므로 serverFeatures 와 따로 원자값으로 둔다.
+	reports atomic.Bool
 }
 
 func newPanedConn(conn net.Conn, pm *toolhub.ToolManager) *panedConn {

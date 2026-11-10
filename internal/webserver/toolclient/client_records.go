@@ -58,3 +58,21 @@ func (pc *ToolClient) pushRecord(m *wireMsg) {
 		cb(toolipc.RecordEvent{Event: m.Event, Kind: m.Kind, Tool: m.Tool, Value: m.Value})
 	}
 }
+
+// SetOnReport 는 report push 콜백을 건다 (§3.2a). 콜백은 읽기 루프에서 돈다 — 데몬 RPC 를
+// 기다리는 일은 콜백 밖으로 떼어야 한다.
+func (pc *ToolClient) SetOnReport(cb func(ev toolipc.ReportEvent)) {
+	pc.mu.Lock()
+	pc.onReport = cb
+	pc.mu.Unlock()
+}
+
+// pushReport 는 `report` push 다 — 데몬의 보고 소켓이 받은 보고 그대로다.
+func (pc *ToolClient) pushReport(m *wireMsg) {
+	pc.mu.Lock()
+	cb := pc.onReport
+	pc.mu.Unlock()
+	if cb != nil {
+		cb(toolipc.ReportEvent{Event: m.Event, Method: m.Method, Body: m.Body})
+	}
+}

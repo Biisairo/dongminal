@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/agentadapter"
+	"dongminal/internal/shared/agentrec"
 	"dongminal/internal/shared/statusline"
 )
 
@@ -118,10 +119,10 @@ func TestSubagentActivityStore_Lifetime(t *testing.T) {
 
 	var st2 subagentActivityStore
 	st2.put("p1", "d", subagentActivity{State: "done"}, t0)
-	if _, ok := st2.list("p1", t0.Add(subagentDoneKeep-time.Second))["d"]; !ok {
+	if _, ok := st2.list("p1", t0.Add(agentrec.SubagentDoneKeep-time.Second))["d"]; !ok {
 		t.Fatal("기한 안의 done 이 지워졌다")
 	}
-	if _, ok := st2.list("p1", t0.Add(subagentDoneKeep+time.Second))["d"]; ok {
+	if _, ok := st2.list("p1", t0.Add(agentrec.SubagentDoneKeep+time.Second))["d"]; ok {
 		t.Fatal("기한이 지난 done 이 남았다")
 	}
 

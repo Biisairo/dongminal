@@ -6,6 +6,7 @@ import (
 	"maps"
 	"sync"
 
+	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/toolipc"
 )
@@ -32,6 +33,21 @@ func (g *globalRecords) set(kind string, v json.RawMessage) {
 		g.m = map[string]json.RawMessage{}
 	}
 	g.m[kind] = append(json.RawMessage(nil), v...)
+}
+
+// update 는 kind 의 값을 읽고 고쳐 쓴다. 잠금 안에서 한 번에 일어난다.
+func (g *globalRecords) update(kind string, fn func(old json.RawMessage) any) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	raw, err := json.Marshal(fn(g.m[kind]))
+	if err != nil {
+		dmlog.Warnf(nil, "records: %s 를 쓰지 못했다: %v", kind, err)
+		return
+	}
+	if g.m == nil {
+		g.m = map[string]json.RawMessage{}
+	}
+	g.m[kind] = raw
 }
 
 func (g *globalRecords) snapshot() map[string]json.RawMessage {

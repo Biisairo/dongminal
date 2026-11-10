@@ -90,6 +90,7 @@ type ToolClient struct {
 	// onRecord·onResync 는 에이전트 기록의 push 와 재접속 뒤 재동기다
 	// (AGENT_RECORD_DAEMON_SRS FR-ARD-12·13). `mu` 아래.
 	onRecord func(ev toolipc.RecordEvent)
+	onReport func(ev toolipc.ReportEvent)
 	onResync func()
 
 	// fgMu 는 onForeground 호출과 fgSeen·fgSeq 를 한 줄로 세운다. fgSeen 은 마지막으로
@@ -454,6 +455,9 @@ type wireMsg struct {
 	Kind  string `json:"kind"`
 	// Value 는 record push 의 값이다 (FR-ARD-12). 줄마다 새 wireMsg 이므로 덮이지 않는다.
 	Value json.RawMessage `json:"value"`
+	// Method·Body 는 report push 다 (AGENT_RECORD_DAEMON_SRS §3.2a).
+	Method string          `json:"method"`
+	Body   json.RawMessage `json:"body"`
 }
 
 // readLoop decodes responses and push events for a single connection. On

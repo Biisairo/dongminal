@@ -61,7 +61,7 @@ func TestApiToolActivitySet(t *testing.T) {
 	}
 }
 
-// NFR-AAP-3 / TC-AAP-5: hub.SanitizeActivityField strips control chars and bounds length.
+// NFR-AAP-3 / TC-AAP-5: agentrec.Sanitize strips control chars and bounds length.
 // FR-AAP-4 / TC-AAP-7: activity snapshot endpoint returns reported tools.
 func TestApiToolsActivity_Endpoint(t *testing.T) {
 	defer toolhub.SetAttnBusyProbe(func(*toolhub.Tool) bool { return true })() // agent alive

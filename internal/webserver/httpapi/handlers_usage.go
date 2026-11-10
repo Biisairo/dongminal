@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/agentadapter"
-	"dongminal/internal/shared/statusline"
+	"dongminal/internal/shared/agentrec"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/toolipc"
 	"dongminal/internal/webserver/apierr"
@@ -21,28 +21,8 @@ import (
 // 지금의 사실이고, 서버를 다시 띄우면 다음 statusLine 갱신이 다시 채운다.
 
 // toolUsage 는 저장하는 관측 하나다. 허용 목록은 statusline.Usage 한 벌이고(`dmctl
-// statusline` 이 같은 타입을 채워 보낸다), 여기서는 받은 시각만 더한다.
-type toolUsage struct {
-	statusline.Usage
-	ObservedAt int64 `json:"observedAt"`
-}
-
-// contextTokens 는 지금 맥락에 든 토큰이다 — 입력·캐시 생성·캐시 읽기의 합
-// (claudeParseUsage 와 같은 셈). 출력은 다음 요청의 입력이 되기 전까지 맥락이 아니다.
-func (u *toolUsage) contextTokens() (float64, bool) {
-	if u.ContextWindow == nil || u.ContextWindow.CurrentUsage == nil {
-		return 0, false
-	}
-	c := u.ContextWindow.CurrentUsage
-	sum, any := 0.0, false
-	for _, v := range []*float64{c.InputTokens, c.CacheCreationInputTokens, c.CacheReadInputTokens} {
-		if v != nil {
-			sum += *v
-			any = true
-		}
-	}
-	return sum, any
-}
+// statusline` 이 같은 타입을 채워 보낸다), 받은 시각만 더한다. 모양은 데몬과 함께 쓴다 (§3.2a).
+type toolUsage = agentrec.Usage
 
 // toolContext 는 `dmctl status` 의 `context` 다 (FR-SLP-20).
 type toolContext struct {
@@ -96,20 +76,24 @@ func (u *usageStore) prune(live func(toolID string) bool) int {
 
 // apiToolUsage implements POST /api/tools/usage (FR-SLP-10).
 func (s *Server) apiToolUsage(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		ToolID string    `json:"toolId"`
-		Usage  toolUsage `json:"usage"`
-	}
+	var body agentrec.UsageReport
 	if !decodeJSONBody(w, r, &body) {
 		return
 	}
-	toolID := s.callerToolID(r, body.ToolID)
-	if toolID == "" {
+	body.ToolID = s.callerToolID(r, body.ToolID)
+	if body.ToolID == "" {
 		httpErr(w, "toolId required", http.StatusBadRequest, apierr.CodeMissingArg)
 		return
 	}
-	u := body.Usage
-	u.ObservedAt = time.Now().UnixMilli()
+	s.applyUsageReport(body)
+	writeJSON(w, map[string]any{"ok": true})
+}
+
+// applyUsageReport 는 사용량 보고 하나다. HTTP 와 데몬의 report push 가 함께 지난다
+// (AGENT_RECORD_DAEMON_SRS §3.2a).
+func (s *Server) applyUsageReport(body agentrec.UsageReport) {
+	toolID := body.ToolID
+	u := toolUsage{Usage: body.Usage, ObservedAt: time.Now().UnixMilli()}
 	s.usage.put(toolID, u)
 	s.putRecord(toolipc.RecordUsage, toolID, u)
 	// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-20: 계정 한도의 임자는 statusLine 을 보고하는 에이전트다.
@@ -118,7 +102,6 @@ func (s *Server) apiToolUsage(w http.ResponseWriter, r *http.Request) {
 		s.putRecord(toolipc.RecordLimits, "", s.rateLimits.records())
 	}
 	s.observeUsageContext(toolID, &u)
-	writeJSON(w, map[string]any{"ok": true})
 }
 
 // observeUsageContext 는 Run 의 맥락 기록에도 공식 값을 넣는다 (FR-SLP-11·22).
@@ -126,7 +109,7 @@ func (s *Server) observeUsageContext(toolID string, u *toolUsage) {
 	if s.Runs == nil || !s.Runs.HasOpen() {
 		return
 	}
-	tokens, ok := u.contextTokens()
+	tokens, ok := u.ContextTokens()
 	if !ok {
 		return
 	}
@@ -154,7 +137,7 @@ func (s *Server) toolUsageView(toolID string) (*toolContext, *toolUsage) {
 				c.WindowTokens = *cw.WindowTokens
 			}
 		}
-		if t, ok := u.contextTokens(); ok {
+		if t, ok := u.ContextTokens(); ok {
 			c.Tokens = t
 		}
 		return c, &u

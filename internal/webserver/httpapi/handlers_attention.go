@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/activity"
-	"dongminal/internal/shared/agentadapter"
+	"dongminal/internal/shared/agentrec"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/toolipc"
 	"dongminal/internal/webserver/httpresp"
@@ -30,10 +30,7 @@ func (s *Server) apiToolsAttention(w http.ResponseWriter, r *http.Request) {
 // {"toolId":"...","reason":"done|waiting|..."}. Unknown tool is a 200 no-op;
 // missing toolId is 400.
 func (s *Server) apiToolAttentionSet(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		ToolID string `json:"toolId"`
-		Reason string `json:"reason"`
-	}
+	var req agentrec.NotifyReport
 	ok, answered := readBodyHTTP(w, r, &req)
 	if answered {
 		return
@@ -46,12 +43,14 @@ func (s *Server) apiToolAttentionSet(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeMissingArg)
 		return
 	}
-	reason := req.Reason
-	if reason == "" {
-		reason = "signaled"
-	}
-	s.attention().SignalAttention(req.ToolID, reason)
+	s.applyNotifyReport(req)
 	httpresp.JSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// applyNotifyReport 는 알람 보고 하나다. HTTP 와 데몬의 report push 가 함께 지난다
+// (AGENT_RECORD_DAEMON_SRS §3.2a).
+func (s *Server) applyNotifyReport(req agentrec.NotifyReport) {
+	s.attention().SignalAttention(req.ToolID, agentrec.NotifyReason(req.Reason))
 }
 
 // apiToolAttentionClear clears a tool's attention (and broadcasts the clear)
@@ -96,51 +95,12 @@ func (s *Server) apiToolsActivity(w http.ResponseWriter, r *http.Request) {
 	httpresp.JSON(w, http.StatusOK, map[string]any{"activities": s.activityEntries(), "limits": s.rateLimits.view(time.Now())})
 }
 
-// agentReportsUserTurn 은 그 에이전트가 **턴의 출처를 말할 수 있는지**다
-// (FR-AEV-12). 선언을 읽을 뿐 추측하지 않는다.
-//
-// 모르는 id 에는 **참**을 준다 — 종전 판정 그대로 간다는 뜻이다. 거짓을 주면
-// 알 수 없는 보고자의 모든 `done` 이 무조건 알람이 되고, 그것은 이 문서가
-// 고치려는 것과 반대 방향의 소음이다.
-func agentReportsUserTurn(id string) bool {
-	if id == "" {
-		return true
-	}
-	a, err := agentadapter.Get(id)
-	if err != nil {
-		return true
-	}
-	return a.Signals.UserTurn
-}
-
 // apiToolActivitySet records what an agent in a tool is currently doing. Used by
 // `dmctl activity` (agent hook bridge), identified via DONGMINAL_TOOL_ID. Body:
 // {"toolId":"...","state":"working|done|waiting|idle","tool":"...","detail":"..."}.
 // Unknown tool is a 200 no-op; missing toolId or invalid state is 400 (FR-AAP-3).
 func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		ToolID string `json:"toolId"`
-		State  string `json:"state"`
-		Tool   string `json:"tool"`
-		Detail string `json:"detail"`
-		// UserPrompt 는 이 턴이 사용자 프롬프트에서 시작되었다는 곁들이 값이다
-		// (FR-ATN-2). 활동 상태 어휘는 이것으로 바뀌지 않는다.
-		UserPrompt bool `json:"userPrompt"`
-		// Agent 는 보고한 에이전트의 id 다 (AGENT_EVENT_ABSTRACTION_SRS
-		// FR-AEV-10). 서버가 그 에이전트의 **이벤트 선언**(`Signals`)을 봐야
-		// `done` 알람의 판정을 옳게 할 수 있다 (FR-AEV-12).
-		//
-		// 비어 있으면 **종전 판정 그대로** 간다 — 알 수 없는 보고자에게 알람을
-		// 지어내지 않는다.
-		Agent string `json:"agent"`
-		// SessionID 는 그 도구에서 도는 에이전트의 신원이다. 훅이 실어 보내므로
-		// **필드를 남기되 쓰지 않는다** (AGENT_GUI_REMOVAL_SRS FR-AGR-9) — 이것을
-		// 읽던 세션 신원 저장소는 에이전트 GUI 와 함께 사라졌다.
-		SessionID string `json:"sessionId"`
-		// AgentID 가 있으면 서브에이전트 활동이다 (ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-10).
-		AgentID   string `json:"agentId"`
-		AgentType string `json:"agentType"`
-	}
+	var req agentrec.ActivityReport
 	ok, answered := readBodyHTTP(w, r, &req)
 	if answered {
 		return
@@ -149,25 +109,34 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeInvalidJSON)
 		return
 	}
-	if req.ToolID == "" || req.State == "" {
-		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeMissingArg)
+	if code := s.applyActivityReport(req); code != "" {
+		httpErr(w, "bad request", http.StatusBadRequest, code)
 		return
+	}
+	httpresp.JSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// applyActivityReport 는 활동 보고 하나다. HTTP 와 데몬의 report push 가 함께 지난다
+// (AGENT_RECORD_DAEMON_SRS §3.2a). 받지 않으면 오류 코드를, 받으면 빈 값을 돌려준다.
+//
+// 본문의 SessionID 는 남기되 쓰지 않는다 (AGENT_GUI_REMOVAL_SRS FR-AGR-9). Agent 는
+// 그 에이전트의 이벤트 선언을 봐야 `done` 알람을 옳게 판정하기 때문에 싣는다 (FR-AEV-12).
+func (s *Server) applyActivityReport(req agentrec.ActivityReport) string {
+	if req.ToolID == "" || req.State == "" {
+		return apierr.CodeMissingArg
 	}
 	if !hub.ValidActivityState(req.State) {
-		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeBadRequest)
-		return
+		return apierr.CodeBadRequest
 	}
 	if req.AgentID != "" {
-		if !validSubagentState(req.State) {
-			httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeBadRequest)
-			return
+		if !agentrec.ValidSubagentState(req.State) {
+			return apierr.CodeBadRequest
 		}
-		s.reportSubagentActivity(req.ToolID, req.AgentID, req.AgentType, req.State, req.Tool, req.Detail)
-		httpresp.JSON(w, http.StatusOK, map[string]bool{"ok": true})
-		return
+		s.reportSubagentActivity(req)
+		return ""
 	}
-	s.reportActivity(req.ToolID, req.State, req.Tool, req.Detail, req.UserPrompt, agentReportsUserTurn(req.Agent))
-	httpresp.JSON(w, http.StatusOK, map[string]bool{"ok": true})
+	s.reportActivity(req.ToolID, req.State, req.Tool, req.Detail, req.UserPrompt, agentrec.AgentReportsUserTurn(req.Agent))
+	return ""
 }
 
 // reportActivity 는 활동 보고의 **한 자리**다 — 훅 표면(`dmctl activity`)과 프로토콜
@@ -182,8 +151,8 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 // 늘고 **두 요청의 순서가 다시 문제가 된다.** 한 요청 안에서는 순서가 확정되고,
 // 직접·데몬 두 모드가 같은 자리를 지난다 (FR-AEV-14).
 func (s *Server) reportActivity(toolID, state, tool, detail string, userPrompt, turnKnown bool) {
-	tool = hub.SanitizeActivityField(tool, hub.ActivityToolMax)
-	detail = hub.SanitizeActivityField(detail, hub.ActivityDetailMax)
+	tool = agentrec.Sanitize(tool, agentrec.ToolMax)
+	detail = agentrec.Sanitize(detail, agentrec.DetailMax)
 	s.attention().ReportActivity(toolID, state, tool, detail, userPrompt, turnKnown)
 	if state == activity.Ended {
 		s.subActs.dropTool(toolID) // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-12

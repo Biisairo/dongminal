@@ -106,6 +106,7 @@ internal/
     runtime/             #   ②③  — helper symlink 설치 + 셸 훅 embed + agent-hooks 생성
       shellhooks/        #     bash-hook.sh, zdotdir/.zshrc (실제 파일)
       agentplugin/       #     세션 스코프 주입 플러그인 (skills/team, skills/workflow)
+    agentrec/            #   ①②③ — 에이전트 보고의 해석·기록 값의 모양·보고 소켓 경로 (AGENT_RECORD_DAEMON_SRS §3.2a)
     agentadapter/        #   ①③  — 에이전트별 선언 테이블 (기동·탐지·주입·훅 파서·종료 + 프로토콜 표면 Proto)
       fakeagent/         #     테스트 픽스처 — 프로토콜 표면을 말하는 가짜 에이전트 (M8 V-12)
         cmd/             #       그 바이너리 — e2e 가 DONGMINAL_AGENT_BIN_DIR 에 놓는다. 제품에 들지 않는다

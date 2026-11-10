@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"dongminal/internal/shared/agentadapter"
+	"dongminal/internal/shared/agentrec"
 )
 
 // dmctlActivityHelp 는 등록부에서 **파생한다** (AGENT_ADAPTER_COMPLETION_SRS
@@ -69,7 +70,7 @@ func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 		reportMainActivity(adapter, rep, toolID)
 	}
 	if s := rep.Sub; s != nil {
-		httpPostJSONWithin(baseURL()+"/api/tools/activity/set", map[string]any{"toolId": toolID, "agent": adapter.ID,
+		postReport(agentrec.MethodActivity, activitySetPath, map[string]any{"toolId": toolID, "agent": adapter.ID,
 			"agentId": s.AgentID, "agentType": s.AgentType, "state": s.State, "tool": s.Tool, "detail": s.Detail}, hookBudget)
 	}
 	reportContext(adapter, rep, toolID)
@@ -100,8 +101,11 @@ func reportMainActivity(adapter agentadapter.Adapter, rep agentadapter.Report, t
 	if rep.SessionID != "" {
 		body["sessionId"] = rep.SessionID
 	}
-	httpPostJSONWithin(baseURL()+"/api/tools/activity/set", body, hookBudget)
+	postReport(agentrec.MethodActivity, activitySetPath, body, hookBudget)
 }
+
+// activitySetPath 는 활동 보고의 HTTP 종단이다. 보고 소켓이 없을 때 간다 (FR-ARD-23).
+const activitySetPath = "/api/tools/activity/set"
 
 // contextObservePath 는 컨텍스트 관측의 수신 종단이다 (ORCHESTRATION_V2_SRS
 // 묶음 C). activity 와 **별도 종단**인 이유는 둘의 실패가 서로를 막으면 안 되기
@@ -279,7 +283,7 @@ func reportNotifyActivity(label string, args []string, toolID string) {
 				// (FR-ATN-12 — `done`·`waiting` 이 아닌 라벨은 무조건 알람).
 				// 여기서 id 를 실으면 `Signals.UserTurn=false` 가 무조건 알람을
 				// 한 번 더 만들어 **같은 턴이 두 번 운다.**
-				httpPostJSONWithin(baseURL()+"/api/tools/activity/set",
+				postReport(agentrec.MethodActivity, activitySetPath,
 					map[string]any{"toolId": toolID, "state": rep.State, "tool": rep.Tool, "detail": rep.Detail}, hookBudget)
 			}
 			return

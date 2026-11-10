@@ -54,3 +54,26 @@ func newRecordWriter(c recordClient, t *hub.AttnTracker) *recordsync.Writer {
 	t.SetOnChange(func(id string, st toolhub.AgentState) { w.Put(toolipc.RecordAgent, id, st) })
 	return w
 }
+
+// reportQueueSize 는 처리를 기다리는 report push 의 상한이다.
+const reportQueueSize = 1024
+
+// newReportQueue 는 report push 를 받은 순서대로 고루틴 하나가 apply 로 처리하게 한다
+// (AGENT_RECORD_DAEMON_SRS §3.2a). push 는 읽기 루프에서 오는데, 처리 중에 데몬 RPC 를
+// 기다리면(맥락 경고 전달의 입력 등) 응답을 읽을 루프가 자기 자신이라 교착이다. 줄이 차면
+// 버리고 로그를 남긴다 — 버린 보고도 데몬 기록에는 남는다.
+func newReportQueue(apply func(method string, body json.RawMessage)) func(toolipc.ReportEvent) {
+	q := make(chan toolipc.ReportEvent, reportQueueSize)
+	go func() {
+		for ev := range q {
+			apply(ev.Method, ev.Body)
+		}
+	}()
+	return func(ev toolipc.ReportEvent) {
+		select {
+		case q <- ev:
+		default:
+			dmlog.Warnf(nil, "report: 처리 줄이 차서 %s 보고를 버렸다", ev.Method)
+		}
+	}
+}

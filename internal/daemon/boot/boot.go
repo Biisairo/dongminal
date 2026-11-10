@@ -13,6 +13,7 @@ import (
 	"os/signal"
 
 	"dongminal/internal/daemon/ipc"
+	"dongminal/internal/shared/agentrec"
 	"dongminal/internal/shared/runfile"
 	"dongminal/internal/shared/runtime"
 	"dongminal/internal/shared/sandboxplace"
@@ -109,6 +110,13 @@ func Run(home, version, daemonBuild string) {
 	if err := ps.Listen(); err != nil {
 		dmlog.Errorf(nil, "dongminald listen: %v", err)
 		os.Exit(1)
+	}
+	// AGENT_RECORD_DAEMON_SRS FR-ARD-20: 훅 보고는 따로 연 소켓으로 받는다. 열지 못해도
+	// 기동은 막지 않는다 — dmctl 이 HTTP 로 보낸다 (FR-ARD-23).
+	if err := ps.ListenReports(agentrec.SocketPath(home)); err != nil {
+		dmlog.Errorf(nil, "dongminald 보고 소켓: %v", err)
+	} else {
+		go ps.ServeReports()
 	}
 
 	// On signal, close the listener to unblock Accept() and save state.

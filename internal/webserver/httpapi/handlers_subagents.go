@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"dongminal/internal/shared/activity"
+	"dongminal/internal/shared/agentrec"
 	"dongminal/internal/shared/statusline"
 	"dongminal/internal/shared/toolipc"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/run"
-	"dongminal/internal/webserver/hub"
 )
 
 // SUBAGENT_USAGE_SRS — 도구별 서브에이전트 목록 (FR-SAU-10~15).
@@ -71,22 +71,25 @@ func (st *subagentStore) prune(live func(toolID string) bool) int {
 
 // apiToolSubagents implements POST /api/tools/subagents (FR-SAU-10).
 func (s *Server) apiToolSubagents(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		ToolID string                `json:"toolId"`
-		Tasks  []statusline.Subagent `json:"tasks"`
-	}
+	var body agentrec.SubagentsReport
 	if !decodeJSONBody(w, r, &body) {
 		return
 	}
-	toolID := s.callerToolID(r, body.ToolID)
-	if toolID == "" {
+	body.ToolID = s.callerToolID(r, body.ToolID)
+	if body.ToolID == "" {
 		httpErr(w, "toolId required", http.StatusBadRequest, apierr.CodeMissingArg)
 		return
 	}
-	now := time.Now()
-	s.subagents.put(toolID, body.Tasks, now)
-	s.putRecord(toolipc.RecordSubagents, toolID, subagentRecord{Tasks: body.Tasks, ObservedAt: now.UnixMilli()})
+	s.applySubagentsReport(body)
 	writeJSON(w, map[string]any{"ok": true})
+}
+
+// applySubagentsReport 는 서브에이전트 목록 보고 하나다. HTTP 와 데몬의 report push 가
+// 함께 지난다 (AGENT_RECORD_DAEMON_SRS §3.2a).
+func (s *Server) applySubagentsReport(body agentrec.SubagentsReport) {
+	now := time.Now()
+	s.subagents.put(body.ToolID, body.Tasks, now)
+	s.putRecord(toolipc.RecordSubagents, body.ToolID, agentrec.SubagentList{Tasks: body.Tasks, ObservedAt: now.UnixMilli()})
 }
 
 // freshSubagents 는 상태 응답에 얹을 목록이다. 비었으면 nil 이다 (FR-SAU-15).
@@ -131,7 +134,7 @@ func cardSubagentsOf(tasks []statusline.Subagent, acts map[string]subagentActivi
 		c := cardSubagent{
 			ID: deref(t.ID), AgentType: deref(t.AgentType), Status: deref(t.Status), Model: deref(t.Model),
 			Effort: deref(t.Effort), Tokens: t.Tokens, WindowTokens: t.WindowTokens, StartTime: t.StartTime,
-			Description: hub.SanitizeActivityField(deref(t.Description), hub.ActivityDetailMax),
+			Description: agentrec.Sanitize(deref(t.Description), agentrec.DetailMax),
 		}
 		listed[c.ID] = true
 		c.State = activity.Done

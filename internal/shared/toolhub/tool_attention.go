@@ -321,4 +321,17 @@ func (p *Tool) SetActivity(state, tool, detail string) {
 	}
 }
 
+// ReportActivity 는 main 활동 보고 하나의 반영이다 — 사용자 프롬프트 표시, 활동,
+// done·waiting 이면 알람 파생의 순서다 (FR-ATN-1 · FR-AEV-10). 직접 모드와 데몬이 함께
+// 쓴다 (AGENT_RECORD_DAEMON_SRS D-ARD-8).
+func (p *Tool) ReportActivity(state, tool, detail string, userPrompt, turnKnown bool) {
+	if userPrompt {
+		p.NoteUserPrompt()
+	}
+	p.SetActivity(state, tool, detail)
+	if activity.Alarms(state) {
+		p.SignalAgentEvent(state, turnKnown)
+	}
+}
+
 func (p *Tool) Activity() *ActivityState { return p.activity.Load() }

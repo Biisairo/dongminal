@@ -5,8 +5,8 @@ import (
 	"maps"
 	"time"
 
+	"dongminal/internal/shared/agentrec"
 	"dongminal/internal/shared/dmlog"
-	"dongminal/internal/shared/statusline"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/toolipc"
 )
@@ -25,29 +25,17 @@ func (s *Server) putRecord(kind, tool string, v any) {
 	}
 }
 
-// subagentRecord 는 서브에이전트 목록 기록의 모양이다. 시각은 밀리초다.
-type subagentRecord struct {
-	Tasks      []statusline.Subagent `json:"tasks"`
-	ObservedAt int64                 `json:"observedAt"`
-}
-
-// limitRecord 는 에이전트 하나의 한도 기록이다. 시각은 밀리초다.
-type limitRecord struct {
-	Windows    map[string]statusline.RateWindow `json:"windows"`
-	ObservedAt int64                            `json:"observedAt"`
-}
-
-func (st *rateLimitStore) records() map[string]limitRecord {
+func (st *rateLimitStore) records() map[string]agentrec.LimitRecord {
 	st.mu.Lock()
 	defer st.mu.Unlock()
-	out := make(map[string]limitRecord, len(st.m))
+	out := make(map[string]agentrec.LimitRecord, len(st.m))
 	for agent, obs := range st.m {
-		out[agent] = limitRecord{Windows: maps.Clone(obs.windows), ObservedAt: obs.observedAt.UnixMilli()}
+		out[agent] = agentrec.LimitRecord{Windows: maps.Clone(obs.windows), ObservedAt: obs.observedAt.UnixMilli()}
 	}
 	return out
 }
 
-func (st *rateLimitStore) replace(recs map[string]limitRecord) {
+func (st *rateLimitStore) replace(recs map[string]agentrec.LimitRecord) {
 	m := make(map[string]limitObs, len(recs))
 	for agent, r := range recs {
 		m[agent] = limitObs{windows: r.Windows, observedAt: time.UnixMilli(r.ObservedAt)}
@@ -80,7 +68,7 @@ func (s *Server) ApplyRecords(res toolipc.RecordsResult) {
 					usage[tr.Tool] = u
 				}
 			case toolipc.RecordSubagents:
-				var r subagentRecord
+				var r agentrec.SubagentList
 				if decodeRecord(kind, tr.Tool, raw, &r) {
 					subs[tr.Tool] = subagentList{tasks: r.Tasks, observedAt: time.UnixMilli(r.ObservedAt)}
 				}
@@ -94,7 +82,7 @@ func (s *Server) ApplyRecords(res toolipc.RecordsResult) {
 			}
 		}
 	}
-	var limits map[string]limitRecord
+	var limits map[string]agentrec.LimitRecord
 	if raw, ok := res.Global[toolipc.RecordLimits]; ok {
 		decodeRecord(toolipc.RecordLimits, "", raw, &limits)
 	}
@@ -137,7 +125,7 @@ func (s *Server) ApplyRecord(ev toolipc.RecordEvent) {
 			s.usage.put(ev.Tool, u)
 		}
 	case toolipc.RecordSubagents:
-		var r subagentRecord
+		var r agentrec.SubagentList
 		s.subagents.mu.Lock()
 		delete(s.subagents.m, ev.Tool)
 		s.subagents.mu.Unlock()
@@ -162,7 +150,7 @@ func (s *Server) ApplyRecord(ev toolipc.RecordEvent) {
 			s.migrationUnknownTold.Store(ev.Tool, true)
 		}
 	case toolipc.RecordLimits:
-		var limits map[string]limitRecord
+		var limits map[string]agentrec.LimitRecord
 		if gone || decodeRecord(ev.Kind, "", ev.Value, &limits) {
 			s.rateLimits.replace(limits)
 		}

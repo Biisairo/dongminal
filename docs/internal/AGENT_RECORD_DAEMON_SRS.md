@@ -1,7 +1,7 @@
 # SRS: 에이전트 기록의 데몬 소유 · 생존 판정의 세 값 — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: 단계 2~4 (단계 1 은 구현함 — §3.1a)
+> **남은 것**: 단계 3~4 (단계 1·2 는 구현함 — §3.1a·§3.2a)
 > **입력**: 2026-11-10 대화. 사용자 결정은 다섯이다.
 > - D-ARD-1 에이전트 관련 기록은 **데몬이 먼저 받아 저장하고 서버로 보낸다**
 > - D-ARD-2 데몬이 들 기록은 "전부"다 — 활동·알람 표시·서브에이전트·사용량·계정 한도
@@ -173,6 +173,61 @@
 - **FR-ARD-24** 서버의 HTTP 보고 종단(`/api/tools/activity/set`·`usage`·`subagents`·`attention/set`)은 그대로 둔다. 데몬이 `records` 를 말하면 FR-ARD-11 로 데몬에 먼저 쓴다. 샌드박스 창의 보고가 이 길로 데몬에 닿는다.
 - **FR-ARD-25** 서버가 꺼져 있어도 데몬은 보고를 받아 기록한다. 서버가 다시 붙으면 FR-ARD-13 의 스냅샷이 그 결과를 싣는다. 그동안의 알람은 울리지 않는다.
 
+### 3.2a 단계 2 설계
+
+**값의 모양을 `internal/shared/agentrec` 로 내린다.** 데몬은 서버가 꺼져 있어도 보고를 기록해야 한다 (FR-ARD-25). 그래서 데몬이 보고를 직접 해석해야 하는데, 데몬은 `webserver` 를 import 할 수 없다. 아래 것을 새 패키지로 옮기고, httpapi 는 그 패키지를 쓴다. 동작은 바뀌지 않는다.
+
+| 옮기는 것 | 종전 자리 |
+|---|---|
+| 보고 본문 넷의 타입(`ActivityReport`·`UsageReport`·`SubagentsReport`·`NotifyReport`) | httpapi 처리기 안의 익명 구조체 |
+| 기록 값의 모양: `Usage`·`SubagentList`·`SubagentActivity`·`LimitRecord` | `toolUsage`·`subagentRecord`·`subagentActivity`·`limitRecord` |
+| 서브에이전트 활동 넣기(상한 32, 가장 오래된 것부터 버림)·done 유지 30초·상태 검사 | `subagentActivityStore.put`·`subagentDoneKeep`·`validSubagentState` |
+| 문자열 정리와 상한(64·512) | `hub.SanitizeActivityField`·`ActivityToolMax`·`ActivityDetailMax` |
+| 턴 출처를 말하는 에이전트인가 | `agentReportsUserTurn` |
+| 보고 소켓의 이름·메서드·요청·응답 모양 | 새것 |
+
+**main 활동 반영을 `toolhub.Tool.ReportActivity` 하나로 둔다.** 사용자 프롬프트 표시 → 활동 → done·waiting 이면 알람 파생의 순서다. 직접 모드(`directAttention`)와 데몬이 이 함수를 함께 쓴다 (D-ARD-8).
+
+**보고 소켓 (FR-ARD-20·21)**
+
+- 자리: 데몬 소켓(`paned.sock`) 폴더의 `report.sock` 이다. 경로는 `agentrec.SocketPath(home)` 한 곳에서 만든다. 데몬과 dmctl 이 같은 함수를 쓴다.
+- 요청 하나: `{"method":"report.activity","body":{…}}` → `{"ok":true}` 또는 `{"ok":false,"error":"…"}`. 연결마다 한 줄을 받고 답한 뒤 닫는다. 읽기·쓰기 시한은 2초다.
+- `body` 는 지금의 HTTP 본문과 같다. `toolId` 는 본문에서 읽는다. 데몬은 HTTP 의 PID 역추적을 할 수 없다. dmctl 은 이미 모든 본문에 `toolId`(`DONGMINAL_TOOL_ID`)를 싣는다.
+- 거절하는 경우:
+  - 넷이 아닌 메서드
+  - 본문이 깨짐, `toolId` 가 빔, 상태 어휘가 틀림
+  - `toolId` 가 살아 있는 도구가 아님 (FR-ARD-22)
+  - **붙은 서버가 보고 push 를 모름**(아래 「옛 서버」)
+
+**데몬의 반영 (FR-ARD-22·25)**
+
+| 메서드 | 데몬 기록 |
+|---|---|
+| `report.activity` (main) | `Tool.ReportActivity`. `ended` 면 `subagentActs` 를 지운다 |
+| `report.activity` (`agentId` 있음) | `subagentActs` 에 넣는다(상한 규칙 그대로) |
+| `report.usage` | `usage` = 본문 + 받은 시각. 한도가 있으면 statusLine 보고 에이전트의 몫을 전역 `limits` 에 합친다 |
+| `report.subagents` | `subagents` = 목록 + 받은 시각 |
+| `report.notify` | `Tool.SignalAttention(reason)`. 사유가 비면 `signaled` |
+
+데몬에는 알림 콜백이 없으므로 알람 판정은 상태만 바꾼다 (FR-ARD-25 의 "상태만 맞춘다").
+
+**서버로 넘기기 — 기록이 아니라 보고 자체를 push 한다.** 서버가 붙어 있으면 데몬은 반영한 뒤 push `report {method, body}` 를 보낸다. 이 push 는 버리지 않는다.
+
+- 서버는 그 push 를 HTTP 처리기와 **같은 함수**로 처리한다. 처리기의 본체를 `applyActivityReport` 등으로 떼어 낸다.
+- 그래서 알람 방송, SSE, Run 맥락 관측(`observeUsageContext`), 서브에이전트 활동 방송이 한 자리에 남는다. 판정 뒤 상태는 단계 1 의 쓰기 큐가 데몬에 되쓴다.
+- **FR-ARD-22 의 "record push" 와 다른 점:** 데몬이 기록 push 를 먼저 보내면 서버 거울의 상태가 먼저 `done` 이 된다. 그 뒤 서버가 같은 보고를 처리하면 상태가 바뀌지 않은 것으로 보여 알람이 울리지 않는다. 그래서 보고로 바뀐 기록은 `record` push 로 보내지 않는다. 데몬과 서버가 같은 보고를 두 번 반영하지만, 서버의 되쓰기가 마지막에 덮으므로 결과는 같다.
+- 서버는 push 를 읽기 루프에서 처리하지 않는다. 처리 중 데몬 RPC(맥락 경고 전달의 입력 등)를 기다리면 교착이 생긴다. 고루틴 하나가 받은 순서대로 처리한다. 줄(1024)이 차면 버리고 로그를 남긴다. 버린 보고도 데몬 기록에는 남는다.
+
+**옛 서버 (NFR-ARD-3):** 서버는 `hello` 에서 새 기능 `reports` 를 말한다. 붙은 서버가 그것을 말하지 않으면 데몬은 보고를 거절한다. 그러면 dmctl 이 HTTP 로 보낸다. 받아 버리면 옛 서버가 push 를 모른 채 버려 카드·알람이 사라진다. 서버가 붙어 있지 않으면 받는다 (FR-ARD-25).
+
+**dmctl (FR-ARD-23)**
+
+- `DONGMINAL_HOME` 이 있으면 보고 소켓에 먼저 보낸다. 소켓 시도의 시한은 예산의 절반이다. 성공이면 HTTP 를 보내지 않는다.
+- 소켓이 없거나 실패하면, 남은 예산으로 지금과 같은 HTTP 요청을 보낸다. 두 시도의 합은 예산(`hookBudget` 2초·`slReportBudget` 100ms)을 넘지 않는다.
+- 소켓으로 성공하면 호출자에게 HTTP 200 `{"ok":true}` 와 같은 결과를 준다. `dmctl notify` 의 종료 코드가 바뀌지 않는다.
+- 직접 모드·옛 데몬은 소켓 파일이 없다. 샌드박스 창은 컨테이너 안에 그 경로가 없다. 그래서 곧바로 HTTP 로 간다 (D-ARD-7).
+- `dmctl activity` 의 맥락 관측(`/api/runs/context`)은 넷에 들지 않으므로 HTTP 에 둔다.
+
 ### 3.3 단계 3 — 알람 판정의 데몬 이관 (묶음 A)
 
 - **FR-ARD-30** 데몬 모드의 알람 판정(출력의 알림 시퀀스, BEL, 유휴 알람, 재무장, done·waiting 파생)은 데몬의 `Tool` 이 직접 모드 코드로 한다. 서버의 `AttnTracker` 는 판정하지 않고 거울과 방송만 한다.
@@ -239,6 +294,8 @@
 | TC-ARD-20 | FR-ARD-20·21·22 | Go(데몬): 보고 소켓에 넷과 다른 메서드, 없는 도구 | 넷만 받고 나머지와 없는 도구는 거절. 서버 연결이 있어도 동시에 받는다 |
 | TC-ARD-21 | FR-ARD-23 | Go: 보고 소켓 있음/없음/실패 | 소켓 → 성공 / HTTP 로 감 / HTTP 로 감. 시한을 넘지 않는다 |
 | TC-ARD-22 | FR-ARD-25 | Go: 서버 없이 보고 → 서버 붙음 | 스냅샷에 그 보고가 반영돼 있다 |
+| TC-ARD-23 | §3.2a | Go: 서버가 `report` push 를 받음 | HTTP 로 받은 것과 같은 거울·방송이다. done 보고는 알람을 울린다 |
+| TC-ARD-24 | §3.2a 옛 서버 | Go(데몬): `reports` 를 말하지 않는 서버가 붙은 채 보고 | 거절한다. 데몬 기록은 바뀌지 않는다 |
 | TC-ARD-30 | FR-ARD-30~33 | Go·e2e: 데몬 모드에서 기존 알람 시험 | 통과한다 |
 | TC-ARD-40 | 전체 | 수동: 에이전트가 도는 중 서버만 다시 시작 | 카드·알람·사용량·서브에이전트·Usage 바닥이 그대로 보이고, Run 이 열린 채다. 서버가 꺼진 동안 끝난 턴은 done 으로 보인다 |
 

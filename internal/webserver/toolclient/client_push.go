@@ -28,6 +28,8 @@ func (pc *ToolClient) handlePush(m *wireMsg) {
 		pc.pushSize(m)
 	case toolipc.EventRecord:
 		pc.pushRecord(m)
+	case toolipc.EventReport:
+		pc.pushReport(m)
 	}
 }
 

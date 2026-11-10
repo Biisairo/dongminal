@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"dongminal/internal/shared/agentrec"
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/statusline"
 )
@@ -105,7 +106,7 @@ func runStatusline(stdin io.Reader, stdout, stderr io.Writer, env map[string]str
 	raw, _ := io.ReadAll(stdin)
 	if tool := env["DONGMINAL_TOOL_ID"]; tool != "" {
 		if u := statusline.FromInput(raw); u != nil {
-			_, _, _ = httpPostJSONWithin(baseURL()+"/api/tools/usage", map[string]any{"toolId": tool, "usage": u}, slReportBudget)
+			_, _, _ = postReport(agentrec.MethodUsage, "/api/tools/usage", map[string]any{"toolId": tool, "usage": u}, slReportBudget)
 		}
 	}
 	return slPassThrough(raw, statuslineDownstream(statuslineProjectDir(raw), env, statusLineKey), stdout, stderr)
@@ -117,7 +118,7 @@ func runSubagentStatusline(stdin io.Reader, stdout, stderr io.Writer, env map[st
 	raw, _ := io.ReadAll(stdin)
 	if tool := env["DONGMINAL_TOOL_ID"]; tool != "" {
 		if tasks, ok := statusline.SubagentsFromInput(raw); ok {
-			_, _, _ = httpPostJSONWithin(baseURL()+"/api/tools/subagents", map[string]any{"toolId": tool, "tasks": tasks}, slReportBudget)
+			_, _, _ = postReport(agentrec.MethodSubagents, "/api/tools/subagents", map[string]any{"toolId": tool, "tasks": tasks}, slReportBudget)
 		}
 	}
 	return slPassThrough(raw, statuslineDownstream(statuslineProjectDir(raw), env, subagentStatusLineKey), stdout, stderr)

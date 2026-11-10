@@ -41,6 +41,13 @@ type PanedServer struct {
 	// records 는 도구 없는 전역 에이전트 기록이다 (AGENT_RECORD_DAEMON_SRS FR-ARD-10).
 	// 연결이 바뀌어도 남는다.
 	records *globalRecords
+
+	// reportLn·reportPath 는 보고 소켓이다 (AGENT_RECORD_DAEMON_SRS FR-ARD-20). `mu` 아래 둔다.
+	// reportMu 는 보고의 반영을 하나씩 세운다 — 같은 도구의 서브에이전트 활동처럼 읽고
+	// 고쳐 쓰는 기록이 동시 보고에 잃히지 않게 한다.
+	reportLn   net.Listener
+	reportPath string
+	reportMu   sync.Mutex
 }
 
 // dialProbeTimeout 은 "이미 살아 있는 데몬이 있는가" 를 묻는 시도의 상한이다.
@@ -226,6 +233,10 @@ func (ps *PanedServer) Close() error {
 		ps.listener.Close()
 	}
 	platform.Current().IPC.Remove(ps.sockPath)
+	if ps.reportLn != nil {
+		ps.reportLn.Close()
+		platform.Current().IPC.Remove(ps.reportPath)
+	}
 	if ps.pidPath != "" {
 		os.Remove(ps.pidPath)
 	}

@@ -29,3 +29,6 @@ func Valid(s string) bool {
 	}
 	return false
 }
+
+// Alarms 는 이 상태의 보고가 알람을 파생하는가다 (FR-AEV-10). done·waiting 이다.
+func Alarms(s string) bool { return s == Done || s == Waiting }

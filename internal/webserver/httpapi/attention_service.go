@@ -38,9 +38,6 @@ func (s *Server) attention() attentionService {
 	return directAttention{tools: s.Tools}
 }
 
-// alarmState 는 활동 보고에서 알람을 파생할 상태다 (FR-AEV-10).
-func alarmState(state string) bool { return state == activity.Done || state == activity.Waiting }
-
 // trackerAttention 은 데몬 모드다.
 type trackerAttention struct {
 	t     *hub.AttnTracker
@@ -82,7 +79,7 @@ func (a trackerAttention) ReportActivity(toolID, state, tool, detail string, use
 		a.t.NoteUserPrompt(toolID)
 	}
 	a.t.SetActivity(toolID, state, tool, detail)
-	if alarmState(state) {
+	if activity.Alarms(state) {
 		a.t.SignalAgentEvent(toolID, state, turnKnown)
 	}
 }
@@ -153,13 +150,7 @@ func (a directAttention) ReportActivity(toolID, state, tool, detail string, user
 	if t == nil {
 		return
 	}
-	if userPrompt {
-		t.NoteUserPrompt()
-	}
-	t.SetActivity(state, tool, detail)
-	if alarmState(state) {
-		t.SignalAgentEvent(state, turnKnown)
-	}
+	t.ReportActivity(state, tool, detail, userPrompt, turnKnown)
 }
 
 func (a directAttention) Activity(toolID string) *toolhub.ActivityState {

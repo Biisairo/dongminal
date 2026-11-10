@@ -51,6 +51,7 @@ const (
 	EventExit       = "exit"
 	EventSize       = "size"
 	EventRecord     = "record"
+	EventReport     = "report"
 )
 
 // HelloParams 는 서버가 hello 에 싣는 것이다. Features 는 서버가 아는 기능 이름이다
@@ -90,13 +91,16 @@ const (
 	// FeatureRecords: recordset·records 와 record push 를 안다 (AGENT_RECORD_DAEMON_SRS
 	// FR-ARD-11~14). 말하지 않는 옛 데몬에는 서버가 거울만 쓴다.
 	FeatureRecords = "records"
+	// FeatureReports: 서버가 report push 를 안다 (AGENT_RECORD_DAEMON_SRS §3.2a). 붙은 서버가
+	// 말하지 않으면 데몬은 보고 소켓의 보고를 거절하고, dmctl 이 HTTP 로 보낸다.
+	FeatureReports = "reports"
 )
 
 // DaemonFeatures 는 이 데몬이 hello 에서 말하는 기능이다. ServerFeatures 는 서버가
 // 말하는 기능이다. 새 기능이 이름을 여기 더한다.
 var (
 	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify, FeatureBusyMany, FeatureFgGuard, FeatureRecords}
-	ServerFeatures []string
+	ServerFeatures = []string{FeatureReports}
 )
 
 // HasFeature 는 상대가 말한 기능 목록에 name 이 있는가다. 말하지 않은 옛 상대는
@@ -309,4 +313,12 @@ type RecordEvent struct {
 	Kind  string          `json:"kind"`
 	Tool  string          `json:"tool,omitempty"`
 	Value json.RawMessage `json:"value"`
+}
+
+// ReportEvent 는 report push 다 — 데몬의 보고 소켓이 받은 보고 그대로다 (§3.2a). 서버는
+// 같은 보고의 HTTP 처리기와 같은 함수로 처리한다.
+type ReportEvent struct {
+	Event  string          `json:"event"`
+	Method string          `json:"method"`
+	Body   json.RawMessage `json:"body"`
 }

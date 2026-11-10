@@ -70,8 +70,9 @@ func nextLine(t *testing.T, lines <-chan string) string {
 	}
 }
 
-// hello 는 쓰이지 않던 `server_pid` 를 싣지 않는다 (IPC-24). 서버가 아는 기능이
-// 없으면 features 키도 없다 — 옛 데몬은 params 를 읽지 않으므로 무엇이든 호환된다.
+// hello 는 쓰이지 않던 `server_pid` 를 싣지 않는다 (IPC-24). 서버가 아는 기능을
+// features 에 싣는다(AGENT_RECORD_DAEMON_SRS §3.2a 의 reports) — 옛 데몬은 params 를 읽지
+// 않으므로 무엇이든 호환된다.
 func TestHelloParamsWire(t *testing.T) {
 	sock, lines := rawFake(t, map[string]any{"version": toolipc.ProtocolVersion}, func(req toolipc.PanedRequest) any {
 		return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
@@ -81,7 +82,7 @@ func TestHelloParamsWire(t *testing.T) {
 		t.Fatalf("dial: %v", err)
 	}
 	defer pc.Close()
-	if got, want := nextLine(t, lines), `{"id":0,"method":"hello","params":{}}`; got != want {
+	if got, want := nextLine(t, lines), `{"id":0,"method":"hello","params":{"features":["reports"]}}`; got != want {
 		t.Fatalf("hello 바이트\n got %s\nwant %s", got, want)
 	}
 }
