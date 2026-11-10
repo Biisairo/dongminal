@@ -10,4 +10,5 @@ Dongminal 사용자 대상 가이드.
 - [commands.md](./commands.md) — 터미널 내부 CLI (`dmctl`, `edit`, `download`, `detach`, cwd 훅)
 - [shortcuts.md](./shortcuts.md) — 단축키와 입력 우선순위
 - [agent-orchestration.md](./agent-orchestration.md) — 에이전트 오케스트레이션 (dmctl 접합면 + 세션 스코프 스킬 주입)
+- [peers.md](./peers.md) — 노드 간 통신: 다른 PC 의 dongminal 과 짝 맺기, 원격 에이전트에 메시지·띄우기, 안전
 - [api.md](./api.md) — HTTP / WebSocket / SSE / OSC 777

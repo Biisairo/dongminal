@@ -85,7 +85,7 @@ MSG
 
 ## 다른 PC 의 에이전트 (`dmctl msg --to <노드>/<uuid>`)
 
-짝맞춘 다른 dongminal 의 에이전트에게도 보낼 수 있습니다. 짝맞춤은 `dmctl peer --help` 를 봅니다.
+짝맞춘 다른 dongminal 의 에이전트에게도 보낼 수 있습니다. 짝맞춤과 안전은 [peers.md](./peers.md) 를 봅니다.
 
 ```bash
 dmctl peer tools office                 # office 노드의 에이전트 도구 (office/<uuid>)
