@@ -192,4 +192,7 @@ var CodeDoc = map[string]Doc{
 	CodePeerRateLimited:    {"이 짝이 1분 동안 보낼 수 있는 요청 수(60)를 넘었습니다.", "잠시 뒤 다시 보내세요. 반복 호출이라면 간격을 두세요."},
 	CodePeerTargetMissing:  {"상대 노드에 그 도구가 없습니다.", "dmctl peer tools <노드> 로 지금 목록을 다시 받으세요."},
 	CodePeerTargetNotAgent: {"그 도구에서 지금 에이전트가 돌고 있지 않습니다. 아무것도 넣지 않았습니다.", "에이전트가 끝났을 수 있습니다. dmctl peer tools <노드> 로 다시 확인하세요."},
+	CodePeerAgentMissing:   {"상대 노드에 그 에이전트가 없거나 설치되지 않았습니다.", "dmctl peer info <노드> 의 agents 로 상대가 띄울 수 있는 에이전트를 확인하세요."},
+	CodePeerDirNotAllowed:  {"그 폴더는 상대 노드가 허용한 폴더 밖입니다. 허용 폴더가 비어 있으면 모든 띄우기를 거절합니다.", "dmctl peer info <노드> 의 allowedDirs 안의 폴더를 쓰세요. 허용 폴더는 받는 노드의 사용자가 정합니다."},
+	CodePeerNotOwner:       {"이 노드가 띄운 도구가 아니라서 닫을 수 없습니다.", "원격으로는 자기가 agent.spawn 으로 띄운 도구만 닫을 수 있습니다."},
 }

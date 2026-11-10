@@ -297,3 +297,79 @@ func TestDmctlPeersCleansRemoteText(t *testing.T) {
 		t.Fatalf("제어 문자가 찍혔다 %q", out)
 	}
 }
+
+// FR-PNW-73: peer spawn — 성공하면 <노드>/<uuid> 를 출력한다.
+func TestDmctlPeerSpawn(t *testing.T) {
+	calls, cleanup := withPeerServer(t, 200, `{"toolId":"u-9","headless":true}`)
+	defer cleanup()
+	t.Setenv("DONGMINAL_TOOL_ID", "me-1")
+	rc, out, e := dmctlRun("peer", "spawn", "home", "--agent", "claude", "--cwd", "/work/p", "--tab", "--at", "u-1", "--name", "리뷰", "코드 봐 줘")
+	if rc != 0 {
+		t.Fatalf("rc=%d %s", rc, e)
+	}
+	c := (*calls)[0]
+	args, _ := c.body["args"].(map[string]any)
+	if c.body["op"] != "agent.spawn" || c.body["peer"] != "home" || c.body["from"] != "me-1" ||
+		args["agent"] != "claude" || args["cwd"] != "/work/p" || args["placement"] != "tab" || args["at"] != "u-1" ||
+		args["name"] != "리뷰" || args["prompt"] != "코드 봐 줘" {
+		t.Fatalf("요청 %+v", c)
+	}
+	if strings.TrimSpace(out) != "home/u-9" {
+		t.Fatalf("stdout %q", out)
+	}
+	if !strings.Contains(e, "헤드리스") {
+		t.Fatalf("헤드리스 안내가 없다 %q", e)
+	}
+}
+
+func TestDmctlPeerSpawnDefaultsWindow(t *testing.T) {
+	calls, cleanup := withPeerServer(t, 200, `{"toolId":"u-9","headless":false}`)
+	defer cleanup()
+	if rc, _, e := dmctlRun("peer", "spawn", "home", "--agent", "claude", "--cwd", "/w", "hi"); rc != 0 {
+		t.Fatalf("rc=%d %s", rc, e)
+	}
+	if args, _ := (*calls)[0].body["args"].(map[string]any); args["placement"] != "window" {
+		t.Fatalf("args %+v", args)
+	}
+}
+
+func TestDmctlPeerSpawnUsage(t *testing.T) {
+	_, cleanup := withPeerServer(t, 200, `{}`)
+	defer cleanup()
+	for _, args := range [][]string{
+		{"peer", "spawn", "home", "--cwd", "/w", "hi"},                               // --agent 없음
+		{"peer", "spawn", "home", "--agent", "claude", "hi"},                         // --cwd 없음
+		{"peer", "spawn", "home", "--agent", "claude", "--cwd", "/w", "--tab", "hi"}, // --at 없음
+		{"peer", "status", "home"}, {"peer", "close", "nouuid"},
+	} {
+		if rc, _, _ := dmctlRun(args...); rc != 2 {
+			t.Errorf("%v: rc=%d, 기대 2", args, rc)
+		}
+	}
+}
+
+func TestDmctlPeerStatusAndClose(t *testing.T) {
+	calls, cleanup := withPeerServer(t, 200, `{"toolId":"u-9","state":"working","closed":true}`)
+	defer cleanup()
+	rc, out, e := dmctlRun("peer", "status", "home/u-9")
+	if rc != 0 || strings.TrimSpace(out) != "working" {
+		t.Fatalf("status rc=%d out=%q %s", rc, out, e)
+	}
+	if rc, out, _ := dmctlRun("peer", "status", "home/u-9", "--json"); rc != 0 || !strings.HasPrefix(out, "{") {
+		t.Fatalf("status --json rc=%d %q", rc, out)
+	}
+	if rc, _, e := dmctlRun("peer", "close", "home/u-9"); rc != 0 {
+		t.Fatalf("close rc=%d %s", rc, e)
+	}
+	ops := []string{}
+	for _, c := range *calls {
+		args, _ := c.body["args"].(map[string]any)
+		if c.body["peer"] != "home" || args["toolId"] != "u-9" {
+			t.Fatalf("요청 %+v", c)
+		}
+		ops = append(ops, c.body["op"].(string))
+	}
+	if strings.Join(ops, ",") != "agent.status,agent.status,agent.close" {
+		t.Fatalf("ops %v", ops)
+	}
+}

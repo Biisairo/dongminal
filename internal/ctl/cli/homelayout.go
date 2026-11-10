@@ -75,6 +75,8 @@ func homeLayout() []homeEntry {
 		{Name: dmenv.PeersFile, What: "노드 간 통신 설정과 짝 목록", InBackup: true, KeepOnUninstall: true},
 		{Name: dmenv.NodeCertFile, What: "노드 인증서 (노드 간 통신의 신원)", InBackup: true, KeepOnUninstall: true},
 		{Name: dmenv.NodeKeyFile, What: "노드 개인키", InBackup: true, KeepOnUninstall: true},
+		// FR-PNW-62: 서버를 다시 켜도 남아야 하지만, 도구 id 는 그 기계의 것이라 옮겨 봐야 뜻이 없다.
+		{Name: dmenv.PeerSpawnsFile, What: "다른 노드가 띄운 도구와 그 짝 (원격 닫기 권한)", Ephemeral: true},
 
 		// ── 사용자가 만든 내용 ──
 		{Name: dmenv.NotesDir, IsDir: true, What: "메모장", InBackup: true, KeepOnUninstall: true},

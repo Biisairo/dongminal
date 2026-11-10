@@ -423,6 +423,7 @@ dongminal config validate      # 설정 파일을 스키마에 대조 (불일치
 | `git-worktrees/` | Git 창에서 만든 worktree | ✅ |
 | `panes.json` | 변환 전 레이아웃 (`migrate` 가 옮깁니다) | ✅ |
 | `bin/` | 런타임 헬퍼 | ❌ 기동마다 다시 채웁니다 |
+| `peer-spawns.json` | 다른 노드가 띄운 도구와 그 짝 | ❌ 도구 id 는 그 기계의 것입니다 |
 | `ext/` | 편집기 플러그인·언어 서버 | ❌ 다시 받을 수 있습니다 |
 | `cache/` | 컨테이너용 리눅스 헬퍼 | ❌ |
 | `worktrees/` | Run 격리 worktree | ❌ |

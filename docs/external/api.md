@@ -239,7 +239,7 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | POST | `/api/peers/reject` | `{id}` — 승인 대기를 버린다 |
 | POST | `/api/peers/remove` | `{name}` — 짝을 해제한다. 그 노드의 요청은 바로 거절된다 |
 | PUT | `/api/peers/address` | `{name, addr, port}` — 짝의 주소를 고친다. 신원(지문)은 그대로다 |
-| POST | `/api/peers/call` | `{peer, op, from?, args}` — 그 짝에 프로토콜 명령(`node.info`·`agents.list`·`message.send`)을 보내고 결과를 그대로 돌려준다. `message.send` 의 `args.from` 은 서버가 `from`(부른 도구)을 해석해 채운다. 성공하면 그 짝의 `lastSeen` 이 갱신되고, `pending-out` 이던 짝은 짝으로 바뀐다. 모르는 명령은 400 `peer_unknown_op` |
+| POST | `/api/peers/call` | `{peer, op, from?, args}` — 그 짝에 프로토콜 명령(`node.info`·`agents.list`·`message.send`·`agent.spawn`·`agent.status`·`agent.close`)을 보내고 결과를 그대로 돌려준다. `message.send`·`agent.spawn` 의 `args.from` 은 서버가 `from`(부른 도구)을 해석해 채운다. 성공하면 그 짝의 `lastSeen` 이 갱신되고, `pending-out` 이던 짝은 짝으로 바뀐다. 모르는 명령은 400 `peer_unknown_op` |
 
 ### Run (오케스트레이션)
 

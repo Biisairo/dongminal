@@ -50,6 +50,7 @@ func (s *Server) initPeer() {
 	s.pairing = peer.NewPairing(time.Now)
 	s.peerLimiter = peer.NewRateLimiter(time.Now)
 	s.peerSeen = peer.NewLastSeen()
+	s.peerSpawns = peer.OpenSpawnLog(filepath.Join(s.cfg.DataDir, dmenv.PeerSpawnsFile))
 	s.peerLn = peer.NewListener(id, s.peerAdmission(), s.peerHandler())
 }
 

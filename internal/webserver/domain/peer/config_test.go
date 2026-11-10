@@ -333,3 +333,36 @@ func TestStoreFreeName(t *testing.T) {
 		t.Fatalf("긴 이름의 FreeName = %q", got)
 	}
 }
+
+// FR-PNW-59: 허용 폴더 판정. 심볼릭 링크를 푼 실제 경로로 본다.
+func TestDirAllowed(t *testing.T) {
+	root := t.TempDir()
+	allowed := filepath.Join(root, "work")
+	inside := filepath.Join(allowed, "proj")
+	outside := filepath.Join(root, "other")
+	for _, d := range []string{inside, outside} {
+		if err := os.MkdirAll(d, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got, ok := DirAllowed(inside, []string{allowed}); !ok || got == "" {
+		t.Fatalf("안쪽 = %q %v", got, ok)
+	}
+	if _, ok := DirAllowed(allowed, []string{allowed}); !ok {
+		t.Fatal("허용 폴더 자신을 거절했다")
+	}
+	for _, c := range []string{outside, root, allowed + "x", "relative/path", filepath.Join(root, "missing")} {
+		if _, ok := DirAllowed(c, []string{allowed}); ok {
+			t.Errorf("%q 를 허용했다", c)
+		}
+	}
+	if _, ok := DirAllowed(inside, nil); ok {
+		t.Fatal("허용 폴더가 비었는데 허용했다")
+	}
+	link := filepath.Join(allowed, "escape")
+	if err := os.Symlink(outside, link); err == nil {
+		if _, ok := DirAllowed(link, []string{allowed}); ok {
+			t.Fatal("밖을 가리키는 링크를 허용했다")
+		}
+	}
+}

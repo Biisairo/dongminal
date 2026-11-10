@@ -59,7 +59,7 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | 명령 | 설명 |
 |------|------|
 | `dmctl peers [--json]` | 이 노드의 노드 포트 상태, 짝 목록(이름·주소·상태), 승인 대기를 봅니다. 지문은 앞 16자만 보입니다 |
-| `dmctl peer invite \| add \| approve \| reject \| remove …` | 짝맞춤입니다. `invite [--addr <주소>]` 가 초대 코드를 만들고(10분, 한 번), 상대가 `add <코드> [--name <이름>]` 로 등록을 요청하면, 이쪽이 `approve <id> [--name <이름>]` 로 승인합니다. `reject <id>` 는 거절, `remove <노드>` 는 해제입니다. `info <노드>` 는 상대의 이름·판·받는 명령·설치된 에이전트, `tools <노드> [--json]` 은 상대의 에이전트 도구 목록(`<노드>/<uuid>`)입니다. 상대에 닿지 못하면 사유 코드를 내고 1 로 끝납니다 |
+| `dmctl peer invite \| add \| approve \| reject \| remove …` | 짝맞춤입니다. `invite [--addr <주소>]` 가 초대 코드를 만들고(10분, 한 번), 상대가 `add <코드> [--name <이름>]` 로 등록을 요청하면, 이쪽이 `approve <id> [--name <이름>]` 로 승인합니다. `reject <id>` 는 거절, `remove <노드>` 는 해제입니다. `info <노드>` 는 상대의 이름·판·받는 명령·설치된 에이전트, `tools <노드> [--json]` 은 상대의 에이전트 도구 목록(`<노드>/<uuid>`)입니다. `spawn <노드> --agent <id> --cwd <경로> [--tab --at <uuid>] [--name <이름>] <프롬프트>` 는 상대가 허용한 폴더 안에 에이전트를 띄우고 `<노드>/<uuid>` 를 냅니다(권한 모드는 상대의 평소 설정). `status <노드>/<uuid> [--json]` 은 상태, `close <노드>/<uuid>` 는 자기가 띄운 에이전트를 끝내고 닫습니다. 상대에 닿지 못하면 사유 코드를 내고 1 로 끝납니다 |
 
 #### 에이전트 훅에서 부르는 것
 

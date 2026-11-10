@@ -24,6 +24,8 @@ const (
 	PeersFile    = "peers.json"
 	NodeCertFile = "node-cert.pem"
 	NodeKeyFile  = "node-key.pem"
+	// PeerSpawnsFile 은 다른 노드가 띄운 도구와 그 짝의 지문이다 (FR-PNW-62).
+	PeerSpawnsFile = "peer-spawns.json"
 
 	BinDir          = "bin"
 	NotesDir        = "notes"

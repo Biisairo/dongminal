@@ -29,7 +29,13 @@ type peerCmdResult struct {
 	n      int
 }
 
-type peerCmdFunc func(s *Server, w http.ResponseWriter, r *http.Request, peerName string) peerCmdResult
+// peerCaller 는 명령을 보낸 짝이다. name 은 이 노드가 붙인 이름이다 (FR-PNW-91).
+type peerCaller struct {
+	name string
+	fp   string
+}
+
+type peerCmdFunc func(s *Server, w http.ResponseWriter, r *http.Request, from peerCaller) peerCmdResult
 
 // peerCommands 는 이 노드가 받는 명령이다. node.info 의 commands 가 이 목록이다.
 // 함수인 이유는 node.info 가 이 표를 읽기 때문이다 — 변수면 초기화가 돈다.
@@ -38,6 +44,9 @@ func peerCommands() map[string]peerCmdFunc {
 		"node.info":    (*Server).peerNodeInfo,
 		"agents.list":  (*Server).peerAgentsList,
 		"message.send": (*Server).peerMessageSend,
+		"agent.spawn":  (*Server).peerAgentSpawn,
+		"agent.status": (*Server).peerAgentStatus,
+		"agent.close":  (*Server).peerAgentClose,
 	}
 }
 
@@ -60,12 +69,12 @@ func (s *Server) peerCmd(op string, fn peerCmdFunc) http.HandlerFunc {
 			peerFail(w, http.StatusTooManyRequests, apierr.CodePeerRateLimited, "rate limited")
 			return
 		}
-		res := fn(s, w, r, name)
+		res := fn(s, w, r, peerCaller{name: name, fp: fp})
 		peerAuditCmd("in", name, op, res)
 	}
 }
 
-func (s *Server) peerNodeInfo(w http.ResponseWriter, r *http.Request, _ string) peerCmdResult {
+func (s *Server) peerNodeInfo(w http.ResponseWriter, r *http.Request, _ peerCaller) peerCmdResult {
 	agents := []string{}
 	for _, id := range agentadapter.IDs() {
 		if ad, err := agentadapter.Get(id); err == nil && ad.Installed() {
@@ -105,7 +114,7 @@ func (s *Server) agentOfTool(toolID string) (agentadapter.Adapter, bool) {
 	return agentadapter.Adapter{}, false
 }
 
-func (s *Server) peerAgentsList(w http.ResponseWriter, r *http.Request, _ string) peerCmdResult {
+func (s *Server) peerAgentsList(w http.ResponseWriter, r *http.Request, from peerCaller) peerCmdResult {
 	out := []peerAgentTool{}
 	if s.ToolIO != nil {
 		names := map[string][2]string{}
@@ -126,6 +135,9 @@ func (s *Server) peerAgentsList(w http.ResponseWriter, r *http.Request, _ string
 			if s.Tools != nil {
 				item.Cwd = s.Tools.Cwd(t.ID)
 			}
+			if owner, ok := s.peerSpawns.Owner(t.ID); ok && owner == from.fp {
+				item.SpawnedByYou = true
+			}
 			out = append(out, item)
 		}
 	}
@@ -135,7 +147,7 @@ func (s *Server) peerAgentsList(w http.ResponseWriter, r *http.Request, _ string
 }
 
 // peerMessageSend 는 짝이 보낸 메시지를 에이전트 도구에 넣는다 (FR-PNW-52·57·90).
-func (s *Server) peerMessageSend(w http.ResponseWriter, r *http.Request, peerName string) peerCmdResult {
+func (s *Server) peerMessageSend(w http.ResponseWriter, r *http.Request, from peerCaller) peerCmdResult {
 	var in struct {
 		To      string `json:"to"`
 		From    string `json:"from"`
@@ -168,7 +180,7 @@ func (s *Server) peerMessageSend(w http.ResponseWriter, r *http.Request, peerNam
 	if _, ok := s.agentOfTool(toolID); !ok {
 		return fail(http.StatusConflict, apierr.CodePeerTargetNotAgent, "not an agent")
 	}
-	env := peerEnvelope(peerName, in.From, toolID, in.Message, time.Now())
+	env := peerEnvelope(from.name, in.From, toolID, in.Message, time.Now())
 	if err := s.deliverToTool(toolID, env, true); err != nil {
 		return fail(http.StatusInternalServerError, apierr.CodeInternal, "deliver failed")
 	}
@@ -207,7 +219,7 @@ func (s *Server) apiPeersCall(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// FR-PNW-72: 보낸 도구는 이 서버가 채운다. 부른 쪽이 준 값은 식별자 해석을 지나야 한다.
-	if in.Op == "message.send" {
+	if in.Op == "message.send" || in.Op == "agent.spawn" {
 		args["from"] = ""
 		if in.From != "" && s.WorkIndex != nil {
 			from, err := s.WorkIndex.ResolveStrict(in.From)
