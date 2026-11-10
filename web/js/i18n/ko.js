@@ -1084,6 +1084,8 @@ I18N.register('ko', {
 
   // ── panel (UIUX_OVERHAUL_SRS FR-ACT-1) ──
   'panel.sec_agents': '에이전트',
+  'panel.sec_usage': '사용량',
+  'usage.empty': 'Claude 세션이 사용량을 보고하면 여기에 보입니다',
   'peer.add_fail': '등록을 요청하지 못했습니다',
   'peer.add_ok': '{name}에 등록을 요청했습니다. 상대가 승인하면 짝이 됩니다.',
   'peer.add_port_closed': '이 노드의 포트가 꺼져 있어 상대가 이 노드로 보낼 수 없습니다.',

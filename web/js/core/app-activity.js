@@ -51,7 +51,54 @@ const ACTIVITY_SECTIONS=[
    items:app=>app._actBgRows()},
   {key:'runs', title:()=>t('runs.title'), empty:()=>t('runs.empty'), hint:()=>t('runs.empty_hint'),
    items:app=>app._actRunsRows()},
+  // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40: 계정 한도. 급하지 않으므로 맨 끝이다.
+  {key:'usage', title:()=>t('panel.sec_usage'), empty:()=>t('usage.empty'),
+   items:app=>app._actUsageRows(), count:its=>its.filter(i=>i.kind==='agent').length},
 ];
+
+/** FR-ASV-42: 관측이 이보다 오래되면 에이전트 줄에 `as of HH:MM` 을 보인다. */
+const LIMIT_STALE_MS=10*60*1000;
+/** FR-ASV-41: 창 이름의 짧은 표기와 툴팁 이름. 없는 이름은 그대로 쓴다. */
+const LIMIT_WINDOW_LABELS=Object.freeze({five_hour:'5h',seven_day:'7d'});
+const LIMIT_WINDOW_TITLES=Object.freeze({five_hour:'5-hour limit',seven_day:'7-day limit'});
+const LIMIT_AGENT_NAMES=Object.freeze({claude:'Claude'});
+
+/** FR-ASV-41: 남은 초를 큰 단위 둘로 쓴다 — `4d 6h`·`2h 10m`·`35m`. 0 이하면 `soon` 이다. */
+function limitResetText(sec){
+  if(!(sec>0)) return 'soon';
+  const m=Math.floor(sec/60),d=Math.floor(m/1440),h=Math.floor(m/60)%24;
+  if(d>0) return d+'d '+h+'h';
+  if(m>=60) return h+'h '+(m%60)+'m';
+  return m+'m';
+}
+
+function limitClock(ms){
+  const d=new Date(ms);
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+
+/**
+ * FR-ASV-41·42: Usage 구역의 줄 값. 에이전트마다 머리 줄 하나와 창마다 한 줄이다.
+ * 남은 시간은 서버가 셈한 `resetsInSec` 만 쓴다 (D-ASV-10). `nowMs` 는 오래된 관측을 가를 때만 쓴다.
+ */
+function limitRowsView(limits,nowMs){
+  const out=[];
+  for(const l of Array.isArray(limits)?limits:[]){
+    const stale=typeof l.observedAt==='number'&&nowMs-l.observedAt>LIMIT_STALE_MS;
+    out.push({kind:'agent',id:l.agent,name:LIMIT_AGENT_NAMES[l.agent]||l.agent,asOf:stale?'as of '+limitClock(l.observedAt):''});
+    for(const w of Array.isArray(l.windows)?l.windows:[]){
+      if(typeof w.usedPct!=='number') continue;
+      const pct=Math.round(w.usedPct);
+      const hasReset=typeof w.resetsInSec==='number';
+      const title=[LIMIT_WINDOW_TITLES[w.name]||w.name,pct+'% used',
+        typeof w.resetsAt==='number'?'resets at '+limitClock(w.resetsAt*1000):''].filter(Boolean).join(' · ');
+      out.push({kind:'win',id:l.agent+':'+w.name,label:LIMIT_WINDOW_LABELS[w.name]||w.name,pct,
+        fill:Math.min(100,Math.max(0,w.usedPct)),level:w.level||'',
+        reset:hasReset?'resets '+limitResetText(w.resetsInSec):'',title});
+    }
+  }
+  return out;
+}
 
 Object.assign(App.prototype, {
 
@@ -164,6 +211,32 @@ Object.assign(App.prototype, {
 
   _actBgRows(){
     return (this._bg||[]).map(b=>({t:'row',sec:'bg',id:b.toolId,el:this._bgRow(b)}));
+  },
+
+  /** FR-ASV-41·42: Usage 구역의 줄. 값은 `_activityRestore` 가 받아 둔 `limits` 다. */
+  _actUsageRows(){
+    return limitRowsView(this._limits,Date.now()).map(v=>({t:'row',sec:'usage',id:v.id,kind:v.kind,el:this._actUsageRowEl(v)}));
+  },
+
+  _actUsageRowEl(v){
+    const row=document.createElement('div');
+    const span=(cls,text)=>{const e=document.createElement('span');e.className=cls;e.textContent=text;row.appendChild(e)};
+    if(v.kind==='agent'){
+      row.className='act-usage-agent';
+      span('act-usage-name',v.name);
+      if(v.asOf) span('act-usage-asof',v.asOf);
+      return row;
+    }
+    row.className='act-usage-win'+(v.level==='warn'||v.level==='critical'?' lv-'+v.level:'');
+    row.title=v.title;
+    span('act-usage-label',v.label);
+    const bar=document.createElement('div');bar.className='ag-usage-bar';
+    const fill=document.createElement('div');fill.className='ag-usage-fill';
+    fill.style.width=v.fill+'%';
+    bar.appendChild(fill);row.appendChild(bar);
+    span('ag-usage-pct',v.pct+'%');
+    if(v.reset) span('act-usage-reset',v.reset);
+    return row;
   },
 
   _actRunsRows(){

@@ -27,7 +27,7 @@ const subagentsBody = `{"toolId":"p1","tasks":[
  "windowTokens":200000,"tokens":180000,"startTime":2000},
 {"id":"nost","status":"running"},
 {"id":"early","agentType":"Explore","status":"running","model":"claude-haiku-5-5","effort":"low",
- "windowTokens":1000000,"tokens":19250,"startTime":1000,"description":"secret"}]}`
+ "windowTokens":1000000,"tokens":19250,"startTime":1000,"description":"Find it","label":"secret"}]}`
 
 func activitySubagents(t *testing.T, s *Server) ([]map[string]any, bool) {
 	t.Helper()
@@ -63,7 +63,11 @@ func TestApiToolsActivity_CarriesSubagents(t *testing.T) {
 		e["tokens"] != float64(19250) || e["windowTokens"] != float64(1000000) {
 		t.Fatalf("early=%v", e)
 	}
-	if _, ok := e["description"]; ok {
+	// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-15·16: description 은 싣고 label 은 싣지 않는다.
+	if e["description"] != "Find it" {
+		t.Errorf("description=%v", e["description"])
+	}
+	if _, ok := e["label"]; ok {
 		t.Errorf("허용 목록 밖의 값이 나갔다: %v", e)
 	}
 	l := got[1]

@@ -816,8 +816,8 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .ed-win.dock-drop-right::after{right:0}
 .ag-head{display:flex;align-items:center;gap:6px;padding:8px 10px;font-size:var(--fs-sm);font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border)}
 .ag-title{flex:1}
-.ag-refresh,.ag-close{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-lg);line-height:1;padding:2px 4px;border-radius:3px}
-.ag-refresh:hover,.ag-close:hover{color:var(--accent-text);background:var(--accent-hover)}
+.ag-subview,.ag-refresh,.ag-close{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-lg);line-height:1;padding:2px 4px;border-radius:3px}
+.ag-subview:hover,.ag-refresh:hover,.ag-close:hover{color:var(--accent-text);background:var(--accent-hover)}
 /* PANEL_SURFACE_SRS FR-AGG-1·10·11·12: 창 그룹의 머리. 카드가 있는 창만 갖는다. */
 /* UIUX_OVERHAUL_SRS FR-ACT-1: **구역 머리.** 패널이 네 구역으로 갈렸고
    (주의 · 에이전트 · 백그라운드 · Run) 그 경계가 창 그룹의 경계보다 위다.
@@ -872,9 +872,11 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .ag-state.idle{color:var(--text)}
 .ag-detail{font-size:var(--fs-sm);color:var(--text);margin-top:2px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* ACTIVITY_CARD_USAGE_SRS FR-ACU-10·13 · NFR-ACU-2: 막대·백분율은 줄지 않고,
-   좁아지면 모델·effort 만 말줄임으로 준다. 등급 색은 Run 화면의 `lv-*` 와 같다. */
+   좁아지면 모델·effort 만 말줄임으로 준다. 등급 색은 Run 화면의 `lv-*` 와 같다.
+   ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-30: 모델·effort 가 왼쪽, 막대와 백분율이 오른쪽 끝이다 —
+   모델이 없어도 막대는 오른쪽에 붙는다. */
 .ag-usage{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:var(--fs-sm);color:var(--text-muted);min-width:0}
-.ag-usage-bar{flex:0 0 56px;height:4px;border-radius:2px;background:var(--border-weak);overflow:hidden}
+.ag-usage-bar{flex:0 0 56px;margin-left:auto;height:4px;border-radius:2px;background:var(--border-weak);overflow:hidden}
 .ag-usage-fill{height:100%;background:var(--text-muted)}
 .ag-usage-pct{flex-shrink:0;font-variant-numeric:tabular-nums}
 .ag-usage-model{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -882,19 +884,41 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .ag-usage.lv-warn .ag-usage-pct{color:var(--attn-text)}
 .ag-usage.lv-critical .ag-usage-fill{background:var(--danger)}
 .ag-usage.lv-critical .ag-usage-pct{color:var(--danger-text)}
-/* SUBAGENT_USAGE_SRS FR-SAU-20~22: 서브에이전트 줄. 막대·백분율은 줄지 않고 글자가 말줄임으로 준다 (NFR-SAU-2). */
-.ag-sub{display:flex;align-items:center;gap:6px;margin-top:2px;font-size:var(--fs-sm);color:var(--text-muted);min-width:0}
-.ag-sub.done{color:var(--text-dim)}
+/* SUBAGENT_USAGE_SRS FR-SAU-20~22 · ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-31·34: 서브에이전트의 머리와
+   사용량 줄. 막대·백분율은 줄지 않고 글자가 말줄임으로 준다 (NFR-SAU-2 · NFR-ASV-3). */
+.ag-sub{margin-top:2px;min-width:0}
+.ag-sub-head{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--text-muted);min-width:0}
 .ag-sub-arrow{flex-shrink:0}
-.ag-sub-type,.ag-sub-model{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ag-sub-type{flex:0 1 auto}
-.ag-sub-model{flex:1 1 auto}
-.ag-sub .ag-usage-bar{flex:0 0 40px;margin-left:auto}
-.ag-sub.done .ag-usage-fill{background:var(--text-dim)}
-.ag-sub.lv-warn .ag-usage-fill{background:var(--attn)}
-.ag-sub.lv-warn .ag-usage-pct{color:var(--attn-text)}
-.ag-sub.lv-critical .ag-usage-fill{background:var(--danger)}
-.ag-sub.lv-critical .ag-usage-pct{color:var(--danger-text)}
+.ag-sub-type,.ag-sub-state{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ag-sub-type{flex:0 1 auto;color:var(--text)}
+.ag-sub-state{flex:1 1 auto}
+.ag-sub-state.working{color:var(--term-green)}
+.ag-sub-state.waiting{color:var(--attn-text)}
+.ag-sub .ag-usage{margin-top:1px;padding-left:14px}
+.ag-sub .ag-usage-bar,.ag-subcard .ag-usage-bar{flex-basis:40px}
+.ag-sub.done,.ag-subcard.done{opacity:.6}
+.ag-sub.done .ag-sub-state,.ag-subcard.done .ag-sub-state{color:var(--text-dim)}
+/* FR-ASV-33: 폴더형 하위 카드 — main 카드 아래에 한 단계 들여 쓴다. 왼쪽 선이 소속을 말한다. */
+.ag-subcard{margin-left:16px;padding:5px 10px;border-left:2px solid var(--border);border-bottom:1px solid var(--border-weak);cursor:pointer;min-width:0}
+.ag-subcard:hover{background:var(--accent-hover)}
+.ag-subcard .ag-detail{margin-top:1px}
+.ag-card{position:relative}
+.ag-sub-fold{position:absolute;top:6px;right:6px;display:flex;align-items:center;gap:2px;padding:1px 4px;font-size:var(--fs-sm);color:var(--text-muted)}
+.ag-sub-n{font-variant-numeric:tabular-nums}
+.ag-card:has(.ag-sub-fold) .ag-loc{padding-right:40px}
+/* FR-ASV-41·42: Usage 구역 — 에이전트 머리 줄과 창 줄. 막대는 카드의 사용량 줄과 같은 부품이다. */
+.act-usage-agent{display:flex;align-items:center;gap:6px;padding:6px 10px 2px;font-size:var(--fs-sm);font-weight:600;color:var(--text);min-width:0}
+.act-usage-name{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.act-usage-asof{flex-shrink:0;font-weight:400;color:var(--text-dim)}
+.act-usage-win{display:flex;align-items:center;gap:6px;padding:2px 10px 2px 18px;font-size:var(--fs-sm);color:var(--text-muted);min-width:0}
+.act-usage-win:last-child{padding-bottom:8px}
+.act-usage-label{flex:0 0 auto;min-width:22px;font-variant-numeric:tabular-nums}
+.act-usage-win .ag-usage-bar{flex:1 1 40px;margin-left:0;min-width:24px}
+.act-usage-reset{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-dim)}
+.act-usage-win.lv-warn .ag-usage-fill{background:var(--attn)}
+.act-usage-win.lv-warn .ag-usage-pct{color:var(--attn-text)}
+.act-usage-win.lv-critical .ag-usage-fill{background:var(--danger)}
+.act-usage-win.lv-critical .ag-usage-pct{color:var(--danger-text)}
 
 .pn-body{flex:1;position:relative;overflow:hidden}
 

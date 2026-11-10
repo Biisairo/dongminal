@@ -409,7 +409,8 @@ test.describe('Agent panel window groups (FR-AGG)', () => {
  * UIUX_OVERHAUL_SRS §4.3.1 (D-7) — **구역은 셋이고, 머리는 몸통으로 접힌다.**
  */
 test.describe('FR-ACT-7·10 (D-7): 구역 셋과 몸통 접기', () => {
-  test('FR-ACT-7: 구역이 셋이고 차례가 에이전트 · 백그라운드 · Run 이다', async ({ page }) => {
+  // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40: 맨 끝에 Usage 구역이 더해졌다. 주의 구역은 여전히 없다.
+  test('FR-ACT-7: 차례가 에이전트 · 백그라운드 · Run · Usage 이고 주의 구역이 없다', async ({ page }) => {
     await waitForInit(page);
     await page.locator('#agents-toggle').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
@@ -417,7 +418,7 @@ test.describe('FR-ACT-7·10 (D-7): 구역 셋과 몸통 접기', () => {
     // 빈 구역도 머리를 갖는다 (FR-ACT-1) — 세는 것은 내용이 아니라 구역이다.
     const secs = await page.evaluate(() =>
       [...document.querySelectorAll('#agents-panel .ag-sec')].map((e) => (e as HTMLElement).dataset.sec));
-    expect(secs, '주의 구역이 아직 패널에 있다').toEqual(['agents', 'bg', 'runs']);
+    expect(secs, '주의 구역이 아직 패널에 있다').toEqual(['agents', 'bg', 'runs', 'usage']);
   });
 
   test('FR-ACT-10: 그룹 머리의 몸통을 눌러 접고 편다', async ({ page }) => {
@@ -448,7 +449,8 @@ test.describe('FR-ACT-7·10 (D-7): 구역 셋과 몸통 접기', () => {
 // ACTIVITY_CARD_USAGE_SRS TC-ACU-10: 사용량 줄이 보이고, 최소 폭에서 카드를 넘지 않는다
 // (FR-ACU-10 · NFR-ACU-2).
 test.describe('Agent card usage row', () => {
-  test('TC-ACU-10: 막대 → 백분율 → 모델, 최소 폭에서 넘치지 않는다', async ({ page }) => {
+  // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-30: 모델·effort 가 왼쪽, 막대와 백분율이 오른쪽이다.
+  test('TC-ACU-10: 모델 → 막대 → 백분율, 최소 폭에서 넘치지 않는다', async ({ page }) => {
     await waitForInit(page);
     const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
     await page.locator('#agents-toggle').click();
@@ -481,7 +483,7 @@ test.describe('Agent card usage row', () => {
     await expect(row.locator('.ag-usage-pct')).toHaveText('72%');
     await expect(row.locator('.ag-usage-model')).toHaveText('A Very Long Model Display Name For Overflow·high');
     const order = await row.evaluate((el) => [...el.children].map((c) => c.className));
-    expect(order).toEqual(['ag-usage-bar', 'ag-usage-pct', 'ag-usage-model']);
+    expect(order).toEqual(['ag-usage-model', 'ag-usage-bar', 'ag-usage-pct']);
 
     await page.evaluate(() => document.documentElement.style.setProperty('--ag-w', '160px'));
     const m = await row.evaluate((el) => {
@@ -523,12 +525,14 @@ test.describe('Agent card subagent rows', () => {
     }, pid);
     expect(status).toBe(200);
 
+    // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-32·34: 카드 안의 줄은 목록형 보기다 — 기본은 폴더형이다.
+    await page.locator('#agents-panel .ag-subview').click();
     const rows = page.locator(`#agents-panel .ag-card[data-toolid="${pid}"] .ag-sub`);
     await page.evaluate(() => (window as any).app.testing.activityRestore());
     await expect(rows).toHaveCount(2, { timeout: 10000 });
-    await expect(rows.nth(0)).toHaveClass(/lv-warn/);
+    await expect(rows.nth(0).locator('.ag-usage')).toHaveClass(/lv-warn/);
     await expect(rows.nth(0).locator('.ag-usage-pct')).toHaveText('75%');
-    await expect(rows.nth(0).locator('.ag-sub-model')).toHaveText('a-very-long-model-id-for-overflow·high');
+    await expect(rows.nth(0).locator('.ag-usage-model')).toHaveText('a-very-long-model-id-for-overflow·high');
     await expect(rows.nth(1)).toHaveClass(/done/);
     await expect(rows.nth(1).locator('.ag-sub-type')).toHaveText('Plan');
 
@@ -541,5 +545,87 @@ test.describe('Agent card subagent rows', () => {
     });
     expect(m.cardScroll, '서브에이전트 줄이 카드를 가로로 밀었다').toBeLessThanOrEqual(m.cardClient);
     expect(m.pctRight, '백분율이 카드 밖으로 밀렸다').toBeLessThanOrEqual(m.cardRight);
+  });
+});
+
+// ACTIVITY_STATE_SUBAGENT_SRS TC-ASV-15: 폴더형 하위 카드·보기 전환·Usage 구역이 보이고,
+// 최소 폭에서 패널을 넘지 않는다 (FR-ASV-33·40, NFR-ASV-3).
+test.describe('Activity subagent views and usage limits', () => {
+  test('TC-ASV-15: 하위 카드와 접기, 보기 전환, Usage 구역', async ({ page }) => {
+    await waitForInit(page);
+    const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
+    await page.locator('#agents-toggle').click();
+    await expect(page.locator('#agents-panel.open')).toBeVisible();
+
+    expect(await setActivity(page, pid, 'done', '', 'app.js')).toBe(200);
+    const codes = await page.evaluate(async (toolId) => {
+      const post = (url: string, body: unknown) => fetch(url, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      }).then((r) => r.status);
+      return [
+        await post('/api/tools/subagents', { toolId, tasks: [
+          { id: 'a1', agentType: 'Explore', status: 'running', model: 'claude-haiku-5-5', effort: 'low',
+            windowTokens: 1000000, tokens: 20000, startTime: 1000, description: 'Find the hook parser' },
+        ] }),
+        await post('/api/tools/activity/set', { toolId, agentId: 'a1', agentType: 'Explore',
+          state: 'working', tool: 'A-Very-Long-Tool-Name-For-Overflow-Check', detail: 'grep -rn parseClaudeHook internal' }),
+        await post('/api/tools/usage', { toolId, usage: { rateLimits: {
+          five_hour: { usedPct: 72, resetsAt: Math.floor(Date.now() / 1000) + 7800 },
+          seven_day: { usedPct: 21, resetsAt: Math.floor(Date.now() / 1000) + 368000 },
+        } } }),
+      ];
+    }, pid);
+    expect(codes).toEqual([200, 200, 200]);
+    await page.evaluate(() => (window as any).app.testing.activityRestore());
+
+    // 폴더형(기본): main 카드 바로 뒤에 하위 카드
+    const sub = page.locator(`#agents-panel .ag-subcard[data-toolid="${pid}"]`);
+    await expect(sub).toHaveCount(1, { timeout: 10000 });
+    await expect(sub.locator('.ag-sub-state')).toHaveText('● working · A-Very-Long-Tool-Name-For-Overflow-Check');
+    await expect(sub.locator('.ag-detail')).toHaveText('grep -rn parseClaudeHook internal');
+    await expect(sub.locator('.ag-usage-model')).toHaveText('haiku-5-5·low');
+    const follows = await sub.evaluate((el, id) => {
+      const prev = el.previousElementSibling as HTMLElement | null;
+      return !!prev && prev.classList.contains('ag-card') && prev.dataset.toolid === id;
+    }, pid);
+    expect(follows, '하위 카드가 main 카드 바로 뒤에 서지 않았다').toBe(true);
+
+    // 접기 — 수는 남고 하위 카드는 숨는다
+    const fold = page.locator(`#agents-panel .ag-card[data-toolid="${pid}"] .ag-sub-fold`);
+    await expect(fold.locator('.ag-sub-n')).toHaveText('1');
+    await fold.click();
+    await expect(sub).toHaveCount(0);
+    await page.locator(`#agents-panel .ag-card[data-toolid="${pid}"] .ag-sub-fold`).click();
+    await expect(sub).toHaveCount(1);
+
+    // Usage 구역 — 맨 끝 구역이고 창마다 한 줄
+    const usage = page.locator('#agents-panel .act-usage-win');
+    await expect(usage).toHaveCount(2);
+    await expect(usage.nth(0).locator('.act-usage-label')).toHaveText('5h');
+    await expect(usage.nth(0)).toHaveClass(/lv-warn/);
+    await expect(usage.nth(0).locator('.act-usage-reset')).toHaveText(/^resets 2h (9|10)m$/);
+    await expect(usage.nth(1).locator('.act-usage-reset')).toHaveText(/^resets 4d (5|6)h$/);
+    const lastSec = await page.locator('#agents-panel .ag-sec').last().getAttribute('data-sec');
+    expect(lastSec).toBe('usage');
+
+    // 최소 폭에서 패널을 넘지 않는다
+    await page.evaluate(() => document.documentElement.style.setProperty('--ag-w', '160px'));
+    const m = await page.evaluate(() => {
+      const p = document.getElementById('agents-panel') as HTMLElement;
+      const subEl = p.querySelector('.ag-subcard') as HTMLElement;
+      const win = p.querySelector('.act-usage-win') as HTMLElement;
+      return { panelScroll: p.scrollWidth, panelClient: p.clientWidth,
+        subScroll: subEl.scrollWidth, subClient: subEl.clientWidth,
+        winScroll: win.scrollWidth, winClient: win.clientWidth };
+    });
+    expect(m.panelScroll, '패널이 가로로 밀렸다').toBeLessThanOrEqual(m.panelClient);
+    expect(m.subScroll, '하위 카드가 넘쳤다').toBeLessThanOrEqual(m.subClient);
+    expect(m.winScroll, 'Usage 줄이 넘쳤다').toBeLessThanOrEqual(m.winClient);
+
+    // 목록형으로 바꾸면 하위 카드가 사라지고 카드 안의 줄이 선다
+    await page.locator('#agents-panel .ag-subview').click();
+    await expect(sub).toHaveCount(0);
+    await expect(page.locator(`#agents-panel .ag-card[data-toolid="${pid}"] .ag-sub`)).toHaveCount(1);
+    expect(await page.evaluate(() => localStorage.getItem('agentsSubView'))).toBe('list');
   });
 });

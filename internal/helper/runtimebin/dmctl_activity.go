@@ -62,6 +62,22 @@ func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 	if toolID == "" {
 		return 0
 	}
+	// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-2·4·5: main 상태가 없으면 main 보고를 하지
+	// 않는다. 서브에이전트 활동은 agentId 를 실은 별도 보고다 — 사람을 기다리게 하는
+	// 훅만 둘을 함께 보낸다 (NFR-ASV-1).
+	if rep.State != "" {
+		reportMainActivity(adapter, rep, toolID)
+	}
+	if s := rep.Sub; s != nil {
+		httpPostJSONWithin(baseURL()+"/api/tools/activity/set", map[string]any{"toolId": toolID, "agent": adapter.ID,
+			"agentId": s.AgentID, "agentType": s.AgentType, "state": s.State, "tool": s.Tool, "detail": s.Detail}, hookBudget)
+	}
+	reportContext(adapter, rep, toolID)
+	return 0
+}
+
+// reportMainActivity 는 main 세션의 활동 보고다.
+func reportMainActivity(adapter agentadapter.Adapter, rep agentadapter.Report, toolID string) {
 	// AGENT_EVENT_ABSTRACTION_SRS FR-AEV-10: **에이전트 id 를 함께 보낸다.**
 	// 서버가 그 에이전트의 이벤트 선언(`Signals`)을 봐야 `done` 알람의 판정을
 	// 옳게 할 수 있다 (FR-AEV-12) — 턴의 출처를 말할 수 없는 에이전트를 "사용자
@@ -85,8 +101,6 @@ func runDmctlActivity(args []string, stdin io.Reader, stdout, stderr io.Writer) 
 		body["sessionId"] = rep.SessionID
 	}
 	httpPostJSONWithin(baseURL()+"/api/tools/activity/set", body, hookBudget)
-	reportContext(adapter, rep, toolID)
-	return 0
 }
 
 // contextObservePath 는 컨텍스트 관측의 수신 종단이다 (ORCHESTRATION_V2_SRS

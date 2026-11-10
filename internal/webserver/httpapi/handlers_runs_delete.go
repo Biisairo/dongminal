@@ -135,6 +135,7 @@ func (s *Server) StartRunReaper(stop <-chan struct{}) {
 				s.reapRuns()
 				s.usage.prune(s.toolLive)
 				s.subagents.prune(s.toolLive)
+				s.subActs.prune(s.toolLive)
 			}
 		}
 	}()

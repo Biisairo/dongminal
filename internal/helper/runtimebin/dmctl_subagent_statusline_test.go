@@ -14,7 +14,7 @@ import (
 // SUBAGENT_USAGE_SRS — subagentStatusLine 프록시 (TC-SAU-3 · 4).
 
 const sslSample = `{"session_id":"9cfd","transcript_path":"/Users/x/t.jsonl","cwd":"PROJ","columns":80,
-"tasks":[{"id":"a3b7","agentType":"Explore","status":"running","description":"secret","model":"claude-haiku-5-5",
+"tasks":[{"id":"a3b7","agentType":"Explore","status":"running","label":"secret","model":"claude-haiku-5-5",
 "contextWindowSize":1000000,"tokenCount":19250,"startTime":1794204238088}]}`
 
 // TC-SAU-3: 도구 id 가 있으면 허용 목록만 /api/tools/subagents 로 보낸다 (FR-SAU-6).

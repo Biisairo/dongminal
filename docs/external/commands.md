@@ -51,7 +51,7 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | `dmctl read-output [--at <uuid>] [--bytes N]` | 같은 자리를 **raw 바이트**로 읽습니다 — ANSI 를 포함합니다 (기본 8192바이트). 색·커서 이동까지 봐야 할 때만 쓰세요 |
 | `dmctl send-input --at <uuid> [--execute] <텍스트>` | 그 도구의 **셸에 입력**을 넣습니다. `--execute` 면 Enter 까지 칩니다. 텍스트 자리에 `-` 를 주거나 생략하면 stdin 을 읽습니다 |
 | `dmctl msg --to <uuid> [--from <uuid>] <메시지>` | 그 도구의 **에이전트에게** 신뢰 엔벨로프로 메시지를 보냅니다. `send-input` 과 다릅니다 — 이쪽은 상대가 에이전트임을 전제하고 봉투를 씌웁니다. `--to <노드>/<uuid>` 는 짝맞춘 다른 노드의 에이전트이며 원격 엔벨로프로 들어갑니다 |
-| `dmctl status [--at <uuid> \| --member <uuid>] [--json]` | 그 도구의 에이전트 상태(`idle`/`working`/`waiting`/`done`). `--member` 는 헤드리스 멤버를 지목한다 (`wait` 와 같다) |
+| `dmctl status [--at <uuid> \| --member <uuid>] [--json]` | 그 도구의 에이전트 상태(`idle`/`working`/`waiting`/`done`). `--member` 는 헤드리스 멤버를 지목한다 (`wait` 와 같다). 계정 한도가 관측됐으면 창마다 `claude 5h 34% (resets in 2h 0m)` 꼴의 줄이 더해진다 |
 | `dmctl wait [--at <uuid>] --for ready\|done [--timeout-ms N]` | 그 상태가 될 때까지 기다립니다. 서버가 long-poll 로 잡아 주므로 폴링 루프를 짜지 마세요 |
 
 #### 노드 간 통신 — 짝맞춘 다른 dongminal

@@ -9,8 +9,8 @@ import (
 const SubagentMaxTasks = 32
 
 // Subagent 는 subagentStatusLine 입력의 `tasks` 원소에서 내보내도 되는 값 전부다
-// (SUBAGENT_USAGE_SRS FR-SAU-1·2). 설명 글(`description`·`label`)과 경로(`cwd`)는 여기
-// 없으므로 나가지 않는다 (FR-SAU-3). `effort` 는 글자이거나 토큰 예산(수)이다 — 같은
+// (SUBAGENT_USAGE_SRS FR-SAU-1·2). `label` 과 경로(`cwd`)는 여기 없으므로 나가지 않는다
+// (FR-SAU-3). 작업 설명(`description`)은 ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-16 부터 싣는다. `effort` 는 글자이거나 토큰 예산(수)이다 — 같은
 // 입력 이름을 두 필드가 나눠 받고, 타입이 맞는 쪽만 채워진다.
 type Subagent struct {
 	ID           *string  `json:"id,omitempty" sl:"id"`
@@ -22,6 +22,7 @@ type Subagent struct {
 	WindowTokens *float64 `json:"windowTokens,omitempty" sl:"contextWindowSize"`
 	Tokens       *float64 `json:"tokens,omitempty" sl:"tokenCount"`
 	StartTime    *float64 `json:"startTime,omitempty" sl:"startTime"`
+	Description  *string  `json:"description,omitempty" sl:"description"`
 }
 
 // SubagentsFromInput 은 subagentStatusLine 입력의 `tasks` 에서 허용 목록의 값만 꺼낸다.

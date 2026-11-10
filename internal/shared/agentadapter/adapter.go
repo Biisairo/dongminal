@@ -54,6 +54,19 @@ type Report struct {
 	// 상태 어휘를 건드리지 않는 **곁들이 값**이다 — Compacted 와 같은 자리에
 	// 같은 이유로 있다 (FR-CBG-1 의 선례).
 	UserPrompt bool
+
+	// Sub 는 서브에이전트 활동이다 (ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-2·5). 서브에이전트
+	// 훅에서만 선다. State 가 비어 있으면 main 상태는 보고하지 않는다 (FR-ASV-4).
+	Sub *SubReport
+}
+
+// SubReport 는 서브에이전트 하나의 활동 보고다 (FR-ASV-5).
+type SubReport struct {
+	AgentID   string
+	AgentType string
+	State     string
+	Tool      string
+	Detail    string
 }
 
 // PromptInjection 은 초기 프롬프트를 에이전트에 전달하는 방식이다.
@@ -192,6 +205,10 @@ type Adapter struct {
 	// 등록부 밖에 있으면 안 되고(지시 2026-09-11), 무엇보다 그것은 codex 라는
 	// 이름의 성질이 아니라 **훅이 없다는 성질**이다.
 	ActivityFromNotify bool
+	// StatusLineReporter 는 이 에이전트의 statusLine 프록시가 `/api/tools/usage` 로
+	// 사용량을 보고한다는 선언이다 (ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-20). 그 보고에 실린
+	// 계정 한도의 임자가 누구인지 서버가 이것으로 안다.
+	StatusLineReporter bool
 	// ExitCommand 는 정중한 종료 지시다. Run 정리에서 조정자가 이것을 보낸 뒤
 	// 탭을 닫는다 (FR-RUN-11a). 비어 있으면 확인된 종료 지시가 없다는 뜻이다.
 	ExitCommand string
@@ -287,6 +304,17 @@ func Get(id string) (Adapter, error) {
 		return ad, nil
 	}
 	return Adapter{}, fmt.Errorf("%w: %q (알려진 것: %s)", ErrUnknownAgent, id, strings.Join(IDs(), ", "))
+}
+
+// StatusLineReporter 는 statusLine 사용량을 보고하는 에이전트의 id 다 (FR-ASV-20).
+// 선언한 에이전트가 없으면 ok 가 거짓이다. 여럿이면 id 순으로 첫째다.
+func StatusLineReporter() (string, bool) {
+	for _, id := range IDs() {
+		if registry[id].StatusLineReporter {
+			return id, true
+		}
+	}
+	return "", false
 }
 
 // IDs 는 선언된 에이전트 id 를 정렬해 낸다.

@@ -92,7 +92,7 @@ func TestReadiness_HooksOnlyWhereTheAgentReportsIdle(t *testing.T) {
 // 레지스트리 경유 조회가 같은 파서에 닿는지만 확인한다.
 func TestHookParse_ReachedThroughTheRegistry(t *testing.T) {
 	claude, _ := Get("claude")
-	r, ok := claude.HookParse([]byte(`{"hook_event_name":"Notification"}`))
+	r, ok := claude.HookParse([]byte(`{"hook_event_name":"Notification","notification_type":"permission_prompt"}`))
 	if !ok || r.State != "waiting" {
 		t.Fatalf("claude Notification → waiting, got %+v ok=%v", r, ok)
 	}
@@ -341,10 +341,10 @@ func TestParseClaudeHook_PreCompactIsAConfirmedSignal(t *testing.T) {
 	if !r.Compacted {
 		t.Fatal("PreCompact 가 압축 신호를 세우지 않았다 (FR-CBG-1)")
 	}
-	// SubagentStop 은 같은 working 이지만 압축이 아니다 — 둘이 한 case 에
-	// 묶여 있던 것을 갈랐으므로 그 경계를 고정한다.
+	// SubagentStop 은 압축이 아니다 — 둘이 한 case 에 묶여 있던 것을 갈랐으므로
+	// 그 경계를 고정한다. ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-4 부터 main 상태도 내지 않는다.
 	r, _ = claude.HookParse([]byte(`{"hook_event_name":"SubagentStop"}`))
-	if r.State != "working" || r.Compacted {
+	if r.State != "" || r.Compacted {
 		t.Fatalf("SubagentStop 이 압축으로 오인됐다: %+v", r)
 	}
 }

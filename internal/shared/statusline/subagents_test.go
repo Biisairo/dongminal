@@ -12,7 +12,7 @@ import (
 // 2026-11-09 실측 입력에 effort·모르는 필드를 더한 표본. 둘째 원소는 effort 가 수(토큰 예산)다.
 const subagentSample = `{"session_id":"9cfd","transcript_path":"/Users/x/.claude/projects/p/9cfd.jsonl",
 "cwd":"PROJ","prompt_id":"598f","columns":238,"tasks":[
-{"id":"a3b7","type":"local_agent","agentType":"Explore","status":"running","description":"secret plan",
+{"id":"a3b7","type":"local_agent","agentType":"Explore","status":"running","description":"Find the file",
 "label":"secret label","name":"probe","startTime":1794204238088,"model":"claude-haiku-5-5","effort":"low",
 "contextWindowSize":1000000,"tokenCount":19250,"tokenSamples":[0,17078,19250],"cwd":"PROJ","leak":"x"},
 {"id":"b001","agentType":"Plan","status":"completed","effort":8000,"tokenCount":5},
@@ -44,6 +44,8 @@ func TestSubagentsFromInput_Allowlist(t *testing.T) {
 		"id": "a3b7", "agentType": "Explore", "status": "running", "model": "claude-haiku-5-5",
 		"effort": "low", "windowTokens": float64(1000000), "tokens": float64(19250),
 		"startTime": float64(1794204238088),
+		// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-16: description 은 싣는다 (D-ASV-4).
+		"description": "Find the file",
 	}
 	if fmt.Sprint(got[0]) != fmt.Sprint(want) {
 		t.Fatalf("got  %v\nwant %v", got[0], want)

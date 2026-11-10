@@ -50,7 +50,7 @@ const STATE_REGISTRY=[
     merge:'touched',
     flight:'activity',
     part:'activity',
-    events:{tool_activity:'_onToolActivity'},
+    events:{tool_activity:'_onToolActivity',tool_subagent_activity:'_onToolSubagentActivity'},
     revalidateOn:['sse:open','softreload'],
     // 이 상태만 주기를 갖는다. 서버가 활동 변화를 전부 밀지는 않기 때문이다
     // (AGENT_ACTIVITY_PANEL_SRS) — 주기는 사용자가 정한다.

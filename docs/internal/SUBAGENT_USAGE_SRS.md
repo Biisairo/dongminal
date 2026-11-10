@@ -127,7 +127,7 @@ Claude Code 의 화면은 main 세션의 모델·effort·맥락만 보인다. �
 |---|---|---|
 | D-SAU-1 | 카드 안에 서브에이전트마다 한 줄을 두고, 끝난 것은 흐리게 보인다 | 사용자가 골랐다. Claude Code 화면과 같은 목록을 보인다 |
 | D-SAU-2 | 끝난 줄을 지우는 시점은 Claude Code 가 정한다 | Claude Code 가 끝난 행을 빼면 다음 틱 입력에 없다. 마지막 행이 빠지면 틱이 멈추므로 FR-SAU-12 의 기한이 지운다 |
-| D-SAU-3 | `description`·`label` 은 싣지 않는다 | 모델이 쓴 자유 글이다. FR-SLP-2a 의 "본문은 싣지 않는다" 를 따른다. 종류(`agentType`)로 구별한다 |
+| D-SAU-3 | `description`·`label` 은 싣지 않는다 (2026-11-10 `ACTIVITY_STATE_SUBAGENT_SRS` D-ASV-4 가 `description` 을 싣도록 바꿨다) | 모델이 쓴 자유 글이다. FR-SLP-2a 의 "본문은 싣지 않는다" 를 따른다. 종류(`agentType`)로 구별한다 |
 | D-SAU-4 | 맥락 사용률은 `tokenCount / contextWindowSize` 로 셈한다 | Claude Code 문서가 이 셈을 말하고, 실측도 마지막 요청 토큰과 맞는다 (§2.2) |
 | D-SAU-5 | 프록시는 `statusLine` 프록시와 같은 하위 명령 찾기를 쓴다 | 두 키의 우선순위·`disableAllHooks` 규칙이 같다 (Claude Code 문서). 함수 하나가 키를 받는다 |
 

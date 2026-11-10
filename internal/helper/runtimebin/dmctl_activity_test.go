@@ -33,7 +33,7 @@ func TestParseClaudeHook_StopAndNotification(t *testing.T) {
 	if r, ok := parseClaudeHook([]byte(`{"hook_event_name":"Stop"}`)); !ok || r.State != "done" || r.Tool != "" || r.Detail != "" {
 		t.Fatalf("Stop → done, got %+v ok=%v", r, ok)
 	}
-	if r, ok := parseClaudeHook([]byte(`{"hook_event_name":"Notification"}`)); !ok || r.State != "waiting" {
+	if r, ok := parseClaudeHook([]byte(`{"hook_event_name":"Notification","notification_type":"permission_prompt"}`)); !ok || r.State != "waiting" {
 		t.Fatalf("Notification → waiting, got %+v ok=%v", r, ok)
 	}
 }
@@ -41,7 +41,6 @@ func TestParseClaudeHook_StopAndNotification(t *testing.T) {
 // FR-AAP-7: full lifecycle coverage — all 9 Claude hooks map to a state.
 func TestParseClaudeHook_LifecycleEvents(t *testing.T) {
 	cases := map[string]string{
-		"SubagentStop": "working",
 		"PreCompact":   "working",
 		"SessionStart": "idle",
 		"SessionEnd":   "ended",

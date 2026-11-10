@@ -6,6 +6,7 @@
 package runtimebin
 
 import (
+	"cmp"
 	"dongminal/internal/shared/runwait"
 	"dongminal/internal/shared/statusline"
 	"encoding/json"
@@ -182,6 +183,8 @@ func runDmctlStatus(args []string, stdout, stderr io.Writer) int {
 		Member *struct {
 			State string `json:"state"`
 		} `json:"member"`
+		// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-21: 계정 한도.
+		Limits []statusLimit `json:"limits"`
 	}
 	if err := json.Unmarshal(body, &st); err != nil {
 		fmt.Fprintf(stderr, "dmctl: invalid status response: %v\n", err)
@@ -199,7 +202,58 @@ func runDmctlStatus(args []string, stdout, stderr io.Writer) int {
 	if line := usageLine(st.Usage); line != "" {
 		fmt.Fprintln(stdout, line)
 	}
+	for _, line := range limitLines(st.Limits) {
+		fmt.Fprintln(stdout, line)
+	}
 	return 0
+}
+
+// statusLimit 는 `limits` 원소다 (ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-21).
+type statusLimit struct {
+	Agent   string `json:"agent"`
+	Windows []struct {
+		Name        string   `json:"name"`
+		UsedPct     *float64 `json:"usedPct"`
+		ResetsInSec *float64 `json:"resetsInSec"`
+	} `json:"windows"`
+}
+
+// limitWindowLabels 는 창 이름의 짧은 표기다. 없는 이름은 그대로 쓴다.
+var limitWindowLabels = map[string]string{"five_hour": "5h", "seven_day": "7d"}
+
+// limitLines 는 창마다 `claude 5h 34% (resets in 2h 0m)` 한 줄이다. 사용률이 없는 창은 적지 않는다.
+func limitLines(limits []statusLimit) []string {
+	var out []string
+	for _, l := range limits {
+		for _, w := range l.Windows {
+			if w.UsedPct == nil {
+				continue
+			}
+			name := cmp.Or(limitWindowLabels[w.Name], w.Name)
+			line := fmt.Sprintf("%s %s %.0f%%", l.Agent, name, *w.UsedPct)
+			if w.ResetsInSec != nil {
+				line += " (resets in " + limitResetText(*w.ResetsInSec) + ")"
+			}
+			out = append(out, line)
+		}
+	}
+	return out
+}
+
+// limitResetText 는 남은 초를 큰 단위 둘로 쓴다 — `4d 6h`·`2h 10m`·`35m`. 0 이하면 `soon` 이다.
+func limitResetText(sec float64) string {
+	if sec <= 0 {
+		return "soon"
+	}
+	m := int64(sec) / 60
+	d, h := m/(24*60), m/60%24
+	switch {
+	case d > 0:
+		return fmt.Sprintf("%dd %dh", d, h)
+	case m >= 60:
+		return fmt.Sprintf("%dh %dm", h, m%60)
+	}
+	return fmt.Sprintf("%dm", m)
 }
 
 // usageLine 은 statusLine 사용량의 한 줄이다 (FR-ITS-1). 값이 없는 항목은 적지 않는다.

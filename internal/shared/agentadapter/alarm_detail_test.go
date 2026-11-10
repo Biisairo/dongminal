@@ -20,7 +20,7 @@ func TestAdapters_AlarmCarriesDetail(t *testing.T) {
 		{
 			name:    "claude waiting — Notification 의 본문",
 			parse:   parseClaudeHook,
-			payload: `{"hook_event_name":"Notification","message":"Claude needs your permission to use Bash"}`,
+			payload: `{"hook_event_name":"Notification","notification_type":"permission_prompt","message":"Claude needs your permission to use Bash"}`,
 			want:    "Claude needs your permission to use Bash",
 			state:   "waiting",
 		},

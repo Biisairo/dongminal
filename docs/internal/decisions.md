@@ -58,6 +58,21 @@
 | `D-ACU-4` | 바꾼 줄 수(`cost.totalLinesAdded/Removed`)는 넣지 않는다 | 사용자가 1+2안을 골랐다 | 채택 |
 | `D-ACU-5` | 맥락 값이 오래됐다는 표시는 두지 않는다 | 맥락 사용률은 세션이 쉬는 동안 바뀌지 않는다. 마지막 값이 곧 지금 값이다 | 채택 |
 
+## [`ACTIVITY_STATE_SUBAGENT_SRS`](./ACTIVITY_STATE_SUBAGENT_SRS.md)
+
+| ID | 결정 | 근거 | 상태 |
+|---|---|---|---|
+| `D-ASV-1` | Esc 중단(C-9)은 보완하지 않는다. 다음 프롬프트가 상태를 바로잡는다 | 사용자가 골랐다. 알려 주는 훅이 없어서 어떤 보완도 추정이 된다 | 채택 |
+| `D-ASV-2` | Usage 는 statusLine 의 `rate_limits` 로 Claude 계정 한도(5시간·7일)를 보인다 | 사용자가 골랐다. 구독 OAuth 토큰으로 사용량 API 를 직접 부르는 길은 사내 규정(구독 계정을 자동화에 연결 금지)에 걸려 쓰지 않는다 | 채택 |
+| `D-ASV-3` | 서브에이전트는 폴더형과 목록형을 둘 다 만들고, 패널 머리의 버튼으로 고른다. 기본은 폴더형이다 | 사용자가 둘 다 원했다. 보는 방식은 워크스페이스가 아니라 브라우저의 것이다 (FR-AGG-10 과 같은 근거) | 채택 |
+| `D-ASV-4` | statusLine 의 `description` 을 싣는다 (D-SAU-3 을 바꾼다) | 사용자가 서브에이전트의 프롬프트를 보기를 원했다. main 카드는 이미 사용자 프롬프트(자유 글)를 `detail` 로 싣는다. 같은 상한·다듬기를 거친다 | 채택 |
+| `D-ASV-5` | 서브에이전트 활동은 기존 `/api/tools/activity/set` 에 `agentId` 를 실어 보낸다. 새 종단을 만들지 않는다 | 훅 하나가 요청 하나다. 도구 식별·다듬기·시한을 그대로 쓴다 | 채택 |
+| `D-ASV-6` | 서브에이전트 활동의 갱신은 새 SSE 이벤트로 보낸다. `tool_activity` 에 섞지 않는다 | `tool_activity` 의 수신 쪽은 main 상태를 덮어쓴다. 섞으면 C-3 이 화면에서 되살아난다 | 채택 |
+| `D-ASV-7` | `idle_prompt` 와 그 밖의 알림은 상태를 바꾸지 않는다 | `idle_prompt` 는 "응답이 끝난 지 60초" 다. 카드는 이미 done 이다 (§2.2 ④). 나머지(`auth_success` 등)는 기다림이 아니다 | 채택 |
+| `D-ASV-8` | `Stop` 은 `background_tasks` 가 있어도 done 이다 | main 턴은 끝났고 사람이 입력할 수 있다. 돌고 있는 서브에이전트는 하위 카드가 보인다 | 채택 |
+| `D-ASV-9` | 계정 한도의 경고 경계는 70%·90% 이고 서버가 등급을 정한다 | 맥락 등급(FR-ACU-3)과 같은 방식으로, 화면에 경계값을 두지 않는다 | 채택 |
+| `D-ASV-10` | 초기화까지 남은 시간은 서버가 셈해 `resetsInSec` 로 내려 준다 | 사용자가 요청했다. 원격 브라우저의 시계가 서버와 다르면 브라우저의 셈은 틀린다. `dmctl status` 도 같은 값을 보인다 | 채택 |
+
 ## [`AGENT_ADAPTER_COMPLETION_SRS`](./AGENT_ADAPTER_COMPLETION_SRS.md)
 
 | ID | 결정 | 근거 | 상태 |
@@ -1168,7 +1183,7 @@
 |---|---|---|---|
 | `D-SAU-1` | 카드 안에 서브에이전트마다 한 줄을 두고, 끝난 것은 흐리게 보인다 | 사용자가 골랐다. Claude Code 화면과 같은 목록을 보인다 | 채택 |
 | `D-SAU-2` | 끝난 줄을 지우는 시점은 Claude Code 가 정한다 | Claude Code 가 끝난 행을 빼면 다음 틱 입력에 없다. 마지막 행이 빠지면 틱이 멈추므로 FR-SAU-12 의 기한이 지운다 | 채택 |
-| `D-SAU-3` | `description`·`label` 은 싣지 않는다 | 모델이 쓴 자유 글이다. FR-SLP-2a 의 "본문은 싣지 않는다" 를 따른다. 종류(`agentType`)로 구별한다 | 채택 |
+| `D-SAU-3` | `description`·`label` 은 싣지 않는다 (2026-11-10 `ACTIVITY_STATE_SUBAGENT_SRS` D-ASV-4 가 `description` 을 싣도록 바꿨다) | 모델이 쓴 자유 글이다. FR-SLP-2a 의 "본문은 싣지 않는다" 를 따른다. 종류(`agentType`)로 구별한다 | 채택 |
 | `D-SAU-4` | 맥락 사용률은 `tokenCount / contextWindowSize` 로 셈한다 | Claude Code 문서가 이 셈을 말하고, 실측도 마지막 요청 토큰과 맞는다 (§2.2) | 채택 |
 | `D-SAU-5` | 프록시는 `statusLine` 프록시와 같은 하위 명령 찾기를 쓴다 | 두 키의 우선순위·`disableAllHooks` 규칙이 같다 (Claude Code 문서). 함수 하나가 키를 받는다 | 채택 |
 
@@ -1493,4 +1508,4 @@
 
 ---
 
-결정 **865건** · 문서 **121개**.
+결정 **875건** · 문서 **122개**.

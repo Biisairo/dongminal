@@ -204,3 +204,30 @@ func TestDmctlDispatch_StatusAndWait(t *testing.T) {
 		t.Fatalf("`dmctl wait` must be dispatched")
 	}
 }
+
+// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-21 (TC-ASV-10): 계정 한도는 창마다 한 줄이고 남은 시간을 함께 쓴다.
+func TestDmctlStatus_LimitsLines(t *testing.T) {
+	ts, _ := statusStub(t, `{"toolId":"p1","live":true,"state":"done","quietMs":1,"limits":[{"agent":"claude","observedAt":1,
+"windows":[{"name":"five_hour","usedPct":34,"resetsAt":1,"resetsInSec":7200,"level":""},
+{"name":"seven_day","usedPct":21.4,"resetsAt":1,"resetsInSec":368000,"level":""},
+{"name":"opus_week","usedPct":5,"level":""}]}]}`)
+	pointDmctlAtServer(t, ts, "p1")
+	var out bytes.Buffer
+	if code := runDmctlStatus(nil, &out, io.Discard); code != 0 {
+		t.Fatalf("exit = %d", code)
+	}
+	got := out.String()
+	for _, want := range []string{"claude 5h 34% (resets in 2h 0m)\n", "claude 7d 21% (resets in 4d 6h)\n", "claude opus_week 5%\n"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("output %q missing %q", got, want)
+		}
+	}
+}
+
+func TestLimitResetText(t *testing.T) {
+	for sec, want := range map[float64]string{368000: "4d 6h", 7800: "2h 10m", 2100: "35m", 59: "0m", 0: "soon"} {
+		if got := limitResetText(sec); got != want {
+			t.Errorf("%v → %q, want %q", sec, got, want)
+		}
+	}
+}

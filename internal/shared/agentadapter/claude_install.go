@@ -34,6 +34,12 @@ var claudeHookEvents = []string{
 	"SubagentStop",
 	"Stop",
 	"Notification",
+	// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-1
+	"PermissionRequest",
+	"PostToolUseFailure",
+	"SubagentStart",
+	"StopFailure",
+	"PostCompact",
 }
 
 // claudeCtxHookEvents 는 맥락 훅(`dmctl ctx-hook`)을 함께 거는 이벤트다 (FR-ITM-10).

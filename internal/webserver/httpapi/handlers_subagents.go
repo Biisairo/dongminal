@@ -8,9 +8,11 @@ import (
 	"sync"
 	"time"
 
+	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/statusline"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/run"
+	"dongminal/internal/webserver/hub"
 )
 
 // SUBAGENT_USAGE_SRS — 도구별 서브에이전트 목록 (FR-SAU-10~15).
@@ -105,19 +107,39 @@ type cardSubagent struct {
 	CtxPct       *float64 `json:"ctxPct,omitempty"`
 	CtxLevel     string   `json:"ctxLevel,omitempty"`
 	StartTime    *float64 `json:"startTime,omitempty"`
+	// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-15: 훅 활동과 작업 설명.
+	State       string `json:"state,omitempty"`
+	Tool        string `json:"tool,omitempty"`
+	Detail      string `json:"detail,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
-// cardSubagentsOf 는 목록을 카드 원소로 바꾸고 startTime 순으로 둔다 (FR-SAU-13·14).
-// startTime 이 없는 원소는 받은 순서로 끝에 선다. 비었으면 nil 이다.
-func cardSubagentsOf(tasks []statusline.Subagent, p run.ContextPolicy) []cardSubagent {
-	if len(tasks) == 0 {
+// cardSubagentsOf 는 statusLine 목록과 훅 활동을 합쳐 카드 원소로 바꾼다 (FR-SAU-13·14,
+// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-14·15). statusLine 원소는 startTime 순이고, startTime
+// 이 없는 원소는 받은 순서로 그 뒤에 선다. statusLine 에 없는 활동은 맨 끝에 updatedAt 순이다.
+// 비었으면 nil 이다.
+func cardSubagentsOf(tasks []statusline.Subagent, acts map[string]subagentActivity, p run.ContextPolicy) []cardSubagent {
+	if len(tasks) == 0 && len(acts) == 0 {
 		return nil
 	}
-	out := make([]cardSubagent, 0, len(tasks))
+	out := make([]cardSubagent, 0, len(tasks)+len(acts))
+	listed := map[string]bool{}
 	for _, t := range tasks {
 		c := cardSubagent{
 			ID: deref(t.ID), AgentType: deref(t.AgentType), Status: deref(t.Status), Model: deref(t.Model),
 			Effort: deref(t.Effort), Tokens: t.Tokens, WindowTokens: t.WindowTokens, StartTime: t.StartTime,
+			Description: hub.SanitizeActivityField(deref(t.Description), hub.ActivityDetailMax),
+		}
+		listed[c.ID] = true
+		c.State = activity.Done
+		if c.Status == "running" {
+			c.State = activity.Working
+		}
+		if a, ok := acts[c.ID]; ok {
+			c.State, c.Tool, c.Detail = a.State, a.Tool, a.Detail
+			if c.AgentType == "" {
+				c.AgentType = a.AgentType
+			}
 		}
 		if c.Effort == "" && t.EffortBudget != nil {
 			c.Effort = strconv.FormatFloat(*t.EffortBudget, 'f', -1, 64)
@@ -140,6 +162,28 @@ func cardSubagentsOf(tasks []statusline.Subagent, p run.ContextPolicy) []cardSub
 		}
 		return cmp.Compare(*a.StartTime, *b.StartTime)
 	})
+	var extra []cardSubagent
+	var extraAt []time.Time
+	for id, a := range acts {
+		if listed[id] {
+			continue
+		}
+		extra = append(extra, cardSubagent{ID: id, AgentType: a.AgentType, State: a.State, Tool: a.Tool, Detail: a.Detail})
+		extraAt = append(extraAt, a.UpdatedAt)
+	}
+	idx := make([]int, len(extra))
+	for i := range idx {
+		idx[i] = i
+	}
+	slices.SortFunc(idx, func(i, j int) int {
+		if c := extraAt[i].Compare(extraAt[j]); c != 0 {
+			return c
+		}
+		return cmp.Compare(extra[i].ID, extra[j].ID)
+	})
+	for _, i := range idx {
+		out = append(out, extra[i])
+	}
 	return out
 }
 

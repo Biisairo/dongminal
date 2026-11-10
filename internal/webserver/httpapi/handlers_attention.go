@@ -4,7 +4,9 @@ import (
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/run"
 	"net/http"
+	"time"
 
+	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/httpresp"
@@ -89,7 +91,8 @@ func (s *Server) apiToolAttentionClearAll(w http.ResponseWriter, r *http.Request
 // reported one, so a late-joining / reconnecting client can restore cards
 // (FR-AAP-4). Each entry carries the card usage summary when one is observed (FR-ACU-1).
 func (s *Server) apiToolsActivity(w http.ResponseWriter, r *http.Request) {
-	httpresp.JSON(w, http.StatusOK, map[string]any{"activities": s.activityEntries()})
+	// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-21: 계정 한도. 없으면 빈 배열이다.
+	httpresp.JSON(w, http.StatusOK, map[string]any{"activities": s.activityEntries(), "limits": s.rateLimits.view(time.Now())})
 }
 
 // agentReportsUserTurn 은 그 에이전트가 **턴의 출처를 말할 수 있는지**다
@@ -133,6 +136,9 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 		// **필드를 남기되 쓰지 않는다** (AGENT_GUI_REMOVAL_SRS FR-AGR-9) — 이것을
 		// 읽던 세션 신원 저장소는 에이전트 GUI 와 함께 사라졌다.
 		SessionID string `json:"sessionId"`
+		// AgentID 가 있으면 서브에이전트 활동이다 (ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-10).
+		AgentID   string `json:"agentId"`
+		AgentType string `json:"agentType"`
 	}
 	ok, answered := readBodyHTTP(w, r, &req)
 	if answered {
@@ -148,6 +154,15 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 	}
 	if !hub.ValidActivityState(req.State) {
 		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeBadRequest)
+		return
+	}
+	if req.AgentID != "" {
+		if !validSubagentState(req.State) {
+			httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeBadRequest)
+			return
+		}
+		s.reportSubagentActivity(req.ToolID, req.AgentID, req.AgentType, req.State, req.Tool, req.Detail)
+		httpresp.JSON(w, http.StatusOK, map[string]bool{"ok": true})
 		return
 	}
 	s.reportActivity(req.ToolID, req.State, req.Tool, req.Detail, req.UserPrompt, agentReportsUserTurn(req.Agent))
@@ -169,6 +184,9 @@ func (s *Server) reportActivity(toolID, state, tool, detail string, userPrompt, 
 	tool = hub.SanitizeActivityField(tool, hub.ActivityToolMax)
 	detail = hub.SanitizeActivityField(detail, hub.ActivityDetailMax)
 	s.attention().ReportActivity(toolID, state, tool, detail, userPrompt, turnKnown)
+	if state == activity.Ended {
+		s.subActs.dropTool(toolID) // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-12
+	}
 	s.activityChanged.Notify()
 }
 

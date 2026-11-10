@@ -83,6 +83,10 @@ type Server struct {
 	usage usageStore
 	// subagents 는 도구별 서브에이전트 목록이다 (SUBAGENT_USAGE_SRS FR-SAU-10). 메모리에만 둔다.
 	subagents subagentStore
+	// subActs 는 도구별 서브에이전트 활동(훅)이다 (ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-10). 메모리에만 둔다.
+	subActs subagentActivityStore
+	// rateLimits 는 에이전트별 마지막 계정 한도다 (FR-ASV-20). 도구가 죽어도 남는다.
+	rateLimits rateLimitStore
 	// migrationUnknownTold 는 「맥락 사용률을 모른다」 를 이미 알린 도구다 (ISSUE_TREE_OPS_SRS
 	// FR-ITM-13). 도구마다 한 번만 알린다.
 	migrationUnknownTold sync.Map

@@ -1062,6 +1062,8 @@ I18N.register('en', {
 
   // ── panel (UIUX_OVERHAUL_SRS FR-ACT-1) ──
   'panel.sec_agents': 'Agents',
+  'panel.sec_usage': 'Usage',
+  'usage.empty': 'Usage limits appear here once a Claude session reports them',
   'peer.add_fail': 'Could not request pairing',
   'peer.add_ok': 'Requested pairing with {name}. It becomes a peer when they approve.',
   'peer.add_port_closed': 'This node\'s port is off, so the peer cannot send to this node.',

@@ -39,6 +39,7 @@ const STORE_KEYS=Object.freeze({
   agentsPanelOpen:'agentsPanelOpen',
   agentsWidth:'agentsWidth',
   agentsGroupFold:'agentsGroupFold',
+  agentsSubView:'agentsSubView',
   windowGroupFold:'windowGroupFold',
   sandboxRecent:'dm.sbx.recent',
   panelDock:'panelDock',

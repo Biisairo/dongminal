@@ -65,6 +65,8 @@ type toolStatus struct {
 	// ISSUE_TREE_OPS_SRS FR-ITC-5: Run 멤버이면 Run 쪽 상태(waiting-children 포함). State 는
 	// 훅 상태 그대로다 — 둘은 뜻이 다르므로 하나로 합치지 않는다.
 	Member *toolMember `json:"member,omitempty"`
+	// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-21: 계정 한도. `dmctl status` 응답에만 싣는다.
+	Limits []limitEntry `json:"limits,omitempty"`
 }
 
 type toolMember struct {
@@ -197,6 +199,7 @@ func (s *Server) apiToolStatus(w http.ResponseWriter, r *http.Request) {
 			st.Member = &toolMember{ID: m.ID, State: s.deriveMemberState(m)}
 		}
 	}
+	st.Limits = s.rateLimits.view(time.Now())
 	writeJSON(w, st)
 }
 

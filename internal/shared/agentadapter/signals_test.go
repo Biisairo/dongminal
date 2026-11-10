@@ -17,10 +17,15 @@ var nativeEvents = map[string][][]byte{
 		[]byte(`{"hook_event_name":"UserPromptSubmit"}`),
 		[]byte(`{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"ls"}}`),
 		[]byte(`{"hook_event_name":"PostToolUse","tool_name":"Bash"}`),
-		[]byte(`{"hook_event_name":"SubagentStop"}`),
+		[]byte(`{"hook_event_name":"PostToolUseFailure","tool_name":"Bash"}`),
+		[]byte(`{"hook_event_name":"PermissionRequest","tool_name":"Bash"}`),
+		[]byte(`{"hook_event_name":"SubagentStart","agent_id":"a1","agent_type":"Explore"}`),
+		[]byte(`{"hook_event_name":"SubagentStop","agent_id":"a1","agent_type":"Explore"}`),
 		[]byte(`{"hook_event_name":"PreCompact"}`),
-		[]byte(`{"hook_event_name":"Notification"}`),
+		[]byte(`{"hook_event_name":"PostCompact","trigger":"manual"}`),
+		[]byte(`{"hook_event_name":"Notification","notification_type":"permission_prompt"}`),
 		[]byte(`{"hook_event_name":"Stop"}`),
+		[]byte(`{"hook_event_name":"StopFailure","error":"rate_limit"}`),
 		[]byte(`{"hook_event_name":"SessionEnd"}`),
 	},
 	"omp": {
@@ -53,6 +58,9 @@ func observed(t *testing.T, id string) Signals {
 			t.Fatalf("%s: 알려진 이벤트를 파싱하지 못했다: %s", id, ev)
 		}
 		switch rep.State {
+		case "":
+			// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-4·5: main 상태를 내지 않는 훅(서브에이전트
+			// 활동만 내는 것)이다. 선언은 main 상태의 것이다.
 		case "idle":
 			got.Idle = true
 		case "working":

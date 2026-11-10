@@ -12,7 +12,7 @@ import { load, plain } from './harness.mjs';
  *   TC-ACU-9  SSE 덮어쓰기와 복원이 usage 를 다루는 방식 (FR-ACU-16·17)
  */
 function loadAgents(globals = {}) {
-  return load(['core/app-agents.js'], {
+  return load(['core/app-agents.js', 'core/app-agents-sub.js'], {
     globals: { App: class {}, ACTIVITY_STATE: { ENDED: 'ended' }, ...globals },
   });
 }
@@ -60,12 +60,12 @@ test('FR-ACU-12: 막대 폭은 0~100 으로 자른다', () => {
   assert.equal(agentUsageView({ ctxPct: -3 }).fill, 0);
 });
 
-test('FR-ACU-10·11: 줄의 순서는 막대 → 백분율 → 모델이고, 없는 부분은 원소도 없다', () => {
+test('FR-ACU-11 · ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-30: 줄의 순서는 모델 → 막대 → 백분율이고, 없는 부분은 원소도 없다', () => {
   const ctx = loadAgents();
   const app = new ctx.App();
   const kinds = (row) => row.children.map((c) => c.className.split(' ')[0]);
   assert.deepEqual(plain(kinds(app._agUsageEl(ctx.agentUsageView(FULL)))),
-    ['ag-usage-bar', 'ag-usage-pct', 'ag-usage-model']);
+    ['ag-usage-model', 'ag-usage-bar', 'ag-usage-pct']);
   assert.deepEqual(plain(kinds(app._agUsageEl(ctx.agentUsageView({ ctxPct: 10 })))),
     ['ag-usage-bar', 'ag-usage-pct']);
   assert.deepEqual(plain(kinds(app._agUsageEl(ctx.agentUsageView({ model: 'm' })))),
@@ -73,9 +73,9 @@ test('FR-ACU-10·11: 줄의 순서는 막대 → 백분율 → 모델이고, 없
 
   const row = app._agUsageEl(ctx.agentUsageView(FULL));
   assert.equal(row.title, 'Context 55% · Opus 5.5 · effort high');
-  assert.equal(row.children[0].children[0].style.width, '55.4%');
-  assert.equal(row.children[1].textContent, '55%');
-  assert.equal(row.children[2].textContent, 'Opus 5.5·high');
+  assert.equal(row.children[0].textContent, 'Opus 5.5·high');
+  assert.equal(row.children[1].children[0].style.width, '55.4%');
+  assert.equal(row.children[2].textContent, '55%');
 });
 
 // ── TC-ACU-7 ──

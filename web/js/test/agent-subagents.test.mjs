@@ -10,8 +10,11 @@ import { load, plain } from './harness.mjs';
  *   TC-SAU-8  재조정 근거와 SSE·복원 (FR-SAU-24·25)
  */
 function loadAgents(globals = {}) {
-  return load(['core/app-agents.js'], {
-    globals: { App: class {}, ACTIVITY_STATE: { ENDED: 'ended' }, ...globals },
+  return load(['core/app-agents.js', 'core/app-agents-sub.js'], {
+    globals: {
+      App: class {}, ACTIVITY_STATE: { ENDED: 'ended', WORKING: 'working', DONE: 'done' },
+      AGENT_STATE_ICON: { working: '●', done: '✓' }, ...globals,
+    },
   });
 }
 
@@ -24,9 +27,11 @@ const RUN = {
 
 test('FR-SAU-20·21·23: 전부 있으면 종류 · claude- 를 뗀 모델·effort · 막대 · 정수 백분율 · 영어 툴팁', () => {
   const { agentSubagentView } = loadAgents();
+  // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-31: state·tool·text 가 더해졌다.
   assert.deepEqual(plain(agentSubagentView(RUN)), {
     type: 'Explore', label: 'haiku-5-5·low', pct: 2, fill: 1.925, level: 'ok', done: false,
     title: 'Explore · claude-haiku-5-5 · effort low · 19,250 / 1,000,000 tokens · running',
+    state: 'working', tool: '', text: '',
   });
 });
 
@@ -50,24 +55,27 @@ test('FR-SAU-22: running 이 아닌 줄은 done 이다', () => {
   assert.equal(agentSubagentView(RUN).done, false);
 });
 
-test('FR-SAU-20·22: 줄은 화살표 → 종류 → 모델 → 막대 → 백분율이고, 흐림·등급 클래스가 붙는다', () => {
+test('FR-SAU-20·22 · FR-ASV-34: 줄은 머리(화살표·종류·상태)와 사용량 줄(모델 → 막대 → 백분율)이고, 흐림·등급 클래스가 붙는다', () => {
   const ctx = loadAgents();
   const app = new ctx.App();
   const kinds = (row) => row.children.map((c) => c.className.split(' ')[0]);
   const row = app._agSubagentEl(ctx.agentSubagentView(RUN));
-  assert.deepEqual(plain(kinds(row)), ['ag-sub-arrow', 'ag-sub-type', 'ag-sub-model', 'ag-usage-bar', 'ag-usage-pct']);
+  assert.deepEqual(plain(kinds(row)), ['ag-sub-head', 'ag-usage']);
+  assert.deepEqual(plain(kinds(row.children[0])), ['ag-sub-arrow', 'ag-sub-type', 'ag-sub-state']);
+  assert.deepEqual(plain(kinds(row.children[1])), ['ag-usage-model', 'ag-usage-bar', 'ag-usage-pct']);
   assert.equal(row.className, 'ag-sub');
   assert.equal(row.title, 'Explore · claude-haiku-5-5 · effort low · 19,250 / 1,000,000 tokens · running');
-  assert.equal(row.children[1].textContent, 'Explore');
-  assert.equal(row.children[2].textContent, 'haiku-5-5·low');
-  assert.equal(row.children[3].children[0].style.width, '1.925%');
-  assert.equal(row.children[4].textContent, '2%');
+  assert.equal(row.children[0].children[1].textContent, 'Explore');
+  assert.equal(row.children[1].children[0].textContent, 'haiku-5-5·low');
+  assert.equal(row.children[1].children[1].children[0].style.width, '1.925%');
+  assert.equal(row.children[1].children[2].textContent, '2%');
 
   const done = app._agSubagentEl(ctx.agentSubagentView({ ...RUN, status: 'completed', ctxLevel: 'critical' }));
-  assert.equal(done.className, 'ag-sub done lv-critical');
+  assert.equal(done.className, 'ag-sub done');
+  assert.equal(done.children[1].className, 'ag-usage lv-critical');
 
   const bare = app._agSubagentEl(ctx.agentSubagentView({ id: 'x', status: 'running' }));
-  assert.deepEqual(plain(kinds(bare)), ['ag-sub-arrow', 'ag-sub-type']);
+  assert.deepEqual(plain(kinds(bare)), ['ag-sub-head']);
 });
 
 // ── TC-SAU-8 ──

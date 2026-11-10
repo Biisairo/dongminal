@@ -44,7 +44,9 @@ func TestInstallAgentHooks_Activity(t *testing.T) {
 	if err := json.Unmarshal(blob, &parsed); err != nil {
 		t.Fatalf("claude.json invalid JSON: %v", err)
 	}
-	for _, ev := range []string{"SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PreCompact", "SubagentStop", "Stop", "Notification"} {
+	for _, ev := range []string{"SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PreCompact", "SubagentStop", "Stop", "Notification",
+		// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-1 (TC-ASV-1)
+		"PermissionRequest", "PostToolUseFailure", "SubagentStart", "StopFailure", "PostCompact"} {
 		if _, ok := parsed.Hooks[ev]; !ok {
 			t.Fatalf("claude.json must wire %s, got hooks: %v", ev, parsed.Hooks)
 		}

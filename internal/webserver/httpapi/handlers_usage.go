@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/statusline"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/apierr"
@@ -109,6 +110,10 @@ func (s *Server) apiToolUsage(w http.ResponseWriter, r *http.Request) {
 	u := body.Usage
 	u.ObservedAt = time.Now().UnixMilli()
 	s.usage.put(toolID, u)
+	// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-20: 계정 한도의 임자는 statusLine 을 보고하는 에이전트다.
+	if agent, ok := agentadapter.StatusLineReporter(); ok {
+		s.rateLimits.put(agent, u.RateLimits, time.Now())
+	}
 	s.observeUsageContext(toolID, &u)
 	writeJSON(w, map[string]any{"ok": true})
 }
@@ -216,7 +221,8 @@ func (s *Server) activityEntries() []activityEntry {
 	for _, a := range snap {
 		c, u := s.toolUsageView(a.ToolID)
 		subs, _ := s.subagents.get(a.ToolID, now)
-		out = append(out, activityEntry{ActivitySnap: a, Usage: cardUsageOf(c, u, p), Subagents: cardSubagentsOf(subs, p)})
+		out = append(out, activityEntry{ActivitySnap: a, Usage: cardUsageOf(c, u, p),
+			Subagents: cardSubagentsOf(subs, s.subActs.list(a.ToolID, now), p)})
 	}
 	return out
 }

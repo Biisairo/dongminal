@@ -56,8 +56,8 @@
 | POST | `/api/tools/attention/clear` | 도구 하나의 주의 상태 해제 |
 | POST | `/api/tools/attention/clear-all` | 전체 해제 |
 | POST | `/api/tools/attention/claim` | `{seq, kinds:["banner"\|"sound"]}` → `{granted:[…]}` — 알람 하나의 배너·소리를 이 창이 맡는다. 같은 컴퓨터(출발지 주소)에서는 처음 온 청구만 승낙된다 |
-| GET | `/api/tools/activity` | 도구별 현재 활동 상태 (도구당 최신 1건). 사용량 요약(`usage`)과 15초 안에 받은 서브에이전트 목록(`subagents`)이 있으면 함께 싣는다 |
-| POST | `/api/tools/activity/set` | 활동 상태 보고 (`dmctl activity` 가 사용) |
+| GET | `/api/tools/activity` | 도구별 현재 활동 상태 (도구당 최신 1건). 사용량 요약(`usage`)과 서브에이전트 목록(`subagents`)이 있으면 함께 싣는다. `subagents` 는 15초 안에 받은 statusLine 목록과 훅으로 받은 서브에이전트 활동을 합친 것이며, 원소마다 `state`·`tool`·`detail`·`description` 이 있다. 최상위 `limits` 는 에이전트별 마지막 계정 한도다 — 창마다 `name`·`usedPct`·`resetsAt`(유닉스 초)·`resetsInSec`(서버가 셈한 남은 초)·`level`(`warn`·`critical`·빈 값). 관측이 없으면 빈 배열이다 |
+| POST | `/api/tools/activity/set` | 활동 상태 보고 (`dmctl activity` 가 사용). `agentId` 가 있으면 서브에이전트 활동으로 저장하고 main 상태는 바꾸지 않는다 — 이때 `state` 는 `working`·`waiting`·`done` 만 받는다 |
 
 ### 백그라운드 도구
 
@@ -196,10 +196,10 @@
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/tools/activity/get` | 도구 하나의 현재 활동 상태. statusLine 관측이 있으면 `context`(사용률·창·토큰·출처)와 `usage`(모델·판·비용·맥락 상세·한도 등)를 싣는다. 15초 안에 받은 서브에이전트 목록이 있으면 `subagents`(종류·상태·모델·effort·토큰·창 크기·시작 시각)를 싣는다 |
+| GET | `/api/tools/activity/get` | 도구 하나의 현재 활동 상태. statusLine 관측이 있으면 `context`(사용률·창·토큰·출처)와 `usage`(모델·판·비용·맥락 상세·한도 등)를 싣는다. 15초 안에 받은 서브에이전트 목록이 있으면 `subagents`(종류·상태·모델·effort·토큰·창 크기·시작 시각·작업 설명)를 싣는다. 계정 한도가 있으면 `limits`(형식은 `/api/tools/activity` 와 같다)를 싣는다 |
 | GET | `/api/tools/migration-advice` | 맥락 훅이 묻는 migration 제안 판정 |
 | POST | `/api/tools/usage` | `dmctl statusline` 이 보내는 도구별 사용량 `{toolId, usage}`. 허용 목록 밖의 필드는 저장하지 않는다(경로·본문 없음) |
-| POST | `/api/tools/subagents` | `dmctl subagent-statusline` 이 보내는 도구별 서브에이전트 목록 `{toolId, tasks}`. 보고마다 목록을 통째로 바꾼다. 허용 목록 밖의 필드(설명 글·경로)는 저장하지 않는다. 15초 동안 보고가 없으면 목록이 없는 것으로 본다 |
+| POST | `/api/tools/subagents` | `dmctl subagent-statusline` 이 보내는 도구별 서브에이전트 목록 `{toolId, tasks}`. 보고마다 목록을 통째로 바꾼다. 허용 목록 밖의 필드(`label`·경로)는 저장하지 않는다. 작업 설명(`description`)은 저장한다. 15초 동안 보고가 없으면 목록이 없는 것으로 본다 |
 | GET | `/api/tools/activity/wait` | 그 상태가 바뀔 때까지 **기다린다** (long-poll). 폴링 루프를 짜지 마세요 |
 | POST | `/api/tools/kill` | 도구의 전경 프로세스를 정지시킨다 |
 
@@ -426,6 +426,7 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 | `tool_attention` | 도구가 주의를 요구한다 |
 | `tool_attention_clear` | 주의 상태 해제 |
 | `tool_activity` | 도구의 활동 상태 갱신 |
+| `tool_subagent_activity` | 서브에이전트의 활동 갱신 `{toolId, agentId, agentType, state, tool, detail}` |
 | `window_focus` | 창 포커스 소유권이 바뀌었다. `args.owners` 는 **전체 맵**이다 (증분이 아니다) |
 | `settings_changed` | 설정이 저장됐다 — 본문은 없고 `GET /api/settings` 로 다시 받으라는 신호. `args.origin`(선택)은 저장한 `PUT` 의 `clientId` 다 |
 | `fs_changed` | `PUT /api/fs/watch` 로 등록한 디렉터리의 직속 항목이 바뀌었다. `args.changes` 는 `[{path, type}]` 이고 `type` 은 `added`·`updated`·`deleted` 다. `path` 는 등록한 철자 그대로다. 75ms 동안 모아 같은 경로끼리 합친 값이다. 서버가 이벤트를 놓쳤으면 `args.overflow: true` 가 한 번 온다 — 그때는 폴링으로 다시 맞춘다 |

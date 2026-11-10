@@ -33,6 +33,8 @@ var claudeAdapter = Adapter{
 		SessionScoped: true,
 	},
 	HookParse: parseClaudeHook,
+	// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-20: statusLine 프록시를 설치하는 것은 claude 뿐이다.
+	StatusLineReporter: true,
 	// AGENT_ADAPTER_COMPLETION_SRS FR-AAC-1·10·20: 설치물·전사본·창을 이 선언이
 	// 함께 든다. 종전에는 셋이 runtime·dmctl·domain/run 에 흩어져 있었고, 어느
 	// 쪽도 "누구의 것인가" 를 묻지 않았다.
@@ -55,18 +57,18 @@ var claudeAdapter = Adapter{
 }
 
 // parseClaudeHook maps a Claude Code hook event (stdin JSON) to an activity
-// report. Covers all lifecycle hooks (FR-AAP-7): PreToolUse/PostToolUse →
-// working (+tool/detail), UserPromptSubmit → working (+prompt), SubagentStop/
-// PreCompact → working, Notification → waiting, Stop → done, SessionEnd →
-// ended (removes the card), SessionStart → idle (+source). Unknown ignored.
+// report (FR-AAP-7). 해석표는 ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-4·5 다.
 //
-// 이 함수는 dmctl_activity.go 에서 여기로 **무동작 이동**했다 (FR-ADP-2).
-// 매핑을 "개선"하지 않는다 — 회귀 검출기는 runtimebin/dmctl_activity_test.go 다.
+// 훅 이름만으로 상태를 정하면 틀린다 (§2.3). 같은 이름의 훅도 누가 냈는지
+// (`agent_id`·`agent_type`)와 종류(`notification_type`·`trigger`·`source`)에 따라
+// 뜻이 다르다.
+//
+// State 가 빈 보고는 "main 상태를 바꾸지 않는다" 다. ok 는 그래도 참이다 —
+// 세션 신원·전사본 경로는 그 훅에도 실려 있고 컨텍스트 관측은 그것을 쓴다.
 //
 // 묶음 C 가 더한 것은 **상태 매핑이 아니라 곁들이 값**이다 (FR-CBG-1):
 // session_id·transcript_path 는 모든 이벤트에서 그대로 실리고, PreCompact 는
-// working 을 유지한 채 Compacted 를 세운다. 활동 상태 어휘는 한 글자도 바뀌지
-// 않는다 — 컨텍스트 관측이 activity 패널의 동작을 바꾸면 안 된다 (NFR-CBG-2).
+// working 을 유지한 채 Compacted 를 세운다.
 func parseClaudeHook(data []byte) (Report, bool) {
 	var ev struct {
 		Event     string          `json:"hook_event_name"`
@@ -76,20 +78,49 @@ func parseClaudeHook(data []byte) (Report, bool) {
 		// FR-AEV-15: **알람에도 내용이 실린다.** `Notification` 의 본문이 곧
 		// "무엇을 기다리는가" 다 — 권한 요청이면 어느 도구인지가 여기 있다.
 		// 없는 필드는 빈 값이 되므로 종전 동작을 깨지 않는다.
-		Message    string `json:"message"`
-		Source     string `json:"source"`
-		SessionID  string `json:"session_id"`
-		Transcript string `json:"transcript_path"`
+		Message          string `json:"message"`
+		NotificationType string `json:"notification_type"`
+		Source           string `json:"source"`
+		Trigger          string `json:"trigger"`
+		Error            string `json:"error"`
+		AgentID          string `json:"agent_id"`
+		AgentType        string `json:"agent_type"`
+		SessionID        string `json:"session_id"`
+		Transcript       string `json:"transcript_path"`
 	}
 	if err := json.Unmarshal(data, &ev); err != nil {
 		return Report{}, false
 	}
+	// FR-ASV-3: 내부 에이전트(프롬프트 제안·/btw)의 훅이다. 실측에서 매 턴 Stop 뒤에
+	// SubagentStop 이 와 done 을 덮었다 (§2.2 ③, C-1).
+	if ev.AgentID != "" && ev.AgentType == "" {
+		return Report{}, false
+	}
+	if ev.AgentID != "" {
+		rep := parseClaudeSubagentHook(ev.Event, ev.ToolName, ev.ToolInput, ev.Message, ev.NotificationType)
+		if rep.Sub != nil {
+			rep.Sub.AgentID, rep.Sub.AgentType = ev.AgentID, ev.AgentType
+		}
+		rep.SessionID, rep.Transcript = ev.SessionID, ev.Transcript
+		return rep, true
+	}
 	var rep Report
 	switch ev.Event {
-	case "PreToolUse", "PostToolUse":
+	case "PreToolUse", "PostToolUse", "PostToolUseFailure":
 		rep = Report{State: activity.Working, Tool: ev.ToolName, Detail: claudeToolDetail(ev.ToolName, ev.ToolInput)}
-	case "SubagentStop":
-		rep = Report{State: activity.Working}
+	case "PermissionRequest":
+		// C-5: Notification(permission_prompt)은 약 6초 늦게 온다. 이 훅은 대화상자와 함께 온다.
+		rep = Report{State: activity.Waiting, Tool: ev.ToolName, Detail: claudeToolDetail(ev.ToolName, ev.ToolInput)}
+	case "SubagentStart", "SubagentStop":
+		// 서브에이전트 활동으로만 간다 (FR-ASV-4). agent_id 없이 오면 아무것도 바꾸지 않는다.
+	case "PostCompact":
+		// C-7: 수동 /compact 는 PreCompact 로 working 이 된 뒤 끝을 알리는 훅이 이것뿐이다.
+		if ev.Trigger == "manual" {
+			rep = Report{State: activity.Idle}
+		}
+	case "StopFailure":
+		// C-4: API 오류로 끝난 턴은 Stop 대신 이것을 낸다.
+		rep = Report{State: activity.Done, Detail: ev.Error}
 	case "PreCompact":
 		// 압축은 추정이 아니라 확정이다. 크기가 작아 보여도 정보는 이미
 		// 유실됐으므로 소비자는 이 신호를 크기보다 우선한다 (FR-CBG-1).
@@ -106,13 +137,20 @@ func parseClaudeHook(data []byte) (Report, bool) {
 		// 바로 그 자리다.
 		rep = Report{State: activity.Working, Detail: ev.Prompt, UserPrompt: !isBackgroundPrompt(ev.Prompt)}
 	case "Notification":
-		rep = Report{State: activity.Waiting, Detail: ev.Message}
+		// C-2: idle_prompt 는 "응답이 끝난 지 60초" 다. 기다림이 아니다 (D-ASV-7).
+		if claudeWaitingNotification(ev.NotificationType) {
+			rep = Report{State: activity.Waiting, Detail: ev.Message}
+		}
 	case "Stop":
+		// D-ASV-8: background_tasks 가 있어도 main 턴은 끝났다.
 		rep = Report{State: activity.Done}
 	case "SessionEnd":
 		rep = Report{State: activity.Ended}
 	case "SessionStart":
-		rep = Report{State: activity.Idle, Detail: ev.Source}
+		// C-7: 압축 뒤의 SessionStart 는 턴 한가운데에도 온다.
+		if ev.Source != "compact" {
+			rep = Report{State: activity.Idle, Detail: ev.Source}
+		}
 	default:
 		return Report{}, false
 	}
@@ -121,11 +159,45 @@ func parseClaudeHook(data []byte) (Report, bool) {
 	return rep, true
 }
 
+// claudeWaitingNotification 은 사람의 응답을 기다리는 알림 종류인가다 (FR-ASV-4).
+func claudeWaitingNotification(kind string) bool {
+	switch kind {
+	case "permission_prompt", "elicitation_dialog", "elicitation_url_dialog", "agent_needs_input":
+		return true
+	}
+	return false
+}
+
+// parseClaudeSubagentHook 은 서브에이전트 훅의 해석이다 (FR-ASV-5).
+//
+// 결과는 서브에이전트 활동이며 main 을 건드리지 않는다. 예외는 사람을 기다리게 하는
+// 두 훅이다 — 기다림은 세션 전체의 일이라 main 도 waiting 이 된다.
+func parseClaudeSubagentHook(event, toolName string, toolInput json.RawMessage, message, notificationType string) Report {
+	switch event {
+	case "SubagentStart":
+		return Report{Sub: &SubReport{State: activity.Working}}
+	case "PreToolUse", "PostToolUse", "PostToolUseFailure":
+		return Report{Sub: &SubReport{State: activity.Working, Tool: toolName, Detail: claudeToolDetail(toolName, toolInput)}}
+	case "PermissionRequest":
+		detail := claudeToolDetail(toolName, toolInput)
+		return Report{State: activity.Waiting, Tool: toolName, Detail: detail,
+			Sub: &SubReport{State: activity.Waiting, Tool: toolName, Detail: detail}}
+	case "Notification":
+		if claudeWaitingNotification(notificationType) {
+			return Report{State: activity.Waiting, Detail: message, Sub: &SubReport{State: activity.Waiting, Detail: message}}
+		}
+	case "SubagentStop":
+		return Report{Sub: &SubReport{State: activity.Done}}
+	}
+	return Report{}
+}
+
 // backgroundPromptMarks 는 **사람이 치지 않은 프롬프트**의 표식이다 (FR-ATN-3a).
 //
 // 배경 알림은 이 꼴로 온다 — 백그라운드 작업의 완료 통지와 시스템 알림이다.
 // 사람이 친 프롬프트가 이 표식으로 시작하는 일은 없다.
-var backgroundPromptMarks = []string{claudeTaskNotificationMark, "<system-reminder>"}
+// `<agent-message` 는 백그라운드 서브에이전트의 보고다 (ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-6).
+var backgroundPromptMarks = []string{claudeTaskNotificationMark, "<system-reminder>", "<agent-message"}
 
 // claudeTaskNotificationMark 는 배경 작업 완료 통지의 여는 표식이다. 배경 턴 판정과
 // 하네스 항목 판정이 함께 쓴다 — 표식이 바뀌면 이 한 줄만 고친다 (SHR-34).
