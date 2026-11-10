@@ -386,18 +386,27 @@ func TestHandshakeLogAggregates(t *testing.T) {
 	var buf syncBuf
 	dmlog.Init(dmlog.Options{Out: &buf})
 	t.Cleanup(dmlog.Reset)
-	clk := newFakeClock()
-	h := newHandshakeLog(clk.now)
+	var flush func()
+	var wait time.Duration
+	h := newHandshakeLog(func(d time.Duration, f func()) { wait, flush = d, f })
 	for range 100 {
 		fmt.Fprintf(h, "http: TLS handshake error from 10.0.0.9:4000: 짝이 아닌 노드입니다\n")
 	}
-	if n := strings.Count(buf.String(), "handshake failures"); n != 1 {
-		t.Fatalf("1분 안의 실패가 %d줄이다\n%s", n, buf.String())
+	if n := strings.Count(buf.String(), "handshake failure"); n != 1 || !strings.Contains(buf.String(), "count=1 ") {
+		t.Fatalf("창의 첫 실패만 바로 남겨야 한다\n%s", buf.String())
 	}
-	clk.advance(time.Minute)
-	fmt.Fprintf(h, "http: TLS handshake error from 10.0.0.9:4000: x\n")
-	if !strings.Contains(buf.String(), "count=100") {
-		t.Fatalf("모은 건수가 없다\n%s", buf.String())
+	if flush == nil || wait != handshakeAggregate {
+		t.Fatalf("창 끝 내보내기를 걸지 않았다 (%v)", wait)
+	}
+	// 다음 실패가 오지 않아도 창이 끝나면 나머지 건수를 남긴다 (4차 #3).
+	flush()
+	if !strings.Contains(buf.String(), "count=99 ") {
+		t.Fatalf("창의 나머지 건수가 없다\n%s", buf.String())
+	}
+	flush = nil
+	fmt.Fprintf(h, "http: TLS handshake error from 10.0.0.8:4000: x\n")
+	if flush == nil || !strings.Contains(buf.String(), "10.0.0.8") {
+		t.Fatal("창이 끝난 뒤의 실패가 새 창을 열지 않았다")
 	}
 	fmt.Fprintf(h, "http: panic serving 1.2.3.4: boom\n")
 	if !strings.Contains(buf.String(), "panic serving") {

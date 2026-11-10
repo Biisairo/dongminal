@@ -179,11 +179,17 @@ func (s *Server) peerMessageSend(w http.ResponseWriter, r *http.Request, from pe
 	if toolID == "" || s.ToolIO == nil || !s.ToolIO.Has(toolID) {
 		return fail(http.StatusNotFound, apierr.CodePeerTargetMissing, "no such tool")
 	}
-	// I-70: 닫는 중 확인부터 붙여넣기가 끝날 때까지 close 가 끼지 못한다.
-	s.peerDeliverMu.RLock()
-	defer s.peerDeliverMu.RUnlock()
+	// I-70·I-73: 닫는 중이면 넣지 않는다. 그 도구에 넣는 중이면 기다리지 않고 거절한다.
+	leave, gerr := s.peerGate.enter(toolID)
+	switch {
+	case errors.Is(gerr, errPeerToolBusy):
+		return fail(http.StatusConflict, apierr.CodePeerTargetBusy, "target busy")
+	case gerr != nil:
+		return fail(http.StatusConflict, apierr.CodePeerTargetNotAgent, "not an agent")
+	}
+	defer leave()
 	ad, ok := s.agentOfTool(toolID)
-	if !ok || s.peerIsClosing(toolID) {
+	if !ok {
 		return fail(http.StatusConflict, apierr.CodePeerTargetNotAgent, "not an agent")
 	}
 	env := peerEnvelope(from.name, in.From, toolID, in.Message, time.Now())

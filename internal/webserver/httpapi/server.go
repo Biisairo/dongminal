@@ -120,11 +120,8 @@ type Server struct {
 	peerSeen    *peer.LastSeen
 	// peerSpawns 는 다른 노드가 띄운 도구와 그 짝이다 (FR-PNW-62).
 	peerSpawns *peer.SpawnLog
-	// peerClosing 은 agent.close 가 닫는 중인 도구다. 그 동안은 원격 글을 넣지 않는다 (I-59).
-	peerClosing sync.Map
-	// peerDeliverMu 는 원격 글의 전달(닫는 중 확인 + 붙여넣기)과 agent.close 의 "닫는 중"
-	// 세우기를 가른다. 전달은 읽기 잠금, 세우기는 쓰기 잠금이다 (I-70).
-	peerDeliverMu sync.RWMutex
+	// peerGate 는 원격 글의 도구별 전달 상태다 — 동시 1건, 닫는 중 (I-59·I-70·I-73).
+	peerGate peerGate
 
 	// hosts 는 `Host`·`Origin` 판정의 허용 집합이다 (REQUEST_GATE_SRS FR-RQG-6).
 	// `Access` 의 `self` 를 읽으므로 그 뒤에 만들어진다.

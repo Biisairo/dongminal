@@ -80,7 +80,7 @@ func PeersOnly(isPeer func(fp string) bool) Admission {
 // 만든다. Apply 전에는 아무것도 듣지 않는다.
 func NewListener(id Identity, adm Admission, h http.Handler) *Listener {
 	return &Listener{
-		errLog:  log.New(newHandshakeLog(time.Now), "", 0),
+		errLog:  log.New(newHandshakeLog(afterFunc), "", 0),
 		handler: requireAdmission(adm.Request, h),
 		tlsCfg: &tls.Config{
 			MinVersion:   tls.VersionTLS13,
@@ -202,16 +202,22 @@ func (l *Listener) closeLocked() {
 const handshakeAggregate = time.Minute
 
 // handshakeLog 는 노드 포트 http.Server 의 오류 기록이다. 짝이 아닌 누구나 핸드셰이크를
-// 실패시킬 수 있으므로, 그 실패는 주기마다 한 줄(건수)로 모은다. 실패마다 남기면 로그
-// 상한이 감사 기록을 밀어낸다 (I-71). 다른 오류는 그대로 남긴다.
+// 실패시킬 수 있으므로, 그 실패는 창(1분)마다 묶는다. 창의 첫 실패는 바로 한 줄로 남기고,
+// 창이 끝나면 그 사이의 나머지 건수를 한 줄로 남긴다. 실패마다 남기면 로그 상한이 감사
+// 기록을 밀어낸다 (I-71). 다른 오류는 그대로 남긴다.
 type handshakeLog struct {
-	mu   sync.Mutex
-	now  func() time.Time
-	n    int
-	last time.Time
+	mu    sync.Mutex
+	after func(d time.Duration, f func())
+	open  bool
+	n     int
+	last  string
 }
 
-func newHandshakeLog(now func() time.Time) *handshakeLog { return &handshakeLog{now: now} }
+func newHandshakeLog(after func(d time.Duration, f func())) *handshakeLog {
+	return &handshakeLog{after: after}
+}
+
+func afterFunc(d time.Duration, f func()) { time.AfterFunc(d, f) }
 
 func (h *handshakeLog) Write(p []byte) (int, error) {
 	line := strings.TrimSpace(string(p))
@@ -220,15 +226,26 @@ func (h *handshakeLog) Write(p []byte) (int, error) {
 		return len(p), nil
 	}
 	h.mu.Lock()
-	h.n++
-	now := h.now()
-	if now.Before(h.last.Add(handshakeAggregate)) {
+	if h.open {
+		h.n++
+		h.last = line
 		h.mu.Unlock()
 		return len(p), nil
 	}
-	n := h.n
-	h.n, h.last = 0, now
+	h.open = true
 	h.mu.Unlock()
-	dmlog.Infof(nil, "peer listener: TLS handshake failures count=%d (최근: %s)", n, line)
+	dmlog.Infof(nil, "peer listener: TLS handshake failure count=1 (%s)", line)
+	h.after(handshakeAggregate, h.flush)
 	return len(p), nil
+}
+
+// flush 는 창을 닫고, 창의 첫 실패 뒤에 온 건수를 남긴다.
+func (h *handshakeLog) flush() {
+	h.mu.Lock()
+	n, last := h.n, h.last
+	h.open, h.n, h.last = false, 0, ""
+	h.mu.Unlock()
+	if n > 0 {
+		dmlog.Infof(nil, "peer listener: TLS handshake failure count=%d within %s (최근: %s)", n, handshakeAggregate, last)
+	}
 }

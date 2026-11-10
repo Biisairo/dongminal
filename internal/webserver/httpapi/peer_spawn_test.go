@@ -736,3 +736,42 @@ func TestPeerAgentCloseWaitsForInflightMessage(t *testing.T) {
 		t.Fatalf("순서 %+v", p)
 	}
 }
+
+// 보안 재리뷰(4차) #1·#4: 한 도구에는 원격 전달이 동시에 1건이다. 넘친 요청은 기다리지 않고
+// 409 peer_target_busy 로 거절한다 — 데몬의 도구별 줄이 길어져 연결 시한을 넘지 않게 한다.
+func TestPeerMessageSendBusyWhileInflight(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	pairNodes(t, a, b.peerNode)
+	if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed}); code != 200 {
+		t.Fatalf("spawn %d %v", code, out["_raw"])
+	}
+	b.tools.setFG("headless-1", agentCmd(t))
+	gate := make(chan struct{})
+	b.tools.fgMu.Lock()
+	b.tools.gate, b.tools.entered = gate, make(chan struct{}, 1)
+	entered := b.tools.entered
+	b.tools.fgMu.Unlock()
+	sent := make(chan int, 1)
+	go func() {
+		code, _ := a.call(t, "node-b", "message.send", map[string]any{"to": "headless-1", "message": "one"})
+		sent <- code
+	}()
+	<-entered
+	code, out := a.call(t, "node-b", "message.send", map[string]any{"to": "headless-1", "message": "two"})
+	close(gate)
+	if code != http.StatusConflict || errCode(out) != "peer_target_busy" {
+		t.Fatalf("두 번째: %d %v", code, out["_raw"])
+	}
+	if c := <-sent; c != http.StatusOK {
+		t.Fatalf("첫 번째 %d", c)
+	}
+	// 끝난 뒤에는 다시 받는다.
+	b.tools.fgMu.Lock()
+	b.tools.gate = nil
+	b.tools.fgMu.Unlock()
+	if code, out := a.call(t, "node-b", "message.send", map[string]any{"to": "headless-1", "message": "three"}); code != http.StatusOK {
+		t.Fatalf("세 번째: %d %v", code, out["_raw"])
+	}
+}

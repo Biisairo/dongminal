@@ -1,0 +1,55 @@
+package httpapi
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+)
+
+// I-73: 한 도구에 동시 1건, 다른 도구는 따로다. close 는 진행 중인 전달을 기다리고, 그동안과
+// 그 뒤의 전달은 거절한다. 끝나면 상태를 지운다.
+func TestPeerGate(t *testing.T) {
+	var g peerGate
+	leaveA, err := g.enter("a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := g.enter("a"); !errors.Is(err, errPeerToolBusy) {
+		t.Fatalf("같은 도구 두 번째: %v", err)
+	}
+	leaveB, err := g.enter("b")
+	if err != nil {
+		t.Fatalf("다른 도구가 막혔다: %v", err)
+	}
+	leaveB()
+	closed := make(chan func())
+	go func() { closed <- g.close(context.Background(), "a") }()
+	select {
+	case <-closed:
+		t.Fatal("진행 중인 전달을 기다리지 않았다")
+	case <-time.After(50 * time.Millisecond):
+	}
+	leaveA()
+	done := <-closed
+	if _, err := g.enter("a"); !errors.Is(err, errPeerToolClosing) {
+		t.Fatalf("닫는 중 전달: %v", err)
+	}
+	done()
+	g.mu.Lock()
+	n := len(g.m)
+	g.mu.Unlock()
+	if n != 0 {
+		t.Fatalf("상태가 남았다 %d", n)
+	}
+	// 시한이 지나면 기다림을 멈추되 표시는 선다.
+	leave, _ := g.enter("c")
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	done = g.close(ctx, "c")
+	if _, err := g.enter("c"); !errors.Is(err, errPeerToolClosing) {
+		t.Fatalf("시한 뒤 전달: %v", err)
+	}
+	leave()
+	done()
+}

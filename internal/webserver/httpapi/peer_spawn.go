@@ -161,21 +161,20 @@ func (s *Server) peerDeliverPrompt(toolID string, ad agentadapter.Adapter, owner
 		dmlog.Infof(nil, "[peer] spawn 프롬프트를 버렸다 tool=%s: 에이전트가 준비되지 않았다", toolID)
 		return
 	}
-	s.peerDeliverMu.RLock()
-	defer s.peerDeliverMu.RUnlock()
-	if !s.peerRunsAgent(toolID, ad.ID) || !s.peers.IsPeer(ownerFP) || s.peerIsClosing(toolID) {
+	// I-70·I-73: 닫는 중이거나 다른 원격 글을 넣는 중이면 넣지 않는다.
+	leave, gerr := s.peerGate.enter(toolID)
+	if gerr != nil {
+		dmlog.Infof(nil, "[peer] spawn 프롬프트를 넣지 않았다 tool=%s: %v", toolID, gerr)
+		return
+	}
+	defer leave()
+	if !s.peerRunsAgent(toolID, ad.ID) || !s.peers.IsPeer(ownerFP) {
 		return
 	}
 	// I-47: 붙여넣기 직전에 도구가 사는 곳에서 전경을 새로 본다.
 	if err := s.ToolIO.SendPasteIfForeground(toolID, []byte(text), true, ad.DetectCmd); err != nil {
 		dmlog.Infof(nil, "[peer] spawn 프롬프트를 넣지 않았다 tool=%s: %v", toolID, err)
 	}
-}
-
-// peerIsClosing 은 agent.close 가 그 도구를 닫는 중인가다 (I-59).
-func (s *Server) peerIsClosing(toolID string) bool {
-	_, ok := s.peerClosing.Load(toolID)
-	return ok
 }
 
 // toolListKnown 은 도구 목록이 관측된 사실인가다. 데몬 재접속 창에서는 거짓이다.
@@ -290,11 +289,8 @@ func (s *Server) peerAgentClose(w http.ResponseWriter, r *http.Request, from pee
 	}
 	toolID := in.ToolID
 	// I-59: 종료 명령을 보낸 뒤 에이전트가 끝나는 동안 원격 글이 들어가면 셸에 남는다.
-	// I-70: 진행 중인 전달이 끝난 뒤에 세운다. 그 뒤의 전달은 이 표시를 본다.
-	s.peerDeliverMu.Lock()
-	s.peerClosing.Store(toolID, struct{}{})
-	s.peerDeliverMu.Unlock()
-	defer s.peerClosing.Delete(toolID)
+	// I-70: 표시를 세우고 진행 중인 전달이 끝나기를 기다린다. 그 뒤의 전달은 이 표시를 본다.
+	defer s.peerGate.close(r.Context(), toolID)()
 	if ad, ok := s.agentOfTool(toolID); ok && ad.ExitCommand != "" && s.Tools != nil && s.Tools.Busy(toolID) {
 		_ = s.deliverToTool(toolID, ad.ExitCommand, true)
 		ctx, cancel := context.WithTimeout(r.Context(), peerCloseWait)

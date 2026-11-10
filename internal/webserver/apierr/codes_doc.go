@@ -191,6 +191,7 @@ var CodeDoc = map[string]Doc{
 	CodePeerUnknownOp:      {"모르는 프로토콜 명령입니다.", "node.info 의 commands 로 상대가 받는 명령을 확인하세요. 원격으로는 정해진 명령만 오갑니다."},
 	CodePeerRateLimited:    {"이 짝이 1분 동안 보낼 수 있는 요청 수(60)를 넘었습니다.", "잠시 뒤 다시 보내세요. 반복 호출이라면 간격을 두세요."},
 	CodePeerTargetMissing:  {"상대 노드에 그 도구가 없습니다.", "dmctl peer tools <노드> 로 지금 목록을 다시 받으세요."},
+	CodePeerTargetBusy:     {"상대 노드가 그 도구에 다른 원격 글을 넣는 중입니다. 아무것도 넣지 않았습니다.", "잠시 뒤 다시 보내세요. 한 도구에는 원격 글을 한 번에 하나씩 넣습니다."},
 	CodePeerTargetNotAgent: {"그 도구에서 지금 에이전트가 돌고 있지 않습니다. 아무것도 넣지 않았습니다.", "에이전트가 끝났을 수 있습니다. dmctl peer tools <노드> 로 다시 확인하세요."},
 	CodePeerAgentMissing:   {"상대 노드에 그 에이전트가 없거나 설치되지 않았습니다.", "dmctl peer info <노드> 의 agents 로 상대가 띄울 수 있는 에이전트를 확인하세요."},
 	CodePeerDirNotAllowed:  {"그 폴더는 상대 노드가 허용한 폴더 밖입니다. 허용 폴더가 비어 있으면 모든 띄우기를 거절합니다.", "dmctl peer info <노드> 의 allowedDirs 안의 폴더를 쓰세요. 허용 폴더는 받는 노드의 사용자가 정합니다."},

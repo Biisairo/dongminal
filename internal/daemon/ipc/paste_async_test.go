@@ -202,3 +202,56 @@ func TestPasteAndWriteQueueBehindGuardedPaste(t *testing.T) {
 		}
 	}
 }
+
+// 보안 재리뷰(4차) #2: 줄에는 깊이 상한이 있다. 넘치면 넣지 않고 거짓을 돌려준다.
+func TestSerialQueueDepthLimit(t *testing.T) {
+	var q serialQueue
+	block := make(chan struct{})
+	defer close(block)
+	if !q.run("a", func() { <-block }) {
+		t.Fatal("첫 일을 넣지 못했다")
+	}
+	for i := range serialQueueMax {
+		if !q.run("a", func() {}) {
+			t.Fatalf("%d번째를 넣지 못했다", i+1)
+		}
+	}
+	if q.run("a", func() {}) {
+		t.Fatal("상한을 넘어 넣었다")
+	}
+	if !q.run("b", func() {}) {
+		t.Fatal("다른 키까지 막혔다")
+	}
+}
+
+// 보안 재리뷰(4차) #2: 연결이 끊긴 뒤에는 줄에 남은 write·input 을 넣지 않는다.
+func TestQueuedWriteSkippedAfterStop(t *testing.T) {
+	pc := asyncConn(t, "a")
+	release := make(chan struct{})
+	t.Cleanup(toolhub.SetForegroundProbe(func(ids []string) map[string]string {
+		<-release
+		return map[string]string{ids[0]: "claude"}
+	}))
+	var wrote atomic.Int32
+	pc.dispatch(guardedPaste(1, "a"))
+	pc.toolQueue.run("a", func() {}) // 줄이 있음을 보장
+	pc.dispatch(&toolipc.PanedRequest{ID: 2, Method: toolipc.MethodWrite, Params: json.RawMessage(`{"id":"a","data":"aGk="}`)})
+	pc.dispatch(&toolipc.PanedRequest{ID: 3, Method: toolipc.MethodInput, Params: json.RawMessage(`{"id":"a","data":"aGk="}`)})
+	close(pc.done)
+	close(release)
+	time.Sleep(300 * time.Millisecond)
+	for {
+		select {
+		case v := <-pc.out:
+			if id := respID(t, v); id == 2 {
+				wrote.Add(1)
+			}
+			continue
+		default:
+		}
+		break
+	}
+	if wrote.Load() != 0 {
+		t.Fatal("끊긴 연결의 write 를 처리했다")
+	}
+}
