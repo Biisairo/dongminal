@@ -21,7 +21,7 @@
 | PUT | `/api/update` | 자동 판 확인 토글 — `{ enabled: bool }`. `server.json` 의 `updateCheck` 에 남습니다 (설정 블롭이 아닙니다) |
 | GET | `/api/stats` | `{ hostname, cpu, memUsed, memTotal, diskPct, sysUptime, srvUptime }`. `?jobs=1` 이면 `/api/git/jobs` 의 `jobs` 를 함께 싣습니다 (git 이 없으면 키가 없습니다) |
 | GET | `/api/ping` | `"ok"` (레이턴시 측정용) |
-| GET | `/api/snapshot?parts=` | 구독이 열릴 때의 복원 조각을 한 번에 — `parts` 는 `attention`·`activity`·`background`·`settings`·`update`·`focus` 의 쉼표 목록. 각 조각은 그 종단(`/api/tools/attention`·`/api/tools/activity`·`/api/tools/background`·`/api/settings`·`/api/update`·`/api/focus`)의 본문 그대로이고, 200 이 아닌 조각과 모르는 이름은 싣지 않습니다 |
+| GET | `/api/snapshot?parts=` | 구독이 열릴 때의 복원 조각을 한 번에 — `parts` 는 `attention`·`activity`·`background`·`settings`·`update`·`focus`·`peers` 의 쉼표 목록. 각 조각은 그 종단(`/api/tools/attention`·`/api/tools/activity`·`/api/tools/background`·`/api/settings`·`/api/update`·`/api/focus`·`/api/peers`)의 본문 그대로이고, 200 이 아닌 조각과 모르는 이름은 싣지 않습니다 |
 
 ### 도구
 
@@ -230,7 +230,7 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/peers` | 이 노드(`node`: 설정·지문·`listening`·열지 못한 사유 `error`), 짝 목록(`peers`, `state` 가 빈 값이면 짝, `pending-out` 이면 상대의 승인을 기다리는 중), 승인 대기(`pending`), 살아 있는 초대의 만료(`invite`). 초대 토큰은 싣지 않는다 |
+| GET | `/api/peers` | 이 노드(`node`: 설정·지문·`listening`·열지 못한 사유 `error`), 짝 목록(`peers`, `state` 가 빈 값이면 짝, `pending-out` 이면 상대의 승인을 기다리는 중), 승인 대기(`pending`), 살아 있는 초대의 만료(`invite`). 초대 토큰은 싣지 않는다. 노드 설정·초대·짝·승인 대기가 바뀌면 `peers_changed` 를 방송한다. 이 노드가 승인해 짝맞춤을 마쳤으면 `args.paired` 에 그 이름을 싣는다 |
 | PUT | `/api/peers/node` | 노드 설정(`enabled`·`port`·`bind`·`name`·`advertise`·`allowedDirs`)을 바꾸고 노드 포트에 바로 적용한다. 짝 목록은 바뀌지 않는다. 틀린 값은 400 `peer_config_invalid` |
 | POST | `/api/peers/invite` | `{addr?}` → `{code, expires}`. 일회용 초대 코드(10분). 주소는 `addr`, 없으면 `advertise`. 노드 포트가 닫혀 있으면 409 `peer_port_closed`, 주소가 없으면 400 `peer_addr_required` |
 | POST | `/api/peers/add` | `{code, name?}` → `{name, state:"pending-out", warning?}`. 상대 노드에 연결해 지문을 대조하고 등록을 요청한다. `warning:"port_closed"` 는 이 노드의 포트가 닫혀 있어 상대가 보낼 수 없다는 뜻이다. 실패는 `peer_fingerprint_mismatch`·`peer_unreachable`·`peer_token_invalid` 등 |

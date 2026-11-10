@@ -126,8 +126,15 @@ func TestPeerSpawnWindow(t *testing.T) {
 	if p := b.tools.pasted(); len(p) != 1 || p[0].ToolID != "w-1" {
 		t.Fatalf("붙여넣기 %+v", p)
 	}
-	if !strings.Contains(string(broker.published[0]), `"newWindow"`) || !strings.Contains(string(broker.published[0]), b.allowed) {
-		t.Fatalf("newWindow 요청 %s", broker.published[0])
+	// 짝맞춤이 먼저 `peers_changed` 를 민다 — 새 창 요청은 그 뒤에 있다.
+	var req []byte
+	for _, p := range broker.published {
+		if strings.Contains(string(p), `"newWindow"`) {
+			req = p
+		}
+	}
+	if req == nil || !strings.Contains(string(req), b.allowed) {
+		t.Fatalf("newWindow 요청 %s", req)
 	}
 }
 

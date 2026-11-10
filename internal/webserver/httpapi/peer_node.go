@@ -165,6 +165,7 @@ func (s *Server) peerPair(w http.ResponseWriter, r *http.Request) {
 	}
 	s.pairing.AddPending(peer.Pending{Name: name, Addr: addr, Port: in.Port, Fingerprint: peer.ClientFingerprint(r)})
 	peerAudit("in", name, "pair", http.StatusOK)
+	s.peersChanged("")
 	httpresp.JSON(w, http.StatusOK, map[string]any{"status": "pending", "name": s.peers.Config().Name})
 }
 
@@ -177,6 +178,7 @@ func (s *Server) peerPairConfirm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	peerAudit("in", fp[:16], "pair.confirm", http.StatusOK)
+	s.peersChanged("")
 	httpresp.JSON(w, http.StatusOK, map[string]any{"paired": true})
 }
 

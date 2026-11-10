@@ -10,6 +10,7 @@ import (
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/peer"
 	"dongminal/internal/webserver/httpresp"
+	"dongminal/internal/webserver/sse"
 )
 
 // 로컬 API `/api/peers/*` (PEER_NETWORK_SRS FR-PNW-70, 단계 2 범위).
@@ -83,6 +84,19 @@ func (s *Server) peersView() peersView {
 	return v
 }
 
+// peersChanged 는 짝 상태가 바뀐 **뒤에** 화면에 알린다. 화면은 `GET /api/peers` 로
+// 다시 읽는다 (FR-PNW-81). `paired` 는 이 노드가 승인해 짝맞춤을 마친 이름이다 (FR-PNW-82).
+func (s *Server) peersChanged(paired string) {
+	if s.Commands == nil {
+		return
+	}
+	args := map[string]any{}
+	if paired != "" {
+		args["paired"] = paired
+	}
+	s.Commands.Broadcast(sse.Payload("peers_changed", args))
+}
+
 func (s *Server) apiPeersGet(w http.ResponseWriter, r *http.Request) {
 	if !s.peerReady(w) {
 		return
@@ -108,6 +122,7 @@ func (s *Server) apiPeersNodePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.peerLn.Apply(s.peers.Config())
+	s.peersChanged("")
 	httpresp.JSON(w, http.StatusOK, s.peersView())
 }
 
@@ -141,6 +156,7 @@ func (s *Server) apiPeersInvite(w http.ResponseWriter, r *http.Request) {
 	}
 	token, expires := s.pairing.NewInvite()
 	code := peer.EncodeInvite(peer.InviteCode{Addr: addr, Port: cfg.Port, Fingerprint: s.peerID.Fingerprint, Token: token})
+	s.peersChanged("")
 	httpresp.JSON(w, http.StatusOK, map[string]any{"code": code, "expires": expires})
 }
 
@@ -203,7 +219,7 @@ func (s *Server) apiPeersAdd(w http.ResponseWriter, r *http.Request) {
 		if peer.ValidName(base) != nil {
 			base = peer.DefaultName(base)
 		}
-		name = s.peers.FreeName(base)
+		name = s.peers.FreeNameFor(base, ic.Fingerprint)
 	}
 	p := peer.Peer{Name: name, Addr: ic.Addr, Port: ic.Port, Fingerprint: ic.Fingerprint,
 		State: peer.StatePendingOut, Expires: time.Now().Add(peer.PendingTTL)}
@@ -212,6 +228,7 @@ func (s *Server) apiPeersAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	peerAudit("out", name, "pair", http.StatusOK)
+	s.peersChanged("")
 	out := map[string]any{"name": name, "state": peer.StatePendingOut}
 	// FR-PNW-33: 내 포트가 닫혀 있으면 상대가 나에게 보낼 수 없다. 등록은 막지 않는다.
 	if !cfg.Enabled || !s.peerStatus().Listening {
@@ -273,6 +290,7 @@ func (s *Server) apiPeersApprove(w http.ResponseWriter, r *http.Request) {
 	} else {
 		peerAudit("out", name, "pair.confirm", http.StatusOK)
 	}
+	s.peersChanged(name)
 	httpresp.JSON(w, http.StatusOK, out)
 }
 
@@ -290,6 +308,7 @@ func (s *Server) apiPeersReject(w http.ResponseWriter, r *http.Request) {
 		peerFail(w, http.StatusNotFound, apierr.CodePeerPendingMissing, in.ID)
 		return
 	}
+	s.peersChanged("")
 	httpresp.JSON(w, http.StatusOK, map[string]any{"rejected": true})
 }
 
@@ -320,6 +339,7 @@ func (s *Server) apiPeersRemove(w http.ResponseWriter, r *http.Request) {
 		peerStoreFail(w, err)
 		return
 	}
+	s.peersChanged("")
 	httpresp.JSON(w, http.StatusOK, map[string]any{"removed": in.Name})
 }
 
@@ -340,6 +360,7 @@ func (s *Server) apiPeersAddress(w http.ResponseWriter, r *http.Request) {
 		peerStoreFail(w, err)
 		return
 	}
+	s.peersChanged("")
 	httpresp.JSON(w, http.StatusOK, map[string]any{"name": in.Name, "addr": in.Addr, "port": in.Port})
 }
 

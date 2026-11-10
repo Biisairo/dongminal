@@ -19,6 +19,7 @@ var snapshotParts = map[string]func(*Server, http.ResponseWriter, *http.Request)
 	"settings":   (*Server).apiSettingsGet,
 	"update":     (*Server).apiUpdateGet,
 	"focus":      (*Server).apiFocusGet,
+	"peers":      (*Server).apiPeersGet,
 }
 
 // partRecorder 는 조각 하나의 응답을 받아 두는 ResponseWriter 다.

@@ -153,7 +153,7 @@ async function clearAttention(request: any) {
  */
 type DmServer = { port: number; home: string; baseURL: string };
 
-async function pingUntilUp(url: string, limitMs: number) {
+export async function pingUntilUp(url: string, limitMs: number) {
   const until = Date.now() + limitMs;
   let last = '';
   while (Date.now() < until) {
@@ -197,7 +197,7 @@ const INHERITED_INSTANCE_ENV = [
   'DONGMINAL_HISTFILE',
 ];
 
-function hermeticEnv(): NodeJS.ProcessEnv {
+export function hermeticEnv(): NodeJS.ProcessEnv {
   const env = { ...process.env };
   for (const k of INHERITED_INSTANCE_ENV) delete env[k];
   // UPDATE_NOTICE_SRS TC-UPD-14 / FR-UPD-11: **검사는 진짜 GitHub 으로 나가지

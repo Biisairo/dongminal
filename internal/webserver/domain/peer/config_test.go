@@ -319,17 +319,17 @@ func TestStoreRemoveAndAddress(t *testing.T) {
 // FR-PNW-30 (I-5): 겹치지 않는 이름을 만든다.
 func TestStoreFreeName(t *testing.T) {
 	s := newTestStore(t, newFakeClock())
-	if got := s.FreeName("b"); got != "b" {
+	if got := s.FreeNameFor("b", ""); got != "b" {
 		t.Fatalf("FreeName = %q", got)
 	}
 	_ = s.AddPeer(Peer{Name: "b", Addr: "h", Port: 1, Fingerprint: fpOf("aa")})
 	_ = s.AddPeer(Peer{Name: "b-2", Addr: "h", Port: 1, Fingerprint: fpOf("bb")})
-	if got := s.FreeName("b"); got != "b-3" {
+	if got := s.FreeNameFor("b", ""); got != "b-3" {
 		t.Fatalf("FreeName = %q", got)
 	}
 	long := strings.Repeat("x", NameMaxLen)
 	_ = s.AddPeer(Peer{Name: long, Addr: "h", Port: 1, Fingerprint: fpOf("cc")})
-	if got := s.FreeName(long); ValidName(got) != nil || got == long {
+	if got := s.FreeNameFor(long, ""); ValidName(got) != nil || got == long {
 		t.Fatalf("긴 이름의 FreeName = %q", got)
 	}
 }
@@ -364,5 +364,18 @@ func TestDirAllowed(t *testing.T) {
 		if _, ok := DirAllowed(link, []string{allowed}); ok {
 			t.Fatal("밖을 가리키는 링크를 허용했다")
 		}
+	}
+}
+
+// I-5: 같은 지문의 항목은 갈아 끼워지므로 그 이름은 비어 있는 것으로 본다.
+func TestStoreFreeNameIgnoresSameFingerprint(t *testing.T) {
+	clk := newFakeClock()
+	s := newTestStore(t, clk)
+	_ = s.AddPeer(Peer{Name: "b", Addr: "h", Port: 1, Fingerprint: fpOf("aa"), State: StatePendingOut, Expires: clk.t.Add(PendingTTL)})
+	if got := s.FreeNameFor("b", fpOf("aa")); got != "b" {
+		t.Fatalf("같은 지문 = %q", got)
+	}
+	if got := s.FreeNameFor("b", fpOf("bb")); got != "b-2" {
+		t.Fatalf("다른 지문 = %q", got)
 	}
 }

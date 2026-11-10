@@ -305,18 +305,22 @@ func (s *Store) IsPendingOut(fp string) bool {
 }
 
 // NameTaken 은 그 이름을 살아 있는 항목이 쓰고 있는가다.
-func (s *Store) NameTaken(name string) bool {
+func (s *Store) NameTaken(name string) bool { return s.nameTakenExcept(name, "") }
+
+// nameTakenExcept 는 지문이 except 인 항목을 빼고 본다.
+func (s *Store) nameTakenExcept(name, except string) bool {
 	for _, p := range s.Config().Peers {
-		if p.Name == name {
+		if p.Name == name && (except == "" || p.Fingerprint != except) {
 			return true
 		}
 	}
 	return false
 }
 
-// FreeName 은 base 가 비어 있으면 그대로, 아니면 `-2`·`-3` … 을 붙인 이름이다 (I-5).
-func (s *Store) FreeName(base string) string {
-	if !s.NameTaken(base) {
+// FreeNameFor 는 base 가 비어 있으면 그대로, 아니면 `-2`·`-3` … 을 붙인 이름이다 (I-5).
+// 지문이 fp 인 항목은 AddPeer 가 갈아 끼우므로 그 이름은 비어 있는 것으로 본다.
+func (s *Store) FreeNameFor(base, fp string) string {
+	if !s.nameTakenExcept(base, fp) {
 		return base
 	}
 	for n := 2; ; n++ {
@@ -325,7 +329,7 @@ func (s *Store) FreeName(base string) string {
 		if len(head)+len(suffix) > NameMaxLen {
 			head = head[:NameMaxLen-len(suffix)]
 		}
-		if name := head + suffix; !s.NameTaken(name) {
+		if name := head + suffix; !s.nameTakenExcept(name, fp) {
 			return name
 		}
 	}

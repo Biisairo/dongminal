@@ -71,7 +71,7 @@ function snapshotRig() {
     timers: { every() {} },
   };
   for (const name of ['_attnRestore', '_activityRestore', '_bgRefresh', '_settingsRestore',
-    '_updateRestore', '_focusRestore', '_gitObserveRestore', '_pollGitJobs']) {
+    '_updateRestore', '_focusRestore', '_gitObserveRestore', '_pollGitJobs', '_peersRestore']) {
     app[name] = (src) => { got[name] = src };
   }
   ctx.wireStateRegistry(app);
@@ -83,7 +83,7 @@ test('첫 연결: 스냅샷 한 요청, 설정은 건너뛴다, /api/state 는 �
   const { gets, got, fire } = snapshotRig();
   fire('sse:open', { gen: 1 });
   assert.equal(gets.length, 1, JSON.stringify(gets));
-  assert.equal(gets[0], '/api/snapshot?parts=attention,activity,background,update,focus');
+  assert.equal(gets[0], '/api/snapshot?parts=attention,activity,background,update,focus,peers');
   assert.equal(got._settingsRestore, undefined, '첫 연결에 설정을 다시 받았다');
   const att = await got._attnRestore;
   assert.equal(att.ok, true);
