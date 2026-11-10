@@ -1,16 +1,16 @@
-# 인계: AGENT_RECORD_DAEMON_SRS 구현 (단계 2부터)
+# 인계: AGENT_RECORD_DAEMON_SRS 구현 (단계 3부터)
 
-> 2026-11-10. 단계 1을 끝내고 커밋한 뒤, 맥락이 많이 차서 넘긴다. 이 문서의 「착수 블록」이 다음 세션의 지시 전부다.
+> 2026-11-10. 단계 1·2를 끝내고 커밋한 뒤, 맥락이 많이 차서 넘긴다. 이 문서의 「착수 블록」이 다음 세션의 지시 전부다.
 
 ## 착수 블록
 
-1. `docs/internal/AGENT_RECORD_DAEMON_SRS.md` 를 끝까지 읽는다. 특히 §3.1a(단계 1 설계, 구현됨)와 §3.2(단계 2), §4(결정)를 먼저 본다.
-2. **단계 2(묶음 R·C)부터** 구현한다. 순서는 SDD → TDD → 구현이다. 스펙은 이미 승인됐다(`승인·구현중`).
-   - 먼저 SRS 에 §3.2a(단계 2 설계)를 적는다. 아래 「단계 2 설계 메모」가 출발점이다.
+1. `docs/internal/AGENT_RECORD_DAEMON_SRS.md` 를 끝까지 읽는다. 특히 §3.1a·§3.2a(단계 1·2 설계, 구현됨)와 §3.3(단계 3), §4(결정), §7 R-1 을 먼저 본다.
+2. **단계 3(묶음 A)부터** 구현한다. 순서는 SDD → TDD → 구현이다. 스펙은 이미 승인됐다(`승인·구현중`).
+   - 먼저 SRS 에 §3.3a(단계 3 설계)를 적는다. 아래 「단계 3 설계 메모」가 출발점이다.
    - 테스트를 먼저 쓰고 실패(RED)를 확인한 뒤 구현한다(GREEN).
    - 단계가 끝나면 아래 「검사」를 모두 돌린다. 통과하면 **묻지 말고 커밋한다**(사용자 지시, 2026-11-10: "모든 계획이 종료될 때까지 물어보지 말고 커밋하고 구현하여 진행"). 커밋 메시지에 AI 서명을 넣지 않는다.
    - 데몬 코드를 바꾸는 단계(2·3)는 적용하려면 `dongminal start --restart-daemon` 이 필요하다고 커밋 메시지와 보고에 적는다. **재시작은 사용자가 정한다** — 직접 하지 않는다.
-3. 단계 2가 끝나면 단계 3 → 4 순으로 간다. 단계마다 따로 커밋한다. 구현상 결정이 꼭 필요할 때만 사용자에게 묻는다.
+3. 단계 3이 끝나면 단계 4 로 간다. 단계마다 따로 커밋한다. 구현상 결정이 꼭 필요할 때만 사용자에게 묻는다.
 4. 맥락이 차면 `/dongminal:migration` 으로 다음 세션에 넘긴다. 이 문서를 고쳐 쓴다.
 
 ## 지금까지 한 일
@@ -19,6 +19,14 @@
 |---|---|
 | `8ae13045` | 별개 결함 수정: statusLine 허용 목록이 한도 창 이름을 camelCase 로 바꿔(`five_hour`→`fiveHour`) Usage 바닥이 "FiveHour" 로 보였다. 이제 이름을 입력 그대로 둔다. `dmctl status` 의 `usage.rateLimits` 키가 바뀌었다(CHANGELOG 「바뀜」) |
 | `315ddeee` | **ARD 단계 1**: 데몬 기록 저장소, `recordset`·`records`, push `record`, 기능 `records`, 서버의 비동기 쓰기 큐(`internal/webserver/recordsync`), 스냅샷 반영 |
+| `c6229742` | **ARD 단계 2**: 데몬 보고 소켓 `report.sock`, push `report`, 서버 기능 `reports`, dmctl 의 소켓 우선 전송, 공유 패키지 `internal/shared/agentrec`, `toolhub.Tool.ReportActivity` |
+
+### 단계 2가 남긴 구조 (단계 3이 딛는 것)
+
+- 데몬: `internal/daemon/ipc/report.go` — `ListenReports`·`ServeReports`·`handleReport`·`applyReport`. 보고를 데몬 `Tool` 에 먼저 반영(`ReportActivity`·`SignalAttention`·`SetRecord`)하고, 붙은 서버에 **보고 그대로** `report` push 한다. 보고로 바뀐 기록은 `record` push 로 보내지 **않는다**(§3.2a 의 이유: 서버 거울이 먼저 done 이 되면 서버 판정에서 알람이 사라진다).
+- 서버: `httpapi.ApplyReport`(`report_apply.go`) → HTTP 처리기와 같은 `applyActivityReport`·`applyUsageReport`·`applySubagentsReport`·`applyNotifyReport`. 조립(`cmd/dongminal/records.go` 의 `newReportQueue`)이 읽기 루프 밖 고루틴 하나에서 차례로 부른다 — 처리 중 데몬 RPC(`trackerAttention.SignalAttention` 의 존재 확인 등)가 있기 때문이다.
+- `panedConn.reports`(원자값): 서버가 hello 에서 `reports` 를 말했는가. 옛 서버면 데몬이 보고를 거절한다.
+- `PanedServer.PutRecord` 는 **여전히 부르는 곳이 없다.** 단계 3 에서 데몬 판정의 결과를 서버에 알리는 자리로 쓸 수 있다.
 
 ### 단계 1이 남긴 구조 (단계 2가 딛는 것)
 
@@ -37,25 +45,18 @@
   - 값의 JSON 모양은 지금 httpapi 의 비공개 타입이 정한다: `toolUsage`, `subagentRecord`, `map[agentId]subagentActivity`, `map[agent]limitRecord`, `true`.
 - 조립: `cmd/dongminal/records.go` — `recordSender`(보낼 때마다 데몬 기능 확인), `syncRecords`(Flush → records → 반영), `newRecordWriter`. `app.go` 의 `wireDaemonRecords` 가 HTTP 를 열기 전에 스냅샷을 반영하고, push 와 재접속 콜백(`SetOnRecord`·`SetOnResync`)을 건다.
 
-## 단계 2 설계 메모 (앞 세션이 조사한 것, 아직 SRS 에 없음)
+## 단계 3 설계 메모 (앞 세션이 본 것, 아직 SRS 에 없음)
 
-- **데몬이 보고를 직접 해석해야 한다.** 서버가 꺼져 있어도 기록해야 하기 때문이다 (FR-ARD-25). 그러려면 지금 httpapi 비공개인 아래 것들이 데몬도 볼 수 있는 `internal/shared` 로 내려가야 한다. 데몬은 `webserver` 를 import 할 수 없다(층 게이트 `check-layer.sh`).
-  - 값의 모양(위 다섯)
-  - 서브에이전트 활동의 상한 32·done 30초 규칙 (`subagentActivityStore.put`·`list`)
-  - 한도 병합: 에이전트 하나의 값을 전역 `limits` 에 넣기, `agentadapter.StatusLineReporter()`
-  - `hub.SanitizeActivityField`(`internal/webserver/hub/activity.go:23`)와 상한 `ActivityToolMax`·`ActivityDetailMax`
-  - 후보 자리는 새 패키지 `internal/shared/agentrec` 다. httpapi 는 그 타입을 쓰도록 바꾼다.
-- **권하는 흐름:** 데몬은 받은 보고를 자기 기록에 먼저 반영한다.
-  - main 활동은 `Tool.SetActivity`, `userPrompt` 는 `NoteUserPrompt` 로 반영한다.
-  - notify 는 `Tool.SignalAttention` 으로 반영한다. 데몬에는 알림 콜백이 없으므로 상태만 바뀐다. 이것이 FR-ARD-25 의 "상태만 맞춘다" 다.
-  - 그다음 서버가 붙어 있으면 **보고 자체**를 push 로 넘긴다(새 이벤트, 예: `report {method, body}`).
-  - 서버는 그 push 를 HTTP 처리기와 **같은 함수**로 처리한다. `reportActivity`·`apiToolUsage` 의 본체를 떼어 낸다. 그러면 알람 판정(done·waiting 파생)이 한 자리에 남고, 판정 뒤 상태는 단계 1 의 쓰기 큐가 데몬에 되쓴다.
-  - 이렇게 하면 데몬과 서버가 같은 보고를 두 번 반영한다. 서버의 되쓰기가 마지막에 덮으므로 결과는 같다. 이 판단을 SRS §3.2a 에 적고, FR-ARD-22 의 "record push" 와 다른 점을 밝힌다.
-- **보고 소켓:** `platform.Current().IPC.Endpoint(home)` 옆, 같은 0700 폴더의 `report.sock` 이다 (`internal/shared/platform/ipc.go`). 연결마다 요청 하나를 받고 닫는다. 동시에 받는다. 메서드는 넷뿐이다 (FR-ARD-21). `toolId` 가 살아 있는 도구가 아니면 거절한다.
-- **dmctl:** `internal/helper/runtimebin/dmctl_activity.go:73·103`, `dmctl_notify.go:41`, `dmctl_statusline.go`, subagent-statusline 이 `httpPostJSONWithin(…, hookBudget)` 로 보낸다. 보고 소켓을 먼저 시도하고, 실패하면 HTTP 로 보낸다. 두 시도의 합이 시한을 넘지 않게 한다 (FR-ARD-23).
-  - 소켓 자리는 `DONGMINAL_HOME`(`dmenv.EnvHome`)으로 찾는다. 샌드박스 창은 그 자리가 없으므로 곧바로 HTTP 로 간다 (D-ARD-7).
-  - `toolId` 는 dmctl 이 지금 어떻게 정하는지(`callerToolID`, 환경변수) 확인한다. 데몬은 HTTP 의 PID 역추적을 할 수 없으므로 dmctl 이 id 를 실어야 한다.
-- `dmctl activity` 는 `contextObservePath` 로도 보낸다 (`dmctl_activity.go:162`). 이것은 Run 맥락 관측이며 FR-ARD-21 의 넷에 없다. 그대로 HTTP 에 둔다.
+- **지금 판정이 두 벌로 돈다.** 단계 2 부터 데몬 `Tool` 도 보고를 받아 판정(`ReportActivity`·`SignalAttention`)한다. 다만 알림 콜백이 없어 상태만 바뀌고, 서버가 `report` push 를 받아 `AttnTracker` 로 다시 판정한 뒤 그 결과를 쓰기 큐로 데몬에 되쓴다(덮어쓴다). 단계 3 은 서버 쪽 판정을 없애고 데몬의 판정을 진실로 삼는 일이다.
+- **데몬에 알림을 잇는 자리:** `ToolManager.SetAttentionNotifier(notify, clear)`·`SetActivityNotifier` (`internal/shared/toolhub/manager_notify.go`). 주석에 "도구를 만들기 전에 불러야 한다"고 적혀 있다. 데몬 기동(`internal/daemon/boot/boot.go`)은 `pm.LoadAll` 로 도구를 먼저 만든다 — 순서를 바꾸거나 이미 있는 도구에 거는 방법을 확인한다.
+- **데몬에는 유휴 스위퍼가 없다.** 직접 모드는 `cmd/dongminal/app.go:195` 의 `bd.pm.StartAttentionSweeper`, 데몬 모드는 서버의 `attnTracker.StartSweeper` 가 돈다. 데몬 기동에 스위퍼를 더해야 한다. 유휴 판정의 바쁨 검사(`busyProbe`)는 데몬 안에서 직접 볼 수 있다.
+- **설정 (FR-ARD-31):** `NewAttnTracker(hub, idleMS)` 의 유휴 기준(`hub.DefaultIdleMS` → `toolhub.AttentionIdleThreshold`)과 `allowBell`(`toolhub.AttentionAllowBell`)이다. 둘 다 환경변수를 읽는 함수라 데몬도 같은 값을 읽을 수 있다. 서버 설정 화면에서 바뀌는 값인지 먼저 확인하고, 그렇다면 `attnconfig` 메서드로 보낸다.
+- **알람 방송의 사유:** 데몬이 판정하면 서버는 사유(`reason`)를 알아야 SSE `tool_attention` 을 낸다. `record` push 의 `agent` 값에는 사유가 없다(§3.1a). 새 push(예: `attention {tool, reason}`)가 필요할 수 있다.
+- **서버의 report push 처리:** 단계 3 에서는 서버가 `report` push 로 다시 판정하면 안 된다. 데몬이 판정 결과를 먼저 보내고, 서버는 거울·방송·Run 맥락 관측·서브에이전트 방송만 한다. 기능 협상으로 옛 데몬(판정 안 함)과 섞일 때는 지금처럼 서버가 판정한다 (NFR-ARD-3).
+- **알람 해제 (FR-ARD-32):** `/api/tools/attention/clear` 는 `trackerAttention.Attend` → `AttnTracker.Attend`/`AttendTyped`. 데몬 모드에서 데몬 `Tool.Attend`/`AttendTyped` 로 보내는 메서드가 필요하다. 키 입력 해제 경로도 찾는다(`ClearAllAttention` 포함).
+- 출력 판정은 지금 서버 `AttnTracker.FeedOutput`(toolclient 읽기 루프)에서 돈다. 데몬 `Tool.observeOutput` 은 이미 돌며 무장·마지막 출력 시각을 적는다.
+- 위험 R-1(HIGH): 기존 알람 시험을 데몬 모드로 함께 돌린다 (TC-ARD-30). e2e 는 직접 모드이므로 Go 의 실제 데몬·클라이언트 종단 시험(`cmd/dongminal/records_test.go`·`report_wire_test.go` 모양)으로 잰다.
+- 알아 둘 틈: `handleReport` 는 서버 연결의 출력 줄에 report push 를 **막히는 방식**으로 넣는다. 줄이 가득 차면 dmctl 의 소켓 시한(예산의 절반)이 지나 HTTP 로 다시 보내고, 서버가 같은 보고를 두 번 처리할 수 있다. 드문 경우라 그대로 두었다.
 
 ## 사용자 결정 (유효)
 
@@ -66,6 +67,7 @@
 - Run 기록은 `runs.json` 에 두고, 열림은 저장하지 않고 물을 때마다 계산한다 (D-ARD-4). `contextNotices` 는 멤버 기록에 둔다 (D-ARD-5).
 - 서버가 꺼져 있던 동안의 알람은 나중에 울리지 않는다. 상태만 맞춘다 (FR-ARD-25).
 - 단계마다 묻지 않고 커밋하며 끝까지 진행한다 (2026-11-10).
+- 데몬 재시작은 하지 않는다. 사용자가 정한다.
 
 ## 앞 세션들이 확인한 사실 (다시 조사하지 않아도 된다)
 
@@ -73,6 +75,8 @@
 - 데몬의 도구 관리자(`pc.pm`)는 직접 모드와 **같은 `toolhub.ToolManager`** 다. 직접 모드 `Tool` 에 활동·턴·알람 판정이 이미 있다(`tool_attention.go`). 데몬에서는 알림 콜백을 잇지 않아 판정 결과가 방송되지 않는다. 다만 데몬 Tool 의 `observeOutput` 은 돌아서, 마지막 출력 시각과 무장을 스스로 적는다.
 - 서버의 `AttnTracker.FeedOutput` 은 toolclient 읽기 루프 안에서 돈다. 그 자리에서 데몬 RPC 를 기다리면 교착이다. 그래서 단계 1의 쓰기는 비동기 큐다.
 - 생존 질의의 결함(단계 4의 근거): `ToolClient.IsLive`·`seam/adapters.Tool.Has` → `Get` → `List()` 가 `ListOK` 의 ok 를 버린다(`internal/webserver/toolclient/client_toolhub.go`). 그래서 데몬이 답하지 못하면 "죽었다"가 된다. 그 결과 `ReapTargets`(`domain/run/store_write.go:379`)가 Run 을 제거하고, `fenceStale`(`domain/run/store.go:264`)이 `aborted` 로 저장한다.
+- 이음매 게이트(`scripts/check-seams.sh`)는 시험 안에서도 `net.Dial("unix", …)`·`net.Listen("unix", …)` 를 막는다. `platform.Current().IPC.Dial`·`Listen` 을 쓴다. 요청 본문 게이트(`check-body-limit.sh`)는 변수 이름 `r.Body`·`req.Body` 를 글자로 잡는다 — HTTP 가 아닌 곳에서는 다른 이름을 쓴다.
+- `dmctl` 시험은 `internal/helper/runtimebin/main_test.go` 의 `TestMain` 이 `DONGMINAL_HOME` 을 지운다. dongminal 안에서 시험을 돌리면 그 변수가 실제 홈이어서, 지우지 않으면 시험 보고가 실제 데몬의 보고 소켓으로 간다.
 - 유닉스 소켓 경로는 104 바이트까지다. 시험 이름이 길면 `t.TempDir()` 안의 소켓이 `bind: invalid argument` 로 실패한다. 그때는 `os.MkdirTemp("", "짧은이름")` 을 쓴다.
 - e2e 는 직접 모드로 돈다. 데몬 모드는 Go 시험(`cmd/dongminal/records_test.go` 의 실제 데몬·클라이언트 종단 시험 같은 것)으로 잰다.
 
