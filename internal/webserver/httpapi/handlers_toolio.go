@@ -191,9 +191,14 @@ func agentEnvelope(from, toToolID, body string) string {
 // 에이전트가 구분할 수 없었다 — 발신자가 다른 멤버를 사칭하는 길이다. 역슬래시
 // 하나가 인용의 표식이고, 정확한 바이트열의 헤더는 서버가 만든 것 하나뿐이 된다.
 func quoteEnvelope(msg string) string {
+	// PEER_NETWORK_SRS FR-PNW-92: 원격 엔벨로프의 표지도 함께 인용한다. 로컬
+	// 메시지가 다른 노드에서 온 것처럼 꾸미지 못하고, 원격 본문이 로컬 표지를
+	// 꾸미지도 못한다 — 두 엔벨로프가 이 함수 하나를 쓴다.
 	r := strings.NewReplacer(
 		"[/DONGMINAL-AGENT-MSG", "[\\/DONGMINAL-AGENT-MSG",
 		"[DONGMINAL-AGENT-MSG", "[\\DONGMINAL-AGENT-MSG",
+		"[/DONGMINAL-PEER-MSG", "[\\/DONGMINAL-PEER-MSG",
+		"[DONGMINAL-PEER-MSG", "[\\DONGMINAL-PEER-MSG",
 	)
 	return r.Replace(msg)
 }

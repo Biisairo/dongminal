@@ -245,6 +245,7 @@ var apiRoutes = []apiRoute{
 	httproute.Post("/api/peers/reject", (*Server).apiPeersReject),
 	httproute.Post("/api/peers/remove", (*Server).apiPeersRemove),
 	httproute.Put("/api/peers/address", (*Server).apiPeersAddress),
+	httproute.Post("/api/peers/call", (*Server).apiPeersCall),
 }
 
 func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {

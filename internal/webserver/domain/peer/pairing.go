@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"net/netip"
 	"sort"
 	"strings"
 	"sync"
@@ -21,6 +22,8 @@ const (
 	// InvitePrefix 는 초대 코드의 접두어다 (FR-PNW-21).
 	InvitePrefix = "dmpeer1:"
 	tokenBytes   = 16
+	maxHostLen   = 253
+	maxLabelLen  = 63
 	idBytes      = 8
 )
 
@@ -210,9 +213,35 @@ func DecodeInvite(s string) (InviteCode, error) {
 	return c, nil
 }
 
-// ValidAddr 는 호스트 이름이나 IP 하나인가다. 포트·경로·공백을 담지 않는다.
+// ValidAddr 는 IP 주소이거나 LDH 규칙의 호스트 이름인가다. 허용 목록이다 —
+// 제어 문자·비 ASCII·포트·경로를 받지 않는다. 이 값은 화면과 터미널에 찍힌다.
 func ValidAddr(a string) bool {
-	return a != "" && len(a) <= 253 && !strings.ContainsAny(a, "/ \t\r\n@?#")
+	if _, err := netip.ParseAddr(a); err == nil {
+		return true
+	}
+	if a == "" || len(a) > maxHostLen {
+		return false
+	}
+	for _, label := range strings.Split(a, ".") {
+		if !validLabel(label) {
+			return false
+		}
+	}
+	return true
+}
+
+// validLabel 은 DNS 레이블 하나다: 영문·숫자·`-`, 1~63자, `-` 로 시작·끝나지 않는다.
+func validLabel(l string) bool {
+	if l == "" || len(l) > maxLabelLen || l[0] == '-' || l[len(l)-1] == '-' {
+		return false
+	}
+	for i := 0; i < len(l); i++ {
+		c := l[i]
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-') {
+			return false
+		}
+	}
+	return true
 }
 
 func validPort(p int) bool { return p >= 1 && p <= maxPort }

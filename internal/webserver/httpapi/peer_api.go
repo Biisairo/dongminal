@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/peer"
@@ -29,6 +31,12 @@ type peerNodeView struct {
 	Error       string   `json:"error,omitempty"`
 }
 
+// peerItemView 는 짝 하나에 마지막 응답 시각을 얹은 것이다 (FR-PNW-73).
+type peerItemView struct {
+	peer.Peer
+	LastSeen *time.Time `json:"lastSeen,omitempty"`
+}
+
 type peerInviteView struct {
 	Expires time.Time `json:"expires"`
 }
@@ -36,7 +44,7 @@ type peerInviteView struct {
 // peersView 는 GET /api/peers 다. 초대 토큰은 싣지 않는다 (FR-PNW-95, I-3).
 type peersView struct {
 	Node    peerNodeView    `json:"node"`
-	Peers   []peer.Peer     `json:"peers"`
+	Peers   []peerItemView  `json:"peers"`
 	Pending []peer.Pending  `json:"pending"`
 	Invite  *peerInviteView `json:"invite"`
 }
@@ -59,8 +67,15 @@ func (s *Server) peersView() peersView {
 			Advertise: cfg.Advertise, AllowedDirs: cfg.AllowedDirs, Fingerprint: s.peerID.Fingerprint,
 			Listening: st.Listening, Addr: st.Addr, Error: st.Err,
 		},
-		Peers:   cfg.Peers,
+		Peers:   make([]peerItemView, 0, len(cfg.Peers)),
 		Pending: s.pairing.Pending(),
+	}
+	for _, p := range cfg.Peers {
+		item := peerItemView{Peer: p}
+		if t, ok := s.peerSeen.Get(p.Fingerprint); ok {
+			item.LastSeen = &t
+		}
+		v.Peers = append(v.Peers, item)
 	}
 	if exp, ok := s.pairing.InviteExpires(); ok {
 		v.Invite = &peerInviteView{Expires: exp}
@@ -138,7 +153,7 @@ func peerCallFail(w http.ResponseWriter, err error) {
 	case errors.Is(err, peer.ErrRejected):
 		peerFail(w, http.StatusBadGateway, apierr.CodePeerRejected, err.Error())
 	case errors.As(err, &re) && re.Code != "":
-		peerFail(w, re.Status, re.Code, re.Message)
+		peerFail(w, remoteStatus(re.Status), remoteCode(re.Code), cleanRemoteText(re.Message))
 	default:
 		peerFail(w, http.StatusBadGateway, apierr.CodePeerUnreachable, err.Error())
 	}
@@ -326,4 +341,43 @@ func (s *Server) apiPeersAddress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpresp.JSON(w, http.StatusOK, map[string]any{"name": in.Name, "addr": in.Addr, "port": in.Port})
+}
+
+// peerRemoteTextMax 는 상대가 보낸 문구를 옮길 때의 상한(바이트)이다.
+const peerRemoteTextMax = 512
+
+// remoteStatus 는 상대의 상태를 옮긴다. 요청의 잘못(4xx)만 그대로 두고 나머지는
+// 502 다 — 상대의 5xx·3xx 는 이쪽 서버의 사정이 아니다.
+func remoteStatus(st int) int {
+	if st >= 400 && st < 500 {
+		return st
+	}
+	return http.StatusBadGateway
+}
+
+// remoteCode 는 카탈로그에 있는 코드만 옮긴다. 모르는 코드는 peer_rejected 다.
+func remoteCode(code string) string {
+	for _, c := range apierr.AllCodes() {
+		if c == code {
+			return code
+		}
+	}
+	return apierr.CodePeerRejected
+}
+
+// cleanRemoteText 는 제어 문자를 지우고 길이를 자른다. 이 문구는 터미널에 찍힌다.
+func cleanRemoteText(s string) string {
+	out := make([]rune, 0, len(s))
+	n := 0
+	for _, r := range s {
+		if unicode.IsControl(r) {
+			continue
+		}
+		n += utf8.RuneLen(r)
+		if n > peerRemoteTextMax {
+			break
+		}
+		out = append(out, r)
+	}
+	return string(out)
 }

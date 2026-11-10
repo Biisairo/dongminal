@@ -180,3 +180,20 @@ func TestDecodeInviteRejects(t *testing.T) {
 		}
 	}
 }
+
+// 주소는 허용 목록이다 — IP 이거나 LDH 호스트 이름만 받는다.
+func TestValidAddr(t *testing.T) {
+	ok := []string{"10.0.0.1", "::1", "fe80::1", "office", "office.example.com", "a-b.c-d", "host.local"}
+	for _, a := range ok {
+		if !ValidAddr(a) {
+			t.Errorf("ValidAddr(%q) = false", a)
+		}
+	}
+	bad := []string{"", "a b", "a/b", "a\x1b[31m", "한글.com", "-a.com", "a-.com", "a..b", "a_b.com",
+		"user@h", "h:80", strings.Repeat("a", 64) + ".com", strings.Repeat("a.", 127) + "aa"}
+	for _, a := range bad {
+		if ValidAddr(a) {
+			t.Errorf("ValidAddr(%q) = true", a)
+		}
+	}
+}

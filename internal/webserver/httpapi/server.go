@@ -115,6 +115,9 @@ type Server struct {
 	peerID     peer.Identity
 	peerClient *peer.Client
 	pairing    *peer.Pairing
+	// peerLimiter·peerSeen 은 짝마다의 분당 상한과 마지막 응답 시각이다 (묶음 R).
+	peerLimiter *peer.RateLimiter
+	peerSeen    *peer.LastSeen
 
 	// hosts 는 `Host`·`Origin` 판정의 허용 집합이다 (REQUEST_GATE_SRS FR-RQG-6).
 	// `Access` 의 `self` 를 읽으므로 그 뒤에 만들어진다.

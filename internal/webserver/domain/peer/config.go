@@ -401,3 +401,22 @@ func (s *Store) SetAddress(name, addr string, port int) error {
 		return ErrPeerNotFound
 	})
 }
+
+// NameOf 는 짝 fp 에 이 노드가 붙인 이름이다 (FR-PNW-91). pending-out 은 짝이 아니다.
+func (s *Store) NameOf(fp string) (string, bool) {
+	p, ok := s.find(fp)
+	if !ok || p.State != StatePaired {
+		return "", false
+	}
+	return p.Name, true
+}
+
+// ByName 은 그 이름의 살아 있는 항목이다.
+func (s *Store) ByName(name string) (Peer, bool) {
+	for _, p := range s.Config().Peers {
+		if p.Name == name {
+			return p, true
+		}
+	}
+	return Peer{}, false
+}

@@ -50,7 +50,7 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | `dmctl read-screen [--at <uuid>] [--bytes N]` | 그 도구의 화면을 **ANSI 를 제거한 텍스트**로 읽습니다 (기본 16384바이트). 사람이 보는 것과 같은 내용입니다 |
 | `dmctl read-output [--at <uuid>] [--bytes N]` | 같은 자리를 **raw 바이트**로 읽습니다 — ANSI 를 포함합니다 (기본 8192바이트). 색·커서 이동까지 봐야 할 때만 쓰세요 |
 | `dmctl send-input --at <uuid> [--execute] <텍스트>` | 그 도구의 **셸에 입력**을 넣습니다. `--execute` 면 Enter 까지 칩니다. 텍스트 자리에 `-` 를 주거나 생략하면 stdin 을 읽습니다 |
-| `dmctl msg --to <uuid> [--from <uuid>] <메시지>` | 그 도구의 **에이전트에게** 신뢰 엔벨로프로 메시지를 보냅니다. `send-input` 과 다릅니다 — 이쪽은 상대가 에이전트임을 전제하고 봉투를 씌웁니다 |
+| `dmctl msg --to <uuid> [--from <uuid>] <메시지>` | 그 도구의 **에이전트에게** 신뢰 엔벨로프로 메시지를 보냅니다. `send-input` 과 다릅니다 — 이쪽은 상대가 에이전트임을 전제하고 봉투를 씌웁니다. `--to <노드>/<uuid>` 는 짝맞춘 다른 노드의 에이전트이며 원격 엔벨로프로 들어갑니다 |
 | `dmctl status [--at <uuid> \| --member <uuid>] [--json]` | 그 도구의 에이전트 상태(`idle`/`working`/`waiting`/`done`). `--member` 는 헤드리스 멤버를 지목한다 (`wait` 와 같다) |
 | `dmctl wait [--at <uuid>] --for ready\|done [--timeout-ms N]` | 그 상태가 될 때까지 기다립니다. 서버가 long-poll 로 잡아 주므로 폴링 루프를 짜지 마세요 |
 
@@ -59,7 +59,7 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | 명령 | 설명 |
 |------|------|
 | `dmctl peers [--json]` | 이 노드의 노드 포트 상태, 짝 목록(이름·주소·상태), 승인 대기를 봅니다. 지문은 앞 16자만 보입니다 |
-| `dmctl peer invite \| add \| approve \| reject \| remove …` | 짝맞춤입니다. `invite [--addr <주소>]` 가 초대 코드를 만들고(10분, 한 번), 상대가 `add <코드> [--name <이름>]` 로 등록을 요청하면, 이쪽이 `approve <id> [--name <이름>]` 로 승인합니다. `reject <id>` 는 거절, `remove <노드>` 는 해제입니다. 상대에 닿지 못하면 사유 코드를 내고 1 로 끝납니다 |
+| `dmctl peer invite \| add \| approve \| reject \| remove …` | 짝맞춤입니다. `invite [--addr <주소>]` 가 초대 코드를 만들고(10분, 한 번), 상대가 `add <코드> [--name <이름>]` 로 등록을 요청하면, 이쪽이 `approve <id> [--name <이름>]` 로 승인합니다. `reject <id>` 는 거절, `remove <노드>` 는 해제입니다. `info <노드>` 는 상대의 이름·판·받는 명령·설치된 에이전트, `tools <노드> [--json]` 은 상대의 에이전트 도구 목록(`<노드>/<uuid>`)입니다. 상대에 닿지 못하면 사유 코드를 내고 1 로 끝납니다 |
 
 #### 에이전트 훅에서 부르는 것
 

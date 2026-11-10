@@ -48,6 +48,8 @@ func (s *Server) initPeer() {
 	s.peerID = id
 	s.peerClient = peer.NewClient(id)
 	s.pairing = peer.NewPairing(time.Now)
+	s.peerLimiter = peer.NewRateLimiter(time.Now)
+	s.peerSeen = peer.NewLastSeen()
 	s.peerLn = peer.NewListener(id, s.peerAdmission(), s.peerHandler())
 }
 
@@ -74,6 +76,9 @@ func (s *Server) peerHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST "+peerPairPath, s.peerPair)
 	mux.HandleFunc("POST "+peerConfirmPath, s.peerPairConfirm)
+	for op, fn := range peerCommands() {
+		mux.HandleFunc("POST "+peerPathPrefix+op, s.peerCmd(op, fn))
+	}
 	mux.HandleFunc(peerPathPrefix, func(w http.ResponseWriter, r *http.Request) {
 		peerFail(w, http.StatusNotFound, apierr.CodeNotFound, "unknown command")
 	})
@@ -109,7 +114,16 @@ func peerReadJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 
 // peerAudit 는 프로토콜 요청 한 줄이다. 본문·토큰은 남기지 않는다 (FR-PNW-94·95).
 func peerAudit(dir, peerName, op string, status int) {
-	dmlog.Infof(nil, "peer audit dir=%s peer=%s op=%s status=%d", dir, peerName, op, status)
+	peerAuditCmd(dir, peerName, op, peerCmdResult{status: status})
+}
+
+// peerAuditCmd 는 대상 uuid 와 본문 길이까지 남긴다 (FR-PNW-94).
+func peerAuditCmd(dir, peerName, op string, res peerCmdResult) {
+	if peerName == "" {
+		peerName = "-"
+	}
+	dmlog.Infof(nil, "peer audit dir=%s peer=%s op=%s target=%s len=%d status=%d",
+		dir, peerName, op, res.target, res.n, res.status)
 }
 
 // peerPair 는 B 쪽 등록 요청이다 (FR-PNW-23~25).

@@ -213,6 +213,7 @@ const dmctlMsgHelp = `dmctl msg — 같은 워크스페이스의 다른 에이�
 
 사용법:
   dmctl msg --to <uuid> [--from <uuid>] <메시지>
+  dmctl msg --to <노드>/<uuid> <메시지>       # 짝맞춘 다른 노드 (dmctl peer --help)
   dmctl msg --to <uuid> -                    # 본문을 stdin 에서 읽는다 (여러 줄)
   cat prompt.md | dmctl msg --to <uuid>
 
@@ -279,6 +280,10 @@ func runDmctlMsg(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	message, code := readBody(positional, stdin, stderr, "msg")
 	if code != 0 {
 		return code
+	}
+	// PEER_NETWORK_SRS FR-PNW-73: `<노드>/<uuid>` 는 짝맞춘 다른 노드다.
+	if strings.Contains(to, "/") {
+		return runDmctlMsgRemote(to, from, message, stdout, stderr)
 	}
 
 	status, body, err := httpPostJSON(baseURL()+"/api/tools/message",

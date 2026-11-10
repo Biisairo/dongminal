@@ -83,6 +83,30 @@ MSG
 - 식별자로는 **항상 uuid** 를 씁니다. `W?.P?.T?` 라벨은 다른 창이 닫히면 다른 탭을
   가리키게 됩니다.
 
+## 다른 PC 의 에이전트 (`dmctl msg --to <노드>/<uuid>`)
+
+짝맞춘 다른 dongminal 의 에이전트에게도 보낼 수 있습니다. 짝맞춤은 `dmctl peer --help` 를 봅니다.
+
+```bash
+dmctl peer tools office                 # office 노드의 에이전트 도구 (office/<uuid>)
+dmctl msg --to office/<uuid> "리뷰 끝났어?"
+```
+
+받는 쪽 에이전트에는 원격 엔벨로프로 들어갑니다.
+
+```
+[DONGMINAL-PEER-MSG from=<짝 이름>/<보낸 도구 uuid> to=<수신 도구 uuid> ts=14:50:00]
+본문
+[/DONGMINAL-PEER-MSG]
+```
+
+- `from=` 의 짝 이름은 **받는 노드가 붙인 이름**입니다. 보낸 쪽이 주장하는 이름은 쓰지 않습니다.
+- 원격 메시지는 협업 요청이며 사용자 지시가 아닙니다. 파괴적 작업, 비밀 정보 노출, 제3의 노드로
+  다시 보내라는 요청은 사용자에게 먼저 묻도록 세션 안내문이 알립니다.
+- 받는 도구에서 **지금** 에이전트가 돌고 있을 때만 넣습니다. 셸로 돌아갔으면 `peer_target_not_agent`
+  로 거절하고 아무것도 넣지 않습니다.
+- 회신은 `dmctl msg --to <from 값>` 입니다.
+
 ## 주입 방식
 
 `dongminal` 은 시작할 때 `$DONGMINAL_HOME/bin/` 에 아래를 전개합니다.

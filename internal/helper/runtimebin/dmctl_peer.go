@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 )
 
 // PEER_NETWORK_SRS FR-PNW-73·74 — 노드 간 통신의 dmctl 명령 (단계 2: 짝맞춤).
@@ -22,6 +24,9 @@ const dmctlPeerHelp = `dmctl peer — 노드 간 통신의 짝맞춤
   dmctl peer approve <요청 id> [--name <이름>]  승인 대기를 짝으로 저장한다
   dmctl peer reject <요청 id>                승인 대기를 거절한다
   dmctl peer remove <노드>                   짝을 해제한다
+  dmctl peer info <노드>                     상대 노드의 이름·판·받는 명령·설치된 에이전트
+  dmctl peer tools <노드> [--json]           상대 노드의 에이전트 도구 목록 (<노드>/<uuid>)
+  dmctl msg --to <노드>/<uuid> <메시지>       상대 노드의 에이전트에게 원격 엔벨로프로 보낸다
 
   상대에 닿지 못하면 사유 코드(peer_unreachable 등)를 내고 1 로 끝난다.
 `
@@ -72,11 +77,12 @@ type peersOut struct {
 		Error       string `json:"error"`
 	} `json:"node"`
 	Peers []struct {
-		Name  string `json:"name"`
-		Addr  string `json:"addr"`
-		Port  int    `json:"port"`
-		FP    string `json:"fp"`
-		State string `json:"state"`
+		Name     string `json:"name"`
+		Addr     string `json:"addr"`
+		Port     int    `json:"port"`
+		FP       string `json:"fp"`
+		State    string `json:"state"`
+		LastSeen string `json:"lastSeen"`
 	} `json:"peers"`
 	Pending []struct {
 		ID      string `json:"id"`
@@ -133,7 +139,11 @@ func printPeers(w io.Writer, raw []byte) {
 		if state == "" {
 			state = "paired"
 		}
-		fmt.Fprintf(w, "peer     name=%s  addr=%s  state=%s  fp=%s\n", p.Name, hostPort(p.Addr, p.Port), state, shortFP(p.FP))
+		seen := ""
+		if p.LastSeen != "" {
+			seen = "  lastSeen=" + p.LastSeen
+		}
+		fmt.Fprintf(w, "peer     name=%s  addr=%s  state=%s  fp=%s%s\n", p.Name, hostPort(p.Addr, p.Port), state, shortFP(p.FP), seen)
 	}
 	for _, p := range v.Pending {
 		fmt.Fprintf(w, "pending  id=%s  name=%s  addr=%s  fp=%s  expires=%s\n", p.ID, p.Name, hostPort(p.Addr, p.Port), shortFP(p.FP), p.Expires)
@@ -143,15 +153,16 @@ func printPeers(w io.Writer, raw []byte) {
 	}
 }
 
-// peerArgs 는 위치 인자 하나와 값 플래그들이다. 모르는 플래그·값 없는 플래그는 오류다.
+// peerArgs 는 위치 인자와 플래그들이다. 모르는 플래그·값이 빠진 플래그는 오류다.
 type peerArgs struct {
 	pos   []string
 	flags map[string]string
+	bools map[string]bool
 	help  bool
 }
 
-func parsePeerArgs(args []string, allowed ...string) (peerArgs, error) {
-	out := peerArgs{flags: map[string]string{}}
+func parsePeerArgs(args []string, allowed, bools []string) (peerArgs, error) {
+	out := peerArgs{flags: map[string]string{}, bools: map[string]bool{}}
 	for i := 0; i < len(args); i++ {
 		a := args[i]
 		if a == "-h" || a == "--help" {
@@ -163,6 +174,10 @@ func parsePeerArgs(args []string, allowed ...string) (peerArgs, error) {
 			continue
 		}
 		name := strings.TrimPrefix(a, "--")
+		if slices.Contains(bools, name) {
+			out.bools[name] = true
+			continue
+		}
 		ok := false
 		for _, f := range allowed {
 			ok = ok || f == name
@@ -195,7 +210,7 @@ func runDmctlPeer(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprint(stderr, dmctlPeerHelp)
 		return 2
 	}
-	pa, err := parsePeerArgs(rest, spec.flags...)
+	pa, err := parsePeerArgs(rest, spec.flags, spec.bools)
 	if pa.help {
 		fmt.Fprint(stdout, dmctlPeerHelp)
 		return 0
@@ -213,15 +228,18 @@ func runDmctlPeer(args []string, stdout, stderr io.Writer) int {
 type peerSub struct {
 	positional int
 	flags      []string
+	bools      []string
 	run        func(pa peerArgs, stdout, stderr io.Writer) int
 }
 
 var peerSubs = map[string]peerSub{
-	"invite":  {0, []string{"addr"}, peerInvite},
-	"add":     {1, []string{"name"}, peerAdd},
-	"approve": {1, []string{"name"}, peerApprove},
-	"reject":  {1, nil, peerReject},
-	"remove":  {1, nil, peerRemove},
+	"invite":  {0, []string{"addr"}, nil, peerInvite},
+	"add":     {1, []string{"name"}, nil, peerAdd},
+	"approve": {1, []string{"name"}, nil, peerApprove},
+	"reject":  {1, nil, nil, peerReject},
+	"remove":  {1, nil, nil, peerRemove},
+	"info":    {1, nil, nil, peerInfo},
+	"tools":   {1, nil, []string{"json"}, peerTools},
 }
 
 func peerInvite(pa peerArgs, stdout, stderr io.Writer) int {
@@ -325,4 +343,110 @@ func printPeerRefusal(w io.Writer, status int, raw []byte) {
 		return
 	}
 	fmt.Fprintf(w, "dmctl: status %d: %s\n", status, raw)
+}
+
+// clean 은 상대 노드가 보낸 글자에서 제어 문자를 지운다 — 터미널에 찍히기 때문이다.
+func clean(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return -1
+		}
+		return r
+	}, s)
+}
+
+// peerCall 은 짝에 프로토콜 명령 하나를 보낸다 (POST /api/peers/call).
+func peerCall(node, op, from string, args map[string]any, stderr io.Writer) ([]byte, int) {
+	body := map[string]any{"peer": node, "op": op, "args": args}
+	if from != "" {
+		body["from"] = from
+	}
+	return peerAPI("POST", "/api/peers/call", body, stderr)
+}
+
+func peerInfo(pa peerArgs, stdout, stderr io.Writer) int {
+	raw, rc := peerCall(pa.pos[0], "node.info", "", nil, stderr)
+	if rc != 0 {
+		return rc
+	}
+	var v struct {
+		Name        string   `json:"name"`
+		Version     string   `json:"version"`
+		Proto       int      `json:"proto"`
+		Commands    []string `json:"commands"`
+		Agents      []string `json:"agents"`
+		AllowedDirs []string `json:"allowedDirs"`
+	}
+	_ = json.Unmarshal(raw, &v)
+	join := func(xs []string) string {
+		out := make([]string, len(xs))
+		for i, x := range xs {
+			out[i] = clean(x)
+		}
+		return strings.Join(out, ",")
+	}
+	fmt.Fprintf(stdout, "name=%s  version=%s  proto=%d\ncommands=%s\nagents=%s\nallowedDirs=%s\n",
+		clean(v.Name), clean(v.Version), v.Proto, join(v.Commands), join(v.Agents), join(v.AllowedDirs))
+	return 0
+}
+
+func peerTools(pa peerArgs, stdout, stderr io.Writer) int {
+	node := pa.pos[0]
+	raw, rc := peerCall(node, "agents.list", "", nil, stderr)
+	if rc != 0 {
+		return rc
+	}
+	if pa.bools["json"] {
+		var buf bytes.Buffer
+		if json.Compact(&buf, raw) != nil {
+			buf.Reset()
+			buf.WriteString(clean(string(raw)))
+		}
+		fmt.Fprintln(stdout, buf.String())
+		return 0
+	}
+	var v struct {
+		Agents []struct {
+			ToolID       string `json:"toolId"`
+			Agent        string `json:"agent"`
+			Window       string `json:"window"`
+			Tab          string `json:"tab"`
+			State        string `json:"state"`
+			Cwd          string `json:"cwd"`
+			SpawnedByYou bool   `json:"spawnedByYou"`
+		} `json:"agents"`
+	}
+	_ = json.Unmarshal(raw, &v)
+	for _, a := range v.Agents {
+		mine := ""
+		if a.SpawnedByYou {
+			mine = "  spawnedByYou"
+		}
+		fmt.Fprintf(stdout, "%s/%s  agent=%s  state=%s  window=%q  tab=%q  cwd=%s%s\n",
+			node, clean(a.ToolID), clean(a.Agent), clean(a.State), clean(a.Window), clean(a.Tab), clean(a.Cwd), mine)
+	}
+	if len(v.Agents) == 0 {
+		fmt.Fprintf(stderr, "%s 에 에이전트 도구가 없습니다.\n", node)
+	}
+	return 0
+}
+
+// runDmctlMsgRemote 는 `--to <노드>/<uuid>` 의 갈래다 (FR-PNW-73). 보낸 도구는 서버가
+// 지금 도구로 해석해 채운다 (FR-PNW-72).
+func runDmctlMsgRemote(to, from, message string, stdout, stderr io.Writer) int {
+	node, uuid, _ := strings.Cut(to, "/")
+	if node == "" || uuid == "" {
+		fmt.Fprintln(stderr, "usage: dmctl msg --to <노드>/<uuid> <메시지>")
+		return 2
+	}
+	raw, rc := peerCall(node, "message.send", from, map[string]any{"to": uuid, "message": message}, stderr)
+	if rc != 0 {
+		return rc
+	}
+	var v struct {
+		Len int `json:"len"`
+	}
+	_ = json.Unmarshal(raw, &v)
+	fmt.Fprintf(stdout, "원격 메시지 전송 완료: → %s/%s, 본문 %d 자\n", node, uuid, v.Len)
+	return 0
 }

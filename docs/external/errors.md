@@ -112,9 +112,13 @@
 | `peer_not_found` | 그 이름의 짝이 없습니다. | dmctl peers 로 짝 이름을 확인하세요. |
 | `peer_pending_not_found` | 그 승인 대기가 없습니다 — 만료됐거나 이미 처리됐습니다. | dmctl peers 로 지금 목록을 보세요. 승인 대기는 10분 뒤 사라집니다. |
 | `peer_port_closed` | 노드 포트가 열려 있지 않아 초대를 만들 수 없습니다. | 노드 포트를 켜고(설정 ▸ Peers 또는 PUT /api/peers/node), 열지 못한 사유가 있으면 먼저 해결하세요. |
+| `peer_rate_limited` | 이 짝이 1분 동안 보낼 수 있는 요청 수(60)를 넘었습니다. | 잠시 뒤 다시 보내세요. 반복 호출이라면 간격을 두세요. |
 | `peer_rejected` | 상대 노드가 이 노드를 받지 않았습니다. | 상대가 짝을 해제했을 수 있습니다. 필요하면 짝을 다시 맺으세요. |
+| `peer_target_not_agent` | 그 도구에서 지금 에이전트가 돌고 있지 않습니다. 아무것도 넣지 않았습니다. | 에이전트가 끝났을 수 있습니다. dmctl peer tools <노드> 로 다시 확인하세요. |
+| `peer_target_not_found` | 상대 노드에 그 도구가 없습니다. | dmctl peer tools <노드> 로 지금 목록을 다시 받으세요. |
 | `peer_token_invalid` | 초대 토큰이 맞지 않습니다. | 가장 최근에 만든 초대 코드인지 확인하세요. 5번 틀리면 그 초대는 폐기됩니다. |
 | `peer_unavailable` | 이 서버에는 노드 기능이 서지 않았습니다 — 노드 인증서를 읽지 못했습니다. | server.log 의 peer identity 줄을 보세요. node-cert.pem·node-key.pem 이 망가졌다면 둘 다 지우고 다시 시작하면 새 신원이 생깁니다(짝은 다시 맺어야 합니다). |
+| `peer_unknown_op` | 모르는 프로토콜 명령입니다. | node.info 의 commands 로 상대가 받는 명령을 확인하세요. 원격으로는 정해진 명령만 오갑니다. |
 | `peer_unreachable` | 상대 노드에 닿지 못했습니다. | 상대의 노드 포트가 켜져 있는지, 주소·포트가 맞는지, 방화벽이 막지 않는지 확인하세요. 큐·재시도는 없습니다. |
 | `permission_denied` | 파일 권한이 이 동작을 막았습니다. | 그 파일과 상위 폴더의 권한을 보세요. |
 | `preflight_blocked` | 사전 점검이 이 동작을 막았습니다. | 본문의 사유를 읽고 그 조건을 먼저 해소하세요. |
@@ -160,4 +164,4 @@
 | `workspace_unavailable` | 워크스페이스 계층이 아직 서지 않았습니다. | 잠시 뒤 다시 시도하세요. |
 | `worktree_exists` | 그 자리에 이미 worktree 가 있습니다. | 다른 경로를 고르거나 기존 것을 여세요. |
 
-총 **126개**.
+총 **130개**.

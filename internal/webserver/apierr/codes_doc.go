@@ -188,4 +188,8 @@ var CodeDoc = map[string]Doc{
 	CodePeerNameTaken:      {"그 이름의 짝이 이미 있습니다.", "다른 이름(--name)을 정하세요."},
 	CodePeerPendingMissing: {"그 승인 대기가 없습니다 — 만료됐거나 이미 처리됐습니다.", "dmctl peers 로 지금 목록을 보세요. 승인 대기는 10분 뒤 사라집니다."},
 	CodePeerNotFound:       {"그 이름의 짝이 없습니다.", "dmctl peers 로 짝 이름을 확인하세요."},
+	CodePeerUnknownOp:      {"모르는 프로토콜 명령입니다.", "node.info 의 commands 로 상대가 받는 명령을 확인하세요. 원격으로는 정해진 명령만 오갑니다."},
+	CodePeerRateLimited:    {"이 짝이 1분 동안 보낼 수 있는 요청 수(60)를 넘었습니다.", "잠시 뒤 다시 보내세요. 반복 호출이라면 간격을 두세요."},
+	CodePeerTargetMissing:  {"상대 노드에 그 도구가 없습니다.", "dmctl peer tools <노드> 로 지금 목록을 다시 받으세요."},
+	CodePeerTargetNotAgent: {"그 도구에서 지금 에이전트가 돌고 있지 않습니다. 아무것도 넣지 않았습니다.", "에이전트가 끝났을 수 있습니다. dmctl peer tools <노드> 로 다시 확인하세요."},
 }

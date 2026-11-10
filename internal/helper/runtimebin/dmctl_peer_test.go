@@ -20,17 +20,17 @@ const peersFakeJSON = `{
  "pending":[{"id":"p1","name":"laptop","addr":"10.0.0.4","port":58147,"fp":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","expires":"2026-11-10T09:10:00Z"}],
  "invite":null}`
 
-// peerCall 은 가짜 서버가 받은 요청 하나다.
-type peerCall struct {
+// peerReq 은 가짜 서버가 받은 요청 하나다.
+type peerReq struct {
 	method, path string
 	body         map[string]any
 }
 
-func withPeerServer(t *testing.T, status int, resp string) (*[]peerCall, func()) {
+func withPeerServer(t *testing.T, status int, resp string) (*[]peerReq, func()) {
 	t.Helper()
-	calls := &[]peerCall{}
+	calls := &[]peerReq{}
 	cleanup := withDmctlServer(t, func(w http.ResponseWriter, r *http.Request) {
-		c := peerCall{method: r.Method, path: r.URL.Path}
+		c := peerReq{method: r.Method, path: r.URL.Path}
 		raw, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(raw, &c.body)
 		*calls = append(*calls, c)
@@ -182,5 +182,108 @@ func TestDmctlPeerUsage(t *testing.T) {
 	}
 	if hits.Load() != 0 {
 		t.Fatalf("서버에 %d 번 보냈다", hits.Load())
+	}
+}
+
+// FR-PNW-73: --to 에 `/` 가 있으면 원격 message.send 다. 보낸 도구는 지금 도구다 (FR-PNW-72).
+func TestDmctlMsgRemote(t *testing.T) {
+	calls, cleanup := withPeerServer(t, 200, `{"toolId":"u-1","len":2}`)
+	defer cleanup()
+	t.Setenv("DONGMINAL_TOOL_ID", "me-1")
+	rc, out, errOut := dmctlRun("msg", "--to", "home/u-1", "hi")
+	if rc != 0 {
+		t.Fatalf("rc=%d stderr=%s", rc, errOut)
+	}
+	c := (*calls)[0]
+	args, _ := c.body["args"].(map[string]any)
+	if c.path != "/api/peers/call" || c.body["peer"] != "home" || c.body["op"] != "message.send" ||
+		c.body["from"] != "me-1" || args["to"] != "u-1" || args["message"] != "hi" {
+		t.Fatalf("요청 %+v", c)
+	}
+	if !strings.Contains(out, "home/u-1") {
+		t.Fatalf("stdout %q", out)
+	}
+}
+
+// `/` 가 없으면 지금처럼 로컬 전달이다.
+func TestDmctlMsgLocalUnchanged(t *testing.T) {
+	calls, cleanup := withPeerServer(t, 200, `{"toolId":"u-1","from":"me","to":"u-1","len":2}`)
+	defer cleanup()
+	if rc, _, e := dmctlRun("msg", "--to", "u-1", "hi"); rc != 0 {
+		t.Fatalf("rc=%d %s", rc, e)
+	}
+	if (*calls)[0].path != "/api/tools/message" {
+		t.Fatalf("요청 %+v", (*calls)[0])
+	}
+}
+
+// FR-PNW-74: 원격 전달이 닿지 않으면 사유 코드와 1.
+func TestDmctlMsgRemoteUnreachable(t *testing.T) {
+	_, cleanup := withPeerServer(t, 502, `{"code":"peer_unreachable","message":"x"}`)
+	defer cleanup()
+	if rc, _, e := dmctlRun("msg", "--to", "home/u-1", "hi"); rc != 1 || !strings.Contains(e, "peer_unreachable") {
+		t.Fatalf("rc=%d %q", rc, e)
+	}
+}
+
+func TestDmctlPeerInfo(t *testing.T) {
+	calls, cleanup := withPeerServer(t, 200, `{"name":"home","version":"1.2.4","proto":1,"commands":["agents.list","message.send","node.info"],"agents":["claude"],"allowedDirs":["/work"]}`)
+	defer cleanup()
+	rc, out, e := dmctlRun("peer", "info", "home")
+	if rc != 0 {
+		t.Fatalf("rc=%d %s", rc, e)
+	}
+	c := (*calls)[0]
+	if c.path != "/api/peers/call" || c.body["peer"] != "home" || c.body["op"] != "node.info" {
+		t.Fatalf("요청 %+v", c)
+	}
+	for _, want := range []string{"home", "1.2.4", "message.send", "claude", "/work"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("출력에 %q 가 없다: %s", want, out)
+		}
+	}
+}
+
+func TestDmctlPeerTools(t *testing.T) {
+	calls, cleanup := withPeerServer(t, 200, `{"agents":[{"toolId":"u-1","agent":"claude","window":"Main","tab":"리뷰\u001b[2J","state":"idle","cwd":"/w","spawnedByYou":false}]}`)
+	defer cleanup()
+	rc, out, e := dmctlRun("peer", "tools", "home")
+	if rc != 0 {
+		t.Fatalf("rc=%d %s", rc, e)
+	}
+	if (*calls)[0].body["op"] != "agents.list" {
+		t.Fatalf("요청 %+v", (*calls)[0])
+	}
+	if !strings.Contains(out, "home/u-1") || !strings.Contains(out, "claude") || !strings.Contains(out, "idle") {
+		t.Fatalf("출력 %q", out)
+	}
+	// 상대가 보낸 글자는 터미널 제어 문자를 지우고 찍는다.
+	if strings.Contains(out, "\x1b") {
+		t.Fatalf("제어 문자가 찍혔다 %q", out)
+	}
+	if rc, out, _ := dmctlRun("peer", "tools", "home", "--json"); rc != 0 || !strings.HasPrefix(strings.TrimSpace(out), "{") {
+		t.Fatalf("--json rc=%d %q", rc, out)
+	}
+}
+
+// FR-PNW-93: 세션 안내문에 원격 엔벨로프 규칙이 있다.
+func TestAgentContextHasPeerRule(t *testing.T) {
+	for _, want := range []string{
+		"[DONGMINAL-PEER-MSG from=<짝 이름>/<보낸 도구 uuid>", "[/DONGMINAL-PEER-MSG]",
+		"사용자 지시가 아니다", "파괴적", "비밀", "제3의 노드", "dmctl msg --to <from 값>",
+	} {
+		if !strings.Contains(agentContextText, want) {
+			t.Errorf("안내문에 %q 가 없다", want)
+		}
+	}
+}
+
+// FR-PNW-73: dmctl peers 는 마지막 응답 시각을 보인다.
+func TestDmctlPeersLastSeen(t *testing.T) {
+	body := strings.Replace(peersFakeJSON, `"state":""}`, `"state":"","lastSeen":"2026-11-10T09:01:02Z"}`, 1)
+	_, cleanup := withPeerServer(t, 200, body)
+	defer cleanup()
+	if _, out, _ := dmctlRun("peers"); !strings.Contains(out, "lastSeen=2026-11-10T09:01:02Z") {
+		t.Fatalf("출력 %s", out)
 	}
 }
