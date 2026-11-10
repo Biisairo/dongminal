@@ -65,7 +65,8 @@ type Usage struct {
 	RateLimits    map[string]RateWindow `json:"rateLimits,omitempty" sl:"rate_limits"`
 }
 
-// 한도 창의 이름은 판마다 늘 수 있다(`five_hour`·`seven_day`…). 이름 모양만 거른다.
+// 한도 창의 이름은 판마다 늘 수 있다(`five_hour`·`seven_day`…). 이름 모양만 거른다. 이름은 필드가
+// 아니라 데이터이므로 입력 그대로 싣는다 — 한도 순서와 화면 이름이 그 이름을 찾는다.
 var rateName = regexp.MustCompile(`^[a-z0-9_]{1,32}$`)
 
 // FromInput 은 statusLine 입력에서 허용 목록의 값만 꺼낸다. 값이 null·없음·다른 타입이면 그
@@ -113,7 +114,7 @@ func fillField(f reflect.Value, v any) bool {
 			}
 			ev := reflect.New(f.Type().Elem()).Elem()
 			if fill(ev, wm) {
-				out.SetMapIndex(reflect.ValueOf(camel(name)), ev)
+				out.SetMapIndex(reflect.ValueOf(name), ev)
 			}
 		}
 		if out.Len() == 0 {
@@ -160,14 +161,4 @@ func lookup(m map[string]any, path string) (any, bool) {
 		}
 	}
 	return cur, cur != nil
-}
-
-func camel(s string) string {
-	parts := strings.Split(s, "_")
-	for i := 1; i < len(parts); i++ {
-		if parts[i] != "" {
-			parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
-		}
-	}
-	return strings.Join(parts, "")
 }

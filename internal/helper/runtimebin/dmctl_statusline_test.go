@@ -44,10 +44,10 @@ func TestStatuslineUsage_Allowlist(t *testing.T) {
 		t.Errorf("currentUsage=%v", cu)
 	}
 	rl, _ := u["rateLimits"].(map[string]any)
-	fh, _ := rl["fiveHour"].(map[string]any)
-	sd, _ := rl["sevenDay"].(map[string]any)
+	fh, _ := rl["five_hour"].(map[string]any)
+	sd, _ := rl["seven_day"].(map[string]any)
 	if fh["usedPct"] != 12.5 || fh["resetsAt"] != float64(1793860000) {
-		t.Errorf("fiveHour=%v", fh)
+		t.Errorf("five_hour=%v", fh)
 	}
 	if _, ok := sd["resetsAt"]; ok {
 		t.Errorf("null 은 싣지 않는다: %v", sd)

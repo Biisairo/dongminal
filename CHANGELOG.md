@@ -42,6 +42,10 @@
   자동 제안이 사용자의 하네스나 설정과 부딪칠 수 있기 때문입니다. 맥락 사용률은 이전처럼 모으므로
   세션은 자기 사용량을 알 수 있습니다. 제안을 받으려면 Settings ▸ Terminal 에서 켭니다.
   issue-tree 노드의 `issueTreeMigration` 은 기본 켬 그대로입니다.
+- **statusLine 사용량의 한도 창 이름을 입력 그대로 둡니다.** `dmctl status` 의 `usage.rateLimits` 키가
+  `fiveHour`·`sevenDay` 에서 `five_hour`·`seven_day` 로 바뀝니다. 이전에는 창 이름까지 camelCase 로 바꿔,
+  Activity 의 Usage 바닥이 창 이름을 찾지 못하고 "FiveHour" 처럼 보였습니다. 창 이름은 필드가 아니라
+  데이터이므로 바꾸지 않습니다. 다른 필드 이름(`usedPct`·`resetsAt` 등)은 그대로입니다.
 
 ## [1.2.4] — 2026-11-07
 

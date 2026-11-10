@@ -58,7 +58,7 @@
 |---|---|
 | R-SLU-1 | 허용 목록은 `internal/shared/statusline` 의 `Usage` 타입 **하나**로 선언한다. 필드마다 `json` 태그(내보내는 이름)와 `sl` 태그(statusLine 입력의 이름)를 둔다 |
 | R-SLU-2 | `statusline.FromInput(raw)` 가 입력에서 `Usage` 를 만든다. 입력 경로는 `sl` 태그에서 얻는다. 값이 `null` 이거나 없거나 **타입이 다르면** 그 필드를 싣지 않는다. 채운 값이 하나도 없으면 nil 이다 |
-| R-SLU-3 | `rate_limits` 는 창 이름이 `^[a-z0-9_]{1,32}$` 인 것만 싣고, 이름을 camelCase 로 바꾼다(`five_hour` → `fiveHour`). 지금과 같다 |
+| R-SLU-3 | `rate_limits` 는 창 이름이 `^[a-z0-9_]{1,32}$` 인 것만 싣고, 이름은 입력 그대로 싣는다(`five_hour`). 2026-11-10 개정 — 이전에는 camelCase 로 바꿔(`fiveHour`) 한도 순서·화면 이름이 창을 찾지 못했다 |
 | R-SLU-4 | `dmctl statusline` 은 `FromInput` 의 결과를 보낸다. 서버는 같은 타입으로 받는다(`toolUsage` 는 `Usage` 를 품고 `observedAt` 만 더한다) |
 | R-SLU-5 | 보내는 JSON 과 `dmctl status --json` 의 `usage` 모양은 바뀌지 않는다. TC-SLP-4 · TC-SLP-7 이 그대로 통과한다 |
 | R-SLU-6 | `Usage` 의 끝 필드 가운데 `sl` 태그가 없는 것이 있으면 시험이 실패한다. 실측 표본 하나로 모든 끝 필드가 채워지는지 시험한다 |

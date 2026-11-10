@@ -260,6 +260,29 @@ func TestRateLimits_ViewAndSurvivesPrune(t *testing.T) {
 	}
 }
 
+// 실제 statusLine 입력이 허용 목록을 거쳐 한도에 닿아도 창 이름이 입력 그대로다 —
+// 위 시험은 이름을 직접 넣어 허용 목록의 이름 변환을 지나지 않았다.
+func TestRateLimits_NamesFromStatusLineInput(t *testing.T) {
+	s := activityUsageServer(t)
+	u := statusline.FromInput([]byte(`{"rate_limits":{"seven_day_opus":{"used_percentage":5},
+"seven_day":{"used_percentage":21},"five_hour":{"used_percentage":70}}}`))
+	blob, _ := json.Marshal(map[string]any{"toolId": "p1", "usage": u})
+	if code := postUsage(t, s, string(blob)); code != http.StatusOK {
+		t.Fatalf("code=%d", code)
+	}
+	v := s.rateLimits.view(time.Now())
+	if len(v) != 1 {
+		t.Fatalf("limits=%+v", v)
+	}
+	names := []string{}
+	for _, x := range v[0].Windows {
+		names = append(names, x.Name)
+	}
+	if strings.Join(names, ",") != "five_hour,seven_day,seven_day_opus" {
+		t.Fatalf("창 이름·순서=%v", names)
+	}
+}
+
 func TestLimitLevel_Boundaries(t *testing.T) {
 	for pct, want := range map[float64]string{69: "", 70: "warn", 89: "warn", 90: "critical", 100: "critical"} {
 		if got := limitLevel(pct); got != want {

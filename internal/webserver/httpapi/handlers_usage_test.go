@@ -22,7 +22,7 @@ const usageBody = `{"toolId":"p1","usage":{"sessionId":"s1","version":"2.1.318",
 "cost":{"totalCostUsd":0.5},
 "contextWindow":{"windowTokens":1000000,"usedPct":6,"remainingPct":94,
 "currentUsage":{"inputTokens":6,"outputTokens":8,"cacheCreationInputTokens":62146,"cacheReadInputTokens":0}},
-"rateLimits":{"fiveHour":{"usedPct":12.5,"resetsAt":1793860000}},
+"rateLimits":{"five_hour":{"usedPct":12.5,"resetsAt":1793860000}},
 "transcriptPath":"/Users/x/secret.jsonl"}}`
 
 func TestApiToolUsage_StatusCarriesUsageAndContext(t *testing.T) {
@@ -43,7 +43,7 @@ func TestApiToolUsage_StatusCarriesUsageAndContext(t *testing.T) {
 	}
 	u, _ := out["usage"].(map[string]any)
 	rl, _ := u["rateLimits"].(map[string]any)
-	if u["effort"] != "medium" || rl["fiveHour"] == nil {
+	if u["effort"] != "medium" || rl["five_hour"] == nil {
 		t.Fatalf("usage=%v", out["usage"])
 	}
 	blob, _ := json.Marshal(out)

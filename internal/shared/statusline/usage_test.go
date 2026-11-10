@@ -52,7 +52,7 @@ func TestFromInput_FillsEveryLeaf(t *testing.T) {
 		}
 	}
 	walk(reflect.ValueOf(*u), "Usage")
-	if u.RateLimits["fiveHour"].ResetsAt == nil {
+	if u.RateLimits["five_hour"].ResetsAt == nil {
 		t.Errorf("rateLimits=%+v", u.RateLimits)
 	}
 }
@@ -60,13 +60,13 @@ func TestFromInput_FillsEveryLeaf(t *testing.T) {
 func TestFromInput_WireShape(t *testing.T) {
 	blob, _ := json.Marshal(FromInput([]byte(sample)))
 	s := string(blob)
-	for _, banned := range []string{"transcript", "/Users/x", "PROJ", "workspace", "secret_new_field", "leak?", "Bad-Name", "badName"} {
+	for _, banned := range []string{"transcript", "/Users/x", "PROJ", "workspace", "secret_new_field", "leak?", "Bad-Name", "badName", "fiveHour"} {
 		if strings.Contains(s, banned) {
 			t.Errorf("허용 목록 밖의 값 %q 이 나갔다: %s", banned, s)
 		}
 	}
 	for _, want := range []string{`"contextWindow":{`, `"windowTokens":1000000`, `"cacheCreationInputTokens":62146`,
-		`"rateLimits":{"fiveHour":{"usedPct":12.5,"resetsAt":1793860000}}`, `"model":{"id":"claude-opus-5-5","displayName":"Opus 5.5"}`,
+		`"rateLimits":{"five_hour":{"usedPct":12.5,"resetsAt":1793860000}}`, `"model":{"id":"claude-opus-5-5","displayName":"Opus 5.5"}`,
 		`"effort":"medium"`, `"thinking":true`, `"exceeds200k":false`, `"totalCostUsd":0.5`} {
 		if !strings.Contains(s, want) {
 			t.Errorf("%s 가 없다: %s", want, s)
