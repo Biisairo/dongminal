@@ -16,9 +16,8 @@ import (
 
 // 짝맞춤의 시간·횟수 (FR-PNW-20·24·25).
 const (
-	InviteTTL        = 10 * time.Minute
-	PendingTTL       = 10 * time.Minute
-	MaxTokenFailures = 5
+	InviteTTL  = 10 * time.Minute
+	PendingTTL = 10 * time.Minute
 	// InvitePrefix 는 초대 코드의 접두어다 (FR-PNW-21).
 	InvitePrefix = "dmpeer1:"
 	tokenBytes   = 16
@@ -44,9 +43,8 @@ type Pending struct {
 }
 
 type invite struct {
-	token    string
-	expires  time.Time
-	failures int
+	token   string
+	expires time.Time
 }
 
 // Pairing 은 초대와 승인 대기다. 메모리에만 둔다 — 둘 다 10분짜리다.
@@ -103,8 +101,8 @@ func (p *Pairing) InviteExpires() (time.Time, bool) {
 	return inv.expires, true
 }
 
-// Consume 은 토큰을 대조해 맞으면 초대를 쓴다. 틀린 토큰이 MaxTokenFailures 번
-// 오면 초대를 폐기한다 (FR-PNW-24).
+// Consume 은 토큰을 대조해 맞으면 초대를 쓴다. 틀린 토큰은 그 요청만 거절한다 —
+// 128비트 토큰은 10분 안에 맞힐 수 없고, 횟수로 폐기하면 남이 초대를 없앨 수 있다 (FR-PNW-24, I-39).
 func (p *Pairing) Consume(token string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -113,10 +111,6 @@ func (p *Pairing) Consume(token string) error {
 		return ErrNoInvite
 	}
 	if subtle.ConstantTimeCompare([]byte(token), []byte(inv.token)) != 1 {
-		inv.failures++
-		if inv.failures >= MaxTokenFailures {
-			p.invite = nil
-		}
 		return ErrBadToken
 	}
 	p.invite = nil

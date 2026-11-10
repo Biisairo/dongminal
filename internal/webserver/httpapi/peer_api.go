@@ -287,7 +287,7 @@ func (s *Server) apiPeersApprove(w http.ResponseWriter, r *http.Request) {
 		peerFail(w, http.StatusBadRequest, apierr.CodePeerConfigInvalid, err.Error())
 		return
 	}
-	out := map[string]any{"name": name, "confirmed": true}
+	out := map[string]any{"name": name, "fp": e.Fingerprint, "confirmed": true}
 	tgt := peer.Target{Addr: e.Addr, Port: e.Port, Fingerprint: e.Fingerprint}
 	if err := s.peerClient.Call(r.Context(), tgt, peerConfirmPath, map[string]any{}, nil); err != nil {
 		out["confirmed"] = false

@@ -43,6 +43,25 @@ async function aAdds(code: string) {
   expect(r.status(), await r.text()).toBe(200);
 }
 
+/** 화면을 거치지 않고 B 가 A 를 name 으로 짝 맺는다. 앞 테스트의 상태에 기대지 않기 위해서다. */
+async function pairViaApi(baseURL: string, name: string) {
+  const b = await pwRequest.newContext({ baseURL });
+  let r = await b.post('/api/peers/invite', { data: {} });
+  expect(r.status(), await r.text()).toBe(200);
+  await aAdds((await r.json()).code);
+  const pend = (await (await b.get('/api/peers/pending')).json()).pending;
+  r = await b.post('/api/peers/approve', { data: { id: pend[0].id, name } });
+  expect(r.status(), await r.text()).toBe(200);
+  await b.dispose();
+}
+
+/** B 에서 방송(peers_changed)을 하나 일으킨다. 초대를 만들면 서버가 민다. */
+async function poke(baseURL: string) {
+  const b = await pwRequest.newContext({ baseURL });
+  expect((await b.post('/api/peers/invite', { data: {} })).status()).toBe(200);
+  await b.dispose();
+}
+
 test.describe.serial('설정 ▸ Peers', () => {
   test.beforeAll(async ({ dmServer }) => {
     const aPort = dmServer.port + A_UI_OFFSET;
@@ -87,8 +106,11 @@ test.describe.serial('설정 ▸ Peers', () => {
     await expect(page.locator('#pn-name')).toHaveValue('node-b');
     await expect(page.locator('#pn-port-state')).toContainText('127.0.0.1');
     await expect(page.locator('#pn-fp')).toHaveText(/^[0-9a-f]{16}$/);
-    await expect(page.locator('#pn-pending')).not.toBeEmpty();
-    await expect(page.locator('#pn-peers')).not.toBeEmpty();
+    // 비어 있으면 "없음" 한 줄만 있다.
+    await expect(page.locator('#pn-pending .pn-item')).toHaveCount(0);
+    await expect(page.locator('#pn-pending .sbx-status')).toHaveCount(1);
+    await expect(page.locator('#pn-peers .pn-item')).toHaveCount(0);
+    await expect(page.locator('#pn-peers .sbx-status')).toHaveCount(1);
   });
 
   // FR-PNW-80 초대 · FR-PNW-81 주의 알림 · 거절.
@@ -118,7 +140,7 @@ test.describe.serial('설정 ▸ Peers', () => {
   });
 
   // FR-PNW-30 · FR-PNW-82: 이름이 겹치면 다른 이름으로 승인하고, 등록 알림이 남는다.
-  test('이름이 겹치면 다른 이름으로 승인하고 "등록됨" 알림이 남는다', async ({ page }) => {
+  test('이름이 겹치면 다른 이름으로 승인하고 "등록됨" 알림이 남는다', async ({ page, dmServer }) => {
     await waitForInit(page);
     await openPeersTab(page);
     await aAdds(await makeInvite(page));
@@ -132,11 +154,21 @@ test.describe.serial('설정 ▸ Peers', () => {
       json: { code: 'peer_name_taken', message: 'node-a' },
     }), { times: 1 });
     await row.locator('.pn-approve').click();
+    // L-10: 처음 승인은 지문 대조 창을 거친다.
+    const confirm = page.locator('.pn-approve-confirm');
+    await expect(confirm.locator('.pn-fp-big')).toHaveText(aFp.slice(0, 16));
+    await confirm.locator('.ui-btn-primary').click();
     const rename = row.locator('.pn-rename');
     await expect(rename).toBeVisible();
     await expect(page.locator('#pn-pending-status')).toHaveClass(/err/);
     await rename.fill('laptop');
+    // L-13: 방송이 와도 고치던 이름 칸은 남는다.
+    await poke(dmServer.baseURL);
+    await expect(page.locator('#pn-inv-remain')).toHaveText(/^\d+:\d\d$/);
+    await expect(rename).toHaveValue('laptop');
+    // 이름만 바꿔 다시 승인할 때는 묻지 않는다.
     await row.locator('.pn-approve').click();
+    await expect(confirm).toHaveCount(0);
 
     await expect(page.locator('.toast.ok', { hasText: 'laptop' })).toBeVisible();
     await expect(row).toHaveCount(0);
@@ -150,11 +182,22 @@ test.describe.serial('설정 ▸ Peers', () => {
   });
 
   // FR-PNW-80 짝: 주소 수정(FR-PNW-32)과 해제(FR-PNW-31).
-  test('짝의 주소를 고치고 해제한다', async ({ page }) => {
+  test('짝의 주소를 고치고 해제한다', async ({ page, dmServer }) => {
+    await pairViaApi(dmServer.baseURL, 'desk');
     await waitForInit(page);
     await openPeersTab(page);
-    const peer = page.locator('#pn-peers .pn-item[data-name="laptop"]');
+    const peer = page.locator('#pn-peers .pn-item[data-name="desk"]');
     await expect(peer).toBeVisible();
+    // M-7: 고치던 줄은 방송에 덮이지 않고, 취소하면 원래 값으로 돌아온다.
+    await peer.locator('.pn-edit').click();
+    await peer.locator('.pn-addr').fill('10.9.9.9');
+    await poke(dmServer.baseURL);
+    await expect(page.locator('#pn-inv-remain')).toHaveText(/^\d+:\d\d$/);
+    await expect(peer.locator('.pn-addr')).toHaveValue('10.9.9.9');
+    await peer.locator('.pn-edit-cancel').click();
+    await expect(peer.locator('.pn-addr')).toBeHidden();
+    await expect(peer.locator('.pn-edit-cancel')).toBeHidden();
+    await expect(peer.locator('.pn-who')).toContainText('127.0.0.1');
     await peer.locator('.pn-edit').click();
     await peer.locator('.pn-addr').fill('127.0.0.2');
     await peer.locator('.pn-edit').click();

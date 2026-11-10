@@ -65,26 +65,40 @@ Object.assign(App.prototype, {
     document.getElementById('pn-fp').textContent=peerFp16(n.fingerprint);
     this._pnInvitePaint();
     this._pnPendingPaint(v.pending||[]);
-    // 주소를 고치던 줄이 있으면 덮지 않는다 — 다음 방송이나 탭 열기가 그린다.
-    if(!document.querySelector('#pn-peers .pn-addr:not([hidden])')) this._pnPeersPaint(v.peers||[]);
+    this._pnPeersPaint(v.peers||[]);
+  },
+
+  /** 고치던 줄(열린 입력 칸이 있는 줄)은 그대로 두고 나머지만 새로 만든다. force 면 전부 새로 만든다. */
+  _pnKeepEditing(box,key,open,force){
+    const keep=new Map();
+    if(!force){
+      for(const row of box.querySelectorAll('.pn-item')){
+        if(row.querySelector(open)) keep.set(row.dataset[key],row);
+      }
+    }
+    return keep;
   },
 
   _pnInvitePaint(){
     const box=document.getElementById('pn-inv-box');
     if(!box) return;
     const inv=this._peers&&this._peers.invite;
-    const left=inv?peerRemain(inv.expires,Date.now()):'';
+    const now=Date.now();
+    const left=inv?peerRemain(inv.expires,now):'';
     const mine=this._pnInvite;
-    const codeOk=!!(left&&mine&&Date.parse(mine.expires)===Date.parse(inv.expires));
-    if(!codeOk) this._pnInvite=null;
+    // 내 코드는 그 만료가 지나거나 서버에 더 새 초대가 있을 때만 버린다. 늦게 도착한 읽기가
+    // "초대 없음" 을 말해도 방금 만든 코드를 지우지 않는다 — 다음 읽기가 다시 보인다.
+    if(mine&&(!peerRemain(mine.expires,now)||(inv&&Date.parse(inv.expires)>Date.parse(mine.expires)))) this._pnInvite=null;
+    const codeOk=!!(left&&this._pnInvite&&Date.parse(this._pnInvite.expires)===Date.parse(inv.expires));
     box.hidden=!codeOk;
-    document.getElementById('pn-inv-code').value=codeOk?mine.code:'';
+    document.getElementById('pn-inv-code').value=codeOk?this._pnInvite.code:'';
     document.getElementById('pn-inv-remain').textContent=left||t('peer.inv_none');
   },
 
   _pnPendingPaint(pending){
     const box=document.getElementById('pn-pending');
-    box.replaceChildren(...pending.map(p=>this._pnPendingRow(p)));
+    const keep=this._pnKeepEditing(box,'id','.pn-rename:not([hidden])',false);
+    box.replaceChildren(...pending.map(p=>keep.get(p.id)||this._pnPendingRow(p)));
     if(!pending.length){
       const none=document.createElement('span');
       none.className='sbx-status';
@@ -111,7 +125,12 @@ Object.assign(App.prototype, {
     const ok=UIKit.button({label:t('peer.approve'),kind:'primary',size:'sm',cls:'pn-approve'});
     const no=UIKit.button({label:t('peer.reject'),kind:'ghost',size:'sm',cls:'pn-reject'});
     const st=document.getElementById('pn-pending-status');
-    ok.addEventListener('click',()=>statusRun(st,{fail:t('peer.approve_fail')},async()=>{
+    // L-10: 처음 승인할 때 지문 대조를 한 번 거친다. 이름을 바꿔 다시 승인할 때는 묻지 않는다.
+    ok.addEventListener('click',()=>{
+      if(row.dataset.verified) return approve();
+      this._pnApproveConfirm(p,()=>{ row.dataset.verified='1'; return approve() });
+    });
+    const approve=()=>statusRun(st,{fail:t('peer.approve_fail')},async()=>{
       const body={id:p.id};
       if(!name.hidden) body.name=name.value.trim();
       const r=await apiPost('/api/peers/approve',body);
@@ -121,16 +140,17 @@ Object.assign(App.prototype, {
       }
       if(r.ok&&r.data&&r.data.confirmed===false) st.textContent=t('peer.confirm_failed',{reason:r.data.reason||''});
       return r;
-    }));
+    });
     no.addEventListener('click',()=>statusRun(st,{fail:t('peer.reject_fail')},
       ()=>apiPost('/api/peers/reject',{id:p.id})));
     row.append(who,fp,name,ok,no);
     return row;
   },
 
-  _pnPeersPaint(peers){
+  _pnPeersPaint(peers,force){
     const box=document.getElementById('pn-peers');
-    box.replaceChildren(...peers.map(p=>this._pnPeerRow(p)));
+    const keep=this._pnKeepEditing(box,'name','.pn-addr:not([hidden])',force);
+    box.replaceChildren(...peers.map(p=>keep.get(p.name)||this._pnPeerRow(p)));
     if(!peers.length){
       const none=document.createElement('span');
       none.className='sbx-status';
@@ -148,7 +168,8 @@ Object.assign(App.prototype, {
     who.textContent=p.name+' · '+p.addr+':'+p.port;
     const state=document.createElement('span');
     state.className='sbx-status pn-state';
-    state.textContent=p.state==='pending-out'?t('peer.state_pending_out'):t('peer.state_paired');
+    state.textContent=!p.state?t('peer.state_paired')
+      :p.state==='pending-out'?t('peer.state_pending_out'):t('peer.state_unknown',{state:p.state});
     const seen=document.createElement('span');
     seen.className='sbx-status';
     seen.textContent=p.lastSeen?t('peer.last_seen',{at:new Date(p.lastSeen).toLocaleString()}):t('peer.never_seen');
@@ -159,19 +180,52 @@ Object.assign(App.prototype, {
     port.type='number';port.className='ds-num pn-port';port.value=String(p.port);port.hidden=true;
     port.setAttribute('aria-label',t('peer.port_label'));
     const edit=UIKit.button({label:t('peer.edit_addr'),kind:'ghost',size:'sm',cls:'pn-edit'});
+    const cancel=UIKit.button({label:t('core.cancel'),kind:'ghost',size:'sm',cls:'pn-edit-cancel'});
+    cancel.hidden=true;
     const st=document.getElementById('pn-peers-status');
+    const editing=(on)=>{
+      addr.hidden=!on;port.hidden=!on;cancel.hidden=!on;
+      edit.querySelector('.ui-btn-label').textContent=on?t('html.save'):t('peer.edit_addr');
+    };
     edit.addEventListener('click',()=>{
-      if(addr.hidden){ addr.hidden=false;port.hidden=false;edit.querySelector('.ui-btn-label').textContent=t('html.save');addr.focus();return }
+      if(addr.hidden){ editing(true);addr.focus();return }
       statusRun(st,{ok:t('core.saved'),fail:t('core.save_fail')},async()=>{
         const r=await apiPut('/api/peers/address',{name:p.name,addr:addr.value.trim(),port:parseInt(port.value,10)||0});
-        if(r.ok){ addr.hidden=true; await this._peersRestore() }
+        if(r.ok){ editing(false); await this._peersRestore() }
         return r;
       });
     });
+    // M-7: 고치기를 그만두면 이 줄도 다시 방송을 따른다.
+    cancel.addEventListener('click',()=>{
+      addr.value=p.addr;port.value=String(p.port);editing(false);
+      if(this._peers) this._pnPeersPaint(this._peers.peers||[]);
+    });
     const del=UIKit.button({label:t('peer.remove'),kind:'ghost',size:'sm',cls:'pn-remove'});
     del.addEventListener('click',()=>this._pnRemoveConfirm(p.name));
-    row.append(who,state,seen,addr,port,edit,del);
+    row.append(who,state,seen,addr,port,edit,cancel,del);
     return row;
+  },
+
+  // L-10: 초대 코드를 얻은 남이 먼저 등록할 수 있다. 지문이 상대 화면의 것과 같은지 확인받는다.
+  _pnApproveConfirm(p,onOk){
+    const body=document.createElement('div');
+    const msg=document.createElement('p');
+    msg.textContent=t('peer.approve_body',{name:p.name});
+    const fp=document.createElement('code');
+    fp.className='pn-fp pn-fp-big';
+    fp.textContent=peerFp16(p.fp);
+    body.append(msg,fp);
+    const m=UIKit.modal({
+      title:t('peer.approve_title'),
+      cls:'pn-approve-confirm',
+      width:'min(420px,90vw)',
+      body,
+      actions:[
+        {label:t('core.cancel')},
+        {label:t('peer.approve'),kind:'primary',onClick:onOk},
+      ],
+    });
+    document.body.appendChild(m.el);
   },
 
   // 해제하면 다시 짝을 맺어야 한다 — 한 걸음 확인을 받는다 (CONFIRM_ONE_STAGE_SRS).
@@ -200,6 +254,8 @@ Object.assign(App.prototype, {
       return r;
     });
     this._pnNodePaint();
+    // 탭을 열면 고치던 줄도 버리고 지금 값으로 그린다.
+    if(this._peers) this._pnPeersPaint(this._peers.peers||[],true);
   },
 
   _pnInviteShown(){

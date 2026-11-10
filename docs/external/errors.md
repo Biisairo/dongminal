@@ -120,7 +120,7 @@
 | `peer_spawn_limit` | 이 짝이 띄워 둔 도구가 상한(4개)에 닿았습니다. 아무것도 띄우지 않았습니다. | 다 쓴 도구를 agent.close 로 닫은 뒤 다시 띄우세요. |
 | `peer_target_not_agent` | 그 도구에서 지금 에이전트가 돌고 있지 않습니다. 아무것도 넣지 않았습니다. | 에이전트가 끝났을 수 있습니다. dmctl peer tools <노드> 로 다시 확인하세요. |
 | `peer_target_not_found` | 상대 노드에 그 도구가 없습니다. | dmctl peer tools <노드> 로 지금 목록을 다시 받으세요. |
-| `peer_token_invalid` | 초대 토큰이 맞지 않습니다. | 가장 최근에 만든 초대 코드인지 확인하세요. 5번 틀리면 그 초대는 폐기됩니다. |
+| `peer_token_invalid` | 초대 토큰이 맞지 않습니다. | 가장 최근에 만든 초대 코드인지 확인하세요. 새 초대를 만들면 이전 코드는 쓸 수 없습니다. |
 | `peer_unavailable` | 이 서버에는 노드 기능이 서지 않았습니다 — 노드 인증서를 읽지 못했습니다. | server.log 의 peer identity 줄을 보세요. node-cert.pem·node-key.pem 이 망가졌다면 둘 다 지우고 다시 시작하면 새 신원이 생깁니다(짝은 다시 맺어야 합니다). |
 | `peer_unknown_op` | 모르는 프로토콜 명령입니다. | node.info 의 commands 로 상대가 받는 명령을 확인하세요. 원격으로는 정해진 명령만 오갑니다. |
 | `peer_unreachable` | 상대 노드에 닿지 못했습니다. | 상대의 노드 포트가 켜져 있는지, 주소·포트가 맞는지, 방화벽이 막지 않는지 확인하세요. 큐·재시도는 없습니다. |

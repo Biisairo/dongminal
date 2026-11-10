@@ -116,6 +116,8 @@ dmctl peer spawn office --agent claude --cwd /work/app "테스트를 돌리고 �
 | 에이전트가 끝난 직후 | 전달 직전에 전경 프로그램을 다시 확인하지만, 확인과 붙여넣기 사이에 아주 짧은 틈이 남습니다. 데몬 모드에서는 전경 정보가 최대 약 2초 늦을 수 있습니다 | — |
 | 초대 코드 유출 | 제3자가 승인 대기에 올라올 수 있습니다 | 코드는 10분짜리 일회용이고 B 의 승인이 필요합니다. 모르는 승인 대기는 거절하세요 |
 | 백업 파일 | `dongminal backup` zip 에는 노드 개인키가 들어갑니다. zip 은 소유자만 읽을 수 있게(`0600`) 만들어집니다 | 백업 파일을 남에게 주지 마세요. 개인키가 새면 그 노드로 행세할 수 있습니다 |
+| Windows 의 파일 권한 | Windows 는 `0600` 같은 권한 비트를 쓰지 않습니다. `node-key.pem`·`peers.json`·백업 zip 은 홈 폴더의 권한(ACL)을 그대로 물려받습니다 | 홈 폴더(`%USERPROFILE%\.dongminal`)를 다른 사용자가 읽을 수 없게 두세요. 공용 PC 에서는 노드 포트를 켜지 마세요 |
+| 초대 코드 유출 뒤 사칭 | 코드를 얻은 사람이 먼저 등록을 요청하고 이름을 아는 노드처럼 꾸밀 수 있습니다 | 승인 전에 확인창의 지문 16자가 상대 노드 Peers 탭(또는 `dmctl peers`)의 지문과 같은지 확인하세요. `dmctl peer approve` 는 승인한 지문을 출력합니다 |
 
 개인키와 초대 토큰은 로그, API 응답, 화면에 나오지 않습니다. 예외는 초대를 만든 응답 하나이며, 그 응답의 초대 코드 안에 토큰이 들어 있습니다. 화면과 `dmctl` 에는 지문 앞 16자만 보입니다.
 
@@ -128,7 +130,7 @@ dmctl peer spawn office --agent claude --cwd /work/app "테스트를 돌리고 �
 | `peer_unreachable` | 상대에 닿지 못했습니다 | 상대의 노드 포트가 켜져 있는지, 주소·포트·방화벽을 확인하세요 |
 | `peer_rejected` | 상대가 이 노드를 받지 않았습니다 | 상대가 짝을 해제했을 수 있습니다. 다시 맺으세요 |
 | `peer_fingerprint_mismatch` | 상대의 지문이 코드와 다릅니다 | 주소가 다른 기계를 가리키는지 확인하세요. 상대가 신원을 새로 만들었으면 초대를 다시 받으세요 |
-| `peer_no_invite` · `peer_token_invalid` | 초대가 만료됐거나 쓰였거나 틀렸습니다 | 초대를 새로 받으세요. 틀린 토큰이 5번 오면 그 초대는 폐기됩니다 |
+| `peer_no_invite` · `peer_token_invalid` | 초대가 만료됐거나 쓰였거나 틀렸습니다 | 초대를 새로 받으세요. 새 초대를 만들면 이전 코드는 쓸 수 없습니다 |
 | `peer_port_closed` | 노드 포트가 닫혀 있어 초대를 만들 수 없습니다 | 노드 포트를 켜고 `dmctl peers` 의 `port error` 를 확인하세요 |
 | `peer_dir_not_allowed` | 그 폴더는 상대의 허용 폴더 밖입니다 | `dmctl peer info <노드>` 의 `allowedDirs` 안에서 띄우세요 |
 | `peer_agent_unavailable` | 상대에 그 에이전트가 설치돼 있지 않습니다 | `dmctl peer info <노드>` 의 `agents` 를 확인하세요 |

@@ -74,26 +74,18 @@ func TestInviteReplaces(t *testing.T) {
 	}
 }
 
-// FR-PNW-24: 틀린 토큰을 5번 받으면 그 초대를 폐기한다.
-func TestInviteDiscardedAfterFiveFailures(t *testing.T) {
+// FR-PNW-24 (L-9): 틀린 토큰은 그 요청만 거절한다. 몇 번이 와도 초대는 남는다 — 남이
+// 틀린 토큰으로 정상 사용자의 초대를 없앨 수 없다.
+func TestInviteSurvivesBadTokens(t *testing.T) {
 	p := NewPairing(newFakeClock().now)
 	token, _ := p.NewInvite()
-	for i := 0; i < MaxTokenFailures-1; i++ {
+	for i := 0; i < 100; i++ {
 		if err := p.Consume("bad"); !errors.Is(err, ErrBadToken) {
 			t.Fatalf("%d번째: %v", i+1, err)
 		}
 	}
-	if !p.HasInvite() {
-		t.Fatal("4번 틀렸는데 폐기됐다")
-	}
-	if err := p.Consume("bad"); !errors.Is(err, ErrBadToken) {
-		t.Fatalf("5번째: %v", err)
-	}
-	if p.HasInvite() {
-		t.Fatal("5번 틀렸는데 남았다")
-	}
-	if err := p.Consume(token); !errors.Is(err, ErrNoInvite) {
-		t.Fatalf("폐기 뒤 맞는 토큰 = %v", err)
+	if err := p.Consume(token); err != nil {
+		t.Fatalf("틀린 토큰 뒤 맞는 토큰 = %v", err)
 	}
 }
 

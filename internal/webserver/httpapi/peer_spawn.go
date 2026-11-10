@@ -104,6 +104,13 @@ func (s *Server) peerAgentSpawn(w http.ResponseWriter, r *http.Request, from pee
 		}
 		return fail(status, code, msg)
 	}
+	// L-12: 판정과 생성 사이에 경로 요소가 바뀌었을 수 있다. 셸이 실제로 선 곳을 다시
+	// 본다. 모르면(Windows 등) 판정을 믿는다.
+	if actual := s.Tools.Cwd(toolID); actual != "" {
+		if _, ok := peer.DirAllowed(actual, s.peers.Config().AllowedDirs); !ok {
+			return undo(http.StatusForbidden, apierr.CodePeerDirNotAllowed, "dir not allowed")
+		}
+	}
 	if err := s.peerSpawns.Record(toolID, from.fp); err != nil {
 		return undo(http.StatusInternalServerError, apierr.CodeSaveFailed, "record")
 	}

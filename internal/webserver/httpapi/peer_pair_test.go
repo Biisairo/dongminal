@@ -142,7 +142,7 @@ func TestPairFullFlow(t *testing.T) {
 		t.Fatalf("승인 대기 %v", pend)
 	}
 	code, out = b.api(t, http.MethodPost, "/api/peers/approve", map[string]any{"id": pend[0]["id"]})
-	if code != http.StatusOK || out["confirmed"] != true {
+	if code != http.StatusOK || out["confirmed"] != true || out["fp"] != a.fingerprint(t) {
 		t.Fatalf("approve: %d %v", code, out["_raw"])
 	}
 

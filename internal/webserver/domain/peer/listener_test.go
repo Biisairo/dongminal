@@ -321,3 +321,23 @@ func TestListenerRequestAdmissionByPath(t *testing.T) {
 		t.Fatalf("핸들러 호출 %d, 기대 1", f.handled.Load())
 	}
 }
+
+// L-4: 닫은 뒤의 Apply 는 다시 열지 않는다 — 종료 중 늦게 온 PUT /api/peers/node 가
+// 포트를 되살리지 않게 한다.
+func TestListenerApplyAfterCloseStaysClosed(t *testing.T) {
+	id, err := LoadOrCreateIdentity(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ln := NewListener(id, PeersOnly(func(string) bool { return false }), http.NotFoundHandler())
+	ln.Apply(enabledAt(freePort(t)))
+	if !ln.Status().Listening {
+		t.Fatal("열리지 않았다")
+	}
+	ln.Close()
+	ln.Apply(enabledAt(freePort(t)))
+	if ln.Status().Listening {
+		ln.Close()
+		t.Fatal("닫은 뒤 Apply 가 다시 열었다")
+	}
+}

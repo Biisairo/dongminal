@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"regexp"
 	"sort"
@@ -232,8 +233,9 @@ func (s *Server) apiPeersCall(w http.ResponseWriter, r *http.Request) {
 	}
 	var out json.RawMessage
 	tgt := peer.Target{Addr: p.Addr, Port: p.Port, Fingerprint: p.Fingerprint}
-	if err := s.peerClient.Call(r.Context(), tgt, peerPathPrefix+in.Op, args, &out); err != nil {
-		peerAudit("out", p.Name, in.Op, http.StatusBadGateway)
+	err := s.peerClient.Call(r.Context(), tgt, peerPathPrefix+in.Op, args, &out)
+	peerAuditCmd("out", p.Name, in.Op, peerOutResult(args, out, err))
+	if err != nil {
 		peerCallFail(w, err)
 		return
 	}
@@ -242,8 +244,37 @@ func (s *Server) apiPeersCall(w http.ResponseWriter, r *http.Request) {
 	if p.State == peer.StatePendingOut {
 		s.peers.Promote(p.Fingerprint)
 	}
-	peerAudit("out", p.Name, in.Op, http.StatusOK)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(out)
+}
+
+// peerOutResult 는 나가는 명령의 감사 항목이다 (FR-PNW-94). 대상은 보낸 인자(`to`·`toolId`)나
+// spawn 의 응답에서, 길이는 메시지·프롬프트에서 얻는다. 결과는 상대가 돌려준 상태다.
+func peerOutResult(args map[string]any, out json.RawMessage, err error) peerCmdResult {
+	res := peerCmdResult{status: http.StatusOK}
+	str := func(k string) string { v, _ := args[k].(string); return v }
+	res.target = str("to")
+	if res.target == "" {
+		res.target = str("toolId")
+	}
+	res.n = len(str("message")) + len(str("prompt"))
+	var re *peer.RemoteError
+	switch {
+	case errors.As(err, &re):
+		res.status = re.Status
+	case err != nil:
+		res.status = http.StatusBadGateway
+	case res.target == "":
+		var v struct {
+			ToolID string `json:"toolId"`
+		}
+		if json.Unmarshal(out, &v) == nil && peerToolIDPattern.MatchString(v.ToolID) {
+			res.target = v.ToolID
+		}
+	}
+	if !peerToolIDPattern.MatchString(res.target) {
+		res.target = ""
+	}
+	return res
 }

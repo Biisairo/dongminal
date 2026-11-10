@@ -310,11 +310,12 @@ func peerApprove(pa peerArgs, stdout, stderr io.Writer) int {
 	}
 	var v struct {
 		Name      string `json:"name"`
+		FP        string `json:"fp"`
 		Confirmed bool   `json:"confirmed"`
 		Reason    string `json:"reason"`
 	}
 	_ = json.Unmarshal(raw, &v)
-	fmt.Fprintf(stdout, "%s 를 짝으로 저장했습니다.\n", clean(v.Name))
+	fmt.Fprintf(stdout, "%s 를 짝으로 저장했습니다. 지문 %s — 상대 노드의 지문과 같은지 확인하세요.\n", clean(v.Name), clean(shortFP(v.FP)))
 	if !v.Confirmed {
 		fmt.Fprintf(stderr, "주의: 상대에게 승인을 알리지 못했습니다 (%s). 상대는 아직 이 노드를 짝으로 모릅니다.\n", clean(v.Reason))
 	}

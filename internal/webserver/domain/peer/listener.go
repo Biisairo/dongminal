@@ -49,6 +49,8 @@ type Listener struct {
 	srv     *http.Server
 	status  Status
 	gen     uint64
+	// closed 는 Close 뒤다. 그 뒤의 Apply 는 아무것도 열지 않는다 (서버 종료 중).
+	closed bool
 }
 
 // Admission 은 누가 노드 포트에 들어오는가다. TLS 는 핸드셰이크에서 지문만 보고,
@@ -125,7 +127,7 @@ func (l *Listener) Apply(c Config) {
 	key := listenKey{enabled: c.Enabled, bind: c.Bind, port: c.Port}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	if l.applied && key == l.key && l.status.Listening == key.enabled {
+	if l.closed || (l.applied && key == l.key && l.status.Listening == key.enabled) {
 		return
 	}
 	l.closeLocked()
@@ -163,12 +165,13 @@ func (l *Listener) Status() Status {
 	return l.status
 }
 
-// Close 는 리스너를 닫는다. 여러 번 불러도 된다.
+// Close 는 리스너를 닫는다. 여러 번 불러도 된다. 닫은 뒤에는 Apply 가 다시 열지 않는다.
 func (l *Listener) Close() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.closeLocked()
 	l.applied = false
+	l.closed = true
 }
 
 func (l *Listener) closeLocked() {

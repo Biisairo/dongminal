@@ -422,3 +422,13 @@ func TestParsePeerArgsForms(t *testing.T) {
 		t.Fatal("불 플래그에 값을 받았다")
 	}
 }
+
+// L-10: approve 는 승인한 지문(앞 16자)을 낸다 — 상대 화면의 지문과 대조하라고.
+func TestDmctlPeerApprovePrintsFingerprint(t *testing.T) {
+	_, cleanup := withPeerServer(t, 200, `{"name":"lap","fp":"0123456789abcdef0011","confirmed":true}`)
+	defer cleanup()
+	rc, out, e := dmctlRun("peer", "approve", "p1")
+	if rc != 0 || !strings.Contains(out, "0123456789abcdef") || strings.Contains(out, "0011") {
+		t.Fatalf("rc=%d out=%q err=%q", rc, out, e)
+	}
+}

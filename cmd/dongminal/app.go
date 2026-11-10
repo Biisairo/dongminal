@@ -197,7 +197,7 @@ func (a *app) run(ctx context.Context) error {
 	// 게이트 판정에 DNS 왕복이 붙으면 모든 요청이 그만큼 느려진다.
 	a.srv.StartAccessRefresh(ctx.Done())
 	// PEER_NETWORK_SRS FR-PNW-4: 노드 포트. 꺼져 있으면 아무것도 열지 않는다.
-	a.srv.StartPeer(ctx.Done())
+	peerDone := a.srv.StartPeer(ctx.Done())
 	// UPDATE_NOTICE_SRS FR-UPD-2 ①·③: 기동 확인 한 번과 24시간 마감.
 	// 마감은 **한 번도 끄지 않고 띄워 둔 세션**만을 위한 보조다 — 갱신의 주된
 	// 계기는 SSE 연결 수립이고 그쪽은 요청 경로에 있다.
@@ -240,7 +240,12 @@ func (a *app) run(ctx context.Context) error {
 	// 조립은 `dmenv.ListenAddr` 이 한다 (FR-STR-20·21). 문자열 접합으로 만들면
 	// `DONGMINAL_HOST=::1` 이 `net.Listen` 에서 *too many colons* 로 죽고, 부모는
 	// 5초 폴링 뒤 "기동 실패" 만 낸다 — 어느 값이 문제인지가 없다.
-	return a.srv.Run(ctx, dmenv.ListenAddr(a.host, a.port))
+	err := a.srv.Run(ctx, dmenv.ListenAddr(a.host, a.port))
+	// 노드 포트가 닫히기를 기다린다. Run 이 종료 신호 없이 실패했으면 닫는 쪽도 돌지 않는다.
+	if ctx.Err() != nil {
+		<-peerDone
+	}
+	return err
 }
 
 // shutdownStep 은 종료 순서의 한 칸이다. 조립되지 않은 구성원은 fn 안에서 건너뛴다.

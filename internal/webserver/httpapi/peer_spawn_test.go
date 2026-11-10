@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -396,5 +397,49 @@ func TestPeerSpawnWindowTimeout(t *testing.T) {
 	}
 	if created, _, _ := b.hub.counts(); created != 0 {
 		t.Fatal("헤드리스 셸을 만들었다")
+	}
+}
+
+// L-3 (FR-PNW-94): 나가는 방향도 대상 uuid·본문 길이·실제 결과 코드를 남긴다.
+func TestPeerAuditOutbound(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	pairNodes(t, a, b.peerNode)
+	logs := captureLog(t)
+	if code, _ := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed, "prompt": "12345"}); code != 200 {
+		t.Fatal("spawn")
+	}
+	audit := func(op, target, rest string) bool {
+		return regexp.MustCompile(`dir=out peer=node-b op=` + regexp.QuoteMeta(op) + ` target=\\?"` + target + `\\?" ` + rest).MatchString(logs.String())
+	}
+	if !audit("agent.spawn", "headless-1", "len=5 status=200") {
+		t.Fatalf("spawn 감사 %s", logs.String())
+	}
+	if code, _ := a.call(t, "node-b", "agent.close", map[string]any{"toolId": "t-at"}); code != 403 {
+		t.Fatal("close")
+	}
+	if !audit("agent.close", "t-at", "len=0 status=403") {
+		t.Fatalf("close 감사 %s", logs.String())
+	}
+}
+
+// L-12: 판정과 생성 사이에 경로가 바뀌어 셸이 허용 폴더 밖에 서면 기동줄을 넣지 않고 닫는다.
+func TestPeerSpawnRechecksActualCwd(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	pairNodes(t, a, b.peerNode)
+	b.hub.mu.Lock()
+	b.hub.cwds = map[string]string{"headless-1": t.TempDir()}
+	b.hub.mu.Unlock()
+	if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed}); code != http.StatusForbidden || errCode(out) != "peer_dir_not_allowed" {
+		t.Fatalf("spawn: %d %v", code, out["_raw"])
+	}
+	if len(b.tools.pasted()) != 0 {
+		t.Fatal("기동줄을 넣었다")
+	}
+	if _, deleted, _ := b.hub.counts(); deleted != 1 {
+		t.Fatal("도구를 닫지 않았다")
 	}
 }

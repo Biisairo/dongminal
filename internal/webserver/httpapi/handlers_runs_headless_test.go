@@ -50,6 +50,9 @@ type headlessHub struct {
 	// UX_BATCH6_SRS FR-BGP-3: 마지막 배치. 헤드리스 생성이 명령을 실어 보내는지가
 	// 검증 대상이므로 인자 전량을 남긴다.
 	lastPlace toolhub.Placement
+
+	// cwds 는 Cwd 가 돌려줄 값이다. 없으면 모름("")이다.
+	cwds map[string]string
 }
 
 func (h *headlessHub) lastPlacement() toolhub.Placement {
@@ -140,7 +143,11 @@ func (h *headlessHub) Get(id string) *toolhub.Tool {
 	return h.tools[id]
 }
 
-func (h *headlessHub) Cwd(string) string                         { return "" }
+func (h *headlessHub) Cwd(id string) string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.cwds[id]
+}
 func (h *headlessHub) Busy(string) bool                          { return false }
 func (h *headlessHub) BusyMany([]string) (map[string]bool, bool) { return map[string]bool{}, true }
 func (h *headlessHub) Write(string, []byte) error                { return nil }

@@ -1754,6 +1754,7 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
   border-left:2px solid var(--border)}
 .pn-who{flex:1 1 auto;min-width:0;overflow-wrap:anywhere;font-size:var(--fs-md);color:var(--text-bright)}
 .pn-fp{font-family:var(--mono);font-size:var(--fs-sm);color:var(--text-hint)}
+.pn-fp-big{display:block;margin-top:8px;font-size:var(--fs-lg);color:var(--text-bright);letter-spacing:.05em}
 .pn-item .sbx-input{flex:0 1 160px}
 
 /* ── 부팅 화면 (BOOT_SCREEN_SRS 묶음 BTS) ──
