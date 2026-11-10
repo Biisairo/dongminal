@@ -91,6 +91,8 @@ type ToolClient struct {
 	// (AGENT_RECORD_DAEMON_SRS FR-ARD-12·13). `mu` 아래.
 	onRecord func(ev toolipc.RecordEvent)
 	onReport func(ev toolipc.ReportEvent)
+	// onAttn 은 attn push 콜백이다 (AGENT_RECORD_DAEMON_SRS §3.3a). 읽기 루프에서 돈다.
+	onAttn   func(ev toolipc.AttnEvent)
 	onResync func()
 
 	// fgMu 는 onForeground 호출과 fgSeen·fgSeq 를 한 줄로 세운다. fgSeen 은 마지막으로
@@ -458,6 +460,9 @@ type wireMsg struct {
 	// Method·Body 는 report push 다 (AGENT_RECORD_DAEMON_SRS §3.2a).
 	Method string          `json:"method"`
 	Body   json.RawMessage `json:"body"`
+	// Reason·Agent 는 attn push 다 (§3.3a).
+	Reason string             `json:"reason"`
+	Agent  toolhub.AgentState `json:"agent"`
 }
 
 // readLoop decodes responses and push events for a single connection. On

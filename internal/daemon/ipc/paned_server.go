@@ -107,6 +107,7 @@ func NewPanedServer(pm *toolhub.ToolManager, sockPath, pidPath string) *PanedSer
 			c.pushSize(toolID, cols, rows)
 		}
 	})
+	ps.wireAttention()
 	return ps
 }
 
@@ -186,6 +187,7 @@ func (ps *PanedServer) Accept() error {
 	// 답하지 않았고, 증상은 "연결이 그냥 실패한다" 였다 (2026-09-11).
 	pc.build = ps.buildVersion
 	pc.records = ps.records
+	pc.srv = ps
 
 	// Wire output/exit from each tool through whichever dongminal connection
 	// is current. The closures resolve ps.currConn dynamically, so a tool only

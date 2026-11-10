@@ -48,6 +48,11 @@ type AttnTracker struct {
 	// onChange 는 판정이 상태를 바꾼 뒤에 불린다 — 데몬에 그 상태를 쓴다
 	// (AGENT_RECORD_DAEMON_SRS FR-ARD-11). nil 이면 아무도 듣지 않는다.
 	onChange func(id string, st toolhub.AgentState)
+
+	// mirror 는 "데몬이 판정하는가" 다 (AGENT_RECORD_DAEMON_SRS §3.3a). 참이면 이 추적기는
+	// 거울이다 — 판정·되쓰기를 하지 않고 attn push 를 반영한다. 출력마다 읽으므로 잠금
+	// 없는 원자값이다. nil 이면 언제나 판정한다.
+	mirror atomic.Pointer[func() bool]
 }
 
 // attnPaneState 는 직접 모드 `toolhub.Tool` 의 주의 관련 필드와 **같은 모양**을
@@ -167,6 +172,9 @@ func (t *AttnTracker) FeedOutput(toolID string, data []byte) {
 	ps, now := t.stateAndClock(toolID)
 
 	ps.lastOutputAt.Store(now())
+	if t.mirroring() {
+		return
+	}
 	// FR-ATF-5: 잠긴 동안 출력은 무장을 세우지 못한다. 시각은 그래도 적는다 —
 	// 준비완료 사다리(FR-STA-4)가 그 값을 읽는다.
 	if !ps.attnRearmLocked.Load() {
@@ -480,7 +488,7 @@ func (t *AttnTracker) SweepIdleAt(now int64) {
 	onAttn := t.onAttention
 	t.mu.Unlock()
 
-	if threshold <= 0 {
+	if threshold <= 0 || t.mirroring() {
 		return
 	}
 	// 무장을 내린 도구는 판정이 끝난 뒤의 상태로 알린다 (FR-ARD-11).

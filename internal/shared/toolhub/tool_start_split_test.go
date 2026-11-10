@@ -66,7 +66,7 @@ func TestApplyHooksSharedByDetachedTool(t *testing.T) {
 		OnSize: func(string, uint16, uint16) {}}
 	p := &Tool{ID: "a"}
 	p.applyHooks(h)
-	if p.onAttention == nil || !p.allowBell || p.onAttentionClear != nil || p.onActivity != nil {
+	if p.onAttention == nil || !p.allowBell.Load() || p.onAttentionClear != nil || p.onActivity != nil {
 		t.Fatalf("applyHooks did not copy attention wiring")
 	}
 	if p.onSize != nil {

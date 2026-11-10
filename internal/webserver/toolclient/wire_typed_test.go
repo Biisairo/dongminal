@@ -82,7 +82,7 @@ func TestHelloParamsWire(t *testing.T) {
 		t.Fatalf("dial: %v", err)
 	}
 	defer pc.Close()
-	if got, want := nextLine(t, lines), `{"id":0,"method":"hello","params":{"features":["reports"]}}`; got != want {
+	if got, want := nextLine(t, lines), `{"id":0,"method":"hello","params":{"features":["reports","attention"]}}`; got != want {
 		t.Fatalf("hello 바이트\n got %s\nwant %s", got, want)
 	}
 }

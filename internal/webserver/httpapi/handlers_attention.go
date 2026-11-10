@@ -43,6 +43,9 @@ func (s *Server) apiToolAttentionSet(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeMissingArg)
 		return
 	}
+	if s.forwardReport(w, agentrec.MethodNotify, req) {
+		return
+	}
 	s.applyNotifyReport(req)
 	httpresp.JSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
@@ -109,11 +112,28 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "bad request", http.StatusBadRequest, apierr.CodeInvalidJSON)
 		return
 	}
-	if code := s.applyActivityReport(req); code != "" {
+	if code := checkActivityReport(req); code != "" {
 		httpErr(w, "bad request", http.StatusBadRequest, code)
 		return
 	}
+	if s.forwardReport(w, agentrec.MethodActivity, req) {
+		return
+	}
+	s.applyActivityReport(req)
 	httpresp.JSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// checkActivityReport 는 활동 보고의 검사다. 받지 않으면 오류 코드를 돌려준다.
+func checkActivityReport(req agentrec.ActivityReport) string {
+	switch {
+	case req.ToolID == "" || req.State == "":
+		return apierr.CodeMissingArg
+	case !hub.ValidActivityState(req.State):
+		return apierr.CodeBadRequest
+	case req.AgentID != "" && !agentrec.ValidSubagentState(req.State):
+		return apierr.CodeBadRequest
+	}
+	return ""
 }
 
 // applyActivityReport 는 활동 보고 하나다. HTTP 와 데몬의 report push 가 함께 지난다
@@ -122,16 +142,10 @@ func (s *Server) apiToolActivitySet(w http.ResponseWriter, r *http.Request) {
 // 본문의 SessionID 는 남기되 쓰지 않는다 (AGENT_GUI_REMOVAL_SRS FR-AGR-9). Agent 는
 // 그 에이전트의 이벤트 선언을 봐야 `done` 알람을 옳게 판정하기 때문에 싣는다 (FR-AEV-12).
 func (s *Server) applyActivityReport(req agentrec.ActivityReport) string {
-	if req.ToolID == "" || req.State == "" {
-		return apierr.CodeMissingArg
-	}
-	if !hub.ValidActivityState(req.State) {
-		return apierr.CodeBadRequest
+	if code := checkActivityReport(req); code != "" {
+		return code
 	}
 	if req.AgentID != "" {
-		if !agentrec.ValidSubagentState(req.State) {
-			return apierr.CodeBadRequest
-		}
 		s.reportSubagentActivity(req)
 		return ""
 	}

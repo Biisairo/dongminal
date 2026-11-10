@@ -147,6 +147,13 @@ func (m *ToolManager) StartAttentionSweeper(stop <-chan struct{}, tick <-chan ti
 	if m.idleThreshold <= 0 {
 		return
 	}
+	m.RunAttentionSweeper(stop, tick)
+}
+
+// RunAttentionSweeper 는 문턱과 무관하게 스위퍼를 띄운다. 데몬이 쓴다 — 문턱은 서버가
+// 붙은 뒤 attnconfig 로 올 수 있다 (AGENT_RECORD_DAEMON_SRS §3.3a). 문턱이 0 인 틱은
+// 아무것도 하지 않는다.
+func (m *ToolManager) RunAttentionSweeper(stop <-chan struct{}, tick <-chan time.Time) {
 	go func() {
 		for {
 			select {
@@ -157,6 +164,22 @@ func (m *ToolManager) StartAttentionSweeper(stop <-chan struct{}, tick <-chan ti
 			}
 		}
 	}()
+}
+
+// SetAttentionConfig 는 판정 설정을 바꾼다 (AGENT_RECORD_DAEMON_SRS FR-ARD-31). 문턱은
+// 다음 틱부터, BEL 허용은 이미 있는 도구에도 곧바로 적용한다.
+func (m *ToolManager) SetAttentionConfig(idle time.Duration, allowBell bool) {
+	m.mu.Lock()
+	m.idleThreshold = int64(idle)
+	m.allowBell = allowBell
+	tools := make([]*Tool, 0, len(m.tools))
+	for _, p := range m.tools {
+		tools = append(tools, p)
+	}
+	m.mu.Unlock()
+	for _, p := range tools {
+		p.allowBell.Store(allowBell)
+	}
 }
 
 // AttentionSweepInterval 은 배선이 스위퍼에 주는 틱의 주기다.

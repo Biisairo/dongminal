@@ -15,9 +15,13 @@ import (
 // lock. The live bytes are never mutated.
 func (p *Tool) observeOutput(chunk []byte) { p.observeOutputAt(chunk, attnNow()) }
 
+// ObserveOutput 은 readPTY 가 청크마다 하는 관측 그대로다. PTY 없는 도구의 판정을
+// 다른 패키지의 시험이 재는 자리다 (AGENT_RECORD_DAEMON_SRS §3.3a).
+func (p *Tool) ObserveOutput(chunk []byte) { p.observeOutput(chunk) }
+
 // observeOutputAt is observeOutput with an injectable timestamp (tests).
 func (p *Tool) observeOutputAt(chunk []byte, now int64) {
-	p.observeOutputClassified(chunk, now, classifyEsc(chunk, p.allowBell))
+	p.observeOutputClassified(chunk, now, classifyEsc(chunk, p.allowBell.Load()))
 }
 
 // observeOutputClassified 는 청크 분류(classifyEsc)를 받는 observeOutputAt 이다 —
@@ -45,7 +49,7 @@ func (p *Tool) observeOutputClassified(chunk []byte, now int64, c escClass) {
 	if p.onAttention == nil {
 		return
 	}
-	sig, carry := DetectAttentionSignal(scan, p.allowBell, AttnMaxCarry)
+	sig, carry := DetectAttentionSignal(scan, p.allowBell.Load(), AttnMaxCarry)
 	p.attnCarry = carry
 	// FR-ATN-22: 에이전트 도구의 알림 시퀀스는 알람이 아니다. 같은 사건(입력 유휴·
 	// 권한 요청)을 훅이 이미 보고하고, 그쪽은 묶음 N 의 판정을 거친다 — 여기서

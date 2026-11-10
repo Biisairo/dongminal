@@ -88,16 +88,26 @@ func (ps *PanedServer) handleReport(rq agentrec.Request) agentrec.Reply {
 	if c != nil && !c.reports.Load() {
 		return agentrec.Reply{Error: errReportOldServer.Error()}
 	}
-	ps.reportMu.Lock()
-	err := ps.applyReport(rq.Method, rq.Body, time.Now())
-	ps.reportMu.Unlock()
-	if err != nil {
+	if err := ps.acceptReport(c, rq.Method, rq.Body); err != nil {
 		return agentrec.Reply{Error: err.Error()}
 	}
-	if c != nil {
-		c.enqueue(toolipc.ReportEvent{Event: toolipc.EventReport, Method: rq.Method, Body: rq.Body}, false)
-	}
 	return agentrec.Reply{OK: true}
+}
+
+// acceptReport 는 보고를 반영하고 c 가 있으면 보고 그대로 push 한다. 보고 소켓과 서버의
+// report 메서드(§3.3a)가 함께 딛는다. 판정의 attn push 는 반영 중에 나가므로 report push
+// 보다 앞선다.
+func (ps *PanedServer) acceptReport(c *panedConn, method string, body json.RawMessage) error {
+	ps.reportMu.Lock()
+	err := ps.applyReport(method, body, time.Now())
+	ps.reportMu.Unlock()
+	if err != nil {
+		return err
+	}
+	if c != nil {
+		c.enqueue(toolipc.ReportEvent{Event: toolipc.EventReport, Method: method, Body: body}, false)
+	}
+	return nil
 }
 
 // applyReport 는 보고를 데몬 기록에 쓴다. 기록의 record push 는 보내지 않는다 — 서버가

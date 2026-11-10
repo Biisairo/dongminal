@@ -16,6 +16,9 @@ func (t *AttnTracker) SetOnChange(f func(id string, st toolhub.AgentState)) {
 }
 
 func (t *AttnTracker) changed(ps *attnPaneState) {
+	if t.mirroring() {
+		return
+	}
 	t.mu.Lock()
 	f := t.onChange
 	t.mu.Unlock()

@@ -43,6 +43,13 @@ const (
 	// 데몬에만 보낸다.
 	MethodRecordSet = "recordset"
 	MethodRecords   = "records"
+
+	// 알람 판정이다 (AGENT_RECORD_DAEMON_SRS §3.3a). FeatureAttention 을 말한 데몬에만
+	// 보낸다.
+	MethodAttnConfig = "attnconfig"
+	MethodAttend     = "attend"
+	MethodAttendAll  = "attendall"
+	MethodReport     = "report"
 )
 
 const (
@@ -52,6 +59,7 @@ const (
 	EventSize       = "size"
 	EventRecord     = "record"
 	EventReport     = "report"
+	EventAttn       = "attn"
 )
 
 // HelloParams 는 서버가 hello 에 싣는 것이다. Features 는 서버가 아는 기능 이름이다
@@ -94,13 +102,17 @@ const (
 	// FeatureReports: 서버가 report push 를 안다 (AGENT_RECORD_DAEMON_SRS §3.2a). 붙은 서버가
 	// 말하지 않으면 데몬은 보고 소켓의 보고를 거절하고, dmctl 이 HTTP 로 보낸다.
 	FeatureReports = "reports"
+	// FeatureAttention: 알람 판정을 데몬이 한다 (AGENT_RECORD_DAEMON_SRS §3.3a). 데몬과
+	// 서버가 함께 말한다 — 데몬은 attnconfig·attend·attendall·report 를 알고, 서버는 attn
+	// push 를 안다. 둘 다 말할 때만 서버의 추적기가 거울이 된다.
+	FeatureAttention = "attention"
 )
 
 // DaemonFeatures 는 이 데몬이 hello 에서 말하는 기능이다. ServerFeatures 는 서버가
 // 말하는 기능이다. 새 기능이 이름을 여기 더한다.
 var (
-	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify, FeatureBusyMany, FeatureFgGuard, FeatureRecords}
-	ServerFeatures = []string{FeatureReports}
+	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify, FeatureBusyMany, FeatureFgGuard, FeatureRecords, FeatureAttention}
+	ServerFeatures = []string{FeatureReports, FeatureAttention}
 )
 
 // HasFeature 는 상대가 말한 기능 목록에 name 이 있는가다. 말하지 않은 옛 상대는

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"dongminal/internal/shared/activity"
+	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/hub"
 )
@@ -33,20 +34,27 @@ type attentionService interface {
 
 func (s *Server) attention() attentionService {
 	if s.AttnTracker != nil {
-		return trackerAttention{t: s.AttnTracker, tools: s.Tools}
+		return trackerAttention{t: s.AttnTracker, tools: s.Tools, d: s.AttnDaemon}
 	}
 	return directAttention{tools: s.Tools}
 }
 
-// trackerAttention 은 데몬 모드다.
+// trackerAttention 은 데몬 모드다. 데몬이 판정하면(§3.3a) 추적기는 거울이다 — 보고는
+// 이미 판정된 report push 로만 여기 오므로 판정하지 않고, 해제는 데몬에 보낸다.
 type trackerAttention struct {
 	t     *hub.AttnTracker
 	tools toolhub.ToolHub
+	d     AttentionDaemon
 }
+
+func (a trackerAttention) judges() bool { return a.d != nil && a.d.Judges() }
 
 func (a trackerAttention) AttentionIDs() []string { return a.t.AttentionIDs() }
 
 func (a trackerAttention) SignalAttention(toolID, reason string) {
+	if a.judges() {
+		return
+	}
 	// 추적기는 모르는 도구에도 상태를 만든다 — 그래서 존재를 먼저 본다.
 	if a.tools != nil && a.tools.Get(toolID) != nil {
 		a.t.SignalAttention(toolID, reason)
@@ -57,6 +65,12 @@ func (a trackerAttention) Attend(toolID string, typed bool) {
 	if a.tools == nil {
 		return
 	}
+	if a.judges() {
+		if err := a.d.Attend(toolID, typed); err != nil {
+			dmlog.Warnf(nil, "attention: 해제를 데몬에 보내지 못했다 tool=%s: %v", toolID, err)
+		}
+		return
+	}
 	if typed {
 		a.t.AttendTyped(toolID)
 	} else {
@@ -64,12 +78,21 @@ func (a trackerAttention) Attend(toolID string, typed bool) {
 	}
 }
 
-func (a trackerAttention) ClearAllAttention() int { return a.t.ClearAllAttention() }
+func (a trackerAttention) ClearAllAttention() int {
+	if !a.judges() {
+		return a.t.ClearAllAttention()
+	}
+	n, err := a.d.AttendAll()
+	if err != nil {
+		dmlog.Warnf(nil, "attention: 전부 해제를 데몬에 보내지 못했다: %v", err)
+	}
+	return n
+}
 
 func (a trackerAttention) ActivitySnapshot() []toolhub.ActivitySnap { return a.t.ActivitySnapshot() }
 
 func (a trackerAttention) ReportActivity(toolID, state, tool, detail string, userPrompt, turnKnown bool) {
-	if a.tools == nil {
+	if a.tools == nil || a.judges() {
 		return
 	}
 	// FR-ATN-1: 표시를 먼저 세운다. 활동 보고와 별도 경로인 것은 둘이

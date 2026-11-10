@@ -186,6 +186,9 @@ type Deps struct {
 	// nil 이면 직접 모드이거나 records 를 말하지 않는 옛 데몬이다 — 거울만 쓴다
 	// (FR-ARD-14).
 	Records RecordSink
+	// AttnDaemon 은 데몬의 알람 판정이다 (AGENT_RECORD_DAEMON_SRS §3.3a). nil 이거나 Judges 가
+	// 거짓이면 데몬 모드의 판정은 종전처럼 AttnTracker 가 한다.
+	AttnDaemon AttentionDaemon
 }
 
 // UpdateService 는 판 확인의 접합면이다. `*updatecheck.Checker` 가 만족한다.

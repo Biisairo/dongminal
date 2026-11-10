@@ -66,6 +66,7 @@ func (pc *panedConn) hello(req *toolipc.PanedRequest) interface{} {
 	if p, perr := decodeParams[toolipc.HelloParams](req); perr == nil {
 		pc.serverFeatures = p.Features
 		pc.reports.Store(toolipc.HasFeature(p.Features, toolipc.FeatureReports))
+		pc.attention.Store(toolipc.HasFeature(p.Features, toolipc.FeatureAttention))
 	}
 	// FR-VHL-1: 판을 **둘로 나눠** 싣는다.
 	//

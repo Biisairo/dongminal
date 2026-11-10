@@ -260,3 +260,14 @@ func (m *ToolManager) Adopt(p *Tool) {
 	m.tools[p.ID] = p
 	m.mu.Unlock()
 }
+
+// AdoptDetached 는 관리자의 알림을 실은 PTY 없는 도구를 만들어 싣는다. 데몬의 판정을
+// PTY 없이 재는 시험이 쓴다 (AGENT_RECORD_DAEMON_SRS §3.3a).
+func (m *ToolManager) AdoptDetached(id string) *Tool {
+	m.mu.RLock()
+	hooks := m.attnHooks()
+	m.mu.RUnlock()
+	p := NewDetachedTool(id, hooks)
+	m.Adopt(p)
+	return p
+}

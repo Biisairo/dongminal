@@ -67,6 +67,13 @@ type panedConn struct {
 	// reports 는 이 연결의 서버가 hello 에서 reports 기능을 말했는가다 (§3.2a). 보고
 	// 소켓의 고루틴이 읽으므로 serverFeatures 와 따로 원자값으로 둔다.
 	reports atomic.Bool
+
+	// attention 은 이 연결의 서버가 attn push 를 아는가다 (AGENT_RECORD_DAEMON_SRS §3.3a).
+	// 도구의 알림(readPTY·스위퍼·보고)이 읽으므로 원자값이다.
+	attention atomic.Bool
+
+	// srv 는 이 연결을 받은 서버다 — report 메서드가 보고 소켓과 같은 반영을 딛는다.
+	srv *PanedServer
 }
 
 func newPanedConn(conn net.Conn, pm *toolhub.ToolManager) *panedConn {
@@ -241,6 +248,14 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 		resp = pc.recordSet(req)
 	case toolipc.MethodRecords:
 		resp = pc.recordsSnapshot(req)
+	case toolipc.MethodAttnConfig:
+		resp = pc.attnConfig(req)
+	case toolipc.MethodAttend:
+		resp = pc.attend(req)
+	case toolipc.MethodAttendAll:
+		resp = okResp(req, toolipc.AttendAllResult{Cleared: pc.pm.ClearAllAttention()})
+	case toolipc.MethodReport:
+		resp = pc.report(req)
 	default:
 		resp = toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeMethodNotFound, Message: "unknown method: " + req.Method}}
 	}

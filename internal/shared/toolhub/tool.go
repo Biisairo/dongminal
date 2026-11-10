@@ -68,8 +68,8 @@ type Tool struct {
 
 	// Attention state (PANE_ATTENTION_NOTIFY_SRS). attnCarry is touched only
 	// by the readPTY goroutine (no lock). The atomics are shared with the
-	// idle sweeper / input / query goroutines. onAttention/onAttentionClear/
-	// allowBell are set once in StartTool before readPTY starts (race-free).
+	// idle sweeper / input / query goroutines. onAttention/onAttentionClear are
+	// set once in StartTool before readPTY starts (race-free).
 	LastOutputAt atomic.Int64
 	attnArmed    atomic.Bool
 	attention    atomic.Bool
@@ -86,9 +86,11 @@ type Tool struct {
 	// turn 은 에이전트 훅이 말한 턴의 상태다 (묶음 N). agentSeen 이 "에이전트가
 	// 있는가" 라면 이쪽은 "지금 무엇이 벌어지는 중인가" 이며, 알람이 새 사건에만
 	// 서게 만드는 것이 그 쓰임이다 (FR-ATN-1·7).
-	turn             AgentTurn
-	attnCarry        []byte
-	allowBell        bool
+	turn      AgentTurn
+	attnCarry []byte
+	// allowBell 은 원자값이다 — 데몬의 attnconfig 가 이미 도는 도구에도 바꾼다
+	// (AGENT_RECORD_DAEMON_SRS §3.3a).
+	allowBell        atomic.Bool
 	onAttention      func(id, reason string)
 	onAttentionClear func(id string)
 	// onSize 는 PTY 크기가 **바뀌었을 때만** 불린다 (M9_SRS FR-M9-3). 데몬
@@ -217,7 +219,7 @@ func (p *Tool) applyHooks(hooks *ToolHooks) {
 	p.onAttention = hooks.OnAttention
 	p.onAttentionClear = hooks.OnAttentionClear
 	p.onActivity = hooks.OnActivity
-	p.allowBell = hooks.AllowBell
+	p.allowBell.Store(hooks.AllowBell)
 }
 
 // NewAttendingTool은 주의 상태가 이미 올라간 PTY 없는 도구를 만든다. armed 가
@@ -384,7 +386,7 @@ func (p *Tool) handleChunk(chunk []byte) {
 	if relay {
 		r.onOutput(p.ID, msg[1:], end)
 	}
-	c := classifyEsc(chunk, p.allowBell)
+	c := classifyEsc(chunk, p.allowBell.Load())
 	p.observeOutputClassified(chunk, attnNow(), c)
 	p.observeModesClassified(chunk, c.modes)
 }

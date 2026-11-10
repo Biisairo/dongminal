@@ -81,6 +81,13 @@ func Run(home, version, daemonBuild string) {
 	// 파일만 읽는 `shared/runfile` 의 술어를 위에서 꽂는다. toolhub 자신은 Run 을 모른 채로
 	// 남으며(의존 방향), 이 배선 패키지가 둘을 잇는 자리다.
 	pm.SetOwnedTools(func() map[string]struct{} { return runfile.HeadlessToolIDs(home) })
+
+	sockPath := platform.Current().IPC.Endpoint(home)
+	pidPath := filepath.Join(home, dmenv.PanedPIDFile)
+	// AGENT_RECORD_DAEMON_SRS §3.3a: 서버는 도구의 알람 알림을 건다. 알림은 도구를 만들 때
+	// 실리므로 LoadAll 보다 먼저 만든다.
+	ps := ipc.NewPanedServer(pm, sockPath, pidPath)
+
 	refs := referencedTools(filepath.Join(home, dmenv.WorkspaceFile))
 	headless := runfile.HeadlessToolIDs(home)
 	for id := range headless {
@@ -96,10 +103,6 @@ func Run(home, version, daemonBuild string) {
 		dmlog.Infof(nil, "헤드리스 도구 %d개를 백그라운드로 복원", len(headless))
 	}
 
-	sockPath := platform.Current().IPC.Endpoint(home)
-	pidPath := filepath.Join(home, dmenv.PanedPIDFile)
-
-	ps := ipc.NewPanedServer(pm, sockPath, pidPath)
 	// VERSION_HEALTH_SRS FR-VHL-1: 이 데몬의 빌드 판을 `hello` 에 싣는다. 값은
 	// 이미 `Run(home, version)` 으로 들어와 있다 — 데몬이 `ctl/cli` 를 import
 	// 하지 않고도 판을 말할 수 있는 것이 이 주입의 목적이다.
@@ -133,6 +136,11 @@ func Run(home, version, daemonBuild string) {
 	fgTick := time.NewTicker(toolhub.ForegroundRefreshInterval)
 	defer fgTick.Stop()
 	pm.StartForegroundRefresh(ctx.Done(), fgTick.C)
+	// FR-ARD-30: 유휴 판정도 데몬이 한다. 문턱은 서버의 attnconfig 가 바꿀 수 있으므로
+	// 지금 0 이어도 돌린다.
+	attnTick := time.NewTicker(toolhub.AttentionSweepInterval)
+	defer attnTick.Stop()
+	pm.RunAttentionSweeper(ctx.Done(), attnTick.C)
 
 	dmlog.Infof(nil, "dongminald listening on %s (platform=%s)", sockPath, platform.Current().OS)
 

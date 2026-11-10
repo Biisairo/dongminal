@@ -83,6 +83,7 @@ func buildApp(gitRoot context.Context, home, host, port string) (*app, error) {
 			if a.bd.attnTracker != nil {
 				a.records = newRecordWriter(a.panedClient, a.bd.attnTracker)
 				a.bd.deps.Records = a.records
+				a.bd.deps.AttnDaemon = wireDaemonAttention(a.panedClient, a.bd.attnTracker)
 			}
 		}
 	} else {
@@ -171,7 +172,10 @@ func (a *app) wireDaemonRecords() {
 	c, srv, w := a.panedClient, a.srv, a.records
 	syncRecords(c, w, srv)
 	c.SetOnRecord(srv.ApplyRecord)
-	c.SetOnResync(func() { syncRecords(c, w, srv) })
+	c.SetOnResync(func() {
+		syncAttnConfig(c)
+		syncRecords(c, w, srv)
+	})
 }
 
 // run 은 기동이다 — 스위퍼·폴·감시·리퍼를 ctx 에 묶어 띄우고 HTTP 서버를 돌린다.
