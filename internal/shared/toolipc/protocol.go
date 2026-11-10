@@ -57,7 +57,6 @@ const (
 	EventForeground = "fg"
 	EventExit       = "exit"
 	EventSize       = "size"
-	EventRecord     = "record"
 	EventReport     = "report"
 	EventAttn       = "attn"
 )
@@ -317,14 +316,6 @@ type ToolRecords struct {
 	Agent   toolhub.AgentState         `json:"agent"`
 	Records map[string]json.RawMessage `json:"records,omitempty"`
 	Tool    string                     `json:"tool"`
-}
-
-// RecordEvent 는 record push 다 (FR-ARD-12).
-type RecordEvent struct {
-	Event string          `json:"event"`
-	Kind  string          `json:"kind"`
-	Tool  string          `json:"tool,omitempty"`
-	Value json.RawMessage `json:"value"`
 }
 
 // ReportEvent 는 report push 다 — 데몬의 보고 소켓이 받은 보고 그대로다 (§3.2a). 서버는

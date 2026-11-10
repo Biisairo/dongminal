@@ -111,7 +111,7 @@
 
   데몬 전체에 하나: 에이전트별 계정 한도 `{windows, observedAt}`. 데몬이 끝나면 함께 사라진다.
 - **FR-ARD-11** 서버는 데몬이 `records` 기능을 말하면(`hello` 의 `Features`), 위 기록을 바꾸는 모든 쓰기를 **데몬에 먼저** 보낸다(새 IPC 메서드 `recordset`). 데몬이 받은 뒤에 서버가 거울과 화면·알람에 반영한다. 데몬이 실패를 답하면 서버는 거울에만 반영하고 로그를 남긴다.
-- **FR-ARD-12** 데몬은 기록이 바뀌면 서버 연결로 `record` push 를 보낸다. 본문은 `{tool, kind, value}` 다. 이 push 는 버리지 않는다(출력 push 와 달리 넘침에서 빼지 않는다).
+- **FR-ARD-12** (철회 — D-ARD-11) 데몬은 기록이 바뀌면 서버 연결로 `record` push 를 보낸다. 본문은 `{tool, kind, value}` 다. 이 push 는 버리지 않는다(출력 push 와 달리 넘침에서 빼지 않는다).
 - **FR-ARD-13** 서버는 데몬에 (다시) 붙을 때마다 새 IPC 메서드 `records` 로 스냅샷을 받아 거울을 **통째로 바꾼다**. 스냅샷을 반영할 때는 알람을 울리지 않고 SSE 로 바뀐 카드만 보낸다.
 - **FR-ARD-14** 데몬이 `records` 를 말하지 않으면(옛 데몬) 서버는 지금처럼 거울만 쓴다.
 
@@ -126,7 +126,6 @@
 | 기능 `records` | `DaemonFeatures` 에 더함 | 데몬이 아래 셋을 안다 |
 | `recordset` | `{kind, tool, value}` → `{}` | 기록 하나를 바꾼다. `value` 가 `null` 이면 지운다 |
 | `records` | `{}` → `{global, tools:[{tool, agent, records}]}` | 스냅샷. 살아 있는 도구는 기록이 없어도 모두 싣는다 |
-| push `record` | `{event:"record", kind, tool, value}` | 데몬 안의 다른 쓰기(단계 2 의 보고)가 기록을 바꿨다 |
 
 **기록의 종류(`kind`)**
 
@@ -157,7 +156,6 @@
 - 다시 붙을 때: 큐에 남은 쓰기를 먼저 보낸 뒤 `records` 를 받는다. 끊긴 동안 거울에만 반영된 값을 낡은 스냅샷이 덮지 않게 하기 위해서다.
 - 반영은 통째다. 스냅샷에 없는 도구는 추적기에서 지우고, 값 저장소(사용량·서브에이전트·활동·안내 표시·한도)는 스냅샷 내용으로 바꾼다.
 - 반영할 때 알람 방송은 없다. 활동이 바뀐 카드만 `tool_activity` 로 방송한다 (FR-ARD-13).
-- push `record` 는 같은 규칙으로 기록 하나만 반영한다.
 
 **옛 데몬 (FR-ARD-14):** 큐는 보낼 때마다 데몬이 `records` 를 말하는지 본다. 말하지 않으면 보내지 않고 스냅샷도 받지 않는다. 서버가 붙어 있는 동안 데몬이 바뀌어도(새 판 ↔ 옛 판) 그 데몬에 맞게 동작한다.
 
@@ -167,7 +165,7 @@
 
 - **FR-ARD-20** 데몬은 서버 연결 소켓과 **다른** 보고 소켓(`report.sock`, 같은 0700 폴더)을 연다. 이 소켓은 연결을 동시에 받고, 연결마다 요청 하나를 처리한 뒤 닫는다.
 - **FR-ARD-21** 보고 소켓이 받는 메서드는 넷뿐이다: `report.activity`·`report.usage`·`report.subagents`·`report.notify`. 그 밖은 오류로 답한다. 본문은 지금의 HTTP 본문과 같다.
-- **FR-ARD-22** 보고의 `toolId` 가 데몬의 살아 있는 도구가 아니면 거절한다. 받은 보고는 FR-ARD-10 의 기록에 쓰고, **보고 자체**를 push `report` 로 서버에 넘긴다. 보고로 바뀐 기록은 `record` push(FR-ARD-12)로 보내지 않는다 — 그 이유는 §3.2a 에 있다. 알람 판정(done·waiting 파생)은 단계 3 전에는 서버가 push 를 받고 한다.
+- **FR-ARD-22** 보고의 `toolId` 가 데몬의 살아 있는 도구가 아니면 거절한다. 받은 보고는 FR-ARD-10 의 기록에 쓰고, **보고 자체**를 push `report` 로 서버에 넘긴다. 보고로 바뀐 기록을 따로 push 하지 않는다 — 그 이유는 §3.2a 에 있다. 알람 판정(done·waiting 파생)은 단계 3 전에는 서버가 push 를 받고 한다.
 - **FR-ARD-23** `dmctl activity`·`statusline`·`subagent-statusline`·`notify` 는 보고 소켓에 **먼저** 보낸다. 보고 소켓이 없거나(직접 모드·샌드박스·옛 데몬) 실패하면 지금처럼 서버 HTTP 로 보낸다. 두 시도의 합이 종전 시한(`hookBudget`·`slReportBudget`)을 넘지 않는다.
 - **FR-ARD-24** 서버의 HTTP 보고 종단(`/api/tools/activity/set`·`usage`·`subagents`·`attention/set`)은 그대로 둔다. 데몬이 `records` 를 말하면 FR-ARD-11 로 데몬에 먼저 쓴다. 샌드박스 창의 보고가 이 길로 데몬에 닿는다.
 - **FR-ARD-25** 서버가 꺼져 있어도 데몬은 보고를 받아 기록한다. 서버가 다시 붙으면 FR-ARD-13 의 스냅샷이 그 결과를 싣는다. 그동안의 알람은 울리지 않는다.
@@ -390,6 +388,7 @@
 | D-ARD-8 | 데몬 판정은 직접 모드의 `toolhub.Tool` 코드를 그대로 쓴다 | 같은 판정을 두 벌(`Tool`·`AttnTracker`)로 두면 한쪽만 고쳐진다 (FR-ATN-14 의 같은 근거) |
 | D-ARD-9 | 데몬 이관(단계 1~3)을 먼저 하고 생존 판정(단계 4)을 마지막에 한다 | 사용자 결정 (2026-11-10): "기존 서버 저장이 데몬으로 간 것이 중요하다" |
 | D-ARD-10 | `contextNotices` 는 영속하지 않는다 (D-ARD-5·FR-ARD-6 철회) | 사용자 결정 (2026-11-10): "컨텍스트 사용량 경고는 중요한 로그가 아니다". `runs.json` 에 쓸데없는 기록이 쌓인다. 등급은 이미 저장되므로 재기동만으로는 경고가 다시 가지 않는다 |
+| D-ARD-11 | push `record` 를 없앤다 (FR-ARD-12 철회) | 단계 2 는 보고를 push `report` 로, 단계 3 은 판정 결과를 push `attn` 으로 넘긴다. 데몬 안에서 기록을 바꾸는 다른 쓰기가 없어 보내는 곳이 없었다(`PutRecord` 는 부르는 곳이 없었다). 받는 코드(`SetOnRecord`·`ApplyRecord`)와 와이어(`EventRecord`·`RecordEvent`)를 함께 지운다 (2026-11-10, 사용자 확인) |
 
 ## 5. 검증 (Verification)
 
@@ -400,7 +399,7 @@
 | TC-ARD-3 | FR-ARD-3·7 | Go: 지난 epoch 의 열린 Run 이 든 `runs.json` 을 읽음 | `aborted` 로 바뀌지 않고 저장도 바뀌지 않는다. 옛 `aborted` 레코드는 그대로 읽힌다 |
 | TC-ARD-4 | FR-ARD-4 | Go: 멤버 생존 조합별 `/api/runs` | `open`·`gone`·`unknown`, 닫힌 Run 은 필드 없음 |
 | TC-ARD-5 | FR-ARD-6 | 철회 (D-ARD-10). 시험하지 않는다 | — |
-| TC-ARD-10 | FR-ARD-10·12 | Go(데몬): 기록 쓰기·도구 종료 | push 가 나가고, 종료 뒤 기록이 없다 |
+| TC-ARD-10 | FR-ARD-10 | Go(데몬): 기록 쓰기·도구 종료 | 종료 뒤 기록이 없다. push `record` 는 철회했다 (D-ARD-11) |
 | TC-ARD-11 | FR-ARD-11·13 | Go: 서버가 쓰기 → 연결을 끊고 새 서버가 붙음 | 새 서버의 거울이 같은 값이다. 스냅샷 반영 때 알람 방송이 없다 |
 | TC-ARD-12 | FR-ARD-14 | Go: `records` 를 말하지 않는 데몬 | 종전 동작 그대로 |
 | TC-ARD-20 | FR-ARD-20·21·22 | Go(데몬): 보고 소켓에 넷과 다른 메서드, 없는 도구 | 넷만 받고 나머지와 없는 도구는 거절. 서버 연결이 있어도 동시에 받는다 |

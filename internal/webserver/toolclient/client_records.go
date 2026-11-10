@@ -24,14 +24,6 @@ func (pc *ToolClient) Records() (toolipc.RecordsResult, error) {
 	return callT[toolipc.RecordsResult](pc, toolipc.MethodRecords, struct{}{})
 }
 
-// SetOnRecord 는 record push 콜백을 건다. 배선 전에 온 push 는 놓친다 — 붙은 직후의
-// 스냅샷이 그 값을 싣는다.
-func (pc *ToolClient) SetOnRecord(cb func(ev toolipc.RecordEvent)) {
-	pc.mu.Lock()
-	pc.onRecord = cb
-	pc.mu.Unlock()
-}
-
 // SetOnResync 는 재접속 뒤 기록 재동기 콜백을 건다. 출력·종료의 재동기가 끝난 뒤
 // supervise 고루틴에서 돈다.
 func (pc *ToolClient) SetOnResync(cb func()) {
@@ -46,16 +38,6 @@ func (pc *ToolClient) resyncRecords() {
 	pc.mu.Unlock()
 	if cb != nil {
 		cb()
-	}
-}
-
-// pushRecord 는 `record` push 다 (FR-ARD-12).
-func (pc *ToolClient) pushRecord(m *wireMsg) {
-	pc.mu.Lock()
-	cb := pc.onRecord
-	pc.mu.Unlock()
-	if cb != nil {
-		cb(toolipc.RecordEvent{Event: m.Event, Kind: m.Kind, Tool: m.Tool, Value: m.Value})
 	}
 }
 

@@ -107,57 +107,6 @@ func (s *Server) ApplyRecords(res toolipc.RecordsResult) {
 	s.activityChanged.Notify()
 }
 
-// ApplyRecord 는 record push 하나를 반영한다 (FR-ARD-12). 값이 null 이면 지운다.
-func (s *Server) ApplyRecord(ev toolipc.RecordEvent) {
-	gone := len(ev.Value) == 0 || string(ev.Value) == "null"
-	switch ev.Kind {
-	case toolipc.RecordAgent:
-		var st toolhub.AgentState
-		if s.AttnTracker != nil && (gone || decodeRecord(ev.Kind, ev.Tool, ev.Value, &st)) {
-			s.AttnTracker.Restore(ev.Tool, st)
-		}
-	case toolipc.RecordUsage:
-		var u toolUsage
-		s.usage.mu.Lock()
-		delete(s.usage.m, ev.Tool)
-		s.usage.mu.Unlock()
-		if !gone && decodeRecord(ev.Kind, ev.Tool, ev.Value, &u) {
-			s.usage.put(ev.Tool, u)
-		}
-	case toolipc.RecordSubagents:
-		var r agentrec.SubagentList
-		s.subagents.mu.Lock()
-		delete(s.subagents.m, ev.Tool)
-		s.subagents.mu.Unlock()
-		if !gone && decodeRecord(ev.Kind, ev.Tool, ev.Value, &r) {
-			s.subagents.put(ev.Tool, r.Tasks, time.UnixMilli(r.ObservedAt))
-		}
-	case toolipc.RecordSubagentActs:
-		var m map[string]subagentActivity
-		s.subActs.dropTool(ev.Tool)
-		if !gone && decodeRecord(ev.Kind, ev.Tool, ev.Value, &m) && len(m) > 0 {
-			s.subActs.mu.Lock()
-			if s.subActs.m == nil {
-				s.subActs.m = map[string]map[string]subagentActivity{}
-			}
-			s.subActs.m[ev.Tool] = m
-			s.subActs.mu.Unlock()
-		}
-	case toolipc.RecordMigrationTold:
-		if gone {
-			s.migrationUnknownTold.Delete(ev.Tool)
-		} else {
-			s.migrationUnknownTold.Store(ev.Tool, true)
-		}
-	case toolipc.RecordLimits:
-		var limits map[string]agentrec.LimitRecord
-		if gone || decodeRecord(ev.Kind, "", ev.Value, &limits) {
-			s.rateLimits.replace(limits)
-		}
-	}
-	s.activityChanged.Notify()
-}
-
 func decodeRecord(kind, tool string, raw json.RawMessage, v any) bool {
 	if err := json.Unmarshal(raw, v); err != nil {
 		dmlog.Warnf(nil, "records: %s/%s 를 읽지 못했다: %v", kind, tool, err)

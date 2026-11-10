@@ -159,7 +159,7 @@ func (a *app) wireDaemonPushes() {
 	a.panedClient.SetOnForeground(hub.BroadcastForeground(a.bd.deps.Commands))
 }
 
-// wireDaemonRecords 는 데몬의 기록을 거울에 잇는다 (FR-ARD-12·13). HTTP 를 열기 전에
+// wireDaemonRecords 는 데몬의 기록을 거울에 잇는다 (FR-ARD-13). HTTP 를 열기 전에
 // 스냅샷을 반영하므로, 처음 받는 보고가 낡은 스냅샷에 덮이지 않는다.
 func (a *app) wireDaemonRecords() {
 	// §3.2a: 서버는 hello 에서 reports 를 말하므로 report push 는 언제나 받아야 한다.
@@ -171,7 +171,6 @@ func (a *app) wireDaemonRecords() {
 	}
 	c, srv, w := a.panedClient, a.srv, a.records
 	syncRecords(c, w, srv)
-	c.SetOnRecord(srv.ApplyRecord)
 	c.SetOnResync(func() {
 		syncAttnConfig(c)
 		syncRecords(c, w, srv)

@@ -138,29 +138,6 @@ func TestRecords_ApplySnapshotReplacesMirror(t *testing.T) {
 	}
 }
 
-func TestRecords_ApplyOnePush(t *testing.T) {
-	fb := &fakeCommandBroker{}
-	tr := hub.NewAttnTracker(fb, 0)
-	s := &Server{Deps: Deps{AttnTracker: tr, Commands: fb}, limits: defaultLimits()}
-	s.usage.put("other", toolUsage{})
-	s.ApplyRecord(toolipc.RecordEvent{Kind: toolipc.RecordUsage, Tool: "t1", Value: json.RawMessage(`{"effort":"max"}`)})
-	if u, ok := s.usage.get("t1"); !ok || *u.Effort != "max" {
-		t.Fatalf("usage=%+v", u)
-	}
-	if _, ok := s.usage.get("other"); !ok {
-		t.Fatal("push 하나가 다른 도구를 지웠다")
-	}
-	agent, _ := json.Marshal(toolhub.AgentState{AgentSeen: true, Activity: &toolhub.ActivityState{State: activity.Done}})
-	s.ApplyRecord(toolipc.RecordEvent{Kind: toolipc.RecordAgent, Tool: "t1", Value: agent})
-	if a := tr.Activity("t1"); a == nil || a.State != activity.Done {
-		t.Fatalf("activity=%+v", a)
-	}
-	s.ApplyRecord(toolipc.RecordEvent{Kind: toolipc.RecordUsage, Tool: "t1", Value: json.RawMessage(`null`)})
-	if _, ok := s.usage.get("t1"); ok {
-		t.Fatal("null push 가 지우지 않았다")
-	}
-}
-
 func (f *fakeCommandBroker) count() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
