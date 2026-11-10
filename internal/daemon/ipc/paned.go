@@ -42,6 +42,9 @@ type panedConn struct {
 	// slow 는 create·restore 의 연결당 세마포어다 (panedSlowMax).
 	slow chan struct{}
 
+	// pasteLocks 는 조건부 paste 를 도구마다 차례로 세운다 (S6).
+	pasteLocks keyedLocks
+
 	// wireTool is set by PanedServer to hook tool output/exit into this conn.
 	wireTool func(p *toolhub.Tool)
 
@@ -165,7 +168,28 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 	case toolipc.MethodWrite:
 		resp = pc.write(req)
 	case toolipc.MethodPaste:
-		resp = pc.paste(req)
+		p, perr := decodeParams[toolipc.PasteParams](req)
+		if perr != nil {
+			resp = *perr
+			break
+		}
+		// S6: 전경 조건이 있는 paste 는 전경 조회 두 번과 제출 틈을 기다린다. 읽기 루프에서
+		// 돌면 그동안 이 연결의 다른 도구 입력·RPC 가 멈춘다. 같은 도구의 조건부 paste
+		// 끼리는 차례를 지킨다.
+		if p.Foreground != "" {
+			go func() {
+				unlock := pc.pasteLocks.lock(p.ID)
+				defer unlock()
+				select {
+				case <-pc.done:
+					return
+				default:
+				}
+				pc.enqueue(pc.pasteWith(req, p), false)
+			}()
+			return
+		}
+		resp = pc.pasteWith(req, p)
 	case toolipc.MethodResize:
 		resp = pc.resize(req)
 	case toolipc.MethodInput:
@@ -217,4 +241,39 @@ func (pc *panedConn) goSlow(fn func() interface{}) {
 // serverHas 는 이 연결의 서버가 name 기능을 말했는가다 (D-OPT-1).
 func (pc *panedConn) serverHas(name string) bool {
 	return toolipc.HasFeature(pc.serverFeatures, name)
+}
+
+// keyedLocks 는 키마다의 잠금이다. 쥔 쪽이 없는 키는 지운다.
+type keyedLocks struct {
+	mu sync.Mutex
+	m  map[string]*keyedLock
+}
+
+type keyedLock struct {
+	mu sync.Mutex
+	n  int
+}
+
+// lock 은 key 의 잠금을 쥐고, 놓는 함수를 돌려준다.
+func (k *keyedLocks) lock(key string) (unlock func()) {
+	k.mu.Lock()
+	if k.m == nil {
+		k.m = map[string]*keyedLock{}
+	}
+	l := k.m[key]
+	if l == nil {
+		l = &keyedLock{}
+		k.m[key] = l
+	}
+	l.n++
+	k.mu.Unlock()
+	l.mu.Lock()
+	return func() {
+		l.mu.Unlock()
+		k.mu.Lock()
+		if l.n--; l.n == 0 {
+			delete(k.m, key)
+		}
+		k.mu.Unlock()
+	}
 }

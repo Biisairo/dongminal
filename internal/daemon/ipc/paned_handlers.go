@@ -164,6 +164,12 @@ func (pc *panedConn) paste(req *toolipc.PanedRequest) interface{} {
 	if perr != nil {
 		return *perr
 	}
+	return pc.pasteWith(req, p)
+}
+
+// pasteWith 는 읽은 인자로 paste 한다. Foreground 가 비면 조건 없이 넣는다 — 그 판정은
+// 웹서버의 공통 입구가 한다 (PEER_NETWORK_SRS I-67). 이 갈래는 평범한 SendPaste 다.
+func (pc *panedConn) pasteWith(req *toolipc.PanedRequest, p toolipc.PasteParams) interface{} {
 	var err error
 	if p.Foreground != "" {
 		err = pc.pm.SendPasteIfForeground(p.ID, p.Data, p.Submit, p.Foreground)

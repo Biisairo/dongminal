@@ -226,14 +226,14 @@
 
 ### 노드 간 통신 (`PEER_NETWORK_SRS`)
 
-UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` 이고, 상대 노드가 돌려준 오류는 이렇게 옮깁니다. 4xx 는 상태를 그대로, 그 밖은 502 로 바꿉니다. 코드는 오류 카탈로그에 있는 것만 그대로 옮기고, 모르는 코드는 `peer_rejected` 로 바꿉니다. 문장은 제어 문자를 지우고 512 바이트로 자릅니다. 상대에 닿지 못하거나 JSON 이 아닌 답이면 `peer_unreachable` 입니다.
+UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` 이고, 상대 노드가 돌려준 오류는 이렇게 옮깁니다. 4xx 는 상태를 그대로, 그 밖은 502 로 바꿉니다. 코드는 오류 카탈로그에 있는 것만 그대로 옮기고, 모르는 코드는 `peer_rejected` 로 바꿉니다. 문장은 제어 문자를 지우고 512 바이트로 자릅니다. 상대에 닿지 못하거나 JSON 이 아닌 답이면 `peer_unreachable` 입니다. 단, JSON 이 아닌 403 은 상대가 이 노드를 받지 않았다는 뜻이므로 `peer_rejected` 입니다.
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| GET | `/api/peers` | 이 노드(`node`: 설정·지문·`listening`·열지 못한 사유 `error`), 짝 목록(`peers`, `state` 가 빈 값이면 짝, `pending-out` 이면 상대의 승인을 기다리는 중), 승인 대기(`pending`), 살아 있는 초대의 만료(`invite`). 초대 토큰은 싣지 않는다. 노드 설정·초대·짝·승인 대기가 바뀌면 `peers_changed` 를 방송한다. 이 노드가 승인해 짝맞춤을 마쳤으면 `args.paired` 에 그 이름을 싣는다 |
+| GET | `/api/peers` | 이 노드(`node`: 설정·지문·`listening`·열지 못한 사유 `error`), 짝 목록(`peers`, `state` 가 빈 값이면 짝, `pending-out` 이면 상대의 승인을 기다리는 중), 승인 대기(`pending`), 살아 있는 초대의 만료(`invite`). 초대 토큰은 싣지 않는다. 노드 설정·초대·짝·승인 대기가 바뀌면 `peers_changed` 를 방송한다. 상대의 승인 통지나 명령 성공으로 `pending-out` 이 짝이 될 때도 방송한다. 바뀐 것이 없으면(이미 짝, 실패한 요청) 방송하지 않는다. 이 노드가 승인해 짝맞춤을 마쳤으면 `args.paired` 에 그 이름을 싣는다 |
 | PUT | `/api/peers/node` | 노드 설정(`enabled`·`port`·`bind`·`name`·`advertise`·`allowedDirs`)을 바꾸고 노드 포트에 바로 적용한다. 짝 목록은 바뀌지 않는다. 틀린 값은 400 `peer_config_invalid` |
 | POST | `/api/peers/invite` | `{addr?}` → `{code, expires}`. 일회용 초대 코드(10분). 주소는 `addr`, 없으면 `advertise`. 노드 포트가 닫혀 있으면 409 `peer_port_closed`, 주소가 없으면 400 `peer_addr_required` |
-| POST | `/api/peers/add` | `{code, name?}` → `{name, state:"pending-out", warning?}`. 상대 노드에 연결해 지문을 대조하고 등록을 요청한다. `warning:"port_closed"` 는 이 노드의 포트가 닫혀 있어 상대가 보낼 수 없다는 뜻이다. 실패는 `peer_fingerprint_mismatch`·`peer_unreachable`·`peer_token_invalid` 등 |
+| POST | `/api/peers/add` | `{code, name?}` → `{name, state, warning?}`. `state` 는 실제로 저장된 상태다. 보통 `"pending-out"` 이고, 이미 짝이면 `""` 이다. 상대 노드에 연결해 지문을 대조하고 등록을 요청한다. `warning:"port_closed"` 는 이 노드의 포트가 닫혀 있어 상대가 보낼 수 없다는 뜻이다. 실패는 `peer_fingerprint_mismatch`·`peer_unreachable`·`peer_token_invalid` 등 |
 | GET | `/api/peers/pending` | `{pending:[{id, name, addr, port, fp, expires}]}` — 승인 대기 |
 | POST | `/api/peers/approve` | `{id, name?}` → `{name, fp, confirmed, reason?}`. 짝으로 저장하고 상대에 승인을 알린다. 알리지 못해도 저장은 남고 `confirmed:false`. 이름이 겹치면 409 `peer_name_taken` |
 | POST | `/api/peers/reject` | `{id}` — 승인 대기를 버린다 |
