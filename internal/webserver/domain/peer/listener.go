@@ -51,11 +51,23 @@ type Listener struct {
 	gen     uint64
 }
 
-// NewListener 는 id 를 서버 인증서로 쓰고, isPeer 가 참인 클라이언트 인증서만 받는
-// 리스너를 만든다. Apply 전에는 아무것도 듣지 않는다.
-func NewListener(id Identity, isPeer func(fp string) bool, h http.Handler) *Listener {
+// Admission 은 누가 노드 포트에 들어오는가다. TLS 는 핸드셰이크에서 지문만 보고,
+// Request 는 요청마다 지문과 경로를 함께 본다 (I-1). TLS 단계는 경로를 모른다.
+type Admission struct {
+	TLS     func(fp string) bool
+	Request func(fp, path string) bool
+}
+
+// PeersOnly 는 두 단계 모두 isPeer 하나로 거르는 Admission 이다.
+func PeersOnly(isPeer func(fp string) bool) Admission {
+	return Admission{TLS: isPeer, Request: func(fp, _ string) bool { return isPeer(fp) }}
+}
+
+// NewListener 는 id 를 서버 인증서로 쓰고 adm 이 받는 클라이언트만 들이는 리스너를
+// 만든다. Apply 전에는 아무것도 듣지 않는다.
+func NewListener(id Identity, adm Admission, h http.Handler) *Listener {
 	return &Listener{
-		handler: requirePeer(isPeer, h),
+		handler: requireAdmission(adm.Request, h),
 		tlsCfg: &tls.Config{
 			MinVersion:   tls.VersionTLS13,
 			Certificates: []tls.Certificate{id.Certificate},
@@ -63,27 +75,41 @@ func NewListener(id Identity, isPeer func(fp string) bool, h http.Handler) *List
 			// VerifyConnection 은 세션 재개에서도 돈다. VerifyPeerCertificate 는 돌지
 			// 않으므로, 거기 두면 해제한 짝이 재개로 들어온다 (FR-PNW-31).
 			VerifyConnection: func(cs tls.ConnectionState) error {
-				return checkPeer(isPeer, cs)
+				fp, err := clientFingerprint(cs)
+				if err != nil {
+					return err
+				}
+				if !adm.TLS(fp) {
+					return errNotPeer
+				}
+				return nil
 			},
 		},
 	}
 }
 
-func checkPeer(isPeer func(string) bool, cs tls.ConnectionState) error {
+func clientFingerprint(cs tls.ConnectionState) (string, error) {
 	if len(cs.PeerCertificates) == 0 {
-		return errNoClientCert
+		return "", errNoClientCert
 	}
-	if !isPeer(FingerprintOf(cs.PeerCertificates[0])) {
-		return errNotPeer
-	}
-	return nil
+	return FingerprintOf(cs.PeerCertificates[0]), nil
 }
 
-// requirePeer 는 요청마다 짝인지 다시 본다. 짝을 해제한 뒤에도 열려 있던
-// keep-alive 연결이 핸들러에 닿지 않게 한다 (FR-PNW-31).
-func requirePeer(isPeer func(string) bool, next http.Handler) http.Handler {
+// ClientFingerprint 는 요청을 보낸 노드의 지문이다. 노드 포트 밖의 요청이면 빈 값이다.
+func ClientFingerprint(r *http.Request) string {
+	if r.TLS == nil {
+		return ""
+	}
+	fp, _ := clientFingerprint(*r.TLS)
+	return fp
+}
+
+// requireAdmission 은 요청마다 다시 거른다. 짝을 해제한 뒤에도 열려 있던 keep-alive
+// 연결이 핸들러에 닿지 않게 한다 (FR-PNW-31).
+func requireAdmission(admit func(fp, path string) bool, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.TLS == nil || checkPeer(isPeer, *r.TLS) != nil {
+		fp := ClientFingerprint(r)
+		if fp == "" || !admit(fp, r.URL.Path) {
 			w.Header().Set("Connection", "close")
 			w.WriteHeader(http.StatusForbidden)
 			return

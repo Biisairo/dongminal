@@ -24,7 +24,7 @@
 | 방언 | 본문 | 쓰는 곳 |
 |---|---|---|
 | git | `{"error": <코드>, "message": <tail>}` | `/api/git/*` |
-| fs | `{"code": <코드>, "message": <msg>}` | `/api/fs/*` · `/api/editors/*` · 노드 포트의 `/peer/v1/*` |
+| fs | `{"code": <코드>, "message": <msg>}` | `/api/fs/*` · `/api/editors/*` · 노드 포트의 `/peer/v1/*` · `/api/peers/*` |
 | runs | `{"error": <코드>, "detail": <err>}` | `/api/runs/*` |
 | 단문 | `{"error": <문구>}` | `/api/tools/{output,input,message}` · `/api/whoami` |
 | 평문 | `text/plain` 한 줄 | 그 밖의 `/api/*` |
@@ -103,6 +103,19 @@
 | `outside_root` | 허용된 뿌리 밖의 경로입니다. | 작업 폴더 안의 경로를 쓰세요. 이 거절이 경계를 지켰습니다. |
 | `patch_empty` | 만들어진 패치가 비었습니다. | 고른 범위를 확인하세요. |
 | `path_must_be_absolute` | 경로가 절대 경로여야 합니다. | `/` 로 시작하는 경로를 보내세요. |
+| `peer_addr_required` | 초대 코드에 담을 이 노드의 주소가 없습니다. | 초대를 만들 때 주소(--addr)를 주거나 노드 설정의 알릴 주소(advertise)를 정하세요. |
+| `peer_config_invalid` | 노드 설정 값이 규칙에 맞지 않습니다. | 이름은 영문·숫자·`.`·`_`·`-` 1~32자, 포트는 1~65535, 듣는 주소는 IP 입니다. |
+| `peer_fingerprint_mismatch` | 상대 노드의 지문이 초대 코드와 다릅니다. 아무것도 보내지 않았습니다. | 주소가 다른 기계를 가리키는지 확인하세요. 같은 기계라면 상대가 신원을 새로 만든 것이니 초대를 다시 받으세요. |
+| `peer_invite_invalid` | 초대 코드의 모양이 틀렸습니다. | dmpeer1: 로 시작하는 코드를 잘리지 않게 통째로 붙여 넣으세요. |
+| `peer_name_taken` | 그 이름의 짝이 이미 있습니다. | 다른 이름(--name)을 정하세요. |
+| `peer_no_invite` | 상대 노드에 살아 있는 초대가 없습니다 — 만료됐거나 이미 쓰였습니다. | 상대 노드에서 초대를 새로 만들어 받으세요. 초대는 10분 살고 한 번만 쓸 수 있습니다. |
+| `peer_not_found` | 그 이름의 짝이 없습니다. | dmctl peers 로 짝 이름을 확인하세요. |
+| `peer_pending_not_found` | 그 승인 대기가 없습니다 — 만료됐거나 이미 처리됐습니다. | dmctl peers 로 지금 목록을 보세요. 승인 대기는 10분 뒤 사라집니다. |
+| `peer_port_closed` | 노드 포트가 열려 있지 않아 초대를 만들 수 없습니다. | 노드 포트를 켜고(설정 ▸ Peers 또는 PUT /api/peers/node), 열지 못한 사유가 있으면 먼저 해결하세요. |
+| `peer_rejected` | 상대 노드가 이 노드를 받지 않았습니다. | 상대가 짝을 해제했을 수 있습니다. 필요하면 짝을 다시 맺으세요. |
+| `peer_token_invalid` | 초대 토큰이 맞지 않습니다. | 가장 최근에 만든 초대 코드인지 확인하세요. 5번 틀리면 그 초대는 폐기됩니다. |
+| `peer_unavailable` | 이 서버에는 노드 기능이 서지 않았습니다 — 노드 인증서를 읽지 못했습니다. | server.log 의 peer identity 줄을 보세요. node-cert.pem·node-key.pem 이 망가졌다면 둘 다 지우고 다시 시작하면 새 신원이 생깁니다(짝은 다시 맺어야 합니다). |
+| `peer_unreachable` | 상대 노드에 닿지 못했습니다. | 상대의 노드 포트가 켜져 있는지, 주소·포트가 맞는지, 방화벽이 막지 않는지 확인하세요. 큐·재시도는 없습니다. |
 | `permission_denied` | 파일 권한이 이 동작을 막았습니다. | 그 파일과 상위 폴더의 권한을 보세요. |
 | `preflight_blocked` | 사전 점검이 이 동작을 막았습니다. | 본문의 사유를 읽고 그 조건을 먼저 해소하세요. |
 | `publish_required` | 이 브랜치가 아직 원격에 없습니다. | 먼저 publish(최초 push) 하세요. |
@@ -147,4 +160,4 @@
 | `workspace_unavailable` | 워크스페이스 계층이 아직 서지 않았습니다. | 잠시 뒤 다시 시도하세요. |
 | `worktree_exists` | 그 자리에 이미 worktree 가 있습니다. | 다른 경로를 고르거나 기존 것을 여세요. |
 
-총 **113개**.
+총 **126개**.

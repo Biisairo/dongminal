@@ -44,7 +44,7 @@ func newListenerFixture(t *testing.T) *listenerFixture {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	f.handler = h
-	f.ln = NewListener(server, func(fp string) bool { return fp == f.peerFP }, h)
+	f.ln = NewListener(server, PeersOnly(func(fp string) bool { return fp == f.peerFP }), h)
 	t.Cleanup(f.ln.Close)
 	return f
 }
@@ -256,7 +256,7 @@ func TestListenerRevokedPeerOnOpenConnection(t *testing.T) {
 	f := newListenerFixture(t)
 	var allowed atomic.Bool
 	allowed.Store(true)
-	f.ln = NewListener(f.server, func(fp string) bool { return allowed.Load() && fp == f.peerFP }, f.handler)
+	f.ln = NewListener(f.server, PeersOnly(func(fp string) bool { return allowed.Load() && fp == f.peerFP }), f.handler)
 	t.Cleanup(f.ln.Close)
 	f.ln.Apply(enabledAt(freePort(t)))
 	addr := f.ln.Status().Addr
@@ -280,7 +280,7 @@ func TestListenerRevokedPeerOnResumedSession(t *testing.T) {
 	f := newListenerFixture(t)
 	var allowed atomic.Bool
 	allowed.Store(true)
-	f.ln = NewListener(f.server, func(fp string) bool { return allowed.Load() && fp == f.peerFP }, f.handler)
+	f.ln = NewListener(f.server, PeersOnly(func(fp string) bool { return allowed.Load() && fp == f.peerFP }), f.handler)
 	t.Cleanup(f.ln.Close)
 	f.ln.Apply(enabledAt(freePort(t)))
 	addr := f.ln.Status().Addr
@@ -293,6 +293,29 @@ func TestListenerRevokedPeerOnResumedSession(t *testing.T) {
 	allowed.Store(false)
 	if code, err := get(c, addr, "/peer/v1/x"); err == nil && code == http.StatusNoContent {
 		t.Fatal("해제한 짝이 세션 재개로 닿았다")
+	}
+	if f.handled.Load() != 1 {
+		t.Fatalf("핸들러 호출 %d, 기대 1", f.handled.Load())
+	}
+}
+
+// I-1: TLS 단계가 받아도 요청 단계가 경로별로 다시 거른다.
+func TestListenerRequestAdmissionByPath(t *testing.T) {
+	f := newListenerFixture(t)
+	strangeFP := f.strange.Fingerprint
+	f.ln = NewListener(f.server, Admission{
+		TLS:     func(fp string) bool { return fp == strangeFP },
+		Request: func(fp, path string) bool { return fp == strangeFP && path == "/peer/v1/pair" },
+	}, f.handler)
+	t.Cleanup(f.ln.Close)
+	f.ln.Apply(enabledAt(freePort(t)))
+	addr := f.ln.Status().Addr
+	c := f.clientFor(&f.strange, 0)
+	if code, err := get(c, addr, "/peer/v1/pair"); err != nil || code != http.StatusNoContent {
+		t.Fatalf("허용 경로: code=%d err=%v", code, err)
+	}
+	if code, err := get(c, addr, "/peer/v1/node.info"); err != nil || code != http.StatusForbidden {
+		t.Fatalf("막힌 경로: code=%d err=%v", code, err)
 	}
 	if f.handled.Load() != 1 {
 		t.Fatalf("핸들러 호출 %d, 기대 1", f.handled.Load())

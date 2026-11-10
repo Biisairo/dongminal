@@ -54,6 +54,13 @@ Dongminal 서버는 기동 시 `$DONGMINAL_HOME/bin/` 에 헬퍼를 설치하고
 | `dmctl status [--at <uuid> \| --member <uuid>] [--json]` | 그 도구의 에이전트 상태(`idle`/`working`/`waiting`/`done`). `--member` 는 헤드리스 멤버를 지목한다 (`wait` 와 같다) |
 | `dmctl wait [--at <uuid>] --for ready\|done [--timeout-ms N]` | 그 상태가 될 때까지 기다립니다. 서버가 long-poll 로 잡아 주므로 폴링 루프를 짜지 마세요 |
 
+#### 노드 간 통신 — 짝맞춘 다른 dongminal
+
+| 명령 | 설명 |
+|------|------|
+| `dmctl peers [--json]` | 이 노드의 노드 포트 상태, 짝 목록(이름·주소·상태), 승인 대기를 봅니다. 지문은 앞 16자만 보입니다 |
+| `dmctl peer invite \| add \| approve \| reject \| remove …` | 짝맞춤입니다. `invite [--addr <주소>]` 가 초대 코드를 만들고(10분, 한 번), 상대가 `add <코드> [--name <이름>]` 로 등록을 요청하면, 이쪽이 `approve <id> [--name <이름>]` 로 승인합니다. `reject <id>` 는 거절, `remove <노드>` 는 해제입니다. 상대에 닿지 못하면 사유 코드를 내고 1 로 끝납니다 |
+
 #### 에이전트 훅에서 부르는 것
 
 이 셋은 사람이 직접 치는 명령이 아닙니다. 에이전트의 훅이 부릅니다.

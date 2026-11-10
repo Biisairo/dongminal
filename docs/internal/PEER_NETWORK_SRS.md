@@ -1,7 +1,7 @@
 # SRS: dongminal 노드 간 통신 (Peer Network) — IEEE 29148
 
 > **문서 상태**: 승인·구현중
-> **남은 것**: §8 단계 2~6. 단계 1(묶음 N)은 끝났다. 다만 FR-PNW-8·9의 설정 변경 진입점(`PUT /api/peers/node`)과 사유 표시(설정 화면·`dmctl peers`)는 단계 3·5 에서 붙인다
+> **남은 것**: §8 단계 3~6. 단계 1(N)·2(P)는 끝났다. FR-PNW-28(`node.info` 로 회복)과 `dmctl peers` 의 마지막 응답 시각은 단계 3, 사유·승인 대기의 화면 표시는 단계 5 에서 붙인다
 
 ## 1. 개요
 
@@ -273,3 +273,22 @@ A 서버 ──TLS 1.3, A 인증서 제시, B 지문 확인──▶ B 노드 �
 | 4 | R 나머지 | `agent.spawn` · `agent.status` · `agent.close` |
 | 5 | U | 설정 `Peers` 탭, 승인 알림 |
 | 6 | 문서 | `docs/external/peers.md`, 명령·API·오류 문서 |
+
+---
+
+## 9. 구현 메모
+
+### 9.1 단계 2 (묶음 P) — 스펙이 비운 자리를 채운 값
+
+| # | 자리 | 정한 값 | 근거 |
+|---|---|---|---|
+| I-1 | 짝이 아닌 인증서를 TLS 단계에서 받는 때 | 살아 있는 초대가 있을 때, 또는 그 지문이 `pending-out` 일 때만 받는다. 요청 단계에서 `/peer/v1/pair` 는 아무 인증서나, `/peer/v1/pair/confirm` 은 짝·`pending-out` 지문만, 나머지는 짝만 받는다 | FR-PNW-24·27·41. TLS 단계는 경로를 모른다 |
+| I-2 | `pending-out` 의 자리 | `peers.json` 의 짝 항목에 `state:"pending-out"` 과 `expires` 로 둔다. 만료된 항목은 짝으로도 `pending-out` 으로도 세지 않는다 | FR-PNW-26 "저장한다", FR-PNW-29 10분 |
+| I-3 | 초대 코드와 FR-PNW-95 | 토큰은 초대를 **만든 응답**에만 코드 안에 담겨 나간다. 조회(`GET /api/peers`)·로그에는 나오지 않는다 | FR-PNW-21 의 코드가 토큰을 담아야 짝맞춤이 된다 |
+| I-4 | A 가 보내는 `addr` | A 의 `advertise`. 비어 있으면 빈 값을 보내고, B 는 그 연결의 출발지 IP 를 쓴다 | 사용자가 알릴 주소를 정하지 않은 흔한 경우 |
+| I-5 | A 쪽 이름 충돌 | `--name` 을 주지 않았고 B 가 알린 이름이 이미 있으면 `-2`·`-3` … 을 붙인다. `--name` 이 이미 있으면 B 에 연결하기 전에 409 `peer_name_taken` | 토큰을 쓴 뒤에 실패하면 되돌릴 수 없다 |
+| I-6 | 초대를 만들 조건 | 노드 포트가 열려 있어야 한다(409 `peer_port_closed`). 주소는 요청의 `addr`, 없으면 `advertise`, 둘 다 없으면 400 `peer_addr_required` | 닫힌 포트의 초대는 쓸 수 없다 |
+| I-7 | 로컬 API 오류 본문 | 노드 포트와 같은 fs 방언 `{code,message}` | 원격 오류를 그대로 옮길 수 있다 (FR-PNW-71) |
+| I-8 | 노드 설정 변경 진입점 | `PUT /api/peers/node` 를 단계 2 에 넣는다. 저장 뒤 노드 포트에 바로 적용한다(FR-PNW-8). dmctl 명령은 FR-PNW-73 에 없으므로 만들지 않는다 | 짝맞춤을 하려면 포트를 켤 수 있어야 한다 |
+| I-9 | 승인 뒤 confirm 이 실패하면 | 승인은 성공으로 끝내고 `confirmed:false` 와 사유를 돌려준다 | FR-PNW-27·28. B 에는 이미 저장됐다 |
+| I-10 | FR-PNW-28 (`node.info` 로 회복) | 단계 3 에서 `node.info` 와 함께 만든다 | §8 단계 3 |

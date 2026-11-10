@@ -235,6 +235,16 @@ var apiRoutes = []apiRoute{
 	httproute.Get("/api/workspace/revisions", (*Server).apiWorkspaceRevisions),
 	httproute.Post("/api/workspace/revert", (*Server).apiWorkspaceRevert),
 	httproute.Get("/api/stats", (*Server).apiStats),
+	// PEER_NETWORK_SRS FR-PNW-70: 노드 간 통신의 로컬 API (peer_api.go).
+	httproute.Get("/api/peers", (*Server).apiPeersGet),
+	httproute.Put("/api/peers/node", (*Server).apiPeersNodePut),
+	httproute.Post("/api/peers/invite", (*Server).apiPeersInvite),
+	httproute.Post("/api/peers/add", (*Server).apiPeersAdd),
+	httproute.Get("/api/peers/pending", (*Server).apiPeersPending),
+	httproute.Post("/api/peers/approve", (*Server).apiPeersApprove),
+	httproute.Post("/api/peers/reject", (*Server).apiPeersReject),
+	httproute.Post("/api/peers/remove", (*Server).apiPeersRemove),
+	httproute.Put("/api/peers/address", (*Server).apiPeersAddress),
 }
 
 func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {

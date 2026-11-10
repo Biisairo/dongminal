@@ -201,7 +201,7 @@ GET/PUT·ping·stats·sandbox 다섯 — 과 `reapSandboxes` 가 있다. SSE 열
 | 방언 | 본문 | 쓰는 곳 |
 |---|---|---|
 | git | `{"error": <코드>, "message": <tail>}` | `/api/git/*` |
-| fs | `{"code": <코드>, "message": <msg>}` | `/api/fs/*` · `/api/editors/*` · 노드 포트의 `/peer/v1/*` |
+| fs | `{"code": <코드>, "message": <msg>}` | `/api/fs/*` · `/api/editors/*` · 노드 포트의 `/peer/v1/*` · `/api/peers/*` |
 | runs | `{"error": <sentinel 문자열>, "detail": <err>}` | `/api/runs/*` |
 | 단문 | `{"error": <msg>}` | `/api/tools/{output,input,message}` · `/api/whoami` |
 | 평문 | `text/plain` 한 줄 | 그 밖의 `/api/*` (`httpErr`) |

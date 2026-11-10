@@ -224,6 +224,22 @@
 | GET | `/api/sandbox/runtime` | 컨테이너 런타임의 상태 — `ok`·`missing`·`stopped`. 셋은 사용자가 할 일이 다르다. `ready`(데몬에 닿았다)·`installed`(바이너리가 있다)는 그 뜻이다. `actions["sandbox.runtime.start"]` 는 시작할 수 있는지의 답(`{ok, why}`)이다 |
 | POST | `/api/sandbox/runtime/start` | 멎어 있는 런타임을 띄운다. 상태를 다시 조회해 답이 거짓이면 아무것도 실행하지 않고 409 `runtime_missing`·`runtime_start_manual` 로 거절한다 |
 
+### 노드 간 통신 (`PEER_NETWORK_SRS`)
+
+UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` 이고, 상대 노드가 돌려준 오류는 그 상태·코드 그대로 옮깁니다.
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/peers` | 이 노드(`node`: 설정·지문·`listening`·열지 못한 사유 `error`), 짝 목록(`peers`, `state` 가 빈 값이면 짝, `pending-out` 이면 상대의 승인을 기다리는 중), 승인 대기(`pending`), 살아 있는 초대의 만료(`invite`). 초대 토큰은 싣지 않는다 |
+| PUT | `/api/peers/node` | 노드 설정(`enabled`·`port`·`bind`·`name`·`advertise`·`allowedDirs`)을 바꾸고 노드 포트에 바로 적용한다. 짝 목록은 바뀌지 않는다. 틀린 값은 400 `peer_config_invalid` |
+| POST | `/api/peers/invite` | `{addr?}` → `{code, expires}`. 일회용 초대 코드(10분). 주소는 `addr`, 없으면 `advertise`. 노드 포트가 닫혀 있으면 409 `peer_port_closed`, 주소가 없으면 400 `peer_addr_required` |
+| POST | `/api/peers/add` | `{code, name?}` → `{name, state:"pending-out", warning?}`. 상대 노드에 연결해 지문을 대조하고 등록을 요청한다. `warning:"port_closed"` 는 이 노드의 포트가 닫혀 있어 상대가 보낼 수 없다는 뜻이다. 실패는 `peer_fingerprint_mismatch`·`peer_unreachable`·`peer_token_invalid` 등 |
+| GET | `/api/peers/pending` | `{pending:[{id, name, addr, port, fp, expires}]}` — 승인 대기 |
+| POST | `/api/peers/approve` | `{id, name?}` → `{name, confirmed, reason?}`. 짝으로 저장하고 상대에 승인을 알린다. 알리지 못해도 저장은 남고 `confirmed:false`. 이름이 겹치면 409 `peer_name_taken` |
+| POST | `/api/peers/reject` | `{id}` — 승인 대기를 버린다 |
+| POST | `/api/peers/remove` | `{name}` — 짝을 해제한다. 그 노드의 요청은 바로 거절된다 |
+| PUT | `/api/peers/address` | `{name, addr, port}` — 짝의 주소를 고친다. 신원(지문)은 그대로다 |
+
 ### Run (오케스트레이션)
 
 | 메서드 | 경로 | 설명 |

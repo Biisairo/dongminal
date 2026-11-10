@@ -15,6 +15,11 @@
   (`node-cert.pem` · `node-key.pem`, 키 권한 `0600`). 노드 설정은 `peers.json` 에 둡니다. 노드 전용 포트는
   기본으로 꺼져 있고, 꺼져 있으면 동작은 이전과 같습니다. 세 파일은 `dongminal backup` 에 담깁니다.
   백업 파일에 개인키가 들어가므로 남에게 주지 마세요.
+- **다른 dongminal 과 짝을 맺을 수 있습니다.** 한쪽이 `dmctl peer invite` 로 일회용 초대 코드(10분)를 만들고,
+  다른 쪽이 `dmctl peer add <코드>` 로 등록을 요청하면, 처음 쪽이 `dmctl peer approve <id>` 로 승인합니다.
+  상대의 인증서 지문이 코드와 다르면 아무것도 보내지 않습니다. `dmctl peers` 로 노드 포트 상태·짝·승인 대기를
+  보고, `dmctl peer remove <노드>` 로 해제합니다. 노드 포트 설정은 `PUT /api/peers/node` 로 바꿉니다
+  (설정 화면은 뒤 단계에서 더합니다). 짝끼리 메시지를 주고받는 기능은 아직 없습니다.
 
 ### 바뀜
 

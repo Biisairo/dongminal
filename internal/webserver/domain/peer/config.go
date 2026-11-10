@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/platform"
@@ -25,19 +27,31 @@ const (
 )
 
 var (
-	ErrInvalidName = errors.New("노드 이름은 영문·숫자·`.`·`_`·`-` 1~32자입니다")
-	ErrInvalidPort = errors.New("포트는 1~65535 입니다")
-	ErrInvalidBind = errors.New("듣는 주소는 IP 주소여야 합니다")
+	ErrInvalidName  = errors.New("노드 이름은 영문·숫자·`.`·`_`·`-` 1~32자입니다")
+	ErrInvalidPort  = errors.New("포트는 1~65535 입니다")
+	ErrInvalidBind  = errors.New("듣는 주소는 IP 주소여야 합니다")
+	ErrInvalidPeer  = errors.New("짝 항목의 주소·포트·지문·상태가 틀렸습니다")
+	ErrNameTaken    = errors.New("그 이름의 짝이 이미 있습니다")
+	ErrPeerNotFound = errors.New("그 이름의 짝이 없습니다")
 	// ErrSaveFailed 는 저장 자체의 실패다. 사유는 로그로만 간다.
 	ErrSaveFailed = errors.New("노드 설정을 저장하지 못했습니다")
 )
 
-// Peer 는 짝 하나다. 신원은 Fingerprint 이고 나머지는 사용자가 고칠 수 있다.
+// 짝 항목의 상태. 빈 값이 짝이다 (I-2).
+const (
+	StatePaired     = ""
+	StatePendingOut = "pending-out"
+)
+
+// Peer 는 짝 하나다. 신원은 Fingerprint 이고 이름·주소는 사용자가 고칠 수 있다.
+// State 가 pending-out 이면 상대의 승인을 기다리는 중이고 Expires 에 사라진다.
 type Peer struct {
-	Name        string `json:"name"`
-	Addr        string `json:"addr"`
-	Port        int    `json:"port"`
-	Fingerprint string `json:"fp"`
+	Name        string    `json:"name"`
+	Addr        string    `json:"addr"`
+	Port        int       `json:"port"`
+	Fingerprint string    `json:"fp"`
+	State       string    `json:"state"`
+	Expires     time.Time `json:"expires,omitzero"`
 }
 
 // Config 는 `peers.json` 전체다 (FR-PNW-2).
@@ -128,11 +142,39 @@ func validate(c Config) error {
 	if err := ValidName(c.Name); err != nil {
 		return err
 	}
-	if c.Port < 1 || c.Port > maxPort {
+	if !validPort(c.Port) {
 		return ErrInvalidPort
 	}
 	if _, err := netip.ParseAddr(c.Bind); err != nil {
 		return ErrInvalidBind
+	}
+	names := map[string]bool{}
+	fps := map[string]bool{}
+	for _, p := range c.Peers {
+		if err := validatePeer(p); err != nil {
+			return err
+		}
+		if names[p.Name] {
+			return ErrNameTaken
+		}
+		if fps[p.Fingerprint] {
+			return ErrInvalidPeer
+		}
+		names[p.Name] = true
+		fps[p.Fingerprint] = true
+	}
+	return nil
+}
+
+func validatePeer(p Peer) error {
+	if err := ValidName(p.Name); err != nil {
+		return err
+	}
+	if !ValidAddr(p.Addr) || !validPort(p.Port) || !validFingerprint(p.Fingerprint) {
+		return ErrInvalidPeer
+	}
+	if p.State != StatePaired && p.State != StatePendingOut {
+		return ErrInvalidPeer
 	}
 	return nil
 }
@@ -142,13 +184,14 @@ type Store struct {
 	mu   sync.Mutex
 	path string
 	cfg  Config
+	now  func() time.Time
 }
 
 // OpenStore 는 path 를 읽는다. 없거나 읽지 못하면 꺼진 기본값으로 선다 — 이 파일이
 // 서버 기동을 막지 않는다. 열기만으로는 파일을 만들지 않는다 (NFR-PNW-1).
 func OpenStore(path, hostname string) *Store {
 	def := defaultConfig(hostname)
-	s := &Store{path: path, cfg: def}
+	s := &Store{path: path, cfg: def, now: time.Now}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -165,16 +208,34 @@ func OpenStore(path, hostname string) *Store {
 	return s
 }
 
-// Config 는 지금 값의 사본이다.
+// live 는 만료되지 않은 항목인가다. 짝은 만료가 없다 (I-2).
+func (s *Store) live(p Peer) bool {
+	return p.State != StatePendingOut || s.now().Before(p.Expires)
+}
+
+// Config 는 지금 값의 사본이다. 만료된 pending-out 은 빠진다.
 func (s *Store) Config() Config {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.cfg.clone()
+	c := s.cfg.clone()
+	c.Peers = c.Peers[:0]
+	for _, p := range s.cfg.Peers {
+		if s.live(p) {
+			c.Peers = append(c.Peers, p)
+		}
+	}
+	return c
 }
 
 // Save 는 설정 전체를 바꾼다. 틀린 값이 하나라도 있으면 아무것도 바꾸지 않고,
-// 쓰기에 실패하면 메모리도 되돌린다 (`access.json` 과 같은 규약).
+// 쓰기에 실패하면 메모리도 그대로 둔다 (`access.json` 과 같은 규약).
 func (s *Store) Save(c Config) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.saveLocked(c)
+}
+
+func (s *Store) saveLocked(c Config) error {
 	c = fillDefaults(c.clone(), Config{})
 	if err := validate(c); err != nil {
 		return err
@@ -183,8 +244,6 @@ func (s *Store) Save(c Config) error {
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrSaveFailed, err)
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if err := platform.WriteFileAtomic(s.path, data, fileMode); err != nil {
 		dmlog.Infof(nil, "savePeers: %v", err)
 		return ErrSaveFailed
@@ -193,17 +252,152 @@ func (s *Store) Save(c Config) error {
 	return nil
 }
 
-// IsPeer 는 fp 가 짝의 지문인가다 (FR-PNW-41).
-func (s *Store) IsPeer(fp string) bool {
+// update 는 지금 값(만료된 항목을 뺀 것)을 fn 으로 바꿔 저장한다.
+func (s *Store) update(fn func(*Config) error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c := s.cfg.clone()
+	c.Peers = c.Peers[:0]
+	for _, p := range s.cfg.Peers {
+		if s.live(p) {
+			c.Peers = append(c.Peers, p)
+		}
+	}
+	if err := fn(&c); err != nil {
+		return err
+	}
+	return s.saveLocked(c)
+}
+
+// SetNode 는 노드 설정만 바꾼다. 짝 목록은 그대로다 (I-8).
+func (s *Store) SetNode(n Config) error {
+	return s.update(func(c *Config) error {
+		c.Enabled, c.Port, c.Bind, c.Name, c.Advertise = n.Enabled, n.Port, n.Bind, n.Name, n.Advertise
+		c.AllowedDirs = append([]string{}, n.AllowedDirs...)
+		return nil
+	})
+}
+
+func (s *Store) find(fp string) (Peer, bool) {
 	if fp == "" {
-		return false
+		return Peer{}, false
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, p := range s.cfg.Peers {
-		if p.Fingerprint == fp {
+		if p.Fingerprint == fp && s.live(p) {
+			return p, true
+		}
+	}
+	return Peer{}, false
+}
+
+// IsPeer 는 fp 가 짝의 지문인가다 (FR-PNW-41). pending-out 은 짝이 아니다.
+func (s *Store) IsPeer(fp string) bool {
+	p, ok := s.find(fp)
+	return ok && p.State == StatePaired
+}
+
+// IsPendingOut 은 fp 가 만료되지 않은 pending-out 인가다 (FR-PNW-26·27).
+func (s *Store) IsPendingOut(fp string) bool {
+	p, ok := s.find(fp)
+	return ok && p.State == StatePendingOut
+}
+
+// NameTaken 은 그 이름을 살아 있는 항목이 쓰고 있는가다.
+func (s *Store) NameTaken(name string) bool {
+	for _, p := range s.Config().Peers {
+		if p.Name == name {
 			return true
 		}
 	}
 	return false
+}
+
+// FreeName 은 base 가 비어 있으면 그대로, 아니면 `-2`·`-3` … 을 붙인 이름이다 (I-5).
+func (s *Store) FreeName(base string) string {
+	if !s.NameTaken(base) {
+		return base
+	}
+	for n := 2; ; n++ {
+		suffix := "-" + strconv.Itoa(n)
+		head := base
+		if len(head)+len(suffix) > NameMaxLen {
+			head = head[:NameMaxLen-len(suffix)]
+		}
+		if name := head + suffix; !s.NameTaken(name) {
+			return name
+		}
+	}
+}
+
+// AddPeer 는 짝(또는 pending-out)을 더한다. 같은 지문이 있으면 갈아 끼운다.
+// 다른 항목이 이미 그 이름을 쓰면 ErrNameTaken 이다 (FR-PNW-30).
+func (s *Store) AddPeer(p Peer) error {
+	if p.State == StatePaired {
+		p.Expires = time.Time{}
+	}
+	if err := validatePeer(p); err != nil {
+		return err
+	}
+	return s.update(func(c *Config) error {
+		kept := c.Peers[:0]
+		for _, q := range c.Peers {
+			if q.Fingerprint == p.Fingerprint {
+				continue
+			}
+			if q.Name == p.Name {
+				return ErrNameTaken
+			}
+			kept = append(kept, q)
+		}
+		c.Peers = append(kept, p)
+		return nil
+	})
+}
+
+// Promote 는 살아 있는 pending-out 을 짝으로 바꾼다 (FR-PNW-27). 바꿨으면 참이다.
+func (s *Store) Promote(fp string) bool {
+	if !s.IsPendingOut(fp) {
+		return false
+	}
+	err := s.update(func(c *Config) error {
+		for i := range c.Peers {
+			if c.Peers[i].Fingerprint == fp {
+				c.Peers[i].State = StatePaired
+				c.Peers[i].Expires = time.Time{}
+			}
+		}
+		return nil
+	})
+	return err == nil
+}
+
+// Remove 는 그 이름의 항목을 지운다 (FR-PNW-31).
+func (s *Store) Remove(name string) error {
+	return s.update(func(c *Config) error {
+		for i, p := range c.Peers {
+			if p.Name == name {
+				c.Peers = append(c.Peers[:i], c.Peers[i+1:]...)
+				return nil
+			}
+		}
+		return ErrPeerNotFound
+	})
+}
+
+// SetAddress 는 그 이름의 주소를 고친다. 신원(지문)은 그대로다 (FR-PNW-32).
+func (s *Store) SetAddress(name, addr string, port int) error {
+	if !ValidAddr(addr) || !validPort(port) {
+		return ErrInvalidPeer
+	}
+	return s.update(func(c *Config) error {
+		for i := range c.Peers {
+			if c.Peers[i].Name == name {
+				c.Peers[i].Addr, c.Peers[i].Port = addr, port
+				return nil
+			}
+		}
+		return ErrPeerNotFound
+	})
 }

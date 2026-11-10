@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"dongminal/internal/shared/dmenv"
 )
@@ -185,5 +186,150 @@ func TestStoreIsPeer(t *testing.T) {
 	}
 	if s.IsPeer(strings.Repeat("ef", 32)) || s.IsPeer("") {
 		t.Fatal("모르는 지문을 짝이라고 답했다")
+	}
+}
+
+func newTestStore(t *testing.T, clk *fakeClock) *Store {
+	t.Helper()
+	s := OpenStore(filepath.Join(t.TempDir(), dmenv.PeersFile), "host-a")
+	s.now = clk.now
+	return s
+}
+
+func fpOf(b string) string { return strings.Repeat(b, 32) }
+
+// 짝 항목도 저장 전에 검증한다.
+func TestStoreRejectsInvalidPeer(t *testing.T) {
+	s := newTestStore(t, newFakeClock())
+	cases := []Peer{
+		{Name: "a b", Addr: "h", Port: 1, Fingerprint: fpOf("aa")},
+		{Name: "a", Addr: "h", Port: 0, Fingerprint: fpOf("aa")},
+		{Name: "a", Addr: "h", Port: 1, Fingerprint: "xyz"},
+		{Name: "a", Addr: "", Port: 1, Fingerprint: fpOf("aa")},
+		{Name: "a", Addr: "h", Port: 1, Fingerprint: fpOf("aa"), State: "weird"},
+	}
+	for _, p := range cases {
+		if err := s.AddPeer(p); !errors.Is(err, ErrInvalidPeer) && !errors.Is(err, ErrInvalidName) {
+			t.Errorf("AddPeer(%+v) = %v", p, err)
+		}
+	}
+	if len(s.Config().Peers) != 0 {
+		t.Fatal("거절된 짝이 남았다")
+	}
+}
+
+// FR-PNW-26·27·29: pending-out 은 짝이 아니고, 10분 안에 승격되며, 지나면 사라진다.
+func TestStorePendingOutLifecycle(t *testing.T) {
+	clk := newFakeClock()
+	s := newTestStore(t, clk)
+	fp := fpOf("aa")
+	if err := s.AddPeer(Peer{Name: "b", Addr: "10.0.0.2", Port: 58147, Fingerprint: fp, State: StatePendingOut, Expires: clk.t.Add(PendingTTL)}); err != nil {
+		t.Fatal(err)
+	}
+	if s.IsPeer(fp) {
+		t.Fatal("pending-out 을 짝으로 셌다")
+	}
+	if !s.IsPendingOut(fp) {
+		t.Fatal("pending-out 을 모른다")
+	}
+	if !s.Promote(fp) {
+		t.Fatal("승격하지 못했다")
+	}
+	if !s.IsPeer(fp) || s.IsPendingOut(fp) {
+		t.Fatal("승격 뒤 상태가 틀렸다")
+	}
+	got := OpenStore(s.path, "x").Config().Peers
+	if len(got) != 1 || got[0].State != "" || !got[0].Expires.IsZero() {
+		t.Fatalf("승격이 저장되지 않았다: %+v", got)
+	}
+}
+
+func TestStorePendingOutExpires(t *testing.T) {
+	clk := newFakeClock()
+	s := newTestStore(t, clk)
+	fp := fpOf("aa")
+	if err := s.AddPeer(Peer{Name: "b", Addr: "h", Port: 1, Fingerprint: fp, State: StatePendingOut, Expires: clk.t.Add(PendingTTL)}); err != nil {
+		t.Fatal(err)
+	}
+	clk.advance(PendingTTL + time.Second)
+	if s.IsPendingOut(fp) || s.Promote(fp) {
+		t.Fatal("만료된 pending-out 이 살아 있다")
+	}
+	if s.NameTaken("b") {
+		t.Fatal("만료된 pending-out 이 이름을 쥐고 있다")
+	}
+	for _, p := range s.Config().Peers {
+		if p.Fingerprint == fp {
+			t.Fatal("만료된 pending-out 이 목록에 보인다")
+		}
+	}
+}
+
+// FR-PNW-30: 이름은 겹치지 않는다. 같은 지문이 다시 오면 그 항목을 갈아 끼운다.
+func TestStoreNamesAndReplace(t *testing.T) {
+	s := newTestStore(t, newFakeClock())
+	if err := s.AddPeer(Peer{Name: "b", Addr: "h", Port: 1, Fingerprint: fpOf("aa")}); err != nil {
+		t.Fatal(err)
+	}
+	if !s.NameTaken("b") || s.NameTaken("c") {
+		t.Fatal("NameTaken 이 틀렸다")
+	}
+	if err := s.AddPeer(Peer{Name: "b", Addr: "h", Port: 1, Fingerprint: fpOf("bb")}); !errors.Is(err, ErrNameTaken) {
+		t.Fatalf("같은 이름 = %v", err)
+	}
+	if err := s.AddPeer(Peer{Name: "b2", Addr: "h2", Port: 2, Fingerprint: fpOf("aa")}); err != nil {
+		t.Fatalf("같은 지문 = %v", err)
+	}
+	got := s.Config().Peers
+	if len(got) != 1 || got[0].Name != "b2" || got[0].Addr != "h2" {
+		t.Fatalf("갈아 끼우지 않았다: %+v", got)
+	}
+}
+
+// FR-PNW-31·32: 해제와 주소 수정.
+func TestStoreRemoveAndAddress(t *testing.T) {
+	s := newTestStore(t, newFakeClock())
+	fp := fpOf("aa")
+	if err := s.AddPeer(Peer{Name: "b", Addr: "h", Port: 1, Fingerprint: fp}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetAddress("b", "10.0.0.9", 60000); err != nil {
+		t.Fatal(err)
+	}
+	if p := s.Config().Peers[0]; p.Addr != "10.0.0.9" || p.Port != 60000 || p.Fingerprint != fp {
+		t.Fatalf("주소 수정: %+v", p)
+	}
+	if err := s.SetAddress("b", "", 1); !errors.Is(err, ErrInvalidPeer) {
+		t.Fatalf("빈 주소 = %v", err)
+	}
+	if err := s.SetAddress("nope", "h", 1); !errors.Is(err, ErrPeerNotFound) {
+		t.Fatalf("없는 짝 주소 = %v", err)
+	}
+	if err := s.Remove("b"); err != nil {
+		t.Fatal(err)
+	}
+	if s.IsPeer(fp) {
+		t.Fatal("해제 뒤에도 짝이다")
+	}
+	if err := s.Remove("b"); !errors.Is(err, ErrPeerNotFound) {
+		t.Fatalf("두 번째 해제 = %v", err)
+	}
+}
+
+// FR-PNW-30 (I-5): 겹치지 않는 이름을 만든다.
+func TestStoreFreeName(t *testing.T) {
+	s := newTestStore(t, newFakeClock())
+	if got := s.FreeName("b"); got != "b" {
+		t.Fatalf("FreeName = %q", got)
+	}
+	_ = s.AddPeer(Peer{Name: "b", Addr: "h", Port: 1, Fingerprint: fpOf("aa")})
+	_ = s.AddPeer(Peer{Name: "b-2", Addr: "h", Port: 1, Fingerprint: fpOf("bb")})
+	if got := s.FreeName("b"); got != "b-3" {
+		t.Fatalf("FreeName = %q", got)
+	}
+	long := strings.Repeat("x", NameMaxLen)
+	_ = s.AddPeer(Peer{Name: long, Addr: "h", Port: 1, Fingerprint: fpOf("cc")})
+	if got := s.FreeName(long); ValidName(got) != nil || got == long {
+		t.Fatalf("긴 이름의 FreeName = %q", got)
 	}
 }

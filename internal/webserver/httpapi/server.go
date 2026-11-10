@@ -110,6 +110,11 @@ type Server struct {
 	// 없거나 신원을 읽지 못하면 peerLn 이 nil 이고 노드 포트는 서지 않는다.
 	peers  *peer.Store
 	peerLn *peer.Listener
+	// peerID·peerClient·pairing 은 노드 신원, 상대를 부르는 클라이언트, 초대·승인
+	// 대기다 (묶음 P). peerLn 과 함께 서고 함께 빈다.
+	peerID     peer.Identity
+	peerClient *peer.Client
+	pairing    *peer.Pairing
 
 	// hosts 는 `Host`·`Origin` 판정의 허용 집합이다 (REQUEST_GATE_SRS FR-RQG-6).
 	// `Access` 의 `self` 를 읽으므로 그 뒤에 만들어진다.
