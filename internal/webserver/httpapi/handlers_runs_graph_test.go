@@ -295,3 +295,24 @@ func publishedActions(fb *fakeCommandBroker, action string) []map[string]any {
 	}
 	return out
 }
+
+// FR-RVZ-16: 보고도 Run 을 바꾼다 — run_changed 를 쏜다. 종전에는 쏘지 않아 열린 대시보드가
+// 멤버의 `done` 을 다른 변경이 올 때까지 보이지 못했다.
+func TestApiRunReport_BroadcastsRunChanged(t *testing.T) {
+	s, _, _, _ := runsServer(t, "tool-a")
+	fb := &fakeCommandBroker{}
+	s.Commands = fb
+	runID := startRun(t, s)
+	if code, out := postRun(t, s, "/api/runs/members",
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"작가","agent":"claude","id":"tool-a"}`); code != http.StatusOK {
+		t.Fatalf("멤버 등록 실패 %d (%+v)", code, out)
+	}
+	before := len(publishedActions(fb, "run_changed"))
+	if code, out := postRun(t, s, "/api/runs/report",
+		`{"runId":`+testpath.JSONQuote(runID)+`,"toolId":"tool-a","outcome":"succeeded","summary":"끝"}`); code != http.StatusOK {
+		t.Fatalf("보고 실패 %d (%+v)", code, out)
+	}
+	if got := len(publishedActions(fb, "run_changed")); got != before+1 {
+		t.Fatalf("보고 뒤 run_changed 가 한 번 나가야 한다: %d → %d", before, got)
+	}
+}

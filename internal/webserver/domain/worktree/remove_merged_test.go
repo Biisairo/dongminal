@@ -154,3 +154,41 @@ func TestMainRoot(t *testing.T) {
 		t.Error("저장소가 아닌 곳에서 답했다")
 	}
 }
+
+// FR-ITX-49 (TC-ITX-10): 경로와 브랜치를 손으로 이미 지웠으면 병합 판정 없이 정리됨이다.
+// 종전에는 없는 브랜치의 판정 실패를 「병합되지 않았다」로 읽어 기록이 영영 남았다.
+func TestRemove_RequireMerged_PathAndBranchGoneIsRemoved(t *testing.T) {
+	repo := tempRepo(t)
+	m := tempManager(t)
+	spec := createTree(t, m, repo, "gone", "dmn/run1234/gone", "main")
+	git(t, repo, "worktree", "remove", "--force", spec.Path)
+	git(t, repo, "branch", "-D", spec.Branch)
+
+	res := m.Remove(context.Background(), RemoveSpec{
+		Repo: repo, Path: spec.Path, Branch: spec.Branch,
+		MergeInto: "main", RequireMerged: true,
+	})
+	if !res.Removed || res.Residue != "" {
+		t.Fatalf("이미 지운 worktree 는 정리됨이어야 한다: %+v", res)
+	}
+}
+
+// FR-ITX-49: 경로만 없고 병합되지 않은 브랜치가 남으면 지금처럼 unmerged 다 — 잃을 커밋이 있다.
+func TestRemove_RequireMerged_PathGoneUnmergedBranchKept(t *testing.T) {
+	repo := tempRepo(t)
+	m := tempManager(t)
+	spec := createTree(t, m, repo, "half", "dmn/run1234/half", "main")
+	commitIn(t, spec.Path, "남은커밋.txt")
+	git(t, repo, "worktree", "remove", "--force", spec.Path)
+
+	res := m.Remove(context.Background(), RemoveSpec{
+		Repo: repo, Path: spec.Path, Branch: spec.Branch,
+		MergeInto: "main", RequireMerged: true,
+	})
+	if res.Removed || res.Residue != ResidueUnmerged {
+		t.Fatalf("병합되지 않은 브랜치는 남아야 한다: %+v", res)
+	}
+	if out := git(t, repo, "branch", "--list", spec.Branch); out == "" {
+		t.Fatal("병합되지 않은 브랜치를 지웠다")
+	}
+}

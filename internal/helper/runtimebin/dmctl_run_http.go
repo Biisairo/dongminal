@@ -19,9 +19,11 @@ import (
 const clientSlack = 10 * time.Second
 
 const (
-	runClientSlack  = clientSlack
-	preambleBudget  = runwait.PreambleWait + runClientSlack
-	closeClientRoom = 40 * time.Second // /exit 대기 뒤의 헤드리스 종료 유예·worktree 정리
+	runClientSlack = clientSlack
+	preambleBudget = runwait.PreambleWait + runClientSlack
+	// /exit 대기 뒤의 헤드리스 종료 유예·worktree 정리. 큰 worktree(node_modules·빌드 산출물)를
+	// 지우는 시간을 기다린다 (ISSUE_TREE_CLOSE_SRS FR-ITX-51).
+	closeClientRoom = 5 * time.Minute
 	closeBudget     = runwait.ExitSettle + closeClientRoom
 )
 

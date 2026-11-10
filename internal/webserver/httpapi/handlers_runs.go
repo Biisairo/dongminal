@@ -504,5 +504,9 @@ func (s *Server) apiRunReport(w http.ResponseWriter, r *http.Request) {
 	}
 	dmlog.Infof(nil, "[run] report run=%s member=%s tool=%s outcome=%s files=%d",
 		m.RunID, m.ID, m.ToolID, m.Outcome, len(m.FilesModified))
+	// FR-RVZ-16: 보고는 멤버의 상태를 바꾼다 — 열린 대시보드가 다시 받게 한다.
+	if rec, ok := s.Runs.Get(m.RunID); ok {
+		s.broadcastRunChanged(rec)
+	}
 	writeJSON(w, memberView{Member: m, State: m.State})
 }

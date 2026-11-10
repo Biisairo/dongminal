@@ -195,11 +195,11 @@ test('TC-ITC-6: 트리 보기 영역의 맞춤·줌·패닝·미니맵·게이�
 
   // FR-ITC-17: 데이터 갱신으로 다시 그려도 보는 범위가 남는다.
   const moved = await viewBox();
-  // 보고(`/api/runs/report`)는 run_changed 를 내지 않는다 — 배정 변경으로 다시 그리게 한다.
-  const asg = await request.post('/api/runs/assign', { headers: JSON_HDR,
-    data: { memberId: third.id, title: '바뀐 셋', toolId: tabs[0].toolId } });
-  expect(asg.ok(), await asg.text()).toBeTruthy();
-  await expect(nodes.nth(2).locator('.run-tree-title')).toHaveText('바뀐 셋', { timeout: 10000 });
+  const rep = await request.post('/api/runs/report', { headers: JSON_HDR,
+    data: { runId: run.id, memberId: third.id, toolId: tabs[2].toolId, outcome: 'succeeded', summary: 'a. b. c.' } });
+  expect(rep.ok(), await rep.text()).toBeTruthy();
+  // 보고도 run_changed 를 낸다 — 열린 대시보드가 끝난 노드를 곧바로 그린다 (FR-RVZ-16).
+  await expect(nodes.nth(2)).toHaveClass(/ended/, { timeout: 10000 });
   expect(await viewBox()).toBe(moved);
 
   // FR-ITC-16: 게이지 슬라이더와 맞춤 버튼.

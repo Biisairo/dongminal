@@ -2,8 +2,10 @@ package runtimebin
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"os"
 	"strings"
@@ -358,10 +360,18 @@ func runSubClose(f runFlags, stdout, stderr io.Writer) int {
 	}
 	// close 는 `/exit` 뒤 셸 복귀를 서버가 기다리고(FR-RUN-6) worktree 까지 거둔다 —
 	// 10초 공용 클라이언트로는 정상 경로가 끊긴다 (M8 D-A-1).
-	raw, code := runPostWithin("/api/runs/close", map[string]any{
+	status, raw, err := httpPostJSONWithin(baseURL()+"/api/runs/close", map[string]any{
 		"runId": f.run, "force": f.force, "keepWorktrees": f.keepTrees,
 		"keepTools": f.keepTools,
-	}, closeBudget, stderr)
+	}, closeBudget)
+	// FR-ITX-50·51: 서버는 연결과 무관하게 정리를 끝까지 한다 — 시한을 넘긴 것은 실패가 아니라
+	// 결과를 아직 못 받은 것이다. 날것의 시한 오류 대신 결과를 읽을 자리를 알린다.
+	var ne net.Error
+	if errors.As(err, &ne) && ne.Timeout() {
+		fmt.Fprintf(stderr, "dmctl: run close 의 응답을 %s 안에 받지 못했다. 서버는 정리를 계속한다 — 결과는 `dmctl run status --run %s` 로 본다\n", closeBudget, f.run)
+		return 1
+	}
+	raw, code := runResult("/api/runs/close", status, raw, err, stderr)
 	if code != 0 {
 		return code
 	}

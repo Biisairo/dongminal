@@ -360,3 +360,28 @@ func TestDmctlRunSucceed_QuotesModelInNextCommand(t *testing.T) {
 		t.Fatalf("안내문에 %q 가 없다:\n%s", want, out.String())
 	}
 }
+
+// ISSUE_TREE_CLOSE_SRS FR-ITX-51: close 가 시한을 넘기면 날것의 오류 대신 run status 를 안내한다.
+// 서버는 연결과 무관하게 정리를 끝까지 한다(FR-ITX-50).
+func TestDmctlRunClose_TimeoutPointsToStatus(t *testing.T) {
+	release := make(chan struct{})
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { <-release }))
+	t.Cleanup(func() { close(release); ts.Close() })
+	pointDmctlAtServer(t, ts, "tool-a")
+	prev := clientWithin
+	clientWithin = func(time.Duration) *http.Client { return prev(50 * time.Millisecond) }
+	defer func() { clientWithin = prev }()
+
+	var errb bytes.Buffer
+	if code := runDmctlRun([]string{"close", "--run", "r-9"}, io.Discard, &errb); code != 1 {
+		t.Fatalf("exit = %d, want 1 (%s)", code, errb.String())
+	}
+	for _, want := range []string{"정리를 계속한다", "dmctl run status --run r-9"} {
+		if !strings.Contains(errb.String(), want) {
+			t.Errorf("%q 가 없다: %s", want, errb.String())
+		}
+	}
+	if closeBudget < 5*time.Minute {
+		t.Errorf("close 예산 %s 은 서버 정리를 기다리기에 짧다", closeBudget)
+	}
+}

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 
 	"dongminal/internal/shared/dmlog"
@@ -55,7 +56,11 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 	// `cleanup` 목록만 돌려주고 `/exit` → `close-tab` 을 조정자에게 맡겼고, 그
 	// 절차를 건너뛴 조정자가 남긴 것이 접수 ⑩(닫히지 않는 세션·창)과
 	// ⑬(빈 터미널)이다. 무엇을 닫아야 하는지 아는 것은 기록이고 기록은 여기 있다.
-	closed := s.closeRunTabs(r.Context(), rec, body.KeepTools)
+	// ISSUE_TREE_CLOSE_SRS FR-ITX-50: 정리는 연결과 무관하게 끝까지 한다. 요청 ctx 에 묶으면
+	// 클라이언트가 끊는 순간 `git worktree remove` 가 중간에 죽어 반쯤 지운 트리가 남는다.
+	// 상한은 각 git 명령의 시한과 종료 대기의 시한이 정한다.
+	cctx := context.WithoutCancel(r.Context())
+	closed := s.closeRunTabs(cctx, rec, body.KeepTools)
 	// UX_BATCH6_SRS FR-RUN-6d: 표식 해제는 **닫고 난 뒤, 남은 자리에만** 한다.
 	//
 	//   이전 동작: 닫기 전에 표식을 지워 workspace.json 을 썼다 (rev+1)
@@ -66,7 +71,7 @@ func (s *Server) apiRunClose(w http.ResponseWriter, r *http.Request) {
 	//             (ubuntu 러너 실측 · e2e `skill-contract`). 사라질 자리의 표식은
 	//             지울 것이 없다 — 자리가 사라진다.
 	s.markWorkspaceRunExcept(rec, "", "", closedTabIDs(closed))
-	trees := s.cleanupWorktrees(r.Context(), rec, body.KeepWorktrees)
+	trees := s.cleanupWorktrees(cctx, rec, body.KeepWorktrees)
 	residue := 0
 	for _, t := range trees {
 		if !t.Removed {

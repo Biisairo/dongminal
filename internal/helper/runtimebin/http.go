@@ -95,6 +95,9 @@ func httpDelete(url string) (status int, respBody []byte, err error) {
 	if err != nil {
 		return 0, nil, err
 	}
+	// 서버의 요청 게이트는 상태를 바꾸는 메서드에 JSON Content-Type 을 요구한다 — DELETE 도
+	// 그렇다(reqgate ④). 없으면 415 다.
+	req.Header.Set("Content-Type", "application/json")
 	return httpDoWithin(req, 0)
 }
 

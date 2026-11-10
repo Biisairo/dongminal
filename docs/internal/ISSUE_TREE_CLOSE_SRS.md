@@ -142,6 +142,9 @@
 | FR-ITX-45 | 트리가 아닌 Run 의 정리 규칙은 바뀌지 않는다 | 필수 |
 | FR-ITX-47 | 격리 Run 의 `repo` 는 **메인 worktree 경로**다. cwd 가 연결된 worktree(가지 Run 은 부모 worktree 에서 연다)여도 그렇다. 메인 경로를 구하지 못하면 cwd 의 toplevel 이다 | 필수 |
 | FR-ITX-48 | 정리할 때 기록의 `repo` 경로가 없으면(옛 가지 Run 의 기록이 지워진 부모 worktree 를 가리킨다) 대상 worktree 에서 메인 worktree 경로를 구해 쓴다 | 필수 |
+| FR-ITX-49 | worktree 경로가 이미 없고 브랜치도 없으면 병합 판정을 하지 않고 「정리됨」(`removed`)으로 본다(등록만 남았으면 prune 한다). 경로만 없고 브랜치가 남아 있으면 FR-ITX-41 의 판정을 그대로 한다 — 잃을 커밋이 있을 수 있다 | 필수 |
+| FR-ITX-50 | `run close` 의 정리(멤버 탭 닫기 · worktree 제거)는 요청 연결과 무관하게 끝까지 한다. 클라이언트가 끊겨도 제거가 중간에 멈추지 않는다. 각 git 명령의 시한은 그대로다 | 필수 |
+| FR-ITX-51 | `dmctl run close` 의 시한은 서버 정리를 기다릴 만큼 길다(5분 20초). 그래도 넘기면 날것의 오류 대신 「서버는 정리를 계속한다 — `dmctl run status --run <id>` 로 결과를 본다」를 낸다(종료 코드 1) | 필수 |
 | FR-ITX-46 | `unmerged` 잔여물이 있으면 Run 기록은 지우지 않는다(FR-DEL-9a 와 같다). 나중에 병합한 뒤 `dmctl run close --run <id> --force`(정리 전용 진입, FR-WKT-8a)를 부르면 다시 판정한다 | 필수 |
 
 ### 3.5 비기능 요구사항 (Non-functional)
@@ -175,6 +178,7 @@
 | TC-ITX-7 | FR-ITX-7·8 | Go: 조율 승계가 호출자가 조율인 열린 Run 만 옮긴다 · 닫힌 Run · 남의 Run 은 그대로 · 죽은 대상 · 자기 자신 거절 · 트리 Run 의 루트 노드에 알림 · 루트 프리앰블의 부모가 새 조율 |
 | TC-ITX-8 | FR-ITX-9 | Go(문서 대조): `migration.md` 에 `dmctl run coordinate --to` |
 | TC-ITX-9 | FR-ITX-47·48 | Go(실제 git): 연결된 worktree 를 cwd 로 연 Run 의 `repo` 가 메인 경로이고 `mergeInto` 가 그 worktree 의 브랜치다 · 기록의 `repo` 가 없어도 정리가 메인 경로로 돈다 |
+| TC-ITX-10 | FR-ITX-49~51 | Go(실제 git): 경로·브랜치를 손으로 지운 뒤 `RequireMerged` 정리가 `removed` · 경로만 없고 병합 안 된 브랜치가 남으면 `unmerged`. close 요청 ctx 가 이미 취소돼도 worktree 가 지워진다. dmctl close 가 시한을 넘기면 `run status` 안내를 낸다 |
 | TC-ITX-6 | FR-ITX-44 · 45 | Go: 트리가 아닌 Run 의 close 결과가 변경 전과 같다. 정리 중 실행된 git 명령에 merge · rebase · reset 이 없다 |
 
 ## 6. 비목표 (Non-goals)
@@ -199,6 +203,7 @@
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-11 | FR-ITX-49~51 · TC-ITX-10 추가. 이전 동작: ① 경로·브랜치를 이미 지운 worktree 도 병합 판정이 실패해 `unmerged` 로 남아, `--force` 재진입으로도 기록을 지우지 못했다 ② close 의 탭 닫기·worktree 제거가 요청 ctx 에 묶여, dmctl 이 60초에 끊으면 `git worktree remove` 가 중간에 죽고 반쯤 지운 worktree 가 `remove-failed` 로 남았다 ③ dmctl 은 60초 뒤 날것의 시한 오류를 냈다. 새 동작: ① 경로와 브랜치가 모두 없으면 `removed` ② 정리는 연결과 무관하게 끝까지 한다 ③ dmctl 시한 5분 20초, 넘기면 `run status` 안내. 이유: 실사용 결함 보고(이슈 트리 Run 이 닫힌 뒤에도 목록에 남음) |
 | 2026-11-08 | 보완. ① 조율 승계(FR-ITX-7~9): 이전 — 조율이 migration 하면 루트가 옛 주소로 보내다 대신 조율로 갔다. 새 — 옛 세션이 `run coordinate --to` 로 조율 자리를 넘기고 루트에 새 주소를 알린다. ② 저장소 경로(FR-ITX-47·48): 이전 — 가지 Run 의 `repo` 는 부모 worktree 경로였고, 부모 worktree 가 지워지면 남은 가지 worktree 를 정리하지 못했다. 새 — 메인 worktree 경로를 기록하고, 옛 기록은 정리할 때 대상 worktree 에서 구한다. ③ 정리 3단계는 `list-workspace --json` 으로 그룹의 window 를 찾는다(`list-groups` 는 개수만 준다). 이유: 구현 뒤 점검 |
 | 2026-11-08 | 구현. ① 서버 가드: 이전 동작 — `run close` 는 깨끗한 worktree 를 병합 여부와 관계없이 지우고 브랜치는 `-d` 로 지웠다. 새 동작 — 격리 Run 은 시작할 때 cwd 의 현재 브랜치를 `mergeInto` 로 기록하고, 트리 Run 의 worktree 는 그 브랜치에 병합됐을 때만 지운다(브랜치는 `-D`). 아니면 `unmerged` 잔여물로 남긴다. 트리가 아닌 Run 은 그대로다. ② 프리앰블: 이전 — 루트는 언제나 「부모: 없음」. 새 — 조율이 살아 있고 루트 자신이 아니면 「부모: <조율> — 조율 에이전트」. 모든 트리 프리앰블에 `종료 요청` 줄. ③ `issue-tree.md`: 「보고하고 빠진다」 → 「보고하고 조율로 남는다」, 「루트 노드의 끝」 → 「트리 종료」(요청 · 확인 · 준비 · 정리 · 대신 조율). 이유: §2.1~2.5 |
 | 2026-11-08 | 초안. 사용자 결정: 조율 에이전트가 정리(D-ITX-1), 미완료 노드는 노드마다 묻는다(D-ITX-3), 조율이 없으면 루트가 대신(D-ITX-4), 병합 확인 뒤에만 worktree 제거(D-ITX-5). `ISSUE_AGENT_TREE_SRS` 개정: FR-IAT-71(루트가 병합을 묻는다) → FR-ITX-31(조율이 묻는다), FR-IAT-74(루트가 Run 을 닫고 그룹을 지운다) → FR-ITX-32·33 |

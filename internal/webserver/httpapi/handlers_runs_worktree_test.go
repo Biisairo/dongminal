@@ -4,6 +4,7 @@ import (
 	"context"
 	"dongminal/internal/shared/gittest"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -350,3 +351,24 @@ func gitRun(t *testing.T, dir string, args ...string) string { return gittest.Ru
 
 // tempGitRepo 는 커밋 하나를 가진 임시 저장소다 (`gittest.Repo`, M8 D-A-20).
 func tempGitRepo(t *testing.T) string { return gittest.Repo(t) }
+
+// FR-ITX-50 (TC-ITX-10): 클라이언트가 끊겨도(요청 ctx 취소) close 의 worktree 정리는 끝까지 한다.
+// 종전에는 그 ctx 로 돌던 `git worktree remove` 가 죽어 반쯤 지운 트리가 remove-failed 로 남았다.
+func TestApiRunClose_CleanupSurvivesClientCancel(t *testing.T) {
+	s, repo, mgr := isolatedServer(t, "tool-a")
+	runID, _ := startIsolated(t, s, repo, "per-member")
+	_, out := postRun(t, s, "/api/runs/members",
+		`{"runId":`+testpath.JSONQuote(runID)+`,"role":"작가","agent":"claude","id":"tab-a"}`)
+	path := mustWorktreePath(t, mgr, out)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	rec := httptest.NewRecorder()
+	req := apiTestRequest(http.MethodPost, "/api/runs/close",
+		strings.NewReader(`{"runId":`+testpath.JSONQuote(runID)+`,"force":true}`)).WithContext(ctx)
+	s.Handler().ServeHTTP(rec, req)
+
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("끊긴 요청에서 worktree 가 남았다 (code=%d body=%s)", rec.Code, rec.Body.String())
+	}
+}

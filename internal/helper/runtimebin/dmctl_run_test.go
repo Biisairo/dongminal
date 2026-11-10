@@ -370,3 +370,22 @@ func TestDmctlRunHelp_ListsDeleteAndGraph(t *testing.T) {
 		}
 	}
 }
+
+// 서버의 요청 게이트는 DELETE 에도 JSON Content-Type 을 요구한다(reqgate ④). 종전 httpDelete 는
+// 헤더를 싣지 않아 `run delete` 가 언제나 415 로 거절됐다.
+func TestDmctlRunDelete_SendsJSONContentType(t *testing.T) {
+	var ct string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ct = r.Header.Get("Content-Type")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"id":"r-1","state":"closed","worktrees":[],"residue":0}`)
+	}))
+	t.Cleanup(ts.Close)
+	pointDmctlAtServer(t, ts, "tool-a")
+	if code := runDmctlRun([]string{"delete", "--run", "r-1"}, io.Discard, io.Discard); code != 0 {
+		t.Fatalf("exit = %d", code)
+	}
+	if ct != "application/json" {
+		t.Fatalf("DELETE 의 Content-Type = %q, want application/json", ct)
+	}
+}

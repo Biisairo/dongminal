@@ -122,6 +122,13 @@ func (m *Manager) RemoveListed(ctx context.Context, s RemoveSpec) Result {
 // removeLocked 는 인가가 끝나고 repoLock 을 쥔 뒤의 정리 흐름이다 (FR-WKT-8).
 // force 면 dirty 판정을 건너뛰고 `--force` 로 지운다.
 func (m *Manager) removeLocked(ctx context.Context, s RemoveSpec, force bool, res Result) Result {
+	// FR-ITX-49: 경로도 브랜치도 없으면 이미 정리됐다 — 병합 판정은 없는 브랜치에서 실패하고,
+	// 그 실패를 「병합되지 않았다」로 읽으면 기록이 영영 남는다. 브랜치가 남아 있으면 아래 판정을 한다.
+	if _, err := os.Stat(s.Path); errors.Is(err, os.ErrNotExist) && !m.branchExists(ctx, s) {
+		_, _ = m.git(ctx, s.Repo, "worktree", "prune")
+		res.Removed = true
+		return res
+	}
 	if s.RequireMerged {
 		if detail := m.unmergedDetail(ctx, s); detail != "" {
 			res.Residue, res.Detail = ResidueUnmerged, detail
@@ -222,6 +229,15 @@ func (m *Manager) deleteBranch(ctx context.Context, s RemoveSpec, res *Result) {
 			res.Residue, res.Detail = ResidueBranchRetained, err.Error()
 		}
 	}
+}
+
+// branchExists 는 정리 대상 브랜치가 아직 있는가다. 이름이 비었거나 판정할 수 없으면 없다.
+func (m *Manager) branchExists(ctx context.Context, s RemoveSpec) bool {
+	if s.Repo == "" || validRef(s.Branch) != nil {
+		return false
+	}
+	_, err := m.git(ctx, s.Repo, "rev-parse", "--verify", "--quiet", "refs/heads/"+s.Branch)
+	return err == nil
 }
 
 // isDirty reports whether the working tree has anything a person could lose —
