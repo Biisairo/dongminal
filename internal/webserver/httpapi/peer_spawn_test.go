@@ -721,7 +721,22 @@ func TestPeerAgentCloseWaitsForInflightMessage(t *testing.T) {
 	<-entered
 	closed := make(chan struct{})
 	go func() { a.call(t, "node-b", "agent.close", map[string]any{"toolId": "headless-1"}); close(closed) }()
-	time.Sleep(200 * time.Millisecond)
+	// close 가 표시를 세우고 진행 중인 전달을 기다리는 상태에 들어간 것을 확인한 뒤 연다.
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		b.srv.peerGate.mu.Lock()
+		st := b.srv.peerGate.m["headless-1"]
+		waiting := st != nil && st.closing && st.idle != nil
+		b.srv.peerGate.mu.Unlock()
+		if waiting {
+			break
+		}
+		if time.Now().After(deadline) {
+			close(gate)
+			t.Fatal("close 가 진행 중인 전달을 기다리지 않았다")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 	before := len(b.tools.pasted())
 	close(gate)
 	if code := <-sent; code != http.StatusOK {

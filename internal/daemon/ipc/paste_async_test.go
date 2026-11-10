@@ -154,10 +154,19 @@ func TestSerialQueueFIFO(t *testing.T) {
 			t.Fatalf("순서가 바뀌었다 %v", order)
 		}
 	}
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	if len(q.q) != 0 {
-		t.Fatalf("빈 키가 남았다 %v", q.q)
+	// 키를 지우는 일은 마지막 fn 이 돌아온 뒤 drain 이 한다 — 잠시 기다린다.
+	deadline := time.Now().Add(time.Second)
+	for {
+		q.mu.Lock()
+		n := len(q.q)
+		q.mu.Unlock()
+		if n == 0 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("빈 키가 남았다 (%d)", n)
+		}
+		time.Sleep(time.Millisecond)
 	}
 }
 
@@ -208,9 +217,11 @@ func TestSerialQueueDepthLimit(t *testing.T) {
 	var q serialQueue
 	block := make(chan struct{})
 	defer close(block)
-	if !q.run("a", func() { <-block }) {
+	running := make(chan struct{})
+	if !q.run("a", func() { close(running); <-block }) {
 		t.Fatal("첫 일을 넣지 못했다")
 	}
+	<-running // 첫 일은 줄에서 꺼내져 돈다 — 기다리는 일에 세지 않는다
 	for i := range serialQueueMax {
 		if !q.run("a", func() {}) {
 			t.Fatalf("%d번째를 넣지 못했다", i+1)
@@ -224,34 +235,67 @@ func TestSerialQueueDepthLimit(t *testing.T) {
 	}
 }
 
-// 보안 재리뷰(4차) #2: 연결이 끊긴 뒤에는 줄에 남은 write·input 을 넣지 않는다.
+// 보안 재리뷰(4차) #2: 연결이 끊긴 뒤에는 줄에 남은 write·input 을 넣지 않는다. 이미 돌던
+// paste 는 끝까지 돈다.
 func TestQueuedWriteSkippedAfterStop(t *testing.T) {
 	pc := asyncConn(t, "a")
 	release := make(chan struct{})
+	entered := make(chan struct{}, 4)
 	t.Cleanup(toolhub.SetForegroundProbe(func(ids []string) map[string]string {
+		entered <- struct{}{}
 		<-release
 		return map[string]string{ids[0]: "claude"}
 	}))
-	var wrote atomic.Int32
 	pc.dispatch(guardedPaste(1, "a"))
-	pc.toolQueue.run("a", func() {}) // 줄이 있음을 보장
+	<-entered
 	pc.dispatch(&toolipc.PanedRequest{ID: 2, Method: toolipc.MethodWrite, Params: json.RawMessage(`{"id":"a","data":"aGk="}`)})
 	pc.dispatch(&toolipc.PanedRequest{ID: 3, Method: toolipc.MethodInput, Params: json.RawMessage(`{"id":"a","data":"aGk="}`)})
 	close(pc.done)
 	close(release)
-	time.Sleep(300 * time.Millisecond)
+	// 줄이 빌 때까지 기다린다 — 도는 paste 가 끝나기 전에 탐침을 되돌리지 않게 한다.
+	deadline := time.Now().Add(3 * time.Second)
+	for pc.toolQueue.busy("a") {
+		if time.Now().After(deadline) {
+			t.Fatal("줄이 비지 않았다")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 	for {
 		select {
 		case v := <-pc.out:
-			if id := respID(t, v); id == 2 {
-				wrote.Add(1)
+			if respID(t, v) == 2 {
+				t.Fatal("끊긴 연결의 write 를 처리했다")
 			}
 			continue
 		default:
 		}
 		break
 	}
-	if wrote.Load() != 0 {
-		t.Fatal("끊긴 연결의 write 를 처리했다")
+}
+
+// 정확성 재리뷰(4차) #6a: 줄이 있는 도구의 input(응답 없는 키 입력)도 줄 뒤에 선다.
+func TestInputQueuesBehindPaste(t *testing.T) {
+	pc := asyncConn(t, "a")
+	release := make(chan struct{})
+	entered := make(chan struct{}, 4)
+	t.Cleanup(toolhub.SetForegroundProbe(func(ids []string) map[string]string {
+		entered <- struct{}{}
+		<-release
+		return map[string]string{ids[0]: "claude"}
+	}))
+	pc.dispatch(guardedPaste(1, "a"))
+	<-entered // paste 가 줄에서 꺼내져 돌고 있다
+	pc.dispatch(&toolipc.PanedRequest{ID: 2, Method: toolipc.MethodInput, Params: json.RawMessage(`{"id":"a","data":"aGk="}`)})
+	pc.toolQueue.mu.Lock()
+	n := len(pc.toolQueue.q["a"])
+	pc.toolQueue.mu.Unlock()
+	close(release)
+	if n != 1 {
+		t.Fatalf("input 이 줄 뒤에 서지 않았다 (기다리는 일 %d)", n)
+	}
+	select {
+	case <-pc.out:
+	case <-time.After(3 * time.Second):
+		t.Fatal("paste 응답이 없다")
 	}
 }

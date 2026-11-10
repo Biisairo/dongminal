@@ -161,8 +161,9 @@ func (s *Server) peerDeliverPrompt(toolID string, ad agentadapter.Adapter, owner
 		dmlog.Infof(nil, "[peer] spawn 프롬프트를 버렸다 tool=%s: 에이전트가 준비되지 않았다", toolID)
 		return
 	}
-	// I-70·I-73: 닫는 중이거나 다른 원격 글을 넣는 중이면 넣지 않는다.
-	leave, gerr := s.peerGate.enter(toolID)
+	// I-70·I-73: 닫는 중이면 넣지 않는다. 다른 원격 글을 넣는 중이면 준비 대기 시한 안에서
+	// 자리가 빌 때까지 기다린다 — 다른 짝이 자리를 쥐었다고 띄운 쪽의 프롬프트를 버리지 않는다.
+	leave, gerr := s.peerGate.enterWait(ctx, toolID)
 	if gerr != nil {
 		dmlog.Infof(nil, "[peer] spawn 프롬프트를 넣지 않았다 tool=%s: %v", toolID, gerr)
 		return

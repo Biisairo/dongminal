@@ -213,8 +213,8 @@ Object.assign(App.prototype, {
   },
 
   _remoteRestoreTool(args){
-    // FR-BGR-2: location 은 탭 uuid → 서버가 좌표로 변환한 값이다. 복귀는
-    // Pane 단위이므로 T 성분은 쓰지 않는다 (newTab/splitH 와 같은 해석).
+    // FR-BGR-2: location 은 좌표나 탭 uuid 다(원격 tab 배치는 uuid, PEER_NETWORK_SRS I-63).
+    // 복귀는 Pane 단위이므로 T 성분은 쓰지 않는다 (newTab/splitH 와 같은 해석).
     const opts={};
     if(args.location){
       const tgt=this._resolveLocation(args.location);

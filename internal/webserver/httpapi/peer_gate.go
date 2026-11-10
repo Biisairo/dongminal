@@ -26,7 +26,7 @@ type peerGate struct {
 type peerGateState struct {
 	busy    bool
 	closing bool
-	// idle 은 진행 중인 전달이 끝나면 닫힌다. 기다리는 close 가 있을 때만 있다.
+	// idle 은 진행 중인 전달이 끝나면 닫힌다. 기다리는 쪽(close·enterWait)이 있을 때만 있다.
 	idle chan struct{}
 }
 
@@ -72,6 +72,30 @@ func (g *peerGate) enter(id string) (leave func(), err error) {
 		}
 		g.forgetIfIdle(id, st)
 	}, nil
+}
+
+// enterWait 는 enter 와 같되, 넣는 중이면 ctx 안에서 자리가 빌 때까지 기다린다. spawn 첫
+// 프롬프트용이다 — 다른 짝의 message.send 가 자리를 쥐었다고 띄운 쪽의 프롬프트를 버리지 않는다.
+func (g *peerGate) enterWait(ctx context.Context, id string) (leave func(), err error) {
+	for {
+		g.mu.Lock()
+		st := g.state(id)
+		if st.busy && !st.closing {
+			if st.idle == nil {
+				st.idle = make(chan struct{})
+			}
+			wait := st.idle
+			g.mu.Unlock()
+			select {
+			case <-wait:
+				continue
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+		g.mu.Unlock()
+		return g.enter(id)
+	}
 }
 
 // close 는 id 를 닫는 중으로 세우고 진행 중인 전달이 끝나기를 ctx 안에서 기다린다. 돌려준

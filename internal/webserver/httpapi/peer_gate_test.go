@@ -53,3 +53,46 @@ func TestPeerGate(t *testing.T) {
 	leave()
 	done()
 }
+
+// 자동 보안 검토: spawn 첫 프롬프트는 자리가 차 있어도 버리지 않는다. 시한 안에서 자리가
+// 빌 때까지 기다린다. 닫는 중이 되거나 시한이 지나면 그만둔다.
+func TestPeerGateEnterWait(t *testing.T) {
+	var g peerGate
+	leave, _ := g.enter("a")
+	got := make(chan error, 1)
+	go func() {
+		l, err := g.enterWait(context.Background(), "a")
+		if l != nil {
+			l()
+		}
+		got <- err
+	}()
+	select {
+	case <-got:
+		t.Fatal("자리가 찼는데 들어갔다")
+	case <-time.After(50 * time.Millisecond):
+	}
+	leave()
+	if err := <-got; err != nil {
+		t.Fatalf("자리가 빈 뒤: %v", err)
+	}
+	leave, _ = g.enter("b")
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if _, err := g.enterWait(ctx, "b"); err == nil {
+		t.Fatal("시한이 지났는데 들어갔다")
+	}
+	go func() {
+		_, err := g.enterWait(context.Background(), "b")
+		got <- err
+	}()
+	time.Sleep(20 * time.Millisecond)
+	done := make(chan func())
+	go func() { done <- g.close(context.Background(), "b") }()
+	time.Sleep(20 * time.Millisecond)
+	leave()
+	(<-done)()
+	if err := <-got; !errors.Is(err, errPeerToolClosing) {
+		t.Fatalf("닫는 중이 된 뒤: %v", err)
+	}
+}
