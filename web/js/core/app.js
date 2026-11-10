@@ -683,6 +683,9 @@ class App {
       const v = input.value.trim();
       // FUI-18: 창 이름도 만들 때와 같은 상한을 지난다.
       if(v && v !== old) { obj.name = clampEntityName(v); this.save(); }
+      // 이름 요소를 되돌린다. 이름이 그대로면 행의 서명도 그대로라 다시 그리기가 행을
+      // 새로 만들지 않는다 — 되돌리지 않으면 편집칸이 남는다.
+      input.replaceWith(el);
       this.render();
     };
     input.addEventListener('blur', done, {once:true});

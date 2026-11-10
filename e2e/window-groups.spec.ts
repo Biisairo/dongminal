@@ -198,6 +198,33 @@ test.describe('window 그룹 · 순서 명령 (ISSUE_AGENT_TREE_SRS)', () => {
     await expect.poll(() => page.evaluate((i) => (window as any).app.ws.windows.find((w) => w.id === i)?.name, id)).toBe('Named');
   });
 
+  // 사용자 보고(2026-11-10): 이름을 고친 뒤 다른 window 를 누르기 전까지 편집칸이 남았다.
+  for (const kind of ['window', 'group'] as const) {
+    for (const how of ['Enter-새이름', 'Enter-같은이름', 'Escape', '바깥클릭'] as const) {
+      test(`${kind} 이름 편집은 ${how} 로 끝난다 — 편집칸이 남지 않는다`, async ({ page, request }) => {
+        let name;
+        if (kind === 'group') {
+          const g = await newGroup(request, 'G1');
+          name = page.locator(`#windows .si-group[data-group-id="${g}"] .sbl-name`);
+        } else {
+          const g = await newGroup(request, 'G1');
+          await newWindow(request, { group: g });
+          name = page.locator('#windows .si.active .si-name');
+        }
+        await expect(name).toHaveCount(1);
+        const old = (await name.textContent()) || '';
+        await name.dblclick();
+        const input = page.locator('#windows .rename-input');
+        await expect(input).toBeVisible();
+        if (how === 'Enter-새이름') { await input.fill(old + 'X'); await input.press('Enter') }
+        else if (how === 'Enter-같은이름') await input.press('Enter');
+        else if (how === 'Escape') { await input.fill(old + 'Y'); await input.press('Escape') }
+        else { await input.fill(old + 'Z'); await page.locator('#term-area, body').first().click({ position: { x: 5, y: 5 } }) }
+        await expect(input).toHaveCount(0);
+      });
+    }
+  }
+
   test('TC-WGR-3: 그룹 버튼은 빈 그룹을 만들고 이름을 고치게 한다', async ({ page }) => {
     const before = (await ws(page)).groups.length;
     await page.locator('#add-group').click();

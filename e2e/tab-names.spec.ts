@@ -157,6 +157,23 @@ test.describe('전경 프로세스 기반 탭 이름 (묶음 N)', () => {
     await expect(labelOf(page, tab.id)).toHaveText('vim');
   });
 
+  // 사용자 보고(2026-11-10): 이름이 그대로인 채 끝내도 편집칸이 남지 않고 라벨이 돌아온다.
+  for (const how of ['Enter-같은이름', 'Escape', '바깥클릭'] as const) {
+    test(`탭 이름 편집은 ${how} 로 끝난다 — 편집칸이 남지 않는다`, async ({ page }) => {
+      await waitForInit(page);
+      const tab = await firstTab(page);
+      const before = (await labelOf(page, tab.id).textContent()) || '';
+      await labelOf(page, tab.id).dblclick();
+      const input = page.locator('.rename-input');
+      await expect(input).toBeVisible();
+      if (how === 'Enter-같은이름') await input.press('Enter');
+      else if (how === 'Escape') { await input.fill(before + 'Y'); await input.press('Escape') }
+      else { await input.fill(before + 'Z'); await page.locator('body').click({ position: { x: 5, y: 5 } }) }
+      await expect(input).toHaveCount(0);
+      await expect(labelOf(page, tab.id)).toBeVisible();
+    });
+  }
+
   // V-TAN-6 (에이전트 경로) — FR-TAN-22.
   test('V-TAN-6 dmctl rename-tab --auto 가 같은 일을 한다', async ({ page }) => {
     await waitForInit(page);
