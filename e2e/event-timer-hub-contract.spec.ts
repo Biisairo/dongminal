@@ -89,6 +89,8 @@ async function loadRestoreProtocol(page: Page) {
       }
       _fgPaint() {}
       _repaintTabs() {}
+      // `_fgRepaint` 는 제목도 다시 칠한다 (FR-ITW-4). 그릴 제목이 없는 하네스다.
+      renderer = { _rPaintTitles() {}, _tabDisplayName() { return ''; } };
       // 경쟁 해소는 이제 버스가 소유한다 (FR-BUS-6). `_restore*` 는 위임
       // 껍데기이므로, 그것을 재려면 버스가 서 있어야 한다. 침묵 감시를 쓰지
       // 않으므로 타이머는 주입하지 않는다.

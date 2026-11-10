@@ -252,9 +252,14 @@ test.describe('묶음 B — 좌측 GIT 섹션', () => {
     const box = (await page.locator('#repo-entries').boundingBox())!;
     expect(box.y + box.height, 'GIT 목록이 사이드바 밖으로 밀렸다')
       .toBeLessThanOrEqual(sb.y + sb.height + 1);
-    // V-SBT-2: 40% 상한이 사라졌다 — 남은 높이 전부를 쓴다.
-    expect(box.height, 'GIT 목록이 아직 사이드바 높이의 절반 아래다')
-      .toBeGreaterThan(sb.height * 0.5);
+    // V-SBT-2: 40% 상한이 사라졌다 — 남은 높이 전부를 쓴다. 남은 높이는 패널에서
+    // 액션 행과 최하단 고정 행(FR-EDT-14)을 뺀 것이다. 고정 행 수는 늘 수 있으므로
+    // (`~`·메모장·플러그인) 사이드바 비율로 재지 않는다.
+    const panel = (await page.locator('#sb-panel-repo').boundingBox())!;
+    const acts = (await page.locator('#sb-panel-repo .sb-actions').boundingBox())!;
+    const fixed = (await page.locator('#repo-root').boundingBox())!;
+    expect(box.height, 'GIT 목록이 패널의 남은 높이를 쓰지 않는다')
+      .toBeGreaterThan((panel.height - acts.height - fixed.height) * 0.9);
   });
   test('S8 (V16): 서버가 쓴 핀은 클라이언트의 409 재시도 저장에도 살아남는다', async ({ page, request }) => {
     await waitForInit(page);

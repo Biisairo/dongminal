@@ -1218,7 +1218,7 @@
   "minHeight": "0px"
  },
  "terminal|input.sbx-input": {
-  "display": "block",
+  "display": "inline-block",
   "overflowX": "clip",
   "overflowY": "clip",
   "position": "static",
@@ -3456,7 +3456,7 @@
   "minHeight": "0px"
  },
  "git:changes|input.sbx-input": {
-  "display": "block",
+  "display": "inline-block",
   "overflowX": "clip",
   "overflowY": "clip",
   "position": "static",
@@ -5802,7 +5802,7 @@
   "minHeight": "0px"
  },
  "git:diff|input.sbx-input": {
-  "display": "block",
+  "display": "inline-block",
   "overflowX": "clip",
   "overflowY": "clip",
   "position": "static",
@@ -8349,7 +8349,7 @@
   "minHeight": "0px"
  },
  "git:history|input.sbx-input": {
-  "display": "block",
+  "display": "inline-block",
   "overflowX": "clip",
   "overflowY": "clip",
   "position": "static",
@@ -10872,7 +10872,7 @@
   "minHeight": "0px"
  },
  "git:branches|input.sbx-input": {
-  "display": "block",
+  "display": "inline-block",
   "overflowX": "clip",
   "overflowY": "clip",
   "position": "static",
@@ -13152,7 +13152,7 @@
   "minHeight": "0px"
  },
  "git:stash|input.sbx-input": {
-  "display": "block",
+  "display": "inline-block",
   "overflowX": "clip",
   "overflowY": "clip",
   "position": "static",
@@ -15381,7 +15381,7 @@
   "minHeight": "0px"
  },
  "git:console|input.sbx-input": {
-  "display": "block",
+  "display": "inline-block",
   "overflowX": "clip",
   "overflowY": "clip",
   "position": "static",
@@ -17685,7 +17685,7 @@
   "minHeight": "0px"
  },
  "git:worktrees|input.sbx-input": {
-  "display": "block",
+  "display": "inline-block",
   "overflowX": "clip",
   "overflowY": "clip",
   "position": "static",
@@ -19923,7 +19923,7 @@
   "minHeight": "0px"
  },
  "git:submodules|input.sbx-input": {
-  "display": "block",
+  "display": "inline-block",
   "overflowX": "clip",
   "overflowY": "clip",
   "position": "static",
@@ -21333,7 +21333,7 @@
   "minHeight": "0px"
  },
  "editor|input.sbx-input": {
-  "display": "block",
+  "display": "inline-block",
   "overflowX": "clip",
   "overflowY": "clip",
   "position": "static",
@@ -21420,6 +21420,456 @@
   "position": "fixed",
   "inset": "668px 16px 52px 1264px",
   "flexDirection": "column",
+  "minHeight": "0px"
+ },
+ "terminal|div.ed-entry.sbl-item": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "terminal|span.ed-entry-x.sbl-x": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "terminal|code.pn-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "terminal|div.pn-row[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "terminal|div.pn-row": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "terminal|input.pn-add-name.sbx-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|div.ed-entry.sbl-item": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|code.pn-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|div.pn-row[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|div.pn-row": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:changes|input.pn-add-name.sbx-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|div.ed-entry.sbl-item": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|code.pn-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|div.pn-row[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|div.pn-row": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:diff|input.pn-add-name.sbx-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|div.ed-entry.sbl-item": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|code.pn-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|div.pn-row[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|div.pn-row": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:history|input.pn-add-name.sbx-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|div.ed-entry.sbl-item": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|code.pn-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|div.pn-row[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|div.pn-row": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:branches|input.pn-add-name.sbx-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|div.ed-entry.sbl-item": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|code.pn-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|div.pn-row[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|div.pn-row": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:stash|input.pn-add-name.sbx-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|div.ed-entry.sbl-item": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|code.pn-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|div.pn-row[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|div.pn-row": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:console|input.pn-add-name.sbx-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|div.ed-entry.sbl-item": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|code.pn-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|div.pn-row[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|div.pn-row": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:worktrees|input.pn-add-name.sbx-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|div.ed-entry.sbl-item": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|code.pn-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|div.pn-row[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|div.pn-row": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "git:submodules|input.pn-add-name.sbx-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|code.pn-fp": {
+  "display": "block",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|div.pn-row[hidden]": {
+  "display": "none",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|div.pn-row": {
+  "display": "flex",
+  "overflowX": "visible",
+  "overflowY": "visible",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
+  "minHeight": "0px"
+ },
+ "editor|input.pn-add-name.sbx-input": {
+  "display": "block",
+  "overflowX": "clip",
+  "overflowY": "clip",
+  "position": "static",
+  "inset": "auto auto auto auto",
+  "flexDirection": "row",
   "minHeight": "0px"
  }
 }
