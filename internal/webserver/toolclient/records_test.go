@@ -78,29 +78,6 @@ func TestRecords_SurviveReconnect(t *testing.T) {
 	}
 }
 
-func TestRecords_PushReachesCallback(t *testing.T) {
-	ps, sock := recordsDaemon(t)
-	c, err := DialToolClient(sock)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer c.Close()
-	got := make(chan toolipc.RecordEvent, 1)
-	c.SetOnRecord(func(ev toolipc.RecordEvent) { got <- ev })
-	// 연결이 데몬의 현재 연결로 선 뒤에 쓴다 — hello 응답이 그 증거다.
-	if err := ps.PutRecord(toolipc.RecordUsage, "t1", json.RawMessage(`{"effort":"low"}`)); err != nil {
-		t.Fatal(err)
-	}
-	select {
-	case ev := <-got:
-		if ev.Kind != toolipc.RecordUsage || ev.Tool != "t1" || string(ev.Value) != `{"effort":"low"}` {
-			t.Fatalf("ev=%+v", ev)
-		}
-	case <-time.After(3 * time.Second):
-		t.Fatal("record push 가 콜백에 닿지 않았다")
-	}
-}
-
 // 다시 붙으면 재동기 콜백이 돈다 — 서버는 거기서 남은 쓰기를 보내고 스냅샷을 받는다.
 func TestRecords_ResyncCallbackOnReconnect(t *testing.T) {
 	drop := make(chan struct{})

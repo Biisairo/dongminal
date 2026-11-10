@@ -3,9 +3,7 @@ package ipc
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"testing"
-	"time"
 
 	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/toolhub"
@@ -133,43 +131,6 @@ func TestRecordSet_Rejects(t *testing.T) {
 	}
 	if len(pm.Get("t1").Records()) != 0 {
 		t.Fatalf("거절한 쓰기가 남았다: %v", pm.Get("t1").Records())
-	}
-}
-
-// FR-ARD-12: 데몬 안의 쓰기는 현재 연결로 record push 를 보내고, 버리지 않는다.
-func TestPutRecord_PushesReliably(t *testing.T) {
-	pm := recordsPM(t, "t1")
-	ps := NewPanedServer(pm, "", "")
-	pc := &panedConn{pm: pm, out: make(chan interface{}, 1), done: make(chan struct{}), records: ps.records}
-	ps.mu.Lock()
-	ps.currConn = pc
-	ps.mu.Unlock()
-	pc.out <- "busy"
-	returned := make(chan error, 1)
-	go func() { returned <- ps.PutRecord(toolipc.RecordUsage, "t1", json.RawMessage(`{"a":1}`)) }()
-	select {
-	case <-returned:
-		t.Fatal("큐가 찬 채로 돌아왔다 — record push 를 버렸다")
-	case <-time.After(100 * time.Millisecond):
-	}
-	<-pc.out
-	select {
-	case v := <-pc.out:
-		ev, ok := v.(toolipc.RecordEvent)
-		if !ok || ev.Event != toolipc.EventRecord || ev.Kind != toolipc.RecordUsage || ev.Tool != "t1" || string(ev.Value) != `{"a":1}` {
-			t.Fatalf("push=%#v", v)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("record push 가 오지 않았다")
-	}
-	if err := <-returned; err != nil {
-		t.Fatal(err)
-	}
-	if string(pm.Get("t1").Records()[toolipc.RecordUsage]) != `{"a":1}` {
-		t.Fatal("PutRecord 가 기록하지 않았다")
-	}
-	if err := ps.PutRecord(toolipc.RecordUsage, "nope", json.RawMessage(`{}`)); !errors.Is(err, toolhub.ErrToolNotFound) {
-		t.Fatalf("없는 도구 err=%v", err)
 	}
 }
 

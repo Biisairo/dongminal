@@ -58,7 +58,7 @@ func (g *globalRecords) snapshot() map[string]json.RawMessage {
 
 var errRecordShape = errors.New("기록의 종류와 도구가 맞지 않는다")
 
-// applyRecord 는 기록 하나를 쓴다. recordset 과 PutRecord 의 공통 자리다.
+// applyRecord 는 기록 하나를 쓴다 (recordset).
 func applyRecord(pm *toolhub.ToolManager, g *globalRecords, kind, tool string, v json.RawMessage) (code int, err error) {
 	global, ok := toolipc.RecordIsGlobal(kind)
 	if !ok || global != (tool == "") || g == nil {
@@ -106,22 +106,4 @@ func (pc *panedConn) recordsSnapshot(req *toolipc.PanedRequest) interface{} {
 		res.Tools = append(res.Tools, toolipc.ToolRecords{Tool: p.ID, Agent: p.AgentState(), Records: p.Records()})
 	}
 	return okResp(req, res)
-}
-
-// PutRecord 는 데몬 안의 쓰기(단계 2 의 보고)다. 기록하고 현재 연결로 record push 를
-// 보낸다 (FR-ARD-12). push 는 버리지 않는다.
-func (ps *PanedServer) PutRecord(kind, tool string, v json.RawMessage) error {
-	if _, err := applyRecord(ps.pm, ps.records, kind, tool, v); err != nil {
-		return err
-	}
-	ps.mu.Lock()
-	c := ps.currConn
-	ps.mu.Unlock()
-	if c != nil {
-		if v == nil {
-			v = json.RawMessage("null")
-		}
-		c.enqueue(toolipc.RecordEvent{Event: toolipc.EventRecord, Kind: kind, Tool: tool, Value: v}, false)
-	}
-	return nil
 }
