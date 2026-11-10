@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"dongminal/internal/shared/testpath"
 )
 
 // M5 `G4-3` — 홈 전체 `backup`/`restore`.
@@ -180,5 +182,38 @@ func TestRestoreRejectsPathEscape(t *testing.T) {
 	}
 	if !strings.Contains(so.String()+se.String(), "건너뜀") {
 		t.Errorf("건너뛴 사실을 알리지 않았다:\n%s%s", so.String(), se.String())
+	}
+}
+
+// 백업에는 노드 개인키가 들어간다 (PEER_NETWORK_SRS, 사용자 결정 2026-11-10).
+// zip 은 소유자만 읽는다.
+func TestBackupFileIsOwnerOnly(t *testing.T) {
+	if !testpath.PermChecked() {
+		t.Skip("이 OS 는 POSIX 권한을 쓰지 않는다")
+	}
+	home := seedHome(t)
+	isolateEnv(t, home)
+	fresh := filepath.Join(t.TempDir(), "b.zip")
+	// 이미 있던 파일을 덮어써도 권한이 좁아져야 한다.
+	existing := filepath.Join(t.TempDir(), "old.zip")
+	if err := os.WriteFile(existing, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, out := range []string{fresh, existing} {
+		o, err := ParseBackup([]string{"--out", out})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var so, se bytes.Buffer
+		if code := RunBackup(o, &so, &se); code != 0 {
+			t.Fatalf("exit %d: %s", code, se.String())
+		}
+		st, err := os.Stat(out)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if perm := st.Mode().Perm(); perm != 0o600 {
+			t.Fatalf("%s: 백업 파일 권한 %o, 기대 600", filepath.Base(out), perm)
+		}
 	}
 }

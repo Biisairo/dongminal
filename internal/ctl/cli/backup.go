@@ -26,6 +26,9 @@ import (
 // 담기지도 않는다. 복원이 로그를 건드리지 않는 것도 같은 이유의 반대쪽이다 —
 // 사고 직후의 증거를 복원이 지우면 안 된다.
 
+// backupFilePerm 은 백업 zip 의 권한이다 — 소유자만 읽고 쓴다.
+const backupFilePerm = 0o600
+
 // BackupOpts 는 `dongminal backup` 의 옵션이다.
 type BackupOpts struct {
 	Common
@@ -70,12 +73,18 @@ func RunBackup(o BackupOpts, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	f, err := os.Create(o.Out)
+	// 백업에는 노드 개인키가 들어간다 (PEER_NETWORK_SRS). 소유자만 읽게 만들고,
+	// 이미 있던 파일을 덮어쓸 때도 권한을 좁힌다.
+	f, err := os.OpenFile(o.Out, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, backupFilePerm)
 	if err != nil {
 		fmt.Fprintf(stderr, "백업 파일을 만들 수 없습니다: %v\n", err)
 		return 1
 	}
 	defer f.Close()
+	if err := f.Chmod(backupFilePerm); err != nil {
+		fmt.Fprintf(stderr, "백업 파일 권한을 바꿀 수 없습니다: %v\n", err)
+		return 1
+	}
 	z := zip.NewWriter(f)
 
 	var n int

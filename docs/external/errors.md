@@ -24,7 +24,7 @@
 | 방언 | 본문 | 쓰는 곳 |
 |---|---|---|
 | git | `{"error": <코드>, "message": <tail>}` | `/api/git/*` |
-| fs | `{"code": <코드>, "message": <msg>}` | `/api/fs/*` · `/api/editors/*` |
+| fs | `{"code": <코드>, "message": <msg>}` | `/api/fs/*` · `/api/editors/*` · 노드 포트의 `/peer/v1/*` |
 | runs | `{"error": <코드>, "detail": <err>}` | `/api/runs/*` |
 | 단문 | `{"error": <문구>}` | `/api/tools/{output,input,message}` · `/api/whoami` |
 | 평문 | `text/plain` 한 줄 | 그 밖의 `/api/*` |

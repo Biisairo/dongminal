@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/testpath"
 )
 
 // FR-PNW-1: 처음이면 만든다 — ECDSA P-256, 자기 서명, 10년, 키 0600.
@@ -43,7 +44,7 @@ func TestLoadOrCreateIdentityCreates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("키 파일: %v", err)
 	}
-	if perm := st.Mode().Perm(); perm != 0o600 {
+	if perm := st.Mode().Perm(); testpath.PermChecked() && perm != 0o600 {
 		t.Fatalf("키 파일 권한 %o, 기대 600", perm)
 	}
 	if _, err := os.Stat(filepath.Join(dir, dmenv.NodeCertFile)); err != nil {

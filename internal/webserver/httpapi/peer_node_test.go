@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/testpath"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/peer"
 )
@@ -63,7 +64,7 @@ func TestNewCreatesNodeIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("키 파일: %v", err)
 	}
-	if st.Mode().Perm() != 0o600 {
+	if testpath.PermChecked() && st.Mode().Perm() != 0o600 {
 		t.Fatalf("키 권한 %o", st.Mode().Perm())
 	}
 	if _, err := os.Stat(filepath.Join(home, dmenv.NodeCertFile)); err != nil {
