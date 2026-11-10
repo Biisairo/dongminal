@@ -12,6 +12,7 @@ class InputBinding {
     // FR-HSZ-3: 두 핸들의 반대쪽이 같은 요소다 — 콘텐츠 영역.
     const contentEl=document.getElementById('content');
     this.app.applyPanelDock();
+    this.app.watchPanelDock();
     this._bindAgentsPanel(contentEl);
     this._bindDocDnd(sbEl);
     this._bindDock(sbEl);

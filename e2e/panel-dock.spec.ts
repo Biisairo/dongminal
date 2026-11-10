@@ -189,3 +189,36 @@ test.describe('묶음 PDK — Repo 사이드', () => {
     expect(await page.evaluate(() => localStorage.getItem('repoSideDock'))).toBeNull();
   });
 });
+
+// 사용자 보고(2026-11-10): 한 탭에서 좌우 배치를 바꾸면 같은 브라우저의 다른 탭에 반영되지 않았고,
+// 그 탭에서 같은 배치로 다시 바꿔도 먹히지 않았다. 새로고침하면 풀렸다.
+test.describe('묶음 PDK — 같은 브라우저의 다른 탭', () => {
+  const side = (page: Page, key: 'sbSide' | 'agSide' | 'repoSide') =>
+    page.evaluate((k) => document.documentElement.dataset[k], key);
+  const SWAP = { left: ['activity'], right: ['sidebar'] };
+
+  test('PDK-X1: 한 탭에서 바꾼 좌우 배치를 다른 탭이 따라간다', async ({ page, context }) => {
+    await waitForInit(page);
+    const other = await context.newPage();
+    await waitForInit(other);
+    await page.evaluate((s) => (window as any).app.testing.setPanelDock(s), SWAP);
+    await page.evaluate(() => (window as any).app.testing.setRepoSideDock('right'));
+    await expect.poll(() => side(other, 'sbSide')).toBe('right');
+    await expect.poll(() => side(other, 'agSide')).toBe('left');
+    await expect.poll(() => side(other, 'repoSide')).toBe('right');
+  });
+
+  test('PDK-X2: 저장소와 화면이 어긋나 있어도 다시 바꾸면 화면에 실린다', async ({ page }) => {
+    await waitForInit(page);
+    // 다른 탭이 저장소만 바꾼 상태를 만든다 — 이 탭은 알림을 받지 못했다.
+    await page.evaluate((s) => {
+      localStorage.setItem('panelDock', JSON.stringify(s));
+      localStorage.setItem('repoSideDock', 'right');
+    }, SWAP);
+    expect(await side(page, 'sbSide')).toBe('left');
+    await page.evaluate((s) => (window as any).app.testing.setPanelDock(s), SWAP);
+    await page.evaluate(() => (window as any).app.testing.setRepoSideDock('right'));
+    expect(await side(page, 'sbSide'), '같은 배치로 다시 바꿨는데 화면이 그대로다').toBe('right');
+    expect(await side(page, 'repoSide')).toBe('right');
+  });
+});
