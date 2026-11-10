@@ -443,3 +443,53 @@ func TestPeerSpawnRechecksActualCwd(t *testing.T) {
 		t.Fatal("도구를 닫지 않았다")
 	}
 }
+
+// FR-PNW-61 · I-18: --tab 은 헤드리스 셸을 at 도구의 칸에 붙인다.
+func TestPeerSpawnTabPlacement(t *testing.T) {
+	installFakeAgent(t)
+	broker := &fakeCommandBroker{}
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", broker)
+	pairNodes(t, a, b.peerNode)
+	wi := b.srv.WorkIndex.(*fakeWorkIndex)
+	wi.entries = append(wi.entries, toolaccess.WorkspaceEntry{ToolID: "headless-1", TabUUID: "tab-h1"})
+	code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed, "placement": "tab", "at": "t-at"})
+	if code != 200 || out["headless"] != false || out["toolId"] != "headless-1" {
+		t.Fatalf("spawn: %d %v", code, out["_raw"])
+	}
+	var req string
+	for _, p := range broker.published {
+		if strings.Contains(string(p), `"restoreTool"`) {
+			req = string(p)
+		}
+	}
+	if !strings.Contains(req, `"location":"W1.P1.T1"`) || !strings.Contains(req, `"toolId":"headless-1"`) {
+		t.Fatalf("restoreTool 요청 %s", req)
+	}
+}
+
+// FR-PNW-63: 에이전트가 일하는 중이면 종료 명령을 먼저 보낸 뒤 닫는다.
+func TestPeerAgentCloseSendsExitWhenBusy(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	pairNodes(t, a, b.peerNode)
+	if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed}); code != 200 {
+		t.Fatalf("spawn %d %v", code, out["_raw"])
+	}
+	b.tools.setFG("headless-1", agentCmd(t))
+	b.hub.mu.Lock()
+	b.hub.busy = func(string) bool { return len(b.tools.pasted()) < 2 }
+	b.hub.mu.Unlock()
+	if code, out := a.call(t, "node-b", "agent.close", map[string]any{"toolId": "headless-1"}); code != 200 {
+		t.Fatalf("close: %d %v", code, out["_raw"])
+	}
+	ad, _ := agentadapter.Get("claude")
+	p := b.tools.pasted()
+	if len(p) != 2 || p[1].Text != ad.ExitCommand {
+		t.Fatalf("종료 명령 %+v", p)
+	}
+	if b.srv.toolLive("headless-1") {
+		t.Fatal("도구가 살아 있다")
+	}
+}

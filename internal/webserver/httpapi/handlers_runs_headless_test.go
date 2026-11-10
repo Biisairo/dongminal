@@ -53,6 +53,8 @@ type headlessHub struct {
 
 	// cwds 는 Cwd 가 돌려줄 값이다. 없으면 모름("")이다.
 	cwds map[string]string
+	// busy 가 있으면 Busy 의 답이다. 없으면 언제나 거짓이다.
+	busy func(id string) bool
 }
 
 func (h *headlessHub) lastPlacement() toolhub.Placement {
@@ -148,7 +150,12 @@ func (h *headlessHub) Cwd(id string) string {
 	defer h.mu.Unlock()
 	return h.cwds[id]
 }
-func (h *headlessHub) Busy(string) bool                          { return false }
+func (h *headlessHub) Busy(id string) bool {
+	h.mu.Lock()
+	f := h.busy
+	h.mu.Unlock()
+	return f != nil && f(id)
+}
 func (h *headlessHub) BusyMany([]string) (map[string]bool, bool) { return map[string]bool{}, true }
 func (h *headlessHub) Write(string, []byte) error                { return nil }
 func (h *headlessHub) SendPaste(string, []byte, bool) error      { return nil }

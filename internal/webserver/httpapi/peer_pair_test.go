@@ -292,6 +292,23 @@ func TestPairWhenCallerPortClosed(t *testing.T) {
 	if ap := a.peers(t); len(ap) != 1 || ap[0]["state"] != peer.StatePendingOut {
 		t.Fatalf("A 는 pending-out 이어야 한다: %v", ap)
 	}
+	// FR-PNW-28 · I-11: confirm 을 잃어도 A 의 다음 명령이 성공하면 짝으로 바뀐다.
+	if code, out := a.call(t, ap0Name(t, a), "node.info", nil); code != http.StatusOK {
+		t.Fatalf("node.info: %d %v", code, out["_raw"])
+	}
+	if ap := a.peers(t); len(ap) != 1 || ap[0]["state"] != peer.StatePaired {
+		t.Fatalf("회복 뒤 A 는 짝이어야 한다: %v", ap)
+	}
+}
+
+func ap0Name(t *testing.T, n *peerNode) string {
+	t.Helper()
+	ps := n.peers(t)
+	if len(ps) == 0 {
+		t.Fatal("짝이 없다")
+	}
+	name, _ := ps[0]["name"].(string)
+	return name
 }
 
 // I-6: 포트가 닫혀 있으면 초대를 만들지 않는다. 주소가 없어도 만들지 않는다.
