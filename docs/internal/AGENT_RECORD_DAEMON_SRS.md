@@ -1,7 +1,6 @@
 # SRS: 에이전트 기록의 데몬 소유 · 생존 판정의 세 값 — IEEE 29148
 
-> **문서 상태**: 승인·구현중
-> **남은 것**: 단계 4 (단계 1~3 은 구현함 — §3.1a·§3.2a·§3.3a)
+> **문서 상태**: 승인·구현완료
 > **입력**: 2026-11-10 대화. 사용자 결정은 다섯이다.
 > - D-ARD-1 에이전트 관련 기록은 **데몬이 먼저 받아 저장하고 서버로 보낸다**
 > - D-ARD-2 데몬이 들 기록은 "전부"다 — 활동·알람 표시·서브에이전트·사용량·계정 한도
@@ -309,6 +308,69 @@
 - **FR-ARD-5** 수거의 자동 제거는 조정자가 **확인된 죽음**일 때만 한다.
 - **FR-ARD-6** 맥락 경고 통지 기록(`contextNotices`)은 멤버 기록의 필드(`contextNotified []string`, 등급 목록)로 `runs.json` 에 둔다. 조정자 몫은 Run 의 조정자 맥락 상태에 같은 필드로 둔다.
 - **FR-ARD-7** 옛 `runs.json` 의 `epoch` 와 `aborted`(`AbortDaemonRestart`)는 읽을 수 있어야 한다. 새로 쓰지는 않는다.
+
+### 3.4a 단계 4 설계
+
+**서버 코드만 바꾼다.** 데몬과 와이어는 바뀌지 않는다. 그래서 데몬을 다시 띄우지 않아도 적용된다.
+
+**세 값의 계산 (FR-ARD-1).** 새 인터페이스는 만들지 않는다. `ToolHub.ListOK()` 가 이미 "아는가"를 답한다(FR-TLU-2).
+
+| 자리 | 계산 |
+|---|---|
+| httpapi `Server.toolLiveness(id)` | `Tools.ListOK()` 의 ok 가 거짓이면 `unknown`. 아니면 종전 `toolLive`(`ToolIO.Has`)가 참이면 `alive`, 거짓이면 `dead` |
+| 조립 `attnLiveProbe(hub)` (알람 생존 검사) | `ListOK()` 의 ok 가 거짓이면 참(막지 않는다). 아니면 목록에 있으면 참 |
+
+- 직접 모드의 `ListOK` 는 언제나 ok 다. 그래서 직접 모드에서는 `unknown` 이 나오지 않고 동작이 같다.
+- `ListOK` 는 200ms 캐시를 딛는다(GO-6). 같은 요청 안의 반복 질의는 RPC 를 다시 하지 않는다 (R-5).
+
+**FR-ARD-2 의 네 자리**
+
+| 자리 | 바꾸는 것 |
+|---|---|
+| Run 수거 | `Store.ReapTargets(dead)` 로 바꾼다. 인자는 "확인된 죽음인가"다. 열린 Run 은 `dead(조정자)` 일 때만 대상이다 (FR-ARD-5). `dead` 가 nil 이면 열린 Run 은 대상이 아니다. 끝난 Run(closed·aborted)은 종전처럼 대상이다 |
+| `prune` 셋 | 함수 모양은 그대로다. 넘기는 질의를 `toolLive` 에서 "`dead` 가 아니다"로 바꾼다. 수거 틱의 몸은 `reapTick` 으로 떼어 시험한다 |
+| 알람 생존 검사 | `SetLiveProbe(attnLiveProbe(toolHub))`. `unknown` 이면 알람을 거르지 않는다. 종전에는 `IsLive` 가 거짓이라 걸렀다 |
+| `dmctl status` | 응답 `toolStatus` 에 `liveUnknown` 을 더한다(`omitempty`). `unknown` 이면 `live:false, liveUnknown:true` 다. `dmctl status` 의 글 출력은 그때 `live=unknown` 이라 쓴다 |
+
+- `dmctl wait`(`/api/tools/activity/wait`)는 같은 `toolStatus` 를 쓴다. `liveUnknown` 이면 `gone` 으로 끝내지 않고 계속 기다린다. 다음 생존 확인(1초)에서 다시 판정한다. 시한이 지나면 종전처럼 `timeout` 이다.
+- 나머지 `toolLive` 자리는 표에 없으므로 그대로 둔다. 예: 멤버 상태 판정(`lost`), 헤드리스·close·tree·assign·peer.
+
+**펜싱을 없앤다 (FR-ARD-3·7) — 데몬 모드만**
+
+- `Store.Load` 는 파일을 읽기만 한다. `fenceStale`·`runHasLiveMember`·`WithLiveness`·`Store.alive` 를 지운다.
+- `Store.epoch` 와 `NewStore` 의 `epoch` 인자를 지운다. 쓰는 곳이 `Start` 가 새 Run 에 `Epoch` 를 적는 것뿐이고, FR-ARD-7 은 새로 쓰지 말라고 한다.
+- `Record.Epoch` 필드와 `AbortDaemonRestart` 상수는 남긴다. 옛 기록을 읽고, 다시 저장할 때 그 값을 지우지 않기 위해서다.
+- **직접 모드는 종전 결과를 지킨다 (§1.2).** 새 옵션 `run.WithAbortOpenOnLoad()` 를 직접 모드만 쓴다(`newRunStore` 가 `toolHub.Daemon() == nil` 로 가른다). `Load` 가 열린 Run 을 모두 `aborted`(`AbortDaemonRestart`)로 저장한다.
+  - 근거: 직접 모드에서는 서버가 곧 도구를 들고 있어, 서버가 다시 뜨면 에이전트가 실제로 죽는다. 도구는 `LoadAll` 로 빈 셸만 되살아난다. 펜싱을 없애면 그 빈 셸이 `alive` 로 보여 Run 이 `open`, 멤버가 `starting` 으로 영원히 남는다.
+  - 종전 펜싱도 직접 모드에서는 Run 을 모두 닫았다. `Load` 가 `LoadAll` 보다 먼저 돌아 생존 질의가 언제나 거짓이었기 때문이다. 그래서 epoch 없이 "열린 것 전부"로 같은 결과를 낸다.
+  - FR-ARD-3·7 의 문장은 모드를 가르지 않는다. 이 설계는 FR-ARD-3·7 을 데몬 모드에 한정해 읽는다. §1.2 와 §2.2(데몬의 "모른다")가 근거다.
+- **데몬 모드의 결과.** 서버가 다시 떠도 열린 Run 은 열린 채다. 조정자가 확인된 죽음이면 15초 수거가 지운다. 조정자가 없는 Run(`CoordinatorToolID` 가 빈 값)은 수거 대상이 아니므로(FR-DEL-15) 열린 채 남는다. 목록에는 `liveness` 로 보이고, 사용자가 닫거나 지운다 (D-ARD-4).
+
+**Run 의 liveness (FR-ARD-4).** `runView` 에 `liveness` 를 싣는다(`omitempty`). `viewOf` 가 계산하므로 `/api/runs`·`/api/runs/{id}`·`run status` 가 함께 받는다.
+
+- `State != open` 이면 비운다.
+- 조정자와 멤버의 도구 id 를 모은다(빈 값은 뺀다). 하나라도 `alive` 면 `open` 이다.
+- 모두 `dead` 면 `gone` 이다.
+- 그 밖은 `unknown` 이다. **도구 id 가 하나도 없으면 `unknown`** 이다. 근거 없이 죽음으로 읽지 않는다 (FR-DEL-15 와 같은 원칙).
+
+**contextNotices 의 영속 (FR-ARD-6)**
+
+- `Member` 에 `ContextNotified []string`(`json:"contextNotified,omitempty"`)을 더한다.
+  - `ContextState` 에 두지 않는다. 그 구조체는 `==` 로 비교되므로(`onlyContextAtChanged`) 슬라이스를 넣을 수 없다.
+  - **조정자 몫은 두지 않는다.** FR-ARD-6 은 조정자에게도 같은 필드를 두라고 하지만, 조정자 자신의 등급은 통지하지 않는다 (FR-RCX-10). 쓰는 곳이 없는 필드를 만들지 않는다.
+- 새 메서드 `Store.ClaimContextNotice(memberID, level) bool`: 잠금 안에서 그 멤버의 목록에 등급이 없으면 더하고 저장한 뒤 참을 돌려준다. 있으면 거짓이다. 멤버가 없으면 거짓이다. 저장이 실패해도 참이다 — 메모리에는 남고, 통지는 관측의 일이라 Run 을 막지 않는다 (NFR-CBG-2).
+- httpapi `contextNoticeLog`·`Server.contextNotices` 를 지운다. `notifyContextAlert` 가 `Runs.ClaimContextNotice` 를 부른다. `RunStore` 포트에 메서드를 더한다.
+- `cloneMember` 는 새 슬라이스도 복사한다 (FR-SAF-4).
+
+**시험 (TC-ARD-1~5)**
+
+| TC | 자리 | 내용 |
+|---|---|---|
+| TC-ARD-1 | httpapi `toolLiveness`, 조립 `attnLiveProbe` | 목록 답함(있음·없음)·답하지 않음(`fakeUnknownHub`) → `alive`·`dead`·`unknown`. 알람 검사는 `unknown` 에서 참 |
+| TC-ARD-2 | run `ReapTargets`, httpapi `reapTick` | `unknown` 동안 Run·사용량·서브에이전트가 남는다. `dead` 가 되면 지워진다 |
+| TC-ARD-3 | run `Load` | 지난 epoch 의 열린 Run 이 열린 채고 파일이 바뀌지 않는다. 옛 `aborted`·`epoch` 가 그대로 읽힌다. 새 Run 은 `epoch` 를 쓰지 않는다. 직접 모드(`WithAbortOpenOnLoad`)는 열린 Run 을 `aborted` 로 저장한다 |
+| TC-ARD-4 | httpapi `/api/runs`·status·wait | `open`·`gone`·`unknown`·닫힌 Run 은 필드 없음. status 의 `liveUnknown`. wait 가 `unknown` 에서 `gone` 을 내지 않는다 |
+| TC-ARD-5 | run `ClaimContextNotice`, httpapi `notifyContextAlert` | 통지 → 저장소 다시 읽기 → 같은 등급은 다시 통지하지 않는다 |
 
 ### 3.5 비기능
 

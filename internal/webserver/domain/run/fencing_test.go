@@ -1,90 +1,112 @@
 package run
 
 import (
+	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
-// `FBE-03`(PRODUCTION_ROADMAP §M3) — **웹서버만 재시작해도 헤드리스 멤버가 죽는다.**
+// AGENT_RECORD_DAEMON_SRS FR-ARD-3·7 (TC-ARD-3) — **Run 의 열림은 저장하지 않는다.**
 //
-// 펜싱 기준이 `epoch`(웹서버 기동)였다. 그래서 `dongminal stop && start` 로
-// 서버만 갈아 끼우면 — 데몬이 보존되어 **도구는 그대로 살아 있는데** — 그 Run 이
-// aborted 로 확정되고, 회수기가 15초 안에 멤버를 죽인다.
-//
-// 종전 코드의 주석이 그 전제를 적고 있었다: *"백그라운드 도구가 재기동을 넘지
-// 못하므로 되살릴 실체가 없다"*. 데몬 모드에서 그 전제는 **거짓**이다 — PTY 를
-// 가진 것은 데몬이고, 데몬은 서버보다 오래 산다.
-//
-// 그래서 기준을 바꾼다: **그 멤버의 도구가 실제로 살아 있는가.**
+// 종전에는 서버가 뜰 때 지난 기동의 열린 Run 을 `aborted` 로 저장했다(펜싱).
+// 데몬이 답하지 못한 순간의 "모른다"가 그 판정에서 "죽었다"가 되어, 살아 있는
+// Run 이 영구히 닫혔다 (§2.2). 열림은 이제 물을 때마다 계산한다 (FR-ARD-4).
 
-func fenceRunWithMember(t *testing.T, s *Store, toolID string) Record {
+const legacyRunsJSON = `{"schemaVersion":1,"runs":[` +
+	`{"id":"00000000-0000-7000-8000-000000000001","short":"00000000","objective":"open","projection":"background","isolation":"none","state":"open","epoch":"epoch-old","coordinatorToolId":"tool-a","createdAt":1},` +
+	`{"id":"00000000-0000-7000-8000-000000000002","short":"00000000","objective":"aborted","projection":"background","isolation":"none","state":"aborted","epoch":"epoch-old","createdAt":1,"closedAt":2,"abortReason":"daemon-restart"}` +
+	`]}`
+
+func writeLegacyRuns(t *testing.T) string {
 	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, fileName), []byte(legacyRunsJSON), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+// 지난 기동의 열린 Run 은 열린 채고, 파일은 바뀌지 않는다.
+func TestLoadKeepsOpenRunFromPreviousEpoch(t *testing.T) {
+	dir := writeLegacyRuns(t)
+	s := NewStore(dir)
+	if err := s.Load(); err != nil {
+		t.Fatal(err)
+	}
+	got, ok := s.Get("00000000-0000-7000-8000-000000000001")
+	if !ok || got.State != Open {
+		t.Fatalf("state=%v ok=%v want open — 펜싱이 남아 있다 (FR-ARD-3)", got.State, ok)
+	}
+	blob, err := os.ReadFile(filepath.Join(dir, fileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(blob, []byte(legacyRunsJSON)) {
+		t.Fatalf("Load 가 runs.json 을 고쳐 썼다:\n%s", blob)
+	}
+}
+
+// 옛 aborted·epoch 는 그대로 읽힌다 (FR-ARD-7).
+func TestLoadReadsLegacyAbortedAndEpoch(t *testing.T) {
+	s := NewStore(writeLegacyRuns(t))
+	if err := s.Load(); err != nil {
+		t.Fatal(err)
+	}
+	ab, ok := s.Get("00000000-0000-7000-8000-000000000002")
+	if !ok || ab.State != Aborted || ab.AbortReason != AbortDaemonRestart || ab.ClosedAt != 2 {
+		t.Fatalf("옛 aborted 레코드가 바뀌었다: %+v", ab)
+	}
+	op, _ := s.Get("00000000-0000-7000-8000-000000000001")
+	if op.Epoch != "epoch-old" {
+		t.Fatalf("옛 epoch 를 잃었다: %q", op.Epoch)
+	}
+}
+
+// 새 Run 은 epoch 를 쓰지 않는다 (FR-ARD-7).
+func TestStartDoesNotWriteEpoch(t *testing.T) {
+	dir := t.TempDir()
+	s := NewStore(dir)
+	if err := s.Load(); err != nil {
+		t.Fatal(err)
+	}
 	rec, err := s.Start(StartOptions{Objective: "x", Projection: Background, Isolation: IsolationNone})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.AddMember(rec.ID, MemberSpec{Role: "worker", Agent: "claude", ToolID: toolID}); err != nil {
+	if rec.Epoch != "" {
+		t.Fatalf("epoch=%q want 빈 값", rec.Epoch)
+	}
+	blob, err := os.ReadFile(filepath.Join(dir, fileName))
+	if err != nil {
 		t.Fatal(err)
 	}
-	return rec
-}
-
-// 도구가 살아 있으면 **펜싱하지 않는다** — 이것이 접수한 증상이다.
-func TestFenceKeepsRunWhoseToolIsAlive(t *testing.T) {
-	dir := t.TempDir()
-	s1 := NewStore(dir, "epoch-1")
-	if err := s1.Load(); err != nil {
-		t.Fatal(err)
-	}
-	fenceRunWithMember(t, s1, "tool-a")
-
-	// 새 웹서버 기동. 도구는 데몬이 들고 있어 살아 있다.
-	s2 := NewStore(dir, "epoch-2", WithLiveness(func(id string) bool { return id == "tool-a" }))
-	if err := s2.Load(); err != nil {
-		t.Fatal(err)
-	}
-	got := s2.List()
-	if len(got) != 1 {
-		t.Fatalf("Run 수=%d", len(got))
-	}
-	if got[0].State != Open {
-		t.Fatalf("state=%v want Open — 도구가 살아 있는데 펜싱했다 (FBE-03)", got[0].State)
+	if bytes.Contains(blob, []byte(`"epoch"`)) {
+		t.Fatalf("runs.json 에 epoch 가 있다:\n%s", blob)
 	}
 }
 
-// 도구가 죽었으면 종전대로 펜싱한다 (회귀).
-func TestFenceAbortsRunWhoseToolIsGone(t *testing.T) {
-	dir := t.TempDir()
-	s1 := NewStore(dir, "epoch-1")
-	if err := s1.Load(); err != nil {
+// 직접 모드는 종전 결과 그대로다 (§3.4a): 서버가 다시 뜨면 에이전트가 죽었으므로
+// 열린 Run 을 aborted 로 저장한다. 끝난 Run 은 끝난 이유를 그대로 둔다.
+func TestAbortOpenOnLoadForDirectMode(t *testing.T) {
+	dir := writeLegacyRuns(t)
+	s := NewStore(dir, WithAbortOpenOnLoad(), WithClock(func() int64 { return 99 }))
+	if err := s.Load(); err != nil {
 		t.Fatal(err)
 	}
-	fenceRunWithMember(t, s1, "tool-a")
-
-	s2 := NewStore(dir, "epoch-2", WithLiveness(func(string) bool { return false }))
-	if err := s2.Load(); err != nil {
+	op, _ := s.Get("00000000-0000-7000-8000-000000000001")
+	if op.State != Aborted || op.AbortReason != AbortDaemonRestart || op.ClosedAt != 99 {
+		t.Fatalf("직접 모드의 열린 Run 이 닫히지 않았다: %+v", op)
+	}
+	ab, _ := s.Get("00000000-0000-7000-8000-000000000002")
+	if ab.ClosedAt != 2 {
+		t.Fatalf("이미 끝난 Run 의 종료 시각을 고쳤다: %+v", ab)
+	}
+	again := NewStore(dir)
+	if err := again.Load(); err != nil {
 		t.Fatal(err)
 	}
-	got := s2.List()
-	if got[0].State != Aborted {
-		t.Fatalf("state=%v want Aborted — 실체가 없는 Run 은 닫아야 한다", got[0].State)
-	}
-}
-
-// **생존을 물을 길이 없으면 종전대로다.** 모른다고 살려 두면 고아 Run 이 영원히
-// 열린 채 남는다 — 이 갈래는 direct 모드와 옛 배선의 길이다.
-func TestFenceWithoutLivenessAbortsAsBefore(t *testing.T) {
-	dir := t.TempDir()
-	s1 := NewStore(dir, "epoch-1")
-	if err := s1.Load(); err != nil {
-		t.Fatal(err)
-	}
-	fenceRunWithMember(t, s1, "tool-a")
-
-	s2 := NewStore(dir, "epoch-2")
-	if err := s2.Load(); err != nil {
-		t.Fatal(err)
-	}
-	if got := s2.List(); got[0].State != Aborted {
-		t.Fatalf("state=%v want Aborted", got[0].State)
+	if g, _ := again.Get(op.ID); g.State != Aborted {
+		t.Fatalf("닫은 것이 저장되지 않았다: %+v", g)
 	}
 }

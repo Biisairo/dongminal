@@ -27,7 +27,7 @@ func ctxServer(t *testing.T) (*Server, *run.Store, *fakeToolIO, run.Record, run.
 	// 저장소는 여기서 다시 세운다 — runs.json 이 어디에 쓰이는지 알아야
 	// NFR-4 를 파일에서 직접 확인할 수 있다.
 	storeDir := t.TempDir()
-	store := run.NewStore(storeDir, "epoch-ctx")
+	store := run.NewStore(storeDir)
 	if err := store.Load(); err != nil {
 		t.Fatalf("store load: %v", err)
 	}

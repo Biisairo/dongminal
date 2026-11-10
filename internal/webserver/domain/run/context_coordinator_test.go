@@ -12,7 +12,7 @@ import "testing"
 // V-13: 조정자 `toolId` 로 넣은 관측이 Run 의 조정자 자리에 앉고, 등급이 멤버와
 // **같은 정책**으로 매겨진다 (FR-RCX-6·7·8).
 func TestObserveContext_CoordinatorGetsItsOwnSlot(t *testing.T) {
-	s := newTestStore(t, "e-coord")
+	s := newTestStore(t)
 	rec, _ := openRunWithMember(t, s, "member-tool", nil)
 
 	m, entered, ok := s.ObserveContext("coord", ContextObservation{
@@ -64,7 +64,7 @@ func TestObserveContext_CoordinatorGetsItsOwnSlot(t *testing.T) {
 // 지나지 않는다 — 조정자 자신의 등급을 조정자에게 알리면 그 통지가 조정자의
 // 컨텍스트를 더 먹는다.
 func TestObserveContext_CoordinatorNeverEntersAlert(t *testing.T) {
-	s := newTestStore(t, "e-coord-crit")
+	s := newTestStore(t)
 	rec, _ := openRunWithMember(t, s, "member-tool", nil)
 	p := DefaultContextPolicy()
 
@@ -89,7 +89,7 @@ func TestObserveContext_CoordinatorNeverEntersAlert(t *testing.T) {
 // 이 훅은 Run 과 무관한 claude 전부에서 돈다. 멤버도 조정자도 아닌 것은 실패가
 // 아니라 정상이다.
 func TestObserveContext_UnknownToolStillIgnored(t *testing.T) {
-	s := newTestStore(t, "e-coord-unknown")
+	s := newTestStore(t)
 	openRunWithMember(t, s, "member-tool", nil)
 
 	if _, _, ok := s.ObserveContext("nobody", ContextObservation{
@@ -105,7 +105,7 @@ func TestObserveContext_UnknownToolStillIgnored(t *testing.T) {
 // FR-RCX-11: 필드가 없던 옛 레코드는 빈 값이다 — 관측 전의 Run 에는 조정자
 // 자리가 아예 없고, 그래서 화면이 아무것도 그리지 않는다.
 func TestRun_CoordinatorAbsentUntilObserved(t *testing.T) {
-	s := newTestStore(t, "e-coord-absent")
+	s := newTestStore(t)
 	rec, _ := openRunWithMember(t, s, "member-tool", nil)
 	got, _ := s.Get(rec.ID)
 	if got.Coordinator != nil {
@@ -116,7 +116,7 @@ func TestRun_CoordinatorAbsentUntilObserved(t *testing.T) {
 // 멤버 경로는 종전 그대로다 — 공통 함수로 뽑았다고 등급 전이가 사라지면 안 된다
 // (FR-CBG-6 회귀).
 func TestObserveContext_MemberStillEnters(t *testing.T) {
-	s := newTestStore(t, "e-member-enters")
+	s := newTestStore(t)
 	openRunWithMember(t, s, "member-tool", nil)
 	p := DefaultContextPolicy()
 

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"dongminal/internal/shared/runwait"
@@ -49,39 +48,6 @@ const handoffWaitDefault = runwait.HandoffWaitDefault
 // 승계보다 짧다. 여기 오기까지 이미 승계의 시한만큼 기다렸으므로, 같은 길이를 한
 // 번 더 주면 조정자의 한 명령이 6분을 먹는다.
 const handoffPreambleWait = runwait.PreambleWait
-
-// contextNotices 는 이미 보낸 컨텍스트 통지를 기억한다 (FR-CBG-7, SRS §3.3.2).
-//
-// 같은 멤버·같은 등급에 통지는 한 번뿐이다. 등급은 단조가 아니라 내려갈 수
-// 있으므로 ratio 가 떨어졌다 다시 올라오면 저장소는 그것을 **전이로 감지한다.**
-// 두 번째부터 알리지 않게 막는 것이 여기다 — 조정자의 컨텍스트를 서버가
-// 오염시키면 본말전도다.
-//
-// 뮤텍스로 지키고 **쓰기 경로를 claim 하나로 모은다** (SRS §3.3.2).
-//
-// **영속하지 않는 이유**: 열린 Run 은 서버 재기동을 넘지 못한다. epoch 펜싱이
-// 이전 incarnation 의 열린 Run 을 전부 aborted 로 만들기 때문이다 (FR-RUN-5).
-// 기억의 수명이 Run 의 수명과 정확히 같으므로 Member 에 필드를 늘리지 않는다.
-type contextNoticeLog struct {
-	mu   sync.Mutex
-	sent map[string]bool // memberID + "/" + level
-}
-
-// claim 은 이 (멤버, 등급) 조합의 통지 권한을 한 번만 내준다. 두 번째부터는
-// 거짓이다.
-func (l *contextNoticeLog) claim(memberID, level string) bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	key := memberID + "/" + level
-	if l.sent[key] {
-		return false
-	}
-	if l.sent == nil {
-		l.sent = map[string]bool{}
-	}
-	l.sent[key] = true
-	return true
-}
 
 // contextPolicy 는 추정 공식과 임계를 설정에서 읽는다 (FR-CBG-2). 설정이 없거나
 // 읽히지 않으면 기본값이다 — 관측 층의 설정 문제로 Run 이 멈추면 안 된다.
@@ -215,14 +181,15 @@ func (s *Server) apiRunContext(w http.ResponseWriter, r *http.Request) {
 // 바꾸지 않으며 오류로도 새지 않는다 — 관측이 팀을 멈추게 하면 본말전도다.
 //
 // 등급은 내려갈 수 있으므로 같은 등급에 두 번 오르는 일이 있다. 그때 두 번
-// 알리지 않게 막는 것이 contextNotices 다 (FR-CBG-7). 통지 기회는 등급마다 한
+// 알리지 않게 막는 것이 멤버 기록의 contextNotified 다 (FR-CBG-7). 기록이 runs.json
+// 에 있으므로 서버가 다시 떠도 막는다 (AGENT_RECORD_DAEMON_SRS FR-ARD-6). 통지 기회는 등급마다 한
 // 번이며, 조정자가 죽어 건너뛴 경우에도 소진된다 — 건너뛴 사실은 로그에 남고
 // 레코드는 그대로 갱신된다 (FR-CBG-8).
 func (s *Server) notifyContextAlert(m run.Member, level string) {
 	if s.Runs == nil || s.ToolIO == nil {
 		return
 	}
-	if !s.contextNotices.claim(m.ID, level) {
+	if !s.Runs.ClaimContextNotice(m.ID, level) {
 		return
 	}
 	rec, ok := s.Runs.Get(m.RunID)

@@ -100,7 +100,8 @@ type RunStore interface {
 	Close(runID string, force bool) (run.Record, []run.Member, error)
 	Delete(runID string) (run.Record, error)
 	Sweep(runID string) (run.Record, error)
-	ReapTargets(alive func(toolID string) bool) []run.Record
+	ReapTargets(dead func(toolID string) bool) []run.Record
+	ClaimContextNotice(memberID, level string) bool
 	AddMember(runID string, spec run.MemberSpec) (run.Member, error)
 	FindMember(memberID string) (run.Record, run.Member, bool)
 	MemberByTool(toolID string) (run.Member, bool)

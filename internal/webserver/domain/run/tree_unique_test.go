@@ -13,7 +13,7 @@ func startTree(t *testing.T, s *Store, tree string, branch bool) (Record, error)
 }
 
 func TestTree_SecondRootRejected(t *testing.T) {
-	s := NewStore(t.TempDir(), "e")
+	s := NewStore(t.TempDir())
 	root, err := startTree(t, s, "o/r#32", false)
 	if err != nil {
 		t.Fatal(err)
@@ -30,7 +30,7 @@ func TestTree_SecondRootRejected(t *testing.T) {
 }
 
 func TestTree_BranchNeedsOpenRoot(t *testing.T) {
-	s := NewStore(t.TempDir(), "e")
+	s := NewStore(t.TempDir())
 	if _, err := startTree(t, s, "o/r#32", true); !errors.Is(err, ErrTreeNotOpen) {
 		t.Fatalf("루트 없는 가지 err=%v", err)
 	}
@@ -43,7 +43,7 @@ func TestTree_BranchNeedsOpenRoot(t *testing.T) {
 }
 
 func TestTree_NodeTakenAcrossRuns(t *testing.T) {
-	s := NewStore(t.TempDir(), "e")
+	s := NewStore(t.TempDir())
 	root, _ := startTree(t, s, "o/r#32", false)
 	br, _ := startTree(t, s, "o/r#32", true)
 	if _, err := s.AddMember(root.ID, MemberSpec{Role: "ccr#32›33", Agent: "claude", ToolID: "t1", Assign: &Assignment{Issue: "o/r#33"}}); err != nil {
@@ -64,7 +64,7 @@ func TestTree_NodeTakenAcrossRuns(t *testing.T) {
 }
 
 func TestTree_ReportedNodeDoesNotBlock(t *testing.T) {
-	s := NewStore(t.TempDir(), "e")
+	s := NewStore(t.TempDir())
 	root, _ := startTree(t, s, "o/r#32", false)
 	m, _ := s.AddMember(root.ID, MemberSpec{Role: "ccr#32›33", Agent: "claude", ToolID: "t1", Assign: &Assignment{Issue: "o/r#33"}})
 	if _, err := s.Report("t1", ReportSpec{RunID: root.ID, MemberID: m.ID, Outcome: OutcomeSucceeded, Summary: "a. b. c."}); err != nil {
@@ -76,7 +76,7 @@ func TestTree_ReportedNodeDoesNotBlock(t *testing.T) {
 }
 
 func TestTree_ClosedRunFreesTree(t *testing.T) {
-	s := NewStore(t.TempDir(), "e")
+	s := NewStore(t.TempDir())
 	root, _ := startTree(t, s, "o/r#32", false)
 	if _, _, err := s.Close(root.ID, true); err != nil {
 		t.Fatalf("close: %v", err)

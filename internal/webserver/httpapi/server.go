@@ -184,10 +184,6 @@ type Server struct {
 	// **실제 파일 조작**뿐이다 — 본문 읽기와 경로 판정은 밖에서 한다.
 	fsOps sync.Mutex
 
-	// contextNotices 는 이미 보낸 컨텍스트 통지를 기억한다 (FR-CBG-7). 서버
-	// 수명이지 프로세스 수명이 아니다.
-	contextNotices contextNoticeLog
-
 	// waitInFlight 는 지금 붙잡힌 활동 대기 수다 (FR-STA-9). 서버 하나의 것이다
 	// (OPTIMIZE_REFACTOR_SRS FR-OPT-8-6 · HTTP-9).
 	waitInFlight atomic.Int64

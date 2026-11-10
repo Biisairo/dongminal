@@ -13,18 +13,18 @@ import (
 
 // newTestStore builds a store over a temp dir with deterministic id/clock so
 // assertions can name exact values.
-func newTestStore(t *testing.T, epoch string) *Store {
+func newTestStore(t *testing.T) *Store {
 	t.Helper()
 	n := 0
 	var clock int64 = 1000
-	s := NewStore(t.TempDir(), epoch,
+	s := NewStore(t.TempDir(),
 		WithIDGen(func() string {
 			n++
-			// canonical uuid 형태 — FR-UNI-1 을 흉내내되 결정적이다.
+
 			return "00000000-0000-7000-8000-" + strings.Repeat("0", 11) + string(rune('0'+n))
 		}),
-		WithClock(func() int64 { clock++; return clock }),
-	)
+		WithClock(func() int64 { clock++; return clock }))
+
 	if err := s.Load(); err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -34,7 +34,7 @@ func newTestStore(t *testing.T, epoch string) *Store {
 // TC-RUN-1 (FR-RUN-1/3): 시작한 Run 이 프로토타입 필드 이름 그대로 영속된다.
 func TestStore_StartPersists(t *testing.T) {
 	dir := t.TempDir()
-	s := NewStore(dir, "epoch-1")
+	s := NewStore(dir)
 	if err := s.Load(); err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -42,8 +42,8 @@ func TestStore_StartPersists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Start: %v", err)
 	}
-	if rec.State != Open || rec.Epoch != "epoch-1" {
-		t.Fatalf("새 Run 은 현재 epoch 의 open 이어야 한다: %+v", rec)
+	if rec.State != Open {
+		t.Fatalf("새 Run 은 open 이어야 한다: %+v", rec)
 	}
 	if len(rec.Short) != 8 || !strings.HasPrefix(rec.ID, rec.Short) {
 		t.Fatalf("short 는 id 앞 8자 파생값이다: %+v", rec)
@@ -73,7 +73,7 @@ func TestStore_StartPersists(t *testing.T) {
 
 // FR-RUN-1: 투영·격리 값은 검증한다. 알 수 없는 값이 조용히 저장되면 안 된다.
 func TestStore_StartValidates(t *testing.T) {
-	s := newTestStore(t, "e")
+	s := newTestStore(t)
 	if _, err := s.Start(StartOptions{Objective: "x", Projection: "sideways", Isolation: IsolationNone}); err == nil {
 		t.Fatal("알 수 없는 projection 이 통과했다")
 	}
@@ -88,14 +88,14 @@ func TestStore_StartValidates(t *testing.T) {
 // TC-RUN-1: 재로드하면 같은 내용이 돌아온다.
 func TestStore_Reload(t *testing.T) {
 	dir := t.TempDir()
-	s := NewStore(dir, "e1")
+	s := NewStore(dir)
 	_ = s.Load()
 	rec, _ := s.Start(StartOptions{Objective: "obj", Projection: Inline, Isolation: IsolationNone})
 	if _, err := s.AddMember(rec.ID, MemberSpec{Role: "writer", Agent: "claude", ToolID: "tool-1", TabID: "tab-1"}); err != nil {
 		t.Fatalf("AddMember: %v", err)
 	}
 
-	s2 := NewStore(dir, "e1")
+	s2 := NewStore(dir)
 	if err := s2.Load(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestStore_CorruptFileStartsEmpty(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "runs.json"), []byte("{ this is not json"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	s := NewStore(dir, "e1")
+	s := NewStore(dir)
 	if err := s.Load(); err != nil {
 		t.Fatalf("손상된 파일이 Load 를 실패시켰다: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestStore_CorruptFileStartsEmpty(t *testing.T) {
 
 // FR-RUN-4: 파일이 없는 것은 정상이다 (NFR-RUN-1/2).
 func TestStore_MissingFileIsNormal(t *testing.T) {
-	s := NewStore(t.TempDir(), "e1")
+	s := NewStore(t.TempDir())
 	if err := s.Load(); err != nil {
 		t.Fatalf("파일 부재가 오류가 됐다: %v", err)
 	}
@@ -138,7 +138,7 @@ func TestStore_MissingFileIsNormal(t *testing.T) {
 // TC-RUN-2 (FR-RUN-4): 쓰기는 원자적이다 — 임시 파일을 남기지 않는다.
 func TestStore_AtomicWriteLeavesNoTemp(t *testing.T) {
 	dir := t.TempDir()
-	s := NewStore(dir, "e1")
+	s := NewStore(dir)
 	_ = s.Load()
 	if _, err := s.Start(StartOptions{Objective: "x", Projection: Inline, Isolation: IsolationNone}); err != nil {
 		t.Fatal(err)
@@ -151,43 +151,14 @@ func TestStore_AtomicWriteLeavesNoTemp(t *testing.T) {
 	}
 }
 
-// TC-RUN-4 (FR-RUN-5): 이전 epoch 의 open Run 은 로드 시 aborted 로 확정된다.
-func TestStore_EpochFencing(t *testing.T) {
-	dir := t.TempDir()
-	s := NewStore(dir, "epoch-1")
-	_ = s.Load()
-	rec, _ := s.Start(StartOptions{Objective: "x", Projection: Inline, Isolation: IsolationNone})
-
-	s2 := NewStore(dir, "epoch-2")
-	if err := s2.Load(); err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	got, _ := s2.Get(rec.ID)
-	if got.State != Aborted {
-		t.Fatalf("이전 세대 Run 은 aborted 여야 한다: %+v", got)
-	}
-	if got.AbortReason != AbortDaemonRestart {
-		t.Fatalf("abortReason 이 없다: %+v", got)
-	}
-	if got.ClosedAt == 0 {
-		t.Fatal("aborted 는 종료 시각을 가져야 한다")
-	}
-	// 펜싱은 영속돼야 한다 — 다음 로드에서 되살아나면 안 된다.
-	s3 := NewStore(dir, "epoch-2")
-	_ = s3.Load()
-	if g, _ := s3.Get(rec.ID); g.State != Aborted {
-		t.Fatalf("펜싱이 저장되지 않았다: %+v", g)
-	}
-}
-
 // FR-RUN-5: 같은 epoch 의 Run 은 건드리지 않는다 (재로드는 펜싱이 아니다).
 func TestStore_SameEpochSurvivesReload(t *testing.T) {
 	dir := t.TempDir()
-	s := NewStore(dir, "epoch-1")
+	s := NewStore(dir)
 	_ = s.Load()
 	rec, _ := s.Start(StartOptions{Objective: "x", Projection: Inline, Isolation: IsolationNone})
 
-	s2 := NewStore(dir, "epoch-1")
+	s2 := NewStore(dir)
 	_ = s2.Load()
 	if got, _ := s2.Get(rec.ID); got.State != Open {
 		t.Fatalf("같은 epoch 의 Run 이 닫혔다: %+v", got)
@@ -197,14 +168,14 @@ func TestStore_SameEpochSurvivesReload(t *testing.T) {
 // FR-RUN-5: 이미 닫힌 Run 은 펜싱 대상이 아니다 (종료 사유를 덮지 않는다).
 func TestStore_FencingLeavesClosedRunsAlone(t *testing.T) {
 	dir := t.TempDir()
-	s := NewStore(dir, "epoch-1")
+	s := NewStore(dir)
 	_ = s.Load()
 	rec, _ := s.Start(StartOptions{Objective: "x", Projection: Inline, Isolation: IsolationNone})
 	if _, _, err := s.Close(rec.ID, false); err != nil {
 		t.Fatalf("Close: %v", err)
 	}
 
-	s2 := NewStore(dir, "epoch-2")
+	s2 := NewStore(dir)
 	_ = s2.Load()
 	got, _ := s2.Get(rec.ID)
 	if got.State != Closed || got.AbortReason != "" {
@@ -214,7 +185,7 @@ func TestStore_FencingLeavesClosedRunsAlone(t *testing.T) {
 
 // FR-RUN-2: 멤버는 uuid 를 받고 도구와 1:1 이다.
 func TestStore_AddMember(t *testing.T) {
-	s := newTestStore(t, "e")
+	s := newTestStore(t)
 	rec, _ := s.Start(StartOptions{Objective: "x", Projection: Inline, Isolation: IsolationNone})
 
 	m, err := s.AddMember(rec.ID, MemberSpec{Role: "writer", Agent: "claude", ToolID: "tool-1", TabID: "tab-1"})
@@ -241,7 +212,7 @@ func TestStore_AddMember(t *testing.T) {
 
 // FR-RUN-2: 역할·에이전트·도구는 필수다.
 func TestStore_AddMemberValidates(t *testing.T) {
-	s := newTestStore(t, "e")
+	s := newTestStore(t)
 	rec, _ := s.Start(StartOptions{Objective: "x", Projection: Inline, Isolation: IsolationNone})
 	for _, spec := range []MemberSpec{
 		{Role: "", Agent: "claude", ToolID: "t"},
@@ -256,7 +227,7 @@ func TestStore_AddMemberValidates(t *testing.T) {
 
 // FR-PRE-5: 보고의 권한은 발신 도구의 정체다. 페이로드를 아는 것은 권한이 아니다.
 func TestStore_ReportAuthorityIsTheSender(t *testing.T) {
-	s := newTestStore(t, "e")
+	s := newTestStore(t)
 	rec, _ := s.Start(StartOptions{Objective: "x", Projection: Inline, Isolation: IsolationNone})
 	mine, _ := s.AddMember(rec.ID, MemberSpec{Role: "a", Agent: "claude", ToolID: "tool-a"})
 	other, _ := s.AddMember(rec.ID, MemberSpec{Role: "b", Agent: "claude", ToolID: "tool-b"})
@@ -288,7 +259,7 @@ func TestStore_ReportAuthorityIsTheSender(t *testing.T) {
 
 // FR-PRE-3/7: outcome 은 명시해야 하고, 보고는 정확히 한 번이다.
 func TestStore_ReportRules(t *testing.T) {
-	s := newTestStore(t, "e")
+	s := newTestStore(t)
 	rec, _ := s.Start(StartOptions{Objective: "x", Projection: Inline, Isolation: IsolationNone})
 	_, _ = s.AddMember(rec.ID, MemberSpec{Role: "a", Agent: "claude", ToolID: "tool-a"})
 
@@ -311,7 +282,7 @@ func TestStore_ReportRules(t *testing.T) {
 
 // FR-RUN-11: 미보고 멤버가 있으면 close 는 거부하고 목록을 낸다. --force 로만 넘어간다.
 func TestStore_CloseGuard(t *testing.T) {
-	s := newTestStore(t, "e")
+	s := newTestStore(t)
 	rec, _ := s.Start(StartOptions{Objective: "x", Projection: Inline, Isolation: IsolationNone})
 	_, _ = s.AddMember(rec.ID, MemberSpec{Role: "a", Agent: "claude", ToolID: "tool-a"})
 	_, _ = s.AddMember(rec.ID, MemberSpec{Role: "b", Agent: "claude", ToolID: "tool-b"})
@@ -343,7 +314,7 @@ func TestStore_CloseGuard(t *testing.T) {
 // FR-PRE-6: 늦은 보고는 "멤버가 아니다"가 아니라 "Run 이 닫혔다"다 — 조정자가
 // 다르게 대응해야 하는 다른 문제다.
 func TestStore_ReportAfterCloseSaysRunClosed(t *testing.T) {
-	s := newTestStore(t, "e")
+	s := newTestStore(t)
 	rec, _ := s.Start(StartOptions{Objective: "x", Projection: Inline, Isolation: IsolationNone})
 	_, _ = s.AddMember(rec.ID, MemberSpec{Role: "a", Agent: "claude", ToolID: "tool-a"})
 	_, _, _ = s.Close(rec.ID, true)
@@ -359,7 +330,7 @@ func TestStore_ReportAfterCloseSaysRunClosed(t *testing.T) {
 
 // FR-RUN-11: 실패 보고도 보고다 — close 를 막지 않는다.
 func TestStore_FailedReportSatisfiesCloseGuard(t *testing.T) {
-	s := newTestStore(t, "e")
+	s := newTestStore(t)
 	rec, _ := s.Start(StartOptions{Objective: "x", Projection: Inline, Isolation: IsolationNone})
 	_, _ = s.AddMember(rec.ID, MemberSpec{Role: "a", Agent: "claude", ToolID: "tool-a"})
 	_, _ = s.Report("tool-a", ReportSpec{Outcome: OutcomeFailed, Summary: "막혔다"})
@@ -370,7 +341,7 @@ func TestStore_FailedReportSatisfiesCloseGuard(t *testing.T) {
 
 // FR-RUN-8: 목록은 최근 것이 앞이다 (uuid v7 은 시간 정렬이지만 계약을 고정한다).
 func TestStore_ListNewestFirst(t *testing.T) {
-	s := newTestStore(t, "e")
+	s := newTestStore(t)
 	first, _ := s.Start(StartOptions{Objective: "1", Projection: Inline, Isolation: IsolationNone})
 	second, _ := s.Start(StartOptions{Objective: "2", Projection: Inline, Isolation: IsolationNone})
 	list := s.List()
@@ -381,7 +352,7 @@ func TestStore_ListNewestFirst(t *testing.T) {
 
 // FR-RUN-2: 멤버 조회는 도구로 한다 (보고 권한 판정의 기반).
 func TestStore_MemberByTool(t *testing.T) {
-	s := newTestStore(t, "e")
+	s := newTestStore(t)
 	rec, _ := s.Start(StartOptions{Objective: "x", Projection: Inline, Isolation: IsolationNone})
 	_, _ = s.AddMember(rec.ID, MemberSpec{Role: "a", Agent: "claude", ToolID: "tool-a"})
 
@@ -401,7 +372,7 @@ func TestStore_MemberByTool(t *testing.T) {
 
 // FR-RUN-10: 정리 판단의 근거는 Run 레코드다 — 등록되지 않은 자원은 목록에 없다.
 func TestStore_CloseReportsOwnedResourcesOnly(t *testing.T) {
-	s := newTestStore(t, "e")
+	s := newTestStore(t)
 	rec, _ := s.Start(StartOptions{Objective: "x", Projection: Inline, Isolation: IsolationNone, WindowID: "win-1"})
 	_, _ = s.AddMember(rec.ID, MemberSpec{Role: "a", Agent: "claude", ToolID: "tool-a", TabID: "tab-a"})
 	_, _ = s.Report("tool-a", ReportSpec{Outcome: OutcomeSucceeded, Summary: "ok"})
@@ -418,7 +389,7 @@ func TestStore_CloseReportsOwnedResourcesOnly(t *testing.T) {
 // FR-WKT-8a: Sweep 는 **끝난 Run 전용**이다. 열려 있는 Run 은 close 가 다뤄야
 // 한다 — 정리만 하고 상태를 남겨 두면 멤버가 아직 일하는 트리를 지우게 된다.
 func TestStore_SweepRefusesOpenRun(t *testing.T) {
-	s := newTestStore(t, "e")
+	s := newTestStore(t)
 	rec, _ := s.Start(StartOptions{Objective: "x", Projection: Inline, Isolation: IsolationNone})
 
 	if _, err := s.Sweep(rec.ID); !errors.Is(err, ErrRunOpen) {
@@ -444,7 +415,7 @@ func TestStore_SweepRefusesOpenRun(t *testing.T) {
 
 // TC-DEL-1 (FR-DEL-7): 삭제한 Run 은 목록에도 파일에도 남지 않는다.
 func TestStore_DeleteRemovesRecord(t *testing.T) {
-	s := newTestStore(t, "epoch-1")
+	s := newTestStore(t)
 	a, err := s.Start(StartOptions{Objective: "a", Projection: DedicatedWindow, Isolation: IsolationNone})
 	if err != nil {
 		t.Fatalf("Start: %v", err)
@@ -468,7 +439,7 @@ func TestStore_DeleteRemovesRecord(t *testing.T) {
 	}
 
 	// 파일에서도 사라져야 한다 — 다음 부팅이 되살리면 삭제가 아니다.
-	reloaded := NewStore(s.dir, "epoch-1")
+	reloaded := NewStore(s.dir)
 	if err := reloaded.Load(); err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -479,7 +450,7 @@ func TestStore_DeleteRemovesRecord(t *testing.T) {
 
 // TC-DEL-2 (FR-DEL-7): 없는 Run 의 삭제는 ErrUnknownRun 이다 — 조용한 성공이 아니다.
 func TestStore_DeleteUnknown(t *testing.T) {
-	s := newTestStore(t, "epoch-1")
+	s := newTestStore(t)
 	if _, err := s.Delete("nope"); !errors.Is(err, ErrUnknownRun) {
 		t.Fatalf("ErrUnknownRun 이어야 한다: %v", err)
 	}
@@ -487,8 +458,11 @@ func TestStore_DeleteUnknown(t *testing.T) {
 
 // TC-DEL-3 (FR-DEL-13/15): 수거 대상은 **열린** Run 중 조정자 도구가 죽은 것이며,
 // 조정자를 모르는 Run 은 대상이 아니다.
+//
+// AGENT_RECORD_DAEMON_SRS FR-ARD-5 (TC-ARD-2): 인자는 "확인된 죽음인가"다. 생존을
+// 모르는 조정자(t-unknown)는 죽음이 아니므로 대상이 아니다.
 func TestStore_ReapTargets(t *testing.T) {
-	s := newTestStore(t, "epoch-1")
+	s := newTestStore(t)
 	live, _ := s.Start(StartOptions{Objective: "live", Projection: DedicatedWindow, Isolation: IsolationNone, CoordinatorToolID: "t-live"})
 	dead, _ := s.Start(StartOptions{Objective: "dead", Projection: DedicatedWindow, Isolation: IsolationNone, CoordinatorToolID: "t-dead"})
 	anon, _ := s.Start(StartOptions{Objective: "anon", Projection: DedicatedWindow, Isolation: IsolationNone})
@@ -497,8 +471,9 @@ func TestStore_ReapTargets(t *testing.T) {
 		t.Fatalf("Close: %v", err)
 	}
 
-	alive := func(id string) bool { return id == "t-live" }
-	got := s.ReapTargets(alive)
+	unknown, _ := s.Start(StartOptions{Objective: "unknown", Projection: DedicatedWindow, Isolation: IsolationNone, CoordinatorToolID: "t-unknown"})
+	isDead := func(id string) bool { return id == "t-dead" }
+	got := s.ReapTargets(isDead)
 
 	ids := map[string]bool{}
 	for _, r := range got {
@@ -515,5 +490,11 @@ func TestStore_ReapTargets(t *testing.T) {
 	}
 	if ids[anon.ID] {
 		t.Fatal("조정자를 모르는 Run 은 수거 대상이 아니다 (FR-DEL-15)")
+	}
+	if ids[unknown.ID] {
+		t.Fatal("조정자의 생존을 모르는 Run 을 수거하면 안 된다 (FR-ARD-5)")
+	}
+	if got := s.ReapTargets(nil); len(got) != 1 || got[0].ID != ended.ID {
+		t.Fatalf("dead 가 nil 이면 끝난 Run 만 대상이다: %d건", len(got))
 	}
 }

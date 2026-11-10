@@ -21,7 +21,6 @@ import (
 	"dongminal/internal/shared/platform"
 	"dongminal/internal/shared/pollwait"
 	"dongminal/internal/shared/serverconf"
-	"dongminal/internal/shared/uuid"
 	"dongminal/internal/shared/workspace"
 	"dongminal/internal/webserver/domain/ext"
 	"dongminal/internal/webserver/domain/git/core"
@@ -228,9 +227,9 @@ func buildDeps(cfg httpapi.Config, gitRoot context.Context) (builtDeps, error) {
 	// 조회도 여기서 일어난다. 데몬 모드의 짝은 serve() 의 OnForeground 다.
 	hub.WireForeground(pm, cmdHub)
 
-	// FR-HLM-3: 지난 세대의 헤드리스 도구를 **펜싱 전에** 읽는다. buildCommonDeps
-	// 안의 runStore.Load 가 열린 Run 을 aborted 로 확정하므로(FR-RUN-5), 그 뒤에
-	// 물으면 되살릴 대상이 하나도 남지 않는다.
+	// FR-HLM-3: 지난 세대의 헤드리스 도구를 **Load 전에** 읽는다. 직접 모드의
+	// runStore.Load(buildCommonDeps 안)가 열린 Run 을 aborted 로 확정하므로(FR-RUN-5),
+	// 그 뒤에 물으면 되살릴 대상이 하나도 남지 않는다.
 	headless := run.HeadlessToolIDs(cfg.DataDir)
 
 	bd, err := buildCommonDeps(cfg, pm, cmdHub, nil, gitRoot)
@@ -271,7 +270,7 @@ func buildDepsWithHub(cfg httpapi.Config, toolHub toolhub.ToolHub, gitRoot conte
 	attnTracker := hub.NewAttnTracker(cmdHub, hub.DefaultIdleMS())
 	attnTracker.SetBusyProbe(toolHub.BusyMany)
 	// FR-ATL-6: 종료 통지를 놓쳐도 죽은 도구의 알람이 복원되지 않게 한다.
-	attnTracker.SetLiveProbe(toolHub.IsLive)
+	attnTracker.SetLiveProbe(attnLiveProbe(toolHub))
 
 	bd, err := buildCommonDeps(cfg, toolHub, cmdHub, attnTracker, gitRoot)
 	if err != nil {
@@ -329,17 +328,18 @@ func newGitDeps(cfg httpapi.Config, gitRoot context.Context) gitDeps {
 	}
 }
 
-// newRunStore 는 Run 레코드 저장소다 (RUN_ORCHESTRATION_SRS 묶음 R). epoch 는 이
-// 기동의 식별자이며, 이전 세대가 열어둔 Run 을 로드 시 aborted 로 확정한다
-// (FR-RUN-5). Load 는 파일이 없거나 손상돼도 부팅을 막지 않는다.
+// newRunStore 는 Run 레코드 저장소다 (RUN_ORCHESTRATION_SRS 묶음 R). Load 는 파일이
+// 없거나 손상돼도 부팅을 막지 않는다.
 //
-// **`FBE-03`(2026-09-11): 그 판정에 생존을 함께 묻는다.** 옛 주석은
-// "백그라운드 도구가 재기동을 넘지 못하므로 되살릴 실체가 없다" 였는데,
-// 데몬 모드에서 그 전제는 **거짓**이다 — PTY 를 가진 것은 데몬이고 데몬은
-// 서버보다 오래 산다. 웹서버만 갈아 끼워도 멤버가 죽던 자리가 그것이다.
+// 재기동이 열린 Run 을 닫는 것은 **직접 모드뿐이다.** 그쪽은 서버가 곧 도구를 들고
+// 있어 에이전트가 함께 죽었다. 데몬 모드는 도구가 서버보다 오래 살므로 닫지 않고,
+// 열림을 물을 때마다 생존으로 계산한다 (AGENT_RECORD_DAEMON_SRS FR-ARD-3·4).
 func newRunStore(cfg httpapi.Config, toolHub toolhub.ToolHub) *run.Store {
-	runStore := run.NewStore(cfg.DataDir, uuid.NewString(),
-		run.WithLiveness(func(toolID string) bool { return toolHub.IsLive(toolID) }))
+	var opts []run.Option
+	if toolHub.Daemon() == nil {
+		opts = append(opts, run.WithAbortOpenOnLoad())
+	}
+	runStore := run.NewStore(cfg.DataDir, opts...)
 	if err := runStore.Load(); err != nil {
 		dmlog.Infof(nil, "run store load: %v", err)
 	}

@@ -302,7 +302,7 @@ func newHeadlessFixture(t *testing.T) *headlessFixture {
 	wi.setResolve("tool-a", "tool-a")
 	wi.bind("tool-a", "tab-a")
 
-	store := run.NewStore(t.TempDir(), "epoch-headless")
+	store := run.NewStore(t.TempDir())
 	if err := store.Load(); err != nil {
 		t.Fatalf("store load: %v", err)
 	}

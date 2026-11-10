@@ -8,7 +8,7 @@ import "testing"
 // 쓰되 저장소를 함께 돌려준다 — 이 파일의 검사는 관측을 여러 번 먹인다.
 func storeWithMember(t *testing.T, toolID string) *Store {
 	t.Helper()
-	s := newTestStore(t, "e-ctx")
+	s := newTestStore(t)
 	openRunWithMember(t, s, toolID, nil)
 	return s
 }

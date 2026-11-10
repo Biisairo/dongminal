@@ -35,7 +35,7 @@ func bytesForRatio(p ContextPolicy, ratio float64) int64 {
 
 // V-CBG-1 (FR-CBG-4): 크기를 단계적으로 키우면 등급이 ok→warn→critical 로 오른다.
 func TestObserveContext_LevelClimbsWithSize(t *testing.T) {
-	s := newTestStore(t, "e1")
+	s := newTestStore(t)
 	_, m := openRunWithMember(t, s, "tool-1", nil)
 	p := DefaultContextPolicy()
 
@@ -82,7 +82,7 @@ func TestObserveContext_LevelClimbsWithSize(t *testing.T) {
 // critical 이 나오는 이유는 compactCount 가 남아 있는 한 policy.Level 이 크기를 보지 않기
 // 때문이며, 그것은 **압축이 일어난 뒤에만** 참이다.
 func TestObserveContext_CompactPinsCritical(t *testing.T) {
-	s := newTestStore(t, "e1")
+	s := newTestStore(t)
 	openRunWithMember(t, s, "tool-1", nil)
 	p := DefaultContextPolicy()
 
@@ -111,7 +111,7 @@ func TestObserveContext_CompactPinsCritical(t *testing.T) {
 // V-CBG-3 (FR-CBG-5): 크기를 재지 못한 관측은 등급을 **비운 채로** 둔다.
 // 0 도 ok 도 아니다 — 모르는 것을 안다고 적으면 안 된다.
 func TestObserveContext_UnmeasuredStaysEmpty(t *testing.T) {
-	s := newTestStore(t, "e1")
+	s := newTestStore(t)
 	openRunWithMember(t, s, "tool-1", nil)
 
 	got, entered, found := s.ObserveContext("tool-1", ContextObservation{SessionID: "s-1"}, DefaultContextPolicy())
@@ -136,7 +136,7 @@ func TestObserveContext_UnmeasuredStaysEmpty(t *testing.T) {
 // Run 과 무관한 도구의 훅은 **조용한 무동작**이다. `dmctl activity` 는 멤버가
 // 아닌 claude 전부에서도 돌기 때문에, 이것이 정상 경로다.
 func TestObserveContext_NonMemberIsSilent(t *testing.T) {
-	s := newTestStore(t, "e1")
+	s := newTestStore(t)
 	openRunWithMember(t, s, "tool-1", nil)
 	if _, _, found := s.ObserveContext("남의-도구", ContextObservation{Bytes: 1 << 20, HasBytes: true}, DefaultContextPolicy()); found {
 		t.Fatal("멤버가 아닌 도구의 관측이 받아들여졌다")
@@ -167,7 +167,7 @@ func TestContextPolicy_IsConfigurable(t *testing.T) {
 // V-CBG-6 (FR-CBG-9/11): 승계는 역할·brief·**작업 트리**를 그대로 물려주고,
 // 이전 멤버를 succeeded 로 옮긴다. worktree 를 새로 만들지 않는다.
 func TestSucceed_InheritsWorktreeAndSettlesPrev(t *testing.T) {
-	s := newTestStore(t, "e1")
+	s := newTestStore(t)
 	tree := &Worktree{Path: "/tmp/wt/작가", Branch: "run/abc/작가", Base: "main"}
 	_, m := openRunWithMember(t, s, "tool-1", tree)
 
@@ -206,7 +206,7 @@ func TestSucceed_InheritsWorktreeAndSettlesPrev(t *testing.T) {
 // V-CBG-8 (FR-CBG-10): succeeded 멤버만 남은 Run 은 --force 없이 닫힌다.
 // 일을 마친 것이 아니라 넘긴 것이므로 기다릴 보고가 없다.
 func TestClose_SucceededCountsAsSettled(t *testing.T) {
-	s := newTestStore(t, "e1")
+	s := newTestStore(t)
 	_, m := openRunWithMember(t, s, "tool-1", nil)
 	_, next, err := s.Succeed(SucceedSpec{PrevMemberID: m.ID, ToolID: "tool-2"})
 	if err != nil {
@@ -231,7 +231,7 @@ func TestClose_SucceededCountsAsSettled(t *testing.T) {
 
 // 승계는 한 번뿐이다. 같은 멤버를 두 번 승계하면 사슬이 갈라진다.
 func TestSucceed_RefusesDoubleSuccession(t *testing.T) {
-	s := newTestStore(t, "e1")
+	s := newTestStore(t)
 	_, m := openRunWithMember(t, s, "tool-1", nil)
 	if _, _, err := s.Succeed(SucceedSpec{PrevMemberID: m.ID, ToolID: "tool-2"}); err != nil {
 		t.Fatalf("첫 승계: %v", err)
@@ -252,7 +252,7 @@ func TestSucceed_RefusesDoubleSuccession(t *testing.T) {
 // FR-PRE-5 와 같은 규칙: 인수인계의 권한은 **발신 도구의 정체**다. 남의
 // memberId 를 아는 것은 권한이 아니다.
 func TestHandoff_AuthorityIsTheSender(t *testing.T) {
-	s := newTestStore(t, "e1")
+	s := newTestStore(t)
 	rec, m := openRunWithMember(t, s, "tool-1", nil)
 	other, err := s.AddMember(rec.ID, MemberSpec{Role: "비평가", Agent: "claude", ToolID: "tool-9"})
 	if err != nil {
@@ -282,7 +282,7 @@ func TestHandoff_AuthorityIsTheSender(t *testing.T) {
 // 요약을 쓸 길(Handoff)이 열린 Run 에만 있으므로, 닫힌 Run 의 표식을 보고
 // 기다리면 시한만 먹는다. 기다림을 접는 것도 닫힌 기록을 고쳐 쓰지 않는다.
 func TestHandoffWaiting_ClosedRunHasNothingToWaitFor(t *testing.T) {
-	s := newTestStore(t, "e1")
+	s := newTestStore(t)
 	rec, m := openRunWithMember(t, s, "tool-1", nil)
 	_, next, err := s.Succeed(SucceedSpec{PrevMemberID: m.ID, ToolID: "tool-2", HandoffAsked: true})
 	if err != nil {
@@ -312,7 +312,7 @@ func TestHandoffWaiting_ClosedRunHasNothingToWaitFor(t *testing.T) {
 // **이 테스트는 압축을 한 번도 일으키지 않는다** (SRS §3.3.2 의 테스트 규약).
 // FR-CBG-4 의 압축 규칙에 기대어 통과하는 일이 없도록 CompactCount 를 단언한다.
 func TestObserveContext_LevelTracksCurrentState(t *testing.T) {
-	s := newTestStore(t, "e1")
+	s := newTestStore(t)
 	openRunWithMember(t, s, "tool-1", nil)
 	p := DefaultContextPolicy()
 

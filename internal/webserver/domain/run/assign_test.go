@@ -17,7 +17,7 @@ func treeMember(t *testing.T, s *Store, runID, role, tool string, a *Assignment)
 }
 
 func TestAssign_StoredOnTreeMember(t *testing.T) {
-	s := NewStore(t.TempDir(), "e")
+	s := NewStore(t.TempDir())
 	root, _ := startTree(t, s, "o/r#32", false)
 	a := &Assignment{Issue: "o/r#32", Title: "루트", Goal: "33 35", CtxPct: 40, NoCommit: true}
 	m := treeMember(t, s, root.ID, "ccr#32", "t1", a)
@@ -31,7 +31,7 @@ func TestAssign_StoredOnTreeMember(t *testing.T) {
 }
 
 func TestAssign_Rejections(t *testing.T) {
-	s := NewStore(t.TempDir(), "e")
+	s := NewStore(t.TempDir())
 	root, _ := startTree(t, s, "o/r#32", false)
 	plain, _ := s.Start(StartOptions{Objective: "p", Projection: DedicatedWindow, Isolation: IsolationNone})
 	cases := []struct {
@@ -53,7 +53,7 @@ func TestAssign_Rejections(t *testing.T) {
 }
 
 func TestAssign_ParentInOtherRunOfSameTree(t *testing.T) {
-	s := NewStore(t.TempDir(), "e")
+	s := NewStore(t.TempDir())
 	root, _ := startTree(t, s, "o/r#32", false)
 	br, _ := startTree(t, s, "o/r#32", true)
 	p := treeMember(t, s, root.ID, "ccr#32", "t1", &Assignment{Issue: "o/r#32"})
@@ -65,7 +65,7 @@ func TestAssign_ParentInOtherRunOfSameTree(t *testing.T) {
 }
 
 func TestAssign_InheritedBySuccession(t *testing.T) {
-	s := NewStore(t.TempDir(), "e")
+	s := NewStore(t.TempDir())
 	root, _ := startTree(t, s, "o/r#32", false)
 	m := treeMember(t, s, root.ID, "ccr#32", "t1", &Assignment{Issue: "o/r#32", CtxPct: 30})
 	_, next, err := s.Succeed(SucceedSpec{PrevMemberID: m.ID, ToolID: "t2"})
@@ -78,7 +78,7 @@ func TestAssign_InheritedBySuccession(t *testing.T) {
 }
 
 func TestAssign_Update(t *testing.T) {
-	s := NewStore(t.TempDir(), "e")
+	s := NewStore(t.TempDir())
 	root, _ := startTree(t, s, "o/r#32", false)
 	p := treeMember(t, s, root.ID, "ccr#32", "tp", &Assignment{Issue: "o/r#32"})
 	c := treeMember(t, s, root.ID, "ccr#32›33", "tc", &Assignment{Issue: "o/r#33", Parent: p.ID})
@@ -105,7 +105,7 @@ func TestAssign_Update(t *testing.T) {
 
 // ISSUE_TREE_OPS_SRS FR-ITC-4: 열린 배정 자식이 있는가. 끝난 자식·승계된 자식은 세지 않는다.
 func TestHasOpenChild(t *testing.T) {
-	s := NewStore(t.TempDir(), "e")
+	s := NewStore(t.TempDir())
 	root, _ := startTree(t, s, "o/r#32", false)
 	p := treeMember(t, s, root.ID, "ccr#32", "tp", &Assignment{Issue: "o/r#32"})
 	if s.HasOpenChild(p.ID) {

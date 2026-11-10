@@ -51,6 +51,7 @@ const (
 type toolStatus struct {
 	ToolID       string `json:"toolId"`
 	Live         bool   `json:"live"`
+	LiveUnknown  bool   `json:"liveUnknown,omitempty"` // FR-ARD-2: 데몬이 답하지 못해 모른다. 그때 Live 는 거짓이다
 	State        string `json:"state"`
 	Tool         string `json:"tool,omitempty"`
 	Detail       string `json:"detail,omitempty"`
@@ -99,6 +100,46 @@ func (s *Server) toolLastOutputAt(toolID string) int64 {
 // repeat it must rate-limit (see waitLivenessInterval).
 func (s *Server) toolLive(toolID string) bool {
 	return s.ToolIO != nil && s.ToolIO.Has(toolID)
+}
+
+// liveness 는 생존 판정의 세 값이다 (AGENT_RECORD_DAEMON_SRS FR-ARD-1).
+type liveness string
+
+const (
+	livenessAlive   liveness = "alive"
+	livenessDead    liveness = "dead"
+	livenessUnknown liveness = "unknown"
+)
+
+// toolLiveness 는 toolLive 에 "모른다"를 더한다 (FR-ARD-1). dead 는 데몬이 목록에
+// **답했고** 그 목록에 없을 때만이다. 직접 모드의 ListOK 는 언제나 안다.
+//
+// 아는가는 `Tools.ListOK` 가, 있는가는 종전 `toolLive` 가 답한다. 둘 다 같은 목록
+// 캐시(GO-6)를 딛으므로 RPC 는 한 번이다.
+func (s *Server) toolLiveness(toolID string) liveness {
+	if s.Tools != nil {
+		if _, known := s.Tools.ListOK(); !known {
+			return livenessUnknown
+		}
+	}
+	if s.toolLive(toolID) {
+		return livenessAlive
+	}
+	return livenessDead
+}
+
+// toolDead 는 확인된 죽음이다 — 수거가 지워도 되는 근거 (FR-ARD-2·5).
+func (s *Server) toolDead(toolID string) bool { return s.toolLiveness(toolID) == livenessDead }
+
+// toolNotDead 는 prune 에 넘기는 질의다. 모르는 도구의 기록은 남긴다 (FR-ARD-2).
+func (s *Server) toolNotDead(toolID string) bool { return !s.toolDead(toolID) }
+
+// toolStatusAt 은 생존을 세 값으로 받아 관측을 조립한다. 모르면 live:false 에
+// liveUnknown:true 다 (FR-ARD-2).
+func (s *Server) toolStatusAt(toolID string, lv liveness) toolStatus {
+	st := s.toolStatusOf(toolID, lv == livenessAlive)
+	st.LiveUnknown = lv == livenessUnknown
+	return st
 }
 
 // toolStatusOf assembles the observation. live is passed in so a repeating
@@ -160,6 +201,11 @@ func (s *Server) quiescenceAllowed(toolID string) bool {
 // allowQuiescence 는 3단계 적용 여부이며 출처는 어댑터 선언이다
 // (quiescenceAllowed 참조).
 func evaluateWait(cond string, st toolStatus, allowQuiescence bool) (status, reason string, settled bool) {
+	// AGENT_RECORD_DAEMON_SRS §3.4a: 생존을 모르면 끝내지 않는다. 다음 생존 확인에서
+	// 다시 판정한다 — 모른다를 gone 으로 답하면 호출자가 살아 있는 도구를 버린다.
+	if st.LiveUnknown {
+		return "", "", false
+	}
 	if !st.Live {
 		return "gone", "tool 이 사라졌다", true
 	}
@@ -193,7 +239,7 @@ func (s *Server) apiToolStatus(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	st := s.toolStatusOf(toolID, s.toolLive(toolID))
+	st := s.toolStatusAt(toolID, s.toolLiveness(toolID))
 	if s.Runs != nil {
 		if m, ok := s.Runs.MemberByTool(toolID); ok {
 			st.Member = &toolMember{ID: m.ID, State: s.deriveMemberState(m)}
@@ -253,15 +299,15 @@ func (s *Server) apiToolStatusWait(w http.ResponseWriter, r *http.Request) {
 	// 폴백 적용 여부는 대기 중에 바뀌지 않는다 — 한 번만 정한다.
 	allowQuiescence := s.quiescenceAllowed(toolID)
 	// resolveToolID 가 방금 liveness 를 증명했다.
-	live, liveCheckedAt := true, start
+	live, liveCheckedAt := livenessAlive, start
 	var st toolStatus
 	var status, reason string
 	err := pollwait.OnOrAt(r.Context(), time.Duration(timeoutMS)*time.Millisecond, s.activityChanged.C,
 		func(now time.Time) (bool, time.Time) {
 			if now.Sub(liveCheckedAt) >= waitLivenessInterval {
-				live, liveCheckedAt = s.toolLive(toolID), now
+				live, liveCheckedAt = s.toolLiveness(toolID), now
 			}
-			st = s.toolStatusOf(toolID, live)
+			st = s.toolStatusAt(toolID, live)
 			var settled bool
 			if status, reason, settled = evaluateWait(cond, st, allowQuiescence); settled {
 				return true, time.Time{}

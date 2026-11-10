@@ -15,7 +15,7 @@ import (
 func roStore(t *testing.T) *Store {
 	t.Helper()
 	dir := t.TempDir()
-	s := NewStore(dir, "e1")
+	s := NewStore(dir)
 	if err := s.Load(); err != nil {
 		t.Fatal(err)
 	}

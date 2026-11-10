@@ -22,7 +22,7 @@ import (
 // 공유될 것이 없어 이 검사를 통과시켜 버린다.
 func seedShared(t *testing.T) (*Store, Record) {
 	t.Helper()
-	s := newTestStore(t, "epoch-share")
+	s := newTestStore(t)
 	rec, err := s.Start(StartOptions{
 		Objective:         "공유 검사",
 		Projection:        DedicatedWindow,
@@ -91,7 +91,7 @@ func TestStore_GetDoesNotShareInternals(t *testing.T) {
 // 이 둘은 감사 보고서가 지목하지 못한 자리다 (`AUDIT-go-domain.md` 는
 // `Members`·`Member.Worktree` 만 적었다). 타입을 직접 읽어 찾았다.
 func TestStore_GetDoesNotShareRecordPointers(t *testing.T) {
-	s := newTestStore(t, "epoch-ptr")
+	s := newTestStore(t)
 	rec, err := s.Start(StartOptions{
 		Objective: "레코드 포인터", Projection: Inline, Isolation: IsolationNone,
 		CoordinatorToolID: "coord",

@@ -21,7 +21,7 @@ import (
 // 레코드에만 있으므로, 레코드를 먼저 지우면 트리가 영원히 남는다.
 
 // reapInterval 은 자동 수거의 주기다 (FR-DEL-14). 조정자의 죽음은 이벤트로
-// 오지 않는다 — 도구 종료 콜백은 데몬 경계 안쪽의 것이고, 서버는 `toolLive`
+// 오지 않는다 — 도구 종료 콜백은 데몬 경계 안쪽의 것이고, 서버는 `toolDead`
 // 로 물어보는 편이 배선이 하나 적다.
 const reapInterval = 15 * time.Second
 
@@ -98,7 +98,7 @@ func (s *Server) reapRuns() int {
 	if s.Runs == nil {
 		return 0
 	}
-	targets := s.Runs.ReapTargets(s.toolLive)
+	targets := s.Runs.ReapTargets(s.toolDead)
 	n := 0
 	for _, rec := range targets {
 		why := "coordinator-gone"
@@ -132,11 +132,18 @@ func (s *Server) StartRunReaper(stop <-chan struct{}) {
 			case <-stop:
 				return
 			case <-t.C:
-				s.reapRuns()
-				s.usage.prune(s.toolLive)
-				s.subagents.prune(s.toolLive)
-				s.subActs.prune(s.toolLive)
+				s.reapTick()
 			}
 		}
 	}()
+}
+
+// reapTick 은 수거 주기 한 번이다. 지우는 근거는 **확인된 죽음**뿐이다 — 데몬이 답하지
+// 못하는 동안의 "모른다"로 Run·사용량·서브에이전트를 지우지 않는다
+// (AGENT_RECORD_DAEMON_SRS FR-ARD-2·5).
+func (s *Server) reapTick() {
+	s.reapRuns()
+	s.usage.prune(s.toolNotDead)
+	s.subagents.prune(s.toolNotDead)
+	s.subActs.prune(s.toolNotDead)
 }

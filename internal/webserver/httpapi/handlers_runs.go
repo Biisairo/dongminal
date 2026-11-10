@@ -53,6 +53,9 @@ type runView struct {
 	// Actions·Unreported 는 Run 패널의 종료·삭제 버튼과 확인 문구가 읽는다 (R-b·R-d).
 	Actions    map[string]action.Answer `json:"actions"`
 	Unreported int                      `json:"unreported,omitempty"`
+	// Liveness 는 열린 Run 의 열림을 생존으로 계산한 값이다 (AGENT_RECORD_DAEMON_SRS
+	// FR-ARD-4). open·gone·unknown 이며, 닫힌 Run 에는 싣지 않는다.
+	Liveness string `json:"liveness,omitempty"`
 }
 
 // deriveMemberState resolves what a member is doing right now. A member that
@@ -103,7 +106,38 @@ func (s *Server) viewOf(rec run.Record) runView {
 		members = append(members, memberView{Member: m, State: s.deriveMemberState(m), Actions: memberActions(m)})
 	}
 	return runView{Record: rec, Members: members, Orphans: s.orphanHeadless(rec),
-		Actions: runActions(rec), Unreported: runUnreported(rec)}
+		Actions: runActions(rec), Unreported: runUnreported(rec), Liveness: s.runLiveness(rec)}
+}
+
+// runLiveness 는 Run 의 열림을 저장하지 않고 물을 때 계산한다 (FR-ARD-4, D-ARD-4).
+// 조정자나 멤버 하나라도 살아 있으면 open, 모두 확인된 죽음이면 gone, 그 밖은
+// unknown 이다. 도구가 하나도 없으면 unknown 이다 — 근거 없이 죽음으로 읽지 않는다.
+func (s *Server) runLiveness(rec run.Record) string {
+	if rec.State != run.Open {
+		return ""
+	}
+	ids := make([]string, 0, len(rec.Members)+1)
+	if rec.CoordinatorToolID != "" {
+		ids = append(ids, rec.CoordinatorToolID)
+	}
+	for _, m := range rec.Members {
+		if m.ToolID != "" {
+			ids = append(ids, m.ToolID)
+		}
+	}
+	dead := 0
+	for _, id := range ids {
+		switch s.toolLiveness(id) {
+		case livenessAlive:
+			return "open"
+		case livenessDead:
+			dead++
+		}
+	}
+	if len(ids) > 0 && dead == len(ids) {
+		return "gone"
+	}
+	return "unknown"
 }
 
 // callerToolID decides who is speaking. The PID parent-chain resolution wins

@@ -220,7 +220,7 @@ func (a *app) run(ctx context.Context) error {
 	// 실행하지 않고 read 1회 + stat 2회다.
 	a.srv.StartGitWatch(ctx.Done())
 	// UX_REVISION_SRS FR-DEL-14/18: 끝난 Run 과 조정자를 잃은 Run 을 거둔다.
-	// 부팅 직후 한 번 돌므로 epoch 펜싱이 aborted 로 표시한 Run 도 여기서 사라진다.
+	// 부팅 직후 한 번 돌므로 직접 모드의 재기동이 aborted 로 표시한 Run 도 여기서 사라진다.
 	a.srv.StartRunReaper(ctx.Done())
 	// ACCESS_ALLOWLIST_SRS FR-ACL-5a·15: 허용 목록의 호스트명 해석과 이 머신의
 	// 인터페이스 주소를 주기적으로 갱신한다. 요청 경로는 그 결과만 읽는다 —

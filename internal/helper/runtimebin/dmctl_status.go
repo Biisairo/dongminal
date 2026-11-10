@@ -165,12 +165,13 @@ func runDmctlStatus(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 	var st struct {
-		ToolID  string `json:"toolId"`
-		Live    bool   `json:"live"`
-		State   string `json:"state"`
-		Tool    string `json:"tool"`
-		Detail  string `json:"detail"`
-		QuietMs int64  `json:"quietMs"`
+		ToolID      string `json:"toolId"`
+		Live        bool   `json:"live"`
+		LiveUnknown bool   `json:"liveUnknown"` // AGENT_RECORD_DAEMON_SRS FR-ARD-2
+		State       string `json:"state"`
+		Tool        string `json:"tool"`
+		Detail      string `json:"detail"`
+		QuietMs     int64  `json:"quietMs"`
 		// ISSUE_AGENT_TREE_SRS FR-SLP-21: 맥락 사용률과 그 출처.
 		Context *struct {
 			UsedPct      *float64 `json:"usedPct"`
@@ -194,8 +195,12 @@ func runDmctlStatus(args []string, stdout, stderr io.Writer) int {
 	if st.Member != nil && st.Member.State != "" {
 		runState = "  run_state=" + st.Member.State
 	}
-	fmt.Fprintf(stdout, "toolId=%s  live=%v  state=%s%s%s  quietMs=%d\n",
-		st.ToolID, st.Live, st.State, runState, optionalFields(st.Tool, st.Detail), st.QuietMs)
+	live := fmt.Sprint(st.Live)
+	if st.LiveUnknown {
+		live = "unknown"
+	}
+	fmt.Fprintf(stdout, "toolId=%s  live=%s  state=%s%s%s  quietMs=%d\n",
+		st.ToolID, live, st.State, runState, optionalFields(st.Tool, st.Detail), st.QuietMs)
 	if c := st.Context; c != nil && c.UsedPct != nil {
 		fmt.Fprintf(stdout, "context=%.1f%%  tokens=%.0f/%.0f  source=%s\n", *c.UsedPct, c.Tokens, c.WindowTokens, c.Source)
 	}

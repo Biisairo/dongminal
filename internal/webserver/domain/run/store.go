@@ -13,6 +13,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -59,7 +60,6 @@ var (
 type Store struct {
 	mu    sync.Mutex
 	dir   string
-	epoch string
 	now   func() int64
 	newID func() string
 	runs  []Record // 최근 것이 앞 (FR-RUN-8)
@@ -86,8 +86,8 @@ type Store struct {
 	// changed 는 메모리의 Run 이 바뀔 때마다 울린다 (OPTIMIZE_REFACTOR_SRS FR-OPT-8-4).
 	// 기다리는 쪽(프리앰블의 인수인계 대기)이 주기적으로 묻지 않게 한다.
 	changed pollwait.Signal
-	// alive 는 도구의 생존을 묻는 길이다 (`FBE-03`). nil 이면 묻지 않는다.
-	alive func(toolID string) bool
+	// abortOpenOnLoad 는 직접 모드의 표지다 (WithAbortOpenOnLoad).
+	abortOpenOnLoad bool
 	// writeMu 는 디스크 쓰기를 한 줄로 세운다 (FR-OPT-5-4). save 가 mu 를 놓고
 	// 쓰므로 순서를 지키는 것은 이쪽이다 — mu 를 쥔 채 writeMu 를 잡고 나서 mu 를
 	// 놓기 때문에, 직렬화 순서가 곧 디스크 도착 순서다.
@@ -113,7 +113,7 @@ type Store struct {
 // cloneMember 는 Member 의 참조 필드를 끊는다 (SAFETY_CORRECTNESS_SRS FR-SAF-4).
 //
 // 임베드 `ContextState` 와 `Worktree` 의 본문은 전부 스칼라이므로, 포인터 대상은
-// 값 복제 한 번으로 끝난다.
+// 값 복제 한 번으로 끝난다. 슬라이스(`FilesModified`·`ContextNotified`)는 따로 복사한다.
 func cloneMember(in Member) Member {
 	out := in
 	if in.Worktree != nil {
@@ -126,6 +126,7 @@ func cloneMember(in Member) Member {
 		out.FilesModified = fs
 	}
 	out.Assign = cloneAssign(in.Assign)
+	out.ContextNotified = slices.Clone(in.ContextNotified)
 	return out
 }
 
@@ -188,28 +189,23 @@ func cloneRuns(in []Record) []Record {
 // Option customizes a Store for deterministic tests.
 type Option func(*Store)
 
-// WithLiveness 는 "그 도구가 지금 살아 있는가" 를 묻는 길이다 (`FBE-03`).
+// WithAbortOpenOnLoad 는 Load 가 열린 Run 을 전부 `aborted` 로 저장하게 한다.
+// **직접 모드만 쓴다** (AGENT_RECORD_DAEMON_SRS §3.4a).
 //
-// 펜싱의 기준을 `epoch`(웹서버 기동)에서 **실체의 생존**으로 옮긴다. 데몬 모드에서
-// PTY 를 가진 것은 데몬이고 데몬은 서버보다 오래 산다 — 서버만 재시작했다고 살아
-// 있는 멤버를 죽이면, 그것이 `FR-HLM-3`(헤드리스 복원)이 세운 것을 같은 기동의
-// 회수기가 지우는 일이다.
-//
-// 주지 않으면 **종전대로** 펜싱한다. 모른다고 살려 두면 고아 Run 이 영원히 열린
-// 채 남는다 — direct 모드와 옛 배선의 길이다.
-func WithLiveness(fn func(toolID string) bool) Option {
-	return func(s *Store) { s.alive = fn }
-}
+// 직접 모드에서는 서버 프로세스가 곧 도구를 들고 있다. 서버가 다시 뜨면 에이전트는
+// 실제로 죽었고, 도구는 빈 셸로만 되살아난다. 그래서 Load 때 열린 Run 은 모두 지난
+// 기동의 것이며 닫는 것이 맞다 — 종전 펜싱이 직접 모드에서 낸 결과와 같다 (§1.2).
+// 데몬 모드는 쓰지 않는다. 그쪽은 도구가 서버보다 오래 살고, 열림을 생존으로
+// 계산한다 (FR-ARD-3·4).
+func WithAbortOpenOnLoad() Option { return func(s *Store) { s.abortOpenOnLoad = true } }
 
 func WithClock(now func() int64) Option  { return func(s *Store) { s.now = now } }
 func WithIDGen(gen func() string) Option { return func(s *Store) { s.newID = gen } }
 
-// NewStore returns a store over dir. epoch identifies this server incarnation
-// and fences Runs left open by a previous one (FR-RUN-5).
-func NewStore(dir, epoch string, opts ...Option) *Store {
+// NewStore returns a store over dir.
+func NewStore(dir string, opts ...Option) *Store {
 	s := &Store{
 		dir:   dir,
-		epoch: epoch,
 		now:   func() int64 { return time.Now().Unix() },
 		newID: uuid.NewString,
 		write: platform.WriteStateFile,
@@ -222,10 +218,14 @@ func NewStore(dir, epoch string, opts ...Option) *Store {
 
 func (s *Store) path() string { return filepath.Join(s.dir, fileName) }
 
-// Load reads runs.json and fences Runs from previous epochs. A missing file is
-// the normal state; an unreadable or corrupt one degrades to an empty list with
+// Load reads runs.json. A missing file is the normal state; an unreadable or corrupt one degrades to an empty list with
 // a warning — the orchestrator is optional and must never block boot
 // (FR-RUN-4 / NFR-RUN-1/2).
+//
+// AGENT_RECORD_DAEMON_SRS FR-ARD-3: **데몬 모드에서는 열림을 판정하지 않는다.** 종전에는
+// 지난 기동의 열린 Run 을 여기서 `aborted` 로 저장했다(epoch 펜싱). 데몬이 답하지 못한
+// 순간의 "모른다"가 그 판정에서 "죽었다"가 되어 살아 있는 Run 이 영구히 닫혔다. 열림은
+// 이제 응답을 만들 때마다 생존으로 계산한다 (FR-ARD-4). 직접 모드는 WithAbortOpenOnLoad.
 func (s *Store) Load() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -252,29 +252,19 @@ func (s *Store) Load() error {
 	// 일이다. 아래 `save()` 가 도는 갈래에서는 그쪽이 다시 세운다.
 	s.persistedBlob = blob
 
-	if s.fenceStale() {
+	if s.abortOpenOnLoad && s.abortOpen() {
 		return s.save()
 	}
 	return nil
 }
 
-// fenceStale marks every Run left open by a previous incarnation as aborted.
-// Closed and aborted Runs keep their original ending — a restart must not
-// overwrite why a Run ended.
-func (s *Store) fenceStale() bool {
+// abortOpen 은 열린 Run 을 전부 aborted 로 바꾼다 (WithAbortOpenOnLoad). 이미 끝난
+// Run 은 끝난 이유를 그대로 둔다.
+func (s *Store) abortOpen() bool {
 	changed := false
 	for i := range s.runs {
 		r := &s.runs[i]
-		if r.State != Open || r.Epoch == s.epoch {
-			continue
-		}
-		// `FBE-03`: **실체가 살아 있으면 닫지 않는다.** 기준이 "웹서버가 새로
-		// 떴는가" 였기에, 데몬을 보존한 채 서버만 재시작해도 멤버가 죽었다.
-		if s.runHasLiveMember(r) {
-			// epoch 를 이 기동의 것으로 옮긴다 — 그러지 않으면 다음 기동이
-			// 같은 판정을 되풀이한다.
-			r.Epoch = s.epoch
-			changed = true
+		if r.State != Open {
 			continue
 		}
 		r.State = Aborted
@@ -283,22 +273,6 @@ func (s *Store) fenceStale() bool {
 		changed = true
 	}
 	return changed
-}
-
-// runHasLiveMember 는 그 Run 의 멤버 중 **도구가 실제로 살아 있는 것**이 있는지다
-// (`FBE-03`).
-//
-// 하나라도 살아 있으면 그 Run 은 도는 중이다. 전부 죽었으면 되살릴 실체가 없다.
-func (s *Store) runHasLiveMember(r *Record) bool {
-	if s.alive == nil {
-		return false
-	}
-	for _, m := range r.Members {
-		if m.ToolID != "" && s.alive(m.ToolID) {
-			return true
-		}
-	}
-	return false
 }
 
 // save writes runs.json atomically (FR-RUN-4): a temp file in the same

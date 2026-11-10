@@ -13,7 +13,7 @@ import (
 
 func msgStore(t *testing.T) (*Store, Record, Member) {
 	t.Helper()
-	s := NewStore(t.TempDir(), "epoch-v")
+	s := NewStore(t.TempDir())
 	if err := s.Load(); err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestAppendMessage_SurvivesReload(t *testing.T) {
 			t.Fatalf("AppendMessage: %v", err)
 		}
 	}
-	reloaded := NewStore(s.dir, "epoch-v")
+	reloaded := NewStore(s.dir)
 	if err := reloaded.Load(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}

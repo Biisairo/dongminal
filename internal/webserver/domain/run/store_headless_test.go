@@ -17,7 +17,7 @@ import (
 
 func headlessStore(t *testing.T) (*Store, string) {
 	t.Helper()
-	s := NewStore(t.TempDir(), "epoch-h")
+	s := NewStore(t.TempDir())
 	if err := s.Load(); err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestAttachDetach_Refusals(t *testing.T) {
 // 부착·분리는 영속된다 — 데몬을 다시 읽어도 같은 사실이 남는다.
 func TestAttachDetach_Persists(t *testing.T) {
 	dir := t.TempDir()
-	s := NewStore(dir, "epoch-h")
+	s := NewStore(dir)
 	if err := s.Load(); err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestAttachDetach_Persists(t *testing.T) {
 		t.Fatalf("Attach: %v", err)
 	}
 
-	reopened := NewStore(dir, "epoch-h")
+	reopened := NewStore(dir)
 	if err := reopened.Load(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestAttach_WorksOnClosedRun(t *testing.T) {
 // 고아를 부팅마다 되살리면 영원히 쌓인다.
 func TestHeadlessToolIDs_OnlyOpenRuns(t *testing.T) {
 	dir := t.TempDir()
-	s := NewStore(dir, "epoch-h")
+	s := NewStore(dir)
 	if err := s.Load(); err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -238,7 +238,7 @@ func TestHeadlessToolIDs_OnlyOpenRuns(t *testing.T) {
 // 책임진다 (FR-EM-14). 양쪽이 다 세면 근거가 둘이 된다.
 func TestHeadlessToolIDs_SkipsTabbedMembers(t *testing.T) {
 	dir := t.TempDir()
-	s := NewStore(dir, "epoch-h")
+	s := NewStore(dir)
 	if err := s.Load(); err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -270,38 +270,46 @@ func TestHeadlessToolIDs_SkipsTabbedMembers(t *testing.T) {
 	}
 }
 
-// **펜싱 전에 물어야 한다.** Load 는 이전 세대가 열어 둔 Run 을 aborted 로
-// 확정하므로(FR-RUN-5), 그 뒤에 물으면 되살릴 대상이 하나도 없다. 이 테스트가
-// 부팅 배선의 호출 순서를 고정한다.
-func TestHeadlessToolIDs_MustBeReadBeforeFencing(t *testing.T) {
-	dir := t.TempDir()
-	s := NewStore(dir, "epoch-1")
-	if err := s.Load(); err != nil {
-		t.Fatalf("load: %v", err)
-	}
-	rec, err := s.Start(StartOptions{Objective: "o", Projection: Inline, Isolation: IsolationNone})
-	if err != nil {
-		t.Fatalf("start: %v", err)
-	}
-	addHeadlessMember(t, s, rec.ID, "tool-h")
+// 재기동 뒤의 되살릴 대상. 데몬 모드(옵션 없음)는 Run 을 닫지 않으므로 대상이 남는다
+// (AGENT_RECORD_DAEMON_SRS FR-ARD-3). 직접 모드(WithAbortOpenOnLoad)는 Load 가 열린
+// Run 을 aborted 로 확정하므로 그 뒤에는 비어 있다 — 부팅 배선이 Load 보다 먼저
+// 물어야 하는 이유이며, 이 테스트가 그 순서의 근거를 고정한다.
+func TestHeadlessToolIDs_AfterReload(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		opts []Option
+		want State
+		left int
+	}{
+		{"daemon", nil, Open, 1},
+		{"direct", []Option{WithAbortOpenOnLoad()}, Aborted, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			s := NewStore(dir)
+			if err := s.Load(); err != nil {
+				t.Fatalf("load: %v", err)
+			}
+			rec, err := s.Start(StartOptions{Objective: "o", Projection: Inline, Isolation: IsolationNone})
+			if err != nil {
+				t.Fatalf("start: %v", err)
+			}
+			addHeadlessMember(t, s, rec.ID, "tool-h")
+			if before := HeadlessToolIDs(dir); len(before) != 1 {
+				t.Fatalf("재기동 전 대상=%v", before)
+			}
 
-	// 재기동 직전 — 아직 열려 있다.
-	before := HeadlessToolIDs(dir)
-	if _, ok := before["tool-h"]; !ok {
-		t.Fatalf("펜싱 전에 대상이 아니다: %v", before)
-	}
-
-	// 새 세대가 Load 하면 펜싱이 돈다.
-	next := NewStore(dir, "epoch-2")
-	if err := next.Load(); err != nil {
-		t.Fatalf("reload: %v", err)
-	}
-	if got, _ := next.Get(rec.ID); got.State != Aborted {
-		t.Fatalf("재기동이 Run 을 aborted 로 만들지 않았다: %s", got.State)
-	}
-	// 그 뒤에 물으면 비어 있다 — 배선이 순서를 지켜야 하는 이유가 이것이다.
-	if after := HeadlessToolIDs(dir); len(after) != 0 {
-		t.Fatalf("펜싱 후에도 대상이 남았다 — 이 테스트의 전제가 깨졌다: %v", after)
+			next := NewStore(dir, tc.opts...)
+			if err := next.Load(); err != nil {
+				t.Fatalf("reload: %v", err)
+			}
+			if got, _ := next.Get(rec.ID); got.State != tc.want {
+				t.Fatalf("state=%s want %s", got.State, tc.want)
+			}
+			if after := HeadlessToolIDs(dir); len(after) != tc.left {
+				t.Fatalf("재기동 뒤 대상=%v want %d개", after, tc.left)
+			}
+		})
 	}
 }
 

@@ -16,7 +16,7 @@ import (
 // FR-WKT-3/4/9: id 를 호출자가 미리 정할 수 있어야 worktree 를 **레코드가 생기기
 // 전에** 만들 수 있다. 그래야 생성 실패가 고아 멤버를 남기지 않는다.
 func TestStore_AcceptsPreassignedIdentifiers(t *testing.T) {
-	s := newTestStore(t, "epoch-w")
+	s := newTestStore(t)
 	runID := "01920000-0000-7000-8000-00000000aaaa"
 	wt := &Worktree{Path: "/home/worktrees/01920000/01920001", Branch: "dmn/01920000/writer", Base: "main"}
 
@@ -66,7 +66,7 @@ func TestStore_AcceptsPreassignedIdentifiers(t *testing.T) {
 // FR-WKT-12: 정리하지 못한 자원은 기록에 남는다. run status 가 그 뒤에도
 // 잔여물을 말할 수 있는 근거다 — 조용히 남기지 않는다.
 func TestStore_MarksWorktreeResidue(t *testing.T) {
-	s := newTestStore(t, "epoch-w")
+	s := newTestStore(t)
 	wtA := &Worktree{Path: "/home/worktrees/r/a", Branch: "dmn/r/a", Base: "main"}
 	wtB := &Worktree{Path: "/home/worktrees/r/b", Branch: "dmn/r/b", Base: "main"}
 	rec, err := s.Start(StartOptions{

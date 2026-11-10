@@ -177,7 +177,7 @@ func storeWithFixture(t *testing.T, body string) *run.Store {
 	if err := os.WriteFile(filepath.Join(dir, "runs.json"), []byte(body), 0644); err != nil {
 		t.Fatal(err)
 	}
-	st := run.NewStore(dir, "epoch-test")
+	st := run.NewStore(dir)
 	if err := st.Load(); err != nil {
 		t.Fatal(err)
 	}

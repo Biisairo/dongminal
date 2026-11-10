@@ -107,7 +107,8 @@ func (t *AttnTracker) SetBusyProbe(f BusyManyProbe) {
 }
 
 // SetLiveProbe installs the liveness check used by AttentionIDs (FR-ATL-6). In
-// daemon mode this is wired to toolclient.ToolClient.IsLive. It is the second
+// daemon mode this is wired to attnLiveProbe (cmd/dongminal), which filters only
+// confirmed deaths (AGENT_RECORD_DAEMON_SRS FR-ARD-2). It is the second
 // line of defence behind Forget: if a tool exit notice is ever missed, a dead
 // tool's alarm still must not be restored to a joining browser.
 func (t *AttnTracker) SetLiveProbe(f func(string) bool) {

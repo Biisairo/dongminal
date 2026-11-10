@@ -53,3 +53,23 @@ func syncAttnConfig(c attnClient) {
 		dmlog.Warnf(nil, "attention: 판정 설정을 데몬에 보내지 못했다: %v", err)
 	}
 }
+
+// attnLiveProbe 는 알람 생존 검사다 (FR-ATL-6). **확인된 죽음만 거른다**
+// (AGENT_RECORD_DAEMON_SRS FR-ARD-2) — 데몬이 목록에 답하지 못하는 동안 거르면 살아 있는
+// 도구의 알람이 들어오는 브라우저에서 사라진다. 종전 IsLive 는 그때 거짓이었다.
+func attnLiveProbe(h interface {
+	ListOK() ([]toolhub.ToolInfo, bool)
+}) func(string) bool {
+	return func(id string) bool {
+		tools, known := h.ListOK()
+		if !known {
+			return true
+		}
+		for _, t := range tools {
+			if t.ID == id {
+				return true
+			}
+		}
+		return false
+	}
+}

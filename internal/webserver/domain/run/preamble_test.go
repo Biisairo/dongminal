@@ -189,7 +189,7 @@ func TestPreamble_ToleratesAnEmptyBrief(t *testing.T) {
 // FindMember 는 프리앰블 재조회의 근거다 — 조정자가 컨텍스트를 잃어도
 // 기록에서 멤버를 되찾을 수 있어야 한다 (FR-SKL-3 의 전제).
 func TestStore_FindMember(t *testing.T) {
-	s := newTestStore(t, "e1")
+	s := newTestStore(t)
 	rec, err := s.Start(StartOptions{Objective: "목적", Projection: Inline, Isolation: IsolationNone})
 	if err != nil {
 		t.Fatal(err)
@@ -210,7 +210,7 @@ func TestStore_FindMember(t *testing.T) {
 // FR-ADP-3 은 기록 경계에서도 성립해야 한다 — 알 수 없는 에이전트로 멤버를
 // 만들면 프리앰블도 기동줄도 만들 수 없는 멤버가 기록에 남는다.
 func TestStore_AddMemberRejectsUnknownAgent(t *testing.T) {
-	s := newTestStore(t, "e1")
+	s := newTestStore(t)
 	rec, _ := s.Start(StartOptions{Objective: "목적", Projection: Inline, Isolation: IsolationNone})
 	if _, err := s.AddMember(rec.ID, MemberSpec{Role: "작가", Agent: "gpt-9", ToolID: "t1"}); err == nil {
 		t.Fatal("알 수 없는 에이전트 id 가 멤버로 등록됐다 (FR-ADP-3)")

@@ -53,7 +53,7 @@ func runsServer(t *testing.T, caller string) (*Server, *toolhub.ToolManager, *ru
 		{ToolID: "tool-b", TabUUID: "tab-b", Label: "W1.P2.T1"},
 	}
 
-	store := run.NewStore(t.TempDir(), "epoch-test")
+	store := run.NewStore(t.TempDir())
 	if err := store.Load(); err != nil {
 		t.Fatalf("store load: %v", err)
 	}

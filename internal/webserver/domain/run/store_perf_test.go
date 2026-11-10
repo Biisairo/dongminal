@@ -16,7 +16,7 @@ import (
 // 벽시계가 아니라 **할당**을 기록한다 (FR-PRF-3 · TC-PRF-28).
 func benchStore(b *testing.B, runs, members, msgs int) (*Store, []string) {
 	b.Helper()
-	s := NewStore(b.TempDir(), "epoch-bench")
+	s := NewStore(b.TempDir())
 	if err := s.Load(); err != nil {
 		b.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func BenchmarkAppendMessage(b *testing.B) {
 // 팀 통신 한 줄마다 다시 쓰이고, 그 비용이 통신 속도에 실린다.
 func TestSave_RunsFileIsCompact(t *testing.T) {
 	dir := t.TempDir()
-	s := NewStore(dir, "epoch-compact")
+	s := NewStore(dir)
 	if err := s.Load(); err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestSave_RunsFileIsCompact(t *testing.T) {
 // 무너뜨리지 않았는지 — 그것이 이 검사다.
 func TestSave_RollbackWorksFromBlob(t *testing.T) {
 	dir := t.TempDir()
-	s := NewStore(dir, "epoch-rb")
+	s := NewStore(dir)
 	if err := s.Load(); err != nil {
 		t.Fatal(err)
 	}

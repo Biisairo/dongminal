@@ -1,18 +1,7 @@
-# 인계: AGENT_RECORD_DAEMON_SRS 구현 (단계 4)
+# 인계: AGENT_RECORD_DAEMON_SRS 구현 (끝남)
 
-> 2026-11-10. 단계 1~3 을 끝내고 커밋했다. 단계마다 새 세션에서 진행하므로 넘긴다. 이 문서의 「착수 블록」이 다음 세션의 지시 전부다.
-
-## 착수 블록
-
-1. `docs/internal/AGENT_RECORD_DAEMON_SRS.md` 를 끝까지 읽는다. 특히 §3.4(단계 4), §4(결정), §5 의 TC-ARD-1~5 를 먼저 본다. §3.1a~§3.3a 는 구현된 설계다.
-2. **단계 4(묶음 L)** 를 구현한다. 순서는 SDD → TDD → 구현이다. 스펙은 이미 승인됐다(`승인·구현중`).
-   - 먼저 SRS 에 §3.4a(단계 4 설계)를 적는다. 아래 「단계 4 설계 메모」가 출발점이다.
-   - 테스트를 먼저 쓰고 실패(RED)를 확인한 뒤 구현한다(GREEN).
-   - 끝나면 아래 「검사」를 모두 돌린다. 통과하면 **묻지 말고 커밋한다**(사용자 지시, 2026-11-10). 커밋 메시지에 AI 서명을 넣지 않는다.
-   - 단계 4 는 서버 코드만 바꿀 가능성이 높다. 데몬 코드를 바꾸면 `dongminal start --restart-daemon` 이 필요하다고 커밋 메시지와 보고에 적는다. **재시작은 사용자가 정한다.**
-3. 단계 4 가 끝나면 SRS 머리의 `> **문서 상태**` 를 `구현됨` 으로, `> **남은 것**:` 줄을 지운다(게이트가 enum 을 본다 — 허용 값을 먼저 확인한다). 이 인계 문서는 끝났다고 적는다.
-4. 사용자에게 최종 보고: 단계 1~4 커밋 목록, 데몬 재시작이 필요하다는 것, 문서와 구현이 어긋난 곳.
-5. 맥락이 차면 `/dongminal:migration` 으로 다음 세션에 넘긴다. 이 문서를 고쳐 쓴다.
+> 2026-11-10. **단계 1~4 를 모두 끝내고 커밋했다. 이 인계 문서는 끝났다.** 이어서 할 일은 없다.
+> SRS 상태는 `승인·구현완료` 다. 아래는 기록으로 남긴다.
 
 ## 지금까지 한 일
 
@@ -22,6 +11,7 @@
 | `315ddeee` | **ARD 단계 1**: 데몬 기록 저장소, `recordset`·`records`, push `record`, 서버의 비동기 쓰기 큐(`recordsync`), 스냅샷 반영 |
 | `c6229742` | **ARD 단계 2**: 데몬 보고 소켓 `report.sock`, push `report`, dmctl 의 소켓 우선 전송, `internal/shared/agentrec` |
 | `712379c7` | **ARD 단계 3**: 알람 판정을 데몬이 한다. push `attn`, 메서드 `attnconfig`·`attend`·`attendall`·`report`, 기능 `attention`(데몬·서버 함께), 서버 `AttnTracker` 거울 모드 |
+| (이 커밋) | **ARD 단계 4**: 생존 판정의 세 값, 데몬 모드 펜싱 제거, Run `liveness`, `contextNotified` 영속. 서버만 바뀌어 데몬 재시작이 필요 없다 (§3.4a) |
 
 ### 단계 3 이 남긴 구조
 
@@ -30,7 +20,7 @@
 - 서버: `hub.AttnTracker.SetMirror`·`ApplyAttn`(`attn_mirror.go`). httpapi `AttentionDaemon`(`attention_daemon.go`, `Deps.AttnDaemon`), `forwardReport`. 조립 `cmd/dongminal/attention.go` 의 `wireDaemonAttention`·`syncAttnConfig`.
 - 종단 시험: `cmd/dongminal/attention_wire_test.go` (실제 데몬·클라이언트·거울).
 
-## 단계 4 설계 메모 (앞 세션이 조사한 것, 아직 SRS 에 없음)
+## 단계 4 설계 메모 (SRS §3.4a 로 옮겼다)
 
 **생존 질의의 자리**
 

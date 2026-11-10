@@ -23,7 +23,7 @@ func fencedRun(t *testing.T) (*Server, string, string, *worktree.Manager) {
 	s, repo, mgr := isolatedServer(t, "tool-a")
 
 	dir := t.TempDir()
-	first := run.NewStore(dir, "epoch-1")
+	first := run.NewStore(dir)
 	if err := first.Load(); err != nil {
 		t.Fatalf("store load: %v", err)
 	}
@@ -40,8 +40,9 @@ func fencedRun(t *testing.T) (*Server, string, string, *worktree.Manager) {
 		t.Fatalf("worktree 가 만들어지지 않았다: %v", err)
 	}
 
-	// 서버 재기동: 다음 세대가 이 Run 을 aborted 로 확정한다 (FR-RUN-5).
-	next := run.NewStore(dir, "epoch-2")
+	// 서버 재기동: 직접 모드의 다음 세대가 이 Run 을 aborted 로 확정한다 (FR-RUN-5).
+	// 데몬 모드는 닫지 않는다 (AGENT_RECORD_DAEMON_SRS FR-ARD-3).
+	next := run.NewStore(dir, run.WithAbortOpenOnLoad())
 	if err := next.Load(); err != nil {
 		t.Fatalf("재기동 store load: %v", err)
 	}

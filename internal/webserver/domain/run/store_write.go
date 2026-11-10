@@ -106,7 +106,6 @@ func (s *Store) Start(opt StartOptions) (Record, error) {
 		Projection:        opt.Projection,
 		Isolation:         opt.Isolation,
 		State:             Open,
-		Epoch:             s.epoch,
 		CoordinatorToolID: opt.CoordinatorToolID,
 		WindowID:          opt.WindowID,
 		Repo:              opt.Repo,
@@ -358,12 +357,13 @@ func (s *Store) Delete(runID string) (Record, error) {
 
 // ReapTargets 는 자동 제거 대상을 고른다 (FR-DEL-12/13/15).
 //
-// 둘이다: ① 이미 끝난 Run(closed·aborted) ② 조정자 도구가 살아 있지 않은 열린 Run.
-// 조정자를 모르는 Run(CoordinatorToolID 가 빈 값)은 **대상이 아니다** — 판정할
-// 근거가 없는 것을 죽음으로 읽으면, 근거가 없다는 이유로 남의 Run 을 지운다.
+// 둘이다: ① 이미 끝난 Run(closed·aborted) ② 조정자 도구가 **확인된 죽음**인 열린 Run
+// (AGENT_RECORD_DAEMON_SRS FR-ARD-5). 조정자를 모르는 Run(CoordinatorToolID 가 빈
+// 값)은 **대상이 아니다** — 판정할 근거가 없는 것을 죽음으로 읽으면, 근거가 없다는
+// 이유로 남의 Run 을 지운다. 생존을 모르는 조정자도 같은 이유로 대상이 아니다.
 //
-// alive 는 호출자가 준다. 저장소는 도구의 생존을 모른다.
-func (s *Store) ReapTargets(alive func(toolID string) bool) []Record {
+// dead 는 호출자가 준다. 저장소는 도구의 생존을 모른다. nil 이면 열린 Run 은 고르지 않는다.
+func (s *Store) ReapTargets(dead func(toolID string) bool) []Record {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -376,7 +376,7 @@ func (s *Store) ReapTargets(alive func(toolID string) bool) []Record {
 		if r.CoordinatorToolID == "" {
 			continue
 		}
-		if alive == nil || !alive(r.CoordinatorToolID) {
+		if dead != nil && dead(r.CoordinatorToolID) {
 			out = append(out, r)
 		}
 	}

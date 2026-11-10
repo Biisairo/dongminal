@@ -44,6 +44,21 @@ func TestDmctlStatus_Text(t *testing.T) {
 	}
 }
 
+// AGENT_RECORD_DAEMON_SRS §3.4a (TC-ARD-4): 생존을 모르면 live=unknown 이라 쓴다.
+// live=false 로 쓰면 읽는 에이전트가 도구를 죽은 것으로 판단한다.
+func TestDmctlStatus_LiveUnknown(t *testing.T) {
+	ts, _ := statusStub(t, `{"toolId":"p1","live":false,"liveUnknown":true,"state":"working","updatedAt":1,"lastOutputAt":2,"quietMs":40}`)
+	pointDmctlAtServer(t, ts, "p1")
+
+	var out bytes.Buffer
+	if code := runDmctlStatus(nil, &out, io.Discard); code != 0 {
+		t.Fatalf("exit = %d, want 0", code)
+	}
+	if got := out.String(); !strings.Contains(got, "live=unknown") {
+		t.Fatalf("output %q missing live=unknown", got)
+	}
+}
+
 // FR-STA-1: --json 은 서버 응답을 그대로 통과시킨다 (스킬이 파싱한다).
 func TestDmctlStatus_JSON(t *testing.T) {
 	ts, _ := statusStub(t, `{"toolId":"p1","live":true,"state":"idle","updatedAt":1,"lastOutputAt":2,"quietMs":40}`)

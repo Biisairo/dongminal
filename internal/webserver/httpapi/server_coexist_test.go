@@ -52,23 +52,3 @@ func TestTwoServersCoexist_LimitsAreIndependent(t *testing.T) {
 		t.Fatalf("b 의 상한이 기본값이 아니다: %+v", b.limits)
 	}
 }
-
-func TestTwoServersCoexist_ContextNoticesAreIndependent(t *testing.T) {
-	a, err := New(Config{Port: "0", DataDir: t.TempDir()}, Deps{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	b, err := New(Config{Port: "0", DataDir: t.TempDir()}, Deps{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !a.contextNotices.claim("m1", "warn") {
-		t.Fatal("첫 통지가 거절됐다")
-	}
-	if a.contextNotices.claim("m1", "warn") {
-		t.Fatal("같은 서버의 두 번째 통지가 통과했다")
-	}
-	if !b.contextNotices.claim("m1", "warn") {
-		t.Fatal("a 의 통지 기억이 b 에 샜다")
-	}
-}

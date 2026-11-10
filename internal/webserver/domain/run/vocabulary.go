@@ -20,7 +20,9 @@ const (
 	Aborted State = "aborted"
 )
 
-// AbortDaemonRestart 는 epoch 펜싱이 남기는 사유다 (FR-RUN-5).
+// AbortDaemonRestart 는 재기동이 Run 을 닫은 사유다 (FR-RUN-5). 데몬 모드는 새로
+// 쓰지 않고 옛 runs.json 에서 읽기만 한다 (AGENT_RECORD_DAEMON_SRS FR-ARD-7). 직접
+// 모드의 WithAbortOpenOnLoad 는 종전처럼 쓴다.
 const AbortDaemonRestart = "daemon-restart"
 
 // Isolation 은 멤버가 파일시스템을 나누는 방식이다 (FR-WKT-1). 기본은 none 이며,
@@ -173,6 +175,10 @@ type Member struct {
 
 	// ISSUE_TREE_OPS_SRS FR-ITA-2: 이슈 트리 노드의 배정. 트리 Run 의 멤버만 갖는다.
 	Assign *Assignment `json:"assign,omitempty"`
+
+	// AGENT_RECORD_DAEMON_SRS FR-ARD-6: 맥락 경고를 이미 통지한 등급들 (FR-CBG-7).
+	// Run 기록에 두므로 서버가 다시 떠도 같은 등급을 두 번 알리지 않는다.
+	ContextNotified []string `json:"contextNotified,omitempty"`
 }
 
 // Reported reports whether the member has sent its one terminal report.
@@ -186,7 +192,7 @@ type Record struct {
 	Projection        Projection `json:"projection"`
 	Isolation         Isolation  `json:"isolation"`
 	State             State      `json:"state"`
-	Epoch             string     `json:"epoch,omitempty"`
+	Epoch             string     `json:"epoch,omitempty"` // 옛 펜싱의 기동 식별자. 읽기만 한다 (FR-ARD-7)
 	CoordinatorToolID string     `json:"coordinatorToolId,omitempty"`
 	/**
 	 * ALERT_MOBILE_CONTEXT_SRS FR-RCX-6·7 / D-13 — **조정자의 컨텍스트 관측.**
