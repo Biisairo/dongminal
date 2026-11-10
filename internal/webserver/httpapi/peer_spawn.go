@@ -82,6 +82,13 @@ func (s *Server) peerAgentSpawn(w http.ResponseWriter, r *http.Request, from pee
 	if s.Tools == nil || s.ToolIO == nil || !s.toolListKnown() {
 		return fail(http.StatusServiceUnavailable, apierr.CodeToolsUnready, "tools unavailable")
 	}
+	// C4: tab 배치의 자리는 도구를 만들기 전에 정한다. 못 찾으면 자리 없이 띄우지 않는다.
+	location := ""
+	if in.Placement == peerPlaceTab {
+		if location = s.peerTabLocation(in.At); location == "" {
+			return fail(http.StatusNotFound, apierr.CodePeerTargetMissing, "at")
+		}
+	}
 	release, ok := s.peerSpawns.Reserve(from.fp, peerSpawnMax, s.toolLive)
 	if !ok {
 		return fail(http.StatusTooManyRequests, apierr.CodePeerSpawnLimit, "spawn limit")
@@ -90,7 +97,7 @@ func (s *Server) peerAgentSpawn(w http.ResponseWriter, r *http.Request, from pee
 	// I-30: 원격 프롬프트는 셸 명령줄에 싣지 않는다. 인용 규칙이 셸마다 달라 명령 주입이 된다.
 	// I-46: Run 멤버의 dmctl 사전 허용도 싣지 않는다 — 받는 노드의 평소 권한으로 돈다.
 	line := ad.BareLaunchLine()
-	toolID, headless, err := s.peerSpawnShell(r.Context(), cwd, in.Placement, in.At, in.Name)
+	toolID, headless, err := s.peerSpawnShell(r.Context(), cwd, in.Placement, location, in.Name)
 	if err != nil {
 		return fail(http.StatusInternalServerError, apierr.CodeInternal, "create tool failed")
 	}
@@ -183,9 +190,9 @@ func (s *Server) peerRunsAgent(toolID, agentID string) bool {
 // peerSpawnShell 은 cwd 에 셸 도구 하나를 세운다 (FR-PNW-61, I-18).
 //
 //	window: 브라우저가 있으면 newWindow(cwd) 의 첫 탭 셸
-//	tab:    헤드리스 셸을 cwd 에 띄운 뒤 at 도구의 칸에 붙인다 (restoreTool)
+//	tab:    헤드리스 셸을 cwd 에 띄운 뒤 location(at 도구의 좌표)의 칸에 붙인다 (restoreTool)
 //	그 밖:  브라우저가 없으면 헤드리스 셸
-func (s *Server) peerSpawnShell(ctx context.Context, cwd, placement, at, name string) (string, bool, error) {
+func (s *Server) peerSpawnShell(ctx context.Context, cwd, placement, location, name string) (string, bool, error) {
 	if placement == peerPlaceWindow && s.Commands != nil {
 		args := map[string]any{"cwd": cwd, "keepFocus": true}
 		if name != "" {
@@ -210,17 +217,30 @@ func (s *Server) peerSpawnShell(ctx context.Context, cwd, placement, at, name st
 		return "", true, err
 	}
 	if placement == peerPlaceTab {
-		args := map[string]any{"toolId": toolID}
-		if tab := s.tabIDOfTool(at); tab != "" {
-			if coord, err := s.WorkIndex.CoordinateOf(tab); err == nil {
-				args["location"] = coord
+		args := map[string]any{"toolId": toolID, "location": location}
+		if s.broadcastLayout("restoreTool", args) > 0 {
+			if tab := s.awaitTab(ctx, toolID, true); tab != "" {
+				if name != "" {
+					s.broadcastLayout("renameTab", map[string]any{"location": tab, "name": name})
+				}
+				return toolID, false, nil
 			}
-		}
-		if s.broadcastLayout("restoreTool", args) > 0 && s.awaitTab(ctx, toolID, true) != "" {
-			return toolID, false, nil
 		}
 	}
 	return toolID, true, nil
+}
+
+// peerTabLocation 은 at 도구가 든 칸의 좌표다. 도구나 그 탭을 찾지 못하면 빈 값이다.
+func (s *Server) peerTabLocation(at string) string {
+	tab := s.tabIDOfTool(at)
+	if tab == "" {
+		return ""
+	}
+	coord, err := s.WorkIndex.CoordinateOf(tab)
+	if err != nil {
+		return ""
+	}
+	return coord
 }
 
 // peerStateOf 는 FR-PNW-54 의 어휘다. 에이전트가 돌지 않으면 ended, 활동의 done 은 idle 이다.

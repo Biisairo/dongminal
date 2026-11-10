@@ -34,6 +34,9 @@ var (
 	ErrInvalidPeer  = errors.New("짝 항목의 주소·포트·지문·상태가 틀렸습니다")
 	ErrNameTaken    = errors.New("그 이름의 짝이 이미 있습니다")
 	ErrPeerNotFound = errors.New("그 이름의 짝이 없습니다")
+	// ErrAlreadyPaired·ErrNotPending 은 Promote 가 바꾸지 않은 이유다.
+	ErrAlreadyPaired = errors.New("이미 짝입니다")
+	ErrNotPending    = errors.New("승인 대기 중인 짝이 없습니다")
 	// ErrInvalidNodeField 는 허용 폴더(절대 경로)·알릴 주소(주소)가 틀렸다는 뜻이다.
 	ErrInvalidNodeField = errors.New("허용 폴더는 절대 경로, 알릴 주소는 IP 주소나 호스트명이어야 합니다")
 	// ErrSaveFailed 는 저장 자체의 실패다. 사유는 로그로만 간다.
@@ -382,21 +385,27 @@ func (s *Store) AddPeer(p Peer) error {
 	})
 }
 
-// Promote 는 살아 있는 pending-out 을 짝으로 바꾼다 (FR-PNW-27). 바꿨으면 참이다.
-func (s *Store) Promote(fp string) bool {
-	if !s.IsPendingOut(fp) {
-		return false
+// Promote 는 살아 있는 pending-out 을 짝으로 바꾼다 (FR-PNW-27). 확인과 갱신은 한 락
+// 안에서 한다 (C3). 바꿨으면 nil, 이미 짝이면 ErrAlreadyPaired, 살아 있는 항목이 없으면
+// ErrNotPending, 그 밖은 저장 실패다.
+func (s *Store) Promote(fp string) error {
+	if fp == "" {
+		return ErrNotPending
 	}
-	err := s.update(func(c *Config) error {
+	return s.update(func(c *Config) error {
 		for i := range c.Peers {
-			if c.Peers[i].Fingerprint == fp {
-				c.Peers[i].State = StatePaired
-				c.Peers[i].Expires = time.Time{}
+			if c.Peers[i].Fingerprint != fp {
+				continue
 			}
+			if c.Peers[i].State == StatePaired {
+				return ErrAlreadyPaired
+			}
+			c.Peers[i].State = StatePaired
+			c.Peers[i].Expires = time.Time{}
+			return nil
 		}
-		return nil
+		return ErrNotPending
 	})
-	return err == nil
 }
 
 // Remove 는 그 이름의 항목을 지운다 (FR-PNW-31).

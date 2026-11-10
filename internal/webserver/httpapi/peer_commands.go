@@ -247,8 +247,9 @@ func (s *Server) apiPeersCall(w http.ResponseWriter, r *http.Request) {
 	}
 	s.peerSeen.Touch(p.Fingerprint, time.Now())
 	// FR-PNW-28: 상대가 이 노드를 받았다는 것은 승인이 끝났다는 뜻이다.
-	if p.State == peer.StatePendingOut {
-		s.peers.Promote(p.Fingerprint)
+	// C2: 바꿨을 때만 화면에 알린다. 저장 실패는 응답을 바꾸지 않는다(명령 자체는 성공했다).
+	if p.State == peer.StatePendingOut && s.peers.Promote(p.Fingerprint) == nil {
+		s.peersChanged("")
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

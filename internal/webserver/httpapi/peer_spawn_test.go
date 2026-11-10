@@ -174,6 +174,8 @@ func TestPeerSpawnRefusals(t *testing.T) {
 		{map[string]any{"agent": "claude", "cwd": b.allowed, "prompt": strings.Repeat("x", 16<<10+1)}, 413, "body_too_large"},
 		{map[string]any{"agent": "claude", "cwd": b.allowed, "placement": "tab"}, 400, "missing_argument"},
 		{map[string]any{"agent": "claude", "cwd": b.allowed, "placement": "floor"}, 400, "bad_request"},
+		// C4: 찾지 못하는 at 은 자리 없이 띄우지 않는다.
+		{map[string]any{"agent": "claude", "cwd": b.allowed, "placement": "tab", "at": "t-none"}, 404, "peer_target_not_found"},
 	}
 	for _, c := range cases {
 		code, out := a.spawn(t, "node-b", c.args)
@@ -458,18 +460,25 @@ func TestPeerSpawnTabPlacement(t *testing.T) {
 	pairNodes(t, a, b.peerNode)
 	wi := b.srv.WorkIndex.(*fakeWorkIndex)
 	wi.entries = append(wi.entries, toolaccess.WorkspaceEntry{ToolID: "headless-1", TabUUID: "tab-h1"})
-	code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed, "placement": "tab", "at": "t-at"})
+	code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed, "placement": "tab", "at": "t-at", "name": "review"})
 	if code != 200 || out["headless"] != false || out["toolId"] != "headless-1" {
 		t.Fatalf("spawn: %d %v", code, out["_raw"])
 	}
-	var req string
+	var req, rename string
 	for _, p := range broker.published {
 		if strings.Contains(string(p), `"restoreTool"`) {
 			req = string(p)
 		}
+		if strings.Contains(string(p), `"renameTab"`) {
+			rename = string(p)
+		}
 	}
 	if !strings.Contains(req, `"location":"W1.P1.T1"`) || !strings.Contains(req, `"toolId":"headless-1"`) {
 		t.Fatalf("restoreTool 요청 %s", req)
+	}
+	// C4: tab 배치도 이름을 붙인다. 붙은 탭을 uuid 로 가리킨다.
+	if !strings.Contains(rename, `"location":"tab-h1"`) || !strings.Contains(rename, `"name":"review"`) {
+		t.Fatalf("renameTab 요청 %s", rename)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -232,8 +233,8 @@ func TestStorePendingOutLifecycle(t *testing.T) {
 	if !s.IsPendingOut(fp) {
 		t.Fatal("pending-out 을 모른다")
 	}
-	if !s.Promote(fp) {
-		t.Fatal("승격하지 못했다")
+	if err := s.Promote(fp); err != nil {
+		t.Fatalf("승격하지 못했다: %v", err)
 	}
 	if !s.IsPeer(fp) || s.IsPendingOut(fp) {
 		t.Fatal("승격 뒤 상태가 틀렸다")
@@ -252,7 +253,7 @@ func TestStorePendingOutExpires(t *testing.T) {
 		t.Fatal(err)
 	}
 	clk.advance(PendingTTL + time.Second)
-	if s.IsPendingOut(fp) || s.Promote(fp) {
+	if s.IsPendingOut(fp) || !errors.Is(s.Promote(fp), ErrNotPending) {
 		t.Fatal("만료된 pending-out 이 살아 있다")
 	}
 	if s.NameTaken("b") {
@@ -421,5 +422,59 @@ func TestStoreSetNodeValidatesDirsAndAdvertise(t *testing.T) {
 	c.AllowedDirs, c.Advertise = []string{filepath.Join(t.TempDir(), "w")}, "192.168.0.5"
 	if err := s.SetNode(c); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// C3: 확인과 갱신은 한 락 안에서 한다. 결과는 "바꿈"·"이미 짝"·"없음"으로 나뉜다.
+func TestStorePromoteResults(t *testing.T) {
+	clk := newFakeClock()
+	s := newTestStore(t, clk)
+	fp := fpOf("aa")
+	if err := s.Promote(fp); !errors.Is(err, ErrNotPending) {
+		t.Fatalf("없는 항목: %v", err)
+	}
+	if err := s.AddPeer(Peer{Name: "b", Addr: "h", Port: 1, Fingerprint: fp, State: StatePendingOut, Expires: clk.t.Add(PendingTTL)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Promote(fp); err != nil {
+		t.Fatalf("첫 승격: %v", err)
+	}
+	if err := s.Promote(fp); !errors.Is(err, ErrAlreadyPaired) {
+		t.Fatalf("이미 짝: %v", err)
+	}
+}
+
+// C3: confirm 과 call 회복이 동시에 와도 하나만 바꾸고 나머지는 "이미 짝"이다.
+func TestStorePromoteConcurrent(t *testing.T) {
+	clk := newFakeClock()
+	s := newTestStore(t, clk)
+	fp := fpOf("aa")
+	if err := s.AddPeer(Peer{Name: "b", Addr: "h", Port: 1, Fingerprint: fp, State: StatePendingOut, Expires: clk.t.Add(PendingTTL)}); err != nil {
+		t.Fatal(err)
+	}
+	const n = 8
+	errs := make(chan error, n)
+	var wg sync.WaitGroup
+	for range n {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errs <- s.Promote(fp)
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	promoted := 0
+	for err := range errs {
+		switch {
+		case err == nil:
+			promoted++
+		case errors.Is(err, ErrAlreadyPaired):
+		default:
+			t.Fatalf("동시 승격의 결과: %v", err)
+		}
+	}
+	if promoted != 1 {
+		t.Fatalf("바꾼 횟수 %d", promoted)
 	}
 }

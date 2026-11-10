@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"os"
@@ -186,25 +187,23 @@ func (s *Server) peerPair(w http.ResponseWriter, r *http.Request) {
 // peerPairConfirm 은 A 쪽 승인 통지다 (FR-PNW-27).
 func (s *Server) peerPairConfirm(w http.ResponseWriter, r *http.Request) {
 	fp := peer.ClientFingerprint(r)
-	promoted := false
+	err := s.peers.Promote(fp)
 	switch {
-	case s.peers.IsPeer(fp):
-	case !s.peers.IsPendingOut(fp):
+	case err == nil, errors.Is(err, peer.ErrAlreadyPaired):
+	case errors.Is(err, peer.ErrNotPending):
 		peerAudit("in", "-", "pair.confirm", http.StatusForbidden)
 		peerFail(w, http.StatusForbidden, apierr.CodePeerRejected, "not pending")
 		return
-	case !s.peers.Promote(fp):
+	default:
 		// pending-out 인데 바꾸지 못했으면 저장 실패다 (L-6).
 		peerAudit("in", "-", "pair.confirm", http.StatusInternalServerError)
 		peerFail(w, http.StatusInternalServerError, apierr.CodeSaveFailed, "save failed")
 		return
-	default:
-		promoted = true
 	}
 	name, _ := s.peers.NameOf(fp)
 	peerAudit("in", name, "pair.confirm", http.StatusOK)
 	// I-24: 이미 짝이었으면 바뀐 것이 없다.
-	if promoted {
+	if err == nil {
 		s.peersChanged("")
 	}
 	httpresp.JSON(w, http.StatusOK, map[string]any{"paired": true})

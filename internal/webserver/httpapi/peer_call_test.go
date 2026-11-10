@@ -89,17 +89,29 @@ func TestPeerCallRefusals(t *testing.T) {
 
 // FR-PNW-28: confirm 을 받지 못한 A 가 node.info 에 성공하면 B 를 짝으로 바꾼다.
 func TestPeerCallRecoversPendingOut(t *testing.T) {
-	a := newPeerNode(t, "node-a", false)
+	ac := &fakeCommandBroker{}
+	a := newPeerNodeWith(t, "node-a", false, Deps{Commands: ac})
 	b := newPeerNode(t, "node-b", true)
 	pairNodes(t, a, b)
 	if ap := a.peers(t); ap[0]["state"] != peer.StatePendingOut {
 		t.Fatalf("전제: pending-out 이어야 한다 %v", ap)
 	}
+	peersChanged(t, ac)
 	if code, out := a.call(t, "node-b", "node.info", nil); code != http.StatusOK {
 		t.Fatalf("node.info: %d %v", code, out["_raw"])
 	}
 	if ap := a.peers(t); ap[0]["state"] != peer.StatePaired {
 		t.Fatalf("짝으로 바뀌지 않았다 %v", ap)
+	}
+	// C2: 바뀌었으면 화면에 알린다. 이미 짝이면 다시 알리지 않는다.
+	if got := peersChanged(t, ac); len(got) != 1 {
+		t.Fatalf("회복 뒤 방송 %v", got)
+	}
+	if code, out := a.call(t, "node-b", "node.info", nil); code != http.StatusOK {
+		t.Fatalf("두 번째 node.info: %d %v", code, out["_raw"])
+	}
+	if got := peersChanged(t, ac); len(got) != 0 {
+		t.Fatalf("이미 짝인데 방송했다 %v", got)
 	}
 }
 
