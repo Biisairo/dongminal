@@ -120,7 +120,6 @@
 | `peer_spawn_limit` | 이 짝이 띄워 둔 도구가 상한(4개)에 닿았습니다. 아무것도 띄우지 않았습니다. | 다 쓴 도구를 agent.close 로 닫은 뒤 다시 띄우세요. |
 | `peer_target_not_agent` | 그 도구에서 지금 에이전트가 돌고 있지 않습니다. 아무것도 넣지 않았습니다. | 에이전트가 끝났을 수 있습니다. dmctl peer tools <노드> 로 다시 확인하세요. |
 | `peer_target_not_found` | 상대 노드에 그 도구가 없습니다. | dmctl peer tools <노드> 로 지금 목록을 다시 받으세요. |
-| `peer_target_waiting` | 그 에이전트가 사용자의 승인을 기다리는 중입니다. 아무것도 넣지 않았습니다. | 받는 노드의 사용자가 승인 창을 처리한 뒤 다시 보내세요. dmctl peer status 가 waiting 이 아닌지 확인하세요. |
 | `peer_token_invalid` | 초대 토큰이 맞지 않습니다. | 가장 최근에 만든 초대 코드인지 확인하세요. 새 초대를 만들면 이전 코드는 쓸 수 없습니다. |
 | `peer_unavailable` | 이 서버에는 노드 기능이 서지 않았습니다 — 노드 인증서를 읽지 못했습니다. | server.log 의 peer identity 줄을 보세요. node-cert.pem·node-key.pem 이 망가졌다면 둘 다 지우고 다시 시작하면 새 신원이 생깁니다(짝은 다시 맺어야 합니다). |
 | `peer_unknown_op` | 모르는 프로토콜 명령입니다. | node.info 의 commands 로 상대가 받는 명령을 확인하세요. 원격으로는 정해진 명령만 오갑니다. |
@@ -169,4 +168,4 @@
 | `workspace_unavailable` | 워크스페이스 계층이 아직 서지 않았습니다. | 잠시 뒤 다시 시도하세요. |
 | `worktree_exists` | 그 자리에 이미 worktree 가 있습니다. | 다른 경로를 고르거나 기존 것을 여세요. |
 
-총 **135개**.
+총 **134개**.

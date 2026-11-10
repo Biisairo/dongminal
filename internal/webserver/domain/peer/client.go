@@ -54,7 +54,7 @@ const RemoteMessageMax = 512
 func cleanMessage(s string) string {
 	var b strings.Builder
 	for _, r := range s {
-		if unicode.IsControl(r) {
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
 			continue
 		}
 		if b.Len()+utf8.RuneLen(r) > RemoteMessageMax {
@@ -135,6 +135,9 @@ func (c *Client) httpClient(fp string) *http.Client {
 	}
 	return &http.Client{
 		Timeout: RequestTimeout,
+		// 리다이렉트를 따라가지 않는다 — 상대가 고른 곳(이 노드의 로컬 API 등)에 요청을
+		// 다시 보내게 된다 (보안 재리뷰 #5). 3xx 는 그대로 오류로 돌아간다.
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 		Transport: &http.Transport{
 			DialContext:         (&net.Dialer{Timeout: DialTimeout}).DialContext,
 			TLSClientConfig:     cfg,

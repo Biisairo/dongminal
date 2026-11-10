@@ -74,3 +74,30 @@ func TestSpawnLogReserve(t *testing.T) {
 		t.Fatal("release 를 두 번 불러 자리가 둘 늘었다")
 	}
 }
+
+// 보안 재리뷰 #4: 허용 폴더 밖의 경로는 파일 시스템에 닿기 전에 거절한다. 원격이 준 경로로
+// 네트워크 공유(`\\host\share`, `/net/host`)를 열게 하면 그 호스트에 접속한다.
+func TestDirAllowedChecksTextBeforeTouching(t *testing.T) {
+	allowed := t.TempDir()
+	var opened []string
+	prev := realDirFn
+	realDirFn = func(p string) (string, error) { opened = append(opened, p); return prev(p) }
+	defer func() { realDirFn = prev }()
+	for _, remote := range []string{"/net/attacker/x", `\\attacker\share\x`} {
+		if _, ok := DirAllowed(remote, []string{allowed}); ok {
+			t.Fatalf("허용 밖을 허용했다 %q", remote)
+		}
+	}
+	for _, p := range opened {
+		if p != allowed {
+			t.Fatalf("허용 밖 경로를 열었다 %q", p)
+		}
+	}
+	opened = nil
+	if _, ok := DirAllowed(allowed, nil); ok || len(opened) != 0 {
+		t.Fatal("허용 폴더가 없는데 열었다")
+	}
+	if _, ok := DirAllowed(filepath.Join(allowed, "."), []string{allowed}); !ok {
+		t.Fatal("허용 폴더 자체를 거절했다")
+	}
+}

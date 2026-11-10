@@ -77,7 +77,9 @@ func (s *Server) peerAgentSpawn(w http.ResponseWriter, r *http.Request, from pee
 	if !ok {
 		return fail(http.StatusForbidden, apierr.CodePeerDirNotAllowed, "dir not allowed")
 	}
-	if s.Tools == nil || s.ToolIO == nil {
+	// 데몬이 목록을 모르는 동안에는 살아 있는 도구를 셀 수 없다 — "죽음" 으로 읽으면 모든
+	// 기록이 정리된다 (TOOL_LIST_UNKNOWN_SRS, 재리뷰 C-1).
+	if s.Tools == nil || s.ToolIO == nil || !s.toolListKnown() {
 		return fail(http.StatusServiceUnavailable, apierr.CodeToolsUnready, "tools unavailable")
 	}
 	release, ok := s.peerSpawns.Reserve(from.fp, peerSpawnMax, s.toolLive)
@@ -119,7 +121,7 @@ func (s *Server) peerAgentSpawn(w http.ResponseWriter, r *http.Request, from pee
 		return undo(http.StatusInternalServerError, apierr.CodeInternal, "deliver failed")
 	}
 	if in.Prompt != "" {
-		go s.peerDeliverPrompt(toolID, ad, peerEnvelope(from.name, in.From, toolID, in.Prompt, time.Now()))
+		go s.peerDeliverPrompt(toolID, ad, from.fp, peerEnvelope(from.name, in.From, toolID, in.Prompt, time.Now()))
 	}
 	httpresp.JSON(w, http.StatusOK, map[string]any{"toolId": toolID, "headless": headless})
 	return peerCmdResult{status: http.StatusOK, target: toolID, n: len(in.Prompt)}
@@ -127,7 +129,9 @@ func (s *Server) peerAgentSpawn(w http.ResponseWriter, r *http.Request, from pee
 
 // peerDeliverPrompt 는 띄운 에이전트가 준비되면 첫 프롬프트를 그 입력에 넣는다 (I-30).
 // 전경이 띄운 그 에이전트가 아니면 넣지 않는다 — 셸에 들어가면 원격 글이 명령이 된다.
-func (s *Server) peerDeliverPrompt(toolID string, ad agentadapter.Adapter, text string) {
+//
+// 기다리는 동안 짝이 해제되면 넣지 않는다 — 해제는 즉시 효력을 갖는다 (FR-PNW-31).
+func (s *Server) peerDeliverPrompt(toolID string, ad agentadapter.Adapter, ownerFP, text string) {
 	ctx, cancel := context.WithTimeout(context.Background(), s.limits.peerPromptWait)
 	defer cancel()
 	allowQuiescence := !ad.Readiness.Hooks
@@ -146,13 +150,28 @@ func (s *Server) peerDeliverPrompt(toolID string, ad agentadapter.Adapter, text 
 		dmlog.Infof(nil, "[peer] spawn 프롬프트를 버렸다 tool=%s: 에이전트가 준비되지 않았다", toolID)
 		return
 	}
-	if !s.peerRunsAgent(toolID, ad.ID) {
+	if !s.peerRunsAgent(toolID, ad.ID) || !s.peers.IsPeer(ownerFP) || s.peerIsClosing(toolID) {
 		return
 	}
 	// I-47: 붙여넣기 직전에 도구가 사는 곳에서 전경을 새로 본다.
 	if err := s.ToolIO.SendPasteIfForeground(toolID, []byte(text), true, ad.DetectCmd); err != nil {
 		dmlog.Infof(nil, "[peer] spawn 프롬프트를 넣지 않았다 tool=%s: %v", toolID, err)
 	}
+}
+
+// peerIsClosing 은 agent.close 가 그 도구를 닫는 중인가다 (I-59).
+func (s *Server) peerIsClosing(toolID string) bool {
+	_, ok := s.peerClosing.Load(toolID)
+	return ok
+}
+
+// toolListKnown 은 도구 목록이 관측된 사실인가다. 데몬 재접속 창에서는 거짓이다.
+func (s *Server) toolListKnown() bool {
+	if s.Tools == nil {
+		return false
+	}
+	_, ok := s.Tools.ListOK()
+	return ok
 }
 
 // peerRunsAgent 는 도구가 살아 있고 전경이 agentID 에이전트인가다.
@@ -251,6 +270,9 @@ func (s *Server) peerAgentClose(w http.ResponseWriter, r *http.Request, from pee
 		return peerCmdResult{status: http.StatusForbidden}
 	}
 	toolID := in.ToolID
+	// I-59: 종료 명령을 보낸 뒤 에이전트가 끝나는 동안 원격 글이 들어가면 셸에 남는다.
+	s.peerClosing.Store(toolID, struct{}{})
+	defer s.peerClosing.Delete(toolID)
 	if ad, ok := s.agentOfTool(toolID); ok && ad.ExitCommand != "" && s.Tools != nil && s.Tools.Busy(toolID) {
 		_ = s.deliverToTool(toolID, ad.ExitCommand, true)
 		ctx, cancel := context.WithTimeout(r.Context(), peerCloseWait)
@@ -269,6 +291,10 @@ func (s *Server) peerAgentClose(w http.ResponseWriter, r *http.Request, from pee
 // peerCloseTool 은 도구를 닫고 닫혔는가를 돌려준다 (I-32). 탭이 있으면 화면에 닫게 하고,
 // 방송을 받은 화면이 있어도 실제로 닫혔는지 확인한다. 남아 있으면 직접 지운다.
 func (s *Server) peerCloseTool(ctx context.Context, toolID string) bool {
+	// 목록을 모르면 닫혔는지도 모른다. 닫혔다고 답하지 않는다 (재리뷰 C-1).
+	if !s.toolListKnown() {
+		return false
+	}
 	if tab := s.tabIDOfTool(toolID); tab != "" &&
 		s.broadcastLayout("closeTab", map[string]any{"location": tab, "force": true}) > 0 {
 		wait := s.limits.peerTabCloseWait

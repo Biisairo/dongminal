@@ -8,7 +8,6 @@ import (
 	"sort"
 	"time"
 
-	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/webserver/apierr"
@@ -181,12 +180,8 @@ func (s *Server) peerMessageSend(w http.ResponseWriter, r *http.Request, from pe
 		return fail(http.StatusNotFound, apierr.CodePeerTargetMissing, "no such tool")
 	}
 	ad, ok := s.agentOfTool(toolID)
-	if !ok {
+	if !ok || s.peerIsClosing(toolID) {
 		return fail(http.StatusConflict, apierr.CodePeerTargetNotAgent, "not an agent")
-	}
-	// I-48: 승인 창에서 기다리는 에이전트에 넣으면 제출(Enter)이 기본 선택지를 고른다.
-	if s.toolStatusOf(toolID, true).State == activity.Waiting {
-		return fail(http.StatusConflict, apierr.CodePeerTargetWaiting, "agent is waiting for approval")
 	}
 	env := peerEnvelope(from.name, in.From, toolID, in.Message, time.Now())
 	// I-47: 위 확인은 캐시다. 붙여넣기 직전에 도구가 사는 곳에서 새로 본다.

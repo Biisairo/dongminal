@@ -378,9 +378,11 @@ func printPeerJSON(w io.Writer, raw []byte) {
 }
 
 // clean 은 상대 노드가 보낸 글자에서 제어 문자를 지운다 — 터미널에 찍히기 때문이다.
+//
+// 서식 문자(Cf: bidi 재정렬·zero-width)도 지운다. 이 출력은 사람과 로컬 에이전트가 읽는다.
 func clean(s string) string {
 	return strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) {
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
 			return -1
 		}
 		return r
@@ -449,7 +451,7 @@ func peerTools(pa peerArgs, stdout, stderr io.Writer) int {
 		if a.SpawnedByYou {
 			mine = "  spawnedByYou"
 		}
-		fmt.Fprintf(stdout, "%s/%s  agent=%s  state=%s  window=%q  tab=%q  cwd=%s%s\n",
+		fmt.Fprintf(stdout, "%s/%s  agent=%s  state=%s  window=%q  tab=%q  cwd=%q%s\n",
 			node, clean(a.ToolID), clean(a.Agent), clean(a.State), clean(a.Window), clean(a.Tab), clean(a.Cwd), mine)
 	}
 	if len(v.Agents) == 0 {

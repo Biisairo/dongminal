@@ -518,27 +518,6 @@ func TestPeerSpawnPromptFreshForeground(t *testing.T) {
 	}
 }
 
-// I-48: 에이전트가 승인 창에서 기다리는 중이면 message.send 를 넣지 않는다 — Enter 가
-// 기본 선택지를 고른다.
-func TestPeerMessageSendRefusesWaiting(t *testing.T) {
-	installFakeAgent(t)
-	a := newPeerNode(t, "node-a", true)
-	b := newSpawnNode(t, "node-b", nil)
-	pairNodes(t, a, b.peerNode)
-	if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed}); code != 200 {
-		t.Fatalf("spawn %d %v", code, out["_raw"])
-	}
-	b.tools.setFG("headless-1", agentCmd(t))
-	b.reportActivity("headless-1", activity.Waiting)
-	code, out := a.call(t, "node-b", "message.send", map[string]any{"to": "headless-1", "message": "y"})
-	if code != http.StatusConflict || errCode(out) != "peer_target_waiting" {
-		t.Fatalf("message.send: %d %v", code, out["_raw"])
-	}
-	if len(b.tools.pasted()) != 1 {
-		t.Fatal("승인 창에 넣었다")
-	}
-}
-
 // 리뷰 S-7: 도구가 사라지면 프롬프트 대기를 바로 끝낸다.
 func TestPeerDeliverPromptStopsWhenToolGone(t *testing.T) {
 	installFakeAgent(t)
@@ -547,7 +526,7 @@ func TestPeerDeliverPromptStopsWhenToolGone(t *testing.T) {
 	pairNodes(t, a, b.peerNode)
 	ad, _ := agentadapter.Get("claude")
 	done := make(chan struct{})
-	go func() { b.srv.peerDeliverPrompt("gone-1", ad, "x"); close(done) }()
+	go func() { b.srv.peerDeliverPrompt("gone-1", ad, "", "x"); close(done) }()
 	select {
 	case <-done:
 	case <-time.After(3 * time.Second):
@@ -590,5 +569,92 @@ func TestPeerAuditReadFailureAndConfirmName(t *testing.T) {
 	res := b.srv.peerMessageSend(httptest.NewRecorder(), req, peerCaller{name: "node-a"})
 	if res.status != http.StatusRequestEntityTooLarge {
 		t.Fatalf("감사할 결과 %+v", res)
+	}
+}
+
+// 재리뷰 C-1: 데몬이 목록을 모르는 동안(재접속 창)은 "도구가 죽었다" 로 읽지 않는다.
+// spawn 은 기록을 정리하지 않고 503, close 는 기록을 지우지 않고 실패한다.
+func TestPeerSpawnCloseWhenToolListUnknown(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	pairNodes(t, a, b.peerNode)
+	if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed}); code != 200 {
+		t.Fatalf("spawn %d %v", code, out["_raw"])
+	}
+	b.hub.mu.Lock()
+	b.hub.listUnknown = true
+	b.hub.mu.Unlock()
+	b.tools.setHas("headless-1", false) // 모르는 동안의 Has 는 거짓으로 보인다
+	if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed}); code == 200 || errCode(out) != "tools_unavailable" {
+		t.Fatalf("모를 때 spawn: %d %v", code, out["_raw"])
+	}
+	if code, _ := a.call(t, "node-b", "agent.close", map[string]any{"toolId": "headless-1"}); code == 200 {
+		t.Fatal("모를 때 close 가 성공했다")
+	}
+	if _, ok := b.srv.peerSpawns.Owner("headless-1"); !ok {
+		t.Fatal("모르는 동안 기록을 지웠다")
+	}
+}
+
+// I-59: agent.close 가 종료 명령을 보낸 뒤 기다리는 동안 그 도구에는 메시지를 넣지 않는다.
+// 에이전트가 끝나는 중이면 넣은 글이 셸에 남아 명령이 될 수 있다.
+func TestPeerMessageSendRefusedWhileClosing(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	pairNodes(t, a, b.peerNode)
+	if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed}); code != 200 {
+		t.Fatalf("spawn %d %v", code, out["_raw"])
+	}
+	b.tools.setFG("headless-1", agentCmd(t))
+	release := make(chan struct{})
+	b.hub.mu.Lock()
+	b.hub.busy = func(string) bool {
+		select {
+		case <-release:
+			return false
+		default:
+			return true
+		}
+	}
+	b.hub.mu.Unlock()
+	done := make(chan struct{})
+	go func() { a.call(t, "node-b", "agent.close", map[string]any{"toolId": "headless-1"}); close(done) }()
+	deadline := time.Now().Add(3 * time.Second)
+	for len(b.tools.pasted()) < 2 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	code, out := a.call(t, "node-b", "message.send", map[string]any{"to": "headless-1", "message": "ls\nid"})
+	close(release)
+	<-done
+	if code != http.StatusConflict || errCode(out) != "peer_target_not_agent" {
+		t.Fatalf("닫는 중 message.send: %d %v", code, out["_raw"])
+	}
+	for _, p := range b.tools.pasted() {
+		if strings.Contains(p.Text, "ls\nid") || strings.Contains(p.Text, "DONGMINAL-PEER-MSG") {
+			t.Fatalf("닫는 중에 넣었다 %+v", p)
+		}
+	}
+}
+
+// 보안 재리뷰 #8: 짝을 해제한 뒤에는 기다리던 첫 프롬프트도 넣지 않는다 (FR-PNW-31).
+func TestPeerSpawnPromptDroppedAfterUnpair(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	b.srv.limits.peerPromptWait = 2 * time.Second
+	pairNodes(t, a, b.peerNode)
+	if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed, "prompt": "hi"}); code != 200 {
+		t.Fatalf("spawn %d %v", code, out["_raw"])
+	}
+	if code, out := b.api(t, http.MethodPost, "/api/peers/remove", map[string]any{"name": ap0Name(t, b.peerNode)}); code != 200 {
+		t.Fatalf("remove %d %v", code, out["_raw"])
+	}
+	b.tools.setFG("headless-1", agentCmd(t))
+	b.reportActivity("headless-1", activity.Idle)
+	time.Sleep(500 * time.Millisecond)
+	if p := b.tools.pasted(); len(p) != 1 {
+		t.Fatalf("해제 뒤에 넣었다 %+v", p)
 	}
 }

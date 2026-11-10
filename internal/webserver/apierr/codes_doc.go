@@ -195,6 +195,5 @@ var CodeDoc = map[string]Doc{
 	CodePeerAgentMissing:   {"상대 노드에 그 에이전트가 없거나 설치되지 않았습니다.", "dmctl peer info <노드> 의 agents 로 상대가 띄울 수 있는 에이전트를 확인하세요."},
 	CodePeerDirNotAllowed:  {"그 폴더는 상대 노드가 허용한 폴더 밖입니다. 허용 폴더가 비어 있으면 모든 띄우기를 거절합니다.", "dmctl peer info <노드> 의 allowedDirs 안의 폴더를 쓰세요. 허용 폴더는 받는 노드의 사용자가 정합니다."},
 	CodePeerNotOwner:       {"이 노드가 띄운 도구가 아니라서 닫을 수 없습니다.", "원격으로는 자기가 agent.spawn 으로 띄운 도구만 닫을 수 있습니다."},
-	CodePeerTargetWaiting:  {"그 에이전트가 사용자의 승인을 기다리는 중입니다. 아무것도 넣지 않았습니다.", "받는 노드의 사용자가 승인 창을 처리한 뒤 다시 보내세요. dmctl peer status 가 waiting 이 아닌지 확인하세요."},
 	CodePeerSpawnLimit:     {"이 짝이 띄워 둔 도구가 상한(4개)에 닿았습니다. 아무것도 띄우지 않았습니다.", "다 쓴 도구를 agent.close 로 닫은 뒤 다시 띄우세요."},
 }

@@ -404,7 +404,7 @@ func cleanRemoteText(s string) string {
 	out := make([]rune, 0, len(s))
 	n := 0
 	for _, r := range s {
-		if unicode.IsControl(r) {
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
 			continue
 		}
 		n += utf8.RuneLen(r)

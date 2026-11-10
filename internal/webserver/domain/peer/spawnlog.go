@@ -112,31 +112,56 @@ func (l *SpawnLog) Forget(toolID string) error {
 	return l.saveLocked()
 }
 
-// DirAllowed 는 dir 의 실제 경로(심볼릭 링크를 푼 것, Windows 는 junction 까지 푼 것)가 allowed 중 하나와 같거나 그
-// 아래인가다 (FR-PNW-59). 맞으면 그 실제 경로를 돌려준다. allowed 가 비면 언제나 거짓이다.
+// realDirFn 은 실제 경로 풀기다. 테스트가 파일 시스템에 닿는지 세는 자리다.
+var realDirFn = realDir
+
+// DirAllowed 는 dir 의 실제 경로(심볼릭 링크를 푼 것, Windows 는 junction 까지 푼 것)가
+// allowed 중 하나와 같거나 그 아래인가다 (FR-PNW-59). 맞으면 그 실제 경로를 돌려준다.
+// allowed 가 비면 언제나 거짓이다.
+//
+// 원격이 준 dir 은 **글자로 먼저** 허용 폴더 아래인지 본 뒤에야 연다. 먼저 열면 허용 밖의
+// 경로(`\\host\share`, `/net/host`)로 그 호스트에 접속하게 된다 (보안 재리뷰 #4). 허용
+// 폴더는 이 노드의 사용자가 정한 값이라 풀어도 된다 — 원래 값과 푼 값 둘 다로 비교한다.
 func DirAllowed(dir string, allowed []string) (string, bool) {
-	if !filepath.IsAbs(dir) {
+	if !filepath.IsAbs(dir) || len(allowed) == 0 {
 		return "", false
 	}
-	real, err := realDir(dir)
+	clean := filepath.Clean(dir)
+	bases := make([]string, 0, 2*len(allowed))
+	lexical := false
+	for _, a := range allowed {
+		cands := []string{filepath.Clean(a)}
+		if r, err := realDirFn(a); err == nil {
+			cands = append(cands, r)
+		}
+		for _, b := range cands {
+			lexical = lexical || within(b, clean)
+		}
+		bases = append(bases, cands[len(cands)-1])
+	}
+	if !lexical {
+		return "", false
+	}
+	real, err := realDirFn(clean)
 	if err != nil {
 		return "", false
 	}
 	if st, err := os.Stat(real); err != nil || !st.IsDir() {
 		return "", false
 	}
-	for _, a := range allowed {
-		base, err := realDir(a)
-		if err != nil {
-			continue
-		}
-		rel, err := filepath.Rel(base, real)
-		if err != nil {
-			continue
-		}
-		if rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))) {
+	for _, b := range bases {
+		if within(b, real) {
 			return real, true
 		}
 	}
 	return "", false
+}
+
+// within 은 p 가 base 와 같거나 그 아래인가다.
+func within(base, p string) bool {
+	rel, err := filepath.Rel(base, p)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)))
 }

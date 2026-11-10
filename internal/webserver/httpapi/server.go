@@ -120,6 +120,8 @@ type Server struct {
 	peerSeen    *peer.LastSeen
 	// peerSpawns 는 다른 노드가 띄운 도구와 그 짝이다 (FR-PNW-62).
 	peerSpawns *peer.SpawnLog
+	// peerClosing 은 agent.close 가 닫는 중인 도구다. 그 동안은 원격 글을 넣지 않는다 (I-59).
+	peerClosing sync.Map
 
 	// hosts 는 `Host`·`Origin` 판정의 허용 집합이다 (REQUEST_GATE_SRS FR-RQG-6).
 	// `Access` 의 `self` 를 읽으므로 그 뒤에 만들어진다.

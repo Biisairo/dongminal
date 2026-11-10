@@ -152,3 +152,29 @@ func TestClientRemoteErrorCleansCode(t *testing.T) {
 		t.Fatalf("%#v", err)
 	}
 }
+
+// 보안 재리뷰 #5: 상대가 리다이렉트로 답해도 따라가지 않는다. 따라가면 상대가 고른 곳(이
+// 노드의 로컬 API 등)에 요청을 다시 보낸다.
+func TestClientDoesNotFollowRedirect(t *testing.T) {
+	f := newClientFixture(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/peer/v1/x" {
+			t.Errorf("리다이렉트를 따라갔다 %s", r.URL.Path)
+		}
+		http.Redirect(w, r, "/peer/v1/elsewhere", http.StatusTemporaryRedirect)
+	})
+	err := NewClient(f.caller).Call(context.Background(), f.target, "/peer/v1/x", map[string]any{}, nil)
+	var re *RemoteError
+	if !errors.As(err, &re) || re.Status != http.StatusTemporaryRedirect {
+		t.Fatalf("%v", err)
+	}
+	if f.hits.Load() != 1 {
+		t.Fatalf("요청 %d 번", f.hits.Load())
+	}
+}
+
+// 보안 재리뷰 #10: 원격 문장에서 서식 문자(bidi·zero-width)도 지운다.
+func TestCleanMessageRemovesFormatChars(t *testing.T) {
+	if got := cleanMessage("a‮b​c"); got != "abc" {
+		t.Fatalf("%q", got)
+	}
+}

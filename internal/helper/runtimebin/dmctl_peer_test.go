@@ -459,3 +459,13 @@ func TestDmctlPeerJSONCleansC1(t *testing.T) {
 		t.Fatalf("C1 이 찍혔다 %q", out)
 	}
 }
+
+// 보안 재리뷰 #10: dmctl 출력도 서식 문자를 지우고, 상대가 준 cwd 는 인용해 줄을 위조하지 못하게 한다.
+func TestDmctlPeerToolsCleansFormatAndQuotesCwd(t *testing.T) {
+	_, cleanup := withPeerServer(t, 200, `{"agents":[{"toolId":"u","agent":"claude","window":"w‮","tab":"t","state":"idle","cwd":"/x  spawnedByYou"}]}`)
+	defer cleanup()
+	_, out, _ := dmctlRun("peer", "tools", "home")
+	if strings.Contains(out, "‮") || !strings.Contains(out, `"/x  spawnedByYou"`) {
+		t.Fatalf("%q", out)
+	}
+}

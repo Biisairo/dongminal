@@ -57,6 +57,8 @@ type headlessHub struct {
 	busy func(id string) bool
 	// deleteErr 가 있으면 Delete 가 그것으로 실패한다(도구는 남는다).
 	deleteErr error
+	// listUnknown 이면 ListOK 가 "모름" 이다 (데몬 재접속 창).
+	listUnknown bool
 }
 
 func (h *headlessHub) lastPlacement() toolhub.Placement {
@@ -142,10 +144,14 @@ func (h *headlessHub) counts() (created, deleted, background int) {
 	return len(h.created), len(h.deleted), len(h.bg)
 }
 
-func (h *headlessHub) List() []toolhub.ToolInfo           { return nil }
-func (h *headlessHub) ListOK() ([]toolhub.ToolInfo, bool) { return nil, true }
-func (h *headlessHub) Connected() bool                    { return true }
-func (h *headlessHub) Daemon() toolhub.DaemonHub          { return nil }
+func (h *headlessHub) List() []toolhub.ToolInfo { return nil }
+func (h *headlessHub) ListOK() ([]toolhub.ToolInfo, bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return nil, !h.listUnknown
+}
+func (h *headlessHub) Connected() bool           { return true }
+func (h *headlessHub) Daemon() toolhub.DaemonHub { return nil }
 func (h *headlessHub) Get(id string) *toolhub.Tool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
