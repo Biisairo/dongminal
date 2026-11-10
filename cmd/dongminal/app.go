@@ -196,6 +196,8 @@ func (a *app) run(ctx context.Context) error {
 	// 인터페이스 주소를 주기적으로 갱신한다. 요청 경로는 그 결과만 읽는다 —
 	// 게이트 판정에 DNS 왕복이 붙으면 모든 요청이 그만큼 느려진다.
 	a.srv.StartAccessRefresh(ctx.Done())
+	// PEER_NETWORK_SRS FR-PNW-4: 노드 포트. 꺼져 있으면 아무것도 열지 않는다.
+	a.srv.StartPeer(ctx.Done())
 	// UPDATE_NOTICE_SRS FR-UPD-2 ①·③: 기동 확인 한 번과 24시간 마감.
 	// 마감은 **한 번도 끄지 않고 띄워 둔 세션**만을 위한 보조다 — 갱신의 주된
 	// 계기는 SSE 연결 수립이고 그쪽은 요청 경로에 있다.

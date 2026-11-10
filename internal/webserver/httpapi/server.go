@@ -21,6 +21,7 @@ import (
 	"dongminal/internal/webserver/domain/ext"
 	"dongminal/internal/webserver/domain/git/jobs"
 	"dongminal/internal/webserver/domain/git/store"
+	"dongminal/internal/webserver/domain/peer"
 	"dongminal/internal/webserver/domain/submodule"
 	"dongminal/internal/webserver/domain/wsentry"
 
@@ -104,6 +105,11 @@ type Server struct {
 	// Access 는 접속 허용 목록이다 (ACCESS_ALLOWLIST_SRS). nil 이 아니면 게이트가
 	// 모든 표면 앞에 선다. `--expose` 뒤에 아무 제어가 없던 자리를 여기가 메운다.
 	Access *accessStore
+
+	// peers·peerLn 은 노드 설정과 노드 포트다 (PEER_NETWORK_SRS 묶음 N). DataDir 이
+	// 없거나 신원을 읽지 못하면 peerLn 이 nil 이고 노드 포트는 서지 않는다.
+	peers  *peer.Store
+	peerLn *peer.Listener
 
 	// hosts 는 `Host`·`Origin` 판정의 허용 집합이다 (REQUEST_GATE_SRS FR-RQG-6).
 	// `Access` 의 `self` 를 읽으므로 그 뒤에 만들어진다.
@@ -244,6 +250,7 @@ func New(cfg Config, deps Deps) (*Server, error) {
 	// REQUEST_GATE_SRS FR-RQG-6: 허용 호스트 집합은 `access.self` 를 읽으므로
 	// 그 뒤에 선다. 새 수집 코드를 만들지 않는 것이 이 설계의 요점이다.
 	srv.hosts = newHostAllow(access, cfg.AllowedHosts)
+	srv.initPeer()
 	runWorktreeRoot := ""
 	if deps.Worktrees != nil {
 		runWorktreeRoot = deps.Worktrees.Root()

@@ -417,6 +417,8 @@ dongminal config validate      # 설정 파일을 스키마에 대조 (불일치
 | `tools.json` | 도구의 이름·작업 폴더 | ✅ |
 | `server.json` | 서버 기동값 | ✅ |
 | `sandbox.json` | 샌드박스 프로파일 | ✅ |
+| `peers.json` | 노드 간 통신 설정과 짝 목록 | ✅ |
+| `node-cert.pem` · `node-key.pem` | 노드 인증서와 개인키 (노드의 신원) | ✅ 개인키가 들어가므로 백업 파일을 남에게 주지 마세요 |
 | `notes/` | 메모장 | ✅ |
 | `git-worktrees/` | Git 창에서 만든 worktree | ✅ |
 | `panes.json` | 변환 전 레이아웃 (`migrate` 가 옮깁니다) | ✅ |

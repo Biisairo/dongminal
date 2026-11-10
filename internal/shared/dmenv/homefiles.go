@@ -20,6 +20,10 @@ const (
 	PanedPIDFile  = "paned.pid"
 	ServerLogFile = "server.log"
 	DaemonLogFile = "daemon.log"
+	// 노드 간 통신의 설정·짝 목록과 노드 신원 (PEER_NETWORK_SRS FR-PNW-1·2).
+	PeersFile    = "peers.json"
+	NodeCertFile = "node-cert.pem"
+	NodeKeyFile  = "node-key.pem"
 
 	BinDir          = "bin"
 	NotesDir        = "notes"
