@@ -157,7 +157,7 @@
 | `dmctl peer info <노드>` | `node.info` |
 | `dmctl peer tools <노드> [--json]` | `agents.list` |
 | `dmctl msg --to <노드>/<uuid> <메시지>` | `message.send`. `--to`에 `/`가 없으면 지금처럼 로컬 전달이다 |
-| `dmctl peer spawn <노드> --agent <id> --cwd <경로> [--tab --at <uuid>] [--name <이름>] <프롬프트>` | `agent.spawn`. 성공하면 `<노드>/<uuid>`를 출력 |
+| `dmctl peer spawn <노드> --agent <id> --cwd <경로> [--tab --at <uuid>] [--name <이름>] <프롬프트...>` | `agent.spawn`. 성공하면 `<노드>/<uuid>`를 출력 |
 | `dmctl peer status <노드>/<uuid> [--json]` | `agent.status` |
 | `dmctl peer close <노드>/<uuid>` | `agent.close` |
 
@@ -364,3 +364,5 @@ A 서버 ──TLS 1.3, A 인증서 제시, B 지문 확인──▶ B 노드 �
 | I-61 | 보내는 쪽 HTTP 클라이언트 | 리다이렉트를 따라가지 않는다. 원격 문장·dmctl 출력은 서식 문자(Cf)도 지우고, `peer tools` 의 cwd 는 인용해 찍는다 | 상대가 고른 곳으로 요청을 다시 보내지 않는다. 줄 위조·방향 뒤집기 |
 | I-62 | pending-out 승격 | `Store.Promote` 는 한 락 안에서 확인하고 바꾼다. 결과는 바꿈·이미 짝(`ErrAlreadyPaired`)·없음(`ErrNotPending`)·저장 실패로 나뉜다. confirm 은 이미 짝이면 200, 없으면 403, 저장 실패면 500 이다. `/api/peers/call` 의 회복(FR-PNW-28)도 바꿨을 때만 `peers_changed` 를 방송한다 | 확인과 갱신 사이에 만료·해제·다른 승격이 끼면 거짓 성공이나 거짓 `save_failed` 가 난다. 회복으로 짝이 되어도 화면이 모르면 "대기" 로 남는다 |
 | I-63 | `placement=tab` 의 `at`·`name` | `at` 도구가 든 탭의 좌표는 도구를 만들기 전에 구한다. 도구나 탭을 찾지 못하면 404 `peer_target_not_found` 로 거절하고 아무것도 만들지 않는다. 브라우저가 없어도 같다. 탭에 붙으면 `name` 을 `renameTab`(탭 uuid)으로 붙인다 | 자리 없이 붙이면 보낸 쪽이 모르는 칸에 뜨고 성공으로 답한다. `window` 와 `tab` 의 이름 처리가 달랐다 |
+| I-64 | Peers 탭을 열 때와 승인 대기의 만료 | 탭을 여는 읽기는 그 응답으로 노드 설정 칸과 목록을 그린다. 방송의 다시 읽기가 그 읽기를 밀어내도 칸이 비지 않는다. 화면은 승인 대기의 가장 이른 만료 뒤(여유 1초)에 한 번 다시 읽는다. 대기가 없으면 타이머도 없다 | 빈 칸을 저장하면 400 이다. 만료는 방송이 없어서 알림이 다음 읽기까지 남았다. 주기 조회가 아니므로 I-24 와 맞는다 |
+| I-65 | UI 서버가 실패할 때의 노드 포트 | 노드 포트는 서버 ctx 의 자식 ctx 로 띄운다. UI 서버 `Run` 이 어떤 이유로 끝나든 그 자식을 취소하고 닫기를 기다린다. `dmctl peer spawn` 의 프롬프트는 위치 인자 2개 이상이며, 뒤 낱말은 공백으로 잇는다(`dmctl msg` 와 같다) | 종료 신호 없이 실패하면(포트 사용 중) 노드 포트가 열린 채 남았다. 여러 낱말 프롬프트가 "인자 개수" 오류였다 |

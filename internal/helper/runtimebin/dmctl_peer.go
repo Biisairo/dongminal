@@ -29,7 +29,7 @@ const dmctlPeerHelp = `dmctl peer — 노드 간 통신의 짝맞춤
   dmctl peer info <노드>                     상대 노드의 이름·판·받는 명령·설치된 에이전트·허용 폴더
   dmctl peer tools <노드> [--json]           상대 노드의 에이전트 도구 목록 (<노드>/<uuid>)
   dmctl msg --to <노드>/<uuid> <메시지>       상대 노드의 에이전트에게 원격 엔벨로프로 보낸다
-  dmctl peer spawn <노드> --agent <id> --cwd <경로> [--tab --at <uuid>] [--name <이름>] <프롬프트|->
+  dmctl peer spawn <노드> --agent <id> --cwd <경로> [--tab --at <uuid>] [--name <이름>] <프롬프트...|->
                                              상대 노드에 에이전트를 띄운다. - 이면 stdin 을 읽는다. 성공하면 <노드>/<uuid> 를 낸다.
                                              폴더는 상대가 허용한 폴더 안이어야 한다. 권한 모드는 상대의 것이다
   dmctl peer status <노드>/<uuid> [--json]    working · idle · waiting · ended · unknown
@@ -232,7 +232,11 @@ func runDmctlPeerStdin(stdin io.Reader, args []string, stdout, stderr io.Writer)
 		fmt.Fprint(stdout, dmctlPeerHelp)
 		return 0
 	}
-	if err == nil && len(pa.pos) != spec.positional {
+	switch {
+	case err != nil:
+	case spec.rest && len(pa.pos) < spec.positional:
+		err = fmt.Errorf("인자가 %d 개 이상이어야 합니다", spec.positional)
+	case !spec.rest && len(pa.pos) != spec.positional:
 		err = fmt.Errorf("인자가 %d 개여야 합니다", spec.positional)
 	}
 	if err != nil {
@@ -244,22 +248,24 @@ func runDmctlPeerStdin(stdin io.Reader, args []string, stdout, stderr io.Writer)
 
 type peerSub struct {
 	positional int
-	flags      []string
-	bools      []string
-	run        func(pa peerArgs, stdout, stderr io.Writer) int
+	// rest 면 positional 은 최소 개수다. 마지막 인자 뒤의 낱말은 본문으로 잇는다.
+	rest  bool
+	flags []string
+	bools []string
+	run   func(pa peerArgs, stdout, stderr io.Writer) int
 }
 
 var peerSubs = map[string]peerSub{
-	"invite":  {0, []string{"addr"}, nil, peerInvite},
-	"add":     {1, []string{"name"}, nil, peerAdd},
-	"approve": {1, []string{"name"}, nil, peerApprove},
-	"reject":  {1, nil, nil, peerReject},
-	"remove":  {1, nil, nil, peerRemove},
-	"info":    {1, nil, nil, peerInfo},
-	"tools":   {1, nil, []string{"json"}, peerTools},
-	"spawn":   {2, []string{"agent", "cwd", "at", "name"}, []string{"tab"}, peerSpawn},
-	"status":  {1, nil, []string{"json"}, peerStatus},
-	"close":   {1, nil, nil, peerClose},
+	"invite":  {0, false, []string{"addr"}, nil, peerInvite},
+	"add":     {1, false, []string{"name"}, nil, peerAdd},
+	"approve": {1, false, []string{"name"}, nil, peerApprove},
+	"reject":  {1, false, nil, nil, peerReject},
+	"remove":  {1, false, nil, nil, peerRemove},
+	"info":    {1, false, nil, nil, peerInfo},
+	"tools":   {1, false, nil, []string{"json"}, peerTools},
+	"spawn":   {2, true, []string{"agent", "cwd", "at", "name"}, []string{"tab"}, peerSpawn},
+	"status":  {1, false, nil, []string{"json"}, peerStatus},
+	"close":   {1, false, nil, nil, peerClose},
 }
 
 func peerInvite(pa peerArgs, stdout, stderr io.Writer) int {

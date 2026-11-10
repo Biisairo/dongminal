@@ -25,8 +25,8 @@ Object.assign(App.prototype, {
     return row;
   },
 
-  _pnNodePaint(){
-    const n=this._peers&&this._peers.node;
+  _pnNodePaint(v=this._peers){
+    const n=v&&v.node;
     if(!n) return;
     document.getElementById('pn-enabled').checked=!!n.enabled;
     document.getElementById('pn-name').value=n.name||'';
@@ -257,17 +257,20 @@ Object.assign(App.prototype, {
   },
 
   async _loadPeersPanel(){
+    let v=null;
     await statusRun(document.getElementById('pn-node-status'),{fail:t('peer.read_fail')},async()=>{
       const r=await apiGet('/api/peers');
-      if(r.ok) await this._peersRestore(Promise.resolve(r));
+      if(r.ok&&r.data){ v=r.data; await this._peersRestore(Promise.resolve(r)) }
       return r;
     });
-    this._pnNodePaint();
+    // 방송의 다시 읽기가 이 읽기를 밀어내면 `_peers` 가 아직 비어 있을 수 있다 — 이 읽기의
+    // 값으로 그린다. 더 새 값은 그 다시 읽기가 목록에 그린다.
+    v=v||this._peers;
+    if(!v) return;
+    this._pnNodePaint(v);
     // 탭을 열면 고치던 줄도 버리고 지금 값으로 그린다.
-    if(this._peers){
-      this._pnPendingPaint(this._peers.pending||[],true);
-      this._pnPeersPaint(this._peers.peers||[],true);
-    }
+    this._pnPendingPaint(v.pending||[],true);
+    this._pnPeersPaint(v.peers||[],true);
   },
 
   _pnInviteShown(){

@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 // M8 D-A-12 (GO-16): 종료 순서는 주석이 아니라 표다. 마커를 먼저 쓰고(정상 종료의
 // 증거), 데몬 연결을 먼저 놓아야 새 서버가 붙고, 도구 저장 → 샌드박스 정지 →
@@ -29,5 +32,27 @@ func TestShutdownSteps_CancelsGitRootFirst(t *testing.T) {
 	a.shutdownSteps()[0].fn()
 	if !called {
 		t.Fatal("첫 단계가 git 루트를 취소하지 않았다")
+	}
+}
+
+// C7: UI 서버가 종료 신호 없이 실패해도(포트 사용 중) 노드 포트를 닫고 기다린다.
+func TestStartPeerScoped_ClosesWithoutCancel(t *testing.T) {
+	var stop <-chan struct{}
+	done := make(chan struct{})
+	closePeer := startPeerScoped(context.Background(), func(s <-chan struct{}) <-chan struct{} {
+		stop = s
+		go func() { <-s; close(done) }()
+		return done
+	})
+	closePeer()
+	select {
+	case <-stop:
+	default:
+		t.Fatal("노드 포트를 닫으라는 신호가 없다")
+	}
+	select {
+	case <-done:
+	default:
+		t.Fatal("닫기가 끝나기 전에 돌아왔다")
 	}
 }

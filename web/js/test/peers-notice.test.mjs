@@ -32,6 +32,7 @@ function setup() {
     },
   });
   const app = new ctx.App();
+  app.timers = { after: () => ({ stop() {} }), cancel() {} };
   app._restoreBegin = () => 1;
   app._restoreLive = () => true;
   app._restoreEnd = () => {};
@@ -106,4 +107,73 @@ test('paired 방송은 "등록됨" 알림을 남긴다', async () => {
   assert.equal(ok[0].ms, 0, '등록 알림은 남아야 한다');
   await app._onPeersChanged({});
   assert.equal(shown.filter((h) => h.kind === 'ok').length, 1);
+});
+
+/**
+ * C6: 탭을 여는 읽기가 방송의 다시 읽기에 밀려도(세대가 지나도) 노드 설정 칸은 그 읽기의
+ * 값으로 채운다. 비어 남은 칸을 저장하면 400 이다.
+ */
+test('탭을 여는 읽기가 밀려도 노드 칸은 그 값으로 채운다', async () => {
+  const data = { node: { name: 'office', port: 58147 }, pending: [{ id: 'p1' }], peers: [{ name: 'b' }] };
+  const ctx = load(['core/state-registry.js', 'core/app-peers.js', 'core/app-settings-peers.js'], {
+    globals: {
+      App: function App() {},
+      t: (k) => k,
+      apiGet: async () => ({ ok: true, status: 200, data }),
+      statusRun: async (_el, _opts, fn) => fn(),
+      document: { getElementById: () => null },
+      Toast: { show: () => ({ close() {}, update() {}, el: { isConnected: true } }) },
+    },
+  });
+  const app = new ctx.App();
+  app.timers = { after: () => ({ stop() {} }), cancel() {} };
+  app._restoreBegin = () => 1;
+  app._restoreLive = () => false; // 방송의 다시 읽기가 뒤에 시작했다
+  app._restoreEnd = () => {};
+  const painted = {};
+  app._pnNodePaint = (v) => { painted.node = v };
+  app._pnPendingPaint = (p, force) => { painted.pending = [p, force] };
+  app._pnPeersPaint = (p, force) => { painted.peers = [p, force] };
+  await app._loadPeersPanel();
+  assert.equal(painted.node, data);
+  assert.deepEqual(painted.pending, [data.pending, true]);
+  assert.deepEqual(painted.peers, [data.peers, true]);
+});
+
+/**
+ * C6: 승인 대기는 시간으로 만료돼도 방송이 없다. 가장 이른 만료 뒤에 한 번 다시 읽어
+ * 알림을 거둔다. 주기 조회가 아니다 — 대기가 없으면 타이머도 없다.
+ */
+test('승인 대기가 만료되는 때에 한 번 다시 읽는다', async () => {
+  const timers = [];
+  const cleared = [];
+  const now = Date.parse('2026-11-10T00:00:00Z');
+  let next = { ok: true, status: 200, data: { pending: [
+    { id: 'p1', expires: '2026-11-10T00:05:00Z' }, { id: 'p2', expires: '2026-11-10T00:02:00Z' }] } };
+  const ctx = load(['core/state-registry.js', 'core/app-peers.js'], {
+    globals: {
+      App: function App() {},
+      t: (k) => k,
+      apiGet: async () => next,
+      Date: { now: () => now, parse: Date.parse },
+      Toast: { show: () => { const h = { el: { isConnected: true } }; h.close = () => { h.el.isConnected = false }; h.update = () => {}; return h } },
+    },
+  });
+  const app = new ctx.App();
+  app.timers = {
+    after: (ms, fn) => { const h = { ms, fn, stop: () => cleared.push(h) }; timers.push(h); return h },
+    cancel: (h) => { if (h) h.stop() },
+  };
+  app._restoreBegin = () => 1;
+  app._restoreLive = () => true;
+  app._restoreEnd = () => {};
+  app._peersPaint = () => {};
+  await app._peersRestore();
+  assert.equal(timers.length, 1);
+  assert.ok(timers[0].ms >= 120000 && timers[0].ms <= 125000, `타이머 ${timers[0].ms}`);
+  next = { ok: true, status: 200, data: { pending: [] } };
+  await timers[0].fn();
+  assert.deepEqual(cleared, [timers[0]], '앞 타이머를 거두지 않았다');
+  assert.equal(timers.length, 1, '대기가 없는데 타이머를 걸었다');
+  assert.equal(app._peerToast, null, '알림을 거두지 않았다');
 });

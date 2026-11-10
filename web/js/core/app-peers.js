@@ -10,6 +10,9 @@
 /** FR-PNW-80: 화면에 보이는 지문의 길이. */
 const PEER_FP_SHOWN=16;
 
+/** 승인 대기의 만료 뒤 다시 읽기까지 더 기다리는 여유. 서버 시계와의 작은 차이를 넘긴다. */
+const PEER_EXPIRY_SLACK_MS=1000;
+
 function peerFp16(fp){ return String(fp||'').slice(0,PEER_FP_SHOWN) }
 
 /** 만료까지 남은 시간 `m:ss`. 지났거나 읽을 수 없으면 빈 값이다. */
@@ -29,6 +32,7 @@ Object.assign(App.prototype, {
       if(r.ok&&r.data){
         this._peers=r.data;
         this._peersPendingNotice(r.data.pending||[]);
+        this._peersExpiryArm(r.data.pending||[]);
         this._peersPaint();
       }
       this._restoreEnd('peers',flight);
@@ -38,6 +42,19 @@ Object.assign(App.prototype, {
   _onPeersChanged(a){
     if(a&&a.paired) Toast.show(t('peer.paired_notice',{name:a.paired}),'ok',0);
     return this._peersRestore();
+  },
+
+  /**
+   * 승인 대기는 시간으로 만료돼도 방송이 없다. 가장 이른 만료 뒤에 한 번 다시 읽는다.
+   * 주기 조회가 아니다 — 대기가 없으면 타이머도 없다 (I-24·I-64).
+   */
+  _peersExpiryArm(pending){
+    this.timers.cancel(this._peerExpiryTimer);
+    this._peerExpiryTimer=null;
+    const at=Math.min(...pending.map(p=>Date.parse(p.expires)).filter(Number.isFinite));
+    if(!Number.isFinite(at)) return;
+    this._peerExpiryTimer=this.timers.after(Math.max(0,at-Date.now())+PEER_EXPIRY_SLACK_MS,
+      ()=>this._peersRestore(),{owner:'app',label:'peer-expiry'});
   },
 
   /** FR-PNW-81: 처음 보는 대기가 있을 때만 띄운다. 대기가 없어지면 거둔다. */

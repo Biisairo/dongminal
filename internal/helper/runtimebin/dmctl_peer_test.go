@@ -334,6 +334,18 @@ func TestDmctlPeerSpawnDefaultsWindow(t *testing.T) {
 	}
 }
 
+// C5: 여러 낱말 프롬프트는 공백으로 잇는다 (`dmctl msg` 와 같다).
+func TestDmctlPeerSpawnMultiWordPrompt(t *testing.T) {
+	calls, cleanup := withPeerServer(t, 200, `{"toolId":"u-9","headless":false}`)
+	defer cleanup()
+	if rc, _, e := dmctlRun("peer", "spawn", "home", "--agent", "claude", "--cwd", "/w", "테스트", "돌려"); rc != 0 {
+		t.Fatalf("rc=%d %s", rc, e)
+	}
+	if args, _ := (*calls)[0].body["args"].(map[string]any); args["prompt"] != "테스트 돌려" {
+		t.Fatalf("args %+v", args)
+	}
+}
+
 func TestDmctlPeerSpawnUsage(t *testing.T) {
 	_, cleanup := withPeerServer(t, 200, `{}`)
 	defer cleanup()
@@ -341,7 +353,9 @@ func TestDmctlPeerSpawnUsage(t *testing.T) {
 		{"peer", "spawn", "home", "--cwd", "/w", "hi"},                               // --agent 없음
 		{"peer", "spawn", "home", "--agent", "claude", "hi"},                         // --cwd 없음
 		{"peer", "spawn", "home", "--agent", "claude", "--cwd", "/w", "--tab", "hi"}, // --at 없음
+		{"peer", "spawn", "home", "--agent", "claude", "--cwd", "/w"},                // 프롬프트 없음
 		{"peer", "status", "home"}, {"peer", "close", "nouuid"},
+		{"peer", "info", "a", "b"}, // 다른 하위 명령은 개수가 정확해야 한다
 	} {
 		if rc, _, _ := dmctlRun(args...); rc != 2 {
 			t.Errorf("%v: rc=%d, 기대 2", args, rc)

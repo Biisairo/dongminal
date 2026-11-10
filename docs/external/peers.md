@@ -75,7 +75,7 @@ A(요청하는 쪽)와 B(초대하는 쪽) 두 노드가 있다고 합시다. �
 | `dmctl peer info <노드>` | 상대의 이름·판·받는 명령·설치된 에이전트·허용 폴더 |
 | `dmctl peer tools <노드> [--json]` | 상대의 에이전트 도구 목록. 각 줄의 `<노드>/<uuid>` 가 원격 주소입니다 |
 | `dmctl msg --to <노드>/<uuid> <메시지>` | 상대 에이전트에게 메시지를 보냅니다 |
-| `dmctl peer spawn <노드> --agent <id> --cwd <경로> [--tab --at <uuid>] [--name <이름>] <프롬프트\|->` | 상대 노드에 에이전트를 띄우고 첫 프롬프트를 줍니다. `-` 이면 stdin 을 읽습니다. 성공하면 `<노드>/<uuid>` 를 냅니다 |
+| `dmctl peer spawn <노드> --agent <id> --cwd <경로> [--tab --at <uuid>] [--name <이름>] <프롬프트...\|->` | 상대 노드에 에이전트를 띄우고 첫 프롬프트를 줍니다. 낱말이 여럿이면 공백으로 잇고, `-` 이면 stdin 을 읽습니다. 성공하면 `<노드>/<uuid>` 를 냅니다 |
 | `dmctl peer status <노드>/<uuid> [--json]` | `working` · `idle` · `waiting` · `ended` · `unknown` |
 | `dmctl peer close <노드>/<uuid>` | **자기가 띄운** 에이전트를 끝내고 닫습니다 |
 
