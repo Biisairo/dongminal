@@ -149,3 +149,21 @@ func TestToolStatusWaitDoesNotEndOnUnknown(t *testing.T) {
 		t.Fatalf("마지막 관측에 liveUnknown 이 없다: %v", out)
 	}
 }
+
+// RUN_INACTIVE_NODE_SRS FR-RIN-21 (TC-RIN-4): lost 는 확인된 죽음일 때만이다. 데몬이 답하지
+// 못하는 동안 살아 있는 멤버를 잃은 것으로 보이면, 화면이 그 노드를 비활성으로 바꾼다.
+func TestDeriveMemberStateLostOnlyWhenDead(t *testing.T) {
+	s, _, store, _ := runsServer(t, "tool-a")
+	rec := startRunFor(t, store, "x", "tool-a")
+	m, err := store.AddMember(rec.ID, run.MemberSpec{Role: "w", Agent: "claude", ToolID: "tool-gone"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := s.deriveMemberState(m); got != run.Lost {
+		t.Fatalf("확인된 죽음=%s want lost", got)
+	}
+	unknownTools(s)
+	if got := s.deriveMemberState(m); got == run.Lost {
+		t.Fatal("생존을 모르는데 lost 로 판정했다")
+	}
+}

@@ -66,7 +66,9 @@ func (s *Server) deriveMemberState(m run.Member) run.MemberState {
 	case run.Done, run.Failed, run.Released:
 		return m.State
 	}
-	live := s.toolLive(m.ToolID)
+	// RUN_INACTIVE_NODE_SRS FR-RIN-21: lost 는 확인된 죽음일 때만이다. 생존을 모르면
+	// 살아 있는 것처럼 훅 상태로 판정한다.
+	live := s.toolLiveness(m.ToolID) != livenessDead
 	hook := ""
 	if live {
 		hook = s.toolStatusOf(m.ToolID, true).State

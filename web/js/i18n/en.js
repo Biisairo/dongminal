@@ -953,6 +953,7 @@ I18N.register('en', {
   'html.focus_edge': 'Mark unfocused windows',
   'html.focus_edge_hint': 'Draws a faint band along the screen edge while this browser window is not receiving keys. Set to 0 to draw nothing. The strength previews live while dragging. The colour is the inverse of what is underneath, so it stands out in any theme, and the inside of the screen is untouched so reading is unaffected. It is for knowing which of several windows gets your keys without pressing one.',
   'html.locale': 'Language',
+  'runs.card_lost_title': 'The session of this member cannot be found. It becomes active again when it is found',
   'html.panel_layout': 'Panel layout',
   'html.panel_layout_reset': 'Reset',
   'html.panel_layout_hint': 'Panel widths, sides, and open state are kept per tab. Save makes new tabs start with the current layout. Widths are saved as a ratio of the screen width. Reset deletes the saved layout. The current tab does not change.',

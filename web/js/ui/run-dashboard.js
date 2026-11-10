@@ -294,7 +294,7 @@ Object.assign(RunsPanel.prototype, {
   // FR-RVZ-10: 멤버 카드. FR-RVZ-13: 클릭하면 그 멤버의 도구로 포커스가 점프한다.
   _runPaintCards(root, d, members) {
     const el = root.querySelector('.run-cards');
-    reconcileList(el, members, {
+    reconcileList(el, runCardsShown(members), {
       key: m => m.id,
       // FUI-04: `분리` 버튼의 유무가 서버의 답으로 갈린다 — 근거에 넣지 않으면
       // 부착·분리 뒤 버튼이 따라오지 않는다 (FR-RPT-2).
@@ -310,11 +310,14 @@ Object.assign(RunsPanel.prototype, {
   _runCardEl(m) {
     const card = runDiv('run-card state-' + (m.state || 'starting'));
     card.dataset.member = m.id;
+    // RUN_INACTIVE_NODE_SRS FR-RIN-11: 잃은 멤버는 눈에 띄게 남기되 누를 수 없고 맥락을 싣지 않는다.
+    const lost = runNodeKind(m.state) === 'lost';
+    if (lost) card.classList.add('inactive', 'lost');
     if (m.headless) card.classList.add('headless');
     card.appendChild(runDiv('run-card-role', '[' + (m.role || t('runs.no_role')) + ']'));
     if (m.agent) card.appendChild(runDiv('run-card-agent', m.agent));
     card.appendChild(runDiv('run-card-state', m.state || ''));
-    if (m.contextLevel) {
+    if (m.contextLevel && !lost) {
       const pct = Math.round((m.contextRatio || 0) * 100);
       const warn = m.contextLevel === 'ok' ? '' : ' ⚠';
       /**
@@ -337,10 +340,14 @@ Object.assign(RunsPanel.prototype, {
     if (m.compactCount) card.appendChild(runDiv('run-card-compact', tn('runs.compact_count', m.compactCount)));
     if (m.worktree && m.worktree.branch) card.appendChild(runDiv('run-card-wt', 'wt: ' + m.worktree.branch));
     if (m.headless) card.appendChild(runDiv('run-card-headless', t('runs.headless_paren')));
-    card.title = m.headless
-      ? t('runs.card_attach_title')
-      : t('runs.card_jump_title');
-    card.addEventListener('click', () => this._runJumpToMember(m));
+    if (lost) {
+      card.title = t('runs.card_lost_title');
+    } else {
+      card.title = m.headless
+        ? t('runs.card_attach_title')
+        : t('runs.card_jump_title');
+      card.addEventListener('click', () => this._runJumpToMember(m));
+    }
     /**
      * `12-func-ui.md FUI-04`: **분리.** 탭은 닫히고 도구는 산다.
      *

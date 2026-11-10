@@ -106,6 +106,15 @@ body.mobile .runs-del,body.mobile .runs-close{min-height:var(--touch-min);paddin
 .run-view .run-tree-node.state-lost .run-tree-box{stroke:var(--text-dim)}
 .run-view .run-tree-node.leaf .run-tree-box{stroke-width:2.5}
 .run-view .run-tree-node.ended{opacity:.55}
+/* RUN_INACTIVE_NODE_SRS FR-RIN-2·3·11: 비활성은 누를 수 없고, 잃은 멤버는 경고색 점선으로 드러난다. */
+.run-view .run-tree-node.inactive{cursor:default}
+.run-view .run-tree-node.inactive:hover .run-tree-box{fill:var(--sidebar-bg)}
+.run-view .run-tree-node.lost .run-tree-box{stroke:var(--attn);stroke-width:2;stroke-dasharray:5 3}
+.run-view .run-tree-node.lost .run-tree-state{fill:var(--attn-text);font-weight:600}
+.run-view .run-card.inactive{cursor:default}
+.run-view .run-card.inactive:hover{background:var(--sidebar-bg)}
+.run-view .run-card.lost{border-style:dashed;border-color:var(--attn);border-left-style:solid;border-left-color:var(--attn)}
+.run-view .run-card.lost .run-card-state{color:var(--attn-text);font-weight:600}
 .run-view .run-tree-node text{font-family:inherit;font-size:var(--fs-sm)}
 .run-view .run-tree-issue{font-family:var(--mono);fill:var(--text-bright);font-weight:600}
 .run-view .run-tree-title{fill:var(--text)}

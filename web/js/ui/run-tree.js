@@ -25,7 +25,7 @@ Object.assign(RunsPanel.prototype, {
       svg.dataset.w = lay.w;
       svg.dataset.h = lay.h;
       const edges = runSvg('g', { class: 'run-tree-edges' });
-      for (const [p, c] of lay.edges) edges.appendChild(runTreeEdgeEl(lay.pos[p], lay.pos[c]));
+      for (const [p, c] of lay.edges) edges.appendChild(runSvg('path', { class: 'run-tree-edge', d: runTreeEdgePath(lay.pos[p], lay.pos[c]) }));
       svg.appendChild(edges);
       nodes.forEach((n, i) => svg.appendChild(this._runTreeNodeEl(n, lay.pos[i])));
       const wrap = runDiv('run-tree-wrap ui-scroll');
@@ -35,23 +35,28 @@ Object.assign(RunsPanel.prototype, {
     runFitSvg(el, el.querySelector('.run-tree-svg'));
   },
 
-  // FR-ITC-7: 이슈 번호 · 제목 / 사슬 이름 / 상태 · 맥락 · 잎. 끝난 노드는 흐리다.
+  /**
+   * FR-ITC-7: 이슈 번호 · 제목 / 사슬 이름 / 상태 · 맥락 · 잎.
+   * RUN_INACTIVE_NODE_SRS FR-RIN-1~3: 끝난 노드는 작은 상자에 머리 한 줄만, 잃은 노드는 눈에
+   * 띄는 표시에 맥락 없이 그린다. 둘 다 누를 수 없다 — 붙일 도구가 없어 누르면 실패했다.
+   */
   _runTreeNodeEl(n, p) {
-    const ended = RUN_TREE_ENDED.has(n.state);
-    const g = runSvg('g', {
-      class: 'run-tree-node state-' + (n.state || 'starting') + (n.leaf ? ' leaf' : '') + (ended ? ' ended' : ''),
-      role: 'button', tabindex: '0',
-    });
+    const kind = runNodeKind(n.state);
+    const active = kind === 'active';
+    const cls = 'run-tree-node state-' + (n.state || 'starting') + (n.leaf ? ' leaf' : '')
+      + (active ? '' : ' inactive ' + kind);
+    const g = runSvg('g', active ? { class: cls, role: 'button', tabindex: '0' } : { class: cls });
     g.dataset.member = n.id;
     g.dataset.depth = String(p.depth);
     const x = p.x - RUN_TREE_NODE_W / 2;
     const tip = runSvg('title');
-    tip.textContent = [runTreeIssueNumber(n.issue), n.title, n.role, n.state, t('runs.tree_jump')].filter(Boolean).join(' · ');
+    tip.textContent = [runTreeIssueNumber(n.issue), n.title, n.role, n.state, active ? t('runs.tree_jump') : '']
+      .filter(Boolean).join(' · ');
     g.appendChild(tip);
-    g.appendChild(runSvg('rect', { class: 'run-tree-box', x, y: p.y, width: RUN_TREE_NODE_W, height: RUN_TREE_NODE_H, rx: 5 }));
+    g.appendChild(runSvg('rect', { class: 'run-tree-box', x, y: p.y, width: RUN_TREE_NODE_W, height: p.h, rx: 5 }));
 
     const tx = x + RUN_TREE_PAD_IN;
-    const head = runSvg('text', { x: tx, y: p.y + 20 });
+    const head = runSvg('text', { x: tx, y: p.y + (kind === 'ended' ? 19 : 20) });
     const num = runTreeIssueNumber(n.issue);
     if (num) head.appendChild(runTreeSpan('run-tree-issue', num));
     if (n.title) {
@@ -60,14 +65,16 @@ Object.assign(RunsPanel.prototype, {
       head.appendChild(s);
     }
     if (head.childNodes.length) g.appendChild(head);
+    if (kind === 'ended') return g;
     const role = runSvg('text', { class: 'run-tree-role', x: tx, y: p.y + 37 });
     role.textContent = runTreeClip(n.role || '', RUN_TREE_TEXT_UNITS);
     g.appendChild(role);
     const foot = runSvg('text', { x: tx, y: p.y + 54 });
     foot.appendChild(runTreeSpan('run-tree-state', n.state || ''));
-    if (n.contextRatio) foot.appendChild(runTreeSpan('run-tree-ctx', Math.round(n.contextRatio * 100) + '%', '8'));
+    if (active && n.contextRatio) foot.appendChild(runTreeSpan('run-tree-ctx', Math.round(n.contextRatio * 100) + '%', '8'));
     if (n.leaf) foot.appendChild(runTreeSpan('run-tree-leaf', t('runs.tree_leaf'), '8'));
     g.appendChild(foot);
+    if (!active) return g;
 
     const go = () => this._runJumpToMember(n);
     g.addEventListener('click', go);
@@ -87,9 +94,25 @@ Object.assign(RunsPanel.prototype, {
 /** 흔적으로만 남는 노드의 상태 (FR-ITC-3·7). */
 const RUN_TREE_ENDED = new Set(['done', 'failed', 'released']);
 
+/**
+ * RUN_INACTIVE_NODE_SRS: 노드·카드의 종류. `ended`(끝남)·`lost`(잃음)는 비활성이다. 상태는
+ * 서버의 것이므로, 잃은 멤버의 도구가 다시 잡히면 다음 응답에서 `active` 로 돌아온다 (FR-RIN-20).
+ */
+function runNodeKind(state) {
+  if (RUN_TREE_ENDED.has(state)) return 'ended';
+  return state === 'lost' ? 'lost' : 'active';
+}
+
+/** FR-RIN-10: 카드 목록에는 끝난 멤버를 싣지 않는다. 잃은 멤버는 남는다(FR-RIN-11). */
+function runCardsShown(members) {
+  return members.filter(m => runNodeKind(m.state) !== 'ended');
+}
+
 // FR-ITC-10: 트리 다이어그램의 치수. 전부 viewBox 좌표다 — 같은 트리는 어느 창에서도 같은 모양이다.
 const RUN_TREE_NODE_W = 184;
 const RUN_TREE_NODE_H = 64;
+// FR-RIN-1: 끝난 노드의 상자 높이 — 머리 한 줄이 든다.
+const RUN_TREE_NODE_H_ENDED = 30;
 const RUN_TREE_GAP_X = 24;
 const RUN_TREE_GAP_Y = 44;
 const RUN_TREE_PAD = 12;
@@ -117,7 +140,8 @@ function runTreeLayout(nodes) {
   const step = RUN_TREE_NODE_W + RUN_TREE_GAP_X;
   let slot = 0, maxDepth = 0;
   const place = (i, depth) => {
-    pos[i] = { x: 0, y: RUN_TREE_PAD + depth * (RUN_TREE_NODE_H + RUN_TREE_GAP_Y), depth };
+    pos[i] = { x: 0, y: RUN_TREE_PAD + depth * (RUN_TREE_NODE_H + RUN_TREE_GAP_Y), depth,
+      h: runNodeKind(nodes[i].state) === 'ended' ? RUN_TREE_NODE_H_ENDED : RUN_TREE_NODE_H };
     maxDepth = Math.max(maxDepth, depth);
     const ks = kids[i].filter(k => !pos[k]);
     for (const k of ks) { edges.push([i, k]); place(k, depth + 1) }
@@ -135,10 +159,10 @@ function runTreeLayout(nodes) {
   };
 }
 
-/** 부모 상자 아래 → 두 줄 사이 → 자식 상자 위로 꺾여 내려가는 선. */
-function runTreeEdgeEl(p, c) {
-  const y1 = p.y + RUN_TREE_NODE_H, y2 = c.y, my = (y1 + y2) / 2;
-  return runSvg('path', { class: 'run-tree-edge', d: `M${p.x},${y1} V${my} H${c.x} V${y2}` });
+/** 부모 상자 아래 → 두 줄 사이 → 자식 상자 위로 꺾여 내려가는 선. 상자 높이는 노드마다다 (FR-RIN-4). */
+function runTreeEdgePath(p, c) {
+  const y1 = p.y + p.h, y2 = c.y, my = (y1 + y2) / 2;
+  return `M${p.x},${y1} V${my} H${c.x} V${y2}`;
 }
 
 function runTreeSpan(cls, text, dx) {

@@ -159,6 +159,7 @@ Dongminal 컨트리뷰터·유지보수자 대상 문서.
 | [SCHEDULER_REARM_SRS.md](./SCHEDULER_REARM_SRS.md) | **돌지 않은 회차도 마감을 다시 건다 — 스케줄러의 공회전 교정** (IEEE 29148, `FR-SRA-*`). `TimerHub` 는 **가장 이른 마감 하나만 예약하는 단일 타이머**이고(FR-SCH-3), 그 설계가 성립하려면 모든 job 의 `nextAt` 이 늘 **미래**여야 한다 — 과거의 마감이 하나라도 남으면 루프가 공회전한다. **구현 완료** |
 | [SETTINGS_CONTROLS_SRS.md](./SETTINGS_CONTROLS_SRS.md) | **설정 컨트롤의 공통 언어** (IEEE 29148, `FR-SCT-*`). 설정 패널의 입력 수단을 **한 벌의 시각 언어**(`.ds-switch`·`.ds-range`)로 모은다 — 새로 들어오는 값이 기존 항목과 따로 놀지 않게 하고, 이미 어긋나 있던 항목(슬롯 방향)을 그 언어로 되돌린다. **구현 완료** |
 | [SIDEBAR_COLLAPSE_SRS.md](./SIDEBAR_COLLAPSE_SRS.md) | **좌측 사이드바 접기** (IEEE 29148, `FR-SBC-*`). 사이드바를 좁히는 유일한 손잡이가 `#sb-handle` 드래그뿐이었고 **100px 아래로 내려가지 않았다.** **구현 완료** |
+| [RUN_INACTIVE_NODE_SRS.md](./RUN_INACTIVE_NODE_SRS.md) | **Run 의 비활성 노드** (IEEE 29148, `FR-RIN-*`). 끝난·잃은 멤버의 노드와 카드가 활성과 같아 누르면 오류가 났다. 끝난 노드는 작게, 잃은 노드는 눈에 띄게, 둘 다 누를 수 없다. **구현 완료** |
 | [PANEL_LAYOUT_SRS.md](./PANEL_LAYOUT_SRS.md) | **패널 레이아웃** (IEEE 29148, `FR-PLY-*`). 패널 배치 값의 저장 범위가 값마다 달랐다. 모두 탭별로 두고, 저장한 레이아웃(폭은 비율)으로 새 탭을 연다. **구현 완료** |
 | [PANEL_DOCK_SRS.md](./PANEL_DOCK_SRS.md) | **패널 좌우 도킹** (IEEE 29148, `FR-PDK-*`). 사이드바·Activity·Repo 사이드가 한쪽에 고정돼 있었다. 끌어서 좌우·순서를 바꾼다. **구현 완료** |
 | [PEER_NETWORK_SRS.md](./PEER_NETWORK_SRS.md) | **노드 간 통신** (IEEE 29148, `FR-PNW-*`). 다른 PC의 dongminal과 짝맞춰 에이전트 목록·메시지·원격 기동을 프로토콜 명령으로 주고받는다. **승인·구현완료** |

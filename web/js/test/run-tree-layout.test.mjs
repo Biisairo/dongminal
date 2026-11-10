@@ -75,3 +75,36 @@ test('짧은 제목은 그대로, 긴 제목은 줄여 끝에 … 를 붙인다'
   assert.ok(long.length <= 12, long);
   assert.equal(runTreeClip('abcdefghijklmnop', 8), 'abcdefg…');
 });
+
+/**
+ * RUN_INACTIVE_NODE_SRS — 비활성 노드(끝남·잃음)의 판정과 크기.
+ */
+const ix = load(['ui/runs-panel.js', 'ui/run-tree.js'], {
+  globals: { t: (k) => k, panesOf: () => [] },
+  expose: ['runNodeKind', 'runCardsShown', 'runTreeLayout', 'runTreeEdgePath', 'RUN_TREE_NODE_H', 'RUN_TREE_NODE_H_ENDED'],
+});
+
+test('TC-RIN-1·2: 상태마다 노드의 종류가 갈린다', () => {
+  for (const s of ['done', 'failed', 'released']) assert.equal(ix.runNodeKind(s), 'ended', s);
+  assert.equal(ix.runNodeKind('lost'), 'lost');
+  for (const s of ['working', 'waiting', 'ready', 'starting', 'waiting-children', '', undefined]) {
+    assert.equal(ix.runNodeKind(s), 'active', String(s));
+  }
+});
+
+test('TC-RIN-1·4: 끝난 노드는 작은 상자이고, 선은 상자의 실제 아래 끝에서 나간다', () => {
+  assert.ok(ix.RUN_TREE_NODE_H_ENDED < ix.RUN_TREE_NODE_H);
+  const l = ix.runTreeLayout([
+    { id: 'a', role: 'a', parent: '', state: 'done' },
+    { id: 'b', role: 'a›b', parent: 'a', state: 'working' },
+  ]);
+  assert.equal(l.pos[0].h, ix.RUN_TREE_NODE_H_ENDED);
+  assert.equal(l.pos[1].h, ix.RUN_TREE_NODE_H);
+  const d = ix.runTreeEdgePath(l.pos[0], l.pos[1]);
+  assert.ok(d.startsWith(`M${l.pos[0].x},${l.pos[0].y + ix.RUN_TREE_NODE_H_ENDED} `), d);
+});
+
+test('TC-RIN-3: 카드 목록은 끝난 멤버를 빼고 잃은 멤버는 남긴다', () => {
+  const ms = ['working', 'done', 'lost', 'failed', 'released', 'ready'].map((state, i) => ({ id: String(i), state }));
+  assert.deepEqual([...ix.runCardsShown(ms).map((m) => m.state)], ['working', 'lost', 'ready']);
+});
