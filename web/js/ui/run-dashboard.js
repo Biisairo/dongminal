@@ -105,8 +105,8 @@ Object.assign(RunsPanel.prototype, {
   // FR-FIT-1~4: 그래프를 감싼 칸의 폭에 맞춘다 (`runFitSvg`).
   _runFitGraph(root) {
     runFitSvg(root.querySelector('.run-graph-wrap'), root.querySelector('.run-graph'));
-    // ISSUE_TREE_OPS_SRS FR-ITC-10: 트리 다이어그램도 같은 폭 맞춤을 따른다.
-    runFitSvg(root.querySelector('.run-tree'), root.querySelector('.run-tree-svg'));
+    // ISSUE_TREE_OPS_SRS FR-ITC-11·12: 트리는 폭 맞춤이 아니라 고정 높이 영역의 보기다.
+    this._runTreeCam(root);
   },
 
   // FR-FIT-6: 분할 칸이 바뀌면 다시 맞춘다. 폴링하지 않는다 — 크기 변화는
@@ -120,6 +120,8 @@ Object.assign(RunsPanel.prototype, {
     // 트리 Run 은 그래프 wrap 이 감춰져 폭 변화를 알리지 않는다 — 트리 영역도 본다.
     const tree = v.root.querySelector('.run-tree');
     if (tree) v.ro.observe(tree);
+    // FR-ITC-11: 트리 영역의 높이는 Run 화면 높이를 따른다 — 화면도 본다.
+    v.ro.observe(v.root);
   },
 
   // 화살촉. 색은 CSS 가 채운다 — 마커 안에서는 테마 변수를 클래스로만 만난다.

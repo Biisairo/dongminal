@@ -90,8 +90,22 @@ body.mobile .runs-del,body.mobile .runs-close{min-height:var(--touch-min);paddin
 .run-view .run-tree.vis{display:flex}
 .run-view .run-tree-h{color:var(--text-muted);font-size:var(--fs-sm);margin-bottom:2px}
 .run-view .run-tree-empty{color:var(--text-hint);font-size:var(--fs-sm)}
-.run-view .run-tree-wrap{overflow-x:auto;overflow-y:hidden}
-.run-view .run-tree-svg{display:block;margin:0 auto}
+/* ISSUE_TREE_OPS_SRS FR-ITC-11: 높이는 Run 화면의 50% 다(스크립트가 정한다). 넘치는 것은 줌·패닝으로 본다. */
+.run-view .run-tree-wrap{position:relative;overflow:hidden;touch-action:none;
+  border:1px solid var(--border);border-radius:4px;background:var(--bg)}
+.run-view .run-tree-svg{display:block;width:100%;height:100%;cursor:grab;user-select:none}
+.run-view .run-tree-svg.panning{cursor:grabbing}
+/* FR-ITC-15·16: 오른쪽 위의 반투명 미니맵과 줌 게이지. 손이 가면 또렷해진다. */
+.run-view .run-tree-hud{position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:4px;
+  padding:6px;border:1px solid var(--border);border-radius:4px;background:var(--sidebar-bg);
+  opacity:.7;transition:opacity var(--dur-fast)}
+.run-view .run-tree-hud:hover{opacity:1}
+.run-view .run-tree-mini{display:block;width:140px;height:84px;cursor:pointer}
+.run-view .run-tree-mini-node{fill:var(--border-strong)}
+.run-view .run-tree-mini-view{fill:var(--accent-subtle);stroke:var(--accent);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.run-view .run-tree-gauge{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--text-muted)}
+.run-view .run-tree-zoom{flex:1 1 auto;min-width:0;width:70px}
+.run-view .run-tree-pct{min-width:3.2em;text-align:right;font-variant-numeric:tabular-nums}
 /* ISSUE_TREE_OPS_SRS FR-ITC-6·10: 도형 다이어그램. 테두리 색 = 상태, 잎은 굵게, 끝난 노드는 흐리게. */
 .run-view .run-tree-edge{fill:none;stroke:var(--border-strong);stroke-width:1.5}
 .run-view .run-tree-node{cursor:pointer;outline:none}

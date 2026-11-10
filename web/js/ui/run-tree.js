@@ -28,11 +28,139 @@ Object.assign(RunsPanel.prototype, {
       for (const [p, c] of lay.edges) edges.appendChild(runSvg('path', { class: 'run-tree-edge', d: runTreeEdgePath(lay.pos[p], lay.pos[c]) }));
       svg.appendChild(edges);
       nodes.forEach((n, i) => svg.appendChild(this._runTreeNodeEl(n, lay.pos[i])));
-      const wrap = runDiv('run-tree-wrap ui-scroll');
+      // FR-ITC-11: 높이가 고정된 보기 영역. 줌·패닝은 viewBox 만 바꾼다 (`_runTreeCam`).
+      const wrap = runDiv('run-tree-wrap');
       wrap.appendChild(svg);
+      wrap.appendChild(this._runTreeHud(nodes, lay));
       el.appendChild(wrap);
+      this._runTreeWire(root, wrap, svg);
     });
-    runFitSvg(el, el.querySelector('.run-tree-svg'));
+    this._runTreeCam(root);
+  },
+
+  /**
+   * FR-ITC-11·12·17: 영역 높이(Run 화면의 50%)와 보기를 정한다. 사용자가 움직이기 전이면
+   * 맞춤이고, 움직인 뒤에는 그 보기를 지킨다 — 다시 그려도 viewBox 좌표는 같은 트리에서 같다.
+   * 보기 상태는 Run 화면(root)에 둔다. 트리 영역은 데이터가 바뀌면 새로 만들어진다.
+   */
+  _runTreeCam(root) {
+    const wrap = root.querySelector('.run-tree-wrap');
+    const svg = wrap && wrap.querySelector('.run-tree-svg');
+    if (!svg) return;
+    wrap.style.height = Math.round(root.clientHeight * RUN_TREE_AREA_RATIO) + 'px';
+    const tree = { w: Number(svg.dataset.w), h: Number(svg.dataset.h) };
+    const area = { w: wrap.clientWidth, h: wrap.clientHeight };
+    const fit = runCamFit(tree, area);
+    if (!fit) return;
+    const st = root._treeCam || (root._treeCam = { cam: null, user: false });
+    Object.assign(st, { fit, tree, area, range: runCamRange(fit.s) });
+    if (!st.user || !st.cam) st.cam = fit;
+    else st.cam = runCamClamp(st.cam, tree, area);
+    this._runTreeApply(root);
+  },
+
+  /** 보기를 viewBox · 게이지 · 미니맵에 옮긴다. */
+  _runTreeApply(root) {
+    const st = root._treeCam;
+    const wrap = root.querySelector('.run-tree-wrap');
+    if (!st || !st.cam || !wrap) return;
+    const { s, x, y } = st.cam;
+    wrap.querySelector('.run-tree-svg').setAttribute('viewBox', `${x} ${y} ${st.area.w / s} ${st.area.h / s}`);
+    const zoom = wrap.querySelector('.run-tree-zoom');
+    zoom.min = String(Math.round(st.range.min * 100));
+    zoom.max = String(Math.round(st.range.max * 100));
+    zoom.value = String(Math.round(s * 100));
+    wrap.querySelector('.run-tree-pct').textContent = Math.round(s * 100) + '%';
+    const v = wrap.querySelector('.run-tree-mini-view');
+    v.setAttribute('x', x); v.setAttribute('y', y);
+    v.setAttribute('width', st.area.w / s); v.setAttribute('height', st.area.h / s);
+  },
+
+  /** 사용자가 보기를 바꿨다 — 경계 안으로 당기고 그린다. 이후로는 맞춤으로 돌아가지 않는다(FR-ITC-17). */
+  _runTreeMove(root, cam) {
+    const st = root._treeCam;
+    if (!st) return;
+    st.cam = runCamClamp(cam, st.tree, st.area);
+    st.user = true;
+    this._runTreeApply(root);
+  },
+
+  /** FR-ITC-15·16: 오른쪽 위의 반투명 미니맵과 줌 게이지. */
+  _runTreeHud(nodes, lay) {
+    const hud = runDiv('run-tree-hud');
+    const mini = runSvg('svg', { class: 'run-tree-mini', viewBox: `0 0 ${lay.w} ${lay.h}` });
+    nodes.forEach((n, i) => mini.appendChild(runSvg('rect', { class: 'run-tree-mini-node',
+      x: lay.pos[i].x - RUN_TREE_NODE_W / 2, y: lay.pos[i].y, width: RUN_TREE_NODE_W, height: lay.pos[i].h })));
+    mini.appendChild(runSvg('rect', { class: 'run-tree-mini-view' }));
+    hud.appendChild(mini);
+    const gauge = runDiv('run-tree-gauge');
+    const zoom = document.createElement('input');
+    zoom.type = 'range';
+    zoom.className = 'run-tree-zoom';
+    zoom.title = t('runs.tree_zoom');
+    gauge.appendChild(zoom);
+    gauge.appendChild(runDiv('run-tree-pct'));
+    gauge.appendChild(UIKit.button({ label: t('runs.tree_fit'), title: t('runs.tree_fit_title'), size: 'sm', cls: 'run-tree-fit' }));
+    hud.appendChild(gauge);
+    return hud;
+  },
+
+  /** FR-ITC-13~16: 휠 줌 · 끌기 패닝 · 미니맵 · 게이지. 트리 영역이 새로 설 때마다 한 번 붙는다. */
+  _runTreeWire(root, wrap, svg) {
+    const st = () => root._treeCam;
+    wrap.addEventListener('wheel', e => {
+      if (!(e.metaKey || e.ctrlKey) || !st()) return;
+      e.preventDefault();
+      const r = wrap.getBoundingClientRect();
+      this._runTreeMove(root, runCamZoomAt(st().cam, Math.exp(-e.deltaY * RUN_TREE_WHEEL), e.clientX - r.left, e.clientY - r.top, st().range));
+    }, { passive: false });
+
+    let drag = null;
+    svg.addEventListener('pointerdown', e => {
+      if (e.button !== 0 || !st()) return;
+      drag = { x: e.clientX, y: e.clientY, cam: st().cam, moved: false, id: e.pointerId };
+    });
+    svg.addEventListener('pointermove', e => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (!drag.moved && Math.hypot(dx, dy) <= RUN_TREE_DRAG_PX) return;
+      if (!drag.moved) { drag.moved = true; svg.setPointerCapture(e.pointerId); svg.classList.add('panning') }
+      this._runTreeMove(root, runCamPan(drag.cam, dx, dy));
+    });
+    const end = () => {
+      if (drag && drag.moved) { svg.classList.remove('panning'); svg._noClick = true }
+      drag = null;
+    };
+    svg.addEventListener('pointerup', end);
+    svg.addEventListener('pointercancel', end);
+    // 끌기를 마친 누름은 노드 클릭이 아니다 (FR-ITC-14). 캡처 단계에서 노드보다 먼저 받는다.
+    svg.addEventListener('click', e => {
+      if (!svg._noClick) return;
+      svg._noClick = false;
+      e.stopPropagation();
+      e.preventDefault();
+    }, true);
+
+    const mini = wrap.querySelector('.run-tree-mini');
+    const toTree = e => new DOMPoint(e.clientX, e.clientY).matrixTransform(mini.getScreenCTM().inverse());
+    const center = e => { if (st()) { const p = toTree(e); this._runTreeMove(root, runCamCenterOn(st().cam, p.x, p.y, st().area)) } };
+    mini.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      mini.setPointerCapture(e.pointerId);
+      center(e);
+    });
+    mini.addEventListener('pointermove', e => { if (mini.hasPointerCapture(e.pointerId)) center(e) });
+
+    wrap.querySelector('.run-tree-zoom').addEventListener('input', e => {
+      if (!st()) return;
+      const a = st().area;
+      this._runTreeMove(root, runCamZoomAt(st().cam, Number(e.target.value) / 100 / st().cam.s, a.w / 2, a.h / 2, st().range));
+    });
+    wrap.querySelector('.run-tree-fit').addEventListener('click', () => {
+      if (!st()) return;
+      st().user = false;
+      this._runTreeCam(root);
+    });
   },
 
   /**
@@ -119,6 +247,12 @@ const RUN_TREE_PAD = 12;
 const RUN_TREE_PAD_IN = 10;
 // 상자 한 줄에 드는 폭(반각 글자 칸). 한글 같은 전각 글자는 두 칸으로 센다.
 const RUN_TREE_TEXT_UNITS = 26;
+// FR-ITC-11: 보기 영역의 높이 — Run 화면 높이에 대한 비율.
+const RUN_TREE_AREA_RATIO = 0.5;
+// FR-ITC-13: 휠 한 단위(deltaY 1)의 줌 세기. 배율은 exp(-deltaY × 이 값) 배다.
+const RUN_TREE_WHEEL = 0.002;
+// FR-ITC-14: 이보다 많이 끌어야 패닝이다. 그 아래는 노드 클릭으로 남는다.
+const RUN_TREE_DRAG_PX = 4;
 
 /**
  * FR-ITC-10: 노드 목록(깊이 우선)만으로 배치를 정한다. 잎은 가로 칸을 하나씩 받고,

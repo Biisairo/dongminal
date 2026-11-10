@@ -123,3 +123,97 @@ test('TC-ITC-3: 트리 Run 대시보드의 중심에 배정 트리를 그리고 
 
   await request.post('/api/runs/close', { headers: JSON_HDR, data: { runId: run.id, force: true } });
 });
+
+/**
+ * ISSUE_TREE_OPS_SRS TC-ITC-6 (FR-ITC-11~17): 트리는 Run 화면 50% 높이의 영역 안에서 맞춤으로
+ * 시작하고, ⌘/Ctrl+휠로 줌, 끌기로 패닝하며, 미니맵·게이지로 위치와 배율을 바꾼다.
+ */
+test('TC-ITC-6: 트리 보기 영역의 맞춤·줌·패닝·미니맵·게이지', async ({ page, request }) => {
+  await waitForInit(page);
+  const ref = `e2e/cam#${Date.now() % 100000}`;
+  const tabs = [await newTab(request), await newTab(request), await newTab(request)];
+  for (const t of tabs) await serverKnowsTab(request, t.uuid);
+  const run = await (await request.post('/api/runs', { headers: JSON_HDR,
+    data: { objective: 'cam', projection: 'dedicated-window', tree: ref } })).json();
+  const add = async (role: string, id: string, assign: Record<string, unknown>) => {
+    const r = await request.post('/api/runs/members', { headers: JSON_HDR, data: { runId: run.id, role, agent: 'claude', id, assign } });
+    expect(r.ok(), await r.text()).toBeTruthy();
+    return r.json();
+  };
+  const root = await add('cm#1', tabs[0].uuid, { issue: 'o/r#1', title: '루트' });
+  await add('cm#1›2', tabs[1].uuid, { issue: 'o/r#2', title: '하위 둘', parent: root.id });
+  const third = await add('cm#1›3', tabs[2].uuid, { issue: 'o/r#3', title: '하위 셋', parent: root.id });
+
+  if (!(await page.locator('#agents-panel.open').count())) await page.keyboard.press('Control+Shift+KeyO');
+  const row = page.locator(`#agents-panel .runs-row[data-runid="${run.id}"]`);
+  await expect(row).toBeVisible({ timeout: 10000 });
+  await row.click();
+  const view = page.locator('#area .run-view.vis');
+  const wrap = view.locator('.run-tree-wrap');
+  const svg = wrap.locator('.run-tree-svg');
+  const pct = wrap.locator('.run-tree-pct');
+  const zoom = wrap.locator('.run-tree-zoom');
+  const nodes = svg.locator('.run-tree-node');
+  await expect(nodes).toHaveCount(3);
+
+  // FR-ITC-11: 영역 높이는 Run 화면 높이의 50% 다.
+  const vb = (await view.boundingBox())!;
+  const wb = (await wrap.boundingBox())!;
+  expect(Math.abs(wb.height - vb.height * 0.5), `영역 ${wb.height} / 화면 ${vb.height}`).toBeLessThanOrEqual(2);
+
+  // FR-ITC-12: 처음에는 노드 전부가 영역 안에 보인다.
+  for (let i = 0; i < 3; i++) {
+    const nb = (await nodes.nth(i).boundingBox())!;
+    expect(nb.x >= wb.x - 1 && nb.x + nb.width <= wb.x + wb.width + 1, `노드 ${i} 가로`).toBe(true);
+    expect(nb.y >= wb.y - 1 && nb.y + nb.height <= wb.y + wb.height + 1, `노드 ${i} 세로`).toBe(true);
+  }
+  await expect(wrap.locator('.run-tree-mini')).toBeVisible();
+  await expect(wrap.locator('.run-tree-mini-view')).toHaveCount(1);
+  const fitPct = await pct.textContent();
+  expect(fitPct).toMatch(/^\d+%$/);
+  const viewBox = () => svg.getAttribute('viewBox');
+
+  // FR-ITC-13: 수식키 없는 휠은 줌하지 않는다. Ctrl+휠은 줌한다.
+  await page.mouse.move(wb.x + wb.width / 2, wb.y + wb.height / 2);
+  await page.mouse.wheel(0, -200);
+  await expect(pct).toHaveText(fitPct!);
+  await page.keyboard.down('Control');
+  await page.mouse.wheel(0, -200);
+  await page.keyboard.up('Control');
+  await expect.poll(async () => parseInt((await pct.textContent()) || '0', 10)).toBeGreaterThan(parseInt(fitPct!, 10));
+
+  // FR-ITC-14: 노드 위에서 시작해 끌면 패닝이고, 탭으로 가지 않는다.
+  const activeBefore = await page.evaluate(() => (window as any).app.ws.activeWindow);
+  const before = await viewBox();
+  const nb = (await nodes.nth(0).boundingBox())!;
+  await page.mouse.move(nb.x + nb.width / 2, nb.y + nb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(nb.x + nb.width / 2 + 60, nb.y + nb.height / 2 + 20, { steps: 6 });
+  await page.mouse.up();
+  await expect.poll(viewBox).not.toBe(before);
+  expect(await page.evaluate(() => (window as any).app.ws.activeWindow), '끌기가 노드 클릭이 됐다').toBe(activeBefore);
+
+  // FR-ITC-17: 데이터 갱신으로 다시 그려도 보는 범위가 남는다.
+  const moved = await viewBox();
+  // 보고(`/api/runs/report`)는 run_changed 를 내지 않는다 — 배정 변경으로 다시 그리게 한다.
+  const asg = await request.post('/api/runs/assign', { headers: JSON_HDR,
+    data: { memberId: third.id, title: '바뀐 셋', toolId: tabs[0].toolId } });
+  expect(asg.ok(), await asg.text()).toBeTruthy();
+  await expect(nodes.nth(2).locator('.run-tree-title')).toHaveText('바뀐 셋', { timeout: 10000 });
+  expect(await viewBox()).toBe(moved);
+
+  // FR-ITC-16: 게이지 슬라이더와 맞춤 버튼.
+  await zoom.fill('200');
+  await expect(pct).toHaveText('200%');
+  await wrap.locator('.run-tree-fit').click();
+  await expect(pct).toHaveText(fitPct!);
+
+  // FR-ITC-15: 미니맵을 누르면 그 점이 가운데로 온다.
+  await zoom.fill('300');
+  const atFull = await viewBox();
+  const mb = (await wrap.locator('.run-tree-mini').boundingBox())!;
+  await page.mouse.click(mb.x + 3, mb.y + 3);
+  await expect.poll(viewBox).not.toBe(atFull);
+
+  await request.post('/api/runs/close', { headers: JSON_HDR, data: { runId: run.id, force: true } });
+});
