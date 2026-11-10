@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"dongminal/internal/shared/settingsschema"
+	"dongminal/internal/shared/toolipc"
 )
 
 // ISSUE_TREE_OPS_SRS 묶음 M — 맥락 기준 migration 의 설정과 일반 훅의 판정.
@@ -123,6 +124,7 @@ func (s *Server) migrationVerdict(id string, conf migrationConf, out map[string]
 		if _, told := s.migrationUnknownTold.LoadOrStore(id, true); told {
 			return adviceOK
 		}
+		s.putRecord(toolipc.RecordMigrationTold, id, true)
 		return adviceUnknown
 	}
 	out["usedPct"] = *ctx.UsedPct

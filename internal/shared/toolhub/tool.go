@@ -116,6 +116,10 @@ type Tool struct {
 	activity   atomic.Pointer[ActivityState]
 	onActivity func(id, state, tool, detail string)
 
+	// records 는 데몬이 이 도구에 매달아 두는 에이전트 기록이다 (AGENT_RECORD_DAEMON_SRS
+	// FR-ARD-10). 도구와 함께 사라진다.
+	records toolRecords
+
 	// exitCode 는 kill() 이 수확한 종료 코드다. ExitInfo 로 나간다.
 	exitCode atomic.Int32
 

@@ -37,6 +37,10 @@ type PanedServer struct {
 	mu       sync.Mutex
 	listener net.Listener
 	currConn *panedConn
+
+	// records 는 도구 없는 전역 에이전트 기록이다 (AGENT_RECORD_DAEMON_SRS FR-ARD-10).
+	// 연결이 바뀌어도 남는다.
+	records *globalRecords
 }
 
 // dialProbeTimeout 은 "이미 살아 있는 데몬이 있는가" 를 묻는 시도의 상한이다.
@@ -73,7 +77,7 @@ func (ps *PanedServer) SetDaemonBuild(path, fp string) {
 }
 
 func NewPanedServer(pm *toolhub.ToolManager, sockPath, pidPath string) *PanedServer {
-	ps := &PanedServer{pm: pm, sockPath: sockPath, pidPath: pidPath}
+	ps := &PanedServer{pm: pm, sockPath: sockPath, pidPath: pidPath, records: &globalRecords{}}
 	// PTY 를 소유한 것은 데몬이므로 전경 조회도 여기서 일어난다 (FR-TAN-7).
 	// 값은 list 응답에도 실리고, 바뀐 순간에는 이 push 로도 나간다 — 어느
 	// 연결이 현재인지는 wireTool 과 같이 호출 시점에 푼다.
@@ -174,6 +178,7 @@ func (ps *PanedServer) Accept() error {
 	// `sync.Mutex` 는 재진입이 아니다. 한 번 그렇게 걸었더니 hello 가 영영
 	// 답하지 않았고, 증상은 "연결이 그냥 실패한다" 였다 (2026-09-11).
 	pc.build = ps.buildVersion
+	pc.records = ps.records
 
 	// Wire output/exit from each tool through whichever dongminal connection
 	// is current. The closures resolve ps.currConn dynamically, so a tool only

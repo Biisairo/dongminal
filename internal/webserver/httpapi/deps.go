@@ -182,6 +182,10 @@ type Deps struct {
 	// 서버다. 인터페이스인 것은 방향 때문이다: **httpapi 는 GitHub 도
 	// server.json 도 알지 않는다.**
 	Updates UpdateService
+	// Records 는 에이전트 기록을 데몬에 쓰는 자리다 (AGENT_RECORD_DAEMON_SRS FR-ARD-11).
+	// nil 이면 직접 모드이거나 records 를 말하지 않는 옛 데몬이다 — 거울만 쓴다
+	// (FR-ARD-14).
+	Records RecordSink
 }
 
 // UpdateService 는 판 확인의 접합면이다. `*updatecheck.Checker` 가 만족한다.

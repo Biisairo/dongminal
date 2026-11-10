@@ -8,6 +8,7 @@ import (
 	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/statusline"
 	"dongminal/internal/shared/toolhub"
+	"dongminal/internal/shared/toolipc"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/run"
 )
@@ -110,9 +111,11 @@ func (s *Server) apiToolUsage(w http.ResponseWriter, r *http.Request) {
 	u := body.Usage
 	u.ObservedAt = time.Now().UnixMilli()
 	s.usage.put(toolID, u)
+	s.putRecord(toolipc.RecordUsage, toolID, u)
 	// ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-20: 계정 한도의 임자는 statusLine 을 보고하는 에이전트다.
-	if agent, ok := agentadapter.StatusLineReporter(); ok {
+	if agent, ok := agentadapter.StatusLineReporter(); ok && len(u.RateLimits) > 0 {
 		s.rateLimits.put(agent, u.RateLimits, time.Now())
+		s.putRecord(toolipc.RecordLimits, "", s.rateLimits.records())
 	}
 	s.observeUsageContext(toolID, &u)
 	writeJSON(w, map[string]any{"ok": true})

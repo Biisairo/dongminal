@@ -44,6 +44,10 @@ type AttnTracker struct {
 	onAttention      func(id, reason string)
 	onAttentionClear func(id string)
 	onActivity       func(id, state, tool, detail string)
+
+	// onChange 는 판정이 상태를 바꾼 뒤에 불린다 — 데몬에 그 상태를 쓴다
+	// (AGENT_RECORD_DAEMON_SRS FR-ARD-11). nil 이면 아무도 듣지 않는다.
+	onChange func(id string, st toolhub.AgentState)
 }
 
 // attnPaneState 는 직접 모드 `toolhub.Tool` 의 주의 관련 필드와 **같은 모양**을
@@ -182,6 +186,7 @@ func (t *AttnTracker) FeedOutput(toolID string, data []byte) {
 		if sig && !ps.agentSeen.Load() {
 			if ps.attention.CompareAndSwap(false, true) {
 				t.onAttention(toolID, "signaled")
+				t.changed(ps)
 			}
 		}
 	} else {
@@ -205,6 +210,7 @@ func (t *AttnTracker) SignalAttention(toolID, reason string) {
 		reason = "signaled"
 	}
 	t.onAttention(toolID, reason)
+	t.changed(ps)
 }
 
 // SignalAgentEvent 는 활동 이벤트에서 파생한 알람이다 (FR-AEV-10·14).
@@ -217,6 +223,7 @@ func (t *AttnTracker) SignalAgentEvent(toolID, state string, turnKnown bool) {
 	}
 	ps.attention.Store(true)
 	t.onAttention(toolID, state)
+	t.changed(ps)
 }
 
 // Attend clears attention (user looked at the tool) and locks re-arming
@@ -238,6 +245,7 @@ func (t *AttnTracker) attend(toolID string, typed bool) {
 	if ps.attention.CompareAndSwap(true, false) {
 		t.onAttentionClear(toolID)
 	}
+	t.changed(ps)
 }
 
 // state 는 도구의 추적 상태를 얻는다(없으면 만든다). FeedOutput·SignalAttention·
@@ -329,23 +337,32 @@ func (t *AttnTracker) ClearAllAttention() int {
 	// 트래커를 되물으면 데드락이다.
 	t.mu.Lock()
 	var cleared []string
+	all := make([]*attnPaneState, 0, len(t.tools))
 	for _, ps := range t.tools {
 		ps.attnArmed.Store(false)
 		ps.attnRearmLocked.Store(true)
 		if ps.attention.CompareAndSwap(true, false) {
 			cleared = append(cleared, ps.id)
 		}
+		all = append(all, ps)
 	}
 	onClear := t.onAttentionClear
 	t.mu.Unlock()
 	for _, id := range cleared {
 		onClear(id)
 	}
+	for _, ps := range all {
+		t.changed(ps)
+	}
 	return len(cleared)
 }
 
 // NoteUserPrompt 는 사용자 프롬프트로 턴이 시작되었음을 기록한다 (FR-ATN-1).
-func (t *AttnTracker) NoteUserPrompt(toolID string) { t.state(toolID).turn.NoteUserPrompt() }
+func (t *AttnTracker) NoteUserPrompt(toolID string) {
+	ps := t.state(toolID)
+	ps.turn.NoteUserPrompt()
+	t.changed(ps)
+}
 
 // SetActivity sets the activity state for a tool.
 func (t *AttnTracker) SetActivity(toolID, state, tool, detail string) {
@@ -365,6 +382,7 @@ func (t *AttnTracker) SetActivity(toolID, state, tool, detail string) {
 		})
 	}
 	t.onActivity(toolID, state, tool, detail)
+	t.changed(ps)
 }
 
 // Activity returns the current activity state for a tool.
@@ -465,6 +483,13 @@ func (t *AttnTracker) SweepIdleAt(now int64) {
 	if threshold <= 0 {
 		return
 	}
+	// 무장을 내린 도구는 판정이 끝난 뒤의 상태로 알린다 (FR-ARD-11).
+	var disarmed []*attnPaneState
+	defer func() {
+		for _, ps := range disarmed {
+			t.changed(ps)
+		}
+	}()
 	var cands []*attnPaneState
 	for _, ps := range snap {
 		if !ps.attnArmed.Load() {
@@ -474,6 +499,7 @@ func (t *AttnTracker) SweepIdleAt(now int64) {
 			continue
 		}
 		ps.attnArmed.Store(false)
+		disarmed = append(disarmed, ps)
 		if !ps.agentSeen.Load() || probe == nil {
 			continue
 		}

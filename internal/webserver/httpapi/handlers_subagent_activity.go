@@ -6,6 +6,7 @@ import (
 
 	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/statusline"
+	"dongminal/internal/shared/toolipc"
 	"dongminal/internal/webserver/hub"
 	"dongminal/internal/webserver/sse"
 )
@@ -20,11 +21,11 @@ import (
 const subagentDoneKeep = 30 * time.Second
 
 type subagentActivity struct {
-	AgentType string
-	State     string
-	Tool      string
-	Detail    string
-	UpdatedAt time.Time
+	AgentType string    `json:"agentType,omitempty"`
+	State     string    `json:"state"`
+	Tool      string    `json:"tool,omitempty"`
+	Detail    string    `json:"detail,omitempty"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 type subagentActivityStore struct {
@@ -109,6 +110,7 @@ func (s *Server) reportSubagentActivity(toolID, agentID, agentType, state, tool,
 		Detail:    hub.SanitizeActivityField(detail, hub.ActivityDetailMax),
 	}
 	s.subActs.put(toolID, agentID, a, time.Now())
+	s.putRecord(toolipc.RecordSubagentActs, toolID, s.subActs.byTool(toolID))
 	if s.Commands != nil {
 		s.Commands.Broadcast(sse.Payload("tool_subagent_activity", map[string]any{"toolId": toolID, "agentId": agentID,
 			"agentType": a.AgentType, "state": a.State, "tool": a.Tool, "detail": a.Detail}))

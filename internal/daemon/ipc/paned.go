@@ -59,6 +59,10 @@ type panedConn struct {
 	// 가 프로토콜 판과 **따로** 싣는다 — 서버가 둘을 다르게 다루기 때문이다
 	// (프로토콜 불일치는 거부, 빌드 불일치는 기록).
 	build string
+
+	// records 는 데몬의 전역 에이전트 기록이다 (AGENT_RECORD_DAEMON_SRS FR-ARD-10).
+	// PanedServer 가 연결마다 같은 것을 싣는다.
+	records *globalRecords
 }
 
 func newPanedConn(conn net.Conn, pm *toolhub.ToolManager) *panedConn {
@@ -229,6 +233,10 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 		resp = pc.setBackground(req)
 	case toolipc.MethodBackgroundList:
 		resp = pc.backgroundList(req)
+	case toolipc.MethodRecordSet:
+		resp = pc.recordSet(req)
+	case toolipc.MethodRecords:
+		resp = pc.recordsSnapshot(req)
 	default:
 		resp = toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeMethodNotFound, Message: "unknown method: " + req.Method}}
 	}

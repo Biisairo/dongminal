@@ -20,6 +20,7 @@ import (
 	"dongminal/internal/webserver/domain/git/core"
 	"dongminal/internal/webserver/httpapi"
 	"dongminal/internal/webserver/hub"
+	"dongminal/internal/webserver/recordsync"
 	"dongminal/internal/webserver/toolclient"
 	"dongminal/web"
 
@@ -40,6 +41,9 @@ type app struct {
 	// cancelGit 은 git 의 서버 수명 ctx 를 끝낸다 (REPO_FIX 01 §8). 신호가 오면
 	// AfterFunc 가, 신호 없는 오류 종료면 종료 표의 첫 단계가 부른다.
 	cancelGit context.CancelFunc
+	// records 는 에이전트 기록을 데몬에 쓰는 큐다 (AGENT_RECORD_DAEMON_SRS FR-ARD-11).
+	// 직접 모드에서는 nil 이다.
+	records *recordsync.Writer
 }
 
 // buildApp 은 조립이다 — 로그 계층·헬퍼 설치·데몬 연결·의존 배선·서버·해석층
@@ -76,6 +80,10 @@ func buildApp(gitRoot context.Context, home, host, port string) (*app, error) {
 		a.bd, err = buildDepsWithHub(cfg, a.panedClient, gitRoot)
 		if err == nil {
 			a.wireDaemonPushes()
+			if a.bd.attnTracker != nil {
+				a.records = newRecordWriter(a.panedClient, a.bd.attnTracker)
+				a.bd.deps.Records = a.records
+			}
 		}
 	} else {
 		// Direct mode: ToolManager directly (backward compatible)
@@ -107,6 +115,7 @@ func buildApp(gitRoot context.Context, home, host, port string) (*app, error) {
 	if err != nil {
 		return nil, errors.Join(errServerInit, err)
 	}
+	a.wireDaemonRecords()
 	return a, nil
 }
 
@@ -149,6 +158,18 @@ func (a *app) wireDaemonPushes() {
 	a.panedClient.SetOnForeground(hub.BroadcastForeground(a.bd.deps.Commands))
 }
 
+// wireDaemonRecords 는 데몬의 기록을 거울에 잇는다 (FR-ARD-12·13). HTTP 를 열기 전에
+// 스냅샷을 반영하므로, 처음 받는 보고가 낡은 스냅샷에 덮이지 않는다.
+func (a *app) wireDaemonRecords() {
+	if a.records == nil {
+		return
+	}
+	c, srv, w := a.panedClient, a.srv, a.records
+	syncRecords(c, w, srv)
+	c.SetOnRecord(srv.ApplyRecord)
+	c.SetOnResync(func() { syncRecords(c, w, srv) })
+}
+
 // run 은 기동이다 — 스위퍼·폴·감시·리퍼를 ctx 에 묶어 띄우고 HTTP 서버를 돌린다.
 // ctx 가 끝나면 서버가 멈추고 돌아온다; 종료는 shutdown 의 일이다.
 func (a *app) run(ctx context.Context) error {
@@ -169,6 +190,7 @@ func (a *app) run(ctx context.Context) error {
 		context.AfterFunc(ctx, tk.Stop)
 		bd.pm.StartAttentionSweeper(ctx.Done(), tk.C)
 	}
+	a.records.Start(ctx.Done())
 	if bd.attnTracker != nil {
 		tk := time.NewTicker(hub.SweeperInterval)
 		context.AfterFunc(ctx, tk.Stop)

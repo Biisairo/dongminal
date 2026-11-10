@@ -110,3 +110,22 @@ func (t *AgentTurn) AllowSignal(reason string) bool {
 	}
 	return true
 }
+
+// TurnState 는 AgentTurn 의 표시 셋을 옮기는 모양이다 (AGENT_RECORD_DAEMON_SRS FR-ARD-10).
+type TurnState struct {
+	InProgress      bool `json:"inProgress"`
+	UserTurn        bool `json:"userTurn"`
+	WaitingSignaled bool `json:"waitingSignaled"`
+}
+
+// State 는 지금의 표시다.
+func (t *AgentTurn) State() TurnState {
+	return TurnState{InProgress: t.inProgress.Load(), UserTurn: t.userTurn.Load(), WaitingSignaled: t.waitingSignaled.Load()}
+}
+
+// Restore 는 표시를 st 로 되세운다.
+func (t *AgentTurn) Restore(st TurnState) {
+	t.inProgress.Store(st.InProgress)
+	t.userTurn.Store(st.UserTurn)
+	t.waitingSignaled.Store(st.WaitingSignaled)
+}

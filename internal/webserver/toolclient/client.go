@@ -87,6 +87,10 @@ type ToolClient struct {
 	onExit       func(toolID string, info toolhub.ExitInfo)
 	onForeground func(toolID, name string)
 	earlyPushes  []earlyPush
+	// onRecord·onResync 는 에이전트 기록의 push 와 재접속 뒤 재동기다
+	// (AGENT_RECORD_DAEMON_SRS FR-ARD-12·13). `mu` 아래.
+	onRecord func(ev toolipc.RecordEvent)
+	onResync func()
 
 	// fgMu 는 onForeground 호출과 fgSeen·fgSeq 를 한 줄로 세운다. fgSeen 은 마지막으로
 	// 알린 전경 이름과 그 push 의 순번이다 — 재접속 뒤 목록과 대조해 끊긴 동안 놓친
@@ -316,6 +320,7 @@ func (pc *ToolClient) supervise() {
 				pc.reconnects.Add(1)
 				dmlog.Infof(nil, "toolclient: reconnected")
 				pc.resyncAfterReconnect()
+				pc.resyncRecords()
 				break
 			}
 			fails++
@@ -446,6 +451,9 @@ type wireMsg struct {
 	Cols  uint16 `json:"cols"`
 	Rows  uint16 `json:"rows"`
 	Name  string `json:"name"`
+	Kind  string `json:"kind"`
+	// Value 는 record push 의 값이다 (FR-ARD-12). 줄마다 새 wireMsg 이므로 덮이지 않는다.
+	Value json.RawMessage `json:"value"`
 }
 
 // readLoop decodes responses and push events for a single connection. On

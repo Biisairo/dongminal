@@ -1,6 +1,10 @@
 package toolipc
 
-import "dongminal/internal/shared/toolhub"
+import (
+	"encoding/json"
+
+	"dongminal/internal/shared/toolhub"
+)
 
 // 메서드·이벤트 이름과 그 인자·결과의 모양이다 (OPTIMIZE_REFACTOR_SRS FR-OPT-2-6).
 // 데몬과 서버가 같은 한 벌을 본다 — 두 벌로 적으면 한쪽만 바뀐다.
@@ -34,6 +38,11 @@ const (
 	// 하는 자리(GO-8, HTTP send-input)는 write·resize RPC 를 쓴다.
 	MethodInput        = "input"
 	MethodResizeNotify = "resizenotify"
+
+	// 에이전트 기록이다 (AGENT_RECORD_DAEMON_SRS FR-ARD-11·13). FeatureRecords 를 말한
+	// 데몬에만 보낸다.
+	MethodRecordSet = "recordset"
+	MethodRecords   = "records"
 )
 
 const (
@@ -41,6 +50,7 @@ const (
 	EventForeground = "fg"
 	EventExit       = "exit"
 	EventSize       = "size"
+	EventRecord     = "record"
 )
 
 // HelloParams 는 서버가 hello 에 싣는 것이다. Features 는 서버가 아는 기능 이름이다
@@ -77,12 +87,15 @@ const (
 	// FeatureFgGuard: paste 의 foreground 조건을 안다 (PEER_NETWORK_SRS I-47). 말하지
 	// 않는 옛 데몬은 그 필드를 무시하고 넣으므로, 서버는 그때 조건을 싣지 않는다.
 	FeatureFgGuard = "fgguard"
+	// FeatureRecords: recordset·records 와 record push 를 안다 (AGENT_RECORD_DAEMON_SRS
+	// FR-ARD-11~14). 말하지 않는 옛 데몬에는 서버가 거울만 쓴다.
+	FeatureRecords = "records"
 )
 
 // DaemonFeatures 는 이 데몬이 hello 에서 말하는 기능이다. ServerFeatures 는 서버가
 // 말하는 기능이다. 새 기능이 이름을 여기 더한다.
 var (
-	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify, FeatureBusyMany, FeatureFgGuard}
+	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify, FeatureBusyMany, FeatureFgGuard, FeatureRecords}
 	ServerFeatures []string
 )
 
@@ -245,4 +258,55 @@ type SizeEvent struct {
 	Event string `json:"event"`
 	Rows  uint16 `json:"rows"`
 	Tool  string `json:"tool"`
+}
+
+// ── 에이전트 기록 (AGENT_RECORD_DAEMON_SRS §3.1a) ─────────────────────────
+
+// 기록의 종류다. RecordAgent 의 값은 toolhub.AgentState 이고, 나머지는 서버가 정한
+// JSON 이라 데몬은 해석하지 않는다. RecordLimits 만 도구가 없는 전역 기록이다.
+const (
+	RecordAgent         = "agent"
+	RecordUsage         = "usage"
+	RecordSubagents     = "subagents"
+	RecordSubagentActs  = "subagentActs"
+	RecordMigrationTold = "migrationTold"
+	RecordLimits        = "limits"
+)
+
+// RecordIsGlobal 은 kind 가 도구 없는 전역 기록인가다. 모르는 종류는 ok 가 거짓이다.
+func RecordIsGlobal(kind string) (global, ok bool) {
+	switch kind {
+	case RecordLimits:
+		return true, true
+	case RecordAgent, RecordUsage, RecordSubagents, RecordSubagentActs, RecordMigrationTold:
+		return false, true
+	}
+	return false, false
+}
+
+// RecordSetParams 는 recordset 이다. Value 가 null 이면 그 기록을 지운다.
+type RecordSetParams struct {
+	Kind  string          `json:"kind"`
+	Tool  string          `json:"tool,omitempty"`
+	Value json.RawMessage `json:"value"`
+}
+
+// RecordsResult 는 records 스냅샷이다. Tools 는 살아 있는 도구 전부다.
+type RecordsResult struct {
+	Global map[string]json.RawMessage `json:"global,omitempty"`
+	Tools  []ToolRecords              `json:"tools"`
+}
+
+type ToolRecords struct {
+	Agent   toolhub.AgentState         `json:"agent"`
+	Records map[string]json.RawMessage `json:"records,omitempty"`
+	Tool    string                     `json:"tool"`
+}
+
+// RecordEvent 는 record push 다 (FR-ARD-12).
+type RecordEvent struct {
+	Event string          `json:"event"`
+	Kind  string          `json:"kind"`
+	Tool  string          `json:"tool,omitempty"`
+	Value json.RawMessage `json:"value"`
 }

@@ -10,6 +10,7 @@ import (
 
 	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/statusline"
+	"dongminal/internal/shared/toolipc"
 	"dongminal/internal/webserver/apierr"
 	"dongminal/internal/webserver/domain/run"
 	"dongminal/internal/webserver/hub"
@@ -82,7 +83,9 @@ func (s *Server) apiToolSubagents(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "toolId required", http.StatusBadRequest, apierr.CodeMissingArg)
 		return
 	}
-	s.subagents.put(toolID, body.Tasks, time.Now())
+	now := time.Now()
+	s.subagents.put(toolID, body.Tasks, now)
+	s.putRecord(toolipc.RecordSubagents, toolID, subagentRecord{Tasks: body.Tasks, ObservedAt: now.UnixMilli()})
 	writeJSON(w, map[string]any{"ok": true})
 }
 

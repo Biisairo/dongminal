@@ -69,6 +69,7 @@ internal/
     hub/                 #   CommandHub·SSE 브로커 · FocusRegistry · AttnTracker
     sse/                 #   SSE 작성기(쓰기 시한·쌓인 이벤트 한 번에 flush) · 방송 본문 봉투
     toolclient/          #   ToolClient — 데몬에 붙는 IPC 클라 (재접속 supervisor 포함)
+    recordsync/          #   에이전트 기록을 데몬에 쓰는 비동기 큐 — (kind, tool) 마다 마지막 값 (AGENT_RECORD_DAEMON_SRS)
     seam/
       adapters/          #     toolaccess 인터페이스 ↔ 구체 타입 브리지
       toolaccess/        #     도구(PTY)·워크스페이스·커맨드 허브 접합면 인터페이스

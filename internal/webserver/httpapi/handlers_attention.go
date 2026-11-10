@@ -9,6 +9,7 @@ import (
 	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/toolhub"
+	"dongminal/internal/shared/toolipc"
 	"dongminal/internal/webserver/httpresp"
 	"dongminal/internal/webserver/hub"
 )
@@ -186,6 +187,7 @@ func (s *Server) reportActivity(toolID, state, tool, detail string, userPrompt, 
 	s.attention().ReportActivity(toolID, state, tool, detail, userPrompt, turnKnown)
 	if state == activity.Ended {
 		s.subActs.dropTool(toolID) // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-12
+		s.putRecord(toolipc.RecordSubagentActs, toolID, nil)
 	}
 	s.activityChanged.Notify()
 }
