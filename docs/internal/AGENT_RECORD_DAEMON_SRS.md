@@ -167,7 +167,7 @@
 
 - **FR-ARD-20** 데몬은 서버 연결 소켓과 **다른** 보고 소켓(`report.sock`, 같은 0700 폴더)을 연다. 이 소켓은 연결을 동시에 받고, 연결마다 요청 하나를 처리한 뒤 닫는다.
 - **FR-ARD-21** 보고 소켓이 받는 메서드는 넷뿐이다: `report.activity`·`report.usage`·`report.subagents`·`report.notify`. 그 밖은 오류로 답한다. 본문은 지금의 HTTP 본문과 같다.
-- **FR-ARD-22** 보고의 `toolId` 가 데몬의 살아 있는 도구가 아니면 거절한다. 받은 보고는 FR-ARD-10 의 기록에 쓰고 FR-ARD-12 로 push 한다. 알람 판정(done·waiting 파생)은 단계 3 전에는 서버가 push 를 받고 한다.
+- **FR-ARD-22** 보고의 `toolId` 가 데몬의 살아 있는 도구가 아니면 거절한다. 받은 보고는 FR-ARD-10 의 기록에 쓰고, **보고 자체**를 push `report` 로 서버에 넘긴다. 보고로 바뀐 기록은 `record` push(FR-ARD-12)로 보내지 않는다 — 그 이유는 §3.2a 에 있다. 알람 판정(done·waiting 파생)은 단계 3 전에는 서버가 push 를 받고 한다.
 - **FR-ARD-23** `dmctl activity`·`statusline`·`subagent-statusline`·`notify` 는 보고 소켓에 **먼저** 보낸다. 보고 소켓이 없거나(직접 모드·샌드박스·옛 데몬) 실패하면 지금처럼 서버 HTTP 로 보낸다. 두 시도의 합이 종전 시한(`hookBudget`·`slReportBudget`)을 넘지 않는다.
 - **FR-ARD-24** 서버의 HTTP 보고 종단(`/api/tools/activity/set`·`usage`·`subagents`·`attention/set`)은 그대로 둔다. 데몬이 `records` 를 말하면 FR-ARD-11 로 데몬에 먼저 쓴다. 샌드박스 창의 보고가 이 길로 데몬에 닿는다.
 - **FR-ARD-25** 서버가 꺼져 있어도 데몬은 보고를 받아 기록한다. 서버가 다시 붙으면 FR-ARD-13 의 스냅샷이 그 결과를 싣는다. 그동안의 알람은 울리지 않는다.
@@ -214,7 +214,7 @@
 
 - 서버는 그 push 를 HTTP 처리기와 **같은 함수**로 처리한다. 처리기의 본체를 `applyActivityReport` 등으로 떼어 낸다.
 - 그래서 알람 방송, SSE, Run 맥락 관측(`observeUsageContext`), 서브에이전트 활동 방송이 한 자리에 남는다. 판정 뒤 상태는 단계 1 의 쓰기 큐가 데몬에 되쓴다.
-- **FR-ARD-22 의 "record push" 와 다른 점:** 데몬이 기록 push 를 먼저 보내면 서버 거울의 상태가 먼저 `done` 이 된다. 그 뒤 서버가 같은 보고를 처리하면 상태가 바뀌지 않은 것으로 보여 알람이 울리지 않는다. 그래서 보고로 바뀐 기록은 `record` push 로 보내지 않는다. 데몬과 서버가 같은 보고를 두 번 반영하지만, 서버의 되쓰기가 마지막에 덮으므로 결과는 같다.
+- **보고를 `record` push 로 보내지 않는 이유 (FR-ARD-22):** 데몬이 기록 push 를 먼저 보내면 서버 거울의 상태가 먼저 `done` 이 된다. 그 뒤 서버가 같은 보고를 처리하면 상태가 바뀌지 않은 것으로 보여 알람이 울리지 않는다. 그래서 보고로 바뀐 기록은 `record` push 로 보내지 않는다. 데몬과 서버가 같은 보고를 두 번 반영하지만, 서버의 되쓰기가 마지막에 덮으므로 결과는 같다.
 - 서버는 push 를 읽기 루프에서 처리하지 않는다. 처리 중 데몬 RPC(맥락 경고 전달의 입력 등)를 기다리면 교착이 생긴다. 고루틴 하나가 받은 순서대로 처리한다. 줄(1024)이 차면 버리고 로그를 남긴다. 버린 보고도 데몬 기록에는 남는다.
 
 **옛 서버 (NFR-ARD-3):** 서버는 `hello` 에서 새 기능 `reports` 를 말한다. 붙은 서버가 그것을 말하지 않으면 데몬은 보고를 거절한다. 그러면 dmctl 이 HTTP 로 보낸다. 받아 버리면 옛 서버가 push 를 모른 채 버려 카드·알람이 사라진다. 서버가 붙어 있지 않으면 받는다 (FR-ARD-25).
@@ -296,10 +296,10 @@
   |---|---|
   | Run 수거(`ReapTargets`·`reapRuns`) | 그 Run 을 대상에서 뺀다 |
   | 사용량·서브에이전트 수거(`prune`) | 지우지 않는다 |
-  | 알람 생존 검사(`SetLiveProbe`) | 종전처럼 알람을 막지 않는다 |
+  | 알람 생존 검사(`SetLiveProbe`) | 알람을 거르지 않는다. 종전에는 `unknown` 을 죽음으로 읽어 걸렀다 |
   | `dmctl status` 의 `live` | `false` 로 답하되 `liveUnknown: true` 를 더한다 |
 
-- **FR-ARD-3** Run 의 **열림**은 저장하지 않는다. 서버 시작 때 Run 을 `aborted` 로 바꾸는 펜싱(`fenceStale`)을 없앤다. 명시적으로 닫힌 상태(`run close`·성공·실패 보고·사용자 삭제)만 `runs.json` 에 저장한다.
+- **FR-ARD-3** **데몬 모드에서** Run 의 **열림**은 저장하지 않는다. 서버 시작 때 Run 을 `aborted` 로 바꾸는 펜싱(`fenceStale`)을 없앤다. 직접 모드는 서버가 다시 뜨면 에이전트도 끝났으므로 종전처럼 열린 Run 을 `aborted` 로 닫는다 (§1.2, §3.4a). 명시적으로 닫힌 상태(`run close`·성공·실패 보고·사용자 삭제)만 `runs.json` 에 저장한다.
 - **FR-ARD-4** 응답(`/api/runs`·`run status`)의 Run 마다 `liveness` 를 계산해 싣는다.
   - 명시적으로 닫혔으면 싣지 않는다.
   - 멤버나 조정자 중 하나라도 `alive` 면 `open` 이다.
@@ -307,7 +307,7 @@
   - 그 밖에는 `unknown` 이다.
 - **FR-ARD-5** 수거의 자동 제거는 조정자가 **확인된 죽음**일 때만 한다.
 - **FR-ARD-6** (철회 — D-ARD-10) 맥락 경고 통지 기록(`contextNotices`)은 멤버 기록의 필드(`contextNotified []string`, 등급 목록)로 `runs.json` 에 둔다. 조정자 몫은 Run 의 조정자 맥락 상태에 같은 필드로 둔다.
-- **FR-ARD-7** 옛 `runs.json` 의 `epoch` 와 `aborted`(`AbortDaemonRestart`)는 읽을 수 있어야 한다. 새로 쓰지는 않는다.
+- **FR-ARD-7** 옛 `runs.json` 의 `epoch` 와 `aborted`(`AbortDaemonRestart`)는 읽을 수 있어야 한다. `epoch` 는 새로 쓰지 않는다. `aborted`(`AbortDaemonRestart`)는 직접 모드만 새로 쓴다 (FR-ARD-3).
 
 ### 3.4a 단계 4 설계
 
@@ -343,7 +343,7 @@
 - **직접 모드는 종전 결과를 지킨다 (§1.2).** 새 옵션 `run.WithAbortOpenOnLoad()` 를 직접 모드만 쓴다(`newRunStore` 가 `toolHub.Daemon() == nil` 로 가른다). `Load` 가 열린 Run 을 모두 `aborted`(`AbortDaemonRestart`)로 저장한다.
   - 근거: 직접 모드에서는 서버가 곧 도구를 들고 있어, 서버가 다시 뜨면 에이전트가 실제로 죽는다. 도구는 `LoadAll` 로 빈 셸만 되살아난다. 펜싱을 없애면 그 빈 셸이 `alive` 로 보여 Run 이 `open`, 멤버가 `starting` 으로 영원히 남는다.
   - 종전 펜싱도 직접 모드에서는 Run 을 모두 닫았다. `Load` 가 `LoadAll` 보다 먼저 돌아 생존 질의가 언제나 거짓이었기 때문이다. 그래서 epoch 없이 "열린 것 전부"로 같은 결과를 낸다.
-  - FR-ARD-3·7 의 문장은 모드를 가르지 않는다. 이 설계는 FR-ARD-3·7 을 데몬 모드에 한정해 읽는다. §1.2 와 §2.2(데몬의 "모른다")가 근거다.
+  - FR-ARD-3·7 은 이 구분을 따라 고쳤다 (2026-11-10, 사용자 확인).
 - **데몬 모드의 결과.** 서버가 다시 떠도 열린 Run 은 열린 채다. 조정자가 확인된 죽음이면 15초 수거가 지운다. 조정자가 없는 Run(`CoordinatorToolID` 가 빈 값)은 수거 대상이 아니므로(FR-DEL-15) 열린 채 남는다. 목록에는 `liveness` 로 보이고, 사용자가 닫거나 지운다 (D-ARD-4).
 
 **Run 의 liveness (FR-ARD-4).** `runView` 에 `liveness` 를 싣는다(`omitempty`). `viewOf` 가 계산하므로 `/api/runs`·`/api/runs/{id}`·`run status` 가 함께 받는다.
