@@ -113,7 +113,7 @@ dmctl run start --objective "<별칭>#<루트> 이슈 트리" --window <newWindo
 
 **같은 트리는 두 번 열리지 않는다.** 같은 트리의 열린 Run 이 있으면 `run start` 가 `tree_open` 으로 거절한다.
 
-- 안내에 「이미 돌고 있다」가 나오면 멈추고 사용자에게 말한다. 4에서 만든 window 는 닫는다(`dmctl close-window --at <그 window 의 탭 uuid> --force`).
+- 안내에 「이미 돌고 있다」가 나오면 멈추고 사용자에게 말한다. 4에서 만든 window 는 닫는다(`dmctl close-window -n --at <그 window 의 탭 uuid> --force`).
 - 「멈췄다(살아 있는 멤버 없음)」가 나오면 사용자에게 정리할지 묻는다. 정리하라고 하면 안내의 `dmctl run close --run <id> --force` 를 실행하고 4를 다시 한다.
 
 - 새 window 의 `newTabs[0].uuid`·`toolId` 를 적는다. 이 탭이 루트 노드의 자리다.
@@ -241,7 +241,7 @@ dmctl who-am-i
 1. 그 하위의 탭을 닫는다. 병렬 가지의 마지막 노드였으면 window 를 닫는다. **하위는 스스로 닫지 않는다 — 닫는 것은 나다.**
    ```
    dmctl close-tab --at <하위 탭 uuid> --force
-   dmctl close-window --at <하위 탭 uuid> --force
+   dmctl close-window -n --at <하위 탭 uuid> --force
    ```
    둘 중 하나만 쓴다.
 2. 병렬 가지였으면 그 브랜치를 내 브랜치에 병합한다. 충돌은 내가 푼다. 풀 수 없으면 사용자에게 묻는다. 병합 뒤 `dmctl run close --run <그 가지의 Run>`.
@@ -392,7 +392,7 @@ dmctl who-am-i
    ```
    dmctl list-groups --json
    dmctl list-workspace --json
-   dmctl close-window --at <그 window 의 탭 uuid> --force
+   dmctl close-window -n --at <그 window 의 탭 uuid> --force
    dmctl delete-group --at <그룹 uuid>
    ```
 4. 내 탭에 최종 보고를 남긴다: 닫은 이슈 · 남긴 브랜치 · worktree 잔여물(`run close` 응답의 `residue` 와 사유) · 병합/push 결과. **내 탭은 닫지 않는다.**

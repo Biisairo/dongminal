@@ -233,24 +233,29 @@ Object.assign(App.prototype, {
    * (좌표 해석은 한 벌이다).
    */
   _remoteCloseWindow(args){
-    if(!(args.force||args.keepTool)){ this._remoteViaAction('closeWindow',args); return }
     /**
-     * M11_SRS FR-M11-11 (M11-B9 의 둘째): **`-n` 은 이 갈래에서도 지켜진다.**
+     * 지목한 window 는 **활성으로 만들지 않고** 닫는다. `-n` 이 없어도 사용자의 시선은 그대로다.
      *
-     *   이전 동작: 지목한 창을 활성으로 만든 뒤 닫는다 — 공통 경로의
-     *             복원 블록을 지나지 않아 `keepFocus` 가 통째로 무시됐다
-     *   새  동작: 공통 경로와 **같은 함수**로 시선을 되돌린다
-     *   이유:     `-n` 은 "명령 전후로 사용자 포커스를 이동시키지 않는다" 는
-     *             약속이고, 한 갈래만 지키지 않으면 없는 것과 같다
+     *   이전 동작: 지목한 window 를 활성으로 만든 뒤 닫았다 — `-n` 이 없으면 닫힌
+     *             window 의 이웃으로 화면이 옮겨졌다. 자리를 못 찾으면 활성 window 를 닫았다
+     *   새  동작: 그 window 를 바로 닫는다. 사용자가 보던 window 가 닫힐 때만 이웃으로 간다.
+     *             자리를 못 찾으면 아무것도 닫지 않는다 (탭 쪽 FR-RUN-6b 와 같다)
+     *   이유:     이슈 트리가 `-n` 없이 하위 window 를 닫을 때마다 화면이 튀었다
+     *             (사용자 보고 2026-11-10). 이슈 트리의 조작은 포커스를 옮기지 않는다
      */
-    const back=this._viewMark(args,!!args.keepFocus);
-    if(args.location) this._focusLocation(args.location);
-    Promise.resolve(this.closeWindowActive(_closeOpts(args)))
-      .then(()=>this._viewRestore(back));
+    if(args.location){
+      const tgt=this._resolveLocation(args.location);
+      if(!tgt){ console.warn('[cmd] closeWindow: 대상 없음',args.location); return }
+      this.delWindow(tgt.windowId,_closeOpts(args)||{});
+      return;
+    }
+    if(!(args.force||args.keepTool)){ this._remoteViaAction('closeWindow',args); return }
+    this.closeWindowActive(_closeOpts(args));
   },
 
   // location 지정 closeTab 은 활성/비활성 창 구분 없이 포커스를 건드리지 않고 직접 close.
-  // keepFocus 인자는 호환을 위해 받지만, location 이 있으면 항상 포커스 유지로 취급한다.
+  // keepFocus 인자는 호환을 위해 받지만, location 이 있으면 항상 포커스 유지로 취급한다
+  // (`keepView` — 사용자가 그 칸에 있지 않으면 포커스 칸이 그대로다).
   _remoteCloseTab(args){
     if(!args.location){ this._remoteViaAction('closeTab',args); return }
     const tgt=this._resolveLocation(args.location);
@@ -262,7 +267,7 @@ Object.assign(App.prototype, {
       // M9_SRS FR-M9-4: `keepTool` 은 그 답이 "백그라운드로 보내기" 일 때다
       // (`dmctl close-tab --background`). `force` 없이 오지 않는다 — 답을 준
       // 요청이 확인창을 만나면 그 자리에서 멎는다.
-      this.closeTab(tgt.paneId, tgt.tabId, tgt.windowId, _closeOpts(args));
+      this.closeTab(tgt.paneId, tgt.tabId, tgt.windowId, {...(_closeOpts(args)||{}),keepView:true});
       return;
     }
     /**
@@ -295,9 +300,8 @@ Object.assign(App.prototype, {
   /**
    * FR-M11-11: 적어 둔 자리로 시선을 되돌린다.
    *
-   * **두 호출처가 이 함수 하나를 함께 쓴다** — 종전에는 공통 경로에만 있었고
-   * `closeWindow` 의 `force` 갈래가 그것을 지나지 않았다. 두 벌로 두면 한쪽만
-   * 고쳐진다 (이 저장소가 여러 번 겪은 자리).
+   * 지목한 `closeWindow` 는 이 길을 지나지 않는다 — 그 window 를 활성으로 만들지
+   * 않으므로 되돌릴 것이 없다 (`_remoteCloseWindow`).
    *
    * 창이 사라졌으면 되돌리지 않는다 — 없는 창으로 갈 수는 없고, 그때의 폴백은
    * 닫기가 이미 세운 것이 옳다.

@@ -650,7 +650,9 @@ Object.assign(App.prototype, {
       // 워크스페이스가 죽은 탭을 가리키지 않게 한다 — 비포커스 칸이 닫은
       // 경우에는 `paneTabSet` 이 `activeTab` 을 쓰지 않는다 (FR-SVS-14).
       if(pn.activeTab===tid) pn.activeTab=nextId;
-      if(isActive){
+      // `keepView`(지목한 원격 닫기)는 사용자가 다른 칸에 있으면 포커스를 옮기지 않는다.
+      //   이전: 닫은 탭의 칸으로 포커스가 옮겨졌다 — 이슈 트리가 탭을 닫을 때 포커스가 튀었다
+      if(isActive&&!(opts.keepView&&this.focused!==rid)){
         this.setFocusState(rid,s);
         this._focusWindow(s.id);
       }

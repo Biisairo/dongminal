@@ -43,6 +43,7 @@ function world() {
   a._viewRestore = rec('_viewRestore');
   a.closeTab = rec('closeTab');
   a.closeWindowActive = rec('closeWindowActive');
+  a.delWindow = rec('delWindow');
   a.render = rec('render');
   a._notify = rec('_notify');
   a._echoResult = rec('_echoResult');
@@ -73,7 +74,7 @@ test('closeTab 의 자리를 못 찾으면 아무것도 닫지 않는다 (FR-RUN
 test('closeTab 에 자리가 있으면 그 탭을 닫고, 없으면 공통 경로다', () => {
   const { a, calls } = world();
   a._execRemote('closeTab', { location: 'W1.P1.T1', force: true });
-  assert.deepEqual(calls.find((c) => c[0] === 'closeTab'), ['closeTab', 'p1', 't1', 'w1', { force: true }]);
+  assert.deepEqual(calls.find((c) => c[0] === 'closeTab'), ['closeTab', 'p1', 't1', 'w1', { force: true, keepView: true }]);
   a._execRemote('closeTab', {});
   assert.deepEqual(calls.find((c) => c[0] === 'executeAction'), ['executeAction', 'closeTab']);
 });
@@ -85,6 +86,21 @@ test('closeWindow 는 답(force·keepTool)이 있을 때만 직접 닫고, 아�
   assert.equal(calls.find((c) => c[0] === 'closeWindowActive'), undefined);
   a._execRemote('closeWindow', { force: true, keepTool: true });
   assert.deepEqual(calls.find((c) => c[0] === 'closeWindowActive'), ['closeWindowActive', { force: true, keepTool: true }]);
+});
+
+test('closeWindow 에 자리가 있으면 그 window 를 활성으로 만들지 않고 닫는다 — -n 이 없어도 시선이 그대로다', () => {
+  const { a, calls } = world();
+  a._execRemote('closeWindow', { location: 'W1.P1.T1', force: true });
+  assert.deepEqual(calls.find((c) => c[0] === 'delWindow'), ['delWindow', 'w1', { force: true }]);
+  a._execRemote('closeWindow', { location: 'W1.P1.T1' });
+  assert.deepEqual(calls.filter((c) => c[0] === 'delWindow')[1], ['delWindow', 'w1', {}]);
+  assert.deepEqual(calls.filter((c) => ['_focusLocation', 'executeAction', 'closeWindowActive'].includes(c[0])), []);
+});
+
+test('closeWindow 의 자리를 못 찾으면 아무것도 닫지 않는다', () => {
+  const { a, calls } = world();
+  a._execRemote('closeWindow', { location: 'W9.P9.T9', force: true });
+  assert.deepEqual(calls.filter((c) => ['delWindow', 'executeAction', 'closeWindowActive'].includes(c[0])), []);
 });
 
 test('시선 이동 action 은 executeAction 으로 간다', () => {
