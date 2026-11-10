@@ -373,3 +373,52 @@ func TestDmctlPeerStatusAndClose(t *testing.T) {
 		t.Fatalf("ops %v", ops)
 	}
 }
+
+// 로컬 API 의 거절 본문과 상대가 준 사유도 제어 문자를 지우고 찍는다.
+func TestDmctlPeerCleansRefusalAndReason(t *testing.T) {
+	refusals := []string{
+		`{"code":"peer_unreachable","message":"x\u001b]52;c;AA==\u0007"}`,
+		"\x1b]0;title\x07 not json",
+	}
+	for _, body := range refusals {
+		_, cleanup := withPeerServer(t, 502, body)
+		if _, _, e := dmctlRun("peer", "reject", "p1"); strings.ContainsAny(e, "\x1b\x07") {
+			t.Errorf("거절 출력에 제어 문자 %q", e)
+		}
+		cleanup()
+	}
+	_, cleanup := withPeerServer(t, 200, `{"name":"la\u001b[2Jp","confirmed":false,"reason":"r\u001b]52;c;AA==\u0007"}`)
+	defer cleanup()
+	if _, out, e := dmctlRun("peer", "approve", "p1"); strings.ContainsAny(out+e, "\x1b\x07") {
+		t.Errorf("approve 출력에 제어 문자 %q %q", out, e)
+	}
+}
+
+// M-8: 프롬프트가 "-" 이면 stdin 을 읽는다 (dmctl msg 와 같다).
+func TestDmctlPeerSpawnStdin(t *testing.T) {
+	calls, cleanup := withPeerServer(t, 200, `{"toolId":"u-9","headless":false}`)
+	defer cleanup()
+	var so, se bytes.Buffer
+	rc := runDmctlPeerStdin(strings.NewReader("긴\n프롬프트"), []string{"spawn", "home", "--agent", "claude", "--cwd", "/w", "-"}, &so, &se)
+	if rc != 0 {
+		t.Fatalf("rc=%d %s", rc, se.String())
+	}
+	args, _ := (*calls)[0].body["args"].(map[string]any)
+	if args["prompt"] != "긴\n프롬프트" {
+		t.Fatalf("prompt %q", args["prompt"])
+	}
+}
+
+// L-14: --name=x 형식, -- 종료자, 값 자리에 온 플래그.
+func TestParsePeerArgsForms(t *testing.T) {
+	pa, err := parsePeerArgs([]string{"--name=lap", "code", "--", "--json"}, []string{"name"}, []string{"json"})
+	if err != nil || pa.flags["name"] != "lap" || len(pa.pos) != 2 || pa.pos[1] != "--json" || pa.bools["json"] {
+		t.Fatalf("%+v %v", pa, err)
+	}
+	if _, err := parsePeerArgs([]string{"--name", "--json"}, []string{"name"}, []string{"json"}); err == nil {
+		t.Fatal("--name 의 값으로 --json 을 먹었다")
+	}
+	if _, err := parsePeerArgs([]string{"--json=1"}, nil, []string{"json"}); err == nil {
+		t.Fatal("불 플래그에 값을 받았다")
+	}
+}

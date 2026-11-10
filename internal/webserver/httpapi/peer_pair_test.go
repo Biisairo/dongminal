@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"dongminal/internal/shared/dmenv"
+	"dongminal/internal/shared/testpath"
 	"dongminal/internal/webserver/domain/peer"
 )
 
@@ -345,5 +346,65 @@ func TestPeerNodePut(t *testing.T) {
 	body["name"] = "bad name"
 	if code, out := n.api(t, http.MethodPut, "/api/peers/node", body); code != http.StatusBadRequest || errCode(out) != "peer_config_invalid" {
 		t.Fatalf("틀린 이름: %d %v", code, out["_raw"])
+	}
+}
+
+// M-5: 쓰인(또는 만료된) 초대로 add 하면 상대는 TLS 단계에서 거절한다. 그때도 안내는
+// peer_no_invite 다 — errors.md 가 그렇게 말한다.
+func TestPairAddConsumedInvite(t *testing.T) {
+	a := newPeerNode(t, "node-a", true)
+	b := newPeerNode(t, "node-b", true)
+	c := newPeerNode(t, "node-c", true)
+	invite := b.invite(t)
+	if code, out := a.api(t, http.MethodPost, "/api/peers/add", map[string]any{"code": invite}); code != http.StatusOK {
+		t.Fatalf("첫 add: %d %v", code, out["_raw"])
+	}
+	code, out := c.api(t, http.MethodPost, "/api/peers/add", map[string]any{"code": invite})
+	if code != http.StatusForbidden || errCode(out) != "peer_no_invite" {
+		t.Fatalf("쓰인 초대: %d %v", code, out["_raw"])
+	}
+	if len(c.peers(t)) != 0 {
+		t.Fatal("거절됐는데 저장했다")
+	}
+}
+
+// L-6: confirm 을 받은 쪽이 저장에 실패하면 거절(403)이 아니라 save_failed 다.
+func TestPairConfirmSaveFailure(t *testing.T) {
+	if !testpath.PermChecked() {
+		t.Skip("디렉터리 권한으로 쓰기 실패를 만드는 검사다")
+	}
+	a := newPeerNode(t, "node-a", true)
+	b := newPeerNode(t, "node-b", true)
+	if code, out := a.api(t, http.MethodPost, "/api/peers/add", map[string]any{"code": b.invite(t)}); code != http.StatusOK {
+		t.Fatalf("add: %d %v", code, out["_raw"])
+	}
+	dir := a.srv.cfg.DataDir
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+	pend := b.pending(t)
+	code, out := b.api(t, http.MethodPost, "/api/peers/approve", map[string]any{"id": pend[0]["id"]})
+	if code != http.StatusOK || out["confirmed"] != false {
+		t.Fatalf("approve: %d %v", code, out["_raw"])
+	}
+	if r, _ := out["reason"].(string); !strings.Contains(r, "save_failed") {
+		t.Fatalf("사유 %q", r)
+	}
+}
+
+// L-1: 저장소 오류는 종류대로 가른다.
+func TestPeerStoreFailCodes(t *testing.T) {
+	cases := map[error]string{
+		peer.ErrNameTaken:    "peer_name_taken",
+		peer.ErrSaveFailed:   "save_failed",
+		peer.ErrPeerNotFound: "peer_not_found",
+	}
+	for err, want := range cases {
+		rec := httptest.NewRecorder()
+		peerStoreFail(rec, err)
+		if !strings.Contains(rec.Body.String(), `"`+want+`"`) {
+			t.Errorf("%v → %d %s", err, rec.Code, rec.Body.String())
+		}
 	}
 }

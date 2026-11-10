@@ -60,6 +60,8 @@ func (f *fakeToolIO) Snapshot(id string) ([]byte, int64, bool) {
 	return d, f.dropped, ok
 }
 func (f *fakeToolIO) SendPaste(id string, text []byte, submit bool) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.pastes = append(f.pastes, fakePaste{ToolID: id, Text: string(text), Submit: submit})
 	return f.pasteErr
 }

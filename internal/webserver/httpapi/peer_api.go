@@ -210,6 +210,12 @@ func (s *Server) apiPeersAdd(w http.ResponseWriter, r *http.Request) {
 	tgt := peer.Target{Addr: ic.Addr, Port: ic.Port, Fingerprint: ic.Fingerprint}
 	if err := s.peerClient.Call(r.Context(), tgt, peerPairPath, req, &resp); err != nil {
 		peerAudit("out", "-", "pair", http.StatusBadGateway)
+		// 상대는 초대가 없으면 TLS 단계에서 거절한다 (I-1). 짝이 아닌 이 노드가 거절당하는
+		// 이유는 그것뿐이다.
+		if errors.Is(err, peer.ErrRejected) {
+			peerFail(w, http.StatusForbidden, apierr.CodePeerNoInvite, "no live invite")
+			return
+		}
 		peerCallFail(w, err)
 		return
 	}
@@ -224,7 +230,7 @@ func (s *Server) apiPeersAdd(w http.ResponseWriter, r *http.Request) {
 	p := peer.Peer{Name: name, Addr: ic.Addr, Port: ic.Port, Fingerprint: ic.Fingerprint,
 		State: peer.StatePendingOut, Expires: time.Now().Add(peer.PendingTTL)}
 	if err := s.peers.AddPeer(p); err != nil {
-		peerFail(w, http.StatusInternalServerError, apierr.CodeSaveFailed, err.Error())
+		peerStoreFail(w, err)
 		return
 	}
 	peerAudit("out", name, "pair", http.StatusOK)
@@ -319,6 +325,8 @@ func peerStoreFail(w http.ResponseWriter, err error) {
 		peerFail(w, http.StatusNotFound, apierr.CodePeerNotFound, err.Error())
 	case errors.Is(err, peer.ErrSaveFailed):
 		peerFail(w, http.StatusInternalServerError, apierr.CodeSaveFailed, err.Error())
+	case errors.Is(err, peer.ErrNameTaken):
+		peerFail(w, http.StatusConflict, apierr.CodePeerNameTaken, err.Error())
 	default:
 		peerFail(w, http.StatusBadRequest, apierr.CodePeerConfigInvalid, err.Error())
 	}

@@ -206,6 +206,10 @@ type serverLimits struct {
 	// `diag` 의 hold 임계와 같다 (FR-CNR-13) — 그 선을 치면 거절이 시작된다는 뜻이고,
 	// 로그가 그 사실을 함께 말한다.
 	waitMaxConcurrent int64
+	// peerPromptWait 은 원격 spawn 의 첫 프롬프트가 에이전트 준비를 기다리는 상한이다 (I-30).
+	peerPromptWait time.Duration
+	// peerTabCloseWait 은 closeTab 방송 뒤 도구가 사라지기를 기다리는 상한이다 (I-32).
+	peerTabCloseWait time.Duration
 }
 
 func defaultLimits() serverLimits {
@@ -217,6 +221,8 @@ func defaultLimits() serverLimits {
 		toolKillGrace:  3 * time.Second,
 
 		waitMaxConcurrent: 32,
+		peerPromptWait:    2 * time.Minute,
+		peerTabCloseWait:  3 * time.Second,
 	}
 }
 

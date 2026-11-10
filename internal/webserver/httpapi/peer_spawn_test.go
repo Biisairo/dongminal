@@ -1,12 +1,16 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"dongminal/internal/shared/activity"
+	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/testpath"
 	"dongminal/internal/webserver/hub"
@@ -93,15 +97,23 @@ func TestPeerSpawnHeadless(t *testing.T) {
 	if len(p) != 1 || p[0].ToolID != "headless-1" || !p[0].Submit {
 		t.Fatalf("기동줄 붙여넣기 %+v", p)
 	}
+	// I-30: 원격 프롬프트는 셸 명령줄에 들어가지 않는다.
 	line := p[0].Text
-	if !strings.Contains(line, agentCmd(t)) || !strings.Contains(line, "DONGMINAL-PEER-MSG from=node-a/caller-1 to=headless-1") {
+	if !strings.Contains(line, agentCmd(t)) || strings.Contains(line, "DONGMINAL-PEER-MSG") || strings.Contains(line, "리뷰") {
 		t.Fatalf("기동줄 %q", line)
 	}
-	if strings.Contains(line, "\x1b") {
-		t.Fatalf("제어 문자가 남았다 %q", line)
+	// 에이전트가 전경에 오르고 준비완료를 알리면 엔벨로프를 에이전트 입력에 넣는다.
+	b.tools.setFG("headless-1", agentCmd(t))
+	b.reportActivity("headless-1", activity.Idle)
+	p = b.awaitPastes(t, 2)
+	env := p[1]
+	if env.ToolID != "headless-1" || !env.Submit || !strings.Contains(env.Text, "DONGMINAL-PEER-MSG from=node-a/caller-1 to=headless-1") {
+		t.Fatalf("프롬프트 붙여넣기 %+v", env)
+	}
+	if strings.Contains(env.Text, "\x1b") {
+		t.Fatalf("제어 문자가 남았다 %q", env.Text)
 	}
 	// FR-PNW-51·62: 띄운 짝에게는 spawnedByYou 다.
-	b.tools.setFG("headless-1", agentCmd(t))
 	_, list := a.call(t, "node-b", "agents.list", nil)
 	if items := listOf(list, "agents"); len(items) != 1 || items[0]["spawnedByYou"] != true {
 		t.Fatalf("agents.list %v", list["_raw"])
@@ -123,7 +135,7 @@ func TestPeerSpawnWindow(t *testing.T) {
 	if created, _, _ := b.hub.counts(); created != 0 {
 		t.Fatal("창 배치인데 헤드리스 도구를 만들었다")
 	}
-	if p := b.tools.pasted(); len(p) != 1 || p[0].ToolID != "w-1" {
+	if p := b.tools.pasted(); len(p) != 1 || p[0].ToolID != "w-1" || strings.Contains(p[0].Text, "hi") {
 		t.Fatalf("붙여넣기 %+v", p)
 	}
 	// 짝맞춤이 먼저 `peers_changed` 를 민다 — 새 창 요청은 그 뒤에 있다.
@@ -235,5 +247,154 @@ func TestPeerAgentClose(t *testing.T) {
 	}
 	if _, ok := b.srv.peerSpawns.Owner("headless-1"); ok {
 		t.Fatal("기록이 남았다")
+	}
+}
+
+func (n *spawnNode) reportActivity(toolID, state string) {
+	n.srv.attention().ReportActivity(toolID, state, "", "", false, true)
+	n.srv.activityChanged.Notify()
+}
+
+// awaitPastes 는 붙여넣기가 n 개가 될 때까지 기다린다 — 프롬프트 전달은 응답 뒤에 일어난다.
+func (n *spawnNode) awaitPastes(t *testing.T, want int) []fakePaste {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		p := n.tools.pasted()
+		if len(p) >= want {
+			return p
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("붙여넣기 %d 개를 기다렸다: %+v", want, p)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// I-30: 전경이 셸이면 준비완료 신호가 와도 프롬프트를 붙여넣지 않는다 — 셸에 들어가면
+// 원격 글이 명령이 된다. 기한이 지나면 버린다.
+func TestPeerSpawnPromptNeverToShell(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	b.srv.limits.peerPromptWait = 300 * time.Millisecond
+	pairNodes(t, a, b.peerNode)
+	code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed, "prompt": "x'; touch /tmp/pwn; echo '"})
+	if code != 200 {
+		t.Fatalf("spawn %d %v", code, out["_raw"])
+	}
+	b.reportActivity("headless-1", activity.Idle)
+	time.Sleep(600 * time.Millisecond)
+	// 기한이 지난 뒤 에이전트가 떠도 늦은 프롬프트는 오지 않는다.
+	b.tools.setFG("headless-1", agentCmd(t))
+	b.reportActivity("headless-1", activity.Idle)
+	time.Sleep(100 * time.Millisecond)
+	if p := b.tools.pasted(); len(p) != 1 {
+		t.Fatalf("기동줄 하나만 있어야 한다 %+v", p)
+	}
+}
+
+// I-30: 전경이 다른 에이전트면 넣지 않는다 — 띄운 그 에이전트여야 한다.
+func TestPeerSpawnPromptOtherAgent(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	b.srv.limits.peerPromptWait = 300 * time.Millisecond
+	pairNodes(t, a, b.peerNode)
+	if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed, "prompt": "hi"}); code != 200 {
+		t.Fatalf("spawn %d %v", code, out["_raw"])
+	}
+	other, err := agentadapter.Get("codex")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b.tools.setFG("headless-1", other.DetectCmd)
+	b.reportActivity("headless-1", activity.Idle)
+	time.Sleep(600 * time.Millisecond)
+	if p := b.tools.pasted(); len(p) != 1 {
+		t.Fatalf("다른 에이전트에 넣었다 %+v", p)
+	}
+}
+
+// I-31: 한 짝이 띄워 살아 있는 도구는 4개까지다. 죽은 도구의 기록은 셀 때 지운다.
+func TestPeerSpawnLimit(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	pairNodes(t, a, b.peerNode)
+	for i := 0; i < 4; i++ {
+		if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed}); code != 200 {
+			t.Fatalf("spawn %d: %d %v", i, code, out["_raw"])
+		}
+	}
+	if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed}); code != http.StatusTooManyRequests || errCode(out) != "peer_spawn_limit" {
+		t.Fatalf("상한: %d %v", code, out["_raw"])
+	}
+	if created, _, _ := b.hub.counts(); created != 4 {
+		t.Fatalf("거절했는데 만들었다: %d", created)
+	}
+	b.tools.setHas("headless-2", false)
+	if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed}); code != 200 {
+		t.Fatalf("하나가 죽은 뒤: %d %v", code, out["_raw"])
+	}
+	if _, ok := b.srv.peerSpawns.Owner("headless-2"); ok {
+		t.Fatal("죽은 도구의 기록이 남았다")
+	}
+}
+
+// I-32: spawn 이 도구를 만든 뒤 실패하면 도구를 닫고 기록을 지운다.
+func TestPeerSpawnFailureCleansUp(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	pairNodes(t, a, b.peerNode)
+	b.tools.fakeToolIO.pasteErr = errors.New("pty gone")
+	if code, _ := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed}); code != http.StatusBadGateway {
+		t.Fatalf("spawn = %d", code)
+	}
+	if _, deleted, _ := b.hub.counts(); deleted != 1 {
+		t.Fatal("실패한 도구가 남았다")
+	}
+	if _, ok := b.srv.peerSpawns.Owner("headless-1"); ok {
+		t.Fatal("실패한 도구의 기록이 남았다")
+	}
+}
+
+// I-32: 화면이 closeTab 을 받고도 닫지 않으면 서버가 지운다.
+func TestPeerAgentCloseFallsBackToDelete(t *testing.T) {
+	installFakeAgent(t)
+	broker := &fakeCommandBroker{}
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", broker)
+	b.srv.limits.peerTabCloseWait = 100 * time.Millisecond
+	pairNodes(t, a, b.peerNode)
+	if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed}); code != 200 {
+		t.Fatalf("spawn %d %v", code, out["_raw"])
+	}
+	wi := b.srv.WorkIndex.(*fakeWorkIndex)
+	wi.entries = append(wi.entries, toolaccess.WorkspaceEntry{ToolID: "headless-1", TabUUID: "tab-h1"})
+	if code, out := a.call(t, "node-b", "agent.close", map[string]any{"toolId": "headless-1"}); code != 200 || out["closed"] != true {
+		t.Fatalf("close: %d %v", code, out["_raw"])
+	}
+	if b.srv.toolLive("headless-1") {
+		t.Fatal("도구가 살아 있다")
+	}
+	if _, ok := b.srv.peerSpawns.Owner("headless-1"); ok {
+		t.Fatal("기록이 남았다")
+	}
+}
+
+// I-33: 창 배치가 시간 초과면 헤드리스로 내려가지 않는다.
+func TestPeerSpawnWindowTimeout(t *testing.T) {
+	installFakeAgent(t)
+	broker := &fakeCommandBroker{awaitDelivered: 1, awaitTimedOut: true}
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", broker)
+	pairNodes(t, a, b.peerNode)
+	if code, _ := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed}); code == 200 {
+		t.Fatal("시간 초과인데 성공했다")
+	}
+	if created, _, _ := b.hub.counts(); created != 0 {
+		t.Fatal("헤드리스 셸을 만들었다")
 	}
 }

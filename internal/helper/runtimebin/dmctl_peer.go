@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -24,11 +25,11 @@ const dmctlPeerHelp = `dmctl peer — 노드 간 통신의 짝맞춤
   dmctl peer approve <요청 id> [--name <이름>]  승인 대기를 짝으로 저장한다
   dmctl peer reject <요청 id>                승인 대기를 거절한다
   dmctl peer remove <노드>                   짝을 해제한다
-  dmctl peer info <노드>                     상대 노드의 이름·판·받는 명령·설치된 에이전트
+  dmctl peer info <노드>                     상대 노드의 이름·판·받는 명령·설치된 에이전트·허용 폴더
   dmctl peer tools <노드> [--json]           상대 노드의 에이전트 도구 목록 (<노드>/<uuid>)
   dmctl msg --to <노드>/<uuid> <메시지>       상대 노드의 에이전트에게 원격 엔벨로프로 보낸다
-  dmctl peer spawn <노드> --agent <id> --cwd <경로> [--tab --at <uuid>] [--name <이름>] <프롬프트>
-                                             상대 노드에 에이전트를 띄운다. 성공하면 <노드>/<uuid> 를 낸다.
+  dmctl peer spawn <노드> --agent <id> --cwd <경로> [--tab --at <uuid>] [--name <이름>] <프롬프트|->
+                                             상대 노드에 에이전트를 띄운다. - 이면 stdin 을 읽는다. 성공하면 <노드>/<uuid> 를 낸다.
                                              폴더는 상대가 허용한 폴더 안이어야 한다. 권한 모드는 상대의 것이다
   dmctl peer status <노드>/<uuid> [--json]    working · idle · waiting · ended · unknown
   dmctl peer close <노드>/<uuid>              자기가 띄운 에이전트를 끝내고 닫는다
@@ -165,6 +166,8 @@ type peerArgs struct {
 	flags map[string]string
 	bools map[string]bool
 	help  bool
+	// stdin 은 spawn 의 프롬프트 "-" 가 읽는다.
+	stdin io.Reader
 }
 
 func parsePeerArgs(args []string, allowed, bools []string) (peerArgs, error) {
@@ -175,32 +178,39 @@ func parsePeerArgs(args []string, allowed, bools []string) (peerArgs, error) {
 			out.help = true
 			continue
 		}
+		if a == "--" {
+			out.pos = append(out.pos, args[i+1:]...)
+			break
+		}
 		if !strings.HasPrefix(a, "--") {
 			out.pos = append(out.pos, a)
 			continue
 		}
-		name := strings.TrimPrefix(a, "--")
-		if slices.Contains(bools, name) {
+		name, value, inline := strings.Cut(strings.TrimPrefix(a, "--"), "=")
+		if slices.Contains(bools, name) && !inline {
 			out.bools[name] = true
 			continue
 		}
-		ok := false
-		for _, f := range allowed {
-			ok = ok || f == name
-		}
-		if !ok {
+		if !slices.Contains(allowed, name) {
 			return out, fmt.Errorf("모르는 플래그 %s", a)
 		}
-		if i+1 >= len(args) {
-			return out, fmt.Errorf("%s 에 값이 없습니다", a)
+		if !inline {
+			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "--") {
+				return out, fmt.Errorf("%s 에 값이 없습니다", a)
+			}
+			value = args[i+1]
+			i++
 		}
-		out.flags[name] = args[i+1]
-		i++
+		out.flags[name] = value
 	}
 	return out, nil
 }
 
 func runDmctlPeer(args []string, stdout, stderr io.Writer) int {
+	return runDmctlPeerStdin(os.Stdin, args, stdout, stderr)
+}
+
+func runDmctlPeerStdin(stdin io.Reader, args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, dmctlPeerHelp)
 		return 2
@@ -217,6 +227,7 @@ func runDmctlPeer(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	pa, err := parsePeerArgs(rest, spec.flags, spec.bools)
+	pa.stdin = stdin
 	if pa.help {
 		fmt.Fprint(stdout, dmctlPeerHelp)
 		return 0
@@ -263,7 +274,7 @@ func peerInvite(pa peerArgs, stdout, stderr io.Writer) int {
 	_ = json.Unmarshal(raw, &v)
 	// stdout 은 코드 한 줄이다 — 파이프로 그대로 넘길 수 있게 한다.
 	fmt.Fprintln(stdout, v.Code)
-	fmt.Fprintf(stderr, "초대 코드는 %s 까지 한 번 쓸 수 있습니다. 상대 노드에서 dmctl peer add <코드> 를 실행하세요.\n", v.Expires)
+	fmt.Fprintf(stderr, "초대 코드는 %s 까지 한 번 쓸 수 있습니다. 상대 노드에서 dmctl peer add <코드> 를 실행하세요.\n", clean(v.Expires))
 	return 0
 }
 
@@ -281,7 +292,7 @@ func peerAdd(pa peerArgs, stdout, stderr io.Writer) int {
 		Warning string `json:"warning"`
 	}
 	_ = json.Unmarshal(raw, &v)
-	fmt.Fprintf(stdout, "%s 에 등록을 요청했습니다. 상대가 승인하면 짝이 됩니다 (10분 안).\n", v.Name)
+	fmt.Fprintf(stdout, "%s 에 등록을 요청했습니다. 상대가 승인하면 짝이 됩니다 (10분 안).\n", clean(v.Name))
 	if v.Warning == "port_closed" {
 		fmt.Fprintln(stderr, "주의: 이 노드의 노드 포트가 닫혀 있어 상대가 이 노드로 보낼 수 없습니다. 승인 통지도 받지 못합니다.")
 	}
@@ -303,9 +314,9 @@ func peerApprove(pa peerArgs, stdout, stderr io.Writer) int {
 		Reason    string `json:"reason"`
 	}
 	_ = json.Unmarshal(raw, &v)
-	fmt.Fprintf(stdout, "%s 를 짝으로 저장했습니다.\n", v.Name)
+	fmt.Fprintf(stdout, "%s 를 짝으로 저장했습니다.\n", clean(v.Name))
 	if !v.Confirmed {
-		fmt.Fprintf(stderr, "주의: 상대에게 승인을 알리지 못했습니다 (%s). 상대는 아직 이 노드를 짝으로 모릅니다.\n", v.Reason)
+		fmt.Fprintf(stderr, "주의: 상대에게 승인을 알리지 못했습니다 (%s). 상대는 아직 이 노드를 짝으로 모릅니다.\n", clean(v.Reason))
 	}
 	return 0
 }
@@ -348,10 +359,10 @@ func printPeerRefusal(w io.Writer, status int, raw []byte) {
 		Message string `json:"message"`
 	}
 	if json.Unmarshal(raw, &e) == nil && e.Code != "" {
-		fmt.Fprintf(w, "dmctl: %s: %s\n", e.Code, e.Message)
+		fmt.Fprintf(w, "dmctl: %s: %s\n", clean(e.Code), clean(e.Message))
 		return
 	}
-	fmt.Fprintf(w, "dmctl: status %d: %s\n", status, raw)
+	fmt.Fprintf(w, "dmctl: status %d: %s\n", status, clean(string(raw)))
 }
 
 // clean 은 상대 노드가 보낸 글자에서 제어 문자를 지운다 — 터미널에 찍히기 때문이다.
@@ -476,7 +487,11 @@ func peerSpawn(pa peerArgs, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "dmctl peer spawn: --agent 와 --cwd 가 필요합니다")
 		return 2
 	}
-	args := map[string]any{"agent": agent, "cwd": cwd, "prompt": pa.pos[1], "placement": "window"}
+	prompt, rc := readBody(pa.pos[1:], pa.stdin, stderr, "dmctl peer spawn")
+	if rc != 0 {
+		return rc
+	}
+	args := map[string]any{"agent": agent, "cwd": cwd, "prompt": prompt, "placement": "window"}
 	if pa.bools["tab"] {
 		if pa.flags["at"] == "" {
 			fmt.Fprintln(stderr, "dmctl peer spawn: --tab 에는 --at <uuid> 가 필요합니다")

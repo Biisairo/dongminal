@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"testing"
 )
@@ -114,5 +115,27 @@ func TestClientRejectedByPeer(t *testing.T) {
 	err = NewClient(stranger).Call(context.Background(), f.target, "/peer/v1/x", map[string]any{}, nil)
 	if !errors.Is(err, ErrRejected) {
 		t.Fatalf("Call = %v, 기대 ErrRejected", err)
+	}
+}
+
+// 상대의 오류 본문은 터미널까지 간다. 제어 문자를 지우고 길이를 묶는다.
+func TestClientRemoteErrorCleansMessage(t *testing.T) {
+	cases := map[string]string{
+		"코드 없음": "\x1b]52;c;cHduZWQ=\x07" + strings.Repeat("x", 4096),
+		"코드 있음": `{"code":"peer_x","message":"a\u001b[2Jb` + strings.Repeat("y", 4096) + `"}`,
+	}
+	for name, body := range cases {
+		f := newClientFixture(t, func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(body))
+		})
+		err := NewClient(f.caller).Call(context.Background(), f.target, "/peer/v1/x", map[string]any{}, nil)
+		var re *RemoteError
+		if !errors.As(err, &re) {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if strings.ContainsAny(re.Message, "\x1b\x07") || len(re.Message) > RemoteMessageMax {
+			t.Errorf("%s: Message %q", name, re.Message)
+		}
 	}
 }

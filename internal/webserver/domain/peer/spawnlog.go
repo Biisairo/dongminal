@@ -18,11 +18,13 @@ type SpawnLog struct {
 	mu    sync.Mutex
 	path  string
 	owner map[string]string
+	// inflight 는 짝마다 만드는 중인 spawn 수다. 기록 전이라 owner 에 아직 없다.
+	inflight map[string]int
 }
 
 // OpenSpawnLog 은 path 를 읽는다. 없거나 망가졌으면 빈 기록으로 선다.
 func OpenSpawnLog(path string) *SpawnLog {
-	l := &SpawnLog{path: path, owner: map[string]string{}}
+	l := &SpawnLog{path: path, owner: map[string]string{}, inflight: map[string]int{}}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
@@ -51,6 +53,44 @@ func (l *SpawnLog) Record(toolID, fp string) error {
 	defer l.mu.Unlock()
 	l.owner[toolID] = fp
 	return l.saveLocked()
+}
+
+// Reserve 는 fp 의 spawn 자리 하나를 잡는다 (I-31). 살아 있는 기록과 만드는 중인 것을
+// 합쳐 max 이상이면 거짓이다. 셀 때 죽은 도구의 기록은 지운다(모든 짝의 것).
+// 잡았으면 spawn 이 끝날 때 release 를 부른다.
+func (l *SpawnLog) Reserve(fp string, max int, live func(toolID string) bool) (release func(), ok bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	n, pruned := l.inflight[fp], false
+	for id, owner := range l.owner {
+		if !live(id) {
+			delete(l.owner, id)
+			pruned = true
+			continue
+		}
+		if owner == fp {
+			n++
+		}
+	}
+	if pruned {
+		if err := l.saveLocked(); err != nil {
+			dmlog.Infof(nil, "peer-spawns 정리 저장 실패: %v", err)
+		}
+	}
+	if n >= max {
+		return nil, false
+	}
+	l.inflight[fp]++
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			l.mu.Lock()
+			defer l.mu.Unlock()
+			if l.inflight[fp]--; l.inflight[fp] <= 0 {
+				delete(l.inflight, fp)
+			}
+		})
+	}, true
 }
 
 // Owner 는 toolID 를 띄운 짝의 지문이다.

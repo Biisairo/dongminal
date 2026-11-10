@@ -172,9 +172,16 @@ func (s *Server) peerPair(w http.ResponseWriter, r *http.Request) {
 // peerPairConfirm 은 A 쪽 승인 통지다 (FR-PNW-27).
 func (s *Server) peerPairConfirm(w http.ResponseWriter, r *http.Request) {
 	fp := peer.ClientFingerprint(r)
-	if !s.peers.IsPeer(fp) && !s.peers.Promote(fp) {
+	switch {
+	case s.peers.IsPeer(fp):
+	case !s.peers.IsPendingOut(fp):
 		peerAudit("in", "-", "pair.confirm", http.StatusForbidden)
 		peerFail(w, http.StatusForbidden, apierr.CodePeerRejected, "not pending")
+		return
+	case !s.peers.Promote(fp):
+		// pending-out 인데 바꾸지 못했으면 저장 실패다 (L-6).
+		peerAudit("in", "-", "pair.confirm", http.StatusInternalServerError)
+		peerFail(w, http.StatusInternalServerError, apierr.CodeSaveFailed, "save failed")
 		return
 	}
 	peerAudit("in", fp[:16], "pair.confirm", http.StatusOK)

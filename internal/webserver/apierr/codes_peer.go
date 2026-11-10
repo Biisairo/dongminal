@@ -23,6 +23,7 @@ const (
 	CodePeerAgentMissing   = "peer_agent_unavailable"
 	CodePeerDirNotAllowed  = "peer_dir_not_allowed"
 	CodePeerNotOwner       = "peer_not_owner"
+	CodePeerSpawnLimit     = "peer_spawn_limit"
 )
 
 var peerCodes = []string{
@@ -30,5 +31,5 @@ var peerCodes = []string{
 	CodePeerInviteInvalid, CodePeerNoInvite, CodePeerTokenInvalid, CodePeerFPMismatch,
 	CodePeerUnreachable, CodePeerRejected, CodePeerNameTaken, CodePeerPendingMissing, CodePeerNotFound,
 	CodePeerUnknownOp, CodePeerRateLimited, CodePeerTargetMissing, CodePeerTargetNotAgent,
-	CodePeerAgentMissing, CodePeerDirNotAllowed, CodePeerNotOwner,
+	CodePeerAgentMissing, CodePeerDirNotAllowed, CodePeerNotOwner, CodePeerSpawnLimit,
 }

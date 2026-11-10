@@ -335,7 +335,8 @@ func (s *Store) FreeNameFor(base, fp string) string {
 	}
 }
 
-// AddPeer 는 짝(또는 pending-out)을 더한다. 같은 지문이 있으면 갈아 끼운다.
+// AddPeer 는 짝(또는 pending-out)을 더한다. 같은 지문이 있으면 갈아 끼운다. 이미 짝인
+// 지문을 pending-out 으로 다시 더하면 짝으로 남긴다 — 상대가 승인하지 않아도 잃지 않는다.
 // 다른 항목이 이미 그 이름을 쓰면 ErrNameTaken 이다 (FR-PNW-30).
 func (s *Store) AddPeer(p Peer) error {
 	if p.State == StatePaired {
@@ -348,6 +349,9 @@ func (s *Store) AddPeer(p Peer) error {
 		kept := c.Peers[:0]
 		for _, q := range c.Peers {
 			if q.Fingerprint == p.Fingerprint {
+				if s.live(q) && q.State == StatePaired {
+					p.State, p.Expires = StatePaired, time.Time{}
+				}
 				continue
 			}
 			if q.Name == p.Name {

@@ -40,3 +40,37 @@ func TestSpawnLogCorrupt(t *testing.T) {
 		t.Fatal("망가진 파일에서 주인을 읽었다")
 	}
 }
+
+// I-31: 만드는 중인 것도 센다. release 는 한 번만 효과가 있다. 죽은 기록은 셀 때 지운다.
+func TestSpawnLogReserve(t *testing.T) {
+	l := OpenSpawnLog(filepath.Join(t.TempDir(), "s.json"))
+	alive := map[string]bool{"t1": true}
+	live := func(id string) bool { return alive[id] }
+	if err := l.Record("t1", "fpA"); err != nil {
+		t.Fatal(err)
+	}
+	if err := l.Record("dead", "fpB"); err != nil {
+		t.Fatal(err)
+	}
+	r1, ok := l.Reserve("fpA", 2, live)
+	if !ok {
+		t.Fatal("첫 자리")
+	}
+	if _, ok := l.Reserve("fpA", 2, live); ok {
+		t.Fatal("기록 1 + 만드는 중 1 = 2 인데 잡혔다")
+	}
+	if _, ok := l.Reserve("fpB", 2, live); !ok {
+		t.Fatal("다른 짝은 따로 센다")
+	}
+	if _, ok := l.Owner("dead"); ok {
+		t.Fatal("죽은 기록이 남았다")
+	}
+	r1()
+	r1()
+	if _, ok := l.Reserve("fpA", 2, live); !ok {
+		t.Fatal("release 뒤 자리가 돌아와야 한다")
+	}
+	if _, ok := l.Reserve("fpA", 2, live); ok {
+		t.Fatal("release 를 두 번 불러 자리가 둘 늘었다")
+	}
+}

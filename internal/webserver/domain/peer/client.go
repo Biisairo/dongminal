@@ -11,7 +11,10 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 // 보내는 쪽의 시간 한도 (FR-PNW-44)와 응답 상한.
@@ -42,6 +45,24 @@ type RemoteError struct {
 	Status  int
 	Code    string
 	Message string
+}
+
+// RemoteMessageMax 는 RemoteError.Message 의 바이트 상한이다. 오류 문장은 터미널과 화면에 찍힌다.
+const RemoteMessageMax = 512
+
+// cleanMessage 는 상대가 보낸 오류 문장에서 제어 문자를 지우고 길이를 묶는다.
+func cleanMessage(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if unicode.IsControl(r) {
+			continue
+		}
+		if b.Len()+utf8.RuneLen(r) > RemoteMessageMax {
+			break
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 func (e *RemoteError) Error() string {
@@ -89,9 +110,9 @@ func (c *Client) Call(ctx context.Context, t Target, path string, in, out any) e
 			if resp.StatusCode == http.StatusForbidden {
 				return ErrRejected
 			}
-			return &RemoteError{Status: resp.StatusCode, Code: "", Message: string(raw)}
+			return &RemoteError{Status: resp.StatusCode, Code: "", Message: cleanMessage(string(raw))}
 		}
-		return &RemoteError{Status: resp.StatusCode, Code: e.Code, Message: e.Message}
+		return &RemoteError{Status: resp.StatusCode, Code: e.Code, Message: cleanMessage(e.Message)}
 	}
 	if out == nil {
 		return nil

@@ -173,9 +173,15 @@ func (p *Pairing) TakePending(id string) (Pending, bool) {
 }
 
 // PutBack 은 꺼낸 승인 대기를 그대로 돌려놓는다 (승인이 이름 충돌로 멈춘 경우).
+// 그 사이 같은 지문의 새 대기가 들어왔으면 새 것이 이긴다 (AddPending 과 같은 규칙).
 func (p *Pairing) PutBack(e Pending) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	for _, cur := range p.pending {
+		if cur.Fingerprint == e.Fingerprint {
+			return
+		}
+	}
 	p.pending[e.ID] = e
 }
 

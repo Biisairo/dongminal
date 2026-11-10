@@ -379,3 +379,23 @@ func TestStoreFreeNameIgnoresSameFingerprint(t *testing.T) {
 		t.Fatalf("다른 지문 = %q", got)
 	}
 }
+
+// L-2: 이미 짝인 지문을 다시 등록해도 짝으로 남는다. 상대가 승인하지 않아도 10분 뒤 사라지지 않는다.
+func TestStoreReAddKeepsPaired(t *testing.T) {
+	clk := newFakeClock()
+	s := newTestStore(t, clk)
+	fp := fpOf("aa")
+	if err := s.AddPeer(Peer{Name: "b", Addr: "10.0.0.2", Port: 58147, Fingerprint: fp}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddPeer(Peer{Name: "b2", Addr: "10.0.0.3", Port: 58147, Fingerprint: fp, State: StatePendingOut, Expires: clk.t.Add(PendingTTL)}); err != nil {
+		t.Fatal(err)
+	}
+	clk.advance(PendingTTL + time.Second)
+	if !s.IsPeer(fp) {
+		t.Fatal("다시 등록한 짝이 pending-out 으로 내려가 사라졌다")
+	}
+	if p, ok := s.ByName("b2"); !ok || p.Addr != "10.0.0.3" {
+		t.Fatalf("새 이름·주소가 반영되지 않았다 %+v", p)
+	}
+}

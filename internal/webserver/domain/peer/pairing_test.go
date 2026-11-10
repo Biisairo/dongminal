@@ -197,3 +197,19 @@ func TestValidAddr(t *testing.T) {
 		}
 	}
 }
+
+// L-7: 꺼낸 사이에 같은 지문의 새 대기가 들어오면 돌려놓는 옛 것은 버린다.
+func TestPutBackYieldsToNewerSameFingerprint(t *testing.T) {
+	p := NewPairing(newFakeClock().now)
+	old := p.AddPending(Pending{Name: "a", Fingerprint: fpOf("aa")})
+	e, ok := p.TakePending(old.ID)
+	if !ok {
+		t.Fatal("꺼내지 못했다")
+	}
+	fresh := p.AddPending(Pending{Name: "a", Fingerprint: fpOf("aa")})
+	p.PutBack(e)
+	got := p.Pending()
+	if len(got) != 1 || got[0].ID != fresh.ID {
+		t.Fatalf("대기 %+v", got)
+	}
+}
