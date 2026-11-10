@@ -61,8 +61,6 @@
   - 모르는 동안에는 사용량·서브에이전트 기록을 지우지 않고, 알람 배지도 거르지 않습니다.
   - `dmctl status` 는 모를 때 `live=unknown` 으로 씁니다(JSON 은 `live:false`, `liveUnknown:true`). `dmctl wait` 는
     모른다고 `gone` 으로 끝내지 않고 계속 기다립니다.
-  - 맥락 경고 통지 기록을 Run 멤버 기록(`contextNotified`)에 저장합니다. 서버가 다시 떠도 같은 멤버·등급의
-    `[CONTEXT-ALERT]` 를 조정자에게 다시 보내지 않습니다. 이 항목은 직접 모드에도 적용됩니다.
   - 새 Run 은 `epoch` 를 쓰지 않습니다. 옛 `runs.json` 의 `epoch`·`aborted` 는 그대로 읽습니다.
   - 직접 모드는 이전과 같습니다. 서버가 다시 뜨면 에이전트도 끝났으므로 열린 Run 을 `aborted` 로 닫습니다.
   - 서버만 바뀌었으므로 데몬을 다시 띄우지 않아도 적용됩니다.

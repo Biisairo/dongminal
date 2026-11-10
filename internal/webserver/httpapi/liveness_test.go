@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"encoding/json"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -148,28 +147,5 @@ func TestToolStatusWaitDoesNotEndOnUnknown(t *testing.T) {
 	}
 	if out["liveUnknown"] != true {
 		t.Fatalf("마지막 관측에 liveUnknown 이 없다: %v", out)
-	}
-}
-
-// TC-ARD-5 (FR-ARD-6): 서버가 다시 떠도 같은 멤버·등급에 두 번 통지하지 않는다.
-func TestContextAlertNotRepeatedAfterRestart(t *testing.T) {
-	s, _, io, _, _ := ctxServer(t)
-	observe(t, s, "tool-b", bytesFor(0.75), false) // warn 진입
-	if got := alerts(io); len(got) != 1 {
-		t.Fatalf("warn 통지=%d건", len(got))
-	}
-
-	// 서버 재시작: 같은 runs.json 을 다시 읽는 새 저장소와 새 서버.
-	store2 := run.NewStore(os.Getenv("DONGMINAL_TEST_RUNS_DIR"))
-	if err := store2.Load(); err != nil {
-		t.Fatal(err)
-	}
-	deps := s.Deps
-	deps.Runs = store2
-	s2 := &Server{Deps: deps}
-	observe(t, s2, "tool-b", bytesFor(0.50), false) // ok 로 내려감
-	observe(t, s2, "tool-b", bytesFor(0.78), false) // warn 되오름
-	if got := alerts(io); len(got) != 1 {
-		t.Fatalf("재시작 뒤 같은 등급을 다시 통지했다: %d건", len(got))
 	}
 }

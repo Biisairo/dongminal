@@ -175,10 +175,6 @@ type Member struct {
 
 	// ISSUE_TREE_OPS_SRS FR-ITA-2: 이슈 트리 노드의 배정. 트리 Run 의 멤버만 갖는다.
 	Assign *Assignment `json:"assign,omitempty"`
-
-	// AGENT_RECORD_DAEMON_SRS FR-ARD-6: 맥락 경고를 이미 통지한 등급들 (FR-CBG-7).
-	// Run 기록에 두므로 서버가 다시 떠도 같은 등급을 두 번 알리지 않는다.
-	ContextNotified []string `json:"contextNotified,omitempty"`
 }
 
 // Reported reports whether the member has sent its one terminal report.

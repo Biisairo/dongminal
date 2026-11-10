@@ -13,7 +13,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -113,7 +112,7 @@ type Store struct {
 // cloneMember 는 Member 의 참조 필드를 끊는다 (SAFETY_CORRECTNESS_SRS FR-SAF-4).
 //
 // 임베드 `ContextState` 와 `Worktree` 의 본문은 전부 스칼라이므로, 포인터 대상은
-// 값 복제 한 번으로 끝난다. 슬라이스(`FilesModified`·`ContextNotified`)는 따로 복사한다.
+// 값 복제 한 번으로 끝난다.
 func cloneMember(in Member) Member {
 	out := in
 	if in.Worktree != nil {
@@ -126,7 +125,6 @@ func cloneMember(in Member) Member {
 		out.FilesModified = fs
 	}
 	out.Assign = cloneAssign(in.Assign)
-	out.ContextNotified = slices.Clone(in.ContextNotified)
 	return out
 }
 

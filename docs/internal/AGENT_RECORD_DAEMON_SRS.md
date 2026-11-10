@@ -6,7 +6,7 @@
 > - D-ARD-2 데몬이 들 기록은 "전부"다 — 활동·알람 표시·서브에이전트·사용량·계정 한도
 > - D-ARD-3 §2.3 표의 데몬 항목(알람 표시·재무장·`agentSeen`·턴 표시·마지막 출력 시각·migration 안내 표시)도 옮긴다
 > - D-ARD-4 Run 기록은 파일(`runs.json`)에 두고, **열림 여부는 저장하지 않고 물을 때마다 데몬의 생존으로 계산한다**
-> - D-ARD-5 `contextNotices` 는 Run 멤버 기록에 둔다
+> - D-ARD-5 `contextNotices` 는 Run 멤버 기록에 둔다 — **D-ARD-10 으로 철회**
 
 ## 1. 개요 (Introduction)
 
@@ -27,7 +27,7 @@
 | 1 | D·P | 데몬의 기록 저장소, 서버→데몬 쓰기, 데몬→서버 push 와 스냅샷 |
 | 2 | R·C | 데몬의 보고 소켓, `dmctl` 이 데몬에 먼저 보내기 |
 | 3 | A | 알람 판정(출력 신호·유휴·재무장)을 데몬으로 옮기기 |
-| 4 | L | 생존 판정의 세 값(산다·죽었다·모른다), Run 열림의 계산, `contextNotices` 영속 |
+| 4 | L | 생존 판정의 세 값(산다·죽었다·모른다), Run 열림의 계산 |
 
 순서는 D-ARD-9 다 — 이 SRS 의 목적은 서버가 들던 기록을 데몬으로 옮기는 것이다.
 
@@ -306,7 +306,7 @@
   - 모두 확인된 죽음이면 `gone` 이다.
   - 그 밖에는 `unknown` 이다.
 - **FR-ARD-5** 수거의 자동 제거는 조정자가 **확인된 죽음**일 때만 한다.
-- **FR-ARD-6** 맥락 경고 통지 기록(`contextNotices`)은 멤버 기록의 필드(`contextNotified []string`, 등급 목록)로 `runs.json` 에 둔다. 조정자 몫은 Run 의 조정자 맥락 상태에 같은 필드로 둔다.
+- **FR-ARD-6** (철회 — D-ARD-10) 맥락 경고 통지 기록(`contextNotices`)은 멤버 기록의 필드(`contextNotified []string`, 등급 목록)로 `runs.json` 에 둔다. 조정자 몫은 Run 의 조정자 맥락 상태에 같은 필드로 둔다.
 - **FR-ARD-7** 옛 `runs.json` 의 `epoch` 와 `aborted`(`AbortDaemonRestart`)는 읽을 수 있어야 한다. 새로 쓰지는 않는다.
 
 ### 3.4a 단계 4 설계
@@ -353,16 +353,13 @@
 - 모두 `dead` 면 `gone` 이다.
 - 그 밖은 `unknown` 이다. **도구 id 가 하나도 없으면 `unknown`** 이다. 근거 없이 죽음으로 읽지 않는다 (FR-DEL-15 와 같은 원칙).
 
-**contextNotices 의 영속 (FR-ARD-6)**
+**contextNotices 는 영속하지 않는다 (FR-ARD-6 철회, D-ARD-10)**
 
-- `Member` 에 `ContextNotified []string`(`json:"contextNotified,omitempty"`)을 더한다.
-  - `ContextState` 에 두지 않는다. 그 구조체는 `==` 로 비교되므로(`onlyContextAtChanged`) 슬라이스를 넣을 수 없다.
-  - **조정자 몫은 두지 않는다.** FR-ARD-6 은 조정자에게도 같은 필드를 두라고 하지만, 조정자 자신의 등급은 통지하지 않는다 (FR-RCX-10). 쓰는 곳이 없는 필드를 만들지 않는다.
-- 새 메서드 `Store.ClaimContextNotice(memberID, level) bool`: 잠금 안에서 그 멤버의 목록에 등급이 없으면 더하고 저장한 뒤 참을 돌려준다. 있으면 거짓이다. 멤버가 없으면 거짓이다. 저장이 실패해도 참이다 — 메모리에는 남고, 통지는 관측의 일이라 Run 을 막지 않는다 (NFR-CBG-2).
-- httpapi `contextNoticeLog`·`Server.contextNotices` 를 지운다. `notifyContextAlert` 가 `Runs.ClaimContextNotice` 를 부른다. `RunStore` 포트에 메서드를 더한다.
-- `cloneMember` 는 새 슬라이스도 복사한다 (FR-SAF-4).
+- 통지 기록은 종전처럼 서버 메모리(`contextNoticeLog`)에 둔다. `runs.json` 에 쌓지 않는다.
+- 서버가 다시 떠도 멤버의 등급(`contextLevel`)은 저장돼 있다. 경고는 등급이 저장된 값보다 오를 때만 가므로, 재기동만으로는 다시 가지 않는다. 다시 가는 것은 재기동 뒤 등급이 내려갔다 다시 오른 경우뿐이다.
+- `handlers_runs_context.go` 의 "영속하지 않는 이유" 주석은 펜싱을 근거로 들었다. 데몬 모드에서는 틀린 말이 되므로 D-ARD-10 으로 고친다.
 
-**시험 (TC-ARD-1~5)**
+**시험 (TC-ARD-1~4)**
 
 | TC | 자리 | 내용 |
 |---|---|---|
@@ -370,7 +367,6 @@
 | TC-ARD-2 | run `ReapTargets`, httpapi `reapTick` | `unknown` 동안 Run·사용량·서브에이전트가 남는다. `dead` 가 되면 지워진다 |
 | TC-ARD-3 | run `Load` | 지난 epoch 의 열린 Run 이 열린 채고 파일이 바뀌지 않는다. 옛 `aborted`·`epoch` 가 그대로 읽힌다. 새 Run 은 `epoch` 를 쓰지 않는다. 직접 모드(`WithAbortOpenOnLoad`)는 열린 Run 을 `aborted` 로 저장한다 |
 | TC-ARD-4 | httpapi `/api/runs`·status·wait | `open`·`gone`·`unknown`·닫힌 Run 은 필드 없음. status 의 `liveUnknown`. wait 가 `unknown` 에서 `gone` 을 내지 않는다 |
-| TC-ARD-5 | run `ClaimContextNotice`, httpapi `notifyContextAlert` | 통지 → 저장소 다시 읽기 → 같은 등급은 다시 통지하지 않는다 |
 
 ### 3.5 비기능
 
@@ -388,11 +384,12 @@
 | D-ARD-2 | 데몬이 드는 기록은 FR-ARD-10 전부다 | 사용자 결정 ("전부") |
 | D-ARD-3 | 알람 판정도 데몬으로 옮긴다 (단계 3) | 사용자 결정. 출력을 가장 먼저 보는 것이 데몬이다 |
 | D-ARD-4 | Run 기록은 `runs.json` 에 두고, 열림은 저장하지 않고 물을 때마다 계산한다 | 사용자 결정. 저장하면 순간의 오판이 영구가 된다 (§2.2). 보고·메시지·worktree 는 에이전트가 죽은 뒤에도 필요하다 |
-| D-ARD-5 | `contextNotices` 는 Run 멤버 기록에 둔다 | 사용자 결정. 그 수명은 도구가 아니라 Run 이다 |
+| D-ARD-5 | `contextNotices` 는 Run 멤버 기록에 둔다 — **D-ARD-10 으로 철회** | 사용자 결정. 그 수명은 도구가 아니라 Run 이다 |
 | D-ARD-6 | 훅 보고는 서버 연결과 다른 보고 소켓으로 받는다 | 데몬은 연결을 하나씩 받는다 (IPC-24). 받는 메서드를 넷으로 좁혀 PTY 권한을 열지 않는다 |
 | D-ARD-7 | 샌드박스 창은 서버 HTTP 를 거쳐 데몬에 닿는다 | 데몬 소켓을 컨테이너에 열면 모든 터미널을 조작할 수 있다 |
 | D-ARD-8 | 데몬 판정은 직접 모드의 `toolhub.Tool` 코드를 그대로 쓴다 | 같은 판정을 두 벌(`Tool`·`AttnTracker`)로 두면 한쪽만 고쳐진다 (FR-ATN-14 의 같은 근거) |
 | D-ARD-9 | 데몬 이관(단계 1~3)을 먼저 하고 생존 판정(단계 4)을 마지막에 한다 | 사용자 결정 (2026-11-10): "기존 서버 저장이 데몬으로 간 것이 중요하다" |
+| D-ARD-10 | `contextNotices` 는 영속하지 않는다 (D-ARD-5·FR-ARD-6 철회) | 사용자 결정 (2026-11-10): "컨텍스트 사용량 경고는 중요한 로그가 아니다". `runs.json` 에 쓸데없는 기록이 쌓인다. 등급은 이미 저장되므로 재기동만으로는 경고가 다시 가지 않는다 |
 
 ## 5. 검증 (Verification)
 
@@ -402,7 +399,7 @@
 | TC-ARD-2 | FR-ARD-2·5 | Go: 생존이 `unknown` 인 동안 수거 실행 | Run·사용량·서브에이전트가 남는다. `dead` 가 되면 그때 정리된다 |
 | TC-ARD-3 | FR-ARD-3·7 | Go: 지난 epoch 의 열린 Run 이 든 `runs.json` 을 읽음 | `aborted` 로 바뀌지 않고 저장도 바뀌지 않는다. 옛 `aborted` 레코드는 그대로 읽힌다 |
 | TC-ARD-4 | FR-ARD-4 | Go: 멤버 생존 조합별 `/api/runs` | `open`·`gone`·`unknown`, 닫힌 Run 은 필드 없음 |
-| TC-ARD-5 | FR-ARD-6 | Go: 경고 통지 → 저장소 다시 읽기 → 같은 등급 경고 | 다시 통지하지 않는다 |
+| TC-ARD-5 | FR-ARD-6 | 철회 (D-ARD-10). 시험하지 않는다 | — |
 | TC-ARD-10 | FR-ARD-10·12 | Go(데몬): 기록 쓰기·도구 종료 | push 가 나가고, 종료 뒤 기록이 없다 |
 | TC-ARD-11 | FR-ARD-11·13 | Go: 서버가 쓰기 → 연결을 끊고 새 서버가 붙음 | 새 서버의 거울이 같은 값이다. 스냅샷 반영 때 알람 방송이 없다 |
 | TC-ARD-12 | FR-ARD-14 | Go: `records` 를 말하지 않는 데몬 | 종전 동작 그대로 |

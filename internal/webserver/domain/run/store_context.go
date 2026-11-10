@@ -11,7 +11,6 @@ package run
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 )
 
@@ -259,7 +258,7 @@ func applyContextObservation(cs *ContextState, obs ContextObservation, policy Co
 	//
 	// **등급은 단조가 아니다.** 현재 상태의 표시이며 내려간다 (SRS §3.3.2
 	// "ContextLevel 은 단조가 아니다 — 닫힘"). 단조인 것은 통지뿐이고, 그 기억은
-	// 멤버 기록의 `ContextNotified` 가 갖는다 (ClaimContextNotice).
+	// 통지 계층이 갖는다 (handlers_runs_context.go 의 contextNotices).
 	//
 	// 근거 셋. ① FR-CBG-7 이 되돌아감을 **전제한다** — "되돌아갔다가 다시
 	// 올라와도"는 그런 일이 일어날 수 있음을 규정하는 문장이다. ② "등급 = 현재
@@ -321,30 +320,6 @@ func (s *Store) observeCoordinator(toolID string, obs ContextObservation, policy
 		return out, "", true
 	}
 	return Member{}, "", false
-}
-
-// ClaimContextNotice 는 이 (멤버, 등급) 조합의 맥락 경고 통지 권한을 한 번만 내준다
-// (FR-CBG-7). 두 번째부터와 없는 멤버는 거짓이다.
-//
-// AGENT_RECORD_DAEMON_SRS FR-ARD-6: 기억을 멤버 기록에 두고 저장한다. 종전에는 서버
-// 메모리에 있어, 서버가 다시 뜨면 같은 등급의 경고가 조정자에게 한 번 더 갈 수 있었다.
-// 저장이 실패해도 참이다 — 메모리에는 남고, 통지는 관측의 일이라 Run 을 막지 않는다
-// (NFR-CBG-2). 실패는 save 가 로그로 남긴다.
-func (s *Store) ClaimContextNotice(memberID, level string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	ri, mi := s.indexOfMember(memberID)
-	if ri < 0 {
-		return false
-	}
-	m := &s.runs[ri].Members[mi]
-	if slices.Contains(m.ContextNotified, level) {
-		return false
-	}
-	m.ContextNotified = append(slices.Clone(m.ContextNotified), level)
-	_ = s.save()
-	return true
 }
 
 // levelRank 는 등급의 서열이다. 빈 값("모른다")은 ok 보다도 아래다 — 모르는

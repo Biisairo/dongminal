@@ -11,7 +11,7 @@
 | `315ddeee` | **ARD 단계 1**: 데몬 기록 저장소, `recordset`·`records`, push `record`, 서버의 비동기 쓰기 큐(`recordsync`), 스냅샷 반영 |
 | `c6229742` | **ARD 단계 2**: 데몬 보고 소켓 `report.sock`, push `report`, dmctl 의 소켓 우선 전송, `internal/shared/agentrec` |
 | `712379c7` | **ARD 단계 3**: 알람 판정을 데몬이 한다. push `attn`, 메서드 `attnconfig`·`attend`·`attendall`·`report`, 기능 `attention`(데몬·서버 함께), 서버 `AttnTracker` 거울 모드 |
-| (이 커밋) | **ARD 단계 4**: 생존 판정의 세 값, 데몬 모드 펜싱 제거, Run `liveness`, `contextNotified` 영속. 서버만 바뀌어 데몬 재시작이 필요 없다 (§3.4a) |
+| (이 커밋) | **ARD 단계 4**: 생존 판정의 세 값, 데몬 모드 펜싱 제거, Run `liveness`. 서버만 바뀌어 데몬 재시작이 필요 없다 (§3.4a) |
 
 ### 단계 3 이 남긴 구조
 
@@ -49,7 +49,7 @@
 - 에이전트 기록은 **데몬이 먼저 받아 저장하고 서버로 보낸다** (D-ARD-1). 서버는 거울이다.
 - 데몬이 드는 기록은 "전부"다 (D-ARD-2, FR-ARD-10 표).
 - 알람 판정도 데몬으로 옮긴다 (D-ARD-3). 직접 모드의 `toolhub.Tool` 코드를 그대로 쓴다 (D-ARD-8).
-- Run 기록은 `runs.json` 에 두고, 열림은 저장하지 않고 물을 때마다 계산한다 (D-ARD-4). `contextNotices` 는 멤버 기록에 둔다 (D-ARD-5).
+- Run 기록은 `runs.json` 에 두고, 열림은 저장하지 않고 물을 때마다 계산한다 (D-ARD-4). `contextNotices` 는 영속하지 않는다 (D-ARD-10, D-ARD-5 철회).
 - 서버가 꺼져 있던 동안의 알람은 나중에 울리지 않는다. 상태만 맞춘다 (FR-ARD-25).
 - 단계마다 묻지 않고 커밋하며 끝까지 진행한다 (2026-11-10).
 - 데몬 재시작은 하지 않는다. 사용자가 정한다.
