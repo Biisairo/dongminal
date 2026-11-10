@@ -32,7 +32,10 @@ class GitJobs {
     // SERVER_DRIVEN_ACTIONS_SRS K-g (K1): 칸의 이름·순서·원격 칸은 정책(`jobSlots`)이 정한다.
     // 받기 전에는 표시기가 없다 — 그 사이에 온 것(골격·머리·잡 목록)은 받은 뒤 다시 건다.
     this.slots=[];
-    this._el=null; this._head=null; this._jobs=null;
+    // 머리는 뷰마다 하나다(FR-GHM-3 — Changes·History 가 함께 선다). 정책 전에 선
+    // 머리는 **전부** 기다린다 — 하나만 기억하면 나중 머리(원격 버튼이 없는 History)가
+    // 앞의 것을 덮어 Changes 의 Fetch/Pull/Push 가 클릭을 받지 못한다.
+    this._el=null; this._heads=new Set(); this._jobs=null;
     // 이 탭의 `panel.post` 가 띄워 결과를 기다리는 잡 — 뒷정리는 기다리는 쪽이 한다.
     this._owned=new Set();
     this._ensure();
@@ -52,7 +55,8 @@ class GitJobs {
     for(const s of this.slots) this.views[s.slot]=new GitRemote(this.panel,s.slot,this);
     const box=this._el&&this._el.querySelector('.git-jobs');
     if(box){box.innerHTML=this.boxesHTML();this.bind(this._el);this.paint(this._el)}
-    if(this._head){this.bindHead(this._head);this.paintHead(this._head)}
+    for(const h of this._heads){this.bindHead(h);this.paintHead(h)}
+    this._heads.clear();
     if(this._jobs) this.adoptJobs(this._jobs);
     return true;
   }
@@ -181,8 +185,9 @@ class GitJobs {
   // ── 패널이 부르는 나머지 — 두 칸에 그대로 넘긴다 ──
 
   // 머리의 원격 버튼은 common 칸 표시기가 받는다 — pull 은 run 이 index 로 보낸다.
-  bindHead(head){this._head=head;const v=this._headView();if(v) v.bindHead(head)}
-  paintHead(head){this._head=head;const v=this._headView();if(v) v.paintHead(head)}
+  // 정책 전에는 걸 표시기가 없다 — 머리를 남겨 두고 `_build` 가 건다.
+  bindHead(head){const v=this._headView();if(v) v.bindHead(head); else if(head) this._heads.add(head)}
+  paintHead(head){const v=this._headView();if(v) v.paintHead(head); else if(head) this._heads.add(head)}
   bind(el){this._el=el;this._each(v=>v.bind(el))}
   paint(el){this._el=el;this._each(v=>v.paint(el))}
   detachRepo(){this._owned.clear(); this._each(v=>v.detachRepo())}

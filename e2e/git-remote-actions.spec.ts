@@ -104,6 +104,32 @@ async function jobArgv(page: Page, argv: string | RegExp) {
 }
 
 test.describe('묶음 E — 원격 동작 (FR-GIT-269~271)', () => {
+  /**
+   * FR-GHM-3: 머리는 뷰마다 하나다 — Changes(원격 버튼 있음)와 History(없음)가 함께 선다.
+   *
+   * 정책(`jobSlots`)이 오기 전에 선 머리는 정책을 받은 뒤 다시 건다. 종전에는
+   * **마지막 머리 하나만** 기억해, History 머리가 Changes 머리를 덮으면 Changes 의
+   * Fetch/Pull/Push 가 클릭을 받지 못했다(실측: 복원된 리포 창). 정책 응답을 붙잡아
+   * 두 머리가 먼저 서게 만든다.
+   */
+  test('E0 (FR-GHM-3): 정책보다 먼저 선 머리가 여럿이어도 Changes 의 원격 버튼이 동작한다', async ({ page }) => {
+    const { repo } = copyPair('e0');
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    await page.route('**/api/git/policy', async (route) => { await gate; await route.continue(); });
+    await waitForInit(page);
+    await openGit(page, repo);
+    await clickGitView(page, 'history');
+    await expect(head(page)).toHaveCount(1);
+    await expect(page.locator('#area .git-view.git-history .git-head')).toHaveCount(1);
+    release();
+
+    await ready(page);
+    await btn(page, 'fetch').click();
+    await jobArgv(page, 'git fetch --progress');
+    await jobEnded(page, '완료');
+  });
+
   // ── V196: remote 목록 · add / remove ──
 
   test('E1 (V196 / FR-GIT-269): remote add/remove 가 목록에 반영되고, remove 는 되살릴 명령을 남긴다', async ({ page }) => {
