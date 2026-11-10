@@ -19,6 +19,8 @@ type listenerFixture struct {
 	handled  atomic.Int64
 	peerFP   string
 	serverFP string
+	server   Identity
+	handler  http.Handler
 }
 
 func newListenerFixture(t *testing.T) *listenerFixture {
@@ -27,7 +29,7 @@ func newListenerFixture(t *testing.T) *listenerFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := &listenerFixture{serverFP: server.Fingerprint}
+	f := &listenerFixture{serverFP: server.Fingerprint, server: server}
 	f.peerID, err = LoadOrCreateIdentity(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -41,6 +43,7 @@ func newListenerFixture(t *testing.T) *listenerFixture {
 		f.handled.Add(1)
 		w.WriteHeader(http.StatusNoContent)
 	})
+	f.handler = h
 	f.ln = NewListener(server, func(fp string) bool { return fp == f.peerFP }, h)
 	t.Cleanup(f.ln.Close)
 	return f
@@ -245,5 +248,53 @@ func TestListenerClose(t *testing.T) {
 	f.ln.Close()
 	if dialable(addr) {
 		t.Fatal("Close 뒤에도 포트가 열려 있다")
+	}
+}
+
+// FR-PNW-31: 짝을 해제하면 이미 열린 연결로도 더는 닿지 않는다.
+func TestListenerRevokedPeerOnOpenConnection(t *testing.T) {
+	f := newListenerFixture(t)
+	var allowed atomic.Bool
+	allowed.Store(true)
+	f.ln = NewListener(f.server, func(fp string) bool { return allowed.Load() && fp == f.peerFP }, f.handler)
+	t.Cleanup(f.ln.Close)
+	f.ln.Apply(enabledAt(freePort(t)))
+	addr := f.ln.Status().Addr
+
+	c := f.clientFor(&f.peerID, 0)
+	c.Transport.(*http.Transport).DisableKeepAlives = false
+	if code, err := get(c, addr, "/peer/v1/x"); err != nil || code != http.StatusNoContent {
+		t.Fatalf("첫 요청: code=%d err=%v", code, err)
+	}
+	allowed.Store(false)
+	if code, err := get(c, addr, "/peer/v1/x"); err == nil && code == http.StatusNoContent {
+		t.Fatal("해제한 짝이 열린 연결로 닿았다")
+	}
+	if f.handled.Load() != 1 {
+		t.Fatalf("핸들러 호출 %d, 기대 1", f.handled.Load())
+	}
+}
+
+// FR-PNW-31: 해제한 짝이 TLS 세션 재개로 인증서 검사를 건너뛰지 못한다.
+func TestListenerRevokedPeerOnResumedSession(t *testing.T) {
+	f := newListenerFixture(t)
+	var allowed atomic.Bool
+	allowed.Store(true)
+	f.ln = NewListener(f.server, func(fp string) bool { return allowed.Load() && fp == f.peerFP }, f.handler)
+	t.Cleanup(f.ln.Close)
+	f.ln.Apply(enabledAt(freePort(t)))
+	addr := f.ln.Status().Addr
+
+	c := f.clientFor(&f.peerID, 0)
+	c.Transport.(*http.Transport).TLSClientConfig.ClientSessionCache = tls.NewLRUClientSessionCache(4)
+	if code, err := get(c, addr, "/peer/v1/x"); err != nil || code != http.StatusNoContent {
+		t.Fatalf("첫 요청: code=%d err=%v", code, err)
+	}
+	allowed.Store(false)
+	if code, err := get(c, addr, "/peer/v1/x"); err == nil && code == http.StatusNoContent {
+		t.Fatal("해제한 짝이 세션 재개로 닿았다")
+	}
+	if f.handled.Load() != 1 {
+		t.Fatalf("핸들러 호출 %d, 기대 1", f.handled.Load())
 	}
 }

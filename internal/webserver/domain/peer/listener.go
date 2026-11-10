@@ -2,7 +2,6 @@ package peer
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"net"
 	"net/http"
@@ -56,26 +55,41 @@ type Listener struct {
 // 리스너를 만든다. Apply 전에는 아무것도 듣지 않는다.
 func NewListener(id Identity, isPeer func(fp string) bool, h http.Handler) *Listener {
 	return &Listener{
-		handler: h,
+		handler: requirePeer(isPeer, h),
 		tlsCfg: &tls.Config{
 			MinVersion:   tls.VersionTLS13,
 			Certificates: []tls.Certificate{id.Certificate},
 			ClientAuth:   tls.RequireAnyClientCert,
-			VerifyPeerCertificate: func(raw [][]byte, _ [][]*x509.Certificate) error {
-				if len(raw) == 0 {
-					return errNoClientCert
-				}
-				leaf, err := x509.ParseCertificate(raw[0])
-				if err != nil {
-					return err
-				}
-				if !isPeer(FingerprintOf(leaf)) {
-					return errNotPeer
-				}
-				return nil
+			// VerifyConnection 은 세션 재개에서도 돈다. VerifyPeerCertificate 는 돌지
+			// 않으므로, 거기 두면 해제한 짝이 재개로 들어온다 (FR-PNW-31).
+			VerifyConnection: func(cs tls.ConnectionState) error {
+				return checkPeer(isPeer, cs)
 			},
 		},
 	}
+}
+
+func checkPeer(isPeer func(string) bool, cs tls.ConnectionState) error {
+	if len(cs.PeerCertificates) == 0 {
+		return errNoClientCert
+	}
+	if !isPeer(FingerprintOf(cs.PeerCertificates[0])) {
+		return errNotPeer
+	}
+	return nil
+}
+
+// requirePeer 는 요청마다 짝인지 다시 본다. 짝을 해제한 뒤에도 열려 있던
+// keep-alive 연결이 핸들러에 닿지 않게 한다 (FR-PNW-31).
+func requirePeer(isPeer func(string) bool, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.TLS == nil || checkPeer(isPeer, *r.TLS) != nil {
+			w.Header().Set("Connection", "close")
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // Apply 는 c 의 enabled·bind·port 에 맞춰 연다·닫는다·다시 연다 (FR-PNW-4·8).
