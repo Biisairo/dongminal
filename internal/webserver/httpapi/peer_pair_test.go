@@ -462,3 +462,27 @@ func TestPairRejectsUnusableAddrBeforeConsume(t *testing.T) {
 		t.Fatal("초대를 썼거나 대기를 남겼다")
 	}
 }
+
+// S9: 등록 요청도 지문마다 분당 상한을 지난다. 넘으면 429 이고 감사 로그를 쌓지 않는다.
+func TestPairRateLimited(t *testing.T) {
+	b := newPeerNode(t, "node-b", true)
+	b.invite(t)
+	body := `{"token":"nope","name":"a","addr":"10.0.0.2","port":58147,"proto":1}`
+	var rec *httptest.ResponseRecorder
+	for i := 0; i <= peer.PerPeerPerMinute; i++ {
+		req := httptest.NewRequest(http.MethodPost, peerPairPath, strings.NewReader(body))
+		rec = httptest.NewRecorder()
+		b.srv.peerPair(rec, req)
+	}
+	if rec.Code != http.StatusTooManyRequests || !strings.Contains(rec.Body.String(), "peer_rate_limited") {
+		t.Fatalf("61번째: %d %s", rec.Code, rec.Body.String())
+	}
+	// 지문은 상대가 바꿀 수 있으므로 출발지 주소로 센다. 다른 주소는 막히지 않는다.
+	req := httptest.NewRequest(http.MethodPost, peerPairPath, strings.NewReader(body))
+	req.RemoteAddr = "10.0.0.9:40000"
+	rec = httptest.NewRecorder()
+	b.srv.peerPair(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("다른 주소: %d %s", rec.Code, rec.Body.String())
+	}
+}

@@ -15,6 +15,7 @@ import (
 	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/testpath"
+	"dongminal/internal/webserver/domain/peer"
 	"dongminal/internal/webserver/hub"
 	"dongminal/internal/webserver/seam/toolaccess"
 )
@@ -665,5 +666,30 @@ func TestPeerSpawnPromptDroppedAfterUnpair(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 	if p := b.tools.pasted(); len(p) != 1 {
 		t.Fatalf("해제 뒤에 넣었다 %+v", p)
+	}
+}
+
+// C9: 기록을 남기지 못해 도구를 닫으려다 그것마저 실패하면, 기록 없는 도구가 남는다는
+// 사실을 로그에 남긴다.
+func TestPeerSpawnRecordFailureCloseFailureLogged(t *testing.T) {
+	installFakeAgent(t)
+	logs := captureLog(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	pairNodes(t, a, b.peerNode)
+	blocker := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(blocker, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	b.srv.peerSpawns = peer.OpenSpawnLog(filepath.Join(blocker, "spawns.json"))
+	b.hub.mu.Lock()
+	b.hub.deleteErr = errors.New("busy")
+	b.hub.mu.Unlock()
+	code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed})
+	if code == 200 || errCode(out) != "save_failed" {
+		t.Fatalf("spawn: %d %v", code, out["_raw"])
+	}
+	if !strings.Contains(logs.String(), "tool=headless-1") || !strings.Contains(logs.String(), "닫지 못했다") {
+		t.Fatalf("닫기 실패가 로그에 없다 %s", logs.String())
 	}
 }

@@ -27,6 +27,8 @@ const (
 	peerPathPrefix  = "/peer/v1/"
 	peerPairPath    = peerPathPrefix + "pair"
 	peerConfirmPath = peerPathPrefix + "pair/confirm"
+	// peerPairRateKey 는 등록 요청 상한의 키 머리다. 짝의 지문 키와 섞이지 않는다.
+	peerPairRateKey = "pair-addr:"
 	// peerProto 는 이 서버가 말하는 프로토콜 판이다 (FR-PNW-50).
 	peerProto = 1
 	// peerBodyLimit 은 요청 본문 상한이다 (FR-PNW-43).
@@ -143,6 +145,14 @@ func (s *Server) peerPair(w http.ResponseWriter, r *http.Request) {
 		Addr  string `json:"addr"`
 		Port  int    `json:"port"`
 		Proto int    `json:"proto"`
+	}
+	// S9: 짝이 아닌 상대도 닿는 경로다. 지문은 상대가 연결마다 바꿀 수 있으므로 출발지
+	// 주소마다 센다. 넘은 요청은 감사 로그에 남기지 않는다 — 실패마다 쌓이면 로그가 공격
+	// 대상이 된다.
+	host, _, _ := net.SplitHostPort(r.RemoteAddr)
+	if !s.peerLimiter.Allow(peerPairRateKey + host) {
+		peerFail(w, http.StatusTooManyRequests, apierr.CodePeerRateLimited, "rate limited")
+		return
 	}
 	if !peerReadJSON(w, r, &in) {
 		return

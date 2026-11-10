@@ -120,7 +120,13 @@ func (a Tool) Size(id string) string {
 // SendPasteIfForeground 도 도구가 사는 곳에 맡긴다 — 조회와 쓰기가 한 자리여야 틈이
 // 좁다 (PEER_NETWORK_SRS I-47). 그 기능이 없는 허브(옛 데몬과 이어진 클라이언트가
 // 아닌 다른 구현)에는 조건 없이 넣는다. 호출자가 이미 캐시로 확인했다.
+//
+// want 가 비면 어느 모드에서든 넣지 않는다. 데몬의 paste 는 빈 전경을 "조건 없음" 으로
+// 읽으므로 그대로 넘기면 직접 모드(거절)와 달라진다 (S11b).
 func (a Tool) SendPasteIfForeground(id string, text []byte, submit bool, want string) error {
+	if want == "" {
+		return fmt.Errorf("%w: %s", toolhub.ErrForegroundChanged, id)
+	}
 	if a.PM != nil {
 		return a.PM.SendPasteIfForeground(id, text, submit, want)
 	}

@@ -1,6 +1,7 @@
 package peer
 
 import (
+	"strconv"
 	"testing"
 	"time"
 )
@@ -47,6 +48,26 @@ func TestRateLimiterSlidingWindow(t *testing.T) {
 }
 
 // 마지막 응답 시각 (FR-PNW-73 dmctl peers).
+// S9: 키는 상대가 고를 수 있다(지문·주소). 창을 지난 키는 지워서 맵이 끝없이 크지 않게 한다.
+func TestRateLimiterForgetsStaleKeys(t *testing.T) {
+	clk := newFakeClock()
+	rl := NewRateLimiter(clk.now)
+	for i := range rateSweepAt {
+		rl.Allow(strconv.Itoa(i))
+	}
+	clk.advance(time.Minute + time.Second)
+	rl.Allow("fresh")
+	if n := rl.size(); n != 1 {
+		t.Fatalf("지난 키가 남았다: %d", n)
+	}
+}
+
+func (r *RateLimiter) size() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.hits)
+}
+
 func TestLastSeen(t *testing.T) {
 	clk := newFakeClock()
 	ls := NewLastSeen()

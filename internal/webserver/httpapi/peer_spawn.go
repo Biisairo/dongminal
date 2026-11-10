@@ -104,7 +104,11 @@ func (s *Server) peerAgentSpawn(w http.ResponseWriter, r *http.Request, from pee
 	// 기록을 먼저 남긴다 — 아래 정리가 실패해도 그 도구는 상한에 세고 원격에서 닫을 수 있다.
 	// 기록했으면 자리 예약을 바로 푼다. 둘을 함께 세면 같은 spawn 이 두 번 세진다 (리뷰 C-5).
 	if err := s.peerSpawns.Record(toolID, from.fp); err != nil {
-		s.peerCloseTool(r.Context(), toolID)
+		// 닫지 못하면 파일 기록 없는 도구가 남는다. 메모리 기록은 남아 이 프로세스 동안은
+		// 상한에 세고 원격에서 닫을 수 있다 (C9).
+		if !s.peerCloseTool(r.Context(), toolID) {
+			dmlog.Infof(nil, "[peer] spawn 기록을 남기지 못했고 도구도 닫지 못했다 tool=%s", toolID)
+		}
 		return fail(http.StatusInternalServerError, apierr.CodeSaveFailed, "record")
 	}
 	release()

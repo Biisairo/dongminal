@@ -280,19 +280,34 @@ func TestListenerRevokedPeerOnResumedSession(t *testing.T) {
 	f := newListenerFixture(t)
 	var allowed atomic.Bool
 	allowed.Store(true)
-	f.ln = NewListener(f.server, PeersOnly(func(fp string) bool { return allowed.Load() && fp == f.peerFP }), f.handler)
+	// C9: 요청 단계는 늘 통과시킨다 — TLS 단계(VerifyConnection)만 시험한다.
+	f.ln = NewListener(f.server, Admission{
+		TLS:     func(fp string) bool { return allowed.Load() && fp == f.peerFP },
+		Request: func(string, string) bool { return true },
+	}, f.handler)
 	t.Cleanup(f.ln.Close)
 	f.ln.Apply(enabledAt(freePort(t)))
 	addr := f.ln.Status().Addr
 
 	c := f.clientFor(&f.peerID, 0)
-	c.Transport.(*http.Transport).TLSClientConfig.ClientSessionCache = tls.NewLRUClientSessionCache(4)
+	tc := c.Transport.(*http.Transport).TLSClientConfig
+	tc.ClientSessionCache = tls.NewLRUClientSessionCache(4)
+	var resumed atomic.Bool
+	tc.VerifyConnection = func(cs tls.ConnectionState) error {
+		resumed.Store(cs.DidResume)
+		return nil
+	}
 	if code, err := get(c, addr, "/peer/v1/x"); err != nil || code != http.StatusNoContent {
 		t.Fatalf("첫 요청: code=%d err=%v", code, err)
 	}
 	allowed.Store(false)
+	// 열린 연결을 버려야 새 핸드셰이크(세션 재개)가 일어난다.
+	c.CloseIdleConnections()
 	if code, err := get(c, addr, "/peer/v1/x"); err == nil && code == http.StatusNoContent {
 		t.Fatal("해제한 짝이 세션 재개로 닿았다")
+	}
+	if !resumed.Load() {
+		t.Fatal("두 번째 연결이 세션을 재개하지 않았다 — 이 시험은 재개를 재지 못했다")
 	}
 	if f.handled.Load() != 1 {
 		t.Fatalf("핸들러 호출 %d, 기대 1", f.handled.Load())

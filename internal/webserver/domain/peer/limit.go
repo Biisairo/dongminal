@@ -10,6 +10,10 @@ const PerPeerPerMinute = 60
 
 const rateWindow = time.Minute
 
+// rateSweepAt 은 키가 이만큼 쌓이면 창을 지난 키를 지우는 문턱이다. 키는 상대가 고를 수
+// 있다(등록 요청의 주소·지문) — 지우지 않으면 맵이 끝없이 커진다.
+const rateSweepAt = 1024
+
 // RateLimiter 는 짝(지문)마다 지난 1분의 요청 시각을 센다.
 type RateLimiter struct {
 	mu   sync.Mutex
@@ -28,6 +32,13 @@ func (r *RateLimiter) Allow(key string) bool {
 	defer r.mu.Unlock()
 	now := r.now()
 	cut := now.Add(-rateWindow)
+	if len(r.hits) >= rateSweepAt {
+		for k, ts := range r.hits {
+			if len(ts) == 0 || !ts[len(ts)-1].After(cut) {
+				delete(r.hits, k)
+			}
+		}
+	}
 	kept := r.hits[key][:0]
 	for _, t := range r.hits[key] {
 		if t.After(cut) {
