@@ -140,7 +140,7 @@ dmctl peer spawn office --agent claude --cwd /work/app "테스트를 돌리고 �
 | `peer_agent_unavailable` | 상대에 그 에이전트가 설치돼 있지 않습니다 | `dmctl peer info <노드>` 의 `agents` 를 확인하세요 |
 | `peer_target_not_found` | 상대에서 그 도구(메시지 대상, `--tab` 의 `--at`)를 찾지 못했습니다 | `dmctl peer tools <노드>` 로 uuid 를 다시 확인하세요 |
 | `peer_target_not_agent` | 그 도구에서 에이전트가 돌고 있지 않습니다 | `dmctl peer tools <노드>` 로 다시 확인하세요 |
-| `peer_target_busy` | 상대가 그 도구에 다른 원격 글을 넣는 중입니다 | 잠시 뒤 다시 보내세요. 한 도구에는 원격 글을 한 번에 하나씩 넣습니다 |
+| `peer_target_busy` | 상대가 그 도구에 다른 원격 글을 넣는 중이거나, 그 도구를 이미 닫는 중입니다 | 잠시 뒤 다시 보내세요. 한 도구에는 원격 글을 한 번에 하나씩 넣고, 닫기도 한 번에 하나만 합니다 |
 | `peer_not_owner` | 자기가 띄운 도구가 아닙니다 | 원격으로는 자기가 띄운 도구만 닫을 수 있습니다 |
 | `peer_rate_limited` | 1분에 60회를 넘었습니다 | 잠시 뒤 다시 보내세요 |
 | `peer_spawn_limit` | 이 노드가 그 짝에 띄워 둔 도구가 4개입니다 | `dmctl peer close` 로 다 쓴 도구를 닫으세요 |

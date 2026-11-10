@@ -292,14 +292,19 @@ func (s *Server) peerAgentClose(w http.ResponseWriter, r *http.Request, from pee
 	// I-59: 종료 명령을 보낸 뒤 에이전트가 끝나는 동안 원격 글이 들어가면 셸에 남는다.
 	// I-70: 표시를 세우고 진행 중인 전달이 끝나기를 기다린다. 그 뒤의 전달은 이 표시를 본다.
 	// 기다림의 시한은 서버가 정한다 — 요청 ctx 를 쓰면 상대가 연결을 끊어 기다림을 줄인다.
-	gateCtx, gateCancel := context.WithTimeout(context.Background(), peerCloseWait)
-	defer gateCancel()
-	defer s.peerGate.close(gateCtx, toolID)()
+	// 전달을 기다린 시간과 종료를 기다릴 시간은 이 시한 하나를 나눠 쓴다. 따로 쓰면 탭 닫기까지
+	// 더해 보내는 쪽의 요청 한도(15초)를 넘고, 닫고도 실패로 보인다.
+	waitCtx, waitCancel := context.WithTimeout(context.Background(), s.limits.peerCloseWait)
+	defer waitCancel()
+	gateDone, gerr := s.peerGate.close(waitCtx, toolID)
+	if gerr != nil {
+		peerFail(w, http.StatusConflict, apierr.CodePeerTargetBusy, "already closing")
+		return peerCmdResult{status: http.StatusConflict, target: toolID}
+	}
+	defer gateDone()
 	if ad, ok := s.agentOfTool(toolID); ok && ad.ExitCommand != "" && s.Tools != nil && s.Tools.Busy(toolID) {
 		_ = s.deliverToTool(toolID, ad.ExitCommand, true)
-		ctx, cancel := context.WithTimeout(r.Context(), peerCloseWait)
-		_ = pollwait.Until(ctx, peerCloseWait, peerClosePoll, func() bool { return !s.Tools.Busy(toolID) })
-		cancel()
+		_ = pollwait.Until(waitCtx, s.limits.peerCloseWait, peerClosePoll, func() bool { return !s.Tools.Busy(toolID) })
 	}
 	if !s.peerCloseTool(r.Context(), toolID) {
 		peerFail(w, http.StatusInternalServerError, apierr.CodeInternal, "close failed")

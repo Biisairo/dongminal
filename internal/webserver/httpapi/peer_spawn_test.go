@@ -726,7 +726,7 @@ func TestPeerAgentCloseWaitsForInflightMessage(t *testing.T) {
 	for {
 		b.srv.peerGate.mu.Lock()
 		st := b.srv.peerGate.m["headless-1"]
-		waiting := st != nil && st.closing > 0 && st.idle != nil
+		waiting := st != nil && st.closing && st.idle != nil
 		b.srv.peerGate.mu.Unlock()
 		if waiting {
 			break
@@ -788,5 +788,88 @@ func TestPeerMessageSendBusyWhileInflight(t *testing.T) {
 	b.tools.fgMu.Unlock()
 	if code, out := a.call(t, "node-b", "message.send", map[string]any{"to": "headless-1", "message": "three"}); code != http.StatusOK {
 		t.Fatalf("세 번째: %d %v", code, out["_raw"])
+	}
+}
+
+// 최종 보안 리뷰: 같은 도구에 agent.close 가 겹치면 뒤의 close 는 409 peer_target_busy 로
+// 거절하고, 종료 명령은 한 번만 들어간다.
+func TestPeerAgentCloseOverlapRejected(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	pairNodes(t, a, b.peerNode)
+	if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed}); code != 200 {
+		t.Fatalf("spawn %d %v", code, out["_raw"])
+	}
+	b.tools.setFG("headless-1", agentCmd(t))
+	release := make(chan struct{})
+	b.hub.mu.Lock()
+	b.hub.busy = func(string) bool {
+		select {
+		case <-release:
+			return false
+		default:
+			return true
+		}
+	}
+	b.hub.mu.Unlock()
+	launch := len(b.tools.pasted())
+	first := make(chan int, 1)
+	go func() {
+		code, _ := a.call(t, "node-b", "agent.close", map[string]any{"toolId": "headless-1"})
+		first <- code
+	}()
+	deadline := time.Now().Add(5 * time.Second)
+	for len(b.tools.pasted()) == launch {
+		if time.Now().After(deadline) {
+			close(release)
+			t.Fatal("첫 close 가 종료 명령을 보내지 않았다")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	code, out := a.call(t, "node-b", "agent.close", map[string]any{"toolId": "headless-1"})
+	close(release)
+	if code != http.StatusConflict || errCode(out) != "peer_target_busy" {
+		t.Fatalf("겹친 close: %d %v", code, out["_raw"])
+	}
+	if c := <-first; c != http.StatusOK {
+		t.Fatalf("첫 close %d", c)
+	}
+	if n := len(b.tools.pasted()) - launch; n != 1 {
+		t.Fatalf("종료 명령 %d번", n)
+	}
+}
+
+// 최종 정확성 리뷰: 전달을 기다린 시간과 종료를 기다린 시간은 시한 하나(peerCloseWait)를
+// 나눠 쓴다. 둘을 더하면 부른 쪽 시한(15초)을 넘어 닫고도 실패로 보였다.
+func TestPeerAgentCloseSharesOneBudget(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	pairNodes(t, a, b.peerNode)
+	if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed}); code != 200 {
+		t.Fatalf("spawn %d %v", code, out["_raw"])
+	}
+	b.srv.limits.peerCloseWait = time.Second
+	b.srv.limits.peerTabCloseWait = 100 * time.Millisecond
+	b.tools.setFG("headless-1", agentCmd(t))
+	b.hub.mu.Lock()
+	b.hub.busy = func(string) bool { return true } // 에이전트가 끝나지 않는다
+	b.hub.mu.Unlock()
+	gate := make(chan struct{})
+	b.tools.fgMu.Lock()
+	b.tools.gate, b.tools.entered = gate, make(chan struct{}, 1)
+	entered := b.tools.entered
+	b.tools.fgMu.Unlock()
+	go a.call(t, "node-b", "message.send", map[string]any{"to": "headless-1", "message": "hi"})
+	<-entered
+	start := time.Now()
+	closed := make(chan struct{})
+	go func() { a.call(t, "node-b", "agent.close", map[string]any{"toolId": "headless-1"}); close(closed) }()
+	time.AfterFunc(900*time.Millisecond, func() { close(gate) })
+	<-closed
+	// 나눠 쓰면 약 1s + 탭 닫기 100ms, 따로 쓰면 900ms + 1s + 100ms 다.
+	if d := time.Since(start); d > 1600*time.Millisecond {
+		t.Fatalf("close 가 %v 걸렸다 — 두 기다림이 시한을 따로 쓴다", d)
 	}
 }

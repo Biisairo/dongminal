@@ -212,6 +212,9 @@ type serverLimits struct {
 	peerPromptWait time.Duration
 	// peerTabCloseWait 은 closeTab 방송 뒤 도구가 사라지기를 기다리는 상한이다 (I-32).
 	peerTabCloseWait time.Duration
+	// peerCloseWait 은 agent.close 가 진행 중인 전달과 에이전트 종료를 함께 기다리는 상한이다
+	// (I-20·I-70). 보내는 쪽의 요청 한도 안에 답해야 한다.
+	peerCloseWait time.Duration
 }
 
 func defaultLimits() serverLimits {
@@ -225,6 +228,7 @@ func defaultLimits() serverLimits {
 		waitMaxConcurrent: 32,
 		peerPromptWait:    2 * time.Minute,
 		peerTabCloseWait:  3 * time.Second,
+		peerCloseWait:     peerCloseWait,
 	}
 }
 

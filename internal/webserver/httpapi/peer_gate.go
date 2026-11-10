@@ -25,8 +25,8 @@ type peerGate struct {
 
 type peerGateState struct {
 	busy bool
-	// closing 은 그 도구를 닫는 중인 close 의 수다. 겹친 close 가 모두 끝나야 풀린다.
-	closing int
+	// closing 은 그 도구를 닫는 중인가다. 한 도구에 close 는 한 번에 하나다.
+	closing bool
 	// idle 은 진행 중인 전달이 끝나면 닫힌다. 기다리는 쪽(close·enterWait)이 있을 때만 있다.
 	idle chan struct{}
 }
@@ -46,7 +46,7 @@ func (g *peerGate) state(id string) *peerGateState {
 // forgetIfIdle 은 쓰이지 않는 상태를 지운다. 맵에 있는 것이 그 상태일 때만 지운다 — 지난
 // 상태의 정리가 새로 생긴 상태를 지우지 않게 한다.
 func (g *peerGate) forgetIfIdle(id string, st *peerGateState) {
-	if !st.busy && st.closing == 0 && g.m[id] == st {
+	if !st.busy && !st.closing && g.m[id] == st {
 		delete(g.m, id)
 	}
 }
@@ -54,7 +54,7 @@ func (g *peerGate) forgetIfIdle(id string, st *peerGateState) {
 // enterLocked 는 g.mu 를 쥔 채 자리를 연다.
 func (g *peerGate) enterLocked(id string, st *peerGateState) (leave func(), err error) {
 	switch {
-	case st.closing > 0:
+	case st.closing:
 		g.forgetIfIdle(id, st)
 		return nil, errPeerToolClosing
 	case st.busy:
@@ -88,7 +88,7 @@ func (g *peerGate) enterWait(ctx context.Context, id string) (leave func(), err 
 	for {
 		g.mu.Lock()
 		st := g.state(id)
-		if !st.busy || st.closing > 0 {
+		if !st.busy || st.closing {
 			leave, err = g.enterLocked(id, st)
 			g.mu.Unlock()
 			return leave, err
@@ -107,11 +107,16 @@ func (g *peerGate) enterWait(ctx context.Context, id string) (leave func(), err 
 }
 
 // close 는 id 를 닫는 중으로 세우고 진행 중인 전달이 끝나기를 ctx 안에서 기다린다. 돌려준
-// 함수가 표시를 거둔다. 기다리다 ctx 가 끝나도 표시는 선 채로 돌려준다.
-func (g *peerGate) close(ctx context.Context, id string) (done func()) {
+// 함수가 표시를 거둔다. 기다리다 ctx 가 끝나도 표시는 선 채로 돌려준다. 이미 닫는 중이면
+// errPeerToolClosing 이다 — 겹친 close 가 종료 명령을 거듭 보내 데몬 줄을 키우지 못하게 한다.
+func (g *peerGate) close(ctx context.Context, id string) (done func(), err error) {
 	g.mu.Lock()
 	st := g.state(id)
-	st.closing++
+	if st.closing {
+		g.mu.Unlock()
+		return nil, errPeerToolClosing
+	}
+	st.closing = true
 	var wait chan struct{}
 	if st.busy {
 		if st.idle == nil {
@@ -131,8 +136,8 @@ func (g *peerGate) close(ctx context.Context, id string) (done func()) {
 		once.Do(func() {
 			g.mu.Lock()
 			defer g.mu.Unlock()
-			st.closing--
+			st.closing = false
 			g.forgetIfIdle(id, st)
 		})
-	}
+	}, nil
 }

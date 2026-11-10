@@ -24,7 +24,7 @@ func TestPeerGate(t *testing.T) {
 	}
 	leaveB()
 	closed := make(chan func())
-	go func() { closed <- g.close(context.Background(), "a") }()
+	go func() { d, _ := g.close(context.Background(), "a"); closed <- d }()
 	select {
 	case <-closed:
 		t.Fatal("진행 중인 전달을 기다리지 않았다")
@@ -46,7 +46,7 @@ func TestPeerGate(t *testing.T) {
 	leave, _ := g.enter("c")
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
-	done = g.close(ctx, "c")
+	done, _ = g.close(ctx, "c")
 	if _, err := g.enter("c"); !errors.Is(err, errPeerToolClosing) {
 		t.Fatalf("시한 뒤 전달: %v", err)
 	}
@@ -90,9 +90,9 @@ func TestPeerGateEnterWait(t *testing.T) {
 		got <- err
 	}()
 	done := make(chan func())
-	go func() { done <- g.close(context.Background(), "b") }()
+	go func() { d, _ := g.close(context.Background(), "b"); done <- d }()
 	// close 가 표시를 세우고 기다리는 상태에 들어간 것을 확인한 뒤 자리를 비운다.
-	waitGate(t, &g, "b", func(st *peerGateState) bool { return st.closing > 0 && st.idle != nil })
+	waitGate(t, &g, "b", func(st *peerGateState) bool { return st.closing && st.idle != nil })
 	leave()
 	// close 를 풀기 전에 기다리던 쪽의 결과를 받는다 — 풀고 나면 들어가는 것이 맞다.
 	err := <-got
@@ -102,25 +102,27 @@ func TestPeerGateEnterWait(t *testing.T) {
 	}
 }
 
-// 정확성 재리뷰(5차) #1: 같은 도구에 close 가 겹쳐도, 먼저 끝난 close 가 닫는 중을 풀지 않고
-// 늦게 끝난 close 가 다른 전달의 상태를 지우지 않는다.
+// 최종 보안 리뷰: 같은 도구에 close 가 이미 진행 중이면 뒤에 온 close 는 거절한다 — 종료
+// 명령을 겹쳐 보내 데몬 줄을 키우지 못한다. 앞선 close 의 표시는 그대로다.
 func TestPeerGateOverlappingClose(t *testing.T) {
 	var g peerGate
-	done1 := g.close(context.Background(), "a")
-	done2 := g.close(context.Background(), "a")
-	done1()
-	if _, err := g.enter("a"); !errors.Is(err, errPeerToolClosing) {
-		t.Fatalf("둘째 close 가 도는데 받았다: %v", err)
-	}
-	done2()
-	leave, err := g.enter("a")
+	done1, err := g.close(context.Background(), "a")
 	if err != nil {
 		t.Fatal(err)
 	}
-	done3 := g.close(context.Background(), "b") // 다른 도구
-	done3()
-	if _, err := g.enter("a"); !errors.Is(err, errPeerToolBusy) {
-		t.Fatalf("동시 1건이 깨졌다: %v", err)
+	if _, err := g.close(context.Background(), "a"); !errors.Is(err, errPeerToolClosing) {
+		t.Fatalf("겹친 close: %v", err)
+	}
+	if _, err := g.enter("a"); !errors.Is(err, errPeerToolClosing) {
+		t.Fatalf("거절된 close 가 표시를 건드렸다: %v", err)
+	}
+	if _, err := g.close(context.Background(), "b"); err != nil {
+		t.Fatalf("다른 도구의 close 가 막혔다: %v", err)
+	}
+	done1()
+	leave, err := g.enter("a")
+	if err != nil {
+		t.Fatalf("close 가 끝난 뒤: %v", err)
 	}
 	leave()
 }
@@ -128,7 +130,7 @@ func TestPeerGateOverlappingClose(t *testing.T) {
 // 정확성 재리뷰(5차) #1: 지난 상태의 정리가 새 상태를 지우지 않는다.
 func TestPeerGateStaleForgetKeepsNewState(t *testing.T) {
 	var g peerGate
-	done := g.close(context.Background(), "a")
+	done, _ := g.close(context.Background(), "a")
 	g.mu.Lock()
 	old := g.m["a"]
 	g.mu.Unlock()
