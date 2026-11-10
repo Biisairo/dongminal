@@ -83,16 +83,83 @@ func TestPeerGateEnterWait(t *testing.T) {
 		t.Fatal("시한이 지났는데 들어갔다")
 	}
 	go func() {
-		_, err := g.enterWait(context.Background(), "b")
+		l, err := g.enterWait(context.Background(), "b")
+		if l != nil {
+			l()
+		}
 		got <- err
 	}()
-	time.Sleep(20 * time.Millisecond)
 	done := make(chan func())
 	go func() { done <- g.close(context.Background(), "b") }()
-	time.Sleep(20 * time.Millisecond)
+	// close 가 표시를 세우고 기다리는 상태에 들어간 것을 확인한 뒤 자리를 비운다.
+	waitGate(t, &g, "b", func(st *peerGateState) bool { return st.closing > 0 && st.idle != nil })
 	leave()
+	// close 를 풀기 전에 기다리던 쪽의 결과를 받는다 — 풀고 나면 들어가는 것이 맞다.
+	err := <-got
 	(<-done)()
-	if err := <-got; !errors.Is(err, errPeerToolClosing) {
+	if !errors.Is(err, errPeerToolClosing) {
 		t.Fatalf("닫는 중이 된 뒤: %v", err)
+	}
+}
+
+// 정확성 재리뷰(5차) #1: 같은 도구에 close 가 겹쳐도, 먼저 끝난 close 가 닫는 중을 풀지 않고
+// 늦게 끝난 close 가 다른 전달의 상태를 지우지 않는다.
+func TestPeerGateOverlappingClose(t *testing.T) {
+	var g peerGate
+	done1 := g.close(context.Background(), "a")
+	done2 := g.close(context.Background(), "a")
+	done1()
+	if _, err := g.enter("a"); !errors.Is(err, errPeerToolClosing) {
+		t.Fatalf("둘째 close 가 도는데 받았다: %v", err)
+	}
+	done2()
+	leave, err := g.enter("a")
+	if err != nil {
+		t.Fatal(err)
+	}
+	done3 := g.close(context.Background(), "b") // 다른 도구
+	done3()
+	if _, err := g.enter("a"); !errors.Is(err, errPeerToolBusy) {
+		t.Fatalf("동시 1건이 깨졌다: %v", err)
+	}
+	leave()
+}
+
+// 정확성 재리뷰(5차) #1: 지난 상태의 정리가 새 상태를 지우지 않는다.
+func TestPeerGateStaleForgetKeepsNewState(t *testing.T) {
+	var g peerGate
+	done := g.close(context.Background(), "a")
+	g.mu.Lock()
+	old := g.m["a"]
+	g.mu.Unlock()
+	done()
+	leave, err := g.enter("a") // 새 상태
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.mu.Lock()
+	g.forgetIfIdle("a", old) // 지난 상태로 정리를 부른다
+	g.mu.Unlock()
+	if _, err := g.enter("a"); !errors.Is(err, errPeerToolBusy) {
+		t.Fatalf("지난 상태의 정리가 새 상태를 지웠다: %v", err)
+	}
+	leave()
+}
+
+func waitGate(t *testing.T, g *peerGate, id string, ok func(*peerGateState) bool) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		g.mu.Lock()
+		st := g.m[id]
+		hit := st != nil && ok(st)
+		g.mu.Unlock()
+		if hit {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%s 의 상태가 기대에 닿지 않았다", id)
+		}
+		time.Sleep(time.Millisecond)
 	}
 }

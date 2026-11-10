@@ -726,7 +726,7 @@ func TestPeerAgentCloseWaitsForInflightMessage(t *testing.T) {
 	for {
 		b.srv.peerGate.mu.Lock()
 		st := b.srv.peerGate.m["headless-1"]
-		waiting := st != nil && st.closing && st.idle != nil
+		waiting := st != nil && st.closing > 0 && st.idle != nil
 		b.srv.peerGate.mu.Unlock()
 		if waiting {
 			break

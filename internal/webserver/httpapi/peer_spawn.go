@@ -291,7 +291,10 @@ func (s *Server) peerAgentClose(w http.ResponseWriter, r *http.Request, from pee
 	toolID := in.ToolID
 	// I-59: 종료 명령을 보낸 뒤 에이전트가 끝나는 동안 원격 글이 들어가면 셸에 남는다.
 	// I-70: 표시를 세우고 진행 중인 전달이 끝나기를 기다린다. 그 뒤의 전달은 이 표시를 본다.
-	defer s.peerGate.close(r.Context(), toolID)()
+	// 기다림의 시한은 서버가 정한다 — 요청 ctx 를 쓰면 상대가 연결을 끊어 기다림을 줄인다.
+	gateCtx, gateCancel := context.WithTimeout(context.Background(), peerCloseWait)
+	defer gateCancel()
+	defer s.peerGate.close(gateCtx, toolID)()
 	if ad, ok := s.agentOfTool(toolID); ok && ad.ExitCommand != "" && s.Tools != nil && s.Tools.Busy(toolID) {
 		_ = s.deliverToTool(toolID, ad.ExitCommand, true)
 		ctx, cancel := context.WithTimeout(r.Context(), peerCloseWait)

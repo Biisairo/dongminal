@@ -2,6 +2,7 @@ package ipc
 
 import (
 	"encoding/json"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -235,8 +236,8 @@ func TestSerialQueueDepthLimit(t *testing.T) {
 	}
 }
 
-// 보안 재리뷰(4차) #2: 연결이 끊긴 뒤에는 줄에 남은 write·input 을 넣지 않는다. 이미 돌던
-// paste 는 끝까지 돈다.
+// 보안 재리뷰(4차) #2: 연결이 끊긴 뒤에는 줄에 남은 write·input 을 PTY 에 넣지 않는다. 이미
+// 돌던 paste 는 끝까지 돈다. 넣었는지는 PTY 출력(셸의 메아리)으로 잰다.
 func TestQueuedWriteSkippedAfterStop(t *testing.T) {
 	pc := asyncConn(t, "a")
 	release := make(chan struct{})
@@ -248,11 +249,10 @@ func TestQueuedWriteSkippedAfterStop(t *testing.T) {
 	}))
 	pc.dispatch(guardedPaste(1, "a"))
 	<-entered
-	pc.dispatch(&toolipc.PanedRequest{ID: 2, Method: toolipc.MethodWrite, Params: json.RawMessage(`{"id":"a","data":"aGk="}`)})
-	pc.dispatch(&toolipc.PanedRequest{ID: 3, Method: toolipc.MethodInput, Params: json.RawMessage(`{"id":"a","data":"aGk="}`)})
+	pc.dispatch(&toolipc.PanedRequest{ID: 2, Method: toolipc.MethodWrite, Params: json.RawMessage(`{"id":"a","data":"UVFXUklURVFR"}`)})
+	pc.dispatch(&toolipc.PanedRequest{ID: 3, Method: toolipc.MethodInput, Params: json.RawMessage(`{"id":"a","data":"UVFJTlBVVFFR"}`)})
 	close(pc.done)
 	close(release)
-	// 줄이 빌 때까지 기다린다 — 도는 paste 가 끝나기 전에 탐침을 되돌리지 않게 한다.
 	deadline := time.Now().Add(3 * time.Second)
 	for pc.toolQueue.busy("a") {
 		if time.Now().After(deadline) {
@@ -260,16 +260,27 @@ func TestQueuedWriteSkippedAfterStop(t *testing.T) {
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
-	for {
-		select {
-		case v := <-pc.out:
-			if respID(t, v) == 2 {
-				t.Fatal("끊긴 연결의 write 를 처리했다")
-			}
-			continue
-		default:
+	// 대조: 줄 밖에서 직접 쓴 글은 메아리로 보인다. 이것이 보이면 앞의 글도 보였을 것이다.
+	if err := pc.pm.Write("a", []byte("QQCTRLQQ")); err != nil {
+		t.Fatal(err)
+	}
+	var out string
+	for deadline = time.Now().Add(5 * time.Second); ; {
+		snap, err := pc.pm.SnapshotTool("a")
+		if err != nil {
+			t.Fatal(err)
 		}
-		break
+		out = string(snap.Data)
+		if strings.Contains(out, "QQCTRLQQ") {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Skipf("셸 메아리를 볼 수 없다(환경): %q", out)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if strings.Contains(out, "QQWRITEQQ") || strings.Contains(out, "QQINPUTQQ") {
+		t.Fatalf("끊긴 연결의 write·input 을 넣었다: %q", out)
 	}
 }
 
