@@ -189,7 +189,7 @@ func TestValidAddr(t *testing.T) {
 			t.Errorf("ValidAddr(%q) = false", a)
 		}
 	}
-	bad := []string{"", "a b", "a/b", "a\x1b[31m", "한글.com", "-a.com", "a-.com", "a..b", "a_b.com",
+	bad := []string{"", "a b", "a/b", "a\x1b[31m", "fe80::1%eth0", "fe80::1%\x1b[2J", "한글.com", "-a.com", "a-.com", "a..b", "a_b.com",
 		"user@h", "h:80", strings.Repeat("a", 64) + ".com", strings.Repeat("a.", 127) + "aa"}
 	for _, a := range bad {
 		if ValidAddr(a) {

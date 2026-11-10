@@ -287,3 +287,13 @@ func TestDmctlPeersLastSeen(t *testing.T) {
 		t.Fatalf("출력 %s", out)
 	}
 }
+
+// 상대가 보낸 주소·이름도 찍기 전에 제어 문자를 지운다.
+func TestDmctlPeersCleansRemoteText(t *testing.T) {
+	body := strings.Replace(peersFakeJSON, `"name":"laptop","addr":"10.0.0.4"`, `"name":"lap\u001b[2Jtop","addr":"10.0.0.4\u001b]0;x\u0007"`, 1)
+	_, cleanup := withPeerServer(t, 200, body)
+	defer cleanup()
+	if _, out, _ := dmctlRun("peers"); strings.ContainsAny(out, "\x1b\x07") {
+		t.Fatalf("제어 문자가 찍혔다 %q", out)
+	}
+}

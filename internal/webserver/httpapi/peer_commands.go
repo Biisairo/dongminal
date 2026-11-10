@@ -144,9 +144,11 @@ func (s *Server) peerMessageSend(w http.ResponseWriter, r *http.Request, peerNam
 	if !peerReadJSON(w, r, &in) {
 		return peerCmdResult{status: http.StatusBadRequest}
 	}
+	// 감사 로그의 target 은 해석에 성공한 도구만이다 — 원격이 준 글자를 로그에 쓰지 않는다.
+	toolID := ""
 	fail := func(status int, code, msg string) peerCmdResult {
 		peerFail(w, status, code, msg)
-		return peerCmdResult{status: status, target: in.To, n: len(in.Message)}
+		return peerCmdResult{status: status, target: toolID, n: len(in.Message)}
 	}
 	if in.From != "" && !peerToolIDPattern.MatchString(in.From) {
 		return fail(http.StatusBadRequest, apierr.CodeBadRequest, "from")
@@ -157,7 +159,6 @@ func (s *Server) peerMessageSend(w http.ResponseWriter, r *http.Request, peerNam
 	if len(in.Message) > peerMessageMax {
 		return fail(http.StatusRequestEntityTooLarge, apierr.CodeBodyTooBig, "message too large")
 	}
-	toolID := ""
 	if s.WorkIndex != nil && peerToolIDPattern.MatchString(in.To) {
 		toolID, _ = s.WorkIndex.ResolveStrict(in.To)
 	}

@@ -216,8 +216,9 @@ func DecodeInvite(s string) (InviteCode, error) {
 // ValidAddr 는 IP 주소이거나 LDH 규칙의 호스트 이름인가다. 허용 목록이다 —
 // 제어 문자·비 ASCII·포트·경로를 받지 않는다. 이 값은 화면과 터미널에 찍힌다.
 func ValidAddr(a string) bool {
-	if _, err := netip.ParseAddr(a); err == nil {
-		return true
+	if ip, err := netip.ParseAddr(a); err == nil {
+		// zone(`fe80::1%eth0`)은 받지 않는다 — `%` 뒤는 아무 글자나 올 수 있다.
+		return ip.Zone() == ""
 	}
 	if a == "" || len(a) > maxHostLen {
 		return false

@@ -121,18 +121,18 @@ func hostPort(addr string, port int) string {
 func printPeers(w io.Writer, raw []byte) {
 	var v peersOut
 	if err := json.Unmarshal(raw, &v); err != nil {
-		fmt.Fprintln(w, string(raw))
+		fmt.Fprintln(w, clean(string(raw)))
 		return
 	}
 	n := v.Node
 	fmt.Fprintf(w, "node     name=%s  enabled=%s  bind=%s  port=%d  listening=%s  fp=%s",
-		n.Name, yesNo(n.Enabled), n.Bind, n.Port, yesNo(n.Listening), shortFP(n.Fingerprint))
+		clean(n.Name), yesNo(n.Enabled), clean(n.Bind), n.Port, yesNo(n.Listening), clean(shortFP(n.Fingerprint)))
 	if n.Advertise != "" {
-		fmt.Fprintf(w, "  advertise=%s", n.Advertise)
+		fmt.Fprintf(w, "  advertise=%s", clean(n.Advertise))
 	}
 	fmt.Fprintln(w)
 	if n.Error != "" {
-		fmt.Fprintf(w, "         port error: %s\n", n.Error)
+		fmt.Fprintf(w, "         port error: %s\n", clean(n.Error))
 	}
 	for _, p := range v.Peers {
 		state := p.State
@@ -141,15 +141,16 @@ func printPeers(w io.Writer, raw []byte) {
 		}
 		seen := ""
 		if p.LastSeen != "" {
-			seen = "  lastSeen=" + p.LastSeen
+			seen = "  lastSeen=" + clean(p.LastSeen)
 		}
-		fmt.Fprintf(w, "peer     name=%s  addr=%s  state=%s  fp=%s%s\n", p.Name, hostPort(p.Addr, p.Port), state, shortFP(p.FP), seen)
+		fmt.Fprintf(w, "peer     name=%s  addr=%s  state=%s  fp=%s%s\n", clean(p.Name), clean(hostPort(p.Addr, p.Port)), clean(state), clean(shortFP(p.FP)), seen)
 	}
 	for _, p := range v.Pending {
-		fmt.Fprintf(w, "pending  id=%s  name=%s  addr=%s  fp=%s  expires=%s\n", p.ID, p.Name, hostPort(p.Addr, p.Port), shortFP(p.FP), p.Expires)
+		fmt.Fprintf(w, "pending  id=%s  name=%s  addr=%s  fp=%s  expires=%s\n",
+			clean(p.ID), clean(p.Name), clean(hostPort(p.Addr, p.Port)), clean(shortFP(p.FP)), clean(p.Expires))
 	}
 	if v.Invite != nil {
-		fmt.Fprintf(w, "invite   expires=%s\n", v.Invite.Expires)
+		fmt.Fprintf(w, "invite   expires=%s\n", clean(v.Invite.Expires))
 	}
 }
 

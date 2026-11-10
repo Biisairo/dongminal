@@ -122,7 +122,7 @@ func peerAuditCmd(dir, peerName, op string, res peerCmdResult) {
 	if peerName == "" {
 		peerName = "-"
 	}
-	dmlog.Infof(nil, "peer audit dir=%s peer=%s op=%s target=%s len=%d status=%d",
+	dmlog.Infof(nil, "peer audit dir=%s peer=%s op=%s target=%q len=%d status=%d",
 		dir, peerName, op, res.target, res.n, res.status)
 }
 

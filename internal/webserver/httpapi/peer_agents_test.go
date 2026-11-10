@@ -194,3 +194,24 @@ func TestPeerMessageSendRejectsForgedFrom(t *testing.T) {
 }
 
 func asRemote(err error, re **peer.RemoteError) bool { return errors.As(err, re) }
+
+// 원격 본문의 제어 문자(ESC 등)는 지운다. 줄바꿈·탭만 남긴다 — 붙여넣기 구간을 끝내는
+// 표지(ESC[201~)로 셸에 빠져나가지 못하게 한다.
+func TestPeerMessageSendStripsControl(t *testing.T) {
+	a, _ := newPeerNodeTools(t, "node-a", true)
+	b, bt := newPeerNodeTools(t, "node-b", true)
+	pairNodes(t, a, b)
+	msg := "줄1\n\t줄2\x1b[201~rm -rf ~\r\x07\u009b31m끝"
+	if code, out := a.api(t, http.MethodPost, "/api/peers/call", map[string]any{
+		"peer": "node-b", "op": "message.send", "args": map[string]any{"to": "t-agent", "message": msg},
+	}); code != http.StatusOK {
+		t.Fatalf("message.send: %d %v", code, out["_raw"])
+	}
+	got := bt.pasted()[0].Text
+	if strings.ContainsAny(got, "\x1b\r\x07\u009b") {
+		t.Fatalf("제어 문자가 남았다 %q", got)
+	}
+	if !strings.Contains(got, "줄1\n\t줄2[201~rm -rf ~31m끝") {
+		t.Fatalf("본문 %q", got)
+	}
+}
