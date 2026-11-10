@@ -74,12 +74,15 @@ const (
 	// FeatureBusyMany: busymany(ids) 일괄 조회를 안다 (FR-OPT-2-4). 서버는 도구 N개의
 	// busy 를 RPC 한 번으로 묻는다. 말하지 않는 옛 데몬에는 busy 를 하나씩 보낸다.
 	FeatureBusyMany = "busymany"
+	// FeatureFgGuard: paste 의 foreground 조건을 안다 (PEER_NETWORK_SRS I-47). 말하지
+	// 않는 옛 데몬은 그 필드를 무시하고 넣으므로, 서버는 그때 조건을 싣지 않는다.
+	FeatureFgGuard = "fgguard"
 )
 
 // DaemonFeatures 는 이 데몬이 hello 에서 말하는 기능이다. ServerFeatures 는 서버가
 // 말하는 기능이다. 새 기능이 이름을 여기 더한다.
 var (
-	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify, FeatureBusyMany}
+	DaemonFeatures = []string{FeatureForegroundTick, FeatureSnapshotNotFound, FeatureNotify, FeatureBusyMany, FeatureFgGuard}
 	ServerFeatures []string
 )
 
@@ -143,9 +146,12 @@ type WriteParams struct {
 }
 
 type PasteParams struct {
-	Data   []byte `json:"data"`
-	ID     string `json:"id"`
-	Submit bool   `json:"submit"`
+	Data []byte `json:"data"`
+	// Foreground 가 있으면 데몬은 쓰기·제출 직전에 전경을 새로 조회해 이 이름일 때만
+	// 넣는다. 아니면 CodeForegroundChanged 다 (FeatureFgGuard, PEER_NETWORK_SRS I-47).
+	Foreground string `json:"foreground,omitempty"`
+	ID         string `json:"id"`
+	Submit     bool   `json:"submit"`
 }
 
 type ResizeParams struct {

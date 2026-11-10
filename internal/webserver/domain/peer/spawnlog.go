@@ -112,13 +112,13 @@ func (l *SpawnLog) Forget(toolID string) error {
 	return l.saveLocked()
 }
 
-// DirAllowed 는 dir 의 실제 경로(심볼릭 링크를 푼 것)가 allowed 중 하나와 같거나 그
+// DirAllowed 는 dir 의 실제 경로(심볼릭 링크를 푼 것, Windows 는 junction 까지 푼 것)가 allowed 중 하나와 같거나 그
 // 아래인가다 (FR-PNW-59). 맞으면 그 실제 경로를 돌려준다. allowed 가 비면 언제나 거짓이다.
 func DirAllowed(dir string, allowed []string) (string, bool) {
 	if !filepath.IsAbs(dir) {
 		return "", false
 	}
-	real, err := filepath.EvalSymlinks(dir)
+	real, err := realDir(dir)
 	if err != nil {
 		return "", false
 	}
@@ -126,7 +126,7 @@ func DirAllowed(dir string, allowed []string) (string, bool) {
 		return "", false
 	}
 	for _, a := range allowed {
-		base, err := filepath.EvalSymlinks(a)
+		base, err := realDir(a)
 		if err != nil {
 			continue
 		}

@@ -139,3 +139,16 @@ func TestClientRemoteErrorCleansMessage(t *testing.T) {
 		}
 	}
 }
+
+// 리뷰 S-10: 오류 코드도 상대가 정한 글자다. 문장과 같이 정제한다.
+func TestClientRemoteErrorCleansCode(t *testing.T) {
+	f := newClientFixture(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"code":"x\u001b]0;t\u0007` + strings.Repeat("c", 4096) + `","message":"m"}`))
+	})
+	err := NewClient(f.caller).Call(context.Background(), f.target, "/peer/v1/x", map[string]any{}, nil)
+	var re *RemoteError
+	if !errors.As(err, &re) || strings.ContainsAny(re.Code, "\x1b\x07") || len(re.Code) > RemoteMessageMax {
+		t.Fatalf("%#v", err)
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -33,6 +34,8 @@ var (
 	ErrInvalidPeer  = errors.New("짝 항목의 주소·포트·지문·상태가 틀렸습니다")
 	ErrNameTaken    = errors.New("그 이름의 짝이 이미 있습니다")
 	ErrPeerNotFound = errors.New("그 이름의 짝이 없습니다")
+	// ErrInvalidNodeField 는 허용 폴더(절대 경로)·알릴 주소(주소)가 틀렸다는 뜻이다.
+	ErrInvalidNodeField = errors.New("허용 폴더는 절대 경로, 알릴 주소는 IP 주소나 호스트명이어야 합니다")
 	// ErrSaveFailed 는 저장 자체의 실패다. 사유는 로그로만 간다.
 	ErrSaveFailed = errors.New("노드 설정을 저장하지 못했습니다")
 )
@@ -270,7 +273,18 @@ func (s *Store) update(fn func(*Config) error) error {
 }
 
 // SetNode 는 노드 설정만 바꾼다. 짝 목록은 그대로다 (I-8).
+//
+// 허용 폴더·알릴 주소는 여기서만 거른다. 저장 전체의 validate 에 두면 이미 저장된 옛 값
+// 하나 때문에 짝 추가 같은 다른 저장까지 막힌다 (리뷰 C-2·C-7).
 func (s *Store) SetNode(n Config) error {
+	if n.Advertise != "" && !ValidAddr(n.Advertise) {
+		return ErrInvalidNodeField
+	}
+	for _, d := range n.AllowedDirs {
+		if !filepath.IsAbs(d) {
+			return ErrInvalidNodeField
+		}
+	}
 	return s.update(func(c *Config) error {
 		c.Enabled, c.Port, c.Bind, c.Name, c.Advertise = n.Enabled, n.Port, n.Bind, n.Name, n.Advertise
 		c.AllowedDirs = append([]string{}, n.AllowedDirs...)
@@ -306,6 +320,10 @@ func (s *Store) IsPendingOut(fp string) bool {
 
 // NameTaken 은 그 이름을 살아 있는 항목이 쓰고 있는가다.
 func (s *Store) NameTaken(name string) bool { return s.nameTakenExcept(name, "") }
+
+// NameTakenExcept 는 지문이 fp 인 항목을 빼고 본다. 같은 지문은 AddPeer 가 갈아 끼우므로
+// 그 이름은 비어 있는 것과 같다 (I-29).
+func (s *Store) NameTakenExcept(name, fp string) bool { return s.nameTakenExcept(name, fp) }
 
 // nameTakenExcept 는 지문이 except 인 항목을 빼고 본다.
 func (s *Store) nameTakenExcept(name, except string) bool {

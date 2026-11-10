@@ -17,7 +17,7 @@ Object.assign(App.prototype, {
     row.className='acl-row';
     const inp=document.createElement('input');
     inp.type='text';inp.className='acl-value';
-    inp.placeholder='~/work';
+    inp.placeholder='/path/to/work';
     inp.value=v||'';
     const del=UIKit.button({icon:'x',title:t('peer.dir_del'),kind:'ghost',size:'sm'});
     del.addEventListener('click',()=>row.remove());
@@ -95,9 +95,9 @@ Object.assign(App.prototype, {
     document.getElementById('pn-inv-remain').textContent=left||t('peer.inv_none');
   },
 
-  _pnPendingPaint(pending){
+  _pnPendingPaint(pending,force){
     const box=document.getElementById('pn-pending');
-    const keep=this._pnKeepEditing(box,'id','.pn-rename:not([hidden])',false);
+    const keep=this._pnKeepEditing(box,'id','.pn-rename:not([hidden])',force);
     box.replaceChildren(...pending.map(p=>keep.get(p.id)||this._pnPendingRow(p)));
     if(!pending.length){
       const none=document.createElement('span');
@@ -126,16 +126,25 @@ Object.assign(App.prototype, {
     const no=UIKit.button({label:t('peer.reject'),kind:'ghost',size:'sm',cls:'pn-reject'});
     const st=document.getElementById('pn-pending-status');
     // L-10: 처음 승인할 때 지문 대조를 한 번 거친다. 이름을 바꿔 다시 승인할 때는 묻지 않는다.
+    // 확인창이 열린 동안 방송이 줄을 새로 만들 수 있다 — 대조 여부는 id 로, 이름 칸은 지금
+    // 화면의 줄에서 찾는다.
+    const verified=this._pnVerified||(this._pnVerified=new Set());
     ok.addEventListener('click',()=>{
-      if(row.dataset.verified) return approve();
-      this._pnApproveConfirm(p,()=>{ row.dataset.verified='1'; return approve() });
+      if(verified.has(p.id)) return approve();
+      this._pnApproveConfirm(p,()=>{ verified.add(p.id); return approve() });
     });
+    const nameNow=()=>{
+      const cur=document.querySelector('#pn-pending .pn-item[data-id="'+CSS.escape(p.id)+'"]');
+      return (cur&&cur.querySelector('.pn-rename'))||name;
+    };
     const approve=()=>statusRun(st,{fail:t('peer.approve_fail')},async()=>{
       const body={id:p.id};
-      if(!name.hidden) body.name=name.value.trim();
+      const nm=nameNow();
+      if(!nm.hidden) body.name=nm.value.trim();
       const r=await apiPost('/api/peers/approve',body);
       if(!r.ok&&r.data&&r.data.code==='peer_name_taken'){
-        name.hidden=false;name.focus();
+        const field=nameNow();
+        field.hidden=false;field.focus();
         return {ok:false,status:r.status,data:{message:t('peer.name_taken',{name:body.name||p.name})},text:'',headers:null};
       }
       if(r.ok&&r.data&&r.data.confirmed===false) st.textContent=t('peer.confirm_failed',{reason:r.data.reason||''});
@@ -255,7 +264,10 @@ Object.assign(App.prototype, {
     });
     this._pnNodePaint();
     // 탭을 열면 고치던 줄도 버리고 지금 값으로 그린다.
-    if(this._peers) this._pnPeersPaint(this._peers.peers||[],true);
+    if(this._peers){
+      this._pnPendingPaint(this._peers.pending||[],true);
+      this._pnPeersPaint(this._peers.peers||[],true);
+    }
   },
 
   _pnInviteShown(){

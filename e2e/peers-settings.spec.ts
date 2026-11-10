@@ -157,6 +157,9 @@ test.describe.serial('설정 ▸ Peers', () => {
     // L-10: 처음 승인은 지문 대조 창을 거친다.
     const confirm = page.locator('.pn-approve-confirm');
     await expect(confirm.locator('.pn-fp-big')).toHaveText(aFp.slice(0, 16));
+    // 리뷰 C-10: 확인창이 열린 동안 방송이 와 줄이 새로 만들어져도 이름 칸은 화면의 줄에 열린다.
+    await poke(dmServer.baseURL);
+    await expect(page.locator('#pn-inv-remain')).toHaveText(/^\d+:\d\d$/);
     await confirm.locator('.ui-btn-primary').click();
     const rename = row.locator('.pn-rename');
     await expect(rename).toBeVisible();

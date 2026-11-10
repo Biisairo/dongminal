@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // PEER_NETWORK_SRS FR-PNW-73·74 — dmctl peers · peer invite/add/approve/reject/remove.
@@ -430,5 +431,31 @@ func TestDmctlPeerApprovePrintsFingerprint(t *testing.T) {
 	rc, out, e := dmctlRun("peer", "approve", "p1")
 	if rc != 0 || !strings.Contains(out, "0123456789abcdef") || strings.Contains(out, "0011") {
 		t.Fatalf("rc=%d out=%q err=%q", rc, out, e)
+	}
+}
+
+// 리뷰 C-1: 상대를 부르는 로컬 API 는 서버의 원격 시한(15초)보다 긴 예산으로 부른다.
+// 공용 10초면 close 가 상대에서 끝나기 전에 끊긴다.
+func TestDmctlPeerCallBudget(t *testing.T) {
+	_, cleanup := withPeerServer(t, 200, `{"closed":true}`)
+	defer cleanup()
+	var got time.Duration
+	prev := clientWithin
+	clientWithin = func(b time.Duration) *http.Client { got = b; return prev(b) }
+	defer func() { clientWithin = prev }()
+	if rc, _, e := dmctlRun("peer", "close", "home/u-1"); rc != 0 {
+		t.Fatalf("rc=%d %s", rc, e)
+	}
+	if got < 20*time.Second {
+		t.Fatalf("예산 %v", got)
+	}
+}
+
+// 리뷰 S-5: --json 출력도 상대가 보낸 C1 제어 문자를 지운다.
+func TestDmctlPeerJSONCleansC1(t *testing.T) {
+	_, cleanup := withPeerServer(t, 200, "{\"agents\":[{\"toolId\":\"u\",\"window\":\"w\u009d52;c;AA==\u009c\"}]}")
+	defer cleanup()
+	if _, out, _ := dmctlRun("peer", "tools", "home", "--json"); strings.ContainsAny(out, "\u009d\u009c") {
+		t.Fatalf("C1 이 찍혔다 %q", out)
 	}
 }

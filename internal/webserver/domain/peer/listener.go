@@ -13,9 +13,16 @@ import (
 )
 
 // 노드 포트의 `http.Server` 시한. UI 리스너와 같은 근거다 (REQUEST_GATE_SRS FR-RQG-18).
+//
+// UI 리스너와 달리 읽기·쓰기 시한을 둔다. 노드 포트에는 SSE·WebSocket 같은 오래 사는
+// 응답이 없고, 보내는 쪽이 RequestTimeout 뒤에는 어차피 끊는다. 시한이 없으면 본문을
+// 느리게 흘리는 연결이 고루틴과 fd 를 무기한 쥔다 (리뷰 S-4).
 const (
 	readHeaderTimeout = 10 * time.Second
 	idleTimeout       = 120 * time.Second
+	readTimeout       = RequestTimeout
+	writeTimeout      = RequestTimeout + 5*time.Second
+	maxHeaderBytes    = 16 << 10
 )
 
 var (
@@ -146,7 +153,10 @@ func (l *Listener) Apply(c Config) {
 	srv := &http.Server{
 		Handler:           l.handler,
 		ReadHeaderTimeout: readHeaderTimeout,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
 		IdleTimeout:       idleTimeout,
+		MaxHeaderBytes:    maxHeaderBytes,
 	}
 	l.srv = srv
 	l.status = Status{Listening: true, Addr: raw.Addr().String(), Generation: l.gen}

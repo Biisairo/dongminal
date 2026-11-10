@@ -317,6 +317,13 @@ func (a Adapter) LaunchLine(hooksDir, model, prompt string) (string, error) {
 	return a.launchLine(platform.Current().Shell, hooksDir, model, prompt)
 }
 
+// BareLaunchLine 은 등록부의 기동 명령만이다. 모델·Run 멤버 인자(MemberArgs 의 사전
+// 허용)·프롬프트를 싣지 않는다 — 다른 노드가 띄우는 에이전트는 받는 노드의 평소 권한으로
+// 돈다 (PEER_NETWORK_SRS FR-PNW-60). 기동 명령은 고정 문자열이라 인용할 것이 없다.
+func (a Adapter) BareLaunchLine() string {
+	return strings.Join(a.Launch, " ")
+}
+
 // launchLine 은 인용을 담당할 셸을 명시로 받는다. 두 셸의 기동줄을 한 호스트에서
 // 검증하기 위한 자리다 (CROSS_PLATFORM_SRS §4.2).
 func (a Adapter) launchLine(sh platform.ShellProvider, hooksDir, model, prompt string) (string, error) {

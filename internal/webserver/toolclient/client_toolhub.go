@@ -255,6 +255,21 @@ func (pc *ToolClient) SendPaste(id string, text []byte, submit bool) error {
 	return err
 }
 
+// SendPasteIfForeground 는 전경이 want 일 때만 넣게 데몬에 맡긴다 (PEER_NETWORK_SRS
+// I-47). 조회와 쓰기가 PTY 를 가진 데몬 한 자리에서 일어나야 틈이 좁다. fgguard 를
+// 말하지 않는 옛 데몬에는 조건 없이 넣는다 — 호출자가 이미 캐시로 확인했다.
+func (pc *ToolClient) SendPasteIfForeground(id string, text []byte, submit bool, want string) error {
+	if !pc.HasFeature(toolipc.FeatureFgGuard) {
+		return pc.SendPaste(id, text, submit)
+	}
+	_, err := pc.call(toolipc.MethodPaste, toolipc.PasteParams{ID: id, Data: nonNil(text), Submit: submit, Foreground: want})
+	var rpc *toolipc.RPCError
+	if errors.As(err, &rpc) && rpc.Code == toolipc.CodeForegroundChanged {
+		return fmt.Errorf("%w: %s", toolhub.ErrForegroundChanged, id)
+	}
+	return err
+}
+
 func (pc *ToolClient) Resize(id string, cols, rows uint16) error {
 	_, err := pc.call(toolipc.MethodResize, toolipc.ResizeParams{ID: id, Cols: cols, Rows: rows})
 	return err

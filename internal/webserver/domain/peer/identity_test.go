@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -123,5 +124,26 @@ func TestLoadOrCreateIdentityPartialFails(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, dmenv.NodeCertFile)); err == nil {
 		t.Fatal("인증서를 새로 만들었다")
+	}
+}
+
+// 리뷰 C-14: 인증서 쓰기가 실패하면 방금 쓴 키를 지운다. 키만 남으면 다음 기동마다 "하나만
+// 있다" 로 멈춘다.
+func TestIdentityCertWriteFailureRemovesKey(t *testing.T) {
+	dir := t.TempDir()
+	prev := writeIdentityFile
+	writeIdentityFile = func(path string, data []byte, perm os.FileMode) error {
+		if filepath.Base(path) == dmenv.NodeCertFile {
+			return errors.New("disk full")
+		}
+		return prev(path, data, perm)
+	}
+	defer func() { writeIdentityFile = prev }()
+	if _, err := LoadOrCreateIdentity(dir); err == nil {
+		t.Fatal("실패해야 한다")
+	}
+	writeIdentityFile = prev
+	if _, err := LoadOrCreateIdentity(dir); err != nil {
+		t.Fatalf("다음 기동이 회복하지 못한다: %v", err)
 	}
 }

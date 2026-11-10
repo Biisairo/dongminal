@@ -307,3 +307,41 @@ func itoa(n int64) string {
 	b, _ := json.Marshal(n)
 	return string(b)
 }
+
+// PEER_NETWORK_SRS I-47: 데몬이 fgguard 를 말하면 paste 에 기대 전경을 싣고, 거절 코드는
+// toolhub.ErrForegroundChanged 로 돌아온다. 말하지 않는 옛 데몬에는 싣지 않는다.
+func TestSendPasteIfForegroundWire(t *testing.T) {
+	hello := map[string]any{"version": toolipc.ProtocolVersion, "features": []string{toolipc.FeatureFgGuard}}
+	sock, lines := rawFake(t, hello, func(req toolipc.PanedRequest) any {
+		return toolipc.PanedError{ID: req.ID, Error: toolipc.PanedErrObj{Code: toolipc.CodeForegroundChanged, Message: "x"}}
+	})
+	pc, err := DialToolClient(sock)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer pc.Close()
+	nextLine(t, lines)
+	err = pc.SendPasteIfForeground("a", []byte("hi"), true, "claude")
+	if got, want := nextLine(t, lines), `"method":"paste","params":{"data":"aGk=","foreground":"claude","id":"a","submit":true}}`; !strings.HasSuffix(got, want) {
+		t.Fatalf("요청 %s", got)
+	}
+	if !errors.Is(err, toolhub.ErrForegroundChanged) {
+		t.Fatalf("err = %v", err)
+	}
+
+	old, lines2 := rawFake(t, map[string]any{"version": toolipc.ProtocolVersion}, func(req toolipc.PanedRequest) any {
+		return toolipc.PanedResponse{ID: req.ID, Result: struct{}{}}
+	})
+	pc2, err := DialToolClient(old)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer pc2.Close()
+	nextLine(t, lines2)
+	if err := pc2.SendPasteIfForeground("a", []byte("hi"), true, "claude"); err != nil {
+		t.Fatal(err)
+	}
+	if got := nextLine(t, lines2); strings.Contains(got, "foreground") {
+		t.Fatalf("옛 데몬에 기대 전경을 실었다 %s", got)
+	}
+}

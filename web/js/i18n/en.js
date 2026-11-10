@@ -1008,7 +1008,7 @@ I18N.register('en', {
   'html.pn_bind': 'Bind address',
   'html.pn_copy': 'Copy',
   'html.pn_dirs': 'Allowed folders',
-  'html.pn_dirs_hint': 'Folders where other nodes may start agents. If empty, every start request is refused.',
+  'html.pn_dirs_hint': 'Folders where other nodes may start agents. Enter absolute paths (~ is not expanded). If empty, every start request is refused.',
   'html.pn_dir_add_title': 'Add an allowed folder',
   'html.pn_enabled': 'Node port',
   'html.pn_fp': 'Fingerprint',

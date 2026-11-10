@@ -164,7 +164,16 @@ func (pc *panedConn) paste(req *toolipc.PanedRequest) interface{} {
 	if perr != nil {
 		return *perr
 	}
-	if err := pc.pm.SendPaste(p.ID, p.Data, p.Submit); err != nil {
+	var err error
+	if p.Foreground != "" {
+		err = pc.pm.SendPasteIfForeground(p.ID, p.Data, p.Submit, p.Foreground)
+	} else {
+		err = pc.pm.SendPaste(p.ID, p.Data, p.Submit)
+	}
+	switch {
+	case errors.Is(err, toolhub.ErrForegroundChanged):
+		return errResp(req, toolipc.CodeForegroundChanged, err)
+	case err != nil:
 		return errResp(req, toolipc.CodeServer, err)
 	}
 	return okResp(req, struct{}{})

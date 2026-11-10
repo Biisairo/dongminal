@@ -66,6 +66,9 @@ func (f *fakeToolIO) SendPaste(id string, text []byte, submit bool) error {
 	return f.pasteErr
 }
 func (f *fakeToolIO) Size(string) string { return "80x24" }
+func (f *fakeToolIO) SendPasteIfForeground(id string, text []byte, submit bool, _ string) error {
+	return f.SendPaste(id, text, submit)
+}
 
 // fakeWorkIndex 는 실물 Manager 처럼 인덱스를 둘로 나눠 둔다: resolve 는
 // toolId·uuid 인덱스, labelIdx 는 좌표 라벨 인덱스다. Resolve 는 둘 다 보고

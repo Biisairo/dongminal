@@ -341,3 +341,21 @@ func TestListenerApplyAfterCloseStaysClosed(t *testing.T) {
 		t.Fatal("닫은 뒤 Apply 가 다시 열었다")
 	}
 }
+
+// 리뷰 S-4: 본문을 느리게 흘리는 연결이 무기한 남지 않게 읽기·쓰기 시한과 헤더 상한을 둔다.
+// 쓰기 시한은 보내는 쪽의 요청 시한보다 길어야 정상 응답을 자르지 않는다.
+func TestListenerHasTimeouts(t *testing.T) {
+	id, err := LoadOrCreateIdentity(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	ln := NewListener(id, PeersOnly(func(string) bool { return true }), http.NotFoundHandler())
+	ln.Apply(enabledAt(freePort(t)))
+	defer ln.Close()
+	ln.mu.Lock()
+	srv := ln.srv
+	ln.mu.Unlock()
+	if srv.ReadTimeout <= 0 || srv.ReadTimeout > RequestTimeout || srv.WriteTimeout <= RequestTimeout || srv.MaxHeaderBytes <= 0 || srv.MaxHeaderBytes > 64<<10 {
+		t.Fatalf("read=%v write=%v header=%d", srv.ReadTimeout, srv.WriteTimeout, srv.MaxHeaderBytes)
+	}
+}

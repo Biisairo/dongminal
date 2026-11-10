@@ -197,7 +197,7 @@ func (s *Server) apiPeersAdd(w http.ResponseWriter, r *http.Request) {
 			peerFail(w, http.StatusBadRequest, apierr.CodePeerConfigInvalid, err.Error())
 			return
 		}
-		if s.peers.NameTaken(in.Name) {
+		if s.peers.NameTakenExcept(in.Name, ic.Fingerprint) {
 			peerFail(w, http.StatusConflict, apierr.CodePeerNameTaken, in.Name)
 			return
 		}
@@ -235,7 +235,12 @@ func (s *Server) apiPeersAdd(w http.ResponseWriter, r *http.Request) {
 	}
 	peerAudit("out", name, "pair", http.StatusOK)
 	s.peersChanged("")
-	out := map[string]any{"name": name, "state": peer.StatePendingOut}
+	// 이미 짝이던 지문이면 짝으로 남는다 (I-37). 저장된 상태를 그대로 알린다.
+	state := peer.StatePendingOut
+	if s.peers.IsPeer(ic.Fingerprint) {
+		state = peer.StatePaired
+	}
+	out := map[string]any{"name": name, "state": state}
 	// FR-PNW-33: 내 포트가 닫혀 있으면 상대가 나에게 보낼 수 없다. 등록은 막지 않는다.
 	if !cfg.Enabled || !s.peerStatus().Listening {
 		out["warning"] = "port_closed"

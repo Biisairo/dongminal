@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"errors"
 	"time"
 
 	"dongminal/internal/shared/toolhub"
@@ -184,5 +185,28 @@ func TestToolAdapter_ForegroundNameAbsentField(t *testing.T) {
 	}}}
 	if got := a.List(); len(got) != 1 || got[0].ForegroundName != "" {
 		t.Fatalf("List=%+v want ForegroundName=\"\"", got)
+	}
+}
+
+// guardHub 는 조건부 붙여넣기를 아는 허브다 (데몬 모드의 ToolClient 자리).
+type guardHub struct {
+	fakeHub
+	want *string
+}
+
+func (g guardHub) SendPasteIfForeground(_ string, _ []byte, _ bool, want string) error {
+	*g.want = want
+	return toolhub.ErrForegroundChanged
+}
+
+// PEER_NETWORK_SRS I-47: 데몬 모드의 조건부 붙여넣기는 허브에 맡긴다. 그 기능이 없는
+// 허브에는 조건 없이 넣는다.
+func TestToolAdapter_SendPasteIfForegroundDelegates(t *testing.T) {
+	var got string
+	if err := (Tool{Hub: guardHub{want: &got}}).SendPasteIfForeground("a", []byte("x"), true, "claude"); !errors.Is(err, toolhub.ErrForegroundChanged) || got != "claude" {
+		t.Fatalf("err=%v want=%q", err, got)
+	}
+	if err := (Tool{Hub: fakeHub{}}).SendPasteIfForeground("a", []byte("x"), true, "claude"); err != nil {
+		t.Fatalf("기능 없는 허브: %v", err)
 	}
 }

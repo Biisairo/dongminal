@@ -55,6 +55,8 @@ type headlessHub struct {
 	cwds map[string]string
 	// busy 가 있으면 Busy 의 답이다. 없으면 언제나 거짓이다.
 	busy func(id string) bool
+	// deleteErr 가 있으면 Delete 가 그것으로 실패한다(도구는 남는다).
+	deleteErr error
 }
 
 func (h *headlessHub) lastPlacement() toolhub.Placement {
@@ -95,6 +97,11 @@ func (h *headlessHub) Create(cwd string, cols, rows uint16, place toolhub.Placem
 
 func (h *headlessHub) Delete(id string) error {
 	h.mu.Lock()
+	if h.deleteErr != nil {
+		err := h.deleteErr
+		h.mu.Unlock()
+		return err
+	}
 	delete(h.tools, id)
 	delete(h.bg, id) // 실물 ToolManager.Delete 와 같다 — background 에서도 뺀다
 	h.deleted = append(h.deleted, id)

@@ -1030,7 +1030,7 @@ I18N.register('ko', {
   'html.pn_bind': '듣는 주소',
   'html.pn_copy': '복사',
   'html.pn_dirs': '허용 폴더',
-  'html.pn_dirs_hint': '다른 노드가 에이전트를 띄울 수 있는 폴더입니다. 비어 있으면 띄우기를 모두 거절합니다.',
+  'html.pn_dirs_hint': '다른 노드가 에이전트를 띄울 수 있는 폴더입니다. 절대 경로로 적습니다(~ 는 펼치지 않습니다). 비어 있으면 띄우기를 모두 거절합니다.',
   'html.pn_dir_add_title': '허용 폴더 추가',
   'html.pn_enabled': '노드 포트',
   'html.pn_fp': '지문',

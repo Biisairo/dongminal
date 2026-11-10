@@ -5,11 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"path/filepath"
 	"time"
 
 	"dongminal/internal/shared/agentadapter"
-	"dongminal/internal/shared/dmenv"
 	"dongminal/internal/shared/dmlog"
 	"dongminal/internal/shared/pollwait"
 	"dongminal/internal/webserver/apierr"
@@ -45,8 +43,8 @@ func (s *Server) peerAgentSpawn(w http.ResponseWriter, r *http.Request, from pee
 		Name      string `json:"name"`
 		From      string `json:"from"`
 	}
-	if !peerReadJSON(w, r, &in) {
-		return peerCmdResult{status: http.StatusBadRequest}
+	if st := peerReadStatus(w, r, &in); st != 0 {
+		return peerCmdResult{status: st}
 	}
 	fail := func(status int, code, msg string) peerCmdResult {
 		peerFail(w, status, code, msg)
@@ -87,21 +85,27 @@ func (s *Server) peerAgentSpawn(w http.ResponseWriter, r *http.Request, from pee
 		return fail(http.StatusTooManyRequests, apierr.CodePeerSpawnLimit, "spawn limit")
 	}
 	defer release()
-	hooksDir := dmenv.AgentHooksDirIn(filepath.Join(s.cfg.DataDir, dmenv.BinDir))
 	// I-30: 원격 프롬프트는 셸 명령줄에 싣지 않는다. 인용 규칙이 셸마다 달라 명령 주입이 된다.
-	line, err := ad.LaunchLine(hooksDir, "", "")
-	if err != nil {
-		return fail(http.StatusInternalServerError, apierr.CodeInternal, "launch line")
-	}
+	// I-46: Run 멤버의 dmctl 사전 허용도 싣지 않는다 — 받는 노드의 평소 권한으로 돈다.
+	line := ad.BareLaunchLine()
 	toolID, headless, err := s.peerSpawnShell(r.Context(), cwd, in.Placement, in.At, in.Name)
 	if err != nil {
 		return fail(http.StatusInternalServerError, apierr.CodeInternal, "create tool failed")
 	}
-	// I-32: 도구를 만든 뒤의 실패는 도구를 닫고 기록을 지운다.
+	// 기록을 먼저 남긴다 — 아래 정리가 실패해도 그 도구는 상한에 세고 원격에서 닫을 수 있다.
+	// 기록했으면 자리 예약을 바로 푼다. 둘을 함께 세면 같은 spawn 이 두 번 세진다 (리뷰 C-5).
+	if err := s.peerSpawns.Record(toolID, from.fp); err != nil {
+		s.peerCloseTool(r.Context(), toolID)
+		return fail(http.StatusInternalServerError, apierr.CodeSaveFailed, "record")
+	}
+	release()
+	// I-32: 도구를 만든 뒤의 실패는 도구를 닫고 기록을 지운다. 닫지 못하면 기록을 남기고
+	// 500 internal 이다 (리뷰 C-6).
 	undo := func(status int, code, msg string) peerCmdResult {
-		if s.peerCloseTool(r.Context(), toolID) {
-			_ = s.peerSpawns.Forget(toolID)
+		if !s.peerCloseTool(r.Context(), toolID) {
+			return fail(http.StatusInternalServerError, apierr.CodeInternal, "close failed")
 		}
+		_ = s.peerSpawns.Forget(toolID)
 		return fail(status, code, msg)
 	}
 	// L-12: 판정과 생성 사이에 경로 요소가 바뀌었을 수 있다. 셸이 실제로 선 곳을 다시
@@ -110,9 +114,6 @@ func (s *Server) peerAgentSpawn(w http.ResponseWriter, r *http.Request, from pee
 		if _, ok := peer.DirAllowed(actual, s.peers.Config().AllowedDirs); !ok {
 			return undo(http.StatusForbidden, apierr.CodePeerDirNotAllowed, "dir not allowed")
 		}
-	}
-	if err := s.peerSpawns.Record(toolID, from.fp); err != nil {
-		return undo(http.StatusInternalServerError, apierr.CodeSaveFailed, "record")
 	}
 	if err := s.deliverToTool(toolID, line, true); err != nil {
 		return undo(http.StatusInternalServerError, apierr.CodeInternal, "deliver failed")
@@ -131,6 +132,10 @@ func (s *Server) peerDeliverPrompt(toolID string, ad agentadapter.Adapter, text 
 	defer cancel()
 	allowQuiescence := !ad.Readiness.Hooks
 	err := pollwait.OnOrAt(ctx, s.limits.peerPromptWait, s.activityChanged.C, func(now time.Time) (bool, time.Time) {
+		if !s.toolLive(toolID) {
+			// 도구가 사라졌다 — 기다릴 것이 없다. 아래 재확인이 넣지 않게 한다.
+			return true, time.Time{}
+		}
 		if !s.peerRunsAgent(toolID, ad.ID) {
 			return false, now.Add(waitLivenessInterval)
 		}
@@ -144,8 +149,9 @@ func (s *Server) peerDeliverPrompt(toolID string, ad agentadapter.Adapter, text 
 	if !s.peerRunsAgent(toolID, ad.ID) {
 		return
 	}
-	if err := s.deliverToTool(toolID, text, true); err != nil {
-		dmlog.Errorf(nil, "[peer] spawn 프롬프트 전달 실패 tool=%s: %v", toolID, err)
+	// I-47: 붙여넣기 직전에 도구가 사는 곳에서 전경을 새로 본다.
+	if err := s.ToolIO.SendPasteIfForeground(toolID, []byte(text), true, ad.DetectCmd); err != nil {
+		dmlog.Infof(nil, "[peer] spawn 프롬프트를 넣지 않았다 tool=%s: %v", toolID, err)
 	}
 }
 
@@ -217,8 +223,8 @@ func (s *Server) peerAgentStatus(w http.ResponseWriter, r *http.Request, _ peerC
 	var in struct {
 		ToolID string `json:"toolId"`
 	}
-	if !peerReadJSON(w, r, &in) {
-		return peerCmdResult{status: http.StatusBadRequest}
+	if st := peerReadStatus(w, r, &in); st != 0 {
+		return peerCmdResult{status: st}
 	}
 	state, target := "ended", ""
 	if peerToolIDPattern.MatchString(in.ToolID) {
@@ -233,8 +239,8 @@ func (s *Server) peerAgentClose(w http.ResponseWriter, r *http.Request, from pee
 	var in struct {
 		ToolID string `json:"toolId"`
 	}
-	if !peerReadJSON(w, r, &in) {
-		return peerCmdResult{status: http.StatusBadRequest}
+	if st := peerReadStatus(w, r, &in); st != 0 {
+		return peerCmdResult{status: st}
 	}
 	owner, ok := "", false
 	if peerToolIDPattern.MatchString(in.ToolID) {

@@ -117,6 +117,21 @@ func (a Tool) Size(id string) string {
 // 들어가 명령이 깨졌다 (BRACKETED_PASTE_SRS §1.1).
 //
 // 판단은 PTY 출력을 읽는 쪽만 할 수 있다. 그래서 여기서는 위임만 한다 (FR-BPW-1).
+// SendPasteIfForeground 도 도구가 사는 곳에 맡긴다 — 조회와 쓰기가 한 자리여야 틈이
+// 좁다 (PEER_NETWORK_SRS I-47). 그 기능이 없는 허브(옛 데몬과 이어진 클라이언트가
+// 아닌 다른 구현)에는 조건 없이 넣는다. 호출자가 이미 캐시로 확인했다.
+func (a Tool) SendPasteIfForeground(id string, text []byte, submit bool, want string) error {
+	if a.PM != nil {
+		return a.PM.SendPasteIfForeground(id, text, submit, want)
+	}
+	if g, ok := a.Hub.(interface {
+		SendPasteIfForeground(id string, text []byte, submit bool, want string) error
+	}); ok {
+		return g.SendPasteIfForeground(id, text, submit, want)
+	}
+	return a.SendPaste(id, text, submit)
+}
+
 func (a Tool) SendPaste(id string, text []byte, submit bool) error {
 	if a.PM != nil {
 		return a.PM.SendPaste(id, text, submit)

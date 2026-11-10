@@ -2,6 +2,7 @@ package toolhub
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -34,11 +35,33 @@ const pasteSubmitDelay = 120 * time.Millisecond
 // Hub.Get 이 cmd 없는 합성 Tool 을 주기 때문이다. Cwd·Busy 가 같은 이유로 데몬
 // RPC 를 경유하는 것과 같은 자리다.
 func (m *ToolManager) SendPaste(id string, text []byte, submit bool) error {
+	return m.sendPaste(id, text, submit, nil)
+}
+
+// ErrForegroundChanged 는 붙여넣기 직전에 새로 본 전경이 기대한 프로그램이 아니라는 뜻이다.
+var ErrForegroundChanged = errors.New("전경 프로그램이 바뀌었다")
+
+// SendPasteIfForeground 는 전경이 want 일 때만 넣는다. 쓰기 직전과 제출(\r) 직전에
+// **캐시를 거치지 않고** 그 도구 하나의 전경을 새로 조회한다 — 원격 글이 셸에 들어가면
+// 명령이 되기 때문이다 (PEER_NETWORK_SRS I-47). 조회와 쓰기가 PTY 를 가진 프로세스 한
+// 자리에 있으므로 틈은 조회 한 번의 시간이다.
+func (m *ToolManager) SendPasteIfForeground(id string, text []byte, submit bool, want string) error {
+	return m.sendPaste(id, text, submit, func(p *Tool) bool {
+		names := fgProbe([]fgRequest{{ID: id, Term: p.term, ShellPID: p.CmdProcessPID()}})
+		return want != "" && names[id] == want
+	})
+}
+
+// sendPaste 는 guard 가 있으면 쓰기 직전과 제출 직전에 묻고, 거짓이면 멈춘다.
+func (m *ToolManager) sendPaste(id string, text []byte, submit bool, guard func(*Tool) bool) error {
 	m.mu.RLock()
 	p := m.tools[id]
 	m.mu.RUnlock()
 	if p == nil {
 		return fmt.Errorf("tool 없음: %s", id)
+	}
+	if guard != nil && !guard(p) {
+		return ErrForegroundChanged
 	}
 	if err := p.Write(wrapPaste(text, p.BracketedPaste())); err != nil {
 		return fmt.Errorf("터미널 쓰기 (paste): %w", err)
@@ -55,6 +78,9 @@ func (m *ToolManager) SendPaste(id string, text []byte, submit bool) error {
 	case <-gap.C:
 	case <-p.Wait():
 		return fmt.Errorf("터미널 쓰기 (submit): 도구가 끝났다")
+	}
+	if guard != nil && !guard(p) {
+		return ErrForegroundChanged
 	}
 	if err := p.Write([]byte{'\r'}); err != nil {
 		return fmt.Errorf("터미널 쓰기 (submit): %w", err)

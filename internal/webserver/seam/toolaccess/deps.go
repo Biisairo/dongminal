@@ -23,6 +23,9 @@ type ToolReader interface {
 	Has(toolID string) bool
 	Snapshot(toolID string) (data []byte, droppedTotal int64, ok bool)
 	SendPaste(toolID string, text []byte, submit bool) error
+	// SendPasteIfForeground 는 쓰기·제출 직전에 전경을 새로 조회해 want 일 때만 넣는다.
+	// 아니면 toolhub.ErrForegroundChanged 다 (PEER_NETWORK_SRS I-47).
+	SendPasteIfForeground(toolID string, text []byte, submit bool, want string) error
 	Size(toolID string) string
 }
 

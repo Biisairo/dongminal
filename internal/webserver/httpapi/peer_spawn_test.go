@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -102,6 +103,10 @@ func TestPeerSpawnHeadless(t *testing.T) {
 	line := p[0].Text
 	if !strings.Contains(line, agentCmd(t)) || strings.Contains(line, "DONGMINAL-PEER-MSG") || strings.Contains(line, "리뷰") {
 		t.Fatalf("기동줄 %q", line)
+	}
+	// FR-PNW-60: Run 멤버용 사전 허용(dmctl)은 원격 기동에 싣지 않는다 — 받는 노드의 평소 권한으로 돈다.
+	if strings.Contains(line, "allowedTools") || strings.Contains(line, "dmctl") {
+		t.Fatalf("멤버 인자가 실렸다 %q", line)
 	}
 	// 에이전트가 전경에 오르고 준비완료를 알리면 엔벨로프를 에이전트 입력에 넣는다.
 	b.tools.setFG("headless-1", agentCmd(t))
@@ -491,5 +496,99 @@ func TestPeerAgentCloseSendsExitWhenBusy(t *testing.T) {
 	}
 	if b.srv.toolLive("headless-1") {
 		t.Fatal("도구가 살아 있다")
+	}
+}
+
+// I-47: 첫 프롬프트도 붙여넣기 직전에 전경을 새로 본다.
+func TestPeerSpawnPromptFreshForeground(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	b.srv.limits.peerPromptWait = 300 * time.Millisecond
+	pairNodes(t, a, b.peerNode)
+	if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed, "prompt": "hi"}); code != 200 {
+		t.Fatalf("spawn %d %v", code, out["_raw"])
+	}
+	b.tools.setFG("headless-1", agentCmd(t))
+	b.tools.setFresh("headless-1", "")
+	b.reportActivity("headless-1", activity.Idle)
+	time.Sleep(600 * time.Millisecond)
+	if p := b.tools.pasted(); len(p) != 1 {
+		t.Fatalf("셸에 넣었다 %+v", p)
+	}
+}
+
+// I-48: 에이전트가 승인 창에서 기다리는 중이면 message.send 를 넣지 않는다 — Enter 가
+// 기본 선택지를 고른다.
+func TestPeerMessageSendRefusesWaiting(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	pairNodes(t, a, b.peerNode)
+	if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed}); code != 200 {
+		t.Fatalf("spawn %d %v", code, out["_raw"])
+	}
+	b.tools.setFG("headless-1", agentCmd(t))
+	b.reportActivity("headless-1", activity.Waiting)
+	code, out := a.call(t, "node-b", "message.send", map[string]any{"to": "headless-1", "message": "y"})
+	if code != http.StatusConflict || errCode(out) != "peer_target_waiting" {
+		t.Fatalf("message.send: %d %v", code, out["_raw"])
+	}
+	if len(b.tools.pasted()) != 1 {
+		t.Fatal("승인 창에 넣었다")
+	}
+}
+
+// 리뷰 S-7: 도구가 사라지면 프롬프트 대기를 바로 끝낸다.
+func TestPeerDeliverPromptStopsWhenToolGone(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	pairNodes(t, a, b.peerNode)
+	ad, _ := agentadapter.Get("claude")
+	done := make(chan struct{})
+	go func() { b.srv.peerDeliverPrompt("gone-1", ad, "x"); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("죽은 도구 앞에서 기다린다")
+	}
+}
+
+// 리뷰 C-6: spawn 뒤 정리에서 도구를 닫지 못하면 기록을 남기고(상한에 세고 원격에서 닫을 수
+// 있게) 500 internal 로 답한다.
+func TestPeerSpawnUndoCloseFailureKeepsRecord(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	pairNodes(t, a, b.peerNode)
+	b.hub.mu.Lock()
+	b.hub.cwds = map[string]string{"headless-1": t.TempDir()}
+	b.hub.deleteErr = errors.New("busy")
+	b.hub.mu.Unlock()
+	code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed})
+	if code == 200 || errCode(out) != "internal_error" {
+		t.Fatalf("spawn: %d %v", code, out["_raw"])
+	}
+	if owner, ok := b.srv.peerSpawns.Owner("headless-1"); !ok || owner == "" {
+		t.Fatal("닫지 못한 도구의 기록을 지웠다")
+	}
+}
+
+// 리뷰 C-8: 본문을 읽지 못한 요청의 감사 결과는 실제 응답 상태(413)다. confirm 감사의 짝
+// 칸은 저장된 이름이다.
+func TestPeerAuditReadFailureAndConfirmName(t *testing.T) {
+	logs := captureLog(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	pairNodes(t, a, b.peerNode)
+	if !regexp.MustCompile(`dir=in peer=node-b op=pair\.confirm`).MatchString(logs.String()) {
+		t.Fatalf("confirm 감사에 이름이 없다 %s", logs.String())
+	}
+	big := `{"to":"t-at","message":"` + strings.Repeat("x", 70<<10) + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/peer/v1/message.send", strings.NewReader(big))
+	res := b.srv.peerMessageSend(httptest.NewRecorder(), req, peerCaller{name: "node-a"})
+	if res.status != http.StatusRequestEntityTooLarge {
+		t.Fatalf("감사할 결과 %+v", res)
 	}
 }

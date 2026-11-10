@@ -40,3 +40,12 @@ func TestPeerEnvelopeQuotesMarkers(t *testing.T) {
 		t.Fatalf("로컬 엔벨로프가 원격 표지를 통과시켰다:\n%s", local)
 	}
 }
+
+// 리뷰 S-9: 글의 방향을 뒤집거나 보이지 않는 서식 문자(bidi·zero-width)도 지운다. 사람이
+// 화면에서 글을 다르게 읽게 할 수 있다.
+func TestStripControlRemovesBidi(t *testing.T) {
+	in := "a\u202eb\u2066c\u200bd\u200ee\u2069f\ufeffg\nh"
+	if got := stripControl(in); got != "abcdefg\nh" {
+		t.Fatalf("%q", got)
+	}
+}

@@ -98,19 +98,26 @@ func peerFail(w http.ResponseWriter, status int, code, msg string) {
 
 // peerReadJSON 은 본문을 상한 안에서 읽어 v 에 푼다. 실패하면 답하고 거짓이다.
 func peerReadJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	return peerReadStatus(w, r, v) == 0
+}
+
+// peerReadStatus 는 peerReadJSON 과 같고, 실패하면 이미 써 보낸 응답 상태를 돌려준다.
+// 감사 로그가 실제 결과 코드를 남기기 위해서다 (FR-PNW-94). 성공이면 0 이다.
+func peerReadStatus(w http.ResponseWriter, r *http.Request, v any) int {
 	raw, err := httpreq.Read(w, r, peerBodyLimit)
 	if err != nil {
-		peerFail(w, httpreq.Status(err), bodyReadCode(err), "read body")
-		return false
+		st := httpreq.Status(err)
+		peerFail(w, st, bodyReadCode(err), "read body")
+		return st
 	}
 	if len(raw) == 0 {
 		raw = []byte("{}")
 	}
 	if err := json.Unmarshal(raw, v); err != nil {
 		peerFail(w, http.StatusBadRequest, apierr.CodeInvalidJSON, "invalid json")
-		return false
+		return http.StatusBadRequest
 	}
-	return true
+	return 0
 }
 
 // peerAudit 는 프로토콜 요청 한 줄이다. 본문·토큰은 남기지 않는다 (FR-PNW-94·95).
@@ -143,6 +150,18 @@ func (s *Server) peerPair(w http.ResponseWriter, r *http.Request) {
 		peerFail(w, http.StatusBadRequest, apierr.CodeBadRequest, "port")
 		return
 	}
+	// I-4: A 가 알릴 주소를 정하지 않았으면 이 연결의 출발지를 쓴다.
+	addr := in.Addr
+	if !peer.ValidAddr(addr) {
+		addr, _, _ = net.SplitHostPort(r.RemoteAddr)
+	}
+	// 승인할 때 쓸 수 없는 주소(zone 이 붙은 link-local 등)면 초대를 쓰기 전에 거절한다.
+	// 받아 두면 그 대기는 승인되지 않고 초대만 사라진다 (리뷰 C-15).
+	if !peer.ValidAddr(addr) {
+		peerAudit("in", "-", "pair", http.StatusBadRequest)
+		peerFail(w, http.StatusBadRequest, apierr.CodePeerConfigInvalid, "addr: set advertise on the requesting node")
+		return
+	}
 	switch err := s.pairing.Consume(in.Token); err {
 	case nil:
 	case peer.ErrNoInvite:
@@ -158,11 +177,6 @@ func (s *Server) peerPair(w http.ResponseWriter, r *http.Request) {
 	if peer.ValidName(name) != nil {
 		name = peer.DefaultName(name)
 	}
-	// I-4: A 가 알릴 주소를 정하지 않았으면 이 연결의 출발지를 쓴다.
-	addr := in.Addr
-	if !peer.ValidAddr(addr) {
-		addr, _, _ = net.SplitHostPort(r.RemoteAddr)
-	}
 	s.pairing.AddPending(peer.Pending{Name: name, Addr: addr, Port: in.Port, Fingerprint: peer.ClientFingerprint(r)})
 	peerAudit("in", name, "pair", http.StatusOK)
 	s.peersChanged("")
@@ -172,6 +186,7 @@ func (s *Server) peerPair(w http.ResponseWriter, r *http.Request) {
 // peerPairConfirm 은 A 쪽 승인 통지다 (FR-PNW-27).
 func (s *Server) peerPairConfirm(w http.ResponseWriter, r *http.Request) {
 	fp := peer.ClientFingerprint(r)
+	promoted := false
 	switch {
 	case s.peers.IsPeer(fp):
 	case !s.peers.IsPendingOut(fp):
@@ -183,9 +198,15 @@ func (s *Server) peerPairConfirm(w http.ResponseWriter, r *http.Request) {
 		peerAudit("in", "-", "pair.confirm", http.StatusInternalServerError)
 		peerFail(w, http.StatusInternalServerError, apierr.CodeSaveFailed, "save failed")
 		return
+	default:
+		promoted = true
 	}
-	peerAudit("in", fp[:16], "pair.confirm", http.StatusOK)
-	s.peersChanged("")
+	name, _ := s.peers.NameOf(fp)
+	peerAudit("in", name, "pair.confirm", http.StatusOK)
+	// I-24: 이미 짝이었으면 바뀐 것이 없다.
+	if promoted {
+		s.peersChanged("")
+	}
 	httpresp.JSON(w, http.StatusOK, map[string]any{"paired": true})
 }
 

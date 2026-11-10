@@ -425,3 +425,40 @@ func TestPeerStoreFailCodes(t *testing.T) {
 		}
 	}
 }
+
+// 리뷰 C-3·C-4: 이미 짝인 노드를 같은 이름으로 다시 등록할 수 있고(그 지문의 이름은 비어
+// 있는 것으로 본다, I-29), 응답의 state 는 실제로 저장된 상태(짝 유지, I-37)다.
+func TestPairReAddSameName(t *testing.T) {
+	a := newPeerNode(t, "node-a", true)
+	b := newPeerNode(t, "node-b", true)
+	pairNodes(t, a, b)
+	name := ap0Name(t, a)
+	if code, out := b.api(t, http.MethodPost, "/api/peers/remove", map[string]any{"name": ap0Name(t, b)}); code != http.StatusOK {
+		t.Fatalf("remove: %d %v", code, out["_raw"])
+	}
+	code, out := a.api(t, http.MethodPost, "/api/peers/add", map[string]any{"code": b.invite(t), "name": name})
+	if code != http.StatusOK || out["name"] != name || out["state"] != peer.StatePaired {
+		t.Fatalf("다시 add: %d %v", code, out["_raw"])
+	}
+}
+
+// 리뷰 C-15: 쓸 수 없는 주소(zone 이 붙은 link-local 등)로 온 등록 요청은 초대를 쓰기 전에
+// 거절한다. 받아 두면 그 대기는 승인할 수 없고 초대만 사라진다.
+func TestPairRejectsUnusableAddrBeforeConsume(t *testing.T) {
+	b := newPeerNode(t, "node-b", true)
+	ic, err := peer.DecodeInvite(b.invite(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := `{"token":"` + ic.Token + `","name":"a","addr":"","port":58147,"proto":1}`
+	req := httptest.NewRequest(http.MethodPost, peerPairPath, strings.NewReader(body))
+	req.RemoteAddr = "[fe80::1%en0]:40000"
+	rec := httptest.NewRecorder()
+	b.srv.peerPair(rec, req)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "peer_config_invalid") {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+	if !b.srv.pairing.HasInvite() || len(b.pending(t)) != 0 {
+		t.Fatal("초대를 썼거나 대기를 남겼다")
+	}
+}

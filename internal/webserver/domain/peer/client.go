@@ -112,7 +112,7 @@ func (c *Client) Call(ctx context.Context, t Target, path string, in, out any) e
 			}
 			return &RemoteError{Status: resp.StatusCode, Code: "", Message: cleanMessage(string(raw))}
 		}
-		return &RemoteError{Status: resp.StatusCode, Code: e.Code, Message: cleanMessage(e.Message)}
+		return &RemoteError{Status: resp.StatusCode, Code: cleanMessage(e.Code), Message: cleanMessage(e.Message)}
 	}
 	if out == nil {
 		return nil

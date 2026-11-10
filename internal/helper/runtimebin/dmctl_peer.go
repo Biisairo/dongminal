@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 )
 
@@ -37,6 +38,10 @@ const dmctlPeerHelp = `dmctl peer — 노드 간 통신의 짝맞춤
   상대에 닿지 못하면 사유 코드(peer_unreachable 등)를 내고 1 로 끝난다.
 `
 
+// peerCallBudget 은 상대를 부르는 로컬 API(add·approve·call)의 예산이다. 서버의 원격
+// 요청 시한(15초)보다 길어야 상대의 답을 받기 전에 끊지 않는다 (리뷰 C-1).
+const peerCallBudget = 20 * time.Second
+
 // fpShown 은 화면에 보이는 지문 길이다 (FR-PNW-80).
 const fpShown = 16
 
@@ -59,12 +64,7 @@ func runDmctlPeers(args []string, stdout, stderr io.Writer) int {
 		return rc
 	}
 	if asJSON {
-		var buf bytes.Buffer
-		if json.Compact(&buf, raw) != nil {
-			buf.Reset()
-			buf.Write(raw)
-		}
-		fmt.Fprintln(stdout, buf.String())
+		printPeerJSON(stdout, raw)
 		return 0
 	}
 	printPeers(stdout, raw)
@@ -349,7 +349,7 @@ func peerAPI(method, path string, body map[string]any, stderr io.Writer) ([]byte
 	if method == "GET" {
 		status, raw, err = httpGet(baseURL() + path)
 	} else {
-		status, raw, err = httpPostJSON(baseURL()+path, body)
+		status, raw, err = httpPostJSONWithin(baseURL()+path, body, peerCallBudget)
 	}
 	return apiResultWith(status, raw, err, stderr, printPeerRefusal)
 }
@@ -364,6 +364,17 @@ func printPeerRefusal(w io.Writer, status int, raw []byte) {
 		return
 	}
 	fmt.Fprintf(w, "dmctl: status %d: %s\n", status, clean(string(raw)))
+}
+
+// printPeerJSON 은 응답을 한 줄 JSON 으로 낸다. JSON 문자열은 C1 제어 문자(U+0080~009F)를
+// 이스케이프 없이 담을 수 있으므로 여기서도 지운다 (리뷰 S-5). 구조는 바뀌지 않는다.
+func printPeerJSON(w io.Writer, raw []byte) {
+	var buf bytes.Buffer
+	if json.Compact(&buf, raw) != nil {
+		buf.Reset()
+		buf.Write(raw)
+	}
+	fmt.Fprintln(w, clean(buf.String()))
 }
 
 // clean 은 상대 노드가 보낸 글자에서 제어 문자를 지운다 — 터미널에 찍히기 때문이다.
@@ -418,12 +429,7 @@ func peerTools(pa peerArgs, stdout, stderr io.Writer) int {
 		return rc
 	}
 	if pa.bools["json"] {
-		var buf bytes.Buffer
-		if json.Compact(&buf, raw) != nil {
-			buf.Reset()
-			buf.WriteString(clean(string(raw)))
-		}
-		fmt.Fprintln(stdout, buf.String())
+		printPeerJSON(stdout, raw)
 		return 0
 	}
 	var v struct {
@@ -531,12 +537,7 @@ func peerStatus(pa peerArgs, stdout, stderr io.Writer) int {
 		return rc
 	}
 	if pa.bools["json"] {
-		var buf bytes.Buffer
-		if json.Compact(&buf, raw) != nil {
-			buf.Reset()
-			buf.WriteString(clean(string(raw)))
-		}
-		fmt.Fprintln(stdout, buf.String())
+		printPeerJSON(stdout, raw)
 		return 0
 	}
 	var v struct {

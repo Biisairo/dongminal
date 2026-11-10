@@ -399,3 +399,27 @@ func TestStoreReAddKeepsPaired(t *testing.T) {
 		t.Fatalf("새 이름·주소가 반영되지 않았다 %+v", p)
 	}
 }
+
+// 리뷰 C-2·C-7: 노드 설정을 바꿀 때 허용 폴더는 절대 경로, 알릴 주소는 주소여야 한다.
+// 틀린 값을 저장하면 모든 spawn 이 이유 없이 거절되거나 초대를 만들 때에야 실패한다.
+func TestStoreSetNodeValidatesDirsAndAdvertise(t *testing.T) {
+	s := newTestStore(t, newFakeClock())
+	base := s.Config()
+	for _, bad := range []Config{
+		{AllowedDirs: []string{"~/work"}},
+		{AllowedDirs: []string{"rel/dir"}},
+		{AllowedDirs: []string{""}},
+		{Advertise: "not an addr!"},
+	} {
+		c := base
+		c.AllowedDirs, c.Advertise = bad.AllowedDirs, bad.Advertise
+		if err := s.SetNode(c); !errors.Is(err, ErrInvalidNodeField) {
+			t.Errorf("%+v → %v", bad, err)
+		}
+	}
+	c := base
+	c.AllowedDirs, c.Advertise = []string{filepath.Join(t.TempDir(), "w")}, "192.168.0.5"
+	if err := s.SetNode(c); err != nil {
+		t.Fatal(err)
+	}
+}

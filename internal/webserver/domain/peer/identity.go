@@ -70,14 +70,19 @@ func LoadOrCreateIdentity(dir string) (Identity, error) {
 	if err != nil {
 		return Identity{}, err
 	}
-	if err := platform.WriteFileAtomic(keyPath, keyPEM, keyFilePerm); err != nil {
+	if err := writeIdentityFile(keyPath, keyPEM, keyFilePerm); err != nil {
 		return Identity{}, fmt.Errorf("노드 키 저장: %w", err)
 	}
-	if err := platform.WriteFileAtomic(certPath, certPEM, certFilePerm); err != nil {
+	if err := writeIdentityFile(certPath, certPEM, certFilePerm); err != nil {
+		// 키만 남으면 다음 기동마다 "하나만 있다" 로 멈춘다. 방금 만든 키를 거둔다.
+		_ = os.Remove(keyPath)
 		return Identity{}, fmt.Errorf("노드 인증서 저장: %w", err)
 	}
 	return parseIdentity(certPEM, keyPEM)
 }
+
+// writeIdentityFile 은 신원 파일을 쓴다. 테스트가 인증서 쓰기 실패를 만들 자리다.
+var writeIdentityFile = platform.WriteFileAtomic
 
 func fileExists(path string) (bool, error) {
 	_, err := os.Stat(path)

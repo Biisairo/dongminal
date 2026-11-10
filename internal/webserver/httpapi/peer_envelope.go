@@ -19,12 +19,16 @@ func peerEnvelope(peerName, fromToolID, toToolID, body string, ts time.Time) str
 
 // stripControl 은 원격 본문에서 줄바꿈·탭을 뺀 제어 문자(C0·C1·DEL)를 지운다. 이 글자는
 // 터미널에 붙여넣어진다 — ESC 가 남으면 붙여넣기 구간을 끝내는 표지(ESC[201~)로 셸에
-// 빠져나갈 수 있다.
+// 빠져나갈 수 있다. 서식 문자(Cf: bidi 재정렬·zero-width 등)도 지운다 — 사람이 화면에서
+// 글을 다르게 읽게 한다 (리뷰 S-9). 이모지·문자 결합에 쓰는 ZWJ·ZWNJ 만 남긴다.
 func stripControl(s string) string {
 	return strings.Map(func(r rune) rune {
-		if r == '\n' || r == '\t' || !unicode.IsControl(r) {
+		switch {
+		case r == '\n' || r == '\t' || r == '\u200c' || r == '\u200d':
 			return r
+		case unicode.IsControl(r) || unicode.Is(unicode.Cf, r):
+			return -1
 		}
-		return -1
+		return r
 	}, s)
 }
