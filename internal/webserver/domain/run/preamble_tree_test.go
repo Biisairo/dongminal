@@ -119,3 +119,19 @@ func TestTreePreamble_CloseGoesThroughParent(t *testing.T) {
 		t.Errorf("루트 프리앰블에 종료 요청 규칙이 없다:\n%s", p)
 	}
 }
+
+// ISSUE_TREE_OPS_SRS FR-ITA-20: 세션을 시작할 때마다(부모가 연 세션·승계한 세션) 자기 이슈의
+// 상태와 보드의 필수 필드를 확인한다. 보드 이름과 필드는 프로젝트 지시 문서가 정한다.
+func TestTreePreamble_SessionStartCheck(t *testing.T) {
+	rec, m, tc := treeFixture()
+	p := TreePreamble(rec, m, tc)
+	for _, want := range []string{
+		"세션을 시작할 때마다",
+		"이슈의 상태를 확인한다",
+		"필수 필드가 모두 채워졌는지 확인하고, 빠진 것은 채운다",
+	} {
+		if !strings.Contains(p, want) {
+			t.Errorf("세션 시작 점검 %q 가 없다", want)
+		}
+	}
+}

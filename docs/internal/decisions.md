@@ -682,6 +682,7 @@
 | `D-ITO-11` | 맥락 설정은 평평한 키 넷이다(`migrationHook`·`migrationHookCtxPct`·`issueTreeMigration`·`issueTreeCtxPct`) | 사용자 결정은 「설정창이 저장하는 같은 파일, 이름은 기존 규약」 이다. 스키마의 규약은 평평한 camelCase 다. 중첩 `orchestration.*` 은 스키마 밖이라 브라우저 저장에서 사라진다(§2.6) | 채택 |
 | `D-ITO-12` | 편집기 단축키의 기준은 VS Code 기본 키맵이다 | 사용자 보고("기존 모나코 단축키들중 안먹히는게 많아"). 편집기 엔진을 CodeMirror 로 바꾸면서 사라진 키(이전 엔진은 VS Code 와 같은 키를 썼다)를 되돌리는 일이다 | 채택 |
 | `D-ITO-13` | 에이전트 정보 조회는 새 명령을 만들지 않고 `dmctl status` 를 쓴다 | `status --at <toolId> --json` 이 이미 statusLine 값 전부를 낸다(FR-SLP-20). 빠진 것은 글자 출력의 한 줄과 안내뿐이다 | 채택 |
+| `D-ITO-14` | 세션 시작 점검의 보드 이름(`rnd-unit4` 등)과 필수 필드는 dongminal 에 적지 않고 프로젝트 지시 문서를 따른다 | 사용자 결정 (2026-11-10). 보드는 저장소마다 다르다. 이슈 운영 규약(FR-ITA-18)과 같은 자리다 | 채택 |
 
 ## [`KIT_APPLICATION_SRS`](./KIT_APPLICATION_SRS.md)
 
@@ -1534,4 +1535,4 @@
 
 ---
 
-결정 **891건** · 문서 **124개**.
+결정 **892건** · 문서 **124개**.

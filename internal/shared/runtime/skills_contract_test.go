@@ -329,6 +329,7 @@ func TestIssueTreeCommand_CarriesOpsProcedure(t *testing.T) {
 		{"WIP 커밋 (FR-ITA-42)", "wip(#"},
 		{"순서 다시 놓기 (FR-ITA-45)", "reprioritizeSubIssue"},
 		{"보드 진행 중 (FR-ITA-18)", "진행 중으로 옮긴다"},
+		{"세션 시작 점검 (FR-ITA-20)", "필수 필드가 모두 채워졌는지"},
 		{"보드 완료 (FR-ITA-18)", "완료로 옮긴다"},
 		{"스스로 넘어가지 않음 (FR-ITA-40)", "스스로 넘어가지 않는다"},
 		{"설정 기준 (FR-ITM-5)", "issueTreeCtxPct"},
