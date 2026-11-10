@@ -212,6 +212,14 @@ test('V-ELR-32: 등록 본문이 탭과 펼침을 따라간다', async ({ page, 
   await expect.poll(() => last().includes(pj(savedRoot, 'sub')), { timeout: 5000 }).toBe(false);
 });
 
+test('V-ELR-37: 페이지를 처음 띄울 때 등록이 400 을 받지 않는다 — SSE 구독보다 먼저 보내지 않는다', async ({ page }) => {
+  const log = watchLog(page);
+  await waitForInit(page);
+  await expect.poll(() => log.statuses.includes(200), { timeout: 15000, message: JSON.stringify(log) }).toBe(true);
+  await expect.poll(() => log.statuses.length, { timeout: 15000 }).toBe(log.bodies.length);
+  expect(log.statuses.filter((s) => s !== 200), JSON.stringify(log)).toEqual([]);
+});
+
 test('V-ELR-34: /api/fs/watch 가 404 면 등록을 멈추고 폴링 반영은 그대로 된다', async ({ page, request }) => {
   const puts: string[] = [];
   await page.route('**/api/fs/watch', (route) => { puts.push(route.request().url()); return route.fulfill({ status: 404, body: '' }) });

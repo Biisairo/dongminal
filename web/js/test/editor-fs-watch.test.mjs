@@ -136,44 +136,51 @@ test('FR-ELR-65: 등록 집합은 열린 파일의 부모와 탐색기 겹의 �
   assert.deepEqual([...a._edWatchDirs()], ['/r', '/r/sub', '/x/y']);
 });
 
-test('FR-ELR-66: 집합이 같으면 다시 보내지 않고, 바뀌면 보낸다', async () => {
+const settle = () => new Promise((r) => setImmediate(r));
+
+test('FR-ELR-66: SSE 구독이 처음 열리기 전에는 보내지 않는다 — 서버가 400 으로 거절한다', async () => {
   const { a, puts, timers } = app();
   a.edWatchSync();
-  a.edWatchSync();
   timers.flush();
-  await new Promise((r) => setImmediate(r));
-  assert.equal(puts.length, 1, '한 프레임에 한 번');
+  await settle();
+  assert.equal(puts.length, 0, '구독 전');
+  await a._edWatchRestore();
+  assert.equal(puts.length, 1, '구독이 열린 뒤 한 번');
+});
+
+test('FR-ELR-66: 집합이 같으면 다시 보내지 않고, 바뀌면 보낸다', async () => {
+  const { a, puts, timers } = app();
+  await a._edWatchRestore();
+  assert.equal(puts.length, 1);
   assert.equal(puts[0].path, '/api/fs/watch');
   assert.deepEqual(JSON.parse(JSON.stringify(puts[0].body)), { clientId: 'c1', dirs: ['/r', '/r/sub', '/x/y'] });
   a.edWatchSync();
+  a.edWatchSync();
   timers.flush();
-  await new Promise((r) => setImmediate(r));
+  await settle();
   assert.equal(puts.length, 1, '같은 집합');
   a._edVisibleDocPaths = () => new Set(['/q/z.txt']);
   a.edWatchSync();
+  a.edWatchSync();
   timers.flush();
-  await new Promise((r) => setImmediate(r));
-  assert.equal(puts.length, 2);
+  await settle();
+  assert.equal(puts.length, 2, '한 프레임에 한 번');
 });
 
 test('FR-ELR-66: SSE 가 다시 열리면 같은 집합이라도 다시 보낸다', async () => {
-  const { a, puts, timers } = app();
-  a.edWatchSync();
-  timers.flush();
-  await new Promise((r) => setImmediate(r));
+  const { a, puts } = app();
+  await a._edWatchRestore();
   await a._edWatchRestore();
   assert.equal(puts.length, 2);
 });
 
 test('FR-ELR-66: 404 면 등록을 멈춘다', async () => {
   const { a, puts, timers } = app({ putReply: { ok: false, status: 404 } });
-  a.edWatchSync();
-  timers.flush();
-  await new Promise((r) => setImmediate(r));
+  await a._edWatchRestore();
   a._edVisibleDocPaths = () => new Set(['/q/z.txt']);
   a.edWatchSync();
   timers.flush();
-  await new Promise((r) => setImmediate(r));
+  await settle();
   await a._edWatchRestore();
   assert.equal(puts.length, 1);
 });

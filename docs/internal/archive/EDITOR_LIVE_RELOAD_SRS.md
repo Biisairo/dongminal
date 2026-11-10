@@ -378,7 +378,8 @@ DELETED 는 경로가 짧은 것부터 본다. 부모가 이미 DELETED 인 경�
 
 **FR-ELR-66** 집합이 바뀌면 다시 등록한다. 같은 프레임 안의 변화는 한 번으로 모은다. 집합을 다시
 계산하는 계기는 화면 그리기(`render`), 탐색기 그리기(`FileTreeStore.paintAll` — 펼침·읽기 뒤),
-Diff 문서의 교체·해제, 편집기 틱(안전망)이다. 집합이 같으면 보내지 않는다. SSE 가
+Diff 문서의 교체·해제, 편집기 틱(안전망)이다. 집합이 같으면 보내지 않는다. SSE 구독이
+처음 열리기 전에는 보내지 않는다 — 서버에 그 클라이언트가 아직 없으므로 400 으로 거절된다. SSE 가
 (다시) 열리면 지금의 집합을 등록한다(`FR-ELR-52` 로 서버 쪽 집합이 지워졌기 때문이다). 종단이
 404 를 주면(옛 서버) 등록을 굳혀 멈춘다. 폴링은 그대로 돈다(`FR-ELR-15` 와 같은 관례).
 
@@ -479,6 +480,7 @@ eventuallyUpdateWhenIdleAndWait` → `@throttle updateWhenIdleAndWait` → `stat
 | V-ELR-34 | `/api/fs/watch` 가 404 이면 등록이 멈추고 폴링 반영은 그대로 된다 (`FR-ELR-66`) | e2e |
 | V-ELR-35 | `gitWorktreeInterval` 을 바꾸면 재시작 없이 워크트리 회차 간격이 바뀐다. 범위 밖 값은 기본값(4000)이다 (`FR-ELR-76`) | Go · 단위 |
 | V-ELR-36 | 저장소 계기 관측은 이벤트 뒤 1000ms 에 한 번이고, 관측 뒤 5000ms 안의 계기는 그 뒤 한 번으로 모인다. `.git/` 아래 경로는 계기가 아니다 (`FR-ELR-75`) | Go (가짜 시계) |
+| V-ELR-37 | 페이지를 처음 띄울 때 등록이 400 을 받지 않는다. 구독이 열리기 전의 계기는 보내지 않고, 열린 뒤 한 번 보낸다 (`FR-ELR-66`) | 단위 · e2e |
 
 ---
 
@@ -559,3 +561,4 @@ eventuallyUpdateWhenIdleAndWait` → `@throttle updateWhenIdleAndWait` → `stat
 | 2026-11-04 | 개정 초안. 사용자 추가 보고("갱신은 되지만 늦다")의 원인을 폴링 주기로 확정했다(§2.7). 묶음 W(서버 감시, `FR-ELR-50`~`61`)·C(클라이언트, `FR-ELR-65`~`70`)·G(git, `FR-ELR-75`·`76`)와 검증 열일곱(`V-ELR-20`~`36`)을 더했다. 비목표 1·2·5 를 개정하고 6~10 을 더했다. 결정 D-4~D-7. |
 | 2026-11-04 | 승인·구현완료. Go: `internal/webserver/fswatch`(병합·파이프라인·관리자·fsnotify 백엔드)와 테스트, `GitWatcher.Kick`·`SetWorktreeEvery`, `PUT /api/fs/watch`. 웹: `app-editor-watch.js`, 등록부 `fs.watch`, 설정 `gitWorktreeInterval`. e2e 일곱(`editor-fs-watch.spec.ts`)이 선다. e2e 가 결함 하나를 잡았다 — Diff 문서 교체가 감시 집합을 다시 계산하지 않았다(`FR-ELR-66` 에 계기를 적었다). |
 | 2026-11-04 | 개정. Windows 를 감시하지 않는 자리에 더했다(`FR-ELR-55`, D-8). Windows CI 의 `editor-ops` O8 이 펼친 폴더의 이름 변경 실패(403)를 잡았다. `editor-fs-watch.spec.ts` 는 Windows 에서 건너뛴다. |
+| 2026-11-10 | 개정. 사용자 보고(페이지를 띄울 때 `PUT /api/fs/watch` 400)를 재현했다. 원인: 부팅의 첫 `render` 가 SSE 구독(`_subscribeCommands`)보다 먼저 등록을 보냈다. 서버는 그 clientId 를 몰라 400 을 주었고, 구독이 열리면 다시 보내 200 이 되었다. 기능 손실은 없고 콘솔 오류만 남았다. `FR-ELR-66` 에 "첫 구독 전에는 보내지 않는다"를 더하고 `V-ELR-37` 을 더했다. |

@@ -26,14 +26,19 @@ Object.assign(App.prototype, {
     return capToServer(out,serverMeta.fsWatchDirsMax);
   },
 
-  /** FR-ELR-66: 집합이 바뀌었으면 다시 등록한다. 같은 프레임의 부름은 한 번으로 모은다. */
+  /**
+   * FR-ELR-66: 집합이 바뀌었으면 다시 등록한다. 같은 프레임의 부름은 한 번으로 모은다.
+   * 구독이 처음 열리기 전에는 보내지 않는다 — 서버가 400 으로 거절하고, 열리면
+   * `_edWatchRestore` 가 보낸다 (FR-ELR-52).
+   */
   edWatchSync(){
-    if(this._edWatchOff) return;
+    if(this._edWatchOff||!this._edWatchLive) return;
     TIMERS.frame(()=>this._edWatchSend(false),{owner:this,coalesce:'ed-watch',label:'ed-watch'});
   },
 
   /** FR-ELR-52·66: SSE 가 (다시) 열리면 서버의 집합은 비어 있다 — 같은 집합이라도 보낸다. */
   _edWatchRestore(){
+    this._edWatchLive=true;
     this._edWatchKey=null;
     return this._edWatchSend(true);
   },
