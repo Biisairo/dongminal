@@ -458,6 +458,9 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     // 다음으로 옮기면 **현재 일치만** 따라 옮겨간다 — 수는 그대로다.
     await page.keyboard.press('Enter');
     await expect.poll(async () => (await decos()).curLine).not.toBe(first.curLine);
+    // 장식은 상태에서 곧바로 바뀌지만 눈금 항목은 다음 측정(`write`)에서 다시 그려진다.
+    // 부하가 걸리면 그 프레임이 늦다 — 눈금이 따라올 때까지 기다린다.
+    await expect.poll(async () => { const d = await decos(); return d.ruler === d.n; }).toBe(true);
     const moved = await decos();
     expect(moved.ruler).toBe(moved.n);
     expect(moved.rulerColors).toBe(2);
