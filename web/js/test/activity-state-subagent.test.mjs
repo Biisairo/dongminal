@@ -22,6 +22,18 @@ function memStore() {
   };
 }
 
+// 시험용 en 문구 — 실제 en.js 의 해당 키와 같다.
+const EN = {
+  'usage.win.five_hour': 'Current session', 'usage.win.seven_day': 'Current week',
+  'usage.win.seven_day_opus': 'Current week (Opus)', 'usage.win.seven_day_sonnet': 'Current week (Sonnet)',
+  'usage.used': '{n}% used', 'usage.resets_in': 'Resets in {t}', 'usage.resets_soon': 'Resets soon',
+  'usage.as_of': 'as of {t}', 'usage.dur.d': '{n}d', 'usage.dur.h': '{n}h', 'usage.dur.m': '{n}m',
+};
+function fillEn(k, p) {
+  if (!(k in EN)) return k;
+  return EN[k].replace(/\{(\w+)\}/g, (_, n) => String(p && p[n]));
+}
+
 function loadActivity(globals = {}) {
   const local = memStore();
   const ctx = load(['core/app-agents.js', 'core/app-agents-sub.js', 'core/app-activity.js'], {
@@ -33,7 +45,7 @@ function loadActivity(globals = {}) {
       PrefStore: { local },
       STORE_KEYS: { agentsGroupFold: 'agentsGroupFold', agentsSubView: 'agentsSubView' },
       UIKit: { iconHTML: (n) => '<i:' + n + '>' },
-      t: (k) => k,
+      t: (k, p) => fillEn(k, p),
       ...globals,
     },
   });
@@ -209,47 +221,83 @@ test('FR-ASV-37: 근거는 state·tool·내용으로도 바뀐다', () => {
 
 test('FR-ASV-41: 남은 시간은 큰 단위 둘이고 0 이면 soon 이다', () => {
   const { limitResetText } = loadActivity();
-  assert.equal(limitResetText(368000), '4d 6h');
-  assert.equal(limitResetText(7800), '2h 10m');
-  assert.equal(limitResetText(2100), '35m');
-  assert.equal(limitResetText(0), 'soon');
+  assert.equal(limitResetText(368000), 'Resets in 4d 6h');
+  assert.equal(limitResetText(7800), 'Resets in 2h 10m');
+  assert.equal(limitResetText(2100), 'Resets in 35m');
+  assert.equal(limitResetText(0), 'Resets soon');
 });
 
-test('FR-ASV-41·42: 줄 값 — 에이전트 줄과 창 줄, 이름·남은 시간·등급·as of', () => {
-  const { limitRowsView } = loadActivity();
+test('FR-ASV-41: 창 이름은 도구들의 이름이고, 모르는 이름은 사람이 읽는 꼴로 쓴다', () => {
+  const { limitWindowLabel } = loadActivity();
+  assert.equal(limitWindowLabel('five_hour'), 'Current session');
+  assert.equal(limitWindowLabel('seven_day'), 'Current week');
+  assert.equal(limitWindowLabel('seven_day_opus'), 'Current week (Opus)');
+  assert.equal(limitWindowLabel('seven_day_sonnet'), 'Current week (Sonnet)');
+  assert.equal(limitWindowLabel('extra_usage_window'), 'Extra usage window');
+});
+
+test('FR-ASV-41·42: 바닥 값 — 에이전트 머리와 창 블록, 사용률·남은 시간·등급·as of', () => {
+  const { limitFootView } = loadActivity();
   const observedAt = Date.UTC(2026, 10, 10, 5, 0);
   const limits = [{ agent: 'claude', observedAt, windows: [
     { name: 'five_hour', usedPct: 34.4, resetsAt: 1794298291, resetsInSec: 7200, level: '' },
     { name: 'seven_day', usedPct: 91, resetsAt: 1794659091, resetsInSec: 368000, level: 'critical' },
     { name: 'opus_week', usedPct: 5, level: '' },
+    { name: 'no_pct', resetsInSec: 10, level: '' },
   ] }];
-  const fresh = plain(limitRowsView(limits, observedAt + 60_000));
-  assert.equal(fresh.length, 4);
-  assert.deepEqual(fresh[0], { kind: 'agent', id: 'claude', name: 'Claude', asOf: '' });
+  const v = plain(limitFootView(limits, observedAt + 60_000));
+  assert.equal(v.length, 1);
+  assert.equal(v[0].agent, 'claude');
+  assert.equal(v[0].name, 'Claude');
+  assert.equal(v[0].asOf, '');
+  assert.equal(v[0].windows.length, 3);
   const d = new Date(1794298291 * 1000);
   const hhmm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
-  assert.deepEqual(fresh[1], { kind: 'win', id: 'claude:five_hour', label: '5h', pct: 34, fill: 34.4, level: '',
-    reset: 'resets 2h 0m', title: '5-hour limit · 34% used · resets at ' + hhmm });
-  assert.equal(fresh[2].label, '7d');
-  assert.equal(fresh[2].reset, 'resets 4d 6h');
-  assert.equal(fresh[2].level, 'critical');
-  assert.equal(fresh[3].label, 'opus_week');
-  assert.equal(fresh[3].reset, '');
-  assert.equal(fresh[3].title, 'opus_week · 5% used');
+  assert.deepEqual(v[0].windows[0], { id: 'claude:five_hour', label: 'Current session', used: '34% used',
+    fill: 34.4, level: '', reset: 'Resets in 2h 0m', title: 'Current session · 34% used · resets at ' + hhmm });
+  assert.equal(v[0].windows[1].label, 'Current week');
+  assert.equal(v[0].windows[1].reset, 'Resets in 4d 6h');
+  assert.equal(v[0].windows[1].level, 'critical');
+  assert.equal(v[0].windows[2].label, 'Opus week');
+  assert.equal(v[0].windows[2].reset, '');
 
   const o = new Date(observedAt);
-  const stale = plain(limitRowsView(limits, observedAt + 11 * 60_000));
+  const stale = plain(limitFootView(limits, observedAt + 11 * 60_000));
   assert.equal(stale[0].asOf, 'as of ' + String(o.getHours()).padStart(2, '0') + ':' + String(o.getMinutes()).padStart(2, '0'));
 });
 
-test('FR-ASV-40·43: Usage 구역은 맨 끝이고, 한도가 없으면 항목이 없다(빈 문구)', () => {
+test('FR-ASV-40·43: Usage 는 구역이 아니라 맨 끝의 바닥이고, 한도가 없으면 없다', () => {
   const ctx = loadActivity();
-  const keys = ctx.ACTIVITY_SECTIONS.map((s) => s.key);
-  assert.equal(keys[keys.length - 1], 'usage');
+  assert.equal(ctx.ACTIVITY_SECTIONS.some((s) => s.key === 'usage'), false);
   const app = new ctx.App();
+  app._bg = []; app._runsPanel = () => ({});
+  app._agWindowItems = () => [];
+  app._agFolded = () => new Set();
   app._limits = [];
-  assert.equal(app._actUsageRows().length, 0);
-  assert.equal(ctx.ACTIVITY_SECTIONS.at(-1).empty(), 'usage.empty');
+  assert.equal(app._actItems().some((i) => i.t === 'foot'), false);
+  app._limits = [{ agent: 'claude', observedAt: Date.now(), windows: [{ name: 'five_hour', usedPct: 1, level: '' }] }];
+  const items = app._actItems();
+  assert.equal(items.at(-1).t, 'foot');
+});
+
+test('FR-ASV-41: 바닥 원소 — 머리와 창 블록(이름·사용률 / 막대 / 남은 시간)', () => {
+  const ctx = loadActivity();
+  const app = new ctx.App();
+  const view = ctx.limitFootView([{ agent: 'claude', observedAt: Date.now(), windows: [
+    { name: 'five_hour', usedPct: 72, resetsInSec: 7800, level: 'warn' },
+    { name: 'seven_day', usedPct: 21, level: '' },
+  ] }], Date.now());
+  const foot = app._actUsageFootEl(view);
+  assert.equal(foot.className, 'act-usage-foot');
+  assert.deepEqual(plain(kinds(foot)), ['act-usage-head', 'act-usage-win', 'act-usage-win']);
+  const w = foot.children[1];
+  assert.equal(w.className, 'act-usage-win lv-warn');
+  assert.deepEqual(plain(kinds(w)), ['act-usage-top', 'act-usage-track', 'act-usage-reset']);
+  assert.equal(w.children[0].children[0].textContent, 'Current session');
+  assert.equal(w.children[0].children[1].textContent, '72% used');
+  assert.equal(w.children[1].children[0].style.width, '72%');
+  assert.equal(w.children[2].textContent, 'Resets in 2h 10m');
+  assert.deepEqual(plain(kinds(foot.children[2])), ['act-usage-top', 'act-usage-track']);
 });
 
 test('FR-ASV-21·44: 복원이 limits 를 담는다', async () => {

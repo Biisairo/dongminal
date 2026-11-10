@@ -184,6 +184,7 @@ Object.assign(App.prototype, {
         // 구역의 행은 **그려질 마크업 전부**가 근거다 (FR-RPT-2) — 그 행이 무엇을
         // 보이는지 이 파일은 모르고, 알 필요도 없다.
         if(it.t==='row') return it.el.outerHTML;
+        if(it.t==='foot') return JSON.stringify(it.view); // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40
         if(it.t==='sub') return agentSubagentsSig([it.s]); // FR-ASV-37
         if(it.t==='head') return this._agSubView(); // FR-ASV-32: 전환 버튼의 모양
         if(it.t!=='card') return '1';
@@ -203,6 +204,7 @@ Object.assign(App.prototype, {
         :it.t==='sec'?this._actSecEl(it.sec,it.n,it.folded)
         :it.t==='secempty'?this._actSecEmptyEl(it.sec)
         :it.t==='row'?it.el
+        :it.t==='foot'?this._actUsageFootEl(it.view)
         :it.t==='sub'?this._agSubCardEl(it.toolId,agentSubagentView(it.s))
         :this._agCardEl(panel,it.toolId,it.info,it.loc),
     });

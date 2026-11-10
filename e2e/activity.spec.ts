@@ -409,8 +409,8 @@ test.describe('Agent panel window groups (FR-AGG)', () => {
  * UIUX_OVERHAUL_SRS §4.3.1 (D-7) — **구역은 셋이고, 머리는 몸통으로 접힌다.**
  */
 test.describe('FR-ACT-7·10 (D-7): 구역 셋과 몸통 접기', () => {
-  // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40: 맨 끝에 Usage 구역이 더해졌다. 주의 구역은 여전히 없다.
-  test('FR-ACT-7: 차례가 에이전트 · 백그라운드 · Run · Usage 이고 주의 구역이 없다', async ({ page }) => {
+  // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40: Usage 는 구역이 아니라 바닥이다 — 구역은 그대로 셋이다.
+  test('FR-ACT-7: 구역이 셋이고 차례가 에이전트 · 백그라운드 · Run 이다', async ({ page }) => {
     await waitForInit(page);
     await page.locator('#agents-toggle').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
@@ -418,7 +418,7 @@ test.describe('FR-ACT-7·10 (D-7): 구역 셋과 몸통 접기', () => {
     // 빈 구역도 머리를 갖는다 (FR-ACT-1) — 세는 것은 내용이 아니라 구역이다.
     const secs = await page.evaluate(() =>
       [...document.querySelectorAll('#agents-panel .ag-sec')].map((e) => (e as HTMLElement).dataset.sec));
-    expect(secs, '주의 구역이 아직 패널에 있다').toEqual(['agents', 'bg', 'runs', 'usage']);
+    expect(secs, '주의 구역이 아직 패널에 있다').toEqual(['agents', 'bg', 'runs']);
   });
 
   test('FR-ACT-10: 그룹 머리의 몸통을 눌러 접고 편다', async ({ page }) => {
@@ -548,10 +548,10 @@ test.describe('Agent card subagent rows', () => {
   });
 });
 
-// ACTIVITY_STATE_SUBAGENT_SRS TC-ASV-15: 폴더형 하위 카드·보기 전환·Usage 구역이 보이고,
+// ACTIVITY_STATE_SUBAGENT_SRS TC-ASV-15: 폴더형 하위 카드·보기 전환·Usage 바닥이 보이고,
 // 최소 폭에서 패널을 넘지 않는다 (FR-ASV-33·40, NFR-ASV-3).
 test.describe('Activity subagent views and usage limits', () => {
-  test('TC-ASV-15: 하위 카드와 접기, 보기 전환, Usage 구역', async ({ page }) => {
+  test('TC-ASV-15: 하위 카드와 접기, 보기 전환, Usage 바닥', async ({ page }) => {
     await waitForInit(page);
     const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
     await page.locator('#agents-toggle').click();
@@ -598,29 +598,36 @@ test.describe('Activity subagent views and usage limits', () => {
     await page.locator(`#agents-panel .ag-card[data-toolid="${pid}"] .ag-sub-fold`).click();
     await expect(sub).toHaveCount(1);
 
-    // Usage 구역 — 맨 끝 구역이고 창마다 한 줄
-    const usage = page.locator('#agents-panel .act-usage-win');
-    await expect(usage).toHaveCount(2);
-    await expect(usage.nth(0).locator('.act-usage-label')).toHaveText('5h');
-    await expect(usage.nth(0)).toHaveClass(/lv-warn/);
-    await expect(usage.nth(0).locator('.act-usage-reset')).toHaveText(/^resets 2h (9|10)m$/);
-    await expect(usage.nth(1).locator('.act-usage-reset')).toHaveText(/^resets 4d (5|6)h$/);
-    const lastSec = await page.locator('#agents-panel .ag-sec').last().getAttribute('data-sec');
-    expect(lastSec).toBe('usage');
+    // Usage 바닥 — 패널의 마지막 원소이고 패널 아랫변에 붙는다 (FR-ASV-40·41)
+    const foot = page.locator('#agents-panel .act-usage-foot');
+    await expect(foot).toHaveCount(1);
+    const wins = foot.locator('.act-usage-win');
+    await expect(wins).toHaveCount(2);
+    await expect(wins.nth(0)).toHaveClass(/lv-warn/);
+    await expect(wins.nth(0).locator('.act-usage-used')).toContainText('72');
+    await expect(wins.nth(0).locator('.act-usage-reset')).toContainText(/(2h (9|10)m|2시간 (9|10)분)/);
+    await expect(wins.nth(1).locator('.act-usage-reset')).toContainText(/(4d (5|6)h|4일 (5|6)시간)/);
+    const pinned = await foot.evaluate((el) => {
+      const p = el.parentElement as HTMLElement;
+      return { last: p.lastElementChild === el,
+        gap: Math.abs(p.getBoundingClientRect().bottom - el.getBoundingClientRect().bottom) };
+    });
+    expect(pinned.last, 'Usage 바닥이 패널의 마지막 원소가 아니다').toBe(true);
+    expect(pinned.gap, 'Usage 바닥이 패널 아랫변에 붙지 않았다').toBeLessThanOrEqual(2);
 
     // 최소 폭에서 패널을 넘지 않는다
     await page.evaluate(() => document.documentElement.style.setProperty('--ag-w', '160px'));
     const m = await page.evaluate(() => {
       const p = document.getElementById('agents-panel') as HTMLElement;
       const subEl = p.querySelector('.ag-subcard') as HTMLElement;
-      const win = p.querySelector('.act-usage-win') as HTMLElement;
+      const win = p.querySelector('.act-usage-foot') as HTMLElement;
       return { panelScroll: p.scrollWidth, panelClient: p.clientWidth,
         subScroll: subEl.scrollWidth, subClient: subEl.clientWidth,
         winScroll: win.scrollWidth, winClient: win.clientWidth };
     });
     expect(m.panelScroll, '패널이 가로로 밀렸다').toBeLessThanOrEqual(m.panelClient);
     expect(m.subScroll, '하위 카드가 넘쳤다').toBeLessThanOrEqual(m.subClient);
-    expect(m.winScroll, 'Usage 줄이 넘쳤다').toBeLessThanOrEqual(m.winClient);
+    expect(m.winScroll, 'Usage 바닥이 넘쳤다').toBeLessThanOrEqual(m.winClient);
 
     // 목록형으로 바꾸면 하위 카드가 사라지고 카드 안의 줄이 선다
     await page.locator('#agents-panel .ag-subview').click();

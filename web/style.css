@@ -890,7 +890,7 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .ag-sub-head{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--text-muted);min-width:0}
 .ag-sub-arrow{flex-shrink:0}
 .ag-sub-type,.ag-sub-state{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ag-sub-type{flex:0 1 auto;color:var(--text)}
+.ag-sub-type{flex:0 0 auto;max-width:50%;color:var(--text)}
 .ag-sub-state{flex:1 1 auto}
 .ag-sub-state.working{color:var(--term-green)}
 .ag-sub-state.waiting{color:var(--attn-text)}
@@ -906,19 +906,26 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .ag-sub-fold{position:absolute;top:6px;right:6px;display:flex;align-items:center;gap:2px;padding:1px 4px;font-size:var(--fs-sm);color:var(--text-muted)}
 .ag-sub-n{font-variant-numeric:tabular-nums}
 .ag-card:has(.ag-sub-fold) .ag-loc{padding-right:40px}
-/* FR-ASV-41·42: Usage 구역 — 에이전트 머리 줄과 창 줄. 막대는 카드의 사용량 줄과 같은 부품이다. */
-.act-usage-agent{display:flex;align-items:center;gap:6px;padding:6px 10px 2px;font-size:var(--fs-sm);font-weight:600;color:var(--text);min-width:0}
+/* ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40~42 (D-ASV-11): Usage 바닥 — 패널 맨 아래에 붙는다.
+   패널은 세로 flex 이므로 margin-top:auto 가 내용이 짧을 때 바닥으로 밀고, sticky 가 길 때 아래에 남긴다.
+   창 블록의 모양은 Claude Code `/usage`·CodexBar 를 따른다 — 이름과 사용률 / 둥근 막대 / 남은 시간. */
+.act-usage-foot{margin-top:auto;position:sticky;bottom:0;z-index:var(--z-sticky);flex-shrink:0;padding:8px 12px 10px;
+  background:var(--sidebar-bg);border-top:1px solid var(--border);min-width:0}
+.act-usage-head{display:flex;align-items:baseline;gap:6px;margin-bottom:2px;font-size:var(--fs-sm);font-weight:600;color:var(--text-muted);min-width:0}
+.act-usage-head:not(:first-child){margin-top:8px}
 .act-usage-name{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .act-usage-asof{flex-shrink:0;font-weight:400;color:var(--text-dim)}
-.act-usage-win{display:flex;align-items:center;gap:6px;padding:2px 10px 2px 18px;font-size:var(--fs-sm);color:var(--text-muted);min-width:0}
-.act-usage-win:last-child{padding-bottom:8px}
-.act-usage-label{flex:0 0 auto;min-width:22px;font-variant-numeric:tabular-nums}
-.act-usage-win .ag-usage-bar{flex:1 1 40px;margin-left:0;min-width:24px}
-.act-usage-reset{flex:0 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-dim)}
-.act-usage-win.lv-warn .ag-usage-fill{background:var(--attn)}
-.act-usage-win.lv-warn .ag-usage-pct{color:var(--attn-text)}
-.act-usage-win.lv-critical .ag-usage-fill{background:var(--danger)}
-.act-usage-win.lv-critical .ag-usage-pct{color:var(--danger-text)}
+.act-usage-win{margin-top:6px;min-width:0}
+.act-usage-top{display:flex;align-items:baseline;gap:8px;font-size:var(--fs-sm);min-width:0}
+.act-usage-label{flex:1 1 auto;min-width:0;color:var(--text-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.act-usage-used{flex-shrink:0;color:var(--text-muted);font-variant-numeric:tabular-nums}
+.act-usage-track{height:6px;margin-top:4px;border-radius:3px;background:var(--border-weak);overflow:hidden}
+.act-usage-fill{height:100%;border-radius:3px;background:var(--accent)}
+.act-usage-reset{margin-top:3px;font-size:var(--fs-sm);color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.act-usage-win.lv-warn .act-usage-fill{background:var(--attn)}
+.act-usage-win.lv-warn .act-usage-used{color:var(--attn-text)}
+.act-usage-win.lv-critical .act-usage-fill{background:var(--danger)}
+.act-usage-win.lv-critical .act-usage-used{color:var(--danger-text)}
 
 .pn-body{flex:1;position:relative;overflow:hidden}
 

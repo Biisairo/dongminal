@@ -1,7 +1,7 @@
 # SRS: 활동 상태 정확도 · 서브에이전트 활동 · 계정 한도 — IEEE 29148
 
 > **문서 상태**: 승인·구현완료
-> **확인**: Go·JS 단위 시험, e2e(TC-ASV-1~15), gates·lint 가 통과했다(2026-11-10). TC-ASV-16(새 빌드에서 실제 세션 확인)은 하지 않은 채로 사용자가 완료를 정했다
+> **확인**: Go·JS 단위 시험, e2e(TC-ASV-1~15), gates·lint 가 통과했다(2026-11-10). Usage 바닥 개정(D-ASV-11)도 같은 날 같은 검사를 통과했다. TC-ASV-16(새 빌드에서 실제 세션 확인)은 하지 않은 채로 사용자가 완료를 정했다
 > **입력**: 2026-11-10 대화. 사용자 요청 넷과 결정 셋이다.
 > - 요청: ① 훅으로 만드는 상태가 자주 틀린다. 원인을 분석하고 고친다 ② Activity 아래에 사용량(usage)을 둔다. 지금은 Claude 만 ③ 서브에이전트도 main 카드처럼 상태·프롬프트·도구를 보인다 ④ 카드의 사용량 줄은 왼쪽에 모델·effort, 오른쪽에 사용량을 둔다
 > - 결정: Esc 중단은 보완하지 않는다(D-ASV-1). usage 는 Claude 계정 한도(5시간·7일)다(D-ASV-2). 서브에이전트는 폴더형과 카드 안 목록을 둘 다 만들고 고르게 한다(D-ASV-3)
@@ -17,7 +17,7 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
 - 묶음 H: claude 훅 해석과 배선 (`agentadapter`)
 - 묶음 S: 서브에이전트 활동의 수신·저장·방송 (서버)
 - 묶음 L: 계정 한도의 보관·응답 (서버)
-- 묶음 V: Activity 패널 화면 — 서브에이전트 두 보기, 사용량 줄 배치, Usage 구역 (클라이언트)
+- 묶음 V: Activity 패널 화면 — 서브에이전트 두 보기, 사용량 줄 배치, Usage 바닥 (클라이언트)
 
 **미포함:** §6 비목표.
 
@@ -202,23 +202,27 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
 - **FR-ASV-36** SSE `tool_subagent_activity` 를 받으면 그 도구 항목의 `subagents` 에서 `id = agentId` 인 원소의 `state`·`tool`·`detail` 을 바꾸고 다시 그린다. 원소가 없으면 `{id, agentType, state, tool, detail}` 로 끝에 더한다. main 항목이 없으면 버린다.
 - **FR-ASV-37** 재조정 근거(`sig`)에 서브에이전트마다 그려지는 값 전부를 넣는다. FR-SAU-24 의 값에 `state`·`tool`·내용 글자·보기 종류·접힘을 더한다.
 
-**Usage 구역 (요청 ②)**
+**Usage 바닥 (요청 ②, 2026-11-10 개정)**
 
-- **FR-ASV-40** Activity 패널의 구역 목록(`ACTIVITY_SECTIONS`)의 **맨 끝**에 `Usage` 구역을 더한다. 접기는 다른 구역과 같다.
-- **FR-ASV-41** 구역은 `limits` 원소마다 에이전트 이름 한 줄을 두고, 그 아래에 창마다 한 줄을 둔다. 창 줄은 왼쪽부터 이름 · 막대 · `NN%` · `resets 2h 10m` 이다.
-  - 이름: `five_hour` → `5h`, `seven_day` → `7d`. 그 밖은 입력 이름 그대로다.
-  - 막대 색은 `level` 을 따른다(FR-ACU-13 의 클래스·토큰 재사용).
-  - 남은 시간은 서버가 준 `resetsInSec` 이다 (FR-ASV-21). 일·시간·분 중 큰 단위 둘만 쓴다(`4d 6h`·`2h 10m`·`35m`). 0 이면 `resets soon` 이고, 필드가 없으면 남은 시간 부분을 그리지 않는다.
-  - 툴팁(영어)은 초기화 시각을 브라우저 지역 시간으로 보인다. 예: `5-hour limit · 34% used · resets at 16:40`.
-- **FR-ASV-42** 에이전트 줄의 오른쪽에 `observedAt` 이 `limitStaleMs`(600,000ms)보다 오래되면 `as of HH:MM` 을 보인다.
-- **FR-ASV-43** `limits` 가 비었으면 구역은 빈 줄 문구(i18n)를 보인다. 예: "Claude 세션이 사용량을 보고하면 여기에 보입니다".
+> 개정 이유: 초판은 Usage 를 네 번째 접는 구역으로 두고 창 이름을 `5h`·`7d` 로 줄였다. 사용자가 두 가지를 바꾸라고 했다 — ① 구역이 아니라 **패널 맨 아래에 붙은 바닥**으로 둔다 ② 이름과 막대를 다른 사용량 도구처럼 보인다. 참고한 것은 Claude Code `/usage`(창마다 "Current session"·"Current week (all models)", 막대, "% used", 초기화 시각)와 CodexBar(세션·주간 막대와 초기화까지 남은 시간)다.
+
+- **FR-ASV-40** Usage 는 구역 목록(`ACTIVITY_SECTIONS`)에 넣지 않는다. 패널 항목의 **맨 끝**에 바닥(`.act-usage-foot`) 하나를 둔다. 바닥은 패널 아래에 붙는다 — 내용이 짧으면 패널 맨 아래에 서고, 길면 스크롤해도 아래에 남는다. 접지 않는다.
+- **FR-ASV-41** 바닥은 `limits` 원소마다 머리 한 줄(에이전트 이름)과, 창마다 블록 하나를 둔다. 창 블록은 두 줄이다.
+  - 첫 줄: 왼쪽에 창 이름, 오른쪽에 `NN% used`
+  - 둘째 줄: 패널 폭을 채우는 둥근 막대(트랙과 채움). 그 아래에 `Resets in 2h 10m`
+  - 창 이름(i18n): `five_hour` → "Current session"/"현재 세션", `seven_day` → "Current week"/"이번 주", `seven_day_opus` → "Current week (Opus)"/"이번 주 (Opus)", `seven_day_sonnet` → "Current week (Sonnet)"/"이번 주 (Sonnet)". 그 밖의 이름은 `_` 를 빈칸으로 바꾸고 첫 글자를 대문자로 쓴다.
+  - 남은 시간은 서버가 준 `resetsInSec` 다 (FR-ASV-21). 일·시간·분 중 큰 단위 둘만 쓴다 — en `4d 6h`·`2h 10m`·`35m`, ko `4일 6시간`·`2시간 10분`·`35분`. 0 이면 "Resets soon"/"곧 초기화" 이고, 필드가 없으면 그 줄을 그리지 않는다.
+  - 막대 색은 `level` 을 따른다(FR-ACU-13 의 토큰 재사용). 등급이 없으면 강조색이다.
+  - 창 블록의 툴팁(영어)은 초기화 시각을 브라우저 지역 시간으로 보인다. 예: `Current session · 34% used · resets at 16:40`.
+- **FR-ASV-42** 머리 줄의 오른쪽에 `observedAt` 이 `limitStaleMs`(600,000ms)보다 오래되면 "as of HH:MM"/"HH:MM 기준" 을 보인다.
+- **FR-ASV-43** `limits` 가 비었으면 바닥을 그리지 않는다.
 - **FR-ASV-44** 남은 시간 글자는 활동 조회 주기(`agentsPollMs`)마다 받은 응답으로 바뀐다. 새 타이머를 만들지 않는다.
 
 ### 3.5 비기능
 
 - **NFR-ASV-1** 훅 하나에 대한 `dmctl activity` 의 HTTP 요청은 종전처럼 최대 한 번이다. 예외는 서브에이전트의 `PermissionRequest`·`Notification`(FR-ASV-5)이며 최대 두 번이다. 각 요청은 종전 시한(`hookBudget`)을 지킨다.
 - **NFR-ASV-2** 새 조회 주기를 만들지 않는다. 새 SSE 이벤트는 `tool_subagent_activity` 하나다.
-- **NFR-ASV-3** 하위 카드와 Usage 구역은 패널 최소 폭에서 패널 폭을 넘지 않는다. 넘치면 글자 부분만 말줄임으로 준다.
+- **NFR-ASV-3** 하위 카드와 Usage 바닥은 패널 최소 폭에서 패널 폭을 넘지 않는다. 넘치면 글자 부분만 말줄임으로 준다.
 - **NFR-ASV-4** 툴팁은 영어, 화면 문구는 i18n 키로 둔다(기존 규약).
 - **NFR-ASV-5** 서브에이전트의 `detail`·`description` 은 main 의 `detail` 과 같은 상한과 제어 문자 제거를 거친다.
 
@@ -235,6 +239,7 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
 | D-ASV-7 | `idle_prompt` 와 그 밖의 알림은 상태를 바꾸지 않는다 | `idle_prompt` 는 "응답이 끝난 지 60초" 다. 카드는 이미 done 이다 (§2.2 ④). 나머지(`auth_success` 등)는 기다림이 아니다 |
 | D-ASV-8 | `Stop` 은 `background_tasks` 가 있어도 done 이다 | main 턴은 끝났고 사람이 입력할 수 있다. 돌고 있는 서브에이전트는 하위 카드가 보인다 |
 | D-ASV-9 | 계정 한도의 경고 경계는 70%·90% 이고 서버가 등급을 정한다 | 맥락 등급(FR-ACU-3)과 같은 방식으로, 화면에 경계값을 두지 않는다 |
+| D-ASV-11 | Usage 는 접는 구역이 아니라 패널 맨 아래에 붙은 바닥이다. 창 이름은 Claude Code `/usage` 의 이름을 따른다 | 사용자가 요청했다(2026-11-10). 한도는 늘 보이는 값이라 접을 까닭이 없고, `5h`·`7d` 같은 축약은 읽기 나쁘다 |
 | D-ASV-10 | 초기화까지 남은 시간은 서버가 셈해 `resetsInSec` 로 내려 준다 | 사용자가 요청했다. 원격 브라우저의 시계가 서버와 다르면 브라우저의 셈은 틀린다. `dmctl status` 도 같은 값을 보인다 |
 
 ## 5. 검증 (Verification)
@@ -254,9 +259,9 @@ Activity 패널의 에이전트 카드가 실제 Claude Code 세션과 다른 �
 | TC-ASV-11 | FR-ASV-30·31·34·35 | JS 단위: 카드·목록형 줄 조합 | 모델·effort 가 막대보다 앞이다. 값 없는 부분은 원소가 없다. done 흐림이 붙는다 |
 | TC-ASV-12 | FR-ASV-32·33 | JS 단위: 보기 전환·접기 | 폴더형은 하위 카드 항목이 main 카드 뒤에 서고, 접으면 없다. 목록형은 카드 안에 선다. 설정이 저장소에 남는다 |
 | TC-ASV-13 | FR-ASV-36·37 | JS 단위: SSE 로 기존·새 서브에이전트 갱신, main 없음 | 바뀐다 / 더해진다 / 버린다. `sig` 가 그려지는 값의 변화에만 바뀐다 |
-| TC-ASV-14 | FR-ASV-41·42·43 | JS 단위: `resetsInSec` 368000·7800·2100·0·없음, 오래된 관측, 빈 목록 | `4d 6h`·`2h 10m`·`35m`·`resets soon`·남은 시간 부분 없음 / `as of` 가 선다 / 빈 문구가 선다 |
-| TC-ASV-15 | FR-ASV-33·40, NFR-ASV-3 | e2e: 서브에이전트와 한도를 보고한 뒤 패널을 최소 폭으로 | 하위 카드와 Usage 구역이 보이고 패널 폭을 넘지 않는다. 보기 전환이 동작한다 |
-| TC-ASV-16 | 전체 | 수동: 새로 빌드하고 데몬을 다시 띄운 뒤, dongminal 의 claude 세션에서 서브에이전트를 부름 | 턴이 끝나면 카드가 done 으로 남고 1분 뒤에도 waiting 이 되지 않는다. 하위 카드가 working→done 으로 바뀐다. Usage 구역에 5h·7d 가 보인다 |
+| TC-ASV-14 | FR-ASV-41·42·43 | JS 단위: `resetsInSec` 368000·7800·2100·0·없음, 창 이름 넷과 모르는 이름, 오래된 관측, 빈 목록 | `4d 6h`·`2h 10m`·`35m`·soon·남은 시간 줄 없음 / 정해진 이름 / `as of` 가 선다 / 바닥이 없다 |
+| TC-ASV-15 | FR-ASV-33·40, NFR-ASV-3 | e2e: 서브에이전트와 한도를 보고한 뒤 패널을 최소 폭으로 | 하위 카드가 보이고 보기 전환이 동작한다. Usage 바닥이 패널의 마지막 원소이고 그 아랫변이 패널 아랫변에 붙는다. 패널 폭을 넘지 않는다 |
+| TC-ASV-16 | 전체 | 수동: 새로 빌드하고 데몬을 다시 띄운 뒤, dongminal 의 claude 세션에서 서브에이전트를 부름 | 턴이 끝나면 카드가 done 으로 남고 1분 뒤에도 waiting 이 되지 않는다. 하위 카드가 working→done 으로 바뀐다. Usage 바닥에 현재 세션·이번 주가 보인다 |
 
 ## 6. 비목표 (Non-goals)
 
