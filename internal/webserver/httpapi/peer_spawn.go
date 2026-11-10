@@ -161,6 +161,8 @@ func (s *Server) peerDeliverPrompt(toolID string, ad agentadapter.Adapter, owner
 		dmlog.Infof(nil, "[peer] spawn 프롬프트를 버렸다 tool=%s: 에이전트가 준비되지 않았다", toolID)
 		return
 	}
+	s.peerDeliverMu.RLock()
+	defer s.peerDeliverMu.RUnlock()
 	if !s.peerRunsAgent(toolID, ad.ID) || !s.peers.IsPeer(ownerFP) || s.peerIsClosing(toolID) {
 		return
 	}
@@ -194,7 +196,7 @@ func (s *Server) peerRunsAgent(toolID, agentID string) bool {
 // peerSpawnShell 은 cwd 에 셸 도구 하나를 세운다 (FR-PNW-61, I-18).
 //
 //	window: 브라우저가 있으면 newWindow(cwd) 의 첫 탭 셸
-//	tab:    헤드리스 셸을 cwd 에 띄운 뒤 location(at 도구의 좌표)의 칸에 붙인다 (restoreTool)
+//	tab:    헤드리스 셸을 cwd 에 띄운 뒤 location(at 도구의 탭 uuid)의 칸에 붙인다 (restoreTool)
 //	그 밖:  브라우저가 없으면 헤드리스 셸
 func (s *Server) peerSpawnShell(ctx context.Context, cwd, placement, location, name string) (string, bool, error) {
 	if placement == peerPlaceWindow && s.Commands != nil {
@@ -234,17 +236,10 @@ func (s *Server) peerSpawnShell(ctx context.Context, cwd, placement, location, n
 	return toolID, true, nil
 }
 
-// peerTabLocation 은 at 도구가 든 칸의 좌표다. 도구나 그 탭을 찾지 못하면 빈 값이다.
+// peerTabLocation 은 at 도구가 든 탭의 uuid 다. 찾지 못하면 빈 값이다. 좌표가 아니라 uuid 를
+// 싣는다 — 도구를 만드는 동안 창이 닫히거나 순서가 바뀌어도 다른 칸을 가리키지 않는다.
 func (s *Server) peerTabLocation(at string) string {
-	tab := s.tabIDOfTool(at)
-	if tab == "" {
-		return ""
-	}
-	coord, err := s.WorkIndex.CoordinateOf(tab)
-	if err != nil {
-		return ""
-	}
-	return coord
+	return s.tabIDOfTool(at)
 }
 
 // peerStateOf 는 FR-PNW-54 의 어휘다. 에이전트가 돌지 않으면 ended, 활동의 done 은 idle 이다.
@@ -295,7 +290,10 @@ func (s *Server) peerAgentClose(w http.ResponseWriter, r *http.Request, from pee
 	}
 	toolID := in.ToolID
 	// I-59: 종료 명령을 보낸 뒤 에이전트가 끝나는 동안 원격 글이 들어가면 셸에 남는다.
+	// I-70: 진행 중인 전달이 끝난 뒤에 세운다. 그 뒤의 전달은 이 표시를 본다.
+	s.peerDeliverMu.Lock()
 	s.peerClosing.Store(toolID, struct{}{})
+	s.peerDeliverMu.Unlock()
 	defer s.peerClosing.Delete(toolID)
 	if ad, ok := s.agentOfTool(toolID); ok && ad.ExitCommand != "" && s.Tools != nil && s.Tools.Busy(toolID) {
 		_ = s.deliverToTool(toolID, ad.ExitCommand, true)

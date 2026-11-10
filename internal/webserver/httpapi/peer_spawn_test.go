@@ -474,7 +474,7 @@ func TestPeerSpawnTabPlacement(t *testing.T) {
 			rename = string(p)
 		}
 	}
-	if !strings.Contains(req, `"location":"W1.P1.T1"`) || !strings.Contains(req, `"toolId":"headless-1"`) {
+	if !strings.Contains(req, `"location":"tab-at"`) || !strings.Contains(req, `"toolId":"headless-1"`) {
 		t.Fatalf("restoreTool 요청 %s", req)
 	}
 	// C4: tab 배치도 이름을 붙인다. 붙은 탭을 uuid 로 가리킨다.
@@ -691,5 +691,48 @@ func TestPeerSpawnRecordFailureCloseFailureLogged(t *testing.T) {
 	}
 	if !strings.Contains(logs.String(), "tool=headless-1") || !strings.Contains(logs.String(), "닫지 못했다") {
 		t.Fatalf("닫기 실패가 로그에 없다 %s", logs.String())
+	}
+}
+
+// 보안 재리뷰(3차) #1: 이미 붙여넣는 중인 원격 메시지를 agent.close 의 종료 명령이 앞지르지
+// 않는다. close 는 진행 중인 전달이 끝난 뒤에 "닫는 중" 을 세운다.
+func TestPeerAgentCloseWaitsForInflightMessage(t *testing.T) {
+	installFakeAgent(t)
+	a := newPeerNode(t, "node-a", true)
+	b := newSpawnNode(t, "node-b", nil)
+	pairNodes(t, a, b.peerNode)
+	if code, out := a.spawn(t, "node-b", map[string]any{"agent": "claude", "cwd": b.allowed}); code != 200 {
+		t.Fatalf("spawn %d %v", code, out["_raw"])
+	}
+	b.tools.setFG("headless-1", agentCmd(t))
+	b.hub.mu.Lock()
+	b.hub.busy = func(string) bool { return true }
+	b.hub.mu.Unlock()
+	gate := make(chan struct{})
+	b.tools.fgMu.Lock()
+	b.tools.gate, b.tools.entered = gate, make(chan struct{}, 1)
+	entered := b.tools.entered
+	b.tools.fgMu.Unlock()
+	sent := make(chan int, 1)
+	go func() {
+		code, _ := a.call(t, "node-b", "message.send", map[string]any{"to": "headless-1", "message": "hello"})
+		sent <- code
+	}()
+	<-entered
+	closed := make(chan struct{})
+	go func() { a.call(t, "node-b", "agent.close", map[string]any{"toolId": "headless-1"}); close(closed) }()
+	time.Sleep(200 * time.Millisecond)
+	before := len(b.tools.pasted())
+	close(gate)
+	if code := <-sent; code != http.StatusOK {
+		t.Fatalf("message.send %d", code)
+	}
+	<-closed
+	if before != 1 {
+		t.Fatalf("메시지가 끝나기 전에 close 가 무언가 넣었다 (붙여넣기 %d)", before)
+	}
+	p := b.tools.pasted()
+	if len(p) < 2 || !strings.Contains(p[1].Text, "hello") {
+		t.Fatalf("순서 %+v", p)
 	}
 }

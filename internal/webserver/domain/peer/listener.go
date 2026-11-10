@@ -3,9 +3,11 @@ package peer
 import (
 	"crypto/tls"
 	"errors"
+	"log"
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -58,6 +60,8 @@ type Listener struct {
 	gen     uint64
 	// closed 는 Close 뒤다. 그 뒤의 Apply 는 아무것도 열지 않는다 (서버 종료 중).
 	closed bool
+	// errLog 는 노드 포트 서버의 오류 기록이다. 핸드셰이크 실패는 모아 남긴다 (I-71).
+	errLog *log.Logger
 }
 
 // Admission 은 누가 노드 포트에 들어오는가다. TLS 는 핸드셰이크에서 지문만 보고,
@@ -76,6 +80,7 @@ func PeersOnly(isPeer func(fp string) bool) Admission {
 // 만든다. Apply 전에는 아무것도 듣지 않는다.
 func NewListener(id Identity, adm Admission, h http.Handler) *Listener {
 	return &Listener{
+		errLog:  log.New(newHandshakeLog(time.Now), "", 0),
 		handler: requireAdmission(adm.Request, h),
 		tlsCfg: &tls.Config{
 			MinVersion:   tls.VersionTLS13,
@@ -157,6 +162,7 @@ func (l *Listener) Apply(c Config) {
 		WriteTimeout:      writeTimeout,
 		IdleTimeout:       idleTimeout,
 		MaxHeaderBytes:    maxHeaderBytes,
+		ErrorLog:          l.errLog,
 	}
 	l.srv = srv
 	l.status = Status{Listening: true, Addr: raw.Addr().String(), Generation: l.gen}
@@ -190,4 +196,39 @@ func (l *Listener) closeLocked() {
 		l.srv = nil
 	}
 	l.status = Status{}
+}
+
+// handshakeAggregate 는 핸드셰이크 실패를 모아 한 줄로 남기는 주기다.
+const handshakeAggregate = time.Minute
+
+// handshakeLog 는 노드 포트 http.Server 의 오류 기록이다. 짝이 아닌 누구나 핸드셰이크를
+// 실패시킬 수 있으므로, 그 실패는 주기마다 한 줄(건수)로 모은다. 실패마다 남기면 로그
+// 상한이 감사 기록을 밀어낸다 (I-71). 다른 오류는 그대로 남긴다.
+type handshakeLog struct {
+	mu   sync.Mutex
+	now  func() time.Time
+	n    int
+	last time.Time
+}
+
+func newHandshakeLog(now func() time.Time) *handshakeLog { return &handshakeLog{now: now} }
+
+func (h *handshakeLog) Write(p []byte) (int, error) {
+	line := strings.TrimSpace(string(p))
+	if !strings.Contains(line, "TLS handshake error") {
+		dmlog.Infof(nil, "peer listener: %s", line)
+		return len(p), nil
+	}
+	h.mu.Lock()
+	h.n++
+	now := h.now()
+	if now.Before(h.last.Add(handshakeAggregate)) {
+		h.mu.Unlock()
+		return len(p), nil
+	}
+	n := h.n
+	h.n, h.last = 0, now
+	h.mu.Unlock()
+	dmlog.Infof(nil, "peer listener: TLS handshake failures count=%d (최근: %s)", n, line)
+	return len(p), nil
 }

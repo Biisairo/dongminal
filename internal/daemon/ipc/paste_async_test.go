@@ -119,3 +119,86 @@ func TestGuardedPasteSerializedPerTool(t *testing.T) {
 		t.Fatalf("전경 조회 %d, 기대 6 (paste 마다 2)", probes.Load())
 	}
 }
+
+// 보안 재리뷰(3차) #2: 같은 키의 일은 넣은 순서대로 하나씩 돈다. 다른 키는 기다리지 않는다.
+func TestSerialQueueFIFO(t *testing.T) {
+	var q serialQueue
+	var mu sync.Mutex
+	var order []int
+	done := make(chan struct{}, 20)
+	for i := range 20 {
+		q.run("a", func() {
+			if i == 0 {
+				time.Sleep(30 * time.Millisecond)
+			}
+			mu.Lock()
+			order = append(order, i)
+			mu.Unlock()
+			done <- struct{}{}
+		})
+	}
+	other := make(chan struct{})
+	q.run("b", func() { close(other) })
+	select {
+	case <-other:
+	case <-time.After(time.Second):
+		t.Fatal("다른 키가 기다렸다")
+	}
+	for range 20 {
+		<-done
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	for i, v := range order {
+		if v != i {
+			t.Fatalf("순서가 바뀌었다 %v", order)
+		}
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if len(q.q) != 0 {
+		t.Fatalf("빈 키가 남았다 %v", q.q)
+	}
+}
+
+// 정확성 재리뷰(3차) #1: 조건 없는 paste 와 write 도 같은 도구의 줄 뒤에 선다. 한 paste 의
+// 글과 제출 사이에 다른 paste·글이 끼지 않는다. 다른 요청은 기다리지 않는다.
+func TestPasteAndWriteQueueBehindGuardedPaste(t *testing.T) {
+	pc := asyncConn(t, "a")
+	release := make(chan struct{})
+	var first atomic.Bool
+	first.Store(true)
+	t.Cleanup(toolhub.SetForegroundProbe(func(ids []string) map[string]string {
+		if first.CompareAndSwap(true, false) {
+			<-release
+		}
+		return map[string]string{ids[0]: "claude"}
+	}))
+	go func() {
+		pc.dispatch(guardedPaste(1, "a"))
+		pc.dispatch(&toolipc.PanedRequest{ID: 2, Method: toolipc.MethodPaste, Params: json.RawMessage(`{"id":"a","data":"aGk=","submit":true}`)})
+		pc.dispatch(&toolipc.PanedRequest{ID: 3, Method: toolipc.MethodWrite, Params: json.RawMessage(`{"id":"a","data":"aGk="}`)})
+		pc.dispatch(&toolipc.PanedRequest{ID: 4, Method: toolipc.MethodBusy, Params: json.RawMessage(`{"id":"a"}`)})
+	}()
+	select {
+	case v := <-pc.out:
+		if respID(t, v) != 4 {
+			close(release)
+			t.Fatalf("먼저 온 응답 id=%d — 같은 도구의 줄을 앞질렀다", respID(t, v))
+		}
+	case <-time.After(2 * time.Second):
+		close(release)
+		t.Fatal("다른 요청이 막혔다")
+	}
+	close(release)
+	for _, want := range []int64{1, 2, 3} {
+		select {
+		case v := <-pc.out:
+			if respID(t, v) != want {
+				t.Fatalf("응답 순서: id=%d, 기대 %d", respID(t, v), want)
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatalf("응답 %d 이 없다", want)
+		}
+	}
+}

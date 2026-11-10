@@ -137,7 +137,7 @@ func TestPasteForegroundGuard(t *testing.T) {
 	}))
 	pc := &panedConn{pm: pm, encoder: json.NewEncoder(&bytes.Buffer{})}
 	paste := func() []byte {
-		res := pc.paste(&toolipc.PanedRequest{ID: 1, Params: json.RawMessage(`{"id":"7","data":"aGk=","foreground":"claude"}`)})
+		res := pc.pasteWith(&toolipc.PanedRequest{ID: 1}, toolipc.PasteParams{ID: "7", Data: []byte("hi"), Foreground: "claude"})
 		b, err := json.Marshal(res)
 		if err != nil {
 			t.Fatal(err)

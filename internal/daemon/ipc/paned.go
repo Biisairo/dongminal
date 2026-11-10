@@ -42,8 +42,9 @@ type panedConn struct {
 	// slow 는 create·restore 의 연결당 세마포어다 (panedSlowMax).
 	slow chan struct{}
 
-	// pasteLocks 는 조건부 paste 를 도구마다 차례로 세운다 (S6).
-	pasteLocks keyedLocks
+	// toolQueue 는 paste 를 도구마다 도착 순서대로 세운다. 그 도구에 줄이 있는 동안은
+	// write·input 도 뒤에 선다 (S6, I-68).
+	toolQueue serialQueue
 
 	// wireTool is set by PanedServer to hook tool output/exit into this conn.
 	wireTool func(p *toolhub.Tool)
@@ -166,6 +167,11 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 		go func() { pc.enqueue(pc.terminate(req), false) }()
 		return
 	case toolipc.MethodWrite:
+		// 그 도구에 줄이 있으면 뒤에 선다 — 앞선 paste 의 글과 제출 사이에 끼지 않는다.
+		if id := pc.toolOf(req); id != "" && pc.toolQueue.busy(id) {
+			pc.toolQueue.run(id, func() { pc.enqueue(pc.write(req), false) })
+			return
+		}
 		resp = pc.write(req)
 	case toolipc.MethodPaste:
 		p, perr := decodeParams[toolipc.PasteParams](req)
@@ -173,26 +179,25 @@ func (pc *panedConn) dispatch(req *toolipc.PanedRequest) {
 			resp = *perr
 			break
 		}
-		// S6: 전경 조건이 있는 paste 는 전경 조회 두 번과 제출 틈을 기다린다. 읽기 루프에서
-		// 돌면 그동안 이 연결의 다른 도구 입력·RPC 가 멈춘다. 같은 도구의 조건부 paste
-		// 끼리는 차례를 지킨다.
-		if p.Foreground != "" {
-			go func() {
-				unlock := pc.pasteLocks.lock(p.ID)
-				defer unlock()
-				select {
-				case <-pc.done:
-					return
-				default:
-				}
-				pc.enqueue(pc.pasteWith(req, p), false)
-			}()
-			return
-		}
-		resp = pc.pasteWith(req, p)
+		// S6·I-68: paste 는 제출 틈(120ms)과 전경 조회를 기다린다. 읽기 루프에서 돌면
+		// 그동안 이 연결의 다른 도구 입력·RPC 가 멈춘다. 그래서 도구별 줄에 도착 순서대로
+		// 세운다 — 같은 도구의 paste·write·input 은 변경 전처럼 차례를 지킨다.
+		pc.toolQueue.run(p.ID, func() {
+			select {
+			case <-pc.done:
+				return
+			default:
+			}
+			pc.enqueue(pc.pasteWith(req, p), false)
+		})
+		return
 	case toolipc.MethodResize:
 		resp = pc.resize(req)
 	case toolipc.MethodInput:
+		if id := pc.toolOf(req); id != "" && pc.toolQueue.busy(id) {
+			pc.toolQueue.run(id, func() { pc.input(req) })
+			return
+		}
 		pc.input(req)
 		return
 	case toolipc.MethodResizeNotify:
@@ -243,37 +248,57 @@ func (pc *panedConn) serverHas(name string) bool {
 	return toolipc.HasFeature(pc.serverFeatures, name)
 }
 
-// keyedLocks 는 키마다의 잠금이다. 쥔 쪽이 없는 키는 지운다.
-type keyedLocks struct {
+// serialQueue 는 키마다 일을 넣은 순서대로 하나씩 돌린다. 넣기는 부르는 쪽(읽기 루프)에서
+// 동기로 일어나므로 도착 순서가 곧 실행 순서다. 일이 없는 키는 지운다.
+type serialQueue struct {
 	mu sync.Mutex
-	m  map[string]*keyedLock
+	q  map[string][]func()
 }
 
-type keyedLock struct {
-	mu sync.Mutex
-	n  int
+// run 은 fn 을 key 의 줄 끝에 넣는다. 줄이 비어 있었으면 그 줄을 비울 고루틴을 띄운다.
+func (s *serialQueue) run(key string, fn func()) {
+	s.mu.Lock()
+	if s.q == nil {
+		s.q = map[string][]func(){}
+	}
+	pending, busy := s.q[key]
+	s.q[key] = append(pending, fn)
+	s.mu.Unlock()
+	if !busy {
+		go s.drain(key)
+	}
 }
 
-// lock 은 key 의 잠금을 쥐고, 놓는 함수를 돌려준다.
-func (k *keyedLocks) lock(key string) (unlock func()) {
-	k.mu.Lock()
-	if k.m == nil {
-		k.m = map[string]*keyedLock{}
-	}
-	l := k.m[key]
-	if l == nil {
-		l = &keyedLock{}
-		k.m[key] = l
-	}
-	l.n++
-	k.mu.Unlock()
-	l.mu.Lock()
-	return func() {
-		l.mu.Unlock()
-		k.mu.Lock()
-		if l.n--; l.n == 0 {
-			delete(k.m, key)
+// busy 는 key 의 줄에 도는 일이나 기다리는 일이 있는가다. 줄에 넣는 쪽이 읽기 루프
+// 하나뿐이므로, 거짓을 본 뒤 제자리에서 돌려도 앞선 일을 앞지르지 않는다.
+func (s *serialQueue) busy(key string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, ok := s.q[key]
+	return ok
+}
+
+func (s *serialQueue) drain(key string) {
+	for {
+		s.mu.Lock()
+		fns := s.q[key]
+		if len(fns) == 0 {
+			delete(s.q, key)
+			s.mu.Unlock()
+			return
 		}
-		k.mu.Unlock()
+		fn := fns[0]
+		s.q[key] = fns[1:]
+		s.mu.Unlock()
+		fn()
 	}
+}
+
+// toolOf 는 write·input 요청이 가리키는 도구다. 읽지 못하면 빈 값이다(처리기가 오류로 답한다).
+func (pc *panedConn) toolOf(req *toolipc.PanedRequest) string {
+	p, perr := decodeParams[toolipc.WriteParams](req)
+	if perr != nil {
+		return ""
+	}
+	return p.ID
 }

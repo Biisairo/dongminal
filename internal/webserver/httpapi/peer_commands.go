@@ -179,6 +179,9 @@ func (s *Server) peerMessageSend(w http.ResponseWriter, r *http.Request, from pe
 	if toolID == "" || s.ToolIO == nil || !s.ToolIO.Has(toolID) {
 		return fail(http.StatusNotFound, apierr.CodePeerTargetMissing, "no such tool")
 	}
+	// I-70: 닫는 중 확인부터 붙여넣기가 끝날 때까지 close 가 끼지 못한다.
+	s.peerDeliverMu.RLock()
+	defer s.peerDeliverMu.RUnlock()
 	ad, ok := s.agentOfTool(toolID)
 	if !ok || s.peerIsClosing(toolID) {
 		return fail(http.StatusConflict, apierr.CodePeerTargetNotAgent, "not an agent")

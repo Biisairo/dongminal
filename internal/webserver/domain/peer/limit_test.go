@@ -47,7 +47,6 @@ func TestRateLimiterSlidingWindow(t *testing.T) {
 	}
 }
 
-// 마지막 응답 시각 (FR-PNW-73 dmctl peers).
 // S9: 키는 상대가 고를 수 있다(지문·주소). 창을 지난 키는 지워서 맵이 끝없이 크지 않게 한다.
 func TestRateLimiterForgetsStaleKeys(t *testing.T) {
 	clk := newFakeClock()
@@ -68,6 +67,7 @@ func (r *RateLimiter) size() int {
 	return len(r.hits)
 }
 
+// 마지막 응답 시각 (FR-PNW-73 dmctl peers).
 func TestLastSeen(t *testing.T) {
 	clk := newFakeClock()
 	ls := NewLastSeen()
@@ -97,5 +97,49 @@ func TestStoreNameOf(t *testing.T) {
 	}
 	if _, ok := s.ByName("nope"); ok {
 		t.Fatal("없는 이름을 찾았다")
+	}
+}
+
+// 보안 재리뷰(3차) #4: 살아 있는 키가 문턱을 넘어도 정리는 창마다 한 번이다. 요청마다 맵 전체를
+// 훑지 않는다.
+func TestRateLimiterSweepsOncePerWindow(t *testing.T) {
+	clk := newFakeClock()
+	rl := NewRateLimiter(clk.now)
+	for i := range rateSweepAt {
+		rl.Allow(strconv.Itoa(i))
+	}
+	rl.Allow("x")
+	first := rl.sweeps
+	for i := range 10 {
+		rl.Allow("y" + strconv.Itoa(i))
+	}
+	if rl.sweeps != first {
+		t.Fatalf("창 안에서 정리를 %d번 더 돌았다", rl.sweeps-first)
+	}
+	clk.advance(rateWindow)
+	rl.Allow("z")
+	if rl.sweeps != first+1 {
+		t.Fatalf("창이 지났는데 정리하지 않았다 (%d)", rl.sweeps)
+	}
+}
+
+// 보안 재리뷰(3차) #4: IPv6 는 /64 하나를 한 출발지로 센다. IPv4 는 주소 하나다.
+func TestPairRateKey(t *testing.T) {
+	cases := []struct {
+		a, b string
+		same bool
+	}{
+		{"2001:db8:1:2::1", "2001:db8:1:2:ffff::9", true},
+		{"2001:db8:1:2::1", "2001:db8:1:3::1", false},
+		{"10.0.0.1", "10.0.0.2", false},
+		{"::ffff:10.0.0.1", "10.0.0.1", true},
+	}
+	for _, c := range cases {
+		if got := AddrRateKey(c.a) == AddrRateKey(c.b); got != c.same {
+			t.Errorf("%s ~ %s: %v, 기대 %v (%q %q)", c.a, c.b, got, c.same, AddrRateKey(c.a), AddrRateKey(c.b))
+		}
+	}
+	if AddrRateKey("not-an-ip") == "" {
+		t.Error("읽지 못한 주소도 키가 있어야 한다")
 	}
 }

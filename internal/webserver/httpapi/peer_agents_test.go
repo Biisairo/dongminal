@@ -24,6 +24,9 @@ type peerFakeTools struct {
 	fg   map[string]string
 	// fresh 는 붙여넣기 직전의 새 조회 값이다. 없으면 fg 와 같다 — 캐시가 낡은 처지를 만든다.
 	fresh map[string]string
+	// gate 가 있으면 조건부 붙여넣기는 entered 를 알리고 gate 가 닫힐 때까지 기다린다.
+	gate    chan struct{}
+	entered chan struct{}
 }
 
 // SendPasteIfForeground 는 실물처럼 새 조회 값이 want 일 때만 넣는다 (I-47).
@@ -33,9 +36,14 @@ func (f *peerFakeTools) SendPasteIfForeground(id string, text []byte, submit boo
 	if !ok {
 		cur = f.fg[id]
 	}
+	gate, entered := f.gate, f.entered
 	f.fgMu.Unlock()
 	if cur != want {
 		return toolhub.ErrForegroundChanged
+	}
+	if gate != nil {
+		entered <- struct{}{}
+		<-gate
 	}
 	return f.fakeToolIO.SendPaste(id, text, submit)
 }

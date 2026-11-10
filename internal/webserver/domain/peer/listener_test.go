@@ -3,12 +3,17 @@ package peer
 import (
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"dongminal/internal/shared/dmlog"
 )
 
 // listenerFixture 는 노드 리스너 하나와 그 앞에 선 클라이언트 신원 둘이다.
@@ -373,4 +378,46 @@ func TestListenerHasTimeouts(t *testing.T) {
 	if srv.ReadTimeout <= 0 || srv.ReadTimeout > RequestTimeout || srv.WriteTimeout <= RequestTimeout || srv.MaxHeaderBytes <= 0 || srv.MaxHeaderBytes > 64<<10 {
 		t.Fatalf("read=%v write=%v header=%d", srv.ReadTimeout, srv.WriteTimeout, srv.MaxHeaderBytes)
 	}
+}
+
+// 보안 재리뷰(3차) #5: 짝이 아닌 누구나 핸드셰이크를 실패시킬 수 있다. 그 실패는 1분에 한
+// 줄로 모아 남긴다 — 실패마다 남기면 로그가 감사 기록을 밀어낸다. 다른 서버 오류는 그대로다.
+func TestHandshakeLogAggregates(t *testing.T) {
+	var buf syncBuf
+	dmlog.Init(dmlog.Options{Out: &buf})
+	t.Cleanup(dmlog.Reset)
+	clk := newFakeClock()
+	h := newHandshakeLog(clk.now)
+	for range 100 {
+		fmt.Fprintf(h, "http: TLS handshake error from 10.0.0.9:4000: 짝이 아닌 노드입니다\n")
+	}
+	if n := strings.Count(buf.String(), "handshake failures"); n != 1 {
+		t.Fatalf("1분 안의 실패가 %d줄이다\n%s", n, buf.String())
+	}
+	clk.advance(time.Minute)
+	fmt.Fprintf(h, "http: TLS handshake error from 10.0.0.9:4000: x\n")
+	if !strings.Contains(buf.String(), "count=100") {
+		t.Fatalf("모은 건수가 없다\n%s", buf.String())
+	}
+	fmt.Fprintf(h, "http: panic serving 1.2.3.4: boom\n")
+	if !strings.Contains(buf.String(), "panic serving") {
+		t.Fatal("다른 오류를 버렸다")
+	}
+}
+
+type syncBuf struct {
+	mu sync.Mutex
+	b  strings.Builder
+}
+
+func (s *syncBuf) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.Write(p)
+}
+
+func (s *syncBuf) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.String()
 }

@@ -66,7 +66,9 @@ func (s *Server) peerAdmission() peer.Admission {
 		Request: func(fp, path string) bool {
 			switch path {
 			case peerPairPath:
-				return true
+				// 짝이 아닌 상대는 초대가 살아 있을 때만이다. 초대가 있을 때 연 keep-alive
+				// 연결로 그 뒤에도 닿지 못하게 한다. 짝·대기는 만료 안내(peer_no_invite)를 받는다.
+				return s.pairing.HasInvite() || s.peers.IsPeer(fp) || s.peers.IsPendingOut(fp)
 			case peerConfirmPath:
 				return s.peers.IsPeer(fp) || s.peers.IsPendingOut(fp)
 			}
@@ -147,10 +149,10 @@ func (s *Server) peerPair(w http.ResponseWriter, r *http.Request) {
 		Proto int    `json:"proto"`
 	}
 	// S9: 짝이 아닌 상대도 닿는 경로다. 지문은 상대가 연결마다 바꿀 수 있으므로 출발지
-	// 주소마다 센다. 넘은 요청은 감사 로그에 남기지 않는다 — 실패마다 쌓이면 로그가 공격
+	// 주소마다 센다(IPv6 는 /64). 넘은 요청은 감사 로그에 남기지 않는다 — 실패마다 쌓이면 로그가 공격
 	// 대상이 된다.
 	host, _, _ := net.SplitHostPort(r.RemoteAddr)
-	if !s.peerLimiter.Allow(peerPairRateKey + host) {
+	if !s.peerLimiter.Allow(peerPairRateKey + peer.AddrRateKey(host)) {
 		peerFail(w, http.StatusTooManyRequests, apierr.CodePeerRateLimited, "rate limited")
 		return
 	}

@@ -122,6 +122,9 @@ type Server struct {
 	peerSpawns *peer.SpawnLog
 	// peerClosing 은 agent.close 가 닫는 중인 도구다. 그 동안은 원격 글을 넣지 않는다 (I-59).
 	peerClosing sync.Map
+	// peerDeliverMu 는 원격 글의 전달(닫는 중 확인 + 붙여넣기)과 agent.close 의 "닫는 중"
+	// 세우기를 가른다. 전달은 읽기 잠금, 세우기는 쓰기 잠금이다 (I-70).
+	peerDeliverMu sync.RWMutex
 
 	// hosts 는 `Host`·`Origin` 판정의 허용 집합이다 (REQUEST_GATE_SRS FR-RQG-6).
 	// `Access` 의 `self` 를 읽으므로 그 뒤에 만들어진다.

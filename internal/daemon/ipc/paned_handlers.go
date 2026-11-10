@@ -155,19 +155,10 @@ func (pc *panedConn) write(req *toolipc.PanedRequest) interface{} {
 	return okResp(req, struct{}{})
 }
 
-// paste 는 감싸기 판단까지 **데몬에서** 한다. 셸이 bracketed paste 모드를 켰는지는
+// pasteWith 는 감싸기 판단까지 **데몬에서** 한다. 셸이 bracketed paste 모드를 켰는지는
 // PTY 출력을 읽는 이쪽만 알고, 클라이언트의 Get(id) 은 cmd 없는 합성 Tool 을 주기
 // 때문이다 (BRACKETED_PASTE_SRS FR-BPW-4). cwd·busy 가 데몬 RPC 를 경유하는 것과
-// 같은 이유다.
-func (pc *panedConn) paste(req *toolipc.PanedRequest) interface{} {
-	p, perr := decodeParams[toolipc.PasteParams](req)
-	if perr != nil {
-		return *perr
-	}
-	return pc.pasteWith(req, p)
-}
-
-// pasteWith 는 읽은 인자로 paste 한다. Foreground 가 비면 조건 없이 넣는다 — 그 판정은
+// 같은 이유다. Foreground 가 비면 조건 없이 넣는다 — 그 판정은
 // 웹서버의 공통 입구가 한다 (PEER_NETWORK_SRS I-67). 이 갈래는 평범한 SendPaste 다.
 func (pc *panedConn) pasteWith(req *toolipc.PanedRequest, p toolipc.PasteParams) interface{} {
 	var err error

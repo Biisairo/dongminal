@@ -463,8 +463,9 @@ func TestPairRejectsUnusableAddrBeforeConsume(t *testing.T) {
 	}
 }
 
-// S9: 등록 요청도 지문마다 분당 상한을 지난다. 넘으면 429 이고 감사 로그를 쌓지 않는다.
+// S9: 등록 요청도 출발지 주소마다 분당 상한을 지난다. 넘으면 429 이고 감사 로그를 쌓지 않는다.
 func TestPairRateLimited(t *testing.T) {
+	logs := captureLog(t)
 	b := newPeerNode(t, "node-b", true)
 	b.invite(t)
 	body := `{"token":"nope","name":"a","addr":"10.0.0.2","port":58147,"proto":1}`
@@ -477,6 +478,9 @@ func TestPairRateLimited(t *testing.T) {
 	if rec.Code != http.StatusTooManyRequests || !strings.Contains(rec.Body.String(), "peer_rate_limited") {
 		t.Fatalf("61번째: %d %s", rec.Code, rec.Body.String())
 	}
+	if n := strings.Count(logs.String(), "op=pair "); n != peer.PerPeerPerMinute {
+		t.Fatalf("감사 줄 %d, 기대 %d (넘은 요청은 남기지 않는다)", n, peer.PerPeerPerMinute)
+	}
 	// 지문은 상대가 바꿀 수 있으므로 출발지 주소로 센다. 다른 주소는 막히지 않는다.
 	req := httptest.NewRequest(http.MethodPost, peerPairPath, strings.NewReader(body))
 	req.RemoteAddr = "10.0.0.9:40000"
@@ -484,5 +488,32 @@ func TestPairRateLimited(t *testing.T) {
 	b.srv.peerPair(rec, req)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("다른 주소: %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+// 보안 재리뷰(3차) #3: 초대가 쓰이거나 사라진 뒤에는, 초대가 살아 있을 때 연 연결로도
+// 짝이 아닌 상대는 등록 경로에 닿지 못한다.
+func TestPairPathNeedsLiveInviteForStrangers(t *testing.T) {
+	b := newPeerNode(t, "node-b", true)
+	adm := b.srv.peerAdmission()
+	stranger := strings.Repeat("ee", 32)
+	ic, err := peer.DecodeInvite(b.invite(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !adm.Request(stranger, peerPairPath) {
+		t.Fatal("초대가 살아 있는데 막았다")
+	}
+	if err := b.srv.pairing.Consume(ic.Token); err != nil {
+		t.Fatal(err)
+	}
+	if adm.Request(stranger, peerPairPath) {
+		t.Fatal("초대가 없는데 짝이 아닌 상대를 들였다")
+	}
+	if err := b.srv.peers.AddPeer(peerFixture("c")); err != nil {
+		t.Fatal(err)
+	}
+	if !adm.Request(peerFixture("c").Fingerprint, peerPairPath) {
+		t.Fatal("짝의 다시 등록을 요청 단계에서 막았다 — peer_no_invite 안내를 받지 못한다")
 	}
 }

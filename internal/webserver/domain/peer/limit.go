@@ -1,6 +1,7 @@
 package peer
 
 import (
+	"net/netip"
 	"sync"
 	"time"
 )
@@ -14,11 +15,30 @@ const rateWindow = time.Minute
 // 있다(등록 요청의 주소·지문) — 지우지 않으면 맵이 끝없이 커진다.
 const rateSweepAt = 1024
 
+// AddrRateKey 는 출발지 주소의 상한 키다. IPv6 는 /64 하나를 한 출발지로 센다 — 한 망이
+// 연결마다 주소를 바꿔 상한을 피하지 못하게 한다. IPv4(IPv4 사상 IPv6 포함)는 주소 하나다.
+// 읽지 못한 값은 그대로 키로 쓴다.
+func AddrRateKey(host string) string {
+	a, err := netip.ParseAddr(host)
+	if err != nil {
+		return host
+	}
+	a = a.Unmap().WithZone("")
+	if a.Is4() {
+		return a.String()
+	}
+	return netip.PrefixFrom(a, 64).Masked().String()
+}
+
 // RateLimiter 는 짝(지문)마다 지난 1분의 요청 시각을 센다.
 type RateLimiter struct {
 	mu   sync.Mutex
 	now  func() time.Time
 	hits map[string][]time.Time
+	// lastSweep 는 마지막 정리 시각이다. 정리는 창마다 한 번이다 — 살아 있는 키가 많을 때
+	// 요청마다 맵 전체를 훑지 않는다. sweeps 는 정리 횟수다(시험용).
+	lastSweep time.Time
+	sweeps    int
 }
 
 // NewRateLimiter 는 now 를 시계로 쓴다.
@@ -32,7 +52,9 @@ func (r *RateLimiter) Allow(key string) bool {
 	defer r.mu.Unlock()
 	now := r.now()
 	cut := now.Add(-rateWindow)
-	if len(r.hits) >= rateSweepAt {
+	if len(r.hits) >= rateSweepAt && !now.Before(r.lastSweep.Add(rateWindow)) {
+		r.lastSweep = now
+		r.sweeps++
 		for k, ts := range r.hits {
 			if len(ts) == 0 || !ts[len(ts)-1].After(cut) {
 				delete(r.hits, k)
