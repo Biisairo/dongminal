@@ -82,10 +82,12 @@ const STATE_REGISTRY=[
      * ACTIVITY_RUNS_REFRESH_SRS FR-ARR-1~3 — 멤버 상태·생존은 서버가 물을 때 계산하므로
      * `run_changed` 로 오지 않는다. 패널이 열린 동안 활동 주기로 다시 받는다.
      * `run_changed` 구독은 대시보드도 다시 받으므로 `app-ws-sync.js` 에 남는다 (D-ARR-3).
+     * FR-ARR-6: 새로고침하면 패널이 열린 채로 복원되어 「열 때 받기」를 거치지 않는다 — 구독이 열릴 때 받는다.
      */
     id:'run.list',
     restore:'_runsListRestore',
     merge:'latest',
+    revalidateOn:['sse:open','softreload'],
     every:(app)=>app.agentsPollMs,
     when:(app)=>app._agentsPanelShown(),
   },

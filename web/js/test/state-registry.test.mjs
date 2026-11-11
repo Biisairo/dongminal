@@ -71,7 +71,7 @@ function snapshotRig() {
     timers: { every() {} },
   };
   for (const name of ['_attnRestore', '_activityRestore', '_bgRefresh', '_settingsRestore',
-    '_updateRestore', '_focusRestore', '_gitObserveRestore', '_pollGitJobs', '_peersRestore']) {
+    '_updateRestore', '_focusRestore', '_gitObserveRestore', '_pollGitJobs', '_peersRestore', '_runsListRestore']) {
     app[name] = (src) => { got[name] = src };
   }
   ctx.wireStateRegistry(app);
@@ -132,6 +132,18 @@ test('run.list 주기는 패널이 열려 있을 때만 활동 주기로 목록�
   assert.equal(job.when(), true);
   job.run();
   assert.equal(calls, 1);
+});
+
+/**
+ * ACTIVITY_RUNS_REFRESH_SRS TC-ARR-6 (FR-ARR-6) — 새로고침하면 패널이 열린 채로 복원되어
+ * 「열 때 받기」를 거치지 않는다. 그래서 구독이 열릴 때 곧바로 받아야 첫 주기를 기다리지 않는다.
+ */
+test('run.list 는 첫 연결·재연결·소프트 리로드에 목록을 다시 받는다', () => {
+  for (const [topic, a] of [['sse:open', { gen: 1 }], ['sse:open', { gen: 2 }], ['softreload', {}]]) {
+    const { got, fire } = snapshotRig();
+    fire(topic, a);
+    assert.ok('_runsListRestore' in got, `${topic} ${JSON.stringify(a)} 에 Runs 목록을 받지 않았다`);
+  }
 });
 
 /**
