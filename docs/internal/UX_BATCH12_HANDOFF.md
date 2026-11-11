@@ -2,7 +2,7 @@
 
 ## 1. 착수 블록 — 이번 세션의 지시 전부
 
-1. `docs/internal/UX_BATCH12_SRS.md` 의 **§0 요구사항 대장**을 읽는다. 남은 행은 **R18 → R20 → R19** 순서다.
+1. `docs/internal/UX_BATCH12_SRS.md` 의 **§0 요구사항 대장**을 읽는다. 남은 행은 **R18 → R21 → R22 → R20 → R19** 순서다(R21·R22 는 2026-11-11 마지막에 더한 결함·요구다).
 2. 행마다 순서는 고정이다: 스펙(SRS 를 먼저 고친다) → 실패하는 테스트(RED 확인) → 구현 → 관련 테스트 통과 → 대장 상태 고침 → **커밋**.
 3. 사용자 지시: "요구사항을 다 완료할 때까지 이어서 커밋하고 진행해." 검증을 통과하면 스스로 커밋한다. 커밋에 AI 서명(`Co-Authored-By` 등)을 넣지 않는다. push 하지 않는다.
 4. **R20·R19 는 질의응답으로 규칙을 정한 뒤 진행한다** (사용자 지시). 질문은 한 번에 하나, 권장안과 함께.
@@ -40,6 +40,11 @@
 - 도크(PANEL_DOCK_SRS): `data-ag-side` 로 좌우가 바뀐다. 사이드바 레일의 오른쪽 규칙(`style.css:807-808`)과 대칭인 규칙이 Activity 에 필요하다. Activity 가 닫혀 폭 0 이면 드롭 순서를 정하지 않는다(FR-PDK-32) — 레일이면 폭이 있다.
 - 바뀌어야 할 시험(버튼 `#agents-toggle` 을 직접 쓴다): `activity.spec.ts`, `background-ui.spec.ts`(TC-SBR-5·TC-CHR-18·TC-ACT-4 등), `window-slots.spec.ts` TC-WSL-21c(상단바 마지막 버튼), `mobile-keybar.spec.ts:502-505`, `panel-layout.spec.ts` `arrange()`, `panel-dock.spec.ts` PDK3, 단위 `width-handle.test.mjs:25-26`. 관련 SRS: SIDEBAR_COLLAPSE_SRS, PANEL_LAYOUT_SRS, PANEL_DOCK_SRS, UIUX_OVERHAUL_SRS FR-CHR-15~18, ACTIVITY_RUNS_REFRESH_SRS FR-ARR-4·5, PANEL_SHORTCUTS_SRS FR-PSC-3.
 - 문서-코드 어긋남(작업 끝에 사용자에게 보고): `core/constants.js:294` 주석과 SIDEBAR_COLLAPSE_SRS FR-SBC-4 가 "localStorage" 라고 하나 코드는 sessionStorage 다. UIUX_OVERHAUL_SRS FR-ACT-3 은 철회됐다.
+
+## 3a. R21·R22 (조사 전)
+
+- R21 알람 끄기: 알람 판정의 자리는 `core/app-attn.js`(`_isToolFocusedActive`, 알람 억제는 FR-SVS-13·ATTENTION_FIRING_SRS FR-ATA-2·7). "포커스를 그 탭으로 옮기는 동작"이 알람을 지우는 길을 찾는다 — 지금은 탭 화면 클릭만 지운다. 포커스 이동의 단일 통로는 `switchTab`(`core/app-layout.js:789`)·`setFocusState`·창 전환이다. 이미 포커스가 있는 탭은 지금처럼 클릭으로 지운다.
+- R22 그룹 삼각형: Windows 사이드바 목록(`ui/sidebar-list.js`)의 그룹 접기 단추. 빠른 클릭(더블클릭)으로 글자 선택이 생기는 것으로 보인다 — `user-select:none` 또는 mousedown 기본 동작 막기를 확인한다.
 
 ## 4. 이 묶음에서 배운 것
 
