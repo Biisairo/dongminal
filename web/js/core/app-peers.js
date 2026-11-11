@@ -34,6 +34,11 @@ Object.assign(App.prototype, {
         this._peersPendingNotice(r.data.pending||[]);
         this._peersExpiryArm(r.data.pending||[]);
         this._peersPaint();
+        // UX_BATCH12 FR-LIV-4: 노드 설정 폼은 목록과 따로 — 지문이 바뀌었을 때만 따라간다.
+        const v=r.data;
+        if(this._liveOpen('peers')) this._liveChanged('peers',r,this._pnNodeCollect(),()=>{
+          this._pnNodePaint(v); this._liveMark('peers',r,this._pnNodeCollect());
+        });
       }
       this._restoreEnd('peers',flight);
     });

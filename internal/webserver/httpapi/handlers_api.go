@@ -617,6 +617,7 @@ func (s *Server) apiSandboxConfigGet(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusInternalServerError, "샌드박스 정의를 읽지 못했습니다", err)
 		return
 	}
+	w.Header().Set("ETag", settingsTag(cfg))
 	httpresp.JSON(w, http.StatusOK, cfg)
 }
 
@@ -634,6 +635,13 @@ func (s *Server) apiSandboxConfigPut(w http.ResponseWriter, r *http.Request) {
 		failRead(w, err)
 		return
 	}
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
+	if cur := s.sandboxTag(); settingsStale(r, cur) {
+		w.Header().Set("ETag", cur)
+		httpErr(w, "stale revision", http.StatusConflict, apierr.CodeStaleRev)
+		return
+	}
 	if err := s.Sandbox.SaveConfig(body); err != nil {
 		if errors.Is(err, sandbox.ErrSaveFailed) {
 			// 저장 실패의 사유에는 정의 파일의 절대경로가 들어 있다.
@@ -644,5 +652,19 @@ func (s *Server) apiSandboxConfigPut(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, err.Error(), nil)
 		return
 	}
+	// UX_BATCH12 FR-LIV-3: 저장이 끝난 뒤에 알린다 — 열린 다른 패널이 곧바로 다시 읽는다.
+	if s.Commands != nil {
+		s.Commands.Broadcast(sse.Payload("sandbox_changed", map[string]any{}))
+	}
+	w.Header().Set("ETag", s.sandboxTag())
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// sandboxTag 은 지금 저장된 샌드박스 정의의 지문이다. 읽지 못하면 빈 문자열이다.
+func (s *Server) sandboxTag() string {
+	cfg, err := s.Sandbox.Config()
+	if err != nil {
+		return ""
+	}
+	return settingsTag(cfg)
 }

@@ -176,4 +176,35 @@ test.describe('접속 허용 목록', () => {
     await expect(page.locator('#acl-status')).toHaveText('저장했습니다');
     await expect(page.locator('.ui-modal.acl-confirm')).toHaveCount(0);
   });
+
+  // UX_BATCH12 TC-LIV-3 (FR-LIV-4·5·6): 패널을 연 채 다른 곳에서 바꾸면 — 수정이 없으면 다시
+  // 그리고, 있으면 덮지 않고 알린다. 낡은 패널의 저장은 409 로 막히고 서버 값이 그대로다.
+  test('TC-LIV-3: 다른 곳의 변경을 따라가고, 수정 중이면 알리고, 낡은 저장을 막는다', async ({ page }) => {
+    await openAccessTab(page);
+    const put = (entries: any[]) => page.request.put('/api/access', {
+      data: { enabled: false, entries, hosts: [] },
+    });
+    const rows = page.locator('#acl-list .acl-row');
+    const notice = page.locator('#panel-access .settings-stale');
+
+    await put([{ id: 'x', value: '10.9.9.9', label: 'ext', enabled: true }]);
+    await expect(rows).toHaveCount(1, { timeout: 10000 });
+    await expect(notice).toHaveCount(0);
+
+    await page.click('#acl-add');
+    await rows.last().locator('.acl-value').fill('10.1.1.1');
+    await put([]);
+    await expect(notice).toBeVisible({ timeout: 10000 });
+    await expect(rows).toHaveCount(2);
+
+    await page.click('#acl-save');
+    await expect(page.locator('#acl-status')).not.toHaveText('', { timeout: 10000 });
+    const now = await (await page.request.get('/api/access')).json();
+    expect(now.entries).toEqual([]);
+    await expect(notice).toBeVisible();
+
+    await notice.locator('button').click();
+    await expect(rows).toHaveCount(0);
+    await expect(notice).toHaveCount(0);
+  });
 });

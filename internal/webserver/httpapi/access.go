@@ -655,6 +655,7 @@ func (s *Server) apiAccessGet(w http.ResponseWriter, r *http.Request) {
 		v.Hostname = s.hosts.hostname
 	}
 	v.Host = normalizeHost(r.Host)
+	w.Header().Set("ETag", settingsTag(s.Access.config()))
 	httpresp.JSON(w, http.StatusOK, v)
 }
 
@@ -673,6 +674,13 @@ func (s *Server) apiAccessPut(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, "invalid json", http.StatusBadRequest, apierr.CodeInvalidJSON)
 		return
 	}
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
+	if cur := settingsTag(s.Access.config()); settingsStale(r, cur) {
+		w.Header().Set("ETag", cur)
+		httpErr(w, "stale revision", http.StatusConflict, apierr.CodeStaleRev)
+		return
+	}
 	if err := s.Access.setConfig(cfg); err != nil {
 		if errors.Is(err, errAccessSaveFailed) {
 			fail(w, http.StatusInternalServerError, err.Error(), nil)
@@ -689,6 +697,7 @@ func (s *Server) apiAccessPut(w http.ResponseWriter, r *http.Request) {
 	if s.Commands != nil {
 		s.Commands.Broadcast(accessChangedPayload())
 	}
+	w.Header().Set("ETag", settingsTag(s.Access.config()))
 	w.WriteHeader(http.StatusOK)
 }
 

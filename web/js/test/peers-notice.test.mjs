@@ -14,7 +14,7 @@ import { load } from './harness.mjs';
 function setup() {
   const shown = [];
   let next = { ok: true, status: 200, data: { pending: [] } };
-  const ctx = load(['core/state-registry.js', 'core/app-peers.js'], {
+  const ctx = load(['core/state-registry.js', 'core/settings-live.js', 'core/app-peers.js'], {
     expose: ['peerFp16', 'peerRemain'],
     globals: {
       App: function App() {},
@@ -32,6 +32,7 @@ function setup() {
     },
   });
   const app = new ctx.App();
+  app._liveOpen = () => false; // 설정 패널이 열려 있지 않다 (UX_BATCH12 FR-LIV-4)
   app.timers = { after: () => ({ stop() {} }), cancel() {} };
   app._restoreBegin = () => 1;
   app._restoreLive = () => true;
@@ -115,7 +116,7 @@ test('paired 방송은 "등록됨" 알림을 남긴다', async () => {
  */
 test('탭을 여는 읽기가 밀려도 노드 칸은 그 값으로 채운다', async () => {
   const data = { node: { name: 'office', port: 58147 }, pending: [{ id: 'p1' }], peers: [{ name: 'b' }] };
-  const ctx = load(['core/state-registry.js', 'core/app-peers.js', 'core/app-settings-peers.js'], {
+  const ctx = load(['core/state-registry.js', 'core/settings-live.js', 'core/app-peers.js', 'core/app-settings-peers.js'], {
     globals: {
       App: function App() {},
       t: (k) => k,
@@ -134,6 +135,7 @@ test('탭을 여는 읽기가 밀려도 노드 칸은 그 값으로 채운다', 
   app._pnNodePaint = (v) => { painted.node = v };
   app._pnPendingPaint = (p, force) => { painted.pending = [p, force] };
   app._pnPeersPaint = (p, force) => { painted.peers = [p, force] };
+  app._pnNodeCollect = () => ({}); // 폼 DOM 은 이 시험의 대상이 아니다 (UX_BATCH12 FR-LIV-6 의 기준값)
   await app._loadPeersPanel();
   assert.equal(painted.node, data);
   assert.deepEqual(painted.pending, [data.pending, true]);
@@ -150,7 +152,7 @@ test('승인 대기가 만료되는 때에 한 번 다시 읽는다', async () =
   const now = Date.parse('2026-11-10T00:00:00Z');
   let next = { ok: true, status: 200, data: { pending: [
     { id: 'p1', expires: '2026-11-10T00:05:00Z' }, { id: 'p2', expires: '2026-11-10T00:02:00Z' }] } };
-  const ctx = load(['core/state-registry.js', 'core/app-peers.js'], {
+  const ctx = load(['core/state-registry.js', 'core/settings-live.js', 'core/app-peers.js'], {
     globals: {
       App: function App() {},
       t: (k) => k,
@@ -160,6 +162,7 @@ test('승인 대기가 만료되는 때에 한 번 다시 읽는다', async () =
     },
   });
   const app = new ctx.App();
+  app._liveOpen = () => false; // 설정 패널이 열려 있지 않다 (UX_BATCH12 FR-LIV-4)
   app.timers = {
     after: (ms, fn) => { const h = { ms, fn, stop: () => cleared.push(h) }; timers.push(h); return h },
     cancel: (h) => { if (h) h.stop() },

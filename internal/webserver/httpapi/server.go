@@ -122,6 +122,8 @@ type Server struct {
 	// peerLimiter·peerSeen 은 짝마다의 분당 상한과 마지막 응답 시각이다 (묶음 R).
 	peerLimiter *peer.RateLimiter
 	peerSeen    *peer.LastSeen
+	// settingsMu 는 설정 PUT 의 지문 검사와 저장을 한 덩이로 묶는다 (UX_BATCH12 FR-LIV-2).
+	settingsMu sync.Mutex
 	// peerSpawns 는 다른 노드가 띄운 도구와 그 짝이다 (FR-PNW-62).
 	peerSpawns *peer.SpawnLog
 	// peerGate 는 원격 글의 도구별 전달 상태다 — 동시 1건, 닫는 중 (I-59·I-70·I-73).

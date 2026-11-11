@@ -237,6 +237,14 @@ const STATE_REGISTRY=[
     events:{peers_changed:'_onPeersChanged'},
     revalidateOn:['sse:open','softreload'],
   },
+  {
+    /**
+     * UX_BATCH12 FR-LIV-4 — 열린 설정 패널이 다른 곳의 저장을 따라간다. 패널이 닫혀 있으면
+     * 아무것도 하지 않는다 — 열 때 읽는다.
+     */
+    id:'settings.live',
+    events:{access_changed:'_onAccessChanged',sandbox_changed:'_onSandboxChanged'},
+  },
 ];
 
 /**

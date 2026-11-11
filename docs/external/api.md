@@ -172,7 +172,7 @@
 |---|---|---|
 | GET | `/api/health` | 사람이 읽는 상태. 판·가동 시간·도구 수·데몬 연결과 **판 불일치**·워크스페이스 rev·마지막 적재/영속 실패. 어긋난 것이 있어도 200 이며 사실은 본문에 있다 |
 | GET | `/api/diag` | 기계가 읽는 집계. `tools`·`ws`·`goroutines`·`allocMB`·`persistErr`·`gate.{access,request}`(게이트별 거절 수)·`reconnects`·`uptime`·`version`·`logLevel`. **개별 식별 정보를 싣지 않는다** — 주소·경로·도구 이름이 없다 |
-| GET | `/api/access` | 접속 허용 목록(ACL)의 현재 설정 |
+| GET | `/api/access` | 접속 허용 목록(ACL)의 현재 설정. 응답 헤더 `ETag` 는 저장된 설정의 지문이다. 같은 지문을 `PUT /api/access` 의 `If-Match` 로 실으면, 그 사이 다른 곳에서 바뀌었을 때 409 `stale_rev`(지금 지문을 `ETag` 에 실음)로 거절하고 아무것도 바꾸지 않는다. `If-Match` 가 없으면 지금처럼 저장한다. 저장 응답도 새 `ETag` 를 싣는다 |
 | POST | `/api/access/check` | 본문은 `PUT /api/access` 와 같다. 그 목록을 저장하면 지금 출발지가 잠기는지의 답 `{actions:{"access.save":{ok,why,args}}, you}` — 잠기면 `locks_you_out`(`args.you`). 저장하지 않으며, 거절이 아니라 경고다. 검증 실패는 PUT 과 같은 400 |
 | ANY | `/api/open-url/where` | URL 을 **어디서** 열지의 판정만 낸다 (부작용 없음) |
 
@@ -221,7 +221,7 @@
 | 메서드 | 경로 | 설명 |
 |---|---|---|
 | GET | `/api/sandbox/profiles` | 정의된 프로파일 목록. 프로파일마다 `workPicks`(`[{work, copies}]`, 창을 열 때 고를 수 있는 작업 방식 — `copies` 면 안의 변경이 호스트로 돌아오지 않는다. 폴더를 쓰지 않는 프로파일은 빈 배열). 헤더 `X-Sandbox-Only-Default: 1\|0` 은 목록이 기본 프로파일(`scratch`) 하나뿐인가다 |
-| GET | `/api/sandbox/config` | 샌드박스 설정 |
+| GET | `/api/sandbox/config` | 샌드박스 설정. `ETag`·`If-Match`·409 `stale_rev` 는 `/api/access` 와 같다. `PUT` 이 성공하면 `sandbox_changed` 를 방송한다 |
 | GET | `/api/sandbox/runtime` | 컨테이너 런타임의 상태 — `ok`·`missing`·`stopped`. 셋은 사용자가 할 일이 다르다. `ready`(데몬에 닿았다)·`installed`(바이너리가 있다)는 그 뜻이다. `actions["sandbox.runtime.start"]` 는 시작할 수 있는지의 답(`{ok, why}`)이다 |
 | POST | `/api/sandbox/runtime/start` | 멎어 있는 런타임을 띄운다. 상태를 다시 조회해 답이 거짓이면 아무것도 실행하지 않고 409 `runtime_missing`·`runtime_start_manual` 로 거절한다 |
 
@@ -232,7 +232,7 @@ UI 리스너(loopback)에만 있습니다. 오류 본문은 `{code, message}` �
 | 메서드 | 경로 | 설명 |
 |---|---|---|
 | GET | `/api/peers` | 이 노드(`node`: 설정·지문·`listening`·열지 못한 사유 `error`), 짝 목록(`peers`, `state` 가 빈 값이면 짝, `pending-out` 이면 상대의 승인을 기다리는 중), 승인 대기(`pending`), 살아 있는 초대의 만료(`invite`). 초대 토큰은 싣지 않는다. 노드 설정·초대·짝·승인 대기가 바뀌면 `peers_changed` 를 방송한다. 상대의 승인 통지나 명령 성공으로 `pending-out` 이 짝이 될 때도 방송한다. 바뀐 것이 없으면(이미 짝, 실패한 요청) 방송하지 않는다. 이 노드가 승인해 짝맞춤을 마쳤으면 `args.paired` 에 그 이름을 싣는다 |
-| PUT | `/api/peers/node` | 노드 설정(`enabled`·`port`·`bind`·`name`·`advertise`·`allowedDirs`)을 바꾸고 노드 포트에 바로 적용한다. 짝 목록은 바뀌지 않는다. 틀린 값은 400 `peer_config_invalid` |
+| PUT | `/api/peers/node` | 노드 설정(`enabled`·`port`·`bind`·`name`·`advertise`·`allowedDirs`)을 바꾸고 노드 포트에 바로 적용한다. 짝 목록은 바뀌지 않는다. 틀린 값은 400 `peer_config_invalid`. `GET /api/peers` 의 `ETag`(노드 설정의 지문)를 `If-Match` 로 실으면 낡았을 때 409 `stale_rev` 다 |
 | POST | `/api/peers/invite` | `{addr?}` → `{code, expires}`. 일회용 초대 코드(10분). 주소는 `addr`, 없으면 `advertise`. 노드 포트가 닫혀 있으면 409 `peer_port_closed`, 주소가 없으면 400 `peer_addr_required` |
 | POST | `/api/peers/add` | `{code, name?}` → `{name, state, warning?}`. `state` 는 실제로 저장된 상태다. 보통 `"pending-out"` 이고, 이미 짝이면 `""` 이다. 상대 노드에 연결해 지문을 대조하고 등록을 요청한다. `warning:"port_closed"` 는 이 노드의 포트가 닫혀 있어 상대가 보낼 수 없다는 뜻이다. 실패는 `peer_fingerprint_mismatch`·`peer_unreachable`·`peer_token_invalid` 등 |
 | GET | `/api/peers/pending` | `{pending:[{id, name, addr, port, fp, expires}]}` — 승인 대기 |
@@ -433,7 +433,8 @@ PTY 가 낸 누적 바이트 수이며, 서버의 `0x04` 통보에서 받은 값
 | `tool_activity` | 도구의 활동 상태 갱신 |
 | `tool_subagent_activity` | 서브에이전트의 활동 갱신 `{toolId, agentId, agentType, state, tool, detail}` |
 | `run_changed` | Run 기록이 바뀌었다. `args.runId`, 트리 Run 이면 `args.tree`. 대시보드는 이 신호로 다시 받는다 |
-| `peers_changed` | 노드 설정·초대·짝·승인 대기가 바뀌었다. 이 노드가 승인해 짝맞춤을 마쳤으면 `args.paired` 에 그 이름이 실린다 |
+| `sandbox_changed` | 샌드박스 정의가 저장됐다 — 본문은 없고 `GET /api/sandbox/config` 로 다시 받으라는 신호 |
+| `peers_changed` | 노드 설정·초대·짝·승인 대기가 바뀌었다. 짝에게서 인증된 호출을 받아 마지막 응답 시각이 바뀐 것도 짝마다 60초에 한 번 알린다. 이 노드가 승인해 짝맞춤을 마쳤으면 `args.paired` 에 그 이름이 실린다 |
 | `window_focus` | 창 포커스 소유권이 바뀌었다. `args.owners` 는 **전체 맵**이다 (증분이 아니다) |
 | `settings_changed` | 설정이 저장됐다 — 본문은 없고 `GET /api/settings` 로 다시 받으라는 신호. `args.origin`(선택)은 저장한 `PUT` 의 `clientId` 다 |
 | `fs_changed` | `PUT /api/fs/watch` 로 등록한 디렉터리의 직속 항목이 바뀌었다. `args.changes` 는 `[{path, type}]` 이고 `type` 은 `added`·`updated`·`deleted` 다. `path` 는 등록한 철자 그대로다. 75ms 동안 모아 같은 경로끼리 합친 값이다. 서버가 이벤트를 놓쳤으면 `args.overflow: true` 가 한 번 온다 — 그때는 폴링으로 다시 맞춘다 |

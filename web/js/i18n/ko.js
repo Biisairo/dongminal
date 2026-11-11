@@ -265,6 +265,8 @@ I18N.register('ko', {
   'editor.del_permanent': '영구 삭제입니다. 휴지통으로 가지 않으며 되돌릴 수 없습니다.',
   'editor.del_recover_hint': 'git checkout -- %s {으로로} 되돌릴 수 있습니다',
   'editor.download_link_no': '링크는 내려받을 수 없습니다',
+  'settings.stale_notice': '다른 곳에서 이 설정이 바뀌었습니다. 저장하지 않은 수정은 그대로 두었습니다',
+  'settings.stale_reload': '다시 불러오기',
   'editor.rename_many_no': '이름 바꾸기는 한 항목만 할 수 있습니다',
   'editor.empty_hint': '탐색기에서 파일을 열면 여기에 나타납니다',
   'editor.find_bad_re': '잘못된 정규식',

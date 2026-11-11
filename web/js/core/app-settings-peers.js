@@ -257,10 +257,10 @@ Object.assign(App.prototype, {
   },
 
   async _loadPeersPanel(){
-    let v=null;
+    let v=null,got=null;
     await statusRun(document.getElementById('pn-node-status'),{fail:t('peer.read_fail')},async()=>{
       const r=await apiGet('/api/peers');
-      if(r.ok&&r.data){ v=r.data; await this._peersRestore(Promise.resolve(r)) }
+      if(r.ok&&r.data){ v=r.data; got=r; await this._peersRestore(Promise.resolve(r)) }
       return r;
     });
     // 방송의 다시 읽기가 이 읽기를 밀어내면 `_peers` 가 아직 비어 있을 수 있다 — 이 읽기의
@@ -268,6 +268,7 @@ Object.assign(App.prototype, {
     v=v||this._peers;
     if(!v) return;
     this._pnNodePaint(v);
+    if(got) this._liveMark('peers',got,this._pnNodeCollect());
     // 탭을 열면 고치던 줄도 버리고 지금 값으로 그린다.
     this._pnPendingPaint(v.pending||[],true);
     this._pnPeersPaint(v.peers||[],true);
@@ -286,8 +287,10 @@ Object.assign(App.prototype, {
       document.getElementById('pn-dirs').appendChild(this._pnDirRow('')));
     save.addEventListener('click',()=>statusRun(document.getElementById('pn-node-status'),
       {pending:t('core.saving'),ok:t('core.saved'),fail:t('core.save_fail')},async()=>{
-        const r=await apiPut('/api/peers/node',this._pnNodeCollect());
-        if(r.ok&&r.data){ this._peers=r.data; this._pnNodePaint(); this._peersPaint() }
+        // UX_BATCH12 FR-LIV-5: 읽을 때의 지문을 싣는다. 낡았으면 409 이고 저장하지 않는다.
+        const r=await apiPut('/api/peers/node',this._pnNodeCollect(),this._liveOpts('peers'));
+        if(this._liveStale('peers',r,()=>this._loadPeersPanel())) return r;
+        if(r.ok&&r.data){ this._peers=r.data; this._pnNodePaint(); this._peersPaint(); this._liveMark('peers',r,this._pnNodeCollect()) }
         return r;
       }));
     const invSt=document.getElementById('pn-inv-status');

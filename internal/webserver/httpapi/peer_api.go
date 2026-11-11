@@ -101,6 +101,7 @@ func (s *Server) apiPeersGet(w http.ResponseWriter, r *http.Request) {
 	if !s.peerReady(w) {
 		return
 	}
+	w.Header().Set("ETag", settingsTag(s.peers.Config()))
 	httpresp.JSON(w, http.StatusOK, s.peersView())
 }
 
@@ -113,6 +114,13 @@ func (s *Server) apiPeersNodePut(w http.ResponseWriter, r *http.Request) {
 	if !peerReadJSON(w, r, &in) {
 		return
 	}
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
+	if cur := settingsTag(s.peers.Config()); settingsStale(r, cur) {
+		w.Header().Set("ETag", cur)
+		peerFail(w, http.StatusConflict, apierr.CodeStaleRev, "stale revision")
+		return
+	}
 	if err := s.peers.SetNode(in); err != nil {
 		if errors.Is(err, peer.ErrSaveFailed) {
 			peerFail(w, http.StatusInternalServerError, apierr.CodeSaveFailed, err.Error())
@@ -123,6 +131,7 @@ func (s *Server) apiPeersNodePut(w http.ResponseWriter, r *http.Request) {
 	}
 	s.peerLn.Apply(s.peers.Config())
 	s.peersChanged("")
+	w.Header().Set("ETag", settingsTag(s.peers.Config()))
 	httpresp.JSON(w, http.StatusOK, s.peersView())
 }
 

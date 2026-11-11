@@ -65,6 +65,7 @@ Object.assign(App.prototype, {
       document.getElementById('sbx-image').value=(cfg.dev&&cfg.dev.image)||'';
       document.getElementById('sbx-ports').value=(cfg.dev&&cfg.dev.ports||[]).join(', ');
       for(const m of cfg.mounts||[]) box.appendChild(this._sbxMountRow(m));
+      this._liveMark('sandbox',r,this._sbxCollect());
       return r;
     });
   },
@@ -79,7 +80,13 @@ Object.assign(App.prototype, {
       // 거부 사유가 그대로 온다 — 무엇이 잘못됐는지 모르면 고칠 수 없다.
       await statusRun(document.getElementById('sbx-status'),
         {pending:t('core.saving'),ok:t('core.saved'),fail:t('core.save_fail')},
-        ()=>apiPut('/api/sandbox/config',this._sbxCollect()));
+        async()=>{
+          // UX_BATCH12 FR-LIV-5: 읽을 때의 지문을 싣는다. 낡았으면 409 이고 저장하지 않는다.
+          const cfg=this._sbxCollect();
+          const r=await apiPut('/api/sandbox/config',cfg,this._liveOpts('sandbox'));
+          if(!this._liveStale('sandbox',r,()=>this._loadSandboxPanel())&&r.ok) this._liveMark('sandbox',r,cfg);
+          return r;
+        });
     });
   },
 });

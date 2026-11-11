@@ -1761,6 +1761,10 @@ body.mobile #soft-reload-btn{padding:8px;font-size:var(--fs-md);min-height:var(-
 
 /* ── 접속 허용 목록 (ACCESS_ALLOWLIST_SRS FR-ACL-22) ── */
 .acl-row{display:flex;align-items:center;gap:6px}
+/* UX_BATCH12 FR-LIV-4: 열린 설정 패널이 다른 곳의 변경을 알린다. */
+.settings-stale{display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:6px 8px;
+  border:1px solid var(--attn-text);border-radius:4px;color:var(--attn-text);font-size:var(--fs-sm)}
+.settings-stale span{flex:1}
 .acl-row input[type=text]{min-width:0;padding:3px 6px;font-size:var(--fs-sm);
   background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text-bright)}
 .acl-row input[type=text]:focus{outline:none;border-color:var(--accent)}

@@ -99,6 +99,7 @@ Object.assign(App.prototype, {
       const hnow=document.getElementById('acl-host-now');
       if(hnow) hnow.textContent=v.host||t('core.unknown_paren');
       if(hostBox) for(const e of (v.hosts||[])) hostBox.appendChild(this._aclHostRow(e));
+      this._liveMark('access',r,this._aclCollect());
       return r;
     });
   },
@@ -109,8 +110,10 @@ Object.assign(App.prototype, {
     // 저장에 성공해도 화면에는 아무 말도 남지 않는다.
     await statusRun(document.getElementById('acl-status'),
       {pending:t('core.saving'),ok:t('core.saved'),fail:t('core.save_fail')},async()=>{
-        const r=await apiPut('/api/access',cfg);
-        if(r.ok) await this._loadAccessPanel();
+        // UX_BATCH12 FR-LIV-5: 읽을 때의 지문을 싣는다. 낡았으면 409 이고 저장하지 않는다.
+        const r=await apiPut('/api/access',cfg,this._liveOpts('access'));
+        if(this._liveStale('access',r,()=>this._loadAccessPanel())) return r;
+        if(r.ok){ this._liveMark('access',r,cfg); await this._loadAccessPanel() }
         return r;
       });
   },
