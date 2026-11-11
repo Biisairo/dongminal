@@ -587,6 +587,12 @@ const TERM_REPORT_RE=/^(?:\x1b\[[?>=]?[0-9;]*[cnRIO]|\x1b\[[?>=]?[0-9;]*\$y|\x1b
  */
 const TERM_FOCUS_RE=/^\x1b\[[IO]$/;
 
+/**
+ * xterm 이 내는 **SGR 마우스 보고**다 (`UX_BATCH11_SRS` FR-HIN-9). 사용자 입력이
+ * 아니므로 보류하지 않는다. 터미널 요소가 떨어진 순간에 잰 좌표는 `NaN` 이다.
+ */
+const TERM_MOUSE_RE=/^(?:\x1b\[<\d+;(?:-?\d+|NaN);(?:-?\d+|NaN)[Mm])+$/;
+
 // ── Git 창 (GIT_SRS §3.4 / FR-GIT-25~31) ──
 
 // 창의 type 은 없을 수 있다. 없으면 terminal 이다 — 기존 workspace.json 이 그대로

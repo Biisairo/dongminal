@@ -210,3 +210,23 @@ test('TC-HIN-3 미리보기는 제어 문자를 ^X 로, 줄바꿈을 ⏎ 로 적
   assert.equal(ctx.termHeldPreview('한글'), '한글');
   assert.equal(ctx.termHeldPreview('x'.repeat(300)), 'x'.repeat(200));
 });
+
+test('TC-HIN-5 마우스 보고는 보류하지 않는다 · NaN 좌표는 보내지 않는다 (FR-HIN-9)', async () => {
+  const { ctx, p, clock, opened } = pane();
+  p.connect();
+  openSock(opened[0]);
+  p._onTermData('\x1b[<0;5;3M');
+  p._onTermData('\x1b[<0;NaN;NaNm');
+  assert.deepEqual(texts(opened[0]), ['\x1b[<0;5;3M'], '열린 동안: 수치 좌표만 나간다');
+
+  dropSock(opened[0]);
+  p._onTermData('\x1b[<0;5;3M');
+  p._onTermData('\x1b[<65;5;3M');
+  p._onTermData('\x1b[<0;NaN;NaNm');
+  assert.equal(p._sock.heldBytes, 0, '마우스 보고가 보류함에 들었다');
+  await clock.advance(0);
+  openSock(opened[1]);
+  await clock.advance(ctx.TERM_OVERLAY_HIDE_MS);
+  assert.equal(p.banners, 0, '마우스 보고만으로 배너가 섰다');
+  assert.deepEqual(texts(opened[1]), [], '끊긴 동안의 마우스 보고가 나갔다');
+});

@@ -126,6 +126,11 @@ Object.assign(TerminalTool.prototype, {
    * 기동하며 내는 질의가 정확히 그것이다.
    */
   _onTermData(d){
+    // FR-HIN-9: 마우스 보고는 보류하지 않고 좌석과도 무관하다. NaN 좌표는 앱 입력 줄에 찌꺼기를 남긴다.
+    if(TERM_MOUSE_RE.test(d)){
+      if(!d.includes('NaN')) this._sendText(this._applyStickyMods(d));
+      return;
+    }
     if(TERM_REPORT_RE.test(d)){
       // TERM_REPLY_SEAT_SRS FR-RPS-7: 질의의 **답**은 좌석의 주인만 보낸다. 같은
       // 도구에 창이 둘 붙으면 질의 하나를 두 xterm 이 다 보고 각자 답하는데,
