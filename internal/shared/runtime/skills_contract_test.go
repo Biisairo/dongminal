@@ -337,13 +337,24 @@ func TestIssueTreeCommand_CarriesOpsProcedure(t *testing.T) {
 		{"맥락 판단 (FR-ITM-23)", "### 맥락 판단"},
 		{"판단 시작점 (FR-ITM-23)", "기준 × 0.8"},
 		{"상한 (FR-ITM-16)", "85% 이상이면 판단하지 않고"},
+		{"이슈 접근 규칙 절 (FR-ITA-69)", "## 이슈 접근 규칙"},
+		{"발사대 접근 확인 (FR-ITA-60)", "### 0. 접근 확인"},
+		{"계정·범위 확인 (FR-ITA-60)", "gh auth status"},
+		{"권한 확인 (FR-ITA-61)", "viewerPermission"},
+		{"거절 시 우회 금지 (FR-ITA-62)", "다시 시도하거나 다른 길로 우회하지 않는다"},
+		{"어사인 = 일을 하는 사람 (FR-ITA-63)", "어사인: **그 일을 하는 사람**이다"},
+		{"남의 이슈 어사인 (FR-ITA-63)", "나를 더할지 사용자에게 묻는다"},
+		{"설정 점검 (FR-ITA-65)", "projectItems"},
+		{"기준 (FR-ITA-66)", "부모 이슈와 같게"},
+		{"어긋날 때 (FR-ITA-67)", "답을 받기 전에는 그 이슈의 일을 시작하지 않는다"},
+		{"하위 이슈 만들기 (FR-ITA-68)", "만들 때 기준의 설정"},
 	}
 	for _, r := range required {
 		if !strings.Contains(body, r.needle) {
 			t.Errorf("issue-tree.md 에 %s 가 없다 (%q)", r.name, r.needle)
 		}
 	}
-	for _, banned := range []string{"### 배정 (Kickoff)", "사용자에게 물어라", "ISSUE_AGENT_TREE_SRS.md", "[--ctx 60]", "맥락 기준과 견준다. 기준 이상이면"} {
+	for _, banned := range []string{"### 배정 (Kickoff)", "사용자에게 물어라", "ISSUE_AGENT_TREE_SRS.md", "[--ctx 60]", "맥락 기준과 견준다. 기준 이상이면", "--gh-user", "GitHub 계정"} {
 		if strings.Contains(body, banned) {
 			t.Errorf("issue-tree.md 에 지운 절차 %q 가 남아 있다", banned)
 		}

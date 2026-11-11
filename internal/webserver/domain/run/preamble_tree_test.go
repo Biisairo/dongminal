@@ -135,3 +135,27 @@ func TestTreePreamble_SessionStartCheck(t *testing.T) {
 		}
 	}
 }
+
+// FR-ITA-61~69 (TC-ITA-6): 이슈 운영 줄이 접근 규칙(권한 · 거절 시 멈춤 · 설정 기준)을 요약한다.
+// 계정을 고정하지 않는다 — 어떤 이슈를 할지는 사용자가 정하고, 보는 것은 권한이다.
+func TestTreePreamble_IssueAccessRules(t *testing.T) {
+	rec, m, tc := treeFixture()
+	p := TreePreamble(rec, m, tc)
+	for _, want := range []string{
+		"「이슈 접근 규칙」",
+		"viewerPermission",
+		"우회하지 않고 멈추고",
+		"gh api user -q .login",
+		"부모 이슈와 같게",
+		"어사인은 그 일을 하는 사람이다",
+		"나를 더할지 묻는다",
+		"모르면 자기 탭에서 사용자에게 묻는다",
+	} {
+		if !strings.Contains(p, want) {
+			t.Errorf("프리앰블에 %q 가 없다:\n%s", want, p)
+		}
+	}
+	if strings.Contains(p, "GitHub 계정:") {
+		t.Errorf("프리앰블이 계정을 고정한다:\n%s", p)
+	}
+}
