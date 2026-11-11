@@ -81,12 +81,19 @@ func ctxAdviceText(a ctxAdvice) string {
 		if a.UsedPct == nil {
 			return ""
 		}
-		return fmt.Sprintf("[dongminal] 지금 맥락 %.0f%% · 기준 %d%% (판단은 %.0f%% 부터, %d%% 이상이면 무조건 넘긴다).\n"+
-			"기준쯤에서 넘기는 것이 좋다. 지금 하려는 일(또는 하던 일)을 끝냈을 때 맥락이 어디쯤일지 가늠하라.\n"+
-			"- 기준을 크게 넘거나 %d%% 에 닿을 것 같으면: 그 일을 시작하지 말고 지금 넘겨라 — /dongminal:migration.\n"+
-			"- 기준에서 크게 벗어나지 않을 것 같으면: 그 일을 끝내고 넘겨라. 끝냈을 때 아직 기준보다 한참 아래면 다음 일에서 다시 판단한다.\n"+
-			"어느 쪽인지 지금 맥락·기준·예상치를 넣어 사용자에게 한 줄로 알려라.",
-			*a.UsedPct, a.CtxPct, a.JudgePct, a.CapPct, a.CapPct)
+		// 옛 서버는 judgePct·capPct 를 싣지 않는다(판이 섞임). 없는 값을 0 으로 지어내면
+		// 「0% 이상이면 무조건 넘긴다」가 된다 — 그 두 값을 뺀 문구를 낸다.
+		head := fmt.Sprintf("[dongminal] 지금 맥락 %.0f%% · 기준 %d%%", *a.UsedPct, a.CtxPct)
+		limit := "기준을 크게 넘을 것 같으면"
+		if a.JudgePct > 0 && a.CapPct > 0 {
+			head += fmt.Sprintf(" (판단은 %.0f%% 부터, %d%% 이상이면 무조건 넘긴다)", a.JudgePct, a.CapPct)
+			limit = fmt.Sprintf("기준을 크게 넘거나 %d%% 에 닿을 것 같으면", a.CapPct)
+		}
+		return head + ".\n" +
+			"기준쯤에서 넘기는 것이 좋다. 지금 하려는 일(또는 하던 일)을 끝냈을 때 맥락이 어디쯤일지 가늠하라.\n" +
+			"- " + limit + ": 그 일을 시작하지 말고 지금 넘겨라 — /dongminal:migration.\n" +
+			"- 기준에서 크게 벗어나지 않을 것 같으면: 그 일을 끝내고 넘겨라. 끝냈을 때 아직 기준보다 한참 아래면 다음 일에서 다시 판단한다.\n" +
+			"어느 쪽인지 지금 맥락·기준·예상치를 넣어 사용자에게 한 줄로 알려라."
 	case "must":
 		if a.UsedPct == nil {
 			return ""
