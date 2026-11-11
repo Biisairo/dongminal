@@ -96,9 +96,6 @@
 .git-head-ab{color:var(--text-muted);font-size:var(--fs-sm);white-space:nowrap}
 .git-head-spacer{flex:1 1 auto}
 .git-head-remote{display:flex;gap:4px;flex-shrink:0}
-/* UI_POLISH_SRS FR-UIP-3 (2026-11-12 넓힘): Changes 패널의 아이콘도 16px 이다 — 원격(fetch·pull·push)·
-   보기 전환·그룹·행 동작이 키트의 `lg` 파생(20px)이라 진입점 줄과 크기가 달랐다. 히트는 `lg` 그대로다. */
-.git-changes .ui-btn-lg.ui-btn-icon>.ui-icon{width:var(--ui-icon-md);height:var(--ui-icon-md)}
 /* 머리·목록 줄의 버튼 외형은 키트다 (DESIGN_TOKENS_SRS §7.5) — 아이콘 버튼은
    `.ui-btn-icon.ui-btn-lg`(30px = 옛 `--git-btn-h`) 이고 아이콘은 키트 비율로
    파생한다 (FR-GLY-5). 붙은 쌍의 모서리는 **킷의 `.ui-split`** 이 준다

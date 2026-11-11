@@ -36,22 +36,26 @@ test('TC-UIP-2: 저장된 폭이 없으면 사이드바는 200px 이다', async 
   expect(w).toBe(200);
 });
 
-test('TC-UIP-3: Git 진입점은 아이콘 16px·히트 30px 이고, 폭이 남을 때만 이름을 보인다', async ({ page }) => {
+test('TC-UIP-3: Git 진입점은 키트 규칙의 아이콘·히트 30px 이고, 폭이 남을 때만 이름을 보인다', async ({ page }) => {
   await waitForInit(page);
   await openGit(page, fx('basic'));
   const acts = changes(page).locator('xpath=ancestor::*[contains(@class,"ed-side")]').first().locator('.ed-side-acts');
   const icon = await acts.locator('.ed-side-act .ui-icon').first().evaluate((e) => Math.round(e.getBoundingClientRect().width));
-  expect(icon).toBe(16);
-  // Changes 패널의 아이콘 버튼(원격·보기 전환·그룹·행 동작)도 같은 16px 이다.
+  // FR-UIP-3 (2026-11-12 개정): 키트 규칙(아이콘 = 버튼 높이 × 0.68, FR-UIK-3)을 따른다 —
+  // 진입점과 Changes 패널의 아이콘 버튼(원격·보기 전환·그룹·행 동작)이 한 크기다.
+  expect(icon).toBe(20);
   const sizes = await changes(page).locator('.ui-btn-lg.ui-btn-icon > .ui-icon')
     .evaluateAll((els) => [...new Set(els.map((e) => Math.round(e.getBoundingClientRect().width)).filter((w) => w > 0))]);
-  expect(sizes).toEqual([16]);
+  expect(sizes).toEqual([20]);
   const h = await acts.locator('.ed-side-act').first().evaluate((e) => e.getBoundingClientRect().height);
   expect(h).toBeGreaterThanOrEqual(30);
   const side = page.locator('#area .ed-side').first();
-  await side.evaluate((e: HTMLElement) => { e.style.width = '640px'; e.style.flexBasis = '640px'; });
+  await side.evaluate((e: HTMLElement) => { e.style.width = '660px'; e.style.flexBasis = '660px'; });
   await expect(acts.locator('.ed-side-act-label').first()).toBeVisible();
   await expect(acts.locator('.ed-side-act-label').first()).toHaveText('History');
+  // 이름을 단 여섯이 한 줄에 선다 — 줄이 늘면 "남는 폭" 이 아니다.
+  const rows = await acts.locator('.ed-side-act').evaluateAll((els) => new Set(els.map((e) => Math.round(e.getBoundingClientRect().top))).size);
+  expect(rows).toBe(1);
   await side.evaluate((e: HTMLElement) => { e.style.width = '200px'; e.style.flexBasis = '200px'; });
   await expect(acts.locator('.ed-side-act-label').first()).toBeHidden();
 });

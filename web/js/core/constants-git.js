@@ -81,10 +81,10 @@ const GIT_STALE_VIEWS=['history','branches','stash','worktrees','submodules'];
 const GIT_SIDE_ACTIONS=[
   {key:'history',  icon:'clock',      title:'History'},
   {key:'branches', icon:'git-branch', title:'Branches'},
-  {key:'stash',    icon:'archive',    title:'Stash'},
+  {key:'stash',    icon:'git-stash',  title:'Stash'},
   {key:'console',  icon:'terminal',   title:'Console'},
-  {key:'worktrees',icon:'columns',    title:'Worktrees'},
-  {key:'submodules',icon:'box',       title:'Submodules'},
+  {key:'worktrees',icon:'git-worktree',title:'Worktrees'},
+  {key:'submodules',icon:'git-submodule',title:'Submodules'},
 ];
 
 // REPO_TAB_UNIFY_SRS FR-RTU-25·26: 저장소가 아닌 자리와 거기서 만드는 길.
