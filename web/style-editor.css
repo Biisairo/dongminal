@@ -350,10 +350,12 @@ body.mobile .ed-row{height:var(--touch-min)}
 /* FR-EFP-14: 모든 일치와 **현재** 일치는 다른 표시를 받는다. 둘이 같으면
    이전/다음이 무엇을 옮겼는지 보이지 않는다. 현재 것은 두 클래스를 함께 받으므로
    아래 규칙이 그 위에 한 겹 더 얹힌다. */
-.fe-find-hit{background:var(--accent-active);border-radius:2px}
+/* UX_BATCH12_SRS FR-EFC-1·2: 다른 일치 25%, 현재 일치 45% + 강조색 테두리. 현재 일치를 꽉 채우면
+   글자가 묻히고, 다른 일치가 같은 단어 표시(FR-EFC-3)보다 흐리면 검색 결과가 덜 보인다. */
+.fe-find-hit{background:color-mix(in srgb, var(--accent) 25%, transparent);border-radius:2px}
 .fe-find-hit-cur{
-  background:var(--accent);
-  box-shadow:0 0 0 1px var(--text-bright) inset;
+  background:color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow:0 0 0 1px var(--accent) inset;
 }
 
 /* ── 열 수 없는 형식 · 이미지 보기 (EDITOR_GIT_UX_SRS 묶음 V) ── */

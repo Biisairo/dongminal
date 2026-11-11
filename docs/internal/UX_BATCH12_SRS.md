@@ -7,7 +7,7 @@
 |---|---|
 | 문서 | UX_BATCH12_SRS |
 | 관련 | `ACTIVITY_STATE_SUBAGENT_SRS` FR-ASV-32~37 · `EXPLORER_MULTI_SELECT_SRS` FR-EMS-* · `M9_SRS` FR-M9-19 · `ISSUE_TREE_OPS_SRS` FR-ITC-11~17 · `RUN_VIEW_LIVE_SRS` · `ACTIVITY_RUNS_REFRESH_SRS` |
-| FR 접두 | FR-SVL(서브에이전트 목록) · FR-EXM(Explorer 다중) · FR-EXK(Explorer 단축키) · FR-EXD(Finder 로 끌어 내려받기) · FR-FHL(포커스 하이라이트) · FR-RMM(Run 미니맵) · FR-LIV(실시간 갱신) · FR-ACF(Activity 접기) · FR-SBA(사이드바 액션 단추) · FR-AFC(포커스 이동 알람 해제) · FR-RGT(그룹 머리 삼각형) |
+| FR 접두 | FR-SVL(서브에이전트 목록) · FR-EXM(Explorer 다중) · FR-EXK(Explorer 단축키) · FR-EXD(Finder 로 끌어 내려받기) · FR-FHL(포커스 하이라이트) · FR-RMM(Run 미니맵) · FR-LIV(실시간 갱신) · FR-ACF(Activity 접기) · FR-SBA(사이드바 액션 단추) · FR-AFC(포커스 이동 알람 해제) · FR-RGT(그룹 머리 삼각형) · FR-EFC(편집기 검색 색) |
 
 ## 0. 요구사항 대장 (Requirements Ledger)
 
@@ -34,7 +34,7 @@
 | R21 | 에이전트 알람이 꺼지는 방식: 지금은 그 탭 화면을 한 번 눌러야 꺼진다. 이것은 이미 그 탭에 포커스가 있을 때의 이야기다. **다른 탭에 포커스가 있다가 그 탭으로 포커스를 옮기는 동작**(Activity 의 에이전트 카드 선택, 탭 바에서 알람 온 탭 선택, Repo 갔다가 Windows 로 돌아오기 등)은 알람을 꺼야 한다 | FR-AFC-1·2 (ATTENTION_FIRING_SRS FR-ATA-1 개정) | 완료 (TC-AFC-1 `attn-focus-clear.test.mjs`, TC-AFC-2 `attention-focus-clear.spec.ts`. 판정은 `App.render` 의 `attnFocusSync` 하나) |
 | R22 | Windows 패널 그룹 머리 왼쪽의 삼각형(접기)을 누르면 글자 선택 블록이 씌워진다 — 결함. 레일이 아니어도 가끔 그렇다 (사용자 보충, Chrome) | FR-RGT-1·2 | 완료 (TC-RGT-1 `window-groups.spec.ts` 2건). 선택이 아니라 삼각형 자리가 칠해진 사각형이었다 |
 | R23 | Windows 패널의 그룹 추가 단추가 좌우로 너무 꽉 차 있다 | FR-SBA-1 | 완료 (TC-SBA-1 `sidebar-actions.spec.ts`) |
-| R20 | 편집기 검색의 색을 고친다 — 지금 일치(포커스), 다른 일치, 선택한 것과 같은 단어의 색. 사용자와 질의응답으로 정한 뒤 진행한다. **R19 바로 앞에 한다** | (질의응답 뒤 작성) | 진행 전 · R19 앞 |
+| R20 | 편집기 검색의 색을 고친다 — 지금 일치(포커스), 다른 일치, 선택한 것과 같은 단어의 색. 사용자 보충: 노란 강조색 테마에서 현재 일치가 꽉 찬 노랑이라 흰 글자가 안 보이고, 다른 일치와 같은 단어는 너무 흐리다 | FR-EFC-1~3 | 완료 (TC-EFC-1 `editor-find-panel.spec.ts`. 사용자 결정: 테마 강조색 유지, 농도만 정리. Cobalt² 에서 화면으로 확인) |
 | R19 | Repo 창에서 탭을 새로 만들지 재사용할지의 규칙을 다시 정한다. **마지막 작업**이며, 사용자와 질의응답으로 규칙을 정한 뒤 진행한다 | (질의응답 뒤 작성) | 진행 전 · 다른 행이 끝난 뒤 |
 | R15 | (작업 방식) 전체 e2e 는 너무 오래 걸린다 — 관련 e2e 만 돌린다 | 절차 | 적용 중 |
 | R16 | (작업 방식) 요구사항을 한쪽에 정리하고 스펙을 제대로 쓰며 진행한다. 요구사항은 다 지킨다 | 이 대장 | 적용 중 |
@@ -262,6 +262,15 @@
 - **FR-RGT-2** 알람 갱신은 그룹 머리의 `.attn` 을 그 그룹 안 창들로 판정한다(`groupHasAttn`, 다시 그리기와 같은 판정).
 - 이전 동작: 그룹 머리의 알람 표시가 다시 그리기 때만 켜지고 알람 갱신 때 꺼졌다. 새 동작: 언제나 그 그룹의 창에 알람이 있는지를 따른다. 이유: 같은 사실을 두 길이 다르게 그리고 있었다.
 
+### 3.5e 편집기 검색 색 (FR-EFC)
+
+색은 모두 테마 강조색(`--accent`)에서 만든다(사용자 결정 2026-11-11).
+
+- **FR-EFC-1** 현재(포커스) 일치(`.fe-find-hit-cur`)의 배경은 강조색 45%이고, 안쪽 1px 강조색 테두리를 가진다. 글자색은 바꾸지 않는다.
+- **FR-EFC-2** 다른 일치(`.fe-find-hit`)의 배경은 강조색 25%다.
+- **FR-EFC-3** 선택한 것과 같은 단어(`.cm-selectionMatch`)는 배경이 없고, 안쪽 1px 강조색 테두리를 가진다.
+- 이전 동작: 현재 일치는 강조색 100% 배경 + 밝은 글자색 테두리, 다른 일치는 강조색 12%, 같은 단어는 강조색 20%. 새 동작: 위 셋. 이유: 강조색이 밝은 테마(Cobalt² `#ffc600`)에서 현재 일치의 흰 글자가 묻혔고, 다른 일치가 같은 단어보다 흐렸다(사용자 보고).
+
 ### 3.6 이전 동작 / 새 동작 / 이유
 
 | 항목 | 이전 동작 | 새 동작 | 이유 |
@@ -308,6 +317,7 @@
 | TC-AFC-1 | FR-AFC-1·2 | JS 단위(`attn-focus-clear.test.mjs`): 첫 판정 / 다른 도구 → 알람 도구 / 같은 도구 다시 / 알람 없는 도구로 | 끄지 않음 / `_attnClear(id,false)` 한 번 / 끄지 않음 / 끄지 않음 |
 | TC-AFC-2 | FR-AFC-1 | e2e(`attention-focus-clear.spec.ts`): 탭 둘 중 다른 탭의 알람을 세운 뒤 탭 바에서 그 탭을 고름 / 포커스 탭에 알람을 세움 | 알람이 꺼진다 / 알람이 남는다 |
 | TC-RGT-1 | FR-RGT-1·2 | e2e(`window-groups.spec.ts`): 레일에서 그룹 머리(펼침·접힘) / 펼친 사이드바에서 그룹 안 창에 알람 → 다시 그리기 | 점의 배경이 투명 / 머리가 `.attn` 을 유지하고 점의 배경이 투명, `::before` 없음 |
+| TC-EFC-1 | FR-EFC-1~3 | e2e(`editor-find-panel.spec.ts`): `needle` 검색 / 검색을 닫고 1행의 `needle` 선택 | 현재·다른 일치의 배경이 강조색 45%·25%(같은 식의 탐침과 같다), 현재에 강조색 테두리 / 같은 단어의 배경 투명, 강조색 테두리 |
 | TC-SBA-1 | FR-SBA-1 | e2e(`sidebar-actions.spec.ts`) | `#add-group` 의 좌우 여백·높이·좌우 끝이 `#add-window` 와 같다 |
 | TC-LIV-1 | FR-LIV-1·2 | Go: 세 종단에 대해 GET 의 ETag, 맞는 If-Match 의 PUT, 낡은 If-Match 의 PUT, If-Match 없는 PUT | 200 / 409 `stale_rev` 이고 값이 그대로 / 200 |
 | TC-LIV-2 | FR-LIV-3 | Go: 샌드박스 저장 | `sandbox_changed` 가 한 번 나간다 |
@@ -343,6 +353,7 @@
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-11 | 개정 11: R20 을 FR-EFC-1~3·TC-EFC-1 로 정했다 |
 | 2026-11-11 | 개정 10: R22 를 FR-RGT-1·2·TC-RGT-1 로 정했다 |
 | 2026-11-11 | 개정 9: R21 을 FR-AFC-1·2·TC-AFC-1·2 로 정했다. FR-ATA-1 을 "포커스 탭의 도구가 바뀔 때" 에 한해 개정한다 |
 | 2026-11-11 | 개정 8: R23 을 FR-SBA-1·TC-SBA-1 로 정했다 |

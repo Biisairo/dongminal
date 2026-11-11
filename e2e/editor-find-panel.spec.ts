@@ -227,6 +227,46 @@ test.describe('편집기 파일 내 찾기 패널', () => {
     await expect(page.locator(`${ED_SEL.surface} .fe-find-hit-cur`)).toHaveCount(1);
   });
 
+  // UX_BATCH12_SRS TC-EFC-1 (FR-EFC-1~3) — 세 표시의 색. 기대값은 같은 식을 쓴 탐침이 계산한다(테마마다 강조색이 다르다).
+  test('TC-EFC-1: 현재 일치 45%+테두리, 다른 일치 25%, 같은 단어는 배경 없이 강조색 테두리', async ({ page, request }) => {
+    await enter(page, request);
+    await openFile(page, 'find.txt');
+    await focusBody(page);
+    await openFind(page);
+    await page.keyboard.type('needle');
+    await expect(count(page)).toHaveText('1/4', { timeout: 5000 });
+    const surface = ED_SEL.surface;
+    await expect(page.locator(`${surface} .fe-find-hit-cur`)).toHaveCount(1);
+    const got = await page.evaluate((sf) => {
+      const probe = (bg: string) => {
+        const d = document.createElement('div'); d.style.background = bg; document.body.appendChild(d);
+        const v = getComputedStyle(d).backgroundColor; d.remove(); return v;
+      };
+      const cs = (sel: string) => getComputedStyle(document.querySelector(sf + ' ' + sel)!);
+      const cur = cs('.fe-find-hit-cur'), other = cs('.fe-find-hit:not(.fe-find-hit-cur)');
+      return {
+        cur: cur.backgroundColor, curEdge: cur.boxShadow.includes(probe('var(--accent)')),
+        other: other.backgroundColor,
+        want: { cur: probe('color-mix(in srgb, var(--accent) 45%, transparent)'), other: probe('color-mix(in srgb, var(--accent) 25%, transparent)') },
+      };
+    }, surface);
+    expect(got.cur).toBe(got.want.cur);
+    expect(got.curEdge, '현재 일치에 강조색 테두리가 없다').toBe(true);
+    expect(got.other).toBe(got.want.other);
+
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => { const h = edT.of((window as any).app.testing.edActiveEditor()); edT.setSelection(h, 1, 7, 1, 13) });
+    const sm = page.locator(`${surface} .cm-selectionMatch`).first();
+    await expect(sm).toBeVisible({ timeout: 5000 });
+    const m = await sm.evaluate((el) => {
+      const d = document.createElement('div'); d.style.color = 'var(--accent)'; document.body.appendChild(d);
+      const accent = getComputedStyle(d).color; d.remove();
+      const c = getComputedStyle(el);
+      return { bg: c.backgroundColor, edge: c.boxShadow.includes(accent) || c.outlineColor === accent };
+    });
+    expect(m).toEqual({ bg: 'rgba(0, 0, 0, 0)', edge: true });
+  });
+
   // V-EFP-8 · FR-EFP-15
   test('화면 밖 일치로 옮기면 스크롤이 따라온다', async ({ page, request }) => {
     await enter(page, request);

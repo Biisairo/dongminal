@@ -208,7 +208,8 @@ function edCmTheme() {
     '.cm-activeLine': { backgroundColor: 'color-mix(in srgb, var(--text) 8%, transparent)' },
     '.cm-gutters': { backgroundColor: 'var(--bg)', color: 'color-mix(in srgb, var(--text) 40%, var(--bg))', border: 'none' },
     '.cm-activeLineGutter': { backgroundColor: 'transparent', color: 'var(--text)' },
-    '.cm-selectionMatch': { backgroundColor: 'color-mix(in srgb, var(--accent) 20%, transparent)' },
+    // UX_BATCH12_SRS FR-EFC-3: 같은 단어는 배경 없이 테두리만 — 검색 일치(배경)와 겹쳐도 구분된다.
+    '.cm-selectionMatch': { backgroundColor: 'transparent', boxShadow: '0 0 0 1px var(--accent) inset', borderRadius: '2px' },
     '&.cm-focused .cm-matchingBracket': { backgroundColor: 'color-mix(in srgb, var(--accent) 25%, transparent)' },
     '.cm-tooltip': { backgroundColor: 'var(--bg-alt)', color: 'var(--text)', border: '1px solid var(--border)' },
     // EDITOR_LINK_LSP_SRS FR-ELS-45: 긴 설명이 편집기를 덮지 않는다.
