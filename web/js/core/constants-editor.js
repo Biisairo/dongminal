@@ -427,6 +427,10 @@ const FS_UPLOAD_API='/api/fs/upload';
 const FS_DOWNLOAD_DIR_API='/api/fs/download-dir';
 // UX_BATCH12 FR-EXD-3·7 — 여러 경로를 zip 하나로 받는다.
 const FS_DOWNLOAD_MANY_API='/api/fs/download-many';
+// UX_BATCH12 FR-EXM-1 — 사각형 선택: 끌기로 보는 최소 거리, 자동 스크롤이 도는 끝 폭과 프레임당 양.
+const EDITOR_MARQUEE_MIN_PX=4;
+const EDITOR_MARQUEE_EDGE_PX=24;
+const EDITOR_MARQUEE_SCROLL_PX=12;
 // FR-ETR-1 — 한 겹에서 무시된 이름을 가른다. status 폴링과 별개다 (D-1).
 const FS_IGNORED_API='/api/fs/ignored';
 // 기본 단축키는 `SHORTCUT_DEFAULTS.softReload` 에 있다 — 설정에서 바꿀 수 있는

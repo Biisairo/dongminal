@@ -265,6 +265,12 @@ Object.assign(FileTree.prototype, {
     return true;
   },
 
+  // UX_BATCH12 FR-EXM-1: 사각형 선택. 시작 때의 선택(`base`)에 든 행을 더한다.
+  _selMarquee(base,hits,anchor){
+    this._selSet=new Set([...base,...hits]);
+    this._sel=hits.length?hits[hits.length-1]:anchor;
+  },
+
   // 이 행이 지금 선택에 들어 있는가. 그리기와 드래그가 함께 읽는다.
   _selHas(p){ return !!p&&this._selSet.has(p) },
 
@@ -297,6 +303,8 @@ Object.assign(FileTree.prototype, {
   },
 
   _onClick(e){
+    // FR-EXM-1: 사각형 끌기 뒤에 따라오는 클릭은 빈 여백 클릭이 아니다.
+    if(this._mqEat){this._mqEat=false;return}
     // §3A-3: 실패 표시의 닫기.
     if(e.target.closest('.ed-op-err-x')){this._clearErr();return}
     // 인라인 입력 자신을 누른 것은 행 선택이 아니다 — 캐럿을 옮기는 중이다.

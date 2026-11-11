@@ -22,6 +22,7 @@
  *
  *   file-tree-paint.js  조회 · git 색 · 무시 · 항목 계산 · 그리기
  *   file-tree-keys.js   키보드 길
+ *   file-tree-marquee.js 빈 여백의 사각형 선택
  *   file-tree-edit.js   생성 · 이름 변경 · 삭제 · 낙관적 갱신
  *   file-tree-xfer.js   업로드 · 우클릭 · 드래그드롭
  *   file-tree-download.js 다운로드 · 끌어 내려받기
@@ -128,6 +129,7 @@ class FileTree {
     // FR-EDT-80: 진입점 둘 중 하나. 같은 이유로 여기 한 번만 건다.
     this.list.addEventListener('contextmenu',e=>this._onCtx(e));
     this._initDnd();
+    this._initMarquee();
     this.list.addEventListener('scroll',()=>{
       if(this.el.isConnected) this._scrollY=this.list.scrollTop;
     });

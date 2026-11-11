@@ -125,3 +125,60 @@ test.describe('UX_BATCH12 — Explorer 단축키 (FR-EXK-1~6)', () => {
     expect(await tree(page)).toEqual({ sel: j(R, 'a.txt'), set: [j(R, 'a.txt')] });
   });
 });
+
+// UX_BATCH12_SRS FR-EXM-1 (R11): 빈 여백에서 끌어 사각형으로 고른다 (TC-EXM-1).
+test.describe('UX_BATCH12 — 사각형 선택 (FR-EXM-1)', () => {
+  /** 마지막 행 아래 빈 여백의 한 점과, 행 가운데의 y. */
+  async function geo(page: Page, p: string) {
+    const list = (await page.locator('.ed-explorer .ed-tree').boundingBox())!;
+    const last = (await page.locator('.ed-tree .ed-row').last().boundingBox())!;
+    const r = (await row(page, p).boundingBox())!;
+    expect(list.y + list.height - (last.y + last.height), '마지막 행 아래 여백이 없다').toBeGreaterThan(20);
+    return { x: list.x + 20, blankY: list.y + list.height - 8, rowY: r.y + r.height / 2 };
+  }
+
+  test('TC-EXM-1a: 빈 여백에서 위로 끌면 덮인 세 행이 선택되고 상자는 놓으면 사라진다', async ({ page, request }) => {
+    const R = mkRoot('m1a');
+    await enterExplorer(page, request, R);
+    const g = await geo(page, j(R, 'sub'));
+    await page.mouse.move(g.x, g.blankY);
+    await page.mouse.down();
+    await page.mouse.move(g.x + 10, (g.blankY + g.rowY) / 2, { steps: 4 });
+    await expect(page.locator('.ed-explorer .ed-marquee')).toBeVisible();
+    await page.mouse.move(g.x + 10, g.rowY, { steps: 4 });
+    await page.mouse.up();
+    await expect(page.locator('.ed-explorer .ed-marquee')).toHaveCount(0);
+    expect((await tree(page)).set).toEqual([j(R, 'a.txt'), j(R, 'b.txt'), j(R, 'sub')].sort());
+    expect((await tree(page)).sel).toBe(j(R, 'sub'));
+  });
+
+  test('TC-EXM-1b: Cmd 를 누른 채 끌면 지금 선택에 더한다', async ({ page, request }) => {
+    const R = mkRoot('m1b');
+    await enterExplorer(page, request, R);
+    await row(page, j(R, 'sub')).click();
+    await row(page, j(R, 'sub')).click();
+    await expect(row(page, j(R, 'sub', 'inner.txt'))).toHaveCount(0);
+    await expect.poll(async () => (await tree(page)).set).toEqual([j(R, 'sub')]);
+    const g = await geo(page, j(R, 'b.txt'));
+    await page.keyboard.down(mod);
+    await page.mouse.move(g.x, g.blankY);
+    await page.mouse.down();
+    await page.mouse.move(g.x + 10, g.rowY, { steps: 6 });
+    await page.mouse.up();
+    await page.keyboard.up(mod);
+    expect((await tree(page)).set).toEqual([j(R, 'b.txt'), j(R, 'sub')].sort());
+  });
+
+  test('TC-EXM-1c: 4px 미만으로 움직이면 빈 여백 클릭과 같다', async ({ page, request }) => {
+    const R = mkRoot('m1c');
+    await enterExplorer(page, request, R);
+    await pickAB(page, R);
+    const g = await geo(page, j(R, 'b.txt'));
+    await page.mouse.move(g.x, g.blankY);
+    await page.mouse.down();
+    await page.mouse.move(g.x + 2, g.blankY - 1);
+    await page.mouse.up();
+    await expect.poll(async () => (await tree(page)).sel).toBe(R);
+    expect((await tree(page)).set).toEqual([]);
+  });
+});
