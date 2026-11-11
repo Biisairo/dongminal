@@ -169,17 +169,21 @@ test('TC-ITC-6: 트리 보기 영역의 맞춤·줌·패닝·미니맵·게이�
   }
   await expect(wrap.locator('.run-tree-mini')).toBeVisible();
   await expect(wrap.locator('.run-tree-mini-view')).toHaveCount(1);
+  // UX_BATCH12_SRS FR-RMM-1: 미니맵은 트리를 줄인 것이다 — 노드 상자와 간선이 있다.
+  const miniNodes = wrap.locator('.run-tree-mini-node');
+  await expect(miniNodes).toHaveCount(3);
+  await expect(wrap.locator('.run-tree-mini-edge')).toHaveCount(await svg.locator('.run-tree-edge').count());
   const fitPct = await pct.textContent();
   expect(fitPct).toMatch(/^\d+%$/);
   const viewBox = () => svg.getAttribute('viewBox');
 
-  // FR-ITC-13: 수식키 없는 휠은 줌하지 않는다. Ctrl+휠은 줌한다.
-  await page.mouse.move(wb.x + wb.width / 2, wb.y + wb.height / 2);
+  // UX_BATCH12_SRS FR-RMM-6: 영역 밖의 휠은 줌하지 않는다.
+  await page.mouse.move(wb.x + wb.width / 2, wb.y + wb.height + 20);
   await page.mouse.wheel(0, -200);
   await expect(pct).toHaveText(fitPct!);
-  await page.keyboard.down('Control');
+  // FR-RMM-5 (FR-ITC-13 개정): 영역 위의 휠은 수식키 없이 줌한다.
+  await page.mouse.move(wb.x + wb.width / 2, wb.y + wb.height / 2);
   await page.mouse.wheel(0, -200);
-  await page.keyboard.up('Control');
   await expect.poll(async () => parseInt((await pct.textContent()) || '0', 10)).toBeGreaterThan(parseInt(fitPct!, 10));
 
   // FR-ITC-14: 노드 위에서 시작해 끌면 패닝이고, 탭으로 가지 않는다.
@@ -201,6 +205,8 @@ test('TC-ITC-6: 트리 보기 영역의 맞춤·줌·패닝·미니맵·게이�
   // 보고도 run_changed 를 낸다 — 열린 대시보드가 끝난 노드를 곧바로 그린다 (FR-RVZ-16).
   await expect(nodes.nth(2)).toHaveClass(/ended/, { timeout: 10000 });
   expect(await viewBox()).toBe(moved);
+  // FR-RMM-1·4: 미니맵 노드도 본 트리의 상태를 따라간다.
+  await expect(miniNodes.nth(2)).toHaveClass(/ended/);
 
   // FR-ITC-16: 게이지 슬라이더와 맞춤 버튼.
   await zoom.fill('200');
@@ -208,12 +214,24 @@ test('TC-ITC-6: 트리 보기 영역의 맞춤·줌·패닝·미니맵·게이�
   await wrap.locator('.run-tree-fit').click();
   await expect(pct).toHaveText(fitPct!);
 
-  // FR-ITC-15: 미니맵을 누르면 그 점이 가운데로 온다.
+  // FR-RMM-3: 보기 상자 안을 누르기만 하면 보기는 그대로이고, 끌면 끈 만큼 옮겨진다.
   await zoom.fill('300');
   const atFull = await viewBox();
+  const box = (await wrap.locator('.run-tree-mini-view').boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  expect(await viewBox(), '상자 안을 누르자 보기가 튀었다').toBe(atFull);
+  await page.mouse.move(box.x + box.width / 2 + 6, box.y + box.height / 2, { steps: 3 });
+  await page.mouse.up();
+  await expect.poll(viewBox).not.toBe(atFull);
+  const xOf = (vbs: string | null) => Number((vbs || '0').split(' ')[0]);
+  expect(xOf(await viewBox()), '오른쪽으로 끌었는데 보기가 왼쪽으로 갔다').toBeGreaterThan(xOf(atFull));
+
+  // FR-ITC-15: 상자 밖을 누르면 그 점이 가운데로 온다.
+  const dragged = await viewBox();
   const mb = (await wrap.locator('.run-tree-mini').boundingBox())!;
   await page.mouse.click(mb.x + 3, mb.y + 3);
-  await expect.poll(viewBox).not.toBe(atFull);
+  await expect.poll(viewBox).not.toBe(dragged);
 
   await request.post('/api/runs/close', { headers: JSON_HDR, data: { runId: run.id, force: true } });
 });

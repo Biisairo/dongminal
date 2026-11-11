@@ -101,8 +101,16 @@ body.mobile .runs-del,body.mobile .runs-close{min-height:var(--touch-min);paddin
   opacity:.7;transition:opacity var(--dur-fast)}
 .run-view .run-tree-hud:hover{opacity:1}
 .run-view .run-tree-mini{display:block;width:140px;height:84px;cursor:pointer}
-.run-view .run-tree-mini-node{fill:var(--border-strong)}
-.run-view .run-tree-mini-view{fill:var(--accent-subtle);stroke:var(--accent);stroke-width:1.5;vector-effect:non-scaling-stroke}
+/* UX_BATCH12_SRS FR-RMM-1·2: 미니맵은 트리를 줄인 것이다. 테두리는 화면 px 로 그려 작은 노드도 보인다. */
+.run-view .run-tree-mini-edge{fill:none;stroke:var(--border-strong);stroke-width:1;vector-effect:non-scaling-stroke}
+.run-view .run-tree-mini-node{fill:var(--text-muted);stroke:var(--text-muted);stroke-width:1;vector-effect:non-scaling-stroke}
+.run-view .run-tree-mini-node.state-working{fill:var(--accent);stroke:var(--accent)}
+.run-view .run-tree-mini-node.state-waiting{fill:var(--attn);stroke:var(--attn)}
+.run-view .run-tree-mini-node.state-done{fill:var(--run-ok);stroke:var(--run-ok)}
+.run-view .run-tree-mini-node.state-failed{fill:var(--danger);stroke:var(--danger)}
+.run-view .run-tree-mini-node.ended{opacity:.55}
+.run-view .run-tree-mini-node.lost{fill:none;stroke:var(--attn)}
+.run-view .run-tree-mini-view{fill:none;stroke:var(--accent);stroke-width:1.5;vector-effect:non-scaling-stroke;cursor:grab}
 .run-view .run-tree-gauge{display:flex;align-items:center;gap:6px;font-size:var(--fs-sm);color:var(--text-muted)}
 .run-view .run-tree-zoom{flex:1 1 auto;min-width:0;width:70px}
 .run-view .run-tree-pct{min-width:3.2em;text-align:right;font-variant-numeric:tabular-nums}

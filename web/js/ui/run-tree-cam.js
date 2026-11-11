@@ -46,3 +46,19 @@ function runCamClamp(cam, tree, area) {
   const cy = Math.min(tree.h, Math.max(0, cam.y + hh));
   return { s: cam.s, x: cx - hw, y: cy - hh };
 }
+
+/**
+ * UX_BATCH12_SRS FR-RMM-3: 미니맵을 누른 트리 점 p. 보기 상자 안이면 보기를 그대로 두고, 밖이면
+ * 그 점을 가운데로 옮긴다. 돌려주는 `off` 는 잡은 점과 보기 왼쪽 위의 거리다 — 끄는 동안 지킨다.
+ */
+function runCamGrab(cam, area, p) {
+  const w = area.w / cam.s, h = area.h / cam.s;
+  const inside = p.x >= cam.x && p.x <= cam.x + w && p.y >= cam.y && p.y <= cam.y + h;
+  const c = inside ? cam : runCamCenterOn(cam, p.x, p.y, area);
+  return { cam: c, off: { x: p.x - c.x, y: p.y - c.y } };
+}
+
+/** FR-RMM-3: 잡은 거리 `off` 를 지키며 트리 점 q 로 끈 보기. */
+function runCamDragTo(cam, off, q) {
+  return { s: cam.s, x: q.x - off.x, y: q.y - off.y };
+}

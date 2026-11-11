@@ -85,12 +85,23 @@ Object.assign(RunsPanel.prototype, {
     this._runTreeApply(root);
   },
 
-  /** FR-ITC-15·16: 오른쪽 위의 반투명 미니맵과 줌 게이지. */
+  /**
+   * FR-ITC-15·16: 오른쪽 위의 반투명 미니맵과 줌 게이지.
+   * UX_BATCH12_SRS FR-RMM-1·2: 미니맵은 트리를 줄인 것이다 — 간선과, 본 트리와 같은 상태
+   * 클래스를 단 노드 상자를 그린다. 트리가 다시 그려지면 이 HUD 도 함께 새로 선다(FR-RMM-4).
+   * 보기 상자는 테두리만이라 노드를 가리지 않는다.
+   */
   _runTreeHud(nodes, lay) {
     const hud = runDiv('run-tree-hud');
     const mini = runSvg('svg', { class: 'run-tree-mini', viewBox: `0 0 ${lay.w} ${lay.h}` });
-    nodes.forEach((n, i) => mini.appendChild(runSvg('rect', { class: 'run-tree-mini-node',
-      x: lay.pos[i].x - RUN_TREE_NODE_W / 2, y: lay.pos[i].y, width: RUN_TREE_NODE_W, height: lay.pos[i].h })));
+    for (const [p, c] of lay.edges) mini.appendChild(runSvg('path', { class: 'run-tree-mini-edge', d: runTreeEdgePath(lay.pos[p], lay.pos[c]) }));
+    nodes.forEach((n, i) => {
+      const kind = runNodeKind(n.state);
+      mini.appendChild(runSvg('rect', {
+        class: 'run-tree-mini-node state-' + (n.state || 'starting') + (kind === 'active' ? '' : ' ' + kind),
+        x: lay.pos[i].x - RUN_TREE_NODE_W / 2, y: lay.pos[i].y, width: RUN_TREE_NODE_W, height: lay.pos[i].h,
+      }));
+    });
     mini.appendChild(runSvg('rect', { class: 'run-tree-mini-view' }));
     hud.appendChild(mini);
     const gauge = runDiv('run-tree-gauge');
@@ -108,8 +119,10 @@ Object.assign(RunsPanel.prototype, {
   /** FR-ITC-13~16: 휠 줌 · 끌기 패닝 · 미니맵 · 게이지. 트리 영역이 새로 설 때마다 한 번 붙는다. */
   _runTreeWire(root, wrap, svg) {
     const st = () => root._treeCam;
+    // UX_BATCH12_SRS FR-RMM-5 (FR-ITC-13 개정): 영역이 Run 화면의 50% 로 고정이라 수식키 없는 휠도
+    // 줌이다. 영역 밖의 휠은 화면을 스크롤한다(FR-RMM-6).
     wrap.addEventListener('wheel', e => {
-      if (!(e.metaKey || e.ctrlKey) || !st()) return;
+      if (!st()) return;
       e.preventDefault();
       const r = wrap.getBoundingClientRect();
       this._runTreeMove(root, runCamZoomAt(st().cam, Math.exp(-e.deltaY * RUN_TREE_WHEEL), e.clientX - r.left, e.clientY - r.top, st().range));
@@ -143,13 +156,22 @@ Object.assign(RunsPanel.prototype, {
 
     const mini = wrap.querySelector('.run-tree-mini');
     const toTree = e => new DOMPoint(e.clientX, e.clientY).matrixTransform(mini.getScreenCTM().inverse());
-    const center = e => { if (st()) { const p = toTree(e); this._runTreeMove(root, runCamCenterOn(st().cam, p.x, p.y, st().area)) } };
+    // UX_BATCH12_SRS FR-RMM-3: 상자 안을 잡으면 잡은 거리를 지키며 끌고, 밖이면 그 점을 가운데로 옮긴 뒤 따라온다.
+    let grab = null;
     mini.addEventListener('pointerdown', e => {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || !st()) return;
+      e.stopPropagation();
       mini.setPointerCapture(e.pointerId);
-      center(e);
+      grab = runCamGrab(st().cam, st().area, toTree(e));
+      this._runTreeMove(root, grab.cam);
     });
-    mini.addEventListener('pointermove', e => { if (mini.hasPointerCapture(e.pointerId)) center(e) });
+    mini.addEventListener('pointermove', e => {
+      if (!grab || !mini.hasPointerCapture(e.pointerId)) return;
+      this._runTreeMove(root, runCamDragTo(grab.cam, grab.off, toTree(e)));
+    });
+    const release = () => { grab = null };
+    mini.addEventListener('pointerup', release);
+    mini.addEventListener('pointercancel', release);
 
     wrap.querySelector('.run-tree-zoom').addEventListener('input', e => {
       if (!st()) return;
