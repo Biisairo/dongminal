@@ -160,11 +160,8 @@ Object.assign(App.prototype, {
       const a=sec.act(this);
       if(a) g.appendChild(a);
     }
-    // UX_BATCH12_SRS FR-ACF-4: 레일에서는 접기가 아니라 그 구역으로 펼치기다.
-    g.addEventListener('click',()=>{
-      if(this.agentsPanelOpen()) this._actFoldToggle(sec.key);
-      else this.actPanelOpen(sec.key);
-    });
+    // UX_BATCH12_SRS FR-ACF-4 (개정 16): 레일에서도 펼침과 같이 그 구역만 접고 편다.
+    g.addEventListener('click',()=>this._actFoldToggle(sec.key));
     return g;
   },
 

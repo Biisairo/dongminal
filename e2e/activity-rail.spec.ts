@@ -6,7 +6,7 @@ import { test, expect, waitForInit } from './fixtures';
  * UX_BATCH12_SRS FR-ACF — Activity 패널은 데스크톱에서 닫히지 않고 레일로 접힌다.
  *
  *   TC-ACF-1  첫 화면은 레일, 상단바 단추 없음, 단축키로 오감, 레일의 카드는 이름만
- *   TC-ACF-2  레일의 구역 머리 → 그 구역으로 펼침 / 머리의 접기 단추 → 레일
+ *   TC-ACF-2  레일의 구역 머리 → 레일인 채로 그 구역을 접고 편다 / 머리의 접기 단추 → 레일
  *   TC-ACF-4  레일·펼침이 저장 레이아웃을 따라 새 탭으로 간다
  */
 const panel = (page: Page) => page.locator('#agents-panel');
@@ -55,11 +55,20 @@ test.describe('FR-ACF Activity 레일', () => {
     expect(await width(page)).toBe(await railW(page));
   });
 
-  test('TC-ACF-2: 레일의 구역 머리를 누르면 그 구역으로 펼치고, 머리의 접기 단추는 레일로 접는다', async ({ page }) => {
+  test('TC-ACF-2: 레일의 구역 머리는 레일인 채로 그 구역을 접고 펴고, 머리의 접기 단추는 레일로 접는다', async ({ page }) => {
     await waitForInit(page);
-    await panel(page).locator('.ag-sec[data-sec="runs"]').click();
+    const runs = panel(page).locator('.ag-sec[data-sec="runs"]');
+    await expect(runs).not.toHaveClass(/\bfolded\b/);
+    await runs.click();
+    await expect(runs).toHaveClass(/\bfolded\b/);
+    await expect(panel(page)).not.toHaveClass(/\bopen\b/);
+    expect(await width(page)).toBe(await railW(page));
+    await runs.click();
+    await expect(runs).not.toHaveClass(/\bfolded\b/);
+    await expect(panel(page)).not.toHaveClass(/\bopen\b/);
+
+    await page.keyboard.press('Control+Shift+KeyA');
     await expect(panel(page)).toHaveClass(/\bopen\b/);
-    await expect(panel(page).locator('.ag-sec[data-sec="runs"] .ag-sec-name')).toBeVisible();
 
     const collapse = panel(page).locator('.ag-collapse');
     await expect(collapse).toHaveAttribute('title', 'Collapse the panel');
