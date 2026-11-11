@@ -544,14 +544,14 @@ test.describe('묶음 U·M — 진입점과 모바일', () => {
     await expect(page.locator('#area .slot')).toHaveCount(0);
   });
 
-  test('TC-WSL-21c: 토프바에서 Agents 가 가장 오른쪽이다 (FR-WSL-50)', async ({ page }) => {
+  test('TC-WSL-21c: 토프바에서 슬롯 추가가 가장 오른쪽이다 (FR-WSL-50, UX_BATCH12_SRS FR-ACF-7 개정)', async ({ page }) => {
     await waitForInit(page);
     const order = await page.evaluate(() =>
       [...document.querySelectorAll('#topbar button')]
         .filter((b: any) => b.offsetParent !== null)
         .map((b: any) => b.id),
     );
-    expect(order[order.length - 1]).toBe('agents-toggle');
+    expect(order[order.length - 1]).toBe('slot-add');
     /**
      * 슬롯 버튼은 창 **안** 분할과 떨어져 있다 (§7 R-3).
      *

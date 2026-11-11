@@ -42,7 +42,7 @@ async function dragTo(page: Page, source: string, target: string, x: number) {
 }
 
 async function openActivity(page: Page) {
-  await page.locator('#agents-toggle').click();
+  await page.locator('#agents-panel .ag-collapse').click();
   await expect(page.locator('#agents-panel')).toBeVisible();
 }
 

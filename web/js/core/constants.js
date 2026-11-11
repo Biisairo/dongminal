@@ -328,6 +328,8 @@ const SIDEBAR_W_MAX_PX=400;
 // 구간을 지난다 — 두 자리에 숫자를 적으면 드래그로 갈 수 없는 폭이 복원에서 살아남는다.
 const AGENTS_W_MIN_PX=160;
 const AGENTS_W_MAX_PX=480;
+/** UX_BATCH12_SRS FR-ACF-6: Activity 손잡이가 이 폭 아래로 끌리면 레일이 된다 (사이드바와 같은 값). */
+const AGENTS_COLLAPSE_AT_PX=SIDEBAR_COLLAPSE_AT_PX;
 function agentsWidthOk(w){ return w>=AGENTS_W_MIN_PX&&w<=AGENTS_W_MAX_PX }
 /** 그 구간으로 접는다. 저장·복원·드래그가 전부 이 한 자리를 지난다. */
 function clampSidebarWidth(w){

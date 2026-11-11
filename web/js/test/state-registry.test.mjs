@@ -31,7 +31,7 @@ test('tool.activity 주기는 패널이 열렸거나 알림이 있을 때만 돈
     timers: { every: (spec) => jobs.push(spec) },
     agentsPollMs: 5000,
     _attn: new Map(),
-    _agentsPanelOpen: () => open,
+    _agentsPanelShown: () => open,
   };
   ctx.wireStateRegistry(app);
   const job = jobs.find((j) => j.id === 'tool.activity');
@@ -120,7 +120,7 @@ test('run.list 주기는 패널이 열려 있을 때만 활동 주기로 목록�
     timers: { every: (spec) => jobs.push(spec) },
     agentsPollMs: 1234,
     _attn: new Map([['t1', { reason: 'signaled' }]]),
-    _agentsPanelOpen: () => open,
+    _agentsPanelShown: () => open,
     _runsListRestore: () => { calls++ },
   };
   ctx.wireStateRegistry(app);
@@ -148,7 +148,7 @@ test('tool.background 주기는 패널이 열려 있을 때만 활동 주기로 
     timers: { every: (spec) => jobs.push(spec) },
     agentsPollMs: 4321,
     _attn: new Map(),
-    _agentsPanelOpen: () => open,
+    _agentsPanelShown: () => open,
     _bgRefresh: () => { calls++ },
   };
   ctx.wireStateRegistry(app);
@@ -160,4 +160,30 @@ test('tool.background 주기는 패널이 열려 있을 때만 활동 주기로 
   assert.equal(job.when(), true);
   job.run();
   assert.equal(calls, 1);
+});
+
+/**
+ * UX_BATCH12_SRS TC-ACF-5 (FR-ACF-9) — 데스크톱의 레일도 목록을 보인다. 세 주기의 조건은
+ * "펼침" 이 아니라 "패널이 보이는가"(`_agentsPanelShown`)다.
+ */
+test('TC-ACF-5: Activity 의 세 주기는 패널이 보이는 동안 돈다', () => {
+  const ctx = load(['core/state-registry.js'], { expose: ['wireStateRegistry'] });
+  const jobs = [];
+  let shown = false;
+  const app = {
+    bus: { subscribe() {} },
+    timers: { every: (spec) => jobs.push(spec) },
+    agentsPollMs: 1000,
+    _attn: new Map(),
+    _agentsPanelOpen: () => false,
+    _agentsPanelShown: () => shown,
+  };
+  ctx.wireStateRegistry(app);
+  for (const id of ['tool.activity', 'run.list', 'tool.background']) {
+    const job = jobs.find((j) => j.id === id);
+    shown = false;
+    assert.equal(job.when(), false, id);
+    shown = true;
+    assert.equal(job.when(), true, id);
+  }
 });

@@ -14,7 +14,7 @@ function memStore(seed = {}) {
   return { getItem: (k) => (d.has(k) ? d.get(k) : null), setItem: (k, v) => d.set(k, String(v)), removeItem: (k) => d.delete(k) };
 }
 
-function world({ local = {}, session = {}, collapsed = false, dock = { left: ['sidebar'], right: ['activity'] } } = {}) {
+function world({ local = {}, session = {}, collapsed = false, agOpen = true, dock = { left: ['sidebar'], right: ['activity'] } } = {}) {
   const vars = {};
   const drags = {};
   const node = (id, w) => ({
@@ -22,7 +22,7 @@ function world({ local = {}, session = {}, collapsed = false, dock = { left: ['s
     addEventListener() {},
   });
   const els = {
-    'agents-toggle': node('agents-toggle', 0), 'agents-panel': node('agents-panel', 260),
+    'agents-panel': node('agents-panel', 260),
     'agents-handle': node('agents-handle', 4), 'sb-handle': node('sb-handle', 4),
   };
   const ls = memStore(local), ss = memStore(session);
@@ -35,14 +35,16 @@ function world({ local = {}, session = {}, collapsed = false, dock = { left: ['s
       },
       UIKit: { drag: (h, o) => { drags[h.id] = o }, grid: () => null },
     },
-    expose: ['InputBinding', 'AGENTS_W_MIN_PX', 'AGENTS_W_MAX_PX', 'SIDEBAR_W_MIN_PX', 'SIDEBAR_W_MAX_PX', 'SIDEBAR_COLLAPSE_AT_PX'],
+    expose: ['InputBinding', 'AGENTS_W_MIN_PX', 'AGENTS_W_MAX_PX', 'AGENTS_COLLAPSE_AT_PX', 'SIDEBAR_W_MIN_PX', 'SIDEBAR_W_MAX_PX', 'SIDEBAR_COLLAPSE_AT_PX'],
   });
-  const state = { collapsed, fits: 0 };
+  const state = { collapsed, agOpen, fits: 0 };
   const app = {
     actPanelOpen() {}, tools: new Map([['p', { el: { classList: { contains: () => true } }, doFit: () => { state.fits++ } }]]),
     focusedTerminal: () => null,
     sidebarCollapsed: () => state.collapsed,
     setSidebarCollapsed: (v) => { state.collapsed = v },
+    agentsPanelOpen: () => state.agOpen,
+    setAgentsPanelOpen: (v) => { state.agOpen = v },
     panelDock: () => dock,
   };
   const ib = new ctx.InputBinding(app);
@@ -162,4 +164,21 @@ test('FR-PDK-20: 방향은 시작할 때 한 번 정한다', () => {
   dock.left = []; dock.right = ['sidebar', 'activity'];
   o.move(c, { clientX: 130 });
   assert.equal(vars['--sb-w'], '230px');
+});
+
+// UX_BATCH12_SRS TC-ACF-3 (FR-ACF-6): Activity 손잡이도 사이드바처럼 접고 편다.
+test('TC-ACF-3: Activity 를 접기 임계 아래로 끌면 레일이 되고 폭은 담지 않는다', () => {
+  const { vars, run, ss, state, ctx } = world();
+  assert.equal(ctx.AGENTS_COLLAPSE_AT_PX, 70);
+  run('agents-handle', 260 - ctx.AGENTS_COLLAPSE_AT_PX + 1);
+  assert.equal(state.agOpen, false);
+  assert.equal(vars['--ag-w'], undefined);
+  assert.equal(ss.getItem('agentsWidth'), null);
+});
+
+test('TC-ACF-3: 레일에서 콘텐츠 쪽으로 끌면 펼친다', () => {
+  const { run, state, vars } = world({ agOpen: false });
+  run('agents-handle', -200);
+  assert.equal(state.agOpen, true);
+  assert.equal(vars['--ag-w'], '460px');
 });

@@ -481,8 +481,8 @@ test.describe('Mobile keybar tooltips (SRS REQ-T-1..T-4)', () => {
 // 기기에서 길이 아니다 — 드로어가 그 길이다.
 //
 // **D-7 개정 (`UIUX_OVERHAUL_SRS` FR-CHR-17).** 둘이 하나가 됐다: `Runs` 와
-// `Agents` 는 같은 패널을 열고 있었다. 상단바의 `Activity` 도 이제 모바일에
-// 서므로(`#bg-btn` 이 갖고 있던 그 자리를 이어받는다) 길은 둘 다 열려 있다.
+// `Agents` 는 같은 패널을 열고 있었다. 상단바의 `Activity` 는 UX_BATCH12_SRS FR-ACF-7 로
+// 없어졌고, 모바일의 길은 드로어 하나다.
 test.describe('모바일의 Activity (FUI-27 · FR-CHR-17)', () => {
   test('드로어의 진입점이 하나이고 활동 패널을 연다', async ({ page }) => {
     await gotoMobile(page);
@@ -495,13 +495,13 @@ test.describe('모바일의 Activity (FUI-27 · FR-CHR-17)', () => {
     await expect(page.locator('body')).not.toHaveClass(/drawer-open/);
   });
 
-  test('상단바의 Activity 가 모바일에서도 선다 — 백그라운드에 닿는 길이다', async ({ page }) => {
+  // UX_BATCH12_SRS FR-ACF-7·10: 상단바의 `Activity` 는 없어졌다. 모바일의 길은 서랍 하나다.
+  test('상단바에 Activity 가 없고, 서랍의 단추로 Background 구역에 닿는다', async ({ page }) => {
     await gotoMobile(page);
-    // FR-SBR-12 의 요구가 대상만 바꿔 살아 있다: 모바일에서 백그라운드 도구에
-    // 닿는 길이 있어야 한다. `#bg-btn` 이 지던 그 짐을 이것이 진다.
-    await expect(page.locator('#topbar #agents-toggle')).toBeVisible();
-    await expect(page.locator('#topbar #bg-btn')).toHaveCount(0);
-    await page.locator('#topbar #agents-toggle').click();
+    await expect(page.locator('#agents-toggle')).toHaveCount(0);
+    await expect(page.locator('#agents-panel')).toBeHidden();
+    await page.click('#m-drawer-toggle');
+    await page.locator('#m-drawer-acts button').click();
     await expect(page.locator('#agents-panel.open .ag-sec[data-sec="bg"]')).toBeVisible({ timeout: 10000 });
   });
 });

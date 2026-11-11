@@ -595,8 +595,6 @@ html.sb-collapsed body:not(.mobile) #sb-bottom{
 }
 /* `.tbtn` 의 외형은 `.ui-btn` 이 갖는다 (DESIGN_TOKENS_SRS §7.1 · FR-TOK-35).
    이름은 기준선 JSON(`ui-layout.json`)이 키로 짚으므로 HTML 에 남는다 (②). */
-/* agents 토글: 색은 `.ui-btn-attn` 이고, 열린 상태만 여기 것이다 */
-#agents-toggle.open{background:var(--attn-subtle);color:var(--attn-text);border-color:var(--attn)}
 
 /* ── Terminal area ── */
 #area{flex:1;position:relative;overflow:hidden;background:var(--bg)}
@@ -804,6 +802,36 @@ body:not(.mobile) #agents-panel{order:var(--dock-ag-ord)}
 body:not(.mobile) #agents-handle{order:var(--dock-ag-h-ord)}
 html[data-sb-side="right"] body:not(.mobile) #sidebar{border-right:none;border-left:1px solid var(--border-strong)}
 html[data-ag-side="left"] body:not(.mobile) #agents-panel{border-left:none;border-right:1px solid var(--border-strong)}
+/* ── Activity 레일 (UX_BATCH12_SRS FR-ACF-1~6·11) ──
+
+   데스크톱에서 `.open` 이 없으면 숨지 않고 사이드바 레일 폭으로 접힌다. 펼침과 **같은 DOM** 이고
+   (FR-RAL-4 와 같은 규약) 40px 에 들어가지 않는 것만 숨긴다. 남는 것은 구역 아이콘·수와
+   항목 이름(두 줄)이다. 경계선은 `#agents-panel` 의 좌우 규칙을 그대로 받는다 (FR-ACF-11).
+   모바일은 `body:not(.mobile)` 밖이라 종전대로 숨는다 (FR-ACF-10). */
+body:not(.mobile) #agents-handle{display:block}
+body:not(.mobile) #agents-panel:not(.open){
+  display:flex;width:var(--sb-rail-w);min-width:var(--sb-rail-w);overflow-x:hidden;
+}
+body:not(.mobile) #agents-panel:not(.open) :is(.ag-title,.ag-refresh,.ag-sec-fold,.ag-sec-name,
+  .ag-sec-empty,.act-usage-foot,.ag-state,.ag-detail,.ag-usage,.ag-sub,
+  .bg-row > :not(.bg-name),.runs-row > :not(.runs-short)){display:none}
+body:not(.mobile) #agents-panel:not(.open) .ag-head{justify-content:center;padding:6px 0}
+body:not(.mobile) #agents-panel:not(.open) .ag-sec{position:relative;justify-content:center;padding:8px 0}
+body:not(.mobile) #agents-panel:not(.open) .ag-sec-icon{display:block;font-size:var(--fs-lg)}
+/* FR-SBC-14 와 같다: 배지는 자리만 아이콘의 귀퉁이로 옮긴다. */
+body:not(.mobile) #agents-panel:not(.open) .ag-sec-n{
+  position:absolute;top:2px;right:2px;min-width:12px;padding:0 3px;
+  font-size:var(--fs-xs);line-height:12px;border-radius:6px;
+}
+/* 창 그룹 머리는 구분선만 남는다 — 이름도 알람 수도 40px 에 들지 않는다. */
+body:not(.mobile) #agents-panel:not(.open) .ag-group{padding:0;height:0;overflow:hidden;pointer-events:none}
+body:not(.mobile) #agents-panel:not(.open) :is(.ag-card,.bg-row,.runs-row){padding:6px 3px;display:block}
+/* FR-RAL-2 와 같다: 이름은 두 줄까지, 넘치면 둘째 줄 끝에 `…`. */
+body:not(.mobile) #agents-panel:not(.open) :is(.ag-loc,.bg-name,.runs-short){
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;
+  white-space:normal;overflow-wrap:anywhere;overflow:hidden;
+  font-size:var(--sb-rail-fs);line-height:1.15;text-align:center;
+}
 html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab{border-left:none;border-right:2px solid transparent}
 html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-right-color:var(--accent)}
 /* FR-PDK-33·34: 드롭 자리 표시. `applyPanelDock` 과 같은 자리에서 세운다. */
@@ -816,8 +844,8 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 .ed-win.dock-drop-right::after{right:0}
 .ag-head{display:flex;align-items:center;gap:6px;padding:8px 10px;font-size:var(--fs-sm);font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border)}
 .ag-title{flex:1}
-.ag-refresh,.ag-close{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-lg);line-height:1;padding:2px 4px;border-radius:3px}
-.ag-refresh:hover,.ag-close:hover{color:var(--accent-text);background:var(--accent-hover)}
+.ag-refresh,.ag-collapse{background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:var(--fs-lg);line-height:1;padding:2px 4px;border-radius:3px}
+.ag-refresh:hover,.ag-collapse:hover{color:var(--accent-text);background:var(--accent-hover)}
 /* PANEL_SURFACE_SRS FR-AGG-1·10·11·12: 창 그룹의 머리. 카드가 있는 창만 갖는다. */
 /* UIUX_OVERHAUL_SRS FR-ACT-1: **구역 머리.** 패널이 네 구역으로 갈렸고
    (주의 · 에이전트 · 백그라운드 · Run) 그 경계가 창 그룹의 경계보다 위다.
@@ -833,6 +861,7 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 }
 .ag-sec:hover{color:var(--accent-text);background:var(--accent-hover)}
 .ag-sec-fold{flex:none}
+.ag-sec-icon{display:none}
 .ag-sec-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ag-sec-n{flex:0 0 auto}
 /* 구역의 동작. `.attn-clear-all` 이 그 하나다 — 배지 뒤, 머리 오른쪽 끝이다. */

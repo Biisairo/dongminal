@@ -314,7 +314,7 @@ test.describe('킷 컴포넌트 (KIT_COMPONENTS_SRS)', () => {
 test.describe('FR-CMP-81: 배지의 모양', () => {
   test('TC-CMP-20: 한 자리 수 배지는 정원이다', async ({ page }) => {
     await waitForInit(page);
-    await page.locator('#agents-toggle').click();
+    await page.locator('#agents-panel .ag-collapse').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
 
     const got = await page.evaluate(() => {

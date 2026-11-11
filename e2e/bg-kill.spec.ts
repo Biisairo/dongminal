@@ -174,8 +174,6 @@ test.describe('FR-BGK-8..10: 종료의 결과', () => {
     // **D-7 개정 (FR-CHR-16).** 종전에는 진입점의 하이라이트가 내려가는 것을
     // 함께 쟀다. 진입점은 이제 수를 말하지 않으므로 잴 것이 없다 — 비었다는
     // 사실은 **구역이** 말한다 (바로 위의 빈 줄).
-    await expect(page.locator('#agents-toggle')).toBeVisible();
-    await expect(page.locator('#agents-toggle')).not.toHaveClass(/\bon\b/);
   });
 
   // V-BGK-10

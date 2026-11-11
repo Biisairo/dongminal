@@ -61,7 +61,7 @@ const HANDLES: {
   {
     name: '#agents-handle (Agents 폭)', sel: '#agents-handle', dx: -60, dy: 0, terms: [0],
     setup: async (page) => {
-      await page.locator('#agents-toggle').click();
+      await page.locator('#agents-panel .ag-collapse').click();
       await expect(page.locator('#agents-panel.open')).toBeVisible();
     },
   },

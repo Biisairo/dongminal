@@ -164,19 +164,12 @@ test.describe('FR-BGU-1: 확인창 버튼 형태 규약', () => {
  * 대신한다 (TC-CHR-16).
  */
 test.describe('FR-SBR-8·9 (D-7 개정): 활동 진입점', () => {
-  // V-SBR-6
-  test('TC-SBR-6: 도구가 0개여도 보이고, 하이라이트는 없다', async ({ page }) => {
-    await waitForInit(page);
-    await expect.poll(async () => page.evaluate(() => (window as any).app.testing.bg.length),
-      { timeout: 10000 }).toBe(0);
-    const btn = page.locator('#agents-toggle');
-    await expect(btn).toBeVisible();
-    await expect(btn).toHaveText('Activity');
-    await expect(btn).not.toHaveClass(/\bon\b/);
-  });
-
-  // V-SBR-5 · FR-CHR-14: 오른쪽 차례가 `알림 · 슬롯 ± · Activity` 다.
-  test('TC-SBR-5: 진입점이 이 줄의 끝에 서고 상태바에는 없다', async ({ page }) => {
+  /**
+   * UX_BATCH12_SRS FR-ACF-7 (2026-11-11): 상단바의 `Activity`(`#agents-toggle`)가 없어졌다.
+   * 진입점은 데스크톱에서 패널의 레일이다 (TC-ACF-1). TC-SBR-6·TC-CHR-16·TC-BGU-5·TC-BGU-9 는
+   * 그 단추를 재던 시험이라 함께 거뒀다. 남는 단정은 "상단바·상태바에 진입점 단추가 없다" 이다.
+   */
+  test('TC-SBR-5 (FR-ACF-7 개정): 상단바의 꼬리는 슬롯 둘이고 진입점 단추는 어디에도 없다', async ({ page }) => {
     await waitForInit(page);
     const got = await page.evaluate(() => {
       const bar = document.getElementById('topbar')!;
@@ -184,28 +177,13 @@ test.describe('FR-SBR-8·9 (D-7 개정): 활동 진입점', () => {
         .filter((e) => (e as HTMLElement).offsetParent !== null)
         .map((e) => e.id);
       return {
-        gone: ['runs-btn', 'bg-btn'].filter((i) => document.getElementById(i)),
-        tail: ids.slice(-3),
-        inStatusBar: document.getElementById('status-bar')!.contains(document.getElementById('agents-toggle')),
+        gone: ['runs-btn', 'bg-btn', 'agents-toggle'].filter((i) => document.getElementById(i)),
+        tail: ids.slice(-2),
       };
     });
     expect(got.gone, '없어진 버튼이 아직 DOM 에 있다').toEqual([]);
-    // 알림 배지는 알림이 없으면 서지 않으므로(`display:none`) 보이는 꼬리는 셋이
-    // 아니라 슬롯 둘과 `Activity` 다.
-    expect(got.tail).toEqual(['slot-remove', 'slot-add', 'agents-toggle']);
-    expect(got.inStatusBar, '진입점이 아직 상태바에 있다').toBe(false);
-  });
-
-  // FR-CHR-16: 종전 TC-SBR-7 을 **뒤집는다.** 수를 세려면 Run 을 세야 하고,
-  // 그것은 `RunsPanel` 규약을 다시 깬다 — 부분만 센 수는 수가 아니다.
-  test('TC-CHR-16: 도구가 생겨도 개수가 붙지 않고 하이라이트도 없다', async ({ page, request }) => {
-    await waitForInit(page);
-    const btn = page.locator('#agents-toggle');
-    await makeBackgroundTool(page, request);
-    await expect.poll(async () => page.evaluate(() => (window as any).app.testing.bg.length),
-      { timeout: 10000 }).toBe(1);
-    await expect(btn).toHaveText('Activity');
-    await expect(btn).not.toHaveClass(/\bon\b/);
+    expect(got.tail).toEqual(['slot-remove', 'slot-add']);
+    await expect(page.locator('#agents-panel')).toBeVisible();
   });
 
   /**
@@ -221,13 +199,13 @@ test.describe('FR-SBR-8·9 (D-7 개정): 활동 진입점', () => {
 
     // 세 구역을 **화면에서** 접어 둔다 — 펴지는 것이 키의 일이었음을 드러낸다.
     // 접기는 머리의 몸통으로 한다 (FR-ACT-10).
-    await page.click('#agents-toggle');
+    await page.click('#agents-panel .ag-collapse');
     await expect(page.locator('#agents-panel.open')).toBeVisible();
     for (const sec of ['agents', 'bg', 'runs']) {
       await page.locator(`#agents-panel .ag-sec[data-sec="${sec}"] .ag-sec-name`).click();
       await expect(folded(sec)).toHaveCount(1);
     }
-    await page.click('#agents-toggle');
+    await page.click('#agents-panel .ag-collapse');
     await expect(page.locator('#agents-panel.open')).toHaveCount(0);
 
     await page.keyboard.press('Control+Shift+KeyB');
@@ -244,35 +222,6 @@ test.describe('FR-SBR-8·9 (D-7 개정): 활동 진입점', () => {
     await page.keyboard.press('Control+Shift+KeyA');
     await expect(page.locator('#agents-panel.open')).toBeVisible();
     await expect(folded('agents'), '문만 여는 키가 구역까지 폈다').toHaveCount(1);
-  });
-
-  test('TC-BGU-5: 진입점이 상태바 지표 재생성으로 파괴되지 않는다', async ({ page, request }) => {
-    await waitForInit(page);
-    await makeBackgroundTool(page, request);
-    await expect(page.locator('#agents-toggle')).toBeVisible();
-
-    const survived = await page.evaluate(() => {
-      const app = (window as any).app;
-      const mark = Symbol.for('tc-bgu-5');
-      const el = document.getElementById('agents-toggle') as any;
-      el[mark] = true;
-      for (let i = 0; i < 3; i++) app.testing.updateStatusBar();
-      const now = document.getElementById('agents-toggle') as any;
-      return !!(now && now[mark]);
-    });
-    expect(survived, 'updateStatusBar 가 진입점을 재생성했다').toBe(true);
-  });
-
-  test('TC-BGU-9: 진입점은 상태바 지표가 아니다', async ({ page, request }) => {
-    await waitForInit(page);
-    await makeBackgroundTool(page, request);
-    const btn = page.locator('#agents-toggle');
-    await expect(btn).toBeVisible();
-    await expect(btn).not.toHaveClass(/sb-item/);
-    // 지표 컨테이너 밖에 있어야 구분선 규칙(.sb-item+.sb-item)이 닿지 않는다.
-    const outside = await page.evaluate(() =>
-      !document.getElementById('sb-items')!.contains(document.getElementById('agents-toggle')));
-    expect(outside, '진입점이 지표 컨테이너 안에 있다').toBe(true);
   });
 });
 

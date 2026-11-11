@@ -43,13 +43,14 @@
  *   count(its)  머리의 배지 수. 항목 수와 다를 수 있다 (에이전트는 창 머리를 뺀다)
  *   empty()     비었을 때의 한 줄 · `hint()` 가 있으면 그 아래 한 줄 더
  *   act(app)    머리에 서는 그 구역만의 동작. 없으면 접기와 수뿐이다
+ *   icon        레일에서 이름 대신 서는 아이콘 (UX_BATCH12_SRS FR-ACF-3)
  */
 const ACTIVITY_SECTIONS=[
-  {key:'agents', title:()=>t('panel.sec_agents'), empty:()=>t('attn.no_active_agents'),
+  {key:'agents', icon:'terminal', title:()=>t('panel.sec_agents'), empty:()=>t('attn.no_active_agents'),
    items:app=>app._agWindowItems(), count:its=>its.filter(i=>i.t==='card').length},
-  {key:'bg', title:()=>t('bg.title'), empty:()=>t('bg.empty'),
+  {key:'bg', icon:'archive', title:()=>t('bg.title'), empty:()=>t('bg.empty'),
    items:app=>app._actBgRows()},
-  {key:'runs', title:()=>t('runs.title'), empty:()=>t('runs.empty'), hint:()=>t('runs.empty_hint'),
+  {key:'runs', icon:'play', title:()=>t('runs.title'), empty:()=>t('runs.empty'), hint:()=>t('runs.empty_hint'),
    items:app=>app._actRunsRows()},
 ];
 
@@ -143,9 +144,10 @@ Object.assign(App.prototype, {
       kind:'ghost',size:'sm',cls:'ag-sec-fold',
       onClick:e=>{e.stopPropagation();this._actFoldToggle(sec.key)},
     }));
+    g.appendChild(UIKit.icon(sec.icon,{cls:'ag-sec-icon'}));
     const name=document.createElement('div');
     name.className='ag-sec-name';
-    name.textContent=name.title=sec.title();
+    name.textContent=g.title=sec.title();
     g.appendChild(name);
     const b=document.createElement('span');
     b.className='ag-sec-n ui-badge';
@@ -156,7 +158,11 @@ Object.assign(App.prototype, {
       const a=sec.act(this);
       if(a) g.appendChild(a);
     }
-    g.addEventListener('click',()=>this._actFoldToggle(sec.key));
+    // UX_BATCH12_SRS FR-ACF-4: 레일에서는 접기가 아니라 그 구역으로 펼치기다.
+    g.addEventListener('click',()=>{
+      if(this.agentsPanelOpen()) this._actFoldToggle(sec.key);
+      else this.actPanelOpen(sec.key);
+    });
     return g;
   },
 

@@ -30,8 +30,8 @@ test.describe('Agent activity panel', () => {
     const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
     expect(pid).toBeTruthy();
 
-    // Open the panel (toggle button next to Split V).
-    await page.locator('#agents-toggle').click();
+    // Expand the panel from its rail (UX_BATCH12_SRS FR-ACF-5).
+    await page.locator('#agents-panel .ag-collapse').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
 
     // Report a working activity → a card appears with the command detail.
@@ -55,7 +55,7 @@ test.describe('Agent activity panel', () => {
   test('SessionEnd (ended) removes the card (FR-AAP-16)', async ({ page }) => {
     await waitForInit(page);
     const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
-    await page.locator('#agents-toggle').click();
+    await page.locator('#agents-panel .ag-collapse').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
 
     // done card present, then an `ended` signal removes it.
@@ -77,7 +77,7 @@ test.describe('Agent activity panel', () => {
     expect(pid1).toBeTruthy();
     expect(pid2).toBeTruthy();
 
-    await page.locator('#agents-toggle').click();
+    await page.locator('#agents-panel .ag-collapse').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
 
     // done state isn't pruned by the busy check, so ordering is stable.
@@ -103,7 +103,7 @@ test.describe('Agent activity panel', () => {
     await expect(page.locator('#area .pn.focused .pn-tab')).toHaveCount(before + 1, { timeout: 10000 });
     const pid2 = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
 
-    await page.locator('#agents-toggle').click();
+    await page.locator('#agents-panel .ag-collapse').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
 
     expect(await setActivity(page, pid1, 'done', '', 'one')).toBe(200);
@@ -186,7 +186,7 @@ test.describe('Agent activity panel', () => {
     // 배경 턴의 종료로 보고하고, 알람은 칸이 배경으로 간 뒤에 세운다.
     expect(await setActivity(page, pid, 'done', '', 'finished', false)).toBe(200);
 
-    await page.locator('#agents-toggle').click();
+    await page.locator('#agents-panel .ag-collapse').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
     const card = page.locator(`#agents-panel .ag-card[data-toolid="${pid}"]`);
     await expect(card).toHaveCount(1, { timeout: 10000 });
@@ -274,7 +274,7 @@ async function twoWindows(page: any) {
   expect(win2).not.toBe(win1);
   const pidC = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
 
-  await page.locator('#agents-toggle').click();
+  await page.locator('#agents-panel .ag-collapse').click();
   await expect(page.locator('#agents-panel.open')).toBeVisible();
   // done 은 busy 판정에 걸리지 않아 폴링을 지나도 카드가 남는다.
   for (const [pid, d] of [[pidA, 'a'], [pidB, 'b'], [pidC, 'c']] as Array<[string, string]>) {
@@ -412,7 +412,7 @@ test.describe('FR-ACT-7·10 (D-7): 구역 셋과 몸통 접기', () => {
   // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40: Usage 는 구역이 아니라 바닥이다 — 구역은 그대로 셋이다.
   test('FR-ACT-7: 구역이 셋이고 차례가 에이전트 · 백그라운드 · Run 이다', async ({ page }) => {
     await waitForInit(page);
-    await page.locator('#agents-toggle').click();
+    await page.locator('#agents-panel .ag-collapse').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
 
     // 빈 구역도 머리를 갖는다 (FR-ACT-1) — 세는 것은 내용이 아니라 구역이다.
@@ -453,7 +453,7 @@ test.describe('Agent card usage row', () => {
   test('TC-ACU-10: 모델 → 막대 → 백분율, 최소 폭에서 넘치지 않는다', async ({ page }) => {
     await waitForInit(page);
     const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
-    await page.locator('#agents-toggle').click();
+    await page.locator('#agents-panel .ag-collapse').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
 
     // 활동 목록은 에이전트가 없는 working 을 거른다 — 이 터미널에는 에이전트가 없다.
@@ -503,7 +503,7 @@ test.describe('Agent card subagent rows', () => {
   test('TC-SAU-9: 서브에이전트마다 한 줄, 끝난 줄은 흐림, 최소 폭에서 넘치지 않는다', async ({ page }) => {
     await waitForInit(page);
     const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
-    await page.locator('#agents-toggle').click();
+    await page.locator('#agents-panel .ag-collapse').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
 
     expect(await setActivity(page, pid, 'done', '', 'app.js')).toBe(200);
@@ -553,7 +553,7 @@ test.describe('Activity subagent views and usage limits', () => {
   test('TC-ASV-15: 카드 안의 서브에이전트 줄, 전환 버튼 없음, Usage 바닥', async ({ page }) => {
     await waitForInit(page);
     const pid = await page.locator('#area .pn.focused .pn-tab.active').getAttribute('data-toolid');
-    await page.locator('#agents-toggle').click();
+    await page.locator('#agents-panel .ag-collapse').click();
     await expect(page.locator('#agents-panel.open')).toBeVisible();
 
     expect(await setActivity(page, pid, 'done', '', 'app.js')).toBe(200);

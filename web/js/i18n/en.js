@@ -908,7 +908,6 @@ I18N.register('en', {
   'html.bk_revlist': 'Show revertible generations',
   'html.shortcuts_note': 'Ctrl/Cmd combinations block the browser\'s default actions (save, print, find, bookmark…) so they can serve as shortcuts. Inside text fields, editing keys such as cursor movement and deletion still work. Combinations the browser never passes to the page, like Ctrl+T, Ctrl+N and Ctrl+W, will not work even if you bind them.',
   'html.breakpoint': 'Mobile Breakpoint (px)',
-  'html.btn_activity': 'Activity',
   'html.btn_new': 'New',
   'html.btn_new_box': 'Box',
   'html.btn_preset': 'Preset',

@@ -66,3 +66,29 @@ test('TC-ARR-4: actPanelOpen 은 닫힌 패널을 열 때도, 열린 패널에�
   app.actPanelOpen('bg');
   assert.equal(app.refreshes, 2);
 });
+
+/**
+ * UX_BATCH12_SRS FR-ACF-1·8·9·10 — 데스크톱에서 `.open` 이 없으면 레일이다. 레일도 보인다.
+ * 모바일에서는 `.open` 이 없으면 숨는다. `setAgentsPanelOpen` 은 같은 값이면 아무것도 하지 않는다.
+ */
+test('FR-ACF-9: _agentsPanelShown — 데스크톱은 늘 참, 모바일은 펼침일 때만', () => {
+  const { app } = rig();
+  app.isMobile = false;
+  assert.equal(app._agentsPanelShown(), true);
+  app.isMobile = true;
+  assert.equal(app._agentsPanelShown(), false);
+  app.setAgentsPanelOpen(true);
+  assert.equal(app._agentsPanelShown(), true);
+});
+
+test('FR-ACF-6: setAgentsPanelOpen 은 상태를 정하고, 같은 값이면 다시 받지 않는다', () => {
+  const { app, panel } = rig();
+  app.setAgentsPanelOpen(true);
+  assert.equal(app.agentsPanelOpen(), true);
+  assert.equal(app.refreshes, 1);
+  app.setAgentsPanelOpen(true);
+  assert.equal(app.refreshes, 1);
+  app.setAgentsPanelOpen(false);
+  assert.equal(panel.classList.contains('open'), false);
+  assert.equal(app.agentsPanelOpen(), false);
+});

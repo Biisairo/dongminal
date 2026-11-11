@@ -42,9 +42,9 @@ class InputBinding {
     // UIUX_OVERHAUL_SRS FR-CHR-15 (D-7): 문은 하나이고 **구역을 넘기지 않는
     // 호출이 그 기본값**이다 — 형제 셋이 `actPanelOpen(key)` 를 부르는데 이
     // 하나만 `agentsToggle()` 을 불러 같은 줄에서 처신이 갈려 있었다.
-    document.getElementById('agents-toggle').addEventListener('click',()=>this.app.actPanelOpen());
+    // UX_BATCH12_SRS FR-ACF-7: 상단바 단추는 없다. 데스크톱에서 닫힘은 레일이다.
     const ap=document.getElementById('agents-panel'),aph=document.getElementById('agents-handle');
-    if(PrefStore.session.bool(STORE_KEYS.agentsPanelOpen,false)){ap.classList.add('open');aph.classList.add('open');document.getElementById('agents-toggle').classList.add('open')}
+    if(PrefStore.session.bool(STORE_KEYS.agentsPanelOpen,false)){ap.classList.add('open');aph.classList.add('open')}
     /**
      * UI_KIT_SRS FR-HSZ-1·10: 여섯 핸들이 `UIKit.drag` 한 골격을 쓴다. 폭 손잡이 둘은
      * 그 위에서 다시 한 구현이다 (`_bindWidthHandle`, FR-OPT-16-2 · FEU-17).
@@ -54,6 +54,12 @@ class InputBinding {
     this._bindWidthHandle(aph,{
       el:ap, contentEl, side:()=>dockSideOf(this.app.panelDock(),'activity'), min:AGENTS_W_MIN_PX, max:AGENTS_W_MAX_PX,
       apply:w=>document.documentElement.style.setProperty('--ag-w',w+'px'),
+      // UX_BATCH12_SRS FR-ACF-6: 사이드바 손잡이(FR-SBC-7)와 같다 — 임계 아래면 레일이다.
+      collapse:raw=>{
+        const rail=raw<AGENTS_COLLAPSE_AT_PX;
+        if(rail===this.app.agentsPanelOpen()) this.app.setAgentsPanelOpen(!rail);
+        return rail;
+      },
       save:w=>PrefStore.session.set(STORE_KEYS.agentsWidth,w),
     });
     // PANEL_LAYOUT_SRS FR-PLY-23: 다른 화면에서 온 비율은 범위를 벗어날 수 있다 — 버리지 않고 접는다.

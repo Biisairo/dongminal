@@ -578,5 +578,6 @@ test('V-CHR-10: 탭줄의 고정 구는 새 탭과 분할뿐이다 — 전역은
     // 그리고 그 둘은 상단바에 서 있다. **(D-7 개정)** `Runs` 는 더 이상 버튼이
     // 아니다 — 같은 패널을 열던 셋이 `Activity` 하나가 됐다 (FR-CHR-15).
     await expect(page.locator('#topbar #slot-add')).toBeVisible();
-    await expect(page.locator('#topbar #agents-toggle')).toBeVisible();
+    // UX_BATCH12_SRS FR-ACF-7: `Activity` 단추도 없어졌다 — 진입점은 패널의 레일이다.
+    await expect(page.locator('#topbar #agents-toggle')).toHaveCount(0);
   });

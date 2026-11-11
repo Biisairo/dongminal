@@ -57,7 +57,7 @@ const STATE_REGISTRY=[
     every:(app)=>app.agentsPollMs,
     // FR-AAP-19 · OPTIMIZE_REFACTOR_SRS FR-OPT-4-6: 읽는 곳이 있을 때만 돈다 — 패널,
     // 그리고 알림의 detail (`_attnDetail`).
-    when:(app)=>app._agentsPanelOpen()||app._attn.size>0,
+    when:(app)=>app._agentsPanelShown()||app._attn.size>0,
   },
   {
     /**
@@ -87,7 +87,7 @@ const STATE_REGISTRY=[
     restore:'_runsListRestore',
     merge:'latest',
     every:(app)=>app.agentsPollMs,
-    when:(app)=>app._agentsPanelOpen(),
+    when:(app)=>app._agentsPanelShown(),
   },
   {
     /**
@@ -114,7 +114,7 @@ const STATE_REGISTRY=[
     // UX_BATCH12 FR-LIV-7: 행의 Run 표지와 cwd 는 조회 때 계산된다 — 신호가 없는 변화를
     // 패널이 열린 동안 활동 주기로 고친다 (`run.list` 와 같은 모양).
     every:(app)=>app.agentsPollMs,
-    when:(app)=>app._agentsPanelOpen(),
+    when:(app)=>app._agentsPanelShown(),
   },
   {
     /**

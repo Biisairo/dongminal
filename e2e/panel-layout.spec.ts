@@ -18,7 +18,7 @@ const SWAP = { left: ['activity'], right: ['sidebar'] };
 
 async function arrange(page: Page) {
   await page.evaluate((s) => (window as any).app.testing.setPanelDock(s), SWAP);
-  await page.locator('#agents-toggle').click();
+  await page.locator('#agents-panel .ag-collapse').click();
   await expect(page.locator('#agents-panel')).toBeVisible();
   await page.evaluate(() => sessionStorage.setItem('agentsWidth', '400'));
 }

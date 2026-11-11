@@ -62,7 +62,7 @@ Object.assign(App.prototype, {
       const el=document.getElementById(id);
       return el&&shown?el.getBoundingClientRect().width:NaN;
     };
-    const open=this._agentsPanelOpen(), collapsed=this.sidebarCollapsed();
+    const open=this.agentsPanelOpen(), collapsed=this.sidebarCollapsed();
     return {
       dock:this.panelDock(), repoSide:this.repoSideDock(),
       sidebarPx:px(SIDEBAR_W_KEY,'sidebar',!collapsed), sidebarCollapsed:collapsed,

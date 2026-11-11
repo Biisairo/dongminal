@@ -72,28 +72,39 @@ Object.assign(App.prototype, {
   },
 
   // FR-AAP-11/12: 우측 활동 패널 토글(열림 상태 영속)
-  agentsToggle(){
+  agentsToggle(){this.setAgentsPanelOpen(!this.agentsPanelOpen())},
+
+  /**
+   * UX_BATCH12_SRS FR-ACF-1·8: `.open` 은 **펼침**이다. 데스크톱에서 `.open` 이 없으면 레일이고
+   * (CSS 가 폭을 덮는다), 모바일에서는 숨는다. 저장 값(`agentsPanelOpen`)의 뜻도 같다.
+   */
+  setAgentsPanelOpen(open){
     const panel=document.getElementById('agents-panel'),handle=document.getElementById('agents-handle');
-    if(!panel) return;
-    const open=!panel.classList.contains('open');
+    if(!panel||panel.classList.contains('open')===open) return;
     panel.classList.toggle('open',open);
     handle.classList.toggle('open',open);
-    const btn=document.getElementById('agents-toggle');if(btn)btn.classList.toggle('open',open);
     PrefStore.session.setBool(STORE_KEYS.agentsPanelOpen,open);
     for(const p of this.tools.values()) if(p.el.classList.contains('vis')) p.doFit();
     // FR-ARR-4: 핸들로 열어도 단축키로 열 때처럼 구역 목록을 다시 받는다.
-    if(open){this._actRefresh();this.agentsRender()}
+    if(open) this._actRefresh();
+    this.agentsRender();
+  },
+
+  agentsPanelOpen(){
+    const panel=document.getElementById('agents-panel');
+    return !!(panel&&panel.classList.contains('open'));
   },
 
   /**
    * FR-AAP-19 (회복 — OPTIMIZE_REFACTOR_SRS FR-OPT-4-6): 활동 스냅샷의 주기는 **패널이
-   * 열렸거나 알림이 있을 때만** 돈다. 주기는 `state-registry` 의 `tool.activity` 가
+   * 보이거나 알림이 있을 때만** 돈다. 주기는 `state-registry` 의 `tool.activity` 가
    * 갖고 이것은 그 `when` 이다. 알림이 있으면 주의 센터가 활동의 detail 을 읽는다
    * (`_attnDetail`). 증분은 닫혀 있어도 SSE `tool_activity` 로 온다.
+   *
+   * UX_BATCH12_SRS FR-ACF-9: 데스크톱의 레일도 목록을 보이므로 "보인다" 에 든다.
    */
-  _agentsPanelOpen(){
-    const panel=document.getElementById('agents-panel');
-    return !!(panel&&panel.classList.contains('open'));
+  _agentsPanelShown(){
+    return !this.isMobile||this.agentsPanelOpen();
   },
 
   /**
@@ -165,7 +176,7 @@ Object.assign(App.prototype, {
    */
   agentsRender(){
     const panel=document.getElementById('agents-panel');
-    if(!panel||!panel.classList.contains('open')) return;
+    if(!panel||!this._agentsPanelShown()) return;
     // UIUX_OVERHAUL_SRS FR-ACT-1: 패널의 몸통은 **네 구역**이다 (주의 · 에이전트 ·
     // 백그라운드 · Run). 무엇을 그릴지는 각 표면의 주인이 알고, 여기가 아는 것은
     // 머리 하나뿐이다 (`app-activity.js` 의 `ACTIVITY_SECTIONS`).
@@ -186,6 +197,7 @@ Object.assign(App.prototype, {
         // 보이는지 이 파일은 모르고, 알 필요도 없다.
         if(it.t==='row') return it.el.outerHTML;
         if(it.t==='foot') return JSON.stringify(it.view); // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40
+        if(it.t==='head') return this.agentsPanelOpen()?'open':'rail'; // UX_BATCH12_SRS FR-ACF-5
         if(it.t!=='card') return '1';
         const i=it.info||{};
         // `_agCardEl` 이 읽는 값 전부다 (FR-RPT-2).
@@ -322,9 +334,11 @@ Object.assign(App.prototype, {
       head.appendChild(b);
     };
     mkBtn('ag-refresh','Refresh the activity list','refresh-cw');
-    mkBtn('ag-close','Close the panel','x');
+    // UX_BATCH12_SRS FR-ACF-5: 닫기가 아니라 접기다. 레일에서는 같은 단추가 펼친다.
+    const open=this.agentsPanelOpen();
+    mkBtn('ag-collapse',open?'Collapse the panel':'Expand the panel',open?'chevron-right':'chevron-left');
     head.querySelector('.ag-refresh').addEventListener('click',e=>{e.stopPropagation();this._activityRestore()});
-    head.querySelector('.ag-close').addEventListener('click',e=>{e.stopPropagation();this.agentsToggle()});
+    head.querySelector('.ag-collapse').addEventListener('click',e=>{e.stopPropagation();this.agentsToggle()});
     return head;
   },
 

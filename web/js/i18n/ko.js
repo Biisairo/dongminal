@@ -931,7 +931,6 @@ I18N.register('ko', {
   'html.bk_revlist': '되돌릴 수 있는 판 보기',
   'html.shortcuts_note': 'Ctrl/Cmd 조합은 브라우저 기본 동작(저장·인쇄·찾기·북마크…)을 막고 단축키로 씁니다. 다만 입력란에서는 커서 이동·지움 같은 편집 키가 그대로 듣습니다. Ctrl+T·Ctrl+N·Ctrl+W 처럼 브라우저가 페이지에 넘기지 않는 조합은 배정해도 동작하지 않습니다.',
   'html.breakpoint': '모바일 기준 너비 (px)',
-  'html.btn_activity': 'Activity',
   'html.btn_new': '새 창',
   'html.btn_new_box': 'Box',
   'html.btn_preset': '프리셋',
