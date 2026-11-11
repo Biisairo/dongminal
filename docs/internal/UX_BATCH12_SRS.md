@@ -7,7 +7,7 @@
 |---|---|
 | 문서 | UX_BATCH12_SRS |
 | 관련 | `ACTIVITY_STATE_SUBAGENT_SRS` FR-ASV-32~37 · `EXPLORER_MULTI_SELECT_SRS` FR-EMS-* · `M9_SRS` FR-M9-19 · `ISSUE_TREE_OPS_SRS` FR-ITC-11~17 · `RUN_VIEW_LIVE_SRS` · `ACTIVITY_RUNS_REFRESH_SRS` |
-| FR 접두 | FR-SVL(서브에이전트 목록) · FR-EXM(Explorer 다중) · FR-EXK(Explorer 단축키) · FR-EXD(Finder 로 끌어 내려받기) · FR-FHL(포커스 하이라이트) · FR-RMM(Run 미니맵) · FR-LIV(실시간 갱신) · FR-ACF(Activity 접기) |
+| FR 접두 | FR-SVL(서브에이전트 목록) · FR-EXM(Explorer 다중) · FR-EXK(Explorer 단축키) · FR-EXD(Finder 로 끌어 내려받기) · FR-FHL(포커스 하이라이트) · FR-RMM(Run 미니맵) · FR-LIV(실시간 갱신) · FR-ACF(Activity 접기) · FR-SBA(사이드바 액션 단추) |
 
 ## 0. 요구사항 대장 (Requirements Ledger)
 
@@ -33,7 +33,7 @@
 | R18 | Activity 패널의 열고 닫기를 메인 좌측 패널(사이드바)과 같게 한다 — 완전히 닫지 않고 작게 접는다. Activity 버튼은 지운다. 이 상태는 창 레이아웃 저장에 함께 들어가야 한다 | FR-ACF-1~11 | 완료 (TC-ACF-1·2·4 `activity-rail.spec.ts`, TC-ACF-3 `width-handle.test.mjs`, TC-ACF-5 `state-registry.test.mjs`). 레일은 데스크톱에서 `.open` 이 없는 상태다 — 저장 모양은 그대로다. 사용자 덧붙임은 "레일에 목록도 보인다" 로 확인했다. 레일 요소가 보이게 되어 `ui-layout.*.json` 기준선에 그 자리를 더했다(linux·win32 는 darwin 값으로) |
 | R21 | 에이전트 알람이 꺼지는 방식: 지금은 그 탭 화면을 한 번 눌러야 꺼진다. 이것은 이미 그 탭에 포커스가 있을 때의 이야기다. **다른 탭에 포커스가 있다가 그 탭으로 포커스를 옮기는 동작**(Activity 의 에이전트 카드 선택, 탭 바에서 알람 온 탭 선택, Repo 갔다가 Windows 로 돌아오기 등)은 알람을 꺼야 한다 | (작성 예정, ATTENTION_FIRING_SRS 확인) | 진행 전 |
 | R22 | Windows 패널 그룹 머리 왼쪽의 삼각형(접기)을 누르면 글자 선택 블록이 씌워진다 — 결함 | (작성 예정) | 진행 전 |
-| R23 | Windows 패널의 그룹 추가 단추가 좌우로 너무 꽉 차 있다 | (작성 예정) | 진행 전 · R18 다음 |
+| R23 | Windows 패널의 그룹 추가 단추가 좌우로 너무 꽉 차 있다 | FR-SBA-1 | 완료 (TC-SBA-1 `sidebar-actions.spec.ts`) |
 | R20 | 편집기 검색의 색을 고친다 — 지금 일치(포커스), 다른 일치, 선택한 것과 같은 단어의 색. 사용자와 질의응답으로 정한 뒤 진행한다. **R19 바로 앞에 한다** | (질의응답 뒤 작성) | 진행 전 · R19 앞 |
 | R19 | Repo 창에서 탭을 새로 만들지 재사용할지의 규칙을 다시 정한다. **마지막 작업**이며, 사용자와 질의응답으로 규칙을 정한 뒤 진행한다 | (질의응답 뒤 작성) | 진행 전 · 다른 행이 끝난 뒤 |
 | R15 | (작업 방식) 전체 e2e 는 너무 오래 걸린다 — 관련 e2e 만 돌린다 | 절차 | 적용 중 |
@@ -238,6 +238,11 @@
 - **FR-ACF-10** 모바일은 바뀌지 않는다. `.open` 이 없으면 패널은 숨는다. 서랍의 Activity 단추(`#m-drawer-acts`)가 여는 길이다.
 - **FR-ACF-11** Activity 가 오른쪽·왼쪽 어디에 있든(PANEL_DOCK_SRS) 레일의 경계선은 콘텐츠 쪽 면에 선다.
 
+### 3.5b 사이드바 액션 단추 (FR-SBA)
+
+- **FR-SBA-1** Windows 패널의 그룹 추가 단추(`#add-group`)는 `#add-window`·`#add-preset` 과 같은 규칙(좌우 여백 8px, 테두리, 높이, hover, 모바일 터치 높이)을 쓴다.
+  - 확인 결과: `#add-group` 만 그 규칙의 선택자 목록에서 빠져 있어 패널 폭을 꽉 채웠다.
+
 ### 3.6 이전 동작 / 새 동작 / 이유
 
 | 항목 | 이전 동작 | 새 동작 | 이유 |
@@ -281,6 +286,7 @@
 | TC-ACF-3 | FR-ACF-6 | JS 단위(`width-handle.test.mjs`): 손잡이를 70px 아래로 / 레일에서 오른쪽으로 끌기 | 레일이 된다 / 펼친다 |
 | TC-ACF-4 | FR-ACF-8 | e2e: 레일로 레이아웃 저장 → 새 탭 / 펼침으로 저장 → 새 탭 | 새 탭이 레일 / 펼침으로 선다 |
 | TC-ACF-5 | FR-ACF-9 | JS 단위: 상태 등록부의 `when` | 데스크톱 레일에서 참, 모바일에서 `.open` 이 없으면 거짓 |
+| TC-SBA-1 | FR-SBA-1 | e2e(`sidebar-actions.spec.ts`) | `#add-group` 의 좌우 여백·높이·좌우 끝이 `#add-window` 와 같다 |
 | TC-LIV-1 | FR-LIV-1·2 | Go: 세 종단에 대해 GET 의 ETag, 맞는 If-Match 의 PUT, 낡은 If-Match 의 PUT, If-Match 없는 PUT | 200 / 409 `stale_rev` 이고 값이 그대로 / 200 |
 | TC-LIV-2 | FR-LIV-3 | Go: 샌드박스 저장 | `sandbox_changed` 가 한 번 나간다 |
 | TC-LIV-3 | FR-LIV-4·5·6 | e2e: 접속 허용 목록 패널을 연 채 다른 요청으로 바꿈 (수정 없음 / 수정 있음), 낡은 패널에서 저장 | 다시 그려짐 / 알림이 뜨고 폼은 그대로 / 409 알림 |
@@ -315,6 +321,7 @@
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-11-11 | 개정 8: R23 을 FR-SBA-1·TC-SBA-1 로 정했다 |
 | 2026-11-11 | 개정 7: R18 을 FR-ACF-1~11·TC-ACF-1~5 로 정했다. 사용자 덧붙임 "이미 메인 패널은 그룹에서 폴더를 지원하고있다" 는 "사이드바 레일처럼 목록도 보인다" 는 뜻으로 확인했다 (FR-ACF-3) |
 | 2026-11-11 | 개정 6: R18(Activity 접기)을 대장에 더했다. FR-FHL-8 의 확인 결과와 판정(포커스 칸의 탭 하나)을 적었다 |
 | 2026-11-11 | 개정 5: FR-EXM-1 에 자동 스크롤 수치·끌기 뒤 클릭·앵커를 정했다. TC-EXM-1 의 "4px 미만 → 선택 그대로" 는 FR-EXM-1(빈 여백 클릭과 같다)과 어긋나 FR 쪽으로 고쳤다 |
