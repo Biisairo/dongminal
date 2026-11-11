@@ -1,6 +1,7 @@
 # SRS: 시선 보존 — 탭을 떠났다 돌아와도 스크롤이 남는다 — IEEE 29148
 
 > **문서 상태**: 승인·구현완료
+> **덧붙임 (UX_BATCH12_SRS FR-RTR-10, 2026-11-11).** Repo 창의 **Diff 탭**도 같은 규약을 따른다 — `GitDiffView.keepView`·`restoreView`(인라인은 수정본 편집기의 `scrollSnapshot`, 나란히 보기는 바깥 그릇의 `scrollTop`)를 `_keepScrollAll` 과 `_mountTabBody` 의 이동 갈래에서 부른다. 그 전에는 Diff 탭만 창을 오가면 맨 위로 갔다.
 
 ## 1. 개요 (Introduction)
 

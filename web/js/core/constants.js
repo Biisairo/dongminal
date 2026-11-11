@@ -290,9 +290,9 @@ const RETURN_WINDOW_KEY={plain:'lastPlainWindow',editor:'lastEditorWindow'};
 
 // ── 사이드바 접기 (SIDEBAR_COLLAPSE_SRS 묶음 SBC) ──
 //
-// FR-SBC-4 / D-4: 접힘은 `sidebarTab` 과 같은 범주의 "이 기기가 보는 방식" 이므로
-// localStorage 에만 산다. 워크스페이스에 두면 다른 기기의 화면 폭에 맞춘 선택이
-// 이 기기로 넘어온다.
+// FR-SBC-4 / D-4: 접힘은 "이 화면이 보는 방식" 이므로 워크스페이스에 두지 않는다 — 두면
+// 다른 기기의 화면 폭에 맞춘 선택이 이 기기로 넘어온다. 자리는 sessionStorage(탭별)다
+// (PANEL_LAYOUT_SRS FR-PLY-1 이 localStorage 를 대체했다).
 // D-1·2: 클래스는 `documentElement` 에 붙는다 — index.html 의 인라인 스크립트가
 // 첫 프레임에 같은 이름을 붙이며(FR-SBC-5), **그 문자열과 여기가 같아야 한다.**
 const SIDEBAR_COLLAPSED_KEY='sidebarCollapsed';

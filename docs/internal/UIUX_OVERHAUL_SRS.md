@@ -533,6 +533,7 @@ D-6 이 푼 것은 *"찾을 수 없다"* 였고 남은 것은 **"같은 것이 �
 `SLOT_MARKER_SRS` FR-SMK-1 의 칸 마커와 FR-CHR-12 의 창 이름은 **한 줄도 바뀌지
 않는다.** 오른쪽 다섯이 셋이 된다.
 
+> **개정 (UX_BATCH12_SRS FR-ACF-7, 2026-11-11 · R18).** 상단바의 Activity 단추(`#agents-toggle`)는 없어졌다. 데스크톱의 Activity 패널은 펼침·레일 두 상태이고 레일이 늘 보이며(FR-ACF-1), 구역 머리를 누르면 펼친다. 모바일은 서랍의 Activity 단추(`#m-drawer-acts`)가 여는 길이다. 단축키(`agentsToggle`·`runsToggle`·`bgToggle`)는 그대로다. 아래 본문의 `#agents-toggle` 은 그 시점의 기록이다.
 **FR-CHR-15** `#runs-btn` 과 `#bg-btn` 은 **없어진다.** `#agents-toggle` 은
 **식별자를 지키고** 라벨·툴팁만 `Activity` 가 된다 — R-1 이 *"id 는 새 자리에서
 보존"* 을 요구하고, 패널의 이름은 FR-ACT-1 에서 이미 `Activity` 가 됐는데 버튼만

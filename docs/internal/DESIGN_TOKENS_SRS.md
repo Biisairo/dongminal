@@ -843,7 +843,7 @@ D-TOK-8 이 지목한 "누가 위인가를 값으로 적은 자리" 다. 같은 
 D-TOK-11 로 옮겼다: `.slot-ctl .tbtn{min-width:22px}` → `ui-btn-sm` ·
 `body.mobile .tp-ov-acts .tbtn` → `.ui-btn` · `body.mobile .mtbtn.mobile-only` →
 `#topbar .ui-btn.mobile-only` · `body.mobile .mtbtn{44px}` → 이미 있던
-`body.mobile .ui-btn`/`.ui-btn-icon` 하한이 대신한다. `#agents-toggle` 의 색 규칙은
+`body.mobile .ui-btn`/`.ui-btn-icon` 하한이 대신한다. `#agents-toggle`(UX_BATCH12_SRS FR-ACF-7 로 없어졌다)의 색 규칙은
 `.ui-btn-attn` 과 글자 그대로 같아 `.open` 상태만 남겼다. `.runs-*`·`.bg-*` 의
 도메인 규칙에서 키트와 같은 선언(padding·기본색·위험색)을 지웠고 hover 에서만
 붉어지는 `.runs-del`·`.bg-kill` 은 뜻이 다르므로 남겼다.
