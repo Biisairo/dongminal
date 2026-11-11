@@ -784,6 +784,8 @@ const BARE_LINK_CACHE_MAX=500;
 // M9_SRS FR-M9-24: 보던 자리의 기록 상한 (사용자 결정 2026-09-14). 넘으면 오래된
 // 쪽부터 버린다 — 무한히 쌓으면 그 자체가 새는 자리다.
 const FOCUS_NAV_MAX=100;
+// UX_BATCH12_SRS FR-RTR-2: 닫은 탭 목록의 길이. 넘으면 오래된 쪽부터 버린다.
+const TAB_REOPEN_MAX=50;
 const FILE_KIND_TEXT='text';
 const FILE_KIND_IMAGE='image';
 const FILE_KIND_BINARY='binary';

@@ -23,7 +23,7 @@ function world() {
   a.ws = { activeWindow: 'w1', windows: [win] };
   a.aw = () => win;
   a.calls = [];
-  for (const m of ['paneTabSet', 'setFocusState', '_focusWindow', 'render', 'save', '_killTool', 'editorsDrop', '_gitRescheduleAll']) {
+  for (const m of ['paneTabSet', 'setFocusState', '_focusWindow', 'render', 'save', '_killTool', 'editorsDrop', '_gitRescheduleAll', '_tabReopenNote']) {
     a[m] = (...args) => { a.calls.push(m) };
   }
   a._isToolBusy = async () => false;

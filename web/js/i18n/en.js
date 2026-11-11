@@ -1195,6 +1195,7 @@ I18N.register('en', {
   'shortcut.agents_toggle': 'Agents panel',
   'shortcut.bg_toggle': 'Background tools',
   'shortcut.close_tab': 'Close tab',
+  'shortcut.tab_reopen': 'Reopen closed tab',
   'shortcut.close_window': 'Close window',
   'shortcut.ed_find_in_file': 'Find in file (Editor)',
   'shortcut.ed_find_refs': 'Find references (Editor)',

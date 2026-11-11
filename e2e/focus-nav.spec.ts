@@ -2,7 +2,7 @@ import { Page } from '@playwright/test';
 
 import { test, expect, waitForInit } from './fixtures';
 
-// M9_SRS FR-M9-24·25·26·27 — **보던 자리 오가기**와 UI 글자 선택.
+// M9_SRS FR-M9-24·25·27 — **보던 자리 오가기**와 UI 글자 선택.
 //
 // 자리는 (창, 칸, 탭) 셋이다 (D-M9-17). 커서는 이 밖이며 편집기 안의 점프는
 // `_lspBack`(FR-LSP-27)이 자기 스택으로 갖는다.
@@ -93,30 +93,7 @@ test.describe('FR-M9-24 — 보던 자리를 오간다', () => {
   });
 });
 
-test.describe('FR-M9-26 — 마우스 4·5번 버튼', () => {
-  // **막았는지를 직접 재는 것이 이 검사의 절반이다.** 이동만 재면 브라우저가
-  // 함께 움직여도 초록이 된다 (M9_PROGRESS §2-12).
-  test('V-M9-26: 버튼이 자리를 옮기고 브라우저 기본 동작을 막는다', async ({ page }) => {
-    await waitForInit(page);
-    const t1 = (await place(page)).tab as string;
-    const t2 = await addTab(page);
-
-    const fire = (button: number) => page.evaluate((b) => {
-      const ev = new MouseEvent('mousedown', { button: b, bubbles: true, cancelable: true });
-      window.dispatchEvent(ev);
-      return ev.defaultPrevented;
-    }, button);
-
-    expect(await fire(3), '뒤로 버튼이 막히지 않았다').toBe(true);
-    await expect.poll(async () => (await place(page)).tab, { timeout: 10000 }).toBe(t1);
-
-    expect(await fire(4), '앞으로 버튼이 막히지 않았다').toBe(true);
-    await expect.poll(async () => (await place(page)).tab, { timeout: 10000 }).toBe(t2);
-
-    // 왼쪽 버튼은 건드리지 않는다 — 막으면 클릭이 통째로 죽는다.
-    expect(await fire(0), '왼쪽 버튼까지 막았다').toBe(false);
-  });
-});
+// FR-M9-26(마우스 4·5번)은 UX_BATCH12_SRS FR-RTR-11 로 철회됐다 — 검사는 tab-reopen.spec.ts TC-RTR-6.
 
 test.describe('FR-M9-27 — 선택은 기본이 아니라 예외다', () => {
   const selectable = (page: Page, sel: string) => page.evaluate((s) => {

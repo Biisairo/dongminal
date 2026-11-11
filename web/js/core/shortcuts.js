@@ -114,6 +114,9 @@ const SHORTCUT_DEFAULTS={
    */
   focusBack:'Ctrl+Shift+Comma',
   focusForward:'Ctrl+Shift+Period',
+  // UX_BATCH12_SRS FR-RTR-3: 닫은 탭 다시 열기. 브라우저·편집기 기본 키와 겹치지 않는 글자다
+  // (`Cmd+Shift+T` 는 Chrome 이 먼저 가져간다. 사용자 결정 "브라우저랑 안겹치는걸로").
+  tabReopen:'Ctrl+Shift+KeyU',
   shortcutsHelp:'Ctrl+Shift+Slash',
 };
 const SHORTCUT_LABELS={
@@ -127,6 +130,7 @@ const SHORTCUT_LABELS={
   splitH:t('shortcut.split_h'),splitV:t('shortcut.split_v'),
   newWindow:t('shortcut.new_window'),newTab:t('shortcut.new_tab'),
   closeWindow:t('shortcut.close_window'),closeTab:t('shortcut.close_tab'),
+  tabReopen:t('shortcut.tab_reopen'),
   agentsToggle:t('shortcut.agents_toggle'),
   slotAdd:t('shortcut.slot_add'),
   slotRemove:t('shortcut.slot_remove'),

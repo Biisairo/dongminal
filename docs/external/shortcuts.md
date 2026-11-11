@@ -35,6 +35,7 @@
 | 새 탭 | `Ctrl+Shift+T` |
 | 창 닫기 | `Ctrl+Shift+W` |
 | 탭 닫기 | `Ctrl+Shift+D` |
+| 닫은 탭 다시 열기 | `Ctrl+Shift+U` |
 | Run 오케스트레이션 | `Ctrl+Shift+O` |
 | 백그라운드 도구 | `Ctrl+Shift+B` |
 | 에이전트 패널 | `Ctrl+Shift+A` |

@@ -412,7 +412,7 @@ Object.assign(GitPanel.prototype, {
       onSaveIntent:()=>{if(this.diffTabId) this.app.gitDiffTabPin(this.diffTabId)},
       // DIFF_HUNK_BAR_SRS D-4 / FR-DHB-10: 에디터가 서면 hover 툴바를 배선하고
       // 사라지면 걷는다. `GitDiffView` 는 관측을 모르므로 그 배선을 여기서 한다.
-      onEditor:ed=>this._hunkBarWire(ed),
+      onEditor:ed=>{ this._hunkBarWire(ed); if(ed) this._diffTabViewPending() },
       // UX_BATCH6_SRS FR-GLV-1: 본문이 실제로 바뀐 회차다. 조각 관측은 이
       // 본문에서 파생되므로 그때만 낡는다 — 폴링마다 다시 받으면 요청이 배로 는다.
       onChanged:()=>this._diffChanged(),

@@ -19,6 +19,21 @@ Object.assign(GitPanel.prototype, {
     if(this._els.get('diff')) this._paint();
   },
 
+  // UX_BATCH12_SRS FR-RTR-6: 닫는 Diff 탭의 커서·스크롤과, 다시 연 탭에 그것을 돌려 놓는 일.
+  // 다시 연 탭의 Diff 는 내용을 받아 온 뒤에 서므로, 그 전이면 담아 두었다 칸이 서면 쓴다.
+  diffTabViewState(){ return this._diffView?this._diffView.viewState():null },
+
+  diffTabViewApply(vs){
+    if(vs&&!(this._diffView&&this._diffView.viewApply(vs))) this._dtPendingView=vs;
+  },
+
+  _diffTabViewPending(){
+    const vs=this._dtPendingView;
+    if(!vs||!this._diffView) return;
+    this._dtPendingView=null;
+    this._diffView.viewApply(vs);
+  },
+
   // FR-RTB-6 ④: 이 Diff 에서 친 수정이면 탭을 고정한다. 문서의 dirty 는 같은 파일의
   // 편집기 탭에서 쳐도 오므로, 포커스가 이 Diff 안에 있을 때만 이 탭의 계기로 센다.
   _diffTabEdited(v){

@@ -242,6 +242,10 @@ class FileEditor {
       const r = this._pendingReveal; this._pendingReveal = null;
       this.revealLine(r.line, r.col);
     }
+    if (this._pendingView) {
+      const vs = this._pendingView; this._pendingView = null;
+      this.viewApply(vs);
+    }
   }
 
   /**
@@ -465,6 +469,26 @@ class FileEditor {
   restoreView() {
     if (!this._view || !this._viewState) return;
     this._view.dispatch({ effects: this._viewState });
+  }
+
+  // UX_BATCH12_SRS FR-RTR-6: 닫는 탭의 커서·스크롤. 문서 길이를 함께 적어 다시 열 때 같은 문서인지 본다.
+  viewState() {
+    if (!this._view) return null;
+    const st = this._view.state, sel = st.selection.main;
+    return { anchor: sel.anchor, head: sel.head, len: st.doc.length, scroll: this._view.scrollSnapshot() };
+  }
+
+  // FR-RTR-6: 적어 둔 커서·스크롤로 간다. 편집기가 아직 뜨지 않았으면 생성 직후에 쓴다.
+  // 문서가 그 사이 바뀌었으면 스크롤 스냅숏은 맞지 않으므로 커서를 가운데로 보인다.
+  viewApply(vs) {
+    if (!vs) return;
+    if (!this._view) { this._pendingView = vs; return }
+    const len = this._view.state.doc.length;
+    const clip = (n) => Math.min(Math.max(0, n), len);
+    this._view.dispatch({
+      selection: { anchor: clip(vs.anchor), head: clip(vs.head) },
+      effects: vs.len === len ? vs.scroll : CM.EditorView.scrollIntoView(clip(vs.head), { y: 'center' }),
+    });
   }
 
   // FR-RTU-42: 이 편집기가 붙은 탭이 미리보기면 고정한다. 탭을 찾는 일은 App 이

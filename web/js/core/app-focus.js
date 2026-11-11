@@ -106,6 +106,8 @@ Object.assign(App.prototype, {
   _navGo(p){
     this._navMoving=true;
     try{
+      // UX_BATCH12_SRS FR-RTR-7: 닫힌 탭의 자리면 닫은 탭 목록으로 다시 열고 그리로 간다.
+      if(!this._navAlive(p)) p=this.tabReopenAt(p)||p;
       if(this.ws.activeWindow!==p.win) this.switchWindow(p.win);
       if(p.tab) this.switchTab(p.pane,p.tab);
       else this.setFocusState(p.pane);
@@ -116,21 +118,31 @@ Object.assign(App.prototype, {
   /**
    * 뒤로·앞으로. `d` 는 -1(뒤로)·+1(앞으로)다.
    *
-   * **사라진 자리는 건너뛴다** (FR-M9-24). 창을 닫거나 탭을 지운 뒤에도 기록은
+   * **갈 수 없는 자리는 건너뛴다** (FR-M9-24). 창을 닫거나 탭을 지운 뒤에도 기록은
    * 남아 있고, 그 자리로 가려 들면 아무 일도 일어나지 않은 채 기록만 줄어든다 —
-   * 사용자에게는 "키가 안 듣는다" 로 보인다.
+   * 사용자에게는 "키가 안 듣는다" 로 보인다. 닫힌 탭이라도 닫은 탭 목록에 있으면
+   * 갈 수 있는 자리다 (UX_BATCH12_SRS FR-RTR-7).
    */
   _navMove(d){
     const from=d<0?(this._navBack=this._navBack||[]):(this._navFwd=this._navFwd||[]);
     const to=d<0?(this._navFwd=this._navFwd||[]):(this._navBack=this._navBack||[]);
     while(from.length){
       const p=from.pop();
-      if(!this._navAlive(p)) continue;
+      if(!this._navReachable(p)) continue;
       if(this._navCur) to.push(this._navCur);
       this._navGo(p);
       return true;
     }
     return false;
+  },
+
+  // 건너뛰지 않고 갈 수 있는 자리인가 — 열린 자리이거나 다시 열 수 있는 자리다 (FR-RTR-7·14).
+  _navReachable(p){ return this._navAlive(p)||this.tabReopenCan(p) },
+
+  // 다시 연 탭은 새 id 다 — 기록의 옛 id 를 바꿔 그 자리로 다시 갈 수 있게 한다.
+  _navRetab(from,to){
+    if(from===to) return;
+    for(const p of [...(this._navBack||[]),...(this._navFwd||[]),this._navCur]) if(p&&p.tab===from) p.tab=to;
   },
 
   navBack(){ return this._navMove(-1) },

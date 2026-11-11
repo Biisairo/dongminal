@@ -1213,6 +1213,7 @@ I18N.register('ko', {
   'shortcut.agents_toggle': '에이전트 패널',
   'shortcut.bg_toggle': '백그라운드 도구',
   'shortcut.close_tab': '탭 닫기',
+  'shortcut.tab_reopen': '닫은 탭 다시 열기',
   'shortcut.close_window': '창 닫기',
   'shortcut.ed_find_in_file': '파일 내에서 검색 (Editor)',
   'shortcut.ed_find_refs': '참조 찾기 (Editor)',

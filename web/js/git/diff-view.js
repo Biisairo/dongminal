@@ -481,6 +481,23 @@ class GitDiffView {
     if(this.onEditor) this.onEditor(c.host);
   }
 
+  // UX_BATCH12_SRS FR-RTR-6: 닫는 Diff 탭의 커서·스크롤. 스크롤은 비율이다 (`_cmBuild` 의 재생성과 같은 식).
+  viewState(){
+    const c=this._cm;
+    if(!c) return null;
+    const st=c.b.state,sel=st.selection.main;
+    return {anchor:sel.anchor,head:sel.head,len:st.doc.length,ratio:this._cmScrollRatio(c)};
+  }
+
+  // FR-RTR-6: 적어 둔 커서·스크롤로 간다. 칸이 아직 없으면 거짓이다. 문서가 바뀌었으면 커서는 두지 않는다.
+  viewApply(vs){
+    const c=this._cm;
+    if(!c) return false;
+    if(vs.len===c.b.state.doc.length) c.b.dispatch({selection:{anchor:vs.anchor,head:vs.head}});
+    if(vs.ratio) TIMERS.frame(()=>{ if(this._cm===c) c.scroller.scrollTop=vs.ratio*(c.scroller.scrollHeight-c.scroller.clientHeight) },{owner:this,label:'diff-scroll'});
+    return true;
+  }
+
   _cmScrollRatio(c){
     const s=c.scroller,range=s.scrollHeight-s.clientHeight;
     return range>0?s.scrollTop/range:0;
