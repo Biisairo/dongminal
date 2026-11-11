@@ -46,6 +46,7 @@ function pane(opts = {}) {
     claim: () => { state.owner = true },
     release: () => { state.owner = false },
     hide: () => { visible = false },
+    show: () => { visible = true },
   };
 }
 
@@ -284,7 +285,9 @@ test('V-M11-4: 소켓이 있을 때의 동작은 종전과 같다', () => {
   assert.ok(opts && opts.quiet === true);
 });
 
-test('V-M11-5: 되찾기가 소켓 없이 폭 전환을 만나면 다음 접속에 since 가 없다', () => {
+// OWNER_TRANSFER_REPLAY_SRS FR-OTR-10 이 개정한다 (2026-11-12): 숨은 칸은 되찾을 때 좌표를
+// 버리지 않고 빚으로 둔다. 좌표는 **보일 때** 버린다 — 옛 폭의 그림이 보이지 않는다는 보증은 같다.
+test('V-M11-5: 되찾기가 소켓 없이 폭 전환을 만나면 보일 때 다음 접속에 since 가 없다', () => {
   const h = pane({ owner: true });
   h.p.doFit();                          // 소유자로서 자기 폭 151 을 잰다
   h.release();
@@ -298,5 +301,9 @@ test('V-M11-5: 되찾기가 소켓 없이 폭 전환을 만나면 다음 접속�
   h.ctx.location = { protocol: 'http:', host: 'h' };
   const s = h.p.ptySize();
   assert.equal(s.cols, 151, '되찾은 폭이 자기 폭이어야 한다 (FR-M10-1)');
+  assert.equal(h.p._widthDebt, true, '숨은 동안 갚지 않은 폭은 빚으로 남아야 한다 (FR-OTR-10)');
+  h.show();
+  h.p.doFit();
+  h.p.ptySize();
   assert.ok(!/since=/.test(h.p._wsURL()), 'since 를 달고 붙으면 델타가 와서 옛 폭의 그림이 남는다 (M11-B1)');
 });

@@ -46,6 +46,8 @@ function pane(opts = {}) {
     ctx, p, clock, OP: ctx.OP, ctxFlags: { FULL: ctx.SEQ_FLAG_FULL, ALT: ctx.SEQ_FLAG_ALT },
     claim: () => { state.owner = true },
     release: () => { state.owner = false },
+    hide: () => { visible = false },
+    show: () => { visible = true },
     // 이 연결의 좌표를 받은 **라이브** 상태로 만든다 — 실제로 되찾기가 일어나는
     // 순간의 pane 은 언제나 이 상태다. 대체 화면인지는 **서버가** 좌표와 함께 말한다.
     live: () => { p._onOp(seqFrame(ctx.OP, 1, opts.alt ? ctx.SEQ_FLAG_ALT : 0)) },
@@ -335,4 +337,49 @@ test('파서 훅은 xterm 의 처리를 가로채지 않는다 — false 를 돌
   h.live();
   assert.equal(h.p._onAltMode([1049], true), false, 'true 를 돌려주면 xterm 이 모드 전환을 삼킨다');
   assert.equal(h.p._onAltMode([7], true), false);
+});
+
+// ── FR-OTR-10: 숨은 칸은 되찾아도 빚으로 둔다 ─────────────────────────────────
+
+/**
+ * 숨은 칸은 `fit` 을 하지 않는다 — `term.cols` 는 따르던 PTY 폭에 남고, 기억한
+ * 자기 폭(`_ownCols`)과 **계속** 다르다. 그 차이를 그 자리에서 갚으면
+ * `resendWindowSizes` 가 부를 때마다(창 주장 한 번에 두 번, 그 뒤 render 마다)
+ * 전량 재생이 다시 걸린다 (TAB-LOAD 실측: 숨은 탭 셋이 1~7초 간격으로 1 MiB 씩).
+ */
+function hiddenReclaim() {
+  const h = pane({ owner: true });
+  h.p.doFit();
+  h.release();
+  h.p._onOp(sizeFrame(h.OP, 44, 20));
+  h.hide();
+  h.claim();
+  h.live();
+  return h;
+}
+
+test('숨은 칸은 되찾아도 재생을 걸지 않고 빚으로 둔다 (FR-OTR-10)', () => {
+  const h = hiddenReclaim();
+  const c = countRefresh(h.p);
+
+  const s = h.p.ptySize();
+  h.p.ptySize();
+  h.p.ptySize();
+
+  assert.equal(c.n, 0, '숨은 칸이 재생을 걸었다 — 부를 때마다 다시 건다');
+  assert.equal(s.cols, 151, 'PTY 로 보내는 크기는 자기 폭이어야 한다 (FR-M10-1)');
+  assert.equal(h.p._widthDebt, true, '갚지 않은 폭은 빚으로 남아야 한다');
+});
+
+test('숨었던 칸이 보이면 그때 한 번만 갚는다 (FR-OTR-10·5)', () => {
+  const h = hiddenReclaim();
+  h.p.ptySize();
+  const c = countRefresh(h.p);
+
+  h.show();
+  h.p.doFit();          // render 의 _afterLayout 이 먼저 잰다
+  h.p.ptySize();
+  h.p.ptySize();
+
+  assert.equal(c.n, 1, '보인 뒤의 재생은 한 벌이어야 한다');
 });

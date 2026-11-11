@@ -526,12 +526,14 @@ class TerminalTool {
   ptySize(){
     if(!this.term) return null;
     const had=this.term.cols;
-    if(this.el&&this.el.classList.contains('vis')) this.doFit();
+    const vis=!!(this.el&&this.el.classList.contains('vis'));
+    if(vis) this.doFit();
     const cols=this._ownCols>0?this._ownCols:this.term.cols;
     const rows=this._ownRows>0?this._ownRows:this.term.rows;
     if(!(cols>0&&rows>0)) return null;
     // FR-OTR-2·8: 빚은 라이브일 때만 근거다. FR-OTR-6·9: 서버가 대체 화면이라 하면 앱의 재그리기에 맡긴다.
-    if(cols!==had||(this._widthDebt&&this._seqLive)){ if(this._srvAlt) this._widthDebt=true; else this._refreshForWidth() }
+    // FR-OTR-10: 숨은 칸은 fit 하지 않아 `cols!==had` 가 풀리지 않는다 — 보일 때 갚는다.
+    if(cols!==had||(this._widthDebt&&this._seqLive)){ if(this._srvAlt||!vis) this._widthDebt=true; else this._refreshForWidth() }
     return {cols,rows};
   }
 
