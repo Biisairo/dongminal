@@ -79,6 +79,10 @@ func TestClaudeHook_SubagentTable(t *testing.T) {
 		{"PermissionRequest", sub("PermissionRequest", `,"tool_name":"Bash","tool_input":{"command":"rm"}`), "waiting", "Bash", "rm", "waiting", "rm"},
 		{"Notification waiting", sub("Notification", `,"notification_type":"permission_prompt","message":"m"`), "waiting", "", "m", "waiting", "m"},
 		{"SubagentStop", sub("SubagentStop", ""), "done", "", "", "", ""},
+		// TC-ASV-17 (C-10, D-ASV-13): SubagentHandback 은 서브에이전트의 마지막 일이라 done 이다.
+		{"PreToolUse SubagentHandback", sub("PreToolUse", `,"tool_name":"SubagentHandback","tool_input":{"message":"report"}`), "done", "SubagentHandback", "", "", ""},
+		{"PostToolUse SubagentHandback", sub("PostToolUse", `,"tool_name":"SubagentHandback","tool_input":{"message":"report"}`), "done", "SubagentHandback", "", "", ""},
+		{"PostToolUseFailure SubagentHandback", sub("PostToolUseFailure", `,"tool_name":"SubagentHandback","tool_input":{"message":"report"}`), "done", "SubagentHandback", "", "", ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

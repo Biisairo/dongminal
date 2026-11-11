@@ -12,6 +12,7 @@ import (
 	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/agentrec"
 	"dongminal/internal/shared/statusline"
+	"dongminal/internal/shared/toolhub"
 )
 
 // ACTIVITY_STATE_SUBAGENT_SRS 묶음 S·L — 서브에이전트 활동과 계정 한도 (TC-ASV-6~10).
@@ -309,5 +310,81 @@ func TestApiResponses_CarryLimits(t *testing.T) {
 	_, out := getStatus(t, s, "id=p1")
 	if l, _ := out["limits"].([]any); len(l) != 1 {
 		t.Fatalf("status limits=%v", out["limits"])
+	}
+}
+
+// TC-ASV-18: §2.4 의 끝 순서를 그대로·마지막 두 훅을 뒤바꿔 보고해도 서브에이전트는 done 이다 (C-10).
+func TestSubagentActivity_HandbackOrderEndsDone(t *testing.T) {
+	const sub = `"agent_id":"a4d7","agent_type":"Explore"`
+	head := []string{
+		`{"hook_event_name":"SubagentStart",` + sub + `}`,
+		`{"hook_event_name":"SubagentStop",` + sub + `}`,
+		`{"hook_event_name":"PreToolUse",` + sub + `,"tool_name":"SubagentHandback","tool_input":{"message":"ONE"}}`,
+	}
+	post := `{"hook_event_name":"PostToolUse",` + sub + `,"tool_name":"SubagentHandback","tool_input":{"message":"ONE"}}`
+	stop := `{"hook_event_name":"SubagentStop",` + sub + `}`
+	for name, tail := range map[string][]string{"순서대로": {post, stop}, "뒤바뀜": {stop, post}} {
+		t.Run(name, func(t *testing.T) {
+			s, _, _ := statusServer(t)
+			for _, p := range append(append([]string{}, head...), tail...) {
+				replayHook(t, s, "p1", p)
+			}
+			if got := s.subActs.list("p1", time.Now())["a4d7"]; got.State != "done" {
+				t.Fatalf("서브에이전트 활동=%+v", got)
+			}
+		})
+	}
+}
+
+// TC-ASV-19: 신호를 놓친 working 은 안전망이 지운다. 도는 것은 지우지 않는다 (FR-ASV-12, D-ASV-14).
+func TestSubagentActivityStore_DropStale(t *testing.T) {
+	t0 := time.Unix(1000, 0)
+	late := t0.Add(agentrec.SubagentStaleKeep + time.Second)
+	cases := []struct {
+		name     string
+		state    string
+		now      time.Time
+		mainBusy bool
+		running  map[string]bool
+		gone     bool
+	}{
+		{"조건이 모두 맞음", "working", late, false, nil, true},
+		{"waiting 도 같다", "waiting", late, false, nil, true},
+		{"기한 전", "working", t0.Add(agentrec.SubagentStaleKeep - time.Second), false, nil, false},
+		{"main 이 바쁨", "working", late, true, nil, false},
+		{"statusLine 이 running", "working", late, false, map[string]bool{"a1": true}, false},
+		{"다른 서브에이전트만 running", "working", late, false, map[string]bool{"zz": true}, true},
+		{"done 은 이 규칙과 무관", "done", t0.Add(agentrec.SubagentDoneKeep - time.Second), false, nil, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var st subagentActivityStore
+			st.put("p1", "a1", subagentActivity{State: tc.state}, t0)
+			st.dropStale("p1", tc.now, tc.mainBusy, tc.running)
+			_, ok := st.list("p1", tc.now)["a1"]
+			if ok == tc.gone {
+				t.Fatalf("남음=%v, 지워져야 함=%v", ok, tc.gone)
+			}
+		})
+	}
+}
+
+// TC-ASV-19: 조회가 안전망을 돌린다 — main 이 done 이면 오래된 working 이 목록에서 빠진다.
+func TestApiToolsActivity_DropsStaleSubagent(t *testing.T) {
+	for _, mainState := range []string{"done", "working"} {
+		t.Run(mainState, func(t *testing.T) {
+			t.Cleanup(toolhub.SetAttnBusyProbe(func(*toolhub.Tool) bool { return true }))
+			s, _, p := statusServer(t)
+			p.SetActivity(mainState, "", "")
+			s.subActs.put("p1", "old", subagentActivity{AgentType: "web-fetch", State: "working", Tool: "SubagentHandback"},
+				time.Now().Add(-agentrec.SubagentStaleKeep-time.Second))
+			got, ok := activitySubagents(t, s)
+			if mainState == "done" && ok {
+				t.Fatalf("main 이 done 인데 남았다: %v", got)
+			}
+			if mainState == "working" && (!ok || len(got) != 1) {
+				t.Fatalf("main 이 working 인데 지워졌다: %v", got)
+			}
+		})
 	}
 }

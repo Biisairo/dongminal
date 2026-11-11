@@ -49,6 +49,22 @@ func (st *subagentActivityStore) list(toolID string, now time.Time) map[string]s
 	return out
 }
 
+// dropStale 은 신호를 놓친 활동을 지운다 (FR-ASV-12 안전망, C-10·D-ASV-14). done 이 아니고
+// SubagentStaleKeep 동안 갱신이 없으며, main 이 쉬고(mainBusy 거짓) statusLine 이 running 이라
+// 하지 않는 것이다. 도는 서브에이전트는 main 이 바쁘거나 statusLine 이 running 으로 알린다.
+func (st *subagentActivityStore) dropStale(toolID string, now time.Time, mainBusy bool, running map[string]bool) {
+	if mainBusy {
+		return
+	}
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	for id, v := range st.m[toolID] {
+		if v.State != activity.Done && !running[id] && now.Sub(v.UpdatedAt) > agentrec.SubagentStaleKeep {
+			delete(st.m[toolID], id)
+		}
+	}
+}
+
 // dropTool 은 그 도구의 활동을 모두 지운다 — main 이 ended 일 때다 (FR-ASV-12).
 func (st *subagentActivityStore) dropTool(toolID string) {
 	st.mu.Lock()

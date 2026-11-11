@@ -37,6 +37,8 @@ const (
 	DetailMax = 512
 	// SubagentDoneKeep 은 done 이 된 서브에이전트 활동을 남겨 두는 기한이다 (FR-ASV-12).
 	SubagentDoneKeep = 30 * time.Second
+	// SubagentStaleKeep 은 갱신이 끊긴 done 아닌 서브에이전트 활동을 남겨 두는 기한이다 (FR-ASV-12 안전망).
+	SubagentStaleKeep = 2 * time.Minute
 )
 
 // SocketPath 는 home 인스턴스의 보고 소켓 경로다. 데몬과 dmctl 이 이 함수 하나로 찾는다.

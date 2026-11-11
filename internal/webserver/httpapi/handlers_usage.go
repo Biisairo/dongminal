@@ -5,8 +5,10 @@ import (
 	"sync"
 	"time"
 
+	"dongminal/internal/shared/activity"
 	"dongminal/internal/shared/agentadapter"
 	"dongminal/internal/shared/agentrec"
+	"dongminal/internal/shared/statusline"
 	"dongminal/internal/shared/toolhub"
 	"dongminal/internal/shared/toolipc"
 	"dongminal/internal/webserver/apierr"
@@ -199,6 +201,17 @@ type activityEntry struct {
 	Subagents []cardSubagent `json:"subagents,omitempty"`
 }
 
+// runningSubagents 는 statusLine 목록에서 running 인 서브에이전트의 id 들이다 (D-ASV-14).
+func runningSubagents(tasks []statusline.Subagent) map[string]bool {
+	out := map[string]bool{}
+	for _, t := range tasks {
+		if deref(t.Status) == "running" {
+			out[deref(t.ID)] = true
+		}
+	}
+	return out
+}
+
 func (s *Server) activityEntries() []activityEntry {
 	snap := s.attention().ActivitySnapshot()
 	out := make([]activityEntry, 0, len(snap))
@@ -207,6 +220,7 @@ func (s *Server) activityEntries() []activityEntry {
 	for _, a := range snap {
 		c, u := s.toolUsageView(a.ToolID)
 		subs, _ := s.subagents.get(a.ToolID, now)
+		s.subActs.dropStale(a.ToolID, now, a.State == activity.Working || a.State == activity.Waiting, runningSubagents(subs))
 		out = append(out, activityEntry{ActivitySnap: a, Usage: cardUsageOf(c, u, p),
 			Subagents: cardSubagentsOf(subs, s.subActs.list(a.ToolID, now), p)})
 	}

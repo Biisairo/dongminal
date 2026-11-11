@@ -177,6 +177,11 @@ func parseClaudeSubagentHook(event, toolName string, toolInput json.RawMessage, 
 	case "SubagentStart":
 		return Report{Sub: &SubReport{State: activity.Working}}
 	case "PreToolUse", "PostToolUse", "PostToolUseFailure":
+		// C-10: 이 도구는 서브에이전트의 마지막 일이다. 끝의 SubagentStop 과 도착 순서가 바뀌어도
+		// done 이 working 으로 덮이지 않게 done 으로 읽는다 (D-ASV-13).
+		if toolName == claudeHandbackTool {
+			return Report{Sub: &SubReport{State: activity.Done, Tool: toolName}}
+		}
 		return Report{Sub: &SubReport{State: activity.Working, Tool: toolName, Detail: claudeToolDetail(toolName, toolInput)}}
 	case "PermissionRequest":
 		detail := claudeToolDetail(toolName, toolInput)
@@ -191,6 +196,9 @@ func parseClaudeSubagentHook(event, toolName string, toolInput json.RawMessage, 
 	}
 	return Report{}
 }
+
+// claudeHandbackTool 은 서브에이전트가 보고를 넘기고 끝나는 도구다 (ACTIVITY_STATE_SUBAGENT_SRS §2.4 ⑤).
+const claudeHandbackTool = "SubagentHandback"
 
 // backgroundPromptMarks 는 **사람이 치지 않은 프롬프트**의 표식이다 (FR-ATN-3a).
 //
