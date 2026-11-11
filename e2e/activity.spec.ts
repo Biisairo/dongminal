@@ -222,7 +222,7 @@ test.describe('Agent activity panel', () => {
 // 적는다 — 창 이름은 기본값이 서로 같아서(`Window`) 순서의 증거가 되지 못한다.
 async function panelOrder(page: any): Promise<string[]> {
   return page.evaluate(() =>
-    [...document.querySelectorAll('#agents-panel > *')]
+    [...document.querySelectorAll('#agents-body > *')]
       .map((e) => {
         const el = e as HTMLElement;
         if (el.classList.contains('ag-group')) return 'G:' + el.dataset.sid;
@@ -371,14 +371,14 @@ test.describe('Agent panel window groups (FR-AGG)', () => {
     // 둘 + 카드 셋)을 박았는데, `UIUX_OVERHAUL_SRS` FR-ACT-1 이 패널에 구역 넷과
     // 그 빈 줄을 더하면서 그 수가 패널의 **구성**을 따라 움직이게 됐다. 이 검증이
     // 묻는 것은 "다시 그려도 그대로인가" 이므로 앞뒤를 견준다.
-    const before = await page.locator('#agents-panel > *').count();
+    const before = await page.locator('#agents-body > *').count();
     expect(before, '패널이 비었다 — 검증이 공회전한다').toBeGreaterThan(5);
     await page.evaluate(() => {
-      for (const e of document.querySelectorAll('#agents-panel > *')) (e as HTMLElement).dataset.mark = '1';
+      for (const e of document.querySelectorAll('#agents-body > *')) (e as HTMLElement).dataset.mark = '1';
     });
     await page.evaluate(() => (window as any).app.render());
     await page.evaluate(() => (window as any).app.render());
-    expect(await page.locator('#agents-panel > *[data-mark="1"]').count()).toBe(before);
+    expect(await page.locator('#agents-body > *[data-mark="1"]').count()).toBe(before);
 
     // FR-AGG-10: 머리를 접으면 그 그룹의 카드만 사라진다.
     await page.locator(`#agents-panel .ag-group[data-sid="${win1}"] .ag-group-fold`).click();
@@ -602,6 +602,19 @@ test.describe('Activity subagent views and usage limits', () => {
     });
     expect(pinned.last, 'Usage 바닥이 패널의 마지막 원소가 아니다').toBe(true);
     expect(pinned.gap, 'Usage 바닥이 패널 아랫변에 붙지 않았다').toBeLessThanOrEqual(2);
+    // FR-ASV-40 (D-ASV-12): 바닥은 스크롤 몸통 밖이다 — 몸통만 스크롤되고 바닥과 겹치지 않는다.
+    const split = await page.evaluate(() => {
+      const body = document.getElementById('agents-body');
+      const f = document.querySelector('#agents-panel .act-usage-foot') as HTMLElement;
+      const p = document.getElementById('agents-panel') as HTMLElement;
+      return { body: !!body, inBody: !!body && body.contains(f),
+        overlap: body ? body.getBoundingClientRect().bottom - f.getBoundingClientRect().top : NaN,
+        panelScrolls: getComputedStyle(p).overflowY !== 'hidden' && p.scrollHeight > p.clientHeight };
+    });
+    expect(split.body, '스크롤 몸통이 없다').toBe(true);
+    expect(split.inBody, 'Usage 바닥이 스크롤 몸통 안에 있다').toBe(false);
+    expect(split.overlap, '스크롤 몸통이 바닥과 겹친다').toBeLessThanOrEqual(1);
+    expect(split.panelScrolls, '패널 자체가 스크롤된다').toBe(false);
 
     // 최소 폭에서 패널을 넘지 않는다
     await page.evaluate(() => document.documentElement.style.setProperty('--ag-w', '160px'));

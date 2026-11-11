@@ -798,7 +798,10 @@ body.tabfix .pn-tab .pn-tab-x{flex:0 0 auto}
 #agents-handle{width:3px;flex-shrink:0;cursor:col-resize;background:var(--border-strong);display:none}
 #agents-handle:hover{background:var(--accent)}
 #agents-handle.open{display:block}
-#agents-panel{width:var(--ag-w,260px);min-width:var(--ag-w,260px);background:var(--sidebar-bg);border-left:1px solid var(--border-strong);display:none;flex-direction:column;overflow-y:auto}
+#agents-panel{width:var(--ag-w,260px);min-width:var(--ag-w,260px);background:var(--sidebar-bg);border-left:1px solid var(--border-strong);display:none;flex-direction:column;overflow:hidden}
+/* ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40 (D-ASV-12): 몸통만 스크롤되고 Usage 바닥은 그 아래에 고정된다. */
+#agents-body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden}
+#agents-foot{flex-shrink:0;min-width:0}
 #agents-panel.open{display:flex}
 
 /* PANEL_DOCK_SRS FR-PDK-10~12·15: 좌우 자리는 order 로 정한다 (`applyPanelDock`).
@@ -937,9 +940,9 @@ html.sb-collapsed[data-sb-side="right"] body:not(.mobile) .sb-tab.active{border-
 /* FR-ASV-33: 폴더형 하위 카드 — main 카드 아래에 한 단계 들여 쓴다. 왼쪽 선이 소속을 말한다. */
 .ag-card{position:relative}
 /* ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40~42 (D-ASV-11): Usage 바닥 — 패널 맨 아래에 붙는다.
-   패널은 세로 flex 이므로 margin-top:auto 가 내용이 짧을 때 바닥으로 밀고, sticky 가 길 때 아래에 남긴다.
+   바닥은 스크롤 몸통 밖의 `#agents-foot` 에 선다 (D-ASV-12).
    창 블록의 모양은 Claude Code `/usage`·CodexBar 를 따른다 — 이름과 사용률 / 둥근 막대 / 남은 시간. */
-.act-usage-foot{margin-top:auto;position:sticky;bottom:0;z-index:var(--z-sticky);flex-shrink:0;padding:8px 12px 10px;
+.act-usage-foot{padding:8px 12px 10px;
   background:var(--sidebar-bg);border-top:1px solid var(--border);min-width:0}
 .act-usage-head{display:flex;align-items:baseline;gap:6px;margin-bottom:2px;font-size:var(--fs-sm);font-weight:600;color:var(--text-muted);min-width:0}
 .act-usage-head:not(:first-child){margin-top:8px}

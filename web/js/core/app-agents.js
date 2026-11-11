@@ -176,12 +176,13 @@ Object.assign(App.prototype, {
    */
   agentsRender(){
     const panel=document.getElementById('agents-panel');
-    if(!panel||!this._agentsPanelShown()) return;
+    const body=document.getElementById('agents-body'),footHost=document.getElementById('agents-foot');
+    if(!panel||!body||!footHost||!this._agentsPanelShown()) return;
     // UIUX_OVERHAUL_SRS FR-ACT-1: 패널의 몸통은 **네 구역**이다 (주의 · 에이전트 ·
     // 백그라운드 · Run). 무엇을 그릴지는 각 표면의 주인이 알고, 여기가 아는 것은
     // 머리 하나뿐이다 (`app-activity.js` 의 `ACTIVITY_SECTIONS`).
     const items=[{t:'head'}].concat(this._actItems());
-    reconcileList(panel,items,{
+    const opts={
       key:it=>it.t==='card'?'card:'+it.toolId
         :it.t==='sub'?'sub:'+it.toolId+':'+it.s.id
         :it.t==='group'?'grp:'+it.win.id
@@ -216,7 +217,10 @@ Object.assign(App.prototype, {
         :it.t==='row'?it.el
         :it.t==='foot'?this._actUsageFootEl(it.view)
         :this._agCardEl(panel,it.toolId,it.info,it.loc),
-    });
+    };
+    // ACTIVITY_STATE_SUBAGENT_SRS FR-ASV-40 (D-ASV-12): Usage 바닥은 스크롤 몸통 밖에 그린다.
+    reconcileList(body,items.filter(it=>it.t!=='foot'),opts);
+    reconcileList(footHost,items.filter(it=>it.t==='foot'),opts);
   },
 
   /**

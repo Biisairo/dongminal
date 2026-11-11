@@ -224,7 +224,7 @@ Object.assign(App.prototype, {
     if(f.has('sec:'+key)){f.delete('sec:'+key);this.agentsRender()}
     const el=panel.querySelector('[data-sec="'+key+'"]');
     if(el) el.scrollIntoView({block:'start'});
-    else panel.scrollTop=0;
+    else document.getElementById('agents-body').scrollTop=0;
   },
 
   // ── 구역이 주는 항목 ─────────────────────────────────────────────
