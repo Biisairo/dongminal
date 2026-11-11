@@ -340,7 +340,7 @@ test.describe('묶음 C — 띄워야 보이는 표면', () => {
     // 동안 뜨는 버튼은 무엇에 걸리는지 말할 수 없고, 에디터가 없으면 붙을 자리가
     // 없다.
     await page.waitForFunction(() => {
-      const p = (window as any).app?.gitPanel;
+      const p = edT.diffPanel();
       return !!(p && p._hunks && p._hunks.list && p._hunks.list.length
         && edT.diffReady(p._diffView));
     }, undefined, { timeout: 20000 });
@@ -349,7 +349,7 @@ test.describe('묶음 C — 띄워야 보이는 표면', () => {
     // 클릭 좌표는 렌더 타이밍에 매달려 흔들린다 (git-hunk.spec.ts 의 `cursorLine`
     // 과 같은 근거).
     await page.evaluate(() => {
-      const p = (window as any).app.gitPanel;
+      const p = edT.diffPanel();
       const ln = Math.max(1, p._hunks.list[0].newStart);
       const ed = edT.diffSide(p._diffView, 'mod');
       edT.revealLine(ed, ln);

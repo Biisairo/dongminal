@@ -134,8 +134,10 @@ Object.assign(App.prototype, {
    * 레이아웃의 것이고 레이아웃은 칸이 공유한다. 상태(스크롤·선택·diff 대상)는
    * 패널의 필드에 남으므로 다시 열면 그대로다 (FR-RTU-34).
    */
-  _gitDropView(root,view){
+  // UX_BATCH12_SRS FR-RTB-7: Diff 탭은 탭마다 전용 패널이다 — `tabId` 가 오면 그 탭의 패널만 거둔다.
+  _gitDropView(root,view,tabId){
     if(!view||!this.gitPanels) return;
+    if(tabId&&view==='diff'){this._gitDiffPanelsDrop(tabId);return}
     for(const [key,p] of this.gitPanels){
       if(this._gitPanelRoot(key)!==(root||'')) continue;
       if(p.dropView) p.dropView(view);
@@ -154,10 +156,12 @@ Object.assign(App.prototype, {
    * 동기화가 어긋난 순간 확인이 조용히 빠진다.
    */
   // `closing` 은 닫기 확인의 물음이다 — 그 뷰가 떠나면 편집을 잃는가 (REPO_FIX 05 §3A-3).
-  _gitViewDirty(root,view,closing){
+  // `tabId` 가 오면 그 Diff 탭의 패널만 본다 (FR-RTB-7 — Diff 탭이 여럿이다).
+  _gitViewDirty(root,view,closing,tabId){
     if(!view||!this.gitPanels) return false;
     for(const [key,p] of this.gitPanels){
       if(this._gitPanelRoot(key)!==(root||'')) continue;
+      if(!this._gitPanelOfTab(p,view,tabId)) continue;
       if(p.viewDirty&&p.viewDirty(view,!!closing)) return true;
     }
     return false;
@@ -179,11 +183,12 @@ Object.assign(App.prototype, {
    * 그 루트의 Diff 뷰가 든 편집을 저장한다. 하나라도 실패하면 false 다 —
    * 호출자는 그때 닫기를 멈춘다. 저장한 줄 알고 닫으면 그것이 곧 손실이다.
    */
-  async _gitViewSave(root,view){
+  async _gitViewSave(root,view,tabId){
     if(!view||!this.gitPanels) return true;
     let ok=true;
     for(const [key,p] of this.gitPanels){
       if(this._gitPanelRoot(key)!==(root||'')) continue;
+      if(!this._gitPanelOfTab(p,view,tabId)) continue;
       if(p.viewSave&&!await p.viewSave(view)) ok=false;
     }
     return ok;
@@ -214,7 +219,14 @@ Object.assign(App.prototype, {
   _gitPanelKey(root,slot){ return this.slotKey('git:'+(root||''),slot||0) },
   _gitPanelRoot(key){
     const base=this.slotBase(key);
-    return base.startsWith('git:')?base.slice(4):'';
+    if(!base.startsWith('git:')) return '';
+    // FR-RTB-7: Diff 탭 패널의 키는 루트 뒤에 탭 id 를 단다 (`gitDiffPanelFor`).
+    const at=base.indexOf(GIT_DIFF_TAB_SEP);
+    return at<0?base.slice(4):base.slice(4,at);
+  },
+  // Diff 탭 하나를 묻는 자리(`tabId`)면 그 탭의 패널만 대상이다.
+  _gitPanelOfTab(p,view,tabId){
+    return !(tabId&&view==='diff')||p.diffTabId===tabId;
   },
 
   /**
@@ -230,8 +242,10 @@ Object.assign(App.prototype, {
     // 살아 있는 루트: Repo 창들의 루트 + 옛 Git 창의 자리('').
     const live=new Set(['']);
     for(const s of this.ws.windows) if(this.isEditorWin(s)) live.add(this.edRootOf(s));
+    // FR-RTB-7: Diff 탭 패널은 그 탭이 레이아웃에 남아 있을 때만 산다.
+    const tabs=this._gitDiffTabIds();
     for(const [key,p] of this.gitPanels){
-      if(this._slotOf(key)<n&&live.has(this._gitPanelRoot(key))) continue;
+      if(this._slotOf(key)<n&&live.has(this._gitPanelRoot(key))&&(!p.diffTabId||tabs.has(p.diffTabId))) continue;
       p.destroy();
       this.gitPanels.delete(key);
     }

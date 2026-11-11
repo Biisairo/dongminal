@@ -60,12 +60,12 @@ const row = (page: Page, p: string) =>
 test('F-3.1: 하위 폴더 루트에서 Diff 의 저장 대상은 저장소 최상위 기준 경로다', async ({ page, request }) => {
   await enter(page, request);
   await row(page, 'src/a.txt').click();
-  await page.waitForFunction((abs: string) => (window as any).app.gitPanel._diffView?._editTarget === abs,
+  await page.waitForFunction((abs: string) => edT.diffPanel()._diffView?._editTarget === abs,
     j(SUB, 'a.txt'), { timeout: 20000 });
   await page.evaluate(() => {
-    edT.diffAppend((window as any).app.gitPanel._diffView, 'three\n');
+    edT.diffAppend(edT.diffPanel()._diffView, 'three\n');
   });
-  expect(await page.evaluate(() => (window as any).app.gitPanel._diffView.save())).toBe(true);
+  expect(await page.evaluate(() => edT.diffPanel()._diffView.save())).toBe(true);
   expect(fs.readFileSync(j(SUB, 'a.txt'), 'utf8')).toBe('one\ntwo\nthree\n');
   expect(fs.existsSync(j(SUB, 'src'))).toBe(false);
 });

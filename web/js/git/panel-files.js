@@ -341,9 +341,12 @@ Object.assign(GitPanel.prototype, {
     if(res.ok){
       this._note=null;
       for(const i of items) this._sel.delete(this._selKey(i.group,i.path));
-      // F-4.3: 그 경로의 Diff 가 열려 있으면 hunk 쓰기와 같은 재적재를 한다.
-      const f=this._diffTarget();
-      if(f&&!this.commitFile&&items.some(i=>i.path===f.path)) this._diffInvalidate();
+      // F-4.3: 그 경로의 Diff 가 열려 있으면 hunk 쓰기와 같은 재적재를 한다. Diff 는 탭마다
+      // 패널이므로(UX_BATCH12_SRS FR-RTB-7) 같은 저장소의 패널 전부를 본다.
+      for(const p of this.obs.panels){
+        const f=p._diffTarget();
+        if(f&&!p.commitFile&&items.some(i=>i.path===f.path)) p._diffInvalidate();
+      }
       this.adopt(res.data);
       return;
     }

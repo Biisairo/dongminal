@@ -40,7 +40,7 @@ const models = (page: Page) => page.evaluate(() => edT.counts().docs);
 // diff 계산 결과에서 본다 (FR-GIT-50).
 const lineChanges = (page: Page) =>
   page.evaluate(() => {
-    return edT.diffChangeCount((window as any).app.gitPanel._diffView);
+    return edT.diffChangeCount(edT.diffPanel()._diffView);
   });
 
 const selectFile = (page: Page, group: string, path: string) =>
@@ -106,10 +106,9 @@ test.describe('묶음 F — Diff 뷰', () => {
     const total = paths.length;
     const at = paths.lastIndexOf('untracked.txt') + 1;
     expect(at, 'untracked.txt 가 목록에 없다').toBeGreaterThan(1);
-    // 새 파일은 편집기 탭으로 열린다 (FR-RTU-51) — 고른 것은 그대로이므로
-    // Diff 탭으로 돌아오면 그 대상이 서 있다.
-    await r.click();
-    await clickGitView(page, 'diff');
+    // 새 파일의 한 번 클릭은 편집기 탭이다 (FR-RTU-51). Diff 는 파일 메뉴의 Open Changes 로
+    // 연다 — Diff 탭은 탭마다 대상을 들므로(UX_BATCH12_SRS FR-RTB-7) 고른 것만으로는 서지 않는다.
+    await page.evaluate(() => (window as any).app.gitPanel.openFileDiff({ group: 'working', path: 'untracked.txt' }));
 
     const pos = diff(page).locator('.git-diff-pos');
     const path = diff(page).locator('.git-diff-path');
@@ -471,7 +470,7 @@ test.describe('묶음 F — Diff 뷰', () => {
     await expect(diffEditor(page)).toBeVisible({ timeout: 20000 });
 
     const got = await page.evaluate(() => {
-      const v = (window as any).app.gitPanel._diffView;
+      const v = edT.diffPanel()._diffView;
       if (!edT.diffReady(v)) return null;
       const m = edT.diffSide(v, 'mod');
       const host = edT.dom(m) as HTMLElement;

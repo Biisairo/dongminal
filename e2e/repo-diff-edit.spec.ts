@@ -85,7 +85,7 @@ test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
     await expect(modified(page)).toBeVisible({ timeout: 20000 });
 
     const ro = await page.evaluate(() => {
-      const p = (window as any).app.gitPanel;
+      const p = edT.diffPanel();
       return { editable: !!p._diffView?._editable, target: p._diffView?._editTarget || '' };
     });
     expect(ro.editable).toBe(true);
@@ -100,7 +100,7 @@ test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
     await expect(modified(page)).toBeVisible({ timeout: 20000 });
 
     const st = await page.evaluate(() => {
-      const p = (window as any).app.gitPanel;
+      const p = edT.diffPanel();
       return {
         editable: !!p._diffView?._editable,
         why: GIT_AXIS_READONLY_WHY[GIT_AXIS.STAGED] || '',
@@ -119,13 +119,13 @@ test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
 
       // 오른쪽 모델을 고친다 — 타이핑과 같은 경로(onDidChangeContent)를 지난다.
       await page.evaluate(() => {
-        const v = (window as any).app.gitPanel._diffView;
+        const v = edT.diffPanel()._diffView;
         edT.diffSetText(v, 'one\ntwo\nedited-in-diff\n');
       });
       // FR-RTU-53: 저장되지 않은 변경이 탭 이름에 선다.
       await expect(diffTab(page)).toContainText('●', { timeout: 10000 });
 
-      await page.evaluate(() => (window as any).app.gitPanel._diffView.save());
+      await page.evaluate(() => edT.diffPanel()._diffView.save());
       await expect(diffTab(page)).not.toContainText('●', { timeout: 10000 });
 
       // 디스크가 실제로 바뀌었다.
@@ -139,14 +139,14 @@ test.describe('묶음 D — diff 편집 (FR-RTU-50~56)', () => {
     await expect(modified(page)).toBeVisible({ timeout: 20000 });
 
     await page.evaluate(() => {
-      const v = (window as any).app.gitPanel._diffView;
+      const v = edT.diffPanel()._diffView;
       edT.diffSetText(v, '편집 중인 내용\n');
     });
     // **예외 (`TEST-16`)**: 관측 주기(1초)를 여러 번 넘긴다 — 덮였다면 이 사이에
     // 사라지므로, 그 창이 곧 검사다.
     await page.waitForTimeout(3000);
     const kept = await page.evaluate(() =>
-      edT.diffText((window as any).app.gitPanel._diffView, 'mod'));
+      edT.diffText(edT.diffPanel()._diffView, 'mod'));
     expect(kept).toBe('편집 중인 내용\n');
   });
 
@@ -213,7 +213,7 @@ test.describe('묶음 E — 닫을 때의 확인 (FR-RTU-103)', () => {
       await expect(modified(page)).toBeVisible({ timeout: 20000 });
 
       await page.evaluate(() => {
-        const v = (window as any).app.gitPanel._diffView;
+        const v = edT.diffPanel()._diffView;
         edT.diffSetText(v, 'one\ntwo\nabout-to-be-lost\n');
       });
       await expect(diffTab(page)).toContainText('●', { timeout: 10000 });
@@ -237,7 +237,7 @@ test.describe('묶음 E — 닫을 때의 확인 (FR-RTU-103)', () => {
       // **뷰가 살아 있다.** 확인이 `dropView` 뒤에 서면 이 값이 사라진다 —
       // 취소를 눌러도 편집이 돌아오지 않는 것이 그 결함이었다.
       const kept = await page.evaluate(() => {
-        const v = (window as any).app.gitPanel._diffView;
+        const v = edT.diffPanel()._diffView;
         return edT.diffHasMod(v) ? edT.diffText(v, 'mod') : '';
       });
       expect(kept).toContain('about-to-be-lost');
@@ -253,7 +253,7 @@ test.describe('묶음 E — 닫을 때의 확인 (FR-RTU-103)', () => {
 
     const mark = 'saved-on-close-' + Date.now();
     await page.evaluate((m) => {
-      const v = (window as any).app.gitPanel._diffView;
+      const v = edT.diffPanel()._diffView;
       edT.diffSetText(v, 'one\ntwo\n' + m + '\n');
     }, mark);
     await expect(diffTab(page)).toContainText('●', { timeout: 10000 });

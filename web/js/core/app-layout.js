@@ -584,7 +584,7 @@ Object.assign(App.prototype, {
     if(ask&&typeof ask.then==='function') ask=await ask;
     if(!ask) return;
     opts=ask;
-    if(gitTab) this._gitDropView(this.edRootOf(s),tab.gitView);
+    if(gitTab) this._gitDropView(this.edRootOf(s),tab.gitView,tab.id);
     // REPO_FIX 03 E-4: 칸 1 이상의 인스턴스도 함께 거둔다.
     if(isEditor) this.editorsDrop(tab.id);
     const toolId=tab.toolId;
@@ -658,12 +658,12 @@ Object.assign(App.prototype, {
        */
       if(opts.force) return opts;
       const root=this.edRootOf(s);
-      if(!this._gitViewDirty(root,tab.gitView,true)) return opts;
+      if(!this._gitViewDirty(root,tab.gitView,true,tab.id)) return opts;
       return (async()=>{
         const r=await this._confirmClose(CLOSE_DIRTY_MSG,{saveBtn:true});
         if(!r) return null;
         // 저장이 실패하면 닫지 않는다 — 저장한 줄 알고 닫는 것이 곧 손실이다.
-        if(r==='save'&&!await this._gitViewSave(root,tab.gitView)) return null;
+        if(r==='save'&&!await this._gitViewSave(root,tab.gitView,tab.id)) return null;
         return opts;
       })();
     }

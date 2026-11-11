@@ -137,6 +137,7 @@ Object.assign(GitDiffView.prototype, {
   // 저장은 문서 저장이다(03 — 인코딩·BOM·stamp·409·저장 대기). FR-RTU-55: 성공하면
   // 관측을 곧바로 갱신한다.
   async save(){
+    if(this.onSaveIntent) this.onSaveIntent();
     if(!this._editable||!this._dv) return false;
     const ok=await window.app.edDocSave(this._dv.filePath,this._dv);
     if(ok&&this.onSaved) this.onSaved();

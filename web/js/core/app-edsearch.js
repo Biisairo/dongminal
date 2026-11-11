@@ -45,7 +45,8 @@ Object.assign(App.prototype, {
    * 패널이 열리면 사용자는 보이지 않는 곳을 찾게 된다.
    */
   _edActiveDiff(){
-    const p=this.gitPanel;
+    // UX_BATCH12_SRS FR-RTB-7: Repo 창의 Diff 는 그 탭의 패널이 든다.
+    const p=this.gitDiffPanelActive()||this.gitPanel;
     const d=p&&p._diffView;
     if(!d||!d._cm||!d.el) return null;
     return d.el.offsetParent!==null?d:null;

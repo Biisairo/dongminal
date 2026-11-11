@@ -186,13 +186,13 @@ test('V-ELR-28: 폴링이 30초여도 Diff 탭 문서가 1.5초 안에 바뀐다
   await page.locator(`#area .ed-side .git-group[data-group="working"] .git-file[data-path="d.txt"]`).click();
   await expect(page.locator(`#area .ed-area .git-diff ${ED_SEL.diffModified}`)).toBeVisible({ timeout: 20000 });
   await page.waitForFunction(() => {
-    const v = (window as any).app.gitPanel._diffView;
+    const v = edT.diffPanel()._diffView;
     return !!v && edT.diffHasMod(v);
   }, undefined, { timeout: 20000 });
   await watching(log, savedRoot);
 
   writeFileSync(join(root, 'd.txt'), 'one\ntwo\nthree\n');
-  await expect.poll(() => page.evaluate(() => edT.diffText((window as any).app.gitPanel._diffView, 'mod')),
+  await expect.poll(() => page.evaluate(() => edT.diffText(edT.diffPanel()._diffView, 'mod')),
     { timeout: 1500, intervals: [50] }).toBe('one\ntwo\nthree\n');
 });
 

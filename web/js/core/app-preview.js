@@ -14,6 +14,18 @@ Object.assign(App.prototype, {
   },
 
   /**
+   * FR-RTB-14: 갈아 끼울 수 있는 미리보기 탭. 저장하지 않은 수정이 있으면 **고정하고**
+   * null 이다 — 대체가 수정을 버리지 않는다. 수정 시작이 보통 이미 고정했지만, 같은
+   * 파일의 다른 탭에서 친 수정은 이 탭의 고정 계기가 아니므로 여기서 막는다.
+   */
+  _previewToReplace(s, pn){
+    const prev=this._findPreviewTab(s, pn);
+    if(!prev||!this.tabDirty(s,prev.tab)) return prev;
+    delete prev.tab.preview;
+    return null;
+  },
+
+  /**
    * FR-RTB-6 (FR-RTU-42 개정): 미리보기를 고정한다. 계기는 다섯이다 — 탭 더블클릭 ·
    * Explorer 행 더블클릭 · Changes 행 더블클릭 · 수정 시작 · 저장. 어느 쪽이든 뜻은
    * 같다: "이 탭은 남는다."
@@ -38,8 +50,10 @@ Object.assign(App.prototype, {
   // FR-RTU-40·FR-RTB-2: 미리보기 요청이면 **그 칸의** 미리보기 탭을 대체한다. 새 탭을
   // 만들지 않으므로 목록을 훑어도 탭이 쌓이지 않는다. 대체할 탭이 없으면 null.
   _retargetPreview(s, pn, opts) {
-    const prev = this._findPreviewTab(s, pn);
+    const prev = this._previewToReplace(s, pn);
     if (!prev) return null;
+    // FR-RTB-1: 그 칸의 미리보기가 Diff 면 편집기 탭으로 바꿔 쓴다.
+    if (prev.tab.type === TAB_TYPE_GIT) this._diffTabToEditor(prev.tab);
     prev.tab.filePath = opts.filePath;
     prev.tab.name = clampEntityName(opts.name || pathBase(opts.filePath) || '');
     // 편집기 인스턴스는 탭 id 로 산다 — 대상이 바뀌었으므로 버린다.

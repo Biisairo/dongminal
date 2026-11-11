@@ -95,8 +95,9 @@ test.describe('UX_BATCH12 — 포커스 탭 하이라이트 (FR-FHL-1~7)', () =>
     await expect.poll(async () => (await state(page)).set).toEqual([TOP()]);
     await pickChange(page, 'untracked.txt', { metaKey: true });
 
+    // FR-RTB-12: Changes 는 패널이 마지막에 고른 행이 아니라 **그 Diff 탭의 대상**을 따른다.
     await go(page, diff);
-    await expect.poll(async () => (await state(page)).changes).toEqual(['untracked.txt']);
+    await expect.poll(async () => (await state(page)).changes).toEqual(['tracked.txt']);
     expect((await state(page)).set).toEqual([]);
 
     // Diff 탭에 있는 동안 사용자가 Explorer 에서 고른 것은 ‹ › 이동이 지운다 (FR-FHL-4).
@@ -104,8 +105,14 @@ test.describe('UX_BATCH12 — 포커스 탭 하이라이트 (FR-FHL-1~7)', () =>
       const a = (window as any).app; const t = a.testing.edTree(a.testing.aw());
       t._selOnly(p); t._paintAll();
     }, TOP());
-    await page.evaluate(() => (window as any).app.gitPanel._diffMove(-1));
+    // ‹ › 는 그 Diff 탭의 패널이 한다 (FR-RTB-9).
+    await page.evaluate((id) => {
+      const a = (window as any).app;
+      const p = [...a.testing.gitPanels.values()].find((x: any) => x.diffTabId === id);
+      p._diffMove(1);
+    }, diff);
     await expect.poll(async () => (await state(page)).set).toEqual([]);
+    await expect.poll(async () => (await state(page)).changes).not.toEqual(['tracked.txt']);
     expect((await state(page)).changes.length).toBe(1);
   });
 

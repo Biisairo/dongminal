@@ -517,3 +517,46 @@ test.describe('코드 탐색 — 설치 제안 (M5)', () => {
     await expect(offer(page).locator('.fe-offer-set')).toBeVisible();
   });
 });
+
+/**
+ * UX_BATCH12_SRS TC-RTB-4 (FR-RTB-10): Diff 탭의 수정 가능한 오른쪽은 편집기 탭처럼 Mod+클릭이 정의로 간다.
+ * 읽기 전용 축(staged)은 repo-diff-edit D2 가 잰다.
+ */
+test.describe('코드 탐색 — Diff 의 오른쪽 (UX_BATCH12 FR-RTB-10)', () => {
+  test('unstaged Diff 의 오른쪽을 Mod+클릭하면 정의로 간다', async ({ page, request }) => {
+    const repo = j(BASE, 'diffrepo');
+    const git = (...a: string[]) => execFileSync('git', ['-C', repo, ...a], { stdio: 'ignore' });
+    fs.mkdirSync(j(repo, 'pkg', 'deep'), { recursive: true });
+    fs.writeFileSync(j(repo, 'go.mod'), 'module example.com/lspnav\n\ngo 1.21\n');
+    fs.writeFileSync(j(repo, 'main.go'), MAIN_GO);
+    fs.writeFileSync(j(repo, 'pkg', 'deep', 'helper.go'),
+      'package deep\n\n// Helper 는 여기 있다.\nfunc Helper() int {\n\treturn 1\n}\n');
+    git('init', '-q', '-b', 'main', '.');
+    git('config', 'user.name', 'Fixture');
+    git('config', 'user.email', 'fixture@example.invalid');
+    git('config', 'commit.gpgsign', 'false');
+    git('add', '-A');
+    git('commit', '-qm', 'init');
+    fs.appendFileSync(j(repo, 'main.go'), '\n// changed\n');
+
+    const tap = await lspTap(page);
+    await enter(page, request, repo);
+    await page.evaluate(() => { const a = (window as any).app; a.testing.edSetSide(a.testing.aw(), 'changes') });
+    const row = page.locator('#area .ed-side .git-view.git-changes .git-group[data-group="working"] .git-file[data-path="main.go"]');
+    await expect(row).toBeVisible({ timeout: 15000 });
+    await row.click();
+    await expect(page.locator(`#area .ed-area ${ED_SEL.diffModified}`)).toBeVisible({ timeout: 20000 });
+    await ready(tap, 'main.go');
+
+    const at = await page.evaluate(() => {
+      const p = edT.coords(edT.diffSide(edT.diffPanel()._diffView, 'mod'), 6, 9);
+      return { x: p.left + 2, y: p.top + p.height / 2 };
+    });
+    const mac = await page.evaluate(() => (0, eval)('IS_MAC'));
+    const mod = mac ? 'Meta' : 'Control';
+    await page.keyboard.down(mod);
+    await page.mouse.click(at.x, at.y);
+    await page.keyboard.up(mod);
+    await waitEditorAt(page, j(repo, 'pkg', 'deep', 'helper.go'));
+  });
+});

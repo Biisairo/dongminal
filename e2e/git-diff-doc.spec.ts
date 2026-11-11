@@ -68,7 +68,7 @@ async function openDiff(page: Page, name: string) {
   await expect(diffTab(page)).toHaveCount(1, { timeout: 10000 });
   await expect(modified(page)).toBeVisible({ timeout: 20000 });
   await page.waitForFunction((abs: string) => {
-    const v = (window as any).app.gitPanel._diffView;
+    const v = edT.diffPanel()._diffView;
     return !!v && v._editTarget === abs && edT.diffHasMod(v);
   }, j(REPO, name), { timeout: 20000 });
 }
@@ -76,7 +76,7 @@ async function openDiff(page: Page, name: string) {
 /** Diff 뷰의 작업 트리 쪽 모델 끝에 한 줄을 붙인다 — 타이핑과 같은 경로(편집 연산). */
 async function typeInDiff(page: Page, text: string) {
   await page.evaluate((s: string) => {
-    edT.diffAppend((window as any).app.gitPanel._diffView, s);
+    edT.diffAppend(edT.diffPanel()._diffView, s);
   }, text);
 }
 
@@ -96,7 +96,7 @@ test.describe('F-2 — Diff 뷰는 편집기 문서를 공유한다', () => {
       return !!d && d.views.size >= 2 && edT.docHasModel(d);
     }, abs, { timeout: 20000 });
     const same = await page.evaluate((p: string) =>
-      edT.diffSharesDoc((window as any).app.gitPanel._diffView, (window as any).app.testing.edDocs.get(p)), abs);
+      edT.diffSharesDoc(edT.diffPanel()._diffView, (window as any).app.testing.edDocs.get(p)), abs);
     expect(same).toBe(true);
 
     await typeInDiff(page, 'from-diff\n');
@@ -106,7 +106,7 @@ test.describe('F-2 — Diff 뷰는 편집기 문서를 공유한다', () => {
 
     const writes: string[] = [];
     page.on('request', (r) => { if (r.url().includes('/api/file/write')) writes.push(r.url()) });
-    expect(await page.evaluate(() => (window as any).app.gitPanel._diffView.save())).toBe(true);
+    expect(await page.evaluate(() => edT.diffPanel()._diffView.save())).toBe(true);
     await expect(diffTab(page)).not.toContainText('●', { timeout: 10000 });
     await expect(edTab.first()).not.toContainText('●', { timeout: 10000 });
     expect(fs.readFileSync(abs, 'utf8')).toBe('one\ntwo\nfrom-diff\n');
@@ -119,10 +119,10 @@ test.describe('F-2 — Diff 뷰는 편집기 문서를 공유한다', () => {
     await openDiff(page, 'k.txt');
     await expect.poll(async () => (await docOf(page, abs))?.encoding, { timeout: 10000 }).toBe('cp949');
     // 원본 쪽도 문서 인코딩으로 풀려 있다 — 깨진 글자가 아니다.
-    const orig = await page.evaluate(() => edT.diffText((window as any).app.gitPanel._diffView, 'orig'));
+    const orig = await page.evaluate(() => edT.diffText(edT.diffPanel()._diffView, 'orig'));
     expect(orig).toBe('한글\n');
     await typeInDiff(page, '한\n');
-    expect(await page.evaluate(() => (window as any).app.gitPanel._diffView.save())).toBe(true);
+    expect(await page.evaluate(() => edT.diffPanel()._diffView.save())).toBe(true);
     expect(fs.readFileSync(abs)).toEqual(Buffer.concat([HANGUL_CP949, NL, HANGUL_CP949, NL, HANGUL_CP949.subarray(0, 2), NL]));
   });
 
@@ -134,7 +134,7 @@ test.describe('F-2 — Diff 뷰는 편집기 문서를 공유한다', () => {
     const gate = new Promise<void>((r) => { release = r });
     await page.route('**/api/file/write', async (route) => { await gate; await route.continue() });
     await typeInDiff(page, 'first\n');
-    await page.evaluate(() => { (window as any).__saveP = (window as any).app.gitPanel._diffView.save() });
+    await page.evaluate(() => { (window as any).__saveP = edT.diffPanel()._diffView.save() });
     await typeInDiff(page, 'second\n');
     release();
     expect(await page.evaluate(() => (window as any).__saveP)).toBe(true);
@@ -145,34 +145,33 @@ test.describe('F-2 — Diff 뷰는 편집기 문서를 공유한다', () => {
     await expect(diffTab(page)).toContainText('●');
   });
 
-  test('S4 (F-2.4): 마지막 뷰가 dirty 면 전환 전에 묻고, 취소하면 그대로다', async ({ page, request }) => {
+  /**
+   * UX_BATCH12_SRS FR-RTB-14 (F-2.4 개정): 저장하지 않은 수정이 있는 **미리보기** Diff 는 대체되지 않는다.
+   *
+   *   이전 동작: Diff 탭이 창에 하나였고, 다른 파일을 고르면 그 탭이 대상을 갈아탔다 —
+   *             마지막 뷰가 dirty 면 저장/버리기/취소를 물었다
+   *   새  동작: 그 미리보기 탭을 고정하고 새 미리보기 Diff 를 세운다. 묻지 않고, 수정은 남는다
+   *   이유:     Diff 탭이 여럿이 되면서(FR-RTB-7) 갈아탈 까닭이 없다 — 대체가 수정을 버리지 않는다
+   */
+  test('S4 (FR-RTB-14): dirty 인 미리보기 Diff 는 고정되고 다음 파일은 새 미리보기다', async ({ page, request }) => {
     await enter(page, request);
     const abs = j(REPO, 'd.txt');
     await openDiff(page, 'd.txt');
     await typeInDiff(page, 'keep\n');
     await row(page, 'e.txt').click();
-    await expect(page.locator('.confirm-overlay')).toBeVisible({ timeout: 5000 });
-    await page.locator('.confirm-overlay .confirm-cancel').click();
+    await expect.poll(() => page.evaluate(() => {
+      const a = (window as any).app;
+      const pn = a.testing.flattenPanes(a.testing.aw().layout).find((x: any) => x.id === a.focused);
+      return pn.tabs.filter((x: any) => x.gitView === 'diff').map((x: any) => [x.name, !!x.preview]);
+    })).toEqual([['d.txt', false], ['e.txt', true]]);
     await expect(page.locator('.confirm-overlay')).toHaveCount(0);
-    const st = await page.evaluate(() => {
-      const p = (window as any).app.gitPanel;
-      return { target: p._diffView._editTarget, value: edT.diffText(p._diffView, 'mod'), sel: [...p._sel] };
-    });
-    expect(st.target).toBe(abs);
-    expect(st.value).toBe('one\ntwo\nkeep\n');
-    expect(st.sel.some((k: string) => k.endsWith('d.txt'))).toBe(true);
-    expect(st.sel.some((k: string) => k.endsWith('e.txt'))).toBe(false);
-
-    // 버리기 — 문서를 놓고 옮긴다. 디스크는 그대로다.
-    await row(page, 'e.txt').click();
-    await expect(page.locator('.confirm-overlay')).toBeVisible({ timeout: 5000 });
-    await page.locator('.confirm-overlay .confirm-ok').click();
-    await page.waitForFunction((p: string) => (window as any).app.gitPanel._diffView._editTarget === p, j(REPO, 'e.txt'), { timeout: 10000 });
-    expect(await docOf(page, abs)).toBeNull();
+    const d = await docOf(page, abs);
+    expect(d?.dirty).toBe(true);
+    expect(d?.value).toBe('one\ntwo\nkeep\n');
     expect(fs.readFileSync(abs, 'utf8')).toBe('one\ntwo\n');
   });
 
-  test('S5 (F-2.4): 다른 뷰가 문서를 들고 있으면 묻지 않고 옮기고, 편집은 문서에 남는다', async ({ page, request }) => {
+  test('S5 (FR-RTB-14): 다른 뷰가 문서를 들고 있어도 dirty 미리보기 Diff 는 대체되지 않는다', async ({ page, request }) => {
     await enter(page, request);
     const abs = j(REPO, 'f.txt');
     await openDiff(page, 'f.txt');
@@ -180,12 +179,16 @@ test.describe('F-2 — Diff 뷰는 편집기 문서를 공유한다', () => {
     await page.waitForFunction((p: string) => (window as any).app.testing.edDocs?.get(p)?.views.size >= 2, abs, { timeout: 20000 });
     await typeInDiff(page, 'stay\n');
     await row(page, 'g.txt').click();
-    await page.waitForFunction((p: string) => (window as any).app.gitPanel._diffView._editTarget === p, j(REPO, 'g.txt'), { timeout: 10000 });
+    await expect.poll(() => page.evaluate(() => {
+      const a = (window as any).app;
+      const pn = a.testing.flattenPanes(a.testing.aw().layout).find((x: any) => x.id === a.focused);
+      return pn.tabs.filter((x: any) => x.gitView === 'diff').map((x: any) => [x.name, !!x.preview]);
+    })).toEqual([['f.txt', false], ['g.txt', true]]);
     await expect(page.locator('.confirm-overlay')).toHaveCount(0);
     const d = await docOf(page, abs);
     expect(d?.dirty).toBe(true);
     expect(d?.value).toBe('one\ntwo\nstay\n');
-    expect(d?.views).toBe(1);
+    expect(d?.views).toBe(2);
   });
 
   test('S6 (F-2.6): 모델을 여러 번 갈아도 Cmd+S 한 번은 쓰기 한 번이다', async ({ page, request }) => {
@@ -211,7 +214,7 @@ test.describe('F-2 — Diff 뷰는 편집기 문서를 공유한다', () => {
     await expect(note).toContainText('저장한 뒤', { timeout: 10000 });
     const patches: string[] = [];
     page.on('request', (r) => { if (r.url().includes('/api/git/patch')) patches.push(r.url()) });
-    await page.evaluate(() => (window as any).app.gitPanel._hunkAct('stage'));
+    await page.evaluate(() => edT.diffPanel()._hunkAct('stage'));
     expect(patches.length).toBe(0);
   });
 

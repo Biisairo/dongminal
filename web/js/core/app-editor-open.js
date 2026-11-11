@@ -116,7 +116,7 @@ Object.assign(App.prototype, {
       return !!(v&&v._dirty);
     }
     if(tab.type===TAB_TYPE_GIT&&win&&this.isEditorWin(win)){
-      return this._gitViewDirty(this.edRootOf(win),tab.gitView);
+      return this._gitViewDirty(this.edRootOf(win),tab.gitView,false,tab.id);
     }
     return false;
   },

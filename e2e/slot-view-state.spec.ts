@@ -895,7 +895,8 @@ test.describe('묶음 O·V — Git 의 관측과 시선 (FR-SVS-30~47)', () => {
       const a = (window as any).app;
       const root = a.testing.gitRootOfActive();
       let n = 0;
-      for (const k of a.testing.gitPanels.keys()) if (a.testing.gitPanelRoot(k) === root) n++;
+      // (루트, 칸)의 패널만 센다 — Diff 탭 전용 패널(UX_BATCH12_SRS FR-RTB-7)은 그 개념 밖이다.
+      for (const [k, p] of a.testing.gitPanels) if (a.testing.gitPanelRoot(k) === root && !p.diffTabId) n++;
       return n;
     });
 

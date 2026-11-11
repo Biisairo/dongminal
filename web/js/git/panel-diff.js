@@ -112,6 +112,10 @@ Object.assign(GitPanel.prototype, {
     if(this.root){
       const w=app.edWindowFor(this.root); if(!w) return;
       if(view===REPO_SIDE_CHANGES){ app.edSetSide(w,REPO_SIDE_CHANGES); return }
+      // UX_BATCH12_SRS FR-RTB-2·3·7: Diff 는 대상을 든 탭이다 — 지금 칸에 미리보기로 연다.
+      // 대상이 없으면(진입점 아이콘) 아래 옛 길이 창의 Diff 탭으로 간다.
+      const f=view==='diff'&&this._diffTarget();
+      if(f){app.gitDiffOpen(this.root,f,{preview:true,commit:!!this.commitFile});return}
       const rid=app.edEnsurePane(w); if(!rid) return;
       app.addTab(rid,TAB_TYPE_GIT,{gitView:view,windowId:w.id});
       // FR-RTU-83: 모바일은 사이드(Changes)에 서서 이 부름을 낸다. 본문의 칸을
@@ -290,6 +294,8 @@ Object.assign(GitPanel.prototype, {
     i=Math.max(0,Math.min(list.length-1,i));
     this._diffPos=i;
     const target=list[i];
+    // FR-RTB-9: Diff 탭의 ‹ › 는 그 탭이 있는 칸의 미리보기로 연다 (`gitDiffStep`).
+    if(this.diffTabId){this.app.gitDiffStep(this,target);return}
     this._select(target.group,{path:target.path,origPath:target.origPath,untracked:target.untracked});
   },
 
@@ -402,6 +408,8 @@ Object.assign(GitPanel.prototype, {
       // FR-RTU-55: 저장 뒤에는 관측을 즉시 갱신한다. 방금 고친 것이 목록과
       // 색에 곧바로 서야 한다.
       onSaved:()=>this._gitSaved(),
+      // FR-RTB-6 ⑤: 미리보기 Diff 에서 저장하면 고정된다.
+      onSaveIntent:()=>{if(this.diffTabId) this.app.gitDiffTabPin(this.diffTabId)},
       // DIFF_HUNK_BAR_SRS D-4 / FR-DHB-10: 에디터가 서면 hover 툴바를 배선하고
       // 사라지면 걷는다. `GitDiffView` 는 관측을 모르므로 그 배선을 여기서 한다.
       onEditor:ed=>this._hunkBarWire(ed),
@@ -419,8 +427,11 @@ Object.assign(GitPanel.prototype, {
     if(el&&el.dataset.built==='1') this._hunkNote(el.querySelector('.git-diff-hunk-note'),this._hunkText());
     this._hunkBarPaint();
     if(!this.root) return;
-    const w=this.app.edWindowFor(this.root); if(!w) return;
-    const found=this.app.findGitViewTab(w,'diff'); if(!found) return;
+    if(this.diffTabId) this._diffTabEdited(v);
+    else{
+      const w=this.app.edWindowFor(this.root); if(!w) return;
+      if(!this.app.findGitViewTab(w,'diff')) return;
+    }
     // REPO_FIX 03 §3A-7: 탭 레코드에 쓰지 않는다 — 라벨은 렌더가 Diff 뷰에서
     // 파생한다(`app.tabDirty`). 바뀐 때만 다시 그린다.
     if(this._diffDirtyShown===!!v) return;

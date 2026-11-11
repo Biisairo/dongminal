@@ -46,6 +46,9 @@ Object.assign(GitPanel.prototype, {
   adoptJobs(jobs){
     // FR-SVS-44: 원격 작업은 리포의 사실이므로 **모든 칸**이 같은 진행을 본다.
     for(const p of this.obs.panels){
+      // UX_BATCH12_SRS FR-RTB-7: Diff 탭 패널에는 작업 표시가 없다. 그 패널에도 작업을
+      // 붙이면 Changes 의 작업 표시가 끝나지 않았다(실측: e2e git-view-refresh G1).
+      if(p.diffTabId) continue;
       if(!p._remoteView&&!(jobs||[]).length) continue;
       p._remote().adoptJobs(jobs);
     }

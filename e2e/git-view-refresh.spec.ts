@@ -613,7 +613,7 @@ test('V-GLV-1 (FR-GLV-1·2): 열어 둔 diff 가 파일 수정을 따라온다',
     .toBeVisible({ timeout: 30000 });
 
   const seen = async () => page.evaluate(() => {
-    const p = (window as any).app.gitPanel;
+    const p = edT.diffPanel();
     const v = p && p._diffView;
     return edT.diffHasMod(v) ? edT.diffText(v, 'mod') : '';
   });

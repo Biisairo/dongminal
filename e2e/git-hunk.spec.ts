@@ -82,7 +82,7 @@ async function openDiff(page: Page, group: string, path: string) {
   await tab(page, 'diff').click();
   await expect(diff(page)).toHaveClass(/vis/);
   await page.waitForFunction(() => {
-    const h = (window as any).app?.gitPanel?._hunks;
+    const h = edT.diffPanel()._hunks;
     return !!(h && h.list && h.list.length);
   }, undefined, { timeout: 20000 });
   // **에디터도 기다린다.** 조각 관측(`/api/git/hunks`)과 diff 본문은 서로 다른
@@ -90,14 +90,14 @@ async function openDiff(page: Page, group: string, path: string) {
   // 않은 순간에 클릭이 떠나, 좌표를 물을 대상이 `null` 이다. 툴바는 에디터의
   // content widget 이므로(FR-DHB-21) 그것이 서기 전에는 잴 것이 없다.
   await page.waitForFunction(
-    () => edT.diffReady((window as any).app?.gitPanel?._diffView),
+    () => edT.diffReady(edT.diffPanel()._diffView),
     undefined, { timeout: 20000 });
 }
 
 // 조각의 개수. 화면이 그리지 않으므로 관측에서 읽는다 — 그림이 없는 것이 이번
 // 변경의 요점이다 (NFR-DHB-1).
 const hunkCount = (page: Page) =>
-  page.evaluate(() => ((window as any).app.gitPanel._hunks?.list || []).length);
+  page.evaluate(() => (edT.diffPanel()._hunks?.list || []).length);
 
 // 모디파이드 에디터의 그 줄을 **클릭해 커서를 둔다** (FR-DHB-11, U-9 개정).
 //
@@ -108,7 +108,7 @@ const hunkCount = (page: Page) =>
 // 않는다) 좌표를 에디터에게 묻는다.
 async function lineXY(page: Page, line: number) {
   return page.evaluate((ln) => {
-    const ed = edT.diffSide((window as any).app.gitPanel._diffView, 'mod');
+    const ed = edT.diffSide(edT.diffPanel()._diffView, 'mod');
     edT.revealLine(ed, ln);
     const p = edT.coords(ed, ln, 1);
     return { x: p.left + 30, y: p.top + p.height / 2 };
@@ -117,7 +117,7 @@ async function lineXY(page: Page, line: number) {
 
 // 툴바가 지금 가리키는 줄 (FR-DHB-12). 화면 좌표가 아니라 위젯의 자리를 읽는다.
 const barLine = (page: Page) => page.evaluate(
-  () => edT.hunkBarLine((window as any).app.gitPanel));
+  () => edT.hunkBarLine(edT.diffPanel()));
 
 /**
  * 스크롤이 멎은 뒤의 좌표.
@@ -164,7 +164,7 @@ async function clickLine(page: Page, line: number) {
 // API 로 놓은 커서와 클릭으로 놓은 커서는 에디터 안에서 같은 값이다.
 async function cursorLine(page: Page, line: number) {
   await page.evaluate((ln) => {
-    const ed = edT.diffSide((window as any).app.gitPanel._diffView, 'mod');
+    const ed = edT.diffSide(edT.diffPanel()._diffView, 'mod');
     edT.revealLine(ed, ln);
     edT.focus(ed);
     edT.setCursor(ed, ln, 1);
@@ -179,7 +179,7 @@ async function cursorLine(page: Page, line: number) {
 // 흔들리지 않는 쪽이 이 검증을 더 정확하게 만든다.
 async function selectLines(page: Page, from: number, to: number) {
   await page.evaluate(([a, b]) => {
-    edT.setSelection(edT.diffSide((window as any).app.gitPanel._diffView, 'mod'), a, 1, b, 1);
+    edT.setSelection(edT.diffSide(edT.diffPanel()._diffView, 'mod'), a, 1, b, 1);
   }, [from, to + 1]);
 }
 
@@ -323,7 +323,7 @@ test.describe('묶음 B·W — 커서 툴바와 조각 단위 쓰기', () => {
     await page.mouse.down();
     await expect(bar(page)).toBeVisible();
     expect(await page.evaluate(
-      () => edT.hasFocus(edT.diffSide((window as any).app.gitPanel._diffView, 'mod')),
+      () => edT.hasFocus(edT.diffSide(edT.diffPanel()._diffView, 'mod')),
     )).toBe(true);
     await page.mouse.up();
   });
@@ -339,7 +339,7 @@ test.describe('묶음 B·W — 커서 툴바와 조각 단위 쓰기', () => {
     await openDiff(page, 'working', 'f.txt');
 
     const barLine = () => page.evaluate(
-      () => edT.hunkBarLine((window as any).app.gitPanel));
+      () => edT.hunkBarLine(edT.diffPanel()));
 
     await cursorLine(page, 20);
     expect(await barLine()).toBe(20);

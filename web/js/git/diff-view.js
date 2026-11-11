@@ -88,6 +88,8 @@ class GitDiffView {
     // 탭도 관측도 모른다 — 아는 쪽(GitPanel)이 그것을 받아 처리한다.
     this.onDirty=o.onDirty||null;
     this.onSaved=o.onSaved||null;
+    // UX_BATCH12_SRS FR-RTB-6 ⑤: 저장하려는 손짓 자체를 알린다 — 수정이 없어도 고정의 계기다.
+    this.onSaveIntent=o.onSaveIntent||null;
     // DIFF_HUNK_BAR_SRS D-4: **이 클래스가 여는 것은 훅 하나다.** 에디터가 서거나
     // 사라졌다는 사실은 여기가 알고, 그 위에 무엇을 붙일지는 부르는 쪽이 안다 —
     // hunk 관측을 이 안에 넣으면 "탭도 관측도 모른다" 는 원칙이 깨진다.
@@ -431,7 +433,10 @@ class GitDiffView {
       if(c.host) c.host._update(u);
       if(u.docChanged||u.geometryChanged||u.heightChanged) u.view.requestMeasure(c.ruler);
     });
-    const bExt=[...eb.extensions,listen,gitDiffHunkBar().field,
+    // UX_BATCH12_SRS FR-RTB-10: 디스크의 파일을 고치는 축(문서 버퍼가 있다)의 수정본은 편집기
+    // 탭처럼 수정키+클릭이 링크·정의로 간다. 읽기 전용 축과 원본 쪽은 그대로다.
+    const links=buf?edCmLinks({lsp:(v,pos)=>window.app.lspClickDef(v,pos)}):[];
+    const bExt=[...eb.extensions,links,listen,gitDiffHunkBar().field,
       CM.EditorView.editorAttributes.of({class:'git-diff-side-mod'})];
     const aExt=[...ea.extensions,CM.EditorView.editorAttributes.of({class:'git-diff-side-orig'})];
     const bDoc=buf?buf.doc:this._modText;

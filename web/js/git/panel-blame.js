@@ -130,6 +130,12 @@ Object.assign(GitPanel.prototype, {
   // FR-GIT-276: 파일 메뉴의 진입점. Diff 탭을 열고 그 파일을 blame 으로 본다.
   openBlame(target){
     if(!target||!target.path) return;
+    // UX_BATCH12_SRS FR-RTB-7: Repo 창의 Diff 는 탭마다 패널이다 — 그 탭의 패널이 blame 모드를 든다.
+    if(this.root){
+      this._select(target.group,{path:target.path,origPath:target.origPath||''});
+      this.app.gitDiffOpen(this.root,this._diffTarget(),{preview:true,blame:true});
+      return;
+    }
     this._blameOn=true;
     this._openDiff(target.group,{path:target.path,origPath:target.origPath||''});
   },

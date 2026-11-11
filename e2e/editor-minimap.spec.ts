@@ -447,7 +447,7 @@ test('V-MMP-2b: Diff 에는 미니맵이 없고 Diff 의 눈금은 있다', asyn
   await expect(row).toBeVisible({ timeout: 15000 });
   await clickRow(page, row, async () => {
     await page.waitForFunction(
-      () => edT.diffReady((window as any).app?.gitPanel?._diffView), undefined, { timeout: 8000 });
+      () => edT.diffReady(edT.diffPanel()._diffView), undefined, { timeout: 8000 });
   });
 
   await expect(view.locator(ED_SEL.diffRuler), 'Diff 의 눈금이 없다 (FR-DOR-1 을 잃는다)').toBeVisible();

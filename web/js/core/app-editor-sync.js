@@ -211,7 +211,7 @@ Object.assign(App.prototype, {
     const root=this.edRootOf(s);
     for(const pn of this.flattenPanes(s.layout))
       for(const tab of (pn.tabs||[]))
-        if(tab&&tab.type===TAB_TYPE_GIT&&this._gitViewDirty(root,tab.gitView,true)) return true;
+        if(tab&&tab.type===TAB_TYPE_GIT&&this._gitViewDirty(root,tab.gitView,true,tab.id)) return true;
     return false;
   },
 
@@ -261,7 +261,7 @@ Object.assign(App.prototype, {
     let ok=true;
     for(const pn of this.flattenPanes(s.layout))
       for(const tab of (pn.tabs||[]))
-        if(tab&&tab.type===TAB_TYPE_GIT&&!await this._gitViewSave(root,tab.gitView)) ok=false;
+        if(tab&&tab.type===TAB_TYPE_GIT&&!await this._gitViewSave(root,tab.gitView,tab.id)) ok=false;
     if(!this.fileEditors) return ok;
     const ids=new Set();
     for(const pn of this.flattenPanes(s.layout))

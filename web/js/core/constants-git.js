@@ -23,6 +23,10 @@
 // 이름에 반영하면 창 목록에서 같은 창이 계속 이름을 바꿔 식별성이 떨어진다.
 const GIT_WINDOW_NAME='Git';
 
+// UX_BATCH12_SRS FR-RTB-7: Diff 탭 전용 패널의 키에서 루트와 탭 id 를 가르는 글자.
+// 경로에 나올 수 없는 제어 문자다.
+const GIT_DIFF_TAB_SEP='\u0001';
+
 // Git 창 내부의 고정 탭. 생성·삭제되지 않는다 (FR-GIT-28).
 // pending 인 탭은 M1 에서 자리만 있고 "준비 중" 을 표시한다.
 const GIT_VIEWS=[

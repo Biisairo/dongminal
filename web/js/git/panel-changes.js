@@ -677,6 +677,12 @@ Object.assign(GitPanel.prototype, {
       if(this._noBaseline(group,e)&&this._openInEditor(e)) return;
       this.openView('diff');
     });
+    // UX_BATCH12_SRS FR-RTB-6 ③ (D-RTU-23 개정): 더블클릭은 앞선 클릭이 연 탭을 고정한다.
+    d.addEventListener('dblclick',ev=>{
+      if(!this.root||ev.metaKey||ev.ctrlKey||ev.shiftKey) return;
+      if(this._noBaseline(group,e)){ if(!e.dir) this.app.edPinTabFor(this.absPath(e)); return }
+      this.app.gitDiffPin(this.root,this._diffTarget(),!!this.commitFile);
+    });
     d.addEventListener('contextmenu',ev=>{
       ev.preventDefault();
       GitMenu.open('file',this._target(group,e),ev);

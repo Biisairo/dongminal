@@ -55,7 +55,9 @@ Object.assign(Renderer.prototype, {
       // 패널은 **(루트, 칸)마다** 있다 (FR-SVS-40·42 + FR-RTU-60). 루트는 **이 탭이
       // 있는 창**의 것이다 — 그리는 중인 창이 활성 창이 아닐 수 있다(슬롯).
       const root=this.app.isEditorWin(this._rWin)?this.app.edRootOf(this._rWin):'';
-      el=this.app.gitPanelAt(root,slot).elFor(at.gitView);
+      // UX_BATCH12_SRS FR-RTB-7: Repo 창의 Diff 탭은 탭마다 전용 패널이다.
+      const p=(root&&at.gitView==='diff')?this.app.gitDiffPanelFor(root,slot,at):this.app.gitPanelAt(root,slot);
+      el=p.elFor(at.gitView);
     }else if(at.type==='editor'){
       const key=this.app.slotKey(at.id,slot);
       let editor=this.app.fileEditors.get(key);

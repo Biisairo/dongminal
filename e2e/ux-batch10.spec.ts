@@ -259,7 +259,7 @@ async function openDiff(page: Page, path: string) {
   await expect(row).toBeVisible({ timeout: 15000 });
   await clickRow(page, row, async () => {
     await page.waitForFunction(
-      () => edT.diffReady((window as any).app?.gitPanel?._diffView), undefined, { timeout: 8000 });
+      () => edT.diffReady(edT.diffPanel()._diffView), undefined, { timeout: 8000 });
   });
 }
 
@@ -284,7 +284,7 @@ async function setSwitch(page: Page, id: string, on: boolean) {
 }
 
 const modOpt = (page: Page, key: string) => page.evaluate((k) => {
-  return edT.option(edT.diffSide((window as any).app.gitPanel._diffView, 'mod'), k);
+  return edT.option(edT.diffSide(edT.diffPanel()._diffView, 'mod'), k);
 }, key);
 
 test.describe('diff 는 편집기와 같은 것을 한다', () => {
@@ -317,7 +317,7 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
     await openGit(page, repo);
     await openDiff(page, 'm.txt');
 
-    const width = await page.evaluate(() => edT.minimapWidth(edT.diffSide((window as any).app.gitPanel._diffView, 'mod')));
+    const width = await page.evaluate(() => edT.minimapWidth(edT.diffSide(edT.diffPanel()._diffView, 'mod')));
     expect(width).toBe(0);
     await openPanel(page, 'code');
     await expect(page.locator('#ds-diffminimap')).toHaveCount(0);
@@ -356,7 +356,7 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
     await expect.poll(() => ready, { timeout: 60000, message: '수정본 쪽이 언어 서버에 열리지 않았다' }).toBe(true);
 
     await page.evaluate(() => {
-      const d = (window as any).app.gitPanel._diffView;
+      const d = edT.diffPanel()._diffView;
       const ed = edT.diffSide(d, 'mod');
       edT.focus(ed);
       edT.setCursor(ed, 6, 3);
@@ -368,7 +368,7 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
     // FR-UXB-48: 왼쪽은 **디스크의 파일이 아니다** — 과거의 내용이고, 그 좌표로
     // 받은 답은 없는 답보다 나쁘다. 그래서 경로를 답하지 않는다.
     const sides = await page.evaluate(() => {
-      const d = (window as any).app.gitPanel._diffView;
+      const d = edT.diffPanel()._diffView;
       return edT.diffLspPaths(d);
     });
     expect(sides.mod).toBeTruthy();
@@ -446,7 +446,7 @@ test.describe('diff 는 편집기와 같은 것을 한다', () => {
     await panel.locator('.fe-find-q').fill('oldword');
     await expect(panel.locator('.fe-find-count')).toContainText('1', { timeout: 5000 });
     expect(await page.evaluate(() =>
-      edT.text(edT.diffSide((window as any).app.gitPanel._diffView, 'orig'))), '원본이 고쳐졌다').toBe('alpha one\noldword two\n');
+      edT.text(edT.diffSide(edT.diffPanel()._diffView, 'orig'))), '원본이 고쳐졌다').toBe('alpha one\noldword two\n');
 
     await page.keyboard.press('Escape');
     await expect(panel).toBeHidden({ timeout: 5000 });
