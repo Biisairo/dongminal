@@ -49,11 +49,15 @@ Object.assign(GitReposList.prototype, {
   },
 
   /**
-   * `git_changed` 가 핀 저장소의 것이고 Repo 탭이 보이면 목록을 받는다 (FR-OPT-4-3).
-   * 방송은 git 이 푼 루트를 싣는다 — 핀의 `root` 와도 견준다 (FR-DIR-5).
+   * `git_changed` 가 핀 저장소의 것이면 목록을 받는다 (FR-OPT-4-3). 방송은 git 이 푼 루트를
+   * 싣는다 — 핀의 `root` 와도 견준다 (FR-DIR-5). 겹친 알림은 `gitReposKick` 이 합친다.
+   *
+   *   이전 동작: Repo 탭이 보일 때만 받았다 — 숨은 동안의 배지는 안전망 주기(30초)를 기다렸다
+   *   새  동작: 탭이 숨어 있어도 받는다. 브라우저 탭이 숨은 동안은 호출 쪽이 미룬다
+   *   이유:     UX_BATCH12 FR-LIV-8 (사용자 결정)
    */
   _gitReposOnChanged(repo){
-    if(!this.app._gitObserveOk()) return;
+    if(this.app._gitOff) return;
     const pinned=((this.app.gitRepos||{}).pinned)||[];
     if(pinned.some(e=>e&&(e.path===repo||e.root===repo))) this.gitReposKick();
   },

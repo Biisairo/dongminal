@@ -133,3 +133,31 @@ test('run.list 주기는 패널이 열려 있을 때만 활동 주기로 목록�
   job.run();
   assert.equal(calls, 1);
 });
+
+/**
+ * UX_BATCH12_SRS TC-LIV-4 (FR-LIV-7) — Background 목록은 Activity 패널이 열려 있는 동안
+ * 활동 주기마다 다시 받는다. 행의 Run 표지와 cwd 는 조회 때 계산되기 때문이다.
+ */
+test('tool.background 주기는 패널이 열려 있을 때만 활동 주기로 목록을 다시 받는다', () => {
+  const ctx = load(['core/state-registry.js'], { expose: ['wireStateRegistry'] });
+  const jobs = [];
+  let open = false;
+  let calls = 0;
+  const app = {
+    bus: { subscribe() {} },
+    timers: { every: (spec) => jobs.push(spec) },
+    agentsPollMs: 4321,
+    _attn: new Map(),
+    _agentsPanelOpen: () => open,
+    _bgRefresh: () => { calls++ },
+  };
+  ctx.wireStateRegistry(app);
+  const job = jobs.find((j) => j.id === 'tool.background');
+  assert.ok(job, 'Background 목록 주기가 없다');
+  assert.equal(job.every(), 4321);
+  assert.equal(job.when(), false);
+  open = true;
+  assert.equal(job.when(), true);
+  job.run();
+  assert.equal(calls, 1);
+});

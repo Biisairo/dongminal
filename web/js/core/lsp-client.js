@@ -306,6 +306,8 @@ Object.assign(LspClient.prototype, {
   },
 
   async _lspStatusCached(){
+    // UX_BATCH12 FR-LIV-10: 다른 탭·터미널의 설치·삭제를 모르므로 일정 시간이 지나면 다시 읽는다.
+    if(this._lspStatus&&Date.now()-this._lspStatusAt>LSP_STATUS_TTL_MS) this._lspStatus=null;
     if(this._lspStatus) return this._lspStatus;
     if(this._lspStatusP) return this._lspStatusP;
     this._lspStatusP=(async()=>{
@@ -314,6 +316,7 @@ Object.assign(LspClient.prototype, {
       // 배선이 없는 서버(503)는 제안할 것도 없다 — 빈 목록으로 굳혀 다시 묻지
       // 않는다.
       this._lspStatus=(d&&Array.isArray(d.servers))?d.servers:[];
+      this._lspStatusAt=Date.now();
       this._lspStatusP=null;
       return this._lspStatus;
     })();

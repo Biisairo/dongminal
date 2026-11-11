@@ -111,6 +111,10 @@ const STATE_REGISTRY=[
     part:'background',
     events:{tools_background_changed:'_bgRefresh'},
     revalidateOn:['sse:open','softreload'],
+    // UX_BATCH12 FR-LIV-7: 행의 Run 표지와 cwd 는 조회 때 계산된다 — 신호가 없는 변화를
+    // 패널이 열린 동안 활동 주기로 고친다 (`run.list` 와 같은 모양).
+    every:(app)=>app.agentsPollMs,
+    when:(app)=>app._agentsPanelOpen(),
   },
   {
     /**

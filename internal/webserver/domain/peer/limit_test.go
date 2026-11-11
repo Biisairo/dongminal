@@ -143,3 +143,24 @@ func TestPairRateKey(t *testing.T) {
 		t.Error("읽지 못한 주소도 키가 있어야 한다")
 	}
 }
+
+// UX_BATCH12 FR-LIV-9: 시각은 언제나 갱신하고, 알릴지는 그 키의 마지막 알림에서 every 가 지났는가로 정한다.
+func TestLastSeenTouchEvery(t *testing.T) {
+	l := NewLastSeen()
+	t0 := time.Unix(1_700_000_000, 0)
+	if !l.TouchEvery("k", t0, time.Minute) {
+		t.Fatal("첫 갱신은 알려야 한다")
+	}
+	if l.TouchEvery("k", t0.Add(10*time.Second), time.Minute) {
+		t.Fatal("60초 안의 갱신은 알리지 않는다")
+	}
+	if got, _ := l.Get("k"); !got.Equal(t0.Add(10 * time.Second)) {
+		t.Fatalf("시각이 갱신되지 않았다: %v", got)
+	}
+	if !l.TouchEvery("k", t0.Add(61*time.Second), time.Minute) {
+		t.Fatal("60초가 지나면 다시 알린다")
+	}
+	if !l.TouchEvery("other", t0.Add(11*time.Second), time.Minute) {
+		t.Fatal("다른 짝은 따로 센다")
+	}
+}

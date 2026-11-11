@@ -77,12 +77,28 @@ func (r *RateLimiter) Allow(key string) bool {
 
 // LastSeen 은 짝(지문)마다 마지막으로 응답을 받은 시각이다. 메모리에만 둔다.
 type LastSeen struct {
-	mu sync.Mutex
-	at map[string]time.Time
+	mu   sync.Mutex
+	at   map[string]time.Time
+	told map[string]time.Time
 }
 
 // NewLastSeen 은 빈 기록이다.
-func NewLastSeen() *LastSeen { return &LastSeen{at: map[string]time.Time{}} }
+func NewLastSeen() *LastSeen {
+	return &LastSeen{at: map[string]time.Time{}, told: map[string]time.Time{}}
+}
+
+// TouchEvery 는 key 의 시각을 t 로 두고, 그 key 를 마지막으로 알린 지 every 가 지났으면
+// 알린 것으로 적고 참을 낸다 (UX_BATCH12 FR-LIV-9 — 방송은 짝마다 every 에 한 번).
+func (l *LastSeen) TouchEvery(key string, t time.Time, every time.Duration) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.at[key] = t
+	if last, ok := l.told[key]; ok && t.Sub(last) < every {
+		return false
+	}
+	l.told[key] = t
+	return true
+}
 
 // Touch 는 key 의 시각을 t 로 둔다.
 func (l *LastSeen) Touch(key string, t time.Time) {

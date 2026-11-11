@@ -171,6 +171,8 @@ const ED_FONT_FAMILY="'Menlo','Consolas','Liberation Mono','Courier New',monospa
 // 조회는 POST 로 남는다(옛 계약). 본문은 비어 있다 — 경로는 서버 표에서 온다
 // (REPO_FIX 02 §3A-3, FR-LSP-4b 개정).
 const LSP_STATUS_API='/api/lsp/status';
+// UX_BATCH12 FR-LIV-10 — LSP 상태 캐시가 낡은 것으로 보이기까지의 시간.
+const LSP_STATUS_TTL_MS=60000;
 const LSP_INSTALL_API='/api/lsp/install';
 // REPO_FIX 02 §3A-3: 서버가 보관하는 실행 파일 경로 표 (GET 조회 · PUT 전체 교체).
 const LSP_PATHS_API='/api/lsp/paths';

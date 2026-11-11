@@ -61,6 +61,9 @@ func peerCommandNames() []string {
 	return out
 }
 
+// peerSeenNotifyEvery 는 받은 호출로 마지막 응답 시각이 바뀔 때 화면에 알리는 최소 간격이다.
+const peerSeenNotifyEvery = time.Minute
+
 // peerCmd 는 명령 하나를 상한·감사와 함께 감싼다 (FR-PNW-43·94).
 func (s *Server) peerCmd(op string, fn peerCmdFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +73,10 @@ func (s *Server) peerCmd(op string, fn peerCmdFunc) http.HandlerFunc {
 			peerAudit("in", name, op, http.StatusTooManyRequests)
 			peerFail(w, http.StatusTooManyRequests, apierr.CodePeerRateLimited, "rate limited")
 			return
+		}
+		// UX_BATCH12 FR-LIV-9: 인증된 호출을 받은 것도 그 짝이 살아 있다는 응답이다.
+		if s.peerSeen.TouchEvery(fp, time.Now(), peerSeenNotifyEvery) {
+			s.peersChanged("")
 		}
 		res := fn(s, w, r, peerCaller{name: name, fp: fp})
 		peerAuditCmd("in", name, op, res)

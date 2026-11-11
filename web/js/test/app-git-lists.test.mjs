@@ -126,3 +126,27 @@ test('Repo 탭의 onEnter·onLeave 는 목록 갱신을 합치는 줄로 보낸�
   repo.onLeave(app);
   assert.deepEqual(calls, ['kick', 'kick']);
 });
+
+/**
+ * UX_BATCH12_SRS TC-LIV-5 (FR-LIV-8) — Repo 탭이 보이지 않아도 핀 저장소의 `git_changed` 는
+ * 목록을 다시 받게 한다. 겹친 알림은 비행 하나와 끝난 뒤 한 번으로 합친다.
+ */
+test('Repo 탭이 숨어 있어도 git_changed 가 목록 갱신을 합쳐 부른다', async () => {
+  const ctx = load(['core/constants-api.js', 'core/git-repos-list.js', 'core/app-git.js'], {
+    globals: { App: class {}, visiblePoll: () => ({ stop() {} }), gitStatusInterval: 30000 },
+  });
+  const a = new ctx.App();
+  a.sbTab = 'windows';
+  a.gitRepos = { pinned: [{ path: '/r', root: '/r' }] };
+  const holds = [];
+  a.gitReposRefresh = () => new Promise((r) => holds.push(r));
+  a._gitReposOnChanged('/r');
+  a._gitReposOnChanged('/r');
+  a._gitReposOnChanged('/r');
+  assert.equal(holds.length, 1, 'Repo 탭이 숨어 있다고 다시 받지 않았거나 겹쳐 받았다');
+  holds[0]();
+  await new Promise((r) => setImmediate(r));
+  assert.equal(holds.length, 2, '비행 중에 온 알림은 끝난 뒤 한 번으로 합쳐야 한다');
+  a._gitReposOnChanged('/other');
+  assert.equal(holds.length, 2, '핀이 아닌 저장소의 알림은 무시한다');
+});

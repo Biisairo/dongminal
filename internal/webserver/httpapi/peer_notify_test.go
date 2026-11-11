@@ -149,3 +149,23 @@ func TestSnapshotHasPeersPart(t *testing.T) {
 		t.Fatalf("peers 조각 %v", out["_raw"])
 	}
 }
+
+// UX_BATCH12 TC-LIV-6 (FR-LIV-9): 짝에게서 인증된 호출을 받으면 그 짝의 마지막 응답 시각이
+// 갱신되고, 그 갱신의 방송은 짝마다 60초에 한 번이다.
+func TestPeersChangedOnInboundSeenThrottled(t *testing.T) {
+	a := newPeerNode(t, "node-a", true)
+	b, bc := newPeerNodeObserved(t, "node-b")
+	pairNodes(t, a, b)
+	peersChanged(t, bc)
+	for i := 0; i < 2; i++ {
+		if code, out := a.call(t, "node-b", "node.info", nil); code != http.StatusOK {
+			t.Fatalf("node.info %d: %d %v", i, code, out["_raw"])
+		}
+	}
+	if p := b.peers(t)[0]; p["lastSeen"] == nil {
+		t.Fatalf("받은 쪽의 lastSeen 이 없다: %v", p)
+	}
+	if got := peersChanged(t, bc); len(got) != 1 {
+		t.Fatalf("60초 안의 두 호출에 방송 %d번, want 1: %v", len(got), got)
+	}
+}
